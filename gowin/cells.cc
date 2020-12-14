@@ -74,9 +74,6 @@ std::unique_ptr<CellInfo> create_generic_cell(Context *ctx, IdString type, std::
 
 void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff)
 {
-    for(auto f : lut->ports) {
-        std::cout << f.first.str(ctx) << std::endl;
-    }
     lc->params[id_INIT] = lut->params[id_INIT];
 
     IdString sim_names[4] = {id_I0, id_I1, id_I2, id_I3};
@@ -101,9 +98,6 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
     replace_port(dff, id_RESET, lc, id_LSR);
     replace_port(dff, id_CLEAR, lc, id_LSR);
     replace_port(dff, id_PRESET, lc, id_LSR);
-    for(auto f : dff->ports) {
-        std::cout << f.first.str(ctx) << std::endl;
-    }
     if (pass_thru_lut) {
         // Fill LUT with alternating 10
         const int init_size = 1 << 4;

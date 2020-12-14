@@ -118,6 +118,12 @@ NPNR_PACKED_STRUCT(struct TimingClassPOD {
     RelPtr<TimingGroupsPOD> groups;
 });
 
+NPNR_PACKED_STRUCT(struct PackagePOD {
+    uint32_t name_id;
+    uint32_t num_pins;
+    RelPtr<PairPOD> pins;
+});
+
 NPNR_PACKED_STRUCT(struct DatabasePOD {
     RelPtr<char> family;
     uint32_t version;
@@ -128,6 +134,8 @@ NPNR_PACKED_STRUCT(struct DatabasePOD {
     RelPtr<GlobalAliasPOD> aliases;
     uint32_t num_speeds;
     RelPtr<TimingClassPOD> speeds;
+    uint32_t num_packages;
+    RelPtr<PackagePOD> packages;
     uint16_t num_constids;
     uint16_t num_ids;
     RelPtr<RelPtr<char>> id_strs;
@@ -141,7 +149,7 @@ struct ArchArgs
     std::string package;
     // y = mx + c relationship between distance and delay for interconnect
     // delay estimates
-    double delayScale = 0.1, delayOffset = 0.4;
+    double delayScale = 0.4, delayOffset = 0.4;
 };
 
 struct WireInfo;
@@ -229,7 +237,7 @@ struct Arch : BaseCtx
 {
     std::string family;
     std::string device;
-    std::string package;
+    const PackagePOD *package;
     const TimingGroupsPOD *speed;
 
     std::unordered_map<IdString, WireInfo> wires;
@@ -287,6 +295,7 @@ struct Arch : BaseCtx
 
     IdString wireToGlobal(int &row, int &col, const DatabasePOD* db, IdString &wire);
     DelayInfo getWireTypeDelay(IdString wire);
+    void read_cst(std::istream &in);
 
     // ---------------------------------------------------------------
     // Common Arch API. Every arch must provide the following methods.

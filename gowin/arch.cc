@@ -19,6 +19,7 @@
 
 #include <iostream>
 #include <math.h>
+#include <regex>
 #include "embed.h"
 #include "nextpnr.h"
 #include "placer1.h"
@@ -300,7 +301,7 @@ IdString Arch::wireToGlobal(int &row, int &col, const DatabasePOD *db, IdString 
     return id(buf);
 }
 
-const PairPOD* pairLookup(const PairPOD *list, const size_t len, const int dest)
+const PairPOD *pairLookup(const PairPOD *list, const size_t len, const int dest)
 {
     for (size_t i = 0; i < len; i++) {
         const PairPOD *pair = &list[i];
@@ -311,36 +312,34 @@ const PairPOD* pairLookup(const PairPOD *list, const size_t len, const int dest)
     return nullptr;
 }
 
-bool aliasCompare (GlobalAliasPOD i, GlobalAliasPOD j) {
-    return (i.dest_row<j.dest_row) ||
-           (i.dest_row==j.dest_row && i.dest_col<j.dest_col) ||
-           (i.dest_row==j.dest_row && i.dest_col==j.dest_col && i.dest_id<j.dest_id);
-}
-bool timingCompare (TimingPOD i, TimingPOD j) {
-    return i.name_id < j.name_id;
-}
-
-template <class T, class C>
-const T* genericLookup(const T *first, int len, const T val, C compare)
+bool aliasCompare(GlobalAliasPOD i, GlobalAliasPOD j)
 {
-    auto res = std::lower_bound(first, first+len, val, compare);
-    if (res-first != len && !compare(val, *res)) {
+    return (i.dest_row < j.dest_row) || (i.dest_row == j.dest_row && i.dest_col < j.dest_col) ||
+           (i.dest_row == j.dest_row && i.dest_col == j.dest_col && i.dest_id < j.dest_id);
+}
+bool timingCompare(TimingPOD i, TimingPOD j) { return i.name_id < j.name_id; }
+
+template <class T, class C> const T *genericLookup(const T *first, int len, const T val, C compare)
+{
+    auto res = std::lower_bound(first, first + len, val, compare);
+    if (res - first != len && !compare(val, *res)) {
         return res;
     } else {
         return nullptr;
     }
 }
 
-DelayInfo delayLookup(const TimingPOD* first, int len, IdString name) {
+DelayInfo delayLookup(const TimingPOD *first, int len, IdString name)
+{
     TimingPOD needle;
     needle.name_id = name.index;
     const TimingPOD *timing = genericLookup(first, len, needle, timingCompare);
     DelayInfo info;
     if (timing != nullptr) {
-        info.maxFall = std::max(timing->ff, timing->rf)/1000;
-        info.minFall = std::min(timing->ff, timing->rf)/1000;
-        info.maxRaise = std::max(timing->rr, timing->fr)/1000;
-        info.minRaise = std::min(timing->rr, timing->fr)/1000;
+        info.maxFall = std::max(timing->ff, timing->rf) / 1000;
+        info.minFall = std::min(timing->ff, timing->rf) / 1000;
+        info.maxRaise = std::max(timing->rr, timing->fr) / 1000;
+        info.minRaise = std::min(timing->rr, timing->fr) / 1000;
     } else {
         info.maxFall = 0;
         info.minFall = 0;
@@ -350,11 +349,11 @@ DelayInfo delayLookup(const TimingPOD* first, int len, IdString name) {
     return info;
 }
 
-DelayInfo Arch::getWireTypeDelay(IdString wire) {
+DelayInfo Arch::getWireTypeDelay(IdString wire)
+{
     IdString len;
     IdString glbsrc;
-    switch (wire.index)
-    {
+    switch (wire.index) {
     case ID_X01:
     case ID_X02:
     case ID_X03:
@@ -458,7 +457,7 @@ DelayInfo Arch::getWireTypeDelay(IdString wire) {
         glbsrc = id_BRANCH_PCLK;
         break;
     default:
-        if (wire.str(this).rfind("SPINE", 0) == 0){
+        if (wire.str(this).rfind("SPINE", 0) == 0) {
             glbsrc = ID_CENT_SPINE_PCLK;
         } else if (wire.str(this).rfind("UNK", 0) == 0) {
             glbsrc = ID_PIO_CENT_PCLK;
@@ -479,12 +478,35 @@ DelayInfo Arch::getWireTypeDelay(IdString wire) {
     }
 }
 
+void Arch::read_cst(std::istream &in) {
+    std::regex iobre = std::regex("IO_LOC +\"([^\"]+)\" +([^ ;]+);");
+    std::smatch match;
+    std::string line;
+    while (!in.eof()) {
+        std::getline(in, line);
+        if(!std::regex_match(line, match, iobre)) continue;
+        std::cout << match[1] << " " << match[2] << std::endl;
+        IdString net = id(match[1]);
+        IdString pinname = id(match[2]);
+        const PairPOD *belname = pairLookup(package->pins.get(), package->num_pins, pinname.index);
+        if ( belname == nullptr)
+            log_error("Pin %s not found", pinname.c_str(this));
+        //BelId bel = getBelByName(belname->src_id);
+        // for (auto cell : sorted(cells)) {
+        //     std::cout << cell.first.str(this) << std::endl;
+        // }
+        auto it = cells.find(net);
+        if (it == cells.end())
+            log_error("Cell %s not found", net.c_str(this));
+        std::string bel = IdString(belname->src_id).str(this);
+        it->second->attrs[ID_BEL] = bel;
+    }
+}
 
 Arch::Arch(ArchArgs args) : args(args)
 {
     family = args.family;
     device = args.device;
-    package = args.package;
 
     // Load database
     std::string chipdb = stringf("gowin/chipdb-%s.bin", family.c_str());
@@ -501,9 +523,9 @@ Arch::Arch(ArchArgs args) : args(args)
     }
     // setup timing info
     speed = nullptr;
-    for (unsigned int i=0; i<db->num_speeds; i++) {
+    for (unsigned int i = 0; i < db->num_speeds; i++) {
         const TimingClassPOD *tc = &db->speeds[i];
-        //std::cout << IdString(tc->name_id).str(this) << std::endl;
+        // std::cout << IdString(tc->name_id).str(this) << std::endl;
         if (IdString(tc->name_id) == id(args.speed)) {
             speed = tc->groups.get();
             break;
@@ -512,6 +534,22 @@ Arch::Arch(ArchArgs args) : args(args)
     if (speed == nullptr) {
         log_error("Unsuported speed grade '%s'.\n", args.speed.c_str());
     }
+    package = nullptr;
+    for (unsigned int i = 0; i < db->num_packages; i++) {
+        auto pkg = &db->packages[i];
+        // std::cout << IdString(pkg->name_id).str(this) << std::endl;
+        if (IdString(pkg->name_id) == id(args.package)) {
+            package = pkg;
+            break;
+        }
+        // for (int j=0; j < pkg->num_pins; j++) {
+        //     auto pin = pkg->pins[j];
+        //     std::cout << IdString(pin.src_id).str(this) << " " << IdString(pin.dest_id).str(this) << std::endl;
+        // }
+    }
+    if (package == nullptr) {
+        log_error("Unsuported package '%s'.\n", args.package.c_str());
+    }
     // setup db
     char buf[32];
     for (int i = 0; i < db->rows * db->cols; i++) {
@@ -519,9 +557,9 @@ Arch::Arch(ArchArgs args) : args(args)
         int col = i % db->cols;
         const TilePOD *tile = db->grid[i].get();
         // setup wires
-        const PairPOD* pips[2] = { tile->pips.get(), tile->clock_pips.get()};
-        unsigned int num_pips[2] = { tile->num_pips, tile->num_clock_pips};
-        for(int p = 0; p < 2; p++) {
+        const PairPOD *pips[2] = {tile->pips.get(), tile->clock_pips.get()};
+        unsigned int num_pips[2] = {tile->num_pips, tile->num_clock_pips};
+        for (int p = 0; p < 2; p++) {
             for (unsigned int j = 0; j < num_pips[p]; j++) {
                 const PairPOD pip = pips[p][j];
                 int destrow = row;
@@ -644,9 +682,9 @@ Arch::Arch(ArchArgs args) : args(args)
         int row = i / db->cols;
         int col = i % db->cols;
         const TilePOD *tile = db->grid[i].get();
-        const PairPOD* pips[2] = { tile->pips.get(), tile->clock_pips.get()};
-        unsigned int num_pips[2] = { tile->num_pips, tile->num_clock_pips};
-        for(int p = 0; p < 2; p++) {
+        const PairPOD *pips[2] = {tile->pips.get(), tile->clock_pips.get()};
+        unsigned int num_pips[2] = {tile->num_pips, tile->num_clock_pips};
+        for (int p = 0; p < 2; p++) {
             for (unsigned int j = 0; j < num_pips[p]; j++) {
                 const PairPOD pip = pips[p][j];
                 int destrow = row;
@@ -659,13 +697,13 @@ Arch::Arch(ArchArgs args) : args(args)
                 IdString gsrcname = wireToGlobal(srcrow, srccol, db, srcid);
 
                 snprintf(buf, 32, "R%dC%d_%s_%s", row + 1, col + 1, IdString(pip.src_id).c_str(this),
-                        IdString(pip.dest_id).c_str(this));
+                         IdString(pip.dest_id).c_str(this));
                 IdString pipname = id(buf);
                 DelayInfo delay = getWireTypeDelay(pip.dest_id);
                 // local alias
                 auto local_alias = pairLookup(tile->aliases.get(), tile->num_aliases, srcid.index);
                 // std::cout << "srcid " << srcid.str(this) << std::endl;
-                if(local_alias!=nullptr) {
+                if (local_alias != nullptr) {
                     srcid = local_alias->src_id;
                     gsrcname = wireToGlobal(srcrow, srccol, db, srcid);
                 }
@@ -676,12 +714,12 @@ Arch::Arch(ArchArgs args) : args(args)
                 alias.dest_row = srcrow;
                 alias.dest_id = srcid.index;
                 auto alias_src = genericLookup(db->aliases.get(), db->num_aliases, alias, aliasCompare);
-                if(alias_src!=nullptr) {
+                if (alias_src != nullptr) {
                     srccol = alias_src->src_col;
                     srcrow = alias_src->src_row;
                     srcid = alias_src->src_id;
                     gsrcname = wireToGlobal(srcrow, srccol, db, srcid);
-                    //std::cout << buf << std::endl;
+                    // std::cout << buf << std::endl;
                 }
                 addPip(pipname, pip.dest_id, gsrcname, gdestname, delay, Loc(col, row, j));
             }
@@ -1133,7 +1171,7 @@ void Arch::assignArchInfo()
             // add timing paths
             addCellTimingClock(cname, id_CLK);
             IdString ports[4] = {id_A, id_B, id_C, id_D};
-            for (int i=0; i<4; i++) {
+            for (int i = 0; i < 4; i++) {
                 DelayInfo setup = delayLookup(speed->dff.timings.get(), speed->dff.num_timings, id_clksetpos);
                 DelayInfo hold = delayLookup(speed->dff.timings.get(), speed->dff.num_timings, id_clkholdpos);
                 // DelayInfo setup = getDelayFromNS(0.1);
@@ -1144,7 +1182,7 @@ void Arch::assignArchInfo()
             // DelayInfo clkout = getDelayFromNS(0.1);
             addCellTimingClockToOut(cname, id_Q, id_CLK, clkout);
             IdString port_delay[4] = {id_a_f, id_b_f, id_c_f, id_d_f};
-            for (int i=0; i<4; i++) {
+            for (int i = 0; i < 4; i++) {
                 DelayInfo delay = delayLookup(speed->lut.timings.get(), speed->lut.num_timings, port_delay[i]);
                 // DelayInfo delay = getDelayFromNS(0.1);
                 addCellTimingDelay(cname, ports[i], id_F, delay);
@@ -1167,7 +1205,7 @@ bool Arch::cellsCompatible(const CellInfo **cells, int count) const
         const CellInfo *ci = cells[i];
         if (ci->is_slice && ci->slice_clk != nullptr) {
             Loc loc = getBelLocation(ci->bel);
-            int cls = loc.z/2;
+            int cls = loc.z / 2;
             bool ff_used = ci->params.at(id_FF_USED).as_bool();
             if (loc.z >= 6 && ff_used) // top slice have no ff
                 return false;

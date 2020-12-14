@@ -65,13 +65,13 @@ std::unique_ptr<Context> GowinCommandHandler::createContext(std::unordered_map<s
 
 void GowinCommandHandler::customAfterLoad(Context *ctx)
 {
-    // if (vm.count("cst")) {
-    //     std::string filename = vm["pdc"].as<std::string>();
-    //     std::ifstream in(filename);
-    //     if (!in)
-    //         log_error("Failed to open input PDC file %s.\n", filename.c_str());
-    //     ctx->read_pdc(in);
-    // }
+    if (vm.count("cst")) {
+        std::string filename = vm["cst"].as<std::string>();
+        std::ifstream in(filename);
+        if (!in)
+            log_error("Failed to open input CST file %s.\n", filename.c_str());
+        ctx->read_cst(in);
+    }
 }
 
 int main(int argc, char *argv[])

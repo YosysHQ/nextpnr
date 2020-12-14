@@ -250,11 +250,11 @@ static void pack_io(Context *ctx)
                     create_generic_cell(ctx, id_IOB, ci->name.str(ctx) + "$iob");
             gwio_to_iob(ctx, ci, ice_cell.get(), packed_cells);
             new_cells.push_back(std::move(ice_cell));
-            iob = new_cells.back().get();
+            auto gwiob = new_cells.back().get();
 
             packed_cells.insert(ci->name);
             if (iob != nullptr)
-                std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(iob->attrs, iob->attrs.begin()));
+                std::copy(iob->attrs.begin(), iob->attrs.end(), std::inserter(gwiob->attrs, gwiob->attrs.begin()));
         }
     }
     for (auto pcell : packed_cells) {
