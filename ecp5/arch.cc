@@ -28,6 +28,7 @@
 #include "globals.h"
 #include "log.h"
 #include "nextpnr.h"
+#include "ocular.h"
 #include "placer1.h"
 #include "placer_heap.h"
 #include "router1.h"
@@ -620,6 +621,8 @@ bool Arch::route()
     } else if (router == "router2") {
         router2(getCtx(), Router2Cfg(getCtx()));
         result = true;
+    } else if (router == "ocular") {
+        result = router_ocular(getCtx());
     } else {
         log_error("ECP5 architecture does not support router '%s'\n", router.c_str());
     }
@@ -1228,7 +1231,11 @@ const std::vector<std::string> Arch::availablePlacers = {"sa",
 };
 
 const std::string Arch::defaultRouter = "router1";
-const std::vector<std::string> Arch::availableRouters = {"router1", "router2"};
+const std::vector<std::string> Arch::availableRouters = {"router1", "router2",
+#ifdef USE_OPENCL
+                                                         "ocular"
+#endif
+};
 
 // -----------------------------------------------------------------------
 
