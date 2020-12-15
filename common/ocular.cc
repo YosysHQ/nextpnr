@@ -46,6 +46,10 @@ struct OcularRouter
     Context *ctx;
     std::unique_ptr<cl::Context> clctx;
     std::unique_ptr<cl::Program> clprog;
+
+    // Some magic constants
+    const float delay_scale = 1000.0f; // conversion from float ns to int ps
+
     /*
         GPU-side routing graph
 
@@ -62,8 +66,6 @@ struct OcularRouter
     */
     // Wire locations for bounding box tests
     BackedGPUBuffer<int16_t> wire_x, wire_y;
-    // Number of entries in adjacency list -- by wire index
-    BackedGPUBuffer<int16_t> adj_size;
     // Pointer to start in adjaency list -- by wire index
     BackedGPUBuffer<uint32_t> adj_offset;
     // Adjacency list entries -- downhill wire index and cost
@@ -75,19 +77,130 @@ struct OcularRouter
     // an adjacency list index and a concrete PIP when we bind the GPU's
     // result
     std::vector<PipId> edge_pip;
+
+    // Some non-GPU fields that are kept in sync with the GPU wire indices
+    struct PerWireData
+    {
+        WireId w;
+    };
+    std::vector<PerWireData> wire_data;
+    std::unordered_map<WireId, int32_t> wire_to_index;
+
+    /*
+        Current routing state. We need to maintain the following:
+           - current cost of a node, or 'infinity' if it hasn't been visited yet
+           - the adjacency list entry (that can be corrolated to a pip) used to reach a node
+           - current 'near' queue that nodes/edges are being worked on (per workgroup)
+           - next 'near' queue that nearby nodes to explore are added to (per workgroup)
+           - next 'far' queue that far-away nodes to explore are added to (per workgroup)
+           - current newly-dirtied nodes that will need their costs reset to 'infinity' once the current net is routed
+       (per workgroup)
+           - number of unique nets bound to a node, to determine congestion-related costs
+    */
+    GPUBuffer<int32_t> current_cost;
+    GPUBuffer<uint32_t> uphill_edge;
+    // To avoid copies, we swap 'A' and 'B' between current/next queues at every iteration
+    GPUBuffer<uint32_t> near_queue_a, near_queue_b;
+    // For the next, added-to queue, this is a count starting from 0 for each group
+    // For the current, worked-from queue, this is a prefix sum so we can do a binary search to find work
+    GPUBuffer<uint32_t> near_queue_count_a, near_queue_count_b;
+    // We don't have A/B for the far queue, because it is never directly worked from
+    GPUBuffer<uint32_t> far_queue, far_queue_count;
+
+    GPUBuffer<uint32_t> dirtied_nodes;
+    GPUBuffer<uint8_t> bound_count;
+
+    /*
+        Current routing configuration
+        This structure is per in-flight net
+    */
+    NPNR_PACKED_STRUCT(struct RouteConfig {
+        // Net bounding box
+        cl_short x0, y0, x1, y1;
+        // max size of the near and far queue
+        cl_int near_queue_size, far_queue_size;
+        // max size of the dirtied nodes structure
+        cl_int dirtied_nodes_size;
+        // start and end workgroup offsets for the net
+        cl_int net_start, net_end;
+        // current congestion cost
+        cl_float curr_cong_cost;
+    });
+
+    // Route config per in-flight net
+    GPUBuffer<RouteConfig> route_config;
+
     OcularRouter(Context *ctx)
             : clctx(get_opencl_ctx(ctx)), clprog(get_opencl_program(*clctx, "ocular")),
-              wire_x(*clctx, CL_MEM_READ_ONLY), wire_y(*clctx, CL_MEM_READ_ONLY), adj_size(*clctx, CL_MEM_READ_ONLY),
-              adj_offset(*clctx, CL_MEM_READ_ONLY), edge_dst_index(*clctx, CL_MEM_READ_ONLY),
-              edge_cost(*clctx, CL_MEM_READ_ONLY)
+              wire_x(*clctx, CL_MEM_READ_ONLY), wire_y(*clctx, CL_MEM_READ_ONLY), adj_offset(*clctx, CL_MEM_READ_ONLY),
+              edge_dst_index(*clctx, CL_MEM_READ_ONLY), edge_cost(*clctx, CL_MEM_READ_WRITE),
+              current_cost(*clctx, CL_MEM_READ_WRITE), uphill_edge(*clctx, CL_MEM_READ_WRITE),
+              near_queue_a(*clctx, CL_MEM_READ_WRITE), near_queue_b(*clctx, CL_MEM_READ_WRITE),
+              near_queue_count_a(*clctx, CL_MEM_READ_WRITE), near_queue_count_b(*clctx, CL_MEM_READ_WRITE),
+              far_queue(*clctx, CL_MEM_READ_WRITE), far_queue_count(*clctx, CL_MEM_READ_WRITE),
+              dirtied_nodes(*clctx, CL_MEM_READ_WRITE), bound_count(*clctx, CL_MEM_READ_WRITE),
+              route_config(*clctx, CL_MEM_READ_ONLY)
     {
+    }
+
+    void build_graph()
+    {
+        // Build the GPU-oriented, flattened routing graph from the Arch-provided data
+        for (auto wire : ctx->getWires()) {
+            // Get the centroid of the wire for hit-testing purposes
+            ArcBounds wire_loc = ctx->getRouteBoundingBox(wire, wire);
+            short cx = (wire_loc.x0 + wire_loc.x1) / 2;
+            short cy = (wire_loc.y0 + wire_loc.y1) / 2;
+
+            wire_x.push_back(cx);
+            wire_y.push_back(cy);
+
+            PerWireData wd;
+            wd.w = wire;
+            wire_to_index[wire] = int(wire_data.size());
+            wire_data.push_back(wd);
+        }
+
+        // Construct the CSR format adjacency list
+        adj_offset.resize(wire_data.size() + 1);
+
+        for (size_t i = 0; i < wire_data.size(); i++) {
+            WireId w = wire_data.at(i).w;
+            // CSR offset
+            adj_offset.at(i) = edge_dst_index.size();
+            for (PipId p : ctx->getPipsDownhill(w)) {
+                // Ignore permanently unavailable pips, and pips bound before we enter the router (e.g. for gclks)
+                if (!ctx->checkPipAvail(p))
+                    continue;
+                WireId dst = ctx->getPipDstWire(p);
+                if (!ctx->checkWireAvail(dst))
+                    continue;
+                // Compute integer cost; combined cost of the pip and the wire it drives
+                int base_cost = int((ctx->getDelayNS(ctx->getPipDelay(p).maxDelay()) +
+                                     ctx->getDelayNS(ctx->getWireDelay(dst).maxDelay())) *
+                                    delay_scale);
+                // Add to the adjacency list
+                edge_cost.push_back(base_cost);
+                edge_dst_index.push_back(wire_to_index.at(dst));
+                edge_pip.push_back(p);
+            }
+        }
+        // Final offset so we know the total size of the list; for the last node
+        adj_offset.at(wire_data.size()) = edge_dst_index.size();
+    }
+
+    bool operator()()
+    {
+        // The sequence of things to do
+        build_graph();
+        return true;
     }
 };
 
 bool router_ocular(Context *ctx)
 {
     OcularRouter router(ctx);
-    return true;
+    return router();
 }
 
 NEXTPNR_NAMESPACE_END
