@@ -46,7 +46,42 @@ struct OcularRouter
     Context *ctx;
     std::unique_ptr<cl::Context> clctx;
     std::unique_ptr<cl::Program> clprog;
-    OcularRouter(Context *ctx) : clctx(get_opencl_ctx(ctx)), clprog(get_opencl_program(*clctx, "ocular")) {}
+    /*
+        GPU-side routing graph
+
+        At the moment this is a simple flattened graph. Longer term, ways of
+        deduplicating this without excessive startup effort or excessively
+        complex GPU-side code should be investigated. This might have to be
+        once we have shared-between-arches deduplication cracked in general.
+
+        Because we currently only do forward routing in the GPU, this graph
+        only needs to be linked in one direction
+
+        Costs in the graph are currently converted to int32s, to enable use
+        of atomic updates to improve determinism
+    */
+    // Wire locations for bounding box tests
+    BackedGPUBuffer<int16_t> wire_x, wire_y;
+    // Number of entries in adjacency list -- by wire index
+    BackedGPUBuffer<int16_t> adj_size;
+    // Pointer to start in adjaency list -- by wire index
+    BackedGPUBuffer<uint32_t> adj_offset;
+    // Adjacency list entries -- downhill wire index and cost
+    BackedGPUBuffer<uint32_t> edge_dst_index;
+    // PIP costs - these will be increased as time goes on
+    // to account for historical congestion
+    BackedGPUBuffer<int32_t> edge_cost;
+    // The GPU doesn't care about these, but we need to corrolate between
+    // an adjacency list index and a concrete PIP when we bind the GPU's
+    // result
+    std::vector<PipId> edge_pip;
+    OcularRouter(Context *ctx)
+            : clctx(get_opencl_ctx(ctx)), clprog(get_opencl_program(*clctx, "ocular")),
+              wire_x(*clctx, CL_MEM_READ_ONLY), wire_y(*clctx, CL_MEM_READ_ONLY), adj_size(*clctx, CL_MEM_READ_ONLY),
+              adj_offset(*clctx, CL_MEM_READ_ONLY), edge_dst_index(*clctx, CL_MEM_READ_ONLY),
+              edge_cost(*clctx, CL_MEM_READ_ONLY)
+    {
+    }
 };
 
 bool router_ocular(Context *ctx)
