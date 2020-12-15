@@ -124,6 +124,12 @@ NPNR_PACKED_STRUCT(struct PackagePOD {
     RelPtr<PairPOD> pins;
 });
 
+NPNR_PACKED_STRUCT(struct VariantPOD {
+    uint32_t name_id;
+    uint32_t num_packages;
+    RelPtr<PackagePOD> packages;
+});
+
 NPNR_PACKED_STRUCT(struct DatabasePOD {
     RelPtr<char> family;
     uint32_t version;
@@ -134,8 +140,8 @@ NPNR_PACKED_STRUCT(struct DatabasePOD {
     RelPtr<GlobalAliasPOD> aliases;
     uint32_t num_speeds;
     RelPtr<TimingClassPOD> speeds;
-    uint32_t num_packages;
-    RelPtr<PackagePOD> packages;
+    uint32_t num_variants;
+    RelPtr<VariantPOD> variants;
     uint16_t num_constids;
     uint16_t num_ids;
     RelPtr<RelPtr<char>> id_strs;

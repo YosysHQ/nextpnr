@@ -534,9 +534,22 @@ Arch::Arch(ArchArgs args) : args(args)
     if (speed == nullptr) {
         log_error("Unsuported speed grade '%s'.\n", args.speed.c_str());
     }
+    const VariantPOD* variant = nullptr;
+    for (unsigned int i = 0; i < db->num_variants; i++) {
+        auto var = &db->variants[i];
+        std::cout << IdString(var->name_id).str(this) << std::endl;
+        if (IdString(var->name_id) == id(args.device)) {
+            variant = var;
+            break;
+        }
+    }
+    if (variant == nullptr) {
+        log_error("Unsuported device grade '%s'.\n", args.device.c_str());
+    }
+
     package = nullptr;
-    for (unsigned int i = 0; i < db->num_packages; i++) {
-        auto pkg = &db->packages[i];
+    for (unsigned int i = 0; i < variant->num_packages; i++) {
+        auto pkg = &variant->packages[i];
         // std::cout << IdString(pkg->name_id).str(this) << std::endl;
         if (IdString(pkg->name_id) == id(args.package)) {
             package = pkg;
