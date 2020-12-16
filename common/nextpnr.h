@@ -221,6 +221,14 @@ struct ArcBounds
             dist += loc.y - y1;
         return dist;
     };
+
+    void extend(Loc loc)
+    {
+        x0 = std::min(x0, loc.x);
+        y0 = std::min(y0, loc.y);
+        x1 = std::max(x1, loc.x);
+        y1 = std::max(y1, loc.y);
+    }
 };
 
 struct TimingConstrObjectId

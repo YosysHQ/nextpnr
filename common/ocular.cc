@@ -21,6 +21,7 @@
 #include "ocular.h"
 #include "nextpnr.h"
 #include "opencl.h"
+#include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -86,6 +87,17 @@ struct OcularRouter
     std::vector<PerWireData> wire_data;
     std::unordered_map<WireId, int32_t> wire_to_index;
 
+    // Similar non-GPU related net data
+    struct PerNetData
+    {
+        NetInfo *ni;
+        ArcBounds bb;
+        bool undriven;
+        bool fixed_routing;
+    };
+
+    const int32_t inf_cost = 0x7FFFFFF;
+
     /*
         Current routing state. We need to maintain the following:
            - current cost of a node, or 'infinity' if it hasn't been visited yet
@@ -97,7 +109,7 @@ struct OcularRouter
        (per workgroup)
            - number of unique nets bound to a node, to determine congestion-related costs
     */
-    GPUBuffer<int32_t> current_cost;
+    BackedGPUBuffer<int32_t> current_cost;
     GPUBuffer<uint32_t> uphill_edge;
     // To avoid copies, we swap 'A' and 'B' between current/next queues at every iteration
     GPUBuffer<uint32_t> near_queue_a, near_queue_b;
@@ -108,7 +120,7 @@ struct OcularRouter
     GPUBuffer<uint32_t> far_queue, far_queue_count;
 
     GPUBuffer<uint32_t> dirtied_nodes;
-    GPUBuffer<uint8_t> bound_count;
+    BackedGPUBuffer<uint8_t> bound_count;
 
     /*
         Current routing configuration
@@ -131,7 +143,7 @@ struct OcularRouter
     GPUBuffer<RouteConfig> route_config;
 
     OcularRouter(Context *ctx)
-            : clctx(get_opencl_ctx(ctx)), clprog(get_opencl_program(*clctx, "ocular")),
+            : ctx(ctx), clctx(get_opencl_ctx(ctx)), clprog(get_opencl_program(*clctx, "ocular")),
               wire_x(*clctx, CL_MEM_READ_ONLY), wire_y(*clctx, CL_MEM_READ_ONLY), adj_offset(*clctx, CL_MEM_READ_ONLY),
               edge_dst_index(*clctx, CL_MEM_READ_ONLY), edge_cost(*clctx, CL_MEM_READ_WRITE),
               current_cost(*clctx, CL_MEM_READ_WRITE), uphill_edge(*clctx, CL_MEM_READ_WRITE),
@@ -145,6 +157,7 @@ struct OcularRouter
 
     void build_graph()
     {
+        log_info("Importing routing graph...\n");
         // Build the GPU-oriented, flattened routing graph from the Arch-provided data
         for (auto wire : ctx->getWires()) {
             // Get the centroid of the wire for hit-testing purposes
@@ -187,12 +200,68 @@ struct OcularRouter
         }
         // Final offset so we know the total size of the list; for the last node
         adj_offset.at(wire_data.size()) = edge_dst_index.size();
+
+        // Resize some other per-net structures
+        current_cost.resize(wire_data.size());
+        std::fill(current_cost.begin(), current_cost.end(), inf_cost);
+        uphill_edge.resize(wire_data.size());
+        bound_count.resize(wire_data.size());
+    }
+
+    void import_nets()
+    {
+        log_info("Importing nets...\n");
+        for (auto net : sorted(ctx->nets)) {
+            NetInfo *ni = net.second;
+            PerNetData nd;
+            nd.ni = ni;
+            // Initial bounding box is the null space
+            nd.bb.x0 = ctx->getGridDimX() - 1;
+            nd.bb.y0 = ctx->getGridDimY() - 1;
+            nd.bb.x1 = 0;
+            nd.bb.y1 = 0;
+            if (ni->driver.cell != nullptr) {
+                nd.bb.extend(ctx->getBelLocation(ni->driver.cell->bel));
+            } else {
+                nd.undriven = true;
+            }
+            for (auto &usr : ni->users) {
+                nd.bb.extend(ctx->getBelLocation(usr.cell->bel));
+            }
+            nd.fixed_routing = false;
+            // Check for existing routing (e.g. global clocks routed earlier)
+            if (!ni->wires.empty()) {
+                bool invalid_route = false;
+                for (auto &usr : ni->users) {
+                    WireId wire = ctx->getNetinfoSinkWire(ni, usr);
+                    if (!ni->wires.count(wire))
+                        invalid_route = true;
+                    else if (ni->wires.at(wire).strength > STRENGTH_STRONG)
+                        nd.fixed_routing = true;
+                }
+                if (nd.fixed_routing) {
+                    if (invalid_route)
+                        log_error("Combination of locked and incomplete routing on net '%s' is unsupported.\n",
+                                  ctx->nameOf(ni));
+                    // Mark wires as used so they have a congestion penalty associated with them
+                    for (auto &wire : ni->wires) {
+                        int idx = wire_to_index.at(wire.first);
+                        NPNR_ASSERT(bound_count.at(idx) == 0); // no overlaps allowed for locked routing
+                        bound_count.at(idx)++;
+                    }
+                } else {
+                    // Routing isn't fixed, just rip it up so we don't worry about it
+                    ctx->ripupNet(ni->name);
+                }
+            }
+        }
     }
 
     bool operator()()
     {
         // The sequence of things to do
         build_graph();
+        import_nets();
         return true;
     }
 };
