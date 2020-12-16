@@ -56,10 +56,15 @@ struct WorkgroupConfig {
     uint size;
 };
 
+#define inf_cost 0x7FFFFFF
+
 // Utility functions
 inline bool is_group_leader() {
     return (get_local_id(0) == 0);
 }
+
+#define LOCK_MUTEX(mutex) do {} while(atomic_cmpxchg(&mutex, 0, 1) == 1)
+#define UNLOCK_MUTEX(mutex) do {atomic_xchg(&mutex, 0);} while(0)
 
 // Kernels for the OCuLaR GPGPU router
 
@@ -75,9 +80,11 @@ __kernel void ocular_route (
     // Current queue
     __global const uint *curr_queue, __global const uint *curr_queue_count,
     // Next queue - near
-    __global uint *next_near_queue, __global const uint *next_near_queue_count,
+    __global uint *next_near_queue, __global uint *next_near_queue_count,
     // Next queue - far
-    __global uint *next_far_queue, __global const uint *next_far_queue_count,
+    __global uint *next_far_queue, __global uint *next_far_queue_count,
+    // Dirtied nodes
+    __global uint *dirty_queue, __global uint *dirty_queue_count,
     // Graph state
     __global int *current_cost,
     __global uint *uphill_edge,
@@ -86,10 +93,20 @@ __kernel void ocular_route (
     int wg_id = get_global_id(0);
     __local struct WorkgroupConfig wg;
     __local struct NetConfig net_data;
+    __local uint near_queue_offset;
+    __local uint far_queue_offset;
+    __local uint dirty_queue_offset;
+
+    __local int near_mutex, far_mutex, dirty_mutex, finished_threads;
+
     if (is_group_leader()) {
         // Fetch config
         wg = wg_cfg[wg_id];
         net_data = net_cfg[wg.net];
+        near_queue_offset = 0;
+        far_queue_offset = 0;
+        dirty_queue_offset = 0;
+        finished_threads = 0;
     }
     barrier(CLK_LOCAL_MEM_FENCE);
     // TODO: better work fetching
@@ -113,7 +130,17 @@ __kernel void ocular_route (
     int offset_0 = adj_offset[curr_node];
     int offset_1 = adj_offset[curr_node + 1];
 
+
     while (true) {
+        // Bail out if any queues are at risk of becoming full
+        // as this could cause inconsistent behaviour
+        barrier(CLK_LOCAL_MEM_FENCE);
+        if ((near_queue_offset + wg.size) > net_data.near_queue_size)
+            break;
+        if ((far_queue_offset + wg.size) > net_data.far_queue_size)
+            break;
+        if ((dirty_queue_offset + wg.size) > net_data.dirtied_nodes_size)
+            break;
         // Search until we get 'our' edge
         while (j >= (acc_edges + (offset_1 - offset_0))) {
             // Check if we've reached the end of our per-group workqueue
@@ -149,15 +176,38 @@ __kernel void ocular_route (
             // Atomic confirms it really is a better path
             if (next_cost < net_data.near_far_thresh) {
                 // Lock per-workgroup near output and add
+                LOCK_MUTEX(near_mutex);
+                next_near_queue[net_data.near_queue_size * wg_id + near_queue_offset++] = next_node;
+                UNLOCK_MUTEX(near_mutex);
             } else {
                 // Lock per-workgroup far output and add
+                LOCK_MUTEX(far_mutex);
+                next_far_queue[net_data.far_queue_size * wg_id + far_queue_offset++] = next_node;
+                UNLOCK_MUTEX(far_mutex);
             }
-            // Node previously untouched, lock per-workgroup dirty-queue and add to it
+            if (last_cost == inf_cost) {
+                // Node was never visited before, add it to the dirty queue
+                LOCK_MUTEX(dirty_mutex);
+                dirty_queue[net_data.dirtied_nodes_size * wg_id + dirty_queue_offset++] = next_node;
+                UNLOCK_MUTEX(dirty_mutex);
+            }
         }
 
         // Move forward 'wg.size' positions in the queue
         j += wg.size;
     }
 done:
+    barrier(CLK_LOCAL_MEM_FENCE);
+    atomic_inc(&finished_threads);
+    if (is_group_leader()) {
+        // Wait for all threads to complete
+        while (finished_threads != wg.size) {
+            barrier(CLK_LOCAL_MEM_FENCE);
+        }
+        // Update queue count
+        next_near_queue_count[wg_id] = near_queue_offset;
+        next_far_queue_count[wg_id] = far_queue_offset;
+        dirty_queue_count[wg_id] = dirty_queue_offset;
+    }
     return;
 }

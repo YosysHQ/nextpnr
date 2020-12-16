@@ -51,6 +51,8 @@ struct OcularRouter
     // Some magic constants
     const float delay_scale = 1000.0f; // conversion from float ns to int ps
 
+    const int32_t inf_cost = 0x7FFFFFF;
+
     /*
         GPU-side routing graph
 
@@ -95,8 +97,6 @@ struct OcularRouter
         bool undriven;
         bool fixed_routing;
     };
-
-    const int32_t inf_cost = 0x7FFFFFF;
 
     /*
         Current routing state. We need to maintain the following:
