@@ -17,6 +17,20 @@
  *
  */
 
+/*
+
+See ocular.cc for an overview. References:
+
+[1] Corolla: GPU-Accelerated FPGA Routing Based onSubgraph Dynamic Expansion
+Minghua Shen, Guojie Luo
+https://ceca.pku.edu.cn/media/lw/137e5df7dec627f988e07d54ff222857.pdf
+
+[2] Work-Efficient Parallel GPU Methods for Single-Source Shortest Paths
+Andrew Davidson, Sean Baxter, Michael Garland, John D. Owens
+https://escholarship.org/uc/item/8qr166v2
+
+*/
+
 // Data structures - keep in sync with ocular.cc
 struct NetConfig {
     // Net bounding box
@@ -29,15 +43,22 @@ struct NetConfig {
     int net_start, net_end;
     // current congestion cost
     float curr_cong_cost;
+    // near/far threshold
+    int near_far_thresh;
 };
 
 struct WorkgroupConfig {
+    // net index
     int net;
+    // start and end indices in node block size
+    uint queue_start, queue_end;
+    // workgroup size
+    uint size;
 };
 
 // Utility functions
-inline bool is_leader() {
-	return get_local_id(0) == 0;
+inline bool is_group_leader() {
+    return (get_local_id(0) == 0);
 }
 
 // Kernels for the OCuLaR GPGPU router
@@ -62,16 +83,81 @@ __kernel void ocular_route (
     __global uint *uphill_edge,
     __global const uchar *bound_count
 ) {
-	__local struct WorkgroupConfig wg;
-	__local struct NetConfig net_data;
-	if (is_leader()) {
-		// Fetch config
-		wg = wg_cfg[get_global_id(0)];
-		net_data = net_cfg[wg.net];
-		// Binary search for offsets
-	}
-	barrier(CLK_LOCAL_MEM_FENCE);
-	// Fetch work
-	// Update queue as needed
-	// Check for completion
+    int wg_id = get_global_id(0);
+    __local struct WorkgroupConfig wg;
+    __local struct NetConfig net_data;
+    if (is_group_leader()) {
+        // Fetch config
+        wg = wg_cfg[wg_id];
+        net_data = net_cfg[wg.net];
+    }
+    barrier(CLK_LOCAL_MEM_FENCE);
+    // TODO: better work fetching
+    int queue_ptr = wg.queue_start;
+
+    /*
+        We use an approach here similar to load-balanced partitioning in [2]
+        where the queue is processed edge-wise rather than node-wise, each
+        thread picking off the next edge from the node at the front of the
+        queue.
+    */
+
+    // number of edges processed so far 
+    int acc_edges = 0;
+    // edgewise index into queue
+    int j = get_local_id(0);
+    // current explored node
+    int curr_node = curr_queue[queue_ptr];
+    int curr_cost = current_cost[curr_node];
+    // start/end offsets into adjacency list for current node
+    int offset_0 = adj_offset[curr_node];
+    int offset_1 = adj_offset[curr_node + 1];
+
+    while (true) {
+        // Search until we get 'our' edge
+        while (j >= (acc_edges + (offset_1 - offset_0))) {
+            // Check if we've reached the end of our per-group workqueue
+            if (queue_ptr >= wg.queue_end)
+                goto done;
+            // Fetch the next node in the queue
+            ++queue_ptr;
+            curr_node = curr_queue[queue_ptr];
+            curr_cost = current_cost[curr_node];
+            acc_edges += (offset_1 - offset_0);
+            offset_0 = offset_1;
+            offset_1 = adj_offset[curr_node + 1];
+        }
+        // Process the edge
+        int edge_ptr = offset_0 + (j - acc_edges);
+        uint next_node = edge_dst_index[edge_ptr];
+        // Bounds check
+        short next_x = wire_x[next_node];
+        short next_y = wire_y[next_node];
+        if (next_x < net_data.x0 || next_x > net_data.x1)
+            continue;
+        if (next_y < net_data.y0 || next_y > net_data.y1)
+            continue;
+        // TODO: congestion cost factor
+        int next_cost = curr_node + edge_cost[edge_ptr];
+
+        // Avoid the expensive atomic that often won't be needed (dubious?)
+        if (current_cost[next_node] < next_cost)
+            continue;
+
+        int last_cost = atomic_min(&(current_cost[next_node]), next_cost);
+        if (last_cost < next_cost) {
+            // Atomic confirms it really is a better path
+            if (next_cost < net_data.near_far_thresh) {
+                // Lock per-workgroup near output and add
+            } else {
+                // Lock per-workgroup far output and add
+            }
+            // Node previously untouched, lock per-workgroup dirty-queue and add to it
+        }
+
+        // Move forward 'wg.size' positions in the queue
+        j += wg.size;
+    }
+done:
+    return;
 }

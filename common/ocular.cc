@@ -137,6 +137,8 @@ struct OcularRouter
         cl_int net_start, net_end;
         // current congestion cost
         cl_float curr_cong_cost;
+        // near/far threshold
+        cl_int near_far_thresh;
     });
 
     /*
@@ -144,6 +146,8 @@ struct OcularRouter
     */
     NPNR_PACKED_STRUCT(struct WorkgroupConfig {
         cl_int net;
+        cl_uint queue_start, queue_end;
+        cl_uint size;
     });
 
     // Route config per in-flight net
@@ -159,7 +163,7 @@ struct OcularRouter
               near_queue_count_a(*clctx, CL_MEM_READ_WRITE), near_queue_count_b(*clctx, CL_MEM_READ_WRITE),
               far_queue(*clctx, CL_MEM_READ_WRITE), far_queue_count(*clctx, CL_MEM_READ_WRITE),
               dirtied_nodes(*clctx, CL_MEM_READ_WRITE), bound_count(*clctx, CL_MEM_READ_WRITE),
-              route_config(*clctx, CL_MEM_READ_ONLY), wg_config(*clctx, CL_MEM_READ_ONLY),
+              route_config(*clctx, CL_MEM_READ_ONLY), wg_config(*clctx, CL_MEM_READ_ONLY)
     {
     }
 
