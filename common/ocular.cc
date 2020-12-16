@@ -126,7 +126,7 @@ struct OcularRouter
         Current routing configuration
         This structure is per in-flight net
     */
-    NPNR_PACKED_STRUCT(struct RouteConfig {
+    NPNR_PACKED_STRUCT(struct NetConfig {
         // Net bounding box
         cl_short x0, y0, x1, y1;
         // max size of the near and far queue
@@ -139,8 +139,16 @@ struct OcularRouter
         cl_float curr_cong_cost;
     });
 
+    /*
+        Workgroup configuration
+    */
+    NPNR_PACKED_STRUCT(struct WorkgroupConfig {
+        cl_int net;
+    });
+
     // Route config per in-flight net
-    GPUBuffer<RouteConfig> route_config;
+    GPUBuffer<NetConfig> route_config;
+    GPUBuffer<WorkgroupConfig> wg_config;
 
     OcularRouter(Context *ctx)
             : ctx(ctx), clctx(get_opencl_ctx(ctx)), clprog(get_opencl_program(*clctx, "ocular")),
@@ -151,7 +159,7 @@ struct OcularRouter
               near_queue_count_a(*clctx, CL_MEM_READ_WRITE), near_queue_count_b(*clctx, CL_MEM_READ_WRITE),
               far_queue(*clctx, CL_MEM_READ_WRITE), far_queue_count(*clctx, CL_MEM_READ_WRITE),
               dirtied_nodes(*clctx, CL_MEM_READ_WRITE), bound_count(*clctx, CL_MEM_READ_WRITE),
-              route_config(*clctx, CL_MEM_READ_ONLY)
+              route_config(*clctx, CL_MEM_READ_ONLY), wg_config(*clctx, CL_MEM_READ_ONLY),
     {
     }
 
