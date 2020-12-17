@@ -869,8 +869,8 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
 
         if (port == id_F0 || port == id_F1 || port == id_FCO || port == id_OFX0 || port == id_OFX1)
             return TMG_COMB_OUTPUT;
-        if (port == id_DI0 || port == id_DI1 || port == id_CE || port == id_LSR || (sd0 == 1 && port == id_M0) ||
-            (sd1 == 1 && port == id_M1)) {
+        if (port == id_DI0 || port == id_DI1 || port == id_CE || port == id_LSR || (sd0 == 0 && port == id_M0) ||
+            (sd1 == 0 && port == id_M1)) {
             clockInfoCount = 1;
             return TMG_REGISTER_INPUT;
         }
@@ -1037,8 +1037,8 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
             info.edge = RISING_EDGE;
             info.clock_port = id_WCK;
             getSetupHoldFromTimingDatabase(id_SDPRAME, id_WCK, port, info.setup, info.hold);
-        } else if (port == id_DI0 || port == id_DI1 || port == id_CE || port == id_LSR || (sd0 == 1 && port == id_M0) ||
-                   (sd1 == 1 && port == id_M1)) {
+        } else if (port == id_DI0 || port == id_DI1 || port == id_CE || port == id_LSR || (sd0 == 0 && port == id_M0) ||
+                   (sd1 == 0 && port == id_M1)) {
             info.edge = cell->sliceInfo.clkmux == id("INV") ? FALLING_EDGE : RISING_EDGE;
             info.clock_port = id_CLK;
             getSetupHoldFromTimingDatabase(id_SLOGICB, id_CLK, port, info.setup, info.hold);
