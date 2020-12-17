@@ -37,7 +37,7 @@ bool apply_pcf(Context *ctx, std::string filename, std::istream &in)
         int lineno = 0;
         while (std::getline(in, line)) {
             lineno++;
-            size_t cstart = line.find("#");
+            size_t cstart = line.find('#');
             if (cstart != std::string::npos)
                 line = line.substr(0, cstart);
             std::stringstream ss(line);
