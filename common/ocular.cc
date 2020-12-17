@@ -89,6 +89,8 @@ struct OcularRouter
     std::vector<PerWireData> wire_data;
     std::unordered_map<WireId, int32_t> wire_to_index;
 
+    int width = 0, height = 0;
+
     // Similar non-GPU related net data
     struct PerNetData
     {
@@ -115,11 +117,11 @@ struct OcularRouter
     GPUBuffer<uint32_t> near_queue_a, near_queue_b;
     // For the next, added-to queue, this is a count starting from 0 for each group
     // For the current, worked-from queue, this is a prefix sum so we can do a binary search to find work
-    GPUBuffer<uint32_t> near_queue_count_a, near_queue_count_b;
+    BackedGPUBuffer<uint32_t> near_queue_count_a, near_queue_count_b;
     // We don't have A/B for the far queue, because it is never directly worked from
     GPUBuffer<uint32_t> far_queue, far_queue_count;
 
-    GPUBuffer<uint32_t> dirtied_nodes;
+    GPUBuffer<uint32_t> dirtied_nodes, dirtied_nodes_count;
     BackedGPUBuffer<uint8_t> bound_count;
 
     /*
@@ -144,6 +146,19 @@ struct OcularRouter
     });
 
     /*
+        Purely host-side per-inflight-net configuration
+    */
+    struct InFlightNet
+    {
+        // index into the flat list of nets, or -1 if this slot isn't used
+        int net_idx = -1;
+        // ...
+    };
+
+    // CPU side grid->net map, so we don't route overlapping nets at once
+    std::vector<int8_t> grid2net;
+
+    /*
         Workgroup configuration
     */
     NPNR_PACKED_STRUCT(struct WorkgroupConfig {
@@ -152,8 +167,10 @@ struct OcularRouter
     });
 
     // Route config per in-flight net
-    GPUBuffer<NetConfig> route_config;
-    GPUBuffer<WorkgroupConfig> wg_config;
+    BackedGPUBuffer<NetConfig> route_config;
+    std::vector<InFlightNet> net_slots;
+
+    BackedGPUBuffer<WorkgroupConfig> wg_config;
 
     OcularRouter(Context *ctx)
             : ctx(ctx), clctx(get_opencl_ctx(ctx)), clprog(get_opencl_program(*clctx, "ocular")),
@@ -163,8 +180,9 @@ struct OcularRouter
               near_queue_a(*clctx, CL_MEM_READ_WRITE), near_queue_b(*clctx, CL_MEM_READ_WRITE),
               near_queue_count_a(*clctx, CL_MEM_READ_WRITE), near_queue_count_b(*clctx, CL_MEM_READ_WRITE),
               far_queue(*clctx, CL_MEM_READ_WRITE), far_queue_count(*clctx, CL_MEM_READ_WRITE),
-              dirtied_nodes(*clctx, CL_MEM_READ_WRITE), bound_count(*clctx, CL_MEM_READ_WRITE),
-              route_config(*clctx, CL_MEM_READ_ONLY), wg_config(*clctx, CL_MEM_READ_ONLY)
+              dirtied_nodes(*clctx, CL_MEM_READ_WRITE), dirtied_nodes_count(*clctx, CL_MEM_READ_WRITE),
+              bound_count(*clctx, CL_MEM_READ_WRITE), route_config(*clctx, CL_MEM_READ_ONLY),
+              wg_config(*clctx, CL_MEM_READ_ONLY)
     {
     }
 
@@ -185,6 +203,9 @@ struct OcularRouter
             wd.w = wire;
             wire_to_index[wire] = int(wire_data.size());
             wire_data.push_back(wd);
+
+            width = std::max<int>(wire_loc.x1 + 1, width);
+            height = std::max<int>(wire_loc.y1 + 1, height);
         }
 
         // Construct the CSR format adjacency list
@@ -270,6 +291,61 @@ struct OcularRouter
         }
     }
 
+    // Work partitioning and queue configuration - TODO: make these dynamic
+    const int num_workgroups = 64;
+    const int near_queue_len = 15000;
+    const int far_queue_len = 100000;
+    const int dirty_queue_len = 100000;
+    const int workgroup_size = 128;
+    const int max_nets_in_flight = 32;
+
+    void alloc_buffers()
+    {
+        // Near queues (two because we swap them)
+        near_queue_a.resize(near_queue_len * num_workgroups);
+        near_queue_count_a.resize(num_workgroups);
+        near_queue_b.resize(near_queue_len * num_workgroups);
+        near_queue_count_b.resize(num_workgroups);
+        // Far queue
+        far_queue.resize(far_queue_len * num_workgroups);
+        far_queue_count.resize(num_workgroups);
+        // Per-workgroup dirty node list
+        dirtied_nodes.resize(dirty_queue_len * num_workgroups);
+        dirtied_nodes_count.resize(num_workgroups);
+
+        route_config.resize(max_nets_in_flight);
+        net_slots.resize(max_nets_in_flight);
+        wg_config.resize(workgroup_size);
+        for (auto &wg : wg_config)
+            wg.size = workgroup_size;
+
+        grid2net.resize(width * height);
+    }
+
+    void mark_region(int x0, int y0, int x1, int y1, int8_t value)
+    {
+        for (int y = y0; y <= y1; y++) {
+            NPNR_ASSERT(y >= 0 && y < height);
+            for (int x = x0; x <= x1; x++) {
+                NPNR_ASSERT(x >= 0 && x < width);
+                grid2net[y * width + x] = value;
+            }
+        }
+    }
+
+    bool check_region(int x0, int y0, int x1, int y1, int8_t value = -1)
+    {
+        for (int y = y0; y <= y1; y++) {
+            NPNR_ASSERT(y >= 0 && y < height);
+            for (int x = x0; x <= x1; x++) {
+                NPNR_ASSERT(x >= 0 && x < width);
+                if (grid2net[y * width + x] != value)
+                    return false;
+            }
+        }
+        return true;
+    }
+
     template <typename T> T prefix_sum(const BackedGPUBuffer<T> &in, int count)
     {
         T sum = 0;
@@ -285,6 +361,7 @@ struct OcularRouter
         // The sequence of things to do
         build_graph();
         import_nets();
+        alloc_buffers();
         return true;
     }
 };
