@@ -45,13 +45,13 @@ struct NetConfig {
     float curr_cong_cost;
     // near/far threshold
     int near_far_thresh;
+    // number of nodes to process per workgroup
+    int group_nodes;
 };
 
 struct WorkgroupConfig {
     // net index
     int net;
-    // start and end indices in node block size
-    uint queue_start, queue_end;
     // workgroup size
     uint size;
 };
@@ -61,6 +61,26 @@ struct WorkgroupConfig {
 // Utility functions
 inline bool is_group_leader() {
     return (get_local_id(0) == 0);
+}
+
+// Do a binary search to find a start point inside a list of prefix sums
+inline int binary_search(__global const uint *sum, int count, int x) {
+    int b = 0;
+    int e = count - 1;
+    int chunk = -1;
+    while (b <= e) {
+        int i = (b + e) / 2;
+        if (x >= (i == 0 ? 0 : sum[i-1])
+                && x < sum[i]) {
+            chunk = i;
+            break;
+        } else if ((i == 0 ? 0 : sum[i-1]) > x) {
+            e = i - 1;
+        } else {
+            b = i + 1;
+        }
+    }
+    return chunk;
 }
 
 #define LOCK_MUTEX(mutex) do {} while(atomic_cmpxchg(&mutex, 0, 1) == 1)
@@ -97,8 +117,15 @@ __kernel void ocular_route (
     __local uint far_queue_offset;
     __local uint dirty_queue_offset;
 
+    __local uint queue_start; // queue start using 'flat' numbering from the beginning of the net
+    __local uint queue_end; // queue start using 'flat' numbering from the beginning of the net
+    __local uint queue_start_chunk; // index into curr_queue_count
+
     __local int near_mutex, far_mutex, dirty_mutex, finished_threads;
 
+    __local int init_done;
+
+    init_done = 0;
     if (is_group_leader()) {
         // Fetch config
         wg = wg_cfg[wg_id];
@@ -107,30 +134,49 @@ __kernel void ocular_route (
         far_queue_offset = 0;
         dirty_queue_offset = 0;
         finished_threads = 0;
+        // Do a binary search to find our position within the queue
+        queue_start = (wg_id - net_data.net_start) * net_data.group_nodes;
+        queue_end = (wg_id - net_data.net_start + 1) * net_data.group_nodes;
+        queue_start_chunk =
+            binary_search(curr_queue_count + net_data.net_start, (net_data.net_end - net_data.net_start), queue_start);
+        queue_start_chunk += net_data.net_start;
+        atomic_xchg(&init_done, 1);
     }
-    barrier(CLK_LOCAL_MEM_FENCE);
+    while (init_done == 0)
+        barrier(CLK_LOCAL_MEM_FENCE);
     // TODO: better work fetching
-    int queue_ptr = wg.queue_start;
 
     /*
         We use an approach here similar to load-balanced partitioning in [2]
         where the queue is processed edge-wise rather than node-wise, each
         thread picking off the next edge from the node at the front of the
         queue.
+
+        This is a bit complex because we have two different offsets to consider.
+        The offset into the work queue, which as it was created workgroup-wise will
+        have 'gaps' between chunks, the start chunk found by the binary search.
+        Then we have the offset into the adjacency list of the current node.
     */
 
     // number of edges processed so far 
     int acc_edges = 0;
     // edgewise index into queue
     int j = get_local_id(0);
+    // start/end offsets into input queue chunk
+
+    int queue_chunk = queue_start_chunk;
+    int queue_index = queue_start; // 'flat' index into queue, imagining gaps between chunks don't exist
+
+    int queue_offset_0 = (queue_chunk == net_data.net_start) ? 0 : curr_queue_count[queue_chunk - 1];
+    int queue_offset_1 = curr_queue_count[queue_chunk];
+    int queue_ptr = queue_chunk * net_data.near_queue_size + (queue_start - queue_offset_0);
+
     // current explored node
     int curr_node = curr_queue[queue_ptr];
     int curr_cost = current_cost[curr_node];
     // start/end offsets into adjacency list for current node
-    int offset_0 = adj_offset[curr_node];
-    int offset_1 = adj_offset[curr_node + 1];
-
-
+    int adj_offset_0 = adj_offset[curr_node];
+    int adj_offset_1 = adj_offset[curr_node + 1];
     while (true) {
         // Bail out if any queues are at risk of becoming full
         // as this could cause inconsistent behaviour
@@ -142,20 +188,30 @@ __kernel void ocular_route (
         if ((dirty_queue_offset + wg.size) > net_data.dirtied_nodes_size)
             break;
         // Search until we get 'our' edge
-        while (j >= (acc_edges + (offset_1 - offset_0))) {
+        while (j >= (acc_edges + (adj_offset_1 - adj_offset_0))) {
             // Check if we've reached the end of our per-group workqueue
-            if (queue_ptr >= wg.queue_end)
+            if (queue_index >= queue_end)
                 goto done;
             // Fetch the next node in the queue
             ++queue_ptr;
+            ++queue_index;
+            while (queue_index >= queue_offset_1) {
+                ++queue_chunk;
+                if (queue_chunk >= net_data.net_end)
+                    goto done;
+                queue_offset_0 = queue_offset_1;
+                queue_offset_1 = curr_queue_count[queue_chunk];
+                queue_ptr = queue_chunk * net_data.near_queue_size;
+            }
+
             curr_node = curr_queue[queue_ptr];
             curr_cost = current_cost[curr_node];
-            acc_edges += (offset_1 - offset_0);
-            offset_0 = offset_1;
-            offset_1 = adj_offset[curr_node + 1];
+            acc_edges += (adj_offset_1 - adj_offset_0);
+            adj_offset_0 = adj_offset_1;
+            adj_offset_0 = adj_offset[curr_node + 1];
         }
         // Process the edge
-        int edge_ptr = offset_0 + (j - acc_edges);
+        int edge_ptr = adj_offset_0 + (j - acc_edges);
         uint next_node = edge_dst_index[edge_ptr];
         // Bounds check
         short next_x = wire_x[next_node];

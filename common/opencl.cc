@@ -43,7 +43,24 @@ std::unique_ptr<cl::Context> get_opencl_ctx(Context *ctx)
 std::unique_ptr<cl::Program> get_opencl_program(cl::Context &clctx, const std::string &name)
 {
     auto src_code = get_opencl_source(name);
-    return std::unique_ptr<cl::Program>(new cl::Program(clctx, src_code, true));
+    std::unique_ptr<cl::Program> prog(new cl::Program(clctx, src_code));
+    try {
+        prog->build();
+    } catch (cl::Error &e) {
+        if (e.err() == CL_BUILD_PROGRAM_FAILURE) {
+            std::vector<cl::Device> devices;
+            clctx.getInfo(CL_CONTEXT_DEVICES, &devices);
+            for (auto &dev : devices) {
+                std::string dev_name = dev.getInfo<CL_DEVICE_NAME>();
+                std::string log = prog->getBuildInfo<CL_PROGRAM_BUILD_LOG>(dev);
+                log_nonfatal_error("Log for device %s:\n%s\n", dev_name.c_str(), log.c_str());
+            }
+            log_error("OpenCL build of '%s' failed.\n", name.c_str());
+        } else {
+            throw e;
+        }
+    }
+    return prog;
 }
 
 NEXTPNR_NAMESPACE_END

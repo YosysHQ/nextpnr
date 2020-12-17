@@ -139,6 +139,8 @@ struct OcularRouter
         cl_float curr_cong_cost;
         // near/far threshold
         cl_int near_far_thresh;
+        // number of nodes to process per workgroup
+        cl_int group_nodes;
     });
 
     /*
@@ -146,7 +148,6 @@ struct OcularRouter
     */
     NPNR_PACKED_STRUCT(struct WorkgroupConfig {
         cl_int net;
-        cl_uint queue_start, queue_end;
         cl_uint size;
     });
 
@@ -267,6 +268,16 @@ struct OcularRouter
                 }
             }
         }
+    }
+
+    template <typename T> T prefix_sum(const BackedGPUBuffer<T> &in, int count)
+    {
+        T sum = 0;
+        for (int i = 0; i < count; i++) {
+            sum += in.at(i);
+            in.at(i) = sum;
+        }
+        return sum;
     }
 
     bool operator()()
