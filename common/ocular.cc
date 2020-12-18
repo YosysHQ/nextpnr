@@ -53,6 +53,16 @@ struct OcularRouter
 
     const int32_t inf_cost = 0x7FFFFFF;
 
+    // Work partitioning and queue configuration - TODO: make these dynamic
+    const int num_workgroups = 64;
+    const int near_queue_len = 15000;
+    const int far_queue_len = 50000;
+    const int dirty_queue_len = 50000;
+    const int workgroup_size = 128;
+    const int max_nets_in_flight = 32;
+    const int queue_chunk_size = 131072;
+    const int queue_chunk_count = 512;
+
     /*
         GPU-side routing graph
 
@@ -118,10 +128,13 @@ struct OcularRouter
     // For the next, added-to queue, this is a count starting from 0 for each group
     // For the current, worked-from queue, this is a prefix sum so we can do a binary search to find work
     BackedGPUBuffer<uint32_t> near_queue_count_a, near_queue_count_b;
-    // We don't have A/B for the far queue, because it is never directly worked from
-    GPUBuffer<uint32_t> far_queue, far_queue_count;
+    // We maintain two 'far' and 'dirty' queues - one per-workgroup that the router adds to and one chunked per-net that
+    // we add to when the workgroup finishes
+    GPUBuffer<uint32_t> work_far_queue, work_far_queue_count;
+    GPUBuffer<uint32_t> work_dirtied_nodes, work_dirtied_nodes_count;
 
-    GPUBuffer<uint32_t> dirtied_nodes, dirtied_nodes_count;
+    ChunkedGPUBuffer<uint32_t> net_far_queue, net_dirty_queue;
+
     BackedGPUBuffer<uint8_t> bound_count;
 
     /*
@@ -179,8 +192,10 @@ struct OcularRouter
               current_cost(*clctx, CL_MEM_READ_WRITE), uphill_edge(*clctx, CL_MEM_READ_WRITE),
               near_queue_a(*clctx, CL_MEM_READ_WRITE), near_queue_b(*clctx, CL_MEM_READ_WRITE),
               near_queue_count_a(*clctx, CL_MEM_READ_WRITE), near_queue_count_b(*clctx, CL_MEM_READ_WRITE),
-              far_queue(*clctx, CL_MEM_READ_WRITE), far_queue_count(*clctx, CL_MEM_READ_WRITE),
-              dirtied_nodes(*clctx, CL_MEM_READ_WRITE), dirtied_nodes_count(*clctx, CL_MEM_READ_WRITE),
+              work_far_queue(*clctx, CL_MEM_READ_WRITE), work_far_queue_count(*clctx, CL_MEM_READ_WRITE),
+              work_dirtied_nodes(*clctx, CL_MEM_READ_WRITE), work_dirtied_nodes_count(*clctx, CL_MEM_READ_WRITE),
+              net_far_queue(*clctx, CL_MEM_READ_WRITE, queue_chunk_size, max_nets_in_flight, queue_chunk_count),
+              net_dirty_queue(*clctx, CL_MEM_READ_WRITE, queue_chunk_size, max_nets_in_flight, queue_chunk_count),
               bound_count(*clctx, CL_MEM_READ_WRITE), route_config(*clctx, CL_MEM_READ_ONLY),
               wg_config(*clctx, CL_MEM_READ_ONLY)
     {
@@ -291,14 +306,6 @@ struct OcularRouter
         }
     }
 
-    // Work partitioning and queue configuration - TODO: make these dynamic
-    const int num_workgroups = 64;
-    const int near_queue_len = 15000;
-    const int far_queue_len = 100000;
-    const int dirty_queue_len = 100000;
-    const int workgroup_size = 128;
-    const int max_nets_in_flight = 32;
-
     void alloc_buffers()
     {
         // Near queues (two because we swap them)
@@ -307,11 +314,11 @@ struct OcularRouter
         near_queue_b.resize(near_queue_len * num_workgroups);
         near_queue_count_b.resize(num_workgroups);
         // Far queue
-        far_queue.resize(far_queue_len * num_workgroups);
-        far_queue_count.resize(num_workgroups);
+        work_far_queue.resize(far_queue_len * num_workgroups);
+        work_far_queue_count.resize(num_workgroups);
         // Per-workgroup dirty node list
-        dirtied_nodes.resize(dirty_queue_len * num_workgroups);
-        dirtied_nodes_count.resize(num_workgroups);
+        work_dirtied_nodes.resize(dirty_queue_len * num_workgroups);
+        work_dirtied_nodes_count.resize(num_workgroups);
 
         route_config.resize(max_nets_in_flight);
         net_slots.resize(max_nets_in_flight);
@@ -322,6 +329,7 @@ struct OcularRouter
         grid2net.resize(width * height);
     }
 
+    // Handling of net bounding box reservations
     void mark_region(int x0, int y0, int x1, int y1, int8_t value)
     {
         for (int y = y0; y <= y1; y++) {

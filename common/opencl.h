@@ -118,6 +118,82 @@ template <typename T> struct BackedGPUBuffer : public GPUBuffer<T>
     typename std::vector<T>::iterator end() { return backing.end(); }
 };
 
+// A buffer that is split into chunks that can be dynamically allocated to different 'owners'
+// This is currently designed to be optimal with a relatively small number of large chunks
+template <typename Tobj, typename Tkey = uint8_t> struct ChunkedGPUBuffer
+{
+    // Magic value to indicate that a chunk is free
+    static const Tkey no_owner = std::numeric_limits<Tkey>::max();
+
+    ChunkedGPUBuffer<Tobj, Tkey>(const cl::Context &ctx, cl_mem_flags flags, size_t chunk_size, size_t owner_count,
+                                 size_t init_chunk_count = 0)
+            : chunk_size(chunk_size), owner_count(owner_count), chunk_count(init_chunk_count),
+              pool(ctx, flags, chunk_size * init_chunk_count), chunk2owner(ctx, CL_MEM_READ_ONLY, init_chunk_count),
+              owner2chunk(owner_count + 1)
+    {
+        NPNR_ASSERT(owner_count < no_owner);
+        for (auto &cto : chunk2owner)
+            cto = no_owner;
+        for (size_t i = 0; i < init_chunk_count; i++)
+            owner2chunk.at(owner_count).push_back(i);
+    }
+    size_t chunk_size, owner_count, chunk_count;
+    // All chunks
+    GPUBuffer<Tobj> pool;
+    // Mapping from chunk to owner index
+    BackedGPUBuffer<Tkey> chunk2owner;
+    // Owner to chunk mapping - entry N is free chunks here
+    std::vector<std::vector<size_t>> owner2chunk;
+
+    // Add chunks to the pool - this will destroy the pool content and is mainly intended for delayed init cases
+    void extend(size_t new_size)
+    {
+        size_t old_size = chunk_count;
+        if (new_size == old_size)
+            return;
+        NPNR_ASSERT(new_size > old_size);
+        pool.resize(new_size * chunk_size);
+        chunk_count = new_size;
+        chunk2owner.resize(new_size);
+        for (size_t i = old_size; i < new_size; i++) {
+            chunk2owner[i] = no_owner;
+            // Add to the free list
+            owner2chunk.at(owner_count).push_back(i);
+        }
+    }
+
+    // Request N chunks for an owner (must be bigger than the current allocation)
+    bool request(Tkey owner, size_t new_count)
+    {
+        NPNR_ASSERT(owner < owner_count);
+        size_t old_count = owner2chunk.at(owner).size();
+        if (new_count == old_count)
+            return true;
+        NPNR_ASSERT(new_count > old_count);
+        // Not enough free chunks
+        if (owner2chunk.at(owner_count).size() < (new_count - old_count))
+            return false;
+        // Do the allocation
+        for (size_t i = old_count; i < new_count; i++) {
+            size_t chunk = owner2chunk.at(owner_count).back();
+            owner2chunk.at(owner_count).pop_back();
+            chunk2owner.at(chunk) = owner;
+            owner2chunk.at(owner).push_back(chunk);
+        }
+        return true;
+    }
+
+    // Release all chunks owned by an owner
+    void release(Tkey owner)
+    {
+        for (auto chunk : owner2chunk.at(owner)) {
+            chunk2owner.at(chunk) = no_owner;
+            owner2chunk.at(chunk_count).push_back(chunk);
+        }
+        owner2chunk.at(owner).clear();
+    }
+};
+
 NEXTPNR_NAMESPACE_END
 
 #endif
