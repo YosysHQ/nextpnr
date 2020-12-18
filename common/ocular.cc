@@ -59,7 +59,7 @@ struct OcularRouter
     const int far_queue_len = 50000;
     const int dirty_queue_len = 50000;
     const int workgroup_size = 128;
-    const int max_nets_in_flight = 32;
+    const int max_nets_in_flight = 16;
     const int queue_chunk_size = 131072;
     const int queue_chunk_count = 512;
 
@@ -108,6 +108,8 @@ struct OcularRouter
         ArcBounds bb;
         bool undriven;
         bool fixed_routing;
+        // We dynamically expand the bounding box margin when routing fails
+        int bb_margin = 0;
     };
 
     /*
@@ -149,7 +151,8 @@ struct OcularRouter
         // max size of the dirtied nodes structure
         cl_int dirtied_nodes_size;
         // start and end workgroup offsets for the net
-        cl_int net_start, net_end;
+        cl_int prev_net_start, prev_net_end;
+        cl_int curr_net_start, curr_net_end;
         // current congestion cost
         cl_float curr_cong_cost;
         // near/far threshold
@@ -165,7 +168,8 @@ struct OcularRouter
     {
         // index into the flat list of nets, or -1 if this slot isn't used
         int net_idx = -1;
-        // ...
+
+        int queue_count = 0;
     };
 
     // CPU side grid->net map, so we don't route overlapping nets at once
@@ -327,6 +331,13 @@ struct OcularRouter
             wg.size = workgroup_size;
 
         grid2net.resize(width * height);
+
+        // Put the sizes in net config too, so that the GPU sees them
+        for (auto &nc : route_config) {
+            nc.near_queue_size = near_queue_len;
+            nc.far_queue_size = far_queue_len;
+            nc.dirtied_nodes_size = dirty_queue_len;
+        }
     }
 
     // Handling of net bounding box reservations
@@ -362,6 +373,48 @@ struct OcularRouter
             in.at(i) = sum;
         }
         return sum;
+    }
+
+    // If true then the current queue is 'b' and the next queue is 'a'
+    bool curr_is_b = false;
+
+    int used_workgroups = 0;
+
+    // Allocation of nets to workgroups
+    void distribute_nets()
+    {
+        // Assume that current queue data has been fetched and prefix-sumed
+        auto &nq_count = curr_is_b ? near_queue_count_b : near_queue_count_a;
+        int total_queue_count = 0;
+        for (int i = 0; i < max_nets_in_flight; i++) {
+            auto &rc = route_config.at(i);
+            // prefix sum means final entry is the total count
+            int count = nq_count.at(rc.curr_net_end - 1);
+            net_slots.at(i).queue_count = count;
+            total_queue_count = count;
+            // rotate curr/prev offsets
+            rc.prev_net_start = rc.curr_net_start;
+            rc.prev_net_end = rc.curr_net_end;
+        }
+        // Currently, we always reserve a workgroup here in case we decide to add a net
+        int target_workgroups = std::max(max_nets_in_flight, std::min(num_workgroups, total_queue_count));
+        // Attempt to split the per-net workload relatively evenly, but adhering to the min-1-workgroup-per-net
+        // constraint
+        int curr_workgroup = 0;
+        for (int i = 0; i < max_nets_in_flight; i++) {
+            auto &rc = route_config.at(i);
+            int queue_count = net_slots.at(i).queue_count;
+            int net_workgroups = (target_workgroups * queue_count) / (total_queue_count - max_nets_in_flight);
+            rc.curr_net_start = curr_workgroup;
+            rc.curr_net_end = curr_workgroup + net_workgroups;
+            for (int j = rc.curr_net_start; j < rc.curr_net_end; j++) {
+                wg_config.at(j).net = i;
+            }
+            // Number of queue entries to process per workgroup (N.B. rounding up otherwise we'd lose nodes)
+            rc.group_nodes = (queue_count + (net_workgroups - 1)) / net_workgroups;
+            curr_workgroup += net_workgroups;
+        }
+        used_workgroups = curr_workgroup;
     }
 
     bool operator()()

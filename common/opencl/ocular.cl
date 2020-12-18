@@ -40,7 +40,8 @@ struct NetConfig {
     // max size of the dirtied nodes structure
     int dirtied_nodes_size;
     // start and end workgroup offsets for the net
-    int net_start, net_end;
+    int prev_net_start, prev_net_end;
+    int curr_net_start, curr_net_end;
     // current congestion cost
     float curr_cong_cost;
     // near/far threshold
@@ -135,11 +136,11 @@ __kernel void ocular_route (
         dirty_queue_offset = 0;
         finished_threads = 0;
         // Do a binary search to find our position within the queue
-        queue_start = (wg_id - net_data.net_start) * net_data.group_nodes;
-        queue_end = (wg_id - net_data.net_start + 1) * net_data.group_nodes;
+        queue_start = (wg_id - net_data.prev_net_start) * net_data.group_nodes;
+        queue_end = (wg_id - net_data.prev_net_start + 1) * net_data.group_nodes;
         queue_start_chunk =
-            binary_search(curr_queue_count + net_data.net_start, (net_data.net_end - net_data.net_start), queue_start);
-        queue_start_chunk += net_data.net_start;
+            binary_search(curr_queue_count + net_data.prev_net_start, (net_data.prev_net_end - net_data.prev_net_start), queue_start);
+        queue_start_chunk += net_data.prev_net_start;
         atomic_xchg(&init_done, 1);
     }
     while (init_done == 0)
@@ -167,7 +168,7 @@ __kernel void ocular_route (
     int queue_chunk = queue_start_chunk;
     int queue_index = queue_start; // 'flat' index into queue, imagining gaps between chunks don't exist
 
-    int queue_offset_0 = (queue_chunk == net_data.net_start) ? 0 : curr_queue_count[queue_chunk - 1];
+    int queue_offset_0 = (queue_chunk == net_data.prev_net_start) ? 0 : curr_queue_count[queue_chunk - 1];
     int queue_offset_1 = curr_queue_count[queue_chunk];
     int queue_ptr = queue_chunk * net_data.near_queue_size + (queue_start - queue_offset_0);
 
@@ -197,7 +198,7 @@ __kernel void ocular_route (
             ++queue_index;
             while (queue_index >= queue_offset_1) {
                 ++queue_chunk;
-                if (queue_chunk >= net_data.net_end)
+                if (queue_chunk >= net_data.prev_net_end)
                     goto done;
                 queue_offset_0 = queue_offset_1;
                 queue_offset_1 = curr_queue_count[queue_chunk];
