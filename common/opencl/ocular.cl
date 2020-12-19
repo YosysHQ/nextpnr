@@ -112,39 +112,36 @@ __kernel void ocular_route (
     __global const short *bound_count
 ) {
     int wg_id = get_group_id(0);
-    __local struct WorkgroupConfig wg;
-    __local struct NetConfig net_data;
+    struct WorkgroupConfig wg;
+    struct NetConfig net_data;
     __local uint near_queue_offset;
     __local uint far_queue_offset;
     __local uint dirty_queue_offset;
 
-    __local uint queue_start; // queue start using 'flat' numbering from the beginning of the net
-    __local uint queue_end; // queue start using 'flat' numbering from the beginning of the net
-    __local uint queue_start_chunk; // index into curr_queue_count
+    uint queue_start; // queue start using 'flat' numbering from the beginning of the net
+    uint queue_end; // queue start using 'flat' numbering from the beginning of the net
+    uint queue_start_chunk; // index into curr_queue_count
 
     __local int near_mutex, far_mutex, dirty_mutex, finished_threads;
-
-    __local int init_done;
-
-    init_done = 0;
-    if (is_group_leader()) {
-        // Fetch config
-        wg = wg_cfg[wg_id];
-        net_data = net_cfg[wg.net];
-        near_queue_offset = 0;
-        far_queue_offset = 0;
-        dirty_queue_offset = 0;
-        finished_threads = 0;
-        // Do a binary search to find our position within the queue
-        queue_start = (wg_id - net_data.prev_net_start) * net_data.group_nodes;
-        queue_end = (wg_id - net_data.prev_net_start + 1) * net_data.group_nodes;
-        queue_start_chunk =
-            binary_search(curr_queue_count + net_data.prev_net_start, (net_data.prev_net_end - net_data.prev_net_start), queue_start);
-        queue_start_chunk += net_data.prev_net_start;
-        atomic_xchg(&init_done, 1);
-    }
-    while (init_done == 0)
-        barrier(CLK_LOCAL_MEM_FENCE);
+    // Fetch config
+    wg = wg_cfg[wg_id];
+    net_data = net_cfg[wg.net];
+    near_mutex = 0;
+    far_mutex = 0;
+    dirty_mutex = 0;
+    near_queue_offset = 0;
+    far_queue_offset = 0;
+    dirty_queue_offset = 0;
+    finished_threads = 0;
+    // Do a binary search to find our position within the queue
+    queue_start = (wg_id - net_data.prev_net_start) * net_data.group_nodes;
+    queue_end = (wg_id - net_data.prev_net_start + 1) * net_data.group_nodes;
+    queue_start_chunk =
+        binary_search(curr_queue_count + net_data.prev_net_start, (net_data.prev_net_end - net_data.prev_net_start), queue_start);
+    if (queue_start_chunk == -1)
+        return;
+    queue_start_chunk += net_data.prev_net_start;
+    barrier(CLK_LOCAL_MEM_FENCE);
     // TODO: better work fetching
 
     /*
@@ -222,14 +219,14 @@ __kernel void ocular_route (
         if (next_y < net_data.y0 || next_y > net_data.y1)
             continue;
         // TODO: congestion cost factor
-        int next_cost = curr_node + edge_cost[edge_ptr];
+        int next_cost = curr_cost + edge_cost[edge_ptr];
 
         // Avoid the expensive atomic that often won't be needed (dubious?)
         if (current_cost[next_node] < next_cost)
             continue;
 
         int last_cost = atomic_min(&(current_cost[next_node]), next_cost);
-        if (last_cost < next_cost) {
+        if (next_cost < last_cost) {
             // Atomic confirms it really is a better path
             if (next_cost < net_data.near_far_thresh) {
                 // Lock per-workgroup near output and add
@@ -249,7 +246,6 @@ __kernel void ocular_route (
                 UNLOCK_MUTEX(dirty_mutex);
             }
         }
-
         // Move forward 'wg.size' positions in the queue
         j += wg.size;
     }

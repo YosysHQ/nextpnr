@@ -60,7 +60,7 @@ struct OcularRouter
     const int near_queue_len = 15000;
     const int far_queue_len = 50000;
     const int dirty_queue_len = 50000;
-    const int workgroup_size = 128;
+    const int workgroup_size = /*128*/ 4;
     const int max_nets_in_flight = 16;
     const int queue_chunk_size = 131072;
     const int queue_chunk_count = 512;
@@ -252,12 +252,10 @@ struct OcularRouter
                 // Add to the adjacency list
                 edge_cost.push_back(base_cost);
                 edge_dst_index.push_back(wire_to_index.at(dst));
-                edge_pip.push_back(p);
             }
         }
         // Final offset so we know the total size of the list; for the last node
         adj_offset.at(wire_data.size()) = edge_dst_index.size();
-
         // Resize some other per-net structures
         current_cost.resize(wire_data.size());
         std::fill(current_cost.begin(), current_cost.end(), inf_cost);
@@ -332,11 +330,11 @@ struct OcularRouter
 
         route_config.resize(max_nets_in_flight);
         net_slots.resize(max_nets_in_flight);
-        wg_config.resize(workgroup_size);
+        wg_config.resize(num_workgroups);
         for (auto &wg : wg_config)
             wg.size = workgroup_size;
 
-        grid2net.resize(width * height);
+        grid2net.resize(width * height, -1);
 
         // Put the sizes in net config too, so that the GPU sees them
         int workgroup = 0;
@@ -508,7 +506,8 @@ struct OcularRouter
         nq_buf.write(*queue, cfg.prev_net_start * near_queue_len, src_wire_idx);
         // Start cost of zero
         current_cost.write(*queue, src_wire_idx, 0);
-
+        // Threshold - FIXME
+        cfg.near_far_thresh = 3000;
         return true;
     }
 
@@ -540,6 +539,8 @@ struct OcularRouter
                     break;
             }
         }
+        // Push per-iter data
+        per_iter_put();
         // Set pointers to current queue
         ocular_route_k->setArg(7, (curr_is_b ? near_queue_b : near_queue_a).buf());
         ocular_route_k->setArg(8, (curr_is_b ? near_queue_count_b : near_queue_count_a).buf());

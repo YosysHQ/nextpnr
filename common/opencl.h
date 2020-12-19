@@ -123,6 +123,7 @@ template <typename T> struct BackedGPUBuffer : public GPUBuffer<T>
     T &at(size_t index) { return backing.at(index); }
     T &operator[](size_t index) { return backing.at(index); }
     void push_back(const T &val) { backing.push_back(val); }
+    size_t size() const { return backing.size(); };
 
     typename std::vector<T>::iterator begin() { return backing.begin(); }
     typename std::vector<T>::iterator end() { return backing.end(); }
