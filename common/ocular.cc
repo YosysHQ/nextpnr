@@ -402,7 +402,7 @@ struct OcularRouter
             // prefix sum means final entry is the total count
             int count = nq_count.at(rc.curr_net_end - 1);
             net_slots.at(i).queue_count = count;
-            total_queue_count = count;
+            total_queue_count += count;
             // rotate curr/prev offsets
             rc.prev_net_start = rc.curr_net_start;
             rc.prev_net_end = rc.curr_net_end;
@@ -415,8 +415,8 @@ struct OcularRouter
         for (int i = 0; i < max_nets_in_flight; i++) {
             auto &rc = route_config.at(i);
             int queue_count = net_slots.at(i).queue_count;
-            int net_workgroups = 1 + ((target_workgroups * queue_count) /
-                                      std::max(max_nets_in_flight, (total_queue_count - max_nets_in_flight)));
+            int net_workgroups = 1 + (((target_workgroups - max_nets_in_flight) * queue_count) /
+                                      std::max(max_nets_in_flight, total_queue_count));
             rc.curr_net_start = curr_workgroup;
             rc.curr_net_end = curr_workgroup + net_workgroups;
             for (int j = rc.curr_net_start; j < rc.curr_net_end; j++) {
@@ -427,7 +427,7 @@ struct OcularRouter
             curr_workgroup += net_workgroups;
         }
         used_workgroups = curr_workgroup;
-        NPNR_ASSERT(used_workgroups < num_workgroups);
+        NPNR_ASSERT(used_workgroups <= num_workgroups);
     }
 
     // Set up the queue and push fixed data

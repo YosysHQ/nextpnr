@@ -122,13 +122,10 @@ __kernel void ocular_route (
     uint queue_end; // queue start using 'flat' numbering from the beginning of the net
     uint queue_start_chunk; // index into curr_queue_count
 
-    __local int near_mutex, far_mutex, dirty_mutex, finished_threads;
+    __local int finished_threads;
     // Fetch config
     wg = wg_cfg[wg_id];
     net_data = net_cfg[wg.net];
-    near_mutex = 0;
-    far_mutex = 0;
-    dirty_mutex = 0;
     near_queue_offset = 0;
     far_queue_offset = 0;
     dirty_queue_offset = 0;
@@ -233,31 +230,28 @@ __kernel void ocular_route (
             // Atomic confirms it really is a better path
             if (next_cost < net_data.near_far_thresh) {
                 // Lock per-workgroup near output and add
-                LOCK_MUTEX(near_mutex);
-                next_near_queue[net_data.near_queue_size * wg_id + near_queue_offset++] = next_node;
-                UNLOCK_MUTEX(near_mutex);
+                int offset = atomic_inc(&near_queue_offset);
+                next_near_queue[net_data.near_queue_size * wg_id + offset] = next_node;
             } else {
                 // Lock per-workgroup far output and add
-                LOCK_MUTEX(far_mutex);
-                next_far_queue[net_data.far_queue_size * wg_id + far_queue_offset++] = next_node;
-                UNLOCK_MUTEX(far_mutex);
+                int offset = atomic_inc(&far_queue_offset);
+                next_far_queue[net_data.far_queue_size * wg_id + offset] = next_node;
             }
             if (last_cost == inf_cost) {
                 // Node was never visited before, add it to the dirty queue
-                LOCK_MUTEX(dirty_mutex);
-                dirty_queue[net_data.dirtied_nodes_size * wg_id + dirty_queue_offset++] = next_node;
-                UNLOCK_MUTEX(dirty_mutex);
+                int offset = atomic_inc(&dirty_queue_offset);
+                dirty_queue[net_data.dirtied_nodes_size * wg_id + offset] = next_node;
             }
         }
     }
 done:
     barrier(CLK_LOCAL_MEM_FENCE);
     atomic_inc(&finished_threads);
+    // Wait for all threads to complete
+    while (finished_threads != wg.size) {
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
     if (is_group_leader()) {
-        // Wait for all threads to complete
-        while (finished_threads != wg.size) {
-            barrier(CLK_LOCAL_MEM_FENCE);
-        }
         // Update queue count
         next_near_queue_count[wg_id] = near_queue_offset;
         next_far_queue_count[wg_id] = far_queue_offset;
