@@ -138,10 +138,11 @@ __kernel void ocular_route (
     queue_end = (wg_id - net_data.prev_net_start + 1) * net_data.group_nodes;
     queue_start_chunk =
         binary_search(curr_queue_count + net_data.prev_net_start, (net_data.prev_net_end - net_data.prev_net_start), queue_start);
-    if (queue_start_chunk == -1)
-        return;
-    queue_start_chunk += net_data.prev_net_start;
     barrier(CLK_LOCAL_MEM_FENCE);
+    if (queue_start_chunk == -1)
+        goto done;
+    queue_start_chunk += net_data.prev_net_start;
+
     // TODO: better work fetching
 
     /*
@@ -205,12 +206,14 @@ __kernel void ocular_route (
             curr_node = curr_queue[queue_ptr];
             curr_cost = current_cost[curr_node];
             acc_edges += (adj_offset_1 - adj_offset_0);
-            adj_offset_0 = adj_offset_1;
-            adj_offset_0 = adj_offset[curr_node + 1];
+            adj_offset_0 = adj_offset[curr_node];
+            adj_offset_1 = adj_offset[curr_node + 1];
         }
         // Process the edge
         int edge_ptr = adj_offset_0 + (j - acc_edges);
         uint next_node = edge_dst_index[edge_ptr];
+        // Move forward 'wg.size' positions in the queue
+        j += wg.size;
         // Bounds check
         short next_x = wire_x[next_node];
         short next_y = wire_y[next_node];
@@ -246,8 +249,6 @@ __kernel void ocular_route (
                 UNLOCK_MUTEX(dirty_mutex);
             }
         }
-        // Move forward 'wg.size' positions in the queue
-        j += wg.size;
     }
 done:
     barrier(CLK_LOCAL_MEM_FENCE);

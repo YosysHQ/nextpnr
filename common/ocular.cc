@@ -376,10 +376,10 @@ struct OcularRouter
         return true;
     }
 
-    template <typename T> T prefix_sum(const BackedGPUBuffer<T> &in, int count)
+    template <typename T> T prefix_sum(BackedGPUBuffer<T> &in, int start, int end)
     {
         T sum = 0;
-        for (int i = 0; i < count; i++) {
+        for (int i = start; i < end; i++) {
             sum += in.at(i);
             in.at(i) = sum;
         }
@@ -416,7 +416,7 @@ struct OcularRouter
             auto &rc = route_config.at(i);
             int queue_count = net_slots.at(i).queue_count;
             int net_workgroups = 1 + ((target_workgroups * queue_count) /
-                                      std::min(max_nets_in_flight, (total_queue_count - max_nets_in_flight)));
+                                      std::max(max_nets_in_flight, (total_queue_count - max_nets_in_flight)));
             rc.curr_net_start = curr_workgroup;
             rc.curr_net_end = curr_workgroup + net_workgroups;
             for (int j = rc.curr_net_start; j < rc.curr_net_end; j++) {
@@ -539,23 +539,30 @@ struct OcularRouter
                     break;
             }
         }
-        // Push per-iter data
-        per_iter_put();
-        // Set pointers to current queue
-        ocular_route_k->setArg(7, (curr_is_b ? near_queue_b : near_queue_a).buf());
-        ocular_route_k->setArg(8, (curr_is_b ? near_queue_count_b : near_queue_count_a).buf());
-        ocular_route_k->setArg(9, (curr_is_b ? near_queue_a : near_queue_b).buf());
-        ocular_route_k->setArg(10, (curr_is_b ? near_queue_count_a : near_queue_count_b).buf());
-        // Run kernel :D
-        log_info("    running with %d workgroups...\n", used_workgroups);
-        queue->enqueueNDRangeKernel(*ocular_route_k, cl::NullRange, cl::NDRange(used_workgroups * workgroup_size),
-                                    cl::NDRange(workgroup_size));
-        queue->flush();
-        // Fetch count
-        auto &next_count = curr_is_b ? near_queue_count_a : near_queue_count_b;
-        next_count.get(*queue);
-        for (int i = 0; i < used_workgroups; i++) {
-            log_info("%d: %u\n", i, next_count.at(i));
+        for (size_t i = 0; i < 10; i++) {
+            // Push per-iter data
+            per_iter_put();
+            // Set pointers to current queue
+            ocular_route_k->setArg(7, (curr_is_b ? near_queue_b : near_queue_a).buf());
+            ocular_route_k->setArg(8, (curr_is_b ? near_queue_count_b : near_queue_count_a).buf());
+            ocular_route_k->setArg(9, (curr_is_b ? near_queue_a : near_queue_b).buf());
+            ocular_route_k->setArg(10, (curr_is_b ? near_queue_count_a : near_queue_count_b).buf());
+            // Run kernel :D
+            log_info("    running with %d workgroups...\n", used_workgroups);
+            queue->enqueueNDRangeKernel(*ocular_route_k, cl::NullRange, cl::NDRange(used_workgroups * workgroup_size),
+                                        cl::NDRange(workgroup_size));
+            queue->flush();
+            // Fetch count
+            auto &next_count = curr_is_b ? near_queue_count_a : near_queue_count_b;
+            next_count.get(*queue);
+            for (int i = 0; i < used_workgroups; i++) {
+                log_info("%d: %u\n", i, next_count.at(i));
+            }
+            for (int i = 0; i < max_nets_in_flight; i++) {
+                prefix_sum(next_count, route_config.at(i).curr_net_start, route_config.at(i).curr_net_end);
+            }
+            curr_is_b = !curr_is_b;
+            distribute_nets();
         }
     }
 
