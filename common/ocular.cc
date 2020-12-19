@@ -339,10 +339,17 @@ struct OcularRouter
         grid2net.resize(width * height);
 
         // Put the sizes in net config too, so that the GPU sees them
+        int workgroup = 0;
         for (auto &nc : route_config) {
             nc.near_queue_size = near_queue_len;
             nc.far_queue_size = far_queue_len;
             nc.dirtied_nodes_size = dirty_queue_len;
+
+            // Allocate one notional workgroup to start with
+            nc.curr_net_start = workgroup;
+            nc.curr_net_end = workgroup + 1;
+
+            workgroup++;
         }
     }
 
@@ -410,7 +417,8 @@ struct OcularRouter
         for (int i = 0; i < max_nets_in_flight; i++) {
             auto &rc = route_config.at(i);
             int queue_count = net_slots.at(i).queue_count;
-            int net_workgroups = (target_workgroups * queue_count) / (total_queue_count - max_nets_in_flight);
+            int net_workgroups = 1 + ((target_workgroups * queue_count) /
+                                      std::min(max_nets_in_flight, (total_queue_count - max_nets_in_flight)));
             rc.curr_net_start = curr_workgroup;
             rc.curr_net_end = curr_workgroup + net_workgroups;
             for (int j = rc.curr_net_start; j < rc.curr_net_end; j++) {
@@ -421,6 +429,7 @@ struct OcularRouter
             curr_workgroup += net_workgroups;
         }
         used_workgroups = curr_workgroup;
+        NPNR_ASSERT(used_workgroups < num_workgroups);
     }
 
     // Set up the queue and push fixed data
@@ -471,9 +480,9 @@ struct OcularRouter
         if (slot_idx == -1)
             return false;
         auto &nd = net_data.at(net_idx);
-        auto &ifn = net_slots.at(net_idx);
+        auto &ifn = net_slots.at(slot_idx);
         ifn.net_idx = net_idx;
-        auto &cfg = route_config.at(net_idx);
+        auto &cfg = route_config.at(slot_idx);
         // Compute expanded bounding box
         cfg.x0 = std::max<int>(0, nd.bb.x0 - nd.bb_margin);
         cfg.y0 = std::max<int>(0, nd.bb.y0 - nd.bb_margin);
@@ -490,6 +499,7 @@ struct OcularRouter
         // Only one entry, in the first chunk, prefix sum means following chunks are '1' too
         for (int i = cfg.prev_net_start; i < cfg.prev_net_end; i++)
             nq_count.at(i) = 1;
+        cfg.group_nodes = 1;
         // Get source index
         WireId src_wire = ctx->getNetinfoSourceWire(nd.ni);
         NPNR_ASSERT(src_wire != WireId());
@@ -498,6 +508,54 @@ struct OcularRouter
         nq_buf.write(*queue, cfg.prev_net_start * near_queue_len, src_wire_idx);
         // Start cost of zero
         current_cost.write(*queue, src_wire_idx, 0);
+
+        return true;
+    }
+
+    void per_iter_put()
+    {
+        auto &nq_count = curr_is_b ? near_queue_count_b : near_queue_count_a;
+        nq_count.put(*queue);
+        route_config.put(*queue);
+        wg_config.put(*queue);
+    }
+
+    void do_route()
+    {
+        log_info("Doing route...\n");
+        // Initial distribution; based on zero queue length for all nets
+        distribute_nets();
+        int added_nets = 0;
+        // TEST: just add some random high-fanout nets as a good test
+        for (size_t i = 0; i < net_data.size(); i++) {
+            auto &n = net_data.at(i);
+            if (n.fixed_routing)
+                continue; // nothing to do
+            if (n.ni->driver.cell == nullptr || int(n.ni->users.size() < 10))
+                continue;
+            if (try_add_net(i)) {
+                log_info("    added net %s\n", ctx->nameOf(n.ni));
+                ++added_nets;
+                if (added_nets >= max_nets_in_flight)
+                    break;
+            }
+        }
+        // Set pointers to current queue
+        ocular_route_k->setArg(7, (curr_is_b ? near_queue_b : near_queue_a).buf());
+        ocular_route_k->setArg(8, (curr_is_b ? near_queue_count_b : near_queue_count_a).buf());
+        ocular_route_k->setArg(9, (curr_is_b ? near_queue_a : near_queue_b).buf());
+        ocular_route_k->setArg(10, (curr_is_b ? near_queue_count_a : near_queue_count_b).buf());
+        // Run kernel :D
+        log_info("    running with %d workgroups...\n", used_workgroups);
+        queue->enqueueNDRangeKernel(*ocular_route_k, cl::NullRange, cl::NDRange(used_workgroups * workgroup_size),
+                                    cl::NDRange(workgroup_size));
+        queue->flush();
+        // Fetch count
+        auto &next_count = curr_is_b ? near_queue_count_a : near_queue_count_b;
+        next_count.get(*queue);
+        for (int i = 0; i < used_workgroups; i++) {
+            log_info("%d: %u\n", i, next_count.at(i));
+        }
     }
 
     bool operator()()
@@ -506,6 +564,7 @@ struct OcularRouter
         import_nets();
         alloc_buffers();
         gpu_setup();
+        do_route();
         return true;
     }
 };

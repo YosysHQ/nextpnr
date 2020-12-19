@@ -111,7 +111,7 @@ __kernel void ocular_route (
     __global uint *uphill_edge,
     __global const short *bound_count
 ) {
-    int wg_id = get_global_id(0);
+    int wg_id = get_group_id(0);
     __local struct WorkgroupConfig wg;
     __local struct NetConfig net_data;
     __local uint near_queue_offset;
