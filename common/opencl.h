@@ -37,7 +37,7 @@ template <typename T> struct GPUBuffer
 {
     const cl::Context &ctx;
     cl_mem_flags flags;
-    cl::Buffer *buf = nullptr;
+    cl::Buffer *m_buf = nullptr;
     size_t m_size = 0, max_size = 0;
 
     GPUBuffer<T>(const cl::Context &ctx, cl_mem_flags flags, size_t init_size = 0) : ctx(ctx), flags(flags)
@@ -51,8 +51,8 @@ template <typename T> struct GPUBuffer
     {
         if (max_size < new_size) {
             cl_int err;
-            delete buf;
-            buf = new cl::Buffer(ctx, flags, sizeof(T) * new_size, nullptr, &err);
+            delete m_buf;
+            m_buf = new cl::Buffer(ctx, flags, sizeof(T) * new_size, nullptr, &err);
             if (err != CL_SUCCESS) {
                 log_error("Allocation of CL buffer of size %d failed: %d\n", int(new_size), err);
             }
@@ -65,7 +65,7 @@ template <typename T> struct GPUBuffer
     void put_vec(cl::CommandQueue &queue, const std::vector<T> &vec)
     {
         resize(vec.size());
-        cl::copy(queue, vec.begin(), vec.end(), *buf);
+        cl::copy(queue, vec.begin(), vec.end(), *m_buf);
     }
 
     // From GPU to host vector
@@ -74,17 +74,27 @@ template <typename T> struct GPUBuffer
         vec.resize(m_size);
         if (m_size == 0)
             return;
-        cl::copy(queue, *buf, vec.begin(), vec.end());
+        cl::copy(queue, *m_buf, vec.begin(), vec.end());
     }
 
-    ~GPUBuffer() { delete buf; }
+    ~GPUBuffer() { delete m_buf; }
 
     size_t size() const { return m_size; };
 
-    operator cl::Buffer &()
+    // Write directly to the GPU
+    void write(cl::CommandQueue &queue, size_t offset, const T &value)
     {
-        NPNR_ASSERT(buf != nullptr);
-        return *buf;
+        queue.enqueueWriteBuffer(*m_buf, true, sizeof(T) * offset, sizeof(T), &value);
+    }
+    void write(cl::CommandQueue &queue, size_t offset, const std::vector<T> &values)
+    {
+        queue.enqueueWriteBuffer(*m_buf, true, sizeof(T) * offset, sizeof(T) * values.size(), values.data());
+    }
+
+    cl::Buffer &buf()
+    {
+        NPNR_ASSERT(m_buf != nullptr);
+        return *m_buf;
     }
 };
 
@@ -127,7 +137,7 @@ template <typename Tobj, typename Tkey = uint8_t> struct ChunkedGPUBuffer
 
     ChunkedGPUBuffer<Tobj, Tkey>(const cl::Context &ctx, cl_mem_flags flags, size_t chunk_size, size_t owner_count,
                                  size_t init_chunk_count = 0)
-            : chunk_size(chunk_size), owner_count(owner_count), chunk_count(init_chunk_count),
+            : chunk_size(chunk_size), owner_count(owner_count), chunk_count(init_chunk_count), dirty(true),
               pool(ctx, flags, chunk_size * init_chunk_count), chunk2owner(ctx, CL_MEM_READ_ONLY, init_chunk_count),
               owner2chunk(owner_count + 1)
     {
@@ -138,6 +148,7 @@ template <typename Tobj, typename Tkey = uint8_t> struct ChunkedGPUBuffer
             owner2chunk.at(owner_count).push_back(i);
     }
     size_t chunk_size, owner_count, chunk_count;
+    bool dirty;
     // All chunks
     GPUBuffer<Tobj> pool;
     // Mapping from chunk to owner index
@@ -160,6 +171,7 @@ template <typename Tobj, typename Tkey = uint8_t> struct ChunkedGPUBuffer
             // Add to the free list
             owner2chunk.at(owner_count).push_back(i);
         }
+        dirty = true;
     }
 
     // Request N chunks for an owner (must be bigger than the current allocation)
@@ -180,6 +192,7 @@ template <typename Tobj, typename Tkey = uint8_t> struct ChunkedGPUBuffer
             chunk2owner.at(chunk) = owner;
             owner2chunk.at(owner).push_back(chunk);
         }
+        dirty = true;
         return true;
     }
 
@@ -191,6 +204,14 @@ template <typename Tobj, typename Tkey = uint8_t> struct ChunkedGPUBuffer
             owner2chunk.at(chunk_count).push_back(chunk);
         }
         owner2chunk.at(owner).clear();
+    }
+
+    void sync_mapping(cl::CommandQueue &queue)
+    {
+        if (dirty) {
+            chunk2owner.put(queue);
+            dirty = false;
+        }
     }
 };
 

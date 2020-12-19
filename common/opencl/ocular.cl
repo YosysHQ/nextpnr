@@ -109,7 +109,7 @@ __kernel void ocular_route (
     // Graph state
     __global int *current_cost,
     __global uint *uphill_edge,
-    __global const uchar *bound_count
+    __global const short *bound_count
 ) {
     int wg_id = get_global_id(0);
     __local struct WorkgroupConfig wg;

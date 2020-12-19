@@ -47,6 +47,8 @@ struct OcularRouter
     Context *ctx;
     std::unique_ptr<cl::Context> clctx;
     std::unique_ptr<cl::Program> clprog;
+    std::unique_ptr<cl::CommandQueue> queue;
+    std::unique_ptr<cl::Kernel> ocular_route_k;
 
     // Some magic constants
     const float delay_scale = 1000.0f; // conversion from float ns to int ps
@@ -112,6 +114,8 @@ struct OcularRouter
         int bb_margin = 0;
     };
 
+    std::vector<PerNetData> net_data;
+
     /*
         Current routing state. We need to maintain the following:
            - current cost of a node, or 'infinity' if it hasn't been visited yet
@@ -137,7 +141,7 @@ struct OcularRouter
 
     ChunkedGPUBuffer<uint32_t> net_far_queue, net_dirty_queue;
 
-    BackedGPUBuffer<uint8_t> bound_count;
+    BackedGPUBuffer<uint16_t> bound_count;
 
     /*
         Current routing configuration
@@ -268,6 +272,7 @@ struct OcularRouter
             NetInfo *ni = net.second;
             PerNetData nd;
             nd.ni = ni;
+            ni->udata = net_data.size();
             // Initial bounding box is the null space
             nd.bb.x0 = ctx->getGridDimX() - 1;
             nd.bb.y0 = ctx->getGridDimY() - 1;
@@ -307,6 +312,7 @@ struct OcularRouter
                     ctx->ripupNet(ni->name);
                 }
             }
+            net_data.push_back(nd);
         }
     }
 
@@ -417,12 +423,89 @@ struct OcularRouter
         used_workgroups = curr_workgroup;
     }
 
+    // Set up the queue and push fixed data
+    void gpu_setup()
+    {
+        log_info("Pushing initial data to GPU...\n");
+        queue = std::unique_ptr<cl::CommandQueue>(new cl::CommandQueue(*clctx));
+        // Push graph
+        wire_x.put(*queue);
+        wire_y.put(*queue);
+        adj_offset.put(*queue);
+        edge_dst_index.put(*queue);
+        edge_cost.put(*queue);
+
+        current_cost.put(*queue);
+        bound_count.put(*queue);
+        // Init kernels and set fixed arguments
+        ocular_route_k = std::unique_ptr<cl::Kernel>(new cl::Kernel(*clprog, "ocular_route"));
+        ocular_route_k->setArg(0, route_config.buf());
+        ocular_route_k->setArg(1, wg_config.buf());
+        ocular_route_k->setArg(2, wire_x.buf());
+        ocular_route_k->setArg(3, wire_y.buf());
+        ocular_route_k->setArg(4, adj_offset.buf());
+        ocular_route_k->setArg(5, edge_dst_index.buf());
+        ocular_route_k->setArg(6, edge_cost.buf());
+        // Near is set dynamically based on A/B
+        ocular_route_k->setArg(11, work_far_queue.buf());
+        ocular_route_k->setArg(12, work_far_queue_count.buf());
+        ocular_route_k->setArg(13, work_dirtied_nodes.buf());
+        ocular_route_k->setArg(14, work_dirtied_nodes_count.buf());
+        ocular_route_k->setArg(15, current_cost.buf());
+        ocular_route_k->setArg(16, uphill_edge.buf());
+        ocular_route_k->setArg(17, bound_count.buf());
+    }
+
+    // Try and add a net
+    bool try_add_net(int net_idx)
+    {
+        int slot_idx = -1;
+        // Search for a free slot
+        for (size_t i = 0; i < net_slots.size(); i++) {
+            if (net_slots.at(i).net_idx == -1) {
+                slot_idx = i;
+                break;
+            }
+        }
+        // Check if we found a slot
+        if (slot_idx == -1)
+            return false;
+        auto &nd = net_data.at(net_idx);
+        auto &ifn = net_slots.at(net_idx);
+        ifn.net_idx = net_idx;
+        auto &cfg = route_config.at(net_idx);
+        // Compute expanded bounding box
+        cfg.x0 = std::max<int>(0, nd.bb.x0 - nd.bb_margin);
+        cfg.y0 = std::max<int>(0, nd.bb.y0 - nd.bb_margin);
+        cfg.x1 = std::min<int>(width - 1, nd.bb.x1 + nd.bb_margin);
+        cfg.y1 = std::min<int>(height - 1, nd.bb.y1 + nd.bb_margin);
+        // Check for overlaps with other nets being routed
+        if (!check_region(cfg.x0, cfg.y0, cfg.x1, cfg.x1))
+            return false;
+        // Mark as in use
+        mark_region(cfg.x0, cfg.y0, cfg.x1, cfg.x1, slot_idx);
+        // Add the starting wire to the relevant near queue chunk
+        auto &nq_count = curr_is_b ? near_queue_count_b : near_queue_count_a;
+        auto &nq_buf = curr_is_b ? near_queue_b : near_queue_a;
+        // Only one entry, in the first chunk, prefix sum means following chunks are '1' too
+        for (int i = cfg.prev_net_start; i < cfg.prev_net_end; i++)
+            nq_count.at(i) = 1;
+        // Get source index
+        WireId src_wire = ctx->getNetinfoSourceWire(nd.ni);
+        NPNR_ASSERT(src_wire != WireId());
+        int32_t src_wire_idx = wire_to_index.at(src_wire);
+        // Add to queue
+        nq_buf.write(*queue, cfg.prev_net_start * near_queue_len, src_wire_idx);
+        // Start cost of zero
+        current_cost.write(*queue, src_wire_idx, 0);
+    }
+
     bool operator()()
     {
-        // The sequence of things to do
         build_graph();
         import_nets();
         alloc_buffers();
+        gpu_setup();
         return true;
     }
 };
