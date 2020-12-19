@@ -22,13 +22,17 @@
 #include "opencl.h"
 #include "log.h"
 #include "nextpnr.h"
+#include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
 std::unique_ptr<cl::Context> get_opencl_ctx(Context *ctx)
 {
     cl_int err;
-    std::unique_ptr<cl::Context> clctx(new cl::Context(CL_DEVICE_TYPE_DEFAULT, nullptr, nullptr, nullptr, &err));
+    auto dev_type = CL_DEVICE_TYPE_DEFAULT;
+    if (bool_or_default(ctx->settings, ctx->id("opencl/useCPU")))
+        dev_type = CL_DEVICE_TYPE_CPU;
+    std::unique_ptr<cl::Context> clctx(new cl::Context(dev_type, nullptr, nullptr, nullptr, &err));
     if (err != CL_SUCCESS)
         log_error("Failed to create OpenCL context: %d\n", err);
     std::vector<cl::Device> devices;

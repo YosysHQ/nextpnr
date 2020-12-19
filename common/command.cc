@@ -164,6 +164,10 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("placed-svg", po::value<std::string>(), "write render of placement to SVG file");
     general.add_options()("routed-svg", po::value<std::string>(), "write render of routing to SVG file");
 
+#ifdef USE_OPENCL
+    general.add_options()("opencl-cpu", "force OpenCL kernel execution on CPU");
+#endif
+
     return general;
 }
 
@@ -257,6 +261,11 @@ void CommandHandler::setupContext(Context *ctx)
 
     if (vm.count("no-tmdriv"))
         ctx->settings[ctx->id("timing_driven")] = false;
+
+#ifdef USE_OPENCL
+    if (vm.count("opencl-cpu"))
+        ctx->settings[ctx->id("opencl/useCPU")] = true;
+#endif
 
     // Setting default values
     if (ctx->settings.find(ctx->id("target_freq")) == ctx->settings.end())
