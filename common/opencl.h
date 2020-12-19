@@ -91,6 +91,16 @@ template <typename T> struct GPUBuffer
         queue.enqueueWriteBuffer(*m_buf, true, sizeof(T) * offset, sizeof(T) * values.size(), values.data());
     }
 
+    void gather(cl::CommandQueue &queue, const std::vector<int> &offsets, std::vector<T> &values)
+    {
+        values.resize(offsets.size());
+        for (size_t i = 0; i < offsets.size(); i++) {
+            // TODO: evaluate the performance impact of random-access reads over PCIe, versus doing this
+            // with a kernel and the scatter-list on the GPU side
+            queue.enqueueReadBuffer(*m_buf, false, sizeof(T) * offsets.at(i), sizeof(T), &(values[i]));
+        }
+    }
+
     cl::Buffer &buf()
     {
         NPNR_ASSERT(m_buf != nullptr);

@@ -173,6 +173,8 @@ struct OcularRouter
         // index into the flat list of nets, or -1 if this slot isn't used
         int net_idx = -1;
 
+        std::vector<int> endpoints;
+
         int queue_count = 0;
     };
 
@@ -487,10 +489,10 @@ struct OcularRouter
         cfg.x1 = std::min<int>(width - 1, nd.bb.x1 + nd.bb_margin);
         cfg.y1 = std::min<int>(height - 1, nd.bb.y1 + nd.bb_margin);
         // Check for overlaps with other nets being routed
-        if (!check_region(cfg.x0, cfg.y0, cfg.x1, cfg.x1))
+        if (!check_region(cfg.x0, cfg.y0, cfg.x1, cfg.y1))
             return false;
         // Mark as in use
-        mark_region(cfg.x0, cfg.y0, cfg.x1, cfg.x1, slot_idx);
+        mark_region(cfg.x0, cfg.y0, cfg.x1, cfg.y1, slot_idx);
         // Add the starting wire to the relevant near queue chunk
         auto &nq_count = curr_is_b ? near_queue_count_b : near_queue_count_a;
         auto &nq_buf = curr_is_b ? near_queue_b : near_queue_a;
@@ -506,6 +508,13 @@ struct OcularRouter
         nq_buf.write(*queue, cfg.prev_net_start * near_queue_len, src_wire_idx);
         // Start cost of zero
         current_cost.write(*queue, src_wire_idx, 0);
+        // Endpoint list
+        ifn.endpoints.clear();
+        for (auto &usr : nd.ni->users) {
+            WireId dst_wire = ctx->getNetinfoSinkWire(nd.ni, usr);
+            int32_t dst_wire_idx = wire_to_index.at(dst_wire);
+            ifn.endpoints.push_back(dst_wire_idx);
+        }
         // Threshold - FIXME
         cfg.near_far_thresh = 3000;
         return true;
@@ -539,6 +548,7 @@ struct OcularRouter
                     break;
             }
         }
+        std::vector<int32_t> endpoint_cost;
         for (size_t i = 0; i < 10; i++) {
             // Push per-iter data
             per_iter_put();
@@ -560,6 +570,17 @@ struct OcularRouter
             }
             for (int i = 0; i < max_nets_in_flight; i++) {
                 prefix_sum(next_count, route_config.at(i).curr_net_start, route_config.at(i).curr_net_end);
+            }
+            for (int i = 0; i < max_nets_in_flight; i++) {
+                // Check if finished
+                auto &ifn = net_slots.at(i);
+                if (ifn.endpoints.empty())
+                    continue;
+                current_cost.gather(*queue, ifn.endpoints, endpoint_cost);
+                queue->flush();
+                for (int j = 0; j < int(endpoint_cost.size()); j++) {
+                    log_info("(%d, %d): %d\n", i, j, endpoint_cost.at(j));
+                }
             }
             curr_is_b = !curr_is_b;
             distribute_nets();
