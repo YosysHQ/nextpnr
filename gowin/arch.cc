@@ -251,7 +251,7 @@ void Arch::addCellTimingClockToOut(IdString cell, IdString port, IdString clock,
 // TODO represent wires more intelligently.
 IdString Arch::wireToGlobal(int &row, int &col, const DatabasePOD *db, IdString &wire)
 {
-    std::string wirename = wire.str(this);
+    const std::string &wirename = wire.str(this);
     char buf[32];
     if (wirename == "VCC" || wirename == "GND") {
         return wire;
