@@ -139,24 +139,60 @@ template <typename T> struct BackedGPUBuffer : public GPUBuffer<T>
     typename std::vector<T>::iterator end() { return backing.end(); }
 };
 
+// This is used by DynChunkedGPUBuffer
+// it is a list of sizes and a data buffer that is (max_size*N)
+template <typename Tobj, typename Tcount = uint32_t> struct ChunkedGPUBuffer
+{
+    BackedGPUBuffer<Tcount> counts;
+    BackedGPUBuffer<Tobj> values;
+    size_t chunk_size;
+    ChunkedGPUBuffer<Tobj, Tcount>(const cl::Context &ctx, size_t num_chunks, size_t init_size)
+            : counts(ctx, CL_MEM_READ_WRITE, num_chunks), values(ctx, CL_MEM_READ_WRITE, init_size * num_chunks),
+              chunk_size(init_size){};
+    void resize(uint32_t new_size)
+    {
+        chunk_size = new_size;
+        values.resize(new_size * chunk_size);
+    }
+    void push_back(uint32_t chunk, Tobj value)
+    {
+        uint32_t &count = counts.at(chunk);
+        NPNR_ASSERT(count < chunk_size);
+        values.at(chunk * chunk_size + count++) = value;
+    }
+    Tobj pop_back(uint32_t chunk)
+    {
+        uint32_t &count = counts.at(chunk);
+        NPNR_ASSERT(count > 0);
+        return values.at(chunk * chunk_size + --count);
+    }
+    void clear(uint32_t chunk) { counts.at(chunk) = 0; }
+    uint32_t size(uint32_t chunk) { return counts.at(chunk); }
+    Tobj at(uint32_t chunk, uint32_t i)
+    {
+        NPNR_ASSERT(i < counts.at(chunk));
+        return values.at(chunk * chunk_size + i);
+    }
+};
+
 // A buffer that is split into chunks that can be dynamically allocated to different 'owners'
 // This is currently designed to be optimal with a relatively small number of large chunks
-template <typename Tobj, typename Tkey = uint8_t> struct ChunkedGPUBuffer
+template <typename Tobj, typename Tkey = uint8_t> struct DynChunkedGPUBuffer
 {
     // Magic value to indicate that a chunk is free
     static const Tkey no_owner = std::numeric_limits<Tkey>::max();
 
-    ChunkedGPUBuffer<Tobj, Tkey>(const cl::Context &ctx, cl_mem_flags flags, size_t chunk_size, size_t owner_count,
-                                 size_t init_chunk_count = 0)
+    DynChunkedGPUBuffer<Tobj, Tkey>(const cl::Context &ctx, cl_mem_flags flags, size_t chunk_size, size_t owner_count,
+                                    size_t init_chunk_count = 0)
             : chunk_size(chunk_size), owner_count(owner_count), chunk_count(init_chunk_count), dirty(true),
               pool(ctx, flags, chunk_size * init_chunk_count), chunk2owner(ctx, CL_MEM_READ_ONLY, init_chunk_count),
-              owner2chunk(owner_count + 1)
+              owner2chunk(ctx, owner_count + 1, init_chunk_count)
     {
         NPNR_ASSERT(owner_count < no_owner);
         for (auto &cto : chunk2owner)
             cto = no_owner;
         for (size_t i = 0; i < init_chunk_count; i++)
-            owner2chunk.at(owner_count).push_back(i);
+            owner2chunk.push_back(owner_count, i);
     }
     size_t chunk_size, owner_count, chunk_count;
     bool dirty;
@@ -165,7 +201,7 @@ template <typename Tobj, typename Tkey = uint8_t> struct ChunkedGPUBuffer
     // Mapping from chunk to owner index
     BackedGPUBuffer<Tkey> chunk2owner;
     // Owner to chunk mapping - entry N is free chunks here
-    std::vector<std::vector<size_t>> owner2chunk;
+    ChunkedGPUBuffer<uint32_t> owner2chunk;
 
     // Add chunks to the pool - this will destroy the pool content and is mainly intended for delayed init cases
     void extend(size_t new_size)
@@ -177,10 +213,11 @@ template <typename Tobj, typename Tkey = uint8_t> struct ChunkedGPUBuffer
         pool.resize(new_size * chunk_size);
         chunk_count = new_size;
         chunk2owner.resize(new_size);
+        owner2chunk.resize(new_size);
         for (size_t i = old_size; i < new_size; i++) {
             chunk2owner[i] = no_owner;
             // Add to the free list
-            owner2chunk.at(owner_count).push_back(i);
+            owner2chunk.push_back(owner_count, i);
         }
         dirty = true;
     }
@@ -189,19 +226,18 @@ template <typename Tobj, typename Tkey = uint8_t> struct ChunkedGPUBuffer
     bool request(Tkey owner, size_t new_count)
     {
         NPNR_ASSERT(owner < owner_count);
-        size_t old_count = owner2chunk.at(owner).size();
+        uint32_t old_count = owner2chunk.size(owner);
         if (new_count == old_count)
             return true;
         NPNR_ASSERT(new_count > old_count);
         // Not enough free chunks
-        if (owner2chunk.at(owner_count).size() < (new_count - old_count))
+        if (owner2chunk.size(owner_count) < (new_count - old_count))
             return false;
         // Do the allocation
         for (size_t i = old_count; i < new_count; i++) {
-            size_t chunk = owner2chunk.at(owner_count).back();
-            owner2chunk.at(owner_count).pop_back();
+            uint32_t chunk = owner2chunk.pop_back(owner_count);
             chunk2owner.at(chunk) = owner;
-            owner2chunk.at(owner).push_back(chunk);
+            owner2chunk.push_back(owner, chunk);
         }
         dirty = true;
         return true;
@@ -210,17 +246,20 @@ template <typename Tobj, typename Tkey = uint8_t> struct ChunkedGPUBuffer
     // Release all chunks owned by an owner
     void release(Tkey owner)
     {
-        for (auto chunk : owner2chunk.at(owner)) {
+        for (size_t i = 0; i < owner2chunk.size(owner); i++) {
+            uint32_t chunk = owner2chunk.at(owner, i);
             chunk2owner.at(chunk) = no_owner;
-            owner2chunk.at(chunk_count).push_back(chunk);
+            owner2chunk.push_back(chunk_count, chunk);
         }
-        owner2chunk.at(owner).clear();
+        owner2chunk.clear(owner);
     }
 
     void sync_mapping(cl::CommandQueue &queue)
     {
         if (dirty) {
             chunk2owner.put(queue);
+            owner2chunk.counts.put(queue);
+            owner2chunk.values.put(queue);
             dirty = false;
         }
     }

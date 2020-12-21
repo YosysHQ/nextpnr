@@ -139,7 +139,7 @@ struct OcularRouter
     GPUBuffer<uint32_t> work_far_queue, work_far_queue_count;
     GPUBuffer<uint32_t> work_dirtied_nodes, work_dirtied_nodes_count;
 
-    ChunkedGPUBuffer<uint32_t> net_far_queue, net_dirty_queue;
+    DynChunkedGPUBuffer<uint32_t> net_far_queue, net_dirty_queue;
 
     BackedGPUBuffer<uint16_t> bound_count;
 
