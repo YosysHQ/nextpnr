@@ -1,7 +1,7 @@
 /*
  *  nextpnr -- Next Generation Place and Route
  *
- *  Copyright (C) 2018  Clifford Wolf <clifford@symbioticeda.com>
+ *  Copyright (C) 2018  Claire Wolf <claire@symbioticeda.com>
  *  Copyright (C) 2018  David Shah <dave@ds0.me>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
