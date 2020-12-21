@@ -485,7 +485,13 @@ void Arch::read_cst(std::istream &in) {
     std::string line;
     while (!in.eof()) {
         std::getline(in, line);
-        if(!std::regex_match(line, match, iobre)) continue;
+        if(!std::regex_match(line, match, iobre)) {
+            // empty line or comment
+            if(line.empty() || line.rfind("//", 0) == 0)
+                continue;
+            else
+                log_warning("Invalid constraint: %s", line.c_str());
+        }
         std::cout << match[1] << " " << match[2] << std::endl;
         IdString net = id(match[1]);
         IdString pinname = id(match[2]);
