@@ -492,7 +492,7 @@ void Arch::read_cst(std::istream &in) {
             else
                 log_warning("Invalid constraint: %s", line.c_str());
         }
-        std::cout << match[1] << " " << match[2] << std::endl;
+        //std::cout << match[1] << " " << match[2] << std::endl;
         IdString net = id(match[1]);
         IdString pinname = id(match[2]);
         const PairPOD *belname = pairLookup(package->pins.get(), package->num_pins, pinname.index);
@@ -546,7 +546,7 @@ Arch::Arch(ArchArgs args) : args(args)
     const VariantPOD* variant = nullptr;
     for (unsigned int i = 0; i < db->num_variants; i++) {
         auto var = &db->variants[i];
-        std::cout << IdString(var->name_id).str(this) << std::endl;
+        //std::cout << IdString(var->name_id).str(this) << std::endl;
         if (IdString(var->name_id) == id(args.device)) {
             variant = var;
             break;
