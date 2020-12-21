@@ -67,6 +67,11 @@ template <typename T> struct GPUBuffer
         resize(vec.size());
         cl::copy(queue, vec.begin(), vec.end(), *m_buf);
     }
+    void put_vec_async(cl::CommandQueue &queue, const std::vector<T> &vec)
+    {
+        resize(vec.size());
+        queue.enqueueWriteBuffer(*m_buf, false, 0, sizeof(T) * vec.size(), vec.data());
+    }
 
     // From GPU to host vector
     void get_vec(cl::CommandQueue &queue, std::vector<T> &vec)
@@ -75,6 +80,13 @@ template <typename T> struct GPUBuffer
         if (m_size == 0)
             return;
         cl::copy(queue, *m_buf, vec.begin(), vec.end());
+    }
+    void get_vec_async(cl::CommandQueue &queue, std::vector<T> &vec)
+    {
+        vec.resize(m_size);
+        if (m_size == 0)
+            return;
+        queue.enqueueReadBuffer(*m_buf, false, 0, sizeof(T) * vec.size(), vec.data());
     }
 
     ~GPUBuffer() { delete m_buf; }
@@ -127,8 +139,10 @@ template <typename T> struct BackedGPUBuffer : public GPUBuffer<T>
     }
 
     void put(cl::CommandQueue &queue) { GPUBuffer<T>::put_vec(queue, backing); }
+    void put_async(cl::CommandQueue &queue) { GPUBuffer<T>::put_vec_async(queue, backing); }
 
     void get(cl::CommandQueue &queue) { GPUBuffer<T>::get_vec(queue, backing); }
+    void get_async(cl::CommandQueue &queue) { GPUBuffer<T>::get_vec_async(queue, backing); }
 
     T &at(size_t index) { return backing.at(index); }
     T &operator[](size_t index) { return backing.at(index); }
@@ -242,6 +256,11 @@ template <typename Tobj, typename Tkey = uint8_t> struct DynChunkedGPUBuffer
         dirty = true;
         return true;
     }
+    bool request_to_fit(Tkey owner, size_t new_size)
+    {
+        size_t new_chunks = std::max<size_t>(owner2chunk.size(owner), (new_size + (chunk_size - 1)) / chunk_size);
+        return request(owner, new_chunks);
+    }
 
     // Release all chunks owned by an owner
     void release(Tkey owner)
@@ -252,14 +271,16 @@ template <typename Tobj, typename Tkey = uint8_t> struct DynChunkedGPUBuffer
             owner2chunk.push_back(chunk_count, chunk);
         }
         owner2chunk.clear(owner);
+        dirty = true;
     }
 
     void sync_mapping(cl::CommandQueue &queue)
     {
         if (dirty) {
-            chunk2owner.put(queue);
-            owner2chunk.counts.put(queue);
-            owner2chunk.values.put(queue);
+            chunk2owner.put_async(queue);
+            owner2chunk.counts.put_async(queue);
+            owner2chunk.values.put_async(queue);
+            queue.flush();
             dirty = false;
         }
     }

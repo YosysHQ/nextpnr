@@ -48,6 +48,10 @@ struct NetConfig {
     int near_far_thresh;
     // number of nodes to process per workgroup
     int group_nodes;
+    // Total sizes of the dirty and far queues for this net
+    int total_far, total_dirty;
+    // Last-iteration sizes of the dirty and far queues
+    int last_far, last_dirty;
 };
 
 struct WorkgroupConfig {
@@ -259,3 +263,35 @@ done:
     }
     return;
 }
+
+__kernel void update_dirty_queue (
+    // Configuration
+    __global const struct NetConfig *net_cfg,
+    __global const struct WorkgroupConfig *wg_cfg,
+    // Input
+    __global const uint *wg_dirty_queue, __global const uint *wg_dirty_queue_count,
+    __global uint *net_dirty_queue, __global const uint *net_dirty_chunks,
+    uint dirty_chunk_size, uint net_to_chunk_size
+) {
+    int wg_id = get_group_id(0);
+    struct WorkgroupConfig wg = wg_cfg[wg_id];
+    struct NetConfig net_data = net_cfg[wg.net];
+    int j = get_local_id(0);
+    int queue_offset = 0;
+    for (int i = net_data.curr_net_start; i < (wg_id-1); i++) {
+        queue_offset += wg_dirty_queue_count[i];
+    }
+    queue_offset += j;
+    int queue_end = wg_dirty_queue_count[wg_id];
+    int output_offset = net_data.total_dirty + queue_offset;
+    while (queue_offset < queue_end) {
+        // Copy a warp-wide chunk from the right place in the input queue to the right place in the chunked output queue
+        int output_chunk_idx = output_offset / dirty_chunk_size;
+        int output_chunk = net_dirty_chunks[wg.net * net_to_chunk_size + output_chunk_idx];
+        net_dirty_queue[output_chunk * dirty_chunk_size + (output_offset % dirty_chunk_size)] = wg_dirty_queue[wg_id * net_data.dirtied_nodes_size + j];
+        queue_offset += wg.size;
+        j += wg.size;
+        output_offset += wg.size;
+    }
+}
+

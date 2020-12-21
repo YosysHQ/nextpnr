@@ -48,7 +48,7 @@ struct OcularRouter
     std::unique_ptr<cl::Context> clctx;
     std::unique_ptr<cl::Program> clprog;
     std::unique_ptr<cl::CommandQueue> queue;
-    std::unique_ptr<cl::Kernel> ocular_route_k;
+    std::unique_ptr<cl::Kernel> ocular_route_k, update_dirty_k;
 
     // Some magic constants
     const float delay_scale = 1000.0f; // conversion from float ns to int ps
@@ -59,7 +59,7 @@ struct OcularRouter
     const int num_workgroups = 64;
     const int near_queue_len = 15000;
     const int far_queue_len = 50000;
-    const int dirty_queue_len = 50000;
+    const int work_dirty_queue_len = 50000;
     const int workgroup_size = /*128*/ 4;
     const int max_nets_in_flight = 16;
     const int queue_chunk_size = 131072;
@@ -136,8 +136,10 @@ struct OcularRouter
     BackedGPUBuffer<uint32_t> near_queue_count_a, near_queue_count_b;
     // We maintain two 'far' and 'dirty' queues - one per-workgroup that the router adds to and one chunked per-net that
     // we add to when the workgroup finishes
-    GPUBuffer<uint32_t> work_far_queue, work_far_queue_count;
-    GPUBuffer<uint32_t> work_dirtied_nodes, work_dirtied_nodes_count;
+    GPUBuffer<uint32_t> work_far_queue;
+    BackedGPUBuffer<uint32_t> work_far_queue_count;
+    GPUBuffer<uint32_t> work_dirtied_nodes;
+    BackedGPUBuffer<uint32_t> work_dirtied_nodes_count;
 
     DynChunkedGPUBuffer<uint32_t> net_far_queue, net_dirty_queue;
 
@@ -163,6 +165,10 @@ struct OcularRouter
         cl_int near_far_thresh;
         // number of nodes to process per workgroup
         cl_int group_nodes;
+        // Total sizes of the dirty and far queues for this net
+        cl_int total_far, total_dirty;
+        // Last-iteration sizes of the dirty and far queues
+        cl_int last_far, last_dirty;
     });
 
     /*
@@ -327,7 +333,7 @@ struct OcularRouter
         work_far_queue.resize(far_queue_len * num_workgroups);
         work_far_queue_count.resize(num_workgroups);
         // Per-workgroup dirty node list
-        work_dirtied_nodes.resize(dirty_queue_len * num_workgroups);
+        work_dirtied_nodes.resize(work_dirty_queue_len * num_workgroups);
         work_dirtied_nodes_count.resize(num_workgroups);
 
         route_config.resize(max_nets_in_flight);
@@ -343,7 +349,7 @@ struct OcularRouter
         for (auto &nc : route_config) {
             nc.near_queue_size = near_queue_len;
             nc.far_queue_size = far_queue_len;
-            nc.dirtied_nodes_size = dirty_queue_len;
+            nc.dirtied_nodes_size = work_dirty_queue_len;
 
             // Allocate one notional workgroup to start with
             nc.curr_net_start = workgroup;
@@ -463,6 +469,16 @@ struct OcularRouter
         ocular_route_k->setArg(15, current_cost.buf());
         ocular_route_k->setArg(16, uphill_edge.buf());
         ocular_route_k->setArg(17, bound_count.buf());
+
+        update_dirty_k = std::unique_ptr<cl::Kernel>(new cl::Kernel(*clprog, "update_dirty_queue"));
+        update_dirty_k->setArg(0, route_config.buf());
+        update_dirty_k->setArg(1, wg_config.buf());
+        update_dirty_k->setArg(2, work_dirtied_nodes.buf());
+        update_dirty_k->setArg(3, work_dirtied_nodes_count.buf());
+        update_dirty_k->setArg(4, net_dirty_queue.pool.buf());
+        update_dirty_k->setArg(5, net_dirty_queue.owner2chunk.values.buf());
+        update_dirty_k->setArg(6, cl_uint(net_dirty_queue.chunk_size));
+        update_dirty_k->setArg(7, cl_uint(net_dirty_queue.chunk_count));
     }
 
     // Try and add a net
@@ -562,6 +578,8 @@ struct OcularRouter
             queue->enqueueNDRangeKernel(*ocular_route_k, cl::NullRange, cl::NDRange(used_workgroups * workgroup_size),
                                         cl::NDRange(workgroup_size));
             queue->flush();
+            // Update dirty queue
+            update_global_queues();
             // Fetch count
             auto &next_count = curr_is_b ? near_queue_count_a : near_queue_count_b;
             next_count.get(*queue);
@@ -585,6 +603,33 @@ struct OcularRouter
             curr_is_b = !curr_is_b;
             distribute_nets();
         }
+    }
+
+    void update_global_queues()
+    {
+        // Update the global far and dirty queues
+        work_dirtied_nodes_count.get_async(*queue);
+        work_far_queue_count.get_async(*queue);
+        queue->flush();
+        for (int i = 0; i < max_nets_in_flight; i++) {
+            auto &rc = route_config.at(i);
+            // Work out how many new dirty/far nodes need to be added for this net from the per-work queues
+            rc.last_dirty = 0;
+            rc.last_far = 0;
+            for (int j = rc.curr_net_start; j < rc.curr_net_end; j++) {
+                rc.last_dirty += work_dirtied_nodes_count.at(j);
+                rc.last_far += work_far_queue_count.at(j);
+            }
+            // Allocate space in the 'per-net' longer-living queues
+            net_dirty_queue.request_to_fit(i, rc.total_dirty + rc.last_dirty);
+            net_far_queue.request_to_fit(i, rc.total_far + rc.last_far);
+        }
+        net_dirty_queue.sync_mapping(*queue);
+        route_config.put(*queue);
+        // Run the update kernel
+        queue->enqueueNDRangeKernel(*update_dirty_k, cl::NullRange, cl::NDRange(used_workgroups * workgroup_size),
+                                    cl::NDRange(workgroup_size));
+        queue->flush();
     }
 
     bool operator()()
