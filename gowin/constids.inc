@@ -388,6 +388,7 @@ X(TBUF)
 
 // primitive attributes
 X(INIT)
+X(FF_USED)
 X(FF_TYPE)
 X(INPUT_USED)
 X(OUTPUT_USED)

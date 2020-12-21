@@ -1213,7 +1213,8 @@ bool Arch::cellsCompatible(const CellInfo **cells, int count) const
         if (ci->is_slice && ci->slice_clk != nullptr) {
             Loc loc = getBelLocation(ci->bel);
             int cls = loc.z / 2;
-            if (loc.z >= 6 && ci->ff_used) // top slice have no ff
+            bool ff_used = ci->params.at(id_FF_USED).as_bool();
+            if (loc.z >= 6 && ff_used) // top slice have no ff
                 return false;
             if (clk[cls] == nullptr)
                 clk[cls] = ci->slice_clk;
