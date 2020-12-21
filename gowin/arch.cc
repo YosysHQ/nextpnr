@@ -601,7 +601,6 @@ Arch::Arch(ArchArgs args) : args(args)
         for (unsigned int j = 0; j < tile->num_bels; j++) {
             const BelsPOD *bel = &tile->bels[j];
             IdString belname;
-            IdString wirename;
             IdString portname;
             int z = 0;
             bool dff = true;
@@ -629,33 +628,24 @@ Arch::Arch(ArchArgs args) : args(args)
                 belname = id(buf);
                 addBel(belname, id_SLICE, Loc(col, row, z), false);
                 snprintf(buf, 32, "R%dC%d_F%d", row + 1, col + 1, z);
-                wirename = id(buf);
-                addBelOutput(belname, id_F, wirename);
+                addBelOutput(belname, id_F, id(buf));
                 snprintf(buf, 32, "R%dC%d_A%d", row + 1, col + 1, z);
-                wirename = id(buf);
-                addBelInput(belname, id_A, wirename);
+                addBelInput(belname, id_A, id(buf));
                 snprintf(buf, 32, "R%dC%d_B%d", row + 1, col + 1, z);
-                wirename = id(buf);
-                addBelInput(belname, id_B, wirename);
+                addBelInput(belname, id_B, id(buf));
                 snprintf(buf, 32, "R%dC%d_C%d", row + 1, col + 1, z);
-                wirename = id(buf);
-                addBelInput(belname, id_C, wirename);
+                addBelInput(belname, id_C, id(buf));
                 snprintf(buf, 32, "R%dC%d_D%d", row + 1, col + 1, z);
-                wirename = id(buf);
-                addBelInput(belname, id_D, wirename);
+                addBelInput(belname, id_D, id(buf));
                 if (dff) {
                     snprintf(buf, 32, "R%dC%d_CLK%d", row + 1, col + 1, z / 2);
-                    wirename = id(buf);
-                    addBelInput(belname, id_CLK, wirename);
+                    addBelInput(belname, id_CLK, id(buf));
                     snprintf(buf, 32, "R%dC%d_LSR%d", row + 1, col + 1, z / 2);
-                    wirename = id(buf);
-                    addBelInput(belname, id_LSR, wirename);
+                    addBelInput(belname, id_LSR, id(buf));
                     snprintf(buf, 32, "R%dC%d_CE%d", row + 1, col + 1, z / 2);
-                    wirename = id(buf);
-                    addBelInput(belname, id_CE, wirename);
+                    addBelInput(belname, id_CE, id(buf));
                     snprintf(buf, 32, "R%dC%d_Q%d", row + 1, col + 1, z);
-                    wirename = id(buf);
-                    addBelOutput(belname, id_Q, wirename);
+                    addBelOutput(belname, id_Q, id(buf));
                 }
                 break;
             case ID_IOBJ:
@@ -682,16 +672,13 @@ Arch::Arch(ArchArgs args) : args(args)
                 addBel(belname, id_IOB, Loc(col, row, z), false);
                 portname = pairLookup(bel->ports.get(), bel->num_ports, ID_O)->src_id;
                 snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
-                wirename = id(buf);
-                addBelOutput(belname, id_O, wirename);
+                addBelOutput(belname, id_O, id(buf));
                 portname = pairLookup(bel->ports.get(), bel->num_ports, ID_I)->src_id;
                 snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
-                wirename = id(buf);
-                addBelInput(belname, id_I, wirename);
+                addBelInput(belname, id_I, id(buf));
                 portname = pairLookup(bel->ports.get(), bel->num_ports, ID_OE)->src_id;
                 snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
-                wirename = id(buf);
-                addBelInput(belname, id_OEN, wirename);
+                addBelInput(belname, id_OEN, id(buf));
                 break;
 
             default:
