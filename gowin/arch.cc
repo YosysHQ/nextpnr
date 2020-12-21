@@ -503,8 +503,10 @@ void Arch::read_cst(std::istream &in) {
         //     std::cout << cell.first.str(this) << std::endl;
         // }
         auto it = cells.find(net);
-        if (it == cells.end())
-            log_error("Cell %s not found", net.c_str(this));
+        if (it == cells.end()) {
+            log_info("Cell %s not found", net.c_str(this));
+            continue;
+        }
         std::string bel = IdString(belname->src_id).str(this);
         it->second->attrs[ID_BEL] = bel;
     }
