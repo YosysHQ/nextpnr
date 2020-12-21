@@ -21,6 +21,7 @@
 #ifdef MAIN_EXECUTABLE
 
 #include <fstream>
+#include <regex>
 #include "command.h"
 #include "design_utils.h"
 #include "log.h"
@@ -47,20 +48,26 @@ po::options_description GowinCommandHandler::getArchOptions()
 {
     po::options_description specific("Architecture specific options");
     specific.add_options()("device", po::value<std::string>(), "device name");
-    specific.add_options()("family", po::value<std::string>(), "device family");
-    specific.add_options()("package", po::value<std::string>(), "device package");
-    specific.add_options()("speed", po::value<std::string>(), "device speed grade");
     specific.add_options()("cst", po::value<std::string>(), "physical constraints file");
     return specific;
 }
 
 std::unique_ptr<Context> GowinCommandHandler::createContext(std::unordered_map<std::string, Property> &values)
 {
+    std::regex devicere = std::regex("GW1N([A-Z]*)-(LV|UV)([0-9])([A-Z]{2}[0-9]+)(C[0-9]/I[0-9])");
+    std::smatch match;
+    std::string device = vm["device"].as<std::string>();
+    if(!std::regex_match(device, match, devicere)) {
+        log_error("Invalid device %s\n", device.c_str());
+    }
     ArchArgs chipArgs;
-    chipArgs.device = vm["device"].as<std::string>();
-    chipArgs.family = vm["family"].as<std::string>();
-    chipArgs.speed = vm["speed"].as<std::string>();
-    chipArgs.package = vm["package"].as<std::string>();
+    char buf[32];
+    snprintf(buf, 32, "GW1N%s-%s", match[1].str().c_str(), match[3].str().c_str());
+    chipArgs.device = buf;
+    snprintf(buf, 32, "GW1N-%s", match[3].str().c_str());
+    chipArgs.family = buf;
+    chipArgs.package = match[4];
+    chipArgs.speed = match[5];
     return std::unique_ptr<Context>(new Context(chipArgs));
 }
 
