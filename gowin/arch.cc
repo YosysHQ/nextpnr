@@ -1173,6 +1173,7 @@ void Arch::assignArchInfo()
         CellInfo *ci = cell.second.get();
         if (ci->type == id("SLICE")) {
             ci->is_slice = true;
+            ci->ff_used = ci->params.at(id_FF_USED).as_bool();
             ci->slice_clk = get_net_or_empty(ci, id("CLK"));
             ci->slice_ce = get_net_or_empty(ci, id("CE"));
             ci->slice_lsr = get_net_or_empty(ci, id("LSR"));
@@ -1213,8 +1214,7 @@ bool Arch::cellsCompatible(const CellInfo **cells, int count) const
         if (ci->is_slice && ci->slice_clk != nullptr) {
             Loc loc = getBelLocation(ci->bel);
             int cls = loc.z / 2;
-            bool ff_used = ci->params.at(id_FF_USED).as_bool();
-            if (loc.z >= 6 && ff_used) // top slice have no ff
+            if (loc.z >= 6 && ci->ff_used) // top slice have no ff
                 return false;
             if (clk[cls] == nullptr)
                 clk[cls] = ci->slice_clk;
