@@ -44,8 +44,8 @@ std::unique_ptr<CellInfo> create_generic_cell(Context *ctx, IdString type, std::
     new_cell->type = type;
     if (type == id_SLICE) {
         new_cell->params[id_INIT] = 0;
-        new_cell->params[id_FF_USED] = 0;
         new_cell->params[id_FF_TYPE] = id_DFF.str(ctx);
+        new_cell->ff_used = false;
 
         IdString names[4] = {id_A, id_B, id_C, id_D};
         for (int i = 0; i < 4; i++) {
@@ -84,14 +84,14 @@ void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff)
     }
 
     if (no_dff) {
-        lc->params[id_FF_USED] = 0;
+        lc->ff_used = false;
         replace_port(lut, id_F, lc, id_F);
     }
 }
 
 void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_lut)
 {
-    lc->params[id_FF_USED] = 1;
+    lc->ff_used = true;
     lc->params[id_FF_TYPE] = dff->type.str(ctx);
     replace_port(dff, id_CLK, lc, id_CLK);
     replace_port(dff, id_CE, lc, id_CE);
