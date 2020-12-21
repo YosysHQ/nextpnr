@@ -8,6 +8,7 @@ Currently nextpnr supports:
  * Lattice iCE40 devices supported by [Project IceStorm](http://www.clifford.at/icestorm/)
  * Lattice ECP5 devices supported by [Project Trellis](https://github.com/YosysHQ/prjtrellis)
  * Lattice Nexus devices supported by [Project Oxide](https://github.com/daveshah1/prjoxide)
+ * Gowin LittleBee devices supported by [Project Apicula](https://github.com/YosysHQ/apicula)
  * *(experimental)* a "generic" back-end for user-defined architectures
 
 There is some work in progress towards [support for Xilinx devices](https://github.com/daveshah1/nextpnr-xilinx/) but it is not upstream and not intended for end users at the present time. We hope to see more FPGA families supported in the future. We would love your help in developing this awesome new project!
@@ -117,6 +118,18 @@ sudo make install
  - Examples of the Nexus flow for a range of boards can be found in the [Project Oxide Examples](https://github.com/daveshah1/prjoxide/tree/master/examples).
 
 Nexus support is currently experimental, and has only been tested with engineering sample silicon.
+
+### nextpnr-gowin
+
+For Gowin support, install [Project Apicula](https://github.com/YosysHQ/apicula). If a virtualenv is used, the python paths need to be provided as follows:
+
+```
+cmake . -DARCH=gowin -DPYTHON_EXECUTABLE=path -DGOWIN_BBA_EXECUTABLE=path
+make -j$(nproc)
+sudo make install
+```
+
+ - Examples of the Gowin flow for a range of boards can be found in the [Project Apicula Examples](https://github.com/YosysHQ/apicula/tree/master/examples).
 
 ### nextpnr-generic
 
