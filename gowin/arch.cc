@@ -781,8 +781,7 @@ bool Arch::getBelGlobalBuf(BelId bel) const { return bels.at(bel).gb; }
 
 uint32_t Arch::getBelChecksum(BelId bel) const
 {
-    // FIXME
-    return 0;
+    return bel.index;
 }
 
 void Arch::bindBel(BelId bel, CellInfo *cell, PlaceStrength strength)
@@ -902,7 +901,6 @@ const std::map<IdString, std::string> &Arch::getPipAttrs(PipId pip) const { retu
 
 uint32_t Arch::getPipChecksum(PipId wire) const
 {
-    // FIXEDME?
     return wire.index;
 }
 
@@ -1213,7 +1211,6 @@ bool Arch::cellsCompatible(const CellInfo **cells, int count) const
     const NetInfo *clk[4] = {nullptr, nullptr, nullptr, nullptr};
     const NetInfo *ce[4] = {nullptr, nullptr, nullptr, nullptr};
     const NetInfo *lsr[4] = {nullptr, nullptr, nullptr, nullptr};
-    int group = -1;
     for (int i = 0; i < count; i++) {
         const CellInfo *ci = cells[i];
         if (ci->is_slice && ci->slice_clk != nullptr) {
