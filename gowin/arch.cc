@@ -90,7 +90,7 @@ void Arch::addPip(IdString name, IdString type, IdString srcWire, IdString dstWi
         tilePipDimZ[loc.x].resize(loc.y + 1);
 
     gridDimX = std::max(gridDimX, loc.x + 1);
-    gridDimY = std::max(gridDimY, loc.x + 1);
+    gridDimY = std::max(gridDimY, loc.y + 1);
     tilePipDimZ[loc.x][loc.y] = std::max(tilePipDimZ[loc.x][loc.y], loc.z + 1);
 }
 
