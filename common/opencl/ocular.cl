@@ -295,3 +295,27 @@ __kernel void update_dirty_queue (
     }
 }
 
+__kernel void reset_visit(
+    // Configuration
+    __global const struct NetConfig *net_cfg,
+    // List of nets to be set as a bitmask
+    ulong reset_nets,
+    // Structure to reset
+    __global int *current_cost,
+    // Dirty queue to work from
+    __global uint *net_dirty_queue, __global const uint *net_dirty_chunks,
+    uint dirty_chunk_size, uint net_to_chunk_size
+) {
+    int net_id = get_group_id(0);
+    if (reset_nets & (1 << (ulong)net_id)) {
+        struct NetConfig net_data = net_cfg[net_id];
+        int j = get_local_id(0);
+        while (j < (net_data.total_dirty + net_data.last_dirty)) {
+            int chunk_idx = j / dirty_chunk_size;
+            int chunk = net_dirty_chunks[net_id * net_to_chunk_size + chunk_idx];
+            int node = net_dirty_queue[chunk * dirty_chunk_size + (j % dirty_chunk_size)];
+            current_cost[node] = inf_cost;
+            j += get_local_size(0);
+        }
+    }
+}

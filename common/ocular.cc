@@ -48,7 +48,7 @@ struct OcularRouter
     std::unique_ptr<cl::Context> clctx;
     std::unique_ptr<cl::Program> clprog;
     std::unique_ptr<cl::CommandQueue> queue;
-    std::unique_ptr<cl::Kernel> ocular_route_k, update_dirty_k;
+    std::unique_ptr<cl::Kernel> ocular_route_k, update_dirty_k, reset_visit_k;
 
     // Some magic constants
     const float delay_scale = 1000.0f; // conversion from float ns to int ps
@@ -479,6 +479,15 @@ struct OcularRouter
         update_dirty_k->setArg(5, net_dirty_queue.owner2chunk.values.buf());
         update_dirty_k->setArg(6, cl_uint(net_dirty_queue.chunk_size));
         update_dirty_k->setArg(7, cl_uint(net_dirty_queue.chunk_count));
+
+        reset_visit_k = std::unique_ptr<cl::Kernel>(new cl::Kernel(*clprog, "reset_visit"));
+        reset_visit_k->setArg(0, route_config.buf());
+        // list of nets is dynamic
+        reset_visit_k->setArg(2, current_cost.buf());
+        reset_visit_k->setArg(3, net_dirty_queue.pool.buf());
+        reset_visit_k->setArg(4, net_dirty_queue.owner2chunk.values.buf());
+        reset_visit_k->setArg(5, cl_uint(net_dirty_queue.chunk_size));
+        reset_visit_k->setArg(6, cl_uint(net_dirty_queue.chunk_count));
     }
 
     // Try and add a net
@@ -601,6 +610,17 @@ struct OcularRouter
                 }
             }
             curr_is_b = !curr_is_b;
+            if (i == 9) {
+                // test the visit resetter
+                uint64_t to_reset = 0;
+                for (int i = 0; i < max_nets_in_flight; i++) {
+                    auto &ifn = net_slots.at(i);
+                    if (ifn.endpoints.empty())
+                        continue;
+                    to_reset |= (1ULL << i);
+                }
+                reset_visited(to_reset);
+            }
             distribute_nets();
         }
     }
@@ -628,6 +648,15 @@ struct OcularRouter
         route_config.put(*queue);
         // Run the update kernel
         queue->enqueueNDRangeKernel(*update_dirty_k, cl::NullRange, cl::NDRange(used_workgroups * workgroup_size),
+                                    cl::NDRange(workgroup_size));
+        queue->flush();
+    }
+
+    void reset_visited(uint64_t net_bitmask)
+    {
+        // Run the reset kernel
+        reset_visit_k->setArg(1, net_bitmask);
+        queue->enqueueNDRangeKernel(*reset_visit_k, cl::NullRange, cl::NDRange(max_nets_in_flight),
                                     cl::NDRange(workgroup_size));
         queue->flush();
     }
