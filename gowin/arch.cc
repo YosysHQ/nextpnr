@@ -1052,7 +1052,7 @@ bool Arch::place()
         archInfoToAttributes();
         return retVal;
     } else {
-        log_error("Generic architecture does not support placer '%s'\n", placer.c_str());
+        log_error("Gowin architecture does not support placer '%s'\n", placer.c_str());
     }
 }
 
@@ -1066,7 +1066,7 @@ bool Arch::route()
         router2(getCtx(), Router2Cfg(getCtx()));
         result = true;
     } else {
-        log_error("iCE40 architecture does not support router '%s'\n", router.c_str());
+        log_error("Gowin architecture does not support router '%s'\n", router.c_str());
     }
     getCtx()->settings[getCtx()->id("route")] = 1;
     archInfoToAttributes();
