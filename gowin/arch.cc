@@ -465,9 +465,9 @@ DelayInfo Arch::getWireTypeDelay(IdString wire)
         }
         break;
     }
-    if (len != id("")) {
+    if (len != IdString()) {
         return delayLookup(speed->wire.timings.get(), speed->wire.num_timings, len);
-    } else if (glbsrc != id("")) {
+    } else if (glbsrc != IdString()) {
         return delayLookup(speed->glbsrc.timings.get(), speed->glbsrc.num_timings, glbsrc);
     } else {
         DelayInfo info;
