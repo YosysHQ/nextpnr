@@ -487,24 +487,26 @@ void Arch::read_cst(std::istream &in) {
         std::getline(in, line);
         if(!std::regex_match(line, match, iobre)) {
             // empty line or comment
-            if(line.empty() || line.rfind("//", 0) == 0)
+            if(line.empty() || line.rfind("//", 0) == 0) {
                 continue;
-            else
-                log_warning("Invalid constraint: %s", line.c_str());
+            } else {
+                log_warning("Invalid constraint: %s\n", line.c_str());
+                continue;
+            }
         }
         //std::cout << match[1] << " " << match[2] << std::endl;
         IdString net = id(match[1]);
         IdString pinname = id(match[2]);
         const PairPOD *belname = pairLookup(package->pins.get(), package->num_pins, pinname.index);
         if ( belname == nullptr)
-            log_error("Pin %s not found", pinname.c_str(this));
+            log_error("Pin %s not found\n", pinname.c_str(this));
         //BelId bel = getBelByName(belname->src_id);
         // for (auto cell : sorted(cells)) {
         //     std::cout << cell.first.str(this) << std::endl;
         // }
         auto it = cells.find(net);
         if (it == cells.end()) {
-            log_info("Cell %s not found", net.c_str(this));
+            log_info("Cell %s not found\n", net.c_str(this));
             continue;
         }
         std::string bel = IdString(belname->src_id).str(this);
