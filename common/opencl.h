@@ -102,7 +102,12 @@ template <typename T> struct GPUBuffer
     {
         queue.enqueueWriteBuffer(*m_buf, true, sizeof(T) * offset, sizeof(T) * values.size(), values.data());
     }
-
+    T read(cl::CommandQueue &queue, size_t offset)
+    {
+        T value;
+        queue.enqueueReadBuffer(*m_buf, true, sizeof(T) * offset, sizeof(T), &value);
+        return value;
+    }
     void gather(cl::CommandQueue &queue, const std::vector<int> &offsets, std::vector<T> &values)
     {
         values.resize(offsets.size());

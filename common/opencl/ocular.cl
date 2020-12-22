@@ -232,6 +232,7 @@ __kernel void ocular_route (
         int last_cost = atomic_min(&(current_cost[next_node]), next_cost);
         if (next_cost < last_cost) {
             // Atomic confirms it really is a better path
+            uphill_edge[next_node] = edge_ptr;
             if (next_cost < net_data.near_far_thresh) {
                 // Lock per-workgroup near output and add
                 int offset = atomic_inc(&near_queue_offset);

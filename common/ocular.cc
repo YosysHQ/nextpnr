@@ -111,7 +111,7 @@ struct OcularRouter
         bool undriven;
         bool fixed_routing;
         // We dynamically expand the bounding box margin when routing fails
-        int bb_margin = 0;
+        int bb_margin = 1;
     };
 
     std::vector<PerNetData> net_data;
@@ -179,6 +179,8 @@ struct OcularRouter
         // index into the flat list of nets, or -1 if this slot isn't used
         int net_idx = -1;
 
+        // Start and end node index/indices
+        int startpoint;
         std::vector<int> endpoints;
 
         int queue_count = 0;
@@ -260,6 +262,7 @@ struct OcularRouter
                 // Add to the adjacency list
                 edge_cost.push_back(base_cost);
                 edge_dst_index.push_back(wire_to_index.at(dst));
+                edge_pip.push_back(p);
             }
         }
         // Final offset so we know the total size of the list; for the last node
@@ -518,6 +521,11 @@ struct OcularRouter
             return false;
         // Mark as in use
         mark_region(cfg.x0, cfg.y0, cfg.x1, cfg.y1, slot_idx);
+        // Reset some accumulators
+        cfg.total_far = 0;
+        cfg.total_dirty = 0;
+        cfg.last_far = 0;
+        cfg.last_dirty = 0;
         // Add the starting wire to the relevant near queue chunk
         auto &nq_count = curr_is_b ? near_queue_count_b : near_queue_count_a;
         auto &nq_buf = curr_is_b ? near_queue_b : near_queue_a;
@@ -529,6 +537,7 @@ struct OcularRouter
         WireId src_wire = ctx->getNetinfoSourceWire(nd.ni);
         NPNR_ASSERT(src_wire != WireId());
         int32_t src_wire_idx = wire_to_index.at(src_wire);
+        ifn.startpoint = src_wire_idx;
         // Add to queue
         nq_buf.write(*queue, cfg.prev_net_start * near_queue_len, src_wire_idx);
         // Start cost of zero
@@ -543,6 +552,30 @@ struct OcularRouter
         // Threshold - FIXME
         cfg.near_far_thresh = 3000;
         return true;
+    }
+
+    uint64_t nets_to_reset = 0;
+    void remove_net(int slot_idx)
+    {
+        auto &cfg = route_config.at(slot_idx);
+        // Set queue lengths to 0
+        for (int i = cfg.curr_net_start; i < cfg.curr_net_end; i++) {
+            auto &nq_count = curr_is_b ? near_queue_count_b : near_queue_count_a;
+            nq_count.at(i) = 0;
+        }
+        cfg.group_nodes = 0;
+        // Mark region as free
+        mark_region(cfg.x0, cfg.y0, cfg.x1, cfg.y1, -1);
+        // Schedule a reset
+        nets_to_reset |= (1ULL << slot_idx);
+        // Mark slot as free
+        net_slots.at(slot_idx).net_idx = -1;
+    }
+
+    bool route_failed(int slot_idx)
+    {
+        auto &cfg = route_config.at(slot_idx);
+        return net_slots.at(slot_idx).queue_count == 0 && cfg.total_far == 0 && cfg.last_far == 0;
     }
 
     void per_iter_put()
@@ -608,6 +641,11 @@ struct OcularRouter
                 for (int j = 0; j < int(endpoint_cost.size()); j++) {
                     log_info("(%d, %d): %d\n", i, j, endpoint_cost.at(j));
                 }
+                if (std::all_of(endpoint_cost.begin(), endpoint_cost.end(),
+                                [&](int cost) { return cost != inf_cost; })) {
+                    log_info("routed!\n");
+                    do_backtrace(i);
+                }
             }
             curr_is_b = !curr_is_b;
             if (i == 9) {
@@ -659,6 +697,36 @@ struct OcularRouter
         queue->enqueueNDRangeKernel(*reset_visit_k, cl::NullRange, cl::NDRange(max_nets_in_flight),
                                     cl::NDRange(workgroup_size));
         queue->flush();
+    }
+
+    // Temporary routing tree
+    std::unordered_map<WireId, PipId> temp_tree;
+    void print_route_tree(WireId w, int indent)
+    {
+        log_info("%*s%s\n", indent, "", ctx->nameOfWire(w));
+        for (PipId p : ctx->getPipsDownhill(w)) {
+            WireId dst = ctx->getPipDstWire(p);
+            if (temp_tree.count(dst) && temp_tree.at(dst) == p)
+                print_route_tree(dst, indent + 2);
+        }
+    }
+    void do_backtrace(int net_slot)
+    {
+        auto &ifn = net_slots.at(net_slot);
+        temp_tree.clear();
+        for (auto endpoint : ifn.endpoints) {
+            int cursor = endpoint;
+            while (cursor != ifn.startpoint) {
+                WireId w = wire_data.at(cursor).w;
+                if (temp_tree.count(w))
+                    break;
+                int edge = uphill_edge.read(*queue, cursor);
+                PipId pip = edge_pip.at(edge);
+                temp_tree[w] = pip; // dst -> driving pip
+                cursor = wire_to_index.at(ctx->getPipSrcWire(pip));
+            }
+        }
+        print_route_tree(wire_data.at(ifn.startpoint).w, 0);
     }
 
     bool operator()()
