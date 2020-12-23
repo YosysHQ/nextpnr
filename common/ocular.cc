@@ -21,6 +21,7 @@
 #include "ocular.h"
 #include "nextpnr.h"
 #include "opencl.h"
+#include "performance.h"
 #include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -64,6 +65,17 @@ struct OcularRouter
     const int max_nets_in_flight = 1;
     const int queue_chunk_size = 131072;
     const int queue_chunk_count = 512;
+
+    // Performance counters
+    TimeCounter init_time{"Initialisation"};
+    TimeCounter route_kernel_time{"Routing Kernel"};
+    TimeCounter update_kernel_time{"Queue Update Kernel"};
+    TimeCounter reset_kernel_time{"Reset Kernel"};
+    TimeCounter work_distr_time{"Work Distribution"};
+    TimeCounter route_check_time{"Completion Check"};
+    TimeCounter backtrace_time{"Backtrace"};
+    TimeCounter io_time{"General I/O"};
+    TimeCounter total_runtime{"Total"};
 
     /*
         GPU-side routing graph
@@ -221,6 +233,7 @@ struct OcularRouter
 
     void build_graph()
     {
+        ScopedTimer tmr(init_time);
         log_info("Importing routing graph...\n");
         // Build the GPU-oriented, flattened routing graph from the Arch-provided data
         for (auto wire : ctx->getWires()) {
@@ -276,6 +289,7 @@ struct OcularRouter
 
     void import_nets()
     {
+        ScopedTimer tmr(init_time);
         log_info("Importing nets...\n");
         for (auto net : sorted(ctx->nets)) {
             NetInfo *ni = net.second;
@@ -332,6 +346,7 @@ struct OcularRouter
 
     void alloc_buffers()
     {
+        ScopedTimer tmr(init_time);
         // Near queues (two because we swap them)
         near_queue_a.resize(near_queue_len * num_workgroups);
         near_queue_count_a.resize(num_workgroups);
@@ -410,6 +425,7 @@ struct OcularRouter
     // Allocation of nets to workgroups
     void distribute_nets()
     {
+        ScopedTimer tmr(work_distr_time);
         // Assume that current queue data has been fetched and prefix-sumed
         auto &nq_count = curr_is_b ? near_queue_count_b : near_queue_count_a;
         int total_queue_count = 0;
@@ -449,6 +465,7 @@ struct OcularRouter
     // Set up the queue and push fixed data
     void gpu_setup()
     {
+        ScopedTimer tmr(init_time);
         log_info("Pushing initial data to GPU...\n");
         queue = std::unique_ptr<cl::CommandQueue>(new cl::CommandQueue(*clctx));
         // Push graph
@@ -586,6 +603,7 @@ struct OcularRouter
 
     void per_iter_put()
     {
+        ScopedTimer tmr(io_time);
         auto &nq_count = curr_is_b ? near_queue_count_b : near_queue_count_a;
         nq_count.put(*queue);
         route_config.put(*queue);
@@ -606,7 +624,6 @@ struct OcularRouter
         }
     }
 
-    float kernel_time = 0, gather_time = 0;
     void do_route()
     {
         log_info("Outer iteration %d...\n", ++outer_iter);
@@ -639,17 +656,20 @@ struct OcularRouter
             ocular_route_k->setArg(10, (curr_is_b ? near_queue_count_a : near_queue_count_b).buf());
             // Run kernel :D
             log_info("    running with %d workgroups...\n", used_workgroups);
-            auto kstart = std::chrono::high_resolution_clock::now();
-            queue->enqueueNDRangeKernel(*ocular_route_k, cl::NullRange, cl::NDRange(used_workgroups * workgroup_size),
-                                        cl::NDRange(workgroup_size));
-            queue->finish();
-            auto kend = std::chrono::high_resolution_clock::now();
-            kernel_time += std::chrono::duration<float>(kend - kstart).count() * 1000.0;
+            {
+                ScopedTimer ktmr(route_kernel_time);
+                queue->enqueueNDRangeKernel(*ocular_route_k, cl::NullRange,
+                                            cl::NDRange(used_workgroups * workgroup_size), cl::NDRange(workgroup_size));
+                queue->finish();
+            }
             // Update dirty queue
             update_global_queues();
             // Fetch count
             auto &next_count = curr_is_b ? near_queue_count_a : near_queue_count_b;
-            next_count.get(*queue);
+            {
+                ScopedTimer iotmr(io_time);
+                next_count.get(*queue);
+            }
             for (int i = 0; i < max_nets_in_flight; i++) {
                 prefix_sum(next_count, route_config.at(i).curr_net_start, route_config.at(i).curr_net_end);
             }
@@ -660,11 +680,11 @@ struct OcularRouter
                 auto &ifn = net_slots.at(i);
                 if (ifn.net_idx == -1)
                     continue;
-                auto gstart = std::chrono::high_resolution_clock::now();
-                current_cost.gather(*queue, ifn.endpoints, endpoint_cost);
-                queue->finish();
-                auto gend = std::chrono::high_resolution_clock::now();
-                gather_time += std::chrono::duration<float>(gend - gstart).count() * 1000.0;
+                {
+                    ScopedTimer gtmr(route_check_time);
+                    current_cost.gather(*queue, ifn.endpoints, endpoint_cost);
+                    queue->finish();
+                }
                 auto &nd = net_data.at(ifn.net_idx);
                 if (std::all_of(endpoint_cost.begin(), endpoint_cost.end(),
                                 [&](int cost) { return cost != inf_cost; })) {
@@ -695,16 +715,17 @@ struct OcularRouter
             curr_is_b = !curr_is_b;
             distribute_nets();
         }
-        log_info("Total kernel runtime %.02fs\n", kernel_time / 1000.0f);
-        log_info("Total endpoint gather runtime %.02fs\n", gather_time / 1000.0f);
     }
 
     void update_global_queues()
     {
         // Update the global far and dirty queues
-        work_dirtied_nodes_count.get_async(*queue);
-        work_far_queue_count.get_async(*queue);
-        queue->finish();
+        {
+            ScopedTimer iotmr(io_time);
+            work_dirtied_nodes_count.get_async(*queue);
+            work_far_queue_count.get_async(*queue);
+            queue->finish();
+        }
         for (int i = 0; i < max_nets_in_flight; i++) {
             auto &rc = route_config.at(i);
             // Work out how many new dirty/far nodes need to be added for this net from the per-work queues
@@ -720,13 +741,18 @@ struct OcularRouter
             alloced = net_far_queue.request_to_fit(i, rc.total_far + rc.last_far);
             NPNR_ASSERT(alloced);
         }
-        net_dirty_queue.sync_mapping(*queue);
-        route_config.put(*queue);
+        {
+            ScopedTimer iotmr(io_time);
+            net_dirty_queue.sync_mapping(*queue);
+            route_config.put(*queue);
+        }
         // Run the update kernel
-        queue->enqueueNDRangeKernel(*update_dirty_k, cl::NullRange, cl::NDRange(used_workgroups * workgroup_size),
-                                    cl::NDRange(workgroup_size));
-        queue->flush();
-
+        {
+            ScopedTimer tmr(update_kernel_time);
+            queue->enqueueNDRangeKernel(*update_dirty_k, cl::NullRange, cl::NDRange(used_workgroups * workgroup_size),
+                                        cl::NDRange(workgroup_size));
+            queue->finish();
+        }
         for (int i = 0; i < max_nets_in_flight; i++) {
             auto &rc = route_config.at(i);
             rc.total_dirty += rc.last_dirty;
@@ -737,11 +763,12 @@ struct OcularRouter
 
     void reset_visited(uint64_t net_bitmask)
     {
+        ScopedTimer tmr(reset_kernel_time);
         // Run the reset kernel
         reset_visit_k->setArg(1, net_bitmask);
         queue->enqueueNDRangeKernel(*reset_visit_k, cl::NullRange, cl::NDRange(max_nets_in_flight * workgroup_size),
                                     cl::NDRange(workgroup_size));
-        queue->flush();
+        queue->finish();
     }
 
     // Temporary routing tree
@@ -757,6 +784,7 @@ struct OcularRouter
     }
     void do_backtrace(int net_slot)
     {
+        ScopedTimer tmr(backtrace_time);
         auto &ifn = net_slots.at(net_slot);
         temp_tree.clear();
         for (auto endpoint : ifn.endpoints) {
@@ -784,14 +812,33 @@ struct OcularRouter
         }
     }
 
+    void report_performance()
+    {
+        total_runtime.log();
+        init_time.log();
+        route_kernel_time.log();
+        update_kernel_time.log();
+        reset_kernel_time.log();
+        work_distr_time.log();
+        route_check_time.log();
+        backtrace_time.log();
+        io_time.log();
+    }
+
     bool operator()()
     {
-        build_graph();
-        import_nets();
-        alloc_buffers();
-        gpu_setup();
-        init_route_queue();
-        do_route();
+        {
+            ScopedTimer rtmr(total_runtime);
+            build_graph();
+            import_nets();
+            alloc_buffers();
+            gpu_setup();
+            init_route_queue();
+            do_route();
+        }
+
+        report_performance();
+
         return true;
     }
 };
