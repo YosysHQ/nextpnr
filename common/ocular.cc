@@ -320,6 +320,10 @@ struct OcularRouter
                     // Routing isn't fixed, just rip it up so we don't worry about it
                     ctx->ripupNet(ni->name);
                 }
+#ifdef ARCH_ECP5
+                if (ni->is_global)
+                    nd.fixed_routing = true;
+#endif
             }
             net_data.push_back(nd);
         }
@@ -509,7 +513,6 @@ struct OcularRouter
             return false;
         auto &nd = net_data.at(net_idx);
         auto &ifn = net_slots.at(slot_idx);
-        ifn.net_idx = net_idx;
         auto &cfg = route_config.at(slot_idx);
         // Compute expanded bounding box
         cfg.x0 = std::max<int>(0, nd.bb.x0 - nd.bb_margin);
@@ -520,6 +523,7 @@ struct OcularRouter
         if (!check_region(cfg.x0, cfg.y0, cfg.x1, cfg.y1))
             return false;
         // Mark as in use
+        ifn.net_idx = net_idx;
         mark_region(cfg.x0, cfg.y0, cfg.x1, cfg.y1, slot_idx);
         // Reset some accumulators
         cfg.total_far = 0;
@@ -549,8 +553,8 @@ struct OcularRouter
             int32_t dst_wire_idx = wire_to_index.at(dst_wire);
             ifn.endpoints.push_back(dst_wire_idx);
         }
-        // Threshold - FIXME
-        cfg.near_far_thresh = 3000;
+        // Threshold - FIXME once we start using the far queue in anger...
+        cfg.near_far_thresh = 3000000;
         return true;
     }
 
@@ -586,28 +590,32 @@ struct OcularRouter
         wg_config.put(*queue);
     }
 
+    std::deque<int> route_queue;
+    std::vector<int32_t> endpoint_cost;
+
+    int outer_iter = 0;
+
     void do_route()
     {
-        log_info("Doing route...\n");
+        log_info("Outer iteration %d...\n", ++outer_iter);
         // Initial distribution; based on zero queue length for all nets
         distribute_nets();
-        int added_nets = 0;
-        // TEST: just add some random high-fanout nets as a good test
-        for (size_t i = 0; i < net_data.size(); i++) {
-            auto &n = net_data.at(i);
-            if (n.fixed_routing)
-                continue; // nothing to do
-            if (n.ni->driver.cell == nullptr || int(n.ni->users.size() < 10))
-                continue;
-            if (try_add_net(i)) {
-                log_info("    added net %s\n", ctx->nameOf(n.ni));
-                ++added_nets;
-                if (added_nets >= max_nets_in_flight)
-                    break;
+        int curr_in_flight_nets = 0;
+        while (!route_queue.empty()) {
+            {
+                // As much as we have slots available and there is no overlap; add nets to the queue
+                int added_net;
+                while (!route_queue.empty() && try_add_net(added_net = route_queue.front())) {
+                    route_queue.pop_front();
+                    log_info("     starting route of net %s\n", ctx->nameOf(net_data.at(added_net).ni));
+                    ++curr_in_flight_nets;
+                }
             }
-        }
-        std::vector<int32_t> endpoint_cost;
-        for (size_t i = 0; i < 10; i++) {
+            // Something has gone wrong and we aren't able to make any more progress...
+            if (curr_in_flight_nets == 0) {
+                log_error("Routing failed!\n");
+                break;
+            }
             // Push per-iter data
             per_iter_put();
             // Set pointers to current queue
@@ -625,40 +633,43 @@ struct OcularRouter
             // Fetch count
             auto &next_count = curr_is_b ? near_queue_count_a : near_queue_count_b;
             next_count.get(*queue);
-            for (int i = 0; i < used_workgroups; i++) {
-                log_info("%d: %u\n", i, next_count.at(i));
-            }
             for (int i = 0; i < max_nets_in_flight; i++) {
                 prefix_sum(next_count, route_config.at(i).curr_net_start, route_config.at(i).curr_net_end);
             }
+
+            nets_to_reset = 0;
             for (int i = 0; i < max_nets_in_flight; i++) {
                 // Check if finished
                 auto &ifn = net_slots.at(i);
-                if (ifn.endpoints.empty())
+                if (ifn.net_idx == -1)
                     continue;
                 current_cost.gather(*queue, ifn.endpoints, endpoint_cost);
-                queue->flush();
-                for (int j = 0; j < int(endpoint_cost.size()); j++) {
-                    log_info("(%d, %d): %d\n", i, j, endpoint_cost.at(j));
-                }
+                queue->finish();
+                auto &nd = net_data.at(ifn.net_idx);
                 if (std::all_of(endpoint_cost.begin(), endpoint_cost.end(),
                                 [&](int cost) { return cost != inf_cost; })) {
-                    log_info("routed!\n");
-                    do_backtrace(i);
+                    // Routed successfully
+                    log_info("    successfully routed %s\n", ctx->nameOf(nd.ni));
+                    remove_net(i);
+                    --curr_in_flight_nets;
+                } else if (route_failed(i)) {
+                    // Routed unsuccessfully - but increasing the bounding box margin might help
+                    if (nd.bb_margin < std::max(width, height)) {
+                        nd.bb_margin *= 2;
+                        log_info("    retrying %s with increased margin of %d\n", ctx->nameOf(nd.ni), nd.bb_margin);
+                        route_queue.push_back(ifn.net_idx);
+                    }
+                    remove_net(i);
+                    --curr_in_flight_nets;
                 }
             }
+
+            // Reset the visit cost map for any nets being removed in this iteration
+            if (nets_to_reset != 0) {
+                reset_visited(nets_to_reset);
+            }
+
             curr_is_b = !curr_is_b;
-            if (i == 9) {
-                // test the visit resetter
-                uint64_t to_reset = 0;
-                for (int i = 0; i < max_nets_in_flight; i++) {
-                    auto &ifn = net_slots.at(i);
-                    if (ifn.endpoints.empty())
-                        continue;
-                    to_reset |= (1ULL << i);
-                }
-                reset_visited(to_reset);
-            }
             distribute_nets();
         }
     }
@@ -729,12 +740,23 @@ struct OcularRouter
         print_route_tree(wire_data.at(ifn.startpoint).w, 0);
     }
 
+    void init_route_queue()
+    {
+        for (int i = 0; i < int(net_data.size()); i++) {
+            auto &nd = net_data.at(i);
+            if (nd.fixed_routing || nd.ni->driver.cell == nullptr)
+                continue;
+            route_queue.push_back(i);
+        }
+    }
+
     bool operator()()
     {
         build_graph();
         import_nets();
         alloc_buffers();
         gpu_setup();
+        init_route_queue();
         do_route();
         return true;
     }
