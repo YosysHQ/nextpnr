@@ -1036,6 +1036,7 @@ bool Arch::place()
         } else {
             PlacerHeapCfg cfg(getCtx());
             cfg.ioBufTypes.insert(id("IOB"));
+            cfg.beta = 0.5;
             retVal = placer_heap(getCtx(), cfg);
         }
         getCtx()->settings[getCtx()->id("place")] = 1;
