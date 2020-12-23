@@ -285,7 +285,7 @@ template <typename Tobj, typename Tkey = uint8_t> struct DynChunkedGPUBuffer
             chunk2owner.put_async(queue);
             owner2chunk.counts.put_async(queue);
             owner2chunk.values.put_async(queue);
-            queue.flush();
+            queue.finish();
             dirty = false;
         }
     }

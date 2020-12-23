@@ -60,7 +60,7 @@ struct OcularRouter
     const int near_queue_len = 15000;
     const int far_queue_len = 50000;
     const int work_dirty_queue_len = 50000;
-    const int workgroup_size = /*128*/ 4;
+    const int workgroup_size = 128;
     const int max_nets_in_flight = 16;
     const int queue_chunk_size = 131072;
     const int queue_chunk_count = 512;
@@ -705,7 +705,7 @@ struct OcularRouter
     {
         // Run the reset kernel
         reset_visit_k->setArg(1, net_bitmask);
-        queue->enqueueNDRangeKernel(*reset_visit_k, cl::NullRange, cl::NDRange(max_nets_in_flight),
+        queue->enqueueNDRangeKernel(*reset_visit_k, cl::NullRange, cl::NDRange(max_nets_in_flight * workgroup_size),
                                     cl::NDRange(workgroup_size));
         queue->flush();
     }
