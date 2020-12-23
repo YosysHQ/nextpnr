@@ -171,7 +171,7 @@ template <typename Tobj, typename Tcount = uint32_t> struct ChunkedGPUBuffer
     void resize(uint32_t new_size)
     {
         chunk_size = new_size;
-        values.resize(new_size * chunk_size);
+        values.resize(new_size * counts.size());
     }
     void push_back(uint32_t chunk, Tobj value)
     {

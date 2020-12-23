@@ -564,7 +564,7 @@ struct OcularRouter
         auto &cfg = route_config.at(slot_idx);
         // Set queue lengths to 0
         for (int i = cfg.curr_net_start; i < cfg.curr_net_end; i++) {
-            auto &nq_count = curr_is_b ? near_queue_count_b : near_queue_count_a;
+            auto &nq_count = curr_is_b ? near_queue_count_a : near_queue_count_b;
             nq_count.at(i) = 0;
         }
         cfg.group_nodes = 0;
@@ -579,7 +579,8 @@ struct OcularRouter
     bool route_failed(int slot_idx)
     {
         auto &cfg = route_config.at(slot_idx);
-        return net_slots.at(slot_idx).queue_count == 0 && cfg.total_far == 0 && cfg.last_far == 0;
+        auto &nq_count = curr_is_b ? near_queue_count_a : near_queue_count_b;
+        return nq_count.at(cfg.curr_net_end - 1) == 0 && cfg.total_far == 0 && cfg.last_far == 0;
     }
 
     void per_iter_put()
@@ -595,9 +596,20 @@ struct OcularRouter
 
     int outer_iter = 0;
 
+    void shuffle_queue()
+    {
+        for (size_t i = 0; i != route_queue.size(); i++) {
+            size_t j = i + ctx->rng(route_queue.size() - i);
+            if (j > i)
+                std::swap(route_queue[i], route_queue[j]);
+        }
+    }
+
     void do_route()
     {
         log_info("Outer iteration %d...\n", ++outer_iter);
+        // Shuffle queue - this means nets are 'further apart' and we get better parallelism
+        shuffle_queue();
         // Initial distribution; based on zero queue length for all nets
         distribute_nets();
         int curr_in_flight_nets = 0;
@@ -658,6 +670,8 @@ struct OcularRouter
                         nd.bb_margin *= 2;
                         log_info("    retrying %s with increased margin of %d\n", ctx->nameOf(nd.ni), nd.bb_margin);
                         route_queue.push_back(ifn.net_idx);
+                    } else {
+                        log_error("Failed to route net '%s'\n", ctx->nameOf(nd.ni));
                     }
                     remove_net(i);
                     --curr_in_flight_nets;
@@ -679,7 +693,7 @@ struct OcularRouter
         // Update the global far and dirty queues
         work_dirtied_nodes_count.get_async(*queue);
         work_far_queue_count.get_async(*queue);
-        queue->flush();
+        queue->finish();
         for (int i = 0; i < max_nets_in_flight; i++) {
             auto &rc = route_config.at(i);
             // Work out how many new dirty/far nodes need to be added for this net from the per-work queues
@@ -690,8 +704,10 @@ struct OcularRouter
                 rc.last_far += work_far_queue_count.at(j);
             }
             // Allocate space in the 'per-net' longer-living queues
-            net_dirty_queue.request_to_fit(i, rc.total_dirty + rc.last_dirty);
-            net_far_queue.request_to_fit(i, rc.total_far + rc.last_far);
+            bool alloced = net_dirty_queue.request_to_fit(i, rc.total_dirty + rc.last_dirty);
+            NPNR_ASSERT(alloced);
+            alloced = net_far_queue.request_to_fit(i, rc.total_far + rc.last_far);
+            NPNR_ASSERT(alloced);
         }
         net_dirty_queue.sync_mapping(*queue);
         route_config.put(*queue);
@@ -699,6 +715,13 @@ struct OcularRouter
         queue->enqueueNDRangeKernel(*update_dirty_k, cl::NullRange, cl::NDRange(used_workgroups * workgroup_size),
                                     cl::NDRange(workgroup_size));
         queue->flush();
+
+        for (int i = 0; i < max_nets_in_flight; i++) {
+            auto &rc = route_config.at(i);
+            rc.total_dirty += rc.last_dirty;
+            rc.total_far += rc.last_far;
+        }
+        route_config.put(*queue);
     }
 
     void reset_visited(uint64_t net_bitmask)

@@ -282,8 +282,8 @@ __kernel void update_dirty_queue (
     for (int i = net_data.curr_net_start; i < (wg_id-1); i++) {
         queue_offset += wg_dirty_queue_count[i];
     }
+    int queue_end = queue_offset + wg_dirty_queue_count[wg_id];
     queue_offset += j;
-    int queue_end = wg_dirty_queue_count[wg_id];
     int output_offset = net_data.total_dirty + queue_offset;
     while (queue_offset < queue_end) {
         // Copy a warp-wide chunk from the right place in the input queue to the right place in the chunked output queue
@@ -311,7 +311,7 @@ __kernel void reset_visit(
     if (reset_nets & (1 << (ulong)net_id)) {
         struct NetConfig net_data = net_cfg[net_id];
         int j = get_local_id(0);
-        while (j < (net_data.total_dirty + net_data.last_dirty)) {
+        while (j < net_data.total_dirty) {
             int chunk_idx = j / dirty_chunk_size;
             int chunk = net_dirty_chunks[net_id * net_to_chunk_size + chunk_idx];
             int node = net_dirty_queue[chunk * dirty_chunk_size + (j % dirty_chunk_size)];
