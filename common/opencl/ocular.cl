@@ -279,7 +279,7 @@ __kernel void update_dirty_queue (
     struct NetConfig net_data = net_cfg[wg.net];
     int j = get_local_id(0);
     int queue_offset = 0;
-    for (int i = net_data.curr_net_start; i < (wg_id-1); i++) {
+    for (int i = net_data.curr_net_start; i < wg_id; i++) {
         queue_offset += wg_dirty_queue_count[i];
     }
     int queue_end = queue_offset + wg_dirty_queue_count[wg_id];

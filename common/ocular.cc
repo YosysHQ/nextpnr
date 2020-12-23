@@ -61,7 +61,7 @@ struct OcularRouter
     const int far_queue_len = 50000;
     const int work_dirty_queue_len = 50000;
     const int workgroup_size = 128;
-    const int max_nets_in_flight = 16;
+    const int max_nets_in_flight = 1;
     const int queue_chunk_size = 131072;
     const int queue_chunk_count = 512;
 
@@ -295,6 +295,7 @@ struct OcularRouter
             for (auto &usr : ni->users) {
                 nd.bb.extend(ctx->getBelLocation(usr.cell->bel));
             }
+            log_info("%s %d %d %d %d\n", ctx->nameOf(ni), nd.bb.x0, nd.bb.y0, nd.bb.x1, nd.bb.y1);
             nd.fixed_routing = false;
             // Check for existing routing (e.g. global clocks routed earlier)
             if (!ni->wires.empty()) {
@@ -320,11 +321,11 @@ struct OcularRouter
                     // Routing isn't fixed, just rip it up so we don't worry about it
                     ctx->ripupNet(ni->name);
                 }
-#ifdef ARCH_ECP5
-                if (ni->is_global)
-                    nd.fixed_routing = true;
-#endif
             }
+#ifdef ARCH_ECP5
+            if (ni->is_global)
+                nd.fixed_routing = true;
+#endif
             net_data.push_back(nd);
         }
     }
@@ -605,6 +606,7 @@ struct OcularRouter
         }
     }
 
+    float kernel_time = 0, gather_time = 0;
     void do_route()
     {
         log_info("Outer iteration %d...\n", ++outer_iter);
@@ -613,7 +615,7 @@ struct OcularRouter
         // Initial distribution; based on zero queue length for all nets
         distribute_nets();
         int curr_in_flight_nets = 0;
-        while (!route_queue.empty()) {
+        while (!route_queue.empty() || curr_in_flight_nets > 0) {
             {
                 // As much as we have slots available and there is no overlap; add nets to the queue
                 int added_net;
@@ -637,9 +639,12 @@ struct OcularRouter
             ocular_route_k->setArg(10, (curr_is_b ? near_queue_count_a : near_queue_count_b).buf());
             // Run kernel :D
             log_info("    running with %d workgroups...\n", used_workgroups);
+            auto kstart = std::chrono::high_resolution_clock::now();
             queue->enqueueNDRangeKernel(*ocular_route_k, cl::NullRange, cl::NDRange(used_workgroups * workgroup_size),
                                         cl::NDRange(workgroup_size));
-            queue->flush();
+            queue->finish();
+            auto kend = std::chrono::high_resolution_clock::now();
+            kernel_time += std::chrono::duration<float>(kend - kstart).count() * 1000.0;
             // Update dirty queue
             update_global_queues();
             // Fetch count
@@ -655,13 +660,17 @@ struct OcularRouter
                 auto &ifn = net_slots.at(i);
                 if (ifn.net_idx == -1)
                     continue;
+                auto gstart = std::chrono::high_resolution_clock::now();
                 current_cost.gather(*queue, ifn.endpoints, endpoint_cost);
                 queue->finish();
+                auto gend = std::chrono::high_resolution_clock::now();
+                gather_time += std::chrono::duration<float>(gend - gstart).count() * 1000.0;
                 auto &nd = net_data.at(ifn.net_idx);
                 if (std::all_of(endpoint_cost.begin(), endpoint_cost.end(),
                                 [&](int cost) { return cost != inf_cost; })) {
                     // Routed successfully
                     log_info("    successfully routed %s\n", ctx->nameOf(nd.ni));
+                    do_backtrace(i);
                     remove_net(i);
                     --curr_in_flight_nets;
                 } else if (route_failed(i)) {
@@ -686,6 +695,8 @@ struct OcularRouter
             curr_is_b = !curr_is_b;
             distribute_nets();
         }
+        log_info("Total kernel runtime %.02fs\n", kernel_time / 1000.0f);
+        log_info("Total endpoint gather runtime %.02fs\n", gather_time / 1000.0f);
     }
 
     void update_global_queues()
@@ -767,7 +778,7 @@ struct OcularRouter
     {
         for (int i = 0; i < int(net_data.size()); i++) {
             auto &nd = net_data.at(i);
-            if (nd.fixed_routing || nd.ni->driver.cell == nullptr)
+            if (nd.fixed_routing || nd.ni->driver.cell == nullptr || nd.ni->users.empty())
                 continue;
             route_queue.push_back(i);
         }
