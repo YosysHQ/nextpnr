@@ -50,6 +50,8 @@ struct NetConfig {
     int last_far, total_far;
     // for determining the relevancy of visits
     uint serial;
+    // number of endpoints
+    uint endpoint_count;
 };
 
 struct WorkgroupConfig {
@@ -257,5 +259,25 @@ done:
         next_far_queue_count[wg_id] = far_queue_offset;
     }
     return;
+}
+
+__kernel void check_routed (
+    __global const struct NetConfig *net_cfg,
+    __global const uint *last_visit_serial,
+    __global const uint *endpoints,
+    __global uchar *is_routed,
+    uint net_count
+) {
+    int endpoint_idx = get_global_id(0);
+    int current_net = 0;
+    int acc_endpoints = 0;
+    for (current_net = 0; current_net < net_count; current_net++) {
+        if (endpoint_idx >= acc_endpoints)
+            break;
+        acc_endpoints += net_cfg[current_net].endpoint_count;
+    }
+    int node = endpoints[endpoint_idx];
+    if (last_visit_serial[node] != net_cfg[current_net].serial)
+        is_routed[current_net] = false;
 }
 

@@ -49,7 +49,7 @@ struct OcularRouter
     std::unique_ptr<cl::Context> clctx;
     std::unique_ptr<cl::Program> clprog;
     std::unique_ptr<cl::CommandQueue> queue;
-    std::unique_ptr<cl::Kernel> ocular_route_k;
+    std::unique_ptr<cl::Kernel> ocular_route_k, check_routed_k;
 
     // Some magic constants
     const float delay_scale = 1000.0f; // conversion from float ns to int ps
@@ -152,6 +152,10 @@ struct OcularRouter
 
     BackedGPUBuffer<uint16_t> bound_count;
 
+    // List of endpoints when checking routeability, and per-net routed status
+    BackedGPUBuffer<uint32_t> all_endpoints;
+    BackedGPUBuffer<uint8_t> is_routed;
+
     /*
         Current routing configuration
         This structure is per in-flight net
@@ -174,6 +178,8 @@ struct OcularRouter
         cl_int last_far, total_far;
         // for determining the relevancy of visits
         cl_uint serial;
+        // number of endpoints
+        cl_uint endpoint_count;
     });
 
     /*
@@ -218,7 +224,8 @@ struct OcularRouter
               near_queue_count_b(*clctx, CL_MEM_READ_WRITE), work_far_queue(*clctx, CL_MEM_READ_WRITE),
               work_far_queue_count(*clctx, CL_MEM_READ_WRITE),
               net_far_queue(*clctx, CL_MEM_READ_WRITE, queue_chunk_size, max_nets_in_flight, queue_chunk_count),
-              bound_count(*clctx, CL_MEM_READ_WRITE), route_config(*clctx, CL_MEM_READ_ONLY),
+              bound_count(*clctx, CL_MEM_READ_WRITE), all_endpoints(*clctx, CL_MEM_READ_ONLY, 1),
+              is_routed(*clctx, CL_MEM_READ_WRITE), route_config(*clctx, CL_MEM_READ_ONLY),
               wg_config(*clctx, CL_MEM_READ_ONLY)
     {
     }
@@ -302,7 +309,6 @@ struct OcularRouter
             for (auto &usr : ni->users) {
                 nd.bb.extend(ctx->getBelLocation(usr.cell->bel));
             }
-            log_info("%s %d %d %d %d\n", ctx->nameOf(ni), nd.bb.x0, nd.bb.y0, nd.bb.x1, nd.bb.y1);
             nd.fixed_routing = false;
             // Check for existing routing (e.g. global clocks routed earlier)
             if (!ni->wires.empty()) {
@@ -351,6 +357,7 @@ struct OcularRouter
 
         route_config.resize(max_nets_in_flight);
         net_slots.resize(max_nets_in_flight);
+        is_routed.resize(max_nets_in_flight);
         wg_config.resize(num_workgroups);
         for (auto &wg : wg_config)
             wg.size = workgroup_size;
@@ -482,6 +489,12 @@ struct OcularRouter
         ocular_route_k->setArg(14, last_visit_serial.buf());
         ocular_route_k->setArg(15, uphill_edge.buf());
         ocular_route_k->setArg(16, bound_count.buf());
+
+        check_routed_k = std::unique_ptr<cl::Kernel>(new cl::Kernel(*clprog, "check_routed"));
+        check_routed_k->setArg(0, route_config.buf());
+        check_routed_k->setArg(1, last_visit_serial.buf());
+        check_routed_k->setArg(3, is_routed.buf());
+        check_routed_k->setArg(4, (uint32_t)max_nets_in_flight);
     }
 
     // Try and add a net
@@ -592,6 +605,27 @@ struct OcularRouter
     }
     uint32_t curr_serial = 0;
 
+    bool endpoints_need_update = true;
+    void update_endpoints()
+    {
+        if (!endpoints_need_update)
+            return;
+        // Update the compacted list of endpoints - whenever a net is added or removed
+        all_endpoints.clear();
+        for (int i = 0; i < max_nets_in_flight; i++) {
+            auto &ifn = net_slots.at(i);
+            if (ifn.net_idx == -1) {
+                route_config.at(i).endpoint_count = 0;
+                continue;
+            }
+            for (int ep : ifn.endpoints)
+                all_endpoints.push_back(ep);
+            route_config.at(i).endpoint_count = ifn.endpoints.size();
+        }
+        all_endpoints.put(*queue);
+        endpoints_need_update = false;
+    }
+
     void do_route()
     {
         log_info("Outer iteration %d...\n", ++outer_iter);
@@ -610,6 +644,7 @@ struct OcularRouter
                     route_queue.pop_front();
                     log_info("     starting route of net %s\n", ctx->nameOf(net_data.at(added_net).ni));
                     ++curr_in_flight_nets;
+                    endpoints_need_update = true;
                 }
             }
             // Something has gone wrong and we aren't able to make any more progress...
@@ -617,6 +652,8 @@ struct OcularRouter
                 log_error("Routing failed!\n");
                 break;
             }
+
+            update_endpoints();
             // Push per-iter data
             per_iter_put();
             // Set pointers to current queue
@@ -644,27 +681,31 @@ struct OcularRouter
                 prefix_sum(next_count, route_config.at(i).curr_net_start, route_config.at(i).curr_net_end);
             }
 
+            {
+                // Run the route check kernel
+                ScopedTimer gtmr(route_check_time);
+                std::fill(is_routed.begin(), is_routed.end(), true);
+                is_routed.put(*queue);
+                check_routed_k->setArg(2, all_endpoints.buf());
+                queue->enqueueNDRangeKernel(*check_routed_k, cl::NullRange, cl::NDRange(all_endpoints.size()),
+                                            cl::NullRange);
+                queue->finish();
+                is_routed.get(*queue);
+            }
+
             for (int i = 0; i < max_nets_in_flight; i++) {
                 // Check if finished
                 auto &ifn = net_slots.at(i);
                 if (ifn.net_idx == -1)
                     continue;
-                {
-                    ScopedTimer gtmr(route_check_time);
-                    current_cost.gather(*queue, ifn.endpoints, endpoint_cost);
-                    last_visit_serial.gather(*queue, ifn.endpoints, endpoint_serial);
-                    queue->finish();
-                }
                 auto &nd = net_data.at(ifn.net_idx);
-                if (std::all_of(endpoint_cost.begin(), endpoint_cost.end(),
-                                [&](int cost) { return cost != inf_cost; }) &&
-                    std::all_of(endpoint_serial.begin(), endpoint_serial.end(),
-                                [&](uint32_t serial) { return serial == route_config.at(i).serial; })) {
+                if (is_routed.at(i)) {
                     // Routed successfully
                     log_info("    successfully routed %s\n", ctx->nameOf(nd.ni));
                     do_backtrace(i);
                     remove_net(i);
                     --curr_in_flight_nets;
+                    endpoints_need_update = true;
                 } else if (route_failed(i)) {
                     // Routed unsuccessfully - but increasing the bounding box margin might help
                     if (nd.bb_margin < std::max(width, height)) {
@@ -676,6 +717,7 @@ struct OcularRouter
                     }
                     remove_net(i);
                     --curr_in_flight_nets;
+                    endpoints_need_update = true;
                 }
             }
 
