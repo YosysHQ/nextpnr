@@ -49,7 +49,7 @@ struct OcularRouter
     std::unique_ptr<cl::Context> clctx;
     std::unique_ptr<cl::Program> clprog;
     std::unique_ptr<cl::CommandQueue> queue;
-    std::unique_ptr<cl::Kernel> ocular_route_k, update_dirty_k, reset_visit_k;
+    std::unique_ptr<cl::Kernel> ocular_route_k;
 
     // Some magic constants
     const float delay_scale = 1000.0f; // conversion from float ns to int ps
@@ -60,7 +60,6 @@ struct OcularRouter
     const int num_workgroups = 64;
     const int near_queue_len = 15000;
     const int far_queue_len = 50000;
-    const int work_dirty_queue_len = 50000;
     const int workgroup_size = 128;
     const int max_nets_in_flight = 1;
     const int queue_chunk_size = 131072;
@@ -69,8 +68,6 @@ struct OcularRouter
     // Performance counters
     TimeCounter init_time{"Initialisation"};
     TimeCounter route_kernel_time{"Routing Kernel"};
-    TimeCounter update_kernel_time{"Queue Update Kernel"};
-    TimeCounter reset_kernel_time{"Reset Kernel"};
     TimeCounter work_distr_time{"Work Distribution"};
     TimeCounter route_check_time{"Completion Check"};
     TimeCounter backtrace_time{"Backtrace"};
@@ -135,8 +132,6 @@ struct OcularRouter
            - current 'near' queue that nodes/edges are being worked on (per workgroup)
            - next 'near' queue that nearby nodes to explore are added to (per workgroup)
            - next 'far' queue that far-away nodes to explore are added to (per workgroup)
-           - current newly-dirtied nodes that will need their costs reset to 'infinity' once the current net is routed
-       (per workgroup)
            - number of unique nets bound to a node, to determine congestion-related costs
     */
     BackedGPUBuffer<int32_t> current_cost;
@@ -146,14 +141,11 @@ struct OcularRouter
     // For the next, added-to queue, this is a count starting from 0 for each group
     // For the current, worked-from queue, this is a prefix sum so we can do a binary search to find work
     BackedGPUBuffer<uint32_t> near_queue_count_a, near_queue_count_b;
-    // We maintain two 'far' and 'dirty' queues - one per-workgroup that the router adds to and one chunked per-net that
+    // We maintain two 'far' queues - one per-workgroup that the router adds to and one chunked per-net that
     // we add to when the workgroup finishes
     GPUBuffer<uint32_t> work_far_queue;
     BackedGPUBuffer<uint32_t> work_far_queue_count;
-    GPUBuffer<uint32_t> work_dirtied_nodes;
-    BackedGPUBuffer<uint32_t> work_dirtied_nodes_count;
-
-    DynChunkedGPUBuffer<uint32_t> net_far_queue, net_dirty_queue;
+    DynChunkedGPUBuffer<uint32_t> net_far_queue;
 
     BackedGPUBuffer<uint16_t> bound_count;
 
@@ -166,8 +158,6 @@ struct OcularRouter
         cl_short x0, y0, x1, y1;
         // max size of the near and far queue
         cl_int near_queue_size, far_queue_size;
-        // max size of the dirtied nodes structure
-        cl_int dirtied_nodes_size;
         // start and end workgroup offsets for the net
         cl_int prev_net_start, prev_net_end;
         cl_int curr_net_start, curr_net_end;
@@ -177,10 +167,8 @@ struct OcularRouter
         cl_int near_far_thresh;
         // number of nodes to process per workgroup
         cl_int group_nodes;
-        // Total sizes of the dirty and far queues for this net
-        cl_int total_far, total_dirty;
-        // Last-iteration sizes of the dirty and far queues
-        cl_int last_far, last_dirty;
+        // Total and last-iter sizes far queues for this net
+        cl_int last_far, total_far;
     });
 
     /*
@@ -223,9 +211,7 @@ struct OcularRouter
               near_queue_a(*clctx, CL_MEM_READ_WRITE), near_queue_b(*clctx, CL_MEM_READ_WRITE),
               near_queue_count_a(*clctx, CL_MEM_READ_WRITE), near_queue_count_b(*clctx, CL_MEM_READ_WRITE),
               work_far_queue(*clctx, CL_MEM_READ_WRITE), work_far_queue_count(*clctx, CL_MEM_READ_WRITE),
-              work_dirtied_nodes(*clctx, CL_MEM_READ_WRITE), work_dirtied_nodes_count(*clctx, CL_MEM_READ_WRITE),
               net_far_queue(*clctx, CL_MEM_READ_WRITE, queue_chunk_size, max_nets_in_flight, queue_chunk_count),
-              net_dirty_queue(*clctx, CL_MEM_READ_WRITE, queue_chunk_size, max_nets_in_flight, queue_chunk_count),
               bound_count(*clctx, CL_MEM_READ_WRITE), route_config(*clctx, CL_MEM_READ_ONLY),
               wg_config(*clctx, CL_MEM_READ_ONLY)
     {
@@ -355,9 +341,6 @@ struct OcularRouter
         // Far queue
         work_far_queue.resize(far_queue_len * num_workgroups);
         work_far_queue_count.resize(num_workgroups);
-        // Per-workgroup dirty node list
-        work_dirtied_nodes.resize(work_dirty_queue_len * num_workgroups);
-        work_dirtied_nodes_count.resize(num_workgroups);
 
         route_config.resize(max_nets_in_flight);
         net_slots.resize(max_nets_in_flight);
@@ -372,7 +355,6 @@ struct OcularRouter
         for (auto &nc : route_config) {
             nc.near_queue_size = near_queue_len;
             nc.far_queue_size = far_queue_len;
-            nc.dirtied_nodes_size = work_dirty_queue_len;
 
             // Allocate one notional workgroup to start with
             nc.curr_net_start = workgroup;
@@ -489,30 +471,9 @@ struct OcularRouter
         // Near is set dynamically based on A/B
         ocular_route_k->setArg(11, work_far_queue.buf());
         ocular_route_k->setArg(12, work_far_queue_count.buf());
-        ocular_route_k->setArg(13, work_dirtied_nodes.buf());
-        ocular_route_k->setArg(14, work_dirtied_nodes_count.buf());
-        ocular_route_k->setArg(15, current_cost.buf());
-        ocular_route_k->setArg(16, uphill_edge.buf());
-        ocular_route_k->setArg(17, bound_count.buf());
-
-        update_dirty_k = std::unique_ptr<cl::Kernel>(new cl::Kernel(*clprog, "update_dirty_queue"));
-        update_dirty_k->setArg(0, route_config.buf());
-        update_dirty_k->setArg(1, wg_config.buf());
-        update_dirty_k->setArg(2, work_dirtied_nodes.buf());
-        update_dirty_k->setArg(3, work_dirtied_nodes_count.buf());
-        update_dirty_k->setArg(4, net_dirty_queue.pool.buf());
-        update_dirty_k->setArg(5, net_dirty_queue.owner2chunk.values.buf());
-        update_dirty_k->setArg(6, cl_uint(net_dirty_queue.chunk_size));
-        update_dirty_k->setArg(7, cl_uint(net_dirty_queue.chunk_count));
-
-        reset_visit_k = std::unique_ptr<cl::Kernel>(new cl::Kernel(*clprog, "reset_visit"));
-        reset_visit_k->setArg(0, route_config.buf());
-        // list of nets is dynamic
-        reset_visit_k->setArg(2, current_cost.buf());
-        reset_visit_k->setArg(3, net_dirty_queue.pool.buf());
-        reset_visit_k->setArg(4, net_dirty_queue.owner2chunk.values.buf());
-        reset_visit_k->setArg(5, cl_uint(net_dirty_queue.chunk_size));
-        reset_visit_k->setArg(6, cl_uint(net_dirty_queue.chunk_count));
+        ocular_route_k->setArg(13, current_cost.buf());
+        ocular_route_k->setArg(14, uphill_edge.buf());
+        ocular_route_k->setArg(15, bound_count.buf());
     }
 
     // Try and add a net
@@ -545,9 +506,7 @@ struct OcularRouter
         mark_region(cfg.x0, cfg.y0, cfg.x1, cfg.y1, slot_idx);
         // Reset some accumulators
         cfg.total_far = 0;
-        cfg.total_dirty = 0;
         cfg.last_far = 0;
-        cfg.last_dirty = 0;
         // Add the starting wire to the relevant near queue chunk
         auto &nq_count = curr_is_b ? near_queue_count_b : near_queue_count_a;
         auto &nq_buf = curr_is_b ? near_queue_b : near_queue_a;
@@ -576,7 +535,6 @@ struct OcularRouter
         return true;
     }
 
-    uint64_t nets_to_reset = 0;
     void remove_net(int slot_idx)
     {
         auto &cfg = route_config.at(slot_idx);
@@ -588,8 +546,6 @@ struct OcularRouter
         cfg.group_nodes = 0;
         // Mark region as free
         mark_region(cfg.x0, cfg.y0, cfg.x1, cfg.y1, -1);
-        // Schedule a reset
-        nets_to_reset |= (1ULL << slot_idx);
         // Mark slot as free
         net_slots.at(slot_idx).net_idx = -1;
     }
@@ -662,8 +618,8 @@ struct OcularRouter
                                             cl::NDRange(used_workgroups * workgroup_size), cl::NDRange(workgroup_size));
                 queue->finish();
             }
-            // Update dirty queue
-            update_global_queues();
+            // Update far queue
+            // update_global_queues();
             // Fetch count
             auto &next_count = curr_is_b ? near_queue_count_a : near_queue_count_b;
             {
@@ -674,7 +630,6 @@ struct OcularRouter
                 prefix_sum(next_count, route_config.at(i).curr_net_start, route_config.at(i).curr_net_end);
             }
 
-            nets_to_reset = 0;
             for (int i = 0; i < max_nets_in_flight; i++) {
                 // Check if finished
                 auto &ifn = net_slots.at(i);
@@ -707,68 +662,9 @@ struct OcularRouter
                 }
             }
 
-            // Reset the visit cost map for any nets being removed in this iteration
-            if (nets_to_reset != 0) {
-                reset_visited(nets_to_reset);
-            }
-
             curr_is_b = !curr_is_b;
             distribute_nets();
         }
-    }
-
-    void update_global_queues()
-    {
-        // Update the global far and dirty queues
-        {
-            ScopedTimer iotmr(io_time);
-            work_dirtied_nodes_count.get_async(*queue);
-            work_far_queue_count.get_async(*queue);
-            queue->finish();
-        }
-        for (int i = 0; i < max_nets_in_flight; i++) {
-            auto &rc = route_config.at(i);
-            // Work out how many new dirty/far nodes need to be added for this net from the per-work queues
-            rc.last_dirty = 0;
-            rc.last_far = 0;
-            for (int j = rc.curr_net_start; j < rc.curr_net_end; j++) {
-                rc.last_dirty += work_dirtied_nodes_count.at(j);
-                rc.last_far += work_far_queue_count.at(j);
-            }
-            // Allocate space in the 'per-net' longer-living queues
-            bool alloced = net_dirty_queue.request_to_fit(i, rc.total_dirty + rc.last_dirty);
-            NPNR_ASSERT(alloced);
-            alloced = net_far_queue.request_to_fit(i, rc.total_far + rc.last_far);
-            NPNR_ASSERT(alloced);
-        }
-        {
-            ScopedTimer iotmr(io_time);
-            net_dirty_queue.sync_mapping(*queue);
-            route_config.put(*queue);
-        }
-        // Run the update kernel
-        {
-            ScopedTimer tmr(update_kernel_time);
-            queue->enqueueNDRangeKernel(*update_dirty_k, cl::NullRange, cl::NDRange(used_workgroups * workgroup_size),
-                                        cl::NDRange(workgroup_size));
-            queue->finish();
-        }
-        for (int i = 0; i < max_nets_in_flight; i++) {
-            auto &rc = route_config.at(i);
-            rc.total_dirty += rc.last_dirty;
-            rc.total_far += rc.last_far;
-        }
-        route_config.put(*queue);
-    }
-
-    void reset_visited(uint64_t net_bitmask)
-    {
-        ScopedTimer tmr(reset_kernel_time);
-        // Run the reset kernel
-        reset_visit_k->setArg(1, net_bitmask);
-        queue->enqueueNDRangeKernel(*reset_visit_k, cl::NullRange, cl::NDRange(max_nets_in_flight * workgroup_size),
-                                    cl::NDRange(workgroup_size));
-        queue->finish();
     }
 
     // Temporary routing tree
@@ -817,8 +713,6 @@ struct OcularRouter
         total_runtime.log();
         init_time.log();
         route_kernel_time.log();
-        update_kernel_time.log();
-        reset_kernel_time.log();
         work_distr_time.log();
         route_check_time.log();
         backtrace_time.log();

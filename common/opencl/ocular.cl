@@ -37,8 +37,6 @@ struct NetConfig {
     short x0, y0, x1, y1;
     // max size of the near and far queue
     int near_queue_size, far_queue_size;
-    // max size of the dirtied nodes structure
-    int dirtied_nodes_size;
     // start and end workgroup offsets for the net
     int prev_net_start, prev_net_end;
     int curr_net_start, curr_net_end;
@@ -48,10 +46,8 @@ struct NetConfig {
     int near_far_thresh;
     // number of nodes to process per workgroup
     int group_nodes;
-    // Total sizes of the dirty and far queues for this net
-    int total_far, total_dirty;
-    // Last-iteration sizes of the dirty and far queues
-    int last_far, last_dirty;
+    // Total and last-iter sizes far queues for this net
+    int last_far, total_far;
 };
 
 struct WorkgroupConfig {
@@ -108,8 +104,6 @@ __kernel void ocular_route (
     __global uint *next_near_queue, __global uint *next_near_queue_count,
     // Next queue - far
     __global uint *next_far_queue, __global uint *next_far_queue_count,
-    // Dirtied nodes
-    __global uint *dirty_queue, __global uint *dirty_queue_count,
     // Graph state
     __global int *current_cost,
     __global uint *uphill_edge,
@@ -265,58 +259,3 @@ done:
     return;
 }
 
-__kernel void update_dirty_queue (
-    // Configuration
-    __global const struct NetConfig *net_cfg,
-    __global const struct WorkgroupConfig *wg_cfg,
-    // Input
-    __global const uint *wg_dirty_queue, __global const uint *wg_dirty_queue_count,
-    __global uint *net_dirty_queue, __global const uint *net_dirty_chunks,
-    uint dirty_chunk_size, uint net_to_chunk_size
-) {
-    int wg_id = get_group_id(0);
-    struct WorkgroupConfig wg = wg_cfg[wg_id];
-    struct NetConfig net_data = net_cfg[wg.net];
-    int j = get_local_id(0);
-    int queue_offset = 0;
-    for (int i = net_data.curr_net_start; i < wg_id; i++) {
-        queue_offset += wg_dirty_queue_count[i];
-    }
-    int queue_end = queue_offset + wg_dirty_queue_count[wg_id];
-    queue_offset += j;
-    int output_offset = net_data.total_dirty + queue_offset;
-    while (queue_offset < queue_end) {
-        // Copy a warp-wide chunk from the right place in the input queue to the right place in the chunked output queue
-        int output_chunk_idx = output_offset / dirty_chunk_size;
-        int output_chunk = net_dirty_chunks[wg.net * net_to_chunk_size + output_chunk_idx];
-        net_dirty_queue[output_chunk * dirty_chunk_size + (output_offset % dirty_chunk_size)] = wg_dirty_queue[wg_id * net_data.dirtied_nodes_size + j];
-        queue_offset += wg.size;
-        j += wg.size;
-        output_offset += wg.size;
-    }
-}
-
-__kernel void reset_visit(
-    // Configuration
-    __global const struct NetConfig *net_cfg,
-    // List of nets to be set as a bitmask
-    ulong reset_nets,
-    // Structure to reset
-    __global int *current_cost,
-    // Dirty queue to work from
-    __global uint *net_dirty_queue, __global const uint *net_dirty_chunks,
-    uint dirty_chunk_size, uint net_to_chunk_size
-) {
-    int net_id = get_group_id(0);
-    if (reset_nets & (1 << (ulong)net_id)) {
-        struct NetConfig net_data = net_cfg[net_id];
-        int j = get_local_id(0);
-        while (j < net_data.total_dirty) {
-            int chunk_idx = j / dirty_chunk_size;
-            int chunk = net_dirty_chunks[net_id * net_to_chunk_size + chunk_idx];
-            int node = net_dirty_queue[chunk * dirty_chunk_size + (j % dirty_chunk_size)];
-            current_cost[node] = inf_cost;
-            j += get_local_size(0);
-        }
-    }
-}
