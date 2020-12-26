@@ -48,6 +48,8 @@ struct NetConfig {
     int group_nodes;
     // Total and last-iter sizes far queues for this net
     int last_far, total_far;
+    // for determining the relevancy of visits
+    uint serial;
 };
 
 struct WorkgroupConfig {
@@ -106,6 +108,7 @@ __kernel void ocular_route (
     __global uint *next_far_queue, __global uint *next_far_queue_count,
     // Graph state
     __global int *current_cost,
+    __global uint *last_visit_serial,
     __global uint *uphill_edge,
     __global const short *bound_count
 ) {
@@ -114,7 +117,6 @@ __kernel void ocular_route (
     struct NetConfig net_data;
     __local uint near_queue_offset;
     __local uint far_queue_offset;
-    __local uint dirty_queue_offset;
 
     uint queue_start; // queue start using 'flat' numbering from the beginning of the net
     uint queue_end; // queue start using 'flat' numbering from the beginning of the net
@@ -126,7 +128,6 @@ __kernel void ocular_route (
     net_data = net_cfg[wg.net];
     near_queue_offset = 0;
     far_queue_offset = 0;
-    dirty_queue_offset = 0;
     finished_threads = 0;
     // Do a binary search to find our position within the queue
     queue_start = (wg_id - net_data.prev_net_start) * net_data.group_nodes;
@@ -179,8 +180,6 @@ __kernel void ocular_route (
             break;
         if ((far_queue_offset + wg.size) > net_data.far_queue_size)
             break;
-        if ((dirty_queue_offset + wg.size) > net_data.dirtied_nodes_size)
-            break;
         // Search until we get 'our' edge
         while (j >= (acc_edges + (adj_offset_1 - adj_offset_0))) {
             // Check if we've reached the end of our per-group workqueue
@@ -220,11 +219,18 @@ __kernel void ocular_route (
         int next_cost = curr_cost + edge_cost[edge_ptr];
 
         // Avoid the expensive atomic that often won't be needed (dubious?)
-        if (current_cost[next_node] < next_cost)
+        bool serial_same = last_visit_serial[next_node] == net_data.serial;
+        if (serial_same && (current_cost[next_node] < next_cost))
             continue;
 
+        bool last_stale = false;
+
+        if (!serial_same && atomic_max(&(last_visit_serial[next_node]), net_data.serial) != net_data.serial) {
+            // Added because old serial is stale
+            last_stale = true;
+        }
         int last_cost = atomic_min(&(current_cost[next_node]), next_cost);
-        if (next_cost < last_cost) {
+        if (last_stale || (next_cost < last_cost)) {
             // Atomic confirms it really is a better path
             uphill_edge[next_node] = edge_ptr;
             if (next_cost < net_data.near_far_thresh) {
@@ -235,11 +241,6 @@ __kernel void ocular_route (
                 // Lock per-workgroup far output and add
                 int offset = atomic_inc(&far_queue_offset);
                 next_far_queue[net_data.far_queue_size * wg_id + offset] = next_node;
-            }
-            if (last_cost == inf_cost) {
-                // Node was never visited before, add it to the dirty queue
-                int offset = atomic_inc(&dirty_queue_offset);
-                dirty_queue[net_data.dirtied_nodes_size * wg_id + offset] = next_node;
             }
         }
     }
@@ -254,7 +255,6 @@ done:
         // Update queue count
         next_near_queue_count[wg_id] = near_queue_offset;
         next_far_queue_count[wg_id] = far_queue_offset;
-        dirty_queue_count[wg_id] = dirty_queue_offset;
     }
     return;
 }

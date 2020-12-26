@@ -128,6 +128,8 @@ struct OcularRouter
     /*
         Current routing state. We need to maintain the following:
            - current cost of a node, or 'infinity' if it hasn't been visited yet
+           - the 'serial' of the last visit, if less than the serial of the current net then we treat the cost as
+       'infinity'
            - the adjacency list entry (that can be corrolated to a pip) used to reach a node
            - current 'near' queue that nodes/edges are being worked on (per workgroup)
            - next 'near' queue that nearby nodes to explore are added to (per workgroup)
@@ -135,6 +137,7 @@ struct OcularRouter
            - number of unique nets bound to a node, to determine congestion-related costs
     */
     BackedGPUBuffer<int32_t> current_cost;
+    GPUBuffer<uint32_t> last_visit_serial;
     GPUBuffer<uint32_t> uphill_edge;
     // To avoid copies, we swap 'A' and 'B' between current/next queues at every iteration
     GPUBuffer<uint32_t> near_queue_a, near_queue_b;
@@ -167,8 +170,10 @@ struct OcularRouter
         cl_int near_far_thresh;
         // number of nodes to process per workgroup
         cl_int group_nodes;
-        // Total and last-iter sizes far queues for this net
+        // total and last-iter sizes far queues for this net
         cl_int last_far, total_far;
+        // for determining the relevancy of visits
+        cl_uint serial;
     });
 
     /*
@@ -207,10 +212,11 @@ struct OcularRouter
             : ctx(ctx), clctx(get_opencl_ctx(ctx)), clprog(get_opencl_program(*clctx, "ocular")),
               wire_x(*clctx, CL_MEM_READ_ONLY), wire_y(*clctx, CL_MEM_READ_ONLY), adj_offset(*clctx, CL_MEM_READ_ONLY),
               edge_dst_index(*clctx, CL_MEM_READ_ONLY), edge_cost(*clctx, CL_MEM_READ_WRITE),
-              current_cost(*clctx, CL_MEM_READ_WRITE), uphill_edge(*clctx, CL_MEM_READ_WRITE),
-              near_queue_a(*clctx, CL_MEM_READ_WRITE), near_queue_b(*clctx, CL_MEM_READ_WRITE),
-              near_queue_count_a(*clctx, CL_MEM_READ_WRITE), near_queue_count_b(*clctx, CL_MEM_READ_WRITE),
-              work_far_queue(*clctx, CL_MEM_READ_WRITE), work_far_queue_count(*clctx, CL_MEM_READ_WRITE),
+              current_cost(*clctx, CL_MEM_READ_WRITE), last_visit_serial(*clctx, CL_MEM_READ_WRITE),
+              uphill_edge(*clctx, CL_MEM_READ_WRITE), near_queue_a(*clctx, CL_MEM_READ_WRITE),
+              near_queue_b(*clctx, CL_MEM_READ_WRITE), near_queue_count_a(*clctx, CL_MEM_READ_WRITE),
+              near_queue_count_b(*clctx, CL_MEM_READ_WRITE), work_far_queue(*clctx, CL_MEM_READ_WRITE),
+              work_far_queue_count(*clctx, CL_MEM_READ_WRITE),
               net_far_queue(*clctx, CL_MEM_READ_WRITE, queue_chunk_size, max_nets_in_flight, queue_chunk_count),
               bound_count(*clctx, CL_MEM_READ_WRITE), route_config(*clctx, CL_MEM_READ_ONLY),
               wg_config(*clctx, CL_MEM_READ_ONLY)
@@ -268,6 +274,7 @@ struct OcularRouter
         adj_offset.at(wire_data.size()) = edge_dst_index.size();
         // Resize some other per-net structures
         current_cost.resize(wire_data.size());
+        last_visit_serial.resize(wire_data.size());
         std::fill(current_cost.begin(), current_cost.end(), inf_cost);
         uphill_edge.resize(wire_data.size());
         bound_count.resize(wire_data.size());
@@ -472,8 +479,9 @@ struct OcularRouter
         ocular_route_k->setArg(11, work_far_queue.buf());
         ocular_route_k->setArg(12, work_far_queue_count.buf());
         ocular_route_k->setArg(13, current_cost.buf());
-        ocular_route_k->setArg(14, uphill_edge.buf());
-        ocular_route_k->setArg(15, bound_count.buf());
+        ocular_route_k->setArg(14, last_visit_serial.buf());
+        ocular_route_k->setArg(15, uphill_edge.buf());
+        ocular_route_k->setArg(16, bound_count.buf());
     }
 
     // Try and add a net
@@ -507,6 +515,8 @@ struct OcularRouter
         // Reset some accumulators
         cfg.total_far = 0;
         cfg.last_far = 0;
+        // Set serial
+        cfg.serial = curr_serial;
         // Add the starting wire to the relevant near queue chunk
         auto &nq_count = curr_is_b ? near_queue_count_b : near_queue_count_a;
         auto &nq_buf = curr_is_b ? near_queue_b : near_queue_a;
@@ -568,6 +578,7 @@ struct OcularRouter
 
     std::deque<int> route_queue;
     std::vector<int32_t> endpoint_cost;
+    std::vector<uint32_t> endpoint_serial;
 
     int outer_iter = 0;
 
@@ -579,6 +590,7 @@ struct OcularRouter
                 std::swap(route_queue[i], route_queue[j]);
         }
     }
+    uint32_t curr_serial = 0;
 
     void do_route()
     {
@@ -590,6 +602,8 @@ struct OcularRouter
         int curr_in_flight_nets = 0;
         while (!route_queue.empty() || curr_in_flight_nets > 0) {
             {
+                // Increment the serial for tracking stale visits
+                ++curr_serial;
                 // As much as we have slots available and there is no overlap; add nets to the queue
                 int added_net;
                 while (!route_queue.empty() && try_add_net(added_net = route_queue.front())) {
@@ -638,11 +652,14 @@ struct OcularRouter
                 {
                     ScopedTimer gtmr(route_check_time);
                     current_cost.gather(*queue, ifn.endpoints, endpoint_cost);
+                    last_visit_serial.gather(*queue, ifn.endpoints, endpoint_serial);
                     queue->finish();
                 }
                 auto &nd = net_data.at(ifn.net_idx);
                 if (std::all_of(endpoint_cost.begin(), endpoint_cost.end(),
-                                [&](int cost) { return cost != inf_cost; })) {
+                                [&](int cost) { return cost != inf_cost; }) &&
+                    std::all_of(endpoint_serial.begin(), endpoint_serial.end(),
+                                [&](uint32_t serial) { return serial == route_config.at(i).serial; })) {
                     // Routed successfully
                     log_info("    successfully routed %s\n", ctx->nameOf(nd.ni));
                     do_backtrace(i);
