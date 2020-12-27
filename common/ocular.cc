@@ -49,7 +49,7 @@ struct OcularRouter
     std::unique_ptr<cl::Context> clctx;
     std::unique_ptr<cl::Program> clprog;
     std::unique_ptr<cl::CommandQueue> queue;
-    std::unique_ptr<cl::Kernel> ocular_route_k, check_routed_k, update_bound_k;
+    std::unique_ptr<cl::Kernel> ocular_route_k, check_routed_k, update_bound_k, hist_cong_update_k;
 
     // Some magic constants
     const float delay_scale = 100.0f; // conversion from float ns to int 10ps
@@ -505,6 +505,10 @@ struct OcularRouter
 
         update_bound_k = std::unique_ptr<cl::Kernel>(new cl::Kernel(*clprog, "update_bound"));
         update_bound_k->setArg(1, bound_count.buf());
+
+        hist_cong_update_k = std::unique_ptr<cl::Kernel>(new cl::Kernel(*clprog, "hist_cong_update"));
+        hist_cong_update_k->setArg(1, adj_offset.buf());
+        hist_cong_update_k->setArg(2, edge_cost.buf());
     }
 
     // Try and add a net
@@ -570,7 +574,7 @@ struct OcularRouter
             node_list.push_back(wire_to_index.at(rr.first));
         nd.routing.clear();
         // Threshold - FIXME once we start using the far queue in anger...
-        cfg.curr_cong_cost = 1;
+        cfg.curr_cong_cost = std::min<int>(std::pow(2.0, outer_iter - 1), 100000);
         cfg.near_far_thresh = 3000000;
         return true;
     }
@@ -646,7 +650,7 @@ struct OcularRouter
         endpoints_need_update = false;
     }
 
-    void update_congestion(short delta)
+    void update_boundness(short delta)
     {
         ScopedTimer tmr(net_mgmt_time);
         if (node_list.empty())
@@ -675,7 +679,8 @@ struct OcularRouter
                 int added_net;
                 while (!route_queue.empty() && try_add_net(added_net = route_queue.front())) {
                     route_queue.pop_front();
-                    log_info("     starting route of net %s\n", ctx->nameOf(net_data.at(added_net).ni));
+                    if (ctx->verbose)
+                        log_info("     starting route of net %s\n", ctx->nameOf(net_data.at(added_net).ni));
                     ++curr_in_flight_nets;
                     endpoints_need_update = true;
                 }
@@ -687,7 +692,7 @@ struct OcularRouter
             }
 
             // Any unbinds as a result of ripup via adding nets
-            update_congestion(-1);
+            update_boundness(-1);
 
             update_endpoints();
             // Push per-iter data
@@ -698,7 +703,8 @@ struct OcularRouter
             ocular_route_k->setArg(9, (curr_is_b ? near_queue_a : near_queue_b).buf());
             ocular_route_k->setArg(10, (curr_is_b ? near_queue_count_a : near_queue_count_b).buf());
             // Run kernel :D
-            log_info("    running with %d workgroups...\n", used_workgroups);
+            if (ctx->verbose)
+                log_info("    running with %d workgroups...\n", used_workgroups);
             {
                 ScopedTimer ktmr(route_kernel_time);
                 queue->enqueueNDRangeKernel(*ocular_route_k, cl::NullRange,
@@ -737,7 +743,8 @@ struct OcularRouter
                 auto &nd = net_data.at(ifn.net_idx);
                 if (is_routed.at(i)) {
                     // Routed successfully
-                    log_info("    successfully routed %s\n", ctx->nameOf(nd.ni));
+                    if (ctx->verbose)
+                        log_info("    successfully routed %s\n", ctx->nameOf(nd.ni));
                     do_backtrace(i);
                     remove_net(i);
                     --curr_in_flight_nets;
@@ -746,7 +753,8 @@ struct OcularRouter
                     // Routed unsuccessfully - but increasing the bounding box margin might help
                     if (nd.bb_margin < std::max(width, height)) {
                         nd.bb_margin *= 2;
-                        log_info("    retrying %s with increased margin of %d\n", ctx->nameOf(nd.ni), nd.bb_margin);
+                        if (ctx->verbose)
+                            log_info("    retrying %s with increased margin of %d\n", ctx->nameOf(nd.ni), nd.bb_margin);
                         route_queue.push_back(ifn.net_idx);
                     } else {
                         log_error("Failed to route net '%s'\n", ctx->nameOf(nd.ni));
@@ -758,12 +766,13 @@ struct OcularRouter
             }
 
             // Binds as a result of adding nets
-            update_congestion(1);
+            update_boundness(1);
 
             curr_is_b = !curr_is_b;
             distribute_nets();
         }
-        log_info("Final serial: %d\n", curr_serial);
+        if (ctx->verbose)
+            log_info("Final serial: %d\n", curr_serial);
     }
 
     // Temporary routing tree
@@ -771,7 +780,8 @@ struct OcularRouter
     std::unordered_set<WireId> temp_endpoints;
     void check_route_tree(WireId w, int indent)
     {
-        log_info("%*s%s\n", indent, "", ctx->nameOfWire(w));
+        if (ctx->debug)
+            log_info("%*s%s\n", indent, "", ctx->nameOfWire(w));
         for (PipId p : ctx->getPipsDownhill(w)) {
             WireId dst = ctx->getPipDstWire(p);
             if (temp_tree.count(dst) && temp_tree.at(dst) == p)
@@ -849,6 +859,45 @@ struct OcularRouter
         io_time.log();
     }
 
+    std::unordered_map<WireId, int> used_wires;
+    void compute_congestion()
+    {
+        route_queue.clear();
+        used_wires.clear();
+        int congestion = 0;
+        // Count number of nets using a wire
+        for (auto &net : net_data)
+            for (auto &entry : net.routing)
+                used_wires[entry.first]++;
+        // Determine which nets have overlaps; and reroute them in the next iter
+        for (int i = 0; i < int(net_data.size()); i++) {
+            auto &net = net_data.at(i);
+            bool has_overlap = false;
+            for (auto &entry : net.routing)
+                if (used_wires.at(entry.first) > 1) {
+                    congestion++;
+                    has_overlap = true;
+                }
+            if (has_overlap)
+                route_queue.push_back(i);
+        }
+        // Update GPU-side historical cost
+        node_list.clear();
+        for (auto &w : used_wires)
+            if (w.second > 1)
+                node_list.push_back(wire_to_index.at(w.first));
+        if (!node_list.empty()) {
+            node_list.put(*queue);
+            hist_cong_update_k->setArg(0, node_list.buf());
+            queue->enqueueNDRangeKernel(*hist_cong_update_k, cl::NullRange, cl::NDRange(node_list.size()),
+                                        cl::NullRange);
+            queue->finish();
+        }
+
+        log_info("Total congestion: %d\n", congestion);
+        log_info("Nets with overlap: %d\n", int(route_queue.size()));
+    }
+
     bool operator()()
     {
         {
@@ -858,7 +907,10 @@ struct OcularRouter
             alloc_buffers();
             gpu_setup();
             init_route_queue();
-            do_route();
+            while (!route_queue.empty()) {
+                do_route();
+                compute_congestion();
+            }
         }
 
         report_performance();

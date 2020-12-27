@@ -290,10 +290,21 @@ __kernel void check_routed (
 }
 
 __kernel void update_bound (
-    __global uint *node_list,
+    __global const uint *node_list,
     __global short *bound_count,
     short delta
 ) {
     int node = node_list[get_global_id(0)];
     bound_count[node] = add_sat(bound_count[node], delta);
+}
+
+__kernel void hist_cong_update (
+    __global const uint *node_list,
+    __global const uint *adj_offset,
+    __global uint *edge_cost
+) {
+    // Update cost for all edges off a given node
+    int node = node_list[get_global_id(0)];
+    for (uint i = adj_offset[node]; i < adj_offset[node + 1]; i++)
+        edge_cost[i] = add_sat(edge_cost[i], edge_cost[i] / 2);
 }
