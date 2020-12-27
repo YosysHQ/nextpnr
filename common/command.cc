@@ -159,7 +159,7 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("sdf", po::value<std::string>(), "SDF delay back-annotation file to write");
     general.add_options()("sdf-cvc", "enable tweaks for SDF file compatibility with the CVC simulator");
     general.add_options()("no-print-critical-path-source",
-                          "disable printing of the source lines associated with each net in the critical path");
+                          "disable printing of the line numbers associated with each net in the critical path");
 
     general.add_options()("placed-svg", po::value<std::string>(), "write render of placement to SVG file");
     general.add_options()("routed-svg", po::value<std::string>(), "write render of routing to SVG file");
