@@ -433,6 +433,8 @@ static std::unique_ptr<CellInfo> create_padin_gbuf(Context *ctx, CellInfo *cell,
                                                    std::string gbuf_name)
 {
     // Find the matching SB_GB BEL connected to the same global network
+    if (!cell->attrs.count(ctx->id("BEL")))
+        log_error("Unconstrained SB_GB_IO %s is not supported.\n", ctx->nameOf(cell));
     BelId bel = ctx->getBelByName(ctx->id(cell->attrs[ctx->id("BEL")].as_string()));
     BelId gb_bel = find_padin_gbuf(ctx, bel, port_name);
     NPNR_ASSERT(gb_bel != BelId());
