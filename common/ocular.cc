@@ -61,7 +61,7 @@ struct OcularRouter
     const int near_queue_len = 15000;
     const int far_queue_len = 50000;
     const int workgroup_size = 128;
-    const int max_nets_in_flight = 1;
+    const int max_nets_in_flight = 16;
     const int queue_chunk_size = 131072;
     const int queue_chunk_count = 512;
 
@@ -72,6 +72,7 @@ struct OcularRouter
     TimeCounter route_check_time{"Completion Check"};
     TimeCounter backtrace_time{"Backtrace"};
     TimeCounter io_time{"General I/O"};
+    TimeCounter net_mgmt_time{"Net Management"};
     TimeCounter total_runtime{"Total"};
 
     /*
@@ -501,6 +502,7 @@ struct OcularRouter
     // Try and add a net
     bool try_add_net(int net_idx)
     {
+        ScopedTimer tmr(net_mgmt_time);
         int slot_idx = -1;
         // Search for a free slot
         for (size_t i = 0; i < net_slots.size(); i++) {
@@ -562,6 +564,7 @@ struct OcularRouter
 
     void remove_net(int slot_idx)
     {
+        ScopedTimer tmr(net_mgmt_time);
         auto &cfg = route_config.at(slot_idx);
         // Set queue lengths to 0
         for (int i = cfg.curr_net_start; i < cfg.curr_net_end; i++) {
@@ -586,9 +589,10 @@ struct OcularRouter
     {
         ScopedTimer tmr(io_time);
         auto &nq_count = curr_is_b ? near_queue_count_b : near_queue_count_a;
-        nq_count.put(*queue);
-        route_config.put(*queue);
-        wg_config.put(*queue);
+        nq_count.put_async(*queue);
+        route_config.put_async(*queue);
+        wg_config.put_async(*queue);
+        queue->finish();
     }
 
     std::deque<int> route_queue;
@@ -612,6 +616,7 @@ struct OcularRouter
     {
         if (!endpoints_need_update)
             return;
+        ScopedTimer tmr(io_time);
         // Update the compacted list of endpoints - whenever a net is added or removed
         all_endpoints.clear();
         for (int i = 0; i < max_nets_in_flight; i++) {
@@ -624,7 +629,7 @@ struct OcularRouter
                 all_endpoints.push_back(ep);
             route_config.at(i).endpoint_count = ifn.endpoints.size();
         }
-        all_endpoints.put(*queue);
+        all_endpoints.put_async(*queue);
         endpoints_need_update = false;
     }
 
@@ -800,6 +805,7 @@ struct OcularRouter
         work_distr_time.log();
         route_check_time.log();
         backtrace_time.log();
+        net_mgmt_time.log();
         io_time.log();
     }
 
