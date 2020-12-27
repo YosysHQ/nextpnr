@@ -154,6 +154,7 @@ template <typename T> struct BackedGPUBuffer : public GPUBuffer<T>
     void push_back(const T &val) { backing.push_back(val); }
     void clear() { backing.clear(); }
     size_t size() const { return backing.size(); };
+    bool empty() const { return backing.empty(); }
 
     typename std::vector<T>::iterator begin() { return backing.begin(); }
     typename std::vector<T>::iterator end() { return backing.end(); }

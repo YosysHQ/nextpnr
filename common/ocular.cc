@@ -49,12 +49,12 @@ struct OcularRouter
     std::unique_ptr<cl::Context> clctx;
     std::unique_ptr<cl::Program> clprog;
     std::unique_ptr<cl::CommandQueue> queue;
-    std::unique_ptr<cl::Kernel> ocular_route_k, check_routed_k;
+    std::unique_ptr<cl::Kernel> ocular_route_k, check_routed_k, update_bound_k;
 
     // Some magic constants
-    const float delay_scale = 1000.0f; // conversion from float ns to int ps
+    const float delay_scale = 100.0f; // conversion from float ns to int 10ps
 
-    const int32_t inf_cost = 0x7FFFFFF;
+    const uint32_t inf_cost = 0xFFFFFFFF;
 
     // Work partitioning and queue configuration - TODO: make these dynamic
     const int num_workgroups = 64;
@@ -97,7 +97,7 @@ struct OcularRouter
     BackedGPUBuffer<uint32_t> edge_dst_index;
     // PIP costs - these will be increased as time goes on
     // to account for historical congestion
-    BackedGPUBuffer<int32_t> edge_cost;
+    BackedGPUBuffer<uint32_t> edge_cost;
     // The GPU doesn't care about these, but we need to corrolate between
     // an adjacency list index and a concrete PIP when we bind the GPU's
     // result
@@ -122,6 +122,8 @@ struct OcularRouter
         bool fixed_routing;
         // We dynamically expand the bounding box margin when routing fails
         int bb_margin = 1;
+        // Used routing
+        std::vector<std::pair<WireId, PipId>> routing;
     };
 
     std::vector<PerNetData> net_data;
@@ -137,7 +139,7 @@ struct OcularRouter
            - next 'far' queue that far-away nodes to explore are added to (per workgroup)
            - number of unique nets bound to a node, to determine congestion-related costs
     */
-    BackedGPUBuffer<int32_t> current_cost;
+    BackedGPUBuffer<uint32_t> current_cost;
     GPUBuffer<uint32_t> last_visit_serial;
     GPUBuffer<uint32_t> uphill_edge;
     // To avoid copies, we swap 'A' and 'B' between current/next queues at every iteration
@@ -157,6 +159,9 @@ struct OcularRouter
     BackedGPUBuffer<uint32_t> all_endpoints;
     BackedGPUBuffer<uint8_t> is_routed;
 
+    // List of nodes for congestion updates
+    BackedGPUBuffer<uint32_t> node_list;
+
     /*
         Current routing configuration
         This structure is per in-flight net
@@ -170,7 +175,7 @@ struct OcularRouter
         cl_int prev_net_start, prev_net_end;
         cl_int curr_net_start, curr_net_end;
         // current congestion cost
-        cl_float curr_cong_cost;
+        cl_uint curr_cong_cost;
         // near/far threshold
         cl_int near_far_thresh;
         // number of nodes to process per workgroup
@@ -226,8 +231,8 @@ struct OcularRouter
               work_far_queue_count(*clctx, CL_MEM_READ_WRITE),
               net_far_queue(*clctx, CL_MEM_READ_WRITE, queue_chunk_size, max_nets_in_flight, queue_chunk_count),
               bound_count(*clctx, CL_MEM_READ_WRITE), all_endpoints(*clctx, CL_MEM_READ_ONLY, 1),
-              is_routed(*clctx, CL_MEM_READ_WRITE), route_config(*clctx, CL_MEM_READ_ONLY),
-              wg_config(*clctx, CL_MEM_READ_ONLY)
+              is_routed(*clctx, CL_MEM_READ_WRITE), node_list(*clctx, CL_MEM_READ_ONLY, 1),
+              route_config(*clctx, CL_MEM_READ_ONLY), wg_config(*clctx, CL_MEM_READ_ONLY)
     {
     }
 
@@ -497,6 +502,9 @@ struct OcularRouter
         check_routed_k->setArg(1, last_visit_serial.buf());
         check_routed_k->setArg(3, is_routed.buf());
         check_routed_k->setArg(4, (uint32_t)max_nets_in_flight);
+
+        update_bound_k = std::unique_ptr<cl::Kernel>(new cl::Kernel(*clprog, "update_bound"));
+        update_bound_k->setArg(1, bound_count.buf());
     }
 
     // Try and add a net
@@ -557,7 +565,12 @@ struct OcularRouter
             int32_t dst_wire_idx = wire_to_index.at(dst_wire);
             ifn.endpoints.push_back(dst_wire_idx);
         }
+        // 'Unbind' existing routing
+        for (auto &rr : nd.routing)
+            node_list.push_back(wire_to_index.at(rr.first));
+        nd.routing.clear();
         // Threshold - FIXME once we start using the far queue in anger...
+        cfg.curr_cong_cost = 1;
         cfg.near_far_thresh = 3000000;
         return true;
     }
@@ -633,6 +646,18 @@ struct OcularRouter
         endpoints_need_update = false;
     }
 
+    void update_congestion(short delta)
+    {
+        ScopedTimer tmr(net_mgmt_time);
+        if (node_list.empty())
+            return;
+        node_list.put(*queue);
+        update_bound_k->setArg(0, node_list.buf());
+        update_bound_k->setArg(2, delta);
+        queue->enqueueNDRangeKernel(*update_bound_k, cl::NullRange, cl::NDRange(node_list.size()), cl::NullRange);
+        queue->finish();
+    }
+
     void do_route()
     {
         log_info("Outer iteration %d...\n", ++outer_iter);
@@ -642,6 +667,7 @@ struct OcularRouter
         distribute_nets();
         int curr_in_flight_nets = 0;
         while (!route_queue.empty() || curr_in_flight_nets > 0) {
+            node_list.clear();
             {
                 // Increment the serial for tracking stale visits
                 ++curr_serial;
@@ -659,6 +685,9 @@ struct OcularRouter
                 log_error("Routing failed!\n");
                 break;
             }
+
+            // Any unbinds as a result of ripup via adding nets
+            update_congestion(-1);
 
             update_endpoints();
             // Push per-iter data
@@ -728,6 +757,9 @@ struct OcularRouter
                 }
             }
 
+            // Binds as a result of adding nets
+            update_congestion(1);
+
             curr_is_b = !curr_is_b;
             distribute_nets();
         }
@@ -757,6 +789,7 @@ struct OcularRouter
             temp_endpoints.insert(wire_data.at(endpoint).w);
             int cursor = endpoint;
             while (cursor != ifn.startpoint) {
+                // Trace uphill nodes until origin or existing routing is reached
                 WireId w = wire_data.at(cursor).w;
                 if (temp_tree.count(w))
                     break;
@@ -772,11 +805,12 @@ struct OcularRouter
         }
         check_route_tree(wire_data.at(ifn.startpoint).w, 0);
         if (!temp_endpoints.empty()) {
+            // All endpoints should have been reached and removed - if not, drop into some route tree debugging
             std::string endpoints_str;
             for (auto ep : temp_endpoints)
                 endpoints_str += stringf("%s ", ctx->nameOfWire(ep));
             for (auto &tree_entry : temp_tree)
-                log_info("Route tree entry: %s %s cost=%d <-| %d\n", ctx->nameOfWire(tree_entry.first),
+                log_info("Route tree entry: %s %s cost=%u <-| %u\n", ctx->nameOfWire(tree_entry.first),
                          tree_entry.second == PipId() ? "<>" : ctx->nameOfPip(tree_entry.second),
                          current_cost.read(*queue, wire_to_index.at(tree_entry.first)),
                          tree_entry.second == PipId()
@@ -784,6 +818,12 @@ struct OcularRouter
                                  : current_cost.read(*queue, wire_to_index.at(ctx->getPipSrcWire(tree_entry.second))));
             log_error("Bad route tree, unreached endpoints for net %s: %s\n", ctx->nameOf(net_data.at(ifn.net_idx).ni),
                       endpoints_str.c_str());
+        }
+        // Add to the net's routing; and the list of nodes to update congestion count
+        auto &nd = net_data.at(ifn.net_idx);
+        for (auto &entry : temp_tree) {
+            node_list.push_back(wire_to_index.at(entry.first));
+            nd.routing.emplace_back(entry.first, entry.second);
         }
     }
 

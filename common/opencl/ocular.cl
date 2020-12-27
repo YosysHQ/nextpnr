@@ -41,7 +41,7 @@ struct NetConfig {
     int prev_net_start, prev_net_end;
     int curr_net_start, curr_net_end;
     // current congestion cost
-    float curr_cong_cost;
+    uint curr_cong_cost;
     // near/far threshold
     int near_far_thresh;
     // number of nodes to process per workgroup
@@ -61,7 +61,7 @@ struct WorkgroupConfig {
     uint size;
 };
 
-#define inf_cost 0x7FFFFFF
+#define inf_cost 0xFFFFFFFF
 
 // Utility functions
 inline bool is_group_leader() {
@@ -101,7 +101,7 @@ __kernel void ocular_route (
     __global const short *wire_x,  __global const short *wire_y,
     __global const uint *adj_offset,
     __global const uint *edge_dst_index,
-    __global const int *edge_cost,
+    __global const uint *edge_cost,
     // Current queue
     __global const uint *curr_queue, __global const uint *curr_queue_count,
     // Next queue - near
@@ -109,7 +109,7 @@ __kernel void ocular_route (
     // Next queue - far
     __global uint *next_far_queue, __global uint *next_far_queue_count,
     // Graph state
-    __global int *current_cost,
+    __global uint *current_cost,
     __global uint *last_visit_serial,
     __global uint *uphill_edge,
     __global const short *bound_count
@@ -170,7 +170,7 @@ __kernel void ocular_route (
 
     // current explored node
     int curr_node = curr_queue[queue_ptr];
-    int curr_cost = current_cost[curr_node];
+    uint curr_cost = current_cost[curr_node];
     // start/end offsets into adjacency list for current node
     int adj_offset_0 = adj_offset[curr_node];
     int adj_offset_1 = adj_offset[curr_node + 1];
@@ -217,8 +217,13 @@ __kernel void ocular_route (
             continue;
         if (next_y < net_data.y0 || next_y > net_data.y1)
             continue;
-        // TODO: congestion cost factor
-        int next_cost = curr_cost + edge_cost[edge_ptr];
+
+        uint next_cost = mad_sat(edge_cost[edge_ptr],
+            mad_sat((uint)bound_count[next_node], (uint)net_data.curr_cong_cost, 1U),
+            curr_cost);
+
+        if (next_cost == UINT_MAX)
+            continue; // should we do something other than drop too-expensive nodes?
 
         // Avoid the expensive atomic that often won't be needed (dubious?)
         bool serial_same = last_visit_serial[next_node] == net_data.serial;
@@ -232,7 +237,7 @@ __kernel void ocular_route (
             added = true;
             current_cost[next_node] = next_cost;
         } else {
-            int last_cost = atomic_min(&(current_cost[next_node]), next_cost);
+            uint last_cost = atomic_min(&(current_cost[next_node]), next_cost);
             added = (next_cost < last_cost);
         }
         if (added) {
@@ -284,3 +289,11 @@ __kernel void check_routed (
         is_routed[current_net] = false;
 }
 
+__kernel void update_bound (
+    __global uint *node_list,
+    __global short *bound_count,
+    short delta
+) {
+    int node = node_list[get_global_id(0)];
+    bound_count[node] = add_sat(bound_count[node], delta);
+}
