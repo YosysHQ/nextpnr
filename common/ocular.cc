@@ -905,6 +905,16 @@ struct OcularRouter
         log_info("Nets with overlap: %d\n", int(route_queue.size()));
     }
 
+    void bind_wires()
+    {
+        for (auto &net : net_data)
+            for (auto &entry : net.routing)
+                if (entry.second == PipId())
+                    ctx->bindWire(entry.first, net.ni, STRENGTH_WEAK);
+                else
+                    ctx->bindPip(entry.second, net.ni, STRENGTH_WEAK);
+    }
+
     bool operator()()
     {
         {
@@ -920,6 +930,7 @@ struct OcularRouter
             }
         }
 
+        bind_wires();
         report_performance();
 
         return true;
