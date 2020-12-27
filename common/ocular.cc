@@ -201,6 +201,9 @@ struct OcularRouter
         std::vector<int> endpoints;
 
         int queue_count = 0;
+
+        // We run for a certain number of 'extra' iters to find longer, but less congested, solutions
+        int extra_iter = 0;
     };
 
     // CPU side grid->net map, so we don't route overlapping nets at once
@@ -576,6 +579,7 @@ struct OcularRouter
         // Threshold - FIXME once we start using the far queue in anger...
         cfg.curr_cong_cost = std::min<int>(std::pow(2.0, outer_iter - 1), 100000);
         cfg.near_far_thresh = 3000000;
+        ifn.extra_iter = 2 * (outer_iter - 1);
         return true;
     }
 
@@ -735,6 +739,7 @@ struct OcularRouter
                 is_routed.get(*queue);
             }
 
+            node_list.clear();
             for (int i = 0; i < max_nets_in_flight; i++) {
                 // Check if finished
                 auto &ifn = net_slots.at(i);
@@ -742,13 +747,15 @@ struct OcularRouter
                     continue;
                 auto &nd = net_data.at(ifn.net_idx);
                 if (is_routed.at(i)) {
-                    // Routed successfully
-                    if (ctx->verbose)
-                        log_info("    successfully routed %s\n", ctx->nameOf(nd.ni));
-                    do_backtrace(i);
-                    remove_net(i);
-                    --curr_in_flight_nets;
-                    endpoints_need_update = true;
+                    if (ifn.extra_iter-- == 0) {
+                        // Routed successfully
+                        if (ctx->verbose)
+                            log_info("    successfully routed %s\n", ctx->nameOf(nd.ni));
+                        do_backtrace(i);
+                        remove_net(i);
+                        --curr_in_flight_nets;
+                        endpoints_need_update = true;
+                    }
                 } else if (route_failed(i)) {
                     // Routed unsuccessfully - but increasing the bounding box margin might help
                     if (nd.bb_margin < std::max(width, height)) {
