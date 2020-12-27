@@ -61,7 +61,7 @@ struct OcularRouter
     const int near_queue_len = 15000;
     const int far_queue_len = 50000;
     const int workgroup_size = 128;
-    const int max_nets_in_flight = 1;
+    const int max_nets_in_flight = 16;
     const int queue_chunk_size = 131072;
     const int queue_chunk_count = 512;
 
@@ -546,6 +546,7 @@ struct OcularRouter
         nq_buf.write(*queue, cfg.prev_net_start * near_queue_len, src_wire_idx);
         // Start cost of zero
         current_cost.write(*queue, src_wire_idx, 0);
+        last_visit_serial.write(*queue, src_wire_idx, cfg.serial);
         // Endpoint list
         ifn.endpoints.clear();
         for (auto &usr : nd.ni->users) {
@@ -724,25 +725,30 @@ struct OcularRouter
             curr_is_b = !curr_is_b;
             distribute_nets();
         }
+        log_info("Final serial: %d\n", curr_serial);
     }
 
     // Temporary routing tree
     std::unordered_map<WireId, PipId> temp_tree;
-    void print_route_tree(WireId w, int indent)
+    std::unordered_set<WireId> temp_endpoints;
+    void check_route_tree(WireId w, int indent)
     {
         log_info("%*s%s\n", indent, "", ctx->nameOfWire(w));
         for (PipId p : ctx->getPipsDownhill(w)) {
             WireId dst = ctx->getPipDstWire(p);
             if (temp_tree.count(dst) && temp_tree.at(dst) == p)
-                print_route_tree(dst, indent + 2);
+                check_route_tree(dst, indent + 2);
         }
+        temp_endpoints.erase(w);
     }
     void do_backtrace(int net_slot)
     {
         ScopedTimer tmr(backtrace_time);
         auto &ifn = net_slots.at(net_slot);
         temp_tree.clear();
+        temp_endpoints.clear();
         for (auto endpoint : ifn.endpoints) {
+            temp_endpoints.insert(wire_data.at(endpoint).w);
             int cursor = endpoint;
             while (cursor != ifn.startpoint) {
                 WireId w = wire_data.at(cursor).w;
@@ -754,7 +760,14 @@ struct OcularRouter
                 cursor = wire_to_index.at(ctx->getPipSrcWire(pip));
             }
         }
-        print_route_tree(wire_data.at(ifn.startpoint).w, 0);
+        check_route_tree(wire_data.at(ifn.startpoint).w, 0);
+        if (!temp_endpoints.empty()) {
+            std::string endpoints_str;
+            for (auto ep : temp_endpoints)
+                endpoints_str += stringf("%s ", ctx->nameOfWire(ep));
+            log_error("Bad route tree, unreached endpoints for net %s: %s\n", ctx->nameOf(net_data.at(ifn.net_idx).ni),
+                      endpoints_str.c_str());
+        }
     }
 
     void init_route_queue()

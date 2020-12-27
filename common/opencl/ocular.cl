@@ -132,8 +132,8 @@ __kernel void ocular_route (
     far_queue_offset = 0;
     finished_threads = 0;
     // Do a binary search to find our position within the queue
-    queue_start = (wg_id - net_data.prev_net_start) * net_data.group_nodes;
-    queue_end = (wg_id - net_data.prev_net_start + 1) * net_data.group_nodes;
+    queue_start = (wg_id - net_data.curr_net_start) * net_data.group_nodes;
+    queue_end = (wg_id - net_data.curr_net_start + 1) * net_data.group_nodes;
     queue_start_chunk =
         binary_search(curr_queue_count + net_data.prev_net_start, (net_data.prev_net_end - net_data.prev_net_start), queue_start);
     barrier(CLK_LOCAL_MEM_FENCE);
@@ -272,7 +272,7 @@ __kernel void check_routed (
     int current_net = 0;
     int acc_endpoints = 0;
     for (current_net = 0; current_net < net_count; current_net++) {
-        if (endpoint_idx >= acc_endpoints)
+        if (acc_endpoints >= endpoint_idx)
             break;
         acc_endpoints += net_cfg[current_net].endpoint_count;
     }
