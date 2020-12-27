@@ -621,8 +621,10 @@ bool Arch::route()
     } else if (router == "router2") {
         router2(getCtx(), Router2Cfg(getCtx()));
         result = true;
+#ifdef USE_OPENCL
     } else if (router == "ocular") {
         result = router_ocular(getCtx());
+#endif
     } else {
         log_error("ECP5 architecture does not support router '%s'\n", router.c_str());
     }
