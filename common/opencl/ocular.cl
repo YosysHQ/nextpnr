@@ -225,14 +225,17 @@ __kernel void ocular_route (
         if (serial_same && (current_cost[next_node] < next_cost))
             continue;
 
-        bool last_stale = false;
+        bool added = false;
 
         if (!serial_same && atomic_max(&(last_visit_serial[next_node]), net_data.serial) != net_data.serial) {
             // Added because old serial is stale
-            last_stale = true;
+            added = true;
+            current_cost[next_node] = next_cost;
+        } else {
+            int last_cost = atomic_min(&(current_cost[next_node]), next_cost);
+            added = (next_cost < last_cost);
         }
-        int last_cost = atomic_min(&(current_cost[next_node]), next_cost);
-        if (last_stale || (next_cost < last_cost)) {
+        if (added) {
             // Atomic confirms it really is a better path
             uphill_edge[next_node] = edge_ptr;
             if (next_cost < net_data.near_far_thresh) {
@@ -272,7 +275,7 @@ __kernel void check_routed (
     int current_net = 0;
     int acc_endpoints = 0;
     for (current_net = 0; current_net < net_count; current_net++) {
-        if (acc_endpoints >= endpoint_idx)
+        if (endpoint_idx >= acc_endpoints && endpoint_idx < (acc_endpoints + net_cfg[current_net].endpoint_count))
             break;
         acc_endpoints += net_cfg[current_net].endpoint_count;
     }

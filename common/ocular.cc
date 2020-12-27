@@ -61,7 +61,7 @@ struct OcularRouter
     const int near_queue_len = 15000;
     const int far_queue_len = 50000;
     const int workgroup_size = 128;
-    const int max_nets_in_flight = 16;
+    const int max_nets_in_flight = 1;
     const int queue_chunk_size = 131072;
     const int queue_chunk_count = 512;
 
@@ -269,7 +269,8 @@ struct OcularRouter
                     continue;
                 // Compute integer cost; combined cost of the pip and the wire it drives
                 int base_cost = int((ctx->getDelayNS(ctx->getPipDelay(p).maxDelay()) +
-                                     ctx->getDelayNS(ctx->getWireDelay(dst).maxDelay())) *
+                                     ctx->getDelayNS(ctx->getWireDelay(dst).maxDelay()) +
+                                     ctx->getDelayNS(ctx->getDelayEpsilon())) *
                                     delay_scale);
                 // Add to the adjacency list
                 edge_cost.push_back(base_cost);
@@ -756,6 +757,10 @@ struct OcularRouter
                     break;
                 int edge = uphill_edge.read(*queue, cursor);
                 PipId pip = edge_pip.at(edge);
+                if (ctx->getPipDstWire(pip) != w)
+                    log_error("Bad route tree, inconsistent pip %s driving wire %s (serials %d %d)\n",
+                              ctx->nameOfPip(pip), ctx->nameOfWire(w), last_visit_serial.read(*queue, cursor),
+                              route_config.at(net_slot).serial);
                 temp_tree[w] = pip; // dst -> driving pip
                 cursor = wire_to_index.at(ctx->getPipSrcWire(pip));
             }
@@ -765,6 +770,13 @@ struct OcularRouter
             std::string endpoints_str;
             for (auto ep : temp_endpoints)
                 endpoints_str += stringf("%s ", ctx->nameOfWire(ep));
+            for (auto &tree_entry : temp_tree)
+                log_info("Route tree entry: %s %s cost=%d <-| %d\n", ctx->nameOfWire(tree_entry.first),
+                         tree_entry.second == PipId() ? "<>" : ctx->nameOfPip(tree_entry.second),
+                         current_cost.read(*queue, wire_to_index.at(tree_entry.first)),
+                         tree_entry.second == PipId()
+                                 ? 0
+                                 : current_cost.read(*queue, wire_to_index.at(ctx->getPipSrcWire(tree_entry.second))));
             log_error("Bad route tree, unreached endpoints for net %s: %s\n", ctx->nameOf(net_data.at(ifn.net_idx).ni),
                       endpoints_str.c_str());
         }
