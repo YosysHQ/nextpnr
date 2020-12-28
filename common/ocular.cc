@@ -533,10 +533,19 @@ struct OcularRouter
         auto &ifn = net_slots.at(slot_idx);
         auto &cfg = route_config.at(slot_idx);
         // Compute expanded bounding box
-        cfg.x0 = std::max<int>(0, nd.bb.x0 - nd.bb_margin);
-        cfg.y0 = std::max<int>(0, nd.bb.y0 - nd.bb_margin);
-        cfg.x1 = std::min<int>(width - 1, nd.bb.x1 + nd.bb_margin);
-        cfg.y1 = std::min<int>(height - 1, nd.bb.y1 + nd.bb_margin);
+        int bb_margin = nd.bb_margin;
+        if (outer_iter > 30)
+            bb_margin *= 10;
+        if (outer_iter > 20)
+            bb_margin *= 5;
+        else if (outer_iter > 10)
+            bb_margin *= 2;
+        if (outer_iter > 3)
+            bb_margin += 2;
+        cfg.x0 = std::max<int>(0, nd.bb.x0 - bb_margin);
+        cfg.y0 = std::max<int>(0, nd.bb.y0 - bb_margin);
+        cfg.x1 = std::min<int>(width - 1, nd.bb.x1 + bb_margin);
+        cfg.y1 = std::min<int>(height - 1, nd.bb.y1 + bb_margin);
         // Check for overlaps with other nets being routed
         if (!check_region(cfg.x0, cfg.y0, cfg.x1, cfg.y1))
             return false;
@@ -577,9 +586,9 @@ struct OcularRouter
             node_list.push_back(wire_to_index.at(rr.first));
         nd.routing.clear();
         // Threshold - FIXME once we start using the far queue in anger...
-        cfg.curr_cong_cost = std::min<int>(std::pow(2.0, outer_iter - 1), 100000);
+        cfg.curr_cong_cost = (int)std::min<double>(std::pow(2.0, outer_iter), 10000000);
         cfg.near_far_thresh = inf_cost;
-        ifn.extra_iter = 2 * (outer_iter - 1);
+        ifn.extra_iter = std::min<int>(20, 2 * outer_iter);
         return true;
     }
 
@@ -878,6 +887,8 @@ struct OcularRouter
         io_time.log();
     }
 
+    void report_performance_interim() { route_kernel_time.log(); }
+
     std::unordered_map<WireId, int> used_wires;
     void compute_congestion()
     {
@@ -939,6 +950,7 @@ struct OcularRouter
             while (!route_queue.empty()) {
                 do_route();
                 compute_congestion();
+                report_performance_interim();
             }
         }
 
