@@ -578,7 +578,7 @@ struct OcularRouter
         nd.routing.clear();
         // Threshold - FIXME once we start using the far queue in anger...
         cfg.curr_cong_cost = std::min<int>(std::pow(2.0, outer_iter - 1), 100000);
-        cfg.near_far_thresh = 3000000;
+        cfg.near_far_thresh = inf_cost;
         ifn.extra_iter = 2 * (outer_iter - 1);
         return true;
     }
@@ -749,9 +749,15 @@ struct OcularRouter
                 if (is_routed.at(i)) {
                     if (ifn.extra_iter-- == 0) {
                         // Routed successfully
-                        if (ctx->verbose)
-                            log_info("    successfully routed %s\n", ctx->nameOf(nd.ni));
-                        do_backtrace(i);
+                        bool success = do_backtrace(i);
+                        if (!success) {
+                            route_queue.push_back(ifn.net_idx);
+                            if (ctx->verbose)
+                                log_info("    got illegal route tree for %s; trying again\n", ctx->nameOf(nd.ni));
+                        } else {
+                            if (ctx->verbose)
+                                log_info("    successfully routed %s\n", ctx->nameOf(nd.ni));
+                        }
                         remove_net(i);
                         --curr_in_flight_nets;
                         endpoints_need_update = true;
@@ -796,7 +802,7 @@ struct OcularRouter
         }
         temp_endpoints.erase(w);
     }
-    void do_backtrace(int net_slot)
+    bool do_backtrace(int net_slot)
     {
         ScopedTimer tmr(backtrace_time);
         auto &ifn = net_slots.at(net_slot);
@@ -822,6 +828,10 @@ struct OcularRouter
         }
         check_route_tree(wire_data.at(ifn.startpoint).w, 0);
         if (!temp_endpoints.empty()) {
+#if 1
+            // TODO: is there a performant way to guarantee a loop free solution, other than just trying again?
+            return false;
+#else
             // All endpoints should have been reached and removed - if not, drop into some route tree debugging
             std::string endpoints_str;
             for (auto ep : temp_endpoints)
@@ -835,6 +845,7 @@ struct OcularRouter
                                  : current_cost.read(*queue, wire_to_index.at(ctx->getPipSrcWire(tree_entry.second))));
             log_error("Bad route tree, unreached endpoints for net %s: %s\n", ctx->nameOf(net_data.at(ifn.net_idx).ni),
                       endpoints_str.c_str());
+#endif
         }
         // Add to the net's routing; and the list of nodes to update congestion count
         auto &nd = net_data.at(ifn.net_idx);
@@ -842,6 +853,7 @@ struct OcularRouter
             node_list.push_back(wire_to_index.at(entry.first));
             nd.routing.emplace_back(entry.first, entry.second);
         }
+        return true;
     }
 
     void init_route_queue()
