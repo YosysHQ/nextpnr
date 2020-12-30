@@ -1,4 +1,4 @@
-FROM ubuntu:xenial-20181113
+FROM ubuntu:focal-20201106
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -9,14 +9,14 @@ RUN set -e -x ;\
         build-essential autoconf cmake clang bison wget flex gperf \
         libreadline-dev gawk tcl-dev libffi-dev graphviz xdot python3-dev \
         libboost-all-dev qt5-default git libftdi-dev pkg-config libeigen3-dev \
-        zlib1g-dev curl
+        zlib1g-dev curl python3-pip
 
 RUN set -e -x ;\
     mkdir -p /usr/local/src ;\
     cd /usr/local/src ;\
     git clone --recursive https://github.com/steveicarus/iverilog.git ;\
     cd iverilog ;\
-    git reset --hard 172d7eb0a3665f89b91d601b5912c33acedc81e5 ;\
+    git reset --hard 84b4ebee0cfcda28a242d89a07020cd70b1d3e7f ;\
     sh autoconf.sh ;\
     ./configure ;\
     make -j $(nproc) ;\
@@ -62,3 +62,6 @@ RUN set -e -x ;\
     git reset --hard 72dbb7973f31a30c3b9d18f3bac97caaea9a7f33 ;\
     cd libprjoxide ;\
     PATH=$PATH:$HOME/.cargo/bin cargo install --path prjoxide
+
+RUN set -e -x ;\
+    pip3 install apycula==0.0.1a3

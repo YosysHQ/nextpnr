@@ -1,9 +1,9 @@
 task:
-  name: build-test-ubuntu1604
+  name: build-test-ubuntu2004
   container:
     cpu: 4
     memory: 20
-    dockerfile: .cirrus/Dockerfile.ubuntu16.04
+    dockerfile: .cirrus/Dockerfile.ubuntu20.04
 
   build_script: mkdir build && cd build && cmake .. -DARCH=all+alpha -DOXIDE_INSTALL_PREFIX=$HOME/.cargo -DBUILD_TESTS=on && make -j3
   submodule_script: git submodule sync --recursive && git submodule update --init --recursive
