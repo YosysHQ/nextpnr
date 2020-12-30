@@ -530,7 +530,7 @@ class HeAPPlacer
             available_bels[ctx->getBelType(bel)].push_back(bel);
         }
         for (auto &t : available_bels) {
-            std::random_shuffle(t.second.begin(), t.second.end(), [&](size_t n) { return ctx->rng(int(n)); });
+            ctx->shuffle(t.second.begin(), t.second.end());
         }
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
