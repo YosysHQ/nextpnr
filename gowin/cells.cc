@@ -19,10 +19,10 @@
  */
 
 #include "cells.h"
+#include <iostream>
 #include "design_utils.h"
 #include "log.h"
 #include "util.h"
-#include <iostream>
 
 NEXTPNR_NAMESPACE_BEGIN
 

@@ -19,13 +19,13 @@
  */
 
 #include <algorithm>
+#include <iostream>
 #include <iterator>
 #include <unordered_set>
 #include "cells.h"
 #include "design_utils.h"
 #include "log.h"
 #include "util.h"
-#include <iostream>
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -41,8 +41,7 @@ static void pack_lut_lutffs(Context *ctx)
         if (ctx->verbose)
             log_info("cell '%s' is of type '%s'\n", ctx->nameOf(ci), ci->type.c_str(ctx));
         if (is_lut(ctx, ci)) {
-            std::unique_ptr<CellInfo> packed =
-                    create_generic_cell(ctx, ctx->id("SLICE"), ci->name.str(ctx) + "_LC");
+            std::unique_ptr<CellInfo> packed = create_generic_cell(ctx, ctx->id("SLICE"), ci->name.str(ctx) + "_LC");
             std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(packed->attrs, packed->attrs.begin()));
             packed_cells.insert(ci->name);
             if (ctx->verbose)
@@ -96,8 +95,7 @@ static void pack_nonlut_ffs(Context *ctx)
     for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
         if (is_ff(ctx, ci)) {
-            std::unique_ptr<CellInfo> packed =
-                    create_generic_cell(ctx, ctx->id("SLICE"), ci->name.str(ctx) + "_DFFLC");
+            std::unique_ptr<CellInfo> packed = create_generic_cell(ctx, ctx->id("SLICE"), ci->name.str(ctx) + "_DFFLC");
             std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(packed->attrs, packed->attrs.begin()));
             if (ctx->verbose)
                 log_info("packed cell %s into %s\n", ctx->nameOf(ci), ctx->nameOf(packed.get()));
@@ -196,9 +194,9 @@ static bool is_nextpnr_iob(const Context *ctx, CellInfo *cell)
            cell->type == ctx->id("$nextpnr_iobuf");
 }
 
-static bool is_gowin_iob(const Context *ctx, const CellInfo *cell) {
-    switch (cell->type.index)
-    {
+static bool is_gowin_iob(const Context *ctx, const CellInfo *cell)
+{
+    switch (cell->type.index) {
     case ID_IBUF:
     case ID_OBUF:
     case ID_IOBUF:
@@ -207,7 +205,7 @@ static bool is_gowin_iob(const Context *ctx, const CellInfo *cell) {
     default:
         return false;
     }
- }
+}
 
 // Pack IO buffers
 static void pack_io(Context *ctx)
@@ -222,8 +220,7 @@ static void pack_io(Context *ctx)
         CellInfo *ci = cell.second;
         if (is_gowin_iob(ctx, ci)) {
             CellInfo *iob = nullptr;
-            switch (ci->type.index)
-            {
+            switch (ci->type.index) {
             case ID_IBUF:
                 iob = net_driven_by(ctx, ci->ports.at(id_I).net, is_nextpnr_iob, id_O);
                 break;
@@ -247,8 +244,7 @@ static void pack_io(Context *ctx)
                 packed_cells.insert(iob->name);
             }
             // Create a IOB buffer
-            std::unique_ptr<CellInfo> ice_cell =
-                    create_generic_cell(ctx, id_IOB, ci->name.str(ctx) + "$iob");
+            std::unique_ptr<CellInfo> ice_cell = create_generic_cell(ctx, id_IOB, ci->name.str(ctx) + "$iob");
             gwio_to_iob(ctx, ci, ice_cell.get(), packed_cells);
             new_cells.push_back(std::move(ice_cell));
             auto gwiob = new_cells.back().get();

@@ -870,7 +870,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                     if (dir != "OUTPUT")
                         log_error("Pseudo-differential IO '%s' must be output\n", ctx->nameOf(ci));
                     if (pio != "PIOA")
-                        log_error("Pseudo-differential IO '%s' must be constrained to 'A' side of pair\n", ctx->nameOf(ci));
+                        log_error("Pseudo-differential IO '%s' must be constrained to 'A' side of pair\n",
+                                  ctx->nameOf(ci));
                     std::string cpio_tile = get_comp_pio_tile(ctx, bel);
                     std::string cpic_tile = get_comp_pic_tile(ctx, bel);
                     cc.tiles[cpio_tile].add_enum(pio + ".BASE_TYPE", dir + "_" + iotype);

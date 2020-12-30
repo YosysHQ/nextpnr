@@ -479,28 +479,29 @@ DelayInfo Arch::getWireTypeDelay(IdString wire)
     }
 }
 
-void Arch::read_cst(std::istream &in) {
+void Arch::read_cst(std::istream &in)
+{
     std::regex iobre = std::regex("IO_LOC +\"([^\"]+)\" +([^ ;]+);");
     std::smatch match;
     std::string line;
     while (!in.eof()) {
         std::getline(in, line);
-        if(!std::regex_match(line, match, iobre)) {
+        if (!std::regex_match(line, match, iobre)) {
             // empty line or comment
-            if(line.empty() || line.rfind("//", 0) == 0) {
+            if (line.empty() || line.rfind("//", 0) == 0) {
                 continue;
             } else {
                 log_warning("Invalid constraint: %s\n", line.c_str());
                 continue;
             }
         }
-        //std::cout << match[1] << " " << match[2] << std::endl;
+        // std::cout << match[1] << " " << match[2] << std::endl;
         IdString net = id(match[1]);
         IdString pinname = id(match[2]);
         const PairPOD *belname = pairLookup(package->pins.get(), package->num_pins, pinname.index);
-        if ( belname == nullptr)
+        if (belname == nullptr)
             log_error("Pin %s not found\n", pinname.c_str(this));
-        //BelId bel = getBelByName(belname->src_id);
+        // BelId bel = getBelByName(belname->src_id);
         // for (auto cell : sorted(cells)) {
         //     std::cout << cell.first.str(this) << std::endl;
         // }
@@ -545,10 +546,10 @@ Arch::Arch(ArchArgs args) : args(args)
     if (speed == nullptr) {
         log_error("Unsuported speed grade '%s'.\n", args.speed.c_str());
     }
-    const VariantPOD* variant = nullptr;
+    const VariantPOD *variant = nullptr;
     for (unsigned int i = 0; i < db->num_variants; i++) {
         auto var = &db->variants[i];
-        //std::cout << IdString(var->name_id).str(this) << std::endl;
+        // std::cout << IdString(var->name_id).str(this) << std::endl;
         if (IdString(var->name_id) == id(args.device)) {
             variant = var;
             break;
@@ -776,10 +777,7 @@ const std::vector<BelId> &Arch::getBelsByTile(int x, int y) const { return bels_
 
 bool Arch::getBelGlobalBuf(BelId bel) const { return bels.at(bel).gb; }
 
-uint32_t Arch::getBelChecksum(BelId bel) const
-{
-    return bel.index;
-}
+uint32_t Arch::getBelChecksum(BelId bel) const { return bel.index; }
 
 void Arch::bindBel(BelId bel, CellInfo *cell, PlaceStrength strength)
 {
@@ -896,10 +894,7 @@ IdString Arch::getPipType(PipId pip) const { return pips.at(pip).type; }
 
 const std::map<IdString, std::string> &Arch::getPipAttrs(PipId pip) const { return pips.at(pip).attrs; }
 
-uint32_t Arch::getPipChecksum(PipId wire) const
-{
-    return wire.index;
-}
+uint32_t Arch::getPipChecksum(PipId wire) const { return wire.index; }
 
 void Arch::bindPip(PipId pip, NetInfo *net, PlaceStrength strength)
 {

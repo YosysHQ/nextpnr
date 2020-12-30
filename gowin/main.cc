@@ -57,7 +57,7 @@ std::unique_ptr<Context> GowinCommandHandler::createContext(std::unordered_map<s
     std::regex devicere = std::regex("GW1N([A-Z]*)-(LV|UV)([0-9])([A-Z]{2}[0-9]+)(C[0-9]/I[0-9])");
     std::smatch match;
     std::string device = vm["device"].as<std::string>();
-    if(!std::regex_match(device, match, devicere)) {
+    if (!std::regex_match(device, match, devicere)) {
         log_error("Invalid device %s\n", device.c_str());
     }
     ArchArgs chipArgs;
