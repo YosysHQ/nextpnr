@@ -24,6 +24,8 @@
 #include "performance.h"
 #include "util.h"
 
+#include <numeric>
+
 NEXTPNR_NAMESPACE_BEGIN
 
 /*
@@ -49,7 +51,8 @@ struct OcularRouter
     std::unique_ptr<cl::Context> clctx;
     std::unique_ptr<cl::Program> clprog;
     std::unique_ptr<cl::CommandQueue> queue;
-    std::unique_ptr<cl::Kernel> ocular_route_k, check_routed_k, update_bound_k, hist_cong_update_k;
+    std::unique_ptr<cl::Kernel> ocular_route_k, check_routed_k, update_bound_k, hist_cong_update_k,
+            reset_inqueue_flags_k, squish_dups_k;
 
     // Some magic constants
     const float delay_scale = 100.0f; // conversion from float ns to int 10ps
@@ -68,6 +71,7 @@ struct OcularRouter
     // Performance counters
     TimeCounter init_time{"Initialisation"};
     TimeCounter route_kernel_time{"Routing Kernel"};
+    TimeCounter squish_dups_time{"Duplicate Removal"};
     TimeCounter work_distr_time{"Work Distribution"};
     TimeCounter route_check_time{"Completion Check"};
     TimeCounter backtrace_time{"Backtrace"};
@@ -155,6 +159,9 @@ struct OcularRouter
 
     BackedGPUBuffer<uint16_t> bound_count;
 
+    // Used as temporary storage for the duplicate removal pass
+    GPUBuffer<uint32_t> already_in_queue;
+
     // List of endpoints when checking routeability, and per-net routed status
     BackedGPUBuffer<uint32_t> all_endpoints;
     BackedGPUBuffer<uint8_t> is_routed;
@@ -233,9 +240,10 @@ struct OcularRouter
               near_queue_count_b(*clctx, CL_MEM_READ_WRITE), work_far_queue(*clctx, CL_MEM_READ_WRITE),
               work_far_queue_count(*clctx, CL_MEM_READ_WRITE),
               net_far_queue(*clctx, CL_MEM_READ_WRITE, queue_chunk_size, max_nets_in_flight, queue_chunk_count),
-              bound_count(*clctx, CL_MEM_READ_WRITE), all_endpoints(*clctx, CL_MEM_READ_ONLY, 1),
-              is_routed(*clctx, CL_MEM_READ_WRITE), node_list(*clctx, CL_MEM_READ_ONLY, 1),
-              route_config(*clctx, CL_MEM_READ_ONLY), wg_config(*clctx, CL_MEM_READ_ONLY)
+              bound_count(*clctx, CL_MEM_READ_WRITE), already_in_queue(*clctx, CL_MEM_READ_WRITE),
+              all_endpoints(*clctx, CL_MEM_READ_ONLY, 1), is_routed(*clctx, CL_MEM_READ_WRITE),
+              node_list(*clctx, CL_MEM_READ_ONLY, 1), route_config(*clctx, CL_MEM_READ_ONLY),
+              wg_config(*clctx, CL_MEM_READ_ONLY)
     {
     }
 
@@ -371,6 +379,9 @@ struct OcularRouter
         wg_config.resize(num_workgroups);
         for (auto &wg : wg_config)
             wg.size = workgroup_size;
+
+        // For duplicate removal; one bit per wire
+        already_in_queue.resize((wire_data.size() + 31) / 32);
 
         grid2net.resize(width * height, -1);
 
@@ -512,6 +523,16 @@ struct OcularRouter
         hist_cong_update_k = std::unique_ptr<cl::Kernel>(new cl::Kernel(*clprog, "hist_cong_update"));
         hist_cong_update_k->setArg(1, adj_offset.buf());
         hist_cong_update_k->setArg(2, edge_cost.buf());
+
+        reset_inqueue_flags_k = std::unique_ptr<cl::Kernel>(new cl::Kernel(*clprog, "reset_inqueue_flags"));
+        reset_inqueue_flags_k->setArg(0, already_in_queue.buf());
+
+        squish_dups_k = std::unique_ptr<cl::Kernel>(new cl::Kernel(*clprog, "squish_duplicates"));
+        squish_dups_k->setArg(0, route_config.buf());
+        squish_dups_k->setArg(1, wg_config.buf());
+        // Curr queue set dynamically based on A/B
+        squish_dups_k->setArg(4, already_in_queue.buf());
+        // Next queue set dynamically based on A/B
     }
 
     // Try and add a net
@@ -675,6 +696,27 @@ struct OcularRouter
         queue->finish();
     }
 
+    void remove_duplicates()
+    {
+        ScopedTimer tmr(squish_dups_time);
+        // Create a copy of the route queue with duplicates removed
+
+        // First, reset flags
+        queue->enqueueNDRangeKernel(*reset_inqueue_flags_k, cl::NullRange, cl::NDRange(already_in_queue.size()),
+                                    cl::NullRange);
+
+        // Then configure and run the remove-dups kernel
+        curr_is_b = !curr_is_b;
+        squish_dups_k->setArg(2, (curr_is_b ? near_queue_b : near_queue_a).buf());
+        squish_dups_k->setArg(3, (curr_is_b ? near_queue_count_b : near_queue_count_a).buf());
+        squish_dups_k->setArg(5, (curr_is_b ? near_queue_a : near_queue_b).buf());
+        squish_dups_k->setArg(6, (curr_is_b ? near_queue_count_a : near_queue_count_b).buf());
+        queue->enqueueNDRangeKernel(*squish_dups_k, cl::NullRange, cl::NDRange(used_workgroups * workgroup_size),
+                                    cl::NDRange(workgroup_size));
+        queue->finish();
+        (curr_is_b ? near_queue_count_a : near_queue_count_b).get(*queue);
+    }
+
     void do_route()
     {
         log_info("Outer iteration %d...\n", ++outer_iter);
@@ -724,14 +766,24 @@ struct OcularRouter
                                             cl::NDRange(used_workgroups * workgroup_size), cl::NDRange(workgroup_size));
                 queue->finish();
             }
+            // Interim because we might swap A/B again if we decide to remove duplicate queue entries
+            auto &interim_count = curr_is_b ? near_queue_count_a : near_queue_count_b;
+            {
+                ScopedTimer iotmr(io_time);
+                interim_count.get(*queue);
+            }
+
+            if (std::accumulate(interim_count.begin(), interim_count.begin() + used_workgroups, 0) >= 10000) {
+                // Removing duplicates has a high fixed latency (at least 20us) so its only worthwile if the queue is
+                // quite long
+                remove_duplicates();
+            }
+
             // Update far queue
             // update_global_queues();
             // Fetch count
             auto &next_count = curr_is_b ? near_queue_count_a : near_queue_count_b;
-            {
-                ScopedTimer iotmr(io_time);
-                next_count.get(*queue);
-            }
+
             for (int i = 0; i < max_nets_in_flight; i++) {
                 prefix_sum(next_count, route_config.at(i).curr_net_start, route_config.at(i).curr_net_end);
             }
@@ -880,6 +932,7 @@ struct OcularRouter
         total_runtime.log();
         init_time.log();
         route_kernel_time.log();
+        squish_dups_time.log();
         work_distr_time.log();
         route_check_time.log();
         backtrace_time.log();

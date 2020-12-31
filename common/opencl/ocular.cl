@@ -308,3 +308,67 @@ __kernel void hist_cong_update (
     for (uint i = adj_offset[node]; i < adj_offset[node + 1]; i++)
         edge_cost[i] = add_sat(edge_cost[i], edge_cost[i] / 2);
 }
+
+__kernel void reset_inqueue_flags (
+    __global uint *already_in_queue
+) {
+    already_in_queue[get_global_id(0)] = 0;
+}
+
+__kernel void squish_duplicates (
+    // Configuration
+    __global const struct NetConfig *net_cfg,
+    __global const struct WorkgroupConfig *wg_cfg,
+    // Input queue
+    __global const uint *curr_queue,
+    __global const uint *curr_queue_count,
+    // Already-in-queue flag bitvector
+    __global uint *already_in_queue,
+    // Output queue
+    __global uint *next_queue,
+    __global uint *next_queue_count
+) {
+    int wg_id = get_group_id(0);
+    struct WorkgroupConfig wg;
+    struct NetConfig net_data;
+
+    __local uint out_queue_offset;
+    __local int finished_threads;
+
+    wg = wg_cfg[wg_id];
+    net_data = net_cfg[wg.net];
+
+    out_queue_offset = 0;
+    finished_threads = 0;
+
+    uint queue_offset = get_local_id(0);
+    uint queue_len = curr_queue_count[wg_id];
+
+    while (queue_offset < queue_len) {
+        uint node = curr_queue[wg_id * net_data.near_queue_size + queue_offset];
+        uint node_word = node / 32;
+        uint node_bit = node % 32;
+
+        uint bit_mask = (1U << node_bit);
+        uint last_val = atomic_or(&(already_in_queue[node_word]), bit_mask);
+
+        if ((last_val & bit_mask) != bit_mask) {
+            // Not already in queue
+            uint out_offset = atomic_inc(&out_queue_offset);
+            next_queue[wg_id * net_data.near_queue_size + out_offset] = node;
+        }
+
+        queue_offset += get_local_size(0);
+    }
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+    atomic_inc(&finished_threads);
+    // Wait for all threads to complete
+    while (finished_threads != wg.size) {
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+    if (is_group_leader()) {
+        // Update queue count
+        next_queue_count[wg_id] = out_queue_offset;
+    }
+}
