@@ -22,6 +22,7 @@
 #include "nextpnr.h"
 #include "opencl.h"
 #include "performance.h"
+#include "timing.h"
 #include "util.h"
 
 #include <numeric>
@@ -557,11 +558,11 @@ struct OcularRouter
         int bb_margin = nd.bb_margin;
         if (outer_iter > 30)
             bb_margin *= 10;
-        if (outer_iter > 20)
+        else if (outer_iter > 20)
             bb_margin *= 5;
         else if (outer_iter > 10)
             bb_margin *= 2;
-        if (outer_iter > 3)
+        else if (outer_iter > 3)
             bb_margin += 2;
         cfg.x0 = std::max<int>(0, nd.bb.x0 - bb_margin);
         cfg.y0 = std::max<int>(0, nd.bb.y0 - bb_margin);
@@ -985,10 +986,14 @@ struct OcularRouter
     {
         for (auto &net : net_data)
             for (auto &entry : net.routing)
-                if (entry.second == PipId())
+                if (entry.second == PipId()) {
+                    NPNR_ASSERT(ctx->checkWireAvail(entry.first));
                     ctx->bindWire(entry.first, net.ni, STRENGTH_WEAK);
-                else
+                } else {
+                    NPNR_ASSERT(ctx->checkWireAvail(entry.first));
+                    NPNR_ASSERT(ctx->checkPipAvail(entry.second));
                     ctx->bindPip(entry.second, net.ni, STRENGTH_WEAK);
+                }
     }
 
     bool operator()()
@@ -1009,6 +1014,9 @@ struct OcularRouter
 
         bind_wires();
         report_performance();
+
+        timing_analysis(ctx, true /* slack_histogram */, true /* print_fmax */, true /* print_path */,
+                        true /* warn_on_failure */);
 
         return true;
     }
