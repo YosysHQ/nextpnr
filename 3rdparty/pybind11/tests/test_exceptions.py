@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+import sys
+
 import pytest
 
 from pybind11_tests import exceptions as m
@@ -47,6 +50,33 @@ def test_python_call_in_catch():
     assert d["good"] is True
 
 
+def test_python_alreadyset_in_destructor(monkeypatch, capsys):
+    hooked = False
+    triggered = [False]  # mutable, so Python 2.7 closure can modify it
+
+    if hasattr(sys, "unraisablehook"):  # Python 3.8+
+        hooked = True
+        default_hook = sys.unraisablehook
+
+        def hook(unraisable_hook_args):
+            exc_type, exc_value, exc_tb, err_msg, obj = unraisable_hook_args
+            if obj == "already_set demo":
+                triggered[0] = True
+            default_hook(unraisable_hook_args)
+            return
+
+        # Use monkeypatch so pytest can apply and remove the patch as appropriate
+        monkeypatch.setattr(sys, "unraisablehook", hook)
+
+    assert m.python_alreadyset_in_destructor("already_set demo") is True
+    if hooked:
+        assert triggered[0] is True
+
+    _, captured_stderr = capsys.readouterr()
+    # Error message is different in Python 2 and 3, check for words that appear in both
+    assert "ignored" in captured_stderr and "already_set demo" in captured_stderr
+
+
 def test_exception_matches():
     assert m.exception_matches()
     assert m.exception_matches_base()
@@ -77,7 +107,9 @@ def test_custom(msg):
     # Can we fall-through to the default handler?
     with pytest.raises(RuntimeError) as excinfo:
         m.throws_logic_error()
-    assert msg(excinfo.value) == "this error should fall through to the standard handler"
+    assert (
+        msg(excinfo.value) == "this error should fall through to the standard handler"
+    )
 
     # OverFlow error translation.
     with pytest.raises(OverflowError) as excinfo:
@@ -136,7 +168,13 @@ def test_nested_throws(capture):
     # C++ -> Python -> C++ -> Python
     with capture:
         m.try_catch(
-            m.MyException5, pycatch, m.MyException, m.try_catch, m.MyException, throw_myex5)
+            m.MyException5,
+            pycatch,
+            m.MyException,
+            m.try_catch,
+            m.MyException,
+            throw_myex5,
+        )
     assert str(capture).startswith("MyException5: nested error 5")
 
     # C++ -> Python -> C++
@@ -148,3 +186,13 @@ def test_nested_throws(capture):
     with pytest.raises(m.MyException5) as excinfo:
         m.try_catch(m.MyException, pycatch, m.MyException, m.throws5)
     assert str(excinfo.value) == "this is a helper-defined translated exception"
+
+
+# This can often happen if you wrap a pybind11 class in a Python wrapper
+def test_invalid_repr():
+    class MyRepr(object):
+        def __repr__(self):
+            raise AttributeError("Example error")
+
+    with pytest.raises(TypeError):
+        m.simple_bool_passthrough(MyRepr())
