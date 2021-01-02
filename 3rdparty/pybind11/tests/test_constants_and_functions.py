@@ -1,4 +1,7 @@
-from pybind11_tests import constants_and_functions as m
+# -*- coding: utf-8 -*-
+import pytest
+
+m = pytest.importorskip("pybind11_tests.constants_and_functions")
 
 
 def test_constants():

@@ -1,5 +1,7 @@
-# Python < 3 needs this: coding=utf-8
+# -*- coding: utf-8 -*-
 import pytest
+
+import env  # noqa: F401
 
 from pybind11_tests import builtin_casters as m
 from pybind11_tests import UserType, IncType
@@ -35,79 +37,85 @@ def test_unicode_conversion():
         with pytest.raises(UnicodeDecodeError):
             m.bad_utf8_u8string()
 
-    assert m.u8_Z() == 'Z'
-    assert m.u8_eacute() == u'é'
-    assert m.u16_ibang() == u'‽'
-    assert m.u32_mathbfA() == u'𝐀'
-    assert m.wchar_heart() == u'♥'
+    assert m.u8_Z() == "Z"
+    assert m.u8_eacute() == u"é"
+    assert m.u16_ibang() == u"‽"
+    assert m.u32_mathbfA() == u"𝐀"
+    assert m.wchar_heart() == u"♥"
     if hasattr(m, "has_u8string"):
-        assert m.u8_char8_Z() == 'Z'
+        assert m.u8_char8_Z() == "Z"
 
 
 def test_single_char_arguments():
     """Tests failures for passing invalid inputs to char-accepting functions"""
+
     def toobig_message(r):
         return "Character code point not in range({0:#x})".format(r)
+
     toolong_message = "Expected a character, but multi-character string found"
 
-    assert m.ord_char(u'a') == 0x61  # simple ASCII
-    assert m.ord_char_lv(u'b') == 0x62
-    assert m.ord_char(u'é') == 0xE9  # requires 2 bytes in utf-8, but can be stuffed in a char
+    assert m.ord_char(u"a") == 0x61  # simple ASCII
+    assert m.ord_char_lv(u"b") == 0x62
+    assert (
+        m.ord_char(u"é") == 0xE9
+    )  # requires 2 bytes in utf-8, but can be stuffed in a char
     with pytest.raises(ValueError) as excinfo:
-        assert m.ord_char(u'Ā') == 0x100  # requires 2 bytes, doesn't fit in a char
+        assert m.ord_char(u"Ā") == 0x100  # requires 2 bytes, doesn't fit in a char
     assert str(excinfo.value) == toobig_message(0x100)
     with pytest.raises(ValueError) as excinfo:
-        assert m.ord_char(u'ab')
+        assert m.ord_char(u"ab")
     assert str(excinfo.value) == toolong_message
 
-    assert m.ord_char16(u'a') == 0x61
-    assert m.ord_char16(u'é') == 0xE9
-    assert m.ord_char16_lv(u'ê') == 0xEA
-    assert m.ord_char16(u'Ā') == 0x100
-    assert m.ord_char16(u'‽') == 0x203d
-    assert m.ord_char16(u'♥') == 0x2665
-    assert m.ord_char16_lv(u'♡') == 0x2661
+    assert m.ord_char16(u"a") == 0x61
+    assert m.ord_char16(u"é") == 0xE9
+    assert m.ord_char16_lv(u"ê") == 0xEA
+    assert m.ord_char16(u"Ā") == 0x100
+    assert m.ord_char16(u"‽") == 0x203D
+    assert m.ord_char16(u"♥") == 0x2665
+    assert m.ord_char16_lv(u"♡") == 0x2661
     with pytest.raises(ValueError) as excinfo:
-        assert m.ord_char16(u'🎂') == 0x1F382  # requires surrogate pair
+        assert m.ord_char16(u"🎂") == 0x1F382  # requires surrogate pair
     assert str(excinfo.value) == toobig_message(0x10000)
     with pytest.raises(ValueError) as excinfo:
-        assert m.ord_char16(u'aa')
+        assert m.ord_char16(u"aa")
     assert str(excinfo.value) == toolong_message
 
-    assert m.ord_char32(u'a') == 0x61
-    assert m.ord_char32(u'é') == 0xE9
-    assert m.ord_char32(u'Ā') == 0x100
-    assert m.ord_char32(u'‽') == 0x203d
-    assert m.ord_char32(u'♥') == 0x2665
-    assert m.ord_char32(u'🎂') == 0x1F382
+    assert m.ord_char32(u"a") == 0x61
+    assert m.ord_char32(u"é") == 0xE9
+    assert m.ord_char32(u"Ā") == 0x100
+    assert m.ord_char32(u"‽") == 0x203D
+    assert m.ord_char32(u"♥") == 0x2665
+    assert m.ord_char32(u"🎂") == 0x1F382
     with pytest.raises(ValueError) as excinfo:
-        assert m.ord_char32(u'aa')
+        assert m.ord_char32(u"aa")
     assert str(excinfo.value) == toolong_message
 
-    assert m.ord_wchar(u'a') == 0x61
-    assert m.ord_wchar(u'é') == 0xE9
-    assert m.ord_wchar(u'Ā') == 0x100
-    assert m.ord_wchar(u'‽') == 0x203d
-    assert m.ord_wchar(u'♥') == 0x2665
+    assert m.ord_wchar(u"a") == 0x61
+    assert m.ord_wchar(u"é") == 0xE9
+    assert m.ord_wchar(u"Ā") == 0x100
+    assert m.ord_wchar(u"‽") == 0x203D
+    assert m.ord_wchar(u"♥") == 0x2665
     if m.wchar_size == 2:
         with pytest.raises(ValueError) as excinfo:
-            assert m.ord_wchar(u'🎂') == 0x1F382  # requires surrogate pair
+            assert m.ord_wchar(u"🎂") == 0x1F382  # requires surrogate pair
         assert str(excinfo.value) == toobig_message(0x10000)
     else:
-        assert m.ord_wchar(u'🎂') == 0x1F382
+        assert m.ord_wchar(u"🎂") == 0x1F382
     with pytest.raises(ValueError) as excinfo:
-        assert m.ord_wchar(u'aa')
+        assert m.ord_wchar(u"aa")
     assert str(excinfo.value) == toolong_message
 
     if hasattr(m, "has_u8string"):
-        assert m.ord_char8(u'a') == 0x61  # simple ASCII
-        assert m.ord_char8_lv(u'b') == 0x62
-        assert m.ord_char8(u'é') == 0xE9  # requires 2 bytes in utf-8, but can be stuffed in a char
+        assert m.ord_char8(u"a") == 0x61  # simple ASCII
+        assert m.ord_char8_lv(u"b") == 0x62
+        assert (
+            m.ord_char8(u"é") == 0xE9
+        )  # requires 2 bytes in utf-8, but can be stuffed in a char
         with pytest.raises(ValueError) as excinfo:
-            assert m.ord_char8(u'Ā') == 0x100  # requires 2 bytes, doesn't fit in a char
+            assert m.ord_char8(u"Ā") == 0x100  # requires 2 bytes, doesn't fit in a char
         assert str(excinfo.value) == toobig_message(0x100)
         with pytest.raises(ValueError) as excinfo:
-            assert m.ord_char8(u'ab')
+            assert m.ord_char8(u"ab")
         assert str(excinfo.value) == toolong_message
 
 
@@ -115,88 +123,108 @@ def test_bytes_to_string():
     """Tests the ability to pass bytes to C++ string-accepting functions.  Note that this is
     one-way: the only way to return bytes to Python is via the pybind11::bytes class."""
     # Issue #816
-    import sys
-    byte = bytes if sys.version_info[0] < 3 else str
 
-    assert m.strlen(byte("hi")) == 2
-    assert m.string_length(byte("world")) == 5
-    assert m.string_length(byte("a\x00b")) == 3
-    assert m.strlen(byte("a\x00b")) == 1  # C-string limitation
+    def to_bytes(s):
+        b = s if env.PY2 else s.encode("utf8")
+        assert isinstance(b, bytes)
+        return b
+
+    assert m.strlen(to_bytes("hi")) == 2
+    assert m.string_length(to_bytes("world")) == 5
+    assert m.string_length(to_bytes("a\x00b")) == 3
+    assert m.strlen(to_bytes("a\x00b")) == 1  # C-string limitation
 
     # passing in a utf8 encoded string should work
-    assert m.string_length(u'💩'.encode("utf8")) == 4
+    assert m.string_length(u"💩".encode("utf8")) == 4
 
 
 @pytest.mark.skipif(not hasattr(m, "has_string_view"), reason="no <string_view>")
 def test_string_view(capture):
     """Tests support for C++17 string_view arguments and return values"""
     assert m.string_view_chars("Hi") == [72, 105]
-    assert m.string_view_chars("Hi 🎂") == [72, 105, 32, 0xf0, 0x9f, 0x8e, 0x82]
-    assert m.string_view16_chars("Hi 🎂") == [72, 105, 32, 0xd83c, 0xdf82]
-    assert m.string_view32_chars("Hi 🎂") == [72, 105, 32, 127874]
+    assert m.string_view_chars("Hi 🎂") == [72, 105, 32, 0xF0, 0x9F, 0x8E, 0x82]
+    assert m.string_view16_chars(u"Hi 🎂") == [72, 105, 32, 0xD83C, 0xDF82]
+    assert m.string_view32_chars(u"Hi 🎂") == [72, 105, 32, 127874]
     if hasattr(m, "has_u8string"):
         assert m.string_view8_chars("Hi") == [72, 105]
-        assert m.string_view8_chars("Hi 🎂") == [72, 105, 32, 0xf0, 0x9f, 0x8e, 0x82]
+        assert m.string_view8_chars(u"Hi 🎂") == [72, 105, 32, 0xF0, 0x9F, 0x8E, 0x82]
 
-    assert m.string_view_return() == "utf8 secret 🎂"
-    assert m.string_view16_return() == "utf16 secret 🎂"
-    assert m.string_view32_return() == "utf32 secret 🎂"
+    assert m.string_view_return() == u"utf8 secret 🎂"
+    assert m.string_view16_return() == u"utf16 secret 🎂"
+    assert m.string_view32_return() == u"utf32 secret 🎂"
     if hasattr(m, "has_u8string"):
-        assert m.string_view8_return() == "utf8 secret 🎂"
+        assert m.string_view8_return() == u"utf8 secret 🎂"
 
     with capture:
         m.string_view_print("Hi")
         m.string_view_print("utf8 🎂")
-        m.string_view16_print("utf16 🎂")
-        m.string_view32_print("utf32 🎂")
-    assert capture == """
+        m.string_view16_print(u"utf16 🎂")
+        m.string_view32_print(u"utf32 🎂")
+    assert (
+        capture
+        == u"""
         Hi 2
         utf8 🎂 9
         utf16 🎂 8
         utf32 🎂 7
     """
+    )
     if hasattr(m, "has_u8string"):
         with capture:
             m.string_view8_print("Hi")
-            m.string_view8_print("utf8 🎂")
-        assert capture == """
+            m.string_view8_print(u"utf8 🎂")
+        assert (
+            capture
+            == u"""
             Hi 2
             utf8 🎂 9
         """
+        )
 
     with capture:
         m.string_view_print("Hi, ascii")
         m.string_view_print("Hi, utf8 🎂")
-        m.string_view16_print("Hi, utf16 🎂")
-        m.string_view32_print("Hi, utf32 🎂")
-    assert capture == """
+        m.string_view16_print(u"Hi, utf16 🎂")
+        m.string_view32_print(u"Hi, utf32 🎂")
+    assert (
+        capture
+        == u"""
         Hi, ascii 9
         Hi, utf8 🎂 13
         Hi, utf16 🎂 12
         Hi, utf32 🎂 11
     """
+    )
     if hasattr(m, "has_u8string"):
         with capture:
             m.string_view8_print("Hi, ascii")
-            m.string_view8_print("Hi, utf8 🎂")
-        assert capture == """
+            m.string_view8_print(u"Hi, utf8 🎂")
+        assert (
+            capture
+            == u"""
             Hi, ascii 9
             Hi, utf8 🎂 13
         """
+        )
 
 
 def test_integer_casting():
     """Issue #929 - out-of-range integer values shouldn't be accepted"""
-    import sys
     assert m.i32_str(-1) == "-1"
     assert m.i64_str(-1) == "-1"
     assert m.i32_str(2000000000) == "2000000000"
     assert m.u32_str(2000000000) == "2000000000"
-    if sys.version_info < (3,):
+    if env.PY2:
         assert m.i32_str(long(-1)) == "-1"  # noqa: F821 undefined name 'long'
         assert m.i64_str(long(-1)) == "-1"  # noqa: F821 undefined name 'long'
-        assert m.i64_str(long(-999999999999)) == "-999999999999"  # noqa: F821 undefined name
-        assert m.u64_str(long(999999999999)) == "999999999999"  # noqa: F821 undefined name 'long'
+        assert (
+            m.i64_str(long(-999999999999))  # noqa: F821 undefined name 'long'
+            == "-999999999999"
+        )
+        assert (
+            m.u64_str(long(999999999999))  # noqa: F821 undefined name 'long'
+            == "999999999999"
+        )
     else:
         assert m.i64_str(-999999999999) == "-999999999999"
         assert m.u64_str(999999999999) == "999999999999"
@@ -214,7 +242,7 @@ def test_integer_casting():
         m.i32_str(3000000000)
     assert "incompatible function arguments" in str(excinfo.value)
 
-    if sys.version_info < (3,):
+    if env.PY2:
         with pytest.raises(TypeError) as excinfo:
             m.u32_str(long(-1))  # noqa: F821 undefined name 'long'
         assert "incompatible function arguments" in str(excinfo.value)
@@ -232,16 +260,22 @@ def test_tuple(doc):
     assert m.tuple_passthrough([True, "test", 5]) == (5, "test", True)
     assert m.empty_tuple() == ()
 
-    assert doc(m.pair_passthrough) == """
+    assert (
+        doc(m.pair_passthrough)
+        == """
         pair_passthrough(arg0: Tuple[bool, str]) -> Tuple[str, bool]
 
         Return a pair in reversed order
     """
-    assert doc(m.tuple_passthrough) == """
+    )
+    assert (
+        doc(m.tuple_passthrough)
+        == """
         tuple_passthrough(arg0: Tuple[bool, str, int]) -> Tuple[int, str, bool]
 
         Return a triple in reversed order
     """
+    )
 
     assert m.rvalue_pair() == ("rvalue", "rvalue")
     assert m.lvalue_pair() == ("lvalue", "lvalue")
@@ -249,6 +283,8 @@ def test_tuple(doc):
     assert m.lvalue_tuple() == ("lvalue", "lvalue", "lvalue")
     assert m.rvalue_nested() == ("rvalue", ("rvalue", ("rvalue", "rvalue")))
     assert m.lvalue_nested() == ("lvalue", ("lvalue", ("lvalue", "lvalue")))
+
+    assert m.int_string_pair() == (2, "items")
 
 
 def test_builtins_cast_return_none():
@@ -258,6 +294,7 @@ def test_builtins_cast_return_none():
     assert m.return_none_bool() is None
     assert m.return_none_int() is None
     assert m.return_none_float() is None
+    assert m.return_none_pair() is None
 
 
 def test_none_deferred():
@@ -352,9 +389,9 @@ def test_bool_caster():
     assert convert(A(False)) is False
 
 
-@pytest.requires_numpy
 def test_numpy_bool():
-    import numpy as np
+    np = pytest.importorskip("numpy")
+
     convert, noconvert = m.bool_passthrough, m.bool_passthrough_noconvert
 
     def cant_convert(v):
@@ -365,7 +402,7 @@ def test_numpy_bool():
     assert convert(np.bool_(False)) is False
     assert noconvert(np.bool_(True)) is True
     assert noconvert(np.bool_(False)) is False
-    cant_convert(np.zeros(2, dtype='int'))
+    cant_convert(np.zeros(2, dtype="int"))
 
 
 def test_int_long():
@@ -375,7 +412,8 @@ def test_int_long():
     long."""
 
     import sys
-    must_be_long = type(getattr(sys, 'maxint', 1) + 1)
+
+    must_be_long = type(getattr(sys, "maxint", 1) + 1)
     assert isinstance(m.int_cast(), int)
     assert isinstance(m.long_cast(), int)
     assert isinstance(m.longlong_cast(), must_be_long)
