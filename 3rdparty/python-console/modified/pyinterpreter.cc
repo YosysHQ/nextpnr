@@ -122,7 +122,9 @@ void pyinterpreter_preinit()
 
 void pyinterpreter_initialize()
 {
+#if PY_VERSION_HEX < 0x03090000
     PyEval_InitThreads();
+#endif
     m_threadState = PyEval_SaveThread();
     PyEval_AcquireThread(m_threadState);
 
