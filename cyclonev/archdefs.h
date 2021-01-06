@@ -119,7 +119,7 @@ NEXTPNR_NAMESPACE_END
 namespace std {
 template <> struct hash<NEXTPNR_NAMESPACE_PREFIX BelId>
 {
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX BelId &bel) const noexcept { return hash<int>()(bel.index); }
+    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX BelId &bel) const noexcept { return hash<uint32_t>()((static_cast<uint32_t>(bel.pos) << 16) | bel.z); }
 };
 
 template <> struct hash<NEXTPNR_NAMESPACE_PREFIX WireId>

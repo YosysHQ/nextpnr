@@ -107,9 +107,9 @@ struct Arch : BaseCtx
     WireId getPipSrcWire(PipId pip) const;
     WireId getPipDstWire(PipId pip) const;
     DelayInfo getPipDelay(PipId pip) const;
-    const std::vector<BelPin> &getPipsDownhill(WireId wire) const;
-    const std::vector<BelPin> &getPipsUphill(WireId wire) const;
-    const std::vector<BelPin> &getWireAliases(WireId wire) const;
+    const std::vector<PipId> &getPipsDownhill(WireId wire) const;
+    const std::vector<PipId> &getPipsUphill(WireId wire) const;
+    const std::vector<PipId> &getWireAliases(WireId wire) const;
     BelId getPackagePinBel(const std::string &pin) const;
     std::string getBelPackagePin(BelId bel) const;
 

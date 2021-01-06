@@ -24,7 +24,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-using mistral::CycloneV;
+using namespace mistral;
 
 Arch::Arch(ArchArgs args)
 {
@@ -66,7 +66,7 @@ BelId Arch::getBelByName(IdString name) const
     int x = 0, y = 0, z = 0;
     BelId bel;
 
-    sscanf(name.c_str(this), "%s.%d.%d.%d", bel_type_str, &x, &y, &z);
+    sscanf(name.c_str(this), "%25s.%d.%d.%d", bel_type_str, &x, &y, &z);
 
     auto bel_type = cyclonev->block_type_lookup(std::string{bel_type_str});
 
@@ -82,7 +82,7 @@ IdString Arch::getBelName(BelId bel) const
 
     int x = CycloneV::pos2x(bel.pos);
     int y = CycloneV::pos2y(bel.pos);
-    int z = bel.pos & 0xFF;
+    int z = bel.z & 0xFF;
     int bel_type = bel.z >> 8;
 
     snprintf(bel_str, 80, "%s.%03d.%03d.%03d", cyclonev->block_type_names[bel_type], x, y, z);
