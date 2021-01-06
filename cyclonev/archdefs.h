@@ -1,7 +1,7 @@
 /*
  *  nextpnr -- Next Generation Place and Route
  *
- *  Copyright (C) 2020  Lofty <dan.ravensloft@gmail.com>
+ *  Copyright (C) 2021  Lofty <dan.ravensloft@gmail.com
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -21,7 +21,11 @@
 #error Include "archdefs.h" via "nextpnr.h" only.
 #endif
 
+#include "mistral/lib/cyclonev.h"
+
 NEXTPNR_NAMESPACE_BEGIN
+
+using mistral::CycloneV;
 
 typedef int delay_t;
 
@@ -48,11 +52,13 @@ struct DelayInfo
 
 struct BelId
 {
-    int32_t index = -1;
+    // pos_t is used for X/Y, nextpnr-cyclonev uses its own Z coordinate system.
+    CycloneV::pos_t pos = 0;
+    uint16_t z = 0;
 
-    bool operator==(const BelId &other) const { return index == other.index; }
-    bool operator!=(const BelId &other) const { return index != other.index; }
-    bool operator<(const BelId &other) const { return index < other.index; }
+    bool operator==(const BelId &other) const { return pos == other.pos && z == other.z; }
+    bool operator!=(const BelId &other) const { return pos != other.pos || z != other.z; }
+    bool operator<(const BelId &other) const { return pos < other.pos || (pos == other.pos && z < other.z); }
 };
 
 struct WireId
@@ -90,10 +96,6 @@ struct DecalId
     enum : int8_t
     {
         TYPE_NONE,
-        TYPE_BEL,
-        TYPE_WIRE,
-        TYPE_PIP,
-        TYPE_GROUP
     } type = TYPE_NONE;
     int32_t index = -1;
     bool active = false;
@@ -108,37 +110,8 @@ struct ArchNetInfo
     bool is_reset = false, is_enable = false;
 };
 
-struct NetInfo;
-
 struct ArchCellInfo
 {
-    union
-    {
-        struct
-        {
-            bool dffEnable;
-            bool carryEnable;
-            bool negClk;
-            int inputCount;
-            const NetInfo *clk, *cen, *sr;
-        } lcInfo;
-        struct
-        {
-            bool lvds;
-            bool global;
-            bool negtrig;
-            int pintype;
-            // TODO: clk packing checks...
-        } ioInfo;
-        struct
-        {
-            bool forPadIn;
-        } gbInfo;
-        struct
-        {
-            bool ledCurConnected;
-        } ledInfo;
-    };
 };
 
 NEXTPNR_NAMESPACE_END
