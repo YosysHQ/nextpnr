@@ -9,6 +9,7 @@ option(USE_OPENMP "Use OpenMP to accelerate analytic placer" OFF)
 option(COVERAGE "Add code coverage info" OFF)
 option(STATIC_BUILD "Create static build" OFF)
 option(EXTERNAL_CHIPDB "Create build with pre-built chipdb binaries" OFF)
+option(USE_OPENCL "Enable experimental OpenCL accelerated algorithms" OFF)
 
 if(WIN32 OR EXTERNAL_CHIPDB)
     set(BBASM_MODE "binary")
@@ -187,12 +188,35 @@ if(BUILD_HEAP)
     add_definitions(-DWITH_HEAP)
 endif()
 
+if(USE_OPENCL)
+    find_package(OpenCL REQUIRED)
+    add_definitions(-DUSE_OPENCL)
+    include_directories(${OpenCL_INCLUDE_DIRS})
+    link_directories(${OpenCL_LIBRARY})
+    set(OPENCL_KERNELS ${CMAKE_CURRENT_SOURCE_DIR}/common/opencl/ocular.cl)
+    set(OPENCL_KERNEL_SRC  ${CMAKE_CURRENT_BINARY_DIR}/generated/opencl_kernels.cc)
+
+    add_custom_command(
+        OUTPUT ${OPENCL_KERNEL_SRC}
+        COMMAND ${PYTHON_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/common/opencl/embed_kernels.py
+            ${OPENCL_KERNELS}
+            ${OPENCL_KERNEL_SRC}
+        DEPENDS
+            ${CMAKE_CURRENT_SOURCE_DIR}/common/opencl/embed_kernels.py
+            ${OPENCL_KERNELS}
+        VERBATIM
+    )
+else()
+    set(OPENCL_KERNEL_SRC "")
+endif()
+
 aux_source_directory(common/ COMMON_SRC_FILES)
 aux_source_directory(json/ JSON_PARSER_FILES)
 aux_source_directory(3rdparty/json11 EXT_JSON11_FILES)
 aux_source_directory(frontend/ FRONTEND_FILES)
 
-set(COMMON_FILES ${COMMON_SRC_FILES} ${EXT_JSON11_FILES} ${JSON_PARSER_FILES} ${FRONTEND_FILES})
+set(COMMON_FILES ${COMMON_SRC_FILES} ${EXT_JSON11_FILES} ${JSON_PARSER_FILES} ${FRONTEND_FILES} ${OPENCL_KERNEL_SRC})
 set(CMAKE_BUILD_TYPE Release)
 
 if(CMAKE_CROSSCOMPILING)
@@ -287,6 +311,9 @@ foreach (family ${ARCH})
                     target_link_libraries(${target} LINK_PUBLIC -lutil)
                 endif()
             endif()
+        endif()
+        if (USE_OPENCL)
+            target_link_libraries(${target} LINK_PUBLIC ${OpenCL_LIBRARY})
         endif()
     endforeach (target)
 endforeach (family)
