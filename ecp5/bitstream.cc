@@ -471,6 +471,14 @@ void fix_tile_names(Context *ctx, ChipConfig &cc)
                 cc.tiles[xform.second].cunknowns.push_back(cunknown);
             cc.tiles.erase(xform.first);
         }
+        for (auto &tg : cc.tilegroups) {
+            for (auto &t : tg.tiles) {
+                if (boost::ends_with(t, "BMID_0H"))
+                    t.back() = 'V';
+                else if (boost::ends_with(t, "BMID_2"))
+                    t.push_back('V');
+            }
+        }
     }
 }
 
