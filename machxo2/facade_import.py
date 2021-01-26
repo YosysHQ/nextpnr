@@ -154,13 +154,13 @@ def write_database(dev_name, chip, rg, endianness):
 
     # Before doing anything, ensure sorted routing graph iteration matches
     # y, x
-    tile_iter = list(sorted(rg.tiles, key=lambda l : (l.key().y, l.key().x)))
+    loc_iter = list(sorted(rg.tiles, key=lambda l : (l.y, l.x)))
 
     i = 1 # Drop (-2, -2) location.
     for y in range(0, max_row+1):
         for x in range(0, max_col+1):
-            l = tile_iter[i]
-            assert((y, x) == (l.key().y, l.key().x))
+            l = loc_iter[i]
+            assert((y, x) == (l.y, l.x))
             i = i + 1
 
     bba = BinaryBlobAssembler()
@@ -174,9 +174,8 @@ def write_database(dev_name, chip, rg, endianness):
 
     # Nominally should be in order, but support situations where python
     # decides to iterate over rg.tiles out-of-order.
-    for lt in sorted(rg.tiles, key=lambda l : (l.key().y, l.key().x)):
-        l = lt.key()
-        t = lt.data()
+    for l in loc_iter:
+        t = rg.tiles[l]
 
         # Do not include special globals location for now.
         if (l.x, l.y) == (-2, -2):
@@ -255,9 +254,8 @@ def write_database(dev_name, chip, rg, endianness):
                 bba.r("loc%d_%d_bel%d_wires" % (l.y, l.x, bel_idx), "bel_wires")
 
     bba.l("tiles", "TileTypePOD")
-    for lt in sorted(rg.tiles, key=lambda l : (l.key().y, l.key().x)):
-        l = lt.key()
-        t = lt.data()
+    for l in loc_iter:
+        t = rg.tiles[l]
 
         if (l.y, l.x) == (-2, -2):
             continue
