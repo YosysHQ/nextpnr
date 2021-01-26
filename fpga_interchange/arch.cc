@@ -349,6 +349,7 @@ std::vector<std::pair<IdString, std::string>> Arch::getBelAttrs(BelId bel) const
 
 delay_t Arch::estimateDelay(WireId src, WireId dst, bool debug) const
 {
+    // FIXME: Implement when adding timing-driven place and route.
     return 0;
 }
 
@@ -383,6 +384,7 @@ ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
 
 delay_t Arch::getBoundingBoxCost(WireId src, WireId dst, int distance) const
 {
+    // FIXME: Implement when adding timing-driven place and route.
     return 0;
 }
 
@@ -393,6 +395,7 @@ delay_t Arch::getWireRipupDelayPenalty(WireId wire) const
 
 delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
 {
+    // FIXME: Implement when adding timing-driven place and route.
     return 0;
 }
 
@@ -402,16 +405,19 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
 
 bool Arch::pack()
 {
+    // FIXME: Implement this
     return false;
 }
 
 bool Arch::place()
 {
+    // FIXME: Implement this
     return false;
 }
 
 bool Arch::route()
 {
+    // FIXME: Implement this
     return false;
 }
 
@@ -442,16 +448,19 @@ DecalXY Arch::getGroupDecal(GroupId pip) const { return {}; };
 
 bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
 {
+    // FIXME: Implement when adding timing-driven place and route.
     return false;
 }
 
 TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const
 {
+    // FIXME: Implement when adding timing-driven place and route.
     return TMG_IGNORE;
 }
 
 TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port, int index) const
 {
+    // FIXME: Implement when adding timing-driven place and route.
     TimingClockingInfo info;
     return info;
 }

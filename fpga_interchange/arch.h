@@ -53,16 +53,6 @@ template <typename T> struct RelPtr
 };
 
 
-
-NPNR_PACKED_STRUCT(struct SiteTypeInfoPOD {
-    // Name of this site type.
-    RelPtr<char> name;
-
-    // Lookup for site pip name to site pip index.
-    int32_t number_site_pips;
-    RelPtr<RelPtr<char>> site_pip_names;
-});
-
 // Flattened site indexing.
 //
 // To enable flat BelId.z spaces, every tile and sites within that tile are
@@ -102,11 +92,15 @@ NPNR_PACKED_STRUCT(struct BelPortPOD {
 });
 
 NPNR_PACKED_STRUCT(struct TileWireInfoPOD {
-    int32_t name;
-    int32_t num_uphill, num_downhill;
+    int32_t name; // wire name constid
 
     // Pip index inside tile
-    RelPtr<int32_t> pips_uphill, pips_downhill;
+    int32_t num_uphill;
+    RelPtr<int32_t> pips_uphill;
+
+    // Pip index inside tile
+    int32_t num_downhill;
+    RelPtr<int32_t> pips_downhill;
 
     // Bel index inside tile
     int32_t num_bel_pins;
@@ -155,6 +149,7 @@ NPNR_PACKED_STRUCT(struct TileInstInfoPOD {
     int32_t type;
 
     // This array is root.tile_types[type].number_sites long.
+    // Index into root.sites
     RelPtr<int32_t> sites;
 
     // Number of tile wires; excluding any site-internal wires
@@ -181,11 +176,17 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
 
     int32_t version;
     int32_t width, height;
-    int32_t num_tiles, num_tile_types;
-    int32_t num_sites, num_nodes;
+
+    int32_t num_tile_types;
     RelPtr<TileTypeInfoPOD> tile_types;
+
+    int32_t num_sites;
     RelPtr<SiteInstInfoPOD> sites;
+
+    int32_t num_tiles;
     RelPtr<TileInstInfoPOD> tiles;
+
+    int32_t num_nodes;
     RelPtr<NodeInfoPOD> nodes;
 });
 
@@ -1011,7 +1012,6 @@ struct Arch : BaseCtx
     std::vector<GroupId> getGroupGroups(GroupId group) const { return {}; }
 
     // -------------------------------------------------
-    mutable IdString gnd_glbl, gnd_row, vcc_glbl, vcc_row;
     delay_t estimateDelay(WireId src, WireId dst, bool debug = false) const;
     delay_t predictDelay(const NetInfo *net_info, const PortRef &sink) const;
     ArcBounds getRouteBoundingBox(WireId src, WireId dst) const;
