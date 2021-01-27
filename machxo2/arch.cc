@@ -277,9 +277,30 @@ BelId Arch::getPackagePinBel(const std::string &pin) const
 
 // ---------------------------------------------------------------
 
-WireId Arch::getWireByName(IdString name) const { return WireId(); }
+WireId Arch::getWireByName(IdString name) const
+{
+    WireId ret;
 
-IdString Arch::getWireName(WireId wire) const { return IdString(); }
+    auto it = wire_by_name.find(name);
+    if (it != wire_by_name.end())
+        return it->second;
+
+    Location loc;
+    std::string basename;
+    std::tie(loc.x, loc.y, basename) = split_identifier_name(name.str(this));
+    ret.location = loc;
+
+    const TileTypePOD *tilei = tileInfo(ret);
+    for (int i = 0; i < tilei->num_wires; i++) {
+        if (std::strcmp(tilei->wire_data[i].name.get(), basename.c_str()) == 0) {
+            ret.index = i;
+            break;
+        }
+    }
+    if (ret.index >= 0)
+        wire_by_name[name] = ret;
+    return ret;
+}
 
 IdString Arch::getWireType(WireId wire) const { return IdString(); }
 
@@ -307,11 +328,46 @@ const std::vector<WireId> &Arch::getWires() const { return wire_id_dummy; }
 
 // ---------------------------------------------------------------
 
-PipId Arch::getPipByName(IdString name) const { return PipId(); }
+PipId Arch::getPipByName(IdString name) const
+{
+    PipId ret;
 
-IdString Arch::getPipName(PipId pip) const { return IdString(); }
+    auto it = pip_by_name.find(name);
+    if (it != pip_by_name.end())
+        return it->second;
 
-IdString Arch::getPipType(PipId pip) const { return IdString(); }
+    Location loc;
+    std::string basename;
+    std::tie(loc.x, loc.y, basename) = split_identifier_name(name.str(this));
+    ret.location = loc;
+
+    const TileTypePOD *tilei = tileInfo(ret);
+    for (int i = 0; i < tilei->num_pips; i++) {
+        PipId curr;
+        curr.location = loc;
+        curr.index = i;
+        pip_by_name[getPipName(curr)] = curr;
+    }
+    if (pip_by_name.find(name) == pip_by_name.end())
+        NPNR_ASSERT_FALSE_STR("no pip named " + name.str(this));
+    return pip_by_name[name];
+}
+
+IdString Arch::getPipName(PipId pip) const
+{
+    NPNR_ASSERT(pip != PipId());
+
+    int x = pip.location.x;
+    int y = pip.location.y;
+
+    std::string src_name = getWireName(getPipSrcWire(pip)).str(this);
+    std::replace(src_name.begin(), src_name.end(), '/', '.');
+
+    std::string dst_name = getWireName(getPipDstWire(pip)).str(this);
+    std::replace(dst_name.begin(), dst_name.end(), '/', '.');
+
+    return id("X" + std::to_string(x) + "/Y" + std::to_string(y) + "/" + src_name + ".->." + dst_name);
+}
 
 const std::map<IdString, std::string> &Arch::getPipAttrs(PipId pip) const { return attrs_dummy; }
 
@@ -336,10 +392,6 @@ WireId Arch::getConflictingPipWire(PipId pip) const { return WireId(); }
 const std::vector<PipId> &Arch::getPips() const { return pip_id_dummy; }
 
 Loc Arch::getPipLocation(PipId pip) const { return Loc(); }
-
-WireId Arch::getPipSrcWire(PipId pip) const { return WireId(); }
-
-WireId Arch::getPipDstWire(PipId pip) const { return WireId(); }
 
 DelayInfo Arch::getPipDelay(PipId pip) const { return DelayInfo(); }
 
