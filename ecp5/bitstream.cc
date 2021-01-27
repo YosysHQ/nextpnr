@@ -1209,6 +1209,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                                str_or_default(ci->params, ctx->id("REG_OPCODEOP1_0_CLK"), "NONE"));
             tg.config.add_enum(dsp + ".REG_OPCODEOP0_1_CLK",
                                str_or_default(ci->params, ctx->id("REG_OPCODEOP0_1_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".REG_OPCODEOP1_1_CLK",
+                               str_or_default(ci->params, ctx->id("REG_OPCODEOP1_1_CLK"), "NONE"));
             tg.config.add_enum(dsp + ".REG_OPCODEOP0_1_CE",
                                str_or_default(ci->params, ctx->id("REG_OPCODEOP0_1_CE"), "CE0"));
             tg.config.add_enum(dsp + ".REG_OPCODEOP0_1_RST",
