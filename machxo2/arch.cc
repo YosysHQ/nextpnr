@@ -207,8 +207,6 @@ BelRange Arch::getBelsByTile(int x, int y) const
 
 bool Arch::getBelGlobalBuf(BelId bel) const { return false; }
 
-const std::map<IdString, std::string> &Arch::getBelAttrs(BelId bel) const { return attrs_dummy; }
-
 WireId Arch::getBelPinWire(BelId bel, IdString pin) const
 {
     NPNR_ASSERT(bel != BelId());
@@ -302,10 +300,6 @@ WireId Arch::getWireByName(IdString name) const
     return ret;
 }
 
-IdString Arch::getWireType(WireId wire) const { return IdString(); }
-
-const std::map<IdString, std::string> &Arch::getWireAttrs(WireId wire) const { return attrs_dummy; }
-
 uint32_t Arch::getWireChecksum(WireId wire) const
 {
     // FIXME
@@ -368,8 +362,6 @@ IdString Arch::getPipName(PipId pip) const
 
     return id("X" + std::to_string(x) + "/Y" + std::to_string(y) + "/" + src_name + ".->." + dst_name);
 }
-
-const std::map<IdString, std::string> &Arch::getPipAttrs(PipId pip) const { return attrs_dummy; }
 
 uint32_t Arch::getPipChecksum(PipId wire) const
 {
