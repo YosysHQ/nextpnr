@@ -194,11 +194,12 @@ WireId Arch::getWireByName(IdString name) const
 {
     if (wire_by_name_cache.count(name))
         return wire_by_name_cache.at(name);
+
     WireId ret;
     setup_byname();
 
     const std::string &s = name.str(this);
-    auto sp = split_identifier_name(s.substr(8));
+    auto sp = split_identifier_name(s);
     auto iter = site_by_name.find(sp.first);
     if (iter != site_by_name.end()) {
         int tile;
@@ -214,14 +215,21 @@ WireId Arch::getWireByName(IdString name) const
             }
         }
     } else {
-        auto sp = split_identifier_name(s);
         int tile = tile_by_name.at(sp.first);
         auto &tile_info = chip_info->tile_types[chip_info->tiles[tile].type];
         IdString wirename = id(sp.second);
         for (int i = 0; i < tile_info.num_wires; i++) {
             if (tile_info.wire_data[i].site == -1 && tile_info.wire_data[i].name == wirename.index) {
-                ret.tile = tile;
-                ret.index = i;
+                int32_t node = chip_info->tiles[tile].tile_wire_to_node[i];
+                if (node == -1) {
+                    // Not a nodal wire
+                    ret.tile = tile;
+                    ret.index = i;
+                } else {
+                    // Is a nodal wire, set tile to -1
+                    ret.tile = -1;
+                    ret.index = node;
+                }
                 break;
             }
         }

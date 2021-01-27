@@ -42,7 +42,7 @@ template <typename T> struct RelPtr
 
     const T *get() const
     {
-        return reinterpret_cast<const T *>(reinterpret_cast<const char *>(this) + int64_t(offset) * 4);
+        return reinterpret_cast<const T *>(reinterpret_cast<const char *>(this) + offset);
     }
 
     const T &operator[](size_t index) const { return get()[index]; }
