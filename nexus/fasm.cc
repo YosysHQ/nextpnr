@@ -150,9 +150,9 @@ struct NexusFasmWriter
     const PhysicalTileInfoPOD &tile_by_type_and_loc(int loc, IdString type)
     {
         auto &ploc = ctx->chip_info->grid[loc];
-        for (int i = 0; i < ploc.num_phys_tiles; i++) {
-            if (ploc.phys_tiles[i].tiletype == type.index)
-                return ploc.phys_tiles[i];
+        for (auto &pt : ploc.phys_tiles) {
+            if (pt.tiletype == type.index)
+                return pt;
         }
         log_error("No tile of type %s found at location R%dC%d", ctx->nameOf(type), loc / ctx->chip_info->width,
                   loc % ctx->chip_info->width);
@@ -161,7 +161,7 @@ struct NexusFasmWriter
     const PhysicalTileInfoPOD &tile_at_loc(int loc)
     {
         auto &ploc = ctx->chip_info->grid[loc];
-        NPNR_ASSERT(ploc.num_phys_tiles == 1);
+        NPNR_ASSERT(ploc.phys_tiles.size() == 1);
         return ploc.phys_tiles[0];
     }
     // Escape an internal prjoxide name for FASM by replacing : with __
