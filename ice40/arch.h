@@ -46,6 +46,28 @@ template <typename T> struct RelPtr
     RelPtr &operator=(const RelPtr &) = delete;
 };
 
+NPNR_PACKED_STRUCT(template <typename T> struct RelSlice {
+    int32_t offset;
+    uint32_t length;
+
+    const T *get() const { return reinterpret_cast<const T *>(reinterpret_cast<const char *>(this) + offset); }
+
+    const T &operator[](size_t index) const
+    {
+        NPNR_ASSERT(index < length);
+        return get()[index];
+    }
+
+    const T *begin() const { return get(); }
+    const T *end() const { return get() + length; }
+
+    const size_t size() const { return length; }
+
+    const T &operator*() const { return *(get()); }
+
+    const T *operator->() const { return get(); }
+});
+
 NPNR_PACKED_STRUCT(struct BelWirePOD {
     int32_t port;
     int32_t type;
@@ -55,8 +77,7 @@ NPNR_PACKED_STRUCT(struct BelWirePOD {
 NPNR_PACKED_STRUCT(struct BelInfoPOD {
     RelPtr<char> name;
     int32_t type;
-    int32_t num_bel_wires;
-    RelPtr<BelWirePOD> bel_wires;
+    RelSlice<BelWirePOD> bel_wires;
     int8_t x, y, z;
     int8_t padding_0;
 });
@@ -111,14 +132,11 @@ NPNR_PACKED_STRUCT(struct WireInfoPOD {
     };
 
     RelPtr<char> name;
-    int32_t num_uphill, num_downhill;
-    RelPtr<int32_t> pips_uphill, pips_downhill;
+    RelSlice<int32_t> pips_uphill, pips_downhill;
 
-    int32_t num_bel_pins;
-    RelPtr<BelPortPOD> bel_pins;
+    RelSlice<BelPortPOD> bel_pins;
 
-    int32_t num_segments;
-    RelPtr<WireSegmentPOD> segments;
+    RelSlice<WireSegmentPOD> segments;
 
     int32_t fast_delay;
     int32_t slow_delay;
@@ -134,8 +152,7 @@ NPNR_PACKED_STRUCT(struct PackagePinPOD {
 
 NPNR_PACKED_STRUCT(struct PackageInfoPOD {
     RelPtr<char> name;
-    int32_t num_pins;
-    RelPtr<PackagePinPOD> pins;
+    RelSlice<PackagePinPOD> pins;
 });
 
 enum TileType : uint32_t
@@ -156,14 +173,13 @@ NPNR_PACKED_STRUCT(struct ConfigBitPOD { int8_t row, col; });
 
 NPNR_PACKED_STRUCT(struct ConfigEntryPOD {
     RelPtr<char> name;
-    int32_t num_bits;
-    RelPtr<ConfigBitPOD> bits;
+    RelSlice<ConfigBitPOD> bits;
 });
 
 NPNR_PACKED_STRUCT(struct TileInfoPOD {
     int8_t cols, rows;
-    int16_t num_config_entries;
-    RelPtr<ConfigEntryPOD> entries;
+    int16_t padding;
+    RelSlice<ConfigEntryPOD> entries;
 });
 
 static const int max_switch_bits = 5;
@@ -181,10 +197,9 @@ NPNR_PACKED_STRUCT(struct IerenInfoPOD {
 });
 
 NPNR_PACKED_STRUCT(struct BitstreamInfoPOD {
-    int32_t num_switches, num_ierens;
-    RelPtr<TileInfoPOD> tiles_nonrouting;
-    RelPtr<SwitchInfoPOD> switches;
-    RelPtr<IerenInfoPOD> ierens;
+    RelSlice<TileInfoPOD> tiles_nonrouting;
+    RelSlice<SwitchInfoPOD> switches;
+    RelSlice<IerenInfoPOD> ierens;
 });
 
 NPNR_PACKED_STRUCT(struct BelConfigEntryPOD {
@@ -198,8 +213,7 @@ NPNR_PACKED_STRUCT(struct BelConfigEntryPOD {
 // for extra cells where this mapping is non-trivial
 NPNR_PACKED_STRUCT(struct BelConfigPOD {
     int32_t bel_index;
-    int32_t num_entries;
-    RelPtr<BelConfigEntryPOD> entries;
+    RelSlice<BelConfigEntryPOD> entries;
 });
 
 NPNR_PACKED_STRUCT(struct CellPathDelayPOD {
@@ -211,8 +225,7 @@ NPNR_PACKED_STRUCT(struct CellPathDelayPOD {
 
 NPNR_PACKED_STRUCT(struct CellTimingPOD {
     int32_t type;
-    int32_t num_paths;
-    RelPtr<CellPathDelayPOD> path_delays;
+    RelSlice<CellPathDelayPOD> path_delays;
 });
 
 NPNR_PACKED_STRUCT(struct GlobalNetworkInfoPOD {
@@ -232,19 +245,17 @@ NPNR_PACKED_STRUCT(struct GlobalNetworkInfoPOD {
 
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     int32_t width, height;
-    int32_t num_bels, num_wires, num_pips;
-    int32_t num_switches, num_belcfgs, num_packages;
-    int32_t num_timing_cells, num_global_networks;
-    RelPtr<BelInfoPOD> bel_data;
-    RelPtr<WireInfoPOD> wire_data;
-    RelPtr<PipInfoPOD> pip_data;
-    RelPtr<TileType> tile_grid;
+    uint32_t num_switches;
+    RelSlice<BelInfoPOD> bel_data;
+    RelSlice<WireInfoPOD> wire_data;
+    RelSlice<PipInfoPOD> pip_data;
+    RelSlice<TileType> tile_grid;
     RelPtr<BitstreamInfoPOD> bits_info;
-    RelPtr<BelConfigPOD> bel_config;
-    RelPtr<PackageInfoPOD> packages_data;
-    RelPtr<CellTimingPOD> cell_timing;
-    RelPtr<GlobalNetworkInfoPOD> global_network_info;
-    RelPtr<RelPtr<char>> tile_wire_names;
+    RelSlice<BelConfigPOD> bel_config;
+    RelSlice<PackageInfoPOD> packages_data;
+    RelSlice<CellTimingPOD> cell_timing;
+    RelSlice<GlobalNetworkInfoPOD> global_network_info;
+    RelSlice<RelPtr<char>> tile_wire_names;
 });
 
 /************************ End of chipdb section. ************************/
@@ -495,7 +506,7 @@ struct Arch : BaseCtx
     {
         BelRange range;
         range.b.cursor = 0;
-        range.e.cursor = chip_info->num_bels;
+        range.e.cursor = chip_info->bel_data.size();
         return range;
     }
 
@@ -609,7 +620,7 @@ struct Arch : BaseCtx
         BelPinRange range;
         NPNR_ASSERT(wire != WireId());
         range.b.ptr = chip_info->wire_data[wire.index].bel_pins.get();
-        range.e.ptr = range.b.ptr + chip_info->wire_data[wire.index].num_bel_pins;
+        range.e.ptr = range.b.ptr + chip_info->wire_data[wire.index].bel_pins.size();
         return range;
     }
 
@@ -617,7 +628,7 @@ struct Arch : BaseCtx
     {
         WireRange range;
         range.b.cursor = 0;
-        range.e.cursor = chip_info->num_wires;
+        range.e.cursor = chip_info->wire_data.size();
         return range;
     }
 
@@ -720,7 +731,7 @@ struct Arch : BaseCtx
     {
         AllPipRange range;
         range.b.cursor = 0;
-        range.e.cursor = chip_info->num_pips;
+        range.e.cursor = chip_info->pip_data.size();
         return range;
     }
 
@@ -772,7 +783,7 @@ struct Arch : BaseCtx
         PipRange range;
         NPNR_ASSERT(wire != WireId());
         range.b.cursor = chip_info->wire_data[wire.index].pips_downhill.get();
-        range.e.cursor = range.b.cursor + chip_info->wire_data[wire.index].num_downhill;
+        range.e.cursor = range.b.cursor + chip_info->wire_data[wire.index].pips_downhill.size();
         return range;
     }
 
@@ -781,7 +792,7 @@ struct Arch : BaseCtx
         PipRange range;
         NPNR_ASSERT(wire != WireId());
         range.b.cursor = chip_info->wire_data[wire.index].pips_uphill.get();
-        range.e.cursor = range.b.cursor + chip_info->wire_data[wire.index].num_uphill;
+        range.e.cursor = range.b.cursor + chip_info->wire_data[wire.index].pips_uphill.size();
         return range;
     }
 

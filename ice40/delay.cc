@@ -29,7 +29,7 @@ void ice40DelayFuzzerMain(Context *ctx)
 {
     std::vector<WireId> srcWires, dstWires;
 
-    for (int i = 0; i < ctx->chip_info->num_wires; i++) {
+    for (int i = 0; i < int(ctx->chip_info->wire_data.size()); i++) {
         WireId wire;
         wire.index = i;
 

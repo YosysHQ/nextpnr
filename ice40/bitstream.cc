@@ -34,9 +34,9 @@ inline TileType tile_at(const Context *ctx, int x, int y)
 
 const ConfigEntryPOD &find_config(const TileInfoPOD &tile, const std::string &name)
 {
-    for (int i = 0; i < tile.num_config_entries; i++) {
-        if (std::string(tile.entries[i].name.get()) == name) {
-            return tile.entries[i];
+    for (auto &entry : tile.entries) {
+        if (std::string(entry.name.get()) == name) {
+            return entry;
         }
     }
     NPNR_ASSERT_FALSE_STR("unable to find config bit " + name);
@@ -44,8 +44,7 @@ const ConfigEntryPOD &find_config(const TileInfoPOD &tile, const std::string &na
 
 std::tuple<int8_t, int8_t, int8_t> get_ieren(const BitstreamInfoPOD &bi, int8_t x, int8_t y, int8_t z)
 {
-    for (int i = 0; i < bi.num_ierens; i++) {
-        auto ie = bi.ierens[i];
+    for (auto &ie : bi.ierens) {
         if (ie.iox == x && ie.ioy == y && ie.ioz == z) {
             return std::make_tuple(ie.ierx, ie.iery, ie.ierz);
         }
@@ -59,8 +58,8 @@ bool get_config(const TileInfoPOD &ti, std::vector<std::vector<int8_t>> &tile_cf
 {
     const ConfigEntryPOD &cfg = find_config(ti, name);
     if (index == -1) {
-        for (int i = 0; i < cfg.num_bits; i++) {
-            return tile_cfg.at(cfg.bits[i].row).at(cfg.bits[i].col);
+        for (auto &bit : cfg.bits) {
+            return tile_cfg.at(bit.row).at(bit.col);
         }
     } else {
         return tile_cfg.at(cfg.bits[index].row).at(cfg.bits[index].col);
@@ -73,8 +72,8 @@ void set_config(const TileInfoPOD &ti, std::vector<std::vector<int8_t>> &tile_cf
 {
     const ConfigEntryPOD &cfg = find_config(ti, name);
     if (index == -1) {
-        for (int i = 0; i < cfg.num_bits; i++) {
-            int8_t &cbit = tile_cfg.at(cfg.bits[i].row).at(cfg.bits[i].col);
+        for (auto &bit : cfg.bits) {
+            int8_t &cbit = tile_cfg.at(bit.row).at(bit.col);
             if (cbit && !value)
                 log_error("clearing already set config bit %s\n", name.c_str());
             cbit = value;
@@ -124,9 +123,9 @@ char get_hexdigit(int i) { return std::string("0123456789ABCDEF").at(i); }
 
 static const BelConfigPOD &get_ec_config(const ChipInfoPOD *chip, BelId bel)
 {
-    for (int i = 0; i < chip->num_belcfgs; i++) {
-        if (chip->bel_config[i].bel_index == bel.index)
-            return chip->bel_config[i];
+    for (auto &cfg : chip->bel_config) {
+        if (cfg.bel_index == bel.index)
+            return cfg;
     }
     NPNR_ASSERT_FALSE("failed to find bel config");
 }
@@ -135,8 +134,7 @@ typedef std::vector<std::vector<std::vector<std::vector<int8_t>>>> chipconfig_t;
 
 static bool has_ec_cbit(const BelConfigPOD &cell_cbits, std::string name)
 {
-    for (int i = 0; i < cell_cbits.num_entries; i++) {
-        const auto &cbit = cell_cbits.entries[i];
+    for (auto &cbit : cell_cbits.entries) {
         if (cbit.entry_name.get() == name)
             return true;
     }
@@ -148,8 +146,7 @@ static void set_ec_cbit(chipconfig_t &config, const Context *ctx, const BelConfi
 {
     const ChipInfoPOD *chip = ctx->chip_info;
 
-    for (int i = 0; i < cell_cbits.num_entries; i++) {
-        const auto &cbit = cell_cbits.entries[i];
+    for (auto &cbit : cell_cbits.entries) {
         if (cbit.entry_name.get() == name) {
             const auto &ti = chip->bits_info->tiles_nonrouting[tile_at(ctx, cbit.x, cbit.y)];
             set_config(ti, config.at(cbit.y).at(cbit.x), prefix + cbit.cbit_name.get(), value);
@@ -605,11 +602,9 @@ void write_asc(const Context *ctx, std::ostream &out)
         } else if (cell.second->type == ctx->id("SB_GB")) {
             if (cell.second->gbInfo.forPadIn) {
                 Loc gb_loc = ctx->getBelLocation(bel);
-                for (int i = 0; i < ci.num_global_networks; i++) {
-                    if ((gb_loc.x == ci.global_network_info[i].gb_x) && (gb_loc.y == ci.global_network_info[i].gb_y)) {
-                        extra_bits.push_back(std::make_tuple(ci.global_network_info[i].pi_eb_bank,
-                                                             ci.global_network_info[i].pi_eb_x,
-                                                             ci.global_network_info[i].pi_eb_y));
+                for (auto &glb : ci.global_network_info) {
+                    if ((gb_loc.x == glb.gb_x) && (gb_loc.y == glb.gb_y)) {
+                        extra_bits.push_back(std::make_tuple(glb.pi_eb_bank, glb.pi_eb_x, glb.pi_eb_y));
                     }
                 }
             }

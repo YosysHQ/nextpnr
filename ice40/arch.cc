@@ -73,8 +73,8 @@ std::vector<std::string> Arch::getSupportedPackages(ArchArgs::ArchArgsTypes chip
 {
     const ChipInfoPOD *chip_info = get_chip_info(chip);
     std::vector<std::string> packages;
-    for (int i = 0; i < chip_info->num_packages; i++) {
-        std::string name = chip_info->packages_data[i].name.get();
+    for (auto &pkg : chip_info->packages_data) {
+        std::string name = pkg.name.get();
         if (chip == ArchArgs::LP4K || chip == ArchArgs::HX4K) {
             if (name.find(":4k") != std::string::npos)
                 name = name.substr(0, name.size() - 3);
@@ -101,19 +101,19 @@ Arch::Arch(ArchArgs args) : args(args)
     if (args.type == ArchArgs::LP4K || args.type == ArchArgs::HX4K)
         package_name += ":4k";
 
-    for (int i = 0; i < chip_info->num_packages; i++) {
-        if (chip_info->packages_data[i].name.get() == package_name) {
-            package_info = &(chip_info->packages_data[i]);
+    for (auto &pkg : chip_info->packages_data) {
+        if (pkg.name.get() == package_name) {
+            package_info = &pkg;
             break;
         }
     }
     if (package_info == nullptr)
         log_error("Unsupported package '%s'.\n", args.package.c_str());
 
-    bel_carry.resize(chip_info->num_bels);
-    bel_to_cell.resize(chip_info->num_bels);
-    wire_to_net.resize(chip_info->num_wires);
-    pip_to_net.resize(chip_info->num_pips);
+    bel_carry.resize(chip_info->bel_data.size());
+    bel_to_cell.resize(chip_info->bel_data.size());
+    wire_to_net.resize(chip_info->wire_data.size());
+    pip_to_net.resize(chip_info->pip_data.size());
     switches_locked.resize(chip_info->num_switches);
 }
 
@@ -188,7 +188,7 @@ BelId Arch::getBelByName(IdString name) const
     BelId ret;
 
     if (bel_by_name.empty()) {
-        for (int i = 0; i < chip_info->num_bels; i++)
+        for (size_t i = 0; i < chip_info->bel_data.size(); i++)
             bel_by_name[id(chip_info->bel_data[i].name.get())] = i;
     }
 
@@ -204,7 +204,7 @@ BelId Arch::getBelByLocation(Loc loc) const
     BelId bel;
 
     if (bel_by_loc.empty()) {
-        for (int i = 0; i < chip_info->num_bels; i++) {
+        for (size_t i = 0; i < chip_info->bel_data.size(); i++) {
             BelId b;
             b.index = i;
             bel_by_loc[getBelLocation(b)] = i;
@@ -232,7 +232,7 @@ BelRange Arch::getBelsByTile(int x, int y) const
     br.e.cursor = br.b.cursor;
 
     if (br.e.cursor != -1) {
-        while (br.e.cursor < chip_info->num_bels && chip_info->bel_data[br.e.cursor].x == x &&
+        while (br.e.cursor < int(chip_info->bel_data.size()) && chip_info->bel_data[br.e.cursor].x == x &&
                chip_info->bel_data[br.e.cursor].y == y)
             br.e.cursor++;
     }
@@ -244,7 +244,7 @@ PortType Arch::getBelPinType(BelId bel, IdString pin) const
 {
     NPNR_ASSERT(bel != BelId());
 
-    int num_bel_wires = chip_info->bel_data[bel.index].num_bel_wires;
+    int num_bel_wires = chip_info->bel_data[bel.index].bel_wires.size();
     const BelWirePOD *bel_wires = chip_info->bel_data[bel.index].bel_wires.get();
 
     if (num_bel_wires < 7) {
@@ -283,7 +283,7 @@ WireId Arch::getBelPinWire(BelId bel, IdString pin) const
 
     NPNR_ASSERT(bel != BelId());
 
-    int num_bel_wires = chip_info->bel_data[bel.index].num_bel_wires;
+    int num_bel_wires = chip_info->bel_data[bel.index].bel_wires.size();
     const BelWirePOD *bel_wires = chip_info->bel_data[bel.index].bel_wires.get();
 
     if (num_bel_wires < 7) {
@@ -317,11 +317,8 @@ std::vector<IdString> Arch::getBelPins(BelId bel) const
 
     NPNR_ASSERT(bel != BelId());
 
-    int num_bel_wires = chip_info->bel_data[bel.index].num_bel_wires;
-    const BelWirePOD *bel_wires = chip_info->bel_data[bel.index].bel_wires.get();
-
-    for (int i = 0; i < num_bel_wires; i++)
-        ret.push_back(IdString(bel_wires[i].port));
+    for (auto &w : chip_info->bel_data[bel.index].bel_wires)
+        ret.push_back(IdString(w.port));
 
     return ret;
 }
@@ -329,17 +326,17 @@ std::vector<IdString> Arch::getBelPins(BelId bel) const
 bool Arch::isBelLocked(BelId bel) const
 {
     const BelConfigPOD *bel_config = nullptr;
-    for (int i = 0; i < chip_info->num_belcfgs; i++) {
-        if (chip_info->bel_config[i].bel_index == bel.index) {
-            bel_config = &chip_info->bel_config[i];
+    for (auto &bel_cfg : chip_info->bel_config) {
+        if (bel_cfg.bel_index == bel.index) {
+            bel_config = &bel_cfg;
             break;
         }
     }
     NPNR_ASSERT(bel_config != nullptr);
-    for (int i = 0; i < bel_config->num_entries; i++) {
-        if (strcmp("LOCKED", bel_config->entries[i].cbit_name.get()))
+    for (auto &entry : bel_config->entries) {
+        if (strcmp("LOCKED", entry.cbit_name.get()))
             continue;
-        if ("LOCKED_" + archArgs().package == bel_config->entries[i].entry_name.get())
+        if ("LOCKED_" + archArgs().package == entry.entry_name.get())
             return true;
     }
     return false;
@@ -352,7 +349,7 @@ WireId Arch::getWireByName(IdString name) const
     WireId ret;
 
     if (wire_by_name.empty()) {
-        for (int i = 0; i < chip_info->num_wires; i++)
+        for (int i = 0; i < int(chip_info->wire_data.size()); i++)
             wire_by_name[id(chip_info->wire_data[i].name.get())] = i;
     }
 
@@ -430,7 +427,7 @@ PipId Arch::getPipByName(IdString name) const
     PipId ret;
 
     if (pip_by_name.empty()) {
-        for (int i = 0; i < chip_info->num_pips; i++) {
+        for (int i = 0; i < int(chip_info->pip_data.size()); i++) {
             PipId pip;
             pip.index = i;
             pip_by_name[getPipName(pip)] = i;
@@ -479,10 +476,10 @@ std::vector<std::pair<IdString, std::string>> Arch::getPipAttrs(PipId pip) const
 
 BelId Arch::getPackagePinBel(const std::string &pin) const
 {
-    for (int i = 0; i < package_info->num_pins; i++) {
-        if (package_info->pins[i].name.get() == pin) {
+    for (auto &ppin : package_info->pins) {
+        if (ppin.name.get() == pin) {
             BelId id;
-            id.index = package_info->pins[i].bel_index;
+            id.index = ppin.bel_index;
             return id;
         }
     }
@@ -491,9 +488,9 @@ BelId Arch::getPackagePinBel(const std::string &pin) const
 
 std::string Arch::getBelPackagePin(BelId bel) const
 {
-    for (int i = 0; i < package_info->num_pins; i++) {
-        if (package_info->pins[i].bel_index == bel.index) {
-            return std::string(package_info->pins[i].name.get());
+    for (auto &ppin : package_info->pins) {
+        if (ppin.bel_index == bel.index) {
+            return std::string(ppin.name.get());
         }
     }
     return "";
@@ -826,7 +823,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
     }
 
     if (decal.type == DecalId::TYPE_WIRE) {
-        int n = chip_info->wire_data[decal.index].num_segments;
+        int n = chip_info->wire_data[decal.index].segments.size();
         const WireSegmentPOD *p = chip_info->wire_data[decal.index].segments.get();
 
         GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
@@ -951,11 +948,9 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
 
 bool Arch::getCellDelayInternal(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
 {
-    for (int i = 0; i < chip_info->num_timing_cells; i++) {
-        const auto &tc = chip_info->cell_timing[i];
+    for (auto &tc : chip_info->cell_timing) {
         if (tc.type == cell->type.index) {
-            for (int j = 0; j < tc.num_paths; j++) {
-                const auto &path = tc.path_delays[j];
+            for (auto &path : tc.path_delays) {
                 if (path.from_port == fromPort.index && path.to_port == toPort.index) {
                     if (fast_part)
                         delay.delay = path.fast_delay;
