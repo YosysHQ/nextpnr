@@ -475,7 +475,6 @@ struct Arch : BaseCtx
     std::vector<PipId> pip_id_dummy;
     std::vector<GroupId> group_id_dummy;
     std::vector<GraphicElement> graphic_element_dummy;
-    std::map<IdString, std::string> attrs_dummy;
 
     // Helpers
     template <typename Id> const TileTypePOD *tileInfo(Id &id) const
@@ -604,7 +603,12 @@ struct Arch : BaseCtx
         return id;
     }
 
-    const std::map<IdString, std::string> &getBelAttrs(BelId bel) const;
+    std::vector<std::pair<IdString, std::string>> getBelAttrs(BelId) const
+    {
+        std::vector<std::pair<IdString, std::string>> ret;
+        return ret;
+    }
+
     WireId getBelPinWire(BelId bel, IdString pin) const;
     PortType getBelPinType(BelId bel, IdString pin) const;
     std::vector<IdString> getBelPins(BelId bel) const;
@@ -623,8 +627,14 @@ struct Arch : BaseCtx
         return id(name.str());
     }
 
-    IdString getWireType(WireId wire) const;
-    const std::map<IdString, std::string> &getWireAttrs(WireId wire) const;
+    IdString getWireType(WireId wire) const { return IdString(); }
+
+    std::vector<std::pair<IdString, std::string>> getWireAttrs(WireId) const
+    {
+        std::vector<std::pair<IdString, std::string>> ret;
+        return ret;
+    }
+
     uint32_t getWireChecksum(WireId wire) const;
     void bindWire(WireId wire, NetInfo *net, PlaceStrength strength);
     void unbindWire(WireId wire);
@@ -641,7 +651,13 @@ struct Arch : BaseCtx
     IdString getPipName(PipId pip) const;
 
     IdString getPipType(PipId pip) const { return IdString(); }
-    const std::map<IdString, std::string> &getPipAttrs(PipId pip) const;
+
+    std::vector<std::pair<IdString, std::string>> getPipAttrs(PipId) const
+    {
+        std::vector<std::pair<IdString, std::string>> ret;
+        return ret;
+    }
+
     uint32_t getPipChecksum(PipId pip) const;
     void bindPip(PipId pip, NetInfo *net, PlaceStrength strength);
     void unbindPip(PipId pip);
