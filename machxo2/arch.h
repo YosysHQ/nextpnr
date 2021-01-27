@@ -464,6 +464,8 @@ struct Arch : BaseCtx
 
     std::vector<CellInfo *> bel_to_cell;
     mutable std::unordered_map<IdString, BelId> bel_by_name;
+    mutable std::unordered_map<IdString, WireId> wire_by_name;
+    mutable std::unordered_map<IdString, PipId> pip_by_name;
 
     // Placeholders to be removed.
     std::unordered_map<Loc, BelId> bel_by_loc;
@@ -512,6 +514,7 @@ struct Arch : BaseCtx
 
     // Bels
     BelId getBelByName(IdString name) const;
+
     IdString getBelName(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
@@ -611,7 +614,15 @@ struct Arch : BaseCtx
 
     // Wires
     WireId getWireByName(IdString name) const;
-    IdString getWireName(WireId wire) const;
+
+    IdString getWireName(WireId wire) const
+    {
+        NPNR_ASSERT(wire != WireId());
+        std::stringstream name;
+        name << "X" << wire.location.x << "/Y" << wire.location.y << "/" << tileInfo(wire)->bel_data[wire.index].name.get();
+        return id(name.str());
+    }
+
     IdString getWireType(WireId wire) const;
     const std::map<IdString, std::string> &getWireAttrs(WireId wire) const;
     uint32_t getWireChecksum(WireId wire) const;
@@ -628,7 +639,8 @@ struct Arch : BaseCtx
     // Pips
     PipId getPipByName(IdString name) const;
     IdString getPipName(PipId pip) const;
-    IdString getPipType(PipId pip) const;
+
+    IdString getPipType(PipId pip) const { return IdString(); }
     const std::map<IdString, std::string> &getPipAttrs(PipId pip) const;
     uint32_t getPipChecksum(PipId pip) const;
     void bindPip(PipId pip, NetInfo *net, PlaceStrength strength);
@@ -639,8 +651,25 @@ struct Arch : BaseCtx
     NetInfo *getConflictingPipNet(PipId pip) const;
     const std::vector<PipId> &getPips() const;
     Loc getPipLocation(PipId pip) const;
-    WireId getPipSrcWire(PipId pip) const;
-    WireId getPipDstWire(PipId pip) const;
+
+    WireId getPipSrcWire(PipId pip) const
+    {
+        WireId wire;
+        NPNR_ASSERT(pip != PipId());
+        wire.index = tileInfo(pip)->pips_data[pip.index].src_idx;
+        wire.location = pip.location + tileInfo(pip)->pips_data[pip.index].src;
+        return wire;
+    }
+
+    WireId getPipDstWire(PipId pip) const
+    {
+        WireId wire;
+        NPNR_ASSERT(pip != PipId());
+        wire.index = tileInfo(pip)->pips_data[pip.index].dst_idx;
+        wire.location = pip.location + tileInfo(pip)->pips_data[pip.index].dst;
+        return wire;
+    }
+
     DelayInfo getPipDelay(PipId pip) const;
     const std::vector<PipId> &getPipsDownhill(WireId wire) const;
     const std::vector<PipId> &getPipsUphill(WireId wire) const;
