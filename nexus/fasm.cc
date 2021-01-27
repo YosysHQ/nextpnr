@@ -186,7 +186,7 @@ struct NexusFasmWriter
     {
         int r = bel.tile / ctx->chip_info->width;
         int c = bel.tile % ctx->chip_info->width;
-        auto bel_data = ctx->bel_data(bel);
+        auto &bel_data = ctx->bel_data(bel);
         r += bel_data.rel_y;
         c += bel_data.rel_x;
         std::string s = stringf("R%dC%d_%s", r, c, ctx->nameOf(ctx->bel_data(bel).name));

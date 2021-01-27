@@ -36,4 +36,7 @@ NPNR_PACKED_STRUCT(template <typename T> struct RelSlice {
     const T &operator*() const { return *(get()); }
 
     const T *operator->() const { return get(); }
+
+    RelSlice(const RelSlice &) = delete;
+    RelSlice &operator=(const RelSlice &) = delete;
 });
