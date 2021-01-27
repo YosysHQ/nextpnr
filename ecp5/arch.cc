@@ -87,8 +87,8 @@ std::vector<std::string> Arch::getSupportedPackages(ArchArgs::ArchArgsTypes chip
 {
     const ChipInfoPOD *chip_info = get_chip_info(chip);
     std::vector<std::string> packages;
-    for (int i = 0; i < chip_info->num_packages; i++)
-        packages.push_back(chip_info->package_info[i].name.get());
+    for (auto &pkg : chip_info->package_info)
+        packages.push_back(pkg.name.get());
     return packages;
 }
 
@@ -104,9 +104,9 @@ Arch::Arch(ArchArgs args) : args(args)
                   "maintainer)!\n");
 
     package_info = nullptr;
-    for (int i = 0; i < chip_info->num_packages; i++) {
-        if (args.package == chip_info->package_info[i].name.get()) {
-            package_info = &(chip_info->package_info[i]);
+    for (auto &pkg : chip_info->package_info) {
+        if (args.package == pkg.name.get()) {
+            package_info = &pkg;
             break;
         }
     }
@@ -207,7 +207,7 @@ BelId Arch::getBelByName(IdString name) const
     std::tie(loc.x, loc.y, basename) = split_identifier_name(name.str(this));
     ret.location = loc;
     const LocationTypePOD *loci = locInfo(ret);
-    for (int i = 0; i < loci->num_bels; i++) {
+    for (int i = 0; i < int(loci->bel_data.size()); i++) {
         if (std::strcmp(loci->bel_data[i].name.get(), basename.c_str()) == 0) {
             ret.index = i;
             break;
@@ -225,7 +225,7 @@ BelRange Arch::getBelsByTile(int x, int y) const
     br.b.cursor_tile = y * chip_info->width + x;
     br.e.cursor_tile = y * chip_info->width + x;
     br.b.cursor_index = 0;
-    br.e.cursor_index = chip_info->locations[chip_info->location_type[br.b.cursor_tile]].num_bels - 1;
+    br.e.cursor_index = int(chip_info->locations[chip_info->location_type[br.b.cursor_tile]].bel_data.size()) - 1;
     br.b.chip = chip_info;
     br.e.chip = chip_info;
     if (br.e.cursor_index == -1)
@@ -241,12 +241,10 @@ WireId Arch::getBelPinWire(BelId bel, IdString pin) const
 
     NPNR_ASSERT(bel != BelId());
 
-    int num_bel_wires = locInfo(bel)->bel_data[bel.index].num_bel_wires;
-    const BelWirePOD *bel_wires = locInfo(bel)->bel_data[bel.index].bel_wires.get();
-    for (int i = 0; i < num_bel_wires; i++)
-        if (bel_wires[i].port == pin.index) {
-            ret.location = bel.location + bel_wires[i].rel_wire_loc;
-            ret.index = bel_wires[i].wire_index;
+    for (auto &bw : locInfo(bel)->bel_data[bel.index].bel_wires)
+        if (bw.port == pin.index) {
+            ret.location = bel.location + bw.rel_wire_loc;
+            ret.index = bw.wire_index;
             break;
         }
 
@@ -257,12 +255,9 @@ PortType Arch::getBelPinType(BelId bel, IdString pin) const
 {
     NPNR_ASSERT(bel != BelId());
 
-    int num_bel_wires = locInfo(bel)->bel_data[bel.index].num_bel_wires;
-    const BelWirePOD *bel_wires = locInfo(bel)->bel_data[bel.index].bel_wires.get();
-
-    for (int i = 0; i < num_bel_wires; i++)
-        if (bel_wires[i].port == pin.index)
-            return PortType(bel_wires[i].type);
+    for (auto &bw : locInfo(bel)->bel_data[bel.index].bel_wires)
+        if (bw.port == pin.index)
+            return PortType(bw.type);
 
     return PORT_INOUT;
 }
@@ -281,7 +276,7 @@ WireId Arch::getWireByName(IdString name) const
     std::tie(loc.x, loc.y, basename) = split_identifier_name(name.str(this));
     ret.location = loc;
     const LocationTypePOD *loci = locInfo(ret);
-    for (int i = 0; i < loci->num_wires; i++) {
+    for (int i = 0; i < int(loci->wire_data.size()); i++) {
         if (std::strcmp(loci->wire_data[i].name.get(), basename.c_str()) == 0) {
             ret.index = i;
             ret.location = loc;
@@ -309,7 +304,7 @@ PipId Arch::getPipByName(IdString name) const
     std::tie(loc.x, loc.y, basename) = split_identifier_name(name.str(this));
     ret.location = loc;
     const LocationTypePOD *loci = locInfo(ret);
-    for (int i = 0; i < loci->num_pips; i++) {
+    for (int i = 0; i < int(loci->pip_data.size()); i++) {
         PipId curr;
         curr.location = loc;
         curr.index = i;
@@ -340,11 +335,11 @@ IdString Arch::getPipName(PipId pip) const
 
 BelId Arch::getPackagePinBel(const std::string &pin) const
 {
-    for (int i = 0; i < package_info->num_pins; i++) {
-        if (package_info->pin_data[i].name.get() == pin) {
+    for (auto &ppin : package_info->pin_data) {
+        if (ppin.name.get() == pin) {
             BelId bel;
-            bel.location = package_info->pin_data[i].abs_loc;
-            bel.index = package_info->pin_data[i].bel_index;
+            bel.location = ppin.abs_loc;
+            bel.index = ppin.bel_index;
             return bel;
         }
     }
@@ -353,10 +348,9 @@ BelId Arch::getPackagePinBel(const std::string &pin) const
 
 std::string Arch::getBelPackagePin(BelId bel) const
 {
-    for (int i = 0; i < package_info->num_pins; i++) {
-        if (Location(package_info->pin_data[i].abs_loc) == bel.location &&
-            package_info->pin_data[i].bel_index == bel.index) {
-            return package_info->pin_data[i].name.get();
+    for (auto &ppin : package_info->pin_data) {
+        if (Location(ppin.abs_loc) == bel.location && ppin.bel_index == bel.index) {
+            return ppin.name.get();
         }
     }
     return "";
@@ -364,9 +358,9 @@ std::string Arch::getBelPackagePin(BelId bel) const
 
 int Arch::getPioBelBank(BelId bel) const
 {
-    for (int i = 0; i < chip_info->num_pios; i++) {
-        if (Location(chip_info->pio_info[i].abs_loc) == bel.location && chip_info->pio_info[i].bel_index == bel.index) {
-            return chip_info->pio_info[i].bank;
+    for (auto &pio : chip_info->pio_info) {
+        if (Location(pio.abs_loc) == bel.location && pio.bel_index == bel.index) {
+            return pio.bank;
         }
     }
     NPNR_ASSERT_FALSE("failed to find PIO");
@@ -374,9 +368,9 @@ int Arch::getPioBelBank(BelId bel) const
 
 std::string Arch::getPioFunctionName(BelId bel) const
 {
-    for (int i = 0; i < chip_info->num_pios; i++) {
-        if (Location(chip_info->pio_info[i].abs_loc) == bel.location && chip_info->pio_info[i].bel_index == bel.index) {
-            const char *func = chip_info->pio_info[i].function_name.get();
+    for (auto &pio : chip_info->pio_info) {
+        if (Location(pio.abs_loc) == bel.location && pio.bel_index == bel.index) {
+            const char *func = pio.function_name.get();
             if (func == nullptr)
                 return "";
             else
@@ -388,12 +382,12 @@ std::string Arch::getPioFunctionName(BelId bel) const
 
 BelId Arch::getPioByFunctionName(const std::string &name) const
 {
-    for (int i = 0; i < chip_info->num_pios; i++) {
-        const char *func = chip_info->pio_info[i].function_name.get();
+    for (auto &pio : chip_info->pio_info) {
+        const char *func = pio.function_name.get();
         if (func != nullptr && func == name) {
             BelId bel;
-            bel.location = chip_info->pio_info[i].abs_loc;
-            bel.index = chip_info->pio_info[i].bel_index;
+            bel.location = pio.abs_loc;
+            bel.index = pio.bel_index;
             return bel;
         }
     }
@@ -405,12 +399,9 @@ std::vector<IdString> Arch::getBelPins(BelId bel) const
     std::vector<IdString> ret;
     NPNR_ASSERT(bel != BelId());
 
-    int num_bel_wires = locInfo(bel)->bel_data[bel.index].num_bel_wires;
-    const BelWirePOD *bel_wires = locInfo(bel)->bel_data[bel.index].bel_wires.get();
-
-    for (int i = 0; i < num_bel_wires; i++) {
+    for (auto &bw : locInfo(bel)->bel_data[bel.index].bel_wires) {
         IdString id;
-        id.index = bel_wires[i].port;
+        id.index = bw.port;
         ret.push_back(id);
     }
 
@@ -422,7 +413,7 @@ BelId Arch::getBelByLocation(Loc loc) const
     if (loc.x >= chip_info->width || loc.y >= chip_info->height)
         return BelId();
     const LocationTypePOD &locI = chip_info->locations[chip_info->location_type[loc.y * chip_info->width + loc.x]];
-    for (int i = 0; i < locI.num_bels; i++) {
+    for (int i = 0; i < int(locI.bel_data.size()); i++) {
         if (locI.bel_data[i].z == loc.z) {
             BelId bi;
             bi.location.x = loc.x;
@@ -438,7 +429,7 @@ BelId Arch::getBelByLocation(Loc loc) const
 
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {
-    int num_uh = locInfo(dst)->wire_data[dst.index].num_uphill;
+    int num_uh = locInfo(dst)->wire_data[dst.index].pips_uphill.size();
     if (num_uh < 6) {
         for (auto uh : getPipsUphill(dst)) {
             if (getPipSrcWire(uh) == src)
@@ -451,13 +442,13 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
         if (w == gsrclk_wire) {
             auto phys_wire = getPipSrcWire(*(getPipsUphill(w).begin()));
             return std::make_pair(int(phys_wire.location.x), int(phys_wire.location.y));
-        } else if (wire.num_bel_pins > 0) {
+        } else if (wire.bel_pins.size() > 0) {
             return std::make_pair(w.location.x + wire.bel_pins[0].rel_bel_loc.x,
                                   w.location.y + wire.bel_pins[0].rel_bel_loc.y);
-        } else if (wire.num_downhill > 0) {
+        } else if (wire.pips_downhill.size() > 0) {
             return std::make_pair(w.location.x + wire.pips_downhill[0].rel_loc.x,
                                   w.location.y + wire.pips_downhill[0].rel_loc.y);
-        } else if (wire.num_uphill > 0) {
+        } else if (wire.pips_uphill.size() > 0) {
             return std::make_pair(w.location.x + wire.pips_uphill[0].rel_loc.x,
                                   w.location.y + wire.pips_uphill[0].rel_loc.y);
         } else {
@@ -500,13 +491,13 @@ ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
         if (w == gsrclk_wire) {
             auto phys_wire = getPipSrcWire(*(getPipsUphill(w).begin()));
             return std::make_pair(int(phys_wire.location.x), int(phys_wire.location.y));
-        } else if (wire.num_bel_pins > 0) {
+        } else if (wire.bel_pins.size() > 0) {
             return std::make_pair(w.location.x + wire.bel_pins[0].rel_bel_loc.x,
                                   w.location.y + wire.bel_pins[0].rel_bel_loc.y);
-        } else if (wire.num_downhill > 0) {
+        } else if (wire.pips_downhill.size() > 0) {
             return std::make_pair(w.location.x + wire.pips_downhill[0].rel_loc.x,
                                   w.location.y + wire.pips_downhill[0].rel_loc.y);
-        } else if (wire.num_uphill > 0) {
+        } else if (wire.pips_uphill.size() > 0) {
             return std::make_pair(w.location.x + wire.pips_uphill[0].rel_loc.x,
                                   w.location.y + wire.pips_uphill[0].rel_loc.y);
         } else {
@@ -763,11 +754,9 @@ bool Arch::getDelayFromTimingDatabase(IdString tctype, IdString from, IdString t
         delay = fnd_dk->second.second;
         return fnd_dk->second.first;
     }
-    for (int i = 0; i < speed_grade->num_cell_timings; i++) {
-        const auto &tc = speed_grade->cell_timings[i];
+    for (auto &tc : speed_grade->cell_timings) {
         if (tc.cell_type == tctype.index) {
-            for (int j = 0; j < tc.num_prop_delays; j++) {
-                const auto &dly = tc.prop_delays[j];
+            for (auto &dly : tc.prop_delays) {
                 if (dly.from_port == from.index && dly.to_port == to.index) {
                     delay.max_delay = dly.max_delay;
                     delay.min_delay = dly.min_delay;
@@ -785,11 +774,9 @@ bool Arch::getDelayFromTimingDatabase(IdString tctype, IdString from, IdString t
 void Arch::getSetupHoldFromTimingDatabase(IdString tctype, IdString clock, IdString port, DelayInfo &setup,
                                           DelayInfo &hold) const
 {
-    for (int i = 0; i < speed_grade->num_cell_timings; i++) {
-        const auto &tc = speed_grade->cell_timings[i];
+    for (auto &tc : speed_grade->cell_timings) {
         if (tc.cell_type == tctype.index) {
-            for (int j = 0; j < tc.num_setup_holds; j++) {
-                const auto &sh = tc.setup_holds[j];
+            for (auto &sh : tc.setup_holds) {
                 if (sh.clock_port == clock.index && sh.sig_port == port.index) {
                     setup.max_delay = sh.max_setup;
                     setup.min_delay = sh.min_setup;
@@ -1165,9 +1152,8 @@ std::vector<std::pair<std::string, std::string>> Arch::getTilesAtLocation(int ro
 {
     std::vector<std::pair<std::string, std::string>> ret;
     auto &tileloc = chip_info->tile_info[row * chip_info->width + col];
-    for (int i = 0; i < tileloc.num_tiles; i++) {
-        ret.push_back(std::make_pair(tileloc.tile_names[i].name.get(),
-                                     chip_info->tiletype_names[tileloc.tile_names[i].type_idx].get()));
+    for (auto &tn : tileloc.tile_names) {
+        ret.push_back(std::make_pair(tn.name.get(), chip_info->tiletype_names[tn.type_idx].get()));
     }
     return ret;
 }
@@ -1180,9 +1166,9 @@ GlobalInfoPOD Arch::globalInfoAtLoc(Location loc)
 
 bool Arch::getPIODQSGroup(BelId pio, bool &dqsright, int &dqsrow)
 {
-    for (int i = 0; i < chip_info->num_pios; i++) {
-        if (Location(chip_info->pio_info[i].abs_loc) == pio.location && chip_info->pio_info[i].bel_index == pio.index) {
-            int dqs = chip_info->pio_info[i].dqsgroup;
+    for (auto &ppio : chip_info->pio_info) {
+        if (Location(ppio.abs_loc) == pio.location && ppio.bel_index == pio.index) {
+            int dqs = ppio.dqsgroup;
             if (dqs == -1)
                 return false;
             else {
@@ -1200,7 +1186,7 @@ BelId Arch::getDQSBUF(bool dqsright, int dqsrow)
     BelId bel;
     bel.location.y = dqsrow;
     bel.location.x = (dqsright ? (chip_info->width - 1) : 0);
-    for (int i = 0; i < locInfo(bel)->num_bels; i++) {
+    for (int i = 0; i < int(locInfo(bel)->bel_data.size()); i++) {
         auto &bd = locInfo(bel)->bel_data[i];
         if (bd.type == id_DQSBUFM.index) {
             bel.index = i;

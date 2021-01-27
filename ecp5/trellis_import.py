@@ -184,6 +184,13 @@ class BinaryBlobAssembler:
         else:
             print("ref %s %s" % (name, comment))
 
+    def r_slice(self, name, length, comment):
+        if comment is None:
+            print("ref %s" % (name,))
+        else:
+            print("ref %s %s" % (name, comment))
+        print ("u32 %d" % (length, ))
+
     def s(self, s, comment):
         assert "|" not in s
         print("str |%s| %s" % (s, comment))
@@ -445,12 +452,9 @@ def write_database(dev_name, chip, ddrg, endianness):
                     bba.u32(gfx_wire_ids["TILE_WIRE_" + ddrg.to_str(wire.name)], "tile_wire")
                 else:
                     bba.u32(0, "tile_wire")
-                bba.u32(len(wire.arcsUphill), "num_uphill")
-                bba.u32(len(wire.arcsDownhill), "num_downhill")
-                bba.r("loc%d_wire%d_uppips" % (idx, wire_idx) if len(wire.arcsUphill) > 0 else None, "pips_uphill")
-                bba.r("loc%d_wire%d_downpips" % (idx, wire_idx) if len(wire.arcsDownhill) > 0 else None, "pips_downhill")
-                bba.u32(len(wire.belPins), "num_bel_pins")
-                bba.r("loc%d_wire%d_belpins" % (idx, wire_idx) if len(wire.belPins) > 0 else None, "bel_pins")
+                bba.r_slice("loc%d_wire%d_uppips" % (idx, wire_idx) if len(wire.arcsUphill) > 0 else None, len(wire.arcsUphill), "pips_uphill")
+                bba.r_slice("loc%d_wire%d_downpips" % (idx, wire_idx) if len(wire.arcsDownhill) > 0 else None, len(wire.arcsDownhill), "pips_downhill")
+                bba.r_slice("loc%d_wire%d_belpins" % (idx, wire_idx) if len(wire.belPins) > 0 else None, len(wire.belPins), "bel_pins")
 
         if len(loctype.bels) > 0:
             for bel_idx in range(len(loctype.bels)):
@@ -467,18 +471,14 @@ def write_database(dev_name, chip, ddrg, endianness):
                 bba.s(ddrg.to_str(bel.name), "name")
                 bba.u32(constids[ddrg.to_str(bel.type)], "type")
                 bba.u32(bel.z, "z")
-                bba.u32(len(bel.wires), "num_bel_wires")
-                bba.r("loc%d_bel%d_wires" % (idx, bel_idx), "bel_wires")
+                bba.r_slice("loc%d_bel%d_wires" % (idx, bel_idx), len(bel.wires), "bel_wires")
 
     bba.l("locations", "LocationTypePOD")
     for idx in range(len(loctypes)):
         loctype = ddrg.locationTypes[loctypes[idx]]
-        bba.u32(len(loctype.bels), "num_bels")
-        bba.u32(len(loctype.wires), "num_wires")
-        bba.u32(len(loctype.arcs), "num_pips")
-        bba.r("loc%d_bels" % idx if len(loctype.bels) > 0 else None, "bel_data")
-        bba.r("loc%d_wires" % idx if len(loctype.wires) > 0 else None, "wire_data")
-        bba.r("loc%d_pips" % idx if len(loctype.arcs) > 0 else None, "pips_data")
+        bba.r_slice("loc%d_bels" % idx if len(loctype.bels) > 0 else None, len(loctype.bels), "bel_data")
+        bba.r_slice("loc%d_wires" % idx if len(loctype.wires) > 0 else None, len(loctype.wires), "wire_data")
+        bba.r_slice("loc%d_pips" % idx if len(loctype.arcs) > 0 else None, len(loctype.arcs), "pips_data")
 
     for y in range(0, max_row+1):
         for x in range(0, max_col+1):
@@ -491,8 +491,7 @@ def write_database(dev_name, chip, ddrg, endianness):
     bba.l("tiles_info", "TileInfoPOD")
     for y in range(0, max_row+1):
         for x in range(0, max_col+1):
-            bba.u32(len(chip.get_tiles_by_position(y, x)), "num_tiles")
-            bba.r("tile_info_%d_%d" % (x, y), "tile_names")
+            bba.r_slice("tile_info_%d_%d" % (x, y), len(chip.get_tiles_by_position(y, x)), "tile_names")
 
     bba.l("location_types", "int32_t")
     for y in range(0, max_row+1):
@@ -519,8 +518,7 @@ def write_database(dev_name, chip, ddrg, endianness):
     bba.l("package_data", "PackageInfoPOD")
     for package, pkgdata in sorted(packages.items()):
         bba.s(package, "name")
-        bba.u32(len(pkgdata), "num_pins")
-        bba.r("package_data_%s" % package, "pin_data")
+        bba.r_slice("package_data_%s" % package, len(pkgdata), "pin_data")
 
     bba.l("pio_info", "PIOInfoPOD")
     for pin in pindata:
@@ -563,10 +561,8 @@ def write_database(dev_name, chip, ddrg, endianness):
         for cell in speed_grade_cells[grade]:
             celltype, delays, setupholds = cell
             bba.u32(celltype, "cell_type")
-            bba.u32(len(delays), "num_delays")
-            bba.u32(len(setupholds), "num_setup_hold")
-            bba.r("cell_%d_delays_%s" % (celltype, grade) if len(delays) > 0 else None, "delays")
-            bba.r("cell_%d_setupholds_%s" % (celltype, grade) if len(delays) > 0 else None, "setupholds")
+            bba.r_slice("cell_%d_delays_%s" % (celltype, grade) if len(delays) > 0 else None, len(delays), "delays")
+            bba.r_slice("cell_%d_setupholds_%s" % (celltype, grade) if len(delays) > 0 else None, len(setupholds), "setupholds")
         bba.l("pip_timing_data_%s" % grade)
         for pipclass in speed_grade_pips[grade]:
             min_delay, max_delay, min_fanout, max_fanout = pipclass
@@ -576,28 +572,23 @@ def write_database(dev_name, chip, ddrg, endianness):
             bba.u32(max_fanout, "max_fanout")
     bba.l("speed_grade_data")
     for grade in speed_grade_names:
-        bba.u32(len(speed_grade_cells[grade]), "num_cell_timings")
-        bba.u32(len(speed_grade_pips[grade]), "num_pip_classes")
-        bba.r("cell_timing_data_%s" % grade, "cell_timings")
-        bba.r("pip_timing_data_%s" % grade, "pip_classes")
+        bba.r_slice("cell_timing_data_%s" % grade, len(speed_grade_cells[grade]), "cell_timings")
+        bba.r_slice("pip_timing_data_%s" % grade, len(speed_grade_pips[grade]), "pip_classes")
 
     bba.l("chip_info")
     bba.u32(max_col + 1, "width")
     bba.u32(max_row + 1, "height")
     bba.u32((max_col + 1) * (max_row + 1), "num_tiles")
-    bba.u32(len(location_types), "num_location_types")
-    bba.u32(len(packages), "num_packages")
-    bba.u32(len(pindata), "num_pios")
     bba.u32(const_id_count, "const_id_count")
 
-    bba.r("locations", "locations")
-    bba.r("location_types", "location_type")
-    bba.r("location_glbinfo", "location_glbinfo")
-    bba.r("tiletype_names", "tiletype_names")
-    bba.r("package_data", "package_info")
-    bba.r("pio_info", "pio_info")
-    bba.r("tiles_info", "tile_info")
-    bba.r("speed_grade_data", "speed_grades")
+    bba.r_slice("locations", len(loctypes), "locations")
+    bba.r_slice("location_types", (max_col + 1) * (max_row + 1), "location_type")
+    bba.r_slice("location_glbinfo", (max_col + 1) * (max_row + 1), "location_glbinfo")
+    bba.r_slice("tiletype_names", len(tiletype_names), "tiletype_names")
+    bba.r_slice("package_data", len(packages), "package_info")
+    bba.r_slice("pio_info", len(pindata), "pio_info")
+    bba.r_slice("tiles_info", (max_col + 1) * (max_row + 1), "tile_info")
+    bba.r_slice("speed_grade_data", len(speed_grade_names), "speed_grades")
 
     bba.pop()
     return bba
