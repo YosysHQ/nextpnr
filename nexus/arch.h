@@ -28,45 +28,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-template <typename T> struct RelPtr
-{
-    int32_t offset;
-
-    // void set(const T *ptr) {
-    //     offset = reinterpret_cast<const char*>(ptr) -
-    //              reinterpret_cast<const char*>(this);
-    // }
-
-    const T *get() const { return reinterpret_cast<const T *>(reinterpret_cast<const char *>(this) + offset); }
-
-    const T &operator[](size_t index) const { return get()[index]; }
-
-    const T &operator*() const { return *(get()); }
-
-    const T *operator->() const { return get(); }
-};
-
-NPNR_PACKED_STRUCT(template <typename T> struct RelSlice {
-    int32_t offset;
-    uint32_t length;
-
-    const T *get() const { return reinterpret_cast<const T *>(reinterpret_cast<const char *>(this) + offset); }
-
-    const T &operator[](size_t index) const
-    {
-        NPNR_ASSERT(index < length);
-        return get()[index];
-    }
-
-    const T *begin() const { return get(); }
-    const T *end() const { return get() + length; }
-
-    const size_t size() const { return length; }
-
-    const T &operator*() const { return *(get()); }
-
-    const T *operator->() const { return get(); }
-});
+#include "relptr.h"
 
 /*
     Fully deduplicated database
