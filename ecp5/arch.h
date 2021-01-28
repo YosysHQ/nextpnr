@@ -29,26 +29,7 @@ NEXTPNR_NAMESPACE_BEGIN
 
 /**** Everything in this section must be kept in sync with chipdb.py ****/
 
-template <typename T> struct RelPtr
-{
-    int32_t offset;
-
-    // void set(const T *ptr) {
-    //     offset = reinterpret_cast<const char*>(ptr) -
-    //              reinterpret_cast<const char*>(this);
-    // }
-
-    const T *get() const { return reinterpret_cast<const T *>(reinterpret_cast<const char *>(this) + offset); }
-
-    const T &operator[](size_t index) const { return get()[index]; }
-
-    const T &operator*() const { return *(get()); }
-
-    const T *operator->() const { return get(); }
-
-    RelPtr(const RelPtr &) = delete;
-    RelPtr &operator=(const RelPtr &) = delete;
-};
+#include "relptr.h"
 
 NPNR_PACKED_STRUCT(struct BelWirePOD {
     LocationPOD rel_wire_loc;
@@ -61,8 +42,7 @@ NPNR_PACKED_STRUCT(struct BelInfoPOD {
     RelPtr<char> name;
     int32_t type;
     int32_t z;
-    int32_t num_bel_wires;
-    RelPtr<BelWirePOD> bel_wires;
+    RelSlice<BelWirePOD> bel_wires;
 });
 
 NPNR_PACKED_STRUCT(struct BelPortPOD {
@@ -89,18 +69,14 @@ NPNR_PACKED_STRUCT(struct WireInfoPOD {
     RelPtr<char> name;
     int32_t type;
     int32_t tile_wire;
-    int32_t num_uphill, num_downhill;
-    RelPtr<PipLocatorPOD> pips_uphill, pips_downhill;
-
-    int32_t num_bel_pins;
-    RelPtr<BelPortPOD> bel_pins;
+    RelSlice<PipLocatorPOD> pips_uphill, pips_downhill;
+    RelSlice<BelPortPOD> bel_pins;
 });
 
 NPNR_PACKED_STRUCT(struct LocationTypePOD {
-    int32_t num_bels, num_wires, num_pips;
-    RelPtr<BelInfoPOD> bel_data;
-    RelPtr<WireInfoPOD> wire_data;
-    RelPtr<PipInfoPOD> pip_data;
+    RelSlice<BelInfoPOD> bel_data;
+    RelSlice<WireInfoPOD> wire_data;
+    RelSlice<PipInfoPOD> pip_data;
 });
 
 NPNR_PACKED_STRUCT(struct PIOInfoPOD {
@@ -119,8 +95,7 @@ NPNR_PACKED_STRUCT(struct PackagePinPOD {
 
 NPNR_PACKED_STRUCT(struct PackageInfoPOD {
     RelPtr<char> name;
-    int32_t num_pins;
-    RelPtr<PackagePinPOD> pin_data;
+    RelSlice<PackagePinPOD> pin_data;
 });
 
 NPNR_PACKED_STRUCT(struct TileNamePOD {
@@ -129,10 +104,7 @@ NPNR_PACKED_STRUCT(struct TileNamePOD {
     int16_t padding;
 });
 
-NPNR_PACKED_STRUCT(struct TileInfoPOD {
-    int32_t num_tiles;
-    RelPtr<TileNamePOD> tile_names;
-});
+NPNR_PACKED_STRUCT(struct TileInfoPOD { RelSlice<TileNamePOD> tile_names; });
 
 enum TapDirection : int8_t
 {
@@ -174,10 +146,8 @@ NPNR_PACKED_STRUCT(struct CellSetupHoldPOD {
 
 NPNR_PACKED_STRUCT(struct CellTimingPOD {
     int32_t cell_type;
-    int32_t num_prop_delays;
-    int32_t num_setup_holds;
-    RelPtr<CellPropDelayPOD> prop_delays;
-    RelPtr<CellSetupHoldPOD> setup_holds;
+    RelSlice<CellPropDelayPOD> prop_delays;
+    RelSlice<CellSetupHoldPOD> setup_holds;
 });
 
 NPNR_PACKED_STRUCT(struct PipDelayPOD {
@@ -188,26 +158,22 @@ NPNR_PACKED_STRUCT(struct PipDelayPOD {
 });
 
 NPNR_PACKED_STRUCT(struct SpeedGradePOD {
-    int32_t num_cell_timings;
-    int32_t num_pip_classes;
-    RelPtr<CellTimingPOD> cell_timings;
-    RelPtr<PipDelayPOD> pip_classes;
+    RelSlice<CellTimingPOD> cell_timings;
+    RelSlice<PipDelayPOD> pip_classes;
 });
 
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     int32_t width, height;
     int32_t num_tiles;
-    int32_t num_location_types;
-    int32_t num_packages, num_pios;
     int32_t const_id_count;
-    RelPtr<LocationTypePOD> locations;
-    RelPtr<int32_t> location_type;
-    RelPtr<GlobalInfoPOD> location_glbinfo;
-    RelPtr<RelPtr<char>> tiletype_names;
-    RelPtr<PackageInfoPOD> package_info;
-    RelPtr<PIOInfoPOD> pio_info;
-    RelPtr<TileInfoPOD> tile_info;
-    RelPtr<SpeedGradePOD> speed_grades;
+    RelSlice<LocationTypePOD> locations;
+    RelSlice<int32_t> location_type;
+    RelSlice<GlobalInfoPOD> location_glbinfo;
+    RelSlice<RelPtr<char>> tiletype_names;
+    RelSlice<PackageInfoPOD> package_info;
+    RelSlice<PIOInfoPOD> pio_info;
+    RelSlice<TileInfoPOD> tile_info;
+    RelSlice<SpeedGradePOD> speed_grades;
 });
 
 /************************ End of chipdb section. ************************/
@@ -222,7 +188,7 @@ struct BelIterator
     {
         cursor_index++;
         while (cursor_tile < chip->num_tiles &&
-               cursor_index >= chip->locations[chip->location_type[cursor_tile]].num_bels) {
+               cursor_index >= int(chip->locations[chip->location_type[cursor_tile]].bel_data.size())) {
             cursor_index = 0;
             cursor_tile++;
         }
@@ -300,7 +266,7 @@ struct WireIterator
     {
         cursor_index++;
         while (cursor_tile < chip->num_tiles &&
-               cursor_index >= chip->locations[chip->location_type[cursor_tile]].num_wires) {
+               cursor_index >= int(chip->locations[chip->location_type[cursor_tile]].wire_data.size())) {
             cursor_index = 0;
             cursor_tile++;
         }
@@ -352,7 +318,7 @@ struct AllPipIterator
     {
         cursor_index++;
         while (cursor_tile < chip->num_tiles &&
-               cursor_index >= chip->locations[chip->location_type[cursor_tile]].num_pips) {
+               cursor_index >= int(chip->locations[chip->location_type[cursor_tile]].pip_data.size())) {
             cursor_index = 0;
             cursor_tile++;
         }
@@ -617,9 +583,9 @@ struct Arch : BaseCtx
     {
         BelPinRange range;
         NPNR_ASSERT(wire != WireId());
-        range.b.ptr = locInfo(wire)->wire_data[wire.index].bel_pins.get();
+        range.b.ptr = locInfo(wire)->wire_data[wire.index].bel_pins.begin();
         range.b.wire_loc = wire.location;
-        range.e.ptr = range.b.ptr + locInfo(wire)->wire_data[wire.index].num_bel_pins;
+        range.e.ptr = locInfo(wire)->wire_data[wire.index].bel_pins.end();
         range.e.wire_loc = wire.location;
         return range;
     }
@@ -735,7 +701,7 @@ struct Arch : BaseCtx
     {
         WireId wireId;
         wireId.location = loc;
-        for (int i = 0; i < locInfo(wireId)->num_wires; i++) {
+        for (int i = 0; i < int(locInfo(wireId)->wire_data.size()); i++) {
             if (locInfo(wireId)->wire_data[i].name.get() == basename) {
                 wireId.index = i;
                 return wireId;
@@ -857,7 +823,6 @@ struct Arch : BaseCtx
         auto fnd_fanout = wire_fanout.find(getPipSrcWire(pip));
         if (fnd_fanout != wire_fanout.end())
             fanout = fnd_fanout->second;
-        NPNR_ASSERT(locInfo(pip)->pip_data[pip.index].timing_class < speed_grade->num_pip_classes);
         delay.min_delay =
                 speed_grade->pip_classes[locInfo(pip)->pip_data[pip.index].timing_class].min_base_delay +
                 fanout * speed_grade->pip_classes[locInfo(pip)->pip_data[pip.index].timing_class].min_fanout_adder;
@@ -873,7 +838,7 @@ struct Arch : BaseCtx
         NPNR_ASSERT(wire != WireId());
         range.b.cursor = locInfo(wire)->wire_data[wire.index].pips_downhill.get();
         range.b.wire_loc = wire.location;
-        range.e.cursor = range.b.cursor + locInfo(wire)->wire_data[wire.index].num_downhill;
+        range.e.cursor = range.b.cursor + locInfo(wire)->wire_data[wire.index].pips_downhill.size();
         range.e.wire_loc = wire.location;
         return range;
     }
@@ -884,7 +849,7 @@ struct Arch : BaseCtx
         NPNR_ASSERT(wire != WireId());
         range.b.cursor = locInfo(wire)->wire_data[wire.index].pips_uphill.get();
         range.b.wire_loc = wire.location;
-        range.e.cursor = range.b.cursor + locInfo(wire)->wire_data[wire.index].num_uphill;
+        range.e.cursor = range.b.cursor + locInfo(wire)->wire_data[wire.index].pips_uphill.size();
         range.e.wire_loc = wire.location;
         return range;
     }
@@ -892,9 +857,9 @@ struct Arch : BaseCtx
     std::string getPipTilename(PipId pip) const
     {
         auto &tileloc = chip_info->tile_info[pip.location.y * chip_info->width + pip.location.x];
-        for (int i = 0; i < tileloc.num_tiles; i++) {
-            if (tileloc.tile_names[i].type_idx == locInfo(pip)->pip_data[pip.index].tile_type)
-                return tileloc.tile_names[i].name.get();
+        for (auto &tn : tileloc.tile_names) {
+            if (tn.type_idx == locInfo(pip)->pip_data[pip.index].tile_type)
+                return tn.name.get();
         }
         NPNR_ASSERT_FALSE("failed to find Pip tile");
     }
@@ -999,9 +964,9 @@ struct Arch : BaseCtx
     std::string getTileByTypeAndLocation(int row, int col, std::string type) const
     {
         auto &tileloc = chip_info->tile_info[row * chip_info->width + col];
-        for (int i = 0; i < tileloc.num_tiles; i++) {
-            if (chip_info->tiletype_names[tileloc.tile_names[i].type_idx].get() == type)
-                return tileloc.tile_names[i].name.get();
+        for (auto &tn : tileloc.tile_names) {
+            if (chip_info->tiletype_names[tn.type_idx].get() == type)
+                return tn.name.get();
         }
         NPNR_ASSERT_FALSE_STR("no tile at (" + std::to_string(col) + ", " + std::to_string(row) + ") with type " +
                               type);
@@ -1010,9 +975,9 @@ struct Arch : BaseCtx
     std::string getTileByTypeAndLocation(int row, int col, const std::set<std::string> &type) const
     {
         auto &tileloc = chip_info->tile_info[row * chip_info->width + col];
-        for (int i = 0; i < tileloc.num_tiles; i++) {
-            if (type.count(chip_info->tiletype_names[tileloc.tile_names[i].type_idx].get()))
-                return tileloc.tile_names[i].name.get();
+        for (auto &tn : tileloc.tile_names) {
+            if (type.count(chip_info->tiletype_names[tn.type_idx].get()))
+                return tn.name.get();
         }
         NPNR_ASSERT_FALSE_STR("no tile at (" + std::to_string(col) + ", " + std::to_string(row) + ") with type in set");
     }
@@ -1021,9 +986,9 @@ struct Arch : BaseCtx
     {
         for (int i = 0; i < chip_info->height * chip_info->width; i++) {
             auto &tileloc = chip_info->tile_info[i];
-            for (int j = 0; j < tileloc.num_tiles; j++)
-                if (chip_info->tiletype_names[tileloc.tile_names[j].type_idx].get() == type)
-                    return tileloc.tile_names[j].name.get();
+            for (auto &tn : tileloc.tile_names)
+                if (chip_info->tiletype_names[tn.type_idx].get() == type)
+                    return tn.name.get();
         }
         NPNR_ASSERT_FALSE_STR("no tile with type " + type);
     }

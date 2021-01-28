@@ -1077,6 +1077,13 @@ class BinaryBlobAssembler:
         else:
             print("ref %s %s" % (name, comment))
 
+    def r_slice(self, name, length, comment):
+        if comment is None:
+            print("ref %s" % (name,))
+        else:
+            print("ref %s %s" % (name, comment))
+        print ("u32 %d" % (length, ))
+
     def s(self, s, comment):
         assert "|" not in s
         print("str |%s| %s" % (s, comment))
@@ -1135,8 +1142,7 @@ bba.l("bel_data_%s" % dev_name, "BelInfoPOD")
 for bel in range(len(bel_name)):
     bba.s(bel_name[bel], "name")
     bba.u32(constids[bel_type[bel]], "type")
-    bba.u32(len(bel_wires[bel]), "num_bel_wires")
-    bba.r("bel_wires_%d" % bel, "bel_wires")
+    bba.r_slice("bel_wires_%d" % bel, len(bel_wires[bel]), "bel_wires")
     bba.u8(bel_pos[bel][0], "x")
     bba.u8(bel_pos[bel][1], "y")
     bba.u8(bel_pos[bel][2], "z")
@@ -1292,8 +1298,7 @@ for t in range(num_tile_types):
     bba.l("tile%d_config" % t, "ConfigEntryPOD")
     for name, num_bits, t, safename in centries_info:
         bba.s(name, "name")
-        bba.u32(num_bits, "num_bits")
-        bba.r("tile%d_%s_bits" % (t, safename), "num_bits")
+        bba.r_slice("tile%d_%s_bits" % (t, safename), num_bits, "num_bits")
     if len(centries_info) == 0:
         bba.u32(0, "padding")
     ti = dict()
@@ -1306,22 +1311,19 @@ for t in range(num_tile_types):
 bba.l("wire_data_%s" % dev_name, "WireInfoPOD")
 for wire, info in enumerate(wireinfo):
     bba.s(info["name"], "name")
-    bba.u32(info["num_uphill"], "num_uphill")
-    bba.u32(info["num_downhill"], "num_downhill")
-    bba.r(info["list_uphill"], "pips_uphill")
-    bba.r(info["list_downhill"], "pips_downhill")
-    bba.u32(info["num_bel_pins"], "num_bel_pins")
-    bba.r(info["list_bel_pins"], "bel_pins")
+    bba.r_slice(info["list_uphill"], info["num_uphill"], "pips_uphill")
+    bba.r_slice(info["list_downhill"], info["num_downhill"], "pips_downhill")
+    bba.r_slice(info["list_bel_pins"], info["num_bel_pins"], "bel_pins")
 
     num_segments = 0
     for segs in wire_segments[wire].values():
         num_segments += len(segs)
-    bba.u32(num_segments, "num_segments")
 
     if num_segments:
-        bba.r("wire_segments_%d" % wire, "segments")
+        bba.r_slice("wire_segments_%d" % wire, num_segments, "segments")
     else:
         bba.u32(0, "segments")
+        bba.u32(0, "segments_len")
 
     bba.u32(wiredelay(wire, fast_timings), "fast_delay")
     bba.u32(wiredelay(wire, slow_timings), "slow_delay")
@@ -1402,8 +1404,8 @@ bba.l("tile_data_%s" % dev_name, "TileInfoPOD")
 for info in tileinfo:
     bba.u8(info["cols"], "cols")
     bba.u8(info["rows"], "rows")
-    bba.u16(info["num_entries"], "num_entries")
-    bba.r(info["entries"], "entries")
+    bba.u16(0, "padding")
+    bba.r_slice(info["entries"], info["num_entries"], "entries")
 
 bba.l("ieren_data_%s" % dev_name, "IerenInfoPOD")
 for ieren in ierens:
@@ -1418,11 +1420,9 @@ if len(ierens) % 2 == 1:
     bba.u16(0, "padding")
 
 bba.l("bits_info_%s" % dev_name, "BitstreamInfoPOD")
-bba.u32(len(switchinfo), "num_switches")
-bba.u32(len(ierens), "num_ierens")
-bba.r("tile_data_%s" % dev_name, "tiles_nonrouting")
-bba.r("switch_data_%s" % dev_name, "switches")
-bba.r("ieren_data_%s" % dev_name, "ierens")
+bba.r_slice("tile_data_%s" % dev_name, len(tileinfo), "tiles_nonrouting")
+bba.r_slice("switch_data_%s" % dev_name, len(switchinfo), "switches")
+bba.r_slice("ieren_data_%s" % dev_name, len(ierens), "ierens")
 
 bba.l("tile_grid_%s" % dev_name, "TileType")
 for t in tilegrid:
@@ -1442,14 +1442,12 @@ if len(extra_cell_config) > 0:
     bba.l("bel_config_%s" % dev_name, "BelConfigPOD")
     for bel_idx, entries in sorted(extra_cell_config.items()):
         bba.u32(bel_idx, "bel_index")
-        bba.u32(len(entries), "num_entries")
-        bba.r("bel%d_config_entries" % bel_idx if len(entries) > 0 else None, "entries")
+        bba.r_slice("bel%d_config_entries" % bel_idx if len(entries) > 0 else None, len(entries), "entries")
 
 bba.l("package_info_%s" % dev_name, "PackageInfoPOD")
 for info in packageinfo:
     bba.s(info[0], "name")
-    bba.u32(info[1], "num_pins")
-    bba.r(info[2], "pins")
+    bba.r_slice(info[2], info[1], "pins")
 
 for cell, timings in sorted(cell_timings.items()):
     beltype = constids[cell]
@@ -1465,8 +1463,7 @@ bba.l("cell_timings_%s" % dev_name, "CellTimingPOD")
 for cell, timings in sorted(cell_timings.items()):
     beltype = constids[cell]
     bba.u32(beltype, "type")
-    bba.u32(len(timings), "num_paths")
-    bba.r("cell_paths_%d" % beltype, "path_delays")
+    bba.r_slice("cell_paths_%d" % beltype, len(timings), "path_delays")
 
 bba.l("global_network_info_%s" % dev_name, "GlobalNetworkInfoPOD")
 for i in range(len(glbinfo)):
@@ -1479,23 +1476,16 @@ for i in range(len(glbinfo)):
 bba.l("chip_info_%s" % dev_name)
 bba.u32(dev_width, "dev_width")
 bba.u32(dev_height, "dev_height")
-bba.u32(len(bel_name), "num_bels")
-bba.u32(num_wires, "num_wires")
-bba.u32(len(pipinfo), "num_pips")
 bba.u32(len(switchinfo), "num_switches")
-bba.u32(len(extra_cell_config), "num_belcfgs")
-bba.u32(len(packageinfo), "num_packages")
-bba.u32(len(cell_timings), "num_timing_cells")
-bba.u32(len(glbinfo), "num_global_networks")
-bba.r("bel_data_%s" % dev_name, "bel_data")
-bba.r("wire_data_%s" % dev_name, "wire_data")
-bba.r("pip_data_%s" % dev_name, "pip_data")
-bba.r("tile_grid_%s" % dev_name, "tile_grid")
+bba.r_slice("bel_data_%s" % dev_name, len(bel_name), "bel_data")
+bba.r_slice("wire_data_%s" % dev_name, num_wires, "wire_data")
+bba.r_slice("pip_data_%s" % dev_name, len(pipinfo), "pip_data")
+bba.r_slice("tile_grid_%s" % dev_name, len(tilegrid), "tile_grid")
 bba.r("bits_info_%s" % dev_name, "bits_info")
-bba.r("bel_config_%s" % dev_name if len(extra_cell_config) > 0 else None, "bel_config")
-bba.r("package_info_%s" % dev_name, "packages_data")
-bba.r("cell_timings_%s" % dev_name, "cell_timing")
-bba.r("global_network_info_%s" % dev_name, "global_network_info")
-bba.r("tile_wire_names", "tile_wire_names")
+bba.r_slice("bel_config_%s" % dev_name if len(extra_cell_config) > 0 else None, len(extra_cell_config), "bel_config")
+bba.r_slice("package_info_%s" % dev_name, len(packageinfo), "packages_data")
+bba.r_slice("cell_timings_%s" % dev_name, len(cell_timings), "cell_timing")
+bba.r_slice("global_network_info_%s" % dev_name, len(glbinfo), "global_network_info")
+bba.r_slice("tile_wire_names", len(gfx_wire_names), "tile_wire_names")
 
 bba.pop()

@@ -306,7 +306,7 @@ void DesignWidget::newContext(Context *ctx)
         {
             TreeModel::ElementXYRoot<WireId>::ElementMap wireMap;
 #ifdef ARCH_ICE40
-            for (int i = 0; i < ctx->chip_info->num_wires; i++) {
+            for (int i = 0; i < int(ctx->chip_info->wire_data.size()); i++) {
                 const auto wire = &ctx->chip_info->wire_data[i];
                 WireId wireid;
                 wireid.index = i;

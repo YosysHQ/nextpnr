@@ -1357,14 +1357,11 @@ void pack_plls(Context *ctx)
             auto feedback_path = packed->params[ctx->id("FEEDBACK_PATH")].is_string
                                          ? packed->params[ctx->id("FEEDBACK_PATH")].as_string()
                                          : std::to_string(packed->params[ctx->id("FEEDBACK_PATH")].as_int64());
-            std::string fbp_value =
-                    feedback_path == "DELAY"
-                            ? "0"
-                            : feedback_path == "SIMPLE"
-                                      ? "1"
-                                      : feedback_path == "PHASE_AND_DELAY"
-                                                ? "2"
-                                                : feedback_path == "EXTERNAL" ? "6" : std::string(feedback_path);
+            std::string fbp_value = feedback_path == "DELAY"             ? "0"
+                                    : feedback_path == "SIMPLE"          ? "1"
+                                    : feedback_path == "PHASE_AND_DELAY" ? "2"
+                                    : feedback_path == "EXTERNAL"        ? "6"
+                                                                         : std::string(feedback_path);
             if (!std::all_of(fbp_value.begin(), fbp_value.end(), isdigit))
                 log_error("PLL '%s' has unsupported FEEDBACK_PATH value '%s'\n", ci->name.c_str(ctx),
                           feedback_path.c_str());

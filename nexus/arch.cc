@@ -102,8 +102,7 @@ Arch::Arch(ArchArgs args) : args(args)
     }
     // Set up chip_info
     chip_info = nullptr;
-    for (size_t i = 0; i < db->num_chips; i++) {
-        auto &chip = db->chips[i];
+    for (auto &chip : db->chips) {
         if (chip.device_name.get() == device) {
             chip_info = &chip;
             break;
@@ -112,18 +111,18 @@ Arch::Arch(ArchArgs args) : args(args)
     if (!chip_info)
         log_error("Unknown device '%s'.\n", device.c_str());
     // Set up bba IdStrings
-    for (size_t i = 0; i < db->ids->num_bba_ids; i++) {
+    for (size_t i = 0; i < db->ids->bba_id_strs.size(); i++) {
         IdString::initialize_add(this, db->ids->bba_id_strs[i].get(), uint32_t(i) + db->ids->num_file_ids);
     }
     // Set up validity structures
-    tileStatus.resize(chip_info->num_tiles);
-    for (size_t i = 0; i < chip_info->num_tiles; i++) {
-        tileStatus[i].boundcells.resize(db->loctypes[chip_info->grid[i].loc_type].num_bels);
+    tileStatus.resize(chip_info->grid.size());
+    for (size_t i = 0; i < chip_info->grid.size(); i++) {
+        tileStatus[i].boundcells.resize(db->loctypes[chip_info->grid[i].loc_type].bels.size());
     }
     // This structure is needed for a fast getBelByLocation because bels can have an offset
-    for (size_t i = 0; i < chip_info->num_tiles; i++) {
+    for (size_t i = 0; i < chip_info->grid.size(); i++) {
         auto &loc = db->loctypes[chip_info->grid[i].loc_type];
-        for (unsigned j = 0; j < loc.num_bels; j++) {
+        for (unsigned j = 0; j < loc.bels.size(); j++) {
             auto &bel = loc.bels[j];
             int rel_bel_tile;
             if (!rel_tile(i, bel.rel_x, bel.rel_y, rel_bel_tile))
@@ -138,7 +137,7 @@ Arch::Arch(ArchArgs args) : args(args)
     init_cell_pin_data();
     // Validate and set up package
     package_idx = -1;
-    for (size_t i = 0; i < chip_info->num_packages; i++) {
+    for (size_t i = 0; i < chip_info->packages.size(); i++) {
         if (package == chip_info->packages[i].short_name.get()) {
             package_idx = i;
             break;
@@ -146,9 +145,9 @@ Arch::Arch(ArchArgs args) : args(args)
     }
     if (package_idx == -1) {
         std::string all_packages = "";
-        for (size_t i = 0; i < chip_info->num_packages; i++) {
+        for (auto &pkg : chip_info->packages) {
             all_packages += " ";
-            all_packages += chip_info->packages[i].short_name.get();
+            all_packages += pkg.short_name.get();
         }
         log_error("Unknown package '%s'. Available package options:%s\n", package.c_str(), all_packages.c_str());
     }
@@ -164,8 +163,7 @@ Arch::Arch(ArchArgs args) : args(args)
         speed = "12";
 
     speed_grade = nullptr;
-    for (size_t i = 0; i < db->num_speed_grades; i++) {
-        auto &sg = db->speed_grades[i];
+    for (auto &sg : db->speed_grades) {
         if (sg.name.get() == speed) {
             speed_grade = &sg;
             break;
@@ -191,7 +189,7 @@ BelId Arch::getBelByName(IdString name) const
     NPNR_ASSERT(y >= 0 && y < chip_info->height);
     auto &tile = db->loctypes[chip_info->grid[y * chip_info->width + x].loc_type];
     IdString bn = id(belname);
-    for (size_t i = 0; i < tile.num_bels; i++) {
+    for (size_t i = 0; i < tile.bels.size(); i++) {
         if (tile.bels[i].name == bn.index) {
             BelId ret;
             ret.tile = y * chip_info->width + x;
@@ -214,7 +212,7 @@ std::vector<BelId> Arch::getBelsByTile(int x, int y) const
 WireId Arch::getBelPinWire(BelId bel, IdString pin) const
 {
     // Binary search on wire IdString, by ID
-    int num_bel_wires = bel_data(bel).num_ports;
+    int num_bel_wires = bel_data(bel).ports.size();
     const BelWirePOD *bel_ports = bel_data(bel).ports.get();
 
     if (num_bel_wires < 7) {
@@ -243,7 +241,7 @@ WireId Arch::getBelPinWire(BelId bel, IdString pin) const
 PortType Arch::getBelPinType(BelId bel, IdString pin) const
 {
     // Binary search on wire IdString, by ID
-    int num_bel_wires = bel_data(bel).num_ports;
+    int num_bel_wires = bel_data(bel).ports.size();
     const BelWirePOD *bel_ports = bel_data(bel).ports.get();
 
     if (num_bel_wires < 7) {
@@ -272,10 +270,8 @@ PortType Arch::getBelPinType(BelId bel, IdString pin) const
 std::vector<IdString> Arch::getBelPins(BelId bel) const
 {
     std::vector<IdString> ret;
-    int num_bel_wires = bel_data(bel).num_ports;
-    const BelWirePOD *bel_ports = bel_data(bel).ports.get();
-    for (int i = 0; i < num_bel_wires; i++)
-        ret.push_back(IdString(bel_ports[i].port));
+    for (auto &p : bel_data(bel).ports)
+        ret.push_back(IdString(p.port));
     return ret;
 }
 
@@ -305,7 +301,7 @@ WireId Arch::getWireByName(IdString name) const
     NPNR_ASSERT(y >= 0 && y < chip_info->height);
     auto &tile = db->loctypes[chip_info->grid[y * chip_info->width + x].loc_type];
     IdString wn = id(wirename);
-    for (size_t i = 0; i < tile.num_wires; i++) {
+    for (size_t i = 0; i < tile.wires.size(); i++) {
         if (tile.wires[i].name == wn.index) {
             WireId ret;
             ret.tile = y * chip_info->width + x;
@@ -754,10 +750,9 @@ void Arch::set_cell_pinmux(CellInfo *cell, IdString pin, CellPinMux state)
 
 const PadInfoPOD *Arch::get_pkg_pin_data(const std::string &pin) const
 {
-    for (size_t i = 0; i < chip_info->num_pads; i++) {
-        const PadInfoPOD *pad = &(chip_info->pads[i]);
-        if (pin == pad->pins[package_idx].get())
-            return pad;
+    for (auto &pad : chip_info->pads) {
+        if (pin == pad.pins[package_idx].get())
+            return &pad;
     }
     return nullptr;
 }
@@ -814,10 +809,9 @@ const PadInfoPOD *Arch::get_bel_pad(BelId bel) const
         return nullptr;
     }
     // Lookup in the list of pads
-    for (size_t i = 0; i < chip_info->num_pads; i++) {
-        const PadInfoPOD *pad = &(chip_info->pads[i]);
-        if (pad->side == side && pad->offset == offset && pad->pio_index == loc.z)
-            return pad;
+    for (auto &pad : chip_info->pads) {
+        if (pad.side == side && pad.offset == offset && pad.pio_index == loc.z)
+            return &pad;
     }
     return nullptr;
 }
@@ -825,10 +819,10 @@ const PadInfoPOD *Arch::get_bel_pad(BelId bel) const
 std::string Arch::get_pad_functions(const PadInfoPOD *pad) const
 {
     std::string s;
-    for (size_t i = 0; i < pad->num_funcs; i++) {
+    for (auto f : pad->func_strs) {
         if (!s.empty())
             s += '/';
-        s += IdString(pad->func_strs[i]).str(this);
+        s += IdString(f).str(this);
     }
     return s;
 }
@@ -872,7 +866,7 @@ bool Arch::is_dsp_cell(const CellInfo *cell) const
 int Arch::get_cell_timing_idx(IdString cell_type, IdString cell_variant) const
 {
     return db_binary_search(
-            speed_grade->cell_types.get(), speed_grade->num_cell_types,
+            speed_grade->cell_types.get(), speed_grade->cell_types.size(),
             [](const CellTimingPOD &ct) { return std::make_pair(ct.cell_type, ct.cell_variant); },
             std::make_pair(cell_type.index, cell_variant.index));
 }
@@ -882,7 +876,7 @@ bool Arch::lookup_cell_delay(int type_idx, IdString from_port, IdString to_port,
     NPNR_ASSERT(type_idx != -1);
     const auto &ct = speed_grade->cell_types[type_idx];
     int dly_idx = db_binary_search(
-            ct.prop_delays.get(), ct.num_prop_delays,
+            ct.prop_delays.get(), ct.prop_delays.size(),
             [](const CellPropDelayPOD &pd) { return std::make_pair(pd.to_port, pd.from_port); },
             std::make_pair(to_port.index, from_port.index));
     if (dly_idx == -1)
@@ -898,7 +892,7 @@ void Arch::lookup_cell_setuphold(int type_idx, IdString from_port, IdString cloc
     NPNR_ASSERT(type_idx != -1);
     const auto &ct = speed_grade->cell_types[type_idx];
     int dly_idx = db_binary_search(
-            ct.setup_holds.get(), ct.num_setup_holds,
+            ct.setup_holds.get(), ct.setup_holds.size(),
             [](const CellSetupHoldPOD &sh) { return std::make_pair(sh.sig_port, sh.clock_port); },
             std::make_pair(from_port.index, clock.index));
     NPNR_ASSERT(dly_idx != -1);
@@ -914,7 +908,7 @@ void Arch::lookup_cell_setuphold_clock(int type_idx, IdString from_port, IdStrin
     NPNR_ASSERT(type_idx != -1);
     const auto &ct = speed_grade->cell_types[type_idx];
     int dly_idx = db_binary_search(
-            ct.setup_holds.get(), ct.num_setup_holds, [](const CellSetupHoldPOD &sh) { return sh.sig_port; },
+            ct.setup_holds.get(), ct.setup_holds.size(), [](const CellSetupHoldPOD &sh) { return sh.sig_port; },
             from_port.index);
     NPNR_ASSERT(dly_idx != -1);
     clock = IdString(ct.setup_holds[dly_idx].clock_port);
@@ -928,7 +922,7 @@ void Arch::lookup_cell_clock_out(int type_idx, IdString to_port, IdString &clock
     NPNR_ASSERT(type_idx != -1);
     const auto &ct = speed_grade->cell_types[type_idx];
     int dly_idx = db_binary_search(
-            ct.prop_delays.get(), ct.num_prop_delays, [](const CellPropDelayPOD &pd) { return pd.to_port; },
+            ct.prop_delays.get(), ct.prop_delays.size(), [](const CellPropDelayPOD &pd) { return pd.to_port; },
             to_port.index);
     NPNR_ASSERT(dly_idx != -1);
     clock = ct.prop_delays[dly_idx].from_port;
@@ -942,7 +936,7 @@ TimingPortClass Arch::lookup_port_type(int type_idx, IdString port, PortType dir
         const auto &ct = speed_grade->cell_types[type_idx];
         // If a setup-hold entry exists, then this is a register input
         int sh_idx = db_binary_search(
-                ct.setup_holds.get(), ct.num_setup_holds,
+                ct.setup_holds.get(), ct.setup_holds.size(),
                 [](const CellSetupHoldPOD &sh) { return std::make_pair(sh.sig_port, sh.clock_port); },
                 std::make_pair(port.index, clock.index));
         return (sh_idx != -1) ? TMG_REGISTER_INPUT : TMG_COMB_INPUT;

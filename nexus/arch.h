@@ -28,23 +28,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-template <typename T> struct RelPtr
-{
-    int32_t offset;
-
-    // void set(const T *ptr) {
-    //     offset = reinterpret_cast<const char*>(ptr) -
-    //              reinterpret_cast<const char*>(this);
-    // }
-
-    const T *get() const { return reinterpret_cast<const T *>(reinterpret_cast<const char *>(this) + offset); }
-
-    const T &operator[](size_t index) const { return get()[index]; }
-
-    const T &operator*() const { return *(get()); }
-
-    const T *operator->() const { return get(); }
-};
+#include "relptr.h"
 
 /*
     Fully deduplicated database
@@ -73,12 +57,11 @@ NPNR_PACKED_STRUCT(struct BelWirePOD {
 });
 
 NPNR_PACKED_STRUCT(struct BelInfoPOD {
-    int32_t name;             // bel name in tile IdString
-    int32_t type;             // bel type IdString
-    int16_t rel_x, rel_y;     // bel location relative to parent
-    int32_t z;                // bel location absolute Z
-    RelPtr<BelWirePOD> ports; // ports, sorted by name IdString
-    int32_t num_ports;        // number of ports
+    int32_t name;               // bel name in tile IdString
+    int32_t type;               // bel type IdString
+    int16_t rel_x, rel_y;       // bel location relative to parent
+    int32_t z;                  // bel location absolute Z
+    RelSlice<BelWirePOD> ports; // ports, sorted by name IdString
 });
 
 NPNR_PACKED_STRUCT(struct BelPinPOD {
@@ -94,10 +77,9 @@ enum TileWireFlags : uint32_t
 NPNR_PACKED_STRUCT(struct LocWireInfoPOD {
     int32_t name; // wire name in tile IdString
     uint32_t flags;
-    int32_t num_uphill, num_downhill, num_bpins;
     // Note this pip lists exclude neighbourhood pips
-    RelPtr<int32_t> pips_uh, pips_dh; // list of uphill/downhill pip indices in tile
-    RelPtr<BelPinPOD> bel_pins;
+    RelSlice<int32_t> pips_uh, pips_dh; // list of uphill/downhill pip indices in tile
+    RelSlice<BelPinPOD> bel_pins;
 });
 
 enum PipFlags
@@ -137,19 +119,15 @@ NPNR_PACKED_STRUCT(struct RelWireInfoPOD {
     uint8_t arc_flags;
 });
 
-NPNR_PACKED_STRUCT(struct WireNeighboursInfoPOD {
-    uint32_t num_nwires;
-    RelPtr<RelWireInfoPOD> neigh_wires;
-});
+NPNR_PACKED_STRUCT(struct WireNeighboursInfoPOD { RelSlice<RelWireInfoPOD> neigh_wires; });
 
-NPNR_PACKED_STRUCT(struct LocNeighourhoodPOD { RelPtr<WireNeighboursInfoPOD> wire_neighbours; });
+NPNR_PACKED_STRUCT(struct LocNeighourhoodPOD { RelSlice<WireNeighboursInfoPOD> wire_neighbours; });
 
 NPNR_PACKED_STRUCT(struct LocTypePOD {
-    uint32_t num_bels, num_wires, num_pips, num_nhtypes;
-    RelPtr<BelInfoPOD> bels;
-    RelPtr<LocWireInfoPOD> wires;
-    RelPtr<PipInfoPOD> pips;
-    RelPtr<LocNeighourhoodPOD> neighbourhoods;
+    RelSlice<BelInfoPOD> bels;
+    RelSlice<LocWireInfoPOD> wires;
+    RelSlice<PipInfoPOD> pips;
+    RelSlice<LocNeighourhoodPOD> neighbourhoods;
 });
 
 // A physical (bitstream) tile; of which there may be more than
@@ -180,8 +158,8 @@ NPNR_PACKED_STRUCT(struct GridLocationPOD {
     uint32_t loc_type;
     uint32_t loc_flags;
     uint16_t neighbourhood_type;
-    uint16_t num_phys_tiles;
-    RelPtr<PhysicalTileInfoPOD> phys_tiles;
+    uint16_t padding;
+    RelSlice<PhysicalTileInfoPOD> phys_tiles;
 });
 
 enum PioSide : uint8_t
@@ -216,12 +194,10 @@ NPNR_PACKED_STRUCT(struct PadInfoPOD {
 
     int8_t vref_index; // VREF index in bank, or -1 if N/A
 
-    uint16_t num_funcs; // length of special function list
-    uint16_t padding;   // padding for alignment
+    int16_t padding;
 
-    RelPtr<uint32_t> func_strs; // list of special function IdStrings
-
-    RelPtr<RelPtr<char>> pins; // package index --> package pin name
+    RelSlice<uint32_t> func_strs; // list of special function IdStrings
+    RelSlice<RelPtr<char>> pins;  // package index --> package pin name
 });
 
 NPNR_PACKED_STRUCT(struct GlobalBranchInfoPOD {
@@ -243,34 +219,28 @@ NPNR_PACKED_STRUCT(struct GlobalSpineInfoPOD {
 NPNR_PACKED_STRUCT(struct GlobalHrowInfoPOD {
     uint16_t hrow_col;
     uint16_t padding;
-    uint32_t num_spine_cols;
-    RelPtr<uint32_t> spine_cols;
+    RelSlice<uint32_t> spine_cols;
 });
 
 NPNR_PACKED_STRUCT(struct GlobalInfoPOD {
-    uint32_t num_branches, num_spines, num_hrows;
-    RelPtr<GlobalBranchInfoPOD> branches;
-    RelPtr<GlobalSpineInfoPOD> spines;
-    RelPtr<GlobalHrowInfoPOD> hrows;
+    RelSlice<GlobalBranchInfoPOD> branches;
+    RelSlice<GlobalSpineInfoPOD> spines;
+    RelSlice<GlobalHrowInfoPOD> hrows;
 });
 
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelPtr<char> device_name;
     uint16_t width;
     uint16_t height;
-    uint32_t num_tiles;
-    uint32_t num_pads;
-    uint32_t num_packages;
-    RelPtr<GridLocationPOD> grid;
+    RelSlice<GridLocationPOD> grid;
     RelPtr<GlobalInfoPOD> globals;
-    RelPtr<PadInfoPOD> pads;
-    RelPtr<PackageInfoPOD> packages;
+    RelSlice<PadInfoPOD> pads;
+    RelSlice<PackageInfoPOD> packages;
 });
 
 NPNR_PACKED_STRUCT(struct IdStringDBPOD {
-    uint32_t num_file_ids; // number of IDs loaded from constids.inc
-    uint32_t num_bba_ids;  // number of IDs in BBA file
-    RelPtr<RelPtr<char>> bba_id_strs;
+    uint32_t num_file_ids;
+    RelSlice<RelPtr<char>> bba_id_strs;
 });
 
 // Timing structures are generally sorted using IdString indices as keys for fast binary searches
@@ -298,10 +268,8 @@ NPNR_PACKED_STRUCT(struct CellSetupHoldPOD {
 NPNR_PACKED_STRUCT(struct CellTimingPOD {
     int32_t cell_type;
     int32_t cell_variant;
-    int32_t num_prop_delays;
-    int32_t num_setup_holds;
-    RelPtr<CellPropDelayPOD> prop_delays;
-    RelPtr<CellSetupHoldPOD> setup_holds;
+    RelSlice<CellPropDelayPOD> prop_delays;
+    RelSlice<CellSetupHoldPOD> setup_holds;
 });
 
 NPNR_PACKED_STRUCT(struct PipTimingPOD {
@@ -314,21 +282,16 @@ NPNR_PACKED_STRUCT(struct PipTimingPOD {
 
 NPNR_PACKED_STRUCT(struct SpeedGradePOD {
     RelPtr<char> name;
-    int32_t num_cell_types;
-    int32_t num_pip_classes;
-    RelPtr<CellTimingPOD> cell_types;
-    RelPtr<PipTimingPOD> pip_classes;
+    RelSlice<CellTimingPOD> cell_types;
+    RelSlice<PipTimingPOD> pip_classes;
 });
 
 NPNR_PACKED_STRUCT(struct DatabasePOD {
     uint32_t version;
-    uint32_t num_chips;
-    uint32_t num_loctypes;
-    uint32_t num_speed_grades;
     RelPtr<char> family;
-    RelPtr<ChipInfoPOD> chips;
-    RelPtr<LocTypePOD> loctypes;
-    RelPtr<SpeedGradePOD> speed_grades;
+    RelSlice<ChipInfoPOD> chips;
+    RelSlice<LocTypePOD> loctypes;
+    RelSlice<SpeedGradePOD> speed_grades;
     RelPtr<IdStringDBPOD> ids;
 });
 
@@ -376,8 +339,7 @@ inline bool chip_rel_tile(const ChipInfoPOD *chip, int32_t base, int16_t rel_x, 
 inline int32_t chip_tile_from_xy(const ChipInfoPOD *chip, int32_t x, int32_t y) { return y * chip->width + x; }
 inline bool chip_get_branch_loc(const ChipInfoPOD *chip, int32_t x, int32_t &branch_x)
 {
-    for (int i = 0; i < int(chip->globals->num_branches); i++) {
-        auto &b = chip->globals->branches[i];
+    for (auto &b : chip->globals->branches) {
         if (x >= b.from_col && x <= b.to_col) {
             branch_x = b.branch_col;
             return true;
@@ -388,8 +350,7 @@ inline bool chip_get_branch_loc(const ChipInfoPOD *chip, int32_t x, int32_t &bra
 inline bool chip_get_spine_loc(const ChipInfoPOD *chip, int32_t x, int32_t y, int32_t &spine_x, int32_t &spine_y)
 {
     bool y_found = false;
-    for (int i = 0; i < int(chip->globals->num_spines); i++) {
-        auto &s = chip->globals->spines[i];
+    for (auto &s : chip->globals->spines) {
         if (y >= s.from_row && y <= s.to_row) {
             spine_y = s.spine_row;
             y_found = true;
@@ -398,10 +359,8 @@ inline bool chip_get_spine_loc(const ChipInfoPOD *chip, int32_t x, int32_t y, in
     }
     if (!y_found)
         return false;
-    for (int i = 0; i < int(chip->globals->num_hrows); i++) {
-        auto &hr = chip->globals->hrows[i];
-        for (int j = 0; j < int(hr.num_spine_cols); j++) {
-            int32_t sc = hr.spine_cols[j];
+    for (auto &hr : chip->globals->hrows) {
+        for (int32_t sc : hr.spine_cols) {
             if (std::abs(sc - x) < 3) {
                 spine_x = sc;
                 return true;
@@ -413,8 +372,7 @@ inline bool chip_get_spine_loc(const ChipInfoPOD *chip, int32_t x, int32_t y, in
 inline bool chip_get_hrow_loc(const ChipInfoPOD *chip, int32_t x, int32_t y, int32_t &hrow_x, int32_t &hrow_y)
 {
     bool y_found = false;
-    for (int i = 0; i < int(chip->globals->num_spines); i++) {
-        auto &s = chip->globals->spines[i];
+    for (auto &s : chip->globals->spines) {
         if (std::abs(y - s.spine_row) < 3) {
             hrow_y = s.spine_row;
             y_found = true;
@@ -423,10 +381,8 @@ inline bool chip_get_hrow_loc(const ChipInfoPOD *chip, int32_t x, int32_t y, int
     }
     if (!y_found)
         return false;
-    for (int i = 0; i < int(chip->globals->num_hrows); i++) {
-        auto &hr = chip->globals->hrows[i];
-        for (int j = 0; j < int(hr.num_spine_cols); j++) {
-            int32_t sc = hr.spine_cols[j];
+    for (auto &hr : chip->globals->hrows) {
+        for (int32_t sc : hr.spine_cols) {
             if (std::abs(sc - x) < 3) {
                 hrow_x = hr.hrow_col;
                 return true;
@@ -487,8 +443,7 @@ inline WireId chip_canonical_wire(const DatabasePOD *db, const ChipInfoPOD *chip
     // Not primary; find the primary location which forms the canonical ID
     auto &nd = chip_nh_data(db, chip, wire);
     auto &wn = nd.wire_neighbours[index];
-    for (size_t i = 0; i < wn.num_nwires; i++) {
-        auto &nw = wn.neigh_wires[i];
+    for (auto &nw : wn.neigh_wires) {
         if (nw.arc_flags & LOGICAL_TO_PRIMARY) {
             if (chip_rel_loc_tile(chip, tile, nw, wire.tile)) {
                 wire.index = nw.wire_index;
@@ -507,8 +462,7 @@ inline bool chip_wire_is_primary(const DatabasePOD *db, const ChipInfoPOD *chip,
     // Not primary; find the primary location which forms the canonical ID
     auto &nd = chip_nh_data(db, chip, wire);
     auto &wn = nd.wire_neighbours[index];
-    for (size_t i = 0; i < wn.num_nwires; i++) {
-        auto &nw = wn.neigh_wires[i];
+    for (auto &nw : wn.neigh_wires) {
         if (nw.arc_flags & LOGICAL_TO_PRIMARY) {
             if (chip_rel_loc_tile(chip, tile, nw, wire.tile)) {
                 return false;
@@ -531,8 +485,8 @@ struct BelIterator
     BelIterator operator++()
     {
         cursor_index++;
-        while (cursor_tile < int(chip->num_tiles) &&
-               cursor_index >= int(db->loctypes[chip->grid[cursor_tile].loc_type].num_bels)) {
+        while (cursor_tile < int(chip->grid.size()) &&
+               cursor_index >= int(db->loctypes[chip->grid[cursor_tile].loc_type].bels.size())) {
             cursor_index = 0;
             cursor_tile++;
         }
@@ -585,12 +539,12 @@ struct WireIterator
         // Iterate over nodes first, then tile wires that aren't nodes
         do {
             cursor_index++;
-            while (cursor_tile < int(chip->num_tiles) &&
-                   cursor_index >= int(db->loctypes[chip->grid[cursor_tile].loc_type].num_wires)) {
+            while (cursor_tile < int(chip->grid.size()) &&
+                   cursor_index >= int(db->loctypes[chip->grid[cursor_tile].loc_type].wires.size())) {
                 cursor_index = 0;
                 cursor_tile++;
             }
-        } while (cursor_tile < int(chip->num_tiles) && !chip_wire_is_primary(db, chip, cursor_tile, cursor_index));
+        } while (cursor_tile < int(chip->grid.size()) && !chip_wire_is_primary(db, chip, cursor_tile, cursor_index));
 
         return *this;
     }
@@ -641,7 +595,7 @@ struct NeighWireIterator
         int32_t tile;
         do
             cursor++;
-        while (cursor < int(wn.num_nwires) &&
+        while (cursor < int(wn.neigh_wires.size()) &&
                ((wn.neigh_wires[cursor].arc_flags & LOGICAL_TO_PRIMARY) ||
                 !chip_rel_tile(chip, baseWire.tile, wn.neigh_wires[cursor].rel_x, wn.neigh_wires[cursor].rel_y, tile)));
     }
@@ -683,8 +637,8 @@ struct AllPipIterator
     AllPipIterator operator++()
     {
         cursor_index++;
-        while (cursor_tile < int(chip->num_tiles) &&
-               cursor_index >= int(db->loctypes[chip->grid[cursor_tile].loc_type].num_pips)) {
+        while (cursor_tile < int(chip->grid.size()) &&
+               cursor_index >= int(db->loctypes[chip->grid[cursor_tile].loc_type].pips.size())) {
             cursor_index = 0;
             cursor_tile++;
         }
@@ -741,7 +695,7 @@ struct UpDownhillPipIterator
                 break;
             WireId w = *twi;
             auto &tile = db->loctypes[chip->grid[w.tile].loc_type];
-            if (cursor < int(uphill ? tile.wires[w.index].num_uphill : tile.wires[w.index].num_downhill))
+            if (cursor < int(uphill ? tile.wires[w.index].pips_uh.size() : tile.wires[w.index].pips_dh.size()))
                 break;
             ++twi;
             cursor = 0;
@@ -780,7 +734,7 @@ struct WireBelPinIterator
         while (true) {
             if (!(twi != twi_end))
                 break;
-            if (cursor < chip_wire_data(db, chip, *twi).num_bpins)
+            if (cursor < int(chip_wire_data(db, chip, *twi).bel_pins.size()))
                 break;
             ++twi;
             cursor = 0;
@@ -1176,7 +1130,7 @@ struct Arch : BaseCtx
         ++range.b; //-1 and then ++ deals with the case of no wires in the first tile
         range.e.chip = chip_info;
         range.e.db = db;
-        range.e.cursor_tile = chip_info->num_tiles;
+        range.e.cursor_tile = chip_info->grid.size();
         range.e.cursor_index = 0;
         return range;
     }
@@ -1485,7 +1439,7 @@ struct Arch : BaseCtx
         range.e.chip = chip_info;
         range.e.db = db;
         range.e.baseWire = wire;
-        range.e.cursor = nh_data(wire).wire_neighbours[wire.index].num_nwires;
+        range.e.cursor = nh_data(wire).wire_neighbours[wire.index].neigh_wires.size();
         return range;
     }
 
