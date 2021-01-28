@@ -682,12 +682,51 @@ struct Arch : BaseCtx
         return wire_to_net.find(wire) == wire_to_net.end() || wire_to_net.at(wire) == nullptr;
     }
 
-    NetInfo *getBoundWireNet(WireId wire) const;
+    NetInfo *getBoundWireNet(WireId wire) const
+    {
+        NPNR_ASSERT(wire != WireId());
+        if (wire_to_net.find(wire) == wire_to_net.end())
+            return nullptr;
+        else
+            return wire_to_net.at(wire);
+    }
+
     WireId getConflictingWireWire(WireId wire) const { return wire; }
-    NetInfo *getConflictingWireNet(WireId wire) const;
+
+    NetInfo *getConflictingWireNet(WireId wire) const
+    {
+        NPNR_ASSERT(wire != WireId());
+        if (wire_to_net.find(wire) == wire_to_net.end())
+            return nullptr;
+        else
+            return wire_to_net.at(wire);
+    }
+
     DelayInfo getWireDelay(WireId wire) const { return DelayInfo(); }
-    const std::vector<WireId> &getWires() const;
-    const std::vector<BelPin> &getWireBelPins(WireId wire) const;
+
+    WireRange getWires() const
+    {
+        WireRange range;
+        range.b.cursor_tile = 0;
+        range.b.cursor_index = -1;
+        range.b.chip = chip_info;
+        ++range.b; //-1 and then ++ deals with the case of no wries in the first tile
+        range.e.cursor_tile = chip_info->width * chip_info->height;
+        range.e.cursor_index = 0;
+        range.e.chip = chip_info;
+        return range;
+    }
+
+    BelPinRange getWireBelPins(WireId wire) const
+    {
+        BelPinRange range;
+        NPNR_ASSERT(wire != WireId());
+        range.b.ptr = tileInfo(wire)->wire_data[wire.index].bel_pins.get();
+        range.b.wire_loc = wire.location;
+        range.e.ptr = range.b.ptr + tileInfo(wire)->wire_data[wire.index].num_bel_pins;
+        range.e.wire_loc = wire.location;
+        return range;
+    }
 
     // Pips
     PipId getPipByName(IdString name) const;
