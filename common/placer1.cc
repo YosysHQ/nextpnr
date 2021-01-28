@@ -43,6 +43,7 @@
 #include "place_common.h"
 #include "timing.h"
 #include "util.h"
+#include "fast_bels.h"
 
 namespace std {
 template <> struct hash<std::pair<NEXTPNR_NAMESPACE_PREFIX IdString, std::size_t>>
@@ -75,33 +76,12 @@ class SAPlacer
     };
 
   public:
-    SAPlacer(Context *ctx, Placer1Cfg cfg) : ctx(ctx), cfg(cfg)
+    SAPlacer(Context *ctx, Placer1Cfg cfg) : ctx(ctx), fast_bels(ctx, cfg.minBelsForGridPick), cfg(cfg)
     {
-        int num_bel_types = 0;
-        for (auto bel : ctx->getBels()) {
-            IdString type = ctx->getBelType(bel);
-            if (bel_types.find(type) == bel_types.end()) {
-                bel_types[type] = std::tuple<int, int>(num_bel_types++, 1);
-            } else {
-                std::get<1>(bel_types.at(type))++;
-            }
-        }
         for (auto bel : ctx->getBels()) {
             Loc loc = ctx->getBelLocation(bel);
-            IdString type = ctx->getBelType(bel);
-            int type_idx = std::get<0>(bel_types.at(type));
-            int type_cnt = std::get<1>(bel_types.at(type));
-            if (type_cnt < cfg.minBelsForGridPick)
-                loc.x = loc.y = 0;
-            if (int(fast_bels.size()) < type_idx + 1)
-                fast_bels.resize(type_idx + 1);
-            if (int(fast_bels.at(type_idx).size()) < (loc.x + 1))
-                fast_bels.at(type_idx).resize(loc.x + 1);
-            if (int(fast_bels.at(type_idx).at(loc.x).size()) < (loc.y + 1))
-                fast_bels.at(type_idx).at(loc.x).resize(loc.y + 1);
             max_x = std::max(max_x, loc.x);
             max_y = std::max(max_y, loc.y);
-            fast_bels.at(type_idx).at(loc.x).at(loc.y).push_back(bel);
         }
         diameter = std::max(max_x, max_y) + 1;
 
@@ -170,13 +150,14 @@ class SAPlacer
                                   loc_name.c_str(), cell->name.c_str(ctx));
                     }
 
-                    IdString bel_type = ctx->getBelType(bel);
-                    if (bel_type != cell->type) {
+                    if (!ctx->isValidBelForCellType(cell->type, bel)) {
+                        IdString bel_type = ctx->getBelType(bel);
                         log_error("Bel \'%s\' of type \'%s\' does not match cell "
                                   "\'%s\' of type \'%s\'\n",
                                   loc_name.c_str(), bel_type.c_str(ctx), cell->name.c_str(ctx), cell->type.c_str(ctx));
                     }
                     if (!ctx->isValidBelForCell(cell, bel)) {
+                        IdString bel_type = ctx->getBelType(bel);
                         log_error("Bel \'%s\' of type \'%s\' is not valid for cell "
                                   "\'%s\' of type \'%s\'\n",
                                   loc_name.c_str(), bel_type.c_str(ctx), cell->name.c_str(ctx), cell->type.c_str(ctx));
@@ -452,7 +433,7 @@ class SAPlacer
             IdString targetType = cell->type;
 
             auto proc_bel = [&](BelId bel) {
-                if (ctx->getBelType(bel) == targetType && ctx->isValidBelForCell(cell, bel)) {
+                if (ctx->isValidBelForCellType(targetType, bel) && ctx->isValidBelForCell(cell, bel)) {
                     if (ctx->checkBelAvail(bel)) {
                         uint64_t score = ctx->rng64();
                         if (score <= best_score) {
@@ -651,7 +632,7 @@ class SAPlacer
             BelId targetBel = ctx->getBelByLocation(targetLoc);
             if (targetBel == BelId())
                 return false;
-            if (ctx->getBelType(targetBel) != cell->type)
+            if (!ctx->isValidBelForCellType(cell->type, targetBel))
                 return false;
             CellInfo *bound = ctx->getBoundBelCell(targetBel);
             // We don't consider swapping chains with other chains, at least for the time being - unless it is
@@ -733,15 +714,15 @@ class SAPlacer
         while (true) {
             int nx = ctx->rng(2 * dx + 1) + std::max(curr_loc.x - dx, 0);
             int ny = ctx->rng(2 * dy + 1) + std::max(curr_loc.y - dy, 0);
-            int beltype_idx, beltype_cnt;
-            std::tie(beltype_idx, beltype_cnt) = bel_types.at(targetType);
-            if (beltype_cnt < cfg.minBelsForGridPick)
+            FastBels::FastBelsData *bel_data;
+            auto type_cnt = fast_bels.getBelsForCellType(targetType, &bel_data);
+            if (cfg.minBelsForGridPick >= 0 && type_cnt < cfg.minBelsForGridPick)
                 nx = ny = 0;
-            if (nx >= int(fast_bels.at(beltype_idx).size()))
+            if (nx >= int(bel_data->size()))
                 continue;
-            if (ny >= int(fast_bels.at(beltype_idx).at(nx).size()))
+            if (ny >= int(bel_data->at(nx).size()))
                 continue;
-            const auto &fb = fast_bels.at(beltype_idx).at(nx).at(ny);
+            const auto &fb = bel_data->at(nx).at(ny);
             if (fb.size() == 0)
                 continue;
             BelId bel = fb.at(ctx->rng(int(fb.size())));
@@ -1217,7 +1198,7 @@ class SAPlacer
     int diameter = 35, max_x = 1, max_y = 1;
     std::unordered_map<IdString, std::tuple<int, int>> bel_types;
     std::unordered_map<IdString, BoundingBox> region_bounds;
-    std::vector<std::vector<std::vector<std::vector<BelId>>>> fast_bels;
+    FastBels fast_bels;
     std::unordered_set<BelId> locked_bels;
     std::vector<NetInfo *> net_by_udata;
     std::vector<decltype(NetInfo::udata)> old_udata;

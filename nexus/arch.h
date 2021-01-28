@@ -1335,6 +1335,11 @@ struct Arch : BaseCtx
     // Perform placement validity checks, returning false on failure (all
     // implemented in arch_place.cc)
 
+    // Whether this cell type can be placed at this BEL.
+    bool isValidBelForCellType(IdString cell_type, BelId bel) const {
+        return cell_type == getBelType(bel);
+    }
+
     // Whether or not a given cell can be placed at a given Bel
     // This is not intended for Bel type checks, but finer-grained constraints
     // such as conflicting set/reset signals, etc

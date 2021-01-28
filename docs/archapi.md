@@ -377,7 +377,7 @@ the given dst wire.
 This should return a low upper bound for the fastest route from `src` to `dst`.
 
 Or in other words it should assume an otherwise unused chip (thus "fastest route").
-But it only produces an estimate for that fastest route, not an exact 
+But it only produces an estimate for that fastest route, not an exact
 result, and for that estimate it is considered more acceptable to return a
 slightly too high result and it is considered less acceptable to return a
 too low result (thus "low upper bound").
@@ -463,20 +463,56 @@ Cell Delay Methods
 Returns the delay for the specified path through a cell in the `&delay` argument. The method returns
 false if there is no timing relationship from `fromPort` to `toPort`.
 
-### TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const
+### TimingPortClass getPortTimingClass(const CellInfo \*cell, IdString port, int &clockInfoCount) const
 
 Return the _timing port class_ of a port. This can be a register or combinational input or output; clock input or
 output; general startpoint or endpoint; or a port ignored for timing purposes. For register ports, clockInfoCount is set
 to the number of associated _clock edges_ that can be queried by getPortClockingInfo.
 
-### TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const
+### TimingClockingInfo getPortClockingInfo(const CellInfo \*cell, IdString port, int index) const
 
 Return the _clocking info_ (including port name of clock, clock polarity and setup/hold/clock-to-out times) of a
 port. Where ports have more than one clock edge associated with them (such as DDR outputs), `index` can be used to obtain
 information for all edges. `index` must be in [0, clockInfoCount), behaviour is undefined otherwise.
 
+Partition Methods
+-----------------
+
+Partitions are used by analytic placement to seperate types of BELs during
+placement.  Typical partitions are:
+ - All LUT BELs
+ - All FF BELs
+ - All multipliers BELs
+ - All block RAM BELs
+ - etc.
+
+The general rule here is to include all BELs that are roughly interchangable
+during placement.
+
+### const\_range\<PartitionId\> getPartitions() const
+
+Return a list of all partitions on the device.
+
+### IdString partitionName(PartitionId partition) const
+
+Return the name of the partition.
+
+### PartitionId partitionForBel(BelId bel) const
+
+Returns the partition for a particular cell type.
+
+### const\_range\<BelId\> partitionForBel(PartitionId partition) const
+
+Return the list of BELs within a partition.
+
 Placer Methods
 --------------
+
+### bool isValidBelForCellType(IdString cell\_type, BelId bel) const
+
+Returns true if the given cell can be bound to the given BEL.  This check
+should be fast, compared with isValidBelForCell.  This check should always
+return the same value regardless if other cells are placed within the fabric.
 
 ### bool isValidBelForCell(CellInfo \*cell, BelId bel) const
 
@@ -488,7 +524,6 @@ a certain number of different clock signals allowed for a group of bels.
 
 Returns true if a bell in the current configuration is valid, i.e. if
 `isValidBelForCell()` would return true for the current mapping.
-
 
 ### static const std::string defaultPlacer
 

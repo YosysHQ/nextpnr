@@ -318,7 +318,7 @@ class HeAPPlacer
     PlacerHeapCfg cfg;
 
     int max_x = 0, max_y = 0;
-    std::vector<std::vector<std::vector<std::vector<BelId>>>> fast_bels;
+    FastBels fast_bels;
     std::unordered_map<IdString, std::tuple<int, int>> bel_types;
 
     // For fast handling of heterogeneity during initial placement without full legalisation,
@@ -384,13 +384,14 @@ class HeAPPlacer
                               loc_name.c_str(), cell->name.c_str(ctx));
                 }
 
-                IdString bel_type = ctx->getBelType(bel);
-                if (bel_type != cell->type) {
+                if (!ctx->isValidBelForCellType(cell->type, bel)) {
+                    IdString bel_type = ctx->getBelType(bel);
                     log_error("Bel \'%s\' of type \'%s\' does not match cell "
                               "\'%s\' of type \'%s\'\n",
                               loc_name.c_str(), bel_type.c_str(ctx), cell->name.c_str(ctx), cell->type.c_str(ctx));
                 }
                 if (!ctx->isValidBelForCell(cell, bel)) {
+                    IdString bel_type = ctx->getBelType(bel);
                     log_error("Bel \'%s\' of type \'%s\' is not valid for cell "
                               "\'%s\' of type \'%s\'\n",
                               loc_name.c_str(), bel_type.c_str(ctx), cell->name.c_str(ctx), cell->type.c_str(ctx));
@@ -413,31 +414,12 @@ class HeAPPlacer
     // Construct the fast_bels, nearest_row_with_bel and nearest_col_with_bel
     void build_fast_bels()
     {
-
-        int num_bel_types = 0;
-        for (auto bel : ctx->getBels()) {
-            IdString type = ctx->getBelType(bel);
-            if (bel_types.find(type) == bel_types.end()) {
-                bel_types[type] = std::tuple<int, int>(num_bel_types++, 1);
-            } else {
-                std::get<1>(bel_types.at(type))++;
-            }
-        }
         for (auto bel : ctx->getBels()) {
             if (!ctx->checkBelAvail(bel))
                 continue;
             Loc loc = ctx->getBelLocation(bel);
-            IdString type = ctx->getBelType(bel);
-            int type_idx = std::get<0>(bel_types.at(type));
-            if (int(fast_bels.size()) < type_idx + 1)
-                fast_bels.resize(type_idx + 1);
-            if (int(fast_bels.at(type_idx).size()) < (loc.x + 1))
-                fast_bels.at(type_idx).resize(loc.x + 1);
-            if (int(fast_bels.at(type_idx).at(loc.x).size()) < (loc.y + 1))
-                fast_bels.at(type_idx).at(loc.x).resize(loc.y + 1);
             max_x = std::max(max_x, loc.x);
             max_y = std::max(max_y, loc.y);
-            fast_bels.at(type_idx).at(loc.x).at(loc.y).push_back(bel);
         }
 
         nearest_row_with_bel.resize(num_bel_types, std::vector<int>(max_y + 1, -1));
@@ -814,8 +796,8 @@ class HeAPPlacer
             if (ci->bel != BelId())
                 continue;
             // log_info("   Legalising %s (%s)\n", top.second.c_str(ctx), ci->type.c_str(ctx));
-            int bt = std::get<0>(bel_types.at(ci->type));
-            auto &fb = fast_bels.at(bt);
+            FastBels::FastBelsData *fb;
+            fast_bels.getBelsForCellType(ci->type, &fb);
             int radius = 0;
             int iter = 0;
             int iter_at_radius = 0;
@@ -864,13 +846,13 @@ class HeAPPlacer
                     while (radius < std::max(max_x, max_y)) {
                         for (int x = std::max(0, cell_locs.at(ci->name).x - radius);
                              x <= std::min(max_x, cell_locs.at(ci->name).x + radius); x++) {
-                            if (x >= int(fb.size()))
+                            if (x >= int(fb->size()))
                                 break;
                             for (int y = std::max(0, cell_locs.at(ci->name).y - radius);
                                  y <= std::min(max_y, cell_locs.at(ci->name).y + radius); y++) {
-                                if (y >= int(fb.at(x).size()))
+                                if (y >= int(fb->at(x).size()))
                                     break;
-                                if (fb.at(x).at(y).size() > 0)
+                                if (fb->at(x).at(y).size() > 0)
                                     goto notempty;
                             }
                         }
@@ -888,11 +870,11 @@ class HeAPPlacer
                 // ny = nearest_row_with_bel.at(bt).at(ny);
                 // nx = nearest_col_with_bel.at(bt).at(nx);
 
-                if (nx >= int(fb.size()))
+                if (nx >= int(fb->size()))
                     continue;
-                if (ny >= int(fb.at(nx).size()))
+                if (ny >= int(fb->at(nx).size()))
                     continue;
-                if (fb.at(nx).at(ny).empty())
+                if (fb->at(nx).at(ny).empty())
                     continue;
 
                 int need_to_explore = 2 * radius;
@@ -912,7 +894,7 @@ class HeAPPlacer
                 }
 
                 if (ci->constr_children.empty() && !ci->constr_abs_z) {
-                    for (auto sz : fb.at(nx).at(ny)) {
+                    for (auto sz : fb->at(nx).at(ny)) {
                         if (ci->region != nullptr && ci->region->constr_bels && !ci->region->bels.count(sz))
                             continue;
                         if (ctx->checkBelAvail(sz) || (radius > ripup_radius || ctx->rng(20000) < 10)) {
@@ -962,7 +944,7 @@ class HeAPPlacer
                         }
                     }
                 } else {
-                    for (auto sz : fb.at(nx).at(ny)) {
+                    for (auto sz : fb->at(nx).at(ny)) {
                         Loc loc = ctx->getBelLocation(sz);
                         if (ci->constr_abs_z && loc.z != ci->constr_z)
                             continue;

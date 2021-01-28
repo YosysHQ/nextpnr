@@ -950,6 +950,9 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
     // Placement validity checks
+    bool isValidBelForCellType(IdString cell_type, BelId bel) const {
+        return cell_type == getBelType(bel);
+    }
     bool isValidBelForCell(CellInfo *cell, BelId bel) const;
     bool isBelLocationValid(BelId bel) const;
 
