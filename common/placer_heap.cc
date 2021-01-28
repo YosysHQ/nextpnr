@@ -1123,7 +1123,6 @@ class HeAPPlacer
 
 #endif
                 workqueue.emplace(r.id, false);
-                // cut_region(r, false);
             }
             while (!workqueue.empty()) {
                 auto front = workqueue.front();
@@ -1139,7 +1138,6 @@ class HeAPPlacer
                     // Try the other dir, in case stuck in one direction only
                     auto res2 = cut_region(r, !front.second);
                     if (res2) {
-                        // log_info("RETRY SUCCESS\n");
                         workqueue.emplace(res2->first, front.second);
                         workqueue.emplace(res2->second, front.second);
                     }
@@ -1356,8 +1354,6 @@ class HeAPPlacer
                             for (int y1 = reg.y0; y1 <= reg.y1; y1++) {
                                 for (size_t t = 0; t < beltype.size(); t++) {
                                     if (occ_at(reg.x1 + 1, y1, t) > bels_at(reg.x1 + 1, y1, t)) {
-                                        // log_info("(%d, %d) occ %d bels %d\n", reg.x1+ 1, y1, occ_at(reg.x1 + 1, y1),
-                                        // bels_at(reg.x1 + 1, y1));
                                         over_occ_x = true;
                                         break;
                                     }
@@ -1374,8 +1370,6 @@ class HeAPPlacer
                             for (int x1 = reg.x0; x1 <= reg.x1; x1++) {
                                 for (size_t t = 0; t < beltype.size(); t++) {
                                     if (occ_at(x1, reg.y1 + 1, t) > bels_at(x1, reg.y1 + 1, t)) {
-                                        // log_info("(%d, %d) occ %d bels %d\n", x1, reg.y1 + 1, occ_at(x1, reg.y1 + 1),
-                                        // bels_at(x1, reg.y1 + 1));
                                         over_occ_y = true;
                                         break;
                                     }
@@ -1600,11 +1594,6 @@ class HeAPPlacer
             if (std::accumulate(left_bels_v.begin(), left_bels_v.end(), 0) == 0 ||
                 std::accumulate(right_bels_v.begin(), right_bels_v.end(), 0) == 0)
                 return {};
-            // log_info("pivot %d target cut %d lc %d lb %d rc %d rb %d\n", pivot, best_tgt_cut,
-            // std::accumulate(left_cells_v.begin(), left_cells_v.end(), 0), std::accumulate(left_bels_v.begin(),
-            // left_bels_v.end(), 0),
-            //          std::accumulate(right_cells_v.begin(), right_cells_v.end(), 0),
-            //          std::accumulate(right_bels_v.begin(), right_bels_v.end(), 0));
 
             // Peturb the source cut to eliminate overutilisation
             auto is_part_overutil = [&](bool r) {
@@ -1629,8 +1618,7 @@ class HeAPPlacer
                 right_cells_v.at(type_index.at(cut_cells.at(pivot)->type)) -= size;
                 pivot++;
             }
-            // log_info("peturbed pivot %d lc %d lb %d rc %d rb %d\n", pivot, left_cells, left_bels, right_cells,
-            // right_bels);
+
             // Split regions into bins, and then spread cells by linear interpolation within those bins
             auto spread_binlerp = [&](int cells_start, int cells_end, double area_l, double area_r) {
                 int N = cells_end - cells_start;
@@ -1673,8 +1661,6 @@ class HeAPPlacer
                             NPNR_ASSERT(pos >= orig_left && pos <= orig_right);
                             pos = bl.second + m * (pos - orig_left);
                         }
-                        // log("[%f, %f] -> [%f, %f]: %f -> %f\n", orig_left, orig_right, bl.second, br.second,
-                        // orig_pos, pos);
                     }
                 }
             };
@@ -1690,7 +1676,6 @@ class HeAPPlacer
                 cl.x = std::min(r.x1, std::max(r.x0, int(cl.rawx)));
                 cl.y = std::min(r.y1, std::max(r.y0, int(cl.rawy)));
                 cells_at_location.at(cl.x).at(cl.y).push_back(cell);
-                // log_info("spread pos %d %d\n", cl.x, cl.y);
             }
             SpreaderRegion rl, rr;
             rl.id = int(regions.size());

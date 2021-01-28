@@ -602,20 +602,11 @@ struct Timing
                     auto &nc = (*net_crit)[net->name];
                     if (nc.slack.empty())
                         nc.slack.resize(net->users.size(), std::numeric_limits<delay_t>::max());
-#if 0
-                    if (ctx->debug)
-                        log_info("Net %s cd %s\n", net->name.c_str(ctx), startdomain.first.clock.c_str(ctx));
-#endif
+
                     for (size_t i = 0; i < net->users.size(); i++) {
                         delay_t slack = nd.min_required.at(i) -
                                         (nd.max_arrival + ctx->getNetinfoRouteDelay(net, net->users.at(i)));
-#if 0
-                        if (ctx->debug)
-                            log_info("    user %s.%s required %.02fns arrival %.02f route %.02f slack %.02f\n",
-                                    net->users.at(i).cell->name.c_str(ctx), net->users.at(i).port.c_str(ctx),
-                                    ctx->getDelayNS(nd.min_required.at(i)), ctx->getDelayNS(nd.max_arrival),
-                                    ctx->getDelayNS(ctx->getNetinfoRouteDelay(net, net->users.at(i))), ctx->getDelayNS(slack));
-#endif
+
                         if (worst_slack.count(startdomain.first))
                             worst_slack.at(startdomain.first) = std::min(worst_slack.at(startdomain.first), slack);
                         else
@@ -653,23 +644,6 @@ struct Timing
                     nc.cd_worst_slack = worst_slack.at(startdomain.first);
                 }
             }
-#if 0
-            if (ctx->debug) {
-                for (auto &nc : *net_crit) {
-                    NetInfo *net = ctx->nets.at(nc.first).get();
-                    log_info("Net %s maxlen %d worst_slack %.02fns: \n", nc.first.c_str(ctx), nc.second.max_path_length,
-                             ctx->getDelayNS(nc.second.cd_worst_slack));
-                    if (!nc.second.criticality.empty() && !nc.second.slack.empty()) {
-                        for (size_t i = 0; i < net->users.size(); i++) {
-                            log_info("   user %s.%s slack %.02fns crit %.03f\n", net->users.at(i).cell->name.c_str(ctx),
-                                     net->users.at(i).port.c_str(ctx), ctx->getDelayNS(nc.second.slack.at(i)),
-                                     nc.second.criticality.at(i));
-                        }
-                    }
-                    log_break();
-                }
-            }
-#endif
         }
         return min_slack;
     }
