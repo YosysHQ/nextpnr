@@ -527,7 +527,7 @@ static std::vector<bool> parse_config_str(const Property &p, int length)
     std::vector<bool> word;
     if (p.is_string) {
         std::string str = p.as_string();
-        // For DCU config which might be bin, hex or dec using prefices accordingly
+        // For DCU config which might be bin, hex or dec using prefixes accordingly
         std::string base = str.substr(0, 2);
         word.resize(length, false);
         if (base == "0b") {

@@ -1354,7 +1354,7 @@ struct Arch : BaseCtx
     void post_place_opt();
 
     // -------------------------------------------------
-    // Assign architecure-specific arguments to nets and cells, which must be
+    // Assign architecture-specific arguments to nets and cells, which must be
     // called between packing or further
     // netlist modifications, and validity checks
     void assignArchInfo();

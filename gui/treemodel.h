@@ -145,7 +145,7 @@ class IdStringList : public Item
     ElementType child_type_;
 
   public:
-    // Create an IdStringList at given partent that will contain elements of
+    // Create an IdStringList at given parent that will contain elements of
     // the given type.
     IdStringList(ElementType type) : Item("root", nullptr), child_type_(type) {}
 

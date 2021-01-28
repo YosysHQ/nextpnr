@@ -20,7 +20,7 @@
 #ifndef QUADTREE_H
 #define QUADTREE_H
 
-// This file implements a quad tree used for comitting 2D axis aligned
+// This file implements a quad tree used for committing 2D axis aligned
 // bounding boxes and then retrieving them by 2D point.
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -382,17 +382,17 @@ template <typename CoordinateT, typename ElementT> class QuadTree
 
     // Standard constructor.
     //
-    // @param b Bounding box of the entire tree - all comitted elements must
+    // @param b Bounding box of the entire tree - all committed elements must
     //          fit within in.
     QuadTree(BoundingBox b) : root_(b, 0) {}
 
     // Inserts a new value at a given bounding box.e
     // BoundingBoxes are not deduplicated - if two are pushed with the same
-    // coordinates, the first one will take precendence.
+    // coordinates, the first one will take precedence.
     //
     // @param k Bounding box at which to store value.
     // @param v Value at a given bounding box.
-    // @returns Whether the insert was succesful.
+    // @returns Whether the insert was successful.
     bool insert(BoundingBox k, ElementT v)
     {
         k.fixup();

@@ -409,14 +409,6 @@ std::vector<std::pair<IdString, std::string>> Arch::getWireAttrs(WireId wire) co
     ret.push_back(std::make_pair(id("GRID_Y"), stringf("%d", wi.y)));
     ret.push_back(std::make_pair(id("GRID_Z"), stringf("%d", wi.z)));
 
-#if 0
-    for (int i = 0; i < wi.num_segments; i++) {
-        auto &si = wi.segments[i];
-        ret.push_back(std::make_pair(id(stringf("segment[%d]", i)),
-                                     stringf("X%d/Y%d/%s", si.x, si.y, chip_info->tile_wire_names[si.index].get())));
-    }
-#endif
-
     return ret;
 }
 
@@ -830,28 +822,12 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 
         for (int i = 0; i < n; i++)
             gfxTileWire(ret, p[i].x, p[i].y, chip_info->width, chip_info->height, GfxTileWireId(p[i].index), style);
-
-#if 0
-        if (ret.empty()) {
-            WireId wire;
-            wire.index = decal.index;
-            log_warning("No gfx decal for wire %s (%d).\n", getWireName(wire).c_str(getCtx()), decal.index);
-        }
-#endif
     }
 
     if (decal.type == DecalId::TYPE_PIP) {
         const PipInfoPOD &p = chip_info->pip_data[decal.index];
         GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_HIDDEN;
         gfxTilePip(ret, p.x, p.y, GfxTileWireId(p.src_seg), GfxTileWireId(p.dst_seg), style);
-
-#if 0
-        if (ret.empty()) {
-            PipId pip;
-            pip.index = decal.index;
-            log_warning("No gfx decal for pip %s (%d).\n", getPipName(pip).c_str(getCtx()), decal.index);
-        }
-#endif
     }
 
     if (decal.type == DecalId::TYPE_BEL) {
@@ -920,14 +896,6 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             el.y2 = chip_info->bel_data[bel.index].y + main_swbox_y2 + 0.05;
             ret.push_back(el);
         }
-
-#if 0
-        if (ret.empty()) {
-            BelId bel;
-            bel.index = decal.index;
-            log_warning("No gfx decal for bel %s (%d).\n", getBelName(bel).c_str(getCtx()), decal.index);
-        }
-#endif
     }
 
     return ret;

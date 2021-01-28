@@ -1126,7 +1126,7 @@ class Ecp5Packer
         flush_cells();
     }
 
-    // Find a cell that meets some criterea near an origin cell
+    // Find a cell that meets some criteria near an origin cell
     // Used for packing an FF into a nearby SLICE
     template <typename TFunc> CellInfo *find_nearby_cell(CellInfo *origin, TFunc Func)
     {

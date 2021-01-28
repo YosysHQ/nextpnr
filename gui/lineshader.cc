@@ -26,7 +26,7 @@ void PolyLine::buildPoint(LineShaderData *building, const QVector2D *prev, const
                           const QVector2D *next) const
 {
     // buildPoint emits two vertices per line point, along with normals to move
-    // them the right directio when rendering and miter to compensate for
+    // them the right direction when rendering and miter to compensate for
     // bends.
 
     if (cur == nullptr) {
@@ -104,7 +104,7 @@ void PolyLine::build(LineShaderData &target) const
 
     // For every point on the line, call buildPoint with (prev, point, next).
     // If we're building a closed line, prev/next wrap around. Otherwise
-    // they are passed as nullptr and buildPoint interprets that accordinglu.
+    // they are passed as nullptr and buildPoint interprets that accordingly.
     const QVector2D *prev = nullptr;
 
     // Loop iterator used to ensure next is valid.

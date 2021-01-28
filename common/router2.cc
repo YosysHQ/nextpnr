@@ -396,7 +396,8 @@ struct Router2
             if (ctx->getBelPinType(bp.bel, bp.pin) != PORT_IN)
                 return false;
         for (auto p : ctx->getPipsUphill(wire))
-            return false;
+            if (ctx->checkPipAvail(p))
+                return false;
         return true;
     }
 
@@ -411,7 +412,7 @@ struct Router2
         WireId cursor = sink;
         bool done = false;
         if (ctx->debug)
-            log("resevering wires for arc %d of net %s\n", int(i), ctx->nameOf(net));
+            log("reserving wires for arc %d of net %s\n", int(i), ctx->nameOf(net));
         while (!done) {
             auto &wd = wire_data(cursor);
             if (ctx->debug)

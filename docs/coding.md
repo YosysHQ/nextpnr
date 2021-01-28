@@ -32,7 +32,7 @@ Additionally to this; architectures provide functions for checking the availabil
 
 To avoid the high cost of using strings as identifiers directly; almost all "string" identifiers in nextpnr (such as cell names and types) use an indexed string pool type named `IdString`. Unlike Yosys, which has a global garbage collected pool, nextpnr has a per-Context pool without any garbage collection. 
 
-`IdString`s can be created in two ways. Architectures can add `IdString`s with constant indicies - allowing `IdString` constants to be provided too - using `initialize_add` at startup. See how `constids.inc` is used in iCE40 for an example of this. The main way to create `IdString`s, however, is at runtime using the `id` member function of `BaseCtx` given the string to create from (if an `IdString` of that string already exists, the existing `IdString` will be returned).
+`IdString`s can be created in two ways. Architectures can add `IdString`s with constant indices - allowing `IdString` constants to be provided too - using `initialize_add` at startup. See how `constids.inc` is used in iCE40 for an example of this. The main way to create `IdString`s, however, is at runtime using the `id` member function of `BaseCtx` given the string to create from (if an `IdString` of that string already exists, the existing `IdString` will be returned).
 
 Note that `IdString`s need a `Context` (or `BaseCtx`) pointer to convert them back to regular strings, due to the pool being per-context as described above.
 

@@ -1700,9 +1700,8 @@ struct NexusPacker
                                                                : std::string("USED_AS_LOWER_BIT_GENERATION");
             }
             // Create final mult36 if needed
-            CellInfo *mult36 = nullptr;
             if (mult36_used) {
-                mult36 = create_dsp_cell(ci->name, id_MULT36_CORE, preadd9[0], 6, 6);
+                create_dsp_cell(ci->name, id_MULT36_CORE, preadd9[0], 6, 6);
             }
 
             // Configure output registers

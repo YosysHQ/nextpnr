@@ -57,7 +57,7 @@ for your architecture once implementing small designs work.
 The `getConflictingWireWire()`, `getConflictingWireNet()`, `getConflictingPipWire()`, and `getConflictingPipNet()` methods are used by the router
 to determine which resources to rip up in order to make a given routing resource (wire or pip) available.
 
-The architecture must guanrantee that the following invariants hold.
+The architecture must guarantee that the following invariants hold.
 
 **Invariant 1:**
 
@@ -223,4 +223,4 @@ for these parts.
 
 As the open source community now has support for multiple different FPGA parts,
 in the nextpnr documentation we generally use Project IceStorm to mean the database and
-tools that fulfil the same role as Project Trellis or Project X-Ray.
+tools that fulfill the same role as Project Trellis or Project X-Ray.

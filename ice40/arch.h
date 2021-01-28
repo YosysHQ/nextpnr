@@ -833,7 +833,7 @@ struct Arch : BaseCtx
     bool logicCellsCompatible(const CellInfo **it, const size_t size) const;
 
     // -------------------------------------------------
-    // Assign architecure-specific arguments to nets and cells, which must be
+    // Assign architecture-specific arguments to nets and cells, which must be
     // called between packing or further
     // netlist modifications, and validity checks
     void assignArchInfo();
