@@ -300,18 +300,6 @@ WireId Arch::getWireByName(IdString name) const
     return ret;
 }
 
-uint32_t Arch::getWireChecksum(WireId wire) const
-{
-    // FIXME
-    return 0;
-}
-
-void Arch::bindWire(WireId wire, NetInfo *net, PlaceStrength strength) {}
-
-void Arch::unbindWire(WireId wire) {}
-
-bool Arch::checkWireAvail(WireId wire) const { return false; }
-
 NetInfo *Arch::getBoundWireNet(WireId wire) const { return nullptr; }
 
 NetInfo *Arch::getConflictingWireNet(WireId wire) const { return nullptr; }
@@ -362,18 +350,6 @@ IdString Arch::getPipName(PipId pip) const
 
     return id("X" + std::to_string(x) + "/Y" + std::to_string(y) + "/" + src_name + ".->." + dst_name);
 }
-
-uint32_t Arch::getPipChecksum(PipId wire) const
-{
-    // FIXME
-    return 0;
-}
-
-void Arch::bindPip(PipId pip, NetInfo *net, PlaceStrength strength) {}
-
-void Arch::unbindPip(PipId pip) {}
-
-bool Arch::checkPipAvail(PipId pip) const { return false; }
 
 NetInfo *Arch::getBoundPipNet(PipId pip) const { return nullptr; }
 

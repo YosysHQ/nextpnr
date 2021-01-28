@@ -463,6 +463,9 @@ struct Arch : BaseCtx
     const PackageInfoPOD *package_info;
 
     std::vector<CellInfo *> bel_to_cell;
+    std::unordered_map<WireId, NetInfo *> wire_to_net;
+    std::unordered_map<PipId, NetInfo *> pip_to_net;
+
     mutable std::unordered_map<IdString, BelId> bel_by_name;
     mutable std::unordered_map<IdString, WireId> wire_by_name;
     mutable std::unordered_map<IdString, PipId> pip_by_name;
@@ -635,10 +638,50 @@ struct Arch : BaseCtx
         return ret;
     }
 
-    uint32_t getWireChecksum(WireId wire) const;
-    void bindWire(WireId wire, NetInfo *net, PlaceStrength strength);
-    void unbindWire(WireId wire);
-    bool checkWireAvail(WireId wire) const;
+    uint32_t getWireChecksum(WireId wire) const { return wire.index; }
+
+    void bindWire(WireId wire, NetInfo *net, PlaceStrength strength)
+    {
+        NPNR_ASSERT(wire != WireId());
+        NPNR_ASSERT(wire_to_net[wire] == nullptr);
+        wire_to_net[wire] = net;
+
+        // Needs to be set; bindWires is meant for source wires attached
+        // to a Bel.
+        net->wires[wire].pip = PipId();
+        net->wires[wire].strength = strength;
+        refreshUiWire(wire);
+    }
+
+    void unbindWire(WireId wire)
+    {
+        NPNR_ASSERT(wire != WireId());
+        NPNR_ASSERT(wire_to_net[wire] != nullptr);
+
+        auto &net_wires = wire_to_net[wire]->wires;
+        auto it = net_wires.find(wire);
+        NPNR_ASSERT(it != net_wires.end());
+
+        // If we have unbound a wire, then the upstream pip is no longer
+        // used either.
+        auto pip = it->second.pip;
+        if (pip != PipId()) {
+            // TODO: fanout
+            // wire_fanout[getPipSrcWire(pip)]--;
+            pip_to_net[pip] = nullptr;
+        }
+
+        net_wires.erase(it);
+        wire_to_net[wire] = nullptr;
+        refreshUiWire(wire);
+    }
+
+    bool checkWireAvail(WireId wire) const
+    {
+        NPNR_ASSERT(wire != WireId());
+        return wire_to_net.find(wire) == wire_to_net.end() || wire_to_net.at(wire) == nullptr;
+    }
+
     NetInfo *getBoundWireNet(WireId wire) const;
     WireId getConflictingWireWire(WireId wire) const { return wire; }
     NetInfo *getConflictingWireNet(WireId wire) const;
@@ -658,10 +701,53 @@ struct Arch : BaseCtx
         return ret;
     }
 
-    uint32_t getPipChecksum(PipId pip) const;
-    void bindPip(PipId pip, NetInfo *net, PlaceStrength strength);
-    void unbindPip(PipId pip);
-    bool checkPipAvail(PipId pip) const;
+    uint32_t getPipChecksum(PipId pip) const { return pip.index; }
+
+    void bindPip(PipId pip, NetInfo *net, PlaceStrength strength)
+    {
+        NPNR_ASSERT(pip != PipId());
+        NPNR_ASSERT(pip_to_net[pip] == nullptr);
+
+        pip_to_net[pip] = net;
+        // wire_fanout[getPipSrcWire(pip)]++;
+
+        WireId dst;
+        dst.index = tileInfo(pip)->pips_data[pip.index].dst_idx;
+        dst.location = pip.location + tileInfo(pip)->pips_data[pip.index].dst;
+        NPNR_ASSERT(wire_to_net[dst] == nullptr);
+
+        // Since NetInfo::wires holds info about uphill pips, bind info about
+        // this pip to the downhill wire.
+        wire_to_net[dst] = net;
+        net->wires[dst].pip = pip;
+        net->wires[dst].strength = strength;
+    }
+
+    void unbindPip(PipId pip)
+    {
+        NPNR_ASSERT(pip != PipId());
+        NPNR_ASSERT(pip_to_net[pip] == nullptr);
+
+        // wire_fanout[getPipSrcWire(pip)]--;
+
+        WireId dst;
+        dst.index = tileInfo(pip)->pips_data[pip.index].dst_idx;
+        dst.location = pip.location + tileInfo(pip)->pips_data[pip.index].dst;
+        NPNR_ASSERT(wire_to_net[dst] != nullptr);
+
+        // If we unbind a pip, then the downstream wire is no longer in use
+        // either.
+        wire_to_net[dst] = nullptr;
+        pip_to_net[pip]->wires.erase(dst);
+        pip_to_net[pip] = nullptr;
+    }
+
+    bool checkPipAvail(PipId pip) const
+    {
+        NPNR_ASSERT(pip != PipId());
+        return pip_to_net.find(pip) == pip_to_net.end() || pip_to_net.at(pip) == nullptr;
+    }
+
     NetInfo *getBoundPipNet(PipId pip) const;
     WireId getConflictingPipWire(PipId pip) const;
     NetInfo *getConflictingPipNet(PipId pip) const;
