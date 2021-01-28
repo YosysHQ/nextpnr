@@ -77,14 +77,23 @@ NPNR_PACKED_STRUCT(struct BelInfoPOD {
 
     int32_t num_bel_wires;
     RelPtr<int32_t> ports; // port name constid
-    RelPtr<int32_t> types; // port name (IN/OUT/BIDIR)
+    RelPtr<int32_t> types; // port type (IN/OUT/BIDIR)
     RelPtr<int32_t> wires; // connected wire index in tile, or -1 if NA
 
     int16_t site;
     int16_t site_variant; // some sites have alternative types
-    int16_t is_routing;
+    int16_t category;
     int16_t padding;
 });
+
+enum BELCategory {
+    // BEL is a logic element
+    BEL_CATEGORY_LOGIC = 0,
+    // BEL is a site routing mux
+    BEL_CATEGORY_ROUTING = 1,
+    // BEL is a site port, e.g. boundry between site and routing graph.
+    BEL_CATEGORY_SITE_PORT = 2
+};
 
 NPNR_PACKED_STRUCT(struct BelPortPOD {
     int32_t bel_index;
@@ -255,8 +264,16 @@ struct TileWireIterator
     WireId baseWire;
     int cursor = -1;
 
-    void operator++() { cursor++; }
-    bool operator!=(const TileWireIterator &other) const { return cursor != other.cursor; }
+    void operator++() {
+        cursor++;
+    }
+
+    bool operator==(const TileWireIterator &other) const {
+        return cursor == other.cursor;
+    }
+    bool operator!=(const TileWireIterator &other) const {
+        return cursor != other.cursor;
+    }
 
     // Returns a *denormalised* identifier always pointing to a tile wire rather than a node
     WireId operator*() const
@@ -505,13 +522,13 @@ struct BelPinIterator
     void operator++()
     {
         cursor++;
-        while (true) {
-            if (!(twi != twi_end))
-                break;
+
+        while (twi != twi_end) {
             WireId w = *twi;
             auto &tile = tileInfo(chip, w.tile);
             if (cursor < tile.wire_data[w.index].num_bel_pins)
                 break;
+
             ++twi;
             cursor = 0;
         }
@@ -606,7 +623,7 @@ struct Arch : BaseCtx
     {
         NPNR_ASSERT(bel != BelId());
         int site_index = locInfo(bel).bel_data[bel.index].site;
-        NPNR_ASSERT(site_index != -1);
+        NPNR_ASSERT(site_index >= 0);
         const SiteInstInfoPOD &site = chip_info->sites[chip_info->tiles[bel.tile].sites[site_index]];
         return id(std::string(site.name.get()) +
                 "/" + IdString(locInfo(bel).bel_data[bel.index].name).str(this));
@@ -683,7 +700,9 @@ struct Arch : BaseCtx
         return false;
     }
 
-    bool getBelHidden(BelId bel) const { return locInfo(bel).bel_data[bel.index].is_routing; }
+    bool getBelHidden(BelId bel) const {
+        return locInfo(bel).bel_data[bel.index].category != BEL_CATEGORY_LOGIC;
+    }
 
     IdString getBelType(BelId bel) const
     {
@@ -692,6 +711,19 @@ struct Arch : BaseCtx
     }
 
     std::vector<std::pair<IdString, std::string>> getBelAttrs(BelId bel) const;
+
+    int getBelPinIndex(BelId bel, IdString pin) const {
+        NPNR_ASSERT(bel != BelId());
+        int num_bel_wires = locInfo(bel).bel_data[bel.index].num_bel_wires;
+        const int32_t *ports = locInfo(bel).bel_data[bel.index].ports.get();
+        for (int i = 0; i < num_bel_wires; i++) {
+            if (ports[i] == pin.index) {
+                return i;
+            }
+        }
+
+        return -1;
+    }
 
     WireId getBelPinWire(BelId bel, IdString pin) const;
     PortType getBelPinType(BelId bel, IdString pin) const;
@@ -813,10 +845,11 @@ struct Arch : BaseCtx
 
         range.e.chip = chip_info;
         range.e.baseWire = wire;
-        if (wire.tile == -1)
+        if (wire.tile == -1) {
             range.e.cursor = chip_info->nodes[wire.index].num_tile_wires;
-        else
+        } else {
             range.e.cursor = 1;
+        }
         return range;
     }
 
@@ -824,12 +857,14 @@ struct Arch : BaseCtx
     {
         BelPinRange range;
         NPNR_ASSERT(wire != WireId());
+
         TileWireRange twr = getTileWireRange(wire);
         range.b.chip = chip_info;
         range.b.twi = twr.b;
         range.b.twi_end = twr.e;
         range.b.cursor = -1;
         ++range.b;
+
         range.e.chip = chip_info;
         range.e.twi = twr.e;
         range.e.twi_end = twr.e;
@@ -988,16 +1023,6 @@ struct Arch : BaseCtx
         range.e.twi = twr.e;
         range.e.twi_end = twr.e;
         range.e.cursor = 0;
-        return range;
-    }
-
-    UphillPipRange getWireAliases(WireId wire) const
-    {
-        UphillPipRange range;
-        range.b.cursor = 0;
-        range.b.twi.cursor = 0;
-        range.e.cursor = 0;
-        range.e.twi.cursor = 0;
         return range;
     }
 
