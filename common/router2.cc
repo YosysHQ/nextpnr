@@ -396,7 +396,8 @@ struct Router2
             if (ctx->getBelPinType(bp.bel, bp.pin) != PORT_IN)
                 return false;
         for (auto p : ctx->getPipsUphill(wire))
-            return false;
+            if (ctx->checkPipAvail(p))
+                return false;
         return true;
     }
 
