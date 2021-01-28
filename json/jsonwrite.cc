@@ -135,8 +135,9 @@ void write_module(std::ostream &f, Context *ctx)
     for (auto &port : ports) {
         f << stringf("%s\n", first ? "" : ",");
         f << stringf("        %s: {\n", get_string(port.name).c_str());
-        f << stringf("          \"direction\": \"%s\",\n",
-                     port.dir == PORT_IN ? "input" : port.dir == PORT_INOUT ? "inout" : "output");
+        f << stringf("          \"direction\": \"%s\",\n", port.dir == PORT_IN      ? "input"
+                                                           : port.dir == PORT_INOUT ? "inout"
+                                                                                    : "output");
         f << stringf("          \"bits\": %s\n", format_port_bits(port, dummy_idx).c_str());
         f << stringf("        }");
         first = false;

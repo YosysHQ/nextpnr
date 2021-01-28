@@ -631,7 +631,7 @@ struct DeterministicRNG
             rng64();
     }
 
-    template <typename Iter> void shuffle(const Iter& begin, const Iter& end)
+    template <typename Iter> void shuffle(const Iter &begin, const Iter &end)
     {
         size_t size = end - begin;
         for (size_t i = 0; i != size; i++) {
@@ -641,10 +641,7 @@ struct DeterministicRNG
         }
     }
 
-    template <typename T> void shuffle(std::vector<T> &a)
-    {
-        shuffle(a.begin(), a.end());
-    }
+    template <typename T> void shuffle(std::vector<T> &a) { shuffle(a.begin(), a.end()); }
 
     template <typename T> void sorted_shuffle(std::vector<T> &a)
     {

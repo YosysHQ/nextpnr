@@ -38,7 +38,7 @@ void archcheck_names(const Context *ctx)
     for (BelId bel : ctx->getBels()) {
         IdString name = ctx->getBelName(bel);
         BelId bel2 = ctx->getBelByName(name);
-        if(bel != bel2) {
+        if (bel != bel2) {
             log_error("bel != bel2, name = %s\n", name.c_str(ctx));
         }
     }
@@ -47,7 +47,7 @@ void archcheck_names(const Context *ctx)
     for (WireId wire : ctx->getWires()) {
         IdString name = ctx->getWireName(wire);
         WireId wire2 = ctx->getWireByName(name);
-        if(wire != wire2) {
+        if (wire != wire2) {
             log_error("wire != wire2, name = %s\n", name.c_str(ctx));
         }
     }
@@ -56,7 +56,7 @@ void archcheck_names(const Context *ctx)
     for (PipId pip : ctx->getPips()) {
         IdString name = ctx->getPipName(pip);
         PipId pip2 = ctx->getPipByName(name);
-        if(pip != pip2) {
+        if (pip != pip2) {
             log_error("pip != pip2, name = %s\n", name.c_str(ctx));
         }
     }
@@ -127,19 +127,18 @@ void archcheck_conn(const Context *ctx)
 
     log_info("Checking all wires...\n");
 
-    for (WireId wire : ctx->getWires())
-    {
-        for(BelPin belpin : ctx->getWireBelPins(wire)) {
+    for (WireId wire : ctx->getWires()) {
+        for (BelPin belpin : ctx->getWireBelPins(wire)) {
             WireId wire2 = ctx->getBelPinWire(belpin.bel, belpin.pin);
             log_assert(wire == wire2);
         }
 
-        for(PipId pip : ctx->getPipsDownhill(wire)) {
+        for (PipId pip : ctx->getPipsDownhill(wire)) {
             WireId wire2 = ctx->getPipSrcWire(pip);
             log_assert(wire == wire2);
         }
 
-        for(PipId pip : ctx->getPipsUphill(wire)) {
+        for (PipId pip : ctx->getPipsUphill(wire)) {
             WireId wire2 = ctx->getPipDstWire(pip);
             log_assert(wire == wire2);
         }
@@ -147,16 +146,16 @@ void archcheck_conn(const Context *ctx)
 
     log_info("Checking all BELs...\n");
     for (BelId bel : ctx->getBels()) {
-        for(IdString pin : ctx->getBelPins(bel)) {
+        for (IdString pin : ctx->getBelPins(bel)) {
             WireId wire = ctx->getBelPinWire(bel, pin);
 
-            if(wire == WireId()) {
+            if (wire == WireId()) {
                 continue;
             }
 
             bool found_belpin = false;
-            for(BelPin belpin : ctx->getWireBelPins(wire)) {
-                if(belpin.bel == bel && belpin.pin == pin) {
+            for (BelPin belpin : ctx->getWireBelPins(wire)) {
+                if (belpin.bel == bel && belpin.pin == pin) {
                     found_belpin = true;
                     break;
                 }
@@ -169,10 +168,10 @@ void archcheck_conn(const Context *ctx)
     log_info("Checking all PIPs...\n");
     for (PipId pip : ctx->getPips()) {
         WireId src_wire = ctx->getPipSrcWire(pip);
-        if(src_wire != WireId()) {
+        if (src_wire != WireId()) {
             bool found_pip = false;
-            for(PipId downhill_pip : ctx->getPipsDownhill(src_wire)) {
-                if(pip == downhill_pip) {
+            for (PipId downhill_pip : ctx->getPipsDownhill(src_wire)) {
+                if (pip == downhill_pip) {
                     found_pip = true;
                     break;
                 }
@@ -182,10 +181,10 @@ void archcheck_conn(const Context *ctx)
         }
 
         WireId dst_wire = ctx->getPipDstWire(pip);
-        if(dst_wire != WireId()) {
+        if (dst_wire != WireId()) {
             bool found_pip = false;
-            for(PipId uphill_pip : ctx->getPipsUphill(dst_wire)) {
-                if(pip == uphill_pip) {
+            for (PipId uphill_pip : ctx->getPipsUphill(dst_wire)) {
+                if (pip == uphill_pip) {
                     found_pip = true;
                     break;
                 }
