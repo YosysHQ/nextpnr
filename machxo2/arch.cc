@@ -351,24 +351,6 @@ IdString Arch::getPipName(PipId pip) const
     return id("X" + std::to_string(x) + "/Y" + std::to_string(y) + "/" + src_name + ".->." + dst_name);
 }
 
-NetInfo *Arch::getBoundPipNet(PipId pip) const { return nullptr; }
-
-NetInfo *Arch::getConflictingPipNet(PipId pip) const { return nullptr; }
-
-WireId Arch::getConflictingPipWire(PipId pip) const { return WireId(); }
-
-const std::vector<PipId> &Arch::getPips() const { return pip_id_dummy; }
-
-Loc Arch::getPipLocation(PipId pip) const { return Loc(); }
-
-DelayInfo Arch::getPipDelay(PipId pip) const { return DelayInfo(); }
-
-const std::vector<PipId> &Arch::getPipsDownhill(WireId wire) const { return pip_id_dummy; }
-
-const std::vector<PipId> &Arch::getPipsUphill(WireId wire) const { return pip_id_dummy; }
-
-const std::vector<PipId> &Arch::getWireAliases(WireId wire) const { return pip_id_dummy; }
-
 // ---------------------------------------------------------------
 
 GroupId Arch::getGroupByName(IdString name) const { return GroupId(); }
