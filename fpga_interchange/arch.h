@@ -1028,6 +1028,7 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
+    // TODO: Use groups to get access to sites.
     GroupId getGroupByName(IdString name) const { return GroupId(); }
     IdString getGroupName(GroupId group) const { return IdString(); }
     std::vector<GroupId> getGroups() const { return {}; }

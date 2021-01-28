@@ -177,13 +177,10 @@ PortType Arch::getBelPinType(BelId bel, IdString pin) const
     NPNR_ASSERT(bel != BelId());
 
     int pin_index = getBelPinIndex(bel, pin);
-    if(pin_index < 0) {
-        // Port could not be found!
-        return PORT_INOUT;
-    } else {
-        const int32_t *types = locInfo(bel).bel_data[bel.index].types.get();
-        return PortType(types[pin_index]);
-    }
+    auto &bel_data = locInfo(bel).bel_data[bel.index];
+    NPNR_ASSERT(pin_index >= 0 && pin_index < bel_data.num_bel_wires);
+    const int32_t *types = bel_data.types.get();
+    return PortType(types[pin_index]);
 }
 
 // -----------------------------------------------------------------------
@@ -464,7 +461,7 @@ std::vector<std::pair<IdString, std::string>> Arch::getBelAttrs(BelId bel) const
 
 delay_t Arch::estimateDelay(WireId src, WireId dst, bool debug) const
 {
-    // FIXME: Implement when adding timing-driven place and route.
+    // FIXME: Implement something to push the A* router in the right direction.
     return 0;
 }
 
