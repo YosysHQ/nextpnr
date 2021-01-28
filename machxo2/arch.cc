@@ -300,14 +300,6 @@ WireId Arch::getWireByName(IdString name) const
     return ret;
 }
 
-NetInfo *Arch::getBoundWireNet(WireId wire) const { return nullptr; }
-
-NetInfo *Arch::getConflictingWireNet(WireId wire) const { return nullptr; }
-
-const std::vector<BelPin> &Arch::getWireBelPins(WireId wire) const { return bel_pin_dummy; }
-
-const std::vector<WireId> &Arch::getWires() const { return wire_id_dummy; }
-
 // ---------------------------------------------------------------
 
 PipId Arch::getPipByName(IdString name) const
