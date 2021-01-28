@@ -748,11 +748,50 @@ struct Arch : BaseCtx
         return pip_to_net.find(pip) == pip_to_net.end() || pip_to_net.at(pip) == nullptr;
     }
 
-    NetInfo *getBoundPipNet(PipId pip) const;
-    WireId getConflictingPipWire(PipId pip) const;
-    NetInfo *getConflictingPipNet(PipId pip) const;
-    const std::vector<PipId> &getPips() const;
-    Loc getPipLocation(PipId pip) const;
+    NetInfo *getBoundPipNet(PipId pip) const
+    {
+        NPNR_ASSERT(pip != PipId());
+        if (pip_to_net.find(pip) == pip_to_net.end())
+            return nullptr;
+        else
+            return pip_to_net.at(pip);
+    }
+
+    WireId getConflictingPipWire(PipId pip) const { return WireId(); }
+
+    NetInfo *getConflictingPipNet(PipId pip) const
+    {
+        NPNR_ASSERT(pip != PipId());
+        if (pip_to_net.find(pip) == pip_to_net.end())
+            return nullptr;
+        else
+            return pip_to_net.at(pip);
+    }
+
+    AllPipRange getPips() const
+    {
+        AllPipRange range;
+        range.b.cursor_tile = 0;
+        range.b.cursor_index = -1;
+        range.b.chip = chip_info;
+        ++range.b; //-1 and then ++ deals with the case of no Bels in the first tile
+        range.e.cursor_tile = chip_info->width * chip_info->height;
+        range.e.cursor_index = 0;
+        range.e.chip = chip_info;
+        return range;
+    }
+
+    Loc getPipLocation(PipId pip) const
+    {
+        Loc loc;
+        loc.x = pip.location.x;
+        loc.y = pip.location.y;
+
+        // FIXME: Some Pip's config bits span across tiles. Will Z
+        // be affected by this?
+        loc.z = 0;
+        return loc;
+    }
 
     WireId getPipSrcWire(PipId pip) const
     {
@@ -772,10 +811,29 @@ struct Arch : BaseCtx
         return wire;
     }
 
-    DelayInfo getPipDelay(PipId pip) const;
-    const std::vector<PipId> &getPipsDownhill(WireId wire) const;
-    const std::vector<PipId> &getPipsUphill(WireId wire) const;
-    const std::vector<PipId> &getWireAliases(WireId wire) const;
+    DelayInfo getPipDelay(PipId pip) const { return DelayInfo(); }
+
+    PipRange getPipsDownhill(WireId wire) const
+    {
+        PipRange range;
+        NPNR_ASSERT(wire != WireId());
+        range.b.cursor = tileInfo(wire)->wire_data[wire.index].pips_downhill.get();
+        range.b.wire_loc = wire.location;
+        range.e.cursor = range.b.cursor + tileInfo(wire)->wire_data[wire.index].num_downhill;
+        range.e.wire_loc = wire.location;
+        return range;
+    }
+
+    PipRange getPipsUphill(WireId wire) const
+    {
+        PipRange range;
+        NPNR_ASSERT(wire != WireId());
+        range.b.cursor = tileInfo(wire)->wire_data[wire.index].pips_uphill.get();
+        range.b.wire_loc = wire.location;
+        range.e.cursor = range.b.cursor + tileInfo(wire)->wire_data[wire.index].num_uphill;
+        range.e.wire_loc = wire.location;
+        return range;
+    }
 
     // Group
     GroupId getGroupByName(IdString name) const;
