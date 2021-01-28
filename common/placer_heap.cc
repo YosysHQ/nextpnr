@@ -195,8 +195,8 @@ class HeAPPlacer
             }
 
         if (cfg.placeAllAtOnce) {
-            // Never want to deal with LUTs, FFs, MUXFxs seperately,
-            // for now disable all single-cell-type runs and only have heteregenous
+            // Never want to deal with LUTs, FFs, MUXFxs separately,
+            // for now disable all single-cell-type runs and only have heterogeneous
             // runs
             heap_runs.clear();
         }
@@ -205,7 +205,7 @@ class HeAPPlacer
         // The main HeAP placer loop
         log_info("Running main analytical placer.\n");
         while (stalled < 5 && (solved_hpwl <= legal_hpwl * 0.8)) {
-            // Alternate between particular Bel types and all bels
+            // Alternate between particular bel types and all bels
             for (auto &run : heap_runs) {
                 auto run_startt = std::chrono::high_resolution_clock::now();
 
@@ -321,7 +321,7 @@ class HeAPPlacer
     std::vector<std::vector<std::vector<std::vector<BelId>>>> fast_bels;
     std::unordered_map<IdString, std::tuple<int, int>> bel_types;
 
-    // For fast handling of heterogeneosity during initial placement without full legalisation,
+    // For fast handling of heterogeneity during initial placement without full legalisation,
     // for each Bel type this goes from x or y to the nearest x or y where a Bel of a given type exists
     // This is particularly important for the iCE40 architecture, where multipliers and BRAM only exist at the
     // edges and corners respectively
@@ -1595,7 +1595,7 @@ class HeAPPlacer
                 std::accumulate(right_bels_v.begin(), right_bels_v.end(), 0) == 0)
                 return {};
 
-            // Peturb the source cut to eliminate overutilisation
+            // Perturb the source cut to eliminate overutilisation
             auto is_part_overutil = [&](bool r) {
                 double delta = 0;
                 for (size_t t = 0; t < left_cells_v.size(); t++) {

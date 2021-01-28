@@ -317,7 +317,8 @@ struct Timing
                             auto &data = net_data[port.second.net][start_clk];
                             auto &arrival = data.max_arrival;
                             arrival = std::max(arrival, usr_arrival + comb_delay.maxDelay());
-                            if (!budget_override) { // Do not increment path length if budget overriden since it doesn't
+                            if (!budget_override) { // Do not increment path length if budget overridden since it
+                                                    // doesn't
                                 // require a share of the slack
                                 auto &path_length = data.max_path_length;
                                 path_length = std::max(path_length, net_length_plus_one);

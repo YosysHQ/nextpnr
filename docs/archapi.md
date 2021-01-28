@@ -320,8 +320,8 @@ Get the source wire for a pip.
 
 Get the destination wire for a pip.
 
-Bi-directional switches (transfer gates) are modelled using two
-antiparallel pips.
+Bi-directional switches (transfer gates) are modeled using two
+anti-parallel pips.
 
 ### DelayInfo getPipDelay(PipId pip) const
 
@@ -378,8 +378,8 @@ This should return a low upper bound for the fastest route from `src` to `dst`.
 
 Or in other words it should assume an otherwise unused chip (thus "fastest route").
 But it only produces an estimate for that fastest route, not an exact 
-result, and for that estimate it is considered more accaptable to return a
-slightly too high result and it is considered less accaptable to return a
+result, and for that estimate it is considered more acceptable to return a
+slightly too high result and it is considered less acceptable to return a
 too low result (thus "low upper bound").
 
 ### delay\_t predictDelay(const NetInfo \*net\_info, const PortRef &sink) const

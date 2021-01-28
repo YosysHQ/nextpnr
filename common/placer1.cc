@@ -406,7 +406,7 @@ class SAPlacer
         auto saplace_end = std::chrono::high_resolution_clock::now();
         log_info("SA placement time %.02fs\n", std::chrono::duration<float>(saplace_end - saplace_start).count());
 
-        // Final post-pacement validitiy check
+        // Final post-placement validity check
         ctx->yield();
         for (auto bel : ctx->getBels()) {
             CellInfo *cell = ctx->getBoundBelCell(bel);
@@ -548,7 +548,7 @@ class SAPlacer
             goto swap_fail;
         }
 
-        // Recalculate metrics for all nets touched by the peturbation
+        // Recalculate metrics for all nets touched by the perturbation
         compute_cost_changes(moveChange);
 
         new_dist = get_constraints_distance(ctx, cell);
@@ -560,7 +560,7 @@ class SAPlacer
         if (cfg.netShareWeight > 0)
             delta += -cfg.netShareWeight * (net_delta_score / std::max<double>(total_net_share, epsilon));
         n_move++;
-        // SA acceptance criterea
+        // SA acceptance criteria
         if (delta < 0 || (temp > 1e-8 && (ctx->rng() / float(0x3fffffff)) <= std::exp(-delta / temp))) {
             n_accept++;
         } else {
@@ -691,7 +691,7 @@ class SAPlacer
                     cfg.netShareWeight * (orig_share_cost - total_net_share) / std::max<double>(total_net_share, 1e-20);
         }
         n_move++;
-        // SA acceptance criterea
+        // SA acceptance criteria
         if (delta < 0 || (temp > 1e-9 && (ctx->rng() / float(0x3fffffff)) <= std::exp(-delta / temp))) {
             n_accept++;
 #if 0

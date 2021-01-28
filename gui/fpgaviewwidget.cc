@@ -158,7 +158,7 @@ float FPGAViewWidget::PickedElement::distance(Context *ctx, float wx, float wy) 
                            return std::abs(dw - dab) / dab;
                        }
                        default:
-                           // Not close to antyhing.
+                           // Not close to anything.
                            return -1;
                        }
                    });
@@ -819,7 +819,7 @@ QVector4D FPGAViewWidget::mouseToWorldCoordinates(int x, int y)
     vec = projection.inverted() * QVector4D(vec.x(), vec.y(), -1, 1);
 
     // Hic sunt dracones.
-    // TODO(q3k): grab a book, remind yourselfl linear algebra and undo this
+    // TODO(q3k): grab a book, remind yourself linear algebra and undo this
     // operation properly.
     QVector3D ray = vec.toVector3DAffine();
     ray.normalize();
