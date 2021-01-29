@@ -953,6 +953,47 @@ struct Arch : BaseCtx
     bool isValidBelForCellType(IdString cell_type, BelId bel) const {
         return cell_type == getBelType(bel);
     }
+
+    const std::vector<IdString> &getCellTypes() const {
+        return cell_types;
+    }
+
+    std::vector<PartitionId> getPartitions() const {
+        return partitions;
+    }
+
+    IdString getPartitionName(PartitionId partition) const {
+        return partition.name;
+    }
+
+    PartitionId getPartitionByName(IdString name) const {
+        PartitionId partition;
+        partition.name = name;
+        return partition;
+    }
+
+    PartitionId getPartitionForBel(BelId bel) const {
+        PartitionId partition;
+        partition.name = getBelType(bel);
+        return partition;
+    }
+
+    PartitionId getPartitionForCellType(IdString cell_type) const {
+        PartitionId partition;
+        partition.name = cell_type;
+        return partition;
+    }
+
+    std::vector<BelId> getBelsForPartition(PartitionId partition) const {
+        std::vector<BelId> bels;
+        for(BelId bel : getBels()) {
+            if(getBelType(bel) == partition.name) {
+                bels.push_back(bel);
+            }
+        }
+        return bels;
+    }
+
     bool isValidBelForCell(CellInfo *cell, BelId bel) const;
     bool isBelLocationValid(BelId bel) const;
 
@@ -1025,6 +1066,9 @@ struct Arch : BaseCtx
     static const std::vector<std::string> availablePlacers;
     static const std::string defaultRouter;
     static const std::vector<std::string> availableRouters;
+
+    std::vector<IdString> cell_types;
+    std::vector<PartitionId> partitions;
 };
 
 NEXTPNR_NAMESPACE_END

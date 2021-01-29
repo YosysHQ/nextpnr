@@ -115,6 +115,19 @@ Arch::Arch(ArchArgs args) : args(args)
         log_error("Unsupported package '%s' for '%s'.\n", args.package.c_str(), getChipName().c_str());
 
     bel_to_cell.resize(chip_info->height * chip_info->width * max_loc_bels, nullptr);
+
+    std::unordered_set<IdString> bel_types;
+    for(BelId bel : getBels()) {
+        bel_types.insert(getBelType(bel));
+    }
+
+    for(IdString bel_type : bel_types) {
+        cell_types.push_back(bel_type);
+
+        PartitionId partition;
+        partition.name = bel_type;
+        partitions.push_back(partitions);
+    }
 }
 
 // -----------------------------------------------------------------------

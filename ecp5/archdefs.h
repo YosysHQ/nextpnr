@@ -126,6 +126,13 @@ struct PipId
     }
 };
 
+struct PartitionId {
+    IdString name;
+
+    bool operator==(const PartitionId &other) const { return (name == other.name); }
+    bool operator!=(const PartitionId &other) const { return (name != other.name); }
+};
+
 struct GroupId
 {
     enum : int8_t
