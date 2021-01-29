@@ -235,7 +235,27 @@ struct IdStringList
     const IdString *begin() const { return ids.begin(); }
     const IdString *end() const { return ids.end(); }
     const IdString &operator[](size_t idx) const { return ids[idx]; }
+    bool operator==(const IdStringList &other) const { return ids == other.ids; }
+    bool operator!=(const IdStringList &other) const { return ids != other.ids; }
 };
+
+NEXTPNR_NAMESPACE_END
+
+namespace std {
+template <> struct hash<NEXTPNR_NAMESPACE_PREFIX IdStringList>
+{
+    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX IdStringList &obj) const noexcept
+    {
+        std::size_t seed = 0;
+        boost::hash_combine(seed, hash<size_t>()(obj.size()));
+        for (auto &id : obj)
+            boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(id));
+        return seed;
+    }
+};
+} // namespace std
+
+NEXTPNR_NAMESPACE_BEGIN
 
 // A ring buffer of strings, so we can return a simple const char * pointer for %s formatting - inspired by how logging
 // in Yosys works Let's just hope noone tries to log more than 100 things in one call....
@@ -890,8 +910,11 @@ struct BaseCtx
     const char *nameOfPip(PipId pip) const;
     const char *nameOfGroup(GroupId group) const;
 
-    // Overrides of arch functions that take a string and handle IdStringList parsing
+    // Wrappers of arch functions that take a string and handle IdStringList parsing
     BelId getBelByNameStr(const std::string &str);
+    WireId getWireByNameStr(const std::string &str);
+    PipId getPipByNameStr(const std::string &str);
+    GroupId getGroupByNameStr(const std::string &str);
 
     // --------------------------------------------------------------
 

@@ -37,17 +37,6 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-static std::tuple<int, int, std::string> split_identifier_name(const std::string &name)
-{
-    size_t first_slash = name.find('/');
-    NPNR_ASSERT(first_slash != std::string::npos);
-    size_t second_slash = name.find('/', first_slash + 1);
-    NPNR_ASSERT(second_slash != std::string::npos);
-    return std::make_tuple(std::stoi(name.substr(1, first_slash)),
-                           std::stoi(name.substr(first_slash + 2, second_slash - first_slash)),
-                           name.substr(second_slash + 1));
-};
-
 // -----------------------------------------------------------------------
 
 void IdString::initialize_arch(const BaseCtx *ctx)
@@ -133,6 +122,17 @@ Arch::Arch(ArchArgs args) : args(args)
         x_ids.push_back(id(stringf("X%d", i)));
     for (int i = 0; i < chip_info->height; i++)
         y_ids.push_back(id(stringf("Y%d", i)));
+
+    for (int i = 0; i < chip_info->width; i++) {
+        IdString x_id = id(stringf("X%d", i));
+        x_ids.push_back(x_id);
+        id_to_x[x_id] = i;
+    }
+    for (int i = 0; i < chip_info->height; i++) {
+        IdString y_id = id(stringf("Y%d", i));
+        y_ids.push_back(y_id);
+        id_to_y[y_id] = i;
+    }
 }
 
 // -----------------------------------------------------------------------
@@ -215,29 +215,21 @@ IdString Arch::archArgsToId(ArchArgs args) const
 
 BelId Arch::getBelByName(IdStringList name) const
 {
-    // TODO: take advantage of IdStringList for fast parsing
+    if (name.size() != 3)
+        return BelId();
     BelId ret;
-#if 0
-    auto it = bel_by_name.find(name);
-    if (it != bel_by_name.end())
-        return it->second;
-#endif
     Location loc;
-    std::string basename;
-    std::tie(loc.x, loc.y, basename) = split_identifier_name(name.str(getCtx()));
+    loc.x = id_to_x.at(name[0]);
+    loc.y = id_to_y.at(name[1]);
     ret.location = loc;
     const LocationTypePOD *loci = locInfo(ret);
     for (int i = 0; i < int(loci->bel_data.size()); i++) {
-        if (std::strcmp(loci->bel_data[i].name.get(), basename.c_str()) == 0) {
+        if (std::strcmp(loci->bel_data[i].name.get(), name[2].c_str(this)) == 0) {
             ret.index = i;
-            break;
+            return ret;
         }
     }
-#if 0
-    if (ret.index >= 0)
-        bel_by_name[name] = ret;
-#endif
-    return ret;
+    return BelId();
 }
 
 BelRange Arch::getBelsByTile(int x, int y) const
@@ -286,36 +278,31 @@ PortType Arch::getBelPinType(BelId bel, IdString pin) const
 
 // -----------------------------------------------------------------------
 
-WireId Arch::getWireByName(IdString name) const
+WireId Arch::getWireByName(IdStringList name) const
 {
+    if (name.size() != 3)
+        return WireId();
     WireId ret;
-    auto it = wire_by_name.find(name);
-    if (it != wire_by_name.end())
-        return it->second;
-
     Location loc;
-    std::string basename;
-    std::tie(loc.x, loc.y, basename) = split_identifier_name(name.str(this));
+    loc.x = id_to_x.at(name[0]);
+    loc.y = id_to_y.at(name[1]);
     ret.location = loc;
     const LocationTypePOD *loci = locInfo(ret);
     for (int i = 0; i < int(loci->wire_data.size()); i++) {
-        if (std::strcmp(loci->wire_data[i].name.get(), basename.c_str()) == 0) {
+        if (std::strcmp(loci->wire_data[i].name.get(), name[2].c_str(this)) == 0) {
             ret.index = i;
-            ret.location = loc;
-            break;
+            return ret;
         }
     }
-    if (ret.index >= 0)
-        wire_by_name[name] = ret;
-    else
-        ret.location = Location();
-    return ret;
+    return WireId();
 }
 
 // -----------------------------------------------------------------------
 
-PipId Arch::getPipByName(IdString name) const
+PipId Arch::getPipByName(IdStringList name) const
 {
+    if (name.size() != 3)
+        return PipId();
     auto it = pip_by_name.find(name);
     if (it != pip_by_name.end())
         return it->second;
@@ -323,7 +310,8 @@ PipId Arch::getPipByName(IdString name) const
     PipId ret;
     Location loc;
     std::string basename;
-    std::tie(loc.x, loc.y, basename) = split_identifier_name(name.str(this));
+    loc.x = id_to_x.at(name[0]);
+    loc.y = id_to_y.at(name[1]);
     ret.location = loc;
     const LocationTypePOD *loci = locInfo(ret);
     for (int i = 0; i < int(loci->pip_data.size()); i++) {
@@ -333,24 +321,23 @@ PipId Arch::getPipByName(IdString name) const
         pip_by_name[getPipName(curr)] = curr;
     }
     if (pip_by_name.find(name) == pip_by_name.end())
-        NPNR_ASSERT_FALSE_STR("no pip named " + name.str(this));
+        NPNR_ASSERT_FALSE_STR("no pip named " + name.str(getCtx()));
     return pip_by_name[name];
 }
 
-IdString Arch::getPipName(PipId pip) const
+IdStringList Arch::getPipName(PipId pip) const
 {
     NPNR_ASSERT(pip != PipId());
 
-    int x = pip.location.x;
-    int y = pip.location.y;
+    // TODO: can we improve how pip names are stored/built?
+    auto &pip_data = locInfo(pip)->pip_data[pip.index];
+    WireId src = getPipSrcWire(pip), dst = getPipDstWire(pip);
+    std::string pip_name = stringf("%d_%d_%s->%d_%d_%s", pip_data.rel_src_loc.x, pip_data.rel_src_loc.y,
+                                   getWireBasename(src).c_str(this), pip_data.rel_dst_loc.x, pip_data.rel_dst_loc.y,
+                                   getWireBasename(dst).c_str(this));
 
-    std::string src_name = getWireName(getPipSrcWire(pip)).str(this);
-    std::replace(src_name.begin(), src_name.end(), '/', '.');
-
-    std::string dst_name = getWireName(getPipDstWire(pip)).str(this);
-    std::replace(dst_name.begin(), dst_name.end(), '/', '.');
-
-    return id("X" + std::to_string(x) + "/Y" + std::to_string(y) + "/" + src_name + ".->." + dst_name);
+    std::array<IdString, 3> ids{x_ids.at(pip.location.x), y_ids.at(pip.location.y), id(pip_name)};
+    return IdStringList(ids);
 }
 
 // -----------------------------------------------------------------------
@@ -1215,7 +1202,7 @@ const std::vector<std::string> Arch::availableRouters = {"router1", "router2"};
 
 // -----------------------------------------------------------------------
 
-GroupId Arch::getGroupByName(IdString name) const
+GroupId Arch::getGroupByName(IdStringList name) const
 {
     for (auto g : getGroups())
         if (getGroupName(g) == name)
@@ -1223,7 +1210,7 @@ GroupId Arch::getGroupByName(IdString name) const
     return GroupId();
 }
 
-IdString Arch::getGroupName(GroupId group) const
+IdStringList Arch::getGroupName(GroupId group) const
 {
     std::string suffix;
 
@@ -1232,10 +1219,11 @@ IdString Arch::getGroupName(GroupId group) const
         suffix = "switchbox";
         break;
     default:
-        return IdString();
+        return IdStringList();
     }
 
-    return id("X" + std::to_string(group.location.x) + "/Y" + std::to_string(group.location.y) + "/" + suffix);
+    std::array<IdString, 3> ids{x_ids.at(group.location.x), y_ids.at(group.location.y), id(suffix)};
+    return IdStringList(ids);
 }
 
 std::vector<GroupId> Arch::getGroups() const

@@ -299,25 +299,49 @@ const char *BaseCtx::nameOfBel(BelId bel) const
 const char *BaseCtx::nameOfWire(WireId wire) const
 {
     const Context *ctx = getCtx();
-    return ctx->getWireName(wire).c_str(ctx);
+    std::string &s = ctx->log_strs.next();
+    ctx->getWireName(wire).build_str(ctx, s);
+    return s.c_str();
 }
 
 const char *BaseCtx::nameOfPip(PipId pip) const
 {
     const Context *ctx = getCtx();
-    return ctx->getPipName(pip).c_str(ctx);
+    std::string &s = ctx->log_strs.next();
+    ctx->getPipName(pip).build_str(ctx, s);
+    return s.c_str();
 }
 
 const char *BaseCtx::nameOfGroup(GroupId group) const
 {
     const Context *ctx = getCtx();
-    return ctx->getGroupName(group).c_str(ctx);
+    std::string &s = ctx->log_strs.next();
+    ctx->getGroupName(group).build_str(ctx, s);
+    return s.c_str();
 }
 
 BelId BaseCtx::getBelByNameStr(const std::string &str)
 {
     Context *ctx = getCtx();
     return ctx->getBelByName(IdStringList::parse(ctx, str));
+}
+
+WireId BaseCtx::getWireByNameStr(const std::string &str)
+{
+    Context *ctx = getCtx();
+    return ctx->getWireByName(IdStringList::parse(ctx, str));
+}
+
+PipId BaseCtx::getPipByNameStr(const std::string &str)
+{
+    Context *ctx = getCtx();
+    return ctx->getPipByName(IdStringList::parse(ctx, str));
+}
+
+GroupId BaseCtx::getGroupByNameStr(const std::string &str)
+{
+    Context *ctx = getCtx();
+    return ctx->getGroupByName(IdStringList::parse(ctx, str));
 }
 
 WireId Context::getNetinfoSourceWire(const NetInfo *net_info) const
@@ -701,10 +725,10 @@ void BaseCtx::archInfoToAttributes()
         for (auto &item : ni->wires) {
             if (!first)
                 routing += ";";
-            routing += getCtx()->getWireName(item.first).c_str(this);
+            routing += getCtx()->getWireName(item.first).str(getCtx());
             routing += ";";
             if (item.second.pip != PipId())
-                routing += getCtx()->getPipName(item.second.pip).c_str(this);
+                routing += getCtx()->getPipName(item.second.pip).str(getCtx());
             routing += ";" + std::to_string(item.second.strength);
             first = false;
         }

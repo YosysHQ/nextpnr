@@ -45,7 +45,7 @@ void archcheck_names(const Context *ctx)
 
     log_info("Checking wire names..\n");
     for (WireId wire : ctx->getWires()) {
-        IdString name = ctx->getWireName(wire);
+        IdStringList name = ctx->getWireName(wire);
         WireId wire2 = ctx->getWireByName(name);
         if (wire != wire2) {
             log_error("wire != wire2, name = %s\n", ctx->nameOfWire(wire));
@@ -64,7 +64,7 @@ void archcheck_names(const Context *ctx)
 #ifndef ARCH_ECP5
     log_info("Checking pip names..\n");
     for (PipId pip : ctx->getPips()) {
-        IdString name = ctx->getPipName(pip);
+        IdStringList name = ctx->getPipName(pip);
         PipId pip2 = ctx->getPipByName(name);
         if (pip != pip2) {
             log_error("pip != pip2, name = %s\n", ctx->nameOfPip(pip));
