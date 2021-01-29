@@ -563,9 +563,9 @@ class SAPlacer
         }
         commit_cost_changes(moveChange);
 #if 0
-        log_info("swap %s -> %s\n", cell->name.c_str(ctx), ctx->getBelName(newBel).c_str(ctx));
+        log_info("swap %s -> %s\n", cell->name.c_str(ctx), ctx->nameOfBel(newBel));
         if (other_cell != nullptr)
-            log_info("swap %s -> %s\n", other_cell->name.c_str(ctx), ctx->getBelName(oldBel).c_str(ctx));
+            log_info("swap %s -> %s\n", other_cell->name.c_str(ctx), ctx->nameOfBel(oldBel));
 #endif
         return true;
     swap_fail:
@@ -590,7 +590,7 @@ class SAPlacer
     {
         BelId oldBel = cell->bel;
 #if 0
-        log_info("%s old: %s new: %s\n", cell->name.c_str(ctx), ctx->getBelName(cell->bel).c_str(ctx), ctx->getBelName(newBel).c_str(ctx));
+        log_info("%s old: %s new: %s\n", cell->name.c_str(ctx), ctx->nameOfBel(cell->bel), ctx->nameOfBel(newBel));
 #endif
         CellInfo *bound = ctx->getBoundBelCell(newBel);
         if (bound != nullptr)

@@ -417,7 +417,7 @@ static BelId find_padin_gbuf(Context *ctx, BelId bel, IdString port_name)
     auto wire = ctx->getBelPinWire(bel, port_name);
 
     if (wire == WireId())
-        log_error("BEL '%s' has no global buffer connection available\n", ctx->getBelName(bel).c_str(ctx));
+        log_error("BEL '%s' has no global buffer connection available\n", ctx->nameOfBel(bel));
 
     for (auto src_bel : ctx->getWireBelPins(wire)) {
         if (ctx->getBelType(src_bel.bel) == id_SB_GB && src_bel.pin == id_GLOBAL_BUFFER_OUTPUT) {
@@ -839,7 +839,7 @@ static void place_plls(Context *ctx)
             if (conflict_cell == ci)
                 continue;
             log_error("PLL '%s' PACKAGEPIN forces it to BEL %s but BEL is already assigned to PLL '%s'\n",
-                      ci->name.c_str(ctx), ctx->getBelName(found_bel).c_str(ctx), conflict_cell->name.c_str(ctx));
+                      ci->name.c_str(ctx), ctx->nameOfBel(found_bel), conflict_cell->name.c_str(ctx));
         }
 
         // Is it user constrained ?
@@ -849,8 +849,7 @@ static void place_plls(Context *ctx)
             if (bel_constrain != found_bel)
                 log_error("PLL '%s' is user constrained to %s but can only be placed in %s based on its PACKAGEPIN "
                           "connection\n",
-                          ci->name.c_str(ctx), ctx->getBelName(bel_constrain).c_str(ctx),
-                          ctx->getBelName(found_bel).c_str(ctx));
+                          ci->name.c_str(ctx), ctx->nameOfBel(bel_constrain), ctx->nameOfBel(found_bel));
         } else {
             // No, we can constrain it ourselves
             ci->attrs[ctx->id("BEL")] = ctx->getBelName(found_bel).str(ctx);
@@ -999,7 +998,7 @@ static void place_plls(Context *ctx)
                 log_error("PLL '%s' couldn't be placed anywhere, no suitable BEL found.%s\n", ci->name.c_str(ctx),
                           could_be_pad ? " Did you mean to use a PAD PLL ?" : "");
 
-            log_info("  constrained PLL '%s' to %s\n", ci->name.c_str(ctx), ctx->getBelName(found_bel).c_str(ctx));
+            log_info("  constrained PLL '%s' to %s\n", ci->name.c_str(ctx), ctx->nameOfBel(found_bel));
             if (could_be_pad)
                 log_info("  (given its connections, this PLL could have been a PAD PLL)\n");
 

@@ -48,7 +48,7 @@ void archcheck_names(const Context *ctx)
         IdString name = ctx->getWireName(wire);
         WireId wire2 = ctx->getWireByName(name);
         if (wire != wire2) {
-            log_error("wire != wire2, name = %s\n", name.c_str(ctx));
+            log_error("wire != wire2, name = %s\n", ctx->nameOfWire(wire));
         }
     }
 
@@ -67,7 +67,7 @@ void archcheck_names(const Context *ctx)
         IdString name = ctx->getPipName(pip);
         PipId pip2 = ctx->getPipByName(name);
         if (pip != pip2) {
-            log_error("pip != pip2, name = %s\n", name.c_str(ctx));
+            log_error("pip != pip2, name = %s\n", ctx->nameOfPip(pip));
         }
     }
 #endif
@@ -109,7 +109,7 @@ void archcheck_locs(const Context *ctx)
                 if (bel == BelId())
                     continue;
                 Loc loc = ctx->getBelLocation(bel);
-                dbg("   + %d %s\n", z, ctx->getBelName(bel).c_str(ctx));
+                dbg("   + %d %s\n", z, ctx->nameOfBel(bel));
                 log_assert(x == loc.x);
                 log_assert(y == loc.y);
                 log_assert(z == loc.z);
@@ -118,7 +118,7 @@ void archcheck_locs(const Context *ctx)
 
             for (BelId bel : ctx->getBelsByTile(x, y)) {
                 Loc loc = ctx->getBelLocation(bel);
-                dbg("   - %d %s\n", loc.z, ctx->getBelName(bel).c_str(ctx));
+                dbg("   - %d %s\n", loc.z, ctx->nameOfBel(bel));
                 log_assert(x == loc.x);
                 log_assert(y == loc.y);
                 log_assert(usedz.count(loc.z));

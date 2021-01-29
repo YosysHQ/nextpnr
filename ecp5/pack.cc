@@ -1853,7 +1853,7 @@ class Ecp5Packer
             next = upstream.front();
             upstream.pop();
             if (ctx->debug)
-                log_info("    visited %s\n", ctx->getWireName(next).c_str(ctx));
+                log_info("    visited %s\n", ctx->nameOfWire(next));
             IdString basename = ctx->getWireBasename(next);
             if (basename == bnke_name || basename == global_name) {
                 break;

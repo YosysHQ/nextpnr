@@ -631,7 +631,7 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
             addProperty(portInfoItem, QVariant::String, "Name", item.c_str(ctx));
             addProperty(portInfoItem, QVariant::Int, "Type", int(ctx->getBelPinType(bel, item)));
             WireId wire = ctx->getBelPinWire(bel, item);
-            addProperty(portInfoItem, QVariant::String, "Wire", ctx->getWireName(wire).c_str(ctx), ElementType::WIRE);
+            addProperty(portInfoItem, QVariant::String, "Wire", ctx->nameOfWire(wire), ElementType::WIRE);
         }
     } else if (type == ElementType::WIRE) {
         std::lock_guard<std::mutex> lock_ui(ctx->ui_mutex);
@@ -644,8 +644,8 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
         addProperty(topItem, QVariant::String, "Type", ctx->getWireType(wire).c_str(ctx));
         addProperty(topItem, QVariant::Bool, "Available", ctx->checkWireAvail(wire));
         addProperty(topItem, QVariant::String, "Bound Net", ctx->nameOf(ctx->getBoundWireNet(wire)), ElementType::NET);
-        addProperty(topItem, QVariant::String, "Conflicting Wire",
-                    ctx->getWireName(ctx->getConflictingWireWire(wire)).c_str(ctx), ElementType::WIRE);
+        addProperty(topItem, QVariant::String, "Conflicting Wire", ctx->nameOfWire(ctx->getConflictingWireWire(wire)),
+                    ElementType::WIRE);
         addProperty(topItem, QVariant::String, "Conflicting Net", ctx->nameOf(ctx->getConflictingWireNet(wire)),
                     ElementType::NET);
 
@@ -666,7 +666,7 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
         for (const auto &item : ctx->getWireBelPins(wire)) {
             QString belname = "";
             if (item.bel != BelId())
-                belname = ctx->getBelName(item.bel).c_str(ctx);
+                belname = ctx->nameOfBel(item.bel);
             QString pinname = item.pin.c_str(ctx);
 
             QtProperty *dhItem = addSubGroup(belpinsItem, belname + "-" + pinname);
@@ -707,16 +707,15 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
         addProperty(topItem, QVariant::Bool, "Available", ctx->checkPipAvail(pip));
         addProperty(topItem, QVariant::String, "Bound Net", ctx->nameOf(ctx->getBoundPipNet(pip)), ElementType::NET);
         if (ctx->getConflictingPipWire(pip) != WireId()) {
-            addProperty(topItem, QVariant::String, "Conflicting Wire",
-                        ctx->getWireName(ctx->getConflictingPipWire(pip)).c_str(ctx), ElementType::WIRE);
+            addProperty(topItem, QVariant::String, "Conflicting Wire", ctx->nameOfWire(ctx->getConflictingPipWire(pip)),
+                        ElementType::WIRE);
         } else {
             addProperty(topItem, QVariant::String, "Conflicting Wire", "", ElementType::NONE);
         }
         addProperty(topItem, QVariant::String, "Conflicting Net", ctx->nameOf(ctx->getConflictingPipNet(pip)),
                     ElementType::NET);
-        addProperty(topItem, QVariant::String, "Src Wire", ctx->getWireName(ctx->getPipSrcWire(pip)).c_str(ctx),
-                    ElementType::WIRE);
-        addProperty(topItem, QVariant::String, "Dest Wire", ctx->getWireName(ctx->getPipDstWire(pip)).c_str(ctx),
+        addProperty(topItem, QVariant::String, "Src Wire", ctx->nameOfWire(ctx->getPipSrcWire(pip)), ElementType::WIRE);
+        addProperty(topItem, QVariant::String, "Dest Wire", ctx->nameOfWire(ctx->getPipDstWire(pip)),
                     ElementType::WIRE);
 
         QtProperty *attrsItem = addSubGroup(topItem, "Attributes");
@@ -769,14 +768,13 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
 
         QtProperty *wiresItem = addSubGroup(topItem, "Wires");
         for (auto &item : net->wires) {
-            auto name = ctx->getWireName(item.first).c_str(ctx);
+            auto name = ctx->nameOfWire(item.first);
 
             QtProperty *wireItem = addSubGroup(wiresItem, name);
             addProperty(wireItem, QVariant::String, "Wire", name, ElementType::WIRE);
 
             if (item.second.pip != PipId())
-                addProperty(wireItem, QVariant::String, "Pip", ctx->getPipName(item.second.pip).c_str(ctx),
-                            ElementType::PIP);
+                addProperty(wireItem, QVariant::String, "Pip", ctx->nameOfPip(item.second.pip), ElementType::PIP);
             else
                 addProperty(wireItem, QVariant::String, "Pip", "", ElementType::PIP);
 

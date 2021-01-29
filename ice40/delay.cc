@@ -80,7 +80,7 @@ void ice40DelayFuzzerMain(Context *ctx)
 
             printf("%s %d %d %s %s %d %d\n", cursor == dst ? "dst" : "src",
                    int(ctx->chip_info->wire_data[cursor.index].x), int(ctx->chip_info->wire_data[cursor.index].y),
-                   ctx->getWireType(cursor).c_str(ctx), ctx->getWireName(cursor).c_str(ctx), int(delay),
+                   ctx->getWireType(cursor).c_str(ctx), ctx->nameOfWire(cursor), int(delay),
                    int(ctx->estimateDelay(cursor, dst)));
 
             if (cursor == src)
