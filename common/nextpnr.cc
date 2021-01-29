@@ -69,6 +69,41 @@ void IdString::initialize_add(const BaseCtx *ctx, const char *s, int idx)
     ctx->idstring_idx_to_str->push_back(&insert_rc.first->first);
 }
 
+IdStringList IdStringList::parse(Context *ctx, const std::string &str)
+{
+    char delim = ctx->getNameDelimiter();
+    size_t id_count = std::count(str.begin(), str.end(), delim) + 1;
+    IdStringList list(id_count);
+    size_t start = 0;
+    for (size_t i = 0; i < id_count; i++) {
+        size_t end = str.find(delim, start);
+        NPNR_ASSERT((i == (id_count - 1)) || (end != std::string::npos));
+        list.ids[i] = ctx->id(str.substr(start, end - start));
+        start = end + 1;
+    }
+    return list;
+}
+
+void IdStringList::build_str(const Context *ctx, std::string &str) const
+{
+    char delim = ctx->getNameDelimiter();
+    bool first = true;
+    str.clear();
+    for (auto entry : ids) {
+        if (!first)
+            str += delim;
+        str += entry.str(ctx);
+        first = false;
+    }
+}
+
+std::string IdStringList::str(const Context *ctx) const
+{
+    std::string s;
+    build_str(ctx, s);
+    return s;
+}
+
 TimingConstrObjectId BaseCtx::timingWildcardObject()
 {
     TimingConstrObjectId id;

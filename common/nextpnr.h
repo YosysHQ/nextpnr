@@ -156,7 +156,7 @@ template <typename T, size_t N> class SSOArray
     size_t m_size;
 
   private:
-    inline bool is_heap() { return (m_size > N); }
+    inline bool is_heap() const { return (m_size > N); }
     void alloc()
     {
         if (is_heap()) {
@@ -165,14 +165,16 @@ template <typename T, size_t N> class SSOArray
     }
 
   public:
-    T *data() { return is_heap() ? data_heap : &data_static; }
-    const T *data() const { return is_heap() ? data_heap : &data_static; }
+    T *data() { return is_heap() ? data_heap : data_static; }
+    const T *data() const { return is_heap() ? data_heap : data_static; }
     size_t size() const { return m_size; }
 
     T *begin() { return data(); }
     T *end() { return data() + m_size; }
     const T *begin() const { return data(); }
     const T *end() const { return data() + m_size; }
+
+    SSOArray() : m_size(0){};
 
     SSOArray(size_t size, const T &init = T()) : m_size(size)
     {
@@ -205,11 +207,35 @@ template <typename T, size_t N> class SSOArray
             return true;
         return !std::equal(begin(), end(), other.begin());
     }
+    T &operator[](size_t idx)
+    {
+        NPNR_ASSERT(idx < m_size);
+        return data()[idx];
+    }
+    const T &operator[](size_t idx) const
+    {
+        NPNR_ASSERT(idx < m_size);
+        return data()[idx];
+    }
 };
 
 struct IdStringList
 {
     SSOArray<IdString, 4> ids;
+
+    IdStringList(){};
+    explicit IdStringList(size_t n) : ids(n, IdString()){};
+    explicit IdStringList(IdString id) : ids(1, id){};
+    template <typename Tlist> IdStringList(const Tlist &list) : ids(list){};
+
+    static IdStringList parse(Context *ctx, const std::string &str);
+    void build_str(const Context *ctx, std::string &str) const;
+    std::string str(const Context *ctx) const;
+
+    size_t size() const { return ids.size(); }
+    const IdString *begin() const { return ids.begin(); }
+    const IdString *end() const { return ids.end(); }
+    const IdString &operator[](size_t idx) const { return ids[idx]; }
 };
 
 struct GraphicElement
