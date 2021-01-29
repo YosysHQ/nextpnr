@@ -88,6 +88,14 @@ Get Z dimension for the specified tile for bels. All bels with at specified X an
 
 Get Z dimension for the specified tile for pips. All pips with at specified X and Y coordinates must have a Z coordinate in the range `0 .. getTileDimZ(X,Y)-1` (inclusive).
 
+Cell Methods
+-----------
+
+### const\_range\<IdString\> getCellTypes() const
+
+Get list of cell types that this architecture accepts.
+
+
 Bel Methods
 -----------
 
@@ -478,8 +486,8 @@ information for all edges. `index` must be in [0, clockInfoCount), behaviour is 
 Partition Methods
 -----------------
 
-Partitions are used by analytic placement to seperate types of BELs during
-placement.  Typical partitions are:
+Partitions are subsets of BelIds and cell types used by analytic placement to 
+seperate types of BELs during placement.  Typical partitions are:
  - All LUT BELs
  - All FF BELs
  - All multipliers BELs
@@ -487,7 +495,8 @@ placement.  Typical partitions are:
  - etc.
 
 The general rule here is to include all BELs that are roughly interchangable
-during placement.
+during placement.  Partitions should form an exact cover over all BelIds and
+cell types.
 
 ### const\_range\<PartitionId\> getPartitions() const
 
@@ -497,7 +506,15 @@ Return a list of all partitions on the device.
 
 Return the name of the partition.
 
+### PartitionId getPartitionByName(IdString partition\_name) const
+
+Return the partition for the specified partition name.
+
 ### PartitionId getPartitionForBel(BelId bel) const
+
+Returns the partition for a particular BEL.
+
+### PartitionId getPartitionForCell(IdString cell\_type) const
 
 Returns the partition for a particular cell type.
 

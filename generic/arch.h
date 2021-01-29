@@ -271,6 +271,34 @@ struct Arch : BaseCtx
     bool place();
     bool route();
 
+    std::vector<IdString> getCellTypes() const {
+        return {};
+    }
+
+    std::vector<PartitionId> getPartitions() const {
+        return {};
+    }
+
+    IdString getPartitionName(PartitionId partition) const {
+        return partition;
+    }
+
+    PartitionId getPartitionByName(IdString partition) const {
+        return partition;
+    }
+
+    PartitionId getPartitionForBel(BelId bel) const {
+        return getBelType(bel);
+    }
+
+    PartitionId getPartitionForCellType(IdString cell_type) const {
+        return cell_type;
+    }
+
+    std::vector<BelId> getBelsForPartition(PartitionId partition) const {
+        return {};
+    }
+
     const std::vector<GraphicElement> &getDecalGraphics(DecalId decal) const;
     DecalXY getBelDecal(BelId bel) const;
     DecalXY getWireDecal(WireId wire) const;
