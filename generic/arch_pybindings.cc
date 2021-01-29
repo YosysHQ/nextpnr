@@ -226,6 +226,32 @@ void arch_wrap_python(py::module &m)
                     pass_through<DelayInfo>>::def_wrap(ctx_cls, "addCellTimingClockToOut", "cell"_a, "port"_a,
                                                        "clock"_a, "clktoq"_a);
 
+    // const\_range\<BelBucketId\> getBelBuckets() const
+    fn_wrapper_0a<Context, decltype(&Context::getBelBuckets),
+        &Context::getBelBuckets,
+        wrap_context<const std::vector<BelBucketId> &>>::def_wrap(ctx_cls, "getBelBuckets");
+
+    // BelBucketId getBelBucketForBel(BelId bel) const
+    fn_wrapper_1a<Context, decltype(&Context::getBelBucketForBel),
+        &Context::getBelBucketForBel, conv_to_str<BelBucketId>,
+        conv_from_str<BelId>>::def_wrap(ctx_cls, "getBelBucketForBel");
+
+    // BelBucketId getBelBucketForCellType(IdString cell\_type) const
+    fn_wrapper_1a<Context, decltype(&Context::getBelBucketForCellType),
+        &Context::getBelBucketForCellType, conv_to_str<BelBucketId>,
+        conv_from_str<IdString>>::def_wrap(ctx_cls, "getBelBucketForCellType");
+
+    // const\_range\<BelId\> getBelsInBucket(BelBucketId bucket) const
+    fn_wrapper_1a<Context, decltype(&Context::getBelsInBucket),
+        &Context::getBelsInBucket, wrap_context<const std::vector<BelId> &>,
+        conv_from_str<BelBucketId>>::def_wrap(ctx_cls, "getBelsInBucket");
+
+    // bool isValidBelForCellType(IdString cell\_type, BelId bel) const
+    fn_wrapper_2a<Context, decltype(&Context::isValidBelForCellType),
+        &Context::isValidBelForCellType, pass_through<bool>,
+        conv_from_str<IdString>, conv_from_str<BelId>>::def_wrap(
+                ctx_cls, "isValidBelForCellType");
+
     WRAP_MAP_UPTR(m, CellMap, "IdCellMap");
     WRAP_MAP_UPTR(m, NetMap, "IdNetMap");
     WRAP_MAP(m, HierarchyMap, wrap_context<HierarchicalCell &>, "HierarchyMap");

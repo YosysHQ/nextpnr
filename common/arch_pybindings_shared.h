@@ -110,3 +110,19 @@ fn_wrapper_0a<Context, decltype(&Context::archId), &Context::archId, conv_to_str
 
 fn_wrapper_2a_v<Context, decltype(&Context::writeSVG), &Context::writeSVG, pass_through<std::string>,
                 pass_through<std::string>>::def_wrap(ctx_cls, "writeSVG");
+
+// const\_range\<BelBucketId\> getBelBuckets() const
+fn_wrapper_0a<Context, decltype(&Context::getBelBuckets), &Context::getBelBuckets, wrap_context<BelBucketRange>>::def_wrap(ctx_cls,
+                                                                                                         "getBelBuckets");
+// BelBucketId getBelBucketForBel(BelId bel) const
+fn_wrapper_1a<Context, decltype(&Context::getBelBucketForBel), &Context::getBelBucketForBel, conv_to_str<BelBucketId>,
+              conv_from_str<BelId>>::def_wrap(ctx_cls, "getBelBucketForBel");
+// BelBucketId getBelBucketForCellType(IdString cell\_type) const
+fn_wrapper_1a<Context, decltype(&Context::getBelBucketForCellType), &Context::getBelBucketForCellType, conv_to_str<BelBucketId>,
+              conv_from_str<IdString>>::def_wrap(ctx_cls, "getBelBucketForCellType");
+// const\_range\<BelId\> getBelsInBucket(BelBucketId bucket) const
+fn_wrapper_1a<Context, decltype(&Context::getBelsInBucket), &Context::getBelsInBucket, wrap_context<BelRangeForBelBucket>,
+              conv_from_str<BelBucketId>>::def_wrap(ctx_cls, "getBelsInBucket");
+// bool isValidBelForCellType(IdString cell\_type, BelId bel) const
+fn_wrapper_2a<Context, decltype(&Context::isValidBelForCellType), &Context::isValidBelForCellType, pass_through<bool>,
+              conv_from_str<IdString>, conv_from_str<BelId>>::def_wrap(ctx_cls, "isValidBelForCellType");

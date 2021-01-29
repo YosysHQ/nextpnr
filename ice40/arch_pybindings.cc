@@ -75,6 +75,8 @@ void arch_wrap_python(py::module &m)
     typedef const PipRange UphillPipRange;
     typedef const PipRange DownhillPipRange;
 
+    typedef const std::vector<BelBucketId> & BelBucketRange;
+    typedef const std::vector<BelId> & BelRangeForBelBucket;
 #include "arch_pybindings_shared.h"
 
     WRAP_RANGE(m, Bel, conv_to_str<BelId>);
