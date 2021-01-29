@@ -522,7 +522,7 @@ class Ecp5Packer
                                       trio->name.c_str(ctx), pin.c_str(), ctx->args.package.c_str());
                         } else {
                             log_info("pin '%s' constrained to Bel '%s'.\n", trio->name.c_str(ctx),
-                                     ctx->getBelName(pinBel).c_str(ctx));
+                                     ctx->nameOfBel(pinBel));
                         }
                         trio->attrs[ctx->id("BEL")] = ctx->getBelName(pinBel).str(ctx);
                     }
@@ -1657,7 +1657,7 @@ class Ecp5Packer
                     CellInfo *dcu = clki->driver.cell;
                     if (!dcu->attrs.count(ctx->id("BEL")))
                         log_error("DCU must be constrained to a Bel!\n");
-                    BelId bel = ctx->getBelByName(ctx->id(dcu->attrs.at(ctx->id("BEL")).as_string()));
+                    BelId bel = ctx->getBelByNameStr(dcu->attrs.at(ctx->id("BEL")).as_string());
                     if (bel == BelId())
                         log_error("Invalid DCU bel '%s'\n", dcu->attrs.at(ctx->id("BEL")).c_str());
                     Loc loc = ctx->getBelLocation(bel);
@@ -1704,7 +1704,7 @@ class Ecp5Packer
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
             if (ci->type == id_EHXPLLL && ci->attrs.count(ctx->id("BEL")))
-                available_plls.erase(ctx->getBelByName(ctx->id(ci->attrs.at(ctx->id("BEL")).as_string())));
+                available_plls.erase(ctx->getBelByNameStr(ci->attrs.at(ctx->id("BEL")).as_string()));
         }
         // Place PLL connected to fixed drivers such as IO close to their source
         for (auto cell : sorted(ctx->cells)) {
@@ -1716,7 +1716,7 @@ class Ecp5Packer
                 const CellInfo *drivercell = drivernet->driver.cell;
                 if (!drivercell->attrs.count(ctx->id("BEL")))
                     continue;
-                BelId drvbel = ctx->getBelByName(ctx->id(drivercell->attrs.at(ctx->id("BEL")).as_string()));
+                BelId drvbel = ctx->getBelByNameStr(drivercell->attrs.at(ctx->id("BEL")).as_string());
                 Loc drvloc = ctx->getBelLocation(drvbel);
                 BelId closest_pll;
                 int closest_distance = std::numeric_limits<int>::max();
@@ -1848,8 +1848,8 @@ class Ecp5Packer
         WireId next;
         while (true) {
             if (upstream.empty() || upstream.size() > 30000)
-                log_error("failed to route bank %d ECLK%d to %s.%s\n", bank, found_eclk,
-                          ctx->getBelName(usr_bel).c_str(ctx), usr_port.name.c_str(ctx));
+                log_error("failed to route bank %d ECLK%d to %s.%s\n", bank, found_eclk, ctx->nameOfBel(usr_bel),
+                          usr_port.name.c_str(ctx));
             next = upstream.front();
             upstream.pop();
             if (ctx->debug)
@@ -1913,17 +1913,17 @@ class Ecp5Packer
                     log_error("DQSBUFM can only be used with a pin-constrained PIO connected to its DQSI input"
                               "(while processing '%s').\n",
                               ci->name.c_str(ctx));
-                BelId pio_bel = ctx->getBelByName(ctx->id(pio->attrs.at(ctx->id("BEL")).as_string()));
+                BelId pio_bel = ctx->getBelByNameStr(pio->attrs.at(ctx->id("BEL")).as_string());
                 NPNR_ASSERT(pio_bel != BelId());
                 Loc pio_loc = ctx->getBelLocation(pio_bel);
                 if (pio_loc.z != 0)
                     log_error("PIO '%s' does not appear to be a DQS site (expecting an 'A' pin).\n",
-                              ctx->getBelName(pio_bel).c_str(ctx));
+                              ctx->nameOfBel(pio_bel));
                 pio_loc.z = 8;
                 BelId dqsbuf = ctx->getBelByLocation(pio_loc);
                 if (dqsbuf == BelId() || ctx->getBelType(dqsbuf) != id_DQSBUFM)
                     log_error("PIO '%s' does not appear to be a DQS site (didn't find a DQSBUFM).\n",
-                              ctx->getBelName(pio_bel).c_str(ctx));
+                              ctx->nameOfBel(pio_bel));
                 ci->attrs[ctx->id("BEL")] = ctx->getBelName(dqsbuf).str(ctx);
                 bool got_dqsg = ctx->getPIODQSGroup(pio_bel, dqsbuf_dqsg[ci->name].first, dqsbuf_dqsg[ci->name].second);
                 NPNR_ASSERT(got_dqsg);
@@ -2078,15 +2078,14 @@ class Ecp5Packer
                 log_error("IOLOGIC functionality (DDR, DELAY, DQS, etc) can only be used with pin-constrained PIO "
                           "(while processing '%s').\n",
                           curr->name.c_str(ctx));
-            BelId bel = ctx->getBelByName(ctx->id(pio->attrs.at(ctx->id("BEL")).as_string()));
+            BelId bel = ctx->getBelByNameStr(pio->attrs.at(ctx->id("BEL")).as_string());
             NPNR_ASSERT(bel != BelId());
             return bel;
         };
 
         auto create_pio_iologic = [&](CellInfo *pio, CellInfo *curr) {
             BelId bel = get_pio_bel(pio, curr);
-            log_info("IOLOGIC component %s connected to PIO Bel %s\n", curr->name.c_str(ctx),
-                     ctx->getBelName(bel).c_str(ctx));
+            log_info("IOLOGIC component %s connected to PIO Bel %s\n", curr->name.c_str(ctx), ctx->nameOfBel(bel));
             Loc loc = ctx->getBelLocation(bel);
             bool s = false;
             if (loc.y == 0 || loc.y == (ctx->chip_info->height - 1))
@@ -2292,8 +2291,7 @@ class Ecp5Packer
                 replace_port(ci, ctx->id("D2"), iol, id_TXDATA2);
                 replace_port(ci, ctx->id("D3"), iol, id_TXDATA3);
                 if (ci->type == ctx->id("ODDR71B")) {
-                    Loc loc =
-                            ctx->getBelLocation(ctx->getBelByName(ctx->id(pio->attrs.at(ctx->id("BEL")).as_string())));
+                    Loc loc = ctx->getBelLocation(ctx->getBelByNameStr(pio->attrs.at(ctx->id("BEL")).as_string()));
                     if (loc.z % 2 == 1)
                         log_error("ODDR71B '%s' can only be used at 'A' or 'C' locations\n", ci->name.c_str(ctx));
                     replace_port(ci, ctx->id("D4"), iol, id_TXDATA4);
@@ -2326,8 +2324,7 @@ class Ecp5Packer
                 replace_port(ci, ctx->id("Q2"), iol, id_RXDATA2);
                 replace_port(ci, ctx->id("Q3"), iol, id_RXDATA3);
                 if (ci->type == ctx->id("IDDR71B")) {
-                    Loc loc =
-                            ctx->getBelLocation(ctx->getBelByName(ctx->id(pio->attrs.at(ctx->id("BEL")).as_string())));
+                    Loc loc = ctx->getBelLocation(ctx->getBelByNameStr(pio->attrs.at(ctx->id("BEL")).as_string()));
                     if (loc.z % 2 == 1)
                         log_error("IDDR71B '%s' can only be used at 'A' or 'C' locations\n", ci->name.c_str(ctx));
                     replace_port(ci, ctx->id("Q4"), iol, id_RXDATA4);
@@ -2579,7 +2576,7 @@ class Ecp5Packer
                         if (!user.cell->attrs.count(ctx->id("BEL")))
                             continue;
                         Loc user_loc = ctx->getBelLocation(
-                                ctx->getBelByName(ctx->id(user.cell->attrs.at(ctx->id("BEL")).as_string())));
+                                ctx->getBelByNameStr(user.cell->attrs.at(ctx->id("BEL")).as_string()));
                         for (auto bel : ctx->getBels()) {
                             if (ctx->getBelType(bel) != id_ECLKBRIDGECS)
                                 continue;
@@ -2594,8 +2591,8 @@ class Ecp5Packer
                         CellInfo *drv = input->driver.cell;
                         if (!drv->attrs.count(ctx->id("BEL")))
                             continue;
-                        Loc drv_loc = ctx->getBelLocation(
-                                ctx->getBelByName(ctx->id(drv->attrs.at(ctx->id("BEL")).as_string())));
+                        Loc drv_loc =
+                                ctx->getBelLocation(ctx->getBelByNameStr(drv->attrs.at(ctx->id("BEL")).as_string()));
                         BelId closest;
                         int closest_x = -1; // aim for same side of chip
                         for (auto bel : ctx->getBels()) {
@@ -2639,7 +2636,7 @@ class Ecp5Packer
             if (ci->type == id_IOLOGIC || ci->type == id_DQSBUFM) {
                 if (!ci->ports.count(id_ECLK) || ci->ports.at(id_ECLK).net == nullptr)
                     continue;
-                BelId bel = ctx->getBelByName(ctx->id(str_or_default(ci->attrs, ctx->id("BEL"))));
+                BelId bel = ctx->getBelByNameStr(str_or_default(ci->attrs, ctx->id("BEL")));
                 NPNR_ASSERT(bel != BelId());
                 Loc pioLoc = ctx->getBelLocation(bel);
                 if (ci->type == id_DQSBUFM)
@@ -2683,8 +2680,7 @@ class Ecp5Packer
                 const NetInfo *eclko = net_or_nullptr(ci, id_ECLKO);
                 if (eclki != nullptr && eclki->driver.cell != nullptr) {
                     if (eclki->driver.cell->type == id_ECLKBRIDGECS) {
-                        BelId bel =
-                                ctx->getBelByName(ctx->id(eclki->driver.cell->attrs.at(ctx->id("BEL")).as_string()));
+                        BelId bel = ctx->getBelByNameStr(eclki->driver.cell->attrs.at(ctx->id("BEL")).as_string());
                         Loc loc = ctx->getBelLocation(bel);
                         ci->attrs[ctx->id("BEL")] =
                                 ctx->getBelName(ctx->getBelByLocation(Loc(loc.x, loc.y, 15))).str(ctx);
@@ -2697,7 +2693,7 @@ class Ecp5Packer
                 for (auto user : eclko->users) {
                     if (user.cell->type == id_TRELLIS_ECLKBUF) {
                         Loc eckbuf_loc = ctx->getBelLocation(
-                                ctx->getBelByName(ctx->id(user.cell->attrs.at(ctx->id("BEL")).as_string())));
+                                ctx->getBelByNameStr(user.cell->attrs.at(ctx->id("BEL")).as_string()));
                         for (auto bel : ctx->getBels()) {
                             if (ctx->getBelType(bel) != id_ECLKSYNCB)
                                 continue;
@@ -2726,7 +2722,7 @@ class Ecp5Packer
                         const CellInfo *uc = usr.cell;
                         if (uc->type != id_DQSBUFM || !uc->attrs.count(ctx->id("BEL")))
                             continue;
-                        BelId dqsb_bel = ctx->getBelByName(ctx->id(uc->attrs.at(ctx->id("BEL")).as_string()));
+                        BelId dqsb_bel = ctx->getBelByNameStr(uc->attrs.at(ctx->id("BEL")).as_string());
                         Loc dqsb_loc = ctx->getBelLocation(dqsb_bel);
                         if (dqsb_loc.x > 15)
                             right_bank_users = true;
@@ -2809,7 +2805,7 @@ class Ecp5Packer
                 CellInfo *drv = clki->driver.cell;
                 if (drv->type != id_ECLKSYNCB || !drv->attrs.count(ctx->id("BEL")))
                     continue;
-                BelId bel = ctx->getBelByName(ctx->id(drv->attrs.at(ctx->id("BEL")).as_string()));
+                BelId bel = ctx->getBelByNameStr(drv->attrs.at(ctx->id("BEL")).as_string());
                 // Find a CLKDIVF that is routeable from the ECLKSYNC
                 std::queue<WireId> visit;
                 visit.push(ctx->getBelPinWire(bel, id_ECLKO));

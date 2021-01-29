@@ -158,8 +158,7 @@ bool place_single_cell(Context *ctx, CellInfo *cell, bool require_legality)
             all_placed = true;
         }
         if (ctx->verbose)
-            log_info("   placed single cell '%s' at '%s'\n", cell->name.c_str(ctx),
-                     ctx->getBelName(best_bel).c_str(ctx));
+            log_info("   placed single cell '%s' at '%s'\n", cell->name.c_str(ctx), ctx->nameOfBel(best_bel));
         ctx->bindBel(best_bel, cell, STRENGTH_WEAK);
 
         cell = ripup_target;
@@ -375,7 +374,7 @@ class ConstraintLegaliseWorker
                             if (confl_cell != nullptr) {
                                 if (ctx->verbose)
                                     log_info("       '%s' already placed at '%s'\n", ctx->nameOf(confl_cell),
-                                             ctx->getBelName(confl_cell->bel).c_str(ctx));
+                                             ctx->nameOfBel(confl_cell->bel));
                                 NPNR_ASSERT(confl_cell->belStrength < STRENGTH_STRONG);
                                 ctx->unbindBel(target);
                                 rippedCells.insert(confl_cell->name);
@@ -489,7 +488,7 @@ class ConstraintLegaliseWorker
         for (auto cell : sorted(ctx->cells))
             if (get_constraints_distance(ctx, cell.second) != 0)
                 log_error("constraint satisfaction check failed for cell '%s' at Bel '%s'\n", cell.first.c_str(ctx),
-                          ctx->getBelName(cell.second->bel).c_str(ctx));
+                          ctx->nameOfBel(cell.second->bel));
         return score;
     }
 };

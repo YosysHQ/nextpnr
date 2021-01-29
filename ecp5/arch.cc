@@ -128,6 +128,11 @@ Arch::Arch(ArchArgs args) : args(args)
         bucket.name = bel_type;
         buckets.push_back(bucket);
     }
+
+    for (int i = 0; i < chip_info->width; i++)
+        x_ids.push_back(id(stringf("X%d", i)));
+    for (int i = 0; i < chip_info->height; i++)
+        y_ids.push_back(id(stringf("Y%d", i)));
 }
 
 // -----------------------------------------------------------------------
@@ -208,16 +213,18 @@ IdString Arch::archArgsToId(ArchArgs args) const
 
 // -----------------------------------------------------------------------
 
-BelId Arch::getBelByName(IdString name) const
+BelId Arch::getBelByName(IdStringList name) const
 {
+    // TODO: take advantage of IdStringList for fast parsing
     BelId ret;
+#if 0
     auto it = bel_by_name.find(name);
     if (it != bel_by_name.end())
         return it->second;
-
+#endif
     Location loc;
     std::string basename;
-    std::tie(loc.x, loc.y, basename) = split_identifier_name(name.str(this));
+    std::tie(loc.x, loc.y, basename) = split_identifier_name(name.str(getCtx()));
     ret.location = loc;
     const LocationTypePOD *loci = locInfo(ret);
     for (int i = 0; i < int(loci->bel_data.size()); i++) {
@@ -226,8 +233,10 @@ BelId Arch::getBelByName(IdString name) const
             break;
         }
     }
+#if 0
     if (ret.index >= 0)
         bel_by_name[name] = ret;
+#endif
     return ret;
 }
 

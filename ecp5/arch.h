@@ -450,6 +450,9 @@ struct Arch : BaseCtx
     std::unordered_map<PipId, NetInfo *> pip_to_net;
     std::unordered_map<WireId, int> wire_fanout;
 
+    // fast access to  X and Y IdStrings for building object names
+    std::vector<IdString> x_ids, y_ids;
+
     ArchArgs args;
     Arch(ArchArgs args);
 
@@ -475,19 +478,19 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
-    BelId getBelByName(IdString name) const;
+    BelId getBelByName(IdStringList name) const;
 
     template <typename Id> const LocationTypePOD *locInfo(Id &id) const
     {
         return &(chip_info->locations[chip_info->location_type[id.location.y * chip_info->width + id.location.x]]);
     }
 
-    IdString getBelName(BelId bel) const
+    IdStringList getBelName(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
-        std::stringstream name;
-        name << "X" << bel.location.x << "/Y" << bel.location.y << "/" << locInfo(bel)->bel_data[bel.index].name.get();
-        return id(name.str());
+        std::array<IdString, 3> ids{x_ids.at(bel.location.x), y_ids.at(bel.location.y),
+                                    id(locInfo(bel)->bel_data[bel.index].name.get())};
+        return IdStringList(ids);
     }
 
     uint32_t getBelChecksum(BelId bel) const { return bel.index; }

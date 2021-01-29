@@ -305,7 +305,7 @@ class HeAPPlacer
             if (ctx->getBoundBelCell(cell.second->bel) != cell.second)
                 log_error("Found cell %s with mismatched binding\n", cell.first.c_str(ctx));
             if (ctx->debug)
-                log_info("AP soln: %s -> %s\n", cell.first.c_str(ctx), ctx->getBelName(cell.second->bel).c_str(ctx));
+                log_info("AP soln: %s -> %s\n", cell.first.c_str(ctx), ctx->nameOfBel(cell.second->bel));
         }
 
         ctx->unlock();
@@ -379,7 +379,7 @@ class HeAPPlacer
             auto loc = cell->attrs.find(ctx->id("BEL"));
             if (loc != cell->attrs.end()) {
                 std::string loc_name = loc->second.as_string();
-                BelId bel = ctx->getBelByName(ctx->id(loc_name));
+                BelId bel = ctx->getBelByNameStr(loc_name);
                 if (bel == BelId()) {
                     log_error("No Bel named \'%s\' located for "
                               "this chip (processing BEL attribute on \'%s\')\n",

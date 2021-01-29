@@ -36,10 +36,10 @@ void archcheck_names(const Context *ctx)
 
     log_info("Checking bel names..\n");
     for (BelId bel : ctx->getBels()) {
-        IdString name = ctx->getBelName(bel);
+        IdStringList name = ctx->getBelName(bel);
         BelId bel2 = ctx->getBelByName(name);
         if (bel != bel2) {
-            log_error("bel != bel2, name = %s\n", name.c_str(ctx));
+            log_error("bel != bel2, name = %s\n", ctx->nameOfBel(bel));
         }
     }
 

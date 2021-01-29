@@ -176,8 +176,8 @@ class Ecp5GlobalRouter
                 }
             }
             if (upstream.size() > 30000) {
-                log_error("failed to route HPBX%02d00 to %s.%s\n", global_index,
-                          ctx->getBelName(user.cell->bel).c_str(ctx), user.port.c_str(ctx));
+                log_error("failed to route HPBX%02d00 to %s.%s\n", global_index, ctx->nameOfBel(user.cell->bel),
+                          user.port.c_str(ctx));
             }
         }
         // Set all the pips we found along the way
@@ -300,7 +300,7 @@ class Ecp5GlobalRouter
         if (drv.cell == nullptr) {
             return 0;
         } else if (drv.cell->attrs.count(ctx->id("BEL"))) {
-            drv_bel = ctx->getBelByName(ctx->id(drv.cell->attrs.at(ctx->id("BEL")).as_string()));
+            drv_bel = ctx->getBelByNameStr(drv.cell->attrs.at(ctx->id("BEL")).as_string());
         } else {
             // Check if driver is a singleton
             BelId last_bel;

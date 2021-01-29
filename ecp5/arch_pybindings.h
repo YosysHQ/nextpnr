@@ -30,7 +30,7 @@ namespace PythonConversion {
 
 template <> struct string_converter<BelId>
 {
-    BelId from_str(Context *ctx, std::string name) { return ctx->getBelByName(ctx->id(name)); }
+    BelId from_str(Context *ctx, std::string name) { return ctx->getBelByNameStr(name); }
 
     std::string to_str(Context *ctx, BelId id)
     {

@@ -111,6 +111,14 @@ TimingConstrObjectId BaseCtx::timingWildcardObject()
     return id;
 }
 
+std::string &StrRingBuffer::next()
+{
+    std::string &s = buffer.at(index++);
+    if (index >= N)
+        index = 0;
+    return s;
+}
+
 TimingConstrObjectId BaseCtx::timingClockDomainObject(NetInfo *clockDomain)
 {
     NPNR_ASSERT(clockDomain->clkconstr != nullptr);
@@ -283,7 +291,9 @@ void BaseCtx::removeConstraint(IdString constrName)
 const char *BaseCtx::nameOfBel(BelId bel) const
 {
     const Context *ctx = getCtx();
-    return ctx->getBelName(bel).c_str(ctx);
+    std::string &s = ctx->log_strs.next();
+    ctx->getBelName(bel).build_str(ctx, s);
+    return s.c_str();
 }
 
 const char *BaseCtx::nameOfWire(WireId wire) const
@@ -302,6 +312,12 @@ const char *BaseCtx::nameOfGroup(GroupId group) const
 {
     const Context *ctx = getCtx();
     return ctx->getGroupName(group).c_str(ctx);
+}
+
+BelId BaseCtx::getBelByNameStr(const std::string &str)
+{
+    Context *ctx = getCtx();
+    return ctx->getBelByName(IdStringList::parse(ctx, str));
 }
 
 WireId Context::getNetinfoSourceWire(const NetInfo *net_info) const
@@ -655,7 +671,7 @@ void BaseCtx::archInfoToAttributes()
             if (ci->attrs.find(id("BEL")) != ci->attrs.end()) {
                 ci->attrs.erase(ci->attrs.find(id("BEL")));
             }
-            ci->attrs[id("NEXTPNR_BEL")] = getCtx()->getBelName(ci->bel).str(this);
+            ci->attrs[id("NEXTPNR_BEL")] = getCtx()->getBelName(ci->bel).str(getCtx());
             ci->attrs[id("BEL_STRENGTH")] = (int)ci->belStrength;
         }
         if (ci->constr_x != ci->UNCONSTR)
@@ -707,7 +723,7 @@ void BaseCtx::attributesToArchInfo()
             if (str != ci->attrs.end())
                 strength = (PlaceStrength)str->second.as_int64();
 
-            BelId b = getCtx()->getBelByName(id(val->second.as_string()));
+            BelId b = getCtx()->getBelByNameStr(val->second.as_string());
             getCtx()->bindBel(b, ci, strength);
         }
 

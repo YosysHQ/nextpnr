@@ -148,14 +148,13 @@ NEXTPNR_NAMESPACE_BEGIN
 // An small size optimised array that is statically allocated when the size is N or less; heap allocated otherwise
 template <typename T, size_t N> class SSOArray
 {
+  private:
     union
     {
         T data_static[N];
         T *data_heap;
     };
     size_t m_size;
-
-  private:
     inline bool is_heap() const { return (m_size > N); }
     void alloc()
     {
@@ -224,8 +223,8 @@ struct IdStringList
     SSOArray<IdString, 4> ids;
 
     IdStringList(){};
-    explicit IdStringList(size_t n) : ids(n, IdString()){};
-    explicit IdStringList(IdString id) : ids(1, id){};
+    IdStringList(size_t n) : ids(n, IdString()){};
+    IdStringList(IdString id) : ids(1, id){};
     template <typename Tlist> IdStringList(const Tlist &list) : ids(list){};
 
     static IdStringList parse(Context *ctx, const std::string &str);
@@ -236,6 +235,19 @@ struct IdStringList
     const IdString *begin() const { return ids.begin(); }
     const IdString *end() const { return ids.end(); }
     const IdString &operator[](size_t idx) const { return ids[idx]; }
+};
+
+// A ring buffer of strings, so we can return a simple const char * pointer for %s formatting - inspired by how logging
+// in Yosys works Let's just hope noone tries to log more than 100 things in one call....
+class StrRingBuffer
+{
+  private:
+    static const size_t N = 100;
+    std::array<std::string, N> buffer;
+    size_t index = 0;
+
+  public:
+    std::string &next();
 };
 
 struct GraphicElement
@@ -760,6 +772,9 @@ struct BaseCtx
     mutable std::unordered_map<std::string, int> *idstring_str_to_idx;
     mutable std::vector<const std::string *> *idstring_idx_to_str;
 
+    // Temporary string backing store for logging
+    mutable StrRingBuffer log_strs;
+
     // Project settings and config switches
     std::unordered_map<IdString, Property> settings;
 
@@ -874,6 +889,9 @@ struct BaseCtx
     const char *nameOfWire(WireId wire) const;
     const char *nameOfPip(PipId pip) const;
     const char *nameOfGroup(GroupId group) const;
+
+    // Overrides of arch functions that take a string and handle IdStringList parsing
+    BelId getBelByNameStr(const std::string &str);
 
     // --------------------------------------------------------------
 
