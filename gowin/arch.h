@@ -323,6 +323,7 @@ struct Arch : BaseCtx
     int getGridDimY() const { return gridDimY; }
     int getTileBelDimZ(int x, int y) const { return tileBelDimZ[x][y]; }
     int getTilePipDimZ(int x, int y) const { return tilePipDimZ[x][y]; }
+    char getNameDelimiter() const { return '/'; }
 
     BelId getBelByName(IdString name) const;
     IdString getBelName(BelId bel) const;

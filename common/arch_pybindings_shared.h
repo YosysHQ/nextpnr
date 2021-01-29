@@ -10,6 +10,9 @@ readonly_wrapper<Context, decltype(&Context::hierarchy), &Context::hierarchy, wr
 readwrite_wrapper<Context, decltype(&Context::top_module), &Context::top_module, conv_to_str<IdString>,
                   conv_from_str<IdString>>::def_wrap(ctx_cls, "top_module");
 
+fn_wrapper_0a<Context, decltype(&Context::getNameDelimiter), &Context::getNameDelimiter, pass_through<char>>::def_wrap(
+        ctx_cls, "getNameDelimiter");
+
 fn_wrapper_1a<Context, decltype(&Context::getNetByAlias), &Context::getNetByAlias, deref_and_wrap<NetInfo>,
               conv_from_str<IdString>>::def_wrap(ctx_cls, "getNetByAlias");
 fn_wrapper_2a_v<Context, decltype(&Context::addClock), &Context::addClock, conv_from_str<IdString>,

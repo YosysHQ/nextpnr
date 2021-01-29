@@ -471,6 +471,7 @@ struct Arch : BaseCtx
     int getGridDimY() const { return chip_info->height; };
     int getTileBelDimZ(int, int) const { return max_loc_bels; };
     int getTilePipDimZ(int, int) const { return 1; };
+    char getNameDelimiter() const { return '/'; }
 
     // -------------------------------------------------
 

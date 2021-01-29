@@ -92,13 +92,16 @@ Get Z dimension for the specified tile for bels. All bels with at specified X an
 
 Get Z dimension for the specified tile for pips. All pips with at specified X and Y coordinates must have a Z coordinate in the range `0 .. getTileDimZ(X,Y)-1` (inclusive).
 
+### char getNameDelimiter() const
+
+Returns a delimiter that can be used to build up bel, wire and pip names out of hierarchical components (such as tiles and sites) to avoid the high memory usage of storing full names for every object.
+
 Cell Methods
 -----------
 
 ### const\_range\<IdString\> getCellTypes() const
 
 Get list of cell types that this architecture accepts.
-
 
 Bel Methods
 -----------
