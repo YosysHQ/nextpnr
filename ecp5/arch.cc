@@ -126,7 +126,7 @@ Arch::Arch(ArchArgs args) : args(args)
 
         PartitionId partition;
         partition.name = bel_type;
-        partitions.push_back(partitions);
+        partitions.push_back(partition);
     }
 }
 

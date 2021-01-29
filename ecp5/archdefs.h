@@ -131,6 +131,10 @@ struct PartitionId {
 
     bool operator==(const PartitionId &other) const { return (name == other.name); }
     bool operator!=(const PartitionId &other) const { return (name != other.name); }
+    bool operator<(const PartitionId &other) const
+    {
+        return name < other.name;
+    }
 };
 
 struct GroupId
@@ -265,6 +269,16 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX DecalId>
         boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX Location>()(decal.location));
         boost::hash_combine(seed, hash<int>()(decal.z));
         boost::hash_combine(seed, hash<bool>()(decal.active));
+        return seed;
+    }
+};
+
+template <> struct hash<NEXTPNR_NAMESPACE_PREFIX PartitionId>
+{
+    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX PartitionId &partition) const noexcept
+    {
+        std::size_t seed = 0;
+        boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(partition.name));
         return seed;
     }
 };

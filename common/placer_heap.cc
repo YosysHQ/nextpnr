@@ -187,7 +187,7 @@ class HeAPPlacer
                 heap_runs.push_back(std::unordered_set<PartitionId>{partition});
                 all_partitions.insert(partition);
             }
-            partition_count[cell->type]++;
+            partition_count[partition]++;
         }
         // If more than 98% of cells are one cell type, always solve all at once
         // Otherwise, follow full HeAP strategy of rotate&all
@@ -252,8 +252,10 @@ class HeAPPlacer
 
                 legal_hpwl = total_hpwl();
                 auto run_stopt = std::chrono::high_resolution_clock::now();
+
+                IdString partition_name = ctx->getPartitionName(*run.begin());
                 log_info("    at iteration #%d, type %s: wirelen solved = %d, spread = %d, legal = %d; time = %.02fs\n",
-                         iter + 1, (run.size() > 1 ? "ALL" : run.begin()->c_str(ctx)), int(solved_hpwl),
+                         iter + 1, (run.size() > 1 ? "ALL" : partition_name.c_str(ctx)), int(solved_hpwl),
                          int(spread_hpwl), int(legal_hpwl),
                          std::chrono::duration<double>(run_stopt - run_startt).count());
             }
@@ -558,7 +560,7 @@ class HeAPPlacer
     }
 
     // Setup the cells to be solved, returns the number of rows
-    int setup_solve_cells(std::unordered_set<IdString> *celltypes = nullptr)
+    int setup_solve_cells(std::unordered_set<PartitionId> *partitions = nullptr)
     {
         int row = 0;
         solve_cells.clear();
@@ -567,7 +569,7 @@ class HeAPPlacer
             cell.second->udata = dont_solve;
         // Then update cells to be placed, which excludes cell children
         for (auto cell : place_cells) {
-            if (celltypes && !celltypes->count(cell->type))
+            if (partitions && !partitions->count(ctx->getPartitionForCellType(cell->type)))
                 continue;
             cell->udata = row++;
             solve_cells.push_back(cell);
@@ -958,7 +960,7 @@ class HeAPPlacer
                             if (vc->region != nullptr && vc->region->constr_bels && !vc->region->bels.count(target))
                                 goto fail;
                             CellInfo *bound;
-                            if (target == BelId() || ctx->isValidBelForCellType(vc->type, target))
+                            if (target == BelId() || !ctx->isValidBelForCellType(vc->type, target))
                                 goto fail;
                             bound = ctx->getBoundBelCell(target);
                             // Chains cannot overlap
