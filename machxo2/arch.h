@@ -211,7 +211,7 @@ struct BelPinIterator
     {
         BelPin ret;
         ret.bel.index = ptr->bel_index;
-        ret.bel.location = wire_loc + ptr->rel_bel_loc;
+        ret.bel.location = ptr->rel_bel_loc;
         ret.pin.index = ptr->port;
         return ret;
     }
@@ -338,7 +338,7 @@ struct PipIterator
     {
         PipId ret;
         ret.index = cursor->index;
-        ret.location = wire_loc + cursor->rel_loc;
+        ret.location = cursor->rel_loc;
         return ret;
     }
 };
@@ -752,7 +752,7 @@ struct Arch : BaseCtx
 
         WireId dst;
         dst.index = tileInfo(pip)->pips_data[pip.index].dst_idx;
-        dst.location = pip.location + tileInfo(pip)->pips_data[pip.index].dst;
+        dst.location = tileInfo(pip)->pips_data[pip.index].dst;
         NPNR_ASSERT(wire_to_net[dst] == nullptr);
 
         // Since NetInfo::wires holds info about uphill pips, bind info about
@@ -771,7 +771,7 @@ struct Arch : BaseCtx
 
         WireId dst;
         dst.index = tileInfo(pip)->pips_data[pip.index].dst_idx;
-        dst.location = pip.location + tileInfo(pip)->pips_data[pip.index].dst;
+        dst.location = tileInfo(pip)->pips_data[pip.index].dst;
         NPNR_ASSERT(wire_to_net[dst] != nullptr);
 
         // If we unbind a pip, then the downstream wire is no longer in use
@@ -837,7 +837,7 @@ struct Arch : BaseCtx
         WireId wire;
         NPNR_ASSERT(pip != PipId());
         wire.index = tileInfo(pip)->pips_data[pip.index].src_idx;
-        wire.location = pip.location + tileInfo(pip)->pips_data[pip.index].src;
+        wire.location = tileInfo(pip)->pips_data[pip.index].src;
         return wire;
     }
 
@@ -846,7 +846,7 @@ struct Arch : BaseCtx
         WireId wire;
         NPNR_ASSERT(pip != PipId());
         wire.index = tileInfo(pip)->pips_data[pip.index].dst_idx;
-        wire.location = pip.location + tileInfo(pip)->pips_data[pip.index].dst;
+        wire.location = tileInfo(pip)->pips_data[pip.index].dst;
         return wire;
     }
 
