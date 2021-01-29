@@ -493,15 +493,15 @@ during placement.
 
 Return a list of all partitions on the device.
 
-### IdString partitionName(PartitionId partition) const
+### IdString getPartitionName(PartitionId partition) const
 
 Return the name of the partition.
 
-### PartitionId partitionForBel(BelId bel) const
+### PartitionId getPartitionForBel(BelId bel) const
 
 Returns the partition for a particular cell type.
 
-### const\_range\<BelId\> partitionForBel(PartitionId partition) const
+### const\_range\<BelId\> getBelsForPartition(PartitionId partition) const
 
 Return the list of BELs within a partition.
 
