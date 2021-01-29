@@ -83,7 +83,7 @@ struct FastBels {
         }
     }
 
-    void addPartition(PartitionId partition) {
+    void addBelBucket(BelBucketId partition) {
         auto iter = partition_types.find(partition);
         if(iter != partition_types.end()) {
             // This partition has already been added to the fast BEL lookup.
@@ -98,7 +98,7 @@ struct FastBels {
         auto &bel_data = fast_bels_by_partition_type.at(type_idx);
 
         for (auto bel : ctx->getBels()) {
-            if(ctx->getPartitionForBel(bel) != partition) {
+            if(ctx->getBelBucketForBel(bel) != partition) {
                 continue;
             }
 
@@ -110,7 +110,7 @@ struct FastBels {
                 continue;
             }
 
-            if(ctx->getPartitionForBel(bel) != partition) {
+            if(ctx->getBelBucketForBel(bel) != partition) {
                 continue;
             }
 
@@ -147,10 +147,10 @@ struct FastBels {
         return cell_type_data.number_of_possible_bels;
     }
 
-    size_t getBelsForPartition(PartitionId partition, FastBelsData **data) {
+    size_t getBelsForBelBucket(BelBucketId partition, FastBelsData **data) {
         auto iter = partition_types.find(partition);
         if(iter == partition_types.end()) {
-            addPartition(partition);
+            addBelBucket(partition);
             iter = partition_types.find(partition);
             NPNR_ASSERT(iter != partition_types.end());
         }
@@ -168,7 +168,7 @@ struct FastBels {
     std::unordered_map<IdString, TypeData> cell_types;
     std::vector<FastBelsData> fast_bels_by_cell_type;
 
-    std::unordered_map<PartitionId, TypeData> partition_types;
+    std::unordered_map<BelBucketId, TypeData> partition_types;
     std::vector<FastBelsData> fast_bels_by_partition_type;
 };
 

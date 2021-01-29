@@ -281,30 +281,30 @@ struct Arch : BaseCtx
         return cell_types;
     }
 
-    std::vector<PartitionId> getPartitions() const {
+    std::vector<BelBucketId> getBelBuckets() const {
         return getCellTypes();
     }
 
-    IdString getPartitionName(PartitionId partition) const {
-        return partition;
+    IdString getBelBucketName(BelBucketId bucket) const {
+        return bucket;
     }
 
-    PartitionId getPartitionByName(IdString partition) const {
-        return partition;
+    BelBucketId getBelBucketByName(IdString bucket) const {
+        return bucket;
     }
 
-    PartitionId getPartitionForBel(BelId bel) const {
+    BelBucketId getBelBucketForBel(BelId bel) const {
         return getBelType(bel);
     }
 
-    PartitionId getPartitionForCellType(IdString cell_type) const {
+    BelBucketId getBelBucketForCellType(IdString cell_type) const {
         return cell_type;
     }
 
-    std::vector<BelId> getBelsForPartition(PartitionId partition) const {
+    std::vector<BelId> getBelsInBucket(BelBucketId bucket) const {
         std::vector<BelId> bels;
         for(BelId bel : getBels()) {
-            if(partition == getPartitionForBel(bel)) {
+            if(bucket == getBelBucketForBel(bel)) {
                 bels.push_back(bel);
             }
         }

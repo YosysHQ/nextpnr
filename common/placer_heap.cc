@@ -177,21 +177,21 @@ class HeAPPlacer
 
         std::vector<std::tuple<CellInfo *, BelId, PlaceStrength>> solution;
 
-        std::vector<std::unordered_set<PartitionId>> heap_runs;
-        std::unordered_set<PartitionId> all_partitions;
-        std::unordered_map<PartitionId, int> partition_count;
+        std::vector<std::unordered_set<BelBucketId>> heap_runs;
+        std::unordered_set<BelBucketId> all_buckets;
+        std::unordered_map<BelBucketId, int> bucket_count;
 
         for (auto cell : place_cells) {
-            PartitionId partition = ctx->getPartitionForCellType(cell->type);
-            if (!all_partitions.count(partition)) {
-                heap_runs.push_back(std::unordered_set<PartitionId>{partition});
-                all_partitions.insert(partition);
+            BelBucketId bucket = ctx->getBelBucketForCellType(cell->type);
+            if (!all_buckets.count(bucket)) {
+                heap_runs.push_back(std::unordered_set<BelBucketId>{bucket});
+                all_buckets.insert(bucket);
             }
-            partition_count[partition]++;
+            bucket_count[bucket]++;
         }
         // If more than 98% of cells are one cell type, always solve all at once
         // Otherwise, follow full HeAP strategy of rotate&all
-        for (auto &c : partition_count) {
+        for (auto &c : bucket_count) {
             if (c.second >= 0.98 * int(place_cells.size())) {
                 heap_runs.clear();
                 break;
@@ -205,7 +205,7 @@ class HeAPPlacer
             heap_runs.clear();
         }
 
-        heap_runs.push_back(all_partitions);
+        heap_runs.push_back(all_buckets);
         // The main HeAP placer loop
         log_info("Running main analytical placer.\n");
         while (stalled < 5 && (solved_hpwl <= legal_hpwl * 0.8)) {
@@ -242,7 +242,7 @@ class HeAPPlacer
 
                 for (auto type : sorted(run))
                     if (std::all_of(cfg.cellGroups.begin(), cfg.cellGroups.end(),
-                                    [type](const std::unordered_set<PartitionId> &grp) { return !grp.count(type); }))
+                                    [type](const std::unordered_set<BelBucketId> &grp) { return !grp.count(type); }))
                         CutSpreader(this, {type}).run();
 
                 update_all_chains();
@@ -253,9 +253,9 @@ class HeAPPlacer
                 legal_hpwl = total_hpwl();
                 auto run_stopt = std::chrono::high_resolution_clock::now();
 
-                IdString partition_name = ctx->getPartitionName(*run.begin());
+                IdString bucket_name = ctx->getBelBucketName(*run.begin());
                 log_info("    at iteration #%d, type %s: wirelen solved = %d, spread = %d, legal = %d; time = %.02fs\n",
-                         iter + 1, (run.size() > 1 ? "ALL" : partition_name.c_str(ctx)), int(solved_hpwl),
+                         iter + 1, (run.size() > 1 ? "ALL" : bucket_name.c_str(ctx)), int(solved_hpwl),
                          int(spread_hpwl), int(legal_hpwl),
                          std::chrono::duration<double>(run_stopt - run_startt).count());
             }
@@ -421,19 +421,19 @@ class HeAPPlacer
         }
 
         std::unordered_set<IdString> cell_types_in_use;
-        std::unordered_set<PartitionId> partitions_in_use;
+        std::unordered_set<BelBucketId> buckets_in_use;
         for (auto cell : sorted(ctx->cells)) {
             IdString cell_type = cell.second->type;
             cell_types_in_use.insert(cell_type);
-            PartitionId partition = ctx->getPartitionForCellType(cell_type);
-            partitions_in_use.insert(partition);
+            BelBucketId bucket = ctx->getBelBucketForCellType(cell_type);
+            buckets_in_use.insert(bucket);
         }
 
         for(auto cell_type : cell_types_in_use) {
             fast_bels.addCellType(cell_type);
         }
-        for(auto partition : partitions_in_use) {
-            fast_bels.addPartition(partition);
+        for(auto bucket : buckets_in_use) {
+            fast_bels.addBelBucket(bucket);
         }
 
         // Determine bounding boxes of region constraints
@@ -576,7 +576,7 @@ class HeAPPlacer
     }
 
     // Setup the cells to be solved, returns the number of rows
-    int setup_solve_cells(std::unordered_set<PartitionId> *partitions = nullptr)
+    int setup_solve_cells(std::unordered_set<BelBucketId> *buckets = nullptr)
     {
         int row = 0;
         solve_cells.clear();
@@ -585,7 +585,7 @@ class HeAPPlacer
             cell.second->udata = dont_solve;
         // Then update cells to be placed, which excludes cell children
         for (auto cell : place_cells) {
-            if (partitions && !partitions->count(ctx->getPartitionForCellType(cell->type)))
+            if (buckets && !buckets->count(ctx->getBelBucketForCellType(cell->type)))
                 continue;
             cell->udata = row++;
             solve_cells.push_back(cell);
@@ -1078,14 +1078,14 @@ class HeAPPlacer
     class CutSpreader
     {
       public:
-        CutSpreader(HeAPPlacer *p, const std::unordered_set<PartitionId> &partitions) : p(p), ctx(p->ctx), partitions(partitions)
+        CutSpreader(HeAPPlacer *p, const std::unordered_set<BelBucketId> &buckets) : p(p), ctx(p->ctx), buckets(buckets)
         {
-            // Get fast BELs data for all partitions being Cut/Spread.
+            // Get fast BELs data for all buckets being Cut/Spread.
             size_t idx = 0;
-            for (PartitionId partition : sorted(partitions)) {
-                type_index[partition] = idx;
+            for (BelBucketId bucket : sorted(buckets)) {
+                type_index[bucket] = idx;
                 FastBels::FastBelsData *fast_bels;
-                p->fast_bels.getBelsForPartition(partition, &fast_bels);
+                p->fast_bels.getBelsForBelBucket(bucket, &fast_bels);
                 fb.push_back(fast_bels);
                 ++idx;
                 NPNR_ASSERT(fb.size() == idx);
@@ -1170,8 +1170,8 @@ class HeAPPlacer
       private:
         HeAPPlacer *p;
         Context *ctx;
-        std::unordered_set<PartitionId> partitions;
-        std::unordered_map<PartitionId, size_t> type_index;
+        std::unordered_set<BelBucketId> buckets;
+        std::unordered_map<BelBucketId, size_t> type_index;
         std::vector<std::vector<std::vector<int>>> occupancy;
         std::vector<std::vector<int>> groups;
         std::vector<std::vector<ChainExtent>> chaines;
@@ -1194,23 +1194,23 @@ class HeAPPlacer
         }
 
         bool is_cell_fixed(const CellInfo & cell) const {
-            return partitions.count(ctx->getPartitionForCellType(cell.type)) == 0;
+            return buckets.count(ctx->getBelBucketForCellType(cell.type)) == 0;
         }
 
         size_t cell_index(const CellInfo & cell) const {
-            return type_index.at(ctx->getPartitionForCellType(cell.type));
+            return type_index.at(ctx->getBelBucketForCellType(cell.type));
         }
 
         void init()
         {
             occupancy.resize(p->max_x + 1,
-                             std::vector<std::vector<int>>(p->max_y + 1, std::vector<int>(partitions.size(), 0)));
+                             std::vector<std::vector<int>>(p->max_y + 1, std::vector<int>(buckets.size(), 0)));
             groups.resize(p->max_x + 1, std::vector<int>(p->max_y + 1, -1));
             chaines.resize(p->max_x + 1, std::vector<ChainExtent>(p->max_y + 1));
             cells_at_location.resize(p->max_x + 1, std::vector<std::vector<CellInfo *>>(p->max_y + 1));
             for (int x = 0; x <= p->max_x; x++)
                 for (int y = 0; y <= p->max_y; y++) {
-                    for (int t = 0; t < int(partitions.size()); t++) {
+                    for (int t = 0; t < int(buckets.size()); t++) {
                         occupancy.at(x).at(y).at(t) = 0;
                     }
                     groups.at(x).at(y) = -1;
@@ -1292,7 +1292,7 @@ class HeAPPlacer
                     // log_info("%d %d\n", groups.at(x).at(y), mergee.id);
                     NPNR_ASSERT(groups.at(x).at(y) == mergee.id);
                     groups.at(x).at(y) = merged.id;
-                    for (size_t t = 0; t < partitions.size(); t++) {
+                    for (size_t t = 0; t < buckets.size(); t++) {
                         merged.cells.at(t) += occ_at(x, y, t);
                         merged.bels.at(t) += bels_at(x, y, t);
                     }
@@ -1317,7 +1317,7 @@ class HeAPPlacer
             auto process_location = [&](int x, int y) {
                 // Merge with any overlapping regions
                 if (groups.at(x).at(y) == -1) {
-                    for (size_t t = 0; t < partitions.size(); t++) {
+                    for (size_t t = 0; t < buckets.size(); t++) {
                         r.bels.at(t) += bels_at(x, y, t);
                         r.cells.at(t) += occ_at(x, y, t);
                     }
@@ -1352,7 +1352,7 @@ class HeAPPlacer
                     if (groups.at(x).at(y) != -1)
                         continue;
                     bool overutilised = false;
-                    for (size_t t = 0; t < partitions.size(); t++) {
+                    for (size_t t = 0; t < buckets.size(); t++) {
                         if (occ_at(x, y, t) > bels_at(x, y, t)) {
                             overutilised = true;
                             break;
@@ -1368,7 +1368,7 @@ class HeAPPlacer
                     reg.id = id;
                     reg.x0 = reg.x1 = x;
                     reg.y0 = reg.y1 = y;
-                    for (size_t t = 0; t < partitions.size(); t++) {
+                    for (size_t t = 0; t < buckets.size(); t++) {
                         reg.bels.push_back(bels_at(x, y, t));
                         reg.cells.push_back(occ_at(x, y, t));
                     }
@@ -1385,7 +1385,7 @@ class HeAPPlacer
                         if (reg.x1 < p->max_x) {
                             bool over_occ_x = false;
                             for (int y1 = reg.y0; y1 <= reg.y1; y1++) {
-                                for (size_t t = 0; t < partitions.size(); t++) {
+                                for (size_t t = 0; t < buckets.size(); t++) {
                                     if (occ_at(reg.x1 + 1, y1, t) > bels_at(reg.x1 + 1, y1, t)) {
                                         over_occ_x = true;
                                         break;
@@ -1401,7 +1401,7 @@ class HeAPPlacer
                         if (reg.y1 < p->max_y) {
                             bool over_occ_y = false;
                             for (int x1 = reg.x0; x1 <= reg.x1; x1++) {
-                                for (size_t t = 0; t < partitions.size(); t++) {
+                                for (size_t t = 0; t < buckets.size(); t++) {
                                     if (occ_at(x1, reg.y1 + 1, t) > bels_at(x1, reg.y1 + 1, t)) {
                                         over_occ_y = true;
                                         break;
@@ -1463,12 +1463,12 @@ class HeAPPlacer
                         }
                     }
                     if (!changed) {
-                        for (auto partition : sorted(partitions)) {
+                        for (auto bucket : sorted(buckets)) {
                             if (reg.cells > reg.bels) {
-                                IdString partition_name = ctx->getPartitionName(partition);
+                                IdString bucket_name = ctx->getBelBucketName(bucket);
                                 log_error("Failed to expand region (%d, %d) |_> (%d, %d) of %d %ss\n", reg.x0, reg.y0,
-                                          reg.x1, reg.y1, reg.cells.at(type_index.at(partition)),
-                                          partition_name.c_str(ctx));
+                                          reg.x1, reg.y1, reg.cells.at(type_index.at(bucket)),
+                                          bucket_name.c_str(ctx));
                             }
                         }
                         break;
@@ -1490,7 +1490,7 @@ class HeAPPlacer
             for (int x = r.x0; x <= r.x1; x++) {
                 for (int y = r.y0; y <= r.y1; y++) {
                     std::copy(cal.at(x).at(y).begin(), cal.at(x).at(y).end(), std::back_inserter(cut_cells));
-                    for (size_t t = 0; t < partitions.size(); t++)
+                    for (size_t t = 0; t < buckets.size(); t++)
                         total_bels += bels_at(x, y, t);
                 }
             }
@@ -1543,7 +1543,7 @@ class HeAPPlacer
             while (trimmed_l < (dir ? r.y1 : r.x1)) {
                 bool have_bels = false;
                 for (int i = dir ? r.x0 : r.y0; i <= (dir ? r.x1 : r.y1); i++) {
-                    for (size_t t = 0; t < partitions.size(); t++) {
+                    for (size_t t = 0; t < buckets.size(); t++) {
                         if (bels_at(dir ? i : trimmed_l, dir ? trimmed_l : i, t) > 0) {
                             have_bels = true;
                             break;
@@ -1559,7 +1559,7 @@ class HeAPPlacer
             while (trimmed_r > (dir ? r.y0 : r.x0)) {
                 bool have_bels = false;
                 for (int i = dir ? r.x0 : r.y0; i <= (dir ? r.x1 : r.y1); i++) {
-                    for (size_t t = 0; t < partitions.size(); t++) {
+                    for (size_t t = 0; t < buckets.size(); t++) {
                         if (bels_at(dir ? i : trimmed_r, dir ? trimmed_r : i, t) > 0) {
                             have_bels = true;
                             break;
@@ -1577,8 +1577,8 @@ class HeAPPlacer
                 return {};
             // Now find the initial target cut that minimises utilisation imbalance, whilst
             // meeting the clearance requirements for any large macros
-            std::vector<int> left_cells_v(partitions.size(), 0), right_cells_v(partitions.size(), 0);
-            std::vector<int> left_bels_v(partitions.size(), 0), right_bels_v(r.bels);
+            std::vector<int> left_cells_v(buckets.size(), 0), right_cells_v(buckets.size(), 0);
+            std::vector<int> left_bels_v(buckets.size(), 0), right_bels_v(r.bels);
             for (int i = 0; i <= pivot; i++)
                 left_cells_v.at(cell_index(*cut_cells.at(i))) +=
                         p->chain_size.count(cut_cells.at(i)->name) ? p->chain_size.at(cut_cells.at(i)->name) : 1;
@@ -1589,15 +1589,15 @@ class HeAPPlacer
             int best_tgt_cut = -1;
             double best_deltaU = std::numeric_limits<double>::max();
             // std::pair<int, int> target_cut_bels;
-            std::vector<int> slither_bels(partitions.size(), 0);
+            std::vector<int> slither_bels(buckets.size(), 0);
             for (int i = trimmed_l; i <= trimmed_r; i++) {
-                for (size_t t = 0; t < partitions.size(); t++)
+                for (size_t t = 0; t < buckets.size(); t++)
                     slither_bels.at(t) = 0;
                 for (int j = dir ? r.x0 : r.y0; j <= (dir ? r.x1 : r.y1); j++) {
-                    for (size_t t = 0; t < partitions.size(); t++)
+                    for (size_t t = 0; t < buckets.size(); t++)
                         slither_bels.at(t) += dir ? bels_at(j, i, t) : bels_at(i, j, t);
                 }
-                for (size_t t = 0; t < partitions.size(); t++) {
+                for (size_t t = 0; t < buckets.size(); t++) {
                     left_bels_v.at(t) += slither_bels.at(t);
                     right_bels_v.at(t) -= slither_bels.at(t);
                 }
@@ -1605,7 +1605,7 @@ class HeAPPlacer
                 if (((i - trimmed_l) + 1) >= clearance_l && ((trimmed_r - i) + 1) >= clearance_r) {
                     // Solution is potentially valid
                     double aU = 0;
-                    for (size_t t = 0; t < partitions.size(); t++)
+                    for (size_t t = 0; t < buckets.size(); t++)
                         aU += (left_cells_v.at(t) + right_cells_v.at(t)) *
                               std::abs(double(left_cells_v.at(t)) / double(std::max(left_bels_v.at(t), 1)) -
                                        double(right_cells_v.at(t)) / double(std::max(right_bels_v.at(t), 1)));
@@ -1619,19 +1619,19 @@ class HeAPPlacer
                 return {};
             // left_bels = target_cut_bels.first;
             // right_bels = target_cut_bels.second;
-            for (size_t t = 0; t < partitions.size(); t++) {
+            for (size_t t = 0; t < buckets.size(); t++) {
                 left_bels_v.at(t) = 0;
                 right_bels_v.at(t) = 0;
             }
             for (int x = r.x0; x <= (dir ? r.x1 : best_tgt_cut); x++)
                 for (int y = r.y0; y <= (dir ? best_tgt_cut : r.y1); y++) {
-                    for (size_t t = 0; t < partitions.size(); t++) {
+                    for (size_t t = 0; t < buckets.size(); t++) {
                         left_bels_v.at(t) += bels_at(x, y, t);
                     }
                 }
             for (int x = dir ? r.x0 : (best_tgt_cut + 1); x <= r.x1; x++)
                 for (int y = dir ? (best_tgt_cut + 1) : r.y0; y <= r.y1; y++) {
-                    for (size_t t = 0; t < partitions.size(); t++) {
+                    for (size_t t = 0; t < buckets.size(); t++) {
                         right_bels_v.at(t) += bels_at(x, y, t);
                     }
                 }

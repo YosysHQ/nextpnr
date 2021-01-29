@@ -958,36 +958,36 @@ struct Arch : BaseCtx
         return cell_types;
     }
 
-    std::vector<PartitionId> getPartitions() const {
-        return partitions;
+    std::vector<BelBucketId> getBelBuckets() const {
+        return buckets;
     }
 
-    IdString getPartitionName(PartitionId partition) const {
-        return partition.name;
+    IdString getBelBucketName(BelBucketId bucket) const {
+        return bucket.name;
     }
 
-    PartitionId getPartitionByName(IdString name) const {
-        PartitionId partition;
-        partition.name = name;
-        return partition;
+    BelBucketId getBelBucketByName(IdString name) const {
+        BelBucketId bucket;
+        bucket.name = name;
+        return bucket;
     }
 
-    PartitionId getPartitionForBel(BelId bel) const {
-        PartitionId partition;
-        partition.name = getBelType(bel);
-        return partition;
+    BelBucketId getBelBucketForBel(BelId bel) const {
+        BelBucketId bucket;
+        bucket.name = getBelType(bel);
+        return bucket;
     }
 
-    PartitionId getPartitionForCellType(IdString cell_type) const {
-        PartitionId partition;
-        partition.name = cell_type;
-        return partition;
+    BelBucketId getBelBucketForCellType(IdString cell_type) const {
+        BelBucketId bucket;
+        bucket.name = cell_type;
+        return bucket;
     }
 
-    std::vector<BelId> getBelsForPartition(PartitionId partition) const {
+    std::vector<BelId> getBelsInBucket(BelBucketId bucket) const {
         std::vector<BelId> bels;
         for(BelId bel : getBels()) {
-            if(getBelType(bel) == partition.name) {
+            if(getBelType(bel) == bucket.name) {
                 bels.push_back(bel);
             }
         }
@@ -1068,7 +1068,7 @@ struct Arch : BaseCtx
     static const std::vector<std::string> availableRouters;
 
     std::vector<IdString> cell_types;
-    std::vector<PartitionId> partitions;
+    std::vector<BelBucketId> buckets;
 };
 
 NEXTPNR_NAMESPACE_END

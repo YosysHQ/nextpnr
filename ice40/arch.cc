@@ -124,9 +124,9 @@ Arch::Arch(ArchArgs args) : args(args)
     for(IdString bel_type : bel_types) {
         cell_types.push_back(bel_type);
 
-        PartitionId partition;
-        partition.name = bel_type;
-        partitions.push_back(partition);
+        BelBucketId bucket;
+        bucket.name = bel_type;
+        buckets.push_back(bucket);
     }
 }
 

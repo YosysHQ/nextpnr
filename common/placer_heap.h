@@ -49,7 +49,7 @@ struct PlacerHeapCfg
     std::unordered_set<IdString> ioBufTypes;
     // These cell types are part of the same unit (e.g. slices split into
     // components) so will always be spread together
-    std::vector<std::unordered_set<PartitionId>> cellGroups;
+    std::vector<std::unordered_set<BelBucketId>> cellGroups;
 };
 
 extern bool placer_heap(Context *ctx, PlacerHeapCfg cfg);

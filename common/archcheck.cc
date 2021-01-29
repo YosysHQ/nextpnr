@@ -52,12 +52,12 @@ void archcheck_names(const Context *ctx)
         }
     }
 
-    log_info("Checking partition names..\n");
-    for(PartitionId partition : ctx->getPartitions()) {
-        IdString name = ctx->getPartitionName(partition);
-        PartitionId partition2 = ctx->getPartitionByName(name);
-        if (partition != partition2) {
-            log_error("partition != partition2, name = %s\n", name.c_str(ctx));
+    log_info("Checking bucket names..\n");
+    for(BelBucketId bucket : ctx->getBelBuckets()) {
+        IdString name = ctx->getBelBucketName(bucket);
+        BelBucketId bucket2 = ctx->getBelBucketByName(name);
+        if (bucket != bucket2) {
+            log_error("bucket != bucket2, name = %s\n", name.c_str(ctx));
         }
     }
 
@@ -197,38 +197,38 @@ void archcheck_conn(const Context *ctx)
     }
 }
 
-void archcheck_partitions(const Context *ctx)
+void archcheck_buckets(const Context *ctx)
 {
-    log_info("Checking partition data.\n");
+    log_info("Checking bucket data.\n");
 
-    // Partitions should be subsets of BELs that form an exact cover.
-    // In particular that means cell types in a partition should only be
-    // placable in that partition.
-    for(PartitionId partition : ctx->getPartitions()) {
+    // BEL buckets should be subsets of BELs that form an exact cover.
+    // In particular that means cell types in a bucket should only be
+    // placable in that bucket.
+    for(BelBucketId bucket : ctx->getBelBuckets()) {
 
-        // Find out which cell types are in this partition.
-        std::unordered_set<IdString> cell_types_in_partition;
+        // Find out which cell types are in this bucket.
+        std::unordered_set<IdString> cell_types_in_bucket;
         for(IdString cell_type : ctx->getCellTypes()) {
-            if(ctx->getPartitionForCellType(cell_type) == partition) {
-                cell_types_in_partition.insert(cell_type);
+            if(ctx->getBelBucketForCellType(cell_type) == bucket) {
+                cell_types_in_bucket.insert(cell_type);
             }
         }
 
-        // Make sure that all cell types in this partition have at least one
+        // Make sure that all cell types in this bucket have at least one
         // BelId they can be placed at.
         std::unordered_set<IdString> cell_types_unused;
 
-        std::unordered_set<BelId> bels_in_partition;
-        for(BelId bel : ctx->getBelsForPartition(partition)) {
-            PartitionId partition2 = ctx->getPartitionForBel(bel);
-            log_assert(partition == partition2);
+        std::unordered_set<BelId> bels_in_bucket;
+        for(BelId bel : ctx->getBelsInBucket(bucket)) {
+            BelBucketId bucket2 = ctx->getBelBucketForBel(bel);
+            log_assert(bucket == bucket2);
 
-            bels_in_partition.insert(bel);
+            bels_in_bucket.insert(bel);
 
-            // Check to see if a cell type not in this partition can be
-            // placed at a BEL in this partition.
+            // Check to see if a cell type not in this bucket can be
+            // placed at a BEL in this bucket.
             for(IdString cell_type : ctx->getCellTypes()) {
-                if(ctx->getPartitionForCellType(cell_type) == partition) {
+                if(ctx->getBelBucketForCellType(cell_type) == bucket) {
                     if(ctx->isValidBelForCellType(cell_type, bel)) {
                         cell_types_unused.erase(cell_type);
                     }
@@ -238,11 +238,11 @@ void archcheck_partitions(const Context *ctx)
             }
         }
 
-        // Verify that any BEL not in this partition reports a different
-        // partition.
+        // Verify that any BEL not in this bucket reports a different
+        // bucket.
         for(BelId bel : ctx->getBels()) {
-            if(ctx->getPartitionForBel(bel) != partition) {
-                log_assert(bels_in_partition.count(bel) == 0);
+            if(ctx->getBelBucketForBel(bel) != bucket) {
+                log_assert(bels_in_bucket.count(bel) == 0);
             }
         }
 
@@ -262,7 +262,7 @@ void Context::archcheck() const
     archcheck_names(this);
     archcheck_locs(this);
     archcheck_conn(this);
-    archcheck_partitions(this);
+    archcheck_buckets(this);
 }
 
 NEXTPNR_NAMESPACE_END
