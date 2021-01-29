@@ -272,11 +272,17 @@ struct Arch : BaseCtx
     bool route();
 
     std::vector<IdString> getCellTypes() const {
-        return {};
+        std::vector<IdString> cell_types;
+        cell_types.reserve(bels.size());
+        for(auto bel : bels) {
+            cell_types.push_back(bel.first);
+        }
+
+        return cell_types;
     }
 
     std::vector<PartitionId> getPartitions() const {
-        return {};
+        return getCellTypes();
     }
 
     IdString getPartitionName(PartitionId partition) const {
@@ -296,7 +302,13 @@ struct Arch : BaseCtx
     }
 
     std::vector<BelId> getBelsForPartition(PartitionId partition) const {
-        return {};
+        std::vector<BelId> bels;
+        for(BelId bel : getBels()) {
+            if(partition == getPartitionForBel(bel)) {
+                bels.push_back(bel);
+            }
+        }
+        return bels;
     }
 
     const std::vector<GraphicElement> &getDecalGraphics(DecalId decal) const;
