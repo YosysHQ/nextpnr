@@ -1065,7 +1065,7 @@ class HeAPPlacer
         CutSpreader(HeAPPlacer *p, const std::unordered_set<PartitionId> &partitions) : p(p), ctx(p->ctx), partitions(partitions)
         {
             // Get fast BELs data for all partitions being Cut/Spread.
-            int idx = 0;
+            size_t idx = 0;
             for (PartitionId partition : sorted(partitions)) {
                 type_index[partition] = idx;
                 FastBels::FastBelsData *fast_bels;
