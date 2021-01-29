@@ -486,7 +486,7 @@ information for all edges. `index` must be in [0, clockInfoCount), behaviour is 
 Partition Methods
 -----------------
 
-Partitions are subsets of BelIds and cell types used by analytic placement to 
+Partitions are subsets of BelIds and cell types used by analytic placer to
 seperate types of BELs during placement.  Typical partitions are:
  - All LUT BELs
  - All FF BELs

@@ -28,8 +28,8 @@ NEXTPNR_NAMESPACE_BEGIN
 // FastBels is a lookup class that provides a fast lookup for finding BELs
 // that support a given cell type.
 struct FastBels {
-    struct CellTypeData {
-        size_t cell_type_index;
+    struct TypeData {
+        size_t type_index;
         size_t number_of_possible_bels;
     };
 
@@ -44,10 +44,10 @@ struct FastBels {
 
         size_t type_idx = cell_types.size();
         auto &cell_type_data = cell_types[cell_type];
-        cell_type_data.cell_type_index = type_idx;
+        cell_type_data.type_index = type_idx;
 
-        fast_bels.resize(type_idx + 1);
-        auto &bel_data = fast_bels.at(type_idx);
+        fast_bels_by_cell_type.resize(type_idx + 1);
+        auto &bel_data = fast_bels_by_cell_type.at(type_idx);
 
         for (auto bel : ctx->getBels()) {
             if(!ctx->isValidBelForCellType(cell_type, bel)) {
@@ -62,8 +62,60 @@ struct FastBels {
                 continue;
             }
 
+            if(!ctx->isValidBelForCellType(cell_type, bel)) {
+                continue;
+            }
+
             Loc loc = ctx->getBelLocation(bel);
             if (minBelsForGridPick >= 0 && cell_type_data.number_of_possible_bels < minBelsForGridPick) {
+                loc.x = loc.y = 0;
+            }
+
+            if (int(bel_data.size()) < (loc.x + 1)) {
+                bel_data.resize(loc.x + 1);
+            }
+
+            if (int(bel_data.at(loc.x).size()) < (loc.y + 1)) {
+                bel_data.at(loc.x).resize(loc.y + 1);
+            }
+
+            bel_data.at(loc.x).at(loc.y).push_back(bel);
+        }
+    }
+
+    void addPartition(PartitionId partition) {
+        auto iter = partition_types.find(partition);
+        if(iter != partition_types.end()) {
+            // This partition has already been added to the fast BEL lookup.
+            return;
+        }
+
+        size_t type_idx = partition_types.size();
+        auto &type_data = partition_types[partition];
+        type_data.type_index = type_idx;
+
+        fast_bels_by_partition_type.resize(type_idx + 1);
+        auto &bel_data = fast_bels_by_partition_type.at(type_idx);
+
+        for (auto bel : ctx->getBels()) {
+            if(ctx->getPartitionForBel(bel) != partition) {
+                continue;
+            }
+
+            type_data.number_of_possible_bels += 1;
+        }
+
+        for (auto bel : ctx->getBels()) {
+            if(!ctx->checkBelAvail(bel)) {
+                continue;
+            }
+
+            if(ctx->getPartitionForBel(bel) != partition) {
+                continue;
+            }
+
+            Loc loc = ctx->getBelLocation(bel);
+            if (minBelsForGridPick >= 0 && type_data.number_of_possible_bels < minBelsForGridPick) {
                 loc.x = loc.y = 0;
             }
 
@@ -91,15 +143,32 @@ struct FastBels {
 
         auto cell_type_data = iter->second;
 
-        *data = &fast_bels.at(cell_type_data.cell_type_index);
+        *data = &fast_bels_by_cell_type.at(cell_type_data.type_index);
         return cell_type_data.number_of_possible_bels;
+    }
+
+    size_t getBelsForPartition(PartitionId partition, FastBelsData **data) {
+        auto iter = partition_types.find(partition);
+        if(iter == partition_types.end()) {
+            addPartition(partition);
+            iter = partition_types.find(partition);
+            NPNR_ASSERT(iter != partition_types.end());
+        }
+
+        auto type_data = iter->second;
+
+        *data = &fast_bels_by_partition_type.at(type_data.type_index);
+        return type_data.number_of_possible_bels;
     }
 
     Context *ctx;
     int minBelsForGridPick;
 
-    std::unordered_map<IdString, CellTypeData> cell_types;
-    std::vector<FastBelsData> fast_bels;
+    std::unordered_map<IdString, TypeData> cell_types;
+    std::vector<FastBelsData> fast_bels_by_cell_type;
+
+    std::unordered_map<PartitionId, TypeData> partition_types;
+    std::vector<FastBelsData> fast_bels_by_partition_type;
 };
 
 NEXTPNR_NAMESPACE_END
