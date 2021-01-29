@@ -76,7 +76,7 @@ class SAPlacer
     };
 
   public:
-    SAPlacer(Context *ctx, Placer1Cfg cfg) : ctx(ctx), fast_bels(ctx, cfg.minBelsForGridPick), cfg(cfg)
+    SAPlacer(Context *ctx, Placer1Cfg cfg) : ctx(ctx), fast_bels(ctx, /*check_bel_available=*/false, cfg.minBelsForGridPick), cfg(cfg)
     {
         for (auto bel : ctx->getBels()) {
             Loc loc = ctx->getBelLocation(bel);
@@ -84,6 +84,16 @@ class SAPlacer
             max_y = std::max(max_y, loc.y);
         }
         diameter = std::max(max_x, max_y) + 1;
+
+        std::unordered_set<IdString> cell_types_in_use;
+        for (auto cell : sorted(ctx->cells)) {
+            IdString cell_type = cell.second->type;
+            cell_types_in_use.insert(cell_type);
+        }
+
+        for(auto cell_type : cell_types_in_use) {
+            fast_bels.addCellType(cell_type);
+        }
 
         net_bounds.resize(ctx->nets.size());
         net_arc_tcost.resize(ctx->nets.size());
@@ -711,11 +721,12 @@ class SAPlacer
             curr_loc.y = std::min(region_bounds[cell->region->name].y1, curr_loc.y);
         }
 
+        FastBels::FastBelsData *bel_data;
+        auto type_cnt = fast_bels.getBelsForCellType(targetType, &bel_data);
+
         while (true) {
             int nx = ctx->rng(2 * dx + 1) + std::max(curr_loc.x - dx, 0);
             int ny = ctx->rng(2 * dy + 1) + std::max(curr_loc.y - dy, 0);
-            FastBels::FastBelsData *bel_data;
-            auto type_cnt = fast_bels.getBelsForCellType(targetType, &bel_data);
             if (cfg.minBelsForGridPick >= 0 && type_cnt < cfg.minBelsForGridPick)
                 nx = ny = 0;
             if (nx >= int(bel_data->size()))

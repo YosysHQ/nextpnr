@@ -138,7 +138,7 @@ template <typename T> struct EquationSystem
 class HeAPPlacer
 {
   public:
-    HeAPPlacer(Context *ctx, PlacerHeapCfg cfg) : ctx(ctx), cfg(cfg), fast_bels(ctx, -1) { Eigen::initParallel(); }
+    HeAPPlacer(Context *ctx, PlacerHeapCfg cfg) : ctx(ctx), cfg(cfg), fast_bels(ctx, /*check_bel_available=*/true, -1) { Eigen::initParallel(); }
 
     bool place()
     {
@@ -146,7 +146,7 @@ class HeAPPlacer
 
         ctx->lock();
         place_constraints();
-        setup_grid();
+        build_fast_bels();
         seed_placement();
         update_all_chains();
         wirelen_t hpwl = total_hpwl();
@@ -410,7 +410,7 @@ class HeAPPlacer
         ctx->yield();
     }
 
-    void setup_grid()
+    void build_fast_bels()
     {
         for (auto bel : ctx->getBels()) {
             if (!ctx->checkBelAvail(bel))
@@ -418,6 +418,22 @@ class HeAPPlacer
             Loc loc = ctx->getBelLocation(bel);
             max_x = std::max(max_x, loc.x);
             max_y = std::max(max_y, loc.y);
+        }
+
+        std::unordered_set<IdString> cell_types_in_use;
+        std::unordered_set<PartitionId> partitions_in_use;
+        for (auto cell : sorted(ctx->cells)) {
+            IdString cell_type = cell.second->type;
+            cell_types_in_use.insert(cell_type);
+            PartitionId partition = ctx->getPartitionForCellType(cell_type);
+            partitions_in_use.insert(partition);
+        }
+
+        for(auto cell_type : cell_types_in_use) {
+            fast_bels.addCellType(cell_type);
+        }
+        for(auto partition : partitions_in_use) {
+            fast_bels.addPartition(partition);
         }
 
         // Determine bounding boxes of region constraints

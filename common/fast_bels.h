@@ -33,7 +33,7 @@ struct FastBels {
         int number_of_possible_bels;
     };
 
-    FastBels(Context *ctx, int minBelsForGridPick) : ctx(ctx), minBelsForGridPick(minBelsForGridPick) {}
+    FastBels(Context *ctx, bool check_bel_available, int minBelsForGridPick) : ctx(ctx), check_bel_available(check_bel_available), minBelsForGridPick(minBelsForGridPick) {}
 
     void addCellType(IdString cell_type) {
         auto iter = cell_types.find(cell_type);
@@ -58,7 +58,7 @@ struct FastBels {
         }
 
         for (auto bel : ctx->getBels()) {
-            if(!ctx->checkBelAvail(bel)) {
+            if(check_bel_available && !ctx->checkBelAvail(bel)) {
                 continue;
             }
 
@@ -106,7 +106,7 @@ struct FastBels {
         }
 
         for (auto bel : ctx->getBels()) {
-            if(!ctx->checkBelAvail(bel)) {
+            if(check_bel_available && !ctx->checkBelAvail(bel)) {
                 continue;
             }
 
@@ -162,7 +162,8 @@ struct FastBels {
     }
 
     Context *ctx;
-    int minBelsForGridPick;
+    const bool check_bel_available;
+    const int minBelsForGridPick;
 
     std::unordered_map<IdString, TypeData> cell_types;
     std::vector<FastBelsData> fast_bels_by_cell_type;
