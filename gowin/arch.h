@@ -425,6 +425,41 @@ struct Arch : BaseCtx
     bool isValidBelForCellType(IdString cell_type, BelId bel) const {
         return cell_type == getBelType(bel);
     }
+
+    const std::vector<IdString> &getCellTypes() const {
+        return cell_types;
+    }
+
+    std::vector<PartitionId> getPartitions() const {
+        return cell_types;
+    }
+
+    IdString getPartitionName(PartitionId partition) const {
+        return partition;
+    }
+
+    PartitionId getPartitionByName(IdString name) const {
+        return name;
+    }
+
+    PartitionId getPartitionForBel(BelId bel) const {
+        return getBelType(bel);
+    }
+
+    PartitionId getPartitionForCellType(IdString cell_type) const {
+        return cell_type;
+    }
+
+    std::vector<BelId> getBelsForPartition(PartitionId partition) const {
+        std::vector<BelId> bels;
+        for(BelId bel : getBels()) {
+            if(getBelType(bel) == partition) {
+                bels.push_back(bel);
+            }
+        }
+        return bels;
+    }
+
     bool isValidBelForCell(CellInfo *cell, BelId bel) const;
     bool isBelLocationValid(BelId bel) const;
 
@@ -437,6 +472,8 @@ struct Arch : BaseCtx
     // Internal usage
     void assignArchInfo();
     bool cellsCompatible(const CellInfo **cells, int count) const;
+
+    std::vector<IdString> cell_types;
 };
 
 NEXTPNR_NAMESPACE_END

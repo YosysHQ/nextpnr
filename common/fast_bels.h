@@ -30,7 +30,7 @@ NEXTPNR_NAMESPACE_BEGIN
 struct FastBels {
     struct TypeData {
         size_t type_index;
-        size_t number_of_possible_bels;
+        int number_of_possible_bels;
     };
 
     FastBels(Context *ctx, int minBelsForGridPick) : ctx(ctx), minBelsForGridPick(minBelsForGridPick) {}
@@ -133,7 +133,7 @@ struct FastBels {
 
     typedef std::vector<std::vector<std::vector<BelId>>> FastBelsData;
 
-    size_t getBelsForCellType(IdString cell_type, FastBelsData **data) {
+    int getBelsForCellType(IdString cell_type, FastBelsData **data) {
         auto iter = cell_types.find(cell_type);
         if(iter == cell_types.end()) {
             addCellType(cell_type);

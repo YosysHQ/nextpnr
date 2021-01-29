@@ -1340,6 +1340,46 @@ struct Arch : BaseCtx
         return cell_type == getBelType(bel);
     }
 
+    const std::vector<IdString> &getCellTypes() const {
+        return cell_types;
+    }
+
+    std::vector<PartitionId> getPartitions() const {
+        return partitions;
+    }
+
+    IdString getPartitionName(PartitionId partition) const {
+        return partition.name;
+    }
+
+    PartitionId getPartitionByName(IdString name) const {
+        PartitionId partition;
+        partition.name = name;
+        return partition;
+    }
+
+    PartitionId getPartitionForBel(BelId bel) const {
+        PartitionId partition;
+        partition.name = getBelType(bel);
+        return partition;
+    }
+
+    PartitionId getPartitionForCellType(IdString cell_type) const {
+        PartitionId partition;
+        partition.name = cell_type;
+        return partition;
+    }
+
+    std::vector<BelId> getBelsForPartition(PartitionId partition) const {
+        std::vector<BelId> bels;
+        for(BelId bel : getBels()) {
+            if(getBelType(bel) == partition.name) {
+                bels.push_back(bel);
+            }
+        }
+        return bels;
+    }
+
     // Whether or not a given cell can be placed at a given Bel
     // This is not intended for Bel type checks, but finer-grained constraints
     // such as conflicting set/reset signals, etc
@@ -1541,6 +1581,9 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
     void write_fasm(std::ostream &out) const;
+
+    std::vector<IdString> cell_types;
+    std::vector<PartitionId> partitions;
 };
 
 NEXTPNR_NAMESPACE_END

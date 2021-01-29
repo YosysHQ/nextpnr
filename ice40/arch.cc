@@ -115,6 +115,19 @@ Arch::Arch(ArchArgs args) : args(args)
     wire_to_net.resize(chip_info->wire_data.size());
     pip_to_net.resize(chip_info->pip_data.size());
     switches_locked.resize(chip_info->num_switches);
+
+    std::unordered_set<IdString> bel_types;
+    for(BelId bel : getBels()) {
+        bel_types.insert(getBelType(bel));
+    }
+
+    for(IdString bel_type : bel_types) {
+        cell_types.push_back(bel_type);
+
+        PartitionId partition;
+        partition.name = bel_type;
+        partitions.push_back(partition);
+    }
 }
 
 // -----------------------------------------------------------------------

@@ -171,6 +171,19 @@ Arch::Arch(ArchArgs args) : args(args)
     }
     if (!speed_grade)
         log_error("Unknown speed grade '%s'.\n", speed.c_str());
+
+    std::unordered_set<IdString> bel_types;
+    for(BelId bel : getBels()) {
+        bel_types.insert(getBelType(bel));
+    }
+
+    for(IdString bel_type : bel_types) {
+        cell_types.push_back(bel_type);
+
+        PartitionId partition;
+        partition.name = bel_type;
+        partitions.push_back(partition);
+    }
 }
 
 // -----------------------------------------------------------------------
@@ -635,8 +648,8 @@ bool Arch::place()
         cfg.ioBufTypes.insert(id_SEIO18_CORE);
         cfg.ioBufTypes.insert(id_OSC_CORE);
         cfg.cellGroups.emplace_back();
-        cfg.cellGroups.back().insert(id_OXIDE_COMB);
-        cfg.cellGroups.back().insert(id_OXIDE_FF);
+        cfg.cellGroups.back().insert({id_OXIDE_COMB});
+        cfg.cellGroups.back().insert({id_OXIDE_FF});
 
         cfg.beta = 0.5;
         cfg.criticalityExponent = 7;

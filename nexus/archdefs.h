@@ -114,6 +114,17 @@ struct PipId
     }
 };
 
+struct PartitionId {
+    IdString name;
+
+    bool operator==(const PartitionId &other) const { return (name == other.name); }
+    bool operator!=(const PartitionId &other) const { return (name != other.name); }
+    bool operator<(const PartitionId &other) const
+    {
+        return name < other.name;
+    }
+};
+
 struct GroupId
 {
     enum : int8_t
@@ -250,4 +261,15 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX DecalId>
         return seed;
     }
 };
+
+template <> struct hash<NEXTPNR_NAMESPACE_PREFIX PartitionId>
+{
+    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX PartitionId &partition) const noexcept
+    {
+        std::size_t seed = 0;
+        boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(partition.name));
+        return seed;
+    }
+};
+
 } // namespace std

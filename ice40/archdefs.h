@@ -170,6 +170,17 @@ struct ArchCellInfo
     };
 };
 
+struct PartitionId {
+    IdString name;
+
+    bool operator==(const PartitionId &other) const { return (name == other.name); }
+    bool operator!=(const PartitionId &other) const { return (name != other.name); }
+    bool operator<(const PartitionId &other) const
+    {
+        return name < other.name;
+    }
+};
+
 NEXTPNR_NAMESPACE_END
 
 namespace std {
@@ -213,4 +224,15 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX DecalId>
         return seed;
     }
 };
+
+template <> struct hash<NEXTPNR_NAMESPACE_PREFIX PartitionId>
+{
+    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX PartitionId &partition) const noexcept
+    {
+        std::size_t seed = 0;
+        boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(partition.name));
+        return seed;
+    }
+};
+
 } // namespace std

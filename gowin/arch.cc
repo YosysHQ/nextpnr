@@ -739,6 +739,15 @@ Arch::Arch(ArchArgs args) : args(args)
     }
     // Dummy for empty decals
     decal_graphics[IdString()];
+
+    std::unordered_set<IdString> bel_types;
+    for(BelId bel : getBels()) {
+        bel_types.insert(getBelType(bel));
+    }
+
+    for(IdString bel_type : bel_types) {
+        cell_types.push_back(bel_type);
+    }
 }
 
 void IdString::initialize_arch(const BaseCtx *ctx)

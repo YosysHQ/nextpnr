@@ -72,6 +72,7 @@ typedef IdString WireId;
 typedef IdString PipId;
 typedef IdString GroupId;
 typedef IdString DecalId;
+typedef IdString PartitionId;
 
 struct ArchNetInfo
 {
