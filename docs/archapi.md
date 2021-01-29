@@ -40,6 +40,10 @@ A type representing a wire name. `WireId()` must construct a unique null-value. 
 
 A type representing a pip name. `PipId()` must construct a unique null-value. Must provide `==`, `!=`, and `<` operators and a specialization for `std::hash<PipId>`.
 
+### BelBucketId
+
+A type representing a BEL bucket. `BelBucketId()` must construct a unique null-value. Must provide `==`, `!=`, and `<` operators and a specialization for `std::hash<BelBucketId>`.
+
 ### GroupId
 
 A type representing a group name. `GroupId()` must construct a unique null-value. Must provide `==` and `!=` operators and a specialization for `std::hash<GroupId>`.
@@ -483,44 +487,52 @@ Return the _clocking info_ (including port name of clock, clock polarity and set
 port. Where ports have more than one clock edge associated with them (such as DDR outputs), `index` can be used to obtain
 information for all edges. `index` must be in [0, clockInfoCount), behaviour is undefined otherwise.
 
-Partition Methods
------------------
+BEL Buckets Methods
+-------------------
 
-Partitions are subsets of BelIds and cell types used by analytic placer to
-seperate types of BELs during placement.  Typical partitions are:
+BEL buckets are subsets of BelIds and cell types used by analytic placer to
+seperate types of BELs during placement. The buckets should form an exact
+cover over all BelIds and cell types.
+
+Each BEL bucket should be BelIds and cell types that are roughly
+interchangable during placement.  Typical buckets are:
  - All LUT BELs
  - All FF BELs
  - All multipliers BELs
  - All block RAM BELs
  - etc.
 
-The general rule here is to include all BELs that are roughly interchangable
-during placement.  Partitions should form an exact cover over all BelIds and
-cell types.
+The BEL buckets will be used during analytic placement for spreading prior to
+strict legality enforcement.  It is not required that all BELs within a bucket
+are strictly equivelant.
 
-### const\_range\<PartitionId\> getPartitions() const
+Strict legality step will enforce those differences, along with additional
+local constraints.  `isValidBelForCell`, `isValidBelForCellType`, and
+`isBelLocationValid` are used to enforce strict legality checks.
 
-Return a list of all partitions on the device.
+### const\_range\<BelBucketId\> getBelBuckets() const
 
-### IdString getPartitionName(PartitionId partition) const
+Return a list of all BEL buckets on the device.
 
-Return the name of the partition.
+### IdString getBelBucketName(BelBucketId bucket) const
 
-### PartitionId getPartitionByName(IdString partition\_name) const
+Return the name of this BEL bucket.
 
-Return the partition for the specified partition name.
+### BelBucketId getBelBucketByName(IdString bucket\_name) const
 
-### PartitionId getPartitionForBel(BelId bel) const
+Return the BelBucketId for the specified bucket name.
 
-Returns the partition for a particular BEL.
+### BelBucketId getBelBucketForBel(BelId bel) const
 
-### PartitionId getPartitionForCell(IdString cell\_type) const
+Returns the bucket for a particular BEL.
 
-Returns the partition for a particular cell type.
+### BelBucketId getBelBucketForCell(IdString cell\_type) const
 
-### const\_range\<BelId\> getBelsForPartition(PartitionId partition) const
+Returns the BEL bucket for a particular cell type.
 
-Return the list of BELs within a partition.
+### const\_range\<BelId\> getBelsInBucket(BelBucketId bucket) const
+
+Return the list of BELs within a bucket.
 
 Placer Methods
 --------------
@@ -533,9 +545,9 @@ return the same value regardless if other cells are placed within the fabric.
 
 ### bool isValidBelForCell(CellInfo \*cell, BelId bel) const
 
-Returns true if the given cell can be bound to the given bel, considering
+Returns true if the given cell can be bound to the given BEL, considering
 other bound resources. For example, this can be used if there is only
-a certain number of different clock signals allowed for a group of bels.
+a certain number of different clock signals allowed for a group of BELs.
 
 ### bool isBelLocationValid(BelId bel) const
 
