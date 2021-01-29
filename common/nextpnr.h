@@ -145,6 +145,73 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX IdString>
 
 NEXTPNR_NAMESPACE_BEGIN
 
+// An small size optimised array that is statically allocated when the size is N or less; heap allocated otherwise
+template <typename T, size_t N> class SSOArray
+{
+    union
+    {
+        T data_static[N];
+        T *data_heap;
+    };
+    size_t m_size;
+
+  private:
+    inline bool is_heap() { return (m_size > N); }
+    void alloc()
+    {
+        if (is_heap()) {
+            data_heap = new T[m_size];
+        }
+    }
+
+  public:
+    T *data() { return is_heap() ? data_heap : &data_static; }
+    const T *data() const { return is_heap() ? data_heap : &data_static; }
+    size_t size() const { return m_size; }
+
+    T *begin() { return data(); }
+    T *end() { return data() + m_size; }
+    const T *begin() const { return data(); }
+    const T *end() const { return data() + m_size; }
+
+    SSOArray(size_t size, const T &init = T()) : m_size(size)
+    {
+        alloc();
+        std::fill(begin(), end(), init);
+    }
+
+    template <typename Tother> SSOArray(const Tother &other) : m_size(other.size())
+    {
+        alloc();
+        std::copy(other.begin(), other.end(), begin());
+    }
+
+    ~SSOArray()
+    {
+        if (is_heap()) {
+            delete[] data_heap;
+        }
+    }
+
+    bool operator==(const SSOArray &other) const
+    {
+        if (size() != other.size())
+            return false;
+        return std::equal(begin(), end(), other.begin());
+    }
+    bool operator!=(const SSOArray &other) const
+    {
+        if (size() != other.size())
+            return true;
+        return !std::equal(begin(), end(), other.begin());
+    }
+};
+
+struct IdStringList
+{
+    SSOArray<IdString, 4> ids;
+};
+
 struct GraphicElement
 {
     enum type_t
