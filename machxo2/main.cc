@@ -20,6 +20,7 @@
 #ifdef MAIN_EXECUTABLE
 
 #include <fstream>
+#include "bitstream.h"
 #include "command.h"
 #include "design_utils.h"
 #include "log.h"
@@ -65,13 +66,20 @@ po::options_description MachXO2CommandHandler::getArchOptions()
                            "base chip configuration in Trellis text format");
     specific.add_options()("textcfg", po::value<std::string>(), "textual configuration in Trellis format to write");
 
-    specific.add_options()("lpf", po::value<std::vector<std::string>>(), "LPF pin constraint file(s)");
+    //specific.add_options()("lpf", po::value<std::vector<std::string>>(), "LPF pin constraint file(s)");
 
     specific.add_options()("no-iobs", "disable automatic IO buffer insertion (unimplemented- always enabled)");
     return specific;
 }
 
-void MachXO2CommandHandler::customBitstream(Context *ctx) {}
+void MachXO2CommandHandler::customBitstream(Context *ctx)
+{
+    std::string textcfg;
+    if (vm.count("textcfg"))
+        textcfg = vm["textcfg"].as<std::string>();
+
+    write_bitstream(ctx, textcfg);
+}
 
 std::unique_ptr<Context> MachXO2CommandHandler::createContext(std::unordered_map<std::string, Property> &values)
 {
