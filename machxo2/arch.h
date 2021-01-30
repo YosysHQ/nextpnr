@@ -850,7 +850,14 @@ struct Arch : BaseCtx
         return wire;
     }
 
-    DelayInfo getPipDelay(PipId pip) const { return DelayInfo(); }
+    DelayInfo getPipDelay(PipId pip) const
+    {
+        DelayInfo delay;
+
+        delay.delay = 0.01;
+
+        return delay;
+    }
 
     PipRange getPipsDownhill(WireId wire) const
     {
