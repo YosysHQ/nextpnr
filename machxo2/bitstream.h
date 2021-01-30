@@ -2,7 +2,7 @@
  *  nextpnr -- Next Generation Place and Route
  *
  *  Copyright (C) 2018  David Shah <david@symbioticeda.com>
- *  Copyright (C) 2021 William D. Jones <wjones@wdj-consulting.com>
+ *  Copyright (C) 2021  William D. Jones <wjones@wdj-consulting.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
