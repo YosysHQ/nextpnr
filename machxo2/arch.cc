@@ -365,9 +365,25 @@ const std::vector<GroupId> &Arch::getGroupGroups(GroupId group) const { return g
 
 // ---------------------------------------------------------------
 
-delay_t Arch::estimateDelay(WireId src, WireId dst) const { return 0; }
+delay_t Arch::estimateDelay(WireId src, WireId dst) const
+{
+    // Taxicab distance multiplied by pipDelay (0.01) and fake wireDelay (0.01).
+    // TODO: This function will not work well for entrance to global routing,
+    // as the entrances are located physically far from the DCCAs.
+    return (abs(dst.location.x - src.location.x) + abs(dst.location.y - src.location.y)) * (0.01 + 0.01);
+}
 
-delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const { return 0; }
+delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
+{
+    BelId src = net_info->driver.cell->bel;
+    BelId dst = sink.cell->bel;
+
+    NPNR_ASSERT(src != BelId());
+    NPNR_ASSERT(dst != BelId());
+
+    // TODO: Same deal applies here as with estimateDelay.
+    return (abs(dst.location.x - src.location.x) + abs(dst.location.y - src.location.y)) * (0.01 + 0.01);
+}
 
 bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const { return false; }
 
