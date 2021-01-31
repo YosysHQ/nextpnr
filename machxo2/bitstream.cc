@@ -22,6 +22,7 @@
 
 #include "bitstream.h"
 #include "config.h"
+#include "nextpnr.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -47,6 +48,35 @@ namespace BaseConfigs {
     }
 } // namespace BaseConfigs
 
+// Convert an absolute wire name to a relative Trellis one
+static std::string get_trellis_wirename(Context *ctx, Location loc, WireId wire)
+{
+    std::string basename = ctx->tileInfo(wire)->wire_data[wire.index].name.get();
+    std::string prefix2 = basename.substr(0, 2);
+    if (prefix2 == "G_" || prefix2 == "L_" || prefix2 == "R_")
+        return basename;
+    if (loc == wire.location)
+        return basename;
+    std::string rel_prefix;
+    if (wire.location.y < loc.y)
+        rel_prefix += "N" + std::to_string(loc.y - wire.location.y);
+    if (wire.location.y > loc.y)
+        rel_prefix += "S" + std::to_string(wire.location.y - loc.y);
+    if (wire.location.x > loc.x)
+        rel_prefix += "E" + std::to_string(wire.location.x - loc.x);
+    if (wire.location.x < loc.x)
+        rel_prefix += "W" + std::to_string(loc.x - wire.location.x);
+    return rel_prefix + "_" + basename;
+}
+
+static void set_pip(Context *ctx, ChipConfig &cc, PipId pip)
+{
+    std::string tile = ctx->getPipTilename(pip);
+    std::string source = get_trellis_wirename(ctx, pip.location, ctx->getPipSrcWire(pip));
+    std::string sink = get_trellis_wirename(ctx, pip.location, ctx->getPipDstWire(pip));
+    cc.tiles[tile].add_arc(sink, source);
+}
+
 void write_bitstream(Context *ctx, std::string text_config_file)
 {
     ChipConfig cc;
@@ -57,6 +87,17 @@ void write_bitstream(Context *ctx, std::string text_config_file)
         break;
     default:
         NPNR_ASSERT_FALSE("Unsupported device type");
+    }
+
+    cc.metadata.push_back("Part: " + ctx->getFullChipName());
+
+    // Add all set, configurable pips to the config
+    for (auto pip : ctx->getPips()) {
+        if (ctx->getBoundPipNet(pip) != nullptr) {
+            if (ctx->getPipClass(pip) == 0) { // ignore fixed pips
+                set_pip(ctx, cc, pip);
+            }
+        }
     }
 
     // Configure chip

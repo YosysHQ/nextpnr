@@ -124,6 +124,33 @@ std::string Arch::getChipName() const
     }
 }
 
+std::string Arch::getFullChipName() const
+{
+    std::string name = getChipName();
+    name += "-";
+    switch (args.speed) {
+    case ArchArgs::SPEED_1:
+        name += "1";
+        break;
+    case ArchArgs::SPEED_2:
+        name += "2";
+        break;
+    case ArchArgs::SPEED_3:
+        name += "3";
+    case ArchArgs::SPEED_4:
+        name += "4";
+        break;
+    case ArchArgs::SPEED_5:
+        name += "5";
+        break;
+    case ArchArgs::SPEED_6:
+        name += "6";
+        break;
+    }
+    name += args.package;
+    return name;
+}
+
 IdString Arch::archArgsToId(ArchArgs args) const
 {
     if (args.type == ArchArgs::LCMXO2_256HC) {

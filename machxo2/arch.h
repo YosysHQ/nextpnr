@@ -501,6 +501,8 @@ struct Arch : BaseCtx
     static bool isAvailable(ArchArgs::ArchArgsTypes chip);
 
     std::string getChipName() const;
+    // Extra helper
+    std::string getFullChipName() const;
 
     IdString archId() const { return id("machxo2"); }
     ArchArgs archArgs() const { return args; }
@@ -880,6 +882,19 @@ struct Arch : BaseCtx
         range.e.cursor = range.b.cursor + tileInfo(wire)->wire_data[wire.index].num_uphill;
         range.e.wire_loc = wire.location;
         return range;
+    }
+
+    // Extra Pip helpers.
+    int8_t getPipClass(PipId pip) const { return tileInfo(pip)->pips_data[pip.index].pip_type; }
+
+    std::string getPipTilename(PipId pip) const
+    {
+        auto &tileloc = chip_info->tile_info[pip.location.y * chip_info->width + pip.location.x];
+        for (int i = 0; i < tileloc.num_tiles; i++) {
+            if (tileloc.tile_names[i].type_idx == tileInfo(pip)->pips_data[pip.index].tile_type)
+                return tileloc.tile_names[i].name.get();
+        }
+        NPNR_ASSERT_FALSE("failed to find Pip tile");
     }
 
     // Group
