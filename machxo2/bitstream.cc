@@ -200,6 +200,10 @@ void write_bitstream(Context *ctx, std::string text_config_file)
             std::string dir = str_or_default(ci->params, ctx->id("DIR"), "INPUT");
             std::string pic_tile = get_pic_tile(ctx, bel);
             cc.tiles[pic_tile].add_enum(pio + ".BASE_TYPE", dir + "_" + iotype);
+        } else if (ci->type == ctx->id("OSCH")) {
+            std::string freq = str_or_default(ci->params, ctx->id("NOM_FREQ"), "2.08");
+            cc.tiles[ctx->getTileByType("CFG1")].add_enum("OSCH.MODE", "OSCH");
+            cc.tiles[ctx->getTileByType("CFG1")].add_enum("OSCH.NOM_FREQ", freq);
         }
     }
 
