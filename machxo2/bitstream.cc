@@ -167,6 +167,7 @@ void write_bitstream(Context *ctx, std::string text_config_file)
             cc.tiles[tname].add_enum("CLK" + std::to_string(int_index) + ".CLKMUX", intstr_or_default(ci->params, ctx->id("CLKMUX"), "0"));
             cc.tiles[tname].add_enum("LSR" + std::to_string(int_index) + ".LSRMUX", str_or_default(ci->params, ctx->id("LSRMUX"), "LSR"));
             cc.tiles[tname].add_enum("LSR" + std::to_string(int_index) + ".LSRONMUX", intstr_or_default(ci->params, ctx->id("LSRONMUX"), "LSRMUX"));
+            cc.tiles[tname].add_enum(slice + ".REGMODE", str_or_default(ci->params, ctx->id("REGMODE"), "FF"));
             cc.tiles[tname].add_enum(slice + ".REG0.SD", intstr_or_default(ci->params, ctx->id("REG0_SD"), "0"));
             cc.tiles[tname].add_enum(slice + ".REG1.SD", intstr_or_default(ci->params, ctx->id("REG1_SD"), "0"));
             cc.tiles[tname].add_enum(slice + ".REG0.REGSET",
