@@ -116,6 +116,26 @@ std::string intstr_or_default(const std::unordered_map<IdString, Property> &ct, 
     }
 };
 
+// Get the PIC tile corresponding to a PIO bel
+static std::string get_pic_tile(Context *ctx, BelId bel)
+{
+    static const std::set<std::string> pio_l = {"PIC_L0", "PIC_LS0", "PIC_L0_VREF3"};
+    static const std::set<std::string> pio_r = {"PIC_R0", "PIC_RS0"};
+
+    std::string pio_name = ctx->tileInfo(bel)->bel_data[bel.index].name.get();
+    if (bel.location.y == 0) {
+        return ctx->getTileByTypeAndLocation(0, bel.location.x, "PIC_T0");
+    } else if (bel.location.y == ctx->chip_info->height - 1) {
+        return ctx->getTileByTypeAndLocation(bel.location.y, bel.location.x, "PIC_B0");
+    } else if (bel.location.x == 0) {
+        return ctx->getTileByTypeAndLocation(bel.location.y, 0, pio_l);
+    } else if (bel.location.x == ctx->chip_info->width - 1) {
+        return ctx->getTileByTypeAndLocation(bel.location.y, bel.location.x, pio_r);
+    } else {
+        NPNR_ASSERT_FALSE("bad PIO location");
+    }
+}
+
 void write_bitstream(Context *ctx, std::string text_config_file)
 {
     ChipConfig cc;
@@ -174,6 +194,12 @@ void write_bitstream(Context *ctx, std::string text_config_file)
                                      str_or_default(ci->params, ctx->id("REG0_REGSET"), "RESET"));
             cc.tiles[tname].add_enum(slice + ".REG1.REGSET",
                                      str_or_default(ci->params, ctx->id("REG1_REGSET"), "RESET"));
+        } else if (ci->type == ctx->id("FACADE_IO")) {
+            std::string pio = ctx->tileInfo(bel)->bel_data[bel.index].name.get();
+            std::string iotype = str_or_default(ci->attrs, ctx->id("IO_TYPE"), "LVCMOS33");
+            std::string dir = str_or_default(ci->params, ctx->id("DIR"), "INPUT");
+            std::string pic_tile = get_pic_tile(ctx, bel);
+            cc.tiles[pic_tile].add_enum(pio + ".BASE_TYPE", dir + "_" + iotype);
         }
     }
 
