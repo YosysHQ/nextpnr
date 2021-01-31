@@ -23,6 +23,7 @@
 #include "bitstream.h"
 #include "config.h"
 #include "nextpnr.h"
+#include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -53,7 +54,8 @@ static std::string get_trellis_wirename(Context *ctx, Location loc, WireId wire)
 {
     std::string basename = ctx->tileInfo(wire)->wire_data[wire.index].name.get();
     std::string prefix2 = basename.substr(0, 2);
-    if (prefix2 == "G_" || prefix2 == "L_" || prefix2 == "R_")
+    std::string prefix7 = basename.substr(0, 7);
+    if (prefix2 == "G_" || prefix2 == "L_" || prefix2 == "R_" || prefix2 == "U_" || prefix2 == "D_" || prefix7 == "BRANCH_")
         return basename;
     if (loc == wire.location)
         return basename;
@@ -77,6 +79,43 @@ static void set_pip(Context *ctx, ChipConfig &cc, PipId pip)
     cc.tiles[tile].add_arc(sink, source);
 }
 
+static std::vector<bool> int_to_bitvector(int val, int size)
+{
+    std::vector<bool> bv;
+    for (int i = 0; i < size; i++) {
+        bv.push_back((val & (1 << i)) != 0);
+    }
+    return bv;
+}
+
+static std::vector<bool> str_to_bitvector(std::string str, int size)
+{
+    std::vector<bool> bv;
+    bv.resize(size, 0);
+    if (str.substr(0, 2) != "0b")
+        log_error("error parsing value '%s', expected 0b prefix\n", str.c_str());
+    for (int i = 0; i < int(str.size()) - 2; i++) {
+        char c = str.at((str.size() - i) - 1);
+        NPNR_ASSERT(c == '0' || c == '1');
+        bv.at(i) = (c == '1');
+    }
+    return bv;
+}
+
+std::string intstr_or_default(const std::unordered_map<IdString, Property> &ct, const IdString &key,
+                              std::string def = "0")
+{
+    auto found = ct.find(key);
+    if (found == ct.end())
+        return def;
+    else {
+        if (found->second.is_string)
+            return found->second.as_string();
+        else
+            return std::to_string(found->second.as_int64());
+    }
+};
+
 void write_bitstream(Context *ctx, std::string text_config_file)
 {
     ChipConfig cc;
@@ -97,6 +136,43 @@ void write_bitstream(Context *ctx, std::string text_config_file)
             if (ctx->getPipClass(pip) == 0) { // ignore fixed pips
                 set_pip(ctx, cc, pip);
             }
+        }
+    }
+
+    // TODO: Bank Voltages
+
+    // Configure slices
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
+        if (ci->bel == BelId()) {
+            log_warning("found unplaced cell '%s' during bitstream gen\n", ci->name.c_str(ctx));
+        }
+        BelId bel = ci->bel;
+        if (ci->type == id_FACADE_SLICE) {
+            std::string tname = ctx->getTileByTypeAndLocation(bel.location.y, bel.location.x, "PLC");
+            std::string slice = ctx->tileInfo(bel)->bel_data[bel.index].name.get();
+
+            NPNR_ASSERT(slice.substr(0, 5) == "SLICE");
+            int int_index = slice[5] - 'A';
+            NPNR_ASSERT(int_index >= 0 && int_index < 4);
+
+            int lut0_init = int_or_default(ci->params, ctx->id("LUT0_INITVAL"));
+            int lut1_init = int_or_default(ci->params, ctx->id("LUT1_INITVAL"));
+            cc.tiles[tname].add_word(slice + ".K0.INIT", int_to_bitvector(lut0_init, 16));
+            cc.tiles[tname].add_word(slice + ".K1.INIT", int_to_bitvector(lut1_init, 16));
+            cc.tiles[tname].add_enum(slice + ".MODE", str_or_default(ci->params, ctx->id("MODE"), "LOGIC"));
+            cc.tiles[tname].add_enum(slice + ".GSR", str_or_default(ci->params, ctx->id("GSR"), "ENABLED"));
+            cc.tiles[tname].add_enum("LSR" + std::to_string(int_index) + ".SRMODE", str_or_default(ci->params, ctx->id("SRMODE"), "LSR_OVER_CE"));
+            cc.tiles[tname].add_enum(slice + ".CEMUX", intstr_or_default(ci->params, ctx->id("CEMUX"), "1"));
+            cc.tiles[tname].add_enum("CLK" + std::to_string(int_index) + ".CLKMUX", intstr_or_default(ci->params, ctx->id("CLKMUX"), "0"));
+            cc.tiles[tname].add_enum("LSR" + std::to_string(int_index) + ".LSRMUX", str_or_default(ci->params, ctx->id("LSRMUX"), "LSR"));
+            cc.tiles[tname].add_enum("LSR" + std::to_string(int_index) + ".LSRONMUX", intstr_or_default(ci->params, ctx->id("LSRONMUX"), "LSRMUX"));
+            cc.tiles[tname].add_enum(slice + ".REG0.SD", intstr_or_default(ci->params, ctx->id("REG0_SD"), "0"));
+            cc.tiles[tname].add_enum(slice + ".REG1.SD", intstr_or_default(ci->params, ctx->id("REG1_SD"), "0"));
+            cc.tiles[tname].add_enum(slice + ".REG0.REGSET",
+                                     str_or_default(ci->params, ctx->id("REG0_REGSET"), "RESET"));
+            cc.tiles[tname].add_enum(slice + ".REG1.REGSET",
+                                     str_or_default(ci->params, ctx->id("REG1_REGSET"), "RESET"));
         }
     }
 
