@@ -957,6 +957,39 @@ struct Arch : BaseCtx
     // Internal usage
     void assignArchInfo();
     bool cellsCompatible(const CellInfo **cells, int count) const;
+
+    std::vector<std::pair<std::string, std::string>> getTilesAtLocation(int row, int col);
+    std::string getTileByTypeAndLocation(int row, int col, std::string type) const
+    {
+        auto &tileloc = chip_info->tile_info[row * chip_info->width + col];
+        for (int i = 0; i < tileloc.num_tiles; i++) {
+            if (chip_info->tiletype_names[tileloc.tile_names[i].type_idx].get() == type)
+                return tileloc.tile_names[i].name.get();
+        }
+        NPNR_ASSERT_FALSE_STR("no tile at (" + std::to_string(col) + ", " + std::to_string(row) + ") with type " +
+                              type);
+    }
+
+    std::string getTileByTypeAndLocation(int row, int col, const std::set<std::string> &type) const
+    {
+        auto &tileloc = chip_info->tile_info[row * chip_info->width + col];
+        for (int i = 0; i < tileloc.num_tiles; i++) {
+            if (type.count(chip_info->tiletype_names[tileloc.tile_names[i].type_idx].get()))
+                return tileloc.tile_names[i].name.get();
+        }
+        NPNR_ASSERT_FALSE_STR("no tile at (" + std::to_string(col) + ", " + std::to_string(row) + ") with type in set");
+    }
+
+    std::string getTileByType(std::string type) const
+    {
+        for (int i = 0; i < chip_info->height * chip_info->width; i++) {
+            auto &tileloc = chip_info->tile_info[i];
+            for (int j = 0; j < tileloc.num_tiles; j++)
+                if (chip_info->tiletype_names[tileloc.tile_names[j].type_idx].get() == type)
+                    return tileloc.tile_names[j].name.get();
+        }
+        NPNR_ASSERT_FALSE_STR("no tile with type " + type);
+    }
 };
 
 NEXTPNR_NAMESPACE_END
