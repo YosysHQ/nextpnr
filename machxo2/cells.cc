@@ -59,12 +59,11 @@ std::unique_ptr<CellInfo> create_machxo2_cell(Context *ctx, IdString type, std::
         new_cell->params[id_LSRONMUX] = std::string("LSRMUX");
         new_cell->params[id_LUT0_INITVAL] = Property(0xFFFF, 16);
         new_cell->params[id_LUT1_INITVAL] = Property(0xFFFF, 16);
+        new_cell->params[id_REGMODE] = std::string("FF");
         new_cell->params[id_REG0_SD] = std::string("1");
         new_cell->params[id_REG1_SD] = std::string("1");
         new_cell->params[id_REG0_REGSET] = std::string("SET");
         new_cell->params[id_REG1_REGSET] = std::string("SET");
-        new_cell->params[id_REG0_REGMODE] = std::string("FF");
-        new_cell->params[id_REG1_REGMODE] = std::string("FF");
         new_cell->params[id_CCU2_INJECT1_0] = std::string("YES");
         new_cell->params[id_CCU2_INJECT1_1] = std::string("YES");
         new_cell->params[id_WREMUX] = std::string("INV");
