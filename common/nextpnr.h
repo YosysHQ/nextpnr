@@ -181,6 +181,12 @@ template <typename T, size_t N> class SSOArray
         std::fill(begin(), end(), init);
     }
 
+    SSOArray(const SSOArray &other) : m_size(other.size())
+    {
+        alloc();
+        std::copy(other.begin(), other.end(), begin());
+    }
+
     template <typename Tother> SSOArray(const Tother &other) : m_size(other.size())
     {
         alloc();
