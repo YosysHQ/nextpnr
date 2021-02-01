@@ -39,11 +39,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <vector>
+#include "fast_bels.h"
 #include "log.h"
 #include "place_common.h"
 #include "timing.h"
 #include "util.h"
-#include "fast_bels.h"
 
 namespace std {
 template <> struct hash<std::pair<NEXTPNR_NAMESPACE_PREFIX IdString, std::size_t>>
@@ -76,7 +76,8 @@ class SAPlacer
     };
 
   public:
-    SAPlacer(Context *ctx, Placer1Cfg cfg) : ctx(ctx), fast_bels(ctx, /*check_bel_available=*/false, cfg.minBelsForGridPick), cfg(cfg)
+    SAPlacer(Context *ctx, Placer1Cfg cfg)
+            : ctx(ctx), fast_bels(ctx, /*check_bel_available=*/false, cfg.minBelsForGridPick), cfg(cfg)
     {
         for (auto bel : ctx->getBels()) {
             Loc loc = ctx->getBelLocation(bel);
@@ -91,7 +92,7 @@ class SAPlacer
             cell_types_in_use.insert(cell_type);
         }
 
-        for(auto cell_type : cell_types_in_use) {
+        for (auto cell_type : cell_types_in_use) {
             fast_bels.addCellType(cell_type);
         }
 

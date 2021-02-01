@@ -118,7 +118,8 @@ bool place_single_cell(Context *ctx, CellInfo *cell, bool require_legality)
         }
         IdString targetType = cell->type;
         for (auto bel : ctx->getBels()) {
-            if (ctx->isValidBelForCellType(targetType, bel) && (!require_legality || ctx->isValidBelForCell(cell, bel))) {
+            if (ctx->isValidBelForCellType(targetType, bel) &&
+                (!require_legality || ctx->isValidBelForCell(cell, bel))) {
                 if (ctx->checkBelAvail(bel)) {
                     wirelen_t wirelen = get_cell_metric_at_bel(ctx, cell, bel, MetricType::COST);
                     if (iters >= 4)

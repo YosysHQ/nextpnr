@@ -20,24 +20,30 @@
 
 #pragma once
 
-#include "nextpnr.h"
 #include <cstddef>
+#include "nextpnr.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
 // FastBels is a lookup class that provides a fast lookup for finding BELs
 // that support a given cell type.
-struct FastBels {
-    struct TypeData {
+struct FastBels
+{
+    struct TypeData
+    {
         size_t type_index;
         int number_of_possible_bels;
     };
 
-    FastBels(Context *ctx, bool check_bel_available, int minBelsForGridPick) : ctx(ctx), check_bel_available(check_bel_available), minBelsForGridPick(minBelsForGridPick) {}
+    FastBels(Context *ctx, bool check_bel_available, int minBelsForGridPick)
+            : ctx(ctx), check_bel_available(check_bel_available), minBelsForGridPick(minBelsForGridPick)
+    {
+    }
 
-    void addCellType(IdString cell_type) {
+    void addCellType(IdString cell_type)
+    {
         auto iter = cell_types.find(cell_type);
-        if(iter != cell_types.end()) {
+        if (iter != cell_types.end()) {
             // This cell type has already been added to the fast BEL lookup.
             return;
         }
@@ -50,7 +56,7 @@ struct FastBels {
         auto &bel_data = fast_bels_by_cell_type.at(type_idx);
 
         for (auto bel : ctx->getBels()) {
-            if(!ctx->isValidBelForCellType(cell_type, bel)) {
+            if (!ctx->isValidBelForCellType(cell_type, bel)) {
                 continue;
             }
 
@@ -58,11 +64,11 @@ struct FastBels {
         }
 
         for (auto bel : ctx->getBels()) {
-            if(check_bel_available && !ctx->checkBelAvail(bel)) {
+            if (check_bel_available && !ctx->checkBelAvail(bel)) {
                 continue;
             }
 
-            if(!ctx->isValidBelForCellType(cell_type, bel)) {
+            if (!ctx->isValidBelForCellType(cell_type, bel)) {
                 continue;
             }
 
@@ -83,9 +89,10 @@ struct FastBels {
         }
     }
 
-    void addBelBucket(BelBucketId partition) {
+    void addBelBucket(BelBucketId partition)
+    {
         auto iter = partition_types.find(partition);
-        if(iter != partition_types.end()) {
+        if (iter != partition_types.end()) {
             // This partition has already been added to the fast BEL lookup.
             return;
         }
@@ -98,7 +105,7 @@ struct FastBels {
         auto &bel_data = fast_bels_by_partition_type.at(type_idx);
 
         for (auto bel : ctx->getBels()) {
-            if(ctx->getBelBucketForBel(bel) != partition) {
+            if (ctx->getBelBucketForBel(bel) != partition) {
                 continue;
             }
 
@@ -106,11 +113,11 @@ struct FastBels {
         }
 
         for (auto bel : ctx->getBels()) {
-            if(check_bel_available && !ctx->checkBelAvail(bel)) {
+            if (check_bel_available && !ctx->checkBelAvail(bel)) {
                 continue;
             }
 
-            if(ctx->getBelBucketForBel(bel) != partition) {
+            if (ctx->getBelBucketForBel(bel) != partition) {
                 continue;
             }
 
@@ -133,9 +140,10 @@ struct FastBels {
 
     typedef std::vector<std::vector<std::vector<BelId>>> FastBelsData;
 
-    int getBelsForCellType(IdString cell_type, FastBelsData **data) {
+    int getBelsForCellType(IdString cell_type, FastBelsData **data)
+    {
         auto iter = cell_types.find(cell_type);
-        if(iter == cell_types.end()) {
+        if (iter == cell_types.end()) {
             addCellType(cell_type);
             iter = cell_types.find(cell_type);
             NPNR_ASSERT(iter != cell_types.end());
@@ -147,9 +155,10 @@ struct FastBels {
         return cell_type_data.number_of_possible_bels;
     }
 
-    size_t getBelsForBelBucket(BelBucketId partition, FastBelsData **data) {
+    size_t getBelsForBelBucket(BelBucketId partition, FastBelsData **data)
+    {
         auto iter = partition_types.find(partition);
-        if(iter == partition_types.end()) {
+        if (iter == partition_types.end()) {
             addBelBucket(partition);
             iter = partition_types.find(partition);
             NPNR_ASSERT(iter != partition_types.end());

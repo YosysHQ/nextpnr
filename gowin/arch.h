@@ -422,38 +422,25 @@ struct Arch : BaseCtx
     // Get the TimingClockingInfo of a port
     TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const;
 
-    bool isValidBelForCellType(IdString cell_type, BelId bel) const {
-        return cell_type == getBelType(bel);
-    }
+    bool isValidBelForCellType(IdString cell_type, BelId bel) const { return cell_type == getBelType(bel); }
 
-    const std::vector<IdString> &getCellTypes() const {
-        return cell_types;
-    }
+    const std::vector<IdString> &getCellTypes() const { return cell_types; }
 
-    std::vector<BelBucketId> getBelBuckets() const {
-        return cell_types;
-    }
+    std::vector<BelBucketId> getBelBuckets() const { return cell_types; }
 
-    IdString getBelBucketName(BelBucketId bucket) const {
-        return bucket;
-    }
+    IdString getBelBucketName(BelBucketId bucket) const { return bucket; }
 
-    BelBucketId getBelBucketByName(IdString name) const {
-        return name;
-    }
+    BelBucketId getBelBucketByName(IdString name) const { return name; }
 
-    BelBucketId getBelBucketForBel(BelId bel) const {
-        return getBelType(bel);
-    }
+    BelBucketId getBelBucketForBel(BelId bel) const { return getBelType(bel); }
 
-    BelBucketId getBelBucketForCellType(IdString cell_type) const {
-        return cell_type;
-    }
+    BelBucketId getBelBucketForCellType(IdString cell_type) const { return cell_type; }
 
-    std::vector<BelId> getBelsInBucket(BelBucketId bucket) const {
+    std::vector<BelId> getBelsInBucket(BelBucketId bucket) const
+    {
         std::vector<BelId> bels;
-        for(BelId bel : getBels()) {
-            if(getBelType(bel) == bucket) {
+        for (BelId bel : getBels()) {
+            if (getBelType(bel) == bucket) {
                 bels.push_back(bel);
             }
         }

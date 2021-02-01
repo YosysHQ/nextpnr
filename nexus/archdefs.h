@@ -114,15 +114,13 @@ struct PipId
     }
 };
 
-struct BelBucketId {
+struct BelBucketId
+{
     IdString name;
 
     bool operator==(const BelBucketId &other) const { return (name == other.name); }
     bool operator!=(const BelBucketId &other) const { return (name != other.name); }
-    bool operator<(const BelBucketId &other) const
-    {
-        return name < other.name;
-    }
+    bool operator<(const BelBucketId &other) const { return name < other.name; }
 };
 
 struct GroupId

@@ -1336,44 +1336,40 @@ struct Arch : BaseCtx
     // implemented in arch_place.cc)
 
     // Whether this cell type can be placed at this BEL.
-    bool isValidBelForCellType(IdString cell_type, BelId bel) const {
-        return cell_type == getBelType(bel);
-    }
+    bool isValidBelForCellType(IdString cell_type, BelId bel) const { return cell_type == getBelType(bel); }
 
-    const std::vector<IdString> &getCellTypes() const {
-        return cell_types;
-    }
+    const std::vector<IdString> &getCellTypes() const { return cell_types; }
 
-    std::vector<BelBucketId> getBelBuckets() const {
-        return buckets;
-    }
+    std::vector<BelBucketId> getBelBuckets() const { return buckets; }
 
-    IdString getBelBucketName(BelBucketId bucket) const {
-        return bucket.name;
-    }
+    IdString getBelBucketName(BelBucketId bucket) const { return bucket.name; }
 
-    BelBucketId getBelBucketByName(IdString name) const {
+    BelBucketId getBelBucketByName(IdString name) const
+    {
         BelBucketId bucket;
         bucket.name = name;
         return bucket;
     }
 
-    BelBucketId getBelBucketForBel(BelId bel) const {
+    BelBucketId getBelBucketForBel(BelId bel) const
+    {
         BelBucketId bucket;
         bucket.name = getBelType(bel);
         return bucket;
     }
 
-    BelBucketId getBelBucketForCellType(IdString cell_type) const {
+    BelBucketId getBelBucketForCellType(IdString cell_type) const
+    {
         BelBucketId bucket;
         bucket.name = cell_type;
         return bucket;
     }
 
-    std::vector<BelId> getBelsInBucket(BelBucketId bucket) const {
+    std::vector<BelId> getBelsInBucket(BelBucketId bucket) const
+    {
         std::vector<BelId> bels;
-        for(BelId bel : getBels()) {
-            if(getBelType(bel) == bucket.name) {
+        for (BelId bel : getBels()) {
+            if (getBelType(bel) == bucket.name) {
                 bels.push_back(bel);
             }
         }

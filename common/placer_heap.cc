@@ -44,13 +44,13 @@
 #include <queue>
 #include <tuple>
 #include <unordered_map>
+#include "fast_bels.h"
 #include "log.h"
 #include "nextpnr.h"
 #include "place_common.h"
 #include "placer1.h"
 #include "timing.h"
 #include "util.h"
-#include "fast_bels.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -138,7 +138,10 @@ template <typename T> struct EquationSystem
 class HeAPPlacer
 {
   public:
-    HeAPPlacer(Context *ctx, PlacerHeapCfg cfg) : ctx(ctx), cfg(cfg), fast_bels(ctx, /*check_bel_available=*/true, -1) { Eigen::initParallel(); }
+    HeAPPlacer(Context *ctx, PlacerHeapCfg cfg) : ctx(ctx), cfg(cfg), fast_bels(ctx, /*check_bel_available=*/true, -1)
+    {
+        Eigen::initParallel();
+    }
 
     bool place()
     {
@@ -429,10 +432,10 @@ class HeAPPlacer
             buckets_in_use.insert(bucket);
         }
 
-        for(auto cell_type : cell_types_in_use) {
+        for (auto cell_type : cell_types_in_use) {
             fast_bels.addCellType(cell_type);
         }
-        for(auto bucket : buckets_in_use) {
+        for (auto bucket : buckets_in_use) {
             fast_bels.addBelBucket(bucket);
         }
 
@@ -500,8 +503,8 @@ class HeAPPlacer
                 continue;
             }
 
-            for(auto cell_type : cell_types) {
-                if(ctx->isValidBelForCellType(cell_type, bel)) {
+            for (auto cell_type : cell_types) {
+                if (ctx->isValidBelForCellType(cell_type, bel)) {
                     available_bels[cell_type].push_back(bel);
                 }
             }
@@ -532,23 +535,21 @@ class HeAPPlacer
                     // all.
                     if (!available_bels.count(ci->type)) {
                         log_error("Unable to place cell '%s', no BELs remaining to implement cell type '%s'\n",
-                                ci->name.c_str(ctx),
-                                ci->type.c_str(ctx));
+                                  ci->name.c_str(ctx), ci->type.c_str(ctx));
                     }
 
                     // Find an unused BEL from bels_for_cell_type.
                     auto &bels_for_cell_type = available_bels.at(ci->type);
                     BelId bel;
-                    while(true) {
+                    while (true) {
                         if (bels_for_cell_type.empty()) {
                             log_error("Unable to place cell '%s', no BELs remaining to implement cell type '%s'\n",
-                                    ci->name.c_str(ctx),
-                                    ci->type.c_str(ctx));
+                                      ci->name.c_str(ctx), ci->type.c_str(ctx));
                         }
 
                         BelId candidate_bel = bels_for_cell_type.back();
                         bels_for_cell_type.pop_back();
-                        if(bels_used.count(candidate_bel)) {
+                        if (bels_used.count(candidate_bel)) {
                             // candidate_bel has already been used by another
                             // cell type, skip it.
                             continue;
@@ -1202,13 +1203,12 @@ class HeAPPlacer
             return int(fb.at(type)->at(x).at(y).size());
         }
 
-        bool is_cell_fixed(const CellInfo & cell) const {
+        bool is_cell_fixed(const CellInfo &cell) const
+        {
             return buckets.count(ctx->getBelBucketForCellType(cell.type)) == 0;
         }
 
-        size_t cell_index(const CellInfo & cell) const {
-            return type_index.at(ctx->getBelBucketForCellType(cell.type));
-        }
+        size_t cell_index(const CellInfo &cell) const { return type_index.at(ctx->getBelBucketForCellType(cell.type)); }
 
         void init()
         {
@@ -1239,9 +1239,9 @@ class HeAPPlacer
 
             for (auto &cell_loc : p->cell_locs) {
                 IdString cell_name = cell_loc.first;
-                const CellInfo & cell = *ctx->cells.at(cell_name);
-                const CellLocation & loc = cell_loc.second;
-                if(is_cell_fixed(cell)) {
+                const CellInfo &cell = *ctx->cells.at(cell_name);
+                const CellLocation &loc = cell_loc.second;
+                if (is_cell_fixed(cell)) {
                     continue;
                 }
 
@@ -1261,9 +1261,9 @@ class HeAPPlacer
 
             for (auto &cell_loc : p->cell_locs) {
                 IdString cell_name = cell_loc.first;
-                const CellInfo & cell = *ctx->cells.at(cell_name);
-                const CellLocation & loc = cell_loc.second;
-                if(is_cell_fixed(cell)) {
+                const CellInfo &cell = *ctx->cells.at(cell_name);
+                const CellLocation &loc = cell_loc.second;
+                if (is_cell_fixed(cell)) {
                     continue;
                 }
 
@@ -1285,7 +1285,7 @@ class HeAPPlacer
             }
 
             for (auto cell : p->solve_cells) {
-                if(is_cell_fixed(*cell)) {
+                if (is_cell_fixed(*cell)) {
                     continue;
                 }
 
@@ -1476,8 +1476,7 @@ class HeAPPlacer
                             if (reg.cells > reg.bels) {
                                 IdString bucket_name = ctx->getBelBucketName(bucket);
                                 log_error("Failed to expand region (%d, %d) |_> (%d, %d) of %d %ss\n", reg.x0, reg.y0,
-                                          reg.x1, reg.y1, reg.cells.at(type_index.at(bucket)),
-                                          bucket_name.c_str(ctx));
+                                          reg.x1, reg.y1, reg.cells.at(type_index.at(bucket)), bucket_name.c_str(ctx));
                             }
                         }
                         break;

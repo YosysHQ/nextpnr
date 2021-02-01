@@ -173,11 +173,11 @@ Arch::Arch(ArchArgs args) : args(args)
         log_error("Unknown speed grade '%s'.\n", speed.c_str());
 
     std::unordered_set<IdString> bel_types;
-    for(BelId bel : getBels()) {
+    for (BelId bel : getBels()) {
         bel_types.insert(getBelType(bel));
     }
 
-    for(IdString bel_type : bel_types) {
+    for (IdString bel_type : bel_types) {
         cell_types.push_back(bel_type);
 
         BelBucketId bucket;

@@ -170,15 +170,13 @@ struct ArchCellInfo
     };
 };
 
-struct BelBucketId {
+struct BelBucketId
+{
     IdString name;
 
     bool operator==(const BelBucketId &other) const { return (name == other.name); }
     bool operator!=(const BelBucketId &other) const { return (name != other.name); }
-    bool operator<(const BelBucketId &other) const
-    {
-        return name < other.name;
-    }
+    bool operator<(const BelBucketId &other) const { return name < other.name; }
 };
 
 NEXTPNR_NAMESPACE_END

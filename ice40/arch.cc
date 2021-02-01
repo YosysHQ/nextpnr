@@ -117,11 +117,11 @@ Arch::Arch(ArchArgs args) : args(args)
     switches_locked.resize(chip_info->num_switches);
 
     std::unordered_set<IdString> bel_types;
-    for(BelId bel : getBels()) {
+    for (BelId bel : getBels()) {
         bel_types.insert(getBelType(bel));
     }
 
-    for(IdString bel_type : bel_types) {
+    for (IdString bel_type : bel_types) {
         cell_types.push_back(bel_type);
 
         BelBucketId bucket;

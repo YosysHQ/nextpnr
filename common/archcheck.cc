@@ -53,7 +53,7 @@ void archcheck_names(const Context *ctx)
     }
 
     log_info("Checking bucket names..\n");
-    for(BelBucketId bucket : ctx->getBelBuckets()) {
+    for (BelBucketId bucket : ctx->getBelBuckets()) {
         IdString name = ctx->getBelBucketName(bucket);
         BelBucketId bucket2 = ctx->getBelBucketByName(name);
         if (bucket != bucket2) {
@@ -204,12 +204,12 @@ void archcheck_buckets(const Context *ctx)
     // BEL buckets should be subsets of BELs that form an exact cover.
     // In particular that means cell types in a bucket should only be
     // placable in that bucket.
-    for(BelBucketId bucket : ctx->getBelBuckets()) {
+    for (BelBucketId bucket : ctx->getBelBuckets()) {
 
         // Find out which cell types are in this bucket.
         std::unordered_set<IdString> cell_types_in_bucket;
-        for(IdString cell_type : ctx->getCellTypes()) {
-            if(ctx->getBelBucketForCellType(cell_type) == bucket) {
+        for (IdString cell_type : ctx->getCellTypes()) {
+            if (ctx->getBelBucketForCellType(cell_type) == bucket) {
                 cell_types_in_bucket.insert(cell_type);
             }
         }
@@ -219,7 +219,7 @@ void archcheck_buckets(const Context *ctx)
         std::unordered_set<IdString> cell_types_unused;
 
         std::unordered_set<BelId> bels_in_bucket;
-        for(BelId bel : ctx->getBelsInBucket(bucket)) {
+        for (BelId bel : ctx->getBelsInBucket(bucket)) {
             BelBucketId bucket2 = ctx->getBelBucketForBel(bel);
             log_assert(bucket == bucket2);
 
@@ -227,9 +227,9 @@ void archcheck_buckets(const Context *ctx)
 
             // Check to see if a cell type not in this bucket can be
             // placed at a BEL in this bucket.
-            for(IdString cell_type : ctx->getCellTypes()) {
-                if(ctx->getBelBucketForCellType(cell_type) == bucket) {
-                    if(ctx->isValidBelForCellType(cell_type, bel)) {
+            for (IdString cell_type : ctx->getCellTypes()) {
+                if (ctx->getBelBucketForCellType(cell_type) == bucket) {
+                    if (ctx->isValidBelForCellType(cell_type, bel)) {
                         cell_types_unused.erase(cell_type);
                     }
                 } else {
@@ -240,8 +240,8 @@ void archcheck_buckets(const Context *ctx)
 
         // Verify that any BEL not in this bucket reports a different
         // bucket.
-        for(BelId bel : ctx->getBels()) {
-            if(ctx->getBelBucketForBel(bel) != bucket) {
+        for (BelId bel : ctx->getBels()) {
+            if (ctx->getBelBucketForBel(bel) != bucket) {
                 log_assert(bels_in_bucket.count(bel) == 0);
             }
         }
