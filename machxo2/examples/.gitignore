@@ -7,3 +7,5 @@ pack*.v
 place*.v
 pnr*.v
 abc.history
+/tinyfpga.txt
+/tinyfpga.bit
