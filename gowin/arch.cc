@@ -759,14 +759,14 @@ void IdString::initialize_arch(const BaseCtx *ctx)
 
 // ---------------------------------------------------------------
 
-BelId Arch::getBelByName(IdString name) const
+BelId Arch::getBelByName(IdStringList name) const
 {
-    if (bels.count(name))
-        return name;
+    if (bels.count(name[0]))
+        return name[0];
     return BelId();
 }
 
-IdString Arch::getBelName(BelId bel) const { return bel; }
+IdStringList Arch::getBelName(BelId bel) const { return IdStringList(bel); }
 
 Loc Arch::getBelLocation(BelId bel) const
 {
@@ -836,14 +836,14 @@ std::vector<IdString> Arch::getBelPins(BelId bel) const
 
 // ---------------------------------------------------------------
 
-WireId Arch::getWireByName(IdString name) const
+WireId Arch::getWireByName(IdStringList name) const
 {
-    if (wires.count(name))
-        return name;
+    if (wires.count(name[0]))
+        return name[0];
     return WireId();
 }
 
-IdString Arch::getWireName(WireId wire) const { return wire; }
+IdStringList Arch::getWireName(WireId wire) const { return IdStringList(wire); }
 
 IdString Arch::getWireType(WireId wire) const { return wires.at(wire).type; }
 
@@ -890,14 +890,14 @@ const std::vector<WireId> &Arch::getWires() const { return wire_ids; }
 
 // ---------------------------------------------------------------
 
-PipId Arch::getPipByName(IdString name) const
+PipId Arch::getPipByName(IdStringList name) const
 {
-    if (pips.count(name))
-        return name;
+    if (pips.count(name[0]))
+        return name[0];
     return PipId();
 }
 
-IdString Arch::getPipName(PipId pip) const { return pip; }
+IdStringList Arch::getPipName(PipId pip) const { return IdStringList(pip); }
 
 IdString Arch::getPipType(PipId pip) const { return pips.at(pip).type; }
 
@@ -950,9 +950,9 @@ const std::vector<PipId> &Arch::getPipsUphill(WireId wire) const { return wires.
 
 // ---------------------------------------------------------------
 
-GroupId Arch::getGroupByName(IdString name) const { return name; }
+GroupId Arch::getGroupByName(IdStringList name) const { return name[0]; }
 
-IdString Arch::getGroupName(GroupId group) const { return group; }
+IdStringList Arch::getGroupName(GroupId group) const { return IdStringList(group); }
 
 std::vector<GroupId> Arch::getGroups() const
 {
