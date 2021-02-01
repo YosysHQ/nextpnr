@@ -127,6 +127,8 @@ void archcheck_conn(const Context *ctx)
 
     log_info("Checking all wires...\n");
 
+    std::unordered_map<PipId, WireId> pips_downhill;
+    std::unordered_map<PipId, WireId> pips_uphill;
     for (WireId wire : ctx->getWires()) {
         for (BelPin belpin : ctx->getWireBelPins(wire)) {
             WireId wire2 = ctx->getBelPinWire(belpin.bel, belpin.pin);
@@ -136,11 +138,17 @@ void archcheck_conn(const Context *ctx)
         for (PipId pip : ctx->getPipsDownhill(wire)) {
             WireId wire2 = ctx->getPipSrcWire(pip);
             log_assert(wire == wire2);
+
+            auto result = pips_downhill.emplace(pip, wire);
+            log_assert(result.second);
         }
 
         for (PipId pip : ctx->getPipsUphill(wire)) {
             WireId wire2 = ctx->getPipDstWire(pip);
             log_assert(wire == wire2);
+
+            auto result = pips_uphill.emplace(pip, wire);
+            log_assert(result.second);
         }
     }
 
@@ -169,28 +177,12 @@ void archcheck_conn(const Context *ctx)
     for (PipId pip : ctx->getPips()) {
         WireId src_wire = ctx->getPipSrcWire(pip);
         if (src_wire != WireId()) {
-            bool found_pip = false;
-            for (PipId downhill_pip : ctx->getPipsDownhill(src_wire)) {
-                if (pip == downhill_pip) {
-                    found_pip = true;
-                    break;
-                }
-            }
-
-            log_assert(found_pip);
+            log_assert(pips_downhill.at(pip) == src_wire);
         }
 
         WireId dst_wire = ctx->getPipDstWire(pip);
         if (dst_wire != WireId()) {
-            bool found_pip = false;
-            for (PipId uphill_pip : ctx->getPipsUphill(dst_wire)) {
-                if (pip == uphill_pip) {
-                    found_pip = true;
-                    break;
-                }
-            }
-
-            log_assert(found_pip);
+            log_assert(pips_uphill.at(pip) == dst_wire);
         }
     }
 }
