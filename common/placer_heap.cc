@@ -523,20 +523,29 @@ class HeAPPlacer
                 bool placed = false;
                 int attempt_count = 0;
                 while (!placed) {
-                    if (!available_bels.count(ci->type) || available_bels.at(ci->type).empty()) {
-                        log_error("Unable to place cell '%s', no BELs remaining to implement cell type '%s'\n",
-                                ci->name.c_str(ctx),
-                                ci->type.c_str(ctx));
-                    }
                     ++attempt_count;
                     if (attempt_count > 25000) {
                         log_error("Unable to find a placement location for cell '%s'\n", ci->name.c_str(ctx));
+                    }
+
+                    // Make sure this cell type is in the available BEL map at
+                    // all.
+                    if (!available_bels.count(ci->type)) {
+                        log_error("Unable to place cell '%s', no BELs remaining to implement cell type '%s'\n",
+                                ci->name.c_str(ctx),
+                                ci->type.c_str(ctx));
                     }
 
                     // Find an unused BEL from bels_for_cell_type.
                     auto &bels_for_cell_type = available_bels.at(ci->type);
                     BelId bel;
                     while(true) {
+                        if (bels_for_cell_type.empty()) {
+                            log_error("Unable to place cell '%s', no BELs remaining to implement cell type '%s'\n",
+                                    ci->name.c_str(ctx),
+                                    ci->type.c_str(ctx));
+                        }
+
                         BelId candidate_bel = bels_for_cell_type.back();
                         bels_for_cell_type.pop_back();
                         if(bels_used.count(candidate_bel)) {
