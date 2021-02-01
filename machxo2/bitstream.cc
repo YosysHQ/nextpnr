@@ -29,24 +29,24 @@ NEXTPNR_NAMESPACE_BEGIN
 
 // These seem simple enough to do inline for now.
 namespace BaseConfigs {
-    void config_empty_lcmxo2_1200hc(ChipConfig &cc)
-    {
-        cc.chip_name = "LCMXO2-1200HC";
+void config_empty_lcmxo2_1200hc(ChipConfig &cc)
+{
+    cc.chip_name = "LCMXO2-1200HC";
 
-        cc.tiles["EBR_R6C11:EBR1"].add_unknown(0, 12);
-        cc.tiles["EBR_R6C15:EBR1"].add_unknown(0, 12);
-        cc.tiles["EBR_R6C18:EBR1"].add_unknown(0, 12);
-        cc.tiles["EBR_R6C21:EBR1"].add_unknown(0, 12);
-        cc.tiles["EBR_R6C2:EBR1"].add_unknown(0, 12);
-        cc.tiles["EBR_R6C5:EBR1"].add_unknown(0, 12);
-        cc.tiles["EBR_R6C8:EBR1"].add_unknown(0, 12);
+    cc.tiles["EBR_R6C11:EBR1"].add_unknown(0, 12);
+    cc.tiles["EBR_R6C15:EBR1"].add_unknown(0, 12);
+    cc.tiles["EBR_R6C18:EBR1"].add_unknown(0, 12);
+    cc.tiles["EBR_R6C21:EBR1"].add_unknown(0, 12);
+    cc.tiles["EBR_R6C2:EBR1"].add_unknown(0, 12);
+    cc.tiles["EBR_R6C5:EBR1"].add_unknown(0, 12);
+    cc.tiles["EBR_R6C8:EBR1"].add_unknown(0, 12);
 
-        cc.tiles["PT4:CFG0"].add_unknown(5, 30);
-        cc.tiles["PT4:CFG0"].add_unknown(5, 32);
-        cc.tiles["PT4:CFG0"].add_unknown(5, 36);
+    cc.tiles["PT4:CFG0"].add_unknown(5, 30);
+    cc.tiles["PT4:CFG0"].add_unknown(5, 32);
+    cc.tiles["PT4:CFG0"].add_unknown(5, 36);
 
-        cc.tiles["PT7:CFG3"].add_unknown(5, 18);
-    }
+    cc.tiles["PT7:CFG3"].add_unknown(5, 18);
+}
 } // namespace BaseConfigs
 
 // Convert an absolute wire name to a relative Trellis one
@@ -55,7 +55,8 @@ static std::string get_trellis_wirename(Context *ctx, Location loc, WireId wire)
     std::string basename = ctx->tileInfo(wire)->wire_data[wire.index].name.get();
     std::string prefix2 = basename.substr(0, 2);
     std::string prefix7 = basename.substr(0, 7);
-    if (prefix2 == "G_" || prefix2 == "L_" || prefix2 == "R_" || prefix2 == "U_" || prefix2 == "D_" || prefix7 == "BRANCH_")
+    if (prefix2 == "G_" || prefix2 == "L_" || prefix2 == "R_" || prefix2 == "U_" || prefix2 == "D_" ||
+        prefix7 == "BRANCH_")
         return basename;
     if (loc == wire.location)
         return basename;
@@ -182,11 +183,15 @@ void write_bitstream(Context *ctx, std::string text_config_file)
             cc.tiles[tname].add_word(slice + ".K1.INIT", int_to_bitvector(lut1_init, 16));
             cc.tiles[tname].add_enum(slice + ".MODE", str_or_default(ci->params, ctx->id("MODE"), "LOGIC"));
             cc.tiles[tname].add_enum(slice + ".GSR", str_or_default(ci->params, ctx->id("GSR"), "ENABLED"));
-            cc.tiles[tname].add_enum("LSR" + std::to_string(int_index) + ".SRMODE", str_or_default(ci->params, ctx->id("SRMODE"), "LSR_OVER_CE"));
+            cc.tiles[tname].add_enum("LSR" + std::to_string(int_index) + ".SRMODE",
+                                     str_or_default(ci->params, ctx->id("SRMODE"), "LSR_OVER_CE"));
             cc.tiles[tname].add_enum(slice + ".CEMUX", intstr_or_default(ci->params, ctx->id("CEMUX"), "1"));
-            cc.tiles[tname].add_enum("CLK" + std::to_string(int_index) + ".CLKMUX", intstr_or_default(ci->params, ctx->id("CLKMUX"), "0"));
-            cc.tiles[tname].add_enum("LSR" + std::to_string(int_index) + ".LSRMUX", str_or_default(ci->params, ctx->id("LSRMUX"), "LSR"));
-            cc.tiles[tname].add_enum("LSR" + std::to_string(int_index) + ".LSRONMUX", intstr_or_default(ci->params, ctx->id("LSRONMUX"), "LSRMUX"));
+            cc.tiles[tname].add_enum("CLK" + std::to_string(int_index) + ".CLKMUX",
+                                     intstr_or_default(ci->params, ctx->id("CLKMUX"), "0"));
+            cc.tiles[tname].add_enum("LSR" + std::to_string(int_index) + ".LSRMUX",
+                                     str_or_default(ci->params, ctx->id("LSRMUX"), "LSR"));
+            cc.tiles[tname].add_enum("LSR" + std::to_string(int_index) + ".LSRONMUX",
+                                     intstr_or_default(ci->params, ctx->id("LSRONMUX"), "LSRMUX"));
             cc.tiles[tname].add_enum(slice + ".REGMODE", str_or_default(ci->params, ctx->id("REGMODE"), "FF"));
             cc.tiles[tname].add_enum(slice + ".REG0.SD", intstr_or_default(ci->params, ctx->id("REG0_SD"), "0"));
             cc.tiles[tname].add_enum(slice + ".REG1.SD", intstr_or_default(ci->params, ctx->id("REG1_SD"), "0"));
