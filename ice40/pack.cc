@@ -435,7 +435,7 @@ static std::unique_ptr<CellInfo> create_padin_gbuf(Context *ctx, CellInfo *cell,
     // Find the matching SB_GB BEL connected to the same global network
     if (!cell->attrs.count(ctx->id("BEL")))
         log_error("Unconstrained SB_GB_IO %s is not supported.\n", ctx->nameOf(cell));
-    BelId bel = ctx->getBelByName(ctx->id(cell->attrs[ctx->id("BEL")].as_string()));
+    BelId bel = ctx->getBelByNameStr(cell->attrs[ctx->id("BEL")].as_string());
     BelId gb_bel = find_padin_gbuf(ctx, bel, port_name);
     NPNR_ASSERT(gb_bel != BelId());
 
@@ -666,7 +666,7 @@ static void promote_globals(Context *ctx)
             /* And possibly limits what we can promote */
             if (cell.second->attrs.find(ctx->id("BEL")) != cell.second->attrs.end()) {
                 /* If the SB_GB is locked, doesn't matter what it drives */
-                BelId bel = ctx->getBelByName(ctx->id(cell.second->attrs[ctx->id("BEL")].as_string()));
+                BelId bel = ctx->getBelByNameStr(cell.second->attrs[ctx->id("BEL")].as_string());
                 int glb_id = ctx->getDrivenGlobalNetwork(bel);
                 if ((glb_id % 2) == 0)
                     resets_available--;
@@ -785,7 +785,7 @@ static void place_plls(Context *ctx)
 
         // If it's constrained already, add to already used list
         if (ci->attrs.count(ctx->id("BEL"))) {
-            BelId bel_constrain = ctx->getBelByName(ctx->id(ci->attrs[ctx->id("BEL")].as_string()));
+            BelId bel_constrain = ctx->getBelByNameStr(ci->attrs[ctx->id("BEL")].as_string());
             if (pll_all_bels.count(bel_constrain) == 0)
                 log_error("PLL '%s' is constrained to invalid BEL '%s'\n", ci->name.c_str(ctx),
                           ci->attrs[ctx->id("BEL")].as_string().c_str());
@@ -820,7 +820,7 @@ static void place_plls(Context *ctx)
             log_error("PLL '%s' PACKAGEPIN SB_IO '%s' is unconstrained\n", ci->name.c_str(ctx),
                       io_cell->name.c_str(ctx));
 
-        BelId io_bel = ctx->getBelByName(ctx->id(io_cell->attrs.at(ctx->id("BEL")).as_string()));
+        BelId io_bel = ctx->getBelByNameStr(io_cell->attrs.at(ctx->id("BEL")).as_string());
         BelId found_bel;
 
         // Find the PLL BEL that would suit that connection
@@ -845,7 +845,7 @@ static void place_plls(Context *ctx)
         // Is it user constrained ?
         if (ci->attrs.count(ctx->id("BEL"))) {
             // Yes. Check it actually matches !
-            BelId bel_constrain = ctx->getBelByName(ctx->id(ci->attrs[ctx->id("BEL")].as_string()));
+            BelId bel_constrain = ctx->getBelByNameStr(ci->attrs[ctx->id("BEL")].as_string());
             if (bel_constrain != found_bel)
                 log_error("PLL '%s' is user constrained to %s but can only be placed in %s based on its PACKAGEPIN "
                           "connection\n",
@@ -857,7 +857,7 @@ static void place_plls(Context *ctx)
         }
 
         // Inform user
-        log_info("  constrained PLL '%s' to %s\n", ci->name.c_str(ctx), ctx->getBelName(found_bel).c_str(ctx));
+        log_info("  constrained PLL '%s' to %s\n", ci->name.c_str(ctx), ctx->nameOfBel(found_bel));
     }
 
     // Scan all SB_IOs to check for conflict with PLL BELs
@@ -875,7 +875,7 @@ static void place_plls(Context *ctx)
             continue;
 
         // Check all placed PLL (either forced by user, or forced by PACKAGEPIN)
-        BelId io_bel = ctx->getBelByName(ctx->id(io_ci->attrs[ctx->id("BEL")].as_string()));
+        BelId io_bel = ctx->getBelByNameStr(io_ci->attrs[ctx->id("BEL")].as_string());
 
         for (auto placed_pll : pll_used_bels) {
             BelPin pll_io_a, pll_io_b;
@@ -909,7 +909,7 @@ static void place_plls(Context *ctx)
             continue;
 
         // Check all placed PLL (either forced by user, or forced by PACKAGEPIN)
-        BelId gb_bel = ctx->getBelByName(ctx->id(gb_ci->attrs[ctx->id("BEL")].as_string()));
+        BelId gb_bel = ctx->getBelByNameStr(gb_ci->attrs[ctx->id("BEL")].as_string());
 
         for (auto placed_pll : pll_used_bels) {
             CellInfo *ci = placed_pll.second;
@@ -968,7 +968,7 @@ static void place_plls(Context *ctx)
             bool could_be_pad = false;
             BelId pad_bel;
             if (ni->users.size() == 1 && is_sb_io(ctx, ni->driver.cell) && ni->driver.cell->attrs.count(ctx->id("BEL")))
-                pad_bel = ctx->getBelByName(ctx->id(ni->driver.cell->attrs[ctx->id("BEL")].as_string()));
+                pad_bel = ctx->getBelByNameStr(ni->driver.cell->attrs[ctx->id("BEL")].as_string());
 
             // Find a BEL for it
             BelId found_bel;
@@ -1066,9 +1066,9 @@ static BelId cell_place_unique(Context *ctx, CellInfo *ci)
             continue;
         if (ctx->isBelLocked(bel))
             continue;
-        IdString bel_name = ctx->getBelName(bel);
+        IdStringList bel_name = ctx->getBelName(bel);
         ci->attrs[ctx->id("BEL")] = bel_name.str(ctx);
-        log_info("  constrained %s '%s' to %s\n", ci->type.c_str(ctx), ci->name.c_str(ctx), bel_name.c_str(ctx));
+        log_info("  constrained %s '%s' to %s\n", ci->type.c_str(ctx), ci->name.c_str(ctx), ctx->nameOfBel(bel));
         return bel;
     }
     log_error("Unable to place cell '%s' of type '%s'\n", ci->name.c_str(ctx), ci->type.c_str(ctx));
@@ -1278,9 +1278,9 @@ static void pack_special(Context *ctx)
             if (bel == BelId() || ctx->getBelType(bel) != ci->type)
                 log_error("Unable to find placement for cell '%s' of type '%s'\n", ci->name.c_str(ctx),
                           ci->type.c_str(ctx));
-            IdString bel_name = ctx->getBelName(bel);
+            IdStringList bel_name = ctx->getBelName(bel);
             ci->attrs[ctx->id("BEL")] = bel_name.str(ctx);
-            log_info("  constrained %s '%s' to %s\n", ci->type.c_str(ctx), ci->name.c_str(ctx), bel_name.c_str(ctx));
+            log_info("  constrained %s '%s' to %s\n", ci->type.c_str(ctx), ci->name.c_str(ctx), ctx->nameOfBel(bel));
         }
     }
 
@@ -1497,7 +1497,7 @@ void pack_plls(Context *ctx)
             }
         constr_fail:
             // PLL must have been placed already in place_plls()
-            BelId pll_bel = ctx->getBelByName(ctx->id(packed->attrs[ctx->id("BEL")].as_string()));
+            BelId pll_bel = ctx->getBelByNameStr(packed->attrs[ctx->id("BEL")].as_string());
             NPNR_ASSERT(pll_bel != BelId());
 
             // Deal with PAD PLL peculiarities

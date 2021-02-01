@@ -110,6 +110,17 @@ Arch::Arch(ArchArgs args) : args(args)
     if (package_info == nullptr)
         log_error("Unsupported package '%s'.\n", args.package.c_str());
 
+    for (int i = 0; i < chip_info->width; i++) {
+        IdString x_id = id(stringf("X%d", i));
+        x_ids.push_back(x_id);
+        id_to_x[x_id] = i;
+    }
+    for (int i = 0; i < chip_info->height; i++) {
+        IdString y_id = id(stringf("Y%d", i));
+        y_ids.push_back(y_id);
+        id_to_y[y_id] = i;
+    }
+
     bel_carry.resize(chip_info->bel_data.size());
     bel_to_cell.resize(chip_info->bel_data.size());
     wire_to_net.resize(chip_info->wire_data.size());
@@ -196,13 +207,16 @@ IdString Arch::archArgsToId(ArchArgs args) const
 
 // -----------------------------------------------------------------------
 
-BelId Arch::getBelByName(IdString name) const
+BelId Arch::getBelByName(IdStringList name) const
 {
     BelId ret;
 
     if (bel_by_name.empty()) {
-        for (size_t i = 0; i < chip_info->bel_data.size(); i++)
-            bel_by_name[id(chip_info->bel_data[i].name.get())] = i;
+        for (size_t i = 0; i < chip_info->bel_data.size(); i++) {
+            BelId b;
+            b.index = i;
+            bel_by_name[getBelName(b)] = i;
+        }
     }
 
     auto it = bel_by_name.find(name);
@@ -357,13 +371,16 @@ bool Arch::isBelLocked(BelId bel) const
 
 // -----------------------------------------------------------------------
 
-WireId Arch::getWireByName(IdString name) const
+WireId Arch::getWireByName(IdStringList name) const
 {
     WireId ret;
 
     if (wire_by_name.empty()) {
-        for (int i = 0; i < int(chip_info->wire_data.size()); i++)
-            wire_by_name[id(chip_info->wire_data[i].name.get())] = i;
+        for (int i = 0; i < int(chip_info->wire_data.size()); i++) {
+            WireId w;
+            w.index = i;
+            wire_by_name[getWireName(w)] = i;
+        }
     }
 
     auto it = wire_by_name.find(name);
@@ -427,7 +444,7 @@ std::vector<std::pair<IdString, std::string>> Arch::getWireAttrs(WireId wire) co
 
 // -----------------------------------------------------------------------
 
-PipId Arch::getPipByName(IdString name) const
+PipId Arch::getPipByName(IdStringList name) const
 {
     PipId ret;
 
@@ -446,24 +463,21 @@ PipId Arch::getPipByName(IdString name) const
     return ret;
 }
 
-IdString Arch::getPipName(PipId pip) const
+IdStringList Arch::getPipName(PipId pip) const
 {
     NPNR_ASSERT(pip != PipId());
 
-#if 1
     int x = chip_info->pip_data[pip.index].x;
     int y = chip_info->pip_data[pip.index].y;
 
-    std::string src_name = chip_info->wire_data[chip_info->pip_data[pip.index].src].name.get();
-    std::replace(src_name.begin(), src_name.end(), '/', '.');
+    auto &src_wire = chip_info->wire_data[chip_info->pip_data[pip.index].src];
+    auto &dst_wire = chip_info->wire_data[chip_info->pip_data[pip.index].dst];
 
-    std::string dst_name = chip_info->wire_data[chip_info->pip_data[pip.index].dst].name.get();
-    std::replace(dst_name.begin(), dst_name.end(), '/', '.');
+    std::string src_name = stringf("%d.%d.%s", int(src_wire.name_x), int(src_wire.name_y), src_wire.name.get());
+    std::string dst_name = stringf("%d.%d.%s", int(dst_wire.name_x), int(dst_wire.name_y), dst_wire.name.get());
 
-    return id("X" + std::to_string(x) + "/Y" + std::to_string(y) + "/" + src_name + ".->." + dst_name);
-#else
-    return id(chip_info->pip_data[pip.index].name.get());
-#endif
+    std::array<IdString, 3> ids{x_ids.at(x), y_ids.at(y), id(src_name + ".->." + dst_name)};
+    return IdStringList(ids);
 }
 
 IdString Arch::getPipType(PipId pip) const { return IdString(); }
@@ -503,7 +517,7 @@ std::string Arch::getBelPackagePin(BelId bel) const
 
 // -----------------------------------------------------------------------
 
-GroupId Arch::getGroupByName(IdString name) const
+GroupId Arch::getGroupByName(IdStringList name) const
 {
     for (auto g : getGroups())
         if (getGroupName(g) == name)
@@ -511,7 +525,7 @@ GroupId Arch::getGroupByName(IdString name) const
     return GroupId();
 }
 
-IdString Arch::getGroupName(GroupId group) const
+IdStringList Arch::getGroupName(GroupId group) const
 {
     std::string suffix;
 
@@ -553,7 +567,8 @@ IdString Arch::getGroupName(GroupId group) const
         return IdString();
     }
 
-    return id("X" + std::to_string(group.x) + "/Y" + std::to_string(group.y) + "/" + suffix);
+    std::array<IdString, 3> ids{x_ids.at(group.x), y_ids.at(group.y), id(suffix)};
+    return IdStringList(ids);
 }
 
 std::vector<GroupId> Arch::getGroups() const
