@@ -29,6 +29,8 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+#include "fpga_interchange_generated_defs.h"
+
 /**** Everything in this section must be kept in sync with chipdb.py ****/
 
 template <typename T> struct RelPtr
@@ -713,10 +715,11 @@ struct Arch : BaseCtx
 
     struct TileStatus
     {
+        std::bitset<kMaxNumberOfCells> bel_available;
         std::vector<CellInfo *> boundcells;
     };
 
-    std::vector<TileStatus> tileStatus;
+    std::unordered_map<TileStatus> tileStatus;
 
     ArchArgs args;
     Arch(ArchArgs args);
@@ -836,7 +839,7 @@ struct Arch : BaseCtx
 
     bool getBelGlobalBuf(BelId bel) const
     {
-        // TODO: This probably needs to be fixed!
+        // FIXME: This probably needs to be fixed!
         return false;
     }
 
@@ -867,7 +870,20 @@ struct Arch : BaseCtx
 
     WireId getBelPinWire(BelId bel, IdString pin) const;
     PortType getBelPinType(BelId bel, IdString pin) const;
-    std::vector<IdString> getBelPins(BelId bel) const;
+
+    IdStringRange getBelPins(BelId bel) const
+    {
+        NPNR_ASSERT(bel != BelId());
+
+        int num_bel_wires = locInfo(bel).bel_data[bel.index].num_bel_wires;
+        const int32_t *ports = locInfo(bel).bel_data[bel.index].ports.get();
+
+        IdStringRange str_range;
+        str_range.b.cursor = &ports[0];
+        str_range.b.cursor = &ports[num_bel_wires-1];
+
+        return str_range;
+    }
 
     bool isBelLocked(BelId bel) const;
 
@@ -1168,7 +1184,7 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
-    // TODO: Use groups to get access to sites.
+    // FIXME: Use groups to get access to sites.
     GroupId getGroupByName(IdString name) const { return GroupId(); }
     IdString getGroupName(GroupId group) const { return IdString(); }
     std::vector<GroupId> getGroups() const { return {}; }
@@ -1181,7 +1197,6 @@ struct Arch : BaseCtx
     delay_t estimateDelay(WireId src, WireId dst, bool debug = false) const;
     delay_t predictDelay(const NetInfo *net_info, const PortRef &sink) const;
     ArcBounds getRouteBoundingBox(WireId src, WireId dst) const;
-    delay_t getBoundingBoxCost(WireId src, WireId dst, int distance) const;
     delay_t getDelayEpsilon() const { return 20; }
     delay_t getRipupDelayPenalty() const { return 120; }
     delay_t getWireRipupDelayPenalty(WireId wire) const;
@@ -1292,6 +1307,8 @@ struct Arch : BaseCtx
     // This is not intended for Bel type checks, but finer-grained constraints
     // such as conflicting set/reset signals, etc
     bool isValidBelForCell(CellInfo *cell, BelId bel) const {
+        NPNR_ASSERT(isValidBelForCellType(cell->type, bel));
+
         // FIXME: Implement this
         return true;
     }

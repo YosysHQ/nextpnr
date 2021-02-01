@@ -164,18 +164,17 @@ WireId Arch::getBelPinWire(BelId bel, IdString pin) const
     NPNR_ASSERT(bel != BelId());
 
     int pin_index = getBelPinIndex(bel, pin);
-    if(pin_index < 0) {
-        // Port could not be found!
+
+    auto &bel_data = locInfo(bel).bel_data[bel.index];
+    NPNR_ASSERT(pin_index >= 0 && pin_index < bel_data.num_bel_wires);
+
+    const int32_t *wires = bel_data.wires.get();
+    int32_t wire_index = wires[pin_index];
+    if(wire_index < 0) {
+        // This BEL pin is not connected.
         return WireId();
     } else {
-        const int32_t *wires = locInfo(bel).bel_data[bel.index].wires.get();
-        int32_t wire_index = wires[pin_index];
-        if(wire_index < 0) {
-            // This BEL pin is not connected.
-            return WireId();
-        } else {
-            return canonicalWireId(chip_info, bel.tile, wire_index);
-        }
+        return canonicalWireId(chip_info, bel.tile, wire_index);
     }
 }
 
@@ -429,23 +428,6 @@ std::vector<std::pair<IdString, std::string>> Arch::getPipAttrs(PipId pip) const
 
 // -----------------------------------------------------------------------
 
-std::vector<IdString> Arch::getBelPins(BelId bel) const
-{
-    std::vector<IdString> ret;
-    NPNR_ASSERT(bel != BelId());
-
-    // FIXME: The std::vector here can be replaced by a int32_t -> IdString
-    // range wrapper.
-    int num_bel_wires = locInfo(bel).bel_data[bel.index].num_bel_wires;
-    const int32_t *ports = locInfo(bel).bel_data[bel.index].ports.get();
-
-    for (int i = 0; i < num_bel_wires; i++) {
-        ret.push_back(IdString(ports[i]));
-    }
-
-    return ret;
-}
-
 BelId Arch::getBelByLocation(Loc loc) const
 {
     BelId bi;
@@ -465,12 +447,6 @@ BelId Arch::getBelByLocation(Loc loc) const
 std::vector<std::pair<IdString, std::string>> Arch::getBelAttrs(BelId bel) const { return {}; }
 
 // -----------------------------------------------------------------------
-
-delay_t Arch::estimateDelay(WireId src, WireId dst, bool debug) const
-{
-    // FIXME: Implement something to push the A* router in the right direction.
-    return 0;
-}
 
 ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
 {
@@ -501,21 +477,9 @@ ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
     return {x0, y0, x1, y1};
 }
 
-delay_t Arch::getBoundingBoxCost(WireId src, WireId dst, int distance) const
-{
-    // FIXME: Implement when adding timing-driven place and route.
-    return 0;
-}
-
 delay_t Arch::getWireRipupDelayPenalty(WireId wire) const
 {
     return getRipupDelayPenalty();
-}
-
-delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
-{
-    // FIXME: Implement when adding timing-driven place and route.
-    return 0;
 }
 
 bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const { return false; }
@@ -564,6 +528,18 @@ DecalXY Arch::getPipDecal(PipId pip) const { return {}; };
 DecalXY Arch::getGroupDecal(GroupId pip) const { return {}; };
 
 // -----------------------------------------------------------------------
+
+delay_t Arch::estimateDelay(WireId src, WireId dst, bool debug) const
+{
+    // FIXME: Implement something to push the A* router in the right direction.
+    return 0;
+}
+
+delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
+{
+    // FIXME: Implement when adding timing-driven place and route.
+    return 0;
+}
 
 bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
 {
