@@ -51,7 +51,8 @@ void arch_wrap_python(py::module &m)
     typedef std::unordered_map<IdString, HierarchicalCell> HierarchyMap;
     typedef std::unordered_map<IdString, IdString> AliasMap;
 
-    typedef UpDownhillPipRange PipRange;
+    typedef UpDownhillPipRange UphillPipRange;
+    typedef UpDownhillPipRange DownhillPipRange;
     typedef WireBelPinRange BelPinRange;
 
 #include "arch_pybindings_shared.h"
