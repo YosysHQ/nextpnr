@@ -42,7 +42,7 @@ A type representing a pip name. `PipId()` must construct a unique null-value. Mu
 
 ### BelBucketId
 
-A type representing a BEL bucket. `BelBucketId()` must construct a unique null-value. Must provide `==`, `!=`, and `<` operators and a specialization for `std::hash<BelBucketId>`.
+A type representing a bel bucket. `BelBucketId()` must construct a unique null-value. Must provide `==`, `!=`, and `<` operators and a specialization for `std::hash<BelBucketId>`.
 
 ### GroupId
 
@@ -487,23 +487,23 @@ Return the _clocking info_ (including port name of clock, clock polarity and set
 port. Where ports have more than one clock edge associated with them (such as DDR outputs), `index` can be used to obtain
 information for all edges. `index` must be in [0, clockInfoCount), behaviour is undefined otherwise.
 
-BEL Buckets Methods
+Bel Buckets Methods
 -------------------
 
-BEL buckets are subsets of BelIds and cell types used by analytic placer to
-seperate types of BELs during placement. The buckets should form an exact
+Bel buckets are subsets of BelIds and cell types used by analytic placer to
+seperate types of bels during placement. The buckets should form an exact
 cover over all BelIds and cell types.
 
-Each BEL bucket should be BelIds and cell types that are roughly
+Each bel bucket should be BelIds and cell types that are roughly
 interchangable during placement.  Typical buckets are:
- - All LUT BELs
- - All FF BELs
- - All multipliers BELs
- - All block RAM BELs
+ - All LUT bels
+ - All FF bels
+ - All multipliers bels
+ - All block RAM bels
  - etc.
 
-The BEL buckets will be used during analytic placement for spreading prior to
-strict legality enforcement.  It is not required that all BELs within a bucket
+The bel buckets will be used during analytic placement for spreading prior to
+strict legality enforcement.  It is not required that all bels within a bucket
 are strictly equivelant.
 
 Strict legality step will enforce those differences, along with additional
@@ -512,11 +512,11 @@ local constraints.  `isValidBelForCell`, `isValidBelForCellType`, and
 
 ### const\_range\<BelBucketId\> getBelBuckets() const
 
-Return a list of all BEL buckets on the device.
+Return a list of all bel buckets on the device.
 
 ### IdString getBelBucketName(BelBucketId bucket) const
 
-Return the name of this BEL bucket.
+Return the name of this bel bucket.
 
 ### BelBucketId getBelBucketByName(IdString bucket\_name) const
 
@@ -524,30 +524,30 @@ Return the BelBucketId for the specified bucket name.
 
 ### BelBucketId getBelBucketForBel(BelId bel) const
 
-Returns the bucket for a particular BEL.
+Returns the bucket for a particular bel.
 
 ### BelBucketId getBelBucketForCell(IdString cell\_type) const
 
-Returns the BEL bucket for a particular cell type.
+Returns the bel bucket for a particular cell type.
 
 ### const\_range\<BelId\> getBelsInBucket(BelBucketId bucket) const
 
-Return the list of BELs within a bucket.
+Return the list of bels within a bucket.
 
 Placer Methods
 --------------
 
 ### bool isValidBelForCellType(IdString cell\_type, BelId bel) const
 
-Returns true if the given cell can be bound to the given BEL.  This check
+Returns true if the given cell can be bound to the given bel.  This check
 should be fast, compared with isValidBelForCell.  This check should always
 return the same value regardless if other cells are placed within the fabric.
 
 ### bool isValidBelForCell(CellInfo \*cell, BelId bel) const
 
-Returns true if the given cell can be bound to the given BEL, considering
+Returns true if the given cell can be bound to the given bel, considering
 other bound resources. For example, this can be used if there is only
-a certain number of different clock signals allowed for a group of BELs.
+a certain number of different clock signals allowed for a group of bels.
 
 ### bool isBelLocationValid(BelId bel) const
 

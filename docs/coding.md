@@ -24,9 +24,9 @@ This function allows architectures in nextpnr to do significantly less packing t
 
 Additionally to this; architectures provide functions for checking the availability and conflicts between resources (e.g. `checkBelAvail`, `checkPipAvail`, etc). This enables arbitrary constraints between resource availability to be defined, for example:
 
- - where a group of PIPs share bitstream bits, only one can be used at a time
- - PIPs that represent LUT permutation are not available when the LUT is in memory mode
- - only a certain total number of PIPs in a switchbox can be used at once due to power supply limitations
+ - where a group of pips share bitstream bits, only one can be used at a time
+ - Pips that represent LUT permutation are not available when the LUT is in memory mode
+ - only a certain total number of pips in a switchbox can be used at once due to power supply limitations
 
 ## `IdString`s
 
@@ -39,22 +39,22 @@ Note that `IdString`s need a `Context` (or `BaseCtx`) pointer to convert them ba
 ## Developing CAD algorithms - packing
 
 Packing in nextpnr could be done in two ways (if significant packing is done at all):
- - replacing multiple cells with a single larger cell that corresponds to a BEL
+ - replacing multiple cells with a single larger cell that corresponds to a bel
  - combining smaller cells using relative placement constraints
 
 The packer will also have to add relative constraints for fixed structures such as carry chains or LUT-MUX cascades.
 
 There are several helper functions that are useful for developing packers and other passes that perform significant netlist modifications in `util.h`. It is often preferable to use these compared to direct modification of the netlist structures due to the "double linking" nextpnr does - e.g. when connecting a port you must update both the `net` field of the ports and the `driver`/`users` of the net.
 
-### Cell to BEL mapping
+### Cell to bel mapping
 
 There is an Arch API choice when it comes to representing the relationship
-between cell types and BEL types.  One option is to transform cells into
-common types that correspond to a BEL (e.g. convert multiple flipflop
+between cell types and bel types.  One option is to transform cells into
+common types that correspond to a bel (e.g. convert multiple flipflop
 primitives to a single common type with some extra parameters). In Arch APIs
 designed like this, packer transformations are required to convert input cell
 types into nextpnr specific cell types that have a 1 to 1 relationship with
-BEL types.
+bel types.
 
 For Arch APIs of this type, the method `isValidBelForCellType` reduces to:
 
@@ -65,15 +65,15 @@ bool isValidBelForCellType(IdString cell_type, BelId bel) const {
 ```
 
 The alternative is to implement a fast `isValidBelForCellType` method that
-determines if this cell type can be bound to this BEL.
+determines if this cell type can be bound to this bel.
 
 ## Developing CAD algorithms - placement
 
-The job of the placer in nextpnr is to find a suitable BEL for each cell in the design; while respecting legality and relative constraints.
+The job of the placer in nextpnr is to find a suitable bel for each cell in the design; while respecting legality and relative constraints.
 
-Placers might want to create their own indices of BELs (for example, BELs by type and location) to speed up the search.
+Placers might want to create their own indices of bels (for example, bels by type and location) to speed up the search.
 
-As nextpnr allows arbitrary constraints on BELs for more advanced packer-free flows and complex real-world architectures; placements must be checked for legality using `isValidBelForCell` (before placement) or `isBelLocationValid` (after placement) and the placement rejected if invalid. For analytical placement algorithms; after creating a spread-out AP solution the legality of placing each cell needs to be checked. In practice, the cost of this is fairly low as the architecture should ensure these functions are as fast as possible.
+As nextpnr allows arbitrary constraints on bels for more advanced packer-free flows and complex real-world architectures; placements must be checked for legality using `isValidBelForCell` (before placement) or `isBelLocationValid` (after placement) and the placement rejected if invalid. For analytical placement algorithms; after creating a spread-out AP solution the legality of placing each cell needs to be checked. In practice, the cost of this is fairly low as the architecture should ensure these functions are as fast as possible.
 
 There are several routes for timing information in the placer:
     - sink `PortRef`s have a `budget` value annotated by calling `assign_budget` which is an estimate of the maximum delay that an arc may have
@@ -81,14 +81,14 @@ There are several routes for timing information in the placer:
     - `predictDelay` returns an estimated delay for a sink port based on placement information
 
 
-### BEL Buckets
+### Bel Buckets
 
-The BEL Bucket Arch APIs can be used by an analytical placer (AP) for getting 
-groups of BELs and cell types placed together.  This grouping is important for
+The bel Bucket Arch APIs can be used by an analytical placer (AP) for getting
+groups of bels and cell types placed together.  This grouping is important for
 algorithms like HeAP which typically want to do operate on subsets of the
 design for some portions of the placement.
 
-The HeAP implementation allows for multiple BEL buckets to be placed on 
+The HeAP implementation allows for multiple bel buckets to be placed on
 together, see the "cellGroups" field.
 
 ## Routing
