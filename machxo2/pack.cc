@@ -176,7 +176,7 @@ static void pack_io(Context *ctx)
             for (auto &p : ci->ports)
                 disconnect_port(ctx, ci, p.first);
             packed_cells.insert(ci->name);
-        } else if(is_facade_iob(ctx, ci)) {
+        } else if (is_facade_iob(ctx, ci)) {
             // If FACADE_IO has LOC attribute, convert the LOC (pin) to a BEL
             // attribute and place FACADE_IO at resulting BEL location. A BEL
             // attribute already on a FACADE_IO is an error. Attributes on
@@ -185,10 +185,9 @@ static void pack_io(Context *ctx)
             auto loc_attr_cell = ci->attrs.find(ctx->id("LOC"));
             auto bel_attr_cell = ci->attrs.find(ctx->id("BEL"));
 
-            if(loc_attr_cell != ci->attrs.end()) {
+            if (loc_attr_cell != ci->attrs.end()) {
                 if (bel_attr_cell != ci->attrs.end()) {
-                    log_error("IO buffer %s has both a BEL attribute and LOC attribute.\n",
-                        ci->name.c_str(ctx));
+                    log_error("IO buffer %s has both a BEL attribute and LOC attribute.\n", ci->name.c_str(ctx));
                 }
 
                 log_info("found LOC attribute on IO buffer %s.\n", ci->name.c_str(ctx));

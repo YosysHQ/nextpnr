@@ -67,7 +67,7 @@ po::options_description MachXO2CommandHandler::getArchOptions()
                            "base chip configuration in Trellis text format");
     specific.add_options()("textcfg", po::value<std::string>(), "textual configuration in Trellis format to write");
 
-    //specific.add_options()("lpf", po::value<std::vector<std::string>>(), "LPF pin constraint file(s)");
+    // specific.add_options()("lpf", po::value<std::vector<std::string>>(), "LPF pin constraint file(s)");
 
     specific.add_options()("no-iobs", "disable automatic IO buffer insertion (unimplemented- always enabled)");
     return specific;

@@ -629,7 +629,8 @@ struct Arch : BaseCtx
     {
         NPNR_ASSERT(wire != WireId());
         std::stringstream name;
-        name << "X" << wire.location.x << "/Y" << wire.location.y << "/" << tileInfo(wire)->wire_data[wire.index].name.get();
+        name << "X" << wire.location.x << "/Y" << wire.location.y << "/"
+             << tileInfo(wire)->wire_data[wire.index].name.get();
         return id(name.str());
     }
 
