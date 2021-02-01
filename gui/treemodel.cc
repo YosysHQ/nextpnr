@@ -26,7 +26,7 @@ NEXTPNR_NAMESPACE_BEGIN
 namespace TreeModel {
 
 // converts 'aa123bb432' -> ['aa', '123', 'bb', '432']
-std::vector<QString> IdStringList::alphaNumSplit(const QString &str)
+std::vector<QString> IdList::alphaNumSplit(const QString &str)
 {
     std::vector<QString> res;
     QString current_part;
@@ -53,12 +53,12 @@ std::vector<QString> IdStringList::alphaNumSplit(const QString &str)
     return res;
 }
 
-void IdStringList::updateElements(Context *ctx, std::vector<IdString> elements)
+void IdList::updateElements(Context *ctx, std::vector<IdStringList> elements)
 {
     bool changed = false;
 
     // For any elements that are not yet in managed_, created them.
-    std::unordered_set<IdString> element_set;
+    std::unordered_set<IdStringList> element_set;
     for (auto elem : elements) {
         element_set.insert(elem);
         auto existing = managed_.find(elem);
@@ -134,7 +134,7 @@ void IdStringList::updateElements(Context *ctx, std::vector<IdString> elements)
     });
 }
 
-void IdStringList::search(QList<Item *> &results, QString text, int limit)
+void IdList::search(QList<Item *> &results, QString text, int limit)
 {
     for (const auto &child : children_) {
         if (limit != -1 && results.size() > limit)
@@ -157,7 +157,7 @@ void Model::loadData(Context *ctx, std::unique_ptr<Item> data)
     endResetModel();
 }
 
-void Model::updateElements(std::vector<IdString> elements)
+void Model::updateElements(std::vector<IdStringList> elements)
 {
     if (!ctx_)
         return;

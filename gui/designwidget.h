@@ -71,7 +71,7 @@ class DesignWidget : public QWidget
     int getElementIndex(ElementType type);
     void updateButtons();
     void addToHistory(int tab, QModelIndex item);
-    std::vector<DecalXY> getDecals(ElementType type, IdString value);
+    std::vector<DecalXY> getDecals(ElementType type, IdStringList value);
     void updateHighlightGroup(QList<TreeModel::Item *> item, int group);
     void clearAllSelectionModels();
   Q_SIGNALS:

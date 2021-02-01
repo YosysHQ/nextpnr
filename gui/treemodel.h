@@ -95,16 +95,16 @@ class Item
     int indexOf(Item *child) { return children_.indexOf(child, 0); }
 
     // Arch id and type that correspond to this element.
-    virtual IdString id() const { return IdString(); }
+    virtual IdStringList id() const { return IdStringList(); }
     virtual ElementType type() const { return ElementType::NONE; }
 
     // Lazy loading methods.
     virtual bool canFetchMore() const { return false; }
     virtual void fetchMore() {}
 
-    virtual boost::optional<Item *> getById(IdString id) { return boost::none; }
+    virtual boost::optional<Item *> getById(IdStringList id) { return boost::none; }
     virtual void search(QList<Item *> &results, QString text, int limit) {}
-    virtual void updateElements(Context *ctx, std::vector<IdString> elements) {}
+    virtual void updateElements(Context *ctx, std::vector<IdStringList> elements) {}
 
     virtual ~Item()
     {
@@ -118,46 +118,46 @@ class Item
 class IdStringItem : public Item
 {
   private:
-    IdString id_;
+    IdStringList id_;
     ElementType type_;
 
   public:
-    IdStringItem(Context *ctx, IdString str, Item *parent, ElementType type)
-            : Item(QString(str.c_str(ctx)), parent), id_(str), type_(type)
+    IdStringItem(Context *ctx, IdStringList str, Item *parent, ElementType type)
+            : Item(QString(str.str(ctx).c_str()), parent), id_(str), type_(type)
     {
     }
 
-    virtual IdString id() const override { return id_; }
+    virtual IdStringList id() const override { return id_; }
 
     virtual ElementType type() const override { return type_; }
 };
 
-// IdString list is a static list of IdStrings which can be set/updates from
+// IdList is a static list of IdStringLists which can be set/updates from
 // a vector of IdStrings. It will render each IdStrings as a child, with the
 // list sorted in a smart way.
-class IdStringList : public Item
+class IdList : public Item
 {
   private:
     // Children that we manage the memory for, stored for quick lookup from
     // IdString to child.
-    std::unordered_map<IdString, std::unique_ptr<IdStringItem>> managed_;
+    std::unordered_map<IdStringList, std::unique_ptr<IdStringItem>> managed_;
     // Type of children that the list creates.
     ElementType child_type_;
 
   public:
-    // Create an IdStringList at given parent that will contain elements of
+    // Create an IdList at given parent that will contain elements of
     // the given type.
-    IdStringList(ElementType type) : Item("root", nullptr), child_type_(type) {}
+    IdList(ElementType type) : Item("root", nullptr), child_type_(type) {}
 
     // Split a name into alpha/non-alpha parts, which is then used for sorting
     // of children.
     static std::vector<QString> alphaNumSplit(const QString &str);
 
     // getById finds a child for the given IdString.
-    virtual boost::optional<Item *> getById(IdString id) override { return managed_.at(id).get(); }
+    virtual boost::optional<Item *> getById(IdStringList id) override { return managed_.at(id).get(); }
 
     // (Re-)create children from a list of IdStrings.
-    virtual void updateElements(Context *ctx, std::vector<IdString> elements) override;
+    virtual void updateElements(Context *ctx, std::vector<IdStringList> elements) override;
 
     // Find children that contain the given text.
     virtual void search(QList<Item *> &results, QString text, int limit) override;
@@ -173,7 +173,7 @@ template <typename ElementT> class ElementList : public Item
     // A map from tile (X,Y) to list of ElementTs in that tile.
     using ElementMap = std::map<std::pair<int, int>, std::vector<ElementT>>;
     // A method that converts an ElementT to an IdString.
-    using ElementGetter = std::function<IdString(Context *, ElementT)>;
+    using ElementGetter = std::function<IdStringList(Context *, ElementT)>;
 
   private:
     Context *ctx_;
@@ -184,7 +184,7 @@ template <typename ElementT> class ElementList : public Item
     ElementGetter getter_;
     // Children that we manage the memory for, stored for quick lookup from
     // IdString to child.
-    std::unordered_map<IdString, std::unique_ptr<Item>> managed_;
+    std::unordered_map<IdStringList, std::unique_ptr<Item>> managed_;
     // Type of children that he list creates.
     ElementType child_type_;
 
@@ -209,9 +209,10 @@ template <typename ElementT> class ElementList : public Item
         size_t end = std::min(start + count, elements()->size());
         for (size_t i = start; i < end; i++) {
             auto idstring = getter_(ctx_, elements()->at(i));
-            QString name(idstring.c_str(ctx_));
+            std::string name_str = idstring.str(ctx_);
+            QString name(name_str.c_str());
 
-            // Remove X.../Y.../ prefix
+            // Remove X.../Y.../ prefix - TODO: find a way to use IdStringList splitting here
             QString prefix = QString("X%1/Y%2/").arg(x_).arg(y_);
             if (name.startsWith(prefix))
                 name.remove(0, prefix.size());
@@ -224,7 +225,7 @@ template <typename ElementT> class ElementList : public Item
     virtual void fetchMore() override { fetchMore(100); }
 
     // getById finds a child for the given IdString.
-    virtual boost::optional<Item *> getById(IdString id) override
+    virtual boost::optional<Item *> getById(IdStringList id) override
     {
         // Search requires us to load all our elements...
         while (canFetchMore())
@@ -267,7 +268,7 @@ template <typename ElementT> class ElementXYRoot : public Item
     // A map from tile (X,Y) to list of ElementTs in that tile.
     using ElementMap = std::map<std::pair<int, int>, std::vector<ElementT>>;
     // A method that converts an ElementT to an IdString.
-    using ElementGetter = std::function<IdString(Context *, ElementT)>;
+    using ElementGetter = std::function<IdStringList(Context *, ElementT)>;
 
   private:
     Context *ctx_;
@@ -319,7 +320,7 @@ template <typename ElementT> class ElementXYRoot : public Item
     }
 
     // getById finds a child for the given IdString.
-    virtual boost::optional<Item *> getById(IdString id) override
+    virtual boost::optional<Item *> getById(IdStringList id) override
     {
         // For now, scan linearly all ElementLists.
         // TODO(q3k) fix this once we have tree API from arch
@@ -353,7 +354,7 @@ class Model : public QAbstractItemModel
     ~Model();
 
     void loadData(Context *ctx, std::unique_ptr<Item> data);
-    void updateElements(std::vector<IdString> elements);
+    void updateElements(std::vector<IdStringList> elements);
     Item *nodeFromIndex(const QModelIndex &idx) const;
     QModelIndex indexFromNode(Item *node)
     {
@@ -366,7 +367,7 @@ class Model : public QAbstractItemModel
 
     QList<QModelIndex> search(QString text);
 
-    boost::optional<Item *> nodeForId(IdString id) const { return root_->getById(id); }
+    boost::optional<Item *> nodeForId(IdStringList id) const { return root_->getById(id); }
 
     // Override QAbstractItemModel methods
     int rowCount(const QModelIndex &parent = QModelIndex()) const Q_DECL_OVERRIDE;
