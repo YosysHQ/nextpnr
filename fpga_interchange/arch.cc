@@ -80,6 +80,13 @@ Arch::Arch(ArchArgs args) : args(args)
     for (int i = 0; i < chip_info->num_tiles; i++) {
         tileStatus[i].boundcells.resize(chip_info->tile_types[chip_info->tiles[i].type].num_bels);
     }
+
+    // Sanity check cell name ids.
+    const CellMapPOD & cell_map = *chip_info->cell_map;
+    int32_t first_cell_id = cell_map.cell_names[0];
+    for(size_t i = 0; i < cell_map.number_cells; ++i) {
+        log_assert(cell_map.cell_names[i] == i + first_cell_id);
+    }
 }
 
 // -----------------------------------------------------------------------

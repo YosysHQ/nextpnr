@@ -74,6 +74,7 @@ template <typename T> struct RelPtr
 NPNR_PACKED_STRUCT(struct BelInfoPOD {
     int32_t name;        // bel name (in site) constid
     int32_t type;        // Type name constid
+    int32_t bel_bucket;  // BEL bucket constid.
 
     int32_t num_bel_wires;
     RelPtr<int32_t> ports; // port name constid
@@ -84,6 +85,8 @@ NPNR_PACKED_STRUCT(struct BelInfoPOD {
     int16_t site_variant; // some sites have alternative types
     int16_t category;
     int16_t padding;
+
+    RelPtr<int8_t> valid_cells;
 });
 
 enum BELCategory {
@@ -179,6 +182,17 @@ NPNR_PACKED_STRUCT(struct NodeInfoPOD {
     RelPtr<TileWireRefPOD> tile_wires;
 });
 
+NPNR_PACKED_STRUCT(struct CellMapPOD {
+    // BEL bucket constids.
+    int32_t number_bel_buckets;
+    RelPtr<int32_t> bel_buckets;
+
+    int32_t number_cells;
+    // Cell names supported in this arch.
+    RelPtr<int32_t> cell_names;
+    RelPtr<int32_t> cell_bel_buckets;
+});
+
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelPtr<char> name;
     RelPtr<char> generator;
@@ -197,6 +211,11 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
 
     int32_t num_nodes;
     RelPtr<NodeInfoPOD> nodes;
+
+    RelPtr<CellMapPOD> cell_map;
+
+    int32_t number_bel_buckets;
+    RelPtr<int32_t> bel_buckets;
 });
 
 /************************ End of chipdb section. ************************/
@@ -253,6 +272,62 @@ struct BelRange
     BelIterator b, e;
     BelIterator begin() const { return b; }
     BelIterator end() const { return e; }
+};
+
+struct FilteredBelIterator
+{
+    std::function<bool(BelId)> filter;
+    BelIterator b, e;
+
+    FilteredBelIterator operator++()
+    {
+        ++b;
+        while(b != e) {
+            if(filter(*b)) {
+                break;
+            }
+
+            ++b;
+        }
+        return *this;
+    }
+
+    bool operator!=(const FilteredBelIterator &other) const
+    {
+        NPNR_ASSERT(e == other.e);
+        return b != other.b;
+    }
+
+    bool operator==(const FilteredBelIterator &other) const
+    {
+        NPNR_ASSERT(e == other.e);
+        return b == other.b;
+    }
+
+    BelId operator*() const
+    {
+        return *b;
+    }
+};
+
+struct FilteredBelRange
+{
+    FilteredBelRange(BelIterator bel_b, BelIterator bel_e, std::function<bool(BelId)> filter) {
+        b.filter = filter;
+        b.b = bel_b;
+        b.e = bel_e;
+
+        if(b.b != b.e && !filter(*b.b)) {
+            ++b.b;
+        }
+
+        e.b = bel_e;
+        e.e = bel_e;
+    }
+
+    FilteredBelIterator b, e;
+    FilteredBelIterator begin() const { return b; }
+    FilteredBelIterator end() const { return e; }
 };
 
 // -----------------------------------------------------------------------
@@ -551,6 +626,68 @@ struct BelPinRange
     BelPinIterator b, e;
     BelPinIterator begin() const { return b; }
     BelPinIterator end() const { return e; }
+};
+
+struct IdStringIterator
+{
+    const int32_t *cursor;
+
+    void operator++()
+    {
+        cursor += 1;
+    }
+
+    bool operator!=(const IdStringIterator &other) const {
+        return cursor != other.cursor;
+    }
+
+    bool operator==(const IdStringIterator &other) const {
+        return cursor == other.cursor;
+    }
+
+    IdString operator*() const
+    {
+        return IdString(*cursor);
+    }
+};
+
+struct IdStringRange
+{
+    IdStringIterator b, e;
+    IdStringIterator begin() const { return b; }
+    IdStringIterator end() const { return e; }
+};
+
+struct BelBucketIterator
+{
+    IdStringIterator cursor;
+
+    void operator++()
+    {
+        ++cursor;
+    }
+
+    bool operator!=(const BelBucketIterator &other) const {
+        return cursor != other.cursor;
+    }
+
+    bool operator==(const BelBucketIterator &other) const {
+        return cursor == other.cursor;
+    }
+
+    BelBucketId operator*() const
+    {
+        BelBucketId bucket;
+        bucket.name = IdString(*cursor);
+        return bucket;
+    }
+};
+
+struct BelBucketRange
+{
+    BelBucketIterator b, e;
+    BelBucketIterator begin() const { return b; }
+    BelBucketIterator end() const { return e; }
 };
 
 struct ArchArgs
@@ -1080,6 +1217,73 @@ struct Arch : BaseCtx
     TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const;
 
     // -------------------------------------------------
+
+    const BelBucketRange getBelBuckets() const {
+        BelBucketRange bel_bucket_range;
+        bel_bucket_range.b.cursor.cursor = &chip_info->bel_buckets[0];
+        bel_bucket_range.e.cursor.cursor = &chip_info->bel_buckets[chip_info->number_bel_buckets-1];
+        return bel_bucket_range;
+    }
+
+    BelBucketId getBelBucketForBel(BelId bel) const {
+        BelBucketId bel_bucket;
+        bel_bucket.name = IdString(locInfo(bel).bel_data[bel.index].bel_bucket);
+        return bel_bucket;
+    }
+
+    const IdStringRange getCellTypes() const {
+        const CellMapPOD & cell_map = *chip_info->cell_map;
+
+        IdStringRange id_range;
+        id_range.b.cursor = &cell_map.cell_names[0];
+        id_range.e.cursor = &cell_map.cell_names[cell_map.number_cells-1];
+
+        return id_range;
+    }
+
+    IdString getBelBucketName(BelBucketId bucket) const {
+        return bucket.name;
+    }
+
+    BelBucketId getBelBucketByName(IdString name) const {
+        for(BelBucketId bel_bucket : getBelBuckets()) {
+            if(bel_bucket.name == name) {
+                return bel_bucket;
+            }
+        }
+
+        NPNR_ASSERT_FALSE("Failed to find BEL bucket for name.");
+        return BelBucketId();
+    }
+
+    size_t getCellTypeIndex(IdString cell_type) const {
+        const CellMapPOD & cell_map = *chip_info->cell_map;
+        int cell_offset = cell_type.index - cell_map.cell_names[0];
+        NPNR_ASSERT(cell_type.index >= 0 && cell_type.index < cell_map.number_cells);
+
+        return cell_offset;
+    }
+
+    BelBucketId getBelBucketForCellType(IdString cell_type) const {
+        BelBucketId bucket;
+        const CellMapPOD & cell_map = *chip_info->cell_map;
+        bucket.name = cell_map.cell_bel_buckets[getCellTypeIndex(cell_type)];
+        return bucket;
+    }
+
+    FilteredBelRange getBelsInBucket(BelBucketId bucket) const {
+        BelRange range = getBels();
+        FilteredBelRange filtered_range(
+                range.begin(), range.end(), [this, bucket](BelId bel) {
+                return getBelBucketForBel(bel) == bucket;
+            });
+
+        return filtered_range;
+    }
+
+    bool isValidBelForCellType(IdString cell_type, BelId bel) const {
+        return locInfo(bel).bel_data[bel.index].valid_cells[getCellTypeIndex(cell_type)];
+    }
 
     // Whether or not a given cell can be placed at a given Bel
     // This is not intended for Bel type checks, but finer-grained constraints
