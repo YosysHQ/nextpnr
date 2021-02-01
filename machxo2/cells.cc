@@ -157,12 +157,6 @@ void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff)
 
 void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_lut)
 {
-    // By this point, we have shown that LUT4 Z is attached to FACADE_FF DI.
-    // This connection will be preserved by port replacement, but the SD mux
-    // which selects the actual DFF input needs to be told to use the
-    // FACADE_SLICE DI input instead of the FACADE_SLICE M input.
-    lc->params[ctx->id("REG0_SD")] = std::string("0");
-
     // FIXME: This will have to change once we support FFs with reset value of 1.
     lc->params[ctx->id("REG0_REGSET")] = std::string("RESET");
 
