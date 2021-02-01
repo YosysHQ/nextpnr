@@ -86,7 +86,7 @@ NPNR_PACKED_STRUCT(struct BelInfoPOD {
     int16_t category;
     int16_t padding;
 
-    RelPtr<int8_t> valid_cells;
+    RelPtr<int8_t> valid_cells; // Bool array, length of number_cells.
 });
 
 enum BELCategory {
@@ -183,14 +183,10 @@ NPNR_PACKED_STRUCT(struct NodeInfoPOD {
 });
 
 NPNR_PACKED_STRUCT(struct CellMapPOD {
-    // BEL bucket constids.
-    int32_t number_bel_buckets;
-    RelPtr<int32_t> bel_buckets;
-
     int32_t number_cells;
     // Cell names supported in this arch.
-    RelPtr<int32_t> cell_names;
-    RelPtr<int32_t> cell_bel_buckets;
+    RelPtr<int32_t> cell_names;       // constids
+    RelPtr<int32_t> cell_bel_buckets; // constids
 });
 
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
@@ -212,10 +208,11 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     int32_t num_nodes;
     RelPtr<NodeInfoPOD> nodes;
 
-    RelPtr<CellMapPOD> cell_map;
-
+    // BEL bucket constids.
     int32_t number_bel_buckets;
     RelPtr<int32_t> bel_buckets;
+
+    RelPtr<CellMapPOD> cell_map;
 });
 
 /************************ End of chipdb section. ************************/
@@ -306,7 +303,9 @@ struct FilteredBelIterator
 
     BelId operator*() const
     {
-        return *b;
+        BelId bel = *b;
+        NPNR_ASSERT(filter(bel));
+        return bel;
     }
 };
 
@@ -318,11 +317,15 @@ struct FilteredBelRange
         b.e = bel_e;
 
         if(b.b != b.e && !filter(*b.b)) {
-            ++b.b;
+            ++b;
         }
 
         e.b = bel_e;
         e.e = bel_e;
+
+        if(b != e) {
+            NPNR_ASSERT(filter(*b.b));
+        }
     }
 
     FilteredBelIterator b, e;
