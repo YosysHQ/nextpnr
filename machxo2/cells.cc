@@ -154,15 +154,24 @@ void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff)
     replace_port(lut, ctx->id("Z"), lc, ctx->id("F0"));
 }
 
-void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_lut)
+void dff_to_lc(Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_lut)
 {
     // FIXME: This will have to change once we support FFs with reset value of 1.
     lc->params[ctx->id("REG0_REGSET")] = std::string("RESET");
 
     replace_port(dff, ctx->id("CLK"), lc, ctx->id("CLK"));
-    replace_port(dff, ctx->id("DI"), lc, ctx->id("DI0"));
     replace_port(dff, ctx->id("LSR"), lc, ctx->id("LSR"));
     replace_port(dff, ctx->id("Q"), lc, ctx->id("Q0"));
+
+    // If a register's DI port is fed by a constant, options for placing are
+    // limited. Use the LUT to get around this.
+    if(pass_thru_lut) {
+        lc->params[ctx->id("LUT0_INITVAL")] = 0xAAAA;
+        replace_port(dff, ctx->id("DI"), lc, ctx->id("A0"));
+        connect_ports(ctx, lc, ctx->id("F0"), lc, ctx->id("DI0"));
+    } else {
+        replace_port(dff, ctx->id("DI"), lc, ctx->id("DI0"));
+    }
 }
 
 void nxio_to_iob(Context *ctx, CellInfo *nxio, CellInfo *iob, std::unordered_set<IdString> &todelete_cells) {}

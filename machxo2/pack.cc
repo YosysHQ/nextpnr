@@ -124,9 +124,12 @@ static void pack_remaining_ffs(Context *ctx)
 }
 
 // Merge a net into a constant net
-static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constnet, bool constval)
+static void set_net_constant(Context *ctx, NetInfo *orig, NetInfo *constnet, bool constval)
 {
     (void)constval;
+
+    std::unordered_set<IdString> packed_cells;
+    std::vector<std::unique_ptr<CellInfo>> new_cells;
 
     orig->driver.cell = nullptr;
     for (auto user : orig->users) {
@@ -135,11 +138,33 @@ static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constne
             if (ctx->verbose)
                 log_info("%s user %s\n", orig->name.c_str(ctx), uc->name.c_str(ctx));
 
-            uc->ports[user.port].net = constnet;
+            if(uc->type == id_FACADE_FF && user.port == id_DI) {
+                log_info("FACADE_FF %s is driven by a constant\n", uc->name.c_str(ctx));
+
+                std::unique_ptr<CellInfo> lc = create_machxo2_cell(ctx, id_FACADE_SLICE, uc->name.str(ctx) + "_CONST");
+                dff_to_lc(ctx, uc, lc.get(), true);
+                packed_cells.insert(uc->name);
+
+                lc->ports[id_A0].net = constnet;
+                user.cell = lc.get();
+                user.port = id_A0;
+
+                new_cells.push_back(std::move(lc));
+            } else {
+                uc->ports[user.port].net = constnet;
+            }
+
             constnet->users.push_back(user);
         }
     }
     orig->users.clear();
+
+    for (auto pcell : packed_cells) {
+        ctx->cells.erase(pcell);
+    }
+    for (auto &ncell : new_cells) {
+        ctx->cells[ncell->name] = std::move(ncell);
+    }
 }
 
 // Pack constants (based on simple implementation in generic).
