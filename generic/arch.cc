@@ -28,31 +28,31 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-WireInfo &Arch::wire_info(IdString wire)
+WireInfo &Arch::wire_info(IdStringList wire)
 {
     auto w = wires.find(wire);
     if (w == wires.end())
-        NPNR_ASSERT_FALSE_STR("no wire named " + wire.str(this));
+        NPNR_ASSERT_FALSE_STR("no wire named " + wire.str(getCtx()));
     return w->second;
 }
 
-PipInfo &Arch::pip_info(IdString pip)
+PipInfo &Arch::pip_info(IdStringList pip)
 {
     auto p = pips.find(pip);
     if (p == pips.end())
-        NPNR_ASSERT_FALSE_STR("no pip named " + pip.str(this));
+        NPNR_ASSERT_FALSE_STR("no pip named " + pip.str(getCtx()));
     return p->second;
 }
 
-BelInfo &Arch::bel_info(IdString bel)
+BelInfo &Arch::bel_info(IdStringList bel)
 {
     auto b = bels.find(bel);
     if (b == bels.end())
-        NPNR_ASSERT_FALSE_STR("no bel named " + bel.str(this));
+        NPNR_ASSERT_FALSE_STR("no bel named " + bel.str(getCtx()));
     return b->second;
 }
 
-void Arch::addWire(IdString name, IdString type, int x, int y)
+void Arch::addWire(IdStringList name, IdString type, int x, int y)
 {
     NPNR_ASSERT(wires.count(name) == 0);
     WireInfo &wi = wires[name];
@@ -64,7 +64,8 @@ void Arch::addWire(IdString name, IdString type, int x, int y)
     wire_ids.push_back(name);
 }
 
-void Arch::addPip(IdString name, IdString type, IdString srcWire, IdString dstWire, DelayInfo delay, Loc loc)
+void Arch::addPip(IdStringList name, IdString type, IdStringList srcWire, IdStringList dstWire, DelayInfo delay,
+                  Loc loc)
 {
     NPNR_ASSERT(pips.count(name) == 0);
     PipInfo &pi = pips[name];
@@ -90,7 +91,7 @@ void Arch::addPip(IdString name, IdString type, IdString srcWire, IdString dstWi
     tilePipDimZ[loc.x][loc.y] = std::max(tilePipDimZ[loc.x][loc.y], loc.z + 1);
 }
 
-void Arch::addBel(IdString name, IdString type, Loc loc, bool gb)
+void Arch::addBel(IdStringList name, IdString type, Loc loc, bool gb)
 {
     NPNR_ASSERT(bels.count(name) == 0);
     NPNR_ASSERT(bel_by_loc.count(loc) == 0);
@@ -124,7 +125,7 @@ void Arch::addBel(IdString name, IdString type, Loc loc, bool gb)
     tileBelDimZ[loc.x][loc.y] = std::max(tileBelDimZ[loc.x][loc.y], loc.z + 1);
 }
 
-void Arch::addBelInput(IdString bel, IdString name, IdString wire)
+void Arch::addBelInput(IdStringList bel, IdString name, IdStringList wire)
 {
     NPNR_ASSERT(bel_info(bel).pins.count(name) == 0);
     PinInfo &pi = bel_info(bel).pins[name];
@@ -136,7 +137,7 @@ void Arch::addBelInput(IdString bel, IdString name, IdString wire)
     wire_info(wire).bel_pins.push_back(BelPin{bel, name});
 }
 
-void Arch::addBelOutput(IdString bel, IdString name, IdString wire)
+void Arch::addBelOutput(IdStringList bel, IdString name, IdStringList wire)
 {
     NPNR_ASSERT(bel_info(bel).pins.count(name) == 0);
     PinInfo &pi = bel_info(bel).pins[name];
@@ -148,7 +149,7 @@ void Arch::addBelOutput(IdString bel, IdString name, IdString wire)
     wire_info(wire).bel_pins.push_back(BelPin{bel, name});
 }
 
-void Arch::addBelInout(IdString bel, IdString name, IdString wire)
+void Arch::addBelInout(IdStringList bel, IdString name, IdStringList wire)
 {
     NPNR_ASSERT(bel_info(bel).pins.count(name) == 0);
     PinInfo &pi = bel_info(bel).pins[name];
@@ -160,13 +161,13 @@ void Arch::addBelInout(IdString bel, IdString name, IdString wire)
     wire_info(wire).bel_pins.push_back(BelPin{bel, name});
 }
 
-void Arch::addGroupBel(IdString group, IdString bel) { groups[group].bels.push_back(bel); }
+void Arch::addGroupBel(IdStringList group, IdStringList bel) { groups[group].bels.push_back(bel); }
 
-void Arch::addGroupWire(IdString group, IdString wire) { groups[group].wires.push_back(wire); }
+void Arch::addGroupWire(IdStringList group, IdStringList wire) { groups[group].wires.push_back(wire); }
 
-void Arch::addGroupPip(IdString group, IdString pip) { groups[group].pips.push_back(pip); }
+void Arch::addGroupPip(IdStringList group, IdStringList pip) { groups[group].pips.push_back(pip); }
 
-void Arch::addGroupGroup(IdString group, IdString grp) { groups[group].groups.push_back(grp); }
+void Arch::addGroupGroup(IdStringList group, IdStringList grp) { groups[group].groups.push_back(grp); }
 
 void Arch::addDecalGraphic(DecalId decal, const GraphicElement &graphic)
 {
@@ -198,11 +199,14 @@ void Arch::setGroupDecal(GroupId group, DecalXY decalxy)
     refreshUiGroup(group);
 }
 
-void Arch::setWireAttr(IdString wire, IdString key, const std::string &value) { wire_info(wire).attrs[key] = value; }
+void Arch::setWireAttr(IdStringList wire, IdString key, const std::string &value)
+{
+    wire_info(wire).attrs[key] = value;
+}
 
-void Arch::setPipAttr(IdString pip, IdString key, const std::string &value) { pip_info(pip).attrs[key] = value; }
+void Arch::setPipAttr(IdStringList pip, IdString key, const std::string &value) { pip_info(pip).attrs[key] = value; }
 
-void Arch::setBelAttr(IdString bel, IdString key, const std::string &value) { bel_info(bel).attrs[key] = value; }
+void Arch::setBelAttr(IdStringList bel, IdString key, const std::string &value) { bel_info(bel).attrs[key] = value; }
 
 void Arch::setLutK(int K) { args.K = K; }
 
@@ -212,9 +216,12 @@ void Arch::setDelayScaling(double scale, double offset)
     args.delayOffset = offset;
 }
 
-void Arch::addCellTimingClock(IdString cell, IdString port) { cellTiming[cell].portClasses[port] = TMG_CLOCK_INPUT; }
+void Arch::addCellTimingClock(IdStringList cell, IdString port)
+{
+    cellTiming[cell].portClasses[port] = TMG_CLOCK_INPUT;
+}
 
-void Arch::addCellTimingDelay(IdString cell, IdString fromPort, IdString toPort, DelayInfo delay)
+void Arch::addCellTimingDelay(IdStringList cell, IdString fromPort, IdString toPort, DelayInfo delay)
 {
     if (get_or_default(cellTiming[cell].portClasses, fromPort, TMG_IGNORE) == TMG_IGNORE)
         cellTiming[cell].portClasses[fromPort] = TMG_COMB_INPUT;
@@ -223,7 +230,7 @@ void Arch::addCellTimingDelay(IdString cell, IdString fromPort, IdString toPort,
     cellTiming[cell].combDelays[CellDelayKey{fromPort, toPort}] = delay;
 }
 
-void Arch::addCellTimingSetupHold(IdString cell, IdString port, IdString clock, DelayInfo setup, DelayInfo hold)
+void Arch::addCellTimingSetupHold(IdStringList cell, IdString port, IdString clock, DelayInfo setup, DelayInfo hold)
 {
     TimingClockingInfo ci;
     ci.clock_port = clock;
@@ -234,7 +241,7 @@ void Arch::addCellTimingSetupHold(IdString cell, IdString port, IdString clock, 
     cellTiming[cell].portClasses[port] = TMG_REGISTER_INPUT;
 }
 
-void Arch::addCellTimingClockToOut(IdString cell, IdString port, IdString clock, DelayInfo clktoq)
+void Arch::addCellTimingClockToOut(IdStringList cell, IdString port, IdString clock, DelayInfo clktoq)
 {
     TimingClockingInfo ci;
     ci.clock_port = clock;
@@ -256,14 +263,14 @@ void IdString::initialize_arch(const BaseCtx *ctx) {}
 
 // ---------------------------------------------------------------
 
-BelId Arch::getBelByName(IdString name) const
+BelId Arch::getBelByName(IdStringList name) const
 {
     if (bels.count(name))
         return name;
     return BelId();
 }
 
-IdString Arch::getBelName(BelId bel) const { return bel; }
+IdStringList Arch::getBelName(BelId bel) const { return bel; }
 
 Loc Arch::getBelLocation(BelId bel) const
 {
@@ -321,7 +328,7 @@ WireId Arch::getBelPinWire(BelId bel, IdString pin) const
 {
     const auto &bdata = bels.at(bel);
     if (!bdata.pins.count(pin))
-        log_error("bel '%s' has no pin '%s'\n", bel.c_str(this), pin.c_str(this));
+        log_error("bel '%s' has no pin '%s'\n", getCtx()->nameOfBel(bel), pin.c_str(this));
     return bdata.pins.at(pin).wire;
 }
 
@@ -337,14 +344,14 @@ std::vector<IdString> Arch::getBelPins(BelId bel) const
 
 // ---------------------------------------------------------------
 
-WireId Arch::getWireByName(IdString name) const
+WireId Arch::getWireByName(IdStringList name) const
 {
     if (wires.count(name))
         return name;
     return WireId();
 }
 
-IdString Arch::getWireName(WireId wire) const { return wire; }
+IdStringList Arch::getWireName(WireId wire) const { return wire; }
 
 IdString Arch::getWireType(WireId wire) const { return wires.at(wire).type; }
 
@@ -391,14 +398,14 @@ const std::vector<WireId> &Arch::getWires() const { return wire_ids; }
 
 // ---------------------------------------------------------------
 
-PipId Arch::getPipByName(IdString name) const
+PipId Arch::getPipByName(IdStringList name) const
 {
     if (pips.count(name))
         return name;
     return PipId();
 }
 
-IdString Arch::getPipName(PipId pip) const { return pip; }
+IdStringList Arch::getPipName(PipId pip) const { return pip; }
 
 IdString Arch::getPipType(PipId pip) const { return pips.at(pip).type; }
 
@@ -455,9 +462,9 @@ const std::vector<PipId> &Arch::getPipsUphill(WireId wire) const { return wires.
 
 // ---------------------------------------------------------------
 
-GroupId Arch::getGroupByName(IdString name) const { return name; }
+GroupId Arch::getGroupByName(IdStringList name) const { return name; }
 
-IdString Arch::getGroupName(GroupId group) const { return group; }
+IdStringList Arch::getGroupName(GroupId group) const { return group; }
 
 std::vector<GroupId> Arch::getGroups() const
 {
@@ -582,8 +589,7 @@ bool Arch::route()
 const std::vector<GraphicElement> &Arch::getDecalGraphics(DecalId decal) const
 {
     if (!decal_graphics.count(decal)) {
-        std::cerr << "No decal named " << decal.str(this) << std::endl;
-        log_error("No decal named %s!\n", decal.c_str(this));
+        std::cerr << "No decal named " << decal.str(getCtx()) << std::endl;
     }
     return decal_graphics.at(decal);
 }

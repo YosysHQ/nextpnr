@@ -243,6 +243,21 @@ struct IdStringList
     const IdString &operator[](size_t idx) const { return ids[idx]; }
     bool operator==(const IdStringList &other) const { return ids == other.ids; }
     bool operator!=(const IdStringList &other) const { return ids != other.ids; }
+    bool operator<(const IdStringList &other) const
+    {
+        if (size() > other.size())
+            return false;
+        if (size() < other.size())
+            return true;
+        for (size_t i = 0; i < size(); i++) {
+            IdString a = ids[i], b = other[i];
+            if (a.index < b.index)
+                return true;
+            if (a.index > b.index)
+                return false;
+        }
+        return false;
+    }
 };
 
 NEXTPNR_NAMESPACE_END
