@@ -51,6 +51,16 @@ void archcheck_names(const Context *ctx)
             log_error("wire != wire2, name = %s\n", name.c_str(ctx));
         }
     }
+
+    log_info("Checking bucket names..\n");
+    for (BelBucketId bucket : ctx->getBelBuckets()) {
+        IdString name = ctx->getBelBucketName(bucket);
+        BelBucketId bucket2 = ctx->getBelBucketByName(name);
+        if (bucket != bucket2) {
+            log_error("bucket != bucket2, name = %s\n", name.c_str(ctx));
+        }
+    }
+
 #ifndef ARCH_ECP5
     log_info("Checking pip names..\n");
     for (PipId pip : ctx->getPips()) {
@@ -187,6 +197,59 @@ void archcheck_conn(const Context *ctx)
     }
 }
 
+void archcheck_buckets(const Context *ctx)
+{
+    log_info("Checking bucket data.\n");
+
+    // BEL buckets should be subsets of BELs that form an exact cover.
+    // In particular that means cell types in a bucket should only be
+    // placable in that bucket.
+    for (BelBucketId bucket : ctx->getBelBuckets()) {
+
+        // Find out which cell types are in this bucket.
+        std::unordered_set<IdString> cell_types_in_bucket;
+        for (IdString cell_type : ctx->getCellTypes()) {
+            if (ctx->getBelBucketForCellType(cell_type) == bucket) {
+                cell_types_in_bucket.insert(cell_type);
+            }
+        }
+
+        // Make sure that all cell types in this bucket have at least one
+        // BelId they can be placed at.
+        std::unordered_set<IdString> cell_types_unused;
+
+        std::unordered_set<BelId> bels_in_bucket;
+        for (BelId bel : ctx->getBelsInBucket(bucket)) {
+            BelBucketId bucket2 = ctx->getBelBucketForBel(bel);
+            log_assert(bucket == bucket2);
+
+            bels_in_bucket.insert(bel);
+
+            // Check to see if a cell type not in this bucket can be
+            // placed at a BEL in this bucket.
+            for (IdString cell_type : ctx->getCellTypes()) {
+                if (ctx->getBelBucketForCellType(cell_type) == bucket) {
+                    if (ctx->isValidBelForCellType(cell_type, bel)) {
+                        cell_types_unused.erase(cell_type);
+                    }
+                } else {
+                    log_assert(!ctx->isValidBelForCellType(cell_type, bel));
+                }
+            }
+        }
+
+        // Verify that any BEL not in this bucket reports a different
+        // bucket.
+        for (BelId bel : ctx->getBels()) {
+            if (ctx->getBelBucketForBel(bel) != bucket) {
+                log_assert(bels_in_bucket.count(bel) == 0);
+            }
+        }
+
+        log_assert(cell_types_unused.empty());
+    }
+}
+
 } // namespace
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -199,6 +262,7 @@ void Context::archcheck() const
     archcheck_names(this);
     archcheck_locs(this);
     archcheck_conn(this);
+    archcheck_buckets(this);
 }
 
 NEXTPNR_NAMESPACE_END

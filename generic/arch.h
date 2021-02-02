@@ -271,6 +271,38 @@ struct Arch : BaseCtx
     bool place();
     bool route();
 
+    std::vector<IdString> getCellTypes() const
+    {
+        std::vector<IdString> cell_types;
+        cell_types.reserve(bels.size());
+        for (auto bel : bels) {
+            cell_types.push_back(bel.first);
+        }
+
+        return cell_types;
+    }
+
+    std::vector<BelBucketId> getBelBuckets() const { return getCellTypes(); }
+
+    IdString getBelBucketName(BelBucketId bucket) const { return bucket; }
+
+    BelBucketId getBelBucketByName(IdString bucket) const { return bucket; }
+
+    BelBucketId getBelBucketForBel(BelId bel) const { return getBelType(bel); }
+
+    BelBucketId getBelBucketForCellType(IdString cell_type) const { return cell_type; }
+
+    std::vector<BelId> getBelsInBucket(BelBucketId bucket) const
+    {
+        std::vector<BelId> bels;
+        for (BelId bel : getBels()) {
+            if (bucket == getBelBucketForBel(bel)) {
+                bels.push_back(bel);
+            }
+        }
+        return bels;
+    }
+
     const std::vector<GraphicElement> &getDecalGraphics(DecalId decal) const;
     DecalXY getBelDecal(BelId bel) const;
     DecalXY getWireDecal(WireId wire) const;
@@ -283,6 +315,7 @@ struct Arch : BaseCtx
     // Get the TimingClockingInfo of a port
     TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const;
 
+    bool isValidBelForCellType(IdString cell_type, BelId bel) const { return cell_type == getBelType(bel); }
     bool isValidBelForCell(CellInfo *cell, BelId bel) const;
     bool isBelLocationValid(BelId bel) const;
 

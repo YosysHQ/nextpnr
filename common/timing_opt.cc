@@ -215,7 +215,7 @@ class TimingOptimiser
                 std::vector<BelId> free_bels_at_loc;
                 std::vector<BelId> bound_bels_at_loc;
                 for (auto bel : ctx->getBelsByTile(curr_loc.x + dx, curr_loc.y + dy)) {
-                    if (ctx->getBelType(bel) != cell->type)
+                    if (!ctx->isValidBelForCellType(cell->type, bel))
                         continue;
                     CellInfo *bound = ctx->getBoundBelCell(bel);
                     if (bound == nullptr) {

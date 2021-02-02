@@ -40,6 +40,10 @@ A type representing a wire name. `WireId()` must construct a unique null-value. 
 
 A type representing a pip name. `PipId()` must construct a unique null-value. Must provide `==`, `!=`, and `<` operators and a specialization for `std::hash<PipId>`.
 
+### BelBucketId
+
+A type representing a bel bucket. `BelBucketId()` must construct a unique null-value. Must provide `==`, `!=`, and `<` operators and a specialization for `std::hash<BelBucketId>`.
+
 ### GroupId
 
 A type representing a group name. `GroupId()` must construct a unique null-value. Must provide `==` and `!=` operators and a specialization for `std::hash<GroupId>`.
@@ -87,6 +91,14 @@ Get Z dimension for the specified tile for bels. All bels with at specified X an
 ### int getTilePipDimZ(int x, int y) const
 
 Get Z dimension for the specified tile for pips. All pips with at specified X and Y coordinates must have a Z coordinate in the range `0 .. getTileDimZ(X,Y)-1` (inclusive).
+
+Cell Methods
+-----------
+
+### const\_range\<IdString\> getCellTypes() const
+
+Get list of cell types that this architecture accepts.
+
 
 Bel Methods
 -----------
@@ -377,7 +389,7 @@ the given dst wire.
 This should return a low upper bound for the fastest route from `src` to `dst`.
 
 Or in other words it should assume an otherwise unused chip (thus "fastest route").
-But it only produces an estimate for that fastest route, not an exact 
+But it only produces an estimate for that fastest route, not an exact
 result, and for that estimate it is considered more acceptable to return a
 slightly too high result and it is considered less acceptable to return a
 too low result (thus "low upper bound").
@@ -463,20 +475,73 @@ Cell Delay Methods
 Returns the delay for the specified path through a cell in the `&delay` argument. The method returns
 false if there is no timing relationship from `fromPort` to `toPort`.
 
-### TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const
+### TimingPortClass getPortTimingClass(const CellInfo \*cell, IdString port, int &clockInfoCount) const
 
 Return the _timing port class_ of a port. This can be a register or combinational input or output; clock input or
 output; general startpoint or endpoint; or a port ignored for timing purposes. For register ports, clockInfoCount is set
 to the number of associated _clock edges_ that can be queried by getPortClockingInfo.
 
-### TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const
+### TimingClockingInfo getPortClockingInfo(const CellInfo \*cell, IdString port, int index) const
 
 Return the _clocking info_ (including port name of clock, clock polarity and setup/hold/clock-to-out times) of a
 port. Where ports have more than one clock edge associated with them (such as DDR outputs), `index` can be used to obtain
 information for all edges. `index` must be in [0, clockInfoCount), behaviour is undefined otherwise.
 
+Bel Buckets Methods
+-------------------
+
+Bel buckets are subsets of BelIds and cell types used by analytic placer to
+seperate types of bels during placement. The buckets should form an exact
+cover over all BelIds and cell types.
+
+Each bel bucket should be BelIds and cell types that are roughly
+interchangable during placement.  Typical buckets are:
+ - All LUT bels
+ - All FF bels
+ - All multipliers bels
+ - All block RAM bels
+ - etc.
+
+The bel buckets will be used during analytic placement for spreading prior to
+strict legality enforcement.  It is not required that all bels within a bucket
+are strictly equivelant.
+
+Strict legality step will enforce those differences, along with additional
+local constraints.  `isValidBelForCell`, `isValidBelForCellType`, and
+`isBelLocationValid` are used to enforce strict legality checks.
+
+### const\_range\<BelBucketId\> getBelBuckets() const
+
+Return a list of all bel buckets on the device.
+
+### IdString getBelBucketName(BelBucketId bucket) const
+
+Return the name of this bel bucket.
+
+### BelBucketId getBelBucketByName(IdString bucket\_name) const
+
+Return the BelBucketId for the specified bucket name.
+
+### BelBucketId getBelBucketForBel(BelId bel) const
+
+Returns the bucket for a particular bel.
+
+### BelBucketId getBelBucketForCell(IdString cell\_type) const
+
+Returns the bel bucket for a particular cell type.
+
+### const\_range\<BelId\> getBelsInBucket(BelBucketId bucket) const
+
+Return the list of bels within a bucket.
+
 Placer Methods
 --------------
+
+### bool isValidBelForCellType(IdString cell\_type, BelId bel) const
+
+Returns true if the given cell can be bound to the given bel.  This check
+should be fast, compared with isValidBelForCell.  This check should always
+return the same value regardless if other cells are placed within the fabric.
 
 ### bool isValidBelForCell(CellInfo \*cell, BelId bel) const
 
@@ -488,7 +553,6 @@ a certain number of different clock signals allowed for a group of bels.
 
 Returns true if a bell in the current configuration is valid, i.e. if
 `isValidBelForCell()` would return true for the current mapping.
-
 
 ### static const std::string defaultPlacer
 

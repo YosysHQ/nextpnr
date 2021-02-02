@@ -821,6 +821,47 @@ struct Arch : BaseCtx
     // Perform placement validity checks, returning false on failure (all
     // implemented in arch_place.cc)
 
+    // Whether this cell type can be placed at this BEL.
+    bool isValidBelForCellType(IdString cell_type, BelId bel) const { return cell_type == getBelType(bel); }
+
+    const std::vector<IdString> &getCellTypes() const { return cell_types; }
+
+    std::vector<BelBucketId> getBelBuckets() const { return buckets; }
+
+    IdString getBelBucketName(BelBucketId bucket) const { return bucket.name; }
+
+    BelBucketId getBelBucketByName(IdString name) const
+    {
+        BelBucketId bucket;
+        bucket.name = name;
+        return bucket;
+    }
+
+    BelBucketId getBelBucketForBel(BelId bel) const
+    {
+        BelBucketId bucket;
+        bucket.name = getBelType(bel);
+        return bucket;
+    }
+
+    BelBucketId getBelBucketForCellType(IdString cell_type) const
+    {
+        BelBucketId bucket;
+        bucket.name = cell_type;
+        return bucket;
+    }
+
+    std::vector<BelId> getBelsInBucket(BelBucketId bucket) const
+    {
+        std::vector<BelId> bels;
+        for (BelId bel : getBels()) {
+            if (getBelType(bel) == bucket.name) {
+                bels.push_back(bel);
+            }
+        }
+        return bels;
+    }
+
     // Whether or not a given cell can be placed at a given Bel
     // This is not intended for Bel type checks, but finer-grained constraints
     // such as conflicting set/reset signals, etc
@@ -862,6 +903,9 @@ struct Arch : BaseCtx
     static const std::vector<std::string> availablePlacers;
     static const std::string defaultRouter;
     static const std::vector<std::string> availableRouters;
+
+    std::vector<IdString> cell_types;
+    std::vector<BelBucketId> buckets;
 };
 
 void ice40DelayFuzzerMain(Context *ctx);

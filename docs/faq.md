@@ -23,6 +23,7 @@ For nextpnr we are using the following terminology.
 - **Wire**: a fixed physical connection inside the FPGA between Pips and/or Bel pins.
 - **Alias**: a special automatic-on Pip to represent a permanent connection between two wires
 - **Group**: a collection of bels, pips, wires, and/or other groups
+- **BelBucket**: a collection of bels and cell types.  All of the bel buckets form a set cover of bels and cell types.
 
 ### Flow Terminology
 

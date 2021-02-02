@@ -114,6 +114,15 @@ struct PipId
     }
 };
 
+struct BelBucketId
+{
+    IdString name;
+
+    bool operator==(const BelBucketId &other) const { return (name == other.name); }
+    bool operator!=(const BelBucketId &other) const { return (name != other.name); }
+    bool operator<(const BelBucketId &other) const { return name < other.name; }
+};
+
 struct GroupId
 {
     enum : int8_t
@@ -250,4 +259,15 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX DecalId>
         return seed;
     }
 };
+
+template <> struct hash<NEXTPNR_NAMESPACE_PREFIX BelBucketId>
+{
+    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX BelBucketId &bucket) const noexcept
+    {
+        std::size_t seed = 0;
+        boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(bucket.name));
+        return seed;
+    }
+};
+
 } // namespace std
