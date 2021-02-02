@@ -55,11 +55,45 @@ static std::string get_trellis_wirename(Context *ctx, Location loc, WireId wire)
     std::string basename = ctx->tileInfo(wire)->wire_data[wire.index].name.get();
     std::string prefix2 = basename.substr(0, 2);
     std::string prefix7 = basename.substr(0, 7);
+    int max_col = ctx->chip_info->width - 1;
+
+    // Handle MachXO2's wonderful naming quirks for wires in left/right tiles, whose
+    // relative coords push them outside the bounds of the chip.
+    auto is_pio_wire = [](std::string name) {
+        return (
+            name.find("DI") != std::string::npos ||
+            name.find("JDI") != std::string::npos ||
+            name.find("PADD") != std::string::npos ||
+            name.find("INDD") != std::string::npos ||
+            name.find("IOLDO") != std::string::npos ||
+            name.find("IOLTO") != std::string::npos ||
+            name.find("JCE") != std::string::npos ||
+            name.find("JCLK") != std::string::npos ||
+            name.find("JLSR") != std::string::npos ||
+            name.find("JONEG") != std::string::npos ||
+            name.find("JOPOS") != std::string::npos ||
+            name.find("JTS") != std::string::npos ||
+            name.find("JIN") != std::string::npos ||
+            name.find("JIP") != std::string::npos ||
+            // Connections to global mux
+            name.find("JINCK") != std::string::npos
+        );
+    };
+
     if (prefix2 == "G_" || prefix2 == "L_" || prefix2 == "R_" || prefix2 == "U_" || prefix2 == "D_" ||
         prefix7 == "BRANCH_")
         return basename;
-    if (loc == wire.location)
+    if (loc == wire.location) {
+        // TODO: JINCK is not currently handled by this.
+        if(is_pio_wire(basename)) {
+            if(wire.location.x == 0)
+                return "W1_" + basename;
+            else if(wire.location.x == max_col)
+                return "E1_" + basename;
+        }
         return basename;
+    }
+
     std::string rel_prefix;
     if (wire.location.y < loc.y)
         rel_prefix += "N" + std::to_string(loc.y - wire.location.y);
