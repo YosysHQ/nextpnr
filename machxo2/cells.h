@@ -46,7 +46,7 @@ void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff = tr
 // and reconnecting signals as necessary. If pass_thru_lut is True, the LUT will
 // be configured as pass through and D connected to I0, otherwise D will be
 // ignored
-void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_lut = false);
+void dff_to_lc(Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_lut = false);
 
 // Convert a nextpnr IO buffer to a GENERIC_IOB
 void nxio_to_iob(Context *ctx, CellInfo *nxio, CellInfo *sbio, std::unordered_set<IdString> &todelete_cells);
