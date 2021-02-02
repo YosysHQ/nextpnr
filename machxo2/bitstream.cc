@@ -200,7 +200,8 @@ void write_bitstream(Context *ctx, std::string text_config_file)
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
         if (ci->bel == BelId()) {
-            log_warning("found unplaced cell '%s' during bitstream gen\n", ci->name.c_str(ctx));
+            log_warning("found unplaced cell '%s' during bitstream gen. Not writing to bitstream.\n", ci->name.c_str(ctx));
+            continue;
         }
         BelId bel = ci->bel;
         if (ci->type == id_FACADE_SLICE) {
