@@ -86,6 +86,43 @@ static void pack_lut_lutffs(Context *ctx)
     }
 }
 
+static void pack_remaining_ffs(Context *ctx)
+{
+    log_info("Packing remaining FFs..\n");
+
+    std::unordered_set<IdString> packed_cells;
+    std::vector<std::unique_ptr<CellInfo>> new_cells;
+
+    for (auto cell : sorted(ctx->cells)) {
+        CellInfo *ci = cell.second;
+
+        if (is_ff(ctx, ci)) {
+            if (ctx->verbose)
+                log_info("cell '%s' of type '%s remains unpacked'\n", ci->name.c_str(ctx), ci->type.c_str(ctx));
+
+            std::unique_ptr<CellInfo> packed = create_machxo2_cell(ctx, id_FACADE_SLICE, ci->name.str(ctx) + "_LC");
+            std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(packed->attrs, packed->attrs.begin()));
+
+            auto dff_bel = ci->attrs.find(ctx->id("BEL"));
+            dff_to_lc(ctx, ci, packed.get(), false);
+            if (dff_bel != ci->attrs.end())
+                packed->attrs[ctx->id("BEL")] = dff_bel->second;
+            packed_cells.insert(ci->name);
+            if (ctx->verbose)
+                log_info("packed cell %s into %s\n", ci->name.c_str(ctx), packed->name.c_str(ctx));
+
+            new_cells.push_back(std::move(packed));
+        }
+    }
+
+    for (auto pcell : packed_cells) {
+        ctx->cells.erase(pcell);
+    }
+    for (auto &ncell : new_cells) {
+        ctx->cells[ncell->name] = std::move(ncell);
+    }
+}
+
 // Merge a net into a constant net
 static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constnet, bool constval)
 {
@@ -220,6 +257,7 @@ bool Arch::pack()
         pack_constants(ctx);
         pack_io(ctx);
         pack_lut_lutffs(ctx);
+        pack_remaining_ffs(ctx);
         ctx->settings[ctx->id("pack")] = 1;
         ctx->assignArchInfo();
         log_info("Checksum: 0x%08x\n", ctx->checksum());
