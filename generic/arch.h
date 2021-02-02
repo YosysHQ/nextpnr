@@ -277,13 +277,12 @@ struct Arch : BaseCtx
 
     std::vector<IdString> getCellTypes() const
     {
-        std::vector<IdString> cell_types;
-        cell_types.reserve(bels.size());
+        std::unordered_set<IdString> cell_types;
         for (auto bel : bels) {
-            cell_types.push_back(bel.first);
+            cell_types.insert(bel.second.type);
         }
 
-        return cell_types;
+        return std::vector<IdString>{cell_types.begin(), cell_types.end()};
     }
 
     std::vector<BelBucketId> getBelBuckets() const { return getCellTypes(); }
