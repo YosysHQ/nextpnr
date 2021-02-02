@@ -91,9 +91,9 @@ fn_wrapper_1a<Context, decltype(&Context::getBoundPipNet), &Context::getBoundPip
 fn_wrapper_1a<Context, decltype(&Context::getConflictingPipNet), &Context::getConflictingPipNet,
               deref_and_wrap<NetInfo>, conv_from_str<PipId>>::def_wrap(ctx_cls, "getConflictingPipNet");
 
-fn_wrapper_1a<Context, decltype(&Context::getPipsDownhill), &Context::getPipsDownhill, wrap_context<PipRange>,
+fn_wrapper_1a<Context, decltype(&Context::getPipsDownhill), &Context::getPipsDownhill, wrap_context<DownhillPipRange>,
               conv_from_str<WireId>>::def_wrap(ctx_cls, "getPipsDownhill");
-fn_wrapper_1a<Context, decltype(&Context::getPipsUphill), &Context::getPipsUphill, wrap_context<PipRange>,
+fn_wrapper_1a<Context, decltype(&Context::getPipsUphill), &Context::getPipsUphill, wrap_context<UphillPipRange>,
               conv_from_str<WireId>>::def_wrap(ctx_cls, "getPipsUphill");
 
 fn_wrapper_1a<Context, decltype(&Context::getPipSrcWire), &Context::getPipSrcWire, conv_to_str<WireId>,

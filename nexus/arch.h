@@ -999,7 +999,6 @@ struct Arch : BaseCtx
 
     BelId getBelByLocation(Loc loc) const
     {
-        BelId ret;
         auto &t = tileStatus.at(loc.y * chip_info->width + loc.x);
         if (loc.z >= int(t.bels_by_z.size()))
             return BelId();
