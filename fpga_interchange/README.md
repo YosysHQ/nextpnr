@@ -123,14 +123,6 @@ python3 -mfpga_interchange.patch \
   xc7a35tcpg236-1_constraints.device \
   test_data/series7_luts.yaml \
   xc7a35tcpg236-1_constraints_luts.device
-python3 -mfpga_interchange.patch \
-  --schema_dir ${RAPIDWRIGHT_PATH}/interchange/ \
-  --schema device \
-  --patch_path lutDefinitions \
-  --patch_format yaml \
-  xc7a35tcpg236-1_constraints.device \
-  test_data/series7_luts.yaml \
-  xc7a35tcpg236-1_constraints_luts.device
 ```
 
 Generate nextpnr BBA and constids.inc from device database:
