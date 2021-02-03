@@ -1025,15 +1025,37 @@ template <typename R> struct ArchBase : BaseCtx
     virtual BelId getBelByName(IdStringList name) const = 0;
     virtual IdStringList getBelName(BelId bel) const = 0;
     virtual uint32_t getBelChecksum(BelId bel) const { return uint32_t(std::hash<BelId>()(bel)); }
-    virtual void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength) = 0;
-    virtual void unbindBel(BelId bel) = 0;
+    virtual void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength)
+    {
+        NPNR_ASSERT(bel != BelId());
+        auto &entry = base_bel2cell[bel];
+        NPNR_ASSERT(entry == nullptr);
+        cell->bel = bel;
+        cell->belStrength = strength;
+        entry = cell;
+        refreshUiBel(bel);
+    }
+    virtual void unbindBel(BelId bel)
+    {
+        NPNR_ASSERT(bel != BelId());
+        auto &entry = base_bel2cell[bel];
+        NPNR_ASSERT(entry != nullptr);
+        entry->bel = BelId();
+        entry->belStrength = STRENGTH_NONE;
+        entry = nullptr;
+        refreshUiBel(bel);
+    }
     virtual Loc getBelLocation(BelId bel) const = 0;
     virtual BelId getBelByLocation(Loc loc) const = 0;
     virtual typename R::TileBelsRange getBelsByTile(int x, int y) const = 0;
     virtual bool getBelGlobalBuf(BelId bel) const { return false; }
-    virtual bool checkBelAvail(BelId bel) const = 0;
-    virtual CellInfo *getBoundBelCell(BelId bel) const = 0;
-    virtual CellInfo *getConflictingBelCell(BelId bel) const = 0;
+    virtual bool checkBelAvail(BelId bel) const { return getBoundBelCell(bel) == nullptr; };
+    virtual CellInfo *getBoundBelCell(BelId bel) const
+    {
+        auto fnd = base_bel2cell.find(bel);
+        return fnd == base_bel2cell.end() ? nullptr : fnd->second;
+    }
+    virtual CellInfo *getConflictingBelCell(BelId bel) const { return getBoundBelCell(bel); }
     virtual IdString getBelType(BelId bel) const = 0;
     virtual typename R::BelAttrsRange getBelAttrs(BelId bel) const = 0;
     virtual WireId getBelPinWire(BelId bel, IdString pin) const = 0;
@@ -1049,10 +1071,43 @@ template <typename R> struct ArchBase : BaseCtx
     virtual typename R::DownhillPipRange getPipsDownhill(WireId wire) const = 0;
     virtual typename R::UphillPipRange getPipsUphill(WireId wire) const = 0;
     virtual typename R::WireBelPinRange getWireBelPins(WireId wire) const = 0;
-    virtual void bindWire(WireId wire, NetInfo *net, PlaceStrength strength) = 0;
-    virtual void unbindWire(WireId wire) = 0;
-    virtual bool checkWireAvail(WireId wire) const = 0;
-    virtual NetInfo *getBoundWireNet(WireId wire) const = 0;
+    virtual void bindWire(WireId wire, NetInfo *net, PlaceStrength strength)
+    {
+        NPNR_ASSERT(wire != WireId());
+        auto &w2n_entry = base_wire2net[wire];
+        NPNR_ASSERT(w2n_entry == nullptr);
+        net->wires[wire].pip = PipId();
+        net->wires[wire].strength = strength;
+        w2n_entry = net;
+        refreshUiWire(wire);
+    }
+    virtual void unbindWire(WireId wire)
+    {
+        NPNR_ASSERT(wire != WireId());
+        auto &w2n_entry = base_wire2net[wire];
+        NPNR_ASSERT(w2n_entry != nullptr);
+
+        auto &net_wires = w2n_entry->wires;
+        auto it = net_wires.find(wire);
+        NPNR_ASSERT(it != net_wires.end());
+
+        auto pip = it->second.pip;
+        if (pip != PipId()) {
+            base_pip2net[pip] = nullptr;
+        }
+
+        net_wires.erase(it);
+        base_wire2net[wire] = nullptr;
+
+        w2n_entry = nullptr;
+        refreshUiWire(wire);
+    }
+    virtual bool checkWireAvail(WireId wire) const { return getBoundWireNet(wire) == nullptr; }
+    virtual NetInfo *getBoundWireNet(WireId wire) const
+    {
+        auto fnd = base_wire2net.find(wire);
+        return fnd == base_wire2net.end() ? nullptr : fnd->second;
+    }
     virtual WireId getConflictingWireWire(WireId wire) const { return wire; };
     virtual NetInfo *getConflictingWireNet(WireId wire) const { return getBoundWireNet(wire); }
     virtual DelayInfo getWireDelay(WireId wire) const = 0;
@@ -1064,10 +1119,40 @@ template <typename R> struct ArchBase : BaseCtx
     virtual IdString getPipType(PipId pip) const { return IdString(); }
     virtual typename R::PipAttrsRange getPipAttrs(PipId) const = 0;
     virtual uint32_t getPipChecksum(PipId pip) const { return uint32_t(std::hash<PipId>()(pip)); }
-    virtual void bindPip(PipId pip, NetInfo *net, PlaceStrength strength) = 0;
-    virtual void unbindPip(PipId pip) = 0;
-    virtual bool checkPipAvail(PipId pip) const = 0;
-    virtual NetInfo *getBoundPipNet(PipId pip) const = 0;
+    virtual void bindPip(PipId pip, NetInfo *net, PlaceStrength strength)
+    {
+        NPNR_ASSERT(pip != PipId());
+        auto &p2n_entry = base_pip2net[pip];
+        NPNR_ASSERT(p2n_entry == nullptr);
+        p2n_entry = net;
+
+        WireId dst = getPipDstWire(pip);
+        auto &w2n_entry = base_wire2net[dst];
+        NPNR_ASSERT(w2n_entry == nullptr);
+        w2n_entry = net;
+        net->wires[dst].pip = pip;
+        net->wires[dst].strength = strength;
+    }
+    virtual void unbindPip(PipId pip)
+    {
+        NPNR_ASSERT(pip != PipId());
+        auto &p2n_entry = base_pip2net[pip];
+        NPNR_ASSERT(p2n_entry != nullptr);
+        WireId dst = getPipDstWire(pip);
+
+        auto &w2n_entry = base_wire2net[dst];
+        NPNR_ASSERT(w2n_entry != nullptr);
+        w2n_entry = nullptr;
+
+        p2n_entry->wires.erase(dst);
+        p2n_entry = nullptr;
+    }
+    virtual bool checkPipAvail(PipId pip) const { return getBoundPipNet(pip) == nullptr; }
+    virtual NetInfo *getBoundPipNet(PipId pip) const
+    {
+        auto fnd = base_pip2net.find(pip);
+        return fnd == base_pip2net.end() ? nullptr : fnd->second;
+    }
     virtual WireId getConflictingPipWire(PipId pip) const { return WireId(); }
     virtual NetInfo *getConflictingPipNet(PipId pip) const { return nullptr; }
     virtual WireId getPipSrcWire(PipId pip) const = 0;
@@ -1135,6 +1220,14 @@ template <typename R> struct ArchBase : BaseCtx
     virtual bool place() = 0;
     virtual bool route() = 0;
     virtual void assignArchInfo(){};
+
+    // --------------------------------------------------------------
+    // These structures are used to provide default implementations of bel/wire/pip binding. Arches might want to
+    // replace them with their own, for example to use faster access structures than unordered_map. Arches might also
+    // want to add extra checks around these functions
+    std::unordered_map<BelId, CellInfo *> base_bel2cell;
+    std::unordered_map<WireId, NetInfo *> base_wire2net;
+    std::unordered_map<PipId, NetInfo *> base_pip2net;
 };
 
 NEXTPNR_NAMESPACE_END
