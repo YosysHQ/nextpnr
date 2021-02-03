@@ -79,23 +79,23 @@ void MainWindow::createMenu()
 void MainWindow::new_proj()
 {
     QMap<QString, int> arch;
-    if (Arch::isAvailable(ArchArgs::LFE5U_25F))
+    if (Arch::is_available(ArchArgs::LFE5U_25F))
         arch.insert("Lattice ECP5 LFE5U-25F", ArchArgs::LFE5U_25F);
-    if (Arch::isAvailable(ArchArgs::LFE5U_45F))
+    if (Arch::is_available(ArchArgs::LFE5U_45F))
         arch.insert("Lattice ECP5 LFE5U-45F", ArchArgs::LFE5U_45F);
-    if (Arch::isAvailable(ArchArgs::LFE5U_85F))
+    if (Arch::is_available(ArchArgs::LFE5U_85F))
         arch.insert("Lattice ECP5 LFE5U-85F", ArchArgs::LFE5U_85F);
-    if (Arch::isAvailable(ArchArgs::LFE5UM_25F))
+    if (Arch::is_available(ArchArgs::LFE5UM_25F))
         arch.insert("Lattice ECP5 LFE5UM-25F", ArchArgs::LFE5UM_25F);
-    if (Arch::isAvailable(ArchArgs::LFE5UM_45F))
+    if (Arch::is_available(ArchArgs::LFE5UM_45F))
         arch.insert("Lattice ECP5 LFE5UM-45F", ArchArgs::LFE5UM_45F);
-    if (Arch::isAvailable(ArchArgs::LFE5UM_85F))
+    if (Arch::is_available(ArchArgs::LFE5UM_85F))
         arch.insert("Lattice ECP5 LFE5UM-85F", ArchArgs::LFE5UM_85F);
-    if (Arch::isAvailable(ArchArgs::LFE5UM5G_25F))
+    if (Arch::is_available(ArchArgs::LFE5UM5G_25F))
         arch.insert("Lattice ECP5 LFE5UM5G-25F", ArchArgs::LFE5UM5G_25F);
-    if (Arch::isAvailable(ArchArgs::LFE5UM5G_45F))
+    if (Arch::is_available(ArchArgs::LFE5UM5G_45F))
         arch.insert("Lattice ECP5 LFE5UM5G-45F", ArchArgs::LFE5UM5G_45F);
-    if (Arch::isAvailable(ArchArgs::LFE5UM5G_85F))
+    if (Arch::is_available(ArchArgs::LFE5UM5G_85F))
         arch.insert("Lattice ECP5 LFE5UM5G-85F", ArchArgs::LFE5UM5G_85F);
 
     bool ok;
@@ -105,7 +105,7 @@ void MainWindow::new_proj()
         chipArgs.type = (ArchArgs::ArchArgsTypes)arch.value(item);
 
         QStringList packages;
-        for (auto package : Arch::getSupportedPackages(chipArgs.type))
+        for (auto package : Arch::get_supported_packages(chipArgs.type))
             packages.append(QLatin1String(package.data(), package.size()));
         QString package = QInputDialog::getItem(this, "Select package", "Package:", packages, 0, false, &ok);
 
@@ -127,7 +127,7 @@ void MainWindow::open_lpf()
     QString fileName = QFileDialog::getOpenFileName(this, QString("Open LPF"), QString(), QString("*.lpf"));
     if (!fileName.isEmpty()) {
         std::ifstream in(fileName.toStdString());
-        if (ctx->applyLPF(fileName.toStdString(), in)) {
+        if (ctx->apply_lpf(fileName.toStdString(), in)) {
             log("Loading LPF successful.\n");
             actionPack->setEnabled(true);
             actionLoadLPF->setEnabled(false);

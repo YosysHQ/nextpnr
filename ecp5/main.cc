@@ -49,25 +49,25 @@ ECP5CommandHandler::ECP5CommandHandler(int argc, char **argv) : CommandHandler(a
 po::options_description ECP5CommandHandler::getArchOptions()
 {
     po::options_description specific("Architecture specific options");
-    if (Arch::isAvailable(ArchArgs::LFE5U_12F))
+    if (Arch::is_available(ArchArgs::LFE5U_12F))
         specific.add_options()("12k", "set device type to LFE5U-12F");
-    if (Arch::isAvailable(ArchArgs::LFE5U_25F))
+    if (Arch::is_available(ArchArgs::LFE5U_25F))
         specific.add_options()("25k", "set device type to LFE5U-25F");
-    if (Arch::isAvailable(ArchArgs::LFE5U_45F))
+    if (Arch::is_available(ArchArgs::LFE5U_45F))
         specific.add_options()("45k", "set device type to LFE5U-45F");
-    if (Arch::isAvailable(ArchArgs::LFE5U_85F))
+    if (Arch::is_available(ArchArgs::LFE5U_85F))
         specific.add_options()("85k", "set device type to LFE5U-85F");
-    if (Arch::isAvailable(ArchArgs::LFE5UM_25F))
+    if (Arch::is_available(ArchArgs::LFE5UM_25F))
         specific.add_options()("um-25k", "set device type to LFE5UM-25F");
-    if (Arch::isAvailable(ArchArgs::LFE5UM_45F))
+    if (Arch::is_available(ArchArgs::LFE5UM_45F))
         specific.add_options()("um-45k", "set device type to LFE5UM-45F");
-    if (Arch::isAvailable(ArchArgs::LFE5UM_85F))
+    if (Arch::is_available(ArchArgs::LFE5UM_85F))
         specific.add_options()("um-85k", "set device type to LFE5UM-85F");
-    if (Arch::isAvailable(ArchArgs::LFE5UM5G_25F))
+    if (Arch::is_available(ArchArgs::LFE5UM5G_25F))
         specific.add_options()("um5g-25k", "set device type to LFE5UM5G-25F");
-    if (Arch::isAvailable(ArchArgs::LFE5UM5G_45F))
+    if (Arch::is_available(ArchArgs::LFE5UM5G_45F))
         specific.add_options()("um5g-45k", "set device type to LFE5UM5G-45F");
-    if (Arch::isAvailable(ArchArgs::LFE5UM5G_85F))
+    if (Arch::is_available(ArchArgs::LFE5UM5G_85F))
         specific.add_options()("um5g-85k", "set device type to LFE5UM5G-85F");
 
     specific.add_options()("package", po::value<std::string>(), "select device package (defaults to CABGA381)");
@@ -266,7 +266,7 @@ void ECP5CommandHandler::customAfterLoad(Context *ctx)
             std::ifstream in(filename);
             if (!in)
                 log_error("failed to open LPF file '%s'\n", filename.c_str());
-            if (!ctx->applyLPF(filename, in))
+            if (!ctx->apply_lpf(filename, in))
                 log_error("failed to parse LPF file '%s'\n", filename.c_str());
         }
 

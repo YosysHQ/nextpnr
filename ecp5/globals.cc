@@ -115,17 +115,17 @@ class Ecp5GlobalRouter
 
     PipId find_tap_pip(WireId tile_glb)
     {
-        std::string wireName = ctx->getWireBasename(tile_glb).str(ctx);
+        std::string wireName = ctx->get_wire_basename(tile_glb).str(ctx);
         std::string glbName = wireName.substr(2);
-        TapDirection td = ctx->globalInfoAtLoc(tile_glb.location).tap_dir;
+        TapDirection td = ctx->global_info_at_loc(tile_glb.location).tap_dir;
         WireId tap_wire;
         Location tap_loc;
-        tap_loc.x = ctx->globalInfoAtLoc(tile_glb.location).tap_col;
+        tap_loc.x = ctx->global_info_at_loc(tile_glb.location).tap_col;
         tap_loc.y = tile_glb.location.y;
         if (td == TAP_DIR_LEFT) {
-            tap_wire = ctx->getWireByLocAndBasename(tap_loc, "L_" + glbName);
+            tap_wire = ctx->get_wire_by_loc_basename(tap_loc, "L_" + glbName);
         } else {
-            tap_wire = ctx->getWireByLocAndBasename(tap_loc, "R_" + glbName);
+            tap_wire = ctx->get_wire_by_loc_basename(tap_loc, "R_" + glbName);
         }
         NPNR_ASSERT(tap_wire != WireId());
         return *(ctx->getPipsUphill(tap_wire).begin());
@@ -133,11 +133,11 @@ class Ecp5GlobalRouter
 
     PipId find_spine_pip(WireId tap_wire)
     {
-        std::string wireName = ctx->getWireBasename(tap_wire).str(ctx);
+        std::string wireName = ctx->get_wire_basename(tap_wire).str(ctx);
         Location spine_loc;
-        spine_loc.x = ctx->globalInfoAtLoc(tap_wire.location).spine_col;
-        spine_loc.y = ctx->globalInfoAtLoc(tap_wire.location).spine_row;
-        WireId spine_wire = ctx->getWireByLocAndBasename(spine_loc, wireName);
+        spine_loc.x = ctx->global_info_at_loc(tap_wire.location).spine_col;
+        spine_loc.y = ctx->global_info_at_loc(tap_wire.location).spine_row;
+        WireId spine_wire = ctx->get_wire_by_loc_basename(spine_loc, wireName);
         return *(ctx->getPipsUphill(spine_wire).begin());
     }
 
@@ -162,7 +162,7 @@ class Ecp5GlobalRouter
                 break;
             }
 
-            if (ctx->getWireBasename(next) == global_name) {
+            if (ctx->get_wire_basename(next) == global_name) {
                 globalWire = next;
                 break;
             }
@@ -212,7 +212,7 @@ class Ecp5GlobalRouter
 
     bool is_global_io(CellInfo *io, std::string &glb_name)
     {
-        std::string func_name = ctx->getPioFunctionName(io->bel);
+        std::string func_name = ctx->get_pio_function_name(io->bel);
         if (func_name.substr(0, 5) == "PCLKT") {
             func_name.erase(func_name.find('_'), 1);
             glb_name = "G_" + func_name;
@@ -223,8 +223,8 @@ class Ecp5GlobalRouter
 
     WireId get_global_wire(GlobalQuadrant quad, int network)
     {
-        return ctx->getWireByLocAndBasename(Location(0, 0),
-                                            "G_" + get_quad_name(quad) + "PCLK" + std::to_string(network));
+        return ctx->get_wire_by_loc_basename(Location(0, 0),
+                                             "G_" + get_quad_name(quad) + "PCLK" + std::to_string(network));
     }
 
     bool simple_router(NetInfo *net, WireId src, WireId dst, bool allow_fail = false)
@@ -385,7 +385,7 @@ class Ecp5GlobalRouter
         WireId dcc_mux = ctx->getPipSrcWire(*(ctx->getPipsUphill(dcc_i).begin()));
         for (auto pip : ctx->getPipsUphill(dcc_mux)) {
             WireId src = ctx->getPipSrcWire(pip);
-            std::string basename = ctx->nameOf(ctx->getWireBasename(src));
+            std::string basename = ctx->nameOf(ctx->get_wire_basename(src));
             if (basename.find("QPCLKCIB") == std::string::npos)
                 continue;
             candidates.insert(src);
@@ -404,7 +404,7 @@ class Ecp5GlobalRouter
         for (auto bel : ctx->getBels()) {
             if (ctx->getBelType(bel) == id_DCCA && ctx->checkBelAvail(bel)) {
                 if (ctx->isValidBelForCell(dcc, bel)) {
-                    std::string belname = ctx->locInfo(bel)->bel_data[bel.index].name.get();
+                    std::string belname = ctx->loc_info(bel)->bel_data[bel.index].name.get();
                     if (belname.at(0) == 'D' && using_ce)
                         continue; // don't allow DCCs with CE at center
                     ctx->bindBel(bel, dcc, STRENGTH_LOCKED);
@@ -624,7 +624,7 @@ class Ecp5GlobalRouter
                             WireId src = ctx->getPipSrcWire(uh);
                             if (backtrace.count(src))
                                 continue;
-                            IdString basename = ctx->getWireBasename(src);
+                            IdString basename = ctx->get_wire_basename(src);
                             // "ECLKCIB" wires are the junction with general routing
                             if (basename.str(ctx).find("ECLKCIB") != std::string::npos)
                                 continue;

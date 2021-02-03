@@ -70,9 +70,9 @@ static const ChipInfoPOD *get_chip_info(ArchArgs::ArchArgsTypes chip)
     return ptr->get();
 }
 
-bool Arch::isAvailable(ArchArgs::ArchArgsTypes chip) { return get_chip_info(chip) != nullptr; }
+bool Arch::is_available(ArchArgs::ArchArgsTypes chip) { return get_chip_info(chip) != nullptr; }
 
-std::vector<std::string> Arch::getSupportedPackages(ArchArgs::ArchArgsTypes chip)
+std::vector<std::string> Arch::get_supported_packages(ArchArgs::ArchArgsTypes chip)
 {
     const ChipInfoPOD *chip_info = get_chip_info(chip);
     std::vector<std::string> packages;
@@ -164,7 +164,7 @@ std::string Arch::getChipName() const
     }
 }
 
-std::string Arch::getFullChipName() const
+std::string Arch::get_full_chip_name() const
 {
     std::string name = getChipName();
     name += "-";
@@ -222,7 +222,7 @@ BelId Arch::getBelByName(IdStringList name) const
     loc.x = id_to_x.at(name[0]);
     loc.y = id_to_y.at(name[1]);
     ret.location = loc;
-    const LocationTypePOD *loci = locInfo(ret);
+    const LocationTypePOD *loci = loc_info(ret);
     for (int i = 0; i < int(loci->bel_data.size()); i++) {
         if (std::strcmp(loci->bel_data[i].name.get(), name[2].c_str(this)) == 0) {
             ret.index = i;
@@ -255,7 +255,7 @@ WireId Arch::getBelPinWire(BelId bel, IdString pin) const
 
     NPNR_ASSERT(bel != BelId());
 
-    for (auto &bw : locInfo(bel)->bel_data[bel.index].bel_wires)
+    for (auto &bw : loc_info(bel)->bel_data[bel.index].bel_wires)
         if (bw.port == pin.index) {
             ret.location = bel.location + bw.rel_wire_loc;
             ret.index = bw.wire_index;
@@ -269,7 +269,7 @@ PortType Arch::getBelPinType(BelId bel, IdString pin) const
 {
     NPNR_ASSERT(bel != BelId());
 
-    for (auto &bw : locInfo(bel)->bel_data[bel.index].bel_wires)
+    for (auto &bw : loc_info(bel)->bel_data[bel.index].bel_wires)
         if (bw.port == pin.index)
             return PortType(bw.type);
 
@@ -287,7 +287,7 @@ WireId Arch::getWireByName(IdStringList name) const
     loc.x = id_to_x.at(name[0]);
     loc.y = id_to_y.at(name[1]);
     ret.location = loc;
-    const LocationTypePOD *loci = locInfo(ret);
+    const LocationTypePOD *loci = loc_info(ret);
     for (int i = 0; i < int(loci->wire_data.size()); i++) {
         if (std::strcmp(loci->wire_data[i].name.get(), name[2].c_str(this)) == 0) {
             ret.index = i;
@@ -313,7 +313,7 @@ PipId Arch::getPipByName(IdStringList name) const
     loc.x = id_to_x.at(name[0]);
     loc.y = id_to_y.at(name[1]);
     ret.location = loc;
-    const LocationTypePOD *loci = locInfo(ret);
+    const LocationTypePOD *loci = loc_info(ret);
     for (int i = 0; i < int(loci->pip_data.size()); i++) {
         PipId curr;
         curr.location = loc;
@@ -330,11 +330,11 @@ IdStringList Arch::getPipName(PipId pip) const
     NPNR_ASSERT(pip != PipId());
 
     // TODO: can we improve how pip names are stored/built?
-    auto &pip_data = locInfo(pip)->pip_data[pip.index];
+    auto &pip_data = loc_info(pip)->pip_data[pip.index];
     WireId src = getPipSrcWire(pip), dst = getPipDstWire(pip);
     std::string pip_name = stringf("%d_%d_%s->%d_%d_%s", pip_data.rel_src_loc.x, pip_data.rel_src_loc.y,
-                                   getWireBasename(src).c_str(this), pip_data.rel_dst_loc.x, pip_data.rel_dst_loc.y,
-                                   getWireBasename(dst).c_str(this));
+                                   get_wire_basename(src).c_str(this), pip_data.rel_dst_loc.x, pip_data.rel_dst_loc.y,
+                                   get_wire_basename(dst).c_str(this));
 
     std::array<IdString, 3> ids{x_ids.at(pip.location.x), y_ids.at(pip.location.y), id(pip_name)};
     return IdStringList(ids);
@@ -342,7 +342,7 @@ IdStringList Arch::getPipName(PipId pip) const
 
 // -----------------------------------------------------------------------
 
-BelId Arch::getPackagePinBel(const std::string &pin) const
+BelId Arch::get_package_pin_bel(const std::string &pin) const
 {
     for (auto &ppin : package_info->pin_data) {
         if (ppin.name.get() == pin) {
@@ -355,7 +355,7 @@ BelId Arch::getPackagePinBel(const std::string &pin) const
     return BelId();
 }
 
-std::string Arch::getBelPackagePin(BelId bel) const
+std::string Arch::get_bel_package_pin(BelId bel) const
 {
     for (auto &ppin : package_info->pin_data) {
         if (Location(ppin.abs_loc) == bel.location && ppin.bel_index == bel.index) {
@@ -365,7 +365,7 @@ std::string Arch::getBelPackagePin(BelId bel) const
     return "";
 }
 
-int Arch::getPioBelBank(BelId bel) const
+int Arch::get_pio_bel_bank(BelId bel) const
 {
     for (auto &pio : chip_info->pio_info) {
         if (Location(pio.abs_loc) == bel.location && pio.bel_index == bel.index) {
@@ -375,7 +375,7 @@ int Arch::getPioBelBank(BelId bel) const
     NPNR_ASSERT_FALSE("failed to find PIO");
 }
 
-std::string Arch::getPioFunctionName(BelId bel) const
+std::string Arch::get_pio_function_name(BelId bel) const
 {
     for (auto &pio : chip_info->pio_info) {
         if (Location(pio.abs_loc) == bel.location && pio.bel_index == bel.index) {
@@ -389,7 +389,7 @@ std::string Arch::getPioFunctionName(BelId bel) const
     NPNR_ASSERT_FALSE("failed to find PIO");
 }
 
-BelId Arch::getPioByFunctionName(const std::string &name) const
+BelId Arch::get_pio_by_function_name(const std::string &name) const
 {
     for (auto &pio : chip_info->pio_info) {
         const char *func = pio.function_name.get();
@@ -408,7 +408,7 @@ std::vector<IdString> Arch::getBelPins(BelId bel) const
     std::vector<IdString> ret;
     NPNR_ASSERT(bel != BelId());
 
-    for (auto &bw : locInfo(bel)->bel_data[bel.index].bel_wires) {
+    for (auto &bw : loc_info(bel)->bel_data[bel.index].bel_wires) {
         IdString id;
         id.index = bw.port;
         ret.push_back(id);
@@ -438,7 +438,7 @@ BelId Arch::getBelByLocation(Loc loc) const
 
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {
-    int num_uh = locInfo(dst)->wire_data[dst.index].pips_uphill.size();
+    int num_uh = loc_info(dst)->wire_data[dst.index].pips_uphill.size();
     if (num_uh < 6) {
         for (auto uh : getPipsUphill(dst)) {
             if (getPipSrcWire(uh) == src)
@@ -447,7 +447,7 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     }
 
     auto est_location = [&](WireId w) -> std::pair<int, int> {
-        const auto &wire = locInfo(w)->wire_data[w.index];
+        const auto &wire = loc_info(w)->wire_data[w.index];
         if (w == gsrclk_wire) {
             auto phys_wire = getPipSrcWire(*(getPipsUphill(w).begin()));
             return std::make_pair(int(phys_wire.location.x), int(phys_wire.location.y));
@@ -496,7 +496,7 @@ ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
     };
 
     auto est_location = [&](WireId w) -> std::pair<int, int> {
-        const auto &wire = locInfo(w)->wire_data[w.index];
+        const auto &wire = loc_info(w)->wire_data[w.index];
         if (w == gsrclk_wire) {
             auto phys_wire = getPipSrcWire(*(getPipsUphill(w).begin()));
             return std::make_pair(int(phys_wire.location.x), int(phys_wire.location.y));
@@ -609,7 +609,7 @@ bool Arch::route()
 {
     std::string router = str_or_default(settings, id("router"), defaultRouter);
 
-    setupWireLocations();
+    setup_wire_locations();
     route_ecp5_globals(getCtx());
     assignArchInfo();
     assign_budget(getCtx(), true);
@@ -659,7 +659,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
         int x = decal.location.x;
         int y = decal.location.y;
         GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-        GfxTileWireId tilewire = GfxTileWireId(locInfo(wire)->wire_data[wire.index].tile_wire);
+        GfxTileWireId tilewire = GfxTileWireId(loc_info(wire)->wire_data[wire.index].tile_wire);
         gfxTileWire(ret, x, y, chip_info->width, chip_info->height, wire_type, tilewire, style);
     } else if (decal.type == DecalId::TYPE_PIP) {
         PipId pip;
@@ -669,8 +669,8 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
         WireId dst_wire = getPipDstWire(pip);
         int x = decal.location.x;
         int y = decal.location.y;
-        GfxTileWireId src_id = GfxTileWireId(locInfo(src_wire)->wire_data[src_wire.index].tile_wire);
-        GfxTileWireId dst_id = GfxTileWireId(locInfo(dst_wire)->wire_data[dst_wire.index].tile_wire);
+        GfxTileWireId src_id = GfxTileWireId(loc_info(src_wire)->wire_data[src_wire.index].tile_wire);
+        GfxTileWireId dst_id = GfxTileWireId(loc_info(dst_wire)->wire_data[dst_wire.index].tile_wire);
         GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_HIDDEN;
         gfxTilePip(ret, x, y, chip_info->width, chip_info->height, src_wire, getWireType(src_wire), src_id, dst_wire,
                    getWireType(dst_wire), dst_id, style);
@@ -681,7 +681,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
         auto bel_type = getBelType(bel);
         int x = decal.location.x;
         int y = decal.location.y;
-        int z = locInfo(bel)->bel_data[bel.index].z;
+        int z = loc_info(bel)->bel_data[bel.index].z;
         GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
         gfxTileBel(ret, x, y, z, chip_info->width, chip_info->height, bel_type, style);
     }
@@ -695,7 +695,7 @@ DecalXY Arch::getBelDecal(BelId bel) const
     decalxy.decal.type = DecalId::TYPE_BEL;
     decalxy.decal.location = bel.location;
     decalxy.decal.z = bel.index;
-    decalxy.decal.active = (bel_to_cell.at(getBelFlatIndex(bel)) != nullptr);
+    decalxy.decal.active = (bel_to_cell.at(get_bel_flat_index(bel)) != nullptr);
     return decalxy;
 }
 
@@ -731,7 +731,7 @@ DecalXY Arch::getGroupDecal(GroupId group) const
 
 // -----------------------------------------------------------------------
 
-bool Arch::getDelayFromTimingDatabase(IdString tctype, IdString from, IdString to, DelayInfo &delay) const
+bool Arch::get_delay_from_tmg_db(IdString tctype, IdString from, IdString to, DelayInfo &delay) const
 {
     auto fnd_dk = celldelay_cache.find({tctype, from, to});
     if (fnd_dk != celldelay_cache.end()) {
@@ -755,8 +755,8 @@ bool Arch::getDelayFromTimingDatabase(IdString tctype, IdString from, IdString t
     NPNR_ASSERT_FALSE("failed to find timing cell in db");
 }
 
-void Arch::getSetupHoldFromTimingDatabase(IdString tctype, IdString clock, IdString port, DelayInfo &setup,
-                                          DelayInfo &hold) const
+void Arch::get_setuphold_from_tmg_db(IdString tctype, IdString clock, IdString port, DelayInfo &setup,
+                                     DelayInfo &hold) const
 {
     for (auto &tc : speed_grade->cell_timings) {
         if (tc.cell_type == tctype.index) {
@@ -782,7 +782,7 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
         if (fromPort == id_A0 || fromPort == id_B0 || fromPort == id_C0 || fromPort == id_D0 || fromPort == id_A1 ||
             fromPort == id_B1 || fromPort == id_C1 || fromPort == id_D1 || fromPort == id_M0 || fromPort == id_M1 ||
             fromPort == id_FXA || fromPort == id_FXB || fromPort == id_FCI) {
-            return getDelayFromTimingDatabase(has_carry ? id_SCCU2C : id_SLOGICB, fromPort, toPort, delay);
+            return get_delay_from_tmg_db(has_carry ? id_SCCU2C : id_SLOGICB, fromPort, toPort, delay);
         }
 
         if ((fromPort == id_A0 && toPort == id_WADO3) || (fromPort == id_A1 && toPort == id_WDO1) ||
@@ -809,8 +809,7 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
         std::string fn = fromPort.str(this), tn = toPort.str(this);
         if (fn.size() > 1 && (fn.front() == 'A' || fn.front() == 'B') && std::isdigit(fn.at(1))) {
             if (tn.size() > 1 && tn.front() == 'P' && std::isdigit(tn.at(1)))
-                return getDelayFromTimingDatabase(cell->multInfo.timing_id, id(std::string("") + fn.front()), id_P,
-                                                  delay);
+                return get_delay_from_tmg_db(cell->multInfo.timing_id, id(std::string("") + fn.front()), id_P, delay);
         }
         return false;
     } else if (cell->type == id_IOLOGIC || cell->type == id_SIOLOGIC) {
@@ -1007,17 +1006,17 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
             port == id_WAD3 || port == id_WRE) {
             info.edge = RISING_EDGE;
             info.clock_port = id_WCK;
-            getSetupHoldFromTimingDatabase(id_SDPRAME, id_WCK, port, info.setup, info.hold);
+            get_setuphold_from_tmg_db(id_SDPRAME, id_WCK, port, info.setup, info.hold);
         } else if (port == id_DI0 || port == id_DI1 || port == id_CE || port == id_LSR || (sd0 == 0 && port == id_M0) ||
                    (sd1 == 0 && port == id_M1)) {
             info.edge = cell->sliceInfo.clkmux == id("INV") ? FALLING_EDGE : RISING_EDGE;
             info.clock_port = id_CLK;
-            getSetupHoldFromTimingDatabase(id_SLOGICB, id_CLK, port, info.setup, info.hold);
+            get_setuphold_from_tmg_db(id_SLOGICB, id_CLK, port, info.setup, info.hold);
 
         } else {
             info.edge = cell->sliceInfo.clkmux == id("INV") ? FALLING_EDGE : RISING_EDGE;
             info.clock_port = id_CLK;
-            bool is_path = getDelayFromTimingDatabase(id_SLOGICB, id_CLK, port, info.clockToQ);
+            bool is_path = get_delay_from_tmg_db(id_SLOGICB, id_CLK, port, info.clockToQ);
             NPNR_ASSERT(is_path);
         }
     } else if (cell->type == id_DP16KD) {
@@ -1052,10 +1051,10 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
                             ? FALLING_EDGE
                             : RISING_EDGE;
         if (cell->ports.at(port).type == PORT_OUT) {
-            bool is_path = getDelayFromTimingDatabase(cell->ramInfo.regmode_timing_id, half_clock, port, info.clockToQ);
+            bool is_path = get_delay_from_tmg_db(cell->ramInfo.regmode_timing_id, half_clock, port, info.clockToQ);
             NPNR_ASSERT(is_path);
         } else {
-            getSetupHoldFromTimingDatabase(cell->ramInfo.regmode_timing_id, half_clock, port, info.setup, info.hold);
+            get_setuphold_from_tmg_db(cell->ramInfo.regmode_timing_id, half_clock, port, info.setup, info.hold);
         }
     } else if (cell->type == id_DCUA) {
         std::string prefix = port.str(this).substr(0, 9);
@@ -1123,16 +1122,16 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
         info.clock_port = clock_id;
         info.edge = RISING_EDGE;
         if (cell->ports.at(port).type == PORT_OUT) {
-            bool is_path = getDelayFromTimingDatabase(cell->multInfo.timing_id, clock_id, port_group, info.clockToQ);
+            bool is_path = get_delay_from_tmg_db(cell->multInfo.timing_id, clock_id, port_group, info.clockToQ);
             NPNR_ASSERT(is_path);
         } else {
-            getSetupHoldFromTimingDatabase(cell->multInfo.timing_id, clock_id, port_group, info.setup, info.hold);
+            get_setuphold_from_tmg_db(cell->multInfo.timing_id, clock_id, port_group, info.setup, info.hold);
         }
     }
     return info;
 }
 
-std::vector<std::pair<std::string, std::string>> Arch::getTilesAtLocation(int row, int col)
+std::vector<std::pair<std::string, std::string>> Arch::get_tiles_at_loc(int row, int col)
 {
     std::vector<std::pair<std::string, std::string>> ret;
     auto &tileloc = chip_info->tile_info[row * chip_info->width + col];
@@ -1142,13 +1141,13 @@ std::vector<std::pair<std::string, std::string>> Arch::getTilesAtLocation(int ro
     return ret;
 }
 
-GlobalInfoPOD Arch::globalInfoAtLoc(Location loc)
+GlobalInfoPOD Arch::global_info_at_loc(Location loc)
 {
     int locidx = loc.y * chip_info->width + loc.x;
     return chip_info->location_glbinfo[locidx];
 }
 
-bool Arch::getPIODQSGroup(BelId pio, bool &dqsright, int &dqsrow)
+bool Arch::get_pio_dqs_group(BelId pio, bool &dqsright, int &dqsrow)
 {
     for (auto &ppio : chip_info->pio_info) {
         if (Location(ppio.abs_loc) == pio.location && ppio.bel_index == pio.index) {
@@ -1165,13 +1164,13 @@ bool Arch::getPIODQSGroup(BelId pio, bool &dqsright, int &dqsrow)
     NPNR_ASSERT_FALSE("failed to find PIO");
 }
 
-BelId Arch::getDQSBUF(bool dqsright, int dqsrow)
+BelId Arch::get_dqsbuf(bool dqsright, int dqsrow)
 {
     BelId bel;
     bel.location.y = dqsrow;
     bel.location.x = (dqsright ? (chip_info->width - 1) : 0);
-    for (int i = 0; i < int(locInfo(bel)->bel_data.size()); i++) {
-        auto &bd = locInfo(bel)->bel_data[i];
+    for (int i = 0; i < int(loc_info(bel)->bel_data.size()); i++) {
+        auto &bd = loc_info(bel)->bel_data[i];
         if (bd.type == id_DQSBUFM.index) {
             bel.index = i;
             return bel;
@@ -1180,9 +1179,9 @@ BelId Arch::getDQSBUF(bool dqsright, int dqsrow)
     NPNR_ASSERT_FALSE("failed to find DQSBUF");
 }
 
-WireId Arch::getBankECLK(int bank, int eclk)
+WireId Arch::get_bank_eclk(int bank, int eclk)
 {
-    return getWireByLocAndBasename(Location(0, 0), "G_BANK" + std::to_string(bank) + "ECLK" + std::to_string(eclk));
+    return get_wire_by_loc_basename(Location(0, 0), "G_BANK" + std::to_string(bank) + "ECLK" + std::to_string(eclk));
 }
 
 #ifdef WITH_HEAP
@@ -1271,7 +1270,7 @@ std::vector<GroupId> Arch::getGroupGroups(GroupId group) const
 std::vector<std::pair<IdString, std::string>> Arch::getWireAttrs(WireId wire) const
 {
     std::vector<std::pair<IdString, std::string>> ret;
-    auto &wi = locInfo(wire)->wire_data[wire.index];
+    auto &wi = loc_info(wire)->wire_data[wire.index];
 
     ret.push_back(std::make_pair(id("TILE_WIRE_ID"), stringf("%d", wi.tile_wire)));
 

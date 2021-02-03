@@ -28,6 +28,8 @@ Additionally to this; architectures provide functions for checking the availabil
  - Pips that represent LUT permutation are not available when the LUT is in memory mode
  - only a certain total number of pips in a switchbox can be used at once due to power supply limitations
 
+As well as implementing all of the standard [Arch API](archapi.md) functions; arches may include their own helper functions for various purposes. By convention these are in `snake_case`, to distinguish them from the `camelCase` Arch API functions.
+
 ## `IdString`s
 
 To avoid the high cost of using strings as identifiers directly; almost all "string" identifiers in nextpnr (such as cell names and types) use an indexed string pool type named `IdString`. Unlike Yosys, which has a global garbage collected pool, nextpnr has a per-Context pool without any garbage collection.

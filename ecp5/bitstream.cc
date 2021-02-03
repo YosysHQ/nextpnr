@@ -49,7 +49,7 @@ void config_empty_lfe5um5g_85f(ChipConfig &cc);
 // Convert an absolute wire name to a relative Trellis one
 static std::string get_trellis_wirename(Context *ctx, Location loc, WireId wire)
 {
-    std::string basename = ctx->locInfo(wire)->wire_data[wire.index].name.get();
+    std::string basename = ctx->loc_info(wire)->wire_data[wire.index].name.get();
     std::string prefix2 = basename.substr(0, 2);
     if (prefix2 == "G_" || prefix2 == "L_" || prefix2 == "R_")
         return basename;
@@ -102,7 +102,7 @@ static void tie_cib_signal(Context *ctx, ChipConfig &cc, WireId wire, bool value
         NPNR_ASSERT(!signals.empty());
         NPNR_ASSERT(signals.size() < 100);
         cibsig = signals.front();
-        basename = ctx->getWireBasename(cibsig).str(ctx);
+        basename = ctx->get_wire_basename(cibsig).str(ctx);
         signals.pop();
         if (std::regex_match(basename, cib_re))
             break;
@@ -118,7 +118,7 @@ static void tie_cib_signal(Context *ctx, ChipConfig &cc, WireId wire, bool value
         out_value = 0;
     }
 
-    for (const auto &tile : ctx->getTilesAtLocation(cibsig.location.y, cibsig.location.x)) {
+    for (const auto &tile : ctx->get_tiles_at_loc(cibsig.location.y, cibsig.location.x)) {
         if (tile.second.substr(0, 3) == "CIB" || tile.second.substr(0, 4) == "VCIB") {
 
             cc.tiles[tile.first].add_enum("CIB." + basename + "MUX", out_value ? "1" : "0");
@@ -181,27 +181,27 @@ static std::string get_pio_tile(Context *ctx, BelId bel)
     static const std::set<std::string> pioa_b = {"PICB0", "EFB0_PICB0", "EFB2_PICB0", "SPICB0"};
     static const std::set<std::string> piob_b = {"PICB1", "EFB1_PICB1", "EFB3_PICB1"};
 
-    std::string pio_name = ctx->locInfo(bel)->bel_data[bel.index].name.get();
+    std::string pio_name = ctx->loc_info(bel)->bel_data[bel.index].name.get();
     if (bel.location.y == 0) {
         if (pio_name == "PIOA") {
-            return ctx->getTileByTypeAndLocation(0, bel.location.x, "PIOT0");
+            return ctx->get_tile_by_type_loc(0, bel.location.x, "PIOT0");
         } else if (pio_name == "PIOB") {
-            return ctx->getTileByTypeAndLocation(0, bel.location.x + 1, "PIOT1");
+            return ctx->get_tile_by_type_loc(0, bel.location.x + 1, "PIOT1");
         } else {
             NPNR_ASSERT_FALSE("bad PIO location");
         }
     } else if (bel.location.y == ctx->chip_info->height - 1) {
         if (pio_name == "PIOA") {
-            return ctx->getTileByTypeAndLocation(bel.location.y, bel.location.x, pioa_b);
+            return ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, pioa_b);
         } else if (pio_name == "PIOB") {
-            return ctx->getTileByTypeAndLocation(bel.location.y, bel.location.x + 1, piob_b);
+            return ctx->get_tile_by_type_loc(bel.location.y, bel.location.x + 1, piob_b);
         } else {
             NPNR_ASSERT_FALSE("bad PIO location");
         }
     } else if (bel.location.x == 0) {
-        return ctx->getTileByTypeAndLocation(bel.location.y + 1, bel.location.x, pioabcd_l);
+        return ctx->get_tile_by_type_loc(bel.location.y + 1, bel.location.x, pioabcd_l);
     } else if (bel.location.x == ctx->chip_info->width - 1) {
-        return ctx->getTileByTypeAndLocation(bel.location.y + 1, bel.location.x, pioabcd_r);
+        return ctx->get_tile_by_type_loc(bel.location.y + 1, bel.location.x, pioabcd_r);
     } else {
         NPNR_ASSERT_FALSE("bad PIO location");
     }
@@ -218,36 +218,36 @@ static std::string get_pic_tile(Context *ctx, BelId bel)
     static const std::set<std::string> pica_b = {"PICB0", "EFB0_PICB0", "EFB2_PICB0", "SPICB0"};
     static const std::set<std::string> picb_b = {"PICB1", "EFB1_PICB1", "EFB3_PICB1"};
 
-    std::string pio_name = ctx->locInfo(bel)->bel_data[bel.index].name.get();
+    std::string pio_name = ctx->loc_info(bel)->bel_data[bel.index].name.get();
     if (bel.location.y == 0) {
         if (pio_name == "PIOA") {
-            return ctx->getTileByTypeAndLocation(1, bel.location.x, "PICT0");
+            return ctx->get_tile_by_type_loc(1, bel.location.x, "PICT0");
         } else if (pio_name == "PIOB") {
-            return ctx->getTileByTypeAndLocation(1, bel.location.x + 1, "PICT1");
+            return ctx->get_tile_by_type_loc(1, bel.location.x + 1, "PICT1");
         } else {
             NPNR_ASSERT_FALSE("bad PIO location");
         }
     } else if (bel.location.y == ctx->chip_info->height - 1) {
         if (pio_name == "PIOA") {
-            return ctx->getTileByTypeAndLocation(bel.location.y, bel.location.x, pica_b);
+            return ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, pica_b);
         } else if (pio_name == "PIOB") {
-            return ctx->getTileByTypeAndLocation(bel.location.y, bel.location.x + 1, picb_b);
+            return ctx->get_tile_by_type_loc(bel.location.y, bel.location.x + 1, picb_b);
         } else {
             NPNR_ASSERT_FALSE("bad PIO location");
         }
     } else if (bel.location.x == 0) {
         if (pio_name == "PIOA" || pio_name == "PIOB") {
-            return ctx->getTileByTypeAndLocation(bel.location.y, bel.location.x, picab_l);
+            return ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, picab_l);
         } else if (pio_name == "PIOC" || pio_name == "PIOD") {
-            return ctx->getTileByTypeAndLocation(bel.location.y + 2, bel.location.x, piccd_l);
+            return ctx->get_tile_by_type_loc(bel.location.y + 2, bel.location.x, piccd_l);
         } else {
             NPNR_ASSERT_FALSE("bad PIO location");
         }
     } else if (bel.location.x == ctx->chip_info->width - 1) {
         if (pio_name == "PIOA" || pio_name == "PIOB") {
-            return ctx->getTileByTypeAndLocation(bel.location.y, bel.location.x, picab_r);
+            return ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, picab_r);
         } else if (pio_name == "PIOC" || pio_name == "PIOD") {
-            return ctx->getTileByTypeAndLocation(bel.location.y + 2, bel.location.x, piccd_r);
+            return ctx->get_tile_by_type_loc(bel.location.y + 2, bel.location.x, piccd_r);
         } else {
             NPNR_ASSERT_FALSE("bad PIO location");
         }
@@ -260,12 +260,12 @@ static std::string get_pic_tile(Context *ctx, BelId bel)
 static std::string get_comp_pio_tile(Context *ctx, BelId bel)
 {
     NPNR_ASSERT(bel.location.y == 0);
-    return ctx->getTileByTypeAndLocation(0, bel.location.x + 1, "PIOT1");
+    return ctx->get_tile_by_type_loc(0, bel.location.x + 1, "PIOT1");
 }
 static std::string get_comp_pic_tile(Context *ctx, BelId bel)
 {
     NPNR_ASSERT(bel.location.y == 0);
-    return ctx->getTileByTypeAndLocation(1, bel.location.x + 1, "PICT1");
+    return ctx->get_tile_by_type_loc(1, bel.location.x + 1, "PICT1");
 }
 
 // Get the list of tiles corresponding to a blockram
@@ -282,23 +282,23 @@ std::vector<std::string> get_bram_tiles(Context *ctx, BelId bel)
 
     switch (loc.z) {
     case 0:
-        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, ebr0));
-        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB_EBR1"));
+        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, ebr0));
+        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB_EBR1"));
         break;
     case 1:
-        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB_EBR2"));
-        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB_EBR3"));
-        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 2, "MIB_EBR4"));
+        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB_EBR2"));
+        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB_EBR3"));
+        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, "MIB_EBR4"));
         break;
     case 2:
-        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB_EBR4"));
-        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB_EBR5"));
-        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 2, "MIB_EBR6"));
+        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB_EBR4"));
+        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB_EBR5"));
+        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, "MIB_EBR6"));
         break;
     case 3:
-        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB_EBR6"));
-        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB_EBR7"));
-        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 2, ebr8));
+        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB_EBR6"));
+        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB_EBR7"));
+        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, ebr8));
         break;
     default:
         NPNR_ASSERT_FALSE("bad EBR z loc");
@@ -316,52 +316,52 @@ std::vector<std::string> get_dsp_tiles(Context *ctx, BelId bel)
     if (ctx->getBelType(bel) == id_MULT18X18D) {
         switch (loc.z) {
         case 0:
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB_DSP0"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB2_DSP0"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB_DSP1"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB2_DSP1"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 2, "MIB_DSP2"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 2, "MIB2_DSP2"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 3, "MIB_DSP3"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 3, "MIB2_DSP3"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 4, "MIB_DSP4"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 4, "MIB2_DSP4"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB_DSP0"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB2_DSP0"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB_DSP1"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB2_DSP1"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, "MIB_DSP2"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, "MIB2_DSP2"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 3, "MIB_DSP3"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 3, "MIB2_DSP3"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 4, "MIB_DSP4"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 4, "MIB2_DSP4"));
             break;
         case 1:
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 1, "MIB_DSP0"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 1, "MIB2_DSP0"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB_DSP1"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB2_DSP1"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB_DSP2"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB2_DSP2"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 2, "MIB_DSP3"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 2, "MIB2_DSP3"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 3, "MIB_DSP4"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 3, "MIB2_DSP4"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 1, "MIB_DSP0"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 1, "MIB2_DSP0"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB_DSP1"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB2_DSP1"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB_DSP2"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB2_DSP2"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, "MIB_DSP3"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, "MIB2_DSP3"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 3, "MIB_DSP4"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 3, "MIB2_DSP4"));
             break;
         case 4:
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB_DSP4"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB2_DSP4"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB_DSP5"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB2_DSP5"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 2, "MIB_DSP6"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 2, "MIB2_DSP6"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 3, "MIB_DSP7"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 3, "MIB2_DSP7"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 4, dsp8));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 4, "MIB2_DSP8"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB_DSP4"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB2_DSP4"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB_DSP5"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB2_DSP5"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, "MIB_DSP6"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, "MIB2_DSP6"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 3, "MIB_DSP7"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 3, "MIB2_DSP7"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 4, dsp8));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 4, "MIB2_DSP8"));
             break;
         case 5:
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 1, "MIB_DSP4"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 1, "MIB2_DSP4"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB_DSP5"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB2_DSP5"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB_DSP6"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB2_DSP6"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 2, "MIB_DSP7"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 2, "MIB2_DSP7"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 3, dsp8));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 3, "MIB2_DSP8"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 1, "MIB_DSP4"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 1, "MIB2_DSP4"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB_DSP5"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB2_DSP5"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB_DSP6"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB2_DSP6"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, "MIB_DSP7"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, "MIB2_DSP7"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 3, dsp8));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 3, "MIB2_DSP8"));
             break;
         default:
             NPNR_ASSERT_FALSE("bad MULT z loc");
@@ -369,28 +369,28 @@ std::vector<std::string> get_dsp_tiles(Context *ctx, BelId bel)
     } else if (ctx->getBelType(bel) == id_ALU54B) {
         switch (loc.z) {
         case 3:
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 3, "MIB_DSP0"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 3, "MIB2_DSP0"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 2, "MIB_DSP1"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 2, "MIB2_DSP1"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 1, "MIB_DSP2"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 1, "MIB2_DSP2"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB_DSP3"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB2_DSP3"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB_DSP4"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB2_DSP4"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 3, "MIB_DSP0"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 3, "MIB2_DSP0"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 2, "MIB_DSP1"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 2, "MIB2_DSP1"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 1, "MIB_DSP2"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 1, "MIB2_DSP2"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB_DSP3"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB2_DSP3"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB_DSP4"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB2_DSP4"));
             break;
         case 7:
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 3, "MIB_DSP4"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 3, "MIB2_DSP4"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 2, "MIB_DSP5"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 2, "MIB2_DSP5"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 1, "MIB_DSP6"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 1, "MIB2_DSP6"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB_DSP7"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB2_DSP7"));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, dsp8));
-            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB2_DSP8"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 3, "MIB_DSP4"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 3, "MIB2_DSP4"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 2, "MIB_DSP5"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 2, "MIB2_DSP5"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 1, "MIB_DSP6"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 1, "MIB2_DSP6"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB_DSP7"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB2_DSP7"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, dsp8));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB2_DSP8"));
             break;
         default:
             NPNR_ASSERT_FALSE("bad ALU z loc");
@@ -405,30 +405,30 @@ std::vector<std::string> get_dcu_tiles(Context *ctx, BelId bel)
     std::vector<std::string> tiles;
     Loc loc = ctx->getBelLocation(bel);
     for (int i = 0; i < 9; i++)
-        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + i, "DCU" + std::to_string(i)));
+        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + i, "DCU" + std::to_string(i)));
     return tiles;
 }
 
 // Get the list of tiles corresponding to a PLL
 std::vector<std::string> get_pll_tiles(Context *ctx, BelId bel)
 {
-    std::string name = ctx->locInfo(bel)->bel_data[bel.index].name.get();
+    std::string name = ctx->loc_info(bel)->bel_data[bel.index].name.get();
     std::vector<std::string> tiles;
     Loc loc = ctx->getBelLocation(bel);
     static const std::set<std::string> pll1_lr = {"PLL1_LR", "BANKREF4"};
 
     if (name == "EHXPLL_UL") {
-        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 1, "PLL0_UL"));
-        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y + 1, loc.x - 1, "PLL1_UL"));
+        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 1, "PLL0_UL"));
+        tiles.push_back(ctx->get_tile_by_type_loc(loc.y + 1, loc.x - 1, "PLL1_UL"));
     } else if (name == "EHXPLL_LL") {
-        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y + 1, loc.x, "PLL0_LL"));
-        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y + 1, loc.x + 1, "BANKREF8"));
+        tiles.push_back(ctx->get_tile_by_type_loc(loc.y + 1, loc.x, "PLL0_LL"));
+        tiles.push_back(ctx->get_tile_by_type_loc(loc.y + 1, loc.x + 1, "BANKREF8"));
     } else if (name == "EHXPLL_LR") {
-        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y + 1, loc.x, "PLL0_LR"));
-        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y + 1, loc.x - 1, pll1_lr));
+        tiles.push_back(ctx->get_tile_by_type_loc(loc.y + 1, loc.x, "PLL0_LR"));
+        tiles.push_back(ctx->get_tile_by_type_loc(loc.y + 1, loc.x - 1, pll1_lr));
     } else if (name == "EHXPLL_UR") {
-        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "PLL0_UR"));
-        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y + 1, loc.x + 1, "PLL1_UR"));
+        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "PLL0_UR"));
+        tiles.push_back(ctx->get_tile_by_type_loc(loc.y + 1, loc.x + 1, "PLL1_UR"));
     } else {
         NPNR_ASSERT_FALSE_STR("bad PLL loc " + name);
     }
@@ -516,7 +516,7 @@ void tieoff_dcu_ports(Context *ctx, ChipConfig &cc, CellInfo *ci)
 
 static void set_pip(Context *ctx, ChipConfig &cc, PipId pip)
 {
-    std::string tile = ctx->getPipTilename(pip);
+    std::string tile = ctx->get_pip_tilename(pip);
     std::string source = get_trellis_wirename(ctx, pip.location, ctx->getPipSrcWire(pip));
     std::string sink = get_trellis_wirename(ctx, pip.location, ctx->getPipDstWire(pip));
     cc.tiles[tile].add_arc(sink, source);
@@ -633,7 +633,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
         }
     }
 
-    cc.metadata.push_back("Part: " + ctx->getFullChipName());
+    cc.metadata.push_back("Part: " + ctx->get_full_chip_name());
 
     // Clear out DCU tieoffs in base config if DCU used
     for (auto &cell : ctx->cells) {
@@ -641,7 +641,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
         if (ci->type == id_DCUA) {
             Loc loc = ctx->getBelLocation(ci->bel);
             for (int i = 0; i < 12; i++) {
-                auto tiles = ctx->getTilesAtLocation(loc.y - 1, loc.x + i);
+                auto tiles = ctx->get_tiles_at_loc(loc.y - 1, loc.x + i);
                 for (const auto &tile : tiles) {
                     auto cc_tile = cc.tiles.find(tile.first);
                     if (cc_tile != cc.tiles.end()) {
@@ -655,7 +655,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
     // Add all set, configurable pips to the config
     for (auto pip : ctx->getPips()) {
         if (ctx->getBoundPipNet(pip) != nullptr) {
-            if (ctx->getPipClass(pip) == 0) { // ignore fixed pips
+            if (ctx->get_pip_class(pip) == 0) { // ignore fixed pips
                 std::string source = get_trellis_wirename(ctx, pip.location, ctx->getPipSrcWire(pip));
                 if (source.find("CLKI_PLL") != std::string::npos) {
                     // Special case - must set pip in all relevant tiles
@@ -676,7 +676,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
         if (ci->bel != BelId() && ci->type == ctx->id("TRELLIS_IO")) {
-            int bank = ctx->getPioBelBank(ci->bel);
+            int bank = ctx->get_pio_bel_bank(ci->bel);
             std::string dir = str_or_default(ci->params, ctx->id("DIR"), "INPUT");
             std::string iotype = str_or_default(ci->attrs, ctx->id("IO_TYPE"), "LVCMOS33");
 
@@ -706,7 +706,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
     // Set all bankref tiles to appropriate VccIO
     for (int y = 0; y < ctx->getGridDimY(); y++) {
         for (int x = 0; x < ctx->getGridDimX(); x++) {
-            auto tiles = ctx->getTilesAtLocation(y, x);
+            auto tiles = ctx->get_tiles_at_loc(y, x);
             for (auto tile : tiles) {
                 std::string type = tile.second;
                 if (type.find("BANKREF") != std::string::npos) {
@@ -741,18 +741,19 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
     for (auto bv : bankVref) {
         if (!bv.second)
             continue;
-        BelId vrefIO = ctx->getPioByFunctionName(fmt_str("VREF1_" << bv.first));
+        BelId vrefIO = ctx->get_pio_by_function_name(fmt_str("VREF1_" << bv.first));
         if (vrefIO == BelId())
             log_error("unable to find VREF input for bank %d\n", bv.first);
         if (!ctx->checkBelAvail(vrefIO)) {
             CellInfo *bound = ctx->getBoundBelCell(vrefIO);
             if (bound != nullptr)
-                log_error("VREF pin %s of bank %d is occupied by IO '%s'\n", ctx->getBelPackagePin(vrefIO).c_str(),
+                log_error("VREF pin %s of bank %d is occupied by IO '%s'\n", ctx->get_bel_package_pin(vrefIO).c_str(),
                           bv.first, bound->name.c_str(ctx));
             else
-                log_error("VREF pin %s of bank %d is unavailable\n", ctx->getBelPackagePin(vrefIO).c_str(), bv.first);
+                log_error("VREF pin %s of bank %d is unavailable\n", ctx->get_bel_package_pin(vrefIO).c_str(),
+                          bv.first);
         }
-        log_info("Using pin %s as VREF for bank %d\n", ctx->getBelPackagePin(vrefIO).c_str(), bv.first);
+        log_info("Using pin %s as VREF for bank %d\n", ctx->get_bel_package_pin(vrefIO).c_str(), bv.first);
         std::string pio_tile = get_pio_tile(ctx, vrefIO);
 
         std::string iotype;
@@ -774,7 +775,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                       iovoltage_to_str(bankVcc[bv.first]).c_str());
         }
 
-        std::string pio = ctx->locInfo(vrefIO)->bel_data[vrefIO.index].name.get();
+        std::string pio = ctx->loc_info(vrefIO)->bel_data[vrefIO.index].name.get();
         cc.tiles[pio_tile].add_enum(pio + ".BASE_TYPE", "OUTPUT_" + iotype);
         cc.tiles[pio_tile].add_enum(pio + ".PULLMODE", "NONE");
     }
@@ -787,8 +788,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
         }
         BelId bel = ci->bel;
         if (ci->type == ctx->id("TRELLIS_SLICE")) {
-            std::string tname = ctx->getTileByTypeAndLocation(bel.location.y, bel.location.x, "PLC2");
-            std::string slice = ctx->locInfo(bel)->bel_data[bel.index].name.get();
+            std::string tname = ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, "PLC2");
+            std::string slice = ctx->loc_info(bel)->bel_data[bel.index].name.get();
             int lut0_init = int_or_default(ci->params, ctx->id("LUT0_INITVAL"));
             int lut1_init = int_or_default(ci->params, ctx->id("LUT1_INITVAL"));
             cc.tiles[tname].add_word(slice + ".K0.INIT", int_to_bitvector(lut0_init, 16));
@@ -811,12 +812,12 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 NetInfo *lsrnet = nullptr;
                 if (ci->ports.find(ctx->id("LSR")) != ci->ports.end() && ci->ports.at(ctx->id("LSR")).net != nullptr)
                     lsrnet = ci->ports.at(ctx->id("LSR")).net;
-                if (ctx->getBoundWireNet(ctx->getWireByLocAndBasename(bel.location, "LSR0")) == lsrnet) {
+                if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "LSR0")) == lsrnet) {
                     cc.tiles[tname].add_enum("LSR0.SRMODE",
                                              str_or_default(ci->params, ctx->id("SRMODE"), "LSR_OVER_CE"));
                     cc.tiles[tname].add_enum("LSR0.LSRMUX", str_or_default(ci->params, ctx->id("LSRMUX"), "LSR"));
                 }
-                if (ctx->getBoundWireNet(ctx->getWireByLocAndBasename(bel.location, "LSR1")) == lsrnet) {
+                if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "LSR1")) == lsrnet) {
                     cc.tiles[tname].add_enum("LSR1.SRMODE",
                                              str_or_default(ci->params, ctx->id("SRMODE"), "LSR_OVER_CE"));
                     cc.tiles[tname].add_enum("LSR1.LSRMUX", str_or_default(ci->params, ctx->id("LSRMUX"), "LSR"));
@@ -825,10 +826,10 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 NetInfo *clknet = nullptr;
                 if (ci->ports.find(ctx->id("CLK")) != ci->ports.end() && ci->ports.at(ctx->id("CLK")).net != nullptr)
                     clknet = ci->ports.at(ctx->id("CLK")).net;
-                if (ctx->getBoundWireNet(ctx->getWireByLocAndBasename(bel.location, "CLK0")) == clknet) {
+                if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "CLK0")) == clknet) {
                     cc.tiles[tname].add_enum("CLK0.CLKMUX", str_or_default(ci->params, ctx->id("CLKMUX"), "CLK"));
                 }
-                if (ctx->getBoundWireNet(ctx->getWireByLocAndBasename(bel.location, "CLK1")) == clknet) {
+                if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "CLK1")) == clknet) {
                     cc.tiles[tname].add_enum("CLK1.CLKMUX", str_or_default(ci->params, ctx->id("CLKMUX"), "CLK"));
                 }
             }
@@ -861,7 +862,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
 
             // TODO: CLKMUX
         } else if (ci->type == ctx->id("TRELLIS_IO")) {
-            std::string pio = ctx->locInfo(bel)->bel_data[bel.index].name.get();
+            std::string pio = ctx->loc_info(bel)->bel_data[bel.index].name.get();
             std::string iotype = str_or_default(ci->attrs, ctx->id("IO_TYPE"), "LVCMOS33");
             std::string dir = str_or_default(ci->params, ctx->id("DIR"), "INPUT");
             std::string pio_tile = get_pio_tile(ctx, bel);
@@ -903,12 +904,11 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 (ci->ports.find(ctx->id("IOLTO")) == ci->ports.end() ||
                  ci->ports.at(ctx->id("IOLTO")).net == nullptr)) {
                 // Tie tristate low if unconnected for outputs or bidir
-                WireId jpt_wire = ctx->getWireByLocAndBasename(bel.location, fmt_str("JPADDT" << pio.back()));
+                WireId jpt_wire = ctx->get_wire_by_loc_basename(bel.location, fmt_str("JPADDT" << pio.back()));
                 PipId jpt_pip = *ctx->getPipsUphill(jpt_wire).begin();
                 WireId cib_wire = ctx->getPipSrcWire(jpt_pip);
-                std::string cib_tile =
-                        ctx->getTileByTypeAndLocation(cib_wire.location.y, cib_wire.location.x, cib_tiles);
-                std::string cib_wirename = ctx->locInfo(cib_wire)->wire_data[cib_wire.index].name.get();
+                std::string cib_tile = ctx->get_tile_by_type_loc(cib_wire.location.y, cib_wire.location.x, cib_tiles);
+                std::string cib_wirename = ctx->loc_info(cib_wire)->wire_data[cib_wire.index].name.get();
                 cc.tiles[cib_tile].add_enum("CIB." + cib_wirename + "MUX", "0");
             }
             if ((dir == "INPUT" || dir == "BIDIR") && !is_differential(ioType_from_str(iotype)) &&
@@ -993,25 +993,25 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
         } else if (ci->type == ctx->id("DCCA")) {
             const NetInfo *cen = get_net_or_empty(ci, ctx->id("CE"));
             if (cen != nullptr) {
-                std::string belname = ctx->locInfo(bel)->bel_data[bel.index].name.get();
+                std::string belname = ctx->loc_info(bel)->bel_data[bel.index].name.get();
                 Loc loc = ctx->getBelLocation(bel);
                 TileGroup tg;
                 switch (belname[0]) {
                 case 'B':
                     tg.tiles.push_back(
-                            ctx->getTileByTypeAndLocation(loc.y, loc.x, std::set<std::string>{"BMID_0H", "BMID_0V"}));
-                    tg.tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1,
-                                                                     std::set<std::string>{"BMID_2", "BMID_2V"}));
+                            ctx->get_tile_by_type_loc(loc.y, loc.x, std::set<std::string>{"BMID_0H", "BMID_0V"}));
+                    tg.tiles.push_back(
+                            ctx->get_tile_by_type_loc(loc.y, loc.x + 1, std::set<std::string>{"BMID_2", "BMID_2V"}));
                     break;
                 case 'T':
-                    tg.tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "TMID_0"));
-                    tg.tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "TMID_1"));
+                    tg.tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "TMID_0"));
+                    tg.tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "TMID_1"));
                     break;
                 case 'L':
-                    tg.tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "LMID_0"));
+                    tg.tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "LMID_0"));
                     break;
                 case 'R':
-                    tg.tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "RMID_0"));
+                    tg.tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "RMID_0"));
                     break;
                 default:
                     NPNR_ASSERT_FALSE("bad DCC for gating");
@@ -1405,38 +1405,38 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             cc.tilegroups.push_back(tg);
         } else if (ci->type == id_PCSCLKDIV) {
             Loc loc = ctx->getBelLocation(ci->bel);
-            std::string tname = ctx->getTileByTypeAndLocation(loc.y + 1, loc.x, "BMID_0H");
+            std::string tname = ctx->get_tile_by_type_loc(loc.y + 1, loc.x, "BMID_0H");
             cc.tiles[tname].add_enum("PCSCLKDIV" + std::to_string(loc.z),
                                      str_or_default(ci->params, ctx->id("GSR"), "ENABLED"));
         } else if (ci->type == id_DTR) {
-            cc.tiles[ctx->getTileByType("DTR")].add_enum("DTR.MODE", "DTR");
+            cc.tiles[ctx->get_tile_by_type("DTR")].add_enum("DTR.MODE", "DTR");
         } else if (ci->type == id_OSCG) {
             int div = int_or_default(ci->params, ctx->id("DIV"), 128);
             if (div == 128)
                 div = 127;
-            cc.tiles[ctx->getTileByType("EFB0_PICB0")].add_enum("OSC.DIV", std::to_string(div));
-            cc.tiles[ctx->getTileByType("EFB1_PICB1")].add_enum("OSC.DIV", std::to_string(div));
-            cc.tiles[ctx->getTileByType("EFB1_PICB1")].add_enum("OSC.MODE", "OSCG");
-            cc.tiles[ctx->getTileByType("EFB1_PICB1")].add_enum("CCLK.MODE", "_NONE_");
+            cc.tiles[ctx->get_tile_by_type("EFB0_PICB0")].add_enum("OSC.DIV", std::to_string(div));
+            cc.tiles[ctx->get_tile_by_type("EFB1_PICB1")].add_enum("OSC.DIV", std::to_string(div));
+            cc.tiles[ctx->get_tile_by_type("EFB1_PICB1")].add_enum("OSC.MODE", "OSCG");
+            cc.tiles[ctx->get_tile_by_type("EFB1_PICB1")].add_enum("CCLK.MODE", "_NONE_");
         } else if (ci->type == id_USRMCLK) {
             if (str_or_default(ctx->settings, ctx->id("arch.sysconfig.MASTER_SPI_PORT"), "") == "ENABLE")
                 log_warning("USRMCLK will not function correctly when MASTER_SPI_PORT is set to ENABLE.\n");
-            cc.tiles[ctx->getTileByType("EFB3_PICB1")].add_enum("CCLK.MODE", "USRMCLK");
+            cc.tiles[ctx->get_tile_by_type("EFB3_PICB1")].add_enum("CCLK.MODE", "USRMCLK");
         } else if (ci->type == id_GSR) {
-            cc.tiles[ctx->getTileByType("EFB0_PICB0")].add_enum(
+            cc.tiles[ctx->get_tile_by_type("EFB0_PICB0")].add_enum(
                     "GSR.GSRMODE", str_or_default(ci->params, ctx->id("MODE"), "ACTIVE_LOW"));
-            cc.tiles[ctx->getTileByType("VIQ_BUF")].add_enum("GSR.SYNCMODE",
-                                                             str_or_default(ci->params, ctx->id("SYNCMODE"), "ASYNC"));
+            cc.tiles[ctx->get_tile_by_type("VIQ_BUF")].add_enum(
+                    "GSR.SYNCMODE", str_or_default(ci->params, ctx->id("SYNCMODE"), "ASYNC"));
         } else if (ci->type == id_JTAGG) {
-            cc.tiles[ctx->getTileByType("EFB0_PICB0")].add_enum("JTAG.ER1",
-                                                                str_or_default(ci->params, ctx->id("ER1"), "ENABLED"));
-            cc.tiles[ctx->getTileByType("EFB0_PICB0")].add_enum("JTAG.ER2",
-                                                                str_or_default(ci->params, ctx->id("ER2"), "ENABLED"));
+            cc.tiles[ctx->get_tile_by_type("EFB0_PICB0")].add_enum(
+                    "JTAG.ER1", str_or_default(ci->params, ctx->id("ER1"), "ENABLED"));
+            cc.tiles[ctx->get_tile_by_type("EFB0_PICB0")].add_enum(
+                    "JTAG.ER2", str_or_default(ci->params, ctx->id("ER2"), "ENABLED"));
         } else if (ci->type == id_CLKDIVF) {
             Loc loc = ctx->getBelLocation(ci->bel);
             bool r = loc.x > 5;
             std::string clkdiv = std::string("CLKDIV_") + (r ? "R" : "L") + std::to_string(loc.z);
-            std::string tile = ctx->getTileByType(std::string("ECLK_") + (r ? "R" : "L"));
+            std::string tile = ctx->get_tile_by_type(std::string("ECLK_") + (r ? "R" : "L"));
             cc.tiles[tile].add_enum(clkdiv + ".DIV", str_or_default(ci->params, ctx->id("DIV"), "2.0"));
             cc.tiles[tile].add_enum(clkdiv + ".GSR", str_or_default(ci->params, ctx->id("GSR"), "DISABLED"));
         } else if (ci->type == id_TRELLIS_ECLKBUF) {
@@ -1445,10 +1445,10 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             bool l = loc.x < 10;
             std::string pic = l ? "PICL" : "PICR";
             TileGroup tg;
-            tg.tiles.push_back(ctx->getTileByTypeAndLocation(loc.y - 2, loc.x, pic + "1_DQS0"));
-            tg.tiles.push_back(ctx->getTileByTypeAndLocation(loc.y - 1, loc.x, pic + "2_DQS1"));
-            tg.tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, pic + "0_DQS2"));
-            tg.tiles.push_back(ctx->getTileByTypeAndLocation(loc.y + 1, loc.x, pic + "1_DQS3"));
+            tg.tiles.push_back(ctx->get_tile_by_type_loc(loc.y - 2, loc.x, pic + "1_DQS0"));
+            tg.tiles.push_back(ctx->get_tile_by_type_loc(loc.y - 1, loc.x, pic + "2_DQS1"));
+            tg.tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, pic + "0_DQS2"));
+            tg.tiles.push_back(ctx->get_tile_by_type_loc(loc.y + 1, loc.x, pic + "1_DQS3"));
             tg.config.add_enum("DQS.MODE", "DQSBUFM");
             tg.config.add_enum("DQS.DQS_LI_DEL_ADJ", str_or_default(ci->params, ctx->id("DQS_LI_DEL_ADJ"), "PLUS"));
             tg.config.add_enum("DQS.DQS_LO_DEL_ADJ", str_or_default(ci->params, ctx->id("DQS_LO_DEL_ADJ"), "PLUS"));
@@ -1473,15 +1473,15 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
         } else if (ci->type == id_ECLKSYNCB) {
             Loc loc = ctx->getBelLocation(ci->bel);
             bool r = loc.x > 5;
-            std::string eclksync = ctx->locInfo(bel)->bel_data[bel.index].name.get();
-            std::string tile = ctx->getTileByType(std::string("ECLK_") + (r ? "R" : "L"));
+            std::string eclksync = ctx->loc_info(bel)->bel_data[bel.index].name.get();
+            std::string tile = ctx->get_tile_by_type(std::string("ECLK_") + (r ? "R" : "L"));
             if (get_net_or_empty(ci, id_STOP) != nullptr)
                 cc.tiles[tile].add_enum(eclksync + ".MODE", "ECLKSYNCB");
         } else if (ci->type == id_ECLKBRIDGECS) {
             Loc loc = ctx->getBelLocation(ci->bel);
             bool r = loc.x > 5;
-            std::string eclkb = ctx->locInfo(bel)->bel_data[bel.index].name.get();
-            std::string tile = ctx->getTileByType(std::string("ECLK_") + (r ? "R" : "L"));
+            std::string eclkb = ctx->loc_info(bel)->bel_data[bel.index].name.get();
+            std::string tile = ctx->get_tile_by_type(std::string("ECLK_") + (r ? "R" : "L"));
             if (get_net_or_empty(ci, id_STOP) != nullptr)
                 cc.tiles[tile].add_enum(eclkb + ".MODE", "ECLKBRIDGECS");
         } else if (ci->type == id_DDRDLL) {
@@ -1492,7 +1492,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                  ctx->args.type == ArchArgs::LFE5UM_25F || ctx->args.type == ArchArgs::LFE5UM5G_25F) &&
                 u)
                 tiletype += "A";
-            std::string tile = ctx->getTileByType(tiletype);
+            std::string tile = ctx->get_tile_by_type(tiletype);
             cc.tiles[tile].add_enum("DDRDLL.MODE", "DDRDLLA");
             cc.tiles[tile].add_enum("DDRDLL.GSR", str_or_default(ci->params, ctx->id("GSR"), "DISABLED"));
             cc.tiles[tile].add_enum("DDRDLL.FORCE_MAX_DELAY",
@@ -1511,15 +1511,15 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
         key = key.substr(prefix.length());
         std::string value = setting.second.as_string();
         if (key == "SLAVE_SPI_PORT" || key == "DONE_EX") {
-            cc.tiles[ctx->getTileByType("EFB0_PICB0")].add_enum("SYSCONFIG." + key, value);
-            cc.tiles[ctx->getTileByType("EFB2_PICB0")].add_enum("SYSCONFIG." + key, value);
+            cc.tiles[ctx->get_tile_by_type("EFB0_PICB0")].add_enum("SYSCONFIG." + key, value);
+            cc.tiles[ctx->get_tile_by_type("EFB2_PICB0")].add_enum("SYSCONFIG." + key, value);
         } else if (key == "SLAVE_PARALLEL_PORT" || key == "BACKGROUND_RECONFIG" || key == "WAKE_UP") {
-            cc.tiles[ctx->getTileByType("EFB0_PICB0")].add_enum("SYSCONFIG." + key, value);
+            cc.tiles[ctx->get_tile_by_type("EFB0_PICB0")].add_enum("SYSCONFIG." + key, value);
         } else if (key == "MASTER_SPI_PORT") {
-            cc.tiles[ctx->getTileByType("EFB1_PICB1")].add_enum("SYSCONFIG." + key, value);
+            cc.tiles[ctx->get_tile_by_type("EFB1_PICB1")].add_enum("SYSCONFIG." + key, value);
         } else if (key == "TRANSFR") {
-            cc.tiles[ctx->getTileByType("EFB0_PICB0")].add_enum("SYSCONFIG." + key, value);
-            cc.tiles[ctx->getTileByType("EFB1_PICB1")].add_enum("SYSCONFIG." + key, value);
+            cc.tiles[ctx->get_tile_by_type("EFB0_PICB0")].add_enum("SYSCONFIG." + key, value);
+            cc.tiles[ctx->get_tile_by_type("EFB1_PICB1")].add_enum("SYSCONFIG." + key, value);
         } else {
             cc.sysconfig[key] = value;
         }

@@ -50,29 +50,29 @@ Ice40CommandHandler::Ice40CommandHandler(int argc, char **argv) : CommandHandler
 po::options_description Ice40CommandHandler::getArchOptions()
 {
     po::options_description specific("Architecture specific options");
-    if (Arch::isAvailable(ArchArgs::LP384))
+    if (Arch::is_available(ArchArgs::LP384))
         specific.add_options()("lp384", "set device type to iCE40LP384");
-    if (Arch::isAvailable(ArchArgs::LP1K))
+    if (Arch::is_available(ArchArgs::LP1K))
         specific.add_options()("lp1k", "set device type to iCE40LP1K");
-    if (Arch::isAvailable(ArchArgs::LP4K))
+    if (Arch::is_available(ArchArgs::LP4K))
         specific.add_options()("lp4k", "set device type to iCE40LP4K");
-    if (Arch::isAvailable(ArchArgs::LP8K))
+    if (Arch::is_available(ArchArgs::LP8K))
         specific.add_options()("lp8k", "set device type to iCE40LP8K");
-    if (Arch::isAvailable(ArchArgs::HX1K))
+    if (Arch::is_available(ArchArgs::HX1K))
         specific.add_options()("hx1k", "set device type to iCE40HX1K");
-    if (Arch::isAvailable(ArchArgs::HX8K))
+    if (Arch::is_available(ArchArgs::HX8K))
         specific.add_options()("hx4k", "set device type to iCE40HX4K");
-    if (Arch::isAvailable(ArchArgs::HX4K))
+    if (Arch::is_available(ArchArgs::HX4K))
         specific.add_options()("hx8k", "set device type to iCE40HX8K");
-    if (Arch::isAvailable(ArchArgs::UP3K))
+    if (Arch::is_available(ArchArgs::UP3K))
         specific.add_options()("up3k", "set device type to iCE40UP3K");
-    if (Arch::isAvailable(ArchArgs::UP5K))
+    if (Arch::is_available(ArchArgs::UP5K))
         specific.add_options()("up5k", "set device type to iCE40UP5K");
-    if (Arch::isAvailable(ArchArgs::U1K))
+    if (Arch::is_available(ArchArgs::U1K))
         specific.add_options()("u1k", "set device type to iCE5LP1K");
-    if (Arch::isAvailable(ArchArgs::U2K))
+    if (Arch::is_available(ArchArgs::U2K))
         specific.add_options()("u2k", "set device type to iCE5LP2K");
-    if (Arch::isAvailable(ArchArgs::U4K))
+    if (Arch::is_available(ArchArgs::U4K))
         specific.add_options()("u4k", "set device type to iCE5LP4K");
     specific.add_options()("package", po::value<std::string>(), "set device package");
     specific.add_options()("pcf", po::value<std::string>(), "PCF constraints file to ingest");
