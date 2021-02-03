@@ -77,7 +77,7 @@ Arch::Arch(ArchArgs args) : args(args)
     // Sanity check cell name ids.
     const CellMapPOD &cell_map = *chip_info->cell_map;
     int32_t first_cell_id = cell_map.cell_names[0];
-    for (size_t i = 0; i < cell_map.number_cells; ++i) {
+    for (int32_t i = 0; i < cell_map.number_cells; ++i) {
         log_assert(cell_map.cell_names[i] == i + first_cell_id);
     }
 }
