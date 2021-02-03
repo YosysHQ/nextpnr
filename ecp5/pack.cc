@@ -516,7 +516,7 @@ class Ecp5Packer
                     auto loc_attr = trio->attrs.find(ctx->id("LOC"));
                     if (loc_attr != trio->attrs.end()) {
                         std::string pin = loc_attr->second.as_string();
-                        BelId pinBel = ctx->getPackagePinBel(pin);
+                        BelId pinBel = ctx->get_package_pin_bel(pin);
                         if (pinBel == BelId()) {
                             log_error("IO pin '%s' constrained to pin '%s', which does not exist for package '%s'.\n",
                                       trio->name.c_str(ctx), pin.c_str(), ctx->args.package.c_str());
@@ -1815,7 +1815,7 @@ class Ecp5Packer
                 for (auto bel : ctx->getBels()) {
                     if (ctx->getBelType(bel) != id_TRELLIS_ECLKBUF)
                         continue;
-                    if (ctx->getWireBasename(ctx->getBelPinWire(bel, id_ECLKO)) != eclkname)
+                    if (ctx->get_wire_basename(ctx->getBelPinWire(bel, id_ECLKO)) != eclkname)
                         continue;
                     target_bel = bel;
                     break;
@@ -1854,7 +1854,7 @@ class Ecp5Packer
             upstream.pop();
             if (ctx->debug)
                 log_info("    visited %s\n", ctx->nameOfWire(next));
-            IdString basename = ctx->getWireBasename(next);
+            IdString basename = ctx->get_wire_basename(next);
             if (basename == bnke_name || basename == global_name) {
                 break;
             }
@@ -1925,7 +1925,8 @@ class Ecp5Packer
                     log_error("PIO '%s' does not appear to be a DQS site (didn't find a DQSBUFM).\n",
                               ctx->nameOfBel(pio_bel));
                 ci->attrs[ctx->id("BEL")] = ctx->getBelName(dqsbuf).str(ctx);
-                bool got_dqsg = ctx->getPIODQSGroup(pio_bel, dqsbuf_dqsg[ci->name].first, dqsbuf_dqsg[ci->name].second);
+                bool got_dqsg =
+                        ctx->get_pio_dqs_group(pio_bel, dqsbuf_dqsg[ci->name].first, dqsbuf_dqsg[ci->name].second);
                 NPNR_ASSERT(got_dqsg);
                 log_info("Constrained DQSBUFM '%s' to %cDQS%d\n", ci->name.c_str(ctx),
                          dqsbuf_dqsg[ci->name].first ? 'R' : 'L', dqsbuf_dqsg[ci->name].second);
@@ -2118,7 +2119,7 @@ class Ecp5Packer
             } else {
                 bool dqsr;
                 int dqsgroup;
-                bool has_dqs = ctx->getPIODQSGroup(get_pio_bel(pio, prim), dqsr, dqsgroup);
+                bool has_dqs = ctx->get_pio_dqs_group(get_pio_bel(pio, prim), dqsr, dqsgroup);
                 if (!has_dqs)
                     log_error("Primitive '%s' cannot be connected to top level port '%s' as the associated pin is not "
                               "in any DQS group",
@@ -2645,7 +2646,7 @@ class Ecp5Packer
                     pioLoc.z -= 4;
                 BelId pioBel = ctx->getBelByLocation(pioLoc);
                 NPNR_ASSERT(pioBel != BelId());
-                int bank = ctx->getPioBelBank(pioBel);
+                int bank = ctx->get_pio_bel_bank(pioBel);
                 make_eclk(ci->ports.at(id_ECLK), ci, bel, bank);
             }
         }

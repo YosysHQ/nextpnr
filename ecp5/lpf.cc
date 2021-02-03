@@ -36,7 +36,7 @@ static const std::unordered_set<std::string> iobuf_keys = {
         "CLAMP",   "OPENDRAIN", "DIFFRESISTOR", "DIFFDRIVE", "HYSTERESIS", "TERMINATION",
 };
 
-bool Arch::applyLPF(std::string filename, std::istream &in)
+bool Arch::apply_lpf(std::string filename, std::istream &in)
 {
     auto isempty = [](const std::string &str) {
         return std::all_of(str.begin(), str.end(), [](char c) { return isblank(c) || c == '\r' || c == '\n'; });

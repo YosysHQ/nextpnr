@@ -33,7 +33,7 @@ inline NetInfo *port_or_nullptr(const CellInfo *cell, IdString name)
     return found->second.net;
 }
 
-bool Arch::slicesCompatible(const std::vector<const CellInfo *> &cells) const
+bool Arch::slices_compatible(const std::vector<const CellInfo *> &cells) const
 {
     // TODO: allow different LSR/CLK and MUX/SRMODE settings once
     // routing details are worked out
@@ -79,7 +79,7 @@ bool Arch::isBelLocationValid(BelId bel) const
         }
         if (getBoundBelCell(bel) != nullptr && getBoundBelCell(bel)->sliceInfo.has_l6mux && ((bel_loc.z % 2) == 1))
             return false;
-        return slicesCompatible(bel_cells);
+        return slices_compatible(bel_cells);
     } else {
         CellInfo *cell = getBoundBelCell(bel);
         if (cell == nullptr)
@@ -108,7 +108,7 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
         }
 
         bel_cells.push_back(cell);
-        return slicesCompatible(bel_cells);
+        return slices_compatible(bel_cells);
     } else if (cell->type == id_DCUA || cell->type == id_EXTREFB || cell->type == id_PCSCLKDIV) {
         return args.type != ArchArgs::LFE5U_25F && args.type != ArchArgs::LFE5U_45F && args.type != ArchArgs::LFE5U_85F;
     } else {
@@ -196,7 +196,7 @@ void Arch::permute_luts()
     }
 }
 
-void Arch::setupWireLocations()
+void Arch::setup_wire_locations()
 {
     wire_loc_overrides.clear();
     for (auto cell : sorted(cells)) {
