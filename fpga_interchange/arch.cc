@@ -35,13 +35,6 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-static std::pair<std::string, std::string> split_identifier_name(const std::string &name)
-{
-    size_t first_slash = name.find('/');
-    NPNR_ASSERT(first_slash != std::string::npos);
-    return std::make_pair(name.substr(0, first_slash), name.substr(first_slash + 1));
-};
-
 static std::pair<std::string, std::string> split_identifier_name_dot(const std::string &name)
 {
     size_t first_dot = name.find('.');
@@ -103,7 +96,7 @@ void Arch::setup_byname() const
 {
     if (tile_by_name.empty()) {
         for (int i = 0; i < chip_info->num_tiles; i++) {
-            tile_by_name[chip_info->tiles[i].name.get()] = i;
+            tile_by_name[id(chip_info->tiles[i].name.get())] = i;
         }
     }
 
@@ -113,24 +106,25 @@ void Arch::setup_byname() const
             auto &tile_type = chip_info->tile_types[tile.type];
             for (int j = 0; j < tile_type.number_sites; j++) {
                 auto &site = chip_info->sites[tile.sites[j]];
-                site_by_name[site.name.get()] = std::make_pair(i, j);
+                site_by_name[id(site.name.get())] = std::make_pair(i, j);
             }
         }
     }
 }
 
-BelId Arch::getBelByName(IdString name) const
+BelId Arch::getBelByName(IdStringList name) const
 {
     BelId ret;
+    if(name.ids.size() != 2) {
+        return BelId();
+    }
 
     setup_byname();
 
-    auto split = split_identifier_name(name.str(this));
-
     int tile, site;
-    std::tie(tile, site) = site_by_name.at(split.first);
+    std::tie(tile, site) = site_by_name.at(name.ids[0]);
     auto &tile_info = chip_info->tile_types[chip_info->tiles[tile].type];
-    IdString belname = id(split.second);
+    IdString belname = name.ids[1];
     for (int i = 0; i < tile_info.num_bels; i++) {
         if (tile_info.bel_data[i].site == site && tile_info.bel_data[i].name == belname.index) {
             ret.tile = tile;
@@ -191,23 +185,22 @@ PortType Arch::getBelPinType(BelId bel, IdString pin) const
 
 // -----------------------------------------------------------------------
 
-WireId Arch::getWireByName(IdString name) const
+WireId Arch::getWireByName(IdStringList name) const
 {
-    if (wire_by_name_cache.count(name))
-        return wire_by_name_cache.at(name);
-
     WireId ret;
+    if(name.ids.size() != 2) {
+        return WireId();
+    }
+
     setup_byname();
 
-    const std::string &s = name.str(this);
-    auto sp = split_identifier_name(s);
-    auto iter = site_by_name.find(sp.first);
+    auto iter = site_by_name.find(name.ids[0]);
     if (iter != site_by_name.end()) {
         int tile;
         int site;
         std::tie(tile, site) = iter->second;
         auto &tile_info = chip_info->tile_types[chip_info->tiles[tile].type];
-        IdString wirename = id(sp.second);
+        IdString wirename = name.ids[1];
         for (int i = 0; i < tile_info.num_wires; i++) {
             if (tile_info.wire_data[i].site == site && tile_info.wire_data[i].name == wirename.index) {
                 ret.tile = tile;
@@ -216,9 +209,9 @@ WireId Arch::getWireByName(IdString name) const
             }
         }
     } else {
-        int tile = tile_by_name.at(sp.first);
+        int tile = tile_by_name.at(name.ids[0]);
         auto &tile_info = chip_info->tile_types[chip_info->tiles[tile].type];
-        IdString wirename = id(sp.second);
+        IdString wirename = name.ids[1];
         for (int i = 0; i < tile_info.num_wires; i++) {
             if (tile_info.wire_data[i].site == -1 && tile_info.wire_data[i].name == wirename.index) {
                 int32_t node = chip_info->tiles[tile].tile_wire_to_node[i];
@@ -236,8 +229,6 @@ WireId Arch::getWireByName(IdString name) const
         }
     }
 
-    wire_by_name_cache[name] = ret;
-
     return ret;
 }
 
@@ -249,51 +240,58 @@ std::vector<std::pair<IdString, std::string>> Arch::getWireAttrs(WireId wire) co
 
 // -----------------------------------------------------------------------
 
-PipId Arch::getPipByName(IdString name) const
+PipId Arch::getPipByName(IdStringList name) const
 {
     // PIP name structure:
     // Tile PIP: <tile name>/<source wire name>.<destination wire name>
     // Site PIP: <site name>/<bel name>/<input bel pin name>
     // Site pin: <site name>/<bel name>
+    // Psuedo site PIP: <site name>/<source wire name>.<destination wire name>
 
-    PipId ret;
     setup_byname();
 
-    const std::string &s = name.str(this);
-    auto sp = split_identifier_name(s);
-    auto iter = site_by_name.find(sp.first);
-    if (iter != site_by_name.end()) {
-        // This is either a site pip or site pin.
+    if(name.ids.size() == 3) {
+        // This is a Site PIP.
+        IdString site_name = name.ids[0];
+        IdString belname = name.ids[1];
+        IdString pinname = name.ids[2];
+
         int tile;
         int site;
-        std::tie(tile, site) = iter->second;
+        std::tie(tile, site) = site_by_name.at(site_name);
         auto &tile_info = chip_info->tile_types[chip_info->tiles[tile].type];
 
-        // psuedo site pips are <site>/<src site wire>.<dst site wire>
-        // site pips are <site>/<bel>/<pin>
-        // site pins are <site>/<bel>
-        auto split = sp.second.find('/');
-        if(split != std::string::npos) {
-            // This is a site pip!
-            IdString belname = id(sp.second.substr(0, split));
-            IdString pinname = id(sp.second.substr(split+1));
-            BelId bel = getBelByName(id(sp.first + '/' + belname.str(this)));
-            NPNR_ASSERT(bel != BelId());
+        std::array<IdString, 2> ids{name.ids[0], belname};
+        BelId bel = getBelByName(IdStringList(ids));
+        NPNR_ASSERT(bel != BelId());
 
-            int pin_index = getBelPinIndex(bel, pinname);
-            NPNR_ASSERT(pin_index >= 0);
+        int pin_index = getBelPinIndex(bel, pinname);
+        NPNR_ASSERT(pin_index >= 0);
 
-            for (int i = 0; i < tile_info.num_pips; i++) {
-                if (tile_info.pip_data[i].site == site &&
-                    tile_info.pip_data[i].bel == bel.index &&
-                    tile_info.pip_data[i].extra_data == pin_index) {
-                    ret.tile = tile;
-                    ret.index = i;
-                    break;
-                }
+        for (int i = 0; i < tile_info.num_pips; i++) {
+            if (tile_info.pip_data[i].site == site &&
+                tile_info.pip_data[i].bel == bel.index &&
+                tile_info.pip_data[i].extra_data == pin_index) {
+
+                PipId ret;
+                ret.tile = tile;
+                ret.index = i;
+                return ret;
             }
-        } else {
-            auto split = sp.second.find('.');
+        }
+    } else {
+        auto iter = site_by_name.find(name.ids[0]);
+        if (iter != site_by_name.end()) {
+            // This is either a site pin or a psuedo site pip.
+            // psuedo site pips are <site>/<src site wire>.<dst site wire>
+            // site pins are <site>/<bel>
+            int tile;
+            int site;
+            std::tie(tile, site) = iter->second;
+            auto &tile_info = chip_info->tile_types[chip_info->tiles[tile].type];
+
+            std::string pip_second = name.ids[1].str(this);
+            auto split = pip_second.find('.');
             if(split == std::string::npos) {
                 // This is a site pin!
                 BelId bel = getBelByName(name);
@@ -302,17 +300,20 @@ PipId Arch::getPipByName(IdString name) const
                 for (int i = 0; i < tile_info.num_pips; i++) {
                     if (tile_info.pip_data[i].site == site &&
                         tile_info.pip_data[i].bel == bel.index) {
+
+                        PipId ret;
                         ret.tile = tile;
                         ret.index = i;
-                        break;
+                        return ret;
                     }
                 }
             } else {
                 // This is a psuedo site pip!
-                IdString src_site_wire = id(sp.second.substr(0, split));
-                IdString dst_site_wire = id(sp.second.substr(split+1));
+                IdString src_site_wire = id(pip_second.substr(0, split));
+                IdString dst_site_wire = id(pip_second.substr(split+1));
                 int32_t src_index = -1;
                 int32_t dst_index = -1;
+
                 for (int i = 0; i < tile_info.num_wires; i++) {
                     if (tile_info.wire_data[i].site == site && tile_info.wire_data[i].name == src_site_wire.index) {
                         src_index = i;
@@ -335,55 +336,60 @@ PipId Arch::getPipByName(IdString name) const
                     if (tile_info.pip_data[i].site == site &&
                         tile_info.pip_data[i].src_index == src_index &&
                         tile_info.pip_data[i].dst_index == dst_index) {
+
+                        PipId ret;
                         ret.tile = tile;
                         ret.index = i;
+                        return ret;
+                    }
+                }
+            }
+        } else {
+            int tile = tile_by_name.at(name.ids[0]);
+            auto &tile_info = chip_info->tile_types[chip_info->tiles[tile].type];
+
+            std::string pip_second = name.ids[1].str(this);
+            auto spn = split_identifier_name_dot(pip_second);
+            auto src_wire_name = id(spn.first);
+            auto dst_wire_name = id(spn.second);
+
+            int32_t src_index = -1;
+            int32_t dst_index = -1;
+            for (int i = 0; i < tile_info.num_wires; i++) {
+                if (tile_info.wire_data[i].site == -1 && tile_info.wire_data[i].name == src_wire_name.index) {
+                    src_index = i;
+                    if(dst_index != -1) {
+                        break;
+                    }
+                }
+                if (tile_info.wire_data[i].site == -1 && tile_info.wire_data[i].name == dst_wire_name.index) {
+                    dst_index = i;
+                    if(src_index != -1) {
                         break;
                     }
                 }
             }
-        }
-    } else {
-        int tile = tile_by_name.at(sp.first);
-        auto &tile_info = chip_info->tile_types[chip_info->tiles[tile].type];
 
-        auto spn = split_identifier_name_dot(sp.second);
-        auto src_wire_name = id(spn.first);
-        auto dst_wire_name = id(spn.second);
+            NPNR_ASSERT(src_index != -1);
+            NPNR_ASSERT(dst_index != -1);
 
-        int32_t src_index = -1;
-        int32_t dst_index = -1;
-        for (int i = 0; i < tile_info.num_wires; i++) {
-            if (tile_info.wire_data[i].site == -1 && tile_info.wire_data[i].name == src_wire_name.index) {
-                src_index = i;
-                if(dst_index != -1) {
-                    break;
+            for (int i = 0; i < tile_info.num_pips; i++) {
+                if (tile_info.pip_data[i].src_index == src_index &&
+                    tile_info.pip_data[i].dst_index == dst_index) {
+
+                    PipId ret;
+                    ret.tile = tile;
+                    ret.index = i;
+                    return ret;
                 }
-            }
-            if (tile_info.wire_data[i].site == -1 && tile_info.wire_data[i].name == dst_wire_name.index) {
-                dst_index = i;
-                if(src_index != -1) {
-                    break;
-                }
-            }
-        }
-
-        NPNR_ASSERT(src_index != -1);
-        NPNR_ASSERT(dst_index != -1);
-
-        for (int i = 0; i < tile_info.num_pips; i++) {
-            if (tile_info.pip_data[i].src_index == src_index &&
-                tile_info.pip_data[i].dst_index == dst_index) {
-                ret.tile = tile;
-                ret.index = i;
-                break;
             }
         }
     }
 
-    return ret;
+    return PipId();
 }
 
-IdString Arch::getPipName(PipId pip) const
+IdStringList Arch::getPipName(PipId pip) const
 {
     // PIP name structure:
     // Tile PIP: <tile name>/<source wire name>.<destination wire name>
@@ -401,24 +407,30 @@ IdString Arch::getPipName(PipId pip) const
         IdString bel_name(bel.name);
         if(bel.category == BEL_CATEGORY_LOGIC) {
             // This is a psuedo pip
-            IdString src_wire_name = IdString(tile_type.wire_data[locInfo(pip).pip_data[pip.index].src_index].name);
-            IdString dst_wire_name = IdString(tile_type.wire_data[locInfo(pip).pip_data[pip.index].dst_index].name);
-            return id(site.name.get() + std::string("/") + src_wire_name.str(this) + "." + dst_wire_name.str(this));
+            IdString src_wire_name = IdString(tile_type.wire_data[pip_info.src_index].name);
+            IdString dst_wire_name = IdString(tile_type.wire_data[pip_info.dst_index].name);
+            IdString pip = id(src_wire_name.str(this) + "." + dst_wire_name.str(this));
+            std::array<IdString, 2> ids{id(site.name.get()), pip};
+            return IdStringList(ids);
 
         } else if(bel.category == BEL_CATEGORY_ROUTING) {
             // This is a site pip.
             IdString pin_name(bel.ports[pip_info.extra_data]);
-            return id(site.name.get() + std::string("/") + bel_name.str(this) + "/" + pin_name.str(this));
+            std::array<IdString, 3> ids{id(site.name.get()), bel_name, pin_name};
+            return IdStringList(ids);
         } else {
             NPNR_ASSERT(bel.category == BEL_CATEGORY_SITE_PORT);
             // This is a site pin, just the name of the BEL is a unique identifier.
-            return id(site.name.get() + std::string("/") + bel_name.str(this));
+            std::array<IdString, 2> ids{id(site.name.get()), bel_name};
+            return IdStringList(ids);
         }
     } else {
         // This is a tile pip.
-        return id(std::string(tile.name.get()) + "/" +
-                  IdString(tile_type.wire_data[locInfo(pip).pip_data[pip.index].src_index].name).str(this) + "." +
-                  IdString(tile_type.wire_data[locInfo(pip).pip_data[pip.index].dst_index].name).str(this));
+        IdString src_wire_name = IdString(tile_type.wire_data[pip_info.src_index].name);
+        IdString dst_wire_name = IdString(tile_type.wire_data[pip_info.dst_index].name);
+        IdString pip = id(src_wire_name.str(this) + "." + dst_wire_name.str(this));
+        std::array<IdString, 2> ids{id(std::string(tile.name.get())), pip};
+        return IdStringList(ids);
     }
 }
 

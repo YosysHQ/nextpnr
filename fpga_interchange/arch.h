@@ -29,8 +29,6 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-#include "fpga_interchange_generated_defs.h"
-
 /**** Everything in this section must be kept in sync with chipdb.py ****/
 
 template <typename T> struct RelPtr
@@ -705,8 +703,8 @@ struct Arch : BaseCtx
     boost::iostreams::mapped_file_source blob_file;
     const ChipInfoPOD *chip_info;
 
-    mutable std::unordered_map<std::string, int> tile_by_name;
-    mutable std::unordered_map<std::string, std::pair<int, int>> site_by_name;
+    mutable std::unordered_map<IdString, int> tile_by_name;
+    mutable std::unordered_map<IdString, std::pair<int, int>> site_by_name;
 
     std::unordered_map<WireId, NetInfo *> wire_to_net;
     std::unordered_map<PipId, NetInfo *> pip_to_net;
@@ -715,11 +713,10 @@ struct Arch : BaseCtx
 
     struct TileStatus
     {
-        std::bitset<kMaxNumberOfCells> bel_available;
         std::vector<CellInfo *> boundcells;
     };
 
-    std::unordered_map<TileStatus> tileStatus;
+    std::vector<TileStatus> tileStatus;
 
     ArchArgs args;
     Arch(ArchArgs args);
@@ -755,21 +752,22 @@ struct Arch : BaseCtx
     int getTilePipDimZ(int x, int y) const {
         return chip_info->tile_types[chip_info->tiles[getTileIndex(x, y)].type].number_sites;
     }
+    char getNameDelimiter() const { return '/'; }
 
     // -------------------------------------------------
 
     void setup_byname() const;
 
-    BelId getBelByName(IdString name) const;
+    BelId getBelByName(IdStringList name) const;
 
-    IdString getBelName(BelId bel) const
+    IdStringList getBelName(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
         int site_index = locInfo(bel).bel_data[bel.index].site;
         NPNR_ASSERT(site_index >= 0);
         const SiteInstInfoPOD &site = chip_info->sites[chip_info->tiles[bel.tile].sites[site_index]];
-        return id(std::string(site.name.get()) +
-                "/" + IdString(locInfo(bel).bel_data[bel.index].name).str(this));
+        std::array<IdString, 2> ids{id(site.name.get()), IdString(locInfo(bel).bel_data[bel.index].name)};
+        return IdStringList(ids);
     }
 
     uint32_t getBelChecksum(BelId bel) const { return bel.index; }
@@ -880,7 +878,7 @@ struct Arch : BaseCtx
 
         IdStringRange str_range;
         str_range.b.cursor = &ports[0];
-        str_range.b.cursor = &ports[num_bel_wires-1];
+        str_range.e.cursor = &ports[num_bel_wires-1];
 
         return str_range;
     }
@@ -889,9 +887,7 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
-    mutable std::unordered_map<IdString, WireId> wire_by_name_cache;
-
-    WireId getWireByName(IdString name) const;
+    WireId getWireByName(IdStringList name) const;
 
     const TileWireInfoPOD &wireInfo(WireId wire) const
     {
@@ -903,20 +899,21 @@ struct Arch : BaseCtx
         }
     }
 
-    IdString getWireName(WireId wire) const
+    IdStringList getWireName(WireId wire) const
     {
         NPNR_ASSERT(wire != WireId());
         if (wire.tile != -1 && locInfo(wire).wire_data[wire.index].site != -1) {
             int site_index = locInfo(wire).wire_data[wire.index].site;
             const SiteInstInfoPOD &site = chip_info->sites[chip_info->tiles[wire.tile].sites[site_index]];
-            return id(site.name.get() +
-                      std::string("/") + IdString(locInfo(wire).wire_data[wire.index].name).str(this));
+
+            std::array<IdString, 2> ids{id(site.name.get()), IdString(locInfo(wire).wire_data[wire.index].name)};
+            return IdStringList(ids);
         } else {
-            return id(std::string(chip_info
-                                          ->tiles[wire.tile == -1 ? chip_info->nodes[wire.index].tile_wires[0].tile
-                                                                       : wire.tile]
-                                          .name.get()) +
-                      "/" + IdString(wireInfo(wire).name).c_str(this));
+            int32_t tile = wire.tile == -1 ? chip_info->nodes[wire.index].tile_wires[0].tile
+                                           : wire.tile;
+            IdString tile_name = id(chip_info->tiles[tile].name.get());
+            std::array<IdString, 2> ids{tile_name, IdString(wireInfo(wire).name)};
+            return IdStringList(ids);
         }
     }
 
@@ -1042,9 +1039,10 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
-    mutable std::unordered_map<IdString, PipId> pip_by_name_cache;
-
-    PipId getPipByName(IdString name) const;
+    PipId getPipByName(IdStringList name) const;
+    IdStringList getPipName(PipId pip) const;
+    IdString getPipType(PipId pip) const;
+    std::vector<std::pair<IdString, std::string>> getPipAttrs(PipId pip) const;
 
     void bindPip(PipId pip, NetInfo *net, PlaceStrength strength)
     {
@@ -1126,11 +1124,6 @@ struct Arch : BaseCtx
         return loc;
     }
 
-    IdString getPipName(PipId pip) const;
-
-    IdString getPipType(PipId pip) const;
-    std::vector<std::pair<IdString, std::string>> getPipAttrs(PipId pip) const;
-
     uint32_t getPipChecksum(PipId pip) const { return pip.index; }
 
     WireId getPipSrcWire(PipId pip) const
@@ -1185,8 +1178,8 @@ struct Arch : BaseCtx
     // -------------------------------------------------
 
     // FIXME: Use groups to get access to sites.
-    GroupId getGroupByName(IdString name) const { return GroupId(); }
-    IdString getGroupName(GroupId group) const { return IdString(); }
+    GroupId getGroupByName(IdStringList name) const { return GroupId(); }
+    IdStringList getGroupName(GroupId group) const { return IdStringList(); }
     std::vector<GroupId> getGroups() const { return {}; }
     std::vector<BelId> getGroupBels(GroupId group) const { return {}; }
     std::vector<WireId> getGroupWires(GroupId group) const { return {}; }
