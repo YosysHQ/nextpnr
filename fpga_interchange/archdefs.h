@@ -123,15 +123,13 @@ struct DecalId
     bool operator!=(const DecalId &other) const { return false; }
 };
 
-struct BelBucketId {
+struct BelBucketId
+{
     IdString name;
 
     bool operator==(const BelBucketId &other) const { return (name == other.name); }
     bool operator!=(const BelBucketId &other) const { return (name != other.name); }
-    bool operator<(const BelBucketId &other) const
-    {
-        return name < other.name;
-    }
+    bool operator<(const BelBucketId &other) const { return name < other.name; }
 };
 
 struct ArchNetInfo

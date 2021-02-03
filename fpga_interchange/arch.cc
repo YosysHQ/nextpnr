@@ -75,9 +75,9 @@ Arch::Arch(ArchArgs args) : args(args)
     }
 
     // Sanity check cell name ids.
-    const CellMapPOD & cell_map = *chip_info->cell_map;
+    const CellMapPOD &cell_map = *chip_info->cell_map;
     int32_t first_cell_id = cell_map.cell_names[0];
-    for(size_t i = 0; i < cell_map.number_cells; ++i) {
+    for (size_t i = 0; i < cell_map.number_cells; ++i) {
         log_assert(cell_map.cell_names[i] == i + first_cell_id);
     }
 }
@@ -115,7 +115,7 @@ void Arch::setup_byname() const
 BelId Arch::getBelByName(IdStringList name) const
 {
     BelId ret;
-    if(name.ids.size() != 2) {
+    if (name.ids.size() != 2) {
         return BelId();
     }
 
@@ -147,7 +147,7 @@ BelRange Arch::getBelsByTile(int x, int y) const
     br.b.chip = chip_info;
     br.e.chip = chip_info;
 
-    if(br.b != br.e) {
+    if (br.b != br.e) {
         ++br.e;
     }
     return br;
@@ -164,7 +164,7 @@ WireId Arch::getBelPinWire(BelId bel, IdString pin) const
 
     const int32_t *wires = bel_data.wires.get();
     int32_t wire_index = wires[pin_index];
-    if(wire_index < 0) {
+    if (wire_index < 0) {
         // This BEL pin is not connected.
         return WireId();
     } else {
@@ -188,7 +188,7 @@ PortType Arch::getBelPinType(BelId bel, IdString pin) const
 WireId Arch::getWireByName(IdStringList name) const
 {
     WireId ret;
-    if(name.ids.size() != 2) {
+    if (name.ids.size() != 2) {
         return WireId();
     }
 
@@ -233,10 +233,7 @@ WireId Arch::getWireByName(IdStringList name) const
 }
 
 IdString Arch::getWireType(WireId wire) const { return id(""); }
-std::vector<std::pair<IdString, std::string>> Arch::getWireAttrs(WireId wire) const
-{
-    return {};
-}
+std::vector<std::pair<IdString, std::string>> Arch::getWireAttrs(WireId wire) const { return {}; }
 
 // -----------------------------------------------------------------------
 
@@ -250,7 +247,7 @@ PipId Arch::getPipByName(IdStringList name) const
 
     setup_byname();
 
-    if(name.ids.size() == 3) {
+    if (name.ids.size() == 3) {
         // This is a Site PIP.
         IdString site_name = name.ids[0];
         IdString belname = name.ids[1];
@@ -269,8 +266,7 @@ PipId Arch::getPipByName(IdStringList name) const
         NPNR_ASSERT(pin_index >= 0);
 
         for (int i = 0; i < tile_info.num_pips; i++) {
-            if (tile_info.pip_data[i].site == site &&
-                tile_info.pip_data[i].bel == bel.index &&
+            if (tile_info.pip_data[i].site == site && tile_info.pip_data[i].bel == bel.index &&
                 tile_info.pip_data[i].extra_data == pin_index) {
 
                 PipId ret;
@@ -292,14 +288,13 @@ PipId Arch::getPipByName(IdStringList name) const
 
             std::string pip_second = name.ids[1].str(this);
             auto split = pip_second.find('.');
-            if(split == std::string::npos) {
+            if (split == std::string::npos) {
                 // This is a site pin!
                 BelId bel = getBelByName(name);
                 NPNR_ASSERT(bel != BelId());
 
                 for (int i = 0; i < tile_info.num_pips; i++) {
-                    if (tile_info.pip_data[i].site == site &&
-                        tile_info.pip_data[i].bel == bel.index) {
+                    if (tile_info.pip_data[i].site == site && tile_info.pip_data[i].bel == bel.index) {
 
                         PipId ret;
                         ret.tile = tile;
@@ -310,20 +305,20 @@ PipId Arch::getPipByName(IdStringList name) const
             } else {
                 // This is a psuedo site pip!
                 IdString src_site_wire = id(pip_second.substr(0, split));
-                IdString dst_site_wire = id(pip_second.substr(split+1));
+                IdString dst_site_wire = id(pip_second.substr(split + 1));
                 int32_t src_index = -1;
                 int32_t dst_index = -1;
 
                 for (int i = 0; i < tile_info.num_wires; i++) {
                     if (tile_info.wire_data[i].site == site && tile_info.wire_data[i].name == src_site_wire.index) {
                         src_index = i;
-                        if(dst_index != -1) {
+                        if (dst_index != -1) {
                             break;
                         }
                     }
                     if (tile_info.wire_data[i].site == site && tile_info.wire_data[i].name == dst_site_wire.index) {
                         dst_index = i;
-                        if(src_index != -1) {
+                        if (src_index != -1) {
                             break;
                         }
                     }
@@ -333,8 +328,7 @@ PipId Arch::getPipByName(IdStringList name) const
                 NPNR_ASSERT(dst_index != -1);
 
                 for (int i = 0; i < tile_info.num_pips; i++) {
-                    if (tile_info.pip_data[i].site == site &&
-                        tile_info.pip_data[i].src_index == src_index &&
+                    if (tile_info.pip_data[i].site == site && tile_info.pip_data[i].src_index == src_index &&
                         tile_info.pip_data[i].dst_index == dst_index) {
 
                         PipId ret;
@@ -358,13 +352,13 @@ PipId Arch::getPipByName(IdStringList name) const
             for (int i = 0; i < tile_info.num_wires; i++) {
                 if (tile_info.wire_data[i].site == -1 && tile_info.wire_data[i].name == src_wire_name.index) {
                     src_index = i;
-                    if(dst_index != -1) {
+                    if (dst_index != -1) {
                         break;
                     }
                 }
                 if (tile_info.wire_data[i].site == -1 && tile_info.wire_data[i].name == dst_wire_name.index) {
                     dst_index = i;
-                    if(src_index != -1) {
+                    if (src_index != -1) {
                         break;
                     }
                 }
@@ -374,8 +368,7 @@ PipId Arch::getPipByName(IdStringList name) const
             NPNR_ASSERT(dst_index != -1);
 
             for (int i = 0; i < tile_info.num_pips; i++) {
-                if (tile_info.pip_data[i].src_index == src_index &&
-                    tile_info.pip_data[i].dst_index == dst_index) {
+                if (tile_info.pip_data[i].src_index == src_index && tile_info.pip_data[i].dst_index == dst_index) {
 
                     PipId ret;
                     ret.tile = tile;
@@ -405,7 +398,7 @@ IdStringList Arch::getPipName(PipId pip) const
         auto &site = chip_info->sites[tile.sites[pip_info.site]];
         auto &bel = tile_type.bel_data[pip_info.bel];
         IdString bel_name(bel.name);
-        if(bel.category == BEL_CATEGORY_LOGIC) {
+        if (bel.category == BEL_CATEGORY_LOGIC) {
             // This is a psuedo pip
             IdString src_wire_name = IdString(tile_type.wire_data[pip_info.src_index].name);
             IdString dst_wire_name = IdString(tile_type.wire_data[pip_info.dst_index].name);
@@ -413,7 +406,7 @@ IdStringList Arch::getPipName(PipId pip) const
             std::array<IdString, 2> ids{id(site.name.get()), pip};
             return IdStringList(ids);
 
-        } else if(bel.category == BEL_CATEGORY_ROUTING) {
+        } else if (bel.category == BEL_CATEGORY_ROUTING) {
             // This is a site pip.
             IdString pin_name(bel.ports[pip_info.extra_data]);
             std::array<IdString, 3> ids{id(site.name.get()), bel_name, pin_name};
@@ -448,7 +441,7 @@ BelId Arch::getBelByLocation(Loc loc) const
     bi.tile = getTileIndex(loc);
     auto &li = locInfo(bi);
 
-    if(loc.z >= li.num_bels) {
+    if (loc.z >= li.num_bels) {
         return BelId();
     } else {
         bi.index = loc.z;
@@ -489,10 +482,7 @@ ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
     return {x0, y0, x1, y1};
 }
 
-delay_t Arch::getWireRipupDelayPenalty(WireId wire) const
-{
-    return getRipupDelayPenalty();
-}
+delay_t Arch::getWireRipupDelayPenalty(WireId wire) const { return getRipupDelayPenalty(); }
 
 bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const { return false; }
 
@@ -518,10 +508,7 @@ bool Arch::route()
 
 // -----------------------------------------------------------------------
 
-std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
-{
-    return {};
-}
+std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const { return {}; }
 
 DecalXY Arch::getBelDecal(BelId bel) const
 {

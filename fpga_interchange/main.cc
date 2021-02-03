@@ -72,9 +72,7 @@ std::unique_ptr<Context> FpgaInterchangeCommandHandler::createContext(std::unord
     return std::unique_ptr<Context>(new Context(chipArgs));
 }
 
-void FpgaInterchangeCommandHandler::customAfterLoad(Context *ctx)
-{
-}
+void FpgaInterchangeCommandHandler::customAfterLoad(Context *ctx) {}
 
 int main(int argc, char *argv[])
 {

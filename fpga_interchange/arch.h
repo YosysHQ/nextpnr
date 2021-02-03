@@ -40,10 +40,7 @@ template <typename T> struct RelPtr
     //              reinterpret_cast<const char*>(this);
     // }
 
-    const T *get() const
-    {
-        return reinterpret_cast<const T *>(reinterpret_cast<const char *>(this) + offset);
-    }
+    const T *get() const { return reinterpret_cast<const T *>(reinterpret_cast<const char *>(this) + offset); }
 
     const T &operator[](size_t index) const { return get()[index]; }
 
@@ -51,7 +48,6 @@ template <typename T> struct RelPtr
 
     const T *operator->() const { return get(); }
 };
-
 
 // Flattened site indexing.
 //
@@ -72,9 +68,9 @@ template <typename T> struct RelPtr
 //        wires (or vise-versa).
 
 NPNR_PACKED_STRUCT(struct BelInfoPOD {
-    int32_t name;        // bel name (in site) constid
-    int32_t type;        // Type name constid
-    int32_t bel_bucket;  // BEL bucket constid.
+    int32_t name;       // bel name (in site) constid
+    int32_t type;       // Type name constid
+    int32_t bel_bucket; // BEL bucket constid.
 
     int32_t num_bel_wires;
     RelPtr<int32_t> ports; // port name constid
@@ -89,7 +85,8 @@ NPNR_PACKED_STRUCT(struct BelInfoPOD {
     RelPtr<int8_t> valid_cells; // Bool array, length of number_cells.
 });
 
-enum BELCategory {
+enum BELCategory
+{
     // BEL is a logic element
     BEL_CATEGORY_LOGIC = 0,
     // BEL is a site routing mux
@@ -231,8 +228,7 @@ struct BelIterator
     BelIterator operator++()
     {
         cursor_index++;
-        while (cursor_tile < chip->num_tiles &&
-               cursor_index >= tileInfo(chip, cursor_tile).num_bels) {
+        while (cursor_tile < chip->num_tiles && cursor_index >= tileInfo(chip, cursor_tile).num_bels) {
             cursor_index = 0;
             cursor_tile++;
         }
@@ -279,8 +275,8 @@ struct FilteredBelIterator
     FilteredBelIterator operator++()
     {
         ++b;
-        while(b != e) {
-            if(filter(*b)) {
+        while (b != e) {
+            if (filter(*b)) {
                 break;
             }
 
@@ -311,19 +307,20 @@ struct FilteredBelIterator
 
 struct FilteredBelRange
 {
-    FilteredBelRange(BelIterator bel_b, BelIterator bel_e, std::function<bool(BelId)> filter) {
+    FilteredBelRange(BelIterator bel_b, BelIterator bel_e, std::function<bool(BelId)> filter)
+    {
         b.filter = filter;
         b.b = bel_b;
         b.e = bel_e;
 
-        if(b.b != b.e && !filter(*b.b)) {
+        if (b.b != b.e && !filter(*b.b)) {
             ++b;
         }
 
         e.b = bel_e;
         e.e = bel_e;
 
-        if(b != e) {
+        if (b != e) {
             NPNR_ASSERT(filter(*b.b));
         }
     }
@@ -342,16 +339,10 @@ struct TileWireIterator
     WireId baseWire;
     int cursor = -1;
 
-    void operator++() {
-        cursor++;
-    }
+    void operator++() { cursor++; }
 
-    bool operator==(const TileWireIterator &other) const {
-        return cursor == other.cursor;
-    }
-    bool operator!=(const TileWireIterator &other) const {
-        return cursor != other.cursor;
-    }
+    bool operator==(const TileWireIterator &other) const { return cursor == other.cursor; }
+    bool operator!=(const TileWireIterator &other) const { return cursor != other.cursor; }
 
     // Returns a *denormalised* identifier always pointing to a tile wire rather than a node
     WireId operator*() const
@@ -635,23 +626,13 @@ struct IdStringIterator
 {
     const int32_t *cursor;
 
-    void operator++()
-    {
-        cursor += 1;
-    }
+    void operator++() { cursor += 1; }
 
-    bool operator!=(const IdStringIterator &other) const {
-        return cursor != other.cursor;
-    }
+    bool operator!=(const IdStringIterator &other) const { return cursor != other.cursor; }
 
-    bool operator==(const IdStringIterator &other) const {
-        return cursor == other.cursor;
-    }
+    bool operator==(const IdStringIterator &other) const { return cursor == other.cursor; }
 
-    IdString operator*() const
-    {
-        return IdString(*cursor);
-    }
+    IdString operator*() const { return IdString(*cursor); }
 };
 
 struct IdStringRange
@@ -665,18 +646,11 @@ struct BelBucketIterator
 {
     IdStringIterator cursor;
 
-    void operator++()
-    {
-        ++cursor;
-    }
+    void operator++() { ++cursor; }
 
-    bool operator!=(const BelBucketIterator &other) const {
-        return cursor != other.cursor;
-    }
+    bool operator!=(const BelBucketIterator &other) const { return cursor != other.cursor; }
 
-    bool operator==(const BelBucketIterator &other) const {
-        return cursor == other.cursor;
-    }
+    bool operator==(const BelBucketIterator &other) const { return cursor == other.cursor; }
 
     BelBucketId operator*() const
     {
@@ -729,27 +703,28 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
-    uint32_t getTileIndex(int x, int y) const {
-        return (y * chip_info->width + x);
-    }
-    uint32_t getTileIndex(Loc loc) const {
-        return getTileIndex(loc.x, loc.y);
-    }
-    template<typename TileIndex, typename CoordIndex> void getTileXY(TileIndex tile_index, CoordIndex *x, CoordIndex *y) const {
+    uint32_t getTileIndex(int x, int y) const { return (y * chip_info->width + x); }
+    uint32_t getTileIndex(Loc loc) const { return getTileIndex(loc.x, loc.y); }
+    template <typename TileIndex, typename CoordIndex>
+    void getTileXY(TileIndex tile_index, CoordIndex *x, CoordIndex *y) const
+    {
         *x = tile_index % chip_info->width;
         *y = tile_index / chip_info->width;
     }
 
-    template<typename TileIndex> void getTileLoc(TileIndex tile_index, Loc * loc) const {
+    template <typename TileIndex> void getTileLoc(TileIndex tile_index, Loc *loc) const
+    {
         getTileXY(tile_index, &loc->x, &loc->y);
     }
 
     int getGridDimX() const { return chip_info->width; }
     int getGridDimY() const { return chip_info->height; }
-    int getTileBelDimZ(int x, int y) const {
+    int getTileBelDimZ(int x, int y) const
+    {
         return chip_info->tile_types[chip_info->tiles[getTileIndex(x, y)].type].num_bels;
     }
-    int getTilePipDimZ(int x, int y) const {
+    int getTilePipDimZ(int x, int y) const
+    {
         return chip_info->tile_types[chip_info->tiles[getTileIndex(x, y)].type].number_sites;
     }
     char getNameDelimiter() const { return '/'; }
@@ -793,10 +768,7 @@ struct Arch : BaseCtx
         refreshUiBel(bel);
     }
 
-    bool checkBelAvail(BelId bel) const
-    {
-        return tileStatus[bel.tile].boundcells[bel.index] == nullptr;
-    }
+    bool checkBelAvail(BelId bel) const { return tileStatus[bel.tile].boundcells[bel.index] == nullptr; }
 
     CellInfo *getBoundBelCell(BelId bel) const
     {
@@ -841,9 +813,7 @@ struct Arch : BaseCtx
         return false;
     }
 
-    bool getBelHidden(BelId bel) const {
-        return locInfo(bel).bel_data[bel.index].category != BEL_CATEGORY_LOGIC;
-    }
+    bool getBelHidden(BelId bel) const { return locInfo(bel).bel_data[bel.index].category != BEL_CATEGORY_LOGIC; }
 
     IdString getBelType(BelId bel) const
     {
@@ -853,7 +823,8 @@ struct Arch : BaseCtx
 
     std::vector<std::pair<IdString, std::string>> getBelAttrs(BelId bel) const;
 
-    int getBelPinIndex(BelId bel, IdString pin) const {
+    int getBelPinIndex(BelId bel, IdString pin) const
+    {
         NPNR_ASSERT(bel != BelId());
         int num_bel_wires = locInfo(bel).bel_data[bel.index].num_bel_wires;
         const int32_t *ports = locInfo(bel).bel_data[bel.index].ports.get();
@@ -878,7 +849,7 @@ struct Arch : BaseCtx
 
         IdStringRange str_range;
         str_range.b.cursor = &ports[0];
-        str_range.e.cursor = &ports[num_bel_wires-1];
+        str_range.e.cursor = &ports[num_bel_wires - 1];
 
         return str_range;
     }
@@ -909,8 +880,7 @@ struct Arch : BaseCtx
             std::array<IdString, 2> ids{id(site.name.get()), IdString(locInfo(wire).wire_data[wire.index].name)};
             return IdStringList(ids);
         } else {
-            int32_t tile = wire.tile == -1 ? chip_info->nodes[wire.index].tile_wires[0].tile
-                                           : wire.tile;
+            int32_t tile = wire.tile == -1 ? chip_info->nodes[wire.index].tile_wires[0].tile : wire.tile;
             IdString tile_name = id(chip_info->tiles[tile].name.get());
             std::array<IdString, 2> ids{tile_name, IdString(wireInfo(wire).name)};
             return IdStringList(ids);
@@ -1092,10 +1062,7 @@ struct Arch : BaseCtx
         return p2n == pip_to_net.end() ? nullptr : p2n->second;
     }
 
-    WireId getConflictingPipWire(PipId pip) const
-    {
-        return getPipDstWire(pip);
-    }
+    WireId getConflictingPipWire(PipId pip) const { return getPipDstWire(pip); }
 
     NetInfo *getConflictingPipNet(PipId pip) const
     {
@@ -1136,10 +1103,7 @@ struct Arch : BaseCtx
         return canonicalWireId(chip_info, pip.tile, locInfo(pip).pip_data[pip.index].dst_index);
     }
 
-    DelayInfo getPipDelay(PipId pip) const
-    {
-        return DelayInfo();
-    }
+    DelayInfo getPipDelay(PipId pip) const { return DelayInfo(); }
 
     DownhillPipRange getPipsDownhill(WireId wire) const
     {
@@ -1229,36 +1193,38 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
-    const BelBucketRange getBelBuckets() const {
+    const BelBucketRange getBelBuckets() const
+    {
         BelBucketRange bel_bucket_range;
         bel_bucket_range.b.cursor.cursor = &chip_info->bel_buckets[0];
-        bel_bucket_range.e.cursor.cursor = &chip_info->bel_buckets[chip_info->number_bel_buckets-1];
+        bel_bucket_range.e.cursor.cursor = &chip_info->bel_buckets[chip_info->number_bel_buckets - 1];
         return bel_bucket_range;
     }
 
-    BelBucketId getBelBucketForBel(BelId bel) const {
+    BelBucketId getBelBucketForBel(BelId bel) const
+    {
         BelBucketId bel_bucket;
         bel_bucket.name = IdString(locInfo(bel).bel_data[bel.index].bel_bucket);
         return bel_bucket;
     }
 
-    const IdStringRange getCellTypes() const {
-        const CellMapPOD & cell_map = *chip_info->cell_map;
+    const IdStringRange getCellTypes() const
+    {
+        const CellMapPOD &cell_map = *chip_info->cell_map;
 
         IdStringRange id_range;
         id_range.b.cursor = &cell_map.cell_names[0];
-        id_range.e.cursor = &cell_map.cell_names[cell_map.number_cells-1];
+        id_range.e.cursor = &cell_map.cell_names[cell_map.number_cells - 1];
 
         return id_range;
     }
 
-    IdString getBelBucketName(BelBucketId bucket) const {
-        return bucket.name;
-    }
+    IdString getBelBucketName(BelBucketId bucket) const { return bucket.name; }
 
-    BelBucketId getBelBucketByName(IdString name) const {
-        for(BelBucketId bel_bucket : getBelBuckets()) {
-            if(bel_bucket.name == name) {
+    BelBucketId getBelBucketByName(IdString name) const
+    {
+        for (BelBucketId bel_bucket : getBelBuckets()) {
+            if (bel_bucket.name == name) {
                 return bel_bucket;
             }
         }
@@ -1267,39 +1233,42 @@ struct Arch : BaseCtx
         return BelBucketId();
     }
 
-    size_t getCellTypeIndex(IdString cell_type) const {
-        const CellMapPOD & cell_map = *chip_info->cell_map;
+    size_t getCellTypeIndex(IdString cell_type) const
+    {
+        const CellMapPOD &cell_map = *chip_info->cell_map;
         int cell_offset = cell_type.index - cell_map.cell_names[0];
         NPNR_ASSERT(cell_type.index >= 0 && cell_type.index < cell_map.number_cells);
 
         return cell_offset;
     }
 
-    BelBucketId getBelBucketForCellType(IdString cell_type) const {
+    BelBucketId getBelBucketForCellType(IdString cell_type) const
+    {
         BelBucketId bucket;
-        const CellMapPOD & cell_map = *chip_info->cell_map;
+        const CellMapPOD &cell_map = *chip_info->cell_map;
         bucket.name = cell_map.cell_bel_buckets[getCellTypeIndex(cell_type)];
         return bucket;
     }
 
-    FilteredBelRange getBelsInBucket(BelBucketId bucket) const {
+    FilteredBelRange getBelsInBucket(BelBucketId bucket) const
+    {
         BelRange range = getBels();
-        FilteredBelRange filtered_range(
-                range.begin(), range.end(), [this, bucket](BelId bel) {
-                return getBelBucketForBel(bel) == bucket;
-            });
+        FilteredBelRange filtered_range(range.begin(), range.end(),
+                                        [this, bucket](BelId bel) { return getBelBucketForBel(bel) == bucket; });
 
         return filtered_range;
     }
 
-    bool isValidBelForCellType(IdString cell_type, BelId bel) const {
+    bool isValidBelForCellType(IdString cell_type, BelId bel) const
+    {
         return locInfo(bel).bel_data[bel.index].valid_cells[getCellTypeIndex(cell_type)];
     }
 
     // Whether or not a given cell can be placed at a given Bel
     // This is not intended for Bel type checks, but finer-grained constraints
     // such as conflicting set/reset signals, etc
-    bool isValidBelForCell(CellInfo *cell, BelId bel) const {
+    bool isValidBelForCell(CellInfo *cell, BelId bel) const
+    {
         NPNR_ASSERT(isValidBelForCellType(cell->type, bel));
 
         // FIXME: Implement this
@@ -1307,7 +1276,8 @@ struct Arch : BaseCtx
     }
 
     // Return true whether all Bels at a given location are valid
-    bool isBelLocationValid(BelId bel) const {
+    bool isBelLocationValid(BelId bel) const
+    {
         // FIXME: Implement this
         return true;
     }
@@ -1332,8 +1302,7 @@ struct Arch : BaseCtx
         return chip_info->tile_types[chip_info->tiles[id.tile].type];
     }
 
-    void writePhysicalNetlist(const std::string &filename) const {
-    }
+    void writePhysicalNetlist(const std::string &filename) const {}
 };
 
 NEXTPNR_NAMESPACE_END
