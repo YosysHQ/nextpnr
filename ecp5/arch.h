@@ -435,7 +435,35 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX DelayKey>
 } // namespace std
 NEXTPNR_NAMESPACE_BEGIN
 
-struct Arch : BaseCtx
+struct ArchRanges
+{
+    // Bels
+    using AllBelsRange = BelRange;
+    using TileBelsRange = BelRange;
+    using BelAttrsRange = std::vector<std::pair<IdString, std::string>>;
+    using BelPinsRange = std::vector<IdString>;
+    // Wires
+    using AllWiresRange = WireRange;
+    using DownhillPipRange = PipRange;
+    using UphillPipRange = PipRange;
+    using WireBelPinRange = BelPinRange;
+    using WireAttrsRange = std::vector<std::pair<IdString, std::string>>;
+    // Pips
+    using AllPipsRange = AllPipRange;
+    using PipAttrsRange = std::vector<std::pair<IdString, std::string>>;
+    // Groups
+    using AllGroupsRange = std::vector<GroupId>;
+    using GroupBelsRange = std::vector<BelId>;
+    using GroupWiresRange = std::vector<WireId>;
+    using GroupPipsRange = std::vector<PipId>;
+    using GroupGroupsRange = std::vector<GroupId>;
+    // Placement validity
+    using CellTypeRange = const std::vector<IdString> &;
+    using BelBucketRange = std::vector<BelBucketId>;
+    using BucketBelRange = std::vector<BelId>;
+};
+
+struct Arch : ArchBase<ArchRanges>
 {
     const ChipInfoPOD *chip_info;
     const PackageInfoPOD *package_info;
@@ -532,7 +560,7 @@ struct Arch : BaseCtx
     }
 
     BelId getBelByLocation(Loc loc) const override;
-    BelRange getBelsByTile(int x, int y) const;
+    BelRange getBelsByTile(int x, int y) const override;
 
     bool getBelGlobalBuf(BelId bel) const override { return getBelType(bel) == id_DCCA; }
 
@@ -554,7 +582,7 @@ struct Arch : BaseCtx
         return bel_to_cell[get_bel_flat_index(bel)];
     }
 
-    BelRange getBels() const
+    BelRange getBels() const override
     {
         BelRange range;
         range.b.cursor_tile = 0;
@@ -575,7 +603,7 @@ struct Arch : BaseCtx
         return id;
     }
 
-    std::vector<std::pair<IdString, std::string>> getBelAttrs(BelId) const
+    std::vector<std::pair<IdString, std::string>> getBelAttrs(BelId) const override
     {
         std::vector<std::pair<IdString, std::string>> ret;
         return ret;
@@ -583,7 +611,7 @@ struct Arch : BaseCtx
 
     WireId getBelPinWire(BelId bel, IdString pin) const override;
 
-    BelPinRange getWireBelPins(WireId wire) const
+    BelPinRange getWireBelPins(WireId wire) const override
     {
         BelPinRange range;
         NPNR_ASSERT(wire != WireId());
@@ -616,7 +644,7 @@ struct Arch : BaseCtx
         return id;
     }
 
-    std::vector<std::pair<IdString, std::string>> getWireAttrs(WireId) const;
+    std::vector<std::pair<IdString, std::string>> getWireAttrs(WireId) const override;
 
     uint32_t getWireChecksum(WireId wire) const override { return wire.index; }
 
@@ -673,7 +701,7 @@ struct Arch : BaseCtx
         return delay;
     }
 
-    WireRange getWires() const
+    WireRange getWires() const override
     {
         WireRange range;
         range.b.cursor_tile = 0;
@@ -771,7 +799,7 @@ struct Arch : BaseCtx
             return pip_to_net.at(pip);
     }
 
-    AllPipRange getPips() const
+    AllPipRange getPips() const override
     {
         AllPipRange range;
         range.b.cursor_tile = 0;
@@ -819,7 +847,7 @@ struct Arch : BaseCtx
         return delay;
     }
 
-    PipRange getPipsDownhill(WireId wire) const
+    PipRange getPipsDownhill(WireId wire) const override
     {
         PipRange range;
         NPNR_ASSERT(wire != WireId());
@@ -830,7 +858,7 @@ struct Arch : BaseCtx
         return range;
     }
 
-    PipRange getPipsUphill(WireId wire) const
+    PipRange getPipsUphill(WireId wire) const override
     {
         PipRange range;
         NPNR_ASSERT(wire != WireId());
@@ -880,11 +908,11 @@ struct Arch : BaseCtx
 
     GroupId getGroupByName(IdStringList name) const override;
     IdStringList getGroupName(GroupId group) const override;
-    std::vector<GroupId> getGroups() const;
-    std::vector<BelId> getGroupBels(GroupId group) const;
-    std::vector<WireId> getGroupWires(GroupId group) const;
-    std::vector<PipId> getGroupPips(GroupId group) const;
-    std::vector<GroupId> getGroupGroups(GroupId group) const;
+    std::vector<GroupId> getGroups() const override;
+    std::vector<BelId> getGroupBels(GroupId group) const override;
+    std::vector<WireId> getGroupWires(GroupId group) const override;
+    std::vector<PipId> getGroupPips(GroupId group) const override;
+    std::vector<GroupId> getGroupGroups(GroupId group) const override;
 
     // -------------------------------------------------
 
@@ -938,9 +966,9 @@ struct Arch : BaseCtx
     // -------------------------------------------------
     // Placement validity checks
 
-    const std::vector<IdString> &getCellTypes() const { return cell_types; }
+    const std::vector<IdString> &getCellTypes() const override { return cell_types; }
 
-    std::vector<BelBucketId> getBelBuckets() const { return buckets; }
+    std::vector<BelBucketId> getBelBuckets() const override { return buckets; }
 
     IdString getBelBucketName(BelBucketId bucket) const override { return bucket.name; }
 
@@ -965,7 +993,7 @@ struct Arch : BaseCtx
         return bucket;
     }
 
-    std::vector<BelId> getBelsInBucket(BelBucketId bucket) const
+    std::vector<BelId> getBelsInBucket(BelBucketId bucket) const override
     {
         std::vector<BelId> bels;
         for (BelId bel : getBels()) {

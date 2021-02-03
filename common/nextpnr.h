@@ -1006,7 +1006,10 @@ struct BaseCtx
 
     void archInfoToAttributes();
     void attributesToArchInfo();
+};
 
+template <typename R> struct ArchBase : BaseCtx
+{
     // --------------------------------------------------------------
     // Arch API base
 
@@ -1018,6 +1021,7 @@ struct BaseCtx
     virtual char getNameDelimiter() const { return ' '; }
 
     // Bel methods
+    virtual typename R::AllBelsRange getBels() const = 0;
     virtual BelId getBelByName(IdStringList name) const = 0;
     virtual IdStringList getBelName(BelId bel) const = 0;
     virtual uint32_t getBelChecksum(BelId bel) const { return uint32_t(std::hash<BelId>()(bel)); }
@@ -1025,19 +1029,26 @@ struct BaseCtx
     virtual void unbindBel(BelId bel) = 0;
     virtual Loc getBelLocation(BelId bel) const = 0;
     virtual BelId getBelByLocation(Loc loc) const = 0;
+    virtual typename R::TileBelsRange getBelsByTile(int x, int y) const = 0;
     virtual bool getBelGlobalBuf(BelId bel) const { return false; }
     virtual bool checkBelAvail(BelId bel) const = 0;
     virtual CellInfo *getBoundBelCell(BelId bel) const = 0;
     virtual CellInfo *getConflictingBelCell(BelId bel) const = 0;
     virtual IdString getBelType(BelId bel) const = 0;
+    virtual typename R::BelAttrsRange getBelAttrs(BelId bel) const = 0;
     virtual WireId getBelPinWire(BelId bel, IdString pin) const = 0;
     virtual PortType getBelPinType(BelId bel, IdString pin) const = 0;
 
     // Wire methods
+    virtual typename R::AllWiresRange getWires() const = 0;
     virtual WireId getWireByName(IdStringList name) const = 0;
     virtual IdStringList getWireName(WireId wire) const = 0;
     virtual IdString getWireType(WireId wire) const { return IdString(); }
+    virtual typename R::WireAttrsRange getWireAttrs(WireId) const = 0;
     virtual uint32_t getWireChecksum(WireId wire) const { return uint32_t(std::hash<WireId>()(wire)); }
+    virtual typename R::DownhillPipRange getPipsDownhill(WireId wire) const = 0;
+    virtual typename R::UphillPipRange getPipsUphill(WireId wire) const = 0;
+    virtual typename R::WireBelPinRange getWireBelPins(WireId wire) const = 0;
     virtual void bindWire(WireId wire, NetInfo *net, PlaceStrength strength) = 0;
     virtual void unbindWire(WireId wire) = 0;
     virtual bool checkWireAvail(WireId wire) const = 0;
@@ -1047,9 +1058,11 @@ struct BaseCtx
     virtual DelayInfo getWireDelay(WireId wire) const = 0;
 
     // Pip methods
+    virtual typename R::AllPipsRange getPips() const = 0;
     virtual PipId getPipByName(IdStringList name) const = 0;
     virtual IdStringList getPipName(PipId pip) const = 0;
     virtual IdString getPipType(PipId pip) const { return IdString(); }
+    virtual typename R::PipAttrsRange getPipAttrs(PipId) const = 0;
     virtual uint32_t getPipChecksum(PipId pip) const { return uint32_t(std::hash<PipId>()(pip)); }
     virtual void bindPip(PipId pip, NetInfo *net, PlaceStrength strength) = 0;
     virtual void unbindPip(PipId pip) = 0;
@@ -1067,6 +1080,11 @@ struct BaseCtx
     virtual IdStringList getGroupName(GroupId group) const = 0;
     virtual delay_t estimateDelay(WireId src, WireId dst) const = 0;
     virtual ArcBounds getRouteBoundingBox(WireId src, WireId dst) const = 0;
+    virtual typename R::AllGroupsRange getGroups() const = 0;
+    virtual typename R::GroupBelsRange getGroupBels(GroupId group) const = 0;
+    virtual typename R::GroupWiresRange getGroupWires(GroupId group) const = 0;
+    virtual typename R::GroupPipsRange getGroupPips(GroupId group) const = 0;
+    virtual typename R::GroupGroupsRange getGroupGroups(GroupId group) const = 0;
 
     // Delay methods
     virtual delay_t predictDelay(const NetInfo *net_info, const PortRef &sink) const = 0;
@@ -1108,6 +1126,9 @@ struct BaseCtx
     virtual BelBucketId getBelBucketForCellType(IdString cell_type) const = 0;
     virtual bool isValidBelForCell(CellInfo *cell, BelId bel) const { return true; }
     virtual bool isBelLocationValid(BelId bel) const { return true; }
+    virtual typename R::CellTypeRange getCellTypes() const = 0;
+    virtual typename R::BelBucketRange getBelBuckets() const = 0;
+    virtual typename R::BucketBelRange getBelsInBucket(BelBucketId bucket) const = 0;
 
     // Flow methods
     virtual bool pack() = 0;
