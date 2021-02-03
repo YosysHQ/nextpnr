@@ -399,8 +399,8 @@ struct Arch : BaseCtx
     ArchArgs args;
     Arch(ArchArgs args);
 
-    static bool isAvailable(ArchArgs::ArchArgsTypes chip);
-    static std::vector<std::string> getSupportedPackages(ArchArgs::ArchArgsTypes chip);
+    static bool is_available(ArchArgs::ArchArgsTypes chip);
+    static std::vector<std::string> get_supported_packages(ArchArgs::ArchArgsTypes chip);
 
     std::string getChipName() const;
 
@@ -506,7 +506,7 @@ struct Arch : BaseCtx
     PortType getBelPinType(BelId bel, IdString pin) const;
     std::vector<IdString> getBelPins(BelId bel) const;
 
-    bool isBelLocked(BelId bel) const;
+    bool is_bel_locked(BelId bel) const;
 
     // -------------------------------------------------
 
@@ -767,8 +767,8 @@ struct Arch : BaseCtx
         return range;
     }
 
-    BelId getPackagePinBel(const std::string &pin) const;
-    std::string getBelPackagePin(BelId bel) const;
+    BelId get_package_pin_bel(const std::string &pin) const;
+    std::string get_bel_package_pin(BelId bel) const;
 
     // -------------------------------------------------
 
@@ -818,15 +818,15 @@ struct Arch : BaseCtx
     // Get the delay through a cell from one port to another, returning false
     // if no path exists. This only considers combinational delays, as required by the Arch API
     bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const;
-    // getCellDelayInternal is similar to the above, but without false path checks and including clock to out delays
+    // get_cell_delay_internal is similar to the above, but without false path checks and including clock to out delays
     // for internal arch use only
-    bool getCellDelayInternal(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const;
+    bool get_cell_delay_internal(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const;
     // Get the port class, also setting clockInfoCount to the number of TimingClockingInfos associated with a port
     TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const;
     // Get the TimingClockingInfo of a port
     TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const;
     // Return true if a port is a net
-    bool isGlobalNet(const NetInfo *net) const;
+    bool is_global_net(const NetInfo *net) const;
 
     // -------------------------------------------------
 
@@ -883,7 +883,7 @@ struct Arch : BaseCtx
     bool isBelLocationValid(BelId bel) const;
 
     // Helper function for above
-    bool logicCellsCompatible(const CellInfo **it, const size_t size) const;
+    bool logic_cells_compatible(const CellInfo **it, const size_t size) const;
 
     // -------------------------------------------------
     // Assign architecture-specific arguments to nets and cells, which must be
@@ -893,7 +893,7 @@ struct Arch : BaseCtx
     void assignCellInfo(CellInfo *cell);
 
     // -------------------------------------------------
-    BelPin getIOBSharingPLLPin(BelId pll, IdString pll_pin) const
+    BelPin get_iob_sharing_pll_pin(BelId pll, IdString pll_pin) const
     {
         auto wire = getBelPinWire(pll, pll_pin);
         for (auto src_bel : getWireBelPins(wire)) {
@@ -904,7 +904,7 @@ struct Arch : BaseCtx
         NPNR_ASSERT_FALSE("Expected PLL pin to share an output with an SB_IO D_IN_{0,1}");
     }
 
-    int getDrivenGlobalNetwork(BelId bel) const
+    int get_driven_glb_netwk(BelId bel) const
     {
         NPNR_ASSERT(getBelType(bel) == id_SB_GB);
         IdString glb_net = getWireName(getBelPinWire(bel, id_GLOBAL_BUFFER_OUTPUT))[2];

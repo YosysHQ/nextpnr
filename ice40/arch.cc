@@ -67,9 +67,9 @@ static const ChipInfoPOD *get_chip_info(ArchArgs::ArchArgsTypes chip)
     return ptr->get();
 }
 
-bool Arch::isAvailable(ArchArgs::ArchArgsTypes chip) { return get_chip_info(chip) != nullptr; }
+bool Arch::is_available(ArchArgs::ArchArgsTypes chip) { return get_chip_info(chip) != nullptr; }
 
-std::vector<std::string> Arch::getSupportedPackages(ArchArgs::ArchArgsTypes chip)
+std::vector<std::string> Arch::get_supported_packages(ArchArgs::ArchArgsTypes chip)
 {
     const ChipInfoPOD *chip_info = get_chip_info(chip);
     std::vector<std::string> packages;
@@ -350,7 +350,7 @@ std::vector<IdString> Arch::getBelPins(BelId bel) const
     return ret;
 }
 
-bool Arch::isBelLocked(BelId bel) const
+bool Arch::is_bel_locked(BelId bel) const
 {
     const BelConfigPOD *bel_config = nullptr;
     for (auto &bel_cfg : chip_info->bel_config) {
@@ -493,7 +493,7 @@ std::vector<std::pair<IdString, std::string>> Arch::getPipAttrs(PipId pip) const
 
 // -----------------------------------------------------------------------
 
-BelId Arch::getPackagePinBel(const std::string &pin) const
+BelId Arch::get_package_pin_bel(const std::string &pin) const
 {
     for (auto &ppin : package_info->pins) {
         if (ppin.name.get() == pin) {
@@ -505,7 +505,7 @@ BelId Arch::getPackagePinBel(const std::string &pin) const
     return BelId();
 }
 
-std::string Arch::getBelPackagePin(BelId bel) const
+std::string Arch::get_bel_package_pin(BelId bel) const
 {
     for (auto &ppin : package_info->pins) {
         if (ppin.bel_index == bel.index) {
@@ -939,10 +939,10 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
     } else if (cell->type == id_ICESTORM_RAM || cell->type == id_ICESTORM_SPRAM) {
         return false;
     }
-    return getCellDelayInternal(cell, fromPort, toPort, delay);
+    return get_cell_delay_internal(cell, fromPort, toPort, delay);
 }
 
-bool Arch::getCellDelayInternal(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
+bool Arch::get_cell_delay_internal(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
 {
     for (auto &tc : chip_info->cell_timing) {
         if (tc.type == cell->type.index) {
@@ -1094,12 +1094,12 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
         info.clock_port = id_CLK;
         info.edge = cell->lcInfo.negClk ? FALLING_EDGE : RISING_EDGE;
         if (port == id_O) {
-            bool has_clktoq = getCellDelayInternal(cell, id_CLK, id_O, info.clockToQ);
+            bool has_clktoq = get_cell_delay_internal(cell, id_CLK, id_O, info.clockToQ);
             NPNR_ASSERT(has_clktoq);
         } else {
             if (port == id_I0 || port == id_I1 || port == id_I2 || port == id_I3) {
                 DelayInfo dlut;
-                bool has_ld = getCellDelayInternal(cell, port, id_O, dlut);
+                bool has_ld = get_cell_delay_internal(cell, port, id_O, dlut);
                 NPNR_ASSERT(has_ld);
                 if (args.type == ArchArgs::LP1K || args.type == ArchArgs::LP4K || args.type == ArchArgs::LP8K ||
                     args.type == ArchArgs::LP384) {
@@ -1124,7 +1124,7 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
             info.edge = bool_or_default(cell->params, id("NEG_CLK_W")) ? FALLING_EDGE : RISING_EDGE;
         }
         if (cell->ports.at(port).type == PORT_OUT) {
-            bool has_clktoq = getCellDelayInternal(cell, info.clock_port, port, info.clockToQ);
+            bool has_clktoq = get_cell_delay_internal(cell, info.clock_port, port, info.clockToQ);
             NPNR_ASSERT(has_clktoq);
         } else {
             info.setup.delay = 100;
@@ -1170,7 +1170,7 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
         info.clock_port = cell->type == id_ICESTORM_SPRAM ? id_CLOCK : id_CLK;
         info.edge = RISING_EDGE;
         if (cell->ports.at(port).type == PORT_OUT) {
-            bool has_clktoq = getCellDelayInternal(cell, info.clock_port, port, info.clockToQ);
+            bool has_clktoq = get_cell_delay_internal(cell, info.clock_port, port, info.clockToQ);
             if (!has_clktoq)
                 info.clockToQ.delay = 100;
         } else {
@@ -1194,7 +1194,7 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
     return info;
 }
 
-bool Arch::isGlobalNet(const NetInfo *net) const
+bool Arch::is_global_net(const NetInfo *net) const
 {
     if (net == nullptr)
         return false;
@@ -1206,7 +1206,7 @@ void Arch::assignArchInfo()
 {
     for (auto &net : getCtx()->nets) {
         NetInfo *ni = net.second.get();
-        if (isGlobalNet(ni))
+        if (is_global_net(ni))
             ni->is_global = true;
         ni->is_enable = false;
         ni->is_reset = false;

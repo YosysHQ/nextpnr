@@ -639,7 +639,7 @@ static void promote_globals(Context *ctx)
     std::map<IdString, int> clock_count, reset_count, cen_count, logic_count;
     for (auto net : sorted(ctx->nets)) {
         NetInfo *ni = net.second;
-        if (ni->driver.cell != nullptr && !ctx->isGlobalNet(ni)) {
+        if (ni->driver.cell != nullptr && !ctx->is_global_net(ni)) {
             clock_count[net.first] = 0;
             reset_count[net.first] = 0;
             cen_count[net.first] = 0;
@@ -667,7 +667,7 @@ static void promote_globals(Context *ctx)
             if (cell.second->attrs.find(ctx->id("BEL")) != cell.second->attrs.end()) {
                 /* If the SB_GB is locked, doesn't matter what it drives */
                 BelId bel = ctx->getBelByNameStr(cell.second->attrs[ctx->id("BEL")].as_string());
-                int glb_id = ctx->getDrivenGlobalNetwork(bel);
+                int glb_id = ctx->get_driven_glb_netwk(bel);
                 if ((glb_id % 2) == 0)
                     resets_available--;
                 else if ((glb_id % 2) == 1)
@@ -766,11 +766,11 @@ static void place_plls(Context *ctx)
     for (auto bel : ctx->getBels()) {
         if (ctx->getBelType(bel) != id_ICESTORM_PLL)
             continue;
-        if (ctx->isBelLocked(bel))
+        if (ctx->is_bel_locked(bel))
             continue;
 
-        auto io_a_pin = ctx->getIOBSharingPLLPin(bel, id_PLLOUT_A);
-        auto io_b_pin = ctx->getIOBSharingPLLPin(bel, id_PLLOUT_B);
+        auto io_a_pin = ctx->get_iob_sharing_pll_pin(bel, id_PLLOUT_A);
+        auto io_b_pin = ctx->get_iob_sharing_pll_pin(bel, id_PLLOUT_B);
         auto gb_a = find_padin_gbuf(ctx, bel, id_PLLOUT_A_GLOBAL);
         auto gb_b = find_padin_gbuf(ctx, bel, id_PLLOUT_B_GLOBAL);
 
@@ -1064,7 +1064,7 @@ static BelId cell_place_unique(Context *ctx, CellInfo *ci)
     for (auto bel : ctx->getBels()) {
         if (ctx->getBelType(bel) != ci->type)
             continue;
-        if (ctx->isBelLocked(bel))
+        if (ctx->is_bel_locked(bel))
             continue;
         IdStringList bel_name = ctx->getBelName(bel);
         ci->attrs[ctx->id("BEL")] = bel_name.str(ctx);

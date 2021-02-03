@@ -27,7 +27,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-bool Arch::logicCellsCompatible(const CellInfo **it, const size_t size) const
+bool Arch::logic_cells_compatible(const CellInfo **it, const size_t size) const
 {
     bool dffs_exist = false, dffs_neg = false;
     const NetInfo *cen = nullptr, *clk = nullptr, *sr = nullptr;
@@ -81,7 +81,7 @@ bool Arch::isBelLocationValid(BelId bel) const
             if (ci_other != nullptr)
                 bel_cells[num_cells++] = ci_other;
         }
-        return logicCellsCompatible(bel_cells.data(), num_cells);
+        return logic_cells_compatible(bel_cells.data(), num_cells);
     } else {
         CellInfo *ci = getBoundBelCell(bel);
         if (ci == nullptr)
@@ -119,7 +119,7 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
         }
 
         bel_cells[num_cells++] = cell;
-        return logicCellsCompatible(bel_cells.data(), num_cells);
+        return logic_cells_compatible(bel_cells.data(), num_cells);
     } else if (cell->type == id_SB_IO) {
         // Do not allow placement of input SB_IOs on blocks where there a PLL is outputting to.
 
@@ -195,13 +195,13 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
             }
         }
 
-        return getBelPackagePin(bel) != "";
+        return get_bel_package_pin(bel) != "";
     } else if (cell->type == id_SB_GB) {
         if (cell->gbInfo.forPadIn)
             return true;
         NPNR_ASSERT(cell->ports.at(id_GLOBAL_BUFFER_OUTPUT).net != nullptr);
         const NetInfo *net = cell->ports.at(id_GLOBAL_BUFFER_OUTPUT).net;
-        int glb_id = getDrivenGlobalNetwork(bel);
+        int glb_id = get_driven_glb_netwk(bel);
         if (net->is_reset && net->is_enable)
             return false;
         else if (net->is_reset)

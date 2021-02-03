@@ -89,7 +89,7 @@ bool apply_pcf(Context *ctx, std::string filename, std::istream &in)
                     if (!nowarn)
                         log_warning("unmatched constraint '%s' (on line %d)\n", cell.c_str(), lineno);
                 } else {
-                    BelId pin_bel = ctx->getPackagePinBel(pin);
+                    BelId pin_bel = ctx->get_package_pin_bel(pin);
                     if (pin_bel == BelId())
                         log_error("package does not have a pin named '%s' (on line %d)\n", pin.c_str(), lineno);
                     if (fnd_cell->second->attrs.count(ctx->id("BEL")))

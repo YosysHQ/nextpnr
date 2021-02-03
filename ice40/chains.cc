@@ -63,7 +63,7 @@ class ChainConstrainer
             }
             tile.push_back(cell);
             chains.back().cells.push_back(cell);
-            bool split_chain = (!ctx->logicCellsCompatible(tile.data(), tile.size())) ||
+            bool split_chain = (!ctx->logic_cells_compatible(tile.data(), tile.size())) ||
                                (int(chains.back().cells.size()) > max_length);
             if (split_chain) {
                 CellInfo *passout = make_carry_pass_out((*(curr_cell - 1))->ports.at(ctx->id("COUT")));
@@ -84,7 +84,7 @@ class ChainConstrainer
                         if (!at_end) {
                             // See if we need to split chain anyway
                             tile.push_back(*(curr_cell + 1));
-                            bool split_chain_next = (!ctx->logicCellsCompatible(tile.data(), tile.size())) ||
+                            bool split_chain_next = (!ctx->logic_cells_compatible(tile.data(), tile.size())) ||
                                                     (int(chains.back().cells.size()) > max_length);
                             tile.pop_back();
                             if (split_chain_next)
