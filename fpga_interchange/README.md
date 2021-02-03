@@ -30,7 +30,7 @@ island based FPGA.  It consists of three primary file formats:
 This architecture implementation can be compiled in conjunction with a FPGA
 interchange device database, and the outputs from
 `fpga_interchange.nextpnr_emit`, which is part of the
-(python-fpga-interchange)[https://github.com/SymbiFlow/python-fpga-interchange/]
+[python-fpga-interchange](https://github.com/SymbiFlow/python-fpga-interchange/)
 library.
 
 The current implementation is missing essential features for place and route.
@@ -76,7 +76,7 @@ As these features are added, this implementation will become more useful.
 #### FPGA interchange fabrics
 
 Currently only Xilinx 7-series, UltraScale and UltraScale+ fabrics have a
-device database generator, via (RapidWright)[https://github.com/Xilinx/RapidWright].
+device database generator, via [RapidWright](https://github.com/Xilinx/RapidWright).
 
 ##### Artix 35T example
 
