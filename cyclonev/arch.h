@@ -30,10 +30,30 @@ struct ArchArgs
     std::string device;
 };
 
+struct BelInfo
+{
+    IdString name, type;
+    std::map<IdString, std::string> attrs;
+    CellInfo *bound_cell;
+    std::unordered_map<IdString, PinInfo> pins;
+    DecalXY decalxy;
+    int x, y, z;
+    bool gb;
+};
+
+struct PinInfo
+{
+    IdString name;
+    WireId wire;
+    PortType type;
+};
+
 struct Arch : BaseCtx
 {
     ArchArgs args;
     mistral::CycloneV* cyclonev;
+
+    std::unordered_map<IdString, BelInfo> bels;
 
     Arch(ArchArgs args);
 

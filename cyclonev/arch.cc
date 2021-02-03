@@ -90,6 +90,22 @@ IdString Arch::getBelName(BelId bel) const
     return id(bel_str);
 }
 
+void Arch::bindBel(BelId bel, CellInfo *cell, PlaceStrength strength)
+{
+    bels.at(bel).bound_cell = cell;
+    cell->bel = bel;
+    cell->belStrength = strength;
+    refreshUiBel(bel);
+}
 
+void Arch::unbindBel(BelId bel)
+{
+    bels.at(bel).bound_cell->bel = BelId();
+    bels.at(bel).bound_cell->belStrength = STRENGTH_NONE;
+    bels.at(bel).bound_cell = nullptr;
+    refreshUiBel(bel);
+}
+
+bool Arch::checkBelAvail(BelId bel) const { return bels.at(bel).bound_cell == nullptr; }
 
 NEXTPNR_NAMESPACE_END
