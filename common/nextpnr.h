@@ -1006,6 +1006,114 @@ struct BaseCtx
 
     void archInfoToAttributes();
     void attributesToArchInfo();
+
+    // --------------------------------------------------------------
+    // Arch API base
+
+    // Basic config
+    virtual int getGridDimX() const = 0;
+    virtual int getGridDimY() const = 0;
+    virtual int getTileBelDimZ(int x, int y) const = 0;
+    virtual int getTilePipDimZ(int x, int y) const { return 1; }
+    virtual char getNameDelimiter() const { return ' '; }
+
+    // Bel methods
+    virtual BelId getBelByName(IdStringList name) const = 0;
+    virtual IdStringList getBelName(BelId bel) const = 0;
+    virtual uint32_t getBelChecksum(BelId bel) const { return uint32_t(std::hash<BelId>()(bel)); }
+    virtual void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength) = 0;
+    virtual void unbindBel(BelId bel) = 0;
+    virtual Loc getBelLocation(BelId bel) const = 0;
+    virtual BelId getBelByLocation(Loc loc) const = 0;
+    virtual bool getBelGlobalBuf(BelId bel) const { return false; }
+    virtual bool checkBelAvail(BelId bel) const = 0;
+    virtual CellInfo *getBoundBelCell(BelId bel) const = 0;
+    virtual CellInfo *getConflictingBelCell(BelId bel) const = 0;
+    virtual IdString getBelType(BelId bel) const = 0;
+    virtual WireId getBelPinWire(BelId bel, IdString pin) const = 0;
+    virtual PortType getBelPinType(BelId bel, IdString pin) const = 0;
+
+    // Wire methods
+    virtual WireId getWireByName(IdStringList name) const = 0;
+    virtual IdStringList getWireName(WireId wire) const = 0;
+    virtual IdString getWireType(WireId wire) const { return IdString(); }
+    virtual uint32_t getWireChecksum(WireId wire) const { return uint32_t(std::hash<WireId>()(wire)); }
+    virtual void bindWire(WireId wire, NetInfo *net, PlaceStrength strength) = 0;
+    virtual void unbindWire(WireId wire) = 0;
+    virtual bool checkWireAvail(WireId wire) const = 0;
+    virtual NetInfo *getBoundWireNet(WireId wire) const = 0;
+    virtual WireId getConflictingWireWire(WireId wire) const { return wire; };
+    virtual NetInfo *getConflictingWireNet(WireId wire) const { return getBoundWireNet(wire); }
+    virtual DelayInfo getWireDelay(WireId wire) const = 0;
+
+    // Pip methods
+    virtual PipId getPipByName(IdStringList name) const = 0;
+    virtual IdStringList getPipName(PipId pip) const = 0;
+    virtual IdString getPipType(PipId pip) const { return IdString(); }
+    virtual uint32_t getPipChecksum(PipId pip) const { return uint32_t(std::hash<PipId>()(pip)); }
+    virtual void bindPip(PipId pip, NetInfo *net, PlaceStrength strength) = 0;
+    virtual void unbindPip(PipId pip) = 0;
+    virtual bool checkPipAvail(PipId pip) const = 0;
+    virtual NetInfo *getBoundPipNet(PipId pip) const = 0;
+    virtual WireId getConflictingPipWire(PipId pip) const { return WireId(); }
+    virtual NetInfo *getConflictingPipNet(PipId pip) const { return nullptr; }
+    virtual WireId getPipSrcWire(PipId pip) const = 0;
+    virtual WireId getPipDstWire(PipId pip) const = 0;
+    virtual DelayInfo getPipDelay(PipId pip) const = 0;
+    virtual Loc getPipLocation(PipId pip) const = 0;
+
+    // Group methods
+    virtual GroupId getGroupByName(IdStringList name) const = 0;
+    virtual IdStringList getGroupName(GroupId group) const = 0;
+    virtual delay_t estimateDelay(WireId src, WireId dst) const = 0;
+    virtual ArcBounds getRouteBoundingBox(WireId src, WireId dst) const = 0;
+
+    // Delay methods
+    virtual delay_t predictDelay(const NetInfo *net_info, const PortRef &sink) const = 0;
+    virtual delay_t getDelayEpsilon() const = 0;
+    virtual delay_t getRipupDelayPenalty() const = 0;
+    virtual float getDelayNS(delay_t v) const = 0;
+    virtual DelayInfo getDelayFromNS(float ns) const = 0;
+    virtual uint32_t getDelayChecksum(delay_t v) const = 0;
+    virtual bool getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const
+    {
+        return false;
+    }
+
+    // Decal methods
+    virtual DecalXY getBelDecal(BelId bel) const { return DecalXY(); }
+    virtual DecalXY getWireDecal(WireId wire) const { return DecalXY(); }
+    virtual DecalXY getPipDecal(PipId pip) const { return DecalXY(); }
+    virtual DecalXY getGroupDecal(GroupId group) const { return DecalXY(); }
+
+    // Cell timing methods
+    virtual bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
+    {
+        return false;
+    }
+    virtual TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const
+    {
+        return TMG_IGNORE;
+    }
+    virtual TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const
+    {
+        NPNR_ASSERT_FALSE("unreachable");
+    }
+
+    // Placement validity checks
+    virtual bool isValidBelForCellType(IdString cell_type, BelId bel) const { return cell_type == getBelType(bel); }
+    virtual IdString getBelBucketName(BelBucketId bucket) const = 0;
+    virtual BelBucketId getBelBucketByName(IdString name) const = 0;
+    virtual BelBucketId getBelBucketForBel(BelId bel) const = 0;
+    virtual BelBucketId getBelBucketForCellType(IdString cell_type) const = 0;
+    virtual bool isValidBelForCell(CellInfo *cell, BelId bel) const { return true; }
+    virtual bool isBelLocationValid(BelId bel) const { return true; }
+
+    // Flow methods
+    virtual bool pack() = 0;
+    virtual bool place() = 0;
+    virtual bool route() = 0;
+    virtual void assignArchInfo(){};
 };
 
 NEXTPNR_NAMESPACE_END
