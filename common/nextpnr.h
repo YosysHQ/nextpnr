@@ -1156,7 +1156,7 @@ template <typename R> struct ArchBase : BaseCtx
         return fnd == base_pip2net.end() ? nullptr : fnd->second;
     }
     virtual WireId getConflictingPipWire(PipId pip) const { return WireId(); }
-    virtual NetInfo *getConflictingPipNet(PipId pip) const { return nullptr; }
+    virtual NetInfo *getConflictingPipNet(PipId pip) const { return getBoundPipNet(pip); }
     virtual WireId getPipSrcWire(PipId pip) const = 0;
     virtual WireId getPipDstWire(PipId pip) const = 0;
     virtual DelayInfo getPipDelay(PipId pip) const = 0;

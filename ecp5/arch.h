@@ -472,8 +472,6 @@ struct Arch : ArchBase<ArchRanges>
     mutable std::unordered_map<IdStringList, PipId> pip_by_name;
 
     std::vector<CellInfo *> bel_to_cell;
-    std::unordered_map<WireId, NetInfo *> wire_to_net;
-    std::unordered_map<PipId, NetInfo *> pip_to_net;
     std::unordered_map<WireId, int> wire_fanout;
 
     // fast access to  X and Y IdStrings for building object names
@@ -648,49 +646,20 @@ struct Arch : ArchBase<ArchRanges>
 
     uint32_t getWireChecksum(WireId wire) const override { return wire.index; }
 
-    void bindWire(WireId wire, NetInfo *net, PlaceStrength strength) override
-    {
-        NPNR_ASSERT(wire != WireId());
-        NPNR_ASSERT(wire_to_net[wire] == nullptr);
-        wire_to_net[wire] = net;
-        net->wires[wire].pip = PipId();
-        net->wires[wire].strength = strength;
-        refreshUiWire(wire);
-    }
-
     void unbindWire(WireId wire) override
     {
         NPNR_ASSERT(wire != WireId());
-        NPNR_ASSERT(wire_to_net[wire] != nullptr);
+        NPNR_ASSERT(base_wire2net[wire] != nullptr);
 
-        auto &net_wires = wire_to_net[wire]->wires;
+        auto &net_wires = base_wire2net[wire]->wires;
         auto it = net_wires.find(wire);
         NPNR_ASSERT(it != net_wires.end());
-
         auto pip = it->second.pip;
+        // As well as the default rules; need to handle fanout counting
         if (pip != PipId()) {
             wire_fanout[getPipSrcWire(pip)]--;
-            pip_to_net[pip] = nullptr;
         }
-
-        net_wires.erase(it);
-        wire_to_net[wire] = nullptr;
-        refreshUiWire(wire);
-    }
-
-    bool checkWireAvail(WireId wire) const override
-    {
-        NPNR_ASSERT(wire != WireId());
-        return wire_to_net.find(wire) == wire_to_net.end() || wire_to_net.at(wire) == nullptr;
-    }
-
-    NetInfo *getBoundWireNet(WireId wire) const override
-    {
-        NPNR_ASSERT(wire != WireId());
-        if (wire_to_net.find(wire) == wire_to_net.end())
-            return nullptr;
-        else
-            return wire_to_net.at(wire);
+        ArchBase::unbindWire(wire);
     }
 
     DelayInfo getWireDelay(WireId wire) const override
@@ -744,59 +713,14 @@ struct Arch : ArchBase<ArchRanges>
 
     void bindPip(PipId pip, NetInfo *net, PlaceStrength strength) override
     {
-        NPNR_ASSERT(pip != PipId());
-        NPNR_ASSERT(pip_to_net[pip] == nullptr);
-
-        pip_to_net[pip] = net;
         wire_fanout[getPipSrcWire(pip)]++;
-
-        WireId dst;
-        dst.index = loc_info(pip)->pip_data[pip.index].dst_idx;
-        dst.location = pip.location + loc_info(pip)->pip_data[pip.index].rel_dst_loc;
-        NPNR_ASSERT(wire_to_net[dst] == nullptr);
-        wire_to_net[dst] = net;
-        net->wires[dst].pip = pip;
-        net->wires[dst].strength = strength;
+        ArchBase::bindPip(pip, net, strength);
     }
 
     void unbindPip(PipId pip) override
     {
-        NPNR_ASSERT(pip != PipId());
-        NPNR_ASSERT(pip_to_net[pip] != nullptr);
         wire_fanout[getPipSrcWire(pip)]--;
-
-        WireId dst;
-        dst.index = loc_info(pip)->pip_data[pip.index].dst_idx;
-        dst.location = pip.location + loc_info(pip)->pip_data[pip.index].rel_dst_loc;
-        NPNR_ASSERT(wire_to_net[dst] != nullptr);
-        wire_to_net[dst] = nullptr;
-        pip_to_net[pip]->wires.erase(dst);
-
-        pip_to_net[pip] = nullptr;
-    }
-
-    bool checkPipAvail(PipId pip) const override
-    {
-        NPNR_ASSERT(pip != PipId());
-        return pip_to_net.find(pip) == pip_to_net.end() || pip_to_net.at(pip) == nullptr;
-    }
-
-    NetInfo *getBoundPipNet(PipId pip) const override
-    {
-        NPNR_ASSERT(pip != PipId());
-        if (pip_to_net.find(pip) == pip_to_net.end())
-            return nullptr;
-        else
-            return pip_to_net.at(pip);
-    }
-
-    NetInfo *getConflictingPipNet(PipId pip) const override
-    {
-        NPNR_ASSERT(pip != PipId());
-        if (pip_to_net.find(pip) == pip_to_net.end())
-            return nullptr;
-        else
-            return pip_to_net.at(pip);
+        ArchBase::unbindPip(pip);
     }
 
     AllPipRange getPips() const override
