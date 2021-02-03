@@ -841,6 +841,8 @@ struct BaseCtx
     // Context meta data
     std::unordered_map<IdString, Property> attrs;
 
+    Context *as_ctx = nullptr;
+
     BaseCtx()
     {
         idstring_str_to_idx = new std::unordered_map<std::string, int>;
@@ -914,9 +916,9 @@ struct BaseCtx
 
     IdString id(const char *s) const { return IdString(this, s); }
 
-    Context *getCtx() { return reinterpret_cast<Context *>(this); }
+    Context *getCtx() { return as_ctx; }
 
-    const Context *getCtx() const { return reinterpret_cast<const Context *>(this); }
+    const Context *getCtx() const { return as_ctx; }
 
     const char *nameOf(IdString name) const { return name.c_str(this); }
 
@@ -1245,7 +1247,7 @@ struct Context : Arch, DeterministicRNG
     // Should we disable printing of the location of nets in the critical path?
     bool disable_critical_path_source_print = false;
 
-    Context(ArchArgs args) : Arch(args) {}
+    Context(ArchArgs args) : Arch(args) { BaseCtx::as_ctx = this; }
 
     // --------------------------------------------------------------
 
