@@ -897,6 +897,11 @@ struct Arch : BaseCtx
     std::unordered_map<WireId, NetInfo *> wire_to_net;
     std::unordered_map<PipId, NetInfo *> pip_to_net;
 
+    // fast access to  X and Y IdStrings for building object names
+    std::vector<IdString> x_ids, y_ids;
+    // inverse of the above for name->object mapping
+    std::unordered_map<IdString, int> id_to_x, id_to_y;
+
     // -------------------------------------------------
 
     std::string getChipName() const;
@@ -909,20 +914,18 @@ struct Arch : BaseCtx
     int getGridDimY() const { return chip_info->height; }
     int getTileBelDimZ(int, int) const { return 256; }
     int getTilePipDimZ(int, int) const { return 1; }
+    char getNameDelimiter() const { return '/'; }
 
     // -------------------------------------------------
 
-    BelId getBelByName(IdString name) const;
+    BelId getBelByName(IdStringList name) const;
 
-    IdString getBelName(BelId bel) const
+    IdStringList getBelName(BelId bel) const
     {
-        std::string name = "X";
-        name += std::to_string(bel.tile % chip_info->width);
-        name += "/Y";
-        name += std::to_string(bel.tile / chip_info->width);
-        name += "/";
-        name += nameOf(IdString(bel_data(bel).name));
-        return id(name);
+        NPNR_ASSERT(bel != BelId());
+        std::array<IdString, 3> ids{x_ids.at(bel.tile % chip_info->width), y_ids.at(bel.tile / chip_info->width),
+                                    IdString(bel_data(bel).name)};
+        return IdStringList(ids);
     }
 
     uint32_t getBelChecksum(BelId bel) const { return (bel.tile << 16) ^ bel.index; }
@@ -1023,16 +1026,13 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
-    WireId getWireByName(IdString name) const;
-    IdString getWireName(WireId wire) const
+    WireId getWireByName(IdStringList name) const;
+    IdStringList getWireName(WireId wire) const
     {
-        std::string name = "X";
-        name += std::to_string(wire.tile % chip_info->width);
-        name += "/Y";
-        name += std::to_string(wire.tile / chip_info->width);
-        name += "/";
-        name += nameOf(IdString(wire_data(wire).name));
-        return id(name);
+        NPNR_ASSERT(wire != WireId());
+        std::array<IdString, 3> ids{x_ids.at(wire.tile % chip_info->width), y_ids.at(wire.tile / chip_info->width),
+                                    IdString(wire_data(wire).name)};
+        return IdStringList(ids);
     }
 
     IdString getWireType(WireId wire) const;
@@ -1136,8 +1136,8 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
-    PipId getPipByName(IdString name) const;
-    IdString getPipName(PipId pip) const;
+    PipId getPipByName(IdStringList name) const;
+    IdStringList getPipName(PipId pip) const;
 
     void bindPip(PipId pip, NetInfo *net, PlaceStrength strength)
     {
@@ -1289,8 +1289,8 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
-    GroupId getGroupByName(IdString name) const { return GroupId(); }
-    IdString getGroupName(GroupId group) const { return IdString(); }
+    GroupId getGroupByName(IdStringList name) const { return GroupId(); }
+    IdStringList getGroupName(GroupId group) const { return IdStringList(); }
     std::vector<GroupId> getGroups() const { return {}; }
     std::vector<BelId> getGroupBels(GroupId group) const { return {}; }
     std::vector<WireId> getGroupWires(GroupId group) const { return {}; }

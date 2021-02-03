@@ -91,6 +91,8 @@ NPNR_PACKED_STRUCT(struct WireInfoPOD {
     };
 
     RelPtr<char> name;
+    int8_t name_x, name_y;
+    int16_t padding;
     RelSlice<int32_t> pips_uphill, pips_downhill;
 
     RelSlice<BelPortPOD> bel_pins;
@@ -378,9 +380,9 @@ struct Arch : BaseCtx
     const ChipInfoPOD *chip_info;
     const PackageInfoPOD *package_info;
 
-    mutable std::unordered_map<IdString, int> bel_by_name;
-    mutable std::unordered_map<IdString, int> wire_by_name;
-    mutable std::unordered_map<IdString, int> pip_by_name;
+    mutable std::unordered_map<IdStringList, int> bel_by_name;
+    mutable std::unordered_map<IdStringList, int> wire_by_name;
+    mutable std::unordered_map<IdStringList, int> pip_by_name;
     mutable std::unordered_map<Loc, int> bel_by_loc;
 
     std::vector<bool> bel_carry;
@@ -388,6 +390,11 @@ struct Arch : BaseCtx
     std::vector<NetInfo *> wire_to_net;
     std::vector<NetInfo *> pip_to_net;
     std::vector<WireId> switches_locked;
+
+    // fast access to  X and Y IdStrings for building object names
+    std::vector<IdString> x_ids, y_ids;
+    // inverse of the above for name->object mapping
+    std::unordered_map<IdString, int> id_to_x, id_to_y;
 
     ArchArgs args;
     Arch(ArchArgs args);
@@ -407,15 +414,18 @@ struct Arch : BaseCtx
     int getGridDimY() const { return chip_info->height; }
     int getTileBelDimZ(int, int) const { return 8; }
     int getTilePipDimZ(int, int) const { return 1; }
+    char getNameDelimiter() const { return '/'; }
 
     // -------------------------------------------------
 
-    BelId getBelByName(IdString name) const;
+    BelId getBelByName(IdStringList name) const;
 
-    IdString getBelName(BelId bel) const
+    IdStringList getBelName(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
-        return id(chip_info->bel_data[bel.index].name.get());
+        auto &data = chip_info->bel_data[bel.index];
+        std::array<IdString, 3> ids{x_ids.at(data.x), y_ids.at(data.y), id(data.name.get())};
+        return IdStringList(ids);
     }
 
     uint32_t getBelChecksum(BelId bel) const { return bel.index; }
@@ -500,12 +510,14 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
-    WireId getWireByName(IdString name) const;
+    WireId getWireByName(IdStringList name) const;
 
-    IdString getWireName(WireId wire) const
+    IdStringList getWireName(WireId wire) const
     {
         NPNR_ASSERT(wire != WireId());
-        return id(chip_info->wire_data[wire.index].name.get());
+        auto &data = chip_info->wire_data[wire.index];
+        std::array<IdString, 3> ids{x_ids.at(data.name_x), y_ids.at(data.name_y), id(data.name.get())};
+        return IdStringList(ids);
     }
 
     IdString getWireType(WireId wire) const;
@@ -593,7 +605,7 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
-    PipId getPipByName(IdString name) const;
+    PipId getPipByName(IdStringList name) const;
 
     void bindPip(PipId pip, NetInfo *net, PlaceStrength strength)
     {
@@ -703,7 +715,7 @@ struct Arch : BaseCtx
         return loc;
     }
 
-    IdString getPipName(PipId pip) const;
+    IdStringList getPipName(PipId pip) const;
 
     IdString getPipType(PipId pip) const;
     std::vector<std::pair<IdString, std::string>> getPipAttrs(PipId pip) const;
@@ -760,8 +772,8 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
-    GroupId getGroupByName(IdString name) const;
-    IdString getGroupName(GroupId group) const;
+    GroupId getGroupByName(IdStringList name) const;
+    IdStringList getGroupName(GroupId group) const;
     std::vector<GroupId> getGroups() const;
     std::vector<BelId> getGroupBels(GroupId group) const;
     std::vector<WireId> getGroupWires(GroupId group) const;
@@ -895,7 +907,7 @@ struct Arch : BaseCtx
     int getDrivenGlobalNetwork(BelId bel) const
     {
         NPNR_ASSERT(getBelType(bel) == id_SB_GB);
-        IdString glb_net = getWireName(getBelPinWire(bel, id_GLOBAL_BUFFER_OUTPUT));
+        IdString glb_net = getWireName(getBelPinWire(bel, id_GLOBAL_BUFFER_OUTPUT))[2];
         return std::stoi(std::string("") + glb_net.str(this).back());
     }
 

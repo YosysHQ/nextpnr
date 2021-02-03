@@ -46,11 +46,11 @@ struct DelayInfo
     }
 };
 
-typedef IdString BelId;
-typedef IdString WireId;
-typedef IdString PipId;
-typedef IdString GroupId;
-typedef IdString DecalId;
+typedef IdStringList BelId;
+typedef IdStringList WireId;
+typedef IdStringList PipId;
+typedef IdStringList GroupId;
+typedef IdStringList DecalId;
 typedef IdString BelBucketId;
 
 struct ArchNetInfo

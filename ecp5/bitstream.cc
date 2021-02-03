@@ -811,14 +811,12 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 NetInfo *lsrnet = nullptr;
                 if (ci->ports.find(ctx->id("LSR")) != ci->ports.end() && ci->ports.at(ctx->id("LSR")).net != nullptr)
                     lsrnet = ci->ports.at(ctx->id("LSR")).net;
-                if (ctx->getBoundWireNet(ctx->getWireByName(
-                            ctx->id(fmt_str("X" << bel.location.x << "/Y" << bel.location.y << "/LSR0")))) == lsrnet) {
+                if (ctx->getBoundWireNet(ctx->getWireByLocAndBasename(bel.location, "LSR0")) == lsrnet) {
                     cc.tiles[tname].add_enum("LSR0.SRMODE",
                                              str_or_default(ci->params, ctx->id("SRMODE"), "LSR_OVER_CE"));
                     cc.tiles[tname].add_enum("LSR0.LSRMUX", str_or_default(ci->params, ctx->id("LSRMUX"), "LSR"));
                 }
-                if (ctx->getBoundWireNet(ctx->getWireByName(
-                            ctx->id(fmt_str("X" << bel.location.x << "/Y" << bel.location.y << "/LSR1")))) == lsrnet) {
+                if (ctx->getBoundWireNet(ctx->getWireByLocAndBasename(bel.location, "LSR1")) == lsrnet) {
                     cc.tiles[tname].add_enum("LSR1.SRMODE",
                                              str_or_default(ci->params, ctx->id("SRMODE"), "LSR_OVER_CE"));
                     cc.tiles[tname].add_enum("LSR1.LSRMUX", str_or_default(ci->params, ctx->id("LSRMUX"), "LSR"));
@@ -827,12 +825,10 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 NetInfo *clknet = nullptr;
                 if (ci->ports.find(ctx->id("CLK")) != ci->ports.end() && ci->ports.at(ctx->id("CLK")).net != nullptr)
                     clknet = ci->ports.at(ctx->id("CLK")).net;
-                if (ctx->getBoundWireNet(ctx->getWireByName(
-                            ctx->id(fmt_str("X" << bel.location.x << "/Y" << bel.location.y << "/CLK0")))) == clknet) {
+                if (ctx->getBoundWireNet(ctx->getWireByLocAndBasename(bel.location, "CLK0")) == clknet) {
                     cc.tiles[tname].add_enum("CLK0.CLKMUX", str_or_default(ci->params, ctx->id("CLKMUX"), "CLK"));
                 }
-                if (ctx->getBoundWireNet(ctx->getWireByName(
-                            ctx->id(fmt_str("X" << bel.location.x << "/Y" << bel.location.y << "/CLK1")))) == clknet) {
+                if (ctx->getBoundWireNet(ctx->getWireByLocAndBasename(bel.location, "CLK1")) == clknet) {
                     cc.tiles[tname].add_enum("CLK1.CLKMUX", str_or_default(ci->params, ctx->id("CLKMUX"), "CLK"));
                 }
             }
@@ -907,8 +903,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 (ci->ports.find(ctx->id("IOLTO")) == ci->ports.end() ||
                  ci->ports.at(ctx->id("IOLTO")).net == nullptr)) {
                 // Tie tristate low if unconnected for outputs or bidir
-                std::string jpt = fmt_str("X" << bel.location.x << "/Y" << bel.location.y << "/JPADDT" << pio.back());
-                WireId jpt_wire = ctx->getWireByName(ctx->id(jpt));
+                WireId jpt_wire = ctx->getWireByLocAndBasename(bel.location, fmt_str("JPADDT" << pio.back()));
                 PipId jpt_pip = *ctx->getPipsUphill(jpt_wire).begin();
                 WireId cib_wire = ctx->getPipSrcWire(jpt_pip);
                 std::string cib_tile =

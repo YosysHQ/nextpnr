@@ -544,7 +544,7 @@ struct NexusPacker
     {
         if (!ci->attrs.count(id_BEL))
             return BelId();
-        return ctx->getBelByName(ctx->id(ci->attrs.at(id_BEL).as_string()));
+        return ctx->getBelByNameStr(ci->attrs.at(id_BEL).as_string());
     }
 
     void pack_io()

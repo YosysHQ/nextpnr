@@ -176,8 +176,8 @@ class Ecp5GlobalRouter
                 }
             }
             if (upstream.size() > 30000) {
-                log_error("failed to route HPBX%02d00 to %s.%s\n", global_index,
-                          ctx->getBelName(user.cell->bel).c_str(ctx), user.port.c_str(ctx));
+                log_error("failed to route HPBX%02d00 to %s.%s\n", global_index, ctx->nameOfBel(user.cell->bel),
+                          user.port.c_str(ctx));
             }
         }
         // Set all the pips we found along the way
@@ -238,8 +238,7 @@ class Ecp5GlobalRouter
             if (visit.empty() || visit.size() > 50000) {
                 if (allow_fail)
                     return false;
-                log_error("cannot route global from %s to %s.\n", ctx->getWireName(src).c_str(ctx),
-                          ctx->getWireName(dst).c_str(ctx));
+                log_error("cannot route global from %s to %s.\n", ctx->nameOfWire(src), ctx->nameOfWire(dst));
             }
             cursor = visit.front();
             visit.pop();
@@ -300,7 +299,7 @@ class Ecp5GlobalRouter
         if (drv.cell == nullptr) {
             return 0;
         } else if (drv.cell->attrs.count(ctx->id("BEL"))) {
-            drv_bel = ctx->getBelByName(ctx->id(drv.cell->attrs.at(ctx->id("BEL")).as_string()));
+            drv_bel = ctx->getBelByNameStr(drv.cell->attrs.at(ctx->id("BEL")).as_string());
         } else {
             // Check if driver is a singleton
             BelId last_bel;
@@ -325,8 +324,8 @@ class Ecp5GlobalRouter
         } else {
             // Check for dedicated routing
             if (has_short_route(ctx->getBelPinWire(drv_bel, drv.port), ctx->getBelPinWire(dcc->bel, id_CLKI))) {
-                // log_info("dedicated route %s -> %s\n", ctx->getWireName(ctx->getBelPinWire(drv_bel,
-                // drv.port)).c_str(ctx), ctx->getBelName(dcc->bel).c_str(ctx));
+                // log_info("dedicated route %s -> %s\n", ctx->nameOfWire(ctx->getBelPinWire(drv_bel,
+                // drv.port)), ctx->nameOfWire(dcc->bel));
                 dedicated_routing = true;
                 return 0;
             }
@@ -347,8 +346,8 @@ class Ecp5GlobalRouter
         while (true) {
 
             if (visit.empty() || visit.size() > 10000) {
-                // log_info ("dist %s -> %s = inf\n", ctx->getWireName(src).c_str(ctx),
-                // ctx->getWireName(dst).c_str(ctx));
+                // log_info ("dist %s -> %s = inf\n", ctx->nameOfWire(src),
+                // ctx->nameOfWire(dst));
                 return false;
             }
             cursor = visit.front();
@@ -372,7 +371,7 @@ class Ecp5GlobalRouter
             cursor = ctx->getPipSrcWire(fnd->second);
             length++;
         }
-        // log_info ("dist %s -> %s = %d\n", ctx->getWireName(src).c_str(ctx), ctx->getWireName(dst).c_str(ctx),
+        // log_info ("dist %s -> %s = %d\n", ctx->nameOfWire(src), ctx->nameOfWire(dst),
         // length);
         return length < thresh;
     }

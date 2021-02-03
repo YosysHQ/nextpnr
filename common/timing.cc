@@ -885,8 +885,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                         auto pip = it->second.pip;
                         NPNR_ASSERT(pip != PipId());
                         delay = ctx->getPipDelay(pip).maxDelay();
-                        log_info("                 %1.3f %s\n", ctx->getDelayNS(delay),
-                                 ctx->getPipName(pip).c_str(ctx));
+                        log_info("                 %1.3f %s\n", ctx->getDelayNS(delay), ctx->nameOfPip(pip));
                         cursor = ctx->getPipSrcWire(pip);
                     }
                 }

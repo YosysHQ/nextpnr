@@ -69,11 +69,54 @@ void IdString::initialize_add(const BaseCtx *ctx, const char *s, int idx)
     ctx->idstring_idx_to_str->push_back(&insert_rc.first->first);
 }
 
+IdStringList IdStringList::parse(Context *ctx, const std::string &str)
+{
+    char delim = ctx->getNameDelimiter();
+    size_t id_count = std::count(str.begin(), str.end(), delim) + 1;
+    IdStringList list(id_count);
+    size_t start = 0;
+    for (size_t i = 0; i < id_count; i++) {
+        size_t end = str.find(delim, start);
+        NPNR_ASSERT((i == (id_count - 1)) || (end != std::string::npos));
+        list.ids[i] = ctx->id(str.substr(start, end - start));
+        start = end + 1;
+    }
+    return list;
+}
+
+void IdStringList::build_str(const Context *ctx, std::string &str) const
+{
+    char delim = ctx->getNameDelimiter();
+    bool first = true;
+    str.clear();
+    for (auto entry : ids) {
+        if (!first)
+            str += delim;
+        str += entry.str(ctx);
+        first = false;
+    }
+}
+
+std::string IdStringList::str(const Context *ctx) const
+{
+    std::string s;
+    build_str(ctx, s);
+    return s;
+}
+
 TimingConstrObjectId BaseCtx::timingWildcardObject()
 {
     TimingConstrObjectId id;
     id.index = 0;
     return id;
+}
+
+std::string &StrRingBuffer::next()
+{
+    std::string &s = buffer.at(index++);
+    if (index >= N)
+        index = 0;
+    return s;
 }
 
 TimingConstrObjectId BaseCtx::timingClockDomainObject(NetInfo *clockDomain)
@@ -248,25 +291,57 @@ void BaseCtx::removeConstraint(IdString constrName)
 const char *BaseCtx::nameOfBel(BelId bel) const
 {
     const Context *ctx = getCtx();
-    return ctx->getBelName(bel).c_str(ctx);
+    std::string &s = ctx->log_strs.next();
+    ctx->getBelName(bel).build_str(ctx, s);
+    return s.c_str();
 }
 
 const char *BaseCtx::nameOfWire(WireId wire) const
 {
     const Context *ctx = getCtx();
-    return ctx->getWireName(wire).c_str(ctx);
+    std::string &s = ctx->log_strs.next();
+    ctx->getWireName(wire).build_str(ctx, s);
+    return s.c_str();
 }
 
 const char *BaseCtx::nameOfPip(PipId pip) const
 {
     const Context *ctx = getCtx();
-    return ctx->getPipName(pip).c_str(ctx);
+    std::string &s = ctx->log_strs.next();
+    ctx->getPipName(pip).build_str(ctx, s);
+    return s.c_str();
 }
 
 const char *BaseCtx::nameOfGroup(GroupId group) const
 {
     const Context *ctx = getCtx();
-    return ctx->getGroupName(group).c_str(ctx);
+    std::string &s = ctx->log_strs.next();
+    ctx->getGroupName(group).build_str(ctx, s);
+    return s.c_str();
+}
+
+BelId BaseCtx::getBelByNameStr(const std::string &str)
+{
+    Context *ctx = getCtx();
+    return ctx->getBelByName(IdStringList::parse(ctx, str));
+}
+
+WireId BaseCtx::getWireByNameStr(const std::string &str)
+{
+    Context *ctx = getCtx();
+    return ctx->getWireByName(IdStringList::parse(ctx, str));
+}
+
+PipId BaseCtx::getPipByNameStr(const std::string &str)
+{
+    Context *ctx = getCtx();
+    return ctx->getPipByName(IdStringList::parse(ctx, str));
+}
+
+GroupId BaseCtx::getGroupByNameStr(const std::string &str)
+{
+    Context *ctx = getCtx();
+    return ctx->getGroupByName(IdStringList::parse(ctx, str));
 }
 
 WireId Context::getNetinfoSourceWire(const NetInfo *net_info) const
@@ -620,7 +695,7 @@ void BaseCtx::archInfoToAttributes()
             if (ci->attrs.find(id("BEL")) != ci->attrs.end()) {
                 ci->attrs.erase(ci->attrs.find(id("BEL")));
             }
-            ci->attrs[id("NEXTPNR_BEL")] = getCtx()->getBelName(ci->bel).str(this);
+            ci->attrs[id("NEXTPNR_BEL")] = getCtx()->getBelName(ci->bel).str(getCtx());
             ci->attrs[id("BEL_STRENGTH")] = (int)ci->belStrength;
         }
         if (ci->constr_x != ci->UNCONSTR)
@@ -650,10 +725,10 @@ void BaseCtx::archInfoToAttributes()
         for (auto &item : ni->wires) {
             if (!first)
                 routing += ";";
-            routing += getCtx()->getWireName(item.first).c_str(this);
+            routing += getCtx()->getWireName(item.first).str(getCtx());
             routing += ";";
             if (item.second.pip != PipId())
-                routing += getCtx()->getPipName(item.second.pip).c_str(this);
+                routing += getCtx()->getPipName(item.second.pip).str(getCtx());
             routing += ";" + std::to_string(item.second.strength);
             first = false;
         }
@@ -672,7 +747,7 @@ void BaseCtx::attributesToArchInfo()
             if (str != ci->attrs.end())
                 strength = (PlaceStrength)str->second.as_int64();
 
-            BelId b = getCtx()->getBelByName(id(val->second.as_string()));
+            BelId b = getCtx()->getBelByNameStr(val->second.as_string());
             getCtx()->bindBel(b, ci, strength);
         }
 

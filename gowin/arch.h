@@ -323,9 +323,13 @@ struct Arch : BaseCtx
     int getGridDimY() const { return gridDimY; }
     int getTileBelDimZ(int x, int y) const { return tileBelDimZ[x][y]; }
     int getTilePipDimZ(int x, int y) const { return tilePipDimZ[x][y]; }
+    char getNameDelimiter() const
+    {
+        return ' '; /* use a non-existent delimiter as we aren't using IdStringLists yet */
+    }
 
-    BelId getBelByName(IdString name) const;
-    IdString getBelName(BelId bel) const;
+    BelId getBelByName(IdStringList name) const;
+    IdStringList getBelName(BelId bel) const;
     Loc getBelLocation(BelId bel) const;
     BelId getBelByLocation(Loc loc) const;
     const std::vector<BelId> &getBelsByTile(int x, int y) const;
@@ -343,8 +347,8 @@ struct Arch : BaseCtx
     PortType getBelPinType(BelId bel, IdString pin) const;
     std::vector<IdString> getBelPins(BelId bel) const;
 
-    WireId getWireByName(IdString name) const;
-    IdString getWireName(WireId wire) const;
+    WireId getWireByName(IdStringList name) const;
+    IdStringList getWireName(WireId wire) const;
     IdString getWireType(WireId wire) const;
     const std::map<IdString, std::string> &getWireAttrs(WireId wire) const;
     uint32_t getWireChecksum(WireId wire) const;
@@ -358,8 +362,8 @@ struct Arch : BaseCtx
     const std::vector<WireId> &getWires() const;
     const std::vector<BelPin> &getWireBelPins(WireId wire) const;
 
-    PipId getPipByName(IdString name) const;
-    IdString getPipName(PipId pip) const;
+    PipId getPipByName(IdStringList name) const;
+    IdStringList getPipName(PipId pip) const;
     IdString getPipType(PipId pip) const;
     const std::map<IdString, std::string> &getPipAttrs(PipId pip) const;
     uint32_t getPipChecksum(PipId pip) const;
@@ -377,8 +381,8 @@ struct Arch : BaseCtx
     const std::vector<PipId> &getPipsDownhill(WireId wire) const;
     const std::vector<PipId> &getPipsUphill(WireId wire) const;
 
-    GroupId getGroupByName(IdString name) const;
-    IdString getGroupName(GroupId group) const;
+    GroupId getGroupByName(IdStringList name) const;
+    IdStringList getGroupName(GroupId group) const;
     std::vector<GroupId> getGroups() const;
     const std::vector<BelId> &getGroupBels(GroupId group) const;
     const std::vector<WireId> &getGroupWires(GroupId group) const;

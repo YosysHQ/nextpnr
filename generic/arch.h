@@ -36,7 +36,8 @@ struct WireInfo;
 
 struct PipInfo
 {
-    IdString name, type;
+    IdStringList name;
+    IdString type;
     std::map<IdString, std::string> attrs;
     NetInfo *bound_net;
     WireId srcWire, dstWire;
@@ -47,7 +48,8 @@ struct PipInfo
 
 struct WireInfo
 {
-    IdString name, type;
+    IdStringList name;
+    IdString type;
     std::map<IdString, std::string> attrs;
     NetInfo *bound_net;
     std::vector<PipId> downhill, uphill;
@@ -60,14 +62,15 @@ struct WireInfo
 
 struct PinInfo
 {
-    IdString name;
+    IdStringList name;
     WireId wire;
     PortType type;
 };
 
 struct BelInfo
 {
-    IdString name, type;
+    IdStringList name;
+    IdString type;
     std::map<IdString, std::string> attrs;
     CellInfo *bound_cell;
     std::unordered_map<IdString, PinInfo> pins;
@@ -78,7 +81,7 @@ struct BelInfo
 
 struct GroupInfo
 {
-    IdString name;
+    IdStringList name;
     std::vector<BelId> bels;
     std::vector<WireId> wires;
     std::vector<PipId> pips;
@@ -117,17 +120,17 @@ struct Arch : BaseCtx
 {
     std::string chipName;
 
-    std::unordered_map<IdString, WireInfo> wires;
-    std::unordered_map<IdString, PipInfo> pips;
-    std::unordered_map<IdString, BelInfo> bels;
+    std::unordered_map<IdStringList, WireInfo> wires;
+    std::unordered_map<IdStringList, PipInfo> pips;
+    std::unordered_map<IdStringList, BelInfo> bels;
     std::unordered_map<GroupId, GroupInfo> groups;
 
     // These functions include useful errors if not found
-    WireInfo &wire_info(IdString wire);
-    PipInfo &pip_info(IdString wire);
-    BelInfo &bel_info(IdString wire);
+    WireInfo &wire_info(IdStringList wire);
+    PipInfo &pip_info(IdStringList wire);
+    BelInfo &bel_info(IdStringList wire);
 
-    std::vector<IdString> bel_ids, wire_ids, pip_ids;
+    std::vector<IdStringList> bel_ids, wire_ids, pip_ids;
 
     std::unordered_map<Loc, BelId> bel_by_loc;
     std::vector<std::vector<std::vector<BelId>>> bels_by_tile;
@@ -138,20 +141,20 @@ struct Arch : BaseCtx
     std::vector<std::vector<int>> tileBelDimZ;
     std::vector<std::vector<int>> tilePipDimZ;
 
-    std::unordered_map<IdString, CellTiming> cellTiming;
+    std::unordered_map<IdStringList, CellTiming> cellTiming;
 
-    void addWire(IdString name, IdString type, int x, int y);
-    void addPip(IdString name, IdString type, IdString srcWire, IdString dstWire, DelayInfo delay, Loc loc);
+    void addWire(IdStringList name, IdString type, int x, int y);
+    void addPip(IdStringList name, IdString type, IdStringList srcWire, IdStringList dstWire, DelayInfo delay, Loc loc);
 
-    void addBel(IdString name, IdString type, Loc loc, bool gb);
-    void addBelInput(IdString bel, IdString name, IdString wire);
-    void addBelOutput(IdString bel, IdString name, IdString wire);
-    void addBelInout(IdString bel, IdString name, IdString wire);
+    void addBel(IdStringList name, IdString type, Loc loc, bool gb);
+    void addBelInput(IdStringList bel, IdString name, IdStringList wire);
+    void addBelOutput(IdStringList bel, IdString name, IdStringList wire);
+    void addBelInout(IdStringList bel, IdString name, IdStringList wire);
 
-    void addGroupBel(IdString group, IdString bel);
-    void addGroupWire(IdString group, IdString wire);
-    void addGroupPip(IdString group, IdString pip);
-    void addGroupGroup(IdString group, IdString grp);
+    void addGroupBel(IdStringList group, IdStringList bel);
+    void addGroupWire(IdStringList group, IdStringList wire);
+    void addGroupPip(IdStringList group, IdStringList pip);
+    void addGroupGroup(IdStringList group, IdStringList grp);
 
     void addDecalGraphic(DecalId decal, const GraphicElement &graphic);
     void setWireDecal(WireId wire, DecalXY decalxy);
@@ -159,17 +162,17 @@ struct Arch : BaseCtx
     void setBelDecal(BelId bel, DecalXY decalxy);
     void setGroupDecal(GroupId group, DecalXY decalxy);
 
-    void setWireAttr(IdString wire, IdString key, const std::string &value);
-    void setPipAttr(IdString pip, IdString key, const std::string &value);
-    void setBelAttr(IdString bel, IdString key, const std::string &value);
+    void setWireAttr(IdStringList wire, IdString key, const std::string &value);
+    void setPipAttr(IdStringList pip, IdString key, const std::string &value);
+    void setBelAttr(IdStringList bel, IdString key, const std::string &value);
 
     void setLutK(int K);
     void setDelayScaling(double scale, double offset);
 
-    void addCellTimingClock(IdString cell, IdString port);
-    void addCellTimingDelay(IdString cell, IdString fromPort, IdString toPort, DelayInfo delay);
-    void addCellTimingSetupHold(IdString cell, IdString port, IdString clock, DelayInfo setup, DelayInfo hold);
-    void addCellTimingClockToOut(IdString cell, IdString port, IdString clock, DelayInfo clktoq);
+    void addCellTimingClock(IdStringList cell, IdString port);
+    void addCellTimingDelay(IdStringList cell, IdString fromPort, IdString toPort, DelayInfo delay);
+    void addCellTimingSetupHold(IdStringList cell, IdString port, IdString clock, DelayInfo setup, DelayInfo hold);
+    void addCellTimingClockToOut(IdStringList cell, IdString port, IdString clock, DelayInfo clktoq);
 
     // ---------------------------------------------------------------
     // Common Arch API. Every arch must provide the following methods.
@@ -187,9 +190,10 @@ struct Arch : BaseCtx
     int getGridDimY() const { return gridDimY; }
     int getTileBelDimZ(int x, int y) const { return tileBelDimZ[x][y]; }
     int getTilePipDimZ(int x, int y) const { return tilePipDimZ[x][y]; }
+    char getNameDelimiter() const { return '/'; }
 
-    BelId getBelByName(IdString name) const;
-    IdString getBelName(BelId bel) const;
+    BelId getBelByName(IdStringList name) const;
+    IdStringList getBelName(BelId bel) const;
     Loc getBelLocation(BelId bel) const;
     BelId getBelByLocation(Loc loc) const;
     const std::vector<BelId> &getBelsByTile(int x, int y) const;
@@ -207,8 +211,8 @@ struct Arch : BaseCtx
     PortType getBelPinType(BelId bel, IdString pin) const;
     std::vector<IdString> getBelPins(BelId bel) const;
 
-    WireId getWireByName(IdString name) const;
-    IdString getWireName(WireId wire) const;
+    WireId getWireByName(IdStringList name) const;
+    IdStringList getWireName(WireId wire) const;
     IdString getWireType(WireId wire) const;
     const std::map<IdString, std::string> &getWireAttrs(WireId wire) const;
     uint32_t getWireChecksum(WireId wire) const;
@@ -222,8 +226,8 @@ struct Arch : BaseCtx
     const std::vector<WireId> &getWires() const;
     const std::vector<BelPin> &getWireBelPins(WireId wire) const;
 
-    PipId getPipByName(IdString name) const;
-    IdString getPipName(PipId pip) const;
+    PipId getPipByName(IdStringList name) const;
+    IdStringList getPipName(PipId pip) const;
     IdString getPipType(PipId pip) const;
     const std::map<IdString, std::string> &getPipAttrs(PipId pip) const;
     uint32_t getPipChecksum(PipId pip) const;
@@ -241,8 +245,8 @@ struct Arch : BaseCtx
     const std::vector<PipId> &getPipsDownhill(WireId wire) const;
     const std::vector<PipId> &getPipsUphill(WireId wire) const;
 
-    GroupId getGroupByName(IdString name) const;
-    IdString getGroupName(GroupId group) const;
+    GroupId getGroupByName(IdStringList name) const;
+    IdStringList getGroupName(GroupId group) const;
     std::vector<GroupId> getGroups() const;
     const std::vector<BelId> &getGroupBels(GroupId group) const;
     const std::vector<WireId> &getGroupWires(GroupId group) const;
@@ -273,13 +277,12 @@ struct Arch : BaseCtx
 
     std::vector<IdString> getCellTypes() const
     {
-        std::vector<IdString> cell_types;
-        cell_types.reserve(bels.size());
+        std::unordered_set<IdString> cell_types;
         for (auto bel : bels) {
-            cell_types.push_back(bel.first);
+            cell_types.insert(bel.second.type);
         }
 
-        return cell_types;
+        return std::vector<IdString>{cell_types.begin(), cell_types.end()};
     }
 
     std::vector<BelBucketId> getBelBuckets() const { return getCellTypes(); }

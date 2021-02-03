@@ -92,6 +92,10 @@ Get Z dimension for the specified tile for bels. All bels with at specified X an
 
 Get Z dimension for the specified tile for pips. All pips with at specified X and Y coordinates must have a Z coordinate in the range `0 .. getTileDimZ(X,Y)-1` (inclusive).
 
+### char getNameDelimiter() const
+
+Returns a delimiter that can be used to build up bel, wire and pip names out of hierarchical components (such as tiles and sites) to avoid the high memory usage of storing full names for every object.
+
 Cell Methods
 -----------
 
@@ -99,15 +103,14 @@ Cell Methods
 
 Get list of cell types that this architecture accepts.
 
-
 Bel Methods
 -----------
 
-### BelId getBelByName(IdString name) const
+### BelId getBelByName(IdStringList name) const
 
-Lookup a bel by its name.
+Lookup a bel by its name, which is a list of IdStrings joined by `getNameDelimiter()`.
 
-### IdString getBelName(BelId bel) const
+### IdStringList getBelName(BelId bel) const
 
 Get the name for a bel. (Bel names must be unique.)
 
@@ -183,11 +186,11 @@ Return a list of all pins on that bel.
 Wire Methods
 ------------
 
-### WireId getWireByName(IdString name) const
+### WireId getWireByName(IdStringList name) const
 
-Lookup a wire by its name.
+Lookup a wire by its name, which is a list of IdStrings joined by `getNameDelimiter()`.
 
-### IdString getWireName(WireId wire) const
+### IdStringList getWireName(WireId wire) const
 
 Get the name for a wire. (Wire names must be unique.)
 
@@ -259,11 +262,11 @@ of the bounds is almost always better than an under-estimate.
 Pip Methods
 -----------
 
-### PipId getPipByName(IdString name) const
+### PipId getPipByName(IdStringList name) const
 
-Lookup a pip by its name.
+Lookup a pip by its name, which is a list of IdStrings joined by `getNameDelimiter()`.
 
-### IdString getPipName(PipId pip) const
+### IdStringList getPipName(PipId pip) const
 
 Get the name for a pip. (Pip names must be unique.)
 
@@ -350,11 +353,11 @@ Get all pips uphill of a wire, i.e. pips that use this wire as destination wire.
 Group Methods
 -------------
 
-### GroupId getGroupByName(IdString name) const
+### GroupId getGroupByName(IdStringList name) const
 
-Lookup a group by its name.
+Lookup a group by its name, which is a list of IdStrings joined by `getNameDelimiter()`.
 
-### IdString getGroupName(GroupId group) const
+### IdStringList getGroupName(GroupId group) const
 
 Get the name for a group. (Group names must be unique.)
 

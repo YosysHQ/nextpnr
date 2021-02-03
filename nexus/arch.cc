@@ -32,20 +32,6 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-namespace {
-static std::tuple<int, int, std::string> split_identifier_name(const std::string &name)
-{
-    size_t first_slash = name.find('/');
-    NPNR_ASSERT(first_slash != std::string::npos);
-    size_t second_slash = name.find('/', first_slash + 1);
-    NPNR_ASSERT(second_slash != std::string::npos);
-    return std::make_tuple(std::stoi(name.substr(1, first_slash)),
-                           std::stoi(name.substr(first_slash + 2, second_slash - first_slash)),
-                           name.substr(second_slash + 1));
-};
-
-} // namespace
-
 // -----------------------------------------------------------------------
 
 void IdString::initialize_arch(const BaseCtx *ctx)
@@ -134,6 +120,17 @@ Arch::Arch(ArchArgs args) : args(args)
             ts.bels_by_z[bel.z].index = j;
         }
     }
+
+    for (int i = 0; i < chip_info->width; i++) {
+        IdString x_id = id(stringf("X%d", i));
+        x_ids.push_back(x_id);
+        id_to_x[x_id] = i;
+    }
+    for (int i = 0; i < chip_info->height; i++) {
+        IdString y_id = id(stringf("Y%d", i));
+        y_ids.push_back(y_id);
+        id_to_y[y_id] = i;
+    }
     init_cell_pin_data();
     // Validate and set up package
     package_idx = -1;
@@ -193,17 +190,17 @@ IdString Arch::archArgsToId(ArchArgs args) const { return id(args.device); }
 
 // -----------------------------------------------------------------------
 
-BelId Arch::getBelByName(IdString name) const
+BelId Arch::getBelByName(IdStringList name) const
 {
-    int x, y;
-    std::string belname;
-    std::tie(x, y, belname) = split_identifier_name(name.str(this));
+    if (name.size() != 3)
+        return BelId();
+    int x = id_to_x.at(name[0]);
+    int y = id_to_y.at(name[1]);
     NPNR_ASSERT(x >= 0 && x < chip_info->width);
     NPNR_ASSERT(y >= 0 && y < chip_info->height);
     auto &tile = db->loctypes[chip_info->grid[y * chip_info->width + x].loc_type];
-    IdString bn = id(belname);
     for (size_t i = 0; i < tile.bels.size(); i++) {
-        if (tile.bels[i].name == bn.index) {
+        if (tile.bels[i].name == name[2].index) {
             BelId ret;
             ret.tile = y * chip_info->width + x;
             ret.index = i;
@@ -305,17 +302,17 @@ std::vector<std::pair<IdString, std::string>> Arch::getBelAttrs(BelId bel) const
 
 // -----------------------------------------------------------------------
 
-WireId Arch::getWireByName(IdString name) const
+WireId Arch::getWireByName(IdStringList name) const
 {
-    int x, y;
-    std::string wirename;
-    std::tie(x, y, wirename) = split_identifier_name(name.str(this));
+    if (name.size() != 3)
+        return WireId();
+    int x = id_to_x.at(name[0]);
+    int y = id_to_y.at(name[1]);
     NPNR_ASSERT(x >= 0 && x < chip_info->width);
     NPNR_ASSERT(y >= 0 && y < chip_info->height);
     auto &tile = db->loctypes[chip_info->grid[y * chip_info->width + x].loc_type];
-    IdString wn = id(wirename);
     for (size_t i = 0; i < tile.wires.size(); i++) {
-        if (tile.wires[i].name == wn.index) {
+        if (tile.wires[i].name == name[2].index) {
             WireId ret;
             ret.tile = y * chip_info->width + x;
             ret.index = i;
@@ -342,26 +339,27 @@ std::vector<std::pair<IdString, std::string>> Arch::getWireAttrs(WireId wire) co
 
 // -----------------------------------------------------------------------
 
-PipId Arch::getPipByName(IdString name) const
+PipId Arch::getPipByName(IdStringList name) const
 {
-    int x, y;
-    std::string pipname;
-    std::tie(x, y, pipname) = split_identifier_name(name.str(this));
+    if (name.size() != 5)
+        return PipId();
+    int x = id_to_x.at(name[0]);
+    int y = id_to_y.at(name[1]);
     NPNR_ASSERT(x >= 0 && x < chip_info->width);
     NPNR_ASSERT(y >= 0 && y < chip_info->height);
     PipId ret;
     ret.tile = y * chip_info->width + x;
-    auto sep_pos = pipname.find(':');
-    ret.index = std::stoi(pipname.substr(0, sep_pos));
+    ret.index = std::stoi(name[2].str(this));
     return ret;
 }
 
-IdString Arch::getPipName(PipId pip) const
+IdStringList Arch::getPipName(PipId pip) const
 {
     NPNR_ASSERT(pip != PipId());
-    return id(stringf("X%d/Y%d/%d:%s->%s", pip.tile % chip_info->width, pip.tile / chip_info->width, pip.index,
-                      nameOf(loc_data(pip).wires[pip_data(pip).from_wire].name),
-                      nameOf(loc_data(pip).wires[pip_data(pip).to_wire].name)));
+    std::array<IdString, 5> ids{x_ids.at(pip.tile % chip_info->width), y_ids.at(pip.tile / chip_info->width),
+                                id(stringf("%d", pip.index)), IdString(loc_data(pip).wires[pip_data(pip).to_wire].name),
+                                IdString(loc_data(pip).wires[pip_data(pip).from_wire].name)};
+    return IdStringList(ids);
 }
 
 IdString Arch::getPipType(PipId pip) const { return IdString(); }

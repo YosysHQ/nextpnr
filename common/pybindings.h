@@ -74,6 +74,18 @@ template <> struct string_converter<const IdString>
     inline std::string to_str(Context *ctx, IdString id) { return id.str(ctx); }
 };
 
+template <> struct string_converter<IdStringList>
+{
+    IdStringList from_str(Context *ctx, std::string name) { return IdStringList::parse(ctx, name); }
+    std::string to_str(Context *ctx, const IdStringList &id) { return id.str(ctx); }
+};
+
+template <> struct string_converter<const IdStringList>
+{
+    IdStringList from_str(Context *ctx, std::string name) { return IdStringList::parse(ctx, name); }
+    std::string to_str(Context *ctx, const IdStringList &id) { return id.str(ctx); }
+};
+
 } // namespace PythonConversion
 
 NEXTPNR_NAMESPACE_END

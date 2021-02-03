@@ -154,7 +154,7 @@ class SAPlacer
                 auto loc = cell->attrs.find(ctx->id("BEL"));
                 if (loc != cell->attrs.end()) {
                     std::string loc_name = loc->second.as_string();
-                    BelId bel = ctx->getBelByName(ctx->id(loc_name));
+                    BelId bel = ctx->getBelByNameStr(loc_name);
                     if (bel == BelId()) {
                         log_error("No Bel named \'%s\' located for "
                                   "this chip (processing BEL attribute on \'%s\')\n",
@@ -409,18 +409,18 @@ class SAPlacer
                 if (ctx->force) {
                     log_warning("post-placement validity check failed for Bel '%s' "
                                 "(%s)\n",
-                                ctx->getBelName(bel).c_str(ctx), cell_text.c_str());
+                                ctx->nameOfBel(bel), cell_text.c_str());
                 } else {
                     log_error("post-placement validity check failed for Bel '%s' "
                               "(%s)\n",
-                              ctx->getBelName(bel).c_str(ctx), cell_text.c_str());
+                              ctx->nameOfBel(bel), cell_text.c_str());
                 }
             }
         }
         for (auto cell : sorted(ctx->cells))
             if (get_constraints_distance(ctx, cell.second) != 0)
                 log_error("constraint satisfaction check failed for cell '%s' at Bel '%s'\n", cell.first.c_str(ctx),
-                          ctx->getBelName(cell.second->bel).c_str(ctx));
+                          ctx->nameOfBel(cell.second->bel));
         timing_analysis(ctx);
         ctx->unlock();
         return true;
@@ -563,9 +563,9 @@ class SAPlacer
         }
         commit_cost_changes(moveChange);
 #if 0
-        log_info("swap %s -> %s\n", cell->name.c_str(ctx), ctx->getBelName(newBel).c_str(ctx));
+        log_info("swap %s -> %s\n", cell->name.c_str(ctx), ctx->nameOfBel(newBel));
         if (other_cell != nullptr)
-            log_info("swap %s -> %s\n", other_cell->name.c_str(ctx), ctx->getBelName(oldBel).c_str(ctx));
+            log_info("swap %s -> %s\n", other_cell->name.c_str(ctx), ctx->nameOfBel(oldBel));
 #endif
         return true;
     swap_fail:
@@ -590,7 +590,7 @@ class SAPlacer
     {
         BelId oldBel = cell->bel;
 #if 0
-        log_info("%s old: %s new: %s\n", cell->name.c_str(ctx), ctx->getBelName(cell->bel).c_str(ctx), ctx->getBelName(newBel).c_str(ctx));
+        log_info("%s old: %s new: %s\n", cell->name.c_str(ctx), ctx->nameOfBel(cell->bel), ctx->nameOfBel(newBel));
 #endif
         CellInfo *bound = ctx->getBoundBelCell(newBel);
         if (bound != nullptr)

@@ -59,7 +59,7 @@ template <> struct hash<std::pair<int, NEXTPNR_NAMESPACE_PREFIX BelId>>
         return seed;
     }
 };
-#if !defined(ARCH_GENERIC) && !defined(ARCH_GOWIN)
+#if !defined(ARCH_GOWIN)
 template <> struct hash<std::pair<NEXTPNR_NAMESPACE_PREFIX IdString, NEXTPNR_NAMESPACE_PREFIX BelId>>
 {
     std::size_t
@@ -427,7 +427,7 @@ class TimingOptimiser
                         if (pn->users.at(i).cell == port->cell && pn->users.at(i).port == port->port)
                             crit = net_crit.at(pn->name).criticality.at(i);
                 log_info("    %s.%s at %s crit %0.02f\n", port->cell->name.c_str(ctx), port->port.c_str(ctx),
-                         ctx->getBelName(port->cell->bel).c_str(ctx), crit);
+                         ctx->nameOfBel(port->cell->bel), crit);
             }
             if (std::find(path_cells.begin(), path_cells.end(), port->cell->name) != path_cells.end())
                 continue;
@@ -472,10 +472,9 @@ class TimingOptimiser
 
         if (ctx->debug) {
             for (auto cell : path_cells) {
-                log_info("Candidate neighbours for %s (%s):\n", cell.c_str(ctx),
-                         ctx->getBelName(ctx->cells[cell]->bel).c_str(ctx));
+                log_info("Candidate neighbours for %s (%s):\n", cell.c_str(ctx), ctx->nameOfBel(ctx->cells[cell]->bel));
                 for (auto neigh : cell_neighbour_bels.at(cell)) {
-                    log_info("    %s\n", ctx->getBelName(neigh).c_str(ctx));
+                    log_info("    %s\n", ctx->nameOfBel(neigh));
                 }
             }
         }
@@ -597,7 +596,7 @@ class TimingOptimiser
                 CellInfo *cell = ctx->cells.at(rt_entry.first).get();
                 cell_swap_bel(cell, rt_entry.second);
                 if (ctx->debug)
-                    log_info("    %s at %s\n", rt_entry.first.c_str(ctx), ctx->getBelName(rt_entry.second).c_str(ctx));
+                    log_info("    %s at %s\n", rt_entry.first.c_str(ctx), ctx->nameOfBel(rt_entry.second));
             }
 
         } else {

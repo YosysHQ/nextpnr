@@ -36,19 +36,19 @@ void archcheck_names(const Context *ctx)
 
     log_info("Checking bel names..\n");
     for (BelId bel : ctx->getBels()) {
-        IdString name = ctx->getBelName(bel);
+        IdStringList name = ctx->getBelName(bel);
         BelId bel2 = ctx->getBelByName(name);
         if (bel != bel2) {
-            log_error("bel != bel2, name = %s\n", name.c_str(ctx));
+            log_error("bel != bel2, name = %s\n", ctx->nameOfBel(bel));
         }
     }
 
     log_info("Checking wire names..\n");
     for (WireId wire : ctx->getWires()) {
-        IdString name = ctx->getWireName(wire);
+        IdStringList name = ctx->getWireName(wire);
         WireId wire2 = ctx->getWireByName(name);
         if (wire != wire2) {
-            log_error("wire != wire2, name = %s\n", name.c_str(ctx));
+            log_error("wire != wire2, name = %s\n", ctx->nameOfWire(wire));
         }
     }
 
@@ -64,10 +64,10 @@ void archcheck_names(const Context *ctx)
 #ifndef ARCH_ECP5
     log_info("Checking pip names..\n");
     for (PipId pip : ctx->getPips()) {
-        IdString name = ctx->getPipName(pip);
+        IdStringList name = ctx->getPipName(pip);
         PipId pip2 = ctx->getPipByName(name);
         if (pip != pip2) {
-            log_error("pip != pip2, name = %s\n", name.c_str(ctx));
+            log_error("pip != pip2, name = %s\n", ctx->nameOfPip(pip));
         }
     }
 #endif
@@ -109,7 +109,7 @@ void archcheck_locs(const Context *ctx)
                 if (bel == BelId())
                     continue;
                 Loc loc = ctx->getBelLocation(bel);
-                dbg("   + %d %s\n", z, ctx->getBelName(bel).c_str(ctx));
+                dbg("   + %d %s\n", z, ctx->nameOfBel(bel));
                 log_assert(x == loc.x);
                 log_assert(y == loc.y);
                 log_assert(z == loc.z);
@@ -118,7 +118,7 @@ void archcheck_locs(const Context *ctx)
 
             for (BelId bel : ctx->getBelsByTile(x, y)) {
                 Loc loc = ctx->getBelLocation(bel);
-                dbg("   - %d %s\n", loc.z, ctx->getBelName(bel).c_str(ctx));
+                dbg("   - %d %s\n", loc.z, ctx->nameOfBel(bel));
                 log_assert(x == loc.x);
                 log_assert(y == loc.y);
                 log_assert(usedz.count(loc.z));

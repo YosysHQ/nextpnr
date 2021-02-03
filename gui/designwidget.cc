@@ -340,11 +340,9 @@ void DesignWidget::newContext(Context *ctx)
         }
 
         getTreeByElementType(ElementType::CELL)
-                ->loadData(ctx,
-                           std::unique_ptr<TreeModel::IdStringList>(new TreeModel::IdStringList(ElementType::CELL)));
+                ->loadData(ctx, std::unique_ptr<TreeModel::IdList>(new TreeModel::IdList(ElementType::CELL)));
         getTreeByElementType(ElementType::NET)
-                ->loadData(ctx,
-                           std::unique_ptr<TreeModel::IdStringList>(new TreeModel::IdStringList(ElementType::NET)));
+                ->loadData(ctx, std::unique_ptr<TreeModel::IdList>(new TreeModel::IdList(ElementType::NET)));
     }
     updateTree();
 }
@@ -357,10 +355,10 @@ void DesignWidget::updateTree()
     while (i != highlightSelected.end()) {
         QMap<TreeModel::Item *, int>::iterator prev = i;
         ++i;
-        if (prev.key()->type() == ElementType::NET && ctx->nets.find(prev.key()->id()) == ctx->nets.end()) {
+        if (prev.key()->type() == ElementType::NET && ctx->nets.find(prev.key()->id()[0]) == ctx->nets.end()) {
             highlightSelected.erase(prev);
         }
-        if (prev.key()->type() == ElementType::CELL && ctx->cells.find(prev.key()->id()) == ctx->cells.end()) {
+        if (prev.key()->type() == ElementType::CELL && ctx->cells.find(prev.key()->id()[0]) == ctx->cells.end()) {
             highlightSelected.erase(prev);
         }
     }
@@ -369,13 +367,13 @@ void DesignWidget::updateTree()
         std::lock_guard<std::mutex> lock_ui(ctx->ui_mutex);
         std::lock_guard<std::mutex> lock(ctx->mutex);
 
-        std::vector<IdString> cells;
+        std::vector<IdStringList> cells;
         for (auto &pair : ctx->cells) {
-            cells.push_back(pair.first);
+            cells.push_back(IdStringList(pair.first));
         }
-        std::vector<IdString> nets;
+        std::vector<IdStringList> nets;
         for (auto &pair : ctx->nets) {
-            nets.push_back(pair.first);
+            nets.push_back(IdStringList(pair.first));
         }
 
         getTreeByElementType(ElementType::CELL)->updateElements(cells);
@@ -603,7 +601,7 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
 
     clearProperties();
 
-    IdString c = clickItem->id();
+    IdStringList c = clickItem->id();
     Q_EMIT selected(getDecals(type, c), false);
 
     if (type == ElementType::BEL) {
@@ -613,7 +611,7 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
         BelId bel = ctx->getBelByName(c);
         QtProperty *topItem = addTopLevelProperty("Bel");
 
-        addProperty(topItem, QVariant::String, "Name", c.c_str(ctx));
+        addProperty(topItem, QVariant::String, "Name", ctx->nameOfBel(bel));
         addProperty(topItem, QVariant::String, "Type", ctx->getBelType(bel).c_str(ctx));
         addProperty(topItem, QVariant::Bool, "Available", ctx->checkBelAvail(bel));
         addProperty(topItem, QVariant::String, "Bound Cell", ctx->nameOf(ctx->getBoundBelCell(bel)), ElementType::CELL);
@@ -631,7 +629,7 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
             addProperty(portInfoItem, QVariant::String, "Name", item.c_str(ctx));
             addProperty(portInfoItem, QVariant::Int, "Type", int(ctx->getBelPinType(bel, item)));
             WireId wire = ctx->getBelPinWire(bel, item);
-            addProperty(portInfoItem, QVariant::String, "Wire", ctx->getWireName(wire).c_str(ctx), ElementType::WIRE);
+            addProperty(portInfoItem, QVariant::String, "Wire", ctx->nameOfWire(wire), ElementType::WIRE);
         }
     } else if (type == ElementType::WIRE) {
         std::lock_guard<std::mutex> lock_ui(ctx->ui_mutex);
@@ -640,12 +638,12 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
         WireId wire = ctx->getWireByName(c);
         QtProperty *topItem = addTopLevelProperty("Wire");
 
-        addProperty(topItem, QVariant::String, "Name", c.c_str(ctx));
+        addProperty(topItem, QVariant::String, "Name", ctx->nameOfWire(wire));
         addProperty(topItem, QVariant::String, "Type", ctx->getWireType(wire).c_str(ctx));
         addProperty(topItem, QVariant::Bool, "Available", ctx->checkWireAvail(wire));
         addProperty(topItem, QVariant::String, "Bound Net", ctx->nameOf(ctx->getBoundWireNet(wire)), ElementType::NET);
-        addProperty(topItem, QVariant::String, "Conflicting Wire",
-                    ctx->getWireName(ctx->getConflictingWireWire(wire)).c_str(ctx), ElementType::WIRE);
+        addProperty(topItem, QVariant::String, "Conflicting Wire", ctx->nameOfWire(ctx->getConflictingWireWire(wire)),
+                    ElementType::WIRE);
         addProperty(topItem, QVariant::String, "Conflicting Net", ctx->nameOf(ctx->getConflictingWireNet(wire)),
                     ElementType::NET);
 
@@ -666,7 +664,7 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
         for (const auto &item : ctx->getWireBelPins(wire)) {
             QString belname = "";
             if (item.bel != BelId())
-                belname = ctx->getBelName(item.bel).c_str(ctx);
+                belname = ctx->nameOfBel(item.bel);
             QString pinname = item.pin.c_str(ctx);
 
             QtProperty *dhItem = addSubGroup(belpinsItem, belname + "-" + pinname);
@@ -677,7 +675,7 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
         int counter = 0;
         QtProperty *pipsDownItem = addSubGroup(topItem, "Pips Downhill");
         for (const auto &item : ctx->getPipsDownhill(wire)) {
-            addProperty(pipsDownItem, QVariant::String, "", ctx->getPipName(item).c_str(ctx), ElementType::PIP);
+            addProperty(pipsDownItem, QVariant::String, "", ctx->nameOfPip(item), ElementType::PIP);
             counter++;
             if (counter == 50) {
                 addProperty(pipsDownItem, QVariant::String, "Warning", "Too many items...", ElementType::NONE);
@@ -688,7 +686,7 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
         counter = 0;
         QtProperty *pipsUpItem = addSubGroup(topItem, "Pips Uphill");
         for (const auto &item : ctx->getPipsUphill(wire)) {
-            addProperty(pipsUpItem, QVariant::String, "", ctx->getPipName(item).c_str(ctx), ElementType::PIP);
+            addProperty(pipsUpItem, QVariant::String, "", ctx->nameOfPip(item), ElementType::PIP);
             counter++;
             if (counter == 50) {
                 addProperty(pipsUpItem, QVariant::String, "Warning", "Too many items...", ElementType::NONE);
@@ -702,21 +700,20 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
         PipId pip = ctx->getPipByName(c);
         QtProperty *topItem = addTopLevelProperty("Pip");
 
-        addProperty(topItem, QVariant::String, "Name", c.c_str(ctx));
+        addProperty(topItem, QVariant::String, "Name", ctx->nameOfPip(pip));
         addProperty(topItem, QVariant::String, "Type", ctx->getPipType(pip).c_str(ctx));
         addProperty(topItem, QVariant::Bool, "Available", ctx->checkPipAvail(pip));
         addProperty(topItem, QVariant::String, "Bound Net", ctx->nameOf(ctx->getBoundPipNet(pip)), ElementType::NET);
         if (ctx->getConflictingPipWire(pip) != WireId()) {
-            addProperty(topItem, QVariant::String, "Conflicting Wire",
-                        ctx->getWireName(ctx->getConflictingPipWire(pip)).c_str(ctx), ElementType::WIRE);
+            addProperty(topItem, QVariant::String, "Conflicting Wire", ctx->nameOfWire(ctx->getConflictingPipWire(pip)),
+                        ElementType::WIRE);
         } else {
             addProperty(topItem, QVariant::String, "Conflicting Wire", "", ElementType::NONE);
         }
         addProperty(topItem, QVariant::String, "Conflicting Net", ctx->nameOf(ctx->getConflictingPipNet(pip)),
                     ElementType::NET);
-        addProperty(topItem, QVariant::String, "Src Wire", ctx->getWireName(ctx->getPipSrcWire(pip)).c_str(ctx),
-                    ElementType::WIRE);
-        addProperty(topItem, QVariant::String, "Dest Wire", ctx->getWireName(ctx->getPipDstWire(pip)).c_str(ctx),
+        addProperty(topItem, QVariant::String, "Src Wire", ctx->nameOfWire(ctx->getPipSrcWire(pip)), ElementType::WIRE);
+        addProperty(topItem, QVariant::String, "Dest Wire", ctx->nameOfWire(ctx->getPipDstWire(pip)),
                     ElementType::WIRE);
 
         QtProperty *attrsItem = addSubGroup(topItem, "Attributes");
@@ -735,7 +732,7 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
         std::lock_guard<std::mutex> lock_ui(ctx->ui_mutex);
         std::lock_guard<std::mutex> lock(ctx->mutex);
 
-        NetInfo *net = ctx->nets.at(c).get();
+        NetInfo *net = ctx->nets.at(c[0]).get();
 
         QtProperty *topItem = addTopLevelProperty("Net");
 
@@ -769,14 +766,13 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
 
         QtProperty *wiresItem = addSubGroup(topItem, "Wires");
         for (auto &item : net->wires) {
-            auto name = ctx->getWireName(item.first).c_str(ctx);
+            auto name = ctx->nameOfWire(item.first);
 
             QtProperty *wireItem = addSubGroup(wiresItem, name);
             addProperty(wireItem, QVariant::String, "Wire", name, ElementType::WIRE);
 
             if (item.second.pip != PipId())
-                addProperty(wireItem, QVariant::String, "Pip", ctx->getPipName(item.second.pip).c_str(ctx),
-                            ElementType::PIP);
+                addProperty(wireItem, QVariant::String, "Pip", ctx->nameOfPip(item.second.pip), ElementType::PIP);
             else
                 addProperty(wireItem, QVariant::String, "Pip", "", ElementType::PIP);
 
@@ -787,14 +783,14 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
         std::lock_guard<std::mutex> lock_ui(ctx->ui_mutex);
         std::lock_guard<std::mutex> lock(ctx->mutex);
 
-        CellInfo *cell = ctx->cells.at(c).get();
+        CellInfo *cell = ctx->cells.at(c[0]).get();
 
         QtProperty *topItem = addTopLevelProperty("Cell");
 
         addProperty(topItem, QVariant::String, "Name", cell->name.c_str(ctx));
         addProperty(topItem, QVariant::String, "Type", cell->type.c_str(ctx));
         if (cell->bel != BelId())
-            addProperty(topItem, QVariant::String, "Bel", ctx->getBelName(cell->bel).c_str(ctx), ElementType::BEL);
+            addProperty(topItem, QVariant::String, "Bel", ctx->nameOfBel(cell->bel), ElementType::BEL);
         else
             addProperty(topItem, QVariant::String, "Bel", "", ElementType::BEL);
         addProperty(topItem, QVariant::Int, "Bel strength", int(cell->belStrength));
@@ -838,7 +834,7 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
     }
 }
 
-std::vector<DecalXY> DesignWidget::getDecals(ElementType type, IdString value)
+std::vector<DecalXY> DesignWidget::getDecals(ElementType type, IdStringList value)
 {
     std::vector<DecalXY> decals;
     switch (type) {
@@ -861,7 +857,7 @@ std::vector<DecalXY> DesignWidget::getDecals(ElementType type, IdString value)
         }
     } break;
     case ElementType::NET: {
-        NetInfo *net = ctx->nets.at(value).get();
+        NetInfo *net = ctx->nets.at(value[0]).get();
         for (auto &item : net->wires) {
             decals.push_back(ctx->getWireDecal(item.first));
             if (item.second.pip != PipId()) {
@@ -870,7 +866,7 @@ std::vector<DecalXY> DesignWidget::getDecals(ElementType type, IdString value)
         }
     } break;
     case ElementType::CELL: {
-        CellInfo *cell = ctx->cells.at(value).get();
+        CellInfo *cell = ctx->cells.at(value[0]).get();
         if (cell->bel != BelId()) {
             decals.push_back(ctx->getBelDecal(cell->bel));
         }

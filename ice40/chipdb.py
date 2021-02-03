@@ -778,7 +778,7 @@ def add_bel_output(bel, wire, port):
 
 def add_bel_lc(x, y, z):
     bel = len(bel_name)
-    bel_name.append("X%d/Y%d/lc%d" % (x, y, z))
+    bel_name.append((x, y, "lc%d" % z))
     bel_type.append("ICESTORM_LC")
     bel_pos.append((x, y, z))
     bel_wires.append(list())
@@ -837,7 +837,7 @@ def add_bel_lc(x, y, z):
 
 def add_bel_io(x, y, z):
     bel = len(bel_name)
-    bel_name.append("X%d/Y%d/io%d" % (x, y, z))
+    bel_name.append((x, y, "io%d" % z))
     bel_type.append("SB_IO")
     bel_pos.append((x, y, z))
     bel_wires.append(list())
@@ -871,7 +871,7 @@ def add_bel_io(x, y, z):
 
 def add_bel_ram(x, y):
     bel = len(bel_name)
-    bel_name.append("X%d/Y%d/ram" % (x, y))
+    bel_name.append((x, y, "ram"))
     bel_type.append("ICESTORM_RAM")
     bel_pos.append((x, y, 0))
     bel_wires.append(list())
@@ -905,7 +905,7 @@ def add_bel_gb(xy, x, y, g):
         return
 
     bel = len(bel_name)
-    bel_name.append("X%d/Y%d/gb" % (x, y))
+    bel_name.append((x, y, "gb"))
     bel_type.append("SB_GB")
     bel_pos.append((x, y, 2))
     bel_wires.append(list())
@@ -942,7 +942,7 @@ def add_bel_ec(ec):
     ectype, x, y, z = ec
     bel = len(bel_name)
     extra_cell_config[bel] = []
-    bel_name.append("X%d/Y%d/%s_%d" % (x, y, ectype.lower(), z))
+    bel_name.append((x, y, "%s_%d" % (ectype.lower(), z)))
     bel_type.append(ectype)
     bel_pos.append((x, y, z))
     bel_wires.append(list())
@@ -1140,7 +1140,7 @@ for bel in range(len(bel_name)):
 
 bba.l("bel_data_%s" % dev_name, "BelInfoPOD")
 for bel in range(len(bel_name)):
-    bba.s(bel_name[bel], "name")
+    bba.s(bel_name[bel][-1], "name")
     bba.u32(constids[bel_type[bel]], "type")
     bba.r_slice("bel_wires_%d" % bel, len(bel_wires[bel]), "bel_wires")
     bba.u8(bel_pos[bel][0], "x")
@@ -1215,7 +1215,9 @@ for wire in range(num_wires):
         num_bel_pins = 0
 
     info = dict()
-    info["name"] = "X%d/Y%d/%s" % wire_names_r[wire]
+    info["name"] = wire_names_r[wire][2]
+    info["name_x"] = wire_names_r[wire][0]
+    info["name_y"] = wire_names_r[wire][1]
 
     info["num_uphill"] = num_uphill
     info["list_uphill"] = list_uphill
@@ -1263,7 +1265,7 @@ for package in packages:
     pins_info = []
     for pin in pins:
         pinname, x, y, z = pin
-        pin_bel = "X%d/Y%d/io%d" % (x, y, z)
+        pin_bel = (x, y, "io%d" % z)
         bel_idx = bel_name.index(pin_bel)
         pins_info.append((pinname, bel_idx))
     bba.l("package_%s_pins" % safename, "PackagePinPOD")
@@ -1311,6 +1313,9 @@ for t in range(num_tile_types):
 bba.l("wire_data_%s" % dev_name, "WireInfoPOD")
 for wire, info in enumerate(wireinfo):
     bba.s(info["name"], "name")
+    bba.u8(info["name_x"], "name_x")
+    bba.u8(info["name_y"], "name_y")
+    bba.u16(0, "padding")
     bba.r_slice(info["list_uphill"], info["num_uphill"], "pips_uphill")
     bba.r_slice(info["list_downhill"], info["num_downhill"], "pips_downhill")
     bba.r_slice(info["list_bel_pins"], info["num_bel_pins"], "bel_pins")
