@@ -461,8 +461,8 @@ struct ArchRanges
     using DecalGfxRange = std::vector<GraphicElement>;
     // Placement validity
     using CellTypeRange = const std::vector<IdString> &;
-    using BelBucketRange = std::vector<BelBucketId>;
-    using BucketBelRange = std::vector<BelId>;
+    using BelBucketRange = const std::vector<BelBucketId> &;
+    using BucketBelRange = const std::vector<BelId> &;
 };
 
 struct Arch : ArchBase<ArchRanges>
@@ -878,45 +878,6 @@ struct Arch : ArchBase<ArchRanges>
 
     // -------------------------------------------------
     // Placement validity checks
-
-    const std::vector<IdString> &getCellTypes() const override { return cell_types; }
-
-    std::vector<BelBucketId> getBelBuckets() const override { return buckets; }
-
-    IdString getBelBucketName(BelBucketId bucket) const override { return bucket.name; }
-
-    BelBucketId getBelBucketByName(IdString name) const override
-    {
-        BelBucketId bucket;
-        bucket.name = name;
-        return bucket;
-    }
-
-    BelBucketId getBelBucketForBel(BelId bel) const override
-    {
-        BelBucketId bucket;
-        bucket.name = getBelType(bel);
-        return bucket;
-    }
-
-    BelBucketId getBelBucketForCellType(IdString cell_type) const override
-    {
-        BelBucketId bucket;
-        bucket.name = cell_type;
-        return bucket;
-    }
-
-    std::vector<BelId> getBelsInBucket(BelBucketId bucket) const override
-    {
-        std::vector<BelId> bels;
-        for (BelId bel : getBels()) {
-            if (getBelType(bel) == bucket.name) {
-                bels.push_back(bel);
-            }
-        }
-        return bels;
-    }
-
     bool isValidBelForCell(CellInfo *cell, BelId bel) const override;
     bool isBelLocationValid(BelId bel) const override;
 

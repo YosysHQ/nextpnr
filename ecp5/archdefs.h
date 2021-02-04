@@ -126,14 +126,7 @@ struct PipId
     }
 };
 
-struct BelBucketId
-{
-    IdString name;
-
-    bool operator==(const BelBucketId &other) const { return (name == other.name); }
-    bool operator!=(const BelBucketId &other) const { return (name != other.name); }
-    bool operator<(const BelBucketId &other) const { return name < other.name; }
-};
+typedef IdString BelBucketId;
 
 struct GroupId
 {
@@ -267,16 +260,6 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX DecalId>
         boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX Location>()(decal.location));
         boost::hash_combine(seed, hash<int>()(decal.z));
         boost::hash_combine(seed, hash<bool>()(decal.active));
-        return seed;
-    }
-};
-
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX BelBucketId>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX BelBucketId &partition) const noexcept
-    {
-        std::size_t seed = 0;
-        boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(partition.name));
         return seed;
     }
 };

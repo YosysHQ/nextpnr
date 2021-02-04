@@ -1012,6 +1012,7 @@ struct BaseCtx
     void attributesToArchInfo();
 };
 
+namespace {
 // For several functions; such as bel/wire/pip attributes; the trivial implementation is to return an empty vector
 // But an arch might want to do something fancy with a custom range type that doesn't provide a constructor
 // So some cursed C++ is needed to return an empty object if possible; or error out if not; is needed
@@ -1024,6 +1025,44 @@ template <typename Tc> typename std::enable_if<!std::is_constructible<Tc>::value
     NPNR_ASSERT_FALSE("attempting to use default implementation of range-returning function with range type lacking "
                       "default constructor!");
 }
+
+// Provide a default implementation of bel bucket name if typedef'd to IdString
+template <typename Tbbid>
+typename std::enable_if<std::is_same<Tbbid, IdString>::value, IdString>::type bbid_to_name(Tbbid id)
+{
+    return id;
+}
+template <typename Tbbid>
+typename std::enable_if<!std::is_same<Tbbid, IdString>::value, IdString>::type bbid_to_name(Tbbid id)
+{
+    NPNR_ASSERT_FALSE("getBelBucketName must be implemented when BelBucketId is a type other than IdString!");
+}
+template <typename Tbbid>
+typename std::enable_if<std::is_same<Tbbid, IdString>::value, BelBucketId>::type bbid_from_name(IdString name)
+{
+    return name;
+}
+template <typename Tbbid>
+typename std::enable_if<!std::is_same<Tbbid, IdString>::value, BelBucketId>::type bbid_from_name(IdString name)
+{
+    NPNR_ASSERT_FALSE("getBelBucketByName must be implemented when BelBucketId is a type other than IdString!");
+}
+
+// For the cell type and bel type ranges; we want to return our stored vectors only if the type matches
+template <typename Tret, typename Tc>
+typename std::enable_if<std::is_same<Tret, Tc>::value, Tret>::type return_if_match(Tret r)
+{
+    return r;
+}
+
+template <typename Tret, typename Tc>
+typename std::enable_if<!std::is_same<Tret, Tc>::value, Tret>::type return_if_match(Tret r)
+{
+    NPNR_ASSERT_FALSE("default implementations of cell type and bel bucket range functions only available when the "
+                      "respective range types are 'const std::vector&'");
+}
+
+} // namespace
 
 template <typename R> struct ArchBase : BaseCtx
 {
@@ -1235,15 +1274,27 @@ template <typename R> struct ArchBase : BaseCtx
 
     // Placement validity checks
     virtual bool isValidBelForCellType(IdString cell_type, BelId bel) const { return cell_type == getBelType(bel); }
-    virtual IdString getBelBucketName(BelBucketId bucket) const = 0;
-    virtual BelBucketId getBelBucketByName(IdString name) const = 0;
+    virtual IdString getBelBucketName(BelBucketId bucket) const { return bbid_to_name<BelBucketId>(bucket); }
+    virtual BelBucketId getBelBucketByName(IdString name) const { return bbid_from_name<BelBucketId>(name); }
     virtual BelBucketId getBelBucketForBel(BelId bel) const { return getBelBucketForCellType(getBelType(bel)); };
     virtual BelBucketId getBelBucketForCellType(IdString cell_type) const { return getBelBucketByName(cell_type); };
     virtual bool isValidBelForCell(CellInfo *cell, BelId bel) const { return true; }
     virtual bool isBelLocationValid(BelId bel) const { return true; }
-    virtual typename R::CellTypeRange getCellTypes() const = 0;
-    virtual typename R::BelBucketRange getBelBuckets() const = 0;
-    virtual typename R::BucketBelRange getBelsInBucket(BelBucketId bucket) const = 0;
+    virtual typename R::CellTypeRange getCellTypes() const
+    {
+        NPNR_ASSERT(cell_types_initialised);
+        return return_if_match<const std::vector<IdString> &, typename R::CellTypeRange>(cell_types);
+    }
+    virtual typename R::BelBucketRange getBelBuckets() const
+    {
+        NPNR_ASSERT(bel_buckets_initialised);
+        return return_if_match<const std::vector<BelBucketId> &, typename R::BelBucketRange>(bel_buckets);
+    }
+    virtual typename R::BucketBelRange getBelsInBucket(BelBucketId bucket) const
+    {
+        NPNR_ASSERT(bel_buckets_initialised);
+        return return_if_match<const std::vector<BelId> &, typename R::BucketBelRange>(bucket_bels.at(bucket));
+    }
 
     // Flow methods
     virtual bool pack() = 0;
@@ -1258,6 +1309,39 @@ template <typename R> struct ArchBase : BaseCtx
     std::unordered_map<BelId, CellInfo *> base_bel2cell;
     std::unordered_map<WireId, NetInfo *> base_wire2net;
     std::unordered_map<PipId, NetInfo *> base_pip2net;
+
+    // For the default cell/bel bucket implementations
+    std::vector<IdString> cell_types;
+    std::vector<BelBucketId> bel_buckets;
+    std::unordered_map<BelBucketId, std::vector<BelId>> bucket_bels;
+
+    // Arches that want to use the default cell types and bel buckets *must* call these functions in their constructor
+    bool cell_types_initialised = false;
+    bool bel_buckets_initialised = false;
+    void init_cell_types()
+    {
+        std::unordered_set<IdString> bel_types;
+        for (auto bel : getBels())
+            bel_types.insert(getBelType(bel));
+        std::copy(bel_types.begin(), bel_types.end(), std::back_inserter(cell_types));
+        std::sort(cell_types.begin(), cell_types.end());
+        cell_types_initialised = true;
+    }
+    void init_bel_buckets()
+    {
+        for (auto cell_type : getCellTypes()) {
+            auto bucket = getBelBucketForCellType(cell_type);
+            bucket_bels[bucket]; // create empty bucket
+        }
+        for (auto bel : getBels()) {
+            auto bucket = getBelBucketForBel(bel);
+            bucket_bels[bucket].push_back(bel);
+        }
+        for (auto &b : bucket_bels)
+            bel_buckets.push_back(b.first);
+        std::sort(bel_buckets.begin(), bel_buckets.end());
+        bel_buckets_initialised = true;
+    }
 };
 
 NEXTPNR_NAMESPACE_END
