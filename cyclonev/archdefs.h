@@ -52,6 +52,9 @@ struct DelayInfo
 
 struct BelId
 {
+    BelId() = default;
+    BelId(CycloneV::pos_t _pos, uint16_t _z) : pos{_pos}, z{_z} {}
+
     // pos_t is used for X/Y, nextpnr-cyclonev uses its own Z coordinate system.
     CycloneV::pos_t pos = 0;
     uint16_t z = 0;
@@ -106,8 +109,6 @@ struct DecalId
 
 struct ArchNetInfo
 {
-    bool is_global = false;
-    bool is_reset = false, is_enable = false;
 };
 
 struct ArchCellInfo

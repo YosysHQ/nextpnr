@@ -30,6 +30,13 @@ struct ArchArgs
     std::string device;
 };
 
+struct PinInfo
+{
+    IdString name;
+    WireId wire;
+    PortType type;
+};
+
 struct BelInfo
 {
     IdString name, type;
@@ -41,19 +48,12 @@ struct BelInfo
     bool gb;
 };
 
-struct PinInfo
-{
-    IdString name;
-    WireId wire;
-    PortType type;
-};
-
 struct Arch : BaseCtx
 {
     ArchArgs args;
     mistral::CycloneV* cyclonev;
 
-    std::unordered_map<IdString, BelInfo> bels;
+    std::unordered_map<BelId, BelInfo> bels;
 
     Arch(ArchArgs args);
 
@@ -75,18 +75,18 @@ struct Arch : BaseCtx
     BelId getBelByName(IdString name) const; // arch.cc
     IdString getBelName(BelId bel) const; // arch.cc
     uint32_t getBelChecksum(BelId bel) const { return (bel.pos << 16) | bel.z; }
-    void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength);
-    void unbindBel(BelId bel);
-    bool checkBelAvail(BelId bel) const;
-    CellInfo *getBoundBelCell(BelId bel) const;
-    CellInfo *getConflictingBelCell(BelId bel) const;
-    const std::vector<BelId> &getBels() const;
-    Loc getBelLocation(BelId bel) const;
-    BelId getBelByLocation(Loc loc) const;
-    const std::vector<BelId> &getBelsByTile(int x, int y) const;
-    bool getBelGlobalBuf(BelId bel) const;
-    IdString getBelType(BelId bel) const;
-    std::vector<std::pair<IdString, std::string>> getBelAttrs(BelId bel) const;
+    void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength); // arch.cc
+    void unbindBel(BelId bel); // arch.cc
+    bool checkBelAvail(BelId bel) const { return bels.at(bel).bound_cell == nullptr; }
+    CellInfo *getBoundBelCell(BelId bel) const { return bels.at(bel).bound_cell; }
+    CellInfo *getConflictingBelCell(BelId bel) const { return nullptr; } // HACK
+    std::vector<BelId> getBels() const; // arch.cc
+    Loc getBelLocation(BelId bel) const { return Loc(CycloneV::pos2x(bel.pos), CycloneV::pos2y(bel.pos), bel.z); }
+    BelId getBelByLocation(Loc loc) const { return BelId(CycloneV::xy2pos(loc.x, loc.y), loc.z); }
+    std::vector<BelId> getBelsByTile(int x, int y) const; // arch.cc
+    bool getBelGlobalBuf(BelId bel) const { return false; } // HACK
+    IdString getBelType(BelId bel) const; // arch.cc
+    std::vector<std::pair<IdString, std::string>> getBelAttrs(BelId bel) const { return std::vector<std::pair<IdString, std::string>>{}; } // HACK
     WireId getBelPinWire(BelId bel, IdString pin) const;
     PortType getBelPinType(BelId bel, IdString pin) const;
     std::vector<IdString> getBelPins(BelId bel) const;
