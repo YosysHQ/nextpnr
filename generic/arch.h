@@ -141,7 +141,7 @@ struct Arch : BaseCtx
     std::vector<std::vector<int>> tileBelDimZ;
     std::vector<std::vector<int>> tilePipDimZ;
 
-    std::unordered_map<IdStringList, CellTiming> cellTiming;
+    std::unordered_map<IdString, CellTiming> cellTiming;
 
     void addWire(IdStringList name, IdString type, int x, int y);
     void addPip(IdStringList name, IdString type, IdStringList srcWire, IdStringList dstWire, DelayInfo delay, Loc loc);
@@ -169,10 +169,10 @@ struct Arch : BaseCtx
     void setLutK(int K);
     void setDelayScaling(double scale, double offset);
 
-    void addCellTimingClock(IdStringList cell, IdString port);
-    void addCellTimingDelay(IdStringList cell, IdString fromPort, IdString toPort, DelayInfo delay);
-    void addCellTimingSetupHold(IdStringList cell, IdString port, IdString clock, DelayInfo setup, DelayInfo hold);
-    void addCellTimingClockToOut(IdStringList cell, IdString port, IdString clock, DelayInfo clktoq);
+    void addCellTimingClock(IdString cell, IdString port);
+    void addCellTimingDelay(IdString cell, IdString fromPort, IdString toPort, DelayInfo delay);
+    void addCellTimingSetupHold(IdString cell, IdString port, IdString clock, DelayInfo setup, DelayInfo hold);
+    void addCellTimingClockToOut(IdString cell, IdString port, IdString clock, DelayInfo clktoq);
 
     // ---------------------------------------------------------------
     // Common Arch API. Every arch must provide the following methods.

@@ -144,7 +144,7 @@ struct NexusFasmWriter
     {
         int r = loc / ctx->chip_info->width;
         int c = loc % ctx->chip_info->width;
-        return stringf("%sR%dC%d__%s", ctx->nameOf(tile.prefix), r, c, ctx->nameOf(tile.tiletype));
+        return stringf("%sR%dC%d__%s", ctx->nameOf(IdString(tile.prefix)), r, c, ctx->nameOf(IdString(tile.tiletype)));
     }
     // Look up a tile by location index and tile type
     const PhysicalTileInfoPOD &tile_by_type_and_loc(int loc, IdString type)
@@ -180,7 +180,7 @@ struct NexusFasmWriter
     void push_tile(int loc, IdString tile_type) { push(tile_name(loc, tile_by_type_and_loc(loc, tile_type))); }
     void push_tile(int loc) { push(tile_name(loc, tile_at_loc(loc))); }
     // Push a bel name onto the prefix stack
-    void push_belname(BelId bel) { push(ctx->nameOf(ctx->bel_data(bel).name)); }
+    void push_belname(BelId bel) { push(ctx->nameOf(IdString(ctx->bel_data(bel).name))); }
     // Push the tile group name corresponding to a bel onto the prefix stack
     void push_belgroup(BelId bel)
     {
@@ -189,14 +189,14 @@ struct NexusFasmWriter
         auto &bel_data = ctx->bel_data(bel);
         r += bel_data.rel_y;
         c += bel_data.rel_x;
-        std::string s = stringf("R%dC%d_%s", r, c, ctx->nameOf(ctx->bel_data(bel).name));
+        std::string s = stringf("R%dC%d_%s", r, c, ctx->nameOf(IdString(ctx->bel_data(bel).name)));
         push(s);
     }
     // Push a bel's group and name
     void push_bel(BelId bel)
     {
         push_belgroup(bel);
-        fasm_ctx.back() += stringf(".%s", ctx->nameOf(ctx->bel_data(bel).name));
+        fasm_ctx.back() += stringf(".%s", ctx->nameOf(IdString(ctx->bel_data(bel).name)));
     }
     // Write out a pip in tile.dst.src format
     void write_pip(PipId pip)
@@ -204,7 +204,7 @@ struct NexusFasmWriter
         auto &pd = ctx->pip_data(pip);
         if (pd.flags & PIP_FIXED_CONN)
             return;
-        std::string tile = tile_name(pip.tile, tile_by_type_and_loc(pip.tile, pd.tile_type));
+        std::string tile = tile_name(pip.tile, tile_by_type_and_loc(pip.tile, IdString(pd.tile_type)));
         std::string source_wire = escape_name(ctx->pip_src_wire_name(pip).str(ctx));
         std::string dest_wire = escape_name(ctx->pip_dst_wire_name(pip).str(ctx));
         out << stringf("%s.PIP.%s.%s", tile.c_str(), dest_wire.c_str(), source_wire.c_str()) << std::endl;
@@ -580,7 +580,7 @@ struct NexusFasmWriter
         write_enum(cell, "CLKMUX_FB");
         write_cell_muxes(cell);
         pop();
-        push(stringf("IP_%s", ctx->nameOf(ctx->bel_data(bel).name)));
+        push(stringf("IP_%s", ctx->nameOf(IdString(ctx->bel_data(bel).name))));
         for (auto param : sorted_cref(cell->params)) {
             const std::string &name = param.first.str(ctx);
             if (is_mux_param(name) || name == "CLKMUX_FB" || name == "SEL_FBK")

@@ -1444,12 +1444,12 @@ struct Arch : BaseCtx
     IdString pip_src_wire_name(PipId pip) const
     {
         int wire = pip_data(pip).from_wire;
-        return db->loctypes[chip_info->grid[pip.tile].loc_type].wires[wire].name;
+        return IdString(db->loctypes[chip_info->grid[pip.tile].loc_type].wires[wire].name);
     }
     IdString pip_dst_wire_name(PipId pip) const
     {
         int wire = pip_data(pip).to_wire;
-        return db->loctypes[chip_info->grid[pip.tile].loc_type].wires[wire].name;
+        return IdString(db->loctypes[chip_info->grid[pip.tile].loc_type].wires[wire].name);
     }
 
     // -------------------------------------------------

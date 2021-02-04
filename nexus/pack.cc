@@ -1283,7 +1283,7 @@ struct NexusPacker
     // Function to check if a wire is general routing; and therefore skipped for cascade purposes
     bool is_general_routing(WireId wire)
     {
-        std::string name = ctx->nameOf(ctx->wire_data(wire).name);
+        std::string name = ctx->nameOf(IdString(ctx->wire_data(wire).name));
         if (name.size() == 3 && (name.substr(0, 2) == "JF" || name.substr(0, 2) == "JQ"))
             return true;
         if (name.size() == 12 && (name.substr(0, 10) == "JCIBMUXOUT"))

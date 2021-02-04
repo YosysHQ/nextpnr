@@ -129,7 +129,7 @@ void Arch::addBelInput(IdStringList bel, IdString name, IdStringList wire)
 {
     NPNR_ASSERT(bel_info(bel).pins.count(name) == 0);
     PinInfo &pi = bel_info(bel).pins[name];
-    pi.name = name;
+    pi.name = IdStringList(name);
     pi.wire = wire;
     pi.type = PORT_IN;
 
@@ -141,7 +141,7 @@ void Arch::addBelOutput(IdStringList bel, IdString name, IdStringList wire)
 {
     NPNR_ASSERT(bel_info(bel).pins.count(name) == 0);
     PinInfo &pi = bel_info(bel).pins[name];
-    pi.name = name;
+    pi.name = IdStringList(name);
     pi.wire = wire;
     pi.type = PORT_OUT;
 
@@ -153,7 +153,7 @@ void Arch::addBelInout(IdStringList bel, IdString name, IdStringList wire)
 {
     NPNR_ASSERT(bel_info(bel).pins.count(name) == 0);
     PinInfo &pi = bel_info(bel).pins[name];
-    pi.name = name;
+    pi.name = IdStringList(name);
     pi.wire = wire;
     pi.type = PORT_INOUT;
 
@@ -216,12 +216,9 @@ void Arch::setDelayScaling(double scale, double offset)
     args.delayOffset = offset;
 }
 
-void Arch::addCellTimingClock(IdStringList cell, IdString port)
-{
-    cellTiming[cell].portClasses[port] = TMG_CLOCK_INPUT;
-}
+void Arch::addCellTimingClock(IdString cell, IdString port) { cellTiming[cell].portClasses[port] = TMG_CLOCK_INPUT; }
 
-void Arch::addCellTimingDelay(IdStringList cell, IdString fromPort, IdString toPort, DelayInfo delay)
+void Arch::addCellTimingDelay(IdString cell, IdString fromPort, IdString toPort, DelayInfo delay)
 {
     if (get_or_default(cellTiming[cell].portClasses, fromPort, TMG_IGNORE) == TMG_IGNORE)
         cellTiming[cell].portClasses[fromPort] = TMG_COMB_INPUT;
@@ -230,7 +227,7 @@ void Arch::addCellTimingDelay(IdStringList cell, IdString fromPort, IdString toP
     cellTiming[cell].combDelays[CellDelayKey{fromPort, toPort}] = delay;
 }
 
-void Arch::addCellTimingSetupHold(IdStringList cell, IdString port, IdString clock, DelayInfo setup, DelayInfo hold)
+void Arch::addCellTimingSetupHold(IdString cell, IdString port, IdString clock, DelayInfo setup, DelayInfo hold)
 {
     TimingClockingInfo ci;
     ci.clock_port = clock;
@@ -241,7 +238,7 @@ void Arch::addCellTimingSetupHold(IdStringList cell, IdString port, IdString clo
     cellTiming[cell].portClasses[port] = TMG_REGISTER_INPUT;
 }
 
-void Arch::addCellTimingClockToOut(IdStringList cell, IdString port, IdString clock, DelayInfo clktoq)
+void Arch::addCellTimingClockToOut(IdString cell, IdString port, IdString clock, DelayInfo clktoq)
 {
     TimingClockingInfo ci;
     ci.clock_port = clock;
@@ -256,7 +253,7 @@ void Arch::addCellTimingClockToOut(IdStringList cell, IdString port, IdString cl
 Arch::Arch(ArchArgs args) : chipName("generic"), args(args)
 {
     // Dummy for empty decals
-    decal_graphics[IdString()];
+    decal_graphics[DecalId()];
 }
 
 void IdString::initialize_arch(const BaseCtx *ctx) {}

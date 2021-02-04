@@ -212,17 +212,16 @@ void arch_wrap_python(py::module &m)
                     pass_through<double>>::def_wrap(ctx_cls, "setDelayScaling", "scale"_a, "offset"_a);
 
     fn_wrapper_2a_v<Context, decltype(&Context::addCellTimingClock), &Context::addCellTimingClock,
-                    conv_from_str<IdStringList>, conv_from_str<IdString>>::def_wrap(ctx_cls, "addCellTimingClock",
-                                                                                    "cell"_a, "port"_a);
+                    conv_from_str<IdString>, conv_from_str<IdString>>::def_wrap(ctx_cls, "addCellTimingClock", "cell"_a,
+                                                                                "port"_a);
     fn_wrapper_4a_v<Context, decltype(&Context::addCellTimingDelay), &Context::addCellTimingDelay,
-                    conv_from_str<IdStringList>, conv_from_str<IdString>, conv_from_str<IdString>,
+                    conv_from_str<IdString>, conv_from_str<IdString>, conv_from_str<IdString>,
                     pass_through<DelayInfo>>::def_wrap(ctx_cls, "addCellTimingDelay", "cell"_a, "fromPort"_a,
                                                        "toPort"_a, "delay"_a);
     fn_wrapper_5a_v<Context, decltype(&Context::addCellTimingSetupHold), &Context::addCellTimingSetupHold,
-                    conv_from_str<IdStringList>, conv_from_str<IdString>, conv_from_str<IdString>,
-                    pass_through<DelayInfo>, pass_through<DelayInfo>>::def_wrap(ctx_cls, "addCellTimingSetupHold",
-                                                                                "cell"_a, "port"_a, "clock"_a,
-                                                                                "setup"_a, "hold"_a);
+                    conv_from_str<IdString>, conv_from_str<IdString>, conv_from_str<IdString>, pass_through<DelayInfo>,
+                    pass_through<DelayInfo>>::def_wrap(ctx_cls, "addCellTimingSetupHold", "cell"_a, "port"_a, "clock"_a,
+                                                       "setup"_a, "hold"_a);
     fn_wrapper_4a_v<Context, decltype(&Context::addCellTimingClockToOut), &Context::addCellTimingClockToOut,
                     conv_from_str<IdString>, conv_from_str<IdString>, conv_from_str<IdString>,
                     pass_through<DelayInfo>>::def_wrap(ctx_cls, "addCellTimingClockToOut", "cell"_a, "port"_a,
