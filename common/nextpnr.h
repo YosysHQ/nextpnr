@@ -1012,6 +1012,19 @@ struct BaseCtx
     void attributesToArchInfo();
 };
 
+// For several functions; such as bel/wire/pip attributes; the trivial implementation is to return an empty vector
+// But an arch might want to do something fancy with a custom range type that doesn't provide a constructor
+// So some cursed C++ is needed to return an empty object if possible; or error out if not; is needed
+template <typename Tc> typename std::enable_if<std::is_constructible<Tc>::value, Tc>::type empty_if_possible()
+{
+    return Tc();
+}
+template <typename Tc> typename std::enable_if<!std::is_constructible<Tc>::value, Tc>::type empty_if_possible()
+{
+    NPNR_ASSERT_FALSE("attempting to use default implementation of range-returning function with range type lacking "
+                      "default constructor!");
+}
+
 template <typename R> struct ArchBase : BaseCtx
 {
     // --------------------------------------------------------------
@@ -1019,7 +1032,7 @@ template <typename R> struct ArchBase : BaseCtx
 
     // Basic config
     virtual std::string getChipName() const = 0;
-    virtual IdString archId() const { id(STRINGIFY(ARCHNAME)); }
+    virtual IdString archId() const { return id(STRINGIFY(ARCHNAME)); }
     virtual int getGridDimX() const = 0;
     virtual int getGridDimY() const = 0;
     virtual int getTileBelDimZ(int x, int y) const = 0;
@@ -1063,7 +1076,10 @@ template <typename R> struct ArchBase : BaseCtx
     }
     virtual CellInfo *getConflictingBelCell(BelId bel) const { return getBoundBelCell(bel); }
     virtual IdString getBelType(BelId bel) const = 0;
-    virtual typename R::BelAttrsRange getBelAttrs(BelId bel) const = 0;
+    virtual typename R::BelAttrsRange getBelAttrs(BelId bel) const
+    {
+        return empty_if_possible<typename R::BelAttrsRange>();
+    }
     virtual WireId getBelPinWire(BelId bel, IdString pin) const = 0;
     virtual PortType getBelPinType(BelId bel, IdString pin) const = 0;
 
@@ -1072,7 +1088,10 @@ template <typename R> struct ArchBase : BaseCtx
     virtual WireId getWireByName(IdStringList name) const = 0;
     virtual IdStringList getWireName(WireId wire) const = 0;
     virtual IdString getWireType(WireId wire) const { return IdString(); }
-    virtual typename R::WireAttrsRange getWireAttrs(WireId) const = 0;
+    virtual typename R::WireAttrsRange getWireAttrs(WireId) const
+    {
+        return empty_if_possible<typename R::WireAttrsRange>();
+    }
     virtual uint32_t getWireChecksum(WireId wire) const { return uint32_t(std::hash<WireId>()(wire)); }
     virtual typename R::DownhillPipRange getPipsDownhill(WireId wire) const = 0;
     virtual typename R::UphillPipRange getPipsUphill(WireId wire) const = 0;
@@ -1123,7 +1142,10 @@ template <typename R> struct ArchBase : BaseCtx
     virtual PipId getPipByName(IdStringList name) const = 0;
     virtual IdStringList getPipName(PipId pip) const = 0;
     virtual IdString getPipType(PipId pip) const { return IdString(); }
-    virtual typename R::PipAttrsRange getPipAttrs(PipId) const = 0;
+    virtual typename R::PipAttrsRange getPipAttrs(PipId) const
+    {
+        return empty_if_possible<typename R::PipAttrsRange>();
+    }
     virtual uint32_t getPipChecksum(PipId pip) const { return uint32_t(std::hash<PipId>()(pip)); }
     virtual void bindPip(PipId pip, NetInfo *net, PlaceStrength strength)
     {
@@ -1171,7 +1193,7 @@ template <typename R> struct ArchBase : BaseCtx
     virtual IdStringList getGroupName(GroupId group) const { return IdStringList(); };
     virtual delay_t estimateDelay(WireId src, WireId dst) const = 0;
     virtual ArcBounds getRouteBoundingBox(WireId src, WireId dst) const = 0;
-    virtual typename R::AllGroupsRange getGroups() const = 0;
+    virtual typename R::AllGroupsRange getGroups() const { return empty_if_possible<typename R::AllGroupsRange>(); }
     // Default implementation of these assumes no groups so never called
     virtual typename R::GroupBelsRange getGroupBels(GroupId group) const { NPNR_ASSERT_FALSE("unreachable"); };
     virtual typename R::GroupWiresRange getGroupWires(GroupId group) const { NPNR_ASSERT_FALSE("unreachable"); };

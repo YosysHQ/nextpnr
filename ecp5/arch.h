@@ -602,12 +602,6 @@ struct Arch : ArchBase<ArchRanges>
         return id;
     }
 
-    std::vector<std::pair<IdString, std::string>> getBelAttrs(BelId) const override
-    {
-        std::vector<std::pair<IdString, std::string>> ret;
-        return ret;
-    }
-
     WireId getBelPinWire(BelId bel, IdString pin) const override;
 
     BelPinRange getWireBelPins(WireId wire) const override
@@ -703,12 +697,6 @@ struct Arch : ArchBase<ArchRanges>
 
     PipId getPipByName(IdStringList name) const override;
     IdStringList getPipName(PipId pip) const override;
-
-    std::vector<std::pair<IdString, std::string>> getPipAttrs(PipId) const
-    {
-        std::vector<std::pair<IdString, std::string>> ret;
-        return ret;
-    }
 
     uint32_t getPipChecksum(PipId pip) const override { return pip.index; }
 
