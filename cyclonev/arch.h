@@ -54,6 +54,7 @@ struct Arch : BaseCtx
     mistral::CycloneV* cyclonev;
 
     std::unordered_map<BelId, BelInfo> bels;
+    std::vector<BelId> bel_list;
 
     Arch(ArchArgs args);
 
@@ -80,7 +81,7 @@ struct Arch : BaseCtx
     bool checkBelAvail(BelId bel) const { return bels.at(bel).bound_cell == nullptr; }
     CellInfo *getBoundBelCell(BelId bel) const { return bels.at(bel).bound_cell; }
     CellInfo *getConflictingBelCell(BelId bel) const { return nullptr; } // HACK
-    std::vector<BelId> getBels() const; // arch.cc
+    const std::vector<BelId>& Arch::getBels() const { return bel_list; }
     Loc getBelLocation(BelId bel) const { return Loc(CycloneV::pos2x(bel.pos), CycloneV::pos2y(bel.pos), bel.z); }
     BelId getBelByLocation(Loc loc) const { return BelId(CycloneV::xy2pos(loc.x, loc.y), loc.z); }
     std::vector<BelId> getBelsByTile(int x, int y) const; // arch.cc

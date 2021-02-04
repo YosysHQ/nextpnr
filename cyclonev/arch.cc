@@ -31,6 +31,35 @@ Arch::Arch(ArchArgs args)
     this->args = args;
     this->cyclonev = mistral::CycloneV::get_model(args.device);
     NPNR_ASSERT(this->cyclonev != nullptr);
+
+    for (int x = 0; x < cyclonev->get_tile_sx(); x++) {
+        for (int y = 0; y < cyclonev->get_tile_sy(); y++) {
+            CycloneV::pos_t pos = cyclonev->xy2pos(x, y);
+
+            for (CycloneV::block_type_t bel : cyclonev->pos_get_bels(pos)) {
+                switch (bel) {
+                case CycloneV::block_type_t::LAB:
+                    /*
+                    *  nextpnr and mistral disagree on what a BEL is: mistral thinks an entire LAB
+                    *  is one BEL, but nextpnr wants something with more precision.
+                    * 
+                    *  One LAB contains 10 ALMs.
+                    *  One ALM contains 2 LUT outputs and 4 flop outputs.
+                    */
+                    for (int z = 0; z < 60; z++) {
+                        this->bel_list.push_back(BelId(pos, z));
+                    }
+                case CycloneV::block_type_t::GPIO:
+                    // GPIO tiles contain 4 pins.
+                    for (int z = 0; z < 4; z++) {
+                        this->bel_list.push_back(BelId(pos, z));
+                    }
+                default:
+                    continue;
+                }
+            }
+        }
+    }
 }
 
 int Arch::getTileBelDimZ(int x, int y) const
@@ -106,43 +135,6 @@ void Arch::unbindBel(BelId bel)
     refreshUiBel(bel);
 }
 
-std::vector<BelId> Arch::getBels() const
-{
-    // This should probably be redesigned, but it's a hack.
-    std::vector<BelId> bels{};
-
-    for (int x = 0; x < cyclonev->get_tile_sx(); x++) {
-        for (int y = 0; y < cyclonev->get_tile_sy(); y++) {
-            CycloneV::pos_t pos = cyclonev->xy2pos(x, y);
-
-            for (CycloneV::block_type_t bel : cyclonev->pos_get_bels(pos)) {
-                switch (bel) {
-                case CycloneV::block_type_t::LAB:
-                    /*
-                    *  nextpnr and mistral disagree on what a BEL is: mistral thinks an entire LAB
-                    *  is one BEL, but nextpnr wants something with more precision.
-                    * 
-                    *  One LAB contains 10 ALMs.
-                    *  One ALM contains 2 LUT outputs and 4 flop outputs.
-                    */
-                    for (int z = 0; z < 60; z++) {
-                        bels.push_back(BelId(pos, z));
-                    }
-                case CycloneV::block_type_t::GPIO:
-                    // GPIO tiles contain 4 pins.
-                    for (int z = 0; z < 4; z++) {
-                        bels.push_back(BelId(pos, z));
-                    }
-                default:
-                    continue;
-                }
-            }
-        }
-    }
-
-    return bels;
-}
-
 std::vector<BelId> Arch::getBelsByTile(int x, int y) const
 {
     // This should probably be redesigned, but it's a hack.
@@ -150,8 +142,8 @@ std::vector<BelId> Arch::getBelsByTile(int x, int y) const
 
     CycloneV::pos_t pos = cyclonev->xy2pos(x, y);
 
-    for (CycloneV::block_type_t bel : cyclonev->pos_get_bels(pos)) {
-        switch (bel) {
+    for (CycloneV::block_type_t cvbel : cyclonev->pos_get_bels(pos)) {
+        switch (cvbel) {
         case CycloneV::block_type_t::LAB:
             /*
             *  nextpnr and mistral disagree on what a BEL is: mistral thinks an entire LAB
@@ -178,10 +170,8 @@ std::vector<BelId> Arch::getBelsByTile(int x, int y) const
 
 IdString Arch::getBelType(BelId bel) const
 {
-    CycloneV::pos_t pos = cyclonev->xy2pos(x, y);
-
-    for (CycloneV::block_type_t bel : cyclonev->pos_get_bels(pos)) {
-        switch (bel) {
+    for (CycloneV::block_type_t cvbel : cyclonev->pos_get_bels(bel.pos)) {
+        switch (cvbel) {
         case CycloneV::block_type_t::LAB:
             /*
             *  nextpnr and mistral disagree on what a BEL is: mistral thinks an entire LAB
