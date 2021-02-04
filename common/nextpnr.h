@@ -99,6 +99,8 @@ inline void assert_fail_impl_str(std::string message, const char *expr_str, cons
 #define NPNR_ASSERT_FALSE(msg) (assert_fail_impl(msg, "false", __FILE__, __LINE__))
 #define NPNR_ASSERT_FALSE_STR(msg) (assert_fail_impl_str(msg, "false", __FILE__, __LINE__))
 
+#define STRINGIFY(x) #x
+
 struct BaseCtx;
 struct Context;
 
@@ -1016,6 +1018,8 @@ template <typename R> struct ArchBase : BaseCtx
     // Arch API base
 
     // Basic config
+    virtual std::string getChipName() const = 0;
+    virtual IdString archId() const { id(STRINGIFY(ARCHNAME)); }
     virtual int getGridDimX() const = 0;
     virtual int getGridDimY() const = 0;
     virtual int getTileBelDimZ(int x, int y) const = 0;
@@ -1163,15 +1167,16 @@ template <typename R> struct ArchBase : BaseCtx
     virtual Loc getPipLocation(PipId pip) const = 0;
 
     // Group methods
-    virtual GroupId getGroupByName(IdStringList name) const = 0;
-    virtual IdStringList getGroupName(GroupId group) const = 0;
+    virtual GroupId getGroupByName(IdStringList name) const { return GroupId(); };
+    virtual IdStringList getGroupName(GroupId group) const { return IdStringList(); };
     virtual delay_t estimateDelay(WireId src, WireId dst) const = 0;
     virtual ArcBounds getRouteBoundingBox(WireId src, WireId dst) const = 0;
     virtual typename R::AllGroupsRange getGroups() const = 0;
-    virtual typename R::GroupBelsRange getGroupBels(GroupId group) const = 0;
-    virtual typename R::GroupWiresRange getGroupWires(GroupId group) const = 0;
-    virtual typename R::GroupPipsRange getGroupPips(GroupId group) const = 0;
-    virtual typename R::GroupGroupsRange getGroupGroups(GroupId group) const = 0;
+    // Default implementation of these assumes no groups so never called
+    virtual typename R::GroupBelsRange getGroupBels(GroupId group) const { NPNR_ASSERT_FALSE("unreachable"); };
+    virtual typename R::GroupWiresRange getGroupWires(GroupId group) const { NPNR_ASSERT_FALSE("unreachable"); };
+    virtual typename R::GroupPipsRange getGroupPips(GroupId group) const { NPNR_ASSERT_FALSE("unreachable"); };
+    virtual typename R::GroupGroupsRange getGroupGroups(GroupId group) const { NPNR_ASSERT_FALSE("unreachable"); };
 
     // Delay methods
     virtual delay_t predictDelay(const NetInfo *net_info, const PortRef &sink) const = 0;
@@ -1186,6 +1191,7 @@ template <typename R> struct ArchBase : BaseCtx
     }
 
     // Decal methods
+    virtual typename R::DecalGfxRange getDecalGraphics(DecalId decal) const { NPNR_ASSERT_FALSE("unreachable"); };
     virtual DecalXY getBelDecal(BelId bel) const { return DecalXY(); }
     virtual DecalXY getWireDecal(WireId wire) const { return DecalXY(); }
     virtual DecalXY getPipDecal(PipId pip) const { return DecalXY(); }
@@ -1209,8 +1215,8 @@ template <typename R> struct ArchBase : BaseCtx
     virtual bool isValidBelForCellType(IdString cell_type, BelId bel) const { return cell_type == getBelType(bel); }
     virtual IdString getBelBucketName(BelBucketId bucket) const = 0;
     virtual BelBucketId getBelBucketByName(IdString name) const = 0;
-    virtual BelBucketId getBelBucketForBel(BelId bel) const = 0;
-    virtual BelBucketId getBelBucketForCellType(IdString cell_type) const = 0;
+    virtual BelBucketId getBelBucketForBel(BelId bel) const { return getBelBucketForCellType(getBelType(bel)); };
+    virtual BelBucketId getBelBucketForCellType(IdString cell_type) const { return getBelBucketByName(cell_type); };
     virtual bool isValidBelForCell(CellInfo *cell, BelId bel) const { return true; }
     virtual bool isBelLocationValid(BelId bel) const { return true; }
     virtual typename R::CellTypeRange getCellTypes() const = 0;

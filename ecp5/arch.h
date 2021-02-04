@@ -457,6 +457,8 @@ struct ArchRanges
     using GroupWiresRange = std::vector<WireId>;
     using GroupPipsRange = std::vector<PipId>;
     using GroupGroupsRange = std::vector<GroupId>;
+    // Decals
+    using DecalGfxRange = std::vector<GraphicElement>;
     // Placement validity
     using CellTypeRange = const std::vector<IdString> &;
     using BelBucketRange = std::vector<BelBucketId>;
@@ -485,10 +487,9 @@ struct Arch : ArchBase<ArchRanges>
     static bool is_available(ArchArgs::ArchArgsTypes chip);
     static std::vector<std::string> get_supported_packages(ArchArgs::ArchArgsTypes chip);
 
-    std::string getChipName() const;
+    std::string getChipName() const override;
     std::string get_full_chip_name() const;
 
-    IdString archId() const { return id("ecp5"); }
     ArchArgs archArgs() const { return args; }
     IdString archArgsToId(ArchArgs args) const;
 
@@ -864,7 +865,7 @@ struct Arch : ArchBase<ArchRanges>
 
     // -------------------------------------------------
 
-    std::vector<GraphicElement> getDecalGraphics(DecalId decal) const;
+    std::vector<GraphicElement> getDecalGraphics(DecalId decal) const override;
 
     DecalXY getBelDecal(BelId bel) const override;
     DecalXY getWireDecal(WireId wire) const override;
