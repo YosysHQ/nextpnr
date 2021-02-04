@@ -39,14 +39,14 @@ As these features are added, this implementation will become more useful.
  - [ ] Placement constraints are unimplemented, meaning invalid or unroutable
        designs can be generated from the placer.
  - [ ] Logical netlist macro expansion is not implemented, meaning that any
-       macro primitives are unplacable.  Common macro primitives examples are
+       macro primitives are unplaceable.  Common macro primitives examples are
        differential IO buffers (IBUFDS) and some LUT RAM (e.g. RAM64X1D).
  - [ ] Cell -> BEL pin mapping is not in place, meaning any primitives that
        have different BEL pins with respect to their cell pins will not be
        routable.
  - [ ] Nextpnr only allows for cell -> BEL pin maps that are 1 to 1.  The
-       FPGA interchange accomidates cell -> BEL pin maps that include 1 to
-       many relationship for sinks.  A common primitives that uses 1 to many
+       FPGA interchange accommodates cell -> BEL pin maps that include 1 to
+       many relationships for sinks.  A common primitives that uses 1 to many
        maps are the RAMB18E1.
  - [ ] The router lookahead is missing, meaning that router runtime
        performance will be terrible.
@@ -89,7 +89,7 @@ make update_jars
 
 # FIXME: Current RapidWright jars generate database with duplicate PIPs
 # https://github.com/Xilinx/RapidWright/issues/127
-# Remove this wget once latest RapidWright JAR is published.
+# Remove this wget once the latest RapidWright JAR is published.
 wget https://github.com/Xilinx/RapidWright/releases/download/v2020.2.1-beta/rapidwright-api-lib-2020.2.1_update1.jar
 mv rapidwright-api-lib-2020.2.1_update1.jar jars/rapidwright-api-lib-2020.2.0.jar
 
