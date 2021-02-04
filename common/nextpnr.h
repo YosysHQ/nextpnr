@@ -1064,7 +1064,7 @@ typename std::enable_if<!std::is_same<Tret, Tc>::value, Tret>::type return_if_ma
 
 } // namespace
 
-template <typename R> struct ArchBase : BaseCtx
+template <typename R> struct BaseArch : BaseCtx
 {
     // --------------------------------------------------------------
     // Arch API base

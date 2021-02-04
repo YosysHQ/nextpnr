@@ -465,7 +465,7 @@ struct ArchRanges
     using BucketBelRange = const std::vector<BelId> &;
 };
 
-struct Arch : ArchBase<ArchRanges>
+struct Arch : BaseArch<ArchRanges>
 {
     const ChipInfoPOD *chip_info;
     const PackageInfoPOD *package_info;
@@ -654,7 +654,7 @@ struct Arch : ArchBase<ArchRanges>
         if (pip != PipId()) {
             wire_fanout[getPipSrcWire(pip)]--;
         }
-        ArchBase::unbindWire(wire);
+        BaseArch::unbindWire(wire);
     }
 
     DelayInfo getWireDelay(WireId wire) const override
@@ -703,13 +703,13 @@ struct Arch : ArchBase<ArchRanges>
     void bindPip(PipId pip, NetInfo *net, PlaceStrength strength) override
     {
         wire_fanout[getPipSrcWire(pip)]++;
-        ArchBase::bindPip(pip, net, strength);
+        BaseArch::bindPip(pip, net, strength);
     }
 
     void unbindPip(PipId pip) override
     {
         wire_fanout[getPipSrcWire(pip)]--;
-        ArchBase::unbindPip(pip);
+        BaseArch::unbindPip(pip);
     }
 
     AllPipRange getPips() const override

@@ -105,8 +105,8 @@ Arch::Arch(ArchArgs args) : args(args)
 
     bel_to_cell.resize(chip_info->height * chip_info->width * max_loc_bels, nullptr);
 
-    ArchBase::init_cell_types();
-    ArchBase::init_bel_buckets();
+    BaseArch::init_cell_types();
+    BaseArch::init_bel_buckets();
 
     for (int i = 0; i < chip_info->width; i++)
         x_ids.push_back(id(stringf("X%d", i)));
