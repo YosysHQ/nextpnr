@@ -131,14 +131,114 @@ void archcheck_locs(const Context *ctx)
     log_break();
 }
 
+// Implements a LRU cache for pip to wire via getPipsDownhill/getPipsUphill.
+//
+// This allows a fast way to check getPipsDownhill/getPipsUphill from getPips,
+// without balloning memory usage.
+struct LruWireCacheMap {
+    LruWireCacheMap(const Context *ctx, size_t cache_size) : ctx(ctx), cache_size(cache_size) {
+        cache_hits = 0;
+        cache_misses = 0;
+        cache_evictions = 0;
+    }
+
+    const Context *ctx;
+    size_t cache_size;
+
+    // Cache stats for checking on cache behavior.
+    size_t cache_hits;
+    size_t cache_misses;
+    size_t cache_evictions;
+
+    // Most recent accessed wires are added to the back of the list, front of
+    // list is oldest wire in cache.
+    std::list<WireId> last_access_list;
+    // Quick wire -> list element lookup.
+    std::unordered_map<WireId, std::list<WireId>::iterator> last_access_map;
+
+    std::unordered_map<PipId, WireId> pips_downhill;
+    std::unordered_map<PipId, WireId> pips_uphill;
+
+    void removeWireFromCache(WireId wire_to_remove) {
+        for (PipId pip : ctx->getPipsDownhill(wire_to_remove)) {
+            log_assert(pips_downhill.erase(pip) == 1);
+        }
+
+        for (PipId pip : ctx->getPipsUphill(wire_to_remove)) {
+            log_assert(pips_uphill.erase(pip) == 1);
+        }
+    }
+
+    void addWireToCache(WireId wire) {
+        for (PipId pip : ctx->getPipsDownhill(wire)) {
+            auto result = pips_downhill.emplace(pip, wire);
+            log_assert(result.second);
+        }
+
+        for (PipId pip : ctx->getPipsUphill(wire)) {
+            auto result = pips_uphill.emplace(pip, wire);
+            log_assert(result.second);
+        }
+    }
+
+    void populateCache(WireId wire) {
+        // Put this wire at the end of last_access_list.
+        auto iter = last_access_list.emplace(last_access_list.end(), wire);
+        last_access_map.emplace(wire, iter);
+
+        if(last_access_list.size() > cache_size) {
+            // Cache is full, remove front of last_access_list.
+            cache_evictions += 1;
+            WireId wire_to_remove = last_access_list.front();
+            last_access_list.pop_front();
+            log_assert(last_access_map.erase(wire_to_remove) == 1);
+
+            removeWireFromCache(wire_to_remove);
+        }
+
+        addWireToCache(wire);
+    }
+
+    // Determine if wire is in the cache.  If wire is not in the cache,
+    // adds the wire to the cache, and potentially evicts the oldest wire if
+    // cache is now full.
+    void checkCache(WireId wire) {
+        auto iter = last_access_map.find(wire);
+        if(iter == last_access_map.end()) {
+            cache_misses += 1;
+            populateCache(wire);
+        } else {
+            // Record that this wire has been accessed.
+            cache_hits += 1;
+            last_access_list.splice(last_access_list.end(), last_access_list, iter->second);
+        }
+    }
+
+    // Returns true if pip is uphill of wire (e.g. pip in getPipsUphill(wire)).
+    bool isPipUphill(PipId pip, WireId wire) {
+        checkCache(wire);
+        return pips_uphill.at(pip) == wire;
+    }
+
+    // Returns true if pip is downhill of wire (e.g. pip in getPipsDownhill(wire)).
+    bool isPipDownhill(PipId pip, WireId wire) {
+        checkCache(wire);
+        return pips_downhill.at(pip) == wire;
+    }
+
+    void cache_info() const {
+        log_info("Cache hits: %zu\n", cache_hits);
+        log_info("Cache misses: %zu\n", cache_misses);
+        log_info("Cache evictions: %zu\n", cache_evictions);
+    }
+};
+
 void archcheck_conn(const Context *ctx)
 {
     log_info("Checking connectivity data.\n");
 
     log_info("Checking all wires...\n");
 
-    std::unordered_map<PipId, WireId> pips_downhill;
-    std::unordered_map<PipId, WireId> pips_uphill;
     for (WireId wire : ctx->getWires()) {
         for (BelPin belpin : ctx->getWireBelPins(wire)) {
             WireId wire2 = ctx->getBelPinWire(belpin.bel, belpin.pin);
@@ -148,17 +248,11 @@ void archcheck_conn(const Context *ctx)
         for (PipId pip : ctx->getPipsDownhill(wire)) {
             WireId wire2 = ctx->getPipSrcWire(pip);
             log_assert(wire == wire2);
-
-            auto result = pips_downhill.emplace(pip, wire);
-            log_assert(result.second);
         }
 
         for (PipId pip : ctx->getPipsUphill(wire)) {
             WireId wire2 = ctx->getPipDstWire(pip);
             log_assert(wire == wire2);
-
-            auto result = pips_uphill.emplace(pip, wire);
-            log_assert(result.second);
         }
     }
 
@@ -183,16 +277,25 @@ void archcheck_conn(const Context *ctx)
         }
     }
 
+    // This cache is used to meet two goals:
+    //  - Avoid linear scan by invoking getPipsDownhill/getPipsUphill directly.
+    //  - Avoid having pip -> wire maps for the entire part.
+    //
+    // The overhead of maintaining the cache is small relatively to the memory
+    // gains by avoiding the full pip -> wire map, and still preserves a fast
+    // pip -> wire, assuming that pips are returned from getPips with some
+    // chip locality.
+    LruWireCacheMap pip_cache(ctx, /*cache_size=*/64*1024);
     log_info("Checking all PIPs...\n");
     for (PipId pip : ctx->getPips()) {
         WireId src_wire = ctx->getPipSrcWire(pip);
         if (src_wire != WireId()) {
-            log_assert(pips_downhill.at(pip) == src_wire);
+            log_assert(pip_cache.isPipDownhill(pip, src_wire));
         }
 
         WireId dst_wire = ctx->getPipDstWire(pip);
         if (dst_wire != WireId()) {
-            log_assert(pips_uphill.at(pip) == dst_wire);
+            log_assert(pip_cache.isPipUphill(pip, dst_wire));
         }
     }
 }
