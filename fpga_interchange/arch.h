@@ -929,13 +929,6 @@ struct Arch : BaseCtx
         return w2n == wire_to_net.end() || w2n->second == nullptr;
     }
 
-    NetInfo *getReservedWireNet(WireId wire) const
-    {
-        NPNR_ASSERT(wire != WireId());
-        auto w2n = reserved_wires.find(wire);
-        return w2n == reserved_wires.end() ? nullptr : w2n->second;
-    }
-
     NetInfo *getBoundWireNet(WireId wire) const
     {
         NPNR_ASSERT(wire != WireId());
