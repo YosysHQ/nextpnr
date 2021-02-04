@@ -59,7 +59,7 @@ void FpgaInterchangeCommandHandler::customBitstream(Context *ctx)
 {
     if (vm.count("phys")) {
         std::string filename = vm["phys"].as<std::string>();
-        ctx->writePhysicalNetlist(filename);
+        ctx->write_physical_netlist(filename);
     }
 }
 

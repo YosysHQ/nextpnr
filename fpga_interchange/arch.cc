@@ -141,7 +141,7 @@ BelRange Arch::getBelsByTile(int x, int y) const
 {
     BelRange br;
 
-    br.b.cursor_tile = getTileIndex(x, y);
+    br.b.cursor_tile = get_tile_index(x, y);
     br.e.cursor_tile = br.b.cursor_tile;
     br.b.cursor_index = 0;
     br.e.cursor_index = chip_info->tile_types[chip_info->tiles[br.b.cursor_tile].type].num_bels;
@@ -158,9 +158,9 @@ WireId Arch::getBelPinWire(BelId bel, IdString pin) const
 {
     NPNR_ASSERT(bel != BelId());
 
-    int pin_index = getBelPinIndex(bel, pin);
+    int pin_index = get_bel_pin_index(bel, pin);
 
-    auto &bel_data = locInfo(bel).bel_data[bel.index];
+    auto &bel_data = bel_info(chip_info, bel);
     NPNR_ASSERT(pin_index >= 0 && pin_index < bel_data.num_bel_wires);
 
     const int32_t *wires = bel_data.wires.get();
@@ -169,7 +169,7 @@ WireId Arch::getBelPinWire(BelId bel, IdString pin) const
         // This BEL pin is not connected.
         return WireId();
     } else {
-        return canonicalWireId(chip_info, bel.tile, wire_index);
+        return canonical_wire(chip_info, bel.tile, wire_index);
     }
 }
 
@@ -177,8 +177,8 @@ PortType Arch::getBelPinType(BelId bel, IdString pin) const
 {
     NPNR_ASSERT(bel != BelId());
 
-    int pin_index = getBelPinIndex(bel, pin);
-    auto &bel_data = locInfo(bel).bel_data[bel.index];
+    int pin_index = get_bel_pin_index(bel, pin);
+    auto &bel_data = bel_info(chip_info, bel);
     NPNR_ASSERT(pin_index >= 0 && pin_index < bel_data.num_bel_wires);
     const int32_t *types = bel_data.types.get();
     return PortType(types[pin_index]);
@@ -263,7 +263,7 @@ PipId Arch::getPipByName(IdStringList name) const
         BelId bel = getBelByName(IdStringList(ids));
         NPNR_ASSERT(bel != BelId());
 
-        int pin_index = getBelPinIndex(bel, pinname);
+        int pin_index = get_bel_pin_index(bel, pinname);
         NPNR_ASSERT(pin_index >= 0);
 
         for (int i = 0; i < tile_info.num_pips; i++) {
@@ -392,7 +392,7 @@ IdStringList Arch::getPipName(PipId pip) const
     // Site pin: <site name>/<bel name>
     NPNR_ASSERT(pip != PipId());
     auto &tile = chip_info->tiles[pip.tile];
-    auto &tile_type = locInfo(pip);
+    auto &tile_type = loc_info(chip_info, pip);
     auto &pip_info = tile_type.pip_data[pip.index];
     if (pip_info.site != -1) {
         // This is either a site pin or a site pip.
@@ -439,8 +439,8 @@ BelId Arch::getBelByLocation(Loc loc) const
     BelId bi;
     if (loc.x >= chip_info->width || loc.y >= chip_info->height)
         return BelId();
-    bi.tile = getTileIndex(loc);
-    auto &li = locInfo(bi);
+    bi.tile = get_tile_index(loc);
+    auto &li = loc_info(chip_info, bi);
 
     if (loc.z >= li.num_bels) {
         return BelId();
