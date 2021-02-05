@@ -32,23 +32,7 @@ NEXTPNR_NAMESPACE_BEGIN
 
 /**** Everything in this section must be kept in sync with chipdb.py ****/
 
-template <typename T> struct RelPtr
-{
-    int32_t offset;
-
-    // void set(const T *ptr) {
-    //     offset = reinterpret_cast<const char*>(ptr) -
-    //              reinterpret_cast<const char*>(this);
-    // }
-
-    const T *get() const { return reinterpret_cast<const T *>(reinterpret_cast<const char *>(this) + offset); }
-
-    const T &operator[](size_t index) const { return get()[index]; }
-
-    const T &operator*() const { return *(get()); }
-
-    const T *operator->() const { return get(); }
-};
+#include "relptr.h"
 
 // Flattened site indexing.
 //
@@ -105,16 +89,13 @@ NPNR_PACKED_STRUCT(struct TileWireInfoPOD {
     int32_t name; // wire name constid
 
     // Pip index inside tile
-    int32_t num_uphill;
-    RelPtr<int32_t> pips_uphill;
+    RelSlice<int32_t> pips_uphill;
 
     // Pip index inside tile
-    int32_t num_downhill;
-    RelPtr<int32_t> pips_downhill;
+    RelSlice<int32_t> pips_downhill;
 
     // Bel index inside tile
-    int32_t num_bel_pins;
-    RelPtr<BelPortPOD> bel_pins;
+    RelSlice<BelPortPOD> bel_pins;
 
     int16_t site;         // site index in tile
     int16_t site_variant; // site variant index in tile
@@ -133,14 +114,11 @@ NPNR_PACKED_STRUCT(struct TileTypeInfoPOD {
 
     int32_t number_sites;
 
-    int32_t num_bels;
-    RelPtr<BelInfoPOD> bel_data;
+    RelSlice<BelInfoPOD> bel_data;
 
-    int32_t num_wires;
-    RelPtr<TileWireInfoPOD> wire_data;
+    RelSlice<TileWireInfoPOD> wire_data;
 
-    int32_t num_pips;
-    RelPtr<PipInfoPOD> pip_data;
+    RelSlice<PipInfoPOD> pip_data;
 });
 
 NPNR_PACKED_STRUCT(struct SiteInstInfoPOD {
@@ -165,9 +143,8 @@ NPNR_PACKED_STRUCT(struct TileInstInfoPOD {
     // Number of tile wires; excluding any site-internal wires
     // which come after general wires and are not stored here
     // as they will never be nodal
-    int32_t num_tile_wires;
     // -1 if a tile-local wire; node index if nodal wire
-    RelPtr<int32_t> tile_wire_to_node;
+    RelSlice<int32_t> tile_wire_to_node;
 });
 
 NPNR_PACKED_STRUCT(struct TileWireRefPOD {
@@ -176,15 +153,13 @@ NPNR_PACKED_STRUCT(struct TileWireRefPOD {
 });
 
 NPNR_PACKED_STRUCT(struct NodeInfoPOD {
-    int32_t num_tile_wires;
-    RelPtr<TileWireRefPOD> tile_wires;
+    RelSlice<TileWireRefPOD> tile_wires;
 });
 
 NPNR_PACKED_STRUCT(struct CellMapPOD {
-    int32_t number_cells;
     // Cell names supported in this arch.
-    RelPtr<int32_t> cell_names;       // constids
-    RelPtr<int32_t> cell_bel_buckets; // constids
+    RelSlice<int32_t> cell_names;       // constids
+    RelSlice<int32_t> cell_bel_buckets; // constids
 });
 
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
@@ -194,21 +169,13 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     int32_t version;
     int32_t width, height;
 
-    int32_t num_tile_types;
-    RelPtr<TileTypeInfoPOD> tile_types;
-
-    int32_t num_sites;
-    RelPtr<SiteInstInfoPOD> sites;
-
-    int32_t num_tiles;
-    RelPtr<TileInstInfoPOD> tiles;
-
-    int32_t num_nodes;
-    RelPtr<NodeInfoPOD> nodes;
+    RelSlice<TileTypeInfoPOD> tile_types;
+    RelSlice<SiteInstInfoPOD> sites;
+    RelSlice<TileInstInfoPOD> tiles;
+    RelSlice<NodeInfoPOD> nodes;
 
     // BEL bucket constids.
-    int32_t number_bel_buckets;
-    RelPtr<int32_t> bel_buckets;
+    RelSlice<int32_t> bel_buckets;
 
     RelPtr<CellMapPOD> cell_map;
 });
@@ -239,7 +206,7 @@ struct BelIterator
     BelIterator operator++()
     {
         cursor_index++;
-        while (cursor_tile < chip->num_tiles && cursor_index >= tile_info(chip, cursor_tile).num_bels) {
+        while (cursor_tile < chip->tiles.size() && cursor_index >= tile_info(chip, cursor_tile).bel_data.size()) {
             cursor_index = 0;
             cursor_tile++;
         }
@@ -381,7 +348,7 @@ inline WireId canonical_wire(const ChipInfoPOD *chip_info, int32_t tile, int32_t
 {
     WireId id;
 
-    if (wire >= chip_info->tiles[tile].num_tile_wires) {
+    if (wire >= chip_info->tiles[tile].tile_wire_to_node.size()) {
         // Cannot be a nodal wire
         id.tile = tile;
         id.index = wire;
@@ -414,18 +381,18 @@ struct WireIterator
         // Iterate over nodes first, then tile wires that aren't nodes
         do {
             cursor_index++;
-            if (cursor_tile == -1 && cursor_index >= chip->num_nodes) {
+            if (cursor_tile == -1 && cursor_index >= chip->nodes.size()) {
                 cursor_tile = 0;
                 cursor_index = 0;
             }
-            while (cursor_tile != -1 && cursor_tile < chip->num_tiles &&
-                   cursor_index >= chip->tile_types[chip->tiles[cursor_tile].type].num_wires) {
+            while (cursor_tile != -1 && cursor_tile < chip->tiles.size() &&
+                   cursor_index >= chip->tile_types[chip->tiles[cursor_tile].type].wire_data.size()) {
                 cursor_index = 0;
                 cursor_tile++;
             }
 
-        } while ((cursor_tile != -1 && cursor_tile < chip->num_tiles &&
-                  cursor_index < chip->tiles[cursor_tile].num_tile_wires &&
+        } while ((cursor_tile != -1 && cursor_tile < chip->tiles.size() &&
+                  cursor_index < chip->tiles[cursor_tile].tile_wire_to_node.size() &&
                   chip->tiles[cursor_tile].tile_wire_to_node[cursor_index] != -1));
 
         return *this;
@@ -473,8 +440,8 @@ struct AllPipIterator
     AllPipIterator operator++()
     {
         cursor_index++;
-        while (cursor_tile < chip->num_tiles &&
-               cursor_index >= chip->tile_types[chip->tiles[cursor_tile].type].num_pips) {
+        while (cursor_tile < chip->tiles.size() &&
+               cursor_index >= chip->tile_types[chip->tiles[cursor_tile].type].pip_data.size()) {
             cursor_index = 0;
             cursor_tile++;
         }
@@ -529,7 +496,7 @@ struct UphillPipIterator
                 break;
             WireId w = *twi;
             auto &tile = chip->tile_types[chip->tiles[w.tile].type];
-            if (cursor < tile.wire_data[w.index].num_uphill)
+            if (cursor < tile.wire_data[w.index].pips_uphill.size())
                 break;
             ++twi;
             cursor = 0;
@@ -568,7 +535,7 @@ struct DownhillPipIterator
                 break;
             WireId w = *twi;
             auto &tile = chip->tile_types[chip->tiles[w.tile].type];
-            if (cursor < tile.wire_data[w.index].num_downhill)
+            if (cursor < tile.wire_data[w.index].pips_downhill.size())
                 break;
             ++twi;
             cursor = 0;
@@ -606,7 +573,7 @@ struct BelPinIterator
         while (twi != twi_end) {
             WireId w = *twi;
             auto &tile = tile_info(chip, w.tile);
-            if (cursor < tile.wire_data[w.index].num_bel_pins)
+            if (cursor < tile.wire_data[w.index].bel_pins.size())
                 break;
 
             ++twi;
@@ -732,7 +699,7 @@ struct Arch : BaseCtx
     int getGridDimY() const { return chip_info->height; }
     int getTileBelDimZ(int x, int y) const
     {
-        return chip_info->tile_types[chip_info->tiles[get_tile_index(x, y)].type].num_bels;
+        return chip_info->tile_types[chip_info->tiles[get_tile_index(x, y)].type].bel_data.size();
     }
     int getTilePipDimZ(int x, int y) const
     {
@@ -882,18 +849,20 @@ struct Arch : BaseCtx
     IdStringList getWireName(WireId wire) const
     {
         NPNR_ASSERT(wire != WireId());
-        const auto & tile_type = loc_info(chip_info, wire);
-        if (wire.tile != -1 && tile_type.wire_data[wire.index].site != -1) {
-            int site_index = loc_info(chip_info, wire).wire_data[wire.index].site;
-            const SiteInstInfoPOD &site = chip_info->sites[chip_info->tiles[wire.tile].sites[site_index]];
-            std::array<IdString, 2> ids{id(site.name.get()), IdString(tile_type.wire_data[wire.index].name)};
-            return IdStringList(ids);
-        } else {
-            int32_t tile = wire.tile == -1 ? chip_info->nodes[wire.index].tile_wires[0].tile : wire.tile;
-            IdString tile_name = id(chip_info->tiles[tile].name.get());
-            std::array<IdString, 2> ids{tile_name, IdString(wire_info(wire).name)};
-            return IdStringList(ids);
+        if (wire.tile != -1) {
+            const auto & tile_type = loc_info(chip_info, wire);
+            if(tile_type.wire_data[wire.index].site != -1) {
+                int site_index = tile_type.wire_data[wire.index].site;
+                const SiteInstInfoPOD &site = chip_info->sites[chip_info->tiles[wire.tile].sites[site_index]];
+                std::array<IdString, 2> ids{id(site.name.get()), IdString(tile_type.wire_data[wire.index].name)};
+                return IdStringList(ids);
+            }
         }
+
+        int32_t tile = wire.tile == -1 ? chip_info->nodes[wire.index].tile_wires[0].tile : wire.tile;
+        IdString tile_name = id(chip_info->tiles[tile].name.get());
+        std::array<IdString, 2> ids{tile_name, IdString(wire_info(wire).name)};
+        return IdStringList(ids);
     }
 
     IdString getWireType(WireId wire) const;
@@ -971,7 +940,7 @@ struct Arch : BaseCtx
         range.e.chip = chip_info;
         range.e.baseWire = wire;
         if (wire.tile == -1) {
-            range.e.cursor = chip_info->nodes[wire.index].num_tile_wires;
+            range.e.cursor = chip_info->nodes[wire.index].tile_wires.size();
         } else {
             range.e.cursor = 1;
         }
@@ -1004,7 +973,7 @@ struct Arch : BaseCtx
         range.b.cursor_tile = -1;
         range.b.cursor_index = 0;
         range.e.chip = chip_info;
-        range.e.cursor_tile = chip_info->num_tiles;
+        range.e.cursor_tile = chip_info->tiles.size();
         range.e.cursor_index = 0;
         return range;
     }
@@ -1198,8 +1167,8 @@ struct Arch : BaseCtx
     const BelBucketRange getBelBuckets() const
     {
         BelBucketRange bel_bucket_range;
-        bel_bucket_range.b.cursor.cursor = &chip_info->bel_buckets[0];
-        bel_bucket_range.e.cursor.cursor = &chip_info->bel_buckets[chip_info->number_bel_buckets - 1];
+        bel_bucket_range.b.cursor.cursor = chip_info->bel_buckets.begin();
+        bel_bucket_range.e.cursor.cursor = chip_info->bel_buckets.end();
         return bel_bucket_range;
     }
 
@@ -1215,8 +1184,8 @@ struct Arch : BaseCtx
         const CellMapPOD &cell_map = *chip_info->cell_map;
 
         IdStringRange id_range;
-        id_range.b.cursor = &cell_map.cell_names[0];
-        id_range.e.cursor = &cell_map.cell_names[cell_map.number_cells - 1];
+        id_range.b.cursor = cell_map.cell_names.begin();
+        id_range.e.cursor = cell_map.cell_names.end();
 
         return id_range;
     }
@@ -1239,7 +1208,8 @@ struct Arch : BaseCtx
     {
         const CellMapPOD &cell_map = *chip_info->cell_map;
         int cell_offset = cell_type.index - cell_map.cell_names[0];
-        NPNR_ASSERT(cell_type.index >= 0 && cell_type.index < cell_map.number_cells);
+        NPNR_ASSERT(cell_offset >= 0 && cell_offset < cell_map.cell_names.size());
+        NPNR_ASSERT(cell_map.cell_names[cell_offset] == cell_type.index);
 
         return cell_offset;
     }
