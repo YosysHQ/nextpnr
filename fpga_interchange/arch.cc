@@ -45,14 +45,7 @@ static std::pair<std::string, std::string> split_identifier_name_dot(const std::
 
 // -----------------------------------------------------------------------
 
-void IdString::initialize_arch(const BaseCtx *ctx)
-{
-#define X(t) initialize_add(ctx, #t, ID_##t);
-
-#include "constids.inc"
-
-#undef X
-}
+void IdString::initialize_arch(const BaseCtx *ctx) {}
 
 // -----------------------------------------------------------------------
 
@@ -68,6 +61,13 @@ Arch::Arch(ArchArgs args) : args(args)
         chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(blob));
     } catch (...) {
         log_error("Unable to read chipdb %s\n", args.chipdb.c_str());
+    }
+
+    // Read strings from constids into IdString database, checking that list
+    // is unique and matches expected constid value.
+    int id = 1;
+    for (const auto &constid : *chip_info->constids) {
+        IdString::initialize_add(this, constid.get(), id++);
     }
 
     tileStatus.resize(chip_info->tiles.size());

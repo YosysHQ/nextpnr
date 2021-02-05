@@ -152,9 +152,7 @@ NPNR_PACKED_STRUCT(struct TileWireRefPOD {
     int32_t index;
 });
 
-NPNR_PACKED_STRUCT(struct NodeInfoPOD {
-    RelSlice<TileWireRefPOD> tile_wires;
-});
+NPNR_PACKED_STRUCT(struct NodeInfoPOD { RelSlice<TileWireRefPOD> tile_wires; });
 
 NPNR_PACKED_STRUCT(struct CellMapPOD {
     // Cell names supported in this arch.
@@ -178,6 +176,8 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelSlice<int32_t> bel_buckets;
 
     RelPtr<CellMapPOD> cell_map;
+
+    RelPtr<RelSlice<RelPtr<char>>> constids;
 });
 
 /************************ End of chipdb section. ************************/
@@ -192,7 +192,8 @@ template <typename Id> const TileTypeInfoPOD &loc_info(const ChipInfoPOD *chip_i
     return chip_info->tile_types[chip_info->tiles[id.tile].type];
 }
 
-inline const BelInfoPOD &bel_info(const ChipInfoPOD *chip_info, BelId bel) {
+inline const BelInfoPOD &bel_info(const ChipInfoPOD *chip_info, BelId bel)
+{
     NPNR_ASSERT(bel != BelId());
     return loc_info(chip_info, bel).bel_data[bel.index];
 }
@@ -850,8 +851,8 @@ struct Arch : BaseCtx
     {
         NPNR_ASSERT(wire != WireId());
         if (wire.tile != -1) {
-            const auto & tile_type = loc_info(chip_info, wire);
-            if(tile_type.wire_data[wire.index].site != -1) {
+            const auto &tile_type = loc_info(chip_info, wire);
+            if (tile_type.wire_data[wire.index].site != -1) {
                 int site_index = tile_type.wire_data[wire.index].site;
                 const SiteInstInfoPOD &site = chip_info->sites[chip_info->tiles[wire.tile].sites[site_index]];
                 std::array<IdString, 2> ids{id(site.name.get()), IdString(tile_type.wire_data[wire.index].name)};
