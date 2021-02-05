@@ -721,7 +721,7 @@ struct UpDownhillPipRange
     UpDownhillPipIterator end() const { return e; }
 };
 
-struct WireBelPinIterator
+struct BelPinIterator
 {
     const DatabasePOD *db;
     const ChipInfoPOD *chip;
@@ -740,7 +740,7 @@ struct WireBelPinIterator
             cursor = 0;
         }
     }
-    bool operator!=(const WireBelPinIterator &other) const { return twi != other.twi || cursor != other.cursor; }
+    bool operator!=(const BelPinIterator &other) const { return twi != other.twi || cursor != other.cursor; }
 
     BelPin operator*() const
     {
@@ -754,11 +754,11 @@ struct WireBelPinIterator
     }
 };
 
-struct WireBelPinRange
+struct BelPinRange
 {
-    WireBelPinIterator b, e;
-    WireBelPinIterator begin() const { return b; }
-    WireBelPinIterator end() const { return e; }
+    BelPinIterator b, e;
+    BelPinIterator begin() const { return b; }
+    BelPinIterator end() const { return e; }
 };
 
 // -----------------------------------------------------------------------
@@ -855,7 +855,37 @@ struct ArchArgs
     std::string device;
 };
 
-struct Arch : BaseCtx
+struct ArchRanges
+{
+    // Bels
+    using AllBelsRange = BelRange;
+    using TileBelsRange = std::vector<BelId>;
+    using BelAttrsRange = std::vector<std::pair<IdString, std::string>>;
+    using BelPinsRange = std::vector<IdString>;
+    // Wires
+    using AllWiresRange = WireRange;
+    using DownhillPipRange = UpDownhillPipRange;
+    using UphillPipRange = UpDownhillPipRange;
+    using WireBelPinRange = BelPinRange;
+    using WireAttrsRange = std::vector<std::pair<IdString, std::string>>;
+    // Pips
+    using AllPipsRange = AllPipRange;
+    using PipAttrsRange = std::vector<std::pair<IdString, std::string>>;
+    // Groups
+    using AllGroupsRange = std::vector<GroupId>;
+    using GroupBelsRange = std::vector<BelId>;
+    using GroupWiresRange = std::vector<WireId>;
+    using GroupPipsRange = std::vector<PipId>;
+    using GroupGroupsRange = std::vector<GroupId>;
+    // Decals
+    using DecalGfxRange = std::vector<GraphicElement>;
+    // Placement validity
+    using CellTypeRange = const std::vector<IdString> &;
+    using BelBucketRange = const std::vector<BelBucketId> &;
+    using BucketBelRange = const std::vector<BelId> &;
+};
+
+struct Arch : BaseArch<ArchRanges>
 {
     ArchArgs args;
     std::string family, device, package, speed, rating, variant;
@@ -894,8 +924,6 @@ struct Arch : BaseCtx
     };
 
     std::vector<TileStatus> tileStatus;
-    std::unordered_map<WireId, NetInfo *> wire_to_net;
-    std::unordered_map<PipId, NetInfo *> pip_to_net;
 
     // fast access to  X and Y IdStrings for building object names
     std::vector<IdString> x_ids, y_ids;
@@ -904,23 +932,22 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
-    std::string getChipName() const;
+    std::string getChipName() const override;
 
-    IdString archId() const { return id("nexus"); }
     ArchArgs archArgs() const { return args; }
     IdString archArgsToId(ArchArgs args) const;
 
-    int getGridDimX() const { return chip_info->width; }
-    int getGridDimY() const { return chip_info->height; }
-    int getTileBelDimZ(int, int) const { return 256; }
-    int getTilePipDimZ(int, int) const { return 1; }
-    char getNameDelimiter() const { return '/'; }
+    int getGridDimX() const override { return chip_info->width; }
+    int getGridDimY() const override { return chip_info->height; }
+    int getTileBelDimZ(int, int) const override { return 256; }
+    int getTilePipDimZ(int, int) const override { return 1; }
+    char getNameDelimiter() const override { return '/'; }
 
     // -------------------------------------------------
 
-    BelId getBelByName(IdStringList name) const;
+    BelId getBelByName(IdStringList name) const override;
 
-    IdStringList getBelName(BelId bel) const
+    IdStringList getBelName(BelId bel) const override
     {
         NPNR_ASSERT(bel != BelId());
         std::array<IdString, 3> ids{x_ids.at(bel.tile % chip_info->width), y_ids.at(bel.tile / chip_info->width),
@@ -928,9 +955,7 @@ struct Arch : BaseCtx
         return IdStringList(ids);
     }
 
-    uint32_t getBelChecksum(BelId bel) const { return (bel.tile << 16) ^ bel.index; }
-
-    void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength)
+    void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength) override
     {
         NPNR_ASSERT(bel != BelId());
         NPNR_ASSERT(tileStatus[bel.tile].boundcells[bel.index] == nullptr);
@@ -943,7 +968,7 @@ struct Arch : BaseCtx
             update_logic_bel(bel, cell);
     }
 
-    void unbindBel(BelId bel)
+    void unbindBel(BelId bel) override
     {
         NPNR_ASSERT(bel != BelId());
         NPNR_ASSERT(tileStatus[bel.tile].boundcells[bel.index] != nullptr);
@@ -957,25 +982,19 @@ struct Arch : BaseCtx
         refreshUiBel(bel);
     }
 
-    bool checkBelAvail(BelId bel) const
+    bool checkBelAvail(BelId bel) const override
     {
         NPNR_ASSERT(bel != BelId());
         return tileStatus[bel.tile].boundcells[bel.index] == nullptr;
     }
 
-    CellInfo *getBoundBelCell(BelId bel) const
+    CellInfo *getBoundBelCell(BelId bel) const override
     {
         NPNR_ASSERT(bel != BelId());
         return tileStatus[bel.tile].boundcells[bel.index];
     }
 
-    CellInfo *getConflictingBelCell(BelId bel) const
-    {
-        NPNR_ASSERT(bel != BelId());
-        return tileStatus[bel.tile].boundcells[bel.index];
-    }
-
-    BelRange getBels() const
+    BelRange getBels() const override
     {
         BelRange range;
         range.b.cursor_tile = 0;
@@ -990,7 +1009,7 @@ struct Arch : BaseCtx
         return range;
     }
 
-    Loc getBelLocation(BelId bel) const
+    Loc getBelLocation(BelId bel) const override
     {
         NPNR_ASSERT(bel != BelId());
         Loc loc;
@@ -1000,7 +1019,7 @@ struct Arch : BaseCtx
         return loc;
     }
 
-    BelId getBelByLocation(Loc loc) const
+    BelId getBelByLocation(Loc loc) const override
     {
         auto &t = tileStatus.at(loc.y * chip_info->width + loc.x);
         if (loc.z >= int(t.bels_by_z.size()))
@@ -1008,26 +1027,26 @@ struct Arch : BaseCtx
         return t.bels_by_z.at(loc.z);
     }
 
-    std::vector<BelId> getBelsByTile(int x, int y) const;
+    std::vector<BelId> getBelsByTile(int x, int y) const override;
 
-    bool getBelGlobalBuf(BelId bel) const { return false; }
+    bool getBelGlobalBuf(BelId bel) const override { return false; }
 
-    IdString getBelType(BelId bel) const
+    IdString getBelType(BelId bel) const override
     {
         NPNR_ASSERT(bel != BelId());
         return IdString(bel_data(bel).type);
     }
 
-    std::vector<std::pair<IdString, std::string>> getBelAttrs(BelId bel) const;
+    std::vector<std::pair<IdString, std::string>> getBelAttrs(BelId bel) const override;
 
-    WireId getBelPinWire(BelId bel, IdString pin) const;
-    PortType getBelPinType(BelId bel, IdString pin) const;
-    std::vector<IdString> getBelPins(BelId bel) const;
+    WireId getBelPinWire(BelId bel, IdString pin) const override;
+    PortType getBelPinType(BelId bel, IdString pin) const override;
+    std::vector<IdString> getBelPins(BelId bel) const override;
 
     // -------------------------------------------------
 
-    WireId getWireByName(IdStringList name) const;
-    IdStringList getWireName(WireId wire) const
+    WireId getWireByName(IdStringList name) const override;
+    IdStringList getWireName(WireId wire) const override
     {
         NPNR_ASSERT(wire != WireId());
         std::array<IdString, 3> ids{x_ids.at(wire.tile % chip_info->width), y_ids.at(wire.tile / chip_info->width),
@@ -1035,64 +1054,9 @@ struct Arch : BaseCtx
         return IdStringList(ids);
     }
 
-    IdString getWireType(WireId wire) const;
-    std::vector<std::pair<IdString, std::string>> getWireAttrs(WireId wire) const;
+    std::vector<std::pair<IdString, std::string>> getWireAttrs(WireId wire) const override;
 
-    uint32_t getWireChecksum(WireId wire) const { return (wire.tile << 16) ^ wire.index; }
-
-    void bindWire(WireId wire, NetInfo *net, PlaceStrength strength)
-    {
-        NPNR_ASSERT(wire != WireId());
-        NPNR_ASSERT(wire_to_net[wire] == nullptr);
-        wire_to_net[wire] = net;
-        net->wires[wire].pip = PipId();
-        net->wires[wire].strength = strength;
-        refreshUiWire(wire);
-    }
-
-    void unbindWire(WireId wire)
-    {
-        NPNR_ASSERT(wire != WireId());
-        NPNR_ASSERT(wire_to_net[wire] != nullptr);
-
-        auto &net_wires = wire_to_net[wire]->wires;
-        auto it = net_wires.find(wire);
-        NPNR_ASSERT(it != net_wires.end());
-
-        auto pip = it->second.pip;
-        if (pip != PipId()) {
-            pip_to_net[pip] = nullptr;
-        }
-
-        net_wires.erase(it);
-        wire_to_net[wire] = nullptr;
-        refreshUiWire(wire);
-    }
-
-    bool checkWireAvail(WireId wire) const
-    {
-        NPNR_ASSERT(wire != WireId());
-        auto w2n = wire_to_net.find(wire);
-        return w2n == wire_to_net.end() || w2n->second == nullptr;
-    }
-
-    NetInfo *getBoundWireNet(WireId wire) const
-    {
-        NPNR_ASSERT(wire != WireId());
-        auto w2n = wire_to_net.find(wire);
-        return w2n == wire_to_net.end() ? nullptr : w2n->second;
-    }
-
-    NetInfo *getConflictingWireNet(WireId wire) const
-    {
-        NPNR_ASSERT(wire != WireId());
-        auto w2n = wire_to_net.find(wire);
-        return w2n == wire_to_net.end() ? nullptr : w2n->second;
-    }
-
-    WireId getConflictingWireWire(WireId wire) const { return wire; }
-
-    DelayInfo getWireDelay(WireId wire) const
+    DelayInfo getWireDelay(WireId wire) const override
     {
         DelayInfo delay;
         delay.min_delay = 0;
@@ -1100,9 +1064,9 @@ struct Arch : BaseCtx
         return delay;
     }
 
-    WireBelPinRange getWireBelPins(WireId wire) const
+    BelPinRange getWireBelPins(WireId wire) const override
     {
-        WireBelPinRange range;
+        BelPinRange range;
         NPNR_ASSERT(wire != WireId());
         NeighWireRange nwr = neigh_wire_range(wire);
         range.b.chip = chip_info;
@@ -1119,7 +1083,7 @@ struct Arch : BaseCtx
         return range;
     }
 
-    WireRange getWires() const
+    WireRange getWires() const override
     {
         WireRange range;
         range.b.chip = chip_info;
@@ -1136,64 +1100,10 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
-    PipId getPipByName(IdStringList name) const;
-    IdStringList getPipName(PipId pip) const;
+    PipId getPipByName(IdStringList name) const override;
+    IdStringList getPipName(PipId pip) const override;
 
-    void bindPip(PipId pip, NetInfo *net, PlaceStrength strength)
-    {
-        NPNR_ASSERT(pip != PipId());
-        NPNR_ASSERT(pip_to_net[pip] == nullptr);
-
-        WireId dst = canonical_wire(pip.tile, pip_data(pip).to_wire);
-        NPNR_ASSERT(wire_to_net[dst] == nullptr || wire_to_net[dst] == net);
-
-        pip_to_net[pip] = net;
-
-        wire_to_net[dst] = net;
-        net->wires[dst].pip = pip;
-        net->wires[dst].strength = strength;
-        refreshUiPip(pip);
-        refreshUiWire(dst);
-    }
-
-    void unbindPip(PipId pip)
-    {
-        NPNR_ASSERT(pip != PipId());
-        NPNR_ASSERT(pip_to_net[pip] != nullptr);
-
-        WireId dst = canonical_wire(pip.tile, pip_data(pip).to_wire);
-        NPNR_ASSERT(wire_to_net[dst] != nullptr);
-        wire_to_net[dst] = nullptr;
-        pip_to_net[pip]->wires.erase(dst);
-
-        pip_to_net[pip] = nullptr;
-        refreshUiPip(pip);
-        refreshUiWire(dst);
-    }
-
-    bool checkPipAvail(PipId pip) const
-    {
-        NPNR_ASSERT(pip != PipId());
-        return pip_to_net.find(pip) == pip_to_net.end() || pip_to_net.at(pip) == nullptr;
-    }
-
-    NetInfo *getBoundPipNet(PipId pip) const
-    {
-        NPNR_ASSERT(pip != PipId());
-        auto p2n = pip_to_net.find(pip);
-        return p2n == pip_to_net.end() ? nullptr : p2n->second;
-    }
-
-    WireId getConflictingPipWire(PipId pip) const { return getPipDstWire(pip); }
-
-    NetInfo *getConflictingPipNet(PipId pip) const
-    {
-        NPNR_ASSERT(pip != PipId());
-        auto p2n = pip_to_net.find(pip);
-        return p2n == pip_to_net.end() ? nullptr : p2n->second;
-    }
-
-    AllPipRange getPips() const
+    AllPipRange getPips() const override
     {
         AllPipRange range;
         range.b.cursor_tile = 0;
@@ -1208,7 +1118,7 @@ struct Arch : BaseCtx
         return range;
     }
 
-    Loc getPipLocation(PipId pip) const
+    Loc getPipLocation(PipId pip) const override
     {
         Loc loc;
         loc.x = pip.tile % chip_info->width;
@@ -1217,16 +1127,14 @@ struct Arch : BaseCtx
         return loc;
     }
 
-    IdString getPipType(PipId pip) const;
-    std::vector<std::pair<IdString, std::string>> getPipAttrs(PipId pip) const;
+    IdString getPipType(PipId pip) const override;
+    std::vector<std::pair<IdString, std::string>> getPipAttrs(PipId pip) const override;
 
-    uint32_t getPipChecksum(PipId pip) const { return pip.tile << 16 | pip.index; }
-
-    WireId getPipSrcWire(PipId pip) const { return canonical_wire(pip.tile, pip_data(pip).from_wire); }
+    WireId getPipSrcWire(PipId pip) const override { return canonical_wire(pip.tile, pip_data(pip).from_wire); }
 
     WireId getPipDstWire(PipId pip) const { return canonical_wire(pip.tile, pip_data(pip).to_wire); }
 
-    DelayInfo getPipDelay(PipId pip) const
+    DelayInfo getPipDelay(PipId pip) const override
     {
         DelayInfo delay;
         auto &cls = speed_grade->pip_classes[pip_data(pip).timing_class];
@@ -1235,7 +1143,7 @@ struct Arch : BaseCtx
         return delay;
     }
 
-    UpDownhillPipRange getPipsDownhill(WireId wire) const
+    UpDownhillPipRange getPipsDownhill(WireId wire) const override
     {
         UpDownhillPipRange range;
         NPNR_ASSERT(wire != WireId());
@@ -1256,7 +1164,7 @@ struct Arch : BaseCtx
         return range;
     }
 
-    UpDownhillPipRange getPipsUphill(WireId wire) const
+    UpDownhillPipRange getPipsUphill(WireId wire) const override
     {
         UpDownhillPipRange range;
         NPNR_ASSERT(wire != WireId());
@@ -1277,44 +1185,24 @@ struct Arch : BaseCtx
         return range;
     }
 
-    UpDownhillPipRange getWireAliases(WireId wire) const
-    {
-        UpDownhillPipRange range;
-        range.b.cursor = 0;
-        range.b.twi.cursor = 0;
-        range.e.cursor = 0;
-        range.e.twi.cursor = 0;
-        return range;
-    }
-
     // -------------------------------------------------
 
-    GroupId getGroupByName(IdStringList name) const { return GroupId(); }
-    IdStringList getGroupName(GroupId group) const { return IdStringList(); }
-    std::vector<GroupId> getGroups() const { return {}; }
-    std::vector<BelId> getGroupBels(GroupId group) const { return {}; }
-    std::vector<WireId> getGroupWires(GroupId group) const { return {}; }
-    std::vector<PipId> getGroupPips(GroupId group) const { return {}; }
-    std::vector<GroupId> getGroupGroups(GroupId group) const { return {}; }
-
-    // -------------------------------------------------
-
-    delay_t estimateDelay(WireId src, WireId dst) const;
-    delay_t predictDelay(const NetInfo *net_info, const PortRef &sink) const;
-    delay_t getDelayEpsilon() const { return 20; }
-    delay_t getRipupDelayPenalty() const { return 120; }
+    delay_t estimateDelay(WireId src, WireId dst) const override;
+    delay_t predictDelay(const NetInfo *net_info, const PortRef &sink) const override;
+    delay_t getDelayEpsilon() const override { return 20; }
+    delay_t getRipupDelayPenalty() const override { return 120; }
     delay_t getWireRipupDelayPenalty(WireId wire) const;
-    float getDelayNS(delay_t v) const { return v * 0.001; }
-    DelayInfo getDelayFromNS(float ns) const
+    float getDelayNS(delay_t v) const override { return v * 0.001; }
+    DelayInfo getDelayFromNS(float ns) const override
     {
         DelayInfo del;
         del.min_delay = delay_t(ns * 1000);
         del.max_delay = delay_t(ns * 1000);
         return del;
     }
-    uint32_t getDelayChecksum(delay_t v) const { return v; }
-    bool getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const;
-    ArcBounds getRouteBoundingBox(WireId src, WireId dst) const;
+    uint32_t getDelayChecksum(delay_t v) const override { return v; }
+    bool getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const override;
+    ArcBounds getRouteBoundingBox(WireId src, WireId dst) const override;
 
     // for better DSP bounding boxes
     void pre_routing();
@@ -1324,71 +1212,30 @@ struct Arch : BaseCtx
 
     // Get the delay through a cell from one port to another, returning false
     // if no path exists. This only considers combinational delays, as required by the Arch API
-    bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const;
+    bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const override;
     // Get the port class, also setting clockInfoCount to the number of TimingClockingInfos associated with a port
-    TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const;
+    TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const override;
     // Get the TimingClockingInfo of a port
-    TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const;
+    TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const override;
 
     // -------------------------------------------------
 
     // Perform placement validity checks, returning false on failure (all
     // implemented in arch_place.cc)
 
-    // Whether this cell type can be placed at this BEL.
-    bool isValidBelForCellType(IdString cell_type, BelId bel) const { return cell_type == getBelType(bel); }
-
-    const std::vector<IdString> &getCellTypes() const { return cell_types; }
-
-    std::vector<BelBucketId> getBelBuckets() const { return buckets; }
-
-    IdString getBelBucketName(BelBucketId bucket) const { return bucket.name; }
-
-    BelBucketId getBelBucketByName(IdString name) const
-    {
-        BelBucketId bucket;
-        bucket.name = name;
-        return bucket;
-    }
-
-    BelBucketId getBelBucketForBel(BelId bel) const
-    {
-        BelBucketId bucket;
-        bucket.name = getBelType(bel);
-        return bucket;
-    }
-
-    BelBucketId getBelBucketForCellType(IdString cell_type) const
-    {
-        BelBucketId bucket;
-        bucket.name = cell_type;
-        return bucket;
-    }
-
-    std::vector<BelId> getBelsInBucket(BelBucketId bucket) const
-    {
-        std::vector<BelId> bels;
-        for (BelId bel : getBels()) {
-            if (getBelType(bel) == bucket.name) {
-                bels.push_back(bel);
-            }
-        }
-        return bels;
-    }
-
     // Whether or not a given cell can be placed at a given Bel
     // This is not intended for Bel type checks, but finer-grained constraints
     // such as conflicting set/reset signals, etc
-    bool isValidBelForCell(CellInfo *cell, BelId bel) const;
+    bool isValidBelForCell(CellInfo *cell, BelId bel) const override;
 
     // Return true whether all Bels at a given location are valid
-    bool isBelLocationValid(BelId bel) const;
+    bool isBelLocationValid(BelId bel) const override;
 
     // -------------------------------------------------
 
-    bool pack();
-    bool place();
-    bool route();
+    bool pack() override;
+    bool place() override;
+    bool route() override;
 
     // arch-specific post-placement optimisations
     void post_place_opt();
@@ -1397,7 +1244,7 @@ struct Arch : BaseCtx
     // Assign architecture-specific arguments to nets and cells, which must be
     // called between packing or further
     // netlist modifications, and validity checks
-    void assignArchInfo();
+    void assignArchInfo() override;
     void assignCellInfo(CellInfo *cell);
 
     // -------------------------------------------------
@@ -1406,12 +1253,12 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
-    std::vector<GraphicElement> getDecalGraphics(DecalId decal) const;
+    std::vector<GraphicElement> getDecalGraphics(DecalId decal) const override;
 
-    DecalXY getBelDecal(BelId bel) const;
-    DecalXY getWireDecal(WireId wire) const;
-    DecalXY getPipDecal(PipId pip) const;
-    DecalXY getGroupDecal(GroupId group) const;
+    DecalXY getBelDecal(BelId bel) const override;
+    DecalXY getWireDecal(WireId wire) const override;
+    DecalXY getPipDecal(PipId pip) const override;
+    DecalXY getGroupDecal(GroupId group) const override;
 
     // -------------------------------------------------
 
@@ -1577,9 +1424,6 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
     void write_fasm(std::ostream &out) const;
-
-    std::vector<IdString> cell_types;
-    std::vector<BelBucketId> buckets;
 };
 
 NEXTPNR_NAMESPACE_END

@@ -53,7 +53,6 @@ void arch_wrap_python(py::module &m)
 
     typedef UpDownhillPipRange UphillPipRange;
     typedef UpDownhillPipRange DownhillPipRange;
-    typedef WireBelPinRange BelPinRange;
 
     typedef const std::vector<BelBucketId> &BelBucketRange;
     typedef const std::vector<BelId> &BelRangeForBelBucket;
@@ -64,7 +63,7 @@ void arch_wrap_python(py::module &m)
     WRAP_RANGE(m, Wire, conv_to_str<WireId>);
     WRAP_RANGE(m, AllPip, conv_to_str<PipId>);
     WRAP_RANGE(m, UpDownhillPip, conv_to_str<PipId>);
-    WRAP_RANGE(m, WireBelPin, wrap_context<BelPin>);
+    WRAP_RANGE(m, BelPin, wrap_context<BelPin>);
 
     WRAP_MAP_UPTR(m, CellMap, "IdCellMap");
     WRAP_MAP_UPTR(m, NetMap, "IdNetMap");

@@ -169,18 +169,8 @@ Arch::Arch(ArchArgs args) : args(args)
     if (!speed_grade)
         log_error("Unknown speed grade '%s'.\n", speed.c_str());
 
-    std::unordered_set<IdString> bel_types;
-    for (BelId bel : getBels()) {
-        bel_types.insert(getBelType(bel));
-    }
-
-    for (IdString bel_type : bel_types) {
-        cell_types.push_back(bel_type);
-
-        BelBucketId bucket;
-        bucket.name = bel_type;
-        buckets.push_back(bucket);
-    }
+    BaseArch::init_cell_types();
+    BaseArch::init_bel_buckets();
 }
 
 // -----------------------------------------------------------------------
@@ -321,8 +311,6 @@ WireId Arch::getWireByName(IdStringList name) const
     }
     return WireId();
 }
-
-IdString Arch::getWireType(WireId wire) const { return id("WIRE"); }
 
 std::vector<std::pair<IdString, std::string>> Arch::getWireAttrs(WireId wire) const
 {
