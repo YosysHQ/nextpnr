@@ -62,7 +62,7 @@ struct WireInfo
 
 struct PinInfo
 {
-    IdStringList name;
+    IdString name;
     WireId wire;
     PortType type;
 };

@@ -129,7 +129,7 @@ void Arch::addBelInput(IdStringList bel, IdString name, IdStringList wire)
 {
     NPNR_ASSERT(bel_info(bel).pins.count(name) == 0);
     PinInfo &pi = bel_info(bel).pins[name];
-    pi.name = IdStringList(name);
+    pi.name = name;
     pi.wire = wire;
     pi.type = PORT_IN;
 
@@ -141,7 +141,7 @@ void Arch::addBelOutput(IdStringList bel, IdString name, IdStringList wire)
 {
     NPNR_ASSERT(bel_info(bel).pins.count(name) == 0);
     PinInfo &pi = bel_info(bel).pins[name];
-    pi.name = IdStringList(name);
+    pi.name = name;
     pi.wire = wire;
     pi.type = PORT_OUT;
 
@@ -153,7 +153,7 @@ void Arch::addBelInout(IdStringList bel, IdString name, IdStringList wire)
 {
     NPNR_ASSERT(bel_info(bel).pins.count(name) == 0);
     PinInfo &pi = bel_info(bel).pins[name];
-    pi.name = IdStringList(name);
+    pi.name = name;
     pi.wire = wire;
     pi.type = PORT_INOUT;
 
