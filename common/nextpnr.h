@@ -1093,6 +1093,7 @@ template <typename R> struct ArchAPI : BaseCtx
     virtual typename R::BelAttrsRange getBelAttrs(BelId bel) const = 0;
     virtual WireId getBelPinWire(BelId bel, IdString pin) const = 0;
     virtual PortType getBelPinType(BelId bel, IdString pin) const = 0;
+    virtual typename R::BelPinsRange getBelPins(BelId bel) const = 0;
     // Wire methods
     virtual typename R::AllWiresRange getWires() const = 0;
     virtual WireId getWireByName(IdStringList name) const = 0;
