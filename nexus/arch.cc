@@ -373,8 +373,8 @@ std::vector<std::pair<IdString, std::string>> Arch::getPipAttrs(PipId pip) const
     ret.emplace_back(id("GRID_X"), stringf("%d", pip.tile % chip_info->width));
     ret.emplace_back(id("GRID_Y"), stringf("%d", pip.tile / chip_info->width));
 
-    ret.emplace_back(id("FROM_TILE_WIRE"), nameOf(loc_data(pip).wires[pip_data(pip).from_wire].name));
-    ret.emplace_back(id("TO_TILE_WIRE"), nameOf(loc_data(pip).wires[pip_data(pip).to_wire].name));
+    ret.emplace_back(id("FROM_TILE_WIRE"), nameOf(IdString(loc_data(pip).wires[pip_data(pip).from_wire].name)));
+    ret.emplace_back(id("TO_TILE_WIRE"), nameOf(IdString(loc_data(pip).wires[pip_data(pip).to_wire].name)));
 
     return ret;
 }
@@ -936,7 +936,7 @@ void Arch::lookup_cell_clock_out(int type_idx, IdString to_port, IdString &clock
             ct.prop_delays.get(), ct.prop_delays.size(), [](const CellPropDelayPOD &pd) { return pd.to_port; },
             to_port.index);
     NPNR_ASSERT(dly_idx != -1);
-    clock = ct.prop_delays[dly_idx].from_port;
+    clock = IdString(ct.prop_delays[dly_idx].from_port);
     delay.min_delay = ct.prop_delays[dly_idx].min_delay;
     delay.max_delay = ct.prop_delays[dly_idx].max_delay;
 }

@@ -110,7 +110,8 @@ struct IdString
 
     static void initialize_add(const BaseCtx *ctx, const char *s, int idx);
 
-    constexpr IdString(int index = 0) : index(index) {}
+    constexpr IdString() : index(0) {}
+    explicit constexpr IdString(int index) : index(index) {}
 
     void set(const BaseCtx *ctx, const std::string &s);
 
@@ -229,9 +230,9 @@ struct IdStringList
     SSOArray<IdString, 4> ids;
 
     IdStringList(){};
-    IdStringList(size_t n) : ids(n, IdString()){};
-    IdStringList(IdString id) : ids(1, id){};
-    template <typename Tlist> IdStringList(const Tlist &list) : ids(list){};
+    explicit IdStringList(size_t n) : ids(n, IdString()){};
+    explicit IdStringList(IdString id) : ids(1, id){};
+    template <typename Tlist> explicit IdStringList(const Tlist &list) : ids(list){};
 
     static IdStringList parse(Context *ctx, const std::string &str);
     void build_str(const Context *ctx, std::string &str) const;

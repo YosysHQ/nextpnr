@@ -911,7 +911,7 @@ void DesignWidget::prepareMenuProperty(const QPoint &pos)
         ElementType type = getElementTypeByName(selectedProperty->propertyId());
         if (type == ElementType::NONE)
             continue;
-        IdString value = ctx->id(selectedProperty->valueText().toStdString());
+        IdStringList value = IdStringList::parse(ctx, selectedProperty->valueText().toStdString());
         auto node = getTreeByElementType(type)->nodeForId(value);
         if (!node)
             continue;
@@ -996,7 +996,9 @@ void DesignWidget::onItemDoubleClicked(QTreeWidgetItem *item, int column)
     ElementType type = getElementTypeByName(selectedProperty->propertyId());
     if (type == ElementType::NONE)
         return;
-    auto it = getTreeByElementType(type)->nodeForId(ctx->id(selectedProperty->valueText().toStdString()));
+
+    IdStringList value = IdStringList::parse(ctx, selectedProperty->valueText().toStdString());
+    auto it = getTreeByElementType(type)->nodeForId(value);
     if (it) {
         int num = getIndexByElementType(type);
         clearAllSelectionModels();
@@ -1049,8 +1051,8 @@ void DesignWidget::onHoverPropertyChanged(QtBrowserItem *item)
         QtProperty *selectedProperty = item->property();
         ElementType type = getElementTypeByName(selectedProperty->propertyId());
         if (type != ElementType::NONE) {
-            IdString value = ctx->id(selectedProperty->valueText().toStdString());
-            if (value != IdString()) {
+            IdStringList value = IdStringList::parse(ctx, selectedProperty->valueText().toStdString());
+            if (value != IdStringList()) {
                 auto node = getTreeByElementType(type)->nodeForId(value);
                 if (node) {
                     std::vector<DecalXY> decals = getDecals((*node)->type(), (*node)->id());

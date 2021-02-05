@@ -564,7 +564,7 @@ IdStringList Arch::getGroupName(GroupId group) const
         suffix = "lc7_sw";
         break;
     default:
-        return IdString();
+        return IdStringList();
     }
 
     std::array<IdString, 3> ids{x_ids.at(group.x), y_ids.at(group.y), id(suffix)};

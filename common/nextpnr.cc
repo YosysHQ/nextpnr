@@ -805,9 +805,9 @@ void BaseCtx::attributesToArchInfo()
                 std::string pip = strs[i * 3 + 1];
                 PlaceStrength strength = (PlaceStrength)std::stoi(strs[i * 3 + 2]);
                 if (pip.empty())
-                    getCtx()->bindWire(getCtx()->getWireByName(id(wire)), ni, strength);
+                    getCtx()->bindWire(getCtx()->getWireByName(IdStringList::parse(getCtx(), wire)), ni, strength);
                 else
-                    getCtx()->bindPip(getCtx()->getPipByName(id(pip)), ni, strength);
+                    getCtx()->bindPip(getCtx()->getPipByName(IdStringList::parse(getCtx(), pip)), ni, strength);
             }
         }
     }

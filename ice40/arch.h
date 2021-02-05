@@ -269,7 +269,7 @@ struct BelPinIterator
     {
         BelPin ret;
         ret.bel.index = ptr->bel_index;
-        ret.pin = ptr->port;
+        ret.pin = IdString(ptr->port);
         return ret;
     }
 };
