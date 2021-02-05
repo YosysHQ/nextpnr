@@ -245,6 +245,7 @@ struct CellTiming
 
 struct ArchRanges
 {
+    using ArchArgsType = ArchArgs;
     // Bels
     using AllBelsRange = const std::vector<BelId> &;
     using TileBelsRange = const std::vector<BelId> &;
@@ -345,8 +346,8 @@ struct Arch : BaseArch<ArchRanges>
 
     std::string getChipName() const override { return device; }
 
-    ArchArgs archArgs() const { return args; }
-    IdString archArgsToId(ArchArgs args) const { return id("none"); }
+    ArchArgs archArgs() const override { return args; }
+    IdString archArgsToId(ArchArgs args) const override { return id("none"); }
 
     int getGridDimX() const override { return gridDimX; }
     int getGridDimY() const override { return gridDimY; }

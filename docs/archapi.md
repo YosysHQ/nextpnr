@@ -74,7 +74,15 @@ Constructor. ArchArgs is a architecture-specific type (usually a struct also def
 
 ### std::string getChipName() const
 
-Return a string representation of the ArchArgs that was used to construct this object.
+Return a user-friendly string representation of the ArchArgs that was used to construct this object.
+
+### ArchArgs archArgs() const
+
+Return the `ArchArgs` used to construct this object.
+
+### IdString archArgsToId(ArchArgs args) const
+
+Return an internal IdString representation of the ArchArgs that was used to construct this object.
 
 ### int getGridDimX() const
 

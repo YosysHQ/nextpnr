@@ -376,6 +376,7 @@ struct ArchArgs
 
 struct ArchRanges
 {
+    using ArchArgsType = ArchArgs;
     // Bels
     using AllBelsRange = BelRange;
     using TileBelsRange = BelRange;
@@ -434,8 +435,8 @@ struct Arch : BaseArch<ArchRanges>
 
     std::string getChipName() const override;
 
-    ArchArgs archArgs() const { return args; }
-    IdString archArgsToId(ArchArgs args) const;
+    ArchArgs archArgs() const override { return args; }
+    IdString archArgsToId(ArchArgs args) const override;
 
     // -------------------------------------------------
 

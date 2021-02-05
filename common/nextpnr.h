@@ -1070,6 +1070,8 @@ template <typename R> struct ArchAPI : BaseCtx
     // Basic config
     virtual IdString archId() const = 0;
     virtual std::string getChipName() const = 0;
+    virtual typename R::ArchArgsType archArgs() const = 0;
+    virtual IdString archArgsToId(typename R::ArchArgsType args) const = 0;
     virtual int getGridDimX() const = 0;
     virtual int getGridDimY() const = 0;
     virtual int getTileBelDimZ(int x, int y) const = 0;
@@ -1181,6 +1183,7 @@ template <typename R> struct BaseArch : ArchAPI<R>
 
     // Basic config
     virtual IdString archId() const override { return this->id(STRINGIFY(ARCHNAME)); }
+    virtual IdString archArgsToId(typename R::ArchArgsType args) const { return IdString(); }
     virtual int getTilePipDimZ(int x, int y) const override { return 1; }
     virtual char getNameDelimiter() const override { return ' '; }
 
