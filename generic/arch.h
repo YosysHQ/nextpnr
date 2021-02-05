@@ -116,7 +116,37 @@ struct CellTiming
     std::unordered_map<IdString, std::vector<TimingClockingInfo>> clockingInfo;
 };
 
-struct Arch : BaseCtx
+struct ArchRanges
+{
+    // Bels
+    using AllBelsRange = const std::vector<BelId> &;
+    using TileBelsRange = const std::vector<BelId> &;
+    using BelAttrsRange = const std::map<IdString, std::string> &;
+    using BelPinsRange = std::vector<IdString>;
+    // Wires
+    using AllWiresRange = const std::vector<WireId> &;
+    using DownhillPipRange = const std::vector<PipId> &;
+    using UphillPipRange = const std::vector<PipId> &;
+    using WireBelPinRange = const std::vector<BelPin> &;
+    using WireAttrsRange = const std::map<IdString, std::string> &;
+    // Pips
+    using AllPipsRange = const std::vector<PipId> &;
+    using PipAttrsRange = const std::map<IdString, std::string> &;
+    // Groups
+    using AllGroupsRange = std::vector<GroupId>;
+    using GroupBelsRange = const std::vector<BelId> &;
+    using GroupWiresRange = const std::vector<WireId> &;
+    using GroupPipsRange = const std::vector<PipId> &;
+    using GroupGroupsRange = const std::vector<GroupId> &;
+    // Decals
+    using DecalGfxRange = const std::vector<GraphicElement> &;
+    // Placement validity
+    using CellTypeRange = std::vector<IdString>;
+    using BelBucketRange = std::vector<BelBucketId>;
+    using BucketBelRange = std::vector<BelId>;
+};
+
+struct Arch : ArchAPI<ArchRanges>
 {
     std::string chipName;
 
@@ -180,102 +210,102 @@ struct Arch : BaseCtx
     ArchArgs args;
     Arch(ArchArgs args);
 
-    std::string getChipName() const { return chipName; }
+    std::string getChipName() const override { return chipName; }
 
-    IdString archId() const { return id("generic"); }
+    IdString archId() const override { return id("generic"); }
     ArchArgs archArgs() const { return args; }
     IdString archArgsToId(ArchArgs args) const { return id("none"); }
 
-    int getGridDimX() const { return gridDimX; }
-    int getGridDimY() const { return gridDimY; }
-    int getTileBelDimZ(int x, int y) const { return tileBelDimZ[x][y]; }
-    int getTilePipDimZ(int x, int y) const { return tilePipDimZ[x][y]; }
-    char getNameDelimiter() const { return '/'; }
+    int getGridDimX() const override { return gridDimX; }
+    int getGridDimY() const override { return gridDimY; }
+    int getTileBelDimZ(int x, int y) const override { return tileBelDimZ[x][y]; }
+    int getTilePipDimZ(int x, int y) const override { return tilePipDimZ[x][y]; }
+    char getNameDelimiter() const override { return '/'; }
 
-    BelId getBelByName(IdStringList name) const;
-    IdStringList getBelName(BelId bel) const;
-    Loc getBelLocation(BelId bel) const;
-    BelId getBelByLocation(Loc loc) const;
-    const std::vector<BelId> &getBelsByTile(int x, int y) const;
-    bool getBelGlobalBuf(BelId bel) const;
-    uint32_t getBelChecksum(BelId bel) const;
-    void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength);
-    void unbindBel(BelId bel);
-    bool checkBelAvail(BelId bel) const;
-    CellInfo *getBoundBelCell(BelId bel) const;
-    CellInfo *getConflictingBelCell(BelId bel) const;
-    const std::vector<BelId> &getBels() const;
-    IdString getBelType(BelId bel) const;
-    const std::map<IdString, std::string> &getBelAttrs(BelId bel) const;
-    WireId getBelPinWire(BelId bel, IdString pin) const;
-    PortType getBelPinType(BelId bel, IdString pin) const;
-    std::vector<IdString> getBelPins(BelId bel) const;
+    BelId getBelByName(IdStringList name) const override;
+    IdStringList getBelName(BelId bel) const override;
+    Loc getBelLocation(BelId bel) const override;
+    BelId getBelByLocation(Loc loc) const override;
+    const std::vector<BelId> &getBelsByTile(int x, int y) const override;
+    bool getBelGlobalBuf(BelId bel) const override;
+    uint32_t getBelChecksum(BelId bel) const override;
+    void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength) override;
+    void unbindBel(BelId bel) override;
+    bool checkBelAvail(BelId bel) const override;
+    CellInfo *getBoundBelCell(BelId bel) const override;
+    CellInfo *getConflictingBelCell(BelId bel) const override;
+    const std::vector<BelId> &getBels() const override;
+    IdString getBelType(BelId bel) const override;
+    const std::map<IdString, std::string> &getBelAttrs(BelId bel) const override;
+    WireId getBelPinWire(BelId bel, IdString pin) const override;
+    PortType getBelPinType(BelId bel, IdString pin) const override;
+    std::vector<IdString> getBelPins(BelId bel) const override;
 
-    WireId getWireByName(IdStringList name) const;
-    IdStringList getWireName(WireId wire) const;
-    IdString getWireType(WireId wire) const;
-    const std::map<IdString, std::string> &getWireAttrs(WireId wire) const;
-    uint32_t getWireChecksum(WireId wire) const;
-    void bindWire(WireId wire, NetInfo *net, PlaceStrength strength);
-    void unbindWire(WireId wire);
-    bool checkWireAvail(WireId wire) const;
-    NetInfo *getBoundWireNet(WireId wire) const;
-    WireId getConflictingWireWire(WireId wire) const { return wire; }
-    NetInfo *getConflictingWireNet(WireId wire) const;
-    DelayInfo getWireDelay(WireId wire) const { return DelayInfo(); }
-    const std::vector<WireId> &getWires() const;
-    const std::vector<BelPin> &getWireBelPins(WireId wire) const;
+    WireId getWireByName(IdStringList name) const override;
+    IdStringList getWireName(WireId wire) const override;
+    IdString getWireType(WireId wire) const override;
+    const std::map<IdString, std::string> &getWireAttrs(WireId wire) const override;
+    uint32_t getWireChecksum(WireId wire) const override;
+    void bindWire(WireId wire, NetInfo *net, PlaceStrength strength) override;
+    void unbindWire(WireId wire) override;
+    bool checkWireAvail(WireId wire) const override;
+    NetInfo *getBoundWireNet(WireId wire) const override;
+    WireId getConflictingWireWire(WireId wire) const override { return wire; }
+    NetInfo *getConflictingWireNet(WireId wire) const override;
+    DelayInfo getWireDelay(WireId wire) const override { return DelayInfo(); }
+    const std::vector<WireId> &getWires() const override;
+    const std::vector<BelPin> &getWireBelPins(WireId wire) const override;
 
-    PipId getPipByName(IdStringList name) const;
-    IdStringList getPipName(PipId pip) const;
-    IdString getPipType(PipId pip) const;
-    const std::map<IdString, std::string> &getPipAttrs(PipId pip) const;
-    uint32_t getPipChecksum(PipId pip) const;
-    void bindPip(PipId pip, NetInfo *net, PlaceStrength strength);
-    void unbindPip(PipId pip);
-    bool checkPipAvail(PipId pip) const;
-    NetInfo *getBoundPipNet(PipId pip) const;
-    WireId getConflictingPipWire(PipId pip) const;
-    NetInfo *getConflictingPipNet(PipId pip) const;
-    const std::vector<PipId> &getPips() const;
-    Loc getPipLocation(PipId pip) const;
-    WireId getPipSrcWire(PipId pip) const;
-    WireId getPipDstWire(PipId pip) const;
-    DelayInfo getPipDelay(PipId pip) const;
-    const std::vector<PipId> &getPipsDownhill(WireId wire) const;
-    const std::vector<PipId> &getPipsUphill(WireId wire) const;
+    PipId getPipByName(IdStringList name) const override;
+    IdStringList getPipName(PipId pip) const override;
+    IdString getPipType(PipId pip) const override;
+    const std::map<IdString, std::string> &getPipAttrs(PipId pip) const override;
+    uint32_t getPipChecksum(PipId pip) const override;
+    void bindPip(PipId pip, NetInfo *net, PlaceStrength strength) override;
+    void unbindPip(PipId pip) override;
+    bool checkPipAvail(PipId pip) const override;
+    NetInfo *getBoundPipNet(PipId pip) const override;
+    WireId getConflictingPipWire(PipId pip) const override;
+    NetInfo *getConflictingPipNet(PipId pip) const override;
+    const std::vector<PipId> &getPips() const override;
+    Loc getPipLocation(PipId pip) const override;
+    WireId getPipSrcWire(PipId pip) const override;
+    WireId getPipDstWire(PipId pip) const override;
+    DelayInfo getPipDelay(PipId pip) const override;
+    const std::vector<PipId> &getPipsDownhill(WireId wire) const override;
+    const std::vector<PipId> &getPipsUphill(WireId wire) const override;
 
-    GroupId getGroupByName(IdStringList name) const;
-    IdStringList getGroupName(GroupId group) const;
-    std::vector<GroupId> getGroups() const;
-    const std::vector<BelId> &getGroupBels(GroupId group) const;
-    const std::vector<WireId> &getGroupWires(GroupId group) const;
-    const std::vector<PipId> &getGroupPips(GroupId group) const;
-    const std::vector<GroupId> &getGroupGroups(GroupId group) const;
+    GroupId getGroupByName(IdStringList name) const override;
+    IdStringList getGroupName(GroupId group) const override;
+    std::vector<GroupId> getGroups() const override;
+    const std::vector<BelId> &getGroupBels(GroupId group) const override;
+    const std::vector<WireId> &getGroupWires(GroupId group) const override;
+    const std::vector<PipId> &getGroupPips(GroupId group) const override;
+    const std::vector<GroupId> &getGroupGroups(GroupId group) const override;
 
-    delay_t estimateDelay(WireId src, WireId dst) const;
-    delay_t predictDelay(const NetInfo *net_info, const PortRef &sink) const;
-    delay_t getDelayEpsilon() const { return 0.001; }
-    delay_t getRipupDelayPenalty() const { return 0.015; }
-    float getDelayNS(delay_t v) const { return v; }
+    delay_t estimateDelay(WireId src, WireId dst) const override;
+    delay_t predictDelay(const NetInfo *net_info, const PortRef &sink) const override;
+    delay_t getDelayEpsilon() const override { return 0.001; }
+    delay_t getRipupDelayPenalty() const override { return 0.015; }
+    float getDelayNS(delay_t v) const override { return v; }
 
-    DelayInfo getDelayFromNS(float ns) const
+    DelayInfo getDelayFromNS(float ns) const override
     {
         DelayInfo del;
         del.delay = ns;
         return del;
     }
 
-    uint32_t getDelayChecksum(delay_t v) const { return 0; }
-    bool getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const;
+    uint32_t getDelayChecksum(delay_t v) const override { return 0; }
+    bool getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const override;
 
-    ArcBounds getRouteBoundingBox(WireId src, WireId dst) const;
+    ArcBounds getRouteBoundingBox(WireId src, WireId dst) const override;
 
-    bool pack();
-    bool place();
-    bool route();
+    bool pack() override;
+    bool place() override;
+    bool route() override;
 
-    std::vector<IdString> getCellTypes() const
+    std::vector<IdString> getCellTypes() const override
     {
         std::unordered_set<IdString> cell_types;
         for (auto bel : bels) {
@@ -285,17 +315,17 @@ struct Arch : BaseCtx
         return std::vector<IdString>{cell_types.begin(), cell_types.end()};
     }
 
-    std::vector<BelBucketId> getBelBuckets() const { return getCellTypes(); }
+    std::vector<BelBucketId> getBelBuckets() const override { return getCellTypes(); }
 
-    IdString getBelBucketName(BelBucketId bucket) const { return bucket; }
+    IdString getBelBucketName(BelBucketId bucket) const override { return bucket; }
 
-    BelBucketId getBelBucketByName(IdString bucket) const { return bucket; }
+    BelBucketId getBelBucketByName(IdString bucket) const override { return bucket; }
 
-    BelBucketId getBelBucketForBel(BelId bel) const { return getBelType(bel); }
+    BelBucketId getBelBucketForBel(BelId bel) const override { return getBelType(bel); }
 
-    BelBucketId getBelBucketForCellType(IdString cell_type) const { return cell_type; }
+    BelBucketId getBelBucketForCellType(IdString cell_type) const override { return cell_type; }
 
-    std::vector<BelId> getBelsInBucket(BelBucketId bucket) const
+    std::vector<BelId> getBelsInBucket(BelBucketId bucket) const override
     {
         std::vector<BelId> bels;
         for (BelId bel : getBels()) {
@@ -306,21 +336,21 @@ struct Arch : BaseCtx
         return bels;
     }
 
-    const std::vector<GraphicElement> &getDecalGraphics(DecalId decal) const;
-    DecalXY getBelDecal(BelId bel) const;
-    DecalXY getWireDecal(WireId wire) const;
-    DecalXY getPipDecal(PipId pip) const;
-    DecalXY getGroupDecal(GroupId group) const;
+    const std::vector<GraphicElement> &getDecalGraphics(DecalId decal) const override;
+    DecalXY getBelDecal(BelId bel) const override;
+    DecalXY getWireDecal(WireId wire) const override;
+    DecalXY getPipDecal(PipId pip) const override;
+    DecalXY getGroupDecal(GroupId group) const override;
 
-    bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const;
+    bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const override;
     // Get the port class, also setting clockInfoCount to the number of TimingClockingInfos associated with a port
-    TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const;
+    TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const override;
     // Get the TimingClockingInfo of a port
-    TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const;
+    TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const override;
 
-    bool isValidBelForCellType(IdString cell_type, BelId bel) const { return cell_type == getBelType(bel); }
-    bool isValidBelForCell(CellInfo *cell, BelId bel) const;
-    bool isBelLocationValid(BelId bel) const;
+    bool isValidBelForCellType(IdString cell_type, BelId bel) const override { return cell_type == getBelType(bel); }
+    bool isValidBelForCell(CellInfo *cell, BelId bel) const override;
+    bool isBelLocationValid(BelId bel) const override;
 
     static const std::string defaultPlacer;
     static const std::vector<std::string> availablePlacers;
@@ -329,7 +359,7 @@ struct Arch : BaseCtx
 
     // ---------------------------------------------------------------
     // Internal usage
-    void assignArchInfo();
+    void assignArchInfo() override;
     bool cellsCompatible(const CellInfo **cells, int count) const;
 };
 
