@@ -4,6 +4,7 @@
 /nextpnr-ice40*
 /nextpnr-ecp5*
 /nextpnr-nexus*
+/nextpnr-fpga_interchange*
 cmake-build-*/
 Makefile
 cmake_install.cmake
