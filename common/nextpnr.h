@@ -1559,4 +1559,6 @@ struct Context : Arch, DeterministicRNG
 
 NEXTPNR_NAMESPACE_END
 
+#define NEXTPNR_H_COMPLETE
+
 #endif

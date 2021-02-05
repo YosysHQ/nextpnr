@@ -28,6 +28,8 @@
 
 #include <iostream>
 
+#include "constraints.h"
+
 NEXTPNR_NAMESPACE_BEGIN
 
 /**** Everything in this section must be kept in sync with chipdb.py ****/
@@ -751,12 +753,14 @@ struct Arch : ArchAPI<ArchRanges>
     std::unordered_map<WireId, std::pair<int, int>> driving_pip_loc;
     std::unordered_map<WireId, NetInfo *> reserved_wires;
 
+    static constexpr size_t kMaxState = 8;
     struct TileStatus
     {
+        std::vector<ExclusiveStateGroup<kMaxState>> tags;
         std::vector<CellInfo *> boundcells;
     };
 
-    std::vector<TileStatus> tileStatus;
+    std::unordered_map<int32_t, TileStatus> tileStatus;
 
     ArchArgs args;
     Arch(ArchArgs args);
@@ -818,12 +822,24 @@ struct Arch : ArchAPI<ArchRanges>
     void map_cell_pins(CellInfo *cell, int32_t mapping) const;
     void map_port_pins(BelId bel, CellInfo *cell) const;
 
+    TileStatus &get_tile_status(int32_t tile)
+    {
+        auto result = tileStatus.emplace(tile, TileStatus());
+        if (result.second) {
+            auto &tile_type = chip_info->tile_types[chip_info->tiles[tile].type];
+            result.first->second.boundcells.resize(tile_type.bel_data.size());
+            result.first->second.tags.resize(default_tags.size());
+        }
+
+        return result.first->second;
+    }
+
     void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength) override
     {
         NPNR_ASSERT(bel != BelId());
-        NPNR_ASSERT(tileStatus[bel.tile].boundcells[bel.index] == nullptr);
 
-        tileStatus[bel.tile].boundcells[bel.index] = cell;
+        TileStatus &tile_status = get_tile_status(bel.tile);
+        NPNR_ASSERT(tile_status.boundcells[bel.index] == nullptr);
 
         const auto &bel_data = bel_info(chip_info, bel);
         NPNR_ASSERT(bel_data.category == BEL_CATEGORY_LOGIC);
@@ -835,36 +851,69 @@ struct Arch : ArchAPI<ArchRanges>
             if (cell->cell_mapping != mapping) {
                 map_cell_pins(cell, mapping);
             }
+            constraints.bindBel(tile_status.tags.data(), get_cell_constraints(bel, cell->type));
         } else {
             map_port_pins(bel, cell);
+            // FIXME: Probably need to actually constraint io port cell/bel,
+            // but the current BBA emission doesn't support that.  This only
+            // really matters if the placer can choose IO port locations.
         }
+
+        tile_status.boundcells[bel.index] = cell;
+
         cell->bel = bel;
         cell->belStrength = strength;
+
         refreshUiBel(bel);
     }
 
     void unbindBel(BelId bel) override
     {
         NPNR_ASSERT(bel != BelId());
-        NPNR_ASSERT(tileStatus[bel.tile].boundcells[bel.index] != nullptr);
-        tileStatus[bel.tile].boundcells[bel.index]->bel = BelId();
-        tileStatus[bel.tile].boundcells[bel.index]->belStrength = STRENGTH_NONE;
-        tileStatus[bel.tile].boundcells[bel.index] = nullptr;
+
+        TileStatus &tile_status = get_tile_status(bel.tile);
+        NPNR_ASSERT(tile_status.boundcells[bel.index] != nullptr);
+
+        CellInfo *cell = tile_status.boundcells[bel.index];
+        tile_status.boundcells[bel.index] = nullptr;
+
+        cell->bel = BelId();
+        cell->belStrength = STRENGTH_NONE;
+
+        // FIXME: Probably need to actually constraint io port cell/bel,
+        // but the current BBA emission doesn't support that.  This only
+        // really matters if the placer can choose IO port locations.
+        if (io_port_types.count(cell->type) == 0) {
+            constraints.unbindBel(tile_status.tags.data(), get_cell_constraints(bel, cell->type));
+        }
+
         refreshUiBel(bel);
     }
 
-    bool checkBelAvail(BelId bel) const override { return tileStatus[bel.tile].boundcells[bel.index] == nullptr; }
+    bool checkBelAvail(BelId bel) const override
+    {
+        // FIXME: This could consult the constraint system to see if this BEL
+        // is blocked (e.g. site type is wrong).
+        return getBoundBelCell(bel) == nullptr;
+    }
 
     CellInfo *getBoundBelCell(BelId bel) const override
     {
         NPNR_ASSERT(bel != BelId());
-        return tileStatus[bel.tile].boundcells[bel.index];
+        auto iter = tileStatus.find(bel.tile);
+        if (iter == tileStatus.end()) {
+            return nullptr;
+        } else {
+            return iter->second.boundcells[bel.index];
+        }
     }
 
     CellInfo *getConflictingBelCell(BelId bel) const override
     {
         NPNR_ASSERT(bel != BelId());
-        return tileStatus[bel.tile].boundcells[bel.index];
+        // FIXME: This could consult the constraint system to see why this BEL
+        // is blocked.
+        return getBoundBelCell(bel);
     }
 
     BelRange getBels() const override
@@ -1251,6 +1300,9 @@ struct Arch : ArchAPI<ArchRanges>
 
     // -------------------------------------------------
 
+    void place_iobufs(WireId pad_wire, NetInfo *net, const std::unordered_set<CellInfo *> &tightly_attached_bels,
+                      std::unordered_set<CellInfo *> *placed_cells);
+    void pack_ports();
     bool pack() override;
     bool place() override;
     bool route() override;
@@ -1352,16 +1404,40 @@ struct Arch : ArchAPI<ArchRanges>
     {
         if (io_port_types.count(cell_type)) {
             return pads.count(bel) > 0;
-        } else {
-            return bel_info(chip_info, bel).pin_map[get_cell_type_index(cell_type)] > 0;
         }
+
+        auto cell_type_index = get_cell_type_index(cell_type);
+        const auto &bel_data = bel_info(chip_info, bel);
+        if (bel_data.category != BEL_CATEGORY_LOGIC) {
+            return false;
+        }
+        return bel_data.pin_map[cell_type_index] != -1;
     }
 
     // Return true whether all Bels at a given location are valid
     bool isBelLocationValid(BelId bel) const override
     {
-        // FIXME: Implement this
-        return true;
+        auto iter = tileStatus.find(bel.tile);
+        if (iter == tileStatus.end()) {
+            return true;
+        }
+        const TileStatus &tile_status = iter->second;
+        const CellInfo *cell = tile_status.boundcells[bel.index];
+        if (cell == nullptr) {
+            return true;
+        } else {
+            if (io_port_types.count(cell->type)) {
+                // FIXME: Probably need to actually constraint io port cell/bel,
+                // but the current BBA emission doesn't support that.  This only
+                // really matters if the placer can choose IO port locations.
+                return true;
+            }
+
+            return constraints.isValidBelForCellType(getCtx(), get_constraint_prototype(bel), tile_status.tags.data(),
+                                                     get_cell_constraints(bel, cell->type),
+                                                     id(chip_info->tiles[bel.tile].name.get()), cell->name, bel,
+                                                     explain_constraints);
+        }
     }
 
     IdString get_bel_tiletype(BelId bel) const { return IdString(loc_info(chip_info, bel).name); }
@@ -1406,6 +1482,93 @@ struct Arch : ArchAPI<ArchRanges>
     //
     // Returns false if any element of the net is not placed.
     bool is_net_within_site(const NetInfo &net) const;
+
+    using ArchConstraints = Constraints<kMaxState>;
+    ArchConstraints constraints;
+    std::vector<ArchConstraints::TagState> default_tags;
+    bool explain_constraints;
+
+    struct StateRange
+    {
+        const int32_t *b;
+        const int32_t *e;
+
+        const int32_t *begin() const { return b; }
+        const int32_t *end() const { return e; }
+    };
+
+    struct Constraint : ArchConstraints::Constraint<StateRange>
+    {
+        const CellConstraintPOD *constraint;
+        Constraint(const CellConstraintPOD *constraint) : constraint(constraint) {}
+
+        size_t tag() const override { return constraint->tag; }
+
+        ArchConstraints::ConstraintType constraint_type() const override
+        {
+            return Constraints<kMaxState>::ConstraintType(constraint->constraint_type);
+        }
+
+        ArchConstraints::ConstraintStateType state() const override
+        {
+            NPNR_ASSERT(constraint_type() == Constraints<kMaxState>::CONSTRAINT_TAG_IMPLIES);
+            NPNR_ASSERT(constraint->states.size() == 1);
+            return constraint->states[0];
+        }
+
+        StateRange states() const override
+        {
+            StateRange range;
+            range.b = constraint->states.get();
+            range.e = range.b + constraint->states.size();
+
+            return range;
+        }
+    };
+
+    struct ConstraintIterator
+    {
+        const CellConstraintPOD *constraint;
+        ConstraintIterator() {}
+
+        ConstraintIterator operator++()
+        {
+            ++constraint;
+            return *this;
+        }
+
+        bool operator!=(const ConstraintIterator &other) const { return constraint != other.constraint; }
+
+        bool operator==(const ConstraintIterator &other) const { return constraint == other.constraint; }
+
+        Constraint operator*() const { return Constraint(constraint); }
+    };
+
+    struct ConstraintRange
+    {
+        ConstraintIterator b, e;
+
+        ConstraintIterator begin() const { return b; }
+        ConstraintIterator end() const { return e; }
+    };
+
+    uint32_t get_constraint_prototype(BelId bel) const { return chip_info->tiles[bel.tile].type; }
+
+    ConstraintRange get_cell_constraints(BelId bel, IdString cell_type) const
+    {
+        const auto &bel_data = bel_info(chip_info, bel);
+        NPNR_ASSERT(bel_data.category == BEL_CATEGORY_LOGIC);
+
+        int32_t mapping = bel_data.pin_map[get_cell_type_index(cell_type)];
+        NPNR_ASSERT(mapping >= 0);
+
+        auto &cell_bel_map = chip_info->cell_map->cell_bel_map[mapping];
+        ConstraintRange range;
+        range.b.constraint = cell_bel_map.constraints.get();
+        range.e.constraint = range.b.constraint + cell_bel_map.constraints.size();
+
+        return range;
+    }
 };
 
 NEXTPNR_NAMESPACE_END
