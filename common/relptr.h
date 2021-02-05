@@ -32,6 +32,7 @@ NPNR_PACKED_STRUCT(template <typename T> struct RelSlice {
     const T *end() const { return get() + length; }
 
     const size_t size() const { return length; }
+    const ptrdiff_t ssize() const { return length; }
 
     const T &operator*() const { return *(get()); }
 

@@ -71,14 +71,14 @@ Arch::Arch(ArchArgs args) : args(args)
     }
 
     tileStatus.resize(chip_info->tiles.size());
-    for (int i = 0; i < chip_info->tiles.size(); i++) {
+    for (int i = 0; i < chip_info->tiles.ssize(); i++) {
         tileStatus[i].boundcells.resize(chip_info->tile_types[chip_info->tiles[i].type].bel_data.size());
     }
 
     // Sanity check cell name ids.
     const CellMapPOD &cell_map = *chip_info->cell_map;
     int32_t first_cell_id = cell_map.cell_names[0];
-    for (int32_t i = 0; i < cell_map.cell_names.size(); ++i) {
+    for (int32_t i = 0; i < cell_map.cell_names.ssize(); ++i) {
         log_assert(cell_map.cell_names[i] == i + first_cell_id);
     }
 }
@@ -96,13 +96,13 @@ IdString Arch::archArgsToId(ArchArgs args) const { return IdString(); }
 void Arch::setup_byname() const
 {
     if (tile_by_name.empty()) {
-        for (int i = 0; i < chip_info->tiles.size(); i++) {
+        for (int i = 0; i < chip_info->tiles.ssize(); i++) {
             tile_by_name[id(chip_info->tiles[i].name.get())] = i;
         }
     }
 
     if (site_by_name.empty()) {
-        for (int i = 0; i < chip_info->tiles.size(); i++) {
+        for (int i = 0; i < chip_info->tiles.ssize(); i++) {
             auto &tile = chip_info->tiles[i];
             auto &tile_type = chip_info->tile_types[tile.type];
             for (int j = 0; j < tile_type.number_sites; j++) {
@@ -126,7 +126,7 @@ BelId Arch::getBelByName(IdStringList name) const
     std::tie(tile, site) = site_by_name.at(name.ids[0]);
     auto &tile_info = chip_info->tile_types[chip_info->tiles[tile].type];
     IdString belname = name.ids[1];
-    for (int i = 0; i < tile_info.bel_data.size(); i++) {
+    for (int i = 0; i < tile_info.bel_data.ssize(); i++) {
         if (tile_info.bel_data[i].site == site && tile_info.bel_data[i].name == belname.index) {
             ret.tile = tile;
             ret.index = i;
@@ -202,7 +202,7 @@ WireId Arch::getWireByName(IdStringList name) const
         std::tie(tile, site) = iter->second;
         auto &tile_info = chip_info->tile_types[chip_info->tiles[tile].type];
         IdString wirename = name.ids[1];
-        for (int i = 0; i < tile_info.wire_data.size(); i++) {
+        for (int i = 0; i < tile_info.wire_data.ssize(); i++) {
             if (tile_info.wire_data[i].site == site && tile_info.wire_data[i].name == wirename.index) {
                 ret.tile = tile;
                 ret.index = i;
@@ -213,7 +213,7 @@ WireId Arch::getWireByName(IdStringList name) const
         int tile = tile_by_name.at(name.ids[0]);
         auto &tile_info = chip_info->tile_types[chip_info->tiles[tile].type];
         IdString wirename = name.ids[1];
-        for (int i = 0; i < tile_info.wire_data.size(); i++) {
+        for (int i = 0; i < tile_info.wire_data.ssize(); i++) {
             if (tile_info.wire_data[i].site == -1 && tile_info.wire_data[i].name == wirename.index) {
                 int32_t node = chip_info->tiles[tile].tile_wire_to_node[i];
                 if (node == -1) {
@@ -266,7 +266,7 @@ PipId Arch::getPipByName(IdStringList name) const
         int pin_index = get_bel_pin_index(bel, pinname);
         NPNR_ASSERT(pin_index >= 0);
 
-        for (int i = 0; i < tile_info.pip_data.size(); i++) {
+        for (int i = 0; i < tile_info.pip_data.ssize(); i++) {
             if (tile_info.pip_data[i].site == site && tile_info.pip_data[i].bel == bel.index &&
                 tile_info.pip_data[i].extra_data == pin_index) {
 
@@ -294,7 +294,7 @@ PipId Arch::getPipByName(IdStringList name) const
                 BelId bel = getBelByName(name);
                 NPNR_ASSERT(bel != BelId());
 
-                for (int i = 0; i < tile_info.pip_data.size(); i++) {
+                for (int i = 0; i < tile_info.pip_data.ssize(); i++) {
                     if (tile_info.pip_data[i].site == site && tile_info.pip_data[i].bel == bel.index) {
 
                         PipId ret;
@@ -310,7 +310,7 @@ PipId Arch::getPipByName(IdStringList name) const
                 int32_t src_index = -1;
                 int32_t dst_index = -1;
 
-                for (int i = 0; i < tile_info.wire_data.size(); i++) {
+                for (int i = 0; i < tile_info.wire_data.ssize(); i++) {
                     if (tile_info.wire_data[i].site == site && tile_info.wire_data[i].name == src_site_wire.index) {
                         src_index = i;
                         if (dst_index != -1) {
@@ -328,7 +328,7 @@ PipId Arch::getPipByName(IdStringList name) const
                 NPNR_ASSERT(src_index != -1);
                 NPNR_ASSERT(dst_index != -1);
 
-                for (int i = 0; i < tile_info.pip_data.size(); i++) {
+                for (int i = 0; i < tile_info.pip_data.ssize(); i++) {
                     if (tile_info.pip_data[i].site == site && tile_info.pip_data[i].src_index == src_index &&
                         tile_info.pip_data[i].dst_index == dst_index) {
 
@@ -350,7 +350,7 @@ PipId Arch::getPipByName(IdStringList name) const
 
             int32_t src_index = -1;
             int32_t dst_index = -1;
-            for (int i = 0; i < tile_info.wire_data.size(); i++) {
+            for (int i = 0; i < tile_info.wire_data.ssize(); i++) {
                 if (tile_info.wire_data[i].site == -1 && tile_info.wire_data[i].name == src_wire_name.index) {
                     src_index = i;
                     if (dst_index != -1) {
@@ -368,7 +368,7 @@ PipId Arch::getPipByName(IdStringList name) const
             NPNR_ASSERT(src_index != -1);
             NPNR_ASSERT(dst_index != -1);
 
-            for (int i = 0; i < tile_info.pip_data.size(); i++) {
+            for (int i = 0; i < tile_info.pip_data.ssize(); i++) {
                 if (tile_info.pip_data[i].src_index == src_index && tile_info.pip_data[i].dst_index == dst_index) {
 
                     PipId ret;
@@ -442,7 +442,7 @@ BelId Arch::getBelByLocation(Loc loc) const
     bi.tile = get_tile_index(loc);
     auto &li = loc_info(chip_info, bi);
 
-    if (loc.z >= li.bel_data.size()) {
+    if (loc.z >= li.bel_data.ssize()) {
         return BelId();
     } else {
         bi.index = loc.z;

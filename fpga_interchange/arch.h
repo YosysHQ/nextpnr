@@ -177,6 +177,7 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
 
     RelPtr<CellMapPOD> cell_map;
 
+    // Constid string data.
     RelPtr<RelSlice<RelPtr<char>>> constids;
 });
 
@@ -207,7 +208,7 @@ struct BelIterator
     BelIterator operator++()
     {
         cursor_index++;
-        while (cursor_tile < chip->tiles.size() && cursor_index >= tile_info(chip, cursor_tile).bel_data.size()) {
+        while (cursor_tile < chip->tiles.ssize() && cursor_index >= tile_info(chip, cursor_tile).bel_data.ssize()) {
             cursor_index = 0;
             cursor_tile++;
         }
@@ -349,7 +350,7 @@ inline WireId canonical_wire(const ChipInfoPOD *chip_info, int32_t tile, int32_t
 {
     WireId id;
 
-    if (wire >= chip_info->tiles[tile].tile_wire_to_node.size()) {
+    if (wire >= chip_info->tiles[tile].tile_wire_to_node.ssize()) {
         // Cannot be a nodal wire
         id.tile = tile;
         id.index = wire;
@@ -382,18 +383,18 @@ struct WireIterator
         // Iterate over nodes first, then tile wires that aren't nodes
         do {
             cursor_index++;
-            if (cursor_tile == -1 && cursor_index >= chip->nodes.size()) {
+            if (cursor_tile == -1 && cursor_index >= chip->nodes.ssize()) {
                 cursor_tile = 0;
                 cursor_index = 0;
             }
-            while (cursor_tile != -1 && cursor_tile < chip->tiles.size() &&
-                   cursor_index >= chip->tile_types[chip->tiles[cursor_tile].type].wire_data.size()) {
+            while (cursor_tile != -1 && cursor_tile < chip->tiles.ssize() &&
+                   cursor_index >= chip->tile_types[chip->tiles[cursor_tile].type].wire_data.ssize()) {
                 cursor_index = 0;
                 cursor_tile++;
             }
 
-        } while ((cursor_tile != -1 && cursor_tile < chip->tiles.size() &&
-                  cursor_index < chip->tiles[cursor_tile].tile_wire_to_node.size() &&
+        } while ((cursor_tile != -1 && cursor_tile < chip->tiles.ssize() &&
+                  cursor_index < chip->tiles[cursor_tile].tile_wire_to_node.ssize() &&
                   chip->tiles[cursor_tile].tile_wire_to_node[cursor_index] != -1));
 
         return *this;
@@ -441,8 +442,8 @@ struct AllPipIterator
     AllPipIterator operator++()
     {
         cursor_index++;
-        while (cursor_tile < chip->tiles.size() &&
-               cursor_index >= chip->tile_types[chip->tiles[cursor_tile].type].pip_data.size()) {
+        while (cursor_tile < chip->tiles.ssize() &&
+               cursor_index >= chip->tile_types[chip->tiles[cursor_tile].type].pip_data.ssize()) {
             cursor_index = 0;
             cursor_tile++;
         }
@@ -497,7 +498,7 @@ struct UphillPipIterator
                 break;
             WireId w = *twi;
             auto &tile = chip->tile_types[chip->tiles[w.tile].type];
-            if (cursor < tile.wire_data[w.index].pips_uphill.size())
+            if (cursor < tile.wire_data[w.index].pips_uphill.ssize())
                 break;
             ++twi;
             cursor = 0;
@@ -536,7 +537,7 @@ struct DownhillPipIterator
                 break;
             WireId w = *twi;
             auto &tile = chip->tile_types[chip->tiles[w.tile].type];
-            if (cursor < tile.wire_data[w.index].pips_downhill.size())
+            if (cursor < tile.wire_data[w.index].pips_downhill.ssize())
                 break;
             ++twi;
             cursor = 0;
@@ -574,7 +575,7 @@ struct BelPinIterator
         while (twi != twi_end) {
             WireId w = *twi;
             auto &tile = tile_info(chip, w.tile);
-            if (cursor < tile.wire_data[w.index].bel_pins.size())
+            if (cursor < tile.wire_data[w.index].bel_pins.ssize())
                 break;
 
             ++twi;
@@ -1209,7 +1210,7 @@ struct Arch : BaseCtx
     {
         const CellMapPOD &cell_map = *chip_info->cell_map;
         int cell_offset = cell_type.index - cell_map.cell_names[0];
-        NPNR_ASSERT(cell_offset >= 0 && cell_offset < cell_map.cell_names.size());
+        NPNR_ASSERT(cell_offset >= 0 && cell_offset < cell_map.cell_names.ssize());
         NPNR_ASSERT(cell_map.cell_names[cell_offset] == cell_type.index);
 
         return cell_offset;
