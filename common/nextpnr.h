@@ -1070,15 +1070,15 @@ template <typename R> struct ArchAPI : BaseCtx
     // Basic config
     virtual IdString archId() const = 0;
     virtual std::string getChipName() const = 0;
-    virtual typename R::ArchArgsType archArgs() const = 0;
-    virtual IdString archArgsToId(typename R::ArchArgsType args) const = 0;
+    virtual typename R::ArchArgsT archArgs() const = 0;
+    virtual IdString archArgsToId(typename R::ArchArgsT args) const = 0;
     virtual int getGridDimX() const = 0;
     virtual int getGridDimY() const = 0;
     virtual int getTileBelDimZ(int x, int y) const = 0;
     virtual int getTilePipDimZ(int x, int y) const = 0;
     virtual char getNameDelimiter() const = 0;
     // Bel methods
-    virtual typename R::AllBelsRange getBels() const = 0;
+    virtual typename R::AllBelsRangeT getBels() const = 0;
     virtual IdStringList getBelName(BelId bel) const = 0;
     virtual BelId getBelByName(IdStringList name) const = 0;
     virtual uint32_t getBelChecksum(BelId bel) const = 0;
@@ -1086,25 +1086,25 @@ template <typename R> struct ArchAPI : BaseCtx
     virtual void unbindBel(BelId bel) = 0;
     virtual Loc getBelLocation(BelId bel) const = 0;
     virtual BelId getBelByLocation(Loc loc) const = 0;
-    virtual typename R::TileBelsRange getBelsByTile(int x, int y) const = 0;
+    virtual typename R::TileBelsRangeT getBelsByTile(int x, int y) const = 0;
     virtual bool getBelGlobalBuf(BelId bel) const = 0;
     virtual bool checkBelAvail(BelId bel) const = 0;
     virtual CellInfo *getBoundBelCell(BelId bel) const = 0;
     virtual CellInfo *getConflictingBelCell(BelId bel) const = 0;
     virtual IdString getBelType(BelId bel) const = 0;
-    virtual typename R::BelAttrsRange getBelAttrs(BelId bel) const = 0;
+    virtual typename R::BelAttrsRangeT getBelAttrs(BelId bel) const = 0;
     virtual WireId getBelPinWire(BelId bel, IdString pin) const = 0;
     virtual PortType getBelPinType(BelId bel, IdString pin) const = 0;
-    virtual typename R::BelPinsRange getBelPins(BelId bel) const = 0;
+    virtual typename R::BelPinsRangeT getBelPins(BelId bel) const = 0;
     // Wire methods
-    virtual typename R::AllWiresRange getWires() const = 0;
+    virtual typename R::AllWiresRangeT getWires() const = 0;
     virtual WireId getWireByName(IdStringList name) const = 0;
     virtual IdStringList getWireName(WireId wire) const = 0;
     virtual IdString getWireType(WireId wire) const = 0;
-    virtual typename R::WireAttrsRange getWireAttrs(WireId) const = 0;
-    virtual typename R::DownhillPipRange getPipsDownhill(WireId wire) const = 0;
-    virtual typename R::UphillPipRange getPipsUphill(WireId wire) const = 0;
-    virtual typename R::WireBelPinRange getWireBelPins(WireId wire) const = 0;
+    virtual typename R::WireAttrsRangeT getWireAttrs(WireId) const = 0;
+    virtual typename R::DownhillPipRangeT getPipsDownhill(WireId wire) const = 0;
+    virtual typename R::UphillPipRangeT getPipsUphill(WireId wire) const = 0;
+    virtual typename R::WireBelPinRangeT getWireBelPins(WireId wire) const = 0;
     virtual uint32_t getWireChecksum(WireId wire) const = 0;
     virtual void bindWire(WireId wire, NetInfo *net, PlaceStrength strength) = 0;
     virtual void unbindWire(WireId wire) = 0;
@@ -1114,11 +1114,11 @@ template <typename R> struct ArchAPI : BaseCtx
     virtual NetInfo *getConflictingWireNet(WireId wire) const = 0;
     virtual DelayInfo getWireDelay(WireId wire) const = 0;
     // Pip methods
-    virtual typename R::AllPipsRange getPips() const = 0;
+    virtual typename R::AllPipsRangeT getPips() const = 0;
     virtual PipId getPipByName(IdStringList name) const = 0;
     virtual IdStringList getPipName(PipId pip) const = 0;
     virtual IdString getPipType(PipId pip) const = 0;
-    virtual typename R::PipAttrsRange getPipAttrs(PipId) const = 0;
+    virtual typename R::PipAttrsRangeT getPipAttrs(PipId) const = 0;
     virtual uint32_t getPipChecksum(PipId pip) const = 0;
     virtual void bindPip(PipId pip, NetInfo *net, PlaceStrength strength) = 0;
     virtual void unbindPip(PipId pip) = 0;
@@ -1133,11 +1133,11 @@ template <typename R> struct ArchAPI : BaseCtx
     // Group methods
     virtual GroupId getGroupByName(IdStringList name) const = 0;
     virtual IdStringList getGroupName(GroupId group) const = 0;
-    virtual typename R::AllGroupsRange getGroups() const = 0;
-    virtual typename R::GroupBelsRange getGroupBels(GroupId group) const = 0;
-    virtual typename R::GroupWiresRange getGroupWires(GroupId group) const = 0;
-    virtual typename R::GroupPipsRange getGroupPips(GroupId group) const = 0;
-    virtual typename R::GroupGroupsRange getGroupGroups(GroupId group) const = 0;
+    virtual typename R::AllGroupsRangeT getGroups() const = 0;
+    virtual typename R::GroupBelsRangeT getGroupBels(GroupId group) const = 0;
+    virtual typename R::GroupWiresRangeT getGroupWires(GroupId group) const = 0;
+    virtual typename R::GroupPipsRangeT getGroupPips(GroupId group) const = 0;
+    virtual typename R::GroupGroupsRangeT getGroupGroups(GroupId group) const = 0;
     // Delay Methods
     virtual delay_t predictDelay(const NetInfo *net_info, const PortRef &sink) const = 0;
     virtual delay_t getDelayEpsilon() const = 0;
@@ -1149,7 +1149,7 @@ template <typename R> struct ArchAPI : BaseCtx
     virtual delay_t estimateDelay(WireId src, WireId dst) const = 0;
     virtual ArcBounds getRouteBoundingBox(WireId src, WireId dst) const = 0;
     // Decal methods
-    virtual typename R::DecalGfxRange getDecalGraphics(DecalId decal) const = 0;
+    virtual typename R::DecalGfxRangeT getDecalGraphics(DecalId decal) const = 0;
     virtual DecalXY getBelDecal(BelId bel) const = 0;
     virtual DecalXY getWireDecal(WireId wire) const = 0;
     virtual DecalXY getPipDecal(PipId pip) const = 0;
@@ -1166,9 +1166,9 @@ template <typename R> struct ArchAPI : BaseCtx
     virtual BelBucketId getBelBucketForCellType(IdString cell_type) const = 0;
     virtual bool isValidBelForCell(CellInfo *cell, BelId bel) const = 0;
     virtual bool isBelLocationValid(BelId bel) const = 0;
-    virtual typename R::CellTypeRange getCellTypes() const = 0;
-    virtual typename R::BelBucketRange getBelBuckets() const = 0;
-    virtual typename R::BucketBelRange getBelsInBucket(BelBucketId bucket) const = 0;
+    virtual typename R::CellTypeRangeT getCellTypes() const = 0;
+    virtual typename R::BelBucketRangeT getBelBuckets() const = 0;
+    virtual typename R::BucketBelRangeT getBelsInBucket(BelBucketId bucket) const = 0;
     // Flow methods
     virtual bool pack() = 0;
     virtual bool place() = 0;
@@ -1183,7 +1183,7 @@ template <typename R> struct BaseArch : ArchAPI<R>
 
     // Basic config
     virtual IdString archId() const override { return this->id(STRINGIFY(ARCHNAME)); }
-    virtual IdString archArgsToId(typename R::ArchArgsType args) const { return IdString(); }
+    virtual IdString archArgsToId(typename R::ArchArgsT args) const { return IdString(); }
     virtual int getTilePipDimZ(int x, int y) const override { return 1; }
     virtual char getNameDelimiter() const override { return ' '; }
 
@@ -1218,16 +1218,16 @@ template <typename R> struct BaseArch : ArchAPI<R>
         return fnd == base_bel2cell.end() ? nullptr : fnd->second;
     }
     virtual CellInfo *getConflictingBelCell(BelId bel) const override { return getBoundBelCell(bel); }
-    virtual typename R::BelAttrsRange getBelAttrs(BelId bel) const override
+    virtual typename R::BelAttrsRangeT getBelAttrs(BelId bel) const override
     {
-        return empty_if_possible<typename R::BelAttrsRange>();
+        return empty_if_possible<typename R::BelAttrsRangeT>();
     }
 
     // Wire methods
     virtual IdString getWireType(WireId wire) const override { return IdString(); }
-    virtual typename R::WireAttrsRange getWireAttrs(WireId) const override
+    virtual typename R::WireAttrsRangeT getWireAttrs(WireId) const override
     {
-        return empty_if_possible<typename R::WireAttrsRange>();
+        return empty_if_possible<typename R::WireAttrsRangeT>();
     }
     virtual uint32_t getWireChecksum(WireId wire) const override { return uint32_t(std::hash<WireId>()(wire)); }
 
@@ -1273,9 +1273,9 @@ template <typename R> struct BaseArch : ArchAPI<R>
 
     // Pip methods
     virtual IdString getPipType(PipId pip) const { return IdString(); }
-    virtual typename R::PipAttrsRange getPipAttrs(PipId) const override
+    virtual typename R::PipAttrsRangeT getPipAttrs(PipId) const override
     {
-        return empty_if_possible<typename R::PipAttrsRange>();
+        return empty_if_possible<typename R::PipAttrsRangeT>();
     }
     virtual uint32_t getPipChecksum(PipId pip) const override { return uint32_t(std::hash<PipId>()(pip)); }
     virtual void bindPip(PipId pip, NetInfo *net, PlaceStrength strength) override
@@ -1318,18 +1318,24 @@ template <typename R> struct BaseArch : ArchAPI<R>
     // Group methods
     virtual GroupId getGroupByName(IdStringList name) const override { return GroupId(); };
     virtual IdStringList getGroupName(GroupId group) const override { return IdStringList(); };
-    virtual typename R::AllGroupsRange getGroups() const override
+    virtual typename R::AllGroupsRangeT getGroups() const override
     {
-        return empty_if_possible<typename R::AllGroupsRange>();
+        return empty_if_possible<typename R::AllGroupsRangeT>();
     }
     // Default implementation of these assumes no groups so never called
-    virtual typename R::GroupBelsRange getGroupBels(GroupId group) const override { NPNR_ASSERT_FALSE("unreachable"); };
-    virtual typename R::GroupWiresRange getGroupWires(GroupId group) const override
+    virtual typename R::GroupBelsRangeT getGroupBels(GroupId group) const override
     {
         NPNR_ASSERT_FALSE("unreachable");
     };
-    virtual typename R::GroupPipsRange getGroupPips(GroupId group) const override { NPNR_ASSERT_FALSE("unreachable"); };
-    virtual typename R::GroupGroupsRange getGroupGroups(GroupId group) const override
+    virtual typename R::GroupWiresRangeT getGroupWires(GroupId group) const override
+    {
+        NPNR_ASSERT_FALSE("unreachable");
+    };
+    virtual typename R::GroupPipsRangeT getGroupPips(GroupId group) const override
+    {
+        NPNR_ASSERT_FALSE("unreachable");
+    };
+    virtual typename R::GroupGroupsRangeT getGroupGroups(GroupId group) const override
     {
         NPNR_ASSERT_FALSE("unreachable");
     };
@@ -1341,7 +1347,7 @@ template <typename R> struct BaseArch : ArchAPI<R>
     }
 
     // Decal methods
-    virtual typename R::DecalGfxRange getDecalGraphics(DecalId decal) const override
+    virtual typename R::DecalGfxRangeT getDecalGraphics(DecalId decal) const override
     {
         NPNR_ASSERT_FALSE("unreachable");
     };
@@ -1381,20 +1387,20 @@ template <typename R> struct BaseArch : ArchAPI<R>
     };
     virtual bool isValidBelForCell(CellInfo *cell, BelId bel) const override { return true; }
     virtual bool isBelLocationValid(BelId bel) const override { return true; }
-    virtual typename R::CellTypeRange getCellTypes() const override
+    virtual typename R::CellTypeRangeT getCellTypes() const override
     {
         NPNR_ASSERT(cell_types_initialised);
-        return return_if_match<const std::vector<IdString> &, typename R::CellTypeRange>(cell_types);
+        return return_if_match<const std::vector<IdString> &, typename R::CellTypeRangeT>(cell_types);
     }
-    virtual typename R::BelBucketRange getBelBuckets() const override
+    virtual typename R::BelBucketRangeT getBelBuckets() const override
     {
         NPNR_ASSERT(bel_buckets_initialised);
-        return return_if_match<const std::vector<BelBucketId> &, typename R::BelBucketRange>(bel_buckets);
+        return return_if_match<const std::vector<BelBucketId> &, typename R::BelBucketRangeT>(bel_buckets);
     }
-    virtual typename R::BucketBelRange getBelsInBucket(BelBucketId bucket) const override
+    virtual typename R::BucketBelRangeT getBelsInBucket(BelBucketId bucket) const override
     {
         NPNR_ASSERT(bel_buckets_initialised);
-        return return_if_match<const std::vector<BelId> &, typename R::BucketBelRange>(bucket_bels.at(bucket));
+        return return_if_match<const std::vector<BelId> &, typename R::BucketBelRangeT>(bucket_bels.at(bucket));
     }
 
     // Flow methods

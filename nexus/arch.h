@@ -857,33 +857,33 @@ struct ArchArgs
 
 struct ArchRanges
 {
-    using ArchArgsType = ArchArgs;
+    using ArchArgsT = ArchArgs;
     // Bels
-    using AllBelsRange = BelRange;
-    using TileBelsRange = std::vector<BelId>;
-    using BelAttrsRange = std::vector<std::pair<IdString, std::string>>;
-    using BelPinsRange = std::vector<IdString>;
+    using AllBelsRangeT = BelRange;
+    using TileBelsRangeT = std::vector<BelId>;
+    using BelAttrsRangeT = std::vector<std::pair<IdString, std::string>>;
+    using BelPinsRangeT = std::vector<IdString>;
     // Wires
-    using AllWiresRange = WireRange;
-    using DownhillPipRange = UpDownhillPipRange;
-    using UphillPipRange = UpDownhillPipRange;
-    using WireBelPinRange = BelPinRange;
-    using WireAttrsRange = std::vector<std::pair<IdString, std::string>>;
+    using AllWiresRangeT = WireRange;
+    using DownhillPipRangeT = UpDownhillPipRange;
+    using UphillPipRangeT = UpDownhillPipRange;
+    using WireBelPinRangeT = BelPinRange;
+    using WireAttrsRangeT = std::vector<std::pair<IdString, std::string>>;
     // Pips
-    using AllPipsRange = AllPipRange;
-    using PipAttrsRange = std::vector<std::pair<IdString, std::string>>;
+    using AllPipsRangeT = AllPipRange;
+    using PipAttrsRangeT = std::vector<std::pair<IdString, std::string>>;
     // Groups
-    using AllGroupsRange = std::vector<GroupId>;
-    using GroupBelsRange = std::vector<BelId>;
-    using GroupWiresRange = std::vector<WireId>;
-    using GroupPipsRange = std::vector<PipId>;
-    using GroupGroupsRange = std::vector<GroupId>;
+    using AllGroupsRangeT = std::vector<GroupId>;
+    using GroupBelsRangeT = std::vector<BelId>;
+    using GroupWiresRangeT = std::vector<WireId>;
+    using GroupPipsRangeT = std::vector<PipId>;
+    using GroupGroupsRangeT = std::vector<GroupId>;
     // Decals
-    using DecalGfxRange = std::vector<GraphicElement>;
+    using DecalGfxRangeT = std::vector<GraphicElement>;
     // Placement validity
-    using CellTypeRange = const std::vector<IdString> &;
-    using BelBucketRange = const std::vector<BelBucketId> &;
-    using BucketBelRange = const std::vector<BelId> &;
+    using CellTypeRangeT = const std::vector<IdString> &;
+    using BelBucketRangeT = const std::vector<BelBucketId> &;
+    using BucketBelRangeT = const std::vector<BelId> &;
 };
 
 struct Arch : BaseArch<ArchRanges>
