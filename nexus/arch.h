@@ -485,8 +485,8 @@ struct BelIterator
     BelIterator operator++()
     {
         cursor_index++;
-        while (cursor_tile < int(chip->grid.size()) &&
-               cursor_index >= int(db->loctypes[chip->grid[cursor_tile].loc_type].bels.size())) {
+        while (cursor_tile < chip->grid.ssize() &&
+               cursor_index >= db->loctypes[chip->grid[cursor_tile].loc_type].bels.ssize()) {
             cursor_index = 0;
             cursor_tile++;
         }
@@ -539,12 +539,12 @@ struct WireIterator
         // Iterate over nodes first, then tile wires that aren't nodes
         do {
             cursor_index++;
-            while (cursor_tile < int(chip->grid.size()) &&
-                   cursor_index >= int(db->loctypes[chip->grid[cursor_tile].loc_type].wires.size())) {
+            while (cursor_tile < chip->grid.ssize() &&
+                   cursor_index >= db->loctypes[chip->grid[cursor_tile].loc_type].wires.ssize()) {
                 cursor_index = 0;
                 cursor_tile++;
             }
-        } while (cursor_tile < int(chip->grid.size()) && !chip_wire_is_primary(db, chip, cursor_tile, cursor_index));
+        } while (cursor_tile < chip->grid.ssize() && !chip_wire_is_primary(db, chip, cursor_tile, cursor_index));
 
         return *this;
     }
@@ -595,7 +595,7 @@ struct NeighWireIterator
         int32_t tile;
         do
             cursor++;
-        while (cursor < int(wn.neigh_wires.size()) &&
+        while (cursor < wn.neigh_wires.ssize() &&
                ((wn.neigh_wires[cursor].arc_flags & LOGICAL_TO_PRIMARY) ||
                 !chip_rel_tile(chip, baseWire.tile, wn.neigh_wires[cursor].rel_x, wn.neigh_wires[cursor].rel_y, tile)));
     }
@@ -637,8 +637,8 @@ struct AllPipIterator
     AllPipIterator operator++()
     {
         cursor_index++;
-        while (cursor_tile < int(chip->grid.size()) &&
-               cursor_index >= int(db->loctypes[chip->grid[cursor_tile].loc_type].pips.size())) {
+        while (cursor_tile < chip->grid.ssize() &&
+               cursor_index >= db->loctypes[chip->grid[cursor_tile].loc_type].pips.ssize()) {
             cursor_index = 0;
             cursor_tile++;
         }
@@ -695,7 +695,7 @@ struct UpDownhillPipIterator
                 break;
             WireId w = *twi;
             auto &tile = db->loctypes[chip->grid[w.tile].loc_type];
-            if (cursor < int(uphill ? tile.wires[w.index].pips_uh.size() : tile.wires[w.index].pips_dh.size()))
+            if (cursor < (uphill ? tile.wires[w.index].pips_uh.ssize() : tile.wires[w.index].pips_dh.ssize()))
                 break;
             ++twi;
             cursor = 0;
@@ -734,7 +734,7 @@ struct WireBelPinIterator
         while (true) {
             if (!(twi != twi_end))
                 break;
-            if (cursor < int(chip_wire_data(db, chip, *twi).bel_pins.size()))
+            if (cursor < chip_wire_data(db, chip, *twi).bel_pins.ssize())
                 break;
             ++twi;
             cursor = 0;

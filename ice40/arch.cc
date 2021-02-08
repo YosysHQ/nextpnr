@@ -259,7 +259,7 @@ BelRange Arch::getBelsByTile(int x, int y) const
     br.e.cursor = br.b.cursor;
 
     if (br.e.cursor != -1) {
-        while (br.e.cursor < int(chip_info->bel_data.size()) && chip_info->bel_data[br.e.cursor].x == x &&
+        while (br.e.cursor < chip_info->bel_data.ssize() && chip_info->bel_data[br.e.cursor].x == x &&
                chip_info->bel_data[br.e.cursor].y == y)
             br.e.cursor++;
     }
@@ -376,7 +376,7 @@ WireId Arch::getWireByName(IdStringList name) const
     WireId ret;
 
     if (wire_by_name.empty()) {
-        for (int i = 0; i < int(chip_info->wire_data.size()); i++) {
+        for (int i = 0; i < chip_info->wire_data.ssize(); i++) {
             WireId w;
             w.index = i;
             wire_by_name[getWireName(w)] = i;
@@ -449,7 +449,7 @@ PipId Arch::getPipByName(IdStringList name) const
     PipId ret;
 
     if (pip_by_name.empty()) {
-        for (int i = 0; i < int(chip_info->pip_data.size()); i++) {
+        for (int i = 0; i < chip_info->pip_data.ssize(); i++) {
             PipId pip;
             pip.index = i;
             pip_by_name[getPipName(pip)] = i;

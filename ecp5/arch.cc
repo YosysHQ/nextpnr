@@ -223,7 +223,7 @@ BelId Arch::getBelByName(IdStringList name) const
     loc.y = id_to_y.at(name[1]);
     ret.location = loc;
     const LocationTypePOD *loci = loc_info(ret);
-    for (int i = 0; i < int(loci->bel_data.size()); i++) {
+    for (int i = 0; i < loci->bel_data.ssize(); i++) {
         if (std::strcmp(loci->bel_data[i].name.get(), name[2].c_str(this)) == 0) {
             ret.index = i;
             return ret;
@@ -239,7 +239,7 @@ BelRange Arch::getBelsByTile(int x, int y) const
     br.b.cursor_tile = y * chip_info->width + x;
     br.e.cursor_tile = y * chip_info->width + x;
     br.b.cursor_index = 0;
-    br.e.cursor_index = int(chip_info->locations[chip_info->location_type[br.b.cursor_tile]].bel_data.size()) - 1;
+    br.e.cursor_index = chip_info->locations[chip_info->location_type[br.b.cursor_tile]].bel_data.ssize() - 1;
     br.b.chip = chip_info;
     br.e.chip = chip_info;
     if (br.e.cursor_index == -1)
@@ -288,7 +288,7 @@ WireId Arch::getWireByName(IdStringList name) const
     loc.y = id_to_y.at(name[1]);
     ret.location = loc;
     const LocationTypePOD *loci = loc_info(ret);
-    for (int i = 0; i < int(loci->wire_data.size()); i++) {
+    for (int i = 0; i < loci->wire_data.ssize(); i++) {
         if (std::strcmp(loci->wire_data[i].name.get(), name[2].c_str(this)) == 0) {
             ret.index = i;
             return ret;
@@ -314,7 +314,7 @@ PipId Arch::getPipByName(IdStringList name) const
     loc.y = id_to_y.at(name[1]);
     ret.location = loc;
     const LocationTypePOD *loci = loc_info(ret);
-    for (int i = 0; i < int(loci->pip_data.size()); i++) {
+    for (int i = 0; i < loci->pip_data.ssize(); i++) {
         PipId curr;
         curr.location = loc;
         curr.index = i;
@@ -422,7 +422,7 @@ BelId Arch::getBelByLocation(Loc loc) const
     if (loc.x >= chip_info->width || loc.y >= chip_info->height)
         return BelId();
     const LocationTypePOD &locI = chip_info->locations[chip_info->location_type[loc.y * chip_info->width + loc.x]];
-    for (int i = 0; i < int(locI.bel_data.size()); i++) {
+    for (int i = 0; i < locI.bel_data.ssize(); i++) {
         if (locI.bel_data[i].z == loc.z) {
             BelId bi;
             bi.location.x = loc.x;
@@ -1169,7 +1169,7 @@ BelId Arch::get_dqsbuf(bool dqsright, int dqsrow)
     BelId bel;
     bel.location.y = dqsrow;
     bel.location.x = (dqsright ? (chip_info->width - 1) : 0);
-    for (int i = 0; i < int(loc_info(bel)->bel_data.size()); i++) {
+    for (int i = 0; i < loc_info(bel)->bel_data.ssize(); i++) {
         auto &bd = loc_info(bel)->bel_data[i];
         if (bd.type == id_DQSBUFM.index) {
             bel.index = i;
