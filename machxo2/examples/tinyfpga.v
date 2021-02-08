@@ -2,7 +2,7 @@
 // https://github.com/tinyfpga/TinyFPGA-A-Series/tree/master/template_a2
 // https://tinyfpga.com/a-series-guide.html used as a basis.
 
-module TinyFPGA_A2 (
+module top (
   (* LOC="13" *)
   inout pin1
 );
