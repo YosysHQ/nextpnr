@@ -142,6 +142,8 @@ static void set_net_constant(Context *ctx, NetInfo *orig, NetInfo *constnet, boo
                 log_info("FACADE_FF %s is driven by a constant\n", uc->name.c_str(ctx));
 
                 std::unique_ptr<CellInfo> lc = create_machxo2_cell(ctx, id_FACADE_SLICE, uc->name.str(ctx) + "_CONST");
+                std::copy(uc->attrs.begin(), uc->attrs.end(), std::inserter(lc->attrs, lc->attrs.begin()));
+
                 dff_to_lc(ctx, uc, lc.get(), true);
                 packed_cells.insert(uc->name);
 
