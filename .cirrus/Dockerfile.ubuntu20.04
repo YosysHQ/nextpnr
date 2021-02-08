@@ -57,7 +57,7 @@ RUN set -e -x ;\
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y ;\
     mkdir -p /usr/local/src ;\
     cd /usr/local/src ;\
-    git clone --recursive https://github.com/daveshah1/prjoxide.git ;\
+    git clone --recursive https://github.com/gatecat/prjoxide.git ;\
     cd prjoxide ;\
     git reset --hard a73e1629f2ec6618e492047577912d8d50115708 ;\
     cd libprjoxide ;\

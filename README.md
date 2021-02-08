@@ -7,7 +7,7 @@ tool.
 Currently nextpnr supports:
  * Lattice iCE40 devices supported by [Project IceStorm](http://www.clifford.at/icestorm/)
  * Lattice ECP5 devices supported by [Project Trellis](https://github.com/YosysHQ/prjtrellis)
- * Lattice Nexus devices supported by [Project Oxide](https://github.com/daveshah1/prjoxide)
+ * Lattice Nexus devices supported by [Project Oxide](https://github.com/gatecat/prjoxide)
  * Gowin LittleBee devices supported by [Project Apicula](https://github.com/YosysHQ/apicula)
  * *(experimental)* a "generic" back-end for user-defined architectures
 
@@ -103,7 +103,7 @@ sudo make install
 
 ### nextpnr-nexus
 
-For Nexus support, install [Project Oxide](https://github.com/daveshah1/prjoxide) to `$HOME/.cargo` or another location, which should be passed as `-DOXIDE_INSTALL_PREFIX=$HOME/.cargo` to CMake. Then build and install `nextpnr-nexus` using the following commands:
+For Nexus support, install [Project Oxide](https://github.com/gatecat/prjoxide) to `$HOME/.cargo` or another location, which should be passed as `-DOXIDE_INSTALL_PREFIX=$HOME/.cargo` to CMake. Then build and install `nextpnr-nexus` using the following commands:
 
 ```
 cmake . -DARCH=nexus -DOXIDE_INSTALL_PREFIX=$HOME/.cargo
@@ -111,7 +111,7 @@ make -j$(nproc)
 sudo make install
 ```
 
- - Examples of the Nexus flow for a range of boards can be found in the [Project Oxide Examples](https://github.com/daveshah1/prjoxide/tree/master/examples).
+ - Examples of the Nexus flow for a range of boards can be found in the [Project Oxide Examples](https://github.com/gatecat/prjoxide/tree/master/examples).
 
 Nexus support is currently experimental, and has only been tested with engineering sample silicon.
 
