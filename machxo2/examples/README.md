@@ -1,6 +1,5 @@
 # MachXO2 Architecture Example
-
-This contains a simple example of running `nextpnr-machxo2`:
+This directory contains a simple example of running `nextpnr-machxo2`:
 
 * `simple.sh` generates JSON output (`{pack,place,pnr}blinky.json`) of a
   classic blinky example from `blinky.v`.
@@ -22,7 +21,8 @@ This contains a simple example of running `nextpnr-machxo2`:
   and writes the resulting bitstream to MachXO2's internal flash using
   [`tinyproga`](https://github.com/tinyfpga/TinyFPGA-A-Programmer).
 
-As `nextpnr-machxo2` is developed the contents `simple.sh`, `simtest.sh`, `mitertest.sh`, and `demo.sh` are subject to change.
+As `nextpnr-machxo2` is developed the contents `simple.sh`, `simtest.sh`,
+`mitertest.sh`, and `demo.sh` are subject to change.
 
 ## How To Run
 The following applies to all `sh` scripts except `demo.sh`.
@@ -36,6 +36,29 @@ and Route phases.
 `mitertest.sh` requires an additional option- `sat` or `smt`- to choose between
 verifying the miter with either yosys' built-in SAT solver, or an external
 SMT solver.
+
+In principle, `mitertest.sh` should work in `sat` or `smt` mode with all
+example Verilog files which don't use the internal oscillator (OSCH) or other
+hard IP. However, as of this writing, only `blinky.v` passes correctly for a
+few reasons:
+
+  1. The sim models for MachXO2 primitives used by the `gate` module contain
+     `initial` values _by design_, as it matches chip behavior. Without any of
+     the following in the `gold` module (like `blinky_ext.v` currently):
+
+     * An external reset signal
+     * Internal power-on reset signal (e.g. `reg int_rst = 1'd1;`)
+     * `initial` values to manually set registers
+
+     the `gold` and `gate` modules will inherently not match.
+
+     Examples using an internal power-on reset (e.g. `uart.v`) also have issues
+     that I haven't debugged yet in both `sat` and `smt` mode.
+  2. To keep the `gold`/`gate` generation simpler, examples are currently
+     assumed to _not_ instantiate MachXO2 simulation primitives directly
+    (`FACADE_IO`, `FACADE_FF`, etc).
+  3. `synth_machxo2` runs `deminout` on `inouts` when generating the `gate`
+     module. This is not handled yet when generating the `gold` module.
 
 To keep file count lower, all yosys scripts are written inline inside the
 `sh` scripts using the `-p` option.
@@ -59,6 +82,7 @@ rm -rf *.dot *.json *.png *.vcd *.smt2 *.log *.txt *.bit {pack,place,pnr}*.v bli
   [the TinyFPGA Ax guide](https://tinyfpga.com/a-series-guide.html).
 * `blinky_ext.v`- Blink the LED on TinyFPA Ax using an external pin (pin 6).
 * `uart.v`- UART loopback demo at 19200 baud. Requires the following pins:
+
   * Pin 1- RX LED
   * Pin 2- TX (will echo RX)
   * Pin 3- RX
@@ -69,7 +93,6 @@ rm -rf *.dot *.json *.png *.vcd *.smt2 *.log *.txt *.bit {pack,place,pnr}*.v bli
   * Pin 8- Empty LED
 
 ## Environment Variables For Scripts
-
 * `YOSYS`- Set to the location of the `yosys` binary to test. Defaults to the
   `yosys` on the path. You may want to set this to a `yosys` binary in your
   source tree if doing development.
