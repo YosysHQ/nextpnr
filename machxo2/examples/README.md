@@ -18,16 +18,14 @@ This contains a simple example of running `nextpnr-machxo2`:
   All possible inputs and resulting outputs can be tested in reasonable time by
   using `yosys`' built-in SAT solver or [`z3`](https://github.com/Z3Prover/z3),
   an external SMT solver.
-* `demo.sh` creates a blinky bitstream for [TinyFPGA Ax](https://tinyfpga.com/a-series-guide.html)
+* `demo.sh` creates bitstreams for [TinyFPGA Ax](https://tinyfpga.com/a-series-guide.html)
   and writes the resulting bitstream to MachXO2's internal flash using
   [`tinyproga`](https://github.com/tinyfpga/TinyFPGA-A-Programmer).
 
-As `nextpnr-machxo2` is developed the contents `simple.sh`, `simtest.sh`, and
-`mitertest.sh` are subject to change.
+As `nextpnr-machxo2` is developed the contents `simple.sh`, `simtest.sh`, `mitertest.sh`, and `demo.sh` are subject to change.
 
 ## How To Run
-The following applies to all `sh` scripts except `demo.sh`, which requires no
-arguments.
+The following applies to all `sh` scripts except `demo.sh`.
 
 Each `sh` script runs yosys and nextpnr to validate a blinky design in various
 ways. The `mode` argument to each script- `pack`, `place`, or `pnr`- stop
@@ -42,8 +40,23 @@ SMT solver.
 To keep file count lower, all yosys scripts are written inline inside the
 `sh` scripts using the `-p` option.
 
+`demo.sh` requires a prefix that matches one of the self-contained Verilog
+examples in this directory. For instance, to create a bitstream from
+`tinyfpga.v`, use `demo.sh tinyfpga`. The script will catch Verilog files which
+are not meant to be programmed onto TinyFPA Ax.
+
 ### Clean
-To clean output files from _all_ scripts, run: `rm -rf *.dot *.json *.png *.vcd *.smt2 *.log tinyfpga.txt tinyfpga.bit {pack,place,pnr}*.v blinky_simtest*`
+To clean output files from _all_ scripts, run:
+
+```
+rm -rf *.dot *.json *.png *.vcd *.smt2 *.log *.txt *.bit {pack,place,pnr}*.v blinky_simtest*
+```
+
+## Verilog Examples
+* `blinky.v`/`blinky_tb.v`- A blinky example meant for simulation.
+* `tinyfpga.v`- Blink the LED on TinyFPA Ax.
+* `rgbcount.v`- Blink an RGB LED using TinyFPGA Ax, more closely-based on
+  [the TinyFPGA Ax guide](https://tinyfpga.com/a-series-guide.html).
 
 ## Environment Variables For Scripts
 
