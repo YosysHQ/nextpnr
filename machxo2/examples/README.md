@@ -57,6 +57,16 @@ rm -rf *.dot *.json *.png *.vcd *.smt2 *.log *.txt *.bit {pack,place,pnr}*.v bli
 * `tinyfpga.v`- Blink the LED on TinyFPA Ax.
 * `rgbcount.v`- Blink an RGB LED using TinyFPGA Ax, more closely-based on
   [the TinyFPGA Ax guide](https://tinyfpga.com/a-series-guide.html).
+* `blinky_ext.v`- Blink the LED on TinyFPA Ax using an external pin (pin 6).
+* `uart.v`- UART loopback demo at 19200 baud. Requires the following pins:
+  * Pin 1- RX LED
+  * Pin 2- TX (will echo RX)
+  * Pin 3- RX
+  * Pin 4- TX LED
+  * Pin 5- Load LED
+  * Pin 6- 12 MHz clock input
+  * Pin 7- Take LED
+  * Pin 8- Empty LED
 
 ## Environment Variables For Scripts
 
