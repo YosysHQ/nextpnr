@@ -736,17 +736,8 @@ Arch::Arch(ArchArgs args) : args(args)
             }
         }
     }
-    // Dummy for empty decals
-    decal_graphics[IdString()];
-
-    std::unordered_set<IdString> bel_types;
-    for (BelId bel : getBels()) {
-        bel_types.insert(getBelType(bel));
-    }
-
-    for (IdString bel_type : bel_types) {
-        cell_types.push_back(bel_type);
-    }
+    BaseArch::init_cell_types();
+    BaseArch::init_bel_buckets();
 }
 
 void IdString::initialize_arch(const BaseCtx *ctx)
@@ -784,8 +775,6 @@ BelId Arch::getBelByLocation(Loc loc) const
 const std::vector<BelId> &Arch::getBelsByTile(int x, int y) const { return bels_by_tile.at(x).at(y); }
 
 bool Arch::getBelGlobalBuf(BelId bel) const { return bels.at(bel).gb; }
-
-uint32_t Arch::getBelChecksum(BelId bel) const { return bel.index; }
 
 void Arch::bindBel(BelId bel, CellInfo *cell, PlaceStrength strength)
 {
@@ -848,12 +837,6 @@ IdString Arch::getWireType(WireId wire) const { return wires.at(wire).type; }
 
 const std::map<IdString, std::string> &Arch::getWireAttrs(WireId wire) const { return wires.at(wire).attrs; }
 
-uint32_t Arch::getWireChecksum(WireId wire) const
-{
-    // FIXME
-    return 0;
-}
-
 void Arch::bindWire(WireId wire, NetInfo *net, PlaceStrength strength)
 {
     wires.at(wire).bound_net = net;
@@ -901,8 +884,6 @@ IdStringList Arch::getPipName(PipId pip) const { return IdStringList(pip); }
 IdString Arch::getPipType(PipId pip) const { return pips.at(pip).type; }
 
 const std::map<IdString, std::string> &Arch::getPipAttrs(PipId pip) const { return pips.at(pip).attrs; }
-
-uint32_t Arch::getPipChecksum(PipId wire) const { return wire.index; }
 
 void Arch::bindPip(PipId pip, NetInfo *net, PlaceStrength strength)
 {
@@ -1071,25 +1052,6 @@ bool Arch::route()
     archInfoToAttributes();
     return result;
 }
-
-// ---------------------------------------------------------------
-
-const std::vector<GraphicElement> &Arch::getDecalGraphics(DecalId decal) const
-{
-    if (!decal_graphics.count(decal)) {
-        std::cerr << "No decal named " << decal.str(this) << std::endl;
-        log_error("No decal named %s!\n", decal.c_str(this));
-    }
-    return decal_graphics.at(decal);
-}
-
-DecalXY Arch::getBelDecal(BelId bel) const { return bels.at(bel).decalxy; }
-
-DecalXY Arch::getWireDecal(WireId wire) const { return wires.at(wire).decalxy; }
-
-DecalXY Arch::getPipDecal(PipId pip) const { return pips.at(pip).decalxy; }
-
-DecalXY Arch::getGroupDecal(GroupId group) const { return groups.at(group).decalxy; }
 
 // ---------------------------------------------------------------
 

@@ -76,18 +76,6 @@ template <> struct string_converter<PipId>
     }
 };
 
-template <> struct string_converter<BelBucketId>
-{
-    BelBucketId from_str(Context *ctx, std::string name) { return ctx->getBelBucketByName(ctx->id(name)); }
-
-    std::string to_str(Context *ctx, BelBucketId id)
-    {
-        if (id == BelBucketId())
-            throw bad_wrap();
-        return ctx->getBelBucketName(id).str(ctx);
-    }
-};
-
 template <> struct string_converter<BelPin>
 {
     BelPin from_str(Context *ctx, std::string name)

@@ -127,18 +127,8 @@ Arch::Arch(ArchArgs args) : args(args)
     pip_to_net.resize(chip_info->pip_data.size());
     switches_locked.resize(chip_info->num_switches);
 
-    std::unordered_set<IdString> bel_types;
-    for (BelId bel : getBels()) {
-        bel_types.insert(getBelType(bel));
-    }
-
-    for (IdString bel_type : bel_types) {
-        cell_types.push_back(bel_type);
-
-        BelBucketId bucket;
-        bucket.name = bel_type;
-        buckets.push_back(bucket);
-    }
+    BaseArch::init_cell_types();
+    BaseArch::init_bel_buckets();
 }
 
 // -----------------------------------------------------------------------

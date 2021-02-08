@@ -170,14 +170,7 @@ struct ArchCellInfo
     };
 };
 
-struct BelBucketId
-{
-    IdString name;
-
-    bool operator==(const BelBucketId &other) const { return (name == other.name); }
-    bool operator!=(const BelBucketId &other) const { return (name != other.name); }
-    bool operator<(const BelBucketId &other) const { return name < other.name; }
-};
+typedef IdString BelBucketId;
 
 NEXTPNR_NAMESPACE_END
 
@@ -219,16 +212,6 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX DecalId>
         std::size_t seed = 0;
         boost::hash_combine(seed, hash<int>()(decal.type));
         boost::hash_combine(seed, hash<int>()(decal.index));
-        return seed;
-    }
-};
-
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX BelBucketId>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX BelBucketId &bucket) const noexcept
-    {
-        std::size_t seed = 0;
-        boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(bucket.name));
         return seed;
     }
 };

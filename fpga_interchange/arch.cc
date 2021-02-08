@@ -483,8 +483,6 @@ ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
     return {x0, y0, x1, y1};
 }
 
-delay_t Arch::getWireRipupDelayPenalty(WireId wire) const { return getRipupDelayPenalty(); }
-
 bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const { return false; }
 
 // -----------------------------------------------------------------------
@@ -529,7 +527,7 @@ DecalXY Arch::getGroupDecal(GroupId pip) const { return {}; };
 
 // -----------------------------------------------------------------------
 
-delay_t Arch::estimateDelay(WireId src, WireId dst, bool debug) const
+delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {
     // FIXME: Implement something to push the A* router in the right direction.
     return 0;
