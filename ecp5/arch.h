@@ -188,7 +188,7 @@ struct BelIterator
     {
         cursor_index++;
         while (cursor_tile < chip->num_tiles &&
-               cursor_index >= int(chip->locations[chip->location_type[cursor_tile]].bel_data.size())) {
+               cursor_index >= chip->locations[chip->location_type[cursor_tile]].bel_data.ssize()) {
             cursor_index = 0;
             cursor_tile++;
         }
@@ -266,7 +266,7 @@ struct WireIterator
     {
         cursor_index++;
         while (cursor_tile < chip->num_tiles &&
-               cursor_index >= int(chip->locations[chip->location_type[cursor_tile]].wire_data.size())) {
+               cursor_index >= chip->locations[chip->location_type[cursor_tile]].wire_data.ssize()) {
             cursor_index = 0;
             cursor_tile++;
         }
@@ -318,7 +318,7 @@ struct AllPipIterator
     {
         cursor_index++;
         while (cursor_tile < chip->num_tiles &&
-               cursor_index >= int(chip->locations[chip->location_type[cursor_tile]].pip_data.size())) {
+               cursor_index >= chip->locations[chip->location_type[cursor_tile]].pip_data.ssize()) {
             cursor_index = 0;
             cursor_tile++;
         }
@@ -703,7 +703,7 @@ struct Arch : BaseCtx
     {
         WireId wireId;
         wireId.location = loc;
-        for (int i = 0; i < int(loc_info(wireId)->wire_data.size()); i++) {
+        for (int i = 0; i < loc_info(wireId)->wire_data.ssize(); i++) {
             if (loc_info(wireId)->wire_data[i].name.get() == basename) {
                 wireId.index = i;
                 return wireId;
