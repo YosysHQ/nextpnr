@@ -3,11 +3,11 @@ This directory contains a simple example of running `nextpnr-machxo2`:
 
 * `simple.sh` produces nextpnr output in the files `{pack,place,pnr}*.json`,
   as well as pre-pnr and post-pnr diagrams in `{pack,place,pnr}*.{dot, png}`.
-* `simtest.sh` will use `yosys` to generate a Verilog file from
-  `{pack,place,pnr}blinky.json`, called `{pack,place,pnr}blinky.v`. It will
-  then and compare `{pack,place,pnr}blinky.v`'s simulation behavior to the
-  original verilog file (`blinky.v`) using the [`iverilog`](http://iverilog.icarus.com)
-  compiler and `vvp` runtime. This is known as post-place-and-route simulation.
+* `simtest.sh` extends `simple.sh` by generating `{pack,place,pnr}*.v` from
+  `{pack,place,pnr}*.json`. The script calls the [`iverilog`](http://iverilog.icarus.com)
+  compiler and `vvp` runtime to compare the behavior of `{pack,place,pnr}*.v`
+  and the original Verilog input (using a testbench `*_tb.v`). This is known as
+  post-place-and-route simulation.
 * `mitertest.sh` is similar to `simtest.sh`, but more comprehensive. This
   script creates a [miter circuit](https://www21.in.tum.de/~lammich/2015_SS_Seminar_SAT/resources/Equivalence_Checking_11_30_08.pdf)
   to compare the output port values of `{pack,place,pnr}*.v` against the
@@ -25,18 +25,33 @@ As `nextpnr-machxo2` is developed the contents `simple.sh`, `simtest.sh`,
 `mitertest.sh`, and `demo.sh` are subject to change.
 
 ## How To Run
-The following applies to all `sh` scripts except `demo.sh`.
+Each script requires a prefix that matches one of the self-contained Verilog
+examples in this directory. For instance, to create a bitstream from
+`tinyfpga.v`, use `demo.sh tinyfpga` (the `*` glob used throughout this file
+is filled with the the prefix).
 
-Each `sh` script runs yosys and nextpnr to validate a blinky design in various
-ways. The `mode` argument to each script- `pack`, `place`, or `pnr`- stop
-`nextpnr-machxo2` after the specified phase and writes out a JSON file of the
-results in `{pack,place,pnr}blinky.json`; `pnr` runs all of the Pack, Place,
-and Route phases.
+Each of `simple.sh`, `simtest.sh`, and `mitertest.sh` runs yosys and nextpnr
+to validate a Verilog design in various ways. They require an additional `mode`
+argument- `pack`, `place`, or `pnr`- which stops `nextpnr-machxo2` after the
+specified phase and writes out a JSON file of the results in
+`{pack,place,pnr}*.json`; `pnr` runs all of the Pack, Place, and Route phases.
 
-`mitertest.sh` requires an additional option- `sat` or `smt`- to choose between
+`mitertest.sh` requires an third option- `sat` or `smt`- to choose between
 verifying the miter with either yosys' built-in SAT solver, or an external
 SMT solver.
 
+Each script will exit if it finds an input Verilog example it knows it can't
+handle. To keep file count lower, all yosys scripts are written inline inside
+the `sh` scripts using the `-p` option.
+
+### Clean
+To clean output files from _all_ scripts, run:
+
+```
+rm -rf *.dot *.json *.png *.vcd *.smt2 *.log *.txt *.bit {pack,place,pnr}*.v *_simtest*
+```
+
+## Known Issues
 In principle, `mitertest.sh` should work in `sat` or `smt` mode with all
 example Verilog files which don't use the internal oscillator (OSCH) or other
 hard IP. However, as of this writing, only `blinky.v` passes correctly for a
@@ -59,21 +74,6 @@ few reasons:
     (`FACADE_IO`, `FACADE_FF`, etc).
   3. `synth_machxo2` runs `deminout` on `inouts` when generating the `gate`
      module. This is not handled yet when generating the `gold` module.
-
-To keep file count lower, all yosys scripts are written inline inside the
-`sh` scripts using the `-p` option.
-
-`demo.sh` requires a prefix that matches one of the self-contained Verilog
-examples in this directory. For instance, to create a bitstream from
-`tinyfpga.v`, use `demo.sh tinyfpga`. The script will catch Verilog files which
-are not meant to be programmed onto TinyFPA Ax.
-
-### Clean
-To clean output files from _all_ scripts, run:
-
-```
-rm -rf *.dot *.json *.png *.vcd *.smt2 *.log *.txt *.bit {pack,place,pnr}*.v blinky_simtest*
-```
 
 ## Verilog Examples
 * `blinky.v`/`blinky_tb.v`- A blinky example meant for simulation.

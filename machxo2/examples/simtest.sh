@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 
-if [ $# -lt 1 ]; then
-    echo "Usage: $0 mode"
+if [ $# -lt 2 ]; then
+    echo "Usage: $0 prefix mode"
     exit -1
 fi
 
-case $1 in
+case $2 in
     "pack")
         NEXTPNR_MODE="--pack-only"
         ;;
@@ -21,16 +21,19 @@ case $1 in
         ;;
 esac
 
+if [ ! -f ${1}_tb.v ]; then
+    echo "No testbench file (${1}_tb.v) found for ${1}.v"
+    exit -3
+fi
+
 set -ex
 
-${YOSYS:-yosys} -p "read_verilog blinky.v
-                    synth_machxo2 -json blinky.json
-                    show -format png -prefix blinky"
-${NEXTPNR:-../../nextpnr-machxo2} $NEXTPNR_MODE --1200 --package QFN32 --no-iobs --json blinky.json --write ${1}blinky.json
+${YOSYS:-yosys} -p "read_verilog ${1}.v
+                    synth_machxo2 -json ${1}.json"
+${NEXTPNR:-../../nextpnr-machxo2} $NEXTPNR_MODE --1200 --package QFN32 --no-iobs --json ${1}.json --write ${2}${1}.json
 ${YOSYS:-yosys} -p "read_verilog -lib +/machxo2/cells_sim.v
-                    read_json ${1}blinky.json
+                    read_json ${2}${1}.json
                     clean -purge
-                    show -format png -prefix ${1}blinky
-                    write_verilog -noattr -norename ${1}blinky.v"
-iverilog -o blinky_simtest ${CELLS_SIM:-`${YOSYS:yosys}-config --datdir/machxo2/cells_sim.v`} blinky_tb.v ${1}blinky.v
-vvp -N ./blinky_simtest
+                    write_verilog -noattr -norename ${2}${1}.v"
+iverilog -o ${1}_simtest ${CELLS_SIM:-`${YOSYS:yosys}-config --datdir/machxo2/cells_sim.v`} ${1}_tb.v ${2}${1}.v
+vvp -N ./${1}_simtest
