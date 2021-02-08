@@ -1,8 +1,8 @@
 # MachXO2 Architecture Example
 This directory contains a simple example of running `nextpnr-machxo2`:
 
-* `simple.sh` generates JSON output (`{pack,place,pnr}blinky.json`) of a
-  classic blinky example from `blinky.v`.
+* `simple.sh` produces nextpnr output in the files `{pack,place,pnr}*.json`,
+  as well as pre-pnr and post-pnr diagrams in `{pack,place,pnr}*.{dot, png}`.
 * `simtest.sh` will use `yosys` to generate a Verilog file from
   `{pack,place,pnr}blinky.json`, called `{pack,place,pnr}blinky.v`. It will
   then and compare `{pack,place,pnr}blinky.v`'s simulation behavior to the
@@ -10,8 +10,8 @@ This directory contains a simple example of running `nextpnr-machxo2`:
   compiler and `vvp` runtime. This is known as post-place-and-route simulation.
 * `mitertest.sh` is similar to `simtest.sh`, but more comprehensive. This
   script creates a [miter circuit](https://www21.in.tum.de/~lammich/2015_SS_Seminar_SAT/resources/Equivalence_Checking_11_30_08.pdf)
-  to compare the output port values of `{pack,place,pnr}blinky.v` against the
-  original `blinky.v` _when both modules are fed the same values on their input
+  to compare the output port values of `{pack,place,pnr}*.v` against the
+  original Verilog code _when both modules are fed the same values on their input
   ports._
 
   All possible inputs and resulting outputs can be tested in reasonable time by
