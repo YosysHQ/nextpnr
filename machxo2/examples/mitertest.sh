@@ -5,6 +5,11 @@ if [ $# -lt 3 ]; then
     exit -1
 fi
 
+if grep -q "OSCH" $1.v; then
+    echo "$1.v uses blackbox primitive OSCH and cannot be simulated."
+    exit -2
+fi
+
 case $2 in
     "pack")
         NEXTPNR_MODE="--pack-only"
@@ -17,7 +22,7 @@ case $2 in
         ;;
     *)
         echo "nextpnr_mode string must be \"pack\", \"place\", or \"pnr\""
-        exit -2
+        exit -3
         ;;
 esac
 
@@ -30,7 +35,7 @@ case $3 in
         ;;
     *)
         echo "solve_mode string must be \"sat\", or \"smt\""
-        exit -3
+        exit -4
         ;;
 esac
 
@@ -72,7 +77,6 @@ ${NEXTPNR:-../../nextpnr-machxo2} $NEXTPNR_MODE --1200 --package QFN32 --no-iobs
 ${YOSYS:-yosys} -p "read_verilog -lib +/machxo2/cells_sim.v
                     read_json ${2}${1}.json
                     clean -purge
-                    show -format png -prefix ${2}${1}
                     write_verilog -noattr -norename ${2}${1}.v"
 
 if [ $3 = "sat" ]; then
