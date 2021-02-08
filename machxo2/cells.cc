@@ -166,7 +166,7 @@ void dff_to_lc(Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_lut)
     // If a register's DI port is fed by a constant, options for placing are
     // limited. Use the LUT to get around this.
     if(pass_thru_lut) {
-        lc->params[ctx->id("LUT0_INITVAL")] = 0xAAAA;
+        lc->params[ctx->id("LUT0_INITVAL")] = Property(0xAAAA, 16);;
         replace_port(dff, ctx->id("DI"), lc, ctx->id("A0"));
         connect_ports(ctx, lc, ctx->id("F0"), lc, ctx->id("DI0"));
     } else {
