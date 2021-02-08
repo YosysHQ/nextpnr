@@ -59,7 +59,7 @@ do_smt() {
                         read_verilog +/machxo2/cells_sim.v
 
                         miter -equiv -make_assert gold gate ${2}${1}_miter
-                        hierarchy -auto-top -check; proc;
+                        hierarchy -top ${2}${1}_miter; proc;
                         opt_clean
                         write_verilog ${2}${1}_miter.v
                         write_smt2 ${2}${1}_miter.smt2"
