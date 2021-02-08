@@ -858,7 +858,7 @@ struct BaseCtx
         constraintObjects.push_back(wildcard);
     }
 
-    ~BaseCtx()
+    virtual ~BaseCtx()
     {
         delete idstring_str_to_idx;
         delete idstring_idx_to_str;
