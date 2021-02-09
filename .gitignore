@@ -5,6 +5,7 @@
 /nextpnr-ecp5*
 /nextpnr-nexus*
 /nextpnr-fpga_interchange*
+/nextpnr-gowin*
 cmake-build-*/
 Makefile
 cmake_install.cmake
