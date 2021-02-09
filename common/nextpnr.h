@@ -1176,6 +1176,27 @@ template <typename R> struct ArchAPI : BaseCtx
     virtual void assignArchInfo() = 0;
 };
 
+// This contains the relevant range types for the default implementations of Arch functions
+struct BaseArchRanges
+{
+    // Attributes
+    using BelAttrsRangeT = std::vector<std::pair<IdString, std::string>>;
+    using WireAttrsRangeT = std::vector<std::pair<IdString, std::string>>;
+    using PipAttrsRangeT = std::vector<std::pair<IdString, std::string>>;
+    // Groups
+    using AllGroupsRangeT = std::vector<GroupId>;
+    using GroupBelsRangeT = std::vector<BelId>;
+    using GroupWiresRangeT = std::vector<WireId>;
+    using GroupPipsRangeT = std::vector<PipId>;
+    using GroupGroupsRangeT = std::vector<GroupId>;
+    // Decals
+    using DecalGfxRangeT = std::vector<GraphicElement>;
+    // Placement validity
+    using CellTypeRangeT = const std::vector<IdString> &;
+    using BelBucketRangeT = const std::vector<BelBucketId> &;
+    using BucketBelRangeT = const std::vector<BelId> &;
+};
+
 template <typename R> struct BaseArch : ArchAPI<R>
 {
     // --------------------------------------------------------------

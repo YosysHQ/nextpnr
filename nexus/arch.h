@@ -855,35 +855,20 @@ struct ArchArgs
     std::string device;
 };
 
-struct ArchRanges
+struct ArchRanges : BaseArchRanges
 {
     using ArchArgsT = ArchArgs;
     // Bels
     using AllBelsRangeT = BelRange;
     using TileBelsRangeT = std::vector<BelId>;
-    using BelAttrsRangeT = std::vector<std::pair<IdString, std::string>>;
     using BelPinsRangeT = std::vector<IdString>;
     // Wires
     using AllWiresRangeT = WireRange;
     using DownhillPipRangeT = UpDownhillPipRange;
     using UphillPipRangeT = UpDownhillPipRange;
     using WireBelPinRangeT = BelPinRange;
-    using WireAttrsRangeT = std::vector<std::pair<IdString, std::string>>;
     // Pips
     using AllPipsRangeT = AllPipRange;
-    using PipAttrsRangeT = std::vector<std::pair<IdString, std::string>>;
-    // Groups
-    using AllGroupsRangeT = std::vector<GroupId>;
-    using GroupBelsRangeT = std::vector<BelId>;
-    using GroupWiresRangeT = std::vector<WireId>;
-    using GroupPipsRangeT = std::vector<PipId>;
-    using GroupGroupsRangeT = std::vector<GroupId>;
-    // Decals
-    using DecalGfxRangeT = std::vector<GraphicElement>;
-    // Placement validity
-    using CellTypeRangeT = const std::vector<IdString> &;
-    using BelBucketRangeT = const std::vector<BelBucketId> &;
-    using BucketBelRangeT = const std::vector<BelId> &;
 };
 
 struct Arch : BaseArch<ArchRanges>
