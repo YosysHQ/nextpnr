@@ -29,7 +29,7 @@ The contents of `ArchRanges` is as follows:
 |`BelBucketRangeT`          | `BelBucketRange`                 |
 |`BucketBelRangeT`          | `BelId`                          |
 
-The functions that return a particular type are described below
+The functions that return a particular type are described below. Where a default function implementation is provided, `BaseArchRanges` (which `ArchRanges` can inherit from) will set the range type appropriately.
 
 archdefs.h
 ==========
