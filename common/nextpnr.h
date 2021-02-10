@@ -1093,6 +1093,7 @@ template <typename R> struct ArchAPI : BaseCtx
     virtual WireId getBelPinWire(BelId bel, IdString pin) const = 0;
     virtual PortType getBelPinType(BelId bel, IdString pin) const = 0;
     virtual typename R::BelPinsRangeT getBelPins(BelId bel) const = 0;
+    virtual typename R::CellBelPinRangeT getBelPinsForCellPin(CellInfo *cell_info, IdString pin) const = 0;
     // Wire methods
     virtual typename R::AllWiresRangeT getWires() const = 0;
     virtual WireId getWireByName(IdStringList name) const = 0;
@@ -1176,6 +1177,8 @@ template <typename R> struct ArchAPI : BaseCtx
 // This contains the relevant range types for the default implementations of Arch functions
 struct BaseArchRanges
 {
+    // Bels
+    using CellBelPinRangeT = std::array<IdString, 1>;
     // Attributes
     using BelAttrsRangeT = std::vector<std::pair<IdString, std::string>>;
     using WireAttrsRangeT = std::vector<std::pair<IdString, std::string>>;
@@ -1239,6 +1242,11 @@ template <typename R> struct BaseArch : ArchAPI<R>
     virtual typename R::BelAttrsRangeT getBelAttrs(BelId bel) const override
     {
         return empty_if_possible<typename R::BelAttrsRangeT>();
+    }
+
+    virtual typename R::CellBelPinRangeT getBelPinsForCellPin(CellInfo *cell_info, IdString pin) const override
+    {
+        return return_if_match<std::array<IdString, 1>, typename R::CellBelPinRangeT>({pin});
     }
 
     // Wire methods
