@@ -150,7 +150,7 @@ struct Router2
 
             for (size_t j = 0; j < ni->users.size(); j++) {
                 auto &usr = ni->users.at(j);
-                WireId src_wire = ctx->getNetinfoSourceWire(ni), dst_wire = ctx->getNetinfoSinkWire(ni, usr);
+                WireId src_wire = ctx->getNetinfoSourceWire(ni), dst_wire = ctx->getNetinfoSinkWire(ni, usr, 0);
                 nets.at(i).src_wire = src_wire;
                 if (ni->driver.cell == nullptr)
                     src_wire = dst_wire;
@@ -405,7 +405,7 @@ struct Router2
     void reserve_wires_for_arc(NetInfo *net, size_t i)
     {
         WireId src = ctx->getNetinfoSourceWire(net);
-        WireId sink = ctx->getNetinfoSinkWire(net, net->users.at(i));
+        WireId sink = ctx->getNetinfoSinkWire(net, net->users.at(i), 0);
         if (sink == WireId())
             return;
         std::unordered_set<WireId> rsv;
@@ -479,7 +479,7 @@ struct Router2
         auto &usr = net->users.at(i);
         ROUTE_LOG_DBG("Routing arc %d of net '%s' (%d, %d) -> (%d, %d)\n", int(i), ctx->nameOf(net), ad.bb.x0, ad.bb.y0,
                       ad.bb.x1, ad.bb.y1);
-        WireId src_wire = ctx->getNetinfoSourceWire(net), dst_wire = ctx->getNetinfoSinkWire(net, usr);
+        WireId src_wire = ctx->getNetinfoSourceWire(net), dst_wire = ctx->getNetinfoSinkWire(net, usr, 0);
         if (src_wire == WireId())
             ARC_LOG_ERR("No wire found for port %s on source cell %s.\n", ctx->nameOf(net->driver.port),
                         ctx->nameOf(net->driver.cell));
@@ -726,7 +726,7 @@ struct Router2
             if (check_arc_routing(net, i))
                 continue;
             auto &usr = net->users.at(i);
-            WireId dst_wire = ctx->getNetinfoSinkWire(net, usr);
+            WireId dst_wire = ctx->getNetinfoSinkWire(net, usr, 0);
             // Case of arcs that were pre-routed strongly (e.g. clocks)
             if (net->wires.count(dst_wire) && net->wires.at(dst_wire).strength > STRENGTH_STRONG)
                 return ARC_SUCCESS;
@@ -751,7 +751,7 @@ struct Router2
                     if (res2 != ARC_SUCCESS)
                         log_error("Failed to route arc %d of net '%s', from %s to %s.\n", int(i), ctx->nameOf(net),
                                   ctx->nameOfWire(ctx->getNetinfoSourceWire(net)),
-                                  ctx->nameOfWire(ctx->getNetinfoSinkWire(net, net->users.at(i))));
+                                  ctx->nameOfWire(ctx->getNetinfoSinkWire(net, net->users.at(i), 0)));
                 }
             }
         }
@@ -803,7 +803,7 @@ struct Router2
         // Skip routes with no source
         if (src == WireId())
             return true;
-        WireId dst = ctx->getNetinfoSinkWire(net, usr);
+        WireId dst = ctx->getNetinfoSinkWire(net, usr, 0);
         // Skip routes where the destination is already bound
         if (dst == WireId() || ctx->getBoundWireNet(dst) == net)
             return true;

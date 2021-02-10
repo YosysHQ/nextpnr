@@ -1494,7 +1494,9 @@ struct Context : Arch, DeterministicRNG
     // --------------------------------------------------------------
 
     WireId getNetinfoSourceWire(const NetInfo *net_info) const;
-    WireId getNetinfoSinkWire(const NetInfo *net_info, const PortRef &sink) const;
+    SSOArray<WireId, 2> getNetinfoSinkWires(const NetInfo *net_info, const PortRef &sink) const;
+    size_t getNetinfoSinkWireCount(const NetInfo *net_info, const PortRef &sink) const;
+    WireId getNetinfoSinkWire(const NetInfo *net_info, const PortRef &sink, size_t phys_idx) const;
     delay_t getNetinfoRouteDelay(const NetInfo *net_info, const PortRef &sink) const;
 
     // provided by router1.cc

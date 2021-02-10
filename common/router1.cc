@@ -144,7 +144,7 @@ struct Router1
         int user_idx = arc.user_idx;
 
         auto src_wire = ctx->getNetinfoSourceWire(net_info);
-        auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx]);
+        auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx], 0);
 
         arc_queue_insert(arc, src_wire, dst_wire);
     }
@@ -302,7 +302,7 @@ struct Router1
             log_assert(src_wire != WireId());
 
             for (int user_idx = 0; user_idx < int(net_info->users.size()); user_idx++) {
-                auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx]);
+                auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx], 0);
                 log_assert(dst_wire != WireId());
 
                 arc_key arc;
@@ -375,7 +375,7 @@ struct Router1
                           ctx->nameOf(dst_to_arc.at(src_wire).net_info), dst_to_arc.at(src_wire).user_idx);
 
             for (int user_idx = 0; user_idx < int(net_info->users.size()); user_idx++) {
-                auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx]);
+                auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx], 0);
 
                 if (dst_wire == WireId())
                     log_error("No wire found for port %s on destination cell %s.\n",
@@ -443,7 +443,7 @@ struct Router1
         int user_idx = arc.user_idx;
 
         auto src_wire = ctx->getNetinfoSourceWire(net_info);
-        auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx]);
+        auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx], 0);
         ripup_flag = false;
 
         if (ctx->debug) {
@@ -934,7 +934,7 @@ bool Context::checkRoutedDesign() const
 
         std::unordered_map<WireId, int> dest_wires;
         for (int user_idx = 0; user_idx < int(net_info->users.size()); user_idx++) {
-            auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx]);
+            auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx], 0);
             log_assert(dst_wire != WireId());
             dest_wires[dst_wire] = user_idx;
 

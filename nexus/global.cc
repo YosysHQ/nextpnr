@@ -53,7 +53,7 @@ struct NexusGlobalRouter
 
         // Lookup source and destination wires
         WireId src = ctx->getNetinfoSourceWire(net);
-        WireId dst = ctx->getNetinfoSinkWire(net, net->users.at(user_idx));
+        WireId dst = ctx->getNetinfoSinkWire(net, net->users.at(user_idx), 0);
 
         if (src == WireId())
             log_error("Net '%s' has an invalid source port %s.%s\n", ctx->nameOf(net), ctx->nameOf(net->driver.cell),
