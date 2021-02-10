@@ -355,11 +355,6 @@ WireId Context::getNetinfoSourceWire(const NetInfo *net_info) const
         return WireId();
 
     IdString driver_port = net_info->driver.port;
-
-    auto driver_port_it = net_info->driver.cell->pins.find(driver_port);
-    if (driver_port_it != net_info->driver.cell->pins.end())
-        driver_port = driver_port_it->second;
-
     return getBelPinWire(src_bel, driver_port);
 }
 
@@ -371,12 +366,6 @@ WireId Context::getNetinfoSinkWire(const NetInfo *net_info, const PortRef &user_
         return WireId();
 
     IdString user_port = user_info.port;
-
-    auto user_port_it = user_info.cell->pins.find(user_port);
-
-    if (user_port_it != user_info.cell->pins.end())
-        user_port = user_port_it->second;
-
     return getBelPinWire(dst_bel, user_port);
 }
 
@@ -515,15 +504,6 @@ uint32_t Context::checksum() const
 
         x = xorshift32(x + xorshift32(getBelChecksum(ci.bel)));
         x = xorshift32(x + xorshift32(ci.belStrength));
-
-        uint32_t pin_x_sum = 0;
-        for (auto &a : ci.pins) {
-            uint32_t pin_x = 123456789;
-            pin_x = xorshift32(pin_x + xorshift32(a.first.index));
-            pin_x = xorshift32(pin_x + xorshift32(a.second.index));
-            pin_x_sum += pin_x;
-        }
-        x = xorshift32(x + xorshift32(pin_x_sum));
 
         cksum_cells_sum += x;
     }

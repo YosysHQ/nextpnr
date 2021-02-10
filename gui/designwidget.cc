@@ -819,18 +819,6 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
             addProperty(cellParamsItem, QVariant::String, item.first.c_str(ctx),
                         item.second.is_string ? item.second.as_string().c_str() : item.second.to_string().c_str());
         }
-
-        QtProperty *cellPinsItem = groupManager->addProperty("Pins");
-        topItem->addSubProperty(cellPinsItem);
-        for (auto &item : cell->pins) {
-            std::string cell_port = item.first.c_str(ctx);
-            std::string bel_pin = item.second.c_str(ctx);
-
-            QtProperty *pinGroupItem = addSubGroup(cellPortsItem, (cell_port + " -> " + bel_pin).c_str());
-
-            addProperty(pinGroupItem, QVariant::String, "Cell", cell_port.c_str(), ElementType::CELL);
-            addProperty(pinGroupItem, QVariant::String, "Bel", bel_pin.c_str(), ElementType::BEL);
-        }
     }
 }
 

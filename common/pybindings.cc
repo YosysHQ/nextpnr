@@ -167,8 +167,6 @@ PYBIND11_EMBEDDED_MODULE(MODULE_NAME, m)
                       conv_from_str<BelId>>::def_wrap(ci_cls, "bel");
     readwrite_wrapper<CellInfo &, decltype(&CellInfo::belStrength), &CellInfo::belStrength, pass_through<PlaceStrength>,
                       pass_through<PlaceStrength>>::def_wrap(ci_cls, "belStrength");
-    readonly_wrapper<CellInfo &, decltype(&CellInfo::pins), &CellInfo::pins, wrap_context<IdIdMap &>>::def_wrap(ci_cls,
-                                                                                                                "pins");
 
     fn_wrapper_1a_v<CellInfo &, decltype(&CellInfo::addInput), &CellInfo::addInput, conv_from_str<IdString>>::def_wrap(
             ci_cls, "addInput");

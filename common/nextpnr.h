@@ -605,9 +605,6 @@ struct CellInfo : ArchCellInfo
     BelId bel;
     PlaceStrength belStrength = STRENGTH_NONE;
 
-    // cell_port -> bel_pin
-    std::unordered_map<IdString, IdString> pins;
-
     // placement constraints
     CellInfo *constr_parent = nullptr;
     std::vector<CellInfo *> constr_children;
