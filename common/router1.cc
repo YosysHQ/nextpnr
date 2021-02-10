@@ -32,12 +32,20 @@ USING_NEXTPNR_NAMESPACE
 struct arc_key
 {
     NetInfo *net_info;
+    // logical user cell port index
     int user_idx;
+    // physical index into cell->bel pin mapping (usually 0)
+    unsigned phys_idx;
 
-    bool operator==(const arc_key &other) const { return (net_info == other.net_info) && (user_idx == other.user_idx); }
+    bool operator==(const arc_key &other) const
+    {
+        return (net_info == other.net_info) && (user_idx == other.user_idx) && (phys_idx == other.phys_idx);
+    }
     bool operator<(const arc_key &other) const
     {
-        return net_info == other.net_info ? user_idx < other.user_idx : net_info->name < other.net_info->name;
+        return net_info == other.net_info
+                       ? (user_idx == other.user_idx ? phys_idx < other.phys_idx : user_idx < other.user_idx)
+                       : net_info->name < other.net_info->name;
     }
 
     struct Hash
@@ -46,6 +54,7 @@ struct arc_key
         {
             std::size_t seed = std::hash<NetInfo *>()(arg.net_info);
             seed ^= std::hash<int>()(arg.user_idx) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+            seed ^= std::hash<int>()(arg.phys_idx) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
             return seed;
         }
     };
@@ -142,9 +151,10 @@ struct Router1
 
         NetInfo *net_info = arc.net_info;
         int user_idx = arc.user_idx;
+        unsigned phys_idx = arc.phys_idx;
 
         auto src_wire = ctx->getNetinfoSourceWire(net_info);
-        auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx], 0);
+        auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx], phys_idx);
 
         arc_queue_insert(arc, src_wire, dst_wire);
     }
@@ -302,27 +312,29 @@ struct Router1
             log_assert(src_wire != WireId());
 
             for (int user_idx = 0; user_idx < int(net_info->users.size()); user_idx++) {
-                auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx], 0);
-                log_assert(dst_wire != WireId());
+                unsigned phys_idx = 0;
+                for (auto dst_wire : ctx->getNetinfoSinkWires(net_info, net_info->users[user_idx])) {
+                    log_assert(dst_wire != WireId());
 
-                arc_key arc;
-                arc.net_info = net_info;
-                arc.user_idx = user_idx;
-
-                valid_arcs.insert(arc);
+                    arc_key arc;
+                    arc.net_info = net_info;
+                    arc.user_idx = user_idx;
+                    arc.phys_idx = phys_idx++;
+                    valid_arcs.insert(arc);
 #if 0
-                if (ctx->debug)
+                    if (ctx->debug)
                     log("[check]   arc: %s %s\n", ctx->nameOfWire(src_wire), ctx->nameOfWire(dst_wire));
 #endif
 
-                for (WireId wire : arc_to_wires[arc]) {
+                    for (WireId wire : arc_to_wires[arc]) {
 #if 0
-                    if (ctx->debug)
+                        if (ctx->debug)
                         log("[check]     wire: %s\n", ctx->nameOfWire(wire));
 #endif
-                    valid_wires_for_net.insert(wire);
-                    log_assert(wire_to_arcs[wire].count(arc));
-                    log_assert(net_info->wires.count(wire));
+                        valid_wires_for_net.insert(wire);
+                        log_assert(wire_to_arcs[wire].count(arc));
+                        log_assert(net_info->wires.count(wire));
+                    }
                 }
             }
 
@@ -375,52 +387,55 @@ struct Router1
                           ctx->nameOf(dst_to_arc.at(src_wire).net_info), dst_to_arc.at(src_wire).user_idx);
 
             for (int user_idx = 0; user_idx < int(net_info->users.size()); user_idx++) {
-                auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx], 0);
+                unsigned phys_idx = 0;
+                for (auto dst_wire : ctx->getNetinfoSinkWires(net_info, net_info->users[user_idx])) {
+                    arc_key arc;
+                    arc.net_info = net_info;
+                    arc.user_idx = user_idx;
+                    arc.phys_idx = phys_idx++;
 
-                if (dst_wire == WireId())
-                    log_error("No wire found for port %s on destination cell %s.\n",
-                              ctx->nameOf(net_info->users[user_idx].port), ctx->nameOf(net_info->users[user_idx].cell));
-
-                if (dst_to_arc.count(dst_wire)) {
-                    if (dst_to_arc.at(dst_wire).net_info == net_info)
-                        continue;
-                    log_error("Found two arcs with same sink wire %s: %s (%d) vs %s (%d)\n", ctx->nameOfWire(dst_wire),
-                              ctx->nameOf(net_info), user_idx, ctx->nameOf(dst_to_arc.at(dst_wire).net_info),
-                              dst_to_arc.at(dst_wire).user_idx);
-                }
-
-                if (src_to_net.count(dst_wire))
-                    log_error("Wire %s is used as source and sink in different nets: %s vs %s (%d)\n",
-                              ctx->nameOfWire(dst_wire), ctx->nameOf(src_to_net.at(dst_wire)), ctx->nameOf(net_info),
-                              user_idx);
-
-                arc_key arc;
-                arc.net_info = net_info;
-                arc.user_idx = user_idx;
-
-                dst_to_arc[dst_wire] = arc;
-
-                if (net_info->wires.count(dst_wire) == 0) {
-                    arc_queue_insert(arc, src_wire, dst_wire);
-                    continue;
-                }
-
-                WireId cursor = dst_wire;
-                wire_to_arcs[cursor].insert(arc);
-                arc_to_wires[arc].insert(cursor);
-
-                while (src_wire != cursor) {
-                    auto it = net_info->wires.find(cursor);
-                    if (it == net_info->wires.end()) {
-                        arc_queue_insert(arc, src_wire, dst_wire);
-                        break;
+                    if (dst_to_arc.count(dst_wire)) {
+                        if (dst_to_arc.at(dst_wire).net_info == net_info)
+                            continue;
+                        log_error("Found two arcs with same sink wire %s: %s (%d) vs %s (%d)\n",
+                                  ctx->nameOfWire(dst_wire), ctx->nameOf(net_info), user_idx,
+                                  ctx->nameOf(dst_to_arc.at(dst_wire).net_info), dst_to_arc.at(dst_wire).user_idx);
                     }
 
-                    NPNR_ASSERT(it->second.pip != PipId());
-                    cursor = ctx->getPipSrcWire(it->second.pip);
+                    if (src_to_net.count(dst_wire))
+                        log_error("Wire %s is used as source and sink in different nets: %s vs %s (%d)\n",
+                                  ctx->nameOfWire(dst_wire), ctx->nameOf(src_to_net.at(dst_wire)),
+                                  ctx->nameOf(net_info), user_idx);
+
+                    dst_to_arc[dst_wire] = arc;
+
+                    if (net_info->wires.count(dst_wire) == 0) {
+                        arc_queue_insert(arc, src_wire, dst_wire);
+                        continue;
+                    }
+
+                    WireId cursor = dst_wire;
                     wire_to_arcs[cursor].insert(arc);
                     arc_to_wires[arc].insert(cursor);
+
+                    while (src_wire != cursor) {
+                        auto it = net_info->wires.find(cursor);
+                        if (it == net_info->wires.end()) {
+                            arc_queue_insert(arc, src_wire, dst_wire);
+                            break;
+                        }
+
+                        NPNR_ASSERT(it->second.pip != PipId());
+                        cursor = ctx->getPipSrcWire(it->second.pip);
+                        wire_to_arcs[cursor].insert(arc);
+                        arc_to_wires[arc].insert(cursor);
+                    }
                 }
+                // TODO: this matches the situation before supporting multiple cell->bel pins, but do we want to keep
+                // this invariant?
+                if (phys_idx == 0)
+                    log_error("No wires found for port %s on destination cell %s.\n",
+                              ctx->nameOf(net_info->users[user_idx].port), ctx->nameOf(net_info->users[user_idx].cell));
             }
 
             src_to_net[src_wire] = net_info;
@@ -443,7 +458,7 @@ struct Router1
         int user_idx = arc.user_idx;
 
         auto src_wire = ctx->getNetinfoSourceWire(net_info);
-        auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx], 0);
+        auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx], arc.phys_idx);
         ripup_flag = false;
 
         if (ctx->debug) {
@@ -934,14 +949,15 @@ bool Context::checkRoutedDesign() const
 
         std::unordered_map<WireId, int> dest_wires;
         for (int user_idx = 0; user_idx < int(net_info->users.size()); user_idx++) {
-            auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx], 0);
-            log_assert(dst_wire != WireId());
-            dest_wires[dst_wire] = user_idx;
+            for (auto dst_wire : ctx->getNetinfoSinkWires(net_info, net_info->users[user_idx])) {
+                log_assert(dst_wire != WireId());
+                dest_wires[dst_wire] = user_idx;
 
-            if (net_info->wires.count(dst_wire) == 0) {
-                if (ctx->debug)
-                    log("  sink %d (%s) not bound to net\n", user_idx, ctx->nameOfWire(dst_wire));
-                found_unrouted = true;
+                if (net_info->wires.count(dst_wire) == 0) {
+                    if (ctx->debug)
+                        log("  sink %d (%s) not bound to net\n", user_idx, ctx->nameOfWire(dst_wire));
+                    found_unrouted = true;
+                }
             }
         }
 
