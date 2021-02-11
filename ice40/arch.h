@@ -849,7 +849,7 @@ struct Arch : BaseArch<ArchRanges>
     // Assign architecture-specific arguments to nets and cells, which must be
     // called between packing or further
     // netlist modifications, and validity checks
-    void assignArchInfo();
+    void assignArchInfo() override;
     void assignCellInfo(CellInfo *cell);
 
     // -------------------------------------------------

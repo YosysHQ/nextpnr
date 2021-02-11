@@ -20,13 +20,13 @@ for x in range(X):
 			if x == y:
 				continue
 			for z in range(2):
-				ctx.addBel(name="X%dY%d_IO%d" % (x, y, z), type="GENERIC_IOB", loc=Loc(x, y, z), gb=False)
+				ctx.addBel(name="X%dY%d_IO%d" % (x, y, z), type="GENERIC_IOB", loc=Loc(x, y, z), gb=False, hidden=False)
 				ctx.addBelInput(bel="X%dY%d_IO%d" % (x, y, z), name="I", wire="X%dY%dZ%d_I0" % (x, y, z))
 				ctx.addBelInput(bel="X%dY%d_IO%d" % (x, y, z), name="EN", wire="X%dY%dZ%d_I1" % (x, y, z))
 				ctx.addBelOutput(bel="X%dY%d_IO%d" % (x, y, z), name="O", wire="X%dY%dZ%d_Q" % (x, y, z))
 		else:
 			for z in range(N):
-				ctx.addBel(name="X%dY%d_SLICE%d" % (x, y, z), type="GENERIC_SLICE", loc=Loc(x, y, z), gb=False)
+				ctx.addBel(name="X%dY%d_SLICE%d" % (x, y, z), type="GENERIC_SLICE", loc=Loc(x, y, z), gb=False, hidden=False)
 				ctx.addBelInput(bel="X%dY%d_SLICE%d" % (x, y, z), name="CLK", wire="X%dY%dZ%d_CLK" % (x, y, z))
 				for k in range(K):
 					ctx.addBelInput(bel="X%dY%d_SLICE%d" % (x, y, z), name="I[%d]" % k, wire="X%dY%dZ%d_I%d" % (x, y, z, k))

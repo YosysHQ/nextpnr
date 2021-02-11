@@ -1089,6 +1089,7 @@ template <typename R> struct ArchAPI : BaseCtx
     virtual CellInfo *getBoundBelCell(BelId bel) const = 0;
     virtual CellInfo *getConflictingBelCell(BelId bel) const = 0;
     virtual IdString getBelType(BelId bel) const = 0;
+    virtual bool getBelHidden(BelId bel) const = 0;
     virtual typename R::BelAttrsRangeT getBelAttrs(BelId bel) const = 0;
     virtual WireId getBelPinWire(BelId bel, IdString pin) const = 0;
     virtual PortType getBelPinType(BelId bel, IdString pin) const = 0;
@@ -1201,7 +1202,7 @@ template <typename R> struct BaseArch : ArchAPI<R>
 
     // Basic config
     virtual IdString archId() const override { return this->id(STRINGIFY(ARCHNAME)); }
-    virtual IdString archArgsToId(typename R::ArchArgsT args) const { return IdString(); }
+    virtual IdString archArgsToId(typename R::ArchArgsT args) const override { return IdString(); }
     virtual int getTilePipDimZ(int x, int y) const override { return 1; }
     virtual char getNameDelimiter() const override { return ' '; }
 
@@ -1227,6 +1228,8 @@ template <typename R> struct BaseArch : ArchAPI<R>
         entry = nullptr;
         this->refreshUiBel(bel);
     }
+
+    virtual bool getBelHidden(BelId bel) const override { return false; }
 
     virtual bool getBelGlobalBuf(BelId bel) const override { return false; }
     virtual bool checkBelAvail(BelId bel) const override { return getBoundBelCell(bel) == nullptr; };
@@ -1290,7 +1293,7 @@ template <typename R> struct BaseArch : ArchAPI<R>
     virtual NetInfo *getConflictingWireNet(WireId wire) const override { return getBoundWireNet(wire); }
 
     // Pip methods
-    virtual IdString getPipType(PipId pip) const { return IdString(); }
+    virtual IdString getPipType(PipId pip) const override { return IdString(); }
     virtual typename R::PipAttrsRangeT getPipAttrs(PipId) const override
     {
         return empty_if_possible<typename R::PipAttrsRangeT>();

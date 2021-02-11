@@ -77,6 +77,7 @@ struct BelInfo
     DecalXY decalxy;
     int x, y, z;
     bool gb;
+    bool hidden;
 };
 
 struct GroupInfo
@@ -177,7 +178,7 @@ struct Arch : ArchAPI<ArchRanges>
     void addWire(IdStringList name, IdString type, int x, int y);
     void addPip(IdStringList name, IdString type, IdStringList srcWire, IdStringList dstWire, DelayInfo delay, Loc loc);
 
-    void addBel(IdStringList name, IdString type, Loc loc, bool gb);
+    void addBel(IdStringList name, IdString type, Loc loc, bool gb, bool hidden);
     void addBelInput(IdStringList bel, IdString name, IdStringList wire);
     void addBelOutput(IdStringList bel, IdString name, IdStringList wire);
     void addBelInout(IdStringList bel, IdString name, IdStringList wire);
@@ -237,6 +238,7 @@ struct Arch : ArchAPI<ArchRanges>
     CellInfo *getConflictingBelCell(BelId bel) const override;
     const std::vector<BelId> &getBels() const override;
     IdString getBelType(BelId bel) const override;
+    bool getBelHidden(BelId bel) const override;
     const std::map<IdString, std::string> &getBelAttrs(BelId bel) const override;
     WireId getBelPinWire(BelId bel, IdString pin) const override;
     PortType getBelPinType(BelId bel, IdString pin) const override;
