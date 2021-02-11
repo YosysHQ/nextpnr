@@ -398,9 +398,12 @@ struct Arch : BaseArch<ArchRanges>
     const ChipInfoPOD *chip_info;
     const PackageInfoPOD *package_info;
 
-    mutable std::unordered_map<IdString, BelId> bel_by_name;
-    mutable std::unordered_map<IdString, WireId> wire_by_name;
-    mutable std::unordered_map<IdString, PipId> pip_by_name;
+    mutable std::unordered_map<IdStringList, PipId> pip_by_name;
+
+    // fast access to  X and Y IdStrings for building object names
+    std::vector<IdString> x_ids, y_ids;
+    // inverse of the above for name->object mapping
+    std::unordered_map<IdString, int> id_to_x, id_to_y;
 
     // Helpers
     template <typename Id> const TileTypePOD *tileInfo(Id &id) const
@@ -439,15 +442,17 @@ struct Arch : BaseArch<ArchRanges>
     // tiles can complicate this?
     int getTilePipDimZ(int x, int y) const override { return 2; }
 
+    char getNameDelimiter() const override { return '/'; }
+
     // Bels
     BelId getBelByName(IdStringList name) const override;
 
     IdStringList getBelName(BelId bel) const override
     {
         NPNR_ASSERT(bel != BelId());
-        std::stringstream name;
-        name << "X" << bel.location.x << "/Y" << bel.location.y << "/" << tileInfo(bel)->bel_data[bel.index].name.get();
-        return IdStringList(id(name.str()));
+        std::array<IdString, 3> ids{x_ids.at(bel.location.x), y_ids.at(bel.location.y),
+                                    id(tileInfo(bel)->bel_data[bel.index].name.get())};
+        return IdStringList(ids);
     }
 
     Loc getBelLocation(BelId bel) const override
@@ -498,10 +503,9 @@ struct Arch : BaseArch<ArchRanges>
     IdStringList getWireName(WireId wire) const override
     {
         NPNR_ASSERT(wire != WireId());
-        std::stringstream name;
-        name << "X" << wire.location.x << "/Y" << wire.location.y << "/"
-             << tileInfo(wire)->wire_data[wire.index].name.get();
-        return IdStringList(id(name.str()));
+        std::array<IdString, 3> ids{x_ids.at(wire.location.x), y_ids.at(wire.location.y),
+                                    id(tileInfo(wire)->wire_data[wire.index].name.get())};
+        return IdStringList(ids);
     }
 
     DelayInfo getWireDelay(WireId wire) const override { return DelayInfo(); }

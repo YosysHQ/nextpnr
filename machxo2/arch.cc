@@ -30,17 +30,6 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-static std::tuple<int, int, std::string> split_identifier_name(const std::string &name)
-{
-    size_t first_slash = name.find('/');
-    NPNR_ASSERT(first_slash != std::string::npos);
-    size_t second_slash = name.find('/', first_slash + 1);
-    NPNR_ASSERT(second_slash != std::string::npos);
-    return std::make_tuple(std::stoi(name.substr(1, first_slash)),
-                           std::stoi(name.substr(first_slash + 2, second_slash - first_slash)),
-                           name.substr(second_slash + 1));
-};
-
 // -----------------------------------------------------------------------
 
 void IdString::initialize_arch(const BaseCtx *ctx)
@@ -102,6 +91,22 @@ Arch::Arch(ArchArgs args) : args(args)
 
     BaseArch::init_cell_types();
     BaseArch::init_bel_buckets();
+
+    for (int i = 0; i < chip_info->width; i++)
+        x_ids.push_back(id(stringf("X%d", i)));
+    for (int i = 0; i < chip_info->height; i++)
+        y_ids.push_back(id(stringf("Y%d", i)));
+
+    for (int i = 0; i < chip_info->width; i++) {
+        IdString x_id = id(stringf("X%d", i));
+        x_ids.push_back(x_id);
+        id_to_x[x_id] = i;
+    }
+    for (int i = 0; i < chip_info->height; i++) {
+        IdString y_id = id(stringf("Y%d", i));
+        y_ids.push_back(y_id);
+        id_to_y[y_id] = i;
+    }
 }
 
 bool Arch::isAvailable(ArchArgs::ArchArgsTypes chip) { return get_chip_info(chip) != nullptr; }
@@ -175,27 +180,21 @@ IdString Arch::archArgsToId(ArchArgs args) const
 
 BelId Arch::getBelByName(IdStringList name) const
 {
+    if (name.size() != 3)
+        return BelId();
     BelId ret;
-    IdString name_id = name[0];
-
-    auto it = bel_by_name.find(name_id);
-    if (it != bel_by_name.end())
-        return it->second;
-
     Location loc;
-    std::string basename;
-    std::tie(loc.x, loc.y, basename) = split_identifier_name(name_id.str(this));
+    loc.x = id_to_x.at(name[0]);
+    loc.y = id_to_y.at(name[1]);
     ret.location = loc;
-    const TileTypePOD *tilei = tileInfo(ret);
-    for (int i = 0; i < tilei->num_bels; i++) {
-        if (std::strcmp(tilei->bel_data[i].name.get(), basename.c_str()) == 0) {
+    const TileTypePOD *loci = tileInfo(ret);
+    for (int i = 0; i < loci->num_bels; i++) {
+        if (std::strcmp(loci->bel_data[i].name.get(), name[2].c_str(this)) == 0) {
             ret.index = i;
-            break;
+            return ret;
         }
     }
-    if (ret.index >= 0)
-        bel_by_name[name_id] = ret;
-    return ret;
+    return BelId();
 }
 
 BelId Arch::getBelByLocation(Loc loc) const
@@ -308,72 +307,63 @@ BelId Arch::getPackagePinBel(const std::string &pin) const
 
 WireId Arch::getWireByName(IdStringList name) const
 {
+    if (name.size() != 3)
+        return WireId();
     WireId ret;
-    IdString name_id = name[0];
-
-    auto it = wire_by_name.find(name_id);
-    if (it != wire_by_name.end())
-        return it->second;
-
     Location loc;
-    std::string basename;
-    std::tie(loc.x, loc.y, basename) = split_identifier_name(name_id.str(this));
+    loc.x = id_to_x.at(name[0]);
+    loc.y = id_to_y.at(name[1]);
     ret.location = loc;
-
-    const TileTypePOD *tilei = tileInfo(ret);
-    for (int i = 0; i < tilei->num_wires; i++) {
-        if (std::strcmp(tilei->wire_data[i].name.get(), basename.c_str()) == 0) {
+    const TileTypePOD *loci = tileInfo(ret);
+    for (int i = 0; i < loci->num_wires; i++) {
+        if (std::strcmp(loci->wire_data[i].name.get(), name[2].c_str(this)) == 0) {
             ret.index = i;
-            break;
+            return ret;
         }
     }
-    if (ret.index >= 0)
-        wire_by_name[name_id] = ret;
-    return ret;
+    return WireId();
 }
 
 // ---------------------------------------------------------------
 
 PipId Arch::getPipByName(IdStringList name) const
 {
-    PipId ret;
-    IdString name_id = name[0];
-
-    auto it = pip_by_name.find(name_id);
+    if (name.size() != 3)
+        return PipId();
+    auto it = pip_by_name.find(name);
     if (it != pip_by_name.end())
         return it->second;
 
+    PipId ret;
     Location loc;
     std::string basename;
-    std::tie(loc.x, loc.y, basename) = split_identifier_name(name_id.str(this));
+    loc.x = id_to_x.at(name[0]);
+    loc.y = id_to_y.at(name[1]);
     ret.location = loc;
-
-    const TileTypePOD *tilei = tileInfo(ret);
-    for (int i = 0; i < tilei->num_pips; i++) {
+    const TileTypePOD *loci = tileInfo(ret);
+    for (int i = 0; i < loci->num_pips; i++) {
         PipId curr;
         curr.location = loc;
         curr.index = i;
-        pip_by_name[getPipName(curr)[0]] = curr;
+        pip_by_name[getPipName(curr)] = curr;
     }
-    if (pip_by_name.find(name_id) == pip_by_name.end())
-        NPNR_ASSERT_FALSE_STR("no pip named " + name_id.str(this));
-    return pip_by_name[name_id];
+    if (pip_by_name.find(name) == pip_by_name.end())
+        NPNR_ASSERT_FALSE_STR("no pip named " + name.str(getCtx()));
+    return pip_by_name[name];
 }
 
 IdStringList Arch::getPipName(PipId pip) const
 {
-    NPNR_ASSERT(pip != PipId());
+    auto &pip_data = tileInfo(pip)->pips_data[pip.index];
+    WireId src = getPipSrcWire(pip), dst = getPipDstWire(pip);
+    const char *src_name = tileInfo(src)->wire_data[src.index].name.get();
+    const char *dst_name = tileInfo(dst)->wire_data[dst.index].name.get();
+    std::string pip_name =
+            stringf("%d_%d_%s->%d_%d_%s", pip_data.src.x - pip.location.x, pip_data.src.y - pip.location.y, src_name,
+                    pip_data.dst.x - pip.location.x, pip_data.dst.y - pip.location.y, dst_name);
 
-    int x = pip.location.x;
-    int y = pip.location.y;
-
-    std::string src_name = getWireName(getPipSrcWire(pip)).str(getCtx());
-    std::replace(src_name.begin(), src_name.end(), '/', '.');
-
-    std::string dst_name = getWireName(getPipDstWire(pip)).str(getCtx());
-    std::replace(dst_name.begin(), dst_name.end(), '/', '.');
-
-    return IdStringList(id("X" + std::to_string(x) + "/Y" + std::to_string(y) + "/" + src_name + ".->." + dst_name));
+    std::array<IdString, 3> ids{x_ids.at(pip.location.x), y_ids.at(pip.location.y), id(pip_name)};
+    return IdStringList(ids);
 }
 
 // ---------------------------------------------------------------
