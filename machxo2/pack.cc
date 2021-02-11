@@ -138,7 +138,7 @@ static void set_net_constant(Context *ctx, NetInfo *orig, NetInfo *constnet, boo
             if (ctx->verbose)
                 log_info("%s user %s\n", orig->name.c_str(ctx), uc->name.c_str(ctx));
 
-            if(uc->type == id_FACADE_FF && user.port == id_DI) {
+            if (uc->type == id_FACADE_FF && user.port == id_DI) {
                 log_info("FACADE_FF %s is driven by a constant\n", uc->name.c_str(ctx));
 
                 std::unique_ptr<CellInfo> lc = create_machxo2_cell(ctx, id_FACADE_SLICE, uc->name.str(ctx) + "_CONST");
@@ -262,8 +262,7 @@ static void pack_io(Context *ctx)
                     log_error("IO buffer '%s' constrained to pin '%s', which does not exist for package '%s'.\n",
                               ci->name.c_str(ctx), pin.c_str(), ctx->args.package.c_str());
                 } else {
-                    log_info("pin '%s' constrained to Bel '%s'.\n", ci->name.c_str(ctx),
-                             ctx->getBelName(pinBel).c_str(ctx));
+                    log_info("pin '%s' constrained to Bel '%s'.\n", ci->name.c_str(ctx), ctx->nameOfBel(pinBel));
                 }
                 ci->attrs[ctx->id("BEL")] = ctx->getBelName(pinBel).str(ctx);
             }

@@ -60,24 +60,15 @@ static std::string get_trellis_wirename(Context *ctx, Location loc, WireId wire)
     // Handle MachXO2's wonderful naming quirks for wires in left/right tiles, whose
     // relative coords push them outside the bounds of the chip.
     auto is_pio_wire = [](std::string name) {
-        return (
-            name.find("DI") != std::string::npos ||
-            name.find("JDI") != std::string::npos ||
-            name.find("PADD") != std::string::npos ||
-            name.find("INDD") != std::string::npos ||
-            name.find("IOLDO") != std::string::npos ||
-            name.find("IOLTO") != std::string::npos ||
-            name.find("JCE") != std::string::npos ||
-            name.find("JCLK") != std::string::npos ||
-            name.find("JLSR") != std::string::npos ||
-            name.find("JONEG") != std::string::npos ||
-            name.find("JOPOS") != std::string::npos ||
-            name.find("JTS") != std::string::npos ||
-            name.find("JIN") != std::string::npos ||
-            name.find("JIP") != std::string::npos ||
-            // Connections to global mux
-            name.find("JINCK") != std::string::npos
-        );
+        return (name.find("DI") != std::string::npos || name.find("JDI") != std::string::npos ||
+                name.find("PADD") != std::string::npos || name.find("INDD") != std::string::npos ||
+                name.find("IOLDO") != std::string::npos || name.find("IOLTO") != std::string::npos ||
+                name.find("JCE") != std::string::npos || name.find("JCLK") != std::string::npos ||
+                name.find("JLSR") != std::string::npos || name.find("JONEG") != std::string::npos ||
+                name.find("JOPOS") != std::string::npos || name.find("JTS") != std::string::npos ||
+                name.find("JIN") != std::string::npos || name.find("JIP") != std::string::npos ||
+                // Connections to global mux
+                name.find("JINCK") != std::string::npos);
     };
 
     if (prefix2 == "G_" || prefix2 == "L_" || prefix2 == "R_" || prefix2 == "U_" || prefix2 == "D_" ||
@@ -85,10 +76,10 @@ static std::string get_trellis_wirename(Context *ctx, Location loc, WireId wire)
         return basename;
     if (loc == wire.location) {
         // TODO: JINCK is not currently handled by this.
-        if(is_pio_wire(basename)) {
-            if(wire.location.x == 0)
+        if (is_pio_wire(basename)) {
+            if (wire.location.x == 0)
                 return "W1_" + basename;
-            else if(wire.location.x == max_col)
+            else if (wire.location.x == max_col)
                 return "E1_" + basename;
         }
         return basename;
@@ -200,7 +191,8 @@ void write_bitstream(Context *ctx, std::string text_config_file)
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
         if (ci->bel == BelId()) {
-            log_warning("found unplaced cell '%s' during bitstream gen. Not writing to bitstream.\n", ci->name.c_str(ctx));
+            log_warning("found unplaced cell '%s' during bitstream gen. Not writing to bitstream.\n",
+                        ci->name.c_str(ctx));
             continue;
         }
         BelId bel = ci->bel;

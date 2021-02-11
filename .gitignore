@@ -6,6 +6,7 @@
 /nextpnr-nexus*
 /nextpnr-fpga_interchange*
 /nextpnr-gowin*
+/nextpnr-machxo2*
 cmake-build-*/
 Makefile
 cmake_install.cmake

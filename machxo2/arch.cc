@@ -100,7 +100,8 @@ Arch::Arch(ArchArgs args) : args(args)
     if (!package_info)
         log_error("Unsupported package '%s' for '%s'.\n", args.package.c_str(), getChipName().c_str());
 
-    bel_to_cell.resize(chip_info->height * chip_info->width * max_loc_bels, nullptr);
+    BaseArch::init_cell_types();
+    BaseArch::init_bel_buckets();
 }
 
 bool Arch::isAvailable(ArchArgs::ArchArgsTypes chip) { return get_chip_info(chip) != nullptr; }
@@ -172,16 +173,18 @@ IdString Arch::archArgsToId(ArchArgs args) const
 
 // ---------------------------------------------------------------
 
-BelId Arch::getBelByName(IdString name) const
+BelId Arch::getBelByName(IdStringList name) const
 {
     BelId ret;
-    auto it = bel_by_name.find(name);
+    IdString name_id = name[0];
+
+    auto it = bel_by_name.find(name_id);
     if (it != bel_by_name.end())
         return it->second;
 
     Location loc;
     std::string basename;
-    std::tie(loc.x, loc.y, basename) = split_identifier_name(name.str(this));
+    std::tie(loc.x, loc.y, basename) = split_identifier_name(name_id.str(this));
     ret.location = loc;
     const TileTypePOD *tilei = tileInfo(ret);
     for (int i = 0; i < tilei->num_bels; i++) {
@@ -191,7 +194,7 @@ BelId Arch::getBelByName(IdString name) const
         }
     }
     if (ret.index >= 0)
-        bel_by_name[name] = ret;
+        bel_by_name[name_id] = ret;
     return ret;
 }
 
@@ -303,17 +306,18 @@ BelId Arch::getPackagePinBel(const std::string &pin) const
 
 // ---------------------------------------------------------------
 
-WireId Arch::getWireByName(IdString name) const
+WireId Arch::getWireByName(IdStringList name) const
 {
     WireId ret;
+    IdString name_id = name[0];
 
-    auto it = wire_by_name.find(name);
+    auto it = wire_by_name.find(name_id);
     if (it != wire_by_name.end())
         return it->second;
 
     Location loc;
     std::string basename;
-    std::tie(loc.x, loc.y, basename) = split_identifier_name(name.str(this));
+    std::tie(loc.x, loc.y, basename) = split_identifier_name(name_id.str(this));
     ret.location = loc;
 
     const TileTypePOD *tilei = tileInfo(ret);
@@ -324,23 +328,24 @@ WireId Arch::getWireByName(IdString name) const
         }
     }
     if (ret.index >= 0)
-        wire_by_name[name] = ret;
+        wire_by_name[name_id] = ret;
     return ret;
 }
 
 // ---------------------------------------------------------------
 
-PipId Arch::getPipByName(IdString name) const
+PipId Arch::getPipByName(IdStringList name) const
 {
     PipId ret;
+    IdString name_id = name[0];
 
-    auto it = pip_by_name.find(name);
+    auto it = pip_by_name.find(name_id);
     if (it != pip_by_name.end())
         return it->second;
 
     Location loc;
     std::string basename;
-    std::tie(loc.x, loc.y, basename) = split_identifier_name(name.str(this));
+    std::tie(loc.x, loc.y, basename) = split_identifier_name(name_id.str(this));
     ret.location = loc;
 
     const TileTypePOD *tilei = tileInfo(ret);
@@ -348,48 +353,28 @@ PipId Arch::getPipByName(IdString name) const
         PipId curr;
         curr.location = loc;
         curr.index = i;
-        pip_by_name[getPipName(curr)] = curr;
+        pip_by_name[getPipName(curr)[0]] = curr;
     }
-    if (pip_by_name.find(name) == pip_by_name.end())
-        NPNR_ASSERT_FALSE_STR("no pip named " + name.str(this));
-    return pip_by_name[name];
+    if (pip_by_name.find(name_id) == pip_by_name.end())
+        NPNR_ASSERT_FALSE_STR("no pip named " + name_id.str(this));
+    return pip_by_name[name_id];
 }
 
-IdString Arch::getPipName(PipId pip) const
+IdStringList Arch::getPipName(PipId pip) const
 {
     NPNR_ASSERT(pip != PipId());
 
     int x = pip.location.x;
     int y = pip.location.y;
 
-    std::string src_name = getWireName(getPipSrcWire(pip)).str(this);
+    std::string src_name = getWireName(getPipSrcWire(pip)).str(getCtx());
     std::replace(src_name.begin(), src_name.end(), '/', '.');
 
-    std::string dst_name = getWireName(getPipDstWire(pip)).str(this);
+    std::string dst_name = getWireName(getPipDstWire(pip)).str(getCtx());
     std::replace(dst_name.begin(), dst_name.end(), '/', '.');
 
-    return id("X" + std::to_string(x) + "/Y" + std::to_string(y) + "/" + src_name + ".->." + dst_name);
+    return IdStringList(id("X" + std::to_string(x) + "/Y" + std::to_string(y) + "/" + src_name + ".->." + dst_name));
 }
-
-// ---------------------------------------------------------------
-
-GroupId Arch::getGroupByName(IdString name) const { return GroupId(); }
-
-IdString Arch::getGroupName(GroupId group) const { return IdString(); }
-
-std::vector<GroupId> Arch::getGroups() const
-{
-    std::vector<GroupId> ret;
-    return ret;
-}
-
-const std::vector<BelId> &Arch::getGroupBels(GroupId group) const { return bel_id_dummy; }
-
-const std::vector<WireId> &Arch::getGroupWires(GroupId group) const { return wire_id_dummy; }
-
-const std::vector<PipId> &Arch::getGroupPips(GroupId group) const { return pip_id_dummy; }
-
-const std::vector<GroupId> &Arch::getGroupGroups(GroupId group) const { return group_id_dummy; }
 
 // ---------------------------------------------------------------
 
@@ -413,8 +398,6 @@ delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
     return (abs(dst.location.x - src.location.x) + abs(dst.location.y - src.location.y)) * (0.01 + 0.01);
 }
 
-bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const { return false; }
-
 ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
 {
     ArcBounds bb;
@@ -429,6 +412,13 @@ bool Arch::place()
     std::string placer = str_or_default(settings, id("placer"), defaultPlacer);
     if (placer == "sa") {
         bool retVal = placer1(getCtx(), Placer1Cfg(getCtx()));
+        getCtx()->settings[getCtx()->id("place")] = 1;
+        archInfoToAttributes();
+        return retVal;
+    } else if (placer == "heap") {
+        PlacerHeapCfg cfg(getCtx());
+        cfg.ioBufTypes.insert(id_FACADE_IO);
+        bool retVal = placer_heap(getCtx(), cfg);
         getCtx()->settings[getCtx()->id("place")] = 1;
         archInfoToAttributes();
         return retVal;
@@ -455,35 +445,6 @@ bool Arch::route()
 }
 
 // ---------------------------------------------------------------
-
-const std::vector<GraphicElement> &Arch::getDecalGraphics(DecalId decal) const { return graphic_element_dummy; }
-
-DecalXY Arch::getBelDecal(BelId bel) const { return DecalXY(); }
-
-DecalXY Arch::getWireDecal(WireId wire) const { return DecalXY(); }
-
-DecalXY Arch::getPipDecal(PipId pip) const { return DecalXY(); }
-
-DecalXY Arch::getGroupDecal(GroupId group) const { return DecalXY(); }
-
-// ---------------------------------------------------------------
-
-bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
-{
-    return false;
-}
-
-// Get the port class, also setting clockPort if applicable
-TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const
-{
-    return TMG_IGNORE;
-}
-
-TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port, int index) const
-{
-    return TimingClockingInfo();
-}
-
 bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
 {
     // FIXME: Unlike ECP5, SLICEs in a given tile do not share a clock, so
@@ -513,8 +474,6 @@ const std::vector<std::string> Arch::availablePlacers = {"sa",
 
 const std::string Arch::defaultRouter = "router1";
 const std::vector<std::string> Arch::availableRouters = {"router1", "router2"};
-
-void Arch::assignArchInfo() {}
 
 bool Arch::cellsCompatible(const CellInfo **cells, int count) const { return false; }
 

@@ -119,6 +119,7 @@ struct PipId
 
 typedef IdString GroupId;
 typedef IdString DecalId;
+typedef IdString BelBucketId;
 
 struct ArchNetInfo
 {
