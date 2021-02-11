@@ -18,9 +18,9 @@
  *
  */
 
+#include "xdc.h"
 #include "log.h"
 #include "nextpnr.h"
-#include <tcl.h>
 #include <string>
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -139,8 +139,8 @@ static int set_property(
     return TCL_OK;
 }
 
-void Arch::parse_xdc(const std::string &filename) {
-    Tcl_Interp *interp = Tcl_CreateInterp();
+TclInterp::TclInterp(Context *ctx) {
+    interp = Tcl_CreateInterp();
     NPNR_ASSERT(Tcl_Init(interp) == TCL_OK);
 
     Tcl_RegisterObjType(&port_object);
@@ -149,23 +149,18 @@ void Arch::parse_xdc(const std::string &filename) {
     NPNR_ASSERT(Tcl_Eval(interp,
                 "proc unknown args {\n"
                 "  set result [scan [lindex $args 0] \"%d\" value]\n"
-                "  if { $result == 1 && [llength $args] == 1] } {\n"
+                "  if { $result == 1 && [llength $args] == 1 } {\n"
                 "    return \\[$value\\]\n"
                 "  } else {\n"
                 "    uplevel 1 [list _original_unknown {*}$args]\n"
                 "  }\n"
                 "}") == TCL_OK);
-    Tcl_CreateObjCommand(interp, "get_ports", get_ports, getCtx(), nullptr);
-    Tcl_CreateObjCommand(interp, "set_property", set_property, getCtx(), nullptr);
-    auto result = Tcl_EvalFile(interp, filename.c_str());
-    if(result != TCL_OK) {
-        log_error("Error in %s:%d => %s\n", filename.c_str(), Tcl_GetErrorLine(interp), Tcl_GetStringResult(interp));
-    }
-    Tcl_DeleteInterp(interp);
-    Tcl_Finalize();
+    Tcl_CreateObjCommand(interp, "get_ports", get_ports, ctx, nullptr);
+    Tcl_CreateObjCommand(interp, "set_property", set_property, ctx, nullptr);
 }
 
+TclInterp::~TclInterp() {
+    Tcl_DeleteInterp(interp);
+}
 
 NEXTPNR_NAMESPACE_END
-
-

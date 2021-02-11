@@ -33,6 +33,7 @@
 #include "router2.h"
 #include "timing.h"
 #include "util.h"
+#include "xdc.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -562,6 +563,16 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
 
 void Arch::read_logical_netlist(const std::string &filename) {}
 void Arch::write_physical_netlist(const std::string &filename) const {}
+
+void Arch::parse_xdc(const std::string &filename) {
+    TclInterp interp(getCtx());
+    auto result = Tcl_EvalFile(interp.interp, filename.c_str());
+    if(result != TCL_OK) {
+        log_error("Error in %s:%d => %s\n", filename.c_str(),
+                Tcl_GetErrorLine(interp.interp),
+                Tcl_GetStringResult(interp.interp));
+    }
+}
 
 // -----------------------------------------------------------------------
 
