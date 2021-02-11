@@ -197,7 +197,7 @@ bool parse_json(std::istream &in, const std::string &filename, Context *ctx)
             log_error("JSON file '%s' doesn't look like a netlist (doesn't contain \"modules\" key)\n",
                       filename.c_str());
     }
-    GenericFrontend<JsonFrontendImpl>(ctx, JsonFrontendImpl(root))();
+    GenericFrontend<JsonFrontendImpl>(ctx, JsonFrontendImpl(root), /*split_io=*/true)();
     return true;
 }
 

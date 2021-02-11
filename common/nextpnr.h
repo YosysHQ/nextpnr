@@ -833,6 +833,7 @@ struct BaseCtx
 
     // Top-level ports
     std::unordered_map<IdString, PortInfo> ports;
+    std::unordered_map<IdString, CellInfo *> port_cells;
 
     // Floorplanning regions
     std::unordered_map<IdString, std::unique_ptr<Region>> region;
