@@ -21,6 +21,7 @@
 #include "log.h"
 #include "nextpnr.h"
 #include <tcl.h>
+#include <string>
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -144,6 +145,16 @@ void Arch::parse_xdc(const std::string &filename) {
 
     Tcl_RegisterObjType(&port_object);
 
+    NPNR_ASSERT(Tcl_Eval(interp, "rename unknown _original_unknown") == TCL_OK);
+    NPNR_ASSERT(Tcl_Eval(interp,
+                "proc unknown args {\n"
+                "  set result [scan [lindex $args 0] \"%d\" value]\n"
+                "  if { $result == 1 && [llength $args] == 1] } {\n"
+                "    return \\[$value\\]\n"
+                "  } else {\n"
+                "    uplevel 1 [list _original_unknown {*}$args]\n"
+                "  }\n"
+                "}") == TCL_OK);
     Tcl_CreateObjCommand(interp, "get_ports", get_ports, getCtx(), nullptr);
     Tcl_CreateObjCommand(interp, "set_property", set_property, getCtx(), nullptr);
     auto result = Tcl_EvalFile(interp, filename.c_str());
