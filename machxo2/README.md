@@ -1,6 +1,33 @@
 # `nextpnr-machxo2`
 
-To be filled in w/ details later.
+_Experimental_ FOSS Place And Route backend for the Lattice MachXO2 family of
+FPGAs. Fuzzing takes place as a subproject of [`prjtrellis`](https://github.com/YosysHQ/prjtrellis).
+
+Known to work:
+
+* Basic routing from pads to SLICEs and back!
+* Basic packing of one type of FF and LUT into _half_ of a SLICE!
+* Using the internal oscillator `OSCH` as a clock
+* `LOGIC` SLICE mode
+
+Things that probably work but are untested:
+
+* Any non-3.3V I/O standard that doesn't use bank VREFs.
+
+Things remaining to do include (but not limited to):
+
+* More intelligent and efficient packing
+* Global Routing (exists in database/sim models, `nextpnr-machxo2` doesn't use
+  it yet)
+* Secondary High Fanout Nets
+* Edge Clocks (clock pads work, but not routed to global routing yet)
+* PLLs
+* Synchronous Release Global Set/Reset Interface (`SGSR`)
+* Embedded Function Block (`EFB`)
+* All DDR-related functionality
+* Bank VREFs
+* Embedded Block RAM (`EBR`)
+* `CCU2` and `DPRAM` SLICE modes
 
 ## Quick Start
 
@@ -19,7 +46,9 @@ python3-setuptools python3-serial
 
 ### Installation
 
-Use an empty directory to hold all the cloned repositories.
+Use an empty directory to hold all the cloned repositories. Upstream repos
+can be used as well (e.g. [`YosysHQ/prjtrellis`](https://github.com/YosysHQ/prjtrellis),
+etc.).
 
 ```
 git clone git@github.com:cr1901/prjtrellis.git
@@ -56,6 +85,9 @@ cmake . -DARCH=machxo2 -DBUILD_GUI=OFF  -DTRELLIS_INSTALL_PREFIX=/usr -DBUILD_PY
 make
 ```
 
+Although uncommon, the `facade` and `machxo2` branches of the above repos are
+occassionally rebased; use `git pull -f` if necessary.
+
 ### Demo
 
 If you have a [TinyFPGA Ax2](https://store.tinyfpga.com/products/tinyfpga-a2) board
@@ -65,9 +97,9 @@ MachXO2; the gateware will flash the LED!
 
 ```
 cd machxo2/examples/
-sh demo.sh
+sh demo.sh tinyfpga
 ```
 
 The `tinyfpga.v` code used in `demo.sh` is slightly modified from the
 [user's guide](https://tinyfpga.com/a-series-guide.html) to accommodate
-`(* LOC = "pin" *)` constraints.
+`(* LOC = "pin" *)` constraints and the built-in user LED.
