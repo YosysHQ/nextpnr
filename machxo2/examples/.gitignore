@@ -1,0 +1,6 @@
+blinky.fasm
+__pycache__
+*.pyc
+pnrblinky.v
+/blinky_simtest
+*.vcd
