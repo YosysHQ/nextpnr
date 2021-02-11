@@ -558,6 +558,13 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
     return info;
 }
 
+// -----------------------------------------------------------------------
+
+void Arch::read_logical_netlist(const std::string &filename) {}
+void Arch::write_physical_netlist(const std::string &filename) const {}
+
+// -----------------------------------------------------------------------
+
 #ifdef WITH_HEAP
 const std::string Arch::defaultPlacer = "heap";
 #else
