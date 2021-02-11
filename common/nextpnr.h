@@ -842,6 +842,9 @@ struct BaseCtx
 
     Context *as_ctx = nullptr;
 
+    // Has the frontend loaded a design?
+    bool design_loaded;
+
     BaseCtx()
     {
         idstring_str_to_idx = new std::unordered_map<std::string, int>;
@@ -853,6 +856,8 @@ struct BaseCtx
         wildcard.id.index = 0;
         wildcard.type = TimingConstraintObject::ANYTHING;
         constraintObjects.push_back(wildcard);
+
+        design_loaded = false;
     }
 
     virtual ~BaseCtx()

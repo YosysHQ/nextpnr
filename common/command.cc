@@ -331,7 +331,7 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
             execute_python_file(filename.c_str());
     } else
 #endif
-            if (vm.count("json")) {
+            if (ctx->design_loaded) {
         bool do_pack = vm.count("pack-only") != 0 || vm.count("no-pack") == 0;
         bool do_place = vm.count("pack-only") == 0 && vm.count("no-place") == 0;
         bool do_route = vm.count("pack-only") == 0 && vm.count("no-route") == 0;
