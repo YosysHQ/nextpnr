@@ -47,17 +47,17 @@ MachXO2CommandHandler::MachXO2CommandHandler(int argc, char **argv) : CommandHan
 po::options_description MachXO2CommandHandler::getArchOptions()
 {
     po::options_description specific("Architecture specific options");
-    if (Arch::isAvailable(ArchArgs::LCMXO2_256HC))
+    if (Arch::is_available(ArchArgs::LCMXO2_256HC))
         specific.add_options()("256", "set device type to LCMXO2-256HC");
-    if (Arch::isAvailable(ArchArgs::LCMXO2_640HC))
+    if (Arch::is_available(ArchArgs::LCMXO2_640HC))
         specific.add_options()("640", "set device type to LCMXO2-640HC");
-    if (Arch::isAvailable(ArchArgs::LCMXO2_1200HC))
+    if (Arch::is_available(ArchArgs::LCMXO2_1200HC))
         specific.add_options()("1200", "set device type to LCMXO2-1200HC");
-    if (Arch::isAvailable(ArchArgs::LCMXO2_2000HC))
+    if (Arch::is_available(ArchArgs::LCMXO2_2000HC))
         specific.add_options()("2000", "set device type to LCMXO2-2000HC");
-    if (Arch::isAvailable(ArchArgs::LCMXO2_4000HC))
+    if (Arch::is_available(ArchArgs::LCMXO2_4000HC))
         specific.add_options()("4000", "set device type to LCMXO2-4000HC");
-    if (Arch::isAvailable(ArchArgs::LCMXO2_7000HC))
+    if (Arch::is_available(ArchArgs::LCMXO2_7000HC))
         specific.add_options()("7000", "set device type to LCMXO2-7000HC");
 
     specific.add_options()("package", po::value<std::string>(), "select device package");

@@ -52,7 +52,7 @@ void config_empty_lcmxo2_1200hc(ChipConfig &cc)
 // Convert an absolute wire name to a relative Trellis one
 static std::string get_trellis_wirename(Context *ctx, Location loc, WireId wire)
 {
-    std::string basename = ctx->tileInfo(wire)->wire_data[wire.index].name.get();
+    std::string basename = ctx->tile_info(wire)->wire_data[wire.index].name.get();
     std::string prefix2 = basename.substr(0, 2);
     std::string prefix7 = basename.substr(0, 7);
     int max_col = ctx->chip_info->width - 1;
@@ -99,7 +99,7 @@ static std::string get_trellis_wirename(Context *ctx, Location loc, WireId wire)
 
 static void set_pip(Context *ctx, ChipConfig &cc, PipId pip)
 {
-    std::string tile = ctx->getPipTilename(pip);
+    std::string tile = ctx->get_pip_tilename(pip);
     std::string source = get_trellis_wirename(ctx, pip.location, ctx->getPipSrcWire(pip));
     std::string sink = get_trellis_wirename(ctx, pip.location, ctx->getPipDstWire(pip));
     cc.tiles[tile].add_arc(sink, source);
@@ -148,15 +148,15 @@ static std::string get_pic_tile(Context *ctx, BelId bel)
     static const std::set<std::string> pio_l = {"PIC_L0", "PIC_LS0", "PIC_L0_VREF3"};
     static const std::set<std::string> pio_r = {"PIC_R0", "PIC_RS0"};
 
-    std::string pio_name = ctx->tileInfo(bel)->bel_data[bel.index].name.get();
+    std::string pio_name = ctx->tile_info(bel)->bel_data[bel.index].name.get();
     if (bel.location.y == 0) {
-        return ctx->getTileByTypeAndLocation(0, bel.location.x, "PIC_T0");
+        return ctx->get_tile_by_type_and_loc(0, bel.location.x, "PIC_T0");
     } else if (bel.location.y == ctx->chip_info->height - 1) {
-        return ctx->getTileByTypeAndLocation(bel.location.y, bel.location.x, "PIC_B0");
+        return ctx->get_tile_by_type_and_loc(bel.location.y, bel.location.x, "PIC_B0");
     } else if (bel.location.x == 0) {
-        return ctx->getTileByTypeAndLocation(bel.location.y, 0, pio_l);
+        return ctx->get_tile_by_type_and_loc(bel.location.y, 0, pio_l);
     } else if (bel.location.x == ctx->chip_info->width - 1) {
-        return ctx->getTileByTypeAndLocation(bel.location.y, bel.location.x, pio_r);
+        return ctx->get_tile_by_type_and_loc(bel.location.y, bel.location.x, pio_r);
     } else {
         NPNR_ASSERT_FALSE("bad PIO location");
     }
@@ -174,12 +174,12 @@ void write_bitstream(Context *ctx, std::string text_config_file)
         NPNR_ASSERT_FALSE("Unsupported device type");
     }
 
-    cc.metadata.push_back("Part: " + ctx->getFullChipName());
+    cc.metadata.push_back("Part: " + ctx->get_full_chip_name());
 
     // Add all set, configurable pips to the config
     for (auto pip : ctx->getPips()) {
         if (ctx->getBoundPipNet(pip) != nullptr) {
-            if (ctx->getPipClass(pip) == 0) { // ignore fixed pips
+            if (ctx->get_pip_class(pip) == 0) { // ignore fixed pips
                 set_pip(ctx, cc, pip);
             }
         }
@@ -197,8 +197,8 @@ void write_bitstream(Context *ctx, std::string text_config_file)
         }
         BelId bel = ci->bel;
         if (ci->type == id_FACADE_SLICE) {
-            std::string tname = ctx->getTileByTypeAndLocation(bel.location.y, bel.location.x, "PLC");
-            std::string slice = ctx->tileInfo(bel)->bel_data[bel.index].name.get();
+            std::string tname = ctx->get_tile_by_type_and_loc(bel.location.y, bel.location.x, "PLC");
+            std::string slice = ctx->tile_info(bel)->bel_data[bel.index].name.get();
 
             NPNR_ASSERT(slice.substr(0, 5) == "SLICE");
             int int_index = slice[5] - 'A';
@@ -227,15 +227,15 @@ void write_bitstream(Context *ctx, std::string text_config_file)
             cc.tiles[tname].add_enum(slice + ".REG1.REGSET",
                                      str_or_default(ci->params, ctx->id("REG1_REGSET"), "RESET"));
         } else if (ci->type == ctx->id("FACADE_IO")) {
-            std::string pio = ctx->tileInfo(bel)->bel_data[bel.index].name.get();
+            std::string pio = ctx->tile_info(bel)->bel_data[bel.index].name.get();
             std::string iotype = str_or_default(ci->attrs, ctx->id("IO_TYPE"), "LVCMOS33");
             std::string dir = str_or_default(ci->params, ctx->id("DIR"), "INPUT");
             std::string pic_tile = get_pic_tile(ctx, bel);
             cc.tiles[pic_tile].add_enum(pio + ".BASE_TYPE", dir + "_" + iotype);
         } else if (ci->type == ctx->id("OSCH")) {
             std::string freq = str_or_default(ci->params, ctx->id("NOM_FREQ"), "2.08");
-            cc.tiles[ctx->getTileByType("CFG1")].add_enum("OSCH.MODE", "OSCH");
-            cc.tiles[ctx->getTileByType("CFG1")].add_enum("OSCH.NOM_FREQ", freq);
+            cc.tiles[ctx->get_tile_by_type("CFG1")].add_enum("OSCH.MODE", "OSCH");
+            cc.tiles[ctx->get_tile_by_type("CFG1")].add_enum("OSCH.NOM_FREQ", freq);
         }
     }
 
