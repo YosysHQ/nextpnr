@@ -135,6 +135,8 @@ template <typename FrontendType> struct GenericFrontend
         ctx->top_module = top;
         // Do the actual import, starting from the top level module
         import_module(m, top.str(ctx), top.str(ctx), mod_refs.at(top));
+
+        ctx->design_loaded = true;
     }
 
     Context *ctx;
