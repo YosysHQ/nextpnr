@@ -71,7 +71,9 @@ void print_utilisation(const Context *ctx)
     }
     std::map<IdString, int> available_types;
     for (auto bel : ctx->getBels()) {
-        available_types[ctx->getBelType(bel)]++;
+        if (!ctx->getBelHidden(bel)) {
+            available_types[ctx->getBelType(bel)]++;
+        }
     }
     log_break();
     log_info("Device utilisation:\n");

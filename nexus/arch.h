@@ -1118,7 +1118,7 @@ struct Arch : BaseArch<ArchRanges>
 
     WireId getPipSrcWire(PipId pip) const override { return canonical_wire(pip.tile, pip_data(pip).from_wire); }
 
-    WireId getPipDstWire(PipId pip) const { return canonical_wire(pip.tile, pip_data(pip).to_wire); }
+    WireId getPipDstWire(PipId pip) const override { return canonical_wire(pip.tile, pip_data(pip).to_wire); }
 
     DelayInfo getPipDelay(PipId pip) const override
     {

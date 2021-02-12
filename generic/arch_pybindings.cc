@@ -162,10 +162,9 @@ void arch_wrap_python(py::module &m)
                     pass_through<DelayInfo>, pass_through<Loc>>::def_wrap(ctx_cls, "addPip", "name"_a, "type"_a,
                                                                           "srcWire"_a, "dstWire"_a, "delay"_a, "loc"_a);
 
-    fn_wrapper_4a_v<Context, decltype(&Context::addBel), &Context::addBel, conv_from_str<IdStringList>,
-                    conv_from_str<IdString>, pass_through<Loc>, pass_through<bool>>::def_wrap(ctx_cls, "addBel",
-                                                                                              "name"_a, "type"_a,
-                                                                                              "loc"_a, "gb"_a);
+    fn_wrapper_5a_v<Context, decltype(&Context::addBel), &Context::addBel, conv_from_str<IdStringList>,
+                    conv_from_str<IdString>, pass_through<Loc>, pass_through<bool>,
+                    pass_through<bool>>::def_wrap(ctx_cls, "addBel", "name"_a, "type"_a, "loc"_a, "gb"_a, "hidden"_a);
     fn_wrapper_3a_v<Context, decltype(&Context::addBelInput), &Context::addBelInput, conv_from_str<IdStringList>,
                     conv_from_str<IdString>, conv_from_str<IdStringList>>::def_wrap(ctx_cls, "addBelInput", "bel"_a,
                                                                                     "name"_a, "wire"_a);

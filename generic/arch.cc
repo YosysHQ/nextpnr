@@ -91,7 +91,7 @@ void Arch::addPip(IdStringList name, IdString type, IdStringList srcWire, IdStri
     tilePipDimZ[loc.x][loc.y] = std::max(tilePipDimZ[loc.x][loc.y], loc.z + 1);
 }
 
-void Arch::addBel(IdStringList name, IdString type, Loc loc, bool gb)
+void Arch::addBel(IdStringList name, IdString type, Loc loc, bool gb, bool hidden)
 {
     NPNR_ASSERT(bels.count(name) == 0);
     NPNR_ASSERT(bel_by_loc.count(loc) == 0);
@@ -102,6 +102,7 @@ void Arch::addBel(IdStringList name, IdString type, Loc loc, bool gb)
     bi.y = loc.y;
     bi.z = loc.z;
     bi.gb = gb;
+    bi.hidden = hidden;
 
     bel_ids.push_back(name);
     bel_by_loc[loc] = name;
@@ -318,6 +319,8 @@ CellInfo *Arch::getConflictingBelCell(BelId bel) const { return bels.at(bel).bou
 const std::vector<BelId> &Arch::getBels() const { return bel_ids; }
 
 IdString Arch::getBelType(BelId bel) const { return bels.at(bel).type; }
+
+bool Arch::getBelHidden(BelId bel) const { return bels.at(bel).hidden; }
 
 const std::map<IdString, std::string> &Arch::getBelAttrs(BelId bel) const { return bels.at(bel).attrs; }
 

@@ -601,7 +601,7 @@ struct Arch : BaseArch<ArchRanges>
         return range;
     }
 
-    std::vector<IdString> getBelPins(BelId bel) const;
+    std::vector<IdString> getBelPins(BelId bel) const override;
 
     // -------------------------------------------------
 

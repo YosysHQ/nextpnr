@@ -225,6 +225,12 @@ Return a list of all bels on the device.
 
 Return the type of a given bel.
 
+### bool getBelHidden(BelId bel) const
+
+Should this bel be hidden from utilities?
+
+*BaseArch default: returns false*
+
 ### BelAttrsRangeT getBelAttrs(BelId bel) const
 
 Return the attributes for that bel. Bel attributes are only informal. They are displayed by the GUI but are otherwise

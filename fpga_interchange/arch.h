@@ -824,8 +824,7 @@ struct Arch : ArchAPI<ArchRanges>
         return false;
     }
 
-    // TODO: this needs to become part of the Arch API
-    bool getBelHidden(BelId bel) const { return bel_info(chip_info, bel).category != BEL_CATEGORY_LOGIC; }
+    bool getBelHidden(BelId bel) const override { return bel_info(chip_info, bel).category != BEL_CATEGORY_LOGIC; }
 
     IdString getBelType(BelId bel) const override
     {
