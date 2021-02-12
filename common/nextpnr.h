@@ -1375,7 +1375,7 @@ template <typename R> struct BaseArch : ArchAPI<R>
     // Decal methods
     virtual typename R::DecalGfxRangeT getDecalGraphics(DecalId decal) const override
     {
-        NPNR_ASSERT_FALSE("unreachable");
+        return empty_if_possible<typename R::DecalGfxRangeT>();
     };
     virtual DecalXY getBelDecal(BelId bel) const override { return DecalXY(); }
     virtual DecalXY getWireDecal(WireId wire) const override { return DecalXY(); }

@@ -573,7 +573,7 @@ Return the graphic elements that make up a decal.
 The same decal must always produce the same list. If the graphics for
 a design element changes, that element must return another decal.
 
-*BaseArch default: asserts false as unreachable due to there being no decals*
+*BaseArch default: returns default-constructed range*
 
 ### DecalXY getBelDecal(BelId bel) const
 
