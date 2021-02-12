@@ -17,12 +17,13 @@
  *
  */
 
-#include "nextpnr.h"
 #include <tcl.h>
+#include "nextpnr.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
-struct TclInterp {
+struct TclInterp
+{
     TclInterp(Context *ctx);
     ~TclInterp();
 

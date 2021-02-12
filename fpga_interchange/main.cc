@@ -83,7 +83,7 @@ std::unique_ptr<Context> FpgaInterchangeCommandHandler::createContext(std::unord
     }
 
     if (vm.count("xdc")) {
-        for(auto & x : vm["xdc"].as<std::vector<std::string>>()) {
+        for (auto &x : vm["xdc"].as<std::vector<std::string>>()) {
             ctx->parse_xdc(x);
         }
     }
