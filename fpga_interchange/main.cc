@@ -49,8 +49,10 @@ po::options_description FpgaInterchangeCommandHandler::getArchOptions()
 {
     po::options_description specific("Architecture specific options");
     specific.add_options()("chipdb", po::value<std::string>(), "name of chip database binary");
-    specific.add_options()("xdc", po::value<std::vector<std::string>>(), "XDC-style constraints file");
+    specific.add_options()("xdc", po::value<std::vector<std::string>>(), "XDC-style constraints file to read");
+    specific.add_options()("netlist", po::value<std::string>(), "FPGA interchange logical netlist to read");
     specific.add_options()("phys", po::value<std::string>(), "FPGA interchange Physical netlist to write");
+    specific.add_options()("package", po::value<std::string>(), "Package to use");
 
     return specific;
 }
@@ -70,7 +72,23 @@ std::unique_ptr<Context> FpgaInterchangeCommandHandler::createContext(std::unord
         log_error("chip database binary must be provided\n");
     }
     chipArgs.chipdb = vm["chipdb"].as<std::string>();
-    return std::unique_ptr<Context>(new Context(chipArgs));
+    if (vm.count("package")) {
+        chipArgs.package = vm["package"].as<std::string>();
+    }
+
+    auto ctx = std::unique_ptr<Context>(new Context(chipArgs));
+
+    if (vm.count("netlist")) {
+        ctx->read_logical_netlist(vm["netlist"].as<std::string>());
+    }
+
+    if (vm.count("xdc")) {
+        for (auto &x : vm["xdc"].as<std::vector<std::string>>()) {
+            ctx->parse_xdc(x);
+        }
+    }
+
+    return ctx;
 }
 
 void FpgaInterchangeCommandHandler::customAfterLoad(Context *ctx) {}

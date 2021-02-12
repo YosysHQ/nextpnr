@@ -650,6 +650,7 @@ struct BelBucketRange
 struct ArchArgs
 {
     std::string chipdb;
+    std::string package;
 };
 
 struct ArchRanges
@@ -1301,7 +1302,9 @@ struct Arch : ArchAPI<ArchRanges>
     static const std::vector<std::string> availableRouters;
 
     // -------------------------------------------------
-    void write_physical_netlist(const std::string &filename) const {}
+    void read_logical_netlist(const std::string &filename);
+    void write_physical_netlist(const std::string &filename) const;
+    void parse_xdc(const std::string &filename);
 };
 
 NEXTPNR_NAMESPACE_END
