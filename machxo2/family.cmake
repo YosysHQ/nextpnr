@@ -1,9 +1,3 @@
-if (BUILD_GUI)
-    message(FATAL_ERROR "GUI support is not implemented for MachXO2. Build with -DBUILD_GUI=OFF.")
-endif()
-if (BUILD_PYTHON)
-    message(FATAL_ERROR "Python support is not implemented for MachXO2. Build with -DBUILD_PYTHON=OFF.")
-endif()
 add_subdirectory(${family})
 message(STATUS "Using MachXO2 chipdb: ${MACHXO2_CHIPDB}")
 

@@ -111,6 +111,16 @@ Arch::Arch(ArchArgs args) : args(args)
 
 bool Arch::is_available(ArchArgs::ArchArgsTypes chip) { return get_chip_info(chip) != nullptr; }
 
+std::vector<std::string> Arch::get_supported_packages(ArchArgs::ArchArgsTypes chip)
+{
+    const ChipInfoPOD *chip_info = get_chip_info(chip);
+    std::vector<std::string> pkgs;
+    for (int i = 0; i < chip_info->num_packages; i++) {
+        pkgs.push_back(chip_info->package_info[i].name.get());
+    }
+    return pkgs;
+}
+
 std::string Arch::getChipName() const
 {
     if (args.type == ArchArgs::LCMXO2_256HC) {

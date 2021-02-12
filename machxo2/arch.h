@@ -424,6 +424,7 @@ struct Arch : BaseArch<ArchRanges>
     Arch(ArchArgs args);
 
     static bool is_available(ArchArgs::ArchArgsTypes chip);
+    static std::vector<std::string> get_supported_packages(ArchArgs::ArchArgsTypes chip);
 
     std::string getChipName() const override;
     // Extra helper
