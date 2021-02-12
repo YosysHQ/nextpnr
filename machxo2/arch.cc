@@ -401,7 +401,10 @@ delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
 ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
 {
     ArcBounds bb;
-
+    bb.x0 = std::min(src.location.x, dst.location.x);
+    bb.y0 = std::min(src.location.y, dst.location.y);
+    bb.x1 = std::max(src.location.x, dst.location.x);
+    bb.y1 = std::max(src.location.y, dst.location.y);
     return bb;
 }
 

@@ -129,13 +129,6 @@ struct NetInfo;
 
 struct ArchCellInfo
 {
-    // Custom grouping set via "PACK_GROUP" attribute. All cells with the same group
-    // value may share a tile (-1 = don't care, default if not set)
-    int user_group;
-    // Is a slice type primitive
-    bool is_slice;
-    // Only packing rule for slice type primitives is a single clock per tile
-    const NetInfo *slice_clk;
 };
 
 NEXTPNR_NAMESPACE_END
