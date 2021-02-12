@@ -123,7 +123,7 @@ struct ModuleInfo
 
 template <typename FrontendType> struct GenericFrontend
 {
-    GenericFrontend(Context *ctx, const FrontendType &impl) : ctx(ctx), impl(impl) {}
+    GenericFrontend(Context *ctx, const FrontendType &impl, bool split_io) : ctx(ctx), impl(impl), split_io(split_io) {}
     void operator()()
     {
         // Find which module is top
@@ -141,6 +141,7 @@ template <typename FrontendType> struct GenericFrontend
 
     Context *ctx;
     const FrontendType &impl;
+    const bool split_io;
     using mod_dat_t = typename FrontendType::ModuleDataType;
     using mod_port_dat_t = typename FrontendType::ModulePortDataType;
     using cell_dat_t = typename FrontendType::CellDataType;
@@ -148,7 +149,7 @@ template <typename FrontendType> struct GenericFrontend
     using bitvector_t = typename FrontendType::BitVectorDataType;
 
     std::unordered_map<IdString, ModuleInfo> mods;
-    std::unordered_map<IdString, const mod_dat_t &> mod_refs;
+    std::unordered_map<IdString, const mod_dat_t> mod_refs;
     IdString top;
 
     // Process the list of modules and determine
@@ -585,22 +586,28 @@ template <typename FrontendType> struct GenericFrontend
             connect_port(ctx, net, iobuf, ctx->id("I"));
         } else if (dir == PORT_INOUT) {
             iobuf->type = ctx->id("$nextpnr_iobuf");
-            iobuf->addInput(ctx->id("I"));
-            iobuf->addOutput(ctx->id("O"));
-            // Need to bifurcate the net to avoid multiple drivers and split
-            // the input/output parts of an inout
-            // Create a new net connecting only the current net's driver and the IOBUF input
-            // Then use the IOBUF output to drive all of the current net's users
-            NetInfo *split_iobuf_i = ctx->createNet(unique_name("", "$" + name + "$iobuf_i", true));
-            auto drv = net->driver;
-            if (drv.cell != nullptr) {
-                disconnect_port(ctx, drv.cell, drv.port);
-                drv.cell->ports[drv.port].net = nullptr;
-                connect_port(ctx, split_iobuf_i, drv.cell, drv.port);
+
+            if (split_io) {
+                iobuf->addInput(ctx->id("I"));
+                iobuf->addOutput(ctx->id("O"));
+                // Need to bifurcate the net to avoid multiple drivers and split
+                // the input/output parts of an inout
+                // Create a new net connecting only the current net's driver and the IOBUF input
+                // Then use the IOBUF output to drive all of the current net's users
+                NetInfo *split_iobuf_i = ctx->createNet(unique_name("", "$" + name + "$iobuf_i", true));
+                auto drv = net->driver;
+                if (drv.cell != nullptr) {
+                    disconnect_port(ctx, drv.cell, drv.port);
+                    drv.cell->ports[drv.port].net = nullptr;
+                    connect_port(ctx, split_iobuf_i, drv.cell, drv.port);
+                }
+                connect_port(ctx, split_iobuf_i, iobuf, ctx->id("I"));
+                NPNR_ASSERT(net->driver.cell == nullptr);
+                connect_port(ctx, net, iobuf, ctx->id("O"));
+            } else {
+                iobuf->addInout(ctx->id("IO"));
+                connect_port(ctx, net, iobuf, ctx->id("IO"));
             }
-            connect_port(ctx, split_iobuf_i, iobuf, ctx->id("I"));
-            NPNR_ASSERT(net->driver.cell == nullptr);
-            connect_port(ctx, net, iobuf, ctx->id("O"));
         }
 
         PortInfo pinfo;
@@ -608,6 +615,7 @@ template <typename FrontendType> struct GenericFrontend
         pinfo.net = net;
         pinfo.type = dir;
         ctx->ports[pinfo.name] = pinfo;
+        ctx->port_cells[pinfo.name] = iobuf;
 
         return iobuf;
     }
