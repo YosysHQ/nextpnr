@@ -9,7 +9,8 @@ RUN set -e -x ;\
         build-essential autoconf cmake clang bison wget flex gperf \
         libreadline-dev gawk tcl-dev libffi-dev graphviz xdot python3-dev \
         libboost-all-dev qt5-default git libftdi-dev pkg-config libeigen3-dev \
-        zlib1g-dev curl python3-pip
+        zlib1g-dev curl python3-pip libcapnp-dev capnproto
+
 
 RUN set -e -x ;\
     mkdir -p /usr/local/src ;\
