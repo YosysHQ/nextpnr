@@ -199,6 +199,12 @@ inline const BelInfoPOD &bel_info(const ChipInfoPOD *chip_info, BelId bel)
     return loc_info(chip_info, bel).bel_data[bel.index];
 }
 
+inline const PipInfoPOD &pip_info(const ChipInfoPOD *chip_info, PipId pip)
+{
+    NPNR_ASSERT(pip != PipId());
+    return loc_info(chip_info, pip).pip_data[pip.index];
+}
+
 struct BelIterator
 {
     const ChipInfoPOD *chip;
@@ -741,6 +747,8 @@ struct Arch : ArchAPI<ArchRanges>
         return chip_info->tile_types[chip_info->tiles[get_tile_index(x, y)].type].number_sites;
     }
     char getNameDelimiter() const override { return '/'; }
+
+    std::string get_part() const;
 
     // -------------------------------------------------
 
@@ -1308,6 +1316,8 @@ struct Arch : ArchAPI<ArchRanges>
     void read_logical_netlist(const std::string &filename);
     void write_physical_netlist(const std::string &filename) const;
     void parse_xdc(const std::string &filename);
+
+    std::unordered_set<IdString> io_port_types;
 };
 
 NEXTPNR_NAMESPACE_END

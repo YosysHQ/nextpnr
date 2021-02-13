@@ -25,6 +25,7 @@
 #include <cmath>
 #include <cstring>
 #include <queue>
+#include "fpga_interchange.h"
 #include "log.h"
 #include "nextpnr.h"
 #include "placer1.h"
@@ -82,6 +83,10 @@ Arch::Arch(ArchArgs args) : args(args)
     for (int32_t i = 0; i < cell_map.cell_names.ssize(); ++i) {
         log_assert(cell_map.cell_names[i] == i + first_cell_id);
     }
+
+    io_port_types.emplace(this->id("$nextpnr_ibuf"));
+    io_port_types.emplace(this->id("$nextpnr_obuf"));
+    io_port_types.emplace(this->id("$nextpnr_iobuf"));
 }
 
 // -----------------------------------------------------------------------
@@ -561,8 +566,14 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
 
 // -----------------------------------------------------------------------
 
-void Arch::read_logical_netlist(const std::string &filename) {}
-void Arch::write_physical_netlist(const std::string &filename) const {}
+void Arch::read_logical_netlist(const std::string &filename)
+{
+    FpgaInterchange::read_logical_netlist(getCtx(), filename);
+}
+void Arch::write_physical_netlist(const std::string &filename) const
+{
+    FpgaInterchange::write_physical_netlist(getCtx(), filename);
+}
 
 void Arch::parse_xdc(const std::string &filename)
 {
@@ -572,6 +583,12 @@ void Arch::parse_xdc(const std::string &filename)
         log_error("Error in %s:%d => %s\n", filename.c_str(), Tcl_GetErrorLine(interp.interp),
                   Tcl_GetStringResult(interp.interp));
     }
+}
+
+std::string Arch::get_part() const
+{
+    // FIXME: Need a map between device / package / speed grade and part.
+    return chip_info->name.get() + args.package + "-1";
 }
 
 // -----------------------------------------------------------------------
