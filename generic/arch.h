@@ -125,7 +125,7 @@ struct ArchRanges
     using TileBelsRangeT = const std::vector<BelId> &;
     using BelAttrsRangeT = const std::map<IdString, std::string> &;
     using BelPinsRangeT = std::vector<IdString>;
-    using CellBelPinRangeT = std::array<IdString, 1>;
+    using CellBelPinRangeT = const std::vector<IdString> &;
     // Wires
     using AllWiresRangeT = const std::vector<WireId> &;
     using DownhillPipRangeT = const std::vector<PipId> &;
@@ -207,6 +207,9 @@ struct Arch : ArchAPI<ArchRanges>
     void addCellTimingSetupHold(IdString cell, IdString port, IdString clock, DelayInfo setup, DelayInfo hold);
     void addCellTimingClockToOut(IdString cell, IdString port, IdString clock, DelayInfo clktoq);
 
+    void clearCellBelPinMap(IdString cell, IdString cell_pin);
+    void addCellBelPinMapping(IdString cell, IdString cell_pin, IdString bel_pin);
+
     // ---------------------------------------------------------------
     // Common Arch API. Every arch must provide the following methods.
 
@@ -244,7 +247,7 @@ struct Arch : ArchAPI<ArchRanges>
     WireId getBelPinWire(BelId bel, IdString pin) const override;
     PortType getBelPinType(BelId bel, IdString pin) const override;
     std::vector<IdString> getBelPins(BelId bel) const override;
-    std::array<IdString, 1> getBelPinsForCellPin(CellInfo *cell_info, IdString pin) const override;
+    const std::vector<IdString> &getBelPinsForCellPin(CellInfo *cell_info, IdString pin) const override;
 
     WireId getWireByName(IdStringList name) const override;
     IdStringList getWireName(WireId wire) const override;

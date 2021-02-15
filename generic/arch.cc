@@ -249,6 +249,12 @@ void Arch::addCellTimingClockToOut(IdString cell, IdString port, IdString clock,
     cellTiming[cell].portClasses[port] = TMG_REGISTER_OUTPUT;
 }
 
+void Arch::clearCellBelPinMap(IdString cell, IdString cell_pin) { cells.at(cell)->bel_pins[cell_pin].clear(); }
+void Arch::addCellBelPinMapping(IdString cell, IdString cell_pin, IdString bel_pin)
+{
+    cells.at(cell)->bel_pins[cell_pin].push_back(bel_pin);
+}
+
 // ---------------------------------------------------------------
 
 Arch::Arch(ArchArgs args) : chipName("generic"), args(args)
@@ -342,7 +348,10 @@ std::vector<IdString> Arch::getBelPins(BelId bel) const
     return ret;
 }
 
-std::array<IdString, 1> Arch::getBelPinsForCellPin(CellInfo *cell_info, IdString pin) const { return {pin}; }
+const std::vector<IdString> &Arch::getBelPinsForCellPin(CellInfo *cell_info, IdString pin) const
+{
+    return cell_info->bel_pins.at(pin);
+}
 
 // ---------------------------------------------------------------
 
@@ -694,6 +703,10 @@ void Arch::assignArchInfo()
             ci->is_slice = false;
         }
         ci->user_group = int_or_default(ci->attrs, id("PACK_GROUP"), -1);
+        // If no manual cell->bel pin rule has been created; assign a default one
+        for (auto &p : ci->ports)
+            if (!ci->bel_pins.count(p.first))
+                ci->bel_pins.emplace(p.first, std::vector<IdString>{p.first});
     }
 }
 
