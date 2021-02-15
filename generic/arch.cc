@@ -342,6 +342,8 @@ std::vector<IdString> Arch::getBelPins(BelId bel) const
     return ret;
 }
 
+std::array<IdString, 1> Arch::getBelPinsForCellPin(CellInfo *cell_info, IdString pin) const { return {pin}; }
+
 // ---------------------------------------------------------------
 
 WireId Arch::getWireByName(IdStringList name) const

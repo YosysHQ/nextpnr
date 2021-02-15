@@ -869,7 +869,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                 log_info("               Sink %s.%s\n", sink_cell->name.c_str(ctx), sink->port.c_str(ctx));
                 if (ctx->verbose) {
                     auto driver_wire = ctx->getNetinfoSourceWire(net);
-                    auto sink_wire = ctx->getNetinfoSinkWire(net, *sink);
+                    auto sink_wire = ctx->getNetinfoSinkWire(net, *sink, 0);
                     log_info("                 prediction: %f ns estimate: %f ns\n",
                              ctx->getDelayNS(ctx->predictDelay(net, *sink)),
                              ctx->getDelayNS(ctx->estimateDelay(driver_wire, sink_wire)));

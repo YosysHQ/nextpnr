@@ -354,19 +354,59 @@ WireId Context::getNetinfoSourceWire(const NetInfo *net_info) const
     if (src_bel == BelId())
         return WireId();
 
-    IdString driver_port = net_info->driver.port;
-    return getBelPinWire(src_bel, driver_port);
+    auto bel_pins = getBelPinsForCellPin(net_info->driver.cell, net_info->driver.port);
+    auto iter = bel_pins.begin();
+    if (iter == bel_pins.end())
+        return WireId();
+    WireId driver = getBelPinWire(src_bel, *iter);
+    ++iter;
+    NPNR_ASSERT(iter == bel_pins.end()); // assert there is only one driver bel pin;
+    return driver;
 }
 
-WireId Context::getNetinfoSinkWire(const NetInfo *net_info, const PortRef &user_info) const
+SSOArray<WireId, 2> Context::getNetinfoSinkWires(const NetInfo *net_info, const PortRef &user_info) const
 {
     auto dst_bel = user_info.cell->bel;
-
     if (dst_bel == BelId())
-        return WireId();
+        return SSOArray<WireId, 2>(0, WireId());
+    size_t bel_pin_count = 0;
+    // We use an SSOArray here because it avoids any heap allocation for the 99.9% case of 1 or 2 sink wires
+    // but as SSOArray doesn't (currently) support resizing to keep things simple it does mean we have to do
+    // two loops
+    for (auto s : getBelPinsForCellPin(user_info.cell, user_info.port)) {
+        (void)s; // unused
+        ++bel_pin_count;
+    }
+    SSOArray<WireId, 2> result(bel_pin_count, WireId());
+    bel_pin_count = 0;
+    for (auto pin : getBelPinsForCellPin(user_info.cell, user_info.port)) {
+        result[bel_pin_count++] = getBelPinWire(dst_bel, pin);
+    }
+    return result;
+}
 
-    IdString user_port = user_info.port;
-    return getBelPinWire(dst_bel, user_port);
+size_t Context::getNetinfoSinkWireCount(const NetInfo *net_info, const PortRef &sink) const
+{
+    size_t count = 0;
+    for (auto s : getNetinfoSinkWires(net_info, sink)) {
+        (void)s; // unused
+        ++count;
+    }
+    return count;
+}
+
+WireId Context::getNetinfoSinkWire(const NetInfo *net_info, const PortRef &sink, size_t phys_idx) const
+{
+    size_t count = 0;
+    for (auto s : getNetinfoSinkWires(net_info, sink)) {
+        if (count == phys_idx)
+            return s;
+        ++count;
+    }
+    /* TODO: This should be an assertion failure, but for the zero-wire case of unplaced sinks; legacy code currently
+    assumes WireId Remove once the refactoring process is complete.
+    */
+    return WireId();
 }
 
 delay_t Context::getNetinfoRouteDelay(const NetInfo *net_info, const PortRef &user_info) const
@@ -383,29 +423,33 @@ delay_t Context::getNetinfoRouteDelay(const NetInfo *net_info, const PortRef &us
     if (src_wire == WireId())
         return 0;
 
-    WireId dst_wire = getNetinfoSinkWire(net_info, user_info);
-    WireId cursor = dst_wire;
-    delay_t delay = 0;
+    delay_t max_delay = 0;
 
-    while (cursor != WireId() && cursor != src_wire) {
-        auto it = net_info->wires.find(cursor);
+    for (auto dst_wire : getNetinfoSinkWires(net_info, user_info)) {
+        WireId cursor = dst_wire;
+        delay_t delay = 0;
 
-        if (it == net_info->wires.end())
-            break;
+        while (cursor != WireId() && cursor != src_wire) {
+            auto it = net_info->wires.find(cursor);
 
-        PipId pip = it->second.pip;
-        if (pip == PipId())
-            break;
+            if (it == net_info->wires.end())
+                break;
 
-        delay += getPipDelay(pip).maxDelay();
-        delay += getWireDelay(cursor).maxDelay();
-        cursor = getPipSrcWire(pip);
+            PipId pip = it->second.pip;
+            if (pip == PipId())
+                break;
+
+            delay += getPipDelay(pip).maxDelay();
+            delay += getWireDelay(cursor).maxDelay();
+            cursor = getPipSrcWire(pip);
+        }
+
+        if (cursor == src_wire)
+            max_delay = std::max(max_delay, delay + getWireDelay(src_wire).maxDelay()); // routed
+        else
+            max_delay = std::max(max_delay, predictDelay(net_info, user_info)); // unrouted
     }
-
-    if (cursor == src_wire)
-        return delay + getWireDelay(src_wire).maxDelay();
-
-    return predictDelay(net_info, user_info);
+    return max_delay;
 }
 
 static uint32_t xorshift32(uint32_t x)

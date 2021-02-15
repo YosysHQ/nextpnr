@@ -13,6 +13,7 @@ The contents of `ArchRanges` is as follows:
 |`TileBelsRangeT`           | `BelId`                          |
 |`BelAttrsRangeT`           | std::pair<IdString, std::string> |
 |`BelPinsRangeT`            | `IdString`                       |
+|`CellBelPinRangeT`         | `IdString`                       |
 |`AllWiresRangeT`           | `WireId`                         |
 |`DownhillPipRangeT`        | `PipId`                          |
 |`UphillPipRangeT`          | `PipId`                          |
@@ -249,6 +250,12 @@ Return the type (input/output/inout) of the given bel pin.
 ### BelPinsRangeT getBelPins(BelId bel) const
 
 Return a list of all pins on that bel.
+
+### CellBelPinRangeT getBelPinsForCellPin(CellInfo *cell_info, IdString pin) const
+
+Return the list of bel pin names that a given cell pin should be routed to. In most cases there will be a single bel pin for each cell pin; and output pins must _always_ have only one bel pin associated with them.
+
+*BaseArch default: returns a one-element array containing `pin`*
 
 Wire Methods
 ------------

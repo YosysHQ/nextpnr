@@ -661,6 +661,7 @@ struct ArchRanges
     using TileBelsRangeT = BelRange;
     using BelAttrsRangeT = std::vector<std::pair<IdString, std::string>>;
     using BelPinsRangeT = IdStringRange;
+    using CellBelPinRangeT = std::array<IdString, 1>;
     // Wires
     using AllWiresRangeT = WireRange;
     using DownhillPipRangeT = DownhillPipRange;
@@ -865,6 +866,8 @@ struct Arch : ArchAPI<ArchRanges>
 
         return str_range;
     }
+
+    std::array<IdString, 1> getBelPinsForCellPin(CellInfo *cell_info, IdString pin) const override { return {pin}; }
 
     // -------------------------------------------------
 
