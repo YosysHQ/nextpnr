@@ -43,7 +43,7 @@ static void write_message(::capnp::MallocMessageBuilder & message, const std::st
 
 struct StringEnumerator {
     std::vector<std::string> strings;
-    std::map<std::string, size_t> string_to_index;
+    std::unordered_map<std::string, size_t> string_to_index;
 
     size_t get_index(const std::string &s) {
         auto result = string_to_index.emplace(s, strings.size());
