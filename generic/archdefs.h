@@ -68,6 +68,8 @@ struct ArchCellInfo
     bool is_slice;
     // Only packing rule for slice type primitives is a single clock per tile
     const NetInfo *slice_clk;
+    // Cell to bel pin mapping
+    std::unordered_map<IdString, std::vector<IdString>> bel_pins;
 };
 
 NEXTPNR_NAMESPACE_END

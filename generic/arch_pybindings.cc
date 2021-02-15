@@ -226,6 +226,14 @@ void arch_wrap_python(py::module &m)
                     pass_through<DelayInfo>>::def_wrap(ctx_cls, "addCellTimingClockToOut", "cell"_a, "port"_a,
                                                        "clock"_a, "clktoq"_a);
 
+    fn_wrapper_2a_v<Context, decltype(&Context::clearCellBelPinMap), &Context::clearCellBelPinMap,
+                    conv_from_str<IdString>, conv_from_str<IdString>>::def_wrap(ctx_cls, "clearCellBelPinMap", "cell"_a,
+                                                                                "cell_pin"_a);
+    fn_wrapper_3a_v<Context, decltype(&Context::addCellBelPinMapping), &Context::addCellBelPinMapping,
+                    conv_from_str<IdString>, conv_from_str<IdString>,
+                    conv_from_str<IdString>>::def_wrap(ctx_cls, "addCellBelPinMapping", "cell"_a, "cell_pin"_a,
+                                                       "bel_pin"_a);
+
     // const\_range\<BelBucketId\> getBelBuckets() const
     fn_wrapper_0a<Context, decltype(&Context::getBelBuckets), &Context::getBelBuckets,
                   wrap_context<const std::vector<BelBucketId> &>>::def_wrap(ctx_cls, "getBelBuckets");

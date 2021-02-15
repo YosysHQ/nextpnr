@@ -28,9 +28,9 @@ Adds a pip (programmable connection between two named wires). Pip delays that co
 
 Loc is constructed using `Loc(x, y, z)`. 'z' for pips is only important if region constraints (e.g. for partial reconfiguration regions) are used.
 
-### void addBel(IdString name, IdString type, Loc loc, bool gb);
+### void addBel(IdString name, IdString type, Loc loc, bool gb, bool hidden);
 
-Adds a bel to the FPGA description. Bel type should match the type of cells in the netlist that are placed at this bel (see below for information on special bel types supported by the packer). Loc is constructed using `Loc(x, y, z)` and must be unique.
+Adds a bel to the FPGA description. Bel type should match the type of cells in the netlist that are placed at this bel (see below for information on special bel types supported by the packer). Loc is constructed using `Loc(x, y, z)` and must be unique. If `hidden` is true, then the bel will not be included in utilisation reports (e.g. for routing/internal use bels).
 
 ### void addBelInput(IdString bel, IdString name, IdString wire);
 ### void addBelOutput(IdString bel, IdString name, IdString wire);
@@ -89,6 +89,14 @@ Specify setup and hold timings for a port of a cell, and set the timing class of
 ### void addCellTimingClockToOut(IdString cell, IdString port, IdString clock, DelayInfo clktoq);
 
 Specify clock-to-out time for a port of a cell, and set the timing class of that port as register output.
+
+### void clearCellBelPinMap(IdString cell, IdString cell_pin);
+
+Remove all bel pin mappings from a given cell pin.
+
+### addCellBelPinMapping(IdString cell, IdString cell_pin, IdString bel_pin);
+
+Add a bel pin to the list of bel pins a cell pin maps to. Note that if no mappings are set up (the usual case), cell pins are assumed to map to an identically named bel pin.
 
 ## Generic Packer
 
