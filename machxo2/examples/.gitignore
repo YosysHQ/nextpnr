@@ -1,0 +1,11 @@
+*_simtest*
+*.vcd
+*.png
+*.log
+*.smt2
+pack*.v
+place*.v
+pnr*.v
+abc.history
+*.txt
+*.bit
