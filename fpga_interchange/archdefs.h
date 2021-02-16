@@ -123,6 +123,10 @@ struct NetInfo;
 
 struct ArchCellInfo
 {
+    ArchCellInfo() : cell_mapping(-1) {}
+
+    int32_t cell_mapping;
+    std::unordered_map<IdString, std::vector<IdString>> cell_bel_pins;
 };
 
 NEXTPNR_NAMESPACE_END
