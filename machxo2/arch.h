@@ -650,7 +650,6 @@ struct Arch : BaseArch<ArchRanges>
     bool route() override;
 
     // Placer
-    bool isValidBelForCell(CellInfo *cell, BelId bel) const override;
     bool isBelLocationValid(BelId bel) const override;
 
     static const std::string defaultPlacer;

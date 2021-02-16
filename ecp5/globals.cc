@@ -403,33 +403,35 @@ class Ecp5GlobalRouter
         bool dedicated_routing = false;
         for (auto bel : ctx->getBels()) {
             if (ctx->getBelType(bel) == id_DCCA && ctx->checkBelAvail(bel)) {
-                if (ctx->isValidBelForCell(dcc, bel)) {
-                    std::string belname = ctx->loc_info(bel)->bel_data[bel.index].name.get();
-                    if (belname.at(0) == 'D' && using_ce)
-                        continue; // don't allow DCCs with CE at center
-                    ctx->bindBel(bel, dcc, STRENGTH_LOCKED);
-                    wirelen_t wirelen = get_dcc_wirelen(dcc, dedicated_routing);
-                    if (wirelen < best_wirelen) {
-                        if (dedicated_routing) {
-                            best_bel_pclkcib = WireId();
-                        } else {
-                            bool found_pclkcib = false;
-                            for (WireId pclkcib : get_candidate_pclkcibs(bel)) {
-                                if (used_pclkcib.count(pclkcib))
-                                    continue;
-                                found_pclkcib = true;
-                                best_bel_pclkcib = pclkcib;
-                                break;
-                            }
-                            if (!found_pclkcib)
-                                goto pclkcib_fail;
-                        }
-                        best_bel = bel;
-                        best_wirelen = wirelen;
-                    }
-                pclkcib_fail:
+                std::string belname = ctx->loc_info(bel)->bel_data[bel.index].name.get();
+                if (belname.at(0) == 'D' && using_ce)
+                    continue; // don't allow DCCs with CE at center
+                ctx->bindBel(bel, dcc, STRENGTH_LOCKED);
+                if (!ctx->isBelLocationValid(bel)) {
                     ctx->unbindBel(bel);
+                    continue;
                 }
+                wirelen_t wirelen = get_dcc_wirelen(dcc, dedicated_routing);
+                if (wirelen < best_wirelen) {
+                    if (dedicated_routing) {
+                        best_bel_pclkcib = WireId();
+                    } else {
+                        bool found_pclkcib = false;
+                        for (WireId pclkcib : get_candidate_pclkcibs(bel)) {
+                            if (used_pclkcib.count(pclkcib))
+                                continue;
+                            found_pclkcib = true;
+                            best_bel_pclkcib = pclkcib;
+                            break;
+                        }
+                        if (!found_pclkcib)
+                            goto pclkcib_fail;
+                    }
+                    best_bel = bel;
+                    best_wirelen = wirelen;
+                }
+            pclkcib_fail:
+                ctx->unbindBel(bel);
             }
         }
         NPNR_ASSERT(best_bel != BelId());

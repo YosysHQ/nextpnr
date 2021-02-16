@@ -864,7 +864,6 @@ struct Arch : BaseArch<ArchRanges>
 
     // -------------------------------------------------
     // Placement validity checks
-    bool isValidBelForCell(CellInfo *cell, BelId bel) const override;
     bool isBelLocationValid(BelId bel) const override;
 
     // Helper function for above

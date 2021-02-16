@@ -1209,11 +1209,6 @@ struct Arch : BaseArch<ArchRanges>
     // Perform placement validity checks, returning false on failure (all
     // implemented in arch_place.cc)
 
-    // Whether or not a given cell can be placed at a given Bel
-    // This is not intended for Bel type checks, but finer-grained constraints
-    // such as conflicting set/reset signals, etc
-    bool isValidBelForCell(CellInfo *cell, BelId bel) const override;
-
     // Return true whether all Bels at a given location are valid
     bool isBelLocationValid(BelId bel) const override;
 

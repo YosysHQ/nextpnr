@@ -1280,17 +1280,6 @@ struct Arch : ArchAPI<ArchRanges>
         return bel_info(chip_info, bel).valid_cells[get_cell_type_index(cell_type)];
     }
 
-    // Whether or not a given cell can be placed at a given Bel
-    // This is not intended for Bel type checks, but finer-grained constraints
-    // such as conflicting set/reset signals, etc
-    bool isValidBelForCell(CellInfo *cell, BelId bel) const override
-    {
-        NPNR_ASSERT(isValidBelForCellType(cell->type, bel));
-
-        // FIXME: Implement this
-        return true;
-    }
-
     // Return true whether all Bels at a given location are valid
     bool isBelLocationValid(BelId bel) const override
     {
