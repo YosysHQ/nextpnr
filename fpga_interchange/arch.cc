@@ -126,9 +126,17 @@ Arch::Arch(ArchArgs args) : args(args)
     } else {
         // Default to first package.
         NPNR_ASSERT(chip_info->packages.size() > 0);
-        IdString package_name(chip_info->packages[0].package);
-        this->args.package = package_name.str(this);
-        package_index = 0;
+        if(chip_info->packages.size() == 1) {
+            IdString package_name(chip_info->packages[0].package);
+            this->args.package = package_name.str(this);
+            package_index = 0;
+        } else {
+            log_info("Package must be specified (with --package arg) when multiple packages are available, packages:\n");
+            for(const auto &package : chip_info->packages) {
+                log_info(" - %s\n", IdString(package.package).c_str(this));
+            }
+            log_error("--package is required!\n");
+        }
     }
 
     std::unordered_set<SiteBelPair> site_bel_pads;
