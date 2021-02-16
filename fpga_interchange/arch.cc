@@ -161,7 +161,7 @@ Arch::Arch(ArchArgs args) : args(args)
     for (const TileTypeInfoPOD &tile_type : chip_info->tile_types) {
         max_tag_count = std::max(max_tag_count, tile_type.tags.size());
 
-        auto &type_definition = constraints.definitions[tile_type_index];
+        auto &type_definition = constraints.definitions[tile_type_index++];
         for (const ConstraintTagPOD &tag : tile_type.tags) {
             type_definition.emplace_back();
             auto &definition = type_definition.back();

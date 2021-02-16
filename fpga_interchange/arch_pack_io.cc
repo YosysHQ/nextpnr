@@ -207,7 +207,7 @@ void Arch::pack_ports()
 
         for (CellInfo *cell : placed_cells) {
             NPNR_ASSERT(cell->bel != BelId());
-            NPNR_ASSERT(isValidBelForCell(cell, cell->bel));
+            NPNR_ASSERT(isBelLocationValid(cell->bel));
         }
     }
 }

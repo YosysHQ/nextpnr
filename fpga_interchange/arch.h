@@ -754,10 +754,28 @@ struct Arch : ArchAPI<ArchRanges>
     std::unordered_map<WireId, NetInfo *> reserved_wires;
 
     static constexpr size_t kMaxState = 8;
+
+    struct TileStatus;
+    struct SiteRouter
+    {
+        SiteRouter(int16_t site) : site(site), dirty(false), site_ok(true) {}
+
+        std::unordered_set<CellInfo *> cells_in_site;
+        const int16_t site;
+
+        mutable bool dirty;
+        mutable bool site_ok;
+
+        void bindBel(CellInfo *cell);
+        void unbindBel(CellInfo *cell);
+        bool checkSiteRouting(const Context *ctx, const TileStatus &tile_status) const;
+    };
+
     struct TileStatus
     {
         std::vector<ExclusiveStateGroup<kMaxState>> tags;
         std::vector<CellInfo *> boundcells;
+        std::vector<SiteRouter> sites;
     };
 
     std::unordered_map<int32_t, TileStatus> tileStatus;
@@ -829,9 +847,24 @@ struct Arch : ArchAPI<ArchRanges>
             auto &tile_type = chip_info->tile_types[chip_info->tiles[tile].type];
             result.first->second.boundcells.resize(tile_type.bel_data.size());
             result.first->second.tags.resize(default_tags.size());
+
+            result.first->second.sites.reserve(tile_type.number_sites);
+            for (size_t i = 0; i < tile_type.number_sites; ++i) {
+                result.first->second.sites.push_back(SiteRouter(i));
+            }
         }
 
         return result.first->second;
+    }
+
+    const SiteRouter &get_site_status(const TileStatus &tile_status, const BelInfoPOD &bel_data) const
+    {
+        return tile_status.sites.at(bel_data.site);
+    }
+
+    SiteRouter &get_site_status(TileStatus &tile_status, const BelInfoPOD &bel_data)
+    {
+        return tile_status.sites.at(bel_data.site);
     }
 
     void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength) override
@@ -858,6 +891,8 @@ struct Arch : ArchAPI<ArchRanges>
             // but the current BBA emission doesn't support that.  This only
             // really matters if the placer can choose IO port locations.
         }
+
+        get_site_status(tile_status, bel_data).bindBel(cell);
 
         tile_status.boundcells[bel.index] = cell;
 
@@ -886,6 +921,9 @@ struct Arch : ArchAPI<ArchRanges>
         if (io_port_types.count(cell->type) == 0) {
             constraints.unbindBel(tile_status.tags.data(), get_cell_constraints(bel, cell->type));
         }
+
+        const auto &bel_data = bel_info(chip_info, bel);
+        get_site_status(tile_status, bel_data).unbindBel(cell);
 
         refreshUiBel(bel);
     }
@@ -1414,6 +1452,20 @@ struct Arch : ArchAPI<ArchRanges>
         return bel_data.pin_map[cell_type_index] != -1;
     }
 
+    bool is_cell_valid_constraints(const CellInfo *cell, const TileStatus &tile_status, bool explain) const
+    {
+        if (io_port_types.count(cell->type)) {
+            return true;
+        }
+
+        BelId bel = cell->bel;
+        NPNR_ASSERT(bel != BelId());
+
+        return constraints.isValidBelForCellType(getCtx(), get_constraint_prototype(bel), tile_status.tags.data(),
+                                                 get_cell_constraints(bel, cell->type),
+                                                 id(chip_info->tiles[bel.tile].name.get()), cell->name, bel, explain);
+    }
+
     // Return true whether all Bels at a given location are valid
     bool isBelLocationValid(BelId bel) const override
     {
@@ -1433,10 +1485,12 @@ struct Arch : ArchAPI<ArchRanges>
                 return true;
             }
 
-            return constraints.isValidBelForCellType(getCtx(), get_constraint_prototype(bel), tile_status.tags.data(),
-                                                     get_cell_constraints(bel, cell->type),
-                                                     id(chip_info->tiles[bel.tile].name.get()), cell->name, bel,
-                                                     explain_constraints);
+            if (!is_cell_valid_constraints(cell, tile_status, explain_constraints)) {
+                return false;
+            }
+
+            auto &bel_data = bel_info(chip_info, bel);
+            return get_site_status(tile_status, bel_data).checkSiteRouting(getCtx(), tile_status);
         }
     }
 
