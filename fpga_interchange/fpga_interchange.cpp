@@ -814,7 +814,9 @@ void FpgaInterchange::read_logical_netlist(Context * ctx, const std::string &fil
 
     sstream.seekg(0);
     kj::std::StdInputStream istream(sstream);
-    capnp::InputStreamMessageReader message_reader(istream);
+    capnp::ReaderOptions reader_options;
+    reader_options.traversalLimitInWords = 32llu*1024llu*1024llu*1024llu;
+    capnp::InputStreamMessageReader message_reader(istream, reader_options);
 
     LogicalNetlist::Netlist::Reader netlist = message_reader.getRoot<LogicalNetlist::Netlist>();
     LogicalNetlistImpl netlist_reader(netlist);
