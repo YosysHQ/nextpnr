@@ -478,6 +478,8 @@ struct ModuleReader {
     LogicalNetlist::Netlist::Cell::Reader cell;
     LogicalNetlist::Netlist::CellDeclaration::Reader cell_decl;
 
+    std::unordered_map<int32_t, LogicalNetlist::Netlist::Net::Reader> net_indicies;
+    std::unordered_map<int32_t, std::string> disconnected_nets;
     std::unordered_map<PortKey, std::vector<int32_t>> connections;
 
     ModuleReader(const LogicalNetlistImpl *root,
@@ -502,6 +504,7 @@ struct NetReader {
 
     const ModuleReader * module;
     size_t net_idx;
+    LogicalNetlist::Netlist::PropertyMap::Reader property_map;
     std::vector<int32_t> scratch;
 };
 
@@ -559,11 +562,18 @@ struct LogicalNetlistImpl
 
     template <typename TFunc> void foreach_netname(const ModuleReader &mod, TFunc Func) const
     {
-        auto nets = mod.cell.getNets();
-        for(size_t net_idx = 0; net_idx < nets.size(); ++net_idx) {
-            NetReader net_reader(&mod, net_idx);
-            auto net = nets[net_idx];
+        // std::unordered_map<int32_t, LogicalNetlist::Netlist::Net::Reader> net_indicies;
+        for(auto net_pair : mod.net_indicies) {
+            NetReader net_reader(&mod, net_pair.first);
+            auto net = net_pair.second;
+            net_reader.property_map = net.getPropMap();
             Func(strings.at(net.getName()), net_reader);
+        }
+
+        // std::unordered_map<int32_t, IdString> disconnected_nets;
+        for(auto net_pair : mod.disconnected_nets) {
+            NetReader net_reader(&mod, net_pair.first);
+            Func(net_pair.second, net_reader);
         }
     }
 
@@ -639,8 +649,7 @@ struct LogicalNetlistImpl
     }
 
     template <typename TFunc> void foreach_attr(const NetReader &net_reader, TFunc Func) const {
-        auto net = net_reader.module->cell.getNets()[net_reader.net_idx];
-        foreach_prop_map(net.getPropMap(), Func);
+        foreach_prop_map(net_reader.property_map, Func);
     }
 
     template <typename TFunc> void foreach_param(const CellReader &cell_reader, TFunc Func) const
@@ -734,6 +743,10 @@ ModuleReader::ModuleReader(const LogicalNetlistImpl *root,
     cell = root->root.getCellList()[cell_inst.getCell()];
     cell_decl = root->root.getCellDecls()[cell.getIndex()];
 
+    // Auto-assign all ports to a net index, and then re-assign based on the
+    // nets.
+    int net_idx = 2;
+
     auto ports = root->root.getPortList();
     for(auto port_idx : cell_decl.getPorts()) {
         auto port = ports[port_idx];
@@ -744,7 +757,10 @@ ModuleReader::ModuleReader(const LogicalNetlistImpl *root,
         NPNR_ASSERT(result.second);
 
         std::vector<int32_t> & port_connections = result.first->second;
-        port_connections.resize(port_width, -1);
+        port_connections.resize(port_width);
+        for(size_t i = 0; i < port_width; ++i) {
+            port_connections[i] = net_idx++;
+        }
     }
 
     for(auto inst_idx : cell.getInsts()) {
@@ -762,13 +778,17 @@ ModuleReader::ModuleReader(const LogicalNetlistImpl *root,
             size_t port_width = get_port_width(inst_port);
 
             std::vector<int32_t> & port_connections = result.first->second;
-            port_connections.resize(port_width, -1);
+            port_connections.resize(port_width);
+            for(size_t i = 0; i < port_width; ++i) {
+                port_connections[i] = net_idx++;
+            }
         }
     }
 
     auto nets = cell.getNets();
-    for(size_t net_idx = 0; net_idx < nets.size(); ++net_idx) {
-        auto net = nets[net_idx];
+    for(size_t i = 0; i < nets.size(); ++i, ++net_idx) {
+        auto net = nets[i];
+        net_indicies[net_idx] = net;
 
         for(auto port_inst : net.getPortInsts()) {
             int32_t inst_idx = -1;
@@ -783,6 +803,25 @@ ModuleReader::ModuleReader(const LogicalNetlistImpl *root,
                 port_connections[0] = net_idx;
             } else {
                 port_connections.at(port_inst.getBusIdx().getIdx()) = net_idx;
+            }
+        }
+    }
+
+    for(const auto & port_connections : connections) {
+        for(size_t i = 0; i < port_connections.second.size(); ++i) {
+            int32_t net_idx = port_connections.second[i];
+
+            auto iter = net_indicies.find(net_idx);
+            if(iter == net_indicies.end()) {
+                PortKey port_key = port_connections.first;
+                auto port = ports[port_key.port_idx];
+                if(port_key.inst_idx != -1 && port.getDir() != LogicalNetlist::Netlist::Direction::OUTPUT) {
+                    log_error("Cell instance %s port %s is disconnected!\n",
+                            root->strings.at(root->root.getInstList()[port_key.inst_idx].getName()).c_str(),
+                            root->strings.at(ports[port_key.port_idx].getName()).c_str()
+                        );
+                }
+                disconnected_nets[net_idx] = stringf("%s.%d", root->strings.at(port.getName()).c_str(), i);
             }
         }
     }

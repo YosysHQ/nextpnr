@@ -1405,15 +1405,7 @@ struct Arch : ArchAPI<ArchRanges>
         return BelBucketId();
     }
 
-    size_t get_cell_type_index(IdString cell_type) const
-    {
-        const CellMapPOD &cell_map = *chip_info->cell_map;
-        int cell_offset = cell_type.index - cell_map.cell_names[0];
-        NPNR_ASSERT(cell_offset >= 0 && cell_offset < cell_map.cell_names.ssize());
-        NPNR_ASSERT(cell_map.cell_names[cell_offset] == cell_type.index);
-
-        return cell_offset;
-    }
+    size_t get_cell_type_index(IdString cell_type) const;
 
     BelBucketId getBelBucketForCellType(IdString cell_type) const override
     {
@@ -1444,11 +1436,12 @@ struct Arch : ArchAPI<ArchRanges>
             return pads.count(bel) > 0;
         }
 
-        auto cell_type_index = get_cell_type_index(cell_type);
         const auto &bel_data = bel_info(chip_info, bel);
         if (bel_data.category != BEL_CATEGORY_LOGIC) {
             return false;
         }
+
+        auto cell_type_index = get_cell_type_index(cell_type);
         return bel_data.pin_map[cell_type_index] != -1;
     }
 

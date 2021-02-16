@@ -118,6 +118,7 @@ void Arch::pack_ports()
     // constraints between the port cell create by nextpnr and cells that are
     // immediately attached to that port cell.
     for (auto port_pair : port_cells) {
+        IdString port_name = port_pair.first;
         CellInfo *port_cell = port_pair.second;
         std::unordered_set<CellInfo *> tightly_attached_bels;
 
@@ -132,6 +133,13 @@ void Arch::pack_ports()
                 if (port_ref.cell) {
                     tightly_attached_bels.emplace(port_ref.cell);
                 }
+            }
+        }
+
+        if(getCtx()->verbose) {
+            log_info("Tightly attached BELs for port %s\n", port_name.c_str(getCtx()));
+            for(CellInfo * cell : tightly_attached_bels) {
+                log_info(" - %s : %s\n", cell->name.c_str(getCtx()), cell->type.c_str(getCtx()));
             }
         }
 
@@ -163,6 +171,10 @@ void Arch::pack_ports()
             }
         }
 
+        if(possible_site_types.empty()) {
+            log_error("Port '%s' has no possible site types!\n", port_name.c_str(getCtx()));
+        }
+
         auto iter = port_cell->attrs.find(id("PACKAGE_PIN"));
         if (iter == port_cell->attrs.end()) {
             // FIXME: Relax this constraint
@@ -176,11 +188,12 @@ void Arch::pack_ports()
             log_error("Package pin '%s' not found in part %s\n", package_pin_id.c_str(getCtx()), get_part().c_str());
         }
         NPNR_ASSERT(pin_iter != package_pin_bels.end());
+        const auto &site_type_to_bel = pin_iter->second;
 
         BelId package_bel;
         for (IdString site_type : possible_site_types) {
-            auto site_iter = pin_iter->second.find(site_type);
-            if (site_iter != pin_iter->second.end()) {
+            auto site_iter = site_type_to_bel.find(site_type);
+            if (site_iter != site_type_to_bel.end()) {
                 // FIXME: Need to handle case where a port can be in multiple
                 // modes, but only one of the modes works.
                 //
@@ -188,7 +201,14 @@ void Arch::pack_ports()
                 package_bel = site_iter->second;
             }
         }
-        NPNR_ASSERT(package_bel != BelId());
+
+        if(package_bel == BelId()) {
+            log_info("Failed to find BEL for package pin '%s' in any possible site types:\n", package_pin_id.c_str(getCtx()));
+            for (IdString site_type : possible_site_types) {
+                log_info(" - %s\n", site_type.c_str(getCtx()));
+            }
+            log_error("Failed to find BEL for package pin '%s'\n", package_pin_id.c_str(getCtx()));
+        }
 
         std::unordered_set<CellInfo *> placed_cells;
         bindBel(package_bel, port_cell, STRENGTH_FIXED);

@@ -828,6 +828,18 @@ bool Arch::is_net_within_site(const NetInfo &net) const
     return true;
 }
 
+size_t Arch::get_cell_type_index(IdString cell_type) const
+{
+    const CellMapPOD &cell_map = *chip_info->cell_map;
+    int cell_offset = cell_type.index - cell_map.cell_names[0];
+    if((cell_offset < 0 || cell_offset >= cell_map.cell_names.ssize())) {
+        log_error("Cell %s is not a placable element.\n", cell_type.c_str(this));
+    }
+    NPNR_ASSERT(cell_map.cell_names[cell_offset] == cell_type.index);
+
+    return cell_offset;
+}
+
 // Instance constraint templates.
 template void Arch::ArchConstraints::bindBel(Arch::ArchConstraints::TagState *, const Arch::ConstraintRange);
 template void Arch::ArchConstraints::unbindBel(Arch::ArchConstraints::TagState *, const Arch::ConstraintRange);
