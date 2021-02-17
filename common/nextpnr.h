@@ -556,6 +556,41 @@ struct Property
 inline bool operator==(const Property &a, const Property &b) { return a.is_string == b.is_string && a.str == b.str; }
 inline bool operator!=(const Property &a, const Property &b) { return a.is_string != b.is_string || a.str != b.str; }
 
+// minimum and maximum delay
+struct DelayPair
+{
+    DelayPair(){};
+    explicit DelayPair(delay_t delay) : min_delay(delay), max_delay(delay){};
+    DelayPair(delay_t min_delay, delay_t max_delay) : min_delay(min_delay), max_delay(max_delay){};
+    delay_t minDelay() const { return min_delay; };
+    delay_t maxDelay() const { return max_delay; };
+    delay_t min_delay, max_delay;
+    DelayPair operator+(const DelayPair &other) const
+    {
+        return {min_delay + other.min_delay, max_delay + other.max_delay};
+    }
+};
+
+// four-quadrant, min and max rise and fall delay
+struct DelayQuad
+{
+    DelayPair rise, fall;
+    explicit DelayQuad(delay_t delay) : rise(delay), fall(delay){};
+    DelayQuad(delay_t min_delay, delay_t max_delay) : rise(min_delay, max_delay), fall(min_delay, max_delay){};
+    DelayQuad(DelayPair rise, DelayPair fall) : rise(rise), fall(fall){};
+    DelayQuad(delay_t min_rise, delay_t max_rise, delay_t min_fall, delay_t max_fall)
+            : rise(min_rise, max_rise), fall(min_fall, max_fall){};
+
+    delay_t minRiseDelay() const { return rise.minDelay(); };
+    delay_t maxRiseDelay() const { return rise.maxDelay(); };
+    delay_t minFallDelay() const { return fall.minDelay(); };
+    delay_t maxFallDelay() const { return fall.maxDelay(); };
+    delay_t minDelay() const { return std::min<delay_t>(rise.minDelay(), fall.minDelay()); };
+    delay_t maxDelay() const { return std::max<delay_t>(rise.maxDelay(), fall.maxDelay()); };
+
+    DelayQuad operator+(const DelayQuad &other) const { return {rise + other.rise, fall + other.fall}; }
+};
+
 struct ClockConstraint;
 
 struct NetInfo : ArchNetInfo
