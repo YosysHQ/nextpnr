@@ -652,8 +652,8 @@ strict legality enforcement.  It is not required that all bels within a bucket
 are strictly equivelant.
 
 Strict legality step will enforce those differences, along with additional
-local constraints.  `isValidBelForCell`, `isValidBelForCellType`, and
-`isBelLocationValid` are used to enforce strict legality checks.
+local constraints.  `isValidBelForCellType`, and `isBelLocationValid` are used
+to enforce strict legality checks.
 
 ### BelBucketRangeT getBelBuckets() const
 
@@ -702,18 +702,10 @@ return the same value regardless if other cells are placed within the fabric.
 
 *BaseArch default: returns `cell_type == getBelType(bel)`*
 
-### bool isValidBelForCell(CellInfo \*cell, BelId bel) const
-
-Returns true if the given cell can be bound to the given bel, considering
-other bound resources. For example, this can be used if there is only
-a certain number of different clock signals allowed for a group of bels.
-
-*BaseArch default: returns true*
-
 ### bool isBelLocationValid(BelId bel) const
 
-Returns true if a bell in the current configuration is valid, i.e. if
-`isValidBelForCell()` would return true for the current mapping.
+Returns true if a bel in the current configuration is legal (for example,
+a flipflop's clock signal is correctly shared with all bels in a slice.)
 
 *BaseArch default: returns true*
 

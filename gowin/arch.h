@@ -449,7 +449,6 @@ struct Arch : BaseArch<ArchRanges>
     // Get the TimingClockingInfo of a port
     TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const;
 
-    bool isValidBelForCell(CellInfo *cell, BelId bel) const;
     bool isBelLocationValid(BelId bel) const;
 
     static const std::string defaultPlacer;

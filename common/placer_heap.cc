@@ -392,13 +392,6 @@ class HeAPPlacer
                               "\'%s\' of type \'%s\'\n",
                               loc_name.c_str(), bel_type.c_str(ctx), cell->name.c_str(ctx), cell->type.c_str(ctx));
                 }
-                if (!ctx->isValidBelForCell(cell, bel)) {
-                    IdString bel_type = ctx->getBelType(bel);
-                    log_error("Bel \'%s\' of type \'%s\' is not valid for cell "
-                              "\'%s\' of type \'%s\'\n",
-                              loc_name.c_str(), bel_type.c_str(ctx), cell->name.c_str(ctx), cell->type.c_str(ctx));
-                }
-
                 auto bound_cell = ctx->getBoundBelCell(bel);
                 if (bound_cell) {
                     log_error("Cell \'%s\' cannot be bound to bel \'%s\' since it is already bound to cell \'%s\'\n",
@@ -406,6 +399,12 @@ class HeAPPlacer
                 }
 
                 ctx->bindBel(bel, cell, STRENGTH_USER);
+                if (!ctx->isBelLocationValid(bel)) {
+                    IdString bel_type = ctx->getBelType(bel);
+                    log_error("Bel \'%s\' of type \'%s\' is not valid for cell "
+                              "\'%s\' of type \'%s\'\n",
+                              loc_name.c_str(), bel_type.c_str(ctx), cell->name.c_str(ctx), cell->type.c_str(ctx));
+                }
                 placed_cells++;
             }
         }
@@ -571,12 +570,13 @@ class HeAPPlacer
                         place_cells.push_back(ci);
                         placed = true;
                     } else {
-                        if (ctx->isValidBelForCell(ci, bel)) {
-                            ctx->bindBel(bel, ci, STRENGTH_STRONG);
+                        ctx->bindBel(bel, ci, STRENGTH_STRONG);
+                        if (ctx->isBelLocationValid(bel)) {
                             cell_locs[cell.first].locked = true;
                             placed = true;
                             bels_used.insert(bel);
                         } else {
+                            ctx->unbindBel(bel);
                             available_bels.at(ci->type).push_front(bel);
                         }
                     }

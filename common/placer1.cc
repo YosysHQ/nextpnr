@@ -167,13 +167,6 @@ class SAPlacer
                                   "\'%s\' of type \'%s\'\n",
                                   loc_name.c_str(), bel_type.c_str(ctx), cell->name.c_str(ctx), cell->type.c_str(ctx));
                     }
-                    if (!ctx->isValidBelForCell(cell, bel)) {
-                        IdString bel_type = ctx->getBelType(bel);
-                        log_error("Bel \'%s\' of type \'%s\' is not valid for cell "
-                                  "\'%s\' of type \'%s\'\n",
-                                  loc_name.c_str(), bel_type.c_str(ctx), cell->name.c_str(ctx), cell->type.c_str(ctx));
-                    }
-
                     auto bound_cell = ctx->getBoundBelCell(bel);
                     if (bound_cell) {
                         log_error(
@@ -182,6 +175,12 @@ class SAPlacer
                     }
 
                     ctx->bindBel(bel, cell, STRENGTH_USER);
+                    if (!ctx->isBelLocationValid(bel)) {
+                        IdString bel_type = ctx->getBelType(bel);
+                        log_error("Bel \'%s\' of type \'%s\' is not valid for cell "
+                                  "\'%s\' of type \'%s\'\n",
+                                  loc_name.c_str(), bel_type.c_str(ctx), cell->name.c_str(ctx), cell->type.c_str(ctx));
+                    }
                     locked_bels.insert(bel);
                     placed_cells++;
                 }
@@ -444,7 +443,7 @@ class SAPlacer
             IdString targetType = cell->type;
 
             auto proc_bel = [&](BelId bel) {
-                if (ctx->isValidBelForCellType(targetType, bel) && ctx->isValidBelForCell(cell, bel)) {
+                if (ctx->isValidBelForCellType(targetType, bel)) {
                     if (ctx->checkBelAvail(bel)) {
                         uint64_t score = ctx->rng64();
                         if (score <= best_score) {
@@ -480,9 +479,19 @@ class SAPlacer
                 ctx->unbindBel(ripup_target->bel);
                 best_bel = ripup_bel;
             } else {
+                ripup_target = nullptr;
                 all_placed = true;
             }
             ctx->bindBel(best_bel, cell, STRENGTH_WEAK);
+
+            if (!ctx->isBelLocationValid(best_bel)) {
+                ctx->unbindBel(best_bel);
+                if (ripup_target != nullptr) {
+                    ctx->bindBel(best_bel, ripup_target, STRENGTH_WEAK);
+                }
+                all_placed = false;
+                continue;
+            }
 
             // Back annotate location
             cell->attrs[ctx->id("BEL")] = ctx->getBelName(cell->bel).str(ctx);

@@ -1169,7 +1169,6 @@ template <typename R> struct ArchAPI : BaseCtx
     virtual BelBucketId getBelBucketByName(IdString name) const = 0;
     virtual BelBucketId getBelBucketForBel(BelId bel) const = 0;
     virtual BelBucketId getBelBucketForCellType(IdString cell_type) const = 0;
-    virtual bool isValidBelForCell(CellInfo *cell, BelId bel) const = 0;
     virtual bool isBelLocationValid(BelId bel) const = 0;
     virtual typename R::CellTypeRangeT getCellTypes() const = 0;
     virtual typename R::BelBucketRangeT getBelBuckets() const = 0;
@@ -1420,7 +1419,6 @@ template <typename R> struct BaseArch : ArchAPI<R>
     {
         return getBelBucketByName(cell_type);
     };
-    virtual bool isValidBelForCell(CellInfo *cell, BelId bel) const override { return true; }
     virtual bool isBelLocationValid(BelId bel) const override { return true; }
     virtual typename R::CellTypeRangeT getCellTypes() const override
     {

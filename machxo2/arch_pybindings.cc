@@ -1,3 +1,4 @@
+
 /*
  *  nextpnr -- Next Generation Place and Route
  *
@@ -43,9 +44,6 @@ void arch_wrap_python(py::module &m)
                            .def("pack", &Context::pack)
                            .def("place", &Context::place)
                            .def("route", &Context::route);
-
-    fn_wrapper_2a<Context, decltype(&Context::isValidBelForCell), &Context::isValidBelForCell, pass_through<bool>,
-                  addr_and_unwrap<CellInfo>, conv_from_str<BelId>>::def_wrap(ctx_cls, "isValidBelForCell");
 
     typedef std::unordered_map<IdString, std::unique_ptr<CellInfo>> CellMap;
     typedef std::unordered_map<IdString, std::unique_ptr<NetInfo>> NetMap;

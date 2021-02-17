@@ -96,12 +96,6 @@ bool Arch::nexus_logic_tile_valid(LogicTileStatus &lts) const
     return true;
 }
 
-bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
-{
-    // FIXME
-    return true;
-}
-
 bool Arch::isBelLocationValid(BelId bel) const
 {
     if (bel_tile_is(bel, LOC_LOGIC)) {

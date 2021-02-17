@@ -118,8 +118,7 @@ bool place_single_cell(Context *ctx, CellInfo *cell, bool require_legality)
         }
         IdString targetType = cell->type;
         for (auto bel : ctx->getBels()) {
-            if (ctx->isValidBelForCellType(targetType, bel) &&
-                (!require_legality || ctx->isValidBelForCell(cell, bel))) {
+            if (ctx->isValidBelForCellType(targetType, bel)) {
                 if (ctx->checkBelAvail(bel)) {
                     wirelen_t wirelen = get_cell_metric_at_bel(ctx, cell, bel, MetricType::COST);
                     if (iters >= 4)
@@ -155,12 +154,20 @@ bool place_single_cell(Context *ctx, CellInfo *cell, bool require_legality)
             ctx->unbindBel(ripup_target->bel);
             best_bel = ripup_bel;
         } else {
+            ripup_target = nullptr;
             all_placed = true;
+        }
+        ctx->bindBel(best_bel, cell, STRENGTH_WEAK);
+        if (require_legality && !ctx->isBelLocationValid(best_bel)) {
+            ctx->unbindBel(best_bel);
+            if (ripup_target != nullptr) {
+                ctx->bindBel(best_bel, ripup_target, STRENGTH_WEAK);
+            }
+            all_placed = false;
+            continue;
         }
         if (ctx->verbose)
             log_info("   placed single cell '%s' at '%s'\n", cell->name.c_str(ctx), ctx->nameOfBel(best_bel));
-        ctx->bindBel(best_bel, cell, STRENGTH_WEAK);
-
         cell = ripup_target;
     }
     return true;
@@ -387,7 +394,7 @@ class ConstraintLegaliseWorker
                         for (auto bel : ctx->getBelsByTile(cp.second.x, cp.second.y)) {
                             CellInfo *belCell = ctx->getBoundBelCell(bel);
                             if (belCell != nullptr && !solution.count(belCell->name)) {
-                                if (!ctx->isValidBelForCell(belCell, bel)) {
+                                if (!ctx->isBelLocationValid(bel)) {
                                     NPNR_ASSERT(belCell->belStrength < STRENGTH_STRONG);
                                     ctx->unbindBel(bel);
                                     rippedCells.insert(belCell->name);

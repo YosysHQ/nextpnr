@@ -82,38 +82,14 @@ bool Arch::isBelLocationValid(BelId bel) const
         return slices_compatible(bel_cells);
     } else {
         CellInfo *cell = getBoundBelCell(bel);
-        if (cell == nullptr)
+        if (cell == nullptr) {
             return true;
-        else
-            return isValidBelForCell(cell, bel);
-    }
-}
-
-bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
-{
-    if (cell->type == id_TRELLIS_SLICE) {
-        NPNR_ASSERT(getBelType(bel) == id_TRELLIS_SLICE);
-
-        std::vector<const CellInfo *> bel_cells;
-        Loc bel_loc = getBelLocation(bel);
-
-        if (cell->sliceInfo.has_l6mux && ((bel_loc.z % 2) == 1))
-            return false;
-
-        for (auto bel_other : getBelsByTile(bel_loc.x, bel_loc.y)) {
-            CellInfo *cell_other = getBoundBelCell(bel_other);
-            if (cell_other != nullptr && bel_other != bel) {
-                bel_cells.push_back(cell_other);
-            }
+        } else if (cell->type == id_DCUA || cell->type == id_EXTREFB || cell->type == id_PCSCLKDIV) {
+            return args.type != ArchArgs::LFE5U_25F && args.type != ArchArgs::LFE5U_45F &&
+                   args.type != ArchArgs::LFE5U_85F;
+        } else {
+            return true;
         }
-
-        bel_cells.push_back(cell);
-        return slices_compatible(bel_cells);
-    } else if (cell->type == id_DCUA || cell->type == id_EXTREFB || cell->type == id_PCSCLKDIV) {
-        return args.type != ArchArgs::LFE5U_25F && args.type != ArchArgs::LFE5U_45F && args.type != ArchArgs::LFE5U_85F;
-    } else {
-        // other checks
-        return true;
     }
 }
 
