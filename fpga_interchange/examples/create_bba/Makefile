@@ -63,20 +63,21 @@ $(NEXTPNR_PATH)/build:
 	mkdir $(NEXTPNR_PATH)/build
 
 $(NEXTPNR_PATH)/build/bba/bbasm: | $(NEXTPNR_PATH)/build
-	$(NEXTPNR_PATH)/build && cmake -DARCH=fpga_interchange ..
+	cd $(NEXTPNR_PATH)/build && cmake -DARCH=fpga_interchange ..
 	make -j -C $(NEXTPNR_PATH)/build
 
 $(NEXTPNR_PATH)/fpga_interchange/chipdb.bba: build/.setup
+	mkdir -p build/nextpnr/fpga_interchange
 	source build/env/bin/activate && \
 		cd build/python-fpga-interchange/ && \
 		make \
 		-f Makefile.rapidwright \
-		NEXTPNR_PATH=$(NEXTPNR_PATH) \
+		NEXTPNR_PATH=$(realpath .)/build/nextpnr \
 		RAPIDWRIGHT_PATH=$(RAPIDWRIGHT_PATH) \
 		INTERCHANGE_PATH=$(INTERCHANGE_PATH)
 
 $(BBA_PATH): $(NEXTPNR_PATH)/build/bba/bbasm $(NEXTPNR_PATH)/fpga_interchange/chipdb.bba
-	$(NEXTPNR_PATH)/build/bba/bbasm -l $(NEXTPNR_PATH)/fpga_interchange/chipdb.bba $(BBA_PATH)
+	$(NEXTPNR_PATH)/build/bba/bbasm -l build/nextpnr/fpga_interchange/chipdb.bba $(BBA_PATH)
 
 chipdb: $(BBA_PATH)
 
