@@ -93,7 +93,7 @@ The global `CellInfo` type derives from this one. Can be used to add arch-specif
 arch.h
 ======
 
-Each architecture must provide their own implementation of the `Arch` struct in `arch.h`. `Arch` must derive from `BaseCtx` and must provide the following methods:
+Each architecture must provide their own implementation of the `Arch` struct in `arch.h`. `Arch` must derive from `ArchAPI<ArchRanges>` or `BaseArch<ArchRanges>` (see above) and must provide the following methods:
 
 General Methods
 ---------------
@@ -697,7 +697,7 @@ Placer Methods
 ### bool isValidBelForCellType(IdString cell\_type, BelId bel) const
 
 Returns true if the given cell can be bound to the given bel.  This check
-should be fast, compared with isValidBelForCell.  This check should always
+should be fast, compared with isBelLocationValid.  This check should always
 return the same value regardless if other cells are placed within the fabric.
 
 *BaseArch default: returns `cell_type == getBelType(bel)`*
