@@ -20,6 +20,7 @@
 
 #include "log.h"
 #include "nextpnr.h"
+#include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -235,12 +236,7 @@ void Arch::pack_ports()
         placed_cells.emplace(port_cell);
 
         IdStringRange package_bel_pins = getBelPins(package_bel);
-        // NPNR_ASSERT(std::distance(package_bel_pins.begin(), package_bel_pins.end()) == 1);
-        IdStringIterator b = package_bel_pins.begin();
-        NPNR_ASSERT(b != package_bel_pins.end());
-        ++b;
-        NPNR_ASSERT(b == package_bel_pins.end());
-        IdString pad_pin = *package_bel_pins.begin();
+        IdString pad_pin = get_only_value(package_bel_pins);
 
         WireId pad_wire = getBelPinWire(package_bel, pad_pin);
         place_iobufs(pad_wire, ports[port_pair.first].net, tightly_attached_bels, &placed_cells);

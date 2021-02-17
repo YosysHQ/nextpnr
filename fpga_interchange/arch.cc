@@ -806,11 +806,8 @@ void Arch::map_cell_pins(CellInfo *cell, int32_t mapping) const
 void Arch::map_port_pins(BelId bel, CellInfo *cell) const
 {
     IdStringRange pins = getBelPins(bel);
-    NPNR_ASSERT(pins.begin() != pins.end());
-    auto b = pins.begin();
-    IdString pin = *b;
-    ++b;
-    NPNR_ASSERT(b == pins.end());
+    IdString pin = get_only_value(pins);
+
     NPNR_ASSERT(cell->ports.size() == 1);
     cell->cell_bel_pins[cell->ports.begin()->first].clear();
     cell->cell_bel_pins[cell->ports.begin()->first].push_back(pin);

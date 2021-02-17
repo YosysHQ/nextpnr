@@ -656,7 +656,11 @@ struct BelPinRange
     BelPinIterator end() const { return e; }
 };
 
-struct IdStringIterator
+struct IdStringIterator : std::iterator<std::forward_iterator_tag,
+                                        /*T=*/IdString,
+                                        /*Distance=*/ptrdiff_t,
+                                        /*pointer=*/IdString *,
+                                        /*reference=*/IdString>
 {
     const int32_t *cursor;
 
