@@ -1,16 +1,16 @@
-NEXTPNR_PATH := $(shell echo ~/cat_x/nextpnr)
-NEXTPNR_BIN := $(NEXTPNR_PATH)/build/nextpnr-fpga_interchange
-BBA_PATH := $(NEXTPNR_PATH)/build/test.bin
+include ../common.mk
 
 PACKAGE := csg324
 
-.PHONY:
+.PHONY: check check_test_data
 
-check:
+check: check_test_data
 	$(NEXTPNR_BIN) \
 		--chipdb $(BBA_PATH) \
 		--package $(PACKAGE) \
 		--test
+
+check_test_data:
 	$(NEXTPNR_BIN) \
 		--chipdb $(BBA_PATH) \
 		--run $(NEXTPNR_PATH)/python/check_arch_api.py
