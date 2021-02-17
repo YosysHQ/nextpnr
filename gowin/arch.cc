@@ -589,14 +589,14 @@ Arch::Arch(ArchArgs args) : args(args)
                 const PairPOD pip = pips[p][j];
                 int destrow = row;
                 int destcol = col;
-                IdString destid(pip.dest_id);
-                IdString gdestname = wireToGlobal(destrow, destcol, db, destid);
+                IdString destid(pip.dest_id), gdestid(pip.dest_id);
+                IdString gdestname = wireToGlobal(destrow, destcol, db, gdestid);
                 if (wires.count(gdestname) == 0)
                     addWire(gdestname, destid, destcol, destrow);
                 int srcrow = row;
                 int srccol = col;
-                IdString srcid(pip.src_id);
-                IdString gsrcname = wireToGlobal(srcrow, srccol, db, srcid);
+                IdString srcid(pip.src_id), gsrcid(pip.src_id);
+                IdString gsrcname = wireToGlobal(srcrow, srccol, db, gsrcid);
                 if (wires.count(gsrcname) == 0)
                     addWire(gsrcname, srcid, srccol, srcrow);
             }
@@ -701,12 +701,12 @@ Arch::Arch(ArchArgs args) : args(args)
                 const PairPOD pip = pips[p][j];
                 int destrow = row;
                 int destcol = col;
-                IdString destid(pip.dest_id);
-                IdString gdestname = wireToGlobal(destrow, destcol, db, destid);
+                IdString destid(pip.dest_id), gdestid(pip.dest_id);
+                IdString gdestname = wireToGlobal(destrow, destcol, db, gdestid);
                 int srcrow = row;
                 int srccol = col;
-                IdString srcid(pip.src_id);
-                IdString gsrcname = wireToGlobal(srcrow, srccol, db, srcid);
+                IdString srcid(pip.src_id), gsrcid(pip.src_id);
+                IdString gsrcname = wireToGlobal(srcrow, srccol, db, gsrcid);
 
                 snprintf(buf, 32, "R%dC%d_%s_%s", row + 1, col + 1, srcid.c_str(this), destid.c_str(this));
                 IdString pipname = id(buf);
