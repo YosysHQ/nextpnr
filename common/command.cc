@@ -161,6 +161,11 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("no-print-critical-path-source",
                           "disable printing of the line numbers associated with each net in the critical path");
 
+    general.add_options()("placer-heap-alpha", po::value<float>(), "placer heap alpha value (float, default: 0.1)");
+    general.add_options()("placer-heap-beta", po::value<float>(), "placer heap beta value (float, default: 0.9)");
+    general.add_options()("placer-heap-critexp", po::value<int>(), "placer heap criticality exponent (int, default: 2)");
+    general.add_options()("placer-heap-timingweight", po::value<int>(), "placer heap timing weight (int, default: 10)");
+
     general.add_options()("placed-svg", po::value<std::string>(), "write render of placement to SVG file");
     general.add_options()("routed-svg", po::value<std::string>(), "write render of routing to SVG file");
 
@@ -258,6 +263,18 @@ void CommandHandler::setupContext(Context *ctx)
     if (vm.count("no-tmdriv"))
         ctx->settings[ctx->id("timing_driven")] = false;
 
+    if (vm.count("placer-heap-alpha"))
+        ctx->settings[ctx->id("placerHeap/alpha")] = std::to_string(vm["placer-heap-alpha"].as<float>());
+
+    if (vm.count("placer-heap-beta"))
+        ctx->settings[ctx->id("placerHeap/beta")] = std::to_string(vm["placer-heap-beta"].as<float>());
+
+    if (vm.count("placer-heap-critexp"))
+        ctx->settings[ctx->id("placerHeap/criticalityExponent")] = std::to_string(vm["placer-heap-critexp"].as<int>());
+
+    if (vm.count("placer-heap-timingweight"))
+        ctx->settings[ctx->id("placerHeap/timingWeight")] = std::to_string(vm["placer-heap-timingweight"].as<int>());
+
     // Setting default values
     if (ctx->settings.find(ctx->id("target_freq")) == ctx->settings.end())
         ctx->settings[ctx->id("target_freq")] = std::to_string(12e6);
@@ -275,6 +292,15 @@ void CommandHandler::setupContext(Context *ctx)
     ctx->settings[ctx->id("arch.name")] = std::string(ctx->archId().c_str(ctx));
     ctx->settings[ctx->id("arch.type")] = std::string(ctx->archArgsToId(ctx->archArgs()).c_str(ctx));
     ctx->settings[ctx->id("seed")] = ctx->rngstate;
+
+    if (ctx->settings.find(ctx->id("placerHeap/alpha")) == ctx->settings.end())
+        ctx->settings[ctx->id("placerHeap/alpha")] = std::to_string(0.1);
+    if (ctx->settings.find(ctx->id("placerHeap/beta")) == ctx->settings.end())
+        ctx->settings[ctx->id("placerHeap/beta")] = std::to_string(0.9);
+    if (ctx->settings.find(ctx->id("placerHeap/criticalityExponent")) == ctx->settings.end())
+        ctx->settings[ctx->id("placerHeap/criticalityExponent")] = std::to_string(2);
+    if (ctx->settings.find(ctx->id("placerHeap/timingWeight")) == ctx->settings.end())
+        ctx->settings[ctx->id("placerHeap/timingWeight")] = std::to_string(10);
 }
 
 int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
@@ -421,6 +447,8 @@ int CommandHandler::exec()
         setupArchContext(ctx.get());
         int rc = executeMain(std::move(ctx));
         printFooter();
+        log_break();
+        log_info("Program finished normally.\n");
         return rc;
     } catch (log_execution_error_exception) {
         printFooter();
