@@ -67,7 +67,7 @@ NPNR_PACKED_STRUCT(struct BelInfoPOD {
     int16_t category;
     int16_t padding;
 
-    RelPtr<int8_t> valid_cells; // Bool array, length of number_cells.
+    RelPtr<int32_t> pin_map; // Index into CellMapPOD::cell_bel_map
 });
 
 enum BELCategory
@@ -109,6 +109,12 @@ NPNR_PACKED_STRUCT(struct PipInfoPOD {
     int16_t extra_data;
 });
 
+NPNR_PACKED_STRUCT(struct ConstraintTagPOD {
+    int32_t tag_prefix;       // constid
+    int32_t default_state;    // constid
+    RelSlice<int32_t> states; // constid
+});
+
 NPNR_PACKED_STRUCT(struct TileTypeInfoPOD {
     int32_t name; // Tile type constid
 
@@ -119,10 +125,13 @@ NPNR_PACKED_STRUCT(struct TileTypeInfoPOD {
     RelSlice<TileWireInfoPOD> wire_data;
 
     RelSlice<PipInfoPOD> pip_data;
+
+    RelSlice<ConstraintTagPOD> tags;
 });
 
 NPNR_PACKED_STRUCT(struct SiteInstInfoPOD {
     RelPtr<char> name;
+    RelPtr<char> site_name;
 
     // Which site type is this site instance?
     // constid
@@ -138,7 +147,7 @@ NPNR_PACKED_STRUCT(struct TileInstInfoPOD {
 
     // This array is root.tile_types[type].number_sites long.
     // Index into root.sites
-    RelPtr<int32_t> sites;
+    RelSlice<int32_t> sites;
 
     // Number of tile wires; excluding any site-internal wires
     // which come after general wires and are not stored here
@@ -154,10 +163,46 @@ NPNR_PACKED_STRUCT(struct TileWireRefPOD {
 
 NPNR_PACKED_STRUCT(struct NodeInfoPOD { RelSlice<TileWireRefPOD> tile_wires; });
 
+NPNR_PACKED_STRUCT(struct CellBelPinPOD {
+    int32_t cell_pin; // constid
+    int32_t bel_pin;  // constid
+});
+
+NPNR_PACKED_STRUCT(struct ParameterPinsPOD {
+    int32_t key;   // constid
+    int32_t value; // constid
+    RelSlice<CellBelPinPOD> pins;
+});
+
+NPNR_PACKED_STRUCT(struct CellConstraintPOD {
+    int32_t tag;              // Tag index
+    int32_t constraint_type;  // Constraint::ConstraintType
+    RelSlice<int32_t> states; // State indicies
+});
+
+NPNR_PACKED_STRUCT(struct CellBelMapPOD {
+    RelSlice<CellBelPinPOD> common_pins;
+    RelSlice<ParameterPinsPOD> parameter_pins;
+    RelSlice<CellConstraintPOD> constraints;
+});
+
 NPNR_PACKED_STRUCT(struct CellMapPOD {
     // Cell names supported in this arch.
     RelSlice<int32_t> cell_names;       // constids
     RelSlice<int32_t> cell_bel_buckets; // constids
+
+    RelSlice<CellBelMapPOD> cell_bel_map;
+});
+
+NPNR_PACKED_STRUCT(struct PackagePinPOD {
+    int32_t package_pin; // constid
+    int32_t site;        // constid
+    int32_t bel;         // constid
+});
+
+NPNR_PACKED_STRUCT(struct PackagePOD {
+    int32_t package; // constid
+    RelSlice<PackagePinPOD> pins;
 });
 
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
@@ -171,6 +216,7 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelSlice<SiteInstInfoPOD> sites;
     RelSlice<TileInstInfoPOD> tiles;
     RelSlice<NodeInfoPOD> nodes;
+    RelSlice<PackagePOD> packages;
 
     // BEL bucket constids.
     RelSlice<int32_t> bel_buckets;
@@ -667,7 +713,7 @@ struct ArchRanges
     using TileBelsRangeT = BelRange;
     using BelAttrsRangeT = std::vector<std::pair<IdString, std::string>>;
     using BelPinsRangeT = IdStringRange;
-    using CellBelPinRangeT = std::array<IdString, 1>;
+    using CellBelPinRangeT = const std::vector<IdString> &;
     // Wires
     using AllWiresRangeT = WireRange;
     using DownhillPipRangeT = DownhillPipRange;
@@ -695,6 +741,7 @@ struct Arch : ArchAPI<ArchRanges>
 {
     boost::iostreams::mapped_file_source blob_file;
     const ChipInfoPOD *chip_info;
+    int32_t package_index;
 
     mutable std::unordered_map<IdString, int> tile_by_name;
     mutable std::unordered_map<IdString, std::pair<int, int>> site_by_name;
@@ -768,12 +815,29 @@ struct Arch : ArchAPI<ArchRanges>
 
     uint32_t getBelChecksum(BelId bel) const override { return bel.index; }
 
+    void map_cell_pins(CellInfo *cell, int32_t mapping) const;
+    void map_port_pins(BelId bel, CellInfo *cell) const;
+
     void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength) override
     {
         NPNR_ASSERT(bel != BelId());
         NPNR_ASSERT(tileStatus[bel.tile].boundcells[bel.index] == nullptr);
 
         tileStatus[bel.tile].boundcells[bel.index] = cell;
+
+        const auto &bel_data = bel_info(chip_info, bel);
+        NPNR_ASSERT(bel_data.category == BEL_CATEGORY_LOGIC);
+
+        if (io_port_types.count(cell->type) == 0) {
+            int32_t mapping = bel_info(chip_info, bel).pin_map[get_cell_type_index(cell->type)];
+            NPNR_ASSERT(mapping >= 0);
+
+            if (cell->cell_mapping != mapping) {
+                map_cell_pins(cell, mapping);
+            }
+        } else {
+            map_port_pins(bel, cell);
+        }
         cell->bel = bel;
         cell->belStrength = strength;
         refreshUiBel(bel);
@@ -870,12 +934,15 @@ struct Arch : ArchAPI<ArchRanges>
 
         IdStringRange str_range;
         str_range.b.cursor = &ports[0];
-        str_range.e.cursor = &ports[num_bel_wires - 1];
+        str_range.e.cursor = &ports[num_bel_wires];
 
         return str_range;
     }
 
-    std::array<IdString, 1> getBelPinsForCellPin(CellInfo *cell_info, IdString pin) const override { return {pin}; }
+    const std::vector<IdString> &getBelPinsForCellPin(CellInfo *cell_info, IdString pin) const override
+    {
+        return cell_info->cell_bel_pins.at(pin);
+    }
 
     // -------------------------------------------------
 
@@ -1260,6 +1327,12 @@ struct Arch : ArchAPI<ArchRanges>
 
     BelBucketId getBelBucketForCellType(IdString cell_type) const override
     {
+        if (io_port_types.count(cell_type)) {
+            BelBucketId bucket;
+            bucket.name = id("IOPORTS");
+            return bucket;
+        }
+
         BelBucketId bucket;
         const CellMapPOD &cell_map = *chip_info->cell_map;
         bucket.name = IdString(cell_map.cell_bel_buckets[get_cell_type_index(cell_type)]);
@@ -1277,7 +1350,11 @@ struct Arch : ArchAPI<ArchRanges>
 
     bool isValidBelForCellType(IdString cell_type, BelId bel) const override
     {
-        return bel_info(chip_info, bel).valid_cells[get_cell_type_index(cell_type)];
+        if (io_port_types.count(cell_type)) {
+            return pads.count(bel) > 0;
+        } else {
+            return bel_info(chip_info, bel).pin_map[get_cell_type_index(cell_type)] > 0;
+        }
     }
 
     // Return true whether all Bels at a given location are valid
@@ -1307,6 +1384,28 @@ struct Arch : ArchAPI<ArchRanges>
     void parse_xdc(const std::string &filename);
 
     std::unordered_set<IdString> io_port_types;
+    std::unordered_set<BelId> pads;
+
+    bool is_site_port(PipId pip) const
+    {
+        const PipInfoPOD &pip_data = pip_info(chip_info, pip);
+        if (pip_data.site == -1) {
+            return false;
+        }
+
+        BelId bel;
+        bel.tile = pip.tile;
+        bel.index = pip_data.bel;
+
+        const BelInfoPOD &bel_data = bel_info(chip_info, bel);
+
+        return bel_data.category == BEL_CATEGORY_SITE_PORT;
+    }
+
+    // Is the driver and all users of this net located within the same site?
+    //
+    // Returns false if any element of the net is not placed.
+    bool is_net_within_site(const NetInfo &net) const;
 };
 
 NEXTPNR_NAMESPACE_END

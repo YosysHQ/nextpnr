@@ -37,6 +37,30 @@
 #include "xdc.h"
 
 NEXTPNR_NAMESPACE_BEGIN
+struct SiteBelPair
+{
+    std::string site;
+    IdString bel;
+
+    SiteBelPair() {}
+    SiteBelPair(std::string site, IdString bel) : site(site), bel(bel) {}
+
+    bool operator==(const SiteBelPair &other) const { return site == other.site && bel == other.bel; }
+};
+NEXTPNR_NAMESPACE_END
+
+template <> struct std::hash<NEXTPNR_NAMESPACE_PREFIX SiteBelPair>
+{
+    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX SiteBelPair &site_bel) const noexcept
+    {
+        std::size_t seed = 0;
+        boost::hash_combine(seed, std::hash<std::string>()(site_bel.site));
+        boost::hash_combine(seed, std::hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(site_bel.bel));
+        return seed;
+    }
+};
+
+NEXTPNR_NAMESPACE_BEGIN
 
 static std::pair<std::string, std::string> split_identifier_name_dot(const std::string &name)
 {
@@ -65,16 +89,14 @@ Arch::Arch(ArchArgs args) : args(args)
         log_error("Unable to read chipdb %s\n", args.chipdb.c_str());
     }
 
-    // Read strings from constids into IdString database, checking that list
-    // is unique and matches expected constid value.
-    int id = 1;
-    for (const auto &constid : *chip_info->constids) {
-        IdString::initialize_add(this, constid.get(), id++);
-    }
-
     tileStatus.resize(chip_info->tiles.size());
     for (int i = 0; i < chip_info->tiles.ssize(); i++) {
         tileStatus[i].boundcells.resize(chip_info->tile_types[chip_info->tiles[i].type].bel_data.size());
+    }
+
+    const RelSlice<RelPtr<char>> &constids = *chip_info->constids;
+    for (size_t i = 0; i < constids.size(); ++i) {
+        IdString::initialize_add(this, constids[i].get(), i + 1);
     }
 
     // Sanity check cell name ids.
@@ -87,6 +109,51 @@ Arch::Arch(ArchArgs args) : args(args)
     io_port_types.emplace(this->id("$nextpnr_ibuf"));
     io_port_types.emplace(this->id("$nextpnr_obuf"));
     io_port_types.emplace(this->id("$nextpnr_iobuf"));
+
+    if (!this->args.package.empty()) {
+        IdString package = this->id(this->args.package);
+        package_index = -1;
+        for (size_t i = 0; i < chip_info->packages.size(); ++i) {
+            if (IdString(chip_info->packages[i].package) == package) {
+                NPNR_ASSERT(package_index == -1);
+                package_index = i;
+            }
+        }
+
+        if (package_index == -1) {
+            log_error("Could not find package '%s' in chipdb.\n", this->args.package.c_str());
+        }
+    } else {
+        // Default to first package.
+        NPNR_ASSERT(chip_info->packages.size() > 0);
+        if(chip_info->packages.size() == 1) {
+            IdString package_name(chip_info->packages[0].package);
+            this->args.package = package_name.str(this);
+            package_index = 0;
+        } else {
+            log_info("Package must be specified (with --package arg) when multiple packages are available, packages:\n");
+            for(const auto &package : chip_info->packages) {
+                log_info(" - %s\n", IdString(package.package).c_str(this));
+            }
+            log_error("--package is required!\n");
+        }
+    }
+
+    std::unordered_set<SiteBelPair> site_bel_pads;
+    for (const auto &package_pin : chip_info->packages[package_index].pins) {
+        IdString site(package_pin.site);
+        IdString bel(package_pin.bel);
+        site_bel_pads.emplace(SiteBelPair(site.str(this), bel));
+    }
+
+    for (BelId bel : getBels()) {
+        auto &bel_data = bel_info(chip_info, bel);
+        const SiteInstInfoPOD &site = chip_info->sites[chip_info->tiles[bel.tile].sites[bel_data.site]];
+        auto iter = site_bel_pads.find(SiteBelPair(site.site_name.get(), IdString(bel_data.name)));
+        if (iter != site_bel_pads.end()) {
+            pads.emplace(bel);
+        }
+    }
 }
 
 // -----------------------------------------------------------------------
@@ -607,5 +674,100 @@ const std::vector<std::string> Arch::availablePlacers = {"sa",
 
 const std::string Arch::defaultRouter = "router2";
 const std::vector<std::string> Arch::availableRouters = {"router1", "router2"};
+
+void Arch::map_cell_pins(CellInfo *cell, int32_t mapping) const
+{
+    cell->cell_mapping = mapping;
+    cell->cell_bel_pins.clear();
+
+    const CellBelMapPOD &cell_pin_map = chip_info->cell_map->cell_bel_map[mapping];
+
+    for (const auto &pin_map : cell_pin_map.common_pins) {
+        IdString cell_pin(pin_map.cell_pin);
+        IdString bel_pin(pin_map.bel_pin);
+
+        if (cell_pin.str(this) == "GND") {
+            // FIXME: Tie this pin to the GND net
+            continue;
+        }
+        if (cell_pin.str(this) == "VCC") {
+            // FIXME: Tie this pin to the VCC net
+            continue;
+        }
+
+        cell->cell_bel_pins[cell_pin].push_back(bel_pin);
+    }
+
+    for (const auto &parameter_pin_map : cell_pin_map.parameter_pins) {
+        IdString param_key(parameter_pin_map.key);
+        std::string param_value = IdString(parameter_pin_map.value).c_str(this);
+
+        auto iter = cell->params.find(param_key);
+        if (iter == cell->params.end()) {
+            continue;
+        }
+
+        if (param_value != iter->second.as_string()) {
+            continue;
+        }
+
+        for (const auto &pin_map : parameter_pin_map.pins) {
+            IdString cell_pin(pin_map.cell_pin);
+            IdString bel_pin(pin_map.bel_pin);
+
+            if (cell_pin.str(this) == "GND") {
+                // FIXME: Tie this pin to the GND net
+                continue;
+            }
+            if (cell_pin.str(this) == "VCC") {
+                // FIXME: Tie this pin to the VCC net
+                continue;
+            }
+
+            cell->cell_bel_pins[cell_pin].push_back(bel_pin);
+        }
+    }
+}
+
+void Arch::map_port_pins(BelId bel, CellInfo *cell) const
+{
+    IdStringRange pins = getBelPins(bel);
+    NPNR_ASSERT(pins.begin() != pins.end());
+    auto b = pins.begin();
+    IdString pin = *b;
+    ++b;
+    NPNR_ASSERT(b == pins.end());
+    NPNR_ASSERT(cell->ports.size() == 1);
+    cell->cell_bel_pins[cell->ports.begin()->first].clear();
+    cell->cell_bel_pins[cell->ports.begin()->first].push_back(pin);
+}
+
+bool Arch::is_net_within_site(const NetInfo &net) const
+{
+    if (net.driver.cell == nullptr || net.driver.cell->bel == BelId()) {
+        return false;
+    }
+
+    BelId driver = net.driver.cell->bel;
+    int32_t site = bel_info(chip_info, driver).site;
+    NPNR_ASSERT(site >= 0);
+
+    for (const auto &user : net.users) {
+        if (user.cell == nullptr || user.cell->bel == BelId()) {
+            return false;
+        }
+        BelId user_bel = user.cell->bel;
+
+        if (user_bel.tile != driver.tile) {
+            return false;
+        }
+
+        if (bel_info(chip_info, user_bel).site != site) {
+            return false;
+        }
+    }
+
+    return true;
+}
 
 NEXTPNR_NAMESPACE_END
