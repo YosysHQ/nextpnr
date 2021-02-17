@@ -24,6 +24,8 @@
 #error Include after "nextpnr.h" only.
 #endif
 
+#include "bits.h"
+
 NEXTPNR_NAMESPACE_BEGIN
 
 // Implementation for exclusive state groups, used to implement generic
@@ -103,10 +105,10 @@ template <size_t StateCount, typename StateType = int8_t, typename CountType = u
 
             // Check whether the state group is now unselected or satified.
             auto value = selected_states.to_ulong();
-            auto number_selected = __builtin_popcount(value);
+            auto number_selected = nextpnr::Bits::popcount(value);
             if (number_selected == 1) {
                 // Group is no longer overconstrained.
-                state = __builtin_ctz(value);
+                state = nextpnr::Bits::ctz(value);
                 NPNR_ASSERT(selected_states[state]);
             } else if (number_selected == 0) {
                 // Group is unselected.
