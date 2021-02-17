@@ -59,6 +59,7 @@ struct StringEnumerator {
 static PhysicalNetlist::PhysNetlist::RouteBranch::Builder emit_branch(
         const Context * ctx,
         StringEnumerator * strings,
+        const std::unordered_map<PipId, PlaceStrength> &pip_place_strength,
         PipId pip,
         PhysicalNetlist::PhysNetlist::RouteBranch::Builder branch) {
     const PipInfoPOD & pip_data = pip_info(ctx->chip_info, pip);
@@ -67,8 +68,8 @@ static PhysicalNetlist::PhysNetlist::RouteBranch::Builder emit_branch(
 
     if(pip_data.site == -1) {
         // This is a PIP
-        auto pip = branch.getRouteSegment().initPip();
-        pip.setTile(strings->get_index(tile.name.get()));
+        auto pip_obj = branch.getRouteSegment().initPip();
+        pip_obj.setTile(strings->get_index(tile.name.get()));
 
         // FIXME: This might be broken for reverse bi-pips.  Re-visit this one.
         //
@@ -81,9 +82,10 @@ static PhysicalNetlist::PhysNetlist::RouteBranch::Builder emit_branch(
         //
         IdString src_wire_name = IdString(tile_type.wire_data[pip_data.src_index].name);
         IdString dst_wire_name = IdString(tile_type.wire_data[pip_data.dst_index].name);
-        pip.setWire0(strings->get_index(src_wire_name.str(ctx)));
-        pip.setWire1(strings->get_index(dst_wire_name.str(ctx)));
-        pip.setForward(true);
+        pip_obj.setWire0(strings->get_index(src_wire_name.str(ctx)));
+        pip_obj.setWire1(strings->get_index(dst_wire_name.str(ctx)));
+        pip_obj.setForward(true);
+        pip_obj.setIsFixed(pip_place_strength.at(pip) >= STRENGTH_FIXED);
 
         return branch;
     } else {
@@ -129,6 +131,7 @@ static PhysicalNetlist::PhysNetlist::RouteBranch::Builder emit_branch(
             site_pip.setSite(site_idx);
             site_pip.setBel(strings->get_index(pip_name[1].str(ctx)));
             site_pip.setPin(strings->get_index(pip_name[2].str(ctx)));
+            site_pip.setIsFixed(pip_place_strength.at(pip) >= STRENGTH_FIXED);
 
             // FIXME: Mark inverter state.
             // This is required for US/US+ inverters, because those inverters
@@ -207,6 +210,7 @@ static void emit_net(
         const std::unordered_map<WireId, std::vector<PipId>> &pip_downhill,
         const std::unordered_map<WireId, std::vector<BelPin>> &sinks,
         std::unordered_set<PipId> *pips,
+        const std::unordered_map<PipId, PlaceStrength> &pip_place_strength,
         WireId wire, PhysicalNetlist::PhysNetlist::RouteBranch::Builder branch) {
     size_t number_branches = 0;
 
@@ -229,9 +233,10 @@ static void emit_net(
             PipId pip = wire_pips.at(i);
             NPNR_ASSERT(pips->erase(pip) == 1);
             PhysicalNetlist::PhysNetlist::RouteBranch::Builder leaf_branch = emit_branch(
-                ctx, strings, pip, branches[branch_index++]);
+                ctx, strings, pip_place_strength, pip, branches[branch_index++]);
 
             emit_net(ctx, strings, pip_downhill, sinks, pips,
+                    pip_place_strength,
                     ctx->getPipDstWire(pip), leaf_branch);
         }
     }
@@ -304,6 +309,8 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
 
         size_t bel_index = strings.get_index(bel_name[1].str(ctx));
         placement.setBel(bel_index);
+        placement.setIsBelFixed(cell.belStrength >= STRENGTH_FIXED);
+        placement.setIsSiteFixed(cell.belStrength >= STRENGTH_FIXED);
 
         size_t pin_count = 0;
         for(const auto & pin : cell.cell_bel_pins) {
@@ -371,9 +378,13 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
             }
         }
 
+        std::unordered_map<PipId, PlaceStrength> pip_place_strength;
+
         for(auto &wire_pair : net.wires) {
             WireId downhill_wire = wire_pair.first;
             PipId pip = wire_pair.second.pip;
+            PlaceStrength strength = wire_pair.second.strength;
+            pip_place_strength[pip] = strength;
             if(pip != PipId()) {
                 pips.emplace(pip);
 
@@ -396,7 +407,7 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
             PhysicalNetlist::PhysNetlist::RouteBranch::Builder source_branch = *source_iter++;
             init_bel_pin(ctx, &strings, src_bel_pin, source_branch);
 
-            emit_net(ctx, &strings, pip_downhill, sinks, &pips, root_wire, source_branch);
+            emit_net(ctx, &strings, pip_downhill, sinks, &pips, pip_place_strength, root_wire, source_branch);
         }
 
         // Any pips that were not part of a tree starting from the source are
@@ -404,7 +415,7 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
         auto stubs = net_out.initStubs(pips.size());
         auto stub_iter = stubs.begin();
         for(PipId pip : pips) {
-            emit_branch(ctx, &strings, pip, *stub_iter++);
+            emit_branch(ctx, &strings, pip_place_strength, pip, *stub_iter++);
         }
     }
 
