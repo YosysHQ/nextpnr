@@ -243,7 +243,7 @@ struct CellTiming
     std::unordered_map<IdString, std::vector<TimingClockingInfo>> clockingInfo;
 };
 
-struct ArchRanges
+struct ArchRanges : BaseArchRanges
 {
     using ArchArgsT = ArchArgs;
     // Bels
@@ -269,10 +269,6 @@ struct ArchRanges
     using GroupGroupsRangeT = const std::vector<GroupId> &;
     // Decals
     using DecalGfxRangeT = const std::vector<GraphicElement> &;
-    // Placement validity
-    using CellTypeRangeT = std::vector<IdString>;
-    using BelBucketRangeT = std::vector<BelBucketId>;
-    using BucketBelRangeT = std::vector<BelId>;
 };
 
 struct Arch : BaseArch<ArchRanges>
