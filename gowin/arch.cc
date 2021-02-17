@@ -89,6 +89,16 @@ void Arch::addPip(IdString name, IdString type, IdString srcWire, IdString dstWi
     if (int(tilePipDimZ[loc.x].size()) <= loc.y)
         tilePipDimZ[loc.x].resize(loc.y + 1);
 
+    // Needed to ensure empty tile bel locations
+    if (int(bels_by_tile.size()) <= loc.x)
+        bels_by_tile.resize(loc.x + 1);
+    if (int(bels_by_tile[loc.x].size()) <= loc.y)
+        bels_by_tile[loc.x].resize(loc.y + 1);
+    if (int(tileBelDimZ.size()) <= loc.x)
+        tileBelDimZ.resize(loc.x + 1);
+    if (int(tileBelDimZ[loc.x].size()) <= loc.y)
+        tileBelDimZ[loc.x].resize(loc.y + 1);
+
     gridDimX = std::max(gridDimX, loc.x + 1);
     gridDimY = std::max(gridDimY, loc.y + 1);
     tilePipDimZ[loc.x][loc.y] = std::max(tilePipDimZ[loc.x][loc.y], loc.z + 1);
@@ -124,7 +134,7 @@ void Arch::addBel(IdString name, IdString type, Loc loc, bool gb)
         tileBelDimZ[loc.x].resize(loc.y + 1);
 
     gridDimX = std::max(gridDimX, loc.x + 1);
-    gridDimY = std::max(gridDimY, loc.x + 1);
+    gridDimY = std::max(gridDimY, loc.y + 1);
     tileBelDimZ[loc.x][loc.y] = std::max(tileBelDimZ[loc.x][loc.y], loc.z + 1);
 }
 
