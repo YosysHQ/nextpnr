@@ -20,8 +20,8 @@
 
 #ifdef MAIN_EXECUTABLE
 
-#include <fstream>
 #include <chrono>
+#include <fstream>
 
 #include "command.h"
 #include "design_utils.h"

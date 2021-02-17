@@ -67,7 +67,7 @@ void Arch::pack_ports()
     // set(site_types) for package pins
     std::unordered_set<IdString> package_sites;
     // Package pin -> (Site type -> BelId)
-    std::unordered_map<IdString, std::unordered_map<IdString, BelId>> package_pin_bels;
+    std::unordered_map<IdString, std::vector<std::pair<IdString, BelId>>> package_pin_bels;
     for (const PackagePinPOD &package_pin : chip_info->packages[package_index].pins) {
         IdString pin(package_pin.package_pin);
         IdString bel(package_pin.bel);
@@ -94,7 +94,7 @@ void Arch::pack_ports()
                     BelId bel;
                     bel.tile = i;
                     bel.index = j;
-                    package_pin_bels[pin][site_type] = bel;
+                    package_pin_bels[pin].push_back(std::make_pair(site_type, bel));
                 }
             }
         }
@@ -136,9 +136,9 @@ void Arch::pack_ports()
             }
         }
 
-        if(getCtx()->verbose) {
+        if (getCtx()->verbose) {
             log_info("Tightly attached BELs for port %s\n", port_name.c_str(getCtx()));
-            for(CellInfo * cell : tightly_attached_bels) {
+            for (CellInfo *cell : tightly_attached_bels) {
                 log_info(" - %s : %s\n", cell->name.c_str(getCtx()), cell->type.c_str(getCtx()));
             }
         }
@@ -156,6 +156,10 @@ void Arch::pack_ports()
         for (const TileTypeInfoPOD &tile_type : chip_info->tile_types) {
             IdString tile_type_name(tile_type.name);
             for (const BelInfoPOD &bel_info : tile_type.bel_data) {
+                if (bel_info.category != BEL_CATEGORY_LOGIC) {
+                    break;
+                }
+
                 for (IdString cell_type : cell_types_in_io_group) {
                     size_t cell_type_index = get_cell_type_index(cell_type);
                     if (bel_info.category == BEL_CATEGORY_LOGIC && bel_info.pin_map[cell_type_index] != -1) {
@@ -171,8 +175,15 @@ void Arch::pack_ports()
             }
         }
 
-        if(possible_site_types.empty()) {
+        if (possible_site_types.empty()) {
             log_error("Port '%s' has no possible site types!\n", port_name.c_str(getCtx()));
+        }
+
+        if (getCtx()->verbose) {
+            log_info("Possible site types for port %s\n", port_name.c_str(getCtx()));
+            for (IdString site_type : possible_site_types) {
+                log_info(" - %s\n", site_type.c_str(getCtx()));
+            }
         }
 
         auto iter = port_cell->attrs.find(id("PACKAGE_PIN"));
@@ -188,26 +199,35 @@ void Arch::pack_ports()
             log_error("Package pin '%s' not found in part %s\n", package_pin_id.c_str(getCtx()), get_part().c_str());
         }
         NPNR_ASSERT(pin_iter != package_pin_bels.end());
-        const auto &site_type_to_bel = pin_iter->second;
 
+        // Select the first BEL from package_bel_pins that is a legal site
+        // type.
+        //
+        // This is likely the most generic (versus specialized) site type.
         BelId package_bel;
-        for (IdString site_type : possible_site_types) {
-            auto site_iter = site_type_to_bel.find(site_type);
-            if (site_iter != site_type_to_bel.end()) {
+        for (auto site_type_and_bel : pin_iter->second) {
+            IdString legal_site_type = site_type_and_bel.first;
+            BelId bel = site_type_and_bel.second;
+
+            if (possible_site_types.count(legal_site_type)) {
                 // FIXME: Need to handle case where a port can be in multiple
                 // modes, but only one of the modes works.
-                //
-                // NPNR_ASSERT(package_bel == BelId());
-                package_bel = site_iter->second;
+                package_bel = bel;
+                break;
             }
         }
 
-        if(package_bel == BelId()) {
-            log_info("Failed to find BEL for package pin '%s' in any possible site types:\n", package_pin_id.c_str(getCtx()));
+        if (package_bel == BelId()) {
+            log_info("Failed to find BEL for package pin '%s' in any possible site types:\n",
+                     package_pin_id.c_str(getCtx()));
             for (IdString site_type : possible_site_types) {
                 log_info(" - %s\n", site_type.c_str(getCtx()));
             }
             log_error("Failed to find BEL for package pin '%s'\n", package_pin_id.c_str(getCtx()));
+        }
+
+        if (getCtx()->verbose) {
+            log_info("Binding port %s to BEL %s\n", port_name.c_str(getCtx()), getCtx()->nameOfBel(package_bel));
         }
 
         std::unordered_set<CellInfo *> placed_cells;

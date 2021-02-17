@@ -174,6 +174,22 @@ Arch::Arch(ArchArgs args) : args(args)
                 definition.states.push_back(IdString(state));
             }
         }
+
+        // Logic BELs (e.g. placable BELs) should always appear first in the
+        // bel data list.
+        //
+        // When iterating over BELs this property is depended on to skip
+        // non-placable BELs (e.g. routing BELs and site ports).
+        bool in_logic_bels = true;
+        for (const BelInfoPOD &bel_info : tile_type.bel_data) {
+            if (in_logic_bels && bel_info.category != BEL_CATEGORY_LOGIC) {
+                in_logic_bels = false;
+            }
+
+            if (!in_logic_bels) {
+                NPNR_ASSERT(bel_info.category != BEL_CATEGORY_LOGIC);
+            }
+        }
     }
 
     default_tags.resize(max_tag_count);
@@ -832,7 +848,7 @@ size_t Arch::get_cell_type_index(IdString cell_type) const
 {
     const CellMapPOD &cell_map = *chip_info->cell_map;
     int cell_offset = cell_type.index - cell_map.cell_names[0];
-    if((cell_offset < 0 || cell_offset >= cell_map.cell_names.ssize())) {
+    if ((cell_offset < 0 || cell_offset >= cell_map.cell_names.ssize())) {
         log_error("Cell %s is not a placable element.\n", cell_type.c_str(this));
     }
     NPNR_ASSERT(cell_map.cell_names[cell_offset] == cell_type.index);
