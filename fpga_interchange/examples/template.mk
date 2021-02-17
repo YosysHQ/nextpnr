@@ -1,7 +1,7 @@
 include ../common.mk
 
 .DELETE_ON_ERROR:
-.PHONY: all debug clean
+.PHONY: all debug clean netlist_yaml phys_yaml
 
 all: build/$(DESIGN).dcp
 
@@ -25,6 +25,8 @@ build/$(DESIGN)_netlist.yaml: build/$(DESIGN).netlist
 		build/$(DESIGN).netlist \
 		build/$(DESIGN)_netlist.yaml
 
+netlist_yaml: build/$(DESIGN)_netlist.yaml
+
 build/$(DESIGN).phys: build/$(DESIGN).netlist
 	$(NEXTPNR_BIN) \
 		--chipdb $(BBA_PATH) \
@@ -41,6 +43,8 @@ build/$(DESIGN)_phys.yaml: build/$(DESIGN).phys
 		--output_format yaml \
 		build/$(DESIGN).phys \
 		build/$(DESIGN)_phys.yaml
+
+phys_yaml: build/$(DESIGN)_phys.yaml
 
 debug: build/$(DESIGN).netlist
 	gdb --args $(NEXTPNR_BIN) \
