@@ -30,7 +30,7 @@ include ../common.mk
 
 .DELETE_ON_ERROR:
 
-.PHONY: all chipdb
+.PHONY: all chipdb test debug_test
 
 all: chipdb
 
@@ -66,7 +66,7 @@ $(NEXTPNR_PATH)/build/bba/bbasm: | $(NEXTPNR_PATH)/build
 	cd $(NEXTPNR_PATH)/build && cmake -DARCH=fpga_interchange ..
 	make -j -C $(NEXTPNR_PATH)/build
 
-$(NEXTPNR_PATH)/fpga_interchange/chipdb.bba: build/.setup
+build/nextpnr/fpga_interchange/chipdb.bba: build/.setup
 	mkdir -p build/nextpnr/fpga_interchange
 	source build/env/bin/activate && \
 		cd build/python-fpga-interchange/ && \
@@ -76,13 +76,19 @@ $(NEXTPNR_PATH)/fpga_interchange/chipdb.bba: build/.setup
 		RAPIDWRIGHT_PATH=$(RAPIDWRIGHT_PATH) \
 		INTERCHANGE_PATH=$(INTERCHANGE_PATH)
 
-$(BBA_PATH): $(NEXTPNR_PATH)/build/bba/bbasm $(NEXTPNR_PATH)/fpga_interchange/chipdb.bba
+$(BBA_PATH): $(NEXTPNR_PATH)/build/bba/bbasm build/nextpnr/fpga_interchange/chipdb.bba
 	$(NEXTPNR_PATH)/build/bba/bbasm -l build/nextpnr/fpga_interchange/chipdb.bba $(BBA_PATH)
 
 chipdb: $(BBA_PATH)
 
 test: chipdb
 	$(NEXTPNR_PATH)/build/nextpnr-fpga_interchange \
+		--chipdb $(BBA_PATH) \
+		--package csg324 \
+		--test
+
+debug_test: chipdb
+	gdb --args $(NEXTPNR_PATH)/build/nextpnr-fpga_interchange \
 		--chipdb $(BBA_PATH) \
 		--package csg324 \
 		--test
