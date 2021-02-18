@@ -253,6 +253,11 @@ inline const PipInfoPOD &pip_info(const ChipInfoPOD *chip_info, PipId pip)
     return loc_info(chip_info, pip).pip_data[pip.index];
 }
 
+inline const SiteInstInfoPOD &site_inst_info(const ChipInfoPOD *chip_info, int32_t tile, int32_t site)
+{
+    return chip_info->sites[chip_info->tiles[tile].sites[site]];
+}
+
 struct BelIterator
 {
     const ChipInfoPOD *chip;
@@ -832,9 +837,7 @@ struct Arch : ArchAPI<ArchRanges>
     IdStringList getBelName(BelId bel) const override
     {
         NPNR_ASSERT(bel != BelId());
-        int site_index = bel_info(chip_info, bel).site;
-        NPNR_ASSERT(site_index >= 0);
-        const SiteInstInfoPOD &site = chip_info->sites[chip_info->tiles[bel.tile].sites[site_index]];
+        const SiteInstInfoPOD &site = get_site_inst(bel);
         std::array<IdString, 2> ids{id(site.name.get()), IdString(bel_info(chip_info, bel).name)};
         return IdStringList(ids);
     }
@@ -1055,8 +1058,7 @@ struct Arch : ArchAPI<ArchRanges>
         if (wire.tile != -1) {
             const auto &tile_type = loc_info(chip_info, wire);
             if (tile_type.wire_data[wire.index].site != -1) {
-                int site_index = tile_type.wire_data[wire.index].site;
-                const SiteInstInfoPOD &site = chip_info->sites[chip_info->tiles[wire.tile].sites[site_index]];
+                const SiteInstInfoPOD &site = get_site_inst(wire);
                 std::array<IdString, 2> ids{id(site.name.get()), IdString(tile_type.wire_data[wire.index].name)};
                 return IdStringList(ids);
             }
@@ -1619,6 +1621,36 @@ struct Arch : ArchAPI<ArchRanges>
         range.e.constraint = range.b.constraint + cell_bel_map.constraints.size();
 
         return range;
+    }
+
+    const char *get_site_name(int32_t tile, size_t site) const
+    {
+        return site_inst_info(chip_info, tile, site).name.get();
+    }
+
+    const char *get_site_name(BelId bel) const
+    {
+        auto &bel_data = bel_info(chip_info, bel);
+        return get_site_name(bel.tile, bel_data.site);
+    }
+
+    const SiteInstInfoPOD &get_site_inst(BelId bel) const
+    {
+        auto &bel_data = bel_info(chip_info, bel);
+        return site_inst_info(chip_info, bel.tile, bel_data.site);
+    }
+
+    const SiteInstInfoPOD &get_site_inst(WireId wire) const
+    {
+        auto &wire_data = wire_info(wire);
+        NPNR_ASSERT(wire_data.site != -1);
+        return site_inst_info(chip_info, wire.tile, wire_data.site);
+    }
+
+    const SiteInstInfoPOD &get_site_inst(PipId pip) const
+    {
+        auto &pip_data = pip_info(chip_info, pip);
+        return site_inst_info(chip_info, pip.tile, pip_data.site);
     }
 };
 

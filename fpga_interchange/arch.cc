@@ -147,7 +147,7 @@ Arch::Arch(ArchArgs args) : args(args)
 
     for (BelId bel : getBels()) {
         auto &bel_data = bel_info(chip_info, bel);
-        const SiteInstInfoPOD &site = chip_info->sites[chip_info->tiles[bel.tile].sites[bel_data.site]];
+        const SiteInstInfoPOD &site = get_site_inst(bel);
         auto iter = site_bel_pads.find(SiteBelPair(site.site_name.get(), IdString(bel_data.name)));
         if (iter != site_bel_pads.end()) {
             pads.emplace(bel);
@@ -508,7 +508,7 @@ IdStringList Arch::getPipName(PipId pip) const
     auto &pip_info = tile_type.pip_data[pip.index];
     if (pip_info.site != -1) {
         // This is either a site pin or a site pip.
-        auto &site = chip_info->sites[tile.sites[pip_info.site]];
+        auto &site = get_site_inst(pip);
         auto &bel = tile_type.bel_data[pip_info.bel];
         IdString bel_name(bel.name);
         if (bel.category == BEL_CATEGORY_LOGIC) {

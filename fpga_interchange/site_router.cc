@@ -691,8 +691,7 @@ bool Arch::SiteRouter::checkSiteRouting(const Context *ctx, const Arch::TileStat
     auto tile = (*iter)->bel.tile;
 
     if (verbose_site_router(ctx)) {
-        log_info("Checking site routing for site %s\n",
-                 ctx->chip_info->sites[ctx->chip_info->tiles[tile].sites[site]].name.get());
+        log_info("Checking site routing for site %s\n", ctx->get_site_name(tile, site));
     }
 
     for (CellInfo *cell : cells_in_site) {
@@ -739,11 +738,9 @@ bool Arch::SiteRouter::checkSiteRouting(const Context *ctx, const Arch::TileStat
         if (site_ok) {
             site_info.remove_routed_sources();
             NPNR_ASSERT(site_info.is_fully_routed());
-            log_info("Site %s is routable\n",
-                     ctx->chip_info->sites[ctx->chip_info->tiles[tile].sites[site]].name.get());
+            log_info("Site %s is routable\n", ctx->get_site_name(tile, site));
         } else {
-            log_info("Site %s is not routable\n",
-                     ctx->chip_info->sites[ctx->chip_info->tiles[tile].sites[site]].name.get());
+            log_info("Site %s is not routable\n", ctx->get_site_name(tile, site));
         }
     }
 
