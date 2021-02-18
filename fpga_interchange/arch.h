@@ -120,8 +120,6 @@ NPNR_PACKED_STRUCT(struct ConstraintTagPOD {
 NPNR_PACKED_STRUCT(struct TileTypeInfoPOD {
     int32_t name; // Tile type constid
 
-    int32_t number_sites;
-
     RelSlice<BelInfoPOD> bel_data;
 
     RelSlice<TileWireInfoPOD> wire_data;
@@ -129,6 +127,8 @@ NPNR_PACKED_STRUCT(struct TileTypeInfoPOD {
     RelSlice<PipInfoPOD> pip_data;
 
     RelSlice<ConstraintTagPOD> tags;
+
+    RelSlice<int32_t> site_types;
 });
 
 NPNR_PACKED_STRUCT(struct SiteInstInfoPOD {
@@ -147,7 +147,7 @@ NPNR_PACKED_STRUCT(struct TileInstInfoPOD {
     // Index into root.tile_types.
     int32_t type;
 
-    // This array is root.tile_types[type].number_sites long.
+    // This array is root.tile_types[type].site_types.size() long.
     // Index into root.sites
     RelSlice<int32_t> sites;
 
@@ -207,6 +207,29 @@ NPNR_PACKED_STRUCT(struct PackagePOD {
     RelSlice<PackagePinPOD> pins;
 });
 
+NPNR_PACKED_STRUCT(struct ConstantsPOD {
+    // Cell type and port for the GND and VCC global source.
+    int32_t gnd_cell_name; // constid
+    int32_t gnd_cell_port; // constid
+
+    int32_t vcc_cell_name; // constid
+    int32_t vcc_cell_port; // constid
+
+    int32_t gnd_bel_tile;
+    int32_t gnd_bel_index;
+    int32_t gnd_bel_pin;   // constid
+
+    int32_t vcc_bel_tile;
+    int32_t vcc_bel_index;
+    int32_t vcc_bel_pin;   // constid
+
+    // Name to use for the global GND constant net
+    int32_t gnd_net_name; // constid
+
+    // Name to use for the global VCC constant net
+    int32_t vcc_net_name; // constid
+});
+
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelPtr<char> name;
     RelPtr<char> generator;
@@ -224,6 +247,7 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelSlice<int32_t> bel_buckets;
 
     RelPtr<CellMapPOD> cell_map;
+    RelPtr<ConstantsPOD> constants;
 
     // Constid string data.
     RelPtr<RelSlice<RelPtr<char>>> constids;
@@ -822,7 +846,7 @@ struct Arch : ArchAPI<ArchRanges>
     }
     int getTilePipDimZ(int x, int y) const override
     {
-        return chip_info->tile_types[chip_info->tiles[get_tile_index(x, y)].type].number_sites;
+        return chip_info->tile_types[chip_info->tiles[get_tile_index(x, y)].type].site_types.size();
     }
     char getNameDelimiter() const override { return '/'; }
 
@@ -855,8 +879,8 @@ struct Arch : ArchAPI<ArchRanges>
             result.first->second.boundcells.resize(tile_type.bel_data.size());
             result.first->second.tags.resize(default_tags.size());
 
-            result.first->second.sites.reserve(tile_type.number_sites);
-            for (size_t i = 0; i < (size_t)tile_type.number_sites; ++i) {
+            result.first->second.sites.reserve(tile_type.site_types.size());
+            for (size_t i = 0; i < tile_type.site_types.size(); ++i) {
                 result.first->second.sites.push_back(SiteRouter(i));
             }
         }
@@ -872,6 +896,22 @@ struct Arch : ArchAPI<ArchRanges>
     SiteRouter &get_site_status(TileStatus &tile_status, const BelInfoPOD &bel_data)
     {
         return tile_status.sites.at(bel_data.site);
+    }
+
+    BelId get_vcc_bel() const {
+        auto &constants = chip_info->constants;
+        BelId bel;
+        bel.tile = constants->vcc_bel_tile;
+        bel.index = constants->vcc_bel_pin;
+        return bel;
+    }
+
+    BelId get_gnd_bel() const {
+        auto &constants = chip_info->constants;
+        BelId bel;
+        bel.tile = constants->gnd_bel_tile;
+        bel.index = constants->gnd_bel_pin;
+        return bel;
     }
 
     void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength) override
