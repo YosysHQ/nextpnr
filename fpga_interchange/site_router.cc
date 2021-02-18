@@ -137,7 +137,7 @@ struct SiteInformation
 
     bool check_initial_wires()
     {
-        // Propigate from BEL pins to first wire, checking for trival routing
+        // Propagate from BEL pins to first wire, checking for trivial routing
         // conflicts.
         //
         // Populate initial consumed wires, and nets_in_site.
@@ -164,24 +164,24 @@ struct SiteInformation
             }
         }
 
-        // Remove sinks that are trivally routed.
-        std::vector<WireId> trivally_routed_sinks;
+        // Remove sinks that are trivially routed.
+        std::vector<WireId> trivially_routed_sinks;
         for (WireId sink_wire : unrouted_sink_wires) {
             if (unrouted_source_wires.count(sink_wire) > 0) {
                 if (verbose_site_router(ctx)) {
-                    log_info("Wire %s is trivally routed!\n", ctx->nameOfWire(sink_wire));
+                    log_info("Wire %s is trivially routed!\n", ctx->nameOfWire(sink_wire));
                 }
-                trivally_routed_sinks.push_back(sink_wire);
+                trivially_routed_sinks.push_back(sink_wire);
             }
         }
 
-        for (WireId sink_wire : trivally_routed_sinks) {
+        for (WireId sink_wire : trivially_routed_sinks) {
             NPNR_ASSERT(unrouted_sink_wires.erase(sink_wire) == 1);
         }
 
-        // Remove sources that are routed now that trivally routed sinks are
+        // Remove sources that are routed now that trivially routed sinks are
         // removed.
-        std::unordered_set<WireId> trivally_routed_sources;
+        std::unordered_set<WireId> trivially_routed_sources;
         for (const NetInfo *net : nets_fully_within_site) {
             std::unordered_set<WireId> sink_wires_in_net;
             bool already_routed = true;
@@ -197,7 +197,7 @@ struct SiteInformation
 
             if (already_routed) {
                 for (const IdString pin : net->driver.cell->cell_bel_pins.at(net->driver.port)) {
-                    trivally_routed_sources.emplace(ctx->getBelPinWire(net->driver.cell->bel, pin));
+                    trivially_routed_sources.emplace(ctx->getBelPinWire(net->driver.cell->bel, pin));
                 }
             } else {
                 for (const IdString pin : net->driver.cell->cell_bel_pins.at(net->driver.port)) {
@@ -207,7 +207,7 @@ struct SiteInformation
             }
         }
 
-        for (WireId source_wire : trivally_routed_sources) {
+        for (WireId source_wire : trivially_routed_sources) {
             NPNR_ASSERT(unrouted_source_wires.erase(source_wire) == 1);
         }
 
@@ -501,7 +501,7 @@ bool route_site(const Context *ctx, SiteInformation *site_info)
         return true;
     }
 
-    // Expand from first wires to all pontential routes (either net pair or
+    // Expand from first wires to all potential routes (either net pair or
     // site pin).
     RouteNodeStorage node_storage;
     std::vector<SiteExpansionLoop> expansions;
@@ -562,7 +562,7 @@ bool route_site(const Context *ctx, SiteInformation *site_info)
             }
         }
 
-        // Check if there are any more trival solutions.
+        // Check if there are any more trivial solutions.
         completed_wires.clear();
         newly_consumed_wires.clear();
 
@@ -581,7 +581,7 @@ bool route_site(const Context *ctx, SiteInformation *site_info)
             }
         }
 
-        // Remove trival solutions from unsolved routing.
+        // Remove trivial solutions from unsolved routing.
         for (WireId wire : completed_wires) {
             NPNR_ASSERT(wire_to_expansion.erase(wire) == 1);
         }
@@ -591,7 +591,7 @@ bool route_site(const Context *ctx, SiteInformation *site_info)
             break;
         }
 
-        // At least 1 trival solution was selected, re-prune.
+        // At least 1 trivial solution was selected, re-prune.
         if (!newly_consumed_wires.empty()) {
             // Prune remaining solutions.
             continue;
@@ -635,14 +635,14 @@ bool route_site(const Context *ctx, SiteInformation *site_info)
             }
 
             if (uncongestion_route != RouteNode::Node()) {
-                // Select a trivally uncongestion route if possible.
+                // Select a trivially uncongested route if possible.
                 NPNR_ASSERT(site_info->select_route(expansion.first_wire, uncongestion_route, expansion.net_for_wire,
                                                     &newly_consumed_wires));
                 completed_wires.push_back(expansion.first_wire);
             }
         }
 
-        // Remove trival solutions from unsolved routing.
+        // Remove trivial solutions from unsolved routing.
         for (WireId wire : completed_wires) {
             NPNR_ASSERT(wire_to_expansion.erase(wire) == 1);
         }
@@ -652,13 +652,13 @@ bool route_site(const Context *ctx, SiteInformation *site_info)
             break;
         }
 
-        // At least 1 trival solution was selected, re-prune.
+        // At least 1 trivial solution was selected, re-prune.
         if (!newly_consumed_wires.empty()) {
             // Prune remaining solutions.
             continue;
         }
 
-        // FIXME: Actually de-congest non-trival site routing.
+        // FIXME: Actually de-congest non-trivial site routing.
         //
         // The simplistic solution (only select when 1 solution is available)
         // will likely solve initial problems.  Once that is show to be wrong,
