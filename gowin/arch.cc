@@ -89,6 +89,16 @@ void Arch::addPip(IdString name, IdString type, IdString srcWire, IdString dstWi
     if (int(tilePipDimZ[loc.x].size()) <= loc.y)
         tilePipDimZ[loc.x].resize(loc.y + 1);
 
+    // Needed to ensure empty tile bel locations
+    if (int(bels_by_tile.size()) <= loc.x)
+        bels_by_tile.resize(loc.x + 1);
+    if (int(bels_by_tile[loc.x].size()) <= loc.y)
+        bels_by_tile[loc.x].resize(loc.y + 1);
+    if (int(tileBelDimZ.size()) <= loc.x)
+        tileBelDimZ.resize(loc.x + 1);
+    if (int(tileBelDimZ[loc.x].size()) <= loc.y)
+        tileBelDimZ[loc.x].resize(loc.y + 1);
+
     gridDimX = std::max(gridDimX, loc.x + 1);
     gridDimY = std::max(gridDimY, loc.y + 1);
     tilePipDimZ[loc.x][loc.y] = std::max(tilePipDimZ[loc.x][loc.y], loc.z + 1);
@@ -124,7 +134,7 @@ void Arch::addBel(IdString name, IdString type, Loc loc, bool gb)
         tileBelDimZ[loc.x].resize(loc.y + 1);
 
     gridDimX = std::max(gridDimX, loc.x + 1);
-    gridDimY = std::max(gridDimY, loc.x + 1);
+    gridDimY = std::max(gridDimY, loc.y + 1);
     tileBelDimZ[loc.x][loc.y] = std::max(tileBelDimZ[loc.x][loc.y], loc.z + 1);
 }
 
@@ -589,14 +599,14 @@ Arch::Arch(ArchArgs args) : args(args)
                 const PairPOD pip = pips[p][j];
                 int destrow = row;
                 int destcol = col;
-                IdString destid(pip.dest_id);
-                IdString gdestname = wireToGlobal(destrow, destcol, db, destid);
+                IdString destid(pip.dest_id), gdestid(pip.dest_id);
+                IdString gdestname = wireToGlobal(destrow, destcol, db, gdestid);
                 if (wires.count(gdestname) == 0)
                     addWire(gdestname, destid, destcol, destrow);
                 int srcrow = row;
                 int srccol = col;
-                IdString srcid(pip.src_id);
-                IdString gsrcname = wireToGlobal(srcrow, srccol, db, srcid);
+                IdString srcid(pip.src_id), gsrcid(pip.src_id);
+                IdString gsrcname = wireToGlobal(srcrow, srccol, db, gsrcid);
                 if (wires.count(gsrcname) == 0)
                     addWire(gsrcname, srcid, srccol, srcrow);
             }
@@ -701,12 +711,12 @@ Arch::Arch(ArchArgs args) : args(args)
                 const PairPOD pip = pips[p][j];
                 int destrow = row;
                 int destcol = col;
-                IdString destid(pip.dest_id);
-                IdString gdestname = wireToGlobal(destrow, destcol, db, destid);
+                IdString destid(pip.dest_id), gdestid(pip.dest_id);
+                IdString gdestname = wireToGlobal(destrow, destcol, db, gdestid);
                 int srcrow = row;
                 int srccol = col;
-                IdString srcid(pip.src_id);
-                IdString gsrcname = wireToGlobal(srcrow, srccol, db, srcid);
+                IdString srcid(pip.src_id), gsrcid(pip.src_id);
+                IdString gsrcname = wireToGlobal(srcrow, srccol, db, gsrcid);
 
                 snprintf(buf, 32, "R%dC%d_%s_%s", row + 1, col + 1, srcid.c_str(this), destid.c_str(this));
                 IdString pipname = id(buf);
