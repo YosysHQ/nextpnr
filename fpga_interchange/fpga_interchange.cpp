@@ -37,7 +37,7 @@ static void write_message(::capnp::MallocMessageBuilder & message, const std::st
     gzFile file = gzopen(filename.c_str(), "w");
     NPNR_ASSERT(file != Z_NULL);
 
-    NPNR_ASSERT(gzwrite(file, &bytes[0], bytes.size()) == bytes.size());
+    NPNR_ASSERT(gzwrite(file, &bytes[0], bytes.size()) == (int)bytes.size());
     NPNR_ASSERT(gzclose(file) == Z_OK);
 }
 

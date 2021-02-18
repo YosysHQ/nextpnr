@@ -856,7 +856,7 @@ struct Arch : ArchAPI<ArchRanges>
             result.first->second.tags.resize(default_tags.size());
 
             result.first->second.sites.reserve(tile_type.number_sites);
-            for (size_t i = 0; i < tile_type.number_sites; ++i) {
+            for (size_t i = 0; i < (size_t)tile_type.number_sites; ++i) {
                 result.first->second.sites.push_back(SiteRouter(i));
             }
         }
