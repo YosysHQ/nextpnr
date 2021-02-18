@@ -36,28 +36,11 @@ library.
 The current implementation is missing essential features for place and route.
 As these features are added, this implementation will become more useful.
 
- - [ ] Placement constraints are unimplemented, meaning invalid or unroutable
-       designs can be generated from the placer.
  - [ ] Logical netlist macro expansion is not implemented, meaning that any
        macro primitives are unplaceable.  Common macro primitives examples are
        differential IO buffers (IBUFDS) and some LUT RAM (e.g. RAM64X1D).
- - [ ] Cell -> BEL pin mapping is not in place, meaning any primitives that
-       have different BEL pins with respect to their cell pins will not be
-       routable.
- - [ ] Nextpnr only allows for cell -> BEL pin maps that are 1 to 1.  The
-       FPGA interchange accommodates cell -> BEL pin maps that include 1 to
-       many relationships for sinks.  A common primitives that uses 1 to many
-       maps are the RAMB18E1.
  - [ ] The router lookahead is missing, meaning that router runtime
        performance will be terrible.
- - [ ] Physical netlist backend is missing, so even if
-       `nextpnr-fpga_interchange` completes successfully, there is no way to
-       generate output that can be consumed by downstream tools.
- - [ ] XDC parsing and port constraints are unimplemented, so IO pins cannot
-       be fixed.  The chipdb BBA output is also missing package pin data, so
-       only site constraints are currently possible. Eventually the chipdb BBA
-       should also include package pin data to allow for ports to be bound to
-       package pins.
  - [ ] The routing graph that is currently emitted does not have ground and
        VCC networks, so all signals must currently be tied to an IO signal.
        Site pins being tied to constants also needs handling so that site
@@ -72,6 +55,10 @@ As these features are added, this implementation will become more useful.
        database, so it is also currently missing from the FPGA interchange
        architecture.  Once timing information is added to the device database
        schema, it needs to be added to the architecture.
+ - [ ] Implemented site router lacks important features for tight packing,
+       namely LUT rotation.  Also the current site router is relatively
+       untested, so legal configurations may be rejected and illegal
+       configurations may be accepted.
 
 #### FPGA interchange fabrics
 
@@ -79,6 +66,48 @@ Currently only Xilinx 7-series, UltraScale and UltraScale+ fabrics have a
 device database generator, via [RapidWright](https://github.com/Xilinx/RapidWright).
 
 ##### Artix 35T example
+
+Install capnproto if not already installed:
+```
+# Or equivalent for your local system.
+sudo apt-get install capnproto libcapnp-dev
+```
+
+Install capnproto-java if not already installed:
+```
+git clone https://github.com/capnproto/capnproto-java.git
+cd capnproto-java
+make
+sudo make install
+```
+
+##### Makefile-driven BBA creation
+
+In `${NEXTPNR_DIR}/fpga_interchange/examples/create_bba` is a Makefile that
+should compile nextpnr and create a Xilinx A35 chipdb if java, capnproto and
+capnproto-java are installed.
+
+Instructions:
+```
+cd ${NEXTPNR_DIR}/fpga_interchange/examples/create_bba
+make
+```
+
+This will create a virtual env in
+`${NEXTPNR_DIR}/fpga_interchange/examples/create_bba/build/env` that has the
+python-fpga-interchange library installed.  Before running the design examples,
+enter the virtual env, e.g.:
+
+```
+source ${NEXTPNR_DIR}/fpga_interchange/examples/create_bba/build/env/bin/activate
+```
+
+The chipdb will be written to `${NEXTPNR_DIR}/fpga_interchange/examples/create_bba/build/xc7a35.bin`
+once completed.
+
+##### Manual BBA creation
+
+This covers the manual set of steps to create a Xilinx A35 chipdb.
 
 Download RapidWright and generate the device database.
 ```
@@ -95,7 +124,11 @@ mv rapidwright-api-lib-2020.2.1_update1.jar jars/rapidwright-api-lib-2020.2.0.ja
 
 ./scripts/invoke_rapidwright.sh com.xilinx.rapidwright.interchange.DeviceResourcesExample xc7a35tcpg236-1
 export RAPIDWRIGHT_PATH=$(pwd)
-export INTERCHANGE_DIR=$(pwd)/interchange
+```
+
+Set `INTERCHANGE_DIR` to point to 3rdparty/fpga-interchange-schema:
+```
+export INTERCHANGE_DIR=$(NEXTPNR_DIR)/3rdparty/fpga-interchange-schema/interchange
 ```
 
 Install python FPGA interchange library.
@@ -130,7 +163,8 @@ Generate nextpnr BBA and constids.inc from device database:
 python3 -mfpga_interchange.nextpnr_emit \
     --schema_dir ${INTERCHANGE_DIR} \
     --output_dir ${NEXTPNR_DIR}/fpga_interchange/ \
-    --device xc7a35tcpg236-1_constraints_luts.device
+    --bel_bucket_seeds test_data/series7_bel_buckets.yaml \
+    --device xc7a35tcpg236-1_constraints_luts.device \
 ```
 
 Build nextpnr:
