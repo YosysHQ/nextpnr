@@ -1764,10 +1764,10 @@ bool placer_heap(Context *ctx, PlacerHeapCfg cfg) { return HeAPPlacer(ctx, cfg).
 
 PlacerHeapCfg::PlacerHeapCfg(Context *ctx)
 {
-    alpha = ctx->setting<float>("placerHeap/alpha", 0.1);
-    beta = ctx->setting<float>("placerHeap/beta", 0.9);
-    criticalityExponent = ctx->setting<int>("placerHeap/criticalityExponent", 2);
-    timingWeight = ctx->setting<int>("placerHeap/timingWeight", 10);
+    alpha = ctx->setting<float>("placerHeap/alpha");
+    beta = ctx->setting<float>("placerHeap/beta");
+    criticalityExponent = ctx->setting<int>("placerHeap/criticalityExponent");
+    timingWeight = ctx->setting<int>("placerHeap/timingWeight");
     timing_driven = ctx->setting<bool>("timing_driven");
     solverTolerance = 1e-5;
     placeAllAtOnce = false;
