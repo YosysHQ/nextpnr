@@ -62,6 +62,10 @@ static PhysicalNetlist::PhysNetlist::RouteBranch::Builder emit_branch(
         const std::unordered_map<PipId, PlaceStrength> &pip_place_strength,
         PipId pip,
         PhysicalNetlist::PhysNetlist::RouteBranch::Builder branch) {
+    if(ctx->is_pip_synthetic(pip)) {
+        log_error("FPGA interchange should not emit synthetic pip %s\n", ctx->nameOfPip(pip));
+    }
+
     const PipInfoPOD & pip_data = pip_info(ctx->chip_info, pip);
     const TileTypeInfoPOD & tile_type = loc_info(ctx->chip_info, pip);
     const TileInstInfoPOD & tile = ctx->chip_info->tiles[pip.tile];
@@ -185,6 +189,11 @@ static void init_bel_pin(
         StringEnumerator * strings,
         const BelPin &bel_pin,
         PhysicalNetlist::PhysNetlist::RouteBranch::Builder branch) {
+    if(ctx->is_bel_synthetic(bel_pin.bel)) {
+        log_error("FPGA interchange should not emit synthetic BEL pin %s/%s\n",
+                ctx->nameOfBel(bel_pin.bel), bel_pin.pin.c_str(ctx));
+    }
+
     BelId bel = bel_pin.bel;
     IdString pin_name = bel_pin.pin;
 
@@ -248,6 +257,35 @@ static void emit_net(
         }
     }
 }
+static void find_non_synthetic_edges(const Context * ctx, WireId root_wire,
+        const std::unordered_map<WireId, std::vector<PipId>> &pip_downhill,
+        std::vector<PipId> *root_pips) {
+    std::vector<WireId> wires_to_expand;
+
+    wires_to_expand.push_back(root_wire);
+    while(!wires_to_expand.empty()) {
+        WireId wire = wires_to_expand.back();
+        wires_to_expand.pop_back();
+
+        auto downhill_iter = pip_downhill.find(wire);
+        if(downhill_iter == pip_downhill.end()) {
+            log_warning("Wire %s never entered the real fabric?\n",
+                    ctx->nameOfWire(wire));
+            continue;
+        }
+
+        for(PipId pip : pip_downhill.at(wire)) {
+            if(!ctx->is_pip_synthetic(pip)) {
+                // Stop following edges that are non-synthetic, they will be
+                // followed during emit_net
+                root_pips->push_back(pip);
+            } else {
+                // Continue to follow synthetic edges.
+                wires_to_expand.push_back(ctx->getPipDstWire(pip));
+            }
+        }
+    }
+}
 
 void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::string &filename) {
     ::capnp::MallocMessageBuilder message;
@@ -272,9 +310,15 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
     size_t number_placements = 0;
     for(auto & cell_name : placed_cells) {
         const CellInfo & cell = *ctx->cells.at(cell_name);
-        if(!ctx->io_port_types.count(cell.type)) {
-            number_placements += 1;
+
+        if(ctx->io_port_types.count(cell.type)) {
+            continue;
         }
+        if(ctx->is_bel_synthetic(cell.bel)) {
+            continue;
+        }
+
+        number_placements += 1;
     }
 
     std::unordered_map<std::string, std::string> sites;
@@ -284,6 +328,9 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
     for(auto & cell_name : placed_cells) {
         const CellInfo & cell = *ctx->cells.at(cell_name);
         if(ctx->io_port_types.count(cell.type)) {
+            continue;
+        }
+        if(ctx->is_bel_synthetic(cell.bel)) {
             continue;
         }
 
@@ -339,16 +386,27 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
         auto &net = *net_pair.second;
         auto net_out = *net_iter++;
 
-        net_out.setName(strings.get_index(net.name.str(ctx)));
+        const CellInfo *driver_cell = net.driver.cell;
 
-        // FIXME: Mark net as signal/vcc/gnd.
-        //
-        // Also vcc/gnd nets needs to get special handling through inverters.
+        // Handle GND and VCC nets.
+        if(driver_cell->bel == ctx->get_gnd_bel()) {
+            IdString gnd_net_name(ctx->chip_info->constants->gnd_net_name);
+            net_out.setName(strings.get_index(gnd_net_name.str(ctx)));
+            net_out.setType(PhysicalNetlist::PhysNetlist::NetType::GND);
+        } else if(driver_cell->bel == ctx->get_vcc_bel()) {
+            IdString vcc_net_name(ctx->chip_info->constants->vcc_net_name);
+            net_out.setName(strings.get_index(vcc_net_name.str(ctx)));
+            net_out.setType(PhysicalNetlist::PhysNetlist::NetType::VCC);
+        } else {
+            net_out.setName(strings.get_index(net.name.str(ctx)));
+        }
+
+        // FIXME: Also vcc/gnd nets needs to get special handling through
+        // inverters.
         std::unordered_map<WireId, BelPin> root_wires;
         std::unordered_map<WireId, std::vector<PipId>> pip_downhill;
         std::unordered_set<PipId> pips;
 
-        const CellInfo *driver_cell = net.driver.cell;
         if (driver_cell != nullptr && driver_cell->bel != BelId()) {
             for(IdString bel_pin_name : driver_cell->cell_bel_pins.at(net.driver.port)) {
                 BelPin driver_bel_pin;
@@ -397,7 +455,27 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
             }
         }
 
-        auto sources = net_out.initSources(root_wires.size());
+        std::vector<PipId> root_pips;
+        std::vector<WireId> roots_to_remove;
+
+        for(const auto & root_pair : root_wires) {
+            WireId root_wire = root_pair.first;
+            BelPin src_bel_pin = root_pair.second;
+
+            if(!ctx->is_bel_synthetic(src_bel_pin.bel)) {
+                continue;
+            }
+
+            roots_to_remove.push_back(root_wire);
+            find_non_synthetic_edges(ctx, root_wire, pip_downhill, &root_pips);
+        }
+
+        // Remove wires that have a synthetic root.
+        for(WireId wire : roots_to_remove) {
+            NPNR_ASSERT(root_wires.erase(wire) == 1);
+        }
+
+        auto sources = net_out.initSources(root_wires.size() + root_pips.size());
         auto source_iter = sources.begin();
 
         for(const auto & root_pair : root_wires) {
@@ -410,11 +488,30 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
             emit_net(ctx, &strings, pip_downhill, sinks, &pips, pip_place_strength, root_wire, source_branch);
         }
 
+        for(const PipId root : root_pips) {
+            PhysicalNetlist::PhysNetlist::RouteBranch::Builder source_branch = *source_iter++;
+
+            NPNR_ASSERT(pips.erase(root) == 1);
+            WireId root_wire = ctx->getPipDstWire(root);
+            source_branch = emit_branch(ctx, &strings, pip_place_strength, root, source_branch);
+            emit_net(ctx, &strings, pip_downhill, sinks, &pips, pip_place_strength, root_wire, source_branch);
+        }
+
         // Any pips that were not part of a tree starting from the source are
         // stubs.
-        auto stubs = net_out.initStubs(pips.size());
+        size_t real_pips = 0;
+        for(PipId pip : pips) {
+            if(ctx->is_pip_synthetic(pip)) {
+                continue;
+            }
+            real_pips += 1;
+        }
+        auto stubs = net_out.initStubs(real_pips);
         auto stub_iter = stubs.begin();
         for(PipId pip : pips) {
+            if(ctx->is_pip_synthetic(pip)) {
+                continue;
+            }
             emit_branch(ctx, &strings, pip_place_strength, pip, *stub_iter++);
         }
     }

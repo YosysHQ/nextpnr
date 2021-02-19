@@ -67,7 +67,7 @@ NPNR_PACKED_STRUCT(struct BelInfoPOD {
     int16_t site;
     int16_t site_variant; // some sites have alternative types
     int16_t category;
-    int16_t padding;
+    int16_t synthetic;
 
     RelPtr<int32_t> pin_map; // Index into CellMapPOD::cell_bel_map
 });
@@ -128,7 +128,7 @@ NPNR_PACKED_STRUCT(struct TileTypeInfoPOD {
 
     RelSlice<ConstraintTagPOD> tags;
 
-    RelSlice<int32_t> site_types;
+    RelSlice<int32_t> site_types; // constid
 });
 
 NPNR_PACKED_STRUCT(struct SiteInstInfoPOD {
@@ -902,7 +902,7 @@ struct Arch : ArchAPI<ArchRanges>
         auto &constants = chip_info->constants;
         BelId bel;
         bel.tile = constants->vcc_bel_tile;
-        bel.index = constants->vcc_bel_pin;
+        bel.index = constants->vcc_bel_index;
         return bel;
     }
 
@@ -910,7 +910,7 @@ struct Arch : ArchAPI<ArchRanges>
         auto &constants = chip_info->constants;
         BelId bel;
         bel.tile = constants->gnd_bel_tile;
-        bel.index = constants->gnd_bel_pin;
+        bel.index = constants->gnd_bel_index;
         return bel;
     }
 
@@ -1681,6 +1681,34 @@ struct Arch : ArchAPI<ArchRanges>
     {
         auto &pip_data = pip_info(chip_info, pip);
         return site_inst_info(chip_info, pip.tile, pip_data.site);
+    }
+
+    // Is this bel synthetic (e.g. added during import process)?
+    //
+    // This is generally used for constant networks, but can also be used for
+    // static partitions.
+    bool is_bel_synthetic(BelId bel) const
+    {
+        const BelInfoPOD & bel_data = bel_info(chip_info, bel);
+
+        return bel_data.synthetic != 0;
+    }
+
+    // Is this pip synthetic (e.g. added during import process)?
+    //
+    // This is generally used for constant networks, but can also be used for
+    // static partitions.
+    bool is_pip_synthetic(PipId pip) const
+    {
+        auto &pip_data = pip_info(chip_info, pip);
+        if(pip_data.site == -1) {
+            return pip_data.extra_data == -1;
+        } else {
+            BelId bel;
+            bel.tile = pip.tile;
+            bel.index = pip_data.bel;
+            return is_bel_synthetic(bel);
+        }
     }
 };
 
