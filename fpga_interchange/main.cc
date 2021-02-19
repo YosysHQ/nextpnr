@@ -20,7 +20,9 @@
 
 #ifdef MAIN_EXECUTABLE
 
+#include <chrono>
 #include <fstream>
+
 #include "command.h"
 #include "design_utils.h"
 #include "jsonwrite.h"
@@ -67,6 +69,7 @@ void FpgaInterchangeCommandHandler::customBitstream(Context *ctx)
 
 std::unique_ptr<Context> FpgaInterchangeCommandHandler::createContext(std::unordered_map<std::string, Property> &values)
 {
+    auto start = std::chrono::high_resolution_clock::now();
     ArchArgs chipArgs;
     if (!vm.count("chipdb")) {
         log_error("chip database binary must be provided\n");
@@ -87,6 +90,9 @@ std::unique_ptr<Context> FpgaInterchangeCommandHandler::createContext(std::unord
             ctx->parse_xdc(x);
         }
     }
+
+    auto end = std::chrono::high_resolution_clock::now();
+    log_info("createContext time %.02fs\n", std::chrono::duration<float>(end - start).count());
 
     return ctx;
 }

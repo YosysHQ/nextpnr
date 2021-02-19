@@ -37,3 +37,7 @@ install_manifest.txt
 /ImportExecutables.cmake
 *-coverage/
 *-coverage.info
+*.netlist
+*.phys
+*.dcp
+*.bit

@@ -25,6 +25,7 @@
 #include <cmath>
 #include <cstring>
 #include <queue>
+#include "constraints.impl.h"
 #include "fpga_interchange.h"
 #include "log.h"
 #include "nextpnr.h"
@@ -89,11 +90,8 @@ Arch::Arch(ArchArgs args) : args(args)
         log_error("Unable to read chipdb %s\n", args.chipdb.c_str());
     }
 
-    tileStatus.resize(chip_info->tiles.size());
-    for (int i = 0; i < chip_info->tiles.ssize(); i++) {
-        tileStatus[i].boundcells.resize(chip_info->tile_types[chip_info->tiles[i].type].bel_data.size());
-    }
-
+    // Read strings from constids into IdString database, checking that list
+    // is unique and matches expected constid value.
     const RelSlice<RelPtr<char>> &constids = *chip_info->constids;
     for (size_t i = 0; i < constids.size(); ++i) {
         IdString::initialize_add(this, constids[i].get(), i + 1);
@@ -149,12 +147,52 @@ Arch::Arch(ArchArgs args) : args(args)
 
     for (BelId bel : getBels()) {
         auto &bel_data = bel_info(chip_info, bel);
-        const SiteInstInfoPOD &site = chip_info->sites[chip_info->tiles[bel.tile].sites[bel_data.site]];
+        const SiteInstInfoPOD &site = get_site_inst(bel);
         auto iter = site_bel_pads.find(SiteBelPair(site.site_name.get(), IdString(bel_data.name)));
         if (iter != site_bel_pads.end()) {
             pads.emplace(bel);
         }
     }
+
+    explain_constraints = false;
+
+    int tile_type_index = 0;
+    size_t max_tag_count = 0;
+    for (const TileTypeInfoPOD &tile_type : chip_info->tile_types) {
+        max_tag_count = std::max(max_tag_count, tile_type.tags.size());
+
+        auto &type_definition = constraints.definitions[tile_type_index++];
+        for (const ConstraintTagPOD &tag : tile_type.tags) {
+            type_definition.emplace_back();
+            auto &definition = type_definition.back();
+            definition.prefix = IdString(tag.tag_prefix);
+            definition.default_state = IdString(tag.default_state);
+            NPNR_ASSERT(tag.states.size() < kMaxState);
+
+            definition.states.reserve(tag.states.size());
+            for (auto state : tag.states) {
+                definition.states.push_back(IdString(state));
+            }
+        }
+
+        // Logic BELs (e.g. placable BELs) should always appear first in the
+        // bel data list.
+        //
+        // When iterating over BELs this property is depended on to skip
+        // non-placable BELs (e.g. routing BELs and site ports).
+        bool in_logic_bels = true;
+        for (const BelInfoPOD &bel_info : tile_type.bel_data) {
+            if (in_logic_bels && bel_info.category != BEL_CATEGORY_LOGIC) {
+                in_logic_bels = false;
+            }
+
+            if (!in_logic_bels) {
+                NPNR_ASSERT(bel_info.category != BEL_CATEGORY_LOGIC);
+            }
+        }
+    }
+
+    default_tags.resize(max_tag_count);
 }
 
 // -----------------------------------------------------------------------
@@ -470,7 +508,7 @@ IdStringList Arch::getPipName(PipId pip) const
     auto &pip_info = tile_type.pip_data[pip.index];
     if (pip_info.site != -1) {
         // This is either a site pin or a site pip.
-        auto &site = chip_info->sites[tile.sites[pip_info.site]];
+        auto &site = get_site_inst(pip);
         auto &bel = tile_type.bel_data[pip_info.bel];
         IdString bel_name(bel.name);
         if (bel.category == BEL_CATEGORY_LOGIC) {
@@ -563,20 +601,55 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
 
 bool Arch::pack()
 {
-    // FIXME: Implement this
-    return false;
+    pack_ports();
+    return true;
 }
 
 bool Arch::place()
 {
-    // FIXME: Implement this
-    return false;
+    std::string placer = str_or_default(settings, id("placer"), defaultPlacer);
+
+    if (placer == "heap") {
+        PlacerHeapCfg cfg(getCtx());
+        cfg.criticalityExponent = 7;
+        cfg.alpha = 0.08;
+        cfg.beta = 0.4;
+        cfg.placeAllAtOnce = true;
+        cfg.hpwl_scale_x = 1;
+        cfg.hpwl_scale_y = 2;
+        cfg.spread_scale_x = 2;
+        cfg.spread_scale_y = 1;
+        cfg.solverTolerance = 0.6e-6;
+        if (!placer_heap(getCtx(), cfg))
+            return false;
+    } else if (placer == "sa") {
+        if (!placer1(getCtx(), Placer1Cfg(getCtx())))
+            return false;
+    } else {
+        log_error("FPGA interchange architecture does not support placer '%s'\n", placer.c_str());
+    }
+
+    getCtx()->attrs[getCtx()->id("step")] = std::string("place");
+    archInfoToAttributes();
+    return true;
 }
 
 bool Arch::route()
 {
-    // FIXME: Implement this
-    return false;
+    std::string router = str_or_default(settings, id("router"), defaultRouter);
+
+    bool result;
+    if (router == "router1") {
+        result = router1(getCtx(), Router1Cfg(getCtx()));
+    } else if (router == "router2") {
+        router2(getCtx(), Router2Cfg(getCtx()));
+        result = true;
+    } else {
+        log_error("FPGA interchange architecture does not support router '%s'\n", router.c_str());
+    }
+    getCtx()->attrs[getCtx()->id("step")] = std::string("route");
+    archInfoToAttributes();
+    return result;
 }
 
 // -----------------------------------------------------------------------
@@ -733,11 +806,8 @@ void Arch::map_cell_pins(CellInfo *cell, int32_t mapping) const
 void Arch::map_port_pins(BelId bel, CellInfo *cell) const
 {
     IdStringRange pins = getBelPins(bel);
-    NPNR_ASSERT(pins.begin() != pins.end());
-    auto b = pins.begin();
-    IdString pin = *b;
-    ++b;
-    NPNR_ASSERT(b == pins.end());
+    IdString pin = get_only_value(pins);
+
     NPNR_ASSERT(cell->ports.size() == 1);
     cell->cell_bel_pins[cell->ports.begin()->first].clear();
     cell->cell_bel_pins[cell->ports.begin()->first].push_back(pin);
@@ -770,5 +840,25 @@ bool Arch::is_net_within_site(const NetInfo &net) const
 
     return true;
 }
+
+size_t Arch::get_cell_type_index(IdString cell_type) const
+{
+    const CellMapPOD &cell_map = *chip_info->cell_map;
+    int cell_offset = cell_type.index - cell_map.cell_names[0];
+    if ((cell_offset < 0 || cell_offset >= cell_map.cell_names.ssize())) {
+        log_error("Cell %s is not a placable element.\n", cell_type.c_str(this));
+    }
+    NPNR_ASSERT(cell_map.cell_names[cell_offset] == cell_type.index);
+
+    return cell_offset;
+}
+
+// Instance constraint templates.
+template void Arch::ArchConstraints::bindBel(Arch::ArchConstraints::TagState *, const Arch::ConstraintRange);
+template void Arch::ArchConstraints::unbindBel(Arch::ArchConstraints::TagState *, const Arch::ConstraintRange);
+template bool Arch::ArchConstraints::isValidBelForCellType(const Context *, uint32_t,
+                                                           const Arch::ArchConstraints::TagState *,
+                                                           const Arch::ConstraintRange, IdString, IdString, BelId,
+                                                           bool) const;
 
 NEXTPNR_NAMESPACE_END

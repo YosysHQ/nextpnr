@@ -37,7 +37,7 @@ static void write_message(::capnp::MallocMessageBuilder & message, const std::st
     gzFile file = gzopen(filename.c_str(), "w");
     NPNR_ASSERT(file != Z_NULL);
 
-    NPNR_ASSERT(gzwrite(file, &bytes[0], bytes.size()) == bytes.size());
+    NPNR_ASSERT(gzwrite(file, &bytes[0], bytes.size()) == (int)bytes.size());
     NPNR_ASSERT(gzclose(file) == Z_OK);
 }
 
@@ -59,6 +59,7 @@ struct StringEnumerator {
 static PhysicalNetlist::PhysNetlist::RouteBranch::Builder emit_branch(
         const Context * ctx,
         StringEnumerator * strings,
+        const std::unordered_map<PipId, PlaceStrength> &pip_place_strength,
         PipId pip,
         PhysicalNetlist::PhysNetlist::RouteBranch::Builder branch) {
     const PipInfoPOD & pip_data = pip_info(ctx->chip_info, pip);
@@ -67,8 +68,8 @@ static PhysicalNetlist::PhysNetlist::RouteBranch::Builder emit_branch(
 
     if(pip_data.site == -1) {
         // This is a PIP
-        auto pip = branch.getRouteSegment().initPip();
-        pip.setTile(strings->get_index(tile.name.get()));
+        auto pip_obj = branch.getRouteSegment().initPip();
+        pip_obj.setTile(strings->get_index(tile.name.get()));
 
         // FIXME: This might be broken for reverse bi-pips.  Re-visit this one.
         //
@@ -81,9 +82,10 @@ static PhysicalNetlist::PhysNetlist::RouteBranch::Builder emit_branch(
         //
         IdString src_wire_name = IdString(tile_type.wire_data[pip_data.src_index].name);
         IdString dst_wire_name = IdString(tile_type.wire_data[pip_data.dst_index].name);
-        pip.setWire0(strings->get_index(src_wire_name.str(ctx)));
-        pip.setWire1(strings->get_index(dst_wire_name.str(ctx)));
-        pip.setForward(true);
+        pip_obj.setWire0(strings->get_index(src_wire_name.str(ctx)));
+        pip_obj.setWire1(strings->get_index(dst_wire_name.str(ctx)));
+        pip_obj.setForward(true);
+        pip_obj.setIsFixed(pip_place_strength.at(pip) >= STRENGTH_FIXED);
 
         return branch;
     } else {
@@ -129,6 +131,7 @@ static PhysicalNetlist::PhysNetlist::RouteBranch::Builder emit_branch(
             site_pip.setSite(site_idx);
             site_pip.setBel(strings->get_index(pip_name[1].str(ctx)));
             site_pip.setPin(strings->get_index(pip_name[2].str(ctx)));
+            site_pip.setIsFixed(pip_place_strength.at(pip) >= STRENGTH_FIXED);
 
             // FIXME: Mark inverter state.
             // This is required for US/US+ inverters, because those inverters
@@ -207,6 +210,7 @@ static void emit_net(
         const std::unordered_map<WireId, std::vector<PipId>> &pip_downhill,
         const std::unordered_map<WireId, std::vector<BelPin>> &sinks,
         std::unordered_set<PipId> *pips,
+        const std::unordered_map<PipId, PlaceStrength> &pip_place_strength,
         WireId wire, PhysicalNetlist::PhysNetlist::RouteBranch::Builder branch) {
     size_t number_branches = 0;
 
@@ -229,9 +233,10 @@ static void emit_net(
             PipId pip = wire_pips.at(i);
             NPNR_ASSERT(pips->erase(pip) == 1);
             PhysicalNetlist::PhysNetlist::RouteBranch::Builder leaf_branch = emit_branch(
-                ctx, strings, pip, branches[branch_index++]);
+                ctx, strings, pip_place_strength, pip, branches[branch_index++]);
 
             emit_net(ctx, strings, pip_downhill, sinks, pips,
+                    pip_place_strength,
                     ctx->getPipDstWire(pip), leaf_branch);
         }
     }
@@ -304,6 +309,8 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
 
         size_t bel_index = strings.get_index(bel_name[1].str(ctx));
         placement.setBel(bel_index);
+        placement.setIsBelFixed(cell.belStrength >= STRENGTH_FIXED);
+        placement.setIsSiteFixed(cell.belStrength >= STRENGTH_FIXED);
 
         size_t pin_count = 0;
         for(const auto & pin : cell.cell_bel_pins) {
@@ -371,9 +378,13 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
             }
         }
 
+        std::unordered_map<PipId, PlaceStrength> pip_place_strength;
+
         for(auto &wire_pair : net.wires) {
             WireId downhill_wire = wire_pair.first;
             PipId pip = wire_pair.second.pip;
+            PlaceStrength strength = wire_pair.second.strength;
+            pip_place_strength[pip] = strength;
             if(pip != PipId()) {
                 pips.emplace(pip);
 
@@ -396,7 +407,7 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
             PhysicalNetlist::PhysNetlist::RouteBranch::Builder source_branch = *source_iter++;
             init_bel_pin(ctx, &strings, src_bel_pin, source_branch);
 
-            emit_net(ctx, &strings, pip_downhill, sinks, &pips, root_wire, source_branch);
+            emit_net(ctx, &strings, pip_downhill, sinks, &pips, pip_place_strength, root_wire, source_branch);
         }
 
         // Any pips that were not part of a tree starting from the source are
@@ -404,7 +415,7 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
         auto stubs = net_out.initStubs(pips.size());
         auto stub_iter = stubs.begin();
         for(PipId pip : pips) {
-            emit_branch(ctx, &strings, pip, *stub_iter++);
+            emit_branch(ctx, &strings, pip_place_strength, pip, *stub_iter++);
         }
     }
 
@@ -478,6 +489,8 @@ struct ModuleReader {
     LogicalNetlist::Netlist::Cell::Reader cell;
     LogicalNetlist::Netlist::CellDeclaration::Reader cell_decl;
 
+    std::unordered_map<int32_t, LogicalNetlist::Netlist::Net::Reader> net_indicies;
+    std::unordered_map<int32_t, std::string> disconnected_nets;
     std::unordered_map<PortKey, std::vector<int32_t>> connections;
 
     ModuleReader(const LogicalNetlistImpl *root,
@@ -502,6 +515,7 @@ struct NetReader {
 
     const ModuleReader * module;
     size_t net_idx;
+    LogicalNetlist::Netlist::PropertyMap::Reader property_map;
     std::vector<int32_t> scratch;
 };
 
@@ -559,11 +573,18 @@ struct LogicalNetlistImpl
 
     template <typename TFunc> void foreach_netname(const ModuleReader &mod, TFunc Func) const
     {
-        auto nets = mod.cell.getNets();
-        for(size_t net_idx = 0; net_idx < nets.size(); ++net_idx) {
-            NetReader net_reader(&mod, net_idx);
-            auto net = nets[net_idx];
+        // std::unordered_map<int32_t, LogicalNetlist::Netlist::Net::Reader> net_indicies;
+        for(auto net_pair : mod.net_indicies) {
+            NetReader net_reader(&mod, net_pair.first);
+            auto net = net_pair.second;
+            net_reader.property_map = net.getPropMap();
             Func(strings.at(net.getName()), net_reader);
+        }
+
+        // std::unordered_map<int32_t, IdString> disconnected_nets;
+        for(auto net_pair : mod.disconnected_nets) {
+            NetReader net_reader(&mod, net_pair.first);
+            Func(net_pair.second, net_reader);
         }
     }
 
@@ -639,8 +660,7 @@ struct LogicalNetlistImpl
     }
 
     template <typename TFunc> void foreach_attr(const NetReader &net_reader, TFunc Func) const {
-        auto net = net_reader.module->cell.getNets()[net_reader.net_idx];
-        foreach_prop_map(net.getPropMap(), Func);
+        foreach_prop_map(net_reader.property_map, Func);
     }
 
     template <typename TFunc> void foreach_param(const CellReader &cell_reader, TFunc Func) const
@@ -734,6 +754,10 @@ ModuleReader::ModuleReader(const LogicalNetlistImpl *root,
     cell = root->root.getCellList()[cell_inst.getCell()];
     cell_decl = root->root.getCellDecls()[cell.getIndex()];
 
+    // Auto-assign all ports to a net index, and then re-assign based on the
+    // nets.
+    int net_idx = 2;
+
     auto ports = root->root.getPortList();
     for(auto port_idx : cell_decl.getPorts()) {
         auto port = ports[port_idx];
@@ -744,7 +768,10 @@ ModuleReader::ModuleReader(const LogicalNetlistImpl *root,
         NPNR_ASSERT(result.second);
 
         std::vector<int32_t> & port_connections = result.first->second;
-        port_connections.resize(port_width, -1);
+        port_connections.resize(port_width);
+        for(size_t i = 0; i < port_width; ++i) {
+            port_connections[i] = net_idx++;
+        }
     }
 
     for(auto inst_idx : cell.getInsts()) {
@@ -762,13 +789,17 @@ ModuleReader::ModuleReader(const LogicalNetlistImpl *root,
             size_t port_width = get_port_width(inst_port);
 
             std::vector<int32_t> & port_connections = result.first->second;
-            port_connections.resize(port_width, -1);
+            port_connections.resize(port_width);
+            for(size_t i = 0; i < port_width; ++i) {
+                port_connections[i] = net_idx++;
+            }
         }
     }
 
     auto nets = cell.getNets();
-    for(size_t net_idx = 0; net_idx < nets.size(); ++net_idx) {
-        auto net = nets[net_idx];
+    for(size_t i = 0; i < nets.size(); ++i, ++net_idx) {
+        auto net = nets[i];
+        net_indicies[net_idx] = net;
 
         for(auto port_inst : net.getPortInsts()) {
             int32_t inst_idx = -1;
@@ -783,6 +814,25 @@ ModuleReader::ModuleReader(const LogicalNetlistImpl *root,
                 port_connections[0] = net_idx;
             } else {
                 port_connections.at(port_inst.getBusIdx().getIdx()) = net_idx;
+            }
+        }
+    }
+
+    for(const auto & port_connections : connections) {
+        for(size_t i = 0; i < port_connections.second.size(); ++i) {
+            int32_t net_idx = port_connections.second[i];
+
+            auto iter = net_indicies.find(net_idx);
+            if(iter == net_indicies.end()) {
+                PortKey port_key = port_connections.first;
+                auto port = ports[port_key.port_idx];
+                if(port_key.inst_idx != -1 && port.getDir() != LogicalNetlist::Netlist::Direction::OUTPUT) {
+                    log_error("Cell instance %s port %s is disconnected!\n",
+                            root->strings.at(root->root.getInstList()[port_key.inst_idx].getName()).c_str(),
+                            root->strings.at(ports[port_key.port_idx].getName()).c_str()
+                        );
+                }
+                disconnected_nets[net_idx] = stringf("%s.%d", root->strings.at(port.getName()).c_str(), i);
             }
         }
     }
@@ -814,7 +864,9 @@ void FpgaInterchange::read_logical_netlist(Context * ctx, const std::string &fil
 
     sstream.seekg(0);
     kj::std::StdInputStream istream(sstream);
-    capnp::InputStreamMessageReader message_reader(istream);
+    capnp::ReaderOptions reader_options;
+    reader_options.traversalLimitInWords = 32llu*1024llu*1024llu*1024llu;
+    capnp::InputStreamMessageReader message_reader(istream, reader_options);
 
     LogicalNetlist::Netlist::Reader netlist = message_reader.getRoot<LogicalNetlist::Netlist>();
     LogicalNetlistImpl netlist_reader(netlist);

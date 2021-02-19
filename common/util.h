@@ -158,6 +158,29 @@ inline NetInfo *get_net_or_empty(CellInfo *cell, const IdString port)
         return nullptr;
 }
 
+// Get only value from a forward iterator begin/end pair.
+//
+// Generates assertion failure if std::distance(begin, end) != 1.
+template <typename ForwardIterator>
+inline const typename ForwardIterator::reference get_only_value(ForwardIterator begin, ForwardIterator end)
+{
+    NPNR_ASSERT(begin != end);
+    const typename ForwardIterator::reference ret = *begin;
+    ++begin;
+    NPNR_ASSERT(begin == end);
+    return ret;
+}
+
+// Get only value from a forward iterator range pair.
+//
+// Generates assertion failure if std::distance(r.begin(), r.end()) != 1.
+template <typename ForwardRange> inline auto get_only_value(ForwardRange r)
+{
+    auto b = r.begin();
+    auto e = r.end();
+    return get_only_value(b, e);
+}
+
 NEXTPNR_NAMESPACE_END
 
 #endif
