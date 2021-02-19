@@ -46,6 +46,15 @@ build/$(DESIGN)_phys.yaml: build/$(DESIGN).phys
 
 phys_yaml: build/$(DESIGN)_phys.yaml
 
+verbose: build/$(DESIGN).netlist
+	$(NEXTPNR_BIN) \
+		--chipdb $(BBA_PATH) \
+		--xdc $(DESIGN).xdc \
+		--netlist build/$(DESIGN).netlist \
+		--phys build/$(DESIGN).phys \
+		--package $(PACKAGE) \
+		--verbose
+
 debug: build/$(DESIGN).netlist
 	gdb --args $(NEXTPNR_BIN) \
 		--chipdb $(BBA_PATH) \
