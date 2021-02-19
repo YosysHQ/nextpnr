@@ -121,7 +121,7 @@ struct Timing
 
     delay_t walk_paths()
     {
-        const auto clk_period = ctx->getDelayFromNS(1.0e9 / ctx->setting<float>("target_freq")).maxDelay();
+        const auto clk_period = ctx->getDelayFromNS(1.0e9 / ctx->setting<float>("target_freq"));
 
         // First, compute the topological order of nets to walk through the circuit, assuming it is a _acyclic_ graph
         // TODO(eddieh): Handle the case where it is cyclic, e.g. combinatorial loops
@@ -188,7 +188,7 @@ struct Timing
                     // Otherwise, for all driven input ports on this cell, if a timing arc exists between the input and
                     // the current output port, increment fanin counter
                     for (auto i : input_ports) {
-                        DelayInfo comb_delay;
+                        DelayQuad comb_delay;
                         NetInfo *i_net = cell.second->ports[i].net;
                         if (i_net->driver.cell == nullptr && !ooc_port_nets.count(i_net->name))
                             continue;
@@ -238,7 +238,7 @@ struct Timing
                     if (portClass == TMG_REGISTER_OUTPUT || portClass == TMG_STARTPOINT || portClass == TMG_IGNORE ||
                         portClass == TMG_GEN_CLOCK)
                         continue;
-                    DelayInfo comb_delay;
+                    DelayQuad comb_delay;
                     bool is_path = ctx->getCellDelay(usr.cell, usr.port, port.first, comb_delay);
                     if (!is_path)
                         continue;
@@ -309,7 +309,7 @@ struct Timing
                         for (auto port : usr.cell->ports) {
                             if (port.second.type != PORT_OUT || !port.second.net)
                                 continue;
-                            DelayInfo comb_delay;
+                            DelayQuad comb_delay;
                             // Look up delay through this path
                             bool is_path = ctx->getCellDelay(usr.cell, usr.port, port.first, comb_delay);
                             if (!is_path)
@@ -421,7 +421,7 @@ struct Timing
                         for (const auto &port : usr.cell->ports) {
                             if (port.second.type != PORT_OUT || !port.second.net)
                                 continue;
-                            DelayInfo comb_delay;
+                            DelayQuad comb_delay;
                             bool is_path = ctx->getCellDelay(usr.cell, usr.port, port.first, comb_delay);
                             if (!is_path)
                                 continue;
@@ -452,7 +452,7 @@ struct Timing
                     for (const auto &port : crit_net->driver.cell->ports) {
                         if (port.second.type != PORT_IN || !port.second.net)
                             continue;
-                        DelayInfo comb_delay;
+                        DelayQuad comb_delay;
                         bool is_path =
                                 ctx->getCellDelay(crit_net->driver.cell, port.first, crit_net->driver.port, comb_delay);
                         if (!is_path)
@@ -563,7 +563,7 @@ struct Timing
                     for (const auto &port : drv.cell->ports) {
                         if (port.second.type != PORT_IN || !port.second.net)
                             continue;
-                        DelayInfo comb_delay;
+                        DelayQuad comb_delay;
                         bool is_path = ctx->getCellDelay(drv.cell, port.first, drv.port, comb_delay);
                         if (!is_path)
                             continue;
@@ -843,14 +843,14 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                 auto net = port.net;
                 auto &driver = net->driver;
                 auto driver_cell = driver.cell;
-                DelayInfo comb_delay;
+                DelayQuad comb_delay;
                 if (clock_start != -1) {
                     auto clockInfo = ctx->getPortClockingInfo(driver_cell, driver.port, clock_start);
                     comb_delay = clockInfo.clockToQ;
                     clock_start = -1;
                 } else if (last_port == driver.port) {
                     // Case where we start with a STARTPOINT etc
-                    comb_delay = ctx->getDelayFromNS(0);
+                    comb_delay = DelayQuad(0);
                 } else {
                     ctx->getCellDelay(driver_cell, last_port, driver.port, comb_delay);
                 }

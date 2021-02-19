@@ -2851,7 +2851,7 @@ class Ecp5Packer
             NetInfo *from = ci->ports.at(port).net;
             if (from == nullptr || from->clkconstr == nullptr)
                 return false;
-            period = from->clkconstr->period.min_delay;
+            period = from->clkconstr->period.minDelay();
             return true;
         };
 
@@ -2862,7 +2862,7 @@ class Ecp5Packer
             if (to == nullptr)
                 return;
             if (to->clkconstr != nullptr) {
-                if (!equals_epsilon(to->clkconstr->period.min_delay, period) && user_constrained.count(to->name))
+                if (!equals_epsilon(to->clkconstr->period.minDelay(), period) && user_constrained.count(to->name))
                     log_warning(
                             "    Overriding derived constraint of %.1f MHz on net %s with user-specified constraint of "
                             "%.1f MHz.\n",
@@ -2870,13 +2870,10 @@ class Ecp5Packer
                 return;
             }
             to->clkconstr = std::unique_ptr<ClockConstraint>(new ClockConstraint());
-            to->clkconstr->low.min_delay = period / 2;
-            to->clkconstr->low.max_delay = period / 2;
-            to->clkconstr->high.min_delay = period / 2;
-            to->clkconstr->high.max_delay = period / 2;
-            to->clkconstr->period.min_delay = period;
-            to->clkconstr->period.max_delay = period;
-            log_info("    Derived frequency constraint of %.1f MHz for net %s\n", MHz(to->clkconstr->period.min_delay),
+            to->clkconstr->low = DelayPair(period / 2);
+            to->clkconstr->high = DelayPair(period / 2);
+            to->clkconstr->period = DelayPair(period);
+            log_info("    Derived frequency constraint of %.1f MHz for net %s\n", MHz(to->clkconstr->period.minDelay()),
                      to->name.c_str(ctx));
             changed_nets.insert(to->name);
         };
@@ -2888,21 +2885,24 @@ class Ecp5Packer
             if (from == nullptr || from->clkconstr == nullptr || to == nullptr)
                 return;
             if (to->clkconstr != nullptr) {
-                if (!equals_epsilon(to->clkconstr->period.min_delay,
-                                    delay_t(from->clkconstr->period.min_delay / ratio)) &&
+                if (!equals_epsilon(to->clkconstr->period.minDelay(),
+                                    delay_t(from->clkconstr->period.minDelay() / ratio)) &&
                     user_constrained.count(to->name))
                     log_warning(
                             "    Overriding derived constraint of %.1f MHz on net %s with user-specified constraint of "
                             "%.1f MHz.\n",
-                            MHz(to->clkconstr->period.min_delay), to->name.c_str(ctx),
-                            MHz(delay_t(from->clkconstr->period.min_delay / ratio)));
+                            MHz(to->clkconstr->period.minDelay()), to->name.c_str(ctx),
+                            MHz(delay_t(from->clkconstr->period.minDelay() / ratio)));
                 return;
             }
             to->clkconstr = std::unique_ptr<ClockConstraint>(new ClockConstraint());
-            to->clkconstr->low = ctx->getDelayFromNS(ctx->getDelayNS(from->clkconstr->low.min_delay) / ratio);
-            to->clkconstr->high = ctx->getDelayFromNS(ctx->getDelayNS(from->clkconstr->high.min_delay) / ratio);
-            to->clkconstr->period = ctx->getDelayFromNS(ctx->getDelayNS(from->clkconstr->period.min_delay) / ratio);
-            log_info("    Derived frequency constraint of %.1f MHz for net %s\n", MHz(to->clkconstr->period.min_delay),
+            to->clkconstr->low =
+                    DelayPair(ctx->getDelayFromNS(ctx->getDelayNS(from->clkconstr->low.min_delay) / ratio));
+            to->clkconstr->high =
+                    DelayPair(ctx->getDelayFromNS(ctx->getDelayNS(from->clkconstr->high.min_delay) / ratio));
+            to->clkconstr->period =
+                    DelayPair(ctx->getDelayFromNS(ctx->getDelayNS(from->clkconstr->period.min_delay) / ratio));
+            log_info("    Derived frequency constraint of %.1f MHz for net %s\n", MHz(to->clkconstr->period.minDelay()),
                      to->name.c_str(ctx));
             changed_nets.insert(to->name);
         };

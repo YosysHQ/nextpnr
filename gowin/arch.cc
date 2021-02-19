@@ -68,7 +68,7 @@ void Arch::addWire(IdString name, IdString type, int x, int y)
     wire_ids.push_back(name);
 }
 
-void Arch::addPip(IdString name, IdString type, IdString srcWire, IdString dstWire, DelayInfo delay, Loc loc)
+void Arch::addPip(IdString name, IdString type, IdString srcWire, IdString dstWire, DelayQuad delay, Loc loc)
 {
     NPNR_ASSERT(pips.count(name) == 0);
     PipInfo &pi = pips[name];
@@ -226,7 +226,7 @@ void Arch::setDelayScaling(double scale, double offset)
 
 void Arch::addCellTimingClock(IdString cell, IdString port) { cellTiming[cell].portClasses[port] = TMG_CLOCK_INPUT; }
 
-void Arch::addCellTimingDelay(IdString cell, IdString fromPort, IdString toPort, DelayInfo delay)
+void Arch::addCellTimingDelay(IdString cell, IdString fromPort, IdString toPort, DelayQuad delay)
 {
     if (get_or_default(cellTiming[cell].portClasses, fromPort, TMG_IGNORE) == TMG_IGNORE)
         cellTiming[cell].portClasses[fromPort] = TMG_COMB_INPUT;
@@ -235,7 +235,7 @@ void Arch::addCellTimingDelay(IdString cell, IdString fromPort, IdString toPort,
     cellTiming[cell].combDelays[CellDelayKey{fromPort, toPort}] = delay;
 }
 
-void Arch::addCellTimingSetupHold(IdString cell, IdString port, IdString clock, DelayInfo setup, DelayInfo hold)
+void Arch::addCellTimingSetupHold(IdString cell, IdString port, IdString clock, DelayPair setup, DelayPair hold)
 {
     TimingClockingInfo ci;
     ci.clock_port = clock;
@@ -246,7 +246,7 @@ void Arch::addCellTimingSetupHold(IdString cell, IdString port, IdString clock, 
     cellTiming[cell].portClasses[port] = TMG_REGISTER_INPUT;
 }
 
-void Arch::addCellTimingClockToOut(IdString cell, IdString port, IdString clock, DelayInfo clktoq)
+void Arch::addCellTimingClockToOut(IdString cell, IdString port, IdString clock, DelayQuad clktoq)
 {
     TimingClockingInfo ci;
     ci.clock_port = clock;
@@ -340,27 +340,24 @@ template <class T, class C> const T *genericLookup(const T *first, int len, cons
     }
 }
 
-DelayInfo delayLookup(const TimingPOD *first, int len, IdString name)
+DelayQuad delayLookup(const TimingPOD *first, int len, IdString name)
 {
     TimingPOD needle;
     needle.name_id = name.index;
     const TimingPOD *timing = genericLookup(first, len, needle, timingCompare);
-    DelayInfo info;
+    DelayQuad delay;
     if (timing != nullptr) {
-        info.maxFall = std::max(timing->ff, timing->rf) / 1000;
-        info.minFall = std::min(timing->ff, timing->rf) / 1000;
-        info.maxRaise = std::max(timing->rr, timing->fr) / 1000;
-        info.minRaise = std::min(timing->rr, timing->fr) / 1000;
+        delay.fall.max_delay = std::max(timing->ff, timing->rf) / 1000;
+        delay.fall.min_delay = std::min(timing->ff, timing->rf) / 1000;
+        delay.rise.max_delay = std::max(timing->rr, timing->fr) / 1000;
+        delay.rise.min_delay = std::min(timing->rr, timing->fr) / 1000;
     } else {
-        info.maxFall = 0;
-        info.minFall = 0;
-        info.maxRaise = 0;
-        info.minRaise = 0;
+        delay = DelayQuad(0);
     }
-    return info;
+    return delay;
 }
 
-DelayInfo Arch::getWireTypeDelay(IdString wire)
+DelayQuad Arch::getWireTypeDelay(IdString wire)
 {
     IdString len;
     IdString glbsrc;
@@ -480,12 +477,7 @@ DelayInfo Arch::getWireTypeDelay(IdString wire)
     } else if (glbsrc != IdString()) {
         return delayLookup(speed->glbsrc.timings.get(), speed->glbsrc.num_timings, glbsrc);
     } else {
-        DelayInfo info;
-        info.maxFall = 0;
-        info.minFall = 0;
-        info.maxRaise = 0;
-        info.minRaise = 0;
-        return info;
+        return DelayQuad(0);
     }
 }
 
@@ -720,7 +712,7 @@ Arch::Arch(ArchArgs args) : args(args)
 
                 snprintf(buf, 32, "R%dC%d_%s_%s", row + 1, col + 1, srcid.c_str(this), destid.c_str(this));
                 IdString pipname = id(buf);
-                DelayInfo delay = getWireTypeDelay(destid);
+                DelayQuad delay = getWireTypeDelay(destid);
                 // local alias
                 auto local_alias = pairLookup(tile->aliases.get(), tile->num_aliases, srcid.index);
                 // std::cout << "srcid " << srcid.str(this) << std::endl;
@@ -934,7 +926,7 @@ WireId Arch::getPipSrcWire(PipId pip) const { return pips.at(pip).srcWire; }
 
 WireId Arch::getPipDstWire(PipId pip) const { return pips.at(pip).dstWire; }
 
-DelayInfo Arch::getPipDelay(PipId pip) const { return pips.at(pip).delay; }
+DelayQuad Arch::getPipDelay(PipId pip) const { return pips.at(pip).delay; }
 
 const std::vector<PipId> &Arch::getPipsDownhill(WireId wire) const { return wires.at(wire).downhill; }
 
@@ -1067,7 +1059,7 @@ bool Arch::route()
 
 // ---------------------------------------------------------------
 
-bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
+bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const
 {
     if (!cellTiming.count(cell->name))
         return false;
@@ -1145,19 +1137,17 @@ void Arch::assignArchInfo()
             addCellTimingClock(cname, id_CLK);
             IdString ports[4] = {id_A, id_B, id_C, id_D};
             for (int i = 0; i < 4; i++) {
-                DelayInfo setup = delayLookup(speed->dff.timings.get(), speed->dff.num_timings, id_clksetpos);
-                DelayInfo hold = delayLookup(speed->dff.timings.get(), speed->dff.num_timings, id_clkholdpos);
-                // DelayInfo setup = getDelayFromNS(0.1);
-                // DelayInfo hold = getDelayFromNS(0.1);
+                DelayPair setup =
+                        delayLookup(speed->dff.timings.get(), speed->dff.num_timings, id_clksetpos).delayPair();
+                DelayPair hold =
+                        delayLookup(speed->dff.timings.get(), speed->dff.num_timings, id_clkholdpos).delayPair();
                 addCellTimingSetupHold(cname, ports[i], id_CLK, setup, hold);
             }
-            DelayInfo clkout = delayLookup(speed->dff.timings.get(), speed->dff.num_timings, id_clk_qpos);
-            // DelayInfo clkout = getDelayFromNS(0.1);
+            DelayQuad clkout = delayLookup(speed->dff.timings.get(), speed->dff.num_timings, id_clk_qpos);
             addCellTimingClockToOut(cname, id_Q, id_CLK, clkout);
             IdString port_delay[4] = {id_a_f, id_b_f, id_c_f, id_d_f};
             for (int i = 0; i < 4; i++) {
-                DelayInfo delay = delayLookup(speed->lut.timings.get(), speed->lut.num_timings, port_delay[i]);
-                // DelayInfo delay = getDelayFromNS(0.1);
+                DelayQuad delay = delayLookup(speed->lut.timings.get(), speed->lut.num_timings, port_delay[i]);
                 addCellTimingDelay(cname, ports[i], id_F, delay);
             }
 

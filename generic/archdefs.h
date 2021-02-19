@@ -25,27 +25,6 @@ NEXTPNR_NAMESPACE_BEGIN
 
 typedef float delay_t;
 
-struct DelayInfo
-{
-    delay_t delay = 0;
-
-    delay_t minRaiseDelay() const { return delay; }
-    delay_t maxRaiseDelay() const { return delay; }
-
-    delay_t minFallDelay() const { return delay; }
-    delay_t maxFallDelay() const { return delay; }
-
-    delay_t minDelay() const { return delay; }
-    delay_t maxDelay() const { return delay; }
-
-    DelayInfo operator+(const DelayInfo &other) const
-    {
-        DelayInfo ret;
-        ret.delay = this->delay + other.delay;
-        return ret;
-    }
-};
-
 typedef IdStringList BelId;
 typedef IdStringList WireId;
 typedef IdStringList PipId;

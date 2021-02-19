@@ -1085,17 +1085,17 @@ void set_period(Context *ctx, CellInfo *ci, IdString port, delay_t period)
     if (to == nullptr)
         return;
     if (to->clkconstr != nullptr) {
-        if (!equals_epsilon(to->clkconstr->period.delay, period))
+        if (!equals_epsilon(to->clkconstr->period.maxDelay(), period))
             log_warning("    Overriding derived constraint of %.1f MHz on net %s with user-specified constraint of "
                         "%.1f MHz.\n",
-                        MHz(ctx, to->clkconstr->period.delay), to->name.c_str(ctx), MHz(ctx, period));
+                        MHz(ctx, to->clkconstr->period.maxDelay()), to->name.c_str(ctx), MHz(ctx, period));
         return;
     }
     to->clkconstr = std::unique_ptr<ClockConstraint>(new ClockConstraint());
-    to->clkconstr->low.delay = period / 2;
-    to->clkconstr->high.delay = period / 2;
-    to->clkconstr->period.delay = period;
-    log_info("    Derived frequency constraint of %.1f MHz for net %s\n", MHz(ctx, to->clkconstr->period.delay),
+    to->clkconstr->low = DelayPair(period / 2);
+    to->clkconstr->high = DelayPair(period / 2);
+    to->clkconstr->period = DelayPair(period);
+    log_info("    Derived frequency constraint of %.1f MHz for net %s\n", MHz(ctx, to->clkconstr->period.maxDelay()),
              to->name.c_str(ctx));
 };
 bool get_period(Context *ctx, CellInfo *ci, IdString port, delay_t &period)
@@ -1105,7 +1105,7 @@ bool get_period(Context *ctx, CellInfo *ci, IdString port, delay_t &period)
     NetInfo *from = ci->ports.at(port).net;
     if (from == nullptr || from->clkconstr == nullptr)
         return false;
-    period = from->clkconstr->period.delay;
+    period = from->clkconstr->period.maxDelay();
     return true;
 };
 

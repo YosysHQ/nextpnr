@@ -643,13 +643,7 @@ struct Arch : BaseArch<ArchRanges>
         BaseArch::unbindWire(wire);
     }
 
-    DelayInfo getWireDelay(WireId wire) const override
-    {
-        DelayInfo delay;
-        delay.min_delay = 0;
-        delay.max_delay = 0;
-        return delay;
-    }
+    DelayQuad getWireDelay(WireId wire) const override { return DelayQuad(0); }
 
     WireRange getWires() const override
     {
@@ -729,21 +723,20 @@ struct Arch : BaseArch<ArchRanges>
         return wire;
     }
 
-    DelayInfo getPipDelay(PipId pip) const override
+    DelayQuad getPipDelay(PipId pip) const override
     {
-        DelayInfo delay;
         NPNR_ASSERT(pip != PipId());
         int fanout = 0;
         auto fnd_fanout = wire_fanout.find(getPipSrcWire(pip));
         if (fnd_fanout != wire_fanout.end())
             fanout = fnd_fanout->second;
-        delay.min_delay =
+        delay_t min_dly =
                 speed_grade->pip_classes[loc_info(pip)->pip_data[pip.index].timing_class].min_base_delay +
                 fanout * speed_grade->pip_classes[loc_info(pip)->pip_data[pip.index].timing_class].min_fanout_adder;
-        delay.max_delay =
+        delay_t max_dly =
                 speed_grade->pip_classes[loc_info(pip)->pip_data[pip.index].timing_class].max_base_delay +
                 fanout * speed_grade->pip_classes[loc_info(pip)->pip_data[pip.index].timing_class].max_fanout_adder;
-        return delay;
+        return DelayQuad(min_dly, max_dly);
     }
 
     PipRange getPipsDownhill(WireId wire) const override
@@ -821,13 +814,7 @@ struct Arch : BaseArch<ArchRanges>
     delay_t getDelayEpsilon() const override { return 20; }
     delay_t getRipupDelayPenalty() const override;
     float getDelayNS(delay_t v) const override { return v * 0.001; }
-    DelayInfo getDelayFromNS(float ns) const override
-    {
-        DelayInfo del;
-        del.min_delay = delay_t(ns * 1000);
-        del.max_delay = delay_t(ns * 1000);
-        return del;
-    }
+    delay_t getDelayFromNS(float ns) const override { return delay_t(ns * 1000); }
     uint32_t getDelayChecksum(delay_t v) const override { return v; }
     bool getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const override;
 
@@ -850,7 +837,7 @@ struct Arch : BaseArch<ArchRanges>
 
     // Get the delay through a cell from one port to another, returning false
     // if no path exists
-    bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const override;
+    bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const override;
     // Get the port class, also setting clockInfoCount to the number of TimingClockingInfos associated with a port
     TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const override;
     // Get the TimingClockingInfo of a port
@@ -858,9 +845,9 @@ struct Arch : BaseArch<ArchRanges>
     // Return true if a port is a net
     bool is_global_net(const NetInfo *net) const;
 
-    bool get_delay_from_tmg_db(IdString tctype, IdString from, IdString to, DelayInfo &delay) const;
-    void get_setuphold_from_tmg_db(IdString tctype, IdString clock, IdString port, DelayInfo &setup,
-                                   DelayInfo &hold) const;
+    bool get_delay_from_tmg_db(IdString tctype, IdString from, IdString to, DelayQuad &delay) const;
+    void get_setuphold_from_tmg_db(IdString tctype, IdString clock, IdString port, DelayPair &setup,
+                                   DelayPair &hold) const;
 
     // -------------------------------------------------
     // Placement validity checks
@@ -929,7 +916,7 @@ struct Arch : BaseArch<ArchRanges>
     std::unordered_map<WireId, std::pair<int, int>> wire_loc_overrides;
     void setup_wire_locations();
 
-    mutable std::unordered_map<DelayKey, std::pair<bool, DelayInfo>> celldelay_cache;
+    mutable std::unordered_map<DelayKey, std::pair<bool, DelayQuad>> celldelay_cache;
 
     static const std::string defaultPlacer;
     static const std::vector<std::string> availablePlacers;

@@ -59,8 +59,6 @@ void arch_wrap_python(py::module &m)
 
     py::class_<BelPin>(m, "BelPin").def_readwrite("bel", &BelPin::bel).def_readwrite("pin", &BelPin::pin);
 
-    py::class_<DelayInfo>(m, "DelayInfo").def("maxDelay", &DelayInfo::maxDelay).def("minDelay", &DelayInfo::minDelay);
-
     fn_wrapper_1a<Context, decltype(&Context::getBelType), &Context::getBelType, conv_to_str<IdString>,
                   conv_from_str<BelId>>::def_wrap(ctx_cls, "getBelType");
     fn_wrapper_1a<Context, decltype(&Context::checkBelAvail), &Context::checkBelAvail, pass_through<bool>,
@@ -125,10 +123,10 @@ void arch_wrap_python(py::module &m)
                   conv_from_str<PipId>>::def_wrap(ctx_cls, "getPipSrcWire");
     fn_wrapper_1a<Context, decltype(&Context::getPipDstWire), &Context::getPipDstWire, conv_to_str<WireId>,
                   conv_from_str<PipId>>::def_wrap(ctx_cls, "getPipDstWire");
-    fn_wrapper_1a<Context, decltype(&Context::getPipDelay), &Context::getPipDelay, pass_through<DelayInfo>,
+    fn_wrapper_1a<Context, decltype(&Context::getPipDelay), &Context::getPipDelay, pass_through<DelayQuad>,
                   conv_from_str<PipId>>::def_wrap(ctx_cls, "getPipDelay");
 
-    fn_wrapper_1a<Context, decltype(&Context::getDelayFromNS), &Context::getDelayFromNS, pass_through<DelayInfo>,
+    fn_wrapper_1a<Context, decltype(&Context::getDelayFromNS), &Context::getDelayFromNS, pass_through<delay_t>,
                   pass_through<double>>::def_wrap(ctx_cls, "getDelayFromNS");
 
     fn_wrapper_0a<Context, decltype(&Context::getChipName), &Context::getChipName, pass_through<std::string>>::def_wrap(

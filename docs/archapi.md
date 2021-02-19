@@ -43,21 +43,6 @@ With the exception of `ArchNetInfo` and `ArchCellInfo`, the following types shou
 
 A scalar type that is used to  represent delays. May be an integer or float type.
 
-### DelayInfo
-
-A struct representing the delay across a timing arc. Must provide a `+` operator for getting the combined delay of two arcs, and the following methods to access concrete timings:
-
-```
-delay_t minRaiseDelay() const { return delay; }
-delay_t maxRaiseDelay() const { return delay; }
-
-delay_t minFallDelay() const { return delay; }
-delay_t maxFallDelay() const { return delay; }
-
-delay_t minDelay() const { return delay; }
-delay_t maxDelay() const { return delay; }
-```
-
 ### BelId
 
 A type representing a bel name. `BelId()` must construct a unique null-value. Must provide `==`, `!=`, and `<` operators and a specialization for `std::hash<BelId>`.
@@ -332,7 +317,7 @@ will make the given wire available.
 
 *BaseArch default: returns `getBoundWireNet(wire)`*
 
-### DelayInfo getWireDelay(WireId wire) const
+### DelayQuad getWireDelay(WireId wire) const
 
 Get the delay for a wire.
 
@@ -448,7 +433,7 @@ Get the destination wire for a pip.
 Bi-directional switches (transfer gates) are modeled using two
 anti-parallel pips.
 
-### DelayInfo getPipDelay(PipId pip) const
+### DelayQuad getPipDelay(PipId pip) const
 
 Get the delay for a pip.
 
@@ -541,9 +526,9 @@ actual penalty used is a multiple of this value (i.e. a weighted version of this
 
 Convert an `delay_t` to an actual real-world delay in nanoseconds.
 
-### DelayInfo getDelayFromNS(float v) const
+### delay_t getDelayFromNS(float v) const
 
-Convert a real-world delay in nanoseconds to a DelayInfo with equal min/max rising/falling values.
+Convert a real-world delay in nanoseconds to a `delay_t`.
 
 ### uint32\_t getDelayChecksum(delay\_t v) const
 
@@ -609,7 +594,7 @@ Return the decal and X/Y position for the graphics representing a group.
 Cell Delay Methods
 ------------------
 
-### bool getCellDelay(const CellInfo \*cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
+### bool getCellDelay(const CellInfo \*cell, IdString fromPort, IdString toPort, DelayQuad &delay) const
 
 Returns the delay for the specified path through a cell in the `&delay` argument. The method returns
 false if there is no timing relationship from `fromPort` to `toPort`.

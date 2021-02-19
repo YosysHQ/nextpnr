@@ -1127,12 +1127,7 @@ struct Arch : ArchAPI<ArchRanges>
         return w2n == wire_to_net.end() ? nullptr : w2n->second;
     }
 
-    DelayInfo getWireDelay(WireId wire) const override
-    {
-        DelayInfo delay;
-        delay.delay = 0;
-        return delay;
-    }
+    DelayQuad getWireDelay(WireId wire) const override { return DelayQuad(0); }
 
     TileWireRange get_tile_wire_range(WireId wire) const
     {
@@ -1279,7 +1274,7 @@ struct Arch : ArchAPI<ArchRanges>
         return canonical_wire(chip_info, pip.tile, loc_info(chip_info, pip).pip_data[pip.index].dst_index);
     }
 
-    DelayInfo getPipDelay(PipId pip) const override { return DelayInfo(); }
+    DelayQuad getPipDelay(PipId pip) const override { return DelayQuad(0); }
 
     DownhillPipRange getPipsDownhill(WireId wire) const override
     {
@@ -1333,12 +1328,7 @@ struct Arch : ArchAPI<ArchRanges>
     delay_t getDelayEpsilon() const override { return 20; }
     delay_t getRipupDelayPenalty() const override { return 120; }
     float getDelayNS(delay_t v) const override { return v * 0.001; }
-    DelayInfo getDelayFromNS(float ns) const override
-    {
-        DelayInfo del;
-        del.delay = delay_t(ns * 1000);
-        return del;
-    }
+    delay_t getDelayFromNS(float ns) const override { return delay_t(ns * 1000); }
     uint32_t getDelayChecksum(delay_t v) const override { return v; }
     bool getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const override;
 
@@ -1363,7 +1353,7 @@ struct Arch : ArchAPI<ArchRanges>
 
     // Get the delay through a cell from one port to another, returning false
     // if no path exists. This only considers combinational delays, as required by the Arch API
-    bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const override;
+    bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const override;
     // Get the port class, also setting clockInfoCount to the number of TimingClockingInfos associated with a port
     TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const override;
     // Get the TimingClockingInfo of a port

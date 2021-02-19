@@ -1042,13 +1042,7 @@ struct Arch : BaseArch<ArchRanges>
 
     std::vector<std::pair<IdString, std::string>> getWireAttrs(WireId wire) const override;
 
-    DelayInfo getWireDelay(WireId wire) const override
-    {
-        DelayInfo delay;
-        delay.min_delay = 0;
-        delay.max_delay = 0;
-        return delay;
-    }
+    DelayQuad getWireDelay(WireId wire) const override { return DelayQuad(0); }
 
     BelPinRange getWireBelPins(WireId wire) const override
     {
@@ -1120,13 +1114,10 @@ struct Arch : BaseArch<ArchRanges>
 
     WireId getPipDstWire(PipId pip) const override { return canonical_wire(pip.tile, pip_data(pip).to_wire); }
 
-    DelayInfo getPipDelay(PipId pip) const override
+    DelayQuad getPipDelay(PipId pip) const override
     {
-        DelayInfo delay;
         auto &cls = speed_grade->pip_classes[pip_data(pip).timing_class];
-        delay.min_delay = std::max(0, cls.min_delay);
-        delay.max_delay = std::max(0, cls.max_delay);
-        return delay;
+        return DelayQuad(cls.min_delay, cls.max_delay);
     }
 
     UpDownhillPipRange getPipsDownhill(WireId wire) const override
@@ -1179,13 +1170,7 @@ struct Arch : BaseArch<ArchRanges>
     delay_t getRipupDelayPenalty() const override { return 120; }
     delay_t getWireRipupDelayPenalty(WireId wire) const;
     float getDelayNS(delay_t v) const override { return v * 0.001; }
-    DelayInfo getDelayFromNS(float ns) const override
-    {
-        DelayInfo del;
-        del.min_delay = delay_t(ns * 1000);
-        del.max_delay = delay_t(ns * 1000);
-        return del;
-    }
+    delay_t getDelayFromNS(float ns) const override { return delay_t(ns * 1000); }
     uint32_t getDelayChecksum(delay_t v) const override { return v; }
     bool getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const override;
     ArcBounds getRouteBoundingBox(WireId src, WireId dst) const override;
@@ -1198,7 +1183,7 @@ struct Arch : BaseArch<ArchRanges>
 
     // Get the delay through a cell from one port to another, returning false
     // if no path exists. This only considers combinational delays, as required by the Arch API
-    bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const override;
+    bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const override;
     // Get the port class, also setting clockInfoCount to the number of TimingClockingInfos associated with a port
     TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const override;
     // Get the TimingClockingInfo of a port
@@ -1385,15 +1370,15 @@ struct Arch : BaseArch<ArchRanges>
     // Given cell type and variant, get the index inside the speed grade timing data
     int get_cell_timing_idx(IdString cell_type, IdString cell_variant = IdString()) const;
     // Return true and set delay if a comb path exists in a given cell timing index
-    bool lookup_cell_delay(int type_idx, IdString from_port, IdString to_port, DelayInfo &delay) const;
+    bool lookup_cell_delay(int type_idx, IdString from_port, IdString to_port, DelayQuad &delay) const;
     // Get setup and hold time for a given cell timing index and signal/clock pair
-    void lookup_cell_setuphold(int type_idx, IdString from_port, IdString clock, DelayInfo &setup,
-                               DelayInfo &hold) const;
+    void lookup_cell_setuphold(int type_idx, IdString from_port, IdString clock, DelayPair &setup,
+                               DelayPair &hold) const;
     // Get setup and hold time and associated clock for a given cell timing index and signal
-    void lookup_cell_setuphold_clock(int type_idx, IdString from_port, IdString &clock, DelayInfo &setup,
-                                     DelayInfo &hold) const;
+    void lookup_cell_setuphold_clock(int type_idx, IdString from_port, IdString &clock, DelayPair &setup,
+                                     DelayPair &hold) const;
     // Similar to lookup_cell_delay but only needs the 'to' signal, intended for clk->out delays
-    void lookup_cell_clock_out(int type_idx, IdString to_port, IdString &clock, DelayInfo &delay) const;
+    void lookup_cell_clock_out(int type_idx, IdString to_port, IdString &clock, DelayQuad &delay) const;
     // Attempt to look up port type based on database
     TimingPortClass lookup_port_type(int type_idx, IdString port, PortType dir, IdString clock) const;
     // -------------------------------------------------

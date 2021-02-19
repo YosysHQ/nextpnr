@@ -432,7 +432,7 @@ DecalXY Arch::getGroupDecal(GroupId pip) const { return {}; };
 
 // -----------------------------------------------------------------------
 
-bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
+bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const
 {
     auto lookup_port = [&](IdString p) {
         auto fnd = cell->tmg_portmap.find(p);
@@ -443,8 +443,7 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
             bool result = lookup_cell_delay(cell->tmg_index, lookup_port(fromPort), lookup_port(toPort), delay);
             // Because CCU2 = 2x OXIDE_COMB
             if (result && fromPort == id_FCI && toPort == id_FCO) {
-                delay.min_delay /= 2;
-                delay.max_delay /= 2;
+                delay = DelayQuad(delay.minDelay() / 2, delay.maxDelay() / 2);
             }
             return result;
         } else {
@@ -870,7 +869,7 @@ int Arch::get_cell_timing_idx(IdString cell_type, IdString cell_variant) const
             std::make_pair(cell_type.index, cell_variant.index));
 }
 
-bool Arch::lookup_cell_delay(int type_idx, IdString from_port, IdString to_port, DelayInfo &delay) const
+bool Arch::lookup_cell_delay(int type_idx, IdString from_port, IdString to_port, DelayQuad &delay) const
 {
     NPNR_ASSERT(type_idx != -1);
     const auto &ct = speed_grade->cell_types[type_idx];
@@ -880,13 +879,12 @@ bool Arch::lookup_cell_delay(int type_idx, IdString from_port, IdString to_port,
             std::make_pair(to_port.index, from_port.index));
     if (dly_idx == -1)
         return false;
-    delay.min_delay = ct.prop_delays[dly_idx].min_delay;
-    delay.max_delay = ct.prop_delays[dly_idx].max_delay;
+    delay = DelayQuad(ct.prop_delays[dly_idx].min_delay, ct.prop_delays[dly_idx].max_delay);
     return true;
 }
 
-void Arch::lookup_cell_setuphold(int type_idx, IdString from_port, IdString clock, DelayInfo &setup,
-                                 DelayInfo &hold) const
+void Arch::lookup_cell_setuphold(int type_idx, IdString from_port, IdString clock, DelayPair &setup,
+                                 DelayPair &hold) const
 {
     NPNR_ASSERT(type_idx != -1);
     const auto &ct = speed_grade->cell_types[type_idx];
@@ -901,8 +899,8 @@ void Arch::lookup_cell_setuphold(int type_idx, IdString from_port, IdString cloc
     hold.max_delay = ct.setup_holds[dly_idx].max_hold;
 }
 
-void Arch::lookup_cell_setuphold_clock(int type_idx, IdString from_port, IdString &clock, DelayInfo &setup,
-                                       DelayInfo &hold) const
+void Arch::lookup_cell_setuphold_clock(int type_idx, IdString from_port, IdString &clock, DelayPair &setup,
+                                       DelayPair &hold) const
 {
     NPNR_ASSERT(type_idx != -1);
     const auto &ct = speed_grade->cell_types[type_idx];
@@ -916,7 +914,7 @@ void Arch::lookup_cell_setuphold_clock(int type_idx, IdString from_port, IdStrin
     hold.min_delay = ct.setup_holds[dly_idx].min_hold;
     hold.max_delay = ct.setup_holds[dly_idx].max_hold;
 }
-void Arch::lookup_cell_clock_out(int type_idx, IdString to_port, IdString &clock, DelayInfo &delay) const
+void Arch::lookup_cell_clock_out(int type_idx, IdString to_port, IdString &clock, DelayQuad &delay) const
 {
     NPNR_ASSERT(type_idx != -1);
     const auto &ct = speed_grade->cell_types[type_idx];
@@ -925,9 +923,9 @@ void Arch::lookup_cell_clock_out(int type_idx, IdString to_port, IdString &clock
             to_port.index);
     NPNR_ASSERT(dly_idx != -1);
     clock = IdString(ct.prop_delays[dly_idx].from_port);
-    delay.min_delay = ct.prop_delays[dly_idx].min_delay;
-    delay.max_delay = ct.prop_delays[dly_idx].max_delay;
+    delay = DelayQuad(ct.prop_delays[dly_idx].min_delay, ct.prop_delays[dly_idx].max_delay);
 }
+
 TimingPortClass Arch::lookup_port_type(int type_idx, IdString port, PortType dir, IdString clock) const
 {
     if (dir == PORT_IN) {
@@ -940,7 +938,7 @@ TimingPortClass Arch::lookup_port_type(int type_idx, IdString port, PortType dir
                 std::make_pair(port.index, clock.index));
         return (sh_idx != -1) ? TMG_REGISTER_INPUT : TMG_COMB_INPUT;
     } else {
-        DelayInfo dly;
+        DelayQuad dly;
         // If a clock-to-out entry exists, then this is a register output
         return lookup_cell_delay(type_idx, clock, port, dly) ? TMG_REGISTER_OUTPUT : TMG_COMB_OUTPUT;
     }

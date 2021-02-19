@@ -328,7 +328,7 @@ class TimingOptimiser
                     if (!net_crit.count(pn->name) || net_crit.at(pn->name).criticality.empty())
                         continue;
                     int ccount;
-                    DelayInfo combDelay;
+                    DelayQuad combDelay;
                     TimingPortClass tpclass = ctx->getPortTimingClass(cell, port.first, ccount);
                     if (tpclass != TMG_COMB_INPUT)
                         continue;
@@ -367,7 +367,7 @@ class TimingOptimiser
                     if (!net_crit.count(pn->name) || net_crit.at(pn->name).criticality.empty())
                         continue;
                     int ccount;
-                    DelayInfo combDelay;
+                    DelayQuad combDelay;
                     TimingPortClass tpclass = ctx->getPortTimingClass(cell, port.first, ccount);
                     if (tpclass != TMG_COMB_OUTPUT && tpclass != TMG_REGISTER_OUTPUT)
                         continue;
