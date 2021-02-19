@@ -69,7 +69,7 @@ template <size_t StateCount, typename StateType = int8_t, typename CountType = u
 
     bool add_implies(int32_t next_state)
     {
-        NPNR_ASSERT(next_state < StateCount);
+        NPNR_ASSERT(next_state >= 0 && (size_t)next_state < StateCount);
 
         // Increment and mark the state as selected.
         count[next_state] += 1;
@@ -92,7 +92,7 @@ template <size_t StateCount, typename StateType = int8_t, typename CountType = u
 
     void remove_implies(int32_t next_state)
     {
-        NPNR_ASSERT(next_state < StateCount);
+        NPNR_ASSERT(next_state >= 0 && (size_t)next_state < StateCount);
         NPNR_ASSERT(selected_states[next_state]);
 
         count[next_state] -= 1;
