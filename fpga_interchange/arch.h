@@ -900,19 +900,19 @@ struct Arch : ArchAPI<ArchRanges>
 
     BelId get_vcc_bel() const
     {
-        auto &constants = chip_info->constants;
+        auto &constants = *chip_info->constants;
         BelId bel;
-        bel.tile = constants->vcc_bel_tile;
-        bel.index = constants->vcc_bel_index;
+        bel.tile = constants.vcc_bel_tile;
+        bel.index = constants.vcc_bel_index;
         return bel;
     }
 
     BelId get_gnd_bel() const
     {
-        auto &constants = chip_info->constants;
+        auto &constants = *chip_info->constants;
         BelId bel;
-        bel.tile = constants->gnd_bel_tile;
-        bel.index = constants->gnd_bel_index;
+        bel.tile = constants.gnd_bel_tile;
+        bel.index = constants.gnd_bel_index;
         return bel;
     }
 
