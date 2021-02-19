@@ -217,11 +217,11 @@ NPNR_PACKED_STRUCT(struct ConstantsPOD {
 
     int32_t gnd_bel_tile;
     int32_t gnd_bel_index;
-    int32_t gnd_bel_pin;   // constid
+    int32_t gnd_bel_pin; // constid
 
     int32_t vcc_bel_tile;
     int32_t vcc_bel_index;
-    int32_t vcc_bel_pin;   // constid
+    int32_t vcc_bel_pin; // constid
 
     // Name to use for the global GND constant net
     int32_t gnd_net_name; // constid
@@ -898,7 +898,8 @@ struct Arch : ArchAPI<ArchRanges>
         return tile_status.sites.at(bel_data.site);
     }
 
-    BelId get_vcc_bel() const {
+    BelId get_vcc_bel() const
+    {
         auto &constants = chip_info->constants;
         BelId bel;
         bel.tile = constants->vcc_bel_tile;
@@ -906,7 +907,8 @@ struct Arch : ArchAPI<ArchRanges>
         return bel;
     }
 
-    BelId get_gnd_bel() const {
+    BelId get_gnd_bel() const
+    {
         auto &constants = chip_info->constants;
         BelId bel;
         bel.tile = constants->gnd_bel_tile;
@@ -1689,7 +1691,7 @@ struct Arch : ArchAPI<ArchRanges>
     // static partitions.
     bool is_bel_synthetic(BelId bel) const
     {
-        const BelInfoPOD & bel_data = bel_info(chip_info, bel);
+        const BelInfoPOD &bel_data = bel_info(chip_info, bel);
 
         return bel_data.synthetic != 0;
     }
@@ -1701,7 +1703,7 @@ struct Arch : ArchAPI<ArchRanges>
     bool is_pip_synthetic(PipId pip) const
     {
         auto &pip_data = pip_info(chip_info, pip);
-        if(pip_data.site == -1) {
+        if (pip_data.site == -1) {
             return pip_data.extra_data == -1;
         } else {
             BelId bel;
