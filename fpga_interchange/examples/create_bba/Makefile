@@ -38,11 +38,7 @@ build:
 	mkdir build
 
 build/RapidWright: | build
-	# FIXME: Update URL / branch as fixes are merged upstream and / or
-	# interchange branch on Xilinx/RapidWright is merged to master branch.
-	#
-	#cd build && git clone -b interchange https://github.com/Xilinx/RapidWright.git
-	cd build && git clone -b move_strlist https://github.com/litghost/RapidWright.git
+	cd build && git clone https://github.com/Xilinx/RapidWright.git
 
 build/env: | build
 	python3 -mvenv build/env
