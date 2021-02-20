@@ -763,7 +763,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
         }
 
         if (clock_reports.empty()) {
-            log_warning("No clocks found in design\n");
+            log_info("No Fmax available; no interior timing paths found in design.\n");
         }
 
         std::sort(xclock_paths.begin(), xclock_paths.end(), [ctx](const ClockPair &a, const ClockPair &b) {
