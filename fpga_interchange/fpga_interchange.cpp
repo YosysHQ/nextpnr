@@ -269,8 +269,10 @@ static void find_non_synthetic_edges(const Context * ctx, WireId root_wire,
 
         auto downhill_iter = pip_downhill.find(wire);
         if(downhill_iter == pip_downhill.end()) {
-            log_warning("Wire %s never entered the real fabric?\n",
-                    ctx->nameOfWire(wire));
+            if(root_wire != wire) {
+                log_warning("Wire %s never entered the real fabric?\n",
+                        ctx->nameOfWire(wire));
+            }
             continue;
         }
 
@@ -365,6 +367,9 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
             // Don't emit pin map for ports.
             size_t pin_count = 0;
             for(const auto & pin : cell.cell_bel_pins) {
+                if(cell.const_ports.count(pin.first)) {
+                    continue;
+                }
                 pin_count += pin.second.size();
             }
 
@@ -372,6 +377,10 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
             auto pin_iter = pins.begin();
 
             for(const auto & cell_to_bel_pins : cell.cell_bel_pins) {
+                if(cell.const_ports.count(cell_to_bel_pins.first)) {
+                    continue;
+                }
+
                 std::string cell_pin = cell_to_bel_pins.first.str(ctx);
                 size_t cell_pin_index = strings.get_index(cell_pin);
 

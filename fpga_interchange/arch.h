@@ -871,7 +871,7 @@ struct Arch : ArchAPI<ArchRanges>
 
     uint32_t getBelChecksum(BelId bel) const override { return bel.index; }
 
-    void map_cell_pins(CellInfo *cell, int32_t mapping) const;
+    void map_cell_pins(CellInfo *cell, int32_t mapping);
     void map_port_pins(BelId bel, CellInfo *cell) const;
 
     TileStatus &get_tile_status(int32_t tile)
@@ -1716,6 +1716,8 @@ struct Arch : ArchAPI<ArchRanges>
             return is_bel_synthetic(bel);
         }
     }
+
+    void merge_constant_nets();
 };
 
 NEXTPNR_NAMESPACE_END

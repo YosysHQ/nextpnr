@@ -106,6 +106,7 @@ struct ArchCellInfo
 
     int32_t cell_mapping;
     std::unordered_map<IdString, std::vector<IdString>> cell_bel_pins;
+    std::unordered_set<IdString> const_ports;
 };
 
 NEXTPNR_NAMESPACE_END
