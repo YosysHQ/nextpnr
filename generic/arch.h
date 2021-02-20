@@ -41,7 +41,7 @@ struct PipInfo
     std::map<IdString, std::string> attrs;
     NetInfo *bound_net;
     WireId srcWire, dstWire;
-    DelayInfo delay;
+    delay_t delay;
     DecalXY decalxy;
     Loc loc;
 };
@@ -113,7 +113,7 @@ NEXTPNR_NAMESPACE_BEGIN
 struct CellTiming
 {
     std::unordered_map<IdString, TimingPortClass> portClasses;
-    std::unordered_map<CellDelayKey, DelayInfo> combDelays;
+    std::unordered_map<CellDelayKey, DelayQuad> combDelays;
     std::unordered_map<IdString, std::vector<TimingClockingInfo>> clockingInfo;
 };
 
@@ -177,7 +177,7 @@ struct Arch : ArchAPI<ArchRanges>
     std::unordered_map<IdString, CellTiming> cellTiming;
 
     void addWire(IdStringList name, IdString type, int x, int y);
-    void addPip(IdStringList name, IdString type, IdStringList srcWire, IdStringList dstWire, DelayInfo delay, Loc loc);
+    void addPip(IdStringList name, IdString type, IdStringList srcWire, IdStringList dstWire, delay_t delay, Loc loc);
 
     void addBel(IdStringList name, IdString type, Loc loc, bool gb, bool hidden);
     void addBelInput(IdStringList bel, IdString name, IdStringList wire);
@@ -203,9 +203,9 @@ struct Arch : ArchAPI<ArchRanges>
     void setDelayScaling(double scale, double offset);
 
     void addCellTimingClock(IdString cell, IdString port);
-    void addCellTimingDelay(IdString cell, IdString fromPort, IdString toPort, DelayInfo delay);
-    void addCellTimingSetupHold(IdString cell, IdString port, IdString clock, DelayInfo setup, DelayInfo hold);
-    void addCellTimingClockToOut(IdString cell, IdString port, IdString clock, DelayInfo clktoq);
+    void addCellTimingDelay(IdString cell, IdString fromPort, IdString toPort, delay_t delay);
+    void addCellTimingSetupHold(IdString cell, IdString port, IdString clock, delay_t setup, delay_t hold);
+    void addCellTimingClockToOut(IdString cell, IdString port, IdString clock, delay_t clktoq);
 
     void clearCellBelPinMap(IdString cell, IdString cell_pin);
     void addCellBelPinMapping(IdString cell, IdString cell_pin, IdString bel_pin);
@@ -260,7 +260,7 @@ struct Arch : ArchAPI<ArchRanges>
     NetInfo *getBoundWireNet(WireId wire) const override;
     WireId getConflictingWireWire(WireId wire) const override { return wire; }
     NetInfo *getConflictingWireNet(WireId wire) const override;
-    DelayInfo getWireDelay(WireId wire) const override { return DelayInfo(); }
+    DelayQuad getWireDelay(WireId wire) const override { return DelayQuad(0); }
     const std::vector<WireId> &getWires() const override;
     const std::vector<BelPin> &getWireBelPins(WireId wire) const override;
 
@@ -279,7 +279,7 @@ struct Arch : ArchAPI<ArchRanges>
     Loc getPipLocation(PipId pip) const override;
     WireId getPipSrcWire(PipId pip) const override;
     WireId getPipDstWire(PipId pip) const override;
-    DelayInfo getPipDelay(PipId pip) const override;
+    DelayQuad getPipDelay(PipId pip) const override;
     const std::vector<PipId> &getPipsDownhill(WireId wire) const override;
     const std::vector<PipId> &getPipsUphill(WireId wire) const override;
 
@@ -297,12 +297,7 @@ struct Arch : ArchAPI<ArchRanges>
     delay_t getRipupDelayPenalty() const override { return 0.015; }
     float getDelayNS(delay_t v) const override { return v; }
 
-    DelayInfo getDelayFromNS(float ns) const override
-    {
-        DelayInfo del;
-        del.delay = ns;
-        return del;
-    }
+    delay_t getDelayFromNS(float ns) const override { return ns; }
 
     uint32_t getDelayChecksum(delay_t v) const override { return 0; }
     bool getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const override;
@@ -350,7 +345,7 @@ struct Arch : ArchAPI<ArchRanges>
     DecalXY getPipDecal(PipId pip) const override;
     DecalXY getGroupDecal(GroupId group) const override;
 
-    bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const override;
+    bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const override;
     // Get the port class, also setting clockInfoCount to the number of TimingClockingInfos associated with a port
     TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const override;
     // Get the TimingClockingInfo of a port

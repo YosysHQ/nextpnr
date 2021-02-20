@@ -721,7 +721,7 @@ DecalXY Arch::getGroupDecal(GroupId group) const
 
 // -----------------------------------------------------------------------
 
-bool Arch::get_delay_from_tmg_db(IdString tctype, IdString from, IdString to, DelayInfo &delay) const
+bool Arch::get_delay_from_tmg_db(IdString tctype, IdString from, IdString to, DelayQuad &delay) const
 {
     auto fnd_dk = celldelay_cache.find({tctype, from, to});
     if (fnd_dk != celldelay_cache.end()) {
@@ -732,21 +732,20 @@ bool Arch::get_delay_from_tmg_db(IdString tctype, IdString from, IdString to, De
         if (tc.cell_type == tctype.index) {
             for (auto &dly : tc.prop_delays) {
                 if (dly.from_port == from.index && dly.to_port == to.index) {
-                    delay.max_delay = dly.max_delay;
-                    delay.min_delay = dly.min_delay;
+                    delay = DelayQuad(dly.min_delay, dly.max_delay);
                     celldelay_cache[{tctype, from, to}] = std::make_pair(true, delay);
                     return true;
                 }
             }
-            celldelay_cache[{tctype, from, to}] = std::make_pair(false, DelayInfo());
+            celldelay_cache[{tctype, from, to}] = std::make_pair(false, DelayQuad());
             return false;
         }
     }
     NPNR_ASSERT_FALSE("failed to find timing cell in db");
 }
 
-void Arch::get_setuphold_from_tmg_db(IdString tctype, IdString clock, IdString port, DelayInfo &setup,
-                                     DelayInfo &hold) const
+void Arch::get_setuphold_from_tmg_db(IdString tctype, IdString clock, IdString port, DelayPair &setup,
+                                     DelayPair &hold) const
 {
     for (auto &tc : speed_grade->cell_timings) {
         if (tc.cell_type == tctype.index) {
@@ -764,7 +763,7 @@ void Arch::get_setuphold_from_tmg_db(IdString tctype, IdString clock, IdString p
     NPNR_ASSERT_FALSE("failed to find timing cell in db");
 }
 
-bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
+bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const
 {
     // Data for -8 grade
     if (cell->type == id_TRELLIS_SLICE) {
@@ -779,15 +778,13 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
             (fromPort == id_B0 && toPort == id_WADO1) || (fromPort == id_B1 && toPort == id_WDO3) ||
             (fromPort == id_C0 && toPort == id_WADO2) || (fromPort == id_C1 && toPort == id_WDO0) ||
             (fromPort == id_D0 && toPort == id_WADO0) || (fromPort == id_D1 && toPort == id_WDO2)) {
-            delay.min_delay = 0;
-            delay.max_delay = 0;
+            delay = DelayQuad(0);
             return true;
         }
         return false;
     } else if (cell->type == id_DCCA) {
         if (fromPort == id_CLKI && toPort == id_CLKO) {
-            delay.min_delay = 0;
-            delay.max_delay = 0;
+            delay = DelayQuad(0);
             return true;
         }
         return false;
@@ -987,9 +984,9 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
 TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port, int index) const
 {
     TimingClockingInfo info;
-    info.setup = getDelayFromNS(0);
-    info.hold = getDelayFromNS(0);
-    info.clockToQ = getDelayFromNS(0);
+    info.setup = DelayPair(0);
+    info.hold = DelayPair(0);
+    info.clockToQ = DelayQuad(0);
     if (cell->type == id_TRELLIS_SLICE) {
         int sd0 = cell->sliceInfo.sd0, sd1 = cell->sliceInfo.sd1;
         if (port == id_WD0 || port == id_WD1 || port == id_WAD0 || port == id_WAD1 || port == id_WAD2 ||
@@ -1058,26 +1055,26 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
         else if (prefix == "CH1_FF_RX")
             info.clock_port = id_CH1_FF_RXI_CLK;
         if (cell->ports.at(port).type == PORT_OUT) {
-            info.clockToQ = getDelayFromNS(0.7);
+            info.clockToQ = DelayQuad(getDelayFromNS(0.7));
         } else {
-            info.setup = getDelayFromNS(1);
-            info.hold = getDelayFromNS(0);
+            info.setup = DelayPair(getDelayFromNS(1));
+            info.hold = DelayPair(getDelayFromNS(0));
         }
     } else if (cell->type == id_IOLOGIC || cell->type == id_SIOLOGIC) {
         info.clock_port = id_CLK;
         if (cell->ports.at(port).type == PORT_OUT) {
-            info.clockToQ = getDelayFromNS(0.5);
+            info.clockToQ = DelayQuad(getDelayFromNS(0.5));
         } else {
-            info.setup = getDelayFromNS(0.1);
-            info.hold = getDelayFromNS(0);
+            info.setup = DelayPair(getDelayFromNS(0.1));
+            info.hold = DelayPair(getDelayFromNS(0));
         }
     } else if (cell->type == id_DQSBUFM) {
         info.clock_port = id_SCLK;
         if (port == id_DATAVALID) {
-            info.clockToQ = getDelayFromNS(0.2);
+            info.clockToQ = DelayQuad(getDelayFromNS(0.2));
         } else if (port == id_READ0 || port == id_READ1) {
-            info.setup = getDelayFromNS(0.5);
-            info.hold = getDelayFromNS(-0.4);
+            info.setup = DelayPair(getDelayFromNS(0.5));
+            info.hold = DelayPair(getDelayFromNS(-0.4));
         } else {
             NPNR_ASSERT_FALSE("unknown DQSBUFM register port");
         }

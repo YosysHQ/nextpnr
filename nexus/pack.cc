@@ -1862,9 +1862,12 @@ struct NexusPacker
                 return;
             }
             to->clkconstr = std::unique_ptr<ClockConstraint>(new ClockConstraint());
-            to->clkconstr->low = ctx->getDelayFromNS(ctx->getDelayNS(from->clkconstr->low.min_delay) / ratio);
-            to->clkconstr->high = ctx->getDelayFromNS(ctx->getDelayNS(from->clkconstr->high.min_delay) / ratio);
-            to->clkconstr->period = ctx->getDelayFromNS(ctx->getDelayNS(from->clkconstr->period.min_delay) / ratio);
+            to->clkconstr->low =
+                    DelayPair(ctx->getDelayFromNS(ctx->getDelayNS(from->clkconstr->low.min_delay) / ratio));
+            to->clkconstr->high =
+                    DelayPair(ctx->getDelayFromNS(ctx->getDelayNS(from->clkconstr->high.min_delay) / ratio));
+            to->clkconstr->period =
+                    DelayPair(ctx->getDelayFromNS(ctx->getDelayNS(from->clkconstr->period.min_delay) / ratio));
             log_info("    Derived frequency constraint of %.1f MHz for net %s\n", MHz(to->clkconstr->period.min_delay),
                      to->name.c_str(ctx));
             changed_nets.insert(to->name);

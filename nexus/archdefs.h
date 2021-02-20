@@ -25,27 +25,6 @@ NEXTPNR_NAMESPACE_BEGIN
 
 typedef int delay_t;
 
-struct DelayInfo
-{
-    delay_t min_delay = 0, max_delay = 0;
-
-    delay_t minRaiseDelay() const { return min_delay; }
-    delay_t maxRaiseDelay() const { return max_delay; }
-
-    delay_t minFallDelay() const { return min_delay; }
-    delay_t maxFallDelay() const { return max_delay; }
-
-    delay_t minDelay() const { return min_delay; }
-    delay_t maxDelay() const { return max_delay; }
-
-    DelayInfo operator+(const DelayInfo &other) const
-    {
-        DelayInfo ret;
-        ret.min_delay = this->min_delay + other.min_delay;
-        ret.max_delay = this->max_delay + other.max_delay;
-        return ret;
-    }
-};
 // https://bugreports.qt.io/browse/QTBUG-80789
 
 #ifndef Q_MOC_RUN

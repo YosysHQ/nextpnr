@@ -509,7 +509,7 @@ struct Arch : BaseArch<ArchRanges>
         return IdStringList(ids);
     }
 
-    DelayInfo getWireDelay(WireId wire) const override { return DelayInfo(); }
+    DelayQuad getWireDelay(WireId wire) const override { return DelayQuad(0); }
 
     WireRange getWires() const override
     {
@@ -582,14 +582,7 @@ struct Arch : BaseArch<ArchRanges>
         return wire;
     }
 
-    DelayInfo getPipDelay(PipId pip) const override
-    {
-        DelayInfo delay;
-
-        delay.delay = 0.01;
-
-        return delay;
-    }
+    DelayQuad getPipDelay(PipId pip) const override { return DelayQuad(0); }
 
     PipRange getPipsDownhill(WireId wire) const override
     {
@@ -633,12 +626,7 @@ struct Arch : BaseArch<ArchRanges>
     delay_t getRipupDelayPenalty() const override { return 0.015; }
     float getDelayNS(delay_t v) const override { return v; }
 
-    DelayInfo getDelayFromNS(float ns) const override
-    {
-        DelayInfo del;
-        del.delay = ns;
-        return del;
-    }
+    delay_t getDelayFromNS(float ns) const override { return ns; }
 
     uint32_t getDelayChecksum(delay_t v) const override { return v; }
 

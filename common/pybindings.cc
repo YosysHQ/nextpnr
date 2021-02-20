@@ -139,6 +139,31 @@ PYBIND11_EMBEDDED_MODULE(MODULE_NAME, m)
             .value("STRENGTH_USER", STRENGTH_USER)
             .export_values();
 
+    py::class_<DelayPair>(m, "DelayPair")
+            .def(py::init<>())
+            .def(py::init<delay_t>())
+            .def(py::init<delay_t, delay_t>())
+            .def_readwrite("min_delay", &DelayPair::min_delay)
+            .def_readwrite("max_delay", &DelayPair::max_delay)
+            .def("minDelay", &DelayPair::minDelay)
+            .def("maxDelay", &DelayPair::maxDelay);
+
+    py::class_<DelayQuad>(m, "DelayQuad")
+            .def(py::init<>())
+            .def(py::init<delay_t>())
+            .def(py::init<delay_t, delay_t>())
+            .def(py::init<delay_t, delay_t, delay_t, delay_t>())
+            .def(py::init<DelayPair, DelayPair>())
+            .def_readwrite("rise", &DelayQuad::rise)
+            .def_readwrite("fall", &DelayQuad::fall)
+            .def("minDelay", &DelayQuad::minDelay)
+            .def("minRiseDelay", &DelayQuad::minRiseDelay)
+            .def("minFallDelay", &DelayQuad::minFallDelay)
+            .def("maxDelay", &DelayQuad::maxDelay)
+            .def("maxRiseDelay", &DelayQuad::maxRiseDelay)
+            .def("maxFallDelay", &DelayQuad::maxFallDelay)
+            .def("delayPair", &DelayQuad::delayPair);
+
     typedef std::unordered_map<IdString, Property> AttrMap;
     typedef std::unordered_map<IdString, PortInfo> PortMap;
     typedef std::unordered_map<IdString, IdString> IdIdMap;

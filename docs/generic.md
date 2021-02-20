@@ -22,7 +22,7 @@ so named arguments may be used.
 
 Adds a wire with a name, type (for user purposes only, ignored by all nextpnr code other than the UI) to the FPGA description. x and y give a nominal location of the wire for delay estimation purposes. Delay estimates are important for router performance (as the router uses an A* type algorithm), even if timing is not of importance.
 
-### addPip(IdString name, IdString type, IdString srcWire, IdString dstWire, DelayInfo delay, Loc loc);
+### addPip(IdString name, IdString type, IdString srcWire, IdString dstWire, float delay, Loc loc);
 
 Adds a pip (programmable connection between two named wires). Pip delays that correspond to delay estimates are important for router performance (as the router uses an A* type algorithm), even if timing is otherwise not of importance.
 
@@ -77,16 +77,16 @@ Set the timing class of a port on a particular cell to a clock input.
 _NOTE: All cell timing functions apply to an individual named cell and not a cell type. This is because
 cell-specific configuration might affect timing, e.g. whether or not the register is used for a slice._
 
-### void addCellTimingDelay(IdString cell, IdString fromPort, IdString toPort, DelayInfo delay);
+### void addCellTimingDelay(IdString cell, IdString fromPort, IdString toPort, float delay);
 
 Specify the combinational delay between two ports of a cell, and set the timing class of
  those ports as combinational input/output.
 
-### void addCellTimingSetupHold(IdString cell, IdString port, IdString clock, DelayInfo setup, DelayInfo hold);
+### void addCellTimingSetupHold(IdString cell, IdString port, IdString clock, float setup, float hold);
 
 Specify setup and hold timings for a port of a cell, and set the timing class of that port as register input.
 
-### void addCellTimingClockToOut(IdString cell, IdString port, IdString clock, DelayInfo clktoq);
+### void addCellTimingClockToOut(IdString cell, IdString port, IdString clock, float clktoq);
 
 Specify clock-to-out time for a port of a cell, and set the timing class of that port as register output.
 

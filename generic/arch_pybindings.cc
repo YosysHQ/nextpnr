@@ -60,8 +60,6 @@ void arch_wrap_python(py::module &m)
 
     py::class_<BelPin>(m, "BelPin").def_readwrite("bel", &BelPin::bel).def_readwrite("pin", &BelPin::pin);
 
-    py::class_<DelayInfo>(m, "DelayInfo").def("maxDelay", &DelayInfo::maxDelay).def("minDelay", &DelayInfo::minDelay);
-
     fn_wrapper_1a<Context, decltype(&Context::getBelType), &Context::getBelType, conv_to_str<IdString>,
                   conv_from_str<BelId>>::def_wrap(ctx_cls, "getBelType");
     fn_wrapper_1a<Context, decltype(&Context::checkBelAvail), &Context::checkBelAvail, pass_through<bool>,
@@ -126,10 +124,10 @@ void arch_wrap_python(py::module &m)
                   conv_from_str<PipId>>::def_wrap(ctx_cls, "getPipSrcWire");
     fn_wrapper_1a<Context, decltype(&Context::getPipDstWire), &Context::getPipDstWire, conv_to_str<WireId>,
                   conv_from_str<PipId>>::def_wrap(ctx_cls, "getPipDstWire");
-    fn_wrapper_1a<Context, decltype(&Context::getPipDelay), &Context::getPipDelay, pass_through<DelayInfo>,
+    fn_wrapper_1a<Context, decltype(&Context::getPipDelay), &Context::getPipDelay, pass_through<DelayQuad>,
                   conv_from_str<PipId>>::def_wrap(ctx_cls, "getPipDelay");
 
-    fn_wrapper_1a<Context, decltype(&Context::getDelayFromNS), &Context::getDelayFromNS, pass_through<DelayInfo>,
+    fn_wrapper_1a<Context, decltype(&Context::getDelayFromNS), &Context::getDelayFromNS, pass_through<delay_t>,
                   pass_through<double>>::def_wrap(ctx_cls, "getDelayFromNS");
 
     fn_wrapper_0a<Context, decltype(&Context::getChipName), &Context::getChipName, pass_through<std::string>>::def_wrap(
@@ -159,8 +157,8 @@ void arch_wrap_python(py::module &m)
                                                                                              "y"_a);
     fn_wrapper_6a_v<Context, decltype(&Context::addPip), &Context::addPip, conv_from_str<IdStringList>,
                     conv_from_str<IdString>, conv_from_str<IdStringList>, conv_from_str<IdStringList>,
-                    pass_through<DelayInfo>, pass_through<Loc>>::def_wrap(ctx_cls, "addPip", "name"_a, "type"_a,
-                                                                          "srcWire"_a, "dstWire"_a, "delay"_a, "loc"_a);
+                    pass_through<delay_t>, pass_through<Loc>>::def_wrap(ctx_cls, "addPip", "name"_a, "type"_a,
+                                                                        "srcWire"_a, "dstWire"_a, "delay"_a, "loc"_a);
 
     fn_wrapper_5a_v<Context, decltype(&Context::addBel), &Context::addBel, conv_from_str<IdStringList>,
                     conv_from_str<IdString>, pass_through<Loc>, pass_through<bool>,
@@ -215,16 +213,16 @@ void arch_wrap_python(py::module &m)
                                                                                 "port"_a);
     fn_wrapper_4a_v<Context, decltype(&Context::addCellTimingDelay), &Context::addCellTimingDelay,
                     conv_from_str<IdString>, conv_from_str<IdString>, conv_from_str<IdString>,
-                    pass_through<DelayInfo>>::def_wrap(ctx_cls, "addCellTimingDelay", "cell"_a, "fromPort"_a,
-                                                       "toPort"_a, "delay"_a);
+                    pass_through<delay_t>>::def_wrap(ctx_cls, "addCellTimingDelay", "cell"_a, "fromPort"_a, "toPort"_a,
+                                                     "delay"_a);
     fn_wrapper_5a_v<Context, decltype(&Context::addCellTimingSetupHold), &Context::addCellTimingSetupHold,
-                    conv_from_str<IdString>, conv_from_str<IdString>, conv_from_str<IdString>, pass_through<DelayInfo>,
-                    pass_through<DelayInfo>>::def_wrap(ctx_cls, "addCellTimingSetupHold", "cell"_a, "port"_a, "clock"_a,
-                                                       "setup"_a, "hold"_a);
+                    conv_from_str<IdString>, conv_from_str<IdString>, conv_from_str<IdString>, pass_through<delay_t>,
+                    pass_through<delay_t>>::def_wrap(ctx_cls, "addCellTimingSetupHold", "cell"_a, "port"_a, "clock"_a,
+                                                     "setup"_a, "hold"_a);
     fn_wrapper_4a_v<Context, decltype(&Context::addCellTimingClockToOut), &Context::addCellTimingClockToOut,
                     conv_from_str<IdString>, conv_from_str<IdString>, conv_from_str<IdString>,
-                    pass_through<DelayInfo>>::def_wrap(ctx_cls, "addCellTimingClockToOut", "cell"_a, "port"_a,
-                                                       "clock"_a, "clktoq"_a);
+                    pass_through<delay_t>>::def_wrap(ctx_cls, "addCellTimingClockToOut", "cell"_a, "port"_a, "clock"_a,
+                                                     "clktoq"_a);
 
     fn_wrapper_2a_v<Context, decltype(&Context::clearCellBelPinMap), &Context::clearCellBelPinMap,
                     conv_from_str<IdString>, conv_from_str<IdString>>::def_wrap(ctx_cls, "clearCellBelPinMap", "cell"_a,

@@ -556,6 +556,44 @@ struct Property
 inline bool operator==(const Property &a, const Property &b) { return a.is_string == b.is_string && a.str == b.str; }
 inline bool operator!=(const Property &a, const Property &b) { return a.is_string != b.is_string || a.str != b.str; }
 
+// minimum and maximum delay
+struct DelayPair
+{
+    DelayPair(){};
+    explicit DelayPair(delay_t delay) : min_delay(delay), max_delay(delay){};
+    DelayPair(delay_t min_delay, delay_t max_delay) : min_delay(min_delay), max_delay(max_delay){};
+    delay_t minDelay() const { return min_delay; };
+    delay_t maxDelay() const { return max_delay; };
+    delay_t min_delay, max_delay;
+    DelayPair operator+(const DelayPair &other) const
+    {
+        return {min_delay + other.min_delay, max_delay + other.max_delay};
+    }
+};
+
+// four-quadrant, min and max rise and fall delay
+struct DelayQuad
+{
+    DelayPair rise, fall;
+    DelayQuad(){};
+    explicit DelayQuad(delay_t delay) : rise(delay), fall(delay){};
+    DelayQuad(delay_t min_delay, delay_t max_delay) : rise(min_delay, max_delay), fall(min_delay, max_delay){};
+    DelayQuad(DelayPair rise, DelayPair fall) : rise(rise), fall(fall){};
+    DelayQuad(delay_t min_rise, delay_t max_rise, delay_t min_fall, delay_t max_fall)
+            : rise(min_rise, max_rise), fall(min_fall, max_fall){};
+
+    delay_t minRiseDelay() const { return rise.minDelay(); };
+    delay_t maxRiseDelay() const { return rise.maxDelay(); };
+    delay_t minFallDelay() const { return fall.minDelay(); };
+    delay_t maxFallDelay() const { return fall.maxDelay(); };
+    delay_t minDelay() const { return std::min<delay_t>(rise.minDelay(), fall.minDelay()); };
+    delay_t maxDelay() const { return std::max<delay_t>(rise.maxDelay(), fall.maxDelay()); };
+
+    DelayPair delayPair() const { return DelayPair(minDelay(), maxDelay()); };
+
+    DelayQuad operator+(const DelayQuad &other) const { return {rise + other.rise, fall + other.fall}; }
+};
+
 struct ClockConstraint;
 
 struct NetInfo : ArchNetInfo
@@ -651,15 +689,15 @@ struct TimingClockingInfo
 {
     IdString clock_port; // Port name of clock domain
     ClockEdge edge;
-    DelayInfo setup, hold; // Input timing checks
-    DelayInfo clockToQ;    // Output clock-to-Q time
+    DelayPair setup, hold; // Input timing checks
+    DelayQuad clockToQ;    // Output clock-to-Q time
 };
 
 struct ClockConstraint
 {
-    DelayInfo high;
-    DelayInfo low;
-    DelayInfo period;
+    DelayPair high;
+    DelayPair low;
+    DelayPair period;
 
     TimingConstrObjectId domain_tmg_id;
 };
@@ -1117,7 +1155,7 @@ template <typename R> struct ArchAPI : BaseCtx
     virtual NetInfo *getBoundWireNet(WireId wire) const = 0;
     virtual WireId getConflictingWireWire(WireId wire) const = 0;
     virtual NetInfo *getConflictingWireNet(WireId wire) const = 0;
-    virtual DelayInfo getWireDelay(WireId wire) const = 0;
+    virtual DelayQuad getWireDelay(WireId wire) const = 0;
     // Pip methods
     virtual typename R::AllPipsRangeT getPips() const = 0;
     virtual PipId getPipByName(IdStringList name) const = 0;
@@ -1133,7 +1171,7 @@ template <typename R> struct ArchAPI : BaseCtx
     virtual NetInfo *getConflictingPipNet(PipId pip) const = 0;
     virtual WireId getPipSrcWire(PipId pip) const = 0;
     virtual WireId getPipDstWire(PipId pip) const = 0;
-    virtual DelayInfo getPipDelay(PipId pip) const = 0;
+    virtual DelayQuad getPipDelay(PipId pip) const = 0;
     virtual Loc getPipLocation(PipId pip) const = 0;
     // Group methods
     virtual GroupId getGroupByName(IdStringList name) const = 0;
@@ -1148,7 +1186,7 @@ template <typename R> struct ArchAPI : BaseCtx
     virtual delay_t getDelayEpsilon() const = 0;
     virtual delay_t getRipupDelayPenalty() const = 0;
     virtual float getDelayNS(delay_t v) const = 0;
-    virtual DelayInfo getDelayFromNS(float ns) const = 0;
+    virtual delay_t getDelayFromNS(float ns) const = 0;
     virtual uint32_t getDelayChecksum(delay_t v) const = 0;
     virtual bool getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const = 0;
     virtual delay_t estimateDelay(WireId src, WireId dst) const = 0;
@@ -1160,7 +1198,7 @@ template <typename R> struct ArchAPI : BaseCtx
     virtual DecalXY getPipDecal(PipId pip) const = 0;
     virtual DecalXY getGroupDecal(GroupId group) const = 0;
     // Cell timing methods
-    virtual bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const = 0;
+    virtual bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const = 0;
     virtual TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const = 0;
     virtual TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const = 0;
     // Placement validity checks
@@ -1391,7 +1429,7 @@ template <typename R> struct BaseArch : ArchAPI<R>
     virtual DecalXY getGroupDecal(GroupId group) const override { return DecalXY(); }
 
     // Cell timing methods
-    virtual bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const override
+    virtual bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const override
     {
         return false;
     }

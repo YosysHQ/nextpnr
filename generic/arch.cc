@@ -64,8 +64,7 @@ void Arch::addWire(IdStringList name, IdString type, int x, int y)
     wire_ids.push_back(name);
 }
 
-void Arch::addPip(IdStringList name, IdString type, IdStringList srcWire, IdStringList dstWire, DelayInfo delay,
-                  Loc loc)
+void Arch::addPip(IdStringList name, IdString type, IdStringList srcWire, IdStringList dstWire, delay_t delay, Loc loc)
 {
     NPNR_ASSERT(pips.count(name) == 0);
     PipInfo &pi = pips[name];
@@ -219,32 +218,32 @@ void Arch::setDelayScaling(double scale, double offset)
 
 void Arch::addCellTimingClock(IdString cell, IdString port) { cellTiming[cell].portClasses[port] = TMG_CLOCK_INPUT; }
 
-void Arch::addCellTimingDelay(IdString cell, IdString fromPort, IdString toPort, DelayInfo delay)
+void Arch::addCellTimingDelay(IdString cell, IdString fromPort, IdString toPort, delay_t delay)
 {
     if (get_or_default(cellTiming[cell].portClasses, fromPort, TMG_IGNORE) == TMG_IGNORE)
         cellTiming[cell].portClasses[fromPort] = TMG_COMB_INPUT;
     if (get_or_default(cellTiming[cell].portClasses, toPort, TMG_IGNORE) == TMG_IGNORE)
         cellTiming[cell].portClasses[toPort] = TMG_COMB_OUTPUT;
-    cellTiming[cell].combDelays[CellDelayKey{fromPort, toPort}] = delay;
+    cellTiming[cell].combDelays[CellDelayKey{fromPort, toPort}] = DelayQuad(delay);
 }
 
-void Arch::addCellTimingSetupHold(IdString cell, IdString port, IdString clock, DelayInfo setup, DelayInfo hold)
+void Arch::addCellTimingSetupHold(IdString cell, IdString port, IdString clock, delay_t setup, delay_t hold)
 {
     TimingClockingInfo ci;
     ci.clock_port = clock;
     ci.edge = RISING_EDGE;
-    ci.setup = setup;
-    ci.hold = hold;
+    ci.setup = DelayPair(setup);
+    ci.hold = DelayPair(hold);
     cellTiming[cell].clockingInfo[port].push_back(ci);
     cellTiming[cell].portClasses[port] = TMG_REGISTER_INPUT;
 }
 
-void Arch::addCellTimingClockToOut(IdString cell, IdString port, IdString clock, DelayInfo clktoq)
+void Arch::addCellTimingClockToOut(IdString cell, IdString port, IdString clock, delay_t clktoq)
 {
     TimingClockingInfo ci;
     ci.clock_port = clock;
     ci.edge = RISING_EDGE;
-    ci.clockToQ = clktoq;
+    ci.clockToQ = DelayQuad(clktoq);
     cellTiming[cell].clockingInfo[port].push_back(ci);
     cellTiming[cell].portClasses[port] = TMG_REGISTER_OUTPUT;
 }
@@ -465,7 +464,7 @@ WireId Arch::getPipSrcWire(PipId pip) const { return pips.at(pip).srcWire; }
 
 WireId Arch::getPipDstWire(PipId pip) const { return pips.at(pip).dstWire; }
 
-DelayInfo Arch::getPipDelay(PipId pip) const { return pips.at(pip).delay; }
+DelayQuad Arch::getPipDelay(PipId pip) const { return DelayQuad(pips.at(pip).delay); }
 
 const std::vector<PipId> &Arch::getPipsDownhill(WireId wire) const { return wires.at(wire).downhill; }
 
@@ -615,7 +614,7 @@ DecalXY Arch::getGroupDecal(GroupId group) const { return groups.at(group).decal
 
 // ---------------------------------------------------------------
 
-bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
+bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const
 {
     if (!cellTiming.count(cell->name))
         return false;

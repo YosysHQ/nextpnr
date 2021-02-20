@@ -578,15 +578,13 @@ struct Arch : BaseArch<ArchRanges>
         return wire_to_net[wire.index];
     }
 
-    DelayInfo getWireDelay(WireId wire) const override
+    DelayQuad getWireDelay(WireId wire) const override
     {
-        DelayInfo delay;
         NPNR_ASSERT(wire != WireId());
         if (fast_part)
-            delay.delay = chip_info->wire_data[wire.index].fast_delay;
+            return DelayQuad(chip_info->wire_data[wire.index].fast_delay);
         else
-            delay.delay = chip_info->wire_data[wire.index].slow_delay;
-        return delay;
+            return DelayQuad(chip_info->wire_data[wire.index].slow_delay);
     }
 
     BelPinRange getWireBelPins(WireId wire) const override
@@ -739,15 +737,13 @@ struct Arch : BaseArch<ArchRanges>
         return wire;
     }
 
-    DelayInfo getPipDelay(PipId pip) const override
+    DelayQuad getPipDelay(PipId pip) const override
     {
-        DelayInfo delay;
         NPNR_ASSERT(pip != PipId());
         if (fast_part)
-            delay.delay = chip_info->pip_data[pip.index].fast_delay;
+            return DelayQuad(chip_info->pip_data[pip.index].fast_delay);
         else
-            delay.delay = chip_info->pip_data[pip.index].slow_delay;
-        return delay;
+            return DelayQuad(chip_info->pip_data[pip.index].slow_delay);
     }
 
     PipRange getPipsDownhill(WireId wire) const override
@@ -788,12 +784,7 @@ struct Arch : BaseArch<ArchRanges>
     delay_t getDelayEpsilon() const override { return 20; }
     delay_t getRipupDelayPenalty() const override { return 200; }
     float getDelayNS(delay_t v) const override { return v * 0.001; }
-    DelayInfo getDelayFromNS(float ns) const override
-    {
-        DelayInfo del;
-        del.delay = delay_t(ns * 1000);
-        return del;
-    }
+    delay_t getDelayFromNS(float ns) const override { return delay_t(ns * 1000); }
     uint32_t getDelayChecksum(delay_t v) const override { return v; }
     bool getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const override;
 
@@ -818,10 +809,10 @@ struct Arch : BaseArch<ArchRanges>
 
     // Get the delay through a cell from one port to another, returning false
     // if no path exists. This only considers combinational delays, as required by the Arch API
-    bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const override;
+    bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const override;
     // get_cell_delay_internal is similar to the above, but without false path checks and including clock to out delays
     // for internal arch use only
-    bool get_cell_delay_internal(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const;
+    bool get_cell_delay_internal(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const;
     // Get the port class, also setting clockInfoCount to the number of TimingClockingInfos associated with a port
     TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const override;
     // Get the TimingClockingInfo of a port

@@ -921,7 +921,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 
 // -----------------------------------------------------------------------
 
-bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
+bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const
 {
     if (cell->type == id_ICESTORM_LC && cell->lcInfo.dffEnable) {
         if (toPort == id_O)
@@ -932,16 +932,16 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
     return get_cell_delay_internal(cell, fromPort, toPort, delay);
 }
 
-bool Arch::get_cell_delay_internal(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
+bool Arch::get_cell_delay_internal(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const
 {
     for (auto &tc : chip_info->cell_timing) {
         if (tc.type == cell->type.index) {
             for (auto &path : tc.path_delays) {
                 if (path.from_port == fromPort.index && path.to_port == toPort.index) {
                     if (fast_part)
-                        delay.delay = path.fast_delay;
+                        delay = DelayQuad(path.fast_delay);
                     else
-                        delay.delay = path.slow_delay;
+                        delay = DelayQuad(path.slow_delay);
                     return true;
                 }
             }
@@ -1088,22 +1088,22 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
             NPNR_ASSERT(has_clktoq);
         } else {
             if (port == id_I0 || port == id_I1 || port == id_I2 || port == id_I3) {
-                DelayInfo dlut;
+                DelayQuad dlut;
                 bool has_ld = get_cell_delay_internal(cell, port, id_O, dlut);
                 NPNR_ASSERT(has_ld);
                 if (args.type == ArchArgs::LP1K || args.type == ArchArgs::LP4K || args.type == ArchArgs::LP8K ||
                     args.type == ArchArgs::LP384) {
-                    info.setup.delay = 30 + dlut.delay;
+                    info.setup = DelayPair(30 + dlut.maxDelay());
                 } else if (args.type == ArchArgs::UP3K || args.type == ArchArgs::UP5K || args.type == ArchArgs::U4K ||
                            args.type == ArchArgs::U1K || args.type == ArchArgs::U2K) { // XXX verify u4k
-                    info.setup.delay = dlut.delay - 50;
+                    info.setup = DelayPair(dlut.maxDelay() - 50);
                 } else {
-                    info.setup.delay = 20 + dlut.delay;
+                    info.setup = DelayPair(20 + dlut.maxDelay());
                 }
             } else {
-                info.setup.delay = 100;
+                info.setup = DelayPair(100);
             }
-            info.hold.delay = 0;
+            info.hold = DelayPair(0);
         }
     } else if (cell->type == id_ICESTORM_RAM) {
         if (port.str(this)[0] == 'R') {
@@ -1117,8 +1117,8 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
             bool has_clktoq = get_cell_delay_internal(cell, info.clock_port, port, info.clockToQ);
             NPNR_ASSERT(has_clktoq);
         } else {
-            info.setup.delay = 100;
-            info.hold.delay = 0;
+            info.setup = DelayPair(100);
+            info.hold = DelayPair(0);
         }
     } else if (cell->type == id_SB_IO) {
         delay_t io_setup = 80, io_clktoq = 140;
@@ -1133,26 +1133,26 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
         if (port == id_CLOCK_ENABLE) {
             info.clock_port = (index == 1) ? id_OUTPUT_CLK : id_INPUT_CLK;
             info.edge = cell->ioInfo.negtrig ? FALLING_EDGE : RISING_EDGE;
-            info.setup.delay = io_setup;
-            info.hold.delay = 0;
+            info.setup = DelayPair(io_setup);
+            info.hold = DelayPair(0);
         } else if (port == id_D_OUT_0 || port == id_OUTPUT_ENABLE) {
             info.clock_port = id_OUTPUT_CLK;
             info.edge = cell->ioInfo.negtrig ? FALLING_EDGE : RISING_EDGE;
-            info.setup.delay = io_setup;
-            info.hold.delay = 0;
+            info.setup = DelayPair(io_setup);
+            info.hold = DelayPair(0);
         } else if (port == id_D_OUT_1) {
             info.clock_port = id_OUTPUT_CLK;
             info.edge = cell->ioInfo.negtrig ? RISING_EDGE : FALLING_EDGE;
-            info.setup.delay = io_setup;
-            info.hold.delay = 0;
+            info.setup = DelayPair(io_setup);
+            info.hold = DelayPair(0);
         } else if (port == id_D_IN_0) {
             info.clock_port = id_INPUT_CLK;
             info.edge = cell->ioInfo.negtrig ? FALLING_EDGE : RISING_EDGE;
-            info.clockToQ.delay = io_clktoq;
+            info.clockToQ = DelayQuad(io_clktoq);
         } else if (port == id_D_IN_1) {
             info.clock_port = id_INPUT_CLK;
             info.edge = cell->ioInfo.negtrig ? RISING_EDGE : FALLING_EDGE;
-            info.clockToQ.delay = io_clktoq;
+            info.clockToQ = DelayQuad(io_clktoq);
         } else {
             NPNR_ASSERT_FALSE("no clock data for IO cell port");
         }
@@ -1162,21 +1162,21 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
         if (cell->ports.at(port).type == PORT_OUT) {
             bool has_clktoq = get_cell_delay_internal(cell, info.clock_port, port, info.clockToQ);
             if (!has_clktoq)
-                info.clockToQ.delay = 100;
+                info.clockToQ = DelayQuad(100);
         } else {
-            info.setup.delay = 100;
-            info.hold.delay = 0;
+            info.setup = DelayPair(100);
+            info.hold = DelayPair(0);
         }
     } else if (cell->type == id_SB_I2C || cell->type == id_SB_SPI) {
         info.clock_port = this->id("SBCLKI");
         info.edge = RISING_EDGE;
         if (cell->ports.at(port).type == PORT_OUT) {
             /* Dummy number */
-            info.clockToQ.delay = 1500;
+            info.clockToQ = DelayQuad(1500);
         } else {
             /* Dummy number */
-            info.setup.delay = 1500;
-            info.hold.delay = 0;
+            info.setup = DelayPair(1500);
+            info.hold = DelayPair(0);
         }
     } else {
         NPNR_ASSERT_FALSE("unhandled cell type in getPortClockingInfo");

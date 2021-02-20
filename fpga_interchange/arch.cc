@@ -686,7 +686,7 @@ delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
     return 0;
 }
 
-bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
+bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const
 {
     // FIXME: Implement when adding timing-driven place and route.
     return false;

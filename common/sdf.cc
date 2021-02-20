@@ -231,19 +231,19 @@ void Context::writeSDF(std::ostream &out, bool cvc_mode) const
     wr.program = "nextpnr";
 
     const double delay_scale = 1000;
-    // Convert from DelayInfo to SDF-friendly RiseFallDelay
-    auto convert_delay = [&](const DelayInfo &dly) {
+    // Convert from DelayQuad to SDF-friendly RiseFallDelay
+    auto convert_delay = [&](const DelayQuad &dly) {
         RiseFallDelay rf;
-        rf.rise.min = getDelayNS(dly.minRaiseDelay()) * delay_scale;
-        rf.rise.typ = getDelayNS((dly.minRaiseDelay() + dly.maxRaiseDelay()) / 2) * delay_scale; // fixme: typ delays?
-        rf.rise.max = getDelayNS(dly.maxRaiseDelay()) * delay_scale;
+        rf.rise.min = getDelayNS(dly.minRiseDelay()) * delay_scale;
+        rf.rise.typ = getDelayNS((dly.minRiseDelay() + dly.maxRiseDelay()) / 2) * delay_scale; // fixme: typ delays?
+        rf.rise.max = getDelayNS(dly.maxRiseDelay()) * delay_scale;
         rf.fall.min = getDelayNS(dly.minFallDelay()) * delay_scale;
         rf.fall.typ = getDelayNS((dly.minFallDelay() + dly.maxFallDelay()) / 2) * delay_scale; // fixme: typ delays?
         rf.fall.max = getDelayNS(dly.maxFallDelay()) * delay_scale;
         return rf;
     };
 
-    auto convert_setuphold = [&](const DelayInfo &setup, const DelayInfo &hold) {
+    auto convert_setuphold = [&](const DelayPair &setup, const DelayPair &hold) {
         RiseFallDelay rf;
         rf.rise.min = getDelayNS(setup.minDelay()) * delay_scale;
         rf.rise.typ = getDelayNS((setup.minDelay() + setup.maxDelay()) / 2) * delay_scale; // fixme: typ delays?
@@ -273,7 +273,7 @@ void Context::writeSDF(std::ostream &out, bool cvc_mode) const
                         continue;
                     if (other.second.type == PORT_OUT)
                         continue;
-                    DelayInfo dly;
+                    DelayQuad dly;
                     if (!getCellDelay(ci, other.first, port.first, dly))
                         continue;
                     IOPath iop;
@@ -323,8 +323,8 @@ void Context::writeSDF(std::ostream &out, bool cvc_mode) const
             ic.from.port = ni->driver.port.str(this);
             ic.to.cell = usr.cell->name.str(this);
             ic.to.port = usr.port.str(this);
-            // FIXME: min/max routing delay - or at least constructing DelayInfo here
-            ic.delay = convert_delay(getDelayFromNS(getDelayNS(getNetinfoRouteDelay(ni, usr))));
+            // FIXME: min/max routing delay
+            ic.delay = convert_delay(DelayQuad(getNetinfoRouteDelay(ni, usr)));
             wr.conn.push_back(ic);
         }
     }
