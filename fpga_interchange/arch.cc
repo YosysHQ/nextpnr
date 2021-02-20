@@ -195,6 +195,11 @@ Arch::Arch(ArchArgs args) : args(args)
     default_tags.resize(max_tag_count);
 }
 
+
+void Arch::init() {
+    dedicated_interconnect.init(getCtx());
+}
+
 // -----------------------------------------------------------------------
 
 std::string Arch::getChipName() const { return chip_info->name.get(); }

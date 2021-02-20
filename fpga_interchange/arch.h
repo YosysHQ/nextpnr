@@ -29,6 +29,7 @@
 #include <iostream>
 
 #include "constraints.h"
+#include "dedicated_interconnect.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -772,6 +773,8 @@ struct ArchRanges
     using BucketBelRangeT = FilteredBelRange;
 };
 
+struct DedicatedInterconnect;
+
 struct Arch : ArchAPI<ArchRanges>
 {
     boost::iostreams::mapped_file_source blob_file;
@@ -783,8 +786,6 @@ struct Arch : ArchAPI<ArchRanges>
 
     std::unordered_map<WireId, NetInfo *> wire_to_net;
     std::unordered_map<PipId, NetInfo *> pip_to_net;
-    std::unordered_map<WireId, std::pair<int, int>> driving_pip_loc;
-    std::unordered_map<WireId, NetInfo *> reserved_wires;
 
     static constexpr size_t kMaxState = 8;
 
@@ -811,10 +812,12 @@ struct Arch : ArchAPI<ArchRanges>
         std::vector<SiteRouter> sites;
     };
 
+    DedicatedInterconnect dedicated_interconnect;
     std::unordered_map<int32_t, TileStatus> tileStatus;
 
     ArchArgs args;
     Arch(ArchArgs args);
+    void init();
 
     std::string getChipName() const override;
 
@@ -1236,9 +1239,6 @@ struct Arch : ArchAPI<ArchRanges>
         NPNR_ASSERT(wire_to_net[dst] == nullptr || wire_to_net[dst] == net);
 
         pip_to_net[pip] = net;
-        std::pair<int, int> loc;
-        get_tile_x_y(pip.tile, &loc.first, &loc.second);
-        driving_pip_loc[dst] = loc;
 
         wire_to_net[dst] = net;
         net->wires[dst].pip = pip;
@@ -1509,6 +1509,10 @@ struct Arch : ArchAPI<ArchRanges>
         if (cell == nullptr) {
             return true;
         } else {
+            if(!dedicated_interconnect.isBelLocationValid(bel, cell)) {
+                return false;
+            }
+
             if (io_port_types.count(cell->type)) {
                 // FIXME: Probably need to actually constraint io port cell/bel,
                 // but the current BBA emission doesn't support that.  This only

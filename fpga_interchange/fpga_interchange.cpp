@@ -311,9 +311,6 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
     for(auto & cell_name : placed_cells) {
         const CellInfo & cell = *ctx->cells.at(cell_name);
 
-        if(ctx->io_port_types.count(cell.type)) {
-            continue;
-        }
         if(ctx->is_bel_synthetic(cell.bel)) {
             continue;
         }
@@ -321,15 +318,14 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
         number_placements += 1;
     }
 
+    std::vector<IdString> ports;
+
     std::unordered_map<std::string, std::string> sites;
     auto placements = phys_netlist.initPlacements(number_placements);
     auto placement_iter = placements.begin();
 
     for(auto & cell_name : placed_cells) {
         const CellInfo & cell = *ctx->cells.at(cell_name);
-        if(ctx->io_port_types.count(cell.type)) {
-            continue;
-        }
         if(ctx->is_bel_synthetic(cell.bel)) {
             continue;
         }
@@ -351,7 +347,13 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
         auto placement = *placement_iter++;
 
         placement.setCellName(strings.get_index(cell.name.str(ctx)));
-        placement.setType(strings.get_index(cell.type.str(ctx)));
+        if(ctx->io_port_types.count(cell.type)) {
+            // Always mark IO ports as type <PORT>.
+            placement.setType(strings.get_index("<PORT>"));
+            ports.push_back(cell.name);
+        } else {
+            placement.setType(strings.get_index(cell.type.str(ctx)));
+        }
         placement.setSite(strings.get_index(site_name));
 
         size_t bel_index = strings.get_index(bel_name[1].str(ctx));
@@ -359,25 +361,36 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
         placement.setIsBelFixed(cell.belStrength >= STRENGTH_FIXED);
         placement.setIsSiteFixed(cell.belStrength >= STRENGTH_FIXED);
 
-        size_t pin_count = 0;
-        for(const auto & pin : cell.cell_bel_pins) {
-            pin_count += pin.second.size();
-        }
+        if(!ctx->io_port_types.count(cell.type)) {
+            // Don't emit pin map for ports.
+            size_t pin_count = 0;
+            for(const auto & pin : cell.cell_bel_pins) {
+                pin_count += pin.second.size();
+            }
 
-        auto pins = placement.initPinMap(pin_count);
-        auto pin_iter = pins.begin();
+            auto pins = placement.initPinMap(pin_count);
+            auto pin_iter = pins.begin();
 
-        for(const auto & cell_to_bel_pins : cell.cell_bel_pins) {
-            std::string cell_pin = cell_to_bel_pins.first.str(ctx);
-            size_t cell_pin_index = strings.get_index(cell_pin);
+            for(const auto & cell_to_bel_pins : cell.cell_bel_pins) {
+                std::string cell_pin = cell_to_bel_pins.first.str(ctx);
+                size_t cell_pin_index = strings.get_index(cell_pin);
 
-            for(const auto & bel_pin : cell_to_bel_pins.second) {
-                auto pin_output = *pin_iter++;
-                pin_output.setCellPin(cell_pin_index);
-                pin_output.setBel(bel_index);
-                pin_output.setBelPin(strings.get_index(bel_pin.str(ctx)));
+                for(const auto & bel_pin : cell_to_bel_pins.second) {
+                    auto pin_output = *pin_iter++;
+                    pin_output.setCellPin(cell_pin_index);
+                    pin_output.setBel(bel_index);
+                    pin_output.setBelPin(strings.get_index(bel_pin.str(ctx)));
+                }
             }
         }
+    }
+
+    auto phys_cells = phys_netlist.initPhysCells(ports.size());
+    auto phys_cells_iter = phys_cells.begin();
+    for(IdString port : ports) {
+        auto phys_cell = *phys_cells_iter++;
+        phys_cell.setCellName(strings.get_index(port.str(ctx)));
+        phys_cell.setPhysType(PhysicalNetlist::PhysNetlist::PhysCellType::PORT);
     }
 
     auto nets = phys_netlist.initPhysNets(ctx->nets.size());

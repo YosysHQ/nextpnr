@@ -260,6 +260,12 @@ struct SiteInformation
             if (!result.second && result.first->second != net) {
                 // Conflict, this wire is already in use and it's not
                 // doesn't match!
+                if(verbose_site_router(ctx)) {
+                    log_info("Cannot select route because net %s != net %s\n",
+                            result.first->second->name.c_str(ctx),
+                            net->name.c_str(ctx));
+                }
+
                 return false;
             }
 
