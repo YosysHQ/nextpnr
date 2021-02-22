@@ -133,8 +133,10 @@ void pyinterpreter_initialize()
 
     PyRun_SimpleString("import sys\n"
                        "import redirector\n"
+                       "import tempfile\n"
                        "sys.path.insert(0, \".\")\n" // add current path
                        "sys.stdout = redirector.redirector()\n"
+                       "sys.stdin = tempfile.TemporaryFile(mode='r')\n"
                        "sys.stderr = sys.stdout\n"
                        "import rlcompleter\n"
                        "sys.completer = rlcompleter.Completer()\n");
