@@ -108,7 +108,8 @@ struct Context;
 struct DedicatedInterconnect {
     const Context *ctx;
 
-    std::unordered_map<TileTypeBelPin, std::unordered_set<DeltaTileTypeBelPin>> pins_with_dedicate_interconnect;
+    std::unordered_map<TileTypeBelPin, std::unordered_set<DeltaTileTypeBelPin>> sinks;
+    std::unordered_map<TileTypeBelPin, std::unordered_set<DeltaTileTypeBelPin>> sources;
 
     void init(const Context *ctx);
 
@@ -123,7 +124,13 @@ struct DedicatedInterconnect {
     bool check_routing(
         BelId src_bel, IdString src_bel_pin,
         BelId dst_bel, IdString dst_bel_pin) const;
-    void expand_bel(BelId bel, IdString pin, WireId wire);
+    void expand_sink_bel(BelId bel, IdString pin, WireId wire);
+    void expand_source_bel(BelId bel, IdString pin, WireId wire);
+
+    bool is_driver_on_net_valid(BelId driver_bel,
+            const CellInfo* cell, IdString driver_port, NetInfo *net) const;
+    bool is_sink_on_net_valid(BelId bel, const CellInfo* cell,
+            IdString port_name, NetInfo *net) const;
 };
 
 NEXTPNR_NAMESPACE_END
