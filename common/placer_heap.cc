@@ -222,6 +222,7 @@ class HeAPPlacer
                 // Heuristic: don't bother with threading below a certain size
                 auto solve_startt = std::chrono::high_resolution_clock::now();
 
+                // Build the connectivity matrix and run the solver; multithreaded between x and y axes if applicable
 #ifndef NPNR_DISABLE_THREADS
                 if (solve_cells.size() >= 500) {
                     boost::thread xaxis([&]() { build_solve_direction(false, (iter == 0) ? -1 : iter); });
@@ -240,6 +241,7 @@ class HeAPPlacer
 
                 update_all_chains();
 
+                // Run the spreader
                 for (const auto &group : cfg.cellGroups)
                     CutSpreader(this, group).run();
 
@@ -248,6 +250,7 @@ class HeAPPlacer
                                     [type](const std::unordered_set<BelBucketId> &grp) { return !grp.count(type); }))
                         CutSpreader(this, {type}).run();
 
+                // Run strict legalisation to find a valid bel for all cells
                 update_all_chains();
                 spread_hpwl = total_hpwl();
                 legalise_placement_strict(true);
@@ -263,6 +266,7 @@ class HeAPPlacer
                          std::chrono::duration<double>(run_stopt - run_startt).count());
             }
 
+            // Update timing weights
             if (cfg.timing_driven)
                 get_criticalities(ctx, &net_crit);
 
@@ -851,6 +855,8 @@ class HeAPPlacer
                     log_error("Unable to find legal placement for cell '%s', check constraints and utilisation.\n",
                               ctx->nameOf(ci));
 
+                // Determine a search radius around the solver location (which increases over time) that is clamped to
+                // the region constraint for the cell (if applicable)
                 int rx = radius, ry = radius;
 
                 if (ci->region != nullptr) {
@@ -864,14 +870,18 @@ class HeAPPlacer
                                                   1);
                 }
 
+                // Pick a random X and Y location within our search radius
                 int nx = ctx->rng(2 * rx + 1) + std::max(cell_locs.at(ci->name).x - rx, 0);
                 int ny = ctx->rng(2 * ry + 1) + std::max(cell_locs.at(ci->name).y - ry, 0);
 
                 iter++;
                 iter_at_radius++;
                 if (iter >= (10 * (radius + 1))) {
+                    // No luck yet, increase radius
                     radius = std::min(std::max(max_x, max_y), radius + 1);
                     while (radius < std::max(max_x, max_y)) {
+                        // Keep increasing the radius until it will actually increase the number of cells we are
+                        // checking (e.g. BRAM and DSP will not be in all cols/rows), so we don't waste effort
                         for (int x = std::max(0, cell_locs.at(ci->name).x - radius);
                              x <= std::min(max_x, cell_locs.at(ci->name).x + radius); x++) {
                             if (x >= int(fb->size()))
@@ -890,6 +900,8 @@ class HeAPPlacer
                     iter_at_radius = 0;
                     iter = 0;
                 }
+                // If our randomly chosen cooridnate is out of bounds; or points to a tile with no relevant bels; ignore
+                // it
                 if (nx < 0 || nx > max_x)
                     continue;
                 if (ny < 0 || ny > max_y)
@@ -902,8 +914,11 @@ class HeAPPlacer
                 if (fb->at(nx).at(ny).empty())
                     continue;
 
+                // The number of attempts to find a location to try
                 int need_to_explore = 2 * radius;
 
+                // If we have found at least one legal location; and made enough attempts; assume it's good enough and
+                // finish
                 if (iter_at_radius >= need_to_explore && bestBel != BelId()) {
                     CellInfo *bound = ctx->getBoundBelCell(bestBel);
                     if (bound != nullptr) {
@@ -919,27 +934,38 @@ class HeAPPlacer
                 }
 
                 if (ci->constr_children.empty() && !ci->constr_abs_z) {
+                    // The case where we have no relative constraints
                     for (auto sz : fb->at(nx).at(ny)) {
+                        // Look through all bels in this tile; checking region constraint if applicable
                         if (ci->region != nullptr && ci->region->constr_bels && !ci->region->bels.count(sz))
                             continue;
+                        // Prefer available bels; unless we are dealing with a wide radius (e.g. difficult control sets)
+                        // or occasionally trigger a tiebreaker
                         if (ctx->checkBelAvail(sz) || (radius > ripup_radius || ctx->rng(20000) < 10)) {
                             CellInfo *bound = ctx->getBoundBelCell(sz);
                             if (bound != nullptr) {
+                                // Only rip up cells without constraints
                                 if (bound->constr_parent != nullptr || !bound->constr_children.empty() ||
                                     bound->constr_abs_z)
                                     continue;
                                 ctx->unbindBel(bound->bel);
                             }
+                            // Provisionally bind the bel
                             ctx->bindBel(sz, ci, STRENGTH_WEAK);
                             if (require_validity && !ctx->isBelLocationValid(sz)) {
+                                // New location is not legal; unbind the cell (and rebind the cell we ripped up if
+                                // applicable)
                                 ctx->unbindBel(sz);
                                 if (bound != nullptr)
                                     ctx->bindBel(sz, bound, STRENGTH_WEAK);
                             } else if (iter_at_radius < need_to_explore) {
+                                // It's legal, but we haven't tried enough locations yet
                                 ctx->unbindBel(sz);
                                 if (bound != nullptr)
                                     ctx->bindBel(sz, bound, STRENGTH_WEAK);
                                 int input_len = 0;
+                                // Compute a fast input wirelength metric at this bel; and save if better than our last
+                                // try
                                 for (auto &port : ci->ports) {
                                     auto &p = port.second;
                                     if (p.type != PORT_IN || p.net == nullptr || p.net->driver.cell == nullptr)
@@ -958,6 +984,7 @@ class HeAPPlacer
                                 }
                                 break;
                             } else {
+                                // It's legal, and we've tried enough. Finish.
                                 if (bound != nullptr)
                                     remaining.emplace(chain_size[bound->name], bound->name);
                                 Loc loc = ctx->getBelLocation(sz);
@@ -969,33 +996,46 @@ class HeAPPlacer
                         }
                     }
                 } else {
+                    // We do have relative constraints
                     for (auto sz : fb->at(nx).at(ny)) {
                         Loc loc = ctx->getBelLocation(sz);
+                        // Check that the absolute-z constraint is satisfied if applicable
                         if (ci->constr_abs_z && loc.z != ci->constr_z)
                             continue;
+                        // List of cells and their destination
                         std::vector<std::pair<CellInfo *, BelId>> targets;
+                        // List of bels we placed things at; and the cell that was there before if applicable
                         std::vector<std::pair<BelId, CellInfo *>> swaps_made;
+                        // List of (cell, new location) pairs to check
                         std::queue<std::pair<CellInfo *, Loc>> visit;
+                        // FIXME: this approach of having a visit queue is designed to deal with recursively chained
+                        // cells. But is this a case we really want to care about given the complexity it adds? Start by
+                        // considering the root cell at the root location
                         visit.emplace(ci, loc);
                         while (!visit.empty()) {
                             CellInfo *vc = visit.front().first;
                             NPNR_ASSERT(vc->bel == BelId());
                             Loc ploc = visit.front().second;
                             visit.pop();
+                            // Get the bel we're going to place this cell at
                             BelId target = ctx->getBelByLocation(ploc);
+                            // Check it satisfies the region constraint if applicable
                             if (vc->region != nullptr && vc->region->constr_bels && !vc->region->bels.count(target))
                                 goto fail;
                             CellInfo *bound;
+                            // Check that the target bel exists and is of a suitable type
                             if (target == BelId() || !ctx->isValidBelForCellType(vc->type, target))
                                 goto fail;
                             bound = ctx->getBoundBelCell(target);
-                            // Chains cannot overlap
+                            // Chains cannot overlap; so if we have to ripup a cell make sure it isn't part of a chain
                             if (bound != nullptr)
                                 if (bound->constr_z != bound->UNCONSTR || bound->constr_parent != nullptr ||
                                     !bound->constr_children.empty() || bound->belStrength > STRENGTH_WEAK)
                                     goto fail;
                             targets.emplace_back(vc, target);
                             for (auto child : vc->constr_children) {
+                                // For all the constrained children; compute the location we need to place them at and
+                                // add them to the queue
                                 Loc cloc = ploc;
                                 if (child->constr_x != child->UNCONSTR)
                                     cloc.x += child->constr_x;
@@ -1006,7 +1046,7 @@ class HeAPPlacer
                                 visit.emplace(child, cloc);
                             }
                         }
-
+                        // Actually perform the move; keeping track of the moves we make so we can revert them if needed
                         for (auto &target : targets) {
                             CellInfo *bound = ctx->getBoundBelCell(target.second);
                             if (bound != nullptr)
@@ -1014,7 +1054,7 @@ class HeAPPlacer
                             ctx->bindBel(target.second, target.first, STRENGTH_STRONG);
                             swaps_made.emplace_back(target.second, bound);
                         }
-
+                        // Check that the move we have made is legal
                         for (auto &sm : swaps_made) {
                             if (!ctx->isBelLocationValid(sm.first))
                                 goto fail;
@@ -1022,6 +1062,7 @@ class HeAPPlacer
 
                         if (false) {
                         fail:
+                            // If the move turned out to be illegal; revert all the moves we made
                             for (auto &swap : swaps_made) {
                                 ctx->unbindBel(swap.first);
                                 if (swap.second != nullptr)
@@ -1036,6 +1077,7 @@ class HeAPPlacer
                             // log_info("%s %d %d %d\n", target.first->name.c_str(ctx), loc.x, loc.y, loc.z);
                         }
                         for (auto &swap : swaps_made) {
+                            // Where we have ripped up cells; add them to the queue
                             if (swap.second != nullptr)
                                 remaining.emplace(chain_size[swap.second->name], swap.second->name);
                         }
