@@ -30,6 +30,7 @@
 
 #include "constraints.h"
 #include "dedicated_interconnect.h"
+#include "site_router.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -773,7 +774,14 @@ struct ArchRanges
     using BucketBelRangeT = FilteredBelRange;
 };
 
-struct DedicatedInterconnect;
+static constexpr size_t kMaxState = 8;
+
+struct TileStatus
+{
+    std::vector<ExclusiveStateGroup<kMaxState>> tags;
+    std::vector<CellInfo *> boundcells;
+    std::vector<SiteRouter> sites;
+};
 
 struct Arch : ArchAPI<ArchRanges>
 {
@@ -786,31 +794,6 @@ struct Arch : ArchAPI<ArchRanges>
 
     std::unordered_map<WireId, NetInfo *> wire_to_net;
     std::unordered_map<PipId, NetInfo *> pip_to_net;
-
-    static constexpr size_t kMaxState = 8;
-
-    struct TileStatus;
-    struct SiteRouter
-    {
-        SiteRouter(int16_t site) : site(site), dirty(false), site_ok(true) {}
-
-        std::unordered_set<CellInfo *> cells_in_site;
-        const int16_t site;
-
-        mutable bool dirty;
-        mutable bool site_ok;
-
-        void bindBel(CellInfo *cell);
-        void unbindBel(CellInfo *cell);
-        bool checkSiteRouting(const Context *ctx, const TileStatus &tile_status) const;
-    };
-
-    struct TileStatus
-    {
-        std::vector<ExclusiveStateGroup<kMaxState>> tags;
-        std::vector<CellInfo *> boundcells;
-        std::vector<SiteRouter> sites;
-    };
 
     DedicatedInterconnect dedicated_interconnect;
     std::unordered_map<int32_t, TileStatus> tileStatus;
@@ -871,7 +854,7 @@ struct Arch : ArchAPI<ArchRanges>
 
     uint32_t getBelChecksum(BelId bel) const override { return bel.index; }
 
-    void map_cell_pins(CellInfo *cell, int32_t mapping);
+    void map_cell_pins(CellInfo *cell, int32_t mapping, bool bind_constants);
     void map_port_pins(BelId bel, CellInfo *cell) const;
 
     TileStatus &get_tile_status(int32_t tile)
@@ -931,10 +914,13 @@ struct Arch : ArchAPI<ArchRanges>
 
         if (io_port_types.count(cell->type) == 0) {
             int32_t mapping = bel_info(chip_info, bel).pin_map[get_cell_type_index(cell->type)];
+            if (mapping < 0) {
+                report_invalid_bel(bel, cell);
+            }
             NPNR_ASSERT(mapping >= 0);
 
             if (cell->cell_mapping != mapping) {
-                map_cell_pins(cell, mapping);
+                map_cell_pins(cell, mapping, /*bind_constants=*/false);
             }
             constraints.bindBel(tile_status.tags.data(), get_cell_constraints(bel, cell->type));
         } else {
@@ -1078,10 +1064,7 @@ struct Arch : ArchAPI<ArchRanges>
         return str_range;
     }
 
-    const std::vector<IdString> &getBelPinsForCellPin(const CellInfo *cell_info, IdString pin) const override
-    {
-        return cell_info->cell_bel_pins.at(pin);
-    }
+    const std::vector<IdString> &getBelPinsForCellPin(const CellInfo *cell_info, IdString pin) const override;
 
     // -------------------------------------------------
 
@@ -1509,7 +1492,7 @@ struct Arch : ArchAPI<ArchRanges>
         if (cell == nullptr) {
             return true;
         } else {
-            if(!dedicated_interconnect.isBelLocationValid(bel, cell)) {
+            if (!dedicated_interconnect.isBelLocationValid(bel, cell)) {
                 return false;
             }
 
@@ -1718,6 +1701,11 @@ struct Arch : ArchAPI<ArchRanges>
     }
 
     void merge_constant_nets();
+    void report_invalid_bel(BelId bel, CellInfo *cell) const;
+
+    std::vector<IdString> no_pins;
+    IdString gnd_cell_pin;
+    IdString vcc_cell_pin;
 };
 
 NEXTPNR_NAMESPACE_END

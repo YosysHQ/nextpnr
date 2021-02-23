@@ -111,20 +111,37 @@ static PhysicalNetlist::PhysNetlist::RouteBranch::Builder emit_branch(
         if(bel_data.category == BEL_CATEGORY_LOGIC) {
             // This is a psuedo site-pip.
             auto in_bel_pin = branch.getRouteSegment().initBelPin();
-            IdString src_wire_name = IdString(tile_type.wire_data[pip_data.src_index].name);
-            IdString dst_wire_name = IdString(tile_type.wire_data[pip_data.dst_index].name);
+            WireId src_wire = ctx->getPipSrcWire(pip);
+            WireId dst_wire = ctx->getPipDstWire(pip);
+
+            IdString src_pin;
+            IdString dst_pin;
+            for(IdString pin : ctx->getBelPins(bel)) {
+                if(ctx->getBelPinWire(bel, pin) == src_wire) {
+                    NPNR_ASSERT(src_pin == IdString());
+                    src_pin = pin;
+                }
+
+                if(ctx->getBelPinWire(bel, pin) == dst_wire) {
+                    NPNR_ASSERT(dst_pin == IdString());
+                    dst_pin = pin;
+                }
+            }
+
+            NPNR_ASSERT(src_pin != IdString());
+            NPNR_ASSERT(dst_pin != IdString());
 
             int bel_idx = strings->get_index(bel_name[1].str(ctx));
             in_bel_pin.setSite(site_idx);
             in_bel_pin.setBel(bel_idx);
-            in_bel_pin.setPin(strings->get_index(src_wire_name.str(ctx)));
+            in_bel_pin.setPin(strings->get_index(src_pin.str(ctx)));
 
             auto subbranch = branch.initBranches(1);
             auto bel_pin_branch = subbranch[0];
             auto out_bel_pin = bel_pin_branch.getRouteSegment().initBelPin();
             out_bel_pin.setSite(site_idx);
             out_bel_pin.setBel(bel_idx);
-            out_bel_pin.setPin(strings->get_index(dst_wire_name.str(ctx)));
+            out_bel_pin.setPin(strings->get_index(dst_pin.str(ctx)));
 
             return bel_pin_branch;
         } else if(bel_data.category == BEL_CATEGORY_ROUTING) {
@@ -614,6 +631,8 @@ struct ModuleReader {
 
     ModuleReader(const LogicalNetlistImpl *root,
             LogicalNetlist::Netlist::CellInstance::Reader cell_inst, bool is_top);
+
+    size_t translate_port_index(LogicalNetlist::Netlist::PortInstance::Reader port_inst) const;
 };
 
 struct PortReader {
@@ -850,8 +869,8 @@ struct LogicalNetlistImpl
 
     bool is_vector_bit_constant(const std::vector<int32_t> &bits, int i) const
     {
-        // FIXME: Check if this is right.  Assumption is that cells have been
-        // emitted for GND and VCC, e.g. VCC vcc(.P(vcc_net)).
+        // Note: This appears weird, but is correct.  This is because VCC/GND
+        // nets are not handled in frontend_base for FPGA interchange.
         return false;
     }
 
@@ -929,11 +948,8 @@ ModuleReader::ModuleReader(const LogicalNetlistImpl *root,
             PortKey port_key(inst_idx, port_inst.getPort());
             std::vector<int32_t> & port_connections = connections.at(port_key);
 
-            if(port_inst.getBusIdx().isSingleBit()) {
-                port_connections[0] = net_idx;
-            } else {
-                port_connections.at(port_inst.getBusIdx().getIdx()) = net_idx;
-            }
+            size_t port_idx = translate_port_index(port_inst);
+            port_connections.at(port_idx) = net_idx;
         }
     }
 
@@ -991,6 +1007,20 @@ void FpgaInterchange::read_logical_netlist(Context * ctx, const std::string &fil
     LogicalNetlistImpl netlist_reader(netlist);
 
     GenericFrontend<LogicalNetlistImpl>(ctx, netlist_reader, /*split_io=*/false)();
+}
+
+size_t ModuleReader::translate_port_index(LogicalNetlist::Netlist::PortInstance::Reader port_inst) const {
+    LogicalNetlist::Netlist::Port::Reader port = root->root.getPortList()[port_inst.getPort()];
+    if(port_inst.getBusIdx().isSingleBit()) {
+        NPNR_ASSERT(port.isBit());
+        return 0;
+    } else {
+        NPNR_ASSERT(port.isBus());
+        uint32_t idx = port_inst.getBusIdx().getIdx();
+        size_t width = get_port_width(port);
+        NPNR_ASSERT(idx >= 0 && idx < width);
+        return width - 1 - idx;
+    }
 }
 
 NEXTPNR_NAMESPACE_END

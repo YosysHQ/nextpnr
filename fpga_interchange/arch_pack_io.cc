@@ -243,7 +243,9 @@ void Arch::pack_ports()
 
         for (CellInfo *cell : placed_cells) {
             NPNR_ASSERT(cell->bel != BelId());
-            NPNR_ASSERT(isBelLocationValid(cell->bel));
+            if (!isBelLocationValid(cell->bel)) {
+                log_error("Tightly bound BEL %s was not valid!\n", nameOfBel(cell->bel));
+            }
         }
     }
 }

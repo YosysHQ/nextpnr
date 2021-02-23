@@ -24,40 +24,47 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-struct TileTypeBelPin {
+struct TileTypeBelPin
+{
     int32_t tile_type;
     int32_t bel_index;
     IdString bel_pin;
 
-    bool operator < (const TileTypeBelPin &other) const {
-        if(tile_type >= other.tile_type) {
+    bool operator<(const TileTypeBelPin &other) const
+    {
+        if (tile_type >= other.tile_type) {
             return false;
         }
 
-        if(bel_index >= other.bel_index) {
+        if (bel_index >= other.bel_index) {
             return false;
         }
 
         return bel_pin < other.bel_pin;
     }
 
-    bool operator ==(const TileTypeBelPin &other) const {
+    bool operator==(const TileTypeBelPin &other) const
+    {
         return tile_type == other.tile_type && bel_index == other.bel_index && bel_pin == other.bel_pin;
     }
-    bool operator !=(const TileTypeBelPin &other) const {
+    bool operator!=(const TileTypeBelPin &other) const
+    {
         return tile_type != other.tile_type || bel_index != other.bel_index || bel_pin != other.bel_pin;
     }
 };
 
-struct DeltaTileTypeBelPin {
+struct DeltaTileTypeBelPin
+{
     int32_t delta_x;
     int32_t delta_y;
     TileTypeBelPin type_bel_pin;
 
-    bool operator ==(const DeltaTileTypeBelPin &other) const {
+    bool operator==(const DeltaTileTypeBelPin &other) const
+    {
         return delta_x == other.delta_x && delta_y == other.delta_y && type_bel_pin == other.type_bel_pin;
     }
-    bool operator !=(const DeltaTileTypeBelPin &other) const {
+    bool operator!=(const DeltaTileTypeBelPin &other) const
+    {
         return delta_x != other.delta_x || delta_y != other.delta_y || type_bel_pin != other.type_bel_pin;
     }
 };
@@ -105,7 +112,8 @@ struct Context;
 //  This class discovers dedicated interconnect by examing the routing graph.
 //  This discovery make be expensive, and require caching to accelerate
 //  startup.
-struct DedicatedInterconnect {
+struct DedicatedInterconnect
+{
     const Context *ctx;
 
     std::unordered_map<TileTypeBelPin, std::unordered_set<DeltaTileTypeBelPin>> sinks;
@@ -117,20 +125,16 @@ struct DedicatedInterconnect {
     // interconnect?
     //
     // Note: Only BEL pin sinks are checked.
-    bool isBelLocationValid(BelId bel, const CellInfo* cell) const;
+    bool isBelLocationValid(BelId bel, const CellInfo *cell) const;
 
     void find_dedicated_interconnect();
     void print_dedicated_interconnect() const;
-    bool check_routing(
-        BelId src_bel, IdString src_bel_pin,
-        BelId dst_bel, IdString dst_bel_pin) const;
+    bool check_routing(BelId src_bel, IdString src_bel_pin, BelId dst_bel, IdString dst_bel_pin) const;
     void expand_sink_bel(BelId bel, IdString pin, WireId wire);
     void expand_source_bel(BelId bel, IdString pin, WireId wire);
 
-    bool is_driver_on_net_valid(BelId driver_bel,
-            const CellInfo* cell, IdString driver_port, NetInfo *net) const;
-    bool is_sink_on_net_valid(BelId bel, const CellInfo* cell,
-            IdString port_name, NetInfo *net) const;
+    bool is_driver_on_net_valid(BelId driver_bel, const CellInfo *cell, IdString driver_port, NetInfo *net) const;
+    bool is_sink_on_net_valid(BelId bel, const CellInfo *cell, IdString port_name, NetInfo *net) const;
 };
 
 NEXTPNR_NAMESPACE_END
