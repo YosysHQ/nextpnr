@@ -372,7 +372,7 @@ struct Arch : BaseArch<ArchRanges>
     WireId getBelPinWire(BelId bel, IdString pin) const override;
     PortType getBelPinType(BelId bel, IdString pin) const override;
     std::vector<IdString> getBelPins(BelId bel) const override;
-    std::array<IdString, 1> getBelPinsForCellPin(CellInfo *cell_info, IdString pin) const override;
+    std::array<IdString, 1> getBelPinsForCellPin(const CellInfo *cell_info, IdString pin) const override;
 
     WireId getWireByName(IdStringList name) const override;
     IdStringList getWireName(WireId wire) const override;

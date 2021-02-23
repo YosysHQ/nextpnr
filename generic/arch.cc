@@ -347,7 +347,7 @@ std::vector<IdString> Arch::getBelPins(BelId bel) const
     return ret;
 }
 
-const std::vector<IdString> &Arch::getBelPinsForCellPin(CellInfo *cell_info, IdString pin) const
+const std::vector<IdString> &Arch::getBelPinsForCellPin(const CellInfo *cell_info, IdString pin) const
 {
     return cell_info->bel_pins.at(pin);
 }
