@@ -34,18 +34,20 @@
 
 #if defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))
 #include <intrin.h>
-#pragma intrinsic(_BitScanForward,_BitScanReverse,__popcnt)
+#pragma intrinsic(_BitScanForward, _BitScanReverse, __popcnt)
 #endif
 
 // Uses plain nextpnr namespace to avoid header inclusion nightmare that is
 // "nextpnr.h".
 namespace nextpnr {
 
-struct Bits {
+struct Bits
+{
     static int generic_popcount(unsigned int x);
     static int generic_ctz(unsigned int x);
 
-    static int popcount(unsigned int x) {
+    static int popcount(unsigned int x)
+    {
 #if defined(__GNUC__) || defined(__clang__)
         return __builtin_popcount(x);
 #elif defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))
@@ -55,7 +57,8 @@ struct Bits {
 #endif
     }
 
-    static int ctz(unsigned int x) {
+    static int ctz(unsigned int x)
+    {
 #if defined(__GNUC__) || defined(__clang__)
         return __builtin_ctz(x);
 #elif defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))
@@ -68,6 +71,6 @@ struct Bits {
     }
 };
 
-};
+}; // namespace nextpnr
 
 #endif /* BITS_H */
