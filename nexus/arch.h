@@ -1117,7 +1117,7 @@ struct Arch : BaseArch<ArchRanges>
     DelayQuad getPipDelay(PipId pip) const override
     {
         auto &cls = speed_grade->pip_classes[pip_data(pip).timing_class];
-        return DelayQuad(cls.min_delay, cls.max_delay);
+        return DelayQuad(std::max(0, cls.min_delay), std::max(0, cls.max_delay));
     }
 
     UpDownhillPipRange getPipsDownhill(WireId wire) const override
