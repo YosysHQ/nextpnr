@@ -71,9 +71,24 @@ static std::string get_trellis_wirename(Context *ctx, Location loc, WireId wire)
                 name.find("JINCK") != std::string::npos);
     };
 
-    if (prefix2 == "G_" || prefix2 == "L_" || prefix2 == "R_" || prefix2 == "U_" || prefix2 == "D_" ||
-        prefix7 == "BRANCH_")
+    if (prefix2 == "G_" || prefix2 == "L_" || prefix2 == "R_" || prefix7 == "BRANCH_")
         return basename;
+
+    if (prefix2 == "U_" || prefix2 == "D_") {
+        // We needded to keep U_ and D_ prefixes to generate the routing
+        // graph connections properly, but in truth they are not relevant
+        // outside of the center row of tiles as far as the database is
+        // concerned. So convert U_/D_ prefixes back to G_ if not in the
+        // center row.
+
+        // FIXME: This is hardcoded to 1200HC coordinates for now. Perhaps
+        // add a center row/col field to chipdb?
+        if (loc.y == 6)
+            return basename;
+        else
+            return "G_" + basename.substr(2);
+    }
+
     if (loc == wire.location) {
         // TODO: JINCK is not currently handled by this.
         if (is_pio_wire(basename)) {
