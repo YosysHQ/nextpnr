@@ -504,12 +504,12 @@ class SAPlacer
     {
         static const double epsilon = 1e-20;
         moveChange.reset(this);
-        if (!require_legal && is_constrained(cell))
+        if (!require_legal && cell->isConstrained(false))
             return false;
         BelId oldBel = cell->bel;
         CellInfo *other_cell = ctx->getBoundBelCell(newBel);
         if (!require_legal && other_cell != nullptr &&
-            (is_constrained(other_cell) || other_cell->belStrength > STRENGTH_WEAK)) {
+            (other_cell->isConstrained(false) || other_cell->belStrength > STRENGTH_WEAK)) {
             return false;
         }
         int old_dist = get_constraints_distance(ctx, cell);
@@ -589,11 +589,6 @@ class SAPlacer
         return false;
     }
 
-    inline bool is_constrained(CellInfo *cell)
-    {
-        return cell->constr_parent != nullptr || !cell->constr_children.empty();
-    }
-
     // Swap the Bel of a cell with another, return the original location
     BelId swap_cell_bels(CellInfo *cell, BelId newBel)
     {
@@ -605,9 +600,9 @@ class SAPlacer
         if (bound != nullptr)
             ctx->unbindBel(newBel);
         ctx->unbindBel(oldBel);
-        ctx->bindBel(newBel, cell, is_constrained(cell) ? STRENGTH_STRONG : STRENGTH_WEAK);
+        ctx->bindBel(newBel, cell, cell->isConstrained(false) ? STRENGTH_STRONG : STRENGTH_WEAK);
         if (bound != nullptr) {
-            ctx->bindBel(oldBel, bound, is_constrained(bound) ? STRENGTH_STRONG : STRENGTH_WEAK);
+            ctx->bindBel(oldBel, bound, bound->isConstrained(false) ? STRENGTH_STRONG : STRENGTH_WEAK);
             if (cfg.netShareWeight > 0)
                 update_nets_by_tile(bound, ctx->getBelLocation(newBel), ctx->getBelLocation(oldBel));
         }
@@ -658,7 +653,7 @@ class SAPlacer
             // We don't consider swapping chains with other chains, at least for the time being - unless it is
             // part of this chain
             if (bound != nullptr && !cells.count(bound->name) &&
-                (bound->belStrength >= STRENGTH_STRONG || is_constrained(bound)))
+                (bound->belStrength >= STRENGTH_STRONG || bound->isConstrained(false)))
                 return false;
             dest_bels.emplace_back(std::make_pair(cr.first, targetBel));
         }
@@ -676,12 +671,12 @@ class SAPlacer
                 add_move_cell(moveChange, bound, db.second);
         }
         for (const auto &mm : moves_made) {
-            if (!ctx->isBelLocationValid(mm.first->bel) || !check_cell_bel_region(mm.first, mm.first->bel))
+            if (!ctx->isBelLocationValid(mm.first->bel) || !mm.first->testRegion(mm.first->bel))
                 goto swap_fail;
             if (!ctx->isBelLocationValid(mm.second))
                 goto swap_fail;
             CellInfo *bound = ctx->getBoundBelCell(mm.second);
-            if (bound && !check_cell_bel_region(bound, bound->bel))
+            if (bound && !bound->testRegion(bound->bel))
                 goto swap_fail;
         }
         compute_cost_changes(moveChange);
@@ -752,7 +747,7 @@ class SAPlacer
                 if (loc.z != force_z)
                     continue;
             }
-            if (!check_cell_bel_region(cell, bel))
+            if (!cell->testRegion(bel))
                 continue;
             if (locked_bels.find(bel) != locked_bels.end())
                 continue;
