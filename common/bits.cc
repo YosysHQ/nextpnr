@@ -24,7 +24,8 @@
 
 namespace nextpnr {
 
-int Bits::generic_popcount(unsigned int v) {
+int Bits::generic_popcount(unsigned int v)
+{
     unsigned int c; // c accumulates the total bits set in v
     for (c = 0; v; c++) {
         v &= v - 1; // clear the least significant bit set
@@ -33,13 +34,14 @@ int Bits::generic_popcount(unsigned int v) {
     return c;
 }
 
-int Bits::generic_ctz(unsigned int x) {
-    if(x == 0) {
+int Bits::generic_ctz(unsigned int x)
+{
+    if (x == 0) {
         throw std::runtime_error("Cannot call ctz with arg = 0");
     }
 
-    for(size_t i = 0; i < std::numeric_limits<unsigned int>::digits; ++i) {
-        if((x & (1 << i)) != 0) {
+    for (size_t i = 0; i < std::numeric_limits<unsigned int>::digits; ++i) {
+        if ((x & (1 << i)) != 0) {
             return i;
         }
     }
@@ -48,4 +50,4 @@ int Bits::generic_ctz(unsigned int x) {
     throw std::runtime_error("Unreachable!");
 }
 
-};
+}; // namespace nextpnr
