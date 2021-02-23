@@ -115,9 +115,21 @@ static std::string get_trellis_wirename(Context *ctx, Location loc, WireId wire)
 static void set_pip(Context *ctx, ChipConfig &cc, PipId pip)
 {
     std::string tile = ctx->get_pip_tilename(pip);
+    std::string tile_type = ctx->chip_info->tiletype_names[ctx->tile_info(pip)->pips_data[pip.index].tile_type].get();
     std::string source = get_trellis_wirename(ctx, pip.location, ctx->getPipSrcWire(pip));
     std::string sink = get_trellis_wirename(ctx, pip.location, ctx->getPipDstWire(pip));
     cc.tiles[tile].add_arc(sink, source);
+
+    // Special case pips whose config bits are spread across tiles.
+    if (source == "G_PCLKCIBVIQT0" && sink == "G_VPRXCLKI0") {
+        if (tile_type == "CENTER7") {
+            cc.tiles[ctx->get_tile_by_type("CENTER8")].add_arc(sink, source);
+        } else if (tile_type == "CENTER8") {
+            cc.tiles[ctx->get_tile_by_type("CENTER7")].add_arc(sink, source);
+        } else {
+            NPNR_ASSERT_FALSE("Tile does not contain special-cased pip");
+        }
+    }
 }
 
 static std::vector<bool> int_to_bitvector(int val, int size)
