@@ -1033,7 +1033,7 @@ struct Arch : ArchAPI<ArchRanges>
         return str_range;
     }
 
-    const std::vector<IdString> &getBelPinsForCellPin(CellInfo *cell_info, IdString pin) const override
+    const std::vector<IdString> &getBelPinsForCellPin(const CellInfo *cell_info, IdString pin) const override
     {
         return cell_info->cell_bel_pins.at(pin);
     }

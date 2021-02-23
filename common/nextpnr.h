@@ -1146,7 +1146,7 @@ template <typename R> struct ArchAPI : BaseCtx
     virtual WireId getBelPinWire(BelId bel, IdString pin) const = 0;
     virtual PortType getBelPinType(BelId bel, IdString pin) const = 0;
     virtual typename R::BelPinsRangeT getBelPins(BelId bel) const = 0;
-    virtual typename R::CellBelPinRangeT getBelPinsForCellPin(CellInfo *cell_info, IdString pin) const = 0;
+    virtual typename R::CellBelPinRangeT getBelPinsForCellPin(const CellInfo *cell_info, IdString pin) const = 0;
     // Wire methods
     virtual typename R::AllWiresRangeT getWires() const = 0;
     virtual WireId getWireByName(IdStringList name) const = 0;
@@ -1298,7 +1298,7 @@ template <typename R> struct BaseArch : ArchAPI<R>
         return empty_if_possible<typename R::BelAttrsRangeT>();
     }
 
-    virtual typename R::CellBelPinRangeT getBelPinsForCellPin(CellInfo *cell_info, IdString pin) const override
+    virtual typename R::CellBelPinRangeT getBelPinsForCellPin(const CellInfo *cell_info, IdString pin) const override
     {
         return return_if_match<std::array<IdString, 1>, typename R::CellBelPinRangeT>({pin});
     }
