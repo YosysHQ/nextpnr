@@ -937,7 +937,7 @@ class HeAPPlacer
                     // The case where we have no relative constraints
                     for (auto sz : fb->at(nx).at(ny)) {
                         // Look through all bels in this tile; checking region constraint if applicable
-                        if (ci->region != nullptr && ci->region->constr_bels && !ci->region->bels.count(sz))
+                        if (!ci->testRegion(sz))
                             continue;
                         // Prefer available bels; unless we are dealing with a wide radius (e.g. difficult control sets)
                         // or occasionally trigger a tiebreaker
@@ -945,8 +945,7 @@ class HeAPPlacer
                             CellInfo *bound = ctx->getBoundBelCell(sz);
                             if (bound != nullptr) {
                                 // Only rip up cells without constraints
-                                if (bound->constr_parent != nullptr || !bound->constr_children.empty() ||
-                                    bound->constr_abs_z)
+                                if (bound->isConstrained())
                                     continue;
                                 ctx->unbindBel(bound->bel);
                             }
@@ -1020,7 +1019,7 @@ class HeAPPlacer
                             // Get the bel we're going to place this cell at
                             BelId target = ctx->getBelByLocation(ploc);
                             // Check it satisfies the region constraint if applicable
-                            if (vc->region != nullptr && vc->region->constr_bels && !vc->region->bels.count(target))
+                            if (!vc->testRegion(target))
                                 goto fail;
                             CellInfo *bound;
                             // Check that the target bel exists and is of a suitable type
@@ -1029,21 +1028,13 @@ class HeAPPlacer
                             bound = ctx->getBoundBelCell(target);
                             // Chains cannot overlap; so if we have to ripup a cell make sure it isn't part of a chain
                             if (bound != nullptr)
-                                if (bound->constr_z != bound->UNCONSTR || bound->constr_parent != nullptr ||
-                                    !bound->constr_children.empty() || bound->belStrength > STRENGTH_WEAK)
+                                if (bound->isConstrained() || bound->belStrength > STRENGTH_WEAK)
                                     goto fail;
                             targets.emplace_back(vc, target);
                             for (auto child : vc->constr_children) {
                                 // For all the constrained children; compute the location we need to place them at and
                                 // add them to the queue
-                                Loc cloc = ploc;
-                                if (child->constr_x != child->UNCONSTR)
-                                    cloc.x += child->constr_x;
-                                if (child->constr_y != child->UNCONSTR)
-                                    cloc.y += child->constr_y;
-                                if (child->constr_z != child->UNCONSTR)
-                                    cloc.z = child->constr_abs_z ? child->constr_z : (ploc.z + child->constr_z);
-                                visit.emplace(child, cloc);
+                                visit.emplace(child, child->getConstrainedLoc(ploc));
                             }
                         }
                         // Actually perform the move; keeping track of the moves we make so we can revert them if needed

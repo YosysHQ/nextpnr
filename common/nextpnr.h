@@ -664,6 +664,14 @@ struct CellInfo : ArchCellInfo
     void unsetParam(IdString name);
     void setAttr(IdString name, Property value);
     void unsetAttr(IdString name);
+
+    // return true if the cell has placement constraints (optionally excluding the case where the only case is an
+    // absolute z constraint)
+    bool isConstrained(bool include_abs_z_constr = true) const;
+    // check whether a bel complies with the cell's region constraint
+    bool testRegion(BelId bel) const;
+    // get the constrained location for this cell given a provisional location for its parent
+    Loc getConstrainedLoc(Loc parent_loc) const;
 };
 
 enum TimingPortClass
