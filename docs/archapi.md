@@ -662,9 +662,9 @@ Return the BelBucketId for the specified bucket name.
 
 Returns the bucket for a particular bel.
 
-*BaseArch default: `getBelBucketForCellType(getCellType(bel))`*
+*BaseArch default: `getBelBucketForCellType(getBelType(bel))`*
 
-### BelBucketId getBelBucketForCell(IdString cell\_type) const
+### BelBucketId getBelBucketForCellType(IdString cell\_type) const
 
 Returns the bel bucket for a particular cell type.
 
