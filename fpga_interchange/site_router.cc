@@ -747,17 +747,42 @@ bool SiteRouter::checkSiteRouting(const Context *ctx, const TileStatus &tile_sta
             return site_ok;
         }
     }
-    //
+
     // FIXME: Populate "consumed_wires" with all VCC/GND tied in the site.
     // This will allow route_site to leverage site local constant sources.
     //
     // FIXME: Handle case where a constant is requested, but use of an
     // inverter is possible. This is the place to handle "bestConstant"
     // (e.g. route VCC's over GND's, etc).
-    //
-    // FIXME: Enable some LUT rotation!
-    // Default cell/bel pin map always uses high pins, which will generate
-    // conflicts where there are none!!!
+    auto tile_type_idx = ctx->chip_info->tiles[tile].type;
+    const std::vector<LutElement> &lut_elements = ctx->lut_elements.at(tile_type_idx);
+    std::vector<LutMapper> lut_mappers;
+    lut_mappers.reserve(lut_elements.size());
+    for (size_t i = 0; i < lut_elements.size(); ++i) {
+        lut_mappers.push_back(LutMapper(lut_elements[i]));
+    }
+
+    for (CellInfo *cell : cells_in_site) {
+        if (cell->lut_cell.pins.empty()) {
+            continue;
+        }
+
+        BelId bel = cell->bel;
+        const auto &bel_data = bel_info(ctx->chip_info, bel);
+        if (bel_data.lut_element != -1) {
+            lut_mappers[bel_data.lut_element].cells.push_back(cell);
+        }
+    }
+
+    for (LutMapper lut_mapper : lut_mappers) {
+        if (lut_mapper.cells.empty()) {
+            continue;
+        }
+
+        if (!lut_mapper.remap_luts(ctx)) {
+            return false;
+        }
+    }
 
     SiteInformation site_info(ctx, cells_in_site);
 

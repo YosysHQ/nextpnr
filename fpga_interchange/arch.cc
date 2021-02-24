@@ -158,6 +158,7 @@ Arch::Arch(ArchArgs args) : args(args)
 
     int tile_type_index = 0;
     size_t max_tag_count = 0;
+
     for (const TileTypeInfoPOD &tile_type : chip_info->tile_types) {
         max_tag_count = std::max(max_tag_count, tile_type.tags.size());
 
@@ -191,6 +192,50 @@ Arch::Arch(ArchArgs args) : args(args)
             }
         }
     }
+
+    // Initially LutElement vectors for each tile type.
+    tile_type_index = 0;
+    lut_elements.resize(chip_info->tile_types.size());
+    for (const TileTypeInfoPOD &tile_type : chip_info->tile_types) {
+        std::vector<LutElement> &elements = lut_elements[tile_type_index++];
+        elements.reserve(tile_type.lut_elements.size());
+        for (auto &lut_element : tile_type.lut_elements) {
+            elements.emplace_back();
+
+            LutElement &element = elements.back();
+            element.width = lut_element.width;
+            for (auto &lut_bel : lut_element.lut_bels) {
+                auto result = element.lut_bels.emplace(IdString(lut_bel.name), LutBel());
+                NPNR_ASSERT(result.second);
+                LutBel &lut = result.first->second;
+
+                lut.low_bit = lut_bel.low_bit;
+                lut.high_bit = lut_bel.high_bit;
+
+                lut.pins.reserve(lut_bel.pins.size());
+                for (size_t i = 0; i < lut_bel.pins.size(); ++i) {
+                    IdString pin(lut_bel.pins[i]);
+                    lut.pins.push_back(pin);
+                    lut.pin_to_index[pin] = i;
+                }
+            }
+
+            element.compute_pin_order();
+        }
+    }
+
+    // Map lut cell types to their LutCellPOD
+    for (const LutCellPOD &lut_cell : chip_info->cell_map->lut_cells) {
+        IdString cell_type(lut_cell.cell);
+        auto result = lut_cells.emplace(cell_type, &lut_cell);
+        NPNR_ASSERT(result.second);
+    }
+
+    raw_bin_constant = std::regex("[01]+", std::regex_constants::ECMAScript | std::regex_constants::optimize);
+    verilog_bin_constant =
+            std::regex("([0-9]+)'b([01]+)", std::regex_constants::ECMAScript | std::regex_constants::optimize);
+    verilog_hex_constant =
+            std::regex("([0-9]+)'h([0-9a-fA-F]+)", std::regex_constants::ECMAScript | std::regex_constants::optimize);
 
     default_tags.resize(max_tag_count);
 }
@@ -603,6 +648,7 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
 
 bool Arch::pack()
 {
+    decode_lut_cells();
     merge_constant_nets();
     pack_ports();
     return true;
@@ -666,9 +712,69 @@ bool Arch::route()
     } else {
         log_error("FPGA interchange architecture does not support router '%s'\n", router.c_str());
     }
+
+    if (result) {
+        result = route_vcc_to_unused_lut_pins();
+    }
+
     getCtx()->attrs[getCtx()->id("step")] = std::string("route");
     archInfoToAttributes();
+
     return result;
+}
+
+bool Arch::route_vcc_to_unused_lut_pins() {
+    std::string router = str_or_default(settings, id("router"), defaultRouter);
+
+    // Fixup LUT vcc pins.
+    IdString vcc_net_name(chip_info->constants->vcc_net_name);
+    for (BelId bel : getBels()) {
+        CellInfo *cell = getBoundBelCell(bel);
+        if (cell == nullptr) {
+            continue;
+        }
+
+        if (cell->lut_cell.vcc_pins.empty()) {
+            continue;
+        }
+
+        for (auto bel_pin : cell->lut_cell.vcc_pins) {
+            PortInfo port_info;
+            port_info.name = bel_pin;
+            port_info.type = PORT_IN;
+            port_info.net = nullptr;
+
+            WireId lut_pin_wire = getBelPinWire(bel, bel_pin);
+            auto iter = wire_to_net.find(lut_pin_wire);
+            if (iter != wire_to_net.end()) {
+                if (iter->second != nullptr) {
+                    // This pin is now used by a route through.
+                    continue;
+                }
+            }
+
+            auto result = cell->ports.emplace(bel_pin, port_info);
+            if (result.second) {
+                cell->cell_bel_pins[bel_pin].push_back(bel_pin);
+                connectPort(vcc_net_name, cell->name, bel_pin);
+                cell->const_ports.emplace(bel_pin);
+            } else {
+                NPNR_ASSERT(result.first->second.net == getNetByAlias(vcc_net_name));
+                auto result2 = cell->cell_bel_pins.emplace(bel_pin, std::vector<IdString>({bel_pin}));
+                NPNR_ASSERT(result2.first->second.at(0) == bel_pin);
+                NPNR_ASSERT(result2.first->second.size() == 1);
+            }
+        }
+    }
+
+    if (router == "router1") {
+        return router1(getCtx(), Router1Cfg(getCtx()));
+    } else if (router == "router2") {
+        router2(getCtx(), Router2Cfg(getCtx()));
+        return true;
+    } else {
+        log_error("FPGA interchange architecture does not support router '%s'\n", router.c_str());
+    }
 }
 
 // -----------------------------------------------------------------------
@@ -791,7 +897,20 @@ const std::vector<std::string> Arch::availableRouters = {"router1", "router2"};
 void Arch::map_cell_pins(CellInfo *cell, int32_t mapping, bool bind_constants)
 {
     cell->cell_mapping = mapping;
-    cell->cell_bel_pins.clear();
+    if (cell->lut_cell.pins.empty()) {
+        cell->cell_bel_pins.clear();
+    } else {
+        std::vector<IdString> cell_pin_to_remove;
+        for (auto port_pair : cell->cell_bel_pins) {
+            if (!cell->lut_cell.lut_pins.count(port_pair.first)) {
+                cell_pin_to_remove.push_back(port_pair.first);
+            }
+        }
+
+        for (IdString cell_pin : cell_pin_to_remove) {
+            NPNR_ASSERT(cell->cell_bel_pins.erase(cell_pin));
+        }
+    }
     for (IdString const_port : cell->const_ports) {
         NPNR_ASSERT(cell->ports.erase(const_port));
     }
@@ -804,6 +923,11 @@ void Arch::map_cell_pins(CellInfo *cell, int32_t mapping, bool bind_constants)
     for (const auto &pin_map : cell_pin_map.common_pins) {
         IdString cell_pin(pin_map.cell_pin);
         IdString bel_pin(pin_map.bel_pin);
+
+        // Skip assigned LUT pins, as they are already mapped!
+        if (cell->lut_cell.lut_pins.count(cell_pin) && cell->cell_bel_pins.count(cell_pin)) {
+            continue;
+        }
 
         if (cell_pin.str(this) == "GND") {
             if (bind_constants) {
@@ -869,11 +993,17 @@ void Arch::map_cell_pins(CellInfo *cell, int32_t mapping, bool bind_constants)
             IdString cell_pin(pin_map.cell_pin);
             IdString bel_pin(pin_map.bel_pin);
 
+            // Skip assigned LUT pins, as they are already mapped!
+            if (cell->lut_cell.lut_pins.count(cell_pin) && cell->cell_bel_pins.count(cell_pin)) {
+                continue;
+            }
+
             if (cell_pin.str(this) == "GND") {
                 if (bind_constants) {
                     PortInfo port_info;
                     port_info.name = bel_pin;
                     port_info.type = PORT_IN;
+                    port_info.net = nullptr;
 
                     auto result = cell->ports.emplace(bel_pin, port_info);
                     if (result.second) {
@@ -895,6 +1025,7 @@ void Arch::map_cell_pins(CellInfo *cell, int32_t mapping, bool bind_constants)
                     PortInfo port_info;
                     port_info.name = bel_pin;
                     port_info.type = PORT_IN;
+                    port_info.net = nullptr;
 
                     auto result = cell->ports.emplace(bel_pin, port_info);
                     if (result.second) {
@@ -1133,6 +1264,70 @@ void Arch::report_invalid_bel(BelId bel, CellInfo *cell) const
     NPNR_ASSERT(mapping < 0);
     log_error("Cell %s (%s) cannot be placed at BEL %s (mapping %d)\n", cell->name.c_str(this), cell->type.c_str(this),
               nameOfBel(bel), mapping);
+}
+
+void Arch::read_lut_equation(nextpnr::DynamicBitarray<> *equation, const Property &equation_parameter) const
+{
+    equation->fill(false);
+    std::string eq_str = equation_parameter.as_string();
+    std::smatch results;
+    if (std::regex_match(eq_str, results, raw_bin_constant)) {
+        size_t bit_idx = 0;
+        const std::string &bits = results[0];
+        NPNR_ASSERT(bits.size() <= equation->size());
+        for (auto bit = bits.rbegin(); bit != bits.rend(); ++bit) {
+            if (*bit == '0') {
+                equation->set(bit_idx++, false);
+            } else {
+                NPNR_ASSERT(*bit == '1');
+                equation->set(bit_idx++, true);
+            }
+        }
+    } else if (std::regex_match(eq_str, results, verilog_bin_constant)) {
+        int iwidth = std::stoi(results[1]);
+        NPNR_ASSERT(iwidth >= 0);
+        size_t width = iwidth;
+        std::string bits = results[2];
+        NPNR_ASSERT(width <= equation->size());
+        NPNR_ASSERT(bits.size() <= width);
+        size_t bit_idx = 0;
+        for (auto bit = bits.rbegin(); bit != bits.rend(); ++bit) {
+            if (*bit == '0') {
+                equation->set(bit_idx++, false);
+            } else {
+                NPNR_ASSERT(*bit == '1');
+                equation->set(bit_idx++, true);
+            }
+        }
+    } else {
+        NPNR_ASSERT(false);
+    }
+}
+
+void Arch::decode_lut_cells()
+{
+    for (auto &cell_pair : cells) {
+        CellInfo *cell = cell_pair.second.get();
+        auto iter = lut_cells.find(cell->type);
+        if (iter == lut_cells.end()) {
+            cell->lut_cell.pins.clear();
+            cell->lut_cell.equation.clear();
+            continue;
+        }
+
+        const LutCellPOD &lut_cell = *iter->second;
+
+        cell->lut_cell.pins.reserve(lut_cell.input_pins.size());
+        for (uint32_t pin : lut_cell.input_pins) {
+            cell->lut_cell.pins.push_back(IdString(pin));
+            cell->lut_cell.lut_pins.emplace(IdString(pin));
+        }
+
+        IdString equation_parameter(lut_cell.parameter);
+        const Property &equation = cell->params.at(equation_parameter);
+        cell->lut_cell.equation.resize(1 << cell->lut_cell.pins.size());
+        read_lut_equation(&cell->lut_cell.equation, equation);
+    }
 }
 
 // Instance constraint templates.

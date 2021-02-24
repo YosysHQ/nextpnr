@@ -28,6 +28,7 @@
 
 #include <iostream>
 
+#include <regex>
 #include "constraints.h"
 #include "dedicated_interconnect.h"
 #include "site_router.h"
@@ -69,7 +70,8 @@ NPNR_PACKED_STRUCT(struct BelInfoPOD {
     int16_t site;
     int16_t site_variant; // some sites have alternative types
     int16_t category;
-    int16_t synthetic;
+    int8_t synthetic;
+    int8_t lut_element;
 
     RelPtr<int32_t> pin_map; // Index into CellMapPOD::cell_bel_map
 });
@@ -119,6 +121,18 @@ NPNR_PACKED_STRUCT(struct ConstraintTagPOD {
     RelSlice<int32_t> states; // constid
 });
 
+NPNR_PACKED_STRUCT(struct LutBelPOD {
+    uint32_t name;          // constid
+    RelSlice<int32_t> pins; // constid
+    uint32_t low_bit;
+    uint32_t high_bit;
+});
+
+NPNR_PACKED_STRUCT(struct LutElementPOD {
+    int32_t width;
+    RelSlice<LutBelPOD> lut_bels;
+});
+
 NPNR_PACKED_STRUCT(struct TileTypeInfoPOD {
     int32_t name; // Tile type constid
 
@@ -129,6 +143,8 @@ NPNR_PACKED_STRUCT(struct TileTypeInfoPOD {
     RelSlice<PipInfoPOD> pip_data;
 
     RelSlice<ConstraintTagPOD> tags;
+
+    RelSlice<LutElementPOD> lut_elements;
 
     RelSlice<int32_t> site_types; // constid
 });
@@ -190,12 +206,20 @@ NPNR_PACKED_STRUCT(struct CellBelMapPOD {
     RelSlice<CellConstraintPOD> constraints;
 });
 
+NPNR_PACKED_STRUCT(struct LutCellPOD {
+    int32_t cell;                 // constid
+    RelSlice<int32_t> input_pins; // constids
+    int32_t parameter;
+});
+
 NPNR_PACKED_STRUCT(struct CellMapPOD {
     // Cell names supported in this arch.
     RelSlice<int32_t> cell_names;       // constids
     RelSlice<int32_t> cell_bel_buckets; // constids
 
     RelSlice<CellBelMapPOD> cell_bel_map;
+
+    RelSlice<LutCellPOD> lut_cells;
 });
 
 NPNR_PACKED_STRUCT(struct PackagePinPOD {
@@ -1362,6 +1386,7 @@ struct Arch : ArchAPI<ArchRanges>
     void place_iobufs(WireId pad_wire, NetInfo *net, const std::unordered_set<CellInfo *> &tightly_attached_bels,
                       std::unordered_set<CellInfo *> *placed_cells);
     void pack_ports();
+    void decode_lut_cells();
     bool pack() override;
     bool place() override;
     bool route() override;
@@ -1706,6 +1731,14 @@ struct Arch : ArchAPI<ArchRanges>
     std::vector<IdString> no_pins;
     IdString gnd_cell_pin;
     IdString vcc_cell_pin;
+    std::vector<std::vector<LutElement>> lut_elements;
+    std::unordered_map<IdString, const LutCellPOD *> lut_cells;
+
+    std::regex raw_bin_constant;
+    std::regex verilog_bin_constant;
+    std::regex verilog_hex_constant;
+    void read_lut_equation(nextpnr::DynamicBitarray<> *equation, const Property &equation_parameter) const;
+    bool route_vcc_to_unused_lut_pins();
 };
 
 NEXTPNR_NAMESPACE_END
