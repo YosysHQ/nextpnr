@@ -39,10 +39,7 @@ template <typename Storage = std::vector<uint8_t>> class DynamicBitarray
         std::fill(storage.begin(), storage.end(), value ? std::numeric_limits<typename Storage::value_type>::max() : 0);
     }
 
-    constexpr size_t bits_per_value() const
-    {
-        return sizeof(typename Storage::value_type) * std::numeric_limits<typename Storage::value_type>::digits;
-    }
+    constexpr size_t bits_per_value() const { return std::numeric_limits<typename Storage::value_type>::digits; }
 
     bool get(size_t bit) const
     {
@@ -67,7 +64,7 @@ template <typename Storage = std::vector<uint8_t>> class DynamicBitarray
 
     void resize(size_t number_bits)
     {
-        size_t required_storage = (number_bits + bits_per_value()) / bits_per_value();
+        size_t required_storage = (number_bits + bits_per_value() - 1) / bits_per_value();
         storage.resize(required_storage);
     }
 
