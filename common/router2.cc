@@ -205,7 +205,7 @@ struct Router2
             pwd.w = wire;
             NetInfo *bound = ctx->getBoundWireNet(wire);
             if (bound != nullptr) {
-                pwd.bound_nets[bound->udata] = std::make_pair(1, bound->wires.at(wire).pip);
+                pwd.bound_nets[bound->udata] = std::make_pair(0, bound->wires.at(wire).pip);
                 if (bound->wires.at(wire).strength > STRENGTH_STRONG)
                     pwd.unavailable = true;
             }
@@ -216,6 +216,19 @@ struct Router2
 
             wire_to_idx[wire] = int(flat_wires.size());
             flat_wires.push_back(pwd);
+        }
+
+        for (auto net_pair : sorted(ctx->nets)) {
+            auto *net = net_pair.second;
+            auto &nd = nets.at(net->udata);
+            for (size_t usr = 0; usr < net->users.size(); usr++) {
+                auto &ad = nd.arcs.at(usr);
+                for (size_t phys_pin = 0; phys_pin < ad.size(); phys_pin++) {
+                    if (check_arc_routing(net, usr, phys_pin)) {
+                        record_prerouted_net(net, usr, phys_pin);
+                    }
+                }
+            }
         }
     }
 
@@ -391,6 +404,22 @@ struct Router2
             cursor = ctx->getPipSrcWire(uh);
         }
         return (cursor == src_wire);
+    }
+
+    void record_prerouted_net(NetInfo *net, size_t usr, size_t phys_pin)
+    {
+        auto &ad = nets.at(net->udata).arcs.at(usr).at(phys_pin);
+        ad.routed = true;
+
+        WireId src = nets.at(net->udata).src_wire;
+        WireId cursor = ad.sink_wire;
+        while (cursor != src) {
+            size_t wire_idx = wire_to_idx.at(cursor);
+            auto &wd = flat_wires.at(wire_idx);
+            PipId pip = wd.bound_nets.at(net->udata).second;
+            bind_pip_internal(net, usr, wire_idx, pip);
+            cursor = ctx->getPipSrcWire(pip);
+        }
     }
 
     // Returns true if a wire contains no source ports or driving pips
@@ -729,8 +758,10 @@ struct Router2
             for (size_t j = 0; j < ad.size(); j++) {
                 // Ripup failed arcs to start with
                 // Check if arc is already legally routed
-                if (check_arc_routing(net, i, j))
+                if (check_arc_routing(net, i, j)) {
+                    ROUTE_LOG_DBG("Arc '%s' (user %zu, arc %zu) already routed skipping.\n", ctx->nameOf(net), i, j);
                     continue;
+                }
                 auto &usr = net->users.at(i);
                 WireId dst_wire = ctx->getNetinfoSinkWire(net, usr, j);
                 // Case of arcs that were pre-routed strongly (e.g. clocks)
@@ -812,12 +843,22 @@ struct Router2
             return true;
         WireId dst = ctx->getNetinfoSinkWire(net, usr, phys_pin);
         // Skip routes where the destination is already bound
-        if (dst == WireId() || ctx->getBoundWireNet(dst) == net)
+        if (dst == WireId())
             return true;
+        if (ctx->getBoundWireNet(dst) == net) {
+            if (ctx->debug) {
+                log("Net %s already bound (because wire %s is part of net), not binding\n", ctx->nameOf(net),
+                    ctx->nameOfWire(dst));
+            }
+            return true;
+        }
         // Skip routes where there is no routing (special cases)
         if (!ad.routed) {
             if ((src == dst) && ctx->getBoundWireNet(dst) != net)
                 ctx->bindWire(src, net, STRENGTH_WEAK);
+            if (ctx->debug) {
+                log("Net %s not routed, not binding\n", ctx->nameOf(net));
+            }
             return true;
         }
 
@@ -875,11 +916,20 @@ struct Router2
             // Ripup wires and pips used by the net in nextpnr's structures
             net_wires.clear();
             for (auto &w : net->wires) {
-                if (w.second.strength <= STRENGTH_STRONG)
+                if (w.second.strength <= STRENGTH_STRONG) {
                     net_wires.push_back(w.first);
+                } else if (ctx->debug) {
+                    log("Net %s didn't rip up wire %s because strength was %d\n", ctx->nameOf(net),
+                        ctx->nameOfWire(w.first), w.second.strength);
+                }
             }
             for (auto w : net_wires)
                 ctx->unbindWire(w);
+
+            if (ctx->debug) {
+                log("Ripped up %zu wires on net %s\n", net_wires.size(), ctx->nameOf(net));
+            }
+
             // Bind the arcs using the routes we have discovered
             for (size_t i = 0; i < net->users.size(); i++) {
                 for (size_t phys_pin = 0; phys_pin < nets.at(net->udata).arcs.at(i).size(); phys_pin++) {
