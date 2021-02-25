@@ -52,8 +52,6 @@ template <typename CoordinateT, typename ElementT> class QuadTreeNode
 
         BoundingBox() : x0_(pinf), y0_(pinf), x1_(ninf), y1_(ninf) {}
 
-        BoundingBox(const BoundingBox &other) : x0_(other.x0_), y0_(other.y0_), x1_(other.x1_), y1_(other.y1_) {}
-
         // Whether a bounding box contains a given points.
         // A point is defined to be in a bounding box when it's not lesser than
         // the lower coordinate or greater than the higher coordinate, eg:

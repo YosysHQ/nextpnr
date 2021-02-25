@@ -1018,7 +1018,7 @@ size_t ModuleReader::translate_port_index(LogicalNetlist::Netlist::PortInstance:
         NPNR_ASSERT(port.isBus());
         uint32_t idx = port_inst.getBusIdx().getIdx();
         size_t width = get_port_width(port);
-        NPNR_ASSERT(idx >= 0 && idx < width);
+        NPNR_ASSERT(idx < width);
         return width - 1 - idx;
     }
 }

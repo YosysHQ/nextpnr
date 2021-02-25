@@ -77,7 +77,7 @@ bool Arch::apply_lpf(std::string filename, std::istream &in)
                 std::string tmp;
                 while (ss >> tmp)
                     words.push_back(tmp);
-                if (words.size() >= 0) {
+                if (words.size() > 0) {
                     std::string verb = words.at(0);
                     if (verb == "BLOCK") {
                         if (words.size() != 2 || (words.at(1) != "ASYNCPATHS" && words.at(1) != "RESETPATHS"))

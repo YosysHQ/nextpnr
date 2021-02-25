@@ -61,10 +61,10 @@ std::unique_ptr<Context> GowinCommandHandler::createContext(std::unordered_map<s
         log_error("Invalid device %s\n", device.c_str());
     }
     ArchArgs chipArgs;
-    char buf[32];
-    snprintf(buf, 32, "GW1N%s-%s", match[1].str().c_str(), match[3].str().c_str());
+    char buf[36];
+    snprintf(buf, 36, "GW1N%s-%s", match[1].str().c_str(), match[3].str().c_str());
     chipArgs.device = buf;
-    snprintf(buf, 32, "GW1N-%s", match[3].str().c_str());
+    snprintf(buf, 36, "GW1N-%s", match[3].str().c_str());
     chipArgs.family = buf;
     chipArgs.package = match[4];
     chipArgs.speed = match[5];

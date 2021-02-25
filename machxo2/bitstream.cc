@@ -114,20 +114,6 @@ static std::vector<bool> int_to_bitvector(int val, int size)
     return bv;
 }
 
-static std::vector<bool> str_to_bitvector(std::string str, int size)
-{
-    std::vector<bool> bv;
-    bv.resize(size, 0);
-    if (str.substr(0, 2) != "0b")
-        log_error("error parsing value '%s', expected 0b prefix\n", str.c_str());
-    for (int i = 0; i < int(str.size()) - 2; i++) {
-        char c = str.at((str.size() - i) - 1);
-        NPNR_ASSERT(c == '0' || c == '1');
-        bv.at(i) = (c == '1');
-    }
-    return bv;
-}
-
 std::string intstr_or_default(const std::unordered_map<IdString, Property> &ct, const IdString &key,
                               std::string def = "0")
 {

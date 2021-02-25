@@ -613,20 +613,20 @@ Arch::Arch(ArchArgs args) : args(args)
             // fall through the ++
             case ID_LUT7:
                 z++;
-                dff = false;
+                dff = false; /* fall-through*/
             case ID_LUT6:
                 z++;
-                dff = false;
+                dff = false; /* fall-through*/
             case ID_LUT5:
-                z++;
+                z++; /* fall-through*/
             case ID_LUT4:
-                z++;
+                z++; /* fall-through*/
             case ID_LUT3:
-                z++;
+                z++; /* fall-through*/
             case ID_LUT2:
-                z++;
+                z++; /* fall-through*/
             case ID_LUT1:
-                z++;
+                z++; /* fall-through*/
             case ID_LUT0:
                 // common LUT+DFF code
                 snprintf(buf, 32, "R%dC%d_SLICE%d", row + 1, col + 1, z);
@@ -654,23 +654,23 @@ Arch::Arch(ArchArgs args) : args(args)
                 }
                 break;
             case ID_IOBJ:
-                z++;
+                z++; /* fall-through*/
             case ID_IOBI:
-                z++;
+                z++; /* fall-through*/
             case ID_IOBH:
-                z++;
+                z++; /* fall-through*/
             case ID_IOBG:
-                z++;
+                z++; /* fall-through*/
             case ID_IOBF:
-                z++;
+                z++; /* fall-through*/
             case ID_IOBE:
-                z++;
+                z++; /* fall-through*/
             case ID_IOBD:
-                z++;
+                z++; /* fall-through*/
             case ID_IOBC:
-                z++;
+                z++; /* fall-through*/
             case ID_IOBB:
-                z++;
+                z++; /* fall-through*/
             case ID_IOBA:
                 snprintf(buf, 32, "R%dC%d_IOB%c", row + 1, col + 1, 'A' + z);
                 belname = id(buf);
