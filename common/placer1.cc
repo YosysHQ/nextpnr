@@ -518,6 +518,13 @@ class SAPlacer
             old_dist += get_constraints_distance(ctx, other_cell);
         double delta = 0;
 
+        if (!ctx->isValidBelForCellType(cell->type, newBel)) {
+            return false;
+        }
+        if (other_cell != nullptr && !ctx->isValidBelForCellType(other_cell->type, oldBel)) {
+            return false;
+        }
+
         int net_delta_score = 0;
         if (cfg.netShareWeight > 0)
             net_delta_score += update_nets_by_tile(cell, ctx->getBelLocation(cell->bel), ctx->getBelLocation(newBel));
@@ -655,6 +662,11 @@ class SAPlacer
             if (bound != nullptr && !cells.count(bound->name) &&
                 (bound->belStrength >= STRENGTH_STRONG || bound->isConstrained(false)))
                 return false;
+
+            if (bound != nullptr)
+                if (!ctx->isValidBelForCellType(bound->type, cr.first->bel))
+                    return false;
+
             dest_bels.emplace_back(std::make_pair(cr.first, targetBel));
         }
 #if 0
