@@ -218,7 +218,7 @@ template <typename ElementT> class ElementList : public Item
                 name.remove(0, prefix.size());
 
             auto item = new IdStringItem(ctx_, idstring, this, child_type_);
-            managed_[idstring] = std::move(std::unique_ptr<Item>(item));
+            managed_[idstring] = std::unique_ptr<Item>(item);
         }
     }
 
@@ -306,7 +306,7 @@ template <typename ElementT> class ElementXYRoot : public Item
 
             // Create X list Item.
             auto item = new Item(QString("X%1").arg(i), this);
-            managed_labels_.push_back(std::move(std::unique_ptr<Item>(item)));
+            managed_labels_.push_back(std::unique_ptr<Item>(item));
 
             for (auto j : y_present) {
                 // Create Y list ElementList.
@@ -314,7 +314,7 @@ template <typename ElementT> class ElementXYRoot : public Item
                         new ElementList<ElementT>(ctx_, QString("Y%1").arg(j), item, &map_, i, j, getter_, child_type_);
                 // Pre-populate list with one element, other Qt will never ask for more.
                 item2->fetchMore(1);
-                managed_lists_.push_back(std::move(std::unique_ptr<ElementList<ElementT>>(item2)));
+                managed_lists_.push_back(std::unique_ptr<ElementList<ElementT>>(item2));
             }
         }
     }

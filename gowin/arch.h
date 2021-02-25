@@ -348,9 +348,9 @@ struct Arch : BaseArch<ArchRanges>
 
     int getGridDimX() const override { return gridDimX; }
     int getGridDimY() const override { return gridDimY; }
-    int getTileBelDimZ(int x, int y) const { return tileBelDimZ[x][y]; }
-    int getTilePipDimZ(int x, int y) const { return tilePipDimZ[x][y]; }
-    char getNameDelimiter() const
+    int getTileBelDimZ(int x, int y) const override { return tileBelDimZ[x][y]; }
+    int getTilePipDimZ(int x, int y) const override { return tilePipDimZ[x][y]; }
+    char getNameDelimiter() const override
     {
         return ' '; /* use a non-existent delimiter as we aren't using IdStringLists yet */
     }
@@ -431,13 +431,13 @@ struct Arch : BaseArch<ArchRanges>
     bool place() override;
     bool route() override;
 
-    bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const;
+    bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const override;
     // Get the port class, also setting clockInfoCount to the number of TimingClockingInfos associated with a port
-    TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const;
+    TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const override;
     // Get the TimingClockingInfo of a port
-    TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const;
+    TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const override;
 
-    bool isBelLocationValid(BelId bel) const;
+    bool isBelLocationValid(BelId bel) const override;
 
     static const std::string defaultPlacer;
     static const std::vector<std::string> availablePlacers;
@@ -446,7 +446,7 @@ struct Arch : BaseArch<ArchRanges>
 
     // ---------------------------------------------------------------
     // Internal usage
-    void assignArchInfo();
+    void assignArchInfo() override;
     bool cellsCompatible(const CellInfo **cells, int count) const;
 
     std::vector<IdString> cell_types;

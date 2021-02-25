@@ -202,6 +202,8 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
             }
         }
 
+        PickedElement &operator=(const PickedElement &other) = default;
+
         DecalXY decal(Context *ctx) const
         {
             DecalXY decal;

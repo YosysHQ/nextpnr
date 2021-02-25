@@ -1211,7 +1211,7 @@ Router2Cfg::Router2Cfg(Context *ctx)
     hist_cong_weight = ctx->setting<float>("router2/histCongWeight", 1.0f);
     curr_cong_mult = ctx->setting<float>("router2/currCongWeightMult", 2.0f);
     estimate_weight = ctx->setting<float>("router2/estimateWeight", 1.75f);
-    perf_profile = ctx->setting<float>("router2/perfProfile", false);
+    perf_profile = ctx->setting<bool>("router2/perfProfile", false);
 }
 
 NEXTPNR_NAMESPACE_END

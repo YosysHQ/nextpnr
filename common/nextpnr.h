@@ -99,7 +99,7 @@ inline void assert_fail_impl_str(std::string message, const char *expr_str, cons
 #define NPNR_ASSERT_FALSE(msg) (assert_fail_impl(msg, "false", __FILE__, __LINE__))
 #define NPNR_ASSERT_FALSE_STR(msg) (assert_fail_impl_str(msg, "false", __FILE__, __LINE__))
 
-#define STRINGIFY(x) #x
+#define NPNR_STRINGIFY(x) #x
 
 struct BaseCtx;
 struct Context;
@@ -541,7 +541,7 @@ struct Property
         ret.is_string = false;
         ret.str.reserve(len);
         for (int i = offset; i < offset + len; i++)
-            ret.str.push_back(i < int(str.size()) ? str[i] : padding);
+            ret.str.push_back(i < int(str.size()) ? str[i] : char(padding));
         ret.update_intval();
         return ret;
     }
@@ -1255,7 +1255,7 @@ template <typename R> struct BaseArch : ArchAPI<R>
     // Default, trivial, implementations of Arch API functions for arches that don't need complex behaviours
 
     // Basic config
-    virtual IdString archId() const override { return this->id(STRINGIFY(ARCHNAME)); }
+    virtual IdString archId() const override { return this->id(NPNR_STRINGIFY(ARCHNAME)); }
     virtual IdString archArgsToId(typename R::ArchArgsT args) const override { return IdString(); }
     virtual int getTilePipDimZ(int x, int y) const override { return 1; }
     virtual char getNameDelimiter() const override { return ' '; }

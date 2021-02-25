@@ -153,6 +153,7 @@ std::string Arch::get_full_chip_name() const
         break;
     case ArchArgs::SPEED_3:
         name += "3";
+        break;
     case ArchArgs::SPEED_4:
         name += "4";
         break;

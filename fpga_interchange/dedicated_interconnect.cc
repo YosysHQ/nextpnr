@@ -441,7 +441,7 @@ void DedicatedInterconnect::find_dedicated_interconnect()
             continue;
         }
 
-        for (size_t i = 0; i < bel_data.num_bel_wires; ++i) {
+        for (int i = 0; i < bel_data.num_bel_wires; ++i) {
             if (bel_data.types[i] != PORT_IN) {
                 continue;
             }
@@ -470,7 +470,7 @@ void DedicatedInterconnect::find_dedicated_interconnect()
             continue;
         }
 
-        for (size_t i = 0; i < bel_data.num_bel_wires; ++i) {
+        for (int i = 0; i < bel_data.num_bel_wires; ++i) {
             if (bel_data.types[i] != PORT_OUT) {
                 continue;
             }
