@@ -62,6 +62,10 @@ static PhysicalNetlist::PhysNetlist::RouteBranch::Builder emit_branch(
         const std::unordered_map<PipId, PlaceStrength> &pip_place_strength,
         PipId pip,
         PhysicalNetlist::PhysNetlist::RouteBranch::Builder branch) {
+    if(ctx->is_pip_synthetic(pip)) {
+        log_error("FPGA interchange should not emit synthetic pip %s\n", ctx->nameOfPip(pip));
+    }
+
     const PipInfoPOD & pip_data = pip_info(ctx->chip_info, pip);
     const TileTypeInfoPOD & tile_type = loc_info(ctx->chip_info, pip);
     const TileInstInfoPOD & tile = ctx->chip_info->tiles[pip.tile];
@@ -107,20 +111,37 @@ static PhysicalNetlist::PhysNetlist::RouteBranch::Builder emit_branch(
         if(bel_data.category == BEL_CATEGORY_LOGIC) {
             // This is a psuedo site-pip.
             auto in_bel_pin = branch.getRouteSegment().initBelPin();
-            IdString src_wire_name = IdString(tile_type.wire_data[pip_data.src_index].name);
-            IdString dst_wire_name = IdString(tile_type.wire_data[pip_data.dst_index].name);
+            WireId src_wire = ctx->getPipSrcWire(pip);
+            WireId dst_wire = ctx->getPipDstWire(pip);
+
+            IdString src_pin;
+            IdString dst_pin;
+            for(IdString pin : ctx->getBelPins(bel)) {
+                if(ctx->getBelPinWire(bel, pin) == src_wire) {
+                    NPNR_ASSERT(src_pin == IdString());
+                    src_pin = pin;
+                }
+
+                if(ctx->getBelPinWire(bel, pin) == dst_wire) {
+                    NPNR_ASSERT(dst_pin == IdString());
+                    dst_pin = pin;
+                }
+            }
+
+            NPNR_ASSERT(src_pin != IdString());
+            NPNR_ASSERT(dst_pin != IdString());
 
             int bel_idx = strings->get_index(bel_name[1].str(ctx));
             in_bel_pin.setSite(site_idx);
             in_bel_pin.setBel(bel_idx);
-            in_bel_pin.setPin(strings->get_index(src_wire_name.str(ctx)));
+            in_bel_pin.setPin(strings->get_index(src_pin.str(ctx)));
 
             auto subbranch = branch.initBranches(1);
             auto bel_pin_branch = subbranch[0];
             auto out_bel_pin = bel_pin_branch.getRouteSegment().initBelPin();
             out_bel_pin.setSite(site_idx);
             out_bel_pin.setBel(bel_idx);
-            out_bel_pin.setPin(strings->get_index(dst_wire_name.str(ctx)));
+            out_bel_pin.setPin(strings->get_index(dst_pin.str(ctx)));
 
             return bel_pin_branch;
         } else if(bel_data.category == BEL_CATEGORY_ROUTING) {
@@ -185,6 +206,11 @@ static void init_bel_pin(
         StringEnumerator * strings,
         const BelPin &bel_pin,
         PhysicalNetlist::PhysNetlist::RouteBranch::Builder branch) {
+    if(ctx->is_bel_synthetic(bel_pin.bel)) {
+        log_error("FPGA interchange should not emit synthetic BEL pin %s/%s\n",
+                ctx->nameOfBel(bel_pin.bel), bel_pin.pin.c_str(ctx));
+    }
+
     BelId bel = bel_pin.bel;
     IdString pin_name = bel_pin.pin;
 
@@ -248,6 +274,37 @@ static void emit_net(
         }
     }
 }
+static void find_non_synthetic_edges(const Context * ctx, WireId root_wire,
+        const std::unordered_map<WireId, std::vector<PipId>> &pip_downhill,
+        std::vector<PipId> *root_pips) {
+    std::vector<WireId> wires_to_expand;
+
+    wires_to_expand.push_back(root_wire);
+    while(!wires_to_expand.empty()) {
+        WireId wire = wires_to_expand.back();
+        wires_to_expand.pop_back();
+
+        auto downhill_iter = pip_downhill.find(wire);
+        if(downhill_iter == pip_downhill.end()) {
+            if(root_wire != wire) {
+                log_warning("Wire %s never entered the real fabric?\n",
+                        ctx->nameOfWire(wire));
+            }
+            continue;
+        }
+
+        for(PipId pip : pip_downhill.at(wire)) {
+            if(!ctx->is_pip_synthetic(pip)) {
+                // Stop following edges that are non-synthetic, they will be
+                // followed during emit_net
+                root_pips->push_back(pip);
+            } else {
+                // Continue to follow synthetic edges.
+                wires_to_expand.push_back(ctx->getPipDstWire(pip));
+            }
+        }
+    }
+}
 
 void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::string &filename) {
     ::capnp::MallocMessageBuilder message;
@@ -272,10 +329,15 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
     size_t number_placements = 0;
     for(auto & cell_name : placed_cells) {
         const CellInfo & cell = *ctx->cells.at(cell_name);
-        if(!ctx->io_port_types.count(cell.type)) {
-            number_placements += 1;
+
+        if(ctx->is_bel_synthetic(cell.bel)) {
+            continue;
         }
+
+        number_placements += 1;
     }
+
+    std::vector<IdString> ports;
 
     std::unordered_map<std::string, std::string> sites;
     auto placements = phys_netlist.initPlacements(number_placements);
@@ -283,7 +345,7 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
 
     for(auto & cell_name : placed_cells) {
         const CellInfo & cell = *ctx->cells.at(cell_name);
-        if(ctx->io_port_types.count(cell.type)) {
+        if(ctx->is_bel_synthetic(cell.bel)) {
             continue;
         }
 
@@ -304,7 +366,13 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
         auto placement = *placement_iter++;
 
         placement.setCellName(strings.get_index(cell.name.str(ctx)));
-        placement.setType(strings.get_index(cell.type.str(ctx)));
+        if(ctx->io_port_types.count(cell.type)) {
+            // Always mark IO ports as type <PORT>.
+            placement.setType(strings.get_index("<PORT>"));
+            ports.push_back(cell.name);
+        } else {
+            placement.setType(strings.get_index(cell.type.str(ctx)));
+        }
         placement.setSite(strings.get_index(site_name));
 
         size_t bel_index = strings.get_index(bel_name[1].str(ctx));
@@ -312,25 +380,43 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
         placement.setIsBelFixed(cell.belStrength >= STRENGTH_FIXED);
         placement.setIsSiteFixed(cell.belStrength >= STRENGTH_FIXED);
 
-        size_t pin_count = 0;
-        for(const auto & pin : cell.cell_bel_pins) {
-            pin_count += pin.second.size();
-        }
+        if(!ctx->io_port_types.count(cell.type)) {
+            // Don't emit pin map for ports.
+            size_t pin_count = 0;
+            for(const auto & pin : cell.cell_bel_pins) {
+                if(cell.const_ports.count(pin.first)) {
+                    continue;
+                }
+                pin_count += pin.second.size();
+            }
 
-        auto pins = placement.initPinMap(pin_count);
-        auto pin_iter = pins.begin();
+            auto pins = placement.initPinMap(pin_count);
+            auto pin_iter = pins.begin();
 
-        for(const auto & cell_to_bel_pins : cell.cell_bel_pins) {
-            std::string cell_pin = cell_to_bel_pins.first.str(ctx);
-            size_t cell_pin_index = strings.get_index(cell_pin);
+            for(const auto & cell_to_bel_pins : cell.cell_bel_pins) {
+                if(cell.const_ports.count(cell_to_bel_pins.first)) {
+                    continue;
+                }
 
-            for(const auto & bel_pin : cell_to_bel_pins.second) {
-                auto pin_output = *pin_iter++;
-                pin_output.setCellPin(cell_pin_index);
-                pin_output.setBel(bel_index);
-                pin_output.setBelPin(strings.get_index(bel_pin.str(ctx)));
+                std::string cell_pin = cell_to_bel_pins.first.str(ctx);
+                size_t cell_pin_index = strings.get_index(cell_pin);
+
+                for(const auto & bel_pin : cell_to_bel_pins.second) {
+                    auto pin_output = *pin_iter++;
+                    pin_output.setCellPin(cell_pin_index);
+                    pin_output.setBel(bel_index);
+                    pin_output.setBelPin(strings.get_index(bel_pin.str(ctx)));
+                }
             }
         }
+    }
+
+    auto phys_cells = phys_netlist.initPhysCells(ports.size());
+    auto phys_cells_iter = phys_cells.begin();
+    for(IdString port : ports) {
+        auto phys_cell = *phys_cells_iter++;
+        phys_cell.setCellName(strings.get_index(port.str(ctx)));
+        phys_cell.setPhysType(PhysicalNetlist::PhysNetlist::PhysCellType::PORT);
     }
 
     auto nets = phys_netlist.initPhysNets(ctx->nets.size());
@@ -339,16 +425,27 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
         auto &net = *net_pair.second;
         auto net_out = *net_iter++;
 
-        net_out.setName(strings.get_index(net.name.str(ctx)));
+        const CellInfo *driver_cell = net.driver.cell;
 
-        // FIXME: Mark net as signal/vcc/gnd.
-        //
-        // Also vcc/gnd nets needs to get special handling through inverters.
+        // Handle GND and VCC nets.
+        if(driver_cell->bel == ctx->get_gnd_bel()) {
+            IdString gnd_net_name(ctx->chip_info->constants->gnd_net_name);
+            net_out.setName(strings.get_index(gnd_net_name.str(ctx)));
+            net_out.setType(PhysicalNetlist::PhysNetlist::NetType::GND);
+        } else if(driver_cell->bel == ctx->get_vcc_bel()) {
+            IdString vcc_net_name(ctx->chip_info->constants->vcc_net_name);
+            net_out.setName(strings.get_index(vcc_net_name.str(ctx)));
+            net_out.setType(PhysicalNetlist::PhysNetlist::NetType::VCC);
+        } else {
+            net_out.setName(strings.get_index(net.name.str(ctx)));
+        }
+
+        // FIXME: Also vcc/gnd nets needs to get special handling through
+        // inverters.
         std::unordered_map<WireId, BelPin> root_wires;
         std::unordered_map<WireId, std::vector<PipId>> pip_downhill;
         std::unordered_set<PipId> pips;
 
-        const CellInfo *driver_cell = net.driver.cell;
         if (driver_cell != nullptr && driver_cell->bel != BelId()) {
             for(IdString bel_pin_name : driver_cell->cell_bel_pins.at(net.driver.port)) {
                 BelPin driver_bel_pin;
@@ -397,7 +494,27 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
             }
         }
 
-        auto sources = net_out.initSources(root_wires.size());
+        std::vector<PipId> root_pips;
+        std::vector<WireId> roots_to_remove;
+
+        for(const auto & root_pair : root_wires) {
+            WireId root_wire = root_pair.first;
+            BelPin src_bel_pin = root_pair.second;
+
+            if(!ctx->is_bel_synthetic(src_bel_pin.bel)) {
+                continue;
+            }
+
+            roots_to_remove.push_back(root_wire);
+            find_non_synthetic_edges(ctx, root_wire, pip_downhill, &root_pips);
+        }
+
+        // Remove wires that have a synthetic root.
+        for(WireId wire : roots_to_remove) {
+            NPNR_ASSERT(root_wires.erase(wire) == 1);
+        }
+
+        auto sources = net_out.initSources(root_wires.size() + root_pips.size());
         auto source_iter = sources.begin();
 
         for(const auto & root_pair : root_wires) {
@@ -410,11 +527,30 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
             emit_net(ctx, &strings, pip_downhill, sinks, &pips, pip_place_strength, root_wire, source_branch);
         }
 
+        for(const PipId root : root_pips) {
+            PhysicalNetlist::PhysNetlist::RouteBranch::Builder source_branch = *source_iter++;
+
+            NPNR_ASSERT(pips.erase(root) == 1);
+            WireId root_wire = ctx->getPipDstWire(root);
+            source_branch = emit_branch(ctx, &strings, pip_place_strength, root, source_branch);
+            emit_net(ctx, &strings, pip_downhill, sinks, &pips, pip_place_strength, root_wire, source_branch);
+        }
+
         // Any pips that were not part of a tree starting from the source are
         // stubs.
-        auto stubs = net_out.initStubs(pips.size());
+        size_t real_pips = 0;
+        for(PipId pip : pips) {
+            if(ctx->is_pip_synthetic(pip)) {
+                continue;
+            }
+            real_pips += 1;
+        }
+        auto stubs = net_out.initStubs(real_pips);
         auto stub_iter = stubs.begin();
         for(PipId pip : pips) {
+            if(ctx->is_pip_synthetic(pip)) {
+                continue;
+            }
             emit_branch(ctx, &strings, pip_place_strength, pip, *stub_iter++);
         }
     }
@@ -495,6 +631,8 @@ struct ModuleReader {
 
     ModuleReader(const LogicalNetlistImpl *root,
             LogicalNetlist::Netlist::CellInstance::Reader cell_inst, bool is_top);
+
+    size_t translate_port_index(LogicalNetlist::Netlist::PortInstance::Reader port_inst) const;
 };
 
 struct PortReader {
@@ -731,8 +869,8 @@ struct LogicalNetlistImpl
 
     bool is_vector_bit_constant(const std::vector<int32_t> &bits, int i) const
     {
-        // FIXME: Check if this is right.  Assumption is that cells have been
-        // emitted for GND and VCC, e.g. VCC vcc(.P(vcc_net)).
+        // Note: This appears weird, but is correct.  This is because VCC/GND
+        // nets are not handled in frontend_base for FPGA interchange.
         return false;
     }
 
@@ -810,11 +948,8 @@ ModuleReader::ModuleReader(const LogicalNetlistImpl *root,
             PortKey port_key(inst_idx, port_inst.getPort());
             std::vector<int32_t> & port_connections = connections.at(port_key);
 
-            if(port_inst.getBusIdx().isSingleBit()) {
-                port_connections[0] = net_idx;
-            } else {
-                port_connections.at(port_inst.getBusIdx().getIdx()) = net_idx;
-            }
+            size_t port_idx = translate_port_index(port_inst);
+            port_connections.at(port_idx) = net_idx;
         }
     }
 
@@ -872,6 +1007,20 @@ void FpgaInterchange::read_logical_netlist(Context * ctx, const std::string &fil
     LogicalNetlistImpl netlist_reader(netlist);
 
     GenericFrontend<LogicalNetlistImpl>(ctx, netlist_reader, /*split_io=*/false)();
+}
+
+size_t ModuleReader::translate_port_index(LogicalNetlist::Netlist::PortInstance::Reader port_inst) const {
+    LogicalNetlist::Netlist::Port::Reader port = root->root.getPortList()[port_inst.getPort()];
+    if(port_inst.getBusIdx().isSingleBit()) {
+        NPNR_ASSERT(port.isBit());
+        return 0;
+    } else {
+        NPNR_ASSERT(port.isBus());
+        uint32_t idx = port_inst.getBusIdx().getIdx();
+        size_t width = get_port_width(port);
+        NPNR_ASSERT(idx >= 0 && idx < width);
+        return width - 1 - idx;
+    }
 }
 
 NEXTPNR_NAMESPACE_END

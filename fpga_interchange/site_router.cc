@@ -22,9 +22,9 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-bool verbose_site_router(const Context *ctx) { return ctx->verbose; }
+bool verbose_site_router(const Context *ctx) { return ctx->debug; }
 
-void Arch::SiteRouter::bindBel(CellInfo *cell)
+void SiteRouter::bindBel(CellInfo *cell)
 {
     auto result = cells_in_site.emplace(cell);
     NPNR_ASSERT(result.second);
@@ -32,7 +32,7 @@ void Arch::SiteRouter::bindBel(CellInfo *cell)
     dirty = true;
 }
 
-void Arch::SiteRouter::unbindBel(CellInfo *cell)
+void SiteRouter::unbindBel(CellInfo *cell)
 {
     NPNR_ASSERT(cells_in_site.erase(cell) == 1);
 
@@ -56,6 +56,22 @@ struct RouteNode
 
     PipId pip;   // What pip was taken to reach this node.
     WireId wire; // What wire is this routing node located at?
+
+    void print_route(const Context *ctx) const
+    {
+        log_info(" %s (via %s)\n", ctx->nameOfWire(wire), ctx->nameOfPip(pip));
+
+        Node node = parent;
+        while (node != RouteNode::Node()) {
+            if (node->pip != PipId()) {
+                log_info(" %s (via %s)\n", ctx->nameOfWire(node->wire), ctx->nameOfPip(node->pip));
+            } else {
+                log_info(" %s\n", ctx->nameOfWire(node->wire));
+            }
+
+            node = node->parent;
+        }
+    }
 };
 
 struct RouteNodeStorage
@@ -260,6 +276,11 @@ struct SiteInformation
             if (!result.second && result.first->second != net) {
                 // Conflict, this wire is already in use and it's not
                 // doesn't match!
+                if (verbose_site_router(ctx)) {
+                    log_info("Cannot select route because net %s != net %s\n", result.first->second->name.c_str(ctx),
+                             net->name.c_str(ctx));
+                }
+
                 return false;
             }
 
@@ -303,6 +324,8 @@ struct SiteInformation
     std::unordered_set<const NetInfo *> nets_fully_within_site;
 
     bool is_net_within_site(const NetInfo *net) const { return nets_fully_within_site.count(net); }
+
+    void print_current_state() const;
 };
 
 struct SiteExpansionLoop
@@ -599,6 +622,10 @@ bool route_site(const Context *ctx, SiteInformation *site_info)
 
         std::unordered_map<WireId, std::unordered_set<const NetInfo *>> wire_congestion;
 
+        for (auto &consumed_wire : site_info->consumed_wires) {
+            wire_congestion[consumed_wire.first].emplace(consumed_wire.second);
+        }
+
         for (auto &expansion_wire : wire_to_expansion) {
             auto &expansion = *expansion_wire.second;
 
@@ -636,8 +663,15 @@ bool route_site(const Context *ctx, SiteInformation *site_info)
 
             if (uncongestion_route != RouteNode::Node()) {
                 // Select a trivially uncongested route if possible.
-                NPNR_ASSERT(site_info->select_route(expansion.first_wire, uncongestion_route, expansion.net_for_wire,
-                                                    &newly_consumed_wires));
+                if (!site_info->select_route(expansion.first_wire, uncongestion_route, expansion.net_for_wire,
+                                             &newly_consumed_wires)) {
+                    log_info("Failed to bind uncongested path with wire %s on net %s\n",
+                             ctx->nameOfWire(expansion.first_wire), expansion.net_for_wire->name.c_str(ctx));
+                    uncongestion_route->print_route(ctx);
+
+                    site_info->print_current_state();
+                    NPNR_ASSERT(false);
+                }
                 completed_wires.push_back(expansion.first_wire);
             }
         }
@@ -670,7 +704,7 @@ bool route_site(const Context *ctx, SiteInformation *site_info)
     return true;
 }
 
-bool Arch::SiteRouter::checkSiteRouting(const Context *ctx, const Arch::TileStatus &tile_status) const
+bool SiteRouter::checkSiteRouting(const Context *ctx, const TileStatus &tile_status) const
 {
     if (!dirty) {
         return site_ok;
@@ -745,6 +779,44 @@ bool Arch::SiteRouter::checkSiteRouting(const Context *ctx, const Arch::TileStat
     }
 
     return site_ok;
+}
+
+void SiteInformation::print_current_state() const
+{
+    const CellInfo *cell = *cells_in_site.begin();
+    BelId bel = cell->bel;
+    const auto &bel_data = bel_info(ctx->chip_info, bel);
+    const auto &site_inst = site_inst_info(ctx->chip_info, bel.tile, bel_data.site);
+
+    log_info("Site %s\n", site_inst.name.get());
+
+    log_info(" Cells in site:\n");
+    for (CellInfo *cell : cells_in_site) {
+        log_info("  - %s (%s)\n", cell->name.c_str(ctx), cell->type.c_str(ctx));
+    }
+
+    log_info(" Nets in site:\n");
+    for (auto *net : nets_in_site) {
+        log_info("  - %s, pins in site:\n", net->name.c_str(ctx));
+        if (net->driver.cell && cells_in_site.count(net->driver.cell)) {
+            log_info("    - %s/%s (%s)\n", net->driver.cell->name.c_str(ctx), net->driver.port.c_str(ctx),
+                     net->driver.cell->type.c_str(ctx));
+        }
+
+        for (const auto user : net->users) {
+            if (user.cell && cells_in_site.count(user.cell)) {
+                log_info("    - %s/%s (%s)\n", user.cell->name.c_str(ctx), user.port.c_str(ctx),
+                         user.cell->type.c_str(ctx));
+            }
+        }
+    }
+
+    log_info(" Consumed wires:\n");
+    for (auto consumed_wire : consumed_wires) {
+        WireId wire = consumed_wire.first;
+        const NetInfo *net = consumed_wire.second;
+        log_info("  - %s is bound to %s\n", ctx->nameOfWire(wire), net->name.c_str(ctx));
+    }
 }
 
 NEXTPNR_NAMESPACE_END

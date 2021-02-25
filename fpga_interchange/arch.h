@@ -29,6 +29,8 @@
 #include <iostream>
 
 #include "constraints.h"
+#include "dedicated_interconnect.h"
+#include "site_router.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -67,7 +69,7 @@ NPNR_PACKED_STRUCT(struct BelInfoPOD {
     int16_t site;
     int16_t site_variant; // some sites have alternative types
     int16_t category;
-    int16_t padding;
+    int16_t synthetic;
 
     RelPtr<int32_t> pin_map; // Index into CellMapPOD::cell_bel_map
 });
@@ -120,8 +122,6 @@ NPNR_PACKED_STRUCT(struct ConstraintTagPOD {
 NPNR_PACKED_STRUCT(struct TileTypeInfoPOD {
     int32_t name; // Tile type constid
 
-    int32_t number_sites;
-
     RelSlice<BelInfoPOD> bel_data;
 
     RelSlice<TileWireInfoPOD> wire_data;
@@ -129,6 +129,8 @@ NPNR_PACKED_STRUCT(struct TileTypeInfoPOD {
     RelSlice<PipInfoPOD> pip_data;
 
     RelSlice<ConstraintTagPOD> tags;
+
+    RelSlice<int32_t> site_types; // constid
 });
 
 NPNR_PACKED_STRUCT(struct SiteInstInfoPOD {
@@ -147,7 +149,7 @@ NPNR_PACKED_STRUCT(struct TileInstInfoPOD {
     // Index into root.tile_types.
     int32_t type;
 
-    // This array is root.tile_types[type].number_sites long.
+    // This array is root.tile_types[type].site_types.size() long.
     // Index into root.sites
     RelSlice<int32_t> sites;
 
@@ -207,6 +209,29 @@ NPNR_PACKED_STRUCT(struct PackagePOD {
     RelSlice<PackagePinPOD> pins;
 });
 
+NPNR_PACKED_STRUCT(struct ConstantsPOD {
+    // Cell type and port for the GND and VCC global source.
+    int32_t gnd_cell_name; // constid
+    int32_t gnd_cell_port; // constid
+
+    int32_t vcc_cell_name; // constid
+    int32_t vcc_cell_port; // constid
+
+    int32_t gnd_bel_tile;
+    int32_t gnd_bel_index;
+    int32_t gnd_bel_pin; // constid
+
+    int32_t vcc_bel_tile;
+    int32_t vcc_bel_index;
+    int32_t vcc_bel_pin; // constid
+
+    // Name to use for the global GND constant net
+    int32_t gnd_net_name; // constid
+
+    // Name to use for the global VCC constant net
+    int32_t vcc_net_name; // constid
+});
+
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelPtr<char> name;
     RelPtr<char> generator;
@@ -224,6 +249,7 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelSlice<int32_t> bel_buckets;
 
     RelPtr<CellMapPOD> cell_map;
+    RelPtr<ConstantsPOD> constants;
 
     // Constid string data.
     RelPtr<RelSlice<RelPtr<char>>> constids;
@@ -748,6 +774,15 @@ struct ArchRanges
     using BucketBelRangeT = FilteredBelRange;
 };
 
+static constexpr size_t kMaxState = 8;
+
+struct TileStatus
+{
+    std::vector<ExclusiveStateGroup<kMaxState>> tags;
+    std::vector<CellInfo *> boundcells;
+    std::vector<SiteRouter> sites;
+};
+
 struct Arch : ArchAPI<ArchRanges>
 {
     boost::iostreams::mapped_file_source blob_file;
@@ -759,38 +794,13 @@ struct Arch : ArchAPI<ArchRanges>
 
     std::unordered_map<WireId, NetInfo *> wire_to_net;
     std::unordered_map<PipId, NetInfo *> pip_to_net;
-    std::unordered_map<WireId, std::pair<int, int>> driving_pip_loc;
-    std::unordered_map<WireId, NetInfo *> reserved_wires;
 
-    static constexpr size_t kMaxState = 8;
-
-    struct TileStatus;
-    struct SiteRouter
-    {
-        SiteRouter(int16_t site) : site(site), dirty(false), site_ok(true) {}
-
-        std::unordered_set<CellInfo *> cells_in_site;
-        const int16_t site;
-
-        mutable bool dirty;
-        mutable bool site_ok;
-
-        void bindBel(CellInfo *cell);
-        void unbindBel(CellInfo *cell);
-        bool checkSiteRouting(const Context *ctx, const TileStatus &tile_status) const;
-    };
-
-    struct TileStatus
-    {
-        std::vector<ExclusiveStateGroup<kMaxState>> tags;
-        std::vector<CellInfo *> boundcells;
-        std::vector<SiteRouter> sites;
-    };
-
+    DedicatedInterconnect dedicated_interconnect;
     std::unordered_map<int32_t, TileStatus> tileStatus;
 
     ArchArgs args;
     Arch(ArchArgs args);
+    void init();
 
     std::string getChipName() const override;
 
@@ -822,7 +832,7 @@ struct Arch : ArchAPI<ArchRanges>
     }
     int getTilePipDimZ(int x, int y) const override
     {
-        return chip_info->tile_types[chip_info->tiles[get_tile_index(x, y)].type].number_sites;
+        return chip_info->tile_types[chip_info->tiles[get_tile_index(x, y)].type].site_types.size();
     }
     char getNameDelimiter() const override { return '/'; }
 
@@ -844,7 +854,7 @@ struct Arch : ArchAPI<ArchRanges>
 
     uint32_t getBelChecksum(BelId bel) const override { return bel.index; }
 
-    void map_cell_pins(CellInfo *cell, int32_t mapping) const;
+    void map_cell_pins(CellInfo *cell, int32_t mapping, bool bind_constants);
     void map_port_pins(BelId bel, CellInfo *cell) const;
 
     TileStatus &get_tile_status(int32_t tile)
@@ -855,8 +865,8 @@ struct Arch : ArchAPI<ArchRanges>
             result.first->second.boundcells.resize(tile_type.bel_data.size());
             result.first->second.tags.resize(default_tags.size());
 
-            result.first->second.sites.reserve(tile_type.number_sites);
-            for (size_t i = 0; i < (size_t)tile_type.number_sites; ++i) {
+            result.first->second.sites.reserve(tile_type.site_types.size());
+            for (size_t i = 0; i < tile_type.site_types.size(); ++i) {
                 result.first->second.sites.push_back(SiteRouter(i));
             }
         }
@@ -874,6 +884,24 @@ struct Arch : ArchAPI<ArchRanges>
         return tile_status.sites.at(bel_data.site);
     }
 
+    BelId get_vcc_bel() const
+    {
+        auto &constants = *chip_info->constants;
+        BelId bel;
+        bel.tile = constants.vcc_bel_tile;
+        bel.index = constants.vcc_bel_index;
+        return bel;
+    }
+
+    BelId get_gnd_bel() const
+    {
+        auto &constants = *chip_info->constants;
+        BelId bel;
+        bel.tile = constants.gnd_bel_tile;
+        bel.index = constants.gnd_bel_index;
+        return bel;
+    }
+
     void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength) override
     {
         NPNR_ASSERT(bel != BelId());
@@ -886,10 +914,13 @@ struct Arch : ArchAPI<ArchRanges>
 
         if (io_port_types.count(cell->type) == 0) {
             int32_t mapping = bel_info(chip_info, bel).pin_map[get_cell_type_index(cell->type)];
+            if (mapping < 0) {
+                report_invalid_bel(bel, cell);
+            }
             NPNR_ASSERT(mapping >= 0);
 
             if (cell->cell_mapping != mapping) {
-                map_cell_pins(cell, mapping);
+                map_cell_pins(cell, mapping, /*bind_constants=*/false);
             }
             constraints.bindBel(tile_status.tags.data(), get_cell_constraints(bel, cell->type));
         } else {
@@ -1033,10 +1064,7 @@ struct Arch : ArchAPI<ArchRanges>
         return str_range;
     }
 
-    const std::vector<IdString> &getBelPinsForCellPin(const CellInfo *cell_info, IdString pin) const override
-    {
-        return cell_info->cell_bel_pins.at(pin);
-    }
+    const std::vector<IdString> &getBelPinsForCellPin(const CellInfo *cell_info, IdString pin) const override;
 
     // -------------------------------------------------
 
@@ -1194,9 +1222,6 @@ struct Arch : ArchAPI<ArchRanges>
         NPNR_ASSERT(wire_to_net[dst] == nullptr || wire_to_net[dst] == net);
 
         pip_to_net[pip] = net;
-        std::pair<int, int> loc;
-        get_tile_x_y(pip.tile, &loc.first, &loc.second);
-        driving_pip_loc[dst] = loc;
 
         wire_to_net[dst] = net;
         net->wires[dst].pip = pip;
@@ -1467,6 +1492,10 @@ struct Arch : ArchAPI<ArchRanges>
         if (cell == nullptr) {
             return true;
         } else {
+            if (!dedicated_interconnect.isBelLocationValid(bel, cell)) {
+                return false;
+            }
+
             if (io_port_types.count(cell->type)) {
                 // FIXME: Probably need to actually constraint io port cell/bel,
                 // but the current BBA emission doesn't support that.  This only
@@ -1642,6 +1671,41 @@ struct Arch : ArchAPI<ArchRanges>
         auto &pip_data = pip_info(chip_info, pip);
         return site_inst_info(chip_info, pip.tile, pip_data.site);
     }
+
+    // Is this bel synthetic (e.g. added during import process)?
+    //
+    // This is generally used for constant networks, but can also be used for
+    // static partitions.
+    bool is_bel_synthetic(BelId bel) const
+    {
+        const BelInfoPOD &bel_data = bel_info(chip_info, bel);
+
+        return bel_data.synthetic != 0;
+    }
+
+    // Is this pip synthetic (e.g. added during import process)?
+    //
+    // This is generally used for constant networks, but can also be used for
+    // static partitions.
+    bool is_pip_synthetic(PipId pip) const
+    {
+        auto &pip_data = pip_info(chip_info, pip);
+        if (pip_data.site == -1) {
+            return pip_data.extra_data == -1;
+        } else {
+            BelId bel;
+            bel.tile = pip.tile;
+            bel.index = pip_data.bel;
+            return is_bel_synthetic(bel);
+        }
+    }
+
+    void merge_constant_nets();
+    void report_invalid_bel(BelId bel, CellInfo *cell) const;
+
+    std::vector<IdString> no_pins;
+    IdString gnd_cell_pin;
+    IdString vcc_cell_pin;
 };
 
 NEXTPNR_NAMESPACE_END

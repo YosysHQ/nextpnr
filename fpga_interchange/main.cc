@@ -70,6 +70,7 @@ void FpgaInterchangeCommandHandler::customBitstream(Context *ctx)
 std::unique_ptr<Context> FpgaInterchangeCommandHandler::createContext(std::unordered_map<std::string, Property> &values)
 {
     auto start = std::chrono::high_resolution_clock::now();
+
     ArchArgs chipArgs;
     if (!vm.count("chipdb")) {
         log_error("chip database binary must be provided\n");
@@ -80,6 +81,16 @@ std::unique_ptr<Context> FpgaInterchangeCommandHandler::createContext(std::unord
     }
 
     auto ctx = std::unique_ptr<Context>(new Context(chipArgs));
+
+    if (vm.count("verbose")) {
+        ctx->verbose = true;
+    }
+    if (vm.count("debug")) {
+        ctx->verbose = true;
+        ctx->debug = true;
+    }
+
+    ctx->init();
 
     if (vm.count("netlist")) {
         ctx->read_logical_netlist(vm["netlist"].as<std::string>());

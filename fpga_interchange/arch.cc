@@ -195,6 +195,8 @@ Arch::Arch(ArchArgs args) : args(args)
     default_tags.resize(max_tag_count);
 }
 
+void Arch::init() { dedicated_interconnect.init(getCtx()); }
+
 // -----------------------------------------------------------------------
 
 std::string Arch::getChipName() const { return chip_info->name.get(); }
@@ -217,7 +219,7 @@ void Arch::setup_byname() const
         for (int i = 0; i < chip_info->tiles.ssize(); i++) {
             auto &tile = chip_info->tiles[i];
             auto &tile_type = chip_info->tile_types[tile.type];
-            for (int j = 0; j < tile_type.number_sites; j++) {
+            for (size_t j = 0; j < tile_type.site_types.size(); j++) {
                 auto &site = chip_info->sites[tile.sites[j]];
                 site_by_name[id(site.name.get())] = std::make_pair(i, j);
             }
@@ -601,6 +603,7 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
 
 bool Arch::pack()
 {
+    merge_constant_nets();
     pack_ports();
     return true;
 }
@@ -608,6 +611,14 @@ bool Arch::pack()
 bool Arch::place()
 {
     std::string placer = str_or_default(settings, id("placer"), defaultPlacer);
+
+    // Re-map BEL pins without constant pins
+    for (BelId bel : getBels()) {
+        CellInfo *cell = getBoundBelCell(bel);
+        if (cell != nullptr && cell->cell_mapping != -1) {
+            map_cell_pins(cell, cell->cell_mapping, /*bind_constants=*/false);
+        }
+    }
 
     if (placer == "heap") {
         PlacerHeapCfg cfg(getCtx());
@@ -637,6 +648,14 @@ bool Arch::place()
 bool Arch::route()
 {
     std::string router = str_or_default(settings, id("router"), defaultRouter);
+
+    // Re-map BEL pins with constant pins
+    for (BelId bel : getBels()) {
+        CellInfo *cell = getBoundBelCell(bel);
+        if (cell != nullptr && cell->cell_mapping != -1) {
+            map_cell_pins(cell, cell->cell_mapping, /*bind_constants=*/true);
+        }
+    }
 
     bool result;
     if (router == "router1") {
@@ -677,13 +696,33 @@ DecalXY Arch::getGroupDecal(GroupId pip) const { return {}; };
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {
     // FIXME: Implement something to push the A* router in the right direction.
-    return 0;
+    int src_x, src_y;
+    get_tile_x_y(src.tile, &src_x, &src_y);
+
+    int dst_x, dst_y;
+    get_tile_x_y(dst.tile, &dst_x, &dst_y);
+
+    delay_t base = 30 * std::min(std::abs(dst_x - src_x), 18) + 10 * std::max(std::abs(dst_x - src_x) - 18, 0) +
+                   60 * std::min(std::abs(dst_y - src_y), 6) + 20 * std::max(std::abs(dst_y - src_y) - 6, 0) + 300;
+
+    base = (base * 3) / 2;
+    return base;
 }
 
 delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
 {
     // FIXME: Implement when adding timing-driven place and route.
-    return 0;
+    int src_x, src_y;
+    get_tile_x_y(net_info->driver.cell->bel.tile, &src_x, &src_y);
+
+    int dst_x, dst_y;
+    get_tile_x_y(sink.cell->bel.tile, &dst_x, &dst_y);
+
+    delay_t base = 30 * std::min(std::abs(dst_x - src_x), 18) + 10 * std::max(std::abs(dst_x - src_x) - 18, 0) +
+                   60 * std::min(std::abs(dst_y - src_y), 6) + 20 * std::max(std::abs(dst_y - src_y) - 6, 0) + 300;
+
+    base = (base * 3) / 2;
+    return base;
 }
 
 bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const
@@ -749,23 +788,64 @@ const std::vector<std::string> Arch::availablePlacers = {"sa",
 const std::string Arch::defaultRouter = "router2";
 const std::vector<std::string> Arch::availableRouters = {"router1", "router2"};
 
-void Arch::map_cell_pins(CellInfo *cell, int32_t mapping) const
+void Arch::map_cell_pins(CellInfo *cell, int32_t mapping, bool bind_constants)
 {
     cell->cell_mapping = mapping;
     cell->cell_bel_pins.clear();
+    for (IdString const_port : cell->const_ports) {
+        NPNR_ASSERT(cell->ports.erase(const_port));
+    }
 
     const CellBelMapPOD &cell_pin_map = chip_info->cell_map->cell_bel_map[mapping];
+
+    IdString gnd_net_name(chip_info->constants->gnd_net_name);
+    IdString vcc_net_name(chip_info->constants->vcc_net_name);
 
     for (const auto &pin_map : cell_pin_map.common_pins) {
         IdString cell_pin(pin_map.cell_pin);
         IdString bel_pin(pin_map.bel_pin);
 
         if (cell_pin.str(this) == "GND") {
-            // FIXME: Tie this pin to the GND net
+            if (bind_constants) {
+                PortInfo port_info;
+                port_info.name = bel_pin;
+                port_info.type = PORT_IN;
+                port_info.net = nullptr;
+
+                auto result = cell->ports.emplace(bel_pin, port_info);
+                if (result.second) {
+                    cell->cell_bel_pins[bel_pin].push_back(bel_pin);
+                    connectPort(gnd_net_name, cell->name, bel_pin);
+                    cell->const_ports.emplace(bel_pin);
+                } else {
+                    NPNR_ASSERT(result.first->second.net == getNetByAlias(gnd_net_name));
+                    auto result2 = cell->cell_bel_pins.emplace(bel_pin, std::vector<IdString>({bel_pin}));
+                    NPNR_ASSERT(result2.first->second.at(0) == bel_pin);
+                    NPNR_ASSERT(result2.first->second.size() == 1);
+                }
+            }
             continue;
         }
+
         if (cell_pin.str(this) == "VCC") {
-            // FIXME: Tie this pin to the VCC net
+            if (bind_constants) {
+                PortInfo port_info;
+                port_info.name = bel_pin;
+                port_info.type = PORT_IN;
+                port_info.net = nullptr;
+
+                auto result = cell->ports.emplace(bel_pin, port_info);
+                if (result.second) {
+                    cell->cell_bel_pins[bel_pin].push_back(bel_pin);
+                    connectPort(vcc_net_name, cell->name, bel_pin);
+                    cell->const_ports.emplace(bel_pin);
+                } else {
+                    NPNR_ASSERT(result.first->second.net == getNetByAlias(vcc_net_name));
+                    auto result2 = cell->cell_bel_pins.emplace(bel_pin, std::vector<IdString>({bel_pin}));
+                    NPNR_ASSERT(result2.first->second.at(0) == bel_pin);
+                    NPNR_ASSERT(result2.first->second.size() == 1);
+                }
+            }
             continue;
         }
 
@@ -790,11 +870,44 @@ void Arch::map_cell_pins(CellInfo *cell, int32_t mapping) const
             IdString bel_pin(pin_map.bel_pin);
 
             if (cell_pin.str(this) == "GND") {
-                // FIXME: Tie this pin to the GND net
+                if (bind_constants) {
+                    PortInfo port_info;
+                    port_info.name = bel_pin;
+                    port_info.type = PORT_IN;
+
+                    auto result = cell->ports.emplace(bel_pin, port_info);
+                    if (result.second) {
+                        cell->cell_bel_pins[bel_pin].push_back(bel_pin);
+                        connectPort(gnd_net_name, cell->name, bel_pin);
+                        cell->const_ports.emplace(bel_pin);
+                    } else {
+                        NPNR_ASSERT(result.first->second.net == getNetByAlias(gnd_net_name));
+                        auto result2 = cell->cell_bel_pins.emplace(bel_pin, std::vector<IdString>({bel_pin}));
+                        NPNR_ASSERT(result2.first->second.at(0) == bel_pin);
+                        NPNR_ASSERT(result2.first->second.size() == 1);
+                    }
+                }
                 continue;
             }
+
             if (cell_pin.str(this) == "VCC") {
-                // FIXME: Tie this pin to the VCC net
+                if (bind_constants) {
+                    PortInfo port_info;
+                    port_info.name = bel_pin;
+                    port_info.type = PORT_IN;
+
+                    auto result = cell->ports.emplace(bel_pin, port_info);
+                    if (result.second) {
+                        cell->cell_bel_pins[bel_pin].push_back(bel_pin);
+                        connectPort(vcc_net_name, cell->name, bel_pin);
+                        cell->const_ports.emplace(bel_pin);
+                    } else {
+                        NPNR_ASSERT(result.first->second.net == getNetByAlias(vcc_net_name));
+                        auto result2 = cell->cell_bel_pins.emplace(bel_pin, std::vector<IdString>({bel_pin}));
+                        NPNR_ASSERT(result2.first->second.at(0) == bel_pin);
+                        NPNR_ASSERT(result2.first->second.size() == 1);
+                    }
+                }
                 continue;
             }
 
@@ -851,6 +964,175 @@ size_t Arch::get_cell_type_index(IdString cell_type) const
     NPNR_ASSERT(cell_map.cell_names[cell_offset] == cell_type.index);
 
     return cell_offset;
+}
+
+void Arch::merge_constant_nets()
+{
+    NetInfo *gnd_net = nullptr;
+    NetInfo *vcc_net = nullptr;
+
+    bool need_gnd_source = false;
+    bool need_vcc_source = false;
+
+    IdString gnd_net_name(chip_info->constants->gnd_net_name);
+    IdString gnd_cell_type(chip_info->constants->gnd_cell_name);
+    IdString gnd_cell_port(chip_info->constants->gnd_cell_port);
+
+    auto gnd_iter = nets.find(gnd_net_name);
+    if (gnd_iter != nets.end()) {
+        NPNR_ASSERT(gnd_iter->second->driver.cell != nullptr);
+        NPNR_ASSERT(gnd_iter->second->driver.cell->type == gnd_cell_type);
+        NPNR_ASSERT(gnd_iter->second->driver.port == gnd_cell_port);
+
+        gnd_net = gnd_iter->second.get();
+    } else {
+        gnd_net = createNet(gnd_net_name);
+        need_gnd_source = true;
+    }
+
+    IdString vcc_net_name(chip_info->constants->vcc_net_name);
+    IdString vcc_cell_type(chip_info->constants->vcc_cell_name);
+    IdString vcc_cell_port(chip_info->constants->vcc_cell_port);
+
+    auto vcc_iter = nets.find(vcc_net_name);
+    if (vcc_iter != nets.end()) {
+        NPNR_ASSERT(vcc_iter->second->driver.cell != nullptr);
+        NPNR_ASSERT(vcc_iter->second->driver.cell->type == vcc_cell_type);
+        NPNR_ASSERT(vcc_iter->second->driver.port == vcc_cell_port);
+
+        vcc_net = vcc_iter->second.get();
+    } else {
+        vcc_net = createNet(vcc_net_name);
+        need_vcc_source = true;
+    }
+
+    std::vector<IdString> other_gnd_nets;
+    std::vector<IdString> other_vcc_nets;
+
+    for (auto &net_pair : nets) {
+        if (net_pair.first == gnd_net_name) {
+            NPNR_ASSERT(net_pair.second.get() == gnd_net);
+            continue;
+        }
+
+        if (net_pair.first == vcc_net_name) {
+            NPNR_ASSERT(net_pair.second.get() == vcc_net);
+            continue;
+        }
+
+        NetInfo *net = net_pair.second.get();
+        if (net->driver.cell == nullptr) {
+            continue;
+        }
+
+        if (net->driver.cell->type == gnd_cell_type) {
+            NPNR_ASSERT(net->driver.port == gnd_cell_port);
+
+            other_gnd_nets.push_back(net_pair.first);
+
+            if (need_gnd_source) {
+                IdString driver_cell = net->driver.cell->name;
+                disconnectPort(driver_cell, gnd_cell_port);
+                connectPort(gnd_net_name, driver_cell, gnd_cell_port);
+                need_gnd_source = false;
+            }
+
+            NPNR_ASSERT(net->driver.port == gnd_cell_port);
+            std::vector<PortRef> users_copy = net->users;
+            for (const PortRef &port_ref : users_copy) {
+                IdString cell = port_ref.cell->name;
+                disconnectPort(cell, port_ref.port);
+                connectPort(gnd_net_name, cell, port_ref.port);
+            }
+
+            continue;
+        }
+
+        if (net->driver.cell->type == vcc_cell_type) {
+            NPNR_ASSERT(net->driver.port == vcc_cell_port);
+
+            other_vcc_nets.push_back(net_pair.first);
+
+            if (need_vcc_source) {
+                IdString driver_cell = net->driver.cell->name;
+                disconnectPort(driver_cell, vcc_cell_port);
+                connectPort(vcc_net_name, driver_cell, vcc_cell_port);
+                need_vcc_source = false;
+            }
+
+            NPNR_ASSERT(net->driver.port == vcc_cell_port);
+            std::vector<PortRef> users_copy = net->users;
+            for (const PortRef &port_ref : users_copy) {
+                IdString cell = port_ref.cell->name;
+                disconnectPort(cell, port_ref.port);
+                connectPort(vcc_net_name, cell, port_ref.port);
+            }
+        }
+    }
+
+    for (IdString other_gnd_net : other_gnd_nets) {
+        NetInfo *net = getNetByAlias(other_gnd_net);
+        NPNR_ASSERT(net->users.empty());
+        if (net->driver.cell) {
+            PortRef driver = net->driver;
+            IdString cell_to_remove = driver.cell->name;
+            disconnectPort(driver.cell->name, driver.port);
+            NPNR_ASSERT(cells.erase(cell_to_remove));
+        }
+    }
+
+    for (IdString other_vcc_net : other_vcc_nets) {
+        NetInfo *net = getNetByAlias(other_vcc_net);
+        NPNR_ASSERT(net->users.empty());
+        if (net->driver.cell) {
+            PortRef driver = net->driver;
+            IdString cell_to_remove = driver.cell->name;
+            disconnectPort(driver.cell->name, driver.port);
+            NPNR_ASSERT(cells.erase(cell_to_remove));
+        }
+    }
+
+    for (IdString other_gnd_net : other_gnd_nets) {
+        NPNR_ASSERT(nets.erase(other_gnd_net));
+        gnd_net->aliases.push_back(other_gnd_net);
+        net_aliases[other_gnd_net] = gnd_net_name;
+    }
+
+    for (IdString other_vcc_net : other_vcc_nets) {
+        NPNR_ASSERT(nets.erase(other_vcc_net));
+        vcc_net->aliases.push_back(other_vcc_net);
+        net_aliases[other_vcc_net] = vcc_net_name;
+    }
+
+    if (need_gnd_source) {
+        CellInfo *gnd_cell = createCell(gnd_cell_type, gnd_cell_type);
+        gnd_cell->addOutput(gnd_cell_port);
+        connectPort(gnd_net_name, gnd_cell_type, gnd_cell_port);
+    }
+
+    if (need_vcc_source) {
+        CellInfo *vcc_cell = createCell(vcc_cell_type, vcc_cell_type);
+        vcc_cell->addOutput(vcc_cell_port);
+        connectPort(vcc_net_name, vcc_cell_type, vcc_cell_port);
+    }
+}
+
+const std::vector<IdString> &Arch::getBelPinsForCellPin(const CellInfo *cell_info, IdString pin) const
+{
+    auto iter = cell_info->cell_bel_pins.find(pin);
+    if (iter == cell_info->cell_bel_pins.end()) {
+        return no_pins;
+    } else {
+        return iter->second;
+    }
+}
+
+void Arch::report_invalid_bel(BelId bel, CellInfo *cell) const
+{
+    int32_t mapping = bel_info(chip_info, bel).pin_map[get_cell_type_index(cell->type)];
+    NPNR_ASSERT(mapping < 0);
+    log_error("Cell %s (%s) cannot be placed at BEL %s (mapping %d)\n", cell->name.c_str(this), cell->type.c_str(this),
+              nameOfBel(bel), mapping);
 }
 
 // Instance constraint templates.

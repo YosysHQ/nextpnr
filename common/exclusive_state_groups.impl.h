@@ -40,14 +40,14 @@ void ExclusiveStateGroup<StateCount, StateType, CountType>::print_debug(const Co
         log_info("%s.%s is currently unselected\n", object.c_str(ctx), definition.prefix.c_str(ctx));
     } else if (state >= 0) {
         log_info("%s.%s = %s, count = %d\n", object.c_str(ctx), definition.prefix.c_str(ctx),
-                 definition.states[state].c_str(ctx), count[state]);
+                 definition.states.at(state).c_str(ctx), count[state]);
     } else {
         NPNR_ASSERT(state == kOverConstrained);
         log_info("%s.%s is currently overconstrained, states selected:\n", object.c_str(ctx),
                  definition.prefix.c_str(ctx));
         for (size_t i = 0; i < definition.states.size(); ++i) {
             if (selected_states[i]) {
-                log_info(" - %s, count = %d\n", definition.states[i].c_str(ctx), count[i]);
+                log_info(" - %s, count = %d\n", definition.states.at(i).c_str(ctx), count[i]);
             }
         }
     }
@@ -62,9 +62,9 @@ void ExclusiveStateGroup<StateCount, StateType, CountType>::explain_implies(cons
         log_info("Placing cell %s at bel %s does not violate %s.%s\n", cell.c_str(ctx), ctx->nameOfBel(bel),
                  object.c_str(ctx), definition.prefix.c_str(ctx));
     } else {
-        NPNR_ASSERT(next_state < definition.states.size());
-        log_info("Placing cell %s at bel %s does violates %s.%s.\n", cell.c_str(ctx), ctx->nameOfBel(bel),
-                 object.c_str(ctx), definition.prefix.c_str(ctx));
+        log_info("Placing cell %s at bel %s does violates %s.%s, desired state = %s.\n", cell.c_str(ctx),
+                 ctx->nameOfBel(bel), object.c_str(ctx), definition.prefix.c_str(ctx),
+                 definition.states.at(next_state).c_str(ctx));
         print_debug(ctx, object, definition);
     }
 }
@@ -83,11 +83,10 @@ void ExclusiveStateGroup<StateCount, StateType, CountType>::explain_requires(con
         log_info("Placing cell %s at bel %s does violates %s.%s, because current state is %s, constraint requires one "
                  "of:\n",
                  cell.c_str(ctx), ctx->nameOfBel(bel), object.c_str(ctx), definition.prefix.c_str(ctx),
-                 definition.states[state].c_str(ctx));
+                 definition.states.at(state).c_str(ctx));
 
         for (const auto required_state : state_range) {
-            NPNR_ASSERT(required_state < definition.states.size());
-            log_info(" - %s\n", definition.states[required_state].c_str(ctx));
+            log_info(" - %s\n", definition.states.at(required_state).c_str(ctx));
         }
         print_debug(ctx, object, definition);
     }
