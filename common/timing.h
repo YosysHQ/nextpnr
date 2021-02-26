@@ -26,6 +26,14 @@ NEXTPNR_NAMESPACE_BEGIN
 
 struct CellPortKey
 {
+    CellPortKey(){};
+    CellPortKey(IdString cell, IdString port) : cell(cell), port(port){};
+    explicit CellPortKey(const PortRef &pr)
+    {
+        NPNR_ASSERT(pr.cell != nullptr);
+        cell = pr.cell->name;
+        port = pr.port;
+    }
     IdString cell, port;
     struct Hash
     {
@@ -43,6 +51,10 @@ struct NetPortKey
 {
     IdString net;
     size_t idx;
+    NetPortKey(){};
+    explicit NetPortKey(IdString net) : net(net), idx(DRIVER_IDX){};        // driver
+    explicit NetPortKey(IdString net, size_t user) : net(net), idx(user){}; // user
+
     static const size_t DRIVER_IDX = std::numeric_limits<size_t>::max();
 
     inline bool is_driver() const { return (idx == DRIVER_IDX); }
@@ -87,8 +99,11 @@ struct TimingAnalyser
 {
   public:
     TimingAnalyser(Context *ctx) : ctx(ctx){};
+    void setup();
 
   private:
+    void init_ports();
+    void get_cell_delays();
     // To avoid storing the domain tag structure (which could get large when considering more complex constrained tag
     // cases), assign each domain an ID and use that instead
     typedef int domain_id_t;
@@ -113,6 +128,7 @@ struct TimingAnalyser
     // A cell timing arc, used to cache cell timings and reduce the number of potentially-expensive Arch API calls
     struct CellArc
     {
+
         enum ArcType
         {
             COMBINATIONAL,
@@ -120,10 +136,16 @@ struct TimingAnalyser
             HOLD,
             CLK_TO_Q
         } type;
+
         IdString other_port;
         DelayQuad value;
         // Clock polarity, not used for combinational arcs
         ClockEdge edge;
+
+        CellArc(ArcType type, IdString other_port, DelayQuad value)
+                : type(type), other_port(other_port), value(value), edge(RISING_EDGE){};
+        CellArc(ArcType type, IdString other_port, DelayQuad value, ClockEdge edge)
+                : type(type), other_port(other_port), value(value), edge(edge){};
     };
 
     // Timing data for every cell port
@@ -138,6 +160,9 @@ struct TimingAnalyser
         // routing delay into this port (input ports only)
         DelayPair route_delay;
     };
+
+    CellInfo *cell_info(const CellPortKey &key);
+    PortInfo &port_info(const CellPortKey &key);
 
     std::unordered_map<CellPortKey, PerPort, CellPortKey::Hash> ports;
     std::unordered_map<ClockDomainKey, domain_id_t, ClockDomainKey::Hash> domain_to_id;

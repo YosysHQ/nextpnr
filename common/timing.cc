@@ -30,6 +30,100 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+void TimingAnalyser::setup()
+{
+    init_ports();
+    get_cell_delays();
+}
+
+void TimingAnalyser::init_ports()
+{
+    // Per cell port structures
+    for (auto cell : sorted(ctx->cells)) {
+        CellInfo *ci = cell.second;
+        for (auto port : sorted_ref(ci->ports)) {
+            auto &data = ports[CellPortKey(ci->name, port.first)];
+            data.cell_port = CellPortKey(ci->name, port.first);
+        }
+    }
+    // Cell port to net port mapping
+    for (auto net : sorted(ctx->nets)) {
+        NetInfo *ni = net.second;
+        if (ni->driver.cell != nullptr)
+            ports[CellPortKey(ni->driver)].net_port = NetPortKey(ni->name);
+        for (size_t i = 0; i < ni->users.size(); i++)
+            ports[CellPortKey(ni->users.at(i))].net_port = NetPortKey(ni->name, i);
+    }
+}
+
+void TimingAnalyser::get_cell_delays()
+{
+    for (auto &port : ports) {
+        CellInfo *ci = cell_info(port.first);
+        auto &pi = port_info(port.first);
+        auto &pd = port.second;
+
+        IdString name = port.first.port;
+        // Ignore dangling ports altogether for timing purposes
+        if (pd.net_port.net == IdString())
+            continue;
+        pd.cell_arcs.clear();
+        int clkInfoCount = 0;
+        TimingPortClass cls = ctx->getPortTimingClass(ci, name, clkInfoCount);
+        if (cls == TMG_STARTPOINT || cls == TMG_ENDPOINT || cls == TMG_CLOCK_INPUT || cls == TMG_GEN_CLOCK ||
+            cls == TMG_IGNORE)
+            continue;
+        if (pi.type == PORT_IN) {
+            // Input ports might have setup/hold relationships
+            if (cls == TMG_REGISTER_INPUT) {
+                for (int i = 0; i < clkInfoCount; i++) {
+                    auto info = ctx->getPortClockingInfo(ci, name, i);
+                    pd.cell_arcs.emplace_back(CellArc::SETUP, info.clock_port, DelayQuad(info.setup, info.setup),
+                                              info.edge);
+                    pd.cell_arcs.emplace_back(CellArc::HOLD, info.clock_port, DelayQuad(info.hold, info.hold),
+                                              info.edge);
+                }
+            }
+            // Combinational delays through cell
+            for (auto &other_port : ci->ports) {
+                auto &op = other_port.second;
+                // ignore dangling ports and non-outputs
+                if (op.net == nullptr || op.type != PORT_OUT)
+                    continue;
+                DelayQuad delay;
+                bool is_path = ctx->getCellDelay(ci, name, other_port.first, delay);
+                if (is_path)
+                    pd.cell_arcs.emplace_back(CellArc::COMBINATIONAL, other_port.first, delay);
+            }
+        } else if (pi.type == PORT_OUT) {
+            // Output ports might have clk-to-q relationships
+            if (cls == TMG_REGISTER_OUTPUT) {
+                for (int i = 0; i < clkInfoCount; i++) {
+                    auto info = ctx->getPortClockingInfo(ci, name, i);
+                    pd.cell_arcs.emplace_back(CellArc::CLK_TO_Q, info.clock_port, info.clockToQ, info.edge);
+                }
+            }
+            // Combinational delays through cell
+            for (auto &other_port : ci->ports) {
+                auto &op = other_port.second;
+                // ignore dangling ports and non-inputs
+                if (op.net == nullptr || op.type != PORT_IN)
+                    continue;
+                DelayQuad delay;
+                bool is_path = ctx->getCellDelay(ci, other_port.first, name, delay);
+                if (is_path)
+                    pd.cell_arcs.emplace_back(CellArc::COMBINATIONAL, other_port.first, delay);
+            }
+        }
+    }
+}
+
+CellInfo *TimingAnalyser::cell_info(const CellPortKey &key) { return ctx->cells.at(key.cell).get(); }
+
+PortInfo &TimingAnalyser::port_info(const CellPortKey &key) { return ctx->cells.at(key.cell)->ports.at(key.port); }
+
+/** LEGACY CODE BEGIN **/
+
 namespace {
 struct ClockEvent
 {
@@ -1005,6 +1099,10 @@ void get_criticalities(Context *ctx, NetCriticalityMap *net_crit)
     net_crit->clear();
     Timing timing(ctx, true, true, &crit_paths, nullptr, net_crit);
     timing.walk_paths();
+
+    // Test the new timing analyser, too
+    TimingAnalyser sta_v2(ctx);
+    sta_v2.setup();
 }
 
 NEXTPNR_NAMESPACE_END
