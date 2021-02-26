@@ -321,7 +321,27 @@ class HeAPPlacer
 
         ctx->check();
 
-        placer1_refine(ctx, Placer1Cfg(ctx));
+        bool any_bad_placements = false;
+        for (auto bel : ctx->getBels()) {
+            CellInfo *cell = ctx->getBoundBelCell(bel);
+            if (!ctx->isBelLocationValid(bel)) {
+                std::string cell_text = "no cell";
+                if (cell != nullptr)
+                    cell_text = std::string("cell '") + ctx->nameOf(cell) + "'";
+                log_warning("post-placement validity check failed for Bel '%s' "
+                            "(%s)\n",
+                            ctx->nameOfBel(bel), cell_text.c_str());
+                any_bad_placements = true;
+            }
+        }
+
+        if (any_bad_placements) {
+            return false;
+        }
+
+        if (!placer1_refine(ctx, Placer1Cfg(ctx))) {
+            return false;
+        }
 
         return true;
     }
