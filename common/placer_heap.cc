@@ -49,6 +49,7 @@
 #include "nextpnr.h"
 #include "place_common.h"
 #include "placer1.h"
+#include "scope_lock.h"
 #include "timing.h"
 #include "util.h"
 
@@ -147,7 +148,7 @@ class HeAPPlacer
     {
         auto startt = std::chrono::high_resolution_clock::now();
 
-        ctx->lock();
+        nextpnr::ScopeLock<Context> lock(ctx);
         place_constraints();
         build_fast_bels();
         seed_placement();
@@ -312,15 +313,6 @@ class HeAPPlacer
                 log_info("AP soln: %s -> %s\n", cell.first.c_str(ctx), ctx->nameOfBel(cell.second->bel));
         }
 
-        ctx->unlock();
-        auto endtt = std::chrono::high_resolution_clock::now();
-        log_info("HeAP Placer Time: %.02fs\n", std::chrono::duration<double>(endtt - startt).count());
-        log_info("  of which solving equations: %.02fs\n", solve_time);
-        log_info("  of which spreading cells: %.02fs\n", cl_time);
-        log_info("  of which strict legalisation: %.02fs\n", sl_time);
-
-        ctx->check();
-
         bool any_bad_placements = false;
         for (auto bel : ctx->getBels()) {
             CellInfo *cell = ctx->getBoundBelCell(bel);
@@ -338,6 +330,16 @@ class HeAPPlacer
         if (any_bad_placements) {
             return false;
         }
+
+        lock.unlock_early();
+
+        auto endtt = std::chrono::high_resolution_clock::now();
+        log_info("HeAP Placer Time: %.02fs\n", std::chrono::duration<double>(endtt - startt).count());
+        log_info("  of which solving equations: %.02fs\n", solve_time);
+        log_info("  of which spreading cells: %.02fs\n", cl_time);
+        log_info("  of which strict legalisation: %.02fs\n", sl_time);
+
+        ctx->check();
 
         if (!placer1_refine(ctx, Placer1Cfg(ctx))) {
             return false;
