@@ -372,14 +372,6 @@ struct ArcBounds
     };
 };
 
-struct TimingConstrObjectId
-{
-    int32_t index = -1;
-
-    bool operator==(const TimingConstrObjectId &other) const { return index == other.index; }
-    bool operator!=(const TimingConstrObjectId &other) const { return index != other.index; }
-};
-
 NEXTPNR_NAMESPACE_END
 
 namespace std {
@@ -394,15 +386,6 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX Loc>
         return seed;
     }
 };
-
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX TimingConstrObjectId>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX TimingConstrObjectId &obj) const noexcept
-    {
-        return hash<int>()(obj.index);
-    }
-};
-
 } // namespace std
 
 #include "archdefs.h"
@@ -612,8 +595,6 @@ struct NetInfo : ArchNetInfo
 
     std::unique_ptr<ClockConstraint> clkconstr;
 
-    TimingConstrObjectId tmg_id;
-
     Region *region = nullptr;
 };
 
@@ -629,7 +610,6 @@ struct PortInfo
     IdString name;
     NetInfo *net;
     PortType type;
-    TimingConstrObjectId tmg_id;
 };
 
 struct CellInfo : ArchCellInfo
@@ -654,7 +634,6 @@ struct CellInfo : ArchCellInfo
     // parent.[xyz] := 0 when (constr_parent == nullptr)
 
     Region *region = nullptr;
-    TimingConstrObjectId tmg_id;
 
     void addInput(IdString name);
     void addOutput(IdString name);
@@ -706,41 +685,6 @@ struct ClockConstraint
     DelayPair high;
     DelayPair low;
     DelayPair period;
-
-    TimingConstrObjectId domain_tmg_id;
-};
-
-struct TimingConstraintObject
-{
-    TimingConstrObjectId id;
-    enum
-    {
-        ANYTHING,
-        CLOCK_DOMAIN,
-        NET,
-        CELL,
-        CELL_PORT
-    } type;
-    IdString entity; // Name of clock net; net or cell
-    IdString port;   // Name of port on a cell
-};
-
-struct TimingConstraint
-{
-    IdString name;
-
-    enum
-    {
-        FALSE_PATH,
-        MIN_DELAY,
-        MAX_DELAY,
-        MULTICYCLE,
-    } type;
-
-    delay_t value;
-
-    std::unordered_set<TimingConstrObjectId> from;
-    std::unordered_set<TimingConstrObjectId> to;
 };
 
 // Represents the contents of a non-leaf cell in a design
@@ -767,12 +711,6 @@ struct HierarchicalCell
     // Name inside cell instance -> global name
     std::unordered_map<IdString, IdString> hier_cells;
 };
-
-inline bool operator==(const std::pair<const TimingConstrObjectId, TimingConstraint *> &a,
-                       const std::pair<TimingConstrObjectId, TimingConstraint *> &b)
-{
-    return a.first == b.first && a.second == b.second;
-}
 
 struct DeterministicRNG
 {
@@ -899,11 +837,6 @@ struct BaseCtx
         IdString::initialize_add(this, "", 0);
         IdString::initialize_arch(this);
 
-        TimingConstraintObject wildcard;
-        wildcard.id.index = 0;
-        wildcard.type = TimingConstraintObject::ANYTHING;
-        constraintObjects.push_back(wildcard);
-
         design_loaded = false;
     }
 
@@ -1014,29 +947,10 @@ struct BaseCtx
 
     // --------------------------------------------------------------
 
-    // Timing Constraint API
-
-    // constraint name -> constraint
-    std::unordered_map<IdString, std::unique_ptr<TimingConstraint>> constraints;
-    // object ID -> object
-    std::vector<TimingConstraintObject> constraintObjects;
-    // object ID -> constraint
-    std::unordered_multimap<TimingConstrObjectId, TimingConstraint *> constrsFrom;
-    std::unordered_multimap<TimingConstrObjectId, TimingConstraint *> constrsTo;
-
-    TimingConstrObjectId timingWildcardObject();
-    TimingConstrObjectId timingClockDomainObject(NetInfo *clockDomain);
-    TimingConstrObjectId timingNetObject(NetInfo *net);
-    TimingConstrObjectId timingCellObject(CellInfo *cell);
-    TimingConstrObjectId timingPortObject(CellInfo *cell, IdString port);
-
     NetInfo *getNetByAlias(IdString alias) const
     {
         return nets.count(alias) ? nets.at(alias).get() : nets.at(net_aliases.at(alias)).get();
     }
-
-    void addConstraint(std::unique_ptr<TimingConstraint> constr);
-    void removeConstraint(IdString constrName);
 
     // Intended to simplify Python API
     void addClock(IdString net, float freq);
