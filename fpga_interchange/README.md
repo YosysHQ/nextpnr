@@ -36,29 +36,25 @@ library.
 The current implementation is missing essential features for place and route.
 As these features are added, this implementation will become more useful.
 
- - [ ] Logical netlist macro expansion is not implemented, meaning that any
-       macro primitives are unplaceable.  Common macro primitives examples are
-       differential IO buffers (IBUFDS) and some LUT RAM (e.g. RAM64X1D).
  - [ ] The router lookahead is missing, meaning that router runtime
        performance will be terrible.
- - [ ] The routing graph that is currently emitted does not have ground and
-       VCC networks, so all signals must currently be tied to an IO signal.
-       Site pins being tied to constants also needs handling so that site
-       local inverters are used rather than routing signals suboptimally.
  - [ ] Pseudo pips (e.g. pips that consume BELs and or site resources) should
        block their respective resources.  This effects designs that have some
        routing in place before placement.
  - [ ] Pseudo site pips (e.g. site pips that route through BELs) should block
        their respective resources. Without this, using some pseudo site pips
        could result in invalid placements.
+ - [ ] Implemented site router lacks important features for tight packing.
+       Also the current site router is relatively untested, so legal
+       configurations may be rejected and illegal configurations may be
+       accepted.
+ - [ ] Logical netlist macro expansion is not implemented, meaning that any
+       macro primitives are unplaceable.  Common macro primitives examples are
+       differential IO buffers (IBUFDS) and some LUT RAM (e.g. RAM64X1D).
  - [ ] Timing information is missing from the FPGA interchange device
        database, so it is also currently missing from the FPGA interchange
        architecture.  Once timing information is added to the device database
        schema, it needs to be added to the architecture.
- - [ ] Implemented site router lacks important features for tight packing,
-       namely LUT rotation.  Also the current site router is relatively
-       untested, so legal configurations may be rejected and illegal
-       configurations may be accepted.
 
 #### FPGA interchange fabrics
 
