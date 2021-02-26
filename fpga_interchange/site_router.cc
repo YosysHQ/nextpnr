@@ -697,7 +697,7 @@ bool route_site(const Context *ctx, SiteInformation *site_info)
         // The simplistic solution (only select when 1 solution is available)
         // will likely solve initial problems.  Once that is show to be wrong,
         // come back with something more general.
-        NPNR_ASSERT(false);
+        return false;
 
     } while (!wire_to_expansion.empty());
 
