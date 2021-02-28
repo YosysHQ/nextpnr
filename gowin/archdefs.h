@@ -57,6 +57,8 @@ struct ArchCellInfo
 {
     // Is the flip-flop of this slice used
     bool ff_used;
+    // The type of this flip-flop
+    IdString ff_type;
     // Is a slice type primitive
     bool is_slice;
     // Only packing rule for slice type primitives is a single clock per tile
