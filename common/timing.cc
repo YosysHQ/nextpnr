@@ -34,6 +34,7 @@ void TimingAnalyser::setup()
 {
     init_ports();
     get_cell_delays();
+    topo_sort();
 }
 
 void TimingAnalyser::init_ports()
@@ -43,6 +44,7 @@ void TimingAnalyser::init_ports()
         CellInfo *ci = cell.second;
         for (auto port : sorted_ref(ci->ports)) {
             auto &data = ports[CellPortKey(ci->name, port.first)];
+            data.type = port.second.type;
             data.cell_port = CellPortKey(ci->name, port.first);
         }
     }
@@ -116,6 +118,44 @@ void TimingAnalyser::get_cell_delays()
             }
         }
     }
+}
+
+void TimingAnalyser::topo_sort()
+{
+    TopoSort<CellPortKey> topo;
+    for (auto &port : ports) {
+        auto &pd = port.second;
+        // All ports are nodes
+        topo.node(port.first);
+        if (pd.type == PORT_IN) {
+            // inputs: combinational arcs through the cell are edges
+            for (auto &arc : pd.cell_arcs) {
+                if (arc.type != CellArc::COMBINATIONAL)
+                    continue;
+                topo.edge(port.first, CellPortKey(port.first.cell, arc.other_port));
+            }
+        } else if (pd.type == PORT_OUT) {
+            // output: routing arcs are edges
+            const NetInfo *pn = port_info(port.first).net;
+            if (pn != nullptr) {
+                for (auto &usr : pn->users)
+                    topo.edge(port.first, CellPortKey(usr));
+            }
+        }
+    }
+    bool no_loops = topo.sort();
+    if (!no_loops) {
+        log_info("Found %d combinational loops:\n", int(topo.loops.size()));
+        int i = 0;
+        for (auto &loop : topo.loops) {
+            log_info("    loop %d:\n", ++i);
+            for (auto &port : loop) {
+                log_info("        %s.%s (%s)\n", ctx->nameOf(port.cell), ctx->nameOf(port.port),
+                         ctx->nameOf(port_info(port).net));
+            }
+        }
+    }
+    std::swap(topological_order, topo.sorted);
 }
 
 CellInfo *TimingAnalyser::cell_info(const CellPortKey &key) { return ctx->cells.at(key.cell).get(); }

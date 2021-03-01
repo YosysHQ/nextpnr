@@ -45,6 +45,10 @@ struct CellPortKey
         }
     };
     inline bool operator==(const CellPortKey &other) const { return (cell == other.cell) && (port == other.port); }
+    inline bool operator<(const CellPortKey &other) const
+    {
+        return cell == other.cell ? port < other.port : cell < other.cell;
+    }
 };
 
 struct NetPortKey
@@ -104,6 +108,7 @@ struct TimingAnalyser
   private:
     void init_ports();
     void get_cell_delays();
+    void topo_sort();
     // To avoid storing the domain tag structure (which could get large when considering more complex constrained tag
     // cases), assign each domain an ID and use that instead
     typedef int domain_id_t;
@@ -153,6 +158,7 @@ struct TimingAnalyser
     {
         CellPortKey cell_port;
         NetPortKey net_port;
+        PortType type;
         // per domain timings
         std::unordered_map<domain_id_t, PortDomainData> domains;
         // cell timing arcs to (outputs)/from (inputs)  from this port
@@ -167,6 +173,8 @@ struct TimingAnalyser
     std::unordered_map<CellPortKey, PerPort, CellPortKey::Hash> ports;
     std::unordered_map<ClockDomainKey, domain_id_t, ClockDomainKey::Hash> domain_to_id;
     std::vector<ClockDomainKey> id_to_domain;
+
+    std::vector<CellPortKey> topological_order;
 
     Context *ctx;
 };

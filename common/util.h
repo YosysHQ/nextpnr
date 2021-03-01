@@ -181,6 +181,88 @@ template <typename ForwardRange> inline auto get_only_value(ForwardRange r)
     return get_only_value(b, e);
 }
 
+// From Yosys
+// https://github.com/YosysHQ/yosys/blob/0fb4224ebca86156a1296b9210116d9a9cbebeed/kernel/utils.h#L131
+template <typename T, typename C = std::less<T>> struct TopoSort
+{
+    bool analyze_loops, found_loops;
+    std::map<T, std::set<T, C>, C> database;
+    std::set<std::set<T, C>> loops;
+    std::vector<T> sorted;
+
+    TopoSort()
+    {
+        analyze_loops = true;
+        found_loops = false;
+    }
+
+    void node(T n)
+    {
+        if (database.count(n) == 0)
+            database[n] = std::set<T, C>();
+    }
+
+    void edge(T left, T right)
+    {
+        node(left);
+        database[right].insert(left);
+    }
+
+    void sort_worker(const T &n, std::set<T, C> &marked_cells, std::set<T, C> &active_cells,
+                     std::vector<T> &active_stack)
+    {
+        if (active_cells.count(n)) {
+            found_loops = true;
+            if (analyze_loops) {
+                std::set<T, C> loop;
+                for (int i = int(active_stack.size()) - 1; i >= 0; i--) {
+                    loop.insert(active_stack[i]);
+                    if (active_stack[i] == n)
+                        break;
+                }
+                loops.insert(loop);
+            }
+            return;
+        }
+
+        if (marked_cells.count(n))
+            return;
+
+        if (!database.at(n).empty()) {
+            if (analyze_loops)
+                active_stack.push_back(n);
+            active_cells.insert(n);
+
+            for (auto &left_n : database.at(n))
+                sort_worker(left_n, marked_cells, active_cells, active_stack);
+
+            if (analyze_loops)
+                active_stack.pop_back();
+            active_cells.erase(n);
+        }
+
+        marked_cells.insert(n);
+        sorted.push_back(n);
+    }
+
+    bool sort()
+    {
+        loops.clear();
+        sorted.clear();
+        found_loops = false;
+
+        std::set<T, C> marked_cells;
+        std::set<T, C> active_cells;
+        std::vector<T> active_stack;
+
+        for (auto &it : database)
+            sort_worker(it.first, marked_cells, active_cells, active_stack);
+
+        NPNR_ASSERT(sorted.size() == database.size());
+        return !found_loops;
+    }
+};
+
 NEXTPNR_NAMESPACE_END
 
 #endif
