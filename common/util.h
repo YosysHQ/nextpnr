@@ -263,6 +263,16 @@ template <typename T, typename C = std::less<T>> struct TopoSort
     }
 };
 
+template <typename T> struct reversed_range_t
+{
+    T &obj;
+    explicit reversed_range_t(T &obj) : obj(obj){};
+    auto begin() { return obj.rbegin(); }
+    auto end() { return obj.rend(); }
+};
+
+template <typename T> reversed_range_t<T> reversed_range(T &obj) { return reversed_range_t<T>(obj); }
+
 NEXTPNR_NAMESPACE_END
 
 #endif

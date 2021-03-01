@@ -35,6 +35,7 @@ void TimingAnalyser::setup()
     init_ports();
     get_cell_delays();
     topo_sort();
+    setup_port_domains();
 }
 
 void TimingAnalyser::init_ports()
@@ -80,6 +81,8 @@ void TimingAnalyser::get_cell_delays()
             if (cls == TMG_REGISTER_INPUT) {
                 for (int i = 0; i < clkInfoCount; i++) {
                     auto info = ctx->getPortClockingInfo(ci, name, i);
+                    if (!ci->ports.count(info.clock_port) || ci->ports.at(info.clock_port).net == nullptr)
+                        continue;
                     pd.cell_arcs.emplace_back(CellArc::SETUP, info.clock_port, DelayQuad(info.setup, info.setup),
                                               info.edge);
                     pd.cell_arcs.emplace_back(CellArc::HOLD, info.clock_port, DelayQuad(info.hold, info.hold),
@@ -102,6 +105,8 @@ void TimingAnalyser::get_cell_delays()
             if (cls == TMG_REGISTER_OUTPUT) {
                 for (int i = 0; i < clkInfoCount; i++) {
                     auto info = ctx->getPortClockingInfo(ci, name, i);
+                    if (!ci->ports.count(info.clock_port) || ci->ports.at(info.clock_port).net == nullptr)
+                        continue;
                     pd.cell_arcs.emplace_back(CellArc::CLK_TO_Q, info.clock_port, info.clockToQ, info.edge);
                 }
             }
@@ -156,6 +161,89 @@ void TimingAnalyser::topo_sort()
         }
     }
     std::swap(topological_order, topo.sorted);
+}
+
+void TimingAnalyser::setup_port_domains()
+{
+    for (auto &d : domains) {
+        d.startpoints.clear();
+        d.endpoints.clear();
+    }
+    // Go forward through the topological order (domains from the PoV of arrival time)
+    for (auto port : topological_order) {
+        auto &pd = ports.at(port);
+        auto &pi = port_info(port);
+        if (pi.type == PORT_OUT) {
+            for (auto &fanin : pd.cell_arcs) {
+                if (fanin.type != CellArc::CLK_TO_Q)
+                    continue;
+                // registered outputs are startpoints
+                auto dom = domain_id(port.cell, fanin.other_port, fanin.edge);
+                // create per-domain data
+                pd.domains[dom].has_arrival = true;
+                domains.at(dom).startpoints.emplace_back(port, fanin.other_port);
+            }
+            // copy domains across routing
+            if (pi.net != nullptr)
+                for (auto &usr : pi.net->users)
+                    copy_domains(port, CellPortKey(usr), false);
+        } else {
+            // copy domains from input to output
+            for (auto &fanout : pd.cell_arcs) {
+                if (fanout.type != CellArc::COMBINATIONAL)
+                    continue;
+                copy_domains(port, CellPortKey(port.cell, fanout.other_port), false);
+            }
+        }
+    }
+    // Go backward through the topological order (domains from the PoV of required time)
+    for (auto port : reversed_range(topological_order)) {
+        auto &pd = ports.at(port);
+        auto &pi = port_info(port);
+        if (pi.type == PORT_OUT) {
+            // copy domains from output to input
+            for (auto &fanin : pd.cell_arcs) {
+                if (fanin.type != CellArc::COMBINATIONAL)
+                    continue;
+                copy_domains(port, CellPortKey(port.cell, fanin.other_port), true);
+            }
+        } else {
+            for (auto &fanout : pd.cell_arcs) {
+                if (fanout.type != CellArc::SETUP)
+                    continue;
+                // registered inputs are startpoints
+                auto dom = domain_id(port.cell, fanout.other_port, fanout.edge);
+                // create per-domain data
+                pd.domains[dom].has_required = true;
+                domains.at(dom).startpoints.emplace_back(port, fanout.other_port);
+            }
+            // copy port to driver
+            if (pi.net != nullptr && pi.net->driver.cell != nullptr)
+                copy_domains(port, CellPortKey(pi.net->driver), true);
+        }
+    }
+}
+
+TimingAnalyser::domain_id_t TimingAnalyser::domain_id(IdString cell, IdString clock_port, ClockEdge edge)
+{
+    return domain_id(ctx->cells.at(cell)->ports.at(clock_port).net, edge);
+}
+TimingAnalyser::domain_id_t TimingAnalyser::domain_id(const NetInfo *net, ClockEdge edge)
+{
+    NPNR_ASSERT(net != nullptr);
+    ClockDomainKey key{net->name, edge};
+    auto inserted = domain_to_id.emplace(key, domain_to_id.size());
+    if (inserted.second) {
+        domains.emplace_back(key);
+    }
+    return inserted.first->second;
+}
+void TimingAnalyser::copy_domains(const CellPortKey &from, const CellPortKey &to, bool backward)
+{
+    auto &f = ports.at(from), &t = ports.at(to);
+    for (auto &dom : f.domains)
+        if (backward ? dom.second.has_required : dom.second.has_arrival)
+            (backward ? t.domains[dom.first].has_required : t.domains[dom.first].has_arrival) = true;
 }
 
 CellInfo *TimingAnalyser::cell_info(const CellPortKey &key) { return ctx->cells.at(key.cell).get(); }

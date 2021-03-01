@@ -84,6 +84,7 @@ struct ClockDomainKey
 {
     IdString clock;
     ClockEdge edge;
+    ClockDomainKey(IdString clock_net, ClockEdge edge) : clock(clock_net), edge(edge){};
     // probably also need something here to deal with constraints
     inline bool is_async() const { return clock == IdString(); }
 
@@ -109,6 +110,7 @@ struct TimingAnalyser
     void init_ports();
     void get_cell_delays();
     void topo_sort();
+    void setup_port_domains();
     // To avoid storing the domain tag structure (which could get large when considering more complex constrained tag
     // cases), assign each domain an ID and use that instead
     typedef int domain_id_t;
@@ -123,6 +125,7 @@ struct TimingAnalyser
     // Data per port-domain tuple
     struct PortDomainData
     {
+        bool has_arrival = false, has_required = false;
         ArrivReqTime arrival, required;
         delay_t setup_slack = std::numeric_limits<delay_t>::max(), hold_slack = std::numeric_limits<delay_t>::max();
         delay_t budget = std::numeric_limits<delay_t>::max();
@@ -167,12 +170,25 @@ struct TimingAnalyser
         DelayPair route_delay;
     };
 
+    struct PerDomain
+    {
+        PerDomain(ClockDomainKey key) : key(key){};
+        ClockDomainKey key;
+        // these are pairs (signal port; clock port)
+        std::vector<std::pair<CellPortKey, IdString>> startpoints, endpoints;
+    };
+
     CellInfo *cell_info(const CellPortKey &key);
     PortInfo &port_info(const CellPortKey &key);
 
+    domain_id_t domain_id(IdString cell, IdString clock_port, ClockEdge edge);
+    domain_id_t domain_id(const NetInfo *net, ClockEdge edge);
+
+    void copy_domains(const CellPortKey &from, const CellPortKey &to, bool backwards);
+
     std::unordered_map<CellPortKey, PerPort, CellPortKey::Hash> ports;
     std::unordered_map<ClockDomainKey, domain_id_t, ClockDomainKey::Hash> domain_to_id;
-    std::vector<ClockDomainKey> id_to_domain;
+    std::vector<PerDomain> domains;
 
     std::vector<CellPortKey> topological_order;
 
