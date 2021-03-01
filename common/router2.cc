@@ -27,6 +27,7 @@
  */
 
 #include "router2.h"
+#include <absl/container/flat_hash_map.h>
 #include <algorithm>
 #include <boost/container/flat_map.hpp>
 #include <chrono>
@@ -191,7 +192,7 @@ struct Router2
         }
     }
 
-    std::unordered_map<WireId, int> wire_to_idx;
+    absl::flat_hash_map<WireId, int> wire_to_idx;
     std::vector<PerWireData> flat_wires;
 
     PerWireData &wire_data(WireId w) { return flat_wires[wire_to_idx.at(w)]; }
