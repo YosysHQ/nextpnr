@@ -127,11 +127,26 @@ struct TimingAnalyser
     TimingAnalyser(Context *ctx) : ctx(ctx){};
     void setup();
 
+    bool setup_only = false;
+
   private:
     void init_ports();
     void get_cell_delays();
     void topo_sort();
     void setup_port_domains();
+
+    void reset_times();
+
+    void walk_forward();
+
+    const DelayPair init_delay{std::numeric_limits<delay_t>::max(), std::numeric_limits<delay_t>::lowest()};
+
+    // Set arrival/required times if more/less than the current value
+    void set_arrival_time(CellPortKey target, domain_id_t domain, DelayPair arrival, int path_length,
+                          CellPortKey prev = CellPortKey());
+    void set_required_time(CellPortKey target, domain_id_t domain, DelayPair required, int path_length,
+                           CellPortKey prev = CellPortKey());
+
     // To avoid storing the domain tag structure (which could get large when considering more complex constrained tag
     // cases), assign each domain an ID and use that instead
     // An arrival or required time entry. Stores both the min/max delays; and the traversal to reach them for critical

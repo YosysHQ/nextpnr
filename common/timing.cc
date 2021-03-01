@@ -36,6 +36,8 @@ void TimingAnalyser::setup()
     get_cell_delays();
     topo_sort();
     setup_port_domains();
+    reset_times();
+    walk_forward();
 }
 
 void TimingAnalyser::init_ports()
@@ -229,6 +231,94 @@ void TimingAnalyser::setup_port_domains()
             for (auto &req : pd.required) {
                 pd.domain_pairs[domain_pair_id(arr.first, req.first)];
             }
+    }
+}
+
+void TimingAnalyser::reset_times()
+{
+    for (auto &port : ports) {
+        auto do_reset = [&](std::unordered_map<domain_id_t, ArrivReqTime> &times) {
+            for (auto &t : times) {
+                t.second.value = init_delay;
+                t.second.path_length = 0;
+                t.second.bwd_min = CellPortKey();
+                t.second.bwd_max = CellPortKey();
+            }
+        };
+        do_reset(port.second.arrival);
+        do_reset(port.second.required);
+        for (auto &dp : port.second.domain_pairs) {
+            dp.second.setup_slack = std::numeric_limits<delay_t>::max();
+            dp.second.hold_slack = std::numeric_limits<delay_t>::max();
+            dp.second.max_path_length = 0;
+            dp.second.criticality = 0;
+            dp.second.budget = 0;
+        }
+    }
+}
+
+void TimingAnalyser::set_arrival_time(CellPortKey target, domain_id_t domain, DelayPair arrival, int path_length,
+                                      CellPortKey prev)
+{
+    auto &arr = ports.at(target).arrival.at(domain);
+    if (arrival.max_delay > arr.value.max_delay) {
+        arr.value.max_delay = arrival.max_delay;
+        arr.bwd_max = prev;
+    }
+    if (!setup_only && (arrival.min_delay < arr.value.min_delay)) {
+        arr.value.min_delay = arrival.min_delay;
+        arr.bwd_min = prev;
+    }
+    arr.path_length = std::max(arr.path_length, path_length);
+}
+
+void TimingAnalyser::walk_forward()
+{
+    // Assign initial arrival time to domain startpoints
+    for (domain_id_t dom_id = 0; dom_id < domain_id_t(domains.size()); ++dom_id) {
+        auto &dom = domains.at(dom_id);
+        for (auto &sp : dom.startpoints) {
+            auto &pd = ports.at(sp.first);
+            DelayPair init_arrival(0);
+            CellPortKey clock_key;
+            // TODO: clock routing delay, if analysis of that is enabled
+            if (sp.second != IdString()) {
+                // clocked startpoints have a clock-to-out time
+                for (auto &fanin : pd.cell_arcs) {
+                    if (fanin.type == CellArc::CLK_TO_Q && fanin.other_port == sp.second) {
+                        init_arrival = init_arrival + fanin.value.delayPair();
+                        break;
+                    }
+                }
+                clock_key = CellPortKey(sp.first.cell, sp.second);
+            }
+            set_arrival_time(sp.first, dom_id, init_arrival, 1, clock_key);
+        }
+    }
+    // Walk forward in topological order
+    for (auto p : topological_order) {
+        auto &pd = ports.at(p);
+        for (auto &arr : pd.arrival) {
+            if (pd.type == PORT_OUT) {
+                // Output port: propagate delay through net, adding route delay
+                NetInfo *net = port_info(p).net;
+                if (net != nullptr)
+                    for (auto &usr : net->users) {
+                        CellPortKey usr_key(usr);
+                        auto &usr_pd = ports.at(usr_key);
+                        set_arrival_time(usr_key, arr.first, arr.second.value + usr_pd.route_delay,
+                                         arr.second.path_length, p);
+                    }
+            } else if (pd.type == PORT_IN) {
+                // Input port; propagate delay through cell, adding combinational delay
+                for (auto &fanout : pd.cell_arcs) {
+                    if (fanout.type != CellArc::COMBINATIONAL)
+                        continue;
+                    set_arrival_time(CellPortKey(p.cell, fanout.other_port), arr.first,
+                                     arr.second.value + fanout.value.delayPair(), arr.second.path_length + 1, p);
+                }
+            }
+        }
     }
 }
 
