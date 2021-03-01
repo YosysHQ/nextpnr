@@ -20,37 +20,46 @@
 #ifndef SCOPE_LOCK_H
 #define SCOPE_LOCK_H
 
+#include <stdexcept>
+
 namespace nextpnr {
 
-// Provides a simple RIAA locking object.  ScopeLock takes a lock when
+// Provides a simple RAII locking object.  ScopeLock takes a lock when
 // constructed, and releases the lock on destruction or if "unlock_early" is
 // called.
 //
 // LockingObject must have a method "void lock(void)" and "void unlock(void)".
-template<typename LockingObject>
-class ScopeLock {
-public:
-    ScopeLock(LockingObject * obj) : obj_(obj), locked_(false) {
+template <typename LockingObject> class ScopeLock
+{
+  public:
+    ScopeLock(LockingObject *obj) : obj_(obj), locked_(false)
+    {
         obj_->lock();
         locked_ = true;
     }
     ScopeLock(const ScopeLock &other) = delete;
     ScopeLock(const ScopeLock &&other) = delete;
 
-    ~ScopeLock() {
-        if(locked_) {
+    ~ScopeLock()
+    {
+        if (locked_) {
             obj_->unlock();
         }
     }
-    void unlock_early() {
+    void unlock_early()
+    {
+        if (!locked_) {
+            throw std::runtime_error("Lock already released?");
+        }
         locked_ = false;
         obj_->unlock();
     }
-private:
+
+  private:
     LockingObject *obj_;
     bool locked_;
 };
 
-};
+}; // namespace nextpnr
 
 #endif /* SCOPE_LOCK_H */
