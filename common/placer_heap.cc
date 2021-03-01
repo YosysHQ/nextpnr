@@ -331,8 +331,6 @@ class HeAPPlacer
             return false;
         }
 
-        lock.unlock_early();
-
         auto endtt = std::chrono::high_resolution_clock::now();
         log_info("HeAP Placer Time: %.02fs\n", std::chrono::duration<double>(endtt - startt).count());
         log_info("  of which solving equations: %.02fs\n", solve_time);
@@ -340,6 +338,7 @@ class HeAPPlacer
         log_info("  of which strict legalisation: %.02fs\n", sl_time);
 
         ctx->check();
+        lock.unlock_early();
 
         if (!placer1_refine(ctx, Placer1Cfg(ctx))) {
             return false;

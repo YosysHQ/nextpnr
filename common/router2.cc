@@ -36,6 +36,7 @@
 #include "log.h"
 #include "nextpnr.h"
 #include "router1.h"
+#include "scope_lock.h"
 #include "timing.h"
 #include "util.h"
 
@@ -1161,6 +1162,8 @@ struct Router2
         ThreadContext st;
         int iter = 1;
 
+        nextpnr::ScopeLock<Context> lock(ctx);
+
         for (size_t i = 0; i < nets_by_udata.size(); i++)
             route_queue.push_back(i);
 
@@ -1236,6 +1239,8 @@ struct Router2
         log_info("Router2 time %.02fs\n", std::chrono::duration<float>(rend - rstart).count());
 
         log_info("Running router1 to check that route is legal...\n");
+
+        lock.unlock_early();
 
         router1(ctx, Router1Cfg(ctx));
     }

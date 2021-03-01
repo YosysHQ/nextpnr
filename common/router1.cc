@@ -23,6 +23,7 @@
 
 #include "log.h"
 #include "router1.h"
+#include "scope_lock.h"
 #include "timing.h"
 
 namespace {
@@ -805,7 +806,7 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
     try {
         log_break();
         log_info("Routing..\n");
-        ctx->lock();
+        nextpnr::ScopeLock<Context> lock(ctx);
         auto rstart = std::chrono::high_resolution_clock::now();
 
         log_info("Setting up routing queue.\n");
@@ -854,7 +855,6 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
                 router.check();
                 ctx->check();
 #endif
-                ctx->unlock();
                 return false;
             }
         }
@@ -878,13 +878,13 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
         timing_analysis(ctx, true /* slack_histogram */, true /* print_fmax */, true /* print_path */,
                         true /* warn_on_failure */);
 
-        ctx->unlock();
         return true;
     } catch (log_execution_error_exception) {
 #ifndef NDEBUG
+        ctx->lock();
         ctx->check();
-#endif
         ctx->unlock();
+#endif
         return false;
     }
 }
