@@ -100,6 +100,27 @@ struct ClockDomainKey
     inline bool operator==(const ClockDomainKey &other) const { return (clock == other.clock) && (edge == other.edge); }
 };
 
+typedef int domain_id_t;
+
+struct ClockDomainPairKey
+{
+    domain_id_t launch, capture;
+    ClockDomainPairKey(domain_id_t launch, domain_id_t capture) : launch(launch), capture(capture){};
+    inline bool operator==(const ClockDomainPairKey &other) const
+    {
+        return (launch == other.launch) && (capture == other.capture);
+    }
+    struct Hash
+    {
+        std::size_t operator()(const ClockDomainPairKey &arg) const noexcept
+        {
+            std::size_t seed = std::hash<domain_id_t>()(arg.launch);
+            seed ^= std::hash<domain_id_t>()(arg.capture) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+            return seed;
+        }
+    };
+};
+
 struct TimingAnalyser
 {
   public:
@@ -113,7 +134,6 @@ struct TimingAnalyser
     void setup_port_domains();
     // To avoid storing the domain tag structure (which could get large when considering more complex constrained tag
     // cases), assign each domain an ID and use that instead
-    typedef int domain_id_t;
     // An arrival or required time entry. Stores both the min/max delays; and the traversal to reach them for critical
     // path reporting
     struct ArrivReqTime
@@ -123,10 +143,8 @@ struct TimingAnalyser
         int path_length;
     };
     // Data per port-domain tuple
-    struct PortDomainData
+    struct PortDomainPairData
     {
-        bool has_arrival = false, has_required = false;
-        ArrivReqTime arrival, required;
         delay_t setup_slack = std::numeric_limits<delay_t>::max(), hold_slack = std::numeric_limits<delay_t>::max();
         delay_t budget = std::numeric_limits<delay_t>::max();
         int max_path_length = 0;
@@ -163,7 +181,9 @@ struct TimingAnalyser
         NetPortKey net_port;
         PortType type;
         // per domain timings
-        std::unordered_map<domain_id_t, PortDomainData> domains;
+        std::unordered_map<domain_id_t, ArrivReqTime> arrival;
+        std::unordered_map<domain_id_t, ArrivReqTime> required;
+        std::unordered_map<domain_id_t, PortDomainPairData> domain_pairs;
         // cell timing arcs to (outputs)/from (inputs)  from this port
         std::vector<CellArc> cell_arcs;
         // routing delay into this port (input ports only)
@@ -178,17 +198,26 @@ struct TimingAnalyser
         std::vector<std::pair<CellPortKey, IdString>> startpoints, endpoints;
     };
 
+    struct PerDomainPair
+    {
+        PerDomainPair(ClockDomainPairKey key) : key(key){};
+        ClockDomainPairKey key;
+    };
+
     CellInfo *cell_info(const CellPortKey &key);
     PortInfo &port_info(const CellPortKey &key);
 
     domain_id_t domain_id(IdString cell, IdString clock_port, ClockEdge edge);
     domain_id_t domain_id(const NetInfo *net, ClockEdge edge);
+    domain_id_t domain_pair_id(domain_id_t launch, domain_id_t capture);
 
     void copy_domains(const CellPortKey &from, const CellPortKey &to, bool backwards);
 
     std::unordered_map<CellPortKey, PerPort, CellPortKey::Hash> ports;
     std::unordered_map<ClockDomainKey, domain_id_t, ClockDomainKey::Hash> domain_to_id;
+    std::unordered_map<ClockDomainPairKey, domain_id_t, ClockDomainPairKey::Hash> pair_to_id;
     std::vector<PerDomain> domains;
+    std::vector<PerDomainPair> domain_pairs;
 
     std::vector<CellPortKey> topological_order;
 
