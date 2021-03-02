@@ -140,6 +140,8 @@ struct TimingAnalyser
     void walk_forward();
     void walk_backward();
 
+    void print_fmax();
+
     const DelayPair init_delay{std::numeric_limits<delay_t>::max(), std::numeric_limits<delay_t>::lowest()};
 
     // Set arrival/required times if more/less than the current value

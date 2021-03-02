@@ -39,6 +39,7 @@ void TimingAnalyser::setup()
     reset_times();
     walk_forward();
     walk_backward();
+    print_fmax();
 }
 
 void TimingAnalyser::init_ports()
@@ -383,6 +384,26 @@ void TimingAnalyser::walk_backward()
                 }
             }
         }
+    }
+}
+
+void TimingAnalyser::print_fmax()
+{
+    // Temporary testing code for comparison only
+    std::unordered_map<int, double> domain_fmax;
+    for (auto p : topological_order) {
+        auto &pd = ports.at(p);
+        for (auto &req : pd.required) {
+            if (pd.arrival.count(req.first)) {
+                auto &arr = pd.arrival.at(req.first);
+                double fmax = 1000.0 / (arr.value.maxDelay() - req.second.value.minDelay());
+                if (!domain_fmax.count(req.first) || domain_fmax.at(req.first) > fmax)
+                    domain_fmax[req.first] = fmax;
+            }
+        }
+    }
+    for (auto &fm : domain_fmax) {
+        log_info("Domain %s Worst Fmax %.02f\n", ctx->nameOf(domains.at(fm.first).key.clock), fm.second);
     }
 }
 
