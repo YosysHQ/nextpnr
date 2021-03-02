@@ -42,6 +42,7 @@
 #include "fast_bels.h"
 #include "log.h"
 #include "place_common.h"
+#include "scope_lock.h"
 #include "timing.h"
 #include "util.h"
 
@@ -142,7 +143,8 @@ class SAPlacer
     bool place(bool refine = false)
     {
         log_break();
-        ctx->lock();
+
+        nextpnr::ScopeLock<Context> lock(ctx);
 
         size_t placed_cells = 0;
         std::vector<CellInfo *> autoplaced;
@@ -421,7 +423,7 @@ class SAPlacer
                 log_error("constraint satisfaction check failed for cell '%s' at Bel '%s'\n", cell.first.c_str(ctx),
                           ctx->nameOfBel(cell.second->bel));
         timing_analysis(ctx);
-        ctx->unlock();
+
         return true;
     }
 
@@ -1263,9 +1265,10 @@ bool placer1(Context *ctx, Placer1Cfg cfg)
         return true;
     } catch (log_execution_error_exception) {
 #ifndef NDEBUG
+        ctx->lock();
         ctx->check();
-#endif
         ctx->unlock();
+#endif
         return false;
     }
 }
@@ -1284,9 +1287,10 @@ bool placer1_refine(Context *ctx, Placer1Cfg cfg)
         return true;
     } catch (log_execution_error_exception) {
 #ifndef NDEBUG
+        ctx->lock();
         ctx->check();
-#endif
         ctx->unlock();
+#endif
         return false;
     }
 }
