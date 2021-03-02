@@ -34,6 +34,7 @@ void TimingAnalyser::setup()
 {
     init_ports();
     get_cell_delays();
+    get_route_delays();
     topo_sort();
     setup_port_domains();
     reset_times();
@@ -126,6 +127,15 @@ void TimingAnalyser::get_cell_delays()
                     pd.cell_arcs.emplace_back(CellArc::COMBINATIONAL, other_port.first, delay);
             }
         }
+    }
+}
+
+void TimingAnalyser::get_route_delays()
+{
+    for (auto net : sorted(ctx->nets)) {
+        NetInfo *ni = net.second;
+        for (auto &usr : ni->users)
+            ports.at(CellPortKey(usr)).route_delay = DelayPair(ctx->getNetinfoRouteDelay(ni, usr));
     }
 }
 
@@ -396,7 +406,7 @@ void TimingAnalyser::print_fmax()
         for (auto &req : pd.required) {
             if (pd.arrival.count(req.first)) {
                 auto &arr = pd.arrival.at(req.first);
-                double fmax = 1000.0 / (arr.value.maxDelay() - req.second.value.minDelay());
+                double fmax = 1000.0 / ctx->getDelayNS(arr.value.maxDelay() - req.second.value.minDelay());
                 if (!domain_fmax.count(req.first) || domain_fmax.at(req.first) > fmax)
                     domain_fmax[req.first] = fmax;
             }
