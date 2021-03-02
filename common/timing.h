@@ -138,6 +138,7 @@ struct TimingAnalyser
     void reset_times();
 
     void walk_forward();
+    void walk_backward();
 
     const DelayPair init_delay{std::numeric_limits<delay_t>::max(), std::numeric_limits<delay_t>::lowest()};
 

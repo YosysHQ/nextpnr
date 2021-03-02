@@ -552,6 +552,10 @@ struct DelayPair
     {
         return {min_delay + other.min_delay, max_delay + other.max_delay};
     }
+    DelayPair operator-(const DelayPair &other) const
+    {
+        return {min_delay - other.min_delay, max_delay - other.max_delay};
+    }
 };
 
 // four-quadrant, min and max rise and fall delay
@@ -575,6 +579,7 @@ struct DelayQuad
     DelayPair delayPair() const { return DelayPair(minDelay(), maxDelay()); };
 
     DelayQuad operator+(const DelayQuad &other) const { return {rise + other.rise, fall + other.fall}; }
+    DelayQuad operator-(const DelayQuad &other) const { return {rise - other.rise, fall - other.fall}; }
 };
 
 struct ClockConstraint;

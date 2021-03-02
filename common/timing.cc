@@ -38,6 +38,7 @@ void TimingAnalyser::setup()
     setup_port_domains();
     reset_times();
     walk_forward();
+    walk_backward();
 }
 
 void TimingAnalyser::init_ports()
@@ -217,7 +218,7 @@ void TimingAnalyser::setup_port_domains()
                 auto dom = domain_id(port.cell, fanout.other_port, fanout.edge);
                 // create per-domain data
                 pd.required[dom];
-                domains.at(dom).startpoints.emplace_back(port, fanout.other_port);
+                domains.at(dom).endpoints.emplace_back(port, fanout.other_port);
             }
             // copy port to driver
             if (pi.net != nullptr && pi.net->driver.cell != nullptr)
@@ -272,6 +273,21 @@ void TimingAnalyser::set_arrival_time(CellPortKey target, domain_id_t domain, De
     arr.path_length = std::max(arr.path_length, path_length);
 }
 
+void TimingAnalyser::set_required_time(CellPortKey target, domain_id_t domain, DelayPair required, int path_length,
+                                       CellPortKey prev)
+{
+    auto &req = ports.at(target).required.at(domain);
+    if (required.min_delay < req.value.min_delay) {
+        req.value.min_delay = required.min_delay;
+        req.bwd_min = prev;
+    }
+    if (!setup_only && (required.max_delay > req.value.max_delay)) {
+        req.value.max_delay = required.max_delay;
+        req.bwd_max = prev;
+    }
+    req.path_length = std::max(req.path_length, path_length);
+}
+
 void TimingAnalyser::walk_forward()
 {
     // Assign initial arrival time to domain startpoints
@@ -316,6 +332,54 @@ void TimingAnalyser::walk_forward()
                         continue;
                     set_arrival_time(CellPortKey(p.cell, fanout.other_port), arr.first,
                                      arr.second.value + fanout.value.delayPair(), arr.second.path_length + 1, p);
+                }
+            }
+        }
+    }
+}
+
+void TimingAnalyser::walk_backward()
+{
+    // Assign initial required time to domain endpoints
+    // Note that clock frequency will be considered later in the analysis for, for now all required times are normalised
+    // to 0ns
+    for (domain_id_t dom_id = 0; dom_id < domain_id_t(domains.size()); ++dom_id) {
+        auto &dom = domains.at(dom_id);
+        for (auto &ep : dom.endpoints) {
+            auto &pd = ports.at(ep.first);
+            DelayPair init_setuphold(0);
+            CellPortKey clock_key;
+            // TODO: clock routing delay, if analysis of that is enabled
+            if (ep.second != IdString()) {
+                // Add setup/hold time, if this endpoint is clocked
+                for (auto &fanin : pd.cell_arcs) {
+                    if (fanin.type == CellArc::SETUP && fanin.other_port == ep.second)
+                        init_setuphold.min_delay -= fanin.value.maxDelay();
+                    if (fanin.type == CellArc::HOLD && fanin.other_port == ep.second)
+                        init_setuphold.max_delay -= fanin.value.maxDelay();
+                }
+                clock_key = CellPortKey(ep.first.cell, ep.second);
+            }
+            set_required_time(ep.first, dom_id, init_setuphold, 1, clock_key);
+        }
+    }
+    // Walk backwards in topological order
+    for (auto p : reversed_range(topological_order)) {
+        auto &pd = ports.at(p);
+        for (auto &req : pd.required) {
+            if (pd.type == PORT_IN) {
+                // Input port: propagate delay back through net, subtracting route delay
+                NetInfo *net = port_info(p).net;
+                if (net != nullptr && net->driver.cell != nullptr)
+                    set_required_time(CellPortKey(net->driver), req.first, req.second.value - pd.route_delay,
+                                      req.second.path_length, p);
+            } else if (pd.type == PORT_OUT) {
+                // Output port : propagate delay back through cell, subtracting combinational delay
+                for (auto &fanin : pd.cell_arcs) {
+                    if (fanin.type != CellArc::COMBINATIONAL)
+                        continue;
+                    set_required_time(CellPortKey(p.cell, fanin.other_port), req.first,
+                                      req.second.value - fanin.value.delayPair(), req.second.path_length + 1, p);
                 }
             }
         }
