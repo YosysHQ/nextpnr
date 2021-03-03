@@ -22,6 +22,8 @@
 #error Include "archdefs.h" via "nextpnr.h" only.
 #endif
 
+#include "luts.h"
+
 NEXTPNR_NAMESPACE_BEGIN
 
 #include <cstdint>
@@ -107,6 +109,7 @@ struct ArchCellInfo
     int32_t cell_mapping;
     std::unordered_map<IdString, std::vector<IdString>> cell_bel_pins;
     std::unordered_set<IdString> const_ports;
+    LutCell lut_cell;
 };
 
 NEXTPNR_NAMESPACE_END

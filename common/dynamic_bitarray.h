@@ -70,6 +70,8 @@ template <typename Storage = std::vector<uint8_t>> class DynamicBitarray
 
     size_t size() const { return storage.size() * bits_per_value(); }
 
+    void clear() { return storage.clear(); }
+
   private:
     Storage storage;
 };

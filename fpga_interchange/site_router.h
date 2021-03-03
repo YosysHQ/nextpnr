@@ -22,6 +22,9 @@
 #error Include "site_router.h" via "nextpnr.h" only.
 #endif
 
+#ifndef SITE_ROUTER_H
+#define SITE_ROUTER_H
+
 NEXTPNR_NAMESPACE_BEGIN
 
 struct Context;
@@ -43,3 +46,5 @@ struct SiteRouter
 };
 
 NEXTPNR_NAMESPACE_END
+
+#endif /* SITE_ROUTER_H */
