@@ -31,13 +31,15 @@ NEXTPNR_NAMESPACE_BEGIN
 struct CellInfo;
 struct Context;
 
-enum LogicLevel {
+enum LogicLevel
+{
     LL_Zero,
     LL_One,
     LL_DontCare
 };
 
-struct LutCell {
+struct LutCell
+{
     // LUT cell pins for equation, LSB first.
     std::vector<IdString> pins;
     std::unordered_set<IdString> lut_pins;
@@ -45,7 +47,8 @@ struct LutCell {
     nextpnr::DynamicBitarray<> equation;
 };
 
-struct LutBel {
+struct LutBel
+{
     // LUT BEL pins to LUT array index.
     std::vector<IdString> pins;
     std::unordered_map<IdString, size_t> pin_to_index;
@@ -59,16 +62,13 @@ struct LutBel {
     int32_t max_pin;
 };
 
-// Work forward from cell definition and cell -> bel pin map and check that 
+// Work forward from cell definition and cell -> bel pin map and check that
 // equation is valid.
-void check_equation(
-        const LutCell & lut_cell,
-        const std::unordered_map<IdString, IdString> &cell_to_bel_map,
-        const LutBel & lut_bel,
-        const std::vector<LogicLevel> &equation,
-        uint32_t used_pins);
+void check_equation(const LutCell &lut_cell, const std::unordered_map<IdString, IdString> &cell_to_bel_map,
+                    const LutBel &lut_bel, const std::vector<LogicLevel> &equation, uint32_t used_pins);
 
-struct LutElement {
+struct LutElement
+{
     size_t width;
     std::unordered_map<IdString, LutBel> lut_bels;
 
@@ -78,11 +78,12 @@ struct LutElement {
     std::unordered_map<IdString, size_t> pin_to_index;
 };
 
-struct LutMapper {
-    LutMapper(const LutElement & element) : element(element) {}
-    const LutElement & element;
+struct LutMapper
+{
+    LutMapper(const LutElement &element) : element(element) {}
+    const LutElement &element;
 
-    std::vector<CellInfo*> cells;
+    std::vector<CellInfo *> cells;
 
     bool remap_luts(const Context *ctx);
 };
@@ -90,11 +91,9 @@ struct LutMapper {
 // Rotate and merge a LUT equation into an array of levels.
 //
 // If a conflict arises, return false and result is in an indeterminate state.
-bool rotate_and_merge_lut_equation(std::vector<LogicLevel> * result,
-        const LutBel & lut_bel,
-        const nextpnr::DynamicBitarray<> &old_equation,
-        const std::vector<size_t> &pin_map,
-        uint32_t used_pins);
+bool rotate_and_merge_lut_equation(std::vector<LogicLevel> *result, const LutBel &lut_bel,
+                                   const nextpnr::DynamicBitarray<> &old_equation, const std::vector<size_t> &pin_map,
+                                   uint32_t used_pins);
 
 NEXTPNR_NAMESPACE_END
 

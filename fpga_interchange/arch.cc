@@ -723,7 +723,8 @@ bool Arch::route()
     return result;
 }
 
-bool Arch::route_vcc_to_unused_lut_pins() {
+bool Arch::route_vcc_to_unused_lut_pins()
+{
     std::string router = str_or_default(settings, id("router"), defaultRouter);
 
     // Fixup LUT vcc pins.
