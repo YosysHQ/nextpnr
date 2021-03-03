@@ -373,7 +373,7 @@ inline bool chip_get_hrow_loc(const ChipInfoPOD *chip, int32_t x, int32_t y, int
 {
     bool y_found = false;
     for (auto &s : chip->globals->spines) {
-        if (std::abs(y - s.spine_row) < 3) {
+        if (std::abs(y - s.spine_row) <= 3) {
             hrow_y = s.spine_row;
             y_found = true;
             break;
