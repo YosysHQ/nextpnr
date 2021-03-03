@@ -141,6 +141,9 @@ struct TimingAnalyser
     void walk_forward();
     void walk_backward();
 
+    void compute_slack();
+    void compute_criticality();
+
     void print_fmax();
 
     const DelayPair init_delay{std::numeric_limits<delay_t>::max(), std::numeric_limits<delay_t>::lowest()};
@@ -207,6 +210,8 @@ struct TimingAnalyser
         std::vector<CellArc> cell_arcs;
         // routing delay into this port (input ports only)
         DelayPair route_delay;
+        // worst criticality across domain pairs
+        float worst_crit;
     };
 
     struct PerDomain
@@ -221,6 +226,8 @@ struct TimingAnalyser
     {
         PerDomainPair(ClockDomainPairKey key) : key(key){};
         ClockDomainPairKey key;
+        DelayPair period;
+        delay_t worst_setup_slack, worst_hold_slack;
     };
 
     CellInfo *cell_info(const CellPortKey &key);

@@ -40,6 +40,8 @@ void TimingAnalyser::setup()
     reset_times();
     walk_forward();
     walk_backward();
+    compute_slack();
+    compute_criticality();
     print_fmax();
 }
 
@@ -266,6 +268,7 @@ void TimingAnalyser::reset_times()
             dp.second.criticality = 0;
             dp.second.budget = 0;
         }
+        port.second.worst_crit = 0;
     }
 }
 
@@ -414,6 +417,43 @@ void TimingAnalyser::print_fmax()
     }
     for (auto &fm : domain_fmax) {
         log_info("Domain %s Worst Fmax %.02f\n", ctx->nameOf(domains.at(fm.first).key.clock), fm.second);
+    }
+}
+
+void TimingAnalyser::compute_slack()
+{
+    for (auto &dp : domain_pairs) {
+        dp.worst_setup_slack = std::numeric_limits<delay_t>::max();
+        dp.worst_hold_slack = std::numeric_limits<delay_t>::max();
+    }
+    for (auto p : topological_order) {
+        auto &pd = ports.at(p);
+        for (auto &pdp : pd.domain_pairs) {
+            auto &dp = domain_pairs.at(pdp.first);
+            auto &arr = pd.arrival.at(dp.key.launch);
+            auto &req = pd.required.at(dp.key.capture);
+            pdp.second.setup_slack = dp.period.minDelay() - (arr.value.maxDelay() - req.value.minDelay());
+            if (!setup_only)
+                pdp.second.hold_slack = arr.value.minDelay() - req.value.maxDelay();
+            pdp.second.max_path_length = arr.path_length + req.path_length;
+            dp.worst_setup_slack = std::min(dp.worst_setup_slack, pdp.second.setup_slack);
+            if (!setup_only)
+                dp.worst_hold_slack = std::min(dp.worst_hold_slack, pdp.second.hold_slack);
+        }
+    }
+}
+
+void TimingAnalyser::compute_criticality()
+{
+    for (auto p : topological_order) {
+        auto &pd = ports.at(p);
+        for (auto &pdp : pd.domain_pairs) {
+            auto &dp = domain_pairs.at(pdp.first);
+            pdp.second.criticality =
+                    1.0f - (float(pdp.second.setup_slack) - float(dp.worst_setup_slack)) / float(-dp.worst_setup_slack);
+            NPNR_ASSERT(pdp.second.criticality >= -0.00001f && pdp.second.criticality <= 1.00001f);
+            pd.worst_crit = std::max(pd.worst_crit, pdp.second.criticality);
+        }
     }
 }
 
