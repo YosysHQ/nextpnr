@@ -43,6 +43,7 @@ void TimingAnalyser::setup()
     compute_slack();
     compute_criticality();
     print_fmax();
+    print_report();
 }
 
 void TimingAnalyser::init_ports()
@@ -454,6 +455,67 @@ void TimingAnalyser::compute_criticality()
             NPNR_ASSERT(pdp.second.criticality >= -0.00001f && pdp.second.criticality <= 1.00001f);
             pd.worst_crit = std::max(pd.worst_crit, pdp.second.criticality);
         }
+    }
+}
+
+std::vector<CellPortKey> TimingAnalyser::get_failing_eps(domain_id_t domain_pair, int count)
+{
+    std::vector<CellPortKey> failing_eps;
+    delay_t last_slack = std::numeric_limits<delay_t>::min();
+    auto &dp = domain_pairs.at(domain_pair);
+    auto &cap_d = domains.at(dp.key.capture);
+    while (int(failing_eps.size()) < count) {
+        CellPortKey next;
+        delay_t next_slack = std::numeric_limits<delay_t>::max();
+        for (auto ep : cap_d.endpoints) {
+            auto &pd = ports.at(ep.first);
+            if (!pd.domain_pairs.count(domain_pair))
+                continue;
+            delay_t ep_slack = pd.domain_pairs.at(domain_pair).setup_slack;
+            if (ep_slack < next_slack && ep_slack > last_slack) {
+                next = ep.first;
+                next_slack = ep_slack;
+            }
+        }
+        if (next == CellPortKey())
+            break;
+        failing_eps.push_back(next);
+        last_slack = next_slack;
+    }
+    return failing_eps;
+}
+
+void TimingAnalyser::print_critical_path(CellPortKey endpoint, domain_id_t domain_pair)
+{
+    CellPortKey cursor = endpoint;
+    auto &dp = domain_pairs.at(domain_pair);
+    log("    endpoint %s.%s (slack %.02fns):\n", ctx->nameOf(cursor.cell), ctx->nameOf(cursor.port),
+        ctx->getDelayNS(ports.at(cursor).domain_pairs.at(domain_pair).setup_slack));
+    while (cursor != CellPortKey()) {
+        log("        %s.%s (net %s)\n", ctx->nameOf(cursor.cell), ctx->nameOf(cursor.port),
+            ctx->nameOf(get_net_or_empty(ctx->cells.at(cursor.cell).get(), cursor.port)));
+        if (!ports.at(cursor).arrival.count(dp.key.launch))
+            break;
+        cursor = ports.at(cursor).arrival.at(dp.key.launch).bwd_max;
+    }
+}
+
+namespace {
+const char *edge_name(ClockEdge edge) { return (edge == FALLING_EDGE) ? "negedge" : "posedge"; }
+} // namespace
+
+void TimingAnalyser::print_report()
+{
+    for (int i = 0; i < int(domain_pairs.size()); i++) {
+        auto &dp = domain_pairs.at(i);
+        auto &launch = domains.at(dp.key.launch);
+        auto &capture = domains.at(dp.key.capture);
+        log("Worst endpoints for %s %s -> %s %s\n", edge_name(launch.key.edge), ctx->nameOf(launch.key.clock),
+            edge_name(capture.key.edge), ctx->nameOf(capture.key.clock));
+        auto failing_eps = get_failing_eps(i, 5);
+        for (auto &ep : failing_eps)
+            print_critical_path(ep, i);
+        log_break();
     }
 }
 
