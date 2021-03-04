@@ -140,8 +140,13 @@ void TimingAnalyser::get_route_delays()
 {
     for (auto net : sorted(ctx->nets)) {
         NetInfo *ni = net.second;
-        for (auto &usr : ni->users)
+        if (ni->driver.cell == nullptr || ni->driver.cell->bel == BelId())
+            continue;
+        for (auto &usr : ni->users) {
+            if (usr.cell->bel == BelId())
+                continue;
             ports.at(CellPortKey(usr)).route_delay = DelayPair(ctx->getNetinfoRouteDelay(ni, usr));
+        }
     }
 }
 
