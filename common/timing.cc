@@ -34,16 +34,19 @@ void TimingAnalyser::setup()
 {
     init_ports();
     get_cell_delays();
-    get_route_delays();
     topo_sort();
     setup_port_domains();
+    run();
+}
+
+void TimingAnalyser::run()
+{
     reset_times();
+    get_route_delays();
     walk_forward();
     walk_backward();
     compute_slack();
     compute_criticality();
-    print_fmax();
-    print_report();
 }
 
 void TimingAnalyser::init_ports()

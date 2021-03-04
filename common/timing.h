@@ -127,6 +127,10 @@ struct TimingAnalyser
   public:
     TimingAnalyser(Context *ctx) : ctx(ctx){};
     void setup();
+    void run();
+    void print_report();
+
+    float get_criticality(CellPortKey port) const { return ports.at(port).worst_crit; }
 
     bool setup_only = false;
 
@@ -146,8 +150,6 @@ struct TimingAnalyser
     void compute_criticality();
 
     void print_fmax();
-    void print_report();
-
     // get the N most failing endpoints for a given domain pair
     std::vector<CellPortKey> get_failing_eps(domain_id_t domain_pair, int count);
     // print the critical path for an endpoint and domain pair
