@@ -131,6 +131,14 @@ struct TimingAnalyser
     void print_report();
 
     float get_criticality(CellPortKey port) const { return ports.at(port).worst_crit; }
+    float get_setup_slack(CellPortKey port) const { return ports.at(port).worst_setup_slack; }
+    float get_domain_setup_slack(CellPortKey port) const
+    {
+        delay_t slack = std::numeric_limits<delay_t>::max();
+        for (const auto &dp : ports.at(port).domain_pairs)
+            slack = std::min(slack, domain_pairs.at(dp.first).worst_setup_slack);
+        return slack;
+    }
 
     bool setup_only = false;
 
@@ -219,8 +227,9 @@ struct TimingAnalyser
         std::vector<CellArc> cell_arcs;
         // routing delay into this port (input ports only)
         DelayPair route_delay;
-        // worst criticality across domain pairs
+        // worst criticality and slack across domain pairs
         float worst_crit;
+        delay_t worst_setup_slack, worst_hold_slack;
     };
 
     struct PerDomain
@@ -266,19 +275,6 @@ void assign_budget(Context *ctx, bool quiet = false);
 //    critical path
 void timing_analysis(Context *ctx, bool slack_histogram = true, bool print_fmax = true, bool print_path = false,
                      bool warn_on_failure = false);
-
-// Data for the timing optimisation algorithm
-struct NetCriticalityInfo
-{
-    // One each per user
-    std::vector<delay_t> slack;
-    std::vector<float> criticality;
-    unsigned max_path_length = 0;
-    delay_t cd_worst_slack = std::numeric_limits<delay_t>::max();
-};
-
-typedef std::unordered_map<IdString, NetCriticalityInfo> NetCriticalityMap;
-void get_criticalities(Context *ctx, NetCriticalityMap *net_crit);
 
 NEXTPNR_NAMESPACE_END
 

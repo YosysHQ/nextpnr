@@ -95,8 +95,8 @@ bool Arch::isBelLocationValid(BelId bel) const
 
 void Arch::permute_luts()
 {
-    NetCriticalityMap nc;
-    get_criticalities(getCtx(), &nc);
+    TimingAnalyser tmg(getCtx());
+    tmg.setup();
 
     std::unordered_map<PortInfo *, size_t> port_to_user;
     for (auto net : sorted(nets)) {
@@ -121,13 +121,7 @@ void Arch::permute_luts()
                 ci->ports[port_names.at(i)].type = PORT_IN;
             }
             auto &port = ci->ports.at(port_names.at(i));
-            float crit = 0;
-            if (port.net != nullptr && nc.count(port.net->name)) {
-                auto &n = nc.at(port.net->name);
-                size_t usr = port_to_user.at(&port);
-                if (usr < n.criticality.size())
-                    crit = n.criticality.at(usr);
-            }
+            float crit = (port.net == nullptr) ? 0 : tmg.get_criticality(CellPortKey(ci->name, port_names.at(i)));
             orig_nets.push_back(port.net);
             inputs.emplace_back(crit, i);
         }

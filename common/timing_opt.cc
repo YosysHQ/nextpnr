@@ -79,16 +79,17 @@ NEXTPNR_NAMESPACE_BEGIN
 class TimingOptimiser
 {
   public:
-    TimingOptimiser(Context *ctx, TimingOptCfg cfg) : ctx(ctx), cfg(cfg){};
+    TimingOptimiser(Context *ctx, TimingOptCfg cfg) : ctx(ctx), cfg(cfg), tmg(ctx){};
     bool optimise()
     {
         log_info("Running timing-driven placement optimisation...\n");
         ctx->lock();
         if (ctx->verbose)
             timing_analysis(ctx, false, true, false, false);
+        tmg.setup();
         for (int i = 0; i < 30; i++) {
             log_info("   Iteration %d...\n", i);
-            get_criticalities(ctx, &net_crit);
+            tmg.run();
             setup_delay_limits();
             auto crit_paths = find_crit_paths(0.98, 50000);
             for (auto &path : crit_paths)
@@ -109,18 +110,14 @@ class TimingOptimiser
             for (auto usr : ni->users) {
                 max_net_delay[std::make_pair(usr.cell->name, usr.port)] = std::numeric_limits<delay_t>::max();
             }
-            if (!net_crit.count(net.first))
-                continue;
-            auto &nc = net_crit.at(net.first);
-            if (nc.slack.empty())
-                continue;
             for (size_t i = 0; i < ni->users.size(); i++) {
                 auto &usr = ni->users.at(i);
                 delay_t net_delay = ctx->getNetinfoRouteDelay(ni, usr);
-                if (nc.max_path_length != 0) {
-                    max_net_delay[std::make_pair(usr.cell->name, usr.port)] =
-                            net_delay + ((nc.slack.at(i) - nc.cd_worst_slack) / 10);
-                }
+                delay_t slack = tmg.get_setup_slack(CellPortKey(usr));
+                delay_t domain_slack = tmg.get_domain_setup_slack(CellPortKey(usr));
+                if (slack == std::numeric_limits<delay_t>::max())
+                    continue;
+                max_net_delay[std::make_pair(usr.cell->name, usr.port)] = net_delay + ((slack - domain_slack) / 10);
             }
         }
     }
@@ -283,12 +280,18 @@ class TimingOptimiser
         for (auto net : netnames) {
             if (crit_nets.size() >= max_count)
                 break;
-            if (!net_crit.count(net))
-                continue;
-            auto crit_user = std::max_element(net_crit[net].criticality.begin(), net_crit[net].criticality.end());
-            if (*crit_user > crit_thresh)
-                crit_nets.push_back(
-                        std::make_pair(ctx->nets[net].get(), crit_user - net_crit[net].criticality.begin()));
+            float highest_crit = 0;
+            size_t crit_user_idx = 0;
+            NetInfo *ni = ctx->nets.at(net).get();
+            for (size_t i = 0; i < ni->users.size(); i++) {
+                float crit = tmg.get_criticality(CellPortKey(ni->users.at(i)));
+                if (crit > highest_crit) {
+                    highest_crit = crit;
+                    crit_user_idx = i;
+                }
+            }
+            if (highest_crit > crit_thresh)
+                crit_nets.push_back(std::make_pair(ni, crit_user_idx));
         }
 
         auto port_user_index = [](CellInfo *cell, PortInfo &port) -> size_t {
@@ -325,8 +328,6 @@ class TimingOptimiser
                     NetInfo *pn = port.second.net;
                     if (pn == nullptr)
                         continue;
-                    if (!net_crit.count(pn->name) || net_crit.at(pn->name).criticality.empty())
-                        continue;
                     int ccount;
                     DelayQuad combDelay;
                     TimingPortClass tpclass = ctx->getPortTimingClass(cell, port.first, ccount);
@@ -336,7 +337,7 @@ class TimingOptimiser
                     if (!is_path)
                         continue;
                     size_t user_idx = port_user_index(cell, port.second);
-                    float usr_crit = net_crit.at(pn->name).criticality.at(user_idx);
+                    float usr_crit = tmg.get_criticality(CellPortKey(cell->name, port.first));
                     if (used_ports.count(&(pn->users.at(user_idx))))
                         continue;
                     if (usr_crit >= max_crit) {
@@ -364,8 +365,7 @@ class TimingOptimiser
                     NetInfo *pn = port.second.net;
                     if (pn == nullptr)
                         continue;
-                    if (!net_crit.count(pn->name) || net_crit.at(pn->name).criticality.empty())
-                        continue;
+
                     int ccount;
                     DelayQuad combDelay;
                     TimingPortClass tpclass = ctx->getPortTimingClass(cell, port.first, ccount);
@@ -374,12 +374,12 @@ class TimingOptimiser
                     bool is_path = ctx->getCellDelay(cell, fwd_cursor->port, port.first, combDelay);
                     if (!is_path)
                         continue;
-                    auto &crits = net_crit.at(pn->name).criticality;
-                    for (size_t i = 0; i < crits.size(); i++) {
+                    for (size_t i = 0; i < pn->users.size(); i++) {
                         if (used_ports.count(&(pn->users.at(i))))
                             continue;
-                        if (crits.at(i) >= max_crit) {
-                            max_crit = crits.at(i);
+                        float crit = tmg.get_criticality(CellPortKey(pn->users.at(i)));
+                        if (crit >= max_crit) {
+                            max_crit = crit;
                             crit_sink = std::make_pair(pn, i);
                         }
                     }
@@ -420,12 +420,7 @@ class TimingOptimiser
 
         for (auto port : path) {
             if (ctx->debug) {
-                float crit = 0;
-                NetInfo *pn = port->cell->ports.at(port->port).net;
-                if (net_crit.count(pn->name) && !net_crit.at(pn->name).criticality.empty())
-                    for (size_t i = 0; i < pn->users.size(); i++)
-                        if (pn->users.at(i).cell == port->cell && pn->users.at(i).port == port->port)
-                            crit = net_crit.at(pn->name).criticality.at(i);
+                float crit = tmg.get_criticality(CellPortKey(*port));
                 log_info("    %s.%s at %s crit %0.02f\n", port->cell->name.c_str(ctx), port->port.c_str(ctx),
                          ctx->nameOfBel(port->cell->bel), crit);
             }
@@ -613,10 +608,9 @@ class TimingOptimiser
     std::unordered_map<BelId, std::unordered_set<IdString>> bel_candidate_cells;
     // Map cell ports to net delay limit
     std::unordered_map<std::pair<IdString, IdString>, delay_t> max_net_delay;
-    // Criticality data from timing analysis
-    NetCriticalityMap net_crit;
     Context *ctx;
     TimingOptCfg cfg;
+    TimingAnalyser tmg;
 };
 
 bool timing_opt(Context *ctx, TimingOptCfg cfg) { return TimingOptimiser(ctx, cfg).optimise(); }
