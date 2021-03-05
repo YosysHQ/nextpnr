@@ -97,6 +97,11 @@ Arch::Arch(ArchArgs args) : args(args)
         IdString::initialize_add(this, constids[i].get(), i + 1);
     }
 
+    id_GND = id("GND");
+    id_VCC = id("VCC");
+    id_BUFGCTRL = id("BUFGCTRL");
+    id_BUFG = id("BUFG");
+
     // Sanity check cell name ids.
     const CellMapPOD &cell_map = *chip_info->cell_map;
     int32_t first_cell_id = cell_map.cell_names[0];
@@ -240,7 +245,10 @@ Arch::Arch(ArchArgs args) : args(args)
     default_tags.resize(max_tag_count);
 }
 
-void Arch::init() { dedicated_interconnect.init(getCtx()); }
+void Arch::init() {
+    lookahead.init(getCtx(), getCtx());
+    dedicated_interconnect.init(getCtx());
+}
 
 // -----------------------------------------------------------------------
 
@@ -254,6 +262,8 @@ IdString Arch::archArgsToId(ArchArgs args) const { return IdString(); }
 
 void Arch::setup_byname() const
 {
+    by_name_mutex.lock();
+
     if (tile_by_name.empty()) {
         for (int i = 0; i < chip_info->tiles.ssize(); i++) {
             tile_by_name[id(chip_info->tiles[i].name.get())] = i;
@@ -270,6 +280,8 @@ void Arch::setup_byname() const
             }
         }
     }
+
+    by_name_mutex.unlock();
 }
 
 BelId Arch::getBelByName(IdStringList name) const
@@ -416,7 +428,8 @@ PipId Arch::getPipByName(IdStringList name) const
         int tile;
         int site;
         std::tie(tile, site) = site_by_name.at(site_name);
-        auto &tile_info = chip_info->tile_types[chip_info->tiles[tile].type];
+        auto tile_type_idx = chip_info->tiles[tile].type;
+        auto &tile_info = chip_info->tile_types[tile_type_idx];
 
         std::array<IdString, 2> ids{name.ids[0], belname};
         BelId bel = getBelByName(IdStringList(ids));
@@ -444,7 +457,8 @@ PipId Arch::getPipByName(IdStringList name) const
             int tile;
             int site;
             std::tie(tile, site) = iter->second;
-            auto &tile_info = chip_info->tile_types[chip_info->tiles[tile].type];
+            auto tile_type_idx = chip_info->tiles[tile].type;
+            auto &tile_info = chip_info->tile_types[tile_type_idx];
 
             std::string pip_second = name.ids[1].str(this);
             auto split = pip_second.find('.');
@@ -500,7 +514,8 @@ PipId Arch::getPipByName(IdStringList name) const
             }
         } else {
             int tile = tile_by_name.at(name.ids[0]);
-            auto &tile_info = chip_info->tile_types[chip_info->tiles[tile].type];
+            size_t tile_type_idx = chip_info->tiles[tile].type;
+            auto &tile_info = chip_info->tile_types[tile_type_idx];
 
             std::string pip_second = name.ids[1].str(this);
             auto spn = split_identifier_name_dot(pip_second);
@@ -618,11 +633,14 @@ ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
     int dst_tile = dst.tile == -1 ? chip_info->nodes[dst.index].tile_wires[0].tile : dst.tile;
     int src_tile = src.tile == -1 ? chip_info->nodes[src.index].tile_wires[0].tile : src.tile;
 
-    int x0, x1, y0, y1;
-    x0 = src_tile % chip_info->width;
-    x1 = x0;
-    y0 = src_tile / chip_info->width;
-    y1 = y0;
+    int x0 = 0, x1 = 0, y0 = 0, y1 = 0;
+
+    int src_x, src_y;
+    get_tile_x_y(src_tile, &src_x, &src_y);
+
+    int dst_x, dst_y;
+    get_tile_x_y(dst_tile, &dst_x, &dst_y);
+
     auto expand = [&](int x, int y) {
         x0 = std::min(x0, x);
         x1 = std::max(x1, x);
@@ -630,13 +648,32 @@ ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
         y1 = std::max(y1, y);
     };
 
-    expand(dst_tile % chip_info->width, dst_tile / chip_info->width);
+    expand(src_x, src_y);
+    expand(dst_x, dst_y);
 
     if (source_locs.count(src))
         expand(source_locs.at(src).x, source_locs.at(src).y);
 
     if (sink_locs.count(dst)) {
         expand(sink_locs.at(dst).x, sink_locs.at(dst).y);
+    }
+
+    x0 -= 2;
+    y0 -= 2;
+    x1 += 2;
+    y1 += 2;
+
+    if(x0 < 0) {
+        x0 = 0;
+    }
+    if(y0 < 0) {
+        y0 = 0;
+    }
+    if(x1 >= chip_info->width) {
+        x1 = chip_info->width - 1;
+    }
+    if(y1 >= chip_info->height) {
+        y1 = chip_info->height - 1;
     }
 
     return {x0, y0, x1, y1};
@@ -802,18 +839,7 @@ DecalXY Arch::getGroupDecal(GroupId pip) const { return {}; };
 
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {
-    // FIXME: Implement something to push the A* router in the right direction.
-    int src_x, src_y;
-    get_tile_x_y(src.tile, &src_x, &src_y);
-
-    int dst_x, dst_y;
-    get_tile_x_y(dst.tile, &dst_x, &dst_y);
-
-    delay_t base = 30 * std::min(std::abs(dst_x - src_x), 18) + 10 * std::max(std::abs(dst_x - src_x) - 18, 0) +
-                   60 * std::min(std::abs(dst_y - src_y), 6) + 20 * std::max(std::abs(dst_y - src_y) - 6, 0) + 300;
-
-    base = (base * 3) / 2;
-    return base;
+    return lookahead.estimateDelay(getCtx(), src, dst);
 }
 
 delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
@@ -930,7 +956,7 @@ void Arch::map_cell_pins(CellInfo *cell, int32_t mapping, bool bind_constants)
             continue;
         }
 
-        if (cell_pin.str(this) == "GND") {
+        if (cell_pin == id_GND) {
             if (bind_constants) {
                 PortInfo port_info;
                 port_info.name = bel_pin;
@@ -952,7 +978,7 @@ void Arch::map_cell_pins(CellInfo *cell, int32_t mapping, bool bind_constants)
             continue;
         }
 
-        if (cell_pin.str(this) == "VCC") {
+        if (cell_pin == id_VCC) {
             if (bind_constants) {
                 PortInfo port_info;
                 port_info.name = bel_pin;
@@ -999,7 +1025,7 @@ void Arch::map_cell_pins(CellInfo *cell, int32_t mapping, bool bind_constants)
                 continue;
             }
 
-            if (cell_pin.str(this) == "GND") {
+            if (cell_pin == id_GND) {
                 if (bind_constants) {
                     PortInfo port_info;
                     port_info.name = bel_pin;
@@ -1021,7 +1047,7 @@ void Arch::map_cell_pins(CellInfo *cell, int32_t mapping, bool bind_constants)
                 continue;
             }
 
-            if (cell_pin.str(this) == "VCC") {
+            if (cell_pin == id_VCC) {
                 if (bind_constants) {
                     PortInfo port_info;
                     port_info.name = bel_pin;
