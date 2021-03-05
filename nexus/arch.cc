@@ -781,7 +781,7 @@ Loc Arch::get_pad_loc(const PadInfoPOD *pad) const
 
 BelId Arch::get_pad_pio_bel(const PadInfoPOD *pad) const
 {
-    if (pad == nullptr)
+    if (pad == nullptr || pad->offset == -1)
         return BelId();
     return getBelByLocation(get_pad_loc(pad));
 }
