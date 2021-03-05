@@ -241,6 +241,7 @@ class SAPlacer
         auto saplace_start = std::chrono::high_resolution_clock::now();
 
         // Invoke timing analysis to obtain criticalities
+        tmg.setup_only = true;
         if (!cfg.budgetBased)
             tmg.setup();
 

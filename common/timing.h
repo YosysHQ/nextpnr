@@ -141,6 +141,7 @@ struct TimingAnalyser
     }
 
     bool setup_only = false;
+    bool verbose_mode = false;
 
   private:
     void init_ports();

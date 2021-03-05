@@ -174,7 +174,7 @@ void TimingAnalyser::topo_sort()
         }
     }
     bool no_loops = topo.sort();
-    if (!no_loops) {
+    if (!no_loops && verbose_mode) {
         log_info("Found %d combinational loops:\n", int(topo.loops.size()));
         int i = 0;
         for (auto &loop : topo.loops) {
@@ -463,10 +463,12 @@ void TimingAnalyser::compute_criticality()
         auto &pd = ports.at(p);
         for (auto &pdp : pd.domain_pairs) {
             auto &dp = domain_pairs.at(pdp.first);
-            pdp.second.criticality =
+            float crit =
                     1.0f - (float(pdp.second.setup_slack) - float(dp.worst_setup_slack)) / float(-dp.worst_setup_slack);
-            NPNR_ASSERT(pdp.second.criticality >= -0.00001f && pdp.second.criticality <= 1.00001f);
-            pd.worst_crit = std::max(pd.worst_crit, pdp.second.criticality);
+            crit = std::min(crit, 1.0f);
+            crit = std::max(crit, 0.0f);
+            pdp.second.criticality = crit;
+            pd.worst_crit = std::max(pd.worst_crit, crit);
         }
     }
 }

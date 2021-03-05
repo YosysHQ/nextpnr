@@ -143,6 +143,7 @@ class HeAPPlacer
             : ctx(ctx), cfg(cfg), fast_bels(ctx, /*check_bel_available=*/true, -1), tmg(ctx)
     {
         Eigen::initParallel();
+        tmg.setup_only = true;
         tmg.setup();
     }
 
