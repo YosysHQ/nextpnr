@@ -640,7 +640,7 @@ struct Router2
         bool debug_arc = /*usr.cell->type.str(ctx).find("RAMB") != std::string::npos && (usr.port ==
                             ctx->id("ADDRATIEHIGH0") || usr.port == ctx->id("ADDRARDADDRL0"))*/
                 false;
-        while (!t.queue.empty() && (!is_bb || iter < toexplore)) {
+        while (!t.queue.empty() && iter < toexplore) {
             auto curr = t.queue.top();
             auto &d = flat_wires.at(curr.wire);
             t.queue.pop();
