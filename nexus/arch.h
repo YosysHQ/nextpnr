@@ -800,6 +800,7 @@ enum CellPinStyle
     PINSTYLE_DEDI = 0x0000,      // dedicated signals, leave alone
     PINSTYLE_PU = 0x4022,        // signals that float high and default high
     PINSTYLE_PU_NONCIB = 0x0022, // signals that float high and default high
+    PINSTYLE_PD_NONCIB = 0x0012, // signals that float high and default low
     PINSTYLE_T = 0x4027,         // PIO 'T' signal
 
     PINSTYLE_ADLSB = 0x4017,      // special case of the EBR address MSBs

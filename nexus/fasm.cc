@@ -569,6 +569,15 @@ struct NexusFasmWriter
             {"SSC_STEP_IN", 7}, {"SSC_TBASE", 12},
             {"V2I_PP_ICTRL", 5},
     };
+
+    // Which MIPI params are 'word' values
+    const std::unordered_map<std::string, int> dphy_word_params = {
+            {"CM", 8}, {"CN", 5}, {"CO", 3}, {"RSEL", 2}, {"RXCDRP", 2},
+            {"RXDATAWIDTHHS", 2}, {"RXLPRP", 3}, {"TEST_ENBL", 6},
+            {"TEST_PATTERN", 32}, {"TST", 4}, {"TXDATAWIDTHHS", 2},
+            {"UC_PRG_RXHS_SETTLE", 6}, {"U_PRG_HS_PREPARE", 2},
+            {"U_PRG_HS_TRAIL", 6}, {"U_PRG_HS_ZERO", 6}, {"U_PRG_RXHS_SETTLE", 6}
+    };
     /* clang-format on */
 
     // Write out config for some kind of PLL cell
@@ -587,6 +596,27 @@ struct NexusFasmWriter
                 continue;
             auto fnd_word = pll_word_params.find(name);
             if (fnd_word != pll_word_params.end()) {
+                write_int_vector(stringf("%s[%d:0]", name.c_str(), fnd_word->second - 1),
+                                 ctx->parse_lattice_param(cell, param.first, fnd_word->second, 0).as_int64(),
+                                 fnd_word->second);
+            } else {
+                write_bit(stringf("%s.%s", name.c_str(), param.second.as_string().c_str()));
+            }
+        }
+        pop();
+    }
+    // Write out config for a DPHY_CORE cell
+    // TODO: duplication with PLL and other hard IP...
+    void write_dphy(const CellInfo *cell)
+    {
+        BelId bel = cell->bel;
+        push(stringf("IP_%s", ctx->nameOf(IdString(ctx->bel_data(bel).name))));
+        for (auto param : sorted_cref(cell->params)) {
+            const std::string &name = param.first.str(ctx);
+            if (is_mux_param(name) || name == "GSR")
+                continue;
+            auto fnd_word = dphy_word_params.find(name);
+            if (fnd_word != dphy_word_params.end()) {
                 write_int_vector(stringf("%s[%d:0]", name.c_str(), fnd_word->second - 1),
                                  ctx->parse_lattice_param(cell, param.first, fnd_word->second, 0).as_int64(),
                                  fnd_word->second);
@@ -750,6 +780,8 @@ struct NexusFasmWriter
                 write_pll(ci);
             else if (ci->type == id_LRAM_CORE)
                 write_lram(ci);
+            else if (ci->type == id_DPHY_CORE)
+                write_dphy(ci);
             blank();
         }
         // Write config for unused bels

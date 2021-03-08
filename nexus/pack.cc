@@ -1027,7 +1027,7 @@ struct NexusPacker
                 {id_OSCA, id_OSC_CORE},          {id_DP16K, id_DP16K_MODE},       {id_PDP16K, id_PDP16K_MODE},
                 {id_PDPSC16K, id_PDPSC16K_MODE}, {id_SP16K, id_SP16K_MODE},       {id_FIFO16K, id_FIFO16K_MODE},
                 {id_SP512K, id_SP512K_MODE},     {id_DPSC512K, id_DPSC512K_MODE}, {id_PDPSC512K, id_PDPSC512K_MODE},
-                {id_PLL, id_PLL_CORE},
+                {id_PLL, id_PLL_CORE},           {id_DPHY, id_DPHY_CORE},
         };
 
         for (auto cell : sorted(ctx->cells)) {
@@ -1959,6 +1959,33 @@ struct NexusPacker
         }
     }
 
+    // Map LOC attribute on DPHY_CORE to a bel
+    // TDPHY_CORE2 is Radiant 2.0 style, DPHY0 is Radiant 2.2
+    // TODO: LIFCL-17 (perhaps remove the hardcoded map)
+    const std::unordered_map<std::string, std::string> dphy_loc_map = {
+            {"TDPHY_CORE2", "X4/Y0/TDPHY_CORE2"},
+            {"DPHY0", "X4/Y0/TDPHY_CORE2"},
+            {"TDPHY_CORE26", "X28/Y0/TDPHY_CORE26"},
+            {"DPHY1", "X28/Y0/TDPHY_CORE26"},
+    };
+
+    void pack_ip()
+    {
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == id_DPHY_CORE) {
+                auto loc_attr = ci->attrs.find(id_LOC);
+                if (loc_attr == ci->attrs.end())
+                    log_error("LOC attribute is required for DPHY_CORE '%s'\n", ctx->nameOf(ci));
+                const std::string &loc = loc_attr->second.as_string();
+                auto dphy_bel = dphy_loc_map.find(loc);
+                if (dphy_bel == dphy_loc_map.end())
+                    log_error("Invalid location '%s' for DPHY_CORE '%s'\n", loc.c_str(), ctx->nameOf(ci));
+                ci->attrs[id_BEL] = dphy_bel->second;
+            }
+        }
+    }
+
     explicit NexusPacker(Context *ctx) : ctx(ctx) {}
 
     void operator()()
@@ -1975,6 +2002,7 @@ struct NexusPacker
         pack_plls();
         pack_constants();
         pack_luts();
+        pack_ip();
         promote_globals();
         place_globals();
         generate_constraints();
