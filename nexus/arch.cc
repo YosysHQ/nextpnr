@@ -693,7 +693,7 @@ bool Arch::route()
         router2(getCtx(), Router2Cfg(getCtx()));
         result = true;
     } else {
-        log_error("iCE40 architecture does not support router '%s'\n", router.c_str());
+        log_error("Nexus architecture does not support router '%s'\n", router.c_str());
     }
     getCtx()->attrs[getCtx()->id("step")] = std::string("route");
     archInfoToAttributes();
