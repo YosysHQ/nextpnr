@@ -136,10 +136,19 @@ struct NexusGlobalRouter
         }
     }
 
+    bool is_relaxed_sink(const PortRef &sink) const
+    {
+        // This DPHY clock port can't be routed without going through some general routing
+        if (sink.cell->type == id_DPHY_CORE && sink.port == id_URXCKINE)
+            return true;
+        return false;
+    }
+
     void route_clk_net(NetInfo *net)
     {
         for (size_t i = 0; i < net->users.size(); i++)
-            backwards_bfs_route(net, i, 1000000, true, [&](PipId pip) { return global_pip_filter(pip); });
+            backwards_bfs_route(net, i, 1000000, true,
+                                [&](PipId pip) { return is_relaxed_sink(net->users.at(i)) || global_pip_filter(pip); });
         log_info("    routed net '%s' using global resources\n", ctx->nameOf(net));
     }
 
