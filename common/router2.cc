@@ -385,14 +385,15 @@ struct Router2
         return base_cost * hist_cost * present_cost / (1 + source_uses) + bias_cost;
     }
 
-    float get_togo_cost(NetInfo *net, size_t user, int wire, WireId sink)
+    float get_togo_cost(NetInfo *net, size_t user, int wire, WireId sink, delay_t *delay)
     {
         auto &wd = flat_wires[wire];
         int source_uses = 0;
         if (wd.bound_nets.count(net->udata))
             source_uses = wd.bound_nets.at(net->udata).first;
         // FIXME: timing/wirelength balance?
-        return (ctx->getDelayNS(ctx->estimateDelay(wd.w, sink)) / (1 + source_uses)) + cfg.ipin_cost_adder;
+        *delay = ctx->estimateDelay(wd.w, sink);
+        return (ctx->getDelayNS(*delay) / (1 + source_uses)) + cfg.ipin_cost_adder;
     }
 
     bool check_arc_routing(NetInfo *net, size_t usr, size_t phys_pin)
@@ -511,7 +512,7 @@ struct Router2
 
     ArcRouteResult route_arc(ThreadContext &t, NetInfo *net, size_t i, size_t phys_pin, bool is_mt, bool is_bb = true)
     {
-
+        auto arc_start = std::chrono::high_resolution_clock::now();
         auto &nd = nets[net->udata];
         auto &ad = nd.arcs.at(i).at(phys_pin);
         auto &usr = net->users.at(i);
@@ -633,7 +634,12 @@ struct Router2
         WireScore base_score;
         base_score.cost = 0;
         base_score.delay = ctx->getWireDelay(src_wire).maxDelay();
-        base_score.togo_cost = get_togo_cost(net, i, src_wire_idx, dst_wire);
+        delay_t forward;
+        base_score.togo_cost = get_togo_cost(net, i, src_wire_idx, dst_wire, &forward);
+
+        ROUTE_LOG_DBG("src_wire = %s -> dst_wire = %s (backward: %s, forward: %s, sum: %s)\n",
+                      ctx->nameOfWire(src_wire), ctx->nameOfWire(dst_wire), std::to_string(base_score.delay).c_str(),
+                      std::to_string(forward).c_str(), std::to_string(base_score.delay + forward).c_str());
 
         // Add source wire to queue
         t.queue.push(QueuedWire(src_wire_idx, PipId(), Loc(), base_score));
@@ -691,7 +697,15 @@ struct Router2
                 next_score.cost = curr.score.cost + score_wire_for_arc(net, i, phys_pin, next, dh);
                 next_score.delay =
                         curr.score.delay + ctx->getPipDelay(dh).maxDelay() + ctx->getWireDelay(next).maxDelay();
-                next_score.togo_cost = cfg.estimate_weight * get_togo_cost(net, i, next_idx, dst_wire);
+                next_score.togo_cost = cfg.estimate_weight * get_togo_cost(net, i, next_idx, dst_wire, &forward);
+                ROUTE_LOG_DBG(
+                        "src_wire = %s -> next %s -> dst_wire = %s (backward: %s, forward: %s, sum: %s, cost = %f, "
+                        "togo_cost = %f, total = %f), dt = %02fs\n",
+                        ctx->nameOfWire(src_wire), ctx->nameOfWire(next), ctx->nameOfWire(dst_wire),
+                        std::to_string(next_score.delay).c_str(), std::to_string(forward).c_str(),
+                        std::to_string(next_score.delay + forward).c_str(), next_score.cost, next_score.togo_cost,
+                        next_score.cost + next_score.togo_cost,
+                        std::chrono::duration<float>(std::chrono::high_resolution_clock::now() - arc_start).count());
                 const auto &v = nwd.visit;
                 if (!v.visited || (v.score.total() > next_score.total())) {
                     ++explored;
@@ -731,8 +745,15 @@ struct Router2
             t.processed_sinks.insert(dst_wire);
             ad.routed = true;
             reset_wires(t);
+
+            auto arc_end = std::chrono::high_resolution_clock::now();
+            ROUTE_LOG_DBG("Routing arc %d of net '%s' (is_bb = %d) took %02fs\n", int(i), ctx->nameOf(net), is_bb,
+                          std::chrono::duration<float>(arc_end - arc_start).count());
             return ARC_SUCCESS;
         } else {
+            auto arc_end = std::chrono::high_resolution_clock::now();
+            ROUTE_LOG_DBG("Failed routing arc %d of net '%s' (is_bb = %d) took %02fs\n", int(i), ctx->nameOf(net),
+                          is_bb, std::chrono::duration<float>(arc_end - arc_start).count());
             reset_wires(t);
             return ARC_RETRY_WITHOUT_BB;
         }
@@ -912,6 +933,9 @@ struct Router2
     int arch_fail = 0;
     bool bind_and_check_all()
     {
+        // Make sure arch is internally consistent before we mess with it.
+        ctx->check();
+
         bool success = true;
         std::vector<WireId> net_wires;
         for (auto net : nets_by_udata) {
@@ -946,6 +970,10 @@ struct Router2
                 }
             }
         }
+
+        // Check that the arch is still internally consistent!
+        ctx->check();
+
         return success;
     }
 
@@ -1033,10 +1061,10 @@ struct Router2
                 log_info("        bin %d N=%d\n", i, bins[i]);
     }
 
-    void router_thread(ThreadContext &t)
+    void router_thread(ThreadContext &t, bool is_mt)
     {
         for (auto n : t.route_nets) {
-            bool result = route_net(t, n, true);
+            bool result = route_net(t, n, is_mt);
             if (!result)
                 t.failed_nets.push_back(n);
         }
@@ -1109,35 +1137,35 @@ struct Router2
 #ifdef NPNR_DISABLE_THREADS
         // Singlethreaded routing - quadrants
         for (int i = 0; i < Nq; i++) {
-            router_thread(tcs.at(i));
+            router_thread(tcs.at(i), /*is_mt=*/false);
         }
         // Vertical splits
         for (int i = Nq; i < Nq + Nv; i++) {
-            router_thread(tcs.at(i));
+            router_thread(tcs.at(i), /*is_mt=*/false);
         }
         // Horizontal splits
         for (int i = Nq + Nv; i < Nq + Nv + Nh; i++) {
-            router_thread(tcs.at(i));
+            router_thread(tcs.at(i), /*is_mt=*/false);
         }
 #else
         // Multithreaded part of routing - quadrants
         std::vector<boost::thread> threads;
         for (int i = 0; i < Nq; i++) {
-            threads.emplace_back([this, &tcs, i]() { router_thread(tcs.at(i)); });
+            threads.emplace_back([this, &tcs, i]() { router_thread(tcs.at(i), /*is_mt=*/true); });
         }
         for (auto &t : threads)
             t.join();
         threads.clear();
         // Vertical splits
         for (int i = Nq; i < Nq + Nv; i++) {
-            threads.emplace_back([this, &tcs, i]() { router_thread(tcs.at(i)); });
+            threads.emplace_back([this, &tcs, i]() { router_thread(tcs.at(i), /*is_mt=*/true); });
         }
         for (auto &t : threads)
             t.join();
         threads.clear();
         // Horizontal splits
         for (int i = Nq + Nv; i < Nq + Nv + Nh; i++) {
-            threads.emplace_back([this, &tcs, i]() { router_thread(tcs.at(i)); });
+            threads.emplace_back([this, &tcs, i]() { router_thread(tcs.at(i), /*is_mt=*/true); });
         }
         for (auto &t : threads)
             t.join();
