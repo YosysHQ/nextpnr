@@ -171,6 +171,8 @@ if (NOT DEFINED CURRENT_GIT_VERSION)
     )
 endif()
 
+add_subdirectory(3rdparty/abseil-cpp EXCLUDE_FROM_ALL)
+
 if (BUILD_TESTS)
     add_subdirectory(3rdparty/googletest/googletest ${CMAKE_CURRENT_BINARY_DIR}/generated/3rdparty/googletest EXCLUDE_FROM_ALL)
     enable_testing()
@@ -272,6 +274,9 @@ foreach (family ${ARCH})
     # Include the family-specific CMakeFile
     include(${family}/family.cmake)
     foreach (target ${family_targets})
+        target_link_libraries(${target} PRIVATE absl::flat_hash_map)
+        target_link_libraries(${target} PRIVATE absl::flat_hash_set)
+
         # Include family-specific source files to all family targets and set defines appropriately
         target_include_directories(${target} PRIVATE ${family}/ ${CMAKE_CURRENT_BINARY_DIR}/generated/)
         target_compile_definitions(${target} PRIVATE NEXTPNR_NAMESPACE=nextpnr_${family} ARCH_${ufamily} ARCHNAME=${family})
