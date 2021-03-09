@@ -139,9 +139,12 @@ template <typename T> struct EquationSystem
 class HeAPPlacer
 {
   public:
-    HeAPPlacer(Context *ctx, PlacerHeapCfg cfg) : ctx(ctx), cfg(cfg), fast_bels(ctx, /*check_bel_available=*/true, -1)
+    HeAPPlacer(Context *ctx, PlacerHeapCfg cfg)
+            : ctx(ctx), cfg(cfg), fast_bels(ctx, /*check_bel_available=*/true, -1), tmg(ctx)
     {
         Eigen::initParallel();
+        tmg.setup_only = true;
+        tmg.setup();
     }
 
     bool place()
@@ -269,7 +272,7 @@ class HeAPPlacer
 
             // Update timing weights
             if (cfg.timing_driven)
-                get_criticalities(ctx, &net_crit);
+                tmg.run();
 
             if (legal_hpwl < best_hpwl) {
                 best_hpwl = legal_hpwl;
@@ -355,6 +358,8 @@ class HeAPPlacer
     FastBels fast_bels;
     std::unordered_map<IdString, std::tuple<int, int>> bel_types;
 
+    TimingAnalyser tmg;
+
     struct BoundingBox
     {
         // Actual bounding box
@@ -391,8 +396,6 @@ class HeAPPlacer
 
     // Performance counting
     double solve_time = 0, cl_time = 0, sl_time = 0;
-
-    NetCriticalityMap net_crit;
 
     // Place cells with the BEL attribute set to constrain them
     void place_constraints()
@@ -736,11 +739,9 @@ class HeAPPlacer
                                            std::max<double>(1, (yaxis ? cfg.hpwl_scale_y : cfg.hpwl_scale_x) *
                                                                        std::abs(o_pos - this_pos)));
 
-                    if (user_idx != -1 && net_crit.count(ni->name)) {
-                        auto &nc = net_crit.at(ni->name);
-                        if (user_idx < int(nc.criticality.size()))
-                            weight *= (1.0 + cfg.timingWeight *
-                                                     std::pow(nc.criticality.at(user_idx), cfg.criticalityExponent));
+                    if (user_idx != -1) {
+                        weight *= (1.0 + cfg.timingWeight * std::pow(tmg.get_criticality(CellPortKey(port)),
+                                                                     cfg.criticalityExponent));
                     }
 
                     // If cell 0 is not fixed, it will stamp +w on its equation and -w on the other end's equation,

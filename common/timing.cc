@@ -30,6 +30,547 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+void TimingAnalyser::setup()
+{
+    init_ports();
+    get_cell_delays();
+    topo_sort();
+    setup_port_domains();
+    run();
+}
+
+void TimingAnalyser::run()
+{
+    reset_times();
+    get_route_delays();
+    walk_forward();
+    walk_backward();
+    compute_slack();
+    compute_criticality();
+}
+
+void TimingAnalyser::init_ports()
+{
+    // Per cell port structures
+    for (auto cell : sorted(ctx->cells)) {
+        CellInfo *ci = cell.second;
+        for (auto port : sorted_ref(ci->ports)) {
+            auto &data = ports[CellPortKey(ci->name, port.first)];
+            data.type = port.second.type;
+            data.cell_port = CellPortKey(ci->name, port.first);
+        }
+    }
+    // Cell port to net port mapping
+    for (auto net : sorted(ctx->nets)) {
+        NetInfo *ni = net.second;
+        if (ni->driver.cell != nullptr)
+            ports[CellPortKey(ni->driver)].net_port = NetPortKey(ni->name);
+        for (size_t i = 0; i < ni->users.size(); i++)
+            ports[CellPortKey(ni->users.at(i))].net_port = NetPortKey(ni->name, i);
+    }
+}
+
+void TimingAnalyser::get_cell_delays()
+{
+    for (auto &port : ports) {
+        CellInfo *ci = cell_info(port.first);
+        auto &pi = port_info(port.first);
+        auto &pd = port.second;
+
+        IdString name = port.first.port;
+        // Ignore dangling ports altogether for timing purposes
+        if (pd.net_port.net == IdString())
+            continue;
+        pd.cell_arcs.clear();
+        int clkInfoCount = 0;
+        TimingPortClass cls = ctx->getPortTimingClass(ci, name, clkInfoCount);
+        if (cls == TMG_STARTPOINT || cls == TMG_ENDPOINT || cls == TMG_CLOCK_INPUT || cls == TMG_GEN_CLOCK ||
+            cls == TMG_IGNORE)
+            continue;
+        if (pi.type == PORT_IN) {
+            // Input ports might have setup/hold relationships
+            if (cls == TMG_REGISTER_INPUT) {
+                for (int i = 0; i < clkInfoCount; i++) {
+                    auto info = ctx->getPortClockingInfo(ci, name, i);
+                    if (!ci->ports.count(info.clock_port) || ci->ports.at(info.clock_port).net == nullptr)
+                        continue;
+                    pd.cell_arcs.emplace_back(CellArc::SETUP, info.clock_port, DelayQuad(info.setup, info.setup),
+                                              info.edge);
+                    pd.cell_arcs.emplace_back(CellArc::HOLD, info.clock_port, DelayQuad(info.hold, info.hold),
+                                              info.edge);
+                }
+            }
+            // Combinational delays through cell
+            for (auto &other_port : ci->ports) {
+                auto &op = other_port.second;
+                // ignore dangling ports and non-outputs
+                if (op.net == nullptr || op.type != PORT_OUT)
+                    continue;
+                DelayQuad delay;
+                bool is_path = ctx->getCellDelay(ci, name, other_port.first, delay);
+                if (is_path)
+                    pd.cell_arcs.emplace_back(CellArc::COMBINATIONAL, other_port.first, delay);
+            }
+        } else if (pi.type == PORT_OUT) {
+            // Output ports might have clk-to-q relationships
+            if (cls == TMG_REGISTER_OUTPUT) {
+                for (int i = 0; i < clkInfoCount; i++) {
+                    auto info = ctx->getPortClockingInfo(ci, name, i);
+                    if (!ci->ports.count(info.clock_port) || ci->ports.at(info.clock_port).net == nullptr)
+                        continue;
+                    pd.cell_arcs.emplace_back(CellArc::CLK_TO_Q, info.clock_port, info.clockToQ, info.edge);
+                }
+            }
+            // Combinational delays through cell
+            for (auto &other_port : ci->ports) {
+                auto &op = other_port.second;
+                // ignore dangling ports and non-inputs
+                if (op.net == nullptr || op.type != PORT_IN)
+                    continue;
+                DelayQuad delay;
+                bool is_path = ctx->getCellDelay(ci, other_port.first, name, delay);
+                if (is_path)
+                    pd.cell_arcs.emplace_back(CellArc::COMBINATIONAL, other_port.first, delay);
+            }
+        }
+    }
+}
+
+void TimingAnalyser::get_route_delays()
+{
+    for (auto net : sorted(ctx->nets)) {
+        NetInfo *ni = net.second;
+        if (ni->driver.cell == nullptr || ni->driver.cell->bel == BelId())
+            continue;
+        for (auto &usr : ni->users) {
+            if (usr.cell->bel == BelId())
+                continue;
+            ports.at(CellPortKey(usr)).route_delay = DelayPair(ctx->getNetinfoRouteDelay(ni, usr));
+        }
+    }
+}
+
+void TimingAnalyser::topo_sort()
+{
+    TopoSort<CellPortKey> topo;
+    for (auto &port : ports) {
+        auto &pd = port.second;
+        // All ports are nodes
+        topo.node(port.first);
+        if (pd.type == PORT_IN) {
+            // inputs: combinational arcs through the cell are edges
+            for (auto &arc : pd.cell_arcs) {
+                if (arc.type != CellArc::COMBINATIONAL)
+                    continue;
+                topo.edge(port.first, CellPortKey(port.first.cell, arc.other_port));
+            }
+        } else if (pd.type == PORT_OUT) {
+            // output: routing arcs are edges
+            const NetInfo *pn = port_info(port.first).net;
+            if (pn != nullptr) {
+                for (auto &usr : pn->users)
+                    topo.edge(port.first, CellPortKey(usr));
+            }
+        }
+    }
+    bool no_loops = topo.sort();
+    if (!no_loops && verbose_mode) {
+        log_info("Found %d combinational loops:\n", int(topo.loops.size()));
+        int i = 0;
+        for (auto &loop : topo.loops) {
+            log_info("    loop %d:\n", ++i);
+            for (auto &port : loop) {
+                log_info("        %s.%s (%s)\n", ctx->nameOf(port.cell), ctx->nameOf(port.port),
+                         ctx->nameOf(port_info(port).net));
+            }
+        }
+    }
+    std::swap(topological_order, topo.sorted);
+}
+
+void TimingAnalyser::setup_port_domains()
+{
+    for (auto &d : domains) {
+        d.startpoints.clear();
+        d.endpoints.clear();
+    }
+    // Go forward through the topological order (domains from the PoV of arrival time)
+    for (auto port : topological_order) {
+        auto &pd = ports.at(port);
+        auto &pi = port_info(port);
+        if (pi.type == PORT_OUT) {
+            for (auto &fanin : pd.cell_arcs) {
+                if (fanin.type != CellArc::CLK_TO_Q)
+                    continue;
+                // registered outputs are startpoints
+                auto dom = domain_id(port.cell, fanin.other_port, fanin.edge);
+                // create per-domain data
+                pd.arrival[dom];
+                domains.at(dom).startpoints.emplace_back(port, fanin.other_port);
+            }
+            // copy domains across routing
+            if (pi.net != nullptr)
+                for (auto &usr : pi.net->users)
+                    copy_domains(port, CellPortKey(usr), false);
+        } else {
+            // copy domains from input to output
+            for (auto &fanout : pd.cell_arcs) {
+                if (fanout.type != CellArc::COMBINATIONAL)
+                    continue;
+                copy_domains(port, CellPortKey(port.cell, fanout.other_port), false);
+            }
+        }
+    }
+    // Go backward through the topological order (domains from the PoV of required time)
+    for (auto port : reversed_range(topological_order)) {
+        auto &pd = ports.at(port);
+        auto &pi = port_info(port);
+        if (pi.type == PORT_OUT) {
+            // copy domains from output to input
+            for (auto &fanin : pd.cell_arcs) {
+                if (fanin.type != CellArc::COMBINATIONAL)
+                    continue;
+                copy_domains(port, CellPortKey(port.cell, fanin.other_port), true);
+            }
+        } else {
+            for (auto &fanout : pd.cell_arcs) {
+                if (fanout.type != CellArc::SETUP)
+                    continue;
+                // registered inputs are startpoints
+                auto dom = domain_id(port.cell, fanout.other_port, fanout.edge);
+                // create per-domain data
+                pd.required[dom];
+                domains.at(dom).endpoints.emplace_back(port, fanout.other_port);
+            }
+            // copy port to driver
+            if (pi.net != nullptr && pi.net->driver.cell != nullptr)
+                copy_domains(port, CellPortKey(pi.net->driver), true);
+        }
+    }
+    // Iterate over ports and find domain paris
+    for (auto port : topological_order) {
+        auto &pd = ports.at(port);
+        for (auto &arr : pd.arrival)
+            for (auto &req : pd.required) {
+                pd.domain_pairs[domain_pair_id(arr.first, req.first)];
+            }
+    }
+}
+
+void TimingAnalyser::reset_times()
+{
+    for (auto &port : ports) {
+        auto do_reset = [&](std::unordered_map<domain_id_t, ArrivReqTime> &times) {
+            for (auto &t : times) {
+                t.second.value = init_delay;
+                t.second.path_length = 0;
+                t.second.bwd_min = CellPortKey();
+                t.second.bwd_max = CellPortKey();
+            }
+        };
+        do_reset(port.second.arrival);
+        do_reset(port.second.required);
+        for (auto &dp : port.second.domain_pairs) {
+            dp.second.setup_slack = std::numeric_limits<delay_t>::max();
+            dp.second.hold_slack = std::numeric_limits<delay_t>::max();
+            dp.second.max_path_length = 0;
+            dp.second.criticality = 0;
+            dp.second.budget = 0;
+        }
+        port.second.worst_crit = 0;
+        port.second.worst_setup_slack = std::numeric_limits<delay_t>::max();
+        port.second.worst_hold_slack = std::numeric_limits<delay_t>::max();
+    }
+}
+
+void TimingAnalyser::set_arrival_time(CellPortKey target, domain_id_t domain, DelayPair arrival, int path_length,
+                                      CellPortKey prev)
+{
+    auto &arr = ports.at(target).arrival.at(domain);
+    if (arrival.max_delay > arr.value.max_delay) {
+        arr.value.max_delay = arrival.max_delay;
+        arr.bwd_max = prev;
+    }
+    if (!setup_only && (arrival.min_delay < arr.value.min_delay)) {
+        arr.value.min_delay = arrival.min_delay;
+        arr.bwd_min = prev;
+    }
+    arr.path_length = std::max(arr.path_length, path_length);
+}
+
+void TimingAnalyser::set_required_time(CellPortKey target, domain_id_t domain, DelayPair required, int path_length,
+                                       CellPortKey prev)
+{
+    auto &req = ports.at(target).required.at(domain);
+    if (required.min_delay < req.value.min_delay) {
+        req.value.min_delay = required.min_delay;
+        req.bwd_min = prev;
+    }
+    if (!setup_only && (required.max_delay > req.value.max_delay)) {
+        req.value.max_delay = required.max_delay;
+        req.bwd_max = prev;
+    }
+    req.path_length = std::max(req.path_length, path_length);
+}
+
+void TimingAnalyser::walk_forward()
+{
+    // Assign initial arrival time to domain startpoints
+    for (domain_id_t dom_id = 0; dom_id < domain_id_t(domains.size()); ++dom_id) {
+        auto &dom = domains.at(dom_id);
+        for (auto &sp : dom.startpoints) {
+            auto &pd = ports.at(sp.first);
+            DelayPair init_arrival(0);
+            CellPortKey clock_key;
+            // TODO: clock routing delay, if analysis of that is enabled
+            if (sp.second != IdString()) {
+                // clocked startpoints have a clock-to-out time
+                for (auto &fanin : pd.cell_arcs) {
+                    if (fanin.type == CellArc::CLK_TO_Q && fanin.other_port == sp.second) {
+                        init_arrival = init_arrival + fanin.value.delayPair();
+                        break;
+                    }
+                }
+                clock_key = CellPortKey(sp.first.cell, sp.second);
+            }
+            set_arrival_time(sp.first, dom_id, init_arrival, 1, clock_key);
+        }
+    }
+    // Walk forward in topological order
+    for (auto p : topological_order) {
+        auto &pd = ports.at(p);
+        for (auto &arr : pd.arrival) {
+            if (pd.type == PORT_OUT) {
+                // Output port: propagate delay through net, adding route delay
+                NetInfo *net = port_info(p).net;
+                if (net != nullptr)
+                    for (auto &usr : net->users) {
+                        CellPortKey usr_key(usr);
+                        auto &usr_pd = ports.at(usr_key);
+                        set_arrival_time(usr_key, arr.first, arr.second.value + usr_pd.route_delay,
+                                         arr.second.path_length, p);
+                    }
+            } else if (pd.type == PORT_IN) {
+                // Input port; propagate delay through cell, adding combinational delay
+                for (auto &fanout : pd.cell_arcs) {
+                    if (fanout.type != CellArc::COMBINATIONAL)
+                        continue;
+                    set_arrival_time(CellPortKey(p.cell, fanout.other_port), arr.first,
+                                     arr.second.value + fanout.value.delayPair(), arr.second.path_length + 1, p);
+                }
+            }
+        }
+    }
+}
+
+void TimingAnalyser::walk_backward()
+{
+    // Assign initial required time to domain endpoints
+    // Note that clock frequency will be considered later in the analysis for, for now all required times are normalised
+    // to 0ns
+    for (domain_id_t dom_id = 0; dom_id < domain_id_t(domains.size()); ++dom_id) {
+        auto &dom = domains.at(dom_id);
+        for (auto &ep : dom.endpoints) {
+            auto &pd = ports.at(ep.first);
+            DelayPair init_setuphold(0);
+            CellPortKey clock_key;
+            // TODO: clock routing delay, if analysis of that is enabled
+            if (ep.second != IdString()) {
+                // Add setup/hold time, if this endpoint is clocked
+                for (auto &fanin : pd.cell_arcs) {
+                    if (fanin.type == CellArc::SETUP && fanin.other_port == ep.second)
+                        init_setuphold.min_delay -= fanin.value.maxDelay();
+                    if (fanin.type == CellArc::HOLD && fanin.other_port == ep.second)
+                        init_setuphold.max_delay -= fanin.value.maxDelay();
+                }
+                clock_key = CellPortKey(ep.first.cell, ep.second);
+            }
+            set_required_time(ep.first, dom_id, init_setuphold, 1, clock_key);
+        }
+    }
+    // Walk backwards in topological order
+    for (auto p : reversed_range(topological_order)) {
+        auto &pd = ports.at(p);
+        for (auto &req : pd.required) {
+            if (pd.type == PORT_IN) {
+                // Input port: propagate delay back through net, subtracting route delay
+                NetInfo *net = port_info(p).net;
+                if (net != nullptr && net->driver.cell != nullptr)
+                    set_required_time(CellPortKey(net->driver), req.first, req.second.value - pd.route_delay,
+                                      req.second.path_length, p);
+            } else if (pd.type == PORT_OUT) {
+                // Output port : propagate delay back through cell, subtracting combinational delay
+                for (auto &fanin : pd.cell_arcs) {
+                    if (fanin.type != CellArc::COMBINATIONAL)
+                        continue;
+                    set_required_time(CellPortKey(p.cell, fanin.other_port), req.first,
+                                      req.second.value - fanin.value.delayPair(), req.second.path_length + 1, p);
+                }
+            }
+        }
+    }
+}
+
+void TimingAnalyser::print_fmax()
+{
+    // Temporary testing code for comparison only
+    std::unordered_map<int, double> domain_fmax;
+    for (auto p : topological_order) {
+        auto &pd = ports.at(p);
+        for (auto &req : pd.required) {
+            if (pd.arrival.count(req.first)) {
+                auto &arr = pd.arrival.at(req.first);
+                double fmax = 1000.0 / ctx->getDelayNS(arr.value.maxDelay() - req.second.value.minDelay());
+                if (!domain_fmax.count(req.first) || domain_fmax.at(req.first) > fmax)
+                    domain_fmax[req.first] = fmax;
+            }
+        }
+    }
+    for (auto &fm : domain_fmax) {
+        log_info("Domain %s Worst Fmax %.02f\n", ctx->nameOf(domains.at(fm.first).key.clock), fm.second);
+    }
+}
+
+void TimingAnalyser::compute_slack()
+{
+    for (auto &dp : domain_pairs) {
+        dp.worst_setup_slack = std::numeric_limits<delay_t>::max();
+        dp.worst_hold_slack = std::numeric_limits<delay_t>::max();
+    }
+    for (auto p : topological_order) {
+        auto &pd = ports.at(p);
+        for (auto &pdp : pd.domain_pairs) {
+            auto &dp = domain_pairs.at(pdp.first);
+            auto &arr = pd.arrival.at(dp.key.launch);
+            auto &req = pd.required.at(dp.key.capture);
+            pdp.second.setup_slack = dp.period.minDelay() - (arr.value.maxDelay() - req.value.minDelay());
+            if (!setup_only)
+                pdp.second.hold_slack = arr.value.minDelay() - req.value.maxDelay();
+            pdp.second.max_path_length = arr.path_length + req.path_length;
+            pd.worst_setup_slack = std::min(pd.worst_setup_slack, pdp.second.setup_slack);
+            dp.worst_setup_slack = std::min(dp.worst_setup_slack, pdp.second.setup_slack);
+            if (!setup_only) {
+                pd.worst_hold_slack = std::min(pd.worst_hold_slack, pdp.second.hold_slack);
+                dp.worst_hold_slack = std::min(dp.worst_hold_slack, pdp.second.hold_slack);
+            }
+        }
+    }
+}
+
+void TimingAnalyser::compute_criticality()
+{
+    for (auto p : topological_order) {
+        auto &pd = ports.at(p);
+        for (auto &pdp : pd.domain_pairs) {
+            auto &dp = domain_pairs.at(pdp.first);
+            float crit =
+                    1.0f - (float(pdp.second.setup_slack) - float(dp.worst_setup_slack)) / float(-dp.worst_setup_slack);
+            crit = std::min(crit, 1.0f);
+            crit = std::max(crit, 0.0f);
+            pdp.second.criticality = crit;
+            pd.worst_crit = std::max(pd.worst_crit, crit);
+        }
+    }
+}
+
+std::vector<CellPortKey> TimingAnalyser::get_failing_eps(domain_id_t domain_pair, int count)
+{
+    std::vector<CellPortKey> failing_eps;
+    delay_t last_slack = std::numeric_limits<delay_t>::min();
+    auto &dp = domain_pairs.at(domain_pair);
+    auto &cap_d = domains.at(dp.key.capture);
+    while (int(failing_eps.size()) < count) {
+        CellPortKey next;
+        delay_t next_slack = std::numeric_limits<delay_t>::max();
+        for (auto ep : cap_d.endpoints) {
+            auto &pd = ports.at(ep.first);
+            if (!pd.domain_pairs.count(domain_pair))
+                continue;
+            delay_t ep_slack = pd.domain_pairs.at(domain_pair).setup_slack;
+            if (ep_slack < next_slack && ep_slack > last_slack) {
+                next = ep.first;
+                next_slack = ep_slack;
+            }
+        }
+        if (next == CellPortKey())
+            break;
+        failing_eps.push_back(next);
+        last_slack = next_slack;
+    }
+    return failing_eps;
+}
+
+void TimingAnalyser::print_critical_path(CellPortKey endpoint, domain_id_t domain_pair)
+{
+    CellPortKey cursor = endpoint;
+    auto &dp = domain_pairs.at(domain_pair);
+    log("    endpoint %s.%s (slack %.02fns):\n", ctx->nameOf(cursor.cell), ctx->nameOf(cursor.port),
+        ctx->getDelayNS(ports.at(cursor).domain_pairs.at(domain_pair).setup_slack));
+    while (cursor != CellPortKey()) {
+        log("        %s.%s (net %s)\n", ctx->nameOf(cursor.cell), ctx->nameOf(cursor.port),
+            ctx->nameOf(get_net_or_empty(ctx->cells.at(cursor.cell).get(), cursor.port)));
+        if (!ports.at(cursor).arrival.count(dp.key.launch))
+            break;
+        cursor = ports.at(cursor).arrival.at(dp.key.launch).bwd_max;
+    }
+}
+
+namespace {
+const char *edge_name(ClockEdge edge) { return (edge == FALLING_EDGE) ? "negedge" : "posedge"; }
+} // namespace
+
+void TimingAnalyser::print_report()
+{
+    for (int i = 0; i < int(domain_pairs.size()); i++) {
+        auto &dp = domain_pairs.at(i);
+        auto &launch = domains.at(dp.key.launch);
+        auto &capture = domains.at(dp.key.capture);
+        log("Worst endpoints for %s %s -> %s %s\n", edge_name(launch.key.edge), ctx->nameOf(launch.key.clock),
+            edge_name(capture.key.edge), ctx->nameOf(capture.key.clock));
+        auto failing_eps = get_failing_eps(i, 5);
+        for (auto &ep : failing_eps)
+            print_critical_path(ep, i);
+        log_break();
+    }
+}
+
+domain_id_t TimingAnalyser::domain_id(IdString cell, IdString clock_port, ClockEdge edge)
+{
+    return domain_id(ctx->cells.at(cell)->ports.at(clock_port).net, edge);
+}
+domain_id_t TimingAnalyser::domain_id(const NetInfo *net, ClockEdge edge)
+{
+    NPNR_ASSERT(net != nullptr);
+    ClockDomainKey key{net->name, edge};
+    auto inserted = domain_to_id.emplace(key, domains.size());
+    if (inserted.second) {
+        domains.emplace_back(key);
+    }
+    return inserted.first->second;
+}
+domain_id_t TimingAnalyser::domain_pair_id(domain_id_t launch, domain_id_t capture)
+{
+    ClockDomainPairKey key{launch, capture};
+    auto inserted = pair_to_id.emplace(key, domain_pairs.size());
+    if (inserted.second) {
+        domain_pairs.emplace_back(key);
+    }
+    return inserted.first->second;
+}
+
+void TimingAnalyser::copy_domains(const CellPortKey &from, const CellPortKey &to, bool backward)
+{
+    auto &f = ports.at(from), &t = ports.at(to);
+    for (auto &dom : (backward ? f.required : f.arrival))
+        (backward ? t.required : t.arrival)[dom.first];
+}
+
+CellInfo *TimingAnalyser::cell_info(const CellPortKey &key) { return ctx->cells.at(key.cell).get(); }
+
+PortInfo &TimingAnalyser::port_info(const CellPortKey &key) { return ctx->cells.at(key.cell)->ports.at(key.port); }
+
+/** LEGACY CODE BEGIN **/
+
 namespace {
 struct ClockEvent
 {
@@ -86,7 +627,6 @@ struct CriticalPath
 };
 
 typedef std::unordered_map<ClockPair, CriticalPath> CriticalPathMap;
-typedef std::unordered_map<IdString, NetCriticalityInfo> NetCriticalityMap;
 
 struct Timing
 {
@@ -96,7 +636,6 @@ struct Timing
     delay_t min_slack;
     CriticalPathMap *crit_path;
     DelayFrequency *slack_histogram;
-    NetCriticalityMap *net_crit;
     IdString async_clock;
 
     struct TimingData
@@ -112,10 +651,9 @@ struct Timing
     };
 
     Timing(Context *ctx, bool net_delays, bool update, CriticalPathMap *crit_path = nullptr,
-           DelayFrequency *slack_histogram = nullptr, NetCriticalityMap *net_crit = nullptr)
+           DelayFrequency *slack_histogram = nullptr)
             : ctx(ctx), net_delays(net_delays), update(update), min_slack(1.0e12 / ctx->setting<float>("target_freq")),
-              crit_path(crit_path), slack_histogram(slack_histogram), net_crit(net_crit),
-              async_clock(ctx->id("$async$"))
+              crit_path(crit_path), slack_histogram(slack_histogram), async_clock(ctx->id("$async$"))
     {
     }
 
@@ -496,156 +1034,6 @@ struct Timing
                 std::reverse(cp_ports.begin(), cp_ports.end());
             }
         }
-
-        if (net_crit) {
-            NPNR_ASSERT(crit_path);
-            // Go through in reverse topological order to set required times
-            for (auto net : boost::adaptors::reverse(topological_order)) {
-                if (!net_data.count(net))
-                    continue;
-                auto &nd_map = net_data.at(net);
-                for (auto &startdomain : nd_map) {
-                    auto &nd = startdomain.second;
-                    if (nd.false_startpoint)
-                        continue;
-                    if (startdomain.first.clock == async_clock)
-                        continue;
-                    if (nd.min_required.empty())
-                        nd.min_required.resize(net->users.size(), std::numeric_limits<delay_t>::max());
-                    delay_t net_min_required = std::numeric_limits<delay_t>::max();
-                    for (size_t i = 0; i < net->users.size(); i++) {
-                        auto &usr = net->users.at(i);
-                        auto net_delay = ctx->getNetinfoRouteDelay(net, usr);
-                        int port_clocks;
-                        TimingPortClass portClass = ctx->getPortTimingClass(usr.cell, usr.port, port_clocks);
-                        if (portClass == TMG_REGISTER_INPUT || portClass == TMG_ENDPOINT) {
-                            auto process_endpoint = [&](IdString clksig, ClockEdge edge, delay_t setup) {
-                                delay_t period;
-                                // Set default period
-                                if (edge == startdomain.first.edge) {
-                                    period = clk_period;
-                                } else {
-                                    period = clk_period / 2;
-                                }
-                                if (clksig != async_clock) {
-                                    if (ctx->nets.at(clksig)->clkconstr) {
-                                        if (edge == startdomain.first.edge) {
-                                            // same edge
-                                            period = ctx->nets.at(clksig)->clkconstr->period.minDelay();
-                                        } else if (edge == RISING_EDGE) {
-                                            // falling -> rising
-                                            period = ctx->nets.at(clksig)->clkconstr->low.minDelay();
-                                        } else if (edge == FALLING_EDGE) {
-                                            // rising -> falling
-                                            period = ctx->nets.at(clksig)->clkconstr->high.minDelay();
-                                        }
-                                    }
-                                }
-                                nd.min_required.at(i) = std::min(period - setup, nd.min_required.at(i));
-                            };
-                            if (portClass == TMG_REGISTER_INPUT) {
-                                for (int j = 0; j < port_clocks; j++) {
-                                    TimingClockingInfo clkInfo = ctx->getPortClockingInfo(usr.cell, usr.port, j);
-                                    const NetInfo *clknet = get_net_or_empty(usr.cell, clkInfo.clock_port);
-                                    IdString clksig = clknet ? clknet->name : async_clock;
-                                    process_endpoint(clksig, clknet ? clkInfo.edge : RISING_EDGE,
-                                                     clkInfo.setup.maxDelay());
-                                }
-                            } else {
-                                process_endpoint(async_clock, RISING_EDGE, 0);
-                            }
-                        }
-                        net_min_required = std::min(net_min_required, nd.min_required.at(i) - net_delay);
-                    }
-                    PortRef &drv = net->driver;
-                    if (drv.cell == nullptr)
-                        continue;
-                    for (const auto &port : drv.cell->ports) {
-                        if (port.second.type != PORT_IN || !port.second.net)
-                            continue;
-                        DelayQuad comb_delay;
-                        bool is_path = ctx->getCellDelay(drv.cell, port.first, drv.port, comb_delay);
-                        if (!is_path)
-                            continue;
-                        int cc;
-                        auto pclass = ctx->getPortTimingClass(drv.cell, port.first, cc);
-                        if (pclass != TMG_COMB_INPUT)
-                            continue;
-                        NetInfo *sink_net = port.second.net;
-                        if (net_data.count(sink_net) && net_data.at(sink_net).count(startdomain.first)) {
-                            auto &sink_nd = net_data.at(sink_net).at(startdomain.first);
-                            if (sink_nd.min_required.empty())
-                                sink_nd.min_required.resize(sink_net->users.size(),
-                                                            std::numeric_limits<delay_t>::max());
-                            for (size_t i = 0; i < sink_net->users.size(); i++) {
-                                auto &user = sink_net->users.at(i);
-                                if (user.cell == drv.cell && user.port == port.first) {
-                                    sink_nd.min_required.at(i) = std::min(sink_nd.min_required.at(i),
-                                                                          net_min_required - comb_delay.maxDelay());
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            std::unordered_map<ClockEvent, delay_t> worst_slack;
-
-            // Assign slack values
-            for (auto &net_entry : net_data) {
-                const NetInfo *net = net_entry.first;
-                for (auto &startdomain : net_entry.second) {
-                    auto &nd = startdomain.second;
-                    if (startdomain.first.clock == async_clock)
-                        continue;
-                    if (nd.min_required.empty())
-                        continue;
-                    auto &nc = (*net_crit)[net->name];
-                    if (nc.slack.empty())
-                        nc.slack.resize(net->users.size(), std::numeric_limits<delay_t>::max());
-
-                    for (size_t i = 0; i < net->users.size(); i++) {
-                        delay_t slack = nd.min_required.at(i) -
-                                        (nd.max_arrival + ctx->getNetinfoRouteDelay(net, net->users.at(i)));
-
-                        if (worst_slack.count(startdomain.first))
-                            worst_slack.at(startdomain.first) = std::min(worst_slack.at(startdomain.first), slack);
-                        else
-                            worst_slack[startdomain.first] = slack;
-                        nc.slack.at(i) = slack;
-                    }
-                    if (ctx->debug)
-                        log_break();
-                }
-            }
-            // Assign criticality values
-            for (auto &net_entry : net_data) {
-                const NetInfo *net = net_entry.first;
-                for (auto &startdomain : net_entry.second) {
-                    if (startdomain.first.clock == async_clock)
-                        continue;
-                    auto &nd = startdomain.second;
-                    if (nd.min_required.empty())
-                        continue;
-                    auto &nc = (*net_crit)[net->name];
-                    if (nc.slack.empty())
-                        continue;
-                    if (nc.criticality.empty())
-                        nc.criticality.resize(net->users.size(), 0);
-                    // Only consider intra-clock paths for criticality
-                    if (!crit_path->count(ClockPair{startdomain.first, startdomain.first}))
-                        continue;
-                    delay_t dmax = crit_path->at(ClockPair{startdomain.first, startdomain.first}).path_delay;
-                    for (size_t i = 0; i < net->users.size(); i++) {
-                        float criticality =
-                                1.0f - ((float(nc.slack.at(i)) - float(worst_slack.at(startdomain.first))) / dmax);
-                        nc.criticality.at(i) = std::min<double>(1.0, std::max<double>(0.0, criticality));
-                    }
-                    nc.max_path_length = nd.max_path_length;
-                    nc.cd_worst_slack = worst_slack.at(startdomain.first);
-                }
-            }
-        }
         return min_slack;
     }
 
@@ -997,14 +1385,6 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                      std::string(bins[i] * bar_width / max_freq, '*').c_str(),
                      (bins[i] * bar_width) % max_freq > 0 ? '+' : ' ');
     }
-}
-
-void get_criticalities(Context *ctx, NetCriticalityMap *net_crit)
-{
-    CriticalPathMap crit_paths;
-    net_crit->clear();
-    Timing timing(ctx, true, true, &crit_paths, nullptr, net_crit);
-    timing.walk_paths();
 }
 
 NEXTPNR_NAMESPACE_END

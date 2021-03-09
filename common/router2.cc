@@ -112,16 +112,14 @@ struct Router2
     Context *ctx;
     Router2Cfg cfg;
 
-    Router2(Context *ctx, const Router2Cfg &cfg) : ctx(ctx), cfg(cfg) {}
+    Router2(Context *ctx, const Router2Cfg &cfg) : ctx(ctx), cfg(cfg), tmg(ctx) { tmg.setup(); }
 
     // Use 'udata' for fast net lookups and indexing
     std::vector<NetInfo *> nets_by_udata;
     std::vector<PerNetData> nets;
 
     bool timing_driven;
-
-    // Criticality data from timing analysis
-    NetCriticalityMap net_crit;
+    TimingAnalyser tmg;
 
     void setup_nets()
     {
@@ -1175,18 +1173,13 @@ struct Router2
             if (timing_driven && (int(route_queue.size()) > (int(nets_by_udata.size()) / 50))) {
                 // Heuristic: reduce runtime by skipping STA in the case of a "long tail" of a few
                 // congested nodes
-                get_criticalities(ctx, &net_crit);
+                tmg.run();
                 for (auto n : route_queue) {
-                    IdString name = nets_by_udata.at(n)->name;
-                    auto fnd = net_crit.find(name);
+                    NetInfo *ni = nets_by_udata.at(n);
                     auto &net = nets.at(n);
                     net.max_crit = 0;
-                    if (fnd == net_crit.end())
-                        continue;
-                    for (int i = 0; i < int(fnd->second.criticality.size()); i++) {
-                        float c = fnd->second.criticality.at(i);
-                        for (auto &a : net.arcs.at(i))
-                            a.arc_crit = c;
+                    for (auto &usr : ni->users) {
+                        float c = tmg.get_criticality(CellPortKey(usr));
                         net.max_crit = std::max(net.max_crit, c);
                     }
                 }

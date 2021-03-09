@@ -78,7 +78,7 @@ class SAPlacer
 
   public:
     SAPlacer(Context *ctx, Placer1Cfg cfg)
-            : ctx(ctx), fast_bels(ctx, /*check_bel_available=*/false, cfg.minBelsForGridPick), cfg(cfg)
+            : ctx(ctx), fast_bels(ctx, /*check_bel_available=*/false, cfg.minBelsForGridPick), cfg(cfg), tmg(ctx)
     {
         for (auto bel : ctx->getBels()) {
             Loc loc = ctx->getBelLocation(bel);
@@ -241,8 +241,9 @@ class SAPlacer
         auto saplace_start = std::chrono::high_resolution_clock::now();
 
         // Invoke timing analysis to obtain criticalities
+        tmg.setup_only = true;
         if (!cfg.budgetBased)
-            get_criticalities(ctx, &net_crit);
+            tmg.setup();
 
         // Calculate costs after initial placement
         setup_costs();
@@ -379,7 +380,7 @@ class SAPlacer
 
             // Invoke timing analysis to obtain criticalities
             if (!cfg.budgetBased && cfg.timing_driven)
-                get_criticalities(ctx, &net_crit);
+                tmg.run();
             // Need to rebuild costs after criticalities change
             setup_costs();
             // Reset incremental bounds
@@ -836,11 +837,9 @@ class SAPlacer
             double delay = ctx->getDelayNS(ctx->predictDelay(net, net->users.at(user)));
             return std::min(10.0, std::exp(delay - ctx->getDelayNS(net->users.at(user).budget) / 10));
         } else {
-            auto crit = net_crit.find(net->name);
-            if (crit == net_crit.end() || crit->second.criticality.empty())
-                return 0;
+            float crit = tmg.get_criticality(CellPortKey(net->users.at(user)));
             double delay = ctx->getDelayNS(ctx->predictDelay(net, net->users.at(user)));
-            return delay * std::pow(crit->second.criticality.at(user), crit_exp);
+            return delay * std::pow(crit, crit_exp);
         }
     }
 
@@ -1216,9 +1215,6 @@ class SAPlacer
     wirelen_t last_wirelen_cost, curr_wirelen_cost;
     double last_timing_cost, curr_timing_cost;
 
-    // Criticality data from timing analysis
-    NetCriticalityMap net_crit;
-
     Context *ctx;
     float temp = 10;
     float crit_exp = 8;
@@ -1235,6 +1231,8 @@ class SAPlacer
     bool require_legal = true;
     const int legalise_dia = 4;
     Placer1Cfg cfg;
+
+    TimingAnalyser tmg;
 };
 
 Placer1Cfg::Placer1Cfg(Context *ctx)

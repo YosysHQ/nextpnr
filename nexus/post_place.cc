@@ -28,9 +28,9 @@ NEXTPNR_NAMESPACE_BEGIN
 struct NexusPostPlaceOpt
 {
     Context *ctx;
-    NetCriticalityMap net_crit;
+    TimingAnalyser tmg;
 
-    NexusPostPlaceOpt(Context *ctx) : ctx(ctx){};
+    NexusPostPlaceOpt(Context *ctx) : ctx(ctx), tmg(ctx){};
 
     inline bool is_constrained(CellInfo *cell)
     {
@@ -139,7 +139,7 @@ struct NexusPostPlaceOpt
 
     void operator()()
     {
-        get_criticalities(ctx, &net_crit);
+        tmg.setup();
         opt_lutffs();
     }
 
