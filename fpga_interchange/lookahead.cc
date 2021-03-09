@@ -36,10 +36,10 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 static constexpr size_t kNumberSamples = 4;
-static constexpr int32_t kMaxExploreDist = 14;
+static constexpr int32_t kMaxExploreDist = 20;
 
 // Initial only explore with a depth of this.
-static constexpr int32_t kInitialExploreDepth = 20;
+static constexpr int32_t kInitialExploreDepth = 30;
 
 struct RoutingNode {
     WireId wire_to_expand;
@@ -57,7 +57,7 @@ struct PipAndCost {
     int32_t depth;
 };
 
-static void expand_input(const Context *ctx, WireId input_wire, Lookahead::InputSiteWireCost * input_cost) {
+static void expand_input(const Context *ctx, WireId input_wire, absl::flat_hash_map<TypeWireId, delay_t> * input_costs) {
     absl::flat_hash_set<WireId> seen;
     std::priority_queue<RoutingNode> to_expand;
 
@@ -92,12 +92,16 @@ static void expand_input(const Context *ctx, WireId input_wire, Lookahead::Input
 
             if(ctx->is_site_port(pip)) {
                 // Done with expansion, record the path if cheaper.
-                if(next_node.cost < input_cost->cost) {
-                    input_cost->cost = next_node.cost;
-                    input_cost->cheapest_route_to.type = ctx->chip_info->tiles[pip.tile].type;
-                    input_cost->cheapest_route_to.index = loc_info(ctx->chip_info, pip).pip_data[pip.index].src_index;
+                // Only the first path to each wire will be the cheapest.
+                TypeWireId route_to;
+                route_to.type = ctx->chip_info->tiles[pip.tile].type;
+                route_to.index = loc_info(ctx->chip_info, pip).pip_data[pip.index].src_index;
+                if(route_to.index >= 0) {
+                    auto result = input_costs->emplace(route_to, next_node.cost);
+                    if(!result.second && result.first->second > next_node.cost) {
+                        result.first->second = next_node.cost;
+                    }
                 }
-                return;
             } else {
                 to_expand.push(next_node);
             }
@@ -183,7 +187,7 @@ static void expand_output(const Context *ctx, WireId output_wire, Lookahead::Out
                 TypeWireId route_from;
                 route_from.type = ctx->chip_info->tiles[pip.tile].type;
                 route_from.index = loc_info(ctx->chip_info, pip).pip_data[pip.index].dst_index;
-                if(output_cost != nullptr && next_node.cost < output_cost->cost) {
+                if(route_from.index != -1 && output_cost != nullptr && next_node.cost < output_cost->cost) {
                     output_cost->cost = next_node.cost;
                     output_cost->cheapest_route_from = route_from;
                 }
@@ -203,7 +207,8 @@ static void expand_output(const Context *ctx, WireId output_wire, Lookahead::Out
     update_site_to_site_costs(ctx, output_wire, best_path, site_to_site_cost);
 }
 
-static void expand_input_type(const Context *ctx, DeterministicRNG * rng, const nextpnr::Sampler &tiles_of_type, TypeWireId input_wire, Lookahead::InputSiteWireCost * input_cost) {
+static void expand_input_type(const Context *ctx, DeterministicRNG * rng, const nextpnr::Sampler &tiles_of_type, TypeWireId input_wire, std::vector<Lookahead::InputSiteWireCost> * input_costs) {
+    absl::flat_hash_map<TypeWireId, delay_t> input_costs_map;
     for(size_t region = 0; region < tiles_of_type.number_of_regions(); ++region) {
         size_t tile = tiles_of_type.get_sample_from_region(region, [rng]() -> int32_t {
                 return rng->rng();
@@ -213,7 +218,16 @@ static void expand_input_type(const Context *ctx, DeterministicRNG * rng, const 
         NPNR_ASSERT(ctx->chip_info->tiles[tile].type == input_wire.type);
         WireId wire = canonical_wire(ctx->chip_info, tile, input_wire.index);
 
-        expand_input(ctx, wire, input_cost);
+        expand_input(ctx, wire, &input_costs_map);
+    }
+
+    input_costs->clear();
+    input_costs->reserve(input_costs_map.size());
+    for(const auto & input_pair : input_costs_map) {
+        input_costs->emplace_back();
+        auto & input_cost = input_costs->back();
+        input_cost.route_to = input_pair.first;
+        input_cost.cost = input_pair.second;
     }
 }
 
@@ -592,7 +606,7 @@ void Lookahead::build_lookahead(const Context *ctx, DeterministicRNG *rng) {
             PortType type = ctx->getBelPinType(bel, pin);
 
             if(type == PORT_IN && bel_data.category == BEL_CATEGORY_LOGIC) {
-                input_site_wires.emplace(TypeWireId(ctx, pin_wire), InputSiteWireCost());
+                input_site_wires.emplace(TypeWireId(ctx, pin_wire), std::vector<InputSiteWireCost>());
             } else if(type == PORT_OUT && bel_data.category == BEL_CATEGORY_LOGIC) {
                 output_site_wires.emplace(TypeWireId(ctx, pin_wire), OutputSiteWireCost());
             } else if(type == PORT_OUT && bel_data.category == BEL_CATEGORY_SITE_PORT) {
@@ -647,7 +661,6 @@ void Lookahead::build_lookahead(const Context *ctx, DeterministicRNG *rng) {
     // Expand backwards from each input site wire to find the cheapest
     // non-site wire.
     for(auto & input_pair : input_site_wires) {
-        input_pair.second.cost = std::numeric_limits<delay_t>::max();
         expand_input_type(ctx, rng, tiles_of_type[input_pair.first.type], input_pair.first, &input_pair.second);
     }
 
@@ -828,7 +841,6 @@ void Lookahead::build_lookahead(const Context *ctx, DeterministicRNG *rng) {
 #ifdef NEXTPNR_USE_TBB
     FlatWireMap<PipAndCost> best_path(ctx);
 #endif
-    absl::flat_hash_set<TypeWireId> copy_types;
     for(TypeWireId wire_type : types_deferred) {
         auto &type_data = ctx->chip_info->tile_types[wire_type.type];
         auto &tile_sampler = tiles_of_type[wire_type.type];
@@ -844,8 +856,8 @@ void Lookahead::build_lookahead(const Context *ctx, DeterministicRNG *rng) {
 
     auto end = std::chrono::high_resolution_clock::now();
     if(ctx->verbose) {
-        log_info("Have %zu copy types, time %02fs\n",
-                copy_types.size(), std::chrono::duration<float>(end - start).count());
+        log_info("Done with expansion, dt %02fs\n",
+                std::chrono::duration<float>(end - start).count());
     }
 
     FILE * lookahead_data = fopen("lookahead.csv", "w");
@@ -876,23 +888,27 @@ void Lookahead::build_lookahead(const Context *ctx, DeterministicRNG *rng) {
 
     fclose(lookahead_data);
 
-    for(const auto &type_pair: all_tiles_storage.storage) {
-        cost_map.set_cost_map(ctx, type_pair.first, type_pair.second);
+    end = std::chrono::high_resolution_clock::now();
+    if(ctx->verbose) {
+        log_info("Done writing data to disk, dt %02fs\n",
+                std::chrono::duration<float>(end - start).count());
     }
+
+#if defined(NEXTPNR_USE_TBB) // Run parallely
+    tbb::parallel_for_each(all_tiles_storage.storage, [&](const std::pair<TypeWirePair, absl::flat_hash_map<std::pair<int32_t, int32_t>, delay_t>> &type_pair) {
+#else
+    for(const auto &type_pair: all_tiles_storage.storage) {
+#endif
+        cost_map.set_cost_map(ctx, type_pair.first, type_pair.second);
+#if defined(NEXTPNR_USE_TBB) // Run parallely
+    });
+#else
+    }
+#endif
 
     end = std::chrono::high_resolution_clock::now();
     if(ctx->verbose) {
         log_info("build_lookahead time %.02fs\n", std::chrono::duration<float>(end - start).count());
-    }
-
-    for(auto out_wire_pair : output_site_wires) {
-        auto & out_wire_type = out_wire_pair.first;
-        auto & out_type_data = ctx->chip_info->tile_types[out_wire_type.type];
-        IdString out_type(out_type_data.name);
-        auto & out_wire_data = out_type_data.wire_data[out_wire_type.index];
-        IdString out_wire(out_wire_data.name);
-        log_info("Output wire %s/%s (site = %d)\n",
-                out_type.c_str(ctx), out_wire.c_str(ctx), out_wire_data.site);
     }
 }
 
@@ -914,12 +930,14 @@ void saturating_incr(int32_t *acc, int32_t value) {
     }
 }
 
-//#define DEBUG_LOOKUP
+#define DEBUG_LOOKUP
 
 delay_t Lookahead::estimateDelay(const Context * ctx, WireId src, WireId dst) const {
 #ifdef DEBUG_LOOKUP
-    log_info("Looking up %s to %s\n",
-            ctx->nameOfWire(src), ctx->nameOfWire(dst));
+    if(ctx->debug) {
+        log_info("Looking up %s to %s\n",
+                ctx->nameOfWire(src), ctx->nameOfWire(dst));
+    }
 #endif
     delay_t delay = 0;
 
@@ -931,13 +949,15 @@ delay_t Lookahead::estimateDelay(const Context * ctx, WireId src, WireId dst) co
     if(src == WireId()) {
         // This src wire is a dead end, tell router to avoid it!
 #ifdef DEBUG_LOOKUP
-        log_info("Source %s is a dead end!\n", ctx->nameOfWire(orig_src));
+        if(ctx->debug) {
+            log_info("Source %s is a dead end!\n", ctx->nameOfWire(orig_src));
+        }
 #endif
         return std::numeric_limits<delay_t>::max();
     }
 
 #ifdef DEBUG_LOOKUP
-    if(src != orig_src) {
+    if(ctx->debug && src != orig_src) {
         log_info("Moving src from %s to %s, delay = %d\n",
                 ctx->nameOfWire(orig_src), ctx->nameOfWire(src), delay);
     }
@@ -963,8 +983,10 @@ delay_t Lookahead::estimateDelay(const Context * ctx, WireId src, WireId dst) co
             NPNR_ASSERT(iter->second >= 0);
             saturating_incr(&delay, iter->second);
 #ifdef DEBUG_LOOKUP
-            log_info("Found site to site direct path %s -> %s = %d\n",
-                    ctx->nameOfWire(src), ctx->nameOfWire(dst), delay);
+            if(ctx->debug) {
+                log_info("Found site to site direct path %s -> %s = %d\n",
+                        ctx->nameOfWire(src), ctx->nameOfWire(dst), delay);
+            }
 #endif
             return delay;
         }
@@ -984,8 +1006,10 @@ delay_t Lookahead::estimateDelay(const Context * ctx, WireId src, WireId dst) co
 
         src = canonical_wire(ctx->chip_info, src.tile, src_type.index);
 #ifdef DEBUG_LOOKUP
-        log_info("Moving src from %s to %s, delay = %d\n",
-                ctx->nameOfWire(orig_src), ctx->nameOfWire(src), delay);
+        if(ctx->debug) {
+            log_info("Moving src from %s to %s, delay = %d\n",
+                    ctx->nameOfWire(orig_src), ctx->nameOfWire(src), delay);
+        }
 #endif
     }
 
@@ -994,28 +1018,12 @@ delay_t Lookahead::estimateDelay(const Context * ctx, WireId src, WireId dst) co
 #ifdef DEBUG_LOOKUP
         // We've already tested for direct site to site routing, if src cannot
         // reach outside of the routing network, this path is impossible.
-        log_warning("Failed to reach routing network for src %s, got to %s\n",
-                ctx->nameOfWire(orig_src), ctx->nameOfWire(src));
+        if(ctx->debug) {
+            log_warning("Failed to reach routing network for src %s, got to %s\n",
+                    ctx->nameOfWire(orig_src), ctx->nameOfWire(src));
+        }
 #endif
         return std::numeric_limits<delay_t>::max();
-    }
-
-
-    // Find the first routing wire that reaches dst_type.
-    WireId orig_dst = dst;
-    TypeWireId dst_type(ctx, dst);
-
-    auto dst_iter = input_site_wires.find(dst_type);
-    if(dst_iter != input_site_wires.end()) {
-        NPNR_ASSERT(dst_iter->second.cost >= 0);
-        saturating_incr(&delay, dst_iter->second.cost);
-        dst_type = dst_iter->second.cheapest_route_to;
-
-        dst = canonical_wire(ctx->chip_info, dst.tile, dst_type.index);
-#ifdef DEBUG_LOOKUP
-        log_info("Moving dst from %s to %s, delay = %d\n",
-                ctx->nameOfWire(orig_dst), ctx->nameOfWire(dst), delay);
-#endif
     }
 
     if(src == dst) {
@@ -1023,41 +1031,160 @@ delay_t Lookahead::estimateDelay(const Context * ctx, WireId src, WireId dst) co
         return delay;
     }
 
-    auto &dst_data = ctx->wire_info(dst);
-    if(dst_data.site != -1) {
+    // Find the first routing wire that reaches dst_type.
+    WireId orig_dst = dst;
+    TypeWireId dst_type(ctx, dst);
+
+    auto dst_iter = input_site_wires.find(dst_type);
+    if(dst_iter == input_site_wires.end()) {
+        // dst_type isn't an input site wire, just add point to point delay.
+        auto &dst_data = ctx->wire_info(dst);
+        if(dst_data.site != -1) {
 #ifdef DEBUG_LOOKUP
-        // We've already tested for direct site to site routing, if dst cannot
-        // be reached from the routing network, this path is impossible.
-        log_warning("Failed to reach routing network for dst %s, got to %s\n",
-                ctx->nameOfWire(orig_dst), ctx->nameOfWire(dst));
+            // We've already tested for direct site to site routing, if dst cannot
+            // be reached from the routing network, this path is impossible.
+            if(ctx->debug) {
+                log_warning("Failed to reach routing network for dst %s, got to %s\n",
+                        ctx->nameOfWire(orig_dst), ctx->nameOfWire(dst));
+            }
 #endif
-        return std::numeric_limits<delay_t>::max();
+            return std::numeric_limits<delay_t>::max();
+        }
+
+        // Follow chain up
+        WireId orig_dst = dst;
+        delay_t chain_delay;
+        dst = follow_pip_chain_up(ctx, dst, &chain_delay);
+        NPNR_ASSERT(chain_delay >= 0);
+        saturating_incr(&delay, chain_delay);
+#ifdef DEBUG_LOOKUP
+        if(ctx->debug && dst != orig_dst) {
+            log_info("Moving dst from %s to %s, delay = %d\n",
+                    ctx->nameOfWire(orig_dst), ctx->nameOfWire(dst), delay);
+        }
+#endif
+
+        if(src == dst) {
+            // Reached target already, done!
+            return delay;
+        }
+
+        // Both src and dst are in the routing graph, lookup approx cost to go
+        // from src to dst.
+        int32_t delay_from_map = cost_map.get_delay(ctx, src, dst);
+        NPNR_ASSERT(delay_from_map >= 0);
+        saturating_incr(&delay, delay_from_map);
+
+#ifdef DEBUG_LOOKUP
+        if(ctx->debug) {
+            log_info("Final delay = %d\n", delay);
+        }
+#endif
+
+        return delay;
+    } else {
+        // dst_type is an input site wire, try each possible routing path.
+        delay_t base_delay = delay;
+        delay_t cheapest_path = std::numeric_limits<delay_t>::max();
+
+        for(const InputSiteWireCost &input_cost : dst_iter->second) {
+            dst = orig_dst;
+            delay = base_delay;
+
+            NPNR_ASSERT(input_cost.cost >= 0);
+            saturating_incr(&delay, input_cost.cost);
+            dst_type = input_cost.route_to;
+
+            NPNR_ASSERT(dst_type.index != -1);
+            dst = canonical_wire(ctx->chip_info, dst.tile, dst_type.index);
+            NPNR_ASSERT(dst != WireId());
+
+#ifdef DEBUG_LOOKUP
+            if(ctx->debug) {
+                log_info("Moving dst from %s to %s, delay = %d\n",
+                        ctx->nameOfWire(orig_dst), ctx->nameOfWire(dst), delay);
+            }
+#endif
+
+            if(dst == src) {
+#ifdef DEBUG_LOOKUP
+                if(ctx->debug) {
+                    log_info("Possible delay = %d\n", delay);
+                }
+#endif
+                // Reached target already, done!
+                cheapest_path = std::min(delay, cheapest_path);
+                continue;
+            }
+
+            auto &dst_data = ctx->wire_info(dst);
+            if(dst_data.site != -1) {
+#ifdef DEBUG_LOOKUP
+                // We've already tested for direct site to site routing, if dst cannot
+                // be reached from the routing network, this path is impossible.
+                if(ctx->debug) {
+                    log_warning("Failed to reach routing network for dst %s, got to %s\n",
+                            ctx->nameOfWire(orig_dst), ctx->nameOfWire(dst));
+                }
+#endif
+                continue;
+            }
+
+            // Follow chain up
+            WireId orig_dst = dst;
+            delay_t chain_delay;
+            dst = follow_pip_chain_up(ctx, dst, &chain_delay);
+            NPNR_ASSERT(chain_delay >= 0);
+            saturating_incr(&delay, chain_delay);
+#ifdef DEBUG_LOOKUP
+            if(ctx->debug && dst != orig_dst) {
+                log_info("Moving dst from %s to %s, delay = %d\n",
+                        ctx->nameOfWire(orig_dst), ctx->nameOfWire(dst), delay);
+            }
+#endif
+
+            if(dst == WireId()) {
+                // This dst wire is a dead end, don't examine it!
+#ifdef DEBUG_LOOKUP
+                if(ctx->debug) {
+                    log_info("Dest %s is a dead end!\n", ctx->nameOfWire(dst));
+                }
+#endif
+                continue;
+            }
+
+            if(src == dst) {
+#ifdef DEBUG_LOOKUP
+                if(ctx->debug) {
+                    log_info("Possible delay = %d\n", delay);
+                }
+#endif
+                // Reached target already, done!
+                cheapest_path = std::min(delay, cheapest_path);
+                continue;
+            }
+
+            // Both src and dst are in the routing graph, lookup approx cost to go
+            // from src to dst.
+            int32_t delay_from_map = cost_map.get_delay(ctx, src, dst);
+            NPNR_ASSERT(delay_from_map >= 0);
+            saturating_incr(&delay, delay_from_map);
+            cheapest_path = std::min(delay, cheapest_path);
+#ifdef DEBUG_LOOKUP
+            if(ctx->debug) {
+                log_info("Possible delay = %d\n", delay);
+            }
+#endif
+        }
+
+#ifdef DEBUG_LOOKUP
+        if(ctx->debug) {
+            log_info("Final delay = %d\n", delay);
+        }
+#endif
+
+        return cheapest_path;
     }
-
-    // Follow chain up
-    orig_dst = dst;
-    delay_t chain_delay;
-    dst = follow_pip_chain_up(ctx, dst, &chain_delay);
-    NPNR_ASSERT(chain_delay >= 0);
-    saturating_incr(&delay, chain_delay);
-#ifdef DEBUG_LOOKUP
-    if(dst != orig_dst) {
-        log_info("Moving dst from %s to %s, delay = %d\n",
-                ctx->nameOfWire(orig_dst), ctx->nameOfWire(dst), delay);
-    }
-#endif
-
-    // Both src and dst are in the routing graph, lookup approx cost to go
-    // from src to dst.
-    int32_t delay_from_map = cost_map.get_delay(ctx, src, dst);
-    NPNR_ASSERT(delay_from_map >= 0);
-    saturating_incr(&delay, delay_from_map);
-
-#ifdef DEBUG_LOOKUP
-    log_info("Final delay = %d\n", delay);
-#endif
-
-    return delay;
 }
 
 NEXTPNR_NAMESPACE_END

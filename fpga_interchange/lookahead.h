@@ -63,7 +63,7 @@ struct Lookahead {
     struct InputSiteWireCost {
         // This wire is the cheapest non-site wire that leads to this site
         // wire.
-        TypeWireId cheapest_route_to;
+        TypeWireId route_to;
 
         // This is the cost from the cheapest_route_to wire to the site wire in
         // question.
@@ -80,7 +80,7 @@ struct Lookahead {
         delay_t cost;
     };
 
-    absl::flat_hash_map<TypeWireId, InputSiteWireCost> input_site_wires;
+    absl::flat_hash_map<TypeWireId, std::vector<InputSiteWireCost>> input_site_wires;
     absl::flat_hash_map<TypeWireId, OutputSiteWireCost> output_site_wires;
     absl::flat_hash_map<TypeWirePair, delay_t> site_to_site_cost;
     CostMap cost_map;

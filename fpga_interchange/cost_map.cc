@@ -128,7 +128,7 @@ delay_t CostMap::get_delay(const Context *ctx, WireId src_wire, WireId dst_wire)
 }
 
 void CostMap::set_cost_map(const Context *ctx, const TypeWirePair & wire_pair, const absl::flat_hash_map<std::pair<int32_t, int32_t>, delay_t> &delays) {
-    auto & delay_matrix = cost_map_[wire_pair];
+    CostMapEntry delay_matrix;
 
     auto &offset = delay_matrix.offset;
     offset.first = 0;
@@ -168,6 +168,13 @@ void CostMap::set_cost_map(const Context *ctx, const TypeWirePair & wire_pair, c
 
     delay_matrix.penalty = get_penalty(delay_matrix.data);
     fill_holes(ctx, wire_pair, delay_matrix.data, delay_matrix.penalty);
+
+    {
+        cost_map_mutex_.lock();
+        auto result = cost_map_.emplace(wire_pair, delay_matrix);
+        NPNR_ASSERT(result.second);
+        cost_map_mutex_.unlock();
+    }
 }
 
 static void assign_min_entry(delay_t* dst, const delay_t& src) {

@@ -41,6 +41,8 @@ private:
         std::pair<int32_t, int32_t> offset;
         delay_t penalty;
     };
+
+    std::mutex cost_map_mutex_;
     absl::flat_hash_map<TypeWirePair, CostMapEntry> cost_map_;
 
     void fill_holes(const Context *ctx, const TypeWirePair & wire_pair, boost::multi_array<delay_t, 2>& matrix, delay_t delay_penality);
