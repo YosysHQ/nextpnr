@@ -274,8 +274,10 @@ foreach (family ${ARCH})
     # Include the family-specific CMakeFile
     include(${family}/family.cmake)
     foreach (target ${family_targets})
-        target_link_libraries(${target} PRIVATE absl::flat_hash_map)
-        target_link_libraries(${target} PRIVATE absl::flat_hash_set)
+        if (USE_THREADS)
+            target_link_libraries(${target} PRIVATE absl::flat_hash_map)
+            target_link_libraries(${target} PRIVATE absl::flat_hash_set)
+        endif()
 
         # Include family-specific source files to all family targets and set defines appropriately
         target_include_directories(${target} PRIVATE ${family}/ ${CMAKE_CURRENT_BINARY_DIR}/generated/)

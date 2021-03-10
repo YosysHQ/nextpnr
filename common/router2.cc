@@ -27,7 +27,9 @@
  */
 
 #include "router2.h"
+#if !defined(NPNR_DISABLE_THREADS)
 #include <absl/container/flat_hash_map.h>
+#endif
 #include <algorithm>
 #include <boost/container/flat_map.hpp>
 #include <chrono>
@@ -191,7 +193,11 @@ struct Router2
         }
     }
 
+#if defined(NPNR_DISABLE_THREADS)
+    std::unordered_map<WireId, int> wire_to_idx;
+#else
     absl::flat_hash_map<WireId, int> wire_to_idx;
+#endif
     std::vector<PerWireData> flat_wires;
 
     PerWireData &wire_data(WireId w) { return flat_wires[wire_to_idx.at(w)]; }
