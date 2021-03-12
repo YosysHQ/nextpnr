@@ -171,7 +171,9 @@ if (NOT DEFINED CURRENT_GIT_VERSION)
     )
 endif()
 
-add_subdirectory(3rdparty/abseil-cpp EXCLUDE_FROM_ALL)
+if (NOT WASI)
+    add_subdirectory(3rdparty/abseil-cpp EXCLUDE_FROM_ALL)
+endif()
 
 if (BUILD_TESTS)
     add_subdirectory(3rdparty/googletest/googletest ${CMAKE_CURRENT_BINARY_DIR}/generated/3rdparty/googletest EXCLUDE_FROM_ALL)
