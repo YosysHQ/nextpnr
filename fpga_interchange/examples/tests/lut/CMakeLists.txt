@@ -1,6 +1,6 @@
 add_interchange_test(
     name lut_basys3
-    part xc7a35tcpg236-1
+    device xc7a50t
     package cpg236
     tcl run.tcl
     xdc lut.xdc
@@ -9,7 +9,7 @@ add_interchange_test(
 
 add_interchange_test(
     name lut_arty
-    part xc7a35tcsg324-1
+    device xc7a50t
     package csg324
     tcl run.tcl
     xdc lut.xdc

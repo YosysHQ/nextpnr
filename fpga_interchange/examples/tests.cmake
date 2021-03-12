@@ -2,8 +2,8 @@ function(add_interchange_test)
     # ~~~
     # add_interchange_test(
     #    name <name>
-    #    part <part>
-    #    part <package>
+    #    device <common device>
+    #    package <package>
     #    tcl <tcl>
     #    xdc <xdc>
     #    top <top name>
@@ -12,7 +12,7 @@ function(add_interchange_test)
     # ~~~
 
     set(options)
-    set(oneValueArgs name part package tcl xdc top)
+    set(oneValueArgs name device package tcl xdc top)
     set(multiValueArgs sources)
 
     cmake_parse_arguments(
@@ -24,7 +24,7 @@ function(add_interchange_test)
     )
 
     set(name ${add_interchange_test_name})
-    set(part ${add_interchange_test_part})
+    set(device ${add_interchange_test_device})
     set(package ${add_interchange_test_package})
     set(top ${add_interchange_test_top})
     set(tcl ${CMAKE_CURRENT_SOURCE_DIR}/${add_interchange_test_tcl})
@@ -54,14 +54,14 @@ function(add_interchange_test)
     add_custom_target(test-${family}-${name}-json DEPENDS ${synth_json})
 
     # Logical Netlist
-    set(device_target constraints-luts-${part}-device)
-    get_property(device_loc TARGET constraints-luts-${part}-device PROPERTY LOCATION)
+    set(device_target constraints-luts-${device}-device)
+    get_property(device_loc TARGET constraints-luts-${device}-device PROPERTY LOCATION)
 
     set(netlist ${CMAKE_CURRENT_BINARY_DIR}/${name}.netlist)
     add_custom_command(
         OUTPUT ${netlist}
         COMMAND
-            python3 -mfpga_interchange.yosys_json
+            ${PYTHON_EXECUTABLE} -mfpga_interchange.yosys_json
                 --schema_dir ${INTERCHANGE_SCHEMA_PATH}
                 --device ${device_loc}
                 --top ${top}
@@ -74,7 +74,7 @@ function(add_interchange_test)
 
     add_custom_target(test-${family}-${name}-netlist DEPENDS ${netlist})
 
-    set(chipdb_target chipdb-${part}-bba)
+    set(chipdb_target chipdb-${device}-bba)
 
     # Physical Netlist
     set(phys ${CMAKE_CURRENT_BINARY_DIR}/${name}.phys)
@@ -82,7 +82,7 @@ function(add_interchange_test)
         OUTPUT ${phys}
         COMMAND
             nextpnr-fpga_interchange
-                --chipdb ${chipdb_dir}/chipdb-${part}.bba
+                --chipdb ${chipdb_dir}/chipdb-${device}.bba
                 --xdc ${xdc}
                 --netlist ${netlist}
                 --phys ${phys}
