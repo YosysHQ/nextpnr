@@ -37,6 +37,9 @@
 #include "util.h"
 #include "xdc.h"
 
+//#define DEBUG_BINDING
+//#define USE_LOOKAHEAD
+
 NEXTPNR_NAMESPACE_BEGIN
 struct SiteBelPair
 {
@@ -244,8 +247,6 @@ Arch::Arch(ArchArgs args) : args(args)
 
     default_tags.resize(max_tag_count);
 }
-
-//#define USE_LOOKAHEAD
 
 void Arch::init() {
 #ifdef USE_LOOKAHEAD
@@ -811,10 +812,12 @@ bool Arch::route_vcc_to_unused_lut_pins()
             }
 
             const PipInfoPOD &pip_data = pip_info(chip_info, pip);
+#ifdef DEBUG_LUT_MAPPING
             if(getCtx()->verbose) {
                 log_info("Pip %s in use, has %zu pseudo wires!\n",
                         nameOfPip(pip), pip_data.pseudo_cell_wires.size());
             }
+#endif
 
             WireId wire;
             wire.tile = pip.tile;
@@ -847,17 +850,21 @@ bool Arch::route_vcc_to_unused_lut_pins()
             WireId lut_pin_wire = getBelPinWire(bel, bel_pin);
             auto iter = bound_wires.find(lut_pin_wire);
             if (iter != bound_wires.end()) {
+#ifdef DEBUG_LUT_MAPPING
                 if(getCtx()->verbose) {
                     log_info("%s is now used as a LUT route-through, not tying to VCC\n",
                             nameOfWire(lut_pin_wire));
                 }
+#endif
                 continue;
             }
 
+#ifdef DEBUG_LUT_MAPPING
             if(getCtx()->verbose) {
                 log_info("%s is an unused LUT pin, tying to VCC\n",
                         nameOfWire(lut_pin_wire));
             }
+#endif
 
             auto result = cell->ports.emplace(bel_pin, port_info);
             if (result.second) {
@@ -1454,7 +1461,11 @@ void Arch::remove_pip_pseudo_wires(PipId pip, NetInfo *net) {
 
         auto wire_iter = net->wires.find(wire);
         if(wire_iter != net->wires.end()) {
-            log_info("Removing %s from net %s, but it's in net wires\n", nameOfWire(wire), net->name.c_str(this));
+#ifdef DEBUG_BINDING
+            if(getCtx()->verbose) {
+                log_info("Removing %s from net %s, but it's in net wires\n", nameOfWire(wire), net->name.c_str(this));
+            }
+#endif
             // This wire is part of net->wires, make sure it has no pip,
             // but leave it alone.  It will get cleaned up via
             // unbindWire.
@@ -1465,7 +1476,11 @@ void Arch::remove_pip_pseudo_wires(PipId pip, NetInfo *net) {
             NPNR_ASSERT(wire_iter->second.pip == PipId() || wire_iter->second.pip == pip);
         } else {
             // This wire is not in net->wires, update wire_to_net.
-            log_info("Removing %s from net %s in remove_pip_pseudo_wires\n", nameOfWire(wire), net->name.c_str(this));
+#ifdef DEBUG_BINDING
+            if(getCtx()->verbose) {
+                log_info("Removing %s from net %s in remove_pip_pseudo_wires\n", nameOfWire(wire), net->name.c_str(this));
+            }
+#endif
             iter->second = nullptr;
         }
     }
@@ -1473,8 +1488,12 @@ void Arch::remove_pip_pseudo_wires(PipId pip, NetInfo *net) {
 
 
 void Arch::assign_net_to_wire(WireId wire, NetInfo *net, const char *src, bool require_empty) {
-    log_info("Assigning wire %s to %s from %s\n",
+#ifdef DEBUG_BINDING
+    if(getCtx()->verbose) {
+        log_info("Assigning wire %s to %s from %s\n",
             nameOfWire(wire), net->name.c_str(this), src);
+    }
+#endif
     NPNR_ASSERT(net != nullptr);
     auto result = wire_to_net.emplace(wire, net);
     if(!result.second) {
@@ -1491,7 +1510,11 @@ void Arch::assign_net_to_wire(WireId wire, NetInfo *net, const char *src, bool r
 
 void Arch::unassign_wire(WireId wire) {
     NPNR_ASSERT(wire != WireId());
-    log_info("unassign_wire %s\n", nameOfWire(wire));
+#ifdef DEBUG_BINDING
+    if(getCtx()->verbose) {
+        log_info("unassign_wire %s\n", nameOfWire(wire));
+    }
+#endif
 
     auto iter = wire_to_net.find(wire);
     NPNR_ASSERT(iter != wire_to_net.end());
@@ -1505,8 +1528,12 @@ void Arch::unassign_wire(WireId wire) {
 
     auto pip = it->second.pip;
     if (pip != PipId()) {
-        log_info("Removing pip %s because it was used to reach wire %s\n",
-                nameOfPip(pip), nameOfWire(wire));
+#ifdef DEBUG_BINDING
+        if(getCtx()->verbose) {
+            log_info("Removing pip %s because it was used to reach wire %s\n",
+                    nameOfPip(pip), nameOfWire(wire));
+        }
+#endif
         auto pip_iter = pip_to_net.find(pip);
         NPNR_ASSERT(pip_iter != pip_to_net.end());
         NPNR_ASSERT(pip_iter->second == net);
@@ -1515,14 +1542,22 @@ void Arch::unassign_wire(WireId wire) {
     }
 
     net_wires.erase(it);
-    log_info("Removing %s from net %s in unassign_wire\n", nameOfWire(wire), net->name.c_str(this));
+#ifdef DEBUG_BINDING
+    if(getCtx()->verbose) {
+        log_info("Removing %s from net %s in unassign_wire\n", nameOfWire(wire), net->name.c_str(this));
+    }
+#endif
     iter->second = nullptr;
 }
 
 void Arch::unbindPip(PipId pip)
 {
     NPNR_ASSERT(pip != PipId());
-    log_info("unbindPip %s\n", nameOfPip(pip));
+#ifdef DEBUG_BINDING
+    if(getCtx()->verbose) {
+        log_info("unbindPip %s\n", nameOfPip(pip));
+    }
+#endif
 
     auto pip_iter = pip_to_net.find(pip);
     NPNR_ASSERT(pip_iter != pip_to_net.end());
@@ -1538,7 +1573,11 @@ void Arch::unbindPip(PipId pip)
 
     // Clear the net now.
     pip_iter->second = nullptr;
-    log_info("Removing %s from net %s in unbindPip\n", nameOfWire(dst), net->name.c_str(this));
+#ifdef DEBUG_BINDING
+    if(getCtx()->verbose) {
+        log_info("Removing %s from net %s in unbindPip\n", nameOfWire(dst), net->name.c_str(this));
+    }
+#endif
     wire_iter->second = nullptr;
     NPNR_ASSERT(net->wires.erase(dst) == 1);
 
@@ -1549,7 +1588,11 @@ void Arch::unbindPip(PipId pip)
 void Arch::bindPip(PipId pip, NetInfo *net, PlaceStrength strength)
 {
     NPNR_ASSERT(pip != PipId());
-    log_info("bindPip %s to net %s\n", nameOfPip(pip), net->name.c_str(this));
+#ifdef DEBUG_BINDING
+    if(getCtx()->verbose) {
+        log_info("bindPip %s (%d/%d) to net %s\n", nameOfPip(pip), pip.tile, pip.index, net->name.c_str(this));
+    }
+#endif
     WireId dst = getPipDstWire(pip);
     NPNR_ASSERT(dst != WireId());
 
@@ -1577,13 +1620,80 @@ void Arch::bindPip(PipId pip, NetInfo *net, PlaceStrength strength)
 void Arch::bindWire(WireId wire, NetInfo *net, PlaceStrength strength)
 {
     NPNR_ASSERT(wire != WireId());
-    log_info("bindWire %s to net %s\n",
-            nameOfWire(wire), net->name.c_str(this));
+#ifdef DEBUG_BINDING
+    if(getCtx()->verbose) {
+        log_info("bindWire %s to net %s\n",
+                nameOfWire(wire), net->name.c_str(this));
+    }
+#endif
     assign_net_to_wire(wire, net, "bindWire", /*require_empty=*/true);
     auto & pip_map = net->wires[wire];
     pip_map.pip = PipId();
     pip_map.strength = strength;
     refreshUiWire(wire);
+}
+
+bool Arch::checkPipAvail(PipId pip) const
+{
+    NPNR_ASSERT(pip != PipId());
+    auto pip_iter = pip_to_net.find(pip);
+    if(pip_iter != pip_to_net.end() && pip_iter->second != nullptr) {
+        NPNR_ASSERT(pip_iter->first == pip);
+#ifdef DEBUG_BINDING
+        if(getCtx()->verbose) {
+            log_info("Pip %s (%d/%d) is not available, tied to net %s\n",
+                    getCtx()->nameOfPip(pip),
+                    pip.tile, pip.index,
+                    pip_iter->second->name.c_str(getCtx()));
+        }
+#endif
+        return false;
+    }
+
+    WireId src = getPipSrcWire(pip);
+    WireId dst = getPipDstWire(pip);
+
+    auto wire_iter = wire_to_net.find(dst);
+    if(wire_iter != wire_to_net.end()) {
+        NetInfo *net = wire_iter->second;
+        if(net != nullptr) {
+            auto net_iter = net->wires.find(dst);
+            if(net_iter != net->wires.end()) {
+                // dst is already driven in this net, do not allow!
+                return false;
+            }
+        }
+    }
+
+    // If this pip is a route-though, make sure all of the route-though
+    // wires are unbound.
+    const PipInfoPOD &pip_data = pip_info(chip_info, pip);
+    WireId wire;
+    wire.tile = pip.tile;
+    for(int32_t wire_index : pip_data.pseudo_cell_wires) {
+        wire.index = wire_index;
+        NPNR_ASSERT(src != wire);
+        NPNR_ASSERT(dst != wire);
+
+        NetInfo *net = getConflictingWireNet(wire);
+        if(net != nullptr) {
+#ifdef DEBUG_BINDING
+            if(getCtx()->verbose) {
+                log_info("Pip %s is not available because wire %s is tied to net %s\n",
+                        getCtx()->nameOfPip(pip),
+                        getCtx()->nameOfWire(wire),
+                        net->name.c_str(getCtx()));
+            }
+#endif
+            return false;
+        }
+    }
+
+    // FIXME: This pseudo pip check is incomplete, because constraint
+    // failures will not be detected.  However the current FPGA
+    // interchange schema does not provide a cell type to place.
+
+    return true;
 }
 
 // Instance constraint templates.

@@ -1258,58 +1258,13 @@ struct Arch : ArchAPI<ArchRanges>
 
     void unbindPip(PipId pip) final;
 
-    bool checkPipAvail(PipId pip) const final
-    {
-        NPNR_ASSERT(pip != PipId());
-        auto pip_iter = pip_to_net.find(pip);
-        if(pip_iter != pip_to_net.end() && pip_iter->second != nullptr) {
-            return false;
-        }
-
-        WireId dst = getPipDstWire(pip);
-        auto wire_iter = wire_to_net.find(dst);
-        if(wire_iter != wire_to_net.end() && wire_iter->second != nullptr) {
-            return false;
-        }
-
-        // If this pip is a route-though, make sure all of the route-though
-        // wires are unbound.
-        const PipInfoPOD &pip_data = pip_info(chip_info, pip);
-        WireId wire;
-        wire.tile = pip.tile;
-        for(int32_t wire_index : pip_data.pseudo_cell_wires) {
-            wire.index = wire_index;
-            if(getConflictingWireNet(wire) != nullptr) {
-                return false;
-            }
-        }
-
-        // FIXME: This pseudo pip check is incomplete, because constraint
-        // failures will not be detected.  However the current FPGA
-        // interchange schema does not provide a cell type to place.
-
-        return true;
-    }
+    bool checkPipAvail(PipId pip) const;
 
     NetInfo *getBoundPipNet(PipId pip) const final
     {
         NPNR_ASSERT(pip != PipId());
         auto p2n = pip_to_net.find(pip);
-        NetInfo *bound_net = p2n == pip_to_net.end() ? nullptr : p2n->second;
-        if(bound_net == nullptr) {
-            const PipInfoPOD &pip_data = pip_info(chip_info, pip);
-            WireId wire;
-            wire.tile = pip.tile;
-            for(int32_t wire_index : pip_data.pseudo_cell_wires) {
-                wire.index = wire_index;
-                NetInfo *wire_bound_net = getBoundWireNet(wire);
-                if(wire_bound_net != nullptr) {
-                    return wire_bound_net;
-                }
-            }
-        }
-
-        return bound_net;
+        return p2n == pip_to_net.end() ? nullptr : p2n->second;
     }
 
     WireId getConflictingPipWire(PipId pip) const final {
