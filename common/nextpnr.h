@@ -370,6 +370,8 @@ struct ArcBounds
             dist += loc.y - y1;
         return dist;
     };
+
+    bool contains(int x, int y) const { return x >= x0 && y >= y0 && x <= x1 && y <= y1; }
 };
 
 NEXTPNR_NAMESPACE_END
@@ -426,9 +428,10 @@ enum PlaceStrength
     STRENGTH_NONE = 0,
     STRENGTH_WEAK = 1,
     STRENGTH_STRONG = 2,
-    STRENGTH_FIXED = 3,
-    STRENGTH_LOCKED = 4,
-    STRENGTH_USER = 5
+    STRENGTH_PLACER = 3,
+    STRENGTH_FIXED = 4,
+    STRENGTH_LOCKED = 5,
+    STRENGTH_USER = 6
 };
 
 struct PortRef
