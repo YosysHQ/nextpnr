@@ -1060,6 +1060,9 @@ void SiteRouter::bindSiteRouting(Context *ctx) {
     NPNR_ASSERT(route_site(&site_arch));
     check_routing(site_arch);
     apply_routing(ctx, site_arch);
+    if(verbose_site_router(ctx)) {
+        print_current_state(&site_arch);
+    }
 }
 
 NEXTPNR_NAMESPACE_END
