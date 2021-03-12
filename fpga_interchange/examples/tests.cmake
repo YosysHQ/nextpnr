@@ -9,7 +9,14 @@ function(add_interchange_test)
     #    top <top name>
     #    sources <sources list>
     # )
-    # ~~~
+    #
+    # Generates targets to run desired tests
+    #
+    # Targets generated:
+    #   - test-fpga_interchange-<name>-json     : synthesis output
+    #   - test-fpga_interchange-<name>-netlist  : interchange logical netlist
+    #   - test-fpga_interchange-<name>-phys     : interchange physical netlist
+    #   - test-fpga_interchange-<name>-phys     : design checkpoint with RapidWright
 
     set(options)
     set(oneValueArgs name device package tcl xdc top)
@@ -70,6 +77,7 @@ function(add_interchange_test)
         DEPENDS
             ${synth_json}
             ${device_target}
+            ${device_loc}
     )
 
     add_custom_target(test-${family}-${name}-netlist DEPENDS ${netlist})
@@ -90,6 +98,7 @@ function(add_interchange_test)
         DEPENDS
             ${netlist}
             ${chipdb_target}
+            ${chipdb_dir}/chipdb-${device}.bba
     )
 
     add_custom_target(test-${family}-${name}-phys DEPENDS ${phys})

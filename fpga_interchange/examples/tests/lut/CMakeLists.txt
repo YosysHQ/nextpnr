@@ -1,17 +1,17 @@
 add_interchange_test(
     name lut_basys3
-    device xc7a50t
+    device xc7a35t
     package cpg236
     tcl run.tcl
-    xdc lut.xdc
+    xdc lut_basys3.xdc
     sources lut.v
 )
 
 add_interchange_test(
     name lut_arty
-    device xc7a50t
+    device xc7a35t
     package csg324
     tcl run.tcl
-    xdc lut.xdc
+    xdc lut_arty.xdc
     sources lut.v
 )
