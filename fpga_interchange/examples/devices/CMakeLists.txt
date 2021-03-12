@@ -1,4 +1,5 @@
 generate_chipdb(
-    device xc7a50t
-    part xc7a50tfgg484-1
+    device xc7a35t
+    part xc7a35tcsg324-1
+    bel_bucket_seeds ${PYTHON_INTERCHANGE_PATH}/test_data/series7_bel_buckets.yaml
 )
