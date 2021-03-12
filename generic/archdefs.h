@@ -17,9 +17,12 @@
  *
  */
 
-#ifndef NEXTPNR_H
-#error Include "archdefs.h" via "nextpnr.h" only.
-#endif
+#ifndef GENERIC_ARCHDEFS_H
+#define GENERIC_ARCHDEFS_H
+
+#include <unordered_map>
+
+#include "idstringlist.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -52,3 +55,5 @@ struct ArchCellInfo
 };
 
 NEXTPNR_NAMESPACE_END
+
+#endif /* GENERIC_ARCHDEFS_H */

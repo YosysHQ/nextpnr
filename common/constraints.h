@@ -20,15 +20,20 @@
 #ifndef CONSTRAINTS_H
 #define CONSTRAINTS_H
 
-#ifndef NEXTPNR_H
-#error Include after "nextpnr.h" only.
-#endif
+#include <cstdint>
+#include <unordered_map>
+#include <vector>
 
+#include "archdefs.h"
 #include "exclusive_state_groups.h"
+#include "idstring.h"
+#include "nextpnr_namespaces.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
-template <size_t StateCount, typename StateType = int8_t, typename CountType = uint8_t> struct Constraints
+struct Context;
+
+template <std::size_t StateCount, typename StateType = int8_t, typename CountType = uint8_t> struct Constraints
 {
     using ConstraintStateType = StateType;
     using ConstraintCountType = CountType;
@@ -41,7 +46,7 @@ template <size_t StateCount, typename StateType = int8_t, typename CountType = u
 
     template <typename StateRange> struct Constraint
     {
-        virtual size_t tag() const = 0;
+        virtual std::size_t tag() const = 0;
         virtual ConstraintType constraint_type() const = 0;
         virtual StateType state() const = 0;
         virtual StateRange states() const = 0;

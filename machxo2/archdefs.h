@@ -18,9 +18,11 @@
  *
  */
 
-#ifndef NEXTPNR_H
-#error Include "archdefs.h" via "nextpnr.h" only.
-#endif
+#ifndef MACHXO2_ARCHDEFS_H
+#define MACHXO2_ARCHDEFS_H
+
+#include "idstring.h"
+#include "nextpnr_namespaces.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -153,3 +155,5 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX PipId>
 };
 
 } // namespace std
+
+#endif /* MACHXO2_ARCHDEFS_H */

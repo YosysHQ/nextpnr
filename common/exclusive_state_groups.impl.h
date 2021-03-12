@@ -19,14 +19,8 @@
 
 #pragma once
 
-#include "nextpnr.h"
-
-// This header must be included after "nextpnr.h", otherwise circular header
-// import insanity occurs.
-#ifndef NEXTPNR_H_COMPLETE
-#error This header cannot be used until after "nextpnr.h" is included
-#endif
-
+#include "context.h"
+#include "exclusive_state_groups.h"
 #include "log.h"
 
 NEXTPNR_NAMESPACE_BEGIN

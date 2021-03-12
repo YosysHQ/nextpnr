@@ -18,9 +18,16 @@
  *
  */
 
-#ifndef NEXTPNR_H
-#error Include "dedicated_interconnect.h" via "nextpnr.h" only.
-#endif
+#ifndef DEDICATED_INTERCONNECT_H
+#define DEDICATED_INTERCONNECT_H
+
+#include <boost/functional/hash.hpp>
+#include <cstdint>
+#include <unordered_map>
+
+#include "archdefs.h"
+#include "idstring.h"
+#include "nextpnr_namespaces.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -138,3 +145,5 @@ struct DedicatedInterconnect
 };
 
 NEXTPNR_NAMESPACE_END
+
+#endif /* DEDICATED_INTERCONNECT_H */

@@ -17,9 +17,16 @@
  *
  */
 
-#ifndef NEXTPNR_H
-#error Include "arch.h" via "nextpnr.h" only.
-#endif
+#ifndef GENERIC_ARCH_H
+#define GENERIC_ARCH_H
+
+#include <map>
+
+#include "arch_api.h"
+#include "idstring.h"
+#include "idstringlist.h"
+#include "nextpnr_namespaces.h"
+#include "nextpnr_types.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -366,3 +373,5 @@ struct Arch : ArchAPI<ArchRanges>
 };
 
 NEXTPNR_NAMESPACE_END
+
+#endif /* GENERIC_ARCH_H */

@@ -18,18 +18,19 @@
  *
  */
 
-#ifndef NEXTPNR_H
-#error Include "arch.h" via "nextpnr.h" only.
-#endif
+#ifndef ECP5_ARCH_H
+#define ECP5_ARCH_H
 
 #include <set>
 #include <sstream>
 
+#include "base_arch.h"
+#include "nextpnr_types.h"
+#include "relptr.h"
+
 NEXTPNR_NAMESPACE_BEGIN
 
 /**** Everything in this section must be kept in sync with chipdb.py ****/
-
-#include "relptr.h"
 
 NPNR_PACKED_STRUCT(struct BelWirePOD {
     LocationPOD rel_wire_loc;
@@ -928,3 +929,5 @@ struct Arch : BaseArch<ArchRanges>
 };
 
 NEXTPNR_NAMESPACE_END
+
+#endif /* ECP5_ARCH_H */

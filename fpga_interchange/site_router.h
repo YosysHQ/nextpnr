@@ -18,12 +18,13 @@
  *
  */
 
-#ifndef NEXTPNR_H
-#error Include "site_router.h" via "nextpnr.h" only.
-#endif
-
 #ifndef SITE_ROUTER_H
 #define SITE_ROUTER_H
+
+#include <cstdint>
+
+#include "nextpnr_namespaces.h"
+#include "nextpnr_types.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 

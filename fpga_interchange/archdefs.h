@@ -18,15 +18,16 @@
  *
  */
 
-#ifndef NEXTPNR_H
-#error Include "archdefs.h" via "nextpnr.h" only.
-#endif
+#ifndef FPGA_INTERCHANGE_ARCHDEFS_H
+#define FPGA_INTERCHANGE_ARCHDEFS_H
+
+#include <boost/functional/hash.hpp>
+#include <cstdint>
 
 #include "luts.h"
+#include "nextpnr_namespaces.h"
 
 NEXTPNR_NAMESPACE_BEGIN
-
-#include <cstdint>
 
 typedef int delay_t;
 
@@ -177,3 +178,5 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX BelBucketId>
 };
 
 } // namespace std
+
+#endif /* FPGA_INTERCHANGE_ARCHDEFS_H */

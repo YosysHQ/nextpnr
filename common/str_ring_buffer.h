@@ -2,6 +2,7 @@
  *  nextpnr -- Next Generation Place and Route
  *
  *  Copyright (C) 2018  Clifford Wolf <clifford@symbioticeda.com>
+ *  Copyright (C) 2018  Serge Bazanski <q3k@symbioticeda.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -16,16 +17,29 @@
  *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
+#ifndef STR_RING_BUFFER_H
+#define STR_RING_BUFFER_H
 
-#if defined(__wasm)
-extern "C" {
-// FIXME: WASI does not currently support exceptions.
-void *__cxa_allocate_exception(size_t thrown_size) throw() { return malloc(thrown_size); }
-bool __cxa_uncaught_exception() throw();
-void __cxa_throw(void *thrown_exception, struct std::type_info *tinfo, void (*dest)(void *)) { std::terminate(); }
-}
+#include <array>
+#include <string>
 
-namespace boost {
-void throw_exception(std::exception const &e) { NEXTPNR_NAMESPACE::log_error("boost::exception(): %s\n", e.what()); }
-} // namespace boost
-#endif
+#include "nextpnr_namespaces.h"
+
+NEXTPNR_NAMESPACE_BEGIN
+
+// A ring buffer of strings, so we can return a simple const char * pointer for %s formatting - inspired by how logging
+// in Yosys works Let's just hope noone tries to log more than 100 things in one call....
+class StrRingBuffer
+{
+  private:
+    static const size_t N = 100;
+    std::array<std::string, N> buffer;
+    size_t index = 0;
+
+  public:
+    std::string &next();
+};
+
+NEXTPNR_NAMESPACE_END
+
+#endif /* STR_RING_BUFFER_H */

@@ -1,0 +1,103 @@
+/*
+ *  nextpnr -- Next Generation Place and Route
+ *
+ *  Copyright (C) 2018  Clifford Wolf <clifford@symbioticeda.com>
+ *  Copyright (C) 2018  Serge Bazanski <q3k@symbioticeda.com>
+ *
+ *  Permission to use, copy, modify, and/or distribute this software for any
+ *  purpose with or without fee is hereby granted, provided that the above
+ *  copyright notice and this permission notice appear in all copies.
+ *
+ *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ *  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ *  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ *  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ */
+
+#ifndef CONTEXT_H
+#define CONTEXT_H
+
+#include <boost/lexical_cast.hpp>
+
+#include "arch.h"
+#include "deterministic_rng.h"
+
+NEXTPNR_NAMESPACE_BEGIN
+
+struct Context : Arch, DeterministicRNG
+{
+    bool verbose = false;
+    bool debug = false;
+    bool force = false;
+
+    // Should we disable printing of the location of nets in the critical path?
+    bool disable_critical_path_source_print = false;
+
+    Context(ArchArgs args) : Arch(args) { BaseCtx::as_ctx = this; }
+
+    // --------------------------------------------------------------
+
+    WireId getNetinfoSourceWire(const NetInfo *net_info) const;
+    SSOArray<WireId, 2> getNetinfoSinkWires(const NetInfo *net_info, const PortRef &sink) const;
+    size_t getNetinfoSinkWireCount(const NetInfo *net_info, const PortRef &sink) const;
+    WireId getNetinfoSinkWire(const NetInfo *net_info, const PortRef &sink, size_t phys_idx) const;
+    delay_t getNetinfoRouteDelay(const NetInfo *net_info, const PortRef &sink) const;
+
+    // provided by router1.cc
+    bool checkRoutedDesign() const;
+    bool getActualRouteDelay(WireId src_wire, WireId dst_wire, delay_t *delay = nullptr,
+                             std::unordered_map<WireId, PipId> *route = nullptr, bool useEstimate = true);
+
+    // --------------------------------------------------------------
+    // call after changing hierpath or adding/removing nets and cells
+    void fixupHierarchy();
+
+    // --------------------------------------------------------------
+
+    // provided by sdf.cc
+    void writeSDF(std::ostream &out, bool cvc_mode = false) const;
+
+    // --------------------------------------------------------------
+
+    // provided by svg.cc
+    void writeSVG(const std::string &filename, const std::string &flags = "") const;
+
+    // --------------------------------------------------------------
+
+    uint32_t checksum() const;
+
+    void check() const;
+    void archcheck() const;
+
+    template <typename T> T setting(const char *name, T defaultValue)
+    {
+        IdString new_id = id(name);
+        auto found = settings.find(new_id);
+        if (found != settings.end())
+            return boost::lexical_cast<T>(found->second.is_string ? found->second.as_string()
+                                                                  : std::to_string(found->second.as_int64()));
+        else
+            settings[id(name)] = std::to_string(defaultValue);
+
+        return defaultValue;
+    }
+
+    template <typename T> T setting(const char *name) const
+    {
+        IdString new_id = id(name);
+        auto found = settings.find(new_id);
+        if (found != settings.end())
+            return boost::lexical_cast<T>(found->second.is_string ? found->second.as_string()
+                                                                  : std::to_string(found->second.as_int64()));
+        else
+            throw std::runtime_error("settings does not exists");
+    }
+};
+
+NEXTPNR_NAMESPACE_END
+
+#endif /* CONTEXT_H */

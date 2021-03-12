@@ -17,14 +17,16 @@
  *
  */
 
-#ifndef NEXTPNR_H
-#error Include "luts.h" via "nextpnr.h" only.
-#endif
-
-#include "dynamic_bitarray.h"
-
 #ifndef LUTS_H
 #define LUTS_H
+
+#include <unordered_map>
+#include <unordered_set>
+
+#include "idstring.h"
+#include "nextpnr_namespaces.h"
+
+#include "dynamic_bitarray.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 

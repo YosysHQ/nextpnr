@@ -20,11 +20,17 @@
 #ifndef EXCLUSIVE_STATE_GROUPS_H
 #define EXCLUSIVE_STATE_GROUPS_H
 
-#ifndef NEXTPNR_H
-#error Include after "nextpnr.h" only.
-#endif
+#include <array>
+#include <bitset>
+#include <cstdint>
+#include <limits>
+#include <vector>
 
+#include "archdefs.h"
 #include "bits.h"
+#include "idstring.h"
+#include "nextpnr_assertions.h"
+#include "nextpnr_namespaces.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 

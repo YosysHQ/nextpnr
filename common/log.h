@@ -28,7 +28,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include "nextpnr.h"
+#include "nextpnr_namespaces.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -62,7 +62,6 @@ extern std::unordered_map<LogLevel, int> message_count_by_level;
 std::string stringf(const char *fmt, ...);
 std::string vstringf(const char *fmt, va_list ap);
 
-extern std::ostream clog;
 void log(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));
 void log_always(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));
 void log_info(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));

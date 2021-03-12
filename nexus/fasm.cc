@@ -22,6 +22,7 @@
 #include "nextpnr.h"
 #include "util.h"
 
+#include <boost/range/adaptor/reversed.hpp>
 #include <queue>
 
 NEXTPNR_NAMESPACE_BEGIN
