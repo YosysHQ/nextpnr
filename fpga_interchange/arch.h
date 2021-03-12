@@ -114,6 +114,7 @@ NPNR_PACKED_STRUCT(struct PipInfoPOD {
     int16_t site_variant; // site variant index in tile
     int16_t bel;          // BEL this pip belongs to if site pip.
     int16_t extra_data;
+    RelSlice<int32_t> pseudo_cell_wires;
 });
 
 NPNR_PACKED_STRUCT(struct ConstraintTagPOD {
@@ -1146,32 +1147,12 @@ struct Arch : ArchAPI<ArchRanges>
 
     uint32_t getWireChecksum(WireId wire) const final { return wire.index; }
 
-    void bindWire(WireId wire, NetInfo *net, PlaceStrength strength) final
-    {
-        NPNR_ASSERT(wire != WireId());
-        NPNR_ASSERT(wire_to_net[wire] == nullptr);
-        wire_to_net[wire] = net;
-        net->wires[wire].pip = PipId();
-        net->wires[wire].strength = strength;
-        refreshUiWire(wire);
-    }
+    void bindWire(WireId wire, NetInfo *net, PlaceStrength strength) final;
 
     void unbindWire(WireId wire) final
     {
         NPNR_ASSERT(wire != WireId());
-        NPNR_ASSERT(wire_to_net[wire] != nullptr);
-
-        auto &net_wires = wire_to_net[wire]->wires;
-        auto it = net_wires.find(wire);
-        NPNR_ASSERT(it != net_wires.end());
-
-        auto pip = it->second.pip;
-        if (pip != PipId()) {
-            pip_to_net[pip] = nullptr;
-        }
-
-        net_wires.erase(it);
-        wire_to_net[wire] = nullptr;
+        unassign_wire(wire);
         refreshUiWire(wire);
     }
 
@@ -1256,55 +1237,89 @@ struct Arch : ArchAPI<ArchRanges>
     IdString getPipType(PipId pip) const final;
     std::vector<std::pair<IdString, std::string>> getPipAttrs(PipId pip) const final;
 
-    void bindPip(PipId pip, NetInfo *net, PlaceStrength strength) final
-    {
-        NPNR_ASSERT(pip != PipId());
-        NPNR_ASSERT(pip_to_net[pip] == nullptr);
+    void assign_net_to_wire(WireId wire, NetInfo *net, const char *src, bool require_empty);
 
-        WireId dst = getPipDstWire(pip);
-        NPNR_ASSERT(wire_to_net[dst] == nullptr || wire_to_net[dst] == net);
-
-        pip_to_net[pip] = net;
-
-        wire_to_net[dst] = net;
-        net->wires[dst].pip = pip;
-        net->wires[dst].strength = strength;
-        refreshUiPip(pip);
-        refreshUiWire(dst);
+    void assign_pip_pseudo_wires(PipId pip, NetInfo *net) {
+        NPNR_ASSERT(net != nullptr);
+        WireId wire;
+        wire.tile = pip.tile;
+        const PipInfoPOD &pip_data = pip_info(chip_info, pip);
+        for(int32_t wire_index : pip_data.pseudo_cell_wires) {
+            wire.index = wire_index;
+            assign_net_to_wire(wire, net, "pseudo", /*require_empty=*/true);
+        }
     }
 
-    void unbindPip(PipId pip) final
-    {
-        NPNR_ASSERT(pip != PipId());
-        NPNR_ASSERT(pip_to_net[pip] != nullptr);
+    void remove_pip_pseudo_wires(PipId pip, NetInfo *net);
 
-        WireId dst = getPipDstWire(pip);
-        NPNR_ASSERT(wire_to_net[dst] != nullptr);
-        wire_to_net[dst] = nullptr;
-        pip_to_net[pip]->wires.erase(dst);
+    void unassign_wire(WireId wire);
 
-        pip_to_net[pip] = nullptr;
-        refreshUiPip(pip);
-        refreshUiWire(dst);
-    }
+    void bindPip(PipId pip, NetInfo *net, PlaceStrength strength) final;
+
+    void unbindPip(PipId pip) final;
 
     bool checkPipAvail(PipId pip) const final
     {
         NPNR_ASSERT(pip != PipId());
-        return pip_to_net.find(pip) == pip_to_net.end() || pip_to_net.at(pip) == nullptr;
+        auto pip_iter = pip_to_net.find(pip);
+        if(pip_iter != pip_to_net.end() && pip_iter->second != nullptr) {
+            return false;
+        }
+
+        WireId dst = getPipDstWire(pip);
+        auto wire_iter = wire_to_net.find(dst);
+        if(wire_iter != wire_to_net.end() && wire_iter->second != nullptr) {
+            return false;
+        }
+
+        // If this pip is a route-though, make sure all of the route-though
+        // wires are unbound.
+        const PipInfoPOD &pip_data = pip_info(chip_info, pip);
+        WireId wire;
+        wire.tile = pip.tile;
+        for(int32_t wire_index : pip_data.pseudo_cell_wires) {
+            wire.index = wire_index;
+            if(getConflictingWireNet(wire) != nullptr) {
+                return false;
+            }
+        }
+
+        // FIXME: This pseudo pip check is incomplete, because constraint
+        // failures will not be detected.  However the current FPGA
+        // interchange schema does not provide a cell type to place.
+
+        return true;
     }
 
     NetInfo *getBoundPipNet(PipId pip) const final
     {
         NPNR_ASSERT(pip != PipId());
         auto p2n = pip_to_net.find(pip);
-        return p2n == pip_to_net.end() ? nullptr : p2n->second;
+        NetInfo *bound_net = p2n == pip_to_net.end() ? nullptr : p2n->second;
+        if(bound_net == nullptr) {
+            const PipInfoPOD &pip_data = pip_info(chip_info, pip);
+            WireId wire;
+            wire.tile = pip.tile;
+            for(int32_t wire_index : pip_data.pseudo_cell_wires) {
+                wire.index = wire_index;
+                NetInfo *wire_bound_net = getBoundWireNet(wire);
+                if(wire_bound_net != nullptr) {
+                    return wire_bound_net;
+                }
+            }
+        }
+
+        return bound_net;
     }
 
-    WireId getConflictingPipWire(PipId pip) const final { return getPipDstWire(pip); }
+    WireId getConflictingPipWire(PipId pip) const final {
+        // FIXME: This doesn't account for pseudo pips.
+        return getPipDstWire(pip);
+    }
 
     NetInfo *getConflictingPipNet(PipId pip) const final
     {
+        // FIXME: This doesn't account for pseudo pips.
         auto p2n = pip_to_net.find(pip);
         return p2n == pip_to_net.end() ? nullptr : p2n->second;
     }

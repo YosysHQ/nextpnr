@@ -18,35 +18,22 @@
  *
  */
 
-#ifndef SITE_ROUTER_H
-#define SITE_ROUTER_H
-
-#include <cstdint>
-
-#include "nextpnr_namespaces.h"
-#include "nextpnr_types.h"
+#include "site_arch.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
-struct Context;
-struct TileStatus;
+void SiteArch::archcheck() {
+    for (SiteWire wire : getWires()) {
+        for (SitePip pip : getPipsDownhill(wire)) {
+            SiteWire wire2 = getPipSrcWire(pip);
+            log_assert(wire == wire2);
+        }
 
-struct SiteRouter
-{
-    SiteRouter(int16_t site) : site(site), dirty(false), site_ok(true) {}
-
-    std::unordered_set<CellInfo *> cells_in_site;
-    const int16_t site;
-
-    mutable bool dirty;
-    mutable bool site_ok;
-
-    void bindBel(CellInfo *cell);
-    void unbindBel(CellInfo *cell);
-    bool checkSiteRouting(const Context *ctx, const TileStatus &tile_status) const;
-    void bindSiteRouting(Context *ctx);
-};
+        for (SitePip pip : getPipsUphill(wire)) {
+            SiteWire wire2 = getPipDstWire(pip);
+            log_assert(wire == wire2);
+        }
+    }
+}
 
 NEXTPNR_NAMESPACE_END
-
-#endif /* SITE_ROUTER_H */
