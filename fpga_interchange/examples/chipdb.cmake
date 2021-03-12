@@ -3,16 +3,20 @@ function(create_rapidwright_device_db)
     # create_rapidwright_device_db(
     #    device <common device>
     #    part <part>
+    #    output_target <output device target>
     # )
     # ~~~
     #
     # Generates a device database from RapidWright
     #
+    # If output_target is specified, the output_target_name variable
+    # is set to the generated output_device_file target.
+    #
     # Targets generated:
     #   - rapidwright-<device>-device
 
     set(options)
-    set(oneValueArgs device part)
+    set(oneValueArgs device part output_target)
     set(multiValueArgs)
 
     cmake_parse_arguments(
@@ -25,6 +29,7 @@ function(create_rapidwright_device_db)
 
     set(device ${create_rapidwright_device_db_device})
     set(part ${create_rapidwright_device_db_part})
+    set(output_target ${create_rapidwright_device_db_output_target})
     set(rapidwright_device_db ${CMAKE_CURRENT_BINARY_DIR}/${part}.device)
     add_custom_command(
         OUTPUT ${rapidwright_device_db}
@@ -39,6 +44,10 @@ function(create_rapidwright_device_db)
 
     add_custom_target(rapidwright-${device}-device DEPENDS ${rapidwright_device_db})
     set_property(TARGET rapidwright-${device}-device PROPERTY LOCATION ${rapidwright_device_db})
+
+    if (DEFINED output_target)
+        set(${output_target} rapidwright-${device}-device PARENT_SCOPE)
+    endif()
 endfunction()
 
 function(create_patched_device_db)
@@ -49,17 +58,21 @@ function(create_patched_device_db)
     #    patch_path <patch_path>
     #    patch_format <patch_format>
     #    patch_data <patch_data>
-    #    input_device <input_device target>
+    #    input_device <input device target>
+    #    output_target <output device target>
     # )
     # ~~~
     #
     # Generates a patched device database starting from an input device
     #
+    # If output_target is specified, the variable named as the output_target
+    # parameter value is set to the generated output_device_file target.
+    #
     # Targets generated:
     #   - <patch_name>-<device>-device
 
     set(options)
-    set(oneValueArgs device patch_name patch_path patch_format patch_data input_device)
+    set(oneValueArgs device patch_name patch_path patch_format patch_data input_device output_target)
     set(multiValueArgs)
 
     cmake_parse_arguments(
@@ -76,8 +89,9 @@ function(create_patched_device_db)
     set(patch_format ${create_patched_device_db_patch_format})
     set(patch_data ${create_patched_device_db_patch_data})
     set(input_device ${create_patched_device_db_input_device})
+    set(output_target ${create_patched_device_db_output_target})
 
-    get_property(input_device_loc TARGET ${input_device} PROPERTY LOCATION)
+    get_target_property(input_device_loc ${input_device} LOCATION)
     set(output_device_file ${CMAKE_CURRENT_BINARY_DIR}/${device}_${patch_name}.device)
     add_custom_command(
         OUTPUT ${output_device_file}
@@ -91,17 +105,22 @@ function(create_patched_device_db)
                 ${patch_data}
                 ${output_device_file}
         DEPENDS
+            ${patch_data}
             ${input_device}
             ${input_device_loc}
     )
 
     add_custom_target(${patch_name}-${device}-device DEPENDS ${output_device_file})
     set_property(TARGET ${patch_name}-${device}-device PROPERTY LOCATION ${output_device_file})
+
+    if (DEFINED output_target)
+        set(${output_target} ${patch_name}-${device}-device PARENT_SCOPE)
+    endif()
 endfunction()
 
-function(generate_chipdb)
+function(generate_xc7_device_db)
     # ~~~
-    # create_patched_device_db(
+    # generate_xc7_device_db(
     #    device <common device>
     #    part <part>
     # )
@@ -112,13 +131,71 @@ function(generate_chipdb)
     #   - constraints patch
     #   - luts patch
     #
+    # The final device target is output in the device_target variable to use in the parent scope
+
+    set(options)
+    set(oneValueArgs device part)
+    set(multiValueArgs)
+
+    cmake_parse_arguments(
+        create_rapidwright_device_db
+        "${options}"
+        "${oneValueArgs}"
+        "${multiValueArgs}"
+        ${ARGN}
+    )
+
+    set(device ${create_rapidwright_device_db_device})
+    set(part ${create_rapidwright_device_db_part})
+
+    create_rapidwright_device_db(
+        device ${device}
+        part ${part}
+        output_target rapidwright_device
+    )
+
+    # Generate constraints patch
+    create_patched_device_db(
+        device ${device}
+        patch_name constraints
+        patch_path constraints
+        patch_format yaml
+        patch_data ${PYTHON_INTERCHANGE_PATH}/test_data/series7_constraints.yaml
+        input_device ${rapidwright_device}
+        output_target constraints_device
+    )
+
+    # Generate lut constraints patch
+    create_patched_device_db(
+        device ${device}
+        patch_name constraints-luts
+        patch_path lutDefinitions
+        patch_format yaml
+        patch_data ${PYTHON_INTERCHANGE_PATH}/test_data/series7_luts.yaml
+        input_device ${constraints_device}
+        output_target constraints_luts_device
+    )
+
+    set(device_target ${constraints_luts_device} PARENT_SCOPE)
+endfunction()
+
+function(generate_chipdb)
+    # ~~~
+    # generate_chipdb(
+    #    device <common device>
+    #    part <part>
+    # )
+    # ~~~
+    #
+    # Generates a chipdb BBA file, starting from a device database.
+    #
     # The chipdb file is moved to the <nextpnr-root>/build/fpga_interchange/chipdb/ directory
     #
     # Targets generated:
     #   - chipdb-<device>-bba
 
     set(options)
-    set(oneValueArgs device part bel_bucket_seeds)
+    set(oneValueArgs device part device_target bel_bucket_seeds)
     set(multiValueArgs)
 
     cmake_parse_arguments(
@@ -131,34 +208,10 @@ function(generate_chipdb)
 
     set(device ${generate_chipdb_device})
     set(part ${generate_chipdb_part})
+    set(device_target ${generate_chipdb_device_target})
     set(bel_bucket_seeds ${generate_chipdb_bel_bucket_seeds})
 
-    create_rapidwright_device_db(
-        device ${device}
-        part ${part}
-    )
-
-    # Generate constraints patch
-    create_patched_device_db(
-        device ${device}
-        patch_name constraints
-        patch_path constraints
-        patch_format yaml
-        patch_data ${PYTHON_INTERCHANGE_PATH}/test_data/series7_constraints.yaml
-        input_device rapidwright-${device}-device
-    )
-
-    # Generate lut constraints patch
-    create_patched_device_db(
-        device ${device}
-        patch_name constraints-luts
-        patch_path lutDefinitions
-        patch_format yaml
-        patch_data ${PYTHON_INTERCHANGE_PATH}/test_data/series7_luts.yaml
-        input_device constraints-${device}-device
-    )
-
-    get_property(constraints_luts_device_loc TARGET constraints-luts-${device}-device PROPERTY LOCATION)
+    get_target_property(device_loc ${device_target} LOCATION)
     set(chipdb_bba ${chipdb_dir}/chipdb-${device}.bba)
     add_custom_command(
         OUTPUT ${chipdb_bba}
@@ -167,21 +220,15 @@ function(generate_chipdb)
                 --schema_dir ${INTERCHANGE_SCHEMA_PATH}
                 --output_dir ${CMAKE_CURRENT_BINARY_DIR}
                 --bel_bucket_seeds ${bel_bucket_seeds}
-                --device ${constraints_luts_device_loc}
+                --device ${device_loc}
         COMMAND
             mv ${CMAKE_CURRENT_BINARY_DIR}/chipdb.bba ${chipdb_bba}
         DEPENDS
-            constraints-luts-${device}-device
-            ${constraints_luts_device_loc}
+            ${bel_bucket_seeds}
+            ${device_target}
+            ${device_loc}
     )
 
     add_custom_target(chipdb-${device}-bba DEPENDS ${chipdb_bba})
-    add_dependencies(chipdb-${family}-bbas chipdb-${device}-bba)
 endfunction()
 
-set(chipdb_dir ${CMAKE_CURRENT_BINARY_DIR}/${family}/chipdb)
-file(MAKE_DIRECTORY ${chipdb_dir})
-
-add_custom_target(chipdb-${family}-bbas)
-
-add_subdirectory(${family}/examples/devices)

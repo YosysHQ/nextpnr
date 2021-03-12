@@ -108,10 +108,11 @@ function(add_interchange_test)
         OUTPUT ${dcp}
         COMMAND
             RAPIDWRIGHT_PATH=${RAPIDWRIGHT_PATH}
-            ${RAPIDWRIGHT_PATH}/scripts/invoke_rapidwright.sh
+            ${INVOKE_RAPIDWRIGHT}
             com.xilinx.rapidwright.interchange.PhysicalNetlistToDcp
             ${netlist} ${phys} ${xdc} ${dcp}
         DEPENDS
+            ${INVOKE_RAPIDWRIGHT}
             ${phys}
             ${netlist}
     )
@@ -119,6 +120,3 @@ function(add_interchange_test)
     add_custom_target(test-${family}-${name}-dcp DEPENDS ${dcp})
     add_dependencies(all-${family}-tests test-${family}-${name}-dcp)
 endfunction()
-
-add_custom_target(all-${family}-tests)
-add_subdirectory(${family}/examples/tests)
