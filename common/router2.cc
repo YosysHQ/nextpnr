@@ -211,9 +211,15 @@ struct Router2
             pwd.w = wire;
             NetInfo *bound = ctx->getBoundWireNet(wire);
             if (bound != nullptr) {
-                pwd.bound_nets[bound->udata] = std::make_pair(0, bound->wires.at(wire).pip);
-                if (bound->wires.at(wire).strength > STRENGTH_STRONG)
-                    pwd.unavailable = true;
+                auto iter = bound->wires.find(wire);
+                if (iter != bound->wires.end()) {
+                    pwd.bound_nets[bound->udata] = std::make_pair(0, bound->wires.at(wire).pip);
+                    if (bound->wires.at(wire).strength == STRENGTH_PLACER) {
+                        pwd.reserved_net = bound->udata;
+                    } else if (bound->wires.at(wire).strength > STRENGTH_PLACER) {
+                        pwd.unavailable = true;
+                    }
+                }
             }
 
             ArcBounds wire_loc = ctx->getRouteBoundingBox(wire, wire);
@@ -335,6 +341,7 @@ struct Router2
     {
         auto &b = wire_data(wire).bound_nets.at(net->udata);
         --b.first;
+        NPNR_ASSERT(b.first >= 0);
         if (b.first == 0) {
             wire_data(wire).bound_nets.erase(net->udata);
         }
@@ -657,7 +664,7 @@ struct Router2
             t.queue.pop();
             ++iter;
 #if 0
-            ROUTE_LOG_DBG("current wire %s\n", ctx->nameOfWire(curr.wire));
+            ROUTE_LOG_DBG("current wire %s\n", ctx->nameOfWire(d.w));
 #endif
             // Explore all pips downhill of cursor
             for (auto dh : ctx->getPipsDownhill(d.w)) {
@@ -672,14 +679,27 @@ struct Router2
 #else
                 if (is_bb && !hit_test_pip(ad.bb, ctx->getPipLocation(dh)))
                     continue;
-                if (!ctx->checkPipAvail(dh) && ctx->getBoundPipNet(dh) != net)
-                    continue;
+                if (!ctx->checkPipAvail(dh)) {
+                    NetInfo *bound_net = ctx->getBoundPipNet(dh);
+                    if (bound_net != net) {
+                        if (bound_net != nullptr) {
+                            ROUTE_LOG_DBG("Skipping pip %s because it is bound to net '%s' not net '%s'\n",
+                                          ctx->nameOfPip(dh), bound_net->name.c_str(ctx), net->name.c_str(ctx));
+                        } else {
+                            ROUTE_LOG_DBG("Skipping pip %s because it is reported not available\n", ctx->nameOfPip(dh));
+                        }
+
+                        continue;
+                    }
+                }
 #endif
                 // Evaluate score of next wire
                 WireId next = ctx->getPipDstWire(dh);
                 int next_idx = wire_to_idx.at(next);
-                if (was_visited(next_idx))
+                if (was_visited(next_idx)) {
+                    // Don't expand the same node twice.
                     continue;
+                }
 #if 1
                 if (debug_arc)
                     ROUTE_LOG_DBG("   src wire %s\n", ctx->nameOfWire(next));
@@ -789,11 +809,7 @@ struct Router2
                     ROUTE_LOG_DBG("Arc '%s' (user %zu, arc %zu) already routed skipping.\n", ctx->nameOf(net), i, j);
                     continue;
                 }
-                auto &usr = net->users.at(i);
-                WireId dst_wire = ctx->getNetinfoSinkWire(net, usr, j);
-                // Case of arcs that were pre-routed strongly (e.g. clocks)
-                if (net->wires.count(dst_wire) && net->wires.at(dst_wire).strength > STRENGTH_STRONG)
-                    return ARC_SUCCESS;
+
                 // Ripup arc to start with
                 ripup_arc(net, i, j);
                 t.route_arcs.emplace_back(i, j);
@@ -869,16 +885,9 @@ struct Router2
         if (src == WireId())
             return true;
         WireId dst = ctx->getNetinfoSinkWire(net, usr, phys_pin);
-        // Skip routes where the destination is already bound
         if (dst == WireId())
             return true;
-        if (ctx->getBoundWireNet(dst) == net) {
-            if (ctx->debug) {
-                log("Net %s already bound (because wire %s is part of net), not binding\n", ctx->nameOf(net),
-                    ctx->nameOfWire(dst));
-            }
-            return true;
-        }
+
         // Skip routes where there is no routing (special cases)
         if (!ad.routed) {
             if ((src == dst) && ctx->getBoundWireNet(dst) != net)
@@ -895,9 +904,17 @@ struct Router2
 
         while (cursor != src) {
             if (!ctx->checkWireAvail(cursor)) {
-                if (ctx->getBoundWireNet(cursor) == net)
-                    break; // hit the part of the net that is already bound
-                else {
+                NetInfo *bound_net = ctx->getBoundWireNet(cursor);
+                if (bound_net != net) {
+                    if (ctx->verbose) {
+                        if (bound_net != nullptr) {
+                            log_info("Failed to bind wire %s to net %s, bound to net %s\n", ctx->nameOfWire(cursor),
+                                     net->name.c_str(ctx), bound_net->name.c_str(ctx));
+                        } else {
+                            log_info("Failed to bind wire %s to net %s, bound net nullptr\n", ctx->nameOfWire(cursor),
+                                     net->name.c_str(ctx));
+                        }
+                    }
                     success = false;
                     break;
                 }
@@ -910,8 +927,14 @@ struct Router2
             }
             auto &p = wd.bound_nets.at(net->udata).second;
             if (!ctx->checkPipAvail(p)) {
-                success = false;
-                break;
+                NetInfo *bound_net = ctx->getBoundPipNet(p);
+                if (bound_net != net) {
+                    if (ctx->verbose) {
+                        log_info("Failed to bind pip %s to net %s\n", ctx->nameOfPip(p), net->name.c_str(ctx));
+                    }
+                    success = false;
+                    break;
+                }
             } else {
                 to_bind.push_back(p);
             }
