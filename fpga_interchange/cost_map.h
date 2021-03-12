@@ -18,18 +18,19 @@
  *
  */
 
-#ifndef NEXTPNR_H
-#error Include "type_wire.h" via "nextpnr.h" only.
-#endif
-
 #ifndef COST_MAP_H
 #define COST_MAP_H
 
-#include "nextpnr.h"
-#include "boost/multi_array.hpp"
+#include <mutex>
+#include <boost/multi_array.hpp>
+
+#include "nextpnr_namespaces.h"
+#include "nextpnr_types.h"
 #include "type_wire.h"
 
 NEXTPNR_NAMESPACE_BEGIN
+
+struct Context;
 
 class CostMap {
 public:

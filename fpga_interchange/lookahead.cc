@@ -18,14 +18,14 @@
  *
  */
 
-#include "nextpnr.h"
 #include "lookahead.h"
-#include "flat_wire_map.h"
 
 #include <queue>
 
 #include "log.h"
 #include "sampler.h"
+#include "context.h"
+#include "flat_wire_map.h"
 
 #if defined(NEXTPNR_USE_TBB)
 #    include <tbb/task_scheduler_init.h>

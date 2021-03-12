@@ -18,14 +18,13 @@
  *
  */
 
-#ifndef NEXTPNR_H
-#error Include "flat_wire_map.h" via "nextpnr.h" only.
-#endif
-
-#include "dynamic_bitarray.h"
-
 #ifndef FLAT_WIRE_MAP_H_
 #define FLAT_WIRE_MAP_H_
+
+#include "dynamic_bitarray.h"
+#include "nextpnr_namespaces.h"
+#include "nextpnr_types.h"
+#include "context.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 

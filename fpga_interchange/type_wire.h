@@ -18,15 +18,14 @@
  *
  */
 
-#ifndef NEXTPNR_H
-#error Include "type_wire.h" via "nextpnr.h" only.
-#endif
-
 #ifndef TYPE_WIRE_H
 #define TYPE_WIRE_H
 
 #include <vector>
 #include <algorithm>
+
+#include "nextpnr_namespaces.h"
+#include "nextpnr_types.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 

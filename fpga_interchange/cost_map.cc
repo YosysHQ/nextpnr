@@ -18,10 +18,10 @@
  *
  */
 
-#include "nextpnr.h"
 #include "cost_map.h"
 
 #include "log.h"
+#include "context.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 

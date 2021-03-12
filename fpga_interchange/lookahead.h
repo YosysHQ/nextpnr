@@ -18,18 +18,16 @@
  *
  */
 
-#ifndef NEXTPNR_H
-#error Include "lookahead.h" via "nextpnr.h" only.
-#endif
-
-
 #ifndef LOOKAHEAD_H
 #define LOOKAHEAD_H
 
 #include <vector>
 #include <algorithm>
+
+#include "nextpnr_namespaces.h"
 #include "type_wire.h"
 #include "cost_map.h"
+#include "deterministic_rng.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
