@@ -1,0 +1,5 @@
+add_subdirectory(wire)
+add_subdirectory(const_wire)
+add_subdirectory(counter)
+add_subdirectory(ff)
+add_subdirectory(lut)
