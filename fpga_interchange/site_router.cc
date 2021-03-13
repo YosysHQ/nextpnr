@@ -92,94 +92,6 @@ bool check_initial_wires(const Context *ctx, SiteInformation *site_info)
     return true;
 }
 
-struct RouteNode
-{
-    void clear()
-    {
-        parent = std::list<RouteNode>::iterator();
-        leafs.clear();
-        pip = SitePip();
-        wire = SiteWire();
-        flags = 0;
-    }
-
-    enum Flags {
-        // Has this path left the site?
-        LEFT_SITE = 0,
-        // Has this path entered the site?
-        ENTERED_SITE = 1,
-    };
-
-    bool has_left_site() const {
-        return (flags & (1 << LEFT_SITE)) != 0;
-    }
-
-    bool can_leave_site() const {
-        return !has_left_site();
-    }
-
-    void mark_left_site() {
-        flags |= (1 << LEFT_SITE);
-    }
-
-    bool has_entered_site() const {
-        return (flags & (1 << ENTERED_SITE)) != 0;
-    }
-
-    bool can_enter_site() const {
-        return !has_entered_site();
-    }
-
-    void mark_entered_site() {
-        flags |= (1 << ENTERED_SITE);
-    }
-
-    using Node = std::list<RouteNode>::iterator;
-
-    Node parent;
-    std::vector<Node> leafs;
-
-    SitePip pip;   // What pip was taken to reach this node.
-    SiteWire wire; // What wire is this routing node located at?
-    int32_t flags;
-
-};
-
-struct RouteNodeStorage
-{
-    // Free list of nodes.
-    std::list<RouteNode> nodes;
-
-    // Either allocate a new node if no nodes are on the free list, or return
-    // an element from the free list.
-    std::list<RouteNode>::iterator alloc_node(std::list<RouteNode> &new_owner)
-    {
-        if (nodes.empty()) {
-            nodes.emplace_front(RouteNode());
-        }
-
-        auto ret = nodes.begin();
-        new_owner.splice(new_owner.end(), nodes, ret);
-
-        ret->clear();
-
-        return ret;
-    }
-
-    // Return 1 node from the current owner to the free list.
-    void free_node(std::list<RouteNode> &owner, std::list<RouteNode>::iterator node)
-    {
-        nodes.splice(nodes.end(), owner, node);
-    }
-
-    // Return all node from the current owner to the free list.
-    void free_nodes(std::list<RouteNode> &owner)
-    {
-        nodes.splice(nodes.end(), owner);
-        NPNR_ASSERT(owner.empty());
-    }
-};
-
 bool is_invalid_site_port(const SiteArch *ctx, const SiteNetInfo *net, const SitePip &pip) {
     if(pip.type != SitePip::SITE_PORT) {
         // This isn't a site port, so its valid!
@@ -199,6 +111,8 @@ bool is_invalid_site_port(const SiteArch *ctx, const SiteNetInfo *net, const Sit
         return false;
     }
 }
+
+static constexpr int32_t kMaxSiteRouterExploration = 5;
 
 struct SiteExpansionLoop
 {
@@ -229,6 +143,7 @@ struct SiteExpansionLoop
         node->parent = parent;
         if(parent != Node()) {
             node->flags = parent->flags;
+            node->depth = parent->depth + 1;
         }
 
         if(pip.type == SitePip::SITE_PORT) {
@@ -290,12 +205,16 @@ struct SiteExpansionLoop
             }
         }
 
+        int32_t max_depth = 0;
+        int32_t max_depth_seen = 0;
         std::vector<Node> nodes_to_expand;
         nodes_to_expand.push_back(node);
 
         while (!nodes_to_expand.empty()) {
             Node parent_node = nodes_to_expand.back();
             nodes_to_expand.pop_back();
+
+            max_depth_seen = std::max(max_depth_seen, parent_node->depth);
 
             for (SitePip pip : ctx->getPipsDownhill(parent_node->wire)) {
                 if(is_invalid_site_port(ctx, net_for_wire, pip)) {
@@ -347,9 +266,12 @@ struct SiteExpansionLoop
                 auto node = new_node(wire, pip, parent_node);
                 if(targets.count(wire)) {
                     completed_routes.emplace(&*node, node);
+                    max_depth = std::max(max_depth, node->depth);
                 }
 
-                nodes_to_expand.push_back(node);
+                if(node->depth <= kMaxSiteRouterExploration) {
+                    nodes_to_expand.push_back(node);
+                }
             }
         }
 
@@ -358,6 +280,8 @@ struct SiteExpansionLoop
         for(auto & route_pair : completed_routes) {
             targets.erase(route_pair.first->wire);
         }
+
+        log_info("max_depth = %d, max_depth_seen = %d\n", max_depth, max_depth_seen);
 
         build_solution_lookup();
 
@@ -658,14 +582,13 @@ bool find_solution_via_backtrack(SiteArch *ctx, std::vector<PossibleSolutions> s
     NPNR_ASSERT(false);
 }
 
-bool route_site(SiteArch *ctx) {
-    RouteNodeStorage node_storage;
+bool route_site(SiteArch *ctx, RouteNodeStorage *node_storage) {
     std::vector<SiteExpansionLoop> expansions;
     expansions.reserve(ctx->nets.size());
 
     for(auto &net_pair : ctx->nets) {
         SiteNetInfo *net = &net_pair.second;
-        expansions.emplace_back(ctx, &node_storage);
+        expansions.emplace_back(ctx, node_storage);
 
         SiteExpansionLoop &router = expansions.back();
         if(!router.expand_net(net)) {
@@ -1004,9 +927,9 @@ bool SiteRouter::checkSiteRouting(const Context *ctx, const TileStatus &tile_sta
     }
 
     SiteArch site_arch(&site_info);
-    site_arch.archcheck();
+    //site_arch.archcheck();
 
-    site_ok = route_site(&site_arch);
+    site_ok = route_site(&site_arch, &ctx->node_storage);
     if(verbose_site_router(ctx)) {
         if(site_ok) {
             log_info("Site %s is routable\n", ctx->get_site_name(tile, site));
@@ -1057,7 +980,7 @@ void SiteRouter::bindSiteRouting(Context *ctx) {
 
     SiteInformation site_info(ctx, tile, site, cells_in_site);
     SiteArch site_arch(&site_info);
-    NPNR_ASSERT(route_site(&site_arch));
+    NPNR_ASSERT(route_site(&site_arch, &ctx->node_storage));
     check_routing(site_arch);
     apply_routing(ctx, site_arch);
     if(verbose_site_router(ctx)) {
