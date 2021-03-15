@@ -101,11 +101,14 @@ struct BelBucketId
     bool operator<(const BelBucketId &other) const { return name < other.name; }
 };
 
+struct SiteExpansionLoop;
+
 struct ArchNetInfo
 {
-};
+    virtual ~ArchNetInfo();
 
-struct NetInfo;
+    SiteExpansionLoop * loop = nullptr;
+};
 
 struct ArchCellInfo
 {

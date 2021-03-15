@@ -312,7 +312,7 @@ struct SiteNetMap {
 };
 
 struct SiteNetInfo {
-    const NetInfo *net;
+    NetInfo *net;
     SiteWire driver;
     absl::flat_hash_set<SiteWire> users;
 
