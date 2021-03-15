@@ -107,6 +107,8 @@ class TimingOptimiser
         max_net_delay.clear();
         for (auto net : sorted(ctx->nets)) {
             NetInfo *ni = net.second;
+            if (ni->driver.cell == nullptr)
+                continue;
             for (auto usr : ni->users) {
                 max_net_delay[std::make_pair(usr.cell->name, usr.port)] = std::numeric_limits<delay_t>::max();
             }
