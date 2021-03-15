@@ -19,10 +19,13 @@
  */
 
 #include "bits.h"
+
 #include <limits>
 #include <stdexcept>
 
-namespace nextpnr {
+#include "log.h"
+
+NEXTPNR_NAMESPACE_BEGIN
 
 int Bits::generic_popcount(unsigned int v)
 {
@@ -37,7 +40,7 @@ int Bits::generic_popcount(unsigned int v)
 int Bits::generic_ctz(unsigned int x)
 {
     if (x == 0) {
-        throw std::runtime_error("Cannot call ctz with arg = 0");
+        log_error("Cannot call ctz with arg = 0");
     }
 
     for (size_t i = 0; i < std::numeric_limits<unsigned int>::digits; ++i) {
@@ -47,7 +50,7 @@ int Bits::generic_ctz(unsigned int x)
     }
 
     // Unreachable!
-    throw std::runtime_error("Unreachable!");
+    log_error("Unreachable!");
 }
 
-}; // namespace nextpnr
+NEXTPNR_NAMESPACE_END

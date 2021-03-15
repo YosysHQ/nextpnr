@@ -25,7 +25,7 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 bool rotate_and_merge_lut_equation(std::vector<LogicLevel> *result, const LutBel &lut_bel,
-                                   const nextpnr::DynamicBitarray<> &old_equation, const std::vector<int32_t> &pin_map,
+                                   const DynamicBitarray<> &old_equation, const std::vector<int32_t> &pin_map,
                                    uint32_t used_pins)
 {
     // pin_map maps pin indicies from the old pin to the new pin.

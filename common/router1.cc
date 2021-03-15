@@ -806,7 +806,7 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
     try {
         log_break();
         log_info("Routing..\n");
-        nextpnr::ScopeLock<Context> lock(ctx);
+        ScopeLock<Context> lock(ctx);
         auto rstart = std::chrono::high_resolution_clock::now();
 
         log_info("Setting up routing queue.\n");

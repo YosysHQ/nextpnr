@@ -144,7 +144,7 @@ class SAPlacer
     {
         log_break();
 
-        nextpnr::ScopeLock<Context> lock(ctx);
+        ScopeLock<Context> lock(ctx);
 
         size_t placed_cells = 0;
         std::vector<CellInfo *> autoplaced;

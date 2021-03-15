@@ -37,9 +37,9 @@
 #pragma intrinsic(_BitScanForward, _BitScanReverse, __popcnt)
 #endif
 
-// Uses plain nextpnr namespace to avoid header inclusion nightmare that is
-// "nextpnr.h".
-namespace nextpnr {
+#include "nextpnr_namespaces.h"
+
+NEXTPNR_NAMESPACE_BEGIN
 
 struct Bits
 {
@@ -71,6 +71,6 @@ struct Bits
     }
 };
 
-}; // namespace nextpnr
+NEXTPNR_NAMESPACE_END
 
 #endif /* BITS_H */
