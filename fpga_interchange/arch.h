@@ -1737,7 +1737,7 @@ struct Arch : ArchAPI<ArchRanges>
     std::regex raw_bin_constant;
     std::regex verilog_bin_constant;
     std::regex verilog_hex_constant;
-    void read_lut_equation(nextpnr::DynamicBitarray<> *equation, const Property &equation_parameter) const;
+    void read_lut_equation(DynamicBitarray<> *equation, const Property &equation_parameter) const;
     bool route_vcc_to_unused_lut_pins();
 };
 

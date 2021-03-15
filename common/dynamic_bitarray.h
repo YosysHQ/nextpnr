@@ -17,18 +17,19 @@
  *
  */
 
+#ifndef DYNAMIC_BITARRAY_H
+#define DYNAMIC_BITARRAY_H
+
 #include <cstdint>
 #include <limits>
 #include <vector>
 
+#include "nextpnr_namespaces.h"
+
+NEXTPNR_NAMESPACE_BEGIN
+
 // This class implements a simple dynamic bitarray, backed by some resizable
 // random access storage.  The default is to use a std::vector<uint8_t>.
-
-#ifndef DYNAMIC_BITARRAY_H
-#define DYNAMIC_BITARRAY_H
-
-namespace nextpnr {
-
 template <typename Storage = std::vector<uint8_t>> class DynamicBitarray
 {
   public:
@@ -76,6 +77,6 @@ template <typename Storage = std::vector<uint8_t>> class DynamicBitarray
     Storage storage;
 };
 
-}; // namespace nextpnr
+NEXTPNR_NAMESPACE_END
 
 #endif /* DYNAMIC_BITARRAY_H */

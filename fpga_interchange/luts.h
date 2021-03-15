@@ -46,7 +46,7 @@ struct LutCell
     std::vector<IdString> pins;
     std::unordered_set<IdString> lut_pins;
     std::unordered_set<IdString> vcc_pins;
-    nextpnr::DynamicBitarray<> equation;
+    DynamicBitarray<> equation;
 };
 
 struct LutBel
@@ -94,7 +94,7 @@ struct LutMapper
 //
 // If a conflict arises, return false and result is in an indeterminate state.
 bool rotate_and_merge_lut_equation(std::vector<LogicLevel> *result, const LutBel &lut_bel,
-                                   const nextpnr::DynamicBitarray<> &old_equation, const std::vector<size_t> &pin_map,
+                                   const DynamicBitarray<> &old_equation, const std::vector<size_t> &pin_map,
                                    uint32_t used_pins);
 
 NEXTPNR_NAMESPACE_END

@@ -1267,7 +1267,7 @@ void Arch::report_invalid_bel(BelId bel, CellInfo *cell) const
               nameOfBel(bel), mapping);
 }
 
-void Arch::read_lut_equation(nextpnr::DynamicBitarray<> *equation, const Property &equation_parameter) const
+void Arch::read_lut_equation(DynamicBitarray<> *equation, const Property &equation_parameter) const
 {
     equation->fill(false);
     std::string eq_str = equation_parameter.as_string();

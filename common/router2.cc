@@ -1218,7 +1218,7 @@ struct Router2
         ThreadContext st;
         int iter = 1;
 
-        nextpnr::ScopeLock<Context> lock(ctx);
+        ScopeLock<Context> lock(ctx);
 
         for (size_t i = 0; i < nets_by_udata.size(); i++)
             route_queue.push_back(i);

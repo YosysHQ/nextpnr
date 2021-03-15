@@ -151,7 +151,7 @@ class HeAPPlacer
     {
         auto startt = std::chrono::high_resolution_clock::now();
 
-        nextpnr::ScopeLock<Context> lock(ctx);
+        ScopeLock<Context> lock(ctx);
         place_constraints();
         build_fast_bels();
         seed_placement();

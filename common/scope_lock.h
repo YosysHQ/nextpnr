@@ -22,7 +22,9 @@
 
 #include <stdexcept>
 
-namespace nextpnr {
+#include "nextpnr_namespaces.h"
+
+NEXTPNR_NAMESPACE_BEGIN
 
 // Provides a simple RAII locking object.  ScopeLock takes a lock when
 // constructed, and releases the lock on destruction or if "unlock_early" is
@@ -60,6 +62,6 @@ template <typename LockingObject> class ScopeLock
     bool locked_;
 };
 
-}; // namespace nextpnr
+NEXTPNR_NAMESPACE_END
 
 #endif /* SCOPE_LOCK_H */
