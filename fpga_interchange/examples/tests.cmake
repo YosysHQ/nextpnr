@@ -8,6 +8,7 @@ function(add_interchange_test)
     #    xdc <xdc>
     #    top <top name>
     #    sources <sources list>
+    #    [techmap <techmap file>]
     # )
     #
     # Generates targets to run desired tests
@@ -16,10 +17,10 @@ function(add_interchange_test)
     #   - test-fpga_interchange-<name>-json     : synthesis output
     #   - test-fpga_interchange-<name>-netlist  : interchange logical netlist
     #   - test-fpga_interchange-<name>-phys     : interchange physical netlist
-    #   - test-fpga_interchange-<name>-phys     : design checkpoint with RapidWright
+    #   - test-fpga_interchange-<name>-dcp     : design checkpoint with RapidWright
 
     set(options)
-    set(oneValueArgs name device package tcl xdc top)
+    set(oneValueArgs name device package tcl xdc top techmap)
     set(multiValueArgs sources)
 
     cmake_parse_arguments(
@@ -36,6 +37,7 @@ function(add_interchange_test)
     set(top ${add_interchange_test_top})
     set(tcl ${CMAKE_CURRENT_SOURCE_DIR}/${add_interchange_test_tcl})
     set(xdc ${CMAKE_CURRENT_SOURCE_DIR}/${add_interchange_test_xdc})
+    set(techmap ${CMAKE_CURRENT_SOURCE_DIR}/${add_interchange_test_techmap})
 
     set(sources)
     foreach(source ${add_interchange_test_sources})
@@ -54,6 +56,7 @@ function(add_interchange_test)
         COMMAND
             SOURCES=${sources}
             OUT_JSON=${synth_json}
+            TECHMAP=${techmap}
             yosys -c ${tcl}
         DEPENDS ${sources}
     )

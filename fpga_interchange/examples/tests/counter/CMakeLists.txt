@@ -5,6 +5,7 @@ add_interchange_test(
     tcl run.tcl
     xdc counter_basys3.xdc
     sources counter.v
+    techmap remap.v
 )
 
 add_interchange_test(
@@ -14,4 +15,5 @@ add_interchange_test(
     tcl run.tcl
     xdc counter_arty.xdc
     sources counter.v
+    techmap remap.v
 )
