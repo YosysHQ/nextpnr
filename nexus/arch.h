@@ -18,17 +18,18 @@
  *
  */
 
-#ifndef NEXTPNR_H
-#error Include "arch.h" via "nextpnr.h" only.
-#endif
+#ifndef NEXUS_ARCH_H
+#define NEXUS_ARCH_H
 
 #include <boost/iostreams/device/mapped_file.hpp>
-
 #include <iostream>
 
-NEXTPNR_NAMESPACE_BEGIN
-
+#include "base_arch.h"
+#include "nextpnr_namespaces.h"
+#include "nextpnr_types.h"
 #include "relptr.h"
+
+NEXTPNR_NAMESPACE_BEGIN
 
 /*
     Fully deduplicated database
@@ -1394,3 +1395,5 @@ struct Arch : BaseArch<ArchRanges>
 };
 
 NEXTPNR_NAMESPACE_END
+
+#endif /* NEXUS_ARCH_H */

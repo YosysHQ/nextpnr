@@ -19,7 +19,11 @@
 
 #include <boost/algorithm/string.hpp>
 #include <sstream>
+#include <unordered_set>
+
+#include "arch.h"
 #include "log.h"
+#include "nextpnr_namespaces.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 

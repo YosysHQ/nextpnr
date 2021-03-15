@@ -2,6 +2,7 @@
  *  nextpnr -- Next Generation Place and Route
  *
  *  Copyright (C) 2018  Clifford Wolf <clifford@symbioticeda.com>
+ *  Copyright (C) 2018  Serge Bazanski <q3k@symbioticeda.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -17,15 +18,16 @@
  *
  */
 
-#if defined(__wasm)
-extern "C" {
-// FIXME: WASI does not currently support exceptions.
-void *__cxa_allocate_exception(size_t thrown_size) throw() { return malloc(thrown_size); }
-bool __cxa_uncaught_exception() throw();
-void __cxa_throw(void *thrown_exception, struct std::type_info *tinfo, void (*dest)(void *)) { std::terminate(); }
+#include "nextpnr_assertions.h"
+#include "log.h"
+
+NEXTPNR_NAMESPACE_BEGIN
+
+assertion_failure::assertion_failure(std::string msg, std::string expr_str, std::string filename, int line)
+        : runtime_error("Assertion failure: " + msg + " (" + filename + ":" + std::to_string(line) + ")"), msg(msg),
+          expr_str(expr_str), filename(filename), line(line)
+{
+    log_flush();
 }
 
-namespace boost {
-void throw_exception(std::exception const &e) { NEXTPNR_NAMESPACE::log_error("boost::exception(): %s\n", e.what()); }
-} // namespace boost
-#endif
+NEXTPNR_NAMESPACE_END

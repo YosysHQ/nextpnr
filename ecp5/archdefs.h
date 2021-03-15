@@ -18,11 +18,13 @@
  *
  */
 
-#ifndef NEXTPNR_H
-#error Include "archdefs.h" via "nextpnr.h" only.
-#endif
+#ifndef ECP5_ARCHDEFS_H
+#define ECP5_ARCHDEFS_H
 
 #include <boost/functional/hash.hpp>
+
+#include "idstring.h"
+#include "nextpnr_namespaces.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -165,12 +167,12 @@ struct ArchCellInfo
         bool is_output_b_registered;
         // Which timing information to use for a DP16KD. Depends on registering
         // configuration.
-        nextpnr_ecp5::IdString regmode_timing_id;
+        IdString regmode_timing_id;
     } ramInfo;
     struct
     {
         bool is_clocked;
-        nextpnr_ecp5::IdString timing_id;
+        IdString timing_id;
     } multInfo;
 };
 
@@ -242,3 +244,5 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX DecalId>
 };
 
 } // namespace std
+
+#endif /* ECP5_ARCHDEFS_H */

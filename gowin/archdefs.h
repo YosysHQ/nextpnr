@@ -18,9 +18,11 @@
  *
  */
 
-#ifndef NEXTPNR_H
-#error Include "archdefs.h" via "nextpnr.h" only.
-#endif
+#ifndef GOWIN_ARCHDEFS_H
+#define GOWIN_ARCHDEFS_H
+
+#include "idstring.h"
+#include "nextpnr_namespaces.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -68,3 +70,5 @@ struct ArchCellInfo
 };
 
 NEXTPNR_NAMESPACE_END
+
+#endif /* GOWIN_ARCHDEFS_H */

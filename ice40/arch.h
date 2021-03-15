@@ -17,15 +17,19 @@
  *
  */
 
-#ifndef NEXTPNR_H
-#error Include "arch.h" via "nextpnr.h" only.
-#endif
+#ifndef ICE40_ARCH_H
+#define ICE40_ARCH_H
+
+#include <cstdint>
+
+#include "base_arch.h"
+#include "nextpnr_namespaces.h"
+#include "nextpnr_types.h"
+#include "relptr.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
 /**** Everything in this section must be kept in sync with chipdb.py ****/
-
-#include "relptr.h"
 
 NPNR_PACKED_STRUCT(struct BelWirePOD {
     int32_t port;
@@ -866,3 +870,5 @@ struct Arch : BaseArch<ArchRanges>
 void ice40DelayFuzzerMain(Context *ctx);
 
 NEXTPNR_NAMESPACE_END
+
+#endif /* ICE40_ARCH_H */

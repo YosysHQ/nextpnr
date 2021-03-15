@@ -17,9 +17,14 @@
  *
  */
 
-#ifndef NEXTPNR_H
-#error Include "archdefs.h" via "nextpnr.h" only.
-#endif
+#ifndef NEXUS_ARCHDEFS_H
+#define NEXUS_ARCHDEFS_H
+
+#include <boost/functional/hash.hpp>
+#include <unordered_map>
+
+#include "idstring.h"
+#include "nextpnr_namespaces.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -233,3 +238,5 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX DecalId>
 };
 
 } // namespace std
+
+#endif /* NEXUS_ARCHDEFS_H */

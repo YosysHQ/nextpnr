@@ -20,24 +20,24 @@
  *
  */
 
-#ifndef NEXTPNR_H
-#error Include "arch.h" via "nextpnr.h" only.
-#endif
+#ifndef FPGA_INTERCHANGE_ARCH_H
+#define FPGA_INTERCHANGE_ARCH_H
 
 #include <boost/iostreams/device/mapped_file.hpp>
-
 #include <iostream>
-
 #include <regex>
+
+#include "arch_api.h"
 #include "constraints.h"
+#include "nextpnr_types.h"
+#include "relptr.h"
+
 #include "dedicated_interconnect.h"
 #include "site_router.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
 /**** Everything in this section must be kept in sync with chipdb.py ****/
-
-#include "relptr.h"
 
 // Flattened site indexing.
 //
@@ -1742,3 +1742,5 @@ struct Arch : ArchAPI<ArchRanges>
 };
 
 NEXTPNR_NAMESPACE_END
+
+#endif /* FPGA_INTERCHANGE_ARCH_H */

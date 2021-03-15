@@ -18,9 +18,18 @@
  *
  */
 
-#ifndef NEXTPNR_H
-#error Include "arch.h" via "nextpnr.h" only.
-#endif
+#ifndef GOWIN_ARCH_H
+#define GOWIN_ARCH_H
+
+#include <cstdint>
+#include <map>
+#include <string>
+#include <vector>
+
+#include "base_arch.h"
+#include "idstring.h"
+#include "nextpnr_namespaces.h"
+#include "nextpnr_types.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -40,7 +49,7 @@ template <typename T> struct RelPtr
         return const_cast<T *>(reinterpret_cast<const T *>(reinterpret_cast<const char *>(this) + offset));
     }
 
-    const T &operator[](size_t index) const { return get()[index]; }
+    const T &operator[](std::size_t index) const { return get()[index]; }
 
     const T &operator*() const { return *(get()); }
 
@@ -453,3 +462,5 @@ struct Arch : BaseArch<ArchRanges>
 };
 
 NEXTPNR_NAMESPACE_END
+
+#endif /* GOWIN_ARCH_H */
