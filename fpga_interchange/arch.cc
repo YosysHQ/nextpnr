@@ -1000,6 +1000,28 @@ const std::vector<std::string> Arch::availablePlacers = {"sa",
 const std::string Arch::defaultRouter = "router2";
 const std::vector<std::string> Arch::availableRouters = {"router1", "router2"};
 
+bool parameter_compare(const std::string & database_param, const std::string & netlist_param) {
+
+    bool result = false;
+    try {
+        size_t idx;
+        int database_value = std::stoi(database_param, &idx, 0);
+        int netlist_value = std::stoi(netlist_param, &idx, 2);
+
+        result = database_value == netlist_value;
+    } catch(std::invalid_argument & e) {
+        result = database_param == netlist_param;
+    } catch(std::out_of_range & e) {
+        result = database_param == netlist_param;
+    }
+
+#ifdef DEBUG_CELL_PIN_MAPPING
+    log_info("%s == %s => %d\n",
+            database_param.c_str(), netlist_param.c_str(), result);
+#endif
+    return result;
+}
+
 void Arch::map_cell_pins(CellInfo *cell, int32_t mapping, bool bind_constants)
 {
     cell->cell_mapping = mapping;
@@ -1091,13 +1113,20 @@ void Arch::map_cell_pins(CellInfo *cell, int32_t mapping, bool bind_constants)
             continue;
         }
 
-        if (param_value != iter->second.as_string()) {
+        if(!parameter_compare(param_value, iter->second.as_string())) {
             continue;
         }
+
+#ifdef DEBUG_CELL_PIN_MAPPING
+        log_info("parameter match on param_key %s\n", param_key.c_str(this));
+#endif
 
         for (const auto &pin_map : parameter_pin_map.pins) {
             IdString cell_pin(pin_map.cell_pin);
             IdString bel_pin(pin_map.bel_pin);
+#ifdef DEBUG_CELL_PIN_MAPPING
+            log_info(" %s => %s\n", cell_pin.c_str(this), bel_pin.c_str(this));
+#endif
 
             // Skip assigned LUT pins, as they are already mapped!
             if (cell->lut_cell.lut_pins.count(cell_pin) && cell->cell_bel_pins.count(cell_pin)) {
@@ -1151,6 +1180,19 @@ void Arch::map_cell_pins(CellInfo *cell, int32_t mapping, bool bind_constants)
             cell->cell_bel_pins[cell_pin].push_back(bel_pin);
         }
     }
+
+#ifdef DEBUG_CELL_PIN_MAPPING
+    log_info("Pin mapping for cell %s (type: %s)\n",
+            cell->name.c_str(getCtx()),
+            cell->type.c_str(getCtx()));
+    for(auto & pin_pair : cell->cell_bel_pins) {
+        log_info(" %s =>", pin_pair.first.c_str(getCtx()));
+        for(IdString bel_pin : pin_pair.second) {
+            log(" %s", bel_pin.c_str(getCtx()));
+        }
+        log("\n");
+    }
+#endif
 }
 
 void Arch::map_port_pins(BelId bel, CellInfo *cell) const
