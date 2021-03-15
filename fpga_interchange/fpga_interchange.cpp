@@ -330,6 +330,14 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
     for(auto & cell_name : placed_cells) {
         const CellInfo & cell = *ctx->cells.at(cell_name);
 
+        if(cell.bel == BelId()) {
+            continue;
+        }
+
+        if(!ctx->isBelLocationValid(cell.bel)) {
+            continue;
+        }
+
         if(ctx->is_bel_synthetic(cell.bel)) {
             continue;
         }
@@ -345,6 +353,15 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
 
     for(auto & cell_name : placed_cells) {
         const CellInfo & cell = *ctx->cells.at(cell_name);
+
+        if(cell.bel == BelId()) {
+            continue;
+        }
+
+        if(!ctx->isBelLocationValid(cell.bel)) {
+            continue;
+        }
+
         if(ctx->is_bel_synthetic(cell.bel)) {
             continue;
         }
@@ -446,7 +463,7 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
         std::unordered_map<WireId, std::vector<PipId>> pip_downhill;
         std::unordered_set<PipId> pips;
 
-        if (driver_cell != nullptr && driver_cell->bel != BelId()) {
+        if (driver_cell != nullptr && driver_cell->bel != BelId() && ctx->isBelLocationValid(driver_cell->bel)) {
             for(IdString bel_pin_name : driver_cell->cell_bel_pins.at(net.driver.port)) {
                 BelPin driver_bel_pin;
                 driver_bel_pin.bel = driver_cell->bel;
@@ -461,8 +478,17 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
 
         std::unordered_map<WireId, std::vector<BelPin>> sinks;
         for(const auto &port_ref : net.users) {
-            if(port_ref.cell != nullptr && port_ref.cell->bel != BelId()) {
-                for(IdString bel_pin_name : port_ref.cell->cell_bel_pins.at(port_ref.port)) {
+            if(port_ref.cell != nullptr && port_ref.cell->bel != BelId() && ctx->isBelLocationValid(port_ref.cell->bel)) {
+                auto pin_iter = port_ref.cell->cell_bel_pins.find(port_ref.port);
+                if(pin_iter == port_ref.cell->cell_bel_pins.end()) {
+                    log_warning("Cell %s port %s on net %s is legal, but has no BEL pins?\n",
+                            port_ref.cell->name.c_str(ctx),
+                            port_ref.port.c_str(ctx),
+                            net.name.c_str(ctx));
+                    continue;
+                }
+
+                for(IdString bel_pin_name : pin_iter->second) {
                     BelPin sink_bel_pin;
                     sink_bel_pin.bel = port_ref.cell->bel;
                     sink_bel_pin.pin = bel_pin_name;
