@@ -58,7 +58,13 @@ bool SiteInformation::is_pip_part_of_site(PipId pip) const {
 }
 
 bool SiteInformation::is_site_port(PipId pip) const {
-    return ctx->is_site_port(pip);
+    const auto & tile_type_data = ctx->chip_info->tile_types[tile_type];
+    const auto & pip_data = tile_type_data.pip_data[pip.index];
+    if (pip_data.site == -1) {
+        return false;
+    }
+    auto &bel_data = tile_type_data.bel_data[pip_data.bel];
+    return bel_data.category == BEL_CATEGORY_SITE_PORT;
 }
 
 void SiteArch::archcheck() {
@@ -152,7 +158,6 @@ SiteArch::SiteArch(const SiteInformation *site_info) : ctx(site_info->ctx), site
 
         // Examine net to determine if it has any users not in this site.
         bool net_used_out_of_site = false;
-        WireId out_of_site_wire;
         for(const PortRef & user : net->users) {
             if(user.cell == nullptr) {
                 // This is pretty weird!
@@ -164,15 +169,12 @@ SiteArch::SiteArch(const SiteInformation *site_info) : ctx(site_info->ctx), site
                 // and this net is being driven from this site, make sure
                 // this net can be routed from this site.
                 net_used_out_of_site = true;
-                continue;
+                break;
             }
 
             if(!site_info->is_bel_in_site(user.cell->bel)) {
                 net_used_out_of_site = true;
-                for(IdString bel_pin : ctx->getBelPinsForCellPin(user.cell, user.port)) {
-                    out_of_site_wire = ctx->getBelPinWire(user.cell->bel, bel_pin);
-                    break;
-                }
+                break;
             }
         }
 
@@ -180,10 +182,6 @@ SiteArch::SiteArch(const SiteInformation *site_info) : ctx(site_info->ctx), site
             out_of_site_sinks.push_back(
                     SiteWire::make(site_info, PORT_IN,
                         net));
-            if(out_of_site_wire != WireId()) {
-                out_of_site_sinks.back().wire = out_of_site_wire;
-            }
-
             net_info.users.emplace(out_of_site_sinks.back());
         }
     }
@@ -235,16 +233,16 @@ SiteWire SiteArch::getPipSrcWire(const SitePip &site_pip) const {
     case SitePip::Type::SITE_PIP:
         return SiteWire::make(site_info, ctx->getPipSrcWire(site_pip.pip));
     case SitePip::Type::SITE_PORT:
-        return SiteWire::make_site_port(site_info, site_pip.pip, ctx->getPipSrcWire(site_pip.pip));
+        return SiteWire::make_site_port(site_info, site_pip.pip, /*dst_wire=*/false);
     case SitePip::Type::SOURCE_TO_SITE_PORT:
         NPNR_ASSERT(site_pip.wire.type == SiteWire::OUT_OF_SITE_SOURCE);
         return site_pip.wire;
     case SitePip::Type::SITE_PORT_TO_SINK:
-        site_wire = SiteWire::make_site_port(site_info, site_pip.pip, ctx->getPipDstWire(site_pip.pip));
+        site_wire = SiteWire::make_site_port(site_info, site_pip.pip, /*dst_wire=*/true);
         NPNR_ASSERT(site_wire.type == SiteWire::SITE_PORT_SINK);
         return site_wire;
     case SitePip::Type::SITE_PORT_TO_SITE_PORT:
-        site_wire = SiteWire::make_site_port(site_info, site_pip.pip, ctx->getPipDstWire(site_pip.pip));
+        site_wire = SiteWire::make_site_port(site_info, site_pip.pip, /*dst_wire=*/true);
         NPNR_ASSERT(site_wire.type == SiteWire::SITE_PORT_SINK);
         return site_wire;
     default:
@@ -258,9 +256,9 @@ SiteWire SiteArch::getPipDstWire(const SitePip &site_pip) const {
     case SitePip::Type::SITE_PIP:
         return SiteWire::make(site_info, ctx->getPipDstWire(site_pip.pip));
     case SitePip::Type::SITE_PORT:
-        return SiteWire::make_site_port(site_info, site_pip.pip, ctx->getPipDstWire(site_pip.pip));
+        return SiteWire::make_site_port(site_info, site_pip.pip, /*dst_wire=*/true);
     case SitePip::Type::SOURCE_TO_SITE_PORT: {
-        SiteWire site_wire = SiteWire::make_site_port(site_info, site_pip.pip, ctx->getPipSrcWire(site_pip.pip));
+        SiteWire site_wire = SiteWire::make_site_port(site_info, site_pip.pip, /*dst_wire=*/false);
         NPNR_ASSERT(site_wire.type == SiteWire::SITE_PORT_SOURCE);
         return site_wire;
     }
@@ -268,7 +266,7 @@ SiteWire SiteArch::getPipDstWire(const SitePip &site_pip) const {
         NPNR_ASSERT(site_pip.wire.type == SiteWire::OUT_OF_SITE_SINK);
         return site_pip.wire;
     case SitePip::Type::SITE_PORT_TO_SITE_PORT: {
-        SiteWire site_wire = SiteWire::make_site_port(site_info, site_pip.other_pip, ctx->getPipSrcWire(site_pip.other_pip));
+        SiteWire site_wire = SiteWire::make_site_port(site_info, site_pip.other_pip, /*dst_wire=*/false);
         NPNR_ASSERT(site_wire.type == SiteWire::SITE_PORT_SOURCE);
         return site_wire;
     }
@@ -332,8 +330,10 @@ bool SiteArch::debug() const {
 }
 
 
-void SitePipDownhillRange::init_pip_range() {
-    pip_range = site_arch->ctx->getPipsDownhill(site_wire.wire);
+const RelSlice<int32_t> * SitePipDownhillRange::init_pip_range() const {
+    NPNR_ASSERT(site_wire.type == SiteWire::SITE_WIRE);
+    NPNR_ASSERT(site_wire.wire.tile == site_arch->site_info->tile);
+    return &site_arch->ctx->chip_info->tile_types[site_arch->site_info->tile_type].wire_data[site_wire.wire.index].pips_downhill;
 }
 
 SitePipUphillRange::SitePipUphillRange(const SiteArch *site_arch, SiteWire site_wire) : site_arch(site_arch), site_wire(site_wire) {
@@ -371,12 +371,12 @@ SiteWire SiteWireIterator::operator*() const
         return SiteWire::make(site_arch->site_info, wire);
     case INPUT_SITE_PORTS:
         pip = site_arch->input_site_ports.at(cursor);
-        site_wire = SiteWire::make_site_port(site_arch->site_info, pip, site_arch->ctx->getPipSrcWire(pip));
+        site_wire = SiteWire::make_site_port(site_arch->site_info, pip, /*dst_wire=*/false);
         NPNR_ASSERT(site_wire.type == SiteWire::SITE_PORT_SOURCE);
         return site_wire;
     case OUTPUT_SITE_PORTS:
         pip = site_arch->output_site_ports.at(cursor);
-        site_wire = SiteWire::make_site_port(site_arch->site_info, pip, site_arch->ctx->getPipDstWire(pip));
+        site_wire = SiteWire::make_site_port(site_arch->site_info, pip, /*dst_wire=*/true);
         NPNR_ASSERT(site_wire.type == SiteWire::SITE_PORT_SINK);
         return site_wire;
     case OUT_OF_SITE_SOURCES:
@@ -386,6 +386,22 @@ SiteWire SiteWireIterator::operator*() const
     default:
         // Unreachable!
         NPNR_ASSERT(false);
+    }
+}
+
+bool SiteArch::is_pip_synthetic(const SitePip &pip) const {
+    if(pip.type != SitePip::SITE_PORT) {
+        // This isn't a site port, so its valid!
+        return false;
+    }
+
+    auto &tile_type = ctx->chip_info->tile_types[site_info->tile_type];
+    auto &pip_data = tile_type.pip_data[pip.pip.index];
+    if (pip_data.site == -1) {
+        return pip_data.extra_data == -1;
+    } else {
+        auto &bel_data = tile_type.bel_data[pip_data.bel];
+        return bel_data.synthetic != 0;
     }
 }
 

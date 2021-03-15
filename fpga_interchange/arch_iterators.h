@@ -174,7 +174,7 @@ struct TileWireRange
     TileWireIterator end() const { return e; }
 };
 
-inline WireId canonical_wire(const ChipInfoPOD *chip_info, int32_t tile, int32_t wire)
+NPNR_ATTRIBUTE(__always_inline__) inline WireId canonical_wire(const ChipInfoPOD *chip_info, int32_t tile, int32_t wire)
 {
     WireId id;
 

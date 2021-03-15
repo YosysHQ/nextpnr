@@ -282,7 +282,7 @@ template <typename Id> const TileTypeInfoPOD &loc_info(const ChipInfoPOD *chip_i
     return chip_info->tile_types[chip_info->tiles[id.tile].type];
 }
 
-inline const BelInfoPOD &bel_info(const ChipInfoPOD *chip_info, BelId bel)
+NPNR_ATTRIBUTE(__always_inline__) inline const BelInfoPOD &bel_info(const ChipInfoPOD *chip_info, BelId bel)
 {
     NPNR_ASSERT(bel != BelId());
     return loc_info(chip_info, bel).bel_data[bel.index];

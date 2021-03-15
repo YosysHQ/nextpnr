@@ -20,6 +20,7 @@
 #include "nextpnr.h"
 
 #include "log.h"
+#include "dynamic_bitarray.h"
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
@@ -93,12 +94,7 @@ bool check_initial_wires(const Context *ctx, SiteInformation *site_info)
 }
 
 bool is_invalid_site_port(const SiteArch *ctx, const SiteNetInfo *net, const SitePip &pip) {
-    if(pip.type != SitePip::SITE_PORT) {
-        // This isn't a site port, so its valid!
-        return false;
-    }
-
-    if(ctx->ctx->is_pip_synthetic(pip.pip)) {
+    if(ctx->is_pip_synthetic(pip)) {
         // FIXME: Not all synthetic pips are for constant networks.
         // FIXME: Need to mark if synthetic site ports are for the GND or VCC
         // network, and only allow the right one.  Otherwise site router
@@ -133,7 +129,6 @@ struct SiteExpansionLoop
     absl::flat_hash_set<SiteWire> net_users;
 
     absl::flat_hash_map<RouteNode *, Node> completed_routes;
-    absl::flat_hash_map<SiteWire, std::vector<Node>> wire_to_nodes;
 
     Node new_node(const SiteWire & wire, const SitePip & pip, Node parent)
     {
@@ -190,13 +185,12 @@ struct SiteExpansionLoop
         net_driver = net->driver;
         net_users = net->users;
 
+        completed_routes.clear();
+        node_storage->free_nodes(nodes);
+
         if (verbose_site_router(ctx)) {
             log_info("Expanding net %s from %s\n", ctx->nameOfNet(net), ctx->nameOfWire(net->driver));
         }
-
-        completed_routes.clear();
-        wire_to_nodes.clear();
-        node_storage->free_nodes(nodes);
 
         auto node = new_node(net->driver, SitePip(), /*parent=*/Node());
 
@@ -245,6 +239,7 @@ struct SiteExpansionLoop
                         }
                     } else {
                         NPNR_ASSERT(parent_node->wire.type == SiteWire::SITE_PORT_SOURCE);
+
                         if(!parent_node->can_enter_site()) {
                             // This path has already entered the site once,
                             // don't enter it again!
