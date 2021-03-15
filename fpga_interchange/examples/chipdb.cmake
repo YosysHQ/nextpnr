@@ -184,18 +184,24 @@ function(generate_chipdb)
     # generate_chipdb(
     #    device <common device>
     #    part <part>
+    #    device_target <device target>
+    #    bel_bucket_seeds <bel bucket seeds>
+    #    package <package>
     # )
     # ~~~
     #
     # Generates a chipdb BBA file, starting from a device database.
     #
-    # The chipdb file is moved to the <nextpnr-root>/build/fpga_interchange/chipdb/ directory
+    # The chipdb binary file is directly generated to the
+    # <nextpnr-root>/build/fpga_interchange/chipdb/ directory.
+    #
+    # The package argument is only used to run the architecture check target.
     #
     # Targets generated:
     #   - chipdb-<device>-bba
 
     set(options)
-    set(oneValueArgs device part device_target bel_bucket_seeds)
+    set(oneValueArgs device part device_target bel_bucket_seeds package)
     set(multiValueArgs)
 
     cmake_parse_arguments(
@@ -210,13 +216,14 @@ function(generate_chipdb)
     set(part ${generate_chipdb_part})
     set(device_target ${generate_chipdb_device_target})
     set(bel_bucket_seeds ${generate_chipdb_bel_bucket_seeds})
+    set(package ${generate_chipdb_package})
 
     get_target_property(device_loc ${device_target} LOCATION)
-    set(chipdb_bba ${chipdb_dir}/chipdb-${device}.bba)
+    set(chipdb_bba ${CMAKE_CURRENT_BINARY_DIR}/chipdb-${device}.bba)
     add_custom_command(
         OUTPUT ${chipdb_bba}
         COMMAND
-           ${PYTHON_EXECUTABLE} -mfpga_interchange.nextpnr_emit
+            ${PYTHON_EXECUTABLE} -mfpga_interchange.nextpnr_emit
                 --schema_dir ${INTERCHANGE_SCHEMA_PATH}
                 --output_dir ${CMAKE_CURRENT_BINARY_DIR}
                 --bel_bucket_seeds ${bel_bucket_seeds}
@@ -230,5 +237,54 @@ function(generate_chipdb)
     )
 
     add_custom_target(chipdb-${device}-bba DEPENDS ${chipdb_bba})
+
+    set(chipdb_bin ${chipdb_dir}/chipdb-${device}.bin)
+    add_custom_command(
+        OUTPUT ${chipdb_bin}
+        COMMAND
+            bbasm -l ${chipdb_bba} ${chipdb_bin}
+        DEPENDS
+            chipdb-${device}-bba
+            ${chipdb_bba}
+            bbasm
+    )
+
+    add_custom_target(chipdb-${device}-bin DEPENDS ${chipdb_bin})
+
+    # Generate architecture check target
+    set(test_data_source ${CMAKE_CURRENT_SOURCE_DIR}/test_data.yaml)
+    set(test_data_binary ${CMAKE_CURRENT_BINARY_DIR}/test_data.yaml)
+    add_custom_command(
+        OUTPUT ${test_data_binary}
+        COMMAND
+            ${CMAKE_COMMAND} -E create_symlink
+            ${test_data_source}
+            ${test_data_binary}
+        DEPENDS
+            ${test_data_source}
+    )
+
+    add_custom_target(
+        chipdb-${device}-bin-check
+        COMMAND
+            nextpnr-fpga_interchange
+                --chipdb ${chipdb_bin}
+                --package ${package}
+                --test
+        DEPENDS
+            ${chipdb_bin}
+    )
+
+    add_custom_target(
+        chipdb-${device}-bin-check-test-data
+        COMMAND
+            nextpnr-fpga_interchange
+                --chipdb ${chipdb_bin}
+                --package ${package}
+                --run ${root_dir}/python/check_arch_api.py
+        DEPENDS
+            ${chipdb_bin}
+            ${test_data_binary}
+    )
 endfunction()
 

@@ -19,6 +19,8 @@ include(${family}/examples/tests.cmake)
 set(chipdb_dir ${CMAKE_CURRENT_BINARY_DIR}/${family}/chipdb)
 file(MAKE_DIRECTORY ${chipdb_dir})
 
+set(root_dir ${CMAKE_CURRENT_SOURCE_DIR})
+
 add_custom_target(all-${family}-tests)
 add_subdirectory(${family}/examples/devices)
 add_subdirectory(${family}/examples/tests)

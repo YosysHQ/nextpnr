@@ -82,7 +82,7 @@ function(add_interchange_test)
 
     add_custom_target(test-${family}-${name}-netlist DEPENDS ${netlist})
 
-    set(chipdb_target chipdb-${device}-bba)
+    set(chipdb_target chipdb-${device}-bin)
 
     # Physical Netlist
     set(phys ${CMAKE_CURRENT_BINARY_DIR}/${name}.phys)
@@ -90,7 +90,7 @@ function(add_interchange_test)
         OUTPUT ${phys}
         COMMAND
             nextpnr-fpga_interchange
-                --chipdb ${chipdb_dir}/chipdb-${device}.bba
+                --chipdb ${chipdb_dir}/chipdb-${device}.bin
                 --xdc ${xdc}
                 --netlist ${netlist}
                 --phys ${phys}
@@ -98,7 +98,7 @@ function(add_interchange_test)
         DEPENDS
             ${netlist}
             ${chipdb_target}
-            ${chipdb_dir}/chipdb-${device}.bba
+            ${chipdb_dir}/chipdb-${device}.bin
     )
 
     add_custom_target(test-${family}-${name}-phys DEPENDS ${phys})
