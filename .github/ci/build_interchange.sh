@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # Install capnproto libraries
-curl -O https://capnproto.org/capnproto-c++-0.7.0.tar.gz
-tar zxf capnproto-c++-0.7.0.tar.gz
-pushd capnproto-c++-0.7.0
+curl -O https://capnproto.org/capnproto-c++-0.8.0.tar.gz
+tar zxf capnproto-c++-0.8.0.tar.gz
+pushd capnproto-c++-0.8.0
 ./configure
 make -j`nproc` check
 sudo make install

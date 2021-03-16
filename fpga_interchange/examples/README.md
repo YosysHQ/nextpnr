@@ -12,7 +12,7 @@ Install java and javac if not already installed:
 sudo apt-get install openjdk-10-jdk
 ```
 
-Install capnproto if not already installed. Version 0.7.0 or higher is required.
+Install capnproto if not already installed. Version 0.8.0 is required.
 As stated in the [official instructions](https://capnproto.org/install.html), the version on the common package managers
 might not be up to date with the latest version, hence it is suggested to install
 from the archive or, in alternative, directly from the git repository.
