@@ -21,26 +21,27 @@
 #ifndef FLAT_WIRE_MAP_H_
 #define FLAT_WIRE_MAP_H_
 
+#include "context.h"
 #include "dynamic_bitarray.h"
 #include "nextpnr_namespaces.h"
 #include "nextpnr_types.h"
-#include "context.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
-template<typename Value>
-class FlatTileWireMap {
-public:
-    std::pair<Value*, bool> emplace(const Context* ctx, WireId wire, const Value & value) {
-        if(values_.empty()) {
-            if(wire.tile == -1) {
+template <typename Value> class FlatTileWireMap
+{
+  public:
+    std::pair<Value *, bool> emplace(const Context *ctx, WireId wire, const Value &value)
+    {
+        if (values_.empty()) {
+            if (wire.tile == -1) {
                 resize(ctx->chip_info->nodes.size());
             } else {
                 resize(loc_info(ctx->chip_info, wire).wire_data.size());
             }
         }
 
-        if(set_.get(wire.index)) {
+        if (set_.get(wire.index)) {
             return std::make_pair(&values_[wire.index], false);
         } else {
             values_[wire.index] = value;
@@ -49,19 +50,23 @@ public:
         }
     }
 
-    const Value& at(WireId wire) const {
+    const Value &at(WireId wire) const
+    {
         NPNR_ASSERT(!values_.empty());
         NPNR_ASSERT(set_.get(wire.index));
         return values_.at(wire.index);
     }
 
-    void clear() {
-        if(!values_.empty()) {
+    void clear()
+    {
+        if (!values_.empty()) {
             set_.fill(false);
         }
     }
-private:
-    void resize(size_t count) {
+
+  private:
+    void resize(size_t count)
+    {
         set_.resize(count);
         set_.fill(false);
         values_.resize(count);
@@ -71,42 +76,41 @@ private:
     std::vector<Value> values_;
 };
 
-template<typename Value>
-class FlatWireMap {
-public:
-    FlatWireMap(const Context *ctx) : ctx_(ctx) {
-        tiles_.resize(ctx->chip_info->tiles.size() + 1);
-    }
+template <typename Value> class FlatWireMap
+{
+  public:
+    FlatWireMap(const Context *ctx) : ctx_(ctx) { tiles_.resize(ctx->chip_info->tiles.size() + 1); }
 
-    std::pair<std::pair<WireId, Value*>, bool> emplace(WireId wire, const Value & value) {
+    std::pair<std::pair<WireId, Value *>, bool> emplace(WireId wire, const Value &value)
+    {
         // Tile = -1 is for node wires.
         size_t tile_index = wire.tile + 1;
-        auto & tile = tiles_.at(tile_index);
+        auto &tile = tiles_.at(tile_index);
 
         auto result = tile.emplace(ctx_, wire, value);
-        if(result.second) {
+        if (result.second) {
             size_ += 1;
         }
         return std::make_pair(std::make_pair(wire, result.first), result.second);
     }
 
-    const Value& at(WireId wire) const {
-        const auto & tile = tiles_.at(wire.tile + 1);
+    const Value &at(WireId wire) const
+    {
+        const auto &tile = tiles_.at(wire.tile + 1);
         return tile.at(wire);
     }
 
-    size_t size() const {
-        return size_;
-    }
+    size_t size() const { return size_; }
 
-    void clear() {
-        for(auto &tile : tiles_) {
+    void clear()
+    {
+        for (auto &tile : tiles_) {
             tile.clear();
         }
         size_ = 0;
     }
 
-private:
+  private:
     const Context *ctx_;
     std::vector<FlatTileWireMap<Value>> tiles_;
     size_t size_;

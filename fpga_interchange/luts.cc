@@ -273,10 +273,9 @@ bool LutMapper::remap_luts(const Context *ctx)
     log_info("Final mapping:\n");
     for (size_t cell_idx = 0; cell_idx < cells.size(); ++cell_idx) {
         CellInfo *cell = cells[cell_idx];
-        for(auto & cell_pin_pair : cell->cell_bel_pins) {
-            log_info("%s %s %s =>", cell->type.c_str(ctx), cell->name.c_str(ctx),
-                     cell_pin_pair.first.c_str(ctx));
-            for(auto bel_pin : cell_pin_pair.second) {
+        for (auto &cell_pin_pair : cell->cell_bel_pins) {
+            log_info("%s %s %s =>", cell->type.c_str(ctx), cell->name.c_str(ctx), cell_pin_pair.first.c_str(ctx));
+            for (auto bel_pin : cell_pin_pair.second) {
                 log(" %s", bel_pin.c_str(ctx));
             }
             log("\n");

@@ -202,7 +202,7 @@ bool DedicatedInterconnect::is_driver_on_net_valid(BelId driver_bel, const CellI
                 // FIXME: This should actually return "unknown!" because the
                 // sink is unplaced.  Once the sink is placed, this constraint
                 // can be evaluated.
-                if (ctx->debug) {
+                if (ctx->debug && false) {
                     log_info("BEL %s is not valid because sink cell %s/%s is not placed\n", ctx->nameOfBel(driver_bel),
                              port_ref.cell->name.c_str(ctx), port_ref.port.c_str(ctx));
                 }
@@ -231,7 +231,7 @@ bool DedicatedInterconnect::is_driver_on_net_valid(BelId driver_bel, const CellI
                 // Do fast routing check to see if the pair of driver and sink
                 // every are valid.
                 if (iter->second.count(sink_type_bel_pin) == 0) {
-                    if (ctx->debug) {
+                    if (ctx->debug && false) {
                         log_info("BEL %s is not valid because pin %s cannot reach %s/%s\n", ctx->nameOfBel(driver_bel),
                                  driver_bel_pin.c_str(ctx), ctx->nameOfBel(sink_bel), sink_bel_pin.c_str(ctx));
                     }
@@ -244,7 +244,7 @@ bool DedicatedInterconnect::is_driver_on_net_valid(BelId driver_bel, const CellI
                 // SLICEL.COUT -> SLICEL.CIN has delta_y = {1, 2}, but the
                 // delta_y=2 case is rare.
                 if (!check_routing(driver_bel, driver_bel_pin, sink_bel, sink_bel_pin)) {
-                    if (ctx->debug) {
+                    if (ctx->debug && false) {
                         log_info("BEL %s is not valid because pin %s cannot be reach %s/%s (via detailed check)\n",
                                  ctx->nameOfBel(driver_bel), driver_bel_pin.c_str(ctx), ctx->nameOfBel(sink_bel),
                                  sink_bel_pin.c_str(ctx));
@@ -282,7 +282,7 @@ bool DedicatedInterconnect::is_sink_on_net_valid(BelId bel, const CellInfo *cell
             // FIXME: This should actually return "unknown!" because the
             // driver is unplaced.  Once the driver is placed, this constraint
             // can be evaluated.
-            if (ctx->debug) {
+            if (ctx->debug && false) {
                 log_info("BEL %s is not valid because driver cell %s/%s is not placed\n", ctx->nameOfBel(bel),
                          net->driver.cell->name.c_str(ctx), net->driver.port.c_str(ctx));
             }
@@ -310,7 +310,7 @@ bool DedicatedInterconnect::is_sink_on_net_valid(BelId bel, const CellInfo *cell
         // Do fast routing check to see if the pair of driver and sink
         // every are valid.
         if (iter->second.count(driver_type_bel_pin) == 0) {
-            if (ctx->debug) {
+            if (ctx->debug && false) {
                 log_info("BEL %s is not valid because pin %s cannot be driven by %s/%s\n", ctx->nameOfBel(bel),
                          bel_pin.c_str(ctx), ctx->nameOfBel(driver_bel),
                          driver_type_bel_pin.type_bel_pin.bel_pin.c_str(ctx));
@@ -324,7 +324,7 @@ bool DedicatedInterconnect::is_sink_on_net_valid(BelId bel, const CellInfo *cell
         // SLICEL.COUT -> SLICEL.CIN has delta_y = {1, 2}, but the
         // delta_y=2 case is rare.
         if (!check_routing(driver_bel, driver_type_bel_pin.type_bel_pin.bel_pin, bel, bel_pin)) {
-            if (ctx->debug) {
+            if (ctx->debug && false) {
                 log_info("BEL %s is not valid because pin %s cannot be driven by %s/%s (via detailed check)\n",
                          ctx->nameOfBel(bel), bel_pin.c_str(ctx), ctx->nameOfBel(driver_bel),
                          driver_type_bel_pin.type_bel_pin.bel_pin.c_str(ctx));

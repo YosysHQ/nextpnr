@@ -21,9 +21,9 @@
 #ifndef CHIPDB_H
 #define CHIPDB_H
 
+#include "archdefs.h"
 #include "nextpnr_namespaces.h"
 #include "relptr.h"
-#include "archdefs.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 

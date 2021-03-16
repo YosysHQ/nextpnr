@@ -107,7 +107,7 @@ struct ArchNetInfo
 {
     virtual ~ArchNetInfo();
 
-    SiteExpansionLoop * loop = nullptr;
+    SiteExpansionLoop *loop = nullptr;
 };
 
 struct ArchCellInfo

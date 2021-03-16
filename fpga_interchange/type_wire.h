@@ -21,8 +21,8 @@
 #ifndef TYPE_WIRE_H
 #define TYPE_WIRE_H
 
-#include <vector>
 #include <algorithm>
+#include <vector>
 
 #include "nextpnr_namespaces.h"
 #include "nextpnr_types.h"
@@ -31,7 +31,8 @@ NEXTPNR_NAMESPACE_BEGIN
 
 struct Context;
 
-struct TypeWireId {
+struct TypeWireId
+{
     TypeWireId() : type(-1), index(-1) {}
     TypeWireId(const Context *ctx, WireId wire_inst);
 
@@ -46,32 +47,25 @@ struct TypeWireId {
     int32_t index;
 };
 
-struct TypeWirePair {
+struct TypeWirePair
+{
     TypeWireId src;
     TypeWireId dst;
 
-    bool operator==(const TypeWirePair &other) const {
-        return src == other.src && dst == other.dst;
-    }
-    bool operator!=(const TypeWirePair &other) const {
-        return src != other.src || dst != other.dst;
-    }
+    bool operator==(const TypeWirePair &other) const { return src == other.src && dst == other.dst; }
+    bool operator!=(const TypeWirePair &other) const { return src != other.src || dst != other.dst; }
 };
 
-struct TypeWireSet {
-public:
+struct TypeWireSet
+{
+  public:
     TypeWireSet(const Context *ctx, WireId wire);
-    std::size_t hash() const {
-        return hash_;
-    }
+    std::size_t hash() const { return hash_; }
 
-    bool operator==(const TypeWireSet &other) const {
-        return wire_types_ == other.wire_types_;
-    }
-    bool operator!=(const TypeWireSet &other) const {
-        return wire_types_ != other.wire_types_;
-    }
-private:
+    bool operator==(const TypeWireSet &other) const { return wire_types_ == other.wire_types_; }
+    bool operator!=(const TypeWireSet &other) const { return wire_types_ != other.wire_types_; }
+
+  private:
     std::size_t hash_;
     std::vector<TypeWireId> wire_types_;
 };
@@ -102,10 +96,7 @@ template <> struct std::hash<NEXTPNR_NAMESPACE_PREFIX TypeWirePair>
 
 template <> struct std::hash<NEXTPNR_NAMESPACE_PREFIX TypeWireSet>
 {
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX TypeWireSet &set) const noexcept
-    {
-        return set.hash();
-    }
+    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX TypeWireSet &set) const noexcept { return set.hash(); }
 };
 
 #endif /* TYPE_WIRE_H */

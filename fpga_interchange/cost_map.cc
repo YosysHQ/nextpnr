@@ -20,8 +20,8 @@
 
 #include "cost_map.h"
 
-#include "log.h"
 #include "context.h"
+#include "log.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -34,22 +34,25 @@ static constexpr float PENALTY_FACTOR = 1.f;
 static constexpr delay_t PENALTY_MIN = 1;
 
 // also known as the L1 norm
-static int manhattan_distance(const std::pair<int32_t, int32_t>& a, const std::pair<int32_t, int32_t>& b) {
+static int manhattan_distance(const std::pair<int32_t, int32_t> &a, const std::pair<int32_t, int32_t> &b)
+{
     return std::abs(b.first - a.first) + std::abs(b.second - a.second);
 }
 
-static delay_t penalize(const delay_t& entry, int distance, delay_t penalty) {
+static delay_t penalize(const delay_t &entry, int distance, delay_t penalty)
+{
     penalty = std::max(penalty, PENALTY_MIN);
     return entry + distance * penalty * PENALTY_FACTOR;
 }
 
-delay_t CostMap::get_delay(const Context *ctx, WireId src_wire, WireId dst_wire) const {
+delay_t CostMap::get_delay(const Context *ctx, WireId src_wire, WireId dst_wire) const
+{
     TypeWirePair type_pair;
     type_pair.src = TypeWireId(ctx, src_wire);
     type_pair.dst = TypeWireId(ctx, dst_wire);
 
     int src_tile;
-    if(src_wire.tile == -1) {
+    if (src_wire.tile == -1) {
         src_tile = ctx->chip_info->nodes[src_wire.index].tile_wires[0].tile;
     } else {
         src_tile = src_wire.tile;
@@ -59,7 +62,7 @@ delay_t CostMap::get_delay(const Context *ctx, WireId src_wire, WireId dst_wire)
     ctx->get_tile_x_y(src_tile, &src_x, &src_y);
 
     int dst_tile;
-    if(dst_wire.tile == -1) {
+    if (dst_wire.tile == -1) {
         dst_tile = ctx->chip_info->nodes[dst_wire.index].tile_wires[0].tile;
     } else {
         dst_tile = dst_wire.tile;
@@ -69,12 +72,12 @@ delay_t CostMap::get_delay(const Context *ctx, WireId src_wire, WireId dst_wire)
     ctx->get_tile_x_y(dst_tile, &dst_x, &dst_y);
 
     auto iter = cost_map_.find(type_pair);
-    if(iter == cost_map_.end()) {
-        auto & src_type = ctx->chip_info->tile_types[type_pair.src.type];
+    if (iter == cost_map_.end()) {
+        auto &src_type = ctx->chip_info->tile_types[type_pair.src.type];
         IdString src_tile_type(src_type.name);
         IdString src_wire_name(src_type.wire_data[type_pair.src.index].name);
 
-        auto & dst_type = ctx->chip_info->tile_types[type_pair.dst.type];
+        auto &dst_type = ctx->chip_info->tile_types[type_pair.dst.type];
         IdString dst_tile_type(dst_type.name);
         IdString dst_wire_name(dst_type.wire_data[type_pair.dst.index].name);
 
@@ -88,27 +91,27 @@ delay_t CostMap::get_delay(const Context *ctx, WireId src_wire, WireId dst_wire)
         return std::numeric_limits<delay_t>::max();
     }
 
-    const auto & delay_matrix = iter->second;
+    const auto &delay_matrix = iter->second;
 
     int32_t off_x = delay_matrix.offset.first + (dst_x - src_x);
     int32_t off_y = delay_matrix.offset.second + (dst_y - src_y);
 
     int32_t closest_x = off_x;
     int32_t closest_y = off_y;
-    if(closest_x < 0) {
+    if (closest_x < 0) {
         closest_x = 0;
     }
-    if(closest_y < 0) {
+    if (closest_y < 0) {
         closest_y = 0;
     }
 
     int32_t x_dim = delay_matrix.data.shape()[0];
-    if(closest_x >= x_dim) {
+    if (closest_x >= x_dim) {
         closest_x = x_dim - 1;
     }
 
     int32_t y_dim = delay_matrix.data.shape()[1];
-    if(closest_y >= y_dim) {
+    if (closest_y >= y_dim) {
         closest_y = y_dim - 1;
     }
 
@@ -127,7 +130,9 @@ delay_t CostMap::get_delay(const Context *ctx, WireId src_wire, WireId dst_wire)
     return penalize(cost, distance, penalty);
 }
 
-void CostMap::set_cost_map(const Context *ctx, const TypeWirePair & wire_pair, const absl::flat_hash_map<std::pair<int32_t, int32_t>, delay_t> &delays) {
+void CostMap::set_cost_map(const Context *ctx, const TypeWirePair &wire_pair,
+                           const absl::flat_hash_map<std::pair<int32_t, int32_t>, delay_t> &delays)
+{
     CostMapEntry delay_matrix;
 
     auto &offset = delay_matrix.offset;
@@ -137,8 +142,8 @@ void CostMap::set_cost_map(const Context *ctx, const TypeWirePair & wire_pair, c
     int32_t max_x_offset = 0;
     int32_t max_y_offset = 0;
 
-    for(const auto & delay_pair : delays) {
-        auto & dx_dy = delay_pair.first;
+    for (const auto &delay_pair : delays) {
+        auto &dx_dy = delay_pair.first;
         offset.first = std::max(-dx_dy.first, offset.first);
         offset.second = std::max(-dx_dy.second, offset.second);
         max_x_offset = std::max(dx_dy.first, max_x_offset);
@@ -154,8 +159,8 @@ void CostMap::set_cost_map(const Context *ctx, const TypeWirePair & wire_pair, c
     // are.
     std::fill_n(delay_matrix.data.data(), delay_matrix.data.num_elements(), -1);
 
-    for(const auto & delay_pair : delays) {
-        auto & dx_dy = delay_pair.first;
+    for (const auto &delay_pair : delays) {
+        auto &dx_dy = delay_pair.first;
         int32_t off_x = dx_dy.first + offset.first;
         int32_t off_y = dx_dy.second + offset.second;
         NPNR_ASSERT(off_x >= 0);
@@ -177,23 +182,22 @@ void CostMap::set_cost_map(const Context *ctx, const TypeWirePair & wire_pair, c
     }
 }
 
-static void assign_min_entry(delay_t* dst, const delay_t& src) {
-    if(src >= 0) {
-        if(*dst < 0) {
+static void assign_min_entry(delay_t *dst, const delay_t &src)
+{
+    if (src >= 0) {
+        if (*dst < 0) {
             *dst = src;
-        } else if(src < *dst) {
+        } else if (src < *dst) {
             *dst = src;
         }
     }
 }
 
-std::pair<delay_t, int> CostMap::get_nearby_cost_entry(const boost::multi_array<delay_t, 2>& matrix,
-                                                       int cx,
-                                                       int cy,
-                                                       const ArcBounds& bounds) {
+std::pair<delay_t, int> CostMap::get_nearby_cost_entry(const boost::multi_array<delay_t, 2> &matrix, int cx, int cy,
+                                                       const ArcBounds &bounds)
+{
 #ifdef DEBUG_FILL
-    log_info("Filling %d, %d within (%d, %d, %d, %d)\n",
-            cx, cy, bounds.x0, bounds.y0, bounds.x1, bounds.y1);
+    log_info("Filling %d, %d within (%d, %d, %d, %d)\n", cx, cy, bounds.x0, bounds.y0, bounds.x1, bounds.y1);
 #endif
 
     // spiral around (cx, cy) looking for a nearby entry
@@ -241,7 +245,7 @@ std::pair<delay_t, int> CostMap::get_nearby_cost_entry(const boost::multi_array<
             }
         }
 
-        if(fill < 0 && min_entry >= 0) {
+        if (fill < 0 && min_entry >= 0) {
             fill = min_entry;
         }
     }
@@ -249,15 +253,17 @@ std::pair<delay_t, int> CostMap::get_nearby_cost_entry(const boost::multi_array<
     return std::make_pair(fill, n);
 }
 
-void CostMap::fill_holes(const Context *ctx, const TypeWirePair & type_pair, boost::multi_array<delay_t, 2>& matrix, delay_t delay_penalty) {
+void CostMap::fill_holes(const Context *ctx, const TypeWirePair &type_pair, boost::multi_array<delay_t, 2> &matrix,
+                         delay_t delay_penalty)
+{
     // find missing cost entries and fill them in by copying a nearby cost entry
     std::vector<std::tuple<unsigned, unsigned, delay_t>> missing;
     bool couldnt_fill = false;
-    auto shifted_bounds = ArcBounds(0, 0, matrix.shape()[0]-1, matrix.shape()[1]-1);
+    auto shifted_bounds = ArcBounds(0, 0, matrix.shape()[0] - 1, matrix.shape()[1] - 1);
     int max_fill = 0;
     for (unsigned ix = 0; ix < matrix.shape()[0]; ix++) {
         for (unsigned iy = 0; iy < matrix.shape()[1]; iy++) {
-            delay_t& cost_entry = matrix[ix][iy];
+            delay_t &cost_entry = matrix[ix][iy];
             if (cost_entry < 0) {
                 // maximum search radius
                 delay_t filler;
@@ -278,46 +284,39 @@ void CostMap::fill_holes(const Context *ctx, const TypeWirePair & type_pair, boo
     }
 
     if (!couldnt_fill && max_fill > 0) {
-        if(ctx->verbose) {
-            auto & src_type_data = ctx->chip_info->tile_types[type_pair.src.type];
+        if (ctx->verbose) {
+            auto &src_type_data = ctx->chip_info->tile_types[type_pair.src.type];
             IdString src_type(src_type_data.name);
             IdString src_wire(src_type_data.wire_data[type_pair.src.index].name);
 
-            auto & dst_type_data = ctx->chip_info->tile_types[type_pair.dst.type];
+            auto &dst_type_data = ctx->chip_info->tile_types[type_pair.dst.type];
             IdString dst_type(dst_type_data.name);
             IdString dst_wire(dst_type_data.wire_data[type_pair.dst.index].name);
 
 #ifdef DEBUG_FILL
-            log_info("At %s/%s -> %s/%s: max_fill = %d, delay_penalty = %d\n",
-                    src_type.c_str(ctx),
-                    src_wire.c_str(ctx),
-                    dst_type.c_str(ctx),
-                    dst_wire.c_str(ctx),
-                    max_fill, delay_penalty);
+            log_info("At %s/%s -> %s/%s: max_fill = %d, delay_penalty = %d\n", src_type.c_str(ctx), src_wire.c_str(ctx),
+                     dst_type.c_str(ctx), dst_wire.c_str(ctx), max_fill, delay_penalty);
 #endif
         }
     }
 
     // write back the missing entries
-    for (auto& xy_entry : missing) {
+    for (auto &xy_entry : missing) {
         matrix[std::get<0>(xy_entry)][std::get<1>(xy_entry)] = std::get<2>(xy_entry);
     }
 
     if (couldnt_fill) {
-        auto & src_type_data = ctx->chip_info->tile_types[type_pair.src.type];
+        auto &src_type_data = ctx->chip_info->tile_types[type_pair.src.type];
         IdString src_type(src_type_data.name);
         IdString src_wire(src_type_data.wire_data[type_pair.src.index].name);
 
-        auto & dst_type_data = ctx->chip_info->tile_types[type_pair.dst.type];
+        auto &dst_type_data = ctx->chip_info->tile_types[type_pair.dst.type];
         IdString dst_type(dst_type_data.name);
         IdString dst_wire(dst_type_data.wire_data[type_pair.dst.index].name);
 
-        log_warning("Couldn't fill holes in the cost matrix %s/%s -> %s/%s %d x %d bounding box\n",
-                    src_type.c_str(ctx),
-                    src_wire.c_str(ctx),
-                    dst_type.c_str(ctx),
-                    dst_wire.c_str(ctx),
-                    shifted_bounds.x1, shifted_bounds.y1);
+        log_warning("Couldn't fill holes in the cost matrix %s/%s -> %s/%s %d x %d bounding box\n", src_type.c_str(ctx),
+                    src_wire.c_str(ctx), dst_type.c_str(ctx), dst_wire.c_str(ctx), shifted_bounds.x1,
+                    shifted_bounds.y1);
         for (unsigned y = 0; y < matrix.shape()[1]; y++) {
             for (unsigned x = 0; x < matrix.shape()[0]; x++) {
                 NPNR_ASSERT(matrix[x][y] >= 0);
@@ -326,14 +325,15 @@ void CostMap::fill_holes(const Context *ctx, const TypeWirePair & type_pair, boo
     }
 }
 
-delay_t CostMap::get_penalty(const boost::multi_array<delay_t, 2>& matrix) const {
+delay_t CostMap::get_penalty(const boost::multi_array<delay_t, 2> &matrix) const
+{
     delay_t min_delay = std::numeric_limits<delay_t>::max();
     delay_t max_delay = std::numeric_limits<delay_t>::min();
 
     std::pair<int32_t, int32_t> min_location(0, 0), max_location(0, 0);
     for (unsigned ix = 0; ix < matrix.shape()[0]; ix++) {
         for (unsigned iy = 0; iy < matrix.shape()[1]; iy++) {
-            const delay_t& cost_entry = matrix[ix][iy];
+            const delay_t &cost_entry = matrix[ix][iy];
             if (cost_entry >= 0) {
                 if (cost_entry < min_delay) {
                     min_delay = cost_entry;
@@ -347,7 +347,8 @@ delay_t CostMap::get_penalty(const boost::multi_array<delay_t, 2>& matrix) const
         }
     }
 
-    delay_t delay_penalty = (max_delay - min_delay) / static_cast<float>(std::max(1, manhattan_distance(max_location, min_location)));
+    delay_t delay_penalty =
+            (max_delay - min_delay) / static_cast<float>(std::max(1, manhattan_distance(max_location, min_location)));
 
     return delay_penalty;
 }

@@ -19,8 +19,8 @@
 
 #include "nextpnr.h"
 
-#include "log.h"
 #include "dynamic_bitarray.h"
+#include "log.h"
 #include "site_routing_cache.h"
 
 #include "absl/container/flat_hash_map.h"
@@ -32,9 +32,7 @@ NEXTPNR_NAMESPACE_BEGIN
 
 bool verbose_site_router(const Context *ctx) { return ctx->debug; }
 
-bool verbose_site_router(const SiteArch *ctx) {
-    return verbose_site_router(ctx->ctx);
-}
+bool verbose_site_router(const SiteArch *ctx) { return verbose_site_router(ctx->ctx); }
 
 void SiteRouter::bindBel(CellInfo *cell)
 {
@@ -55,7 +53,7 @@ bool check_initial_wires(const Context *ctx, SiteInformation *site_info)
 {
     // Propagate from BEL pins to first wire, checking for trivial routing
     // conflicts.
-    absl::flat_hash_map<WireId, NetInfo*> wires;
+    absl::flat_hash_map<WireId, NetInfo *> wires;
 
     for (CellInfo *cell : site_info->cells_in_site) {
         BelId bel = cell->bel;
@@ -70,7 +68,7 @@ bool check_initial_wires(const Context *ctx, SiteInformation *site_info)
 
                 WireId wire = ctx->getBelPinWire(bel_pin.bel, bel_pin.pin);
                 auto result = wires.emplace(wire, port.net);
-                if(!result.second) {
+                if (!result.second) {
                     // This wire is already in use, make sure the net bound is
                     // the same net, otherwise there is a trivial net
                     // conflict.
@@ -80,8 +78,8 @@ bool check_initial_wires(const Context *ctx, SiteInformation *site_info)
                         // immediately short circuit the site routing check.
                         if (verbose_site_router(ctx)) {
                             log_info("Direct net conflict detected for cell %s:%s at bel %s, net %s != %s\n",
-                                    cell->name.c_str(ctx), cell->type.c_str(ctx), ctx->nameOfBel(cell->bel),
-                                    port.net->name.c_str(ctx), other_net->name.c_str(ctx));
+                                     cell->name.c_str(ctx), cell->type.c_str(ctx), ctx->nameOfBel(cell->bel),
+                                     port.net->name.c_str(ctx), other_net->name.c_str(ctx));
                         }
 
                         return false;
@@ -94,8 +92,9 @@ bool check_initial_wires(const Context *ctx, SiteInformation *site_info)
     return true;
 }
 
-bool is_invalid_site_port(const SiteArch *ctx, const SiteNetInfo *net, const SitePip &pip) {
-    if(ctx->is_pip_synthetic(pip)) {
+bool is_invalid_site_port(const SiteArch *ctx, const SiteNetInfo *net, const SitePip &pip)
+{
+    if (ctx->is_pip_synthetic(pip)) {
         // FIXME: Not all synthetic pips are for constant networks.
         // FIXME: Need to mark if synthetic site ports are for the GND or VCC
         // network, and only allow the right one.  Otherwise site router
@@ -118,7 +117,8 @@ struct SiteExpansionLoop
         NPNR_ASSERT(node_storage != nullptr);
     }
 
-    void clear() {
+    void clear()
+    {
         node_storage->free_nodes(used_nodes);
         used_nodes.clear();
         solution.clear();
@@ -136,27 +136,27 @@ struct SiteExpansionLoop
 
     SiteRoutingSolution solution;
 
-    Node new_node(const SiteWire & wire, const SitePip & pip, const Node *parent)
+    Node new_node(const SiteWire &wire, const SitePip &pip, const Node *parent)
     {
         Node node = node_storage->alloc_node();
         used_nodes.push_back(node.get_index());
 
         node->wire = wire;
         node->pip = pip;
-        if(parent != nullptr) {
+        if (parent != nullptr) {
             node->parent = (*parent).get_index();
             node->flags = (*parent)->flags;
             node->depth = (*parent)->depth + 1;
         }
 
-        if(pip.type == SitePip::SITE_PORT) {
+        if (pip.type == SitePip::SITE_PORT) {
             // Site ports should always have a parent!
             NPNR_ASSERT(parent != nullptr);
-            if(wire.type == SiteWire::SITE_PORT_SINK) {
+            if (wire.type == SiteWire::SITE_PORT_SINK) {
                 NPNR_ASSERT((*parent)->wire.type == SiteWire::SITE_WIRE);
                 NPNR_ASSERT(node->can_leave_site());
                 node->mark_left_site();
-            } else if(wire.type == SiteWire::SITE_PORT_SOURCE) {
+            } else if (wire.type == SiteWire::SITE_PORT_SOURCE) {
                 // This is a backward walk, so this is considered entering
                 // the site.
                 NPNR_ASSERT((*parent)->wire.type == SiteWire::SITE_WIRE);
@@ -165,7 +165,7 @@ struct SiteExpansionLoop
             } else {
                 // See if this is a forward or backward walk.
                 NPNR_ASSERT(wire.type == SiteWire::SITE_WIRE);
-                if((*parent)->wire.type == SiteWire::SITE_PORT_SINK) {
+                if ((*parent)->wire.type == SiteWire::SITE_PORT_SINK) {
                     // This is a backward walk, so this is considered leaving
                     // the site.
                     NPNR_ASSERT(node->can_leave_site());
@@ -184,7 +184,7 @@ struct SiteExpansionLoop
     // Expand from wire specified, always downhill.
     bool expand_net(const SiteArch *ctx, SiteRoutingCache *site_routing_cache, const SiteNetInfo *net)
     {
-        if(net->driver == net_driver && net->users == net_users) {
+        if (net->driver == net_driver && net->users == net_users) {
             return expand_result;
         }
 
@@ -193,7 +193,7 @@ struct SiteExpansionLoop
         net_driver = net->driver;
         net_users = net->users;
 
-        if(site_routing_cache->get_solution(ctx, *net, &solution)) {
+        if (site_routing_cache->get_solution(ctx, *net, &solution)) {
             expand_result = true;
             return expand_result;
         }
@@ -209,7 +209,7 @@ struct SiteExpansionLoop
 
         if (verbose_site_router(ctx)) {
             log_info("%zu targets:\n", targets.size());
-            for(auto & target : targets) {
+            for (auto &target : targets) {
                 log_info(" - %s\n", ctx->nameOfWire(target));
             }
         }
@@ -227,35 +227,35 @@ struct SiteExpansionLoop
             max_depth_seen = std::max(max_depth_seen, parent_node->depth);
 
             for (SitePip pip : ctx->getPipsDownhill(parent_node->wire)) {
-                if(is_invalid_site_port(ctx, net, pip)) {
+                if (is_invalid_site_port(ctx, net, pip)) {
                     if (verbose_site_router(ctx)) {
-                        log_info("Pip %s is not a valid site port for net %s, skipping\n",
-                                ctx->nameOfPip(pip),
-                                ctx->nameOfNet(net));
+                        log_info("Pip %s is not a valid site port for net %s, skipping\n", ctx->nameOfPip(pip),
+                                 ctx->nameOfNet(net));
                     }
                     continue;
                 }
 
                 SiteWire wire = ctx->getPipDstWire(pip);
 
-                if(pip.type == SitePip::SITE_PORT) {
-                    if(wire.type == SiteWire::SITE_PORT_SINK) {
-                        if(!parent_node->can_leave_site()) {
+                if (pip.type == SitePip::SITE_PORT) {
+                    if (wire.type == SiteWire::SITE_PORT_SINK) {
+                        if (!parent_node->can_leave_site()) {
                             // This path has already left the site once, don't leave it again!
                             if (verbose_site_router(ctx)) {
                                 log_info("Pip %s is not a valid for this path because it has already left the site\n",
-                                        ctx->nameOfPip(pip));
+                                         ctx->nameOfPip(pip));
                             }
                             continue;
                         }
                     } else {
                         NPNR_ASSERT(parent_node->wire.type == SiteWire::SITE_PORT_SOURCE);
 
-                        if(!parent_node->can_enter_site()) {
+                        if (!parent_node->can_enter_site()) {
                             // This path has already entered the site once,
                             // don't enter it again!
                             if (verbose_site_router(ctx)) {
-                                log_info("Pip %s is not a valid for this path because it has already entered the site\n",
+                                log_info(
+                                        "Pip %s is not a valid for this path because it has already entered the site\n",
                                         ctx->nameOfPip(pip));
                             }
                             continue;
@@ -264,18 +264,16 @@ struct SiteExpansionLoop
                 }
 
                 auto wire_iter = ctx->wire_to_nets.find(wire);
-                if(wire_iter != ctx->wire_to_nets.end() && wire_iter->second.net != net) {
+                if (wire_iter != ctx->wire_to_nets.end() && wire_iter->second.net != net) {
                     if (verbose_site_router(ctx)) {
-                        log_info("Wire %s is already tied to net %s, not exploring for net %s\n",
-                                ctx->nameOfWire(wire),
-                                ctx->nameOfNet(wire_iter->second.net),
-                                ctx->nameOfNet(net));
+                        log_info("Wire %s is already tied to net %s, not exploring for net %s\n", ctx->nameOfWire(wire),
+                                 ctx->nameOfNet(wire_iter->second.net), ctx->nameOfNet(net));
                     }
                     continue;
                 }
 
                 auto node = new_node(wire, pip, &parent_node);
-                if(targets.count(wire)) {
+                if (targets.count(wire)) {
                     completed_routes.push_back(node.get_index());
                     max_depth = std::max(max_depth, node->depth);
                 }
@@ -289,12 +287,12 @@ struct SiteExpansionLoop
         solution.clear();
         solution.store_solution(ctx, node_storage, net->driver, completed_routes);
         solution.verify(ctx, *net);
-        for(size_t route : completed_routes) {
+        for (size_t route : completed_routes) {
             SiteWire wire = node_storage->get_node(route)->wire;
             targets.erase(wire);
         }
 
-        if(targets.empty()) {
+        if (targets.empty()) {
             site_routing_cache->add_solutions(ctx, *net, solution);
         }
 
@@ -306,27 +304,18 @@ struct SiteExpansionLoop
         return expand_result;
     }
 
-    size_t num_solutions() const {
-        return solution.num_solutions();
-    }
+    size_t num_solutions() const { return solution.num_solutions(); }
 
-    const SiteWire &solution_sink(size_t idx) const {
-        return solution.solution_sink(idx);
+    const SiteWire &solution_sink(size_t idx) const { return solution.solution_sink(idx); }
+    std::vector<SitePip>::const_iterator solution_begin(size_t idx) const { return solution.solution_begin(idx); }
 
-    }
-    std::vector<SitePip>::const_iterator solution_begin(size_t idx) const {
-        return solution.solution_begin(idx);
-    }
-
-    std::vector<SitePip>::const_iterator solution_end(size_t idx) const {
-        return solution.solution_end(idx);
-    }
+    std::vector<SitePip>::const_iterator solution_end(size_t idx) const { return solution.solution_end(idx); }
 };
 
 void print_current_state(const SiteArch *site_arch)
 {
     const Context *ctx = site_arch->ctx;
-    auto & cells_in_site = site_arch->site_info->cells_in_site;
+    auto &cells_in_site = site_arch->site_info->cells_in_site;
     const CellInfo *cell = *cells_in_site.begin();
     BelId bel = cell->bel;
     const auto &bel_data = bel_info(ctx->chip_info, bel);
@@ -340,8 +329,8 @@ void print_current_state(const SiteArch *site_arch)
     }
 
     log_info(" Nets in site:\n");
-    for (auto & net_pair : site_arch->nets) {
-        auto * net = net_pair.first;
+    for (auto &net_pair : site_arch->nets) {
+        auto *net = net_pair.first;
         log_info("  - %s, pins in site:\n", net->name.c_str(ctx));
         if (net->driver.cell && cells_in_site.count(net->driver.cell)) {
             log_info("    - %s/%s (%s)\n", net->driver.cell->name.c_str(ctx), net->driver.port.c_str(ctx),
@@ -358,8 +347,8 @@ void print_current_state(const SiteArch *site_arch)
 
     log_info(" Consumed wires:\n");
     for (auto &wire_pair : site_arch->wire_to_nets) {
-        const SiteWire & site_wire = wire_pair.first;
-        if(site_wire.type != SiteWire::SITE_WIRE) {
+        const SiteWire &site_wire = wire_pair.first;
+        if (site_wire.type != SiteWire::SITE_WIRE) {
             continue;
         }
         WireId wire = site_wire.wire;
@@ -368,18 +357,21 @@ void print_current_state(const SiteArch *site_arch)
     }
 }
 
-struct PossibleSolutions {
+struct PossibleSolutions
+{
     bool tested = false;
     SiteNetInfo *net = nullptr;
     std::vector<SitePip>::const_iterator pips_begin;
     std::vector<SitePip>::const_iterator pips_end;
 };
 
-bool test_solution(SiteArch *ctx, SiteNetInfo *net, std::vector<SitePip>::const_iterator pips_begin, std::vector<SitePip>::const_iterator pips_end) {
+bool test_solution(SiteArch *ctx, SiteNetInfo *net, std::vector<SitePip>::const_iterator pips_begin,
+                   std::vector<SitePip>::const_iterator pips_end)
+{
     bool valid = true;
     std::vector<SitePip>::const_iterator good_pip_end = pips_begin;
-    for(auto iter = pips_begin; iter != pips_end; ++iter) {
-        if(!ctx->bindPip(*iter, net)) {
+    for (auto iter = pips_begin; iter != pips_end; ++iter) {
+        if (!ctx->bindPip(*iter, net)) {
             valid = false;
             break;
         }
@@ -388,8 +380,8 @@ bool test_solution(SiteArch *ctx, SiteNetInfo *net, std::vector<SitePip>::const_
     }
 
     // Unwind a bad solution
-    if(!valid) {
-        for(auto iter = pips_begin; iter != good_pip_end; ++iter) {
+    if (!valid) {
+        for (auto iter = pips_begin; iter != good_pip_end; ++iter) {
             ctx->unbindPip(*iter);
         }
     } else {
@@ -399,13 +391,17 @@ bool test_solution(SiteArch *ctx, SiteNetInfo *net, std::vector<SitePip>::const_
     return valid;
 }
 
-void remove_solution(SiteArch *ctx, std::vector<SitePip>::const_iterator pips_begin, std::vector<SitePip>::const_iterator pips_end) {
-    for(auto iter = pips_begin; iter != pips_end; ++iter) {
+void remove_solution(SiteArch *ctx, std::vector<SitePip>::const_iterator pips_begin,
+                     std::vector<SitePip>::const_iterator pips_end)
+{
+    for (auto iter = pips_begin; iter != pips_end; ++iter) {
         ctx->unbindPip(*iter);
     }
 }
 
-bool find_solution_via_backtrack(SiteArch *ctx, std::vector<PossibleSolutions> solutions, std::vector<std::vector<size_t>> sinks_to_solutions) {
+bool find_solution_via_backtrack(SiteArch *ctx, std::vector<PossibleSolutions> solutions,
+                                 std::vector<std::vector<size_t>> sinks_to_solutions)
+{
     std::vector<uint8_t> routed_sinks;
     std::vector<size_t> solution_indicies;
     std::vector<std::pair<size_t, size_t>> solution_order;
@@ -413,23 +409,23 @@ bool find_solution_via_backtrack(SiteArch *ctx, std::vector<PossibleSolutions> s
     solution_indicies.resize(sinks_to_solutions.size(), 0);
 
     // Scan solutions, and remove any solutions that are invalid immediately
-    for(auto & solution : solutions) {
-        if(test_solution(ctx, solution.net, solution.pips_begin, solution.pips_end)) {
+    for (auto &solution : solutions) {
+        if (test_solution(ctx, solution.net, solution.pips_begin, solution.pips_end)) {
             remove_solution(ctx, solution.pips_begin, solution.pips_end);
         } else {
             solution.tested = true;
         }
     }
 
-    for(size_t sink_idx = 0; sink_idx < sinks_to_solutions.size(); ++sink_idx) {
+    for (size_t sink_idx = 0; sink_idx < sinks_to_solutions.size(); ++sink_idx) {
         size_t solution_count = 0;
-        for(size_t solution_idx : sinks_to_solutions[sink_idx]) {
-            if(!solutions[solution_idx].tested) {
+        for (size_t solution_idx : sinks_to_solutions[sink_idx]) {
+            if (!solutions[solution_idx].tested) {
                 solution_count += 1;
             }
         }
 
-        if(solution_count == 0) {
+        if (solution_count == 0) {
             return false;
         }
 
@@ -438,18 +434,17 @@ bool find_solution_via_backtrack(SiteArch *ctx, std::vector<PossibleSolutions> s
 
     // Sort solutions by the number of possible solutions first.  This allows
     // the backtrack to avoid the wide searches first.
-    std::sort(solution_order.begin(), solution_order.end(), [](
-                const std::pair<size_t, size_t> &a,
-                const std::pair<size_t, size_t> &b) -> bool {
-            return a.second < b.second;
-            });
+    std::sort(solution_order.begin(), solution_order.end(),
+              [](const std::pair<size_t, size_t> &a, const std::pair<size_t, size_t> &b) -> bool {
+                  return a.second < b.second;
+              });
 
     std::vector<size_t> solution_stack;
     solution_stack.reserve(sinks_to_solutions.size());
 
-    if(verbose_site_router(ctx)) {
-        log_info("Solving via backtrace with %zu solutions and %zu sinks\n",
-                solutions.size(), sinks_to_solutions.size());
+    if (verbose_site_router(ctx)) {
+        log_info("Solving via backtrace with %zu solutions and %zu sinks\n", solutions.size(),
+                 sinks_to_solutions.size());
     }
 
     // Simple backtrack explorer:
@@ -461,18 +456,18 @@ bool find_solution_via_backtrack(SiteArch *ctx, std::vector<PossibleSolutions> s
     //      there are not more solutions at this level, pop again.
     //    - If stack is now empty, mark root solution as tested and invalid.
     //      If root of stack has no more solutions, no solution is possible.
-    while(true) {
+    while (true) {
         // Which sink is next to be tested?
         size_t sink_idx = solution_order[solution_stack.size()].first;
 
         size_t next_solution_to_test = solution_indicies[sink_idx];
-        if(next_solution_to_test >= sinks_to_solutions[sink_idx].size()) {
+        if (next_solution_to_test >= sinks_to_solutions[sink_idx].size()) {
             // We have exausted all solutions at this level of the stack!
-            if(solution_stack.empty()) {
+            if (solution_stack.empty()) {
                 // Search is done, failed!!!
-                if(verbose_site_router(ctx)) {
-                    log_info("No solution found via backtrace with %zu solutions and %zu sinks\n",
-                            solutions.size(), sinks_to_solutions.size());
+                if (verbose_site_router(ctx)) {
+                    log_info("No solution found via backtrace with %zu solutions and %zu sinks\n", solutions.size(),
+                             sinks_to_solutions.size());
                 }
                 return false;
             } else {
@@ -483,7 +478,7 @@ bool find_solution_via_backtrack(SiteArch *ctx, std::vector<PossibleSolutions> s
 
                 // Remove the now tested bad solution at the previous level of
                 // the stack.
-                auto & solution = solutions.at(solution_idx);
+                auto &solution = solutions.at(solution_idx);
                 remove_solution(ctx, solution.pips_begin, solution.pips_end);
 
                 // Because we had to pop up the stack, advance the index at
@@ -495,25 +490,25 @@ bool find_solution_via_backtrack(SiteArch *ctx, std::vector<PossibleSolutions> s
         }
 
         size_t solution_idx = sinks_to_solutions[sink_idx].at(next_solution_to_test);
-        auto & solution = solutions.at(solution_idx);
-        if(solution.tested) {
+        auto &solution = solutions.at(solution_idx);
+        if (solution.tested) {
             // This solution was already determined to be no good, skip it.
             solution_indicies[sink_idx] += 1;
             continue;
         }
 
-        if(!test_solution(ctx, solution.net, solution.pips_begin, solution.pips_end)) {
+        if (!test_solution(ctx, solution.net, solution.pips_begin, solution.pips_end)) {
             // This solution was no good, try the next one at this level of
             // the stack.
             solution_indicies[sink_idx] += 1;
         } else {
             // This solution was good, push onto the stack.
             solution_stack.push_back(solution_idx);
-            if(solution_stack.size() == sinks_to_solutions.size()) {
+            if (solution_stack.size() == sinks_to_solutions.size()) {
                 // Found a valid solution, done!
-                if(verbose_site_router(ctx)) {
-                    log_info("Solved via backtrace with %zu solutions and %zu sinks\n",
-                            solutions.size(), sinks_to_solutions.size());
+                if (verbose_site_router(ctx)) {
+                    log_info("Solved via backtrace with %zu solutions and %zu sinks\n", solutions.size(),
+                             sinks_to_solutions.size());
                 }
                 return true;
             } else {
@@ -529,23 +524,23 @@ bool find_solution_via_backtrack(SiteArch *ctx, std::vector<PossibleSolutions> s
     NPNR_ASSERT(false);
 }
 
-bool route_site(SiteArch *ctx, SiteRoutingCache *site_routing_cache, RouteNodeStorage *node_storage) {
-    std::vector<SiteExpansionLoop*> expansions;
+bool route_site(SiteArch *ctx, SiteRoutingCache *site_routing_cache, RouteNodeStorage *node_storage)
+{
+    std::vector<SiteExpansionLoop *> expansions;
     expansions.reserve(ctx->nets.size());
 
-    for(auto &net_pair : ctx->nets) {
+    for (auto &net_pair : ctx->nets) {
         SiteNetInfo *net = &net_pair.second;
 
-        if(net->net->loop == nullptr) {
+        if (net->net->loop == nullptr) {
             net->net->loop = new SiteExpansionLoop(node_storage);
         }
         expansions.push_back(net->net->loop);
 
         SiteExpansionLoop *router = expansions.back();
-        if(!router->expand_net(ctx, site_routing_cache, net)) {
+        if (!router->expand_net(ctx, site_routing_cache, net)) {
             if (verbose_site_router(ctx)) {
-                log_info("Net %s expansion failed to reach all users, site is unroutable!\n",
-                        ctx->nameOfNet(net));
+                log_info("Net %s expansion failed to reach all users, site is unroutable!\n", ctx->nameOfNet(net));
             }
 
             return false;
@@ -556,22 +551,22 @@ bool route_site(SiteArch *ctx, SiteRoutingCache *site_routing_cache, RouteNodeSt
     std::vector<PossibleSolutions> solutions;
     absl::flat_hash_map<SiteWire, size_t> sink_map;
     std::vector<std::vector<size_t>> sinks_to_solutions;
-    for(const auto * expansion : expansions) {
-        for(const SiteWire & unrouted_sink : expansion->net_users) {
+    for (const auto *expansion : expansions) {
+        for (const SiteWire &unrouted_sink : expansion->net_users) {
             auto result = sink_map.emplace(unrouted_sink, sink_map.size());
             NPNR_ASSERT(result.second);
         }
     }
 
-    if(sink_map.empty()) {
+    if (sink_map.empty()) {
         // All nets are trivially routed!
         return true;
     }
 
     sinks_to_solutions.resize(sink_map.size());
 
-    for(const auto * expansion : expansions) {
-        for(size_t idx = 0; idx < expansion->num_solutions(); ++idx) {
+    for (const auto *expansion : expansions) {
+        for (size_t idx = 0; idx < expansion->num_solutions(); ++idx) {
             SiteWire wire = expansion->solution_sink(idx);
             auto begin = expansion->solution_begin(idx);
             auto end = expansion->solution_end(idx);
@@ -586,7 +581,7 @@ bool route_site(SiteArch *ctx, SiteRoutingCache *site_routing_cache, RouteNodeSt
             solution.pips_begin = begin;
             solution.pips_end = end;
 
-            for(auto iter = begin; iter != end; ++iter) {
+            for (auto iter = begin; iter != end; ++iter) {
                 NPNR_ASSERT(ctx->getPipDstWire(*iter) == wire);
                 wire = ctx->getPipSrcWire(*iter);
             }
@@ -598,34 +593,35 @@ bool route_site(SiteArch *ctx, SiteRoutingCache *site_routing_cache, RouteNodeSt
     return find_solution_via_backtrack(ctx, solutions, sinks_to_solutions);
 }
 
-void check_routing(const SiteArch &site_arch) {
-    for(auto &net_pair : site_arch.nets) {
+void check_routing(const SiteArch &site_arch)
+{
+    for (auto &net_pair : site_arch.nets) {
         const NetInfo *net = net_pair.first;
         const SiteNetInfo &net_info = net_pair.second;
 
-        for(const auto & user : net_info.users) {
+        for (const auto &user : net_info.users) {
             NPNR_ASSERT(site_arch.wire_to_nets.at(user).net->net == net);
             SiteWire cursor = user;
-            while(cursor != net_info.driver) {
+            while (cursor != net_info.driver) {
                 auto iter = net_info.wires.find(cursor);
-                if(iter == net_info.wires.end()) {
-                    log_error("Wire %s has no pip, but didn't reach driver wire %s\n",
-                            site_arch.nameOfWire(cursor),
-                            site_arch.nameOfWire(net_info.driver));
+                if (iter == net_info.wires.end()) {
+                    log_error("Wire %s has no pip, but didn't reach driver wire %s\n", site_arch.nameOfWire(cursor),
+                              site_arch.nameOfWire(net_info.driver));
                 }
-                const SitePip & site_pip = iter->second.pip;
+                const SitePip &site_pip = iter->second.pip;
                 cursor = site_arch.getPipSrcWire(site_pip);
             }
         }
     }
 }
 
-void apply_routing(Context *ctx, const SiteArch &site_arch) {
-    for(auto &net_pair : site_arch.nets) {
+void apply_routing(Context *ctx, const SiteArch &site_arch)
+{
+    for (auto &net_pair : site_arch.nets) {
         NetInfo *net = net_pair.first;
-        for(auto &wire_pair : net_pair.second.wires) {
+        for (auto &wire_pair : net_pair.second.wires) {
             const SitePip &site_pip = wire_pair.second.pip;
-            if(site_pip.type != SitePip::SITE_PIP && site_pip.type != SitePip::SITE_PORT) {
+            if (site_pip.type != SitePip::SITE_PIP && site_pip.type != SitePip::SITE_PORT) {
                 continue;
             }
 
@@ -634,7 +630,8 @@ void apply_routing(Context *ctx, const SiteArch &site_arch) {
     }
 }
 
-bool SiteRouter::checkSiteRouting(const Context *ctx, const TileStatus &tile_status) const {
+bool SiteRouter::checkSiteRouting(const Context *ctx, const TileStatus &tile_status) const
+{
     if (!dirty) {
         return site_ok;
     }
@@ -717,30 +714,31 @@ bool SiteRouter::checkSiteRouting(const Context *ctx, const TileStatus &tile_sta
     SiteInformation site_info(ctx, tile, site, cells_in_site);
 
     // Push from cell pins to the first WireId from each cell pin.
-    if(!check_initial_wires(ctx, &site_info)) {
+    if (!check_initial_wires(ctx, &site_info)) {
         site_ok = false;
         return site_ok;
     }
 
     SiteArch site_arch(&site_info);
-    //site_arch.archcheck();
+    // site_arch.archcheck();
 
     site_ok = route_site(&site_arch, &ctx->site_routing_cache, &ctx->node_storage);
-    if(verbose_site_router(ctx)) {
-        if(site_ok) {
+    if (verbose_site_router(ctx)) {
+        if (site_ok) {
             log_info("Site %s is routable\n", ctx->get_site_name(tile, site));
         } else {
             log_info("Site %s is not routable\n", ctx->get_site_name(tile, site));
         }
     }
 
-    if(site_ok) {
+    if (site_ok) {
         check_routing(site_arch);
     }
     return site_ok;
 }
 
-void SiteRouter::bindSiteRouting(Context *ctx) {
+void SiteRouter::bindSiteRouting(Context *ctx)
+{
     NPNR_ASSERT(!dirty);
     NPNR_ASSERT(site_ok);
 
@@ -749,27 +747,27 @@ void SiteRouter::bindSiteRouting(Context *ctx) {
     NPNR_ASSERT((*iter)->bel != BelId());
 
     auto tile = (*iter)->bel.tile;
-    auto & tile_type = loc_info(ctx->chip_info, (*iter)->bel);
+    auto &tile_type = loc_info(ctx->chip_info, (*iter)->bel);
 
     // Unbind all bound site wires
     WireId wire;
     wire.tile = tile;
-    for(size_t wire_index = 0; wire_index < tile_type.wire_data.size(); ++wire_index) {
-        const TileWireInfoPOD & wire_data = tile_type.wire_data[wire_index];
+    for (size_t wire_index = 0; wire_index < tile_type.wire_data.size(); ++wire_index) {
+        const TileWireInfoPOD &wire_data = tile_type.wire_data[wire_index];
 
-        if(wire_data.site != this->site) {
+        if (wire_data.site != this->site) {
             continue;
         }
 
         wire.index = wire_index;
 
-        NetInfo * net = ctx->getBoundWireNet(wire);
-        if(net == nullptr) {
+        NetInfo *net = ctx->getBoundWireNet(wire);
+        if (net == nullptr) {
             continue;
         }
 
-        auto & pip_map = net->wires.at(wire);
-        if(pip_map.strength <= STRENGTH_STRONG) {
+        auto &pip_map = net->wires.at(wire);
+        if (pip_map.strength <= STRENGTH_STRONG) {
             ctx->unbindWire(wire);
         }
     }
@@ -779,18 +777,17 @@ void SiteRouter::bindSiteRouting(Context *ctx) {
     NPNR_ASSERT(route_site(&site_arch, &ctx->site_routing_cache, &ctx->node_storage));
     check_routing(site_arch);
     apply_routing(ctx, site_arch);
-    if(verbose_site_router(ctx)) {
+    if (verbose_site_router(ctx)) {
         print_current_state(&site_arch);
     }
 }
 
-ArchNetInfo::~ArchNetInfo() {
-    delete loop;
-}
+ArchNetInfo::~ArchNetInfo() { delete loop; }
 
-Arch::~Arch() {
-    for(auto &net_pair : nets) {
-        if(net_pair.second->loop) {
+Arch::~Arch()
+{
+    for (auto &net_pair : nets) {
+        if (net_pair.second->loop) {
             net_pair.second->loop->clear();
         }
     }

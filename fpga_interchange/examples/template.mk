@@ -46,6 +46,23 @@ build/$(DESIGN)_phys.yaml: build/$(DESIGN).phys
 
 phys_yaml: build/$(DESIGN)_phys.yaml
 
+profile: build/$(DESIGN).netlist
+	CPUPROFILE=$(DESIGN).prof $(NEXTPNR_BIN) \
+		--chipdb $(BBA_PATH) \
+		--xdc $(DESIGN).xdc \
+		--netlist build/$(DESIGN).netlist \
+		--phys build/$(DESIGN).phys \
+		--package $(PACKAGE)
+
+profile_placer: build/$(DESIGN).netlist
+	CPUPROFILE=$(DESIGN).prof $(NEXTPNR_BIN) \
+		--chipdb $(BBA_PATH) \
+		--xdc $(DESIGN).xdc \
+		--netlist build/$(DESIGN).netlist \
+		--phys build/$(DESIGN).phys \
+		--package $(PACKAGE) \
+		--no-route
+
 verbose: build/$(DESIGN).netlist
 	$(NEXTPNR_BIN) \
 		--chipdb $(BBA_PATH) \
@@ -72,6 +89,14 @@ debug: build/$(DESIGN).netlist
 		--phys build/$(DESIGN).phys \
 		--package $(PACKAGE)
 
+valgrind: build/$(DESIGN).netlist
+	PYTHONMALLOC=malloc valgrind $(NEXTPNR_BIN) \
+		--chipdb $(BBA_PATH) \
+		--xdc $(DESIGN).xdc \
+		--netlist build/$(DESIGN).netlist \
+		--phys build/$(DESIGN).phys \
+		--package $(PACKAGE)
+
 debug_verbose: build/$(DESIGN).netlist
 	gdb --args $(NEXTPNR_BIN) \
 		--chipdb $(BBA_PATH) \
@@ -80,6 +105,15 @@ debug_verbose: build/$(DESIGN).netlist
 		--phys build/$(DESIGN).phys \
 		--package $(PACKAGE) \
 		--verbose
+
+debug_verbose2: build/$(DESIGN).netlist
+	gdb --args $(NEXTPNR_BIN) \
+		--chipdb $(BBA_PATH) \
+		--xdc $(DESIGN).xdc \
+		--netlist build/$(DESIGN).netlist \
+		--phys build/$(DESIGN).phys \
+		--package $(PACKAGE) \
+		--debug
 
 build/$(DESIGN).dcp: build/$(DESIGN).netlist build/$(DESIGN).phys $(DESIGN).xdc
 	RAPIDWRIGHT_PATH=$(RAPIDWRIGHT_PATH) \

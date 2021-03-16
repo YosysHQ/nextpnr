@@ -21,30 +21,30 @@
 #ifndef SAMPLER_H_
 #define SAMPLER_H_
 
-#include <vector>
 #include <cstdint>
 #include <functional>
 #include <stdexcept>
+#include <vector>
 
 namespace nextpnr {
 
 // Given a set of coordinates, generates random samples that are geometric
 // distributed.
-struct Sampler {
+struct Sampler
+{
 
     void divide_samples(size_t target_sample_count, const std::vector<std::pair<int32_t, int32_t>> &samples);
 
-    size_t number_of_regions() const {
-        return splits.size() - 1;
-    }
+    size_t number_of_regions() const { return splits.size() - 1; }
 
-    size_t get_sample_from_region(size_t region, std::function<int32_t()> rng) const {
-        if(region >= (splits.size() - 1)) {
+    size_t get_sample_from_region(size_t region, std::function<int32_t()> rng) const
+    {
+        if (region >= (splits.size() - 1)) {
             throw std::runtime_error("region out of range");
         }
         size_t split_begin = splits[region];
-        size_t split_end = splits[region+1];
-        if(split_begin == split_end) {
+        size_t split_end = splits[region + 1];
+        if (split_begin == split_end) {
             throw std::runtime_error("Splits should never be empty!");
         }
 
@@ -52,7 +52,8 @@ struct Sampler {
         return indicies[split_begin + (rng() % (split_end - split_begin))];
     }
 
-    size_t get_sample(std::function<int32_t()> rng) const {
+    size_t get_sample(std::function<int32_t()> rng) const
+    {
         size_t region = rng() % number_of_regions();
         return get_sample_from_region(region, rng);
     }
@@ -61,6 +62,6 @@ struct Sampler {
     std::vector<size_t> splits;
 };
 
-}
+} // namespace nextpnr
 
 #endif /* SAMPLER_H_ */

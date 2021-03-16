@@ -21,9 +21,9 @@
 #ifndef ARCH_ITERATORS_H
 #define ARCH_ITERATORS_H
 
+#include "chipdb.h"
 #include "nextpnr_namespaces.h"
 #include "nextpnr_types.h"
-#include "chipdb.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -359,7 +359,7 @@ struct DownhillPipIterator
 
     int32_t tile;
     int32_t tile_type;
-    const RelSlice<int32_t> * pips_downhill = nullptr;
+    const RelSlice<int32_t> *pips_downhill = nullptr;
 
     void operator++()
     {
@@ -368,7 +368,7 @@ struct DownhillPipIterator
             if (!(twi != twi_end))
                 break;
 
-            if(pips_downhill == nullptr) {
+            if (pips_downhill == nullptr) {
                 WireId w = *twi;
                 tile_type = chip->tiles[w.tile].type;
                 const TileTypeInfoPOD &type = chip->tile_types[tile_type];

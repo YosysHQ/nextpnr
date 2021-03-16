@@ -24,18 +24,20 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-void SiteRoutingSolution::store_solution(const SiteArch * ctx, const RouteNodeStorage *node_storage, const SiteWire & driver, std::vector<size_t> solutions) {
+void SiteRoutingSolution::store_solution(const SiteArch *ctx, const RouteNodeStorage *node_storage,
+                                         const SiteWire &driver, std::vector<size_t> solutions)
+{
     clear();
 
     solution_sinks.reserve(solutions.size());
 
-    for(size_t route : solutions) {
+    for (size_t route : solutions) {
         SiteWire wire = node_storage->get_node(route)->wire;
         solution_sinks.push_back(wire);
 
         solution_offsets.push_back(solution_storage.size());
         Node cursor = node_storage->get_node(route);
-        while(cursor.has_parent()) {
+        while (cursor.has_parent()) {
             solution_storage.push_back(cursor->pip);
             Node parent = cursor.parent();
             NPNR_ASSERT(ctx->getPipDstWire(cursor->pip) == cursor->wire);
@@ -49,9 +51,10 @@ void SiteRoutingSolution::store_solution(const SiteArch * ctx, const RouteNodeSt
     solution_offsets.push_back(solution_storage.size());
 }
 
-void SiteRoutingSolution::verify(const SiteArch * ctx, const SiteNetInfo & net) {
+void SiteRoutingSolution::verify(const SiteArch *ctx, const SiteNetInfo &net)
+{
     absl::flat_hash_set<SiteWire> seen_users;
-    for(size_t i = 0; i < num_solutions(); ++i) {
+    for (size_t i = 0; i < num_solutions(); ++i) {
         SiteWire cursor = solution_sink(i);
         NPNR_ASSERT(net.users.count(cursor) == 1);
         seen_users.emplace(cursor);
@@ -59,7 +62,7 @@ void SiteRoutingSolution::verify(const SiteArch * ctx, const SiteNetInfo & net) 
         auto begin = solution_begin(i);
         auto end = solution_end(i);
 
-        for(auto iter = begin; iter != end; ++iter) {
+        for (auto iter = begin; iter != end; ++iter) {
             SitePip pip = *iter;
             NPNR_ASSERT(ctx->getPipDstWire(pip) == cursor);
             cursor = ctx->getPipSrcWire(pip);
@@ -71,7 +74,8 @@ void SiteRoutingSolution::verify(const SiteArch * ctx, const SiteNetInfo & net) 
     NPNR_ASSERT(seen_users.size() == net.users.size());
 }
 
-SiteRoutingKey SiteRoutingKey::make(const SiteArch * ctx, const SiteNetInfo & site_net) {
+SiteRoutingKey SiteRoutingKey::make(const SiteArch *ctx, const SiteNetInfo &site_net)
+{
     SiteRoutingKey out;
 
     out.tile_type = ctx->site_info->tile_type;
@@ -79,7 +83,7 @@ SiteRoutingKey SiteRoutingKey::make(const SiteArch * ctx, const SiteNetInfo & si
 
     out.net_type = ctx->ctx->get_net_type(site_net.net);
     out.driver_type = site_net.driver.type;
-    if(site_net.driver.type == SiteWire::SITE_WIRE) {
+    if (site_net.driver.type == SiteWire::SITE_WIRE) {
         out.driver_index = site_net.driver.wire.index;
     } else {
         NPNR_ASSERT(site_net.driver.type == SiteWire::OUT_OF_SITE_SOURCE);
@@ -95,10 +99,10 @@ SiteRoutingKey SiteRoutingKey::make(const SiteArch * ctx, const SiteNetInfo & si
 
     std::sort(users.begin(), users.end());
 
-    for(const SiteWire &user : users) {
+    for (const SiteWire &user : users) {
         out.user_types.push_back(user.type);
 
-        if(user.type == SiteWire::SITE_WIRE) {
+        if (user.type == SiteWire::SITE_WIRE) {
             out.user_indicies.push_back(user.wire.index);
         } else {
             NPNR_ASSERT(user.type == SiteWire::OUT_OF_SITE_SINK);
@@ -109,18 +113,19 @@ SiteRoutingKey SiteRoutingKey::make(const SiteArch * ctx, const SiteNetInfo & si
     return out;
 }
 
-bool SiteRoutingCache::get_solution(const SiteArch * ctx, const SiteNetInfo &net, SiteRoutingSolution * solution) const {
+bool SiteRoutingCache::get_solution(const SiteArch *ctx, const SiteNetInfo &net, SiteRoutingSolution *solution) const
+{
     SiteRoutingKey key = SiteRoutingKey::make(ctx, net);
     auto iter = cache_.find(key);
-    if(iter == cache_.end()) {
+    if (iter == cache_.end()) {
         return false;
     }
 
     *solution = iter->second;
-    const auto & tile_type_data = ctx->site_info->chip_info().tile_types[ctx->site_info->tile_type];
+    const auto &tile_type_data = ctx->site_info->chip_info().tile_types[ctx->site_info->tile_type];
 
-    for(SiteWire & wire : solution->solution_sinks) {
-        switch(wire.type) {
+    for (SiteWire &wire : solution->solution_sinks) {
+        switch (wire.type) {
         case SiteWire::SITE_WIRE:
             wire.wire.tile = ctx->site_info->tile;
             break;
@@ -131,13 +136,13 @@ bool SiteRoutingCache::get_solution(const SiteArch * ctx, const SiteNetInfo &net
             wire.net = net.net;
             break;
         case SiteWire::SITE_PORT_SINK: {
-            const auto & pip_data = tile_type_data.pip_data[wire.pip.index];
+            const auto &pip_data = tile_type_data.pip_data[wire.pip.index];
             wire.pip.tile = ctx->site_info->tile;
             wire.wire = canonical_wire(&ctx->site_info->chip_info(), ctx->site_info->tile, pip_data.dst_index);
             break;
         }
-        case SiteWire::SITE_PORT_SOURCE:{
-            const auto & pip_data = tile_type_data.pip_data[wire.pip.index];
+        case SiteWire::SITE_PORT_SOURCE: {
+            const auto &pip_data = tile_type_data.pip_data[wire.pip.index];
             wire.pip.tile = ctx->site_info->tile;
             wire.wire = canonical_wire(&ctx->site_info->chip_info(), ctx->site_info->tile, pip_data.src_index);
             break;
@@ -147,9 +152,9 @@ bool SiteRoutingCache::get_solution(const SiteArch * ctx, const SiteNetInfo &net
         }
     }
 
-    for(SitePip & pip : solution->solution_storage) {
+    for (SitePip &pip : solution->solution_storage) {
         pip.pip.tile = ctx->site_info->tile;
-        switch(pip.type) {
+        switch (pip.type) {
         case SitePip::SITE_PIP:
             // Done!
             break;
@@ -177,7 +182,8 @@ bool SiteRoutingCache::get_solution(const SiteArch * ctx, const SiteNetInfo &net
     return true;
 }
 
-void SiteRoutingCache::add_solutions(const SiteArch * ctx, const SiteNetInfo &net, const SiteRoutingSolution & solution) {
+void SiteRoutingCache::add_solutions(const SiteArch *ctx, const SiteNetInfo &net, const SiteRoutingSolution &solution)
+{
     SiteRoutingKey key = SiteRoutingKey::make(ctx, net);
 
     cache_[key] = solution;

@@ -19,7 +19,6 @@
  *
  */
 
-
 #include "arch.h"
 
 #include <algorithm>
@@ -47,6 +46,7 @@
 
 //#define DEBUG_BINDING
 //#define USE_LOOKAHEAD
+//#define DEBUG_CELL_PIN_MAPPING
 
 NEXTPNR_NAMESPACE_BEGIN
 struct SiteBelPair
@@ -256,7 +256,8 @@ Arch::Arch(ArchArgs args) : args(args)
     default_tags.resize(max_tag_count);
 }
 
-void Arch::init() {
+void Arch::init()
+{
 #ifdef USE_LOOKAHEAD
     lookahead.init(getCtx(), getCtx());
 #endif
@@ -676,16 +677,16 @@ ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
     x1 += 2;
     y1 += 2;
 
-    if(x0 < 0) {
+    if (x0 < 0) {
         x0 = 0;
     }
-    if(y0 < 0) {
+    if (y0 < 0) {
         y0 = 0;
     }
-    if(x1 >= chip_info->width) {
+    if (x1 >= chip_info->width) {
         x1 = chip_info->width - 1;
     }
-    if(y1 >= chip_info->height) {
+    if (y1 >= chip_info->height) {
         y1 = chip_info->height - 1;
     }
 
@@ -754,28 +755,28 @@ bool Arch::route()
     }
 
     absl::flat_hash_set<WireId> wires_to_unbind;
-    for(auto & net_pair : nets) {
-        for(auto & wire_pair: net_pair.second->wires) {
+    for (auto &net_pair : nets) {
+        for (auto &wire_pair : net_pair.second->wires) {
             WireId wire = wire_pair.first;
-            if(wire_pair.second.strength != STRENGTH_PLACER) {
+            if (wire_pair.second.strength != STRENGTH_PLACER) {
                 // Only looking for bound placer wires
                 continue;
             }
 
-            const TileWireInfoPOD & wire_data = wire_info(wire);
+            const TileWireInfoPOD &wire_data = wire_info(wire);
             NPNR_ASSERT(wire_data.site != -1);
 
             wires_to_unbind.emplace(wire);
         }
     }
 
-    for(WireId wire : wires_to_unbind) {
+    for (WireId wire : wires_to_unbind) {
         unbindWire(wire);
     }
 
-    for(auto &tile_pair : tileStatus) {
-        for(auto & site_router : tile_pair.second.sites) {
-            if(site_router.cells_in_site.empty()) {
+    for (auto &tile_pair : tileStatus) {
+        for (auto &site_router : tile_pair.second.sites) {
+            if (site_router.cells_in_site.empty()) {
                 continue;
             }
 
@@ -807,29 +808,28 @@ bool Arch::route_vcc_to_unused_lut_pins()
 {
     std::string router = str_or_default(settings, id("router"), defaultRouter);
 
-    absl::flat_hash_map<WireId, const NetInfo*> bound_wires;
-    for(auto &net_pair : nets) {
+    absl::flat_hash_map<WireId, const NetInfo *> bound_wires;
+    for (auto &net_pair : nets) {
         const NetInfo *net = net_pair.second.get();
-        for(auto &wire_pair : net->wires) {
+        for (auto &wire_pair : net->wires) {
             auto result = bound_wires.emplace(wire_pair.first, net);
             NPNR_ASSERT(result.first->second == net);
 
             PipId pip = wire_pair.second.pip;
-            if(pip == PipId()) {
+            if (pip == PipId()) {
                 continue;
             }
 
             const PipInfoPOD &pip_data = pip_info(chip_info, pip);
 #ifdef DEBUG_LUT_MAPPING
-            if(getCtx()->verbose) {
-                log_info("Pip %s in use, has %zu pseudo wires!\n",
-                        nameOfPip(pip), pip_data.pseudo_cell_wires.size());
+            if (getCtx()->verbose) {
+                log_info("Pip %s in use, has %zu pseudo wires!\n", nameOfPip(pip), pip_data.pseudo_cell_wires.size());
             }
 #endif
 
             WireId wire;
             wire.tile = pip.tile;
-            for(int32_t wire_index : pip_data.pseudo_cell_wires) {
+            for (int32_t wire_index : pip_data.pseudo_cell_wires) {
                 wire.index = wire_index;
                 auto result = bound_wires.emplace(wire, net);
                 NPNR_ASSERT(result.first->second == net);
@@ -859,18 +859,16 @@ bool Arch::route_vcc_to_unused_lut_pins()
             auto iter = bound_wires.find(lut_pin_wire);
             if (iter != bound_wires.end()) {
 #ifdef DEBUG_LUT_MAPPING
-                if(getCtx()->verbose) {
-                    log_info("%s is now used as a LUT route-through, not tying to VCC\n",
-                            nameOfWire(lut_pin_wire));
+                if (getCtx()->verbose) {
+                    log_info("%s is now used as a LUT route-through, not tying to VCC\n", nameOfWire(lut_pin_wire));
                 }
 #endif
                 continue;
             }
 
 #ifdef DEBUG_LUT_MAPPING
-            if(getCtx()->verbose) {
-                log_info("%s is an unused LUT pin, tying to VCC\n",
-                        nameOfWire(lut_pin_wire));
+            if (getCtx()->verbose) {
+                log_info("%s is an unused LUT pin, tying to VCC\n", nameOfWire(lut_pin_wire));
             }
 #endif
 
@@ -1008,7 +1006,8 @@ const std::vector<std::string> Arch::availablePlacers = {"sa",
 const std::string Arch::defaultRouter = "router2";
 const std::vector<std::string> Arch::availableRouters = {"router1", "router2"};
 
-bool parameter_compare(const std::string & database_param, const std::string & netlist_param) {
+bool parameter_compare(const std::string &database_param, const std::string &netlist_param)
+{
 
     bool result = false;
     try {
@@ -1017,15 +1016,14 @@ bool parameter_compare(const std::string & database_param, const std::string & n
         int netlist_value = std::stoi(netlist_param, &idx, 2);
 
         result = database_value == netlist_value;
-    } catch(std::invalid_argument & e) {
+    } catch (std::invalid_argument &e) {
         result = database_param == netlist_param;
-    } catch(std::out_of_range & e) {
+    } catch (std::out_of_range &e) {
         result = database_param == netlist_param;
     }
 
 #ifdef DEBUG_CELL_PIN_MAPPING
-    log_info("%s == %s => %d\n",
-            database_param.c_str(), netlist_param.c_str(), result);
+    log_info("%s == %s => %d\n", database_param.c_str(), netlist_param.c_str(), result);
 #endif
     return result;
 }
@@ -1121,7 +1119,7 @@ void Arch::map_cell_pins(CellInfo *cell, int32_t mapping, bool bind_constants)
             continue;
         }
 
-        if(!parameter_compare(param_value, iter->second.as_string())) {
+        if (!parameter_compare(param_value, iter->second.as_string())) {
             continue;
         }
 
@@ -1190,12 +1188,10 @@ void Arch::map_cell_pins(CellInfo *cell, int32_t mapping, bool bind_constants)
     }
 
 #ifdef DEBUG_CELL_PIN_MAPPING
-    log_info("Pin mapping for cell %s (type: %s)\n",
-            cell->name.c_str(getCtx()),
-            cell->type.c_str(getCtx()));
-    for(auto & pin_pair : cell->cell_bel_pins) {
+    log_info("Pin mapping for cell %s (type: %s)\n", cell->name.c_str(getCtx()), cell->type.c_str(getCtx()));
+    for (auto &pin_pair : cell->cell_bel_pins) {
         log_info(" %s =>", pin_pair.first.c_str(getCtx()));
-        for(IdString bel_pin : pin_pair.second) {
+        for (IdString bel_pin : pin_pair.second) {
             log(" %s", bel_pin.c_str(getCtx()));
         }
         log("\n");
@@ -1486,49 +1482,48 @@ void Arch::decode_lut_cells()
     }
 }
 
-void Arch::remove_pip_pseudo_wires(PipId pip, NetInfo *net) {
+void Arch::remove_pip_pseudo_wires(PipId pip, NetInfo *net)
+{
     WireId wire;
     wire.tile = pip.tile;
     const PipInfoPOD &pip_data = pip_info(chip_info, pip);
-    for(int32_t wire_index : pip_data.pseudo_cell_wires) {
+    for (int32_t wire_index : pip_data.pseudo_cell_wires) {
         NPNR_ASSERT(wire_index != -1);
         wire.index = wire_index;
 
         auto iter = wire_to_net.find(wire);
         NPNR_ASSERT(iter != wire_to_net.end());
         // This wire better already have been assigned to this net!
-        if(iter->second != net) {
-            if(iter->second == nullptr) {
-                log_error("Wire %s part of pseudo pip %s but net is null\n",
-                        nameOfWire(wire), nameOfPip(pip));
+        if (iter->second != net) {
+            if (iter->second == nullptr) {
+                log_error("Wire %s part of pseudo pip %s but net is null\n", nameOfWire(wire), nameOfPip(pip));
             } else {
-                log_error("Wire %s part of pseudo pip %s but net is '%s' instead of net '%s'\n",
-                        nameOfWire(wire), nameOfPip(pip),
-                        iter->second->name.c_str(this),
-                        net->name.c_str(this));
+                log_error("Wire %s part of pseudo pip %s but net is '%s' instead of net '%s'\n", nameOfWire(wire),
+                          nameOfPip(pip), iter->second->name.c_str(this), net->name.c_str(this));
             }
         }
 
         auto wire_iter = net->wires.find(wire);
-        if(wire_iter != net->wires.end()) {
+        if (wire_iter != net->wires.end()) {
 #ifdef DEBUG_BINDING
-            if(getCtx()->verbose) {
+            if (getCtx()->verbose) {
                 log_info("Removing %s from net %s, but it's in net wires\n", nameOfWire(wire), net->name.c_str(this));
             }
 #endif
             // This wire is part of net->wires, make sure it has no pip,
             // but leave it alone.  It will get cleaned up via
             // unbindWire.
-            if(wire_iter->second.pip != PipId() && wire_iter->second.pip != pip) {
-                log_error("Wire %s report source'd from pip %s, which is not %s\n",
-                        nameOfWire(wire), nameOfPip(wire_iter->second.pip), nameOfPip(pip));
+            if (wire_iter->second.pip != PipId() && wire_iter->second.pip != pip) {
+                log_error("Wire %s report source'd from pip %s, which is not %s\n", nameOfWire(wire),
+                          nameOfPip(wire_iter->second.pip), nameOfPip(pip));
             }
             NPNR_ASSERT(wire_iter->second.pip == PipId() || wire_iter->second.pip == pip);
         } else {
             // This wire is not in net->wires, update wire_to_net.
 #ifdef DEBUG_BINDING
-            if(getCtx()->verbose) {
-                log_info("Removing %s from net %s in remove_pip_pseudo_wires\n", nameOfWire(wire), net->name.c_str(this));
+            if (getCtx()->verbose) {
+                log_info("Removing %s from net %s in remove_pip_pseudo_wires\n", nameOfWire(wire),
+                         net->name.c_str(this));
             }
 #endif
             iter->second = nullptr;
@@ -1536,20 +1531,19 @@ void Arch::remove_pip_pseudo_wires(PipId pip, NetInfo *net) {
     }
 }
 
-
-void Arch::assign_net_to_wire(WireId wire, NetInfo *net, const char *src, bool require_empty) {
+void Arch::assign_net_to_wire(WireId wire, NetInfo *net, const char *src, bool require_empty)
+{
 #ifdef DEBUG_BINDING
-    if(getCtx()->verbose) {
-        log_info("Assigning wire %s to %s from %s\n",
-            nameOfWire(wire), net->name.c_str(this), src);
+    if (getCtx()->verbose) {
+        log_info("Assigning wire %s to %s from %s\n", nameOfWire(wire), net->name.c_str(this), src);
     }
 #endif
     NPNR_ASSERT(net != nullptr);
     auto result = wire_to_net.emplace(wire, net);
-    if(!result.second) {
+    if (!result.second) {
         // This wire was already in the map, make sure this assignment was
         // legal.
-        if(require_empty) {
+        if (require_empty) {
             NPNR_ASSERT(result.first->second == nullptr);
         } else {
             NPNR_ASSERT(result.first->second == nullptr || result.first->second == net);
@@ -1558,10 +1552,11 @@ void Arch::assign_net_to_wire(WireId wire, NetInfo *net, const char *src, bool r
     }
 }
 
-void Arch::unassign_wire(WireId wire) {
+void Arch::unassign_wire(WireId wire)
+{
     NPNR_ASSERT(wire != WireId());
 #ifdef DEBUG_BINDING
-    if(getCtx()->verbose) {
+    if (getCtx()->verbose) {
         log_info("unassign_wire %s\n", nameOfWire(wire));
     }
 #endif
@@ -1579,9 +1574,8 @@ void Arch::unassign_wire(WireId wire) {
     auto pip = it->second.pip;
     if (pip != PipId()) {
 #ifdef DEBUG_BINDING
-        if(getCtx()->verbose) {
-            log_info("Removing pip %s because it was used to reach wire %s\n",
-                    nameOfPip(pip), nameOfWire(wire));
+        if (getCtx()->verbose) {
+            log_info("Removing pip %s because it was used to reach wire %s\n", nameOfPip(pip), nameOfWire(wire));
         }
 #endif
         auto pip_iter = pip_to_net.find(pip);
@@ -1593,7 +1587,7 @@ void Arch::unassign_wire(WireId wire) {
 
     net_wires.erase(it);
 #ifdef DEBUG_BINDING
-    if(getCtx()->verbose) {
+    if (getCtx()->verbose) {
         log_info("Removing %s from net %s in unassign_wire\n", nameOfWire(wire), net->name.c_str(this));
     }
 #endif
@@ -1604,7 +1598,7 @@ void Arch::unbindPip(PipId pip)
 {
     NPNR_ASSERT(pip != PipId());
 #ifdef DEBUG_BINDING
-    if(getCtx()->verbose) {
+    if (getCtx()->verbose) {
         log_info("unbindPip %s\n", nameOfPip(pip));
     }
 #endif
@@ -1624,7 +1618,7 @@ void Arch::unbindPip(PipId pip)
     // Clear the net now.
     pip_iter->second = nullptr;
 #ifdef DEBUG_BINDING
-    if(getCtx()->verbose) {
+    if (getCtx()->verbose) {
         log_info("Removing %s from net %s in unbindPip\n", nameOfWire(dst), net->name.c_str(this));
     }
 #endif
@@ -1639,7 +1633,7 @@ void Arch::bindPip(PipId pip, NetInfo *net, PlaceStrength strength)
 {
     NPNR_ASSERT(pip != PipId());
 #ifdef DEBUG_BINDING
-    if(getCtx()->verbose) {
+    if (getCtx()->verbose) {
         log_info("bindPip %s (%d/%d) to net %s\n", nameOfPip(pip), pip.tile, pip.index, net->name.c_str(this));
     }
 #endif
@@ -1649,7 +1643,7 @@ void Arch::bindPip(PipId pip, NetInfo *net, PlaceStrength strength)
     {
         // Pip should not already be assigned to anything.
         auto result = pip_to_net.emplace(pip, net);
-        if(!result.second) {
+        if (!result.second) {
             NPNR_ASSERT(result.first->second == nullptr);
             result.first->second = net;
         }
@@ -1671,13 +1665,12 @@ void Arch::bindWire(WireId wire, NetInfo *net, PlaceStrength strength)
 {
     NPNR_ASSERT(wire != WireId());
 #ifdef DEBUG_BINDING
-    if(getCtx()->verbose) {
-        log_info("bindWire %s to net %s\n",
-                nameOfWire(wire), net->name.c_str(this));
+    if (getCtx()->verbose) {
+        log_info("bindWire %s to net %s\n", nameOfWire(wire), net->name.c_str(this));
     }
 #endif
     assign_net_to_wire(wire, net, "bindWire", /*require_empty=*/true);
-    auto & pip_map = net->wires[wire];
+    auto &pip_map = net->wires[wire];
     pip_map.pip = PipId();
     pip_map.strength = strength;
     refreshUiWire(wire);
@@ -1687,14 +1680,12 @@ bool Arch::checkPipAvail(PipId pip) const
 {
     NPNR_ASSERT(pip != PipId());
     auto pip_iter = pip_to_net.find(pip);
-    if(pip_iter != pip_to_net.end() && pip_iter->second != nullptr) {
+    if (pip_iter != pip_to_net.end() && pip_iter->second != nullptr) {
         NPNR_ASSERT(pip_iter->first == pip);
 #ifdef DEBUG_BINDING
-        if(getCtx()->verbose) {
-            log_info("Pip %s (%d/%d) is not available, tied to net %s\n",
-                    getCtx()->nameOfPip(pip),
-                    pip.tile, pip.index,
-                    pip_iter->second->name.c_str(getCtx()));
+        if (getCtx()->verbose) {
+            log_info("Pip %s (%d/%d) is not available, tied to net %s\n", getCtx()->nameOfPip(pip), pip.tile, pip.index,
+                     pip_iter->second->name.c_str(getCtx()));
         }
 #endif
         return false;
@@ -1704,11 +1695,11 @@ bool Arch::checkPipAvail(PipId pip) const
     WireId dst = getPipDstWire(pip);
 
     auto wire_iter = wire_to_net.find(dst);
-    if(wire_iter != wire_to_net.end()) {
+    if (wire_iter != wire_to_net.end()) {
         NetInfo *net = wire_iter->second;
-        if(net != nullptr) {
+        if (net != nullptr) {
             auto net_iter = net->wires.find(dst);
-            if(net_iter != net->wires.end()) {
+            if (net_iter != net->wires.end()) {
                 // dst is already driven in this net, do not allow!
                 return false;
             }
@@ -1720,19 +1711,17 @@ bool Arch::checkPipAvail(PipId pip) const
     const PipInfoPOD &pip_data = pip_info(chip_info, pip);
     WireId wire;
     wire.tile = pip.tile;
-    for(int32_t wire_index : pip_data.pseudo_cell_wires) {
+    for (int32_t wire_index : pip_data.pseudo_cell_wires) {
         wire.index = wire_index;
         NPNR_ASSERT(src != wire);
         NPNR_ASSERT(dst != wire);
 
         NetInfo *net = getConflictingWireNet(wire);
-        if(net != nullptr) {
+        if (net != nullptr) {
 #ifdef DEBUG_BINDING
-            if(getCtx()->verbose) {
-                log_info("Pip %s is not available because wire %s is tied to net %s\n",
-                        getCtx()->nameOfPip(pip),
-                        getCtx()->nameOfWire(wire),
-                        net->name.c_str(getCtx()));
+            if (getCtx()->verbose) {
+                log_info("Pip %s is not available because wire %s is tied to net %s\n", getCtx()->nameOfPip(pip),
+                         getCtx()->nameOfWire(wire), net->name.c_str(getCtx()));
             }
 #endif
             return false;

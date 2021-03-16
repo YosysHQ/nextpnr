@@ -18,16 +18,17 @@
  *
  */
 
-#include "nextpnr.h"
 #include "type_wire.h"
+#include "nextpnr.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
-TypeWireId::TypeWireId(const Context *ctx, WireId wire_inst) {
+TypeWireId::TypeWireId(const Context *ctx, WireId wire_inst)
+{
     NPNR_ASSERT(wire_inst != WireId());
 
-    if(wire_inst.tile == -1) {
-        auto & tile_wire = ctx->chip_info->nodes[wire_inst.index].tile_wires[0];
+    if (wire_inst.tile == -1) {
+        auto &tile_wire = ctx->chip_info->nodes[wire_inst.index].tile_wires[0];
         type = ctx->chip_info->tiles[tile_wire.tile].type;
         index = tile_wire.index;
     } else {
@@ -36,11 +37,12 @@ TypeWireId::TypeWireId(const Context *ctx, WireId wire_inst) {
     }
 }
 
-TypeWireSet::TypeWireSet(const Context *ctx, WireId wire) {
-    if(wire.tile == -1) {
-        const auto & node_data = ctx->chip_info->nodes[wire.index];
+TypeWireSet::TypeWireSet(const Context *ctx, WireId wire)
+{
+    if (wire.tile == -1) {
+        const auto &node_data = ctx->chip_info->nodes[wire.index];
         wire_types_.reserve(node_data.tile_wires.size());
-        for(const auto & tile_wire : node_data.tile_wires) {
+        for (const auto &tile_wire : node_data.tile_wires) {
             wire_types_.emplace_back();
             wire_types_.back().type = ctx->chip_info->tiles[tile_wire.tile].type;
             wire_types_.back().index = tile_wire.index;
@@ -54,7 +56,7 @@ TypeWireSet::TypeWireSet(const Context *ctx, WireId wire) {
 
     hash_ = 0;
     boost::hash_combine(hash_, std::hash<size_t>()(wire_types_.size()));
-    for(const auto & wire : wire_types_) {
+    for (const auto &wire : wire_types_) {
         boost::hash_combine(hash_, std::hash<NEXTPNR_NAMESPACE_PREFIX TypeWireId>()(wire));
     }
 }

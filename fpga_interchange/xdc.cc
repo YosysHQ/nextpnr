@@ -22,8 +22,8 @@
 
 #include <string>
 
-#include "log.h"
 #include "context.h"
+#include "log.h"
 
 // Include tcl.h late because it messed with #define's and lets them leave the
 // scope of the header.

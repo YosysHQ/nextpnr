@@ -24,42 +24,47 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-SiteInformation::SiteInformation(const Context *ctx, int32_t tile, int32_t site, const std::unordered_set<CellInfo *> &cells_in_site) : ctx(ctx), tile(tile), tile_type(ctx->chip_info->tiles[tile].type), site(site), cells_in_site(cells_in_site) {}
+SiteInformation::SiteInformation(const Context *ctx, int32_t tile, int32_t site,
+                                 const std::unordered_set<CellInfo *> &cells_in_site)
+        : ctx(ctx), tile(tile), tile_type(ctx->chip_info->tiles[tile].type), site(site), cells_in_site(cells_in_site)
+{
+}
 
-bool SiteInformation::is_wire_in_site(WireId wire) const {
-    if(wire.tile != tile) {
+bool SiteInformation::is_wire_in_site(WireId wire) const
+{
+    if (wire.tile != tile) {
         return false;
     }
 
     return ctx->wire_info(wire).site == site;
 }
 
-const ChipInfoPOD & SiteInformation::chip_info() const {
-    return *ctx->chip_info;
-}
+const ChipInfoPOD &SiteInformation::chip_info() const { return *ctx->chip_info; }
 
-bool SiteInformation::is_bel_in_site(BelId bel) const {
-    if(bel.tile != tile) {
+bool SiteInformation::is_bel_in_site(BelId bel) const
+{
+    if (bel.tile != tile) {
         return false;
     }
 
     return bel_info(ctx->chip_info, bel).site == site;
-
 }
 
-bool SiteInformation::is_pip_part_of_site(PipId pip) const {
-    if(pip.tile != tile) {
+bool SiteInformation::is_pip_part_of_site(PipId pip) const
+{
+    if (pip.tile != tile) {
         return false;
     }
 
-    const auto & tile_type_data = ctx->chip_info->tile_types[tile_type];
-    const auto & pip_data = tile_type_data.pip_data[pip.index];
+    const auto &tile_type_data = ctx->chip_info->tile_types[tile_type];
+    const auto &pip_data = tile_type_data.pip_data[pip.index];
     return pip_data.site == site;
 }
 
-bool SiteInformation::is_site_port(PipId pip) const {
-    const auto & tile_type_data = ctx->chip_info->tile_types[tile_type];
-    const auto & pip_data = tile_type_data.pip_data[pip.index];
+bool SiteInformation::is_site_port(PipId pip) const
+{
+    const auto &tile_type_data = ctx->chip_info->tile_types[tile_type];
+    const auto &pip_data = tile_type_data.pip_data[pip.index];
     if (pip_data.site == -1) {
         return false;
     }
@@ -67,7 +72,8 @@ bool SiteInformation::is_site_port(PipId pip) const {
     return bel_data.category == BEL_CATEGORY_SITE_PORT;
 }
 
-void SiteArch::archcheck() {
+void SiteArch::archcheck()
+{
     for (SiteWire wire : getWires()) {
         for (SitePip pip : getPipsDownhill(wire)) {
             SiteWire wire2 = getPipSrcWire(pip);
@@ -81,27 +87,28 @@ void SiteArch::archcheck() {
     }
 }
 
-SiteArch::SiteArch(const SiteInformation *site_info) : ctx(site_info->ctx), site_info(site_info) {
+SiteArch::SiteArch(const SiteInformation *site_info) : ctx(site_info->ctx), site_info(site_info)
+{
     // Build list of input and output site ports
     //
     // FIXME: This doesn't need to be computed over and over, move to
     // arch/chip db.
-    const TileTypeInfoPOD & tile_type = loc_info(&site_info->chip_info(), *site_info);
+    const TileTypeInfoPOD &tile_type = loc_info(&site_info->chip_info(), *site_info);
     PipId pip;
     pip.tile = site_info->tile;
-    for(size_t pip_index = 0; pip_index < tile_type.pip_data.size(); ++pip_index) {
-        if(tile_type.pip_data[pip_index].site != site_info->site) {
+    for (size_t pip_index = 0; pip_index < tile_type.pip_data.size(); ++pip_index) {
+        if (tile_type.pip_data[pip_index].site != site_info->site) {
             continue;
         }
 
         pip.index = pip_index;
 
-        if(!site_info->is_site_port(pip)) {
+        if (!site_info->is_site_port(pip)) {
             continue;
         }
 
         WireId src_wire = ctx->getPipSrcWire(pip);
-        if(site_info->is_wire_in_site(src_wire)) {
+        if (site_info->is_wire_in_site(src_wire)) {
             output_site_ports.push_back(pip);
         } else {
             input_site_ports.push_back(pip);
@@ -113,13 +120,13 @@ SiteArch::SiteArch(const SiteInformation *site_info) : ctx(site_info->ctx), site
     for (CellInfo *cell : site_info->cells_in_site) {
         for (const auto &pin_pair : cell->cell_bel_pins) {
             const PortInfo &port = cell->ports.at(pin_pair.first);
-            if(port.net != nullptr) {
+            if (port.net != nullptr) {
                 nets.emplace(port.net, SiteNetInfo{port.net});
             }
         }
     }
 
-    for(auto &net_pair : nets) {
+    for (auto &net_pair : nets) {
         NetInfo *net = net_pair.first;
         SiteNetInfo &net_info = net_pair.second;
 
@@ -127,21 +134,19 @@ SiteArch::SiteArch(const SiteInformation *site_info) : ctx(site_info->ctx), site
         NPNR_ASSERT(net->driver.cell != nullptr);
 
         bool net_driven_out_of_site = false;
-        if(net->driver.cell->bel == BelId()) {
+        if (net->driver.cell->bel == BelId()) {
             // The driver of this site hasn't been placed, so treat it as
             // out of site.
             out_of_site_sources.push_back(SiteWire::make(site_info, PORT_OUT, net));
             net_info.driver = out_of_site_sources.back();
             net_driven_out_of_site = true;
         } else {
-            if(!site_info->is_bel_in_site(net->driver.cell->bel)) {
+            if (!site_info->is_bel_in_site(net->driver.cell->bel)) {
 
                 // The driver of this site has been placed, it is an out
                 // of site source.
-                out_of_site_sources.push_back(
-                        SiteWire::make(site_info, PORT_OUT,
-                            net));
-                //out_of_site_sources.back().wire = ctx->getNetinfoSourceWire(net);
+                out_of_site_sources.push_back(SiteWire::make(site_info, PORT_OUT, net));
+                // out_of_site_sources.back().wire = ctx->getNetinfoSourceWire(net);
                 net_info.driver = out_of_site_sources.back();
 
                 net_driven_out_of_site = true;
@@ -150,7 +155,7 @@ SiteArch::SiteArch(const SiteInformation *site_info) : ctx(site_info->ctx), site
             }
         }
 
-        if(net_driven_out_of_site) {
+        if (net_driven_out_of_site) {
             // Because this net is driven from a source out of the site,
             // no out of site sink is required.
             continue;
@@ -158,13 +163,13 @@ SiteArch::SiteArch(const SiteInformation *site_info) : ctx(site_info->ctx), site
 
         // Examine net to determine if it has any users not in this site.
         bool net_used_out_of_site = false;
-        for(const PortRef & user : net->users) {
-            if(user.cell == nullptr) {
+        for (const PortRef &user : net->users) {
+            if (user.cell == nullptr) {
                 // This is pretty weird!
                 continue;
             }
 
-            if(user.cell->bel == BelId()) {
+            if (user.cell->bel == BelId()) {
                 // Because this net has a user that has not been placed,
                 // and this net is being driven from this site, make sure
                 // this net can be routed from this site.
@@ -172,39 +177,37 @@ SiteArch::SiteArch(const SiteInformation *site_info) : ctx(site_info->ctx), site
                 break;
             }
 
-            if(!site_info->is_bel_in_site(user.cell->bel)) {
+            if (!site_info->is_bel_in_site(user.cell->bel)) {
                 net_used_out_of_site = true;
                 break;
             }
         }
 
-        if(net_used_out_of_site) {
-            out_of_site_sinks.push_back(
-                    SiteWire::make(site_info, PORT_IN,
-                        net));
+        if (net_used_out_of_site) {
+            out_of_site_sinks.push_back(SiteWire::make(site_info, PORT_IN, net));
             net_info.users.emplace(out_of_site_sinks.back());
         }
     }
 
     // At this point all nets have a driver SiteWire, but user SiteWire's
     // within the site are not present.  Add them now.
-    for(auto &net_pair : nets) {
+    for (auto &net_pair : nets) {
         NetInfo *net = net_pair.first;
         SiteNetInfo &net_info = net_pair.second;
 
-        for(const PortRef & user : net->users) {
-            if(!site_info->is_bel_in_site(user.cell->bel)) {
+        for (const PortRef &user : net->users) {
+            if (!site_info->is_bel_in_site(user.cell->bel)) {
                 // Only care about BELs within the site at this point.
                 continue;
             }
 
-            for(IdString bel_pin : ctx->getBelPinsForCellPin(user.cell, user.port)) {
+            for (IdString bel_pin : ctx->getBelPinsForCellPin(user.cell, user.port)) {
                 SiteWire wire = getBelPinWire(user.cell->bel, bel_pin);
                 // Don't add users that are trivially routable!
-                if(wire != net_info.driver) {
-                    if(ctx->debug) {
-                        log_info("Add user %s because it isn't driver %s\n",
-                                nameOfWire(wire), nameOfWire(net_info.driver));
+                if (wire != net_info.driver) {
+                    if (ctx->debug) {
+                        log_info("Add user %s because it isn't driver %s\n", nameOfWire(wire),
+                                 nameOfWire(net_info.driver));
                     }
                     net_info.users.emplace(wire);
                 }
@@ -212,7 +215,7 @@ SiteArch::SiteArch(const SiteInformation *site_info) : ctx(site_info->ctx), site
         }
     }
 
-    for(auto &net_pair : nets) {
+    for (auto &net_pair : nets) {
         SiteNetInfo *net_info = &net_pair.second;
         auto result = wire_to_nets.emplace(net_info->driver, SiteNetMap{net_info, 1});
         // By this point, trivial congestion at sources should already by
@@ -220,16 +223,17 @@ SiteArch::SiteArch(const SiteInformation *site_info) : ctx(site_info->ctx), site
         // driver/users data.
         NPNR_ASSERT(result.second);
 
-        for(const auto &user : net_info->users) {
+        for (const auto &user : net_info->users) {
             result = wire_to_nets.emplace(user, SiteNetMap{net_info, 1});
             NPNR_ASSERT(result.second);
         }
     }
 }
 
-SiteWire SiteArch::getPipSrcWire(const SitePip &site_pip) const {
+SiteWire SiteArch::getPipSrcWire(const SitePip &site_pip) const
+{
     SiteWire site_wire;
-    switch(site_pip.type) {
+    switch (site_pip.type) {
     case SitePip::Type::SITE_PIP:
         return SiteWire::make(site_info, ctx->getPipSrcWire(site_pip.pip));
     case SitePip::Type::SITE_PORT:
@@ -251,8 +255,9 @@ SiteWire SiteArch::getPipSrcWire(const SitePip &site_pip) const {
     }
 }
 
-SiteWire SiteArch::getPipDstWire(const SitePip &site_pip) const {
-    switch(site_pip.type) {
+SiteWire SiteArch::getPipDstWire(const SitePip &site_pip) const
+{
+    switch (site_pip.type) {
     case SitePip::Type::SITE_PIP:
         return SiteWire::make(site_info, ctx->getPipDstWire(site_pip.pip));
     case SitePip::Type::SITE_PORT:
@@ -276,17 +281,17 @@ SiteWire SiteArch::getPipDstWire(const SitePip &site_pip) const {
     }
 }
 
-SiteWire SiteArch::getBelPinWire(BelId bel, IdString pin) const {
+SiteWire SiteArch::getBelPinWire(BelId bel, IdString pin) const
+{
     WireId wire = ctx->getBelPinWire(bel, pin);
     return SiteWire::make(site_info, wire);
 }
 
-PortType SiteArch::getBelPinType(BelId bel, IdString pin) const {
-    return ctx->getBelPinType(bel, pin);
-}
+PortType SiteArch::getBelPinType(BelId bel, IdString pin) const { return ctx->getBelPinType(bel, pin); }
 
-const char * SiteArch::nameOfWire(const SiteWire &wire) const {
-    switch(wire.type) {
+const char *SiteArch::nameOfWire(const SiteWire &wire) const
+{
+    switch (wire.type) {
     case SiteWire::SITE_WIRE:
         return ctx->nameOfWire(wire.wire);
     case SiteWire::SITE_PORT_SINK:
@@ -303,8 +308,9 @@ const char * SiteArch::nameOfWire(const SiteWire &wire) const {
     }
 }
 
-const char * SiteArch::nameOfPip(const SitePip &pip) const {
-    switch(pip.type) {
+const char *SiteArch::nameOfPip(const SitePip &pip) const
+{
+    switch (pip.type) {
     case SitePip::SITE_PIP:
         return ctx->nameOfPip(pip.pip);
     case SitePip::SITE_PORT:
@@ -321,23 +327,23 @@ const char * SiteArch::nameOfPip(const SitePip &pip) const {
     }
 }
 
-const char * SiteArch::nameOfNet(const SiteNetInfo *net) const {
-    return net->net->name.c_str(ctx);
-}
+const char *SiteArch::nameOfNet(const SiteNetInfo *net) const { return net->net->name.c_str(ctx); }
 
-bool SiteArch::debug() const {
-    return ctx->debug;
-}
+bool SiteArch::debug() const { return ctx->debug; }
 
-
-const RelSlice<int32_t> * SitePipDownhillRange::init_pip_range() const {
+const RelSlice<int32_t> *SitePipDownhillRange::init_pip_range() const
+{
     NPNR_ASSERT(site_wire.type == SiteWire::SITE_WIRE);
     NPNR_ASSERT(site_wire.wire.tile == site_arch->site_info->tile);
-    return &site_arch->ctx->chip_info->tile_types[site_arch->site_info->tile_type].wire_data[site_wire.wire.index].pips_downhill;
+    return &site_arch->ctx->chip_info->tile_types[site_arch->site_info->tile_type]
+                    .wire_data[site_wire.wire.index]
+                    .pips_downhill;
 }
 
-SitePipUphillRange::SitePipUphillRange(const SiteArch *site_arch, SiteWire site_wire) : site_arch(site_arch), site_wire(site_wire) {
-    switch(site_wire.type) {
+SitePipUphillRange::SitePipUphillRange(const SiteArch *site_arch, SiteWire site_wire)
+        : site_arch(site_arch), site_wire(site_wire)
+{
+    switch (site_wire.type) {
     case SiteWire::SITE_WIRE:
         pip_range = site_arch->ctx->getPipsUphill(site_wire.wire);
         break;
@@ -364,7 +370,7 @@ SiteWire SiteWireIterator::operator*() const
     WireId wire;
     PipId pip;
     SiteWire site_wire;
-    switch(state) {
+    switch (state) {
     case NORMAL_WIRES:
         wire.tile = site_arch->site_info->tile;
         wire.index = cursor;
@@ -389,8 +395,9 @@ SiteWire SiteWireIterator::operator*() const
     }
 }
 
-bool SiteArch::is_pip_synthetic(const SitePip &pip) const {
-    if(pip.type != SitePip::SITE_PORT) {
+bool SiteArch::is_pip_synthetic(const SitePip &pip) const
+{
+    if (pip.type != SitePip::SITE_PORT) {
         // This isn't a site port, so its valid!
         return false;
     }

@@ -32,11 +32,11 @@
 #include "nextpnr_types.h"
 #include "relptr.h"
 
-#include "dedicated_interconnect.h"
-#include "site_router.h"
-#include "lookahead.h"
-#include "chipdb.h"
 #include "arch_iterators.h"
+#include "chipdb.h"
+#include "dedicated_interconnect.h"
+#include "lookahead.h"
+#include "site_router.h"
 #include "site_routing_cache.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -211,11 +211,12 @@ struct Arch : ArchAPI<ArchRanges>
         return bel;
     }
 
-    PhysicalNetlist::PhysNetlist::NetType get_net_type(NetInfo * net) const {
+    PhysicalNetlist::PhysNetlist::NetType get_net_type(NetInfo *net) const
+    {
         NPNR_ASSERT(net->driver.cell != nullptr);
-        if(net->driver.cell->bel == get_gnd_bel()) {
+        if (net->driver.cell->bel == get_gnd_bel()) {
             return PhysicalNetlist::PhysNetlist::NetType::GND;
-        } else if(net->driver.cell->bel == get_vcc_bel()) {
+        } else if (net->driver.cell->bel == get_vcc_bel()) {
             return PhysicalNetlist::PhysNetlist::NetType::VCC;
         } else {
             return PhysicalNetlist::PhysNetlist::NetType::SIGNAL;
@@ -517,12 +518,13 @@ struct Arch : ArchAPI<ArchRanges>
 
     void assign_net_to_wire(WireId wire, NetInfo *net, const char *src, bool require_empty);
 
-    void assign_pip_pseudo_wires(PipId pip, NetInfo *net) {
+    void assign_pip_pseudo_wires(PipId pip, NetInfo *net)
+    {
         NPNR_ASSERT(net != nullptr);
         WireId wire;
         wire.tile = pip.tile;
         const PipInfoPOD &pip_data = pip_info(chip_info, pip);
-        for(int32_t wire_index : pip_data.pseudo_cell_wires) {
+        for (int32_t wire_index : pip_data.pseudo_cell_wires) {
             wire.index = wire_index;
             assign_net_to_wire(wire, net, "pseudo", /*require_empty=*/true);
         }
@@ -545,7 +547,8 @@ struct Arch : ArchAPI<ArchRanges>
         return p2n == pip_to_net.end() ? nullptr : p2n->second;
     }
 
-    WireId getConflictingPipWire(PipId pip) const final {
+    WireId getConflictingPipWire(PipId pip) const final
+    {
         // FIXME: This doesn't account for pseudo pips.
         return getPipDstWire(pip);
     }
@@ -590,7 +593,8 @@ struct Arch : ArchAPI<ArchRanges>
         return canonical_wire(chip_info, pip.tile, loc_info(chip_info, pip).pip_data[pip.index].dst_index);
     }
 
-    DelayQuad getPipDelay(PipId pip) const final {
+    DelayQuad getPipDelay(PipId pip) const final
+    {
         // FIXME: Implement when adding timing-driven place and route.
         return DelayQuad(100);
     }
@@ -995,12 +999,13 @@ struct Arch : ArchAPI<ArchRanges>
         }
     }
 
-    bool is_same_site(WireId wire_a, WireId wire_b) const {
-        if(wire_a.tile == -1) {
+    bool is_same_site(WireId wire_a, WireId wire_b) const
+    {
+        if (wire_a.tile == -1) {
             return false;
         }
 
-        if(wire_a.tile != wire_b.tile) {
+        if (wire_a.tile != wire_b.tile) {
             return false;
         }
 
@@ -1010,8 +1015,9 @@ struct Arch : ArchAPI<ArchRanges>
         return wire_a_data.site == wire_b_data.site && wire_a_data.site != -1;
     }
 
-    bool is_wire_in_site(WireId wire) const {
-        if(wire.tile == -1) {
+    bool is_wire_in_site(WireId wire) const
+    {
+        if (wire.tile == -1) {
             return false;
         }
 

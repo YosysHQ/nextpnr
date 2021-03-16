@@ -21,13 +21,13 @@
 #ifndef LOOKAHEAD_H
 #define LOOKAHEAD_H
 
-#include <vector>
 #include <algorithm>
+#include <vector>
 
-#include "nextpnr_namespaces.h"
-#include "type_wire.h"
 #include "cost_map.h"
 #include "deterministic_rng.h"
+#include "nextpnr_namespaces.h"
+#include "type_wire.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -52,13 +52,15 @@ NEXTPNR_NAMESPACE_BEGIN
 //
 //  If the lookahead is invoked from an output site wire to an input site wire,
 //  then cost is the sum of each of the 3 parts.
-struct Lookahead {
+struct Lookahead
+{
     void init(const Context *, DeterministicRNG *rng);
     void build_lookahead(const Context *, DeterministicRNG *rng);
 
     delay_t estimateDelay(const Context *, WireId src, WireId dst) const;
 
-    struct InputSiteWireCost {
+    struct InputSiteWireCost
+    {
         // This wire is the cheapest non-site wire that leads to this site
         // wire.
         TypeWireId route_to;
@@ -68,7 +70,8 @@ struct Lookahead {
         delay_t cost;
     };
 
-    struct OutputSiteWireCost {
+    struct OutputSiteWireCost
+    {
         // This wire is the cheapest non-site wire that is reachable from
         // this site wire.
         TypeWireId cheapest_route_from;

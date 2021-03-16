@@ -39,36 +39,25 @@ struct RouteNode
         depth = 0;
     }
 
-    enum Flags {
+    enum Flags
+    {
         // Has this path left the site?
         LEFT_SITE = 0,
         // Has this path entered the site?
         ENTERED_SITE = 1,
     };
 
-    bool has_left_site() const {
-        return (flags & (1 << LEFT_SITE)) != 0;
-    }
+    bool has_left_site() const { return (flags & (1 << LEFT_SITE)) != 0; }
 
-    bool can_leave_site() const {
-        return !has_left_site();
-    }
+    bool can_leave_site() const { return !has_left_site(); }
 
-    void mark_left_site() {
-        flags |= (1 << LEFT_SITE);
-    }
+    void mark_left_site() { flags |= (1 << LEFT_SITE); }
 
-    bool has_entered_site() const {
-        return (flags & (1 << ENTERED_SITE)) != 0;
-    }
+    bool has_entered_site() const { return (flags & (1 << ENTERED_SITE)) != 0; }
 
-    bool can_enter_site() const {
-        return !has_entered_site();
-    }
+    bool can_enter_site() const { return !has_entered_site(); }
 
-    void mark_entered_site() {
-        flags |= (1 << ENTERED_SITE);
-    }
+    void mark_entered_site() { flags |= (1 << ENTERED_SITE); }
 
     size_t parent;
 
@@ -80,24 +69,23 @@ struct RouteNode
 
 struct RouteNodeStorage;
 
-class Node {
-public:
-    Node(RouteNodeStorage *storage, size_t idx) :storage_(storage), idx_(idx) {}
+class Node
+{
+  public:
+    Node(RouteNodeStorage *storage, size_t idx) : storage_(storage), idx_(idx) {}
 
-    size_t get_index() const {
-        return idx_;
-    }
+    size_t get_index() const { return idx_; }
 
-    RouteNode & operator *();
-    const RouteNode & operator *() const;
-    RouteNode * operator ->();
-    const RouteNode * operator ->() const;
+    RouteNode &operator*();
+    const RouteNode &operator*() const;
+    RouteNode *operator->();
+    const RouteNode *operator->() const;
     bool has_parent() const;
     Node parent();
-private:
+
+  private:
     RouteNodeStorage *storage_;
     size_t idx_;
-
 };
 
 struct RouteNodeStorage
@@ -123,12 +111,14 @@ struct RouteNodeStorage
         return Node(this, idx);
     }
 
-    Node get_node(size_t idx) {
+    Node get_node(size_t idx)
+    {
         NPNR_ASSERT(idx < nodes.size());
         return Node(this, idx);
     }
 
-    const Node get_node(size_t idx) const {
+    const Node get_node(size_t idx) const
+    {
         NPNR_ASSERT(idx < nodes.size());
         return Node(const_cast<RouteNodeStorage *>(this), idx);
     }
@@ -143,25 +133,16 @@ struct RouteNodeStorage
     }
 };
 
-inline RouteNode & Node::operator *() {
-    return storage_->nodes[idx_];
-}
-inline const RouteNode & Node::operator *() const {
-    return storage_->nodes[idx_];
-}
+inline RouteNode &Node::operator*() { return storage_->nodes[idx_]; }
+inline const RouteNode &Node::operator*() const { return storage_->nodes[idx_]; }
 
-inline RouteNode * Node::operator ->() {
-    return &storage_->nodes[idx_];
-}
-inline const RouteNode * Node::operator ->() const {
-    return &storage_->nodes[idx_];
-}
+inline RouteNode *Node::operator->() { return &storage_->nodes[idx_]; }
+inline const RouteNode *Node::operator->() const { return &storage_->nodes[idx_]; }
 
-inline bool Node::has_parent() const {
-    return storage_->nodes[idx_].parent < storage_->nodes.size();
-}
+inline bool Node::has_parent() const { return storage_->nodes[idx_].parent < storage_->nodes.size(); }
 
-inline Node Node::parent() {
+inline Node Node::parent()
+{
     size_t parent_idx = storage_->nodes[idx_].parent;
     NPNR_ASSERT(parent_idx < storage_->nodes.size());
     return Node(storage_, parent_idx);
