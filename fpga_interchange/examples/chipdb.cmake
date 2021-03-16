@@ -12,6 +12,12 @@ function(create_rapidwright_device_db)
     # If output_target is specified, the output_target_name variable
     # is set to the generated output_device_file target.
     #
+    # Arguments:
+    #   - device: common device name of a set of parts. E.g. xc7a35tcsg324-1 and xc7a35tcpg236-1
+    #             share the same xc7a35t device prefix
+    #   - part: one among the parts available for a given device
+    #   - output_target: variable name that will hold the output device target for the parent scope
+    #
     # Targets generated:
     #   - rapidwright-<device>-device
 
@@ -67,6 +73,16 @@ function(create_patched_device_db)
     #
     # If output_target is specified, the variable named as the output_target
     # parameter value is set to the generated output_device_file target.
+    #
+    # Arguments:
+    #   - device: common device name of a set of parts. E.g. xc7a35tcsg324-1 and xc7a35tcpg236-1
+    #             share the same xc7a35t device prefix.
+    #   - patch_name: name of the patch which determines the target name
+    #   - patch_path: patch_path argument for the fpga_interchange.patch call
+    #   - patch_format: patch_format argument for the fpga_interchange.patch call
+    #   - patch_data: path to the patch_data required for the fpga_interchange.patch call
+    #   - input_device: target for the device that needs to be patched
+    #   - output_target: variable name that will hold the output device target for the parent scope
     #
     # Targets generated:
     #   - <patch_name>-<device>-device
@@ -132,7 +148,11 @@ function(generate_xc7_device_db)
     #   - constraints patch
     #   - luts patch
     #
-    # The final device target is output in the device_target variable to use in the parent scope
+    # Arguments:
+    #   - device: common device name of a set of parts. E.g. xc7a35tcsg324-1 and xc7a35tcpg236-1
+    #             share the same xc7a35t device prefix
+    #   - part: one among the parts available for a given device
+    #   - device_target: variable name that will hold the output device target for the parent scope
 
     set(options)
     set(oneValueArgs device part device_target)
@@ -191,7 +211,7 @@ function(generate_chipdb)
     #    part <part>
     #    device_target <device target>
     #    bel_bucket_seeds <bel bucket seeds>
-    #    package <package>
+    #    test_package <test_package>
     # )
     # ~~~
     #
@@ -202,6 +222,16 @@ function(generate_chipdb)
     #
     # The package argument is only used to run the architecture check target.
     #
+    # Arguments:
+    #   - family: nextpnr architecture family (e.g. fpga_interchange)
+    #   - device: common device name of a set of parts. E.g. xc7a35tcsg324-1 and xc7a35tcpg236-1
+    #             share the same xc7a35t device prefix
+    #   - part: one among the parts available for a given device
+    #   - device_target: target for the device from which the chipdb is generated
+    #   - bel_bucket_seeds: path to the bel bucket seeds YAML file
+    #   - test_package: package among the ones available for the device. This is used for architecture
+    #                   testing only
+    #
     # Targets generated:
     #   - chipdb-${device}-bba
     #   - chipdb-${device}-bin
@@ -211,7 +241,7 @@ function(generate_chipdb)
     # as the binary chipdb
 
     set(options)
-    set(oneValueArgs family device part device_target bel_bucket_seeds package)
+    set(oneValueArgs family device part device_target bel_bucket_seeds test_package)
     set(multiValueArgs)
 
     cmake_parse_arguments(
@@ -227,7 +257,7 @@ function(generate_chipdb)
     set(part ${generate_chipdb_part})
     set(device_target ${generate_chipdb_device_target})
     set(bel_bucket_seeds ${generate_chipdb_bel_bucket_seeds})
-    set(package ${generate_chipdb_package})
+    set(test_package ${generate_chipdb_test_package})
 
     get_target_property(device_loc ${device_target} LOCATION)
     set(chipdb_bba ${CMAKE_CURRENT_BINARY_DIR}/chipdb.bba)
@@ -272,24 +302,12 @@ function(generate_chipdb)
     )
 
     # Generate architecture check target
-    set(test_data_source ${CMAKE_CURRENT_SOURCE_DIR}/test_data.yaml)
-    set(test_data_binary ${CMAKE_CURRENT_BINARY_DIR}/test_data.yaml)
-    add_custom_command(
-        OUTPUT ${test_data_binary}
-        COMMAND
-            ${CMAKE_COMMAND} -E create_symlink
-            ${test_data_source}
-            ${test_data_binary}
-        DEPENDS
-            ${test_data_source}
-    )
-
     add_custom_target(
         chipdb-${device}-bin-check
         COMMAND
             nextpnr-fpga_interchange
                 --chipdb ${chipdb_bin}
-                --package ${package}
+                --package ${test_package}
                 --test
         DEPENDS
             ${chipdb_bin}
@@ -301,12 +319,14 @@ function(generate_chipdb)
         COMMAND
             nextpnr-fpga_interchange
                 --chipdb ${chipdb_bin}
-                --package ${package}
+                --package ${test_package}
                 --run ${PROJECT_SOURCE_DIR}/python/check_arch_api.py
         DEPENDS
             ${chipdb_bin}
             chipdb-${device}-bin
             ${test_data_binary}
+        WORKING_DIRECTORY
+            ${CMAKE_CURRENT_SOURCE_DIR}
     )
 
 add_dependencies(all-${family}-archcheck-tests chipdb-${device}-bin-check-test-data chipdb-${device}-bin-check)

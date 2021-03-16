@@ -7,12 +7,26 @@ function(add_interchange_test)
     #    package <package>
     #    tcl <tcl>
     #    xdc <xdc>
-    #    top <top name>
     #    sources <sources list>
+    #    [top <top name>]
     #    [techmap <techmap file>]
     # )
     #
     # Generates targets to run desired tests
+    #
+    # Arguments:
+    #   - name: test name. This must be unique and no other tests with the same
+    #           name should exist
+    #   - family: nextpnr architecture family (e.g. fpga_interchange)
+    #   - device: common device name of a set of parts. E.g. xc7a35tcsg324-1 and xc7a35tcpg236-1
+    #             share the same xc7a35t device prefix
+    #   - package: package among the ones available for the device
+    #   - tcl: tcl script used for synthesis
+    #   - xdc: constraints file used in the physical netlist generation step
+    #   - sources: list of HDL sources
+    #   - top (optional): name of the top level module.
+    #                     If not provided, "top" is assigned as top level module
+    #   - techmap (optional): techmap file used during synthesis
     #
     # Targets generated:
     #   - test-fpga_interchange-<name>-json     : synthesis output
@@ -121,6 +135,7 @@ function(add_interchange_test)
                 --package ${package}
         DEPENDS
             ${netlist}
+            ${xdc}
             ${chipdb_bin_target}
             ${chipdb_bin_loc}
     )
