@@ -107,6 +107,7 @@ struct Arch : ArchAPI<ArchRanges>
 
     ArchArgs args;
     Arch(ArchArgs args);
+    virtual ~Arch();
     void init();
 
     std::string getChipName() const final;

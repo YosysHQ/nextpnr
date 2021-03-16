@@ -36,8 +36,7 @@ struct RouteNode
 {
     void clear()
     {
-        parent = std::list<RouteNode>::iterator();
-        leafs.clear();
+        parent = std::numeric_limits<size_t>::max();
         pip = SitePip();
         wire = SiteWire();
         flags = 0;
@@ -75,10 +74,7 @@ struct RouteNode
         flags |= (1 << ENTERED_SITE);
     }
 
-    using Node = std::list<RouteNode>::iterator;
-
-    Node parent;
-    std::vector<Node> leafs;
+    size_t parent;
 
     SitePip pip;   // What pip was taken to reach this node.
     SiteWire wire; // What wire is this routing node located at?
@@ -86,40 +82,89 @@ struct RouteNode
     int32_t depth;
 };
 
+struct RouteNodeStorage;
+
+class Node {
+public:
+    Node(RouteNodeStorage *storage, size_t idx) :storage_(storage), idx_(idx) {}
+
+    size_t get_index() const {
+        return idx_;
+    }
+
+    RouteNode & operator *();
+    const RouteNode & operator *() const;
+    RouteNode * operator ->();
+    const RouteNode * operator ->() const;
+    bool has_parent() const;
+    Node parent();
+private:
+    RouteNodeStorage *storage_;
+    size_t idx_;
+
+};
+
 struct RouteNodeStorage
 {
     // Free list of nodes.
-    std::list<RouteNode> nodes;
+    std::vector<RouteNode> nodes;
+    std::vector<size_t> free_list;
 
     // Either allocate a new node if no nodes are on the free list, or return
     // an element from the free list.
-    std::list<RouteNode>::iterator alloc_node(std::list<RouteNode> &new_owner)
+    Node alloc_node()
     {
-        if (nodes.empty()) {
-            nodes.emplace_front(RouteNode());
+        if (free_list.empty()) {
+            nodes.emplace_back();
+            nodes.back().clear();
+            return Node(this, nodes.size() - 1);
         }
 
-        auto ret = nodes.begin();
-        new_owner.splice(new_owner.end(), nodes, ret);
+        size_t idx = free_list.back();
+        free_list.pop_back();
+        nodes[idx].clear();
 
-        ret->clear();
-
-        return ret;
+        return Node(this, idx);
     }
 
-    // Return 1 node from the current owner to the free list.
-    void free_node(std::list<RouteNode> &owner, std::list<RouteNode>::iterator node)
-    {
-        nodes.splice(nodes.end(), owner, node);
+    Node get_node(size_t idx) {
+        NPNR_ASSERT(idx < nodes.size());
+        return Node(this, idx);
     }
 
     // Return all node from the current owner to the free list.
-    void free_nodes(std::list<RouteNode> &owner)
+    void free_nodes(std::vector<size_t> &other_free_list)
     {
-        nodes.splice(nodes.end(), owner);
-        NPNR_ASSERT(owner.empty());
+        free_list.insert(free_list.end(), other_free_list.begin(), other_free_list.end());
+
+        // Hand out nodes in ascending order.
+        std::sort(free_list.rbegin(), free_list.rbegin());
     }
 };
+
+inline RouteNode & Node::operator *() {
+    return storage_->nodes[idx_];
+}
+inline const RouteNode & Node::operator *() const {
+    return storage_->nodes[idx_];
+}
+
+inline RouteNode * Node::operator ->() {
+    return &storage_->nodes[idx_];
+}
+inline const RouteNode * Node::operator ->() const {
+    return &storage_->nodes[idx_];
+}
+
+inline bool Node::has_parent() const {
+    return storage_->nodes[idx_].parent < storage_->nodes.size();
+}
+
+inline Node Node::parent() {
+    size_t parent_idx = storage_->nodes[idx_].parent;
+    NPNR_ASSERT(parent_idx < storage_->nodes.size());
+    return Node(storage_, parent_idx);
+}
 
 struct SiteRouter
 {
