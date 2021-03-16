@@ -22,6 +22,8 @@ jobs:
     - name: Execute build script
       run: stdbuf -i0 -o0 -e0 ./.github/ci/build_interchange.sh
 
-    - name: Execute test script
+    - name: Run tests
       run: |
-        cd build && make all-fpga_interchange-tests -j`nproc`
+        cd build
+        make all-fpga_interchange-archcheck-tests -j`nproc`
+        make all-fpga_interchange-tests -j`nproc`

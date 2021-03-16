@@ -123,6 +123,7 @@ function(generate_xc7_device_db)
     # generate_xc7_device_db(
     #    device <common device>
     #    part <part>
+    #    device_target <variable name for device target>
     # )
     # ~~~
     #
@@ -134,7 +135,7 @@ function(generate_xc7_device_db)
     # The final device target is output in the device_target variable to use in the parent scope
 
     set(options)
-    set(oneValueArgs device part)
+    set(oneValueArgs device part device_target)
     set(multiValueArgs)
 
     cmake_parse_arguments(
@@ -147,6 +148,7 @@ function(generate_xc7_device_db)
 
     set(device ${create_rapidwright_device_db_device})
     set(part ${create_rapidwright_device_db_part})
+    set(device_target ${create_rapidwright_device_db_device_target})
 
     create_rapidwright_device_db(
         device ${device}
@@ -176,12 +178,15 @@ function(generate_xc7_device_db)
         output_target constraints_luts_device
     )
 
-    set(device_target ${constraints_luts_device} PARENT_SCOPE)
+    if(DEFINED device_target)
+        set(${device_target} ${constraints_luts_device} PARENT_SCOPE)
+    endif()
 endfunction()
 
 function(generate_chipdb)
     # ~~~
     # generate_chipdb(
+    #    family <family>
     #    device <common device>
     #    part <part>
     #    device_target <device target>
@@ -198,10 +203,15 @@ function(generate_chipdb)
     # The package argument is only used to run the architecture check target.
     #
     # Targets generated:
-    #   - chipdb-<device>-bba
+    #   - chipdb-${device}-bba
+    #   - chipdb-${device}-bin
+    #   - device-${device}
+    #
+    # The device-${device} target contains properties to get the interchange device as well
+    # as the binary chipdb
 
     set(options)
-    set(oneValueArgs device part device_target bel_bucket_seeds package)
+    set(oneValueArgs family device part device_target bel_bucket_seeds package)
     set(multiValueArgs)
 
     cmake_parse_arguments(
@@ -212,6 +222,7 @@ function(generate_chipdb)
         ${ARGN}
     )
 
+    set(family ${generate_chipdb_family})
     set(device ${generate_chipdb_device})
     set(part ${generate_chipdb_part})
     set(device_target ${generate_chipdb_device_target})
@@ -219,7 +230,7 @@ function(generate_chipdb)
     set(package ${generate_chipdb_package})
 
     get_target_property(device_loc ${device_target} LOCATION)
-    set(chipdb_bba ${CMAKE_CURRENT_BINARY_DIR}/chipdb-${device}.bba)
+    set(chipdb_bba ${CMAKE_CURRENT_BINARY_DIR}/chipdb.bba)
     add_custom_command(
         OUTPUT ${chipdb_bba}
         COMMAND
@@ -228,8 +239,6 @@ function(generate_chipdb)
                 --output_dir ${CMAKE_CURRENT_BINARY_DIR}
                 --bel_bucket_seeds ${bel_bucket_seeds}
                 --device ${device_loc}
-        COMMAND
-            mv ${CMAKE_CURRENT_BINARY_DIR}/chipdb.bba ${chipdb_bba}
         DEPENDS
             ${bel_bucket_seeds}
             ${device_target}
@@ -250,6 +259,17 @@ function(generate_chipdb)
     )
 
     add_custom_target(chipdb-${device}-bin DEPENDS ${chipdb_bin})
+
+    # Setting device target properties
+    add_custom_target(device-${device})
+    set_target_properties(
+        device-${device}
+        PROPERTIES
+            DEVICE_LOC ${device_loc}
+            DEVICE_TARGET ${device_target}
+            CHIPDB_BIN_LOC ${chipdb_bin}
+            CHIPDB_BIN_TARGET chipdb-${device}-bin
+    )
 
     # Generate architecture check target
     set(test_data_source ${CMAKE_CURRENT_SOURCE_DIR}/test_data.yaml)
@@ -273,6 +293,7 @@ function(generate_chipdb)
                 --test
         DEPENDS
             ${chipdb_bin}
+            chipdb-${device}-bin
     )
 
     add_custom_target(
@@ -281,10 +302,13 @@ function(generate_chipdb)
             nextpnr-fpga_interchange
                 --chipdb ${chipdb_bin}
                 --package ${package}
-                --run ${root_dir}/python/check_arch_api.py
+                --run ${PROJECT_SOURCE_DIR}/python/check_arch_api.py
         DEPENDS
             ${chipdb_bin}
+            chipdb-${device}-bin
             ${test_data_binary}
     )
+
+add_dependencies(all-${family}-archcheck-tests chipdb-${device}-bin-check-test-data chipdb-${device}-bin-check)
 endfunction()
 

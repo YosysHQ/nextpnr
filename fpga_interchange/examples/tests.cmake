@@ -2,6 +2,7 @@ function(add_interchange_test)
     # ~~~
     # add_interchange_test(
     #    name <name>
+    #    family <family>
     #    device <common device>
     #    package <package>
     #    tcl <tcl>
@@ -20,7 +21,7 @@ function(add_interchange_test)
     #   - test-fpga_interchange-<name>-dcp     : design checkpoint with RapidWright
 
     set(options)
-    set(oneValueArgs name device package tcl xdc top techmap)
+    set(oneValueArgs name family device package tcl xdc top techmap)
     set(multiValueArgs sources)
 
     cmake_parse_arguments(
@@ -32,6 +33,7 @@ function(add_interchange_test)
     )
 
     set(name ${add_interchange_test_name})
+    set(family ${add_interchange_test_family})
     set(device ${add_interchange_test_device})
     set(package ${add_interchange_test_package})
     set(top ${add_interchange_test_top})
@@ -64,8 +66,8 @@ function(add_interchange_test)
     add_custom_target(test-${family}-${name}-json DEPENDS ${synth_json})
 
     # Logical Netlist
-    set(device_target constraints-luts-${device}-device)
-    get_property(device_loc TARGET constraints-luts-${device}-device PROPERTY LOCATION)
+    get_property(device_target TARGET device-${device} PROPERTY DEVICE_TARGET)
+    get_property(device_loc TARGET device-${device} PROPERTY DEVICE_LOC)
 
     set(netlist ${CMAKE_CURRENT_BINARY_DIR}/${name}.netlist)
     add_custom_command(
@@ -85,26 +87,63 @@ function(add_interchange_test)
 
     add_custom_target(test-${family}-${name}-netlist DEPENDS ${netlist})
 
-    set(chipdb_target chipdb-${device}-bin)
+    # Logical Netlist YAML
+    set(netlist_yaml ${CMAKE_CURRENT_BINARY_DIR}/${name}.netlist.yaml)
+    add_custom_command(
+        OUTPUT ${netlist_yaml}
+        COMMAND
+            ${PYTHON_EXECUTABLE} -mfpga_interchange.convert
+                --schema_dir ${INTERCHANGE_SCHEMA_PATH}
+                --schema logical
+                --input_format capnp
+                --output_format yaml
+                ${netlist}
+                ${netlist_yaml}
+        DEPENDS
+            ${netlist}
+    )
+
+    add_custom_target(test-${family}-${name}-netlist-yaml DEPENDS ${netlist_yaml})
 
     # Physical Netlist
+    get_property(chipdb_bin_target TARGET device-${device} PROPERTY CHIPDB_BIN_TARGET)
+    get_property(chipdb_bin_loc TARGET device-${device} PROPERTY CHIPDB_BIN_LOC)
+
     set(phys ${CMAKE_CURRENT_BINARY_DIR}/${name}.phys)
     add_custom_command(
         OUTPUT ${phys}
         COMMAND
             nextpnr-fpga_interchange
-                --chipdb ${chipdb_dir}/chipdb-${device}.bin
+                --chipdb ${chipdb_bin_loc}
                 --xdc ${xdc}
                 --netlist ${netlist}
                 --phys ${phys}
                 --package ${package}
         DEPENDS
             ${netlist}
-            ${chipdb_target}
-            ${chipdb_dir}/chipdb-${device}.bin
+            ${chipdb_bin_target}
+            ${chipdb_bin_loc}
     )
 
     add_custom_target(test-${family}-${name}-phys DEPENDS ${phys})
+
+    # Physical Netlist YAML
+    set(phys_yaml ${CMAKE_CURRENT_BINARY_DIR}/${name}.phys.yaml)
+    add_custom_command(
+        OUTPUT ${phys_yaml}
+        COMMAND
+            ${PYTHON_EXECUTABLE} -mfpga_interchange.convert
+                --schema_dir ${INTERCHANGE_SCHEMA_PATH}
+                --schema physical
+                --input_format capnp
+                --output_format yaml
+                ${phys}
+                ${phys_yaml}
+        DEPENDS
+            ${phys}
+    )
+
+    add_custom_target(test-${family}-${name}-phys-yaml DEPENDS ${phys_yaml})
 
     set(dcp ${CMAKE_CURRENT_BINARY_DIR}/${name}.dcp)
     add_custom_command(
