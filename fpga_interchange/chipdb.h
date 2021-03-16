@@ -27,7 +27,14 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-/**** Everything in this section must be kept in sync with chipdb.py ****/
+/* !!! Everything in this section must be kept in sync !!!
+ * !!! with fpga_interchange/chip_info.py              !!!
+ *
+ * When schema changes, bump version number in chip_info.py and
+ * kExpectedChipInfoVersion
+ */
+
+static constexpr int32_t kExpectedChipInfoVersion = 1;
 
 // Flattened site indexing.
 //

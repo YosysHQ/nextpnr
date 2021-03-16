@@ -101,6 +101,11 @@ Arch::Arch(ArchArgs args) : args(args)
         log_error("Unable to read chipdb %s\n", args.chipdb.c_str());
     }
 
+    if(chip_info->version != kExpectedChipInfoVersion) {
+        log_error("Expected chipdb with version %d found version %d\n",
+                kExpectedChipInfoVersion, chip_info->version);
+    }
+
     // Read strings from constids into IdString database, checking that list
     // is unique and matches expected constid value.
     const RelSlice<RelPtr<char>> &constids = *chip_info->constids;
