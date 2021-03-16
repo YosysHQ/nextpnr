@@ -37,6 +37,7 @@
 #include "lookahead.h"
 #include "chipdb.h"
 #include "arch_iterators.h"
+#include "site_routing_cache.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -1029,6 +1030,7 @@ struct Arch : ArchAPI<ArchRanges>
 
     Lookahead lookahead;
     mutable RouteNodeStorage node_storage;
+    mutable SiteRoutingCache site_routing_cache;
 };
 
 NEXTPNR_NAMESPACE_END

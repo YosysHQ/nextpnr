@@ -21,6 +21,7 @@
 
 #include "log.h"
 #include "dynamic_bitarray.h"
+#include "site_routing_cache.h"
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
@@ -120,9 +121,7 @@ struct SiteExpansionLoop
     void clear() {
         node_storage->free_nodes(used_nodes);
         used_nodes.clear();
-        solution_offsets.clear();
-        solution_storage.clear();
-        solution_sinks.clear();
+        solution.clear();
         net_driver = SiteWire();
     }
 
@@ -135,13 +134,7 @@ struct SiteExpansionLoop
     SiteWire net_driver;
     absl::flat_hash_set<SiteWire> net_users;
 
-    std::vector<size_t> solution_offsets;
-    std::vector<SitePip> solution_storage;
-    std::vector<SiteWire> solution_sinks;
-
-    size_t num_solutions() const {
-        return solution_sinks.size();
-    }
+    SiteRoutingSolution solution;
 
     Node new_node(const SiteWire & wire, const SitePip & pip, const Node *parent)
     {
@@ -189,7 +182,7 @@ struct SiteExpansionLoop
     }
 
     // Expand from wire specified, always downhill.
-    bool expand_net(const SiteArch *ctx, const SiteNetInfo *net)
+    bool expand_net(const SiteArch *ctx, SiteRoutingCache *site_routing_cache, const SiteNetInfo *net)
     {
         if(net->driver == net_driver && net->users == net_users) {
             return expand_result;
@@ -200,6 +193,10 @@ struct SiteExpansionLoop
         net_driver = net->driver;
         net_users = net->users;
 
+        if(site_routing_cache->get_solution(ctx, *net, &solution)) {
+            expand_result = true;
+            return expand_result;
+        }
 
         if (verbose_site_router(ctx)) {
             log_info("Expanding net %s from %s\n", ctx->nameOfNet(net), ctx->nameOfWire(net->driver));
@@ -289,22 +286,17 @@ struct SiteExpansionLoop
 
         // Make sure expansion reached all targets, otherwise this site is
         // already unroutable!
+        solution.clear();
+        solution.store_solution(ctx, node_storage, net->driver, completed_routes);
+        solution.verify(ctx, *net);
         for(size_t route : completed_routes) {
             SiteWire wire = node_storage->get_node(route)->wire;
-            solution_sinks.push_back(wire);
             targets.erase(wire);
-
-            solution_offsets.push_back(solution_storage.size());
-            Node cursor = node_storage->get_node(route);
-            while(cursor.has_parent()) {
-                solution_storage.push_back(cursor->pip);
-                Node parent = cursor.parent();
-                NPNR_ASSERT(ctx->getPipDstWire(cursor->pip) == cursor->wire);
-                NPNR_ASSERT(ctx->getPipSrcWire(cursor->pip) == parent->wire);
-                cursor = parent;
-            }
         }
-        solution_offsets.push_back(solution_storage.size());
+
+        if(targets.empty()) {
+            site_routing_cache->add_solutions(ctx, *net, solution);
+        }
 
         // Return nodes back to the storage system.
         node_storage->free_nodes(used_nodes);
@@ -314,18 +306,20 @@ struct SiteExpansionLoop
         return expand_result;
     }
 
-    const SiteWire &solution_sink(size_t solution) const {
-        return solution_sinks.at(solution);
-
-    }
-    std::vector<SitePip>::const_iterator solution_begin(size_t solution) const {
-        NPNR_ASSERT(solution+1 < solution_offsets.size());
-        return solution_storage.begin() + solution_offsets.at(solution);
+    size_t num_solutions() const {
+        return solution.num_solutions();
     }
 
-    std::vector<SitePip>::const_iterator solution_end(size_t solution) const {
-        NPNR_ASSERT(solution+1 < solution_offsets.size());
-        return solution_storage.begin() + solution_offsets.at(solution+1);
+    const SiteWire &solution_sink(size_t idx) const {
+        return solution.solution_sink(idx);
+
+    }
+    std::vector<SitePip>::const_iterator solution_begin(size_t idx) const {
+        return solution.solution_begin(idx);
+    }
+
+    std::vector<SitePip>::const_iterator solution_end(size_t idx) const {
+        return solution.solution_end(idx);
     }
 };
 
@@ -535,7 +529,7 @@ bool find_solution_via_backtrack(SiteArch *ctx, std::vector<PossibleSolutions> s
     NPNR_ASSERT(false);
 }
 
-bool route_site(SiteArch *ctx, RouteNodeStorage *node_storage) {
+bool route_site(SiteArch *ctx, SiteRoutingCache *site_routing_cache, RouteNodeStorage *node_storage) {
     std::vector<SiteExpansionLoop*> expansions;
     expansions.reserve(ctx->nets.size());
 
@@ -548,7 +542,7 @@ bool route_site(SiteArch *ctx, RouteNodeStorage *node_storage) {
         expansions.push_back(net->net->loop);
 
         SiteExpansionLoop *router = expansions.back();
-        if(!router->expand_net(ctx, net)) {
+        if(!router->expand_net(ctx, site_routing_cache, net)) {
             if (verbose_site_router(ctx)) {
                 log_info("Net %s expansion failed to reach all users, site is unroutable!\n",
                         ctx->nameOfNet(net));
@@ -731,7 +725,7 @@ bool SiteRouter::checkSiteRouting(const Context *ctx, const TileStatus &tile_sta
     SiteArch site_arch(&site_info);
     //site_arch.archcheck();
 
-    site_ok = route_site(&site_arch, &ctx->node_storage);
+    site_ok = route_site(&site_arch, &ctx->site_routing_cache, &ctx->node_storage);
     if(verbose_site_router(ctx)) {
         if(site_ok) {
             log_info("Site %s is routable\n", ctx->get_site_name(tile, site));
@@ -782,7 +776,7 @@ void SiteRouter::bindSiteRouting(Context *ctx) {
 
     SiteInformation site_info(ctx, tile, site, cells_in_site);
     SiteArch site_arch(&site_info);
-    NPNR_ASSERT(route_site(&site_arch, &ctx->node_storage));
+    NPNR_ASSERT(route_site(&site_arch, &ctx->site_routing_cache, &ctx->node_storage));
     check_routing(site_arch);
     apply_routing(ctx, site_arch);
     if(verbose_site_router(ctx)) {

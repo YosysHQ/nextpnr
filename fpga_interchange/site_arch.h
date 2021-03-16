@@ -173,6 +173,9 @@ struct SiteWire {
     bool operator != (const SiteWire &other) const {
         return wire != other.wire || type != other.type || pip != other.pip || net != other.net;
     }
+    bool operator < (const SiteWire &other) const {
+        return std::make_tuple(type, wire, pip, net) < std::make_tuple(other.type, other.wire, other.pip, other.net);
+    }
 
     Type type = NUMBER_SITE_WIRE_TYPES;
     WireId wire;

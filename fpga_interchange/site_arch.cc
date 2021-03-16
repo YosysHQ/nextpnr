@@ -141,7 +141,7 @@ SiteArch::SiteArch(const SiteInformation *site_info) : ctx(site_info->ctx), site
                 out_of_site_sources.push_back(
                         SiteWire::make(site_info, PORT_OUT,
                             net));
-                out_of_site_sources.back().wire = ctx->getNetinfoSourceWire(net);
+                //out_of_site_sources.back().wire = ctx->getNetinfoSourceWire(net);
                 net_info.driver = out_of_site_sources.back();
 
                 net_driven_out_of_site = true;
