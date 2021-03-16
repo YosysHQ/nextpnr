@@ -23,10 +23,8 @@
 
 #include <boost/functional/hash.hpp>
 #include <cstdint>
-
-#include <cstdint>
-#include "absl/container/flat_hash_map.h"
-#include "absl/container/flat_hash_set.h"
+#include <absl/container/flat_hash_map.h>
+#include <absl/container/flat_hash_set.h>
 
 #include "luts.h"
 #include "nextpnr_namespaces.h"
