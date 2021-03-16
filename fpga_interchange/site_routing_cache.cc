@@ -20,6 +20,8 @@
 
 #include "site_routing_cache.h"
 
+#include "context.h"
+
 NEXTPNR_NAMESPACE_BEGIN
 
 void SiteRoutingSolution::store_solution(const SiteArch * ctx, const RouteNodeStorage *node_storage, const SiteWire & driver, std::vector<size_t> solutions) {
@@ -75,6 +77,7 @@ SiteRoutingKey SiteRoutingKey::make(const SiteArch * ctx, const SiteNetInfo & si
     out.tile_type = ctx->site_info->tile_type;
     out.site = ctx->site_info->site;
 
+    out.net_type = ctx->ctx->get_net_type(site_net.net);
     out.driver_type = site_net.driver.type;
     if(site_net.driver.type == SiteWire::SITE_WIRE) {
         out.driver_index = site_net.driver.wire.index;

@@ -24,6 +24,7 @@
 #include "site_arch.h"
 #include "site_routing_storage.h"
 #include "nextpnr_namespaces.h"
+#include "PhysicalNetlist.capnp.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -63,16 +64,20 @@ struct SiteRoutingSolution {
 struct SiteRoutingKey {
     int32_t tile_type;
     int32_t site;
+    // The net type matters for site routing. Legal routes for VCC/GND/SIGNAL
+    // nets are different.
+    PhysicalNetlist::PhysNetlist::NetType net_type;
     SiteWire::Type driver_type;
     int32_t driver_index;
     std::vector<SiteWire::Type> user_types;
     std::vector<int32_t> user_indicies;
 
+
     bool operator == (const SiteRoutingKey & other) const {
-        return tile_type == other.tile_type && site == other.site && driver_type == other.driver_type && driver_index == other.driver_index && user_types == other.user_types && user_indicies == other.user_indicies;
+        return tile_type == other.tile_type && site == other.site && net_type == other.net_type && driver_type == other.driver_type && driver_index == other.driver_index && user_types == other.user_types && user_indicies == other.user_indicies;
     }
     bool operator != (const SiteRoutingKey & other) const {
-        return tile_type != other.tile_type || site != other.site || driver_type != other.driver_type || driver_index != other.driver_index || user_types != other.user_types || user_indicies != other.user_indicies;
+        return tile_type != other.tile_type || site != other.site || net_type != other.net_type || driver_type != other.driver_type || driver_index != other.driver_index || user_types != other.user_types || user_indicies != other.user_indicies;
     }
 
     static SiteRoutingKey make(const SiteArch * ctx, const SiteNetInfo & site_net);
@@ -87,6 +92,7 @@ template <> struct std::hash<NEXTPNR_NAMESPACE_PREFIX SiteRoutingKey>
         std::size_t seed = 0;
         boost::hash_combine(seed, std::hash<int32_t>()(key.tile_type));
         boost::hash_combine(seed, std::hash<int32_t>()(key.site));
+        boost::hash_combine(seed, std::hash<PhysicalNetlist::PhysNetlist::NetType>()(key.net_type));
         boost::hash_combine(seed, std::hash<NEXTPNR_NAMESPACE_PREFIX SiteWire::Type>()(key.driver_type));
         boost::hash_combine(seed, std::hash<int32_t>()(key.driver_index));
         boost::hash_combine(seed, std::hash<std::size_t>()(key.user_types.size()));

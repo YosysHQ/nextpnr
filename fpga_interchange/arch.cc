@@ -19,12 +19,16 @@
  *
  */
 
+
+#include "arch.h"
+
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/range/adaptor/reversed.hpp>
 #include <cmath>
 #include <cstring>
 #include <queue>
+
 #include "constraints.impl.h"
 #include "fpga_interchange.h"
 #include "log.h"
@@ -36,6 +40,10 @@
 #include "timing.h"
 #include "util.h"
 #include "xdc.h"
+
+// Include tcl.h late because it messed with defines and let them leave the
+// scope of the header.
+#include <tcl.h>
 
 //#define DEBUG_BINDING
 //#define USE_LOOKAHEAD

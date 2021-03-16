@@ -211,6 +211,17 @@ struct Arch : ArchAPI<ArchRanges>
         return bel;
     }
 
+    PhysicalNetlist::PhysNetlist::NetType get_net_type(NetInfo * net) const {
+        NPNR_ASSERT(net->driver.cell != nullptr);
+        if(net->driver.cell->bel == get_gnd_bel()) {
+            return PhysicalNetlist::PhysNetlist::NetType::GND;
+        } else if(net->driver.cell->bel == get_vcc_bel()) {
+            return PhysicalNetlist::PhysNetlist::NetType::VCC;
+        } else {
+            return PhysicalNetlist::PhysNetlist::NetType::SIGNAL;
+        }
+    }
+
     void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength) final
     {
         NPNR_ASSERT(bel != BelId());
@@ -1012,8 +1023,6 @@ struct Arch : ArchAPI<ArchRanges>
     void report_invalid_bel(BelId bel, CellInfo *cell) const;
 
     std::vector<IdString> no_pins;
-    IdString gnd_cell_pin;
-    IdString vcc_cell_pin;
     std::vector<std::vector<LutElement>> lut_elements;
     std::unordered_map<IdString, const LutCellPOD *> lut_cells;
 
