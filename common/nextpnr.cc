@@ -18,6 +18,10 @@
  */
 
 #if defined(__wasm)
+#include <typeinfo>
+#include <exception>
+#include "log.h"
+
 extern "C" {
 // FIXME: WASI does not currently support exceptions.
 void *__cxa_allocate_exception(size_t thrown_size) throw() { return malloc(thrown_size); }

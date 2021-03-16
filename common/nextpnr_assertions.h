@@ -22,6 +22,7 @@
 #define NEXTPNR_ASSERTIONS_H
 
 #include <stdexcept>
+#include <string>
 
 #include "nextpnr_namespaces.h"
 
