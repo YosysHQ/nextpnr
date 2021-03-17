@@ -3,6 +3,7 @@ add_interchange_test(
     family ${family}
     device xc7a35t
     package cpg236
+    top toplevel
     tcl run.tcl
     xdc murax.xdc
     sources Murax.v basys3_toplevel.v

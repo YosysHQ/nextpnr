@@ -69,8 +69,8 @@ function(add_interchange_test)
     set(synth_json ${CMAKE_CURRENT_BINARY_DIR}/${name}.json)
     add_custom_command(
         OUTPUT ${synth_json}
-        COMMAND
-            SOURCES=${sources}
+        COMMAND ${CMAKE_COMMAND} -E env
+            SOURCES="${sources}"
             OUT_JSON=${synth_json}
             TECHMAP=${techmap}
             yosys -c ${tcl}
