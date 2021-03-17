@@ -96,24 +96,14 @@ delay_t CostMap::get_delay(const Context *ctx, WireId src_wire, WireId dst_wire)
     int32_t off_x = delay_matrix.offset.first + (dst_x - src_x);
     int32_t off_y = delay_matrix.offset.second + (dst_y - src_y);
 
-    int32_t closest_x = off_x;
-    int32_t closest_y = off_y;
-    if (closest_x < 0) {
-        closest_x = 0;
-    }
-    if (closest_y < 0) {
-        closest_y = 0;
-    }
-
     int32_t x_dim = delay_matrix.data.shape()[0];
-    if (closest_x >= x_dim) {
-        closest_x = x_dim - 1;
-    }
-
     int32_t y_dim = delay_matrix.data.shape()[1];
-    if (closest_y >= y_dim) {
-        closest_y = y_dim - 1;
-    }
+    NPNR_ASSERT(x_dim > 0);
+    NPNR_ASSERT(y_dim > 0);
+
+    // Bound closest_x/y to [0, dim)
+    int32_t closest_x = std::min(std::max(off_x, 0), x_dim-1);
+    int32_t closest_y = std::min(std::max(off_y, 0), y_dim-1);
 
     // Get the cost entry from the cost map at the deltas values
     auto cost = delay_matrix.data[closest_x][closest_y];
