@@ -26,7 +26,9 @@
 #include <stdexcept>
 #include <vector>
 
-namespace nextpnr {
+#include "nextpnr_namespaces.h"
+
+NEXTPNR_NAMESPACE_BEGIN
 
 // Given a set of coordinates, generates random samples that are geometric
 // distributed.
@@ -62,6 +64,6 @@ struct Sampler
     std::vector<size_t> splits;
 };
 
-} // namespace nextpnr
+NEXTPNR_NAMESPACE_END
 
 #endif /* SAMPLER_H_ */

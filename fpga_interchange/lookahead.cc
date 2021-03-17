@@ -213,7 +213,7 @@ static void expand_output(const Context *ctx, WireId output_wire, Lookahead::Out
     update_site_to_site_costs(ctx, output_wire, best_path, site_to_site_cost);
 }
 
-static void expand_input_type(const Context *ctx, DeterministicRNG *rng, const nextpnr::Sampler &tiles_of_type,
+static void expand_input_type(const Context *ctx, DeterministicRNG *rng, const Sampler &tiles_of_type,
                               TypeWireId input_wire, std::vector<Lookahead::InputSiteWireCost> *input_costs)
 {
     absl::flat_hash_map<TypeWireId, delay_t> input_costs_map;
@@ -423,7 +423,7 @@ static bool has_multiple_outputs(const Context *ctx, WireId wire)
     return pip_count > 1;
 }
 
-static void expand_routing_graph(const Context *ctx, DeterministicRNG *rng, const nextpnr::Sampler &tiles_of_type,
+static void expand_routing_graph(const Context *ctx, DeterministicRNG *rng, const Sampler &tiles_of_type,
                                  TypeWireId wire_type, absl::flat_hash_set<TypeWireSet> *types_explored,
                                  DelayStorage *storage, absl::flat_hash_set<TypeWireId> *types_deferred,
                                  FlatWireMap<PipAndCost> *best_path)
@@ -550,7 +550,7 @@ static WireId follow_pip_chain_up(const Context *ctx, WireId wire, delay_t *dela
 }
 
 static void expand_deferred_routing_graph(const Context *ctx, DeterministicRNG *rng,
-                                          const nextpnr::Sampler &tiles_of_type, TypeWireId wire_type,
+                                          const Sampler &tiles_of_type, TypeWireId wire_type,
                                           absl::flat_hash_set<TypeWireSet> *types_explored, DelayStorage *storage,
                                           FlatWireMap<PipAndCost> *best_path)
 {
@@ -590,7 +590,7 @@ static void expand_deferred_routing_graph(const Context *ctx, DeterministicRNG *
     }
 }
 
-static void expand_output_type(const Context *ctx, DeterministicRNG *rng, const nextpnr::Sampler &tiles_of_type,
+static void expand_output_type(const Context *ctx, DeterministicRNG *rng, const Sampler &tiles_of_type,
                                TypeWireId output_wire, Lookahead::OutputSiteWireCost *output_cost,
                                absl::flat_hash_map<TypeWirePair, delay_t> *site_to_site_cost)
 {
@@ -639,7 +639,7 @@ void Lookahead::build_lookahead(const Context *ctx, DeterministicRNG *rng)
                  input_site_wires.size(), output_site_wires.size());
     }
 
-    std::vector<nextpnr::Sampler> tiles_of_type;
+    std::vector<Sampler> tiles_of_type;
     tiles_of_type.resize(ctx->chip_info->tile_types.ssize());
 
     std::vector<size_t> indicies;

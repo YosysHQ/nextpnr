@@ -23,7 +23,7 @@
 #include <cmath>
 #include <stdexcept>
 
-namespace nextpnr {
+NEXTPNR_NAMESPACE_BEGIN
 
 static size_t partition_x(std::vector<size_t>::iterator begin, std::vector<size_t>::iterator end,
                           const std::vector<std::pair<int32_t, int32_t>> &samples)
@@ -171,4 +171,4 @@ void Sampler::divide_samples(size_t target_sample_count, const std::vector<std::
     }
 }
 
-} // namespace nextpnr
+NEXTPNR_NAMESPACE_END
