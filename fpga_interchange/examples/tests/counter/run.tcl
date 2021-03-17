@@ -1,8 +1,9 @@
 yosys -import
 
-read_verilog wire.v
+read_verilog $::env(SOURCES)
 
 synth_xilinx -nolutram -nowidelut -nosrl -nocarry -nodsp
+techmap -map $::env(TECHMAP)
 
 # opt_expr -undriven makes sure all nets are driven, if only by the $undef
 # net.
@@ -11,4 +12,4 @@ opt_clean
 
 setundef -zero -params
 
-write_json build/wire.json
+write_json $::env(OUT_JSON)

@@ -1,0 +1,29 @@
+name: FPGA interchange CI tests
+
+on: [push, pull_request]
+
+jobs:
+
+  Run-tests:
+    runs-on: ubuntu-latest
+    steps:
+
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+
+    - uses: actions/setup-python@v2
+
+    - name: Install
+      run: |
+        sudo apt-get update
+        sudo apt-get install git make cmake libboost-all-dev python3-dev libeigen3-dev tcl-dev clang bison flex swig
+
+    - name: Execute build script
+      run: stdbuf -i0 -o0 -e0 ./.github/ci/build_interchange.sh
+
+    - name: Run tests
+      run: |
+        cd build
+        make all-fpga_interchange-archcheck-tests -j`nproc`
+        make all-fpga_interchange-tests -j`nproc`

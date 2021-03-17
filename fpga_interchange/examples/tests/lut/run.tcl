@@ -1,6 +1,6 @@
 yosys -import
 
-read_verilog ff.v
+read_verilog $::env(SOURCES)
 
 synth_xilinx -nolutram -nowidelut -nosrl -nocarry -nodsp
 
@@ -11,4 +11,4 @@ opt_clean
 
 setundef -zero -params
 
-write_json build/ff.json
+write_json $::env(OUT_JSON)
