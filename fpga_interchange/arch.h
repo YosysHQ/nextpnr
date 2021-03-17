@@ -583,12 +583,12 @@ struct Arch : ArchAPI<ArchRanges>
 
     uint32_t getPipChecksum(PipId pip) const final { return pip.index; }
 
-    WireId getPipSrcWire(PipId pip) const final NPNR_ATTRIBUTE(__always_inline__)
+    WireId getPipSrcWire(PipId pip) const final NPNR_ALWAYS_INLINE
     {
         return canonical_wire(chip_info, pip.tile, loc_info(chip_info, pip).pip_data[pip.index].src_index);
     }
 
-    WireId getPipDstWire(PipId pip) const final NPNR_ATTRIBUTE(__always_inline__)
+    WireId getPipDstWire(PipId pip) const final NPNR_ALWAYS_INLINE
     {
         return canonical_wire(chip_info, pip.tile, loc_info(chip_info, pip).pip_data[pip.index].dst_index);
     }

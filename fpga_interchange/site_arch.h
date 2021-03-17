@@ -47,15 +47,15 @@ struct SiteInformation
     SiteInformation(const Context *ctx, int32_t tile, int32_t site,
                     const std::unordered_set<CellInfo *> &cells_in_site);
 
-    const ChipInfoPOD &chip_info() const NPNR_ATTRIBUTE(__always_inline__);
+    const ChipInfoPOD &chip_info() const NPNR_ALWAYS_INLINE;
 
-    bool is_wire_in_site(WireId wire) const NPNR_ATTRIBUTE(__always_inline__);
+    bool is_wire_in_site(WireId wire) const NPNR_ALWAYS_INLINE;
 
-    bool is_bel_in_site(BelId bel) const NPNR_ATTRIBUTE(__always_inline__);
+    bool is_bel_in_site(BelId bel) const NPNR_ALWAYS_INLINE;
 
-    bool is_pip_part_of_site(PipId pip) const NPNR_ATTRIBUTE(__always_inline__);
+    bool is_pip_part_of_site(PipId pip) const NPNR_ALWAYS_INLINE;
 
-    bool is_site_port(PipId pip) const NPNR_ATTRIBUTE(__always_inline__);
+    bool is_site_port(PipId pip) const NPNR_ALWAYS_INLINE;
 };
 
 // Site routing needs a modification of the routing graph.  Within the site,
@@ -107,7 +107,7 @@ struct SiteWire
         NUMBER_SITE_WIRE_TYPES = 5,
     };
 
-    static SiteWire make(const SiteInformation *site_info, WireId site_wire) NPNR_ATTRIBUTE(__always_inline__)
+    static SiteWire make(const SiteInformation *site_info, WireId site_wire) NPNR_ALWAYS_INLINE
     {
         NPNR_ASSERT(site_info->is_wire_in_site(site_wire));
         SiteWire out;
@@ -117,7 +117,7 @@ struct SiteWire
     }
 
     static SiteWire make(const SiteInformation *site_info, PortType port_type, NetInfo *net)
-            NPNR_ATTRIBUTE(__always_inline__)
+            NPNR_ALWAYS_INLINE
     {
         SiteWire out;
         if (port_type == PORT_OUT) {
@@ -131,7 +131,7 @@ struct SiteWire
     }
 
     static SiteWire make_site_port(const SiteInformation *site_info, PipId pip, bool dst_wire)
-            NPNR_ATTRIBUTE(__always_inline__)
+            NPNR_ALWAYS_INLINE
     {
         const auto &tile_type_data = site_info->chip_info().tile_types[site_info->tile_type];
         const auto &pip_data = tile_type_data.pip_data[pip.index];
@@ -347,15 +347,15 @@ struct SiteArch
 
     SiteArch(const SiteInformation *site_info);
 
-    SiteWire getPipSrcWire(const SitePip &site_pip) const NPNR_ATTRIBUTE(__always_inline__);
-    SiteWire getPipDstWire(const SitePip &site_pip) const NPNR_ATTRIBUTE(__always_inline__);
+    SiteWire getPipSrcWire(const SitePip &site_pip) const NPNR_ALWAYS_INLINE;
+    SiteWire getPipDstWire(const SitePip &site_pip) const NPNR_ALWAYS_INLINE;
 
-    SitePipDownhillRange getPipsDownhill(const SiteWire &site_wire) const NPNR_ATTRIBUTE(__always_inline__);
-    SitePipUphillRange getPipsUphill(const SiteWire &site_wire) const NPNR_ATTRIBUTE(__always_inline__);
+    SitePipDownhillRange getPipsDownhill(const SiteWire &site_wire) const NPNR_ALWAYS_INLINE;
+    SitePipUphillRange getPipsUphill(const SiteWire &site_wire) const NPNR_ALWAYS_INLINE;
     SiteWireRange getWires() const;
 
-    SiteWire getBelPinWire(BelId bel, IdString pin) const NPNR_ATTRIBUTE(__always_inline__);
-    PortType getBelPinType(BelId bel, IdString pin) const NPNR_ATTRIBUTE(__always_inline__);
+    SiteWire getBelPinWire(BelId bel, IdString pin) const NPNR_ALWAYS_INLINE;
+    PortType getBelPinType(BelId bel, IdString pin) const NPNR_ALWAYS_INLINE;
 
     const char *nameOfWire(const SiteWire &wire) const;
     const char *nameOfPip(const SitePip &pip) const;
@@ -449,7 +449,7 @@ struct SiteArch
 
     void archcheck();
 
-    bool is_pip_synthetic(const SitePip &pip) const NPNR_ATTRIBUTE(__always_inline__);
+    bool is_pip_synthetic(const SitePip &pip) const NPNR_ALWAYS_INLINE;
 };
 
 struct SitePipDownhillIterator
@@ -477,7 +477,7 @@ struct SitePipDownhillIterator
     const RelSlice<int32_t> *pips_downhill;
     size_t cursor;
 
-    bool advance_in_state() NPNR_ATTRIBUTE(__always_inline__)
+    bool advance_in_state() NPNR_ALWAYS_INLINE
     {
         switch (state) {
         case BEGIN:
@@ -503,7 +503,7 @@ struct SitePipDownhillIterator
         }
     }
 
-    bool check_first() const NPNR_ATTRIBUTE(__always_inline__)
+    bool check_first() const NPNR_ALWAYS_INLINE
     {
         switch (state) {
         case BEGIN:
@@ -554,14 +554,14 @@ struct SitePipDownhillIterator
         return state_table;
     }
 
-    void advance_state() NPNR_ATTRIBUTE(__always_inline__)
+    void advance_state() NPNR_ALWAYS_INLINE
     {
         state = get_state_table().at(site_wire.type).at(state);
         cursor = 0;
         NPNR_ASSERT(state >= BEGIN && state <= END);
     }
 
-    void operator++() NPNR_ATTRIBUTE(__always_inline__)
+    void operator++() NPNR_ALWAYS_INLINE
     {
         NPNR_ASSERT(state != END);
         while (state != END) {
@@ -581,7 +581,7 @@ struct SitePipDownhillIterator
         return state != other.state || cursor != other.cursor;
     }
 
-    SitePip operator*() const NPNR_ATTRIBUTE(__always_inline__)
+    SitePip operator*() const NPNR_ALWAYS_INLINE
     {
         switch (state) {
         case NORMAL_PIPS: {
@@ -615,9 +615,9 @@ struct SitePipDownhillRange
     {
     }
 
-    const RelSlice<int32_t> *init_pip_range() const NPNR_ATTRIBUTE(__always_inline__);
+    const RelSlice<int32_t> *init_pip_range() const NPNR_ALWAYS_INLINE;
 
-    SitePipDownhillIterator begin() const NPNR_ATTRIBUTE(__always_inline__)
+    SitePipDownhillIterator begin() const NPNR_ALWAYS_INLINE
     {
         SitePipDownhillIterator b;
         b.state = SitePipDownhillIterator::BEGIN;
@@ -633,7 +633,7 @@ struct SitePipDownhillRange
         return b;
     }
 
-    SitePipDownhillIterator end() const NPNR_ATTRIBUTE(__always_inline__)
+    SitePipDownhillIterator end() const NPNR_ALWAYS_INLINE
     {
         SitePipDownhillIterator e;
         e.state = SitePipDownhillIterator::END;

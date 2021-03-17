@@ -38,16 +38,19 @@
 #define NPNR_NORETURN __attribute__((noreturn))
 #define NPNR_DEPRECATED __attribute__((deprecated))
 #define NPNR_PACKED_STRUCT(...) __VA_ARGS__ __attribute__((packed))
+#define NPNR_ALWAYS_INLINE NPNR_ATTRIBUTE(__always_inline__)
 #elif defined(_MSC_VER)
 #define NPNR_ATTRIBUTE(...)
 #define NPNR_NORETURN __declspec(noreturn)
 #define NPNR_DEPRECATED __declspec(deprecated)
 #define NPNR_PACKED_STRUCT(...) __pragma(pack(push, 1)) __VA_ARGS__ __pragma(pack(pop))
+#define NPNR_ALWAYS_INLINE
 #else
 #define NPNR_ATTRIBUTE(...)
 #define NPNR_NORETURN
 #define NPNR_DEPRECATED
 #define NPNR_PACKED_STRUCT(...) __VA_ARGS__
+#define NPNR_ALWAYS_INLINE
 #endif
 
 #endif /* NEXTPNR_NAMESPACES_H */
