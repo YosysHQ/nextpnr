@@ -28,6 +28,7 @@
 #include "deterministic_rng.h"
 #include "nextpnr_namespaces.h"
 #include "type_wire.h"
+#include "lookahead.capnp.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -57,8 +58,11 @@ struct Lookahead
     void init(const Context *, DeterministicRNG *rng);
     void build_lookahead(const Context *, DeterministicRNG *rng);
 
+    bool read_lookahead(const std::string &chipdb_hash, const std::string &file);
+    void write_lookahead(const std::string &chipdb_hash, const std::string &file) const;
     bool from_reader(const std::string &chipdb_hash, lookahead_storage::Lookahead::Reader reader);
     void to_builder(const std::string &chipdb_hash, lookahead_storage::Lookahead::Builder builder) const;
+
     delay_t estimateDelay(const Context *, WireId src, WireId dst) const;
 
     struct InputSiteWireCost

@@ -21,6 +21,13 @@
 #include "lookahead.h"
 
 #include <queue>
+#include <boost/filesystem.hpp>
+#include <kj/filesystem.h>
+#include <capnp/message.h>
+#include <sstream>
+#include <capnp/serialize.h>
+#include <kj/std/iostream.h>
+#include <zlib.h>
 
 #include "context.h"
 #include "flat_wire_map.h"
@@ -923,7 +930,153 @@ void Lookahead::build_lookahead(const Context *ctx, DeterministicRNG *rng)
     }
 }
 
-void Lookahead::init(const Context *ctx, DeterministicRNG *rng) { build_lookahead(ctx, rng); }
+constexpr static bool kUseGzipForLookahead = false;
+
+static void write_message(::capnp::MallocMessageBuilder & message, const std::string &filename) {
+    kj::Array<capnp::word> words = messageToFlatArray(message);
+    kj::ArrayPtr<kj::byte> bytes = words.asBytes();
+
+    boost::filesystem::path temp = boost::filesystem::unique_path();
+    log_info("Writing tempfile to %s\n", temp.c_str());
+
+    if(kUseGzipForLookahead) {
+        gzFile file = gzopen(temp.c_str(), "w");
+        NPNR_ASSERT(file != Z_NULL);
+
+        size_t bytes_written = 0;
+        int result;
+        while(bytes_written < bytes.size()) {
+            size_t bytes_remaining = bytes.size() - bytes_written;
+            size_t bytes_to_write = bytes_remaining;
+            if(bytes_to_write >= std::numeric_limits<int>::max()) {
+                bytes_to_write = std::numeric_limits<int>::max();
+            }
+            result = gzwrite(file, &bytes[0]+bytes_written, bytes_to_write);
+            if(result < 0) {
+                break;
+            }
+
+            bytes_written += result;
+        }
+
+        int error;
+        std::string error_str;
+        if(result < 0) {
+            error_str.assign(gzerror(file, &error));
+        }
+        NPNR_ASSERT(gzclose(file) == Z_OK);
+        if(bytes_written != bytes.size()) {
+            // Remove failed writes before reporting error.
+            boost::filesystem::remove(temp);
+        }
+
+        if(result < 0) {
+            log_error("Failed to write lookahead, error from gzip %s\n", error_str.c_str());
+        } else {
+            if(bytes_written != bytes.size()) {
+                log_error("Failed to write lookahead, wrote %d bytes, had %zu bytes\n", result, bytes.size());
+            } else {
+                // Written, move file into place
+                boost::filesystem::rename(temp, filename);
+            }
+        }
+    } else {
+        {
+            kj::Own<kj::Filesystem> fs = kj::newDiskFilesystem();
+
+            auto path = kj::Path::parse(temp);
+            auto file = fs->getCurrent().openFile(path,
+                            kj::WriteMode::CREATE);
+            file->writeAll(bytes);
+        }
+
+        boost::filesystem::rename(temp, filename);
+    }
+}
+
+bool Lookahead::read_lookahead(const std::string &chipdb_hash, const std::string &filename) {
+    capnp::ReaderOptions reader_options;
+    reader_options.traversalLimitInWords = 32llu*1024llu*1024llu*1024llu;
+
+    if(kUseGzipForLookahead) {
+        gzFile file = gzopen(filename.c_str(), "r");
+        if(file == Z_NULL) {
+            return false;
+        }
+
+        std::vector<uint8_t> output_data;
+        output_data.resize(4096);
+        std::stringstream sstream(std::ios_base::in | std::ios_base::out | std::ios_base::binary);
+        while(true) {
+            int ret = gzread(file, output_data.data(), output_data.size());
+            NPNR_ASSERT(ret >= 0);
+            if(ret > 0) {
+                sstream.write((const char*)output_data.data(), ret);
+                NPNR_ASSERT(sstream);
+            } else {
+                NPNR_ASSERT(ret == 0);
+                int error;
+                gzerror(file, &error);
+                NPNR_ASSERT(error == Z_OK);
+                break;
+            }
+        }
+
+        NPNR_ASSERT(gzclose(file) == Z_OK);
+
+        sstream.seekg(0);
+        kj::std::StdInputStream istream(sstream);
+        capnp::InputStreamMessageReader message_reader(istream, reader_options);
+
+        lookahead_storage::Lookahead::Reader lookahead = message_reader.getRoot<lookahead_storage::Lookahead>();
+        return from_reader(chipdb_hash, lookahead);
+    } else {
+        boost::iostreams::mapped_file_source file;
+        try {
+            file.open(filename.c_str());
+        } catch(std::ios_base::failure & fail) {
+            return false;
+        }
+
+        if (!file.is_open()) {
+            return false;
+        }
+
+        const char *data = reinterpret_cast<const char *>(file.data());
+        const kj::ArrayPtr<const ::capnp::word> words = kj::arrayPtr(
+                reinterpret_cast<const ::capnp::word*>(data),
+                file.size() / sizeof(::capnp::word));
+        ::capnp::FlatArrayMessageReader reader(words, reader_options);
+        lookahead_storage::Lookahead::Reader lookahead = reader.getRoot<lookahead_storage::Lookahead>();
+        return from_reader(chipdb_hash, lookahead);
+    }
+}
+
+void Lookahead::write_lookahead(const std::string &chipdb_hash, const std::string &file) const {
+    ::capnp::MallocMessageBuilder message;
+
+    lookahead_storage::Lookahead::Builder lookahead = message.initRoot<lookahead_storage::Lookahead>();
+    to_builder(chipdb_hash, lookahead);
+    write_message(message, file);
+}
+
+void Lookahead::init(const Context *ctx, DeterministicRNG *rng) {
+    std::string lookahead_filename;
+    if(kUseGzipForLookahead) {
+        lookahead_filename = ctx->args.chipdb + ".lookahead.tgz";
+    } else {
+        lookahead_filename = ctx->args.chipdb + ".lookahead";
+    }
+
+    std::string chipdb_hash = ctx->get_chipdb_hash();
+
+    if(ctx->args.rebuild_lookahead || !read_lookahead(chipdb_hash, lookahead_filename)) {
+        build_lookahead(ctx, rng);
+        if(!ctx->args.dont_write_lookahead) {
+            write_lookahead(chipdb_hash, lookahead_filename);
+        }
+    }
+}
 
 bool safe_add_i32(int32_t a, int32_t b, int32_t *out) { return !__builtin_add_overflow(a, b, out); }
 

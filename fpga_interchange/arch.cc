@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/range/adaptor/reversed.hpp>
+#include <boost/uuid/detail/sha1.hpp>
 #include <cmath>
 #include <cstring>
 #include <queue>
@@ -89,6 +90,20 @@ void IdString::initialize_arch(const BaseCtx *ctx) {}
 
 static const ChipInfoPOD *get_chip_info(const RelPtr<ChipInfoPOD> *ptr) { return ptr->get(); }
 
+static std::string sha1_hash(const char * data, size_t size) {
+    boost::uuids::detail::sha1 hasher;
+    hasher.process_bytes(data, size);
+
+    unsigned int digest[5];
+    hasher.get_digest(digest);
+
+    std::ostringstream buf;
+    for(int i = 0; i < 5; ++i)
+        buf << std::hex << std::setfill('0') << std::setw(8) << digest[i];
+
+    return buf.str();
+}
+
 Arch::Arch(ArchArgs args) : args(args)
 {
     try {
@@ -96,6 +111,8 @@ Arch::Arch(ArchArgs args) : args(args)
         if (args.chipdb.empty() || !blob_file.is_open())
             log_error("Unable to read chipdb %s\n", args.chipdb.c_str());
         const char *blob = reinterpret_cast<const char *>(blob_file.data());
+
+        chipdb_hash = sha1_hash(blob, blob_file.size());
         chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(blob));
     } catch (...) {
         log_error("Unable to read chipdb %s\n", args.chipdb.c_str());
@@ -1738,6 +1755,10 @@ bool Arch::checkPipAvail(PipId pip) const
     // interchange schema does not provide a cell type to place.
 
     return true;
+}
+
+std::string Arch::get_chipdb_hash() const {
+    return chipdb_hash;
 }
 
 // Instance constraint templates.

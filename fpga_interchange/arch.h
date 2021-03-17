@@ -45,6 +45,8 @@ struct ArchArgs
 {
     std::string chipdb;
     std::string package;
+    bool rebuild_lookahead;
+    bool dont_write_lookahead;
 };
 
 struct ArchRanges
@@ -1046,6 +1048,9 @@ struct Arch : ArchAPI<ArchRanges>
     Lookahead lookahead;
     mutable RouteNodeStorage node_storage;
     mutable SiteRoutingCache site_routing_cache;
+
+    std::string chipdb_hash;
+    std::string get_chipdb_hash() const;
 };
 
 NEXTPNR_NAMESPACE_END
