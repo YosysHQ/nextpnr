@@ -33,6 +33,7 @@
 #include "flat_wire_map.h"
 #include "log.h"
 #include "sampler.h"
+#include "scope_lock.h"
 
 #if defined(NEXTPNR_USE_TBB)
 #include <tbb/mutex.h>
@@ -637,6 +638,185 @@ void write_lookahead_csv(const Context *ctx, const DelayStorage &all_tiles_stora
     fclose(lookahead_data);
 }
 
+// Storage for tile type expansion for lookahead.
+struct ExpandLocals {
+    virtual ~ExpandLocals() {}
+    const std::vector<Sampler> *tiles_of_type;
+    DeterministicRNG *rng;
+    FlatWireMap<PipAndCost> *best_path;
+    DelayStorage *storage;
+    absl::flat_hash_set<TypeWireSet> *explored;
+    absl::flat_hash_set<TypeWireId> *deferred;
+
+    virtual void lock() {}
+    virtual void unlock() {}
+    virtual void copy_back(int32_t tile_type) {}
+};
+
+// Do tile type expansion for 1 tile.
+static void expand_tile_type(const Context *ctx, int32_t tile_type, ExpandLocals *locals) {
+    auto &type_data = ctx->chip_info->tile_types[tile_type];
+    if (ctx->verbose) {
+        ScopeLock<ExpandLocals> lock(locals);
+        log_info("Expanding all wires in type %s\n", IdString(type_data.name).c_str(ctx));
+    }
+
+    auto &tile_sampler = (*locals->tiles_of_type)[tile_type];
+    for (size_t wire_index = 0; wire_index < type_data.wire_data.size(); ++wire_index) {
+        auto &wire_data = type_data.wire_data[wire_index];
+        if (wire_data.site != -1) {
+            // Skip site wires
+            continue;
+        }
+
+        if (ctx->debug) {
+            ScopeLock<ExpandLocals> lock(locals);
+            log_info("Expanding wire %s in type %s (%d/%zu, seen %zu types, deferred %zu types)\n",
+                        IdString(wire_data.name).c_str(ctx), IdString(type_data.name).c_str(ctx), tile_type,
+                        ctx->chip_info->tile_types.size(), locals->explored->size(), locals->deferred->size());
+        }
+
+        TypeWireId wire;
+        wire.type = tile_type;
+        wire.index = wire_index;
+
+        expand_routing_graph(ctx, locals->rng, tile_sampler, wire,
+                locals->explored, locals->storage, locals->deferred,
+                locals->best_path);
+    }
+
+    locals->copy_back(tile_type);
+}
+
+// Function that does all tile expansions serially.
+static void expand_tile_type_serial(const Context *ctx,
+        const std::vector<int32_t> &tile_types,
+        const std::vector<Sampler> &tiles_of_type,
+        DeterministicRNG *rng,
+        FlatWireMap<PipAndCost> *best_path,
+        DelayStorage *storage,
+        absl::flat_hash_set<TypeWireSet> *explored,
+        absl::flat_hash_set<TypeWireId> *deferred,
+        absl::flat_hash_set<int32_t> *tiles_left
+        ) {
+
+    for(int32_t tile_type : tile_types) {
+        ExpandLocals locals;
+
+        locals.tiles_of_type = &tiles_of_type;
+        locals.rng = rng;
+        locals.best_path = best_path;
+        locals.storage = storage;
+        locals.explored = explored;
+        expand_tile_type(ctx, tile_type, &locals);
+
+        NPNR_ASSERT(tiles_left->erase(tile_type) == 1);
+    }
+
+    NPNR_ASSERT(tiles_left->empty());
+}
+
+// Additional storage for doing tile type expansion in parallel.
+struct TbbExpandLocals : public ExpandLocals {
+    const Context *ctx;
+    std::mutex *all_costs_mutex;
+
+    DelayStorage *all_tiles_storage;
+    absl::flat_hash_set<TypeWireSet> *types_explored;
+    absl::flat_hash_set<TypeWireId> *types_deferred;
+    absl::flat_hash_set<int32_t> *tiles_left;
+
+    void lock() override {
+        all_costs_mutex->lock();
+    }
+
+    void unlock() override {
+        all_costs_mutex->unlock();
+    }
+
+    void copy_back(int32_t tile_type) override {
+        ScopeLock<TbbExpandLocals> locker(this);
+
+        auto &type_data = ctx->chip_info->tile_types[tile_type];
+
+        // Copy per tile data by to over all data structures.
+        if (ctx->verbose) {
+            log_info("Expanded all wires in type %s, merging data back\n", IdString(type_data.name).c_str(ctx));
+            log_info("Testing %zu wires, saw %zu types, deferred %zu types\n", type_data.wire_data.size(),
+                     explored->size(), deferred->size());
+        }
+
+        // Copy cheapest explored paths back to all_tiles_storage.
+        for (const auto &type_pair : storage->storage) {
+            auto &type_pair_data = all_tiles_storage->storage[type_pair.first];
+            for (const auto &delta_pair : type_pair.second) {
+                // See if this dx/dy already has data.
+                auto result = type_pair_data.emplace(delta_pair.first, delta_pair.second);
+                if (!result.second) {
+                    // This was already in the map, check if this new result is
+                    // better
+                    if (delta_pair.second < result.first->second) {
+                        result.first->second = delta_pair.second;
+                    }
+                }
+            }
+        }
+
+        // Update explored and deferred sets.
+        for (auto &key : *explored) {
+            types_explored->emplace(key);
+        }
+        for (auto &key : *deferred) {
+            types_deferred->emplace(key);
+        }
+
+        NPNR_ASSERT(tiles_left->erase(tile_type));
+
+        if (ctx->verbose) {
+            log_info("Done merging data from type %s, %zu tiles left\n", IdString(type_data.name).c_str(ctx),
+                     tiles_left->size());
+        }
+    }
+};
+
+// Wrapper method used if running expansion in parallel.
+//
+// expand_tile_type is invoked using thread local data, and then afterwards
+// the data is joined with the global data.
+static void expand_tile_type_parallel(const Context *ctx,
+        int32_t tile_type,
+        const std::vector<Sampler> &tiles_of_type,
+        DeterministicRNG *rng,
+        std::mutex *all_costs_mutex,
+        DelayStorage *all_tiles_storage,
+        absl::flat_hash_set<TypeWireSet> *types_explored,
+        absl::flat_hash_set<TypeWireId> *types_deferred,
+        absl::flat_hash_set<int32_t> *tiles_left
+        ) {
+    TbbExpandLocals locals;
+
+    DeterministicRNG rng_copy = *rng;
+    FlatWireMap<PipAndCost> best_path(ctx);
+    absl::flat_hash_set<TypeWireSet> explored;
+    absl::flat_hash_set<TypeWireId> deferred;
+    DelayStorage storage;
+
+    locals.tiles_of_type = &tiles_of_type;
+    locals.rng = &rng_copy;
+    locals.best_path = &best_path;
+    locals.storage = &storage;
+    locals.explored = &explored;
+
+    locals.ctx = ctx;
+    locals.all_costs_mutex = all_costs_mutex;
+    locals.all_tiles_storage = all_tiles_storage;
+    locals.types_explored = types_explored;
+    locals.types_deferred = types_deferred;
+    locals.tiles_left = tiles_left;
+
+    expand_tile_type(ctx, tile_type, &locals);
+}
+
 void Lookahead::build_lookahead(const Context *ctx, DeterministicRNG *rng)
 {
     auto start = std::chrono::high_resolution_clock::now();
@@ -746,19 +926,6 @@ void Lookahead::build_lookahead(const Context *ctx, DeterministicRNG *rng)
     // graph has been explored.
     absl::flat_hash_set<TypeWireId> types_deferred;
 
-    // Walk each tile type, and expand all non-site wires in the tile.
-    // Wires that are nodes will expand as if the node type is the first node
-    // in the wire.
-    //
-    // Wires that only have 1 output pip are deferred until the next loop,
-    // because generally those wires will get explored via another wire.
-    // The deferred will be expanded if this assumption doesn't hold.
-#if defined(NEXTPNR_USE_TBB) // Run parallely
-    size_t num_workers = tbb::task_scheduler_init::default_num_threads();
-    tbb::task_scheduler_init tbb_scheduler(num_workers);
-
-    tbb::mutex all_costs_mutex;
-
     std::vector<int32_t> tile_types;
     absl::flat_hash_set<int32_t> tiles_left;
     tile_types.reserve(ctx->chip_info->tile_types.size());
@@ -767,128 +934,57 @@ void Lookahead::build_lookahead(const Context *ctx, DeterministicRNG *rng)
         tiles_left.emplace(tile_type);
     }
 
-    DeterministicRNG rng_copy = *rng;
-
-    tbb::parallel_for_each(tile_types, [&](int32_t tile_type) {
-        DeterministicRNG per_tile_rng_copy = rng_copy;
-
-        FlatWireMap<PipAndCost> best_path(ctx);
-        absl::flat_hash_set<TypeWireSet> per_tile_explored;
-        absl::flat_hash_set<TypeWireId> per_tile_deferred;
-        DelayStorage per_tile_storage;
-        per_tile_storage.max_explore_depth = all_tiles_storage.max_explore_depth;
-
-        DeterministicRNG *rng = &per_tile_rng_copy;
-        DelayStorage *storage = &per_tile_storage;
-        absl::flat_hash_set<TypeWireSet> *explored = &per_tile_explored;
-        absl::flat_hash_set<TypeWireId> *deferred = &per_tile_deferred;
-#else // Run serially
-    DelayStorage *storage = &all_tiles_storage;
-
     FlatWireMap<PipAndCost> best_path(ctx);
-    // These are wire types that have been explored.
-    absl::flat_hash_set<TypeWireSet> *explored = &types_explored;
 
-    // These are wire types that have been deferred because they are trival
-    // copies of another wire type.  These can be cheaply computed after the
-    // graph has been explored.
-    absl::flat_hash_set<TypeWireId> *deferred = &types_deferred;
+    // Walk each tile type, and expand all non-site wires in the tile.
+    // Wires that are nodes will expand as if the node type is the first node
+    // in the wire.
+    //
+    // Wires that only have 1 output pip are deferred until the next loop,
+    // because generally those wires will get explored via another wire.
+    // The deferred will be expanded if this assumption doesn't hold.
+    bool expand_serially = true;
+#if defined(NEXTPNR_USE_TBB) // Run parallely
+    {
+        size_t num_workers = tbb::task_scheduler_init::default_num_threads();
+        tbb::task_scheduler_init tbb_scheduler(num_workers);
 
-    for (int32_t tile_type = 0; tile_type < ctx->chip_info->tile_types.ssize(); ++tile_type) {
-#endif
-        auto &type_data = ctx->chip_info->tile_types[tile_type];
-#ifndef NEXTPNR_USE_TBB
-        if (ctx->verbose) {
-            log_info("Expanding all wires in type %s\n", IdString(type_data.name).c_str(ctx));
-        }
-#endif
-        auto &tile_sampler = tiles_of_type[tile_type];
-        for (size_t wire_index = 0; wire_index < type_data.wire_data.size(); ++wire_index) {
-            auto &wire_data = type_data.wire_data[wire_index];
-            if (wire_data.site != -1) {
-                // Skip site wires
-                continue;
-            }
+        std::mutex all_costs_mutex;
 
-#ifdef NEXTPNR_USE_TBB
-            if (ctx->debug) {
-                all_costs_mutex.lock();
-                log_info("Expanding wire %s in type %s (%d/%zu, seen %zu types, deferred %zu types)\n",
-                         IdString(wire_data.name).c_str(ctx), IdString(type_data.name).c_str(ctx), tile_type,
-                         ctx->chip_info->tile_types.size(), explored->size(), deferred->size());
-                all_costs_mutex.unlock();
-            }
-#else
-            if (ctx->verbose) {
-                log_info("Expanding wire %s in type %s (%d/%zu, seen %zu types, deferred %zu types)\n",
-                         IdString(wire_data.name).c_str(ctx), IdString(type_data.name).c_str(ctx), tile_type,
-                         ctx->chip_info->tile_types.size(), explored->size(), deferred->size());
-            }
-#endif
-
-            TypeWireId wire;
-            wire.type = tile_type;
-            wire.index = wire_index;
-
-            expand_routing_graph(ctx, rng, tile_sampler, wire, explored, storage, deferred, &best_path);
-        }
-
-#ifdef NEXTPNR_USE_TBB
-        // Copy per tile data by to over all data structures.
-        // FIXME: replace with ScopeLock
-        // nextpnr::ScopeLock<tbb:mutex> lock(&all_costs_mutex);
-        all_costs_mutex.lock();
-
-        if (ctx->verbose) {
-            log_info("Expanded all wires in type %s, merging data back\n", IdString(type_data.name).c_str(ctx));
-            log_info("Testing %zu wires, saw %zu types, deferred %zu types\n", type_data.wire_data.size(),
-                     explored->size(), deferred->size());
-        }
-
-        // Copy cheapest explored paths back to all_tiles_storage.
-        for (const auto &type_pair : storage->storage) {
-            auto &type_pair_data = all_tiles_storage.storage[type_pair.first];
-            for (const auto &delta_pair : type_pair.second) {
-                // See if this dx/dy already has data.
-                auto result = type_pair_data.emplace(delta_pair.first, delta_pair.second);
-                if (!result.second) {
-                    // This was already in the map, check if this new result is
-                    // better
-                    if (delta_pair.second < result.first->second) {
-                        result.first->second = delta_pair.second;
-                    }
-                }
-            }
-        }
-
-        // Update explored and deferred sets.
-        for (auto &key : *explored) {
-            types_explored.emplace(key);
-        }
-        for (auto &key : *deferred) {
-            types_deferred.emplace(key);
-        }
-
-        NPNR_ASSERT(tiles_left.erase(tile_type));
-
-        if (ctx->verbose) {
-            log_info("Done merging data from type %s, %zu tiles left\n", IdString(type_data.name).c_str(ctx),
-                     tiles_left.size());
-        }
-
-        all_costs_mutex.unlock();
-    });
-#else
+        expand_serially = false;
+        tbb::parallel_for_each(tile_types, [&](int32_t tile_type) {
+            expand_tile_type_parallel(ctx,
+                    tile_type,
+                    tiles_of_type,
+                    rng,
+                    &all_costs_mutex,
+                    &all_tiles_storage,
+                    &types_explored,
+                    &types_deferred,
+                    &tiles_left);
+            });
     }
+#else
+    // Supress warning that expand_tile_type_parallel if not running in
+    // parallel.
+    (void)expand_tile_type_parallel;
 #endif
+    if(expand_serially) {
+        expand_tile_type_serial(ctx,
+                tile_types,
+                tiles_of_type,
+                rng,
+                &best_path,
+                &all_tiles_storage,
+                &types_explored,
+                &types_deferred,
+                &tiles_left);
+    }
 
     // Check to see if deferred wire types were expanded.  If they were not
     // expanded, expand them now.  If they were expanded, copy_types is
     // populated with the wire types that can just copy the relevant data from
     // another wire type.
-#ifdef NEXTPNR_USE_TBB
-    FlatWireMap<PipAndCost> best_path(ctx);
-#endif
     for (TypeWireId wire_type : types_deferred) {
         auto &type_data = ctx->chip_info->tile_types[wire_type.type];
         auto &tile_sampler = tiles_of_type[wire_type.type];

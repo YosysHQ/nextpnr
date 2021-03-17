@@ -72,7 +72,7 @@ template <typename Value> class FlatTileWireMap
         values_.resize(count);
     }
 
-    nextpnr::DynamicBitarray<> set_;
+    DynamicBitarray<> set_;
     std::vector<Value> values_;
 };
 
