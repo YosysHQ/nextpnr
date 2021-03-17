@@ -639,7 +639,8 @@ void write_lookahead_csv(const Context *ctx, const DelayStorage &all_tiles_stora
 }
 
 // Storage for tile type expansion for lookahead.
-struct ExpandLocals {
+struct ExpandLocals
+{
     virtual ~ExpandLocals() {}
     const std::vector<Sampler> *tiles_of_type;
     DeterministicRNG *rng;
@@ -654,7 +655,8 @@ struct ExpandLocals {
 };
 
 // Do tile type expansion for 1 tile.
-static void expand_tile_type(const Context *ctx, int32_t tile_type, ExpandLocals *locals) {
+static void expand_tile_type(const Context *ctx, int32_t tile_type, ExpandLocals *locals)
+{
     auto &type_data = ctx->chip_info->tile_types[tile_type];
     if (ctx->verbose) {
         ScopeLock<ExpandLocals> lock(locals);
@@ -672,35 +674,30 @@ static void expand_tile_type(const Context *ctx, int32_t tile_type, ExpandLocals
         if (ctx->debug) {
             ScopeLock<ExpandLocals> lock(locals);
             log_info("Expanding wire %s in type %s (%d/%zu, seen %zu types, deferred %zu types)\n",
-                        IdString(wire_data.name).c_str(ctx), IdString(type_data.name).c_str(ctx), tile_type,
-                        ctx->chip_info->tile_types.size(), locals->explored->size(), locals->deferred->size());
+                     IdString(wire_data.name).c_str(ctx), IdString(type_data.name).c_str(ctx), tile_type,
+                     ctx->chip_info->tile_types.size(), locals->explored->size(), locals->deferred->size());
         }
 
         TypeWireId wire;
         wire.type = tile_type;
         wire.index = wire_index;
 
-        expand_routing_graph(ctx, locals->rng, tile_sampler, wire,
-                locals->explored, locals->storage, locals->deferred,
-                locals->best_path);
+        expand_routing_graph(ctx, locals->rng, tile_sampler, wire, locals->explored, locals->storage, locals->deferred,
+                             locals->best_path);
     }
 
     locals->copy_back(tile_type);
 }
 
 // Function that does all tile expansions serially.
-static void expand_tile_type_serial(const Context *ctx,
-        const std::vector<int32_t> &tile_types,
-        const std::vector<Sampler> &tiles_of_type,
-        DeterministicRNG *rng,
-        FlatWireMap<PipAndCost> *best_path,
-        DelayStorage *storage,
-        absl::flat_hash_set<TypeWireSet> *explored,
-        absl::flat_hash_set<TypeWireId> *deferred,
-        absl::flat_hash_set<int32_t> *tiles_left
-        ) {
+static void expand_tile_type_serial(const Context *ctx, const std::vector<int32_t> &tile_types,
+                                    const std::vector<Sampler> &tiles_of_type, DeterministicRNG *rng,
+                                    FlatWireMap<PipAndCost> *best_path, DelayStorage *storage,
+                                    absl::flat_hash_set<TypeWireSet> *explored,
+                                    absl::flat_hash_set<TypeWireId> *deferred, absl::flat_hash_set<int32_t> *tiles_left)
+{
 
-    for(int32_t tile_type : tile_types) {
+    for (int32_t tile_type : tile_types) {
         ExpandLocals locals;
 
         locals.tiles_of_type = &tiles_of_type;
@@ -717,7 +714,8 @@ static void expand_tile_type_serial(const Context *ctx,
 }
 
 // Additional storage for doing tile type expansion in parallel.
-struct TbbExpandLocals : public ExpandLocals {
+struct TbbExpandLocals : public ExpandLocals
+{
     const Context *ctx;
     std::mutex *all_costs_mutex;
 
@@ -726,15 +724,12 @@ struct TbbExpandLocals : public ExpandLocals {
     absl::flat_hash_set<TypeWireId> *types_deferred;
     absl::flat_hash_set<int32_t> *tiles_left;
 
-    void lock() override {
-        all_costs_mutex->lock();
-    }
+    void lock() override { all_costs_mutex->lock(); }
 
-    void unlock() override {
-        all_costs_mutex->unlock();
-    }
+    void unlock() override { all_costs_mutex->unlock(); }
 
-    void copy_back(int32_t tile_type) override {
+    void copy_back(int32_t tile_type) override
+    {
         ScopeLock<TbbExpandLocals> locker(this);
 
         auto &type_data = ctx->chip_info->tile_types[tile_type];
@@ -783,16 +778,12 @@ struct TbbExpandLocals : public ExpandLocals {
 //
 // expand_tile_type is invoked using thread local data, and then afterwards
 // the data is joined with the global data.
-static void expand_tile_type_parallel(const Context *ctx,
-        int32_t tile_type,
-        const std::vector<Sampler> &tiles_of_type,
-        DeterministicRNG *rng,
-        std::mutex *all_costs_mutex,
-        DelayStorage *all_tiles_storage,
-        absl::flat_hash_set<TypeWireSet> *types_explored,
-        absl::flat_hash_set<TypeWireId> *types_deferred,
-        absl::flat_hash_set<int32_t> *tiles_left
-        ) {
+static void expand_tile_type_parallel(const Context *ctx, int32_t tile_type, const std::vector<Sampler> &tiles_of_type,
+                                      DeterministicRNG *rng, std::mutex *all_costs_mutex,
+                                      DelayStorage *all_tiles_storage, absl::flat_hash_set<TypeWireSet> *types_explored,
+                                      absl::flat_hash_set<TypeWireId> *types_deferred,
+                                      absl::flat_hash_set<int32_t> *tiles_left)
+{
     TbbExpandLocals locals;
 
     DeterministicRNG rng_copy = *rng;
@@ -955,32 +946,18 @@ void Lookahead::build_lookahead(const Context *ctx, DeterministicRNG *rng)
 
         expand_serially = false;
         tbb::parallel_for_each(tile_types, [&](int32_t tile_type) {
-            expand_tile_type_parallel(ctx,
-                    tile_type,
-                    tiles_of_type,
-                    rng,
-                    &all_costs_mutex,
-                    &all_tiles_storage,
-                    &types_explored,
-                    &types_deferred,
-                    &tiles_left);
-            });
+            expand_tile_type_parallel(ctx, tile_type, tiles_of_type, rng, &all_costs_mutex, &all_tiles_storage,
+                                      &types_explored, &types_deferred, &tiles_left);
+        });
     }
 #else
     // Supress warning that expand_tile_type_parallel if not running in
     // parallel.
     (void)expand_tile_type_parallel;
 #endif
-    if(expand_serially) {
-        expand_tile_type_serial(ctx,
-                tile_types,
-                tiles_of_type,
-                rng,
-                &best_path,
-                &all_tiles_storage,
-                &types_explored,
-                &types_deferred,
-                &tiles_left);
+    if (expand_serially) {
+        expand_tile_type_serial(ctx, tile_types, tiles_of_type, rng, &best_path, &all_tiles_storage, &types_explored,
+                                &types_deferred, &tiles_left);
     }
 
     // Check to see if deferred wire types were expanded.  If they were not
