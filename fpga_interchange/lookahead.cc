@@ -800,12 +800,14 @@ static void expand_tile_type_parallel(const Context *ctx,
     absl::flat_hash_set<TypeWireSet> explored;
     absl::flat_hash_set<TypeWireId> deferred;
     DelayStorage storage;
+    storage.max_explore_depth = all_tiles_storage->max_explore_depth;
 
     locals.tiles_of_type = &tiles_of_type;
     locals.rng = &rng_copy;
     locals.best_path = &best_path;
     locals.storage = &storage;
     locals.explored = &explored;
+    locals.deferred = &deferred;
 
     locals.ctx = ctx;
     locals.all_costs_mutex = all_costs_mutex;
@@ -1316,6 +1318,8 @@ delay_t Lookahead::estimateDelay(const Context *ctx, WireId src, WireId dst) con
 
         // Follow chain up
         WireId orig_dst = dst;
+        (void)orig_dst;
+
         delay_t chain_delay;
         dst = follow_pip_chain_up(ctx, dst, &chain_delay);
         NPNR_ASSERT(chain_delay >= 0);
@@ -1394,6 +1398,8 @@ delay_t Lookahead::estimateDelay(const Context *ctx, WireId src, WireId dst) con
 
             // Follow chain up
             WireId orig_dst = dst;
+            (void)orig_dst;
+
             delay_t chain_delay;
             dst = follow_pip_chain_up(ctx, dst, &chain_delay);
             NPNR_ASSERT(chain_delay >= 0);
