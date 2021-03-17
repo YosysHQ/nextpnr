@@ -151,7 +151,6 @@ static void update_site_to_site_costs(const Context *ctx, WireId first_wire,
                 // Update point to point cost if cheaper.
                 if (cost_result.first->second > cost) {
                     cost_result.first->second = cost;
-                    ;
                 }
             }
         } while (cursor != first_wire);
@@ -610,6 +609,34 @@ static void expand_output_type(const Context *ctx, DeterministicRNG *rng, const 
     }
 }
 
+static constexpr bool kWriteLookaheadCsv = false;
+
+void write_lookahead_csv(const Context *ctx, const DelayStorage &all_tiles_storage)
+{
+    FILE *lookahead_data = fopen("lookahead.csv", "w");
+    NPNR_ASSERT(lookahead_data != nullptr);
+    fprintf(lookahead_data, "src_type,src_wire,dest_type,dest_wire,delta_x,delta_y,delay\n");
+    for (const auto &type_pair : all_tiles_storage.storage) {
+        auto &src_wire_type = type_pair.first.src;
+        auto &src_type_data = ctx->chip_info->tile_types[src_wire_type.type];
+        IdString src_type(src_type_data.name);
+        IdString src_wire(src_type_data.wire_data[src_wire_type.index].name);
+
+        auto &dst_wire_type = type_pair.first.dst;
+        auto &dst_type_data = ctx->chip_info->tile_types[dst_wire_type.type];
+        IdString dst_type(dst_type_data.name);
+        IdString dst_wire(dst_type_data.wire_data[dst_wire_type.index].name);
+
+        for (const auto &delta_pair : type_pair.second) {
+            fprintf(lookahead_data, "%s,%s,%s,%s,%d,%d,%d\n", src_type.c_str(ctx), src_wire.c_str(ctx),
+                    dst_type.c_str(ctx), dst_wire.c_str(ctx), delta_pair.first.first, delta_pair.first.second,
+                    delta_pair.second);
+        }
+    }
+
+    fclose(lookahead_data);
+}
+
 void Lookahead::build_lookahead(const Context *ctx, DeterministicRNG *rng)
 {
     auto start = std::chrono::high_resolution_clock::now();
@@ -881,32 +908,12 @@ void Lookahead::build_lookahead(const Context *ctx, DeterministicRNG *rng)
         log_info("Done with expansion, dt %02fs\n", std::chrono::duration<float>(end - start).count());
     }
 
-    FILE *lookahead_data = fopen("lookahead.csv", "w");
-    NPNR_ASSERT(lookahead_data != nullptr);
-    fprintf(lookahead_data, "src_type,src_wire,dest_type,dest_wire,delta_x,delta_y,delay\n");
-    for (const auto &type_pair : all_tiles_storage.storage) {
-        auto &src_wire_type = type_pair.first.src;
-        auto &src_type_data = ctx->chip_info->tile_types[src_wire_type.type];
-        IdString src_type(src_type_data.name);
-        IdString src_wire(src_type_data.wire_data[src_wire_type.index].name);
-
-        auto &dst_wire_type = type_pair.first.dst;
-        auto &dst_type_data = ctx->chip_info->tile_types[dst_wire_type.type];
-        IdString dst_type(dst_type_data.name);
-        IdString dst_wire(dst_type_data.wire_data[dst_wire_type.index].name);
-
-        for (const auto &delta_pair : type_pair.second) {
-            fprintf(lookahead_data, "%s,%s,%s,%s,%d,%d,%d\n", src_type.c_str(ctx), src_wire.c_str(ctx),
-                    dst_type.c_str(ctx), dst_wire.c_str(ctx), delta_pair.first.first, delta_pair.first.second,
-                    delta_pair.second);
+    if (kWriteLookaheadCsv) {
+        write_lookahead_csv(ctx, all_tiles_storage);
+        end = std::chrono::high_resolution_clock::now();
+        if (ctx->verbose) {
+            log_info("Done writing data to disk, dt %02fs\n", std::chrono::duration<float>(end - start).count());
         }
-    }
-
-    fclose(lookahead_data);
-
-    end = std::chrono::high_resolution_clock::now();
-    if (ctx->verbose) {
-        log_info("Done writing data to disk, dt %02fs\n", std::chrono::duration<float>(end - start).count());
     }
 
 #if defined(NEXTPNR_USE_TBB) // Run parallely
