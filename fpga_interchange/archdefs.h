@@ -21,10 +21,10 @@
 #ifndef FPGA_INTERCHANGE_ARCHDEFS_H
 #define FPGA_INTERCHANGE_ARCHDEFS_H
 
-#include <boost/functional/hash.hpp>
-#include <cstdint>
 #include <absl/container/flat_hash_map.h>
 #include <absl/container/flat_hash_set.h>
+#include <boost/functional/hash.hpp>
+#include <cstdint>
 
 #include "luts.h"
 #include "nextpnr_namespaces.h"

@@ -90,7 +90,8 @@ void IdString::initialize_arch(const BaseCtx *ctx) {}
 
 static const ChipInfoPOD *get_chip_info(const RelPtr<ChipInfoPOD> *ptr) { return ptr->get(); }
 
-static std::string sha1_hash(const char * data, size_t size) {
+static std::string sha1_hash(const char *data, size_t size)
+{
     boost::uuids::detail::sha1 hasher;
     hasher.process_bytes(data, size);
 
@@ -98,7 +99,7 @@ static std::string sha1_hash(const char * data, size_t size) {
     hasher.get_digest(digest);
 
     std::ostringstream buf;
-    for(int i = 0; i < 5; ++i)
+    for (int i = 0; i < 5; ++i)
         buf << std::hex << std::setfill('0') << std::setw(8) << digest[i];
 
     return buf.str();
@@ -118,9 +119,8 @@ Arch::Arch(ArchArgs args) : args(args)
         log_error("Unable to read chipdb %s\n", args.chipdb.c_str());
     }
 
-    if(chip_info->version != kExpectedChipInfoVersion) {
-        log_error("Expected chipdb with version %d found version %d\n",
-                kExpectedChipInfoVersion, chip_info->version);
+    if (chip_info->version != kExpectedChipInfoVersion) {
+        log_error("Expected chipdb with version %d found version %d\n", kExpectedChipInfoVersion, chip_info->version);
     }
 
     // Read strings from constids into IdString database, checking that list
@@ -1757,9 +1757,7 @@ bool Arch::checkPipAvail(PipId pip) const
     return true;
 }
 
-std::string Arch::get_chipdb_hash() const {
-    return chipdb_hash;
-}
+std::string Arch::get_chipdb_hash() const { return chipdb_hash; }
 
 // Instance constraint templates.
 template void Arch::ArchConstraints::bindBel(Arch::ArchConstraints::TagState *, const Arch::ConstraintRange);

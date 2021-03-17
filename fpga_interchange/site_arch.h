@@ -116,8 +116,7 @@ struct SiteWire
         return out;
     }
 
-    static SiteWire make(const SiteInformation *site_info, PortType port_type, NetInfo *net)
-            NPNR_ALWAYS_INLINE
+    static SiteWire make(const SiteInformation *site_info, PortType port_type, NetInfo *net) NPNR_ALWAYS_INLINE
     {
         SiteWire out;
         if (port_type == PORT_OUT) {
@@ -130,8 +129,7 @@ struct SiteWire
         return out;
     }
 
-    static SiteWire make_site_port(const SiteInformation *site_info, PipId pip, bool dst_wire)
-            NPNR_ALWAYS_INLINE
+    static SiteWire make_site_port(const SiteInformation *site_info, PipId pip, bool dst_wire) NPNR_ALWAYS_INLINE
     {
         const auto &tile_type_data = site_info->chip_info().tile_types[site_info->tile_type];
         const auto &pip_data = tile_type_data.pip_data[pip.index];

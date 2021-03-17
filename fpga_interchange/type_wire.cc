@@ -61,16 +61,21 @@ TypeWireSet::TypeWireSet(const Context *ctx, WireId wire)
     }
 }
 
-TypeWireId::TypeWireId(lookahead_storage::TypeWireId::Reader reader) : type(reader.getType()), index(reader.getIndex()) {
+TypeWireId::TypeWireId(lookahead_storage::TypeWireId::Reader reader) : type(reader.getType()), index(reader.getIndex())
+{
 }
-void TypeWireId::to_builder(lookahead_storage::TypeWireId::Builder builder) const {
+void TypeWireId::to_builder(lookahead_storage::TypeWireId::Builder builder) const
+{
     builder.setType(type);
     builder.setIndex(index);
 }
 
-TypeWirePair::TypeWirePair(lookahead_storage::TypeWirePair::Reader reader) : src(reader.getSrc()), dst(reader.getDst()) {}
+TypeWirePair::TypeWirePair(lookahead_storage::TypeWirePair::Reader reader) : src(reader.getSrc()), dst(reader.getDst())
+{
+}
 
-void TypeWirePair::to_builder(lookahead_storage::TypeWirePair::Builder builder) const {
+void TypeWirePair::to_builder(lookahead_storage::TypeWirePair::Builder builder) const
+{
     src.to_builder(builder.getSrc());
     dst.to_builder(builder.getDst());
 }

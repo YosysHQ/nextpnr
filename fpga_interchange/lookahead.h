@@ -26,9 +26,9 @@
 
 #include "cost_map.h"
 #include "deterministic_rng.h"
+#include "lookahead.capnp.h"
 #include "nextpnr_namespaces.h"
 #include "type_wire.h"
-#include "lookahead.capnp.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 

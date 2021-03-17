@@ -24,10 +24,10 @@
 #include <boost/multi_array.hpp>
 #include <mutex>
 
+#include "lookahead.capnp.h"
 #include "nextpnr_namespaces.h"
 #include "nextpnr_types.h"
 #include "type_wire.h"
-#include "lookahead.capnp.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -42,6 +42,7 @@ class CostMap
 
     void from_reader(lookahead_storage::CostMap::Reader reader);
     void to_builder(lookahead_storage::CostMap::Builder builder) const;
+
   private:
     struct CostMapEntry
     {

@@ -102,8 +102,8 @@ delay_t CostMap::get_delay(const Context *ctx, WireId src_wire, WireId dst_wire)
     NPNR_ASSERT(y_dim > 0);
 
     // Bound closest_x/y to [0, dim)
-    int32_t closest_x = std::min(std::max(off_x, 0), x_dim-1);
-    int32_t closest_y = std::min(std::max(off_y, 0), y_dim-1);
+    int32_t closest_x = std::min(std::max(off_x, 0), x_dim - 1);
+    int32_t closest_y = std::min(std::max(off_y, 0), y_dim - 1);
 
     // Get the cost entry from the cost map at the deltas values
     auto cost = delay_matrix.data[closest_x][closest_y];
@@ -343,25 +343,25 @@ delay_t CostMap::get_penalty(const boost::multi_array<delay_t, 2> &matrix) const
     return delay_penalty;
 }
 
-void CostMap::from_reader(lookahead_storage::CostMap::Reader reader) {
-    for(auto cost_entry : reader.getCostMap()) {
+void CostMap::from_reader(lookahead_storage::CostMap::Reader reader)
+{
+    for (auto cost_entry : reader.getCostMap()) {
         TypeWirePair key(cost_entry.getKey());
 
         auto result = cost_map_.emplace(key, CostMapEntry());
         NPNR_ASSERT(result.second);
 
-        CostMapEntry & entry = result.first->second;
+        CostMapEntry &entry = result.first->second;
         auto data = cost_entry.getData();
         auto in_iter = data.begin();
 
         entry.data.resize(boost::extents[cost_entry.getXDim()][cost_entry.getYDim()]);
-        if(entry.data.num_elements() != data.size()) {
-            log_error("entry.data.num_elements() %zu != data.size() %u",
-                entry.data.num_elements(), data.size());
+        if (entry.data.num_elements() != data.size()) {
+            log_error("entry.data.num_elements() %zu != data.size() %u", entry.data.num_elements(), data.size());
         }
 
         delay_t *out = entry.data.origin();
-        for(; in_iter != data.end(); ++in_iter, ++out) {
+        for (; in_iter != data.end(); ++in_iter, ++out) {
             *out = *in_iter;
         }
 
@@ -372,19 +372,20 @@ void CostMap::from_reader(lookahead_storage::CostMap::Reader reader) {
     }
 }
 
-void CostMap::to_builder(lookahead_storage::CostMap::Builder builder) const {
+void CostMap::to_builder(lookahead_storage::CostMap::Builder builder) const
+{
     auto cost_map = builder.initCostMap(cost_map_.size());
     auto entry_iter = cost_map.begin();
     auto in = cost_map_.begin();
-    for(; entry_iter != cost_map.end(); ++entry_iter, ++in) {
+    for (; entry_iter != cost_map.end(); ++entry_iter, ++in) {
         NPNR_ASSERT(in != cost_map_.end());
 
         in->first.to_builder(entry_iter->getKey());
-        const CostMapEntry & entry = in->second;
+        const CostMapEntry &entry = in->second;
 
         auto data = entry_iter->initData(entry.data.num_elements());
         const delay_t *data_in = entry.data.origin();
-        for(size_t i = 0; i < entry.data.num_elements(); ++i) {
+        for (size_t i = 0; i < entry.data.num_elements(); ++i) {
             data.set(i, data_in[i]);
         }
 

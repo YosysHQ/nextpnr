@@ -20,13 +20,13 @@
 
 #include "lookahead.h"
 
-#include <queue>
 #include <boost/filesystem.hpp>
-#include <kj/filesystem.h>
 #include <capnp/message.h>
-#include <sstream>
 #include <capnp/serialize.h>
+#include <kj/filesystem.h>
 #include <kj/std/iostream.h>
+#include <queue>
+#include <sstream>
 #include <zlib.h>
 
 #include "context.h"
@@ -556,10 +556,9 @@ static WireId follow_pip_chain_up(const Context *ctx, WireId wire, delay_t *dela
     NPNR_ASSERT(false);
 }
 
-static void expand_deferred_routing_graph(const Context *ctx, DeterministicRNG *rng,
-                                          const Sampler &tiles_of_type, TypeWireId wire_type,
-                                          absl::flat_hash_set<TypeWireSet> *types_explored, DelayStorage *storage,
-                                          FlatWireMap<PipAndCost> *best_path)
+static void expand_deferred_routing_graph(const Context *ctx, DeterministicRNG *rng, const Sampler &tiles_of_type,
+                                          TypeWireId wire_type, absl::flat_hash_set<TypeWireSet> *types_explored,
+                                          DelayStorage *storage, FlatWireMap<PipAndCost> *best_path)
 {
     absl::flat_hash_set<TypeWireSet> new_types_explored;
 
@@ -932,27 +931,28 @@ void Lookahead::build_lookahead(const Context *ctx, DeterministicRNG *rng)
 
 constexpr static bool kUseGzipForLookahead = false;
 
-static void write_message(::capnp::MallocMessageBuilder & message, const std::string &filename) {
+static void write_message(::capnp::MallocMessageBuilder &message, const std::string &filename)
+{
     kj::Array<capnp::word> words = messageToFlatArray(message);
     kj::ArrayPtr<kj::byte> bytes = words.asBytes();
 
     boost::filesystem::path temp = boost::filesystem::unique_path();
     log_info("Writing tempfile to %s\n", temp.c_str());
 
-    if(kUseGzipForLookahead) {
+    if (kUseGzipForLookahead) {
         gzFile file = gzopen(temp.c_str(), "w");
         NPNR_ASSERT(file != Z_NULL);
 
         size_t bytes_written = 0;
         int result;
-        while(bytes_written < bytes.size()) {
+        while (bytes_written < bytes.size()) {
             size_t bytes_remaining = bytes.size() - bytes_written;
             size_t bytes_to_write = bytes_remaining;
-            if(bytes_to_write >= std::numeric_limits<int>::max()) {
+            if (bytes_to_write >= std::numeric_limits<int>::max()) {
                 bytes_to_write = std::numeric_limits<int>::max();
             }
-            result = gzwrite(file, &bytes[0]+bytes_written, bytes_to_write);
-            if(result < 0) {
+            result = gzwrite(file, &bytes[0] + bytes_written, bytes_to_write);
+            if (result < 0) {
                 break;
             }
 
@@ -961,19 +961,19 @@ static void write_message(::capnp::MallocMessageBuilder & message, const std::st
 
         int error;
         std::string error_str;
-        if(result < 0) {
+        if (result < 0) {
             error_str.assign(gzerror(file, &error));
         }
         NPNR_ASSERT(gzclose(file) == Z_OK);
-        if(bytes_written != bytes.size()) {
+        if (bytes_written != bytes.size()) {
             // Remove failed writes before reporting error.
             boost::filesystem::remove(temp);
         }
 
-        if(result < 0) {
+        if (result < 0) {
             log_error("Failed to write lookahead, error from gzip %s\n", error_str.c_str());
         } else {
-            if(bytes_written != bytes.size()) {
+            if (bytes_written != bytes.size()) {
                 log_error("Failed to write lookahead, wrote %d bytes, had %zu bytes\n", result, bytes.size());
             } else {
                 // Written, move file into place
@@ -985,8 +985,7 @@ static void write_message(::capnp::MallocMessageBuilder & message, const std::st
             kj::Own<kj::Filesystem> fs = kj::newDiskFilesystem();
 
             auto path = kj::Path::parse(temp);
-            auto file = fs->getCurrent().openFile(path,
-                            kj::WriteMode::CREATE);
+            auto file = fs->getCurrent().openFile(path, kj::WriteMode::CREATE);
             file->writeAll(bytes);
         }
 
@@ -994,24 +993,25 @@ static void write_message(::capnp::MallocMessageBuilder & message, const std::st
     }
 }
 
-bool Lookahead::read_lookahead(const std::string &chipdb_hash, const std::string &filename) {
+bool Lookahead::read_lookahead(const std::string &chipdb_hash, const std::string &filename)
+{
     capnp::ReaderOptions reader_options;
-    reader_options.traversalLimitInWords = 32llu*1024llu*1024llu*1024llu;
+    reader_options.traversalLimitInWords = 32llu * 1024llu * 1024llu * 1024llu;
 
-    if(kUseGzipForLookahead) {
+    if (kUseGzipForLookahead) {
         gzFile file = gzopen(filename.c_str(), "r");
-        if(file == Z_NULL) {
+        if (file == Z_NULL) {
             return false;
         }
 
         std::vector<uint8_t> output_data;
         output_data.resize(4096);
         std::stringstream sstream(std::ios_base::in | std::ios_base::out | std::ios_base::binary);
-        while(true) {
+        while (true) {
             int ret = gzread(file, output_data.data(), output_data.size());
             NPNR_ASSERT(ret >= 0);
-            if(ret > 0) {
-                sstream.write((const char*)output_data.data(), ret);
+            if (ret > 0) {
+                sstream.write((const char *)output_data.data(), ret);
                 NPNR_ASSERT(sstream);
             } else {
                 NPNR_ASSERT(ret == 0);
@@ -1034,7 +1034,7 @@ bool Lookahead::read_lookahead(const std::string &chipdb_hash, const std::string
         boost::iostreams::mapped_file_source file;
         try {
             file.open(filename.c_str());
-        } catch(std::ios_base::failure & fail) {
+        } catch (std::ios_base::failure &fail) {
             return false;
         }
 
@@ -1043,16 +1043,16 @@ bool Lookahead::read_lookahead(const std::string &chipdb_hash, const std::string
         }
 
         const char *data = reinterpret_cast<const char *>(file.data());
-        const kj::ArrayPtr<const ::capnp::word> words = kj::arrayPtr(
-                reinterpret_cast<const ::capnp::word*>(data),
-                file.size() / sizeof(::capnp::word));
+        const kj::ArrayPtr<const ::capnp::word> words =
+                kj::arrayPtr(reinterpret_cast<const ::capnp::word *>(data), file.size() / sizeof(::capnp::word));
         ::capnp::FlatArrayMessageReader reader(words, reader_options);
         lookahead_storage::Lookahead::Reader lookahead = reader.getRoot<lookahead_storage::Lookahead>();
         return from_reader(chipdb_hash, lookahead);
     }
 }
 
-void Lookahead::write_lookahead(const std::string &chipdb_hash, const std::string &file) const {
+void Lookahead::write_lookahead(const std::string &chipdb_hash, const std::string &file) const
+{
     ::capnp::MallocMessageBuilder message;
 
     lookahead_storage::Lookahead::Builder lookahead = message.initRoot<lookahead_storage::Lookahead>();
@@ -1060,9 +1060,10 @@ void Lookahead::write_lookahead(const std::string &chipdb_hash, const std::strin
     write_message(message, file);
 }
 
-void Lookahead::init(const Context *ctx, DeterministicRNG *rng) {
+void Lookahead::init(const Context *ctx, DeterministicRNG *rng)
+{
     std::string lookahead_filename;
-    if(kUseGzipForLookahead) {
+    if (kUseGzipForLookahead) {
         lookahead_filename = ctx->args.chipdb + ".lookahead.tgz";
     } else {
         lookahead_filename = ctx->args.chipdb + ".lookahead";
@@ -1070,9 +1071,9 @@ void Lookahead::init(const Context *ctx, DeterministicRNG *rng) {
 
     std::string chipdb_hash = ctx->get_chipdb_hash();
 
-    if(ctx->args.rebuild_lookahead || !read_lookahead(chipdb_hash, lookahead_filename)) {
+    if (ctx->args.rebuild_lookahead || !read_lookahead(chipdb_hash, lookahead_filename)) {
         build_lookahead(ctx, rng);
-        if(!ctx->args.dont_write_lookahead) {
+        if (!ctx->args.dont_write_lookahead) {
             write_lookahead(chipdb_hash, lookahead_filename);
         }
     }
@@ -1345,9 +1346,10 @@ delay_t Lookahead::estimateDelay(const Context *ctx, WireId src, WireId dst) con
     }
 }
 
-bool Lookahead::from_reader(const std::string &chipdb_hash, lookahead_storage::Lookahead::Reader reader) {
+bool Lookahead::from_reader(const std::string &chipdb_hash, lookahead_storage::Lookahead::Reader reader)
+{
     std::string expected_hash = reader.getChipdbHash();
-    if(chipdb_hash != expected_hash) {
+    if (chipdb_hash != expected_hash) {
         return false;
     }
 
@@ -1355,7 +1357,7 @@ bool Lookahead::from_reader(const std::string &chipdb_hash, lookahead_storage::L
     output_site_wires.clear();
     site_to_site_cost.clear();
 
-    for(auto input_reader : reader.getInputSiteWires()) {
+    for (auto input_reader : reader.getInputSiteWires()) {
         TypeWireId key(input_reader.getKey());
 
         auto result = input_site_wires.emplace(key, std::vector<InputSiteWireCost>());
@@ -1363,19 +1365,20 @@ bool Lookahead::from_reader(const std::string &chipdb_hash, lookahead_storage::L
         std::vector<InputSiteWireCost> &costs = result.first->second;
         auto value = input_reader.getValue();
         costs.reserve(value.size());
-        for(auto cost : value) {
+        for (auto cost : value) {
             costs.emplace_back(InputSiteWireCost{TypeWireId(cost.getRouteTo()), cost.getCost()});
         }
     }
 
-    for(auto output_reader : reader.getOutputSiteWires()) {
+    for (auto output_reader : reader.getOutputSiteWires()) {
         TypeWireId key(output_reader.getKey());
 
-        auto result = output_site_wires.emplace(key, OutputSiteWireCost{TypeWireId(output_reader.getCheapestRouteFrom()), output_reader.getCost()});
+        auto result = output_site_wires.emplace(
+                key, OutputSiteWireCost{TypeWireId(output_reader.getCheapestRouteFrom()), output_reader.getCost()});
         NPNR_ASSERT(result.second);
     }
 
-    for(auto site_to_site_reader : reader.getSiteToSiteCost()) {
+    for (auto site_to_site_reader : reader.getSiteToSiteCost()) {
         TypeWirePair key(site_to_site_reader.getKey());
         auto result = site_to_site_cost.emplace(key, site_to_site_reader.getCost());
         NPNR_ASSERT(result.second);
@@ -1386,12 +1389,13 @@ bool Lookahead::from_reader(const std::string &chipdb_hash, lookahead_storage::L
     return true;
 }
 
-void Lookahead::to_builder(const std::string &chipdb_hash, lookahead_storage::Lookahead::Builder builder) const {
+void Lookahead::to_builder(const std::string &chipdb_hash, lookahead_storage::Lookahead::Builder builder) const
+{
     builder.setChipdbHash(chipdb_hash);
 
     auto input_out = builder.initInputSiteWires(input_site_wires.size());
     auto in = input_site_wires.begin();
-    for(auto out = input_out.begin(); out != input_out.end(); ++out, ++in) {
+    for (auto out = input_out.begin(); out != input_out.end(); ++out, ++in) {
         NPNR_ASSERT(in != input_site_wires.end());
 
         const TypeWireId &key = in->first;
@@ -1401,8 +1405,7 @@ void Lookahead::to_builder(const std::string &chipdb_hash, lookahead_storage::Lo
         auto value = out->initValue(costs.size());
 
         auto value_in = costs.begin();
-        for(auto value_out = value.begin();
-                value_out != value.end(); ++value_out, ++value_in) {
+        for (auto value_out = value.begin(); value_out != value.end(); ++value_out, ++value_in) {
             value_in->route_to.to_builder(value_out->getRouteTo());
             value_out->setCost(value_in->cost);
         }
@@ -1410,7 +1413,7 @@ void Lookahead::to_builder(const std::string &chipdb_hash, lookahead_storage::Lo
 
     auto output_out = builder.initOutputSiteWires(output_site_wires.size());
     auto out = output_site_wires.begin();
-    for(auto out2 = output_out.begin(); out2 != output_out.end(); ++out, ++out2) {
+    for (auto out2 = output_out.begin(); out2 != output_out.end(); ++out, ++out2) {
         NPNR_ASSERT(out != output_site_wires.end());
 
         const TypeWireId &key = out->first;
@@ -1424,7 +1427,7 @@ void Lookahead::to_builder(const std::string &chipdb_hash, lookahead_storage::Lo
 
     auto site_out = builder.initSiteToSiteCost(site_to_site_cost.size());
     auto site = site_to_site_cost.begin();
-    for(auto out2 = site_out.begin(); out2 != site_out.end(); ++out2, ++site) {
+    for (auto out2 = site_out.begin(); out2 != site_out.end(); ++out2, ++site) {
         NPNR_ASSERT(site != site_to_site_cost.end());
 
         const TypeWirePair &key = site->first;
