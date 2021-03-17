@@ -27,6 +27,7 @@
 #include "nextpnr_namespaces.h"
 #include "nextpnr_types.h"
 #include "type_wire.h"
+#include "lookahead.capnp.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -39,6 +40,8 @@ class CostMap
     void set_cost_map(const Context *ctx, const TypeWirePair &wire_pair,
                       const absl::flat_hash_map<std::pair<int32_t, int32_t>, delay_t> &delays);
 
+    void from_reader(lookahead_storage::CostMap::Reader reader);
+    void to_builder(lookahead_storage::CostMap::Builder builder) const;
   private:
     struct CostMapEntry
     {

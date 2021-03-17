@@ -1192,4 +1192,94 @@ delay_t Lookahead::estimateDelay(const Context *ctx, WireId src, WireId dst) con
     }
 }
 
+bool Lookahead::from_reader(const std::string &chipdb_hash, lookahead_storage::Lookahead::Reader reader) {
+    std::string expected_hash = reader.getChipdbHash();
+    if(chipdb_hash != expected_hash) {
+        return false;
+    }
+
+    input_site_wires.clear();
+    output_site_wires.clear();
+    site_to_site_cost.clear();
+
+    for(auto input_reader : reader.getInputSiteWires()) {
+        TypeWireId key(input_reader.getKey());
+
+        auto result = input_site_wires.emplace(key, std::vector<InputSiteWireCost>());
+        NPNR_ASSERT(result.second);
+        std::vector<InputSiteWireCost> &costs = result.first->second;
+        auto value = input_reader.getValue();
+        costs.reserve(value.size());
+        for(auto cost : value) {
+            costs.emplace_back(InputSiteWireCost{TypeWireId(cost.getRouteTo()), cost.getCost()});
+        }
+    }
+
+    for(auto output_reader : reader.getOutputSiteWires()) {
+        TypeWireId key(output_reader.getKey());
+
+        auto result = output_site_wires.emplace(key, OutputSiteWireCost{TypeWireId(output_reader.getCheapestRouteFrom()), output_reader.getCost()});
+        NPNR_ASSERT(result.second);
+    }
+
+    for(auto site_to_site_reader : reader.getSiteToSiteCost()) {
+        TypeWirePair key(site_to_site_reader.getKey());
+        auto result = site_to_site_cost.emplace(key, site_to_site_reader.getCost());
+        NPNR_ASSERT(result.second);
+    }
+
+    cost_map.from_reader(reader.getCostMap());
+
+    return true;
+}
+
+void Lookahead::to_builder(const std::string &chipdb_hash, lookahead_storage::Lookahead::Builder builder) const {
+    builder.setChipdbHash(chipdb_hash);
+
+    auto input_out = builder.initInputSiteWires(input_site_wires.size());
+    auto in = input_site_wires.begin();
+    for(auto out = input_out.begin(); out != input_out.end(); ++out, ++in) {
+        NPNR_ASSERT(in != input_site_wires.end());
+
+        const TypeWireId &key = in->first;
+        key.to_builder(out->getKey());
+
+        const std::vector<InputSiteWireCost> &costs = in->second;
+        auto value = out->initValue(costs.size());
+
+        auto value_in = costs.begin();
+        for(auto value_out = value.begin();
+                value_out != value.end(); ++value_out, ++value_in) {
+            value_in->route_to.to_builder(value_out->getRouteTo());
+            value_out->setCost(value_in->cost);
+        }
+    }
+
+    auto output_out = builder.initOutputSiteWires(output_site_wires.size());
+    auto out = output_site_wires.begin();
+    for(auto out2 = output_out.begin(); out2 != output_out.end(); ++out, ++out2) {
+        NPNR_ASSERT(out != output_site_wires.end());
+
+        const TypeWireId &key = out->first;
+        key.to_builder(out2->getKey());
+
+        const TypeWireId &cheapest_route_from = out->second.cheapest_route_from;
+        cheapest_route_from.to_builder(out2->getCheapestRouteFrom());
+
+        out2->setCost(out->second.cost);
+    }
+
+    auto site_out = builder.initSiteToSiteCost(site_to_site_cost.size());
+    auto site = site_to_site_cost.begin();
+    for(auto out2 = site_out.begin(); out2 != site_out.end(); ++out2, ++site) {
+        NPNR_ASSERT(site != site_to_site_cost.end());
+
+        const TypeWirePair &key = site->first;
+        key.to_builder(out2->getKey());
+        out2->setCost(site->second);
+    }
+
+    cost_map.to_builder(builder.getCostMap());
+}
+
 NEXTPNR_NAMESPACE_END

@@ -27,6 +27,8 @@
 #include "nextpnr_namespaces.h"
 #include "nextpnr_types.h"
 
+#include "lookahead.capnp.h"
+
 NEXTPNR_NAMESPACE_BEGIN
 
 struct Context;
@@ -35,6 +37,9 @@ struct TypeWireId
 {
     TypeWireId() : type(-1), index(-1) {}
     TypeWireId(const Context *ctx, WireId wire_inst);
+
+    explicit TypeWireId(lookahead_storage::TypeWireId::Reader reader);
+    void to_builder(lookahead_storage::TypeWireId::Builder builder) const;
 
     bool operator==(const TypeWireId &other) const { return type == other.type && index == other.index; }
     bool operator!=(const TypeWireId &other) const { return type != other.type || index != other.index; }
@@ -51,6 +56,10 @@ struct TypeWirePair
 {
     TypeWireId src;
     TypeWireId dst;
+
+    TypeWirePair() = default;
+    explicit TypeWirePair(lookahead_storage::TypeWirePair::Reader reader);
+    void to_builder(lookahead_storage::TypeWirePair::Builder builder) const;
 
     bool operator==(const TypeWirePair &other) const { return src == other.src && dst == other.dst; }
     bool operator!=(const TypeWirePair &other) const { return src != other.src || dst != other.dst; }

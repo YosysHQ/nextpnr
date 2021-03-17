@@ -353,4 +353,57 @@ delay_t CostMap::get_penalty(const boost::multi_array<delay_t, 2> &matrix) const
     return delay_penalty;
 }
 
+void CostMap::from_reader(lookahead_storage::CostMap::Reader reader) {
+    for(auto cost_entry : reader.getCostMap()) {
+        TypeWirePair key(cost_entry.getKey());
+
+        auto result = cost_map_.emplace(key, CostMapEntry());
+        NPNR_ASSERT(result.second);
+
+        CostMapEntry & entry = result.first->second;
+        auto data = cost_entry.getData();
+        auto in_iter = data.begin();
+
+        entry.data.resize(boost::extents[cost_entry.getXDim()][cost_entry.getYDim()]);
+        if(entry.data.num_elements() != data.size()) {
+            log_error("entry.data.num_elements() %zu != data.size() %u",
+                entry.data.num_elements(), data.size());
+        }
+
+        delay_t *out = entry.data.origin();
+        for(; in_iter != data.end(); ++in_iter, ++out) {
+            *out = *in_iter;
+        }
+
+        entry.penalty = cost_entry.getPenalty();
+
+        entry.offset.first = cost_entry.getXOffset();
+        entry.offset.second = cost_entry.getYOffset();
+    }
+}
+
+void CostMap::to_builder(lookahead_storage::CostMap::Builder builder) const {
+    auto cost_map = builder.initCostMap(cost_map_.size());
+    auto entry_iter = cost_map.begin();
+    auto in = cost_map_.begin();
+    for(; entry_iter != cost_map.end(); ++entry_iter, ++in) {
+        NPNR_ASSERT(in != cost_map_.end());
+
+        in->first.to_builder(entry_iter->getKey());
+        const CostMapEntry & entry = in->second;
+
+        auto data = entry_iter->initData(entry.data.num_elements());
+        const delay_t *data_in = entry.data.origin();
+        for(size_t i = 0; i < entry.data.num_elements(); ++i) {
+            data.set(i, data_in[i]);
+        }
+
+        entry_iter->setXDim(entry.data.shape()[0]);
+        entry_iter->setYDim(entry.data.shape()[1]);
+        entry_iter->setXOffset(entry.offset.first);
+        entry_iter->setYOffset(entry.offset.second);
+        entry_iter->setPenalty(entry.penalty);
+    }
+}
+
 NEXTPNR_NAMESPACE_END
