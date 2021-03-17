@@ -1,9 +1,9 @@
 yosys -import
 
-read_verilog Murax.v
-read_verilog basys3_toplevel.v
+read_verilog $::env(SOURCES)
 
 synth_xilinx -flatten -nolutram -nowidelut -nosrl -nocarry -nodsp
+techmap -map $::env(TECHMAP)
 
 # opt_expr -undriven makes sure all nets are driven, if only by the $undef
 # net.
@@ -12,4 +12,4 @@ opt_clean
 
 setundef -zero -params
 
-write_json build/murax.json
+write_json $::env(OUT_JSON)
