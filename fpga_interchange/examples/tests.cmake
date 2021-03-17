@@ -140,6 +140,91 @@ function(add_interchange_test)
             ${chipdb_bin_loc}
     )
 
+    add_custom_target(
+        test-${family}-${name}-phys-verbose
+        COMMAND
+            nextpnr-fpga_interchange
+                --chipdb ${chipdb_bin_loc}
+                --xdc ${xdc}
+                --netlist ${netlist}
+                --phys ${phys}
+                --package ${package}
+                --verbose
+        DEPENDS
+            ${netlist}
+            ${xdc}
+            ${chipdb_bin_target}
+            ${chipdb_bin_loc}
+    )
+
+    add_custom_target(
+        test-${family}-${name}-phys-verbose2
+        COMMAND
+            nextpnr-fpga_interchange
+                --chipdb ${chipdb_bin_loc}
+                --xdc ${xdc}
+                --netlist ${netlist}
+                --phys ${phys}
+                --package ${package}
+                --debug
+        DEPENDS
+            ${netlist}
+            ${xdc}
+            ${chipdb_bin_target}
+            ${chipdb_bin_loc}
+    )
+
+    add_custom_target(
+        test-${family}-${name}-phys-debug
+        COMMAND gdb --args
+            $<TARGET_FILE:nextpnr-fpga_interchange>
+                --chipdb ${chipdb_bin_loc}
+                --xdc ${xdc}
+                --netlist ${netlist}
+                --phys ${phys}
+                --package ${package}
+        DEPENDS
+            ${netlist}
+            ${xdc}
+            ${chipdb_bin_target}
+            ${chipdb_bin_loc}
+    )
+
+    add_custom_target(
+        test-${family}-${name}-phys-valgrind
+        COMMAND
+            PYTHONMALLOC=malloc valgrind
+            $<TARGET_FILE:nextpnr-fpga_interchange>
+                --chipdb ${chipdb_bin_loc}
+                --xdc ${xdc}
+                --netlist ${netlist}
+                --phys ${phys}
+                --package ${package}
+        DEPENDS
+            ${netlist}
+            ${xdc}
+            ${chipdb_bin_target}
+            ${chipdb_bin_loc}
+    )
+
+    if(PROFILER)
+        add_custom_target(
+            test-${family}-${name}-phys-profile
+            COMMAND CPUPROFILE=${name}.prof
+                    $<TARGET_FILE:nextpnr-fpga_interchange>
+                    --chipdb ${chipdb_bin_loc}
+                    --xdc ${xdc}
+                    --netlist ${netlist}
+                    --phys ${phys}
+                    --package ${package}
+            DEPENDS
+                ${netlist}
+                ${xdc}
+                ${chipdb_bin_target}
+                ${chipdb_bin_loc}
+        )
+    endif()
+
     add_custom_target(test-${family}-${name}-phys DEPENDS ${phys})
 
     # Physical Netlist YAML

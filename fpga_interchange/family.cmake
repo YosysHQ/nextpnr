@@ -45,7 +45,6 @@ foreach (target ${family_targets})
     target_link_libraries(${target} PRIVATE fpga_interchange_capnp)
     target_link_libraries(${target} PRIVATE extra_capnp)
     target_link_libraries(${target} PRIVATE z)
-    target_link_libraries(${target} PRIVATE profiler)
 endforeach()
 
 if(BUILD_GUI)
