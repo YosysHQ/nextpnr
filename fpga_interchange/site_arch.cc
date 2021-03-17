@@ -164,10 +164,7 @@ SiteArch::SiteArch(const SiteInformation *site_info) : ctx(site_info->ctx), site
         // Examine net to determine if it has any users not in this site.
         bool net_used_out_of_site = false;
         for (const PortRef &user : net->users) {
-            if (user.cell == nullptr) {
-                // This is pretty weird!
-                continue;
-            }
+            NPNR_ASSERT(user.cell != nullptr);
 
             if (user.cell->bel == BelId()) {
                 // Because this net has a user that has not been placed,
