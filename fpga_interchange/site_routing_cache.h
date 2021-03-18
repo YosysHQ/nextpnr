@@ -22,6 +22,7 @@
 #define SITE_ROUTING_CACHE_H
 
 #include "PhysicalNetlist.capnp.h"
+#include "hash_table.h"
 #include "nextpnr_namespaces.h"
 #include "site_arch.h"
 #include "site_routing_storage.h"
@@ -125,7 +126,7 @@ class SiteRoutingCache
     void add_solutions(const SiteArch *ctx, const SiteNetInfo &net, const SiteRoutingSolution &solution);
 
   private:
-    absl::flat_hash_map<SiteRoutingKey, SiteRoutingSolution> cache_;
+    HashTables::HashMap<SiteRoutingKey, SiteRoutingSolution> cache_;
 };
 
 NEXTPNR_NAMESPACE_END

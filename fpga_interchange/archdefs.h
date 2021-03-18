@@ -21,11 +21,10 @@
 #ifndef FPGA_INTERCHANGE_ARCHDEFS_H
 #define FPGA_INTERCHANGE_ARCHDEFS_H
 
-#include <absl/container/flat_hash_map.h>
-#include <absl/container/flat_hash_set.h>
 #include <boost/functional/hash.hpp>
 #include <cstdint>
 
+#include "hash_table.h"
 #include "luts.h"
 #include "nextpnr_namespaces.h"
 
@@ -113,8 +112,8 @@ struct ArchCellInfo
     ArchCellInfo() : cell_mapping(-1) {}
 
     int32_t cell_mapping;
-    absl::flat_hash_map<IdString, std::vector<IdString>> cell_bel_pins;
-    absl::flat_hash_set<IdString> const_ports;
+    HashTables::HashMap<IdString, std::vector<IdString>> cell_bel_pins;
+    HashTables::HashSet<IdString> const_ports;
     LutCell lut_cell;
 };
 

@@ -24,6 +24,7 @@
 #include <boost/multi_array.hpp>
 #include <mutex>
 
+#include "hash_table.h"
 #include "lookahead.capnp.h"
 #include "nextpnr_namespaces.h"
 #include "nextpnr_types.h"
@@ -38,7 +39,7 @@ class CostMap
   public:
     delay_t get_delay(const Context *ctx, WireId src, WireId dst) const;
     void set_cost_map(const Context *ctx, const TypeWirePair &wire_pair,
-                      const absl::flat_hash_map<std::pair<int32_t, int32_t>, delay_t> &delays);
+                      const HashTables::HashMap<std::pair<int32_t, int32_t>, delay_t> &delays);
 
     void from_reader(lookahead_storage::CostMap::Reader reader);
     void to_builder(lookahead_storage::CostMap::Builder builder) const;
@@ -52,7 +53,7 @@ class CostMap
     };
 
     std::mutex cost_map_mutex_;
-    absl::flat_hash_map<TypeWirePair, CostMapEntry> cost_map_;
+    HashTables::HashMap<TypeWirePair, CostMapEntry> cost_map_;
 
     void fill_holes(const Context *ctx, const TypeWirePair &wire_pair, boost::multi_array<delay_t, 2> &matrix,
                     delay_t delay_penality);

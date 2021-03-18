@@ -27,6 +27,7 @@
 
 #include "arch_iterators.h"
 #include "chipdb.h"
+#include "hash_table.h"
 #include "log.h"
 #include "nextpnr_namespaces.h"
 #include "nextpnr_types.h"
@@ -324,9 +325,9 @@ struct SiteNetInfo
 {
     NetInfo *net;
     SiteWire driver;
-    absl::flat_hash_set<SiteWire> users;
+    HashTables::HashSet<SiteWire> users;
 
-    absl::flat_hash_map<SiteWire, SitePipMap> wires;
+    HashTables::HashMap<SiteWire, SitePipMap> wires;
 };
 
 struct SiteArch
@@ -334,8 +335,8 @@ struct SiteArch
     const Context *const ctx;
     const SiteInformation *const site_info;
 
-    absl::flat_hash_map<NetInfo *, SiteNetInfo> nets;
-    absl::flat_hash_map<SiteWire, SiteNetMap> wire_to_nets;
+    HashTables::HashMap<NetInfo *, SiteNetInfo> nets;
+    HashTables::HashMap<SiteWire, SiteNetMap> wire_to_nets;
 
     std::vector<PipId> input_site_ports;
     std::vector<PipId> output_site_ports;

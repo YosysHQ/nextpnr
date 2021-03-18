@@ -26,6 +26,7 @@
 
 #include "cost_map.h"
 #include "deterministic_rng.h"
+#include "hash_table.h"
 #include "lookahead.capnp.h"
 #include "nextpnr_namespaces.h"
 #include "type_wire.h"
@@ -87,9 +88,9 @@ struct Lookahead
         delay_t cost;
     };
 
-    absl::flat_hash_map<TypeWireId, std::vector<InputSiteWireCost>> input_site_wires;
-    absl::flat_hash_map<TypeWireId, OutputSiteWireCost> output_site_wires;
-    absl::flat_hash_map<TypeWirePair, delay_t> site_to_site_cost;
+    HashTables::HashMap<TypeWireId, std::vector<InputSiteWireCost>> input_site_wires;
+    HashTables::HashMap<TypeWireId, OutputSiteWireCost> output_site_wires;
+    HashTables::HashMap<TypeWirePair, delay_t> site_to_site_cost;
     CostMap cost_map;
 };
 
