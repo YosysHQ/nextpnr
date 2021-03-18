@@ -1587,7 +1587,7 @@ void Arch::bindWire(WireId wire, NetInfo *net, PlaceStrength strength)
     refreshUiWire(wire);
 }
 
-bool Arch::check_pip_avail_for_net(PipId pip, NetInfo *net) const
+bool Arch::checkPipAvailForNet(PipId pip, NetInfo *net) const
 {
     NPNR_ASSERT(pip != PipId());
     auto pip_iter = pip_to_net.find(pip);
@@ -1725,7 +1725,7 @@ bool Arch::check_pip_avail_for_net(PipId pip, NetInfo *net) const
     return true;
 }
 
-bool Arch::checkPipAvail(PipId pip) const { return check_pip_avail_for_net(pip, nullptr); }
+bool Arch::checkPipAvail(PipId pip) const { return checkPipAvailForNet(pip, nullptr); }
 
 Arch::~Arch() {}
 

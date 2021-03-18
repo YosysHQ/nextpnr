@@ -243,6 +243,11 @@ template <typename R> struct BaseArch : ArchAPI<R>
         p2n_entry = nullptr;
     }
     virtual bool checkPipAvail(PipId pip) const override { return getBoundPipNet(pip) == nullptr; }
+    virtual bool checkPipAvailForNet(PipId pip, NetInfo *net) const override
+    {
+        NetInfo *bound_net = getBoundPipNet(pip);
+        return bound_net == nullptr || bound_net == net;
+    }
     virtual NetInfo *getBoundPipNet(PipId pip) const override
     {
         auto fnd = base_pip2net.find(pip);

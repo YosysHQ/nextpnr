@@ -450,6 +450,12 @@ void Arch::unbindPip(PipId pip)
 
 bool Arch::checkPipAvail(PipId pip) const { return pips.at(pip).bound_net == nullptr; }
 
+bool Arch::checkPipAvailForNet(PipId pip, NetInfo *net) const
+{
+    NetInfo *bound_net = pips.at(pip).bound_net;
+    return bound_net == nullptr || bound_net == net;
+}
+
 NetInfo *Arch::getBoundPipNet(PipId pip) const { return pips.at(pip).bound_net; }
 
 NetInfo *Arch::getConflictingPipNet(PipId pip) const { return pips.at(pip).bound_net; }

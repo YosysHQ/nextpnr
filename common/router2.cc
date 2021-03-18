@@ -588,7 +588,7 @@ struct Router2
             bool did_something = false;
             for (auto uh : ctx->getPipsUphill(flat_wires[cursor].w)) {
                 did_something = true;
-                if (!ctx->checkPipAvail(uh) && ctx->getBoundPipNet(uh) != net)
+                if (!ctx->checkPipAvailForNet(uh, net))
                     continue;
                 if (cpip != PipId() && cpip != uh)
                     continue; // don't allow multiple pips driving a wire with a net
@@ -675,18 +675,12 @@ struct Router2
 #else
                 if (is_bb && !hit_test_pip(ad.bb, ctx->getPipLocation(dh)))
                     continue;
-                if (!ctx->checkPipAvail(dh)) {
-                    NetInfo *bound_net = ctx->getBoundPipNet(dh);
-                    if (bound_net != net) {
-                        if (bound_net != nullptr) {
-                            ROUTE_LOG_DBG("Skipping pip %s because it is bound to net '%s' not net '%s'\n",
-                                          ctx->nameOfPip(dh), bound_net->name.c_str(ctx), net->name.c_str(ctx));
-                        } else {
-                            ROUTE_LOG_DBG("Skipping pip %s because it is reported not available\n", ctx->nameOfPip(dh));
-                        }
-
-                        continue;
-                    }
+                if (!ctx->checkPipAvailForNet(dh, net)) {
+                    ROUTE_LOG_DBG("Skipping pip %s because it is bound to net '%s' not net '%s'\n", ctx->nameOfPip(dh),
+                                  ctx->getBoundPipNet(dh) != nullptr ? ctx->getBoundPipNet(dh)->name.c_str(ctx)
+                                                                     : "<not a net>",
+                                  net->name.c_str(ctx));
+                    continue;
                 }
 #endif
                 // Evaluate score of next wire

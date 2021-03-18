@@ -398,6 +398,13 @@ pip to a net.
 
 *BaseArch default: returns `getBoundPipNet(pip) == nullptr`*
 
+### bool checkPipAvailForNet(PipId pip, NetInfo *net) const
+
+Returns true if the given pip is available to be bound to a net, or if the
+pip is already bound to that net.
+
+*BaseArch default: returns `getBoundPipNet(pip) == nullptr || getBoundPipNet(pip) == net`*
+
 ### NetInfo \*getBoundPipNet(PipId pip) const
 
 Return the net this pip is bound to.
