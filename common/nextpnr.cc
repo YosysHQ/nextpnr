@@ -18,8 +18,8 @@
  */
 
 #if defined(__wasm)
-#include <typeinfo>
 #include <exception>
+#include <typeinfo>
 #include "log.h"
 
 extern "C" {

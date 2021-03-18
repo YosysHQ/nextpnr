@@ -19,8 +19,8 @@
 
 #include "context.h"
 
-#include "nextpnr_namespaces.h"
 #include "log.h"
+#include "nextpnr_namespaces.h"
 #include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN

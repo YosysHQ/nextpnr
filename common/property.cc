@@ -36,7 +36,6 @@ Property::Property(const std::string &strval) : is_string(true), str(strval), in
 
 Property::Property(State bit) : is_string(false), str(std::string("") + char(bit)), intval(bit == S1) {}
 
-
 std::string Property::to_string() const
 {
     if (is_string) {
