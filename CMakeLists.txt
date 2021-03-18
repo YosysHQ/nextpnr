@@ -4,6 +4,11 @@ project(nextpnr CXX C)
 # Allow family.cmake add additional dependencies to gui_${family}.
 cmake_policy(SET CMP0079 NEW)
 
+# Enable IPO support.
+cmake_policy(SET CMP0069 NEW)
+include(CheckIPOSupported)
+check_ipo_supported()
+
 option(BUILD_GUI "Build GUI" OFF)
 option(BUILD_PYTHON "Build Python Integration" ON)
 option(BUILD_TESTS "Build tests" OFF)
@@ -13,6 +18,8 @@ option(COVERAGE "Add code coverage info" OFF)
 option(STATIC_BUILD "Create static build" OFF)
 option(EXTERNAL_CHIPDB "Create build with pre-built chipdb binaries" OFF)
 option(WERROR "pass -Werror to compiler (used for CI)" OFF)
+
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 
 if(WIN32 OR EXTERNAL_CHIPDB)
     set(BBASM_MODE "binary")
