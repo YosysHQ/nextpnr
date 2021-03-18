@@ -41,7 +41,7 @@ function(create_rapidwright_device_db)
         OUTPUT ${rapidwright_device_db}
         COMMAND
             RAPIDWRIGHT_PATH=${RAPIDWRIGHT_PATH}
-            ${INVOKE_RAPIDWRIGHT}
+            ${INVOKE_RAPIDWRIGHT} ${JAVA_HEAP_SPACE}
             com.xilinx.rapidwright.interchange.DeviceResourcesExample
             ${part}
         DEPENDS

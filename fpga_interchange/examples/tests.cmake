@@ -251,7 +251,7 @@ function(add_interchange_test)
         OUTPUT ${dcp}
         COMMAND
             RAPIDWRIGHT_PATH=${RAPIDWRIGHT_PATH}
-            ${INVOKE_RAPIDWRIGHT}
+            ${INVOKE_RAPIDWRIGHT} ${JAVA_HEAP_SPACE}
             com.xilinx.rapidwright.interchange.PhysicalNetlistToDcp
             ${netlist} ${phys} ${xdc} ${dcp}
         DEPENDS
