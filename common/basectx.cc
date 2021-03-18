@@ -21,8 +21,8 @@
 
 #include <boost/algorithm/string.hpp>
 
-#include "design_utils.h"
 #include "context.h"
+#include "design_utils.h"
 #include "log.h"
 
 NEXTPNR_NAMESPACE_BEGIN
