@@ -48,15 +48,15 @@ struct SiteInformation
     SiteInformation(const Context *ctx, int32_t tile, int32_t site,
                     const std::unordered_set<CellInfo *> &cells_in_site);
 
-    const ChipInfoPOD &chip_info() const NPNR_ALWAYS_INLINE;
+    inline const ChipInfoPOD &chip_info() const NPNR_ALWAYS_INLINE;
 
-    bool is_wire_in_site(WireId wire) const NPNR_ALWAYS_INLINE;
+    inline bool is_wire_in_site(WireId wire) const NPNR_ALWAYS_INLINE;
 
-    bool is_bel_in_site(BelId bel) const NPNR_ALWAYS_INLINE;
+    inline bool is_bel_in_site(BelId bel) const NPNR_ALWAYS_INLINE;
 
-    bool is_pip_part_of_site(PipId pip) const NPNR_ALWAYS_INLINE;
+    inline bool is_pip_part_of_site(PipId pip) const NPNR_ALWAYS_INLINE;
 
-    bool is_site_port(PipId pip) const NPNR_ALWAYS_INLINE;
+    inline bool is_site_port(PipId pip) const NPNR_ALWAYS_INLINE;
 };
 
 // Site routing needs a modification of the routing graph.  Within the site,
@@ -108,14 +108,7 @@ struct SiteWire
         NUMBER_SITE_WIRE_TYPES = 5,
     };
 
-    static SiteWire make(const SiteInformation *site_info, WireId site_wire) NPNR_ALWAYS_INLINE
-    {
-        NPNR_ASSERT(site_info->is_wire_in_site(site_wire));
-        SiteWire out;
-        out.type = SITE_WIRE;
-        out.wire = site_wire;
-        return out;
-    }
+    static inline SiteWire make(const SiteInformation *site_info, WireId site_wire) NPNR_ALWAYS_INLINE;
 
     static SiteWire make(const SiteInformation *site_info, PortType port_type, NetInfo *net) NPNR_ALWAYS_INLINE
     {
@@ -130,49 +123,7 @@ struct SiteWire
         return out;
     }
 
-    static SiteWire make_site_port(const SiteInformation *site_info, PipId pip, bool dst_wire) NPNR_ALWAYS_INLINE
-    {
-        const auto &tile_type_data = site_info->chip_info().tile_types[site_info->tile_type];
-        const auto &pip_data = tile_type_data.pip_data[pip.index];
-
-        // This pip should definitely be part of this site
-        NPNR_ASSERT(pip_data.site == site_info->site);
-
-        SiteWire out;
-
-        const auto &src_data = tile_type_data.wire_data[pip_data.src_index];
-        const auto &dst_data = tile_type_data.wire_data[pip_data.dst_index];
-
-        if (dst_wire) {
-            if (src_data.site == site_info->site) {
-                NPNR_ASSERT(dst_data.site == -1);
-                out.type = SITE_PORT_SINK;
-                out.pip = pip;
-                out.wire = canonical_wire(&site_info->chip_info(), pip.tile, pip_data.dst_index);
-            } else {
-                NPNR_ASSERT(src_data.site == -1);
-                NPNR_ASSERT(dst_data.site == site_info->site);
-                out.type = SITE_WIRE;
-                out.wire.tile = pip.tile;
-                out.wire.index = pip_data.dst_index;
-            }
-        } else {
-            if (src_data.site == site_info->site) {
-                NPNR_ASSERT(dst_data.site == -1);
-                out.type = SITE_WIRE;
-                out.wire.tile = pip.tile;
-                out.wire.index = pip_data.src_index;
-            } else {
-                NPNR_ASSERT(src_data.site == -1);
-                NPNR_ASSERT(dst_data.site == site_info->site);
-                out.type = SITE_PORT_SOURCE;
-                out.pip = pip;
-                out.wire = canonical_wire(&site_info->chip_info(), pip.tile, pip_data.src_index);
-            }
-        }
-
-        return out;
-    }
+    static inline SiteWire make_site_port(const SiteInformation *site_info, PipId pip, bool dst_wire);
 
     bool operator==(const SiteWire &other) const
     {
@@ -210,18 +161,7 @@ struct SitePip
         INVALID_TYPE = 5,
     };
 
-    static SitePip make(const SiteInformation *site_info, PipId pip)
-    {
-        SitePip out;
-        out.pip = pip;
-
-        if (site_info->is_site_port(pip)) {
-            out.type = SITE_PORT;
-        } else {
-            out.type = SITE_PIP;
-        }
-        return out;
-    }
+    static inline SitePip make(const SiteInformation *site_info, PipId pip);
 
     static SitePip make(const SiteInformation *site_info, SiteWire src, PipId dst)
     {
@@ -346,15 +286,15 @@ struct SiteArch
 
     SiteArch(const SiteInformation *site_info);
 
-    SiteWire getPipSrcWire(const SitePip &site_pip) const NPNR_ALWAYS_INLINE;
-    SiteWire getPipDstWire(const SitePip &site_pip) const NPNR_ALWAYS_INLINE;
+    inline SiteWire getPipSrcWire(const SitePip &site_pip) const NPNR_ALWAYS_INLINE;
+    inline SiteWire getPipDstWire(const SitePip &site_pip) const NPNR_ALWAYS_INLINE;
 
-    SitePipDownhillRange getPipsDownhill(const SiteWire &site_wire) const NPNR_ALWAYS_INLINE;
-    SitePipUphillRange getPipsUphill(const SiteWire &site_wire) const NPNR_ALWAYS_INLINE;
+    inline SitePipDownhillRange getPipsDownhill(const SiteWire &site_wire) const NPNR_ALWAYS_INLINE;
+    inline SitePipUphillRange getPipsUphill(const SiteWire &site_wire) const NPNR_ALWAYS_INLINE;
     SiteWireRange getWires() const;
 
-    SiteWire getBelPinWire(BelId bel, IdString pin) const NPNR_ALWAYS_INLINE;
-    PortType getBelPinType(BelId bel, IdString pin) const NPNR_ALWAYS_INLINE;
+    inline SiteWire getBelPinWire(BelId bel, IdString pin) const NPNR_ALWAYS_INLINE;
+    inline PortType getBelPinType(BelId bel, IdString pin) const NPNR_ALWAYS_INLINE;
 
     const char *nameOfWire(const SiteWire &wire) const;
     const char *nameOfPip(const SitePip &pip) const;
@@ -395,56 +335,8 @@ struct SiteArch
         return net;
     }
 
-    bool bindPip(const SitePip &pip, SiteNetInfo *net)
-    {
-        SiteWire src = getPipSrcWire(pip);
-        SiteWire dst = getPipDstWire(pip);
-
-        if (!bindWire(src, net)) {
-            return false;
-        }
-        if (!bindWire(dst, net)) {
-            unbindWire(src);
-            return false;
-        }
-
-        auto result = net->wires.emplace(dst, SitePipMap{pip, 1});
-        if (!result.second) {
-            if (result.first->second.pip != pip) {
-                // Pip conflict!
-                if (debug()) {
-                    log_info("Pip conflict binding pip %s to wire %s, conflicts with pip %s\n", nameOfPip(pip),
-                             nameOfWire(dst), nameOfPip(result.first->second.pip));
-                }
-
-                unbindWire(src);
-                unbindWire(dst);
-                return false;
-            }
-
-            result.first->second.count += 1;
-        }
-
-        return true;
-    }
-
-    void unbindPip(const SitePip &pip)
-    {
-        SiteWire src = getPipSrcWire(pip);
-        SiteWire dst = getPipDstWire(pip);
-
-        SiteNetInfo *src_net = unbindWire(src);
-        SiteNetInfo *dst_net = unbindWire(dst);
-        NPNR_ASSERT(src_net == dst_net);
-        auto iter = dst_net->wires.find(dst);
-        NPNR_ASSERT(iter != dst_net->wires.end());
-        NPNR_ASSERT(iter->second.count >= 1);
-        iter->second.count -= 1;
-
-        if (iter->second.count == 0) {
-            dst_net->wires.erase(iter);
-        }
-    }
+    bool bindPip(const SitePip &pip, SiteNetInfo *net);
+    void unbindPip(const SitePip &pip);
 
     void archcheck();
 
@@ -580,28 +472,7 @@ struct SitePipDownhillIterator
         return state != other.state || cursor != other.cursor;
     }
 
-    SitePip operator*() const NPNR_ALWAYS_INLINE
-    {
-        switch (state) {
-        case NORMAL_PIPS: {
-            PipId pip;
-            pip.tile = site_arch->site_info->tile;
-            pip.index = (*pips_downhill)[cursor];
-            return SitePip::make(site_arch->site_info, pip);
-        }
-        case PORT_SINK_TO_PORT_SRC:
-            return SitePip::make(site_arch->site_info, site_wire.pip, site_arch->input_site_ports.at(cursor));
-        case OUT_OF_SITE_SINKS:
-            return SitePip::make(site_arch->site_info, site_wire.pip, site_arch->out_of_site_sinks.at(cursor));
-        case OUT_OF_SITE_SOURCE_TO_PORT_SRC:
-            return SitePip::make(site_arch->site_info, site_wire, site_arch->input_site_ports.at(cursor));
-        case SITE_PORT:
-            return SitePip::make(site_arch->site_info, site_wire.pip);
-        default:
-            // Unreachable!
-            NPNR_ASSERT(false);
-        }
-    }
+    inline SitePip operator*() const NPNR_ALWAYS_INLINE;
 };
 
 struct SitePipDownhillRange
@@ -614,23 +485,9 @@ struct SitePipDownhillRange
     {
     }
 
-    const RelSlice<int32_t> *init_pip_range() const NPNR_ALWAYS_INLINE;
+    inline const RelSlice<int32_t> *init_pip_range() const NPNR_ALWAYS_INLINE;
 
-    SitePipDownhillIterator begin() const NPNR_ALWAYS_INLINE
-    {
-        SitePipDownhillIterator b;
-        b.state = SitePipDownhillIterator::BEGIN;
-        b.site_arch = site_arch;
-        b.site_wire = site_wire;
-        b.cursor = 0;
-        if (site_wire.type == SiteWire::SITE_WIRE) {
-            b.pips_downhill = init_pip_range();
-        }
-
-        ++b;
-
-        return b;
-    }
+    inline SitePipDownhillIterator begin() const NPNR_ALWAYS_INLINE;
 
     SitePipDownhillIterator end() const NPNR_ALWAYS_INLINE
     {
@@ -782,24 +639,7 @@ struct SitePipUphillIterator
         return state != other.state || cursor != other.cursor || iter != other.iter;
     }
 
-    SitePip operator*() const
-    {
-        switch (state) {
-        case NORMAL_PIPS:
-            return SitePip::make(site_arch->site_info, *iter);
-        case PORT_SRC_TO_PORT_SINK:
-            return SitePip::make(site_arch->site_info, site_arch->output_site_ports.at(cursor), site_wire.pip);
-        case OUT_OF_SITE_SOURCES:
-            return SitePip::make(site_arch->site_info, site_arch->out_of_site_sources.at(cursor), site_wire.pip);
-        case OUT_OF_SITE_SINK_TO_PORT_SINK:
-            return SitePip::make(site_arch->site_info, site_arch->output_site_ports.at(cursor), site_wire);
-        case SITE_PORT:
-            return SitePip::make(site_arch->site_info, site_wire.pip);
-        default:
-            // Unreachable!
-            NPNR_ASSERT(false);
-        }
-    }
+    SitePip operator*() const;
 };
 
 struct SitePipUphillRange
@@ -960,17 +800,7 @@ struct SiteWireRange
 {
     const SiteArch *site_arch;
     SiteWireRange(const SiteArch *site_arch) : site_arch(site_arch) {}
-    SiteWireIterator begin() const
-    {
-        SiteWireIterator b;
-
-        b.state = SiteWireIterator::BEGIN;
-        b.site_arch = site_arch;
-        b.tile_type = &loc_info(&site_arch->site_info->chip_info(), *site_arch->site_info);
-
-        ++b;
-        return b;
-    }
+    SiteWireIterator begin() const;
 
     SiteWireIterator end() const
     {

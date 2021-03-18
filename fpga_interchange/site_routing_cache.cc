@@ -21,6 +21,7 @@
 #include "site_routing_cache.h"
 
 #include "context.h"
+#include "site_arch.impl.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 

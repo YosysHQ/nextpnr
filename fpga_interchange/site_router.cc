@@ -27,6 +27,7 @@
 #include "absl/container/flat_hash_set.h"
 
 #include "site_arch.h"
+#include "site_arch.impl.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
