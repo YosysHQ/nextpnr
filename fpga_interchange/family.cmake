@@ -49,5 +49,6 @@ endforeach()
 
 if(BUILD_GUI)
     target_link_libraries(gui_${family} fpga_interchange_capnp)
+    target_link_libraries(gui_${family} extra_capnp)
     target_link_libraries(gui_${family} z)
 endif()

@@ -247,7 +247,7 @@ if(PROFILER)
     list(APPEND EXTRA_LIB_DEPS profiler)
 endif()
 if(TBB_FOUND)
-    target_link_libraries(${target} PRIVATE tbb)
+    list(APPEND EXTRA_LIB_DEPS tbb)
 endif()
 
 foreach (family ${ARCH})
