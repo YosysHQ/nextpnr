@@ -36,9 +36,7 @@
 #include "scope_lock.h"
 
 #if defined(NEXTPNR_USE_TBB)
-#include <tbb/mutex.h>
 #include <tbb/parallel_for_each.h>
-#include <tbb/task_scheduler_init.h>
 #endif
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -939,9 +937,6 @@ void Lookahead::build_lookahead(const Context *ctx, DeterministicRNG *rng)
     bool expand_serially = true;
 #if defined(NEXTPNR_USE_TBB) // Run parallely
     {
-        size_t num_workers = tbb::task_scheduler_init::default_num_threads();
-        tbb::task_scheduler_init tbb_scheduler(num_workers);
-
         std::mutex all_costs_mutex;
 
         expand_serially = false;
