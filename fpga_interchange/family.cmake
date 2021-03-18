@@ -30,3 +30,8 @@ foreach (target ${family_targets})
     target_link_libraries(${target} PRIVATE fpga_interchange_capnp)
     target_link_libraries(${target} PRIVATE z)
 endforeach()
+
+if(BUILD_GUI)
+    target_link_libraries(gui_${family} fpga_interchange_capnp)
+    target_link_libraries(gui_${family} z)
+endif()

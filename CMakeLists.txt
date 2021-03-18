@@ -1,6 +1,14 @@
 cmake_minimum_required(VERSION 3.5)
 project(nextpnr CXX C)
 
+# Allow family.cmake add additional dependencies to gui_${family}.
+cmake_policy(SET CMP0079 NEW)
+
+# Enable IPO support.
+cmake_policy(SET CMP0069 NEW)
+include(CheckIPOSupported)
+check_ipo_supported()
+
 option(BUILD_GUI "Build GUI" OFF)
 option(BUILD_PYTHON "Build Python Integration" ON)
 option(BUILD_TESTS "Build tests" OFF)
@@ -10,6 +18,9 @@ option(COVERAGE "Add code coverage info" OFF)
 option(STATIC_BUILD "Create static build" OFF)
 option(EXTERNAL_CHIPDB "Create build with pre-built chipdb binaries" OFF)
 option(WERROR "pass -Werror to compiler (used for CI)" OFF)
+option(PROFILER "Link against libprofiler" OFF)
+
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 
 if(WIN32 OR EXTERNAL_CHIPDB)
     set(BBASM_MODE "binary")
@@ -223,6 +234,15 @@ else()
     set(BBASM_ENDIAN_FLAG "--le")
 endif()
 
+set(EXTRA_LIB_DEPS)
+if (USE_THREADS)
+    list(APPEND EXTRA_LIB_DEPS absl::flat_hash_map)
+    list(APPEND EXTRA_LIB_DEPS absl::flat_hash_set)
+endif()
+if(PROFILER)
+    list(APPEND EXTRA_LIB_DEPS profiler)
+endif()
+
 foreach (family ${ARCH})
     message(STATUS "Configuring architecture: ${family}")
     string(TOUPPER ${family} ufamily)
@@ -276,10 +296,9 @@ foreach (family ${ARCH})
     # Include the family-specific CMakeFile
     include(${family}/family.cmake)
     foreach (target ${family_targets})
-        if (USE_THREADS)
-            target_link_libraries(${target} PRIVATE absl::flat_hash_map)
-            target_link_libraries(${target} PRIVATE absl::flat_hash_set)
-        endif()
+        foreach(lib_dep ${EXTRA_LIB_DEPS})
+            target_link_libraries(${target} PRIVATE ${lib_dep})
+        endforeach()
 
         # Include family-specific source files to all family targets and set defines appropriately
         target_include_directories(${target} PRIVATE ${family}/ ${CMAKE_CURRENT_BINARY_DIR}/generated/)

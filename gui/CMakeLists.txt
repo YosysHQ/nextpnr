@@ -40,3 +40,7 @@ endif()
 
 target_compile_definitions(gui_${family} PRIVATE NEXTPNR_NAMESPACE=nextpnr_${family} ARCH_${ufamily} ARCHNAME=${family} QT_NO_KEYWORDS)
 target_link_libraries(gui_${family} Qt5::Widgets)
+
+foreach(lib_dep ${EXTRA_LIB_DEPS})
+    target_link_libraries(gui_${family} ${lib_dep})
+endforeach()
