@@ -18,6 +18,7 @@ option(COVERAGE "Add code coverage info" OFF)
 option(STATIC_BUILD "Create static build" OFF)
 option(EXTERNAL_CHIPDB "Create build with pre-built chipdb binaries" OFF)
 option(WERROR "pass -Werror to compiler (used for CI)" OFF)
+option(PROFILER "Link against libprofiler" OFF)
 
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 
@@ -237,6 +238,9 @@ set(EXTRA_LIB_DEPS)
 if (USE_THREADS)
     list(APPEND EXTRA_LIB_DEPS absl::flat_hash_map)
     list(APPEND EXTRA_LIB_DEPS absl::flat_hash_set)
+endif()
+if(PROFILER)
+    list(APPEND EXTRA_LIB_DEPS profiler)
 endif()
 
 foreach (family ${ARCH})
