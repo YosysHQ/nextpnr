@@ -7,7 +7,7 @@ cmake_policy(SET CMP0079 NEW)
 # Enable IPO support.
 cmake_policy(SET CMP0069 NEW)
 include(CheckIPOSupported)
-check_ipo_supported()
+check_ipo_supported(RESULT ipo_supported)
 
 option(BUILD_GUI "Build GUI" OFF)
 option(BUILD_PYTHON "Build Python Integration" ON)
@@ -19,8 +19,9 @@ option(STATIC_BUILD "Create static build" OFF)
 option(EXTERNAL_CHIPDB "Create build with pre-built chipdb binaries" OFF)
 option(WERROR "pass -Werror to compiler (used for CI)" OFF)
 option(PROFILER "Link against libprofiler" OFF)
-
-set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+if(ipo_supported)
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif()
 
 if(WIN32 OR EXTERNAL_CHIPDB)
     set(BBASM_MODE "binary")
