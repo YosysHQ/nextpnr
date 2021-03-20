@@ -34,7 +34,7 @@ NEXTPNR_NAMESPACE_BEGIN
  * kExpectedChipInfoVersion
  */
 
-static constexpr int32_t kExpectedChipInfoVersion = 1;
+static constexpr int32_t kExpectedChipInfoVersion = 2;
 
 // Flattened site indexing.
 //
@@ -110,6 +110,7 @@ NPNR_PACKED_STRUCT(struct PipInfoPOD {
     int16_t site_variant; // site variant index in tile
     int16_t bel;          // BEL this pip belongs to if site pip.
     int16_t extra_data;
+    RelSlice<int32_t> pseudo_cell_wires;
 });
 
 NPNR_PACKED_STRUCT(struct ConstraintTagPOD {
