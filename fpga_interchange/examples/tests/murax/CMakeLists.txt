@@ -7,5 +7,5 @@ add_interchange_test(
     tcl run.tcl
     xdc murax.xdc
     sources Murax.v basys3_toplevel.v
-    techmap remap.v
+    techmap ../../remap.v
 )

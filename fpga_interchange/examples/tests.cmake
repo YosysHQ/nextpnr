@@ -74,7 +74,7 @@ function(add_interchange_test)
             OUT_JSON=${synth_json}
             TECHMAP=${techmap}
             yosys -c ${tcl}
-        DEPENDS ${sources}
+        DEPENDS ${sources} ${techmap} ${tcl}
     )
 
     add_custom_target(test-${family}-${name}-json DEPENDS ${synth_json})
@@ -134,6 +134,7 @@ function(add_interchange_test)
                 --phys ${phys}
                 --package ${package}
         DEPENDS
+            nextpnr-fpga_interchange
             ${netlist}
             ${xdc}
             ${chipdb_bin_target}
