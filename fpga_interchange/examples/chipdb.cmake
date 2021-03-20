@@ -315,6 +315,42 @@ function(generate_chipdb)
     )
 
     add_custom_target(
+        chipdb-${device}-bin-check-verbose
+        COMMAND
+            nextpnr-fpga_interchange
+                --chipdb ${chipdb_bin}
+                --package ${test_package}
+                --test --verbose
+        DEPENDS
+            ${chipdb_bin}
+            chipdb-${device}-bin
+    )
+
+    add_custom_target(
+        chipdb-${device}-bin-check-verbose2
+        COMMAND
+            nextpnr-fpga_interchange
+                --chipdb ${chipdb_bin}
+                --package ${test_package}
+                --test --debug
+        DEPENDS
+            ${chipdb_bin}
+            chipdb-${device}-bin
+    )
+
+    add_custom_target(
+        chipdb-${device}-bin-check-debug
+        COMMAND gdb --args
+            $<TARGET_FILE:nextpnr-fpga_interchange>
+                --chipdb ${chipdb_bin}
+                --package ${test_package}
+                --test
+        DEPENDS
+            ${chipdb_bin}
+            chipdb-${device}-bin
+    )
+
+    add_custom_target(
         chipdb-${device}-bin-check-test-data
         COMMAND
             nextpnr-fpga_interchange
