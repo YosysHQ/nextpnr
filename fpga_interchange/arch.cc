@@ -853,6 +853,11 @@ bool Arch::route_vcc_to_unused_lut_pins()
             wire.tile = pip.tile;
             for (int32_t wire_index : pip_data.pseudo_cell_wires) {
                 wire.index = wire_index;
+#ifdef DEBUG_LUT_MAPPING
+                if (getCtx()->verbose) {
+                    log_info("Marking wire %s as in use due to pseudo pip\n", nameOfWire(wire));
+                }
+#endif
                 auto result = bound_wires.emplace(wire, net);
                 NPNR_ASSERT(result.first->second == net);
             }
@@ -1698,19 +1703,29 @@ void Arch::bindWire(WireId wire, NetInfo *net, PlaceStrength strength)
     refreshUiWire(wire);
 }
 
-bool Arch::checkPipAvail(PipId pip) const
-{
+
+bool Arch::checkPipAvailForNet(PipId pip, NetInfo *net) const {
     NPNR_ASSERT(pip != PipId());
     auto pip_iter = pip_to_net.find(pip);
     if (pip_iter != pip_to_net.end() && pip_iter->second != nullptr) {
-        NPNR_ASSERT(pip_iter->first == pip);
-#ifdef DEBUG_BINDING
-        if (getCtx()->verbose) {
-            log_info("Pip %s (%d/%d) is not available, tied to net %s\n", getCtx()->nameOfPip(pip), pip.tile, pip.index,
-                     pip_iter->second->name.c_str(getCtx()));
+        bool pip_blocked = false;
+        if(net == nullptr) {
+            pip_blocked = true;
+        } else {
+            if(net != pip_iter->second) {
+                pip_blocked = true;
+            }
         }
+        if(pip_blocked) {
+#ifdef DEBUG_BINDING
+            if (getCtx()->verbose) {
+                log_info("Pip %s (%d/%d) is not available, tied to net %s\n", getCtx()->nameOfPip(pip), pip.tile, pip.index,
+                        pip_iter->second->name.c_str(getCtx()));
+            }
 #endif
-        return false;
+            NPNR_ASSERT(pip_iter->first == pip);
+            return false;
+        }
     }
 
     WireId src = getPipSrcWire(pip);
@@ -1718,12 +1733,35 @@ bool Arch::checkPipAvail(PipId pip) const
 
     auto wire_iter = wire_to_net.find(dst);
     if (wire_iter != wire_to_net.end()) {
-        NetInfo *net = wire_iter->second;
-        if (net != nullptr) {
-            auto net_iter = net->wires.find(dst);
-            if (net_iter != net->wires.end()) {
-                // dst is already driven in this net, do not allow!
+        NetInfo *wire_net = wire_iter->second;
+        if (wire_net != nullptr) {
+            auto net_iter = wire_net->wires.find(dst);
+            if (net_iter != wire_net->wires.end()) {
                 return false;
+                if(net == nullptr) {
+#ifdef DEBUG_BINDING
+                    if (getCtx()->verbose) {
+                        log_info("Pip %s (%d/%d) is not available, dst wire %s is tied to net %s\n",
+                                getCtx()->nameOfPip(pip), pip.tile, pip.index,
+                                getCtx()->nameOfWire(dst),
+                                wire_net->name.c_str(getCtx()));
+                    }
+#endif
+                    // dst is already driven in this net, do not allow!
+                    return false;
+                } else {
+#ifdef DEBUG_BINDING
+                    if (getCtx()->verbose && net_iter->second.pip != pip) {
+                        log_info("Pip %s (%d/%d) is not available, dst wire %s is tied to net %s\n",
+                                getCtx()->nameOfPip(pip), pip.tile, pip.index,
+                                getCtx()->nameOfWire(dst),
+                                wire_net->name.c_str(getCtx()));
+                    }
+#endif
+                    // This pip is available if this pip is already bound to
+                    // this.
+                    return net_iter->second.pip != pip;
+                }
             }
         }
     }
@@ -1750,11 +1788,65 @@ bool Arch::checkPipAvail(PipId pip) const
         }
     }
 
+    if(pip_data.site != -1 && net != nullptr) {
+        NPNR_ASSERT(net->driver.cell != nullptr);
+        NPNR_ASSERT(net->driver.cell->bel != BelId());
+
+        bool valid_pip = false;
+        if(pip.tile == net->driver.cell->bel.tile) {
+            auto &bel_data = bel_info(chip_info, net->driver.cell->bel);
+            if(bel_data.site == pip_data.site) {
+                valid_pip = true;
+            }
+        }
+
+        if(!valid_pip) {
+            // See if one users can enter this site.
+            auto & tile_type = loc_info(chip_info, pip);
+            auto & src_wire_data = tile_type.wire_data[pip_data.src_index];
+            auto & dst_wire_data = tile_type.wire_data[pip_data.dst_index];
+
+            if(dst_wire_data.site == -1) {
+                // This is an output site port, but not for the driver net.
+                // Disallow.
+                NPNR_ASSERT(src_wire_data.site == pip_data.site);
+            } else {
+                // This might be a valid pip, scan users.
+                for(auto & user : net->users) {
+                    NPNR_ASSERT(user.cell != nullptr);
+                    if(user.cell->bel == BelId()) {
+                        continue;
+                    }
+
+                    auto &bel_data = bel_info(chip_info, user.cell->bel);
+                    if(bel_data.site == pip_data.site) {
+                        valid_pip = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if(!valid_pip) {
+#ifdef DEBUG_BINDING
+            if (getCtx()->verbose) {
+                log_info("Pip %s is within a site and not available not right now\n", getCtx()->nameOfPip(pip));
+            }
+#endif
+            return false;
+        }
+    }
+
     // FIXME: This pseudo pip check is incomplete, because constraint
     // failures will not be detected.  However the current FPGA
     // interchange schema does not provide a cell type to place.
 
     return true;
+}
+
+bool Arch::checkPipAvail(PipId pip) const
+{
+    return checkPipAvailForNet(pip, nullptr);
 }
 
 std::string Arch::get_chipdb_hash() const { return chipdb_hash; }

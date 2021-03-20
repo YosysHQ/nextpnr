@@ -612,6 +612,9 @@ void check_routing(const SiteArch &site_arch)
                 const SitePip &site_pip = iter->second.pip;
                 cursor = site_arch.getPipSrcWire(site_pip);
             }
+
+            NPNR_ASSERT(cursor == net_info.driver);
+            NPNR_ASSERT(site_arch.wire_to_nets.at(cursor).net->net == net);
         }
     }
 }
@@ -620,6 +623,15 @@ void apply_routing(Context *ctx, const SiteArch &site_arch)
 {
     for (auto &net_pair : site_arch.nets) {
         NetInfo *net = net_pair.first;
+
+        // If the driver wire is a site wire, bind it.
+        if(net_pair.second.driver.type == SiteWire::SITE_WIRE) {
+            WireId driver_wire = net_pair.second.driver.wire;
+            if(ctx->getBoundWireNet(driver_wire) != net) {
+                ctx->bindWire(driver_wire, net, STRENGTH_PLACER);
+            }
+        }
+
         for (auto &wire_pair : net_pair.second.wires) {
             const SitePip &site_pip = wire_pair.second.pip;
             if (site_pip.type != SitePip::SITE_PIP && site_pip.type != SitePip::SITE_PORT) {

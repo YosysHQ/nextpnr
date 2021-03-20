@@ -210,10 +210,12 @@ SiteArch::SiteArch(const SiteInformation *site_info) : ctx(site_info->ctx), site
                 SiteWire wire = getBelPinWire(user.cell->bel, bel_pin);
                 // Don't add users that are trivially routable!
                 if (wire != net_info.driver) {
+#ifdef DEBUG_SITE_ARCH
                     if (ctx->debug) {
                         log_info("Add user %s because it isn't driver %s\n", nameOfWire(wire),
                                  nameOfWire(net_info.driver));
                     }
+#endif
                     net_info.users.emplace(wire);
                 }
             }

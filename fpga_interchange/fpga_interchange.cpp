@@ -114,14 +114,12 @@ static PhysicalNetlist::PhysNetlist::RouteBranch::Builder emit_branch(
             WireId src_wire = ctx->getPipSrcWire(pip);
             WireId dst_wire = ctx->getPipDstWire(pip);
 
-            IdString src_pin;
+            NPNR_ASSERT(src_wire.index == bel_data.wires[pip_data.extra_data]);
+
+            IdString src_pin(bel_data.ports[pip_data.extra_data]);
+
             IdString dst_pin;
             for(IdString pin : ctx->getBelPins(bel)) {
-                if(ctx->getBelPinWire(bel, pin) == src_wire) {
-                    NPNR_ASSERT(src_pin == IdString());
-                    src_pin = pin;
-                }
-
                 if(ctx->getBelPinWire(bel, pin) == dst_wire) {
                     NPNR_ASSERT(dst_pin == IdString());
                     dst_pin = pin;
@@ -274,6 +272,65 @@ static void emit_net(
         }
     }
 }
+
+// Given a site wire, find the source BEL pin.
+//
+// All site wires should have exactly 1 source BEL pin.
+//
+// FIXME: Consider making sure that wire_data.bel_pins[0] is always the
+// source BEL pin in the BBA generator.
+static BelPin find_source(const Context *ctx, WireId source_wire) {
+    const TileTypeInfoPOD & tile_type = loc_info(ctx->chip_info, source_wire);
+    const TileWireInfoPOD & wire_data = tile_type.wire_data[source_wire.index];
+
+    // Make sure this is a site wire, otherwise something odd is happening
+    // here.
+    if(wire_data.site == -1) {
+        return BelPin();
+    }
+
+    BelPin source_bel_pin;
+    for(const BelPin & bel_pin : ctx->getWireBelPins(source_wire)) {
+        if(ctx->getBelPinType(bel_pin.bel, bel_pin.pin) == PORT_OUT) {
+            // Synthetic BEL's (like connection to the VCC/GND network) are
+            // ignored here, because synthetic BEL's don't exists outside of
+            // the BBA.
+            if(ctx->is_bel_synthetic(bel_pin.bel)) {
+                continue;
+            }
+
+            NPNR_ASSERT(source_bel_pin.bel == BelId());
+            source_bel_pin = bel_pin;
+        }
+    }
+
+    NPNR_ASSERT(source_bel_pin.bel != BelId());
+    NPNR_ASSERT(source_bel_pin.pin != IdString());
+
+    return source_bel_pin;
+}
+
+// Initial a local signal source (usually VCC/GND).
+static PhysicalNetlist::PhysNetlist::RouteBranch::Builder init_local_source(
+        const Context *ctx,
+        StringEnumerator * strings,
+        PhysicalNetlist::PhysNetlist::RouteBranch::Builder source_branch,
+        PipId root,
+        const std::unordered_map<PipId, PlaceStrength> &pip_place_strength,
+        WireId *root_wire) {
+    WireId source_wire = ctx->getPipSrcWire(root);
+    BelPin source_bel_pin = find_source(ctx, source_wire);
+    if(source_bel_pin.bel != BelId()) {
+        // This branch should first emit the BEL pin that is the source, followed
+        // by the pip that brings the source to the net.
+        init_bel_pin(ctx, strings, source_bel_pin, source_branch);
+
+        source_branch = source_branch.initBranches(1)[0];
+    }
+    *root_wire = ctx->getPipDstWire(root);
+    return emit_branch(ctx, strings, pip_place_strength, root, source_branch);
+}
+
 static void find_non_synthetic_edges(const Context * ctx, WireId root_wire,
         const std::unordered_map<WireId, std::vector<PipId>> &pip_downhill,
         std::vector<PipId> *root_pips) {
@@ -554,11 +611,16 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
         }
 
         for(const PipId root : root_pips) {
+            log_info("Root pip: %s\n", ctx->nameOfPip(root));
+        }
+
+        for(const PipId root : root_pips) {
             PhysicalNetlist::PhysNetlist::RouteBranch::Builder source_branch = *source_iter++;
 
             NPNR_ASSERT(pips.erase(root) == 1);
-            WireId root_wire = ctx->getPipDstWire(root);
-            source_branch = emit_branch(ctx, &strings, pip_place_strength, root, source_branch);
+            log_info("Root pip: %s\n", ctx->nameOfPip(root));
+            WireId root_wire;
+            source_branch = init_local_source(ctx, &strings, source_branch, root, pip_place_strength, &root_wire);
             emit_net(ctx, &strings, pip_downhill, sinks, &pips, pip_place_strength, root_wire, source_branch);
         }
 
