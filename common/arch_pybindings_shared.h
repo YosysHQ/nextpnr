@@ -60,6 +60,8 @@ fn_wrapper_0a<Context, decltype(&Context::getBels), &Context::getBels, wrap_cont
 
 fn_wrapper_2a<Context, decltype(&Context::getBelPinWire), &Context::getBelPinWire, conv_to_str<WireId>,
               conv_from_str<BelId>, conv_from_str<IdString>>::def_wrap(ctx_cls, "getBelPinWire");
+fn_wrapper_2a<Context, decltype(&Context::getBelPinType), &Context::getBelPinType, pass_through<PortType>,
+              conv_from_str<BelId>, conv_from_str<IdString>>::def_wrap(ctx_cls, "getBelPinType");
 fn_wrapper_1a<Context, decltype(&Context::getWireBelPins), &Context::getWireBelPins, wrap_context<BelPinRange>,
               conv_from_str<WireId>>::def_wrap(ctx_cls, "getWireBelPins");
 
