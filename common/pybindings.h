@@ -86,6 +86,36 @@ template <> struct string_converter<const IdStringList>
     std::string to_str(Context *ctx, const IdStringList &id) { return id.str(ctx); }
 };
 
+template <> struct string_converter<PortType>
+{
+    inline PortType from_str(Context *ctx, std::string name) {
+        if(name == "PORT_IN") {
+            return PORT_IN;
+        } else if(name == "PORT_OUT") {
+            return PORT_OUT;
+        } else if(name == "PORT_INOUT") {
+            return PORT_INOUT;
+        } else {
+            // Invalid input!
+            log_error("'%s' is not a valid PortType value\n", name.c_str());
+        }
+    }
+
+    inline std::string to_str(Context *ctx, PortType type) {
+        switch(type) {
+            case PORT_IN:
+                return "PORT_IN";
+            case PORT_OUT:
+                return "PORT_OUT";
+            case PORT_INOUT:
+                return "PORT_INOUT";
+            default:
+                // Unreachable!
+                NPNR_ASSERT(false);
+        }
+    }
+};
+
 } // namespace PythonConversion
 
 NEXTPNR_NAMESPACE_END

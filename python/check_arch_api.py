@@ -78,6 +78,10 @@ def check_arch_api(ctx):
                 wire_name = ctx.getBelPinWire(bel_pin_test['bel'], bel_pin_test['pin'])
                 assert bel_pin_test['wire'] == wire_name, (bel_pin_test['wire'], wire_name)
 
+                if 'type' in bel_pin_test:
+                    pin_type = ctx.getBelPinType(bel_pin_test['bel'], bel_pin_test['pin'])
+                    assert bel_pin_test['type'] == pin_type, (bel_pin_test['type'], pin_type)
+
                 bel_pins_tested += 1
 
     print('Tested {} pips and {} bel pins'.format(pips_tested, bel_pins_tested))
