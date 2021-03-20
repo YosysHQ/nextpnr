@@ -122,6 +122,8 @@ struct LutPin
     bool operator<(const LutPin &other) const { return max_pin < other.max_pin; }
 };
 
+//#define DEBUG_LUT_ROTATION
+
 bool LutMapper::remap_luts(const Context *ctx)
 {
     std::unordered_map<NetInfo *, LutPin> lut_pin_map;
@@ -262,10 +264,24 @@ bool LutMapper::remap_luts(const Context *ctx)
         for (size_t bel_pin_idx = 0; bel_pin_idx < lut_bel.pins.size(); ++bel_pin_idx) {
             if ((used_pins & (1 << bel_pin_idx)) == 0) {
                 NPNR_ASSERT(bel_to_cell_pin_remaps[cell_idx][bel_pin_idx] == -1);
-                cell->lut_cell.vcc_pins.emplace(lut_bel.pins[bel_pin_idx]);
+                cell->lut_cell.vcc_pins.emplace(lut_bel.pins.at(bel_pin_idx));
             }
         }
     }
+
+#ifdef DEBUG_LUT_ROTATION
+    log_info("Final mapping:\n");
+    for (size_t cell_idx = 0; cell_idx < cells.size(); ++cell_idx) {
+        CellInfo *cell = cells[cell_idx];
+        for (auto &cell_pin_pair : cell->cell_bel_pins) {
+            log_info("%s %s %s =>", cell->type.c_str(ctx), cell->name.c_str(ctx), cell_pin_pair.first.c_str(ctx));
+            for (auto bel_pin : cell_pin_pair.second) {
+                log(" %s", bel_pin.c_str(ctx));
+            }
+            log("\n");
+        }
+    }
+#endif
 
     return true;
 }

@@ -19,6 +19,8 @@
  *
  */
 
+#include "arch.h"
+
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/range/adaptor/reversed.hpp>
@@ -37,6 +39,9 @@
 #include "util.h"
 #include "xdc.h"
 
+// Include tcl.h late because it messed with defines and let them leave the
+// scope of the header.
+#include <tcl.h>
 NEXTPNR_NAMESPACE_BEGIN
 struct SiteBelPair
 {
@@ -88,6 +93,10 @@ Arch::Arch(ArchArgs args) : args(args)
         chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(blob));
     } catch (...) {
         log_error("Unable to read chipdb %s\n", args.chipdb.c_str());
+    }
+
+    if (chip_info->version != kExpectedChipInfoVersion) {
+        log_error("Expected chipdb with version %d found version %d\n", kExpectedChipInfoVersion, chip_info->version);
     }
 
     // Read strings from constids into IdString database, checking that list
@@ -254,6 +263,8 @@ IdString Arch::archArgsToId(ArchArgs args) const { return IdString(); }
 
 void Arch::setup_byname() const
 {
+    by_name_mutex.lock();
+
     if (tile_by_name.empty()) {
         for (int i = 0; i < chip_info->tiles.ssize(); i++) {
             tile_by_name[id(chip_info->tiles[i].name.get())] = i;
@@ -270,6 +281,8 @@ void Arch::setup_byname() const
             }
         }
     }
+
+    by_name_mutex.unlock();
 }
 
 BelId Arch::getBelByName(IdStringList name) const
@@ -416,7 +429,8 @@ PipId Arch::getPipByName(IdStringList name) const
         int tile;
         int site;
         std::tie(tile, site) = site_by_name.at(site_name);
-        auto &tile_info = chip_info->tile_types[chip_info->tiles[tile].type];
+        auto tile_type_idx = chip_info->tiles[tile].type;
+        auto &tile_info = chip_info->tile_types[tile_type_idx];
 
         std::array<IdString, 2> ids{name.ids[0], belname};
         BelId bel = getBelByName(IdStringList(ids));
@@ -444,7 +458,8 @@ PipId Arch::getPipByName(IdStringList name) const
             int tile;
             int site;
             std::tie(tile, site) = iter->second;
-            auto &tile_info = chip_info->tile_types[chip_info->tiles[tile].type];
+            auto tile_type_idx = chip_info->tiles[tile].type;
+            auto &tile_info = chip_info->tile_types[tile_type_idx];
 
             std::string pip_second = name.ids[1].str(this);
             auto split = pip_second.find('.');
@@ -500,7 +515,8 @@ PipId Arch::getPipByName(IdStringList name) const
             }
         } else {
             int tile = tile_by_name.at(name.ids[0]);
-            auto &tile_info = chip_info->tile_types[chip_info->tiles[tile].type];
+            size_t tile_type_idx = chip_info->tiles[tile].type;
+            auto &tile_info = chip_info->tile_types[tile_type_idx];
 
             std::string pip_second = name.ids[1].str(this);
             auto spn = split_identifier_name_dot(pip_second);
@@ -618,11 +634,14 @@ ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
     int dst_tile = dst.tile == -1 ? chip_info->nodes[dst.index].tile_wires[0].tile : dst.tile;
     int src_tile = src.tile == -1 ? chip_info->nodes[src.index].tile_wires[0].tile : src.tile;
 
-    int x0, x1, y0, y1;
-    x0 = src_tile % chip_info->width;
-    x1 = x0;
-    y0 = src_tile / chip_info->width;
-    y1 = y0;
+    int x0 = 0, x1 = 0, y0 = 0, y1 = 0;
+
+    int src_x, src_y;
+    get_tile_x_y(src_tile, &src_x, &src_y);
+
+    int dst_x, dst_y;
+    get_tile_x_y(dst_tile, &dst_x, &dst_y);
+
     auto expand = [&](int x, int y) {
         x0 = std::min(x0, x);
         x1 = std::max(x1, x);
@@ -630,7 +649,8 @@ ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
         y1 = std::max(y1, y);
     };
 
-    expand(dst_tile % chip_info->width, dst_tile / chip_info->width);
+    expand(src_x, src_y);
+    expand(dst_x, dst_y);
 
     if (source_locs.count(src))
         expand(source_locs.at(src).x, source_locs.at(src).y);
@@ -1330,6 +1350,262 @@ void Arch::decode_lut_cells()
         read_lut_equation(&cell->lut_cell.equation, equation);
     }
 }
+
+void Arch::assign_net_to_wire(WireId wire, NetInfo *net, const char *src, bool require_empty)
+{
+#ifdef DEBUG_BINDING
+    if (getCtx()->verbose) {
+        log_info("Assigning wire %s to %s from %s\n", nameOfWire(wire), net->name.c_str(this), src);
+    }
+#endif
+    NPNR_ASSERT(net != nullptr);
+    auto result = wire_to_net.emplace(wire, net);
+    if (!result.second) {
+        // This wire was already in the map, make sure this assignment was
+        // legal.
+        if (require_empty) {
+            NPNR_ASSERT(result.first->second == nullptr);
+        } else {
+            NPNR_ASSERT(result.first->second == nullptr || result.first->second == net);
+        }
+        result.first->second = net;
+    }
+}
+
+void Arch::unassign_wire(WireId wire)
+{
+    NPNR_ASSERT(wire != WireId());
+#ifdef DEBUG_BINDING
+    if (getCtx()->verbose) {
+        log_info("unassign_wire %s\n", nameOfWire(wire));
+    }
+#endif
+
+    auto iter = wire_to_net.find(wire);
+    NPNR_ASSERT(iter != wire_to_net.end());
+
+    NetInfo *net = iter->second;
+    NPNR_ASSERT(net != nullptr);
+
+    auto &net_wires = net->wires;
+    auto it = net_wires.find(wire);
+    NPNR_ASSERT(it != net_wires.end());
+
+    auto pip = it->second.pip;
+    if (pip != PipId()) {
+#ifdef DEBUG_BINDING
+        if (getCtx()->verbose) {
+            log_info("Removing pip %s because it was used to reach wire %s\n", nameOfPip(pip), nameOfWire(wire));
+        }
+#endif
+        auto pip_iter = pip_to_net.find(pip);
+        NPNR_ASSERT(pip_iter != pip_to_net.end());
+        NPNR_ASSERT(pip_iter->second == net);
+        pip_iter->second = nullptr;
+    }
+
+    net_wires.erase(it);
+#ifdef DEBUG_BINDING
+    if (getCtx()->verbose) {
+        log_info("Removing %s from net %s in unassign_wire\n", nameOfWire(wire), net->name.c_str(this));
+    }
+#endif
+    iter->second = nullptr;
+}
+
+void Arch::unbindPip(PipId pip)
+{
+    NPNR_ASSERT(pip != PipId());
+#ifdef DEBUG_BINDING
+    if (getCtx()->verbose) {
+        log_info("unbindPip %s\n", nameOfPip(pip));
+    }
+#endif
+
+    auto pip_iter = pip_to_net.find(pip);
+    NPNR_ASSERT(pip_iter != pip_to_net.end());
+    NetInfo *net = pip_iter->second;
+    NPNR_ASSERT(net != nullptr);
+
+    WireId dst = getPipDstWire(pip);
+    auto wire_iter = wire_to_net.find(dst);
+    NPNR_ASSERT(wire_iter != wire_to_net.end());
+
+    // Clear the net now.
+    pip_iter->second = nullptr;
+#ifdef DEBUG_BINDING
+    if (getCtx()->verbose) {
+        log_info("Removing %s from net %s in unbindPip\n", nameOfWire(dst), net->name.c_str(this));
+    }
+#endif
+    wire_iter->second = nullptr;
+    NPNR_ASSERT(net->wires.erase(dst) == 1);
+
+    refreshUiPip(pip);
+    refreshUiWire(dst);
+}
+
+void Arch::bindPip(PipId pip, NetInfo *net, PlaceStrength strength)
+{
+    NPNR_ASSERT(pip != PipId());
+#ifdef DEBUG_BINDING
+    if (getCtx()->verbose) {
+        log_info("bindPip %s (%d/%d) to net %s\n", nameOfPip(pip), pip.tile, pip.index, net->name.c_str(this));
+    }
+#endif
+    WireId dst = getPipDstWire(pip);
+    NPNR_ASSERT(dst != WireId());
+
+    {
+        // Pip should not already be assigned to anything.
+        auto result = pip_to_net.emplace(pip, net);
+        if (!result.second) {
+            NPNR_ASSERT(result.first->second == nullptr);
+            result.first->second = net;
+        }
+    }
+
+    assign_net_to_wire(dst, net, "bindPip", /*require_empty=*/true);
+
+    {
+        auto result = net->wires.emplace(dst, PipMap{pip, strength});
+        NPNR_ASSERT(result.second);
+    }
+
+    refreshUiPip(pip);
+    refreshUiWire(dst);
+}
+
+void Arch::bindWire(WireId wire, NetInfo *net, PlaceStrength strength)
+{
+    NPNR_ASSERT(wire != WireId());
+#ifdef DEBUG_BINDING
+    if (getCtx()->verbose) {
+        log_info("bindWire %s to net %s\n", nameOfWire(wire), net->name.c_str(this));
+    }
+#endif
+    assign_net_to_wire(wire, net, "bindWire", /*require_empty=*/true);
+    auto &pip_map = net->wires[wire];
+    pip_map.pip = PipId();
+    pip_map.strength = strength;
+    refreshUiWire(wire);
+}
+
+bool Arch::check_pip_avail_for_net(PipId pip, NetInfo *net) const
+{
+    NPNR_ASSERT(pip != PipId());
+    auto pip_iter = pip_to_net.find(pip);
+    if (pip_iter != pip_to_net.end() && pip_iter->second != nullptr) {
+        bool pip_blocked = false;
+        if (net == nullptr) {
+            pip_blocked = true;
+        } else {
+            if (net != pip_iter->second) {
+                pip_blocked = true;
+            }
+        }
+        if (pip_blocked) {
+#ifdef DEBUG_BINDING
+            if (getCtx()->verbose) {
+                log_info("Pip %s (%d/%d) is not available, tied to net %s\n", getCtx()->nameOfPip(pip), pip.tile,
+                         pip.index, pip_iter->second->name.c_str(getCtx()));
+            }
+#endif
+            NPNR_ASSERT(pip_iter->first == pip);
+            return false;
+        }
+    }
+
+    WireId dst = getPipDstWire(pip);
+
+    auto wire_iter = wire_to_net.find(dst);
+    if (wire_iter != wire_to_net.end()) {
+        NetInfo *wire_net = wire_iter->second;
+        if (wire_net != nullptr) {
+            auto net_iter = wire_net->wires.find(dst);
+            if (net_iter != wire_net->wires.end()) {
+                if (net == nullptr) {
+#ifdef DEBUG_BINDING
+                    if (getCtx()->verbose) {
+                        log_info("Pip %s (%d/%d) is not available, dst wire %s is tied to net %s\n",
+                                 getCtx()->nameOfPip(pip), pip.tile, pip.index, getCtx()->nameOfWire(dst),
+                                 wire_net->name.c_str(getCtx()));
+                    }
+#endif
+                    // dst is already driven in this net, do not allow!
+                    return false;
+                } else {
+#ifdef DEBUG_BINDING
+                    if (getCtx()->verbose && net_iter->second.pip != pip) {
+                        log_info("Pip %s (%d/%d) is not available, dst wire %s is tied to net %s\n",
+                                 getCtx()->nameOfPip(pip), pip.tile, pip.index, getCtx()->nameOfWire(dst),
+                                 wire_net->name.c_str(getCtx()));
+                    }
+#endif
+                    // This pip is available if this pip is already bound to
+                    // this.
+                    return net_iter->second.pip == pip;
+                }
+            }
+        }
+    }
+
+    const PipInfoPOD &pip_data = pip_info(chip_info, pip);
+    if (pip_data.site != -1 && net != nullptr) {
+        NPNR_ASSERT(net->driver.cell != nullptr);
+        NPNR_ASSERT(net->driver.cell->bel != BelId());
+
+        bool valid_pip = false;
+        if (pip.tile == net->driver.cell->bel.tile) {
+            auto &bel_data = bel_info(chip_info, net->driver.cell->bel);
+            if (bel_data.site == pip_data.site) {
+                valid_pip = true;
+            }
+        }
+
+        if (!valid_pip) {
+            // See if one users can enter this site.
+            auto &tile_type = loc_info(chip_info, pip);
+            auto &src_wire_data = tile_type.wire_data[pip_data.src_index];
+            auto &dst_wire_data = tile_type.wire_data[pip_data.dst_index];
+
+            if (dst_wire_data.site == -1) {
+                // This is an output site port, but not for the driver net.
+                // Disallow.
+                NPNR_ASSERT(src_wire_data.site == pip_data.site);
+            } else {
+                // This might be a valid pip, scan users.
+                for (auto &user : net->users) {
+                    NPNR_ASSERT(user.cell != nullptr);
+                    if (user.cell->bel == BelId()) {
+                        continue;
+                    }
+
+                    auto &bel_data = bel_info(chip_info, user.cell->bel);
+                    if (bel_data.site == pip_data.site) {
+                        valid_pip = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!valid_pip) {
+#ifdef DEBUG_BINDING
+            if (getCtx()->verbose) {
+                log_info("Pip %s is within a site and not available not right now\n", getCtx()->nameOfPip(pip));
+            }
+#endif
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool Arch::checkPipAvail(PipId pip) const { return check_pip_avail_for_net(pip, nullptr); }
+
+Arch::~Arch() {}
 
 // Instance constraint templates.
 template void Arch::ArchConstraints::bindBel(Arch::ArchConstraints::TagState *, const Arch::ConstraintRange);

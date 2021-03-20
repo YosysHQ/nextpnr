@@ -19,9 +19,15 @@
  */
 
 #include "xdc.h"
+
 #include <string>
+
+#include "context.h"
 #include "log.h"
-#include "nextpnr.h"
+
+// Include tcl.h late because it messed with #define's and lets them leave the
+// scope of the header.
+#include <tcl.h>
 
 NEXTPNR_NAMESPACE_BEGIN
 
