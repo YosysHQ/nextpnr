@@ -723,6 +723,36 @@ bool Arch::route()
         }
     }
 
+    HashTables::HashSet<WireId> wires_to_unbind;
+    for (auto &net_pair : nets) {
+        for (auto &wire_pair : net_pair.second->wires) {
+            WireId wire = wire_pair.first;
+            if (wire_pair.second.strength != STRENGTH_PLACER) {
+                // Only looking for bound placer wires
+                continue;
+            }
+
+            const TileWireInfoPOD &wire_data = wire_info(wire);
+            NPNR_ASSERT(wire_data.site != -1);
+
+            wires_to_unbind.emplace(wire);
+        }
+    }
+
+    for (WireId wire : wires_to_unbind) {
+        unbindWire(wire);
+    }
+
+    for (auto &tile_pair : tileStatus) {
+        for (auto &site_router : tile_pair.second.sites) {
+            if (site_router.cells_in_site.empty()) {
+                continue;
+            }
+
+            site_router.bindSiteRouting(getCtx());
+        }
+    }
+
     bool result;
     if (router == "router1") {
         result = router1(getCtx(), Router1Cfg(getCtx()));
@@ -1726,8 +1756,6 @@ bool Arch::check_pip_avail_for_net(PipId pip, NetInfo *net) const
 }
 
 bool Arch::checkPipAvail(PipId pip) const { return check_pip_avail_for_net(pip, nullptr); }
-
-Arch::~Arch() {}
 
 // Instance constraint templates.
 template void Arch::ArchConstraints::bindBel(Arch::ArchConstraints::TagState *, const Arch::ConstraintRange);

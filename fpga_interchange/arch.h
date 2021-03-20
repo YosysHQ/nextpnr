@@ -37,6 +37,7 @@
 #include "chipdb.h"
 #include "dedicated_interconnect.h"
 #include "site_router.h"
+#include "site_routing_cache.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -1037,6 +1038,8 @@ struct Arch : ArchAPI<ArchRanges>
     std::regex verilog_hex_constant;
     void read_lut_equation(DynamicBitarray<> *equation, const Property &equation_parameter) const;
     bool route_vcc_to_unused_lut_pins();
+    mutable RouteNodeStorage node_storage;
+    mutable SiteRoutingCache site_routing_cache;
 };
 
 NEXTPNR_NAMESPACE_END

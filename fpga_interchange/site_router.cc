@@ -17,12 +17,22 @@
  *
  */
 
-#include "log.h"
 #include "nextpnr.h"
+
+#include "dynamic_bitarray.h"
+#include "log.h"
+#include "site_routing_cache.h"
+
+#include "hash_table.h"
+
+#include "site_arch.h"
+#include "site_arch.impl.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
 bool verbose_site_router(const Context *ctx) { return ctx->debug; }
+
+bool verbose_site_router(const SiteArch *ctx) { return verbose_site_router(ctx->ctx); }
 
 void SiteRouter::bindBel(CellInfo *cell)
 {
@@ -39,669 +49,597 @@ void SiteRouter::unbindBel(CellInfo *cell)
     dirty = true;
 }
 
-struct RouteNode
+bool check_initial_wires(const Context *ctx, SiteInformation *site_info)
 {
-    void clear()
-    {
-        parent = std::list<RouteNode>::iterator();
-        leafs.clear();
-        pip = PipId();
-        wire = WireId();
-    }
+    // Propagate from BEL pins to first wire, checking for trivial routing
+    // conflicts.
+    HashTables::HashMap<WireId, NetInfo *> wires;
 
-    using Node = std::list<RouteNode>::iterator;
+    for (CellInfo *cell : site_info->cells_in_site) {
+        BelId bel = cell->bel;
+        for (const auto &pin_pair : cell->cell_bel_pins) {
+            const PortInfo &port = cell->ports.at(pin_pair.first);
+            NPNR_ASSERT(port.net != nullptr);
 
-    Node parent;
-    std::vector<Node> leafs;
+            for (IdString bel_pin_name : pin_pair.second) {
+                BelPin bel_pin;
+                bel_pin.bel = bel;
+                bel_pin.pin = bel_pin_name;
 
-    PipId pip;   // What pip was taken to reach this node.
-    WireId wire; // What wire is this routing node located at?
+                WireId wire = ctx->getBelPinWire(bel_pin.bel, bel_pin.pin);
+                auto result = wires.emplace(wire, port.net);
+                if (!result.second) {
+                    // This wire is already in use, make sure the net bound is
+                    // the same net, otherwise there is a trivial net
+                    // conflict.
+                    const NetInfo *other_net = result.first->second;
+                    if (other_net != port.net) {
+                        // We have a direct net conflict at the BEL pin,
+                        // immediately short circuit the site routing check.
+                        if (verbose_site_router(ctx)) {
+                            log_info("Direct net conflict detected for cell %s:%s at bel %s, net %s != %s\n",
+                                     cell->name.c_str(ctx), cell->type.c_str(ctx), ctx->nameOfBel(cell->bel),
+                                     port.net->name.c_str(ctx), other_net->name.c_str(ctx));
+                        }
 
-    void print_route(const Context *ctx) const
-    {
-        log_info(" %s (via %s)\n", ctx->nameOfWire(wire), ctx->nameOfPip(pip));
-
-        Node node = parent;
-        while (node != RouteNode::Node()) {
-            if (node->pip != PipId()) {
-                log_info(" %s (via %s)\n", ctx->nameOfWire(node->wire), ctx->nameOfPip(node->pip));
-            } else {
-                log_info(" %s\n", ctx->nameOfWire(node->wire));
-            }
-
-            node = node->parent;
-        }
-    }
-};
-
-struct RouteNodeStorage
-{
-    // Free list of nodes.
-    std::list<RouteNode> nodes;
-
-    // Either allocate a new node if no nodes are on the free list, or return
-    // an element from the free list.
-    std::list<RouteNode>::iterator alloc_node(std::list<RouteNode> &new_owner)
-    {
-        if (nodes.empty()) {
-            nodes.emplace_front(RouteNode());
-        }
-
-        auto ret = nodes.begin();
-        new_owner.splice(new_owner.end(), nodes, ret);
-
-        ret->clear();
-
-        return ret;
-    }
-
-    // Return 1 node from the current owner to the free list.
-    void free_node(std::list<RouteNode> &owner, std::list<RouteNode>::iterator node)
-    {
-        nodes.splice(nodes.end(), owner, node);
-    }
-
-    // Return all node from the current owner to the free list.
-    void free_nodes(std::list<RouteNode> &owner)
-    {
-        nodes.splice(nodes.end(), owner);
-        NPNR_ASSERT(owner.empty());
-    }
-};
-
-struct SiteInformation
-{
-    const Context *ctx;
-
-    const std::unordered_set<CellInfo *> &cells_in_site;
-
-    SiteInformation(const Context *ctx, const std::unordered_set<CellInfo *> &cells_in_site)
-            : ctx(ctx), cells_in_site(cells_in_site)
-    {
-    }
-
-    bool check_bel_pin(CellInfo *cell, const PortInfo &port_info, BelPin bel_pin)
-    {
-        WireId wire = ctx->getBelPinWire(bel_pin.bel, bel_pin.pin);
-        auto result = consumed_wires.emplace(wire, port_info.net);
-        if (!result.second) {
-            // This wire is already in use, make sure the net bound is
-            // the same net, otherwise there is a net conflict.
-            const NetInfo *other_net = result.first->second;
-            if (other_net != port_info.net) {
-                // We have a direct net conflict at the BEL pin,
-                // immediately short circuit the site routing check.
-                if (verbose_site_router(ctx)) {
-                    log_info("Direct net conflict detected for cell %s:%s at bel %s, net %s != %s\n",
-                             cell->name.c_str(ctx), cell->type.c_str(ctx), ctx->nameOfBel(cell->bel),
-                             port_info.net->name.c_str(ctx), other_net->name.c_str(ctx));
-                }
-                return false;
-            }
-        }
-
-        nets_in_site.emplace(port_info.net);
-
-        if (port_info.type == PORT_OUT) {
-            unrouted_source_wires.emplace(wire, std::unordered_set<WireId>());
-        } else {
-            unrouted_sink_wires.emplace(wire);
-        }
-
-        return true;
-    }
-
-    bool check_initial_wires()
-    {
-        // Propagate from BEL pins to first wire, checking for trivial routing
-        // conflicts.
-        //
-        // Populate initial consumed wires, and nets_in_site.
-        for (CellInfo *cell : cells_in_site) {
-            BelId bel = cell->bel;
-            for (const auto &pin_pair : cell->cell_bel_pins) {
-                const PortInfo &port = cell->ports.at(pin_pair.first);
-                for (IdString bel_pin_name : pin_pair.second) {
-                    BelPin bel_pin;
-                    bel_pin.bel = bel;
-                    bel_pin.pin = bel_pin_name;
-
-                    if (!check_bel_pin(cell, port, bel_pin)) {
                         return false;
                     }
                 }
             }
         }
-
-        // Populate nets_fully_within_site
-        for (const NetInfo *net : nets_in_site) {
-            if (ctx->is_net_within_site(*net)) {
-                nets_fully_within_site.emplace(net);
-            }
-        }
-
-        // Remove sinks that are trivially routed.
-        std::vector<WireId> trivially_routed_sinks;
-        for (WireId sink_wire : unrouted_sink_wires) {
-            if (unrouted_source_wires.count(sink_wire) > 0) {
-                if (verbose_site_router(ctx)) {
-                    log_info("Wire %s is trivially routed!\n", ctx->nameOfWire(sink_wire));
-                }
-                trivially_routed_sinks.push_back(sink_wire);
-            }
-        }
-
-        for (WireId sink_wire : trivially_routed_sinks) {
-            NPNR_ASSERT(unrouted_sink_wires.erase(sink_wire) == 1);
-        }
-
-        // Remove sources that are routed now that trivially routed sinks are
-        // removed.
-        std::unordered_set<WireId> trivially_routed_sources;
-        for (const NetInfo *net : nets_fully_within_site) {
-            std::unordered_set<WireId> sink_wires_in_net;
-            bool already_routed = true;
-            for (const PortRef &user : net->users) {
-                for (const IdString pin : user.cell->cell_bel_pins.at(user.port)) {
-                    WireId sink_wire = ctx->getBelPinWire(user.cell->bel, pin);
-                    if (unrouted_sink_wires.count(sink_wire) > 0) {
-                        sink_wires_in_net.emplace(sink_wire);
-                        already_routed = false;
-                    }
-                }
-            }
-
-            if (already_routed) {
-                for (const IdString pin : net->driver.cell->cell_bel_pins.at(net->driver.port)) {
-                    trivially_routed_sources.emplace(ctx->getBelPinWire(net->driver.cell->bel, pin));
-                }
-            } else {
-                for (const IdString pin : net->driver.cell->cell_bel_pins.at(net->driver.port)) {
-                    WireId source_wire = ctx->getBelPinWire(net->driver.cell->bel, pin);
-                    unrouted_source_wires.at(source_wire) = sink_wires_in_net;
-                }
-            }
-        }
-
-        for (WireId source_wire : trivially_routed_sources) {
-            NPNR_ASSERT(unrouted_source_wires.erase(source_wire) == 1);
-        }
-
-        return true;
     }
 
-    // Checks if a source wire has been fully routed.
-    //
-    // Returns false if this wire is not an unrouted source wire.
-    bool check_source_routed(WireId wire) const
-    {
-        if (unrouted_source_wires.count(wire)) {
-            bool fully_routed = true;
-            for (WireId sink_wire : unrouted_source_wires.at(wire)) {
-                if (unrouted_sink_wires.count(sink_wire)) {
-                    fully_routed = false;
-                }
-            }
+    return true;
+}
 
-            return fully_routed;
-        } else {
-            return false;
-        }
+bool is_invalid_site_port(const SiteArch *ctx, const SiteNetInfo *net, const SitePip &pip)
+{
+    if (ctx->is_pip_synthetic(pip)) {
+        // FIXME: Not all synthetic pips are for constant networks.
+        // FIXME: Need to mark if synthetic site ports are for the GND or VCC
+        // network, and only allow the right one.  Otherwise site router
+        // could route a VCC on a GND only net (or equiv).
+        IdString gnd_net_name(ctx->ctx->chip_info->constants->gnd_net_name);
+        IdString vcc_net_name(ctx->ctx->chip_info->constants->vcc_net_name);
+        return net->net->name != gnd_net_name && net->net->name != vcc_net_name;
+    } else {
+        // All non-synthetic site ports are valid
+        return false;
     }
-
-    // Removes an source wires that have been fully routed.
-    void remove_routed_sources()
-    {
-        std::vector<WireId> routed_wires;
-        for (auto &source_pair : unrouted_source_wires) {
-            if (check_source_routed(source_pair.first)) {
-                routed_wires.push_back(source_pair.first);
-            }
-        }
-
-        for (WireId wire : routed_wires) {
-            NPNR_ASSERT(unrouted_source_wires.erase(wire) == 1);
-        }
-    }
-
-    bool is_fully_routed() const { return unrouted_sink_wires.empty() && unrouted_source_wires.empty(); }
-
-    bool select_route(WireId first_wire, RouteNode::Node node, const NetInfo *net,
-                      std::unordered_set<WireId> *newly_consumed_wires)
-    {
-
-        bool is_last_pip_site_port = ctx->is_site_port(node->pip);
-        do {
-            auto result = consumed_wires.emplace(node->wire, net);
-            if (!result.second && result.first->second != net) {
-                // Conflict, this wire is already in use and it's not
-                // doesn't match!
-                if (verbose_site_router(ctx)) {
-                    log_info("Cannot select route because net %s != net %s\n", result.first->second->name.c_str(ctx),
-                             net->name.c_str(ctx));
-                }
-
-                return false;
-            }
-
-            // By selecting a route, other sinks are potentially now routed.
-            unrouted_sink_wires.erase(node->wire);
-
-            newly_consumed_wires->emplace(node->wire);
-
-            node = node->parent;
-        } while (node != RouteNode::Node());
-
-        if (unrouted_source_wires.count(first_wire)) {
-            // By selecting a route to a site pip, this source wire is routed.
-            if (is_last_pip_site_port) {
-                NPNR_ASSERT(unrouted_source_wires.erase(first_wire));
-            } else if (is_net_within_site(net)) {
-                // For nets that are completely contained within the site, it
-                // is possible that by selecting this route it is now fully
-                // routed. Check now.
-                if (check_source_routed(first_wire)) {
-                    NPNR_ASSERT(unrouted_source_wires.erase(first_wire));
-                }
-            }
-        }
-
-        return true;
-    }
-
-    // Map of currently occupied wires and their paired net.
-    std::unordered_map<WireId, const NetInfo *> consumed_wires;
-
-    // Set of nets in site
-    std::unordered_set<const NetInfo *> nets_in_site;
-
-    // Map from source wire to sink wires within this site.
-    // If all sink wires are routed, the source is also routed!
-    std::unordered_map<WireId, std::unordered_set<WireId>> unrouted_source_wires;
-    std::unordered_set<WireId> unrouted_sink_wires;
-
-    // Set of nets are fully contained within the site.
-    std::unordered_set<const NetInfo *> nets_fully_within_site;
-
-    bool is_net_within_site(const NetInfo *net) const { return nets_fully_within_site.count(net); }
-
-    void print_current_state() const;
-};
+}
 
 struct SiteExpansionLoop
 {
-    const Context *const ctx;
     RouteNodeStorage *const node_storage;
 
-    using Node = RouteNode::Node;
-
-    SiteExpansionLoop(const Context *ctx, RouteNodeStorage *node_storage) : ctx(ctx), node_storage(node_storage)
+    SiteExpansionLoop(RouteNodeStorage *node_storage) : node_storage(node_storage)
     {
         NPNR_ASSERT(node_storage != nullptr);
     }
 
-    ~SiteExpansionLoop() { node_storage->free_nodes(nodes); }
+    void clear()
+    {
+        node_storage->free_nodes(used_nodes);
+        used_nodes.clear();
+        solution.clear();
+        net_driver = SiteWire();
+    }
+
+    virtual ~SiteExpansionLoop() { node_storage->free_nodes(used_nodes); }
 
     // Storage for nodes
-    std::list<RouteNode> nodes;
+    std::vector<size_t> used_nodes;
 
-    WireId first_wire;
-    const NetInfo *net_for_wire;
-    std::unordered_map<RouteNode *, Node> completed_routes;
-    std::unordered_map<WireId, std::vector<Node>> wire_to_nodes;
+    bool expand_result;
+    SiteWire net_driver;
+    HashTables::HashSet<SiteWire> net_users;
 
-    Node new_node(WireId wire, PipId pip, Node parent)
+    SiteRoutingSolution solution;
+
+    Node new_node(const SiteWire &wire, const SitePip &pip, const Node *parent)
     {
-        auto node = node_storage->alloc_node(nodes);
+        Node node = node_storage->alloc_node();
+        used_nodes.push_back(node.get_index());
+
         node->wire = wire;
         node->pip = pip;
-        node->parent = parent;
+        if (parent != nullptr) {
+            node->parent = (*parent).get_index();
+            node->flags = (*parent)->flags;
+            node->depth = (*parent)->depth + 1;
+        }
+
+        if (pip.type == SitePip::SITE_PORT) {
+            // Site ports should always have a parent!
+            NPNR_ASSERT(parent != nullptr);
+            if (wire.type == SiteWire::SITE_PORT_SINK) {
+                NPNR_ASSERT((*parent)->wire.type == SiteWire::SITE_WIRE);
+                NPNR_ASSERT(node->can_leave_site());
+                node->mark_left_site();
+            } else if (wire.type == SiteWire::SITE_PORT_SOURCE) {
+                // This is a backward walk, so this is considered entering
+                // the site.
+                NPNR_ASSERT((*parent)->wire.type == SiteWire::SITE_WIRE);
+                NPNR_ASSERT(node->can_enter_site());
+                node->mark_entered_site();
+            } else {
+                // See if this is a forward or backward walk.
+                NPNR_ASSERT(wire.type == SiteWire::SITE_WIRE);
+                if ((*parent)->wire.type == SiteWire::SITE_PORT_SINK) {
+                    // This is a backward walk, so this is considered leaving
+                    // the site.
+                    NPNR_ASSERT(node->can_leave_site());
+                    node->mark_left_site();
+                } else {
+                    NPNR_ASSERT((*parent)->wire.type == SiteWire::SITE_PORT_SOURCE);
+                    NPNR_ASSERT(node->can_enter_site());
+                    node->mark_entered_site();
+                }
+            }
+        }
 
         return node;
     }
 
-    void free_node(Node node) { node_storage->free_node(nodes, node); }
-
-    // Expand from wire specified, either downhill or uphill.
-    //
-    // Expands until it reaches another net of it's own (e.g. source to sink
-    // within site) or a site port (e.g. out to routing network).
-    void expand(WireId wire, const SiteInformation *site_info)
+    // Expand from wire specified, always downhill.
+    bool expand_net(const SiteArch *ctx, SiteRoutingCache *site_routing_cache, const SiteNetInfo *net)
     {
-
-        bool downhill = site_info->unrouted_source_wires.count(wire) != 0;
-        if (!downhill) {
-            NPNR_ASSERT(site_info->unrouted_sink_wires.count(wire) != 0);
+        if (net->driver == net_driver && net->users == net_users) {
+            return expand_result;
         }
 
-        first_wire = wire;
-        net_for_wire = site_info->consumed_wires.at(first_wire);
+        clear();
+
+        net_driver = net->driver;
+        net_users = net->users;
+
+        if (site_routing_cache->get_solution(ctx, *net, &solution)) {
+            expand_result = true;
+            return expand_result;
+        }
 
         if (verbose_site_router(ctx)) {
-            log_info("Expanding net %s from %s\n", net_for_wire->name.c_str(ctx), ctx->nameOfWire(first_wire));
+            log_info("Expanding net %s from %s\n", ctx->nameOfNet(net), ctx->nameOfWire(net->driver));
         }
 
-        completed_routes.clear();
-        wire_to_nodes.clear();
-        node_storage->free_nodes(nodes);
+        auto node = new_node(net->driver, SitePip(), /*parent=*/nullptr);
 
-        auto node = new_node(first_wire, PipId(), /*parent=*/Node());
-        wire_to_nodes[first_wire].push_back(node);
+        HashTables::HashSet<SiteWire> targets;
+        targets.insert(net->users.begin(), net->users.end());
 
+        if (verbose_site_router(ctx)) {
+            log_info("%zu targets:\n", targets.size());
+            for (auto &target : targets) {
+                log_info(" - %s\n", ctx->nameOfWire(target));
+            }
+        }
+
+        int32_t max_depth = 0;
+        int32_t max_depth_seen = 0;
         std::vector<Node> nodes_to_expand;
         nodes_to_expand.push_back(node);
 
-        auto do_expand = [&](Node parent_node, PipId pip, WireId wire) {
-            if (wire == first_wire) {
-                // No simple loops
-                // FIXME: May need to detect more complicated loops!
-                return;
-            }
-
-            if (ctx->is_site_port(pip)) {
-                if (verbose_site_router(ctx)) {
-                    log_info("Expanded net %s reaches %s\n", net_for_wire->name.c_str(ctx), ctx->nameOfPip(pip));
-                }
-                auto node = new_node(wire, pip, parent_node);
-                completed_routes.emplace(&*node, node);
-                return;
-            }
-
-            auto iter = site_info->consumed_wires.find(wire);
-            if (iter != site_info->consumed_wires.end()) {
-                // This wire already belongs to a net!
-                if (iter->second == net_for_wire) {
-                    // If this wire is the same net, this is a valid complete
-                    // route.
-                    if (!downhill && site_info->unrouted_source_wires.count(wire)) {
-                        // This path is from a sink to a source, it is a complete route.
-                        auto node = new_node(wire, pip, parent_node);
-                        if (verbose_site_router(ctx)) {
-                            log_info("Expanded net %s reaches source %s\n", net_for_wire->name.c_str(ctx),
-                                     ctx->nameOfWire(wire));
-                        }
-                        completed_routes.emplace(&*node, node);
-                    } else if (downhill && site_info->is_net_within_site(net_for_wire)) {
-                        // This path is from a sink to a source, it is a complete route to 1 sinks.
-                        auto node = new_node(wire, pip, parent_node);
-                        if (verbose_site_router(ctx)) {
-                            log_info("Expanded net %s reaches sink %s\n", net_for_wire->name.c_str(ctx),
-                                     ctx->nameOfWire(wire));
-                        }
-                        completed_routes.emplace(&*node, node);
-                    }
-                } else {
-                    // Net conflict, do not expand further.
-                    return;
-                }
-            }
-
-            // This wire is not a destination, and is not directly occupied,
-            // put it on the expansion list.
-            nodes_to_expand.push_back(new_node(wire, pip, parent_node));
-        };
-
+        std::vector<size_t> completed_routes;
         while (!nodes_to_expand.empty()) {
-            Node node_to_expand = nodes_to_expand.back();
+            Node parent_node = nodes_to_expand.back();
             nodes_to_expand.pop_back();
 
-            if (downhill) {
-                for (PipId pip : ctx->getPipsDownhill(node_to_expand->wire)) {
-                    WireId wire = ctx->getPipDstWire(pip);
-                    do_expand(node_to_expand, pip, wire);
+            max_depth_seen = std::max(max_depth_seen, parent_node->depth);
+
+            for (SitePip pip : ctx->getPipsDownhill(parent_node->wire)) {
+                if (is_invalid_site_port(ctx, net, pip)) {
+                    if (verbose_site_router(ctx)) {
+                        log_info("Pip %s is not a valid site port for net %s, skipping\n", ctx->nameOfPip(pip),
+                                 ctx->nameOfNet(net));
+                    }
+                    continue;
                 }
-            } else {
-                for (PipId pip : ctx->getPipsUphill(node_to_expand->wire)) {
-                    WireId wire = ctx->getPipSrcWire(pip);
-                    do_expand(node_to_expand, pip, wire);
+
+                SiteWire wire = ctx->getPipDstWire(pip);
+
+                if (pip.type == SitePip::SITE_PORT) {
+                    if (wire.type == SiteWire::SITE_PORT_SINK) {
+                        if (!parent_node->can_leave_site()) {
+                            // This path has already left the site once, don't leave it again!
+                            if (verbose_site_router(ctx)) {
+                                log_info("Pip %s is not a valid for this path because it has already left the site\n",
+                                         ctx->nameOfPip(pip));
+                            }
+                            continue;
+                        }
+                    } else {
+                        NPNR_ASSERT(parent_node->wire.type == SiteWire::SITE_PORT_SOURCE);
+
+                        if (!parent_node->can_enter_site()) {
+                            // This path has already entered the site once,
+                            // don't enter it again!
+                            if (verbose_site_router(ctx)) {
+                                log_info(
+                                        "Pip %s is not a valid for this path because it has already entered the site\n",
+                                        ctx->nameOfPip(pip));
+                            }
+                            continue;
+                        }
+                    }
                 }
+
+                auto wire_iter = ctx->wire_to_nets.find(wire);
+                if (wire_iter != ctx->wire_to_nets.end() && wire_iter->second.net != net) {
+                    if (verbose_site_router(ctx)) {
+                        log_info("Wire %s is already tied to net %s, not exploring for net %s\n", ctx->nameOfWire(wire),
+                                 ctx->nameOfNet(wire_iter->second.net), ctx->nameOfNet(net));
+                    }
+                    continue;
+                }
+
+                auto node = new_node(wire, pip, &parent_node);
+                if (targets.count(wire)) {
+                    completed_routes.push_back(node.get_index());
+                    max_depth = std::max(max_depth, node->depth);
+                }
+
+                nodes_to_expand.push_back(node);
             }
         }
+
+        // Make sure expansion reached all targets, otherwise this site is
+        // already unroutable!
+        solution.clear();
+        solution.store_solution(ctx, node_storage, net->driver, completed_routes);
+        solution.verify(ctx, *net);
+        for (size_t route : completed_routes) {
+            SiteWire wire = node_storage->get_node(route)->wire;
+            targets.erase(wire);
+        }
+
+        if (targets.empty()) {
+            site_routing_cache->add_solutions(ctx, *net, solution);
+        }
+
+        // Return nodes back to the storage system.
+        node_storage->free_nodes(used_nodes);
+        used_nodes.clear();
+
+        expand_result = targets.empty();
+        return expand_result;
     }
 
-    // Remove any routes that use specified wire.
-    void remove_wire(WireId wire)
-    {
-        auto iter = wire_to_nodes.find(wire);
-        if (iter == wire_to_nodes.end()) {
-            // This wire was not in use, done!
-            return;
-        }
+    size_t num_solutions() const { return solution.num_solutions(); }
 
-        // We need to prune the tree of nodes starting from any node that
-        // uses the specified wire. Create a queue of nodes to follow to
-        // gather all nodes that need to be removed.
-        std::list<RouteNode> nodes_to_follow;
-        for (Node node : iter->second) {
-            nodes_to_follow.splice(nodes_to_follow.end(), nodes, node);
-        }
+    const SiteWire &solution_sink(size_t idx) const { return solution.solution_sink(idx); }
+    std::vector<SitePip>::const_iterator solution_begin(size_t idx) const { return solution.solution_begin(idx); }
 
-        // Follow all nodes to their end, mark that node to be eventually removed.
-        std::list<RouteNode> nodes_to_remove;
-        while (!nodes_to_follow.empty()) {
-            Node node = nodes_to_follow.begin();
-            nodes_to_remove.splice(nodes_to_remove.end(), nodes_to_follow, node);
-
-            for (Node child_node : node->leafs) {
-                nodes_to_follow.splice(nodes_to_follow.end(), nodes, child_node);
-            }
-        }
-
-        // Check if any nodes being removed are a completed route.
-        for (RouteNode &node : nodes_to_remove) {
-            completed_routes.erase(&node);
-        }
-
-        // Move all nodes to be removed to the free list.
-        node_storage->free_nodes(nodes_to_remove);
-        NPNR_ASSERT(nodes_to_follow.empty());
-        NPNR_ASSERT(nodes_to_remove.empty());
-    }
+    std::vector<SitePip>::const_iterator solution_end(size_t idx) const { return solution.solution_end(idx); }
 };
 
-bool route_site(const Context *ctx, SiteInformation *site_info)
+void print_current_state(const SiteArch *site_arch)
 {
-    // All nets need to route:
-    //  - From sources to an output site pin or sink wire.
-    //  - From sink to an input site pin.
+    const Context *ctx = site_arch->ctx;
+    auto &cells_in_site = site_arch->site_info->cells_in_site;
+    const CellInfo *cell = *cells_in_site.begin();
+    BelId bel = cell->bel;
+    const auto &bel_data = bel_info(ctx->chip_info, bel);
+    const auto &site_inst = site_inst_info(ctx->chip_info, bel.tile, bel_data.site);
 
-    std::unordered_set<WireId> unrouted_wires;
+    log_info("Site %s\n", site_inst.name.get());
 
-    for (auto wire_pair : site_info->unrouted_source_wires) {
-        auto result = unrouted_wires.emplace(wire_pair.first);
-        NPNR_ASSERT(result.second);
+    log_info(" Cells in site:\n");
+    for (CellInfo *cell : cells_in_site) {
+        log_info("  - %s (%s)\n", cell->name.c_str(ctx), cell->type.c_str(ctx));
     }
-    for (WireId wire : site_info->unrouted_sink_wires) {
-        auto result = unrouted_wires.emplace(wire);
-        if (!result.second) {
-            log_error("Found sink wire %s already in unrouted_wires set. unrouted_source_wires.count() == %zu\n",
-                      ctx->nameOfWire(wire), site_info->unrouted_source_wires.count(wire));
+
+    log_info(" Nets in site:\n");
+    for (auto &net_pair : site_arch->nets) {
+        auto *net = net_pair.first;
+        log_info("  - %s, pins in site:\n", net->name.c_str(ctx));
+        if (net->driver.cell && cells_in_site.count(net->driver.cell)) {
+            log_info("    - %s/%s (%s)\n", net->driver.cell->name.c_str(ctx), net->driver.port.c_str(ctx),
+                     net->driver.cell->type.c_str(ctx));
+        }
+
+        for (const auto user : net->users) {
+            if (user.cell && cells_in_site.count(user.cell)) {
+                log_info("    - %s/%s (%s)\n", user.cell->name.c_str(ctx), user.port.c_str(ctx),
+                         user.cell->type.c_str(ctx));
+            }
         }
     }
 
-    // All done!
-    if (unrouted_wires.empty()) {
-        return true;
+    log_info(" Consumed wires:\n");
+    for (auto &wire_pair : site_arch->wire_to_nets) {
+        const SiteWire &site_wire = wire_pair.first;
+        if (site_wire.type != SiteWire::SITE_WIRE) {
+            continue;
+        }
+        WireId wire = site_wire.wire;
+        const NetInfo *net = wire_pair.second.net->net;
+        log_info("  - %s is bound to %s\n", ctx->nameOfWire(wire), net->name.c_str(ctx));
+    }
+}
+
+struct PossibleSolutions
+{
+    bool tested = false;
+    SiteNetInfo *net = nullptr;
+    std::vector<SitePip>::const_iterator pips_begin;
+    std::vector<SitePip>::const_iterator pips_end;
+};
+
+bool test_solution(SiteArch *ctx, SiteNetInfo *net, std::vector<SitePip>::const_iterator pips_begin,
+                   std::vector<SitePip>::const_iterator pips_end)
+{
+    bool valid = true;
+    std::vector<SitePip>::const_iterator good_pip_end = pips_begin;
+    for (auto iter = pips_begin; iter != pips_end; ++iter) {
+        if (!ctx->bindPip(*iter, net)) {
+            valid = false;
+            break;
+        }
+
+        good_pip_end = iter;
     }
 
-    // Expand from first wires to all potential routes (either net pair or
-    // site pin).
-    RouteNodeStorage node_storage;
-    std::vector<SiteExpansionLoop> expansions;
-    expansions.reserve(unrouted_wires.size());
+    // Unwind a bad solution
+    if (!valid) {
+        for (auto iter = pips_begin; iter != good_pip_end; ++iter) {
+            ctx->unbindPip(*iter);
+        }
+    } else {
+        NPNR_ASSERT(net->driver == ctx->getPipSrcWire(*good_pip_end));
+    }
 
-    for (WireId wire : unrouted_wires) {
-        expansions.emplace_back(SiteExpansionLoop(ctx, &node_storage));
+    return valid;
+}
 
-        SiteExpansionLoop &wire_router = expansions.back();
-        wire_router.expand(wire, site_info);
+void remove_solution(SiteArch *ctx, std::vector<SitePip>::const_iterator pips_begin,
+                     std::vector<SitePip>::const_iterator pips_end)
+{
+    for (auto iter = pips_begin; iter != pips_end; ++iter) {
+        ctx->unbindPip(*iter);
+    }
+}
 
-        // It is not possible to route this wire at all, fail early.
-        if (wire_router.completed_routes.empty()) {
+static bool find_solution_via_backtrack(SiteArch *ctx, std::vector<PossibleSolutions> *solutions,
+                                        const std::vector<std::vector<size_t>> &sinks_to_solutions)
+{
+    std::vector<uint8_t> routed_sinks;
+    std::vector<size_t> solution_indicies;
+    std::vector<std::pair<size_t, size_t>> solution_order;
+    routed_sinks.resize(sinks_to_solutions.size(), 0);
+    solution_indicies.resize(sinks_to_solutions.size(), 0);
+
+    // Scan solutions, and remove any solutions that are invalid immediately
+    for (auto &solution : *solutions) {
+        if (test_solution(ctx, solution.net, solution.pips_begin, solution.pips_end)) {
+            remove_solution(ctx, solution.pips_begin, solution.pips_end);
+        } else {
+            solution.tested = true;
+        }
+    }
+
+    for (size_t sink_idx = 0; sink_idx < sinks_to_solutions.size(); ++sink_idx) {
+        size_t solution_count = 0;
+        for (size_t solution_idx : sinks_to_solutions[sink_idx]) {
+            if (!(*solutions)[solution_idx].tested) {
+                solution_count += 1;
+            }
+        }
+
+        if (solution_count == 0) {
+            return false;
+        }
+
+        solution_order.emplace_back(sink_idx, solution_count);
+    }
+
+    // Sort solutions by the number of possible solutions first.  This allows
+    // the backtrack to avoid the wide searches first.
+    std::sort(solution_order.begin(), solution_order.end(),
+              [](const std::pair<size_t, size_t> &a, const std::pair<size_t, size_t> &b) -> bool {
+                  return a.second < b.second;
+              });
+
+    std::vector<size_t> solution_stack;
+    solution_stack.reserve(sinks_to_solutions.size());
+
+    if (verbose_site_router(ctx)) {
+        log_info("Solving via backtrace with %zu solutions and %zu sinks\n", solutions->size(),
+                 sinks_to_solutions.size());
+    }
+
+    // Simple backtrack explorer:
+    //  - Apply the next solution at stack index.
+    //  - If solution is valid, push solution onto stack, and advance stack
+    //    index at solution 0.
+    //  - If solution is not valid, pop the stack.
+    //    - At this level of the stack, advance to the next solution.  If
+    //      there are not more solutions at this level, pop again.
+    //    - If stack is now empty, mark root solution as tested and invalid.
+    //      If root of stack has no more solutions, no solution is possible.
+    while (true) {
+        // Which sink is next to be tested?
+        size_t sink_idx = solution_order[solution_stack.size()].first;
+
+        size_t next_solution_to_test = solution_indicies[sink_idx];
+        if (next_solution_to_test >= sinks_to_solutions[sink_idx].size()) {
+            // We have exausted all solutions at this level of the stack!
+            if (solution_stack.empty()) {
+                // Search is done, failed!!!
+                if (verbose_site_router(ctx)) {
+                    log_info("No solution found via backtrace with %zu solutions and %zu sinks\n", solutions->size(),
+                             sinks_to_solutions.size());
+                }
+                return false;
+            } else {
+                // This level of the stack is completely tapped out, pop back
+                // to the next level up.
+                size_t solution_idx = solution_stack.back();
+                solution_stack.pop_back();
+
+                // Remove the now tested bad solution at the previous level of
+                // the stack.
+                auto &solution = solutions->at(solution_idx);
+                remove_solution(ctx, solution.pips_begin, solution.pips_end);
+
+                // Because we had to pop up the stack, advance the index at
+                // the level below us and start again.
+                sink_idx = solution_order[solution_stack.size()].first;
+                solution_indicies[sink_idx] += 1;
+                continue;
+            }
+        }
+
+        size_t solution_idx = sinks_to_solutions[sink_idx].at(next_solution_to_test);
+        auto &solution = solutions->at(solution_idx);
+        if (solution.tested) {
+            // This solution was already determined to be no good, skip it.
+            solution_indicies[sink_idx] += 1;
+            continue;
+        }
+
+        if (!test_solution(ctx, solution.net, solution.pips_begin, solution.pips_end)) {
+            // This solution was no good, try the next one at this level of
+            // the stack.
+            solution_indicies[sink_idx] += 1;
+        } else {
+            // This solution was good, push onto the stack.
+            solution_stack.push_back(solution_idx);
+            if (solution_stack.size() == sinks_to_solutions.size()) {
+                // Found a valid solution, done!
+                if (verbose_site_router(ctx)) {
+                    log_info("Solved via backtrace with %zu solutions and %zu sinks\n", solutions->size(),
+                             sinks_to_solutions.size());
+                }
+                return true;
+            } else {
+                // Because we pushing to a new level of stack, restart the
+                // search at this level.
+                sink_idx = solution_order[solution_stack.size()].first;
+                solution_indicies[sink_idx] = 0;
+            }
+        }
+    }
+
+    // Unreachable!!!
+    NPNR_ASSERT(false);
+}
+
+bool route_site(SiteArch *ctx, SiteRoutingCache *site_routing_cache, RouteNodeStorage *node_storage)
+{
+    std::vector<SiteExpansionLoop *> expansions;
+    expansions.reserve(ctx->nets.size());
+
+    for (auto &net_pair : ctx->nets) {
+        SiteNetInfo *net = &net_pair.second;
+
+        if (net->net->loop == nullptr) {
+            net->net->loop = new SiteExpansionLoop(node_storage);
+        }
+        expansions.push_back(net->net->loop);
+
+        SiteExpansionLoop *router = expansions.back();
+        if (!router->expand_net(ctx, site_routing_cache, net)) {
+            if (verbose_site_router(ctx)) {
+                log_info("Net %s expansion failed to reach all users, site is unroutable!\n", ctx->nameOfNet(net));
+            }
+
             return false;
         }
     }
 
-    std::unordered_set<WireId> newly_consumed_wires;
-    std::unordered_map<WireId, SiteExpansionLoop *> wire_to_expansion;
-    for (auto &expansion : expansions) {
-        // This is a special case, where the expansion found exactly 1 solution.
-        // That solution must be conflict free, or the site is unroutable.
-        if (expansion.completed_routes.size() == 1) {
-            auto node = expansion.completed_routes.begin()->second;
-            if (!site_info->select_route(expansion.first_wire, node, expansion.net_for_wire, &newly_consumed_wires)) {
-                // Conflict!
-                return false;
-            }
-        } else {
-            auto result = wire_to_expansion.emplace(expansion.first_wire, &expansion);
+    // First convert remaining solutions into a flat solution set.
+    std::vector<PossibleSolutions> solutions;
+    HashTables::HashMap<SiteWire, size_t> sink_map;
+    std::vector<std::vector<size_t>> sinks_to_solutions;
+    for (const auto *expansion : expansions) {
+        for (const SiteWire &unrouted_sink : expansion->net_users) {
+            auto result = sink_map.emplace(unrouted_sink, sink_map.size());
             NPNR_ASSERT(result.second);
         }
     }
 
-    if (wire_to_expansion.empty()) {
-        // All routes have been assigned with congestion!
+    if (sink_map.empty()) {
+        // All nets are trivially routed!
         return true;
     }
 
-    // At this point some expansions have multiple results.  Build congestion
-    // information, and pick non-conflicted routes for remaining expansions.
-    std::vector<WireId> completed_wires;
-    do {
-        // Before anything, remove routes that have been consumed in previous
-        // iteration.
-        for (auto &expansion_wire : wire_to_expansion) {
-            auto &expansion = *expansion_wire.second;
-            for (WireId consumed_wire : newly_consumed_wires) {
-                const NetInfo *net_for_wire = site_info->consumed_wires.at(consumed_wire);
-                if (net_for_wire != expansion.net_for_wire) {
-                    expansion.remove_wire(consumed_wire);
-                }
+    sinks_to_solutions.resize(sink_map.size());
 
-                // By removing that wire, this expansion now has no solutions!
-                if (expansion.completed_routes.empty()) {
-                    return false;
+    for (const auto *expansion : expansions) {
+        for (size_t idx = 0; idx < expansion->num_solutions(); ++idx) {
+            SiteWire wire = expansion->solution_sink(idx);
+            auto begin = expansion->solution_begin(idx);
+            auto end = expansion->solution_end(idx);
+            NPNR_ASSERT(begin != end);
+
+            size_t sink_idx = sink_map.at(wire);
+            sinks_to_solutions.at(sink_idx).push_back(solutions.size());
+
+            solutions.emplace_back();
+            auto &solution = solutions.back();
+            solution.net = ctx->wire_to_nets.at(wire).net;
+            solution.pips_begin = begin;
+            solution.pips_end = end;
+
+            for (auto iter = begin; iter != end; ++iter) {
+                NPNR_ASSERT(ctx->getPipDstWire(*iter) == wire);
+                wire = ctx->getPipSrcWire(*iter);
+            }
+
+            NPNR_ASSERT(expansion->net_driver == wire);
+        }
+    }
+
+    return find_solution_via_backtrack(ctx, &solutions, sinks_to_solutions);
+}
+
+void check_routing(const SiteArch &site_arch)
+{
+    for (auto &net_pair : site_arch.nets) {
+        const NetInfo *net = net_pair.first;
+        const SiteNetInfo &net_info = net_pair.second;
+
+        for (const auto &user : net_info.users) {
+            NPNR_ASSERT(site_arch.wire_to_nets.at(user).net->net == net);
+            SiteWire cursor = user;
+            while (cursor != net_info.driver) {
+                auto iter = net_info.wires.find(cursor);
+                if (iter == net_info.wires.end()) {
+                    log_error("Wire %s has no pip, but didn't reach driver wire %s\n", site_arch.nameOfWire(cursor),
+                              site_arch.nameOfWire(net_info.driver));
                 }
+                const SitePip &site_pip = iter->second.pip;
+                cursor = site_arch.getPipSrcWire(site_pip);
+            }
+
+            NPNR_ASSERT(cursor == net_info.driver);
+            NPNR_ASSERT(site_arch.wire_to_nets.at(cursor).net->net == net);
+        }
+    }
+}
+
+void apply_routing(Context *ctx, const SiteArch &site_arch)
+{
+    for (auto &net_pair : site_arch.nets) {
+        NetInfo *net = net_pair.first;
+
+        // If the driver wire is a site wire, bind it.
+        if (net_pair.second.driver.type == SiteWire::SITE_WIRE) {
+            WireId driver_wire = net_pair.second.driver.wire;
+            if (ctx->getBoundWireNet(driver_wire) != net) {
+                ctx->bindWire(driver_wire, net, STRENGTH_PLACER);
             }
         }
 
-        // Check if there are any more trivial solutions.
-        completed_wires.clear();
-        newly_consumed_wires.clear();
-
-        for (auto &expansion_wire : wire_to_expansion) {
-            auto &expansion = *expansion_wire.second;
-            if (expansion.completed_routes.size() == 1) {
-                auto node = expansion.completed_routes.begin()->second;
-                if (!site_info->select_route(expansion.first_wire, node, expansion.net_for_wire,
-                                             &newly_consumed_wires)) {
-                    // Conflict!
-                    return false;
-                }
-
-                // Mark this expansion as done!
-                completed_wires.push_back(expansion_wire.first);
-            }
-        }
-
-        // Remove trivial solutions from unsolved routing.
-        for (WireId wire : completed_wires) {
-            NPNR_ASSERT(wire_to_expansion.erase(wire) == 1);
-        }
-
-        // All expansions have been selected for!
-        if (wire_to_expansion.empty()) {
-            break;
-        }
-
-        // At least 1 trivial solution was selected, re-prune.
-        if (!newly_consumed_wires.empty()) {
-            // Prune remaining solutions.
-            continue;
-        }
-
-        std::unordered_map<WireId, std::unordered_set<const NetInfo *>> wire_congestion;
-
-        for (auto &consumed_wire : site_info->consumed_wires) {
-            wire_congestion[consumed_wire.first].emplace(consumed_wire.second);
-        }
-
-        for (auto &expansion_wire : wire_to_expansion) {
-            auto &expansion = *expansion_wire.second;
-
-            for (auto pair : expansion.completed_routes) {
-                auto node = pair.second;
-
-                do {
-                    wire_congestion[node->wire].emplace(expansion.net_for_wire);
-                    node = node->parent;
-                } while (node != RouteNode::Node());
-            }
-        }
-
-        for (auto &expansion_wire : wire_to_expansion) {
-            auto &expansion = *expansion_wire.second;
-
-            RouteNode::Node uncongestion_route;
-
-            for (auto pair : expansion.completed_routes) {
-                auto node = pair.second;
-                uncongestion_route = node;
-
-                do {
-                    if (wire_congestion[node->wire].size() > 1) {
-                        uncongestion_route = RouteNode::Node();
-                        break;
-                    }
-                    node = node->parent;
-                } while (node != RouteNode::Node());
-
-                if (uncongestion_route != RouteNode::Node()) {
-                    break;
-                }
+        for (auto &wire_pair : net_pair.second.wires) {
+            const SitePip &site_pip = wire_pair.second.pip;
+            if (site_pip.type != SitePip::SITE_PIP && site_pip.type != SitePip::SITE_PORT) {
+                continue;
             }
 
-            if (uncongestion_route != RouteNode::Node()) {
-                // Select a trivially uncongested route if possible.
-                if (!site_info->select_route(expansion.first_wire, uncongestion_route, expansion.net_for_wire,
-                                             &newly_consumed_wires)) {
-                    log_info("Failed to bind uncongested path with wire %s on net %s\n",
-                             ctx->nameOfWire(expansion.first_wire), expansion.net_for_wire->name.c_str(ctx));
-                    uncongestion_route->print_route(ctx);
-
-                    site_info->print_current_state();
-                    NPNR_ASSERT(false);
-                }
-                completed_wires.push_back(expansion.first_wire);
-            }
+            ctx->bindPip(site_pip.pip, net, STRENGTH_PLACER);
         }
-
-        // Remove trivial solutions from unsolved routing.
-        for (WireId wire : completed_wires) {
-            NPNR_ASSERT(wire_to_expansion.erase(wire) == 1);
-        }
-
-        // All expansions have been selected for!
-        if (wire_to_expansion.empty()) {
-            break;
-        }
-
-        // At least 1 trivial solution was selected, re-prune.
-        if (!newly_consumed_wires.empty()) {
-            // Prune remaining solutions.
-            continue;
-        }
-
-        // FIXME: Actually de-congest non-trivial site routing.
-        //
-        // The simplistic solution (only select when 1 solution is available)
-        // will likely solve initial problems.  Once that is show to be wrong,
-        // come back with something more general.
-        return false;
-
-    } while (!wire_to_expansion.empty());
-
-    return true;
+    }
 }
 
 bool SiteRouter::checkSiteRouting(const Context *ctx, const TileStatus &tile_status) const
@@ -780,67 +718,90 @@ bool SiteRouter::checkSiteRouting(const Context *ctx, const TileStatus &tile_sta
         }
 
         if (!lut_mapper.remap_luts(ctx)) {
-            return false;
+            site_ok = false;
+            return site_ok;
         }
     }
 
-    SiteInformation site_info(ctx, cells_in_site);
+    SiteInformation site_info(ctx, tile, site, cells_in_site);
 
     // Push from cell pins to the first WireId from each cell pin.
-    if (!site_info.check_initial_wires()) {
+    if (!check_initial_wires(ctx, &site_info)) {
         site_ok = false;
         return site_ok;
     }
 
-    site_ok = route_site(ctx, &site_info);
+    SiteArch site_arch(&site_info);
+    // site_arch.archcheck();
+
+    site_ok = route_site(&site_arch, &ctx->site_routing_cache, &ctx->node_storage);
     if (verbose_site_router(ctx)) {
         if (site_ok) {
-            site_info.remove_routed_sources();
-            NPNR_ASSERT(site_info.is_fully_routed());
             log_info("Site %s is routable\n", ctx->get_site_name(tile, site));
         } else {
             log_info("Site %s is not routable\n", ctx->get_site_name(tile, site));
         }
     }
 
+    if (site_ok) {
+        check_routing(site_arch);
+    }
     return site_ok;
 }
 
-void SiteInformation::print_current_state() const
+void SiteRouter::bindSiteRouting(Context *ctx)
 {
-    const CellInfo *cell = *cells_in_site.begin();
-    BelId bel = cell->bel;
-    const auto &bel_data = bel_info(ctx->chip_info, bel);
-    const auto &site_inst = site_inst_info(ctx->chip_info, bel.tile, bel_data.site);
+    NPNR_ASSERT(!dirty);
+    NPNR_ASSERT(site_ok);
 
-    log_info("Site %s\n", site_inst.name.get());
+    // Make sure all cells in this site belong!
+    auto iter = cells_in_site.begin();
+    NPNR_ASSERT((*iter)->bel != BelId());
 
-    log_info(" Cells in site:\n");
-    for (CellInfo *cell : cells_in_site) {
-        log_info("  - %s (%s)\n", cell->name.c_str(ctx), cell->type.c_str(ctx));
-    }
+    auto tile = (*iter)->bel.tile;
+    auto &tile_type = loc_info(ctx->chip_info, (*iter)->bel);
 
-    log_info(" Nets in site:\n");
-    for (auto *net : nets_in_site) {
-        log_info("  - %s, pins in site:\n", net->name.c_str(ctx));
-        if (net->driver.cell && cells_in_site.count(net->driver.cell)) {
-            log_info("    - %s/%s (%s)\n", net->driver.cell->name.c_str(ctx), net->driver.port.c_str(ctx),
-                     net->driver.cell->type.c_str(ctx));
+    // Unbind all bound site wires
+    WireId wire;
+    wire.tile = tile;
+    for (size_t wire_index = 0; wire_index < tile_type.wire_data.size(); ++wire_index) {
+        const TileWireInfoPOD &wire_data = tile_type.wire_data[wire_index];
+
+        if (wire_data.site != this->site) {
+            continue;
         }
 
-        for (const auto user : net->users) {
-            if (user.cell && cells_in_site.count(user.cell)) {
-                log_info("    - %s/%s (%s)\n", user.cell->name.c_str(ctx), user.port.c_str(ctx),
-                         user.cell->type.c_str(ctx));
-            }
+        wire.index = wire_index;
+
+        NetInfo *net = ctx->getBoundWireNet(wire);
+        if (net == nullptr) {
+            continue;
+        }
+
+        auto &pip_map = net->wires.at(wire);
+        if (pip_map.strength <= STRENGTH_STRONG) {
+            ctx->unbindWire(wire);
         }
     }
 
-    log_info(" Consumed wires:\n");
-    for (auto consumed_wire : consumed_wires) {
-        WireId wire = consumed_wire.first;
-        const NetInfo *net = consumed_wire.second;
-        log_info("  - %s is bound to %s\n", ctx->nameOfWire(wire), net->name.c_str(ctx));
+    SiteInformation site_info(ctx, tile, site, cells_in_site);
+    SiteArch site_arch(&site_info);
+    NPNR_ASSERT(route_site(&site_arch, &ctx->site_routing_cache, &ctx->node_storage));
+    check_routing(site_arch);
+    apply_routing(ctx, site_arch);
+    if (verbose_site_router(ctx)) {
+        print_current_state(&site_arch);
+    }
+}
+
+ArchNetInfo::~ArchNetInfo() { delete loop; }
+
+Arch::~Arch()
+{
+    for (auto &net_pair : nets) {
+        if (net_pair.second->loop) {
+            net_pair.second->loop->clear();
+        }
     }
 }
 
