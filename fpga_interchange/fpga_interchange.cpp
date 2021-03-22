@@ -114,14 +114,12 @@ static PhysicalNetlist::PhysNetlist::RouteBranch::Builder emit_branch(
             WireId src_wire = ctx->getPipSrcWire(pip);
             WireId dst_wire = ctx->getPipDstWire(pip);
 
-            IdString src_pin;
+            NPNR_ASSERT(src_wire.index == bel_data.wires[pip_data.extra_data]);
+
+            IdString src_pin(bel_data.ports[pip_data.extra_data]);
+
             IdString dst_pin;
             for(IdString pin : ctx->getBelPins(bel)) {
-                if(ctx->getBelPinWire(bel, pin) == src_wire) {
-                    NPNR_ASSERT(src_pin == IdString());
-                    src_pin = pin;
-                }
-
                 if(ctx->getBelPinWire(bel, pin) == dst_wire) {
                     NPNR_ASSERT(dst_pin == IdString());
                     dst_pin = pin;
@@ -274,6 +272,65 @@ static void emit_net(
         }
     }
 }
+
+// Given a site wire, find the source BEL pin.
+//
+// All site wires should have exactly 1 source BEL pin.
+//
+// FIXME: Consider making sure that wire_data.bel_pins[0] is always the
+// source BEL pin in the BBA generator.
+static BelPin find_source(const Context *ctx, WireId source_wire) {
+    const TileTypeInfoPOD & tile_type = loc_info(ctx->chip_info, source_wire);
+    const TileWireInfoPOD & wire_data = tile_type.wire_data[source_wire.index];
+
+    // Make sure this is a site wire, otherwise something odd is happening
+    // here.
+    if(wire_data.site == -1) {
+        return BelPin();
+    }
+
+    BelPin source_bel_pin;
+    for(const BelPin & bel_pin : ctx->getWireBelPins(source_wire)) {
+        if(ctx->getBelPinType(bel_pin.bel, bel_pin.pin) == PORT_OUT) {
+            // Synthetic BEL's (like connection to the VCC/GND network) are
+            // ignored here, because synthetic BEL's don't exists outside of
+            // the BBA.
+            if(ctx->is_bel_synthetic(bel_pin.bel)) {
+                continue;
+            }
+
+            NPNR_ASSERT(source_bel_pin.bel == BelId());
+            source_bel_pin = bel_pin;
+        }
+    }
+
+    NPNR_ASSERT(source_bel_pin.bel != BelId());
+    NPNR_ASSERT(source_bel_pin.pin != IdString());
+
+    return source_bel_pin;
+}
+
+// Initial a local signal source (usually VCC/GND).
+static PhysicalNetlist::PhysNetlist::RouteBranch::Builder init_local_source(
+        const Context *ctx,
+        StringEnumerator * strings,
+        PhysicalNetlist::PhysNetlist::RouteBranch::Builder source_branch,
+        PipId root,
+        const std::unordered_map<PipId, PlaceStrength> &pip_place_strength,
+        WireId *root_wire) {
+    WireId source_wire = ctx->getPipSrcWire(root);
+    BelPin source_bel_pin = find_source(ctx, source_wire);
+    if(source_bel_pin.bel != BelId()) {
+        // This branch should first emit the BEL pin that is the source, followed
+        // by the pip that brings the source to the net.
+        init_bel_pin(ctx, strings, source_bel_pin, source_branch);
+
+        source_branch = source_branch.initBranches(1)[0];
+    }
+    *root_wire = ctx->getPipDstWire(root);
+    return emit_branch(ctx, strings, pip_place_strength, root, source_branch);
+}
+
 static void find_non_synthetic_edges(const Context * ctx, WireId root_wire,
         const std::unordered_map<WireId, std::vector<PipId>> &pip_downhill,
         std::vector<PipId> *root_pips) {
@@ -330,6 +387,15 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
     for(auto & cell_name : placed_cells) {
         const CellInfo & cell = *ctx->cells.at(cell_name);
 
+        if(cell.bel == BelId()) {
+            continue;
+        }
+
+        if(!ctx->isBelLocationValid(cell.bel)) {
+            log_error("Cell '%s' is placed at BEL '%s', but this location is currently invalid.  Not writing physical netlist.\n",
+                    cell.name.c_str(ctx), ctx->nameOfBel(cell.bel));
+        }
+
         if(ctx->is_bel_synthetic(cell.bel)) {
             continue;
         }
@@ -345,6 +411,13 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
 
     for(auto & cell_name : placed_cells) {
         const CellInfo & cell = *ctx->cells.at(cell_name);
+
+        if(cell.bel == BelId()) {
+            continue;
+        }
+
+        NPNR_ASSERT(ctx->isBelLocationValid(cell.bel));
+
         if(ctx->is_bel_synthetic(cell.bel)) {
             continue;
         }
@@ -446,7 +519,7 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
         std::unordered_map<WireId, std::vector<PipId>> pip_downhill;
         std::unordered_set<PipId> pips;
 
-        if (driver_cell != nullptr && driver_cell->bel != BelId()) {
+        if (driver_cell != nullptr && driver_cell->bel != BelId() && ctx->isBelLocationValid(driver_cell->bel)) {
             for(IdString bel_pin_name : driver_cell->cell_bel_pins.at(net.driver.port)) {
                 BelPin driver_bel_pin;
                 driver_bel_pin.bel = driver_cell->bel;
@@ -461,8 +534,17 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
 
         std::unordered_map<WireId, std::vector<BelPin>> sinks;
         for(const auto &port_ref : net.users) {
-            if(port_ref.cell != nullptr && port_ref.cell->bel != BelId()) {
-                for(IdString bel_pin_name : port_ref.cell->cell_bel_pins.at(port_ref.port)) {
+            if(port_ref.cell != nullptr && port_ref.cell->bel != BelId() && ctx->isBelLocationValid(port_ref.cell->bel)) {
+                auto pin_iter = port_ref.cell->cell_bel_pins.find(port_ref.port);
+                if(pin_iter == port_ref.cell->cell_bel_pins.end()) {
+                    log_warning("Cell %s port %s on net %s is legal, but has no BEL pins?\n",
+                            port_ref.cell->name.c_str(ctx),
+                            port_ref.port.c_str(ctx),
+                            net.name.c_str(ctx));
+                    continue;
+                }
+
+                for(IdString bel_pin_name : pin_iter->second) {
                     BelPin sink_bel_pin;
                     sink_bel_pin.bel = port_ref.cell->bel;
                     sink_bel_pin.pin = bel_pin_name;
@@ -531,8 +613,8 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
             PhysicalNetlist::PhysNetlist::RouteBranch::Builder source_branch = *source_iter++;
 
             NPNR_ASSERT(pips.erase(root) == 1);
-            WireId root_wire = ctx->getPipDstWire(root);
-            source_branch = emit_branch(ctx, &strings, pip_place_strength, root, source_branch);
+            WireId root_wire;
+            source_branch = init_local_source(ctx, &strings, source_branch, root, pip_place_strength, &root_wire);
             emit_net(ctx, &strings, pip_downhill, sinks, &pips, pip_place_strength, root_wire, source_branch);
         }
 
