@@ -280,6 +280,7 @@ void Arch::init()
     lookahead.init(getCtx(), getCtx());
 #endif
     dedicated_interconnect.init(getCtx());
+    cell_parameters.init(getCtx());
 }
 
 // -----------------------------------------------------------------------
@@ -1095,14 +1096,14 @@ void Arch::map_cell_pins(CellInfo *cell, int32_t mapping, bool bind_constants)
 
     for (const auto &parameter_pin_map : cell_pin_map.parameter_pins) {
         IdString param_key(parameter_pin_map.key);
-        std::string param_value = IdString(parameter_pin_map.value).c_str(this);
+        IdString param_value(parameter_pin_map.value);
 
         auto iter = cell->params.find(param_key);
         if (iter == cell->params.end()) {
             continue;
         }
 
-        if (param_value != iter->second.as_string()) {
+        if (!cell_parameters.compare_property(getCtx(), cell->type, param_key, iter->second, param_value)) {
             continue;
         }
 
@@ -1383,44 +1384,6 @@ void Arch::report_invalid_bel(BelId bel, CellInfo *cell) const
               nameOfBel(bel), mapping);
 }
 
-void Arch::read_lut_equation(DynamicBitarray<> *equation, const Property &equation_parameter) const
-{
-    equation->fill(false);
-    std::string eq_str = equation_parameter.as_string();
-    std::smatch results;
-    if (std::regex_match(eq_str, results, raw_bin_constant)) {
-        size_t bit_idx = 0;
-        const std::string &bits = results[0];
-        NPNR_ASSERT(bits.size() <= equation->size());
-        for (auto bit = bits.rbegin(); bit != bits.rend(); ++bit) {
-            if (*bit == '0') {
-                equation->set(bit_idx++, false);
-            } else {
-                NPNR_ASSERT(*bit == '1');
-                equation->set(bit_idx++, true);
-            }
-        }
-    } else if (std::regex_match(eq_str, results, verilog_bin_constant)) {
-        int iwidth = std::stoi(results[1]);
-        NPNR_ASSERT(iwidth >= 0);
-        size_t width = iwidth;
-        std::string bits = results[2];
-        NPNR_ASSERT(width <= equation->size());
-        NPNR_ASSERT(bits.size() <= width);
-        size_t bit_idx = 0;
-        for (auto bit = bits.rbegin(); bit != bits.rend(); ++bit) {
-            if (*bit == '0') {
-                equation->set(bit_idx++, false);
-            } else {
-                NPNR_ASSERT(*bit == '1');
-                equation->set(bit_idx++, true);
-            }
-        }
-    } else {
-        NPNR_ASSERT(false);
-    }
-}
-
 void Arch::decode_lut_cells()
 {
     for (auto &cell_pair : cells) {
@@ -1443,7 +1406,8 @@ void Arch::decode_lut_cells()
         IdString equation_parameter(lut_cell.parameter);
         const Property &equation = cell->params.at(equation_parameter);
         cell->lut_cell.equation.resize(1 << cell->lut_cell.pins.size());
-        read_lut_equation(&cell->lut_cell.equation, equation);
+
+        cell->lut_cell.equation = cell_parameters.parse_int_like(getCtx(), cell->type, equation_parameter, equation);
     }
 }
 

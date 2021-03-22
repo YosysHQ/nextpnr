@@ -78,7 +78,7 @@ struct Property
             result.push_back(c == S1);
         return result;
     }
-    std::string as_string() const
+    const std::string &as_string() const
     {
         NPNR_ASSERT(is_string);
         return str;

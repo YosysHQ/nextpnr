@@ -24,6 +24,8 @@
 #include <limits>
 #include <vector>
 
+#include "log.h"
+#include "nextpnr_assertions.h"
 #include "nextpnr_namespaces.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -72,6 +74,133 @@ template <typename Storage = std::vector<uint8_t>> class DynamicBitarray
     size_t size() const { return storage.size() * bits_per_value(); }
 
     void clear() { return storage.clear(); }
+
+    // Convert IntType to a DynamicBitarray of sufficent width
+    template <typename IntType> static DynamicBitarray<Storage> to_bitarray(const IntType &value)
+    {
+        if (std::numeric_limits<IntType>::is_signed) {
+            if (value < 0) {
+                log_error("Expected position value, got %s\n", std::to_string(value).c_str());
+            }
+        }
+
+        DynamicBitarray<Storage> result;
+        result.resize(std::numeric_limits<IntType>::digits);
+        result.fill(false);
+
+        // Use a 1 of the right type (for shifting)
+        IntType one(1);
+
+        for (size_t i = 0; i < std::numeric_limits<IntType>::digits; ++i) {
+            if ((value & (one << i)) != 0) {
+                result.set(i, true);
+            }
+        }
+
+        return result;
+    }
+
+    // Convert binary bitstring to a DynamicBitarray of sufficent width
+    //
+    // string must be satisfy the following regex:
+    //
+    //    [01]+
+    //
+    // width can either be specified explicitly, or -1 to use a size wide
+    // enough to store the given string.
+    //
+    // If the width is specified and the width is insufficent it will result
+    // in an error.
+    static DynamicBitarray<Storage> parse_binary_bitstring(int width, const std::string &bits)
+    {
+        NPNR_ASSERT(width == -1 || width > 0);
+
+        DynamicBitarray<Storage> result;
+        // If no width was supplied, use the width from the input data.
+        if (width == -1) {
+            width = bits.size();
+        }
+
+        NPNR_ASSERT(width >= 0);
+        if ((size_t)width < bits.size()) {
+            log_error("String '%s' is wider than specified width %d\n", bits.c_str(), width);
+        }
+        result.resize(width);
+        result.fill(false);
+
+        for (size_t i = 0; i < bits.size(); ++i) {
+            // bits[0] is the MSB!
+            size_t index = width - 1 - i;
+            if (!(bits[i] == '1' || bits[i] == '0')) {
+                log_error("String '%s' is not a valid binary bitstring?\n", bits.c_str());
+            }
+            result.set(index, bits[i] == '1');
+        }
+
+        return result;
+    }
+
+    // Convert hex bitstring to a DynamicBitarray of sufficent width
+    //
+    // string must be satisfy the following regex:
+    //
+    //    [0-9a-fA-F]+
+    //
+    // width can either be specified explicitly, or -1 to use a size wide
+    // enough to store the given string.
+    //
+    // If the width is specified and the width is insufficent it will result
+    // in an error.
+    static DynamicBitarray<Storage> parse_hex_bitstring(int width, const std::string &bits)
+    {
+        NPNR_ASSERT(width == -1 || width > 0);
+
+        DynamicBitarray<Storage> result;
+        // If no width was supplied, use the width from the input data.
+        if (width == -1) {
+            // Each character is 4 bits!
+            width = bits.size() * 4;
+        }
+
+        NPNR_ASSERT(width >= 0);
+        int rem = width % 4;
+        size_t check_width = width;
+        if (rem != 0) {
+            check_width += (4 - rem);
+        }
+        if (check_width < bits.size() * 4) {
+            log_error("String '%s' is wider than specified width %d (check_width = %zu)\n", bits.c_str(), width,
+                      check_width);
+        }
+
+        result.resize(width);
+        result.fill(false);
+
+        size_t index = 0;
+        for (auto nibble_iter = bits.rbegin(); nibble_iter != bits.rend(); ++nibble_iter) {
+            char nibble = *nibble_iter;
+
+            int value;
+            if (nibble >= '0' && nibble <= '9') {
+                value = nibble - '0';
+            } else if (nibble >= 'a' && nibble <= 'f') {
+                value = 10 + (nibble - 'a');
+            } else if (nibble >= 'A' && nibble <= 'F') {
+                value = 10 + (nibble - 'A');
+            } else {
+                log_error("Invalid hex string '%s'?\n", bits.c_str());
+            }
+            NPNR_ASSERT(value >= 0);
+            NPNR_ASSERT(value < 16);
+
+            // Insert nibble into bitarray.
+            for (size_t i = 0; i < 4; ++i) {
+                result.set(index++, (value & (1 << i)) != 0);
+            }
+        }
+
+        return result;
+    }
 
   private:
     Storage storage;

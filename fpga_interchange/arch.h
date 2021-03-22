@@ -34,6 +34,7 @@
 #include "relptr.h"
 
 #include "arch_iterators.h"
+#include "cell_parameters.h"
 #include "chipdb.h"
 #include "dedicated_interconnect.h"
 #include "lookahead.h"
@@ -1045,6 +1046,7 @@ struct Arch : ArchAPI<ArchRanges>
     Lookahead lookahead;
     mutable RouteNodeStorage node_storage;
     mutable SiteRoutingCache site_routing_cache;
+    CellParameters cell_parameters;
 
     std::string chipdb_hash;
     std::string get_chipdb_hash() const;
