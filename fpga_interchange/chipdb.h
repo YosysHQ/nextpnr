@@ -34,7 +34,7 @@ NEXTPNR_NAMESPACE_BEGIN
  * kExpectedChipInfoVersion
  */
 
-static constexpr int32_t kExpectedChipInfoVersion = 2;
+static constexpr int32_t kExpectedChipInfoVersion = 3;
 
 // Flattened site indexing.
 //
@@ -198,6 +198,14 @@ NPNR_PACKED_STRUCT(struct CellConstraintPOD {
     RelSlice<int32_t> states; // State indicies
 });
 
+// Cell parameters metadata
+NPNR_PACKED_STRUCT(struct CellParameterPOD {
+    int32_t cell_type;     // constid
+    int32_t parameter;     // constid
+    int32_t format;        // ParameterFormat enum
+    int32_t default_value; // constid
+});
+
 NPNR_PACKED_STRUCT(struct CellBelMapPOD {
     RelSlice<CellBelPinPOD> common_pins;
     RelSlice<ParameterPinsPOD> parameter_pins;
@@ -218,6 +226,7 @@ NPNR_PACKED_STRUCT(struct CellMapPOD {
     RelSlice<CellBelMapPOD> cell_bel_map;
 
     RelSlice<LutCellPOD> lut_cells;
+    RelSlice<CellParameterPOD> cell_parameters;
 });
 
 NPNR_PACKED_STRUCT(struct PackagePinPOD {
