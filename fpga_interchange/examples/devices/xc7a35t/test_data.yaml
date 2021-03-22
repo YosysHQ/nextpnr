@@ -34,3 +34,7 @@ bel_pin_test:
     - bel: $CONSTANTS_X0Y0.$CONSTANTS/VCC
       pin: P
       wire: $CONSTANTS_X0Y0.$CONSTANTS/$VCC_SOURCE
+    - bel: SLICE_X1Y19.SLICEL/SRUSEDGND
+      pin: "0"
+      wire: SLICE_X1Y19.SLICEL/SRUSEDGND_HARD0
+      type: PORT_OUT
