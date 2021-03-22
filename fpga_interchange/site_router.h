@@ -25,6 +25,8 @@
 
 #include "nextpnr_namespaces.h"
 #include "nextpnr_types.h"
+#include "site_arch.h"
+#include "site_routing_storage.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -44,6 +46,7 @@ struct SiteRouter
     void bindBel(CellInfo *cell);
     void unbindBel(CellInfo *cell);
     bool checkSiteRouting(const Context *ctx, const TileStatus &tile_status) const;
+    void bindSiteRouting(Context *ctx);
 };
 
 NEXTPNR_NAMESPACE_END
