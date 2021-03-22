@@ -24,6 +24,7 @@
 #include <boost/functional/hash.hpp>
 #include <cstdint>
 
+#include "hash_table.h"
 #include "luts.h"
 #include "nextpnr_namespaces.h"
 
@@ -108,8 +109,8 @@ struct ArchCellInfo
     ArchCellInfo() : cell_mapping(-1) {}
 
     int32_t cell_mapping;
-    std::unordered_map<IdString, std::vector<IdString>> cell_bel_pins;
-    std::unordered_set<IdString> const_ports;
+    HashTables::HashMap<IdString, std::vector<IdString>> cell_bel_pins;
+    HashTables::HashSet<IdString> const_ports;
     LutCell lut_cell;
 };
 

@@ -17,10 +17,16 @@
  *
  */
 
-#include <tcl.h>
-#include "nextpnr.h"
+#ifndef XDC_H
+#define XDC_H
+
+#include "nextpnr_namespaces.h"
+
+struct Tcl_Interp;
 
 NEXTPNR_NAMESPACE_BEGIN
+
+struct Context;
 
 struct TclInterp
 {
@@ -31,3 +37,5 @@ struct TclInterp
 };
 
 NEXTPNR_NAMESPACE_END
+
+#endif
