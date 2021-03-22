@@ -515,6 +515,20 @@ struct Arch : ArchAPI<ArchRanges>
 
     void assign_net_to_wire(WireId wire, NetInfo *net, const char *src, bool require_empty);
 
+    void assign_pip_pseudo_wires(PipId pip, NetInfo *net)
+    {
+        NPNR_ASSERT(net != nullptr);
+        WireId wire;
+        wire.tile = pip.tile;
+        const PipInfoPOD &pip_data = pip_info(chip_info, pip);
+        for (int32_t wire_index : pip_data.pseudo_cell_wires) {
+            wire.index = wire_index;
+            assign_net_to_wire(wire, net, "pseudo", /*require_empty=*/true);
+        }
+    }
+
+    void remove_pip_pseudo_wires(PipId pip, NetInfo *net);
+
     void unassign_wire(WireId wire);
 
     void bindPip(PipId pip, NetInfo *net, PlaceStrength strength) final;

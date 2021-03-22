@@ -26,7 +26,7 @@ popd
 RAPIDWRIGHT_PATH="`pwd`/RapidWright"
 INTERCHANGE_SCHEMA_PATH="`pwd`/3rdparty/fpga-interchange-schema/interchange"
 PYTHON_INTERCHANGE_PATH="`pwd`/python-fpga-interchange"
-PYTHON_INTERCHANGE_TAG="v0.0.1"
+PYTHON_INTERCHANGE_TAG="v0.0.2"
 
 # Install python-fpga-interchange libraries
 git clone -b $PYTHON_INTERCHANGE_TAG https://github.com/SymbiFlow/python-fpga-interchange.git $PYTHON_INTERCHANGE_PATH
