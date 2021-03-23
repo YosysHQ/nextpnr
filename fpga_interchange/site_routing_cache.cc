@@ -31,20 +31,36 @@ void SiteRoutingSolution::store_solution(const SiteArch *ctx, const RouteNodeSto
     clear();
 
     solution_sinks.reserve(solutions.size());
+    inverted.reserve(solutions.size());
+    can_invert.reserve(solutions.size());
 
     for (size_t route : solutions) {
+        bool sol_inverted = false;
+        bool sol_can_invert = false;
+
         SiteWire wire = node_storage->get_node(route)->wire;
         solution_sinks.push_back(wire);
 
         solution_offsets.push_back(solution_storage.size());
         Node cursor = node_storage->get_node(route);
         while (cursor.has_parent()) {
+            if (ctx->isInverting(cursor->pip) && !sol_can_invert) {
+                sol_inverted = !sol_inverted;
+            }
+            if (ctx->canInvert(cursor->pip)) {
+                sol_inverted = false;
+                sol_can_invert = true;
+            }
+
             solution_storage.push_back(cursor->pip);
             Node parent = cursor.parent();
             NPNR_ASSERT(ctx->getPipDstWire(cursor->pip) == cursor->wire);
             NPNR_ASSERT(ctx->getPipSrcWire(cursor->pip) == parent->wire);
             cursor = parent;
         }
+
+        inverted.push_back(sol_inverted);
+        can_invert.push_back(sol_can_invert);
 
         NPNR_ASSERT(cursor->wire == driver);
     }

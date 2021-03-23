@@ -202,6 +202,20 @@ inline bool SiteArch::is_pip_synthetic(const SitePip &pip) const
     }
 }
 
+inline SyntheticType SiteArch::pip_synthetic_type(const SitePip &pip) const
+{
+    if (pip.type != SitePip::SITE_PORT) {
+        // This isn't a site port, so its valid!
+        return NOT_SYNTH;
+    }
+
+    auto &tile_type = ctx->chip_info->tile_types[site_info->tile_type];
+    auto &pip_data = tile_type.pip_data[pip.pip.index];
+    NPNR_ASSERT(pip_data.site != -1);
+    auto &bel_data = tile_type.bel_data[pip_data.bel];
+    return SyntheticType(bel_data.synthetic);
+}
+
 inline SitePip SitePipDownhillIterator::operator*() const
 {
     switch (state) {
@@ -248,6 +262,37 @@ inline SitePipDownhillIterator SitePipDownhillRange::begin() const
     ++b;
 
     return b;
+}
+
+inline bool SiteArch::isInverting(const SitePip &site_pip) const
+{
+    if (site_pip.type != SitePip::SITE_PIP) {
+        return false;
+    }
+
+    auto &tile_type = ctx->chip_info->tile_types[site_info->tile_type];
+    auto &pip_data = tile_type.pip_data[site_pip.pip.index];
+    NPNR_ASSERT(pip_data.site != -1);
+    auto &bel_data = tile_type.bel_data[pip_data.bel];
+
+    // Is a fixed inverter if the non_inverting_pin is another pin.
+    return bel_data.non_inverting_pin != pip_data.extra_data && bel_data.inverting_pin == pip_data.extra_data;
+}
+
+inline bool SiteArch::canInvert(const SitePip &site_pip) const
+{
+    if (site_pip.type != SitePip::SITE_PIP) {
+        return false;
+    }
+
+    auto &tile_type = ctx->chip_info->tile_types[site_info->tile_type];
+    auto &pip_data = tile_type.pip_data[site_pip.pip.index];
+    NPNR_ASSERT(pip_data.site != -1);
+    auto &bel_data = tile_type.bel_data[pip_data.bel];
+
+    // Can optionally invert if this pip is both the non_inverting_pin and
+    // inverting pin.
+    return bel_data.non_inverting_pin == pip_data.extra_data && bel_data.inverting_pin == pip_data.extra_data;
 }
 
 NEXTPNR_NAMESPACE_END

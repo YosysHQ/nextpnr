@@ -1747,6 +1747,37 @@ bool Arch::checkPipAvail(PipId pip) const { return checkPipAvailForNet(pip, null
 
 std::string Arch::get_chipdb_hash() const { return chipdb_hash; }
 
+bool Arch::is_inverting(PipId pip) const
+{
+    auto &tile_type = loc_info(chip_info, pip);
+    auto &pip_info = tile_type.pip_data[pip.index];
+    if (pip_info.site == -1) {
+        // FIXME: Some routing pips are inverters, but this is missing from
+        // the chipdb.
+        return false;
+    }
+
+    auto &bel_data = tile_type.bel_data[pip_info.bel];
+
+    // Is a fixed inverter if the non_inverting_pin is another pin.
+    return bel_data.non_inverting_pin != pip_info.extra_data && bel_data.inverting_pin == pip_info.extra_data;
+}
+
+bool Arch::can_invert(PipId pip) const
+{
+    auto &tile_type = loc_info(chip_info, pip);
+    auto &pip_info = tile_type.pip_data[pip.index];
+    if (pip_info.site == -1) {
+        return false;
+    }
+
+    auto &bel_data = tile_type.bel_data[pip_info.bel];
+
+    // Can optionally invert if this pip is both the non_inverting_pin and
+    // inverting pin.
+    return bel_data.non_inverting_pin == pip_info.extra_data && bel_data.inverting_pin == pip_info.extra_data;
+}
+
 // Instance constraint templates.
 template void Arch::ArchConstraints::bindBel(Arch::ArchConstraints::TagState *, const Arch::ConstraintRange);
 template void Arch::ArchConstraints::unbindBel(Arch::ArchConstraints::TagState *, const Arch::ConstraintRange);

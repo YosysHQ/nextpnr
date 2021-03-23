@@ -289,6 +289,12 @@ struct SiteArch
     inline SiteWire getPipSrcWire(const SitePip &site_pip) const NPNR_ALWAYS_INLINE;
     inline SiteWire getPipDstWire(const SitePip &site_pip) const NPNR_ALWAYS_INLINE;
 
+    // Does this site pip always invert its signal?
+    inline bool isInverting(const SitePip &site_pip) const NPNR_ALWAYS_INLINE;
+
+    // Can this site pip optional invert its signal?
+    inline bool canInvert(const SitePip &site_pip) const NPNR_ALWAYS_INLINE;
+
     inline SitePipDownhillRange getPipsDownhill(const SiteWire &site_wire) const NPNR_ALWAYS_INLINE;
     inline SitePipUphillRange getPipsUphill(const SiteWire &site_wire) const NPNR_ALWAYS_INLINE;
     SiteWireRange getWires() const;
@@ -341,6 +347,7 @@ struct SiteArch
     void archcheck();
 
     bool is_pip_synthetic(const SitePip &pip) const NPNR_ALWAYS_INLINE;
+    SyntheticType pip_synthetic_type(const SitePip &pip) const NPNR_ALWAYS_INLINE;
 };
 
 struct SitePipDownhillIterator

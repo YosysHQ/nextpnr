@@ -1028,6 +1028,12 @@ struct Arch : ArchAPI<ArchRanges>
         return wire_data.site != -1;
     }
 
+    // Does this pip always invert its signal?
+    bool is_inverting(PipId pip) const;
+
+    // Can this pip optional invert its signal?
+    bool can_invert(PipId pip) const;
+
     void merge_constant_nets();
     void report_invalid_bel(BelId bel, CellInfo *cell) const;
 
