@@ -210,7 +210,7 @@ function(generate_chipdb)
     #    device <common device>
     #    part <part>
     #    device_target <device target>
-    #    bel_bucket_seeds <bel bucket seeds>
+    #    device_config <device config>
     #    test_package <test_package>
     # )
     # ~~~
@@ -228,7 +228,9 @@ function(generate_chipdb)
     #             share the same xc7a35t device prefix
     #   - part: one among the parts available for a given device
     #   - device_target: target for the device from which the chipdb is generated
-    #   - bel_bucket_seeds: path to the bel bucket seeds YAML file
+    #   - device_config: path to the device configYAML file
+    #       This file specifies some nextpnr specific data, such as BEL bucket
+    #       seeds and global BEL names.
     #   - test_package: package among the ones available for the device. This is used for architecture
     #                   testing only
     #
@@ -241,7 +243,7 @@ function(generate_chipdb)
     # as the binary chipdb
 
     set(options)
-    set(oneValueArgs family device part device_target bel_bucket_seeds test_package)
+    set(oneValueArgs family device part device_target device_config test_package)
     set(multiValueArgs)
 
     cmake_parse_arguments(
@@ -256,7 +258,7 @@ function(generate_chipdb)
     set(device ${generate_chipdb_device})
     set(part ${generate_chipdb_part})
     set(device_target ${generate_chipdb_device_target})
-    set(bel_bucket_seeds ${generate_chipdb_bel_bucket_seeds})
+    set(device_config ${generate_chipdb_device_config})
     set(test_package ${generate_chipdb_test_package})
 
     get_target_property(device_loc ${device_target} LOCATION)
@@ -267,10 +269,10 @@ function(generate_chipdb)
             ${PYTHON_EXECUTABLE} -mfpga_interchange.nextpnr_emit
                 --schema_dir ${INTERCHANGE_SCHEMA_PATH}
                 --output_dir ${CMAKE_CURRENT_BINARY_DIR}
-                --bel_bucket_seeds ${bel_bucket_seeds}
+                --device_config ${device_config}
                 --device ${device_loc}
         DEPENDS
-            ${bel_bucket_seeds}
+            ${device_config}
             ${device_target}
             ${device_loc}
     )
