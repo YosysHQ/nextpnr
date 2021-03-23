@@ -217,10 +217,15 @@ struct Arch : ArchAPI<ArchRanges>
 
     PhysicalNetlist::PhysNetlist::NetType get_net_type(NetInfo *net) const
     {
-        NPNR_ASSERT(net->driver.cell != nullptr);
-        if (net->driver.cell->bel == get_gnd_bel()) {
+        NPNR_ASSERT(net != nullptr);
+        IdString gnd_cell_name(chip_info->constants->gnd_cell_name);
+        IdString gnd_cell_port(chip_info->constants->gnd_cell_port);
+
+        IdString vcc_cell_name(chip_info->constants->vcc_cell_name);
+        IdString vcc_cell_port(chip_info->constants->vcc_cell_port);
+        if (net->driver.cell->type == gnd_cell_name && net->driver.port == gnd_cell_port) {
             return PhysicalNetlist::PhysNetlist::NetType::GND;
-        } else if (net->driver.cell->bel == get_vcc_bel()) {
+        } else if (net->driver.cell->type == vcc_cell_name && net->driver.port == vcc_cell_port) {
             return PhysicalNetlist::PhysNetlist::NetType::VCC;
         } else {
             return PhysicalNetlist::PhysNetlist::NetType::SIGNAL;

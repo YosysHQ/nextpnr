@@ -98,15 +98,15 @@ bool check_initial_wires(const Context *ctx, SiteInformation *site_info)
 static bool is_invalid_site_port(const SiteArch *ctx, const SiteNetInfo *net, const SitePip &pip)
 {
     SyntheticType type = ctx->pip_synthetic_type(pip);
+    PhysicalNetlist::PhysNetlist::NetType net_type = ctx->ctx->get_net_type(net->net);
+    bool is_invalid = false;
     if (type == SYNTH_GND) {
-        IdString gnd_net_name(ctx->ctx->chip_info->constants->gnd_net_name);
-        return net->net->name != gnd_net_name;
+        is_invalid = net_type != PhysicalNetlist::PhysNetlist::NetType::GND;
     } else if (type == SYNTH_VCC) {
-        IdString vcc_net_name(ctx->ctx->chip_info->constants->vcc_net_name);
-        return net->net->name != vcc_net_name;
-    } else {
-        return false;
+        is_invalid = net_type != PhysicalNetlist::PhysNetlist::NetType::VCC;
     }
+
+    return is_invalid;
 }
 
 struct SiteExpansionLoop
