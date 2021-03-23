@@ -25,5 +25,5 @@ jobs:
     - name: Run tests
       run: |
         cd build
-        make all-fpga_interchange-archcheck-tests -j`nproc`
+        make all-fpga_interchange-archcheck-tests
         make all-fpga_interchange-tests -j`nproc`
