@@ -19,11 +19,11 @@
 
 #include "nextpnr.h"
 
+#include "design_utils.h"
 #include "dynamic_bitarray.h"
+#include "hash_table.h"
 #include "log.h"
 #include "site_routing_cache.h"
-
-#include "hash_table.h"
 
 #include "site_arch.h"
 #include "site_arch.impl.h"
@@ -368,6 +368,7 @@ struct PossibleSolutions
     std::vector<SitePip>::const_iterator pips_end;
     bool inverted = false;
     bool can_invert = false;
+    PhysicalNetlist::PhysNetlist::NetType prefered_constant_net_type = PhysicalNetlist::PhysNetlist::NetType::SIGNAL;
 };
 
 bool test_solution(SiteArch *ctx, SiteNetInfo *net, std::vector<SitePip>::const_iterator pips_begin,
@@ -404,8 +405,92 @@ void remove_solution(SiteArch *ctx, std::vector<SitePip>::const_iterator pips_be
     }
 }
 
+struct SolutionPreference
+{
+    const SiteArch *ctx;
+    const std::vector<PossibleSolutions> &solutions;
+
+    SolutionPreference(const SiteArch *ctx, const std::vector<PossibleSolutions> &solutions)
+            : ctx(ctx), solutions(solutions)
+    {
+    }
+
+    bool non_inverting_preference(const PossibleSolutions &lhs, const PossibleSolutions &rhs) const
+    {
+        // If the LHS is non-inverting and the RHS is inverting, then put the
+        // LHS first.
+        if (!lhs.inverted && rhs.inverted) {
+            return true;
+        }
+
+        // Better to have a path that can invert over a path that has no
+        // option to invert.
+        return (!lhs.can_invert) < (!rhs.can_invert);
+    }
+
+    bool inverting_preference(const PossibleSolutions &lhs, const PossibleSolutions &rhs) const
+    {
+        // If the LHS is inverting and the RHS is non-inverting, then put the
+        // LHS first (because this is the inverting preferred case).
+        if (lhs.inverted && !rhs.inverted) {
+            return true;
+        }
+
+        // Better to have a path that can invert over a path that has no
+        // option to invert.
+        return (!lhs.can_invert) < (!rhs.can_invert);
+    }
+
+    bool operator()(size_t lhs_solution_idx, size_t rhs_solution_idx) const
+    {
+        const PossibleSolutions &lhs = solutions.at(lhs_solution_idx);
+        const PossibleSolutions &rhs = solutions.at(rhs_solution_idx);
+
+        NPNR_ASSERT(lhs.net == rhs.net);
+
+        PhysicalNetlist::PhysNetlist::NetType net_type = ctx->ctx->get_net_type(lhs.net->net);
+        if (net_type == PhysicalNetlist::PhysNetlist::NetType::SIGNAL) {
+            return non_inverting_preference(lhs, rhs);
+        }
+
+        // All GND/VCC nets use out of site sources.  Local constant sources
+        // are still connected via synthetic edges to the global GND/VCC
+        // network.
+        NPNR_ASSERT(lhs.net->driver.type == SiteWire::OUT_OF_SITE_SOURCE);
+
+        bool lhs_match_preference = net_type == lhs.prefered_constant_net_type;
+        bool rhs_match_preference = net_type == rhs.prefered_constant_net_type;
+
+        if (lhs_match_preference && !rhs_match_preference) {
+            // Prefer solutions where the net type already matches the
+            // prefered constant type.
+            return true;
+        }
+
+        if (!lhs_match_preference && rhs_match_preference) {
+            // Prefer solutions where the net type already matches the
+            // prefered constant type. In this case the RHS is better, which
+            // means that RHS < LHS, hence false here.
+            return false;
+        }
+
+        NPNR_ASSERT(lhs_match_preference == rhs_match_preference);
+
+        if (!lhs_match_preference) {
+            // If the net type does not match the preference, then prefer
+            // inverted solutions.
+            return inverting_preference(lhs, rhs);
+        } else {
+            // If the net type does match the preference, then prefer
+            // non-inverted solutions.
+            return non_inverting_preference(lhs, rhs);
+        }
+    }
+};
+
 static bool find_solution_via_backtrack(SiteArch *ctx, std::vector<PossibleSolutions> *solutions,
-                                        const std::vector<std::vector<size_t>> &sinks_to_solutions)
+                                        std::vector<std::vector<size_t>> sinks_to_solutions,
+                                        const std::vector<SiteWire> &sinks)
 {
     std::vector<uint8_t> routed_sinks;
     std::vector<size_t> solution_indicies;
@@ -419,6 +504,21 @@ static bool find_solution_via_backtrack(SiteArch *ctx, std::vector<PossibleSolut
             remove_solution(ctx, solution.pips_begin, solution.pips_end);
         } else {
             solution.tested = true;
+        }
+    }
+
+    // Sort sinks_to_solutions so that preferred solutions are tested earlier
+    // than less preferred solutions.
+    for (size_t sink_idx = 0; sink_idx < sinks_to_solutions.size(); ++sink_idx) {
+        std::vector<size_t> &solutions_for_sink = sinks_to_solutions.at(sink_idx);
+        std::stable_sort(solutions_for_sink.begin(), solutions_for_sink.end(), SolutionPreference(ctx, *solutions));
+
+        if (verbose_site_router(ctx)) {
+            log_info("Solutions for sink %s\n", ctx->nameOfWire(sinks.at(sink_idx)));
+            for (size_t solution_idx : solutions_for_sink) {
+                const PossibleSolutions &solution = solutions->at(solution_idx);
+                log_info("%zu: inverted = %d, can_invert = %d\n", solution_idx, solution.inverted, solution.can_invert);
+            }
         }
     }
 
@@ -554,12 +654,14 @@ bool route_site(SiteArch *ctx, SiteRoutingCache *site_routing_cache, RouteNodeSt
 
     // First convert remaining solutions into a flat solution set.
     std::vector<PossibleSolutions> solutions;
+    std::vector<SiteWire> sinks;
     HashTables::HashMap<SiteWire, size_t> sink_map;
     std::vector<std::vector<size_t>> sinks_to_solutions;
     for (const auto *expansion : expansions) {
         for (const SiteWire &unrouted_sink : expansion->net_users) {
             auto result = sink_map.emplace(unrouted_sink, sink_map.size());
             NPNR_ASSERT(result.second);
+            sinks.push_back(unrouted_sink);
         }
     }
 
@@ -572,12 +674,6 @@ bool route_site(SiteArch *ctx, SiteRoutingCache *site_routing_cache, RouteNodeSt
 
     for (const auto *expansion : expansions) {
         for (size_t idx = 0; idx < expansion->num_solutions(); ++idx) {
-            if (expansion->solution_inverted(idx)) {
-                // FIXME: May prefer an inverted solution if constant net
-                // type.
-                continue;
-            }
-
             SiteWire wire = expansion->solution_sink(idx);
             auto begin = expansion->solution_begin(idx);
             auto end = expansion->solution_end(idx);
@@ -595,15 +691,22 @@ bool route_site(SiteArch *ctx, SiteRoutingCache *site_routing_cache, RouteNodeSt
             solution.can_invert = expansion->solution_can_invert(idx);
 
             for (auto iter = begin; iter != end; ++iter) {
-                NPNR_ASSERT(ctx->getPipDstWire(*iter) == wire);
-                wire = ctx->getPipSrcWire(*iter);
+                const SitePip &site_pip = *iter;
+                NPNR_ASSERT(ctx->getPipDstWire(site_pip) == wire);
+                wire = ctx->getPipSrcWire(site_pip);
+
+                // If there is a input site port, mark on the solution what the
+                // prefered constant net type is for this site port.
+                if (site_pip.type == SitePip::SITE_PORT && wire.type == SiteWire::SITE_PORT_SOURCE) {
+                    solution.prefered_constant_net_type = ctx->prefered_constant_net_type(site_pip);
+                }
             }
 
             NPNR_ASSERT(expansion->net_driver == wire);
         }
     }
 
-    return find_solution_via_backtrack(ctx, &solutions, sinks_to_solutions);
+    return find_solution_via_backtrack(ctx, &solutions, sinks_to_solutions, sinks);
 }
 
 void check_routing(const SiteArch &site_arch)
@@ -631,26 +734,192 @@ void check_routing(const SiteArch &site_arch)
     }
 }
 
-void apply_routing(Context *ctx, const SiteArch &site_arch)
+static void apply_simple_routing(Context *ctx, const SiteArch &site_arch, NetInfo *net, const SiteNetInfo *site_net,
+                                 const SiteWire &user)
 {
-    for (auto &net_pair : site_arch.nets) {
-        NetInfo *net = net_pair.first;
+    SiteWire wire = user;
+    while (wire != site_net->driver) {
+        SitePip site_pip = site_net->wires.at(wire).pip;
+        NPNR_ASSERT(site_arch.getPipDstWire(site_pip) == wire);
 
-        // If the driver wire is a site wire, bind it.
-        if (net_pair.second.driver.type == SiteWire::SITE_WIRE) {
-            WireId driver_wire = net_pair.second.driver.wire;
-            if (ctx->getBoundWireNet(driver_wire) != net) {
-                ctx->bindWire(driver_wire, net, STRENGTH_PLACER);
+        if (site_pip.type == SitePip::SITE_PIP || site_pip.type == SitePip::SITE_PORT) {
+            NetInfo *bound_net = ctx->getBoundPipNet(site_pip.pip);
+            if (bound_net == nullptr) {
+                ctx->bindPip(site_pip.pip, net, STRENGTH_PLACER);
+            } else {
+                NPNR_ASSERT(bound_net == net);
             }
         }
 
-        for (auto &wire_pair : net_pair.second.wires) {
-            const SitePip &site_pip = wire_pair.second.pip;
-            if (site_pip.type != SitePip::SITE_PIP && site_pip.type != SitePip::SITE_PORT) {
-                continue;
+        wire = site_arch.getPipSrcWire(site_pip);
+    }
+}
+
+static void apply_constant_routing(Context *ctx, const SiteArch &site_arch, NetInfo *net, const SiteNetInfo *site_net)
+{
+    IdString gnd_net_name(ctx->chip_info->constants->gnd_net_name);
+    NetInfo *gnd_net = ctx->nets.at(gnd_net_name).get();
+
+    IdString vcc_net_name(ctx->chip_info->constants->vcc_net_name);
+    NetInfo *vcc_net = ctx->nets.at(vcc_net_name).get();
+
+    // This function is designed to operate only on the gnd or vcc net, and
+    // assumes that the GND and VCC nets have been unified.
+    NPNR_ASSERT(net == vcc_net || net == gnd_net);
+
+    for (auto &user : site_net->users) {
+        // FIXME: Handle case where pip is "can_invert", and that
+        // inversion helps with accomidating "best constant".
+        bool is_path_inverting = false;
+
+        SiteWire wire = user;
+        PipId inverting_pip;
+        while (wire != site_net->driver) {
+            SitePip pip = site_net->wires.at(wire).pip;
+            NPNR_ASSERT(site_arch.getPipDstWire(pip) == wire);
+
+            if (site_arch.isInverting(pip)) {
+                // FIXME: Should be able to handle the general case of
+                // multiple inverters, but that is harder (and annoying). Also
+                // most sites won't allow for a double inversion, so just
+                // disallow for now.
+                NPNR_ASSERT(!is_path_inverting);
+                is_path_inverting = true;
+                NPNR_ASSERT(pip.type == SitePip::SITE_PIP);
+                inverting_pip = pip.pip;
             }
 
-            ctx->bindPip(site_pip.pip, net, STRENGTH_PLACER);
+            wire = site_arch.getPipSrcWire(pip);
+        }
+
+        if (!is_path_inverting) {
+            // This routing is boring, use base logic.
+            apply_simple_routing(ctx, site_arch, net, site_net, user);
+            continue;
+        }
+
+        NPNR_ASSERT(inverting_pip != PipId());
+
+        // This net is going to become two nets.
+        // The portion of the net prior to the inverter is going to be bound
+        // to the opposite net.  For example, if the original net was gnd_net,
+        // the portion prior to the inverter will not be the vcc_net.
+        //
+        // A new cell will be generated to sink the connection from the
+        // opposite net.
+        NetInfo *net_before_inverter;
+        if (net == gnd_net) {
+            net_before_inverter = vcc_net;
+        } else {
+            NPNR_ASSERT(net == vcc_net);
+            net_before_inverter = gnd_net;
+        }
+
+        // First find a name for the new cell
+        int count = 0;
+        CellInfo *new_cell = nullptr;
+        while (true) {
+            std::string new_cell_name = stringf("%s_%s.%d", net->name.c_str(ctx), site_arch.nameOfWire(user), count);
+            IdString new_cell_id = ctx->id(new_cell_name);
+            if (ctx->cells.count(new_cell_id)) {
+                count += 1;
+            } else {
+                new_cell = ctx->createCell(new_cell_id, ctx->id("$nextpnr_inv"));
+                break;
+            }
+        }
+
+        auto &tile_type = loc_info(ctx->chip_info, inverting_pip);
+        auto &pip_data = tile_type.pip_data[inverting_pip.index];
+        NPNR_ASSERT(pip_data.site != -1);
+        auto &bel_data = tile_type.bel_data[pip_data.bel];
+
+        BelId inverting_bel;
+        inverting_bel.tile = inverting_pip.tile;
+        inverting_bel.index = pip_data.bel;
+
+        IdString in_port(bel_data.ports[pip_data.extra_data]);
+        NPNR_ASSERT(bel_data.types[pip_data.extra_data] == PORT_IN);
+
+        IdString id_I = ctx->id("I");
+        new_cell->addInput(id_I);
+        new_cell->cell_bel_pins[id_I].push_back(in_port);
+
+        new_cell->bel = inverting_bel;
+        new_cell->belStrength = STRENGTH_PLACER;
+        ctx->tileStatus.at(inverting_bel.tile).boundcells[inverting_bel.index] = new_cell;
+
+        connect_port(ctx, net_before_inverter, new_cell, id_I);
+
+        // The original BEL pin is now routed, but only through the inverter.
+        // Because the cell/net model doesn't allow for multiple source pins
+        // and the fact that the portion of the net after the inverter is
+        // currently routed, all BEL pins on this site wire are going to be
+        // masked from the router.
+        NPNR_ASSERT(user.type == SiteWire::SITE_WIRE);
+        ctx->mask_bel_pins_on_site_wire(net, user.wire);
+
+        // Bind wires and pips to the two nets.
+        bool after_inverter = true;
+        wire = user;
+        while (wire != site_net->driver) {
+            SitePip site_pip = site_net->wires.at(wire).pip;
+            NPNR_ASSERT(site_arch.getPipDstWire(site_pip) == wire);
+
+            if (site_arch.isInverting(site_pip)) {
+                NPNR_ASSERT(after_inverter);
+                after_inverter = false;
+
+                // Because this wire is just after the inverter, bind it to
+                // the net without the pip, as this is a "source".
+                NPNR_ASSERT(wire.type == SiteWire::SITE_WIRE);
+                ctx->bindWire(wire.wire, net, STRENGTH_PLACER);
+            } else {
+                if (site_pip.type == SitePip::SITE_PIP || site_pip.type == SitePip::SITE_PORT) {
+                    if (after_inverter) {
+                        ctx->bindPip(site_pip.pip, net, STRENGTH_PLACER);
+                    } else {
+                        ctx->bindPip(site_pip.pip, net_before_inverter, STRENGTH_PLACER);
+                    }
+                }
+            }
+
+            wire = site_arch.getPipSrcWire(site_pip);
+        }
+    }
+}
+
+static void apply_routing(Context *ctx, const SiteArch &site_arch)
+{
+    IdString gnd_net_name(ctx->chip_info->constants->gnd_net_name);
+    NetInfo *gnd_net = ctx->nets.at(gnd_net_name).get();
+
+    IdString vcc_net_name(ctx->chip_info->constants->vcc_net_name);
+    NetInfo *vcc_net = ctx->nets.at(vcc_net_name).get();
+
+    for (auto &net_pair : site_arch.nets) {
+        NetInfo *net = net_pair.first;
+        const SiteNetInfo *site_net = &net_pair.second;
+
+        if (net == gnd_net || net == vcc_net) {
+            apply_constant_routing(ctx, site_arch, net, site_net);
+        } else {
+            // If the driver wire is a site wire, bind it.
+            if (site_net->driver.type == SiteWire::SITE_WIRE) {
+                WireId driver_wire = site_net->driver.wire;
+                if (ctx->getBoundWireNet(driver_wire) != net) {
+                    ctx->bindWire(driver_wire, net, STRENGTH_PLACER);
+                }
+            }
+
+            for (auto &wire_pair : site_net->wires) {
+                const SitePip &site_pip = wire_pair.second.pip;
+                if (site_pip.type != SitePip::SITE_PIP && site_pip.type != SitePip::SITE_PORT) {
+                    continue;
+                }
+
+                ctx->bindPip(site_pip.pip, net, STRENGTH_PLACER);
+            }
         }
     }
 }
@@ -699,12 +968,6 @@ bool SiteRouter::checkSiteRouting(const Context *ctx, const TileStatus &tile_sta
         }
     }
 
-    // FIXME: Populate "consumed_wires" with all VCC/GND tied in the site.
-    // This will allow route_site to leverage site local constant sources.
-    //
-    // FIXME: Handle case where a constant is requested, but use of an
-    // inverter is possible. This is the place to handle "bestConstant"
-    // (e.g. route VCC's over GND's, etc).
     auto tile_type_idx = ctx->chip_info->tiles[tile].type;
     const std::vector<LutElement> &lut_elements = ctx->lut_elements.at(tile_type_idx);
     std::vector<LutMapper> lut_mappers;

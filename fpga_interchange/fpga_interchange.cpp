@@ -220,11 +220,25 @@ static void init_bel_pin(
 
     std::string site_name = site_and_type.substr(0, pos);
 
-    auto out_bel_pin = branch.getRouteSegment().initBelPin();
+    const BelInfoPOD & bel_data = bel_info(ctx->chip_info, bel);
+    if(bel_data.category == BEL_CATEGORY_LOGIC) {
+        // This is a boring old logic BEL.
+        auto out_bel_pin = branch.getRouteSegment().initBelPin();
 
-    out_bel_pin.setSite(strings->get_index(site_name));
-    out_bel_pin.setBel(strings->get_index(bel_name[1].str(ctx)));
-    out_bel_pin.setPin(strings->get_index(pin_name.str(ctx)));
+        out_bel_pin.setSite(strings->get_index(site_name));
+        out_bel_pin.setBel(strings->get_index(bel_name[1].str(ctx)));
+        out_bel_pin.setPin(strings->get_index(pin_name.str(ctx)));
+    } else {
+        // This is a local site inverter.  This is represented with a
+        // $nextpnr_inv, and this BEL pin is the input to that inverter.
+        NPNR_ASSERT(bel_data.category == BEL_CATEGORY_ROUTING);
+        auto out_pip = branch.getRouteSegment().initSitePIP();
+
+        out_pip.setSite(strings->get_index(site_name));
+        out_pip.setBel(strings->get_index(bel_name[1].str(ctx)));
+        out_pip.setPin(strings->get_index(pin_name.str(ctx)));
+        out_pip.setIsInverting(true);
+    }
 }
 
 
@@ -383,9 +397,15 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
 
     StringEnumerator strings;
 
+    IdString nextpnr_inv = ctx->id("$nextpnr_inv");
+
     size_t number_placements = 0;
     for(auto & cell_name : placed_cells) {
         const CellInfo & cell = *ctx->cells.at(cell_name);
+
+        if(cell.type == nextpnr_inv) {
+            continue;
+        }
 
         if(cell.bel == BelId()) {
             continue;
@@ -411,6 +431,10 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
 
     for(auto & cell_name : placed_cells) {
         const CellInfo & cell = *ctx->cells.at(cell_name);
+
+        if(cell.type == nextpnr_inv) {
+            continue;
+        }
 
         if(cell.bel == BelId()) {
             continue;
@@ -513,8 +537,6 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
             net_out.setName(strings.get_index(net.name.str(ctx)));
         }
 
-        // FIXME: Also vcc/gnd nets needs to get special handling through
-        // inverters.
         std::unordered_map<WireId, BelPin> root_wires;
         std::unordered_map<WireId, std::vector<PipId>> pip_downhill;
         std::unordered_set<PipId> pips;

@@ -25,6 +25,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "PhysicalNetlist.capnp.h"
 #include "arch_iterators.h"
 #include "chipdb.h"
 #include "hash_table.h"
@@ -294,6 +295,11 @@ struct SiteArch
 
     // Can this site pip optional invert its signal?
     inline bool canInvert(const SitePip &site_pip) const NPNR_ALWAYS_INLINE;
+
+    // For a site port, returns the preferred constant net type.
+    //
+    // If no preference, then NetType is SIGNAL.
+    inline PhysicalNetlist::PhysNetlist::NetType prefered_constant_net_type(const SitePip &site_pip) const;
 
     inline SitePipDownhillRange getPipsDownhill(const SiteWire &site_wire) const NPNR_ALWAYS_INLINE;
     inline SitePipUphillRange getPipsUphill(const SiteWire &site_wire) const NPNR_ALWAYS_INLINE;

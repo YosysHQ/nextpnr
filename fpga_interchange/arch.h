@@ -1075,6 +1075,19 @@ struct Arch : ArchAPI<ArchRanges>
 
     std::string chipdb_hash;
     std::string get_chipdb_hash() const;
+
+    // Masking moves BEL pins from cell_bel_pins to masked_cell_bel_pins for
+    // the purposes routing.  The idea is that masked BEL pins are already
+    // handled during site routing, and they shouldn't be visible to the
+    // router.
+    void mask_bel_pins_on_site_wire(NetInfo *net, WireId wire);
+
+    // This removes pips and wires bound by the site router, and unmasks all
+    // BEL pins masked during site routing.
+    void remove_site_routing();
+
+    // This unmasks any BEL pins that were masked when site routing was bound.
+    void unmask_bel_pins();
 };
 
 NEXTPNR_NAMESPACE_END

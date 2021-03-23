@@ -144,6 +144,7 @@ Arch::Arch(ArchArgs args) : args(args)
     io_port_types.emplace(this->id("$nextpnr_ibuf"));
     io_port_types.emplace(this->id("$nextpnr_obuf"));
     io_port_types.emplace(this->id("$nextpnr_iobuf"));
+    io_port_types.emplace(this->id("$nextpnr_inv"));
 
     if (!this->args.package.empty()) {
         IdString package = this->id(this->args.package);
@@ -711,6 +712,10 @@ bool Arch::pack()
 
 bool Arch::place()
 {
+    // Before placement, ripup placement specific bindings and unmask all cell
+    // pins.
+    remove_site_routing();
+
     std::string placer = str_or_default(settings, id("placer"), defaultPlacer);
 
     // Re-map BEL pins without constant pins
@@ -750,32 +755,16 @@ bool Arch::route()
 {
     std::string router = str_or_default(settings, id("router"), defaultRouter);
 
+    // Reset site routing and remove masked cell pins from previous router run
+    // (if any).
+    remove_site_routing();
+
     // Re-map BEL pins with constant pins
     for (BelId bel : getBels()) {
         CellInfo *cell = getBoundBelCell(bel);
         if (cell != nullptr && cell->cell_mapping != -1) {
             map_cell_pins(cell, cell->cell_mapping, /*bind_constants=*/true);
         }
-    }
-
-    HashTables::HashSet<WireId> wires_to_unbind;
-    for (auto &net_pair : nets) {
-        for (auto &wire_pair : net_pair.second->wires) {
-            WireId wire = wire_pair.first;
-            if (wire_pair.second.strength != STRENGTH_PLACER) {
-                // Only looking for bound placer wires
-                continue;
-            }
-
-            const TileWireInfoPOD &wire_data = wire_info(wire);
-            NPNR_ASSERT(wire_data.site != -1);
-
-            wires_to_unbind.emplace(wire);
-        }
-    }
-
-    for (WireId wire : wires_to_unbind) {
-        unbindWire(wire);
     }
 
     for (auto &tile_pair : tileStatus) {
@@ -804,6 +793,9 @@ bool Arch::route()
 
     getCtx()->attrs[getCtx()->id("step")] = std::string("route");
     archInfoToAttributes();
+
+    // Now that routing is complete, unmask BEL pins.
+    unmask_bel_pins();
 
     return result;
 }
@@ -1797,6 +1789,89 @@ bool Arch::can_invert(PipId pip) const
     // Can optionally invert if this pip is both the non_inverting_pin and
     // inverting pin.
     return bel_data.non_inverting_pin == pip_info.extra_data && bel_data.inverting_pin == pip_info.extra_data;
+}
+
+void Arch::mask_bel_pins_on_site_wire(NetInfo *net, WireId wire)
+{
+    std::vector<size_t> bel_pins_to_mask;
+    for (const PortRef &port_ref : net->users) {
+        if (port_ref.cell->bel == BelId()) {
+            continue;
+        }
+
+        NPNR_ASSERT(port_ref.cell != nullptr);
+        auto iter = port_ref.cell->cell_bel_pins.find(port_ref.port);
+        if (iter == port_ref.cell->cell_bel_pins.end()) {
+            continue;
+        }
+
+        std::vector<IdString> &cell_bel_pins = iter->second;
+        bel_pins_to_mask.clear();
+
+        for (size_t bel_pin_idx = 0; bel_pin_idx < cell_bel_pins.size(); ++bel_pin_idx) {
+            IdString bel_pin = cell_bel_pins.at(bel_pin_idx);
+            WireId bel_pin_wire = getBelPinWire(port_ref.cell->bel, bel_pin);
+            if (bel_pin_wire == wire) {
+                bel_pins_to_mask.push_back(bel_pin_idx);
+            }
+        }
+
+        if (!bel_pins_to_mask.empty()) {
+            std::vector<IdString> &masked_cell_bel_pins = port_ref.cell->masked_cell_bel_pins[port_ref.port];
+            // Remove in reverse order to preserve indicies.
+            for (auto riter = bel_pins_to_mask.rbegin(); riter != bel_pins_to_mask.rend(); ++riter) {
+                size_t bel_pin_idx = *riter;
+                masked_cell_bel_pins.push_back(cell_bel_pins.at(bel_pin_idx));
+                cell_bel_pins.erase(cell_bel_pins.begin() + bel_pin_idx);
+            }
+        }
+    }
+}
+
+void Arch::unmask_bel_pins()
+{
+    for (auto &cell_pair : cells) {
+        CellInfo *cell = cell_pair.second.get();
+        if (cell->masked_cell_bel_pins.empty()) {
+            continue;
+        }
+
+        for (auto &mask_pair : cell->masked_cell_bel_pins) {
+            IdString cell_port = mask_pair.first;
+            const std::vector<IdString> &bel_pins = mask_pair.second;
+            std::vector<IdString> &cell_bel_pins = cell->cell_bel_pins[cell_port];
+            cell_bel_pins.insert(cell_bel_pins.begin(), bel_pins.begin(), bel_pins.end());
+        }
+
+        cell->masked_cell_bel_pins.clear();
+    }
+}
+
+void Arch::remove_site_routing()
+{
+    HashTables::HashSet<WireId> wires_to_unbind;
+    for (auto &net_pair : nets) {
+        for (auto &wire_pair : net_pair.second->wires) {
+            WireId wire = wire_pair.first;
+            if (wire_pair.second.strength != STRENGTH_PLACER) {
+                // Only looking for bound placer wires
+                continue;
+            }
+
+            const TileWireInfoPOD &wire_data = wire_info(wire);
+            NPNR_ASSERT(wire_data.site != -1);
+
+            wires_to_unbind.emplace(wire);
+        }
+    }
+
+    for (WireId wire : wires_to_unbind) {
+        unbindWire(wire);
+    }
+
+    // FIXME: !!!!! Remove $nextpnr_inv cells here !!!!!
+
+    unmask_bel_pins();
 }
 
 // Instance constraint templates.

@@ -435,8 +435,9 @@ struct Router1
                 // TODO: this matches the situation before supporting multiple cell->bel pins, but do we want to keep
                 // this invariant?
                 if (phys_idx == 0)
-                    log_error("No wires found for port %s on destination cell %s.\n",
-                              ctx->nameOf(net_info->users[user_idx].port), ctx->nameOf(net_info->users[user_idx].cell));
+                    log_warning("No wires found for port %s on destination cell %s.\n",
+                                ctx->nameOf(net_info->users[user_idx].port),
+                                ctx->nameOf(net_info->users[user_idx].cell));
             }
 
             src_to_net[src_wire] = net_info;
