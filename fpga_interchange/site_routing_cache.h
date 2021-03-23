@@ -40,6 +40,8 @@ struct SiteRoutingSolution
         solution_offsets.clear();
         solution_storage.clear();
         solution_sinks.clear();
+        inverted.clear();
+        can_invert.clear();
     }
 
     size_t num_solutions() const { return solution_sinks.size(); }
@@ -58,9 +60,15 @@ struct SiteRoutingSolution
         return solution_storage.begin() + solution_offsets.at(solution + 1);
     }
 
+    bool solution_inverted(size_t solution) const { return inverted.at(solution) != 0; }
+
+    bool solution_can_invert(size_t solution) const { return can_invert.at(solution) != 0; }
+
     std::vector<size_t> solution_offsets;
     std::vector<SitePip> solution_storage;
     std::vector<SiteWire> solution_sinks;
+    std::vector<uint8_t> inverted;
+    std::vector<uint8_t> can_invert;
 };
 
 struct SiteRoutingKey

@@ -95,18 +95,16 @@ bool check_initial_wires(const Context *ctx, SiteInformation *site_info)
     return true;
 }
 
-bool is_invalid_site_port(const SiteArch *ctx, const SiteNetInfo *net, const SitePip &pip)
+static bool is_invalid_site_port(const SiteArch *ctx, const SiteNetInfo *net, const SitePip &pip)
 {
-    if (ctx->is_pip_synthetic(pip)) {
-        // FIXME: Not all synthetic pips are for constant networks.
-        // FIXME: Need to mark if synthetic site ports are for the GND or VCC
-        // network, and only allow the right one.  Otherwise site router
-        // could route a VCC on a GND only net (or equiv).
+    SyntheticType type = ctx->pip_synthetic_type(pip);
+    if (type == SYNTH_GND) {
         IdString gnd_net_name(ctx->ctx->chip_info->constants->gnd_net_name);
+        return net->net->name != gnd_net_name;
+    } else if (type == SYNTH_VCC) {
         IdString vcc_net_name(ctx->ctx->chip_info->constants->vcc_net_name);
-        return net->net->name != gnd_net_name && net->net->name != vcc_net_name;
+        return net->net->name != vcc_net_name;
     } else {
-        // All non-synthetic site ports are valid
         return false;
     }
 }
@@ -313,6 +311,8 @@ struct SiteExpansionLoop
     std::vector<SitePip>::const_iterator solution_begin(size_t idx) const { return solution.solution_begin(idx); }
 
     std::vector<SitePip>::const_iterator solution_end(size_t idx) const { return solution.solution_end(idx); }
+    bool solution_inverted(size_t idx) const { return solution.solution_inverted(idx); }
+    bool solution_can_invert(size_t idx) const { return solution.solution_can_invert(idx); }
 };
 
 void print_current_state(const SiteArch *site_arch)
@@ -366,6 +366,8 @@ struct PossibleSolutions
     SiteNetInfo *net = nullptr;
     std::vector<SitePip>::const_iterator pips_begin;
     std::vector<SitePip>::const_iterator pips_end;
+    bool inverted = false;
+    bool can_invert = false;
 };
 
 bool test_solution(SiteArch *ctx, SiteNetInfo *net, std::vector<SitePip>::const_iterator pips_begin,
@@ -570,6 +572,12 @@ bool route_site(SiteArch *ctx, SiteRoutingCache *site_routing_cache, RouteNodeSt
 
     for (const auto *expansion : expansions) {
         for (size_t idx = 0; idx < expansion->num_solutions(); ++idx) {
+            if (expansion->solution_inverted(idx)) {
+                // FIXME: May prefer an inverted solution if constant net
+                // type.
+                continue;
+            }
+
             SiteWire wire = expansion->solution_sink(idx);
             auto begin = expansion->solution_begin(idx);
             auto end = expansion->solution_end(idx);
@@ -583,6 +591,8 @@ bool route_site(SiteArch *ctx, SiteRoutingCache *site_routing_cache, RouteNodeSt
             solution.net = ctx->wire_to_nets.at(wire).net;
             solution.pips_begin = begin;
             solution.pips_end = end;
+            solution.inverted = expansion->solution_inverted(idx);
+            solution.can_invert = expansion->solution_can_invert(idx);
 
             for (auto iter = begin; iter != end; ++iter) {
                 NPNR_ASSERT(ctx->getPipDstWire(*iter) == wire);
