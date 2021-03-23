@@ -24,9 +24,11 @@
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/range/adaptor/reversed.hpp>
+#include <boost/uuid/detail/sha1.hpp>
 #include <cmath>
 #include <cstring>
 #include <queue>
+
 #include "constraints.impl.h"
 #include "fpga_interchange.h"
 #include "log.h"
@@ -42,6 +44,11 @@
 // Include tcl.h late because it messed with defines and let them leave the
 // scope of the header.
 #include <tcl.h>
+
+//#define DEBUG_BINDING
+//#define USE_LOOKAHEAD
+//#define DEBUG_CELL_PIN_MAPPING
+
 NEXTPNR_NAMESPACE_BEGIN
 struct SiteBelPair
 {
@@ -83,6 +90,22 @@ void IdString::initialize_arch(const BaseCtx *ctx) {}
 
 static const ChipInfoPOD *get_chip_info(const RelPtr<ChipInfoPOD> *ptr) { return ptr->get(); }
 
+static std::string sha1_hash(const char *data, size_t size)
+{
+    boost::uuids::detail::sha1 hasher;
+    hasher.process_bytes(data, size);
+
+    // unsigned int[5]
+    boost::uuids::detail::sha1::digest_type digest;
+    hasher.get_digest(digest);
+
+    std::ostringstream buf;
+    for (int i = 0; i < 5; ++i)
+        buf << std::hex << std::setfill('0') << std::setw(8) << digest[i];
+
+    return buf.str();
+}
+
 Arch::Arch(ArchArgs args) : args(args)
 {
     try {
@@ -90,6 +113,8 @@ Arch::Arch(ArchArgs args) : args(args)
         if (args.chipdb.empty() || !blob_file.is_open())
             log_error("Unable to read chipdb %s\n", args.chipdb.c_str());
         const char *blob = reinterpret_cast<const char *>(blob_file.data());
+
+        chipdb_hash = sha1_hash(blob, blob_file.size());
         chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(blob));
     } catch (...) {
         log_error("Unable to read chipdb %s\n", args.chipdb.c_str());
@@ -249,7 +274,13 @@ Arch::Arch(ArchArgs args) : args(args)
     default_tags.resize(max_tag_count);
 }
 
-void Arch::init() { dedicated_interconnect.init(getCtx()); }
+void Arch::init()
+{
+#ifdef USE_LOOKAHEAD
+    lookahead.init(getCtx(), getCtx());
+#endif
+    dedicated_interconnect.init(getCtx());
+}
 
 // -----------------------------------------------------------------------
 
@@ -894,18 +925,11 @@ DecalXY Arch::getGroupDecal(GroupId pip) const { return {}; };
 
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {
-    // FIXME: Implement something to push the A* router in the right direction.
-    int src_x, src_y;
-    get_tile_x_y(src.tile, &src_x, &src_y);
-
-    int dst_x, dst_y;
-    get_tile_x_y(dst.tile, &dst_x, &dst_y);
-
-    delay_t base = 30 * std::min(std::abs(dst_x - src_x), 18) + 10 * std::max(std::abs(dst_x - src_x) - 18, 0) +
-                   60 * std::min(std::abs(dst_y - src_y), 6) + 20 * std::max(std::abs(dst_y - src_y) - 6, 0) + 300;
-
-    base = (base * 3) / 2;
-    return base;
+#ifdef USE_LOOKAHEAD
+    return lookahead.estimateDelay(getCtx(), src, dst);
+#else
+    return 0;
+#endif
 }
 
 delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
@@ -1756,6 +1780,8 @@ bool Arch::checkPipAvailForNet(PipId pip, NetInfo *net) const
 }
 
 bool Arch::checkPipAvail(PipId pip) const { return checkPipAvailForNet(pip, nullptr); }
+
+std::string Arch::get_chipdb_hash() const { return chipdb_hash; }
 
 // Instance constraint templates.
 template void Arch::ArchConstraints::bindBel(Arch::ArchConstraints::TagState *, const Arch::ConstraintRange);

@@ -55,6 +55,8 @@ po::options_description FpgaInterchangeCommandHandler::getArchOptions()
     specific.add_options()("netlist", po::value<std::string>(), "FPGA interchange logical netlist to read");
     specific.add_options()("phys", po::value<std::string>(), "FPGA interchange Physical netlist to write");
     specific.add_options()("package", po::value<std::string>(), "Package to use");
+    specific.add_options()("rebuild-lookahead", "Ignore lookahead cache and rebuild");
+    specific.add_options()("dont-write-lookahead", "Don't write the lookahead file");
 
     return specific;
 }
@@ -72,6 +74,9 @@ std::unique_ptr<Context> FpgaInterchangeCommandHandler::createContext(std::unord
     auto start = std::chrono::high_resolution_clock::now();
 
     ArchArgs chipArgs;
+    chipArgs.rebuild_lookahead = vm.count("rebuild_lookahead") != 0;
+    chipArgs.dont_write_lookahead = vm.count("dont_write_lookahead") != 0;
+
     if (!vm.count("chipdb")) {
         log_error("chip database binary must be provided\n");
     }
