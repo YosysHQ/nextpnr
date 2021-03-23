@@ -263,3 +263,74 @@ function(add_interchange_test)
     add_custom_target(test-${family}-${name}-dcp DEPENDS ${dcp})
     add_dependencies(all-${family}-tests test-${family}-${name}-dcp)
 endfunction()
+
+function(add_interchange_group_test)
+    # ~~~
+    # add_interchange_group_test(
+    #    name <name>
+    #    family <family>
+    #    board_list <boards>
+    #    xdc_list <xdc>
+    #    tcl <tcl>
+    #    sources <sources list>
+    #    [top <top name>]
+    #    [techmap <techmap file>]
+    # )
+    #
+    # Generates targets to run desired tests over multiple devices.
+    #
+    # Arguments:
+    #   - name: base test name. The real test name will be <name>_<board>
+    #   - family: nextpnr architecture family (e.g. fpga_interchange)
+    #   - board_list: list of boards, one for each test
+    #   - tcl: tcl script used for synthesis
+    #   - sources: list of HDL sources
+    #   - top (optional): name of the top level module.
+    #                     If not provided, "top" is assigned as top level module
+    #   - techmap (optional): techmap file used during synthesis
+    #
+    # This function internally calls add_interchange_test to generate the various tests.
+    #
+    # Note: it is assumed that there exists an XDC file for each board, with the following naming
+    #       convention: <board>.xdc
+
+    set(options)
+    set(oneValueArgs name family tcl top techmap)
+    set(multiValueArgs sources board_list)
+
+    cmake_parse_arguments(
+        add_interchange_group_test
+        "${options}"
+        "${oneValueArgs}"
+        "${multiValueArgs}"
+        ${ARGN}
+    )
+
+    set(name ${add_interchange_group_test_name})
+    set(family ${add_interchange_group_test_family})
+    set(top ${add_interchange_group_test_top})
+    set(tcl ${add_interchange_group_test_tcl})
+    set(techmap ${add_interchange_group_test_techmap})
+    set(sources ${add_interchange_group_test_sources})
+
+    if (NOT DEFINED top)
+        # Setting default top value
+        set(top "top")
+    endif()
+
+    foreach(board ${add_interchange_group_test_board_list})
+        get_property(device TARGET board-${board} PROPERTY DEVICE)
+        get_property(package TARGET board-${board} PROPERTY PACKAGE)
+
+        add_interchange_test(
+            name ${name}_${board}
+            family ${family}
+            device ${device}
+            package ${package}
+            tcl ${tcl}
+            xdc ${board}.xdc
+            sources ${sources}
+            top ${top}
+        )
+    endforeach()
+endfunction()

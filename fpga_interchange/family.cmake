@@ -15,6 +15,7 @@ set(INTERCHANGE_SCHEMA_PATH ${PROJECT_SOURCE_DIR}/3rdparty/fpga-interchange-sche
 add_subdirectory(3rdparty/fpga-interchange-schema/cmake/cxx_static)
 
 include(${family}/examples/chipdb.cmake)
+include(${family}/examples/boards.cmake)
 include(${family}/examples/tests.cmake)
 
 set(chipdb_dir ${CMAKE_CURRENT_BINARY_DIR}/${family}/chipdb)
@@ -23,6 +24,7 @@ file(MAKE_DIRECTORY ${chipdb_dir})
 add_custom_target(all-${family}-tests)
 add_custom_target(all-${family}-archcheck-tests)
 add_subdirectory(${family}/examples/devices)
+add_subdirectory(${family}/examples/boards)
 add_subdirectory(${family}/examples/tests)
 
 set(PROTOS lookahead.capnp)
