@@ -841,7 +841,31 @@ class HeAPPlacer
         int ripup_radius = 2;
         int total_iters = 0;
         int total_iters_noreset = 0;
-        while (!remaining.empty()) {
+
+        bool need_legalize = require_validity;
+
+        /* First spread without legality checking, then check at the end! */
+        require_validity = false;
+        while (true) {
+            if (remaining.empty()) {
+                // Now that everything is legalized, do a final check and
+                // ripup as needed.
+                if (need_legalize) {
+                    for (auto cell : solve_cells) {
+                        NPNR_ASSERT(cell->bel != BelId());
+                        if (!ctx->isBelLocationValid(cell->bel)) {
+                            ctx->unbindBel(cell->bel);
+                            remaining.emplace(chain_size[cell->name], cell->name);
+                        }
+                    }
+
+                    require_validity = true;
+                }
+
+                if (remaining.empty()) {
+                    break;
+                }
+            }
             auto top = remaining.top();
             remaining.pop();
 
@@ -1101,6 +1125,21 @@ class HeAPPlacer
                 }
             }
         }
+
+        if (require_validity) {
+            for (auto bel : ctx->getBels()) {
+                CellInfo *cell = ctx->getBoundBelCell(bel);
+                if (cell != nullptr && !ctx->isBelLocationValid(bel)) {
+                    std::string cell_text = "no cell";
+                    if (cell != nullptr)
+                        cell_text = stringf("cell '%s' (bel strength %d)", ctx->nameOf(cell), cell->belStrength);
+                    log_error("post-placement validity check failed for Bel '%s' "
+                              "(%s)\n",
+                              ctx->nameOfBel(bel), cell_text.c_str());
+                }
+            }
+        }
+
         auto endt = std::chrono::high_resolution_clock::now();
         sl_time += std::chrono::duration<float>(endt - startt).count();
     }
