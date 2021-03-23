@@ -58,6 +58,9 @@ bool check_initial_wires(const Context *ctx, SiteInformation *site_info)
     for (CellInfo *cell : site_info->cells_in_site) {
         BelId bel = cell->bel;
         for (const auto &pin_pair : cell->cell_bel_pins) {
+            if (!cell->ports.count(pin_pair.first))
+                log_error("Cell %s:%s is missing expected port %s\n", ctx->nameOf(cell), cell->type.c_str(ctx),
+                          pin_pair.first.c_str(ctx));
             const PortInfo &port = cell->ports.at(pin_pair.first);
             NPNR_ASSERT(port.net != nullptr);
 
