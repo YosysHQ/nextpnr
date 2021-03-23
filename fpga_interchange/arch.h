@@ -36,6 +36,7 @@
 #include "arch_iterators.h"
 #include "chipdb.h"
 #include "dedicated_interconnect.h"
+#include "lookahead.h"
 #include "site_router.h"
 #include "site_routing_cache.h"
 
@@ -45,6 +46,8 @@ struct ArchArgs
 {
     std::string chipdb;
     std::string package;
+    bool rebuild_lookahead;
+    bool dont_write_lookahead;
 };
 
 struct ArchRanges
@@ -1038,8 +1041,13 @@ struct Arch : ArchAPI<ArchRanges>
     std::regex verilog_hex_constant;
     void read_lut_equation(DynamicBitarray<> *equation, const Property &equation_parameter) const;
     bool route_vcc_to_unused_lut_pins();
+
+    Lookahead lookahead;
     mutable RouteNodeStorage node_storage;
     mutable SiteRoutingCache site_routing_cache;
+
+    std::string chipdb_hash;
+    std::string get_chipdb_hash() const;
 };
 
 NEXTPNR_NAMESPACE_END
