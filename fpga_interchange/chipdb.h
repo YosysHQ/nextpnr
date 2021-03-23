@@ -34,7 +34,7 @@ NEXTPNR_NAMESPACE_BEGIN
  * kExpectedChipInfoVersion
  */
 
-static constexpr int32_t kExpectedChipInfoVersion = 4;
+static constexpr int32_t kExpectedChipInfoVersion = 5;
 
 // Flattened site indexing.
 //
@@ -229,7 +229,12 @@ NPNR_PACKED_STRUCT(struct LutCellPOD {
 
 NPNR_PACKED_STRUCT(struct CellMapPOD {
     // Cell names supported in this arch.
-    RelSlice<int32_t> cell_names;       // constids
+    RelSlice<int32_t> cell_names; // constids
+
+    // BEL names that are global buffers.
+    RelSlice<int32_t> global_buffers; // constids
+
+    // Name of BelBuckets.
     RelSlice<int32_t> cell_bel_buckets; // constids
 
     RelSlice<CellBelMapPOD> cell_bel_map;

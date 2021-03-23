@@ -344,7 +344,19 @@ struct Arch : ArchAPI<ArchRanges>
 
     bool getBelGlobalBuf(BelId bel) const final
     {
-        // FIXME: This probably needs to be fixed!
+        auto &bel_data = bel_info(chip_info, bel);
+        IdString bel_name(bel_data.name);
+
+        // Note: Check profiles and see if this should be something other than
+        // a linear scan.  Expectation is that for most arches, this will be
+        // fast enough.
+        for (int32_t global_bel : chip_info->cell_map->global_buffers) {
+            IdString global_bel_name(global_bel);
+            if (bel_name == global_bel_name) {
+                return true;
+            }
+        }
+
         return false;
     }
 
