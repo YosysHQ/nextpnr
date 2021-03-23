@@ -34,7 +34,7 @@ NEXTPNR_NAMESPACE_BEGIN
  * kExpectedChipInfoVersion
  */
 
-static constexpr int32_t kExpectedChipInfoVersion = 3;
+static constexpr int32_t kExpectedChipInfoVersion = 4;
 
 // Flattened site indexing.
 //
@@ -71,6 +71,15 @@ NPNR_PACKED_STRUCT(struct BelInfoPOD {
     int8_t lut_element;
 
     RelPtr<int32_t> pin_map; // Index into CellMapPOD::cell_bel_map
+
+    // If this BEL is a site routing BEL with inverting pins, these values
+    // will be [0, num_bel_wires).  If this BEL is either not a site routing
+    // BEL or this site routing has no inversion capabilities, then these will
+    // both be -1.
+    int8_t non_inverting_pin;
+    int8_t inverting_pin;
+
+    int16_t padding;
 });
 
 enum BELCategory
@@ -261,6 +270,10 @@ NPNR_PACKED_STRUCT(struct ConstantsPOD {
 
     // Name to use for the global VCC constant net
     int32_t vcc_net_name; // constid
+
+    // If a choice is available, which constant net should be used?
+    // Can be ''/0 if either constant net are equivilent.
+    int32_t best_constant_net; // constid
 });
 
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
@@ -314,6 +327,14 @@ inline const SiteInstInfoPOD &site_inst_info(const ChipInfoPOD *chip_info, int32
 {
     return chip_info->sites[chip_info->tiles[tile].sites[site]];
 }
+
+enum SyntheticType
+{
+    NOT_SYNTH = 0,
+    SYNTH_SIGNAL = 1,
+    SYNTH_GND = 2,
+    SYNTH_VCC = 3,
+};
 
 NEXTPNR_NAMESPACE_END
 
