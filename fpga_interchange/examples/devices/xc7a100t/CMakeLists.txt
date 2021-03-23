@@ -9,6 +9,6 @@ generate_chipdb(
     device xc7a100t
     part xc7a100tcsg324-1
     device_target ${xc7a100t_target}
-    bel_bucket_seeds ${PYTHON_INTERCHANGE_PATH}/test_data/series7_bel_buckets.yaml
+    device_config ${PYTHON_INTERCHANGE_PATH}/test_data/series7_device_config.yaml
     test_package csg324
 )
