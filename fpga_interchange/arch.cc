@@ -131,6 +131,9 @@ Arch::Arch(ArchArgs args) : args(args)
         IdString::initialize_add(this, constids[i].get(), i + 1);
     }
 
+    id_GND = id("GND");
+    id_VCC = id("VCC");
+
     // Sanity check cell name ids.
     const CellMapPOD &cell_map = *chip_info->cell_map;
     int32_t first_cell_id = cell_map.cell_names[0];
@@ -1046,7 +1049,7 @@ void Arch::map_cell_pins(CellInfo *cell, int32_t mapping, bool bind_constants)
             continue;
         }
 
-        if (cell_pin.str(this) == "GND") {
+        if (cell_pin == id_GND) {
             if (bind_constants) {
                 PortInfo port_info;
                 port_info.name = bel_pin;
@@ -1068,7 +1071,7 @@ void Arch::map_cell_pins(CellInfo *cell, int32_t mapping, bool bind_constants)
             continue;
         }
 
-        if (cell_pin.str(this) == "VCC") {
+        if (cell_pin == id_VCC) {
             if (bind_constants) {
                 PortInfo port_info;
                 port_info.name = bel_pin;
@@ -1106,16 +1109,23 @@ void Arch::map_cell_pins(CellInfo *cell, int32_t mapping, bool bind_constants)
             continue;
         }
 
+#ifdef DEBUG_CELL_PIN_MAPPING
+        log_info("parameter match on param_key %s\n", param_key.c_str(this));
+#endif
+
         for (const auto &pin_map : parameter_pin_map.pins) {
             IdString cell_pin(pin_map.cell_pin);
             IdString bel_pin(pin_map.bel_pin);
+#ifdef DEBUG_CELL_PIN_MAPPING
+            log_info(" %s => %s\n", cell_pin.c_str(this), bel_pin.c_str(this));
+#endif
 
             // Skip assigned LUT pins, as they are already mapped!
             if (cell->lut_cell.lut_pins.count(cell_pin) && cell->cell_bel_pins.count(cell_pin)) {
                 continue;
             }
 
-            if (cell_pin.str(this) == "GND") {
+            if (cell_pin == id_GND) {
                 if (bind_constants) {
                     PortInfo port_info;
                     port_info.name = bel_pin;
@@ -1137,7 +1147,7 @@ void Arch::map_cell_pins(CellInfo *cell, int32_t mapping, bool bind_constants)
                 continue;
             }
 
-            if (cell_pin.str(this) == "VCC") {
+            if (cell_pin == id_VCC) {
                 if (bind_constants) {
                     PortInfo port_info;
                     port_info.name = bel_pin;
@@ -1162,6 +1172,17 @@ void Arch::map_cell_pins(CellInfo *cell, int32_t mapping, bool bind_constants)
             cell->cell_bel_pins[cell_pin].push_back(bel_pin);
         }
     }
+
+#ifdef DEBUG_CELL_PIN_MAPPING
+    log_info("Pin mapping for cell %s (type: %s)\n", cell->name.c_str(getCtx()), cell->type.c_str(getCtx()));
+    for (auto &pin_pair : cell->cell_bel_pins) {
+        log_info(" %s =>", pin_pair.first.c_str(getCtx()));
+        for (IdString bel_pin : pin_pair.second) {
+            log(" %s", bel_pin.c_str(getCtx()));
+        }
+        log("\n");
+    }
+#endif
 }
 
 void Arch::map_port_pins(BelId bel, CellInfo *cell) const

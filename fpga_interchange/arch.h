@@ -1042,6 +1042,8 @@ struct Arch : ArchAPI<ArchRanges>
     void read_lut_equation(DynamicBitarray<> *equation, const Property &equation_parameter) const;
     bool route_vcc_to_unused_lut_pins();
 
+    IdString id_GND;
+    IdString id_VCC;
     Lookahead lookahead;
     mutable RouteNodeStorage node_storage;
     mutable SiteRoutingCache site_routing_cache;
