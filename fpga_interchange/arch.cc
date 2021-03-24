@@ -49,6 +49,10 @@
 //#define USE_LOOKAHEAD
 //#define DEBUG_CELL_PIN_MAPPING
 
+// Define to enable some idempotent sanity checks for some important
+// operations prior to placement and routing.
+#define IDEMPOTENT_CHECK
+
 NEXTPNR_NAMESPACE_BEGIN
 struct SiteBelPair
 {
@@ -710,22 +714,32 @@ bool Arch::pack()
     return true;
 }
 
+static void prepare_for_placement(Context *ctx)
+{
+    ctx->remove_site_routing();
+
+    // Re-map BEL pins without constant pins
+    for (BelId bel : ctx->getBels()) {
+        CellInfo *cell = ctx->getBoundBelCell(bel);
+        if (cell != nullptr && cell->cell_mapping != -1) {
+            ctx->map_cell_pins(cell, cell->cell_mapping, /*bind_constants=*/false);
+        }
+    }
+}
+
 bool Arch::place()
 {
     // Before placement, ripup placement specific bindings and unmask all cell
     // pins.
-    remove_site_routing();
+    getCtx()->check();
+    prepare_for_placement(getCtx());
+    getCtx()->check();
+#ifdef IDEMPOTENT_CHECK
+    prepare_for_placement(getCtx());
+    getCtx()->check();
+#endif
 
     std::string placer = str_or_default(settings, id("placer"), defaultPlacer);
-
-    // Re-map BEL pins without constant pins
-    for (BelId bel : getBels()) {
-        CellInfo *cell = getBoundBelCell(bel);
-        if (cell != nullptr && cell->cell_mapping != -1) {
-            map_cell_pins(cell, cell->cell_mapping, /*bind_constants=*/false);
-        }
-    }
-
     if (placer == "heap") {
         PlacerHeapCfg cfg(getCtx());
         cfg.criticalityExponent = 7;
@@ -748,34 +762,51 @@ bool Arch::place()
 
     getCtx()->attrs[getCtx()->id("step")] = std::string("place");
     archInfoToAttributes();
+
+    getCtx()->check();
+
     return true;
 }
 
-bool Arch::route()
+static void prepare_sites_for_routing(Context *ctx)
 {
-    std::string router = str_or_default(settings, id("router"), defaultRouter);
-
     // Reset site routing and remove masked cell pins from previous router run
     // (if any).
-    remove_site_routing();
+    ctx->remove_site_routing();
 
     // Re-map BEL pins with constant pins
-    for (BelId bel : getBels()) {
-        CellInfo *cell = getBoundBelCell(bel);
+    for (BelId bel : ctx->getBels()) {
+        CellInfo *cell = ctx->getBoundBelCell(bel);
         if (cell != nullptr && cell->cell_mapping != -1) {
-            map_cell_pins(cell, cell->cell_mapping, /*bind_constants=*/true);
+            ctx->map_cell_pins(cell, cell->cell_mapping, /*bind_constants=*/true);
         }
     }
 
-    for (auto &tile_pair : tileStatus) {
+    // Have site router bind site routing (via bindPip and bindWire).
+    // This is important so that the pseudo pips are correctly blocked prior
+    // to handing the design to the generalized router algorithms.
+    for (auto &tile_pair : ctx->tileStatus) {
         for (auto &site_router : tile_pair.second.sites) {
             if (site_router.cells_in_site.empty()) {
                 continue;
             }
 
-            site_router.bindSiteRouting(getCtx());
+            site_router.bindSiteRouting(ctx);
         }
     }
+}
+
+bool Arch::route()
+{
+    getCtx()->check();
+    prepare_sites_for_routing(getCtx());
+    getCtx()->check();
+#ifdef IDEMPOTENT_CHECK
+    prepare_sites_for_routing(getCtx());
+    getCtx()->check();
+#endif
+
+    std::string router = str_or_default(settings, id("router"), defaultRouter);
 
     bool result;
     if (router == "router1") {
@@ -794,8 +825,12 @@ bool Arch::route()
     getCtx()->attrs[getCtx()->id("step")] = std::string("route");
     archInfoToAttributes();
 
+    getCtx()->check();
+
     // Now that routing is complete, unmask BEL pins.
     unmask_bel_pins();
+
+    getCtx()->check();
 
     return result;
 }
@@ -1012,6 +1047,7 @@ void Arch::map_cell_pins(CellInfo *cell, int32_t mapping, bool bind_constants)
     cell->cell_mapping = mapping;
     if (cell->lut_cell.pins.empty()) {
         cell->cell_bel_pins.clear();
+        cell->masked_cell_bel_pins.clear();
     } else {
         std::vector<IdString> cell_pin_to_remove;
         for (auto port_pair : cell->cell_bel_pins) {
@@ -1024,7 +1060,9 @@ void Arch::map_cell_pins(CellInfo *cell, int32_t mapping, bool bind_constants)
             NPNR_ASSERT(cell->cell_bel_pins.erase(cell_pin));
         }
     }
+
     for (IdString const_port : cell->const_ports) {
+        disconnectPort(cell->name, const_port);
         NPNR_ASSERT(cell->ports.erase(const_port));
     }
 
@@ -1857,10 +1895,6 @@ void Arch::remove_site_routing()
                 // Only looking for bound placer wires
                 continue;
             }
-
-            const TileWireInfoPOD &wire_data = wire_info(wire);
-            NPNR_ASSERT(wire_data.site != -1);
-
             wires_to_unbind.emplace(wire);
         }
     }
@@ -1869,9 +1903,25 @@ void Arch::remove_site_routing()
         unbindWire(wire);
     }
 
-    // FIXME: !!!!! Remove $nextpnr_inv cells here !!!!!
-
     unmask_bel_pins();
+
+    IdString id_NEXTPNR_INV = id("$nextpnr_inv");
+    IdString id_I = id("I");
+    std::vector<IdString> cells_to_remove;
+    for (auto &cell_pair : cells) {
+        CellInfo *cell = cell_pair.second.get();
+        if (cell->type != id_NEXTPNR_INV) {
+            continue;
+        }
+
+        disconnectPort(cell_pair.first, id_I);
+        cells_to_remove.push_back(cell_pair.first);
+        tileStatus.at(cell->bel.tile).boundcells[cell->bel.index] = nullptr;
+    }
+
+    for (IdString cell_name : cells_to_remove) {
+        NPNR_ASSERT(cells.erase(cell_name) == 1);
+    }
 }
 
 // Instance constraint templates.
