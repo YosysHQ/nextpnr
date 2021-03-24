@@ -794,6 +794,44 @@ static void prepare_sites_for_routing(Context *ctx)
             site_router.bindSiteRouting(ctx);
         }
     }
+
+    // Fixup LUT vcc pins.
+    IdString vcc_net_name(ctx->chip_info->constants->vcc_net_name);
+    for (BelId bel : ctx->getBels()) {
+        CellInfo *cell = ctx->getBoundBelCell(bel);
+        if (cell == nullptr) {
+            continue;
+        }
+
+        if (cell->lut_cell.vcc_pins.empty()) {
+            continue;
+        }
+
+        for (auto bel_pin : cell->lut_cell.vcc_pins) {
+            PortInfo port_info;
+            port_info.name = bel_pin;
+            port_info.type = PORT_IN;
+            port_info.net = nullptr;
+
+#ifdef DEBUG_LUT_MAPPING
+            if (ctx->verbose) {
+                log_info("%s must be tied to VCC, tying now\n", ctx->nameOfWire(lut_pin_wire));
+            }
+#endif
+
+            auto result = cell->ports.emplace(bel_pin, port_info);
+            if (result.second) {
+                cell->cell_bel_pins[bel_pin].push_back(bel_pin);
+                ctx->connectPort(vcc_net_name, cell->name, bel_pin);
+                cell->const_ports.emplace(bel_pin);
+            } else {
+                NPNR_ASSERT(result.first->second.net == ctx->getNetByAlias(vcc_net_name));
+                auto result2 = cell->cell_bel_pins.emplace(bel_pin, std::vector<IdString>({bel_pin}));
+                NPNR_ASSERT(result2.first->second.at(0) == bel_pin);
+                NPNR_ASSERT(result2.first->second.size() == 1);
+            }
+        }
+    }
 }
 
 bool Arch::route()
@@ -818,10 +856,6 @@ bool Arch::route()
         log_error("FPGA interchange architecture does not support router '%s'\n", router.c_str());
     }
 
-    if (result) {
-        result = route_vcc_to_unused_lut_pins();
-    }
-
     getCtx()->attrs[getCtx()->id("step")] = std::string("route");
     archInfoToAttributes();
 
@@ -833,103 +867,6 @@ bool Arch::route()
     getCtx()->check();
 
     return result;
-}
-
-bool Arch::route_vcc_to_unused_lut_pins()
-{
-    std::string router = str_or_default(settings, id("router"), defaultRouter);
-
-    HashTables::HashMap<WireId, const NetInfo *> bound_wires;
-    for (auto &net_pair : nets) {
-        const NetInfo *net = net_pair.second.get();
-        for (auto &wire_pair : net->wires) {
-            auto result = bound_wires.emplace(wire_pair.first, net);
-            NPNR_ASSERT(result.first->second == net);
-
-            PipId pip = wire_pair.second.pip;
-            if (pip == PipId()) {
-                continue;
-            }
-
-            const PipInfoPOD &pip_data = pip_info(chip_info, pip);
-#ifdef DEBUG_LUT_MAPPING
-            if (getCtx()->verbose) {
-                log_info("Pip %s in use, has %zu pseudo wires!\n", nameOfPip(pip), pip_data.pseudo_cell_wires.size());
-            }
-#endif
-
-            WireId wire;
-            wire.tile = pip.tile;
-            for (int32_t wire_index : pip_data.pseudo_cell_wires) {
-                wire.index = wire_index;
-#ifdef DEBUG_LUT_MAPPING
-                if (getCtx()->verbose) {
-                    log_info("Marking wire %s as in use due to pseudo pip\n", nameOfWire(wire));
-                }
-#endif
-                auto result = bound_wires.emplace(wire, net);
-                NPNR_ASSERT(result.first->second == net);
-            }
-        }
-    }
-
-    // Fixup LUT vcc pins.
-    IdString vcc_net_name(chip_info->constants->vcc_net_name);
-    for (BelId bel : getBels()) {
-        CellInfo *cell = getBoundBelCell(bel);
-        if (cell == nullptr) {
-            continue;
-        }
-
-        if (cell->lut_cell.vcc_pins.empty()) {
-            continue;
-        }
-
-        for (auto bel_pin : cell->lut_cell.vcc_pins) {
-            PortInfo port_info;
-            port_info.name = bel_pin;
-            port_info.type = PORT_IN;
-            port_info.net = nullptr;
-
-            WireId lut_pin_wire = getBelPinWire(bel, bel_pin);
-            auto iter = bound_wires.find(lut_pin_wire);
-            if (iter != bound_wires.end()) {
-#ifdef DEBUG_LUT_MAPPING
-                if (getCtx()->verbose) {
-                    log_info("%s is now used as a LUT route-through, not tying to VCC\n", nameOfWire(lut_pin_wire));
-                }
-#endif
-                continue;
-            }
-
-#ifdef DEBUG_LUT_MAPPING
-            if (getCtx()->verbose) {
-                log_info("%s is an unused LUT pin, tying to VCC\n", nameOfWire(lut_pin_wire));
-            }
-#endif
-
-            auto result = cell->ports.emplace(bel_pin, port_info);
-            if (result.second) {
-                cell->cell_bel_pins[bel_pin].push_back(bel_pin);
-                connectPort(vcc_net_name, cell->name, bel_pin);
-                cell->const_ports.emplace(bel_pin);
-            } else {
-                NPNR_ASSERT(result.first->second.net == getNetByAlias(vcc_net_name));
-                auto result2 = cell->cell_bel_pins.emplace(bel_pin, std::vector<IdString>({bel_pin}));
-                NPNR_ASSERT(result2.first->second.at(0) == bel_pin);
-                NPNR_ASSERT(result2.first->second.size() == 1);
-            }
-        }
-    }
-
-    if (router == "router1") {
-        return router1(getCtx(), Router1Cfg(getCtx()));
-    } else if (router == "router2") {
-        router2(getCtx(), Router2Cfg(getCtx()));
-        return true;
-    } else {
-        log_error("FPGA interchange architecture does not support router '%s'\n", router.c_str());
-    }
 }
 
 // -----------------------------------------------------------------------

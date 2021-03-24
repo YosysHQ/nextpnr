@@ -125,12 +125,17 @@ SiteArch::SiteArch(const SiteInformation *site_info) : ctx(site_info->ctx), site
 
     // Create list of out of site sources and sinks.
 
+    bool have_vcc_pins = false;
     for (CellInfo *cell : site_info->cells_in_site) {
         for (const auto &pin_pair : cell->cell_bel_pins) {
             const PortInfo &port = cell->ports.at(pin_pair.first);
             if (port.net != nullptr) {
                 nets.emplace(port.net, SiteNetInfo{port.net});
             }
+        }
+
+        if (!cell->lut_cell.vcc_pins.empty()) {
+            have_vcc_pins = true;
         }
     }
 
@@ -219,6 +224,27 @@ SiteArch::SiteArch(const SiteInformation *site_info) : ctx(site_info->ctx), site
                     net_info.users.emplace(wire);
                 }
             }
+        }
+    }
+
+    IdString vcc_net_name(ctx->chip_info->constants->vcc_net_name);
+    NetInfo *vcc_net = ctx->nets.at(vcc_net_name).get();
+    auto iter = nets.find(vcc_net);
+    if (iter == nets.end() && have_vcc_pins) {
+        // VCC net isn't present, add it.
+        SiteNetInfo net_info;
+        net_info.net = vcc_net;
+        net_info.driver.type = SiteWire::OUT_OF_SITE_SOURCE;
+        net_info.driver.net = vcc_net;
+        auto result = nets.emplace(vcc_net, net_info);
+        NPNR_ASSERT(result.second);
+        iter = result.first;
+    }
+
+    for (CellInfo *cell : site_info->cells_in_site) {
+        for (IdString vcc_pin : cell->lut_cell.vcc_pins) {
+            SiteWire wire = getBelPinWire(cell->bel, vcc_pin);
+            iter->second.users.emplace(wire);
         }
     }
 

@@ -88,6 +88,8 @@ struct LutMapper
     std::vector<CellInfo *> cells;
 
     bool remap_luts(const Context *ctx);
+    uint32_t check_wires(const std::vector<std::vector<int32_t>> &bel_to_cell_pin_remaps,
+                         const std::vector<const LutBel *> &lut_bels, uint32_t used_pins) const;
 };
 
 // Rotate and merge a LUT equation into an array of levels.
