@@ -262,6 +262,7 @@ function(add_interchange_test)
 
     add_custom_target(test-${family}-${name}-dcp DEPENDS ${dcp})
     add_dependencies(all-${family}-tests test-${family}-${name}-dcp)
+    add_dependencies(all-${device}-tests test-${family}-${name}-dcp)
 endfunction()
 
 function(add_interchange_group_test)

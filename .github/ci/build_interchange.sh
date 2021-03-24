@@ -19,7 +19,7 @@ popd
 # Install capnproto java
 git clone https://github.com/capnproto/capnproto-java.git
 pushd capnproto-java
-make
+make -j`nproc`
 sudo make install
 popd
 
@@ -41,8 +41,8 @@ pushd $RAPIDWRIGHT_PATH
 make update_jars
 popd
 
-
 mkdir build
 pushd build
 cmake .. -DARCH=fpga_interchange -DRAPIDWRIGHT_PATH=$RAPIDWRIGHT_PATH -DINTERCHANGE_SCHEMA_PATH=$INTERCHANGE_SCHEMA_PATH -DPYTHON_INTERCHANGE_PATH=$PYTHON_INTERCHANGE_PATH
+make nextpnr-fpga_interchange -j`nproc`
 popd

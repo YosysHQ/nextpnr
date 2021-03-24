@@ -3,9 +3,11 @@ name: FPGA interchange CI tests
 on: [push, pull_request]
 
 jobs:
-
-  Run-tests:
+  Run-Tests:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        device: [xc7a35t, xc7a100t, xc7a200t, xc7z010]
     steps:
 
     - uses: actions/checkout@v2
@@ -19,11 +21,14 @@ jobs:
         sudo apt-get update
         sudo apt-get install git make cmake libboost-all-dev python3-dev libeigen3-dev tcl-dev clang bison flex swig
 
-    - name: Execute build script
+    - name: Execute build interchange script
       run: stdbuf -i0 -o0 -e0 ./.github/ci/build_interchange.sh
 
     - name: Run tests
+      env:
+        DEVICE: ${{ matrix.device }}
       run: |
         cd build
-        make all-fpga_interchange-archcheck-tests
-        make all-fpga_interchange-tests -j`nproc`
+        make chipdb-$DEVICE-bin-check-test-data
+        make chipdb-$DEVICE-bin-check
+        make all-$DEVICE-tests -j`nproc`
