@@ -104,7 +104,7 @@ function(create_prjoxide_device_db)
     add_custom_command(
         OUTPUT ${prjoxide_device_db}
         COMMAND
-            prjoxide
+            ${PRJOXIDE_PREFIX}/bin/prjoxide
             interchange-export
             ${device}
             ${prjoxide_device_db}

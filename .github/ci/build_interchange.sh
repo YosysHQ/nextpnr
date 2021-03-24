@@ -40,6 +40,14 @@ function get_dependencies {
     pushd ${RAPIDWRIGHT_PATH}
     make update_jars
     popd
+
+    # Install prjoxide
+    curl --proto '=https' -sSf https://sh.rustup.rs | sh -s -- -y
+    git clone --recursive https://github.com/gatecat/prjoxide.git
+    pushd prjoxide/libprjoxide
+    PATH=$PATH:$HOME/.cargo/bin cargo install --path prjoxide --all-features
+    popd
+
 }
 
 function build_nextpnr {
