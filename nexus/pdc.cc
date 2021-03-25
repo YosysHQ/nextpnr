@@ -32,32 +32,55 @@ struct TCLEntity
         ENTITY_CELL,
         ENTITY_PORT,
         ENTITY_NET,
+        ENTITY_PIN,
     } type;
     IdString name;
+    IdString pin; // for cell pins only
 
     TCLEntity(EntityType type, IdString name) : type(type), name(name) {}
+    TCLEntity(EntityType type, IdString name, IdString pin) : type(type), name(name), pin(pin) {}
 
     const std::string &to_string(Context *ctx) { return name.str(ctx); }
 
-    CellInfo *get_cell(Context *ctx)
+    CellInfo *get_cell(Context *ctx) const
     {
         if (type != ENTITY_CELL)
             return nullptr;
         return ctx->cells.at(name).get();
     }
 
-    PortInfo *get_port(Context *ctx)
+    PortInfo *get_port(Context *ctx) const
     {
         if (type != ENTITY_PORT)
             return nullptr;
         return &ctx->ports.at(name);
     }
 
-    NetInfo *get_net(Context *ctx)
+    NetInfo *get_net(Context *ctx) const
     {
-        if (type != ENTITY_NET)
+        if (type == ENTITY_PIN) {
+            CellInfo *cell = nullptr;
+            if (ctx->cells.count(name)) {
+                cell = ctx->cells.at(name).get();
+            } else {
+                const std::string &n = name.str(ctx);
+                auto pos = n.rfind('.');
+                if (pos == std::string::npos)
+                    return nullptr;
+                // remove one hierarchy layer due to Radiant weirdness around PLLs etc
+                IdString stripped_name = ctx->id(n.substr(0, pos));
+                if (!ctx->cells.count(stripped_name))
+                    return nullptr;
+                cell = ctx->cells.at(stripped_name).get();
+            }
+            if (!cell->ports.count(pin))
+                return nullptr;
+            return cell->ports.at(pin).net;
+        } else if (type == ENTITY_NET) {
+            return ctx->nets.at(name).get();
+        } else {
             return nullptr;
-        return ctx->nets.at(name).get();
+        }
     }
 };
 
@@ -201,6 +224,8 @@ struct PDCParser
             return cmd_get_cells(arguments);
         else if (cmd == "get_nets")
             return cmd_get_nets(arguments);
+        else if (cmd == "get_pins")
+            return cmd_get_pins(arguments);
         else if (cmd == "create_clock")
             return cmd_create_clock(arguments);
         else if (cmd == "ldc_set_location")
@@ -286,6 +311,28 @@ struct PDCParser
         return cells;
     }
 
+    TCLValue cmd_get_pins(const std::vector<TCLValue> &arguments)
+    {
+        std::vector<TCLEntity> pins;
+        for (int i = 1; i < int(arguments.size()); i++) {
+            auto &arg = arguments.at(i);
+            if (!arg.is_string)
+                log_error("get_pins expected string arguments (line %d)\n", lineno);
+            std::string s = arg.str;
+            if (s.at(0) == '-')
+                log_error("unsupported argument '%s' to get_pins (line %d)\n", s.c_str(), lineno);
+            auto pos = s.rfind('/');
+            if (pos == std::string::npos)
+                log_error("expected / in cell pin name '%s' (line %d)\n", s.c_str(), lineno);
+            pins.emplace_back(TCLEntity::ENTITY_PIN, ctx->id(s.substr(0, pos)), ctx->id(s.substr(pos + 1)));
+            if (pins.back().get_net(ctx) == nullptr) {
+                log_warning("cell pin '%s' not found\n", s.c_str());
+                pins.pop_back();
+            }
+        }
+        return pins;
+    }
+
     TCLValue cmd_create_clock(const std::vector<TCLValue> &arguments)
     {
         float period = 10;
@@ -311,12 +358,14 @@ struct PDCParser
             } else {
                 for (const auto &ety : arg.list) {
                     NetInfo *net = nullptr;
-                    if (ety.type == TCLEntity::ENTITY_NET)
+                    if (ety.type == TCLEntity::ENTITY_PIN)
+                        net = ety.get_net(ctx);
+                    else if (ety.type == TCLEntity::ENTITY_NET)
                         net = ctx->nets.at(ety.name).get();
                     else if (ety.type == TCLEntity::ENTITY_PORT)
                         net = ctx->ports.at(ety.name).net;
                     else
-                        log_error("create_clock applies only to cells or IO ports (line %d)\n", lineno);
+                        log_error("create_clock applies only to cells, cell pins, or IO ports (line %d)\n", lineno);
                     ctx->addClock(net->name, 1000.0f / period);
                 }
             }
