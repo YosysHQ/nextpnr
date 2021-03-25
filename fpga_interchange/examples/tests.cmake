@@ -34,7 +34,7 @@ function(add_interchange_test)
     #   - test-fpga_interchange-<name>-phys     : interchange physical netlist
     #   - test-fpga_interchange-<name>-dcp     : design checkpoint with RapidWright
 
-    set(options)
+    set(options skip_dcp)
     set(oneValueArgs name family device package tcl xdc top techmap)
     set(multiValueArgs sources)
 
@@ -50,6 +50,7 @@ function(add_interchange_test)
     set(family ${add_interchange_test_family})
     set(device ${add_interchange_test_device})
     set(package ${add_interchange_test_package})
+    set(skip_dcp ${add_interchange_test_skip_dcp})
     set(top ${add_interchange_test_top})
     set(tcl ${CMAKE_CURRENT_SOURCE_DIR}/${add_interchange_test_tcl})
     set(xdc ${CMAKE_CURRENT_SOURCE_DIR}/${add_interchange_test_xdc})
@@ -246,23 +247,28 @@ function(add_interchange_test)
 
     add_custom_target(test-${family}-${name}-phys-yaml DEPENDS ${phys_yaml})
 
-    set(dcp ${CMAKE_CURRENT_BINARY_DIR}/${name}.dcp)
-    add_custom_command(
-        OUTPUT ${dcp}
-        COMMAND
-            RAPIDWRIGHT_PATH=${RAPIDWRIGHT_PATH}
-            ${INVOKE_RAPIDWRIGHT} ${JAVA_HEAP_SPACE}
-            com.xilinx.rapidwright.interchange.PhysicalNetlistToDcp
-            ${netlist} ${phys} ${xdc} ${dcp}
-        DEPENDS
-            ${INVOKE_RAPIDWRIGHT}
-            ${phys}
-            ${netlist}
-    )
+    if(skip_dcp)
+        add_dependencies(all-${family}-tests test-${family}-${name}-phys-yaml)
+        add_dependencies(all-${device}-tests test-${family}-${name}-phys-yaml)
+    else()
+        set(dcp ${CMAKE_CURRENT_BINARY_DIR}/${name}.dcp)
+        add_custom_command(
+            OUTPUT ${dcp}
+            COMMAND
+                RAPIDWRIGHT_PATH=${RAPIDWRIGHT_PATH}
+                ${INVOKE_RAPIDWRIGHT} ${JAVA_HEAP_SPACE}
+                com.xilinx.rapidwright.interchange.PhysicalNetlistToDcp
+                ${netlist} ${phys} ${xdc} ${dcp}
+            DEPENDS
+                ${INVOKE_RAPIDWRIGHT}
+                ${phys}
+                ${netlist}
+        )
 
-    add_custom_target(test-${family}-${name}-dcp DEPENDS ${dcp})
-    add_dependencies(all-${family}-tests test-${family}-${name}-dcp)
-    add_dependencies(all-${device}-tests test-${family}-${name}-dcp)
+        add_custom_target(test-${family}-${name}-dcp DEPENDS ${dcp})
+        add_dependencies(all-${family}-tests test-${family}-${name}-dcp)
+        add_dependencies(all-${device}-tests test-${family}-${name}-dcp)
+    endif()
 endfunction()
 
 function(add_interchange_group_test)

@@ -108,6 +108,8 @@ function(create_prjoxide_device_db)
             interchange-export
             ${device}
             ${prjoxide_device_db}
+        DEPENDS
+            ${PRJOXIDE_PREFIX}/bin/prjoxide
     )
 
     add_custom_target(prjoxide-${device}-device DEPENDS ${prjoxide_device_db})
@@ -205,6 +207,80 @@ function(create_patched_device_db)
 
     if (DEFINED output_target)
         set(${output_target} ${patch_name}-${device}-device PARENT_SCOPE)
+    endif()
+endfunction()
+
+function(patch_device_with_prim_lib)
+    # ~~~
+    # patch_device_with_prim_lib(
+    #    device <common device>
+    #    yosys_script <yosys script>
+    #    input_device <input device target>
+    #    output_target <output device target>
+    # )
+    # ~~~
+    #
+    # Generates a patched device database starting from an input device
+    #
+    # If output_target is specified, the variable named as the output_target
+    # parameter value is set to the generated output_device_file target.
+    #
+    # Arguments:
+    #   - device: common device name of a set of parts. E.g. xc7a35tcsg324-1 and xc7a35tcpg236-1
+    #             share the same xc7a35t device prefix.
+    #   - yosys_script: yosys script to produce cell library
+    #   - input_device: target for the device that needs to be patched
+    #   - output_target: variable name that will hold the output device target for the parent scope
+    #
+    # Targets generated:
+    #   - prims-<device>-device
+
+    set(options)
+    set(oneValueArgs device yosys_script input_device output_target)
+    set(multiValueArgs)
+
+    cmake_parse_arguments(
+        patch_device_with_prim_lib
+        "${options}"
+        "${oneValueArgs}"
+        "${multiValueArgs}"
+        ${ARGN}
+    )
+
+    set(device ${patch_device_with_prim_lib_device})
+    set(yosys_script ${patch_device_with_prim_lib_yosys_script})
+    set(input_device ${patch_device_with_prim_lib_input_device})
+    set(output_target ${patch_device_with_prim_lib_output_target})
+
+    get_target_property(input_device_loc ${input_device} LOCATION)
+    set(output_device_file ${CMAKE_CURRENT_BINARY_DIR}/${device}_prim_lib.device)
+    set(output_json_file ${CMAKE_CURRENT_BINARY_DIR}/${device}_prim_lib.json)
+
+    add_custom_command(
+        OUTPUT ${output_json_file}
+        COMMAND
+            yosys -p '${yosys_script}\; write_json ${output_json_file}'
+    )
+
+    add_custom_command(
+        OUTPUT ${output_device_file}
+        COMMAND
+            ${PYTHON_EXECUTABLE} -mfpga_interchange.add_prim_lib
+                --schema_dir ${INTERCHANGE_SCHEMA_PATH}
+                ${input_device_loc}
+                ${output_json_file}
+                ${output_device_file}
+        DEPENDS
+            ${input_device}
+            ${input_device_loc}
+            ${output_json_file}
+    )
+
+    add_custom_target(prims-${device}-device DEPENDS ${output_device_file})
+    set_property(TARGET prims-${device}-device PROPERTY LOCATION ${output_device_file})
+
+    if (DEFINED output_target)
+        set(${output_target} prims-${device}-device PARENT_SCOPE)
     endif()
 endfunction()
 
@@ -316,10 +392,16 @@ function(generate_nexus_device_db)
         output_target prjoxide_device
     )
 
-    # TODO: any patching that is needed
+    # Add primitive library
+    patch_device_with_prim_lib(
+        device ${device}
+        yosys_script synth_nexus
+        input_device ${prjoxide_device}
+        output_target prjoxide_prims_device
+    )
 
     if(DEFINED device_target)
-        set(${device_target} ${prjoxide_device} PARENT_SCOPE)
+        set(${device_target} ${prjoxide_prims_device} PARENT_SCOPE)
     endif()
 endfunction()
 
