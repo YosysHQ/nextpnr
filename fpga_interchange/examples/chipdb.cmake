@@ -41,7 +41,7 @@ function(create_rapidwright_device_db)
         OUTPUT ${rapidwright_device_db}
         COMMAND
             RAPIDWRIGHT_PATH=${RAPIDWRIGHT_PATH}
-            ${INVOKE_RAPIDWRIGHT}
+            ${INVOKE_RAPIDWRIGHT} ${JAVA_HEAP_SPACE}
             com.xilinx.rapidwright.interchange.DeviceResourcesExample
             ${part}
         DEPENDS
@@ -367,6 +367,9 @@ function(generate_chipdb)
             ${CMAKE_CURRENT_SOURCE_DIR}
     )
 
-add_dependencies(all-${family}-archcheck-tests chipdb-${device}-bin-check-test-data chipdb-${device}-bin-check)
+    add_dependencies(all-${family}-archcheck-tests chipdb-${device}-bin-check-test-data chipdb-${device}-bin-check)
+
+    # All tests targets for this device are added to this target
+    add_custom_target(all-${device}-tests)
 endfunction()
 

@@ -6,7 +6,8 @@ endif()
 find_package(ZLIB REQUIRED)
 
 set(RAPIDWRIGHT_PATH $ENV{HOME}/RapidWright CACHE PATH "Path to RapidWright")
-set(INVOKE_RAPIDWRIGHT ${RAPIDWRIGHT_PATH}/scripts/invoke_rapidwright.sh CACHE PATH "Path to RapidWright invocation script")
+set(INVOKE_RAPIDWRIGHT "${RAPIDWRIGHT_PATH}/scripts/invoke_rapidwright.sh" CACHE PATH "Path to RapidWright invocation script")
+set(JAVA_HEAP_SPACE "-Xmx8g" CACHE STRING "Heap space reserved for Java")
 # FIXME: Make patch data available in the python package and remove this cached var
 set(PYTHON_INTERCHANGE_PATH $ENV{HOME}/python-fpga-interchange CACHE PATH "Path to the FPGA interchange python library")
 set(INTERCHANGE_SCHEMA_PATH ${PROJECT_SOURCE_DIR}/3rdparty/fpga-interchange-schema/interchange CACHE PATH "Path to the FPGA interchange schema dir")
@@ -14,6 +15,7 @@ set(INTERCHANGE_SCHEMA_PATH ${PROJECT_SOURCE_DIR}/3rdparty/fpga-interchange-sche
 add_subdirectory(3rdparty/fpga-interchange-schema/cmake/cxx_static)
 
 include(${family}/examples/chipdb.cmake)
+include(${family}/examples/boards.cmake)
 include(${family}/examples/tests.cmake)
 
 set(chipdb_dir ${CMAKE_CURRENT_BINARY_DIR}/${family}/chipdb)
@@ -22,6 +24,7 @@ file(MAKE_DIRECTORY ${chipdb_dir})
 add_custom_target(all-${family}-tests)
 add_custom_target(all-${family}-archcheck-tests)
 add_subdirectory(${family}/examples/devices)
+add_subdirectory(${family}/examples/boards)
 add_subdirectory(${family}/examples/tests)
 
 set(PROTOS lookahead.capnp)
