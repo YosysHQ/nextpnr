@@ -45,6 +45,12 @@ bool rotate_and_merge_lut_equation(std::vector<LogicLevel> *result, const LutBel
             if ((bel_address & (1 << bel_pin_idx)) == 0) {
                 // This pin is unused, so the line will be tied high, this
                 // address is unreachable.
+                //
+                // FIXME: The assumption is that unused pins are tied VCC.
+                // This is not generally true.
+                //
+                // Use Arch::prefered_constant_net_type to determine what
+                // constant net should be used for unused pins.
                 if ((used_pins & (1 << bel_pin_idx)) == 0) {
                     address_reachable = false;
                     break;
@@ -134,6 +140,11 @@ uint32_t LutMapper::check_wires(const std::vector<std::vector<int32_t>> &bel_to_
         }
     }
 
+    // FIXME: The assumption is that unused pins are tied VCC.
+    // This is not generally true.
+    //
+    // Use Arch::prefered_constant_net_type to determine what
+    // constant net should be used for unused pins.
     uint32_t vcc_mask = 0;
 
     DynamicBitarray<> wire_equation;
@@ -351,6 +362,12 @@ bool LutMapper::remap_luts(const Context *ctx)
     } else {
         // Look to see if wires can be run from element inputs to unused
         // outputs. If not, block the BEL pin by tying to VCC.
+        //
+        // FIXME: The assumption is that unused pins are tied VCC.
+        // This is not generally true.
+        //
+        // Use Arch::prefered_constant_net_type to determine what
+        // constant net should be used for unused pins.
         uint32_t vcc_pins = check_wires(bel_to_cell_pin_remaps, lut_bels, used_pins);
 #if defined(DEBUG_LUT_ROTATION)
         log_info("vcc_pins = 0x%x", vcc_pins);
