@@ -1087,6 +1087,8 @@ struct Arch : ArchAPI<ArchRanges>
 
     // This unmasks any BEL pins that were masked when site routing was bound.
     void unmask_bel_pins();
+
+    void explain_bel_status(BelId bel) const;
 };
 
 NEXTPNR_NAMESPACE_END

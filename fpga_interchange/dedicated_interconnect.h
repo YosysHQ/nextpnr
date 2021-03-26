@@ -133,6 +133,7 @@ struct DedicatedInterconnect
     //
     // Note: Only BEL pin sinks are checked.
     bool isBelLocationValid(BelId bel, const CellInfo *cell) const;
+    void explain_bel_status(BelId bel, const CellInfo *cell) const;
 
     void find_dedicated_interconnect();
     void print_dedicated_interconnect() const;

@@ -328,7 +328,7 @@ void print_current_state(const SiteArch *site_arch)
 
     log_info(" Cells in site:\n");
     for (CellInfo *cell : cells_in_site) {
-        log_info("  - %s (%s)\n", cell->name.c_str(ctx), cell->type.c_str(ctx));
+        log_info("  - %s (%s) => %s\n", cell->name.c_str(ctx), cell->type.c_str(ctx), ctx->nameOfBel(cell->bel));
     }
 
     log_info(" Nets in site:\n");
@@ -490,7 +490,7 @@ struct SolutionPreference
 
 static bool find_solution_via_backtrack(SiteArch *ctx, std::vector<PossibleSolutions> *solutions,
                                         std::vector<std::vector<size_t>> sinks_to_solutions,
-                                        const std::vector<SiteWire> &sinks)
+                                        const std::vector<SiteWire> &sinks, bool explain)
 {
     std::vector<uint8_t> routed_sinks;
     std::vector<size_t> solution_indicies;
@@ -499,10 +499,20 @@ static bool find_solution_via_backtrack(SiteArch *ctx, std::vector<PossibleSolut
     solution_indicies.resize(sinks_to_solutions.size(), 0);
 
     // Scan solutions, and remove any solutions that are invalid immediately
-    for (auto &solution : *solutions) {
+    for (size_t solution_idx = 0; solution_idx < solutions->size(); ++solution_idx) {
+        PossibleSolutions &solution = (*solutions)[solution_idx];
+        if (verbose_site_router(ctx) || explain) {
+            log_info("Testing solution %zu\n", solution_idx);
+        }
         if (test_solution(ctx, solution.net, solution.pips_begin, solution.pips_end)) {
+            if (verbose_site_router(ctx) || explain) {
+                log_info("Solution %zu is good\n", solution_idx);
+            }
             remove_solution(ctx, solution.pips_begin, solution.pips_end);
         } else {
+            if (verbose_site_router(ctx) || explain) {
+                log_info("Solution %zu is not useable\n", solution_idx);
+            }
             solution.tested = true;
         }
     }
@@ -513,11 +523,15 @@ static bool find_solution_via_backtrack(SiteArch *ctx, std::vector<PossibleSolut
         std::vector<size_t> &solutions_for_sink = sinks_to_solutions.at(sink_idx);
         std::stable_sort(solutions_for_sink.begin(), solutions_for_sink.end(), SolutionPreference(ctx, *solutions));
 
-        if (verbose_site_router(ctx)) {
-            log_info("Solutions for sink %s\n", ctx->nameOfWire(sinks.at(sink_idx)));
+        if (verbose_site_router(ctx) || explain) {
+            log_info("Solutions for sink %s (%zu)\n", ctx->nameOfWire(sinks.at(sink_idx)), sink_idx);
             for (size_t solution_idx : solutions_for_sink) {
                 const PossibleSolutions &solution = solutions->at(solution_idx);
-                log_info("%zu: inverted = %d, can_invert = %d\n", solution_idx, solution.inverted, solution.can_invert);
+                log_info("%zu: inverted = %d, can_invert = %d, tested = %d\n", solution_idx, solution.inverted,
+                         solution.can_invert, solution.tested);
+                for (auto iter = solution.pips_begin; iter != solution.pips_end; ++iter) {
+                    log_info(" - %s\n", ctx->nameOfPip(*iter));
+                }
             }
         }
     }
@@ -531,6 +545,9 @@ static bool find_solution_via_backtrack(SiteArch *ctx, std::vector<PossibleSolut
         }
 
         if (solution_count == 0) {
+            if (verbose_site_router(ctx) || explain) {
+                log_info("Sink %s has no solution in site\n", ctx->nameOfWire(sinks.at(sink_idx)));
+            }
             return false;
         }
 
@@ -566,11 +583,14 @@ static bool find_solution_via_backtrack(SiteArch *ctx, std::vector<PossibleSolut
         size_t sink_idx = solution_order[solution_stack.size()].first;
 
         size_t next_solution_to_test = solution_indicies[sink_idx];
+        if (verbose_site_router(ctx) || explain) {
+            log_info("next %zu : %zu (of %zu)\n", sink_idx, next_solution_to_test, sinks_to_solutions[sink_idx].size());
+        }
         if (next_solution_to_test >= sinks_to_solutions[sink_idx].size()) {
             // We have exausted all solutions at this level of the stack!
             if (solution_stack.empty()) {
                 // Search is done, failed!!!
-                if (verbose_site_router(ctx)) {
+                if (verbose_site_router(ctx) || explain) {
                     log_info("No solution found via backtrace with %zu solutions and %zu sinks\n", solutions->size(),
                              sinks_to_solutions.size());
                 }
@@ -578,7 +598,11 @@ static bool find_solution_via_backtrack(SiteArch *ctx, std::vector<PossibleSolut
             } else {
                 // This level of the stack is completely tapped out, pop back
                 // to the next level up.
+                size_t sink_idx = solution_order[solution_stack.size() - 1].first;
                 size_t solution_idx = solution_stack.back();
+                if (verbose_site_router(ctx) || explain) {
+                    log_info("pop  %zu : %zu\n", sink_idx, solution_idx);
+                }
                 solution_stack.pop_back();
 
                 // Remove the now tested bad solution at the previous level of
@@ -588,7 +612,6 @@ static bool find_solution_via_backtrack(SiteArch *ctx, std::vector<PossibleSolut
 
                 // Because we had to pop up the stack, advance the index at
                 // the level below us and start again.
-                sink_idx = solution_order[solution_stack.size()].first;
                 solution_indicies[sink_idx] += 1;
                 continue;
             }
@@ -598,8 +621,15 @@ static bool find_solution_via_backtrack(SiteArch *ctx, std::vector<PossibleSolut
         auto &solution = solutions->at(solution_idx);
         if (solution.tested) {
             // This solution was already determined to be no good, skip it.
+            if (verbose_site_router(ctx) || explain) {
+                log_info("skip %zu : %zu\n", sink_idx, solution_idx);
+            }
             solution_indicies[sink_idx] += 1;
             continue;
+        }
+
+        if (verbose_site_router(ctx) || explain) {
+            log_info("test %zu : %zu\n", sink_idx, solution_idx);
         }
 
         if (!test_solution(ctx, solution.net, solution.pips_begin, solution.pips_end)) {
@@ -608,6 +638,9 @@ static bool find_solution_via_backtrack(SiteArch *ctx, std::vector<PossibleSolut
             solution_indicies[sink_idx] += 1;
         } else {
             // This solution was good, push onto the stack.
+            if (verbose_site_router(ctx) || explain) {
+                log_info("push %zu : %zu\n", sink_idx, solution_idx);
+            }
             solution_stack.push_back(solution_idx);
             if (solution_stack.size() == sinks_to_solutions.size()) {
                 // Found a valid solution, done!
@@ -629,7 +662,7 @@ static bool find_solution_via_backtrack(SiteArch *ctx, std::vector<PossibleSolut
     NPNR_ASSERT(false);
 }
 
-bool route_site(SiteArch *ctx, SiteRoutingCache *site_routing_cache, RouteNodeStorage *node_storage)
+bool route_site(SiteArch *ctx, SiteRoutingCache *site_routing_cache, RouteNodeStorage *node_storage, bool explain)
 {
     std::vector<SiteExpansionLoop *> expansions;
     expansions.reserve(ctx->nets.size());
@@ -644,7 +677,7 @@ bool route_site(SiteArch *ctx, SiteRoutingCache *site_routing_cache, RouteNodeSt
 
         SiteExpansionLoop *router = expansions.back();
         if (!router->expand_net(ctx, site_routing_cache, net)) {
-            if (verbose_site_router(ctx)) {
+            if (verbose_site_router(ctx) || explain) {
                 log_info("Net %s expansion failed to reach all users, site is unroutable!\n", ctx->nameOfNet(net));
             }
 
@@ -706,7 +739,7 @@ bool route_site(SiteArch *ctx, SiteRoutingCache *site_routing_cache, RouteNodeSt
         }
     }
 
-    return find_solution_via_backtrack(ctx, &solutions, sinks_to_solutions, sinks);
+    return find_solution_via_backtrack(ctx, &solutions, sinks_to_solutions, sinks, explain);
 }
 
 void check_routing(const SiteArch &site_arch)
@@ -1010,7 +1043,7 @@ bool SiteRouter::checkSiteRouting(const Context *ctx, const TileStatus &tile_sta
     SiteArch site_arch(&site_info);
     // site_arch.archcheck();
 
-    site_ok = route_site(&site_arch, &ctx->site_routing_cache, &ctx->node_storage);
+    site_ok = route_site(&site_arch, &ctx->site_routing_cache, &ctx->node_storage, /*explain=*/false);
     if (verbose_site_router(ctx)) {
         if (site_ok) {
             log_info("Site %s is routable\n", ctx->get_site_name(tile, site));
@@ -1062,10 +1095,31 @@ void SiteRouter::bindSiteRouting(Context *ctx)
 
     SiteInformation site_info(ctx, tile, site, cells_in_site);
     SiteArch site_arch(&site_info);
-    NPNR_ASSERT(route_site(&site_arch, &ctx->site_routing_cache, &ctx->node_storage));
+    NPNR_ASSERT(route_site(&site_arch, &ctx->site_routing_cache, &ctx->node_storage, /*explain=*/false));
     check_routing(site_arch);
     apply_routing(ctx, site_arch);
     if (verbose_site_router(ctx)) {
+        print_current_state(&site_arch);
+    }
+}
+
+void SiteRouter::explain(const Context *ctx) const
+{
+    NPNR_ASSERT(!dirty);
+    if (site_ok) {
+        return;
+    }
+
+    // Make sure all cells in this site belong!
+    auto iter = cells_in_site.begin();
+    NPNR_ASSERT((*iter)->bel != BelId());
+
+    auto tile = (*iter)->bel.tile;
+
+    SiteInformation site_info(ctx, tile, site, cells_in_site);
+    SiteArch site_arch(&site_info);
+    bool route_status = route_site(&site_arch, &ctx->site_routing_cache, &ctx->node_storage, /*explain=*/true);
+    if (!route_status) {
         print_current_state(&site_arch);
     }
 }

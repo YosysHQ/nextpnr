@@ -47,6 +47,7 @@ struct SiteRouter
     void unbindBel(CellInfo *cell);
     bool checkSiteRouting(const Context *ctx, const TileStatus &tile_status) const;
     void bindSiteRouting(Context *ctx);
+    void explain(const Context *ctx) const;
 };
 
 NEXTPNR_NAMESPACE_END

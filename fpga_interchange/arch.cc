@@ -1861,6 +1861,36 @@ void Arch::remove_site_routing()
     }
 }
 
+void Arch::explain_bel_status(BelId bel) const
+{
+    if (isBelLocationValid(bel)) {
+        log_info("BEL %s is valid!\n", nameOfBel(bel));
+        return;
+    }
+
+    auto iter = tileStatus.find(bel.tile);
+    NPNR_ASSERT(iter != tileStatus.end());
+    const TileStatus &tile_status = iter->second;
+    const CellInfo *cell = tile_status.boundcells[bel.index];
+    if (!dedicated_interconnect.isBelLocationValid(bel, cell)) {
+        dedicated_interconnect.explain_bel_status(bel, cell);
+        return;
+    }
+
+    if (io_port_types.count(cell->type)) {
+        return;
+    }
+
+    if (!is_cell_valid_constraints(cell, tile_status, /*explain_constraints=*/true)) {
+        return;
+    }
+
+    auto &bel_data = bel_info(chip_info, bel);
+    const SiteRouter &site = get_site_status(tile_status, bel_data);
+    NPNR_ASSERT(!site.checkSiteRouting(getCtx(), tile_status));
+    site.explain(getCtx());
+}
+
 // Instance constraint templates.
 template void Arch::ArchConstraints::bindBel(Arch::ArchConstraints::TagState *, const Arch::ConstraintRange);
 template void Arch::ArchConstraints::unbindBel(Arch::ArchConstraints::TagState *, const Arch::ConstraintRange);
