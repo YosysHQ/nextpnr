@@ -376,12 +376,16 @@ bool test_solution(SiteArch *ctx, SiteNetInfo *net, std::vector<SitePip>::const_
 {
     bool valid = true;
     std::vector<SitePip>::const_iterator good_pip_end = pips_begin;
-    for (auto iter = pips_begin; iter != pips_end; ++iter) {
-        if (!ctx->bindPip(*iter, net)) {
+    std::vector<SitePip>::const_iterator iter = pips_begin;
+    SitePip pip;
+    while (iter != pips_end) {
+        pip = *iter;
+        if (!ctx->bindPip(pip, net)) {
             valid = false;
             break;
         }
 
+        ++iter;
         good_pip_end = iter;
     }
 
@@ -391,7 +395,7 @@ bool test_solution(SiteArch *ctx, SiteNetInfo *net, std::vector<SitePip>::const_
             ctx->unbindPip(*iter);
         }
     } else {
-        NPNR_ASSERT(net->driver == ctx->getPipSrcWire(*good_pip_end));
+        NPNR_ASSERT(net->driver == ctx->getPipSrcWire(pip));
     }
 
     return valid;
