@@ -32,8 +32,9 @@ struct NexusFasmWriter
     const Context *ctx;
     std::ostream &out;
     std::vector<std::string> fasm_ctx;
+    bool is_lifcl_17;
 
-    NexusFasmWriter(const Context *ctx, std::ostream &out) : ctx(ctx), out(out) {}
+    NexusFasmWriter(const Context *ctx, std::ostream &out) : ctx(ctx), out(out), is_lifcl_17(ctx->args.device.find("LIFCL-17") != std::string::npos) {}
 
     // Add a 'dot' prefix to the FASM context stack
     void push(const std::string &x) { fasm_ctx.push_back(x); }
@@ -736,6 +737,8 @@ struct NexusFasmWriter
 
                 pop();
             } else {
+                if (is_lifcl_17 && (i != 0) && (i != 1))
+                    continue;
                 // 3.3V banks, this should eventually be set based on the bank config
                 write_bit(stringf("GLOBAL.BANK%d.VCC.3V3", i));
             }
