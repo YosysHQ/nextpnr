@@ -90,6 +90,4 @@ jobs:
         DEVICE: ${{ matrix.device }}
       run: |
         cd build
-        make chipdb-$DEVICE-bin-check-test-data
-        make chipdb-$DEVICE-bin-check
         make all-$DEVICE-tests -j`nproc`

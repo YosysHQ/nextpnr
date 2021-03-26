@@ -370,6 +370,11 @@ function(generate_chipdb)
     add_dependencies(all-${family}-archcheck-tests chipdb-${device}-bin-check-test-data chipdb-${device}-bin-check)
 
     # All tests targets for this device are added to this target
-    add_custom_target(all-${device}-tests)
+    add_custom_target(
+        all-${device}-tests
+        DEPENDS
+            chipdb-${device}-bin-check-test-data
+            chipdb-${device}-bin-check
+    )
 endfunction()
 
