@@ -19,10 +19,10 @@ function build_capnp {
 
 # Install latest Yosys
 function build_yosys {
-    git clone https://github.com/YosysHQ/yosys.git
+    DESTDIR=`pwd`/.yosys
     pushd yosys
     make -j`nproc`
-    sudo make install
+    sudo make install DESTDIR=$DESTDIR
     popd
 }
 
