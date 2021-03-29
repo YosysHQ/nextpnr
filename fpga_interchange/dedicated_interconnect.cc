@@ -365,6 +365,35 @@ bool DedicatedInterconnect::isBelLocationValid(BelId bel, const CellInfo *cell) 
     return true;
 }
 
+void DedicatedInterconnect::explain_bel_status(BelId bel, const CellInfo *cell) const
+{
+    NPNR_ASSERT(bel != BelId());
+
+    for (const auto &port_pair : cell->ports) {
+        IdString port_name = port_pair.first;
+        NetInfo *net = port_pair.second.net;
+        if (net == nullptr) {
+            continue;
+        }
+
+        // This net doesn't have a driver, probably not valid?
+        NPNR_ASSERT(net->driver.cell != nullptr);
+
+        // Only check sink BELs.
+        if (net->driver.cell == cell && net->driver.port == port_name) {
+            if (!is_driver_on_net_valid(bel, cell, port_name, net)) {
+                log_info("Driver %s/%s is not valid on net '%s'", cell->name.c_str(ctx), port_name.c_str(ctx),
+                         net->name.c_str(ctx));
+            }
+        } else {
+            if (!is_sink_on_net_valid(bel, cell, port_name, net)) {
+                log_info("Sink %s/%s is not valid on net '%s'", cell->name.c_str(ctx), port_name.c_str(ctx),
+                         net->name.c_str(ctx));
+            }
+        }
+    }
+}
+
 void DedicatedInterconnect::print_dedicated_interconnect() const
 {
     log_info("Found %zu sinks with dedicated interconnect\n", sinks.size());

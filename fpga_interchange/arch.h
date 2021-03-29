@@ -217,10 +217,15 @@ struct Arch : ArchAPI<ArchRanges>
 
     PhysicalNetlist::PhysNetlist::NetType get_net_type(NetInfo *net) const
     {
-        NPNR_ASSERT(net->driver.cell != nullptr);
-        if (net->driver.cell->bel == get_gnd_bel()) {
+        NPNR_ASSERT(net != nullptr);
+        IdString gnd_cell_name(chip_info->constants->gnd_cell_name);
+        IdString gnd_cell_port(chip_info->constants->gnd_cell_port);
+
+        IdString vcc_cell_name(chip_info->constants->vcc_cell_name);
+        IdString vcc_cell_port(chip_info->constants->vcc_cell_port);
+        if (net->driver.cell->type == gnd_cell_name && net->driver.port == gnd_cell_port) {
             return PhysicalNetlist::PhysNetlist::NetType::GND;
-        } else if (net->driver.cell->bel == get_vcc_bel()) {
+        } else if (net->driver.cell->type == vcc_cell_name && net->driver.port == vcc_cell_port) {
             return PhysicalNetlist::PhysNetlist::NetType::VCC;
         } else {
             return PhysicalNetlist::PhysNetlist::NetType::SIGNAL;
@@ -1059,7 +1064,6 @@ struct Arch : ArchAPI<ArchRanges>
     std::regex verilog_bin_constant;
     std::regex verilog_hex_constant;
     void read_lut_equation(DynamicBitarray<> *equation, const Property &equation_parameter) const;
-    bool route_vcc_to_unused_lut_pins();
 
     IdString id_GND;
     IdString id_VCC;
@@ -1070,6 +1074,21 @@ struct Arch : ArchAPI<ArchRanges>
 
     std::string chipdb_hash;
     std::string get_chipdb_hash() const;
+
+    // Masking moves BEL pins from cell_bel_pins to masked_cell_bel_pins for
+    // the purposes routing.  The idea is that masked BEL pins are already
+    // handled during site routing, and they shouldn't be visible to the
+    // router.
+    void mask_bel_pins_on_site_wire(NetInfo *net, WireId wire);
+
+    // This removes pips and wires bound by the site router, and unmasks all
+    // BEL pins masked during site routing.
+    void remove_site_routing();
+
+    // This unmasks any BEL pins that were masked when site routing was bound.
+    void unmask_bel_pins();
+
+    void explain_bel_status(BelId bel) const;
 };
 
 NEXTPNR_NAMESPACE_END

@@ -51,6 +51,17 @@ function(create_rapidwright_device_db)
     add_custom_target(rapidwright-${device}-device DEPENDS ${rapidwright_device_db})
     set_property(TARGET rapidwright-${device}-device PROPERTY LOCATION ${rapidwright_device_db})
 
+    add_custom_target(rapidwright-${device}-device-yaml
+        COMMAND
+            ${PYTHON_EXECUTABLE} -mfpga_interchange.convert
+                --schema_dir ${INTERCHANGE_SCHEMA_PATH}
+                --schema device
+                --input_format capnp
+                --output_format yaml
+                ${rapidwright_device_db}
+                ${rapidwright_device_db}.yaml
+        DEPENDS ${rapidwright_device_db})
+
     if (DEFINED output_target)
         set(${output_target} rapidwright-${device}-device PARENT_SCOPE)
     endif()
@@ -128,6 +139,17 @@ function(create_patched_device_db)
 
     add_custom_target(${patch_name}-${device}-device DEPENDS ${output_device_file})
     set_property(TARGET ${patch_name}-${device}-device PROPERTY LOCATION ${output_device_file})
+
+    add_custom_target(${patch_name}-${device}-device-yaml
+        COMMAND
+            ${PYTHON_EXECUTABLE} -mfpga_interchange.convert
+                --schema_dir ${INTERCHANGE_SCHEMA_PATH}
+                --schema device
+                --input_format capnp
+                --output_format yaml
+                ${output_device_file}
+                ${output_device_file}.yaml
+        DEPENDS ${output_device_file})
 
     if (DEFINED output_target)
         set(${output_target} ${patch_name}-${device}-device PARENT_SCOPE)

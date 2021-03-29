@@ -59,6 +59,10 @@ bool SiteArch::bindPip(const SitePip &pip, SiteNetInfo *net)
         result.first->second.count += 1;
     }
 
+    if (debug()) {
+        log_info("Bound pip %s to wire %s\n", nameOfPip(pip), nameOfWire(dst));
+    }
+
     return true;
 }
 
@@ -66,6 +70,10 @@ void SiteArch::unbindPip(const SitePip &pip)
 {
     SiteWire src = getPipSrcWire(pip);
     SiteWire dst = getPipDstWire(pip);
+
+    if (debug()) {
+        log_info("Unbinding pip %s from wire %s\n", nameOfPip(pip), nameOfWire(dst));
+    }
 
     SiteNetInfo *src_net = unbindWire(src);
     SiteNetInfo *dst_net = unbindWire(dst);
@@ -125,12 +133,17 @@ SiteArch::SiteArch(const SiteInformation *site_info) : ctx(site_info->ctx), site
 
     // Create list of out of site sources and sinks.
 
+    bool have_vcc_pins = false;
     for (CellInfo *cell : site_info->cells_in_site) {
         for (const auto &pin_pair : cell->cell_bel_pins) {
             const PortInfo &port = cell->ports.at(pin_pair.first);
             if (port.net != nullptr) {
                 nets.emplace(port.net, SiteNetInfo{port.net});
             }
+        }
+
+        if (!cell->lut_cell.vcc_pins.empty()) {
+            have_vcc_pins = true;
         }
     }
 
@@ -222,6 +235,27 @@ SiteArch::SiteArch(const SiteInformation *site_info) : ctx(site_info->ctx), site
         }
     }
 
+    IdString vcc_net_name(ctx->chip_info->constants->vcc_net_name);
+    NetInfo *vcc_net = ctx->nets.at(vcc_net_name).get();
+    auto iter = nets.find(vcc_net);
+    if (iter == nets.end() && have_vcc_pins) {
+        // VCC net isn't present, add it.
+        SiteNetInfo net_info;
+        net_info.net = vcc_net;
+        net_info.driver.type = SiteWire::OUT_OF_SITE_SOURCE;
+        net_info.driver.net = vcc_net;
+        auto result = nets.emplace(vcc_net, net_info);
+        NPNR_ASSERT(result.second);
+        iter = result.first;
+    }
+
+    for (CellInfo *cell : site_info->cells_in_site) {
+        for (IdString vcc_pin : cell->lut_cell.vcc_pins) {
+            SiteWire wire = getBelPinWire(cell->bel, vcc_pin);
+            iter->second.users.emplace(wire);
+        }
+    }
+
     for (auto &net_pair : nets) {
         SiteNetInfo *net_info = &net_pair.second;
         auto result = wire_to_nets.emplace(net_info->driver, SiteNetMap{net_info, 1});
@@ -254,10 +288,16 @@ const char *SiteArch::nameOfWire(const SiteWire &wire) const
         return ctx->nameOfWire(wire.wire);
     case SiteWire::SITE_PORT_SOURCE:
         return ctx->nameOfWire(wire.wire);
-    case SiteWire::OUT_OF_SITE_SOURCE:
-        return "out of site source, implement me!";
-    case SiteWire::OUT_OF_SITE_SINK:
-        return "out of site sink, implement me!";
+    case SiteWire::OUT_OF_SITE_SOURCE: {
+        std::string &str = ctx->log_strs.next();
+        str = stringf("Out of site source for net %s", wire.net->name.c_str(ctx));
+        return str.c_str();
+    }
+    case SiteWire::OUT_OF_SITE_SINK: {
+        std::string &str = ctx->log_strs.next();
+        str = stringf("Out of sink source for net %s", wire.net->name.c_str(ctx));
+        return str.c_str();
+    }
     default:
         // Unreachable!
         NPNR_ASSERT(false);
@@ -271,12 +311,24 @@ const char *SiteArch::nameOfPip(const SitePip &pip) const
         return ctx->nameOfPip(pip.pip);
     case SitePip::SITE_PORT:
         return ctx->nameOfPip(pip.pip);
-    case SitePip::SOURCE_TO_SITE_PORT:
-        return "source to site port, implement me!";
-    case SitePip::SITE_PORT_TO_SINK:
-        return "site port to sink, implement me!";
-    case SitePip::SITE_PORT_TO_SITE_PORT:
-        return "site port to site port, implement me!";
+    case SitePip::SOURCE_TO_SITE_PORT: {
+        std::string &str = ctx->log_strs.next();
+        str = stringf("Out of site source for net %s => %s", pip.wire.net->name.c_str(ctx),
+                      ctx->nameOfWire(ctx->getPipSrcWire(pip.pip)));
+        return str.c_str();
+    }
+    case SitePip::SITE_PORT_TO_SINK: {
+        std::string &str = ctx->log_strs.next();
+        str = stringf("%s => Out of site sink for net %s", ctx->nameOfWire(ctx->getPipDstWire(pip.pip)),
+                      pip.wire.net->name.c_str(ctx));
+        return str.c_str();
+    }
+    case SitePip::SITE_PORT_TO_SITE_PORT: {
+        std::string &str = ctx->log_strs.next();
+        str = stringf("%s => %s", ctx->nameOfWire(ctx->getPipSrcWire(pip.pip)),
+                      ctx->nameOfWire(ctx->getPipDstWire(pip.other_pip)));
+        return str.c_str();
+    }
     default:
         // Unreachable!
         NPNR_ASSERT(false);

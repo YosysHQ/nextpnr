@@ -109,10 +109,9 @@ struct ArchNetInfo
 
 struct ArchCellInfo
 {
-    ArchCellInfo() : cell_mapping(-1) {}
-
-    int32_t cell_mapping;
+    int32_t cell_mapping = -1;
     HashTables::HashMap<IdString, std::vector<IdString>> cell_bel_pins;
+    HashTables::HashMap<IdString, std::vector<IdString>> masked_cell_bel_pins;
     HashTables::HashSet<IdString> const_ports;
     LutCell lut_cell;
 };

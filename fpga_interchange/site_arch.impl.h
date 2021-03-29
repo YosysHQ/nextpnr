@@ -295,6 +295,25 @@ inline bool SiteArch::canInvert(const SitePip &site_pip) const
     return bel_data.non_inverting_pin == pip_data.extra_data && bel_data.inverting_pin == pip_data.extra_data;
 }
 
+inline PhysicalNetlist::PhysNetlist::NetType SiteArch::prefered_constant_net_type(const SitePip &site_pip) const
+{
+    // FIXME: Implement site port overrides from chipdb once available.
+    IdString prefered_constant_net(ctx->chip_info->constants->best_constant_net);
+    IdString gnd_net_name(ctx->chip_info->constants->gnd_net_name);
+    IdString vcc_net_name(ctx->chip_info->constants->vcc_net_name);
+
+    if (prefered_constant_net == IdString()) {
+        return PhysicalNetlist::PhysNetlist::NetType::SIGNAL;
+    } else if (prefered_constant_net == gnd_net_name) {
+        return PhysicalNetlist::PhysNetlist::NetType::GND;
+    } else if (prefered_constant_net == vcc_net_name) {
+        return PhysicalNetlist::PhysNetlist::NetType::VCC;
+    } else {
+        log_error("prefered_constant_net %s is not the GND (%s) or VCC(%s) net?\n", prefered_constant_net.c_str(ctx),
+                  gnd_net_name.c_str(ctx), vcc_net_name.c_str(ctx));
+    }
+}
+
 NEXTPNR_NAMESPACE_END
 
 #endif /* SITE_ARCH_H */

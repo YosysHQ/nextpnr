@@ -45,6 +45,12 @@ bool rotate_and_merge_lut_equation(std::vector<LogicLevel> *result, const LutBel
             if ((bel_address & (1 << bel_pin_idx)) == 0) {
                 // This pin is unused, so the line will be tied high, this
                 // address is unreachable.
+                //
+                // FIXME: The assumption is that unused pins are tied VCC.
+                // This is not generally true.
+                //
+                // Use Arch::prefered_constant_net_type to determine what
+                // constant net should be used for unused pins.
                 if ((used_pins & (1 << bel_pin_idx)) == 0) {
                     address_reachable = false;
                     break;
@@ -123,6 +129,86 @@ struct LutPin
 };
 
 //#define DEBUG_LUT_ROTATION
+
+uint32_t LutMapper::check_wires(const std::vector<std::vector<int32_t>> &bel_to_cell_pin_remaps,
+                                const std::vector<const LutBel *> &lut_bels, uint32_t used_pins) const
+{
+    std::vector<const LutBel *> unused_luts;
+    for (auto &lut_bel_pair : element.lut_bels) {
+        if (std::find(lut_bels.begin(), lut_bels.end(), &lut_bel_pair.second) == lut_bels.end()) {
+            unused_luts.push_back(&lut_bel_pair.second);
+        }
+    }
+
+    // FIXME: The assumption is that unused pins are tied VCC.
+    // This is not generally true.
+    //
+    // Use Arch::prefered_constant_net_type to determine what
+    // constant net should be used for unused pins.
+    uint32_t vcc_mask = 0;
+
+    DynamicBitarray<> wire_equation;
+    wire_equation.resize(2);
+    wire_equation.set(0, false);
+    wire_equation.set(1, true);
+
+    std::vector<int32_t> wire_bel_to_cell_pin_map;
+    std::vector<LogicLevel> equation_result;
+    for (int32_t pin_idx = 0; pin_idx < (int32_t)element.pins.size(); ++pin_idx) {
+        if (used_pins & (1 << pin_idx)) {
+            // This pin is already used, so it cannot be used for a wire.
+            continue;
+        }
+
+        bool valid_pin_for_wire = false;
+        bool invalid_pin_for_wire = false;
+
+        for (const LutBel *lut_bel : unused_luts) {
+            if (pin_idx < lut_bel->min_pin) {
+                continue;
+            }
+
+            if (pin_idx > lut_bel->max_pin) {
+                continue;
+            }
+
+            wire_bel_to_cell_pin_map.clear();
+            wire_bel_to_cell_pin_map.resize(lut_bel->pins.size(), -1);
+            wire_bel_to_cell_pin_map[lut_bel->pin_to_index.at(element.pins[pin_idx])] = 0;
+
+            equation_result.clear();
+            equation_result.resize(element.width, LL_DontCare);
+
+            uint32_t used_pins_with_wire = used_pins | (1 << pin_idx);
+
+            for (size_t cell_idx = 0; cell_idx < cells.size(); ++cell_idx) {
+                const CellInfo *cell = cells[cell_idx];
+                auto &lut_bel_for_cell = *lut_bels[cell_idx];
+                if (!rotate_and_merge_lut_equation(&equation_result, lut_bel_for_cell, cell->lut_cell.equation,
+                                                   bel_to_cell_pin_remaps[cell_idx], used_pins_with_wire)) {
+                    invalid_pin_for_wire = true;
+                    break;
+                }
+            }
+
+            if (invalid_pin_for_wire) {
+                break;
+            }
+
+            if (rotate_and_merge_lut_equation(&equation_result, *lut_bel, wire_equation, wire_bel_to_cell_pin_map,
+                                              used_pins_with_wire)) {
+                valid_pin_for_wire = true;
+            }
+        }
+
+        bool good_for_wire = valid_pin_for_wire && !invalid_pin_for_wire;
+        if (!good_for_wire) {
+            vcc_mask |= (1 << pin_idx);
+        }
+    }
+
+    return vcc_mask;
+}
 
 bool LutMapper::remap_luts(const Context *ctx)
 {
@@ -259,12 +345,49 @@ bool LutMapper::remap_luts(const Context *ctx)
             bel_pins.clear();
             bel_pins.push_back(lut_bel.pins[cell_to_bel_pin_remaps[cell_idx][pin_idx]]);
         }
+    }
 
-        cell->lut_cell.vcc_pins.clear();
-        for (size_t bel_pin_idx = 0; bel_pin_idx < lut_bel.pins.size(); ++bel_pin_idx) {
-            if ((used_pins & (1 << bel_pin_idx)) == 0) {
-                NPNR_ASSERT(bel_to_cell_pin_remaps[cell_idx][bel_pin_idx] == -1);
-                cell->lut_cell.vcc_pins.emplace(lut_bel.pins.at(bel_pin_idx));
+    if (cells.size() == element.lut_bels.size()) {
+        for (size_t cell_idx = 0; cell_idx < cells.size(); ++cell_idx) {
+            CellInfo *cell = cells[cell_idx];
+            auto &lut_bel = *lut_bels[cell_idx];
+            cell->lut_cell.vcc_pins.clear();
+            for (size_t bel_pin_idx = 0; bel_pin_idx < lut_bel.pins.size(); ++bel_pin_idx) {
+                if ((used_pins & (1 << bel_pin_idx)) == 0) {
+                    NPNR_ASSERT(bel_to_cell_pin_remaps[cell_idx][bel_pin_idx] == -1);
+                    cell->lut_cell.vcc_pins.emplace(lut_bel.pins.at(bel_pin_idx));
+                }
+            }
+        }
+    } else {
+        // Look to see if wires can be run from element inputs to unused
+        // outputs. If not, block the BEL pin by tying to VCC.
+        //
+        // FIXME: The assumption is that unused pins are tied VCC.
+        // This is not generally true.
+        //
+        // Use Arch::prefered_constant_net_type to determine what
+        // constant net should be used for unused pins.
+        uint32_t vcc_pins = check_wires(bel_to_cell_pin_remaps, lut_bels, used_pins);
+#if defined(DEBUG_LUT_ROTATION)
+        log_info("vcc_pins = 0x%x", vcc_pins);
+        for (size_t cell_idx = 0; cell_idx < cells.size(); ++cell_idx) {
+            CellInfo *cell = cells[cell_idx];
+            log(", %s => %s", ctx->nameOfBel(cell->bel), cell->name.c_str(ctx));
+        }
+        log("\n");
+#endif
+
+        for (size_t cell_idx = 0; cell_idx < cells.size(); ++cell_idx) {
+            CellInfo *cell = cells[cell_idx];
+            auto &lut_bel = *lut_bels[cell_idx];
+            cell->lut_cell.vcc_pins.clear();
+            for (size_t bel_pin_idx = 0; bel_pin_idx < lut_bel.pins.size(); ++bel_pin_idx) {
+                if ((vcc_pins & (1 << bel_pin_idx)) != 0) {
+                    NPNR_ASSERT(bel_to_cell_pin_remaps[cell_idx][bel_pin_idx] == -1);
+                    auto pin = lut_bel.pins.at(bel_pin_idx);
+                    cell->lut_cell.vcc_pins.emplace(pin);
+                }
             }
         }
     }

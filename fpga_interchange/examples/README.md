@@ -29,6 +29,13 @@ Install python-fpga-interchange if not already installed:
 ```
 git clone https://github.com/SymbiFlow/python-fpga-interchange.git
 cd python-fpga-interchange.git
+#
+# Note: Recommend checking out a specific release, for example:
+#
+#   git checkout v0.0.5
+#
+# Release of python-fpga-interchange library does have to match nextpnr
+# implementation.
 python -m pip install -e .
 ```
 

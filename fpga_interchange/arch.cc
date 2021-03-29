@@ -49,6 +49,10 @@
 //#define USE_LOOKAHEAD
 //#define DEBUG_CELL_PIN_MAPPING
 
+// Define to enable some idempotent sanity checks for some important
+// operations prior to placement and routing.
+#define IDEMPOTENT_CHECK
+
 NEXTPNR_NAMESPACE_BEGIN
 struct SiteBelPair
 {
@@ -144,6 +148,7 @@ Arch::Arch(ArchArgs args) : args(args)
     io_port_types.emplace(this->id("$nextpnr_ibuf"));
     io_port_types.emplace(this->id("$nextpnr_obuf"));
     io_port_types.emplace(this->id("$nextpnr_iobuf"));
+    io_port_types.emplace(this->id("$nextpnr_inv"));
 
     if (!this->args.package.empty()) {
         IdString package = this->id(this->args.package);
@@ -709,18 +714,32 @@ bool Arch::pack()
     return true;
 }
 
-bool Arch::place()
+static void prepare_for_placement(Context *ctx)
 {
-    std::string placer = str_or_default(settings, id("placer"), defaultPlacer);
+    ctx->remove_site_routing();
 
     // Re-map BEL pins without constant pins
-    for (BelId bel : getBels()) {
-        CellInfo *cell = getBoundBelCell(bel);
+    for (BelId bel : ctx->getBels()) {
+        CellInfo *cell = ctx->getBoundBelCell(bel);
         if (cell != nullptr && cell->cell_mapping != -1) {
-            map_cell_pins(cell, cell->cell_mapping, /*bind_constants=*/false);
+            ctx->map_cell_pins(cell, cell->cell_mapping, /*bind_constants=*/false);
         }
     }
+}
 
+bool Arch::place()
+{
+    // Before placement, ripup placement specific bindings and unmask all cell
+    // pins.
+    getCtx()->check();
+    prepare_for_placement(getCtx());
+    getCtx()->check();
+#ifdef IDEMPOTENT_CHECK
+    prepare_for_placement(getCtx());
+    getCtx()->check();
+#endif
+
+    std::string placer = str_or_default(settings, id("placer"), defaultPlacer);
     if (placer == "heap") {
         PlacerHeapCfg cfg(getCtx());
         cfg.criticalityExponent = 7;
@@ -743,113 +762,43 @@ bool Arch::place()
 
     getCtx()->attrs[getCtx()->id("step")] = std::string("place");
     archInfoToAttributes();
+
+    getCtx()->check();
+
     return true;
 }
 
-bool Arch::route()
+static void prepare_sites_for_routing(Context *ctx)
 {
-    std::string router = str_or_default(settings, id("router"), defaultRouter);
+    // Reset site routing and remove masked cell pins from previous router run
+    // (if any).
+    ctx->remove_site_routing();
 
     // Re-map BEL pins with constant pins
-    for (BelId bel : getBels()) {
-        CellInfo *cell = getBoundBelCell(bel);
+    for (BelId bel : ctx->getBels()) {
+        CellInfo *cell = ctx->getBoundBelCell(bel);
         if (cell != nullptr && cell->cell_mapping != -1) {
-            map_cell_pins(cell, cell->cell_mapping, /*bind_constants=*/true);
+            ctx->map_cell_pins(cell, cell->cell_mapping, /*bind_constants=*/true);
         }
     }
 
-    HashTables::HashSet<WireId> wires_to_unbind;
-    for (auto &net_pair : nets) {
-        for (auto &wire_pair : net_pair.second->wires) {
-            WireId wire = wire_pair.first;
-            if (wire_pair.second.strength != STRENGTH_PLACER) {
-                // Only looking for bound placer wires
-                continue;
-            }
-
-            const TileWireInfoPOD &wire_data = wire_info(wire);
-            NPNR_ASSERT(wire_data.site != -1);
-
-            wires_to_unbind.emplace(wire);
-        }
-    }
-
-    for (WireId wire : wires_to_unbind) {
-        unbindWire(wire);
-    }
-
-    for (auto &tile_pair : tileStatus) {
+    // Have site router bind site routing (via bindPip and bindWire).
+    // This is important so that the pseudo pips are correctly blocked prior
+    // to handing the design to the generalized router algorithms.
+    for (auto &tile_pair : ctx->tileStatus) {
         for (auto &site_router : tile_pair.second.sites) {
             if (site_router.cells_in_site.empty()) {
                 continue;
             }
 
-            site_router.bindSiteRouting(getCtx());
-        }
-    }
-
-    bool result;
-    if (router == "router1") {
-        result = router1(getCtx(), Router1Cfg(getCtx()));
-    } else if (router == "router2") {
-        router2(getCtx(), Router2Cfg(getCtx()));
-        result = true;
-    } else {
-        log_error("FPGA interchange architecture does not support router '%s'\n", router.c_str());
-    }
-
-    if (result) {
-        result = route_vcc_to_unused_lut_pins();
-    }
-
-    getCtx()->attrs[getCtx()->id("step")] = std::string("route");
-    archInfoToAttributes();
-
-    return result;
-}
-
-bool Arch::route_vcc_to_unused_lut_pins()
-{
-    std::string router = str_or_default(settings, id("router"), defaultRouter);
-
-    HashTables::HashMap<WireId, const NetInfo *> bound_wires;
-    for (auto &net_pair : nets) {
-        const NetInfo *net = net_pair.second.get();
-        for (auto &wire_pair : net->wires) {
-            auto result = bound_wires.emplace(wire_pair.first, net);
-            NPNR_ASSERT(result.first->second == net);
-
-            PipId pip = wire_pair.second.pip;
-            if (pip == PipId()) {
-                continue;
-            }
-
-            const PipInfoPOD &pip_data = pip_info(chip_info, pip);
-#ifdef DEBUG_LUT_MAPPING
-            if (getCtx()->verbose) {
-                log_info("Pip %s in use, has %zu pseudo wires!\n", nameOfPip(pip), pip_data.pseudo_cell_wires.size());
-            }
-#endif
-
-            WireId wire;
-            wire.tile = pip.tile;
-            for (int32_t wire_index : pip_data.pseudo_cell_wires) {
-                wire.index = wire_index;
-#ifdef DEBUG_LUT_MAPPING
-                if (getCtx()->verbose) {
-                    log_info("Marking wire %s as in use due to pseudo pip\n", nameOfWire(wire));
-                }
-#endif
-                auto result = bound_wires.emplace(wire, net);
-                NPNR_ASSERT(result.first->second == net);
-            }
+            site_router.bindSiteRouting(ctx);
         }
     }
 
     // Fixup LUT vcc pins.
-    IdString vcc_net_name(chip_info->constants->vcc_net_name);
-    for (BelId bel : getBels()) {
-        CellInfo *cell = getBoundBelCell(bel);
+    IdString vcc_net_name(ctx->chip_info->constants->vcc_net_name);
+    for (BelId bel : ctx->getBels()) {
+        CellInfo *cell = ctx->getBoundBelCell(bel);
         if (cell == nullptr) {
             continue;
         }
@@ -864,45 +813,60 @@ bool Arch::route_vcc_to_unused_lut_pins()
             port_info.type = PORT_IN;
             port_info.net = nullptr;
 
-            WireId lut_pin_wire = getBelPinWire(bel, bel_pin);
-            auto iter = bound_wires.find(lut_pin_wire);
-            if (iter != bound_wires.end()) {
 #ifdef DEBUG_LUT_MAPPING
-                if (getCtx()->verbose) {
-                    log_info("%s is now used as a LUT route-through, not tying to VCC\n", nameOfWire(lut_pin_wire));
-                }
-#endif
-                continue;
-            }
-
-#ifdef DEBUG_LUT_MAPPING
-            if (getCtx()->verbose) {
-                log_info("%s is an unused LUT pin, tying to VCC\n", nameOfWire(lut_pin_wire));
+            if (ctx->verbose) {
+                log_info("%s must be tied to VCC, tying now\n", ctx->nameOfWire(lut_pin_wire));
             }
 #endif
 
             auto result = cell->ports.emplace(bel_pin, port_info);
             if (result.second) {
                 cell->cell_bel_pins[bel_pin].push_back(bel_pin);
-                connectPort(vcc_net_name, cell->name, bel_pin);
+                ctx->connectPort(vcc_net_name, cell->name, bel_pin);
                 cell->const_ports.emplace(bel_pin);
             } else {
-                NPNR_ASSERT(result.first->second.net == getNetByAlias(vcc_net_name));
+                NPNR_ASSERT(result.first->second.net == ctx->getNetByAlias(vcc_net_name));
                 auto result2 = cell->cell_bel_pins.emplace(bel_pin, std::vector<IdString>({bel_pin}));
                 NPNR_ASSERT(result2.first->second.at(0) == bel_pin);
                 NPNR_ASSERT(result2.first->second.size() == 1);
             }
         }
     }
+}
 
+bool Arch::route()
+{
+    getCtx()->check();
+    prepare_sites_for_routing(getCtx());
+    getCtx()->check();
+#ifdef IDEMPOTENT_CHECK
+    prepare_sites_for_routing(getCtx());
+    getCtx()->check();
+#endif
+
+    std::string router = str_or_default(settings, id("router"), defaultRouter);
+
+    bool result;
     if (router == "router1") {
-        return router1(getCtx(), Router1Cfg(getCtx()));
+        result = router1(getCtx(), Router1Cfg(getCtx()));
     } else if (router == "router2") {
         router2(getCtx(), Router2Cfg(getCtx()));
-        return true;
+        result = true;
     } else {
         log_error("FPGA interchange architecture does not support router '%s'\n", router.c_str());
     }
+
+    getCtx()->attrs[getCtx()->id("step")] = std::string("route");
+    archInfoToAttributes();
+
+    getCtx()->check();
+
+    // Now that routing is complete, unmask BEL pins.
+    unmask_bel_pins();
+
+    getCtx()->check();
+
+    return result;
 }
 
 // -----------------------------------------------------------------------
@@ -1020,6 +984,7 @@ void Arch::map_cell_pins(CellInfo *cell, int32_t mapping, bool bind_constants)
     cell->cell_mapping = mapping;
     if (cell->lut_cell.pins.empty()) {
         cell->cell_bel_pins.clear();
+        cell->masked_cell_bel_pins.clear();
     } else {
         std::vector<IdString> cell_pin_to_remove;
         for (auto port_pair : cell->cell_bel_pins) {
@@ -1032,7 +997,9 @@ void Arch::map_cell_pins(CellInfo *cell, int32_t mapping, bool bind_constants)
             NPNR_ASSERT(cell->cell_bel_pins.erase(cell_pin));
         }
     }
+
     for (IdString const_port : cell->const_ports) {
+        disconnectPort(cell->name, const_port);
         NPNR_ASSERT(cell->ports.erase(const_port));
     }
 
@@ -1797,6 +1764,131 @@ bool Arch::can_invert(PipId pip) const
     // Can optionally invert if this pip is both the non_inverting_pin and
     // inverting pin.
     return bel_data.non_inverting_pin == pip_info.extra_data && bel_data.inverting_pin == pip_info.extra_data;
+}
+
+void Arch::mask_bel_pins_on_site_wire(NetInfo *net, WireId wire)
+{
+    std::vector<size_t> bel_pins_to_mask;
+    for (const PortRef &port_ref : net->users) {
+        if (port_ref.cell->bel == BelId()) {
+            continue;
+        }
+
+        NPNR_ASSERT(port_ref.cell != nullptr);
+        auto iter = port_ref.cell->cell_bel_pins.find(port_ref.port);
+        if (iter == port_ref.cell->cell_bel_pins.end()) {
+            continue;
+        }
+
+        std::vector<IdString> &cell_bel_pins = iter->second;
+        bel_pins_to_mask.clear();
+
+        for (size_t bel_pin_idx = 0; bel_pin_idx < cell_bel_pins.size(); ++bel_pin_idx) {
+            IdString bel_pin = cell_bel_pins.at(bel_pin_idx);
+            WireId bel_pin_wire = getBelPinWire(port_ref.cell->bel, bel_pin);
+            if (bel_pin_wire == wire) {
+                bel_pins_to_mask.push_back(bel_pin_idx);
+            }
+        }
+
+        if (!bel_pins_to_mask.empty()) {
+            std::vector<IdString> &masked_cell_bel_pins = port_ref.cell->masked_cell_bel_pins[port_ref.port];
+            // Remove in reverse order to preserve indicies.
+            for (auto riter = bel_pins_to_mask.rbegin(); riter != bel_pins_to_mask.rend(); ++riter) {
+                size_t bel_pin_idx = *riter;
+                masked_cell_bel_pins.push_back(cell_bel_pins.at(bel_pin_idx));
+                cell_bel_pins.erase(cell_bel_pins.begin() + bel_pin_idx);
+            }
+        }
+    }
+}
+
+void Arch::unmask_bel_pins()
+{
+    for (auto &cell_pair : cells) {
+        CellInfo *cell = cell_pair.second.get();
+        if (cell->masked_cell_bel_pins.empty()) {
+            continue;
+        }
+
+        for (auto &mask_pair : cell->masked_cell_bel_pins) {
+            IdString cell_port = mask_pair.first;
+            const std::vector<IdString> &bel_pins = mask_pair.second;
+            std::vector<IdString> &cell_bel_pins = cell->cell_bel_pins[cell_port];
+            cell_bel_pins.insert(cell_bel_pins.begin(), bel_pins.begin(), bel_pins.end());
+        }
+
+        cell->masked_cell_bel_pins.clear();
+    }
+}
+
+void Arch::remove_site_routing()
+{
+    HashTables::HashSet<WireId> wires_to_unbind;
+    for (auto &net_pair : nets) {
+        for (auto &wire_pair : net_pair.second->wires) {
+            WireId wire = wire_pair.first;
+            if (wire_pair.second.strength != STRENGTH_PLACER) {
+                // Only looking for bound placer wires
+                continue;
+            }
+            wires_to_unbind.emplace(wire);
+        }
+    }
+
+    for (WireId wire : wires_to_unbind) {
+        unbindWire(wire);
+    }
+
+    unmask_bel_pins();
+
+    IdString id_NEXTPNR_INV = id("$nextpnr_inv");
+    IdString id_I = id("I");
+    std::vector<IdString> cells_to_remove;
+    for (auto &cell_pair : cells) {
+        CellInfo *cell = cell_pair.second.get();
+        if (cell->type != id_NEXTPNR_INV) {
+            continue;
+        }
+
+        disconnectPort(cell_pair.first, id_I);
+        cells_to_remove.push_back(cell_pair.first);
+        tileStatus.at(cell->bel.tile).boundcells[cell->bel.index] = nullptr;
+    }
+
+    for (IdString cell_name : cells_to_remove) {
+        NPNR_ASSERT(cells.erase(cell_name) == 1);
+    }
+}
+
+void Arch::explain_bel_status(BelId bel) const
+{
+    if (isBelLocationValid(bel)) {
+        log_info("BEL %s is valid!\n", nameOfBel(bel));
+        return;
+    }
+
+    auto iter = tileStatus.find(bel.tile);
+    NPNR_ASSERT(iter != tileStatus.end());
+    const TileStatus &tile_status = iter->second;
+    const CellInfo *cell = tile_status.boundcells[bel.index];
+    if (!dedicated_interconnect.isBelLocationValid(bel, cell)) {
+        dedicated_interconnect.explain_bel_status(bel, cell);
+        return;
+    }
+
+    if (io_port_types.count(cell->type)) {
+        return;
+    }
+
+    if (!is_cell_valid_constraints(cell, tile_status, /*explain_constraints=*/true)) {
+        return;
+    }
+
+    auto &bel_data = bel_info(chip_info, bel);
+    const SiteRouter &site = get_site_status(tile_status, bel_data);
+    NPNR_ASSERT(!site.checkSiteRouting(getCtx(), tile_status));
+    site.explain(getCtx());
 }
 
 // Instance constraint templates.
