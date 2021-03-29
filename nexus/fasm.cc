@@ -34,7 +34,10 @@ struct NexusFasmWriter
     std::vector<std::string> fasm_ctx;
     bool is_lifcl_17;
 
-    NexusFasmWriter(const Context *ctx, std::ostream &out) : ctx(ctx), out(out), is_lifcl_17(ctx->args.device.find("LIFCL-17") != std::string::npos) {}
+    NexusFasmWriter(const Context *ctx, std::ostream &out)
+            : ctx(ctx), out(out), is_lifcl_17(ctx->args.device.find("LIFCL-17") != std::string::npos)
+    {
+    }
 
     // Add a 'dot' prefix to the FASM context stack
     void push(const std::string &x) { fasm_ctx.push_back(x); }
@@ -722,9 +725,51 @@ struct NexusFasmWriter
             }
         }
     }
+    std::unordered_map<int, int> bank_vcco;
+    // bank VccO in mV
+    int get_bank_vcco(const std::string &iostd)
+    {
+        if (iostd == "LVCMOS33" || iostd == "LVCMOS33D")
+            return 3300;
+        else if (iostd == "LVCMOS25" || iostd == "LVCMOS25D")
+            return 2500;
+        else if (iostd == "LVCMOS18")
+            return 1800;
+        else if (iostd == "LVCMOS15")
+            return 1500;
+        else if (iostd == "LVCMOS12")
+            return 1200;
+        else
+            return -1;
+    }
     // Write out placeholder bankref config
     void write_bankcfg()
     {
+        for (auto c : sorted(ctx->cells)) {
+            const CellInfo *ci = c.second;
+            if (ci->type != id_SEIO33_CORE)
+                continue;
+            if (!ci->attrs.count(id_IO_TYPE))
+                continue;
+            // VccO only concerns outputs
+            const NetInfo *t = get_net_or_empty(ci, id_T);
+            auto tmux = ctx->get_cell_pinmux(ci, id_T);
+            if (tmux == PINMUX_1 || (tmux != PINMUX_0 && t == nullptr))
+                continue;
+            int bank = ctx->get_bel_pad(ci->bel)->bank;
+            std::string iostd = ci->attrs.at(id_IO_TYPE).as_string();
+            int vcco = get_bank_vcco(iostd);
+            if (vcco == -1) {
+                log_warning("Unexpected IO standard '%s' on port '%s'\n", iostd.c_str(), ctx->nameOf(ci));
+                continue;
+            }
+            if (bank_vcco.count(bank) && bank_vcco.at(bank) != vcco) {
+                log_warning("Conflicting Vcco %.1fV and %.1fV on bank %d\n", bank_vcco.at(bank) / 1000.0, vcco / 1000.0,
+                            bank);
+                continue;
+            }
+            bank_vcco[bank] = vcco;
+        }
         for (int i = 0; i < 8; i++) {
             if (i >= 3 && i <= 5) {
                 // 1.8V banks
@@ -739,8 +784,11 @@ struct NexusFasmWriter
             } else {
                 if (is_lifcl_17 && (i != 0) && (i != 1))
                     continue;
-                // 3.3V banks, this should eventually be set based on the bank config
-                write_bit(stringf("GLOBAL.BANK%d.VCC.3V3", i));
+                auto vcco = bank_vcco.find(i);
+                if (vcco != bank_vcco.end())
+                    write_bit(stringf("GLOBAL.BANK%d.VCC.%dV%d", i, vcco->second / 1000, (vcco->second / 100) % 10));
+                else
+                    write_bit(stringf("GLOBAL.BANK%d.VCC.3V3", i));
             }
         }
         blank();
