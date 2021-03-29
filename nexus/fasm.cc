@@ -440,7 +440,7 @@ struct NexusFasmWriter
         BelId bel = cell->bel;
         push_tile(bel.tile);
         push_belname(bel);
-        write_enum(cell, "HF_OSC_EN");
+        write_enum(cell, "HF_OSC_EN", "ENABLED");
         write_enum(cell, "HF_FABRIC_EN");
         write_enum(cell, "HFDIV_FABRIC_EN", "ENABLED");
         write_enum(cell, "LF_FABRIC_EN");
