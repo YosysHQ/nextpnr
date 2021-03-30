@@ -808,9 +808,7 @@ struct Arch : ArchAPI<ArchRanges>
         }
         const TileStatus &tile_status = iter->second;
         const CellInfo *cell = tile_status.boundcells[bel.index];
-        if (cell == nullptr) {
-            return true;
-        } else {
+        if (cell != nullptr) {
             if (!dedicated_interconnect.isBelLocationValid(bel, cell)) {
                 return false;
             }
@@ -825,10 +823,11 @@ struct Arch : ArchAPI<ArchRanges>
             if (!is_cell_valid_constraints(cell, tile_status, explain_constraints)) {
                 return false;
             }
-
-            auto &bel_data = bel_info(chip_info, bel);
-            return get_site_status(tile_status, bel_data).checkSiteRouting(getCtx(), tile_status);
         }
+        // Still check site status if cell is nullptr; as other bels in the site could be illegal (for example when
+        // dedicated paths can no longer be used after ripping up a cell)
+        auto &bel_data = bel_info(chip_info, bel);
+        return get_site_status(tile_status, bel_data).checkSiteRouting(getCtx(), tile_status);
     }
 
     IdString get_bel_tiletype(BelId bel) const { return IdString(loc_info(chip_info, bel).name); }

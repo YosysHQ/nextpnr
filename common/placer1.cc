@@ -552,7 +552,9 @@ class SAPlacer
             add_move_cell(moveChange, other_cell, newBel);
         }
 
-        if (!ctx->isBelLocationValid(newBel) || ((other_cell != nullptr && !ctx->isBelLocationValid(oldBel)))) {
+        // Always check both the new and old locations; as in some cases of dedicated routing ripping up a cell can deny
+        // use of a dedicated path and thus make a site illegal
+        if (!ctx->isBelLocationValid(newBel) || !ctx->isBelLocationValid(oldBel)) {
             ctx->unbindBel(newBel);
             if (other_cell != nullptr)
                 ctx->unbindBel(oldBel);
