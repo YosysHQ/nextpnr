@@ -262,6 +262,47 @@ class SAPlacer
         int n_no_progress = 0;
         temp = refine ? 1e-7 : cfg.startTemp;
 
+        for (auto bel : ctx->getBels()) {
+            CellInfo *cell = ctx->getBoundBelCell(bel);
+            if (!ctx->isBelLocationValid(bel)) {
+                std::string cell_text = "no cell";
+                if (cell != nullptr)
+                    cell_text = std::string("cell '") + ctx->nameOf(cell) + "'";
+                if (ctx->force) {
+                    log_warning("pre-placement validity check failed for Bel '%s' "
+                                "(%s)\n",
+                                ctx->nameOfBel(bel), cell_text.c_str());
+                } else {
+                    log_error("pre-placement validity check failed for Bel '%s' "
+                              "(%s)\n",
+                              ctx->nameOfBel(bel), cell_text.c_str());
+                }
+            }
+        }
+
+        // Store on each BEL their location at end of each iteration.
+        // This maybe used to revert a design if the post-SA design is not
+        // valid.
+        IdString id_BEL_COMMIT = ctx->id("$nextpnr_BEL_COMMITTED");
+        bool all_bels_valid = true;
+        for (auto cell : autoplaced) {
+            NPNR_ASSERT(cell->bel != BelId());
+            if (ctx->isBelLocationValid(cell->bel)) {
+                cell->attrs[id_BEL_COMMIT] = ctx->getBelName(cell->bel).str(ctx);
+            } else {
+                all_bels_valid = false;
+            }
+        }
+
+        if (!all_bels_valid) {
+            if (ctx->force) {
+                log_warning("Initial placement to SA was not valid, SA checkpoints disabled\n");
+            } else {
+                log_error("Initial placement to SA was not valid!\n");
+            }
+        }
+        int n_commit_fails = 0;
+
         // Main simulated annealing loop
         for (int iter = 1;; iter++) {
             n_move = n_accept = 0;
@@ -309,9 +350,50 @@ class SAPlacer
                 }
             }
 
-            if (curr_wirelen_cost < min_wirelen) {
+            improved = true;
+            if (all_bels_valid) {
+                // If this design was initially valid, see if it is still
+                // valid.
+                bool all_bels_still_valid = true;
+                for (auto cell : autoplaced) {
+                    NPNR_ASSERT(cell->bel != BelId());
+                    if (!ctx->isBelLocationValid(cell->bel)) {
+                        all_bels_still_valid = false;
+                    }
+                }
+
+                if (!all_bels_still_valid) {
+                    // New design is no longer valid after SA, revert to last
+                    // committed design.
+                    improved = false;
+                    n_commit_fails += 1;
+
+                    for (auto cell : autoplaced) {
+                        ctx->unbindBel(cell->bel);
+                    }
+                    for (auto cell : autoplaced) {
+                        BelId best_bel = ctx->getBelByNameStr(cell->attrs.at(id_BEL_COMMIT).as_string());
+                        ctx->bindBel(best_bel, cell, STRENGTH_WEAK);
+                    }
+                    for (auto cell : autoplaced) {
+                        NPNR_ASSERT(ctx->isBelLocationValid(cell->bel));
+                    }
+                }
+            }
+            if (improved && curr_wirelen_cost < min_wirelen) {
                 min_wirelen = curr_wirelen_cost;
                 improved = true;
+
+                if (all_bels_valid) {
+                    // Only commit a valid and better design.
+                    for (auto cell : autoplaced) {
+                        cell->attrs[id_BEL_COMMIT] = ctx->getBelName(cell->bel).str(ctx);
+                    }
+                }
+            } else {
+                // FIXME: Should revert to best previous if this iteration is
+                // worse?
+                improved = false;
             }
 
             // Heuristic to improve placement on the 8k
@@ -333,8 +415,8 @@ class SAPlacer
 
             if (ctx->verbose)
                 log("iter #%d: temp = %f, timing cost = "
-                    "%.0f, wirelen = %.0f, dia = %d, Ra = %.02f \n",
-                    iter, temp, double(curr_timing_cost), double(curr_wirelen_cost), diameter, Raccept);
+                    "%.0f, wirelen = %.0f, dia = %d, Ra = %.02f, fails = %d\n",
+                    iter, temp, double(curr_timing_cost), double(curr_wirelen_cost), diameter, Raccept, n_commit_fails);
 
             if (curr_wirelen_cost < 0.95 * avg_wirelen && curr_wirelen_cost > 0) {
                 avg_wirelen = 0.8 * avg_wirelen + 0.2 * curr_wirelen_cost;
