@@ -638,6 +638,8 @@ struct NexusFasmWriter
     {
         BelId bel = cell->bel;
         push_bel(bel);
+        if (is_lifcl_17)
+            write_bit("MODE.LRAM_CORE");
         write_enum(cell, "ASYNC_RST_RELEASE", "SYNC");
         write_enum(cell, "EBR_SP_EN", "DISABLE");
         write_enum(cell, "ECC_BYTE_SEL", "BYTE_EN");
