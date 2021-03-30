@@ -66,8 +66,8 @@ void DedicatedInterconnect::init(const Context *ctx)
     }
 }
 
-bool DedicatedInterconnect::check_routing(BelId src_bel, IdString src_bel_pin, BelId dst_bel,
-                                          IdString dst_bel_pin) const
+bool DedicatedInterconnect::check_routing(BelId src_bel, IdString src_bel_pin, BelId dst_bel, IdString dst_bel_pin,
+                                          bool site_only) const
 {
     std::vector<WireNode> nodes_to_expand;
 
@@ -77,6 +77,10 @@ bool DedicatedInterconnect::check_routing(BelId src_bel, IdString src_bel_pin, B
     NPNR_ASSERT(src_wire_data.site != -1);
 
     WireId dst_wire = ctx->getBelPinWire(dst_bel, dst_bel_pin);
+
+    if (src_wire == dst_wire) {
+        return true;
+    }
 
     const auto &dst_wire_data = ctx->wire_info(dst_wire);
     NPNR_ASSERT(dst_wire_data.site != -1);
@@ -102,9 +106,9 @@ bool DedicatedInterconnect::check_routing(BelId src_bel, IdString src_bel_pin, B
                 continue;
             }
 
-#ifdef DEBUG_EXPANSION
-            log_info(" - At wire %s via %s\n", ctx->nameOfWire(wire), ctx->nameOfPip(pip));
-#endif
+            if (ctx->debug) {
+                log_info(" - At wire %s via %s\n", ctx->nameOfWire(wire), ctx->nameOfPip(pip));
+            }
 
             WireNode next_node;
             next_node.wire = wire;
@@ -122,6 +126,11 @@ bool DedicatedInterconnect::check_routing(BelId src_bel, IdString src_bel_pin, B
 
             bool expand_node = true;
             if (ctx->is_site_port(pip)) {
+                if (site_only) {
+                    // When routing site only, don't allow site ports.
+                    continue;
+                }
+
                 switch (node_to_expand.state) {
                 case IN_SOURCE_SITE:
                     NPNR_ASSERT(wire_data.site == -1);
@@ -214,8 +223,12 @@ bool DedicatedInterconnect::is_driver_on_net_valid(BelId driver_bel, const CellI
             Loc sink_loc = ctx->getBelLocation(port_ref.cell->bel);
 
             if (sink_bel.tile == driver_bel.tile && sink_bel_data.site == driver_bel_data.site) {
-                // This is a site local routing, even though this is a sink
-                // with a dedicated interconnect.
+                // This might site local routing.  See if it can be routed
+                for (IdString sink_bel_pin : ctx->getBelPinsForCellPin(port_ref.cell, port_ref.port)) {
+                    if (!check_routing(driver_bel, driver_bel_pin, sink_bel, sink_bel_pin, /*site_only=*/true)) {
+                        return false;
+                    }
+                }
                 continue;
             }
 
@@ -243,7 +256,7 @@ bool DedicatedInterconnect::is_driver_on_net_valid(BelId driver_bel, const CellI
                 // FIXME: This might be too slow, but it handles a case on
                 // SLICEL.COUT -> SLICEL.CIN has delta_y = {1, 2}, but the
                 // delta_y=2 case is rare.
-                if (!check_routing(driver_bel, driver_bel_pin, sink_bel, sink_bel_pin)) {
+                if (!check_routing(driver_bel, driver_bel_pin, sink_bel, sink_bel_pin, /*site_only=*/false)) {
                     if (ctx->debug) {
                         log_info("BEL %s is not valid because pin %s cannot be reach %s/%s (via detailed check)\n",
                                  ctx->nameOfBel(driver_bel), driver_bel_pin.c_str(ctx), ctx->nameOfBel(sink_bel),
@@ -323,7 +336,7 @@ bool DedicatedInterconnect::is_sink_on_net_valid(BelId bel, const CellInfo *cell
         // FIXME: This might be too slow, but it handles a case on
         // SLICEL.COUT -> SLICEL.CIN has delta_y = {1, 2}, but the
         // delta_y=2 case is rare.
-        if (!check_routing(driver_bel, driver_type_bel_pin.type_bel_pin.bel_pin, bel, bel_pin)) {
+        if (!check_routing(driver_bel, driver_type_bel_pin.type_bel_pin.bel_pin, bel, bel_pin, /*site_only=*/false)) {
             if (ctx->debug) {
                 log_info("BEL %s is not valid because pin %s cannot be driven by %s/%s (via detailed check)\n",
                          ctx->nameOfBel(bel), bel_pin.c_str(ctx), ctx->nameOfBel(driver_bel),
