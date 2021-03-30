@@ -42,12 +42,13 @@ function get_dependencies {
     popd
 
     # Install prjoxide
-    curl --proto '=https' -sSf https://sh.rustup.rs | sh -s -- -y
-    git clone --recursive https://github.com/gatecat/prjoxide.git
-    pushd prjoxide/libprjoxide
-    PATH=$PATH:$HOME/.cargo/bin cargo install --path prjoxide --all-features
-    popd
-
+    if [ ${DEVICE} == "LIFCL-17" ]; then
+        curl --proto '=https' -sSf https://sh.rustup.rs | sh -s -- -y
+        git clone --recursive https://github.com/gatecat/prjoxide.git
+        pushd prjoxide/libprjoxide
+        PATH=$PATH:$HOME/.cargo/bin cargo install --path prjoxide --all-features
+        popd
+    fi
 }
 
 function build_nextpnr {
