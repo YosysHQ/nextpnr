@@ -574,6 +574,11 @@ bool Arch::place()
         PlacerHeapCfg cfg(getCtx());
         cfg.criticalityExponent = 4;
         cfg.ioBufTypes.insert(id_TRELLIS_IO);
+
+        cfg.cellGroups.emplace_back();
+        cfg.cellGroups.back().insert(id_MULT18X18D);
+        cfg.cellGroups.back().insert(id_ALU54B);
+
         if (!placer_heap(getCtx(), cfg))
             return false;
     } else if (placer == "sa") {

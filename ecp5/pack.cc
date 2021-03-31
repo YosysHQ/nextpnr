@@ -1573,6 +1573,30 @@ class Ecp5Packer
                         autocreate_empty_port(ci, ctx->id(port + std::to_string(i)));
                 for (int i = 0; i < 11; i++)
                     autocreate_empty_port(ci, ctx->id("OP" + std::to_string(i)));
+
+                // Find the MULT18X18Ds feeding this ALU54B's inputs and
+                // constrain them to the ALU.
+                for (auto port : {id_MA0, id_MB0}) {
+                    CellInfo *mult = net_driven_by(
+                        ctx, ci->ports.at(port).net,
+                        [](const Context *ctx, const CellInfo *cell) {
+                        return cell->type == id_MULT18X18D;
+                        }, id_P0
+                    );
+                    if(mult != nullptr) {
+                        if(port == id_MA0) {
+                            mult->constr_x = mult->constr_z = -3;
+                        } else if(port == id_MB0) {
+                            mult->constr_x = mult->constr_z = -2;
+                        }
+                        mult->constr_y = 0;
+                        mult->constr_parent = ci;
+                        ci->constr_children.push_back(mult);
+                        log_info("DSP: Constraining MULT18X18D '%s' to ALU54B '%s' port %s\n",
+                                 mult->name.c_str(ctx), cell.first.c_str(ctx),
+                                 ctx->nameOf(port));
+                    }
+                }
             }
         }
     }
