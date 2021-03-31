@@ -338,6 +338,7 @@ function(add_interchange_group_test)
             xdc ${board}.xdc
             sources ${sources}
             top ${top}
+            techmap ${techmap}
         )
     endforeach()
 endfunction()
