@@ -1,6 +1,6 @@
 function(create_prjoxide_device_db)
     # ~~~
-    # create_rapidwright_device_db(
+    # create_prjoxide_device_db(
     #    device <common device>
     #    output_target <output device target>
     # )
@@ -56,22 +56,19 @@ function(generate_nexus_device_db)
     # ~~~
     # generate_nexus_device_db(
     #    device <common device>
-    #    part <part>
     #    device_target <variable name for device target>
     # )
     # ~~~
     #
     # Generates a chipdb BBA file, starting from a Project Oxide device database.
     # Patches applied:
-    #   - constraints patch
-    #   - luts patch
+    #   - primitive library from Yosys
     #
     # Arguments:
     #   - device: common device name of a set of parts. E.g. LIFCL-17
-    #   - part: one among the parts available for a given device (currently ignored)
     #   - device_target: variable name that will hold the output device target for the parent scope
     set(options)
-    set(oneValueArgs device part device_target)
+    set(oneValueArgs device device_target)
     set(multiValueArgs)
 
     cmake_parse_arguments(
@@ -83,7 +80,6 @@ function(generate_nexus_device_db)
     )
 
     set(device ${generate_nexus_device_db_device})
-    set(part ${generate_nexus_device_db_part})
     set(device_target ${generate_nexus_device_db_device_target})
 
     create_prjoxide_device_db(

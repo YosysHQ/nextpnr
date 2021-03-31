@@ -1,6 +1,5 @@
 generate_nexus_device_db(
     device LIFCL-17
-    part LIFCL-17-7SG72C
     device_target lifcl17_target
 )
 

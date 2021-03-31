@@ -100,7 +100,7 @@ function(patch_device_with_prim_lib)
     # )
     # ~~~
     #
-    # Generates a patched device database starting from an input device
+    # Patches an input device with a primitive library from Yosys
     #
     # If output_target is specified, the variable named as the output_target
     # parameter value is set to the generated output_device_file target.
