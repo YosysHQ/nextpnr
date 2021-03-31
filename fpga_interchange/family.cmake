@@ -8,6 +8,8 @@ find_package(ZLIB REQUIRED)
 set(RAPIDWRIGHT_PATH $ENV{HOME}/RapidWright CACHE PATH "Path to RapidWright")
 set(INVOKE_RAPIDWRIGHT "${RAPIDWRIGHT_PATH}/scripts/invoke_rapidwright.sh" CACHE PATH "Path to RapidWright invocation script")
 set(JAVA_HEAP_SPACE "-Xmx8g" CACHE STRING "Heap space reserved for Java")
+set(PRJOXIDE_PREFIX $ENV{HOME}/.cargo CACHE PATH "prjoxide install prefix")
+
 # FIXME: Make patch data available in the python package and remove this cached var
 set(PYTHON_INTERCHANGE_PATH $ENV{HOME}/python-fpga-interchange CACHE PATH "Path to the FPGA interchange python library")
 set(INTERCHANGE_SCHEMA_PATH ${PROJECT_SOURCE_DIR}/3rdparty/fpga-interchange-schema/interchange CACHE PATH "Path to the FPGA interchange schema dir")

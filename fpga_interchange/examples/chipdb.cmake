@@ -1,71 +1,5 @@
-function(create_rapidwright_device_db)
-    # ~~~
-    # create_rapidwright_device_db(
-    #    device <common device>
-    #    part <part>
-    #    output_target <output device target>
-    # )
-    # ~~~
-    #
-    # Generates a device database from RapidWright
-    #
-    # If output_target is specified, the output_target_name variable
-    # is set to the generated output_device_file target.
-    #
-    # Arguments:
-    #   - device: common device name of a set of parts. E.g. xc7a35tcsg324-1 and xc7a35tcpg236-1
-    #             share the same xc7a35t device prefix
-    #   - part: one among the parts available for a given device
-    #   - output_target: variable name that will hold the output device target for the parent scope
-    #
-    # Targets generated:
-    #   - rapidwright-<device>-device
-
-    set(options)
-    set(oneValueArgs device part output_target)
-    set(multiValueArgs)
-
-    cmake_parse_arguments(
-        create_rapidwright_device_db
-        "${options}"
-        "${oneValueArgs}"
-        "${multiValueArgs}"
-        ${ARGN}
-    )
-
-    set(device ${create_rapidwright_device_db_device})
-    set(part ${create_rapidwright_device_db_part})
-    set(output_target ${create_rapidwright_device_db_output_target})
-    set(rapidwright_device_db ${CMAKE_CURRENT_BINARY_DIR}/${part}.device)
-    add_custom_command(
-        OUTPUT ${rapidwright_device_db}
-        COMMAND
-            RAPIDWRIGHT_PATH=${RAPIDWRIGHT_PATH}
-            ${INVOKE_RAPIDWRIGHT} ${JAVA_HEAP_SPACE}
-            com.xilinx.rapidwright.interchange.DeviceResourcesExample
-            ${part}
-        DEPENDS
-            ${INVOKE_RAPIDWRIGHT}
-    )
-
-    add_custom_target(rapidwright-${device}-device DEPENDS ${rapidwright_device_db})
-    set_property(TARGET rapidwright-${device}-device PROPERTY LOCATION ${rapidwright_device_db})
-
-    add_custom_target(rapidwright-${device}-device-yaml
-        COMMAND
-            ${PYTHON_EXECUTABLE} -mfpga_interchange.convert
-                --schema_dir ${INTERCHANGE_SCHEMA_PATH}
-                --schema device
-                --input_format capnp
-                --output_format yaml
-                ${rapidwright_device_db}
-                ${rapidwright_device_db}.yaml
-        DEPENDS ${rapidwright_device_db})
-
-    if (DEFINED output_target)
-        set(${output_target} rapidwright-${device}-device PARENT_SCOPE)
-    endif()
-endfunction()
+include(${family}/examples/chipdb_xilinx.cmake)
+include(${family}/examples/chipdb_nexus.cmake)
 
 function(create_patched_device_db)
     # ~~~
@@ -156,72 +90,77 @@ function(create_patched_device_db)
     endif()
 endfunction()
 
-function(generate_xc7_device_db)
+function(patch_device_with_prim_lib)
     # ~~~
-    # generate_xc7_device_db(
+    # patch_device_with_prim_lib(
     #    device <common device>
-    #    part <part>
-    #    device_target <variable name for device target>
+    #    yosys_script <yosys script>
+    #    input_device <input device target>
+    #    output_target <output device target>
     # )
     # ~~~
     #
-    # Generates a chipdb BBA file, starting from a RapidWright device database which is then patched.
-    # Patches applied:
-    #   - constraints patch
-    #   - luts patch
+    # Patches an input device with a primitive library from Yosys
+    #
+    # If output_target is specified, the variable named as the output_target
+    # parameter value is set to the generated output_device_file target.
     #
     # Arguments:
     #   - device: common device name of a set of parts. E.g. xc7a35tcsg324-1 and xc7a35tcpg236-1
-    #             share the same xc7a35t device prefix
-    #   - part: one among the parts available for a given device
-    #   - device_target: variable name that will hold the output device target for the parent scope
+    #             share the same xc7a35t device prefix.
+    #   - yosys_script: yosys script to produce cell library
+    #   - input_device: target for the device that needs to be patched
+    #   - output_target: variable name that will hold the output device target for the parent scope
+    #
+    # Targets generated:
+    #   - prims-<device>-device
 
     set(options)
-    set(oneValueArgs device part device_target)
+    set(oneValueArgs device yosys_script input_device output_target)
     set(multiValueArgs)
 
     cmake_parse_arguments(
-        create_rapidwright_device_db
+        patch_device_with_prim_lib
         "${options}"
         "${oneValueArgs}"
         "${multiValueArgs}"
         ${ARGN}
     )
 
-    set(device ${create_rapidwright_device_db_device})
-    set(part ${create_rapidwright_device_db_part})
-    set(device_target ${create_rapidwright_device_db_device_target})
+    set(device ${patch_device_with_prim_lib_device})
+    set(yosys_script ${patch_device_with_prim_lib_yosys_script})
+    set(input_device ${patch_device_with_prim_lib_input_device})
+    set(output_target ${patch_device_with_prim_lib_output_target})
 
-    create_rapidwright_device_db(
-        device ${device}
-        part ${part}
-        output_target rapidwright_device
+    get_target_property(input_device_loc ${input_device} LOCATION)
+    set(output_device_file ${CMAKE_CURRENT_BINARY_DIR}/${device}_prim_lib.device)
+    set(output_json_file ${CMAKE_CURRENT_BINARY_DIR}/${device}_prim_lib.json)
+
+    add_custom_command(
+        OUTPUT ${output_json_file}
+        COMMAND
+            yosys -p '${yosys_script}\; write_json ${output_json_file}'
     )
 
-    # Generate constraints patch
-    create_patched_device_db(
-        device ${device}
-        patch_name constraints
-        patch_path constraints
-        patch_format yaml
-        patch_data ${PYTHON_INTERCHANGE_PATH}/test_data/series7_constraints.yaml
-        input_device ${rapidwright_device}
-        output_target constraints_device
+    add_custom_command(
+        OUTPUT ${output_device_file}
+        COMMAND
+            ${PYTHON_EXECUTABLE} -mfpga_interchange.add_prim_lib
+                --schema_dir ${INTERCHANGE_SCHEMA_PATH}
+                ${input_device_loc}
+                ${output_json_file}
+                ${output_device_file}
+        DEPENDS
+            ${input_device}
+            ${input_device_loc}
+            ${output_json_file}
     )
 
-    # Generate lut constraints patch
-    create_patched_device_db(
-        device ${device}
-        patch_name constraints-luts
-        patch_path lutDefinitions
-        patch_format yaml
-        patch_data ${PYTHON_INTERCHANGE_PATH}/test_data/series7_luts.yaml
-        input_device ${constraints_device}
-        output_target constraints_luts_device
-    )
+    add_custom_target(prims-${device}-device DEPENDS ${output_device_file})
+    set_property(TARGET prims-${device}-device PROPERTY LOCATION ${output_device_file})
 
-    if(DEFINED device_target)
-        set(${device_target} ${constraints_luts_device} PARENT_SCOPE)
+    if (DEFINED output_target)
+        set(${output_target} prims-${device}-device PARENT_SCOPE)
     endif()
 endfunction()
 

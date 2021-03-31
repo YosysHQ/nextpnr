@@ -67,7 +67,7 @@ jobs:
     needs: [Build-yosys, Build-nextpnr]
     strategy:
       matrix:
-        device: [xc7a35t, xc7a100t, xc7a200t, xc7z010]
+        device: [xc7a35t, xc7a100t, xc7a200t, xc7z010, LIFCL-17]
     steps:
 
     - uses: actions/checkout@v2
@@ -106,7 +106,8 @@ jobs:
         RAPIDWRIGHT_PATH: ${{ github.workspace }}/RapidWright
         INTERCHANGE_SCHEMA_PATH: ${{ github.workspace }}/3rdparty/fpga-interchange-schema/interchange
         PYTHON_INTERCHANGE_PATH: ${{ github.workspace }}/python-fpga-interchange
-        PYTHON_INTERCHANGE_TAG: v0.0.4
+        PYTHON_INTERCHANGE_TAG: v0.0.6
+        DEVICE: ${{ matrix.device }}
       run: |
         export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
         source ./.github/ci/build_interchange.sh

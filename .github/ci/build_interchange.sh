@@ -35,11 +35,20 @@ function get_dependencies {
     python3 -m pip install -r requirements.txt
     popd
 
-    ## Install RapidWright
-    git clone https://github.com/Xilinx/RapidWright.git ${RAPIDWRIGHT_PATH}
-    pushd ${RAPIDWRIGHT_PATH}
-    make update_jars
-    popd
+    if [ ${DEVICE} == "LIFCL-17" ]; then
+        # Install prjoxide
+        curl --proto '=https' -sSf https://sh.rustup.rs | sh -s -- -y
+        git clone --recursive https://github.com/gatecat/prjoxide.git
+        pushd prjoxide/libprjoxide
+        PATH=$PATH:$HOME/.cargo/bin cargo install --path prjoxide --all-features
+        popd
+    else
+        # Install RapidWright
+        git clone https://github.com/Xilinx/RapidWright.git ${RAPIDWRIGHT_PATH}
+        pushd ${RAPIDWRIGHT_PATH}
+        make update_jars
+        popd
+    fi
 }
 
 function build_nextpnr {
