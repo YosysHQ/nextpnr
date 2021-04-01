@@ -622,11 +622,7 @@ struct Arch : ArchAPI<ArchRanges>
         return canonical_wire(chip_info, pip.tile, loc_info(chip_info, pip).pip_data[pip.index].dst_index);
     }
 
-    DelayQuad getPipDelay(PipId pip) const final
-    {
-        // FIXME: Implement when adding timing-driven place and route.
-        return DelayQuad(100);
-    }
+    DelayQuad getPipDelay(PipId pip) const final;
 
     DownhillPipRange getPipsDownhill(WireId wire) const final
     {

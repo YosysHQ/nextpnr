@@ -1959,6 +1959,17 @@ void Arch::explain_bel_status(BelId bel) const
     site.explain(getCtx());
 }
 
+DelayQuad Arch::getPipDelay(PipId pip) const {
+    // FIXME: Implement when adding timing-driven place and route.
+    const auto & pip_data = pip_info(chip_info, pip);
+
+    // Scale pseudo-pips by the number of wires they consume to make them
+    // more expensive than a single edge.  This approximation exists soley to
+    // make the non-timing driven solution avoid thinking that pseudo-pips
+    // are the same cost as regular pips.
+    return DelayQuad(100*(1+pip_data.pseudo_cell_wires.size()));
+}
+
 // Instance constraint templates.
 template void Arch::ArchConstraints::bindBel(Arch::ArchConstraints::TagState *, const Arch::ConstraintRange);
 template void Arch::ArchConstraints::unbindBel(Arch::ArchConstraints::TagState *, const Arch::ConstraintRange);
