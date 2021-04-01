@@ -272,11 +272,24 @@ Arch::Arch(ArchArgs args) : args(args)
     }
 
     // Map lut cell types to their LutCellPOD
+    wire_lut = nullptr;
     for (const LutCellPOD &lut_cell : chip_info->cell_map->lut_cells) {
         IdString cell_type(lut_cell.cell);
         auto result = lut_cells.emplace(cell_type, &lut_cell);
         NPNR_ASSERT(result.second);
+
+        if(lut_cell.input_pins.size() == 1) {
+            // Only really expecting 1 single input LUT type!
+            NPNR_ASSERT(wire_lut == nullptr);
+            wire_lut = &lut_cell;
+        }
     }
+
+    // There should be a cell that is a single input LUT.
+    //
+    // Note: This assumption may be not true, revisit if this becomes a
+    // problem.
+    NPNR_ASSERT(wire_lut != nullptr);
 
     raw_bin_constant = std::regex("[01]+", std::regex_constants::ECMAScript | std::regex_constants::optimize);
     verilog_bin_constant =
@@ -294,6 +307,10 @@ void Arch::init()
 #endif
     dedicated_interconnect.init(getCtx());
     cell_parameters.init(getCtx());
+
+    for (size_t tile_type = 0; tile_type < chip_info->tile_types.size(); ++tile_type) {
+        pseudo_pip_data.init_tile_type(getCtx(), tile_type);
+    }
 }
 
 // -----------------------------------------------------------------------
@@ -798,6 +815,8 @@ static void prepare_sites_for_routing(Context *ctx)
 
             site_router.bindSiteRouting(ctx);
         }
+
+        tile_pair.second.pseudo_pip_model.prepare_for_routing(ctx, tile_pair.second.sites);
     }
 
     // Fixup LUT vcc pins.
@@ -1451,6 +1470,10 @@ void Arch::remove_pip_pseudo_wires(PipId pip, NetInfo *net)
             iter->second = nullptr;
         }
     }
+
+    if(pip_data.pseudo_cell_wires.size() > 0) {
+        get_tile_status(pip.tile).pseudo_pip_model.unbindPip(getCtx(), pip);
+    }
 }
 
 void Arch::assign_net_to_wire(WireId wire, NetInfo *net, const char *src, bool require_empty)
@@ -1681,6 +1704,18 @@ bool Arch::checkPipAvailForNet(PipId pip, NetInfo *net) const
         }
     }
 
+    if(pip_data.pseudo_cell_wires.size() > 0) {
+        // FIXME: This pseudo pip check is incomplete, because constraint
+        // failures will not be detected.  However the current FPGA
+        // interchange schema does not provide a cell type to place.
+        auto iter = tileStatus.find(pip.tile);
+        if(iter != tileStatus.end()) {
+            if(!iter->second.pseudo_pip_model.checkPipAvail(getCtx(), pip)) {
+                return false;
+            }
+        }
+    }
+
     if (pip_data.site != -1 && net != nullptr) {
         // FIXME: This check isn't perfect.  If a driver and sink are in the
         // same site, it is possible for the router to route-thru the site
@@ -1743,10 +1778,6 @@ bool Arch::checkPipAvailForNet(PipId pip, NetInfo *net) const
             return false;
         }
     }
-
-    // FIXME: This pseudo pip check is incomplete, because constraint
-    // failures will not be detected.  However the current FPGA
-    // interchange schema does not provide a cell type to place.
 
     return true;
 }

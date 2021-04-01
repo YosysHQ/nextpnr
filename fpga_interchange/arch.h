@@ -39,6 +39,7 @@
 #include "dedicated_interconnect.h"
 #include "lookahead.h"
 #include "site_router.h"
+#include "pseudo_pip_model.h"
 #include "site_routing_cache.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -90,6 +91,7 @@ struct TileStatus
     std::vector<ExclusiveStateGroup<kMaxState>> tags;
     std::vector<CellInfo *> boundcells;
     std::vector<SiteRouter> sites;
+    PseudoPipModel pseudo_pip_model;
 };
 
 struct Arch : ArchAPI<ArchRanges>
@@ -108,7 +110,8 @@ struct Arch : ArchAPI<ArchRanges>
     std::unordered_map<PipId, NetInfo *> pip_to_net;
 
     DedicatedInterconnect dedicated_interconnect;
-    std::unordered_map<int32_t, TileStatus> tileStatus;
+    HashTables::HashMap<int32_t, TileStatus> tileStatus;
+    PseudoPipData pseudo_pip_data;
 
     ArchArgs args;
     Arch(ArchArgs args);
@@ -175,13 +178,15 @@ struct Arch : ArchAPI<ArchRanges>
         auto result = tileStatus.emplace(tile, TileStatus());
         if (result.second) {
             auto &tile_type = chip_info->tile_types[chip_info->tiles[tile].type];
-            result.first->second.boundcells.resize(tile_type.bel_data.size());
+            result.first->second.boundcells.resize(tile_type.bel_data.size(), nullptr);
             result.first->second.tags.resize(default_tags.size());
 
             result.first->second.sites.reserve(tile_type.site_types.size());
             for (size_t i = 0; i < tile_type.site_types.size(); ++i) {
                 result.first->second.sites.push_back(SiteRouter(i));
             }
+
+            result.first->second.pseudo_pip_model.init(getCtx(), tile);
         }
 
         return result.first->second;
@@ -546,6 +551,10 @@ struct Arch : ArchAPI<ArchRanges>
         for (int32_t wire_index : pip_data.pseudo_cell_wires) {
             wire.index = wire_index;
             assign_net_to_wire(wire, net, "pseudo", /*require_empty=*/true);
+        }
+
+        if(pip_data.pseudo_cell_wires.size() > 0) {
+            get_tile_status(pip.tile).pseudo_pip_model.bindPip(getCtx(), pip);
         }
     }
 
@@ -1058,6 +1067,9 @@ struct Arch : ArchAPI<ArchRanges>
     IdString vcc_cell_pin;
     std::vector<std::vector<LutElement>> lut_elements;
     std::unordered_map<IdString, const LutCellPOD *> lut_cells;
+
+    // Of the LUT cells, which is used for wires?
+    const LutCellPOD * wire_lut;
 
     std::regex raw_bin_constant;
     std::regex verilog_bin_constant;
