@@ -34,7 +34,7 @@ NEXTPNR_NAMESPACE_BEGIN
  * kExpectedChipInfoVersion
  */
 
-static constexpr int32_t kExpectedChipInfoVersion = 5;
+static constexpr int32_t kExpectedChipInfoVersion = 6;
 
 // Flattened site indexing.
 //
@@ -133,6 +133,7 @@ NPNR_PACKED_STRUCT(struct LutBelPOD {
     RelSlice<int32_t> pins; // constid
     uint32_t low_bit;
     uint32_t high_bit;
+    int32_t out_pin; // constid
 });
 
 NPNR_PACKED_STRUCT(struct LutElementPOD {
