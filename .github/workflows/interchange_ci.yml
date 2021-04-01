@@ -104,9 +104,8 @@ jobs:
     - name: Execute build interchange script
       env:
         RAPIDWRIGHT_PATH: ${{ github.workspace }}/RapidWright
-        INTERCHANGE_SCHEMA_PATH: ${{ github.workspace }}/3rdparty/fpga-interchange-schema/interchange
         PYTHON_INTERCHANGE_PATH: ${{ github.workspace }}/python-fpga-interchange
-        PYTHON_INTERCHANGE_TAG: v0.0.6
+        PYTHON_INTERCHANGE_TAG: v0.0.7
         DEVICE: ${{ matrix.device }}
       run: |
         export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
