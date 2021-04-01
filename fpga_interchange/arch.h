@@ -1081,6 +1081,7 @@ struct Arch : ArchAPI<ArchRanges>
     Lookahead lookahead;
     mutable RouteNodeStorage node_storage;
     mutable SiteRoutingCache site_routing_cache;
+    bool disallow_site_routing;
     CellParameters cell_parameters;
 
     std::string chipdb_hash;

@@ -110,7 +110,7 @@ static std::string sha1_hash(const char *data, size_t size)
     return buf.str();
 }
 
-Arch::Arch(ArchArgs args) : args(args)
+Arch::Arch(ArchArgs args) : args(args), disallow_site_routing(false)
 {
     try {
         blob_file.open(args.chipdb);
@@ -870,6 +870,15 @@ bool Arch::route()
 
     std::string router = str_or_default(settings, id("router"), defaultRouter);
 
+    // Disallow site routing during general routing.  This is because
+    // "prepare_sites_for_routing" has already assigned routing for all sites
+    // in the design, and if the router wants to route-thru a site, it *MUST*
+    // use a pseudo-pip.
+    //
+    // It is not legal in the FPGA interchange to enter a site and not
+    // terminate at a BEL pin.
+    disallow_site_routing = true;
+
     bool result;
     if (router == "router1") {
         result = router1(getCtx(), Router1Cfg(getCtx()));
@@ -879,6 +888,8 @@ bool Arch::route()
     } else {
         log_error("FPGA interchange architecture does not support router '%s'\n", router.c_str());
     }
+
+    disallow_site_routing = false;
 
     getCtx()->attrs[getCtx()->id("step")] = std::string("route");
     archInfoToAttributes();
@@ -1717,10 +1728,6 @@ bool Arch::checkPipAvailForNet(PipId pip, NetInfo *net) const
     }
 
     if (pip_data.site != -1 && net != nullptr) {
-        // FIXME: This check isn't perfect.  If a driver and sink are in the
-        // same site, it is possible for the router to route-thru the site
-        // ports without hitting a sink, which is not legal in the FPGA
-        // interchange.
         NPNR_ASSERT(net->driver.cell != nullptr);
         NPNR_ASSERT(net->driver.cell->bel != BelId());
 
@@ -1746,6 +1753,16 @@ bool Arch::checkPipAvailForNet(PipId pip, NetInfo *net) const
             }
         }
 
+        if(disallow_site_routing && !valid_pip) {
+            // For now, if driver is not part of this site, and
+            // disallow_site_routing is set, disallow the edge.
+            return false;
+        }
+
+        // FIXME: This check isn't perfect.  If a driver and sink are in the
+        // same site, it is possible for the router to route-thru the site
+        // ports without hitting a sink, which is not legal in the FPGA
+        // interchange.
         if (!valid_pip) {
             // See if one users can enter this site.
             if (dst_wire_data.site == -1) {
