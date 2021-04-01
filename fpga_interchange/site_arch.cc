@@ -271,14 +271,6 @@ SiteArch::SiteArch(const SiteInformation *site_info) : ctx(site_info->ctx), site
     }
 }
 
-SiteWire SiteArch::getBelPinWire(BelId bel, IdString pin) const
-{
-    WireId wire = ctx->getBelPinWire(bel, pin);
-    return SiteWire::make(site_info, wire);
-}
-
-PortType SiteArch::getBelPinType(BelId bel, IdString pin) const { return ctx->getBelPinType(bel, pin); }
-
 const char *SiteArch::nameOfWire(const SiteWire &wire) const
 {
     switch (wire.type) {

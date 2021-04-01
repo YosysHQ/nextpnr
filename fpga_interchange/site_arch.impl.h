@@ -314,6 +314,15 @@ inline PhysicalNetlist::PhysNetlist::NetType SiteArch::prefered_constant_net_typ
     }
 }
 
+inline SiteWire SiteArch::getBelPinWire(BelId bel, IdString pin) const
+{
+    WireId wire = ctx->getBelPinWire(bel, pin);
+    return SiteWire::make(site_info, wire);
+}
+
+inline PortType SiteArch::getBelPinType(BelId bel, IdString pin) const { return ctx->getBelPinType(bel, pin); }
+
+
 NEXTPNR_NAMESPACE_END
 
 #endif /* SITE_ARCH_H */
