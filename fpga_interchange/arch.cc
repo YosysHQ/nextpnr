@@ -285,12 +285,6 @@ Arch::Arch(ArchArgs args) : args(args), disallow_site_routing(false)
         }
     }
 
-    // There should be a cell that is a single input LUT.
-    //
-    // Note: This assumption may be not true, revisit if this becomes a
-    // problem.
-    NPNR_ASSERT(wire_lut != nullptr);
-
     raw_bin_constant = std::regex("[01]+", std::regex_constants::ECMAScript | std::regex_constants::optimize);
     verilog_bin_constant =
             std::regex("([0-9]+)'b([01]+)", std::regex_constants::ECMAScript | std::regex_constants::optimize);

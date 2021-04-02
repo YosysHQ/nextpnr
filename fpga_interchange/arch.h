@@ -1065,6 +1065,9 @@ struct Arch : ArchAPI<ArchRanges>
     std::unordered_map<IdString, const LutCellPOD *> lut_cells;
 
     // Of the LUT cells, which is used for wires?
+    // Note: May be null in arch's without wire LUT types.  Assumption is
+    // that these arch's don't need wire LUT's because the LUT share is simple
+    // enough to avoid it.
     const LutCellPOD * wire_lut;
 
     std::regex raw_bin_constant;

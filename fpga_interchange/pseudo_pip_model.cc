@@ -363,6 +363,10 @@ void PseudoPipModel::update_site(const Context *ctx, size_t site) {
         cell.bel.tile = tile;
         cell.bel.index = bel_pair.first;
 
+        if(ctx->wire_lut == nullptr) {
+            continue;
+        }
+
         cell.type = IdString(ctx->wire_lut->cell);
         NPNR_ASSERT(ctx->wire_lut->input_pins.size() == 1);
         cell.lut_cell.pins.push_back(IdString(ctx->wire_lut->input_pins[0]));
