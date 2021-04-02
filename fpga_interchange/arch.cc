@@ -925,7 +925,22 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
 #ifdef USE_LOOKAHEAD
     return lookahead.estimateDelay(getCtx(), src, dst);
 #else
-    return 0;
+    // Note: Something is better than nothing when USE_LOOKAHEAD is not
+    // defined.
+    int src_tile = src.tile == -1 ? chip_info->nodes[src.index].tile_wires[0].tile : src.tile;
+    int dst_tile = dst.tile == -1 ? chip_info->nodes[dst.index].tile_wires[0].tile : dst.tile;
+
+    int src_x, src_y;
+    get_tile_x_y(src_tile, &src_x, &src_y);
+
+    int dst_x, dst_y;
+    get_tile_x_y(dst_tile, &dst_x, &dst_y);
+
+    delay_t base = 30 * std::min(std::abs(dst_x - src_x), 18) + 10 * std::max(std::abs(dst_x - src_x) - 18, 0) +
+                   60 * std::min(std::abs(dst_y - src_y), 6) + 20 * std::max(std::abs(dst_y - src_y) - 6, 0) + 300;
+
+    base = (base * 3) / 2;
+    return base;
 #endif
 }
 
