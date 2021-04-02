@@ -51,9 +51,13 @@ struct LutCell
 
 struct LutBel
 {
+    IdString name;
+
     // LUT BEL pins to LUT array index.
     std::vector<IdString> pins;
     std::unordered_map<IdString, size_t> pin_to_index;
+
+    IdString output_pin;
 
     // What part of the LUT equation does this LUT output use?
     // This assumes contiguous LUT bits.

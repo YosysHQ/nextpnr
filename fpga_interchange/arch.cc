@@ -247,9 +247,12 @@ Arch::Arch(ArchArgs args) : args(args)
             LutElement &element = elements.back();
             element.width = lut_element.width;
             for (auto &lut_bel : lut_element.lut_bels) {
-                auto result = element.lut_bels.emplace(IdString(lut_bel.name), LutBel());
+                IdString name(lut_bel.name);
+                auto result = element.lut_bels.emplace(name, LutBel());
                 NPNR_ASSERT(result.second);
                 LutBel &lut = result.first->second;
+
+                lut.name = name;
 
                 lut.low_bit = lut_bel.low_bit;
                 lut.high_bit = lut_bel.high_bit;
@@ -260,6 +263,8 @@ Arch::Arch(ArchArgs args) : args(args)
                     lut.pins.push_back(pin);
                     lut.pin_to_index[pin] = i;
                 }
+
+                lut.output_pin = IdString(lut_bel.out_pin);
             }
 
             element.compute_pin_order();
