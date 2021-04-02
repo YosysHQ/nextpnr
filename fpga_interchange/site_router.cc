@@ -1033,11 +1033,6 @@ static void block_lut_outputs(SiteArch *site_arch,
         const HashTables::HashSet<std::pair<IdString, IdString>> &blocked_wires) {
     const Context * ctx = site_arch->site_info->ctx;
     auto &tile_info = ctx->chip_info->tile_types[site_arch->site_info->tile_type];
-    NetInfo blocking_net;
-    blocking_net.name = ctx->id("$nextpnr_blocked_net");
-
-    SiteNetInfo blocking_site_net;
-    blocking_site_net.net = &blocking_net;
     for(const auto & bel_pin_pair : blocked_wires) {
         IdString bel_name = bel_pin_pair.first;
         IdString bel_pin = bel_pin_pair.second;
@@ -1056,7 +1051,7 @@ static void block_lut_outputs(SiteArch *site_arch,
         bel.index = bel_index;
 
         SiteWire lut_output_wire = site_arch->getBelPinWire(bel, bel_pin);
-        site_arch->bindWire(lut_output_wire, &blocking_site_net);
+        site_arch->bindWire(lut_output_wire, &site_arch->blocking_site_net);
     }
 }
 

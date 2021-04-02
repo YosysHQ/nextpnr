@@ -269,6 +269,9 @@ SiteArch::SiteArch(const SiteInformation *site_info) : ctx(site_info->ctx), site
             NPNR_ASSERT(result.second);
         }
     }
+
+    blocking_net.name = ctx->id("$nextpnr_blocked_net");
+    blocking_site_net.net = &blocking_net;
 }
 
 const char *SiteArch::nameOfWire(const SiteWire &wire) const
