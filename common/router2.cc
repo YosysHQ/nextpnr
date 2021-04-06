@@ -654,7 +654,18 @@ struct Router2
         bool debug_arc = /*usr.cell->type.str(ctx).find("RAMB") != std::string::npos && (usr.port ==
                             ctx->id("ADDRATIEHIGH0") || usr.port == ctx->id("ADDRARDADDRL0"))*/
                 false;
-        while (!t.queue.empty() && iter < toexplore) {
+
+        // When running without a bounding box, the toexplore limit should be
+        // suspended until a solution is reached.  Once a solution is found,
+        // the toexplore limit should be used again to prevent requiring the
+        // router to drain the routing queue.
+        //
+        // Note that is it important that the must_drain_queue be set to true
+        // when running without a bb to ensure that a routing failure is
+        // because there is not route, rather than just because the toexplore
+        // heuristic is incorrect.
+        bool must_drain_queue = !is_bb;
+        while (!t.queue.empty() && (must_drain_queue || iter < toexplore)) {
             auto curr = t.queue.top();
             auto &d = flat_wires.at(curr.wire);
             t.queue.pop();
@@ -728,6 +739,7 @@ struct Router2
                     set_visited(t, next_idx, dh, next_score);
                     if (next == dst_wire) {
                         toexplore = std::min(toexplore, iter + 5);
+                        must_drain_queue = false;
                     }
                 }
             }
