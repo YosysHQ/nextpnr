@@ -279,6 +279,9 @@ struct SiteArch
     HashTables::HashMap<NetInfo *, SiteNetInfo> nets;
     HashTables::HashMap<SiteWire, SiteNetMap> wire_to_nets;
 
+    NetInfo blocking_net;
+    SiteNetInfo blocking_site_net;
+
     std::vector<PipId> input_site_ports;
     std::vector<PipId> output_site_ports;
 

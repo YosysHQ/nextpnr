@@ -110,7 +110,7 @@ static std::string sha1_hash(const char *data, size_t size)
     return buf.str();
 }
 
-Arch::Arch(ArchArgs args) : args(args)
+Arch::Arch(ArchArgs args) : args(args), disallow_site_routing(false)
 {
     try {
         blob_file.open(args.chipdb);
@@ -272,10 +272,17 @@ Arch::Arch(ArchArgs args) : args(args)
     }
 
     // Map lut cell types to their LutCellPOD
+    wire_lut = nullptr;
     for (const LutCellPOD &lut_cell : chip_info->cell_map->lut_cells) {
         IdString cell_type(lut_cell.cell);
         auto result = lut_cells.emplace(cell_type, &lut_cell);
         NPNR_ASSERT(result.second);
+
+        if(lut_cell.input_pins.size() == 1) {
+            // Only really expecting 1 single input LUT type!
+            NPNR_ASSERT(wire_lut == nullptr);
+            wire_lut = &lut_cell;
+        }
     }
 
     raw_bin_constant = std::regex("[01]+", std::regex_constants::ECMAScript | std::regex_constants::optimize);
@@ -294,6 +301,10 @@ void Arch::init()
 #endif
     dedicated_interconnect.init(getCtx());
     cell_parameters.init(getCtx());
+
+    for (size_t tile_type = 0; tile_type < chip_info->tile_types.size(); ++tile_type) {
+        pseudo_pip_data.init_tile_type(getCtx(), tile_type);
+    }
 }
 
 // -----------------------------------------------------------------------
@@ -798,6 +809,8 @@ static void prepare_sites_for_routing(Context *ctx)
 
             site_router.bindSiteRouting(ctx);
         }
+
+        tile_pair.second.pseudo_pip_model.prepare_for_routing(ctx, tile_pair.second.sites);
     }
 
     // Fixup LUT vcc pins.
@@ -851,6 +864,15 @@ bool Arch::route()
 
     std::string router = str_or_default(settings, id("router"), defaultRouter);
 
+    // Disallow site routing during general routing.  This is because
+    // "prepare_sites_for_routing" has already assigned routing for all sites
+    // in the design, and if the router wants to route-thru a site, it *MUST*
+    // use a pseudo-pip.
+    //
+    // It is not legal in the FPGA interchange to enter a site and not
+    // terminate at a BEL pin.
+    disallow_site_routing = true;
+
     bool result;
     if (router == "router1") {
         result = router1(getCtx(), Router1Cfg(getCtx()));
@@ -860,6 +882,8 @@ bool Arch::route()
     } else {
         log_error("FPGA interchange architecture does not support router '%s'\n", router.c_str());
     }
+
+    disallow_site_routing = false;
 
     getCtx()->attrs[getCtx()->id("step")] = std::string("route");
     archInfoToAttributes();
@@ -901,7 +925,22 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
 #ifdef USE_LOOKAHEAD
     return lookahead.estimateDelay(getCtx(), src, dst);
 #else
-    return 0;
+    // Note: Something is better than nothing when USE_LOOKAHEAD is not
+    // defined.
+    int src_tile = src.tile == -1 ? chip_info->nodes[src.index].tile_wires[0].tile : src.tile;
+    int dst_tile = dst.tile == -1 ? chip_info->nodes[dst.index].tile_wires[0].tile : dst.tile;
+
+    int src_x, src_y;
+    get_tile_x_y(src_tile, &src_x, &src_y);
+
+    int dst_x, dst_y;
+    get_tile_x_y(dst_tile, &dst_x, &dst_y);
+
+    delay_t base = 30 * std::min(std::abs(dst_x - src_x), 18) + 10 * std::max(std::abs(dst_x - src_x) - 18, 0) +
+                   60 * std::min(std::abs(dst_y - src_y), 6) + 20 * std::max(std::abs(dst_y - src_y) - 6, 0) + 300;
+
+    base = (base * 3) / 2;
+    return base;
 #endif
 }
 
@@ -1451,6 +1490,10 @@ void Arch::remove_pip_pseudo_wires(PipId pip, NetInfo *net)
             iter->second = nullptr;
         }
     }
+
+    if(pip_data.pseudo_cell_wires.size() > 0) {
+        get_tile_status(pip.tile).pseudo_pip_model.unbindPip(getCtx(), pip);
+    }
 }
 
 void Arch::assign_net_to_wire(WireId wire, NetInfo *net, const char *src, bool require_empty)
@@ -1681,11 +1724,19 @@ bool Arch::checkPipAvailForNet(PipId pip, NetInfo *net) const
         }
     }
 
+    if(pip_data.pseudo_cell_wires.size() > 0) {
+        // FIXME: This pseudo pip check is incomplete, because constraint
+        // failures will not be detected.  However the current FPGA
+        // interchange schema does not provide a cell type to place.
+        auto iter = tileStatus.find(pip.tile);
+        if(iter != tileStatus.end()) {
+            if(!iter->second.pseudo_pip_model.checkPipAvail(getCtx(), pip)) {
+                return false;
+            }
+        }
+    }
+
     if (pip_data.site != -1 && net != nullptr) {
-        // FIXME: This check isn't perfect.  If a driver and sink are in the
-        // same site, it is possible for the router to route-thru the site
-        // ports without hitting a sink, which is not legal in the FPGA
-        // interchange.
         NPNR_ASSERT(net->driver.cell != nullptr);
         NPNR_ASSERT(net->driver.cell->bel != BelId());
 
@@ -1711,6 +1762,16 @@ bool Arch::checkPipAvailForNet(PipId pip, NetInfo *net) const
             }
         }
 
+        if(disallow_site_routing && !valid_pip) {
+            // For now, if driver is not part of this site, and
+            // disallow_site_routing is set, disallow the edge.
+            return false;
+        }
+
+        // FIXME: This check isn't perfect.  If a driver and sink are in the
+        // same site, it is possible for the router to route-thru the site
+        // ports without hitting a sink, which is not legal in the FPGA
+        // interchange.
         if (!valid_pip) {
             // See if one users can enter this site.
             if (dst_wire_data.site == -1) {
@@ -1743,10 +1804,6 @@ bool Arch::checkPipAvailForNet(PipId pip, NetInfo *net) const
             return false;
         }
     }
-
-    // FIXME: This pseudo pip check is incomplete, because constraint
-    // failures will not be detected.  However the current FPGA
-    // interchange schema does not provide a cell type to place.
 
     return true;
 }
@@ -1909,6 +1966,17 @@ void Arch::explain_bel_status(BelId bel) const
     const SiteRouter &site = get_site_status(tile_status, bel_data);
     NPNR_ASSERT(!site.checkSiteRouting(getCtx(), tile_status));
     site.explain(getCtx());
+}
+
+DelayQuad Arch::getPipDelay(PipId pip) const {
+    // FIXME: Implement when adding timing-driven place and route.
+    const auto & pip_data = pip_info(chip_info, pip);
+
+    // Scale pseudo-pips by the number of wires they consume to make them
+    // more expensive than a single edge.  This approximation exists soley to
+    // make the non-timing driven solution avoid thinking that pseudo-pips
+    // are the same cost as regular pips.
+    return DelayQuad(100*(1+pip_data.pseudo_cell_wires.size()));
 }
 
 // Instance constraint templates.

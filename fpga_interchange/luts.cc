@@ -17,10 +17,13 @@
  *
  */
 
-#include "nextpnr.h"
 
-#include "log.h"
 #include "luts.h"
+
+#include "nextpnr.h"
+#include "log.h"
+
+//#define DEBUG_LUT_ROTATION
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -128,15 +131,57 @@ struct LutPin
     bool operator<(const LutPin &other) const { return max_pin < other.max_pin; }
 };
 
-//#define DEBUG_LUT_ROTATION
+
+uint32_t LutMapper::check_wires(const Context *ctx) const {
+    // Unlike the 3 argument version of check_wires, this version needs to
+    // calculate following data based on current cell pin mapping, etc:
+    //
+    //  - Index map from bel pins to cell pins, -1 for unmapped
+    //  - Mask of used pins
+    //  - Vector of unused LUT BELs.
+
+    uint32_t used_pins = 0;
+
+    std::vector<std::vector<int32_t>> bel_to_cell_pin_remaps;
+    std::vector<const LutBel *> lut_bels;
+    bel_to_cell_pin_remaps.resize(cells.size());
+    lut_bels.resize(cells.size());
+    for (size_t cell_idx = 0; cell_idx < cells.size(); ++cell_idx) {
+        const CellInfo *cell = cells[cell_idx];
+
+
+        auto &bel_data = bel_info(ctx->chip_info, cell->bel);
+        IdString bel_name(bel_data.name);
+        auto &lut_bel = element.lut_bels.at(bel_name);
+        lut_bels[cell_idx] = &lut_bel;
+
+        bel_to_cell_pin_remaps[cell_idx].resize(lut_bel.pins.size(), -1);
+
+        for (size_t pin_idx = 0; pin_idx < cell->lut_cell.pins.size(); ++pin_idx) {
+            IdString lut_cell_pin = cell->lut_cell.pins[pin_idx];
+            const std::vector<IdString> bel_pins = cell->cell_bel_pins.at(lut_cell_pin);
+            NPNR_ASSERT(bel_pins.size() == 1);
+
+            size_t bel_pin_idx = lut_bel.pin_to_index.at(bel_pins[0]);
+            bel_to_cell_pin_remaps[cell_idx][bel_pin_idx] = pin_idx;
+            used_pins |= (1 << bel_pin_idx);
+        }
+    }
+
+    HashTables::HashSet<const LutBel *> blocked_luts;
+    return check_wires(bel_to_cell_pin_remaps, lut_bels, used_pins,
+            &blocked_luts);
+}
 
 uint32_t LutMapper::check_wires(const std::vector<std::vector<int32_t>> &bel_to_cell_pin_remaps,
-                                const std::vector<const LutBel *> &lut_bels, uint32_t used_pins) const
+                                const std::vector<const LutBel *> &lut_bels, uint32_t used_pins,
+                                HashTables::HashSet<const LutBel *> *blocked_luts) const
 {
     std::vector<const LutBel *> unused_luts;
     for (auto &lut_bel_pair : element.lut_bels) {
         if (std::find(lut_bels.begin(), lut_bels.end(), &lut_bel_pair.second) == lut_bels.end()) {
             unused_luts.push_back(&lut_bel_pair.second);
+            blocked_luts->emplace(&lut_bel_pair.second);
         }
     }
 
@@ -198,6 +243,7 @@ uint32_t LutMapper::check_wires(const std::vector<std::vector<int32_t>> &bel_to_
             if (rotate_and_merge_lut_equation(&equation_result, *lut_bel, wire_equation, wire_bel_to_cell_pin_map,
                                               used_pins_with_wire)) {
                 valid_pin_for_wire = true;
+                blocked_luts->erase(lut_bel);
             }
         }
 
@@ -210,7 +256,7 @@ uint32_t LutMapper::check_wires(const std::vector<std::vector<int32_t>> &bel_to_
     return vcc_mask;
 }
 
-bool LutMapper::remap_luts(const Context *ctx)
+bool LutMapper::remap_luts(const Context *ctx, HashTables::HashSet<const LutBel *> *blocked_luts)
 {
     std::unordered_map<NetInfo *, LutPin> lut_pin_map;
     std::vector<const LutBel *> lut_bels;
@@ -368,7 +414,7 @@ bool LutMapper::remap_luts(const Context *ctx)
         //
         // Use Arch::prefered_constant_net_type to determine what
         // constant net should be used for unused pins.
-        uint32_t vcc_pins = check_wires(bel_to_cell_pin_remaps, lut_bels, used_pins);
+        uint32_t vcc_pins = check_wires(bel_to_cell_pin_remaps, lut_bels, used_pins, blocked_luts);
 #if defined(DEBUG_LUT_ROTATION)
         log_info("vcc_pins = 0x%x", vcc_pins);
         for (size_t cell_idx = 0; cell_idx < cells.size(); ++cell_idx) {

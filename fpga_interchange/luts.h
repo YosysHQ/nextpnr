@@ -27,6 +27,7 @@
 #include "nextpnr_namespaces.h"
 
 #include "dynamic_bitarray.h"
+#include "hash_table.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -91,9 +92,20 @@ struct LutMapper
 
     std::vector<CellInfo *> cells;
 
-    bool remap_luts(const Context *ctx);
+    bool remap_luts(const Context *ctx, HashTables::HashSet<const LutBel *> *blocked_luts);
+
+    // Determine which wires given the current mapping must be tied to the
+    // default constant.
+    //
+    // Returns a bit mask, 1 meaning it must be tied.   Otherwise means that
+    // the pin is free to be a signal.
     uint32_t check_wires(const std::vector<std::vector<int32_t>> &bel_to_cell_pin_remaps,
-                         const std::vector<const LutBel *> &lut_bels, uint32_t used_pins) const;
+                         const std::vector<const LutBel *> &lut_bels, uint32_t used_pins,
+                        HashTables::HashSet<const LutBel *> *blocked_luts) const;
+
+    // Version of check_wires that uses current state of cells based on pin
+    // mapping in cells variable.
+    uint32_t check_wires(const Context *ctx) const;
 };
 
 // Rotate and merge a LUT equation into an array of levels.
