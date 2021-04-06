@@ -321,6 +321,7 @@ function(add_interchange_group_test)
     #    sources <sources list>
     #    [top <top name>]
     #    [techmap <techmap file>]
+    #    [skip_dcp]
     # )
     #
     # Generates targets to run desired tests over multiple devices.
@@ -340,7 +341,7 @@ function(add_interchange_group_test)
     # Note: it is assumed that there exists an XDC file for each board, with the following naming
     #       convention: <board>.xdc
 
-    set(options output_fasm)
+    set(options output_fasm skip_dcp)
     set(oneValueArgs name family tcl top techmap)
     set(multiValueArgs sources board_list)
 
@@ -359,12 +360,17 @@ function(add_interchange_group_test)
     set(techmap ${add_interchange_group_test_techmap})
     set(sources ${add_interchange_group_test_sources})
     set(output_fasm ${add_interchange_group_test_output_fasm})
+    set(skip_dcp ${add_interchange_group_test_skip_dcp})
 
     set(output_fasm_arg "")
     if(output_fasm)
         set(output_fasm_arg "output_fasm")
     endif()
 
+    set(skip_dcp_arg "")
+    if(skip_dcp)
+        set(skip_dcp_arg "skip_dcp")
+    endif()
 
     if (NOT DEFINED top)
         # Setting default top value
@@ -388,6 +394,7 @@ function(add_interchange_group_test)
             top ${top}
             techmap ${techmap}
             ${output_fasm_arg}
+            ${skip_dcp_arg}
         )
     endforeach()
 endfunction()
