@@ -498,11 +498,13 @@ static bool find_solution_via_backtrack(SiteArch *ctx, std::vector<PossibleSolut
 {
     std::vector<uint8_t> routed_sinks;
     std::vector<size_t> solution_indicies;
-    std::vector<std::pair<size_t, size_t>> solution_order;
     routed_sinks.resize(sinks_to_solutions.size(), 0);
     solution_indicies.resize(sinks_to_solutions.size(), 0);
 
     // Scan solutions, and remove any solutions that are invalid immediately
+    //
+    // Note: This result cannot be cached because some solutions may be
+    // placement dependent.
     for (size_t solution_idx = 0; solution_idx < solutions->size(); ++solution_idx) {
         PossibleSolutions &solution = (*solutions)[solution_idx];
         if (verbose_site_router(ctx) || explain) {
@@ -523,6 +525,8 @@ static bool find_solution_via_backtrack(SiteArch *ctx, std::vector<PossibleSolut
 
     // Sort sinks_to_solutions so that preferred solutions are tested earlier
     // than less preferred solutions.
+    //
+    // See SolutionPreference implementation for details.
     for (size_t sink_idx = 0; sink_idx < sinks_to_solutions.size(); ++sink_idx) {
         std::vector<size_t> &solutions_for_sink = sinks_to_solutions.at(sink_idx);
         std::stable_sort(solutions_for_sink.begin(), solutions_for_sink.end(), SolutionPreference(ctx, *solutions));
@@ -540,6 +544,11 @@ static bool find_solution_via_backtrack(SiteArch *ctx, std::vector<PossibleSolut
         }
     }
 
+    // Sort solutions by the number of possible solutions first.  This allows
+    // the backtrack to avoid the wide searches first.
+
+    // First create a tuple vector of (sink_idx, number of valid solutions for sink).
+    std::vector<std::pair<size_t, size_t>> solution_order;
     for (size_t sink_idx = 0; sink_idx < sinks_to_solutions.size(); ++sink_idx) {
         size_t solution_count = 0;
         for (size_t solution_idx : sinks_to_solutions[sink_idx]) {
@@ -558,8 +567,8 @@ static bool find_solution_via_backtrack(SiteArch *ctx, std::vector<PossibleSolut
         solution_order.emplace_back(sink_idx, solution_count);
     }
 
-    // Sort solutions by the number of possible solutions first.  This allows
-    // the backtrack to avoid the wide searches first.
+    // Actually sort so that sinks with fewer valid solutions are tested
+    // earlier.
     std::sort(solution_order.begin(), solution_order.end(),
               [](const std::pair<size_t, size_t> &a, const std::pair<size_t, size_t> &b) -> bool {
                   return a.second < b.second;
@@ -569,7 +578,7 @@ static bool find_solution_via_backtrack(SiteArch *ctx, std::vector<PossibleSolut
     solution_stack.reserve(sinks_to_solutions.size());
 
     if (verbose_site_router(ctx)) {
-        log_info("Solving via backtrace with %zu solutions and %zu sinks\n", solutions->size(),
+        log_info("Solving via backtrack with %zu solutions and %zu sinks\n", solutions->size(),
                  sinks_to_solutions.size());
     }
 
@@ -595,7 +604,7 @@ static bool find_solution_via_backtrack(SiteArch *ctx, std::vector<PossibleSolut
             if (solution_stack.empty()) {
                 // Search is done, failed!!!
                 if (verbose_site_router(ctx) || explain) {
-                    log_info("No solution found via backtrace with %zu solutions and %zu sinks\n", solutions->size(),
+                    log_info("No solution found via backtrack with %zu solutions and %zu sinks\n", solutions->size(),
                              sinks_to_solutions.size());
                 }
                 return false;
@@ -649,7 +658,7 @@ static bool find_solution_via_backtrack(SiteArch *ctx, std::vector<PossibleSolut
             if (solution_stack.size() == sinks_to_solutions.size()) {
                 // Found a valid solution, done!
                 if (verbose_site_router(ctx)) {
-                    log_info("Solved via backtrace with %zu solutions and %zu sinks\n", solutions->size(),
+                    log_info("Solved via backtrack with %zu solutions and %zu sinks\n", solutions->size(),
                              sinks_to_solutions.size());
                 }
                 return true;
@@ -666,8 +675,16 @@ static bool find_solution_via_backtrack(SiteArch *ctx, std::vector<PossibleSolut
     NPNR_ASSERT(false);
 }
 
-bool route_site(SiteArch *ctx, SiteRoutingCache *site_routing_cache, RouteNodeStorage *node_storage, bool explain)
+static bool route_site(SiteArch *ctx, SiteRoutingCache *site_routing_cache, RouteNodeStorage *node_storage, bool explain)
 {
+    // Overview:
+    // - Starting from each site net source, expand the site routing graph
+    //   and record all reachable sinks.
+    //    - Note: This step is cachable and is being cached.  This cache
+    //      behaving well is critical to the performance of route_site.
+    // - Convert site expansion solutions into flat solution map.
+    // - Use backtrack algorithm to find conflict free solution to route site.
+    //
     std::vector<SiteExpansionLoop *> expansions;
     expansions.reserve(ctx->nets.size());
 
@@ -689,12 +706,14 @@ bool route_site(SiteArch *ctx, SiteRoutingCache *site_routing_cache, RouteNodeSt
         }
     }
 
-    // First convert remaining solutions into a flat solution set.
-    std::vector<PossibleSolutions> solutions;
+    // Convert solutions into a flat solution set.
+
+    // Create a flat sink list and map.
     std::vector<SiteWire> sinks;
     HashTables::HashMap<SiteWire, size_t> sink_map;
-    std::vector<std::vector<size_t>> sinks_to_solutions;
+    size_t number_solutions = 0;
     for (const auto *expansion : expansions) {
+        number_solutions += expansion->num_solutions();
         for (const SiteWire &unrouted_sink : expansion->net_users) {
             auto result = sink_map.emplace(unrouted_sink, sink_map.size());
             NPNR_ASSERT(result.second);
@@ -707,8 +726,14 @@ bool route_site(SiteArch *ctx, SiteRoutingCache *site_routing_cache, RouteNodeSt
         return true;
     }
 
+    std::vector<PossibleSolutions> solutions;
+    solutions.reserve(number_solutions);
+
+    // Create a map from flat sink index to flat solution index.
+    std::vector<std::vector<size_t>> sinks_to_solutions;
     sinks_to_solutions.resize(sink_map.size());
 
+    // Actually flatten solutions.
     for (const auto *expansion : expansions) {
         for (size_t idx = 0; idx < expansion->num_solutions(); ++idx) {
             SiteWire wire = expansion->solution_sink(idx);
@@ -963,12 +988,22 @@ static void apply_routing(Context *ctx, const SiteArch &site_arch)
 
 bool SiteRouter::checkSiteRouting(const Context *ctx, const TileStatus &tile_status) const
 {
+    // Overview:
+    //  - Make sure all cells in site satisfy the constraints.
+    //  - Ensure that the LUT equation elements in the site are legal
+    //  - Check that the site is routable.
+
+
+    // Because site routing checks are expensive, cache them.
+    // SiteRouter::bindBel/unbindBel should correctly invalid the cache by
+    // setting dirty=true.
     if (!dirty) {
         return site_ok;
     }
 
     dirty = false;
 
+    // Empty sites are trivially correct.
     if (cells_in_site.size() == 0) {
         site_ok = true;
         return site_ok;
@@ -1005,6 +1040,8 @@ bool SiteRouter::checkSiteRouting(const Context *ctx, const TileStatus &tile_sta
         }
     }
 
+    // At this point all cells should be legal via the constraint system.
+    // Check to see if the LUT elements contained within the site are legal.
     auto tile_type_idx = ctx->chip_info->tiles[tile].type;
     const std::vector<LutElement> &lut_elements = ctx->lut_elements.at(tile_type_idx);
     std::vector<LutMapper> lut_mappers;
@@ -1031,6 +1068,7 @@ bool SiteRouter::checkSiteRouting(const Context *ctx, const TileStatus &tile_sta
         }
 
         if (!lut_mapper.remap_luts(ctx)) {
+            // LUT equation sharing was not possible, fail.
             site_ok = false;
             return site_ok;
         }
@@ -1039,14 +1077,24 @@ bool SiteRouter::checkSiteRouting(const Context *ctx, const TileStatus &tile_sta
     SiteInformation site_info(ctx, tile, site, cells_in_site);
 
     // Push from cell pins to the first WireId from each cell pin.
+    //
+    // If a site wire conflict occurs here, the site is trivially unroutable.
     if (!check_initial_wires(ctx, &site_info)) {
         site_ok = false;
         return site_ok;
     }
 
+    // Construct a model of the site routing that is suitable for routing
+    // algorithms.
     SiteArch site_arch(&site_info);
+
+    // SiteArch::archcheck is a good sanity check on SiteArch and the chipdb,
+    // but isn't cheap, so disabled for now.
+    //
     // site_arch.archcheck();
 
+    // Do a detailed routing check to see if the site has at least 1 valid
+    // routing solution.
     site_ok = route_site(&site_arch, &ctx->site_routing_cache, &ctx->node_storage, /*explain=*/false);
     if (verbose_site_router(ctx)) {
         if (site_ok) {
