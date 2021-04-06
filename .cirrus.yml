@@ -1,7 +1,7 @@
 task:
   name: build-test-ubuntu2004
   container:
-    cpu: 4
+    cpu: 5
     memory: 20
     dockerfile: .cirrus/Dockerfile.ubuntu20.04
 
