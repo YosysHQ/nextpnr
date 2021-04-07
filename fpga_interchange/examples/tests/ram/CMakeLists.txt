@@ -1,10 +1,8 @@
-add_interchange_test(
-    name ram_basys3
+add_interchange_group_test(
+    name ram
     family ${family}
-    device xc7a35t
-    package cpg236
+    board_list basys3
     tcl run.tcl
-    xdc basys3.xdc
     sources ram.v
 )
 

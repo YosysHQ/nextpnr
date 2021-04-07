@@ -1,19 +1,7 @@
-add_interchange_test(
-    name const_wire_basys3
+add_interchange_group_test(
+    name const_wire
     family ${family}
-    device xc7a35t
-    package cpg236
+    board_list basys3 arty35t arty100t
     tcl run.tcl
-    xdc wire_basys3.xdc
-    sources wire.v
-)
-
-add_interchange_test(
-    name const_wire_arty
-    family ${family}
-    device xc7a35t
-    package csg324
-    tcl run.tcl
-    xdc wire_arty.xdc
     sources wire.v
 )

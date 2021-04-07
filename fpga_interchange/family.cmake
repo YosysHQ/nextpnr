@@ -24,6 +24,7 @@ set(chipdb_dir ${CMAKE_CURRENT_BINARY_DIR}/${family}/chipdb)
 file(MAKE_DIRECTORY ${chipdb_dir})
 
 add_custom_target(all-${family}-tests)
+add_custom_target(all-${family}-fasm)
 add_custom_target(all-${family}-archcheck-tests)
 add_subdirectory(${family}/examples/devices)
 add_subdirectory(${family}/examples/boards)
