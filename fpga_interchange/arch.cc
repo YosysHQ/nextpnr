@@ -826,8 +826,12 @@ static void prepare_sites_for_routing(Context *ctx)
         }
 
         for (auto bel_pin : cell->lut_cell.vcc_pins) {
+            // We can't rely on bel pins not clashing with cell names (for Xilinx they use different naming schemes, for
+            // Nexus they are the same) so add a prefix to the bel pin name to disambiguate it
+            IdString cell_pin = ctx->id(stringf("%s_PHYS", ctx->nameOf(bel_pin)));
+
             PortInfo port_info;
-            port_info.name = bel_pin;
+            port_info.name = cell_pin;
             port_info.type = PORT_IN;
             port_info.net = nullptr;
 
@@ -837,14 +841,14 @@ static void prepare_sites_for_routing(Context *ctx)
             }
 #endif
 
-            auto result = cell->ports.emplace(bel_pin, port_info);
+            auto result = cell->ports.emplace(cell_pin, port_info);
             if (result.second) {
-                cell->cell_bel_pins[bel_pin].push_back(bel_pin);
-                ctx->connectPort(vcc_net_name, cell->name, bel_pin);
-                cell->const_ports.emplace(bel_pin);
+                cell->cell_bel_pins[cell_pin].push_back(bel_pin);
+                ctx->connectPort(vcc_net_name, cell->name, cell_pin);
+                cell->const_ports.emplace(cell_pin);
             } else {
                 NPNR_ASSERT(result.first->second.net == ctx->getNetByAlias(vcc_net_name));
-                auto result2 = cell->cell_bel_pins.emplace(bel_pin, std::vector<IdString>({bel_pin}));
+                auto result2 = cell->cell_bel_pins.emplace(cell_pin, std::vector<IdString>({bel_pin}));
                 NPNR_ASSERT(result2.first->second.at(0) == bel_pin);
                 NPNR_ASSERT(result2.first->second.size() == 1);
             }
