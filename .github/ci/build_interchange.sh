@@ -40,6 +40,8 @@ function get_dependencies {
         curl --proto '=https' -sSf https://sh.rustup.rs | sh -s -- -y
         git clone --recursive https://github.com/gatecat/prjoxide.git
         pushd prjoxide/libprjoxide
+        # TODO: use a tag instead of a commit, like python-fpga-interchange
+        git reset --hard ${PRJOXIDE_REVISION}
         PATH=$PATH:$HOME/.cargo/bin cargo install --path prjoxide --all-features
         popd
     else
