@@ -675,7 +675,8 @@ static bool find_solution_via_backtrack(SiteArch *ctx, std::vector<PossibleSolut
     NPNR_ASSERT(false);
 }
 
-static bool route_site(SiteArch *ctx, SiteRoutingCache *site_routing_cache, RouteNodeStorage *node_storage, bool explain)
+static bool route_site(SiteArch *ctx, SiteRoutingCache *site_routing_cache, RouteNodeStorage *node_storage,
+                       bool explain)
 {
     // Overview:
     // - Starting from each site net source, expand the site routing graph
@@ -987,7 +988,8 @@ static void apply_routing(Context *ctx, const SiteArch &site_arch)
 }
 
 static bool map_luts_in_site(const SiteInformation &site_info,
-        HashTables::HashSet<std::pair<IdString, IdString>> *blocked_wires) {
+                             HashTables::HashSet<std::pair<IdString, IdString>> *blocked_wires)
+{
     const Context *ctx = site_info.ctx;
     const std::vector<LutElement> &lut_elements = ctx->lut_elements.at(site_info.tile_type);
     std::vector<LutMapper> lut_mappers;
@@ -1019,7 +1021,7 @@ static bool map_luts_in_site(const SiteInformation &site_info,
             return false;
         }
 
-        for(const LutBel * lut_bel : blocked_luts) {
+        for (const LutBel *lut_bel : blocked_luts) {
             blocked_wires->emplace(std::make_pair(lut_bel->name, lut_bel->output_pin));
         }
     }
@@ -1027,19 +1029,20 @@ static bool map_luts_in_site(const SiteInformation &site_info,
     return true;
 }
 
-
 // Block outputs of unavailable LUTs to prevent site router from using them.
 static void block_lut_outputs(SiteArch *site_arch,
-        const HashTables::HashSet<std::pair<IdString, IdString>> &blocked_wires) {
-    const Context * ctx = site_arch->site_info->ctx;
+                              const HashTables::HashSet<std::pair<IdString, IdString>> &blocked_wires)
+{
+    const Context *ctx = site_arch->site_info->ctx;
     auto &tile_info = ctx->chip_info->tile_types[site_arch->site_info->tile_type];
-    for(const auto & bel_pin_pair : blocked_wires) {
+    for (const auto &bel_pin_pair : blocked_wires) {
         IdString bel_name = bel_pin_pair.first;
         IdString bel_pin = bel_pin_pair.second;
 
         int32_t bel_index = -1;
         for (int32_t i = 0; i < tile_info.bel_data.ssize(); i++) {
-            if (tile_info.bel_data[i].site == site_arch->site_info->site && tile_info.bel_data[i].name == bel_name.index) {
+            if (tile_info.bel_data[i].site == site_arch->site_info->site &&
+                tile_info.bel_data[i].name == bel_name.index) {
                 bel_index = i;
                 break;
             }
@@ -1061,7 +1064,6 @@ bool SiteRouter::checkSiteRouting(const Context *ctx, const TileStatus &tile_sta
     //  - Make sure all cells in site satisfy the constraints.
     //  - Ensure that the LUT equation elements in the site are legal
     //  - Check that the site is routable.
-
 
     // Because site routing checks are expensive, cache them.
     // SiteRouter::bindBel/unbindBel should correctly invalid the cache by
@@ -1111,7 +1113,7 @@ bool SiteRouter::checkSiteRouting(const Context *ctx, const TileStatus &tile_sta
 
     SiteInformation site_info(ctx, tile, site, cells_in_site);
     HashTables::HashSet<std::pair<IdString, IdString>> blocked_wires;
-    if(!map_luts_in_site(site_info, &blocked_wires)) {
+    if (!map_luts_in_site(site_info, &blocked_wires)) {
         site_ok = false;
         return site_ok;
     }

@@ -322,7 +322,6 @@ inline SiteWire SiteArch::getBelPinWire(BelId bel, IdString pin) const
 
 inline PortType SiteArch::getBelPinType(BelId bel, IdString pin) const { return ctx->getBelPinType(bel, pin); }
 
-
 NEXTPNR_NAMESPACE_END
 
 #endif /* SITE_ARCH_H */

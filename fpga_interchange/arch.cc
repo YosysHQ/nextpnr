@@ -278,7 +278,7 @@ Arch::Arch(ArchArgs args) : args(args), disallow_site_routing(false)
         auto result = lut_cells.emplace(cell_type, &lut_cell);
         NPNR_ASSERT(result.second);
 
-        if(lut_cell.input_pins.size() == 1) {
+        if (lut_cell.input_pins.size() == 1) {
             // Only really expecting 1 single input LUT type!
             NPNR_ASSERT(wire_lut == nullptr);
             wire_lut = &lut_cell;
@@ -1495,7 +1495,7 @@ void Arch::remove_pip_pseudo_wires(PipId pip, NetInfo *net)
         }
     }
 
-    if(pip_data.pseudo_cell_wires.size() > 0) {
+    if (pip_data.pseudo_cell_wires.size() > 0) {
         get_tile_status(pip.tile).pseudo_pip_model.unbindPip(getCtx(), pip);
     }
 }
@@ -1728,13 +1728,13 @@ bool Arch::checkPipAvailForNet(PipId pip, NetInfo *net) const
         }
     }
 
-    if(pip_data.pseudo_cell_wires.size() > 0) {
+    if (pip_data.pseudo_cell_wires.size() > 0) {
         // FIXME: This pseudo pip check is incomplete, because constraint
         // failures will not be detected.  However the current FPGA
         // interchange schema does not provide a cell type to place.
         auto iter = tileStatus.find(pip.tile);
-        if(iter != tileStatus.end()) {
-            if(!iter->second.pseudo_pip_model.checkPipAvail(getCtx(), pip)) {
+        if (iter != tileStatus.end()) {
+            if (!iter->second.pseudo_pip_model.checkPipAvail(getCtx(), pip)) {
                 return false;
             }
         }
@@ -1766,7 +1766,7 @@ bool Arch::checkPipAvailForNet(PipId pip, NetInfo *net) const
             }
         }
 
-        if(disallow_site_routing && !valid_pip) {
+        if (disallow_site_routing && !valid_pip) {
             // For now, if driver is not part of this site, and
             // disallow_site_routing is set, disallow the edge.
             return false;
@@ -1972,15 +1972,16 @@ void Arch::explain_bel_status(BelId bel) const
     site.explain(getCtx());
 }
 
-DelayQuad Arch::getPipDelay(PipId pip) const {
+DelayQuad Arch::getPipDelay(PipId pip) const
+{
     // FIXME: Implement when adding timing-driven place and route.
-    const auto & pip_data = pip_info(chip_info, pip);
+    const auto &pip_data = pip_info(chip_info, pip);
 
     // Scale pseudo-pips by the number of wires they consume to make them
     // more expensive than a single edge.  This approximation exists soley to
     // make the non-timing driven solution avoid thinking that pseudo-pips
     // are the same cost as regular pips.
-    return DelayQuad(100*(1+pip_data.pseudo_cell_wires.size()));
+    return DelayQuad(100 * (1 + pip_data.pseudo_cell_wires.size()));
 }
 
 // Instance constraint templates.

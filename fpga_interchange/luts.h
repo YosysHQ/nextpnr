@@ -101,7 +101,7 @@ struct LutMapper
     // the pin is free to be a signal.
     uint32_t check_wires(const std::vector<std::vector<int32_t>> &bel_to_cell_pin_remaps,
                          const std::vector<const LutBel *> &lut_bels, uint32_t used_pins,
-                        HashTables::HashSet<const LutBel *> *blocked_luts) const;
+                         HashTables::HashSet<const LutBel *> *blocked_luts) const;
 
     // Version of check_wires that uses current state of cells based on pin
     // mapping in cells variable.

@@ -17,11 +17,10 @@
  *
  */
 
-
 #include "luts.h"
 
-#include "nextpnr.h"
 #include "log.h"
+#include "nextpnr.h"
 
 //#define DEBUG_LUT_ROTATION
 
@@ -131,8 +130,8 @@ struct LutPin
     bool operator<(const LutPin &other) const { return max_pin < other.max_pin; }
 };
 
-
-uint32_t LutMapper::check_wires(const Context *ctx) const {
+uint32_t LutMapper::check_wires(const Context *ctx) const
+{
     // Unlike the 3 argument version of check_wires, this version needs to
     // calculate following data based on current cell pin mapping, etc:
     //
@@ -148,7 +147,6 @@ uint32_t LutMapper::check_wires(const Context *ctx) const {
     lut_bels.resize(cells.size());
     for (size_t cell_idx = 0; cell_idx < cells.size(); ++cell_idx) {
         const CellInfo *cell = cells[cell_idx];
-
 
         auto &bel_data = bel_info(ctx->chip_info, cell->bel);
         IdString bel_name(bel_data.name);
@@ -169,8 +167,7 @@ uint32_t LutMapper::check_wires(const Context *ctx) const {
     }
 
     HashTables::HashSet<const LutBel *> blocked_luts;
-    return check_wires(bel_to_cell_pin_remaps, lut_bels, used_pins,
-            &blocked_luts);
+    return check_wires(bel_to_cell_pin_remaps, lut_bels, used_pins, &blocked_luts);
 }
 
 uint32_t LutMapper::check_wires(const std::vector<std::vector<int32_t>> &bel_to_cell_pin_remaps,

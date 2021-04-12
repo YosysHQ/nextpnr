@@ -38,8 +38,8 @@
 #include "chipdb.h"
 #include "dedicated_interconnect.h"
 #include "lookahead.h"
-#include "site_router.h"
 #include "pseudo_pip_model.h"
+#include "site_router.h"
 #include "site_routing_cache.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -553,7 +553,7 @@ struct Arch : ArchAPI<ArchRanges>
             assign_net_to_wire(wire, net, "pseudo", /*require_empty=*/true);
         }
 
-        if(pip_data.pseudo_cell_wires.size() > 0) {
+        if (pip_data.pseudo_cell_wires.size() > 0) {
             get_tile_status(pip.tile).pseudo_pip_model.bindPip(getCtx(), pip);
         }
     }
@@ -1068,7 +1068,7 @@ struct Arch : ArchAPI<ArchRanges>
     // Note: May be null in arch's without wire LUT types.  Assumption is
     // that these arch's don't need wire LUT's because the LUT share is simple
     // enough to avoid it.
-    const LutCellPOD * wire_lut;
+    const LutCellPOD *wire_lut;
 
     std::regex raw_bin_constant;
     std::regex verilog_bin_constant;

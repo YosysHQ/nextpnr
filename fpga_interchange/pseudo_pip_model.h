@@ -23,15 +23,16 @@
 
 #include <tuple>
 
+#include "dynamic_bitarray.h"
+#include "hash_table.h"
 #include "nextpnr_namespaces.h"
 #include "nextpnr_types.h"
 #include "site_router.h"
-#include "dynamic_bitarray.h"
-#include "hash_table.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
-struct PseudoPipBel {
+struct PseudoPipBel
+{
     // Which BEL in the tile does the pseudo pip use?
     int32_t bel_index;
 
@@ -46,22 +47,17 @@ struct PseudoPipBel {
     int32_t output_bel_pin;
 };
 
-struct LogicBelKey {
+struct LogicBelKey
+{
     int32_t tile_type;
     int32_t pip_index;
     int32_t site;
 
-    std::tuple<int32_t, int32_t, int32_t> make_tuple() const {
-        return std::make_tuple(tile_type, pip_index, site);
-    }
+    std::tuple<int32_t, int32_t, int32_t> make_tuple() const { return std::make_tuple(tile_type, pip_index, site); }
 
-    bool operator == (const LogicBelKey & other) const {
-        return make_tuple() == other.make_tuple();
-    }
+    bool operator==(const LogicBelKey &other) const { return make_tuple() == other.make_tuple(); }
 
-    bool operator < (const LogicBelKey & other) const {
-        return make_tuple() < other.make_tuple();
-    }
+    bool operator<(const LogicBelKey &other) const { return make_tuple() < other.make_tuple(); }
 };
 
 NEXTPNR_NAMESPACE_END
@@ -80,13 +76,13 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX LogicBelKey>
     }
 };
 
-};
-
+}; // namespace std
 
 NEXTPNR_NAMESPACE_BEGIN
 
 // Storage for tile type generic pseudo pip data and lookup.
-struct PseudoPipData {
+struct PseudoPipData
+{
     // Initial data for specified tile type, if not already initialized.
     void init_tile_type(const Context *ctx, int32_t tile_type);
 
@@ -107,7 +103,8 @@ struct PseudoPipData {
 };
 
 // Tile instance fast pseudo pip lookup.
-struct PseudoPipModel {
+struct PseudoPipModel
+{
     int32_t tile;
     DynamicBitarray<> allowed_pseudo_pips;
     HashTables::HashMap<int32_t, size_t> pseudo_pip_sites;
@@ -124,7 +121,7 @@ struct PseudoPipModel {
     //
     // If the tile has no placed elements, then prepare_for_routing does not
     // need to be called after init.
-    void prepare_for_routing(const Context *ctx, const std::vector<SiteRouter> & sites);
+    void prepare_for_routing(const Context *ctx, const std::vector<SiteRouter> &sites);
 
     // Returns true if the pseudo pip is allowed given current site placements
     // and other pseudo pips.
