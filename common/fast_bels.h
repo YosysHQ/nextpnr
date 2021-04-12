@@ -54,6 +54,8 @@ struct FastBels
 
         fast_bels_by_cell_type.resize(type_idx + 1);
         auto &bel_data = fast_bels_by_cell_type.at(type_idx);
+        NPNR_ASSERT(bel_data.get() == nullptr);
+        bel_data = std::make_unique<FastBelsData>();
 
         for (auto bel : ctx->getBels()) {
             if (!ctx->isValidBelForCellType(cell_type, bel)) {
@@ -77,15 +79,15 @@ struct FastBels
                 loc.x = loc.y = 0;
             }
 
-            if (int(bel_data.size()) < (loc.x + 1)) {
-                bel_data.resize(loc.x + 1);
+            if (int(bel_data->size()) < (loc.x + 1)) {
+                bel_data->resize(loc.x + 1);
             }
 
-            if (int(bel_data.at(loc.x).size()) < (loc.y + 1)) {
-                bel_data.at(loc.x).resize(loc.y + 1);
+            if (int(bel_data->at(loc.x).size()) < (loc.y + 1)) {
+                bel_data->at(loc.x).resize(loc.y + 1);
             }
 
-            bel_data.at(loc.x).at(loc.y).push_back(bel);
+            bel_data->at(loc.x).at(loc.y).push_back(bel);
         }
     }
 
@@ -103,6 +105,8 @@ struct FastBels
 
         fast_bels_by_partition_type.resize(type_idx + 1);
         auto &bel_data = fast_bels_by_partition_type.at(type_idx);
+        NPNR_ASSERT(bel_data.get() == nullptr);
+        bel_data = std::make_unique<FastBelsData>();
 
         for (auto bel : ctx->getBels()) {
             if (ctx->getBelBucketForBel(bel) != partition) {
@@ -126,15 +130,15 @@ struct FastBels
                 loc.x = loc.y = 0;
             }
 
-            if (int(bel_data.size()) < (loc.x + 1)) {
-                bel_data.resize(loc.x + 1);
+            if (int(bel_data->size()) < (loc.x + 1)) {
+                bel_data->resize(loc.x + 1);
             }
 
-            if (int(bel_data.at(loc.x).size()) < (loc.y + 1)) {
-                bel_data.at(loc.x).resize(loc.y + 1);
+            if (int(bel_data->at(loc.x).size()) < (loc.y + 1)) {
+                bel_data->at(loc.x).resize(loc.y + 1);
             }
 
-            bel_data.at(loc.x).at(loc.y).push_back(bel);
+            bel_data->at(loc.x).at(loc.y).push_back(bel);
         }
     }
 
@@ -151,7 +155,7 @@ struct FastBels
 
         auto cell_type_data = iter->second;
 
-        *data = &fast_bels_by_cell_type.at(cell_type_data.type_index);
+        *data = fast_bels_by_cell_type.at(cell_type_data.type_index).get();
         return cell_type_data.number_of_possible_bels;
     }
 
@@ -166,7 +170,7 @@ struct FastBels
 
         auto type_data = iter->second;
 
-        *data = &fast_bels_by_partition_type.at(type_data.type_index);
+        *data = fast_bels_by_partition_type.at(type_data.type_index).get();
         return type_data.number_of_possible_bels;
     }
 
@@ -175,10 +179,10 @@ struct FastBels
     const int minBelsForGridPick;
 
     std::unordered_map<IdString, TypeData> cell_types;
-    std::vector<FastBelsData> fast_bels_by_cell_type;
+    std::vector<std::unique_ptr<FastBelsData>> fast_bels_by_cell_type;
 
     std::unordered_map<BelBucketId, TypeData> partition_types;
-    std::vector<FastBelsData> fast_bels_by_partition_type;
+    std::vector<std::unique_ptr<FastBelsData>> fast_bels_by_partition_type;
 };
 
 NEXTPNR_NAMESPACE_END
