@@ -1322,6 +1322,10 @@ class HeAPPlacer
                     continue;
                 }
 
+                if (cell.belStrength > STRENGTH_STRONG) {
+                    continue;
+                }
+
                 // Transfer chain extents to the actual chains structure
                 ChainExtent *ce = nullptr;
                 if (p->chain_root.count(cell_name)) {
