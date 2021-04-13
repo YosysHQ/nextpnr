@@ -1574,31 +1574,139 @@ class Ecp5Packer
                 for (int i = 0; i < 11; i++)
                     autocreate_empty_port(ci, ctx->id("OP" + std::to_string(i)));
 
-                // Find the MULT18X18Ds feeding this ALU54B's inputs and
-                // constrain them to the ALU.
+                // Find the MULT18X18Ds feeding this ALU54B's MA and MB inputs.
+                CellInfo* mult_a = nullptr;
+                CellInfo* mult_b = nullptr;
                 for (auto port : {id_MA0, id_MB0}) {
                     CellInfo *mult = net_driven_by(
                         ctx, ci->ports.at(port).net,
                         [](const Context *ctx, const CellInfo *cell) {
-                        return cell->type == id_MULT18X18D;
+                            return cell->type == id_MULT18X18D;
                         }, id_P0
                     );
-                    if(mult != nullptr) {
-                        if(port == id_MA0) {
-                            mult->constr_x = mult->constr_z = -3;
-                        } else if(port == id_MB0) {
-                            mult->constr_x = mult->constr_z = -2;
-                        }
-                        mult->constr_y = 0;
-                        mult->constr_parent = ci;
-                        ci->constr_children.push_back(mult);
-                        log_info("DSP: Constraining MULT18X18D '%s' to ALU54B '%s' port %s\n",
-                                 mult->name.c_str(ctx), cell.first.c_str(ctx),
-                                 ctx->nameOf(port));
+
+                    // We'll handle the mult not existing in check_alu below.
+                    if(mult == nullptr)
+                        break;
+
+                    // Set relative constraint depending on ALU port.
+                    if(port == id_MA0) {
+                        mult->constr_x = mult->constr_z = -3;
+                        mult_a = mult;
+                    } else if(port == id_MB0) {
+                        mult->constr_x = mult->constr_z = -2;
+                        mult_b = mult;
                     }
+                    mult->constr_y = 0;
+                    mult->constr_parent = ci;
+                    ci->constr_children.push_back(mult);
+                    log_info("DSP: Constraining MULT18X18D '%s' to ALU54B '%s' port %s\n",
+                             mult->name.c_str(ctx), cell.first.c_str(ctx), ctx->nameOf(port));
                 }
+
+                // Check existance of, and connectivity to, each MULT.
+                check_alu(ci, mult_a, mult_b);
             }
         }
+    }
+
+    // Check ALU54B is correctly connected to two MULT18X18Ds.
+    void check_alu(CellInfo* alu, CellInfo* mult_a, CellInfo* mult_b)
+    {
+        // MULT18X18Ds must be detected on both inputs.
+        if (mult_a == nullptr) {
+            log_error("No MULT18X18D found connected to ALU54B '%s' port A\n",
+                      alu->name.c_str(ctx));
+        } else if (mult_b == nullptr) {
+            log_error("No MULT18X18D found connected to ALU54B '%s' port B\n",
+                      alu->name.c_str(ctx));
+        }
+
+        // Placement doesn't work if only one or the other of
+        // the ALU and MULTs have a BEL specified.
+        auto alu_has_bel = alu->attrs.count(ctx->id("BEL"));
+        for (auto mult : {mult_a, mult_b}) {
+            auto mult_has_bel = mult->attrs.count(ctx->id("BEL"));
+            if(alu_has_bel && !mult_has_bel) {
+                log_error("ALU54B '%s' has a fixed BEL specified, but connected "
+                          "MULT18X18D '%s' does not, specify both or neither.\n",
+                          alu->name.c_str(ctx), mult->name.c_str(ctx));
+            } else if(!alu_has_bel && mult_has_bel) {
+                log_error("ALU54B '%s' does not have a fixed BEL specified, but "
+                          "connected MULT18X18D '%s' does, specify both or neither.\n",
+                          alu->name.c_str(ctx), mult->name.c_str(ctx));
+            }
+        }
+
+        // Cannot have MULT OUTPUT_CLK set when connected to an ALU unless
+        // MULT_BYPASS is also enabled.
+        for ( auto mult : {mult_a, mult_b}) {
+            if (str_or_default(mult->params, ctx->id("REG_OUTPUT_CLK"), "NONE") != "NONE" &&
+                str_or_default(mult->params, ctx->id("MULT_BYPASS"), "DISABLED") != "ENABLED")
+            {
+                log_error("MULT18X18D '%s' REG_OUTPUT_CLK must be NONE when driving ALU without MULT_BYPASS\n",
+                          mult->name.c_str(ctx));
+            }
+        }
+
+        // SIGNEDIA and SIGNEDIB inputs must be connected to SIGNEDP output.
+        NetInfo* net = alu->ports.at(id_SIGNEDIA).net;
+        if (net == nullptr || net->driver.cell != mult_a || net->driver.port != id_SIGNEDP) {
+            log_error("ALU54B '%s' input SIGNEDIA must be driven by SIGNEDP of"
+                      " MULT18X18D '%s'\n",
+                      alu->name.c_str(ctx), mult_a->name.c_str(ctx));
+        }
+        net = alu->ports.at(id_SIGNEDIB).net;
+        if (net == nullptr || net->driver.cell != mult_b || net->driver.port != id_SIGNEDP) {
+            log_error("ALU54B '%s' input SIGNEDIB must be driven by SIGNEDP of"
+                      " MULT18X18D '%s'\n",
+                      alu->name.c_str(ctx), mult_b->name.c_str(ctx));
+        }
+
+        // All A and B inputs must be connected to ROA/ROB outputs,
+        // and all MA and MB inputs must be connected to P outputs.
+        for (int i = 0; i < 36; i++) {
+            IdString mult_port;
+            if (i < 18)
+                mult_port = ctx->id(std::string("ROA") + std::to_string(i));
+            else
+                mult_port = ctx->id(std::string("ROB") + std::to_string(i - 18));
+
+            IdString alu_port = ctx->id(std::string("A") + std::to_string(i));
+            net = alu->ports.at(alu_port).net;
+            if(net == nullptr || net->driver.cell != mult_a || net->driver.port != mult_port) {
+                log_error("ALU54B '%s' input %s must be driven by %s of MULT18X18D '%s'\n",
+                          alu->name.c_str(ctx), alu_port.c_str(ctx), mult_port.c_str(ctx),
+                          mult_a->name.c_str(ctx));
+            }
+
+            alu_port = ctx->id(std::string("B") + std::to_string(i));
+            net = alu->ports.at(alu_port).net;
+            if(net == nullptr || net->driver.cell != mult_b || net->driver.port != mult_port) {
+                log_error("ALU54B '%s' input %s must be driven by %s of MULT18X18D '%s'\n",
+                          alu->name.c_str(ctx), alu_port.c_str(ctx), mult_port.c_str(ctx),
+                          mult_b->name.c_str(ctx));
+            }
+
+            mult_port = ctx->id(std::string("P") + std::to_string(i));
+
+            alu_port = ctx->id(std::string("MA") + std::to_string(i));
+            net = alu->ports.at(alu_port).net;
+            if(net == nullptr || net->driver.cell != mult_a || net->driver.port != mult_port) {
+                log_error("ALU54B '%s' input %s must be driven by %s of MULT18X18D '%s'\n",
+                          alu->name.c_str(ctx), alu_port.c_str(ctx), mult_port.c_str(ctx),
+                          mult_a->name.c_str(ctx));
+            }
+
+            alu_port = ctx->id(std::string("MB") + std::to_string(i));
+            net = alu->ports.at(alu_port).net;
+            if(net == nullptr || net->driver.cell != mult_b || net->driver.port != mult_port) {
+                log_error("ALU54B '%s' input %s must be driven by %s of MULT18X18D '%s'\n",
+                          alu->name.c_str(ctx), alu_port.c_str(ctx), mult_port.c_str(ctx),
+                          mult_b->name.c_str(ctx));
+            }
+        }
+
     }
 
     // "Pack" DCUs
