@@ -156,7 +156,6 @@ void PseudoPipData::init_tile_type(const Context *ctx, int32_t tile_type)
                 }
 
                 NPNR_ASSERT(output_bel_pin == bel.output_bel_pin);
-                NPNR_ASSERT(input_bel_pin != -1);
                 bel.input_bel_pin = input_bel_pin;
 
                 logic_bels_for_pip[LogicBelKey{tile_type, pip_idx, site}].push_back(bel);
@@ -378,13 +377,22 @@ void PseudoPipModel::update_site(const Context *ctx, size_t site)
         cell.type = IdString(ctx->wire_lut->cell);
         NPNR_ASSERT(ctx->wire_lut->input_pins.size() == 1);
         cell.lut_cell.pins.push_back(IdString(ctx->wire_lut->input_pins[0]));
-        cell.lut_cell.equation.resize(2);
-        cell.lut_cell.equation.set(0, false);
-        cell.lut_cell.equation.set(1, true);
 
-        // Map LUT input to input wire used by pseudo pip.
-        IdString input_bel_pin(bel_data.ports[bel.input_bel_pin]);
-        cell.cell_bel_pins[IdString(ctx->wire_lut->input_pins[0])].push_back(input_bel_pin);
+        if (bel.input_bel_pin == -1) {
+            // FIXME: currently assume that LUT route-throughs with no input pins are GND drivers as this is all we need
+            // for Nexus/Xilinx where Vcc is readily available and cheap This won't be true for other arches
+            cell.lut_cell.equation.resize(2);
+            cell.lut_cell.equation.set(0, false);
+            cell.lut_cell.equation.set(1, false);
+        } else {
+            cell.lut_cell.equation.resize(2);
+            cell.lut_cell.equation.set(0, false);
+            cell.lut_cell.equation.set(1, true);
+
+            // Map LUT input to input wire used by pseudo pip.
+            IdString input_bel_pin(bel_data.ports[bel.input_bel_pin]);
+            cell.cell_bel_pins[IdString(ctx->wire_lut->input_pins[0])].push_back(input_bel_pin);
+        }
 
         lut_mappers[bel_data.lut_element].cells.push_back(&cell);
     }
@@ -449,13 +457,26 @@ void PseudoPipModel::update_site(const Context *ctx, size_t site)
 
             // FIXME: This lookup is static, consider moving to PseudoPipBel?
             IdString bel_name(bel_data.name);
-            IdString input_bel_pin(bel_data.ports[bel.input_bel_pin]);
-            size_t pin_idx = lut_elements.at(bel_data.lut_element).lut_bels.at(bel_name).pin_to_index.at(input_bel_pin);
+            if (bel.input_bel_pin == -1) {
+                // No input bel pin (e.g. LUT as constant driver) - check that *any* input is available, i.e. there is
+                // some room in the LUT equation still
+                size_t pin_count = lut_elements.at(bel_data.lut_element).lut_bels.at(bel_name).pins.size();
+                uint32_t pin_mask = (1 << uint32_t(pin_count)) - 1;
+                uint32_t blocked_inputs = lut_wires_unavailable.at(bel_data.lut_element);
+                if ((blocked_inputs & pin_mask) == pin_mask) {
+                    blocked_by_lut_eq = true;
+                    break;
+                }
+            } else {
+                IdString input_bel_pin(bel_data.ports[bel.input_bel_pin]);
+                size_t pin_idx =
+                        lut_elements.at(bel_data.lut_element).lut_bels.at(bel_name).pin_to_index.at(input_bel_pin);
 
-            uint32_t blocked_inputs = lut_wires_unavailable.at(bel_data.lut_element);
-            if ((blocked_inputs & (1 << pin_idx)) != 0) {
-                blocked_by_lut_eq = true;
-                break;
+                uint32_t blocked_inputs = lut_wires_unavailable.at(bel_data.lut_element);
+                if ((blocked_inputs & (1 << pin_idx)) != 0) {
+                    blocked_by_lut_eq = true;
+                    break;
+                }
             }
         }
 
