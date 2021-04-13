@@ -20,6 +20,7 @@ This directory contains a simple example of running `nextpnr-machxo2`:
 * `demo.sh` creates bitstreams for [TinyFPGA Ax](https://tinyfpga.com/a-series-guide.html)
   and writes the resulting bitstream to MachXO2's internal flash using
   [`tinyproga`](https://github.com/tinyfpga/TinyFPGA-A-Programmer).
+  `demo-vhdl.sh` does the same, except using the [GHDL Yosys Plugin](https://github.com/ghdl/ghdl-yosys-plugin).
 
 As `nextpnr-machxo2` is developed the contents `simple.sh`, `simtest.sh`,
 `mitertest.sh`, and `demo.sh` are subject to change.
