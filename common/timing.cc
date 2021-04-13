@@ -185,6 +185,7 @@ void TimingAnalyser::topo_sort()
             }
         }
     }
+    have_loops = !no_loops;
     std::swap(topological_order, topo.sorted);
 }
 
@@ -195,66 +196,77 @@ void TimingAnalyser::setup_port_domains()
         d.endpoints.clear();
     }
     // Go forward through the topological order (domains from the PoV of arrival time)
-    for (auto port : topological_order) {
-        auto &pd = ports.at(port);
-        auto &pi = port_info(port);
-        if (pi.type == PORT_OUT) {
-            for (auto &fanin : pd.cell_arcs) {
-                if (fanin.type != CellArc::CLK_TO_Q)
-                    continue;
-                // registered outputs are startpoints
-                auto dom = domain_id(port.cell, fanin.other_port, fanin.edge);
-                // create per-domain data
-                pd.arrival[dom];
-                domains.at(dom).startpoints.emplace_back(port, fanin.other_port);
-            }
-            // copy domains across routing
-            if (pi.net != nullptr)
-                for (auto &usr : pi.net->users)
-                    copy_domains(port, CellPortKey(usr), false);
-        } else {
-            // copy domains from input to output
-            for (auto &fanout : pd.cell_arcs) {
-                if (fanout.type != CellArc::COMBINATIONAL)
-                    continue;
-                copy_domains(port, CellPortKey(port.cell, fanout.other_port), false);
+    bool first_iter = true;
+    do {
+        updated_domains = false;
+        for (auto port : topological_order) {
+            auto &pd = ports.at(port);
+            auto &pi = port_info(port);
+            if (pi.type == PORT_OUT) {
+                if (first_iter) {
+                    for (auto &fanin : pd.cell_arcs) {
+                        if (fanin.type != CellArc::CLK_TO_Q)
+                            continue;
+                        // registered outputs are startpoints
+                        auto dom = domain_id(port.cell, fanin.other_port, fanin.edge);
+                        // create per-domain data
+                        pd.arrival[dom];
+                        domains.at(dom).startpoints.emplace_back(port, fanin.other_port);
+                    }
+                }
+                // copy domains across routing
+                if (pi.net != nullptr)
+                    for (auto &usr : pi.net->users)
+                        copy_domains(port, CellPortKey(usr), false);
+            } else {
+                // copy domains from input to output
+                for (auto &fanout : pd.cell_arcs) {
+                    if (fanout.type != CellArc::COMBINATIONAL)
+                        continue;
+                    copy_domains(port, CellPortKey(port.cell, fanout.other_port), false);
+                }
             }
         }
-    }
-    // Go backward through the topological order (domains from the PoV of required time)
-    for (auto port : reversed_range(topological_order)) {
-        auto &pd = ports.at(port);
-        auto &pi = port_info(port);
-        if (pi.type == PORT_OUT) {
-            // copy domains from output to input
-            for (auto &fanin : pd.cell_arcs) {
-                if (fanin.type != CellArc::COMBINATIONAL)
-                    continue;
-                copy_domains(port, CellPortKey(port.cell, fanin.other_port), true);
+        // Go backward through the topological order (domains from the PoV of required time)
+        for (auto port : reversed_range(topological_order)) {
+            auto &pd = ports.at(port);
+            auto &pi = port_info(port);
+            if (pi.type == PORT_OUT) {
+                // copy domains from output to input
+                for (auto &fanin : pd.cell_arcs) {
+                    if (fanin.type != CellArc::COMBINATIONAL)
+                        continue;
+                    copy_domains(port, CellPortKey(port.cell, fanin.other_port), true);
+                }
+            } else {
+                if (first_iter) {
+                    for (auto &fanout : pd.cell_arcs) {
+                        if (fanout.type != CellArc::SETUP)
+                            continue;
+                        // registered inputs are endpoints
+                        auto dom = domain_id(port.cell, fanout.other_port, fanout.edge);
+                        // create per-domain data
+                        pd.required[dom];
+                        domains.at(dom).endpoints.emplace_back(port, fanout.other_port);
+                    }
+                }
+                // copy port to driver
+                if (pi.net != nullptr && pi.net->driver.cell != nullptr)
+                    copy_domains(port, CellPortKey(pi.net->driver), true);
             }
-        } else {
-            for (auto &fanout : pd.cell_arcs) {
-                if (fanout.type != CellArc::SETUP)
-                    continue;
-                // registered inputs are startpoints
-                auto dom = domain_id(port.cell, fanout.other_port, fanout.edge);
-                // create per-domain data
-                pd.required[dom];
-                domains.at(dom).endpoints.emplace_back(port, fanout.other_port);
-            }
-            // copy port to driver
-            if (pi.net != nullptr && pi.net->driver.cell != nullptr)
-                copy_domains(port, CellPortKey(pi.net->driver), true);
         }
-    }
-    // Iterate over ports and find domain paris
-    for (auto port : topological_order) {
-        auto &pd = ports.at(port);
-        for (auto &arr : pd.arrival)
-            for (auto &req : pd.required) {
-                pd.domain_pairs[domain_pair_id(arr.first, req.first)];
-            }
-    }
+        // Iterate over ports and find domain paris
+        for (auto port : topological_order) {
+            auto &pd = ports.at(port);
+            for (auto &arr : pd.arrival)
+                for (auto &req : pd.required) {
+                    pd.domain_pairs[domain_pair_id(arr.first, req.first)];
+                }
+        }
+        first_iter = false;
+        // If there are loops, repeat the process until a fixed point is reached, as there might be unusual ways to
+        // visit points, which would result in a missing domain key and therefore crash later on
+    } while (have_loops && updated_domains);
 }
 
 void TimingAnalyser::reset_times()
@@ -561,8 +573,9 @@ domain_id_t TimingAnalyser::domain_pair_id(domain_id_t launch, domain_id_t captu
 void TimingAnalyser::copy_domains(const CellPortKey &from, const CellPortKey &to, bool backward)
 {
     auto &f = ports.at(from), &t = ports.at(to);
-    for (auto &dom : (backward ? f.required : f.arrival))
-        (backward ? t.required : t.arrival)[dom.first];
+    for (auto &dom : (backward ? f.required : f.arrival)) {
+        updated_domains |= (backward ? t.required : t.arrival).emplace(dom.first, ArrivReqTime{}).second;
+    }
 }
 
 CellInfo *TimingAnalyser::cell_info(const CellPortKey &key) { return ctx->cells.at(key.cell).get(); }
