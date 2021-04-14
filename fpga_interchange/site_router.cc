@@ -988,7 +988,7 @@ static void apply_routing(Context *ctx, const SiteArch &site_arch)
 }
 
 static bool map_luts_in_site(const SiteInformation &site_info,
-                             HashTables::HashSet<std::pair<IdString, IdString>> *blocked_wires)
+                             HashTables::HashSet<std::pair<IdString, IdString>, PairHash> *blocked_wires)
 {
     const Context *ctx = site_info.ctx;
     const std::vector<LutElement> &lut_elements = ctx->lut_elements.at(site_info.tile_type);
@@ -1031,7 +1031,7 @@ static bool map_luts_in_site(const SiteInformation &site_info,
 
 // Block outputs of unavailable LUTs to prevent site router from using them.
 static void block_lut_outputs(SiteArch *site_arch,
-                              const HashTables::HashSet<std::pair<IdString, IdString>> &blocked_wires)
+                              const HashTables::HashSet<std::pair<IdString, IdString>, PairHash> &blocked_wires)
 {
     const Context *ctx = site_arch->site_info->ctx;
     auto &tile_info = ctx->chip_info->tile_types[site_arch->site_info->tile_type];
@@ -1112,7 +1112,7 @@ bool SiteRouter::checkSiteRouting(const Context *ctx, const TileStatus &tile_sta
     }
 
     SiteInformation site_info(ctx, tile, site, cells_in_site);
-    HashTables::HashSet<std::pair<IdString, IdString>> blocked_wires;
+    HashTables::HashSet<std::pair<IdString, IdString>, PairHash> blocked_wires;
     if (!map_luts_in_site(site_info, &blocked_wires)) {
         site_ok = false;
         return site_ok;
@@ -1190,7 +1190,7 @@ void SiteRouter::bindSiteRouting(Context *ctx)
     }
 
     SiteInformation site_info(ctx, tile, site, cells_in_site);
-    HashTables::HashSet<std::pair<IdString, IdString>> blocked_wires;
+    HashTables::HashSet<std::pair<IdString, IdString>, PairHash> blocked_wires;
     NPNR_ASSERT(map_luts_in_site(site_info, &blocked_wires));
 
     SiteArch site_arch(&site_info);
