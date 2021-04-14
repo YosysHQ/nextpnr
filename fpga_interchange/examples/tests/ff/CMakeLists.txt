@@ -1,19 +1,8 @@
-add_interchange_test(
-    name ff_basys3
+add_interchange_group_test(
+    name ff
     family ${family}
-    device xc7a35t
-    package cpg236
+    board_list basys3 arty35t arty100t
     tcl run.tcl
-    xdc ff_basys3.xdc
     sources ff.v
-)
-
-add_interchange_test(
-    name ff_arty
-    family ${family}
-    device xc7a35t
-    package csg324
-    tcl run.tcl
-    xdc ff_arty.xdc
-    sources ff.v
+    output_fasm
 )

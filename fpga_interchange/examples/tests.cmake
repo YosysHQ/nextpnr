@@ -10,6 +10,8 @@ function(add_interchange_test)
     #    sources <sources list>
     #    [top <top name>]
     #    [techmap <techmap file>]
+    #    [output_fasm]
+    #    [device_family <device family>]
     # )
     #
     # Generates targets to run desired tests
@@ -18,6 +20,8 @@ function(add_interchange_test)
     #   - name: test name. This must be unique and no other tests with the same
     #           name should exist
     #   - family: nextpnr architecture family (e.g. fpga_interchange)
+    #   - device_family: common device name of a set of parts. E.g. xc7a35tcsg324-1 and xc7a35tcpg236-1
+    #             share the same xc7a35t device prefix
     #   - device: common device name of a set of parts. E.g. xc7a35tcsg324-1 and xc7a35tcpg236-1
     #             share the same xc7a35t device prefix
     #   - package: package among the ones available for the device
@@ -27,6 +31,9 @@ function(add_interchange_test)
     #   - top (optional): name of the top level module.
     #                     If not provided, "top" is assigned as top level module
     #   - techmap (optional): techmap file used during synthesis
+    #   - output_fasm (optional): generates a fasm output
+    #   - device_family (optional): this information is used during FASM generation, therfore it is
+    #                               required only if the `output_fasm` option is enabled
     #
     # Targets generated:
     #   - test-fpga_interchange-<name>-json     : synthesis output
@@ -34,8 +41,8 @@ function(add_interchange_test)
     #   - test-fpga_interchange-<name>-phys     : interchange physical netlist
     #   - test-fpga_interchange-<name>-dcp     : design checkpoint with RapidWright
 
-    set(options skip_dcp)
-    set(oneValueArgs name family device package tcl xdc top techmap)
+    set(options skip_dcp output_fasm)
+    set(oneValueArgs name family device package tcl xdc top techmap device_family)
     set(multiValueArgs sources)
 
     cmake_parse_arguments(
@@ -51,10 +58,12 @@ function(add_interchange_test)
     set(device ${add_interchange_test_device})
     set(package ${add_interchange_test_package})
     set(skip_dcp ${add_interchange_test_skip_dcp})
+    set(output_fasm ${add_interchange_test_output_fasm})
     set(top ${add_interchange_test_top})
     set(tcl ${CMAKE_CURRENT_SOURCE_DIR}/${add_interchange_test_tcl})
     set(xdc ${CMAKE_CURRENT_SOURCE_DIR}/${add_interchange_test_xdc})
     set(techmap ${CMAKE_CURRENT_SOURCE_DIR}/${add_interchange_test_techmap})
+    set(device_family ${add_interchange_test_device_family})
 
     set(sources)
     foreach(source ${add_interchange_test_sources})
@@ -247,9 +256,9 @@ function(add_interchange_test)
 
     add_custom_target(test-${family}-${name}-phys-yaml DEPENDS ${phys_yaml})
 
+    set(last_target "")
     if(skip_dcp)
-        add_dependencies(all-${family}-tests test-${family}-${name}-phys-yaml)
-        add_dependencies(all-${device}-tests test-${family}-${name}-phys-yaml)
+        set(last_target test-${family}-${name}-phys)
     else()
         set(dcp ${CMAKE_CURRENT_BINARY_DIR}/${name}.dcp)
         add_custom_command(
@@ -266,8 +275,38 @@ function(add_interchange_test)
         )
 
         add_custom_target(test-${family}-${name}-dcp DEPENDS ${dcp})
-        add_dependencies(all-${family}-tests test-${family}-${name}-dcp)
-        add_dependencies(all-${device}-tests test-${family}-${name}-dcp)
+        set(last_target test-${family}-${name}-dcp)
+    endif()
+
+    add_dependencies(all-${device}-tests ${last_target})
+    add_dependencies(all-${family}-tests ${last_target})
+
+    if(output_fasm)
+        if(NOT DEFINED device_family)
+            message(FATAL_ERROR "If FASM output is enabled, the device family must be provided as well!")
+        endif()
+
+        # Output FASM target
+        set(fasm ${CMAKE_CURRENT_BINARY_DIR}/${name}.fasm)
+        add_custom_command(
+            OUTPUT ${fasm}
+            COMMAND
+                ${PYTHON_EXECUTABLE} -mfpga_interchange.fasm_generator
+                    --schema_dir ${INTERCHANGE_SCHEMA_PATH}
+                    --family ${device_family}
+                    ${device_loc}
+                    ${netlist}
+                    ${phys}
+                    ${fasm}
+            DEPENDS
+                ${device_target}
+                ${netlist}
+                ${phys}
+        )
+
+        add_custom_target(test-${family}-${name}-fasm DEPENDS ${fasm} ${last_target})
+        add_dependencies(all-${device}-tests test-${family}-${name}-fasm)
+        add_dependencies(all-${family}-tests test-${family}-${name}-fasm)
     endif()
 endfunction()
 
@@ -301,7 +340,7 @@ function(add_interchange_group_test)
     # Note: it is assumed that there exists an XDC file for each board, with the following naming
     #       convention: <board>.xdc
 
-    set(options)
+    set(options output_fasm)
     set(oneValueArgs name family tcl top techmap)
     set(multiValueArgs sources board_list)
 
@@ -319,6 +358,13 @@ function(add_interchange_group_test)
     set(tcl ${add_interchange_group_test_tcl})
     set(techmap ${add_interchange_group_test_techmap})
     set(sources ${add_interchange_group_test_sources})
+    set(output_fasm ${add_interchange_group_test_output_fasm})
+
+    set(output_fasm_arg "")
+    if(output_fasm)
+        set(output_fasm_arg "output_fasm")
+    endif()
+
 
     if (NOT DEFINED top)
         # Setting default top value
@@ -326,6 +372,7 @@ function(add_interchange_group_test)
     endif()
 
     foreach(board ${add_interchange_group_test_board_list})
+        get_property(device_family TARGET board-${board} PROPERTY DEVICE_FAMILY)
         get_property(device TARGET board-${board} PROPERTY DEVICE)
         get_property(package TARGET board-${board} PROPERTY PACKAGE)
 
@@ -333,12 +380,14 @@ function(add_interchange_group_test)
             name ${name}_${board}
             family ${family}
             device ${device}
+            device_family ${device_family}
             package ${package}
             tcl ${tcl}
             xdc ${board}.xdc
             sources ${sources}
             top ${top}
             techmap ${techmap}
+            ${output_fasm_arg}
         )
     endforeach()
 endfunction()
