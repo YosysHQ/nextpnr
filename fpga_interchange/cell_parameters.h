@@ -42,7 +42,7 @@ struct CellParameters
     bool compare_property(const Context *ctx, IdString cell_type, IdString parameter, const Property &property,
                           IdString value_to_compare) const;
 
-    HashTables::HashMap<std::pair<IdString, IdString>, const CellParameterPOD *> parameters;
+    HashTables::HashMap<std::pair<IdString, IdString>, const CellParameterPOD *, PairHash> parameters;
 
     std::regex verilog_binary_re;
     std::regex verilog_hex_re;

@@ -98,7 +98,7 @@ struct PseudoPipData
     const std::vector<PseudoPipBel> &get_logic_bels_for_pip(const Context *ctx, int32_t site, PipId pip) const;
 
     HashTables::HashMap<int32_t, size_t> max_pseudo_pip_for_tile_type;
-    HashTables::HashMap<std::pair<int32_t, int32_t>, std::vector<size_t>> possibles_sites_for_pip;
+    HashTables::HashMap<std::pair<int32_t, int32_t>, std::vector<size_t>, PairHash> possibles_sites_for_pip;
     HashTables::HashMap<LogicBelKey, std::vector<PseudoPipBel>> logic_bels_for_pip;
 };
 

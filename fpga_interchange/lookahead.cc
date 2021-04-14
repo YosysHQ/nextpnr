@@ -250,7 +250,7 @@ static void expand_input_type(const Context *ctx, DeterministicRNG *rng, const S
 
 struct DelayStorage
 {
-    HashTables::HashMap<TypeWirePair, HashTables::HashMap<std::pair<int32_t, int32_t>, delay_t>> storage;
+    HashTables::HashMap<TypeWirePair, HashTables::HashMap<std::pair<int32_t, int32_t>, delay_t, PairHash>> storage;
     int32_t max_explore_depth;
 };
 
@@ -996,7 +996,8 @@ void Lookahead::build_lookahead(const Context *ctx, DeterministicRNG *rng)
 #if defined(NEXTPNR_USE_TBB) // Run parallely
     tbb::parallel_for_each(
             all_tiles_storage.storage,
-            [&](const std::pair<TypeWirePair, HashTables::HashMap<std::pair<int32_t, int32_t>, delay_t>> &type_pair) {
+            [&](const std::pair<TypeWirePair, HashTables::HashMap<std::pair<int32_t, int32_t>, delay_t, PairHash>>
+                        &type_pair) {
 #else
     for (const auto &type_pair : all_tiles_storage.storage) {
 #endif

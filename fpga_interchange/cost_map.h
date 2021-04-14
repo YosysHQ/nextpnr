@@ -39,7 +39,7 @@ class CostMap
   public:
     delay_t get_delay(const Context *ctx, WireId src, WireId dst) const;
     void set_cost_map(const Context *ctx, const TypeWirePair &wire_pair,
-                      const HashTables::HashMap<std::pair<int32_t, int32_t>, delay_t> &delays);
+                      const HashTables::HashMap<std::pair<int32_t, int32_t>, delay_t, PairHash> &delays);
 
     void from_reader(lookahead_storage::CostMap::Reader reader);
     void to_builder(lookahead_storage::CostMap::Builder builder) const;

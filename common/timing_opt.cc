@@ -35,44 +35,7 @@
 #include "timing.h"
 #include "util.h"
 
-namespace std {
-
-template <> struct hash<std::pair<NEXTPNR_NAMESPACE_PREFIX IdString, NEXTPNR_NAMESPACE_PREFIX IdString>>
-{
-    std::size_t operator()(
-            const std::pair<NEXTPNR_NAMESPACE_PREFIX IdString, NEXTPNR_NAMESPACE_PREFIX IdString> &idp) const noexcept
-    {
-        std::size_t seed = 0;
-        boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(idp.first));
-        boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(idp.second));
-        return seed;
-    }
-};
-
-template <> struct hash<std::pair<int, NEXTPNR_NAMESPACE_PREFIX BelId>>
-{
-    std::size_t operator()(const std::pair<int, NEXTPNR_NAMESPACE_PREFIX BelId> &idp) const noexcept
-    {
-        std::size_t seed = 0;
-        boost::hash_combine(seed, hash<int>()(idp.first));
-        boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX BelId>()(idp.second));
-        return seed;
-    }
-};
-#if !defined(ARCH_GOWIN)
-template <> struct hash<std::pair<NEXTPNR_NAMESPACE_PREFIX IdString, NEXTPNR_NAMESPACE_PREFIX BelId>>
-{
-    std::size_t
-    operator()(const std::pair<NEXTPNR_NAMESPACE_PREFIX IdString, NEXTPNR_NAMESPACE_PREFIX BelId> &idp) const noexcept
-    {
-        std::size_t seed = 0;
-        boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(idp.first));
-        boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX BelId>()(idp.second));
-        return seed;
-    }
-};
-#endif
-} // namespace std
+#include "hash_table.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -478,9 +441,9 @@ class TimingOptimiser
 
         // Actual BFS path optimisation algorithm
         std::unordered_map<IdString, std::unordered_map<BelId, delay_t>> cumul_costs;
-        std::unordered_map<std::pair<IdString, BelId>, std::pair<IdString, BelId>> backtrace;
+        std::unordered_map<std::pair<IdString, BelId>, std::pair<IdString, BelId>, PairHash> backtrace;
         std::queue<std::pair<int, BelId>> visit;
-        std::unordered_set<std::pair<int, BelId>> to_visit;
+        std::unordered_set<std::pair<int, BelId>, PairHash> to_visit;
 
         for (auto startbel : cell_neighbour_bels[path_cells.front()]) {
             // Swap for legality check
@@ -609,7 +572,7 @@ class TimingOptimiser
     std::unordered_map<IdString, std::unordered_set<BelId>> cell_neighbour_bels;
     std::unordered_map<BelId, std::unordered_set<IdString>> bel_candidate_cells;
     // Map cell ports to net delay limit
-    std::unordered_map<std::pair<IdString, IdString>, delay_t> max_net_delay;
+    std::unordered_map<std::pair<IdString, IdString>, delay_t, PairHash> max_net_delay;
     Context *ctx;
     TimingOptCfg cfg;
     TimingAnalyser tmg;
