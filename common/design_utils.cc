@@ -67,12 +67,12 @@ void print_utilisation(const Context *ctx)
     // Sort by Bel type
     std::map<IdString, int> used_types;
     for (auto &cell : ctx->cells) {
-        used_types[cell.second.get()->type]++;
+        used_types[ctx->getBelBucketName(ctx->getBelBucketForCellType(cell.second.get()->type))]++;
     }
     std::map<IdString, int> available_types;
     for (auto bel : ctx->getBels()) {
         if (!ctx->getBelHidden(bel)) {
-            available_types[ctx->getBelType(bel)]++;
+            available_types[ctx->getBelBucketName(ctx->getBelBucketForBel(bel))]++;
         }
     }
     log_break();
