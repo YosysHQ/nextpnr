@@ -44,6 +44,11 @@ void arch_wrap_python(py::module &m)
                            .def("place", &Context::place)
                            .def("route", &Context::route);
 
+    fn_wrapper_0a_v<Context, decltype(&Context::remove_site_routing), &Context::remove_site_routing>::def_wrap(
+            ctx_cls, "remove_site_routing");
+    fn_wrapper_1a_v<Context, decltype(&Context::explain_bel_status), &Context::explain_bel_status,
+                    conv_from_str<BelId>>::def_wrap(ctx_cls, "explain_bel_status");
+
     typedef std::unordered_map<IdString, std::unique_ptr<CellInfo>> CellMap;
     typedef std::unordered_map<IdString, std::unique_ptr<NetInfo>> NetMap;
     typedef std::unordered_map<IdString, IdString> AliasMap;
