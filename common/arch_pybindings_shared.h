@@ -116,6 +116,9 @@ fn_wrapper_0a<Context, decltype(&Context::archId), &Context::archId, conv_to_str
 fn_wrapper_2a_v<Context, decltype(&Context::writeSVG), &Context::writeSVG, pass_through<std::string>,
                 pass_through<std::string>>::def_wrap(ctx_cls, "writeSVG");
 
+fn_wrapper_1a<Context, decltype(&Context::isBelLocationValid), &Context::isBelLocationValid, pass_through<bool>,
+              conv_from_str<BelId>>::def_wrap(ctx_cls, "isBelLocationValid");
+
 // const\_range\<BelBucketId\> getBelBuckets() const
 fn_wrapper_0a<Context, decltype(&Context::getBelBuckets), &Context::getBelBuckets,
               wrap_context<BelBucketRange>>::def_wrap(ctx_cls, "getBelBuckets");
