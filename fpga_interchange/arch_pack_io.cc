@@ -189,8 +189,10 @@ void Arch::pack_ports()
 
         auto iter = port_cell->attrs.find(id("PACKAGE_PIN"));
         if (iter == port_cell->attrs.end()) {
-            // FIXME: Relax this constraint
-            log_error("Port '%s' is missing PACKAGE_PIN property\n", port_cell->name.c_str(getCtx()));
+            iter = port_cell->attrs.find(id("LOC"));
+            if (iter == port_cell->attrs.end()) {
+                log_error("Port '%s' is missing PACKAGE_PIN or LOC property\n", port_cell->name.c_str(getCtx()));
+            }
         }
 
         // std::unordered_map<IdString, std::unordered_map<IdString, BelId>> package_pin_bels;
