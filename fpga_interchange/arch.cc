@@ -727,6 +727,7 @@ bool Arch::pack()
     decode_lut_cells();
     merge_constant_nets();
     pack_ports();
+    pack_default_conns();
     return true;
 }
 
@@ -1982,6 +1983,58 @@ DelayQuad Arch::getPipDelay(PipId pip) const
     // make the non-timing driven solution avoid thinking that pseudo-pips
     // are the same cost as regular pips.
     return DelayQuad(100 * (1 + pip_data.pseudo_cell_wires.size()));
+}
+
+const DefaultCellConnsPOD *Arch::get_default_conns(IdString cell_type) const
+{
+    for (const auto &conn : chip_info->constants->default_conns) {
+        if (IdString(conn.cell_type) == cell_type)
+            return &conn;
+    }
+    return nullptr;
+}
+
+void Arch::pack_default_conns()
+{
+    IdString vcc_net_name(chip_info->constants->vcc_net_name);
+    IdString gnd_net_name(chip_info->constants->gnd_net_name);
+    Context *ctx = getCtx();
+
+    std::vector<IdString> dead_nets;
+
+    for (auto cell : sorted(ctx->cells)) {
+        CellInfo *ci = cell.second;
+        const DefaultCellConnsPOD *conns = get_default_conns(ci->type);
+        if (conns == nullptr)
+            continue;
+        for (const auto &pin : conns->pins) {
+            IdString pin_name(pin.pin_name);
+            // pin missing, create it
+            if (!ci->ports.count(pin_name))
+                ci->addInput(pin_name);
+            const NetInfo *net = ci->ports.at(pin_name).net;
+            if (net != nullptr) {
+                // pin is connected, and driven, nothing to do
+                if (net->driver.cell != nullptr)
+                    continue;
+                // pin is connected but undriven, disconnect the existing net
+                ctx->disconnectPort(ci->name, pin_name);
+                // remove net if it has no remaining users
+                if (net->users.empty())
+                    dead_nets.push_back(net->name);
+            }
+            if (pin.value == PIN_VALUE_GND)
+                ctx->connectPort(gnd_net_name, ci->name, pin_name);
+            else if (pin.value == PIN_VALUE_VCC)
+                ctx->connectPort(vcc_net_name, ci->name, pin_name);
+            else
+                NPNR_ASSERT(pin.value == PIN_VALUE_FLOAT);
+        }
+    }
+
+    // Remove any left-behind nets with no users and no drivers
+    for (auto net : dead_nets)
+        ctx->nets.erase(net);
 }
 
 // Instance constraint templates.

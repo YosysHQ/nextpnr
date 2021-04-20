@@ -34,7 +34,7 @@ NEXTPNR_NAMESPACE_BEGIN
  * kExpectedChipInfoVersion
  */
 
-static constexpr int32_t kExpectedChipInfoVersion = 6;
+static constexpr int32_t kExpectedChipInfoVersion = 7;
 
 // Flattened site indexing.
 //
@@ -255,6 +255,26 @@ NPNR_PACKED_STRUCT(struct PackagePOD {
     RelSlice<PackagePinPOD> pins;
 });
 
+enum CellPinValue
+{
+    // leave floating
+    PIN_VALUE_FLOAT = 0,
+    // connect to ground
+    PIN_VALUE_GND = 1,
+    // connect to vcc
+    PIN_VALUE_VCC = 2,
+};
+
+NPNR_PACKED_STRUCT(struct DefaultCellConnPOD {
+    int32_t pin_name; // constid
+    int32_t value;    // CellPinValue
+});
+
+NPNR_PACKED_STRUCT(struct DefaultCellConnsPOD {
+    int32_t cell_type; // constid
+    RelSlice<DefaultCellConnPOD> pins;
+});
+
 NPNR_PACKED_STRUCT(struct ConstantsPOD {
     // Cell type and port for the GND and VCC global source.
     int32_t gnd_cell_name; // constid
@@ -280,6 +300,9 @@ NPNR_PACKED_STRUCT(struct ConstantsPOD {
     // If a choice is available, which constant net should be used?
     // Can be ''/0 if either constant net are equivilent.
     int32_t best_constant_net; // constid
+
+    // Default cell pin connections
+    RelSlice<DefaultCellConnsPOD> default_conns;
 });
 
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {

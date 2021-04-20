@@ -1100,6 +1100,9 @@ struct Arch : ArchAPI<ArchRanges>
     void unmask_bel_pins();
 
     void explain_bel_status(BelId bel) const;
+
+    const DefaultCellConnsPOD *get_default_conns(IdString cell_type) const;
+    void pack_default_conns();
 };
 
 NEXTPNR_NAMESPACE_END

@@ -1065,12 +1065,6 @@ ModuleReader::ModuleReader(const LogicalNetlistImpl *root,
             if(iter == net_indicies.end()) {
                 PortKey port_key = port_connections.first;
                 auto port = ports[port_key.port_idx];
-                if(port_key.inst_idx != -1 && port.getDir() != LogicalNetlist::Netlist::Direction::OUTPUT) {
-                    log_error("Cell instance %s port %s is disconnected!\n",
-                            root->strings.at(root->root.getInstList()[port_key.inst_idx].getName()).c_str(),
-                            root->strings.at(ports[port_key.port_idx].getName()).c_str()
-                        );
-                }
                 disconnected_nets[net_idx] = stringf("%s.%d", root->strings.at(port.getName()).c_str(), i);
             }
         }
