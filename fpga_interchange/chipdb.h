@@ -34,7 +34,7 @@ NEXTPNR_NAMESPACE_BEGIN
  * kExpectedChipInfoVersion
  */
 
-static constexpr int32_t kExpectedChipInfoVersion = 9;
+static constexpr int32_t kExpectedChipInfoVersion = 10;
 
 // Flattened site indexing.
 //
@@ -332,6 +332,52 @@ NPNR_PACKED_STRUCT(struct GlobalCellPOD {
     RelSlice<GlobalCellPinPOD> pins;
 });
 
+NPNR_PACKED_STRUCT(struct MacroParameterPOD {
+    int32_t key;   // constid
+    int32_t value; // constid
+});
+
+NPNR_PACKED_STRUCT(struct MacroCellInstPOD {
+    int32_t name; // instance name constid
+    int32_t type; // instance type constid
+    // parameters to set on cell
+    RelSlice<MacroParameterPOD> parameters;
+});
+
+NPNR_PACKED_STRUCT(struct MacroPortInstPOD {
+    // name of the cell instance the port is on; or 0/'' for top level ports
+    int32_t instance;
+    // name of the port
+    int32_t port;
+    // direction of the port
+    int32_t dir;
+});
+
+NPNR_PACKED_STRUCT(struct MacroNetPOD {
+    // name of the net
+    int32_t name;
+    // ports on the net
+    RelSlice<MacroPortInstPOD> ports;
+});
+
+NPNR_PACKED_STRUCT(struct MacroPOD {
+    // macro name
+    int32_t name;
+    // cell instances inside macro
+    RelSlice<MacroCellInstPOD> cell_insts;
+    // nets inside macro
+    RelSlice<MacroNetPOD> nets;
+});
+
+NPNR_PACKED_STRUCT(struct MacroExpansionPOD {
+    // primitive name to match
+    int32_t prim_name;
+    // macro name to expand to
+    int32_t macro_name;
+    // list of parameters to (optionally) match
+    RelSlice<MacroParameterPOD> param_matches;
+});
+
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelPtr<char> name;
     RelPtr<char> generator;
@@ -346,6 +392,10 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelSlice<PackagePOD> packages;
     RelSlice<WireTypePOD> wire_types;
     RelSlice<GlobalCellPOD> global_cells;
+
+    // Macro related data
+    RelSlice<MacroPOD> macros;
+    RelSlice<MacroExpansionPOD> macro_rules;
 
     // BEL bucket constids.
     RelSlice<int32_t> bel_buckets;
