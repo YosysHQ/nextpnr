@@ -337,6 +337,28 @@ NPNR_PACKED_STRUCT(struct MacroParameterPOD {
     int32_t value; // constid
 });
 
+enum MacroParamRuleType
+{
+    PARAM_MAP_COPY = 0,  // copy parameter value
+    PARAM_MAP_SLICE = 1, // take a slice of bits
+    PARAM_MAP_TABLE = 2, // lookup strings in table
+};
+
+NPNR_PACKED_STRUCT(struct MacroParamMapRulePOD {
+    // name of parameter on parent primitive
+    int32_t prim_param; // constid
+    // name of instance to set parameter on
+    int32_t inst_name; // constid
+    // name of parameter on macro expansion instance
+    int32_t inst_param; // constid
+    // type of mapping to use to derive new value
+    int32_t rule_type; // MacroParamRuleType
+    // for slice mappings, the bits to collect
+    RelSlice<uint32_t> slice_bits;
+    // for table mappings, the lookup table to use
+    RelSlice<MacroParameterPOD> map_table;
+});
+
 NPNR_PACKED_STRUCT(struct MacroCellInstPOD {
     int32_t name; // instance name constid
     int32_t type; // instance type constid
@@ -376,6 +398,8 @@ NPNR_PACKED_STRUCT(struct MacroExpansionPOD {
     int32_t macro_name;
     // list of parameters to (optionally) match
     RelSlice<MacroParameterPOD> param_matches;
+    // how to derive parameters for expansion instances
+    RelSlice<MacroParamMapRulePOD> param_rules;
 });
 
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
