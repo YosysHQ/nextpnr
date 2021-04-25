@@ -770,6 +770,7 @@ bool Arch::pack()
     merge_constant_nets();
     pack_ports();
     pack_default_conns();
+    expand_macros();
     return true;
 }
 
