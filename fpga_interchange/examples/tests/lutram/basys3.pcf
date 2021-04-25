@@ -1,0 +1,41 @@
+# basys3 100 MHz CLK
+set_io clk W5
+
+set_io tx A18
+set_io rx B18
+#
+# in[0:15] correspond with SW0-SW15 on the basys3
+set_io sw[0] V17
+set_io sw[1] V16
+set_io sw[2] W16
+set_io sw[3] W17
+set_io sw[4] W15
+set_io sw[5] V15
+set_io sw[6] W14
+set_io sw[7] W13
+set_io sw[8] V2
+set_io sw[9] T3
+set_io sw[10] T2
+set_io sw[11] R3
+set_io sw[12] W2
+set_io sw[13] U1
+set_io sw[14] T1
+set_io sw[15] R2
+
+# out[0:15] correspond with LD0-LD15 on the basys3
+set_io led[0] U16
+set_io led[1] E19
+set_io led[2] U19
+set_io led[3] V19
+set_io led[4] W18
+set_io led[5] U15
+set_io led[6] U14
+set_io led[7] V14
+set_io led[8] V13
+set_io led[9] V3
+set_io led[10] W3
+set_io led[11] U3
+set_io led[12] P3
+set_io led[13] N3
+set_io led[14] P1
+set_io led[15] L1
