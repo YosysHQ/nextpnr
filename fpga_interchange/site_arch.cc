@@ -136,6 +136,8 @@ SiteArch::SiteArch(const SiteInformation *site_info) : ctx(site_info->ctx), site
     bool have_vcc_pins = false;
     for (CellInfo *cell : site_info->cells_in_site) {
         for (const auto &pin_pair : cell->cell_bel_pins) {
+            if (!cell->ports.count(pin_pair.first))
+                continue;
             const PortInfo &port = cell->ports.at(pin_pair.first);
             if (port.net != nullptr) {
                 nets.emplace(port.net, SiteNetInfo{port.net});
