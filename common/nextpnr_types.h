@@ -165,15 +165,8 @@ struct CellInfo : ArchCellInfo
     BelId bel;
     PlaceStrength belStrength = STRENGTH_NONE;
 
-    // placement constraints
-    CellInfo *constr_parent = nullptr;
-    std::vector<CellInfo *> constr_children;
-    const int UNCONSTR = INT_MIN;
-    int constr_x = UNCONSTR;   // this.x - parent.x
-    int constr_y = UNCONSTR;   // this.y - parent.y
-    int constr_z = UNCONSTR;   // this.z - parent.z
-    bool constr_abs_z = false; // parent.z := 0
-    // parent.[xyz] := 0 when (constr_parent == nullptr)
+    // cell is part of a cluster if != ClusterId
+    ClusterId cluster;
 
     Region *region = nullptr;
 

@@ -23,11 +23,7 @@ Other structures used by these basic structures include:
  - `ports` is a map from port name `IdString` to `PortInfo` structures for each cell port
  - `bel` and `belStrength` contain the ID of the Bel the cell is placed onto; and placement strength of the cell; if placed. Placement/ripup should always be done by `Arch::bindBel` and `Arch::unbindBel` rather than by manipulating these fields.
  - `params` and `attrs` store parameters and attributes - from the input JSON or assigned in flows to add metadata - by mapping from parameter name `IdString` to `Property`.
- - The `constr_` fields are for relative constraints:
-    - `constr_parent` is a reference to the cell this cell is constrained with respect to; or `nullptr` if not relatively constrained. If not `nullptr`, this cell should be in the parent's `constr_children`.
-    - `constr_children` is a list of cells relatively constrained to this one. All children should have `constr_parent == this`. 
-    - `constr_x` and `constr_y` are absolute (`constr_parent == nullptr`) or relative (`constr_parent != nullptr`) tile coordinate constraints. If set to `UNCONSTR` then the cell is not constrained in this axis (defaults to `UNCONSTR`)
-    - `constr_z` is an absolute (`constr_abs_z`) or relative (`!constr_abs_z`) 'Z-axis' (index inside tile, e.g. logic cell) constraint
+ - `cluster` is used to specify that the cell is inside a placement cluster, with the details of the placement within the cluster provided by the architecture.
  - `region` is a reference to a `Region` if the cell is constrained to a placement region (e.g. for partial reconfiguration or out-of-context flows) or `nullptr` otherwise.
 
 ## NetInfo

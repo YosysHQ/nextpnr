@@ -67,6 +67,10 @@ A type representing a group name. `GroupId()` must construct a unique null-value
 
 A type representing a reference to a graphical decal. `DecalId()` must construct a unique null-value. Must provide `==` and `!=` operators and a specialization for `std::hash<DecalId>`.
 
+### ClusterId
+
+A type representing a reference to a constrained cluster of cells. `ClusterId()` must construct a unique null-value. Must provide `==` and `!=` operators and a specialization for `std::hash<ClusterId>`.
+
 ### ArchNetInfo
 
 The global `NetInfo` type derives from this one. Can be used to add arch-specific data (caches of information derived from wire attributes, bound wires and pips, and other net state). Must be declared as empty struct if unused.
@@ -720,3 +724,32 @@ Name of the default router algorithm for the architecture, if
 
 Name of available router algorithms for the architecture, used
 to provide help for and validate `--router`.
+
+Cluster Methods
+---------------
+
+### CellInfo *getClusterRootCell(ClusterId cluster) const
+
+Gets the root cell of a cluster, which is used as a datum point when placing the cluster.
+
+### ArcBounds getClusterBounds(ClusterId cluster) const
+
+Gets an approximate bounding box of the cluster. This is intended for area allocation in the placer and is permitted to occasionally give incorrect estimates, for example due to irregularities in the fabric depending on cluster placement. `getClusterPlacement` should always be used to get exact locations.
+
+### Loc getClusterOffset(CellInfo \*cell) const
+
+Gets the approximate offset of a cell within its cluster, relative to the root cell. This is intended for global placement usage and is permitted to occasionally give incorrect estimates, for example due to irregularities in the fabric depending on cluster placement. `getClusterPlacement` should always be used to get exact locations.
+
+The returned x and y coordinates, when added to the root location of the cluster, should give an approximate location where `cell` will end up placed at.
+
+### bool isClusterStrict(CellInfo *cell) const
+
+Returns `true` if the cell **must** be placed according to the cluster; for example typical carry chains, and dedicated IO routing. Returns `false` if the cell can be split from the cluster if placement desires, at the expense of a less optimal result (for example dedicated LUT-FF paths where general routing can also be used).
+
+### bool getClusterPlacement(ClusterId cluster, BelId root\_bel, std::vector\<std::pair\<CellInfo \*, BelId\>\> &placement) const
+
+Gets an exact placement of the cluster, with the root cell placed on or near `root_bel` (and always within the same tile). Returns false if no placement is viable, otherwise returns `true` and populates `placement` with a list of cells inside the cluster and bels they should be placed at.
+
+This approach of allowing architectures to define cluster placements enables easier handling of irregular fabrics than requiring strict and constant x, y and z offsets.
+
+
