@@ -44,26 +44,9 @@ void CellInfo::unsetParam(IdString name) { params.erase(name); }
 void CellInfo::setAttr(IdString name, Property value) { attrs[name] = value; }
 void CellInfo::unsetAttr(IdString name) { attrs.erase(name); }
 
-bool CellInfo::isConstrained(bool include_abs_z_constr) const
-{
-    return constr_parent != nullptr || !constr_children.empty() || (include_abs_z_constr && constr_abs_z);
-}
-
 bool CellInfo::testRegion(BelId bel) const
 {
     return region == nullptr || !region->constr_bels || region->bels.count(bel);
-}
-Loc CellInfo::getConstrainedLoc(Loc parent_loc) const
-{
-    NPNR_ASSERT(constr_parent != nullptr);
-    Loc cloc = parent_loc;
-    if (constr_x != UNCONSTR)
-        cloc.x += constr_x;
-    if (constr_y != UNCONSTR)
-        cloc.y += constr_y;
-    if (constr_z != UNCONSTR)
-        cloc.z = constr_abs_z ? constr_z : (parent_loc.z + constr_z);
-    return cloc;
 }
 
 NEXTPNR_NAMESPACE_END

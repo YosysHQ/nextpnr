@@ -736,13 +736,13 @@ Gets the root cell of a cluster, which is used as a datum point when placing the
 
 Gets an approximate bounding box of the cluster. This is intended for area allocation in the placer and is permitted to occasionally give incorrect estimates, for example due to irregularities in the fabric depending on cluster placement. `getClusterPlacement` should always be used to get exact locations.
 
-### Loc getClusterOffset(CellInfo \*cell) const
+### Loc getClusterOffset(const CellInfo \*cell) const
 
 Gets the approximate offset of a cell within its cluster, relative to the root cell. This is intended for global placement usage and is permitted to occasionally give incorrect estimates, for example due to irregularities in the fabric depending on cluster placement. `getClusterPlacement` should always be used to get exact locations.
 
 The returned x and y coordinates, when added to the root location of the cluster, should give an approximate location where `cell` will end up placed at.
 
-### bool isClusterStrict(CellInfo *cell) const
+### bool isClusterStrict(const CellInfo *cell) const
 
 Returns `true` if the cell **must** be placed according to the cluster; for example typical carry chains, and dedicated IO routing. Returns `false` if the cell can be split from the cluster if placement desires, at the expense of a less optimal result (for example dedicated LUT-FF paths where general routing can also be used).
 
