@@ -142,7 +142,7 @@ template <typename R> struct ArchAPI : BaseCtx
     // Cluster methods
     virtual CellInfo *getClusterRootCell(ClusterId cluster) const = 0;
     virtual ArcBounds getClusterBounds(ClusterId cluster) const = 0;
-    virtual Loc getClusterOffset(ClusterId cluster, CellInfo *cell) const = 0;
+    virtual Loc getClusterOffset(CellInfo *cell) const = 0;
     virtual bool isClusterStrict(CellInfo *cell) const = 0;
     virtual bool getClusterPlacement(ClusterId cluster, BelId root_bel,
                                      std::vector<std::pair<CellInfo *, BelId>> &placement) const = 0;

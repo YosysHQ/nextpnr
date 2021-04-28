@@ -32,10 +32,9 @@ struct CellInfo;
 struct BaseClusterInfo
 {
     std::vector<CellInfo *> constr_children;
-    const int UNCONSTR = INT_MIN;
-    int constr_x = UNCONSTR;   // this.x - parent.x
-    int constr_y = UNCONSTR;   // this.y - parent.y
-    int constr_z = UNCONSTR;   // this.z - parent.z
+    int constr_x = 0;          // this.x - parent.x
+    int constr_y = 0;          // this.y - parent.y
+    int constr_z = 0;          // this.z - parent.z
     bool constr_abs_z = false; // parent.z := 0
 };
 

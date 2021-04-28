@@ -22,6 +22,7 @@
 
 #include <boost/functional/hash.hpp>
 
+#include "base_clusterinfo.h"
 #include "idstring.h"
 #include "nextpnr_namespaces.h"
 
@@ -122,7 +123,7 @@ struct ArchNetInfo
 
 struct NetInfo;
 
-struct ArchCellInfo
+struct ArchCellInfo : BaseClusterInfo
 {
     union
     {
@@ -154,6 +155,7 @@ struct ArchCellInfo
 };
 
 typedef IdString BelBucketId;
+typedef IdString ClusterId;
 
 NEXTPNR_NAMESPACE_END
 

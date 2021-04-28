@@ -48,6 +48,7 @@ typedef IdString PipId;
 typedef IdString GroupId;
 typedef IdString DecalId;
 typedef IdString BelBucketId;
+typedef IdString ClusterId;
 
 struct ArchNetInfo
 {

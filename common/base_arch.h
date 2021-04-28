@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "arch_api.h"
+#include "base_clusterinfo.h"
 #include "idstring.h"
 #include "nextpnr_types.h"
 
@@ -78,6 +79,36 @@ typename std::enable_if<!std::is_same<Tret, Tc>::value, Tret>::type return_if_ma
 {
     NPNR_ASSERT_FALSE("default implementations of cell type and bel bucket range functions only available when the "
                       "respective range types are 'const std::vector&'");
+}
+
+// Default implementations of the clustering functions
+template <typename Tid>
+typename std::enable_if<std::is_same<Tid, IdString>::value, CellInfo *>::type get_cluster_root(const BaseCtx *ctx,
+                                                                                               Tid cluster)
+{
+    return ctx->cells.at(cluster).get();
+}
+
+template <typename Tid>
+typename std::enable_if<!std::is_same<Tid, IdString>::value, CellInfo *>::type get_cluster_root(const BaseCtx *ctx,
+                                                                                                Tid cluster)
+{
+    NPNR_ASSERT_FALSE("default implementation of getClusterRootCell requires ClusterId to be IdString");
+}
+
+// Executes the lambda with the base cluster data, only if the derivation works
+template <typename Tret, typename Tcell, typename Tfunc>
+typename std::enable_if<std::is_base_of<BaseClusterInfo, Tcell>::value, Tret>::type
+if_using_basecluster(const Tcell *cell, Tfunc func)
+{
+    return func(static_cast<const BaseClusterInfo *>(cell));
+}
+template <typename Tret, typename Tcell, typename Tfunc>
+typename std::enable_if<!std::is_base_of<BaseClusterInfo, Tcell>::value, Tret>::type
+if_using_basecluster(const Tcell *cell, Tfunc func)
+{
+    NPNR_ASSERT_FALSE(
+            "default implementation of cluster functions requires ArchCellInfo to derive from BaseClusterInfo");
 }
 
 } // namespace
@@ -341,6 +372,68 @@ template <typename R> struct BaseArch : ArchAPI<R>
     {
         NPNR_ASSERT(bel_buckets_initialised);
         return return_if_match<const std::vector<BelId> &, typename R::BucketBelRangeT>(bucket_bels.at(bucket));
+    }
+
+    // Cluster methods
+    virtual CellInfo *getClusterRootCell(ClusterId cluster) const override { return get_cluster_root(this, cluster); }
+
+    virtual ArcBounds getClusterBounds(ClusterId cluster) const override
+    {
+        return if_using_basecluster<ArcBounds>(get_cluster_root(this, cluster), [](const BaseClusterInfo *cluster) {
+            ArcBounds bounds(0, 0, 0, 0);
+            for (auto child : cluster->constr_children) {
+                if_using_basecluster<void>(child, [&](const BaseClusterInfo *child) {
+                    bounds.x0 = std::min(bounds.x0, child->constr_x);
+                    bounds.y0 = std::min(bounds.y0, child->constr_y);
+                    bounds.x1 = std::max(bounds.x1, child->constr_x);
+                    bounds.y1 = std::max(bounds.y1, child->constr_y);
+                });
+            }
+            return bounds;
+        });
+    }
+
+    virtual Loc getClusterOffset(CellInfo *cell) const override
+    {
+        return if_using_basecluster<Loc>(cell,
+                                         [](const BaseClusterInfo *c) { return Loc(c->constr_x, c->constr_y, 0); });
+    }
+
+    virtual bool isClusterStrict(CellInfo *cell) const override { return true; }
+
+    virtual bool getClusterPlacement(ClusterId cluster, BelId root_bel,
+                                     std::vector<std::pair<CellInfo *, BelId>> &placement) const override
+    {
+        CellInfo *root_cell = get_cluster_root(this, cluster);
+        return if_using_basecluster<bool>(root_cell, [&](const BaseClusterInfo *cluster) -> bool {
+            placement.clear();
+            NPNR_ASSERT(root_bel != BelId());
+            Loc root_loc = this->getBelLocation(root_bel);
+
+            if (cluster->constr_abs_z) {
+                // Coerce root to absolute z constraint
+                root_loc.z = cluster->constr_z;
+                root_bel = this->getBelByLocation(root_loc);
+                if (root_bel == BelId() || !this->isValidBelForCellType(root_cell->type, root_bel))
+                    return false;
+            }
+            placement.emplace_back(root_cell, root_bel);
+
+            for (auto child : cluster->constr_children) {
+                Loc child_loc = if_using_basecluster<Loc>(child, [&](const BaseClusterInfo *child) {
+                    Loc result;
+                    result.x = root_loc.x + child->constr_x;
+                    result.y = root_loc.y + child->constr_y;
+                    result.z = child->constr_abs_z ? child->constr_z : (root_loc.z + child->constr_z);
+                    return result;
+                });
+                BelId child_bel = this->getBelByLocation(child_loc);
+                if (child_bel == BelId() || !this->isValidBelForCellType(child->type, root_bel))
+                    return false;
+                placement.emplace_back(child, child_bel);
+            }
+            return true;
+        });
     }
 
     // Flow methods

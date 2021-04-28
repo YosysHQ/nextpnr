@@ -292,12 +292,14 @@ class ChainConstrainer
             // Place carry chain
             chain.cells.at(0)->constr_abs_z = true;
             chain.cells.at(0)->constr_z = 0;
+            chain.cells.at(0)->cluster = chain.cells.at(0)->name;
+
             for (int i = 1; i < int(chain.cells.size()); i++) {
                 chain.cells.at(i)->constr_x = 0;
                 chain.cells.at(i)->constr_y = (i / 8);
                 chain.cells.at(i)->constr_z = i % 8;
                 chain.cells.at(i)->constr_abs_z = true;
-                chain.cells.at(i)->constr_parent = chain.cells.at(0);
+                chain.cells.at(i)->cluster = chain.cells.at(0)->name;
                 chain.cells.at(0)->constr_children.push_back(chain.cells.at(i));
             }
         }
