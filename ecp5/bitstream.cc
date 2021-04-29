@@ -1171,7 +1171,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             tg.config.add_enum(dsp + ".RESETMODE", str_or_default(ci->params, ctx->id("RESETMODE"), "SYNC"));
 
             tg.config.add_enum(dsp + ".MODE", "MULT18X18D");
-            if (str_or_default(ci->params, ctx->id("REG_OUTPUT_CLK"), "NONE") == "NONE")
+            if (str_or_default(ci->params, ctx->id("REG_OUTPUT_CLK"), "NONE") == "NONE" && ci->constr_parent == nullptr)
                 tg.config.add_enum(dsp + ".CIBOUT_BYP", "ON");
 
             if (loc.z < 4)
@@ -1209,6 +1209,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                                str_or_default(ci->params, ctx->id("REG_OPCODEOP1_0_CLK"), "NONE"));
             tg.config.add_enum(dsp + ".REG_OPCODEOP0_1_CLK",
                                str_or_default(ci->params, ctx->id("REG_OPCODEOP0_1_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".REG_OPCODEOP1_1_CLK",
+                               str_or_default(ci->params, ctx->id("REG_OPCODEOP1_1_CLK"), "NONE"));
             tg.config.add_enum(dsp + ".REG_OPCODEOP0_1_CE",
                                str_or_default(ci->params, ctx->id("REG_OPCODEOP0_1_CE"), "CE0"));
             tg.config.add_enum(dsp + ".REG_OPCODEOP0_1_RST",
