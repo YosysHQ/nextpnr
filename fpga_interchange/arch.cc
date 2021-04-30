@@ -461,7 +461,24 @@ WireId Arch::getWireByName(IdStringList name) const
     return ret;
 }
 
-IdString Arch::getWireType(WireId wire) const { return id(""); }
+IdString Arch::getWireType(WireId wire) const
+{
+    int tile = wire.tile, index = wire.index;
+    if (tile == -1) {
+        // Nodal wire
+        const TileWireRefPOD &wr = chip_info->nodes[wire.index].tile_wires[0];
+        tile = wr.tile;
+        index = wr.index;
+    }
+    auto &w2t = chip_info->tiles[tile].tile_wire_to_type;
+    if (index >= w2t.ssize())
+        return IdString();
+    int wire_type = w2t[index];
+    if (wire_type == -1)
+        return IdString();
+    return IdString(chip_info->wire_types[wire_type].name);
+}
+
 std::vector<std::pair<IdString, std::string>> Arch::getWireAttrs(WireId wire) const { return {}; }
 
 // -----------------------------------------------------------------------
