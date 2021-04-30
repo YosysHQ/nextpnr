@@ -26,6 +26,15 @@ NEXTPNR_NAMESPACE_BEGIN
 
 using namespace mistral;
 
+void IdString::initialize_arch(const BaseCtx *ctx)
+{
+#define X(t) initialize_add(ctx, #t, ID_##t);
+
+#include "constids.inc"
+
+#undef X
+}
+
 Arch::Arch(ArchArgs args)
 {
     this->args = args;

@@ -33,6 +33,22 @@ using mistral::CycloneV;
 
 typedef int delay_t;
 
+// https://bugreports.qt.io/browse/QTBUG-80789
+
+#ifndef Q_MOC_RUN
+enum ConstIds
+{
+    ID_NONE
+#define X(t) , ID_##t
+#include "constids.inc"
+#undef X
+};
+
+#define X(t) static constexpr auto id_##t = IdString(ID_##t);
+#include "constids.inc"
+#undef X
+#endif
+
 struct DelayInfo
 {
     delay_t delay = 0;
