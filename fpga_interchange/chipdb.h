@@ -34,7 +34,7 @@ NEXTPNR_NAMESPACE_BEGIN
  * kExpectedChipInfoVersion
  */
 
-static constexpr int32_t kExpectedChipInfoVersion = 7;
+static constexpr int32_t kExpectedChipInfoVersion = 8;
 
 // Flattened site indexing.
 //
@@ -182,6 +182,9 @@ NPNR_PACKED_STRUCT(struct TileInstInfoPOD {
     // as they will never be nodal
     // -1 if a tile-local wire; node index if nodal wire
     RelSlice<int32_t> tile_wire_to_node;
+
+    // Index into wire_types
+    RelSlice<int16_t> tile_wire_to_type;
 });
 
 NPNR_PACKED_STRUCT(struct TileWireRefPOD {
@@ -305,6 +308,18 @@ NPNR_PACKED_STRUCT(struct ConstantsPOD {
     RelSlice<DefaultCellConnsPOD> default_conns;
 });
 
+enum WireCategory
+{
+    WIRE_CAT_GENERAL = 0,
+    WIRE_CAT_SPECIAL = 1,
+    WIRE_CAT_GLOBAL = 2,
+};
+
+NPNR_PACKED_STRUCT(struct WireTypePOD {
+    int32_t name;     // constid
+    int32_t category; // WireCategory
+});
+
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelPtr<char> name;
     RelPtr<char> generator;
@@ -317,6 +332,7 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelSlice<TileInstInfoPOD> tiles;
     RelSlice<NodeInfoPOD> nodes;
     RelSlice<PackagePOD> packages;
+    RelSlice<WireTypePOD> wire_types;
 
     // BEL bucket constids.
     RelSlice<int32_t> bel_buckets;
