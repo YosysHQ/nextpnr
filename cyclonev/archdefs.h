@@ -17,11 +17,15 @@
  *
  */
 
-#ifndef NEXTPNR_H
-#error Include "archdefs.h" via "nextpnr.h" only.
-#endif
+#ifndef MISTRAL_ARCHDEFS_H
+#define MISTRAL_ARCHDEFS_H
 
-#include "mistral/lib/cyclonev.h"
+#include <boost/functional/hash.hpp>
+
+#include "cyclonev.h"
+
+#include "idstring.h"
+#include "nextpnr_namespaces.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -82,30 +86,9 @@ struct PipId
     bool operator<(const PipId &other) const { return index < other.index; }
 };
 
-struct GroupId
-{
-    enum : int8_t
-    {
-        TYPE_NONE
-    } type = TYPE_NONE;
-    int8_t x = 0, y = 0;
-
-    bool operator==(const GroupId &other) const { return (type == other.type) && (x == other.x) && (y == other.y); }
-    bool operator!=(const GroupId &other) const { return (type != other.type) || (x != other.x) || (y == other.y); }
-};
-
-struct DecalId
-{
-    enum : int8_t
-    {
-        TYPE_NONE,
-    } type = TYPE_NONE;
-    int32_t index = -1;
-    bool active = false;
-
-    bool operator==(const DecalId &other) const { return (type == other.type) && (index == other.index); }
-    bool operator!=(const DecalId &other) const { return (type != other.type) || (index != other.index); }
-};
+typedef IdString DecalId;
+typedef IdString GroupId;
+typedef IdString BelBucketId;
 
 struct ArchNetInfo
 {
@@ -120,7 +103,10 @@ NEXTPNR_NAMESPACE_END
 namespace std {
 template <> struct hash<NEXTPNR_NAMESPACE_PREFIX BelId>
 {
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX BelId &bel) const noexcept { return hash<uint32_t>()((static_cast<uint32_t>(bel.pos) << 16) | bel.z); }
+    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX BelId &bel) const noexcept
+    {
+        return hash<uint32_t>()((static_cast<uint32_t>(bel.pos) << 16) | bel.z);
+    }
 };
 
 template <> struct hash<NEXTPNR_NAMESPACE_PREFIX WireId>
@@ -136,26 +122,6 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX PipId>
     std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX PipId &pip) const noexcept { return hash<int>()(pip.index); }
 };
 
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX GroupId>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX GroupId &group) const noexcept
-    {
-        std::size_t seed = 0;
-        boost::hash_combine(seed, hash<int>()(group.type));
-        boost::hash_combine(seed, hash<int>()(group.x));
-        boost::hash_combine(seed, hash<int>()(group.y));
-        return seed;
-    }
-};
-
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX DecalId>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX DecalId &decal) const noexcept
-    {
-        std::size_t seed = 0;
-        boost::hash_combine(seed, hash<int>()(decal.type));
-        boost::hash_combine(seed, hash<int>()(decal.index));
-        return seed;
-    }
-};
 } // namespace std
+
+#endif

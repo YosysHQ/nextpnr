@@ -20,7 +20,7 @@
 
 #include "nextpnr.h"
 
-#include "mistral/lib/cyclonev.h"
+#include "cyclonev.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -40,20 +40,22 @@ Arch::Arch(ArchArgs args)
                 switch (bel) {
                 case CycloneV::block_type_t::LAB:
                     /*
-                    *  nextpnr and mistral disagree on what a BEL is: mistral thinks an entire LAB
-                    *  is one BEL, but nextpnr wants something with more precision.
-                    * 
-                    *  One LAB contains 10 ALMs.
-                    *  One ALM contains 2 LUT outputs and 4 flop outputs.
-                    */
+                     *  nextpnr and mistral disagree on what a BEL is: mistral thinks an entire LAB
+                     *  is one BEL, but nextpnr wants something with more precision.
+                     *
+                     *  One LAB contains 10 ALMs.
+                     *  One ALM contains 2 LUT outputs and 4 flop outputs.
+                     */
                     for (int z = 0; z < 60; z++) {
                         this->bel_list.push_back(BelId(pos, z));
                     }
+                    break;
                 case CycloneV::block_type_t::GPIO:
                     // GPIO tiles contain 4 pins.
                     for (int z = 0; z < 4; z++) {
                         this->bel_list.push_back(BelId(pos, z));
                     }
+                    break;
                 default:
                     continue;
                 }
@@ -70,12 +72,12 @@ int Arch::getTileBelDimZ(int x, int y) const
         switch (bel) {
         case CycloneV::block_type_t::LAB:
             /*
-            *  nextpnr and mistral disagree on what a BEL is: mistral thinks an entire LAB
-            *  is one BEL, but nextpnr wants something with more precision.
-            * 
-            *  One LAB contains 10 ALMs.
-            *  One ALM contains 2 LUT outputs and 4 flop outputs.
-            */
+             *  nextpnr and mistral disagree on what a BEL is: mistral thinks an entire LAB
+             *  is one BEL, but nextpnr wants something with more precision.
+             *
+             *  One LAB contains 10 ALMs.
+             *  One ALM contains 2 LUT outputs and 4 flop outputs.
+             */
             return 60;
         case CycloneV::block_type_t::GPIO:
             // GPIO tiles contain 4 pins.
@@ -89,13 +91,13 @@ int Arch::getTileBelDimZ(int x, int y) const
     return 0;
 }
 
-BelId Arch::getBelByName(IdString name) const
+BelId Arch::getBelByName(IdStringList name) const
 {
     char bel_type_str[80] = {0};
     int x = 0, y = 0, z = 0;
     BelId bel;
 
-    sscanf(name.c_str(this), "%25s.%d.%d.%d", bel_type_str, &x, &y, &z);
+    sscanf(name[0].c_str(this), "%25s.%d.%d.%d", bel_type_str, &x, &y, &z);
 
     auto bel_type = cyclonev->block_type_lookup(std::string{bel_type_str});
 
@@ -105,7 +107,7 @@ BelId Arch::getBelByName(IdString name) const
     return bel;
 }
 
-IdString Arch::getBelName(BelId bel) const
+IdStringList Arch::getBelName(BelId bel) const
 {
     char bel_str[80] = {0};
 
@@ -116,23 +118,7 @@ IdString Arch::getBelName(BelId bel) const
 
     snprintf(bel_str, 80, "%s.%03d.%03d.%03d", cyclonev->block_type_names[bel_type], x, y, z);
 
-    return id(bel_str);
-}
-
-void Arch::bindBel(BelId bel, CellInfo *cell, PlaceStrength strength)
-{
-    bels.at(bel).bound_cell = cell;
-    cell->bel = bel;
-    cell->belStrength = strength;
-    refreshUiBel(bel);
-}
-
-void Arch::unbindBel(BelId bel)
-{
-    bels.at(bel).bound_cell->bel = BelId();
-    bels.at(bel).bound_cell->belStrength = STRENGTH_NONE;
-    bels.at(bel).bound_cell = nullptr;
-    refreshUiBel(bel);
+    return IdStringList(id(bel_str));
 }
 
 std::vector<BelId> Arch::getBelsByTile(int x, int y) const
@@ -146,20 +132,22 @@ std::vector<BelId> Arch::getBelsByTile(int x, int y) const
         switch (cvbel) {
         case CycloneV::block_type_t::LAB:
             /*
-            *  nextpnr and mistral disagree on what a BEL is: mistral thinks an entire LAB
-            *  is one BEL, but nextpnr wants something with more precision.
-            * 
-            *  One LAB contains 10 ALMs.
-            *  One ALM contains 2 LUT outputs and 4 flop outputs.
-            */
+             *  nextpnr and mistral disagree on what a BEL is: mistral thinks an entire LAB
+             *  is one BEL, but nextpnr wants something with more precision.
+             *
+             *  One LAB contains 10 ALMs.
+             *  One ALM contains 2 LUT outputs and 4 flop outputs.
+             */
             for (int z = 0; z < 60; z++) {
                 bels.push_back(BelId(pos, z));
             }
+            break;
         case CycloneV::block_type_t::GPIO:
             // GPIO tiles contain 4 pins.
             for (int z = 0; z < 4; z++) {
                 bels.push_back(BelId(pos, z));
             }
+            break;
         default:
             continue;
         }
@@ -174,12 +162,12 @@ IdString Arch::getBelType(BelId bel) const
         switch (cvbel) {
         case CycloneV::block_type_t::LAB:
             /*
-            *  nextpnr and mistral disagree on what a BEL is: mistral thinks an entire LAB
-            *  is one BEL, but nextpnr wants something with more precision.
-            * 
-            *  One LAB contains 10 ALMs.
-            *  One ALM contains 2 LUT outputs and 4 flop outputs.
-            */
+             *  nextpnr and mistral disagree on what a BEL is: mistral thinks an entire LAB
+             *  is one BEL, but nextpnr wants something with more precision.
+             *
+             *  One LAB contains 10 ALMs.
+             *  One ALM contains 2 LUT outputs and 4 flop outputs.
+             */
             return IdString(this, "LAB");
         case CycloneV::block_type_t::GPIO:
             // GPIO tiles contain 4 pins.
