@@ -32,3 +32,11 @@ add_board(
     device xc7z010
     package clg400
 )
+
+# This isn't a real board, all the real boards currently available use the LIFCL-40 but the LIFCL-17 speeds up runtime for testing
+add_board(
+    name lifcl17
+    device_family nexus
+    device LIFCL-17
+    package QFN72
+)
