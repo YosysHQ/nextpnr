@@ -51,7 +51,7 @@ struct Bits
 #if defined(__GNUC__) || defined(__clang__)
         return __builtin_popcount(x);
 #elif defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))
-        return __popcnt(v);
+        return __popcnt(x);
 #else
         return generic_popcount(x);
 #endif
@@ -63,7 +63,7 @@ struct Bits
         return __builtin_ctz(x);
 #elif defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))
         unsigned long result;
-        _BitScanForward(&result, v);
+        _BitScanForward(&result, x);
         return result;
 #else
         return generic_ctz(x);
