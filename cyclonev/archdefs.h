@@ -25,6 +25,7 @@
 #include "cyclonev.h"
 
 #include "idstring.h"
+#include "nextpnr_assertions.h"
 #include "nextpnr_namespaces.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -84,22 +85,35 @@ struct BelId
     bool operator<(const BelId &other) const { return pos < other.pos || (pos == other.pos && z < other.z); }
 };
 
+static constexpr auto invalid_rnode = std::numeric_limits<CycloneV::rnode_t>::max();
+
 struct WireId
 {
-    int32_t index = -1;
+    WireId() = default;
+    explicit WireId(CycloneV::rnode_t node) : node(node){};
+    CycloneV::rnode_t node = invalid_rnode;
 
-    bool operator==(const WireId &other) const { return index == other.index; }
-    bool operator!=(const WireId &other) const { return index != other.index; }
-    bool operator<(const WireId &other) const { return index < other.index; }
+    // Wires created by nextpnr have rnode type >= 128
+    bool is_nextpnr_created() const
+    {
+        NPNR_ASSERT(node != invalid_rnode);
+        return CycloneV::rn2t(node) >= 128;
+    }
+
+    bool operator==(const WireId &other) const { return node == other.node; }
+    bool operator!=(const WireId &other) const { return node != other.node; }
+    bool operator<(const WireId &other) const { return node < other.node; }
 };
 
 struct PipId
 {
-    int32_t index = -1;
+    PipId() = default;
+    PipId(CycloneV::rnode_t src, CycloneV::rnode_t dst) : src(src), dst(dst){};
+    CycloneV::rnode_t src = invalid_rnode, dst = invalid_rnode;
 
-    bool operator==(const PipId &other) const { return index == other.index; }
-    bool operator!=(const PipId &other) const { return index != other.index; }
-    bool operator<(const PipId &other) const { return index < other.index; }
+    bool operator==(const PipId &other) const { return src == other.src && dst == other.dst; }
+    bool operator!=(const PipId &other) const { return src != other.src || dst != other.dst; }
+    bool operator<(const PipId &other) const { return dst < other.dst || (dst == other.dst && src < other.src); }
 };
 
 typedef IdString DecalId;
@@ -129,13 +143,16 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX WireId>
 {
     std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX WireId &wire) const noexcept
     {
-        return hash<int>()(wire.index);
+        return hash<uint32_t>()(wire.node);
     }
 };
 
 template <> struct hash<NEXTPNR_NAMESPACE_PREFIX PipId>
 {
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX PipId &pip) const noexcept { return hash<int>()(pip.index); }
+    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX PipId &pip) const noexcept
+    {
+        return hash<uint64_t>()((uint64_t(pip.dst) << 32) | pip.src);
+    }
 };
 
 } // namespace std

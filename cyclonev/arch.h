@@ -54,6 +54,22 @@ struct BelInfo
     bool gb;
 };
 
+struct WireInfo
+{
+    // name_override is only used for nextpnr-created wires
+    // otherwise; this is empty and a name is created according to mistral rules
+    IdString name_override;
+
+    // these are transformed on-the-fly to PipId by the iterator, to save space (WireId is half the size of PipId)
+    std::vector<WireId> wires_downhill;
+    std::vector<WireId> wires_uphill;
+
+    std::vector<BelPin> bel_pins;
+
+    // flags for special wires (currently unused)
+    uint64_t flags;
+};
+
 struct ArchRanges : BaseArchRanges
 {
     using ArchArgsT = ArchArgs;
@@ -117,8 +133,8 @@ struct Arch : BaseArch<ArchRanges>
     const std::vector<PipId> &getPips() const override;
     Loc getPipLocation(PipId pip) const override;
     IdStringList getPipName(PipId pip) const override;
-    WireId getPipSrcWire(PipId pip) const override;
-    WireId getPipDstWire(PipId pip) const override;
+    WireId getPipSrcWire(PipId pip) const override { return WireId(pip.src); };
+    WireId getPipDstWire(PipId pip) const override { return WireId(pip.dst); };
     DelayQuad getPipDelay(PipId pip) const override;
     const std::vector<PipId> &getPipsDownhill(WireId wire) const override;
     const std::vector<PipId> &getPipsUphill(WireId wire) const override;
