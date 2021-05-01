@@ -46,13 +46,7 @@ struct PinInfo
 
 struct BelInfo
 {
-    IdString name, type;
-    std::map<IdString, std::string> attrs;
-    CellInfo *bound_cell;
-    std::unordered_map<IdString, PinInfo> pins;
-    DecalXY decalxy;
-    int x, y, z;
-    bool gb;
+    // TODO
 };
 
 struct WireInfo
@@ -125,12 +119,13 @@ template <typename T> struct key_range
 };
 
 using AllWireRange = key_range<std::unordered_map<WireId, WireInfo>>;
+using AllBelRange = key_range<std::unordered_map<BelId, BelInfo>>;
 
 struct ArchRanges : BaseArchRanges
 {
     using ArchArgsT = ArchArgs;
     // Bels
-    using AllBelsRangeT = const std::vector<BelId> &;
+    using AllBelsRangeT = AllBelRange;
     using TileBelsRangeT = std::vector<BelId>;
     using BelPinsRangeT = std::vector<IdString>;
     // Wires
@@ -147,9 +142,6 @@ struct Arch : BaseArch<ArchRanges>
     ArchArgs args;
     mistral::CycloneV *cyclonev;
 
-    std::unordered_map<BelId, BelInfo> bels;
-    std::vector<BelId> bel_list;
-
     Arch(ArchArgs args);
     ArchArgs archArgs() const { return args; }
 
@@ -159,18 +151,26 @@ struct Arch : BaseArch<ArchRanges>
     int getGridDimX() const override { return cyclonev->get_tile_sx(); }
     int getGridDimY() const override { return cyclonev->get_tile_sy(); }
     int getTileBelDimZ(int x, int y) const override; // arch.cc
+    char getNameDelimiter() const override { return '.'; }
 
     // -------------------------------------------------
 
     BelId getBelByName(IdStringList name) const override; // arch.cc
     IdStringList getBelName(BelId bel) const override;    // arch.cc
-    const std::vector<BelId> &getBels() const override { return bel_list; }
+    AllBelRange getBels() const override { return AllBelRange(bels); }
     std::vector<BelId> getBelsByTile(int x, int y) const override;
     Loc getBelLocation(BelId bel) const override
     {
         return Loc(CycloneV::pos2x(bel.pos), CycloneV::pos2y(bel.pos), bel.z);
     }
-    BelId getBelByLocation(Loc loc) const override { return BelId(CycloneV::xy2pos(loc.x, loc.y), loc.z); }
+    BelId getBelByLocation(Loc loc) const override
+    {
+        BelId id = BelId(CycloneV::xy2pos(loc.x, loc.y), loc.z);
+        if (bels.count(id))
+            return id;
+        else
+            return BelId();
+    }
     IdString getBelType(BelId bel) const override; // arch.cc
     WireId getBelPinWire(BelId bel, IdString pin) const override { return WireId(); }
     PortType getBelPinType(BelId bel, IdString pin) const override { return PORT_IN; }
@@ -178,18 +178,18 @@ struct Arch : BaseArch<ArchRanges>
 
     // -------------------------------------------------
 
-    WireId getWireByName(IdStringList name) const override { return WireId(); }
-    IdStringList getWireName(WireId wire) const override { return IdStringList(); }
+    WireId getWireByName(IdStringList name) const override;
+    IdStringList getWireName(WireId wire) const override;
     DelayQuad getWireDelay(WireId wire) const override { return DelayQuad(0); }
     const std::vector<BelPin> &getWireBelPins(WireId wire) const override { return empty_belpin_list; }
     AllWireRange getWires() const override { return AllWireRange(wires); }
 
     // -------------------------------------------------
 
-    PipId getPipByName(IdStringList name) const override { return PipId(); }
+    PipId getPipByName(IdStringList name) const override;
     const std::unordered_set<PipId> &getPips() const override { return all_pips; }
     Loc getPipLocation(PipId pip) const override { return Loc(0, 0, 0); }
-    IdStringList getPipName(PipId pip) const override { return IdStringList(); }
+    IdStringList getPipName(PipId pip) const override;
     WireId getPipSrcWire(PipId pip) const override { return WireId(pip.src); };
     WireId getPipDstWire(PipId pip) const override { return WireId(pip.dst); };
     DelayQuad getPipDelay(PipId pip) const override { return DelayQuad(0); }
@@ -228,11 +228,22 @@ struct Arch : BaseArch<ArchRanges>
     static const std::vector<std::string> availableRouters;
 
     std::unordered_map<WireId, WireInfo> wires;
+    std::unordered_map<BelId, BelInfo> bels;
 
     // WIP to link without failure
     std::unordered_set<PipId> all_pips;
     std::vector<PipId> empty_pip_list;
     std::vector<BelPin> empty_belpin_list;
+
+    // Conversion between numbers and rnode types and IdString, for fast wire name implementation
+    std::vector<IdString> int2id;
+    std::unordered_map<IdString, int> id2int;
+
+    std::vector<IdString> rn_t2id;
+    std::unordered_map<IdString, CycloneV::rnode_type_t> id2rn_t;
+
+    // This structure is only used for nextpnr-created wires
+    std::unordered_map<IdStringList, WireId> npnr_wirebyname;
 };
 
 NEXTPNR_NAMESPACE_END

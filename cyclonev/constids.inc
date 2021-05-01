@@ -49,3 +49,5 @@ X(D1)
 X(CI)
 X(CO)
 X(SO)
+
+X(WIRE)
