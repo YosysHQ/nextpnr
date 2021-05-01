@@ -34,6 +34,7 @@ NEXTPNR_NAMESPACE_BEGIN
 struct ArchArgs
 {
     std::string device;
+    std::string mistral_root;
 };
 
 struct PinInfo
@@ -78,12 +79,12 @@ struct ArchRanges : BaseArchRanges
     using TileBelsRangeT = std::vector<BelId>;
     using BelPinsRangeT = std::vector<IdString>;
     // Wires
-    using AllWiresRangeT = const std::vector<WireId> &;
+    using AllWiresRangeT = const std::unordered_set<WireId> &;
     using DownhillPipRangeT = const std::vector<PipId> &;
     using UphillPipRangeT = const std::vector<PipId> &;
-    using WireBelPinRangeT = std::vector<BelPin>;
+    using WireBelPinRangeT = const std::vector<BelPin> &;
     // Pips
-    using AllPipsRangeT = const std::vector<PipId> &;
+    using AllPipsRangeT = const std::unordered_set<PipId> &;
 };
 
 struct Arch : BaseArch<ArchRanges>
@@ -95,6 +96,7 @@ struct Arch : BaseArch<ArchRanges>
     std::vector<BelId> bel_list;
 
     Arch(ArchArgs args);
+    ArchArgs archArgs() const { return args; }
 
     std::string getChipName() const override { return std::string{"TODO: getChipName"}; }
     // -------------------------------------------------
@@ -115,41 +117,41 @@ struct Arch : BaseArch<ArchRanges>
     }
     BelId getBelByLocation(Loc loc) const override { return BelId(CycloneV::xy2pos(loc.x, loc.y), loc.z); }
     IdString getBelType(BelId bel) const override; // arch.cc
-    WireId getBelPinWire(BelId bel, IdString pin) const override;
-    PortType getBelPinType(BelId bel, IdString pin) const override;
-    std::vector<IdString> getBelPins(BelId bel) const override;
+    WireId getBelPinWire(BelId bel, IdString pin) const override { return WireId(); }
+    PortType getBelPinType(BelId bel, IdString pin) const override { return PORT_IN; }
+    std::vector<IdString> getBelPins(BelId bel) const override { return {}; }
 
     // -------------------------------------------------
 
-    WireId getWireByName(IdStringList name) const override;
-    IdStringList getWireName(WireId wire) const override;
-    DelayQuad getWireDelay(WireId wire) const;
-    std::vector<BelPin> getWireBelPins(WireId wire) const override;
-    const std::vector<WireId> &getWires() const override;
+    WireId getWireByName(IdStringList name) const override { return WireId(); }
+    IdStringList getWireName(WireId wire) const override { return IdStringList(); }
+    DelayQuad getWireDelay(WireId wire) const override { return DelayQuad(0); }
+    const std::vector<BelPin> &getWireBelPins(WireId wire) const override { return empty_belpin_list; }
+    const std::unordered_set<WireId> &getWires() const override { return all_wires; }
 
     // -------------------------------------------------
 
-    PipId getPipByName(IdStringList name) const override;
-    const std::vector<PipId> &getPips() const override;
-    Loc getPipLocation(PipId pip) const override;
-    IdStringList getPipName(PipId pip) const override;
+    PipId getPipByName(IdStringList name) const override { return PipId(); }
+    const std::unordered_set<PipId> &getPips() const override { return all_pips; }
+    Loc getPipLocation(PipId pip) const override { return Loc(0, 0, 0); }
+    IdStringList getPipName(PipId pip) const override { return IdStringList(); }
     WireId getPipSrcWire(PipId pip) const override { return WireId(pip.src); };
     WireId getPipDstWire(PipId pip) const override { return WireId(pip.dst); };
-    DelayQuad getPipDelay(PipId pip) const override;
-    const std::vector<PipId> &getPipsDownhill(WireId wire) const override;
-    const std::vector<PipId> &getPipsUphill(WireId wire) const override;
+    DelayQuad getPipDelay(PipId pip) const override { return DelayQuad(0); }
+    const std::vector<PipId> &getPipsDownhill(WireId wire) const override { return empty_pip_list; }
+    const std::vector<PipId> &getPipsUphill(WireId wire) const override { return empty_pip_list; }
 
     // -------------------------------------------------
 
-    delay_t estimateDelay(WireId src, WireId dst) const override;
-    delay_t predictDelay(const NetInfo *net_info, const PortRef &sink) const override;
-    delay_t getDelayEpsilon() const override;
-    delay_t getRipupDelayPenalty() const override;
-    float getDelayNS(delay_t v) const override;
-    delay_t getDelayFromNS(float ns) const override;
-    uint32_t getDelayChecksum(delay_t v) const override;
+    delay_t estimateDelay(WireId src, WireId dst) const override { return 100; };
+    delay_t predictDelay(const NetInfo *net_info, const PortRef &sink) const override { return 100; };
+    delay_t getDelayEpsilon() const override { return 10; };
+    delay_t getRipupDelayPenalty() const override { return 100; };
+    float getDelayNS(delay_t v) const override { return float(v) / 1000.0f; };
+    delay_t getDelayFromNS(float ns) const override { return delay_t(ns * 1000.0f); };
+    uint32_t getDelayChecksum(delay_t v) const override { return v; };
 
-    ArcBounds getRouteBoundingBox(WireId src, WireId dst) const override;
+    ArcBounds getRouteBoundingBox(WireId src, WireId dst) const override { return ArcBounds(); }
 
     // -------------------------------------------------
 
@@ -163,6 +165,12 @@ struct Arch : BaseArch<ArchRanges>
     static const std::vector<std::string> availablePlacers;
     static const std::string defaultRouter;
     static const std::vector<std::string> availableRouters;
+
+    // WIP to link without failure
+    std::unordered_set<WireId> all_wires;
+    std::unordered_set<PipId> all_pips;
+    std::vector<PipId> empty_pip_list;
+    std::vector<BelPin> empty_belpin_list;
 };
 
 NEXTPNR_NAMESPACE_END

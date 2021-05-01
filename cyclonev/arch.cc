@@ -38,7 +38,7 @@ void IdString::initialize_arch(const BaseCtx *ctx)
 Arch::Arch(ArchArgs args)
 {
     this->args = args;
-    this->cyclonev = mistral::CycloneV::get_model(args.device);
+    this->cyclonev = mistral::CycloneV::get_model(args.device, args.mistral_root);
     NPNR_ASSERT(this->cyclonev != nullptr);
 
     for (int x = 0; x < cyclonev->get_tile_sx(); x++) {
@@ -188,5 +188,24 @@ IdString Arch::getBelType(BelId bel) const
 
     return IdString();
 }
+
+bool Arch::pack() { return true; }
+bool Arch::place() { return true; }
+bool Arch::route() { return true; }
+
+#ifdef WITH_HEAP
+const std::string Arch::defaultPlacer = "heap";
+#else
+const std::string Arch::defaultPlacer = "sa";
+#endif
+
+const std::vector<std::string> Arch::availablePlacers = {"sa",
+#ifdef WITH_HEAP
+                                                         "heap"
+#endif
+};
+
+const std::string Arch::defaultRouter = "router1";
+const std::vector<std::string> Arch::availableRouters = {"router1", "router2"};
 
 NEXTPNR_NAMESPACE_END
