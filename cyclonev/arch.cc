@@ -55,6 +55,7 @@ Arch::Arch(ArchArgs args)
         id2rn_t[rnode_id] = CycloneV::rnode_type_t(t);
     }
 
+    log_info("Initialising bels...\n");
     for (int x = 0; x < cyclonev->get_tile_sx(); x++) {
         for (int y = 0; y < cyclonev->get_tile_sy(); y++) {
             CycloneV::pos_t pos = cyclonev->xy2pos(x, y);
@@ -85,6 +86,24 @@ Arch::Arch(ArchArgs args)
             }
         }
     }
+
+    // This import takes about 5s, perhaps long term we can speed it up, e.g. defer to Mistral more...
+    log_info("Initialising routing graph...\n");
+    int pip_count = 0;
+    for (const auto &mux : cyclonev->dest_node_to_rmux) {
+        const auto &rmux = cyclonev->rmux_info[mux.second];
+        WireId dst_wire(mux.first);
+        for (const auto &src : rmux.sources) {
+            if (CycloneV::rn2t(src) == CycloneV::NONE)
+                continue;
+            WireId src_wire(src);
+            wires[dst_wire].wires_uphill.push_back(src_wire);
+            wires[src_wire].wires_downhill.push_back(dst_wire);
+            ++pip_count;
+        }
+    }
+
+    log_info("    imported %d wires and %d pips\n", int(wires.size()), pip_count);
 
     BaseArch::init_cell_types();
     BaseArch::init_bel_buckets();

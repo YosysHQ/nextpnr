@@ -49,6 +49,9 @@ struct BelInfo
     // TODO
 };
 
+// We maintain our own wire data based on mistral's. This gets us the bidirectional linking that nextpnr needs,
+// and also makes it easy to add wires and pips for our own purposes like LAB internal routing, global clock
+// sources, etc.
 struct WireInfo
 {
     // name_override is only used for nextpnr-created wires
@@ -102,6 +105,55 @@ struct UpDownhillPipRange
     UpDownhillPipIterator end() const { return e; }
 };
 
+// This iterates over the list of wires, and for each wire yields its uphill pips, as an efficient way of going over
+// all the pips in the device
+using WireMapIterator = std::unordered_map<WireId, WireInfo>::const_iterator;
+struct AllPipIterator
+{
+    WireMapIterator base, end;
+    int uphill_idx;
+
+    AllPipIterator(WireMapIterator base, WireMapIterator end, int uphill_idx)
+            : base(base), end(end), uphill_idx(uphill_idx){};
+
+    bool operator!=(const AllPipIterator &other) { return base != other.base || uphill_idx != other.uphill_idx; }
+    AllPipIterator operator++()
+    {
+        // Increment uphill list index by one
+        ++uphill_idx;
+        // We've reached the end of the current wire. Keep incrementing the wire of interest until we find one with
+        // uphill pips, or we reach the end of the list of wires
+        while (base != end && uphill_idx >= int(base->second.wires_uphill.size())) {
+            uphill_idx = 0;
+            ++base;
+        }
+        return *this;
+    }
+    AllPipIterator operator++(int)
+    {
+        AllPipIterator prior(*this);
+        ++(*this);
+        return prior;
+    }
+    PipId operator*() { return PipId(base->second.wires_uphill.at(uphill_idx).node, base->first.node); }
+};
+
+struct AllPipRange
+{
+    AllPipIterator b, e;
+
+    AllPipRange(const std::unordered_map<WireId, WireInfo> &wires)
+            : b(wires.cbegin(), wires.cend(), -1), e(wires.cend(), wires.cend(), 0)
+    {
+        // Starting the begin iterator at index -1 and incrementing it ensures we skip over the first wire if it has no
+        // uphill pips
+        ++b;
+    };
+
+    AllPipIterator begin() const { return b; }
+    AllPipIterator end() const { return e; }
+};
+
 // This transforms a map to a range of keys, used as the wire iterator
 template <typename T> struct key_range
 {
@@ -134,7 +186,7 @@ struct ArchRanges : BaseArchRanges
     using UphillPipRangeT = UpDownhillPipRange;
     using WireBelPinRangeT = const std::vector<BelPin> &;
     // Pips
-    using AllPipsRangeT = const std::unordered_set<PipId> &;
+    using AllPipsRangeT = AllPipRange;
 };
 
 struct Arch : BaseArch<ArchRanges>
@@ -187,7 +239,7 @@ struct Arch : BaseArch<ArchRanges>
     // -------------------------------------------------
 
     PipId getPipByName(IdStringList name) const override;
-    const std::unordered_set<PipId> &getPips() const override { return all_pips; }
+    AllPipRange getPips() const override { return AllPipRange(wires); }
     Loc getPipLocation(PipId pip) const override { return Loc(0, 0, 0); }
     IdStringList getPipName(PipId pip) const override;
     WireId getPipSrcWire(PipId pip) const override { return WireId(pip.src); };
@@ -231,8 +283,6 @@ struct Arch : BaseArch<ArchRanges>
     std::unordered_map<BelId, BelInfo> bels;
 
     // WIP to link without failure
-    std::unordered_set<PipId> all_pips;
-    std::vector<PipId> empty_pip_list;
     std::vector<BelPin> empty_belpin_list;
 
     // Conversion between numbers and rnode types and IdString, for fast wire name implementation
