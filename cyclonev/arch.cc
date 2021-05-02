@@ -261,6 +261,66 @@ bool Arch::pack() { return true; }
 bool Arch::place() { return true; }
 bool Arch::route() { return true; }
 
+BelId Arch::add_bel(int x, int y, IdString name, IdString type, IdString bucket)
+{
+    // TODO: nothing else is using this BelId system yet...
+    // TODO (tomorrow?): we probably want a belsByTile type arrangement, similar for wires and pips, for better spacial
+    // locality
+    int z = 0;
+    BelId id;
+    // Determine a unique z-coordinate
+    while (bels.count(id = BelId(CycloneV::xy2pos(x, y), z)))
+        z++;
+    auto &bel = bels[id];
+    bel.name = name;
+    bel.type = type;
+    bel.bucket = bucket;
+    return id;
+}
+
+WireId Arch::add_wire(int x, int y, IdString name, uint64_t flags)
+{
+    std::array<IdString, 4> ids{
+            id_WIRE,
+            int2id.at(x),
+            int2id.at(y),
+            name,
+    };
+    IdStringList full_name(ids);
+    auto existing = npnr_wirebyname.find(full_name);
+    if (existing != npnr_wirebyname.end()) {
+        // Already exists, don't create anything
+        return existing->second;
+    } else {
+        // Determine a unique ID for the wire
+        int z = 0;
+        WireId id;
+        while (wires.count(id = WireId(CycloneV::rnode(CycloneV::rnode_type_t((z >> 10) + 128), x, y, (z & 0x3FF)))))
+            z++;
+        wires[id].name_override = name;
+        wires[id].flags = flags;
+        return id;
+    }
+}
+
+PipId Arch::add_pip(WireId src, WireId dst)
+{
+    wires[src].wires_downhill.push_back(dst);
+    wires[dst].wires_uphill.push_back(src);
+    return PipId(src.node, dst.node);
+}
+
+void Arch::add_bel_pin(BelId bel, IdString pin, PortType dir, WireId wire)
+{
+    bels[bel].pins[pin].dir = dir;
+    bels[bel].pins[pin].wire = wire;
+
+    BelPin bel_pin;
+    bel_pin.bel = bel;
+    bel_pin.pin = pin;
+    wires[wire].bel_pins.push_back(bel_pin);
+}
+
 #ifdef WITH_HEAP
 const std::string Arch::defaultPlacer = "heap";
 #else

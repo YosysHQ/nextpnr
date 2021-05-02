@@ -37,16 +37,45 @@ struct ArchArgs
     std::string mistral_root;
 };
 
+// These structures are used for fast ALM validity checking
+struct ALMInfo
+{
+    // Pointers to bels
+    std::array<BelId, 2> lut_bels;
+    std::array<BelId, 4> ff_bels;
+    // TODO: ALM configuration (L5/L6 mode, LUT input permutation, etc)
+};
+
+struct LABInfo
+{
+    std::array<ALMInfo, 10> alms;
+    // TODO: LAB configuration (control set etc)
+};
+
 struct PinInfo
 {
-    IdString name;
     WireId wire;
-    PortType type;
+    PortType dir;
 };
 
 struct BelInfo
 {
-    // TODO
+    IdString name;
+    IdString type;
+    IdString bucket;
+    int z;
+    std::unordered_map<IdString, PinInfo> pins;
+    // Info for different kinds of bels
+    union
+    {
+        // This enables fast lookup of the associated ALM, etc
+        struct
+        {
+            uint32_t lab; // index into the list of LABs
+            uint8_t alm;  // ALM index inside LAB
+            uint8_t idx;  // LUT or FF index inside ALM
+        } labData;
+    };
 };
 
 // We maintain our own wire data based on mistral's. This gets us the bidirectional linking that nextpnr needs,
@@ -271,6 +300,18 @@ struct Arch : BaseArch<ArchRanges>
     bool pack() override;
     bool place() override;
     bool route() override;
+
+    // -------------------------------------------------
+    // Functions for device setup
+
+    BelId add_bel(int x, int y, IdString name, IdString type, IdString bucket);
+    WireId add_wire(int x, int y, IdString name, uint64_t flags = 0);
+    PipId add_pip(WireId src, WireId dst);
+
+    void add_bel_pin(BelId bel, IdString pin, PortType dir, WireId wire);
+
+    void create_lab(int x, int y);
+    void create_gpio(int x, int y);
 
     // -------------------------------------------------
 
