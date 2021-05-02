@@ -49,6 +49,10 @@ struct ALMInfo
 struct LABInfo
 {
     std::array<ALMInfo, 10> alms;
+    //  Control set wires
+    std::array<WireId, 3> clk_wires, ena_wires;
+    std::array<WireId, 2> aclr_wires;
+    WireId sclr_wire, sload_wire;
     // TODO: LAB configuration (control set etc)
 };
 
@@ -74,7 +78,7 @@ struct BelInfo
             uint32_t lab; // index into the list of LABs
             uint8_t alm;  // ALM index inside LAB
             uint8_t idx;  // LUT or FF index inside ALM
-        } labData;
+        } lab_data;
     };
 };
 
@@ -304,11 +308,16 @@ struct Arch : BaseArch<ArchRanges>
     // -------------------------------------------------
     // Functions for device setup
 
-    BelId add_bel(int x, int y, IdString name, IdString type, IdString bucket);
+    BelId add_bel(int x, int y, IdString name, IdString type);
     WireId add_wire(int x, int y, IdString name, uint64_t flags = 0);
     PipId add_pip(WireId src, WireId dst);
 
     void add_bel_pin(BelId bel, IdString pin, PortType dir, WireId wire);
+
+    WireId get_port(CycloneV::block_type_t bt, int x, int y, int bi, CycloneV::port_type_t port, int pi = -1) const
+    {
+        return WireId(cyclonev->pnode_to_rnode(CycloneV::pnode(bt, x, y, port, bi, pi)));
+    }
 
     void create_lab(int x, int y);
     void create_gpio(int x, int y);
@@ -322,6 +331,9 @@ struct Arch : BaseArch<ArchRanges>
 
     std::unordered_map<WireId, WireInfo> wires;
     std::unordered_map<BelId, BelInfo> bels;
+
+    // List of LABs
+    std::vector<LABInfo> labs;
 
     // WIP to link without failure
     std::vector<BelPin> empty_belpin_list;

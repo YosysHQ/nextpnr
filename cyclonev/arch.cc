@@ -261,7 +261,7 @@ bool Arch::pack() { return true; }
 bool Arch::place() { return true; }
 bool Arch::route() { return true; }
 
-BelId Arch::add_bel(int x, int y, IdString name, IdString type, IdString bucket)
+BelId Arch::add_bel(int x, int y, IdString name, IdString type)
 {
     // TODO: nothing else is using this BelId system yet...
     // TODO (tomorrow?): we probably want a belsByTile type arrangement, similar for wires and pips, for better spacial
@@ -274,7 +274,7 @@ BelId Arch::add_bel(int x, int y, IdString name, IdString type, IdString bucket)
     auto &bel = bels[id];
     bel.name = name;
     bel.type = type;
-    bel.bucket = bucket;
+    bel.bucket = type;
     return id;
 }
 
