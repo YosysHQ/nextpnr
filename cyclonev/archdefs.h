@@ -124,8 +124,39 @@ struct ArchNetInfo
 {
 };
 
+struct ArchPinInfo
+{
+    // An inverter (INV) has been pushed onto this signal
+    bool inverted;
+    // The physical bel pins that this logical pin maps to
+    std::vector<IdString> bel_pins;
+};
+
+struct NetInfo;
+
 struct ArchCellInfo
 {
+    union
+    {
+        struct
+        {
+            // Store the nets here for fast validity checking (avoids too many map lookups in a hot path)
+            std::array<const NetInfo *, 7> input_sigs;
+            const NetInfo *comb_out;
+
+            int lut_input_count;
+            int lut_bits_count;
+
+            bool is_carry, is_shared, is_extended;
+        } combInfo;
+        struct
+        {
+            const NetInfo *clk, *ena, *aclr, *sclr, *sload, *sdata, *datain;
+            bool clk_inv, ena_inv, aclr_inv, sclr_inv, sload_inv;
+        } ffInfo;
+    };
+
+    std::unordered_map<IdString, ArchPinInfo> pin_data;
 };
 
 NEXTPNR_NAMESPACE_END

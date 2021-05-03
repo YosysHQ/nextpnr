@@ -336,6 +336,12 @@ struct Arch : BaseArch<ArchRanges>
 
     // -------------------------------------------------
 
+    bool is_comb_cell(IdString cell_type) const;
+    bool is_alm_legal(uint32_t lab, uint8_t alm) const;
+    bool is_lab_ctrlset_legal(uint32_t lab) const;
+
+    // -------------------------------------------------
+
     static const std::string defaultPlacer;
     static const std::vector<std::string> availablePlacers;
     static const std::string defaultRouter;
