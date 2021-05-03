@@ -19,11 +19,14 @@
 
 #include "log.h"
 #include "nextpnr.h"
+#include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
 // This file contains functions related to our custom LAB structure, including creating the LAB bels; checking the
 // legality of LABs; and manipulating LUT inputs and equations
+
+// LAB/ALM structure creation functions
 namespace {
 static void create_alm(Arch *arch, int x, int y, int z, uint32_t lab_idx)
 {
@@ -183,6 +186,102 @@ void Arch::create_lab(int x, int y)
     for (int i = 0; i < 10; i++) {
         create_alm(this, x, y, i, lab_idx);
     }
+}
+
+// Cell handling and annotation functions
+namespace {
+    ControlSig get_ctrlsig(const CellInfo *cell, IdString port) {
+        ControlSig result;
+        result.net = get_net_or_empty(cell, port);
+        if (cell->pin_data.count(port))
+            result.inverted = cell->pin_data.at(port).inverted;
+        else
+            result.inverted = false;
+        return result;
+    }
+}
+
+bool Arch::is_comb_cell(IdString cell_type) const
+{
+    // Return true if a cell is a combinational cell type, to be a placed at a MISTRAL_COMB location
+    switch (cell_type.index) {
+    case ID_MISTRAL_ALUT6:
+    case ID_MISTRAL_ALUT5:
+    case ID_MISTRAL_ALUT4:
+    case ID_MISTRAL_ALUT3:
+    case ID_MISTRAL_ALUT2:
+    case ID_MISTRAL_NOT:
+    case ID_MISTRAL_CONST:
+    case ID_MISTRAL_ALUT_ARITH:
+        return true;
+    default:
+        return false;
+    }
+}
+
+void Arch::assign_comb_info(CellInfo *cell) const
+{
+    cell->combInfo.is_carry = false;
+    cell->combInfo.is_shared = false;
+    cell->combInfo.is_extended = false;
+
+    if (cell->type == id_MISTRAL_ALUT_ARITH) {
+        cell->combInfo.is_carry = true;
+        cell->combInfo.lut_input_count = 5;
+        cell->combInfo.lut_bits_count = 32;
+        // This is a special case in terms of naming
+        int i = 0;
+        for (auto pin : {id_A, id_B, id_C, id_D0, id_D1}) {
+            cell->combInfo.lut_in[i++] = get_net_or_empty(cell, pin);
+        }
+        cell->combInfo.comb_out = get_net_or_empty(cell, id_SO);
+    } else {
+        cell->combInfo.lut_input_count = 0;
+        switch (cell->type.index) {
+            case ID_MISTRAL_ALUT6:
+                ++cell->combInfo.lut_input_count;
+                cell->combInfo.lut_in[5] = get_net_or_empty(cell, id_F);
+                [[fallthrough]];
+            case ID_MISTRAL_ALUT5:
+                ++cell->combInfo.lut_input_count;
+                cell->combInfo.lut_in[4] = get_net_or_empty(cell, id_E);
+                [[fallthrough]];
+            case ID_MISTRAL_ALUT4:
+                ++cell->combInfo.lut_input_count;
+                cell->combInfo.lut_in[3] = get_net_or_empty(cell, id_D);
+                [[fallthrough]];
+            case ID_MISTRAL_ALUT3:
+                ++cell->combInfo.lut_input_count;
+                cell->combInfo.lut_in[2] = get_net_or_empty(cell, id_C);
+                [[fallthrough]];
+            case ID_MISTRAL_ALUT2:
+                ++cell->combInfo.lut_input_count;
+                cell->combInfo.lut_in[1] = get_net_or_empty(cell, id_B);
+                [[fallthrough]];
+            case ID_MISTRAL_NOT:
+                ++cell->combInfo.lut_input_count;
+                cell->combInfo.lut_in[0] = get_net_or_empty(cell, id_A);
+                [[fallthrough]];
+            case ID_MISTRAL_CONST:
+                // MISTRAL_CONST is a nextpnr-inserted cell type for 0-input, constant-generating LUTs
+                break;
+            default:
+                log_error("unexpected combinational cell type %s\n", getCtx()->nameOf(cell->type));
+        }
+        // Note that this relationship won't hold for extended mode, when that is supported
+        cell->combInfo.lut_bits_count = (1 << cell->combInfo.lut_input_count);
+    }
+}
+
+void Arch::assign_ff_info(CellInfo *cell) const
+{
+    cell->ffInfo.ctrlset.clk = get_ctrlsig(cell, id_CLK);
+    cell->ffInfo.ctrlset.ena = get_ctrlsig(cell, id_ENA);
+    cell->ffInfo.ctrlset.aclr = get_ctrlsig(cell, id_ACLR);
+    cell->ffInfo.ctrlset.sclr = get_ctrlsig(cell, id_SCLR);
+    cell->ffInfo.ctrlset.sload = get_ctrlsig(cell, id_SLOAD);
+    cell->ffInfo.sdata = get_net_or_empty(cell, id_SDATA);
+    cell->ffInfo.datain = get_net_or_empty(cell, id_DATAIN);
 }
 
 NEXTPNR_NAMESPACE_END

@@ -210,6 +210,23 @@ std::vector<IdString> Arch::getBelPins(BelId bel) const
     return pins;
 }
 
+bool Arch::isValidBelForCellType(IdString cell_type, BelId bel) const {
+    // Any combinational cell type can - theoretically - be placed at a combinational ALM bel
+    // The precise legality mechanics will be dealt with in isBelLocationValid.
+    IdString bel_type = getBelType(bel);
+    if (bel_type == id_MISTRAL_COMB)
+        return is_comb_cell(cell_type);
+    else
+        return bel_type == cell_type;
+}
+
+BelBucketId Arch::getBelBucketForCellType(IdString cell_type) const {
+    if (is_comb_cell(cell_type))
+        return id_MISTRAL_COMB;
+    else
+        return cell_type;
+}
+
 bool Arch::pack() { return true; }
 bool Arch::place() { return true; }
 bool Arch::route() { return true; }

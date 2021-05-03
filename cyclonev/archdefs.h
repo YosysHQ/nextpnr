@@ -134,6 +134,28 @@ struct ArchPinInfo
 
 struct NetInfo;
 
+// Structures for representing how FF control sets are stored and validity-checked
+struct ControlSig
+{
+    const NetInfo *net;
+    bool inverted;
+
+    bool connected() const { return net != nullptr; }
+    bool operator==(const ControlSig &other) const { return net == other.net && inverted == other.inverted; }
+    bool operator!=(const ControlSig &other) const { return net == other.net && inverted == other.inverted; }
+};
+
+struct FFControlSet
+{
+    ControlSig clk, ena, aclr, sclr, sload;
+
+    bool operator==(const FFControlSet &other) const
+    {
+        return clk == other.clk && ena == other.ena && aclr == other.aclr && sclr == other.sclr && sload == other.sload;
+    }
+    bool operator!=(const FFControlSet &other) const { return !(*this == other); }
+};
+
 struct ArchCellInfo
 {
     union
@@ -141,7 +163,7 @@ struct ArchCellInfo
         struct
         {
             // Store the nets here for fast validity checking (avoids too many map lookups in a hot path)
-            std::array<const NetInfo *, 7> input_sigs;
+            std::array<const NetInfo *, 7> lut_in;
             const NetInfo *comb_out;
 
             int lut_input_count;
@@ -151,8 +173,8 @@ struct ArchCellInfo
         } combInfo;
         struct
         {
-            const NetInfo *clk, *ena, *aclr, *sclr, *sload, *sdata, *datain;
-            bool clk_inv, ena_inv, aclr_inv, sclr_inv, sload_inv;
+            FFControlSet ctrlset;
+            const NetInfo *sdata, *datain;
         } ffInfo;
     };
 

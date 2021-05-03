@@ -44,6 +44,8 @@ struct ALMInfo
     std::array<BelId, 2> lut_bels;
     std::array<BelId, 4> ff_bels;
     // TODO: ALM configuration (L5/L6 mode, LUT input permutation, etc)
+    // So we only validity-check changed parts
+    bool valid = false, dirty = false;
 };
 
 struct LABInfo
@@ -54,6 +56,9 @@ struct LABInfo
     std::array<WireId, 2> aclr_wires;
     WireId sclr_wire, sload_wire;
     // TODO: LAB configuration (control set etc)
+
+    // These apply to the validity-checking status of the shared FF control sets
+    bool ctrl_valid = false, ctrl_dirty = false;
 };
 
 struct PinInfo
@@ -313,6 +318,11 @@ struct Arch : BaseArch<ArchRanges>
 
     // -------------------------------------------------
 
+    bool isValidBelForCellType(IdString cell_type, BelId bel) const override;
+    BelBucketId getBelBucketForCellType(IdString cell_type) const override;
+
+    // -------------------------------------------------
+
     bool pack() override;
     bool place() override;
     bool route() override;
@@ -331,14 +341,17 @@ struct Arch : BaseArch<ArchRanges>
         return WireId(cyclonev->pnode_to_rnode(CycloneV::pnode(bt, x, y, port, bi, pi)));
     }
 
-    void create_lab(int x, int y);
+    void create_lab(int x, int y); // lab.cc
     void create_gpio(int x, int y);
 
     // -------------------------------------------------
 
-    bool is_comb_cell(IdString cell_type) const;
-    bool is_alm_legal(uint32_t lab, uint8_t alm) const;
-    bool is_lab_ctrlset_legal(uint32_t lab) const;
+    bool is_comb_cell(IdString cell_type) const;        // lab.cc
+    bool is_alm_legal(uint32_t lab, uint8_t alm) const; // lab.cc
+    bool is_lab_ctrlset_legal(uint32_t lab) const;      // lab.cc
+
+    void assign_comb_info(CellInfo *cell) const; // lab.cc
+    void assign_ff_info(CellInfo *cell) const;   // lab.cc
 
     // -------------------------------------------------
 
