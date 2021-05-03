@@ -249,6 +249,7 @@ WireId Arch::add_wire(int x, int y, IdString name, uint64_t flags)
             z++;
         wires[id].name_override = name;
         wires[id].flags = flags;
+        npnr_wirebyname[full_name] = id;
         return id;
     }
 }
@@ -263,6 +264,7 @@ PipId Arch::add_pip(WireId src, WireId dst)
 void Arch::add_bel_pin(BelId bel, IdString pin, PortType dir, WireId wire)
 {
     auto &b = bel_data(bel);
+    NPNR_ASSERT(!b.pins.count(pin));
     b.pins[pin].dir = dir;
     b.pins[pin].wire = wire;
 

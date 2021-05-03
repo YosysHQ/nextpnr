@@ -72,8 +72,8 @@ static void create_alm(Arch *arch, int x, int y, int z, uint32_t lab_idx)
         // Carry/share chain
         arch->add_bel_pin(bel, id_CIN, PORT_IN, carry_in);
         arch->add_bel_pin(bel, id_SHAREIN, PORT_IN, share_in);
-        arch->add_bel_pin(bel, id_CIN, PORT_OUT, carry_in);
-        arch->add_bel_pin(bel, id_SHAREIN, PORT_OUT, share_out);
+        arch->add_bel_pin(bel, id_COUT, PORT_OUT, carry_out);
+        arch->add_bel_pin(bel, id_SHAREOUT, PORT_OUT, share_out);
         // Combinational output
         WireId comb_out = arch->add_wire(x, y, arch->id(stringf("COMBOUT[%d]", z * 2 + i)));
         arch->add_bel_pin(bel, id_COMBOUT, PORT_OUT, comb_out);
@@ -93,7 +93,7 @@ static void create_alm(Arch *arch, int x, int y, int z, uint32_t lab_idx)
         sel_aclr[i] = arch->add_wire(x, y, arch->id(stringf("ACLR%c[%d]", i ? 'B' : 'T', z)));
         sel_ef[i] = arch->add_wire(x, y, arch->id(stringf("%cEF[%d]", i ? 'B' : 'T', z)));
         // Muxes - three CLK/ENA per LAB, two ACLR
-        for (int j = 0; j < 3; i++) {
+        for (int j = 0; j < 3; j++) {
             arch->add_pip(lab.clk_wires[j], sel_clk[i]);
             arch->add_pip(lab.ena_wires[j], sel_ena[i]);
             if (j < 2)

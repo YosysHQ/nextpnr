@@ -278,7 +278,7 @@ struct Arch : BaseArch<ArchRanges>
     WireId getWireByName(IdStringList name) const override;
     IdStringList getWireName(WireId wire) const override;
     DelayQuad getWireDelay(WireId wire) const override { return DelayQuad(0); }
-    const std::vector<BelPin> &getWireBelPins(WireId wire) const override { return empty_belpin_list; }
+    const std::vector<BelPin> &getWireBelPins(WireId wire) const override { return wires.at(wire).bel_pins; }
     AllWireRange getWires() const override { return AllWireRange(wires); }
 
     // -------------------------------------------------
