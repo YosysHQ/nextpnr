@@ -67,7 +67,9 @@ struct BelInfo
     IdString name;
     IdString type;
     IdString bucket;
-    int z;
+    // For cases where we need to determine an original block index, due to multiple bels at the same tile this might
+    // not be the same as the nextpnr z-coordinate
+    int block_index;
     std::unordered_map<IdString, PinInfo> pins;
     // Info for different kinds of bels
     union
@@ -204,13 +206,12 @@ template <typename T> struct key_range
 };
 
 using AllWireRange = key_range<std::unordered_map<WireId, WireInfo>>;
-using AllBelRange = key_range<std::unordered_map<BelId, BelInfo>>;
 
 struct ArchRanges : BaseArchRanges
 {
     using ArchArgsT = ArchArgs;
     // Bels
-    using AllBelsRangeT = AllBelRange;
+    using AllBelsRangeT = const std::vector<BelId> &;
     using TileBelsRangeT = std::vector<BelId>;
     using BelPinsRangeT = std::vector<IdString>;
     // Wires
@@ -242,7 +243,7 @@ struct Arch : BaseArch<ArchRanges>
 
     BelId getBelByName(IdStringList name) const override; // arch.cc
     IdStringList getBelName(BelId bel) const override;    // arch.cc
-    AllBelRange getBels() const override { return AllBelRange(bels); }
+    const std::vector<BelId> &getBels() const override { return all_bels; }
     std::vector<BelId> getBelsByTile(int x, int y) const override;
     Loc getBelLocation(BelId bel) const override
     {
@@ -250,16 +251,27 @@ struct Arch : BaseArch<ArchRanges>
     }
     BelId getBelByLocation(Loc loc) const override
     {
-        BelId id = BelId(CycloneV::xy2pos(loc.x, loc.y), loc.z);
-        if (bels.count(id))
-            return id;
-        else
+        if (loc.x < 0 || loc.x >= cyclonev->get_tile_sx())
             return BelId();
+        if (loc.y < 0 || loc.y >= cyclonev->get_tile_sy())
+            return BelId();
+        auto &bels = bels_by_tile.at(pos2idx(loc.x, loc.y));
+        if (loc.z < 0 || loc.z >= int(bels.size()))
+            return BelId();
+        return BelId(CycloneV::xy2pos(loc.x, loc.y), loc.z);
     }
     IdString getBelType(BelId bel) const override; // arch.cc
-    WireId getBelPinWire(BelId bel, IdString pin) const override { return WireId(); }
-    PortType getBelPinType(BelId bel, IdString pin) const override { return PORT_IN; }
-    std::vector<IdString> getBelPins(BelId bel) const override { return {}; }
+    WireId getBelPinWire(BelId bel, IdString pin) const override
+    {
+        auto &pins = bel_data(bel).pins;
+        auto found = pins.find(pin);
+        if (found == pins.end())
+            return WireId();
+        else
+            return found->second.wire;
+    }
+    PortType getBelPinType(BelId bel, IdString pin) const override { return bel_data(bel).pins.at(pin).dir; }
+    std::vector<IdString> getBelPins(BelId bel) const override;
 
     // -------------------------------------------------
 
@@ -330,7 +342,6 @@ struct Arch : BaseArch<ArchRanges>
     static const std::vector<std::string> availableRouters;
 
     std::unordered_map<WireId, WireInfo> wires;
-    std::unordered_map<BelId, BelInfo> bels;
 
     // List of LABs
     std::vector<LABInfo> labs;
@@ -347,6 +358,21 @@ struct Arch : BaseArch<ArchRanges>
 
     // This structure is only used for nextpnr-created wires
     std::unordered_map<IdStringList, WireId> npnr_wirebyname;
+
+    std::vector<std::vector<BelInfo>> bels_by_tile;
+    std::vector<BelId> all_bels;
+
+    size_t pos2idx(int x, int y) const
+    {
+        NPNR_ASSERT(x >= 0 && x < int(cyclonev->get_tile_sx()));
+        NPNR_ASSERT(y >= 0 && y < int(cyclonev->get_tile_sy()));
+        return y * cyclonev->get_tile_sx() + x;
+    }
+
+    size_t pos2idx(CycloneV::pos_t pos) const { return pos2idx(CycloneV::pos2x(pos), CycloneV::pos2y(pos)); }
+
+    BelInfo &bel_data(BelId bel) { return bels_by_tile.at(pos2idx(bel.pos)).at(bel.z); }
+    const BelInfo &bel_data(BelId bel) const { return bels_by_tile.at(pos2idx(bel.pos)).at(bel.z); }
 };
 
 NEXTPNR_NAMESPACE_END

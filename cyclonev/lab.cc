@@ -79,9 +79,10 @@ static void create_alm(Arch *arch, int x, int y, int z, uint32_t lab_idx)
         arch->add_bel_pin(bel, id_COMBOUT, PORT_OUT, comb_out);
         // Assign indexing
         lab.alms.at(z).lut_bels.at(i) = bel;
-        arch->bels.at(bel).lab_data.lab = lab_idx;
-        arch->bels.at(bel).lab_data.alm = z;
-        arch->bels.at(bel).lab_data.idx = i;
+        auto &b = arch->bel_data(bel);
+        b.lab_data.lab = lab_idx;
+        b.lab_data.alm = z;
+        b.lab_data.idx = i;
     }
     // Create the control set and E/F selection - which is per pair of FF
     std::array<WireId, 2> sel_clk, sel_ena, sel_aclr, sel_ef;
@@ -138,9 +139,10 @@ static void create_alm(Arch *arch, int x, int y, int z, uint32_t lab_idx)
         }
 
         lab.alms.at(z).ff_bels.at(i) = bel;
-        arch->bels.at(bel).lab_data.lab = lab_idx;
-        arch->bels.at(bel).lab_data.alm = z;
-        arch->bels.at(bel).lab_data.idx = i;
+        auto &b = arch->bel_data(bel);
+        b.lab_data.lab = lab_idx;
+        b.lab_data.alm = z;
+        b.lab_data.idx = i;
     }
 }
 } // namespace

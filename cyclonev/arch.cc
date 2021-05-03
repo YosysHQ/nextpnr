@@ -56,6 +56,7 @@ Arch::Arch(ArchArgs args)
     }
 
     log_info("Initialising bels...\n");
+    bels_by_tile.resize(cyclonev->get_tile_sx() * cyclonev->get_tile_sy());
     for (int x = 0; x < cyclonev->get_tile_sx(); x++) {
         for (int y = 0; y < cyclonev->get_tile_sy(); y++) {
             CycloneV::pos_t pos = cyclonev->xy2pos(x, y);
@@ -63,22 +64,11 @@ Arch::Arch(ArchArgs args)
             for (CycloneV::block_type_t bel : cyclonev->pos_get_bels(pos)) {
                 switch (bel) {
                 case CycloneV::block_type_t::LAB:
-                    /*
-                     *  nextpnr and mistral disagree on what a BEL is: mistral thinks an entire LAB
-                     *  is one BEL, but nextpnr wants something with more precision.
-                     *
-                     *  One LAB contains 10 ALMs.
-                     *  One ALM contains 2 LUT outputs and 4 flop outputs.
-                     */
-                    for (int z = 0; z < 60; z++) {
-                        bels[BelId(pos, (bel << 8 | z))];
-                    }
+                    create_lab(x, y);
                     break;
                 case CycloneV::block_type_t::GPIO:
-                    // GPIO tiles contain 4 pins.
-                    for (int z = 0; z < 4; z++) {
-                        bels[BelId(pos, (bel << 8 | z))];
-                    }
+                    // GPIO tiles contain 4 pins
+                    // TODO
                     break;
                 default:
                     continue;
@@ -111,21 +101,22 @@ Arch::Arch(ArchArgs args)
 
 int Arch::getTileBelDimZ(int x, int y) const
 {
-    // FIXME: currently encoding type in z (this will be fixed soon when site contents are implemented)
-    return 16384;
+    // This seems like a reasonable upper bound
+    return 256;
 }
 
 BelId Arch::getBelByName(IdStringList name) const
 {
     BelId bel;
     NPNR_ASSERT(name.size() == 4);
-    auto bel_type = cyclonev->block_type_lookup(name[0].str(this));
     int x = id2int.at(name[1]);
     int y = id2int.at(name[2]);
     int z = id2int.at(name[3]);
 
     bel.pos = CycloneV::xy2pos(x, y);
-    bel.z = (bel_type << 8) | z;
+    bel.z = z;
+
+    NPNR_ASSERT(name[0] == getBelType(bel));
 
     return bel;
 }
@@ -135,10 +126,9 @@ IdStringList Arch::getBelName(BelId bel) const
     int x = CycloneV::pos2x(bel.pos);
     int y = CycloneV::pos2y(bel.pos);
     int z = bel.z & 0xFF;
-    int bel_type = bel.z >> 8;
 
     std::array<IdString, 4> ids{
-            id(cyclonev->block_type_names[bel_type]),
+            getBelType(bel),
             int2id.at(x),
             int2id.at(y),
             int2id.at(z),
@@ -201,60 +191,23 @@ IdStringList Arch::getPipName(PipId pip) const
 std::vector<BelId> Arch::getBelsByTile(int x, int y) const
 {
     // This should probably be redesigned, but it's a hack.
-    std::vector<BelId> bels{};
-
-    CycloneV::pos_t pos = cyclonev->xy2pos(x, y);
-
-    for (CycloneV::block_type_t cvbel : cyclonev->pos_get_bels(pos)) {
-        switch (cvbel) {
-        case CycloneV::block_type_t::LAB:
-            /*
-             *  nextpnr and mistral disagree on what a BEL is: mistral thinks an entire LAB
-             *  is one BEL, but nextpnr wants something with more precision.
-             *
-             *  One LAB contains 10 ALMs.
-             *  One ALM contains 2 LUT outputs and 4 flop outputs.
-             */
-            for (int z = 0; z < 60; z++) {
-                bels.push_back(BelId(pos, (cvbel << 8 | z)));
-            }
-            break;
-        case CycloneV::block_type_t::GPIO:
-            // GPIO tiles contain 4 pins.
-            for (int z = 0; z < 4; z++) {
-                bels.push_back(BelId(pos, (cvbel << 8 | z)));
-            }
-            break;
-        default:
-            continue;
-        }
+    std::vector<BelId> bels;
+    if (x >= 0 && x < cyclonev->get_tile_sx() && y >= 0 && y < cyclonev->get_tile_sy()) {
+        for (size_t i = 0; i < bels_by_tile.at(pos2idx(x, y)).size(); i++)
+            bels.push_back(BelId(CycloneV::xy2pos(x, y), i));
     }
 
     return bels;
 }
 
-IdString Arch::getBelType(BelId bel) const
-{
-    for (CycloneV::block_type_t cvbel : cyclonev->pos_get_bels(bel.pos)) {
-        switch (cvbel) {
-        case CycloneV::block_type_t::LAB:
-            /*
-             *  nextpnr and mistral disagree on what a BEL is: mistral thinks an entire LAB
-             *  is one BEL, but nextpnr wants something with more precision.
-             *
-             *  One LAB contains 10 ALMs.
-             *  One ALM contains 2 LUT outputs and 4 flop outputs.
-             */
-            return IdString(this, "LAB");
-        case CycloneV::block_type_t::GPIO:
-            // GPIO tiles contain 4 pins.
-            return IdString(this, "GPIO");
-        default:
-            continue;
-        }
-    }
+IdString Arch::getBelType(BelId bel) const { return bel_data(bel).type; }
 
-    return IdString();
+std::vector<IdString> Arch::getBelPins(BelId bel) const
+{
+    std::vector<IdString> pins;
+    for (auto &p : bel_data(bel).pins)
+        pins.push_back(p.first);
+    return pins;
 }
 
 bool Arch::pack() { return true; }
@@ -263,17 +216,14 @@ bool Arch::route() { return true; }
 
 BelId Arch::add_bel(int x, int y, IdString name, IdString type)
 {
-    // TODO: nothing else is using this BelId system yet...
-    // TODO (tomorrow?): we probably want a belsByTile type arrangement, similar for wires and pips, for better spacial
-    // locality
-    int z = 0;
-    BelId id;
-    // Determine a unique z-coordinate
-    while (bels.count(id = BelId(CycloneV::xy2pos(x, y), z)))
-        z++;
-    auto &bel = bels[id];
+    auto &bels = bels_by_tile.at(pos2idx(x, y));
+    BelId id = BelId(CycloneV::xy2pos(x, y), bels.size());
+    all_bels.push_back(id);
+    bels.emplace_back();
+    auto &bel = bels.back();
     bel.name = name;
     bel.type = type;
+    // TODO: buckets (for example LABs and MLABs in the same bucket)
     bel.bucket = type;
     return id;
 }
@@ -312,8 +262,9 @@ PipId Arch::add_pip(WireId src, WireId dst)
 
 void Arch::add_bel_pin(BelId bel, IdString pin, PortType dir, WireId wire)
 {
-    bels[bel].pins[pin].dir = dir;
-    bels[bel].pins[pin].wire = wire;
+    auto &b = bel_data(bel);
+    b.pins[pin].dir = dir;
+    b.pins[pin].wire = wire;
 
     BelPin bel_pin;
     bel_pin.bel = bel;
