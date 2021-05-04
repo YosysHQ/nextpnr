@@ -190,16 +190,17 @@ void Arch::create_lab(int x, int y)
 
 // Cell handling and annotation functions
 namespace {
-    ControlSig get_ctrlsig(const CellInfo *cell, IdString port) {
-        ControlSig result;
-        result.net = get_net_or_empty(cell, port);
-        if (cell->pin_data.count(port))
-            result.inverted = cell->pin_data.at(port).inverted;
-        else
-            result.inverted = false;
-        return result;
-    }
+ControlSig get_ctrlsig(const CellInfo *cell, IdString port)
+{
+    ControlSig result;
+    result.net = get_net_or_empty(cell, port);
+    if (cell->pin_data.count(port))
+        result.inverted = cell->pin_data.at(port).inverted;
+    else
+        result.inverted = false;
+    return result;
 }
+} // namespace
 
 bool Arch::is_comb_cell(IdString cell_type) const
 {
@@ -238,35 +239,35 @@ void Arch::assign_comb_info(CellInfo *cell) const
     } else {
         cell->combInfo.lut_input_count = 0;
         switch (cell->type.index) {
-            case ID_MISTRAL_ALUT6:
-                ++cell->combInfo.lut_input_count;
-                cell->combInfo.lut_in[5] = get_net_or_empty(cell, id_F);
-                [[fallthrough]];
-            case ID_MISTRAL_ALUT5:
-                ++cell->combInfo.lut_input_count;
-                cell->combInfo.lut_in[4] = get_net_or_empty(cell, id_E);
-                [[fallthrough]];
-            case ID_MISTRAL_ALUT4:
-                ++cell->combInfo.lut_input_count;
-                cell->combInfo.lut_in[3] = get_net_or_empty(cell, id_D);
-                [[fallthrough]];
-            case ID_MISTRAL_ALUT3:
-                ++cell->combInfo.lut_input_count;
-                cell->combInfo.lut_in[2] = get_net_or_empty(cell, id_C);
-                [[fallthrough]];
-            case ID_MISTRAL_ALUT2:
-                ++cell->combInfo.lut_input_count;
-                cell->combInfo.lut_in[1] = get_net_or_empty(cell, id_B);
-                [[fallthrough]];
-            case ID_MISTRAL_NOT:
-                ++cell->combInfo.lut_input_count;
-                cell->combInfo.lut_in[0] = get_net_or_empty(cell, id_A);
-                [[fallthrough]];
-            case ID_MISTRAL_CONST:
-                // MISTRAL_CONST is a nextpnr-inserted cell type for 0-input, constant-generating LUTs
-                break;
-            default:
-                log_error("unexpected combinational cell type %s\n", getCtx()->nameOf(cell->type));
+        case ID_MISTRAL_ALUT6:
+            ++cell->combInfo.lut_input_count;
+            cell->combInfo.lut_in[5] = get_net_or_empty(cell, id_F);
+            [[fallthrough]];
+        case ID_MISTRAL_ALUT5:
+            ++cell->combInfo.lut_input_count;
+            cell->combInfo.lut_in[4] = get_net_or_empty(cell, id_E);
+            [[fallthrough]];
+        case ID_MISTRAL_ALUT4:
+            ++cell->combInfo.lut_input_count;
+            cell->combInfo.lut_in[3] = get_net_or_empty(cell, id_D);
+            [[fallthrough]];
+        case ID_MISTRAL_ALUT3:
+            ++cell->combInfo.lut_input_count;
+            cell->combInfo.lut_in[2] = get_net_or_empty(cell, id_C);
+            [[fallthrough]];
+        case ID_MISTRAL_ALUT2:
+            ++cell->combInfo.lut_input_count;
+            cell->combInfo.lut_in[1] = get_net_or_empty(cell, id_B);
+            [[fallthrough]];
+        case ID_MISTRAL_NOT:
+            ++cell->combInfo.lut_input_count;
+            cell->combInfo.lut_in[0] = get_net_or_empty(cell, id_A);
+            [[fallthrough]];
+        case ID_MISTRAL_CONST:
+            // MISTRAL_CONST is a nextpnr-inserted cell type for 0-input, constant-generating LUTs
+            break;
+        default:
+            log_error("unexpected combinational cell type %s\n", getCtx()->nameOf(cell->type));
         }
         // Note that this relationship won't hold for extended mode, when that is supported
         cell->combInfo.lut_bits_count = (1 << cell->combInfo.lut_input_count);
@@ -282,6 +283,98 @@ void Arch::assign_ff_info(CellInfo *cell) const
     cell->ffInfo.ctrlset.sload = get_ctrlsig(cell, id_SLOAD);
     cell->ffInfo.sdata = get_net_or_empty(cell, id_SDATA);
     cell->ffInfo.datain = get_net_or_empty(cell, id_DATAIN);
+}
+
+// Validity checking functions
+bool Arch::is_alm_legal(uint32_t lab, uint8_t alm) const
+{
+    auto &alm_data = labs.at(lab).alms.at(alm);
+    // Get cells into an array for fast access
+    std::array<const CellInfo *, 2> luts{getBoundBelCell(alm_data.lut_bels[0]), getBoundBelCell(alm_data.lut_bels[1])};
+    std::array<const CellInfo *, 4> ffs{getBoundBelCell(alm_data.ff_bels[0]), getBoundBelCell(alm_data.ff_bels[1]),
+                                        getBoundBelCell(alm_data.ff_bels[2]), getBoundBelCell(alm_data.ff_bels[3])};
+    int used_lut_bits = 0;
+
+    int total_lut_inputs = 0;
+    // TODO: for more complex modes like extended/arithmetic, it might not always be possible for any LUT input to map
+    // to any of the ALM half inputs particularly shared and extended mode will need more thought and probably for this
+    // to be revisited
+    for (int i = 0; i < 2; i++) {
+        if (!luts[i])
+            continue;
+        total_lut_inputs += luts[i]->combInfo.lut_input_count;
+        used_lut_bits += luts[i]->combInfo.lut_bits_count;
+    }
+    // An ALM only has 64 bits of storage. In theory some of these cases might be legal because of overlap between the
+    // two functions, but the current placer is unlikely to stumble upon these cases frequently without anything to
+    // guide it, and the cost of checking them here almost certainly outweighs any marginal benefit in supporting them,
+    // at least for now.
+    if (used_lut_bits > 64)
+        return false;
+
+    if (total_lut_inputs > 8) {
+        NPNR_ASSERT(luts[0] && luts[1]); // something has gone badly wrong if this fails!
+        // Make sure that LUT inputs are not overprovisioned
+        int shared_lut_inputs = 0;
+        // Even though this N^2 search looks inefficient, it's unlikely a set lookup or similar is going to be much
+        // better given the low N.
+        for (int i = 0; i < luts[1]->combInfo.lut_input_count; i++) {
+            const NetInfo *sig = luts[1]->combInfo.lut_in[i];
+            for (int j = 0; j < luts[0]->combInfo.lut_input_count; j++) {
+                if (sig == luts[0]->combInfo.lut_in[j]) {
+                    ++shared_lut_inputs;
+                    break;
+                }
+            }
+        }
+        if ((total_lut_inputs - shared_lut_inputs) > 8)
+            return false;
+    }
+
+    // For each ALM half; check FF control set sharing and input routeability
+    for (int i = 0; i < 2; i++) {
+        // There are two ways to route from the fabric into FF data - either routing through a LUT or using the E/F
+        // signals and SLOAD=1 (*PKREF*)
+        bool route_thru_lut_avail = !luts[i] && (total_lut_inputs < 8) && (used_lut_bits < 64);
+        // E/F is available if the LUT is using less than 6 inputs - TODO: is this correct considering all possible LUT
+        // sharing
+        bool ef_available = (!luts[i] || luts[i]->combInfo.lut_input_count < 6);
+        // Control set checking
+        bool found_ff = false;
+
+        FFControlSet ctrlset;
+        for (int j = 0; j < 2; j++) {
+            const CellInfo *ff = ffs[i * 2 + j];
+            if (!ff)
+                continue;
+            if (found_ff) {
+                // Two FFs in the same half with an incompatible control set
+                if (ctrlset != ff->ffInfo.ctrlset)
+                    return false;
+            } else {
+                ctrlset = ff->ffInfo.ctrlset;
+            }
+            // SDATA must use the E/F input
+            // TODO: rare case of two FFs with the same SDATA in the same ALM half
+            if (ff->ffInfo.sdata) {
+                if (!ef_available)
+                    return false;
+                ef_available = false;
+            }
+            // Find a way of routing the input through fabric, if it's not driven by the LUT
+            if (ff->ffInfo.datain && (!luts[i] || (ff->ffInfo.datain != luts[i]->combInfo.comb_out))) {
+                if (route_thru_lut_avail)
+                    route_thru_lut_avail = false;
+                else if (ef_available)
+                    ef_available = false;
+                else
+                    return false;
+            }
+            found_ff = true;
+        }
+    }
+
+    return true;
 }
 
 NEXTPNR_NAMESPACE_END
