@@ -34,7 +34,7 @@ NEXTPNR_NAMESPACE_BEGIN
  * kExpectedChipInfoVersion
  */
 
-static constexpr int32_t kExpectedChipInfoVersion = 8;
+static constexpr int32_t kExpectedChipInfoVersion = 9;
 
 // Flattened site indexing.
 //
@@ -320,6 +320,18 @@ NPNR_PACKED_STRUCT(struct WireTypePOD {
     int32_t category; // WireCategory
 });
 
+NPNR_PACKED_STRUCT(struct GlobalCellPinPOD {
+    int32_t name;     // constid
+    int16_t max_hops; // max routing hops to try
+    int8_t guide_placement;
+    int8_t force_routing;
+});
+
+NPNR_PACKED_STRUCT(struct GlobalCellPOD {
+    int32_t cell_type;
+    RelSlice<GlobalCellPinPOD> pins;
+});
+
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelPtr<char> name;
     RelPtr<char> generator;
@@ -333,6 +345,7 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelSlice<NodeInfoPOD> nodes;
     RelSlice<PackagePOD> packages;
     RelSlice<WireTypePOD> wire_types;
+    RelSlice<GlobalCellPOD> global_cells;
 
     // BEL bucket constids.
     RelSlice<int32_t> bel_buckets;
