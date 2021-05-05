@@ -479,6 +479,14 @@ IdString Arch::getWireType(WireId wire) const
     return IdString(chip_info->wire_types[wire_type].name);
 }
 
+bool Arch::is_site_wire(WireId wire) const
+{
+    if (wire.tile == -1)
+        return false;
+    const auto &tile_type = loc_info(chip_info, wire);
+    return tile_type.wire_data[wire.index].site != -1;
+}
+
 WireCategory Arch::get_wire_category(WireId wire) const
 {
     int tile = wire.tile, index = wire.index;
@@ -790,6 +798,8 @@ bool Arch::place()
     prepare_for_placement(getCtx());
     getCtx()->check();
 #endif
+
+    place_globals();
 
     std::string placer = str_or_default(settings, id("placer"), defaultPlacer);
     if (placer == "heap") {

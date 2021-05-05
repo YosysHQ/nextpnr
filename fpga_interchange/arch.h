@@ -533,6 +533,7 @@ struct Arch : ArchAPI<ArchRanges>
         return range;
     }
 
+    bool is_site_wire(WireId wire) const;
     WireCategory get_wire_category(WireId wire) const;
 
     // -------------------------------------------------
@@ -690,6 +691,7 @@ struct Arch : ArchAPI<ArchRanges>
     void decode_lut_cells();
 
     const GlobalCellPOD *global_cell_info(IdString cell_type) const;
+    void place_globals();
     void route_globals();
 
     bool pack() final;

@@ -39,14 +39,20 @@ struct GlobalVist
     }
 };
 
-static bool route_global_arc(Context *ctx, NetInfo *net, size_t usr_idx, size_t phys_port_idx, int max_hops)
+// This is our main global routing implementation. It is used both to actually route globals; and also to discover if
+// global buffers have available short routes from their source for auto-placement
+static int route_global_arc(Context *ctx, NetInfo *net, size_t usr_idx, size_t phys_port_idx, int max_hops,
+                            bool dry_run)
 {
     auto &usr = net->users.at(usr_idx);
     WireId src = ctx->getNetinfoSourceWire(net);
     WireId dest = ctx->getNetinfoSinkWire(net, usr, phys_port_idx);
     if (dest == WireId()) {
-        log_error("Arc %d.%d (%s.%s) of net %s has no sink wire!\n", int(usr_idx), int(phys_port_idx),
-                  ctx->nameOf(usr.cell), ctx->nameOf(usr.port), ctx->nameOf(net));
+        if (dry_run)
+            return -1;
+        else
+            log_error("Arc %d.%d (%s.%s) of net %s has no sink wire!\n", int(usr_idx), int(phys_port_idx),
+                      ctx->nameOf(usr.cell), ctx->nameOf(usr.port), ctx->nameOf(net));
     }
     // Consider any existing routing put in place by the site router, etc
     int start_hops = 0;
@@ -83,13 +89,13 @@ static bool route_global_arc(Context *ctx, NetInfo *net, size_t usr_idx, size_t 
         }
         // Explore uphill
         for (auto pip : ctx->getPipsUphill(cursor)) {
-            if (!ctx->checkPipAvailForNet(pip, net))
+            if (!dry_run && !ctx->checkPipAvailForNet(pip, net))
                 continue;
             WireId pip_src = ctx->getPipSrcWire(pip);
-            if (!ctx->checkWireAvail(pip_src) && ctx->getBoundWireNet(pip_src) != net)
+            if (!dry_run && !ctx->checkWireAvail(pip_src) && ctx->getBoundWireNet(pip_src) != net)
                 continue;
             auto cat = ctx->get_wire_category(pip_src);
-            if (cat == WIRE_CAT_GENERAL)
+            if (!ctx->is_site_wire(pip_src) && cat == WIRE_CAT_GENERAL)
                 continue; // never allow general routing
             GlobalVist next_visit;
             next_visit.downhill = pip;
@@ -106,31 +112,32 @@ static bool route_global_arc(Context *ctx, NetInfo *net, size_t usr_idx, size_t 
     }
 
     if (startpoint == WireId())
-        return false;
+        return -1;
+    if (!dry_run) {
+        if (ctx->getBoundWireNet(startpoint) == nullptr)
+            ctx->bindWire(startpoint, net, STRENGTH_LOCKED);
 
-    if (ctx->getBoundWireNet(startpoint) == nullptr)
-        ctx->bindWire(startpoint, net, STRENGTH_LOCKED);
-
-    WireId cursor = startpoint;
-    std::vector<PipId> pips;
-    // Create a list of pips on the routed path
-    while (true) {
-        PipId pip = visits.at(cursor).downhill;
-        if (pip == PipId())
-            break;
-        pips.push_back(pip);
-        cursor = ctx->getPipDstWire(pip);
+        WireId cursor = startpoint;
+        std::vector<PipId> pips;
+        // Create a list of pips on the routed path
+        while (true) {
+            PipId pip = visits.at(cursor).downhill;
+            if (pip == PipId())
+                break;
+            pips.push_back(pip);
+            cursor = ctx->getPipDstWire(pip);
+        }
+        // Reverse that list
+        std::reverse(pips.begin(), pips.end());
+        // Bind pips until we hit already-bound routing
+        for (PipId pip : pips) {
+            WireId dst = ctx->getPipDstWire(pip);
+            if (ctx->getBoundWireNet(dst) == net)
+                break;
+            ctx->bindPip(pip, net, STRENGTH_LOCKED);
+        }
     }
-    // Reverse that list
-    std::reverse(pips.begin(), pips.end());
-    // Bind pips until we hit already-bound routing
-    for (PipId pip : pips) {
-        WireId dst = ctx->getPipDstWire(pip);
-        if (ctx->getBoundWireNet(dst) == net)
-            break;
-        ctx->bindPip(pip, net, STRENGTH_LOCKED);
-    }
-    return true;
+    return visits.at(startpoint).total_hops;
 }
 }; // namespace
 
@@ -141,6 +148,87 @@ const GlobalCellPOD *Arch::global_cell_info(IdString cell_type) const
             return &glb_cell;
 
     return nullptr;
+}
+
+void Arch::place_globals()
+{
+    log_info("Placing globals...\n");
+
+    Context *ctx = getCtx();
+    IdString gnd_net_name(chip_info->constants->gnd_net_name);
+    IdString vcc_net_name(chip_info->constants->vcc_net_name);
+
+    // TODO: for more complex PLL type setups, we might want a toposort or iterative loop as the PLL must be placed
+    // before the GBs it drives
+    for (auto cell : sorted(ctx->cells)) {
+        CellInfo *ci = cell.second;
+        const GlobalCellPOD *glb_cell = global_cell_info(ci->type);
+        if (glb_cell == nullptr)
+            continue;
+        // Ignore if already placed
+        if (ci->bel != BelId())
+            continue;
+
+        for (const auto &pin : glb_cell->pins) {
+            if (!pin.guide_placement)
+                continue;
+
+            IdString pin_name(pin.name);
+            if (!ci->ports.count(pin_name))
+                continue;
+            auto &port = ci->ports.at(pin_name);
+
+            // only input ports currently used for placement guidance
+            if (port.type != PORT_IN)
+                continue;
+
+            NetInfo *net = port.net;
+            if (net == nullptr || net->name == gnd_net_name || net->name == vcc_net_name)
+                continue;
+            // Ignore if there is no driver; or the driver is not placed
+            if (net->driver.cell == nullptr || net->driver.cell->bel == BelId())
+                continue;
+            size_t user_idx = 0;
+            bool found_user = false;
+            for (user_idx = 0; user_idx < net->users.size(); user_idx++)
+                if (net->users.at(user_idx).cell == ci && net->users.at(user_idx).port == pin_name) {
+                    found_user = true;
+                    break;
+                }
+            NPNR_ASSERT(found_user);
+
+            // TODO: substantial performance improvements are probably possible, although of questionable benefit given
+            // the low number of globals in a typical device...
+            BelId best_bel;
+            int shortest_distance = std::numeric_limits<int>::max();
+
+            for (auto bel : getBels()) {
+                int distance;
+                if (!isValidBelForCellType(ci->type, bel))
+                    continue;
+                if (!checkBelAvail(bel))
+                    continue;
+                // Provisionally place
+                bindBel(bel, ci, STRENGTH_WEAK);
+                if (!isBelLocationValid(bel))
+                    goto fail;
+                // Check distance
+                distance = route_global_arc(ctx, net, user_idx, 0, pin.max_hops, true);
+                if (distance != -1 && distance < shortest_distance) {
+                    best_bel = bel;
+                    shortest_distance = distance;
+                }
+            fail:
+                unbindBel(bel);
+            }
+
+            if (best_bel != BelId()) {
+                bindBel(best_bel, ci, STRENGTH_LOCKED);
+                log_info("    placed %s:%s at %s\n", ctx->nameOf(ci), ctx->nameOf(ci->type), ctx->nameOfBel(best_bel));
+                break;
+            }
+        }
+    }
 }
 
 void Arch::route_globals()
@@ -177,11 +265,11 @@ void Arch::route_globals()
             for (size_t i = 0; i < net->users.size(); i++) {
                 auto &usr = net->users.at(i);
                 for (size_t j = 0; j < ctx->getNetinfoSinkWireCount(net, usr); j++) {
-                    bool routed_global = route_global_arc(ctx, net, i, j, pin.max_hops);
+                    int result = route_global_arc(ctx, net, i, j, pin.max_hops, false);
                     ++total_sinks;
-                    if (routed_global)
+                    if (result != -1)
                         ++global_sinks;
-                    if (!routed_global && pin.force_routing)
+                    if ((result == -1) && pin.force_routing)
                         log_error("Failed to route arc %d.%d (%s.%s) of net %s using dedicated global routing!\n",
                                   int(i), int(j), ctx->nameOf(usr.cell), ctx->nameOf(usr.port), ctx->nameOf(net));
                 }
