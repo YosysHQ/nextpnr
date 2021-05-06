@@ -98,6 +98,8 @@ struct BelBucketId
     bool operator<(const BelBucketId &other) const { return name < other.name; }
 };
 
+typedef IdString ClusterId;
+
 struct SiteExpansionLoop;
 
 struct ArchNetInfo

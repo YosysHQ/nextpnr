@@ -23,6 +23,8 @@
 #include "idstring.h"
 #include "nextpnr_namespaces.h"
 
+#include <vector>
+
 NEXTPNR_NAMESPACE_BEGIN
 
 struct CellInfo;

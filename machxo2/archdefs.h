@@ -21,6 +21,7 @@
 #ifndef MACHXO2_ARCHDEFS_H
 #define MACHXO2_ARCHDEFS_H
 
+#include "base_clusterinfo.h"
 #include "idstring.h"
 #include "nextpnr_namespaces.h"
 
@@ -104,6 +105,7 @@ struct PipId
 typedef IdString GroupId;
 typedef IdString DecalId;
 typedef IdString BelBucketId;
+typedef IdString ClusterId;
 
 struct ArchNetInfo
 {
@@ -111,7 +113,7 @@ struct ArchNetInfo
 
 struct NetInfo;
 
-struct ArchCellInfo
+struct ArchCellInfo : BaseClusterInfo
 {
 };
 

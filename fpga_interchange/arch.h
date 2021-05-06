@@ -835,6 +835,19 @@ struct Arch : ArchAPI<ArchRanges>
         return get_site_status(tile_status, bel_data).checkSiteRouting(getCtx(), tile_status);
     }
 
+    // -------------------------------------------------
+
+    // TODO
+    CellInfo *getClusterRootCell(ClusterId cluster) const override { NPNR_ASSERT_FALSE("unimplemented"); }
+    ArcBounds getClusterBounds(ClusterId cluster) const override { NPNR_ASSERT_FALSE("unimplemented"); }
+    Loc getClusterOffset(const CellInfo *cell) const override { NPNR_ASSERT_FALSE("unimplemented"); }
+    bool isClusterStrict(const CellInfo *cell) const override { NPNR_ASSERT_FALSE("unimplemented"); }
+    bool getClusterPlacement(ClusterId cluster, BelId root_bel,
+                             std::vector<std::pair<CellInfo *, BelId>> &placement) const override
+    {
+        NPNR_ASSERT_FALSE("unimplemented");
+    }
+
     IdString get_bel_tiletype(BelId bel) const { return IdString(loc_info(chip_info, bel).name); }
 
     std::unordered_map<WireId, Loc> sink_locs, source_locs;
