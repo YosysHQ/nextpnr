@@ -428,7 +428,7 @@ template <typename R> struct BaseArch : ArchAPI<R>
                     return result;
                 });
                 BelId child_bel = this->getBelByLocation(child_loc);
-                if (child_bel == BelId() || !this->isValidBelForCellType(child->type, root_bel))
+                if (child_bel == BelId() || !this->isValidBelForCellType(child->type, child_bel))
                     return false;
                 placement.emplace_back(child, child_bel);
             }
