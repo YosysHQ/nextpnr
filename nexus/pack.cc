@@ -1000,12 +1000,13 @@ struct NexusPacker
             // Setup relative constraints
             combs[0]->constr_z = 0;
             combs[0]->constr_abs_z = true;
+            combs[0]->cluster = combs[0]->name;
             for (int i = 1; i < 4; i++) {
                 combs[i]->constr_x = 0;
                 combs[i]->constr_y = 0;
                 combs[i]->constr_z = ((i / 2) << 3) | (i % 2);
                 combs[i]->constr_abs_z = true;
-                combs[i]->constr_parent = combs[0];
+                combs[i]->cluster = combs[0]->name;
                 combs[0]->constr_children.push_back(combs[i]);
             }
 
@@ -1013,7 +1014,7 @@ struct NexusPacker
             ramw->constr_y = 0;
             ramw->constr_z = (2 << 3) | Arch::BEL_RAMW;
             ramw->constr_abs_z = true;
-            ramw->constr_parent = combs[0];
+            ramw->cluster = combs[0]->name;
             combs[0]->constr_children.push_back(ramw);
             // Remove now-packed cell
             ctx->cells.erase(ci->name);
@@ -1182,11 +1183,12 @@ struct NexusPacker
             combs[0]->params[id_INIT] = ctx->parse_lattice_param(ci, id_INIT0, 16, 0);
             combs[1]->params[id_INIT] = ctx->parse_lattice_param(ci, id_INIT1, 16, 0);
 
-            combs[1]->constr_parent = combs[0];
+            combs[1]->cluster = combs[0]->name;
             combs[1]->constr_x = 0;
             combs[1]->constr_y = 0;
             combs[1]->constr_z = 1;
             combs[1]->constr_abs_z = false;
+            combs[0]->cluster = combs[0]->name;
             combs[0]->constr_children.push_back(combs[1]);
 
             ctx->cells.erase(ci->name);
@@ -1253,10 +1255,11 @@ struct NexusPacker
                     if (constr_base == nullptr) {
                         // This is the very first cell in the chain
                         constr_base = combs[i];
+                        constr_base->cluster = constr_base->name;
                     } else {
                         combs[i]->constr_x = (idx / 8);
                         combs[i]->constr_y = 0;
-                        combs[i]->constr_parent = constr_base;
+                        combs[i]->cluster = constr_base->name;
                         constr_base->constr_children.push_back(combs[i]);
                     }
 
@@ -1455,19 +1458,20 @@ struct NexusPacker
         CellInfo *cell = ctx->createCell(name, type);
         if (constr_base != nullptr) {
             // We might be constraining against an already-constrained cell
-            if (constr_base->constr_parent != nullptr) {
+            if (constr_base->cluster != ClusterId() && constr_base->cluster != constr_base->name) {
                 cell->constr_x = dx + constr_base->constr_x;
                 cell->constr_y = constr_base->constr_y;
                 cell->constr_z = dz + constr_base->constr_z;
                 cell->constr_abs_z = false;
-                cell->constr_parent = constr_base->constr_parent;
-                constr_base->constr_parent->constr_children.push_back(cell);
+                cell->cluster = constr_base->cluster;
+                ctx->cells.at(constr_base->cluster)->constr_children.push_back(cell);
             } else {
                 cell->constr_x = dx;
                 cell->constr_y = 0;
                 cell->constr_z = dz;
                 cell->constr_abs_z = false;
-                cell->constr_parent = constr_base;
+                cell->cluster = constr_base->name;
+                constr_base->cluster = constr_base->name;
                 constr_base->constr_children.push_back(cell);
             }
         }

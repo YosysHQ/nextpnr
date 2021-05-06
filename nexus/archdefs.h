@@ -23,6 +23,7 @@
 #include <boost/functional/hash.hpp>
 #include <unordered_map>
 
+#include "base_clusterinfo.h"
 #include "idstring.h"
 #include "nextpnr_namespaces.h"
 
@@ -157,7 +158,9 @@ inline bool operator!=(const FFControlSet &a, const FFControlSet &b)
            (a.ce != b.ce);
 }
 
-struct ArchCellInfo
+typedef IdString ClusterId;
+
+struct ArchCellInfo : BaseClusterInfo
 {
     union
     {
