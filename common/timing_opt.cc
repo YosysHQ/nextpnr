@@ -182,8 +182,7 @@ class TimingOptimiser
                     CellInfo *bound = ctx->getBoundBelCell(bel);
                     if (bound == nullptr) {
                         free_bels_at_loc.push_back(bel);
-                    } else if (bound->belStrength <= STRENGTH_WEAK && bound->constr_parent == nullptr &&
-                               bound->constr_children.empty()) {
+                    } else if (bound->belStrength <= STRENGTH_WEAK && bound->cluster == ClusterId()) {
                         bound_bels_at_loc.push_back(bel);
                     }
                 }
@@ -378,7 +377,7 @@ class TimingOptimiser
         if (front_net != nullptr && front_net->driver.cell != nullptr) {
             auto front_cell = front_net->driver.cell;
             if (front_cell->belStrength <= STRENGTH_WEAK && cfg.cellTypes.count(front_cell->type) &&
-                front_cell->constr_parent == nullptr && front_cell->constr_children.empty()) {
+                front_cell->cluster == ClusterId()) {
                 path_cells.push_back(front_cell->name);
             }
         }
@@ -392,7 +391,7 @@ class TimingOptimiser
             if (std::find(path_cells.begin(), path_cells.end(), port->cell->name) != path_cells.end())
                 continue;
             if (port->cell->belStrength > STRENGTH_WEAK || !cfg.cellTypes.count(port->cell->type) ||
-                port->cell->constr_parent != nullptr || !port->cell->constr_children.empty())
+                port->cell->cluster != ClusterId())
                 continue;
             if (ctx->debug)
                 log_info("        can move\n");

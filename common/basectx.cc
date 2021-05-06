@@ -152,25 +152,6 @@ void BaseCtx::archInfoToAttributes()
             ci->attrs[id("NEXTPNR_BEL")] = getCtx()->getBelName(ci->bel).str(getCtx());
             ci->attrs[id("BEL_STRENGTH")] = (int)ci->belStrength;
         }
-        if (ci->constr_x != ci->UNCONSTR)
-            ci->attrs[id("CONSTR_X")] = ci->constr_x;
-        if (ci->constr_y != ci->UNCONSTR)
-            ci->attrs[id("CONSTR_Y")] = ci->constr_y;
-        if (ci->constr_z != ci->UNCONSTR) {
-            ci->attrs[id("CONSTR_Z")] = ci->constr_z;
-            ci->attrs[id("CONSTR_ABS_Z")] = ci->constr_abs_z ? 1 : 0;
-        }
-        if (ci->constr_parent != nullptr)
-            ci->attrs[id("CONSTR_PARENT")] = ci->constr_parent->name.str(this);
-        if (!ci->constr_children.empty()) {
-            std::string constr = "";
-            for (auto &item : ci->constr_children) {
-                if (!constr.empty())
-                    constr += std::string(";");
-                constr += item->name.c_str(this);
-            }
-            ci->attrs[id("CONSTR_CHILDREN")] = constr;
-        }
     }
     for (auto &net : getCtx()->nets) {
         auto ni = net.second.get();
@@ -203,48 +184,6 @@ void BaseCtx::attributesToArchInfo()
 
             BelId b = getCtx()->getBelByNameStr(val->second.as_string());
             getCtx()->bindBel(b, ci, strength);
-        }
-
-        val = ci->attrs.find(id("CONSTR_PARENT"));
-        if (val != ci->attrs.end()) {
-            auto parent = cells.find(id(val->second.str));
-            if (parent != cells.end())
-                ci->constr_parent = parent->second.get();
-            else
-                continue;
-        }
-
-        val = ci->attrs.find(id("CONSTR_X"));
-        if (val != ci->attrs.end())
-            ci->constr_x = val->second.as_int64();
-
-        val = ci->attrs.find(id("CONSTR_Y"));
-        if (val != ci->attrs.end())
-            ci->constr_y = val->second.as_int64();
-
-        val = ci->attrs.find(id("CONSTR_Z"));
-        if (val != ci->attrs.end())
-            ci->constr_z = val->second.as_int64();
-
-        val = ci->attrs.find(id("CONSTR_ABS_Z"));
-        if (val != ci->attrs.end())
-            ci->constr_abs_z = val->second.as_int64() == 1;
-
-        val = ci->attrs.find(id("CONSTR_PARENT"));
-        if (val != ci->attrs.end()) {
-            auto parent = cells.find(id(val->second.as_string()));
-            if (parent != cells.end())
-                ci->constr_parent = parent->second.get();
-        }
-        val = ci->attrs.find(id("CONSTR_CHILDREN"));
-        if (val != ci->attrs.end()) {
-            std::vector<std::string> strs;
-            auto children = val->second.as_string();
-            boost::split(strs, children, boost::is_any_of(";"));
-            for (auto val : strs) {
-                if (cells.count(id(val.c_str())))
-                    ci->constr_children.push_back(cells.find(id(val.c_str()))->second.get());
-            }
         }
     }
     for (auto &net : getCtx()->nets) {

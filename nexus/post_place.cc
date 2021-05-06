@@ -32,10 +32,7 @@ struct NexusPostPlaceOpt
 
     NexusPostPlaceOpt(Context *ctx) : ctx(ctx), tmg(ctx){};
 
-    inline bool is_constrained(CellInfo *cell)
-    {
-        return cell->constr_parent != nullptr || !cell->constr_children.empty();
-    }
+    inline bool is_constrained(CellInfo *cell) { return cell->cluster != ClusterId(); }
 
     bool swap_cell_placement(CellInfo *cell, BelId new_bel)
     {

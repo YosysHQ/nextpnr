@@ -1,7 +1,7 @@
 /*
  *  nextpnr -- Next Generation Place and Route
  *
- *  Copyright (C) 2018  Clifford Wolf <clifford@symbioticeda.com>
+ *  Copyright (C) 2021  gatecat <gatecat@ds0.me>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -17,36 +17,29 @@
  *
  */
 
-#include "nextpnr_types.h"
+#ifndef BASE_CLUSTERINFO_H
+#define BASE_CLUSTERINFO_H
 
+#include "idstring.h"
 #include "nextpnr_namespaces.h"
+
+#include <vector>
 
 NEXTPNR_NAMESPACE_BEGIN
 
-void CellInfo::addInput(IdString name)
-{
-    ports[name].name = name;
-    ports[name].type = PORT_IN;
-}
-void CellInfo::addOutput(IdString name)
-{
-    ports[name].name = name;
-    ports[name].type = PORT_OUT;
-}
-void CellInfo::addInout(IdString name)
-{
-    ports[name].name = name;
-    ports[name].type = PORT_INOUT;
-}
+struct CellInfo;
 
-void CellInfo::setParam(IdString name, Property value) { params[name] = value; }
-void CellInfo::unsetParam(IdString name) { params.erase(name); }
-void CellInfo::setAttr(IdString name, Property value) { attrs[name] = value; }
-void CellInfo::unsetAttr(IdString name) { attrs.erase(name); }
-
-bool CellInfo::testRegion(BelId bel) const
+// The 'legacy' cluster data, used for existing arches and to provide a basic implementation for arches without complex
+// clustering requirements
+struct BaseClusterInfo
 {
-    return region == nullptr || !region->constr_bels || region->bels.count(bel);
-}
+    std::vector<CellInfo *> constr_children;
+    int constr_x = 0;          // this.x - parent.x
+    int constr_y = 0;          // this.y - parent.y
+    int constr_z = 0;          // this.z - parent.z
+    bool constr_abs_z = false; // parent.z := 0
+};
 
 NEXTPNR_NAMESPACE_END
+
+#endif /* BASE_ARCH_H */

@@ -1171,7 +1171,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             tg.config.add_enum(dsp + ".RESETMODE", str_or_default(ci->params, ctx->id("RESETMODE"), "SYNC"));
 
             tg.config.add_enum(dsp + ".MODE", "MULT18X18D");
-            if (str_or_default(ci->params, ctx->id("REG_OUTPUT_CLK"), "NONE") == "NONE" && ci->constr_parent == nullptr)
+            if (str_or_default(ci->params, ctx->id("REG_OUTPUT_CLK"), "NONE") == "NONE" && ci->cluster == ClusterId())
                 tg.config.add_enum(dsp + ".CIBOUT_BYP", "ON");
 
             if (loc.z < 4)

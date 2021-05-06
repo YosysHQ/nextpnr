@@ -631,10 +631,11 @@ class Ecp5Packer
                 slice0->constr_z = 1;
                 slice0->constr_x = 0;
                 slice0->constr_y = 0;
-                slice0->constr_parent = slice1;
+                slice0->cluster = slice1->name;
                 slice1->constr_z = 0;
                 slice1->constr_abs_z = true;
                 slice1->constr_children.push_back(slice0);
+                slice1->cluster = slice1->name;
 
                 if (lutffPairs.find(ci->name) != lutffPairs.end()) {
                     CellInfo *ff = ctx->cells.at(lutffPairs[ci->name]).get();
@@ -696,21 +697,22 @@ class Ecp5Packer
                 for (auto slice : {slice0, slice1, slice2, slice3}) {
                     slice->constr_children.clear();
                     slice->constr_abs_z = false;
-                    slice->constr_x = slice->UNCONSTR;
-                    slice->constr_y = slice->UNCONSTR;
-                    slice->constr_z = slice->UNCONSTR;
-                    slice->constr_parent = nullptr;
+                    slice->constr_x = 0;
+                    slice->constr_y = 0;
+                    slice->constr_z = 0;
+                    slice->cluster = ClusterId();
                 }
                 slice3->constr_children.clear();
                 slice3->constr_abs_z = true;
                 slice3->constr_z = 0;
+                slice3->cluster = slice3->name;
 
                 slice2->constr_children.clear();
                 slice2->constr_abs_z = true;
                 slice2->constr_z = 1;
                 slice2->constr_x = 0;
                 slice2->constr_y = 0;
-                slice2->constr_parent = slice3;
+                slice2->cluster = slice3->name;
                 slice3->constr_children.push_back(slice2);
 
                 slice1->constr_children.clear();
@@ -718,7 +720,7 @@ class Ecp5Packer
                 slice1->constr_z = 2;
                 slice1->constr_x = 0;
                 slice1->constr_y = 0;
-                slice1->constr_parent = slice3;
+                slice1->cluster = slice3->name;
                 slice3->constr_children.push_back(slice1);
 
                 slice0->constr_children.clear();
@@ -726,7 +728,7 @@ class Ecp5Packer
                 slice0->constr_z = 3;
                 slice0->constr_x = 0;
                 slice0->constr_y = 0;
-                slice0->constr_parent = slice3;
+                slice0->cluster = slice3->name;
                 slice3->constr_children.push_back(slice0);
 
                 if (lutffPairs.find(ci->name) != lutffPairs.end()) {
@@ -956,12 +958,13 @@ class Ecp5Packer
         for (auto &chain : packed_chains) {
             chain.at(0)->constr_abs_z = true;
             chain.at(0)->constr_z = 0;
+            chain.at(0)->cluster = chain.at(0)->name;
             for (int i = 1; i < int(chain.size()); i++) {
                 chain.at(i)->constr_x = (i / 4);
                 chain.at(i)->constr_y = 0;
                 chain.at(i)->constr_z = i % 4;
                 chain.at(i)->constr_abs_z = true;
-                chain.at(i)->constr_parent = chain.at(0);
+                chain.at(i)->cluster = chain.at(0)->name;
                 chain.at(0)->constr_children.push_back(chain.at(i));
             }
         }
@@ -1037,15 +1040,16 @@ class Ecp5Packer
                 // Setup placement constraints
                 ram0_slice->constr_abs_z = true;
                 ram0_slice->constr_z = 0;
+                ram0_slice->cluster = ram0_slice->name;
 
-                ram1_slice->constr_parent = ram0_slice.get();
+                ram1_slice->cluster = ram0_slice->name;
                 ram1_slice->constr_abs_z = true;
                 ram1_slice->constr_x = 0;
                 ram1_slice->constr_y = 0;
                 ram1_slice->constr_z = 1;
                 ram0_slice->constr_children.push_back(ram1_slice.get());
 
-                ramw_slice->constr_parent = ram0_slice.get();
+                ramw_slice->cluster = ram0_slice->name;
                 ramw_slice->constr_abs_z = true;
                 ramw_slice->constr_x = 0;
                 ramw_slice->constr_y = 0;
@@ -1189,17 +1193,15 @@ class Ecp5Packer
                     CellInfo *target = find_nearby_cell(ci, [&](CellInfo *cursor) {
                         if (cursor->type != id_TRELLIS_SLICE)
                             return false;
-                        if (!cursor->constr_children.empty() || cursor->constr_parent != nullptr) {
-                            auto &constr_children = (cursor->constr_parent != nullptr)
-                                                            ? cursor->constr_parent->constr_children
-                                                            : cursor->constr_children;
+                        if (cursor->cluster != ClusterId()) {
+                            auto &constr_children = ctx->cells.at(cursor->cluster)->constr_children;
                             // Skip big chains for performance
                             if (constr_children.size() > 8)
                                 return false;
                             // Have to check the whole of the tile for legality when dealing with chains, not just slice
                             ltile.clear();
-                            if (cursor->constr_parent != nullptr)
-                                ltile.push_back(cursor->constr_parent);
+                            if (cursor->cluster != cursor->name)
+                                ltile.push_back(ctx->cells.at(cursor->cluster).get());
                             else
                                 ltile.push_back(cursor);
                             for (auto c : constr_children)
@@ -1596,7 +1598,11 @@ class Ecp5Packer
                         mult_b = mult;
                     }
                     mult->constr_y = 0;
-                    mult->constr_parent = ci;
+                    mult->cluster = ci->name;
+                    ci->constr_x = 0;
+                    ci->constr_y = 0;
+                    ci->constr_z = 0;
+                    ci->cluster = ci->name;
                     ci->constr_children.push_back(mult);
                     log_info("DSP: Constraining MULT18X18D '%s' to ALU54B '%s' port %s\n", mult->name.c_str(ctx),
                              cell.first.c_str(ctx), ctx->nameOf(port));

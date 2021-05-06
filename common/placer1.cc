@@ -225,14 +225,16 @@ class SAPlacer
         } else {
             for (auto &cell : ctx->cells) {
                 CellInfo *ci = cell.second.get();
-                if (ci->belStrength > STRENGTH_STRONG)
+                if (ci->belStrength > STRENGTH_STRONG) {
                     continue;
-                else if (ci->constr_parent != nullptr)
-                    continue;
-                else if (!ci->constr_children.empty() || ci->constr_z != ci->UNCONSTR)
-                    chain_basis.push_back(ci);
-                else
+                } else if (ci->cluster != ClusterId()) {
+                    if (ctx->getClusterRootCell(ci->cluster) == ci)
+                        chain_basis.push_back(ci);
+                    else
+                        continue;
+                } else {
                     autoplaced.push_back(ci);
+                }
             }
             require_legal = false;
             diameter = 3;
@@ -359,8 +361,8 @@ class SAPlacer
                     autoplaced.clear();
                     chain_basis.clear();
                     for (auto cell : sorted(ctx->cells)) {
-                        if (cell.second->belStrength <= STRENGTH_STRONG && cell.second->constr_parent == nullptr &&
-                            !cell.second->constr_children.empty())
+                        if (cell.second->belStrength <= STRENGTH_STRONG && cell.second->cluster != ClusterId() &&
+                            ctx->getClusterRootCell(cell.second->cluster) == cell.second)
                             chain_basis.push_back(cell.second);
                         else if (cell.second->belStrength < STRENGTH_STRONG)
                             autoplaced.push_back(cell.second);
@@ -507,12 +509,12 @@ class SAPlacer
     {
         static const double epsilon = 1e-20;
         moveChange.reset(this);
-        if (!require_legal && cell->isConstrained(false))
+        if (!require_legal && cell->cluster != ClusterId())
             return false;
         BelId oldBel = cell->bel;
         CellInfo *other_cell = ctx->getBoundBelCell(newBel);
         if (!require_legal && other_cell != nullptr &&
-            (other_cell->isConstrained(false) || other_cell->belStrength > STRENGTH_WEAK)) {
+            (other_cell->cluster != ClusterId() || other_cell->belStrength > STRENGTH_WEAK)) {
             return false;
         }
         int old_dist = get_constraints_distance(ctx, cell);
@@ -612,25 +614,15 @@ class SAPlacer
         if (bound != nullptr)
             ctx->unbindBel(newBel);
         ctx->unbindBel(oldBel);
-        ctx->bindBel(newBel, cell, cell->isConstrained(false) ? STRENGTH_STRONG : STRENGTH_WEAK);
+        ctx->bindBel(newBel, cell, (cell->cluster != ClusterId()) ? STRENGTH_STRONG : STRENGTH_WEAK);
         if (bound != nullptr) {
-            ctx->bindBel(oldBel, bound, bound->isConstrained(false) ? STRENGTH_STRONG : STRENGTH_WEAK);
+            ctx->bindBel(oldBel, bound, (bound->cluster != ClusterId()) ? STRENGTH_STRONG : STRENGTH_WEAK);
             if (cfg.netShareWeight > 0)
                 update_nets_by_tile(bound, ctx->getBelLocation(newBel), ctx->getBelLocation(oldBel));
         }
         if (cfg.netShareWeight > 0)
             update_nets_by_tile(cell, ctx->getBelLocation(oldBel), ctx->getBelLocation(newBel));
         return oldBel;
-    }
-
-    // Discover the relative positions of all cells in a chain
-    void discover_chain(Loc baseLoc, CellInfo *cell, std::vector<std::pair<CellInfo *, Loc>> &cell_rel)
-    {
-        Loc cellLoc = ctx->getBelLocation(cell->bel);
-        Loc rel{cellLoc.x - baseLoc.x, cellLoc.y - baseLoc.y, cellLoc.z};
-        cell_rel.emplace_back(std::make_pair(cell, rel));
-        for (auto child : cell->constr_children)
-            discover_chain(baseLoc, child, cell_rel);
     }
 
     // Attempt to swap a chain with a non-chain
@@ -647,32 +639,23 @@ class SAPlacer
         if (ctx->debug)
             log_info("finding cells for chain swap %s\n", cell->name.c_str(ctx));
 #endif
-        Loc baseLoc = ctx->getBelLocation(cell->bel);
-        discover_chain(baseLoc, cell, cell_rel);
-        Loc newBaseLoc = ctx->getBelLocation(newBase);
-        NPNR_ASSERT(newBaseLoc.z == baseLoc.z);
-        for (const auto &cr : cell_rel)
-            cells.insert(cr.first->name);
+        if (!ctx->getClusterPlacement(cell->cluster, newBase, dest_bels))
+            return false;
 
-        for (const auto &cr : cell_rel) {
-            Loc targetLoc = {newBaseLoc.x + cr.second.x, newBaseLoc.y + cr.second.y, cr.second.z};
-            BelId targetBel = ctx->getBelByLocation(targetLoc);
-            if (targetBel == BelId())
-                return false;
-            if (!ctx->isValidBelForCellType(cell->type, targetBel))
-                return false;
-            CellInfo *bound = ctx->getBoundBelCell(targetBel);
+        for (const auto &db : dest_bels)
+            cells.insert(db.first->name);
+
+        for (const auto &db : dest_bels) {
+            CellInfo *bound = ctx->getBoundBelCell(db.second);
             // We don't consider swapping chains with other chains, at least for the time being - unless it is
             // part of this chain
             if (bound != nullptr && !cells.count(bound->name) &&
-                (bound->belStrength >= STRENGTH_STRONG || bound->isConstrained(false)))
+                (bound->belStrength >= STRENGTH_STRONG || bound->cluster != ClusterId()))
                 return false;
 
             if (bound != nullptr)
-                if (!ctx->isValidBelForCellType(bound->type, cr.first->bel))
+                if (!ctx->isValidBelForCellType(bound->type, db.first->bel))
                     return false;
-
-            dest_bels.emplace_back(std::make_pair(cr.first, targetBel));
         }
 #if 0
         if (ctx->debug)

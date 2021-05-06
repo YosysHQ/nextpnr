@@ -23,6 +23,7 @@
 
 #include <boost/functional/hash.hpp>
 
+#include "base_clusterinfo.h"
 #include "idstring.h"
 #include "nextpnr_namespaces.h"
 
@@ -148,7 +149,9 @@ struct ArchNetInfo
     bool is_global = false;
 };
 
-struct ArchCellInfo
+typedef IdString ClusterId;
+
+struct ArchCellInfo : BaseClusterInfo
 {
     struct
     {

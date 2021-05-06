@@ -165,15 +165,8 @@ struct CellInfo : ArchCellInfo
     BelId bel;
     PlaceStrength belStrength = STRENGTH_NONE;
 
-    // placement constraints
-    CellInfo *constr_parent = nullptr;
-    std::vector<CellInfo *> constr_children;
-    const int UNCONSTR = INT_MIN;
-    int constr_x = UNCONSTR;   // this.x - parent.x
-    int constr_y = UNCONSTR;   // this.y - parent.y
-    int constr_z = UNCONSTR;   // this.z - parent.z
-    bool constr_abs_z = false; // parent.z := 0
-    // parent.[xyz] := 0 when (constr_parent == nullptr)
+    // cell is part of a cluster if != ClusterId
+    ClusterId cluster;
 
     Region *region = nullptr;
 
@@ -185,14 +178,8 @@ struct CellInfo : ArchCellInfo
     void unsetParam(IdString name);
     void setAttr(IdString name, Property value);
     void unsetAttr(IdString name);
-
-    // return true if the cell has placement constraints (optionally excluding the case where the only case is an
-    // absolute z constraint)
-    bool isConstrained(bool include_abs_z_constr = true) const;
     // check whether a bel complies with the cell's region constraint
     bool testRegion(BelId bel) const;
-    // get the constrained location for this cell given a provisional location for its parent
-    Loc getConstrainedLoc(Loc parent_loc) const;
 };
 
 enum TimingPortClass

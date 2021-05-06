@@ -145,6 +145,10 @@ class HeAPPlacer
         Eigen::initParallel();
         tmg.setup_only = true;
         tmg.setup();
+
+        for (auto cell : sorted(ctx->cells))
+            if (cell.second->cluster != ClusterId())
+                cluster2cells[cell.second->cluster].push_back(cell.second);
     }
 
     bool place()
@@ -386,14 +390,8 @@ class HeAPPlacer
     // cells of a certain type)
     std::vector<CellInfo *> solve_cells;
 
-    // For cells in a chain, this is the ultimate root cell of the chain (sometimes this is not constr_parent
-    // where chains are within chains
-    std::unordered_map<IdString, CellInfo *> chain_root;
-    std::unordered_map<IdString, int> chain_size;
-
-    // The offset from chain_root to a cell in the chain
-    std::unordered_map<IdString, std::pair<int, int>> cell_offsets;
-
+    std::unordered_map<ClusterId, std::vector<CellInfo *>> cluster2cells;
+    std::unordered_map<ClusterId, int> chain_size;
     // Performance counting
     double solve_time = 0, cl_time = 0, sl_time = 0;
 
@@ -549,7 +547,7 @@ class HeAPPlacer
                 cell_locs[cell.first].y = loc.y;
                 cell_locs[cell.first].locked = true;
                 cell_locs[cell.first].global = ctx->getBelGlobalBuf(ci->bel);
-            } else if (ci->constr_parent == nullptr) {
+            } else if (ci->cluster == ClusterId() || ctx->getClusterRootCell(ci->cluster) == ci) {
                 bool placed = false;
                 int attempt_count = 0;
                 while (!placed) {
@@ -629,31 +627,10 @@ class HeAPPlacer
             solve_cells.push_back(cell);
         }
         // Finally, update the udata of children
-        for (auto chained : chain_root)
-            ctx->cells.at(chained.first)->udata = chained.second->udata;
+        for (auto &cluster : cluster2cells)
+            for (auto child : cluster.second)
+                child->udata = ctx->getClusterRootCell(cluster.first)->udata;
         return row;
-    }
-
-    // Update the location of all children of a chain
-    void update_chain(CellInfo *cell, CellInfo *root)
-    {
-        const auto &base = cell_locs[cell->name];
-        for (auto child : cell->constr_children) {
-            // FIXME: Improve handling of heterogeneous chains
-            if (child->type == root->type)
-                chain_size[root->name]++;
-            if (child->constr_x != child->UNCONSTR)
-                cell_locs[child->name].x = std::max(0, std::min(max_x, base.x + child->constr_x));
-            else
-                cell_locs[child->name].x = base.x; // better handling of UNCONSTR?
-            if (child->constr_y != child->UNCONSTR)
-                cell_locs[child->name].y = std::max(0, std::min(max_y, base.y + child->constr_y));
-            else
-                cell_locs[child->name].y = base.y; // better handling of UNCONSTR?
-            chain_root[child->name] = root;
-            if (!child->constr_children.empty())
-                update_chain(child, root);
-        }
     }
 
     // Update all chains
@@ -661,8 +638,16 @@ class HeAPPlacer
     {
         for (auto cell : place_cells) {
             chain_size[cell->name] = 1;
-            if (!cell->constr_children.empty())
-                update_chain(cell, cell);
+            if (cell->cluster != ClusterId()) {
+                const auto &base = cell_locs[cell->name];
+                for (auto child : cluster2cells.at(cell->cluster)) {
+                    if (child->type == cell->type && child != cell)
+                        chain_size[cell->name]++;
+                    Loc offset = ctx->getClusterOffset(child);
+                    cell_locs[child->name].x = std::max(0, std::min(max_x, base.x + offset.x));
+                    cell_locs[child->name].y = std::max(0, std::min(max_y, base.y + offset.y));
+                }
+            }
         }
     }
 
@@ -721,10 +706,9 @@ class HeAPPlacer
                 } else {
                     es.add_rhs(row, -v_pos * weight);
                 }
-                if (cell_offsets.count(var.cell->name)) {
-                    es.add_rhs(row, -(yaxis ? cell_offsets.at(var.cell->name).second
-                                            : cell_offsets.at(var.cell->name).first) *
-                                            weight);
+                if (var.cell->cluster != ClusterId()) {
+                    Loc offset = ctx->getClusterOffset(var.cell);
+                    es.add_rhs(row, -(yaxis ? offset.y : offset.x) * weight);
                 }
             };
 
@@ -827,8 +811,9 @@ class HeAPPlacer
         // Unbind all cells placed in this solution
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
-            if (ci->bel != BelId() && (ci->udata != dont_solve ||
-                                       (chain_root.count(ci->name) && chain_root.at(ci->name)->udata != dont_solve)))
+            if (ci->bel != BelId() &&
+                (ci->udata != dont_solve ||
+                 (ci->cluster != ClusterId() && ctx->getClusterRootCell(ci->cluster)->udata != dont_solve)))
                 ctx->unbindBel(ci->bel);
         }
 
@@ -955,7 +940,7 @@ class HeAPPlacer
                     break;
                 }
 
-                if (ci->constr_children.empty() && !ci->constr_abs_z) {
+                if (ci->cluster == ClusterId()) {
                     // The case where we have no relative constraints
                     for (auto sz : fb->at(nx).at(ny)) {
                         // Look through all bels in this tile; checking region constraint if applicable
@@ -967,7 +952,7 @@ class HeAPPlacer
                             CellInfo *bound = ctx->getBoundBelCell(sz);
                             if (bound != nullptr) {
                                 // Only rip up cells without constraints
-                                if (bound->isConstrained())
+                                if (bound->cluster != ClusterId())
                                     continue;
                                 ctx->unbindBel(bound->bel);
                             }
@@ -1019,45 +1004,23 @@ class HeAPPlacer
                 } else {
                     // We do have relative constraints
                     for (auto sz : fb->at(nx).at(ny)) {
-                        Loc loc = ctx->getBelLocation(sz);
-                        // Check that the absolute-z constraint is satisfied if applicable
-                        if (ci->constr_abs_z && loc.z != ci->constr_z)
-                            continue;
                         // List of cells and their destination
                         std::vector<std::pair<CellInfo *, BelId>> targets;
                         // List of bels we placed things at; and the cell that was there before if applicable
                         std::vector<std::pair<BelId, CellInfo *>> swaps_made;
-                        // List of (cell, new location) pairs to check
-                        std::queue<std::pair<CellInfo *, Loc>> visit;
-                        // FIXME: this approach of having a visit queue is designed to deal with recursively chained
-                        // cells. But is this a case we really want to care about given the complexity it adds? Start by
-                        // considering the root cell at the root location
-                        visit.emplace(ci, loc);
-                        while (!visit.empty()) {
-                            CellInfo *vc = visit.front().first;
-                            NPNR_ASSERT(vc->bel == BelId());
-                            Loc ploc = visit.front().second;
-                            visit.pop();
-                            // Get the bel we're going to place this cell at
-                            BelId target = ctx->getBelByLocation(ploc);
+
+                        if (!ctx->getClusterPlacement(ci->cluster, sz, targets))
+                            continue;
+
+                        for (auto &target : targets) {
                             // Check it satisfies the region constraint if applicable
-                            if (!vc->testRegion(target))
+                            if (!target.first->testRegion(target.second))
                                 goto fail;
-                            CellInfo *bound;
-                            // Check that the target bel exists and is of a suitable type
-                            if (target == BelId() || !ctx->isValidBelForCellType(vc->type, target))
-                                goto fail;
-                            bound = ctx->getBoundBelCell(target);
+                            CellInfo *bound = ctx->getBoundBelCell(target.second);
                             // Chains cannot overlap; so if we have to ripup a cell make sure it isn't part of a chain
                             if (bound != nullptr)
-                                if (bound->isConstrained() || bound->belStrength > STRENGTH_WEAK)
+                                if (bound->cluster != ClusterId() || bound->belStrength > STRENGTH_WEAK)
                                     goto fail;
-                            targets.emplace_back(vc, target);
-                            for (auto child : vc->constr_children) {
-                                // For all the constrained children; compute the location we need to place them at and
-                                // add them to the queue
-                                visit.emplace(child, child->getConstrainedLoc(ploc));
-                            }
                         }
                         // Actually perform the move; keeping track of the moves we make so we can revert them if needed
                         for (auto &target : targets) {
@@ -1307,10 +1270,8 @@ class HeAPPlacer
                 occupancy.at(cell_loc.second.x).at(cell_loc.second.y).at(cell_index(cell))++;
 
                 // Compute ultimate extent of each chain root
-                if (p->chain_root.count(cell_name)) {
-                    set_chain_ext(p->chain_root.at(cell_name)->name, loc.x, loc.y);
-                } else if (!ctx->cells.at(cell_name)->constr_children.empty()) {
-                    set_chain_ext(cell_name, loc.x, loc.y);
+                if (cell.cluster != ClusterId()) {
+                    set_chain_ext(ctx->getClusterRootCell(cell.cluster)->name, loc.x, loc.y);
                 }
             }
 
@@ -1328,10 +1289,8 @@ class HeAPPlacer
 
                 // Transfer chain extents to the actual chains structure
                 ChainExtent *ce = nullptr;
-                if (p->chain_root.count(cell_name)) {
-                    ce = &(cell_extents.at(p->chain_root.at(cell_name)->name));
-                } else if (!ctx->cells.at(cell_name)->constr_children.empty()) {
-                    ce = &(cell_extents.at(cell_name));
+                if (cell.cluster != ClusterId()) {
+                    ce = &(cell_extents.at(ctx->getClusterRootCell(cell.cluster)->name));
                 }
 
                 if (ce) {
