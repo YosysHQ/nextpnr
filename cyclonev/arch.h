@@ -44,8 +44,6 @@ struct ALMInfo
     std::array<BelId, 2> lut_bels;
     std::array<BelId, 4> ff_bels;
     // TODO: ALM configuration (L5/L6 mode, LUT input permutation, etc)
-    // So we only validity-check changed parts
-    bool valid = false, dirty = false;
 };
 
 struct LABInfo
@@ -56,9 +54,6 @@ struct LABInfo
     std::array<WireId, 2> aclr_wires;
     WireId sclr_wire, sload_wire;
     // TODO: LAB configuration (control set etc)
-
-    // These apply to the validity-checking status of the shared FF control sets
-    bool ctrl_valid = false, ctrl_dirty = false;
 };
 
 struct PinInfo
@@ -278,6 +273,8 @@ struct Arch : BaseArch<ArchRanges>
     PortType getBelPinType(BelId bel, IdString pin) const override { return bel_data(bel).pins.at(pin).dir; }
     std::vector<IdString> getBelPins(BelId bel) const override;
 
+    bool isBelLocationValid(BelId bel) const override;
+
     // -------------------------------------------------
 
     WireId getWireByName(IdStringList name) const override;
@@ -341,8 +338,8 @@ struct Arch : BaseArch<ArchRanges>
         return WireId(cyclonev->pnode_to_rnode(CycloneV::pnode(bt, x, y, port, bi, pi)));
     }
 
-    void create_lab(int x, int y); // lab.cc
-    void create_gpio(int x, int y);
+    void create_lab(int x, int y);  // lab.cc
+    void create_gpio(int x, int y); // io.cc
 
     // -------------------------------------------------
 
@@ -352,6 +349,10 @@ struct Arch : BaseArch<ArchRanges>
 
     void assign_comb_info(CellInfo *cell) const; // lab.cc
     void assign_ff_info(CellInfo *cell) const;   // lab.cc
+
+    // -------------------------------------------------
+
+    bool is_io_cell(IdString cell_type) const; // io.cc
 
     // -------------------------------------------------
 

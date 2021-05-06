@@ -377,4 +377,10 @@ bool Arch::is_alm_legal(uint32_t lab, uint8_t alm) const
     return true;
 }
 
+bool Arch::is_lab_ctrlset_legal(uint32_t lab) const
+{
+    // TODO
+    return true;
+}
+
 NEXTPNR_NAMESPACE_END

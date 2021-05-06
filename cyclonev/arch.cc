@@ -67,8 +67,7 @@ Arch::Arch(ArchArgs args)
                     create_lab(x, y);
                     break;
                 case CycloneV::block_type_t::GPIO:
-                    // GPIO tiles contain 4 pins
-                    // TODO
+                    create_gpio(x, y);
                     break;
                 default:
                     continue;
@@ -135,6 +134,18 @@ IdStringList Arch::getBelName(BelId bel) const
     };
 
     return IdStringList(ids);
+}
+
+bool Arch::isBelLocationValid(BelId bel) const
+{
+    auto &data = bel_data(bel);
+    // Incremental validity update
+    if (data.type == id_MISTRAL_COMB) {
+        return is_alm_legal(data.lab_data.lab, data.lab_data.alm);
+    } else if (data.type == id_MISTRAL_FF) {
+        return is_alm_legal(data.lab_data.lab, data.lab_data.alm) && is_lab_ctrlset_legal(data.lab_data.lab);
+    }
+    return true;
 }
 
 WireId Arch::getWireByName(IdStringList name) const
@@ -217,6 +228,8 @@ bool Arch::isValidBelForCellType(IdString cell_type, BelId bel) const
     IdString bel_type = getBelType(bel);
     if (bel_type == id_MISTRAL_COMB)
         return is_comb_cell(cell_type);
+    else if (bel_type == id_MISTRAL_IO)
+        return is_io_cell(cell_type);
     else
         return bel_type == cell_type;
 }
@@ -225,6 +238,8 @@ BelBucketId Arch::getBelBucketForCellType(IdString cell_type) const
 {
     if (is_comb_cell(cell_type))
         return id_MISTRAL_COMB;
+    else if (is_io_cell(cell_type))
+        return id_MISTRAL_IO;
     else
         return cell_type;
 }
