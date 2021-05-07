@@ -533,6 +533,9 @@ struct Arch : ArchAPI<ArchRanges>
         return range;
     }
 
+    bool is_site_wire(WireId wire) const;
+    WireCategory get_wire_category(WireId wire) const;
+
     // -------------------------------------------------
 
     PipId getPipByName(IdStringList name) const final;
@@ -686,6 +689,11 @@ struct Arch : ArchAPI<ArchRanges>
                       std::unordered_set<CellInfo *> *placed_cells);
     void pack_ports();
     void decode_lut_cells();
+
+    const GlobalCellPOD *global_cell_info(IdString cell_type) const;
+    void place_globals();
+    void route_globals();
+
     bool pack() final;
     bool place() final;
     bool route() final;

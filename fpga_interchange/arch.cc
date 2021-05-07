@@ -479,6 +479,32 @@ IdString Arch::getWireType(WireId wire) const
     return IdString(chip_info->wire_types[wire_type].name);
 }
 
+bool Arch::is_site_wire(WireId wire) const
+{
+    if (wire.tile == -1)
+        return false;
+    const auto &tile_type = loc_info(chip_info, wire);
+    return tile_type.wire_data[wire.index].site != -1;
+}
+
+WireCategory Arch::get_wire_category(WireId wire) const
+{
+    int tile = wire.tile, index = wire.index;
+    if (tile == -1) {
+        // Nodal wire
+        const TileWireRefPOD &wr = chip_info->nodes[wire.index].tile_wires[0];
+        tile = wr.tile;
+        index = wr.index;
+    }
+    auto &w2t = chip_info->tiles[tile].tile_wire_to_type;
+    if (index >= w2t.ssize())
+        return WIRE_CAT_GENERAL;
+    int wire_type = w2t[index];
+    if (wire_type == -1)
+        return WIRE_CAT_GENERAL;
+    return WireCategory(chip_info->wire_types[wire_type].category);
+}
+
 std::vector<std::pair<IdString, std::string>> Arch::getWireAttrs(WireId wire) const { return {}; }
 
 // -----------------------------------------------------------------------
@@ -773,6 +799,8 @@ bool Arch::place()
     getCtx()->check();
 #endif
 
+    place_globals();
+
     std::string placer = str_or_default(settings, id("placer"), defaultPlacer);
     if (placer == "heap") {
         PlacerHeapCfg cfg(getCtx());
@@ -894,6 +922,8 @@ bool Arch::route()
     // It is not legal in the FPGA interchange to enter a site and not
     // terminate at a BEL pin.
     disallow_site_routing = true;
+
+    route_globals();
 
     bool result;
     if (router == "router1") {

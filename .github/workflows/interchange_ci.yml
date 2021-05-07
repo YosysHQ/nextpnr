@@ -108,7 +108,7 @@ jobs:
       env:
         RAPIDWRIGHT_PATH: ${{ github.workspace }}/RapidWright
         PYTHON_INTERCHANGE_PATH: ${{ github.workspace }}/python-fpga-interchange
-        PYTHON_INTERCHANGE_TAG: v0.0.11
+        PYTHON_INTERCHANGE_TAG: v0.0.12
         PRJOXIDE_REVISION: b5d88c3491770559c3c10cccb1651db65ab061b1
         DEVICE: ${{ matrix.device }}
       run: |
