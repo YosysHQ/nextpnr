@@ -393,6 +393,11 @@ struct Arch : BaseArch<ArchRanges>
 
     BelInfo &bel_data(BelId bel) { return bels_by_tile.at(pos2idx(bel.pos)).at(bel.z); }
     const BelInfo &bel_data(BelId bel) const { return bels_by_tile.at(pos2idx(bel.pos)).at(bel.z); }
+
+    // -------------------------------------------------
+
+    void assign_default_pinmap(CellInfo *cell);
+    static const std::unordered_map<IdString, IdString> comb_pinmap;
 };
 
 NEXTPNR_NAMESPACE_END

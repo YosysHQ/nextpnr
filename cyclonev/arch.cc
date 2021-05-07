@@ -308,6 +308,19 @@ void Arch::add_bel_pin(BelId bel, IdString pin, PortType dir, WireId wire)
     wires[wire].bel_pins.push_back(bel_pin);
 }
 
+void Arch::assign_default_pinmap(CellInfo *cell)
+{
+    for (auto &port : cell->ports) {
+        auto &pinmap = cell->pin_data[port.first].bel_pins;
+        if (!pinmap.empty())
+            continue; // already mapped
+        if (is_comb_cell(cell->type) && comb_pinmap.count(port.first))
+            pinmap.push_back(comb_pinmap.at(port.first)); // default comb mapping for placer purposes
+        else
+            pinmap.push_back(port.first); // default: assume bel pin named the same as cell pin
+    }
+}
+
 #ifdef WITH_HEAP
 const std::string Arch::defaultPlacer = "heap";
 #else

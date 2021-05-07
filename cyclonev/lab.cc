@@ -195,7 +195,7 @@ ControlSig get_ctrlsig(const CellInfo *cell, IdString port)
     ControlSig result;
     result.net = get_net_or_empty(cell, port);
     if (cell->pin_data.count(port))
-        result.inverted = cell->pin_data.at(port).inverted;
+        result.inverted = cell->pin_data.at(port).state == PIN_INV;
     else
         result.inverted = false;
     return result;
@@ -259,7 +259,8 @@ void Arch::assign_comb_info(CellInfo *cell) const
             ++cell->combInfo.lut_input_count;
             cell->combInfo.lut_in[1] = get_net_or_empty(cell, id_B);
             [[fallthrough]];
-        case ID_MISTRAL_NOT:
+        case ID_MISTRAL_BUF: // used to route through to FFs etc
+        case ID_MISTRAL_NOT: // used for inverters that map to LUTs
             ++cell->combInfo.lut_input_count;
             cell->combInfo.lut_in[0] = get_net_or_empty(cell, id_A);
             [[fallthrough]];
@@ -272,6 +273,10 @@ void Arch::assign_comb_info(CellInfo *cell) const
         // Note that this relationship won't hold for extended mode, when that is supported
         cell->combInfo.lut_bits_count = (1 << cell->combInfo.lut_input_count);
     }
+    cell->combInfo.used_lut_input_count = 0;
+    for (int i = 0; i < cell->combInfo.lut_input_count; i++)
+        if (cell->combInfo.lut_in[i])
+            ++cell->combInfo.used_lut_input_count;
 }
 
 void Arch::assign_ff_info(CellInfo *cell) const
@@ -336,9 +341,9 @@ bool Arch::is_alm_legal(uint32_t lab, uint8_t alm) const
         // There are two ways to route from the fabric into FF data - either routing through a LUT or using the E/F
         // signals and SLOAD=1 (*PKREF*)
         bool route_thru_lut_avail = !luts[i] && (total_lut_inputs < 8) && (used_lut_bits < 64);
-        // E/F is available if the LUT is using less than 6 inputs - TODO: is this correct considering all possible LUT
-        // sharing
-        bool ef_available = (!luts[i] || luts[i]->combInfo.lut_input_count < 6);
+        // E/F is available if this LUT is using 3 or fewer inputs - this is conservative and sharing can probably
+        // improve this situation
+        bool ef_available = (!luts[i] || luts[i]->combInfo.used_lut_input_count <= 3);
         // Control set checking
         bool found_ff = false;
 
@@ -382,5 +387,13 @@ bool Arch::is_lab_ctrlset_legal(uint32_t lab) const
     // TODO
     return true;
 }
+
+// This default cell-bel pin mapping is used to provide estimates during placement only. It will have errors and
+// overlaps and a correct mapping will be resolved twixt placement and routing
+const std::unordered_map<IdString, IdString> Arch::comb_pinmap = {
+        {id_A, id_F0}, // fastest input first
+        {id_B, id_E0}, {id_C, id_D}, {id_D, id_C},       {id_D0, id_C},       {id_D1, id_B},
+        {id_E, id_B},  {id_F, id_A}, {id_Q, id_COMBOUT}, {id_SO, id_COMBOUT},
+};
 
 NEXTPNR_NAMESPACE_END

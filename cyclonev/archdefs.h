@@ -124,10 +124,19 @@ struct ArchNetInfo
 {
 };
 
+enum CellPinState
+{
+    PIN_SIG = 0,
+    PIN_0 = 1,
+    PIN_1 = 2,
+    PIN_INV = 3,
+};
+
 struct ArchPinInfo
 {
-    // An inverter (INV) has been pushed onto this signal
-    bool inverted;
+    // Used to represent signals that are either tied to implicit constants (rather than explicitly routed constants);
+    // or are inverted
+    CellPinState state = PIN_SIG;
     // The physical bel pins that this logical pin maps to
     std::vector<IdString> bel_pins;
 };
@@ -167,6 +176,7 @@ struct ArchCellInfo
             const NetInfo *comb_out;
 
             int lut_input_count;
+            int used_lut_input_count; // excluding those null/constant
             int lut_bits_count;
 
             bool is_carry, is_shared, is_extended;
