@@ -17,6 +17,7 @@
  *
  */
 
+#include "design_utils.h"
 #include "log.h"
 #include "nextpnr.h"
 #include "util.h"
@@ -382,14 +383,100 @@ bool Arch::is_alm_legal(uint32_t lab, uint8_t alm) const
     return true;
 }
 
+namespace {
+bool check_assign_sig(ControlSig &sig_set, const ControlSig &sig)
+{
+    if (sig.net == nullptr) {
+        return true;
+    } else if (sig_set == sig) {
+        return true;
+    } else if (sig_set.net == nullptr) {
+        sig_set = sig;
+        return true;
+    } else {
+        return false;
+    }
+};
+
+template <size_t N> bool check_assign_sig(std::array<ControlSig, N> &sig_set, const ControlSig &sig)
+{
+    if (sig.net == nullptr)
+        return true;
+    for (size_t i = 0; i < N; i++)
+        if (sig_set[i] == sig) {
+            return true;
+        } else if (sig_set[i].net == nullptr) {
+            sig_set[i] = sig;
+            return true;
+        }
+    return false;
+};
+}; // namespace
+
 bool Arch::is_lab_ctrlset_legal(uint32_t lab) const
 {
-    // TODO
+    // Strictly speaking the constraint is up to 2 unique CLK and 3 CLK+ENA pairs. For now we simplify this to 1 CLK and
+    // 3 ENA though.
+    ControlSig clk, sload, sclr;
+    std::array<ControlSig, 2> aclr{};
+    std::array<ControlSig, 3> ena{};
+
+    for (uint8_t alm = 0; alm < 10; alm++) {
+        for (uint8_t i = 0; i < 4; i++) {
+            const CellInfo *ff = getBoundBelCell(labs.at(lab).alms.at(alm).ff_bels.at(i));
+            if (ff == nullptr)
+                continue;
+
+            if (!check_assign_sig(clk, ff->ffInfo.ctrlset.clk))
+                return false;
+            if (!check_assign_sig(sload, ff->ffInfo.ctrlset.sload))
+                return false;
+            if (!check_assign_sig(sclr, ff->ffInfo.ctrlset.sclr))
+                return false;
+            if (!check_assign_sig(aclr, ff->ffInfo.ctrlset.aclr))
+                return false;
+            if (!check_assign_sig(ena, ff->ffInfo.ctrlset.ena))
+                return false;
+        }
+    }
+
+    // Check for overuse of the shared, LAB-wide datain signals
+    std::array<ControlSig, 4> datain{};
+    if (clk.net != nullptr && !clk.net->is_global)
+        if (!check_assign_sig(datain[0], clk)) // CLK only needs DATAIN[0] if it's not global
+            return false;
+    if (!check_assign_sig(datain[1], sload))
+        return false;
+    if (!check_assign_sig(datain[3], sclr))
+        return false;
+    for (const auto &aclr_sig : aclr) {
+        // Check both possibilities that ACLR can map to
+        // TODO: ACLR could be global, too
+        if (check_assign_sig(datain[3], aclr_sig))
+            continue;
+        if (check_assign_sig(datain[2], aclr_sig))
+            continue;
+        // Failed to find any free ACLR-capable DATAIN
+        return false;
+    }
+    for (const auto &ena_sig : ena) {
+        // Check all 3 possibilities that ACLR can map to
+        // TODO: ACLR could be global, too
+        if (check_assign_sig(datain[2], ena_sig))
+            continue;
+        if (check_assign_sig(datain[3], ena_sig))
+            continue;
+        if (check_assign_sig(datain[0], ena_sig))
+            continue;
+        // Failed to find any free ENA-capable DATAIN
+        return false;
+    }
     return true;
 }
 
 void Arch::lab_pre_route()
 {
+    log_info("Preparing LABs for routing...\n");
     for (uint32_t lab = 0; lab < labs.size(); lab++) {
         assign_control_sets(lab);
         for (uint8_t alm = 0; alm < 10; alm++) {
@@ -521,6 +608,34 @@ void Arch::reassign_alm_inputs(uint32_t lab, uint8_t alm)
                         b_avail = false;
                 }
             }
+        }
+    }
+
+    // FF route-through insertion
+    for (int i = 0; i < 2; i++) {
+        // FF route-through will never be inserted if LUT is used
+        if (luts[i])
+            continue;
+        for (int j = 0; j < 2; j++) {
+            CellInfo *ff = ffs[i * 2 + j];
+            if (!ff || !ff->ffInfo.datain)
+                continue;
+            CellInfo *rt_lut = createCell(id(stringf("%s$ROUTETHRU", nameOf(ff))), id_MISTRAL_BUF);
+            rt_lut->addInput(id_A);
+            rt_lut->addOutput(id_Q);
+            // Disconnect the original data input to the FF, and connect it to the route-thru LUT instead
+            NetInfo *datain = get_net_or_empty(ff, id_DATAIN);
+            disconnect_port(getCtx(), ff, id_DATAIN);
+            connect_port(getCtx(), datain, rt_lut, id_A);
+            connect_ports(getCtx(), rt_lut, id_Q, ff, id_DATAIN);
+            // Assign route-thru LUT physical ports, input goes to the first half-specific input
+            NPNR_ASSERT(!alm_data.l6_mode);
+            rt_lut->pin_data[id_A].bel_pins.push_back(i ? id_D : id_C);
+            rt_lut->pin_data[id_Q].bel_pins.push_back(id_COMBOUT);
+            assign_comb_info(rt_lut);
+            // Place the route-thru LUT at the relevant combinational bel
+            bindBel(alm_data.lut_bels[i], rt_lut, STRENGTH_STRONG);
+            break;
         }
     }
 

@@ -124,6 +124,7 @@ typedef IdString ClusterId;
 
 struct ArchNetInfo
 {
+    bool is_global = false;
 };
 
 enum CellPinState
