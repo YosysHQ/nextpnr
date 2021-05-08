@@ -22,6 +22,7 @@
 
 #include <boost/functional/hash.hpp>
 
+#include "base_clusterinfo.h"
 #include "cyclonev.h"
 
 #include "idstring.h"
@@ -119,6 +120,7 @@ struct PipId
 typedef IdString DecalId;
 typedef IdString GroupId;
 typedef IdString BelBucketId;
+typedef IdString ClusterId;
 
 struct ArchNetInfo
 {
@@ -165,7 +167,7 @@ struct FFControlSet
     bool operator!=(const FFControlSet &other) const { return !(*this == other); }
 };
 
-struct ArchCellInfo
+struct ArchCellInfo : BaseClusterInfo
 {
     union
     {
