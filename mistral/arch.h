@@ -43,7 +43,8 @@ struct ALMInfo
     // Pointers to bels
     std::array<BelId, 2> lut_bels;
     std::array<BelId, 4> ff_bels;
-    // TODO: ALM configuration (L5/L6 mode, LUT input permutation, etc)
+
+    bool l6_mode = false;
 };
 
 struct LABInfo

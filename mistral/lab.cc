@@ -405,14 +405,129 @@ void Arch::assign_control_sets(uint32_t lab)
     // e.g. CLK0 & ENA0 must be use for one control set, and CLK1 & ENA1 for another, they can't be mixed and matched
 }
 
+namespace {
+// Gets the name of logical LUT pin i for a given cell
+static IdString get_lut_pin(CellInfo *cell, int i)
+{
+    const std::array<IdString, 6> log_pins{id_A, id_B, id_C, id_D, id_E, id_F};
+    const std::array<IdString, 5> log_pins_arith{id_A, id_B, id_C, id_D0, id_D1};
+    return (cell->type == id_MISTRAL_ALUT_ARITH) ? log_pins_arith.at(i) : log_pins.at(i);
+}
+
+static void assign_lut6_inputs(CellInfo *cell, int lut)
+{
+    std::array<IdString, 6> phys_pins{id_A, id_B, id_C, id_D, (lut == 1) ? id_E1 : id_E0, (lut == 1) ? id_F1 : id_F0};
+    int phys_idx = 0;
+    for (int i = 0; i < 6; i++) {
+        IdString log = get_lut_pin(cell, i);
+        if (!cell->ports.count(log) || cell->ports.at(log).net == nullptr)
+            continue;
+        cell->pin_data[log].bel_pins.clear();
+        cell->pin_data[log].bel_pins.push_back(phys_pins.at(++phys_idx));
+    }
+}
+} // namespace
+
 void Arch::reassign_alm_inputs(uint32_t lab, uint8_t alm)
 {
-    // TODO: based on the usage of LUTs inside the ALM, set up cell-bel pin map for the combinational cells in the ALM
+    // Based on the usage of LUTs inside the ALM, set up cell-bel pin map for the combinational cells in the ALM
     // so that each physical bel pin is only used for one net; and the logical functions can be implemented correctly.
     // This function should also insert route-through LUTs to legalise flipflop inputs as needed.
+    auto &alm_data = labs.at(lab).alms.at(alm);
+    alm_data.l6_mode = false;
+    std::array<CellInfo *, 2> luts{getBoundBelCell(alm_data.lut_bels[0]), getBoundBelCell(alm_data.lut_bels[1])};
+    std::array<CellInfo *, 4> ffs{getBoundBelCell(alm_data.ff_bels[0]), getBoundBelCell(alm_data.ff_bels[1]),
+                                  getBoundBelCell(alm_data.ff_bels[2]), getBoundBelCell(alm_data.ff_bels[3])};
+
+    for (int i = 0; i < 2; i++) {
+        // Currently we treat LUT6s as a special case, as they never share inputs
+        if (luts[i] != nullptr && luts[i]->type == id_MISTRAL_ALUT6) {
+            alm_data.l6_mode = true;
+            NPNR_ASSERT(luts[1 - i] == nullptr); // only allow one LUT6 per ALM and no other LUTs
+            assign_lut6_inputs(luts[i], i);
+        }
+    }
+
+    if (!alm_data.l6_mode) {
+        // In L5 mode; which is what we use in this case
+        //  - A and B are shared
+        //  - C, E0, and F0 are exclusive to the top LUT5 secion
+        //  - D, E1, and F1 are exclusive to the bottom LUT5 section
+        // First find up to two shared inputs
+        std::unordered_map<IdString, int> shared_nets;
+        if (luts[0] && luts[1]) {
+            for (int i = 0; i < luts[0]->combInfo.lut_input_count; i++) {
+                for (int j = 0; j < luts[1]->combInfo.lut_input_count; j++) {
+                    if (luts[0]->combInfo.lut_in[i] == nullptr)
+                        continue;
+                    if (luts[0]->combInfo.lut_in[i] != luts[1]->combInfo.lut_in[j])
+                        continue;
+                    IdString net = luts[0]->combInfo.lut_in[i]->name;
+                    if (shared_nets.count(net))
+                        continue;
+                    int idx = int(shared_nets.size());
+                    shared_nets[net] = idx;
+                    if (shared_nets.size() >= 2)
+                        goto shared_search_done;
+                }
+            }
+        shared_search_done:;
+        }
+        // A and B can be used for half-specific nets if not assigned to shared nets
+        bool a_avail = shared_nets.size() == 0, b_avail = shared_nets.size() <= 1;
+        // Do the actual port assignment
+        for (int i = 0; i < 2; i++) {
+            if (!luts[i])
+                continue;
+            // Work out which physical ports are available
+            std::vector<IdString> avail_phys_ports;
+            avail_phys_ports.push_back((i == 1) ? id_D : id_C);
+            if (b_avail)
+                avail_phys_ports.push_back(id_B);
+            if (a_avail)
+                avail_phys_ports.push_back(id_A);
+            // In arithmetic mode, Ei can only be used for D0 and Fi can only be used for D1
+            if (!luts[i]->combInfo.is_carry) {
+                avail_phys_ports.push_back((i == 1) ? id_E1 : id_E0);
+                avail_phys_ports.push_back((i == 1) ? id_F1 : id_F0);
+            }
+            int phys_idx = 0;
+
+            for (int j = 0; j < luts[i]->combInfo.lut_input_count; j++) {
+                IdString log = get_lut_pin(luts[i], j);
+                auto &bel_pins = luts[i]->pin_data[log].bel_pins;
+                bel_pins.clear();
+
+                NetInfo *net = get_net_or_empty(luts[i], log);
+                if (net == nullptr) {
+                    // Disconnected inputs don't need to be allocated a pin, because the router won't be routing these
+                    continue;
+                } else if (shared_nets.count(net->name)) {
+                    // This pin is to be allocated one of the shared nets
+                    bel_pins.push_back(shared_nets.at(net->name) ? id_B : id_A);
+                } else if (log == id_D0) {
+                    // Arithmetic
+                    bel_pins.push_back((i == 1) ? id_E1 : id_E0); // reserved
+                } else if (log == id_D1) {
+                    bel_pins.push_back((i == 1) ? id_F1 : id_F0); // reserved
+                } else {
+                    // Allocate from the general pool of available physical pins
+                    IdString phys = avail_phys_ports.at(phys_idx++);
+                    bel_pins.push_back(phys);
+                    // Mark A/B unavailable for the other LUT, if needed
+                    if (phys == id_A)
+                        a_avail = false;
+                    else if (phys == id_B)
+                        b_avail = false;
+                }
+            }
+        }
+    }
+
     // TODO: in the future, as well as the reassignment here we will also have pseudo PIPs in front of the ALM so that
     // the router can permute LUTs for routeability; too. Here we will need to lock out some of those PIPs depending on
     // the usage of the ALM, as not all inputs are always interchangeable.
+    // Get cells into an array for fast access
 }
 
 // This default cell-bel pin mapping is used to provide estimates during placement only. It will have errors and
