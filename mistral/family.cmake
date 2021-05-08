@@ -1,7 +1,7 @@
 set(MISTRAL_ROOT "" CACHE STRING "Mistral install path")
 
-aux_source_directory(${MISTRAL_ROOT}/lib MISTRAL_FILES)
-add_library(mistral STATIC ${MISTRAL_FILES})
+aux_source_directory(${MISTRAL_ROOT}/lib MISTRAL_LIB_FILES)
+add_library(mistral STATIC ${MISTRAL_LIB_FILES})
 
 find_package(LibLZMA REQUIRED)
 
