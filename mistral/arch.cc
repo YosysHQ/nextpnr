@@ -21,6 +21,13 @@
 #include "log.h"
 #include "nextpnr.h"
 
+#include "placer1.h"
+#include "placer_heap.h"
+#include "router1.h"
+#include "router2.h"
+#include "timing.h"
+#include "util.h"
+
 #include "cyclonev.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -244,10 +251,6 @@ BelBucketId Arch::getBelBucketForCellType(IdString cell_type) const
         return cell_type;
 }
 
-bool Arch::pack() { return true; }
-bool Arch::place() { return true; }
-bool Arch::route() { return true; }
-
 BelId Arch::add_bel(int x, int y, IdString name, IdString type)
 {
     auto &bels = bels_by_tile.at(pos2idx(x, y));
@@ -319,6 +322,68 @@ void Arch::assign_default_pinmap(CellInfo *cell)
         else
             pinmap.push_back(port.first); // default: assume bel pin named the same as cell pin
     }
+}
+
+void Arch::assignArchInfo()
+{
+    for (auto cell : sorted(cells)) {
+        CellInfo *ci = cell.second;
+        if (is_comb_cell(ci->type))
+            assign_comb_info(ci);
+        else if (ci->type == id_MISTRAL_FF)
+            assign_ff_info(ci);
+        assign_default_pinmap(ci);
+    }
+}
+
+bool Arch::place()
+{
+    std::string placer = str_or_default(settings, id("placer"), defaultPlacer);
+
+    if (placer == "heap") {
+        PlacerHeapCfg cfg(getCtx());
+        cfg.ioBufTypes.insert(id_MISTRAL_IO);
+        cfg.ioBufTypes.insert(id_MISTRAL_IB);
+        cfg.ioBufTypes.insert(id_MISTRAL_OB);
+        cfg.cellGroups.emplace_back();
+        cfg.cellGroups.back().insert({id_MISTRAL_COMB});
+        cfg.cellGroups.back().insert({id_MISTRAL_FF});
+
+        cfg.beta = 0.5; // TODO: find a good value of beta for sensible ALM spreading
+        cfg.criticalityExponent = 7;
+        if (!placer_heap(getCtx(), cfg))
+            return false;
+    } else if (placer == "sa") {
+        if (!placer1(getCtx(), Placer1Cfg(getCtx())))
+            return false;
+    } else {
+        log_error("Mistral architecture does not support placer '%s'\n", placer.c_str());
+    }
+
+    getCtx()->attrs[getCtx()->id("step")] = std::string("place");
+    archInfoToAttributes();
+    return true;
+}
+
+bool Arch::route()
+{
+    assign_budget(getCtx(), true);
+
+    lab_pre_route();
+
+    std::string router = str_or_default(settings, id("router"), defaultRouter);
+    bool result;
+    if (router == "router1") {
+        result = router1(getCtx(), Router1Cfg(getCtx()));
+    } else if (router == "router2") {
+        router2(getCtx(), Router2Cfg(getCtx()));
+        result = true;
+    } else {
+        log_error("Mistral architecture does not support router '%s'\n", router.c_str());
+    }
+    getCtx()->attrs[getCtx()->id("step")] = std::string("route");
+    archInfoToAttributes();
+    return result;
 }
 
 #ifdef WITH_HEAP

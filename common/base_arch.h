@@ -75,7 +75,7 @@ typename std::enable_if<std::is_same<Tret, Tc>::value, Tret>::type return_if_mat
 }
 
 template <typename Tret, typename Tc>
-typename std::enable_if<!std::is_same<Tret, Tc>::value, Tret>::type return_if_match(Tret r)
+typename std::enable_if<!std::is_same<Tret, Tc>::value, Tc>::type return_if_match(Tret r)
 {
     NPNR_ASSERT_FALSE("default implementations of cell type and bel bucket range functions only available when the "
                       "respective range types are 'const std::vector&'");

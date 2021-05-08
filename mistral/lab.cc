@@ -388,6 +388,33 @@ bool Arch::is_lab_ctrlset_legal(uint32_t lab) const
     return true;
 }
 
+void Arch::lab_pre_route()
+{
+    for (uint32_t lab = 0; lab < labs.size(); lab++) {
+        assign_control_sets(lab);
+        for (uint8_t alm = 0; alm < 10; alm++) {
+            reassign_alm_inputs(lab, alm);
+        }
+    }
+}
+
+void Arch::assign_control_sets(uint32_t lab)
+{
+    // TODO: set up reservations for checkPipAvailForNet for control set signals
+    // This will be needed because clock and CE are routed together and must be kept together, there isn't free choice
+    // e.g. CLK0 & ENA0 must be use for one control set, and CLK1 & ENA1 for another, they can't be mixed and matched
+}
+
+void Arch::reassign_alm_inputs(uint32_t lab, uint8_t alm)
+{
+    // TODO: based on the usage of LUTs inside the ALM, set up cell-bel pin map for the combinational cells in the ALM
+    // so that each physical bel pin is only used for one net; and the logical functions can be implemented correctly.
+    // This function should also insert route-through LUTs to legalise flipflop inputs as needed.
+    // TODO: in the future, as well as the reassignment here we will also have pseudo PIPs in front of the ALM so that
+    // the router can permute LUTs for routeability; too. Here we will need to lock out some of those PIPs depending on
+    // the usage of the ALM, as not all inputs are always interchangeable.
+}
+
 // This default cell-bel pin mapping is used to provide estimates during placement only. It will have errors and
 // overlaps and a correct mapping will be resolved twixt placement and routing
 const std::unordered_map<IdString, IdString> Arch::comb_pinmap = {

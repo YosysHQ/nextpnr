@@ -214,6 +214,7 @@ struct ArchRanges : BaseArchRanges
     using AllBelsRangeT = const std::vector<BelId> &;
     using TileBelsRangeT = std::vector<BelId>;
     using BelPinsRangeT = std::vector<IdString>;
+    using CellBelPinRangeT = const std::vector<IdString> &;
     // Wires
     using AllWiresRangeT = AllWireRange;
     using DownhillPipRangeT = UpDownhillPipRange;
@@ -315,11 +316,17 @@ struct Arch : BaseArch<ArchRanges>
 
     // -------------------------------------------------
 
+    const std::vector<IdString> &getBelPinsForCellPin(const CellInfo *cell_info, IdString pin) const override
+    {
+        return cell_info->pin_data.at(pin).bel_pins;
+    }
+
     bool isValidBelForCellType(IdString cell_type, BelId bel) const override;
     BelBucketId getBelBucketForCellType(IdString cell_type) const override;
 
     // -------------------------------------------------
 
+    void assignArchInfo() override;
     bool pack() override;
     bool place() override;
     bool route() override;
@@ -349,6 +356,10 @@ struct Arch : BaseArch<ArchRanges>
 
     void assign_comb_info(CellInfo *cell) const; // lab.cc
     void assign_ff_info(CellInfo *cell) const;   // lab.cc
+
+    void lab_pre_route();                                // lab.cc
+    void assign_control_sets(uint32_t lab);              // lab.cc
+    void reassign_alm_inputs(uint32_t lab, uint8_t alm); // lab.cc
 
     // -------------------------------------------------
 
