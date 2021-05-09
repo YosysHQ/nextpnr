@@ -258,8 +258,14 @@ enum CellPinStyle
 
     PINSTYLE_COMB = 0x017, // combinational signal, defaults low, can be inverted and tied
     PINSTYLE_CLK = 0x107,  // CLK type signal, invertible and defaults to disconnected
-    PINSTYLE_CE = 0x027,   // CE type signal, invertible and defaults to enabled
-    PINSTYLE_RST = 0x017,  // RST type signal, invertible and defaults to not reset
+
+    // Technically speaking CE and RSTs should be invertible, too. But we don't use this currently due to the possible
+    // need to route one CE to two different LAB wires if both inverted and non-inverted variants are used in the same
+    // LAB This should be acheiveable by prerouting the LAB wiring inside assign_control_sets, but let's pass on this
+    // for a first attempt.
+
+    PINSTYLE_CE = 0x023,   // CE type signal, ~~invertible~~ and defaults to enabled
+    PINSTYLE_RST = 0x013,  // RST type signal, ~~invertible~~ and defaults to not reset
     PINSTYLE_DEDI = 0x000, // dedicated signals, leave alone
     PINSTYLE_INP = 0x001,  // general inputs, no inversion/tieing but defaults low
     PINSTYLE_PU = 0x022,   // signals that float high and default high
@@ -340,7 +346,7 @@ struct Arch : BaseArch<ArchRanges>
     IdStringList getPipName(PipId pip) const override;
     WireId getPipSrcWire(PipId pip) const override { return WireId(pip.src); };
     WireId getPipDstWire(PipId pip) const override { return WireId(pip.dst); };
-    DelayQuad getPipDelay(PipId pip) const override { return DelayQuad(0); }
+    DelayQuad getPipDelay(PipId pip) const override { return DelayQuad(100); }
     UpDownhillPipRange getPipsDownhill(WireId wire) const override
     {
         return UpDownhillPipRange(wires.at(wire).wires_downhill, wire, false);
@@ -352,8 +358,8 @@ struct Arch : BaseArch<ArchRanges>
 
     // -------------------------------------------------
 
-    delay_t estimateDelay(WireId src, WireId dst) const override { return 100; };
-    delay_t predictDelay(const NetInfo *net_info, const PortRef &sink) const override { return 100; };
+    delay_t estimateDelay(WireId src, WireId dst) const override;
+    delay_t predictDelay(const NetInfo *net_info, const PortRef &sink) const override;
     delay_t getDelayEpsilon() const override { return 10; };
     delay_t getRipupDelayPenalty() const override { return 100; };
     float getDelayNS(delay_t v) const override { return float(v) / 1000.0f; };
@@ -393,8 +399,9 @@ struct Arch : BaseArch<ArchRanges>
         return WireId(cyclonev->pnode_to_rnode(CycloneV::pnode(bt, x, y, port, bi, pi)));
     }
 
-    void create_lab(int x, int y);  // lab.cc
-    void create_gpio(int x, int y); // io.cc
+    void create_lab(int x, int y);    // lab.cc
+    void create_gpio(int x, int y);   // io.cc
+    void create_clkbuf(int x, int y); // globals.cc
 
     // -------------------------------------------------
 

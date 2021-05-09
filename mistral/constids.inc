@@ -74,3 +74,5 @@ X(GND)
 X(VCC)
 
 X(LOC)
+
+X(MISTRAL_CLKBUF)
