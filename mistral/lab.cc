@@ -32,6 +32,7 @@ namespace {
 static void create_alm(Arch *arch, int x, int y, int z, uint32_t lab_idx)
 {
     auto &lab = arch->labs.at(lab_idx);
+    auto &alm = lab.alms.at(z);
     // Create the combinational part of ALMs.
     // There are two of these, for the two LUT outputs, and these also contain the carry chain and associated logic
     // Each one has all 8 ALM inputs as input pins. In many cases only a subset of these are used; depending on mode;
@@ -79,33 +80,32 @@ static void create_alm(Arch *arch, int x, int y, int z, uint32_t lab_idx)
         arch->add_bel_pin(bel, id_COUT, PORT_OUT, carry_out);
         arch->add_bel_pin(bel, id_SHAREOUT, PORT_OUT, share_out);
         // Combinational output
-        WireId comb_out = arch->add_wire(x, y, arch->id(stringf("COMBOUT[%d]", z * 2 + i)));
-        arch->add_bel_pin(bel, id_COMBOUT, PORT_OUT, comb_out);
+        alm.comb_out[i] = arch->add_wire(x, y, arch->id(stringf("COMBOUT[%d]", z * 2 + i)));
+        arch->add_bel_pin(bel, id_COMBOUT, PORT_OUT, alm.comb_out[i]);
         // Assign indexing
-        lab.alms.at(z).lut_bels.at(i) = bel;
+        alm.lut_bels.at(i) = bel;
         auto &b = arch->bel_data(bel);
         b.lab_data.lab = lab_idx;
         b.lab_data.alm = z;
         b.lab_data.idx = i;
     }
     // Create the control set and E/F selection - which is per pair of FF
-    std::array<WireId, 2> sel_clk, sel_ena, sel_aclr, sel_ef;
     for (int i = 0; i < 2; i++) {
         // Wires
-        sel_clk[i] = arch->add_wire(x, y, arch->id(stringf("CLK%c[%d]", i ? 'B' : 'T', z)));
-        sel_ena[i] = arch->add_wire(x, y, arch->id(stringf("ENA%c[%d]", i ? 'B' : 'T', z)));
-        sel_aclr[i] = arch->add_wire(x, y, arch->id(stringf("ACLR%c[%d]", i ? 'B' : 'T', z)));
-        sel_ef[i] = arch->add_wire(x, y, arch->id(stringf("%cEF[%d]", i ? 'B' : 'T', z)));
+        alm.sel_clk[i] = arch->add_wire(x, y, arch->id(stringf("CLK%c[%d]", i ? 'B' : 'T', z)));
+        alm.sel_ena[i] = arch->add_wire(x, y, arch->id(stringf("ENA%c[%d]", i ? 'B' : 'T', z)));
+        alm.sel_aclr[i] = arch->add_wire(x, y, arch->id(stringf("ACLR%c[%d]", i ? 'B' : 'T', z)));
+        alm.sel_ef[i] = arch->add_wire(x, y, arch->id(stringf("%cEF[%d]", i ? 'B' : 'T', z)));
         // Muxes - three CLK/ENA per LAB, two ACLR
         for (int j = 0; j < 3; j++) {
-            arch->add_pip(lab.clk_wires[j], sel_clk[i]);
-            arch->add_pip(lab.ena_wires[j], sel_ena[i]);
+            arch->add_pip(lab.clk_wires[j], alm.sel_clk[i]);
+            arch->add_pip(lab.ena_wires[j], alm.sel_ena[i]);
             if (j < 2)
-                arch->add_pip(lab.aclr_wires[j], sel_aclr[i]);
+                arch->add_pip(lab.aclr_wires[j], alm.sel_aclr[i]);
         }
         // E/F pips
-        arch->add_pip(arch->get_port(CycloneV::LAB, x, y, z, i ? CycloneV::E1 : CycloneV::E0), sel_ef[i]);
-        arch->add_pip(arch->get_port(CycloneV::LAB, x, y, z, i ? CycloneV::F1 : CycloneV::F0), sel_ef[i]);
+        arch->add_pip(arch->get_port(CycloneV::LAB, x, y, z, i ? CycloneV::E1 : CycloneV::E0), alm.sel_ef[i]);
+        arch->add_pip(arch->get_port(CycloneV::LAB, x, y, z, i ? CycloneV::F1 : CycloneV::F0), alm.sel_ef[i]);
     }
 
     // Create the flipflops and associated routing
@@ -114,32 +114,31 @@ static void create_alm(Arch *arch, int x, int y, int z, uint32_t lab_idx)
 
     for (int i = 0; i < 4; i++) {
         // FF input, selected by *PKREG*
-        WireId comb_out = arch->add_wire(x, y, arch->id(stringf("COMBOUT[%d]", (z * 2) + (i / 2))));
-        WireId ff_in = arch->add_wire(x, y, arch->id(stringf("FFIN[%d]", (z * 4) + i)));
-        arch->add_pip(comb_out, ff_in);
-        arch->add_pip(sel_ef[i / 2], ff_in);
+        alm.ff_in[i] = arch->add_wire(x, y, arch->id(stringf("FFIN[%d]", (z * 4) + i)));
+        arch->add_pip(alm.comb_out[i / 2], alm.ff_in[i]);
+        arch->add_pip(alm.sel_ef[i / 2], alm.ff_in[i]);
         // FF bel
         BelId bel = arch->add_bel(x, y, arch->id(stringf("ALM%d_FF%d", z, i)), id_MISTRAL_FF);
-        arch->add_bel_pin(bel, id_CLK, PORT_IN, sel_clk[i / 2]);
-        arch->add_bel_pin(bel, id_ENA, PORT_IN, sel_ena[i / 2]);
-        arch->add_bel_pin(bel, id_ACLR, PORT_IN, sel_aclr[i / 2]);
+        arch->add_bel_pin(bel, id_CLK, PORT_IN, alm.sel_clk[i / 2]);
+        arch->add_bel_pin(bel, id_ENA, PORT_IN, alm.sel_ena[i / 2]);
+        arch->add_bel_pin(bel, id_ACLR, PORT_IN, alm.sel_aclr[i / 2]);
         arch->add_bel_pin(bel, id_SCLR, PORT_IN, lab.sclr_wire);
         arch->add_bel_pin(bel, id_SLOAD, PORT_IN, lab.sload_wire);
-        arch->add_bel_pin(bel, id_DATAIN, PORT_IN, ff_in);
-        arch->add_bel_pin(bel, id_SDATA, PORT_IN, sel_ef[i / 2]);
+        arch->add_bel_pin(bel, id_DATAIN, PORT_IN, alm.ff_in[i]);
+        arch->add_bel_pin(bel, id_SDATA, PORT_IN, alm.sel_ef[i / 2]);
 
         // FF output
-        WireId ff_out = arch->add_wire(x, y, arch->id(stringf("FFOUT[%d]", (z * 4) + i)));
-        arch->add_bel_pin(bel, id_Q, PORT_OUT, ff_out);
+        alm.ff_out[i] = arch->add_wire(x, y, arch->id(stringf("FFOUT[%d]", (z * 4) + i)));
+        arch->add_bel_pin(bel, id_Q, PORT_OUT, alm.ff_out[i]);
         // Output mux (*DFF*)
         WireId out = arch->get_port(CycloneV::LAB, x, y, z, outputs[i]);
-        arch->add_pip(ff_out, out);
-        arch->add_pip(comb_out, out);
+        arch->add_pip(alm.ff_out[i], out);
+        arch->add_pip(alm.comb_out[i / 2], out);
         // 'L' output mux where applicable
         if (i == 1 || i == 3) {
             WireId l_out = arch->get_port(CycloneV::LAB, x, y, z, l_outputs[i / 2]);
-            arch->add_pip(ff_out, l_out);
-            arch->add_pip(comb_out, l_out);
+            arch->add_pip(alm.ff_out[i], l_out);
+            arch->add_pip(alm.comb_out[i / 2], l_out);
         }
 
         lab.alms.at(z).ff_bels.at(i) = bel;

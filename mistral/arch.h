@@ -40,6 +40,10 @@ struct ArchArgs
 // These structures are used for fast ALM validity checking
 struct ALMInfo
 {
+    // Wires, so bitstream gen can determine connectivity
+    std::array<WireId, 2> comb_out;
+    std::array<WireId, 2> sel_clk, sel_ena, sel_aclr, sel_ef;
+    std::array<WireId, 4> ff_in, ff_out;
     // Pointers to bels
     std::array<BelId, 2> lut_bels;
     std::array<BelId, 4> ff_bels;
@@ -326,6 +330,8 @@ struct Arch : BaseArch<ArchRanges>
     const std::vector<BelPin> &getWireBelPins(WireId wire) const override { return wires.at(wire).bel_pins; }
     AllWireRange getWires() const override { return AllWireRange(wires); }
 
+    bool wires_connected(WireId src, WireId dst) const;
+
     // -------------------------------------------------
 
     PipId getPipByName(IdStringList name) const override;
@@ -461,9 +467,15 @@ struct Arch : BaseArch<ArchRanges>
     static const std::unordered_map<IdString, CellPinsData> cell_pins_db;       // pins.cc
     CellPinStyle get_cell_pin_style(const CellInfo *cell, IdString port) const; // pins.cc
 
+    // -------------------------------------------------
+
     // List of IO constraints, used by QSF parser
     std::unordered_map<IdString, std::unordered_map<IdString, Property>> io_attr;
     void read_qsf(std::istream &in); // qsf.cc
+
+    // -------------------------------------------------
+
+    void init_base_bitstream(); // base_bitstream.cc
 };
 
 NEXTPNR_NAMESPACE_END

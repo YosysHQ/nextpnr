@@ -303,6 +303,12 @@ WireId Arch::add_wire(int x, int y, IdString name, uint64_t flags)
     }
 }
 
+bool Arch::wires_connected(WireId src, WireId dst) const
+{
+    PipId pip(src.node, dst.node);
+    return getBoundPipNet(pip) != nullptr;
+}
+
 PipId Arch::add_pip(WireId src, WireId dst)
 {
     wires[src].wires_downhill.push_back(dst);
