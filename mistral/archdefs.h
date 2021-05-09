@@ -192,6 +192,8 @@ struct ArchCellInfo : BaseClusterInfo
     };
 
     std::unordered_map<IdString, ArchPinInfo> pin_data;
+
+    CellPinState get_pin_state(IdString pin) const;
 };
 
 NEXTPNR_NAMESPACE_END
