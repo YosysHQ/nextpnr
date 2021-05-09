@@ -51,7 +51,7 @@ void set_location_assignment_cmd(Context *ctx, const option_map_t &options, cons
 
 void set_instance_assignment_cmd(Context *ctx, const option_map_t &options, const std::vector<std::string> &pos_args)
 {
-    ctx->io_attr[ctx->id(options.at("to").at(0))][id_LOC] = pos_args.at(0);
+    ctx->io_attr[ctx->id(options.at("to").at(0))][ctx->id(options.at("name").at(0))] = pos_args.at(0);
 }
 
 void set_global_assignment_cmd(Context *ctx, const option_map_t &options, const std::vector<std::string> &pos_args)

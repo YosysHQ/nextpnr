@@ -34,6 +34,7 @@ void Arch::create_gpio(int x, int y)
         add_bel_pin(bel, id_I, PORT_IN, get_port(CycloneV::GPIO, x, y, z, CycloneV::DATAIN, 0));
         add_bel_pin(bel, id_OE, PORT_IN, get_port(CycloneV::GPIO, x, y, z, CycloneV::OEIN, 0));
         add_bel_pin(bel, id_O, PORT_OUT, get_port(CycloneV::GPIO, x, y, z, CycloneV::DATAOUT, 0));
+        bel_data(bel).block_index = z;
     }
 }
 
@@ -48,6 +49,13 @@ bool Arch::is_io_cell(IdString cell_type) const
     default:
         return false;
     }
+}
+
+BelId Arch::get_io_pin_bel(const CycloneV::pin_info_t *pin) const
+{
+    auto pad = pin->pad;
+    CycloneV::pos_t pos = (pad & 0x3FFF);
+    return bel_by_block_idx(CycloneV::pos2x(pos), CycloneV::pos2y(pos), id_MISTRAL_IO, (pad >> 14));
 }
 
 NEXTPNR_NAMESPACE_END

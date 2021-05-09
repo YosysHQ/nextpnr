@@ -171,21 +171,125 @@ struct MistralPacker
         trim_design();
     }
 
+    void prepare_io()
+    {
+        // Find the actual IO buffer corresponding to a port; and copy attributes across to it
+        // Note that this relies on Yosys to do IO buffer inference, to avoid tristate issues once we get to synthesised
+        // JSON. In all cases the nextpnr-inserted IO buffers are removed as redundant.
+        for (auto &port : sorted_ref(ctx->ports)) {
+            if (!ctx->cells.count(port.first))
+                log_error("Port '%s' doesn't seem to have a corresponding top level IO\n", ctx->nameOf(port.first));
+            CellInfo *ci = ctx->cells.at(port.first).get();
+
+            PortRef top_port;
+            top_port.cell = nullptr;
+            bool is_npnr_iob = false;
+
+            if (ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_iobuf")) {
+                // Might have an input buffer (IB etc) connected to it
+                is_npnr_iob = true;
+                NetInfo *o = get_net_or_empty(ci, id_O);
+                if (o == nullptr)
+                    ;
+                else if (o->users.size() > 1)
+                    log_error("Top level pin '%s' has multiple input buffers\n", ctx->nameOf(port.first));
+                else if (o->users.size() == 1)
+                    top_port = o->users.at(0);
+            }
+            if (ci->type == ctx->id("$nextpnr_obuf") || ci->type == ctx->id("$nextpnr_iobuf")) {
+                // Might have an output buffer (OB etc) connected to it
+                is_npnr_iob = true;
+                NetInfo *i = get_net_or_empty(ci, id_I);
+                if (i != nullptr && i->driver.cell != nullptr) {
+                    if (top_port.cell != nullptr)
+                        log_error("Top level pin '%s' has multiple input/output buffers\n", ctx->nameOf(port.first));
+                    top_port = i->driver;
+                }
+                // Edge case of a bidirectional buffer driving an output pin
+                if (i->users.size() > 2) {
+                    log_error("Top level pin '%s' has illegal buffer configuration\n", ctx->nameOf(port.first));
+                } else if (i->users.size() == 2) {
+                    if (top_port.cell != nullptr)
+                        log_error("Top level pin '%s' has illegal buffer configuration\n", ctx->nameOf(port.first));
+                    for (auto &usr : i->users) {
+                        if (usr.cell->type == ctx->id("$nextpnr_obuf") || usr.cell->type == ctx->id("$nextpnr_iobuf"))
+                            continue;
+                        top_port = usr;
+                        break;
+                    }
+                }
+            }
+            if (!is_npnr_iob)
+                log_error("Port '%s' doesn't seem to have a corresponding top level IO (internal cell type mismatch)\n",
+                          ctx->nameOf(port.first));
+
+            if (top_port.cell == nullptr) {
+                log_info("Trimming port '%s' as it is unused.\n", ctx->nameOf(port.first));
+            } else {
+                // Copy attributes to real IO buffer
+                if (ctx->io_attr.count(port.first)) {
+                    for (auto &kv : ctx->io_attr.at(port.first)) {
+                        top_port.cell->attrs[kv.first] = kv.second;
+                    }
+                }
+                // Make sure that top level net is set correctly
+                port.second.net = top_port.cell->ports.at(top_port.port).net;
+            }
+            // Now remove the nextpnr-inserted buffer
+            disconnect_port(ctx, ci, id_I);
+            disconnect_port(ctx, ci, id_O);
+            ctx->cells.erase(port.first);
+        }
+    }
+
+    void pack_io()
+    {
+        // Step 0: deal with top level inserted IO buffers
+        prepare_io();
+        // Stage 1: apply constraints
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            // Iterate through all IO buffer primitives
+            if (!ctx->is_io_cell(ci->type))
+                continue;
+            // We need all IO constrained at the moment, unconstrained IO are rare enough not to care
+            if (!ci->attrs.count(id_LOC))
+                log_error("Found unconstrained IO '%s', these are currently unsupported\n", ctx->nameOf(ci));
+            // Convert package pin constraint to bel constraint
+            std::string loc = ci->attrs.at(id_LOC).as_string();
+            if (loc.compare(0, 4, "PIN_") != 0)
+                log_error("Expecting PIN_-prefixed pin for IO '%s', got '%s'\n", ctx->nameOf(ci), loc.c_str());
+            auto pin_info = ctx->cyclonev->pin_find_name(loc.substr(4));
+            if (pin_info == nullptr)
+                log_error("IO '%s' is constrained to invalid pin '%s'\n", ctx->nameOf(ci), loc.c_str());
+            BelId bel = ctx->get_io_pin_bel(pin_info);
+
+            if (bel == BelId()) {
+                log_error("IO '%s' is constrained to pin %s which is not a supported IO pin.\n", ctx->nameOf(ci),
+                          loc.c_str());
+            } else {
+                log_info("Constraining IO '%s' to pin %s (bel %s)\n", ctx->nameOf(ci), loc.c_str(),
+                         ctx->nameOfBel(bel));
+                ctx->bindBel(bel, ci, STRENGTH_LOCKED);
+            }
+        }
+    }
+
     void run()
     {
         init_constant_nets();
         pack_constants();
+        pack_io();
     }
 };
 }; // namespace
 
 bool Arch::pack()
 {
-    // TODO:
-    //  - Constrain IO
-
     MistralPacker packer(getCtx());
     packer.run();
+
+    assignArchInfo();
 
     return true;
 }

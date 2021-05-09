@@ -73,14 +73,15 @@ Arch::Arch(ArchArgs args)
                 case CycloneV::block_type_t::LAB:
                     create_lab(x, y);
                     break;
-                case CycloneV::block_type_t::GPIO:
-                    create_gpio(x, y);
-                    break;
                 default:
                     continue;
                 }
             }
         }
+    }
+
+    for (auto gpio_pos : cyclonev->gpio_get_pos()) {
+        create_gpio(CycloneV::pos2x(gpio_pos), CycloneV::pos2y(gpio_pos));
     }
 
     // This import takes about 5s, perhaps long term we can speed it up, e.g. defer to Mistral more...
@@ -249,6 +250,17 @@ BelBucketId Arch::getBelBucketForCellType(IdString cell_type) const
         return id_MISTRAL_IO;
     else
         return cell_type;
+}
+
+BelId Arch::bel_by_block_idx(int x, int y, IdString type, int block_index) const
+{
+    auto &bels = bels_by_tile.at(pos2idx(x, y));
+    for (size_t i = 0; i < bels.size(); i++) {
+        auto &bel_data = bels.at(i);
+        if (bel_data.type == type && bel_data.block_index == block_index)
+            return BelId(CycloneV::xy2pos(x, y), i);
+    }
+    return BelId();
 }
 
 BelId Arch::add_bel(int x, int y, IdString name, IdString type)

@@ -316,6 +316,8 @@ struct Arch : BaseArch<ArchRanges>
 
     bool isBelLocationValid(BelId bel) const override;
 
+    BelId bel_by_block_idx(int x, int y, IdString type, int block_index) const;
+
     // -------------------------------------------------
 
     WireId getWireByName(IdStringList name) const override;
@@ -403,7 +405,8 @@ struct Arch : BaseArch<ArchRanges>
 
     // -------------------------------------------------
 
-    bool is_io_cell(IdString cell_type) const; // io.cc
+    bool is_io_cell(IdString cell_type) const;                   // io.cc
+    BelId get_io_pin_bel(const CycloneV::pin_info_t *pin) const; // io.cc
 
     // -------------------------------------------------
 
