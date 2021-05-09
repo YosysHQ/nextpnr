@@ -483,6 +483,7 @@ struct Arch : BaseArch<ArchRanges>
     // -------------------------------------------------
 
     void init_base_bitstream(); // base_bitstream.cc
+    void build_bitstream();     // bitstream.cc
 };
 
 NEXTPNR_NAMESPACE_END

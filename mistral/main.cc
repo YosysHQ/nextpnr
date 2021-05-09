@@ -50,12 +50,24 @@ po::options_description MistralCommandHandler::getArchOptions()
     specific.add_options()("mistral", po::value<std::string>(), "path to mistral root");
     specific.add_options()("device", po::value<std::string>(), "device name (e.g. 5CSEBA6U23I7)");
     specific.add_options()("qsf", po::value<std::string>(), "path to QSF constraints file");
+    specific.add_options()("rbf", po::value<std::string>(), "RBF bitstream to write");
+
     return specific;
 }
 
 void MistralCommandHandler::customBitstream(Context *ctx)
 {
-    // TODO: rbf gen via mistral
+    if (vm.count("rbf")) {
+        std::string filename = vm["rbf"].as<std::string>();
+        ctx->build_bitstream();
+        std::vector<uint8_t> data;
+        ctx->cyclonev->rbf_save(data);
+
+        std::ofstream out(filename, std::ios::binary);
+        if (!out)
+            log_error("Failed to open output RBF file %s.\n", filename.c_str());
+        out.write(reinterpret_cast<const char *>(data.data()), data.size());
+    }
 }
 
 std::unique_ptr<Context> MistralCommandHandler::createContext(std::unordered_map<std::string, Property> &values)

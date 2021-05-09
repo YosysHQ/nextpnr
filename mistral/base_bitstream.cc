@@ -33,15 +33,17 @@ void default_sx120f(CycloneV *cv)
     cv->bmux_m_set(CycloneV::PMA3, CycloneV::xy2pos(0, 23), CycloneV::FFPLL_IQCLK_DIRECTION, 1, CycloneV::UP);
     cv->bmux_m_set(CycloneV::PMA3, CycloneV::xy2pos(0, 35), CycloneV::FFPLL_IQCLK_DIRECTION, 0, CycloneV::UP);
     cv->bmux_m_set(CycloneV::PMA3, CycloneV::xy2pos(0, 35), CycloneV::FFPLL_IQCLK_DIRECTION, 1, CycloneV::UP);
-    cv->bmux_b_set(CycloneV::PMA3, CycloneV::xy2pos(0, 35), CycloneV::FPLL_DRV_EN, -1, false);
-    cv->bmux_m_set(CycloneV::PMA3, CycloneV::xy2pos(0, 35), CycloneV::HCLK_TOP_OUT_DRIVER, -1, CycloneV::TRISTATE);
+    cv->bmux_b_set(CycloneV::PMA3, CycloneV::xy2pos(0, 35), CycloneV::FPLL_DRV_EN, 0, 0);
+    cv->bmux_m_set(CycloneV::PMA3, CycloneV::xy2pos(0, 35), CycloneV::HCLK_TOP_OUT_DRIVER, 0, CycloneV::TRISTATE);
     // Default PLL config
-    cv->bmux_b_set(CycloneV::FPLL, CycloneV::xy2pos(0, 73), CycloneV::PL_AUX_ATB_EN0, -1, true);
-    cv->bmux_b_set(CycloneV::FPLL, CycloneV::xy2pos(0, 73), CycloneV::PL_AUX_ATB_EN0_PRECOMP, -1, true);
-    cv->bmux_b_set(CycloneV::FPLL, CycloneV::xy2pos(0, 73), CycloneV::PL_AUX_ATB_EN1, -1, true);
-    cv->bmux_b_set(CycloneV::FPLL, CycloneV::xy2pos(0, 73), CycloneV::PL_AUX_ATB_EN1_PRECOMP, -1, true);
-    cv->bmux_b_set(CycloneV::FPLL, CycloneV::xy2pos(0, 73), CycloneV::PL_AUX_BG_KICKSTART, -1, true);
-    cv->bmux_b_set(CycloneV::FPLL, CycloneV::xy2pos(0, 73), CycloneV::PL_AUX_VBGMON_POWERDOWN, -1, true);
+    cv->bmux_b_set(CycloneV::FPLL, CycloneV::xy2pos(0, 73), CycloneV::PL_AUX_ATB_EN0, 0, 1);
+    cv->bmux_b_set(CycloneV::FPLL, CycloneV::xy2pos(0, 73), CycloneV::PL_AUX_ATB_EN0_PRECOMP, 0, 1);
+    cv->bmux_b_set(CycloneV::FPLL, CycloneV::xy2pos(0, 73), CycloneV::PL_AUX_ATB_EN1, 0, 1);
+    cv->bmux_b_set(CycloneV::FPLL, CycloneV::xy2pos(0, 73), CycloneV::PL_AUX_ATB_EN1_PRECOMP, 0, 1);
+    cv->bmux_b_set(CycloneV::FPLL, CycloneV::xy2pos(0, 73), CycloneV::PL_AUX_BG_KICKSTART, 0, 1);
+    cv->bmux_b_set(CycloneV::FPLL, CycloneV::xy2pos(0, 73), CycloneV::PL_AUX_VBGMON_POWERDOWN, 0, 1);
+    // Default TERM config
+    cv->bmux_b_set(CycloneV::TERM, CycloneV::xy2pos(89, 34), CycloneV::INTOSC_2_EN, 0, 0);
 
     // Discover these mux values using
     //   grep 'i [_A-Z0-9.]* 1' empty.bt
