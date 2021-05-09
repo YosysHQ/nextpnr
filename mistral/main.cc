@@ -49,6 +49,7 @@ po::options_description MistralCommandHandler::getArchOptions()
     po::options_description specific("Architecture specific options");
     specific.add_options()("mistral", po::value<std::string>(), "path to mistral root");
     specific.add_options()("device", po::value<std::string>(), "device name (e.g. 5CSEBA6U23I7)");
+    specific.add_options()("qsf", po::value<std::string>(), "path to QSF constraints file");
     return specific;
 }
 
@@ -74,7 +75,13 @@ std::unique_ptr<Context> MistralCommandHandler::createContext(std::unordered_map
 
 void MistralCommandHandler::customAfterLoad(Context *ctx)
 {
-    // TODO: qsf parsing
+    if (vm.count("qsf")) {
+        std::string filename = vm["qsf"].as<std::string>();
+        std::ifstream in(filename);
+        if (!in)
+            log_error("Failed to open input QSF file %s.\n", filename.c_str());
+        ctx->read_qsf(in);
+    }
 }
 
 int main(int argc, char *argv[])

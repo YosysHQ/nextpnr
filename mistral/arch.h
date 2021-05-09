@@ -455,6 +455,10 @@ struct Arch : BaseArch<ArchRanges>
     typedef std::unordered_map<IdString, CellPinStyle> CellPinsData;            // pins.cc
     static const std::unordered_map<IdString, CellPinsData> cell_pins_db;       // pins.cc
     CellPinStyle get_cell_pin_style(const CellInfo *cell, IdString port) const; // pins.cc
+
+    // List of IO constraints, used by QSF parser
+    std::unordered_map<IdString, std::unordered_map<IdString, Property>> io_attr;
+    void read_qsf(std::istream &in); // qsf.cc
 };
 
 NEXTPNR_NAMESPACE_END

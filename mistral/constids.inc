@@ -72,3 +72,5 @@ X(WIRE)
 
 X(GND)
 X(VCC)
+
+X(LOC)
