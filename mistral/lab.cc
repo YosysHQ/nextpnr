@@ -653,4 +653,92 @@ const std::unordered_map<IdString, IdString> Arch::comb_pinmap = {
         {id_E, id_B},  {id_F, id_A}, {id_Q, id_COMBOUT}, {id_SO, id_COMBOUT},
 };
 
+namespace {
+// gets the value of the ith LUT init property of a given cell
+uint64_t get_lut_init(const CellInfo *cell, int i)
+{
+    if (cell->type == id_MISTRAL_NOT) {
+        return 1;
+    } else if (cell->type == id_MISTRAL_BUF) {
+        return 2;
+    } else {
+        IdString prop;
+        if (cell->type == id_MISTRAL_ALUT_ARITH)
+            prop = (i == 1) ? id_LUT1 : id_LUT0;
+        else
+            prop = id_LUT;
+        auto fnd = cell->params.find(prop);
+        if (fnd == cell->params.end())
+            return 0;
+        else
+            return fnd->second.as_int64();
+    }
+}
+// gets the state of a physical pin when evaluating the a given bit of LUT init for
+bool get_phys_pin_val(bool l6_mode, bool arith_mode, int bit, IdString pin)
+{
+    switch (pin.index) {
+    case ID_A:
+        return (bit >> 0) & 0x1;
+    case ID_B:
+        return (bit >> 1) & 0x1;
+    case ID_C:
+        return (l6_mode && bit >= 32) ? ((bit >> 3) & 0x1) : ((bit >> 2) & 0x1);
+    case ID_D:
+        return (l6_mode && bit < 32) ? ((bit >> 3) & 0x1) : ((bit >> 2) & 0x1);
+    case ID_E0:
+    case ID_E1:
+        return l6_mode ? ((bit >> 5) & 0x1) : ((bit >> 3) & 0x1);
+    case ID_F0:
+    case ID_F1:
+        return arith_mode ? ((bit >> 3) & 0x1) : ((bit >> 4) & 0x1);
+    default:
+        NPNR_ASSERT_FALSE("unknown physical pin!");
+    }
+}
+} // namespace
+
+uint64_t Arch::compute_lut_mask(uint32_t lab, uint8_t alm)
+{
+    uint64_t mask = 0;
+    auto &alm_data = labs.at(lab).alms.at(alm);
+    std::array<CellInfo *, 2> luts{getBoundBelCell(alm_data.lut_bels[0]), getBoundBelCell(alm_data.lut_bels[1])};
+
+    for (int i = 0; i < 2; i++) {
+        CellInfo *lut = luts[i];
+        if (!lut)
+            continue;
+        int offset = ((i == 1) && !alm_data.l6_mode) ? 32 : 0;
+        bool arith = lut->combInfo.is_carry;
+        for (int j = 0; j < (alm_data.l6_mode ? 64 : 32); j++) {
+            // Evaluate LUT function at this point
+            uint64_t init = get_lut_init(lut, (arith && j >= 16) ? 1 : 0);
+            int index = 0;
+            for (int k = 0; k < lut->combInfo.lut_input_count; k++) {
+                IdString log_pin = get_lut_pin(lut, k);
+                CellPinState state = lut->get_pin_state(log_pin);
+                if (state == PIN_0)
+                    continue;
+                else if (state == PIN_1)
+                    index |= (1 << k);
+                // Ignore if no associated physical pin
+                if (get_net_or_empty(lut, log_pin) == nullptr || lut->pin_data.at(log_pin).bel_pins.empty())
+                    continue;
+                // ALM inputs appear to be inverted by default (TODO: check!)
+                // so only invert if an inverter has _not_ been folded into the pin
+                bool inverted = (state != PIN_INV);
+                // Depermute physical pin
+                IdString phys_pin = lut->pin_data.at(log_pin).bel_pins.at(0);
+                if (get_phys_pin_val(alm_data.l6_mode, arith, j, phys_pin) != inverted)
+                    index |= (1 << k);
+            }
+            if ((init >> index) & 0x1) {
+                mask |= (1U << uint64_t(j + offset));
+            }
+        }
+    }
+
+    return mask;
+}
+
 NEXTPNR_NAMESPACE_END

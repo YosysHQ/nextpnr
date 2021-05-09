@@ -403,6 +403,8 @@ struct Arch : BaseArch<ArchRanges>
     void assign_control_sets(uint32_t lab);              // lab.cc
     void reassign_alm_inputs(uint32_t lab, uint8_t alm); // lab.cc
 
+    uint64_t compute_lut_mask(uint32_t lab, uint8_t alm); // lab.cc
+
     // -------------------------------------------------
 
     bool is_io_cell(IdString cell_type) const;                   // io.cc
