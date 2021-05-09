@@ -28,9 +28,10 @@ void Arch::create_clkbuf(int x, int y)
     for (int z = 0; z < 4; z++) {
         // For now we only consider the input path from general routing, other inputs like dedicated clock pins are
         // still a TODO
-        BelId bel = add_bel(x, y, id(stringf("CLKBUF[%d]", z)), id_MISTRAL_CLKBUF);
+        BelId bel = add_bel(x, y, id(stringf("CLKBUF[%d]", z)), id_MISTRAL_CLKENA);
         add_bel_pin(bel, id_A, PORT_IN, get_port(CycloneV::CMUXHG, x, y, -1, CycloneV::CLKIN, z));
         add_bel_pin(bel, id_Q, PORT_OUT, get_port(CycloneV::CMUXHG, x, y, z, CycloneV::CLKOUT));
+        // TODO: enable pin
     }
 }
 
