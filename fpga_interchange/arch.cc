@@ -768,6 +768,7 @@ bool Arch::pack()
 {
     decode_lut_cells();
     merge_constant_nets();
+    pack_chains();
     pack_ports();
     pack_default_conns();
     expand_macros();

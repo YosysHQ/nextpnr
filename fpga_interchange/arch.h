@@ -688,6 +688,12 @@ struct Arch : ArchAPI<ArchRanges>
     void place_iobufs(WireId pad_wire, NetInfo *net, const std::unordered_set<CellInfo *> &tightly_attached_bels,
                       std::unordered_set<CellInfo *> *placed_cells);
     void pack_ports();
+
+    // Chain packer
+    void pack_chains();
+    std::unordered_map<IdString, ClusterId> cluster_roots;
+    void prepare_cluster(const BelChainPOD *chain);
+
     void decode_lut_cells();
 
     const GlobalCellPOD *global_cell_info(IdString cell_type) const;
@@ -846,7 +852,7 @@ struct Arch : ArchAPI<ArchRanges>
     // -------------------------------------------------
 
     // TODO
-    CellInfo *getClusterRootCell(ClusterId cluster) const override { NPNR_ASSERT_FALSE("unimplemented"); }
+    CellInfo *getClusterRootCell(ClusterId cluster) const override;
     ArcBounds getClusterBounds(ClusterId cluster) const override { NPNR_ASSERT_FALSE("unimplemented"); }
     Loc getClusterOffset(const CellInfo *cell) const override { NPNR_ASSERT_FALSE("unimplemented"); }
     bool isClusterStrict(const CellInfo *cell) const override { NPNR_ASSERT_FALSE("unimplemented"); }

@@ -402,6 +402,31 @@ NPNR_PACKED_STRUCT(struct MacroExpansionPOD {
     RelSlice<MacroParamMapRulePOD> param_rules;
 });
 
+enum ChainCoord
+{
+    x = 0,
+    y = 1,
+};
+
+NPNR_PACKED_STRUCT(struct ChainPatternPOD {
+    uint32_t source;
+    uint32_t sink;
+});
+
+NPNR_PACKED_STRUCT(struct ChainCoordConfigPOD {
+    uint8_t coord; // ChainCoord
+    uint8_t step;
+    uint16_t padding;
+});
+
+NPNR_PACKED_STRUCT(struct BelChainPOD {
+    uint32_t name;
+    RelSlice<uint32_t> sites;
+    RelSlice<uint32_t> cells;
+    RelSlice<ChainPatternPOD> chain_patterns;
+    RelSlice<ChainCoordConfigPOD> chain_coord_configs;
+});
+
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelPtr<char> name;
     RelPtr<char> generator;
@@ -416,6 +441,7 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelSlice<PackagePOD> packages;
     RelSlice<WireTypePOD> wire_types;
     RelSlice<GlobalCellPOD> global_cells;
+    RelSlice<BelChainPOD> bel_chains;
 
     // Macro related data
     RelSlice<MacroPOD> macros;
