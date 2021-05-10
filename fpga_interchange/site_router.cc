@@ -245,7 +245,7 @@ struct SiteExpansionLoop
                         if (!parent_node->can_leave_site()) {
                             // This path has already left the site once, don't leave it again!
                             if (verbose_site_router(ctx)) {
-                                log_info("Pip %s is not a valid for this path because it has already left the site\n",
+                                log_info("%s is not a valid PIP for this path because it has already left the site\n",
                                          ctx->nameOfPip(pip));
                             }
                             continue;
@@ -258,7 +258,7 @@ struct SiteExpansionLoop
                             // don't enter it again!
                             if (verbose_site_router(ctx)) {
                                 log_info(
-                                        "Pip %s is not a valid for this path because it has already entered the site\n",
+                                        "%s is not a valid PIP for this path because it has already entered the site\n",
                                         ctx->nameOfPip(pip));
                             }
                             continue;
@@ -280,7 +280,7 @@ struct SiteExpansionLoop
                 if (!node->is_valid_node()) {
                     if (verbose_site_router(ctx)) {
                         log_info(
-                                "Pip %s is not a valid for this path because it has left the site after entering it.\n",
+                                "%s is not a valid PIP for this path because it has left the site after entering it.\n",
                                 ctx->nameOfPip(pip));
                     }
                     continue;
