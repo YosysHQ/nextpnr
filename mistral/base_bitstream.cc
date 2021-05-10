@@ -45,6 +45,18 @@ void default_sx120f(CycloneV *cv)
     // Default TERM config
     cv->bmux_b_set(CycloneV::TERM, CycloneV::xy2pos(89, 34), CycloneV::INTOSC_2_EN, 0, 0);
 
+    // TODO: what if these pins are used? where do these come from
+    for (int z = 0; z < 4; z++) {
+        cv->bmux_m_set(CycloneV::GPIO, CycloneV::xy2pos(89, 43), CycloneV::IOCSR_STD, z, CycloneV::NVR_LOW);
+        cv->bmux_m_set(CycloneV::GPIO, CycloneV::xy2pos(89, 66), CycloneV::IOCSR_STD, z, CycloneV::NVR_LOW);
+    }
+    for (int y : {38, 44, 51, 58, 65, 73, 79}) {
+        // TODO: Why only these upper DQS? is there a pattern?
+        cv->bmux_b_set(CycloneV::DQS16, CycloneV::xy2pos(89, y), CycloneV::RB_2X_CLK_DQS_INV, 0, 1);
+        cv->bmux_b_set(CycloneV::DQS16, CycloneV::xy2pos(89, y), CycloneV::RB_ACLR_LFIFO_EN, 0, 1);
+        cv->bmux_b_set(CycloneV::DQS16, CycloneV::xy2pos(89, y), CycloneV::RB_LFIFO_BYPASS, 0, 0);
+    }
+
     // Discover these mux values using
     //   grep 'i [_A-Z0-9.]* 1' empty.bt
     cv->inv_set(CycloneV::rnode(CycloneV::GOUT, CycloneV::xy2pos(0, 12), 69), true);
@@ -54,7 +66,7 @@ void default_sx120f(CycloneV *cv)
     cv->inv_set(CycloneV::rnode(CycloneV::GOUT, CycloneV::xy2pos(0, 37), 31), true);
     cv->inv_set(CycloneV::rnode(CycloneV::GOUT, CycloneV::xy2pos(0, 40), 43), true);
     cv->inv_set(CycloneV::rnode(CycloneV::GOUT, CycloneV::xy2pos(0, 46), 69), true);
-    cv->inv_set(CycloneV::rnode(CycloneV::GOUT, CycloneV::xy2pos(0, 47), 53), true);
+    cv->inv_set(CycloneV::rnode(CycloneV::GOUT, CycloneV::xy2pos(0, 47), 43), true);
     cv->inv_set(CycloneV::rnode(CycloneV::GOUT, CycloneV::xy2pos(0, 53), 69), true);
     cv->inv_set(CycloneV::rnode(CycloneV::GOUT, CycloneV::xy2pos(0, 54), 4), true);
     cv->inv_set(CycloneV::rnode(CycloneV::GOUT, CycloneV::xy2pos(0, 73), 68), true);
