@@ -167,12 +167,42 @@ struct MistralBitgen
         }
     }
 
+    void write_io_cell(CellInfo *ci, int x, int y, int bi)
+    {
+        bool is_output =
+                (ci->type == id_MISTRAL_OB || (ci->type == id_MISTRAL_IO && get_net_or_empty(ci, id_OE) != nullptr));
+        auto pos = CycloneV::xy2pos(x, y);
+        // TODO: configurable pull, IO standard, etc
+        cv->bmux_b_set(CycloneV::GPIO, pos, CycloneV::USE_WEAK_PULLUP, bi, false);
+        if (is_output) {
+            cv->bmux_m_set(CycloneV::GPIO, pos, CycloneV::DRIVE_STRENGTH, bi, CycloneV::V3P3_LVTTL_16MA_LVCMOS_2MA);
+            cv->bmux_m_set(CycloneV::GPIO, pos, CycloneV::IOCSR_STD, bi, CycloneV::DIS);
+        }
+        // There seem to be two mirrored OEIN inversion bits for constant OE for inputs/outputs. This might be to
+        // prevent a single bitflip from turning inputs to outputs and messing up other devices on the boards, notably
+        // ECP5 does similar. OEIN.0 inverted for outputs; OEIN.1 for inputs
+        cv->inv_set(cv->pnode_to_rnode(CycloneV::pnode(CycloneV::GPIO, pos, CycloneV::OEIN, bi, is_output ? 0 : 1)),
+                    true);
+    }
+
+    void write_cells()
+    {
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            Loc loc = ctx->getBelLocation(ci->bel);
+            int bi = ctx->bel_data(ci->bel).block_index;
+            if (ctx->is_io_cell(ci->type))
+                write_io_cell(ci, loc.x, loc.y, bi);
+        }
+    }
+
     void run()
     {
         cv->clear();
         init();
         write_routing();
         write_dqs();
+        write_cells();
     }
 };
 } // namespace
