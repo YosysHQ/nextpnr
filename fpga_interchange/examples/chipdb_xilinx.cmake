@@ -132,7 +132,18 @@ function(generate_xc7_device_db)
         output_target constraints_luts_device
     )
 
+    # Generate BEL chains patch
+    create_patched_device_db(
+        device ${device}
+        patch_name bel-chains
+        patch_path belChainsDefinitions
+        patch_format pyyaml
+        patch_data ${PYTHON_INTERCHANGE_PATH}/test_data/series7_bel_chains.yaml
+        input_device ${constraints_luts_device}
+        output_target bel_chains_device
+    )
+
     if(DEFINED device_target)
-        set(${device_target} ${constraints_luts_device} PARENT_SCOPE)
+        set(${device_target} ${bel_chains_device} PARENT_SCOPE)
     endif()
 endfunction()
