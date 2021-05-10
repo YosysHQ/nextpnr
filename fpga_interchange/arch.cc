@@ -1805,12 +1805,6 @@ bool Arch::checkPipAvailForNet(PipId pip, NetInfo *net) const
                     NPNR_ASSERT(src_wire_data.site == pip_data.site);
                     valid_pip = true;
                 }
-
-                if (dst_wire_data.site == bel_data.site && src_wire_data.site == bel_data.site) {
-                    // This is site pip for the same site as the driver, allow
-                    // this site pip.
-                    valid_pip = true;
-                }
             }
         }
 
