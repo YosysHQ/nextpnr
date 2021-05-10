@@ -157,6 +157,7 @@ struct SiteExpansionLoop
                 NPNR_ASSERT((*parent)->wire.type == SiteWire::SITE_WIRE);
                 NPNR_ASSERT(node->can_leave_site());
                 node->mark_left_site();
+                node->mark_left_site_after_entering();
             } else if (wire.type == SiteWire::SITE_PORT_SOURCE) {
                 // This is a backward walk, so this is considered entering
                 // the site.
@@ -171,6 +172,7 @@ struct SiteExpansionLoop
                     // the site.
                     NPNR_ASSERT(node->can_leave_site());
                     node->mark_left_site();
+                    node->mark_left_site_after_entering();
                 } else {
                     NPNR_ASSERT((*parent)->wire.type == SiteWire::SITE_PORT_SOURCE);
                     NPNR_ASSERT(node->can_enter_site());
@@ -274,6 +276,16 @@ struct SiteExpansionLoop
                 }
 
                 auto node = new_node(wire, pip, &parent_node);
+
+                if (!node->is_valid_node()) {
+                    if (verbose_site_router(ctx)) {
+                        log_info(
+                                "Pip %s is not a valid for this path because it has left the site after entering it.\n",
+                                ctx->nameOfPip(pip));
+                    }
+                    continue;
+                }
+
                 if (targets.count(wire)) {
                     completed_routes.push_back(node.get_index());
                     max_depth = std::max(max_depth, node->depth);

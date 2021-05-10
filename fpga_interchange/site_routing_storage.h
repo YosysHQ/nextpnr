@@ -45,13 +45,24 @@ struct RouteNode
         LEFT_SITE = 0,
         // Has this path entered the site?
         ENTERED_SITE = 1,
+        // Has this path left the site after entering it?
+        // This node should be discarded as being part of an illegal path
+        // which allows entering and exiting a site, situation that needs
+        // to be handled with a tile PIP.
+        LEFT_SITE_AFTER_ENTERING = 2,
     };
 
     bool has_left_site() const { return (flags & (1 << LEFT_SITE)) != 0; }
 
+    bool has_left_site_after_entering() const { return (flags & (1 << LEFT_SITE_AFTER_ENTERING)) != 0; }
+
     bool can_leave_site() const { return !has_left_site(); }
 
+    bool is_valid_node() const { return !has_left_site_after_entering(); }
+
     void mark_left_site() { flags |= (1 << LEFT_SITE); }
+
+    void mark_left_site_after_entering() { flags |= (has_entered_site() << LEFT_SITE_AFTER_ENTERING); }
 
     bool has_entered_site() const { return (flags & (1 << ENTERED_SITE)) != 0; }
 
