@@ -11,7 +11,7 @@ Currently nextpnr supports:
  * Gowin LittleBee devices supported by [Project Apicula](https://github.com/YosysHQ/apicula)
  * *(experimental)* a "generic" back-end for user-defined architectures
 
-There is some work in progress towards [support for Xilinx devices](https://github.com/daveshah1/nextpnr-xilinx/) but it is not upstream and not intended for end users at the present time. We hope to see more FPGA families supported in the future. We would love your help in developing this awesome new project!
+There is some work in progress towards [support for Xilinx devices](https://github.com/gatecat/nextpnr-xilinx/) but it is not upstream and not intended for end users at the present time. We hope to see more FPGA families supported in the future. We would love your help in developing this awesome new project!
 
 A brief (academic) paper describing the Yosys+nextpnr flow can be found
 on [arXiv](https://arxiv.org/abs/1903.10407).
