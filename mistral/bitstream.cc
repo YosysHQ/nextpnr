@@ -196,6 +196,42 @@ struct MistralBitgen
         }
     }
 
+    void write_alm(uint32_t lab, uint8_t alm)
+    {
+        auto &alm_data = ctx->labs.at(lab).alms.at(alm);
+
+        std::array<CellInfo *, 2> luts{ctx->getBoundBelCell(alm_data.lut_bels[0]),
+                                       ctx->getBoundBelCell(alm_data.lut_bels[1])};
+        std::array<CellInfo *, 4> ffs{
+                ctx->getBoundBelCell(alm_data.ff_bels[0]), ctx->getBoundBelCell(alm_data.ff_bels[1]),
+                ctx->getBoundBelCell(alm_data.ff_bels[2]), ctx->getBoundBelCell(alm_data.ff_bels[3])};
+        // Skip empty ALMs
+        if (std::all_of(luts.begin(), luts.end(), [](CellInfo *c) { return !c; }) &&
+            std::all_of(ffs.begin(), ffs.end(), [](CellInfo *c) { return !c; }))
+            return;
+
+        auto pos = alm_data.lut_bels[0].pos;
+        // Combinational mode - TODO: flop feedback
+        cv->bmux_m_set(CycloneV::LAB, pos, CycloneV::MODE, alm, alm_data.l6_mode ? CycloneV::L6 : CycloneV::L5);
+        // LUT function
+        cv->bmux_r_set(CycloneV::LAB, pos, CycloneV::LUT_MASK, alm, ctx->compute_lut_mask(lab, alm));
+        // DFF output - foce to LUT for now...
+        cv->bmux_m_set(CycloneV::LAB, pos, CycloneV::TDFF0, alm, CycloneV::NLUT);
+        cv->bmux_m_set(CycloneV::LAB, pos, CycloneV::TDFF1, alm, CycloneV::NLUT);
+        cv->bmux_m_set(CycloneV::LAB, pos, CycloneV::TDFF1L, alm, CycloneV::NLUT);
+        cv->bmux_m_set(CycloneV::LAB, pos, CycloneV::BDFF0, alm, CycloneV::NLUT);
+        cv->bmux_m_set(CycloneV::LAB, pos, CycloneV::BDFF1, alm, CycloneV::NLUT);
+        cv->bmux_m_set(CycloneV::LAB, pos, CycloneV::BDFF1L, alm, CycloneV::NLUT);
+    }
+
+    void write_labs()
+    {
+        for (size_t lab = 0; lab < ctx->labs.size(); lab++) {
+            for (uint8_t alm = 0; alm < 10; alm++)
+                write_alm(lab, alm);
+        }
+    }
+
     void run()
     {
         cv->clear();
@@ -203,6 +239,7 @@ struct MistralBitgen
         write_routing();
         write_dqs();
         write_cells();
+        write_labs();
     }
 };
 } // namespace

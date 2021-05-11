@@ -732,10 +732,44 @@ uint64_t Arch::compute_lut_mask(uint32_t lab, uint8_t alm)
                     index |= (1 << k);
             }
             if ((init >> index) & 0x1) {
-                mask |= (1U << uint64_t(j + offset));
+                mask |= (1ULL << uint64_t(j + offset));
             }
         }
     }
+
+    // TODO: always inverted, or just certain paths?
+    mask = ~mask;
+
+#if 1
+    if (getCtx()->debug) {
+        auto pos = alm_data.lut_bels[0].pos;
+        log("ALM %03d.%03d.%d\n", CycloneV::pos2x(pos), CycloneV::pos2y(pos), alm);
+        for (int i = 0; i < 2; i++) {
+            log("    LUT%d: ", i);
+            if (luts[i]) {
+                log("%s:%s", nameOf(luts[i]), nameOf(luts[i]->type));
+                for (auto &pin : luts[i]->pin_data) {
+                    if (!luts[i]->ports.count(pin.first) || luts[i]->ports.at(pin.first).type != PORT_IN)
+                        continue;
+                    log(" %s:", nameOf(pin.first));
+                    if (pin.second.state == PIN_0)
+                        log("0");
+                    else if (pin.second.state == PIN_1)
+                        log("1");
+                    else if (pin.second.state == PIN_INV)
+                        log("~");
+                    for (auto bp : pin.second.bel_pins)
+                        log("%s", nameOf(bp));
+                }
+            } else {
+                log("<null>");
+            }
+            log("\n");
+        }
+        log("INIT: %016lx\n", mask);
+        log("\n");
+    }
+#endif
 
     return mask;
 }
