@@ -175,7 +175,7 @@ struct Router2
                     nets.at(i).bb.x0 = std::min(nets.at(i).bb.x0, ad.bb.x0);
                     nets.at(i).bb.x1 = std::max(nets.at(i).bb.x1, ad.bb.x1);
                     nets.at(i).bb.y0 = std::min(nets.at(i).bb.y0, ad.bb.y0);
-                    nets.at(i).bb.y1 = std::max(nets.at(i).bb.x1, ad.bb.y1);
+                    nets.at(i).bb.y1 = std::max(nets.at(i).bb.y1, ad.bb.y1);
                 }
                 // Add location to centroid sum
                 Loc usr_loc = ctx->getBelLocation(usr.cell->bel);

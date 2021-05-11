@@ -733,10 +733,11 @@ ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
     int dst_tile = dst.tile == -1 ? chip_info->nodes[dst.index].tile_wires[0].tile : dst.tile;
     int src_tile = src.tile == -1 ? chip_info->nodes[src.index].tile_wires[0].tile : src.tile;
 
-    int x0 = 0, x1 = 0, y0 = 0, y1 = 0;
 
     int src_x, src_y;
     get_tile_x_y(src_tile, &src_x, &src_y);
+
+    int x0 = src_x, x1 = src_x, y0 = src_y, y1 = src_y;
 
     int dst_x, dst_y;
     get_tile_x_y(dst_tile, &dst_x, &dst_y);
@@ -748,7 +749,6 @@ ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
         y1 = std::max(y1, y);
     };
 
-    expand(src_x, src_y);
     expand(dst_x, dst_y);
 
     if (source_locs.count(src))
