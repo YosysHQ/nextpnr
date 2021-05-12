@@ -137,7 +137,7 @@ struct MistralPacker
             CellInfo *ci = cell.second;
             if (ci->type != id_MISTRAL_NOT && ci->type != id_GND && ci->type != id_VCC)
                 continue;
-            IdString port = (ci->type == id_MISTRAL_NOT) ? id_Q : ci->type;
+            IdString port = (ci->type == id_MISTRAL_NOT) ? id_Q : id_Y;
             NetInfo *out = get_net_or_empty(ci, port);
             if (out == nullptr) {
                 trim_cells.push_back(ci->name);
