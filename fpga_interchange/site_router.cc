@@ -1070,6 +1070,47 @@ static void block_lut_outputs(SiteArch *site_arch,
     }
 }
 
+// Recursively visit downhill PIPs until a SITE_PORT_SINK is reached.
+// Marks all PIPs for all valid paths.
+static bool visit_downhill_pips(const SiteArch *site_arch, const SiteWire &site_wire, std::vector<PipId> &valid_pips) {
+    bool valid_path_exists = false;
+    for (SitePip site_pip : site_arch->getPipsDownhill(site_wire)) {
+        const SiteWire &dst_wire = site_arch->getPipDstWire(site_pip);
+        if (dst_wire.type == SiteWire::SITE_PORT_SINK) {
+            valid_pips.push_back(site_pip.pip);
+            return true;
+        }
+
+        bool path_ok = visit_downhill_pips(site_arch, dst_wire, valid_pips);
+        valid_path_exists |= path_ok;
+
+        if (path_ok) {
+            valid_pips.push_back(site_pip.pip);
+        }
+    }
+
+    return valid_path_exists;
+}
+
+// Checks all downhill PIPs starting from driver wires.
+// All valid PIPs are stored and returned in a vector.
+static std::vector<PipId> check_downhill_pips(Context *ctx, const SiteArch *site_arch) {
+    auto &cells_in_site = site_arch->site_info->cells_in_site;
+
+    std::vector<PipId> valid_pips;
+    for (auto &net_pair : site_arch->nets) {
+        NetInfo *net = net_pair.first;
+        const SiteNetInfo *site_net = &net_pair.second;
+
+        if (net->driver.cell && cells_in_site.count(net->driver.cell)) {
+            const SiteWire &site_wire = site_net->driver;
+
+            visit_downhill_pips(site_arch, site_wire, valid_pips);
+        }
+    }
+    return valid_pips;
+}
+
 bool SiteRouter::checkSiteRouting(const Context *ctx, const TileStatus &tile_status) const
 {
     // Overview:
@@ -1211,6 +1252,8 @@ void SiteRouter::bindSiteRouting(Context *ctx)
 
     check_routing(site_arch);
     apply_routing(ctx, site_arch);
+
+    valid_pips = check_downhill_pips(ctx, &site_arch);
     if (verbose_site_router(ctx)) {
         print_current_state(&site_arch);
     }
