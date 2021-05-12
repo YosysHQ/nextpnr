@@ -305,7 +305,7 @@ struct MistralPacker
 
             for (int i = 1; i < int(chain.size()); i++) {
                 chain.at(i)->constr_x = 0;
-                chain.at(i)->constr_y = (i / 20);
+                chain.at(i)->constr_y = -(i / 20);
                 // 2 COMB, 4 FF per ALM
                 chain.at(i)->constr_z = ((i / 2) % 10) * 6 + (i % 2);
                 chain.at(i)->constr_abs_z = true;

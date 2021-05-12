@@ -42,14 +42,14 @@ static void create_alm(Arch *arch, int x, int y, int z, uint32_t lab_idx)
         WireId carry_in, share_in;
         WireId carry_out, share_out;
         if (z == 0 && i == 0) {
-            if (y == 0) {
+            if (y == arch->getGridDimY() - 1) {
                 // Base case
                 carry_in = arch->add_wire(x, y, id_CARRY_START);
                 share_in = arch->add_wire(x, y, id_CARRY_START);
             } else {
                 // Output of last tile
-                carry_in = arch->add_wire(x, y - 1, id_CO);
-                share_in = arch->add_wire(x, y - 1, id_SHAREOUT);
+                carry_in = arch->add_wire(x, y + 1, id_CO);
+                share_in = arch->add_wire(x, y + 1, id_SHAREOUT);
             }
         } else {
             // Output from last combinational unit
@@ -304,22 +304,6 @@ void Arch::assign_ff_info(CellInfo *cell) const
     cell->ffInfo.datain = get_net_or_empty(cell, id_DATAIN);
 }
 
-namespace {
-// Check if the other side of a carry chain wire is being used
-bool carry_used(const Arch *arch, BelId bel, IdString pin)
-{
-    WireId wire = arch->getBelPinWire(bel, pin);
-    for (auto bp : arch->getWireBelPins(wire)) {
-        if (bp.bel == bel)
-            continue;
-        CellInfo *ci = arch->getBoundBelCell(bp.bel);
-        if (ci != nullptr && ci->combInfo.is_carry)
-            return true;
-    }
-    return false;
-}
-} // namespace
-
 // Validity checking functions
 bool Arch::is_alm_legal(uint32_t lab, uint8_t alm) const
 {
@@ -368,26 +352,9 @@ bool Arch::is_alm_legal(uint32_t lab, uint8_t alm) const
 
     bool carry_mode = false;
 
-    for (int i = 0; i < 2; i++) {
-        if (!luts[i])
-            continue;
-        if (!luts[i]->combInfo.is_carry)
-            continue;
-        carry_mode = true;
-        // Never allow two disjoint carry chains to accidentally stack
-        if (luts[i]->combInfo.carry_start && carry_used(this, alm_data.lut_bels[i], id_CI))
-            return false;
-        if (luts[i]->combInfo.carry_end && carry_used(this, alm_data.lut_bels[i], id_CO))
-            return false;
-    }
-
-    for (int i = 0; i < 2; i++) {
-        if (!luts[i])
-            continue;
-        // No mixing of carry and non-carry
-        if (luts[i]->combInfo.is_carry != carry_mode)
-            return false;
-    }
+    // No mixing of carry and non-carry
+    if (luts[0] && luts[1] && luts[0]->combInfo.is_carry != luts[1]->combInfo.is_carry)
+        return false;
 
     // For each ALM half; check FF control set sharing and input routeability
     for (int i = 0; i < 2; i++) {
