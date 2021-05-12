@@ -1244,6 +1244,37 @@ struct Router2
                 route_net(tcs.at(N), fail, false);
     }
 
+//#define ROUTER2_STATISTICS
+
+    void dump_statistics()
+    {
+#ifdef ROUTER2_STATISTICS
+        int total_wires = int(flat_wires.size());
+        int have_hist_cong = 0;
+        int have_any_bound = 0, have_1_bound = 0, have_2_bound = 0, have_gte3_bound = 0;
+        for (auto &wire : flat_wires) {
+            int bound = wire.bound_nets.size();
+            if (bound != 0)
+                ++have_any_bound;
+            if (bound == 1)
+                ++have_1_bound;
+            else if (bound == 2)
+                ++have_2_bound;
+            else if (bound >= 3)
+                ++have_gte3_bound;
+            if (wire.hist_cong_cost > 1.0)
+                ++have_hist_cong;
+        }
+        log_info("Out of %d wires:\n", total_wires);
+        log_info("     %d (%.02f%%) have any bound nets\n", have_any_bound, (100.0 * have_any_bound) / total_wires);
+        log_info("     %d (%.02f%%) have 1 bound net\n", have_1_bound, (100.0 * have_1_bound) / total_wires);
+        log_info("     %d (%.02f%%) have 2 bound nets\n", have_2_bound, (100.0 * have_2_bound) / total_wires);
+        log_info("     %d (%.02f%%) have >2 bound nets\n", have_gte3_bound, (100.0 * have_gte3_bound) / total_wires);
+        log_info("     %d (%.02f%%) have historical congestion\n", have_hist_cong,
+                 (100.0 * have_hist_cong) / total_wires);
+#endif
+    }
+
     void operator()()
     {
         log_info("Running router2...\n");
@@ -1301,6 +1332,8 @@ struct Router2
                 write_heatmap(cong_map, true);
             }
 #endif
+            dump_statistics();
+
             if (overused_wires == 0) {
                 // Try and actually bind nextpnr Arch API wires
                 bind_and_check_all();
