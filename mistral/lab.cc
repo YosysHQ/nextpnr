@@ -48,7 +48,7 @@ static void create_alm(Arch *arch, int x, int y, int z, uint32_t lab_idx)
                 share_in = arch->add_wire(x, y, id_CARRY_START);
             } else {
                 // Output of last tile
-                carry_in = arch->add_wire(x, y - 1, id_COUT);
+                carry_in = arch->add_wire(x, y - 1, id_CO);
                 share_in = arch->add_wire(x, y - 1, id_SHAREOUT);
             }
         } else {
@@ -57,7 +57,7 @@ static void create_alm(Arch *arch, int x, int y, int z, uint32_t lab_idx)
             share_in = arch->add_wire(x, y, arch->id(stringf("SHARE[%d]", (z * 2 + i) - 1)));
         }
         if (z == 9 && i == 1) {
-            carry_out = arch->add_wire(x, y, id_COUT);
+            carry_out = arch->add_wire(x, y, id_CO);
             share_out = arch->add_wire(x, y, id_SHAREOUT);
         } else {
             carry_out = arch->add_wire(x, y, arch->id(stringf("CARRY[%d]", z * 2 + i)));
@@ -75,9 +75,9 @@ static void create_alm(Arch *arch, int x, int y, int z, uint32_t lab_idx)
         arch->add_bel_pin(bel, id_F0, PORT_IN, arch->get_port(CycloneV::LAB, x, y, z, CycloneV::F0));
         arch->add_bel_pin(bel, id_F1, PORT_IN, arch->get_port(CycloneV::LAB, x, y, z, CycloneV::F1));
         // Carry/share chain
-        arch->add_bel_pin(bel, id_CIN, PORT_IN, carry_in);
+        arch->add_bel_pin(bel, id_CI, PORT_IN, carry_in);
         arch->add_bel_pin(bel, id_SHAREIN, PORT_IN, share_in);
-        arch->add_bel_pin(bel, id_COUT, PORT_OUT, carry_out);
+        arch->add_bel_pin(bel, id_CO, PORT_OUT, carry_out);
         arch->add_bel_pin(bel, id_SHAREOUT, PORT_OUT, share_out);
         // Combinational output
         alm.comb_out[i] = arch->add_wire(x, y, arch->id(stringf("COMBOUT[%d]", z * 2 + i)));
@@ -231,6 +231,8 @@ void Arch::assign_comb_info(CellInfo *cell) const
     cell->combInfo.is_carry = false;
     cell->combInfo.is_shared = false;
     cell->combInfo.is_extended = false;
+    cell->combInfo.carry_start = false;
+    cell->combInfo.carry_end = false;
 
     if (cell->type == id_MISTRAL_ALUT_ARITH) {
         cell->combInfo.is_carry = true;
@@ -241,7 +243,13 @@ void Arch::assign_comb_info(CellInfo *cell) const
         for (auto pin : {id_A, id_B, id_C, id_D0, id_D1}) {
             cell->combInfo.lut_in[i++] = get_net_or_empty(cell, pin);
         }
+
+        const NetInfo *ci = get_net_or_empty(cell, id_CI);
+        const NetInfo *co = get_net_or_empty(cell, id_CO);
+
         cell->combInfo.comb_out = get_net_or_empty(cell, id_SO);
+        cell->combInfo.carry_start = (ci == nullptr) || (ci->driver.cell == nullptr);
+        cell->combInfo.carry_end = (co == nullptr) || (co->users.empty());
     } else {
         cell->combInfo.lut_input_count = 0;
         switch (cell->type.index) {
@@ -296,6 +304,22 @@ void Arch::assign_ff_info(CellInfo *cell) const
     cell->ffInfo.datain = get_net_or_empty(cell, id_DATAIN);
 }
 
+namespace {
+// Check if the other side of a carry chain wire is being used
+bool carry_used(const Arch *arch, BelId bel, IdString pin)
+{
+    WireId wire = arch->getBelPinWire(bel, pin);
+    for (auto bp : arch->getWireBelPins(wire)) {
+        if (bp.bel == bel)
+            continue;
+        CellInfo *ci = arch->getBoundBelCell(bp.bel);
+        if (ci != nullptr && ci->combInfo.is_carry)
+            return true;
+    }
+    return false;
+}
+} // namespace
+
 // Validity checking functions
 bool Arch::is_alm_legal(uint32_t lab, uint8_t alm) const
 {
@@ -339,6 +363,16 @@ bool Arch::is_alm_legal(uint32_t lab, uint8_t alm) const
             }
         }
         if ((total_lut_inputs - shared_lut_inputs) > 8)
+            return false;
+    }
+
+    // Never allow two disjoint carry chains to accidentally stack
+    for (int i = 0; i < 2; i++) {
+        if (!luts[i])
+            continue;
+        if (luts[i]->combInfo.carry_start && carry_used(this, alm_data.lut_bels[i], id_CI))
+            return false;
+        if (luts[i]->combInfo.carry_end && carry_used(this, alm_data.lut_bels[i], id_CO))
             return false;
     }
 

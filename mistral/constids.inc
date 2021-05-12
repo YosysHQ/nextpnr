@@ -39,9 +39,9 @@ X(Q)
 
 X(COMBOUT)
 X(SUM_OUT)
-X(CIN)
+X(CI)
 X(SHAREIN)
-X(COUT)
+X(CO)
 X(SHAREOUT)
 
 X(CARRY_START)
@@ -64,8 +64,6 @@ X(LUT1)
 
 X(D0)
 X(D1)
-X(CI)
-X(CO)
 X(SO)
 
 X(WIRE)

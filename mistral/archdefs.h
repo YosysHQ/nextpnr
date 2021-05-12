@@ -183,6 +183,7 @@ struct ArchCellInfo : BaseClusterInfo
             int lut_bits_count;
 
             bool is_carry, is_shared, is_extended;
+            bool carry_start, carry_end;
         } combInfo;
         struct
         {

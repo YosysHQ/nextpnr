@@ -275,11 +275,52 @@ struct MistralPacker
         }
     }
 
+    void constrain_carries()
+    {
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type != id_MISTRAL_ALUT_ARITH)
+                continue;
+            const NetInfo *cin = get_net_or_empty(ci, id_CI);
+            if (cin != nullptr && cin->driver.cell != nullptr)
+                continue; // not the start of a chain
+            std::vector<CellInfo *> chain;
+            CellInfo *cursor = ci;
+            while (true) {
+                chain.push_back(cursor);
+                const NetInfo *co = get_net_or_empty(cursor, id_CO);
+                if (co == nullptr || co->users.empty())
+                    break;
+                if (co->users.size() > 1)
+                    log_error("Carry net %s has more than one sink!\n", ctx->nameOf(co));
+                auto &usr = co->users.at(0);
+                if (usr.port != id_CI)
+                    log_error("Carry net %s drives port %s, expected CI\n", ctx->nameOf(co), ctx->nameOf(usr.port));
+                cursor = usr.cell;
+            }
+
+            chain.at(0)->constr_abs_z = true;
+            chain.at(0)->constr_z = 0;
+            chain.at(0)->cluster = chain.at(0)->name;
+
+            for (int i = 1; i < int(chain.size()); i++) {
+                chain.at(i)->constr_x = 0;
+                chain.at(i)->constr_y = (i / 20);
+                // 2 COMB, 4 FF per ALM
+                chain.at(i)->constr_z = ((i / 2) % 10) * 6 + (i % 2);
+                chain.at(i)->constr_abs_z = true;
+                chain.at(i)->cluster = chain.at(0)->name;
+                chain.at(0)->constr_children.push_back(chain.at(i));
+            }
+        }
+    }
+
     void run()
     {
         init_constant_nets();
         pack_constants();
         pack_io();
+        constrain_carries();
     }
 };
 }; // namespace
