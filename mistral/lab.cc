@@ -190,10 +190,16 @@ void Arch::create_lab(int x, int y)
 
 // Cell handling and annotation functions
 namespace {
-ControlSig get_ctrlsig(const CellInfo *cell, IdString port)
+ControlSig get_ctrlsig(const Context *ctx, const CellInfo *cell, IdString port, bool explicit_const = false)
 {
     ControlSig result;
     result.net = get_net_or_empty(cell, port);
+    if (result.net == nullptr && explicit_const) {
+        // For ENA, 1 (and 0) are explicit control set choices even though they aren't routed, as "no ENA" still
+        // consumes a clock+ENA pair
+        CellPinState st = PIN_1;
+        result.net = ctx->nets.at((st == PIN_1) ? ctx->id("$PACKER_VCC_NET") : ctx->id("$PACKER_GND_NET")).get();
+    }
     if (cell->pin_data.count(port))
         result.inverted = cell->pin_data.at(port).state == PIN_INV;
     else
@@ -281,11 +287,11 @@ void Arch::assign_comb_info(CellInfo *cell) const
 
 void Arch::assign_ff_info(CellInfo *cell) const
 {
-    cell->ffInfo.ctrlset.clk = get_ctrlsig(cell, id_CLK);
-    cell->ffInfo.ctrlset.ena = get_ctrlsig(cell, id_ENA);
-    cell->ffInfo.ctrlset.aclr = get_ctrlsig(cell, id_ACLR);
-    cell->ffInfo.ctrlset.sclr = get_ctrlsig(cell, id_SCLR);
-    cell->ffInfo.ctrlset.sload = get_ctrlsig(cell, id_SLOAD);
+    cell->ffInfo.ctrlset.clk = get_ctrlsig(getCtx(), cell, id_CLK);
+    cell->ffInfo.ctrlset.ena = get_ctrlsig(getCtx(), cell, id_ENA, true);
+    cell->ffInfo.ctrlset.aclr = get_ctrlsig(getCtx(), cell, id_ACLR);
+    cell->ffInfo.ctrlset.sclr = get_ctrlsig(getCtx(), cell, id_SCLR);
+    cell->ffInfo.ctrlset.sload = get_ctrlsig(getCtx(), cell, id_SLOAD);
     cell->ffInfo.sdata = get_net_or_empty(cell, id_SDATA);
     cell->ffInfo.datain = get_net_or_empty(cell, id_DATAIN);
 }
@@ -416,7 +422,7 @@ bool Arch::is_lab_ctrlset_legal(uint32_t lab) const
 {
     // Strictly speaking the constraint is up to 2 unique CLK and 3 CLK+ENA pairs. For now we simplify this to 1 CLK and
     // 3 ENA though.
-    ControlSig clk, sload, sclr;
+    ControlSig clk{}, sload{}, sclr{};
     std::array<ControlSig, 2> aclr{};
     std::array<ControlSig, 3> ena{};
 
