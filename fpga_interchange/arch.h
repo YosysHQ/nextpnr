@@ -853,14 +853,11 @@ struct Arch : ArchAPI<ArchRanges>
 
     // TODO
     CellInfo *getClusterRootCell(ClusterId cluster) const override;
-    ArcBounds getClusterBounds(ClusterId cluster) const override { NPNR_ASSERT_FALSE("unimplemented"); }
-    Loc getClusterOffset(const CellInfo *cell) const override { NPNR_ASSERT_FALSE("unimplemented"); }
-    bool isClusterStrict(const CellInfo *cell) const override { NPNR_ASSERT_FALSE("unimplemented"); }
+    ArcBounds getClusterBounds(ClusterId cluster) const override;
+    Loc getClusterOffset(const CellInfo *cell) const override;
+    bool isClusterStrict(const CellInfo *cell) const override;
     bool getClusterPlacement(ClusterId cluster, BelId root_bel,
-                             std::vector<std::pair<CellInfo *, BelId>> &placement) const override
-    {
-        NPNR_ASSERT_FALSE("unimplemented");
-    }
+                             std::vector<std::pair<CellInfo *, BelId>> &placement) const override;
 
     IdString get_bel_tiletype(BelId bel) const { return IdString(loc_info(chip_info, bel).name); }
 

@@ -404,13 +404,18 @@ NPNR_PACKED_STRUCT(struct MacroExpansionPOD {
 
 enum ChainCoord
 {
-    x = 0,
-    y = 1,
+    CHAIN_X_COORD = 0,
+    CHAIN_Y_COORD = 1,
 };
 
+NPNR_PACKED_STRUCT(struct ChainPatternConfigPOD {
+    uint32_t type;
+    uint32_t port;
+});
+
 NPNR_PACKED_STRUCT(struct ChainPatternPOD {
-    uint32_t source;
-    uint32_t sink;
+    ChainPatternConfigPOD source;
+    ChainPatternConfigPOD sink;
 });
 
 NPNR_PACKED_STRUCT(struct ChainCoordConfigPOD {
