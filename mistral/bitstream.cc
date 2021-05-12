@@ -222,6 +222,9 @@ struct MistralBitgen
         cv->bmux_m_set(CycloneV::LAB, pos, CycloneV::BDFF0, alm, CycloneV::NLUT);
         cv->bmux_m_set(CycloneV::LAB, pos, CycloneV::BDFF1, alm, CycloneV::NLUT);
         cv->bmux_m_set(CycloneV::LAB, pos, CycloneV::BDFF1L, alm, CycloneV::NLUT);
+
+        if ((luts[0] && luts[0]->combInfo.is_carry) || (luts[1] && luts[1]->combInfo.is_carry))
+            cv->bmux_m_set(CycloneV::LAB, pos, CycloneV::ARITH_SEL, alm, CycloneV::ADDER);
     }
 
     void write_labs()

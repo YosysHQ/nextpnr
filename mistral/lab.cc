@@ -366,13 +366,26 @@ bool Arch::is_alm_legal(uint32_t lab, uint8_t alm) const
             return false;
     }
 
-    // Never allow two disjoint carry chains to accidentally stack
+    bool carry_mode = false;
+
     for (int i = 0; i < 2; i++) {
         if (!luts[i])
             continue;
+        if (!luts[i]->combInfo.is_carry)
+            continue;
+        carry_mode = true;
+        // Never allow two disjoint carry chains to accidentally stack
         if (luts[i]->combInfo.carry_start && carry_used(this, alm_data.lut_bels[i], id_CI))
             return false;
         if (luts[i]->combInfo.carry_end && carry_used(this, alm_data.lut_bels[i], id_CO))
+            return false;
+    }
+
+    for (int i = 0; i < 2; i++) {
+        if (!luts[i])
+            continue;
+        // No mixing of carry and non-carry
+        if (luts[i]->combInfo.is_carry != carry_mode)
             return false;
     }
 
@@ -380,7 +393,7 @@ bool Arch::is_alm_legal(uint32_t lab, uint8_t alm) const
     for (int i = 0; i < 2; i++) {
         // There are two ways to route from the fabric into FF data - either routing through a LUT or using the E/F
         // signals and SLOAD=1 (*PKREF*)
-        bool route_thru_lut_avail = !luts[i] && (total_lut_inputs < 8) && (used_lut_bits < 64);
+        bool route_thru_lut_avail = !luts[i] && !carry_mode && (total_lut_inputs < 8) && (used_lut_bits < 64);
         // E/F is available if this LUT is using 3 or fewer inputs - this is conservative and sharing can probably
         // improve this situation
         bool ef_available = (!luts[i] || luts[i]->combInfo.used_lut_input_count <= 3);
