@@ -1776,15 +1776,15 @@ bool Arch::checkPipAvailForNet(PipId pip, NetInfo *net) const
         }
     }
 
+    auto tile_status_iter = tileStatus.find(pip.tile);
+
     if (pip_data.pseudo_cell_wires.size() > 0) {
         // FIXME: This pseudo pip check is incomplete, because constraint
         // failures will not be detected.  However the current FPGA
         // interchange schema does not provide a cell type to place.
-        auto iter = tileStatus.find(pip.tile);
-        if (iter != tileStatus.end()) {
-            if (!iter->second.pseudo_pip_model.checkPipAvail(getCtx(), pip)) {
-                return false;
-            }
+        if (tile_status_iter != tileStatus.end() &&
+            !tile_status_iter->second.pseudo_pip_model.checkPipAvail(getCtx(), pip)) {
+            return false;
         }
     }
 
@@ -1797,18 +1797,16 @@ bool Arch::checkPipAvailForNet(PipId pip, NetInfo *net) const
 
         bool valid_pip = false;
         if (pip.tile == net->driver.cell->bel.tile) {
-            const BelInfoPOD &bel_data = tile_type.bel_data[net->driver.cell->bel.index];
-            if (bel_data.site == pip_data.site) {
-                // Only allow site pips or output site ports.
-                if (dst_wire_data.site == -1) {
-                    // Allow output site port from this site.
-                    NPNR_ASSERT(src_wire_data.site == pip_data.site);
-                    valid_pip = true;
-                }
+            if (tile_status_iter == tileStatus.end()) {
+                // there is no tile status and nothing blocks the validity of this PIP
+                valid_pip = true;
+            } else {
+                const BelInfoPOD &bel_data = tile_type.bel_data[net->driver.cell->bel.index];
+                const SiteRouter &site_router = get_site_status(tile_status_iter->second, bel_data);
 
-                if (dst_wire_data.site == bel_data.site && src_wire_data.site == bel_data.site) {
-                    // This is site pip for the same site as the driver, allow
-                    // this site pip.
+                const auto& pips = site_router.valid_pips;
+                auto result = std::find(pips.begin(), pips.end(), pip);
+                if (result != pips.end()) {
                     valid_pip = true;
                 }
             }

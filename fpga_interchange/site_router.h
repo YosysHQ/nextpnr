@@ -38,6 +38,7 @@ struct SiteRouter
     SiteRouter(int16_t site) : site(site), dirty(false), site_ok(true) {}
 
     std::unordered_set<CellInfo *> cells_in_site;
+    std::vector<PipId> valid_pips;
     const int16_t site;
 
     mutable bool dirty;
