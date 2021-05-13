@@ -312,6 +312,24 @@ struct MistralPacker
                 chain.at(i)->cluster = chain.at(0)->name;
                 chain.at(0)->constr_children.push_back(chain.at(i));
             }
+
+            if (ctx->debug) {
+                log_info("Chain: \n");
+                for (int i = 0; i < int(chain.size()); i++) {
+                    auto &c = chain.at(i);
+                    log_info("    i=%d cell=%s dy=%d z=%d ci=%s co=%s\n", i, ctx->nameOf(c), c->constr_y, c->constr_z,
+                             ctx->nameOf(get_net_or_empty(c, id_CI)), ctx->nameOf(get_net_or_empty(c, id_CO)));
+                }
+            }
+        }
+        // Check we reached all the cells in the above pass
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type != id_MISTRAL_ALUT_ARITH)
+                continue;
+            if (ci->cluster == ClusterId())
+                log_error("Failed to include arith cell '%s' in any chain (CI=%s)\n", ctx->nameOf(ci),
+                          ctx->nameOf(get_net_or_empty(ci, id_CI)));
         }
     }
 

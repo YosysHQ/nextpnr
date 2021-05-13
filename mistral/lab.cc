@@ -42,20 +42,20 @@ static void create_alm(Arch *arch, int x, int y, int z, uint32_t lab_idx)
         WireId carry_in, share_in;
         WireId carry_out, share_out;
         if (z == 0 && i == 0) {
-            if (y == arch->getGridDimY() - 1) {
-                // Base case
-                carry_in = arch->add_wire(x, y, id_CARRY_START);
-                share_in = arch->add_wire(x, y, id_CARRY_START);
-            } else {
-                // Output of last tile
-                carry_in = arch->add_wire(x, y + 1, id_CO);
-                share_in = arch->add_wire(x, y + 1, id_SHAREOUT);
+            carry_in = arch->add_wire(x, y, id_CI);
+            share_in = arch->add_wire(x, y, id_SHAREIN);
+            if (y < (arch->getGridDimY() - 1)) {
+                // Carry is split at tile boundary (TTO_DIS bit), add a PIP to represent this.
+                // TODO: what about BTO_DIS, in the middle of the LAB?
+                arch->add_pip(arch->add_wire(x, y + 1, id_CO), carry_in);
+                arch->add_pip(arch->add_wire(x, y + 1, id_SHAREOUT), share_in);
             }
         } else {
             // Output from last combinational unit
             carry_in = arch->add_wire(x, y, arch->id(stringf("CARRY[%d]", (z * 2 + i) - 1)));
             share_in = arch->add_wire(x, y, arch->id(stringf("SHARE[%d]", (z * 2 + i) - 1)));
         }
+
         if (z == 9 && i == 1) {
             carry_out = arch->add_wire(x, y, id_CO);
             share_out = arch->add_wire(x, y, id_SHAREOUT);
@@ -582,7 +582,7 @@ static void assign_lut6_inputs(CellInfo *cell, int lut)
         if (!cell->ports.count(log) || cell->ports.at(log).net == nullptr)
             continue;
         cell->pin_data[log].bel_pins.clear();
-        cell->pin_data[log].bel_pins.push_back(phys_pins.at(++phys_idx));
+        cell->pin_data[log].bel_pins.push_back(phys_pins.at(phys_idx++));
     }
 }
 } // namespace
@@ -640,16 +640,19 @@ void Arch::reassign_alm_inputs(uint32_t lab, uint8_t alm)
                 continue;
             // Work out which physical ports are available
             std::vector<IdString> avail_phys_ports;
+            // D/C always available and dedicated to the half, in L5 mode
             avail_phys_ports.push_back((i == 1) ? id_D : id_C);
-            if (b_avail)
-                avail_phys_ports.push_back(id_B);
-            if (a_avail)
-                avail_phys_ports.push_back(id_A);
             // In arithmetic mode, Ei can only be used for D0 and Fi can only be used for D1
+            // otherwise, these are general and dedicated to one half
             if (!luts[i]->combInfo.is_carry) {
                 avail_phys_ports.push_back((i == 1) ? id_E1 : id_E0);
                 avail_phys_ports.push_back((i == 1) ? id_F1 : id_F0);
             }
+            // A and B might be used for shared signals, or already used by the other half
+            if (b_avail)
+                avail_phys_ports.push_back(id_B);
+            if (a_avail)
+                avail_phys_ports.push_back(id_A);
             int phys_idx = 0;
 
             for (int j = 0; j < luts[i]->combInfo.lut_input_count; j++) {
