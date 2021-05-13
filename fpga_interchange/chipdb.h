@@ -414,8 +414,8 @@ NPNR_PACKED_STRUCT(struct ChainPatternConfigPOD {
 });
 
 NPNR_PACKED_STRUCT(struct ChainPatternPOD {
-    ChainPatternConfigPOD source;
-    ChainPatternConfigPOD sink;
+    RelSlice<ChainPatternConfigPOD> source;
+    RelSlice<ChainPatternConfigPOD> sink;
 });
 
 NPNR_PACKED_STRUCT(struct ChainCoordConfigPOD {

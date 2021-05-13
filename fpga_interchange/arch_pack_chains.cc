@@ -43,21 +43,79 @@ CellInfo* Arch::getClusterRootCell(ClusterId cluster) const
 bool Arch::getClusterPlacement(ClusterId cluster, BelId root_bel,
                          std::vector<std::pair<CellInfo *, BelId>> &placement) const
 {
-    // Load coord config if available?
+    const Context *ctx = getCtx();
+    // HACK / FIXME
+    IdString tile_type;
+    tile_type.set(ctx, "CARRY4");
+    // ------------
+    IdString suggested_tile(chip_info->tiles[root_bel.index].type);
+    if (suggested_tile != tile_type) {
+        // Tile type does not fit the chain - do not proceed
+        log_info("Suggested: %s [%d] vs. wanted: %s\n", suggested_tile.c_str(ctx), root_bel.index, tile_type.c_str(ctx));
+        return false;
+    }
+
+    // Place root
+    CellInfo *root_cell = getClusterRootCell(cluster);
+    placement.push_back(std::make_pair(root_cell, root_bel));
+
     // Place cluster
-    CellInfo *root = getClusterRootCell(cluster);
-    BelId next_bel;
-    next_bel.index = root_bel.index;
-    next_bel.tile = root_bel.tile + 1;
-    Loc loc = getBelLocation(root_bel);
-    log_info("tile: %d, index: %d, loc:(%d, %d, %d)\n", root_bel.tile, root_bel.index, loc.x, loc.y, loc.z);
-    loc = getBelLocation(next_bel);
-    log_info("tile: %d, index: %d, loc:(%d, %d, %d)\n", next_bel.tile, next_bel.index, loc.x, loc.y, loc.z);
-    // Check if carry chain will fit
-    log_error("error\n");
+    auto cluster_coord_cfgs = cluster_to_coord_configs.find(cluster);
+    std::vector<std::pair<ChainCoord, int>> coord_configs = cluster_coord_cfgs->second;
+    CellInfo *next_cell = root_cell;
+    NetInfo *next_net = nullptr;
+    BelId next_bel = root_bel;
+    log_info("Cluster '%s' Placement:\n", root_cell->cluster.c_str(ctx));
+    while (true) {
+        // Get pattern to find next_cell
+        auto cell_pattern = cell_pattern_map.find(next_cell->name);
+        std::pair<IdString, IdString> pattern_cfg = cell_pattern->second;
+        IdString port = pattern_cfg.second;
+        if (port == IdString()) {
+            log_error("Cluster misconfiguration! None of patterns match cell: '%s'\n", next_cell->type.c_str(ctx));
+        }
+        next_net = next_cell->ports[port].net;
+        if (next_net == nullptr || next_net->users.size() == 0) {
+            break;
+        }
+        next_cell = next_net->users.at(0).cell;
+
+        Loc loc = getBelLocation(next_bel);
+        bool bel_found = false;
+        Loc next_loc = loc;
+        for (auto cfg : coord_configs) {
+            ChainCoord coord = cfg.first;
+            if (coord == CHAIN_X_COORD) {
+                next_loc.x += cfg.second;
+            } else {
+                next_loc.y += cfg.second;
+            }
+            // HACK / FIXME
+            if (next_loc.x > 64 || next_loc.x < 0) {
+                return false;
+            }
+            if (next_loc.y > 154 || next_loc.y < 0) {
+                return false;
+            }
+            // ------------
+            next_bel = getBelByLocation(next_loc);
+            bel_found = next_bel.index == root_bel.index;
+            if(bel_found) {
+                break;
+            }
+        }
+        if (!bel_found) {
+            // TODO: improve this message
+            log_error("Cannot place cell: '%s'\n", next_cell->name.c_str(ctx));
+        }
+
+        placement.push_back(std::make_pair(next_cell, next_bel));
+        log_info("Cell '%s' placed on (%d, %d, %d) tile: %s\n", next_cell->name.c_str(ctx), loc.x, loc.y, loc.z, tile_type.c_str(ctx));
+    }
+
+    return true;
 }
 
-// TODO
 ArcBounds Arch::getClusterBounds(ClusterId cluster) const
 {
     ArcBounds bounds(0, 0, 0, 0);
@@ -112,17 +170,17 @@ void dump_chains(const ChipInfoPOD *chip_info, Context *ctx)
                 IdString cell_name(cell);
                 log_info("      - %s\n", cell_name.c_str(ctx));
             }
-        log_info("  - patterns:\n");
-            for (auto &pattern : bel_chain.chain_patterns) {
-                IdString source_type(pattern.source.type);
-                IdString source_port(pattern.source.port);
-                IdString sink_type(pattern.sink.type);
-                IdString sink_port(pattern.sink.port);
-                log_info("      - %s.%s -> %s.%s\n", source_type.c_str(ctx), source_port.c_str(ctx), sink_type.c_str(ctx), sink_port.c_str(ctx));
-            }
         log_info("  - coord_configs:\n");
             for (auto cfg : bel_chain.chain_coord_configs) {
                 log_info("      - coord: %d | step: %d\n", cfg.coord, cfg.step);
+            }
+        log_info("  - patterns:\n");
+            for (auto &pattern : bel_chain.chain_patterns) {
+                IdString source_type(pattern.source->type);
+                IdString source_port(pattern.source->port);
+                IdString sink_type(pattern.sink->type);
+                IdString sink_port(pattern.sink->port);
+                log_info("      - %s.%s -> %s.%s\n", source_type.c_str(ctx), source_port.c_str(ctx), sink_type.c_str(ctx), sink_port.c_str(ctx));
             }
     }
 }
@@ -130,6 +188,7 @@ void dump_chains(const ChipInfoPOD *chip_info, Context *ctx)
 void Arch::prepare_cluster(const BelChainPOD *chain)
 {
     Context *ctx = getCtx();
+    IdString chain_name(chain->name);
 
     // Get chainable cells
     std::vector<CellInfo *> chainable_cells;
@@ -143,28 +202,12 @@ void Arch::prepare_cluster(const BelChainPOD *chain)
         }
     }
 
-    // Prepare sources and sinks pairs from provided patterns
-    // pair: <cell_type, cell_port>
-    //std::vector<std::pair<IdString, IdString>> sources, sinks;
-    //for (auto &pattern : chain->chain_patterns) {
-    //    IdString source_type(pattern.source.type);
-    //    IdString sink_type(pattern.sink.type);
-    //    IdString source_port(pattern.source.port);
-    //    IdString sink_port(pattern.sink.port);
-
-    //    std::pair<IdString, IdString> source_pair(source_type, source_port);
-    //    sources.push_back(source_pair);
-
-    //    std::pair<IdString, IdString> sink_pair(sink_type, sink_port);
-    //    sinks.push_back(sink_pair);
-    //}
-
     // Find roots from chainable cells
     std::vector<CellInfo *> roots;
     for (auto cell : chainable_cells) {
         for (auto &pattern : chain->chain_patterns) {
-            IdString snk_cell_type(pattern.sink.type);
-            IdString snk_cell_port(pattern.sink.port);
+            IdString snk_cell_type(pattern.sink->type);
+            IdString snk_cell_port(pattern.sink->port);
 
             if (snk_cell_type != cell->type || cell->ports.find(snk_cell_port) == cell->ports.end()) {
                 continue;
@@ -175,35 +218,41 @@ void Arch::prepare_cluster(const BelChainPOD *chain)
                 // We hit a root cell
                 cell->cluster.set(ctx, cell->name.str(ctx));
                 roots.push_back(cell);
+                std::vector<std::pair<ChainCoord, int>> configs;
+                for (auto coord_cfg : chain->chain_coord_configs) {
+                    std::pair<ChainCoord, int> cfg((ChainCoord)coord_cfg.coord, (int)coord_cfg.step);
+                    configs.push_back(cfg);
+                }
+                cluster_to_coord_configs.emplace(cell->cluster, configs);
                 break;
             }
         }
     }
 
     // Generate unique clusters starting from each root
-    std::unordered_map<ClusterId, CellInfo *> roots_map;
     for (auto root : roots) {
         CellInfo *next_cell = root;
         std::string cluster_path = "";
         while (next_cell != nullptr) {
             cluster_path += next_cell->name.str(ctx) + " -> ";
-            IdString src_cell_type;
-            IdString src_cell_port;
-
             // Find possible source type/port to follow in cluster building
+            std::pair<IdString, IdString> config;
             for (auto &pattern : chain->chain_patterns) {
-                src_cell_type = IdString(pattern.source.type);
-                src_cell_port = IdString(pattern.source.port);
+                IdString src_cell_type(pattern.source->type);
+                IdString src_cell_port(pattern.source->port);
                 if (src_cell_type != next_cell->type || next_cell->ports.find(src_cell_port) == next_cell->ports.end()) {
                     src_cell_type = IdString();
                     src_cell_port = IdString();
                     continue;
                 }
+                config = std::make_pair(src_cell_type, src_cell_port);
             }
-            if (src_cell_type == IdString() || src_cell_port == IdString()) {
+            if (config.first == IdString() || config.second == IdString()) {
                 log_error("Chain pattern not found for cell: '%s'\n", next_cell->name.c_str(ctx));
                 break;
             }
+            cell_pattern_map.emplace(next_cell->name, config);
+            IdString src_cell_port = cell_pattern_map[next_cell->name].second;
 
             next_cell->cluster = root->cluster;
             NetInfo *next_net = next_cell->ports[src_cell_port].net;
