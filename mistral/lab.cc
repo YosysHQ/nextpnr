@@ -735,11 +735,23 @@ uint64_t Arch::compute_lut_mask(uint32_t lab, uint8_t alm)
             int index = 0;
             for (int k = 0; k < lut->combInfo.lut_input_count; k++) {
                 IdString log_pin = get_lut_pin(lut, k);
+                int init_idx = k;
+                if (arith) {
+                    // D0 only affects lower half; D1 upper half
+                    if (k == 3 && j >= 16)
+                        continue;
+                    if (k == 4) {
+                        if (j < 16)
+                            continue;
+                        else
+                            init_idx = 3;
+                    }
+                }
                 CellPinState state = lut->get_pin_state(log_pin);
                 if (state == PIN_0)
                     continue;
                 else if (state == PIN_1)
-                    index |= (1 << k);
+                    index |= (1 << init_idx);
                 // Ignore if no associated physical pin
                 if (get_net_or_empty(lut, log_pin) == nullptr || lut->pin_data.at(log_pin).bel_pins.empty())
                     continue;
@@ -749,7 +761,7 @@ uint64_t Arch::compute_lut_mask(uint32_t lab, uint8_t alm)
                 // Depermute physical pin
                 IdString phys_pin = lut->pin_data.at(log_pin).bel_pins.at(0);
                 if (get_phys_pin_val(alm_data.l6_mode, arith, j, phys_pin) != inverted)
-                    index |= (1 << k);
+                    index |= (1 << init_idx);
             }
             if ((init >> index) & 0x1) {
                 mask |= (1ULL << uint64_t(j + offset));
