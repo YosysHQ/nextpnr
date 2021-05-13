@@ -39,6 +39,7 @@ struct SiteRouter
 
     std::unordered_set<CellInfo *> cells_in_site;
     std::vector<PipId> valid_pips;
+    HashTables::HashSet<std::pair<IdString, int32_t>, PairHash> lut_thrus;
     const int16_t site;
 
     mutable bool dirty;

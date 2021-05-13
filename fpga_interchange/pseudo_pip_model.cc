@@ -353,6 +353,37 @@ void PseudoPipModel::update_site(const Context *ctx, size_t site)
         }
     }
 
+    std::vector<CellInfo> lut_thru_cells;
+    lut_thru_cells.reserve(tile_status.sites[site].lut_thrus.size());
+    for (auto input_bel_pin : tile_status.sites[site].lut_thrus) {
+        if (ctx->wire_lut == nullptr)
+            break;
+
+        BelId bel;
+        bel.index = input_bel_pin.second;
+        bel.tile = tile;
+        const auto &bel_data = bel_info(ctx->chip_info, bel);
+
+        NPNR_ASSERT(bel_data.lut_element != -1);
+
+        lut_thru_cells.emplace_back();
+        CellInfo &cell = lut_thru_cells.back();
+
+        cell.bel = bel;
+
+        cell.type = IdString(ctx->wire_lut->cell);
+        NPNR_ASSERT(ctx->wire_lut->input_pins.size() == 1);
+        cell.lut_cell.pins.push_back(IdString(ctx->wire_lut->input_pins[0]));
+
+        cell.lut_cell.equation.resize(2);
+        cell.lut_cell.equation.set(0, false);
+        cell.lut_cell.equation.set(1, true);
+
+        cell.cell_bel_pins[IdString(ctx->wire_lut->input_pins[0])].push_back(input_bel_pin.first);
+
+        lut_mappers[bel_data.lut_element].cells.push_back(&cell);
+    }
+
     std::vector<CellInfo> lut_cells;
     lut_cells.reserve(used_bels.size());
     for (const auto &bel_pair : used_bels) {
@@ -370,9 +401,8 @@ void PseudoPipModel::update_site(const Context *ctx, size_t site)
         cell.bel.tile = tile;
         cell.bel.index = bel_pair.first;
 
-        if (ctx->wire_lut == nullptr) {
+        if (ctx->wire_lut == nullptr)
             continue;
-        }
 
         cell.type = IdString(ctx->wire_lut->cell);
         NPNR_ASSERT(ctx->wire_lut->input_pins.size() == 1);
@@ -437,11 +467,6 @@ void PseudoPipModel::update_site(const Context *ctx, size_t site)
             }
         }
 
-        if (blocked_by_bel) {
-            allowed_pseudo_pips.set(pseudo_pip, false);
-            continue;
-        }
-
         bool blocked_by_lut_eq = false;
 
         // See if any BELs are part of a LUT element.  If so, see if using
@@ -480,20 +505,17 @@ void PseudoPipModel::update_site(const Context *ctx, size_t site)
             }
         }
 
-        if (blocked_by_lut_eq) {
 #ifdef DEBUG_PSEUDO_PIP
-            if (ctx->verbose) {
-                log_info("Pseudo pip %s is blocked by lut eq\n", ctx->nameOfPip(pip));
-            }
-#endif
-            allowed_pseudo_pips.set(pseudo_pip, false);
-            continue;
+        if (blocked_by_lut_eq && ctx->verbose) {
+            log_info("Pseudo pip %s is blocked by invalid LUT equation\n", ctx->nameOfPip(pip));
         }
+#endif
 
         // Pseudo pip should be allowed, mark as such.
         //
         // FIXME: Handle non-LUT constraint cases, as needed.
-        allowed_pseudo_pips.set(pseudo_pip, true);
+        bool allow_pip = !blocked_by_lut_eq && !blocked_by_bel;
+        allowed_pseudo_pips.set(pseudo_pip, allow_pip);
     }
 }
 

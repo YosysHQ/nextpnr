@@ -964,7 +964,7 @@ static void apply_constant_routing(Context *ctx, const SiteArch &site_arch, NetI
     }
 }
 
-static void apply_routing(Context *ctx, const SiteArch &site_arch)
+static void apply_routing(Context *ctx, const SiteArch &site_arch, HashTables::HashSet<std::pair<IdString, int32_t>, PairHash> &lut_thrus)
 {
     IdString gnd_net_name(ctx->chip_info->constants->gnd_net_name);
     NetInfo *gnd_net = ctx->nets.at(gnd_net_name).get();
@@ -991,6 +991,26 @@ static void apply_routing(Context *ctx, const SiteArch &site_arch)
                 const SitePip &site_pip = wire_pair.second.pip;
                 if (site_pip.type != SitePip::SITE_PIP && site_pip.type != SitePip::SITE_PORT) {
                     continue;
+                }
+
+                auto &pip_data = pip_info(ctx->chip_info, site_pip.pip);
+
+                BelId bel;
+                bel.tile = site_pip.pip.tile;
+                bel.index = pip_data.bel;
+                const auto &bel_data = bel_info(ctx->chip_info, bel);
+
+                // Detect and store LUT thrus for allowance check during routing
+                if (bel_data.lut_element != -1) {
+                    WireId src_wire = ctx->getPipSrcWire(site_pip.pip);
+
+                    for (BelPin bel_pin : ctx->getWireBelPins(src_wire)) {
+                        if (bel_pin.bel != bel)
+                            continue;
+
+                        lut_thrus.insert(std::make_pair(bel_pin.pin, bel_pin.bel.index));
+                        break;
+                    }
                 }
 
                 ctx->bindPip(site_pip.pip, net, STRENGTH_PLACER);
@@ -1094,10 +1114,9 @@ static bool visit_downhill_pips(const SiteArch *site_arch, const SiteWire &site_
 
 // Checks all downhill PIPs starting from driver wires.
 // All valid PIPs are stored and returned in a vector.
-static std::vector<PipId> check_downhill_pips(Context *ctx, const SiteArch *site_arch) {
+static void check_downhill_pips(Context *ctx, const SiteArch *site_arch, std::vector<PipId> &valid_pips) {
     auto &cells_in_site = site_arch->site_info->cells_in_site;
 
-    std::vector<PipId> valid_pips;
     for (auto &net_pair : site_arch->nets) {
         NetInfo *net = net_pair.first;
         const SiteNetInfo *site_net = &net_pair.second;
@@ -1108,7 +1127,6 @@ static std::vector<PipId> check_downhill_pips(Context *ctx, const SiteArch *site
             visit_downhill_pips(site_arch, site_wire, valid_pips);
         }
     }
-    return valid_pips;
 }
 
 bool SiteRouter::checkSiteRouting(const Context *ctx, const TileStatus &tile_status) const
@@ -1251,9 +1269,9 @@ void SiteRouter::bindSiteRouting(Context *ctx)
     NPNR_ASSERT(route_site(&site_arch, &ctx->site_routing_cache, &ctx->node_storage, /*explain=*/false));
 
     check_routing(site_arch);
-    apply_routing(ctx, site_arch);
+    apply_routing(ctx, site_arch, lut_thrus);
 
-    valid_pips = check_downhill_pips(ctx, &site_arch);
+    check_downhill_pips(ctx, &site_arch, valid_pips);
     if (verbose_site_router(ctx)) {
         print_current_state(&site_arch);
     }
