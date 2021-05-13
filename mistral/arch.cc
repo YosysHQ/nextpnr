@@ -305,6 +305,23 @@ WireId Arch::add_wire(int x, int y, IdString name, uint64_t flags)
     }
 }
 
+void Arch::reserve_route(WireId src, WireId dst)
+{
+    auto &dst_data = wires.at(dst);
+    int idx = -1;
+
+    for (int i = 0; i < int(dst_data.wires_uphill.size()); i++) {
+        if (dst_data.wires_uphill.at(i) == src) {
+            idx = i;
+            break;
+        }
+    }
+
+    NPNR_ASSERT(idx != -1);
+
+    dst_data.flags = WireInfo::RESERVED_ROUTE | unsigned(idx);
+}
+
 bool Arch::wires_connected(WireId src, WireId dst) const
 {
     PipId pip(src.node, dst.node);

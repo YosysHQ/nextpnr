@@ -430,67 +430,82 @@ template <size_t N> bool check_assign_sig(std::array<ControlSig, N> &sig_set, co
         }
     return false;
 };
-}; // namespace
 
-bool Arch::is_lab_ctrlset_legal(uint32_t lab) const
+// DATAIN mapping rules - which LAB DATAIN signals can be used for ENA and ACLR
+static constexpr std::array<int, 3> ena_datain{2, 3, 0};
+static constexpr std::array<int, 2> aclr_datain{3, 2};
+
+struct LabCtrlSetWorker
 {
-    // Strictly speaking the constraint is up to 2 unique CLK and 3 CLK+ENA pairs. For now we simplify this to 1 CLK and
-    // 3 ENA though.
+
     ControlSig clk{}, sload{}, sclr{};
     std::array<ControlSig, 2> aclr{};
     std::array<ControlSig, 3> ena{};
 
-    for (uint8_t alm = 0; alm < 10; alm++) {
-        for (uint8_t i = 0; i < 4; i++) {
-            const CellInfo *ff = getBoundBelCell(labs.at(lab).alms.at(alm).ff_bels.at(i));
-            if (ff == nullptr)
-                continue;
-
-            if (!check_assign_sig(clk, ff->ffInfo.ctrlset.clk))
-                return false;
-            if (!check_assign_sig(sload, ff->ffInfo.ctrlset.sload))
-                return false;
-            if (!check_assign_sig(sclr, ff->ffInfo.ctrlset.sclr))
-                return false;
-            if (!check_assign_sig(aclr, ff->ffInfo.ctrlset.aclr))
-                return false;
-            if (!check_assign_sig(ena, ff->ffInfo.ctrlset.ena))
-                return false;
-        }
-    }
-
-    // Check for overuse of the shared, LAB-wide datain signals
     std::array<ControlSig, 4> datain{};
-    if (clk.net != nullptr && !clk.net->is_global)
-        if (!check_assign_sig(datain[0], clk)) // CLK only needs DATAIN[0] if it's not global
+
+    bool run(const Arch *arch, uint32_t lab)
+    {
+        // Strictly speaking the constraint is up to 2 unique CLK and 3 CLK+ENA pairs. For now we simplify this to 1 CLK
+        // and 3 ENA though.
+        for (uint8_t alm = 0; alm < 10; alm++) {
+            for (uint8_t i = 0; i < 4; i++) {
+                const CellInfo *ff = arch->getBoundBelCell(arch->labs.at(lab).alms.at(alm).ff_bels.at(i));
+                if (ff == nullptr)
+                    continue;
+
+                if (!check_assign_sig(clk, ff->ffInfo.ctrlset.clk))
+                    return false;
+                if (!check_assign_sig(sload, ff->ffInfo.ctrlset.sload))
+                    return false;
+                if (!check_assign_sig(sclr, ff->ffInfo.ctrlset.sclr))
+                    return false;
+                if (!check_assign_sig(aclr, ff->ffInfo.ctrlset.aclr))
+                    return false;
+                if (!check_assign_sig(ena, ff->ffInfo.ctrlset.ena))
+                    return false;
+            }
+        }
+        // Check for overuse of the shared, LAB-wide datain signals
+        if (clk.net != nullptr && !clk.net->is_global)
+            if (!check_assign_sig(datain[0], clk)) // CLK only needs DATAIN[0] if it's not global
+                return false;
+        if (!check_assign_sig(datain[1], sload))
             return false;
-    if (!check_assign_sig(datain[1], sload))
-        return false;
-    if (!check_assign_sig(datain[3], sclr))
-        return false;
-    for (const auto &aclr_sig : aclr) {
-        // Check both possibilities that ACLR can map to
-        // TODO: ACLR could be global, too
-        if (check_assign_sig(datain[3], aclr_sig))
-            continue;
-        if (check_assign_sig(datain[2], aclr_sig))
-            continue;
-        // Failed to find any free ACLR-capable DATAIN
-        return false;
+        if (!check_assign_sig(datain[3], sclr))
+            return false;
+        for (const auto &aclr_sig : aclr) {
+            // Check both possibilities that ACLR can map to
+            // TODO: ACLR could be global, too
+            if (check_assign_sig(datain[aclr_datain[0]], aclr_sig))
+                continue;
+            if (check_assign_sig(datain[aclr_datain[1]], aclr_sig))
+                continue;
+            // Failed to find any free ACLR-capable DATAIN
+            return false;
+        }
+        for (const auto &ena_sig : ena) {
+            // Check all 3 possibilities that ACLR can map to
+            // TODO: ACLR could be global, too
+            if (check_assign_sig(datain[ena_datain[0]], ena_sig))
+                continue;
+            if (check_assign_sig(datain[ena_datain[1]], ena_sig))
+                continue;
+            if (check_assign_sig(datain[ena_datain[2]], ena_sig))
+                continue;
+            // Failed to find any free ENA-capable DATAIN
+            return false;
+        }
+        return true;
     }
-    for (const auto &ena_sig : ena) {
-        // Check all 3 possibilities that ACLR can map to
-        // TODO: ACLR could be global, too
-        if (check_assign_sig(datain[2], ena_sig))
-            continue;
-        if (check_assign_sig(datain[3], ena_sig))
-            continue;
-        if (check_assign_sig(datain[0], ena_sig))
-            continue;
-        // Failed to find any free ENA-capable DATAIN
-        return false;
-    }
-    return true;
+};
+
+}; // namespace
+
+bool Arch::is_lab_ctrlset_legal(uint32_t lab) const
+{
+    LabCtrlSetWorker worker;
+    return worker.run(this, lab);
 }
 
 void Arch::lab_pre_route()
@@ -506,9 +521,47 @@ void Arch::lab_pre_route()
 
 void Arch::assign_control_sets(uint32_t lab)
 {
-    // TODO: set up reservations for checkPipAvailForNet for control set signals
+    // Set up reservations for checkPipAvail for control set signals
     // This will be needed because clock and CE are routed together and must be kept together, there isn't free choice
     // e.g. CLK0 & ENA0 must be use for one control set, and CLK1 & ENA1 for another, they can't be mixed and matched
+    // Similarly for how inverted & noninverted variants must be kept separate
+    LabCtrlSetWorker worker;
+    bool legal = worker.run(this, lab);
+    NPNR_ASSERT(legal);
+    auto &lab_data = labs.at(lab);
+    for (uint8_t alm = 0; alm < 10; alm++) {
+        for (uint8_t i = 0; i < 4; i++) {
+            BelId ff_bel = lab_data.alms.at(alm).ff_bels.at(i);
+            const CellInfo *ff = getBoundBelCell(ff_bel);
+            if (ff == nullptr)
+                continue;
+            ControlSig ena_sig = ff->ffInfo.ctrlset.ena;
+            WireId ena_wire = getBelPinWire(ff_bel, id_ENA);
+            for (int i = 0; i < 3; i++) {
+                if (ena_sig == worker.datain[ena_datain[i]]) {
+                    if (getCtx()->debug) {
+                        log_info("Assigned CLK/ENA set %d to FF %s (%s)\n", i, nameOf(ff), getCtx()->nameOfBel(ff_bel));
+                    }
+                    reserve_route(lab_data.ena_wires[i], ena_wire);
+                    // TODO: lock clock according to ENA choice, too
+                    break;
+                }
+            }
+
+            ControlSig aclr_sig = ff->ffInfo.ctrlset.aclr;
+            WireId aclr_wire = getBelPinWire(ff_bel, id_ACLR);
+            for (int i = 0; i < 2; i++) {
+                // TODO: could be global ACLR, too
+                if (aclr_sig == worker.datain[aclr_datain[i]]) {
+                    if (getCtx()->debug) {
+                        log_info("Assigned ACLR set %d to FF %s (%s)\n", i, nameOf(ff), getCtx()->nameOfBel(ff_bel));
+                    }
+                    reserve_route(lab_data.aclr_wires[i], aclr_wire);
+                    break;
+                }
+            }
+        }
+    }
 }
 
 namespace {

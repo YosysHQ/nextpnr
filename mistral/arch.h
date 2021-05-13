@@ -106,6 +106,10 @@ struct WireInfo
 
     // flags for special wires (currently unused)
     uint64_t flags;
+
+    // if the RESERVED_ROUTE mask is set in flags, then only wires_uphill[flags&0xFF] may drive this wire - used for
+    // control set preallocations
+    static const uint64_t RESERVED_ROUTE = 0x100;
 };
 
 // This transforms a WireIds, and adds the mising half of the pair to create a PipId
@@ -259,13 +263,8 @@ enum CellPinStyle
     PINSTYLE_COMB = 0x017, // combinational signal, defaults low, can be inverted and tied
     PINSTYLE_CLK = 0x107,  // CLK type signal, invertible and defaults to disconnected
 
-    // Technically speaking CE and RSTs should be invertible, too. But we don't use this currently due to the possible
-    // need to route one CE to two different LAB wires if both inverted and non-inverted variants are used in the same
-    // LAB This should be acheiveable by prerouting the LAB wiring inside assign_control_sets, but let's pass on this
-    // for a first attempt.
-
-    PINSTYLE_CE = 0x023,   // CE type signal, ~~invertible~~ and defaults to enabled
-    PINSTYLE_RST = 0x013,  // RST type signal, ~~invertible~~ and defaults to not reset
+    PINSTYLE_CE = 0x027,   // CE type signal, invertible and defaults to enabled
+    PINSTYLE_RST = 0x017,  // RST type signal, invertible and defaults to not reset
     PINSTYLE_DEDI = 0x000, // dedicated signals, leave alone
     PINSTYLE_INP = 0x001,  // general inputs, no inversion/tieing but defaults low
     PINSTYLE_PU = 0x022,   // signals that float high and default high
@@ -337,6 +336,8 @@ struct Arch : BaseArch<ArchRanges>
     AllWireRange getWires() const override { return AllWireRange(wires); }
 
     bool wires_connected(WireId src, WireId dst) const;
+    // Only allow src, and not any other wire, to drive dst
+    void reserve_route(WireId src, WireId dst);
 
     // -------------------------------------------------
 
@@ -354,6 +355,25 @@ struct Arch : BaseArch<ArchRanges>
     UpDownhillPipRange getPipsUphill(WireId wire) const override
     {
         return UpDownhillPipRange(wires.at(wire).wires_uphill, wire, true);
+    }
+
+    bool checkPipAvail(PipId pip) const override
+    {
+        // Check reserved routes
+        WireId dst(pip.dst);
+        const auto &dst_data = wires.at(dst);
+        if ((dst_data.flags & WireInfo::RESERVED_ROUTE) != 0) {
+            if (WireId(pip.src) != dst_data.wires_uphill.at(dst_data.flags & 0xFF))
+                return false;
+        }
+        return BaseArch::checkPipAvail(pip);
+    }
+
+    bool checkPipAvailForNet(PipId pip, NetInfo *net) const override
+    {
+        if (!checkPipAvail(pip))
+            return false;
+        return BaseArch::checkPipAvailForNet(pip, net);
     }
 
     // -------------------------------------------------
