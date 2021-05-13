@@ -343,7 +343,7 @@ struct Arch : BaseArch<ArchRanges>
 
     PipId getPipByName(IdStringList name) const override;
     AllPipRange getPips() const override { return AllPipRange(wires); }
-    Loc getPipLocation(PipId pip) const override { return Loc(0, 0, 0); }
+    Loc getPipLocation(PipId pip) const override { return Loc(CycloneV::rn2x(pip.dst), CycloneV::rn2y(pip.dst), 0); }
     IdStringList getPipName(PipId pip) const override;
     WireId getPipSrcWire(PipId pip) const override { return WireId(pip.src); };
     WireId getPipDstWire(PipId pip) const override { return WireId(pip.dst); };
