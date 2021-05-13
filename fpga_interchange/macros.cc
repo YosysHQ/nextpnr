@@ -34,6 +34,15 @@ static const MacroPOD *lookup_macro(const ChipInfoPOD *chip, IdString cell_type)
     return nullptr;
 }
 
+static const MacroExpansionPOD *lookup_macro_rules(const ChipInfoPOD *chip, IdString cell_type)
+{
+    for (const auto &rule : chip->macro_rules) {
+        if (IdString(rule.prim_name) == cell_type)
+            return &rule;
+    }
+    return nullptr;
+}
+
 static IdString derived_name(Context *ctx, IdString base_name, IdString suffix)
 {
     return ctx->id(stringf("%s/%s", base_name.c_str(ctx), suffix.c_str(ctx)));
@@ -53,7 +62,8 @@ void Arch::expand_macros()
         // Expand cells
         for (auto cell : cells) {
             // TODO: consult exception map
-            const MacroPOD *macro = lookup_macro(chip_info, cell->type);
+            const MacroExpansionPOD *exp = lookup_macro_rules(chip_info, cell->type);
+            const MacroPOD *macro = lookup_macro(chip_info, exp ? IdString(exp->macro_name) : cell->type);
             if (macro == nullptr)
                 continue;
             // Create child instances
@@ -94,7 +104,45 @@ void Arch::expand_macros()
                     connect_port(ctx, net, inst_cell, port_name);
                 }
             }
-            // TODO: apply parameter rules from exception map
+
+            if (exp != nullptr) {
+                // Convert parameters, according to the exception rules
+                for (const auto &param_rule : exp->param_rules) {
+                    IdString prim_param(param_rule.prim_param);
+                    if (!cell->params.count(prim_param))
+                        continue;
+                    const auto &prim_param_val = cell->params.at(prim_param);
+                    IdString inst_name = derived_name(ctx, cell->name, IdString(param_rule.inst_name));
+                    CellInfo *inst_cell = ctx->cells.at(inst_name).get();
+                    IdString inst_param(param_rule.inst_param);
+                    if (param_rule.rule_type == PARAM_MAP_COPY) {
+                        inst_cell->params[inst_param] = prim_param_val;
+                    } else if (param_rule.rule_type == PARAM_MAP_SLICE) {
+                        auto prim_bits = cell_parameters.parse_int_like(ctx, cell->type, prim_param, prim_param_val);
+                        Property value(0, param_rule.slice_bits.ssize());
+                        for (int i = 0; i < param_rule.slice_bits.ssize(); i++) {
+                            size_t bit = param_rule.slice_bits[i];
+                            if (bit >= prim_bits.size())
+                                continue;
+                            value.str.at(i) = prim_bits.get(bit) ? Property::S1 : Property::S0;
+                        }
+                        inst_cell->params[inst_param] = value;
+                    } else if (param_rule.rule_type == PARAM_MAP_TABLE) {
+                        const std::string &prim_str = prim_param_val.as_string();
+                        IdString prim_id = ctx->id(prim_str);
+                        for (auto &tbl_entry : param_rule.map_table) {
+                            if (IdString(tbl_entry.key) == prim_id) {
+                                inst_cell->params[inst_param] = IdString(tbl_entry.value).str(ctx);
+                                break;
+                            }
+                        }
+                        if (!inst_cell->params.count(inst_param))
+                            log_error("Unsupported value '%s' for property '%s' of cell %s:%s\n", prim_str.c_str(),
+                                      ctx->nameOf(prim_param), ctx->nameOf(cell), ctx->nameOf(cell->type));
+                    }
+                }
+            }
+
             // Remove the now-expanded cell, but first make sure we don't leave behind any dangling references
             for (const auto &port : cell->ports)
                 if (port.second.net != nullptr)

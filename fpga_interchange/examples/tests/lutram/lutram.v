@@ -7,7 +7,9 @@ module top (
     input  wire [15:0] sw,
     output wire [15:0] led
 );
-    RAM128X1D ram_i (
+    RAM128X1D #(
+        .INIT(128'hFFEEDDCCBBAA99887766554433221100)
+    ) ram_i (
         .WCLK(clk),
         .A(sw[6:0]),
         .DPRA(sw[13:7]),
