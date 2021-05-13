@@ -382,6 +382,20 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     return 100 * std::abs(y1 - y0) + 100 * std::abs(x1 - x0) + 100;
 }
 
+ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
+{
+    ArcBounds bounds;
+    int src_x = CycloneV::rn2x(src.node);
+    int src_y = CycloneV::rn2y(src.node);
+    int dst_x = CycloneV::rn2x(dst.node);
+    int dst_y = CycloneV::rn2y(dst.node);
+    bounds.x0 = std::min(src_x, dst_x);
+    bounds.y0 = std::min(src_y, dst_y);
+    bounds.x1 = std::max(src_x, dst_x);
+    bounds.y1 = std::max(src_y, dst_y);
+    return bounds;
+}
+
 delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
 {
     if (net_info->driver.cell == nullptr || net_info->driver.cell->bel == BelId())

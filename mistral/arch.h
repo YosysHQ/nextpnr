@@ -386,7 +386,7 @@ struct Arch : BaseArch<ArchRanges>
     delay_t getDelayFromNS(float ns) const override { return delay_t(ns * 1000.0f); };
     uint32_t getDelayChecksum(delay_t v) const override { return v; };
 
-    ArcBounds getRouteBoundingBox(WireId src, WireId dst) const override { return ArcBounds(); }
+    ArcBounds getRouteBoundingBox(WireId src, WireId dst) const override;
 
     // -------------------------------------------------
 
