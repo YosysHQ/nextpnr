@@ -61,8 +61,8 @@ void arch_wrap_python(py::module &m)
 
     typedef const std::vector<BelId> &BelRange;
 
-    typedef const UpDownhillPipRange UphillPipRange;
-    typedef const UpDownhillPipRange DownhillPipRange;
+    typedef UpDownhillPipRange UphillPipRange;
+    typedef UpDownhillPipRange DownhillPipRange;
 
     typedef AllWireRange WireRange;
     typedef const std::vector<BelPin> &BelPinRange;
