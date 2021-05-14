@@ -246,8 +246,9 @@ struct MistralBitgen
             cv->bmux_b_set(CycloneV::LAB, pos, CycloneV::BTO_DIS, alm, true);
         // Flipflop configuration
         const std::array<CycloneV::bmux_type_t, 2> ef_sel{CycloneV::TEF_SEL, CycloneV::BEF_SEL};
-        const std::array<CycloneV::bmux_type_t, 4> pkreg{CycloneV::TPKREG0, CycloneV::TPKREG1, CycloneV::BPKREG0,
-                                                         CycloneV::BPKREG1};
+        // This isn't a typo; the *PKREG* bits really are mirrored.
+        const std::array<CycloneV::bmux_type_t, 4> pkreg{CycloneV::TPKREG1, CycloneV::TPKREG0, CycloneV::BPKREG1,
+                                                         CycloneV::BPKREG0};
 
         const std::array<CycloneV::bmux_type_t, 2> clk_sel{CycloneV::TCLK_SEL, CycloneV::BCLK_SEL},
                 clr_sel{CycloneV::TCLR_SEL, CycloneV::BCLR_SEL}, sclr_dis{CycloneV::TSCLR_DIS, CycloneV::BSCLR_DIS},
