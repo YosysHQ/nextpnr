@@ -614,33 +614,38 @@ void Arch::assign_control_sets(uint32_t lab)
     NPNR_ASSERT(legal);
     auto &lab_data = labs.at(lab);
     for (uint8_t alm = 0; alm < 10; alm++) {
+        auto &alm_data = lab_data.alms.at(alm);
         for (uint8_t i = 0; i < 4; i++) {
-            BelId ff_bel = lab_data.alms.at(alm).ff_bels.at(i);
+            BelId ff_bel = alm_data.ff_bels.at(i);
             const CellInfo *ff = getBoundBelCell(ff_bel);
             if (ff == nullptr)
                 continue;
             ControlSig ena_sig = ff->ffInfo.ctrlset.ena;
+            WireId clk_wire = getBelPinWire(ff_bel, id_CLK);
             WireId ena_wire = getBelPinWire(ff_bel, id_ENA);
-            for (int i = 0; i < 3; i++) {
-                if (ena_sig == worker.datain[ena_datain[i]]) {
+            for (int j = 0; j < 3; j++) {
+                if (ena_sig == worker.datain[ena_datain[j]]) {
                     if (getCtx()->debug) {
                         log_info("Assigned CLK/ENA set %d to FF %s (%s)\n", i, nameOf(ff), getCtx()->nameOfBel(ff_bel));
                     }
-                    reserve_route(lab_data.ena_wires[i], ena_wire);
-                    // TODO: lock clock according to ENA choice, too
+                    // TODO: lock clock according to ENA choice, too, when we support two clocks per ALM
+                    reserve_route(lab_data.clk_wires[0], clk_wire);
+                    reserve_route(lab_data.ena_wires[j], ena_wire);
+                    alm_data.clk_ena_idx[i / 2] = j;
                     break;
                 }
             }
 
             ControlSig aclr_sig = ff->ffInfo.ctrlset.aclr;
             WireId aclr_wire = getBelPinWire(ff_bel, id_ACLR);
-            for (int i = 0; i < 2; i++) {
+            for (int j = 0; j < 2; j++) {
                 // TODO: could be global ACLR, too
-                if (aclr_sig == worker.datain[aclr_datain[i]]) {
+                if (aclr_sig == worker.datain[aclr_datain[j]]) {
                     if (getCtx()->debug) {
                         log_info("Assigned ACLR set %d to FF %s (%s)\n", i, nameOf(ff), getCtx()->nameOfBel(ff_bel));
                     }
-                    reserve_route(lab_data.aclr_wires[i], aclr_wire);
+                    reserve_route(lab_data.aclr_wires[j], aclr_wire);
+                    alm_data.aclr_idx[i / 2] = j;
                     break;
                 }
             }

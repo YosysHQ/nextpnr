@@ -185,6 +185,14 @@ struct MistralBitgen
                     true);
     }
 
+    void write_clkbuf_cell(CellInfo *ci, int x, int y, int bi)
+    {
+        (void)ci; // currently unused
+        auto pos = CycloneV::xy2pos(x, y);
+        cv->bmux_n_set(CycloneV::CMUXHG, pos, CycloneV::INPUT_SELECT, bi, 0x1b); // hardcode to general routing
+        cv->bmux_m_set(CycloneV::CMUXHG, pos, CycloneV::TESTSYN_ENOUT_SELECT, bi, CycloneV::PRE_SYNENB);
+    }
+
     void write_cells()
     {
         for (auto cell : sorted(ctx->cells)) {
@@ -193,10 +201,12 @@ struct MistralBitgen
             int bi = ctx->bel_data(ci->bel).block_index;
             if (ctx->is_io_cell(ci->type))
                 write_io_cell(ci, loc.x, loc.y, bi);
+            else if (ci->type == id_MISTRAL_CLKENA)
+                write_clkbuf_cell(ci, loc.x, loc.y, bi);
         }
     }
 
-    void write_alm(uint32_t lab, uint8_t alm)
+    bool write_alm(uint32_t lab, uint8_t alm)
     {
         auto &alm_data = ctx->labs.at(lab).alms.at(alm);
 
@@ -208,20 +218,23 @@ struct MistralBitgen
         // Skip empty ALMs
         if (std::all_of(luts.begin(), luts.end(), [](CellInfo *c) { return !c; }) &&
             std::all_of(ffs.begin(), ffs.end(), [](CellInfo *c) { return !c; }))
-            return;
+            return false;
 
         auto pos = alm_data.lut_bels[0].pos;
         // Combinational mode - TODO: flop feedback
         cv->bmux_m_set(CycloneV::LAB, pos, CycloneV::MODE, alm, alm_data.l6_mode ? CycloneV::L6 : CycloneV::L5);
         // LUT function
         cv->bmux_r_set(CycloneV::LAB, pos, CycloneV::LUT_MASK, alm, ctx->compute_lut_mask(lab, alm));
-        // DFF output - foce to LUT for now...
-        cv->bmux_m_set(CycloneV::LAB, pos, CycloneV::TDFF0, alm, CycloneV::NLUT);
-        cv->bmux_m_set(CycloneV::LAB, pos, CycloneV::TDFF1, alm, CycloneV::NLUT);
-        cv->bmux_m_set(CycloneV::LAB, pos, CycloneV::TDFF1L, alm, CycloneV::NLUT);
-        cv->bmux_m_set(CycloneV::LAB, pos, CycloneV::BDFF0, alm, CycloneV::NLUT);
-        cv->bmux_m_set(CycloneV::LAB, pos, CycloneV::BDFF1, alm, CycloneV::NLUT);
-        cv->bmux_m_set(CycloneV::LAB, pos, CycloneV::BDFF1L, alm, CycloneV::NLUT);
+        // DFF/LUT output selection
+        const std::array<CycloneV::bmux_type_t, 6> mux_settings{CycloneV::TDFF0, CycloneV::TDFF1, CycloneV::TDFF1L,
+                                                                CycloneV::BDFF0, CycloneV::BDFF1, CycloneV::BDFF1L};
+        const std::array<CycloneV::port_type_t, 6> mux_port{CycloneV::FFT0, CycloneV::FFT1, CycloneV::FFT1L,
+                                                            CycloneV::FFB0, CycloneV::FFB1, CycloneV::FFB1L};
+        for (int i = 0; i < 6; i++) {
+            if (ctx->wires_connected(alm_data.comb_out[i / 3], ctx->get_port(CycloneV::LAB, CycloneV::pos2x(pos),
+                                                                             CycloneV::pos2y(pos), alm, mux_port[i])))
+                cv->bmux_m_set(CycloneV::LAB, pos, mux_settings[i], alm, CycloneV::NLUT);
+        }
 
         bool is_carry = (luts[0] && luts[0]->combInfo.is_carry) || (luts[1] && luts[1]->combInfo.is_carry);
         if (is_carry)
@@ -229,13 +242,92 @@ struct MistralBitgen
         // The carry in/out enable bits
         if (is_carry && alm == 0 && !luts[0]->combInfo.carry_start)
             cv->bmux_b_set(CycloneV::LAB, pos, CycloneV::TTO_DIS, alm, true);
+        if (is_carry && alm == 5)
+            cv->bmux_b_set(CycloneV::LAB, pos, CycloneV::BTO_DIS, alm, true);
+        // Flipflop configuration
+        const std::array<CycloneV::bmux_type_t, 4> pkreg{CycloneV::TPKREG0, CycloneV::TPKREG1, CycloneV::BPKREG0,
+                                                         CycloneV::BPKREG1};
+        const std::array<CycloneV::bmux_type_t, 2> clk_sel{CycloneV::TCLK_SEL, CycloneV::BCLK_SEL},
+                clr_sel{CycloneV::TCLR_SEL, CycloneV::BCLR_SEL}, sclr_dis{CycloneV::TSCLR_DIS, CycloneV::BSCLR_DIS},
+                sload_en{CycloneV::TSLOAD_EN, CycloneV::BSLOAD_EN};
+
+        const std::array<CycloneV::bmux_type_t, 3> clk_choice{CycloneV::CLK0, CycloneV::CLK1, CycloneV::CLK2};
+
+        const std::array<CycloneV::bmux_type_t, 3> clk_inv{CycloneV::CLK0_INV, CycloneV::CLK1_INV, CycloneV::CLK2_INV},
+                en_en{CycloneV::EN0_EN, CycloneV::EN1_EN, CycloneV::EN2_EN},
+                en_ninv{CycloneV::EN0_NINV, CycloneV::EN1_NINV, CycloneV::EN2_NINV};
+        const std::array<CycloneV::bmux_type_t, 2> aclr_inv{CycloneV::ACLR0_INV, CycloneV::ACLR1_INV};
+
+        for (int i = 0; i < 4; i++) {
+            CellInfo *ff = ffs[i];
+            if (!ff)
+                continue;
+            // PKREG (input selection)
+            if (ctx->wires_connected(alm_data.sel_ef[i / 2], alm_data.ff_in[i]))
+                cv->bmux_b_set(CycloneV::LAB, pos, pkreg[i], alm, true);
+            // Control set
+            // CLK+ENA
+            int ce_idx = alm_data.clk_ena_idx[i / 2];
+            cv->bmux_m_set(CycloneV::LAB, pos, clk_sel[i / 2], alm, clk_choice[ce_idx]);
+            if (ff->ffInfo.ctrlset.clk.inverted)
+                cv->bmux_b_set(CycloneV::LAB, pos, clk_inv[ce_idx], 0, true);
+            if (get_net_or_empty(ff, id_ENA) != nullptr) { // not using ffInfo.ctrlset, this has a fake net always to
+                                                           // ensure different constants don't collide
+                cv->bmux_b_set(CycloneV::LAB, pos, en_en[ce_idx], 0, true);
+                cv->bmux_b_set(CycloneV::LAB, pos, en_ninv[ce_idx], 0, !ff->ffInfo.ctrlset.ena.inverted);
+            } else {
+                cv->bmux_b_set(CycloneV::LAB, pos, en_en[ce_idx], 0, false);
+            }
+            // ACLR
+            int aclr_idx = alm_data.aclr_idx[i / 2];
+            cv->bmux_b_set(CycloneV::LAB, pos, clr_sel[i / 2], alm, aclr_idx == 1);
+            if (ff->ffInfo.ctrlset.aclr.inverted)
+                cv->bmux_b_set(CycloneV::LAB, pos, aclr_inv[aclr_idx], 0, true);
+            // SCLR
+            if (ff->ffInfo.ctrlset.sclr.net != nullptr) {
+                cv->bmux_b_set(CycloneV::LAB, pos, CycloneV::SCLR_INV, 0, ff->ffInfo.ctrlset.sclr.inverted);
+            } else {
+                cv->bmux_b_set(CycloneV::LAB, pos, sclr_dis[i / 2], alm, true);
+            }
+            // SLOAD
+            if (ff->ffInfo.ctrlset.sload.net != nullptr) {
+                cv->bmux_b_set(CycloneV::LAB, pos, sload_en[i / 2], alm, true);
+                cv->bmux_b_set(CycloneV::LAB, pos, CycloneV::SLOAD_INV, 0, ff->ffInfo.ctrlset.sload.inverted);
+            }
+        }
+        return true;
+    }
+
+    void write_ff_routing(uint32_t lab)
+    {
+        auto &lab_data = ctx->labs.at(lab);
+        auto pos = lab_data.alms.at(0).lut_bels[0].pos;
+
+        const std::array<CycloneV::bmux_type_t, 2> aclr_inp{CycloneV::ACLR0_SEL, CycloneV::ACLR1_SEL};
+        for (int i = 0; i < 2; i++) {
+            // Quartus seems to set unused ACLRs to CLKI2...
+            if (ctx->getBoundWireNet(lab_data.aclr_wires[i]) == nullptr)
+                cv->bmux_m_set(CycloneV::LAB, pos, aclr_inp[i], 0, CycloneV::CLKI2);
+            else
+                cv->bmux_m_set(CycloneV::LAB, pos, aclr_inp[i], 0, (i == 1) ? CycloneV::GIN0 : CycloneV::GIN1);
+        }
+        for (int i = 0; i < 3; i++) {
+            // Check for fabric->clock routing
+            if (ctx->wires_connected(ctx->get_port(CycloneV::LAB, CycloneV::pos2x(pos), CycloneV::pos2y(pos), -1,
+                                                   CycloneV::DATAIN, 0),
+                                     lab_data.clk_wires[i]))
+                cv->bmux_m_set(CycloneV::LAB, pos, CycloneV::CLKA_SEL, 0, CycloneV::GIN2);
+        }
     }
 
     void write_labs()
     {
         for (size_t lab = 0; lab < ctx->labs.size(); lab++) {
+            bool used = false;
             for (uint8_t alm = 0; alm < 10; alm++)
-                write_alm(lab, alm);
+                used |= write_alm(lab, alm);
+            if (used)
+                write_ff_routing(lab);
         }
     }
 
