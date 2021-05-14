@@ -233,15 +233,20 @@ void Arch::assign_comb_info(CellInfo *cell) const
     cell->combInfo.is_extended = false;
     cell->combInfo.carry_start = false;
     cell->combInfo.carry_end = false;
+    cell->combInfo.chain_shared_input_count = 0;
 
     if (cell->type == id_MISTRAL_ALUT_ARITH) {
         cell->combInfo.is_carry = true;
         cell->combInfo.lut_input_count = 5;
         cell->combInfo.lut_bits_count = 32;
+
         // This is a special case in terms of naming
-        int i = 0;
-        for (auto pin : {id_A, id_B, id_C, id_D0, id_D1}) {
-            cell->combInfo.lut_in[i++] = get_net_or_empty(cell, pin);
+        const std::array<IdString, 5> arith_pins{id_A, id_B, id_C, id_D0, id_D1};
+        {
+            int i = 0;
+            for (auto pin : arith_pins) {
+                cell->combInfo.lut_in[i++] = get_net_or_empty(cell, pin);
+            }
         }
 
         const NetInfo *ci = get_net_or_empty(cell, id_CI);
@@ -250,6 +255,22 @@ void Arch::assign_comb_info(CellInfo *cell) const
         cell->combInfo.comb_out = get_net_or_empty(cell, id_SO);
         cell->combInfo.carry_start = (ci == nullptr) || (ci->driver.cell == nullptr);
         cell->combInfo.carry_end = (co == nullptr) || (co->users.empty());
+
+        // Compute cross-ALM routing sharing - only check the z=0 case inside ALMs
+        if (cell->constr_z > 0 && ((cell->constr_z % 2) == 0) && ci) {
+            const CellInfo *prev = ci->driver.cell;
+            if (prev != nullptr) {
+                for (int i = 0; i < 5; i++) {
+                    const NetInfo *a = get_net_or_empty(cell, arith_pins[i]);
+                    if (a == nullptr)
+                        continue;
+                    const NetInfo *b = get_net_or_empty(prev, arith_pins[i]);
+                    if (a == b)
+                        ++cell->combInfo.chain_shared_input_count;
+                }
+            }
+        }
+
     } else {
         cell->combInfo.lut_input_count = 0;
         switch (cell->type.index) {
@@ -400,6 +421,69 @@ bool Arch::is_alm_legal(uint32_t lab, uint8_t alm) const
     }
 
     return true;
+}
+
+void Arch::update_alm_input_count(uint32_t lab, uint8_t alm)
+{
+    // TODO: duplication with above
+    auto &alm_data = labs.at(lab).alms.at(alm);
+    // Get cells into an array for fast access
+    std::array<const CellInfo *, 2> luts{getBoundBelCell(alm_data.lut_bels[0]), getBoundBelCell(alm_data.lut_bels[1])};
+    std::array<const CellInfo *, 4> ffs{getBoundBelCell(alm_data.ff_bels[0]), getBoundBelCell(alm_data.ff_bels[1]),
+                                        getBoundBelCell(alm_data.ff_bels[2]), getBoundBelCell(alm_data.ff_bels[3])};
+    int total_inputs = 0;
+    int total_lut_inputs = 0;
+    for (int i = 0; i < 2; i++) {
+        if (!luts[i])
+            continue;
+        total_lut_inputs += luts[i]->combInfo.used_lut_input_count - luts[i]->combInfo.chain_shared_input_count;
+    }
+    int shared_lut_inputs = 0;
+    if (luts[0] && luts[1]) {
+        for (int i = 0; i < luts[1]->combInfo.lut_input_count; i++) {
+            const NetInfo *sig = luts[1]->combInfo.lut_in[i];
+            if (!sig)
+                continue;
+            for (int j = 0; j < luts[0]->combInfo.lut_input_count; j++) {
+                if (sig == luts[0]->combInfo.lut_in[j]) {
+                    ++shared_lut_inputs;
+                    break;
+                }
+            }
+            if (shared_lut_inputs >= 2) {
+                // only 2 inputs have guaranteed sharing, without routeability based LUT permutation at least
+                break;
+            }
+        }
+    }
+    total_inputs = std::max(0, total_lut_inputs - shared_lut_inputs);
+    for (int i = 0; i < 4; i++) {
+        const CellInfo *ff = ffs[i];
+        if (!ff)
+            continue;
+        if (ff->ffInfo.sdata)
+            ++total_inputs;
+        // FF input doesn't consume routing resources if driven by associated LUT
+        if (ff->ffInfo.datain && (!luts[i / 2] || ff->ffInfo.datain != luts[i / 2]->combInfo.comb_out))
+            ++total_inputs;
+    }
+    alm_data.unique_input_count = total_inputs;
+}
+
+bool Arch::check_lab_input_count(uint32_t lab) const
+{
+    // There are only 46 TD signals available to route signals from general routing to the ALM input. Currently, we
+    // check the total sum of ALM inputs is less than 42; 46 minus 4 FF control inputs. This is a conservative check for
+    // several reasons, because LD signals are also available for feedback routing from ALM output to input, and because
+    // TD signals may be shared if the same net routes to multiple ALMs. But these cases will need careful handling and
+    // LUT permutation during routing to be useful; and in any event conservative LAB packing will help nextpnr's
+    // currently perfunctory place and route algorithms to achieve satisfactory runtimes.
+    int count = 0;
+    auto &lab_data = labs.at(lab);
+    for (int i = 0; i < 10; i++) {
+        count += lab_data.alms.at(i).unique_input_count;
+    }
+    return (count <= 42);
 }
 
 namespace {

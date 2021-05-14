@@ -49,6 +49,12 @@ struct ALMInfo
     std::array<BelId, 4> ff_bels;
 
     bool l6_mode = false;
+
+    // Which CLK/ENA and ACLR is chosen for each half
+    std::array<int, 2> clk_ena_idx, aclr_idx;
+
+    // For keeping track of how many inputs are currently being used, for the LAB routeability check
+    int unique_input_count = 0;
 };
 
 struct LABInfo
@@ -325,6 +331,18 @@ struct Arch : BaseArch<ArchRanges>
 
     bool isBelLocationValid(BelId bel) const override;
 
+    void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength) override
+    {
+        BaseArch::bindBel(bel, cell, strength);
+        update_bel(bel);
+    }
+    void unbindBel(BelId bel) override
+    {
+        BaseArch::unbindBel(bel);
+        update_bel(bel);
+    }
+
+    void update_bel(BelId bel);
     BelId bel_by_block_idx(int x, int y, IdString type, int block_index) const;
 
     // -------------------------------------------------
@@ -428,13 +446,15 @@ struct Arch : BaseArch<ArchRanges>
     bool is_comb_cell(IdString cell_type) const;        // lab.cc
     bool is_alm_legal(uint32_t lab, uint8_t alm) const; // lab.cc
     bool is_lab_ctrlset_legal(uint32_t lab) const;      // lab.cc
+    bool check_lab_input_count(uint32_t lab) const;     // lab.cc
 
     void assign_comb_info(CellInfo *cell) const; // lab.cc
     void assign_ff_info(CellInfo *cell) const;   // lab.cc
 
-    void lab_pre_route();                                // lab.cc
-    void assign_control_sets(uint32_t lab);              // lab.cc
-    void reassign_alm_inputs(uint32_t lab, uint8_t alm); // lab.cc
+    void lab_pre_route();                                   // lab.cc
+    void assign_control_sets(uint32_t lab);                 // lab.cc
+    void reassign_alm_inputs(uint32_t lab, uint8_t alm);    // lab.cc
+    void update_alm_input_count(uint32_t lab, uint8_t alm); // lab.cc
 
     uint64_t compute_lut_mask(uint32_t lab, uint8_t alm); // lab.cc
 

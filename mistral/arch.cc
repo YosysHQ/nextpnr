@@ -149,13 +149,21 @@ IdStringList Arch::getBelName(BelId bel) const
 bool Arch::isBelLocationValid(BelId bel) const
 {
     auto &data = bel_data(bel);
-    // Incremental validity update
     if (data.type == id_MISTRAL_COMB) {
-        return is_alm_legal(data.lab_data.lab, data.lab_data.alm);
+        return is_alm_legal(data.lab_data.lab, data.lab_data.alm) && check_lab_input_count(data.lab_data.lab);
     } else if (data.type == id_MISTRAL_FF) {
-        return is_alm_legal(data.lab_data.lab, data.lab_data.alm) && is_lab_ctrlset_legal(data.lab_data.lab);
+        return is_alm_legal(data.lab_data.lab, data.lab_data.alm) && check_lab_input_count(data.lab_data.lab) &&
+               is_lab_ctrlset_legal(data.lab_data.lab);
     }
     return true;
+}
+
+void Arch::update_bel(BelId bel)
+{
+    auto &data = bel_data(bel);
+    if (data.type == id_MISTRAL_COMB || data.type == id_MISTRAL_FF) {
+        update_alm_input_count(data.lab_data.lab, data.lab_data.alm);
+    }
 }
 
 WireId Arch::getWireByName(IdStringList name) const

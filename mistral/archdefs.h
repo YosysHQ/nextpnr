@@ -182,6 +182,13 @@ struct ArchCellInfo : BaseClusterInfo
             int used_lut_input_count; // excluding those null/constant
             int lut_bits_count;
 
+            // for the LAB routeability check (see the detailed description in lab.cc); usually the same signal feeding
+            // multiple ALMs in a LAB is counted multiple times, due to not knowing which routing resources it will need
+            // in each case. But carry chains where we know how things will pack are allowed to share across ALMs as a
+            // special case, primarily to support adders/subtractors with a 'B invert' control signal shared across all
+            // ALMs.
+            int chain_shared_input_count;
+
             bool is_carry, is_shared, is_extended;
             bool carry_start, carry_end;
         } combInfo;
