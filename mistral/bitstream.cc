@@ -241,9 +241,9 @@ struct MistralBitgen
             cv->bmux_m_set(CycloneV::LAB, pos, CycloneV::ARITH_SEL, alm, CycloneV::ADDER);
         // The carry in/out enable bits
         if (is_carry && alm == 0 && !luts[0]->combInfo.carry_start)
-            cv->bmux_b_set(CycloneV::LAB, pos, CycloneV::TTO_DIS, alm, true);
+            cv->bmux_b_set(CycloneV::LAB, pos, CycloneV::TTO_DIS, 0, true);
         if (is_carry && alm == 5)
-            cv->bmux_b_set(CycloneV::LAB, pos, CycloneV::BTO_DIS, alm, true);
+            cv->bmux_b_set(CycloneV::LAB, pos, CycloneV::BTO_DIS, 0, true);
         // Flipflop configuration
         const std::array<CycloneV::bmux_type_t, 2> ef_sel{CycloneV::TEF_SEL, CycloneV::BEF_SEL};
         // This isn't a typo; the *PKREG* bits really are mirrored.
@@ -263,7 +263,7 @@ struct MistralBitgen
 
         for (int i = 0; i < 2; i++) {
             // EF selection mux
-            if (ctx->wires_connected(ctx->getBelPinWire(alm_data.lut_bels[i], i ? id_F1 : id_F0), alm_data.sel_ef[i]))
+            if (ctx->wires_connected(ctx->getBelPinWire(alm_data.lut_bels[i], i ? id_F0 : id_F1), alm_data.sel_ef[i]))
                 cv->bmux_m_set(CycloneV::LAB, pos, ef_sel[i], alm, CycloneV::bmux_type_t::F);
         }
 

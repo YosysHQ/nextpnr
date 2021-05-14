@@ -104,8 +104,9 @@ static void create_alm(Arch *arch, int x, int y, int z, uint32_t lab_idx)
                 arch->add_pip(lab.aclr_wires[j], alm.sel_aclr[i]);
         }
         // E/F pips
+        // Note that the F choice is mirrored, F from the other half is picked
         arch->add_pip(arch->get_port(CycloneV::LAB, x, y, z, i ? CycloneV::E1 : CycloneV::E0), alm.sel_ef[i]);
-        arch->add_pip(arch->get_port(CycloneV::LAB, x, y, z, i ? CycloneV::F1 : CycloneV::F0), alm.sel_ef[i]);
+        arch->add_pip(arch->get_port(CycloneV::LAB, x, y, z, i ? CycloneV::F0 : CycloneV::F1), alm.sel_ef[i]);
     }
 
     // Create the flipflops and associated routing
