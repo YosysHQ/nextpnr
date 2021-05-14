@@ -167,6 +167,15 @@ struct MistralPacker
             if (ci->type != id_MISTRAL_NOT && ci->type != id_GND && ci->type != id_VCC)
                 process_inv_constants(cell.second);
         }
+        // Special case - SDATA can only be trimmed if SLOAD is low
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type != id_MISTRAL_FF)
+                continue;
+            if (ci->get_pin_state(id_SLOAD) != PIN_0)
+                continue;
+            disconnect_port(ctx, ci, id_SDATA);
+        }
         // Remove superfluous inverters and constant drivers
         trim_design();
     }
