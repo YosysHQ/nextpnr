@@ -384,8 +384,8 @@ bool Arch::is_alm_legal(uint32_t lab, uint8_t alm) const
         // signals and SLOAD=1 (*PKREF*)
         bool route_thru_lut_avail = !luts[i] && !carry_mode && (total_lut_inputs < 8) && (used_lut_bits < 64);
         // E/F is available if this LUT is using 3 or fewer inputs - this is conservative and sharing can probably
-        // improve this situation
-        bool ef_available = (!luts[i] || (luts[i]->combInfo.used_lut_input_count <= 2));
+        // improve this situation. (1 - i) because the F input to EF_SEL is mirrored.
+        bool ef_available = (!luts[1 - i] || (luts[1 - i]->combInfo.used_lut_input_count <= 2));
         // Control set checking
         bool found_ff = false;
 
