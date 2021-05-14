@@ -384,7 +384,7 @@ bool Arch::is_alm_legal(uint32_t lab, uint8_t alm) const
         bool route_thru_lut_avail = !luts[i] && !carry_mode && (total_lut_inputs < 8) && (used_lut_bits < 64);
         // E/F is available if this LUT is using 3 or fewer inputs - this is conservative and sharing can probably
         // improve this situation
-        bool ef_available = (!luts[i] || luts[i]->combInfo.used_lut_input_count <= 3);
+        bool ef_available = (!luts[i] || (luts[i]->combInfo.used_lut_input_count <= 2));
         // Control set checking
         bool found_ff = false;
 
@@ -393,6 +393,8 @@ bool Arch::is_alm_legal(uint32_t lab, uint8_t alm) const
             const CellInfo *ff = ffs[i * 2 + j];
             if (!ff)
                 continue;
+            if (j == 1)
+                return false; // TODO: why are these FFs broken?
             if (found_ff) {
                 // Two FFs in the same half with an incompatible control set
                 if (ctrlset != ff->ffInfo.ctrlset)
@@ -782,7 +784,7 @@ void Arch::reassign_alm_inputs(uint32_t lab, uint8_t alm)
             continue;
         for (int j = 0; j < 2; j++) {
             CellInfo *ff = ffs[i * 2 + j];
-            if (!ff || !ff->ffInfo.datain)
+            if (!ff || !ff->ffInfo.datain || alm_data.l6_mode)
                 continue;
             CellInfo *rt_lut = createCell(id(stringf("%s$ROUTETHRU", nameOf(ff))), id_MISTRAL_BUF);
             rt_lut->addInput(id_A);
@@ -793,7 +795,6 @@ void Arch::reassign_alm_inputs(uint32_t lab, uint8_t alm)
             connect_port(getCtx(), datain, rt_lut, id_A);
             connect_ports(getCtx(), rt_lut, id_Q, ff, id_DATAIN);
             // Assign route-thru LUT physical ports, input goes to the first half-specific input
-            NPNR_ASSERT(!alm_data.l6_mode);
             rt_lut->pin_data[id_A].bel_pins.push_back(i ? id_D : id_C);
             rt_lut->pin_data[id_Q].bel_pins.push_back(id_COMBOUT);
             assign_comb_info(rt_lut);
