@@ -189,7 +189,7 @@ struct MistralBitgen
     {
         (void)ci; // currently unused
         auto pos = CycloneV::xy2pos(x, y);
-        cv->bmux_n_set(CycloneV::CMUXHG, pos, CycloneV::INPUT_SELECT, bi, 0x1b); // hardcode to general routing
+        cv->bmux_r_set(CycloneV::CMUXHG, pos, CycloneV::INPUT_SELECT, bi, 0x1b); // hardcode to general routing
         cv->bmux_m_set(CycloneV::CMUXHG, pos, CycloneV::TESTSYN_ENOUT_SELECT, bi, CycloneV::PRE_SYNENB);
     }
 
@@ -245,8 +245,10 @@ struct MistralBitgen
         if (is_carry && alm == 5)
             cv->bmux_b_set(CycloneV::LAB, pos, CycloneV::BTO_DIS, alm, true);
         // Flipflop configuration
+        const std::array<CycloneV::bmux_type_t, 2> ef_sel{CycloneV::TEF_SEL, CycloneV::BEF_SEL};
         const std::array<CycloneV::bmux_type_t, 4> pkreg{CycloneV::TPKREG0, CycloneV::TPKREG1, CycloneV::BPKREG0,
                                                          CycloneV::BPKREG1};
+
         const std::array<CycloneV::bmux_type_t, 2> clk_sel{CycloneV::TCLK_SEL, CycloneV::BCLK_SEL},
                 clr_sel{CycloneV::TCLR_SEL, CycloneV::BCLR_SEL}, sclr_dis{CycloneV::TSCLR_DIS, CycloneV::BSCLR_DIS},
                 sload_en{CycloneV::TSLOAD_EN, CycloneV::BSLOAD_EN};
@@ -257,6 +259,12 @@ struct MistralBitgen
                 en_en{CycloneV::EN0_EN, CycloneV::EN1_EN, CycloneV::EN2_EN},
                 en_ninv{CycloneV::EN0_NINV, CycloneV::EN1_NINV, CycloneV::EN2_NINV};
         const std::array<CycloneV::bmux_type_t, 2> aclr_inv{CycloneV::ACLR0_INV, CycloneV::ACLR1_INV};
+
+        for (int i = 0; i < 2; i++) {
+            // EF selection mux
+            if (ctx->wires_connected(ctx->getBelPinWire(alm_data.lut_bels[i], i ? id_F1 : id_F0), alm_data.sel_ef[i]))
+                cv->bmux_m_set(CycloneV::LAB, pos, ef_sel[i], alm, CycloneV::bmux_type_t::F);
+        }
 
         for (int i = 0; i < 4; i++) {
             CellInfo *ff = ffs[i];
