@@ -28,7 +28,7 @@
 
 USING_NEXTPNR_NAMESPACE
 
-#ifndef ARCH_CYCLONEV
+#ifndef ARCH_MISTRAL
 // The LRU cache to reduce memory usage during the connectivity check relies on getPips() having some spacial locality,
 // which the current CycloneV arch impl doesn't have. This may be fixed in the future, though.
 #define USING_LRU_CACHE
