@@ -322,6 +322,13 @@ void Arch::assign_ff_info(CellInfo *cell) const
     cell->ffInfo.ctrlset.aclr = get_ctrlsig(getCtx(), cell, id_ACLR);
     cell->ffInfo.ctrlset.sclr = get_ctrlsig(getCtx(), cell, id_SCLR);
     cell->ffInfo.ctrlset.sload = get_ctrlsig(getCtx(), cell, id_SLOAD);
+    // If SCLR is used, but SLOAD isn't, then it seems like we need to pretend as if SLOAD is connected GND (so set
+    // [BT]SLOAD_EN inside the ALMs, and clear SLOAD_INV)
+    if (cell->ffInfo.ctrlset.sclr.net != nullptr && cell->ffInfo.ctrlset.sload.net == nullptr) {
+        cell->ffInfo.ctrlset.sload.net = nets.at(id("$PACKER_GND_NET")).get();
+        cell->ffInfo.ctrlset.sload.inverted = false;
+    }
+
     cell->ffInfo.sdata = get_net_or_empty(cell, id_SDATA);
     cell->ffInfo.datain = get_net_or_empty(cell, id_DATAIN);
 }
