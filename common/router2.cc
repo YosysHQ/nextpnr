@@ -835,9 +835,6 @@ struct Router2
                 // Ripup failed arcs to start with
                 // Check if arc is already legally routed
                 if (check_arc_routing(net, i, j)) {
-#if 0
-                    ROUTE_LOG_DBG("Arc '%s' (user %zu, arc %zu) already routed skipping.\n", ctx->nameOf(net), i, j);
-#endif
                     continue;
                 }
 
@@ -904,10 +901,13 @@ struct Router2
             ++net_data.fail_count;
             if ((net_data.fail_count % 3) == 0) {
                 // Every three times a net fails to route, expand the bounding box to increase the search space
+#ifndef ARCH_MISTRAL
+                // This patch seems to make thing worse for CycloneV, as it slows down the resolution of TD congestion, disable it
                 net_data.bb.x0 = std::max(net_data.bb.x0 - 1, 0);
                 net_data.bb.y0 = std::max(net_data.bb.y0 - 1, 0);
                 net_data.bb.x1 = std::min(net_data.bb.x1 + 1, ctx->getGridDimX());
                 net_data.bb.y1 = std::min(net_data.bb.y1 + 1, ctx->getGridDimY());
+#endif
             }
         }
     }
