@@ -64,6 +64,9 @@ struct IdStringList
         }
         return false;
     }
+
+    static IdStringList concat(IdStringList a, IdStringList b);
+    IdStringList slice(size_t s, size_t e) const;
 };
 
 NEXTPNR_NAMESPACE_END

@@ -58,4 +58,23 @@ std::string IdStringList::str(const Context *ctx) const
     return s;
 }
 
+IdStringList IdStringList::concat(IdStringList a, IdStringList b)
+{
+    IdStringList result(a.size() + b.size());
+    for (size_t i = 0; i < a.size(); i++)
+        result.ids[i] = a[i];
+    for (size_t i = 0; i < b.size(); i++)
+        result.ids[a.size() + i] = b[i];
+    return result;
+}
+
+IdStringList IdStringList::slice(size_t s, size_t e) const
+{
+    NPNR_ASSERT(e >= s);
+    IdStringList result(e - s);
+    for (size_t i = 0; i < result.size(); i++)
+        result.ids[i] = ids[s + i];
+    return result;
+}
+
 NEXTPNR_NAMESPACE_END

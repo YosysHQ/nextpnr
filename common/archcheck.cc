@@ -28,6 +28,12 @@
 
 USING_NEXTPNR_NAMESPACE
 
+#ifndef ARCH_MISTRAL
+// The LRU cache to reduce memory usage during the connectivity check relies on getPips() having some spacial locality,
+// which the current CycloneV arch impl doesn't have. This may be fixed in the future, though.
+#define USING_LRU_CACHE
+#endif
+
 namespace {
 
 void archcheck_names(const Context *ctx)
@@ -248,6 +254,11 @@ void archcheck_conn(const Context *ctx)
 
     log_info("Checking all wires...\n");
 
+#ifndef USING_LRU_CACHE
+    std::unordered_map<PipId, WireId> pips_downhill;
+    std::unordered_map<PipId, WireId> pips_uphill;
+#endif
+
     for (WireId wire : ctx->getWires()) {
         for (BelPin belpin : ctx->getWireBelPins(wire)) {
             WireId wire2 = ctx->getBelPinWire(belpin.bel, belpin.pin);
@@ -257,11 +268,19 @@ void archcheck_conn(const Context *ctx)
         for (PipId pip : ctx->getPipsDownhill(wire)) {
             WireId wire2 = ctx->getPipSrcWire(pip);
             log_assert(wire == wire2);
+#ifndef USING_LRU_CACHE
+            auto result = pips_downhill.emplace(pip, wire);
+            log_assert(result.second);
+#endif
         }
 
         for (PipId pip : ctx->getPipsUphill(wire)) {
             WireId wire2 = ctx->getPipDstWire(pip);
             log_assert(wire == wire2);
+#ifndef USING_LRU_CACHE
+            auto result = pips_uphill.emplace(pip, wire);
+            log_assert(result.second);
+#endif
         }
     }
 
@@ -285,7 +304,7 @@ void archcheck_conn(const Context *ctx)
             log_assert(found_belpin);
         }
     }
-
+#ifdef USING_LRU_CACHE
     // This cache is used to meet two goals:
     //  - Avoid linear scan by invoking getPipsDownhill/getPipsUphill directly.
     //  - Avoid having pip -> wire maps for the entire part.
@@ -295,16 +314,25 @@ void archcheck_conn(const Context *ctx)
     // pip -> wire, assuming that pips are returned from getPips with some
     // chip locality.
     LruWireCacheMap pip_cache(ctx, /*cache_size=*/64 * 1024);
+#endif
     log_info("Checking all PIPs...\n");
     for (PipId pip : ctx->getPips()) {
         WireId src_wire = ctx->getPipSrcWire(pip);
         if (src_wire != WireId()) {
+#ifdef USING_LRU_CACHE
             log_assert(pip_cache.isPipDownhill(pip, src_wire));
+#else
+            log_assert(pips_downhill.at(pip) == src_wire);
+#endif
         }
 
         WireId dst_wire = ctx->getPipDstWire(pip);
         if (dst_wire != WireId()) {
+#ifdef USING_LRU_CACHE
             log_assert(pip_cache.isPipUphill(pip, dst_wire));
+#else
+            log_assert(pips_uphill.at(pip) == dst_wire);
+#endif
         }
     }
 }

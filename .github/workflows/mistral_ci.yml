@@ -1,0 +1,33 @@
+name: Mistral CI tests
+
+on: [push, pull_request]
+
+jobs:
+  Build-nextpnr:
+    runs-on: ubuntu-latest
+    steps:
+
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+
+    - uses: actions/setup-python@v2
+
+    - name: Install
+      run: |
+        sudo apt-get update
+        sudo apt-get install git make cmake libboost-all-dev python3-dev libeigen3-dev tcl-dev lzma-dev clang bison flex swig
+
+    - name: ccache
+      uses: hendrikmuhs/ccache-action@v1
+
+    - name: Execute build nextpnr
+      env:
+        MISTRAL_PATH: ${{ github.workspace }}/deps/mistral
+        MISTRAL_REVISION: 7d4e6d2cca1ec05de3be0c9fef6acaed8089d329
+      run: |
+        export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
+        source ./.github/ci/build_mistral.sh
+        get_dependencies
+        build_nextpnr
+        run_archcheck
