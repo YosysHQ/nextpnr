@@ -291,7 +291,7 @@ struct Arch : BaseArch<ArchRanges>
     Arch(ArchArgs args);
     ArchArgs archArgs() const { return args; }
 
-    std::string getChipName() const override { return std::string{"TODO: getChipName"}; }
+    std::string getChipName() const override { return args.device; }
     // -------------------------------------------------
 
     int getGridDimX() const override { return cyclonev->get_tile_sx(); }
