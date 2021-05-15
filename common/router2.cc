@@ -710,10 +710,12 @@ struct Router2
                 if (is_bb && !hit_test_pip(nd.bb, ctx->getPipLocation(dh)))
                     continue;
                 if (!ctx->checkPipAvailForNet(dh, net)) {
+#if 0
                     ROUTE_LOG_DBG("Skipping pip %s because it is bound to net '%s' not net '%s'\n", ctx->nameOfPip(dh),
                                   ctx->getBoundPipNet(dh) != nullptr ? ctx->getBoundPipNet(dh)->name.c_str(ctx)
                                                                      : "<not a net>",
                                   net->name.c_str(ctx));
+#endif
                     continue;
                 }
 #endif
