@@ -480,6 +480,10 @@ struct Arch : BaseArch<ArchRanges>
 
     // -------------------------------------------------
 
+    bool is_clkbuf_cell(IdString cell_type) const; // globals.cc
+
+    // -------------------------------------------------
+
     static const std::string defaultPlacer;
     static const std::vector<std::string> availablePlacers;
     static const std::string defaultRouter;

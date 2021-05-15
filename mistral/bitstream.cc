@@ -201,7 +201,7 @@ struct MistralBitgen
             int bi = ctx->bel_data(ci->bel).block_index;
             if (ctx->is_io_cell(ci->type))
                 write_io_cell(ci, loc.x, loc.y, bi);
-            else if (ci->type == id_MISTRAL_CLKENA)
+            else if (ctx->is_clkbuf_cell(ci->type))
                 write_clkbuf_cell(ci, loc.x, loc.y, bi);
         }
     }

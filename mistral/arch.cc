@@ -248,6 +248,8 @@ bool Arch::isValidBelForCellType(IdString cell_type, BelId bel) const
         return is_comb_cell(cell_type);
     else if (bel_type == id_MISTRAL_IO)
         return is_io_cell(cell_type);
+    else if (bel_type == id_MISTRAL_CLKENA)
+        return is_clkbuf_cell(cell_type);
     else
         return bel_type == cell_type;
 }
@@ -258,6 +260,8 @@ BelBucketId Arch::getBelBucketForCellType(IdString cell_type) const
         return id_MISTRAL_COMB;
     else if (is_io_cell(cell_type))
         return id_MISTRAL_IO;
+    else if (is_clkbuf_cell(cell_type))
+        return id_MISTRAL_CLKENA;
     else
         return cell_type;
 }
