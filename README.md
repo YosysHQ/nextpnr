@@ -9,6 +9,7 @@ Currently nextpnr supports:
  * Lattice ECP5 devices supported by [Project Trellis](https://github.com/YosysHQ/prjtrellis)
  * Lattice Nexus devices supported by [Project Oxide](https://github.com/gatecat/prjoxide)
  * Gowin LittleBee devices supported by [Project Apicula](https://github.com/YosysHQ/apicula)
+ * *(experimental)* Cyclone V devices supported by [Mistral](https://github.com/Ravenslofty/mistral)
  * *(experimental)* a "generic" back-end for user-defined architectures
 
 There is some work in progress towards [support for Xilinx devices](https://github.com/gatecat/nextpnr-xilinx/) but it is not upstream and not intended for end users at the present time. We hope to see more FPGA families supported in the future. We would love your help in developing this awesome new project!
