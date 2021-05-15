@@ -79,8 +79,11 @@ struct BelInfo
     IdString name;
     IdString type;
     IdString bucket;
-    // For cases where we need to determine an original block index, due to multiple bels at the same tile this might
-    // not be the same as the nextpnr z-coordinate
+
+    CellInfo *bound = nullptr;
+
+    // For cases where we need to determine an original block index, due to multiple bels at the same tile this
+    // might not be the same as the nextpnr z-coordinate
     int block_index;
     std::unordered_map<IdString, PinInfo> pins;
     // Info for different kinds of bels
@@ -334,14 +337,25 @@ struct Arch : BaseArch<ArchRanges>
 
     void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength) override
     {
-        BaseArch::bindBel(bel, cell, strength);
+        auto &data = bel_data(bel);
+        NPNR_ASSERT(data.bound == nullptr);
+        data.bound = cell;
+        cell->bel = bel;
+        cell->belStrength = strength;
         update_bel(bel);
     }
     void unbindBel(BelId bel) override
     {
-        BaseArch::unbindBel(bel);
+        auto &data = bel_data(bel);
+        NPNR_ASSERT(data.bound != nullptr);
+        data.bound->bel = BelId();
+        data.bound->belStrength = STRENGTH_NONE;
+        data.bound = nullptr;
         update_bel(bel);
     }
+    bool checkBelAvail(BelId bel) const override { return bel_data(bel).bound == nullptr; }
+    CellInfo *getBoundBelCell(BelId bel) const override { return bel_data(bel).bound; }
+    CellInfo *getConflictingBelCell(BelId bel) const override { return bel_data(bel).bound; }
 
     void update_bel(BelId bel);
     BelId bel_by_block_idx(int x, int y, IdString type, int block_index) const;
