@@ -616,6 +616,11 @@ void Arch::assign_control_sets(uint32_t lab)
     bool legal = worker.run(this, lab);
     NPNR_ASSERT(legal);
     auto &lab_data = labs.at(lab);
+
+    for (int j = 0; j < 2; j++) {
+        lab_data.aclr_used[j] = false;
+    }
+
     for (uint8_t alm = 0; alm < 10; alm++) {
         auto &alm_data = lab_data.alms.at(alm);
         for (uint8_t i = 0; i < 4; i++) {
@@ -648,6 +653,7 @@ void Arch::assign_control_sets(uint32_t lab)
                         log_info("Assigned ACLR set %d to FF %s (%s)\n", i, nameOf(ff), getCtx()->nameOfBel(ff_bel));
                     }
                     reserve_route(lab_data.aclr_wires[j], aclr_wire);
+                    lab_data.aclr_used[j] = (aclr_sig.net != nullptr);
                     alm_data.aclr_idx[i / 2] = j;
                     break;
                 }

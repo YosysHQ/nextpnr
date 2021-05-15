@@ -65,6 +65,7 @@ struct LABInfo
     std::array<WireId, 2> aclr_wires;
     WireId sclr_wire, sload_wire;
     // TODO: LAB configuration (control set etc)
+    std::array<bool, 2> aclr_used;
 };
 
 struct PinInfo

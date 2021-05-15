@@ -283,7 +283,7 @@ struct MistralBitgen
             if (get_net_or_empty(ff, id_ENA) != nullptr) { // not using ffInfo.ctrlset, this has a fake net always to
                                                            // ensure different constants don't collide
                 cv->bmux_b_set(CycloneV::LAB, pos, en_en[ce_idx], 0, true);
-                cv->bmux_b_set(CycloneV::LAB, pos, en_ninv[ce_idx], 0, !ff->ffInfo.ctrlset.ena.inverted);
+                cv->bmux_b_set(CycloneV::LAB, pos, en_ninv[ce_idx], 0, ff->ffInfo.ctrlset.ena.inverted);
             } else {
                 cv->bmux_b_set(CycloneV::LAB, pos, en_en[ce_idx], 0, false);
             }
@@ -315,7 +315,7 @@ struct MistralBitgen
         const std::array<CycloneV::bmux_type_t, 2> aclr_inp{CycloneV::ACLR0_SEL, CycloneV::ACLR1_SEL};
         for (int i = 0; i < 2; i++) {
             // Quartus seems to set unused ACLRs to CLKI2...
-            if (ctx->getBoundWireNet(lab_data.aclr_wires[i]) == nullptr)
+            if (!lab_data.aclr_used[i])
                 cv->bmux_m_set(CycloneV::LAB, pos, aclr_inp[i], 0, CycloneV::CLKI2);
             else
                 cv->bmux_m_set(CycloneV::LAB, pos, aclr_inp[i], 0, (i == 1) ? CycloneV::GIN0 : CycloneV::GIN1);
