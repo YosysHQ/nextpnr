@@ -33,6 +33,7 @@ static void create_alm(Arch *arch, int x, int y, int z, uint32_t lab_idx)
 {
     auto &lab = arch->labs.at(lab_idx);
     auto &alm = lab.alms.at(z);
+    auto block_type = lab.is_mlab ? CycloneV::MLAB : CycloneV::LAB;
     // Create the combinational part of ALMs.
     // There are two of these, for the two LUT outputs, and these also contain the carry chain and associated logic
     // Each one has all 8 ALM inputs as input pins. In many cases only a subset of these are used; depending on mode;
@@ -66,14 +67,14 @@ static void create_alm(Arch *arch, int x, int y, int z, uint32_t lab_idx)
 
         BelId bel = arch->add_bel(x, y, arch->id(stringf("ALM%d_COMB%d", z, i)), id_MISTRAL_COMB);
         // LUT/MUX inputs
-        arch->add_bel_pin(bel, id_A, PORT_IN, arch->get_port(CycloneV::LAB, x, y, z, CycloneV::A));
-        arch->add_bel_pin(bel, id_B, PORT_IN, arch->get_port(CycloneV::LAB, x, y, z, CycloneV::B));
-        arch->add_bel_pin(bel, id_C, PORT_IN, arch->get_port(CycloneV::LAB, x, y, z, CycloneV::C));
-        arch->add_bel_pin(bel, id_D, PORT_IN, arch->get_port(CycloneV::LAB, x, y, z, CycloneV::D));
-        arch->add_bel_pin(bel, id_E0, PORT_IN, arch->get_port(CycloneV::LAB, x, y, z, CycloneV::E0));
-        arch->add_bel_pin(bel, id_E1, PORT_IN, arch->get_port(CycloneV::LAB, x, y, z, CycloneV::E1));
-        arch->add_bel_pin(bel, id_F0, PORT_IN, arch->get_port(CycloneV::LAB, x, y, z, CycloneV::F0));
-        arch->add_bel_pin(bel, id_F1, PORT_IN, arch->get_port(CycloneV::LAB, x, y, z, CycloneV::F1));
+        arch->add_bel_pin(bel, id_A, PORT_IN, arch->get_port(block_type, x, y, z, CycloneV::A));
+        arch->add_bel_pin(bel, id_B, PORT_IN, arch->get_port(block_type, x, y, z, CycloneV::B));
+        arch->add_bel_pin(bel, id_C, PORT_IN, arch->get_port(block_type, x, y, z, CycloneV::C));
+        arch->add_bel_pin(bel, id_D, PORT_IN, arch->get_port(block_type, x, y, z, CycloneV::D));
+        arch->add_bel_pin(bel, id_E0, PORT_IN, arch->get_port(block_type, x, y, z, CycloneV::E0));
+        arch->add_bel_pin(bel, id_E1, PORT_IN, arch->get_port(block_type, x, y, z, CycloneV::E1));
+        arch->add_bel_pin(bel, id_F0, PORT_IN, arch->get_port(block_type, x, y, z, CycloneV::F0));
+        arch->add_bel_pin(bel, id_F1, PORT_IN, arch->get_port(block_type, x, y, z, CycloneV::F1));
         // Carry/share chain
         arch->add_bel_pin(bel, id_CI, PORT_IN, carry_in);
         arch->add_bel_pin(bel, id_SHAREIN, PORT_IN, share_in);
@@ -105,8 +106,8 @@ static void create_alm(Arch *arch, int x, int y, int z, uint32_t lab_idx)
         }
         // E/F pips
         // Note that the F choice is mirrored, F from the other half is picked
-        arch->add_pip(arch->get_port(CycloneV::LAB, x, y, z, i ? CycloneV::E1 : CycloneV::E0), alm.sel_ef[i]);
-        arch->add_pip(arch->get_port(CycloneV::LAB, x, y, z, i ? CycloneV::F0 : CycloneV::F1), alm.sel_ef[i]);
+        arch->add_pip(arch->get_port(block_type, x, y, z, i ? CycloneV::E1 : CycloneV::E0), alm.sel_ef[i]);
+        arch->add_pip(arch->get_port(block_type, x, y, z, i ? CycloneV::F0 : CycloneV::F1), alm.sel_ef[i]);
     }
 
     // Create the flipflops and associated routing
@@ -132,12 +133,12 @@ static void create_alm(Arch *arch, int x, int y, int z, uint32_t lab_idx)
         alm.ff_out[i] = arch->add_wire(x, y, arch->id(stringf("FFOUT[%d]", (z * 4) + i)));
         arch->add_bel_pin(bel, id_Q, PORT_OUT, alm.ff_out[i]);
         // Output mux (*DFF*)
-        WireId out = arch->get_port(CycloneV::LAB, x, y, z, outputs[i]);
+        WireId out = arch->get_port(block_type, x, y, z, outputs[i]);
         arch->add_pip(alm.ff_out[i], out);
         arch->add_pip(alm.comb_out[i / 2], out);
         // 'L' output mux where applicable
         if (i == 1 || i == 3) {
-            WireId l_out = arch->get_port(CycloneV::LAB, x, y, z, l_outputs[i / 2]);
+            WireId l_out = arch->get_port(block_type, x, y, z, l_outputs[i / 2]);
             arch->add_pip(alm.ff_out[i], l_out);
             arch->add_pip(alm.comb_out[i / 2], l_out);
         }
@@ -148,15 +149,20 @@ static void create_alm(Arch *arch, int x, int y, int z, uint32_t lab_idx)
         b.lab_data.alm = z;
         b.lab_data.idx = i;
     }
+
+    // TODO: MLAB-specific pins
 }
 } // namespace
 
-void Arch::create_lab(int x, int y)
+void Arch::create_lab(int x, int y, bool is_mlab)
 {
     uint32_t lab_idx = labs.size();
     labs.emplace_back();
 
     auto &lab = labs.back();
+
+    lab.is_mlab = is_mlab;
+    auto block_type = is_mlab ? CycloneV::MLAB : CycloneV::LAB;
 
     // Create common control set configuration. This is actually a subset of what's possible, but errs on the side of
     // caution due to incomplete documentation
@@ -165,24 +171,24 @@ void Arch::create_lab(int x, int y)
     // permutations
     for (int i = 0; i < 3; i++) {
         lab.clk_wires[i] = add_wire(x, y, id(stringf("CLK%d", i)));
-        add_pip(get_port(CycloneV::LAB, x, y, -1, CycloneV::CLKIN, 0), lab.clk_wires[i]);  // dedicated routing
-        add_pip(get_port(CycloneV::LAB, x, y, -1, CycloneV::DATAIN, 0), lab.clk_wires[i]); // general routing
+        add_pip(get_port(block_type, x, y, -1, CycloneV::CLKIN, 0), lab.clk_wires[i]);  // dedicated routing
+        add_pip(get_port(block_type, x, y, -1, CycloneV::DATAIN, 0), lab.clk_wires[i]); // general routing
     }
 
     // Enables - while it looks from the config like there are choices for these, it seems like EN0_SEL actually selects
     // SCLR not ENA0 and EN1_SEL actually selects SLOAD?
-    lab.ena_wires[0] = get_port(CycloneV::LAB, x, y, -1, CycloneV::DATAIN, 2);
-    lab.ena_wires[1] = get_port(CycloneV::LAB, x, y, -1, CycloneV::DATAIN, 3);
-    lab.ena_wires[2] = get_port(CycloneV::LAB, x, y, -1, CycloneV::DATAIN, 0);
+    lab.ena_wires[0] = get_port(block_type, x, y, -1, CycloneV::DATAIN, 2);
+    lab.ena_wires[1] = get_port(block_type, x, y, -1, CycloneV::DATAIN, 3);
+    lab.ena_wires[2] = get_port(block_type, x, y, -1, CycloneV::DATAIN, 0);
 
     // ACLRs - only consider general routing for now
-    lab.aclr_wires[0] = get_port(CycloneV::LAB, x, y, -1, CycloneV::DATAIN, 3);
-    lab.aclr_wires[1] = get_port(CycloneV::LAB, x, y, -1, CycloneV::DATAIN, 2);
+    lab.aclr_wires[0] = get_port(block_type, x, y, -1, CycloneV::DATAIN, 3);
+    lab.aclr_wires[1] = get_port(block_type, x, y, -1, CycloneV::DATAIN, 2);
 
     // SCLR and SLOAD - as above it seems like these might be selectable using the "EN*_SEL" bits but play it safe for
     // now
-    lab.sclr_wire = get_port(CycloneV::LAB, x, y, -1, CycloneV::DATAIN, 3);
-    lab.sload_wire = get_port(CycloneV::LAB, x, y, -1, CycloneV::DATAIN, 1);
+    lab.sclr_wire = get_port(block_type, x, y, -1, CycloneV::DATAIN, 3);
+    lab.sload_wire = get_port(block_type, x, y, -1, CycloneV::DATAIN, 1);
 
     for (int i = 0; i < 10; i++) {
         create_alm(this, x, y, i, lab_idx);

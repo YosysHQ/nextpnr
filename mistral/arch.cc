@@ -71,7 +71,10 @@ Arch::Arch(ArchArgs args)
             for (CycloneV::block_type_t bel : cyclonev->pos_get_bels(pos)) {
                 switch (bel) {
                 case CycloneV::block_type_t::LAB:
-                    create_lab(x, y);
+                    create_lab(x, y, /*is_mlab=*/false);
+                    break;
+                case CycloneV::block_type_t::MLAB:
+                    create_lab(x, y, /*is_mlab=*/true);
                     break;
                 default:
                     continue;
