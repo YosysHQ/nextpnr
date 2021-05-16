@@ -964,7 +964,8 @@ static void apply_constant_routing(Context *ctx, const SiteArch &site_arch, NetI
     }
 }
 
-static void apply_routing(Context *ctx, const SiteArch &site_arch, HashTables::HashSet<std::pair<IdString, int32_t>, PairHash> &lut_thrus)
+static void apply_routing(Context *ctx, const SiteArch &site_arch,
+                          HashTables::HashSet<std::pair<IdString, int32_t>, PairHash> &lut_thrus)
 {
     IdString gnd_net_name(ctx->chip_info->constants->gnd_net_name);
     NetInfo *gnd_net = ctx->nets.at(gnd_net_name).get();
@@ -1092,7 +1093,8 @@ static void block_lut_outputs(SiteArch *site_arch,
 
 // Recursively visit downhill PIPs until a SITE_PORT_SINK is reached.
 // Marks all PIPs for all valid paths.
-static bool visit_downhill_pips(const SiteArch *site_arch, const SiteWire &site_wire, std::vector<PipId> &valid_pips) {
+static bool visit_downhill_pips(const SiteArch *site_arch, const SiteWire &site_wire, std::vector<PipId> &valid_pips)
+{
     bool valid_path_exists = false;
     for (SitePip site_pip : site_arch->getPipsDownhill(site_wire)) {
         const SiteWire &dst_wire = site_arch->getPipDstWire(site_pip);
@@ -1114,7 +1116,8 @@ static bool visit_downhill_pips(const SiteArch *site_arch, const SiteWire &site_
 
 // Checks all downhill PIPs starting from driver wires.
 // All valid PIPs are stored and returned in a vector.
-static void check_downhill_pips(Context *ctx, const SiteArch *site_arch, std::vector<PipId> &valid_pips) {
+static void check_downhill_pips(Context *ctx, const SiteArch *site_arch, std::vector<PipId> &valid_pips)
+{
     auto &cells_in_site = site_arch->site_info->cells_in_site;
 
     for (auto &net_pair : site_arch->nets) {

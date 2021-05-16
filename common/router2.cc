@@ -1247,7 +1247,7 @@ struct Router2
                 route_net(tcs.at(N), fail, false);
     }
 
-//#define ROUTER2_STATISTICS
+    //#define ROUTER2_STATISTICS
 
     void dump_statistics()
     {

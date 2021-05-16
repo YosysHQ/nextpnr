@@ -733,7 +733,6 @@ ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
     int dst_tile = dst.tile == -1 ? chip_info->nodes[dst.index].tile_wires[0].tile : dst.tile;
     int src_tile = src.tile == -1 ? chip_info->nodes[src.index].tile_wires[0].tile : src.tile;
 
-
     int src_x, src_y;
     get_tile_x_y(src_tile, &src_x, &src_y);
 
@@ -1804,7 +1803,7 @@ bool Arch::checkPipAvailForNet(PipId pip, NetInfo *net) const
                 const BelInfoPOD &bel_data = tile_type.bel_data[net->driver.cell->bel.index];
                 const SiteRouter &site_router = get_site_status(tile_status_iter->second, bel_data);
 
-                const auto& pips = site_router.valid_pips;
+                const auto &pips = site_router.valid_pips;
                 auto result = std::find(pips.begin(), pips.end(), pip);
                 if (result != pips.end()) {
                     valid_pip = true;
