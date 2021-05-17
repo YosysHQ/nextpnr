@@ -44,16 +44,7 @@ bool Arch::getClusterPlacement(ClusterId cluster, BelId root_bel,
                          std::vector<std::pair<CellInfo *, BelId>> &placement) const
 {
     const Context *ctx = getCtx();
-    // HACK / FIXME
-    IdString tile_type;
-    tile_type.set(ctx, "CARRY4");
-    // ------------
-    IdString suggested_tile(chip_info->tiles[root_bel.index].type);
-    if (suggested_tile != tile_type) {
-        // Tile type does not fit the chain - do not proceed
-        log_info("Suggested: %s [%d] vs. wanted: %s\n", suggested_tile.c_str(ctx), root_bel.index, tile_type.c_str(ctx));
-        return false;
-    }
+    IdString belType = getBelType(root_bel);
 
     // Place root
     CellInfo *root_cell = getClusterRootCell(cluster);
@@ -65,7 +56,9 @@ bool Arch::getClusterPlacement(ClusterId cluster, BelId root_bel,
     CellInfo *next_cell = root_cell;
     NetInfo *next_net = nullptr;
     BelId next_bel = root_bel;
-    log_info("Cluster '%s' Placement:\n", root_cell->cluster.c_str(ctx));
+    Loc loc = getBelLocation(next_bel);
+    log_info("Cluster '%s' [%s] Placement:\n", root_cell->cluster.c_str(ctx), belType.c_str(ctx));
+    log_info("Cell '%s' placed on (%d, %d, %d)\n", next_cell->name.c_str(ctx), loc.x, loc.y, loc.z);
     while (true) {
         // Get pattern to find next_cell
         auto cell_pattern = cell_pattern_map.find(next_cell->name);
@@ -80,7 +73,7 @@ bool Arch::getClusterPlacement(ClusterId cluster, BelId root_bel,
         }
         next_cell = next_net->users.at(0).cell;
 
-        Loc loc = getBelLocation(next_bel);
+        loc = getBelLocation(next_bel);
         bool bel_found = false;
         Loc next_loc = loc;
         for (auto cfg : coord_configs) {
@@ -109,9 +102,12 @@ bool Arch::getClusterPlacement(ClusterId cluster, BelId root_bel,
             log_error("Cannot place cell: '%s'\n", next_cell->name.c_str(ctx));
         }
 
+        Loc bel_loc = getBelLocation(next_bel);
         placement.push_back(std::make_pair(next_cell, next_bel));
-        log_info("Cell '%s' placed on (%d, %d, %d) tile: %s\n", next_cell->name.c_str(ctx), loc.x, loc.y, loc.z, tile_type.c_str(ctx));
+        log_info("Cell '%s' placed on (%d, %d, %d)\n", next_cell->name.c_str(ctx), bel_loc.x, bel_loc.y, bel_loc.z);
     }
+
+    log_info("Cluster placement for root cell: '%s'\n", root_cell->name.c_str(ctx));
 
     return true;
 }
