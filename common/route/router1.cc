@@ -1048,8 +1048,8 @@ bool Context::checkRoutedDesign() const
         }
 
         if (net_info->wires.count(src_wire) == 0) {
-            if (ctx->debug)
-                log("  source (%s) not bound to net\n", ctx->nameOfWire(src_wire));
+            // if (ctx->debug)
+            log("  source (%s) not bound to net\n", ctx->nameOfWire(src_wire));
             found_unrouted = true;
         }
 
@@ -1060,8 +1060,8 @@ bool Context::checkRoutedDesign() const
                 dest_wires[dst_wire] = user.index;
 
                 if (net_info->wires.count(dst_wire) == 0) {
-                    if (ctx->debug)
-                        log("  sink %d (%s) not bound to net\n", user.index.idx(), ctx->nameOfWire(dst_wire));
+                    // if (ctx->debug)
+                    log("  sink %d (%s) not bound to net\n", user.index.idx(), ctx->nameOfWire(dst_wire));
                     found_unrouted = true;
                 }
             }
@@ -1090,8 +1090,8 @@ bool Context::checkRoutedDesign() const
                     if (ctx->debug)
                         log("  %*s=> sink %d\n", 2 * num, "", dest_wires.at(w).idx());
                 } else {
-                    if (ctx->debug)
-                        log("  %*s=> stub\n", 2 * num, "");
+                    // if (ctx->debug)
+                    log("  %*s=> stub\n", 2 * num, "");
                     found_stub = true;
                 }
             }

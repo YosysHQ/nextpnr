@@ -431,7 +431,11 @@ struct Router2
         // D or M -> M ff input
         // without careful reservation of C for C lut input and D for D lut input, there is fighting for D between FF
         // and LUT
+#ifdef ARCH_XLNXIC
+        if (iter_count > 2)
+#else
         if (iter_count > 7)
+#endif
             return false; // heuristic to assume we've hit general routing
         if (wire_data(wire).unavailable)
             return true;
@@ -532,6 +536,10 @@ struct Router2
     {
 #ifdef ARCH_NEXUS
         if (net->driver.cell != nullptr && net->driver.cell->type == id_VCC_DRV)
+            return true;
+#endif
+#ifdef ARCH_XLNXIC
+        if (net->driver.cell != nullptr && (net->driver.cell->type == id_VCC || net->driver.cell->type == id_GND))
             return true;
 #endif
         return false;

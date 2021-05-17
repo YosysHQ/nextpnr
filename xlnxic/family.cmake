@@ -1,0 +1,25 @@
+find_package(ZLIB REQUIRED)
+
+add_subdirectory(3rdparty/fpga-interchange-schema/cmake/cxx_static)
+
+if (DEFINED RAPIDWRIGHT_PATH)
+    find_package(Java)
+    include(UseJava)
+    FILE(GLOB RAPIDWRIGHT_JARS ${RAPIDWRIGHT_PATH}/jars/*.jar)
+    set(CMAKE_JAVA_INCLUDE_PATH ${RAPIDWRIGHT_PATH}/src ${RAPIDWRIGHT_JARS})
+    string (REPLACE ";" " \n " RAPIDWRIGHT_JARS_STR "${RAPIDWRIGHT_JARS}")
+    file(WRITE ${family}/java/bbaexport.mf "Manifest-Version: 1.0\n")
+    file(APPEND ${family}/java/bbaexport.mf "Main-Class: net.gatecat.fpga.${family}.bbaexport\n")
+    file(APPEND ${family}/java/bbaexport.mf "Class-Path: ${RAPIDWRIGHT_JARS_STR}\n")
+    add_jar(${family}_bbaexport SOURCES ${family}/java/bbaexport.java MANIFEST ${family}/java/bbaexport.mf)
+endif()
+
+foreach (target ${family_targets})
+    target_link_libraries(${target} PRIVATE fpga_interchange_capnp)
+    target_link_libraries(${target} PRIVATE z)
+endforeach()
+
+if(BUILD_GUI)
+    target_link_libraries(gui_${family} fpga_interchange_capnp)
+    target_link_libraries(gui_${family} z)
+endif()
