@@ -31,6 +31,14 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+enum SinkOnNetStatus
+{
+    VALID = 0,
+    SKIP_UNPLACED = 1,
+    DRIVER_UNPLACED = 2,
+    UNROUTABLE = 3
+};
+
 struct TileTypeBelPin
 {
     int32_t tile_type;
@@ -132,7 +140,7 @@ struct DedicatedInterconnect
     // interconnect?
     //
     // Note: Only BEL pin sinks are checked.
-    bool isBelLocationValid(BelId bel, const CellInfo *cell) const;
+    SinkOnNetStatus isBelLocationValid(BelId bel, const CellInfo *cell) const;
     void explain_bel_status(BelId bel, const CellInfo *cell) const;
 
     void find_dedicated_interconnect();
@@ -141,8 +149,8 @@ struct DedicatedInterconnect
     void expand_sink_bel(BelId bel, IdString pin, WireId wire);
     void expand_source_bel(BelId bel, IdString pin, WireId wire);
 
-    bool is_driver_on_net_valid(BelId driver_bel, const CellInfo *cell, IdString driver_port, NetInfo *net) const;
-    bool is_sink_on_net_valid(BelId bel, const CellInfo *cell, IdString port_name, NetInfo *net) const;
+    SinkOnNetStatus is_driver_on_net_valid(BelId driver_bel, const CellInfo *cell, IdString driver_port, NetInfo *net) const;
+    SinkOnNetStatus is_sink_on_net_valid(BelId bel, const CellInfo *cell, IdString port_name, NetInfo *net) const;
 };
 
 NEXTPNR_NAMESPACE_END

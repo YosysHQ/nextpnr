@@ -184,7 +184,7 @@ bool DedicatedInterconnect::check_routing(BelId src_bel, IdString src_bel_pin, B
     return false;
 }
 
-bool DedicatedInterconnect::is_driver_on_net_valid(BelId driver_bel, const CellInfo *cell, IdString driver_port,
+SinkOnNetStatus DedicatedInterconnect::is_driver_on_net_valid(BelId driver_bel, const CellInfo *cell, IdString driver_port,
                                                    NetInfo *net) const
 {
     const auto &driver_bel_data = bel_info(ctx->chip_info, driver_bel);
@@ -215,7 +215,7 @@ bool DedicatedInterconnect::is_driver_on_net_valid(BelId driver_bel, const CellI
                     log_info("BEL %s is not valid because sink cell %s/%s is not placed\n", ctx->nameOfBel(driver_bel),
                              port_ref.cell->name.c_str(ctx), port_ref.port.c_str(ctx));
                 }
-                return false;
+                return DRIVER_UNPLACED;
             }
 
             BelId sink_bel = port_ref.cell->bel;
@@ -226,7 +226,7 @@ bool DedicatedInterconnect::is_driver_on_net_valid(BelId driver_bel, const CellI
                 // This might site local routing.  See if it can be routed
                 for (IdString sink_bel_pin : ctx->getBelPinsForCellPin(port_ref.cell, port_ref.port)) {
                     if (!check_routing(driver_bel, driver_bel_pin, sink_bel, sink_bel_pin, /*site_only=*/true)) {
-                        return false;
+                        return UNROUTABLE;
                     }
                 }
                 continue;
@@ -248,30 +248,28 @@ bool DedicatedInterconnect::is_driver_on_net_valid(BelId driver_bel, const CellI
                         log_info("BEL %s is not valid because pin %s cannot reach %s/%s\n", ctx->nameOfBel(driver_bel),
                                  driver_bel_pin.c_str(ctx), ctx->nameOfBel(sink_bel), sink_bel_pin.c_str(ctx));
                     }
-                    return false;
+                    return UNROUTABLE;
                 }
 
-                // Do detailed routing check to ensure driver can reach sink.
-                //
-                // FIXME: This might be too slow, but it handles a case on
-                // SLICEL.COUT -> SLICEL.CIN has delta_y = {1, 2}, but the
-                // delta_y=2 case is rare.
-                if (!check_routing(driver_bel, driver_bel_pin, sink_bel, sink_bel_pin, /*site_only=*/false)) {
-                    if (ctx->debug) {
-                        log_info("BEL %s is not valid because pin %s cannot be reach %s/%s (via detailed check)\n",
-                                 ctx->nameOfBel(driver_bel), driver_bel_pin.c_str(ctx), ctx->nameOfBel(sink_bel),
-                                 sink_bel_pin.c_str(ctx));
+                // Do detailed routing check to ensure driver can reach sink for clusters.
+                if (cell->cluster != ClusterId()) {
+                    if (!check_routing(driver_bel, driver_bel_pin, sink_bel, sink_bel_pin, /*site_only=*/false)) {
+                        if (ctx->debug) {
+                            log_info("BEL %s is not valid because pin %s cannot be reach %s/%s (via detailed check)\n",
+                                     ctx->nameOfBel(driver_bel), driver_bel_pin.c_str(ctx), ctx->nameOfBel(sink_bel),
+                                     sink_bel_pin.c_str(ctx));
+                        }
+                        return UNROUTABLE;
                     }
-                    return false;
                 }
             }
         }
     }
 
-    return true;
+    return VALID;
 }
 
-bool DedicatedInterconnect::is_sink_on_net_valid(BelId bel, const CellInfo *cell, IdString port_name,
+SinkOnNetStatus DedicatedInterconnect::is_sink_on_net_valid(BelId bel, const CellInfo *cell, IdString port_name,
                                                  NetInfo *net) const
 {
     const auto &bel_data = bel_info(ctx->chip_info, bel);
@@ -299,7 +297,7 @@ bool DedicatedInterconnect::is_sink_on_net_valid(BelId bel, const CellInfo *cell
                 log_info("BEL %s is not valid because driver cell %s/%s is not placed\n", ctx->nameOfBel(bel),
                          net->driver.cell->name.c_str(ctx), net->driver.port.c_str(ctx));
             }
-            return false;
+            return DRIVER_UNPLACED;
         }
 
         const auto &driver_bel_data = bel_info(ctx->chip_info, driver_bel);
@@ -328,28 +326,26 @@ bool DedicatedInterconnect::is_sink_on_net_valid(BelId bel, const CellInfo *cell
                          bel_pin.c_str(ctx), ctx->nameOfBel(driver_bel),
                          driver_type_bel_pin.type_bel_pin.bel_pin.c_str(ctx));
             }
-            return false;
+            return UNROUTABLE;
         }
 
-        // Do detailed routing check to ensure driver can reach sink.
-        //
-        // FIXME: This might be too slow, but it handles a case on
-        // SLICEL.COUT -> SLICEL.CIN has delta_y = {1, 2}, but the
-        // delta_y=2 case is rare.
-        if (!check_routing(driver_bel, driver_type_bel_pin.type_bel_pin.bel_pin, bel, bel_pin, /*site_only=*/false)) {
-            if (ctx->debug) {
-                log_info("BEL %s is not valid because pin %s cannot be driven by %s/%s (via detailed check)\n",
-                         ctx->nameOfBel(bel), bel_pin.c_str(ctx), ctx->nameOfBel(driver_bel),
-                         driver_type_bel_pin.type_bel_pin.bel_pin.c_str(ctx));
+        // Do detailed routing check to ensure driver can reach sink for clusters.
+        if (cell->cluster != ClusterId()) {
+            if (!check_routing(driver_bel, driver_type_bel_pin.type_bel_pin.bel_pin, bel, bel_pin, /*site_only=*/false)) {
+                if (ctx->debug) {
+                    log_info("BEL %s is not valid because pin %s cannot be driven by %s/%s (via detailed check)\n",
+                             ctx->nameOfBel(bel), bel_pin.c_str(ctx), ctx->nameOfBel(driver_bel),
+                             driver_type_bel_pin.type_bel_pin.bel_pin.c_str(ctx));
+                }
+                return UNROUTABLE;
             }
-            return false;
         }
     }
 
-    return true;
+    return VALID;
 }
 
-bool DedicatedInterconnect::isBelLocationValid(BelId bel, const CellInfo *cell) const
+SinkOnNetStatus DedicatedInterconnect::isBelLocationValid(BelId bel, const CellInfo *cell) const
 {
     NPNR_ASSERT(bel != BelId());
 
@@ -360,22 +356,23 @@ bool DedicatedInterconnect::isBelLocationValid(BelId bel, const CellInfo *cell) 
             continue;
         }
 
+        if (cell->cluster != ClusterId() && (net->driver.cell == nullptr || net->driver.cell->bel == BelId())) {
+                /* Skip disconnected cluster drivers */
+                return SKIP_UNPLACED;
+        }
+
         // This net doesn't have a driver, probably not valid?
         NPNR_ASSERT(net->driver.cell != nullptr);
 
         // Only check sink BELs.
         if (net->driver.cell == cell && net->driver.port == port_name) {
-            if (!is_driver_on_net_valid(bel, cell, port_name, net)) {
-                return false;
-            }
+            return is_driver_on_net_valid(bel, cell, port_name, net);
         } else {
-            if (!is_sink_on_net_valid(bel, cell, port_name, net)) {
-                return false;
-            }
+            return is_sink_on_net_valid(bel, cell, port_name, net);
         }
     }
 
-    return true;
+    return VALID;
 }
 
 void DedicatedInterconnect::explain_bel_status(BelId bel, const CellInfo *cell) const

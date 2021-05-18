@@ -828,9 +828,17 @@ struct Arch : ArchAPI<ArchRanges>
         }
         const TileStatus &tile_status = iter->second;
         const CellInfo *cell = tile_status.boundcells[bel.index];
+
         if (cell != nullptr) {
-            if (!dedicated_interconnect.isBelLocationValid(bel, cell)) {
-                return false;
+            switch(dedicated_interconnect.isBelLocationValid(bel, cell)) {
+                case SKIP_UNPLACED:
+                    return true;
+                case DRIVER_UNPLACED:
+                    return false;
+                case UNROUTABLE:
+                    return false;
+                default:
+                    break;
             }
 
             if (io_port_types.count(cell->type)) {

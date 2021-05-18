@@ -134,6 +134,7 @@ SiteArch::SiteArch(const SiteInformation *site_info) : ctx(site_info->ctx), site
     // Create list of out of site sources and sinks.
 
     bool have_vcc_pins = false;
+    bool is_cluster = false;
     for (CellInfo *cell : site_info->cells_in_site) {
         for (const auto &pin_pair : cell->cell_bel_pins) {
             if (!cell->ports.count(pin_pair.first))
@@ -147,11 +148,18 @@ SiteArch::SiteArch(const SiteInformation *site_info) : ctx(site_info->ctx), site
         if (!cell->lut_cell.vcc_pins.empty()) {
             have_vcc_pins = true;
         }
+
+        if (cell->cluster != ClusterId()) {
+            is_cluster = true;
+        }
     }
 
     for (auto &net_pair : nets) {
         NetInfo *net = net_pair.first;
         SiteNetInfo &net_info = net_pair.second;
+
+        if (is_cluster && net->driver.cell == nullptr)
+            continue;
 
         // All nets require drivers
         NPNR_ASSERT(net->driver.cell != nullptr);
@@ -215,6 +223,9 @@ SiteArch::SiteArch(const SiteInformation *site_info) : ctx(site_info->ctx), site
         NetInfo *net = net_pair.first;
         SiteNetInfo &net_info = net_pair.second;
 
+        if (is_cluster && net->driver.cell == nullptr)
+            continue;
+
         for (const PortRef &user : net->users) {
             if (!site_info->is_bel_in_site(user.cell->bel)) {
                 // Only care about BELs within the site at this point.
@@ -259,7 +270,12 @@ SiteArch::SiteArch(const SiteInformation *site_info) : ctx(site_info->ctx), site
     }
 
     for (auto &net_pair : nets) {
+        NetInfo *net = net_pair.first;
         SiteNetInfo *net_info = &net_pair.second;
+
+        if (is_cluster && net->driver.cell == nullptr)
+            continue;
+
         auto result = wire_to_nets.emplace(net_info->driver, SiteNetMap{net_info, 1});
         // By this point, trivial congestion at sources should already by
         // avoided, and there should be no duplicates in the

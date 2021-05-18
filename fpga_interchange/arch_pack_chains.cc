@@ -208,9 +208,11 @@ void Arch::prepare_cluster(const BelChainPOD *chain)
             if (snk_cell_type != cell->type || cell->ports.find(snk_cell_port) == cell->ports.end()) {
                 continue;
             }
-
             PortRef driver = cell->ports[snk_cell_port].net->driver;
-            if (driver.cell->type == id_GND || driver.cell->type == id_VCC) {
+            if (driver.cell == nullptr) {
+                goto handle_root;
+            } else if (driver.cell->type != cell->type) {
+            handle_root:
                 // We hit a root cell
                 cell->cluster.set(ctx, cell->name.str(ctx));
                 roots.push_back(cell);
