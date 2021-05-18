@@ -107,25 +107,25 @@ bool Arch::getClusterPlacement(ClusterId cluster, BelId root_bel,
         log_info("Cell '%s' placed on (%d, %d, %d)\n", next_cell->name.c_str(ctx), bel_loc.x, bel_loc.y, bel_loc.z);
     }
 
-    log_info("Cluster placement for root cell: '%s'\n", root_cell->name.c_str(ctx));
-
     return true;
 }
 
 ArcBounds Arch::getClusterBounds(ClusterId cluster) const
 {
-    ArcBounds bounds(0, 0, 0, 0);
-
-    for (auto cell : sorted(getCtx()->cells)) {
-        CellInfo *ci = cell.second;
-        Loc cell_loc = getBelLocation(ci->bel);
-        if (ci->cluster == cluster) {
-            bounds.x0 = std::min(bounds.x0, cell_loc.x);
-            bounds.y0 = std::min(bounds.y0, cell_loc.y);
-            bounds.x1 = std::max(bounds.x1, cell_loc.x);
-            bounds.y1 = std::max(bounds.y1, cell_loc.y);
-        }
-    }
+    NPNR_ASSERT(cluster != ClusterId());
+    CellInfo *root_cell = getClusterRootCell(cluster);
+    CellInfo *last_cell = packed_clusters.at(cluster).back();
+    Loc loc_root = getBelLocation(root_cell->bel);
+    NPNR_ASSERT(loc_root != Loc());
+    Loc loc_last = getBelLocation(last_cell->bel);
+    NPNR_ASSERT(loc_last != Loc());
+    ArcBounds bounds(
+        std::min(loc_root.x, loc_last.x),
+        std::min(loc_root.y, loc_last.y),
+        std::max(loc_root.x, loc_last.x),
+        std::max(loc_root.y, loc_last.y)
+    );
+    return bounds;
 }
 
 Loc Arch::getClusterOffset(const CellInfo *cell) const
@@ -231,6 +231,7 @@ void Arch::prepare_cluster(const BelChainPOD *chain)
     for (auto root : roots) {
         CellInfo *next_cell = root;
         std::string cluster_path = "";
+        std::vector<CellInfo *> cluster_cells;
         while (next_cell != nullptr) {
             cluster_path += next_cell->name.str(ctx) + " -> ";
             // Find possible source type/port to follow in cluster building
@@ -254,6 +255,7 @@ void Arch::prepare_cluster(const BelChainPOD *chain)
 
             next_cell->cluster = root->cluster;
             NetInfo *next_net = next_cell->ports[src_cell_port].net;
+            cluster_cells.push_back(next_cell);
 
             if (next_net != nullptr) {
                 if (next_net->users.size() > 1) {
@@ -274,6 +276,7 @@ void Arch::prepare_cluster(const BelChainPOD *chain)
                 cluster_path += "|end|\n";
             }
         }
+        packed_clusters.emplace(root->cluster, cluster_cells);
         log_info("Created cluster: '%s' with following path:\n  |root| %s", root->cluster.c_str(ctx), cluster_path.c_str());
     }
 }   
