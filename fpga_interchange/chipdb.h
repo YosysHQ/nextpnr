@@ -420,7 +420,7 @@ NPNR_PACKED_STRUCT(struct ChainPatternPOD {
 
 NPNR_PACKED_STRUCT(struct ChainCoordConfigPOD {
     uint8_t coord; // ChainCoord
-    uint8_t step;
+    int8_t step;
     uint16_t padding;
 });
 
