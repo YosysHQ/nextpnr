@@ -91,6 +91,25 @@ static PhysicalNetlist::PhysNetlist::RouteBranch::Builder emit_branch(
         pip_obj.setForward(true);
         pip_obj.setIsFixed(pip_place_strength.at(pip) >= STRENGTH_FIXED);
 
+        // If this is a pseudo PIP, get its name
+        if (pip_data.pseudo_cell_wires.size() != 0) {
+            for (int32_t wire_index : pip_data.pseudo_cell_wires) {
+                const TileWireInfoPOD &wire_data = tile_type.wire_data[wire_index];
+
+                if (wire_data.site == -1) {
+                    continue;
+                }
+
+                const SiteInstInfoPOD & site_data = site_inst_info(ctx->chip_info, pip.tile, wire_data.site);
+                std::string site_name = site_data.site_name.get();
+                int site_idx = strings->get_index(site_name);
+                pip_obj.setSite(site_idx);
+
+                // It is assumed that a pseudo PIP traverses one site only
+                break;
+            }
+        }
+
         return branch;
     } else {
         BelId bel;
