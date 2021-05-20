@@ -49,6 +49,8 @@ struct Router2Cfg
 
     // Print additional performance profiling information
     bool perf_profile = false;
+
+    std::string heatmap;
 };
 
 void router2(Context *ctx, const Router2Cfg &cfg);

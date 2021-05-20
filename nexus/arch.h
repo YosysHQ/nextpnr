@@ -1034,6 +1034,7 @@ struct Arch : BaseArch<ArchRanges>
     // -------------------------------------------------
 
     WireId getWireByName(IdStringList name) const override;
+
     IdStringList getWireName(WireId wire) const override
     {
         NPNR_ASSERT(wire != WireId());
@@ -1043,6 +1044,7 @@ struct Arch : BaseArch<ArchRanges>
     }
 
     std::vector<std::pair<IdString, std::string>> getWireAttrs(WireId wire) const override;
+    IdString getWireType(WireId wire) const override;
 
     DelayQuad getWireDelay(WireId wire) const override { return DelayQuad(0); }
 
