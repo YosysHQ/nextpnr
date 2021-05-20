@@ -542,6 +542,8 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
         auto net_out = *net_iter++;
 
         const CellInfo *driver_cell = net.driver.cell;
+        if (driver_cell == nullptr)
+            continue;
 
         // Handle GND and VCC nets.
         if(driver_cell->bel == ctx->get_gnd_bel()) {
