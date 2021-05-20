@@ -22,14 +22,17 @@ jobs:
       uses: hendrikmuhs/ccache-action@v1
 
     - name: Get yosys
-      run: git clone https://github.com/YosysHQ/yosys.git
+      run: |
+        git clone https://github.com/YosysHQ/yosys.git
+        cd yosys
+        echo "YOSYS_SHA=$(git rev-parse HEAD)" >> $GITHUB_ENV
 
     - name: Cache yosys installation
       uses: actions/cache@v2
       id: cache-yosys
       with:
         path: .yosys
-        key: cache-yosys-${{ hashFiles('**/yosys/.git/HEAD') }}
+        key: cache-yosys-${{ env.YOSYS_SHA }}
 
     - name: Build yosys
       run: |
@@ -88,14 +91,17 @@ jobs:
       uses: hendrikmuhs/ccache-action@v1
 
     - name: Get yosys
-      run: git clone https://github.com/YosysHQ/yosys.git
+      run: |
+        git clone https://github.com/YosysHQ/yosys.git
+        cd yosys
+        echo "YOSYS_SHA=$(git rev-parse HEAD)" >> $GITHUB_ENV
 
     - name: Cache yosys installation
       uses: actions/cache@v2
       id: cache-yosys
       with:
         path: .yosys
-        key: cache-yosys-${{ hashFiles('**/yosys/.git/HEAD') }}
+        key: cache-yosys-${{ env.YOSYS_SHA }}
 
     - name: Build yosys
       run: |
