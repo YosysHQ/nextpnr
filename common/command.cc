@@ -170,6 +170,9 @@ po::options_description CommandHandler::getGeneralOptions()
                           "placer heap criticality exponent (int, default: 2)");
     general.add_options()("placer-heap-timingweight", po::value<int>(), "placer heap timing weight (int, default: 10)");
 
+    general.add_options()("router2-heatmap", po::value<std::string>(),
+                          "prefix for router2 resource congestion heatmaps");
+
     general.add_options()("placed-svg", po::value<std::string>(), "write render of placement to SVG file");
     general.add_options()("routed-svg", po::value<std::string>(), "write render of routing to SVG file");
 
@@ -278,6 +281,8 @@ void CommandHandler::setupContext(Context *ctx)
 
     if (vm.count("placer-heap-timingweight"))
         ctx->settings[ctx->id("placerHeap/timingWeight")] = std::to_string(vm["placer-heap-timingweight"].as<int>());
+    if (vm.count("router2-heatmap"))
+        ctx->settings[ctx->id("router2/heatmap")] = vm["router2-heatmap"].as<std::string>();
 
     // Setting default values
     if (ctx->settings.find(ctx->id("target_freq")) == ctx->settings.end())

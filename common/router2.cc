@@ -1043,7 +1043,7 @@ struct Router2
         return success;
     }
 
-    void write_heatmap(std::ostream &out, bool congestion = false)
+    void write_xy_heatmap(std::ostream &out, bool congestion = false)
     {
         std::vector<std::vector<int>> hm_xy;
         int max_x = 0, max_y = 0;
@@ -1080,6 +1080,33 @@ struct Router2
             out << std::endl;
         }
     }
+
+    void write_wiretype_heatmap(std::ostream &out)
+    {
+        std::unordered_map<IdString, std::vector<int>> cong_by_type;
+        size_t max_cong = 0;
+        // Build histogram
+        for (auto &wd : flat_wires) {
+            size_t val = wd.bound_nets.size();
+            IdString type = ctx->getWireType(wd.w);
+            max_cong = std::max(max_cong, val);
+            if (cong_by_type[type].size() <= max_cong)
+                cong_by_type[type].resize(max_cong + 1);
+            cong_by_type[type].at(val) += 1;
+        }
+        // Write csv
+        out << "type,";
+        for (size_t i = 0; i <= max_cong; i++)
+            out << "bound=" << i << ",";
+        out << std::endl;
+        for (auto &ty : sorted_ref(cong_by_type)) {
+            out << ctx->nameOf(ty.first) << ",";
+            for (int count : ty.second)
+                out << count << ",";
+            out << std::endl;
+        }
+    }
+
     int mid_x = 0, mid_y = 0;
 
     void partition_nets()
@@ -1332,9 +1359,17 @@ struct Router2
 #if 0
             if (iter == 1 && ctx->debug) {
                 std::ofstream cong_map("cong_map_0.csv");
-                write_heatmap(cong_map, true);
+                write_xy_heatmap(cong_map, true);
             }
 #endif
+            if (!cfg.heatmap.empty()) {
+                std::string filename(cfg.heatmap + "_" + std::to_string(iter) + ".csv");
+                std::ofstream cong_map(filename);
+                if (!cong_map)
+                    log_error("Failed to open wiretype heatmap %s for writing.\n", filename.c_str());
+                write_wiretype_heatmap(cong_map);
+                log_info("        wrote wiretype heatmap to %s.\n", filename.c_str());
+            }
             dump_statistics();
 
             if (overused_wires == 0) {
@@ -1394,6 +1429,10 @@ Router2Cfg::Router2Cfg(Context *ctx)
     curr_cong_mult = ctx->setting<float>("router2/currCongWeightMult", 2.0f);
     estimate_weight = ctx->setting<float>("router2/estimateWeight", 1.75f);
     perf_profile = ctx->setting<bool>("router2/perfProfile", false);
+    if (ctx->settings.count(ctx->id("router2/heatmap")))
+        heatmap = ctx->settings.at(ctx->id("router2/heatmap")).as_string();
+    else
+        heatmap = "";
 }
 
 NEXTPNR_NAMESPACE_END

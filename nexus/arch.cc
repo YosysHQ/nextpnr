@@ -325,6 +325,17 @@ std::vector<std::pair<IdString, std::string>> Arch::getWireAttrs(WireId wire) co
     return ret;
 }
 
+IdString Arch::getWireType(WireId wire) const
+{
+    IdString basename(wire_data(wire).name);
+    const std::string &basename_str = basename.str(this);
+    // Interconnect - derive a type
+    if ((basename_str[0] == 'H' || basename_str[0] == 'V') && basename_str[1] == '0')
+        return id(basename_str.substr(0, 4));
+    else
+        return id_GENERAL;
+}
+
 // -----------------------------------------------------------------------
 
 PipId Arch::getPipByName(IdStringList name) const
