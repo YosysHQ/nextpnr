@@ -1124,6 +1124,8 @@ struct Arch : ArchAPI<ArchRanges>
 
     const DefaultCellConnsPOD *get_default_conns(IdString cell_type) const;
     void pack_default_conns();
+
+    void expand_macros();
 };
 
 NEXTPNR_NAMESPACE_END
