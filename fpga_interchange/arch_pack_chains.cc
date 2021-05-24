@@ -96,6 +96,12 @@ bool Arch::getClusterPlacement(ClusterId cluster, BelId root_bel,
             if(bel_found) {
                 break;
             }
+            // Revert next_loc changes
+            if (coord == CHAIN_X_COORD) {
+                next_loc.x -= cfg.second;
+            } else {
+                next_loc.y -= cfg.second;
+            }
         }
         if (!bel_found) {
             // TODO: improve this message
