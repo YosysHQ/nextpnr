@@ -109,6 +109,23 @@ bool Arch::getClusterPlacement(ClusterId cluster, BelId root_bel,
         }
 
         Loc bel_loc = getBelLocation(next_bel);
+        // place optional chain driver BEL
+        for (auto driver : cluster_to_optional_drivers.at(cluster)) {
+            for (auto port : driver.first) {
+                IdString driven_port(port);
+                CellInfo *driver_cell = next_cell->ports.at(driven_port).net->driver.cell;
+                BelRange bels_in_tile = getBelsByTile(bel_loc.x, bel_loc.y);
+                for (auto bel : bels_in_tile) {
+                    for (auto driver_bel : driver.second) {
+                        if (get_site_name(next_bel) == get_site_name(bel) && getBelType(bel) == driver_bel) {
+                            placement.push_back(std::make_pair(driver_cell, bel));
+                        }
+                    }
+                }
+            }
+            IdString driver_bel(driver.bel);
+
+        }
         placement.push_back(std::make_pair(next_cell, next_bel));
         log_info("Cell '%s' placed on (%d, %d, %d)\n", next_cell->name.c_str(ctx), bel_loc.x, bel_loc.y, bel_loc.z);
     }
@@ -284,6 +301,20 @@ void Arch::prepare_cluster(const BelChainPOD *chain)
         }
         packed_clusters.emplace(root->cluster, cluster_cells);
         log_info("Created cluster: '%s' with following path:\n  |root| %s", root->cluster.c_str(ctx), cluster_path.c_str());
+
+        // Append optional drivers
+        std::vector<std::pair<std::vector<IdString>, std::vector<IdString>>> drivers;
+        for (auto &driver : chain->chain_drivers) {
+            std::vector<IdString> ports, bels;
+            for (auto port : driver.ports) {\
+                ports.push_back(IdString(port));
+            }
+            for (auto bel : driver.bels) {\
+                bels.push_back(IdString(bel));
+            }
+            drivers.push_back(std::make_pair(ports, bels));
+        }
+        cluster_to_optional_drivers.emplace(root->cluster, drivers);
     }
 }   
 

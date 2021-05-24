@@ -418,6 +418,11 @@ NPNR_PACKED_STRUCT(struct ChainPatternPOD {
     RelSlice<ChainPatternConfigPOD> sink;
 });
 
+NPNR_PACKED_STRUCT(struct ChainDriverPOD {
+    RelSlice<uint32_t> ports;
+    RelSlice<uint32_t> bels;
+});
+
 NPNR_PACKED_STRUCT(struct ChainCoordConfigPOD {
     uint8_t coord; // ChainCoord
     int8_t step;
@@ -428,6 +433,7 @@ NPNR_PACKED_STRUCT(struct BelChainPOD {
     uint32_t name;
     RelSlice<uint32_t> sites;
     RelSlice<uint32_t> cells;
+    RelSlice<ChainDriverPOD> chain_drivers;
     RelSlice<ChainPatternPOD> chain_patterns;
     RelSlice<ChainCoordConfigPOD> chain_coord_configs;
 });

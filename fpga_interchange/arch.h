@@ -692,6 +692,7 @@ struct Arch : ArchAPI<ArchRanges>
     // Chain packer
     void pack_chains();
     std::unordered_map<IdString, std::vector<std::pair<ChainCoord, int>>> cluster_to_coord_configs;
+    std::unordered_map<IdString, std::vector<std::pair<std::vector<IdString>, std::vector<IdString>>>> cluster_to_optional_drivers;
     std::unordered_map<IdString, std::vector<CellInfo *>> packed_clusters;
     std::unordered_map<IdString, std::pair<IdString, IdString>> cell_pattern_map;
     void prepare_cluster(const BelChainPOD *chain);
