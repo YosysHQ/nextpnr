@@ -418,9 +418,14 @@ NPNR_PACKED_STRUCT(struct ChainPatternPOD {
     RelSlice<ChainPatternConfigPOD> sink;
 });
 
+NPNR_PACKED_STRUCT(struct ChainDriverPortBelsPOD {
+    uint32_t name;
+    uint32_t bel;
+});
+
 NPNR_PACKED_STRUCT(struct ChainDriverPOD {
-    RelSlice<uint32_t> ports;
-    RelSlice<uint32_t> bels;
+    RelSlice<ChainDriverPortBelsPOD> ports;
+    RelSlice<uint32_t> cells;
 });
 
 NPNR_PACKED_STRUCT(struct ChainCoordConfigPOD {
@@ -433,9 +438,9 @@ NPNR_PACKED_STRUCT(struct BelChainPOD {
     uint32_t name;
     RelSlice<uint32_t> sites;
     RelSlice<uint32_t> cells;
-    RelSlice<ChainDriverPOD> chain_drivers;
     RelSlice<ChainPatternPOD> chain_patterns;
     RelSlice<ChainCoordConfigPOD> chain_coord_configs;
+    RelSlice<ChainDriverPOD> chain_drivers;
 });
 
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
@@ -452,11 +457,12 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelSlice<PackagePOD> packages;
     RelSlice<WireTypePOD> wire_types;
     RelSlice<GlobalCellPOD> global_cells;
-    RelSlice<BelChainPOD> bel_chains;
 
     // Macro related data
     RelSlice<MacroPOD> macros;
     RelSlice<MacroExpansionPOD> macro_rules;
+
+    RelSlice<BelChainPOD> bel_chains;
 
     // BEL bucket constids.
     RelSlice<int32_t> bel_buckets;

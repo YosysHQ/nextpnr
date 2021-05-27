@@ -134,6 +134,7 @@ function(add_interchange_test)
     get_property(chipdb_bin_loc TARGET device-${device} PROPERTY CHIPDB_BIN_LOC)
 
     set(phys ${CMAKE_CURRENT_BINARY_DIR}/${name}.phys)
+    set(log ${CMAKE_CURRENT_BINARY_DIR}/${name}.phys.log)
     add_custom_command(
         OUTPUT ${phys}
         COMMAND
@@ -143,6 +144,7 @@ function(add_interchange_test)
                 --netlist ${netlist}
                 --phys ${phys}
                 --package ${package}
+                --log ${log}
         DEPENDS
             nextpnr-fpga_interchange
             ${netlist}

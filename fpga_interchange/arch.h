@@ -265,6 +265,18 @@ struct Arch : ArchAPI<ArchRanges>
             // really matters if the placer can choose IO port locations.
         }
 
+        // Clean previous cell placement in tile
+        if (cell->bel != BelId()) {
+            TileStatus &prev_tile_status = get_tile_status(cell->bel.tile);
+            NPNR_ASSERT(prev_tile_status.boundcells[cell->bel.index] != nullptr);
+
+            const auto &prev_bel_data = bel_info(chip_info, cell->bel);
+            NPNR_ASSERT(prev_bel_data.category == BEL_CATEGORY_LOGIC);
+
+            get_site_status(prev_tile_status, prev_bel_data).unbindBel(cell);
+            prev_tile_status.boundcells[cell->bel.index] = nullptr;
+        }
+
         get_site_status(tile_status, bel_data).bindBel(cell);
 
         tile_status.boundcells[bel.index] = cell;
@@ -692,7 +704,8 @@ struct Arch : ArchAPI<ArchRanges>
     // Chain packer
     void pack_chains();
     std::unordered_map<IdString, std::vector<std::pair<ChainCoord, int>>> cluster_to_coord_configs;
-    std::unordered_map<IdString, std::vector<std::pair<std::vector<IdString>, std::vector<IdString>>>> cluster_to_optional_drivers;
+    // FIXME: Store this in a better format and rename
+    std::unordered_map<IdString, std::vector<std::pair<std::vector<IdString>, std::vector<std::pair<IdString, IdString>>>>> cluster_to_optional_drivers;
     std::unordered_map<IdString, std::vector<CellInfo *>> packed_clusters;
     std::unordered_map<IdString, std::pair<IdString, IdString>> cell_pattern_map;
     void prepare_cluster(const BelChainPOD *chain);
