@@ -51,6 +51,7 @@ po::options_description MistralCommandHandler::getArchOptions()
     specific.add_options()("device", po::value<std::string>(), "device name (e.g. 5CSEBA6U23I7)");
     specific.add_options()("qsf", po::value<std::string>(), "path to QSF constraints file");
     specific.add_options()("rbf", po::value<std::string>(), "RBF bitstream to write");
+    specific.add_options()("compress-rbf", "generate compressed bitstream");
 
     return specific;
 }
@@ -82,6 +83,8 @@ std::unique_ptr<Context> MistralCommandHandler::createContext(std::unordered_map
     chipArgs.mistral_root = vm["mistral"].as<std::string>();
     chipArgs.device = vm["device"].as<std::string>();
     auto ctx = std::unique_ptr<Context>(new Context(chipArgs));
+    if (vm.count("compress-rbf"))
+        ctx->settings[ctx->id("compress_rbf")] = Property::State::S1;
     return ctx;
 }
 

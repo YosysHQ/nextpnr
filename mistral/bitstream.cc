@@ -34,6 +34,8 @@ struct MistralBitgen
         ctx->init_base_bitstream();
         // Default options
         cv->opt_b_set(CycloneV::ALLOW_DEVICE_WIDE_OUTPUT_ENABLE_DIS, true);
+        if (!ctx->setting<bool>("compress_rbf", false))
+            cv->opt_b_set(CycloneV::COMPRESSION_DIS, true);
         cv->opt_n_set(CycloneV::CRC_DIVIDE_ORDER, 8);
         cv->opt_b_set(CycloneV::CVP_CONF_DONE_EN, true);
         cv->opt_b_set(CycloneV::DEVICE_WIDE_RESET_EN, true);
@@ -42,7 +44,10 @@ struct MistralBitgen
         cv->opt_b_set(CycloneV::NCEO_DIS, true);
         cv->opt_b_set(CycloneV::OCT_DONE_DIS, true);
         cv->opt_r_set(CycloneV::OPT_A, 0x1dff);
-        cv->opt_r_set(CycloneV::OPT_B, 0xffffff402dffffffULL);
+        if (!ctx->setting<bool>("compress_rbf", false))
+            cv->opt_r_set(CycloneV::OPT_B, 0xffffff40adffffffULL);
+        else
+            cv->opt_r_set(CycloneV::OPT_B, 0xffffff402dffffffULL);
         cv->opt_b_set(CycloneV::RELEASE_CLEARS_BEFORE_TRISTATES_DIS, true);
         cv->opt_b_set(CycloneV::RETRY_CONFIG_ON_ERROR_EN, true);
         cv->opt_r_set(CycloneV::START_UP_CLOCK, 0x3F);
