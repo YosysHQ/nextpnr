@@ -1,0 +1,8 @@
+pip_test:
+    - src_wire: R3C3_PLC.PLC/JDI0_SLICEA
+      dst_wire: R3C3/JF0
+bel_pin_test:
+    - bel: R7C3_PLC.PLC/SLICEA_LUT0
+      pin: D
+      wire: R7C3_PLC.PLC/JD0_SLICEA
+
