@@ -22,6 +22,7 @@
 #define MACHXO2_ARCHDEFS_H
 
 #include "base_clusterinfo.h"
+#include "hashlib.h"
 #include "idstring.h"
 #include "nextpnr_namespaces.h"
 
@@ -59,6 +60,7 @@ struct Location
     bool operator==(const Location &other) const { return x == other.x && y == other.y; }
     bool operator!=(const Location &other) const { return x != other.x || y != other.y; }
     bool operator<(const Location &other) const { return y == other.y ? x < other.x : y < other.y; }
+    unsigned int hash() const { return mkhash(x, y); }
 };
 
 inline Location operator+(const Location &a, const Location &b) { return Location(a.x + b.x, a.y + b.y); }
@@ -74,6 +76,7 @@ struct BelId
     {
         return location == other.location ? index < other.index : location < other.location;
     }
+    unsigned int hash() const { return mkhash(location.hash(), index); }
 };
 
 struct WireId
@@ -87,6 +90,7 @@ struct WireId
     {
         return location == other.location ? index < other.index : location < other.location;
     }
+    unsigned int hash() const { return mkhash(location.hash(), index); }
 };
 
 struct PipId
@@ -100,6 +104,7 @@ struct PipId
     {
         return location == other.location ? index < other.index : location < other.location;
     }
+    unsigned int hash() const { return mkhash(location.hash(), index); }
 };
 
 typedef IdString GroupId;

@@ -45,31 +45,31 @@ A scalar type that is used to  represent delays. May be an integer or float type
 
 ### BelId
 
-A type representing a bel name. `BelId()` must construct a unique null-value. Must provide `==`, `!=`, and `<` operators and a specialization for `std::hash<BelId>`.
+A type representing a bel name. `BelId()` must construct a unique null-value. Must provide `==`, `!=`, and `<` operators and a `unsigned int hash() const` member function.
 
 ### WireId
 
-A type representing a wire name. `WireId()` must construct a unique null-value. Must provide `==`, `!=`, and `<` operators and a specialization for `std::hash<WireId>`.
+A type representing a wire name. `WireId()` must construct a unique null-value. Must provide `==`, `!=`, and `<` operators and a `unsigned int hash() const` member function.
 
 ### PipId
 
-A type representing a pip name. `PipId()` must construct a unique null-value. Must provide `==`, `!=`, and `<` operators and a specialization for `std::hash<PipId>`.
+A type representing a pip name. `PipId()` must construct a unique null-value. Must provide `==`, `!=`, and `<` operators and a `unsigned int hash() const` member function.
 
 ### BelBucketId
 
-A type representing a bel bucket. `BelBucketId()` must construct a unique null-value. Must provide `==`, `!=`, and `<` operators and a specialization for `std::hash<BelBucketId>`.
+A type representing a bel bucket. `BelBucketId()` must construct a unique null-value. Must provide `==`, `!=`, and `<` operators and a `unsigned int hash() const` member function.
 
 ### GroupId
 
-A type representing a group name. `GroupId()` must construct a unique null-value. Must provide `==` and `!=` operators and a specialization for `std::hash<GroupId>`.
+A type representing a group name. `GroupId()` must construct a unique null-value. Must provide `==` and `!=` operators and a `unsigned int hash() const` member function.
 
 ### DecalId
 
-A type representing a reference to a graphical decal. `DecalId()` must construct a unique null-value. Must provide `==` and `!=` operators and a specialization for `std::hash<DecalId>`.
+A type representing a reference to a graphical decal. `DecalId()` must construct a unique null-value. Must provide `==` and `!=` operators and a `unsigned int hash() const` member function.
 
 ### ClusterId
 
-A type representing a reference to a constrained cluster of cells. `ClusterId()` must construct a unique null-value. Must provide `==` and `!=` operators and a specialization for `std::hash<ClusterId>`.
+A type representing a reference to a constrained cluster of cells. `ClusterId()` must construct a unique null-value. Must provide `==` and `!=` operators and `unsigned int hash() const` member function.
 
 ### ArchNetInfo
 

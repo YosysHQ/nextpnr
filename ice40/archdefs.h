@@ -23,6 +23,7 @@
 #include <boost/functional/hash.hpp>
 
 #include "base_clusterinfo.h"
+#include "hashlib.h"
 #include "idstring.h"
 #include "nextpnr_namespaces.h"
 
@@ -55,6 +56,7 @@ struct BelId
     bool operator==(const BelId &other) const { return index == other.index; }
     bool operator!=(const BelId &other) const { return index != other.index; }
     bool operator<(const BelId &other) const { return index < other.index; }
+    unsigned int hash() const { return index; }
 };
 
 struct WireId
@@ -64,6 +66,7 @@ struct WireId
     bool operator==(const WireId &other) const { return index == other.index; }
     bool operator!=(const WireId &other) const { return index != other.index; }
     bool operator<(const WireId &other) const { return index < other.index; }
+    unsigned int hash() const { return index; }
 };
 
 struct PipId
@@ -73,6 +76,7 @@ struct PipId
     bool operator==(const PipId &other) const { return index == other.index; }
     bool operator!=(const PipId &other) const { return index != other.index; }
     bool operator<(const PipId &other) const { return index < other.index; }
+    unsigned int hash() const { return index; }
 };
 
 struct GroupId
@@ -96,6 +100,7 @@ struct GroupId
 
     bool operator==(const GroupId &other) const { return (type == other.type) && (x == other.x) && (y == other.y); }
     bool operator!=(const GroupId &other) const { return (type != other.type) || (x != other.x) || (y == other.y); }
+    unsigned int hash() const { return mkhash(mkhash(x, y), int(type)); }
 };
 
 struct DecalId
@@ -113,6 +118,7 @@ struct DecalId
 
     bool operator==(const DecalId &other) const { return (type == other.type) && (index == other.index); }
     bool operator!=(const DecalId &other) const { return (type != other.type) || (index != other.index); }
+    unsigned int hash() const { return mkhash(index, int(type)); }
 };
 
 struct ArchNetInfo

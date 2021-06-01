@@ -24,6 +24,7 @@
 #include <unordered_map>
 
 #include "base_clusterinfo.h"
+#include "hashlib.h"
 #include "idstring.h"
 #include "nextpnr_namespaces.h"
 
@@ -62,6 +63,7 @@ struct BelId
     {
         return tile < other.tile || (tile == other.tile && index < other.index);
     }
+    unsigned int hash() const { return mkhash(tile, index); }
 };
 
 struct WireId
@@ -80,6 +82,7 @@ struct WireId
     {
         return tile < other.tile || (tile == other.tile && index < other.index);
     }
+    unsigned int hash() const { return mkhash(tile, index); }
 };
 
 struct PipId
@@ -97,6 +100,7 @@ struct PipId
     {
         return tile < other.tile || (tile == other.tile && index < other.index);
     }
+    unsigned int hash() const { return mkhash(tile, index); }
 };
 
 typedef IdString BelBucketId;
@@ -111,6 +115,7 @@ struct GroupId
 
     bool operator==(const GroupId &other) const { return (type == other.type) && (x == other.x) && (y == other.y); }
     bool operator!=(const GroupId &other) const { return (type != other.type) || (x != other.x) || (y == other.y); }
+    unsigned int hash() const { return mkhash(mkhash(x, y), int(type)); }
 };
 
 struct DecalId
@@ -134,6 +139,7 @@ struct DecalId
     {
         return (type != other.type) || (index != other.index) || (active != other.active);
     }
+    unsigned int hash() const { return mkhash(index, int(type)); }
 };
 
 struct ArchNetInfo

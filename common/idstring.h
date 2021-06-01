@@ -56,6 +56,8 @@ struct IdString
     bool operator!=(const IdString &other) const { return index != other.index; }
 
     bool empty() const { return index == 0; }
+
+    unsigned int hash() const { return index; }
 };
 
 NEXTPNR_NAMESPACE_END

@@ -22,6 +22,7 @@
 #define IDSTRING_LIST_H
 
 #include <boost/functional/hash.hpp>
+#include "hashlib.h"
 #include "idstring.h"
 #include "nextpnr_namespaces.h"
 #include "sso_array.h"
@@ -67,6 +68,14 @@ struct IdStringList
 
     static IdStringList concat(IdStringList a, IdStringList b);
     IdStringList slice(size_t s, size_t e) const;
+
+    unsigned int hash() const
+    {
+        unsigned int h = mkhash_init;
+        for (const auto &val : ids)
+            h = mkhash(h, val.hash());
+        return h;
+    }
 };
 
 NEXTPNR_NAMESPACE_END

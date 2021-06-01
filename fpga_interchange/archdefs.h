@@ -25,6 +25,7 @@
 #include <cstdint>
 
 #include "hash_table.h"
+#include "hashlib.h"
 #include "luts.h"
 #include "nextpnr_namespaces.h"
 
@@ -48,6 +49,7 @@ struct BelId
     {
         return tile < other.tile || (tile == other.tile && index < other.index);
     }
+    unsigned int hash() const { return mkhash(tile, index); }
 };
 
 struct WireId
@@ -62,6 +64,7 @@ struct WireId
     {
         return tile < other.tile || (tile == other.tile && index < other.index);
     }
+    unsigned int hash() const { return mkhash(tile, index); }
 };
 
 struct PipId
@@ -75,6 +78,7 @@ struct PipId
     {
         return tile < other.tile || (tile == other.tile && index < other.index);
     }
+    unsigned int hash() const { return mkhash(tile, index); }
 };
 
 struct GroupId
@@ -96,6 +100,7 @@ struct BelBucketId
     bool operator==(const BelBucketId &other) const { return (name == other.name); }
     bool operator!=(const BelBucketId &other) const { return (name != other.name); }
     bool operator<(const BelBucketId &other) const { return name < other.name; }
+    unsigned int hash() const { return name.hash(); }
 };
 
 typedef IdString ClusterId;
