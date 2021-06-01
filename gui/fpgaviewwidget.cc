@@ -22,12 +22,12 @@
 
 #include <QApplication>
 #include <QCoreApplication>
+#include <QDesktopWidget>
 #include <QDir>
 #include <QFileInfo>
 #include <QImageWriter>
 #include <QMouseEvent>
 #include <QWidget>
-#include <QDesktopWidget>
 
 #include "QtImGui.h"
 #include "imgui.h"
