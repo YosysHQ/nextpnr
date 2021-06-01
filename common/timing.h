@@ -247,7 +247,7 @@ struct TimingAnalyser
     {
         PerDomainPair(ClockDomainPairKey key) : key(key){};
         ClockDomainPairKey key;
-        DelayPair period;
+        DelayPair period{0};
         delay_t worst_setup_slack, worst_hold_slack;
     };
 
