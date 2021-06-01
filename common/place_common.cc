@@ -178,8 +178,8 @@ class ConstraintLegaliseWorker
   private:
     Context *ctx;
     std::set<IdString> rippedCells;
-    std::unordered_map<IdString, Loc> oldLocations;
-    std::unordered_map<ClusterId, std::vector<CellInfo *>> cluster2cells;
+    dict<IdString, Loc> oldLocations;
+    dict<ClusterId, std::vector<CellInfo *>> cluster2cells;
 
     class IncreasingDiameterSearch
     {
@@ -227,10 +227,10 @@ class ConstraintLegaliseWorker
         int sign = 0;
     };
 
-    typedef std::unordered_map<IdString, Loc> CellLocations;
+    typedef dict<IdString, Loc> CellLocations;
 
     // Check if a location would be suitable for a cell and all its constrained children
-    bool valid_loc_for(const CellInfo *cell, Loc loc, CellLocations &solution, std::unordered_set<Loc> &usedLocations)
+    bool valid_loc_for(const CellInfo *cell, Loc loc, CellLocations &solution, pool<Loc> &usedLocations)
     {
         BelId locBel = ctx->getBelByLocation(loc);
         if (locBel == BelId())
@@ -324,7 +324,7 @@ class ConstraintLegaliseWorker
                 }
 
                 CellLocations solution;
-                std::unordered_set<Loc> used;
+                pool<Loc> used;
                 if (valid_loc_for(cell, rootLoc, solution, used)) {
                     for (auto cp : solution) {
                         // First unbind all cells

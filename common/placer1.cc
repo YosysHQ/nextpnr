@@ -87,7 +87,7 @@ class SAPlacer
         }
         diameter = std::max(max_x, max_y) + 1;
 
-        std::unordered_set<IdString> cell_types_in_use;
+        pool<IdString> cell_types_in_use;
         for (auto &cell : ctx->cells) {
             IdString cell_type = cell.second->type;
             cell_types_in_use.insert(cell_type);
@@ -629,7 +629,7 @@ class SAPlacer
     bool try_swap_chain(CellInfo *cell, BelId newBase)
     {
         std::vector<std::pair<CellInfo *, Loc>> cell_rel;
-        std::unordered_set<IdString> cells;
+        pool<IdString> cells;
         std::vector<std::pair<CellInfo *, BelId>> moves_made;
         std::vector<std::pair<CellInfo *, BelId>> dest_bels;
         double delta = 0;
@@ -1065,7 +1065,7 @@ class SAPlacer
                                 mc.already_changed_arcs[pn->udata][i] = true;
                             }
                 } else if (port.second.type == PORT_IN) {
-                    auto usr = fast_port_to_user.at(&port.second);
+                    auto usr = fast_port_to_user.at(std::make_pair(cell->name, port.first));
                     if (!mc.already_changed_arcs[pn->udata][usr]) {
                         mc.changed_arcs.emplace_back(std::make_pair(pn->udata, usr));
                         mc.already_changed_arcs[pn->udata][usr] = true;
@@ -1122,7 +1122,7 @@ class SAPlacer
             NetInfo *ni = net.second.get();
             for (size_t i = 0; i < ni->users.size(); i++) {
                 auto &usr = ni->users.at(i);
-                fast_port_to_user[&(usr.cell->ports.at(usr.port))] = i;
+                fast_port_to_user[std::make_pair(usr.cell->name, usr.port)] = i;
             }
         }
     }
@@ -1130,11 +1130,11 @@ class SAPlacer
     // Simple routeability driven placement
     const int large_cell_thresh = 50;
     int total_net_share = 0;
-    std::vector<std::vector<std::unordered_map<IdString, int>>> nets_by_tile;
+    std::vector<std::vector<dict<IdString, int>>> nets_by_tile;
     void setup_nets_by_tile()
     {
         total_net_share = 0;
-        nets_by_tile.resize(max_x + 1, std::vector<std::unordered_map<IdString, int>>(max_y + 1));
+        nets_by_tile.resize(max_x + 1, std::vector<dict<IdString, int>>(max_y + 1));
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
             if (int(ci->ports.size()) > large_cell_thresh)
@@ -1194,7 +1194,7 @@ class SAPlacer
     std::vector<std::vector<double>> net_arc_tcost;
 
     // Fast lookup for cell port to net user index
-    std::unordered_map<const PortInfo *, size_t> fast_port_to_user;
+    dict<std::pair<IdString, IdString>, size_t> fast_port_to_user;
 
     // Wirelength and timing cost at last and current iteration
     wirelen_t last_wirelen_cost, curr_wirelen_cost;
@@ -1207,10 +1207,10 @@ class SAPlacer
     bool improved = false;
     int n_move, n_accept;
     int diameter = 35, max_x = 1, max_y = 1;
-    std::unordered_map<IdString, std::tuple<int, int>> bel_types;
-    std::unordered_map<IdString, BoundingBox> region_bounds;
+    dict<IdString, std::tuple<int, int>> bel_types;
+    dict<IdString, BoundingBox> region_bounds;
     FastBels fast_bels;
-    std::unordered_set<BelId> locked_bels;
+    pool<BelId> locked_bels;
     std::vector<NetInfo *> net_by_udata;
     std::vector<decltype(NetInfo::udata)> old_udata;
     bool require_legal = true;

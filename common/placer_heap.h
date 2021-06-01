@@ -46,10 +46,10 @@ struct PlacerHeapCfg
     int spread_scale_x, spread_scale_y;
 
     // These cell types will be randomly locked to prevent singular matrices
-    std::unordered_set<IdString> ioBufTypes;
+    pool<IdString> ioBufTypes;
     // These cell types are part of the same unit (e.g. slices split into
     // components) so will always be spread together
-    std::vector<std::unordered_set<BelBucketId>> cellGroups;
+    std::vector<pool<BelBucketId>> cellGroups;
 };
 
 extern bool placer_heap(Context *ctx, PlacerHeapCfg cfg);

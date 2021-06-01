@@ -43,7 +43,6 @@
 #include <numeric>
 #include <queue>
 #include <tuple>
-#include <unordered_map>
 #include "fast_bels.h"
 #include "log.h"
 #include "nextpnr.h"
@@ -188,14 +187,14 @@ class HeAPPlacer
 
         std::vector<std::tuple<CellInfo *, BelId, PlaceStrength>> solution;
 
-        std::vector<std::unordered_set<BelBucketId>> heap_runs;
-        std::unordered_set<BelBucketId> all_buckets;
-        std::unordered_map<BelBucketId, int> bucket_count;
+        std::vector<pool<BelBucketId>> heap_runs;
+        pool<BelBucketId> all_buckets;
+        dict<BelBucketId, int> bucket_count;
 
         for (auto cell : place_cells) {
             BelBucketId bucket = ctx->getBelBucketForCellType(cell->type);
             if (!all_buckets.count(bucket)) {
-                heap_runs.push_back(std::unordered_set<BelBucketId>{bucket});
+                heap_runs.push_back(pool<BelBucketId>{bucket});
                 all_buckets.insert(bucket);
             }
             bucket_count[bucket]++;
@@ -253,9 +252,9 @@ class HeAPPlacer
                 for (const auto &group : cfg.cellGroups)
                     CutSpreader(this, group).run();
 
-                for (auto type : sorted(run))
+                for (auto type : run)
                     if (std::all_of(cfg.cellGroups.begin(), cfg.cellGroups.end(),
-                                    [type](const std::unordered_set<BelBucketId> &grp) { return !grp.count(type); }))
+                                    [type](const pool<BelBucketId> &grp) { return !grp.count(type); }))
                         CutSpreader(this, {type}).run();
 
                 // Run strict legalisation to find a valid bel for all cells
@@ -360,7 +359,7 @@ class HeAPPlacer
 
     int max_x = 0, max_y = 0;
     FastBels fast_bels;
-    std::unordered_map<IdString, std::tuple<int, int>> bel_types;
+    dict<IdString, std::tuple<int, int>> bel_types;
 
     TimingAnalyser tmg;
 
@@ -370,7 +369,7 @@ class HeAPPlacer
         int x0 = 0, x1 = 0, y0 = 0, y1 = 0;
     };
 
-    std::unordered_map<IdString, BoundingBox> constraint_region_bounds;
+    dict<IdString, BoundingBox> constraint_region_bounds;
 
     // In some cases, we can't use bindBel because we allow overlap in the earlier stages. So we use this custom
     // structure instead
@@ -381,7 +380,7 @@ class HeAPPlacer
         double rawx, rawy;
         bool locked, global;
     };
-    std::unordered_map<IdString, CellLocation> cell_locs;
+    dict<IdString, CellLocation> cell_locs;
     // The set of cells that we will actually place. This excludes locked cells and children cells of macros/chains
     // (only the root of each macro is placed.)
     std::vector<CellInfo *> place_cells;
@@ -390,8 +389,8 @@ class HeAPPlacer
     // cells of a certain type)
     std::vector<CellInfo *> solve_cells;
 
-    std::unordered_map<ClusterId, std::vector<CellInfo *>> cluster2cells;
-    std::unordered_map<ClusterId, int> chain_size;
+    dict<ClusterId, std::vector<CellInfo *>> cluster2cells;
+    dict<ClusterId, int> chain_size;
     // Performance counting
     double solve_time = 0, cl_time = 0, sl_time = 0;
 
@@ -448,8 +447,8 @@ class HeAPPlacer
             max_y = std::max(max_y, loc.y);
         }
 
-        std::unordered_set<IdString> cell_types_in_use;
-        std::unordered_set<BelBucketId> buckets_in_use;
+        pool<IdString> cell_types_in_use;
+        pool<BelBucketId> buckets_in_use;
         for (auto &cell : ctx->cells) {
             IdString cell_type = cell.second->type;
             cell_types_in_use.insert(cell_type);
@@ -515,13 +514,13 @@ class HeAPPlacer
     // FIXME: Are there better approaches to the initial placement (e.g. greedy?)
     void seed_placement()
     {
-        std::unordered_set<IdString> cell_types;
+        pool<IdString> cell_types;
         for (const auto &cell : ctx->cells) {
             cell_types.insert(cell.second->type);
         }
 
-        std::unordered_set<BelId> bels_used;
-        std::unordered_map<IdString, std::deque<BelId>> available_bels;
+        pool<BelId> bels_used;
+        dict<IdString, std::deque<BelId>> available_bels;
 
         for (auto bel : ctx->getBels()) {
             if (!ctx->checkBelAvail(bel)) {
@@ -612,7 +611,7 @@ class HeAPPlacer
     }
 
     // Setup the cells to be solved, returns the number of rows
-    int setup_solve_cells(std::unordered_set<BelBucketId> *buckets = nullptr)
+    int setup_solve_cells(pool<BelBucketId> *buckets = nullptr)
     {
         int row = 0;
         solve_cells.clear();
@@ -1106,11 +1105,11 @@ class HeAPPlacer
     class CutSpreader
     {
       public:
-        CutSpreader(HeAPPlacer *p, const std::unordered_set<BelBucketId> &buckets) : p(p), ctx(p->ctx), buckets(buckets)
+        CutSpreader(HeAPPlacer *p, const pool<BelBucketId> &buckets) : p(p), ctx(p->ctx), buckets(buckets)
         {
             // Get fast BELs data for all buckets being Cut/Spread.
             size_t idx = 0;
-            for (BelBucketId bucket : sorted(buckets)) {
+            for (BelBucketId bucket : buckets) {
                 type_index[bucket] = idx;
                 FastBels::FastBelsData *fast_bels;
                 p->fast_bels.getBelsForBelBucket(bucket, &fast_bels);
@@ -1198,8 +1197,8 @@ class HeAPPlacer
       private:
         HeAPPlacer *p;
         Context *ctx;
-        std::unordered_set<BelBucketId> buckets;
-        std::unordered_map<BelBucketId, size_t> type_index;
+        pool<BelBucketId> buckets;
+        dict<BelBucketId, size_t> type_index;
         std::vector<std::vector<std::vector<int>>> occupancy;
         std::vector<std::vector<int>> groups;
         std::vector<std::vector<ChainExtent>> chaines;
@@ -1208,7 +1207,7 @@ class HeAPPlacer
         std::vector<std::vector<std::vector<std::vector<BelId>>> *> fb;
 
         std::vector<SpreaderRegion> regions;
-        std::unordered_set<int> merged_regions;
+        pool<int> merged_regions;
         // Cells at a location, sorted by real (not integer) x and y
         std::vector<std::vector<std::vector<CellInfo *>>> cells_at_location;
 
@@ -1490,7 +1489,7 @@ class HeAPPlacer
                         }
                     }
                     if (!changed) {
-                        for (auto bucket : sorted(buckets)) {
+                        for (auto bucket : buckets) {
                             if (reg.cells > reg.bels) {
                                 IdString bucket_name = ctx->getBelBucketName(bucket);
                                 log_error("Failed to expand region (%d, %d) |_> (%d, %d) of %d %ss\n", reg.x0, reg.y0,

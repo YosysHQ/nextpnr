@@ -90,6 +90,7 @@ struct Loc
 
     bool operator==(const Loc &other) const { return (x == other.x) && (y == other.y) && (z == other.z); }
     bool operator!=(const Loc &other) const { return (x != other.x) || (y != other.y) || (z != other.z); }
+    unsigned int hash() const { return mkhash(x, mkhash(y, z)); }
 };
 
 struct ArcBounds

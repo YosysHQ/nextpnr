@@ -98,15 +98,6 @@ void Arch::permute_luts()
     TimingAnalyser tmg(getCtx());
     tmg.setup();
 
-    std::unordered_map<PortInfo *, size_t> port_to_user;
-    for (auto &net : nets) {
-        NetInfo *ni = net.second.get();
-        for (size_t i = 0; i < ni->users.size(); i++) {
-            auto &usr = ni->users.at(i);
-            port_to_user[&(usr.cell->ports.at(usr.port))] = i;
-        }
-    }
-
     auto proc_lut = [&](CellInfo *ci, int lut) {
         std::vector<IdString> port_names;
         for (int i = 0; i < 4; i++)
