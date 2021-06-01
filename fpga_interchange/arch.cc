@@ -2047,8 +2047,8 @@ void Arch::pack_default_conns()
 
     std::vector<IdString> dead_nets;
 
-    for (auto cell : sorted(ctx->cells)) {
-        CellInfo *ci = cell.second;
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
         const DefaultCellConnsPOD *conns = get_default_conns(ci->type);
         if (conns == nullptr)
             continue;

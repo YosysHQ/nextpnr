@@ -339,6 +339,10 @@ template <typename K, typename T, typename OPS> class dict
     }
 
   public:
+    using key_type = K;
+    using mapped_type = T;
+    using value_type = std::pair<K, T>;
+
     class const_iterator : public std::iterator<std::forward_iterator_tag, std::pair<K, T>>
     {
         friend class dict;

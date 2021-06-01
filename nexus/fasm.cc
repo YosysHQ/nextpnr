@@ -248,7 +248,7 @@ struct NexusFasmWriter
     // Write out the mux config for a cell
     void write_cell_muxes(const CellInfo *cell)
     {
-        for (auto port : sorted_cref(cell->ports)) {
+        for (auto &port : cell->ports) {
             // Only relevant to inputs
             if (port.second.type != PORT_IN)
                 continue;
@@ -539,7 +539,7 @@ struct NexusFasmWriter
         push_bel(bel);
         if (cell->type != id_MULT18_CORE && cell->type != id_MULT18X36_CORE && cell->type != id_MULT36_CORE)
             write_bit(stringf("MODE.%s", ctx->nameOf(cell->type)));
-        for (auto param : sorted_cref(cell->params)) {
+        for (auto &param : cell->params) {
             const std::string &param_name = param.first.str(ctx);
             if (is_mux_param(param_name))
                 continue;
@@ -601,7 +601,7 @@ struct NexusFasmWriter
         write_cell_muxes(cell);
         pop();
         push(stringf("IP_%s", ctx->nameOf(IdString(ctx->bel_data(bel).name))));
-        for (auto param : sorted_cref(cell->params)) {
+        for (auto &param : cell->params) {
             const std::string &name = param.first.str(ctx);
             if (is_mux_param(name) || name == "CLKMUX_FB" || name == "SEL_FBK")
                 continue;
@@ -622,7 +622,7 @@ struct NexusFasmWriter
     {
         BelId bel = cell->bel;
         push(stringf("IP_%s", ctx->nameOf(IdString(ctx->bel_data(bel).name))));
-        for (auto param : sorted_cref(cell->params)) {
+        for (auto &param : cell->params) {
             const std::string &name = param.first.str(ctx);
             if (is_mux_param(name) || name == "GSR")
                 continue;
@@ -753,8 +753,8 @@ struct NexusFasmWriter
     // Write out placeholder bankref config
     void write_bankcfg()
     {
-        for (auto c : sorted(ctx->cells)) {
-            const CellInfo *ci = c.second;
+        for (auto &c : ctx->cells) {
+            const CellInfo *ci = c.second.get();
             if (ci->type != id_SEIO33_CORE)
                 continue;
             if (!ci->attrs.count(id_IO_TYPE))
@@ -809,12 +809,12 @@ struct NexusFasmWriter
         write_attribute("oxide.device_variant", ctx->variant);
         blank();
         // Write routing
-        for (auto n : sorted(ctx->nets)) {
-            write_net(n.second);
+        for (auto &n : ctx->nets) {
+            write_net(n.second.get());
         }
         // Write cell config
-        for (auto c : sorted(ctx->cells)) {
-            const CellInfo *ci = c.second;
+        for (auto &c : ctx->cells) {
+            const CellInfo *ci = c.second.get();
             write_comment(stringf("# Cell %s", ctx->nameOf(ci)));
             if (ci->type == id_OXIDE_COMB)
                 write_comb(ci);

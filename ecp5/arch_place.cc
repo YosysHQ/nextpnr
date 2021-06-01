@@ -99,8 +99,8 @@ void Arch::permute_luts()
     tmg.setup();
 
     std::unordered_map<PortInfo *, size_t> port_to_user;
-    for (auto net : sorted(nets)) {
-        NetInfo *ni = net.second;
+    for (auto &net : nets) {
+        NetInfo *ni = net.second.get();
         for (size_t i = 0; i < ni->users.size(); i++) {
             auto &usr = ni->users.at(i);
             port_to_user[&(usr.cell->ports.at(usr.port))] = i;
@@ -157,8 +157,8 @@ void Arch::permute_luts()
         ci->params[id("LUT" + std::to_string(lut) + "_INITVAL")] = Property(new_init, 16);
     };
 
-    for (auto cell : sorted(cells)) {
-        CellInfo *ci = cell.second;
+    for (auto &cell : cells) {
+        CellInfo *ci = cell.second.get();
         if (ci->type == id_TRELLIS_SLICE && str_or_default(ci->params, id("MODE"), "LOGIC") == "LOGIC") {
             proc_lut(ci, 0);
             proc_lut(ci, 1);
@@ -169,8 +169,8 @@ void Arch::permute_luts()
 void Arch::setup_wire_locations()
 {
     wire_loc_overrides.clear();
-    for (auto cell : sorted(cells)) {
-        CellInfo *ci = cell.second;
+    for (auto &cell : cells) {
+        CellInfo *ci = cell.second.get();
         if (ci->bel == BelId())
             continue;
         if (ci->type == id_MULT18X18D || ci->type == id_DCUA || ci->type == id_DDRDLL || ci->type == id_DQSBUFM ||

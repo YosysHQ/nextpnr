@@ -131,8 +131,8 @@ struct Router2
         nets.resize(ctx->nets.size());
         nets_by_udata.resize(ctx->nets.size());
         size_t i = 0;
-        for (auto net : sorted(ctx->nets)) {
-            NetInfo *ni = net.second;
+        for (auto &net : ctx->nets) {
+            NetInfo *ni = net.second.get();
             ni->udata = i;
             nets_by_udata.at(i) = ni;
             nets.at(i).arcs.resize(ni->users.size());
@@ -231,8 +231,8 @@ struct Router2
             flat_wires.push_back(pwd);
         }
 
-        for (auto net_pair : sorted(ctx->nets)) {
-            auto *net = net_pair.second;
+        for (auto &net_pair : ctx->nets) {
+            auto *net = net_pair.second.get();
             auto &nd = nets.at(net->udata);
             for (size_t usr = 0; usr < net->users.size(); usr++) {
                 auto &ad = nd.arcs.at(usr);

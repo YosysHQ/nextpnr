@@ -667,19 +667,19 @@ bool Arch::place()
 
 void Arch::pre_routing()
 {
-    for (auto cell : sorted(cells)) {
-        CellInfo *ci = cell.second;
+    for (auto &cell : cells) {
+        CellInfo *ci = cell.second.get();
         if (ci->type == id_MULT9_CORE || ci->type == id_PREADD9_CORE || ci->type == id_MULT18_CORE ||
             ci->type == id_MULT18X36_CORE || ci->type == id_MULT36_CORE || ci->type == id_REG18_CORE ||
             ci->type == id_ACC54_CORE) {
-            for (auto port : sorted_ref(ci->ports)) {
+            for (auto &port : ci->ports) {
                 WireId wire = getBelPinWire(ci->bel, port.first);
                 if (wire != WireId())
                     dsp_wires.insert(wire);
             }
         }
         if (ci->type == id_LRAM_CORE) {
-            for (auto port : sorted_ref(ci->ports)) {
+            for (auto &port : ci->ports) {
                 WireId wire = getBelPinWire(ci->bel, port.first);
                 if (wire != WireId())
                     lram_wires.insert(wire);

@@ -55,7 +55,7 @@ std::string str_or_default(const Container &ct, const KeyType &key, std::string 
 };
 
 template <typename KeyType>
-std::string str_or_default(const std::unordered_map<KeyType, Property> &ct, const KeyType &key, std::string def = "")
+std::string str_or_default(const dict<KeyType, Property> &ct, const KeyType &key, std::string def = "")
 {
     auto found = ct.find(key);
     if (found == ct.end())
@@ -78,8 +78,7 @@ template <typename Container, typename KeyType> int int_or_default(const Contain
         return std::stoi(found->second);
 };
 
-template <typename KeyType>
-int int_or_default(const std::unordered_map<KeyType, Property> &ct, const KeyType &key, int def = 0)
+template <typename KeyType> int int_or_default(const dict<KeyType, Property> &ct, const KeyType &key, int def = 0)
 {
     auto found = ct.find(key);
     if (found == ct.end())

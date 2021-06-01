@@ -377,9 +377,9 @@ class ConstraintLegaliseWorker
   public:
     ConstraintLegaliseWorker(Context *ctx) : ctx(ctx)
     {
-        for (auto cell : sorted(ctx->cells)) {
+        for (auto &cell : ctx->cells) {
             if (cell.second->cluster != ClusterId())
-                cluster2cells[cell.second->cluster].push_back(cell.second);
+                cluster2cells[cell.second->cluster].push_back(cell.second.get());
         }
     };
 
@@ -414,11 +414,11 @@ class ConstraintLegaliseWorker
     int legalise_constraints()
     {
         log_info("Legalising relative constraints...\n");
-        for (auto cell : sorted(ctx->cells)) {
+        for (auto &cell : ctx->cells) {
             oldLocations[cell.first] = ctx->getBelLocation(cell.second->bel);
         }
-        for (auto cell : sorted(ctx->cells)) {
-            bool res = legalise_cell(cell.second);
+        for (auto &cell : ctx->cells) {
+            bool res = legalise_cell(cell.second.get());
             if (!res) {
                 log_error("failed to place chain starting at cell '%s'\n", cell.first.c_str(ctx));
                 return -1;
@@ -434,8 +434,8 @@ class ConstraintLegaliseWorker
             }
         }
         auto score = print_stats("replacing ripped up cells");
-        for (auto cell : sorted(ctx->cells))
-            if (get_constraints_distance(ctx, cell.second) != 0)
+        for (auto &cell : ctx->cells)
+            if (get_constraints_distance(ctx, cell.second.get()) != 0)
                 log_error("constraint satisfaction check failed for cell '%s' at Bel '%s'\n", cell.first.c_str(ctx),
                           ctx->nameOfBel(cell.second->bel));
         return score;

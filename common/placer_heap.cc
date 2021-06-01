@@ -146,9 +146,9 @@ class HeAPPlacer
         tmg.setup_only = true;
         tmg.setup();
 
-        for (auto cell : sorted(ctx->cells))
+        for (auto &cell : ctx->cells)
             if (cell.second->cluster != ClusterId())
-                cluster2cells[cell.second->cluster].push_back(cell.second);
+                cluster2cells[cell.second->cluster].push_back(cell.second.get());
     }
 
     bool place()
@@ -283,8 +283,8 @@ class HeAPPlacer
                 stalled = 0;
                 // Save solution
                 solution.clear();
-                for (auto cell : sorted(ctx->cells)) {
-                    solution.emplace_back(cell.second, cell.second->bel, cell.second->belStrength);
+                for (auto &cell : ctx->cells) {
+                    solution.emplace_back(cell.second.get(), cell.second->bel, cell.second->belStrength);
                 }
             } else {
                 ++stalled;
@@ -311,10 +311,10 @@ class HeAPPlacer
             ctx->bindBel(bel, cell, strength);
         }
 
-        for (auto cell : sorted(ctx->cells)) {
+        for (auto &cell : ctx->cells) {
             if (cell.second->bel == BelId())
                 log_error("Found unbound cell %s\n", cell.first.c_str(ctx));
-            if (ctx->getBoundBelCell(cell.second->bel) != cell.second)
+            if (ctx->getBoundBelCell(cell.second->bel) != cell.second.get())
                 log_error("Found cell %s with mismatched binding\n", cell.first.c_str(ctx));
             if (ctx->debug)
                 log_info("AP soln: %s -> %s\n", cell.first.c_str(ctx), ctx->nameOfBel(cell.second->bel));
@@ -450,7 +450,7 @@ class HeAPPlacer
 
         std::unordered_set<IdString> cell_types_in_use;
         std::unordered_set<BelBucketId> buckets_in_use;
-        for (auto cell : sorted(ctx->cells)) {
+        for (auto &cell : ctx->cells) {
             IdString cell_type = cell.second->type;
             cell_types_in_use.insert(cell_type);
             BelBucketId bucket = ctx->getBelBucketForCellType(cell_type);
@@ -465,8 +465,8 @@ class HeAPPlacer
         }
 
         // Determine bounding boxes of region constraints
-        for (auto &region : sorted(ctx->region)) {
-            Region *r = region.second;
+        for (auto &region : ctx->region) {
+            Region *r = region.second.get();
             BoundingBox bb;
             if (r->constr_bels) {
                 bb.x0 = std::numeric_limits<int>::max();
@@ -539,8 +539,8 @@ class HeAPPlacer
             ctx->shuffle(t.second.begin(), t.second.end());
         }
 
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->bel != BelId()) {
                 Loc loc = ctx->getBelLocation(ci->bel);
                 cell_locs[cell.first].x = loc.x;
@@ -591,7 +591,7 @@ class HeAPPlacer
                     cell_locs[cell.first].global = ctx->getBelGlobalBuf(bel);
 
                     // FIXME
-                    if (has_connectivity(cell.second) && !cfg.ioBufTypes.count(ci->type)) {
+                    if (has_connectivity(cell.second.get()) && !cfg.ioBufTypes.count(ci->type)) {
                         bels_used.insert(bel);
                         place_cells.push_back(ci);
                         placed = true;
@@ -617,7 +617,7 @@ class HeAPPlacer
         int row = 0;
         solve_cells.clear();
         // First clear the udata of all cells
-        for (auto cell : sorted(ctx->cells))
+        for (auto &cell : ctx->cells)
             cell.second->udata = dont_solve;
         // Then update cells to be placed, which excludes cell children
         for (auto cell : place_cells) {
@@ -671,8 +671,8 @@ class HeAPPlacer
 
         es.reset();
 
-        for (auto net : sorted(ctx->nets)) {
-            NetInfo *ni = net.second;
+        for (auto &net : ctx->nets) {
+            NetInfo *ni = net.second.get();
             if (ni->driver.cell == nullptr)
                 continue;
             if (ni->users.empty())
@@ -783,8 +783,8 @@ class HeAPPlacer
     wirelen_t total_hpwl()
     {
         wirelen_t hpwl = 0;
-        for (auto net : sorted(ctx->nets)) {
-            NetInfo *ni = net.second;
+        for (auto &net : ctx->nets) {
+            NetInfo *ni = net.second.get();
             if (ni->driver.cell == nullptr)
                 continue;
             CellLocation &drvloc = cell_locs.at(ni->driver.cell->name);
@@ -809,8 +809,8 @@ class HeAPPlacer
         auto startt = std::chrono::high_resolution_clock::now();
 
         // Unbind all cells placed in this solution
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->bel != BelId() &&
                 (ci->udata != dont_solve ||
                  (ci->cluster != ClusterId() && ctx->getClusterRootCell(ci->cluster)->udata != dont_solve)))

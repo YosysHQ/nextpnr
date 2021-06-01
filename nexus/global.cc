@@ -155,8 +155,8 @@ struct NexusGlobalRouter
     void operator()()
     {
         log_info("Routing globals...\n");
-        for (auto net : sorted(ctx->nets)) {
-            NetInfo *ni = net.second;
+        for (auto &net : ctx->nets) {
+            NetInfo *ni = net.second.get();
             CellInfo *drv = ni->driver.cell;
             if (drv == nullptr)
                 continue;

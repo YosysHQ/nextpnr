@@ -164,10 +164,10 @@ PYBIND11_EMBEDDED_MODULE(MODULE_NAME, m)
             .def("maxFallDelay", &DelayQuad::maxFallDelay)
             .def("delayPair", &DelayQuad::delayPair);
 
-    typedef std::unordered_map<IdString, Property> AttrMap;
-    typedef std::unordered_map<IdString, PortInfo> PortMap;
-    typedef std::unordered_map<IdString, IdString> IdIdMap;
-    typedef std::unordered_map<IdString, std::unique_ptr<Region>> RegionMap;
+    typedef dict<IdString, Property> AttrMap;
+    typedef dict<IdString, PortInfo> PortMap;
+    typedef dict<IdString, IdString> IdIdMap;
+    typedef dict<IdString, std::unique_ptr<Region>> RegionMap;
 
     py::class_<BaseCtx>(m, "BaseCtx");
 
@@ -218,9 +218,9 @@ PYBIND11_EMBEDDED_MODULE(MODULE_NAME, m)
                       pass_through<PortType>>::def_wrap(pi_cls, "type");
 
     typedef std::vector<PortRef> PortRefVector;
-    typedef std::unordered_map<WireId, PipMap> WireMap;
-    typedef std::unordered_set<BelId> BelSet;
-    typedef std::unordered_set<WireId> WireSet;
+    typedef dict<WireId, PipMap> WireMap;
+    typedef pool<BelId> BelSet;
+    typedef pool<WireId> WireSet;
 
     auto ni_cls = py::class_<ContextualWrapper<NetInfo &>>(m, "NetInfo");
     readwrite_wrapper<NetInfo &, decltype(&NetInfo::name), &NetInfo::name, conv_to_str<IdString>,

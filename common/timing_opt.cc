@@ -68,8 +68,8 @@ class TimingOptimiser
     void setup_delay_limits()
     {
         max_net_delay.clear();
-        for (auto net : sorted(ctx->nets)) {
-            NetInfo *ni = net.second;
+        for (auto &net : ctx->nets) {
+            NetInfo *ni = net.second.get();
             if (ni->driver.cell == nullptr)
                 continue;
             for (auto usr : ni->users) {
@@ -239,7 +239,7 @@ class TimingOptimiser
         std::vector<std::pair<NetInfo *, int>> crit_nets;
         std::vector<IdString> netnames;
         std::transform(ctx->nets.begin(), ctx->nets.end(), std::back_inserter(netnames),
-                       [](const std::pair<const IdString, std::unique_ptr<NetInfo>> &kv) { return kv.first; });
+                       [](const std::pair<IdString, std::unique_ptr<NetInfo>> &kv) { return kv.first; });
         ctx->sorted_shuffle(netnames);
         for (auto net : netnames) {
             if (crit_nets.size() >= max_count)

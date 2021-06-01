@@ -37,13 +37,14 @@ static void pack_lut_lutffs(Context *ctx)
     int lut_only = 0, lut_and_ff = 0;
     std::unordered_set<IdString> packed_cells;
     std::vector<std::unique_ptr<CellInfo>> new_cells;
-    for (auto cell : sorted(ctx->cells)) {
-        CellInfo *ci = cell.second;
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
         if (ctx->verbose)
             log_info("cell '%s' is of type '%s'\n", ci->name.c_str(ctx), ci->type.c_str(ctx));
         if (is_lut(ctx, ci)) {
             std::unique_ptr<CellInfo> packed = create_ice_cell(ctx, ctx->id("ICESTORM_LC"), ci->name.str(ctx) + "_LC");
-            std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(packed->attrs, packed->attrs.begin()));
+            for (auto &attr : ci->attrs)
+                packed->attrs[attr.first] = attr.second;
             packed_cells.insert(ci->name);
             if (ctx->verbose)
                 log_info("packed cell %s into %s\n", ci->name.c_str(ctx), packed->name.c_str(ctx));
@@ -103,12 +104,13 @@ static void pack_nonlut_ffs(Context *ctx)
     std::vector<std::unique_ptr<CellInfo>> new_cells;
     int ff_only = 0;
 
-    for (auto cell : sorted(ctx->cells)) {
-        CellInfo *ci = cell.second;
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
         if (is_ff(ctx, ci)) {
             std::unique_ptr<CellInfo> packed =
                     create_ice_cell(ctx, ctx->id("ICESTORM_LC"), ci->name.str(ctx) + "_DFFLC");
-            std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(packed->attrs, packed->attrs.begin()));
+            for (auto &attr : ci->attrs)
+                packed->attrs[attr.first] = attr.second;
             if (ctx->verbose)
                 log_info("packed cell %s into %s\n", ci->name.c_str(ctx), packed->name.c_str(ctx));
             packed_cells.insert(ci->name);
@@ -147,8 +149,8 @@ static void pack_carries(Context *ctx)
     std::vector<std::unique_ptr<CellInfo>> new_cells;
     int carry_only = 0;
 
-    for (auto cell : sorted(ctx->cells)) {
-        CellInfo *ci = cell.second;
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
         if (is_carry(ctx, ci)) {
             packed_cells.insert(cell.first);
 
@@ -275,8 +277,8 @@ static void pack_ram(Context *ctx)
     std::unordered_set<IdString> packed_cells;
     std::vector<std::unique_ptr<CellInfo>> new_cells;
 
-    for (auto cell : sorted(ctx->cells)) {
-        CellInfo *ci = cell.second;
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
         if (is_ram(ctx, ci)) {
             std::unique_ptr<CellInfo> packed =
                     create_ice_cell(ctx, ctx->id("ICESTORM_RAM"), ci->name.str(ctx) + "_RAM");
@@ -379,8 +381,8 @@ static void pack_constants(Context *ctx)
 
     bool gnd_used = false;
 
-    for (auto net : sorted(ctx->nets)) {
-        NetInfo *ni = net.second;
+    for (auto &net : ctx->nets) {
+        NetInfo *ni = net.second.get();
         if (ni->driver.cell != nullptr && ni->driver.cell->type == ctx->id("GND")) {
             IdString drv_cell = ni->driver.cell->name;
             set_net_constant(ctx, ni, gnd_net_info, false);
@@ -469,8 +471,8 @@ static void pack_io(Context *ctx)
     std::vector<std::unique_ptr<CellInfo>> new_cells;
     log_info("Packing IOs..\n");
 
-    for (auto cell : sorted(ctx->cells)) {
-        CellInfo *ci = cell.second;
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
         if (is_nextpnr_iob(ctx, ci)) {
             CellInfo *sb = nullptr, *rgb = nullptr;
             if (ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_iobuf")) {
@@ -531,7 +533,8 @@ static void pack_io(Context *ctx)
             for (auto port : ci->ports)
                 disconnect_port(ctx, ci, port.first);
             packed_cells.insert(ci->name);
-            std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(sb->attrs, sb->attrs.begin()));
+            for (auto &attr : ci->attrs)
+                sb->attrs[attr.first] = attr.second;
         } else if (is_sb_io(ctx, ci) || is_sb_gb_io(ctx, ci)) {
             NetInfo *net = ci->ports.at(ctx->id("PACKAGE_PIN")).net;
             if ((net != nullptr) && ((net->users.size() > 2) ||
@@ -541,8 +544,8 @@ static void pack_io(Context *ctx)
                           ci->name.c_str(ctx));
         }
     }
-    for (auto cell : sorted(ctx->cells)) {
-        CellInfo *ci = cell.second;
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
         if (is_sb_gb_io(ctx, ci)) {
             // If something is connecto the GLOBAL OUTPUT, create the fake 'matching' SB_GB
             std::unique_ptr<CellInfo> gb =
@@ -637,8 +640,8 @@ static void promote_globals(Context *ctx)
     const int enable_fanout_thresh = 15;
     const int reset_fanout_thresh = 15;
     std::map<IdString, int> clock_count, reset_count, cen_count, logic_count;
-    for (auto net : sorted(ctx->nets)) {
-        NetInfo *ni = net.second;
+    for (auto &net : ctx->nets) {
+        NetInfo *ni = net.second.get();
         if (ni->driver.cell != nullptr && !ctx->is_global_net(ni)) {
             clock_count[net.first] = 0;
             reset_count[net.first] = 0;
@@ -778,8 +781,8 @@ static void place_plls(Context *ctx)
     }
 
     // Find all the PLLs cells we need to place and do pre-checks
-    for (auto cell : sorted(ctx->cells)) {
-        CellInfo *ci = cell.second;
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
         if (!is_sb_pll40(ctx, ci))
             continue;
 
@@ -861,8 +864,8 @@ static void place_plls(Context *ctx)
     }
 
     // Scan all SB_IOs to check for conflict with PLL BELs
-    for (auto io_cell : sorted(ctx->cells)) {
-        CellInfo *io_ci = io_cell.second;
+    for (auto &io_cell : ctx->cells) {
+        CellInfo *io_ci = io_cell.second.get();
         if (!is_sb_io(ctx, io_ci))
             continue;
 
@@ -899,8 +902,8 @@ static void place_plls(Context *ctx)
     }
 
     // Scan all SB_GBs to check for conflicts with PLL BELs
-    for (auto gb_cell : sorted(ctx->cells)) {
-        CellInfo *gb_ci = gb_cell.second;
+    for (auto &gb_cell : ctx->cells) {
+        CellInfo *gb_ci = gb_cell.second.get();
         if (!is_gbuf(ctx, gb_ci))
             continue;
 
@@ -1120,8 +1123,8 @@ static void pack_special(Context *ctx)
     std::vector<std::unique_ptr<CellInfo>> new_cells;
 
     // Handle LED_DRV_CUR first to set the ledCurConnected flag before RGB_DRV is handled below.
-    for (auto cell : sorted(ctx->cells)) {
-        CellInfo *ci = cell.second;
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
         if (is_sb_led_drv_cur(ctx, ci)) {
             /* Force placement (no choices anyway) */
             cell_place_unique(ctx, ci);
@@ -1139,8 +1142,8 @@ static void pack_special(Context *ctx)
             ctx->nets.erase(ledpu_net->name);
         }
     }
-    for (auto cell : sorted(ctx->cells)) {
-        CellInfo *ci = cell.second;
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
         if (is_sb_lfosc(ctx, ci)) {
             std::unique_ptr<CellInfo> packed =
                     create_ice_cell(ctx, ctx->id("ICESTORM_LFOSC"), ci->name.str(ctx) + "_OSC");
@@ -1298,8 +1301,8 @@ void pack_plls(Context *ctx)
 
     std::unordered_set<IdString> packed_cells;
     std::vector<std::unique_ptr<CellInfo>> new_cells;
-    for (auto cell : sorted(ctx->cells)) {
-        CellInfo *ci = cell.second;
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
         if (is_sb_pll40(ctx, ci)) {
             bool is_pad = is_sb_pll40_pad(ctx, ci);
             bool is_core = !is_pad;

@@ -88,7 +88,7 @@ class SAPlacer
         diameter = std::max(max_x, max_y) + 1;
 
         std::unordered_set<IdString> cell_types_in_use;
-        for (auto cell : sorted(ctx->cells)) {
+        for (auto &cell : ctx->cells) {
             IdString cell_type = cell.second->type;
             cell_types_in_use.insert(cell_type);
         }
@@ -108,8 +108,8 @@ class SAPlacer
             net.second->udata = n++;
             net_by_udata.push_back(net.second.get());
         }
-        for (auto &region : sorted(ctx->region)) {
-            Region *r = region.second;
+        for (auto &region : ctx->region) {
+            Region *r = region.second.get();
             BoundingBox bb;
             if (r->constr_bels) {
                 bb.x0 = std::numeric_limits<int>::max();
@@ -360,12 +360,12 @@ class SAPlacer
                     // Only increase temperature if something was moved
                     autoplaced.clear();
                     chain_basis.clear();
-                    for (auto cell : sorted(ctx->cells)) {
+                    for (auto &cell : ctx->cells) {
                         if (cell.second->belStrength <= STRENGTH_STRONG && cell.second->cluster != ClusterId() &&
-                            ctx->getClusterRootCell(cell.second->cluster) == cell.second)
-                            chain_basis.push_back(cell.second);
+                            ctx->getClusterRootCell(cell.second->cluster) == cell.second.get())
+                            chain_basis.push_back(cell.second.get());
                         else if (cell.second->belStrength < STRENGTH_STRONG)
-                            autoplaced.push_back(cell.second);
+                            autoplaced.push_back(cell.second.get());
                     }
                     // temp = post_legalise_temp;
                     // diameter = std::min<int>(M, diameter * post_legalise_dia_scale);
@@ -421,8 +421,8 @@ class SAPlacer
                 }
             }
         }
-        for (auto cell : sorted(ctx->cells))
-            if (get_constraints_distance(ctx, cell.second) != 0)
+        for (auto &cell : ctx->cells)
+            if (get_constraints_distance(ctx, cell.second.get()) != 0)
                 log_error("constraint satisfaction check failed for cell '%s' at Bel '%s'\n", cell.first.c_str(ctx),
                           ctx->nameOfBel(cell.second->bel));
         timing_analysis(ctx);
@@ -831,8 +831,8 @@ class SAPlacer
     // Set up the cost maps
     void setup_costs()
     {
-        for (auto net : sorted(ctx->nets)) {
-            NetInfo *ni = net.second;
+        for (auto &net : ctx->nets) {
+            NetInfo *ni = net.second.get();
             if (ignore_net(ni))
                 continue;
             net_bounds[ni->udata] = get_net_bounds(ni);
@@ -1118,8 +1118,8 @@ class SAPlacer
     // Build the cell port -> user index
     void build_port_index()
     {
-        for (auto net : sorted(ctx->nets)) {
-            NetInfo *ni = net.second;
+        for (auto &net : ctx->nets) {
+            NetInfo *ni = net.second.get();
             for (size_t i = 0; i < ni->users.size(); i++) {
                 auto &usr = ni->users.at(i);
                 fast_port_to_user[&(usr.cell->ports.at(usr.port))] = i;
@@ -1135,8 +1135,8 @@ class SAPlacer
     {
         total_net_share = 0;
         nets_by_tile.resize(max_x + 1, std::vector<std::unordered_map<IdString, int>>(max_y + 1));
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (int(ci->ports.size()) > large_cell_thresh)
                 continue;
             Loc loc = ctx->getBelLocation(ci->bel);

@@ -133,8 +133,8 @@ struct MistralPacker
         // Remove unused inverters and high/low drivers
         std::vector<IdString> trim_cells;
         std::vector<IdString> trim_nets;
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type != id_MISTRAL_NOT && ci->type != id_GND && ci->type != id_VCC)
                 continue;
             IdString port = (ci->type == id_MISTRAL_NOT) ? id_Q : id_Y;
@@ -161,15 +161,15 @@ struct MistralPacker
     void pack_constants()
     {
         // Iterate through cells
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             // Skip certain cells at this point
             if (ci->type != id_MISTRAL_NOT && ci->type != id_GND && ci->type != id_VCC)
-                process_inv_constants(cell.second);
+                process_inv_constants(ci);
         }
         // Special case - SDATA can only be trimmed if SLOAD is low
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type != id_MISTRAL_FF)
                 continue;
             if (ci->get_pin_state(id_SLOAD) != PIN_0)
@@ -185,7 +185,7 @@ struct MistralPacker
         // Find the actual IO buffer corresponding to a port; and copy attributes across to it
         // Note that this relies on Yosys to do IO buffer inference, to avoid tristate issues once we get to synthesised
         // JSON. In all cases the nextpnr-inserted IO buffers are removed as redundant.
-        for (auto &port : sorted_ref(ctx->ports)) {
+        for (auto &port : ctx->ports) {
             if (!ctx->cells.count(port.first))
                 log_error("Port '%s' doesn't seem to have a corresponding top level IO\n", ctx->nameOf(port.first));
             CellInfo *ci = ctx->cells.at(port.first).get();
@@ -256,8 +256,8 @@ struct MistralPacker
         // Step 0: deal with top level inserted IO buffers
         prepare_io();
         // Stage 1: apply constraints
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             // Iterate through all IO buffer primitives
             if (!ctx->is_io_cell(ci->type))
                 continue;
@@ -286,8 +286,8 @@ struct MistralPacker
 
     void constrain_carries()
     {
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type != id_MISTRAL_ALUT_ARITH)
                 continue;
             const NetInfo *cin = get_net_or_empty(ci, id_CI);
@@ -332,8 +332,8 @@ struct MistralPacker
             }
         }
         // Check we reached all the cells in the above pass
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type != id_MISTRAL_ALUT_ARITH)
                 continue;
             if (ci->cluster == ClusterId())

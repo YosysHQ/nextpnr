@@ -59,29 +59,29 @@ struct BaseCtx
     mutable StrRingBuffer log_strs;
 
     // Project settings and config switches
-    std::unordered_map<IdString, Property> settings;
+    dict<IdString, Property> settings;
 
     // Placed nets and cells.
-    std::unordered_map<IdString, std::unique_ptr<NetInfo>> nets;
-    std::unordered_map<IdString, std::unique_ptr<CellInfo>> cells;
+    dict<IdString, std::unique_ptr<NetInfo>> nets;
+    dict<IdString, std::unique_ptr<CellInfo>> cells;
 
     // Hierarchical (non-leaf) cells by full path
-    std::unordered_map<IdString, HierarchicalCell> hierarchy;
+    dict<IdString, HierarchicalCell> hierarchy;
     // This is the root of the above structure
     IdString top_module;
 
     // Aliases for nets, which may have more than one name due to assignments and hierarchy
-    std::unordered_map<IdString, IdString> net_aliases;
+    dict<IdString, IdString> net_aliases;
 
     // Top-level ports
-    std::unordered_map<IdString, PortInfo> ports;
-    std::unordered_map<IdString, CellInfo *> port_cells;
+    dict<IdString, PortInfo> ports;
+    dict<IdString, CellInfo *> port_cells;
 
     // Floorplanning regions
-    std::unordered_map<IdString, std::unique_ptr<Region>> region;
+    dict<IdString, std::unique_ptr<Region>> region;
 
     // Context meta data
-    std::unordered_map<IdString, Property> attrs;
+    dict<IdString, Property> attrs;
 
     Context *as_ctx = nullptr;
 
@@ -186,10 +186,10 @@ struct BaseCtx
 
     bool allUiReload = true;
     bool frameUiReload = false;
-    std::unordered_set<BelId> belUiReload;
-    std::unordered_set<WireId> wireUiReload;
-    std::unordered_set<PipId> pipUiReload;
-    std::unordered_set<GroupId> groupUiReload;
+    pool<BelId> belUiReload;
+    pool<WireId> wireUiReload;
+    pool<PipId> pipUiReload;
+    pool<GroupId> groupUiReload;
 
     void refreshUi() { allUiReload = true; }
 

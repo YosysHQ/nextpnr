@@ -182,8 +182,8 @@ struct NexusPacker
     {
         std::map<std::string, int> cell_count;
         std::map<std::string, int> new_types;
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (rules.count(ci->type)) {
                 cell_count[ci->type.str(ctx)]++;
                 xform_cell(rules, ci);
@@ -303,8 +303,8 @@ struct NexusPacker
     {
         // Gets a constant net, given the driver type (VHI or VLO)
         // If one doesn't exist already; then create it
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type != type)
                 continue;
             NetInfo *z = get_net_or_empty(ci, id_Z);
@@ -369,8 +369,8 @@ struct NexusPacker
         // Remove unused inverters and high/low drivers
         std::vector<IdString> trim_cells;
         std::vector<IdString> trim_nets;
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type != id_INV && ci->type != id_VLO && ci->type != id_VHI && ci->type != id_VCC_DRV)
                 continue;
             NetInfo *z = get_net_or_empty(ci, id_Z);
@@ -474,7 +474,7 @@ struct NexusPacker
         // Find the actual IO buffer corresponding to a port; and copy attributes across to it
         // Note that this relies on Yosys to do IO buffer inference, to match vendor tooling behaviour
         // In all cases the nextpnr-inserted IO buffers are removed as redundant.
-        for (auto &port : sorted_ref(ctx->ports)) {
+        for (auto &port : ctx->ports) {
             if (!ctx->cells.count(port.first))
                 log_error("Port '%s' doesn't seem to have a corresponding top level IO\n", ctx->nameOf(port.first));
             CellInfo *ci = ctx->cells.at(port.first).get();
@@ -579,8 +579,8 @@ struct NexusPacker
         prepare_io();
 
         // Stage 1: setup constraints
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             // Iterate through all IO buffer primitives
             if (!iob_types.count(ci->type))
                 continue;
@@ -625,8 +625,8 @@ struct NexusPacker
         // Stage 2: apply rules for primitives that need them
         generic_xform(io_rules, false);
         // Stage 3: all other IO primitives become their bel type
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             // Iterate through all IO buffer primitives
             if (!iob_types.count(ci->type))
                 continue;
@@ -660,12 +660,12 @@ struct NexusPacker
         gnd_net = get_const_net(id_VLO);
         dedi_vcc_net = get_const_net(id_VCC_DRV);
         // Iterate through cells
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             // Skip certain cells at this point
             if (ci->type != id_LUT4 && ci->type != id_INV && ci->type != id_VHI && ci->type != id_VLO &&
                 ci->type != id_VCC_DRV)
-                process_inv_constants(cell.second);
+                process_inv_constants(ci);
         }
         // Remove superfluous inverters and constant drivers
         trim_design();
@@ -854,8 +854,8 @@ struct NexusPacker
     {
         std::vector<std::pair<int, IdString>> clk_fanout;
         int available_globals = 16;
-        for (auto net : sorted(ctx->nets)) {
-            NetInfo *ni = net.second;
+        for (auto &net : ctx->nets) {
+            NetInfo *ni = net.second.get();
             // Skip undriven nets; and nets that are already global
             if (ni->driver.cell == nullptr)
                 continue;
@@ -894,8 +894,8 @@ struct NexusPacker
         bool did_something = true;
         while (did_something) {
             did_something = false;
-            for (auto cell : sorted(ctx->cells)) {
-                CellInfo *ci = cell.second;
+            for (auto &cell : ctx->cells) {
+                CellInfo *ci = cell.second.get();
                 if (ci->type == id_OSC_CORE)
                     did_something |= preplace_singleton(ci);
                 else if (ci->type == id_DCC)
@@ -916,8 +916,8 @@ struct NexusPacker
     {
         // Do this so we don't have an iterate-and-modfiy situation
         std::vector<CellInfo *> lutrams;
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type != id_DPR16X4)
                 continue;
             lutrams.push_back(ci);
@@ -1031,8 +1031,8 @@ struct NexusPacker
                 {id_PLL, id_PLL_CORE},           {id_DPHY, id_DPHY_CORE},
         };
 
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (!prim_map.count(ci->type))
                 continue;
             prim_to_core(ci, prim_map.at(ci->type));
@@ -1084,8 +1084,8 @@ struct NexusPacker
         generic_xform(bram_rules, true);
 
         int wid = 2;
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type != id_OXIDE_EBR)
                 continue;
             if (ci->params.count(id_WID))
@@ -1129,8 +1129,8 @@ struct NexusPacker
         log_info("Packing LRAM...\n");
         generic_xform(lram_rules, true);
 
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type != id_LRAM_CORE)
                 continue;
             if (str_or_default(ci->params, ctx->id("ECC_BYTE_SEL"), "BYTE_EN") == "BYTE_EN")
@@ -1151,8 +1151,8 @@ struct NexusPacker
     void pack_widefn()
     {
         std::vector<CellInfo *> widefns;
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type != id_WIDEFN9)
                 continue;
             widefns.push_back(ci);
@@ -1200,8 +1200,8 @@ struct NexusPacker
         // Find root carry cells
         log_info("Packing carries...\n");
         std::vector<CellInfo *> roots;
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type != id_CCU2)
                 continue;
             if (get_net_or_empty(ci, id_CIN) != nullptr)
@@ -1306,7 +1306,7 @@ struct NexusPacker
                 continue;
             cell->addOutput(bp);
         }
-        for (auto port : sorted_ref(cell->ports)) {
+        for (auto &port : cell->ports) {
             // Skip if not an output, or being used already for something else
             if (port.second.type != PORT_OUT || port.second.net != nullptr)
                 continue;
@@ -1609,8 +1609,8 @@ struct NexusPacker
         log_info("Packing DSPs...\n");
         std::vector<CellInfo *> to_remove;
 
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (!dsp_types.count(ci->type))
                 continue;
             auto &mt = dsp_types.at(ci->type);
@@ -1792,7 +1792,7 @@ struct NexusPacker
         }
 
         for (auto cell : to_remove) {
-            for (auto port : sorted_ref(cell->ports))
+            for (auto &port : cell->ports)
                 disconnect_port(ctx, cell, port.first);
             ctx->cells.erase(cell->name);
         }
@@ -1949,8 +1949,8 @@ struct NexusPacker
                 {id_FLOCK_CTRL, "2X"},     {id_FLOCK_EN, "ENABLED"}, {id_FLOCK_SRC_SEL, "REFCLK"},
                 {id_DIV_DEL, "0b0000001"}, {id_FBK_PI_RC, "0b1100"}, {id_FBK_PR_IC, "0b1000"},
         };
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type == id_PLL_CORE) {
                 // Extra log to phys rules
                 rename_port(ctx, ci, id_PLLPOWERDOWN_N, id_PLLPDN);
@@ -1975,8 +1975,8 @@ struct NexusPacker
 
     void pack_ip()
     {
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type == id_DPHY_CORE) {
                 auto loc_attr = ci->attrs.find(id_LOC);
                 if (loc_attr == ci->attrs.end())
@@ -2026,8 +2026,8 @@ bool Arch::pack()
 
 void Arch::assignArchInfo()
 {
-    for (auto cell : sorted(cells)) {
-        assignCellInfo(cell.second);
+    for (auto &cell : cells) {
+        assignCellInfo(cell.second.get());
     }
 }
 

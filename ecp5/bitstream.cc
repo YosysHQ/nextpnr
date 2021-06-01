@@ -569,8 +569,7 @@ static std::vector<bool> parse_config_str(const Property &p, int length)
     return word;
 }
 
-std::string intstr_or_default(const std::unordered_map<IdString, Property> &ct, const IdString &key,
-                              std::string def = "0")
+std::string intstr_or_default(const dict<IdString, Property> &ct, const IdString &key, std::string def = "0")
 {
     auto found = ct.find(key);
     if (found == ct.end())

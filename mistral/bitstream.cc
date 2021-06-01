@@ -156,9 +156,9 @@ struct MistralBitgen
 
     void write_routing()
     {
-        for (auto net : sorted(ctx->nets)) {
-            NetInfo *ni = net.second;
-            for (auto wire : sorted_ref(ni->wires)) {
+        for (auto &net : ctx->nets) {
+            NetInfo *ni = net.second.get();
+            for (auto &wire : ni->wires) {
                 PipId pip = wire.second.pip;
                 if (pip == PipId())
                     continue;
@@ -200,8 +200,8 @@ struct MistralBitgen
 
     void write_cells()
     {
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             Loc loc = ctx->getBelLocation(ci->bel);
             int bi = ctx->bel_data(ci->bel).block_index;
             if (ctx->is_io_cell(ci->type))

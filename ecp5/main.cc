@@ -270,8 +270,8 @@ void ECP5CommandHandler::customAfterLoad(Context *ctx)
                 log_error("failed to parse LPF file '%s'\n", filename.c_str());
         }
 
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_obuf") ||
                 ci->type == ctx->id("$nextpnr_iobuf")) {
                 if (!ci->attrs.count(ctx->id("LOC"))) {

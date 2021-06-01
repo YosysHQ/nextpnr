@@ -52,17 +52,17 @@ void TimingAnalyser::run()
 void TimingAnalyser::init_ports()
 {
     // Per cell port structures
-    for (auto cell : sorted(ctx->cells)) {
-        CellInfo *ci = cell.second;
-        for (auto port : sorted_ref(ci->ports)) {
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
+        for (auto &port : ci->ports) {
             auto &data = ports[CellPortKey(ci->name, port.first)];
             data.type = port.second.type;
             data.cell_port = CellPortKey(ci->name, port.first);
         }
     }
     // Cell port to net port mapping
-    for (auto net : sorted(ctx->nets)) {
-        NetInfo *ni = net.second;
+    for (auto &net : ctx->nets) {
+        NetInfo *ni = net.second.get();
         if (ni->driver.cell != nullptr)
             ports[CellPortKey(ni->driver)].net_port = NetPortKey(ni->name);
         for (size_t i = 0; i < ni->users.size(); i++)
@@ -138,8 +138,8 @@ void TimingAnalyser::get_cell_delays()
 
 void TimingAnalyser::get_route_delays()
 {
-    for (auto net : sorted(ctx->nets)) {
-        NetInfo *ni = net.second;
+    for (auto &net : ctx->nets) {
+        NetInfo *ni = net.second.get();
         if (ni->driver.cell == nullptr || ni->driver.cell->bel == BelId())
             continue;
         for (auto &usr : ni->users) {

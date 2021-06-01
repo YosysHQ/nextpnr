@@ -91,8 +91,8 @@ class Ecp5GlobalRouter
         }
         // DCCAs must always drive globals
         std::vector<NetInfo *> clocks;
-        for (auto &cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type == id_DCCA) {
                 NetInfo *glb = ci->ports.at(id_CLKO).net;
                 if (glb != nullptr) {
@@ -536,8 +536,8 @@ class Ecp5GlobalRouter
         }
         std::vector<std::pair<PortRef *, int>> toroute;
         std::unordered_map<int, NetInfo *> clocks;
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type == id_DCCA) {
                 NetInfo *clock = ci->ports.at(id_CLKO).net;
                 NPNR_ASSERT(clock != nullptr);
@@ -577,8 +577,8 @@ class Ecp5GlobalRouter
     void route_eclk_sources()
     {
         // Try and use dedicated paths if possible
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type == id_ECLKSYNCB || ci->type == id_TRELLIS_ECLKBUF || ci->type == id_ECLKBRIDGECS) {
                 std::vector<IdString> pins;
                 if (ci->type == id_ECLKSYNCB || ci->type == id_TRELLIS_ECLKBUF) {

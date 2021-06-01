@@ -85,12 +85,14 @@ struct GroupId
 {
     bool operator==(const GroupId &other) const { return true; }
     bool operator!=(const GroupId &other) const { return false; }
+    unsigned int hash() const { return 0; }
 };
 
 struct DecalId
 {
     bool operator==(const DecalId &other) const { return true; }
     bool operator!=(const DecalId &other) const { return false; }
+    unsigned int hash() const { return 0; }
 };
 
 struct BelBucketId

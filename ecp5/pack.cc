@@ -106,8 +106,8 @@ class Ecp5Packer
     void find_lutff_pairs()
     {
         log_info("Finding LUTFF pairs...\n");
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (is_lut(ctx, ci) || is_pfumx(ctx, ci) || is_l6mux(ctx, ci)) {
                 NetInfo *znet = ci->ports.at(ctx->id("Z")).net;
                 if (znet != nullptr) {
@@ -262,8 +262,8 @@ class Ecp5Packer
     {
         log_info("Finding LUT-LUT pairs...\n");
         std::unordered_set<IdString> procdLuts;
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (is_lut(ctx, ci) && procdLuts.find(cell.first) == procdLuts.end()) {
                 NetInfo *znet = ci->ports.at(ctx->id("Z")).net;
                 std::vector<NetInfo *> inpnets;
@@ -392,8 +392,8 @@ class Ecp5Packer
         }
         if (ctx->debug) {
             log_info("Singleton LUTs (packer QoR debug): \n");
-            for (auto cell : sorted(ctx->cells))
-                if (is_lut(ctx, cell.second) && !procdLuts.count(cell.first))
+            for (auto &cell : ctx->cells)
+                if (is_lut(ctx, cell.second.get()) && !procdLuts.count(cell.first))
                     log_info("     %s\n", cell.first.c_str(ctx));
         }
     }
@@ -443,8 +443,8 @@ class Ecp5Packer
     {
         log_info("Packing IOs..\n");
 
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (is_nextpnr_iob(ctx, ci)) {
                 CellInfo *trio = nullptr;
                 NetInfo *ionet = nullptr;
@@ -536,8 +536,8 @@ class Ecp5Packer
     void pack_lut5xs()
     {
         log_info("Packing LUT5-7s...\n");
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (is_pfumx(ctx, ci)) {
                 std::unique_ptr<CellInfo> packed =
                         create_ecp5_cell(ctx, ctx->id("TRELLIS_SLICE"), ci->name.str(ctx) + "_SLICE");
@@ -593,8 +593,8 @@ class Ecp5Packer
         }
         flush_cells();
         // Pack LUT6s
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (is_l6mux(ctx, ci)) {
                 NetInfo *ofx0_0 = ci->ports.at(ctx->id("D0")).net;
                 if (ofx0_0 == nullptr)
@@ -651,8 +651,8 @@ class Ecp5Packer
         }
         flush_cells();
         // Pack LUT7s
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (is_l6mux(ctx, ci)) {
                 NetInfo *ofx1_0 = ci->ports.at(ctx->id("D0")).net;
                 if (ofx1_0 == nullptr)
@@ -975,8 +975,8 @@ class Ecp5Packer
     // Pack distributed RAM
     void pack_dram()
     {
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (is_dpram(ctx, ci)) {
 
                 // Create RAMW slice
@@ -1108,8 +1108,8 @@ class Ecp5Packer
     void pack_remaining_luts()
     {
         log_info("Packing unpaired LUTs into a SLICE...\n");
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (is_lut(ctx, ci)) {
                 std::unique_ptr<CellInfo> slice =
                         create_ecp5_cell(ctx, ctx->id("TRELLIS_SLICE"), ci->name.str(ctx) + "_SLICE");
@@ -1181,8 +1181,8 @@ class Ecp5Packer
                 ++used_slices;
 
         log_info("Packing unpaired FFs into a SLICE...\n");
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (is_ff(ctx, ci)) {
                 bool pack_dense = used_slices > (dense_pack_mode_thresh * available_slices);
                 bool requires_m = get_net_or_empty(ci, ctx->id("M")) != nullptr;
@@ -1403,8 +1403,8 @@ class Ecp5Packer
 
         bool gnd_used = false, vcc_used = false;
 
-        for (auto net : sorted(ctx->nets)) {
-            NetInfo *ni = net.second;
+        for (auto &net : ctx->nets) {
+            NetInfo *ni = net.second.get();
             if (ni->driver.cell != nullptr && ni->driver.cell->type == ctx->id("GND")) {
                 IdString drv_cell = ni->driver.cell->name;
                 set_net_constant(ctx, ni, gnd_net.get(), false);
@@ -1461,8 +1461,8 @@ class Ecp5Packer
             c->params[n] = c->params[o];
             c->params.erase(o);
         };
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             // Convert 36-bit PDP RAMs to regular 18-bit DP ones that match the Bel
             if (ci->type == ctx->id("PDPW16KD")) {
                 ci->params[ctx->id("DATA_WIDTH_A")] = 36; // force PDP mode
@@ -1503,8 +1503,8 @@ class Ecp5Packer
                 ci->type = id_DP16KD;
             }
         }
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type == id_DP16KD) {
                 // Add ports, even if disconnected, to ensure correct tie-offs
                 for (int i = 0; i < 14; i++) {
@@ -1544,8 +1544,8 @@ class Ecp5Packer
     // Pack DSPs
     void pack_dsps()
     {
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type == id_MULT18X18D) {
                 // Add ports, even if disconnected, to ensure correct tie-offs
                 for (auto sig : {"CLK", "CE", "RST"})
@@ -1708,8 +1708,8 @@ class Ecp5Packer
     // "Pack" DCUs
     void pack_dcus()
     {
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type == id_DCUA) {
                 if (ci->attrs.count(ctx->id("LOC"))) {
                     std::string loc = ci->attrs.at(ctx->id("LOC")).as_string();
@@ -1759,8 +1759,8 @@ class Ecp5Packer
                 }
             }
         }
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type == id_EXTREFB) {
                 const NetInfo *refo = net_or_nullptr(ci, id_REFCLKO);
                 CellInfo *dcu = nullptr;
@@ -1800,8 +1800,8 @@ class Ecp5Packer
     // Miscellaneous packer tasks
     void pack_misc()
     {
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type == id_USRMCLK) {
                 rename_port(ctx, ci, ctx->id("USRMCLKI"), id_PADDO);
                 rename_port(ctx, ci, ctx->id("USRMCLKTS"), id_PADDT);
@@ -1829,14 +1829,14 @@ class Ecp5Packer
             if (ctx->getBelType(bel) == id_EHXPLLL && ctx->checkBelAvail(bel))
                 available_plls.insert(bel);
         }
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type == id_EHXPLLL && ci->attrs.count(ctx->id("BEL")))
                 available_plls.erase(ctx->getBelByNameStr(ci->attrs.at(ctx->id("BEL")).as_string()));
         }
         // Place PLL connected to fixed drivers such as IO close to their source
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type == id_EHXPLLL && !ci->attrs.count(ctx->id("BEL"))) {
                 const NetInfo *drivernet = net_or_nullptr(ci, id_CLKI);
                 if (drivernet == nullptr || drivernet->driver.cell == nullptr)
@@ -1863,8 +1863,8 @@ class Ecp5Packer
             }
         }
         // Place PLLs driven by logic, etc, randomly
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type == id_EHXPLLL && !ci->attrs.count(ctx->id("BEL"))) {
                 if (available_plls.empty())
                     log_error("failed to place PLL '%s'\n", ci->name.c_str(ctx));
@@ -2030,8 +2030,8 @@ class Ecp5Packer
     // Pack DQSBUFs
     void pack_dqsbuf()
     {
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type == id_DQSBUFM) {
                 CellInfo *pio = net_driven_by(ctx, ci->ports.at(ctx->id("DQSI")).net, is_trellis_io, id_O);
                 if (pio == nullptr || ci->ports.at(ctx->id("DQSI")).net->users.size() > 1)
@@ -2265,8 +2265,8 @@ class Ecp5Packer
             }
         };
 
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type == ctx->id("DELAYF") || ci->type == ctx->id("DELAYG")) {
                 CellInfo *i_pio = net_driven_by(ctx, ci->ports.at(ctx->id("A")).net, is_trellis_io, id_O);
                 CellInfo *o_pio = net_only_drives(ctx, ci->ports.at(ctx->id("Z")).net, is_trellis_io, id_I, true);
@@ -2349,8 +2349,8 @@ class Ecp5Packer
             }
         }
 
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type == ctx->id("IDDRX1F")) {
                 CellInfo *pio = net_driven_by(ctx, ci->ports.at(ctx->id("D")).net, is_trellis_io, id_O);
                 if (pio == nullptr || ci->ports.at(ctx->id("D")).net->users.size() > 1)
@@ -2692,8 +2692,8 @@ class Ecp5Packer
         }
         flush_cells();
         // Constrain ECLK-related cells
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type == id_ECLKBRIDGECS) {
                 Loc loc;
                 NetInfo *i0 = get_net_or_empty(ci, id_CLK0), *i1 = get_net_or_empty(ci, id_CLK1),
@@ -2760,8 +2760,8 @@ class Ecp5Packer
             }
         }
         // Promote/route edge clocks
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type == id_IOLOGIC || ci->type == id_DQSBUFM) {
                 if (!ci->ports.count(id_ECLK) || ci->ports.at(id_ECLK).net == nullptr)
                     continue;
@@ -2780,8 +2780,8 @@ class Ecp5Packer
         }
         flush_cells();
         std::unordered_set<BelId> used_eclksyncb;
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type == id_CLKDIVF) {
                 const NetInfo *clki = net_or_nullptr(ci, id_CLKI);
                 for (auto &eclk : eclks) {
@@ -2896,8 +2896,8 @@ class Ecp5Packer
             }
         }
 
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type == id_ECLKSYNCB) {
                 // **All** ECLKSYNCBs must be constrained
                 // Most will be dealt with above, but there might be some rogue cases
@@ -2921,8 +2921,8 @@ class Ecp5Packer
             }
         }
 
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type == id_CLKDIVF) {
                 if (ci->attrs.count(ctx->id("BEL")))
                     continue;
@@ -3114,8 +3114,8 @@ class Ecp5Packer
     {
         // Check for legacy-style JSON (use CEMUX as a clue) and error out, avoiding a confusing assertion failure
         // later
-        for (auto cell : sorted(ctx->cells)) {
-            if (is_ff(ctx, cell.second) && cell.second->params.count(ctx->id("CEMUX")) &&
+        for (auto &cell : ctx->cells) {
+            if (is_ff(ctx, cell.second.get()) && cell.second->params.count(ctx->id("CEMUX")) &&
                 !cell.second->params[ctx->id("CEMUX")].is_string)
                 log_error("Found netlist using legacy-style JSON parameter values, please update your Yosys.\n");
         }
@@ -3188,8 +3188,8 @@ bool Arch::pack()
 
 void Arch::assignArchInfo()
 {
-    for (auto cell : sorted(cells)) {
-        CellInfo *ci = cell.second;
+    for (auto &cell : cells) {
+        CellInfo *ci = cell.second.get();
         if (ci->type == id_TRELLIS_SLICE) {
 
             ci->sliceInfo.using_dff = false;
@@ -3301,7 +3301,7 @@ void Arch::assignArchInfo()
             ci->multInfo.is_clocked = ci->multInfo.timing_id != id_MULT18X18D_REGS_NONE;
         }
     }
-    for (auto net : sorted(nets)) {
+    for (auto &net : nets) {
         net.second->is_global = bool_or_default(net.second->attrs, id("ECP5_IS_GLOBAL"));
     }
 }

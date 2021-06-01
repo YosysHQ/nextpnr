@@ -375,8 +375,8 @@ void Arch::assign_default_pinmap(CellInfo *cell)
 
 void Arch::assignArchInfo()
 {
-    for (auto cell : sorted(cells)) {
-        CellInfo *ci = cell.second;
+    for (auto &cell : cells) {
+        CellInfo *ci = cell.second.get();
         if (is_comb_cell(ci->type))
             assign_comb_info(ci);
         else if (ci->type == id_MISTRAL_FF)
