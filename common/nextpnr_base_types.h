@@ -30,6 +30,7 @@
 #include <boost/functional/hash.hpp>
 #include <string>
 
+#include "hashlib.h"
 #include "idstring.h"
 #include "nextpnr_namespaces.h"
 
