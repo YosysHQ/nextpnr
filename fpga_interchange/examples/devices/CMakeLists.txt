@@ -8,3 +8,4 @@ add_subdirectory(xc7z010)
 
 # Nexus devices
 add_subdirectory(LIFCL-17)
+add_subdirectory(LIFCL-40)

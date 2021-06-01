@@ -11,7 +11,7 @@ add_interchange_group_test(
 add_interchange_group_test(
     name counter
     family ${family}
-    board_list lifcl17
+    board_list lifcl17 lifcl40evn
     tcl run_nexus.tcl
     sources counter.v
     techmap ../../remap_nexus.v

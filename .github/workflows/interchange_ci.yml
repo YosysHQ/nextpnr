@@ -73,7 +73,7 @@ jobs:
       # debugging CI failures.
       fail-fast: false
       matrix:
-        device: [xc7a35t, xc7a100t, xc7a200t, xc7z010, LIFCL-17]
+        device: [xc7a35t, xc7a100t, xc7a200t, xc7z010, LIFCL-17, LIFCL-40]
     steps:
 
     - uses: actions/checkout@v2
@@ -115,7 +115,7 @@ jobs:
         RAPIDWRIGHT_PATH: ${{ github.workspace }}/RapidWright
         PYTHON_INTERCHANGE_PATH: ${{ github.workspace }}/python-fpga-interchange
         PYTHON_INTERCHANGE_TAG: v0.0.13
-        PRJOXIDE_REVISION: 7b3e4f85562d3b86a367e8d97d4314ebdee7647a
+        PRJOXIDE_REVISION: 82b23868d768dac9a5541331e3ddc4c4062627f7
         DEVICE: ${{ matrix.device }}
       run: |
         export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"

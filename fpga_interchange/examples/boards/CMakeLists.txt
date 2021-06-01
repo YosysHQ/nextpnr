@@ -40,3 +40,10 @@ add_board(
     device LIFCL-17
     package QFN72
 )
+
+add_board(
+    name lifcl40evn
+    device_family nexus
+    device LIFCL-40
+    package CABGA400
+)
