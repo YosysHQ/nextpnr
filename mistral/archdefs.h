@@ -98,7 +98,7 @@ struct WireId
     bool is_nextpnr_created() const
     {
         NPNR_ASSERT(node != invalid_rnode);
-        return CycloneV::rn2t(node) >= 128;
+        return unsigned(CycloneV::rn2t(node)) >= 128;
     }
 
     bool operator==(const WireId &other) const { return node == other.node; }

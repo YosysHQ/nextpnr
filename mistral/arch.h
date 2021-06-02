@@ -289,7 +289,7 @@ struct Arch : BaseArch<ArchRanges>
     mistral::CycloneV *cyclonev;
 
     Arch(ArchArgs args);
-    ArchArgs archArgs() const { return args; }
+    ArchArgs archArgs() const override { return args; }
 
     std::string getChipName() const override { return args.device; }
     // -------------------------------------------------
