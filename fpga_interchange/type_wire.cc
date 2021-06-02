@@ -54,10 +54,9 @@ TypeWireSet::TypeWireSet(const Context *ctx, WireId wire)
 
     std::sort(wire_types_.begin(), wire_types_.end());
 
-    hash_ = 0;
-    boost::hash_combine(hash_, std::hash<size_t>()(wire_types_.size()));
+    hash_ = wire_types_.size();
     for (const auto &wire : wire_types_) {
-        boost::hash_combine(hash_, std::hash<NEXTPNR_NAMESPACE_PREFIX TypeWireId>()(wire));
+        hash_ = mkhash(hash_, wire.hash());
     }
 }
 

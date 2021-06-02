@@ -400,10 +400,10 @@ struct Arch : BaseArch<ArchRanges>
     const ChipInfoPOD *chip_info;
     const PackageInfoPOD *package_info;
 
-    mutable std::unordered_map<IdStringList, int> bel_by_name;
-    mutable std::unordered_map<IdStringList, int> wire_by_name;
-    mutable std::unordered_map<IdStringList, int> pip_by_name;
-    mutable std::unordered_map<Loc, int> bel_by_loc;
+    mutable dict<IdStringList, int> bel_by_name;
+    mutable dict<IdStringList, int> wire_by_name;
+    mutable dict<IdStringList, int> pip_by_name;
+    mutable dict<Loc, int> bel_by_loc;
 
     std::vector<bool> bel_carry;
     std::vector<CellInfo *> bel_to_cell;
@@ -414,7 +414,7 @@ struct Arch : BaseArch<ArchRanges>
     // fast access to  X and Y IdStrings for building object names
     std::vector<IdString> x_ids, y_ids;
     // inverse of the above for name->object mapping
-    std::unordered_map<IdString, int> id_to_x, id_to_y;
+    dict<IdString, int> id_to_x, id_to_y;
 
     ArchArgs args;
     Arch(ArchArgs args);

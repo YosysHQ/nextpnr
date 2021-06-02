@@ -669,8 +669,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
         }
     }
     // Find bank voltages
-    std::unordered_map<int, IOVoltage> bankVcc;
-    std::unordered_map<int, bool> bankLvds, bankVref, bankDiff;
+    dict<int, IOVoltage> bankVcc;
+    dict<int, bool> bankLvds, bankVref, bankDiff;
 
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();

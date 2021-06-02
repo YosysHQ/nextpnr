@@ -72,7 +72,7 @@ class Ecp5GlobalRouter
 
     std::vector<NetInfo *> get_clocks()
     {
-        std::unordered_map<IdString, int> clockCount;
+        dict<IdString, int> clockCount;
         for (auto &net : ctx->nets) {
             NetInfo *ni = net.second.get();
             if (ni->name == ctx->id("$PACKER_GND_NET") || ni->name == ctx->id("$PACKER_VCC_NET"))
@@ -147,7 +147,7 @@ class Ecp5GlobalRouter
         WireId globalWire;
         IdString global_name = ctx->id(fmt_str("G_HPBX" << std::setw(2) << std::setfill('0') << global_index << "00"));
         std::queue<WireId> upstream;
-        std::unordered_map<WireId, PipId> backtrace;
+        dict<WireId, PipId> backtrace;
         upstream.push(userWire);
         bool already_routed = false;
         WireId next;
@@ -230,7 +230,7 @@ class Ecp5GlobalRouter
     bool simple_router(NetInfo *net, WireId src, WireId dst, bool allow_fail = false)
     {
         std::queue<WireId> visit;
-        std::unordered_map<WireId, PipId> backtrace;
+        dict<WireId, PipId> backtrace;
         visit.push(src);
         WireId cursor;
         while (true) {
@@ -340,7 +340,7 @@ class Ecp5GlobalRouter
     bool has_short_route(WireId src, WireId dst, int thresh = 7)
     {
         std::queue<WireId> visit;
-        std::unordered_map<WireId, PipId> backtrace;
+        dict<WireId, PipId> backtrace;
         visit.push(src);
         WireId cursor;
         while (true) {
@@ -376,7 +376,7 @@ class Ecp5GlobalRouter
         return length < thresh;
     }
 
-    std::unordered_set<WireId> used_pclkcib;
+    pool<WireId> used_pclkcib;
 
     std::set<WireId> get_candidate_pclkcibs(BelId dcc)
     {
@@ -535,7 +535,7 @@ class Ecp5GlobalRouter
                 fab_globals.insert(i);
         }
         std::vector<std::pair<PortRef *, int>> toroute;
-        std::unordered_map<int, NetInfo *> clocks;
+        dict<int, NetInfo *> clocks;
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
             if (ci->type == id_DCCA) {
@@ -595,7 +595,7 @@ class Ecp5GlobalRouter
                     WireId src = ctx->getNetinfoSourceWire(ni);
                     WireId dst = ctx->getBelPinWire(ci->bel, pin);
                     std::queue<WireId> visit;
-                    std::unordered_map<WireId, PipId> backtrace;
+                    dict<WireId, PipId> backtrace;
                     visit.push(dst);
                     int iter = 0;
                     WireId cursor;

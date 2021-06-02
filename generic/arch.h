@@ -80,7 +80,7 @@ struct BelInfo
     IdString type;
     std::map<IdString, std::string> attrs;
     CellInfo *bound_cell;
-    std::unordered_map<IdString, PinInfo> pins;
+    dict<IdString, PinInfo> pins;
     DecalXY decalxy;
     int x, y, z;
     bool gb;
@@ -101,27 +101,14 @@ struct CellDelayKey
 {
     IdString from, to;
     inline bool operator==(const CellDelayKey &other) const { return from == other.from && to == other.to; }
+    unsigned int hash() const { return mkhash(from.hash(), to.hash()); }
 };
-
-NEXTPNR_NAMESPACE_END
-namespace std {
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX CellDelayKey>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX CellDelayKey &dk) const noexcept
-    {
-        std::size_t seed = std::hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(dk.from);
-        seed ^= std::hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(dk.to) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-        return seed;
-    }
-};
-} // namespace std
-NEXTPNR_NAMESPACE_BEGIN
 
 struct CellTiming
 {
-    std::unordered_map<IdString, TimingPortClass> portClasses;
-    std::unordered_map<CellDelayKey, DelayQuad> combDelays;
-    std::unordered_map<IdString, std::vector<TimingClockingInfo>> clockingInfo;
+    dict<IdString, TimingPortClass> portClasses;
+    dict<CellDelayKey, DelayQuad> combDelays;
+    dict<IdString, std::vector<TimingClockingInfo>> clockingInfo;
 };
 
 struct ArchRanges
@@ -160,10 +147,10 @@ struct Arch : ArchAPI<ArchRanges>
 {
     std::string chipName;
 
-    std::unordered_map<IdStringList, WireInfo> wires;
-    std::unordered_map<IdStringList, PipInfo> pips;
-    std::unordered_map<IdStringList, BelInfo> bels;
-    std::unordered_map<GroupId, GroupInfo> groups;
+    dict<IdStringList, WireInfo> wires;
+    dict<IdStringList, PipInfo> pips;
+    dict<IdStringList, BelInfo> bels;
+    dict<GroupId, GroupInfo> groups;
 
     // These functions include useful errors if not found
     WireInfo &wire_info(IdStringList wire);
@@ -172,16 +159,16 @@ struct Arch : ArchAPI<ArchRanges>
 
     std::vector<IdStringList> bel_ids, wire_ids, pip_ids;
 
-    std::unordered_map<Loc, BelId> bel_by_loc;
+    dict<Loc, BelId> bel_by_loc;
     std::vector<std::vector<std::vector<BelId>>> bels_by_tile;
 
-    std::unordered_map<DecalId, std::vector<GraphicElement>> decal_graphics;
+    dict<DecalId, std::vector<GraphicElement>> decal_graphics;
 
     int gridDimX, gridDimY;
     std::vector<std::vector<int>> tileBelDimZ;
     std::vector<std::vector<int>> tilePipDimZ;
 
-    std::unordered_map<IdString, CellTiming> cellTiming;
+    dict<IdString, CellTiming> cellTiming;
 
     void addWire(IdStringList name, IdString type, int x, int y);
     void addPip(IdStringList name, IdString type, IdStringList srcWire, IdStringList dstWire, delay_t delay, Loc loc);
@@ -318,7 +305,7 @@ struct Arch : ArchAPI<ArchRanges>
 
     std::vector<IdString> getCellTypes() const override
     {
-        std::unordered_set<IdString> cell_types;
+        pool<IdString> cell_types;
         for (auto bel : bels) {
             cell_types.insert(bel.second.type);
         }

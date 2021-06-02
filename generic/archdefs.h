@@ -20,8 +20,7 @@
 #ifndef GENERIC_ARCHDEFS_H
 #define GENERIC_ARCHDEFS_H
 
-#include <unordered_map>
-
+#include "hashlib.h"
 #include "idstringlist.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -52,7 +51,7 @@ struct ArchCellInfo
     // Only packing rule for slice type primitives is a single clock per tile
     const NetInfo *slice_clk;
     // Cell to bel pin mapping
-    std::unordered_map<IdString, std::vector<IdString>> bel_pins;
+    dict<IdString, std::vector<IdString>> bel_pins;
 };
 
 NEXTPNR_NAMESPACE_END

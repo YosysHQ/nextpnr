@@ -21,7 +21,6 @@
 
 #include "design_utils.h"
 #include "dynamic_bitarray.h"
-#include "hash_table.h"
 #include "log.h"
 #include "site_routing_cache.h"
 
@@ -53,7 +52,7 @@ bool check_initial_wires(const Context *ctx, SiteInformation *site_info)
 {
     // Propagate from BEL pins to first wire, checking for trivial routing
     // conflicts.
-    HashTables::HashMap<WireId, NetInfo *> wires;
+    dict<WireId, NetInfo *> wires;
 
     for (CellInfo *cell : site_info->cells_in_site) {
         BelId bel = cell->bel;
@@ -132,7 +131,7 @@ struct SiteExpansionLoop
 
     bool expand_result;
     SiteWire net_driver;
-    HashTables::HashSet<SiteWire> net_users;
+    pool<SiteWire> net_users;
 
     SiteRoutingSolution solution;
 
@@ -206,7 +205,7 @@ struct SiteExpansionLoop
 
         auto node = new_node(net->driver, SitePip(), /*parent=*/nullptr);
 
-        HashTables::HashSet<SiteWire> targets;
+        pool<SiteWire> targets;
         targets.insert(net->users.begin(), net->users.end());
 
         if (verbose_site_router(ctx)) {
@@ -722,7 +721,7 @@ static bool route_site(SiteArch *ctx, SiteRoutingCache *site_routing_cache, Rout
 
     // Create a flat sink list and map.
     std::vector<SiteWire> sinks;
-    HashTables::HashMap<SiteWire, size_t> sink_map;
+    dict<SiteWire, size_t> sink_map;
     size_t number_solutions = 0;
     for (const auto *expansion : expansions) {
         number_solutions += expansion->num_solutions();
@@ -963,8 +962,7 @@ static void apply_constant_routing(Context *ctx, const SiteArch &site_arch, NetI
     }
 }
 
-static void apply_routing(Context *ctx, const SiteArch &site_arch,
-                          HashTables::HashSet<std::pair<IdString, int32_t>, PairHash> &lut_thrus)
+static void apply_routing(Context *ctx, const SiteArch &site_arch, pool<std::pair<IdString, int32_t>> &lut_thrus)
 {
     IdString gnd_net_name(ctx->chip_info->constants->gnd_net_name);
     NetInfo *gnd_net = ctx->nets.at(gnd_net_name).get();
@@ -1019,8 +1017,7 @@ static void apply_routing(Context *ctx, const SiteArch &site_arch,
     }
 }
 
-static bool map_luts_in_site(const SiteInformation &site_info,
-                             HashTables::HashSet<std::pair<IdString, IdString>, PairHash> *blocked_wires)
+static bool map_luts_in_site(const SiteInformation &site_info, pool<std::pair<IdString, IdString>> *blocked_wires)
 {
     const Context *ctx = site_info.ctx;
     const std::vector<LutElement> &lut_elements = ctx->lut_elements.at(site_info.tile_type);
@@ -1048,7 +1045,7 @@ static bool map_luts_in_site(const SiteInformation &site_info,
             continue;
         }
 
-        HashTables::HashSet<const LutBel *> blocked_luts;
+        pool<const LutBel *, hash_ptr_ops> blocked_luts;
         if (!lut_mapper.remap_luts(ctx, &blocked_luts)) {
             return false;
         }
@@ -1062,8 +1059,7 @@ static bool map_luts_in_site(const SiteInformation &site_info,
 }
 
 // Block outputs of unavailable LUTs to prevent site router from using them.
-static void block_lut_outputs(SiteArch *site_arch,
-                              const HashTables::HashSet<std::pair<IdString, IdString>, PairHash> &blocked_wires)
+static void block_lut_outputs(SiteArch *site_arch, const pool<std::pair<IdString, IdString>> &blocked_wires)
 {
     const Context *ctx = site_arch->site_info->ctx;
     auto &tile_info = ctx->chip_info->tile_types[site_arch->site_info->tile_type];
@@ -1185,7 +1181,7 @@ bool SiteRouter::checkSiteRouting(const Context *ctx, const TileStatus &tile_sta
     }
 
     SiteInformation site_info(ctx, tile, site, cells_in_site);
-    HashTables::HashSet<std::pair<IdString, IdString>, PairHash> blocked_wires;
+    pool<std::pair<IdString, IdString>> blocked_wires;
     if (!map_luts_in_site(site_info, &blocked_wires)) {
         site_ok = false;
         return site_ok;
@@ -1263,7 +1259,7 @@ void SiteRouter::bindSiteRouting(Context *ctx)
     }
 
     SiteInformation site_info(ctx, tile, site, cells_in_site);
-    HashTables::HashSet<std::pair<IdString, IdString>, PairHash> blocked_wires;
+    pool<std::pair<IdString, IdString>> blocked_wires;
     NPNR_ASSERT(map_luts_in_site(site_info, &blocked_wires));
 
     SiteArch site_arch(&site_info);

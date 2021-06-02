@@ -496,7 +496,7 @@ void DedicatedInterconnect::find_dedicated_interconnect()
         }
     }
 
-    std::unordered_set<TileTypeBelPin> seen_pins;
+    pool<TileTypeBelPin> seen_pins;
     for (auto sink_pair : sinks) {
         for (auto src : sink_pair.second) {
             seen_pins.emplace(src.type_bel_pin);
@@ -558,7 +558,7 @@ void DedicatedInterconnect::expand_sink_bel(BelId sink_bel, IdString sink_pin, W
     nodes_to_expand.push_back(wire_node);
 
     Loc sink_loc = ctx->getBelLocation(sink_bel);
-    std::unordered_set<DeltaTileTypeBelPin> srcs;
+    pool<DeltaTileTypeBelPin> srcs;
 
     while (!nodes_to_expand.empty()) {
         WireNode node_to_expand = nodes_to_expand.back();
@@ -701,7 +701,7 @@ void DedicatedInterconnect::expand_source_bel(BelId src_bel, IdString src_pin, W
     nodes_to_expand.push_back(wire_node);
 
     Loc src_loc = ctx->getBelLocation(src_bel);
-    std::unordered_set<DeltaTileTypeBelPin> dsts;
+    pool<DeltaTileTypeBelPin> dsts;
 
     while (!nodes_to_expand.empty()) {
         WireNode node_to_expand = nodes_to_expand.back();

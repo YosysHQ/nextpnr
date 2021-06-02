@@ -67,7 +67,7 @@ static int route_global_arc(Context *ctx, NetInfo *net, size_t usr_idx, size_t p
     WireId startpoint;
     GlobalVist best_visit;
     std::queue<WireId> visit_queue;
-    std::unordered_map<WireId, GlobalVist> visits;
+    dict<WireId, GlobalVist> visits;
 
     visit_queue.push(dest);
     visits[dest].downhill = PipId();

@@ -916,7 +916,7 @@ struct Arch : BaseArch<ArchRanges>
     // fast access to  X and Y IdStrings for building object names
     std::vector<IdString> x_ids, y_ids;
     // inverse of the above for name->object mapping
-    std::unordered_map<IdString, int> id_to_x, id_to_y;
+    dict<IdString, int> id_to_x, id_to_y;
 
     // -------------------------------------------------
 
@@ -1181,7 +1181,7 @@ struct Arch : BaseArch<ArchRanges>
 
     // for better DSP bounding boxes
     void pre_routing();
-    std::unordered_set<WireId> dsp_wires, lram_wires;
+    pool<WireId> dsp_wires, lram_wires;
 
     // -------------------------------------------------
 
@@ -1271,9 +1271,9 @@ struct Arch : BaseArch<ArchRanges>
 
     // -------------------------------------------------
 
-    typedef std::unordered_map<IdString, CellPinStyle> CellPinsData;
+    typedef dict<IdString, CellPinStyle> CellPinsData;
 
-    std::unordered_map<IdString, CellPinsData> cell_pins_db;
+    dict<IdString, CellPinsData> cell_pins_db;
     CellPinStyle get_cell_pin_style(const CellInfo *cell, IdString port) const;
 
     void init_cell_pin_data();
@@ -1361,7 +1361,7 @@ struct Arch : BaseArch<ArchRanges>
 
     // -------------------------------------------------
     // Data about different IO standard, mostly used by bitgen
-    static const std::unordered_map<std::string, IOTypeData> io_types;
+    static const dict<std::string, IOTypeData> io_types;
     int get_io_type_vcc(const std::string &io_type) const;
     bool is_io_type_diff(const std::string &io_type) const;
     bool is_io_type_ref(const std::string &io_type) const;
@@ -1388,7 +1388,7 @@ struct Arch : BaseArch<ArchRanges>
     // -------------------------------------------------
 
     // List of IO constraints, used by PDC parser
-    std::unordered_map<IdString, std::unordered_map<IdString, Property>> io_attr;
+    dict<IdString, dict<IdString, Property>> io_attr;
 
     void read_pdc(std::istream &in);
 

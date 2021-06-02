@@ -103,14 +103,14 @@ struct Arch : ArchAPI<ArchRanges>
     // Guard initialization of "by_name" maps if accessed from multiple
     // threads on a "const Context *".
     mutable std::mutex by_name_mutex;
-    mutable std::unordered_map<IdString, int> tile_by_name;
-    mutable std::unordered_map<IdString, std::pair<int, int>> site_by_name;
+    mutable dict<IdString, int> tile_by_name;
+    mutable dict<IdString, std::pair<int, int>> site_by_name;
 
-    std::unordered_map<WireId, NetInfo *> wire_to_net;
-    std::unordered_map<PipId, NetInfo *> pip_to_net;
+    dict<WireId, NetInfo *> wire_to_net;
+    dict<PipId, NetInfo *> pip_to_net;
 
     DedicatedInterconnect dedicated_interconnect;
-    HashTables::HashMap<int32_t, TileStatus> tileStatus;
+    dict<int32_t, TileStatus> tileStatus;
     PseudoPipData pseudo_pip_data;
 
     ArchArgs args;
@@ -685,8 +685,8 @@ struct Arch : ArchAPI<ArchRanges>
 
     // -------------------------------------------------
 
-    void place_iobufs(WireId pad_wire, NetInfo *net, const std::unordered_set<CellInfo *> &tightly_attached_bels,
-                      std::unordered_set<CellInfo *> *placed_cells);
+    void place_iobufs(WireId pad_wire, NetInfo *net, const pool<CellInfo *, hash_ptr_ops> &tightly_attached_bels,
+                      pool<CellInfo *, hash_ptr_ops> *placed_cells);
     void pack_ports();
     void decode_lut_cells();
 
@@ -858,7 +858,7 @@ struct Arch : ArchAPI<ArchRanges>
 
     IdString get_bel_tiletype(BelId bel) const { return IdString(loc_info(chip_info, bel).name); }
 
-    std::unordered_map<WireId, Loc> sink_locs, source_locs;
+    dict<WireId, Loc> sink_locs, source_locs;
     // -------------------------------------------------
     void assignArchInfo() final {}
 
@@ -875,8 +875,8 @@ struct Arch : ArchAPI<ArchRanges>
     void write_physical_netlist(const std::string &filename) const;
     void parse_xdc(const std::string &filename);
 
-    std::unordered_set<IdString> io_port_types;
-    std::unordered_set<BelId> pads;
+    pool<IdString> io_port_types;
+    pool<BelId> pads;
 
     bool is_site_port(PipId pip) const
     {
@@ -1083,7 +1083,7 @@ struct Arch : ArchAPI<ArchRanges>
     IdString gnd_cell_pin;
     IdString vcc_cell_pin;
     std::vector<std::vector<LutElement>> lut_elements;
-    std::unordered_map<IdString, const LutCellPOD *> lut_cells;
+    dict<IdString, const LutCellPOD *> lut_cells;
 
     // Of the LUT cells, which is used for wires?
     // Note: May be null in arch's without wire LUT types.  Assumption is

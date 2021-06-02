@@ -21,7 +21,6 @@
 #define NEXUS_ARCHDEFS_H
 
 #include <boost/functional/hash.hpp>
-#include <unordered_map>
 
 #include "base_clusterinfo.h"
 #include "hashlib.h"
@@ -184,7 +183,7 @@ struct ArchCellInfo : BaseClusterInfo
 
     int tmg_index = -1;
     // Map from cell/bel ports to logical timing ports
-    std::unordered_map<IdString, IdString> tmg_portmap;
+    dict<IdString, IdString> tmg_portmap;
 };
 
 NEXTPNR_NAMESPACE_END

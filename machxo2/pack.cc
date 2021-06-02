@@ -20,7 +20,6 @@
 
 #include <algorithm>
 #include <iterator>
-#include <unordered_set>
 #include "cells.h"
 #include "design_utils.h"
 #include "log.h"
@@ -33,7 +32,7 @@ static void pack_lut_lutffs(Context *ctx)
 {
     log_info("Packing LUT-FFs..\n");
 
-    std::unordered_set<IdString> packed_cells;
+    pool<IdString> packed_cells;
     std::vector<std::unique_ptr<CellInfo>> new_cells;
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
@@ -91,7 +90,7 @@ static void pack_remaining_ffs(Context *ctx)
 {
     log_info("Packing remaining FFs..\n");
 
-    std::unordered_set<IdString> packed_cells;
+    pool<IdString> packed_cells;
     std::vector<std::unique_ptr<CellInfo>> new_cells;
 
     for (auto &cell : ctx->cells) {
@@ -130,7 +129,7 @@ static void set_net_constant(Context *ctx, NetInfo *orig, NetInfo *constnet, boo
 {
     (void)constval;
 
-    std::unordered_set<IdString> packed_cells;
+    pool<IdString> packed_cells;
     std::vector<std::unique_ptr<CellInfo>> new_cells;
 
     orig->driver.cell = nullptr;
@@ -233,7 +232,7 @@ static bool is_facade_iob(const Context *ctx, const CellInfo *cell) { return cel
 // attributes.
 static void pack_io(Context *ctx)
 {
-    std::unordered_set<IdString> packed_cells;
+    pool<IdString> packed_cells;
 
     log_info("Packing IOs..\n");
 

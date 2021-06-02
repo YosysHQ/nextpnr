@@ -19,7 +19,6 @@
 
 #include <algorithm>
 #include <iterator>
-#include <unordered_set>
 #include "cells.h"
 #include "design_utils.h"
 #include "log.h"
@@ -32,7 +31,7 @@ static void pack_lut_lutffs(Context *ctx)
 {
     log_info("Packing LUT-FFs..\n");
 
-    std::unordered_set<IdString> packed_cells;
+    pool<IdString> packed_cells;
     std::vector<std::unique_ptr<CellInfo>> new_cells;
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
@@ -89,7 +88,7 @@ static void pack_nonlut_ffs(Context *ctx)
 {
     log_info("Packing non-LUT FFs..\n");
 
-    std::unordered_set<IdString> packed_cells;
+    pool<IdString> packed_cells;
     std::vector<std::unique_ptr<CellInfo>> new_cells;
 
     for (auto &cell : ctx->cells) {
@@ -203,8 +202,8 @@ static bool is_generic_iob(const Context *ctx, const CellInfo *cell) { return ce
 // Pack IO buffers
 static void pack_io(Context *ctx)
 {
-    std::unordered_set<IdString> packed_cells;
-    std::unordered_set<IdString> delete_nets;
+    pool<IdString> packed_cells;
+    pool<IdString> delete_nets;
 
     std::vector<std::unique_ptr<CellInfo>> new_cells;
     log_info("Packing IOs..\n");

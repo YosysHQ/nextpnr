@@ -49,7 +49,7 @@ struct NexusGlobalRouter
         // Queue of wires to visit
         std::queue<WireId> visit;
         // Wire -> upstream pip
-        std::unordered_map<WireId, PipId> backtrace;
+        dict<WireId, PipId> backtrace;
 
         // Lookup source and destination wires
         WireId src = ctx->getNetinfoSourceWire(net);

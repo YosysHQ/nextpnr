@@ -175,6 +175,6 @@ void dff_to_lc(Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_lut)
     }
 }
 
-void nxio_to_iob(Context *ctx, CellInfo *nxio, CellInfo *iob, std::unordered_set<IdString> &todelete_cells) {}
+void nxio_to_iob(Context *ctx, CellInfo *nxio, CellInfo *iob, pool<IdString> &todelete_cells) {}
 
 NEXTPNR_NAMESPACE_END

@@ -21,7 +21,6 @@
 
 #include <algorithm>
 #include <iterator>
-#include <unordered_set>
 #include "cells.h"
 #include "chains.h"
 #include "design_utils.h"
@@ -35,7 +34,7 @@ static void pack_lut_lutffs(Context *ctx)
 {
     log_info("Packing LUT-FFs..\n");
     int lut_only = 0, lut_and_ff = 0;
-    std::unordered_set<IdString> packed_cells;
+    pool<IdString> packed_cells;
     std::vector<std::unique_ptr<CellInfo>> new_cells;
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
@@ -100,7 +99,7 @@ static void pack_nonlut_ffs(Context *ctx)
 {
     log_info("Packing non-LUT FFs..\n");
 
-    std::unordered_set<IdString> packed_cells;
+    pool<IdString> packed_cells;
     std::vector<std::unique_ptr<CellInfo>> new_cells;
     int ff_only = 0;
 
@@ -144,8 +143,8 @@ static bool net_is_constant(const Context *ctx, NetInfo *net, bool &value)
 static void pack_carries(Context *ctx)
 {
     log_info("Packing carries..\n");
-    std::unordered_set<IdString> exhausted_cells;
-    std::unordered_set<IdString> packed_cells;
+    pool<IdString> exhausted_cells;
+    pool<IdString> packed_cells;
     std::vector<std::unique_ptr<CellInfo>> new_cells;
     int carry_only = 0;
 
@@ -274,7 +273,7 @@ static void pack_ram(Context *ctx)
 {
     log_info("Packing RAMs..\n");
 
-    std::unordered_set<IdString> packed_cells;
+    pool<IdString> packed_cells;
     std::vector<std::unique_ptr<CellInfo>> new_cells;
 
     for (auto &cell : ctx->cells) {
@@ -466,8 +465,8 @@ static bool is_ice_iob(const Context *ctx, const CellInfo *cell)
 // Pack IO buffers
 static void pack_io(Context *ctx)
 {
-    std::unordered_set<IdString> packed_cells;
-    std::unordered_set<IdString> delete_nets;
+    pool<IdString> packed_cells;
+    pool<IdString> delete_nets;
     std::vector<std::unique_ptr<CellInfo>> new_cells;
     log_info("Packing IOs..\n");
 
@@ -1119,7 +1118,7 @@ static void pack_special(Context *ctx)
 {
     log_info("Packing special functions..\n");
 
-    std::unordered_set<IdString> packed_cells;
+    pool<IdString> packed_cells;
     std::vector<std::unique_ptr<CellInfo>> new_cells;
 
     // Handle LED_DRV_CUR first to set the ledCurConnected flag before RGB_DRV is handled below.
@@ -1299,7 +1298,7 @@ void pack_plls(Context *ctx)
 {
     log_info("Packing PLLs..\n");
 
-    std::unordered_set<IdString> packed_cells;
+    pool<IdString> packed_cells;
     std::vector<std::unique_ptr<CellInfo>> new_cells;
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();

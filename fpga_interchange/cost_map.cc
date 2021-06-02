@@ -121,7 +121,7 @@ delay_t CostMap::get_delay(const Context *ctx, WireId src_wire, WireId dst_wire)
 }
 
 void CostMap::set_cost_map(const Context *ctx, const TypeWirePair &wire_pair,
-                           const HashTables::HashMap<std::pair<int32_t, int32_t>, delay_t, PairHash> &delays)
+                           const dict<std::pair<int32_t, int32_t>, delay_t> &delays)
 {
     CostMapEntry delay_matrix;
 

@@ -24,7 +24,6 @@
 #include <tuple>
 
 #include "dynamic_bitarray.h"
-#include "hash_table.h"
 #include "nextpnr_namespaces.h"
 #include "nextpnr_types.h"
 #include "site_router.h"
@@ -58,27 +57,9 @@ struct LogicBelKey
     bool operator==(const LogicBelKey &other) const { return make_tuple() == other.make_tuple(); }
 
     bool operator<(const LogicBelKey &other) const { return make_tuple() < other.make_tuple(); }
+
+    unsigned int hash() const { return mkhash(mkhash(tile_type, pip_index), site); }
 };
-
-NEXTPNR_NAMESPACE_END
-
-namespace std {
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX LogicBelKey>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX LogicBelKey &key) const noexcept
-    {
-        std::size_t seed = 0;
-        boost::hash_combine(seed, hash<int32_t>()(key.tile_type));
-        boost::hash_combine(seed, hash<int32_t>()(key.pip_index));
-        boost::hash_combine(seed, hash<int32_t>()(key.site));
-
-        return seed;
-    }
-};
-
-}; // namespace std
-
-NEXTPNR_NAMESPACE_BEGIN
 
 // Storage for tile type generic pseudo pip data and lookup.
 struct PseudoPipData
@@ -97,9 +78,9 @@ struct PseudoPipData
     // This does **not** include site ports or site pips.
     const std::vector<PseudoPipBel> &get_logic_bels_for_pip(const Context *ctx, int32_t site, PipId pip) const;
 
-    HashTables::HashMap<int32_t, size_t> max_pseudo_pip_for_tile_type;
-    HashTables::HashMap<std::pair<int32_t, int32_t>, std::vector<size_t>, PairHash> possibles_sites_for_pip;
-    HashTables::HashMap<LogicBelKey, std::vector<PseudoPipBel>> logic_bels_for_pip;
+    dict<int32_t, size_t> max_pseudo_pip_for_tile_type;
+    dict<std::pair<int32_t, int32_t>, std::vector<size_t>> possibles_sites_for_pip;
+    dict<LogicBelKey, std::vector<PseudoPipBel>> logic_bels_for_pip;
 };
 
 // Tile instance fast pseudo pip lookup.
@@ -107,9 +88,9 @@ struct PseudoPipModel
 {
     int32_t tile;
     DynamicBitarray<> allowed_pseudo_pips;
-    HashTables::HashMap<int32_t, size_t> pseudo_pip_sites;
-    HashTables::HashMap<size_t, std::vector<int32_t>> site_to_pseudo_pips;
-    HashTables::HashSet<int32_t> active_pseudo_pips;
+    dict<int32_t, size_t> pseudo_pip_sites;
+    dict<size_t, std::vector<int32_t>> site_to_pseudo_pips;
+    pool<int32_t> active_pseudo_pips;
     std::vector<int32_t> scratch;
 
     // Call when a tile is initialized.

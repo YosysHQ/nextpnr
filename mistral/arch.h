@@ -85,7 +85,7 @@ struct BelInfo
     // For cases where we need to determine an original block index, due to multiple bels at the same tile this
     // might not be the same as the nextpnr z-coordinate
     int block_index;
-    std::unordered_map<IdString, PinInfo> pins;
+    dict<IdString, PinInfo> pins;
     // Info for different kinds of bels
     union
     {
@@ -153,7 +153,7 @@ struct UpDownhillPipRange
     UpDownhillPipIterator b, e;
 
     UpDownhillPipRange(const std::vector<WireId> &v, WireId other_wire, bool is_uphill)
-            : b(v.cbegin(), other_wire, is_uphill), e(v.cend(), other_wire, is_uphill){};
+            : b(v.begin(), other_wire, is_uphill), e(v.end(), other_wire, is_uphill){};
 
     UpDownhillPipIterator begin() const { return b; }
     UpDownhillPipIterator end() const { return e; }
@@ -161,7 +161,7 @@ struct UpDownhillPipRange
 
 // This iterates over the list of wires, and for each wire yields its uphill pips, as an efficient way of going over
 // all the pips in the device
-using WireMapIterator = std::unordered_map<WireId, WireInfo>::const_iterator;
+using WireMapIterator = dict<WireId, WireInfo>::const_iterator;
 struct AllPipIterator
 {
     WireMapIterator base, end;
@@ -196,8 +196,7 @@ struct AllPipRange
 {
     AllPipIterator b, e;
 
-    AllPipRange(const std::unordered_map<WireId, WireInfo> &wires)
-            : b(wires.cbegin(), wires.cend(), -1), e(wires.cend(), wires.cend(), 0)
+    AllPipRange(const dict<WireId, WireInfo> &wires) : b(wires.begin(), wires.end(), -1), e(wires.end(), wires.end(), 0)
     {
         // Starting the begin iterator at index -1 and incrementing it ensures we skip over the first wire if it has no
         // uphill pips
@@ -211,7 +210,7 @@ struct AllPipRange
 // This transforms a map to a range of keys, used as the wire iterator
 template <typename T> struct key_range
 {
-    key_range(const T &t) : b(t.cbegin()), e(t.cend()){};
+    key_range(const T &t) : b(t.begin()), e(t.end()){};
     typename T::const_iterator b, e;
 
     struct xformed_iterator : public T::const_iterator
@@ -224,7 +223,7 @@ template <typename T> struct key_range
     xformed_iterator end() const { return xformed_iterator(e); }
 };
 
-using AllWireRange = key_range<std::unordered_map<WireId, WireInfo>>;
+using AllWireRange = key_range<dict<WireId, WireInfo>>;
 
 struct ArchRanges : BaseArchRanges
 {
@@ -489,7 +488,7 @@ struct Arch : BaseArch<ArchRanges>
     static const std::string defaultRouter;
     static const std::vector<std::string> availableRouters;
 
-    std::unordered_map<WireId, WireInfo> wires;
+    dict<WireId, WireInfo> wires;
 
     // List of LABs
     std::vector<LABInfo> labs;
@@ -499,13 +498,13 @@ struct Arch : BaseArch<ArchRanges>
 
     // Conversion between numbers and rnode types and IdString, for fast wire name implementation
     std::vector<IdString> int2id;
-    std::unordered_map<IdString, int> id2int;
+    dict<IdString, int> id2int;
 
     std::vector<IdString> rn_t2id;
-    std::unordered_map<IdString, CycloneV::rnode_type_t> id2rn_t;
+    dict<IdString, CycloneV::rnode_type_t> id2rn_t;
 
     // This structure is only used for nextpnr-created wires
-    std::unordered_map<IdStringList, WireId> npnr_wirebyname;
+    dict<IdStringList, WireId> npnr_wirebyname;
 
     std::vector<std::vector<BelInfo>> bels_by_tile;
     std::vector<BelId> all_bels;
@@ -525,18 +524,18 @@ struct Arch : BaseArch<ArchRanges>
     // -------------------------------------------------
 
     void assign_default_pinmap(CellInfo *cell);
-    static const std::unordered_map<IdString, IdString> comb_pinmap;
+    static const dict<IdString, IdString> comb_pinmap;
 
     // -------------------------------------------------
 
-    typedef std::unordered_map<IdString, CellPinStyle> CellPinsData;            // pins.cc
-    static const std::unordered_map<IdString, CellPinsData> cell_pins_db;       // pins.cc
+    typedef dict<IdString, CellPinStyle> CellPinsData;                          // pins.cc
+    static const dict<IdString, CellPinsData> cell_pins_db;                     // pins.cc
     CellPinStyle get_cell_pin_style(const CellInfo *cell, IdString port) const; // pins.cc
 
     // -------------------------------------------------
 
     // List of IO constraints, used by QSF parser
-    std::unordered_map<IdString, std::unordered_map<IdString, Property>> io_attr;
+    dict<IdString, dict<IdString, Property>> io_attr;
     void read_qsf(std::istream &in); // qsf.cc
 
     // -------------------------------------------------

@@ -70,7 +70,7 @@ void SiteRoutingSolution::store_solution(const SiteArch *ctx, const RouteNodeSto
 
 void SiteRoutingSolution::verify(const SiteArch *ctx, const SiteNetInfo &net)
 {
-    HashTables::HashSet<SiteWire> seen_users;
+    pool<SiteWire> seen_users;
     for (size_t i = 0; i < num_solutions(); ++i) {
         SiteWire cursor = solution_sink(i);
         NPNR_ASSERT(net.users.count(cursor) == 1);

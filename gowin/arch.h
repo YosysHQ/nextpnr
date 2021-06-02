@@ -209,7 +209,7 @@ struct BelInfo
     IdString name, type;
     std::map<IdString, std::string> attrs;
     CellInfo *bound_cell;
-    std::unordered_map<IdString, PinInfo> pins;
+    dict<IdString, PinInfo> pins;
     DecalXY decalxy;
     int x, y, z;
     bool gb;
@@ -229,27 +229,14 @@ struct CellDelayKey
 {
     IdString from, to;
     inline bool operator==(const CellDelayKey &other) const { return from == other.from && to == other.to; }
+    unsigned int hash() const { return mkhash(from.hash(), to.hash()); }
 };
-
-NEXTPNR_NAMESPACE_END
-namespace std {
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX CellDelayKey>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX CellDelayKey &dk) const noexcept
-    {
-        std::size_t seed = std::hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(dk.from);
-        seed ^= std::hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(dk.to) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-        return seed;
-    }
-};
-} // namespace std
-NEXTPNR_NAMESPACE_BEGIN
 
 struct CellTiming
 {
-    std::unordered_map<IdString, TimingPortClass> portClasses;
-    std::unordered_map<CellDelayKey, DelayQuad> combDelays;
-    std::unordered_map<IdString, std::vector<TimingClockingInfo>> clockingInfo;
+    dict<IdString, TimingPortClass> portClasses;
+    dict<CellDelayKey, DelayQuad> combDelays;
+    dict<IdString, std::vector<TimingClockingInfo>> clockingInfo;
 };
 
 struct ArchRanges : BaseArchRanges
@@ -287,10 +274,10 @@ struct Arch : BaseArch<ArchRanges>
     const PackagePOD *package;
     const TimingGroupsPOD *speed;
 
-    std::unordered_map<IdString, WireInfo> wires;
-    std::unordered_map<IdString, PipInfo> pips;
-    std::unordered_map<IdString, BelInfo> bels;
-    std::unordered_map<GroupId, GroupInfo> groups;
+    dict<IdString, WireInfo> wires;
+    dict<IdString, PipInfo> pips;
+    dict<IdString, BelInfo> bels;
+    dict<GroupId, GroupInfo> groups;
 
     // These functions include useful errors if not found
     WireInfo &wire_info(IdString wire);
@@ -299,16 +286,16 @@ struct Arch : BaseArch<ArchRanges>
 
     std::vector<IdString> bel_ids, wire_ids, pip_ids;
 
-    std::unordered_map<Loc, BelId> bel_by_loc;
+    dict<Loc, BelId> bel_by_loc;
     std::vector<std::vector<std::vector<BelId>>> bels_by_tile;
 
-    std::unordered_map<DecalId, std::vector<GraphicElement>> decal_graphics;
+    dict<DecalId, std::vector<GraphicElement>> decal_graphics;
 
     int gridDimX, gridDimY;
     std::vector<std::vector<int>> tileBelDimZ;
     std::vector<std::vector<int>> tilePipDimZ;
 
-    std::unordered_map<IdString, CellTiming> cellTiming;
+    dict<IdString, CellTiming> cellTiming;
 
     void addWire(IdString name, IdString type, int x, int y);
     void addPip(IdString name, IdString type, IdString srcWire, IdString dstWire, DelayQuad delay, Loc loc);

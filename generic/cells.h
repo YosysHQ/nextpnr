@@ -48,7 +48,7 @@ void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff = tr
 void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_lut = false);
 
 // Convert a nextpnr IO buffer to a GENERIC_IOB
-void nxio_to_iob(Context *ctx, CellInfo *nxio, CellInfo *sbio, std::unordered_set<IdString> &todelete_cells);
+void nxio_to_iob(Context *ctx, CellInfo *nxio, CellInfo *sbio, pool<IdString> &todelete_cells);
 
 NEXTPNR_NAMESPACE_END
 

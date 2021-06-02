@@ -64,9 +64,9 @@ struct PipAndCost
     int32_t depth;
 };
 
-static void expand_input(const Context *ctx, WireId input_wire, HashTables::HashMap<TypeWireId, delay_t> *input_costs)
+static void expand_input(const Context *ctx, WireId input_wire, dict<TypeWireId, delay_t> *input_costs)
 {
-    HashTables::HashSet<WireId> seen;
+    pool<WireId> seen;
     std::priority_queue<RoutingNode> to_expand;
 
     RoutingNode initial;
@@ -120,9 +120,8 @@ static void expand_input(const Context *ctx, WireId input_wire, HashTables::Hash
     }
 }
 
-static void update_site_to_site_costs(const Context *ctx, WireId first_wire,
-                                      const HashTables::HashMap<WireId, PipAndCost> &best_path,
-                                      HashTables::HashMap<TypeWirePair, delay_t> *site_to_site_cost)
+static void update_site_to_site_costs(const Context *ctx, WireId first_wire, const dict<WireId, PipAndCost> &best_path,
+                                      dict<TypeWirePair, delay_t> *site_to_site_cost)
 {
     for (auto &best_pair : best_path) {
         WireId last_wire = best_pair.first;
@@ -161,9 +160,9 @@ static void update_site_to_site_costs(const Context *ctx, WireId first_wire,
 }
 
 static void expand_output(const Context *ctx, WireId output_wire, Lookahead::OutputSiteWireCost *output_cost,
-                          HashTables::HashMap<TypeWirePair, delay_t> *site_to_site_cost)
+                          dict<TypeWirePair, delay_t> *site_to_site_cost)
 {
-    HashTables::HashSet<WireId> seen;
+    pool<WireId> seen;
     std::priority_queue<RoutingNode> to_expand;
 
     RoutingNode initial;
@@ -172,7 +171,7 @@ static void expand_output(const Context *ctx, WireId output_wire, Lookahead::Out
 
     to_expand.push(initial);
 
-    HashTables::HashMap<WireId, PipAndCost> best_path;
+    dict<WireId, PipAndCost> best_path;
 
     while (!to_expand.empty()) {
         RoutingNode node = to_expand.top();
@@ -228,7 +227,7 @@ static void expand_output(const Context *ctx, WireId output_wire, Lookahead::Out
 static void expand_input_type(const Context *ctx, DeterministicRNG *rng, const Sampler &tiles_of_type,
                               TypeWireId input_wire, std::vector<Lookahead::InputSiteWireCost> *input_costs)
 {
-    HashTables::HashMap<TypeWireId, delay_t> input_costs_map;
+    dict<TypeWireId, delay_t> input_costs_map;
     for (size_t region = 0; region < tiles_of_type.number_of_regions(); ++region) {
         size_t tile = tiles_of_type.get_sample_from_region(region, [rng]() -> int32_t { return rng->rng(); });
 
@@ -250,7 +249,7 @@ static void expand_input_type(const Context *ctx, DeterministicRNG *rng, const S
 
 struct DelayStorage
 {
-    HashTables::HashMap<TypeWirePair, HashTables::HashMap<std::pair<int32_t, int32_t>, delay_t, PairHash>> storage;
+    dict<TypeWirePair, dict<std::pair<int32_t, int32_t>, delay_t>> storage;
     int32_t max_explore_depth;
 };
 
@@ -290,7 +289,7 @@ static void update_results(const Context *ctx, const FlatWireMap<PipAndCost> &be
     // Starting from end of result, walk backwards and record the path into
     // the delay storage.
     WireId cursor = sink_wire;
-    HashTables::HashSet<WireId> seen;
+    pool<WireId> seen;
     while (cursor != src_wire) {
         // No loops allowed in routing!
         auto result = seen.emplace(cursor);
@@ -335,7 +334,7 @@ static void update_results(const Context *ctx, const FlatWireMap<PipAndCost> &be
 static void expand_routing_graph_from_wire(const Context *ctx, WireId first_wire, FlatWireMap<PipAndCost> *best_path,
                                            DelayStorage *storage)
 {
-    HashTables::HashSet<WireId> seen;
+    pool<WireId> seen;
     std::priority_queue<RoutingNode> to_expand;
 
     int src_tile;
@@ -436,11 +435,10 @@ static bool has_multiple_outputs(const Context *ctx, WireId wire)
 }
 
 static void expand_routing_graph(const Context *ctx, DeterministicRNG *rng, const Sampler &tiles_of_type,
-                                 TypeWireId wire_type, HashTables::HashSet<TypeWireSet> *types_explored,
-                                 DelayStorage *storage, HashTables::HashSet<TypeWireId> *types_deferred,
-                                 FlatWireMap<PipAndCost> *best_path)
+                                 TypeWireId wire_type, pool<TypeWireSet> *types_explored, DelayStorage *storage,
+                                 pool<TypeWireId> *types_deferred, FlatWireMap<PipAndCost> *best_path)
 {
-    HashTables::HashSet<TypeWireSet> new_types_explored;
+    pool<TypeWireSet> new_types_explored;
 
     for (size_t region = 0; region < tiles_of_type.number_of_regions(); ++region) {
         size_t tile = tiles_of_type.get_sample_from_region(region, [rng]() -> int32_t { return rng->rng(); });
@@ -562,10 +560,10 @@ static WireId follow_pip_chain_up(const Context *ctx, WireId wire, delay_t *dela
 }
 
 static void expand_deferred_routing_graph(const Context *ctx, DeterministicRNG *rng, const Sampler &tiles_of_type,
-                                          TypeWireId wire_type, HashTables::HashSet<TypeWireSet> *types_explored,
+                                          TypeWireId wire_type, pool<TypeWireSet> *types_explored,
                                           DelayStorage *storage, FlatWireMap<PipAndCost> *best_path)
 {
-    HashTables::HashSet<TypeWireSet> new_types_explored;
+    pool<TypeWireSet> new_types_explored;
 
     for (size_t region = 0; region < tiles_of_type.number_of_regions(); ++region) {
         size_t tile = tiles_of_type.get_sample_from_region(region, [rng]() -> int32_t { return rng->rng(); });
@@ -603,7 +601,7 @@ static void expand_deferred_routing_graph(const Context *ctx, DeterministicRNG *
 
 static void expand_output_type(const Context *ctx, DeterministicRNG *rng, const Sampler &tiles_of_type,
                                TypeWireId output_wire, Lookahead::OutputSiteWireCost *output_cost,
-                               HashTables::HashMap<TypeWirePair, delay_t> *site_to_site_cost)
+                               dict<TypeWirePair, delay_t> *site_to_site_cost)
 {
     for (size_t region = 0; region < tiles_of_type.number_of_regions(); ++region) {
         size_t tile = tiles_of_type.get_sample_from_region(region, [rng]() -> int32_t { return rng->rng(); });
@@ -651,8 +649,8 @@ struct ExpandLocals
     DeterministicRNG *rng;
     FlatWireMap<PipAndCost> *best_path;
     DelayStorage *storage;
-    HashTables::HashSet<TypeWireSet> *explored;
-    HashTables::HashSet<TypeWireId> *deferred;
+    pool<TypeWireSet> *explored;
+    pool<TypeWireId> *deferred;
 
     virtual void lock() {}
     virtual void unlock() {}
@@ -698,8 +696,7 @@ static void expand_tile_type(const Context *ctx, int32_t tile_type, ExpandLocals
 static void expand_tile_type_serial(const Context *ctx, const std::vector<int32_t> &tile_types,
                                     const std::vector<Sampler> &tiles_of_type, DeterministicRNG *rng,
                                     FlatWireMap<PipAndCost> *best_path, DelayStorage *storage,
-                                    HashTables::HashSet<TypeWireSet> *explored,
-                                    HashTables::HashSet<TypeWireId> *deferred, HashTables::HashSet<int32_t> *tiles_left)
+                                    pool<TypeWireSet> *explored, pool<TypeWireId> *deferred, pool<int32_t> *tiles_left)
 {
 
     for (int32_t tile_type : tile_types) {
@@ -725,9 +722,9 @@ struct TbbExpandLocals : public ExpandLocals
     std::mutex *all_costs_mutex;
 
     DelayStorage *all_tiles_storage;
-    HashTables::HashSet<TypeWireSet> *types_explored;
-    HashTables::HashSet<TypeWireId> *types_deferred;
-    HashTables::HashSet<int32_t> *tiles_left;
+    pool<TypeWireSet> *types_explored;
+    pool<TypeWireId> *types_deferred;
+    pool<int32_t> *tiles_left;
 
     void lock() override { all_costs_mutex->lock(); }
 
@@ -785,16 +782,15 @@ struct TbbExpandLocals : public ExpandLocals
 // the data is joined with the global data.
 static void expand_tile_type_parallel(const Context *ctx, int32_t tile_type, const std::vector<Sampler> &tiles_of_type,
                                       DeterministicRNG *rng, std::mutex *all_costs_mutex,
-                                      DelayStorage *all_tiles_storage, HashTables::HashSet<TypeWireSet> *types_explored,
-                                      HashTables::HashSet<TypeWireId> *types_deferred,
-                                      HashTables::HashSet<int32_t> *tiles_left)
+                                      DelayStorage *all_tiles_storage, pool<TypeWireSet> *types_explored,
+                                      pool<TypeWireId> *types_deferred, pool<int32_t> *tiles_left)
 {
     TbbExpandLocals locals;
 
     DeterministicRNG rng_copy = *rng;
     FlatWireMap<PipAndCost> best_path(ctx);
-    HashTables::HashSet<TypeWireSet> explored;
-    HashTables::HashSet<TypeWireId> deferred;
+    pool<TypeWireSet> explored;
+    pool<TypeWireId> deferred;
     DelayStorage storage;
     storage.max_explore_depth = all_tiles_storage->max_explore_depth;
 
@@ -823,7 +819,7 @@ void Lookahead::build_lookahead(const Context *ctx, DeterministicRNG *rng)
         log_info("Building lookahead, first gathering input and output site wires\n");
     }
 
-    HashTables::HashSet<TypeWireId> input_site_ports;
+    pool<TypeWireId> input_site_ports;
     for (BelId bel : ctx->getBels()) {
         const auto &bel_data = bel_info(ctx->chip_info, bel);
 
@@ -917,15 +913,15 @@ void Lookahead::build_lookahead(const Context *ctx, DeterministicRNG *rng)
     all_tiles_storage.max_explore_depth = kInitialExploreDepth;
 
     // These are wire types that have been explored.
-    HashTables::HashSet<TypeWireSet> types_explored;
+    pool<TypeWireSet> types_explored;
 
     // These are wire types that have been deferred because they are trival
     // copies of another wire type.  These can be cheaply computed after the
     // graph has been explored.
-    HashTables::HashSet<TypeWireId> types_deferred;
+    pool<TypeWireId> types_deferred;
 
     std::vector<int32_t> tile_types;
-    HashTables::HashSet<int32_t> tiles_left;
+    pool<int32_t> tiles_left;
     tile_types.reserve(ctx->chip_info->tile_types.size());
     for (int32_t tile_type = 0; tile_type < ctx->chip_info->tile_types.ssize(); ++tile_type) {
         tile_types.push_back(tile_type);
@@ -994,16 +990,14 @@ void Lookahead::build_lookahead(const Context *ctx, DeterministicRNG *rng)
     }
 
 #if defined(NEXTPNR_USE_TBB) // Run parallely
-    tbb::parallel_for_each(
-            all_tiles_storage.storage,
-            [&](const std::pair<TypeWirePair, HashTables::HashMap<std::pair<int32_t, int32_t>, delay_t, PairHash>>
-                        &type_pair) {
+    tbb::parallel_for_each(all_tiles_storage.storage,
+                           [&](const std::pair<TypeWirePair, dict<std::pair<int32_t, int32_t>, delay_t>> &type_pair) {
 #else
     for (const auto &type_pair : all_tiles_storage.storage) {
 #endif
-                cost_map.set_cost_map(ctx, type_pair.first, type_pair.second);
+                               cost_map.set_cost_map(ctx, type_pair.first, type_pair.second);
 #if defined(NEXTPNR_USE_TBB) // Run parallely
-            });
+                           });
 #else
     }
 #endif

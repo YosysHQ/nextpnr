@@ -23,7 +23,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-const std::unordered_map<std::string, IOTypeData> Arch::io_types = {
+const dict<std::string, IOTypeData> Arch::io_types = {
         {"LVCMOS33", {IOSTYLE_SE_WR, 330}},      {"LVCMOS25", {IOSTYLE_SE_WR, 250}},
         {"LVCMOS18", {IOSTYLE_SE_WR, 180}},      {"LVCMOS15", {IOSTYLE_SE_WR, 150}},
         {"LVCMOS12", {IOSTYLE_SE_WR, 120}},      {"LVCMOS10", {IOSTYLE_SE_WR, 120}},

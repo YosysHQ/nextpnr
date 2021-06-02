@@ -21,7 +21,6 @@
 #include <boost/optional.hpp>
 #include <iterator>
 #include <queue>
-#include <unordered_set>
 #include "cells.h"
 #include "chain_utils.h"
 #include "design_utils.h"
@@ -261,7 +260,7 @@ class Ecp5Packer
     void pair_luts()
     {
         log_info("Finding LUT-LUT pairs...\n");
-        std::unordered_set<IdString> procdLuts;
+        pool<IdString> procdLuts;
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
             if (is_lut(ctx, ci) && procdLuts.find(cell.first) == procdLuts.end()) {
@@ -1134,7 +1133,7 @@ class Ecp5Packer
     // Used for packing an FF into a nearby SLICE
     template <typename TFunc> CellInfo *find_nearby_cell(CellInfo *origin, TFunc Func)
     {
-        std::unordered_set<CellInfo *> visited_cells;
+        pool<CellInfo *, hash_ptr_ops> visited_cells;
         std::queue<CellInfo *> to_visit;
         visited_cells.insert(origin);
         to_visit.push(origin);
@@ -1971,7 +1970,7 @@ class Ecp5Packer
         IdString global_name = ctx->id("G_BANK" + std::to_string(bank) + "ECLK" + std::to_string(found_eclk));
 
         std::queue<WireId> upstream;
-        std::unordered_map<WireId, PipId> backtrace;
+        dict<WireId, PipId> backtrace;
         upstream.push(userWire);
         WireId next;
         while (true) {
@@ -2026,7 +2025,7 @@ class Ecp5Packer
         new_cells.push_back(std::move(zero_cell));
     }
 
-    std::unordered_map<IdString, std::pair<bool, int>> dqsbuf_dqsg;
+    dict<IdString, std::pair<bool, int>> dqsbuf_dqsg;
     // Pack DQSBUFs
     void pack_dqsbuf()
     {
@@ -2119,7 +2118,7 @@ class Ecp5Packer
     // Pack IOLOGIC
     void pack_iologic()
     {
-        std::unordered_map<IdString, CellInfo *> pio_iologic;
+        dict<IdString, CellInfo *> pio_iologic;
 
         auto set_iologic_sclk = [&](CellInfo *iol, CellInfo *prim, IdString port, bool input, bool disconnect = true) {
             NetInfo *sclk = nullptr;
@@ -2779,7 +2778,7 @@ class Ecp5Packer
             }
         }
         flush_cells();
-        std::unordered_set<BelId> used_eclksyncb;
+        pool<BelId> used_eclksyncb;
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
             if (ci->type == id_CLKDIVF) {
@@ -2967,7 +2966,7 @@ class Ecp5Packer
 
         auto equals_epsilon = [](delay_t a, delay_t b) { return (std::abs(a - b) / std::max(double(b), 1.0)) < 1e-3; };
 
-        std::unordered_set<IdString> user_constrained, changed_nets;
+        pool<IdString> user_constrained, changed_nets;
         for (auto &net : ctx->nets) {
             if (net.second->clkconstr != nullptr)
                 user_constrained.insert(net.first);
@@ -3041,7 +3040,7 @@ class Ecp5Packer
         const int itermax = 5000;
         while (!changed_nets.empty() && iter < itermax) {
             ++iter;
-            std::unordered_set<IdString> changed_cells;
+            pool<IdString> changed_cells;
             for (auto net : changed_nets) {
                 for (auto &user : ctx->nets.at(net)->users)
                     if (user.port == id_CLKI || user.port == id_ECLKI || user.port == id_CLK0 || user.port == id_CLK1)
@@ -3051,7 +3050,7 @@ class Ecp5Packer
                     changed_cells.insert(drv.cell->name);
             }
             changed_nets.clear();
-            for (auto cell : sorted(changed_cells)) {
+            for (auto cell : changed_cells) {
                 CellInfo *ci = ctx->cells.at(cell).get();
                 if (ci->type == id_CLKDIVF) {
                     std::string div = str_or_default(ci->params, ctx->id("DIV"), "2.0");
@@ -3152,7 +3151,7 @@ class Ecp5Packer
   private:
     Context *ctx;
 
-    std::unordered_set<IdString> packed_cells;
+    pool<IdString> packed_cells;
     std::vector<std::unique_ptr<CellInfo>> new_cells;
 
     struct SliceUsage
@@ -3163,10 +3162,10 @@ class Ecp5Packer
         bool mux5_used = false, muxx_used = false;
     };
 
-    std::unordered_map<IdString, SliceUsage> sliceUsage;
-    std::unordered_map<IdString, IdString> lutffPairs;
-    std::unordered_map<IdString, IdString> fflutPairs;
-    std::unordered_map<IdString, IdString> lutPairs;
+    dict<IdString, SliceUsage> sliceUsage;
+    dict<IdString, IdString> lutffPairs;
+    dict<IdString, IdString> fflutPairs;
+    dict<IdString, IdString> lutPairs;
 };
 // Main pack function
 bool Arch::pack()

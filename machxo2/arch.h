@@ -403,12 +403,12 @@ struct Arch : BaseArch<ArchRanges>
     const ChipInfoPOD *chip_info;
     const PackageInfoPOD *package_info;
 
-    mutable std::unordered_map<IdStringList, PipId> pip_by_name;
+    mutable dict<IdStringList, PipId> pip_by_name;
 
     // fast access to  X and Y IdStrings for building object names
     std::vector<IdString> x_ids, y_ids;
     // inverse of the above for name->object mapping
-    std::unordered_map<IdString, int> id_to_x, id_to_y;
+    dict<IdString, int> id_to_x, id_to_y;
 
     // Helpers
     template <typename Id> const TileTypePOD *tile_info(Id &id) const

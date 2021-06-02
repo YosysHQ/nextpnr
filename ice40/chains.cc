@@ -253,7 +253,7 @@ class ChainConstrainer
                         return i3_next;
                     return (CellInfo *)nullptr;
                 });
-        std::unordered_set<IdString> chained;
+        pool<IdString> chained;
         for (auto &base_chain : carry_chains) {
             for (auto c : base_chain.cells)
                 chained.insert(c->name);

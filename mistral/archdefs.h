@@ -203,7 +203,7 @@ struct ArchCellInfo : BaseClusterInfo
         } ffInfo;
     };
 
-    std::unordered_map<IdString, ArchPinInfo> pin_data;
+    dict<IdString, ArchPinInfo> pin_data;
 
     CellPinState get_pin_state(IdString pin) const;
 };

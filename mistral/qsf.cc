@@ -34,7 +34,7 @@ struct QsfOption
     bool required;    // error out if this option isn't passed
 };
 
-typedef std::unordered_map<std::string, std::vector<std::string>> option_map_t;
+typedef dict<std::string, std::vector<std::string>> option_map_t;
 
 struct QsfCommand
 {

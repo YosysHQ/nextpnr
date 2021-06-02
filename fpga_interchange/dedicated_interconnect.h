@@ -23,9 +23,9 @@
 
 #include <boost/functional/hash.hpp>
 #include <cstdint>
-#include <unordered_map>
 
 #include "archdefs.h"
+#include "hashlib.h"
 #include "idstring.h"
 #include "nextpnr_namespaces.h"
 
@@ -58,6 +58,7 @@ struct TileTypeBelPin
     {
         return tile_type != other.tile_type || bel_index != other.bel_index || bel_pin != other.bel_pin;
     }
+    unsigned int hash() const { return mkhash(mkhash(tile_type, bel_index), bel_pin.hash()); }
 };
 
 struct DeltaTileTypeBelPin
@@ -74,35 +75,8 @@ struct DeltaTileTypeBelPin
     {
         return delta_x != other.delta_x || delta_y != other.delta_y || type_bel_pin != other.type_bel_pin;
     }
+    unsigned int hash() const { return mkhash(mkhash(delta_x, delta_y), type_bel_pin.hash()); }
 };
-
-NEXTPNR_NAMESPACE_END
-
-template <> struct std::hash<NEXTPNR_NAMESPACE_PREFIX TileTypeBelPin>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX TileTypeBelPin &type_bel_pin) const noexcept
-    {
-        std::size_t seed = 0;
-        boost::hash_combine(seed, std::hash<int32_t>()(type_bel_pin.tile_type));
-        boost::hash_combine(seed, std::hash<int32_t>()(type_bel_pin.bel_index));
-        boost::hash_combine(seed, std::hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(type_bel_pin.bel_pin));
-        return seed;
-    }
-};
-
-template <> struct std::hash<NEXTPNR_NAMESPACE_PREFIX DeltaTileTypeBelPin>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX DeltaTileTypeBelPin &delta_bel_pin) const noexcept
-    {
-        std::size_t seed = 0;
-        boost::hash_combine(seed, std::hash<int32_t>()(delta_bel_pin.delta_x));
-        boost::hash_combine(seed, std::hash<int32_t>()(delta_bel_pin.delta_y));
-        boost::hash_combine(seed, std::hash<NEXTPNR_NAMESPACE_PREFIX TileTypeBelPin>()(delta_bel_pin.type_bel_pin));
-        return seed;
-    }
-};
-
-NEXTPNR_NAMESPACE_BEGIN
 
 struct Context;
 
@@ -123,8 +97,8 @@ struct DedicatedInterconnect
 {
     const Context *ctx;
 
-    std::unordered_map<TileTypeBelPin, std::unordered_set<DeltaTileTypeBelPin>> sinks;
-    std::unordered_map<TileTypeBelPin, std::unordered_set<DeltaTileTypeBelPin>> sources;
+    dict<TileTypeBelPin, pool<DeltaTileTypeBelPin>> sinks;
+    dict<TileTypeBelPin, pool<DeltaTileTypeBelPin>> sources;
 
     void init(const Context *ctx);
 

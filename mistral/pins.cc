@@ -23,7 +23,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-const std::unordered_map<IdString, Arch::CellPinsData> Arch::cell_pins_db = {
+const dict<IdString, Arch::CellPinsData> Arch::cell_pins_db = {
         // For combinational cells, inversion and tieing can be implemented by manipulating the LUT function
         {id_MISTRAL_ALUT2, {{{}, PINSTYLE_COMB}}},
         {id_MISTRAL_ALUT3, {{{}, PINSTYLE_COMB}}},
