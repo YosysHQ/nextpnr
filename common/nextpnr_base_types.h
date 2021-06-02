@@ -130,19 +130,4 @@ enum PlaceStrength
 
 NEXTPNR_NAMESPACE_END
 
-namespace std {
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX Loc>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX Loc &obj) const noexcept
-    {
-        std::size_t seed = 0;
-        boost::hash_combine(seed, hash<int>()(obj.x));
-        boost::hash_combine(seed, hash<int>()(obj.y));
-        boost::hash_combine(seed, hash<int>()(obj.z));
-        return seed;
-    }
-};
-
-} // namespace std
-
 #endif /* NEXTPNR_BASE_TYPES_H */

@@ -46,19 +46,6 @@
 #include "timing.h"
 #include "util.h"
 
-namespace std {
-template <> struct hash<std::pair<NEXTPNR_NAMESPACE_PREFIX IdString, std::size_t>>
-{
-    std::size_t operator()(const std::pair<NEXTPNR_NAMESPACE_PREFIX IdString, std::size_t> &idp) const noexcept
-    {
-        std::size_t seed = 0;
-        boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(idp.first));
-        boost::hash_combine(seed, hash<std::size_t>()(idp.second));
-        return seed;
-    }
-};
-} // namespace std
-
 NEXTPNR_NAMESPACE_BEGIN
 
 class SAPlacer

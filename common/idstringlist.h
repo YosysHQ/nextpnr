@@ -80,18 +80,4 @@ struct IdStringList
 
 NEXTPNR_NAMESPACE_END
 
-namespace std {
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX IdStringList>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX IdStringList &obj) const noexcept
-    {
-        std::size_t seed = 0;
-        boost::hash_combine(seed, hash<size_t>()(obj.size()));
-        for (auto &id : obj)
-            boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(id));
-        return seed;
-    }
-};
-} // namespace std
-
 #endif /* IDSTRING_LIST_H */

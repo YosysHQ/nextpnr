@@ -148,7 +148,7 @@ template <typename R> struct BaseArch : ArchAPI<R>
     virtual char getNameDelimiter() const override { return ' '; }
 
     // Bel methods
-    virtual uint32_t getBelChecksum(BelId bel) const override { return uint32_t(std::hash<BelId>()(bel)); }
+    virtual uint32_t getBelChecksum(BelId bel) const override { return bel.hash(); }
     virtual void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength) override
     {
         NPNR_ASSERT(bel != BelId());
@@ -196,7 +196,7 @@ template <typename R> struct BaseArch : ArchAPI<R>
     {
         return empty_if_possible<typename R::WireAttrsRangeT>();
     }
-    virtual uint32_t getWireChecksum(WireId wire) const override { return uint32_t(std::hash<WireId>()(wire)); }
+    virtual uint32_t getWireChecksum(WireId wire) const override { return wire.hash(); }
 
     virtual void bindWire(WireId wire, NetInfo *net, PlaceStrength strength) override
     {
@@ -244,7 +244,7 @@ template <typename R> struct BaseArch : ArchAPI<R>
     {
         return empty_if_possible<typename R::PipAttrsRangeT>();
     }
-    virtual uint32_t getPipChecksum(PipId pip) const override { return uint32_t(std::hash<PipId>()(pip)); }
+    virtual uint32_t getPipChecksum(PipId pip) const override { return pip.hash(); }
     virtual void bindPip(PipId pip, NetInfo *net, PlaceStrength strength) override
     {
         NPNR_ASSERT(pip != PipId());

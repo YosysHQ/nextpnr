@@ -62,14 +62,4 @@ struct IdString
 
 NEXTPNR_NAMESPACE_END
 
-namespace std {
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX IdString>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX IdString &obj) const noexcept
-    {
-        return std::hash<int>()(obj.index);
-    }
-};
-} // namespace std
-
 #endif /* IDSTRING_H */

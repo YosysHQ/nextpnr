@@ -102,42 +102,6 @@ bool bool_or_default(const Container &ct, const KeyType &key, bool def = false)
     return bool(int_or_default(ct, key, int(def)));
 };
 
-// Wrap an unordered_map, and allow it to be iterated over sorted by key
-template <typename K, typename V> std::map<K, V *> sorted(const std::unordered_map<K, std::unique_ptr<V>> &orig)
-{
-    std::map<K, V *> retVal;
-    for (auto &item : orig)
-        retVal.emplace(std::make_pair(item.first, item.second.get()));
-    return retVal;
-};
-
-// Wrap an unordered_map, and allow it to be iterated over sorted by key
-template <typename K, typename V> std::map<K, V &> sorted_ref(std::unordered_map<K, V> &orig)
-{
-    std::map<K, V &> retVal;
-    for (auto &item : orig)
-        retVal.emplace(std::make_pair(item.first, std::ref(item.second)));
-    return retVal;
-};
-
-// Wrap an unordered_map, and allow it to be iterated over sorted by key
-template <typename K, typename V> std::map<K, const V &> sorted_cref(const std::unordered_map<K, V> &orig)
-{
-    std::map<K, const V &> retVal;
-    for (auto &item : orig)
-        retVal.emplace(std::make_pair(item.first, std::ref(item.second)));
-    return retVal;
-};
-
-// Wrap an unordered_set, and allow it to be iterated over sorted by key
-template <typename K> std::set<K> sorted(const std::unordered_set<K> &orig)
-{
-    std::set<K> retVal;
-    for (auto &item : orig)
-        retVal.insert(item);
-    return retVal;
-};
-
 // Return a net if port exists, or nullptr
 inline const NetInfo *get_net_or_empty(const CellInfo *cell, const IdString port)
 {

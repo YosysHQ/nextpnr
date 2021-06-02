@@ -20,8 +20,6 @@
 #ifndef MISTRAL_ARCHDEFS_H
 #define MISTRAL_ARCHDEFS_H
 
-#include <boost/functional/hash.hpp>
-
 #include "base_clusterinfo.h"
 #include "cyclonev.h"
 
@@ -29,6 +27,8 @@
 #include "idstring.h"
 #include "nextpnr_assertions.h"
 #include "nextpnr_namespaces.h"
+
+#include <limits>
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -209,32 +209,5 @@ struct ArchCellInfo : BaseClusterInfo
 };
 
 NEXTPNR_NAMESPACE_END
-
-namespace std {
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX BelId>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX BelId &bel) const noexcept
-    {
-        return hash<uint32_t>()((static_cast<uint32_t>(bel.pos) << 16) | bel.z);
-    }
-};
-
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX WireId>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX WireId &wire) const noexcept
-    {
-        return hash<uint32_t>()(wire.node);
-    }
-};
-
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX PipId>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX PipId &pip) const noexcept
-    {
-        return hash<uint64_t>()((uint64_t(pip.dst) << 32) | pip.src);
-    }
-};
-
-} // namespace std
 
 #endif

@@ -171,7 +171,7 @@ Returns true if the given bel is a global buffer. A global buffer does not "pull
 
 Return a (preferably unique) number that represents this bel. This is used in design state checksum calculations.
 
-*BaseArch default: returns `std::hash` of `BelId` cast to `uint32_t`*
+*BaseArch default: returns `bel.hash()`*
 
 ### void bindBel(BelId bel, CellInfo \*cell, PlaceStrength strength)
 
@@ -276,7 +276,7 @@ unused. An implementation may simply return an empty range.
 
 Return a (preferably unique) number that represents this wire. This is used in design state checksum calculations.
 
-*BaseArch default: returns `std::hash` of `WireId` cast to `uint32_t`*
+*BaseArch default: returns `wire.hash()`*
 
 ### void bindWire(WireId wire, NetInfo \*net, PlaceStrength strength)
 
@@ -374,7 +374,7 @@ for pips a X/Y/Z location refers to a group of pips, not an individual pip.
 
 Return a (preferably unique) number that represents this pip. This is used in design state checksum calculations.
 
-*BaseArch default: returns `std::hash` of `WireId` cast to `uint32_t`*
+*BaseArch default: returns `pip.hash()`*
 
 ### void bindPip(PipId pip, NetInfo \*net, PlaceStrength strength)
 
