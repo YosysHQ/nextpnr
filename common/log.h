@@ -26,8 +26,8 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string>
-#include <unordered_map>
 #include <vector>
+#include "hashlib.h"
 #include "nextpnr_namespaces.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -51,13 +51,19 @@ enum class LogLevel
     ALWAYS_MSG
 };
 
+struct loglevel_hash_ops
+{
+    static inline bool cmp(LogLevel a, LogLevel b) { return a == b; }
+    static inline unsigned int hash(LogLevel a) { return unsigned(a); }
+};
+
 extern std::vector<std::pair<std::ostream *, LogLevel>> log_streams;
 extern log_write_type log_write_function;
 
 extern std::string log_last_error;
 extern void (*log_error_atexit)();
 extern bool had_nonfatal_error;
-extern std::unordered_map<LogLevel, int> message_count_by_level;
+extern dict<LogLevel, int, loglevel_hash_ops> message_count_by_level;
 
 std::string stringf(const char *fmt, ...);
 std::string vstringf(const char *fmt, va_list ap);
@@ -82,15 +88,5 @@ static inline void log_assert_worker(bool cond, const char *expr, const char *fi
 #define log_abort() log_error("Abort in %s:%d.\n", __FILE__, __LINE__)
 
 NEXTPNR_NAMESPACE_END
-
-namespace std {
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX LogLevel>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX LogLevel &loglevel) const noexcept
-    {
-        return std::hash<int>()((int)loglevel);
-    }
-};
-} // namespace std
 
 #endif

@@ -34,7 +34,7 @@ class ECP5CommandHandler : public CommandHandler
   public:
     ECP5CommandHandler(int argc, char **argv);
     virtual ~ECP5CommandHandler(){};
-    std::unique_ptr<Context> createContext(std::unordered_map<std::string, Property> &values) override;
+    std::unique_ptr<Context> createContext(dict<std::string, Property> &values) override;
     void setupArchContext(Context *ctx) override{};
     void customAfterLoad(Context *ctx) override;
     void validate() override;
@@ -132,7 +132,7 @@ static std::string speedString(ArchArgs::SpeedGrade speed)
     return "";
 }
 
-std::unique_ptr<Context> ECP5CommandHandler::createContext(std::unordered_map<std::string, Property> &values)
+std::unique_ptr<Context> ECP5CommandHandler::createContext(dict<std::string, Property> &values)
 {
     ArchArgs chipArgs;
     chipArgs.type = ArchArgs::NONE;

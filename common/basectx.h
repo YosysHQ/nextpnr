@@ -28,6 +28,7 @@
 #include <boost/thread.hpp>
 #endif
 
+#include "hashlib.h"
 #include "idstring.h"
 #include "nextpnr_namespaces.h"
 #include "nextpnr_types.h"

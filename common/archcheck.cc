@@ -108,7 +108,7 @@ void archcheck_locs(const Context *ctx)
     for (int x = 0; x < ctx->getGridDimX(); x++)
         for (int y = 0; y < ctx->getGridDimY(); y++) {
             dbg("> %d %d\n", x, y);
-            std::unordered_set<int> usedz;
+            pool<int> usedz;
 
             for (int z = 0; z < ctx->getTileBelDimZ(x, y); z++) {
                 BelId bel = ctx->getBelByLocation(Loc(x, y, z));
@@ -162,10 +162,10 @@ struct LruWireCacheMap
     // list is oldest wire in cache.
     std::list<WireId> last_access_list;
     // Quick wire -> list element lookup.
-    std::unordered_map<WireId, std::list<WireId>::iterator> last_access_map;
+    dict<WireId, std::list<WireId>::iterator> last_access_map;
 
-    std::unordered_map<PipId, WireId> pips_downhill;
-    std::unordered_map<PipId, WireId> pips_uphill;
+    dict<PipId, WireId> pips_downhill;
+    dict<PipId, WireId> pips_uphill;
 
     void removeWireFromCache(WireId wire_to_remove)
     {
@@ -255,8 +255,8 @@ void archcheck_conn(const Context *ctx)
     log_info("Checking all wires...\n");
 
 #ifndef USING_LRU_CACHE
-    std::unordered_map<PipId, WireId> pips_downhill;
-    std::unordered_map<PipId, WireId> pips_uphill;
+    dict<PipId, WireId> pips_downhill;
+    dict<PipId, WireId> pips_uphill;
 #endif
 
     for (WireId wire : ctx->getWires()) {
@@ -347,7 +347,7 @@ void archcheck_buckets(const Context *ctx)
     for (BelBucketId bucket : ctx->getBelBuckets()) {
 
         // Find out which cell types are in this bucket.
-        std::unordered_set<IdString> cell_types_in_bucket;
+        pool<IdString> cell_types_in_bucket;
         for (IdString cell_type : ctx->getCellTypes()) {
             if (ctx->getBelBucketForCellType(cell_type) == bucket) {
                 cell_types_in_bucket.insert(cell_type);
@@ -356,9 +356,9 @@ void archcheck_buckets(const Context *ctx)
 
         // Make sure that all cell types in this bucket have at least one
         // BelId they can be placed at.
-        std::unordered_set<IdString> cell_types_unused;
+        pool<IdString> cell_types_unused;
 
-        std::unordered_set<BelId> bels_in_bucket;
+        pool<BelId> bels_in_bucket;
         for (BelId bel : ctx->getBelsInBucket(bucket)) {
             BelBucketId bucket2 = ctx->getBelBucketForBel(bel);
             log_assert(bucket == bucket2);

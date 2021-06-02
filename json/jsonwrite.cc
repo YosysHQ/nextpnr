@@ -67,7 +67,7 @@ struct PortGroup
 std::vector<PortGroup> group_ports(Context *ctx, const dict<IdString, PortInfo> &ports, bool is_cell = false)
 {
     std::vector<PortGroup> groups;
-    std::unordered_map<std::string, size_t> base_to_group;
+    dict<std::string, size_t> base_to_group;
     for (auto &pair : ports) {
         std::string name = pair.second.name.str(ctx);
         if ((name.back() != ']') || (name.find('[') == std::string::npos)) {

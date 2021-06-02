@@ -34,7 +34,7 @@ class GowinCommandHandler : public CommandHandler
   public:
     GowinCommandHandler(int argc, char **argv);
     virtual ~GowinCommandHandler(){};
-    std::unique_ptr<Context> createContext(std::unordered_map<std::string, Property> &values) override;
+    std::unique_ptr<Context> createContext(dict<std::string, Property> &values) override;
     void setupArchContext(Context *ctx) override{};
     void customAfterLoad(Context *ctx) override;
 
@@ -52,7 +52,7 @@ po::options_description GowinCommandHandler::getArchOptions()
     return specific;
 }
 
-std::unique_ptr<Context> GowinCommandHandler::createContext(std::unordered_map<std::string, Property> &values)
+std::unique_ptr<Context> GowinCommandHandler::createContext(dict<std::string, Property> &values)
 {
     std::regex devicere = std::regex("GW1N([A-Z]*)-(LV|UV)([0-9])([A-Z]{2}[0-9]+)(C[0-9]/I[0-9])");
     std::smatch match;

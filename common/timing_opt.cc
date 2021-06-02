@@ -35,8 +35,6 @@
 #include "timing.h"
 #include "util.h"
 
-#include "hash_table.h"
-
 NEXTPNR_NAMESPACE_BEGIN
 
 class TimingOptimiser
@@ -167,7 +165,7 @@ class TimingOptimiser
         BelId curr = cell->bel;
         Loc curr_loc = ctx->getBelLocation(curr);
         int found_count = 0;
-        cell_neighbour_bels[cell->name] = std::unordered_set<BelId>{};
+        cell_neighbour_bels[cell->name] = pool<BelId>{};
         for (int dy = -d; dy <= d; dy++) {
             for (int dx = -d; dx <= d; dx++) {
                 // Go through all the Bels at this location
@@ -267,7 +265,7 @@ class TimingOptimiser
             }
             NPNR_ASSERT_FALSE("port user not found on net");
         };
-        std::unordered_set<PortRef *> used_ports;
+        pool<PortRef *, hash_ptr_ops> used_ports;
 
         for (auto crit_net : crit_nets) {
 
@@ -439,10 +437,10 @@ class TimingOptimiser
         }
 
         // Actual BFS path optimisation algorithm
-        std::unordered_map<IdString, std::unordered_map<BelId, delay_t>> cumul_costs;
-        std::unordered_map<std::pair<IdString, BelId>, std::pair<IdString, BelId>, PairHash> backtrace;
+        dict<IdString, dict<BelId, delay_t>> cumul_costs;
+        dict<std::pair<IdString, BelId>, std::pair<IdString, BelId>> backtrace;
         std::queue<std::pair<int, BelId>> visit;
-        std::unordered_set<std::pair<int, BelId>, PairHash> to_visit;
+        pool<std::pair<int, BelId>> to_visit;
 
         for (auto startbel : cell_neighbour_bels[path_cells.front()]) {
             // Swap for legality check
@@ -568,10 +566,10 @@ class TimingOptimiser
 
     // Current candidate Bels for cells (linked in both direction>
     std::vector<IdString> path_cells;
-    std::unordered_map<IdString, std::unordered_set<BelId>> cell_neighbour_bels;
-    std::unordered_map<BelId, std::unordered_set<IdString>> bel_candidate_cells;
+    dict<IdString, pool<BelId>> cell_neighbour_bels;
+    dict<BelId, pool<IdString>> bel_candidate_cells;
     // Map cell ports to net delay limit
-    std::unordered_map<std::pair<IdString, IdString>, delay_t, PairHash> max_net_delay;
+    dict<std::pair<IdString, IdString>, delay_t> max_net_delay;
     Context *ctx;
     TimingOptCfg cfg;
     TimingAnalyser tmg;

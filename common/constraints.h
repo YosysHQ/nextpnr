@@ -21,11 +21,11 @@
 #define CONSTRAINTS_H
 
 #include <cstdint>
-#include <unordered_map>
 #include <vector>
 
 #include "archdefs.h"
 #include "exclusive_state_groups.h"
+#include "hashlib.h"
 #include "idstring.h"
 #include "nextpnr_namespaces.h"
 
@@ -53,7 +53,7 @@ template <std::size_t StateCount, typename StateType = int8_t, typename CountTyp
     };
 
     typedef ExclusiveStateGroup<StateCount, StateType, CountType> TagState;
-    std::unordered_map<uint32_t, std::vector<typename TagState::Definition>> definitions;
+    dict<uint32_t, std::vector<typename TagState::Definition>> definitions;
 
     template <typename ConstraintRange> void bindBel(TagState *tags, const ConstraintRange constraints);
 
