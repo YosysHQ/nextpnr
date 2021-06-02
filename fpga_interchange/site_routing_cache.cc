@@ -68,7 +68,7 @@ void SiteRoutingSolution::store_solution(const SiteArch *ctx, const RouteNodeSto
     solution_offsets.push_back(solution_storage.size());
 }
 
-void SiteRoutingSolution::verify(const SiteArch *ctx, const SiteNetInfo &net)
+bool SiteRoutingSolution::verify(const SiteArch *ctx, const SiteNetInfo &net)
 {
     pool<SiteWire> seen_users;
     for (size_t i = 0; i < num_solutions(); ++i) {
@@ -88,7 +88,7 @@ void SiteRoutingSolution::verify(const SiteArch *ctx, const SiteNetInfo &net)
         NPNR_ASSERT(net.driver == cursor);
     }
 
-    NPNR_ASSERT(seen_users.size() == net.users.size());
+    return seen_users.size() == net.users.size();
 }
 
 SiteRoutingKey SiteRoutingKey::make(const SiteArch *ctx, const SiteNetInfo &site_net)
@@ -194,9 +194,7 @@ bool SiteRoutingCache::get_solution(const SiteArch *ctx, const SiteNetInfo &net,
         }
     }
 
-    solution->verify(ctx, net);
-
-    return true;
+    return solution->verify(ctx, net);
 }
 
 void SiteRoutingCache::add_solutions(const SiteArch *ctx, const SiteNetInfo &net, const SiteRoutingSolution &solution)

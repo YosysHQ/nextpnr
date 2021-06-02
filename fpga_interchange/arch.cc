@@ -758,6 +758,7 @@ bool Arch::pack()
     pack_ports();
     pack_default_conns();
     expand_macros();
+    pack_cluster();
     return true;
 }
 

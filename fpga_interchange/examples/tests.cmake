@@ -77,13 +77,14 @@ function(add_interchange_test)
 
     # Synthesis
     set(synth_json ${CMAKE_CURRENT_BINARY_DIR}/${name}.json)
+    set(synth_log ${CMAKE_CURRENT_BINARY_DIR}/${name}.json.log)
     add_custom_command(
         OUTPUT ${synth_json}
         COMMAND ${CMAKE_COMMAND} -E env
             SOURCES="${sources}"
             OUT_JSON=${synth_json}
             TECHMAP=${techmap}
-            yosys -c ${tcl}
+            yosys -c ${tcl} -l ${synth_log}
         DEPENDS ${sources} ${techmap} ${tcl}
     )
 
@@ -134,6 +135,7 @@ function(add_interchange_test)
     get_property(chipdb_bin_loc TARGET device-${device} PROPERTY CHIPDB_BIN_LOC)
 
     set(phys ${CMAKE_CURRENT_BINARY_DIR}/${name}.phys)
+    set(phys_log ${CMAKE_CURRENT_BINARY_DIR}/${name}.phys.log)
     add_custom_command(
         OUTPUT ${phys}
         COMMAND
@@ -143,6 +145,7 @@ function(add_interchange_test)
                 --netlist ${netlist}
                 --phys ${phys}
                 --package ${package}
+                --log ${phys_log}
         DEPENDS
             nextpnr-fpga_interchange
             ${netlist}
@@ -151,6 +154,7 @@ function(add_interchange_test)
             ${chipdb_bin_loc}
     )
 
+    set(phys_verbose_log ${CMAKE_CURRENT_BINARY_DIR}/${name}.phys.verbose.log)
     add_custom_target(
         test-${family}-${name}-phys-verbose
         COMMAND
@@ -161,6 +165,7 @@ function(add_interchange_test)
                 --phys ${phys}
                 --package ${package}
                 --verbose
+                --log ${phys_verbose_log}
         DEPENDS
             ${netlist}
             ${xdc}
