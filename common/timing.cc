@@ -23,7 +23,6 @@
 #include <boost/range/adaptor/reversed.hpp>
 #include <deque>
 #include <map>
-#include <unordered_map>
 #include <utility>
 #include "log.h"
 #include "util.h"
@@ -272,7 +271,7 @@ void TimingAnalyser::setup_port_domains()
 void TimingAnalyser::reset_times()
 {
     for (auto &port : ports) {
-        auto do_reset = [&](std::unordered_map<domain_id_t, ArrivReqTime> &times) {
+        auto do_reset = [&](dict<domain_id_t, ArrivReqTime> &times) {
             for (auto &t : times) {
                 t.second.value = init_delay;
                 t.second.path_length = 0;
@@ -426,7 +425,7 @@ void TimingAnalyser::walk_backward()
 void TimingAnalyser::print_fmax()
 {
     // Temporary testing code for comparison only
-    std::unordered_map<int, double> domain_fmax;
+    dict<int, double> domain_fmax;
     for (auto p : topological_order) {
         auto &pd = ports.at(p);
         for (auto &req : pd.required) {
@@ -591,6 +590,7 @@ struct ClockEvent
     ClockEdge edge;
 
     bool operator==(const ClockEvent &other) const { return clock == other.clock && edge == other.edge; }
+    unsigned int hash() const { return mkhash(clock.hash(), int(edge)); }
 };
 
 struct ClockPair
@@ -598,36 +598,9 @@ struct ClockPair
     ClockEvent start, end;
 
     bool operator==(const ClockPair &other) const { return start == other.start && end == other.end; }
+    unsigned int hash() const { return mkhash(start.hash(), end.hash()); }
 };
 } // namespace
-
-NEXTPNR_NAMESPACE_END
-namespace std {
-
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX ClockEvent>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX ClockEvent &obj) const noexcept
-    {
-        std::size_t seed = 0;
-        boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(obj.clock));
-        boost::hash_combine(seed, hash<int>()(int(obj.edge)));
-        return seed;
-    }
-};
-
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX ClockPair>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX ClockPair &obj) const noexcept
-    {
-        std::size_t seed = 0;
-        boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX ClockEvent>()(obj.start));
-        boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX ClockEvent>()(obj.start));
-        return seed;
-    }
-};
-
-} // namespace std
-NEXTPNR_NAMESPACE_BEGIN
 
 typedef std::vector<const PortRef *> PortRefVector;
 typedef std::map<int, unsigned> DelayFrequency;
@@ -639,7 +612,7 @@ struct CriticalPath
     delay_t path_period;
 };
 
-typedef std::unordered_map<ClockPair, CriticalPath> CriticalPathMap;
+typedef dict<ClockPair, CriticalPath> CriticalPathMap;
 
 struct Timing
 {
@@ -660,7 +633,7 @@ struct Timing
         delay_t min_remaining_budget;
         bool false_startpoint = false;
         std::vector<delay_t> min_required;
-        std::unordered_map<ClockEvent, delay_t> arrival_time;
+        dict<ClockEvent, delay_t> arrival_time;
     };
 
     Timing(Context *ctx, bool net_delays, bool update, CriticalPathMap *crit_path = nullptr,
@@ -677,14 +650,14 @@ struct Timing
         // First, compute the topological order of nets to walk through the circuit, assuming it is a _acyclic_ graph
         // TODO(eddieh): Handle the case where it is cyclic, e.g. combinatorial loops
         std::vector<NetInfo *> topological_order;
-        std::unordered_map<const NetInfo *, std::unordered_map<ClockEvent, TimingData>> net_data;
+        dict<const NetInfo *, dict<ClockEvent, TimingData>, hash_ptr_ops> net_data;
         // In lieu of deleting edges from the graph, simply count the number of fanins to each output port
-        std::unordered_map<const PortInfo *, unsigned> port_fanin;
+        dict<const PortInfo *, unsigned, hash_ptr_ops> port_fanin;
 
         std::vector<IdString> input_ports;
         std::vector<const PortInfo *> output_ports;
 
-        std::unordered_set<IdString> ooc_port_nets;
+        pool<IdString> ooc_port_nets;
 
         // In out-of-context mode, top-level inputs look floating but aren't
         if (bool_or_default(ctx->settings, ctx->id("arch.ooc"))) {
@@ -880,7 +853,7 @@ struct Timing
             }
         }
 
-        std::unordered_map<ClockPair, std::pair<delay_t, NetInfo *>> crit_nets;
+        dict<ClockPair, std::pair<delay_t, NetInfo *>> crit_nets;
 
         // Now go backwards topologically to determine the minimum path slack, and to distribute all path slack evenly
         // between all nets on the path

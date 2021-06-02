@@ -35,15 +35,7 @@ struct CellPortKey
         port = pr.port;
     }
     IdString cell, port;
-    struct Hash
-    {
-        inline std::size_t operator()(const CellPortKey &arg) const noexcept
-        {
-            std::size_t seed = std::hash<IdString>()(arg.cell);
-            seed ^= std::hash<IdString>()(arg.port) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-            return seed;
-        }
-    };
+    unsigned int hash() const { return mkhash(cell.hash(), port.hash()); }
     inline bool operator==(const CellPortKey &other) const { return (cell == other.cell) && (port == other.port); }
     inline bool operator!=(const CellPortKey &other) const { return (cell != other.cell) || (port != other.port); }
     inline bool operator<(const CellPortKey &other) const
@@ -69,15 +61,8 @@ struct NetPortKey
         return idx;
     }
 
-    struct Hash
-    {
-        std::size_t operator()(const NetPortKey &arg) const noexcept
-        {
-            std::size_t seed = std::hash<IdString>()(arg.net);
-            seed ^= std::hash<size_t>()(arg.idx) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-            return seed;
-        }
-    };
+    unsigned int hash() const { return mkhash(net.hash(), idx); }
+
     inline bool operator==(const NetPortKey &other) const { return (net == other.net) && (idx == other.idx); }
 };
 
@@ -89,15 +74,8 @@ struct ClockDomainKey
     // probably also need something here to deal with constraints
     inline bool is_async() const { return clock == IdString(); }
 
-    struct Hash
-    {
-        std::size_t operator()(const ClockDomainKey &arg) const noexcept
-        {
-            std::size_t seed = std::hash<IdString>()(arg.clock);
-            seed ^= std::hash<int>()(int(arg.edge)) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-            return seed;
-        }
-    };
+    unsigned int hash() const { return mkhash(clock.hash(), int(edge)); }
+
     inline bool operator==(const ClockDomainKey &other) const { return (clock == other.clock) && (edge == other.edge); }
 };
 
@@ -111,15 +89,7 @@ struct ClockDomainPairKey
     {
         return (launch == other.launch) && (capture == other.capture);
     }
-    struct Hash
-    {
-        std::size_t operator()(const ClockDomainPairKey &arg) const noexcept
-        {
-            std::size_t seed = std::hash<domain_id_t>()(arg.launch);
-            seed ^= std::hash<domain_id_t>()(arg.capture) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-            return seed;
-        }
-    };
+    unsigned int hash() const { return mkhash(launch, capture); }
 };
 
 struct TimingAnalyser
@@ -223,16 +193,17 @@ struct TimingAnalyser
         NetPortKey net_port;
         PortType type;
         // per domain timings
-        std::unordered_map<domain_id_t, ArrivReqTime> arrival;
-        std::unordered_map<domain_id_t, ArrivReqTime> required;
-        std::unordered_map<domain_id_t, PortDomainPairData> domain_pairs;
+        dict<domain_id_t, ArrivReqTime> arrival;
+        dict<domain_id_t, ArrivReqTime> required;
+        dict<domain_id_t, PortDomainPairData> domain_pairs;
         // cell timing arcs to (outputs)/from (inputs)  from this port
         std::vector<CellArc> cell_arcs;
         // routing delay into this port (input ports only)
-        DelayPair route_delay;
+        DelayPair route_delay{0};
         // worst criticality and slack across domain pairs
-        float worst_crit;
-        delay_t worst_setup_slack, worst_hold_slack;
+        float worst_crit = 0;
+        delay_t worst_setup_slack = std::numeric_limits<delay_t>::max(),
+                worst_hold_slack = std::numeric_limits<delay_t>::max();
     };
 
     struct PerDomain
@@ -260,9 +231,9 @@ struct TimingAnalyser
 
     void copy_domains(const CellPortKey &from, const CellPortKey &to, bool backwards);
 
-    std::unordered_map<CellPortKey, PerPort, CellPortKey::Hash> ports;
-    std::unordered_map<ClockDomainKey, domain_id_t, ClockDomainKey::Hash> domain_to_id;
-    std::unordered_map<ClockDomainPairKey, domain_id_t, ClockDomainPairKey::Hash> pair_to_id;
+    dict<CellPortKey, PerPort> ports;
+    dict<ClockDomainKey, domain_id_t> domain_to_id;
+    dict<ClockDomainPairKey, domain_id_t> pair_to_id;
     std::vector<PerDomain> domains;
     std::vector<PerDomainPair> domain_pairs;
 
