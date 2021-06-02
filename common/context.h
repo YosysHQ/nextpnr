@@ -50,7 +50,7 @@ struct Context : Arch, DeterministicRNG
     // provided by router1.cc
     bool checkRoutedDesign() const;
     bool getActualRouteDelay(WireId src_wire, WireId dst_wire, delay_t *delay = nullptr,
-                             std::unordered_map<WireId, PipId> *route = nullptr, bool useEstimate = true);
+                             dict<WireId, PipId> *route = nullptr, bool useEstimate = true);
 
     // --------------------------------------------------------------
     // call after changing hierpath or adding/removing nets and cells

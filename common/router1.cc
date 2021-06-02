@@ -49,16 +49,13 @@ struct arc_key
                        : net_info->name < other.net_info->name;
     }
 
-    struct Hash
+    unsigned int hash() const
     {
-        std::size_t operator()(const arc_key &arg) const noexcept
-        {
-            std::size_t seed = std::hash<NetInfo *>()(arg.net_info);
-            seed ^= std::hash<int>()(arg.user_idx) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-            seed ^= std::hash<int>()(arg.phys_idx) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-            return seed;
-        }
-    };
+        std::size_t seed = std::hash<NetInfo *>()(net_info);
+        seed ^= std::hash<int>()(user_idx) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        seed ^= std::hash<int>()(phys_idx) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        return seed;
+    }
 };
 
 struct arc_entry
@@ -107,15 +104,15 @@ struct Router1
     const Router1Cfg &cfg;
 
     std::priority_queue<arc_entry, std::vector<arc_entry>, arc_entry::Less> arc_queue;
-    std::unordered_map<WireId, std::unordered_set<arc_key, arc_key::Hash>> wire_to_arcs;
-    std::unordered_map<arc_key, std::unordered_set<WireId>, arc_key::Hash> arc_to_wires;
-    std::unordered_set<arc_key, arc_key::Hash> queued_arcs;
+    dict<WireId, pool<arc_key>> wire_to_arcs;
+    dict<arc_key, pool<WireId>> arc_to_wires;
+    pool<arc_key> queued_arcs;
 
-    std::unordered_map<WireId, QueuedWire> visited;
+    dict<WireId, QueuedWire> visited;
     std::priority_queue<QueuedWire, std::vector<QueuedWire>, QueuedWire::Greater> queue;
 
-    std::unordered_map<WireId, int> wireScores;
-    std::unordered_map<NetInfo *, int> netScores;
+    dict<WireId, int> wireScores;
+    dict<NetInfo *, int, hash_ptr_ops> netScores;
 
     int arcs_with_ripup = 0;
     int arcs_without_ripup = 0;
@@ -295,11 +292,11 @@ struct Router1
 
     void check()
     {
-        std::unordered_set<arc_key, arc_key::Hash> valid_arcs;
+        pool<arc_key> valid_arcs;
 
         for (auto &net_it : ctx->nets) {
             NetInfo *net_info = net_it.second.get();
-            std::unordered_set<WireId> valid_wires_for_net;
+            pool<WireId> valid_wires_for_net;
 
             if (skip_net(net_info))
                 continue;
@@ -357,8 +354,8 @@ struct Router1
 
     void setup()
     {
-        std::unordered_map<WireId, NetInfo *> src_to_net;
-        std::unordered_map<WireId, arc_key> dst_to_arc;
+        dict<WireId, NetInfo *> src_to_net;
+        dict<WireId, arc_key> dst_to_arc;
 
         std::vector<IdString> net_names;
         for (auto &net_it : ctx->nets)
@@ -472,7 +469,7 @@ struct Router1
 
         // unbind wires that are currently used exclusively by this arc
 
-        std::unordered_set<WireId> old_arc_wires;
+        pool<WireId> old_arc_wires;
         old_arc_wires.swap(arc_to_wires[arc]);
 
         for (WireId wire : old_arc_wires) {
@@ -720,7 +717,7 @@ struct Router1
 
         // bind resulting route (and maybe unroute other nets)
 
-        std::unordered_set<WireId> unassign_wires = arc_to_wires[arc];
+        pool<WireId> unassign_wires = arc_to_wires[arc];
 
         WireId cursor = dst_wire;
         delay_t accumulated_path_delay = 0;
@@ -919,10 +916,10 @@ bool Context::checkRoutedDesign() const
         struct ExtraWireInfo
         {
             int order_num = 0;
-            std::unordered_set<WireId> children;
+            pool<WireId> children;
         };
 
-        std::unordered_map<WireId, ExtraWireInfo> db;
+        dict<WireId, std::unique_ptr<ExtraWireInfo>> db;
 
         for (auto &it : net_info->wires) {
             WireId w = it.first;
@@ -930,7 +927,7 @@ bool Context::checkRoutedDesign() const
 
             if (p != PipId()) {
                 log_assert(ctx->getPipDstWire(p) == w);
-                db[ctx->getPipSrcWire(p)].children.insert(w);
+                db.emplace(ctx->getPipSrcWire(p), std::make_unique<ExtraWireInfo>()).first->second->children.insert(w);
             }
         }
 
@@ -948,7 +945,7 @@ bool Context::checkRoutedDesign() const
             found_unrouted = true;
         }
 
-        std::unordered_map<WireId, int> dest_wires;
+        dict<WireId, int> dest_wires;
         for (int user_idx = 0; user_idx < int(net_info->users.size()); user_idx++) {
             for (auto dst_wire : ctx->getNetinfoSinkWires(net_info, net_info->users[user_idx])) {
                 log_assert(dst_wire != WireId());
@@ -963,10 +960,10 @@ bool Context::checkRoutedDesign() const
         }
 
         std::function<void(WireId, int)> setOrderNum;
-        std::unordered_set<WireId> logged_wires;
+        pool<WireId> logged_wires;
 
         setOrderNum = [&](WireId w, int num) {
-            auto &db_entry = db[w];
+            auto &db_entry = *db.emplace(w, std::make_unique<ExtraWireInfo>()).first->second;
             if (db_entry.order_num != 0) {
                 found_loop = true;
                 log("  %*s=> loop\n", 2 * num, "");
@@ -998,10 +995,10 @@ bool Context::checkRoutedDesign() const
         }
         setOrderNum(src_wire, 1);
 
-        std::unordered_set<WireId> dangling_wires;
+        pool<WireId> dangling_wires;
 
         for (auto &it : db) {
-            auto &db_entry = it.second;
+            auto &db_entry = *it.second;
             if (db_entry.order_num == 0)
                 dangling_wires.insert(it.first);
         }
@@ -1010,10 +1007,10 @@ bool Context::checkRoutedDesign() const
             if (dangling_wires.empty()) {
                 log("  no dangling wires.\n");
             } else {
-                std::unordered_set<WireId> root_wires = dangling_wires;
+                pool<WireId> root_wires = dangling_wires;
 
                 for (WireId w : dangling_wires) {
-                    for (WireId c : db[w].children)
+                    for (WireId c : db[w]->children)
                         root_wires.erase(c);
                 }
 
@@ -1064,8 +1061,8 @@ bool Context::checkRoutedDesign() const
     return true;
 }
 
-bool Context::getActualRouteDelay(WireId src_wire, WireId dst_wire, delay_t *delay,
-                                  std::unordered_map<WireId, PipId> *route, bool useEstimate)
+bool Context::getActualRouteDelay(WireId src_wire, WireId dst_wire, delay_t *delay, dict<WireId, PipId> *route,
+                                  bool useEstimate)
 {
     // FIXME
     return false;

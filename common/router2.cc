@@ -35,7 +35,6 @@
 #include <fstream>
 #include <queue>
 
-#include "hash_table.h"
 #include "log.h"
 #include "nextpnr.h"
 #include "router1.h"
@@ -198,7 +197,7 @@ struct Router2
         }
     }
 
-    HashTables::HashMap<WireId, int> wire_to_idx;
+    dict<WireId, int> wire_to_idx;
     std::vector<PerWireData> flat_wires;
 
     PerWireData &wire_data(WireId w) { return flat_wires[wire_to_idx.at(w)]; }
@@ -284,7 +283,7 @@ struct Router2
 
         std::priority_queue<QueuedWire, std::vector<QueuedWire>, QueuedWire::Greater> queue;
         // Special case where one net has multiple logical arcs to the same physical sink
-        std::unordered_set<WireId> processed_sinks;
+        pool<WireId> processed_sinks;
 
         // Backwards routing
         std::queue<int> backwards_queue;
@@ -465,7 +464,7 @@ struct Router2
         bool did_something = false;
         WireId src = ctx->getNetinfoSourceWire(net);
         for (auto sink : ctx->getNetinfoSinkWires(net, net->users.at(i))) {
-            std::unordered_set<WireId> rsv;
+            pool<WireId> rsv;
             WireId cursor = sink;
             bool done = false;
             if (ctx->debug)
@@ -1083,7 +1082,7 @@ struct Router2
 
     void write_wiretype_heatmap(std::ostream &out)
     {
-        std::unordered_map<IdString, std::vector<int>> cong_by_type;
+        dict<IdString, std::vector<int>> cong_by_type;
         size_t max_cong = 0;
         // Build histogram
         for (auto &wd : flat_wires) {
@@ -1099,7 +1098,7 @@ struct Router2
         for (size_t i = 0; i <= max_cong; i++)
             out << "bound=" << i << ",";
         out << std::endl;
-        for (auto &ty : sorted_ref(cong_by_type)) {
+        for (auto &ty : cong_by_type) {
             out << ctx->nameOf(ty.first) << ",";
             for (int count : ty.second)
                 out << count << ",";
