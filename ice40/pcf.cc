@@ -108,8 +108,8 @@ bool apply_pcf(Context *ctx, std::string filename, std::istream &in)
                 log_error("unsupported PCF command '%s' (on line %d)\n", cmd.c_str(), lineno);
             }
         }
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_obuf") ||
                 ci->type == ctx->id("$nextpnr_iobuf")) {
                 if (!ci->attrs.count(ctx->id("BEL"))) {

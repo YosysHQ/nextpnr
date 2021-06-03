@@ -34,7 +34,7 @@ class MachXO2CommandHandler : public CommandHandler
   public:
     MachXO2CommandHandler(int argc, char **argv);
     virtual ~MachXO2CommandHandler(){};
-    std::unique_ptr<Context> createContext(std::unordered_map<std::string, Property> &values) override;
+    std::unique_ptr<Context> createContext(dict<std::string, Property> &values) override;
     void setupArchContext(Context *ctx) override{};
     void customBitstream(Context *ctx) override;
 
@@ -82,7 +82,7 @@ void MachXO2CommandHandler::customBitstream(Context *ctx)
     write_bitstream(ctx, textcfg);
 }
 
-std::unique_ptr<Context> MachXO2CommandHandler::createContext(std::unordered_map<std::string, Property> &values)
+std::unique_ptr<Context> MachXO2CommandHandler::createContext(dict<std::string, Property> &values)
 {
     ArchArgs chipArgs;
     chipArgs.type = ArchArgs::NONE;

@@ -118,7 +118,7 @@ struct ModuleInfo
 {
     bool is_top = false, is_blackbox = false, is_whitebox = false;
     inline bool is_box() const { return is_blackbox || is_whitebox; }
-    std::unordered_set<IdString> instantiated_celltypes;
+    pool<IdString> instantiated_celltypes;
 };
 
 template <typename FrontendType> struct GenericFrontend
@@ -134,7 +134,7 @@ template <typename FrontendType> struct GenericFrontend
         m.path = top;
         ctx->top_module = top;
         // Do the actual import, starting from the top level module
-        import_module(m, top.str(ctx), top.str(ctx), mod_refs.at(top));
+        import_module(m, top.str(ctx), top.str(ctx), mod_refs.at(top.str(ctx)));
 
         ctx->design_loaded = true;
     }
@@ -148,8 +148,8 @@ template <typename FrontendType> struct GenericFrontend
     using netname_dat_t = typename FrontendType::NetnameDataType;
     using bitvector_t = typename FrontendType::BitVectorDataType;
 
-    std::unordered_map<IdString, ModuleInfo> mods;
-    std::unordered_map<IdString, const mod_dat_t> mod_refs;
+    dict<IdString, ModuleInfo> mods;
+    std::unordered_map<std::string, const mod_dat_t> mod_refs;
     IdString top;
 
     // Process the list of modules and determine
@@ -159,7 +159,7 @@ template <typename FrontendType> struct GenericFrontend
         impl.foreach_module([&](const std::string &name, const mod_dat_t &mod) {
             IdString mod_id = ctx->id(name);
             auto &mi = mods[mod_id];
-            mod_refs.emplace(mod_id, mod);
+            mod_refs.emplace(name, mod);
             impl.foreach_attr(mod, [&](const std::string &name, const Property &value) {
                 if (name == "top")
                     mi.is_top = (value.intval != 0);
@@ -196,7 +196,7 @@ template <typename FrontendType> struct GenericFrontend
         }
         // Finally, attempt to autodetect the top module using hierarchy
         // (a module that is not a box and is not used as a cell by any other module)
-        std::unordered_set<IdString> candidate_top;
+        pool<IdString> candidate_top;
         for (auto &mod : mods)
             if (!mod.second.is_box())
                 candidate_top.insert(mod.first);
@@ -207,7 +207,7 @@ template <typename FrontendType> struct GenericFrontend
             if (candidate_top.size() == 0)
                 log_info("No candidate top level modules.\n");
             else
-                for (auto ctp : sorted(candidate_top))
+                for (auto ctp : candidate_top)
                     log_info("Candidate top module: '%s'\n", ctx->nameOf(ctp));
             log_error("Failed to autodetect top module, please specify using --top.\n");
         }
@@ -256,7 +256,7 @@ template <typename FrontendType> struct GenericFrontend
                 index_to_net_flatindex.resize(idx + 1, -1);
             return index_to_net_flatindex.at(idx);
         }
-        std::unordered_map<IdString, std::vector<int>> port_to_bus;
+        dict<IdString, std::vector<int>> port_to_bus;
         // All of the names given to a net
         std::vector<std::vector<std::string>> net_names;
     };
@@ -453,7 +453,7 @@ template <typename FrontendType> struct GenericFrontend
         CellInfo *ci = ctx->createCell(inst_name, ctx->id(impl.get_cell_type(cd)));
         ci->hierpath = m.path;
         // Import port directions
-        std::unordered_map<IdString, PortType> port_dirs;
+        dict<IdString, PortType> port_dirs;
         impl.foreach_port_dir(cd, [&](const std::string &port, PortType dir) { port_dirs[ctx->id(port)] = dir; });
         // Import port connectivity
         impl.foreach_port_conn(cd, [&](const std::string &name, const bitvector_t &bits) {
@@ -531,7 +531,7 @@ template <typename FrontendType> struct GenericFrontend
         ctx->hierarchy[m.path].hier_cells[ctx->id(name)] = submod.path;
         // Do the submodule import
         auto type = impl.get_cell_type(cd);
-        import_module(submod, name, type, mod_refs.at(ctx->id(type)));
+        import_module(submod, name, type, mod_refs.at(type));
     }
 
     // Import the cells section of a module

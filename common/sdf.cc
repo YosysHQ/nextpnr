@@ -254,9 +254,9 @@ void Context::writeSDF(std::ostream &out, bool cvc_mode) const
         return rf;
     };
 
-    for (auto cell : sorted(cells)) {
+    for (const auto &cell : cells) {
         Cell sc;
-        const CellInfo *ci = cell.second;
+        const CellInfo *ci = cell.second.get();
         sc.instance = ci->name.str(this);
         sc.celltype = ci->type.str(this);
         for (auto port : ci->ports) {
@@ -313,8 +313,8 @@ void Context::writeSDF(std::ostream &out, bool cvc_mode) const
         wr.cells.push_back(sc);
     }
 
-    for (auto net : sorted(nets)) {
-        NetInfo *ni = net.second;
+    for (auto &net : nets) {
+        NetInfo *ni = net.second.get();
         if (ni->driver.cell == nullptr)
             continue;
         for (auto &usr : ni->users) {

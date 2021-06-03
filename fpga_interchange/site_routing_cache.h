@@ -22,7 +22,6 @@
 #define SITE_ROUTING_CACHE_H
 
 #include "PhysicalNetlist.capnp.h"
-#include "hash_table.h"
 #include "nextpnr_namespaces.h"
 #include "site_arch.h"
 #include "site_routing_storage.h"
@@ -97,34 +96,24 @@ struct SiteRoutingKey
     }
 
     static SiteRoutingKey make(const SiteArch *ctx, const SiteNetInfo &site_net);
-};
 
-NEXTPNR_NAMESPACE_END
-
-template <> struct std::hash<NEXTPNR_NAMESPACE_PREFIX SiteRoutingKey>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX SiteRoutingKey &key) const noexcept
+    unsigned int hash() const
     {
-        std::size_t seed = 0;
-        boost::hash_combine(seed, std::hash<int32_t>()(key.tile_type));
-        boost::hash_combine(seed, std::hash<int32_t>()(key.site));
-        boost::hash_combine(seed, std::hash<PhysicalNetlist::PhysNetlist::NetType>()(key.net_type));
-        boost::hash_combine(seed, std::hash<NEXTPNR_NAMESPACE_PREFIX SiteWire::Type>()(key.driver_type));
-        boost::hash_combine(seed, std::hash<int32_t>()(key.driver_index));
-        boost::hash_combine(seed, std::hash<std::size_t>()(key.user_types.size()));
-        for (NEXTPNR_NAMESPACE_PREFIX SiteWire::Type user_type : key.user_types) {
-            boost::hash_combine(seed, std::hash<NEXTPNR_NAMESPACE_PREFIX SiteWire::Type>()(user_type));
-        }
-
-        boost::hash_combine(seed, std::hash<std::size_t>()(key.user_indicies.size()));
-        for (int32_t index : key.user_indicies) {
-            boost::hash_combine(seed, std::hash<int32_t>()(index));
-        }
+        unsigned int seed = 0;
+        seed = mkhash(seed, tile_type);
+        seed = mkhash(seed, site);
+        seed = mkhash(seed, int(net_type));
+        seed = mkhash(seed, int(driver_type));
+        seed = mkhash(seed, driver_index);
+        seed = mkhash(seed, user_types.size());
+        for (auto t : user_types)
+            seed = mkhash(seed, int(t));
+        seed = mkhash(seed, user_indicies.size());
+        for (auto i : user_indicies)
+            seed = mkhash(seed, i);
         return seed;
     }
 };
-
-NEXTPNR_NAMESPACE_BEGIN
 
 // Provides an LRU cache for site routing solutions.
 class SiteRoutingCache
@@ -134,7 +123,7 @@ class SiteRoutingCache
     void add_solutions(const SiteArch *ctx, const SiteNetInfo &net, const SiteRoutingSolution &solution);
 
   private:
-    HashTables::HashMap<SiteRoutingKey, SiteRoutingSolution> cache_;
+    dict<SiteRoutingKey, SiteRoutingSolution> cache_;
 };
 
 NEXTPNR_NAMESPACE_END

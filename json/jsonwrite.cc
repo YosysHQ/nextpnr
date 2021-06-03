@@ -45,7 +45,7 @@ std::string get_string(std::string str)
 
 std::string get_name(IdString name, Context *ctx) { return get_string(name.c_str(ctx)); }
 
-void write_parameters(std::ostream &f, Context *ctx, const std::unordered_map<IdString, Property> &parameters,
+void write_parameters(std::ostream &f, Context *ctx, const dict<IdString, Property> &parameters,
                       bool for_module = false)
 {
     bool first = true;
@@ -64,11 +64,10 @@ struct PortGroup
     PortType dir;
 };
 
-std::vector<PortGroup> group_ports(Context *ctx, const std::unordered_map<IdString, PortInfo> &ports,
-                                   bool is_cell = false)
+std::vector<PortGroup> group_ports(Context *ctx, const dict<IdString, PortInfo> &ports, bool is_cell = false)
 {
     std::vector<PortGroup> groups;
-    std::unordered_map<std::string, size_t> base_to_group;
+    dict<std::string, size_t> base_to_group;
     for (auto &pair : ports) {
         std::string name = pair.second.name.str(ctx);
         if ((name.back() != ']') || (name.find('[') == std::string::npos)) {

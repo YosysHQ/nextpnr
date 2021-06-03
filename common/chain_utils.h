@@ -37,10 +37,10 @@ std::vector<CellChain> find_chains(const Context *ctx, F1 cell_type_predicate, F
 {
     std::set<IdString> chained;
     std::vector<CellChain> chains;
-    for (auto cell : sorted(ctx->cells)) {
+    for (auto &cell : ctx->cells) {
         if (chained.find(cell.first) != chained.end())
             continue;
-        CellInfo *ci = cell.second;
+        CellInfo *ci = cell.second.get();
         if (cell_type_predicate(ctx, ci)) {
             CellInfo *start = ci;
             CellInfo *prev_start = ci;

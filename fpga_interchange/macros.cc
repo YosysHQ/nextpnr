@@ -53,8 +53,8 @@ void Arch::expand_macros()
     // Make up a list of cells, so we don't have modify-while-iterating issues
     Context *ctx = getCtx();
     std::vector<CellInfo *> cells;
-    for (auto cell : sorted(ctx->cells))
-        cells.push_back(cell.second);
+    for (auto &cell : ctx->cells)
+        cells.push_back(cell.second.get());
 
     std::vector<CellInfo *> next_cells;
 

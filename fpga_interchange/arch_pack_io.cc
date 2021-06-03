@@ -24,8 +24,8 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-void Arch::place_iobufs(WireId pad_wire, NetInfo *net, const std::unordered_set<CellInfo *> &tightly_attached_bels,
-                        std::unordered_set<CellInfo *> *placed_cells)
+void Arch::place_iobufs(WireId pad_wire, NetInfo *net, const pool<CellInfo *, hash_ptr_ops> &tightly_attached_bels,
+                        pool<CellInfo *, hash_ptr_ops> *placed_cells)
 {
     for (BelPin bel_pin : getWireBelPins(pad_wire)) {
         BelId bel = bel_pin.bel;
@@ -57,7 +57,7 @@ void Arch::place_iobufs(WireId pad_wire, NetInfo *net, const std::unordered_set<
 
 void Arch::pack_ports()
 {
-    std::unordered_map<IdString, const TileInstInfoPOD *> tile_type_prototypes;
+    dict<IdString, const TileInstInfoPOD *> tile_type_prototypes;
     for (size_t i = 0; i < chip_info->tiles.size(); ++i) {
         const auto &tile = chip_info->tiles[i];
         const auto &tile_type = chip_info->tile_types[tile.type];
@@ -66,9 +66,9 @@ void Arch::pack_ports()
     }
 
     // set(site_types) for package pins
-    std::unordered_set<IdString> package_sites;
+    pool<IdString> package_sites;
     // Package pin -> (Site type -> BelId)
-    std::unordered_map<IdString, std::vector<std::pair<IdString, BelId>>> package_pin_bels;
+    dict<IdString, std::vector<std::pair<IdString, BelId>>> package_pin_bels;
     for (const PackagePinPOD &package_pin : chip_info->packages[package_index].pins) {
         IdString pin(package_pin.package_pin);
         IdString bel(package_pin.bel);
@@ -78,7 +78,7 @@ void Arch::pack_ports()
 
         for (size_t i = 0; i < chip_info->tiles.size(); ++i) {
             const auto &tile = chip_info->tiles[i];
-            std::unordered_set<uint32_t> package_pin_sites;
+            pool<uint32_t> package_pin_sites;
             for (size_t j = 0; j < tile.sites.size(); ++j) {
                 auto &site_data = chip_info->sites[tile.sites[j]];
                 if (site == id(site_data.site_name.get())) {
@@ -102,8 +102,8 @@ void Arch::pack_ports()
     }
 
     // Determine for each package site type, which site types are possible.
-    std::unordered_set<IdString> package_pin_site_types;
-    std::unordered_map<IdString, std::unordered_set<IdString>> possible_package_site_types;
+    pool<IdString> package_pin_site_types;
+    dict<IdString, pool<IdString>> possible_package_site_types;
     for (const TileInstInfoPOD &tile : chip_info->tiles) {
         for (size_t site_index : tile.sites) {
             const SiteInstInfoPOD &site = chip_info->sites[site_index];
@@ -121,7 +121,7 @@ void Arch::pack_ports()
     for (auto port_pair : port_cells) {
         IdString port_name = port_pair.first;
         CellInfo *port_cell = port_pair.second;
-        std::unordered_set<CellInfo *> tightly_attached_bels;
+        pool<CellInfo *, hash_ptr_ops> tightly_attached_bels;
 
         for (auto port_pair : port_cell->ports) {
             const PortInfo &port_info = port_pair.second;
@@ -145,7 +145,7 @@ void Arch::pack_ports()
         }
 
         NPNR_ASSERT(tightly_attached_bels.erase(port_cell) == 1);
-        std::unordered_set<IdString> cell_types_in_io_group;
+        pool<IdString> cell_types_in_io_group;
         for (CellInfo *cell : tightly_attached_bels) {
             NPNR_ASSERT(port_cells.find(cell->name) == port_cells.end());
             cell_types_in_io_group.emplace(cell->type);
@@ -153,7 +153,7 @@ void Arch::pack_ports()
 
         // Get possible placement locations for tightly coupled BELs with
         // port.
-        std::unordered_set<IdString> possible_site_types;
+        pool<IdString> possible_site_types;
         for (const TileTypeInfoPOD &tile_type : chip_info->tile_types) {
             IdString tile_type_name(tile_type.name);
             for (const BelInfoPOD &bel_info : tile_type.bel_data) {
@@ -195,7 +195,7 @@ void Arch::pack_ports()
             }
         }
 
-        // std::unordered_map<IdString, std::unordered_map<IdString, BelId>> package_pin_bels;
+        // dict<IdString, dict<IdString, BelId>> package_pin_bels;
         IdString package_pin_id = id(iter->second.as_string());
         auto pin_iter = package_pin_bels.find(package_pin_id);
         if (pin_iter == package_pin_bels.end()) {
@@ -233,7 +233,7 @@ void Arch::pack_ports()
             log_info("Binding port %s to BEL %s\n", port_name.c_str(getCtx()), getCtx()->nameOfBel(package_bel));
         }
 
-        std::unordered_set<CellInfo *> placed_cells;
+        pool<CellInfo *, hash_ptr_ops> placed_cells;
         bindBel(package_bel, port_cell, STRENGTH_FIXED);
         placed_cells.emplace(port_cell);
 

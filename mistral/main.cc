@@ -33,7 +33,7 @@ class MistralCommandHandler : public CommandHandler
   public:
     MistralCommandHandler(int argc, char **argv);
     virtual ~MistralCommandHandler(){};
-    std::unique_ptr<Context> createContext(std::unordered_map<std::string, Property> &values) override;
+    std::unique_ptr<Context> createContext(dict<std::string, Property> &values) override;
     void setupArchContext(Context *ctx) override{};
     void customBitstream(Context *ctx) override;
     void customAfterLoad(Context *ctx) override;
@@ -71,7 +71,7 @@ void MistralCommandHandler::customBitstream(Context *ctx)
     }
 }
 
-std::unique_ptr<Context> MistralCommandHandler::createContext(std::unordered_map<std::string, Property> &values)
+std::unique_ptr<Context> MistralCommandHandler::createContext(dict<std::string, Property> &values)
 {
     ArchArgs chipArgs;
     if (!vm.count("mistral")) {

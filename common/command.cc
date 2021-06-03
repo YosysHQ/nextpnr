@@ -458,7 +458,7 @@ int CommandHandler::exec()
         if (executeBeforeContext())
             return 0;
 
-        std::unordered_map<std::string, Property> values;
+        dict<std::string, Property> values;
         std::unique_ptr<Context> ctx = createContext(values);
         setupContext(ctx.get());
         setupArchContext(ctx.get());
@@ -475,7 +475,7 @@ int CommandHandler::exec()
 
 std::unique_ptr<Context> CommandHandler::load_json(std::string filename)
 {
-    std::unordered_map<std::string, Property> values;
+    dict<std::string, Property> values;
     std::unique_ptr<Context> ctx = createContext(values);
     setupContext(ctx.get());
     setupArchContext(ctx.get());

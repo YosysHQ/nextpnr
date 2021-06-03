@@ -24,7 +24,7 @@ NEXTPNR_NAMESPACE_BEGIN
 
 namespace {
 
-static const std::unordered_map<IdString, Arch::CellPinsData> base_cell_pin_data = {
+static const dict<IdString, Arch::CellPinsData> base_cell_pin_data = {
         {id_OXIDE_COMB,
          {
                  {id_WCK, PINSTYLE_DEDI},

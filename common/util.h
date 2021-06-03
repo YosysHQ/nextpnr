@@ -55,7 +55,7 @@ std::string str_or_default(const Container &ct, const KeyType &key, std::string 
 };
 
 template <typename KeyType>
-std::string str_or_default(const std::unordered_map<KeyType, Property> &ct, const KeyType &key, std::string def = "")
+std::string str_or_default(const dict<KeyType, Property> &ct, const KeyType &key, std::string def = "")
 {
     auto found = ct.find(key);
     if (found == ct.end())
@@ -78,8 +78,7 @@ template <typename Container, typename KeyType> int int_or_default(const Contain
         return std::stoi(found->second);
 };
 
-template <typename KeyType>
-int int_or_default(const std::unordered_map<KeyType, Property> &ct, const KeyType &key, int def = 0)
+template <typename KeyType> int int_or_default(const dict<KeyType, Property> &ct, const KeyType &key, int def = 0)
 {
     auto found = ct.find(key);
     if (found == ct.end())
@@ -101,42 +100,6 @@ template <typename Container, typename KeyType>
 bool bool_or_default(const Container &ct, const KeyType &key, bool def = false)
 {
     return bool(int_or_default(ct, key, int(def)));
-};
-
-// Wrap an unordered_map, and allow it to be iterated over sorted by key
-template <typename K, typename V> std::map<K, V *> sorted(const std::unordered_map<K, std::unique_ptr<V>> &orig)
-{
-    std::map<K, V *> retVal;
-    for (auto &item : orig)
-        retVal.emplace(std::make_pair(item.first, item.second.get()));
-    return retVal;
-};
-
-// Wrap an unordered_map, and allow it to be iterated over sorted by key
-template <typename K, typename V> std::map<K, V &> sorted_ref(std::unordered_map<K, V> &orig)
-{
-    std::map<K, V &> retVal;
-    for (auto &item : orig)
-        retVal.emplace(std::make_pair(item.first, std::ref(item.second)));
-    return retVal;
-};
-
-// Wrap an unordered_map, and allow it to be iterated over sorted by key
-template <typename K, typename V> std::map<K, const V &> sorted_cref(const std::unordered_map<K, V> &orig)
-{
-    std::map<K, const V &> retVal;
-    for (auto &item : orig)
-        retVal.emplace(std::make_pair(item.first, std::ref(item.second)));
-    return retVal;
-};
-
-// Wrap an unordered_set, and allow it to be iterated over sorted by key
-template <typename K> std::set<K> sorted(const std::unordered_set<K> &orig)
-{
-    std::set<K> retVal;
-    for (auto &item : orig)
-        retVal.insert(item);
-    return retVal;
 };
 
 // Return a net if port exists, or nullptr

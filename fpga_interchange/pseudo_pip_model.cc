@@ -44,7 +44,7 @@ void PseudoPipData::init_tile_type(const Context *ctx, int32_t tile_type)
             max_pseudo_pip_index = pip_idx;
         }
 
-        HashTables::HashSet<size_t> sites;
+        pool<size_t> sites;
         std::vector<PseudoPipBel> pseudo_pip_bels;
         for (int32_t wire_index : pip_data.pseudo_cell_wires) {
             const TileWireInfoPOD &wire_data = type_data.wire_data[wire_index];
@@ -122,7 +122,7 @@ void PseudoPipData::init_tile_type(const Context *ctx, int32_t tile_type)
         }
 
         if (!pseudo_pip_bels.empty()) {
-            HashTables::HashSet<int32_t> pseudo_cell_wires;
+            pool<int32_t> pseudo_cell_wires;
             pseudo_cell_wires.insert(pip_data.pseudo_cell_wires.begin(), pip_data.pseudo_cell_wires.end());
 
             // For each BEL, find the input bel pin used, and attach it to
@@ -195,7 +195,7 @@ void PseudoPipModel::prepare_for_routing(const Context *ctx, const std::vector<S
 {
     // First determine which sites have placed cells, these sites are consider
     // active.
-    HashTables::HashSet<size_t> active_sites;
+    pool<size_t> active_sites;
     for (size_t site = 0; site < sites.size(); ++site) {
         if (!sites[site].cells_in_site.empty()) {
             active_sites.emplace(site);
@@ -309,7 +309,7 @@ void PseudoPipModel::update_site(const Context *ctx, size_t site)
     unused_pseudo_pips.clear();
     unused_pseudo_pips.reserve(pseudo_pips_for_site.size());
 
-    HashTables::HashMap<int32_t, PseudoPipBel> used_bels;
+    dict<int32_t, PseudoPipBel> used_bels;
     for (int32_t pseudo_pip : pseudo_pips_for_site) {
         if (!active_pseudo_pips.count(pseudo_pip)) {
             unused_pseudo_pips.push_back(pseudo_pip);

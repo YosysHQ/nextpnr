@@ -21,10 +21,9 @@
 #ifndef FPGA_INTERCHANGE_ARCHDEFS_H
 #define FPGA_INTERCHANGE_ARCHDEFS_H
 
-#include <boost/functional/hash.hpp>
 #include <cstdint>
 
-#include "hash_table.h"
+#include "hashlib.h"
 #include "luts.h"
 #include "nextpnr_namespaces.h"
 
@@ -48,6 +47,7 @@ struct BelId
     {
         return tile < other.tile || (tile == other.tile && index < other.index);
     }
+    unsigned int hash() const { return mkhash(tile, index); }
 };
 
 struct WireId
@@ -62,6 +62,7 @@ struct WireId
     {
         return tile < other.tile || (tile == other.tile && index < other.index);
     }
+    unsigned int hash() const { return mkhash(tile, index); }
 };
 
 struct PipId
@@ -75,18 +76,21 @@ struct PipId
     {
         return tile < other.tile || (tile == other.tile && index < other.index);
     }
+    unsigned int hash() const { return mkhash(tile, index); }
 };
 
 struct GroupId
 {
     bool operator==(const GroupId &other) const { return true; }
     bool operator!=(const GroupId &other) const { return false; }
+    unsigned int hash() const { return 0; }
 };
 
 struct DecalId
 {
     bool operator==(const DecalId &other) const { return true; }
     bool operator!=(const DecalId &other) const { return false; }
+    unsigned int hash() const { return 0; }
 };
 
 struct BelBucketId
@@ -96,6 +100,7 @@ struct BelBucketId
     bool operator==(const BelBucketId &other) const { return (name == other.name); }
     bool operator!=(const BelBucketId &other) const { return (name != other.name); }
     bool operator<(const BelBucketId &other) const { return name < other.name; }
+    unsigned int hash() const { return name.hash(); }
 };
 
 typedef IdString ClusterId;
@@ -112,76 +117,12 @@ struct ArchNetInfo
 struct ArchCellInfo
 {
     int32_t cell_mapping = -1;
-    HashTables::HashMap<IdString, std::vector<IdString>> cell_bel_pins;
-    HashTables::HashMap<IdString, std::vector<IdString>> masked_cell_bel_pins;
-    HashTables::HashSet<IdString> const_ports;
+    dict<IdString, std::vector<IdString>> cell_bel_pins;
+    dict<IdString, std::vector<IdString>> masked_cell_bel_pins;
+    pool<IdString> const_ports;
     LutCell lut_cell;
 };
 
 NEXTPNR_NAMESPACE_END
-
-namespace std {
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX BelId>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX BelId &bel) const noexcept
-    {
-        std::size_t seed = 0;
-        boost::hash_combine(seed, hash<int>()(bel.tile));
-        boost::hash_combine(seed, hash<int>()(bel.index));
-        return seed;
-    }
-};
-
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX WireId>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX WireId &wire) const noexcept
-    {
-        std::size_t seed = 0;
-        boost::hash_combine(seed, hash<int>()(wire.tile));
-        boost::hash_combine(seed, hash<int>()(wire.index));
-        return seed;
-    }
-};
-
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX PipId>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX PipId &pip) const noexcept
-    {
-        std::size_t seed = 0;
-        boost::hash_combine(seed, hash<int>()(pip.tile));
-        boost::hash_combine(seed, hash<int>()(pip.index));
-        return seed;
-    }
-};
-
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX GroupId>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX GroupId &group) const noexcept
-    {
-        std::size_t seed = 0;
-        return seed;
-    }
-};
-
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX DecalId>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX DecalId &decal) const noexcept
-    {
-        std::size_t seed = 0;
-        return seed;
-    }
-};
-
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX BelBucketId>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX BelBucketId &bucket) const noexcept
-    {
-        std::size_t seed = 0;
-        boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(bucket.name));
-        return seed;
-    }
-};
-
-} // namespace std
 
 #endif /* FPGA_INTERCHANGE_ARCHDEFS_H */

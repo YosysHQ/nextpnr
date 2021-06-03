@@ -389,8 +389,8 @@ struct FixupHierarchyWorker
     // Update hierarchy structure for nets and cells that have hiercell set
     void rebuild_hierarchy()
     {
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->hierpath == IdString())
                 ci->hierpath = ctx->top_module;
             auto &hc = ctx->hierarchy.at(ci->hierpath);

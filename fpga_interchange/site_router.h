@@ -23,6 +23,7 @@
 
 #include <cstdint>
 
+#include "hashlib.h"
 #include "nextpnr_namespaces.h"
 #include "nextpnr_types.h"
 #include "site_arch.h"
@@ -37,9 +38,9 @@ struct SiteRouter
 {
     SiteRouter(int16_t site) : site(site), dirty(false), site_ok(true) {}
 
-    std::unordered_set<CellInfo *> cells_in_site;
+    pool<CellInfo *, hash_ptr_ops> cells_in_site;
     std::vector<PipId> valid_pips;
-    HashTables::HashSet<std::pair<IdString, int32_t>, PairHash> lut_thrus;
+    pool<std::pair<IdString, int32_t>> lut_thrus;
     const int16_t site;
 
     mutable bool dirty;

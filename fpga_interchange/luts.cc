@@ -166,13 +166,13 @@ uint32_t LutMapper::check_wires(const Context *ctx) const
         }
     }
 
-    HashTables::HashSet<const LutBel *> blocked_luts;
+    pool<const LutBel *, hash_ptr_ops> blocked_luts;
     return check_wires(bel_to_cell_pin_remaps, lut_bels, used_pins, &blocked_luts);
 }
 
 uint32_t LutMapper::check_wires(const std::vector<std::vector<int32_t>> &bel_to_cell_pin_remaps,
                                 const std::vector<const LutBel *> &lut_bels, uint32_t used_pins,
-                                HashTables::HashSet<const LutBel *> *blocked_luts) const
+                                pool<const LutBel *, hash_ptr_ops> *blocked_luts) const
 {
     std::vector<const LutBel *> unused_luts;
     for (auto &lut_bel_pair : element.lut_bels) {
@@ -253,9 +253,9 @@ uint32_t LutMapper::check_wires(const std::vector<std::vector<int32_t>> &bel_to_
     return vcc_mask;
 }
 
-bool LutMapper::remap_luts(const Context *ctx, HashTables::HashSet<const LutBel *> *blocked_luts)
+bool LutMapper::remap_luts(const Context *ctx, pool<const LutBel *, hash_ptr_ops> *blocked_luts)
 {
-    std::unordered_map<NetInfo *, LutPin> lut_pin_map;
+    dict<NetInfo *, LutPin, hash_ptr_ops> lut_pin_map;
     std::vector<const LutBel *> lut_bels;
     lut_bels.resize(cells.size());
 
@@ -366,7 +366,7 @@ bool LutMapper::remap_luts(const Context *ctx, HashTables::HashSet<const LutBel 
             CellInfo *cell = cells[cell_idx];
             auto &lut_bel = *lut_bels[cell_idx];
 
-            std::unordered_map<IdString, IdString> cell_to_bel_map;
+            dict<IdString, IdString> cell_to_bel_map;
             for (size_t pin_idx = 0; pin_idx < cell->lut_cell.pins.size(); ++pin_idx) {
                 size_t bel_pin_idx = cell_to_bel_pin_remaps[cell_idx][pin_idx];
                 NPNR_ASSERT(bel_pin_idx < lut_bel.pins.size());
@@ -452,8 +452,8 @@ bool LutMapper::remap_luts(const Context *ctx, HashTables::HashSet<const LutBel 
     return true;
 }
 
-void check_equation(const LutCell &lut_cell, const std::unordered_map<IdString, IdString> &cell_to_bel_map,
-                    const LutBel &lut_bel, const std::vector<LogicLevel> &equation, uint32_t used_pins)
+void check_equation(const LutCell &lut_cell, const dict<IdString, IdString> &cell_to_bel_map, const LutBel &lut_bel,
+                    const std::vector<LogicLevel> &equation, uint32_t used_pins)
 {
     std::vector<int8_t> pin_map;
     pin_map.resize(lut_bel.pins.size(), -1);

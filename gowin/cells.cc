@@ -114,7 +114,7 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
     replace_port(dff, id_Q, lc, id_Q);
 }
 
-void gwio_to_iob(Context *ctx, CellInfo *nxio, CellInfo *iob, std::unordered_set<IdString> &todelete_cells)
+void gwio_to_iob(Context *ctx, CellInfo *nxio, CellInfo *iob, pool<IdString> &todelete_cells)
 {
     if (nxio->type == id_IBUF) {
         iob->params[id_INPUT_USED] = 1;

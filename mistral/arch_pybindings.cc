@@ -50,10 +50,10 @@ void arch_wrap_python(py::module &m)
     fn_wrapper_2a<Context, decltype(&Context::compute_lut_mask), &Context::compute_lut_mask, pass_through<uint64_t>,
                   pass_through<uint32_t>, pass_through<uint8_t>>::def_wrap(ctx_cls, "compute_lut_mask");
 
-    typedef std::unordered_map<IdString, std::unique_ptr<CellInfo>> CellMap;
-    typedef std::unordered_map<IdString, std::unique_ptr<NetInfo>> NetMap;
-    typedef std::unordered_map<IdString, IdString> AliasMap;
-    typedef std::unordered_map<IdString, HierarchicalCell> HierarchyMap;
+    typedef dict<IdString, std::unique_ptr<CellInfo>> CellMap;
+    typedef dict<IdString, std::unique_ptr<NetInfo>> NetMap;
+    typedef dict<IdString, IdString> AliasMap;
+    typedef dict<IdString, HierarchicalCell> HierarchyMap;
 
     auto belpin_cls = py::class_<ContextualWrapper<BelPin>>(m, "BelPin");
     readonly_wrapper<BelPin, decltype(&BelPin::bel), &BelPin::bel, conv_to_str<BelId>>::def_wrap(belpin_cls, "bel");

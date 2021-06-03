@@ -62,7 +62,7 @@ void ice40DelayFuzzerMain(Context *ctx)
 
         WireId src = srcWires[index];
         WireId dst = dstWires[index++];
-        std::unordered_map<WireId, PipId> route;
+        dict<WireId, PipId> route;
 
 #if NUM_FUZZ_ROUTES <= 1000
         if (!ctx->getActualRouteDelay(src, dst, nullptr, &route, false))

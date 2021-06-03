@@ -178,10 +178,10 @@ struct FastBels
     const bool check_bel_available;
     const int minBelsForGridPick;
 
-    std::unordered_map<IdString, TypeData> cell_types;
+    dict<IdString, TypeData> cell_types;
     std::vector<std::unique_ptr<FastBelsData>> fast_bels_by_cell_type;
 
-    std::unordered_map<BelBucketId, TypeData> partition_types;
+    dict<BelBucketId, TypeData> partition_types;
     std::vector<std::unique_ptr<FastBelsData>> fast_bels_by_partition_type;
 };
 

@@ -419,22 +419,8 @@ struct DelayKey
     {
         return celltype == other.celltype && from == other.from && to == other.to;
     }
+    unsigned int hash() const { return mkhash(celltype.hash(), mkhash(from.hash(), to.hash())); }
 };
-
-NEXTPNR_NAMESPACE_END
-namespace std {
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX DelayKey>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX DelayKey &dk) const noexcept
-    {
-        std::size_t seed = std::hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(dk.celltype);
-        seed ^= std::hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(dk.from) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-        seed ^= std::hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(dk.to) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-        return seed;
-    }
-};
-} // namespace std
-NEXTPNR_NAMESPACE_BEGIN
 
 struct ArchRanges : BaseArchRanges
 {
@@ -458,15 +444,15 @@ struct Arch : BaseArch<ArchRanges>
     const PackageInfoPOD *package_info;
     const SpeedGradePOD *speed_grade;
 
-    mutable std::unordered_map<IdStringList, PipId> pip_by_name;
+    mutable dict<IdStringList, PipId> pip_by_name;
 
     std::vector<CellInfo *> bel_to_cell;
-    std::unordered_map<WireId, int> wire_fanout;
+    dict<WireId, int> wire_fanout;
 
     // fast access to  X and Y IdStrings for building object names
     std::vector<IdString> x_ids, y_ids;
     // inverse of the above for name->object mapping
-    std::unordered_map<IdString, int> id_to_x, id_to_y;
+    dict<IdString, int> id_to_x, id_to_y;
 
     ArchArgs args;
     Arch(ArchArgs args);
@@ -914,10 +900,10 @@ struct Arch : BaseArch<ArchRanges>
     // Improves directivity of routing to DSP inputs, avoids issues
     // with different routes to the same physical reset wire causing
     // conflicts and slow routing
-    std::unordered_map<WireId, std::pair<int, int>> wire_loc_overrides;
+    dict<WireId, std::pair<int, int>> wire_loc_overrides;
     void setup_wire_locations();
 
-    mutable std::unordered_map<DelayKey, std::pair<bool, DelayQuad>> celldelay_cache;
+    mutable dict<DelayKey, std::pair<bool, DelayQuad>> celldelay_cache;
 
     static const std::string defaultPlacer;
     static const std::vector<std::string> availablePlacers;

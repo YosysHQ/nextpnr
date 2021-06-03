@@ -60,10 +60,10 @@ void arch_wrap_python(py::module &m)
                            .def("place", &Context::place)
                            .def("route", &Context::route);
 
-    typedef std::unordered_map<IdString, std::unique_ptr<CellInfo>> CellMap;
-    typedef std::unordered_map<IdString, std::unique_ptr<NetInfo>> NetMap;
-    typedef std::unordered_map<IdString, IdString> AliasMap;
-    typedef std::unordered_map<IdString, HierarchicalCell> HierarchyMap;
+    typedef dict<IdString, std::unique_ptr<CellInfo>> CellMap;
+    typedef dict<IdString, std::unique_ptr<NetInfo>> NetMap;
+    typedef dict<IdString, IdString> AliasMap;
+    typedef dict<IdString, HierarchicalCell> HierarchyMap;
 
     auto belpin_cls = py::class_<ContextualWrapper<BelPin>>(m, "BelPin");
     readonly_wrapper<BelPin, decltype(&BelPin::bel), &BelPin::bel, conv_to_str<BelId>>::def_wrap(belpin_cls, "bel");

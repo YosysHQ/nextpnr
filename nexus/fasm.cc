@@ -248,7 +248,7 @@ struct NexusFasmWriter
     // Write out the mux config for a cell
     void write_cell_muxes(const CellInfo *cell)
     {
-        for (auto port : sorted_cref(cell->ports)) {
+        for (auto &port : cell->ports) {
             // Only relevant to inputs
             if (port.second.type != PORT_IN)
                 continue;
@@ -336,7 +336,7 @@ struct NexusFasmWriter
         pop(2);
     }
 
-    std::unordered_set<BelId> used_io;
+    pool<BelId> used_io;
 
     struct BankConfig
     {
@@ -539,7 +539,7 @@ struct NexusFasmWriter
         push_bel(bel);
         if (cell->type != id_MULT18_CORE && cell->type != id_MULT18X36_CORE && cell->type != id_MULT36_CORE)
             write_bit(stringf("MODE.%s", ctx->nameOf(cell->type)));
-        for (auto param : sorted_cref(cell->params)) {
+        for (auto &param : cell->params) {
             const std::string &param_name = param.first.str(ctx);
             if (is_mux_param(param_name))
                 continue;
@@ -556,7 +556,7 @@ struct NexusFasmWriter
 
     // Which PLL params are 'word' values
     /* clang-format off */
-    const std::unordered_map<std::string, int> pll_word_params = {
+    const dict<std::string, int> pll_word_params = {
             {"DIVA", 7}, {"DELA", 7}, {"PHIA", 3}, {"DIVB", 7},
             {"DELB", 7}, {"PHIB", 3}, {"DIVC", 7}, {"DELC", 7},
             {"PHIC", 3}, {"DIVD", 7}, {"DELD", 7}, {"PHID", 3},
@@ -582,7 +582,7 @@ struct NexusFasmWriter
     };
 
     // Which MIPI params are 'word' values
-    const std::unordered_map<std::string, int> dphy_word_params = {
+    const dict<std::string, int> dphy_word_params = {
             {"CM", 8}, {"CN", 5}, {"CO", 3}, {"RSEL", 2}, {"RXCDRP", 2},
             {"RXDATAWIDTHHS", 2}, {"RXLPRP", 3}, {"TEST_ENBL", 6},
             {"TEST_PATTERN", 32}, {"TST", 4}, {"TXDATAWIDTHHS", 2},
@@ -601,7 +601,7 @@ struct NexusFasmWriter
         write_cell_muxes(cell);
         pop();
         push(stringf("IP_%s", ctx->nameOf(IdString(ctx->bel_data(bel).name))));
-        for (auto param : sorted_cref(cell->params)) {
+        for (auto &param : cell->params) {
             const std::string &name = param.first.str(ctx);
             if (is_mux_param(name) || name == "CLKMUX_FB" || name == "SEL_FBK")
                 continue;
@@ -622,7 +622,7 @@ struct NexusFasmWriter
     {
         BelId bel = cell->bel;
         push(stringf("IP_%s", ctx->nameOf(IdString(ctx->bel_data(bel).name))));
-        for (auto param : sorted_cref(cell->params)) {
+        for (auto &param : cell->params) {
             const std::string &name = param.first.str(ctx);
             if (is_mux_param(name) || name == "GSR")
                 continue;
@@ -683,7 +683,7 @@ struct NexusFasmWriter
         write_comment("# Unused bels");
 
         // DSP primitives are configured to a default mode; even if unused
-        static const std::unordered_map<IdString, std::vector<std::string>> dsp_defconf = {
+        static const dict<IdString, std::vector<std::string>> dsp_defconf = {
                 {id_MULT9_CORE,
                  {
                          "GSR.ENABLED",
@@ -733,7 +733,7 @@ struct NexusFasmWriter
             }
         }
     }
-    std::unordered_map<int, int> bank_vcco;
+    dict<int, int> bank_vcco;
     // bank VccO in mV
     int get_bank_vcco(const std::string &iostd)
     {
@@ -753,8 +753,8 @@ struct NexusFasmWriter
     // Write out placeholder bankref config
     void write_bankcfg()
     {
-        for (auto c : sorted(ctx->cells)) {
-            const CellInfo *ci = c.second;
+        for (auto &c : ctx->cells) {
+            const CellInfo *ci = c.second.get();
             if (ci->type != id_SEIO33_CORE)
                 continue;
             if (!ci->attrs.count(id_IO_TYPE))
@@ -809,12 +809,12 @@ struct NexusFasmWriter
         write_attribute("oxide.device_variant", ctx->variant);
         blank();
         // Write routing
-        for (auto n : sorted(ctx->nets)) {
-            write_net(n.second);
+        for (auto &n : ctx->nets) {
+            write_net(n.second.get());
         }
         // Write cell config
-        for (auto c : sorted(ctx->cells)) {
-            const CellInfo *ci = c.second;
+        for (auto &c : ctx->cells) {
+            const CellInfo *ci = c.second.get();
             write_comment(stringf("# Cell %s", ctx->nameOf(ci)));
             if (ci->type == id_OXIDE_COMB)
                 write_comb(ci);

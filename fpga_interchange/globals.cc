@@ -67,7 +67,7 @@ static int route_global_arc(Context *ctx, NetInfo *net, size_t usr_idx, size_t p
     WireId startpoint;
     GlobalVist best_visit;
     std::queue<WireId> visit_queue;
-    std::unordered_map<WireId, GlobalVist> visits;
+    dict<WireId, GlobalVist> visits;
 
     visit_queue.push(dest);
     visits[dest].downhill = PipId();
@@ -160,8 +160,8 @@ void Arch::place_globals()
 
     // TODO: for more complex PLL type setups, we might want a toposort or iterative loop as the PLL must be placed
     // before the GBs it drives
-    for (auto cell : sorted(ctx->cells)) {
-        CellInfo *ci = cell.second;
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
         const GlobalCellPOD *glb_cell = global_cell_info(ci->type);
         if (glb_cell == nullptr)
             continue;
@@ -239,8 +239,8 @@ void Arch::route_globals()
     IdString gnd_net_name(chip_info->constants->gnd_net_name);
     IdString vcc_net_name(chip_info->constants->vcc_net_name);
 
-    for (auto cell : sorted(ctx->cells)) {
-        CellInfo *ci = cell.second;
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
         const GlobalCellPOD *glb_cell = global_cell_info(ci->type);
         if (glb_cell == nullptr)
             continue;

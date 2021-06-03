@@ -253,15 +253,15 @@ class ChainConstrainer
                         return i3_next;
                     return (CellInfo *)nullptr;
                 });
-        std::unordered_set<IdString> chained;
+        pool<IdString> chained;
         for (auto &base_chain : carry_chains) {
             for (auto c : base_chain.cells)
                 chained.insert(c->name);
         }
         // Any cells not in chains, but with carry enabled, must also be put in a single-carry chain
         // for correct processing
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (chained.find(cell.first) == chained.end() && is_lc(ctx, ci) &&
                 bool_or_default(ci->params, ctx->id("CARRY_ENABLE"))) {
                 CellChain sChain;

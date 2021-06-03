@@ -19,7 +19,6 @@
 
 #include <algorithm>
 #include <iterator>
-#include <unordered_set>
 #include "cells.h"
 #include "design_utils.h"
 #include "log.h"
@@ -32,16 +31,17 @@ static void pack_lut_lutffs(Context *ctx)
 {
     log_info("Packing LUT-FFs..\n");
 
-    std::unordered_set<IdString> packed_cells;
+    pool<IdString> packed_cells;
     std::vector<std::unique_ptr<CellInfo>> new_cells;
-    for (auto cell : sorted(ctx->cells)) {
-        CellInfo *ci = cell.second;
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
         if (ctx->verbose)
             log_info("cell '%s' is of type '%s'\n", ci->name.c_str(ctx), ci->type.c_str(ctx));
         if (is_lut(ctx, ci)) {
             std::unique_ptr<CellInfo> packed =
                     create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), ci->name.str(ctx) + "_LC");
-            std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(packed->attrs, packed->attrs.begin()));
+            for (auto &attr : ci->attrs)
+                packed->attrs[attr.first] = attr.second;
             packed_cells.insert(ci->name);
             if (ctx->verbose)
                 log_info("packed cell %s into %s\n", ci->name.c_str(ctx), packed->name.c_str(ctx));
@@ -88,15 +88,16 @@ static void pack_nonlut_ffs(Context *ctx)
 {
     log_info("Packing non-LUT FFs..\n");
 
-    std::unordered_set<IdString> packed_cells;
+    pool<IdString> packed_cells;
     std::vector<std::unique_ptr<CellInfo>> new_cells;
 
-    for (auto cell : sorted(ctx->cells)) {
-        CellInfo *ci = cell.second;
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
         if (is_ff(ctx, ci)) {
             std::unique_ptr<CellInfo> packed =
                     create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), ci->name.str(ctx) + "_DFFLC");
-            std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(packed->attrs, packed->attrs.begin()));
+            for (auto &attr : ci->attrs)
+                packed->attrs[attr.first] = attr.second;
             if (ctx->verbose)
                 log_info("packed cell %s into %s\n", ci->name.c_str(ctx), packed->name.c_str(ctx));
             packed_cells.insert(ci->name);
@@ -158,8 +159,8 @@ static void pack_constants(Context *ctx)
 
     bool gnd_used = false, vcc_used = false;
 
-    for (auto net : sorted(ctx->nets)) {
-        NetInfo *ni = net.second;
+    for (auto &net : ctx->nets) {
+        NetInfo *ni = net.second.get();
         if (ni->driver.cell != nullptr && ni->driver.cell->type == ctx->id("GND")) {
             IdString drv_cell = ni->driver.cell->name;
             set_net_constant(ctx, ni, gnd_net.get(), false);
@@ -201,14 +202,14 @@ static bool is_generic_iob(const Context *ctx, const CellInfo *cell) { return ce
 // Pack IO buffers
 static void pack_io(Context *ctx)
 {
-    std::unordered_set<IdString> packed_cells;
-    std::unordered_set<IdString> delete_nets;
+    pool<IdString> packed_cells;
+    pool<IdString> delete_nets;
 
     std::vector<std::unique_ptr<CellInfo>> new_cells;
     log_info("Packing IOs..\n");
 
-    for (auto cell : sorted(ctx->cells)) {
-        CellInfo *ci = cell.second;
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
         if (is_nextpnr_iob(ctx, ci)) {
             CellInfo *iob = nullptr;
             if (ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_iobuf")) {
@@ -254,7 +255,8 @@ static void pack_io(Context *ctx)
             }
             packed_cells.insert(ci->name);
             if (iob != nullptr)
-                std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(iob->attrs, iob->attrs.begin()));
+                for (auto &attr : ci->attrs)
+                    iob->attrs[attr.first] = attr.second;
         }
     }
     for (auto pcell : packed_cells) {

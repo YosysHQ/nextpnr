@@ -46,19 +46,6 @@
 #include "timing.h"
 #include "util.h"
 
-namespace std {
-template <> struct hash<std::pair<NEXTPNR_NAMESPACE_PREFIX IdString, std::size_t>>
-{
-    std::size_t operator()(const std::pair<NEXTPNR_NAMESPACE_PREFIX IdString, std::size_t> &idp) const noexcept
-    {
-        std::size_t seed = 0;
-        boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(idp.first));
-        boost::hash_combine(seed, hash<std::size_t>()(idp.second));
-        return seed;
-    }
-};
-} // namespace std
-
 NEXTPNR_NAMESPACE_BEGIN
 
 class SAPlacer
@@ -87,8 +74,8 @@ class SAPlacer
         }
         diameter = std::max(max_x, max_y) + 1;
 
-        std::unordered_set<IdString> cell_types_in_use;
-        for (auto cell : sorted(ctx->cells)) {
+        pool<IdString> cell_types_in_use;
+        for (auto &cell : ctx->cells) {
             IdString cell_type = cell.second->type;
             cell_types_in_use.insert(cell_type);
         }
@@ -108,8 +95,8 @@ class SAPlacer
             net.second->udata = n++;
             net_by_udata.push_back(net.second.get());
         }
-        for (auto &region : sorted(ctx->region)) {
-            Region *r = region.second;
+        for (auto &region : ctx->region) {
+            Region *r = region.second.get();
             BoundingBox bb;
             if (r->constr_bels) {
                 bb.x0 = std::numeric_limits<int>::max();
@@ -360,12 +347,12 @@ class SAPlacer
                     // Only increase temperature if something was moved
                     autoplaced.clear();
                     chain_basis.clear();
-                    for (auto cell : sorted(ctx->cells)) {
+                    for (auto &cell : ctx->cells) {
                         if (cell.second->belStrength <= STRENGTH_STRONG && cell.second->cluster != ClusterId() &&
-                            ctx->getClusterRootCell(cell.second->cluster) == cell.second)
-                            chain_basis.push_back(cell.second);
+                            ctx->getClusterRootCell(cell.second->cluster) == cell.second.get())
+                            chain_basis.push_back(cell.second.get());
                         else if (cell.second->belStrength < STRENGTH_STRONG)
-                            autoplaced.push_back(cell.second);
+                            autoplaced.push_back(cell.second.get());
                     }
                     // temp = post_legalise_temp;
                     // diameter = std::min<int>(M, diameter * post_legalise_dia_scale);
@@ -421,8 +408,8 @@ class SAPlacer
                 }
             }
         }
-        for (auto cell : sorted(ctx->cells))
-            if (get_constraints_distance(ctx, cell.second) != 0)
+        for (auto &cell : ctx->cells)
+            if (get_constraints_distance(ctx, cell.second.get()) != 0)
                 log_error("constraint satisfaction check failed for cell '%s' at Bel '%s'\n", cell.first.c_str(ctx),
                           ctx->nameOfBel(cell.second->bel));
         timing_analysis(ctx);
@@ -629,7 +616,7 @@ class SAPlacer
     bool try_swap_chain(CellInfo *cell, BelId newBase)
     {
         std::vector<std::pair<CellInfo *, Loc>> cell_rel;
-        std::unordered_set<IdString> cells;
+        pool<IdString> cells;
         std::vector<std::pair<CellInfo *, BelId>> moves_made;
         std::vector<std::pair<CellInfo *, BelId>> dest_bels;
         double delta = 0;
@@ -831,8 +818,8 @@ class SAPlacer
     // Set up the cost maps
     void setup_costs()
     {
-        for (auto net : sorted(ctx->nets)) {
-            NetInfo *ni = net.second;
+        for (auto &net : ctx->nets) {
+            NetInfo *ni = net.second.get();
             if (ignore_net(ni))
                 continue;
             net_bounds[ni->udata] = get_net_bounds(ni);
@@ -1065,7 +1052,7 @@ class SAPlacer
                                 mc.already_changed_arcs[pn->udata][i] = true;
                             }
                 } else if (port.second.type == PORT_IN) {
-                    auto usr = fast_port_to_user.at(&port.second);
+                    auto usr = fast_port_to_user.at(std::make_pair(cell->name, port.first));
                     if (!mc.already_changed_arcs[pn->udata][usr]) {
                         mc.changed_arcs.emplace_back(std::make_pair(pn->udata, usr));
                         mc.already_changed_arcs[pn->udata][usr] = true;
@@ -1118,11 +1105,11 @@ class SAPlacer
     // Build the cell port -> user index
     void build_port_index()
     {
-        for (auto net : sorted(ctx->nets)) {
-            NetInfo *ni = net.second;
+        for (auto &net : ctx->nets) {
+            NetInfo *ni = net.second.get();
             for (size_t i = 0; i < ni->users.size(); i++) {
                 auto &usr = ni->users.at(i);
-                fast_port_to_user[&(usr.cell->ports.at(usr.port))] = i;
+                fast_port_to_user[std::make_pair(usr.cell->name, usr.port)] = i;
             }
         }
     }
@@ -1130,13 +1117,13 @@ class SAPlacer
     // Simple routeability driven placement
     const int large_cell_thresh = 50;
     int total_net_share = 0;
-    std::vector<std::vector<std::unordered_map<IdString, int>>> nets_by_tile;
+    std::vector<std::vector<dict<IdString, int>>> nets_by_tile;
     void setup_nets_by_tile()
     {
         total_net_share = 0;
-        nets_by_tile.resize(max_x + 1, std::vector<std::unordered_map<IdString, int>>(max_y + 1));
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        nets_by_tile.resize(max_x + 1, std::vector<dict<IdString, int>>(max_y + 1));
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (int(ci->ports.size()) > large_cell_thresh)
                 continue;
             Loc loc = ctx->getBelLocation(ci->bel);
@@ -1194,7 +1181,7 @@ class SAPlacer
     std::vector<std::vector<double>> net_arc_tcost;
 
     // Fast lookup for cell port to net user index
-    std::unordered_map<const PortInfo *, size_t> fast_port_to_user;
+    dict<std::pair<IdString, IdString>, size_t> fast_port_to_user;
 
     // Wirelength and timing cost at last and current iteration
     wirelen_t last_wirelen_cost, curr_wirelen_cost;
@@ -1207,10 +1194,10 @@ class SAPlacer
     bool improved = false;
     int n_move, n_accept;
     int diameter = 35, max_x = 1, max_y = 1;
-    std::unordered_map<IdString, std::tuple<int, int>> bel_types;
-    std::unordered_map<IdString, BoundingBox> region_bounds;
+    dict<IdString, std::tuple<int, int>> bel_types;
+    dict<IdString, BoundingBox> region_bounds;
     FastBels fast_bels;
-    std::unordered_set<BelId> locked_bels;
+    pool<BelId> locked_bels;
     std::vector<NetInfo *> net_by_udata;
     std::vector<decltype(NetInfo::udata)> old_udata;
     bool require_legal = true;

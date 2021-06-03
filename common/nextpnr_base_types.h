@@ -30,6 +30,7 @@
 #include <boost/functional/hash.hpp>
 #include <string>
 
+#include "hashlib.h"
 #include "idstring.h"
 #include "nextpnr_namespaces.h"
 
@@ -89,6 +90,7 @@ struct Loc
 
     bool operator==(const Loc &other) const { return (x == other.x) && (y == other.y) && (z == other.z); }
     bool operator!=(const Loc &other) const { return (x != other.x) || (y != other.y) || (z != other.z); }
+    unsigned int hash() const { return mkhash(x, mkhash(y, z)); }
 };
 
 struct ArcBounds
@@ -127,20 +129,5 @@ enum PlaceStrength
 };
 
 NEXTPNR_NAMESPACE_END
-
-namespace std {
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX Loc>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX Loc &obj) const noexcept
-    {
-        std::size_t seed = 0;
-        boost::hash_combine(seed, hash<int>()(obj.x));
-        boost::hash_combine(seed, hash<int>()(obj.y));
-        boost::hash_combine(seed, hash<int>()(obj.z));
-        return seed;
-    }
-};
-
-} // namespace std
 
 #endif /* NEXTPNR_BASE_TYPES_H */

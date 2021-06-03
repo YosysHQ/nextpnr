@@ -22,13 +22,12 @@
 #define SITE_ARCH_H
 
 #include <cstdint>
-#include <unordered_set>
 #include <vector>
 
 #include "PhysicalNetlist.capnp.h"
 #include "arch_iterators.h"
 #include "chipdb.h"
-#include "hash_table.h"
+#include "hashlib.h"
 #include "log.h"
 #include "nextpnr_namespaces.h"
 #include "nextpnr_types.h"
@@ -44,10 +43,10 @@ struct SiteInformation
     const int32_t tile;
     const int32_t tile_type;
     const int32_t site;
-    const std::unordered_set<CellInfo *> &cells_in_site;
+    const pool<CellInfo *, hash_ptr_ops> &cells_in_site;
 
     SiteInformation(const Context *ctx, int32_t tile, int32_t site,
-                    const std::unordered_set<CellInfo *> &cells_in_site);
+                    const pool<CellInfo *, hash_ptr_ops> &cells_in_site);
 
     inline const ChipInfoPOD &chip_info() const NPNR_ALWAYS_INLINE;
 
@@ -143,6 +142,7 @@ struct SiteWire
     WireId wire;
     PipId pip;
     NetInfo *net = nullptr;
+    unsigned int hash() const { return mkhash(mkhash(int(type), wire.hash()), mkhash(pip.hash(), uintptr_t(net))); }
 };
 
 struct SitePip
@@ -214,36 +214,8 @@ struct SitePip
     {
         return type != other.type || pip != other.pip || wire != other.wire || other_pip != other.other_pip;
     }
+    unsigned int hash() const { return mkhash(mkhash(int(type), pip.hash()), mkhash(wire.hash(), other_pip.hash())); }
 };
-NEXTPNR_NAMESPACE_END
-
-template <> struct std::hash<NEXTPNR_NAMESPACE_PREFIX SiteWire>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX SiteWire &site_wire) const noexcept
-    {
-        std::size_t seed = 0;
-        boost::hash_combine(seed, std::hash<NEXTPNR_NAMESPACE_PREFIX SiteWire::Type>()(site_wire.type));
-        boost::hash_combine(seed, std::hash<NEXTPNR_NAMESPACE_PREFIX WireId>()(site_wire.wire));
-        boost::hash_combine(seed, std::hash<NEXTPNR_NAMESPACE_PREFIX PipId>()(site_wire.pip));
-        boost::hash_combine(seed, std::hash<NEXTPNR_NAMESPACE_PREFIX NetInfo *>()(site_wire.net));
-        return seed;
-    }
-};
-
-template <> struct std::hash<NEXTPNR_NAMESPACE_PREFIX SitePip>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX SitePip &site_pip) const noexcept
-    {
-        std::size_t seed = 0;
-        boost::hash_combine(seed, std::hash<NEXTPNR_NAMESPACE_PREFIX SitePip::Type>()(site_pip.type));
-        boost::hash_combine(seed, std::hash<NEXTPNR_NAMESPACE_PREFIX PipId>()(site_pip.pip));
-        boost::hash_combine(seed, std::hash<NEXTPNR_NAMESPACE_PREFIX SiteWire>()(site_pip.wire));
-        boost::hash_combine(seed, std::hash<NEXTPNR_NAMESPACE_PREFIX PipId>()(site_pip.other_pip));
-        return seed;
-    }
-};
-
-NEXTPNR_NAMESPACE_BEGIN
 
 struct SitePipDownhillRange;
 struct SitePipUphillRange;
@@ -266,9 +238,9 @@ struct SiteNetInfo
 {
     NetInfo *net;
     SiteWire driver;
-    HashTables::HashSet<SiteWire> users;
+    pool<SiteWire> users;
 
-    HashTables::HashMap<SiteWire, SitePipMap> wires;
+    dict<SiteWire, SitePipMap> wires;
 };
 
 struct SiteArch
@@ -276,8 +248,8 @@ struct SiteArch
     const Context *const ctx;
     const SiteInformation *const site_info;
 
-    HashTables::HashMap<NetInfo *, SiteNetInfo> nets;
-    HashTables::HashMap<SiteWire, SiteNetMap> wire_to_nets;
+    dict<NetInfo *, SiteNetInfo, hash_ptr_ops> nets;
+    dict<SiteWire, SiteNetMap> wire_to_nets;
 
     NetInfo blocking_net;
     SiteNetInfo blocking_site_net;

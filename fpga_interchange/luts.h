@@ -20,14 +20,11 @@
 #ifndef LUTS_H
 #define LUTS_H
 
-#include <unordered_map>
-#include <unordered_set>
-
 #include "idstring.h"
 #include "nextpnr_namespaces.h"
 
 #include "dynamic_bitarray.h"
-#include "hash_table.h"
+#include "hashlib.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -45,8 +42,8 @@ struct LutCell
 {
     // LUT cell pins for equation, LSB first.
     std::vector<IdString> pins;
-    std::unordered_set<IdString> lut_pins;
-    std::unordered_set<IdString> vcc_pins;
+    pool<IdString> lut_pins;
+    pool<IdString> vcc_pins;
     DynamicBitarray<> equation;
 };
 
@@ -56,7 +53,7 @@ struct LutBel
 
     // LUT BEL pins to LUT array index.
     std::vector<IdString> pins;
-    std::unordered_map<IdString, size_t> pin_to_index;
+    dict<IdString, size_t> pin_to_index;
 
     IdString output_pin;
 
@@ -71,18 +68,18 @@ struct LutBel
 
 // Work forward from cell definition and cell -> bel pin map and check that
 // equation is valid.
-void check_equation(const LutCell &lut_cell, const std::unordered_map<IdString, IdString> &cell_to_bel_map,
-                    const LutBel &lut_bel, const std::vector<LogicLevel> &equation, uint32_t used_pins);
+void check_equation(const LutCell &lut_cell, const dict<IdString, IdString> &cell_to_bel_map, const LutBel &lut_bel,
+                    const std::vector<LogicLevel> &equation, uint32_t used_pins);
 
 struct LutElement
 {
     size_t width;
-    std::unordered_map<IdString, LutBel> lut_bels;
+    dict<IdString, LutBel> lut_bels;
 
     void compute_pin_order();
 
     std::vector<IdString> pins;
-    std::unordered_map<IdString, size_t> pin_to_index;
+    dict<IdString, size_t> pin_to_index;
 };
 
 struct LutMapper
@@ -92,7 +89,7 @@ struct LutMapper
 
     std::vector<CellInfo *> cells;
 
-    bool remap_luts(const Context *ctx, HashTables::HashSet<const LutBel *> *blocked_luts);
+    bool remap_luts(const Context *ctx, pool<const LutBel *, hash_ptr_ops> *blocked_luts);
 
     // Determine which wires given the current mapping must be tied to the
     // default constant.
@@ -101,7 +98,7 @@ struct LutMapper
     // the pin is free to be a signal.
     uint32_t check_wires(const std::vector<std::vector<int32_t>> &bel_to_cell_pin_remaps,
                          const std::vector<const LutBel *> &lut_bels, uint32_t used_pins,
-                         HashTables::HashSet<const LutBel *> *blocked_luts) const;
+                         pool<const LutBel *, hash_ptr_ops> *blocked_luts) const;
 
     // Version of check_wires that uses current state of cells based on pin
     // mapping in cells variable.

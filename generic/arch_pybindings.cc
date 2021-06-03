@@ -138,9 +138,9 @@ void arch_wrap_python(py::module &m)
     fn_wrapper_3a<Context, decltype(&Context::constructDecalXY), &Context::constructDecalXY, wrap_context<DecalXY>,
                   conv_from_str<DecalId>, pass_through<float>, pass_through<float>>::def_wrap(ctx_cls, "DecalXY");
 
-    typedef std::unordered_map<IdString, std::unique_ptr<CellInfo>> CellMap;
-    typedef std::unordered_map<IdString, std::unique_ptr<NetInfo>> NetMap;
-    typedef std::unordered_map<IdString, HierarchicalCell> HierarchyMap;
+    typedef dict<IdString, std::unique_ptr<CellInfo>> CellMap;
+    typedef dict<IdString, std::unique_ptr<NetInfo>> NetMap;
+    typedef dict<IdString, HierarchicalCell> HierarchyMap;
 
     readonly_wrapper<Context, decltype(&Context::cells), &Context::cells, wrap_context<CellMap &>>::def_wrap(ctx_cls,
                                                                                                              "cells");

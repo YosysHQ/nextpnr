@@ -718,7 +718,7 @@ void Arch::reassign_alm_inputs(uint32_t lab, uint8_t alm)
         //  - C, E0, and F0 are exclusive to the top LUT5 secion
         //  - D, E1, and F1 are exclusive to the bottom LUT5 section
         // First find up to two shared inputs
-        std::unordered_map<IdString, int> shared_nets;
+        dict<IdString, int> shared_nets;
         if (luts[0] && luts[1]) {
             for (int i = 0; i < luts[0]->combInfo.lut_input_count; i++) {
                 for (int j = 0; j < luts[1]->combInfo.lut_input_count; j++) {
@@ -826,7 +826,7 @@ void Arch::reassign_alm_inputs(uint32_t lab, uint8_t alm)
 
 // This default cell-bel pin mapping is used to provide estimates during placement only. It will have errors and
 // overlaps and a correct mapping will be resolved twixt placement and routing
-const std::unordered_map<IdString, IdString> Arch::comb_pinmap = {
+const dict<IdString, IdString> Arch::comb_pinmap = {
         {id_A, id_F0}, // fastest input first
         {id_B, id_E0}, {id_C, id_D}, {id_D, id_C},       {id_D0, id_C},       {id_D1, id_B},
         {id_E, id_B},  {id_F, id_A}, {id_Q, id_COMBOUT}, {id_SO, id_COMBOUT},

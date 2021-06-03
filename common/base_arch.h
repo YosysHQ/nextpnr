@@ -148,7 +148,7 @@ template <typename R> struct BaseArch : ArchAPI<R>
     virtual char getNameDelimiter() const override { return ' '; }
 
     // Bel methods
-    virtual uint32_t getBelChecksum(BelId bel) const override { return uint32_t(std::hash<BelId>()(bel)); }
+    virtual uint32_t getBelChecksum(BelId bel) const override { return bel.hash(); }
     virtual void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength) override
     {
         NPNR_ASSERT(bel != BelId());
@@ -196,7 +196,7 @@ template <typename R> struct BaseArch : ArchAPI<R>
     {
         return empty_if_possible<typename R::WireAttrsRangeT>();
     }
-    virtual uint32_t getWireChecksum(WireId wire) const override { return uint32_t(std::hash<WireId>()(wire)); }
+    virtual uint32_t getWireChecksum(WireId wire) const override { return wire.hash(); }
 
     virtual void bindWire(WireId wire, NetInfo *net, PlaceStrength strength) override
     {
@@ -244,7 +244,7 @@ template <typename R> struct BaseArch : ArchAPI<R>
     {
         return empty_if_possible<typename R::PipAttrsRangeT>();
     }
-    virtual uint32_t getPipChecksum(PipId pip) const override { return uint32_t(std::hash<PipId>()(pip)); }
+    virtual uint32_t getPipChecksum(PipId pip) const override { return pip.hash(); }
     virtual void bindPip(PipId pip, NetInfo *net, PlaceStrength strength) override
     {
         NPNR_ASSERT(pip != PipId());
@@ -441,23 +441,23 @@ template <typename R> struct BaseArch : ArchAPI<R>
 
     // --------------------------------------------------------------
     // These structures are used to provide default implementations of bel/wire/pip binding. Arches might want to
-    // replace them with their own, for example to use faster access structures than unordered_map. Arches might also
+    // replace them with their own, for example to use faster access structures than dict. Arches might also
     // want to add extra checks around these functions
-    std::unordered_map<BelId, CellInfo *> base_bel2cell;
-    std::unordered_map<WireId, NetInfo *> base_wire2net;
-    std::unordered_map<PipId, NetInfo *> base_pip2net;
+    dict<BelId, CellInfo *> base_bel2cell;
+    dict<WireId, NetInfo *> base_wire2net;
+    dict<PipId, NetInfo *> base_pip2net;
 
     // For the default cell/bel bucket implementations
     std::vector<IdString> cell_types;
     std::vector<BelBucketId> bel_buckets;
-    std::unordered_map<BelBucketId, std::vector<BelId>> bucket_bels;
+    dict<BelBucketId, std::vector<BelId>> bucket_bels;
 
     // Arches that want to use the default cell types and bel buckets *must* call these functions in their constructor
     bool cell_types_initialised = false;
     bool bel_buckets_initialised = false;
     void init_cell_types()
     {
-        std::unordered_set<IdString> bel_types;
+        pool<IdString> bel_types;
         for (auto bel : this->getBels())
             bel_types.insert(this->getBelType(bel));
         std::copy(bel_types.begin(), bel_types.end(), std::back_inserter(cell_types));

@@ -63,21 +63,8 @@ struct SiteBelPair
     SiteBelPair(std::string site, IdString bel) : site(site), bel(bel) {}
 
     bool operator==(const SiteBelPair &other) const { return site == other.site && bel == other.bel; }
+    unsigned int hash() const { return mkhash(std::hash<std::string>()(site), bel.hash()); }
 };
-NEXTPNR_NAMESPACE_END
-
-template <> struct std::hash<NEXTPNR_NAMESPACE_PREFIX SiteBelPair>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX SiteBelPair &site_bel) const noexcept
-    {
-        std::size_t seed = 0;
-        boost::hash_combine(seed, std::hash<std::string>()(site_bel.site));
-        boost::hash_combine(seed, std::hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(site_bel.bel));
-        return seed;
-    }
-};
-
-NEXTPNR_NAMESPACE_BEGIN
 
 static std::pair<std::string, std::string> split_identifier_name_dot(const std::string &name)
 {
@@ -180,7 +167,7 @@ Arch::Arch(ArchArgs args) : args(args), disallow_site_routing(false)
         }
     }
 
-    std::unordered_set<SiteBelPair> site_bel_pads;
+    pool<SiteBelPair> site_bel_pads;
     for (const auto &package_pin : chip_info->packages[package_index].pins) {
         IdString site(package_pin.site);
         IdString bel(package_pin.bel);
@@ -1951,7 +1938,7 @@ void Arch::unmask_bel_pins()
 
 void Arch::remove_site_routing()
 {
-    HashTables::HashSet<WireId> wires_to_unbind;
+    pool<WireId> wires_to_unbind;
     for (auto &net_pair : nets) {
         for (auto &wire_pair : net_pair.second->wires) {
             WireId wire = wire_pair.first;
@@ -2047,8 +2034,8 @@ void Arch::pack_default_conns()
 
     std::vector<IdString> dead_nets;
 
-    for (auto cell : sorted(ctx->cells)) {
-        CellInfo *ci = cell.second;
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
         const DefaultCellConnsPOD *conns = get_default_conns(ci->type);
         if (conns == nullptr)
             continue;

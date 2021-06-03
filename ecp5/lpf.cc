@@ -19,7 +19,6 @@
 
 #include <boost/algorithm/string.hpp>
 #include <sstream>
-#include <unordered_set>
 
 #include "arch.h"
 #include "log.h"
@@ -27,7 +26,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-static const std::unordered_set<std::string> sysconfig_keys = {
+static const pool<std::string> sysconfig_keys = {
         "SLAVE_SPI_PORT",      "MASTER_SPI_PORT", "SLAVE_PARALLEL_PORT",
         "BACKGROUND_RECONFIG", "DONE_EX",         "DONE_OD",
         "DONE_PULL",           "MCCLK_FREQ",      "TRANSFR",
@@ -35,7 +34,7 @@ static const std::unordered_set<std::string> sysconfig_keys = {
         "COMPRESS_CONFIG",     "CONFIG_MODE",     "INBUF",
 };
 
-static const std::unordered_set<std::string> iobuf_keys = {
+static const pool<std::string> iobuf_keys = {
         "IO_TYPE", "BANK",      "BANK_VCC",     "VREF",      "PULLMODE",   "DRIVE",       "SLEWRATE",
         "CLAMP",   "OPENDRAIN", "DIFFRESISTOR", "DIFFDRIVE", "HYSTERESIS", "TERMINATION",
 };

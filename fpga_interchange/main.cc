@@ -36,7 +36,7 @@ class FpgaInterchangeCommandHandler : public CommandHandler
   public:
     FpgaInterchangeCommandHandler(int argc, char **argv);
     virtual ~FpgaInterchangeCommandHandler(){};
-    std::unique_ptr<Context> createContext(std::unordered_map<std::string, Property> &values) override;
+    std::unique_ptr<Context> createContext(dict<std::string, Property> &values) override;
     void setupArchContext(Context *ctx) override{};
     void customBitstream(Context *ctx) override;
     void customAfterLoad(Context *ctx) override;
@@ -69,7 +69,7 @@ void FpgaInterchangeCommandHandler::customBitstream(Context *ctx)
     }
 }
 
-std::unique_ptr<Context> FpgaInterchangeCommandHandler::createContext(std::unordered_map<std::string, Property> &values)
+std::unique_ptr<Context> FpgaInterchangeCommandHandler::createContext(dict<std::string, Property> &values)
 {
     auto start = std::chrono::high_resolution_clock::now();
 

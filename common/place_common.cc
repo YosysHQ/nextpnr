@@ -178,8 +178,8 @@ class ConstraintLegaliseWorker
   private:
     Context *ctx;
     std::set<IdString> rippedCells;
-    std::unordered_map<IdString, Loc> oldLocations;
-    std::unordered_map<ClusterId, std::vector<CellInfo *>> cluster2cells;
+    dict<IdString, Loc> oldLocations;
+    dict<ClusterId, std::vector<CellInfo *>> cluster2cells;
 
     class IncreasingDiameterSearch
     {
@@ -227,10 +227,10 @@ class ConstraintLegaliseWorker
         int sign = 0;
     };
 
-    typedef std::unordered_map<IdString, Loc> CellLocations;
+    typedef dict<IdString, Loc> CellLocations;
 
     // Check if a location would be suitable for a cell and all its constrained children
-    bool valid_loc_for(const CellInfo *cell, Loc loc, CellLocations &solution, std::unordered_set<Loc> &usedLocations)
+    bool valid_loc_for(const CellInfo *cell, Loc loc, CellLocations &solution, pool<Loc> &usedLocations)
     {
         BelId locBel = ctx->getBelByLocation(loc);
         if (locBel == BelId())
@@ -324,7 +324,7 @@ class ConstraintLegaliseWorker
                 }
 
                 CellLocations solution;
-                std::unordered_set<Loc> used;
+                pool<Loc> used;
                 if (valid_loc_for(cell, rootLoc, solution, used)) {
                     for (auto cp : solution) {
                         // First unbind all cells
@@ -377,9 +377,9 @@ class ConstraintLegaliseWorker
   public:
     ConstraintLegaliseWorker(Context *ctx) : ctx(ctx)
     {
-        for (auto cell : sorted(ctx->cells)) {
+        for (auto &cell : ctx->cells) {
             if (cell.second->cluster != ClusterId())
-                cluster2cells[cell.second->cluster].push_back(cell.second);
+                cluster2cells[cell.second->cluster].push_back(cell.second.get());
         }
     };
 
@@ -414,11 +414,11 @@ class ConstraintLegaliseWorker
     int legalise_constraints()
     {
         log_info("Legalising relative constraints...\n");
-        for (auto cell : sorted(ctx->cells)) {
+        for (auto &cell : ctx->cells) {
             oldLocations[cell.first] = ctx->getBelLocation(cell.second->bel);
         }
-        for (auto cell : sorted(ctx->cells)) {
-            bool res = legalise_cell(cell.second);
+        for (auto &cell : ctx->cells) {
+            bool res = legalise_cell(cell.second.get());
             if (!res) {
                 log_error("failed to place chain starting at cell '%s'\n", cell.first.c_str(ctx));
                 return -1;
@@ -434,8 +434,8 @@ class ConstraintLegaliseWorker
             }
         }
         auto score = print_stats("replacing ripped up cells");
-        for (auto cell : sorted(ctx->cells))
-            if (get_constraints_distance(ctx, cell.second) != 0)
+        for (auto &cell : ctx->cells)
+            if (get_constraints_distance(ctx, cell.second.get()) != 0)
                 log_error("constraint satisfaction check failed for cell '%s' at Bel '%s'\n", cell.first.c_str(ctx),
                           ctx->nameOfBel(cell.second->bel));
         return score;

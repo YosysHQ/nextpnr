@@ -45,31 +45,31 @@ A scalar type that is used to  represent delays. May be an integer or float type
 
 ### BelId
 
-A type representing a bel name. `BelId()` must construct a unique null-value. Must provide `==`, `!=`, and `<` operators and a specialization for `std::hash<BelId>`.
+A type representing a bel name. `BelId()` must construct a unique null-value. Must provide `==`, `!=`, and `<` operators and a `unsigned int hash() const` member function.
 
 ### WireId
 
-A type representing a wire name. `WireId()` must construct a unique null-value. Must provide `==`, `!=`, and `<` operators and a specialization for `std::hash<WireId>`.
+A type representing a wire name. `WireId()` must construct a unique null-value. Must provide `==`, `!=`, and `<` operators and a `unsigned int hash() const` member function.
 
 ### PipId
 
-A type representing a pip name. `PipId()` must construct a unique null-value. Must provide `==`, `!=`, and `<` operators and a specialization for `std::hash<PipId>`.
+A type representing a pip name. `PipId()` must construct a unique null-value. Must provide `==`, `!=`, and `<` operators and a `unsigned int hash() const` member function.
 
 ### BelBucketId
 
-A type representing a bel bucket. `BelBucketId()` must construct a unique null-value. Must provide `==`, `!=`, and `<` operators and a specialization for `std::hash<BelBucketId>`.
+A type representing a bel bucket. `BelBucketId()` must construct a unique null-value. Must provide `==`, `!=`, and `<` operators and a `unsigned int hash() const` member function.
 
 ### GroupId
 
-A type representing a group name. `GroupId()` must construct a unique null-value. Must provide `==` and `!=` operators and a specialization for `std::hash<GroupId>`.
+A type representing a group name. `GroupId()` must construct a unique null-value. Must provide `==` and `!=` operators and a `unsigned int hash() const` member function.
 
 ### DecalId
 
-A type representing a reference to a graphical decal. `DecalId()` must construct a unique null-value. Must provide `==` and `!=` operators and a specialization for `std::hash<DecalId>`.
+A type representing a reference to a graphical decal. `DecalId()` must construct a unique null-value. Must provide `==` and `!=` operators and a `unsigned int hash() const` member function.
 
 ### ClusterId
 
-A type representing a reference to a constrained cluster of cells. `ClusterId()` must construct a unique null-value. Must provide `==` and `!=` operators and a specialization for `std::hash<ClusterId>`.
+A type representing a reference to a constrained cluster of cells. `ClusterId()` must construct a unique null-value. Must provide `==` and `!=` operators and `unsigned int hash() const` member function.
 
 ### ArchNetInfo
 
@@ -171,7 +171,7 @@ Returns true if the given bel is a global buffer. A global buffer does not "pull
 
 Return a (preferably unique) number that represents this bel. This is used in design state checksum calculations.
 
-*BaseArch default: returns `std::hash` of `BelId` cast to `uint32_t`*
+*BaseArch default: returns `bel.hash()`*
 
 ### void bindBel(BelId bel, CellInfo \*cell, PlaceStrength strength)
 
@@ -276,7 +276,7 @@ unused. An implementation may simply return an empty range.
 
 Return a (preferably unique) number that represents this wire. This is used in design state checksum calculations.
 
-*BaseArch default: returns `std::hash` of `WireId` cast to `uint32_t`*
+*BaseArch default: returns `wire.hash()`*
 
 ### void bindWire(WireId wire, NetInfo \*net, PlaceStrength strength)
 
@@ -374,7 +374,7 @@ for pips a X/Y/Z location refers to a group of pips, not an individual pip.
 
 Return a (preferably unique) number that represents this pip. This is used in design state checksum calculations.
 
-*BaseArch default: returns `std::hash` of `WireId` cast to `uint32_t`*
+*BaseArch default: returns `pip.hash()`*
 
 ### void bindPip(PipId pip, NetInfo \*net, PlaceStrength strength)
 

@@ -34,7 +34,7 @@ class ECP5CommandHandler : public CommandHandler
   public:
     ECP5CommandHandler(int argc, char **argv);
     virtual ~ECP5CommandHandler(){};
-    std::unique_ptr<Context> createContext(std::unordered_map<std::string, Property> &values) override;
+    std::unique_ptr<Context> createContext(dict<std::string, Property> &values) override;
     void setupArchContext(Context *ctx) override{};
     void customAfterLoad(Context *ctx) override;
     void validate() override;
@@ -132,7 +132,7 @@ static std::string speedString(ArchArgs::SpeedGrade speed)
     return "";
 }
 
-std::unique_ptr<Context> ECP5CommandHandler::createContext(std::unordered_map<std::string, Property> &values)
+std::unique_ptr<Context> ECP5CommandHandler::createContext(dict<std::string, Property> &values)
 {
     ArchArgs chipArgs;
     chipArgs.type = ArchArgs::NONE;
@@ -270,8 +270,8 @@ void ECP5CommandHandler::customAfterLoad(Context *ctx)
                 log_error("failed to parse LPF file '%s'\n", filename.c_str());
         }
 
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_obuf") ||
                 ci->type == ctx->id("$nextpnr_iobuf")) {
                 if (!ci->attrs.count(ctx->id("LOC"))) {

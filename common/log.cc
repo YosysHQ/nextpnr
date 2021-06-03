@@ -38,7 +38,7 @@ log_write_type log_write_function = nullptr;
 std::string log_last_error;
 void (*log_error_atexit)() = NULL;
 
-std::unordered_map<LogLevel, int> message_count_by_level;
+dict<LogLevel, int, loglevel_hash_ops> message_count_by_level;
 static int log_newline_count = 0;
 bool had_nonfatal_error = false;
 

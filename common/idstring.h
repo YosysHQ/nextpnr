@@ -56,18 +56,10 @@ struct IdString
     bool operator!=(const IdString &other) const { return index != other.index; }
 
     bool empty() const { return index == 0; }
+
+    unsigned int hash() const { return index; }
 };
 
 NEXTPNR_NAMESPACE_END
-
-namespace std {
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX IdString>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX IdString &obj) const noexcept
-    {
-        return std::hash<int>()(obj.index);
-    }
-};
-} // namespace std
 
 #endif /* IDSTRING_H */

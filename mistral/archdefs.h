@@ -20,14 +20,15 @@
 #ifndef MISTRAL_ARCHDEFS_H
 #define MISTRAL_ARCHDEFS_H
 
-#include <boost/functional/hash.hpp>
-
 #include "base_clusterinfo.h"
 #include "cyclonev.h"
 
+#include "hashlib.h"
 #include "idstring.h"
 #include "nextpnr_assertions.h"
 #include "nextpnr_namespaces.h"
+
+#include <limits>
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -84,6 +85,7 @@ struct BelId
     bool operator==(const BelId &other) const { return pos == other.pos && z == other.z; }
     bool operator!=(const BelId &other) const { return pos != other.pos || z != other.z; }
     bool operator<(const BelId &other) const { return pos < other.pos || (pos == other.pos && z < other.z); }
+    unsigned int hash() const { return mkhash(pos, z); }
 };
 
 static constexpr auto invalid_rnode = std::numeric_limits<CycloneV::rnode_t>::max();
@@ -104,6 +106,7 @@ struct WireId
     bool operator==(const WireId &other) const { return node == other.node; }
     bool operator!=(const WireId &other) const { return node != other.node; }
     bool operator<(const WireId &other) const { return node < other.node; }
+    unsigned int hash() const { return unsigned(node); }
 };
 
 struct PipId
@@ -115,6 +118,7 @@ struct PipId
     bool operator==(const PipId &other) const { return src == other.src && dst == other.dst; }
     bool operator!=(const PipId &other) const { return src != other.src || dst != other.dst; }
     bool operator<(const PipId &other) const { return dst < other.dst || (dst == other.dst && src < other.src); }
+    unsigned int hash() const { return mkhash(src, dst); }
 };
 
 typedef IdString DecalId;
@@ -199,38 +203,11 @@ struct ArchCellInfo : BaseClusterInfo
         } ffInfo;
     };
 
-    std::unordered_map<IdString, ArchPinInfo> pin_data;
+    dict<IdString, ArchPinInfo> pin_data;
 
     CellPinState get_pin_state(IdString pin) const;
 };
 
 NEXTPNR_NAMESPACE_END
-
-namespace std {
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX BelId>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX BelId &bel) const noexcept
-    {
-        return hash<uint32_t>()((static_cast<uint32_t>(bel.pos) << 16) | bel.z);
-    }
-};
-
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX WireId>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX WireId &wire) const noexcept
-    {
-        return hash<uint32_t>()(wire.node);
-    }
-};
-
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX PipId>
-{
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX PipId &pip) const noexcept
-    {
-        return hash<uint64_t>()((uint64_t(pip.dst) << 32) | pip.src);
-    }
-};
-
-} // namespace std
 
 #endif

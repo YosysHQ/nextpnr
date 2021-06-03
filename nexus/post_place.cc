@@ -88,9 +88,9 @@ struct NexusPostPlaceOpt
     void opt_lutffs()
     {
         int moves_made = 0;
-        for (auto cell : sorted(ctx->cells)) {
+        for (auto &cell : ctx->cells) {
             // Search for FF cells
-            CellInfo *ff = cell.second;
+            CellInfo *ff = cell.second.get();
             if (ff->type != id_OXIDE_FF)
                 continue;
             // Check M ('fabric') input net

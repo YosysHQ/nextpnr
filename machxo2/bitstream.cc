@@ -114,8 +114,7 @@ static std::vector<bool> int_to_bitvector(int val, int size)
     return bv;
 }
 
-std::string intstr_or_default(const std::unordered_map<IdString, Property> &ct, const IdString &key,
-                              std::string def = "0")
+std::string intstr_or_default(const dict<IdString, Property> &ct, const IdString &key, std::string def = "0")
 {
     auto found = ct.find(key);
     if (found == ct.end())

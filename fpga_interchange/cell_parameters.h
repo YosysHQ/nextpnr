@@ -25,7 +25,6 @@
 
 #include "chipdb.h"
 #include "dynamic_bitarray.h"
-#include "hash_table.h"
 #include "nextpnr_namespaces.h"
 #include "property.h"
 
@@ -42,7 +41,7 @@ struct CellParameters
     bool compare_property(const Context *ctx, IdString cell_type, IdString parameter, const Property &property,
                           IdString value_to_compare) const;
 
-    HashTables::HashMap<std::pair<IdString, IdString>, const CellParameterPOD *, PairHash> parameters;
+    dict<std::pair<IdString, IdString>, const CellParameterPOD *> parameters;
 
     std::regex verilog_binary_re;
     std::regex verilog_hex_re;

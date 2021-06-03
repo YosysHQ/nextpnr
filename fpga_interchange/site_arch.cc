@@ -24,7 +24,7 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 SiteInformation::SiteInformation(const Context *ctx, int32_t tile, int32_t site,
-                                 const std::unordered_set<CellInfo *> &cells_in_site)
+                                 const pool<CellInfo *, hash_ptr_ops> &cells_in_site)
         : ctx(ctx), tile(tile), tile_type(ctx->chip_info->tiles[tile].type), site(site), cells_in_site(cells_in_site)
 {
 }

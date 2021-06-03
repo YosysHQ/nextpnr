@@ -57,7 +57,7 @@ function build_nextpnr {
     build_capnp
     mkdir build
     pushd build
-    cmake .. -DARCH=fpga_interchange -DRAPIDWRIGHT_PATH=${RAPIDWRIGHT_PATH} -DPYTHON_INTERCHANGE_PATH=${PYTHON_INTERCHANGE_PATH} -DUSE_ABSEIL=on
+    cmake .. -DARCH=fpga_interchange -DRAPIDWRIGHT_PATH=${RAPIDWRIGHT_PATH} -DPYTHON_INTERCHANGE_PATH=${PYTHON_INTERCHANGE_PATH}
     make nextpnr-fpga_interchange -j`nproc`
     popd
 }

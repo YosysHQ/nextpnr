@@ -28,6 +28,7 @@
 #include <unordered_set>
 
 #include "archdefs.h"
+#include "hashlib.h"
 #include "nextpnr_base_types.h"
 #include "nextpnr_namespaces.h"
 #include "property.h"
@@ -56,9 +57,9 @@ struct Region
     bool constr_wires = false;
     bool constr_pips = false;
 
-    std::unordered_set<BelId> bels;
-    std::unordered_set<WireId> wires;
-    std::unordered_set<Loc> piplocs;
+    pool<BelId> bels;
+    pool<WireId> wires;
+    pool<Loc> piplocs;
 };
 
 struct PipMap
@@ -128,10 +129,10 @@ struct NetInfo : ArchNetInfo
 
     PortRef driver;
     std::vector<PortRef> users;
-    std::unordered_map<IdString, Property> attrs;
+    dict<IdString, Property> attrs;
 
     // wire -> uphill_pip
-    std::unordered_map<WireId, PipMap> wires;
+    dict<WireId, PipMap> wires;
 
     std::vector<IdString> aliases; // entries in net_aliases that point to this net
 
@@ -159,8 +160,8 @@ struct CellInfo : ArchCellInfo
     IdString name, type, hierpath;
     int32_t udata;
 
-    std::unordered_map<IdString, PortInfo> ports;
-    std::unordered_map<IdString, Property> attrs, params;
+    dict<IdString, PortInfo> ports;
+    dict<IdString, Property> attrs, params;
 
     BelId bel;
     PlaceStrength belStrength = STRENGTH_NONE;
@@ -232,13 +233,13 @@ struct HierarchicalCell
 {
     IdString name, type, parent, fullpath;
     // Name inside cell instance -> global name
-    std::unordered_map<IdString, IdString> leaf_cells, nets;
+    dict<IdString, IdString> leaf_cells, nets;
     // Global name -> name inside cell instance
-    std::unordered_map<IdString, IdString> leaf_cells_by_gname, nets_by_gname;
+    dict<IdString, IdString> leaf_cells_by_gname, nets_by_gname;
     // Cell port to net
-    std::unordered_map<IdString, HierarchicalPort> ports;
+    dict<IdString, HierarchicalPort> ports;
     // Name inside cell instance -> global name
-    std::unordered_map<IdString, IdString> hier_cells;
+    dict<IdString, IdString> hier_cells;
 };
 
 NEXTPNR_NAMESPACE_END
