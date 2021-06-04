@@ -46,7 +46,7 @@ void IdString::initialize_arch(const BaseCtx *ctx)
 Arch::Arch(ArchArgs args)
 {
     this->args = args;
-    this->cyclonev = mistral::CycloneV::get_model(args.device, args.mistral_root);
+    this->cyclonev = mistral::CycloneV::get_model(args.device);
     NPNR_ASSERT(this->cyclonev != nullptr);
 
     // Setup fast identifier maps

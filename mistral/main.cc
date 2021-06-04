@@ -47,7 +47,6 @@ MistralCommandHandler::MistralCommandHandler(int argc, char **argv) : CommandHan
 po::options_description MistralCommandHandler::getArchOptions()
 {
     po::options_description specific("Architecture specific options");
-    specific.add_options()("mistral", po::value<std::string>(), "path to mistral root");
     specific.add_options()("device", po::value<std::string>(), "device name (e.g. 5CSEBA6U23I7)");
     specific.add_options()("qsf", po::value<std::string>(), "path to QSF constraints file");
     specific.add_options()("rbf", po::value<std::string>(), "RBF bitstream to write");
@@ -74,13 +73,9 @@ void MistralCommandHandler::customBitstream(Context *ctx)
 std::unique_ptr<Context> MistralCommandHandler::createContext(dict<std::string, Property> &values)
 {
     ArchArgs chipArgs;
-    if (!vm.count("mistral")) {
-        log_error("mistral must be specified on the command line\n");
-    }
     if (!vm.count("device")) {
         log_error("device must be specified on the command line (e.g. --device 5CSEBA6U23I7)\n");
     }
-    chipArgs.mistral_root = vm["mistral"].as<std::string>();
     chipArgs.device = vm["device"].as<std::string>();
     auto ctx = std::unique_ptr<Context>(new Context(chipArgs));
     if (vm.count("compress-rbf"))
