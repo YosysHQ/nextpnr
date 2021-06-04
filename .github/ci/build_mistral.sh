@@ -19,6 +19,6 @@ function build_nextpnr {
 
 function run_archcheck {
     pushd build
-    ./nextpnr-mistral --mistral ${MISTRAL_PATH} --device 5CEBA2F17A7 --test
+    ./nextpnr-mistral --device 5CEBA2F17A7 --test
     popd
 }
