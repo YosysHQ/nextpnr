@@ -34,7 +34,6 @@ NEXTPNR_NAMESPACE_BEGIN
 struct ArchArgs
 {
     std::string device;
-    std::string mistral_root;
 };
 
 // These structures are used for fast ALM validity checking
