@@ -75,7 +75,8 @@ class Ecp5GlobalRouter
         dict<IdString, int> clockCount;
         for (auto &net : ctx->nets) {
             NetInfo *ni = net.second.get();
-            if (ni->name == ctx->id("$PACKER_GND_NET") || ni->name == ctx->id("$PACKER_VCC_NET"))
+            if (ni->name == ctx->id("$PACKER_GND_NET") || ni->name == ctx->id("$PACKER_VCC_NET") ||
+                ni->driver.cell == nullptr)
                 continue;
             clockCount[ni->name] = 0;
             for (const auto &user : ni->users) {
