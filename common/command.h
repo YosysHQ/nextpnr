@@ -37,7 +37,7 @@ class CommandHandler
     virtual ~CommandHandler(){};
 
     int exec();
-    std::unique_ptr<Context> load_json(std::string filename);
+    void load_json(Context *ctx, std::string filename);
     void clear();
 
   protected:

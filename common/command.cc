@@ -473,19 +473,24 @@ int CommandHandler::exec()
     }
 }
 
-std::unique_ptr<Context> CommandHandler::load_json(std::string filename)
+void CommandHandler::load_json(Context *ctx, std::string filename)
 {
-    dict<std::string, Property> values;
-    std::unique_ptr<Context> ctx = createContext(values);
-    setupContext(ctx.get());
-    setupArchContext(ctx.get());
+    ctx->cells.clear();
+    ctx->nets.clear();
+    ctx->net_aliases.clear();
+    ctx->ports.clear();
+    ctx->hierarchy.clear();
+    ctx->settings.erase(ctx->id("pack"));
+    ctx->settings.erase(ctx->id("place"));
+    ctx->settings.erase(ctx->id("route"));
+
+    setupContext(ctx);
+    setupArchContext(ctx);
     {
         std::ifstream f(filename);
-        if (!parse_json(f, filename, ctx.get()))
+        if (!parse_json(f, filename, ctx))
             log_error("Loading design failed.\n");
     }
-    customAfterLoad(ctx.get());
-    return ctx;
 }
 
 void CommandHandler::clear() { vm.clear(); }
