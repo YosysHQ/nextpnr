@@ -5,7 +5,7 @@ nextpnr aims to be a vendor neutral, timing driven, FOSS FPGA place and route
 tool.
 
 Currently nextpnr supports:
- * Lattice iCE40 devices supported by [Project IceStorm](http://www.clifford.at/icestorm/)
+ * Lattice iCE40 devices supported by [Project IceStorm](http://bygone.clairexen.net/icestorm/)
  * Lattice ECP5 devices supported by [Project Trellis](https://github.com/YosysHQ/prjtrellis)
  * Lattice Nexus devices supported by [Project Oxide](https://github.com/gatecat/prjoxide)
  * Gowin LittleBee devices supported by [Project Apicula](https://github.com/YosysHQ/apicula)
@@ -53,7 +53,7 @@ Getting started
 
 ### nextpnr-ice40
 
-For iCE40 support, install [Project IceStorm](http://www.clifford.at/icestorm/) to `/usr/local` or another location, which should be passed as `-DICESTORM_INSTALL_PREFIX=/usr` to CMake. Then build and install `nextpnr-ice40` using the following commands:
+For iCE40 support, install [Project IceStorm](http://bygone.clairexen.net/icestorm/) to `/usr/local` or another location, which should be passed as `-DICESTORM_INSTALL_PREFIX=/usr` to CMake. Then build and install `nextpnr-ice40` using the following commands:
 
 ```
 cmake . -DARCH=ice40
@@ -244,13 +244,13 @@ Links and references
 
 ### Synthesis, simulation, and logic optimization
 
-- [Yosys](http://www.clifford.at/yosys/)
+- [Yosys](https://yosyshq.net/yosys/)
 - [Icarus Verilog](http://iverilog.icarus.com/)
 - [ABC](https://people.eecs.berkeley.edu/~alanmi/abc/)
 
 ### FPGA bitstream documentation (and tools) projects
 
-- [Project IceStorm (Lattice iCE40)](http://www.clifford.at/icestorm/)
+- [Project IceStorm (Lattice iCE40)](http://bygone.clairexen.net/icestorm/)
 - [Project Trellis (Lattice ECP5)](https://yosyshq.github.io/prjtrellis-db/)
 - [Project X-Ray (Xilinx 7-Series)](https://symbiflow.github.io/prjxray-db/)
 - [Project Chibi (Intel MAX-V)](https://github.com/rqou/project-chibi)
