@@ -1,7 +1,7 @@
 /*
  *  nextpnr -- Next Generation Place and Route
  *
- *  Copyright (C) 2019  David Shah <david@symbioticeda.com>
+ *  Copyright (C) 2019  gatecat <gatecat@ds0.me>
  *  Copyright (C) 2020  Pepijn de Vos <pepijn@symbioticeda.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any

@@ -1,8 +1,8 @@
 /*
  *  ECP5 PicoRV32 demo
  *
- *  Copyright (C) 2017  Clifford Wolf <clifford@clifford.at>
- *  Copyright (C) 2018  David Shah <dave@ds0.me>
+ *  Copyright (C) 2017  Claire Xenia Wolf <claire@yosyshq.com>
+ *  Copyright (C) 2018  gatecat <gatecat@ds0.me>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
