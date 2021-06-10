@@ -18,10 +18,10 @@
  *
  */
 
+#include "arch.h"
 #include "design_utils.h"
 #include "log.h"
 #include "nextpnr.h"
-#include "arch.h"
 #include "util.h"
 
 #include <boost/algorithm/string.hpp>
@@ -43,13 +43,16 @@ enum ExpansionDirection
     CLUSTER_DOWNHILL_DIR = 1
 };
 
-struct ClusterWireNode {
+struct ClusterWireNode
+{
     WireId wire;
     ClusterWireNodeState state;
     int depth;
 };
 
-static void handle_expansion_node(const Context *ctx, WireId prev_wire, PipId pip, ClusterWireNode curr_node, std::vector<ClusterWireNode> &nodes_to_expand, pool<BelId> &bels, ExpansionDirection direction)
+static void handle_expansion_node(const Context *ctx, WireId prev_wire, PipId pip, ClusterWireNode curr_node,
+                                  std::vector<ClusterWireNode> &nodes_to_expand, pool<BelId> &bels,
+                                  ExpansionDirection direction)
 {
     WireId wire;
 
@@ -134,8 +137,8 @@ static void handle_expansion_node(const Context *ctx, WireId prev_wire, PipId pi
     return;
 }
 
-
-static pool<BelId> find_cluster_bels(const Context *ctx, WireId wire, ExpansionDirection direction, bool out_of_site_expansion = false)
+static pool<BelId> find_cluster_bels(const Context *ctx, WireId wire, ExpansionDirection direction,
+                                     bool out_of_site_expansion = false)
 {
     std::vector<ClusterWireNode> nodes_to_expand;
     pool<BelId> bels;
@@ -178,14 +181,14 @@ static pool<BelId> find_cluster_bels(const Context *ctx, WireId wire, ExpansionD
     return bels;
 }
 
-CellInfo* Arch::getClusterRootCell(ClusterId cluster) const
+CellInfo *Arch::getClusterRootCell(ClusterId cluster) const
 {
     NPNR_ASSERT(cluster != ClusterId());
     return clusters.at(cluster).root;
 }
 
 bool Arch::getClusterPlacement(ClusterId cluster, BelId root_bel,
-                         std::vector<std::pair<CellInfo *, BelId>> &placement) const
+                               std::vector<std::pair<CellInfo *, BelId>> &placement) const
 {
     const Context *ctx = getCtx();
     const Cluster &packed_cluster = clusters.at(cluster);
@@ -210,7 +213,8 @@ bool Arch::getClusterPlacement(ClusterId cluster, BelId root_bel,
             IdString next_bel_pin(cluster_data.chainable_ports[0].bel_source);
             WireId next_bel_pin_wire = ctx->getBelPinWire(next_bel, next_bel_pin);
             next_bel = BelId();
-            for (BelId bel : find_cluster_bels(ctx, next_bel_pin_wire, CLUSTER_DOWNHILL_DIR, /*out_of_site_expansion=*/true)) {
+            for (BelId bel :
+                 find_cluster_bels(ctx, next_bel_pin_wire, CLUSTER_DOWNHILL_DIR, /*out_of_site_expansion=*/true)) {
                 if (ctx->isValidBelForCellType(cluster_node->type, bel)) {
                     next_bel = bel;
                     break;
@@ -329,10 +333,7 @@ Loc Arch::getClusterOffset(const CellInfo *cell) const
     return offset;
 }
 
-bool Arch::isClusterStrict(const CellInfo *cell) const
-{
-    return true;
-}
+bool Arch::isClusterStrict(const CellInfo *cell) const { return true; }
 
 void dump_clusters(const ChipInfoPOD *chip_info, Context *ctx)
 {
@@ -346,20 +347,17 @@ void dump_clusters(const ChipInfoPOD *chip_info, Context *ctx)
             log_info("      - %s\n", IdString(cell).c_str(ctx));
 
         for (auto chain_ports : cluster.chainable_ports)
-            log_info("  - chainable pair: source %s - sink %s\n",
-                    IdString(chain_ports.cell_source).c_str(ctx),
-                    IdString(chain_ports.cell_sink).c_str(ctx));
+            log_info("  - chainable pair: source %s - sink %s\n", IdString(chain_ports.cell_source).c_str(ctx),
+                     IdString(chain_ports.cell_sink).c_str(ctx));
 
         if (cluster.cluster_cells_map.size() != 0)
             log_info("  - cell port maps:\n");
         for (auto cluster_cell : cluster.cluster_cells_map) {
-            log_info("    - cell: %s - port: %s\n",
-                    IdString(cluster_cell.cell).c_str(ctx),
-                    IdString(cluster_cell.port).c_str(ctx));
+            log_info("    - cell: %s - port: %s\n", IdString(cluster_cell.cell).c_str(ctx),
+                     IdString(cluster_cell.port).c_str(ctx));
         }
     }
 }
-
 
 static bool check_cluster_cells_compatibility(CellInfo *old_cell, CellInfo *new_cell, pool<IdString> &exclude_nets)
 {
@@ -380,7 +378,6 @@ static bool check_cluster_cells_compatibility(CellInfo *old_cell, CellInfo *new_
 
     return true;
 }
-
 
 void Arch::prepare_cluster(const ClusterPOD *cluster, uint32_t index)
 {
@@ -499,7 +496,6 @@ void Arch::prepare_cluster(const ClusterPOD *cluster, uint32_t index)
 
                     if (ctx->verbose)
                         log_info("      - adding user cell: %s\n", user_cell->name.c_str(ctx));
-
 
                 } else if (port_info.type == PORT_IN) {
                     auto &driver = port_info.net->driver;
