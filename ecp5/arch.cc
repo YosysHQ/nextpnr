@@ -1067,6 +1067,7 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
         }
     } else if (cell->type == id_IOLOGIC || cell->type == id_SIOLOGIC) {
         info.clock_port = id_CLK;
+        info.edge = RISING_EDGE;
         if (cell->ports.at(port).type == PORT_OUT) {
             info.clockToQ = DelayQuad(getDelayFromNS(0.5));
         } else {
@@ -1075,6 +1076,7 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
         }
     } else if (cell->type == id_DQSBUFM) {
         info.clock_port = id_SCLK;
+        info.edge = RISING_EDGE;
         if (port == id_DATAVALID) {
             info.clockToQ = DelayQuad(getDelayFromNS(0.2));
         } else if (port == id_READ0 || port == id_READ1) {
