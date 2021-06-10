@@ -135,7 +135,7 @@ static void handle_expansion_node(const Context *ctx, WireId prev_wire, PipId pi
 }
 
 
-static pool<BelId> find_cluster_bels(const Context *ctx, WireId wire, ExpansionDirection direction, bool allow_out_of_site_expansion = false)
+static pool<BelId> find_cluster_bels(const Context *ctx, WireId wire, ExpansionDirection direction, bool out_of_site_expansion = false)
 {
     std::vector<ClusterWireNode> nodes_to_expand;
     pool<BelId> bels;
@@ -146,7 +146,7 @@ static pool<BelId> find_cluster_bels(const Context *ctx, WireId wire, ExpansionD
     ClusterWireNode wire_node;
     wire_node.wire = wire;
     wire_node.state = IN_SOURCE_SITE;
-    if (!allow_out_of_site_expansion)
+    if (!out_of_site_expansion)
         wire_node.state = ONLY_IN_SOURCE_SITE;
     wire_node.depth = 0;
 
@@ -193,9 +193,7 @@ bool Arch::getClusterPlacement(ClusterId cluster, BelId root_bel,
     IdString GND = id("GND");
     IdString VCC = id("VCC");
 
-    // Place root
     CellInfo *root_cell = getClusterRootCell(cluster);
-
     if (!ctx->isValidBelForCellType(root_cell->type, root_bel))
         return false;
 
@@ -206,12 +204,13 @@ bool Arch::getClusterPlacement(ClusterId cluster, BelId root_bel,
         if (cluster_node == root_cell) {
             next_bel = root_bel;
         } else {
+            // Find next chained cluster node
             auto &cluster_data = cluster_info(chip_info, packed_cluster.index);
 
             IdString next_bel_pin(cluster_data.chainable_ports[0].bel_source);
             WireId next_bel_pin_wire = ctx->getBelPinWire(next_bel, next_bel_pin);
             next_bel = BelId();
-            for (BelId bel : find_cluster_bels(ctx, next_bel_pin_wire, CLUSTER_DOWNHILL_DIR, true)) {
+            for (BelId bel : find_cluster_bels(ctx, next_bel_pin_wire, CLUSTER_DOWNHILL_DIR, /*out_of_site_expansion=*/true)) {
                 if (ctx->isValidBelForCellType(cluster_node->type, bel)) {
                     next_bel = bel;
                     break;
@@ -223,6 +222,8 @@ bool Arch::getClusterPlacement(ClusterId cluster, BelId root_bel,
         }
 
         if (cluster_node->cell_bel_pins.empty()) {
+            // Build a cell to bell mapping required to find BELs connected to the cluster ports.
+
             int32_t mapping = bel_info(chip_info, next_bel).pin_map[get_cell_type_index(cluster_node->type)];
             NPNR_ASSERT(mapping >= 0);
 
@@ -244,7 +245,7 @@ bool Arch::getClusterPlacement(ClusterId cluster, BelId root_bel,
 
         placement.emplace_back(cluster_node, next_bel);
 
-        // Place cluster node cells
+        // Place cluster node cells at the same site
         for (auto port_cell : packed_cluster.cluster_node_cells.at(cluster_node->name)) {
             bool placed_cell = false;
 
@@ -482,12 +483,14 @@ void Arch::prepare_cluster(const ClusterPOD *cluster, uint32_t index)
                     auto res = cell_type_dict.emplace(user_cell->type, user_cell);
                     bool compatible = true;
                     if (!res.second)
+                        // Check whether a cell of the same type has all the required nets compatible with
+                        // all other nets for the same type. If not, discard the cell.
+                        // An example is multiple FFs belonging to the same cluster, where one of them has a different
+                        // Set/Reset or CE net w.r.t. the others, making the cluster unplaceable.
                         compatible = check_cluster_cells_compatibility(res.first->second, user_cell, exclude_nets);
 
-                    if (!compatible) {
-                        log_info("Not compatible! %s %s\n", user_cell->name.c_str(ctx), port_info.net->name.c_str(ctx));
+                    if (!compatible)
                         continue;
-                    }
 
                     user_cell->cluster = root->cluster;
                     cluster_cells.push_back(std::make_pair(port.first, user_cell));
@@ -576,7 +579,6 @@ void Arch::pack_cluster()
     for (uint32_t i = 0; i < chip_info->clusters.size(); ++i) {
         const auto &cluster = chip_info->clusters[i];
 
-        // Build clusters and find roots
         prepare_cluster(&cluster, i);
     }
 }

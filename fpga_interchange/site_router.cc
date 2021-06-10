@@ -1092,7 +1092,10 @@ static void block_lut_outputs(SiteArch *site_arch, const pool<std::pair<IdString
     }
 }
 
-// Block outputs of unavailable LUTs to prevent site router from using them.
+// Block wires corresponding to dedicated interconnections that are not
+// exposed to the general interconnect.
+// These wires cannot be chosen for the first element in a BEL chain, as they
+// would result in an unroutability error.
 static void block_cluster_wires(SiteArch *site_arch)
 {
     const Context *ctx = site_arch->site_info->ctx;
