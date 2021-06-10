@@ -2,7 +2,7 @@ yosys -import
 
 read_verilog $::env(SOURCES)
 
-synth_xilinx -nolutram -nowidelut -nosrl -nocarry -nodsp
+synth_xilinx -nolutram -nowidelut -nosrl -nodsp
 techmap -map $::env(TECHMAP)
 
 # opt_expr -undriven makes sure all nets are driven, if only by the $undef
