@@ -657,6 +657,8 @@ struct NexusFasmWriter
         blank();
 
         Loc l = ctx->getBelLocation(bel);
+        if (is_lifcl_17 && l.x == 0)
+            l.x = 1;
         push(stringf("IP_LRAM_CORE_R%dC%d", l.y, l.x));
         for (int i = 0; i < 128; i++) {
             IdString param = ctx->id(stringf("INITVAL_%02X", i));
