@@ -34,7 +34,7 @@ NEXTPNR_NAMESPACE_BEGIN
  * kExpectedChipInfoVersion
  */
 
-static constexpr int32_t kExpectedChipInfoVersion = 10;
+static constexpr int32_t kExpectedChipInfoVersion = 11;
 
 // Flattened site indexing.
 //
@@ -402,6 +402,27 @@ NPNR_PACKED_STRUCT(struct MacroExpansionPOD {
     RelSlice<MacroParamMapRulePOD> param_rules;
 });
 
+NPNR_PACKED_STRUCT(struct ClusterCellPortPOD {
+    uint32_t cell;
+    uint32_t port;
+});
+
+NPNR_PACKED_STRUCT(struct ChainablePortPOD {
+    uint32_t cell_source;
+    uint32_t cell_sink;
+    uint32_t bel_source;
+    uint32_t bel_sink;
+    int16_t avg_x_offset;
+    int16_t avg_y_offset;
+});
+
+NPNR_PACKED_STRUCT(struct ClusterPOD {
+    uint32_t name;
+    RelSlice<uint32_t> root_cell_types;
+    RelSlice<ChainablePortPOD> chainable_ports;
+    RelSlice<ClusterCellPortPOD> cluster_cells_map;
+});
+
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelPtr<char> name;
     RelPtr<char> generator;
@@ -420,6 +441,8 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     // Macro related data
     RelSlice<MacroPOD> macros;
     RelSlice<MacroExpansionPOD> macro_rules;
+
+    RelSlice<ClusterPOD> clusters;
 
     // BEL bucket constids.
     RelSlice<int32_t> bel_buckets;
@@ -458,6 +481,11 @@ inline const PipInfoPOD &pip_info(const ChipInfoPOD *chip_info, PipId pip)
 inline const SiteInstInfoPOD &site_inst_info(const ChipInfoPOD *chip_info, int32_t tile, int32_t site)
 {
     return chip_info->sites[chip_info->tiles[tile].sites[site]];
+}
+
+inline const ClusterPOD &cluster_info(const ChipInfoPOD *chip_info, int32_t cluster)
+{
+    return chip_info->clusters[cluster];
 }
 
 enum SyntheticType

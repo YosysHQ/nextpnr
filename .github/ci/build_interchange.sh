@@ -49,6 +49,9 @@ function get_dependencies {
         git clone https://github.com/Xilinx/RapidWright.git ${RAPIDWRIGHT_PATH}
         pushd ${RAPIDWRIGHT_PATH}
         make update_jars
+        # TODO: remove this patch once https://github.com/Xilinx/RapidWright/issues/183 is solved
+        wget https://github.com/Xilinx/RapidWright/releases/download/v2020.2.5-beta/rapidwright_api_lib-2020.2.5-patch1.zip
+        unzip -o rapidwright_api_lib-2020.2.5-patch1.zip
         popd
     fi
 }

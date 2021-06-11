@@ -60,7 +60,9 @@ bool check_initial_wires(const Context *ctx, SiteInformation *site_info)
             if (!cell->ports.count(pin_pair.first))
                 continue;
             const PortInfo &port = cell->ports.at(pin_pair.first);
-            NPNR_ASSERT(port.net != nullptr);
+
+            if (port.net == nullptr)
+                continue;
 
             for (IdString bel_pin_name : pin_pair.second) {
                 BelPin bel_pin;
@@ -297,7 +299,11 @@ struct SiteExpansionLoop
         // already unroutable!
         solution.clear();
         solution.store_solution(ctx, node_storage, net->driver, completed_routes);
-        solution.verify(ctx, *net);
+        bool verify = solution.verify(ctx, *net);
+
+        if (!verify)
+            return false;
+
         for (size_t route : completed_routes) {
             SiteWire wire = node_storage->get_node(route)->wire;
             targets.erase(wire);
@@ -1086,6 +1092,43 @@ static void block_lut_outputs(SiteArch *site_arch, const pool<std::pair<IdString
     }
 }
 
+// Block wires corresponding to dedicated interconnections that are not
+// exposed to the general interconnect.
+// These wires cannot be chosen for the first element in a BEL chain, as they
+// would result in an unroutability error.
+static void block_cluster_wires(SiteArch *site_arch)
+{
+    const Context *ctx = site_arch->site_info->ctx;
+    auto &cells_in_site = site_arch->site_info->cells_in_site;
+
+    for (auto &cell : cells_in_site) {
+        if (cell->cluster == ClusterId())
+            continue;
+
+        if (ctx->getClusterRootCell(cell->cluster) != cell)
+            continue;
+
+        Cluster cluster = ctx->clusters.at(cell->cluster);
+
+        uint32_t cluster_id = cluster.index;
+        auto &cluster_data = cluster_info(ctx->chip_info, cluster_id);
+
+        if (cluster_data.chainable_ports.size() == 0)
+            continue;
+
+        IdString cluster_chain_input(cluster_data.chainable_ports[0].cell_sink);
+
+        if (cluster_chain_input == IdString())
+            continue;
+
+        auto &cell_bel_pins = cell->cell_bel_pins.at(cluster_chain_input);
+        for (auto &bel_pin : cell_bel_pins) {
+            SiteWire bel_pin_wire = site_arch->getBelPinWire(cell->bel, bel_pin);
+            site_arch->bindWire(bel_pin_wire, &site_arch->blocking_site_net);
+        }
+    }
+}
+
 // Recursively visit downhill PIPs until a SITE_PORT_SINK is reached.
 // Marks all PIPs for all valid paths.
 static bool visit_downhill_pips(const SiteArch *site_arch, const SiteWire &site_wire, std::vector<PipId> &valid_pips)
@@ -1205,6 +1248,7 @@ bool SiteRouter::checkSiteRouting(const Context *ctx, const TileStatus &tile_sta
     // site_arch.archcheck();
 
     block_lut_outputs(&site_arch, blocked_wires);
+    block_cluster_wires(&site_arch);
 
     // Do a detailed routing check to see if the site has at least 1 valid
     // routing solution.
@@ -1264,6 +1308,7 @@ void SiteRouter::bindSiteRouting(Context *ctx)
 
     SiteArch site_arch(&site_info);
     block_lut_outputs(&site_arch, blocked_wires);
+    block_cluster_wires(&site_arch);
     NPNR_ASSERT(route_site(&site_arch, &ctx->site_routing_cache, &ctx->node_storage, /*explain=*/false));
 
     check_routing(site_arch);

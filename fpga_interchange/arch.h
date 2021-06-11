@@ -94,6 +94,15 @@ struct TileStatus
     PseudoPipModel pseudo_pip_model;
 };
 
+struct Cluster
+{
+    uint32_t index;
+    CellInfo *root;
+    std::vector<CellInfo *> cluster_nodes;
+    dict<IdString, IdString> cell_cluster_node_map;
+    dict<IdString, std::vector<std::pair<IdString, CellInfo *>>> cluster_node_cells;
+};
+
 struct Arch : ArchAPI<ArchRanges>
 {
     boost::iostreams::mapped_file_source blob_file;
@@ -258,6 +267,20 @@ struct Arch : ArchAPI<ArchRanges>
                 map_cell_pins(cell, mapping, /*bind_constants=*/false);
             }
             constraints.bindBel(tile_status.tags.data(), get_cell_constraints(bel, cell->type));
+
+            // Clean previous cell placement in tile
+            if (cell->bel != BelId()) {
+                TileStatus &prev_tile_status = get_tile_status(cell->bel.tile);
+                NPNR_ASSERT(prev_tile_status.boundcells[cell->bel.index] != nullptr);
+
+                const auto &prev_bel_data = bel_info(chip_info, cell->bel);
+                NPNR_ASSERT(prev_bel_data.category == BEL_CATEGORY_LOGIC);
+
+                get_site_status(prev_tile_status, prev_bel_data).unbindBel(cell);
+                prev_tile_status.boundcells[cell->bel.index] = nullptr;
+
+                constraints.unbindBel(prev_tile_status.tags.data(), get_cell_constraints(cell->bel, cell->type));
+            }
         } else {
             map_port_pins(bel, cell);
             // FIXME: Probably need to actually constraint io port cell/bel,
@@ -687,7 +710,14 @@ struct Arch : ArchAPI<ArchRanges>
 
     void place_iobufs(WireId pad_wire, NetInfo *net, const pool<CellInfo *, hash_ptr_ops> &tightly_attached_bels,
                       pool<CellInfo *, hash_ptr_ops> *placed_cells);
+
     void pack_ports();
+
+    // Clusters
+    void pack_cluster();
+    void prepare_cluster(const ClusterPOD *cluster, uint32_t index);
+    dict<ClusterId, Cluster> clusters;
+
     void decode_lut_cells();
 
     const GlobalCellPOD *global_cell_info(IdString cell_type) const;
@@ -821,10 +851,10 @@ struct Arch : ArchAPI<ArchRanges>
         }
         const TileStatus &tile_status = iter->second;
         const CellInfo *cell = tile_status.boundcells[bel.index];
+
         if (cell != nullptr) {
-            if (!dedicated_interconnect.isBelLocationValid(bel, cell)) {
+            if (cell->cluster == ClusterId() && !dedicated_interconnect.isBelLocationValid(bel, cell))
                 return false;
-            }
 
             if (io_port_types.count(cell->type)) {
                 // FIXME: Probably need to actually constraint io port cell/bel,
@@ -837,24 +867,21 @@ struct Arch : ArchAPI<ArchRanges>
                 return false;
             }
         }
+
         // Still check site status if cell is nullptr; as other bels in the site could be illegal (for example when
         // dedicated paths can no longer be used after ripping up a cell)
         auto &bel_data = bel_info(chip_info, bel);
-        return get_site_status(tile_status, bel_data).checkSiteRouting(getCtx(), tile_status);
+        bool site_status = get_site_status(tile_status, bel_data).checkSiteRouting(getCtx(), tile_status);
+
+        return site_status;
     }
 
-    // -------------------------------------------------
-
-    // TODO
-    CellInfo *getClusterRootCell(ClusterId cluster) const override { NPNR_ASSERT_FALSE("unimplemented"); }
-    ArcBounds getClusterBounds(ClusterId cluster) const override { NPNR_ASSERT_FALSE("unimplemented"); }
-    Loc getClusterOffset(const CellInfo *cell) const override { NPNR_ASSERT_FALSE("unimplemented"); }
-    bool isClusterStrict(const CellInfo *cell) const override { NPNR_ASSERT_FALSE("unimplemented"); }
+    CellInfo *getClusterRootCell(ClusterId cluster) const override;
+    ArcBounds getClusterBounds(ClusterId cluster) const override;
+    Loc getClusterOffset(const CellInfo *cell) const override;
+    bool isClusterStrict(const CellInfo *cell) const override;
     bool getClusterPlacement(ClusterId cluster, BelId root_bel,
-                             std::vector<std::pair<CellInfo *, BelId>> &placement) const override
-    {
-        NPNR_ASSERT_FALSE("unimplemented");
-    }
+                             std::vector<std::pair<CellInfo *, BelId>> &placement) const override;
 
     IdString get_bel_tiletype(BelId bel) const { return IdString(loc_info(chip_info, bel).name); }
 

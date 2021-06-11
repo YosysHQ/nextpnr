@@ -32,7 +32,7 @@ struct SiteRoutingSolution
 {
     void store_solution(const SiteArch *ctx, const RouteNodeStorage *node_storage, const SiteWire &driver,
                         std::vector<size_t> solutions);
-    void verify(const SiteArch *ctx, const SiteNetInfo &net);
+    bool verify(const SiteArch *ctx, const SiteNetInfo &net);
 
     void clear()
     {
