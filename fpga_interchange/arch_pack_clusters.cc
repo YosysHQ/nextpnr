@@ -193,9 +193,6 @@ bool Arch::getClusterPlacement(ClusterId cluster, BelId root_bel,
     const Context *ctx = getCtx();
     const Cluster &packed_cluster = clusters.at(cluster);
 
-    IdString GND = id("GND");
-    IdString VCC = id("VCC");
-
     CellInfo *root_cell = getClusterRootCell(cluster);
     if (!ctx->isValidBelForCellType(root_cell->type, root_bel))
         return false;
@@ -225,26 +222,18 @@ bool Arch::getClusterPlacement(ClusterId cluster, BelId root_bel,
                 return false;
         }
 
-        if (cluster_node->cell_bel_pins.empty()) {
-            // Build a cell to bell mapping required to find BELs connected to the cluster ports.
+        // Build a cell to bell mapping required to find BELs connected to the cluster ports.
+        dict<IdString, std::vector<IdString>> cell_bel_pins;
 
-            int32_t mapping = bel_info(chip_info, next_bel).pin_map[get_cell_type_index(cluster_node->type)];
-            NPNR_ASSERT(mapping >= 0);
+        int32_t mapping = bel_info(chip_info, next_bel).pin_map[get_cell_type_index(cluster_node->type)];
+        NPNR_ASSERT(mapping >= 0);
 
-            const CellBelMapPOD &cell_pin_map = chip_info->cell_map->cell_bel_map[mapping];
-            for (const auto &pin_map : cell_pin_map.common_pins) {
-                IdString cell_pin(pin_map.cell_pin);
-                IdString bel_pin(pin_map.bel_pin);
+        const CellBelMapPOD &cell_pin_map = chip_info->cell_map->cell_bel_map[mapping];
+        for (const auto &pin_map : cell_pin_map.common_pins) {
+            IdString cell_pin(pin_map.cell_pin);
+            IdString bel_pin(pin_map.bel_pin);
 
-                // Skip assigned LUT pins, as they are already mapped!
-                if (cluster_node->lut_cell.lut_pins.count(cell_pin) && cluster_node->cell_bel_pins.count(cell_pin))
-                    continue;
-
-                if (cell_pin == GND || cell_pin == VCC)
-                    continue;
-
-                cluster_node->cell_bel_pins[cell_pin].push_back(bel_pin);
-            }
+            cell_bel_pins[cell_pin].push_back(bel_pin);
         }
 
         placement.emplace_back(cluster_node, next_bel);
@@ -256,13 +245,14 @@ bool Arch::getClusterPlacement(ClusterId cluster, BelId root_bel,
             IdString port = port_cell.first;
             CellInfo *cell = port_cell.second;
 
+            NPNR_ASSERT(cell_bel_pins.count(port));
+
             PortType port_type = cluster_node->ports.at(port).type;
 
             if (port_type == PORT_INOUT)
                 continue;
 
-            auto &cell_bel_pins = cluster_node->cell_bel_pins.at(port);
-            for (auto &bel_pin : cell_bel_pins) {
+            for (auto &bel_pin : cell_bel_pins.at(port)) {
                 WireId bel_pin_wire = ctx->getBelPinWire(next_bel, bel_pin);
 
                 ExpansionDirection direction = port_type == PORT_IN ? CLUSTER_UPHILL_DIR : CLUSTER_DOWNHILL_DIR;
@@ -335,7 +325,7 @@ Loc Arch::getClusterOffset(const CellInfo *cell) const
 
 bool Arch::isClusterStrict(const CellInfo *cell) const { return true; }
 
-void dump_clusters(const ChipInfoPOD *chip_info, Context *ctx)
+static void dump_clusters(const ChipInfoPOD *chip_info, Context *ctx)
 {
     for (size_t i = 0; i < chip_info->clusters.size(); ++i) {
         const auto &cluster = chip_info->clusters[i];
