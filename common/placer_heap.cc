@@ -638,7 +638,7 @@ class HeAPPlacer
         for (auto cell : place_cells) {
             chain_size[cell->name] = 1;
             if (cell->cluster != ClusterId()) {
-                const auto &base = cell_locs[cell->name];
+                const auto base = cell_locs[cell->name];
                 for (auto child : cluster2cells.at(cell->cluster)) {
                     if (child->type == cell->type && child != cell)
                         chain_size[cell->name]++;
