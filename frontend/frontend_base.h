@@ -1,7 +1,7 @@
 /*
  *  nextpnr -- Next Generation Place and Route
  *
- *  Copyright (C) 2019  David Shah <dave@ds0.me>
+ *  Copyright (C) 2019  gatecat <gatecat@ds0.me>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -23,7 +23,7 @@
  * This is designed to make it possible to build frontends for parsing any format isomorphic to Yosys JSON [1]
  * with maximal inlining and minimal need for overhead such as runtime polymorphism or extra wrapper types.
  *
- * [1] http://www.clifford.at/yosys/cmd_write_json.html
+ * [1] https://yosyshq.net/yosys/cmd_write_json.html
  *
  * The frontend should implement a class referred to as FrontendType that defines the following type(def)s and
  * functions:

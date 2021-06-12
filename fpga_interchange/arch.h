@@ -1,8 +1,8 @@
 /*
  *  nextpnr -- Next Generation Place and Route
  *
- *  Copyright (C) 2018  Claire Wolf <claire@symbioticeda.com>
- *  Copyright (C) 2018-19  David Shah <david@symbioticeda.com>
+ *  Copyright (C) 2018  Claire Xenia Wolf <claire@yosyshq.com>
+ *  Copyright (C) 2018-19  gatecat <gatecat@ds0.me>
  *  Copyright (C) 2021  Symbiflow Authors
  *
  *

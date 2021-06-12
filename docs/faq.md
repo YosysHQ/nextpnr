@@ -137,7 +137,7 @@ Nextpnr and other tools
    [Verilog to Routing](https://verilogtorouting.org). If you want to use nextpnr, you might also be able to use the [Generic Arch](generic.md).
 
  * If you are developing FPGA code in **Verilog** for a **Lattice iCE40** and
-   need an open source toolchain, we suggest you use [Yosys](http://www.clifford.at/yosys/) and nextpnr.
+   need an open source toolchain, we suggest you use [Yosys](https://yosyshq.net/yosys/) and nextpnr.
 
  * If you are developing FPGA code in **Verilog** for a **Lattice iCE40** with
    Yosys and the **existing arachne-pnr toolchain**, we suggest you start thinking about
@@ -151,7 +151,7 @@ Nextpnr and other tools
 ### Why didn't you just improve [arachne-pnr](https://github.com/cseed/arachne-pnr)?
 
 [arachne-pnr](https://github.com/cseed/arachne-pnr) was originally developed as
-part of [Project IceStorm](http://www.clifford.at/icestorm/) to demonstrate it
+part of [Project IceStorm](http://bygone.clairexen.net/icestorm/) to demonstrate it
 was possible to create an open source place and route tool for the iCE40 FPGAs
 that actually produced valid bitstreams.
 
@@ -215,9 +215,9 @@ tooling around bitstream generation for these parts.
 
 While upstream nextpnr currently does **not** support these Xilinx parts, we expect it might soon be using Project X-Ray in a similar manner to Project Trellis.
 
-### What is [Project IceStorm](http://www.clifford.at/icestorm/)?
+### What is [Project IceStorm](http://bygone.clairexen.net/icestorm/)?
 
-[Project IceStorm](http://www.clifford.at/icestorm/) is both a project to
+[Project IceStorm](http://bygone.clairexen.net/icestorm/) is both a project to
 document the bitstream for the Lattice iCE40 series of parts **and** a full
 flow including Yosys and arachne-pnr for converting Verilog into a bitstream 
 for these parts.
