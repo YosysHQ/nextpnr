@@ -356,12 +356,9 @@ bool DedicatedInterconnect::isBelLocationValid(BelId bel, const CellInfo *cell) 
     for (const auto &port_pair : cell->ports) {
         IdString port_name = port_pair.first;
         NetInfo *net = port_pair.second.net;
-        if (net == nullptr) {
+        if (net == nullptr || net->driver.cell == nullptr) {
             continue;
         }
-
-        // This net doesn't have a driver, probably not valid?
-        NPNR_ASSERT(net->driver.cell != nullptr);
 
         // Only check sink BELs.
         if (net->driver.cell == cell && net->driver.port == port_name) {
