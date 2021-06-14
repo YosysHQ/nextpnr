@@ -154,7 +154,8 @@ SiteArch::SiteArch(const SiteInformation *site_info) : ctx(site_info->ctx), site
         SiteNetInfo &net_info = net_pair.second;
 
         // All nets require drivers
-        NPNR_ASSERT(net->driver.cell != nullptr);
+        if (net->driver.cell == nullptr)
+            continue;
 
         bool net_driven_out_of_site = false;
         if (net->driver.cell->bel == BelId()) {
@@ -259,6 +260,8 @@ SiteArch::SiteArch(const SiteInformation *site_info) : ctx(site_info->ctx), site
     }
 
     for (auto &net_pair : nets) {
+        if (net_pair.first->driver.cell == nullptr)
+            continue;
         SiteNetInfo *net_info = &net_pair.second;
         auto result = wire_to_nets.emplace(net_info->driver, SiteNetMap{net_info, 1});
         // By this point, trivial congestion at sources should already by

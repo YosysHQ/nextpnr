@@ -706,6 +706,8 @@ static bool route_site(SiteArch *ctx, SiteRoutingCache *site_routing_cache, Rout
     expansions.reserve(ctx->nets.size());
 
     for (auto &net_pair : ctx->nets) {
+        if (net_pair.first->driver.cell == nullptr)
+            continue;
         SiteNetInfo *net = &net_pair.second;
 
         if (net->net->loop == nullptr) {
@@ -792,6 +794,8 @@ void check_routing(const SiteArch &site_arch)
 {
     for (auto &net_pair : site_arch.nets) {
         const NetInfo *net = net_pair.first;
+        if (net->driver.cell == nullptr)
+            continue;
         const SiteNetInfo &net_info = net_pair.second;
 
         for (const auto &user : net_info.users) {
