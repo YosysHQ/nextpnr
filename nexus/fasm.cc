@@ -227,9 +227,8 @@ struct NexusFasmWriter
         blank();
     }
     // Find the CIBMUX output for a signal
-    WireId find_cibmux(const CellInfo *cell, IdString pin)
+    WireId find_cibmux(WireId cursor)
     {
-        WireId cursor = ctx->getBelPinWire(cell->bel, pin);
         if (cursor == WireId())
             return WireId();
         for (int i = 0; i < 10; i++) {
@@ -270,7 +269,7 @@ struct NexusFasmWriter
             // Handle CIB muxes - these must be set such that floating pins really are floating to VCC and not connected
             // to another CIB signal
             if ((pin_style & PINBIT_CIBMUX) && port.second.net == nullptr) {
-                WireId cibmuxout = find_cibmux(cell, port.first);
+                WireId cibmuxout = find_cibmux(ctx->getBelPinWire(cell->bel, port.first));
                 if (cibmuxout != WireId()) {
                     write_comment(stringf("CIBMUX for unused pin %s", ctx->nameOf(port.first)));
                     bool found = false;
@@ -284,6 +283,36 @@ struct NexusFasmWriter
                     NPNR_ASSERT(found);
                 }
             }
+        }
+    }
+
+    // Handle route-through DCCs
+    void write_dcc_thru()
+    {
+        for (auto bel : ctx->getBels()) {
+            if (ctx->getBelType(bel) != id_DCC)
+                continue;
+            if (!ctx->checkBelAvail(bel))
+                continue;
+            WireId dst = ctx->getBelPinWire(bel, id_CLKO);
+            if (ctx->getBoundWireNet(dst) == nullptr)
+                continue;
+            // Set up the CIBMUX so CE is guaranteed to be tied high
+            WireId ce = ctx->getBelPinWire(bel, id_CE);
+            WireId cibmuxout = find_cibmux(ce);
+            NPNR_ASSERT(cibmuxout != WireId());
+
+            write_comment(stringf("CE CIBMUX for DCC route-thru %s", ctx->nameOfBel(bel)));
+            bool found = false;
+            for (PipId pip : ctx->getPipsUphill(cibmuxout)) {
+                if (ctx->checkPipAvail(pip) && ctx->checkWireAvail(ctx->getPipSrcWire(pip))) {
+                    write_pip(pip);
+                    found = true;
+                    break;
+                }
+            }
+            NPNR_ASSERT(found);
+
         }
     }
 
@@ -846,6 +875,8 @@ struct NexusFasmWriter
                 write_dphy(ci);
             blank();
         }
+        // Handle DCC route-throughs
+        write_dcc_thru();
         // Write config for unused bels
         write_unused();
         // Write bank config
