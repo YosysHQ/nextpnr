@@ -312,7 +312,6 @@ struct NexusFasmWriter
                 }
             }
             NPNR_ASSERT(found);
-
         }
     }
 
