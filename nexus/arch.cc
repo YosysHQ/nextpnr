@@ -171,6 +171,19 @@ Arch::Arch(ArchArgs args) : args(args)
 
     BaseArch::init_cell_types();
     BaseArch::init_bel_buckets();
+
+    if (device == "LIFCL-17") {
+        for (BelId bel : getBelsByTile(37, 10)) {
+            // These pips currently don't work, due to routing differences between the variants that the DB format needs
+            // some tweaks to accomodate properly
+            if (getBelType(bel) != id_DCC)
+                continue;
+            WireId w = getBelPinWire(bel, id_CLKI);
+            for (auto pip : getPipsUphill(w))
+                disabled_pips.insert(pip);
+        }
+        NPNR_ASSERT(disabled_pips.size() == 4);
+    }
 }
 
 // -----------------------------------------------------------------------

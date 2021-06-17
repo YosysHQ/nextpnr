@@ -918,6 +918,8 @@ struct Arch : BaseArch<ArchRanges>
     // inverse of the above for name->object mapping
     dict<IdString, int> id_to_x, id_to_y;
 
+    pool<PipId> disabled_pips;
+
     // -------------------------------------------------
 
     std::string getChipName() const override;
@@ -974,6 +976,20 @@ struct Arch : BaseArch<ArchRanges>
     {
         NPNR_ASSERT(bel != BelId());
         return tileStatus[bel.tile].boundcells[bel.index] == nullptr;
+    }
+
+    bool checkPipAvail(PipId pip) const override
+    {
+        if (disabled_pips.count(pip))
+            return false;
+        return BaseArch::checkPipAvail(pip);
+    }
+
+    bool checkPipAvailForNet(PipId pip, NetInfo *net) const override
+    {
+        if (disabled_pips.count(pip))
+            return false;
+        return BaseArch::checkPipAvailForNet(pip, net);
     }
 
     CellInfo *getBoundBelCell(BelId bel) const override
