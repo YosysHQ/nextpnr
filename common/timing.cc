@@ -807,13 +807,20 @@ struct Timing
         }
 
         // Go forwards topologically to find the maximum arrival time and max path length for each net
+        std::vector<ClockEvent> startdomains;
         for (auto net : topological_order) {
             if (!net_data.count(net))
                 continue;
-            auto &nd_map = net_data.at(net);
-            for (auto &startdomain : nd_map) {
-                ClockEvent start_clk = startdomain.first;
-                auto &nd = startdomain.second;
+            // Updates later on might invalidate a reference taken here to net_data, so iterate over a list of domains
+            // instead
+            startdomains.clear();
+            {
+                auto &nd_map = net_data.at(net);
+                for (auto &startdomain : nd_map)
+                    startdomains.push_back(startdomain.first);
+            }
+            for (auto &start_clk : startdomains) {
+                auto &nd = net_data.at(net).at(start_clk);
                 if (nd.false_startpoint)
                     continue;
                 const auto net_arrival = nd.max_arrival;
