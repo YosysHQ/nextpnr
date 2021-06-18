@@ -54,7 +54,7 @@ po::options_description GowinCommandHandler::getArchOptions()
 
 std::unique_ptr<Context> GowinCommandHandler::createContext(dict<std::string, Property> &values)
 {
-    std::regex devicere = std::regex("GW1N([A-Z]*)-(LV|UV)([0-9])([A-Z]{2}[0-9]+)(C[0-9]/I[0-9])");
+    std::regex devicere = std::regex("GW1N([A-Z]*)-(LV|UV|UX)([0-9])(C?)([A-Z]{2}[0-9]+)(C[0-9]/I[0-9])");
     std::smatch match;
     std::string device = vm["device"].as<std::string>();
     if (!std::regex_match(device, match, devicere)) {
@@ -62,12 +62,13 @@ std::unique_ptr<Context> GowinCommandHandler::createContext(dict<std::string, Pr
     }
     ArchArgs chipArgs;
     char buf[36];
-    snprintf(buf, 36, "GW1N%s-%s", match[1].str().c_str(), match[3].str().c_str());
+    snprintf(buf, 36, "GW1N%s-%s%s", match[1].str().c_str(), match[3].str().c_str(),
+		match[4].str().c_str());
     chipArgs.device = buf;
-    snprintf(buf, 36, "GW1N-%s", match[3].str().c_str());
+    snprintf(buf, 36, "GW1N%s-%s", match[1].str().c_str(), match[3].str().c_str());
     chipArgs.family = buf;
-    chipArgs.package = match[4];
-    chipArgs.speed = match[5];
+    chipArgs.package = match[5];
+    chipArgs.speed = match[6];
     return std::unique_ptr<Context>(new Context(chipArgs));
 }
 
