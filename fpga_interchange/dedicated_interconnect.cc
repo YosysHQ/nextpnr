@@ -510,7 +510,7 @@ void DedicatedInterconnect::find_dedicated_interconnect()
         }
 
         for (int i = 0; i < bel_data.num_bel_wires; ++i) {
-            if (bel_data.types[i] != PORT_OUT) {
+            if (bel_data.types[i] != PORT_OUT || bel_data.wires[i] == -1) {
                 continue;
             }
 
