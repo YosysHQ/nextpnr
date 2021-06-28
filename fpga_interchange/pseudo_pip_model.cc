@@ -63,8 +63,6 @@ void PseudoPipData::init_tile_type(const Context *ctx, int32_t tile_type)
 
             sites.emplace(wire_data.site);
 
-            int32_t driver_bel = -1;
-            int32_t output_pin = -1;
             for (const BelPortPOD &bel_pin : wire_data.bel_pins) {
                 const BelInfoPOD &bel_data = type_data.bel_data[bel_pin.bel_index];
                 if (bel_data.synthetic != NOT_SYNTH) {
@@ -92,18 +90,9 @@ void PseudoPipData::init_tile_type(const Context *ctx, int32_t tile_type)
                     continue;
                 }
 
-                // Each site wire should have 1 driver!
-                NPNR_ASSERT(driver_bel == -1);
-                driver_bel = bel_pin.bel_index;
-                output_pin = bel_pin_idx;
-            }
-
-            if (driver_bel != -1) {
-                NPNR_ASSERT(output_pin != -1);
                 PseudoPipBel bel;
-                bel.bel_index = driver_bel;
-                bel.output_bel_pin = output_pin;
-
+                bel.bel_index = bel_pin.bel_index;
+                bel.output_bel_pin = bel_pin_idx;
                 pseudo_pip_bels.push_back(bel);
             }
         }
