@@ -1152,6 +1152,7 @@ struct Arch : ArchAPI<ArchRanges>
     const DefaultCellConnsPOD *get_default_conns(IdString cell_type) const;
     void pack_default_conns();
 
+    dict<IdString, std::vector<CellInfo *>> macro_to_cells;
     void expand_macros();
 };
 

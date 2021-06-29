@@ -66,6 +66,8 @@ void Arch::expand_macros()
             const MacroPOD *macro = lookup_macro(chip_info, exp ? IdString(exp->macro_name) : cell->type);
             if (macro == nullptr)
                 continue;
+            // Get the ultimate root of this macro expansion
+            IdString parent = (cell->macro_parent == IdString()) ? cell->name : cell->macro_parent;
             // Create child instances
             for (const auto &inst : macro->cell_insts) {
                 CellInfo *inst_cell =
@@ -73,6 +75,7 @@ void Arch::expand_macros()
                 for (const auto &param : inst.parameters) {
                     inst_cell->params[IdString(param.key)] = IdString(param.value).str(ctx);
                 }
+                inst_cell->macro_parent = parent;
                 next_cells.push_back(inst_cell);
             }
             // Create and connect nets
@@ -156,6 +159,9 @@ void Arch::expand_macros()
         std::swap(next_cells, cells);
         next_cells.clear();
     } while (!cells.empty());
+    // Do this at the end, otherwise we might add cells that are later destroyed
+    for (auto &cell : ctx->cells)
+        macro_to_cells[cell.second->macro_parent].push_back(cell.second.get());
 }
 
 NEXTPNR_NAMESPACE_END

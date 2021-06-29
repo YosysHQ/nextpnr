@@ -120,6 +120,7 @@ struct ArchCellInfo
     dict<IdString, std::vector<IdString>> cell_bel_pins;
     dict<IdString, std::vector<IdString>> masked_cell_bel_pins;
     pool<IdString> const_ports;
+    IdString macro_parent = IdString();
     LutCell lut_cell;
 };
 
