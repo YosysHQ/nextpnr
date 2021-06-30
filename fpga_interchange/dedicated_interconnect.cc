@@ -50,7 +50,7 @@ struct WireNode
 //
 // Routing networks with depth <= kMaxDepth is considers a dedicated
 // interconnect.
-constexpr int kMaxDepth = 20;
+constexpr int kMaxDepth = 6;
 
 void DedicatedInterconnect::init(const Context *ctx)
 {
@@ -115,14 +115,14 @@ bool DedicatedInterconnect::check_routing(BelId src_bel, IdString src_bel_pin, B
 
             WireNode next_node;
             next_node.wire = wire;
-            next_node.depth = node_to_expand.depth += 1;
+            next_node.depth = node_to_expand.depth;
 
-            if (next_node.depth > kMaxDepth) {
+            if (node_to_expand.depth > kMaxDepth) {
                 // Dedicated routing should reach sources by kMaxDepth (with
                 // tuning).
                 //
                 // FIXME: Consider removing kMaxDepth and use kMaxSources?
-                return false;
+                continue;
             }
 
             auto const &wire_data = ctx->wire_info(wire);
@@ -162,6 +162,8 @@ bool DedicatedInterconnect::check_routing(BelId src_bel, IdString src_bel_pin, B
                 }
             } else {
                 next_node.state = node_to_expand.state;
+                if (next_node.state == IN_ROUTING)
+                    next_node.depth++;
             }
 
             if (expand_node) {
@@ -580,9 +582,9 @@ void DedicatedInterconnect::expand_sink_bel(BelId sink_bel, IdString sink_pin, W
 
             WireNode next_node;
             next_node.wire = wire;
-            next_node.depth = node_to_expand.depth += 1;
+            next_node.depth = node_to_expand.depth;
 
-            if (next_node.depth > kMaxDepth) {
+            if (node_to_expand.depth > kMaxDepth) {
                 // Dedicated routing should reach sources by kMaxDepth (with
                 // tuning).
                 //
@@ -625,6 +627,8 @@ void DedicatedInterconnect::expand_sink_bel(BelId sink_bel, IdString sink_pin, W
                 }
             } else {
                 next_node.state = node_to_expand.state;
+                if (next_node.state == IN_ROUTING)
+                    next_node.depth++;
             }
 
             if (expand_node) {
@@ -723,9 +727,9 @@ void DedicatedInterconnect::expand_source_bel(BelId src_bel, IdString src_pin, W
 
             WireNode next_node;
             next_node.wire = wire;
-            next_node.depth = node_to_expand.depth += 1;
+            next_node.depth = node_to_expand.depth;
 
-            if (next_node.depth > kMaxDepth) {
+            if (node_to_expand.depth > kMaxDepth) {
                 // Dedicated routing should reach sources by kMaxDepth (with
                 // tuning).
                 //
@@ -768,6 +772,8 @@ void DedicatedInterconnect::expand_source_bel(BelId src_bel, IdString src_pin, W
                 }
             } else {
                 next_node.state = node_to_expand.state;
+                if (next_node.state == IN_ROUTING)
+                    next_node.depth++;
             }
 
             if (expand_node) {
