@@ -87,7 +87,10 @@ bool DedicatedInterconnect::check_routing(BelId src_bel, IdString src_bel_pin, B
 
     WireNode wire_node;
     wire_node.wire = src_wire;
-    wire_node.state = IN_SOURCE_SITE;
+    if (src_wire.tile == dst_wire.tile && src_wire_data.site == dst_wire_data.site)
+        wire_node.state = IN_SINK_SITE;
+    else
+        wire_node.state = IN_SOURCE_SITE;
     wire_node.depth = 0;
 
     nodes_to_expand.push_back(wire_node);
