@@ -22,7 +22,48 @@
 #include "nextpnr.h"
 #include "util.h"
 
+#include <queue>
+
 NEXTPNR_NAMESPACE_BEGIN
+
+namespace {
+bool search_routing_for_placement(Arch *arch, WireId start_wire, CellInfo *cell, IdString cell_pin)
+{
+    std::queue<WireId> visit_queue;
+    pool<WireId> already_visited;
+    visit_queue.push(start_wire);
+    already_visited.insert(start_wire);
+    int iter = 0;
+    while (!visit_queue.empty() && iter++ < 1000) {
+        WireId next = visit_queue.front();
+        visit_queue.pop();
+        for (auto bp : arch->getWireBelPins(next)) {
+            if (!arch->isValidBelForCellType(cell->type, bp.bel))
+                continue;
+            if (!arch->checkBelAvail(bp.bel))
+                continue;
+            // We need to do a test placement to update the bel pin map
+            arch->bindBel(bp.bel, cell, STRENGTH_FIXED);
+            for (IdString bel_pin : arch->getBelPinsForCellPin(cell, cell_pin)) {
+                if (bel_pin == bp.pin)
+                    return true;
+            }
+            // Bel pin doesn't match
+            arch->unbindBel(bp.bel);
+        }
+        for (auto pip : arch->getPipsDownhill(next)) {
+            WireId dst = arch->getPipDstWire(pip);
+            if (already_visited.count(dst))
+                continue;
+            if (!arch->is_site_wire(dst) && arch->get_wire_category(dst) == WIRE_CAT_GENERAL)
+                continue; // this pass only considers dedicated routing
+            visit_queue.push(dst);
+            already_visited.insert(dst);
+        }
+    }
+    return false;
+}
+} // namespace
 
 void Arch::place_iobufs(WireId pad_wire, NetInfo *net, const pool<CellInfo *, hash_ptr_ops> &tightly_attached_bels,
                         pool<CellInfo *, hash_ptr_ops> *placed_cells)
@@ -53,6 +94,44 @@ void Arch::place_iobufs(WireId pad_wire, NetInfo *net, const pool<CellInfo *, ha
             }
         }
     }
+
+    // Also try, on a best-effort basis, to preplace other cells in the macro based on downstream routing. This is
+    // needed for the split INBUF+IBUFCTRL arrangement in the UltraScale+, as just placing the INBUF will result in an
+    // unrouteable site and illegal placement.
+    Context *ctx = getCtx();
+    std::queue<CellInfo *> place_queue;
+    for (auto pc : *placed_cells)
+        place_queue.push(pc);
+    while (!place_queue.empty()) {
+        CellInfo *cursor = place_queue.front();
+        place_queue.pop();
+        // Ignore cells not part of a macro
+        if (cursor->macro_parent == IdString())
+            continue;
+        for (auto &port : cursor->ports) {
+            // Only consider routing downstream from outputs for now
+            if (port.second.type != PORT_OUT || port.second.net == nullptr)
+                continue;
+            NetInfo *ni = port.second.net;
+            WireId src_wire = ctx->getNetinfoSourceWire(ni);
+            for (auto &usr : ni->users) {
+                // Look for unplaced users in the same macro
+                if (usr.cell->bel != BelId() || usr.cell->macro_parent != cursor->macro_parent)
+                    continue;
+                // Try and place using dedicated routing
+                if (search_routing_for_placement(this, src_wire, usr.cell, usr.port)) {
+                    // Successful
+                    placed_cells->insert(usr.cell);
+                    place_queue.push(usr.cell);
+                    if (ctx->verbose)
+                        log_info("Placed %s at %s based on dedicated IO macro routing.\n", ctx->nameOf(usr.cell),
+                                 ctx->nameOfBel(usr.cell->bel));
+                }
+            }
+        }
+    }
+    // TODO: for even more complex cases, if any future devices hit them, we probably should do a full validity check of
+    // all placed cells here, and backtrack and try a different placement if the first one we choose isn't legal overall
 }
 
 void Arch::pack_ports()
