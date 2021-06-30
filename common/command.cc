@@ -475,15 +475,6 @@ int CommandHandler::exec()
 
 void CommandHandler::load_json(Context *ctx, std::string filename)
 {
-    ctx->cells.clear();
-    ctx->nets.clear();
-    ctx->net_aliases.clear();
-    ctx->ports.clear();
-    ctx->hierarchy.clear();
-    ctx->settings.erase(ctx->id("pack"));
-    ctx->settings.erase(ctx->id("place"));
-    ctx->settings.erase(ctx->id("route"));
-
     setupContext(ctx);
     setupArchContext(ctx);
     {
