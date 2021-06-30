@@ -37,7 +37,11 @@ struct Context : Arch, DeterministicRNG
     // Should we disable printing of the location of nets in the critical path?
     bool disable_critical_path_source_print = false;
 
-    Context(ArchArgs args) : Arch(args) { BaseCtx::as_ctx = this; }
+    ArchArgs arch_args;
+
+    Context(ArchArgs args) : Arch(args) { BaseCtx::as_ctx = this; arch_args = args; }
+
+    ArchArgs getArchArgs() { return arch_args; }
 
     // --------------------------------------------------------------
 

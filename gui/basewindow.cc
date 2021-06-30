@@ -365,6 +365,11 @@ void BaseMainWindow::open_json()
     QString fileName = QFileDialog::getOpenFileName(this, QString("Open JSON"), QString(), QString("*.json"));
     if (!fileName.isEmpty()) {
         disableActions();
+        if (ctx->settings.find(ctx->id("synth")) == ctx->settings.end()) {
+            ArchArgs chipArgs = ctx->getArchArgs();
+            ctx = std::unique_ptr<Context>(new Context(chipArgs));
+            Q_EMIT contextChanged(ctx.get());
+        }
         handler->load_json(ctx.get(), fileName.toStdString());
         Q_EMIT updateTreeView();
         log("Loading design successful.\n");
@@ -523,7 +528,7 @@ void BaseMainWindow::place() { Q_EMIT task->place(timing_driven); }
 
 void BaseMainWindow::disableActions()
 {
-    actionLoadJSON->setEnabled(false);
+    actionLoadJSON->setEnabled(true);
     actionPack->setEnabled(false);
     actionAssignBudget->setEnabled(false);
     actionPlace->setEnabled(false);
