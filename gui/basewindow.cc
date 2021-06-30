@@ -523,7 +523,7 @@ void BaseMainWindow::place() { Q_EMIT task->place(timing_driven); }
 
 void BaseMainWindow::disableActions()
 {
-    actionLoadJSON->setEnabled(true);
+    actionLoadJSON->setEnabled(false);
     actionPack->setEnabled(false);
     actionAssignBudget->setEnabled(false);
     actionPlace->setEnabled(false);
