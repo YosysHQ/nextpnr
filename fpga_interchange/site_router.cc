@@ -858,9 +858,7 @@ static void apply_constant_routing(Context *ctx, const SiteArch &site_arch, NetI
     NPNR_ASSERT(net == vcc_net || net == gnd_net);
 
     for (auto &user : site_net->users) {
-        // FIXME: Handle case where pip is "can_invert", and that
-        // inversion helps with accomidating "best constant".
-        bool is_path_inverting = false;
+        bool is_path_inverting = false, path_can_invert = false;
 
         SiteWire wire = user;
         PipId inverting_pip;
@@ -879,10 +877,16 @@ static void apply_constant_routing(Context *ctx, const SiteArch &site_arch, NetI
                 inverting_pip = pip.pip;
             }
 
+            if (site_arch.canInvert(pip)) {
+                path_can_invert = true;
+                NPNR_ASSERT(pip.type == SitePip::SITE_PIP);
+                inverting_pip = pip.pip;
+            }
+
             wire = site_arch.getPipSrcWire(pip);
         }
 
-        if (!is_path_inverting) {
+        if (!is_path_inverting && !path_can_invert) {
             // This routing is boring, use base logic.
             apply_simple_routing(ctx, site_arch, net, site_net, user);
             continue;
@@ -956,7 +960,7 @@ static void apply_constant_routing(Context *ctx, const SiteArch &site_arch, NetI
             SitePip site_pip = site_net->wires.at(wire).pip;
             NPNR_ASSERT(site_arch.getPipDstWire(site_pip) == wire);
 
-            if (site_arch.isInverting(site_pip)) {
+            if (site_arch.isInverting(site_pip) || site_arch.canInvert(site_pip)) {
                 NPNR_ASSERT(after_inverter);
                 after_inverter = false;
 
