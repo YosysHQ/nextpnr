@@ -260,6 +260,9 @@ struct SiteArch
     std::vector<SiteWire> out_of_site_sources;
     std::vector<SiteWire> out_of_site_sinks;
 
+    // A site port that is present in this dictionary is blocked for all those nets except any in the attached pool
+    dict<PipId, pool<NetInfo *, hash_ptr_ops>> blocked_site_ports;
+
     SiteArch(const SiteInformation *site_info);
 
     inline SiteWire getPipSrcWire(const SitePip &site_pip) const NPNR_ALWAYS_INLINE;

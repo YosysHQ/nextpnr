@@ -121,6 +121,7 @@ class SiteRoutingCache
   public:
     bool get_solution(const SiteArch *ctx, const SiteNetInfo &net, SiteRoutingSolution *solution) const;
     void add_solutions(const SiteArch *ctx, const SiteNetInfo &net, const SiteRoutingSolution &solution);
+    void clear();
 
   private:
     dict<SiteRoutingKey, SiteRoutingSolution> cache_;

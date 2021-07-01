@@ -832,6 +832,10 @@ static void prepare_sites_for_routing(Context *ctx)
         }
     }
 
+    // Clear the site routing cache. This is because routing at this stage is done with the extra constraint of blocked
+    // pins to ensure a routeable pin choice.
+    ctx->site_routing_cache.clear();
+
     // Have site router bind site routing (via bindPip and bindWire).
     // This is important so that the pseudo pips are correctly blocked prior
     // to handing the design to the generalized router algorithms.

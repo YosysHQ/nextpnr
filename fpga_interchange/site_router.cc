@@ -27,6 +27,8 @@
 #include "site_arch.h"
 #include "site_arch.impl.h"
 
+#include <queue>
+
 NEXTPNR_NAMESPACE_BEGIN
 
 bool verbose_site_router(const Context *ctx) { return ctx->debug; }
@@ -97,6 +99,11 @@ bool check_initial_wires(const Context *ctx, SiteInformation *site_info)
 
 static bool is_invalid_site_port(const SiteArch *ctx, const SiteNetInfo *net, const SitePip &pip)
 {
+    // Blocked ports
+    auto fnd_rsv = ctx->blocked_site_ports.find(pip.pip);
+    if (fnd_rsv != ctx->blocked_site_ports.end() && !fnd_rsv->second.count(net->net))
+        return true;
+    // Synthetic pips
     SyntheticType type = ctx->pip_synthetic_type(pip);
     PhysicalNetlist::PhysNetlist::NetType net_type = ctx->ctx->get_net_type(net->net);
     bool is_invalid = false;
@@ -1133,6 +1140,57 @@ static void block_cluster_wires(SiteArch *site_arch)
     }
 }
 
+// Reserve site ports that are on dedicated rather than general interconnect
+static void reserve_site_ports(SiteArch *site_arch)
+{
+    const Context *ctx = site_arch->site_info->ctx;
+    site_arch->blocked_site_ports.clear();
+    for (PipId in_pip : site_arch->input_site_ports) {
+        pool<NetInfo *, hash_ptr_ops> dedicated_nets;
+        const int max_iters = 100;
+
+        std::queue<WireId> visit_queue;
+        pool<WireId> already_visited;
+        WireId src = ctx->getPipSrcWire(in_pip);
+        visit_queue.push(src);
+        already_visited.insert(src);
+
+        int iter = 0;
+        while (!visit_queue.empty() && iter++ < max_iters) {
+            WireId next = visit_queue.front();
+            visit_queue.pop();
+            for (auto bp : ctx->getWireBelPins(next)) {
+                // Bel pins could mean dedicated routes
+                CellInfo *bound = ctx->getBoundBelCell(bp.bel);
+                if (bound == nullptr)
+                    continue;
+                // Need to find the corresponding cell pin
+                for (auto &port : bound->ports) {
+                    if (port.second.net == nullptr)
+                        continue;
+                    for (auto bel_pin : ctx->getBelPinsForCellPin(bound, port.first)) {
+                        if (bel_pin == bp.pin)
+                            dedicated_nets.insert(port.second.net);
+                    }
+                }
+            }
+            for (auto pip : ctx->getPipsUphill(next)) {
+                WireId next_src = ctx->getPipSrcWire(pip);
+                if (already_visited.count(next_src))
+                    continue;
+                visit_queue.push(next_src);
+                already_visited.insert(next_src);
+            }
+        }
+        if (iter < max_iters) {
+            if (ctx->debug)
+                log_info("Blocking PIP %s\n", ctx->nameOfPip(in_pip));
+            // If we didn't search up to the iteration limit, assume this node is not reachable from general routing
+            site_arch->blocked_site_ports[in_pip] = dedicated_nets;
+        }
+    }
+}
+
 // Recursively visit downhill PIPs until a SITE_PORT_SINK is reached.
 // Marks all PIPs for all valid paths.
 static bool visit_downhill_pips(const SiteArch *site_arch, const SiteWire &site_wire, std::vector<PipId> &valid_pips)
@@ -1313,6 +1371,7 @@ void SiteRouter::bindSiteRouting(Context *ctx)
     SiteArch site_arch(&site_info);
     block_lut_outputs(&site_arch, blocked_wires);
     block_cluster_wires(&site_arch);
+    reserve_site_ports(&site_arch);
     NPNR_ASSERT(route_site(&site_arch, &ctx->site_routing_cache, &ctx->node_storage, /*explain=*/false));
 
     check_routing(site_arch);
