@@ -39,7 +39,11 @@ struct Context : Arch, DeterministicRNG
 
     ArchArgs arch_args;
 
-    Context(ArchArgs args) : Arch(args) { BaseCtx::as_ctx = this; arch_args = args; }
+    Context(ArchArgs args) : Arch(args)
+    {
+        BaseCtx::as_ctx = this;
+        arch_args = args;
+    }
 
     ArchArgs getArchArgs() { return arch_args; }
 
