@@ -514,7 +514,7 @@ struct Arch : BaseArch<ArchRanges>
         return IdStringList(ids);
     }
 
-    DelayQuad getWireDelay(WireId wire) const override { return DelayQuad(0); }
+    DelayQuad getWireDelay(WireId wire) const override { return DelayQuad(0.01); }
 
     WireRange getWires() const override
     {
@@ -587,7 +587,7 @@ struct Arch : BaseArch<ArchRanges>
         return wire;
     }
 
-    DelayQuad getPipDelay(PipId pip) const override { return DelayQuad(0); }
+    DelayQuad getPipDelay(PipId pip) const override { return DelayQuad(0.01); }
 
     PipRange getPipsDownhill(WireId wire) const override
     {

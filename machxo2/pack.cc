@@ -62,7 +62,7 @@ static void pack_lut_lutffs(Context *ctx)
                     // Locations don't match, can't pack
                 } else {
                     lut_to_lc(ctx, ci, packed.get(), false);
-                    dff_to_lc(ctx, dff, packed.get(), false);
+                    dff_to_lc(ctx, dff, packed.get(), LutType::Normal);
                     if (dff_bel != dff->attrs.end())
                         packed->attrs[ctx->id("BEL")] = dff_bel->second;
                     packed_cells.insert(dff->name);
@@ -105,7 +105,9 @@ static void pack_remaining_ffs(Context *ctx)
                 packed->attrs[attr.first] = attr.second;
 
             auto dff_bel = ci->attrs.find(ctx->id("BEL"));
-            dff_to_lc(ctx, ci, packed.get(), false);
+
+            dff_to_lc(ctx, ci, packed.get(), LutType::None);
+
             if (dff_bel != ci->attrs.end())
                 packed->attrs[ctx->id("BEL")] = dff_bel->second;
             packed_cells.insert(ci->name);
@@ -146,7 +148,7 @@ static void set_net_constant(Context *ctx, NetInfo *orig, NetInfo *constnet, boo
                 for (auto &attr : uc->attrs)
                     lc->attrs[attr.first] = attr.second;
 
-                dff_to_lc(ctx, uc, lc.get(), true);
+                dff_to_lc(ctx, uc, lc.get(), LutType::PassThru);
                 packed_cells.insert(uc->name);
 
                 lc->ports[id_A0].net = constnet;
