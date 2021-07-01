@@ -535,10 +535,21 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
         phys_cell.setPhysType(PhysicalNetlist::PhysNetlist::PhysCellType::PORT);
     }
 
-    auto nets = phys_netlist.initPhysNets(ctx->nets.size());
+    int nets_to_remove = 0;
+    for(auto & net_pair : ctx->nets) {
+        auto &net = *net_pair.second;
+
+        if (net.users.empty())
+            nets_to_remove++;
+    }
+
+    auto nets = phys_netlist.initPhysNets(ctx->nets.size() - nets_to_remove);
     auto net_iter = nets.begin();
     for(auto & net_pair : ctx->nets) {
         auto &net = *net_pair.second;
+
+        if (net.users.empty())
+            continue;
 
         const CellInfo *driver_cell = net.driver.cell;
 
