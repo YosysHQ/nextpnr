@@ -204,4 +204,6 @@ void SiteRoutingCache::add_solutions(const SiteArch *ctx, const SiteNetInfo &net
     cache_[key] = solution;
 }
 
+void SiteRoutingCache::clear() { cache_.clear(); }
+
 NEXTPNR_NAMESPACE_END
