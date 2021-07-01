@@ -754,8 +754,8 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
 bool Arch::pack()
 {
     decode_lut_cells();
-    merge_constant_nets();
     expand_macros();
+    merge_constant_nets();
     pack_ports();
     pack_default_conns();
     pack_cluster();
