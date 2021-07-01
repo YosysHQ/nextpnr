@@ -313,6 +313,11 @@ static void emit_net(
 // FIXME: Consider making sure that wire_data.bel_pins[0] is always the
 // source BEL pin in the BBA generator.
 static BelPin find_source(const Context *ctx, WireId source_wire) {
+    if (source_wire.tile == -1) {
+        // Nodal wire, probably a constant, cannot have an associated bel pin
+        return BelPin();
+    }
+
     const TileTypeInfoPOD & tile_type = loc_info(ctx->chip_info, source_wire);
     const TileWireInfoPOD & wire_data = tile_type.wire_data[source_wire.index];
 
