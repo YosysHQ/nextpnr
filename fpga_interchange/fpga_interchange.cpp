@@ -544,7 +544,9 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
     for(auto & net_pair : ctx->nets) {
         auto &net = *net_pair.second;
 
-        if (net.users.empty())
+        // Remove disconnected nets that do not have any users
+        auto net_name = std::string(net.name.c_str(ctx));
+        if (net.users.empty() && net_name.rfind("$frontend$", 0) == 0)
             nets_to_remove++;
     }
 
@@ -553,7 +555,8 @@ void FpgaInterchange::write_physical_netlist(const Context * ctx, const std::str
     for(auto & net_pair : ctx->nets) {
         auto &net = *net_pair.second;
 
-        if (net.users.empty())
+        auto net_name = std::string(net.name.c_str(ctx));
+        if (net.users.empty() && net_name.rfind("$frontend$", 0) == 0)
             continue;
 
         const CellInfo *driver_cell = net.driver.cell;
@@ -1087,6 +1090,14 @@ ModuleReader::ModuleReader(const LogicalNetlistImpl *root,
             if(iter == net_indicies.end()) {
                 PortKey port_key = port_connections.first;
                 auto port = ports[port_key.port_idx];
+
+                // Disconnected outputs should be marked, so to be ignored when
+                // writing the physical netlist.
+                // Skipping these nets lets the basic frontend to assign a default
+                // name that starts with $frontend$.
+                if (port.getDir() == LogicalNetlist::Netlist::Direction::OUTPUT)
+                    continue;
+
                 disconnected_nets[net_idx] = stringf("%s.%d", root->strings.at(port.getName()).c_str(), i);
             }
         }
