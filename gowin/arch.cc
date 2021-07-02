@@ -492,19 +492,17 @@ void Arch::read_cst(std::istream &in)
         std::getline(in, line);
 		io_loc = true;
         if (!std::regex_match(line, match, iobre)) {
-            // empty line or comment
-            if (line.empty() == 0) {
-                continue;
-            } else {
-				if (!std::regex_match(line, match, portre)) {
-					io_loc = false;
-				} else if (line.rfind("//", 0) == 0) {
+			if (std::regex_match(line, match, portre)) {
+				io_loc = false;
+			} else {
+				if ( (!line.empty()) &&  (line.rfind("//", 0) == std::string::npos)) {
 					log_warning("Invalid constraint: %s\n", line.c_str());
-					continue;
 				}
-            }
-        }
-        // std::cout << match[1] << " " << match[2] << std::endl;
+				continue;
+			}
+		}
+
+        //std::cout << match[1] << " " << match[2] << std::endl;
 
         IdString net = id(match[1]);
         auto it = cells.find(net);
