@@ -487,13 +487,13 @@ void Arch::read_cst(std::istream &in)
     std::regex portre = std::regex("IO_PORT +\"([^\"]+)\" +([^ =;]+)=([^ =;]+) *;.*");
     std::smatch match;
     std::string line;
-	boolean io_loc;
+	bool io_loc;
     while (!in.eof()) {
         std::getline(in, line);
 		io_loc = true;
         if (!std::regex_match(line, match, iobre)) {
             // empty line or comment
-            if (line.empty()) == 0) {
+            if (line.empty() == 0) {
                 continue;
             } else {
 				if (!std::regex_match(line, match, portre)) {
@@ -525,7 +525,7 @@ void Arch::read_cst(std::istream &in)
 			it->second->attrs[IdString(ID_BEL)] = bel;
 		} else { // IO_PORT attr=value
 			// XXX
-			log_info("XXX port attr found %s=%s\n", match[2], match[3]);
+			log_info("XXX port attr found %s=%s\n", match.str(2).c_str(), match.str(3).c_str());
 		}
     }
 }
