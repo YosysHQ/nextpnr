@@ -18,6 +18,7 @@
  *
  */
 
+#include <boost/algorithm/string.hpp>
 #include <iostream>
 #include <math.h>
 #include <regex>
@@ -524,6 +525,14 @@ void Arch::read_cst(std::istream &in)
 		} else { // IO_PORT attr=value
 			// XXX
 			log_info("XXX port attr found %s=%s\n", match.str(2).c_str(), match.str(3).c_str());
+			std::string attr = match[2];
+			std::string value = match[3];
+			boost::algorithm::to_upper(attr);
+			boost::algorithm::to_upper(value);
+			it->second->attrs[id(attr)] = value;
+			//for (auto at : it->second->attrs) {
+			//	std::cout << at.first.str(this) << "=" << at.second.as_string() << std::endl;
+			//}
 		}
     }
 }
