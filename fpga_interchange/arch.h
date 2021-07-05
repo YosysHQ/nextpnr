@@ -576,7 +576,7 @@ struct Arch : ArchAPI<ArchRanges>
         const PipInfoPOD &pip_data = pip_info(chip_info, pip);
         for (int32_t wire_index : pip_data.pseudo_cell_wires) {
             wire.index = wire_index;
-            assign_net_to_wire(wire, net, "pseudo", /*require_empty=*/true);
+            assign_net_to_wire(wire, net, "pseudo", /*require_empty=*/false);
         }
 
         if (pip_data.pseudo_cell_wires.size() > 0) {
@@ -708,7 +708,8 @@ struct Arch : ArchAPI<ArchRanges>
 
     // -------------------------------------------------
 
-    void place_iobufs(WireId pad_wire, NetInfo *net, const pool<CellInfo *, hash_ptr_ops> &tightly_attached_bels,
+    void place_iobufs(BelId package_bel, WireId pad_wire, NetInfo *net,
+                      const pool<CellInfo *, hash_ptr_ops> &tightly_attached_bels,
                       pool<CellInfo *, hash_ptr_ops> *placed_cells);
 
     void pack_ports();

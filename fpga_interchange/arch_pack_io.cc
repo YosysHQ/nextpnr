@@ -65,32 +65,24 @@ bool search_routing_for_placement(Arch *arch, WireId start_wire, CellInfo *cell,
 }
 } // namespace
 
-void Arch::place_iobufs(WireId pad_wire, NetInfo *net, const pool<CellInfo *, hash_ptr_ops> &tightly_attached_bels,
+void Arch::place_iobufs(BelId package_bel, WireId pad_wire, NetInfo *net,
+                        const pool<CellInfo *, hash_ptr_ops> &tightly_attached_bels,
                         pool<CellInfo *, hash_ptr_ops> *placed_cells)
 {
-    for (BelPin bel_pin : getWireBelPins(pad_wire)) {
-        BelId bel = bel_pin.bel;
-        for (CellInfo *cell : tightly_attached_bels) {
+    const auto &package_bel_data = bel_info(chip_info, package_bel);
+    auto bel_loc = getBelLocation(package_bel);
+    for (CellInfo *cell : tightly_attached_bels) {
+        for (BelId bel : getBelsByTile(bel_loc.x, bel_loc.y)) {
+            if (bel_info(chip_info, bel).site != package_bel_data.site)
+                continue;
+
             if (isValidBelForCellType(cell->type, bel)) {
                 NPNR_ASSERT(cell->bel == BelId());
                 NPNR_ASSERT(placed_cells->count(cell) == 0);
 
                 bindBel(bel, cell, STRENGTH_FIXED);
                 placed_cells->emplace(cell);
-
-                IdString cell_port;
-                for (auto pin_pair : cell->cell_bel_pins) {
-                    for (IdString a_bel_pin : pin_pair.second) {
-                        if (a_bel_pin == bel_pin.pin) {
-                            NPNR_ASSERT(cell_port == IdString());
-                            cell_port = pin_pair.first;
-                        }
-                    }
-                }
-                NPNR_ASSERT(cell_port != IdString());
-
-                const PortInfo &port = cell->ports.at(cell_port);
-                NPNR_ASSERT(port.net == net);
+                break;
             }
         }
     }
@@ -130,6 +122,7 @@ void Arch::place_iobufs(WireId pad_wire, NetInfo *net, const pool<CellInfo *, ha
             }
         }
     }
+
     // TODO: for even more complex cases, if any future devices hit them, we probably should do a full validity check of
     // all placed cells here, and backtrack and try a different placement if the first one we choose isn't legal overall
 }
@@ -320,7 +313,7 @@ void Arch::pack_ports()
         IdString pad_pin = get_only_value(package_bel_pins);
 
         WireId pad_wire = getBelPinWire(package_bel, pad_pin);
-        place_iobufs(pad_wire, ports[port_pair.first].net, tightly_attached_bels, &placed_cells);
+        place_iobufs(package_bel, pad_wire, ports[port_pair.first].net, tightly_attached_bels, &placed_cells);
 
         for (CellInfo *cell : placed_cells) {
             NPNR_ASSERT(cell->bel != BelId());

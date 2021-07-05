@@ -1756,8 +1756,8 @@ bool Arch::checkPipAvailForNet(PipId pip, NetInfo *net) const
         NPNR_ASSERT(src != wire);
         NPNR_ASSERT(dst != wire);
 
-        NetInfo *net = getConflictingWireNet(wire);
-        if (net != nullptr) {
+        NetInfo *conflict_net = getConflictingWireNet(wire);
+        if (net != nullptr && conflict_net != nullptr && conflict_net != net) {
 #ifdef DEBUG_BINDING
             if (getCtx()->verbose) {
                 log_info("Pip %s is not available because wire %s is tied to net %s\n", getCtx()->nameOfPip(pip),
