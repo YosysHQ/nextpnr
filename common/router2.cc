@@ -856,10 +856,20 @@ struct Router2
                                   int(a.first), int(a.second), ctx->nameOf(net));
                     auto res2 = route_arc(t, net, a.first, a.second, is_mt, false);
                     // If this also fails, no choice but to give up
-                    if (res2 != ARC_SUCCESS)
+                    if (res2 != ARC_SUCCESS) {
+                        if (ctx->debug) {
+                            log_info("Pre-bound routing: \n");
+                            for (auto &wire_pair : net->wires) {
+                                log("        %s", ctx->nameOfWire(wire_pair.first));
+                                if (wire_pair.second.pip != PipId())
+                                    log(" %s", ctx->nameOfPip(wire_pair.second.pip));
+                                log("\n");
+                            }
+                        }
                         log_error("Failed to route arc %d.%d of net '%s', from %s to %s.\n", int(a.first),
                                   int(a.second), ctx->nameOf(net), ctx->nameOfWire(ctx->getNetinfoSourceWire(net)),
                                   ctx->nameOfWire(ctx->getNetinfoSinkWire(net, net->users.at(a.first), a.second)));
+                    }
                 }
             }
         }
