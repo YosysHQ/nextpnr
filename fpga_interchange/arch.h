@@ -708,7 +708,8 @@ struct Arch : ArchAPI<ArchRanges>
 
     // -------------------------------------------------
 
-    void place_iobufs(WireId pad_wire, NetInfo *net, const pool<CellInfo *, hash_ptr_ops> &tightly_attached_bels,
+    void place_iobufs(WireId pad_wire, NetInfo *net,
+                      const dict<CellInfo *, IdString, hash_ptr_ops> &tightly_attached_bels,
                       pool<CellInfo *, hash_ptr_ops> *placed_cells);
 
     void pack_ports();
