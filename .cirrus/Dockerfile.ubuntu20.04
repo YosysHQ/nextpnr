@@ -65,4 +65,4 @@ RUN set -e -x ;\
     PATH=$PATH:$HOME/.cargo/bin cargo install --path prjoxide
 
 RUN set -e -x ;\
-    pip3 install apycula==0.0.1a5
+    pip3 install apycula==0.0.1a9
