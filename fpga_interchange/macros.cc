@@ -58,14 +58,24 @@ void Arch::expand_macros()
 
     std::vector<CellInfo *> next_cells;
 
+    bool first_iter = false;
     do {
         // Expand cells
         for (auto cell : cells) {
             // TODO: consult exception map
             const MacroExpansionPOD *exp = lookup_macro_rules(chip_info, cell->type);
+
+            // Block infinite expansion loop due to a macro being expanded in the same primitive.
+            // E.g.: OBUFTDS expands into the following cells, with an infinite loop being generated:
+            //          - 2 OBUFTDS
+            //          - 1 INV
+            if (exp && first_iter)
+                continue;
+
             const MacroPOD *macro = lookup_macro(chip_info, exp ? IdString(exp->macro_name) : cell->type);
             if (macro == nullptr)
                 continue;
+
             // Get the ultimate root of this macro expansion
             IdString parent = (cell->macro_parent == IdString()) ? cell->name : cell->macro_parent;
             // Create child instances
@@ -158,6 +168,8 @@ void Arch::expand_macros()
         // The next iteration only needs to look at cells created in this iteration
         std::swap(next_cells, cells);
         next_cells.clear();
+
+        first_iter = true;
     } while (!cells.empty());
     // Do this at the end, otherwise we might add cells that are later destroyed
     for (auto &cell : ctx->cells)

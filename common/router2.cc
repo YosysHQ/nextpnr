@@ -856,10 +856,20 @@ struct Router2
                                   int(a.first), int(a.second), ctx->nameOf(net));
                     auto res2 = route_arc(t, net, a.first, a.second, is_mt, false);
                     // If this also fails, no choice but to give up
-                    if (res2 != ARC_SUCCESS)
+                    if (res2 != ARC_SUCCESS) {
+                        if (ctx->debug) {
+                            log_info("Pre-bound routing: \n");
+                            for (auto &wire_pair : net->wires) {
+                                log("        %s", ctx->nameOfWire(wire_pair.first));
+                                if (wire_pair.second.pip != PipId())
+                                    log(" %s", ctx->nameOfPip(wire_pair.second.pip));
+                                log("\n");
+                            }
+                        }
                         log_error("Failed to route arc %d.%d of net '%s', from %s to %s.\n", int(a.first),
                                   int(a.second), ctx->nameOf(net), ctx->nameOfWire(ctx->getNetinfoSourceWire(net)),
                                   ctx->nameOfWire(ctx->getNetinfoSinkWire(net, net->users.at(a.first), a.second)));
+                    }
                 }
             }
         }
@@ -968,17 +978,17 @@ struct Router2
                 log_error("Internal error; incomplete route tree for arc %d of net %s.\n", usr_idx, ctx->nameOf(net));
             }
             auto &p = wd.bound_nets.at(net->udata).second;
-            if (!ctx->checkPipAvail(p)) {
+            if (ctx->checkPipAvailForNet(p, net)) {
                 NetInfo *bound_net = ctx->getBoundPipNet(p);
-                if (bound_net != net) {
-                    if (ctx->verbose) {
-                        log_info("Failed to bind pip %s to net %s\n", ctx->nameOfPip(p), net->name.c_str(ctx));
-                    }
-                    success = false;
-                    break;
+                if (bound_net == nullptr) {
+                    to_bind.push_back(p);
                 }
             } else {
-                to_bind.push_back(p);
+                if (ctx->verbose) {
+                    log_info("Failed to bind pip %s to net %s\n", ctx->nameOfPip(p), net->name.c_str(ctx));
+                }
+                success = false;
+                break;
             }
             cursor = ctx->getPipSrcWire(p);
         }

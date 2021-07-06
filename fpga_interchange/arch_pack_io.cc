@@ -27,7 +27,7 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 namespace {
-bool search_routing_for_placement(Arch *arch, WireId start_wire, CellInfo *cell, IdString cell_pin)
+bool search_routing_for_placement(Arch *arch, WireId start_wire, CellInfo *cell, IdString cell_pin, bool downhill)
 {
     std::queue<WireId> visit_queue;
     pool<WireId> already_visited;
@@ -51,54 +51,44 @@ bool search_routing_for_placement(Arch *arch, WireId start_wire, CellInfo *cell,
             // Bel pin doesn't match
             arch->unbindBel(bp.bel);
         }
-        for (auto pip : arch->getPipsDownhill(next)) {
-            WireId dst = arch->getPipDstWire(pip);
+        auto do_visit = [&](PipId pip) {
+            WireId dst = downhill ? arch->getPipDstWire(pip) : arch->getPipSrcWire(pip);
             if (already_visited.count(dst))
-                continue;
+                return;
             if (!arch->is_site_wire(dst) && arch->get_wire_category(dst) == WIRE_CAT_GENERAL)
-                continue; // this pass only considers dedicated routing
+                return; // this pass only considers dedicated routing
             visit_queue.push(dst);
             already_visited.insert(dst);
+        };
+        if (downhill) {
+            for (auto pip : arch->getPipsDownhill(next))
+                do_visit(pip);
+        } else {
+            for (auto pip : arch->getPipsUphill(next))
+                do_visit(pip);
         }
     }
     return false;
 }
 } // namespace
 
-void Arch::place_iobufs(WireId pad_wire, NetInfo *net, const pool<CellInfo *, hash_ptr_ops> &tightly_attached_bels,
+void Arch::place_iobufs(WireId pad_wire, NetInfo *net,
+                        const dict<CellInfo *, IdString, hash_ptr_ops> &tightly_attached_bels,
                         pool<CellInfo *, hash_ptr_ops> *placed_cells)
 {
-    for (BelPin bel_pin : getWireBelPins(pad_wire)) {
-        BelId bel = bel_pin.bel;
-        for (CellInfo *cell : tightly_attached_bels) {
-            if (isValidBelForCellType(cell->type, bel)) {
-                NPNR_ASSERT(cell->bel == BelId());
-                NPNR_ASSERT(placed_cells->count(cell) == 0);
-
-                bindBel(bel, cell, STRENGTH_FIXED);
-                placed_cells->emplace(cell);
-
-                IdString cell_port;
-                for (auto pin_pair : cell->cell_bel_pins) {
-                    for (IdString a_bel_pin : pin_pair.second) {
-                        if (a_bel_pin == bel_pin.pin) {
-                            NPNR_ASSERT(cell_port == IdString());
-                            cell_port = pin_pair.first;
-                        }
-                    }
-                }
-                NPNR_ASSERT(cell_port != IdString());
-
-                const PortInfo &port = cell->ports.at(cell_port);
-                NPNR_ASSERT(port.net == net);
-            }
+    Context *ctx = getCtx();
+    for (auto cell_port : tightly_attached_bels) {
+        bool downhill = (cell_port.first->ports.at(cell_port.second).type != PORT_OUT);
+        if (search_routing_for_placement(this, pad_wire, cell_port.first, cell_port.second, downhill)) {
+            if (ctx->verbose)
+                log_info("Placed IO cell %s:%s at %s.\n", ctx->nameOf(cell_port.first),
+                         ctx->nameOf(cell_port.first->type), ctx->nameOfBel(cell_port.first->bel));
         }
     }
 
     // Also try, on a best-effort basis, to preplace other cells in the macro based on downstream routing. This is
     // needed for the split INBUF+IBUFCTRL arrangement in the UltraScale+, as just placing the INBUF will result in an
     // unrouteable site and illegal placement.
-    Context *ctx = getCtx();
     std::queue<CellInfo *> place_queue;
     for (auto pc : *placed_cells)
         place_queue.push(pc);
@@ -119,7 +109,7 @@ void Arch::place_iobufs(WireId pad_wire, NetInfo *net, const pool<CellInfo *, ha
                 if (usr.cell->bel != BelId() || usr.cell->macro_parent != cursor->macro_parent)
                     continue;
                 // Try and place using dedicated routing
-                if (search_routing_for_placement(this, src_wire, usr.cell, usr.port)) {
+                if (search_routing_for_placement(this, src_wire, usr.cell, usr.port, true)) {
                     // Successful
                     placed_cells->insert(usr.cell);
                     place_queue.push(usr.cell);
@@ -200,34 +190,34 @@ void Arch::pack_ports()
     for (auto port_pair : port_cells) {
         IdString port_name = port_pair.first;
         CellInfo *port_cell = port_pair.second;
-        pool<CellInfo *, hash_ptr_ops> tightly_attached_bels;
+        dict<CellInfo *, IdString, hash_ptr_ops> tightly_attached_bels;
 
         for (auto port_pair : port_cell->ports) {
             const PortInfo &port_info = port_pair.second;
             const NetInfo *net = port_info.net;
             if (net->driver.cell) {
-                tightly_attached_bels.emplace(net->driver.cell);
+                tightly_attached_bels.emplace(net->driver.cell, net->driver.port);
             }
 
             for (const PortRef &port_ref : net->users) {
                 if (port_ref.cell) {
-                    tightly_attached_bels.emplace(port_ref.cell);
+                    tightly_attached_bels.emplace(port_ref.cell, port_ref.port);
                 }
             }
         }
 
         if (getCtx()->verbose) {
             log_info("Tightly attached BELs for port %s\n", port_name.c_str(getCtx()));
-            for (CellInfo *cell : tightly_attached_bels) {
-                log_info(" - %s : %s\n", cell->name.c_str(getCtx()), cell->type.c_str(getCtx()));
+            for (auto cell_port : tightly_attached_bels) {
+                log_info(" - %s : %s\n", cell_port.first->name.c_str(getCtx()), cell_port.first->type.c_str(getCtx()));
             }
         }
 
         NPNR_ASSERT(tightly_attached_bels.erase(port_cell) == 1);
         pool<IdString> cell_types_in_io_group;
-        for (CellInfo *cell : tightly_attached_bels) {
-            NPNR_ASSERT(port_cells.find(cell->name) == port_cells.end());
-            cell_types_in_io_group.emplace(cell->type);
+        for (auto cell_port : tightly_attached_bels) {
+            NPNR_ASSERT(port_cells.find(cell_port.first->name) == port_cells.end());
+            cell_types_in_io_group.emplace(cell_port.first->type);
         }
 
         // Get possible placement locations for tightly coupled BELs with

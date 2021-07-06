@@ -1019,6 +1019,11 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 tg.config.add_enum(std::string("DCC_") + belname[0] + belname.substr(4) + ".MODE", "DCCA");
                 cc.tilegroups.push_back(tg);
             }
+        } else if (ci->type == ctx->id("DCSC")) {
+            std::set<std::string> dcs_tiles{"EBR_CMUX_LL", "EBR_CMUX_UL", "EBR_CMUX_LL_25K", "DSP_CMUX_UL"};
+            std::string tile = ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, dcs_tiles);
+            std::string dcs = ctx->loc_info(bel)->bel_data[bel.index].name.get();
+            cc.tiles[tile].add_enum(dcs + ".DCSMODE", str_or_default(ci->attrs, ctx->id("DCSMODE"), "POS"));
         } else if (ci->type == ctx->id("DP16KD")) {
             TileGroup tg;
             Loc loc = ctx->getBelLocation(ci->bel);
