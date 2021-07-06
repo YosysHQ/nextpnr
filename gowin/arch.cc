@@ -485,7 +485,7 @@ DelayQuad Arch::getWireTypeDelay(IdString wire)
 void Arch::read_cst(std::istream &in)
 {
     std::regex iobre = std::regex("IO_LOC +\"([^\"]+)\" +([^ ;]+) *;.*");
-    std::regex portre = std::regex("IO_PORT +\"([^\"]+)\" +([^ =;]+)=([^ =;]+) *;.*");
+    std::regex portre = std::regex("IO_PORT +\"([^\"]+)\" +([^ =;]+=[^ =;]+) *;.*");
     std::smatch match;
     std::string line;
 	bool io_loc;
@@ -503,8 +503,6 @@ void Arch::read_cst(std::istream &in)
 			}
 		}
 
-        //std::cout << match[1] << " " << match[2] << std::endl;
-
         IdString net = id(match[1]);
         auto it = cells.find(net);
         if (it == cells.end()) {
@@ -516,23 +514,13 @@ void Arch::read_cst(std::istream &in)
 			const PairPOD *belname = pairLookup(package->pins.get(), package->num_pins, pinname.index);
 			if (belname == nullptr)
 				log_error("Pin %s not found\n", pinname.c_str(this));
-			// BelId bel = getBelByName(belname->src_id);
-			// for (auto cell : sorted(cells)) {
-			//     std::cout << cell.first.str(this) << std::endl;
-			// }
 			std::string bel = IdString(belname->src_id).str(this);
 			it->second->attrs[IdString(ID_BEL)] = bel;
 		} else { // IO_PORT attr=value
-			// XXX
-			log_info("XXX port attr found %s=%s\n", match.str(2).c_str(), match.str(3).c_str());
-			std::string attr = match[2];
-			std::string value = match[3];
+			std::string attr = "&";
+			attr += match[2];
 			boost::algorithm::to_upper(attr);
-			boost::algorithm::to_upper(value);
-			it->second->attrs[id(attr)] = value;
-			//for (auto at : it->second->attrs) {
-			//	std::cout << at.first.str(this) << "=" << at.second.as_string() << std::endl;
-			//}
+			it->second->attrs[id(attr)] = 0;
 		}
     }
 }
