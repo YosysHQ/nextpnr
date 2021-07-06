@@ -1518,11 +1518,6 @@ void Arch::remove_pip_pseudo_wires(PipId pip, NetInfo *net)
             // This wire is part of net->wires, make sure it has no pip,
             // but leave it alone.  It will get cleaned up via
             // unbindWire.
-            if (wire_iter->second.pip != PipId() && wire_iter->second.pip != pip) {
-                log_error("Wire %s report source'd from pip %s, which is not %s\n", nameOfWire(wire),
-                          nameOfPip(wire_iter->second.pip), nameOfPip(pip));
-            }
-            NPNR_ASSERT(wire_iter->second.pip == PipId() || wire_iter->second.pip == pip);
         } else {
             // This wire is not in net->wires, update wire_to_net.
 #ifdef DEBUG_BINDING
@@ -1756,12 +1751,12 @@ bool Arch::checkPipAvailForNet(PipId pip, NetInfo *net) const
         NPNR_ASSERT(src != wire);
         NPNR_ASSERT(dst != wire);
 
-        NetInfo *net = getConflictingWireNet(wire);
-        if (net != nullptr) {
+        NetInfo *other_net = getConflictingWireNet(wire);
+        if (other_net != nullptr && other_net != net) {
 #ifdef DEBUG_BINDING
             if (getCtx()->verbose) {
                 log_info("Pip %s is not available because wire %s is tied to net %s\n", getCtx()->nameOfPip(pip),
-                         getCtx()->nameOfWire(wire), net->name.c_str(getCtx()));
+                         getCtx()->nameOfWire(wire), other_net->name.c_str(getCtx()));
             }
 #endif
             return false;
