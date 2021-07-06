@@ -793,6 +793,12 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
             return true;
         }
         return false;
+    } else if (cell->type == id_DCSC) {
+        if ((fromPort == id_CLK0 || fromPort == id_CLK1) && toPort == id_DCSOUT) {
+            delay = DelayQuad(0);
+            return true;
+        }
+        return false;
     } else if (cell->type == id_DP16KD) {
         return false;
     } else if (cell->type == id_MULT18X18D) {
@@ -864,6 +870,12 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
         if (port == id_CLKI)
             return TMG_COMB_INPUT;
         if (port == id_CLKO)
+            return TMG_COMB_OUTPUT;
+        return TMG_IGNORE;
+    } else if (cell->type == id_DCSC) {
+        if (port == id_CLK0 || port == id_CLK1)
+            return TMG_COMB_INPUT;
+        if (port == id_DCSOUT)
             return TMG_COMB_OUTPUT;
         return TMG_IGNORE;
     } else if (cell->type == id_DP16KD) {

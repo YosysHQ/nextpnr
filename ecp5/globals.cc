@@ -278,7 +278,7 @@ class Ecp5GlobalRouter
     bool route_onto_global(NetInfo *net, int network)
     {
         WireId glb_src;
-        NPNR_ASSERT(net->driver.cell->type == id_DCCA);
+        NPNR_ASSERT(net->driver.cell->type == id_DCCA || net->driver.cell->type == id_DCSC);
         glb_src = ctx->getNetinfoSourceWire(net);
         for (int quad = QUAD_UL; quad < QUAD_LR + 1; quad++) {
             WireId glb_dst = get_global_wire(GlobalQuadrant(quad), network);
@@ -293,7 +293,7 @@ class Ecp5GlobalRouter
     // Get DCC wirelength based on source
     wirelen_t get_dcc_wirelen(CellInfo *dcc, bool &dedicated_routing)
     {
-        NetInfo *clki = dcc->ports.at(id_CLKI).net;
+        NetInfo *clki = dcc->ports.at((dcc->type == id_DCSC) ? id_CLK0 : id_CLKI).net;
         BelId drv_bel;
         const PortRef &drv = clki->driver;
         dedicated_routing = false;
@@ -395,7 +395,7 @@ class Ecp5GlobalRouter
     }
 
     // Attempt to place a DCC
-    void place_dcc(CellInfo *dcc)
+    void place_dcc_dcs(CellInfo *dcc)
     {
         BelId best_bel;
         WireId best_bel_pclkcib;
@@ -403,7 +403,7 @@ class Ecp5GlobalRouter
         wirelen_t best_wirelen = 9999999;
         bool dedicated_routing = false;
         for (auto bel : ctx->getBels()) {
-            if (ctx->getBelType(bel) == id_DCCA && ctx->checkBelAvail(bel)) {
+            if (ctx->getBelType(bel) == dcc->type && ctx->checkBelAvail(bel)) {
                 std::string belname = ctx->loc_info(bel)->bel_data[bel.index].name.get();
                 if (belname.at(0) == 'D' && using_ce)
                     continue; // don't allow DCCs with CE at center
@@ -414,7 +414,7 @@ class Ecp5GlobalRouter
                 }
                 wirelen_t wirelen = get_dcc_wirelen(dcc, dedicated_routing);
                 if (wirelen < best_wirelen) {
-                    if (dedicated_routing) {
+                    if (dedicated_routing || dcc->type == id_DCSC) {
                         best_bel_pclkcib = WireId();
                     } else {
                         bool found_pclkcib = false;
@@ -446,11 +446,11 @@ class Ecp5GlobalRouter
     }
 
     // Insert a DCC into a net to promote it to a global
-    NetInfo *insert_dcc(NetInfo *net)
+    NetInfo *insert_dcc(NetInfo *net, CellInfo *dcs_cell = nullptr)
     {
         NetInfo *glbptr = nullptr;
         CellInfo *dccptr = nullptr;
-        if (net->driver.cell != nullptr && net->driver.cell->type == id_DCCA) {
+        if (net->driver.cell != nullptr && (net->driver.cell->type == id_DCCA || net->driver.cell->type == id_DCSC)) {
             // Already have a DCC (such as clock gating)
             glbptr = net;
             dccptr = net->driver.cell;
@@ -463,7 +463,10 @@ class Ecp5GlobalRouter
             dcc->ports[id_CLKO].net = glbnet.get();
             std::vector<PortRef> keep_users;
             for (auto user : net->users) {
-                if (user.port == id_CLKFB) {
+                if (dcs_cell != nullptr && user.cell != dcs_cell) {
+                    // DCS DCC insertion mode
+                    keep_users.push_back(user);
+                } else if (user.port == id_CLKFB) {
                     keep_users.push_back(user);
                 } else if (net->driver.cell->type == id_EXTREFB && user.cell->type == id_DCUA) {
                     keep_users.push_back(user);
@@ -494,7 +497,7 @@ class Ecp5GlobalRouter
         }
         glbptr->attrs[ctx->id("ECP5_IS_GLOBAL")] = 1;
         if (str_or_default(dccptr->attrs, ctx->id("BEL"), "") == "")
-            place_dcc(dccptr);
+            place_dcc_dcs(dccptr);
         return glbptr;
     }
 
@@ -524,6 +527,20 @@ class Ecp5GlobalRouter
             else
                 insert_dcc(clock);
         }
+        // Insert DCCs on DCS inputs, too
+        std::vector<CellInfo *> dcsc_cells;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (ci->type == id_DCSC)
+                dcsc_cells.push_back(ci);
+        }
+        for (auto ci : dcsc_cells) {
+            for (auto port : {id_CLK0, id_CLK1}) {
+                NetInfo *net = get_net_or_empty(ci, port);
+                if (net != nullptr)
+                    insert_dcc(net, ci);
+            }
+        }
     }
 
     void route_globals()
@@ -539,8 +556,8 @@ class Ecp5GlobalRouter
         dict<int, NetInfo *> clocks;
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
-            if (ci->type == id_DCCA) {
-                NetInfo *clock = ci->ports.at(id_CLKO).net;
+            if (ci->type == id_DCCA || ci->type == id_DCSC) {
+                NetInfo *clock = ci->ports.at((ci->type == id_DCSC) ? id_DCSOUT : id_CLKO).net;
                 NPNR_ASSERT(clock != nullptr);
                 bool drives_fabric = std::any_of(clock->users.begin(), clock->users.end(),
                                                  [this](const PortRef &port) { return !is_clock_port(port); });
@@ -571,6 +588,12 @@ class Ecp5GlobalRouter
                       return global_route_priority(*a.first) < global_route_priority(*b.first);
                   });
         for (const auto &user : toroute) {
+            if (user.first->cell->type == id_DCSC && (user.first->port == id_CLK0 || user.first->port == id_CLK1)) {
+                // Special case, skips most of the typical global network
+                NetInfo *net = clocks.at(user.second);
+                simple_router(net, ctx->getNetinfoSourceWire(net), ctx->getNetinfoSinkWire(net, *(user.first), 0));
+                continue;
+            }
             route_logic_tile_global(clocks.at(user.second), user.second, *user.first);
         }
     }
