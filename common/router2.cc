@@ -978,17 +978,17 @@ struct Router2
                 log_error("Internal error; incomplete route tree for arc %d of net %s.\n", usr_idx, ctx->nameOf(net));
             }
             auto &p = wd.bound_nets.at(net->udata).second;
-            if (!ctx->checkPipAvail(p)) {
+            if (ctx->checkPipAvailForNet(p, net)) {
                 NetInfo *bound_net = ctx->getBoundPipNet(p);
-                if (bound_net != net) {
-                    if (ctx->verbose) {
-                        log_info("Failed to bind pip %s to net %s\n", ctx->nameOfPip(p), net->name.c_str(ctx));
-                    }
-                    success = false;
-                    break;
+                if (bound_net == nullptr) {
+                    to_bind.push_back(p);
                 }
             } else {
-                to_bind.push_back(p);
+                if (ctx->verbose) {
+                    log_info("Failed to bind pip %s to net %s\n", ctx->nameOfPip(p), net->name.c_str(ctx));
+                }
+                success = false;
+                break;
             }
             cursor = ctx->getPipSrcWire(p);
         }

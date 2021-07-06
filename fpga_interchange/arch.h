@@ -576,7 +576,8 @@ struct Arch : ArchAPI<ArchRanges>
         const PipInfoPOD &pip_data = pip_info(chip_info, pip);
         for (int32_t wire_index : pip_data.pseudo_cell_wires) {
             wire.index = wire_index;
-            assign_net_to_wire(wire, net, "pseudo", /*require_empty=*/true);
+            if (getBoundWireNet(wire) != net)
+                assign_net_to_wire(wire, net, "pseudo", /*require_empty=*/true);
         }
 
         if (pip_data.pseudo_cell_wires.size() > 0) {
