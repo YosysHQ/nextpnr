@@ -421,6 +421,7 @@ NPNR_PACKED_STRUCT(struct ClusterPOD {
     RelSlice<uint32_t> root_cell_types;
     RelSlice<ChainablePortPOD> chainable_ports;
     RelSlice<ClusterCellPortPOD> cluster_cells_map;
+    uint32_t out_of_site_clusters;
 });
 
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
