@@ -520,7 +520,7 @@ void Arch::read_cst(std::istream &in)
 			std::string attr = "&";
 			attr += match[2];
 			boost::algorithm::to_upper(attr);
-			it->second->attrs[id(attr)] = 0;
+			it->second->attrs[id(attr)] = 1;
 		}
     }
 }
