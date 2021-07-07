@@ -488,20 +488,20 @@ void Arch::read_cst(std::istream &in)
     std::regex portre = std::regex("IO_PORT +\"([^\"]+)\" +([^ =;]+=[^ =;]+) *;.*");
     std::smatch match;
     std::string line;
-	bool io_loc;
+    bool io_loc;
     while (!in.eof()) {
         std::getline(in, line);
-		io_loc = true;
+        io_loc = true;
         if (!std::regex_match(line, match, iobre)) {
-			if (std::regex_match(line, match, portre)) {
-				io_loc = false;
-			} else {
-				if ( (!line.empty()) &&  (line.rfind("//", 0) == std::string::npos)) {
-					log_warning("Invalid constraint: %s\n", line.c_str());
-				}
-				continue;
-			}
-		}
+            if (std::regex_match(line, match, portre)) {
+                io_loc = false;
+            } else {
+                if ((!line.empty()) && (line.rfind("//", 0) == std::string::npos)) {
+                    log_warning("Invalid constraint: %s\n", line.c_str());
+                }
+                continue;
+            }
+        }
 
         IdString net = id(match[1]);
         auto it = cells.find(net);
@@ -509,19 +509,19 @@ void Arch::read_cst(std::istream &in)
             log_info("Cell %s not found\n", net.c_str(this));
             continue;
         }
-		if (io_loc) { // IO_LOC name pin
-			IdString pinname = id(match[2]);
-			const PairPOD *belname = pairLookup(package->pins.get(), package->num_pins, pinname.index);
-			if (belname == nullptr)
-				log_error("Pin %s not found\n", pinname.c_str(this));
-			std::string bel = IdString(belname->src_id).str(this);
-			it->second->attrs[IdString(ID_BEL)] = bel;
-		} else { // IO_PORT attr=value
-			std::string attr = "&";
-			attr += match[2];
-			boost::algorithm::to_upper(attr);
-			it->second->attrs[id(attr)] = 1;
-		}
+        if (io_loc) { // IO_LOC name pin
+            IdString pinname = id(match[2]);
+            const PairPOD *belname = pairLookup(package->pins.get(), package->num_pins, pinname.index);
+            if (belname == nullptr)
+                log_error("Pin %s not found\n", pinname.c_str(this));
+            std::string bel = IdString(belname->src_id).str(this);
+            it->second->attrs[IdString(ID_BEL)] = bel;
+        } else { // IO_PORT attr=value
+            std::string attr = "&";
+            attr += match[2];
+            boost::algorithm::to_upper(attr);
+            it->second->attrs[id(attr)] = 0;
+        }
     }
 }
 
