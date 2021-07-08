@@ -119,6 +119,9 @@ NPNR_PACKED_STRUCT(struct PipInfoPOD {
     int16_t site_variant; // site variant index in tile
     int16_t bel;          // BEL this pip belongs to if site pip.
     int16_t extra_data;
+    int32_t timing_idx;
+    int16_t is_buffered;
+    int16_t padding;
     RelSlice<int32_t> pseudo_cell_wires;
 });
 
@@ -187,12 +190,55 @@ NPNR_PACKED_STRUCT(struct TileInstInfoPOD {
     RelSlice<int16_t> tile_wire_to_type;
 });
 
+NPNR_PACKED_STRUCT(template <typename T> struct TimingCornerPOD {
+    T fast_min;
+    T fast_max;
+    T slow_min;
+    T slow_max;
+});
+
+NPNR_PACKED_STRUCT(struct PipTimingPOD {
+    TimingCornerPOD<uint32_t> int_cap;
+    TimingCornerPOD<uint32_t> int_delay;
+    TimingCornerPOD<uint32_t> out_res;
+    TimingCornerPOD<uint32_t> out_cap;
+});
+
+NPNR_PACKED_STRUCT(struct NodeTimingPOD {
+    TimingCornerPOD<uint32_t> res;
+    TimingCornerPOD<uint32_t> cap;
+});
+
+NPNR_PACKED_STRUCT(struct PinEdgePOD {
+    int32_t pin_name;
+    int32_t clock_edge;
+});
+
+enum PinTimingType : uint32_t
+{
+    PIN_TMG_COMB = 0,
+    PIN_TMG_SETUP = 1,
+    PIN_TMG_HOLD = 2,
+    PIN_TMG_CLK2Q = 3,
+};
+
+NPNR_PACKED_STRUCT(struct PinTimingPOD {
+    PinEdgePOD from_pin;
+    PinEdgePOD to_pin;
+    PinTimingType type;
+    TimingCornerPOD<uint32_t> value;
+    int32_t site_type_idx;
+});
+
 NPNR_PACKED_STRUCT(struct TileWireRefPOD {
     int32_t tile;
     int32_t index;
 });
 
-NPNR_PACKED_STRUCT(struct NodeInfoPOD { RelSlice<TileWireRefPOD> tile_wires; });
+NPNR_PACKED_STRUCT(struct NodeInfoPOD {
+    int32_t timing_idx;
+    RelSlice<TileWireRefPOD> tile_wires;
+});
 
 NPNR_PACKED_STRUCT(struct CellBelPinPOD {
     int32_t cell_pin; // constid
@@ -223,6 +269,7 @@ NPNR_PACKED_STRUCT(struct CellBelMapPOD {
     RelSlice<CellBelPinPOD> common_pins;
     RelSlice<ParameterPinsPOD> parameter_pins;
     RelSlice<CellConstraintPOD> constraints;
+    RelSlice<PinTimingPOD> timing;
 });
 
 NPNR_PACKED_STRUCT(struct LutCellPOD {
@@ -444,6 +491,9 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelSlice<MacroExpansionPOD> macro_rules;
 
     RelSlice<ClusterPOD> clusters;
+
+    RelSlice<NodeTimingPOD> node_timings;
+    RelSlice<PipTimingPOD> pip_timings;
 
     // BEL bucket constids.
     RelSlice<int32_t> bel_buckets;
