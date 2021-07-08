@@ -39,6 +39,12 @@ enum WireNodeState
     IN_SOURCE_SITE = 2
 };
 
+enum ExpansionDirection
+{
+    EXPAND_DOWNHILL = 0,
+    EXPAND_UPHILL = 1
+};
+
 struct WireNode
 {
     WireId wire;
@@ -51,6 +57,50 @@ struct WireNode
 // Routing networks with depth <= kMaxDepth is considers a dedicated
 // interconnect.
 constexpr int kMaxDepth = 6;
+
+static uint32_t get_num_pips(const Context *ctx, WireId wire, ExpansionDirection direction)
+{
+    uint32_t num_pips = 0;
+
+    if (direction == EXPAND_DOWNHILL) {
+        for (PipId pip : ctx->getPipsDownhill(wire)) {
+            auto &pip_data = pip_info(ctx->chip_info, pip);
+            if (pip_data.pseudo_cell_wires.size() > 0)
+                continue;
+
+            if (ctx->getPipDstWire(pip) == WireId())
+                continue;
+
+            if (ctx->is_pip_synthetic(pip))
+                continue;
+
+            if (ctx->is_site_port(pip))
+                continue;
+
+            num_pips++;
+        }
+    } else {
+        NPNR_ASSERT(direction == EXPAND_UPHILL);
+        for (PipId pip : ctx->getPipsUphill(wire)) {
+            auto &pip_data = pip_info(ctx->chip_info, pip);
+            if (pip_data.pseudo_cell_wires.size() > 0)
+                continue;
+
+            if (ctx->getPipSrcWire(pip) == WireId())
+                continue;
+
+            if (ctx->is_pip_synthetic(pip))
+                continue;
+
+            if (ctx->is_site_port(pip))
+                continue;
+
+            num_pips++;
+        }
+    }
+
+    return num_pips;
+}
 
 void DedicatedInterconnect::init(const Context *ctx)
 {
@@ -98,6 +148,16 @@ bool DedicatedInterconnect::check_routing(BelId src_bel, IdString src_bel_pin, B
     while (!nodes_to_expand.empty()) {
         WireNode node_to_expand = nodes_to_expand.back();
         nodes_to_expand.pop_back();
+
+        auto num_pips = get_num_pips(ctx, node_to_expand.wire, EXPAND_DOWNHILL);
+
+        // Usually, dedicated interconnects do not have more than one PIPs in the out-of-site
+        if (node_to_expand.depth > 1 && node_to_expand.state == IN_ROUTING && num_pips > 1) {
+            if (ctx->verbose)
+                log_info("Wire %s is on a non-dedicated path (number of pips %d)\n",
+                         ctx->nameOfWire(node_to_expand.wire), num_pips);
+            continue;
+        }
 
         for (PipId pip : ctx->getPipsDownhill(node_to_expand.wire)) {
             if (ctx->is_pip_synthetic(pip)) {
@@ -147,7 +207,7 @@ bool DedicatedInterconnect::check_routing(BelId src_bel, IdString src_bel_pin, B
 #ifdef DEBUG_EXPANSION
                         log_info(" - Not dedicated site routing because loop!");
 #endif
-                        return false;
+                        continue;
                     }
                     next_node.state = IN_SINK_SITE;
                     break;

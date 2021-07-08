@@ -193,6 +193,8 @@ bool Arch::getClusterPlacement(ClusterId cluster, BelId root_bel,
     const Context *ctx = getCtx();
     const Cluster &packed_cluster = clusters.at(cluster);
 
+    auto &cluster_data = cluster_info(chip_info, packed_cluster.index);
+
     CellInfo *root_cell = getClusterRootCell(cluster);
     if (!ctx->isValidBelForCellType(root_cell->type, root_bel))
         return false;
@@ -205,8 +207,6 @@ bool Arch::getClusterPlacement(ClusterId cluster, BelId root_bel,
             next_bel = root_bel;
         } else {
             // Find next chained cluster node
-            auto &cluster_data = cluster_info(chip_info, packed_cluster.index);
-
             IdString next_bel_pin(cluster_data.chainable_ports[0].bel_source);
             WireId next_bel_pin_wire = ctx->getBelPinWire(next_bel, next_bel_pin);
             next_bel = BelId();
@@ -256,7 +256,8 @@ bool Arch::getClusterPlacement(ClusterId cluster, BelId root_bel,
                 WireId bel_pin_wire = ctx->getBelPinWire(next_bel, bel_pin);
 
                 ExpansionDirection direction = port_type == PORT_IN ? CLUSTER_UPHILL_DIR : CLUSTER_DOWNHILL_DIR;
-                pool<BelId> cluster_bels = find_cluster_bels(ctx, bel_pin_wire, direction);
+                pool<BelId> cluster_bels =
+                        find_cluster_bels(ctx, bel_pin_wire, direction, (bool)cluster_data.out_of_site_clusters);
 
                 if (cluster_bels.size() == 0)
                     continue;
