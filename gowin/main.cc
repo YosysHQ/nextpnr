@@ -62,8 +62,7 @@ std::unique_ptr<Context> GowinCommandHandler::createContext(dict<std::string, Pr
     }
     ArchArgs chipArgs;
     char buf[36];
-    snprintf(buf, 36, "GW1N%s-%s%s", match[1].str().c_str(), match[3].str().c_str(),
-		match[4].str().c_str());
+    snprintf(buf, 36, "GW1N%s-%s%s", match[1].str().c_str(), match[3].str().c_str(), match[4].str().c_str());
     chipArgs.device = buf;
     snprintf(buf, 36, "GW1N%s-%s", match[1].str().c_str(), match[3].str().c_str());
     chipArgs.family = buf;
