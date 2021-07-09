@@ -31,6 +31,8 @@ NEXTPNR_NAMESPACE_BEGIN
 struct CellInfo;
 struct Context;
 
+struct SiteLutMappingResult;
+
 enum LogicLevel
 {
     LL_Zero,
@@ -66,6 +68,14 @@ struct LutBel
     int32_t max_pin;
 };
 
+struct SiteLutMapping
+{
+    struct LutCellMapping {
+        LutCell lut_cell;
+    };
+};
+
+
 // Work forward from cell definition and cell -> bel pin map and check that
 // equation is valid.
 void check_equation(const LutCell &lut_cell, const dict<IdString, IdString> &cell_to_bel_map, const LutBel &lut_bel,
@@ -89,7 +99,7 @@ struct LutMapper
 
     std::vector<CellInfo *> cells;
 
-    bool remap_luts(const Context *ctx, pool<const LutBel *, hash_ptr_ops> *blocked_luts);
+    bool remap_luts(const Context *ctx, SiteLutMappingResult* lut_mapping, pool<const LutBel *, hash_ptr_ops> *blocked_luts);
 
     // Determine which wires given the current mapping must be tied to the
     // default constant.

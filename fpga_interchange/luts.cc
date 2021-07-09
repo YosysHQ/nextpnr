@@ -22,6 +22,8 @@
 #include "log.h"
 #include "nextpnr.h"
 
+#include "site_lut_mapping_cache.h"
+
 //#define DEBUG_LUT_ROTATION
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -253,7 +255,7 @@ uint32_t LutMapper::check_wires(const std::vector<std::vector<int32_t>> &bel_to_
     return vcc_mask;
 }
 
-bool LutMapper::remap_luts(const Context *ctx, pool<const LutBel *, hash_ptr_ops> *blocked_luts)
+bool LutMapper::remap_luts(const Context *ctx, SiteLutMappingResult* lut_mapping, pool<const LutBel *, hash_ptr_ops> *blocked_luts)
 {
     dict<NetInfo *, LutPin, hash_ptr_ops> lut_pin_map;
     std::vector<const LutBel *> lut_bels;
@@ -377,6 +379,94 @@ bool LutMapper::remap_luts(const Context *ctx, pool<const LutBel *, hash_ptr_ops
         }
     }
 
+    // Not all LUT inputs are used
+    uint32_t vcc_pins = 0;
+    if (cells.size() != element.lut_bels.size()) {
+        // Look to see if wires can be run from element inputs to unused
+        // outputs. If not, block the BEL pin by tying to VCC.
+        //
+        // FIXME: The assumption is that unused pins are tied VCC.
+        // This is not generally true.
+        //
+        // Use Arch::prefered_constant_net_type to determine what
+        // constant net should be used for unused pins.
+        vcc_pins = check_wires(bel_to_cell_pin_remaps, lut_bels, used_pins, blocked_luts);
+#if defined(DEBUG_LUT_ROTATION)
+        log_info("vcc_pins = 0x%x", vcc_pins);
+        for (size_t cell_idx = 0; cell_idx < cells.size(); ++cell_idx) {
+            CellInfo *cell = cells[cell_idx];
+            log(", %s => %s", ctx->nameOfBel(cell->bel), cell->name.c_str(ctx));
+        }
+        log("\n");
+#endif
+    }
+
+    // Fill in the LUT mapping result
+
+    // Push new cell -> BEL pin maps out to cells now that equations have been
+    // verified!
+    lut_mapping->cells.reserve(cells.size());
+    for (size_t cell_idx = 0; cell_idx < cells.size(); ++cell_idx) {
+        CellInfo *cellInfo = cells[cell_idx];
+        auto &lutBel = *lut_bels[cell_idx];
+
+        // Add the cell data
+        SiteLutMappingResult::Cell cell;
+        cell.belIndex = cellInfo->bel.index;
+
+        // Cell to BEL pin map
+        for (size_t pin_idx = 0; pin_idx < cellInfo->lut_cell.pins.size(); ++pin_idx) {
+            IdString cellPin = cellInfo->lut_cell.pins[pin_idx];
+            IdString belPin  = lutBel.pins[cell_to_bel_pin_remaps[cell_idx][pin_idx]];
+            cell.belPins[cellPin] = belPin;
+        }
+
+        cell.lutCell.vcc_pins.clear();
+
+        // All LUT inputs used
+        if (cells.size() == element.lut_bels.size()) {
+            for (size_t bel_pin_idx = 0; bel_pin_idx < lutBel.pins.size(); ++bel_pin_idx) {
+                if ((used_pins & (1 << bel_pin_idx)) == 0) {
+                    NPNR_ASSERT(bel_to_cell_pin_remaps[cell_idx][bel_pin_idx] == -1);
+                    cell.lutCell.vcc_pins.emplace(lutBel.pins.at(bel_pin_idx));
+                }
+            }
+        }
+        // Only some LUT inputs used
+        else {
+            for (size_t bel_pin_idx = 0; bel_pin_idx < lutBel.pins.size(); ++bel_pin_idx) {
+                if ((vcc_pins & (1 << bel_pin_idx)) != 0) {
+                    NPNR_ASSERT(bel_to_cell_pin_remaps[cell_idx][bel_pin_idx] == -1);
+                    auto pin = lutBel.pins.at(bel_pin_idx);
+                    cell.lutCell.vcc_pins.emplace(pin);
+                }
+            }
+        }
+
+        lut_mapping->cells.push_back(cell);
+    }
+
+/*
+#ifdef DEBUG_LUT_ROTATION
+    log_info("Final mapping:\n");
+    for (size_t cell_idx = 0; cell_idx < cells.size(); ++cell_idx) {
+        CellInfo *cell = cells[cell_idx];
+        for (auto &cell_pin_pair : cell->cell_bel_pins) {
+            log_info("%s %s %s =>", cell->type.c_str(ctx), cell->name.c_str(ctx), cell_pin_pair.first.c_str(ctx));
+            for (auto bel_pin : cell_pin_pair.second) {
+                log(" %s", bel_pin.c_str(ctx));
+            }
+            log("\n");
+        }
+    }
+#endif
+*/
+
+
+
+
+/*
+
     // Push new cell -> BEL pin maps out to cells now that equations have been
     // verified!
     for (size_t cell_idx = 0; cell_idx < cells.size(); ++cell_idx) {
@@ -434,20 +524,7 @@ bool LutMapper::remap_luts(const Context *ctx, pool<const LutBel *, hash_ptr_ops
             }
         }
     }
-
-#ifdef DEBUG_LUT_ROTATION
-    log_info("Final mapping:\n");
-    for (size_t cell_idx = 0; cell_idx < cells.size(); ++cell_idx) {
-        CellInfo *cell = cells[cell_idx];
-        for (auto &cell_pin_pair : cell->cell_bel_pins) {
-            log_info("%s %s %s =>", cell->type.c_str(ctx), cell->name.c_str(ctx), cell_pin_pair.first.c_str(ctx));
-            for (auto bel_pin : cell_pin_pair.second) {
-                log(" %s", bel_pin.c_str(ctx));
-            }
-            log("\n");
-        }
-    }
-#endif
+*/
 
     return true;
 }

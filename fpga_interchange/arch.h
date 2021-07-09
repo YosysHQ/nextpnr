@@ -41,6 +41,7 @@
 #include "pseudo_pip_model.h"
 #include "site_router.h"
 #include "site_routing_cache.h"
+#include "site_lut_mapping_cache.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -1130,6 +1131,7 @@ struct Arch : ArchAPI<ArchRanges>
     Lookahead lookahead;
     mutable RouteNodeStorage node_storage;
     mutable SiteRoutingCache site_routing_cache;
+    mutable SiteLutMappingCache site_lut_mapping_cache;
     bool disallow_site_routing;
     CellParameters cell_parameters;
 
