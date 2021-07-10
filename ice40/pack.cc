@@ -1090,7 +1090,7 @@ void set_period(Context *ctx, CellInfo *ci, IdString port, delay_t period)
         if (!equals_epsilon(to->clkconstr->period.maxDelay(), period))
             log_warning("    Overriding derived constraint of %.1f MHz on net %s with user-specified constraint of "
                         "%.1f MHz.\n",
-                        MHz(ctx, to->clkconstr->period.maxDelay()), to->name.c_str(ctx), MHz(ctx, period));
+                        MHz(ctx, period), to->name.c_str(ctx), MHz(ctx, to->clkconstr->period.maxDelay()));
         return;
     }
     to->clkconstr = std::unique_ptr<ClockConstraint>(new ClockConstraint());
