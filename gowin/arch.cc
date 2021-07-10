@@ -18,6 +18,7 @@
  *
  */
 
+#include <boost/algorithm/string.hpp>
 #include <iostream>
 #include <math.h>
 #include <regex>
@@ -483,37 +484,44 @@ DelayQuad Arch::getWireTypeDelay(IdString wire)
 
 void Arch::read_cst(std::istream &in)
 {
-    std::regex iobre = std::regex("IO_LOC +\"([^\"]+)\" +([^ ;]+);");
+    std::regex iobre = std::regex("IO_LOC +\"([^\"]+)\" +([^ ;]+) *;.*");
+    std::regex portre = std::regex("IO_PORT +\"([^\"]+)\" +([^ =;]+=[^ =;]+) *;.*");
     std::smatch match;
     std::string line;
+    bool io_loc;
     while (!in.eof()) {
         std::getline(in, line);
+        io_loc = true;
         if (!std::regex_match(line, match, iobre)) {
-            // empty line or comment
-            if (line.empty() || line.rfind("//", 0) == 0) {
-                continue;
+            if (std::regex_match(line, match, portre)) {
+                io_loc = false;
             } else {
-                log_warning("Invalid constraint: %s\n", line.c_str());
+                if ((!line.empty()) && (line.rfind("//", 0) == std::string::npos)) {
+                    log_warning("Invalid constraint: %s\n", line.c_str());
+                }
                 continue;
             }
         }
-        // std::cout << match[1] << " " << match[2] << std::endl;
+
         IdString net = id(match[1]);
-        IdString pinname = id(match[2]);
-        const PairPOD *belname = pairLookup(package->pins.get(), package->num_pins, pinname.index);
-        if (belname == nullptr)
-            log_error("Pin %s not found\n", pinname.c_str(this));
-        // BelId bel = getBelByName(belname->src_id);
-        // for (auto cell : sorted(cells)) {
-        //     std::cout << cell.first.str(this) << std::endl;
-        // }
         auto it = cells.find(net);
         if (it == cells.end()) {
             log_info("Cell %s not found\n", net.c_str(this));
             continue;
         }
-        std::string bel = IdString(belname->src_id).str(this);
-        it->second->attrs[IdString(ID_BEL)] = bel;
+        if (io_loc) { // IO_LOC name pin
+            IdString pinname = id(match[2]);
+            const PairPOD *belname = pairLookup(package->pins.get(), package->num_pins, pinname.index);
+            if (belname == nullptr)
+                log_error("Pin %s not found\n", pinname.c_str(this));
+            std::string bel = IdString(belname->src_id).str(this);
+            it->second->attrs[IdString(ID_BEL)] = bel;
+        } else { // IO_PORT attr=value
+            std::string attr = "&";
+            attr += match[2];
+            boost::algorithm::to_upper(attr);
+            it->second->attrs[id(attr)] = 1;
+        }
     }
 }
 

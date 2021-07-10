@@ -855,7 +855,7 @@ struct Arch : ArchAPI<ArchRanges>
         const CellInfo *cell = tile_status.boundcells[bel.index];
 
         if (cell != nullptr) {
-            if (cell->cluster == ClusterId() && !dedicated_interconnect.isBelLocationValid(bel, cell))
+            if (!dedicated_interconnect.isBelLocationValid(bel, cell))
                 return false;
 
             if (io_port_types.count(cell->type)) {
