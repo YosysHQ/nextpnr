@@ -1363,7 +1363,12 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
         std::vector<unsigned> bins(num_bins);
         unsigned max_freq = 0;
         for (const auto &i : slack_histogram) {
-            auto &bin = bins[(i.first - min_slack) / bin_size];
+            int bin_idx = int((i.first - min_slack) / bin_size);
+            if (bin_idx < 0)
+                bin_idx = 0;
+            else if (bin_idx >= int(num_bins))
+                bin_idx = num_bins - 1;
+            auto &bin = bins.at(bin_idx);
             bin += i.second;
             max_freq = std::max(max_freq, bin);
         }
