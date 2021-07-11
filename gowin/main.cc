@@ -64,7 +64,14 @@ std::unique_ptr<Context> GowinCommandHandler::createContext(dict<std::string, Pr
     char buf[36];
     snprintf(buf, 36, "GW1N%s-%s%s", match[1].str().c_str(), match[3].str().c_str(), match[4].str().c_str());
     chipArgs.device = buf;
-    snprintf(buf, 36, "GW1N%s-%s", match[1].str().c_str(), match[3].str().c_str());
+    // GW1N and GW1NR variants share the same database.
+    // Most Gowin devices are a System in Package with some SDRAM wirebonded to a GPIO bank.
+    // However, it appears that the S series with embedded ARM core are unique silicon.
+    if(match[1].str() == "S") {
+        snprintf(buf, 36, "GW1NS-%s", match[3].str().c_str());
+    } else {
+        snprintf(buf, 36, "GW1N-%s", match[3].str().c_str());
+    }
     chipArgs.family = buf;
     chipArgs.package = match[5];
     chipArgs.speed = match[6];
