@@ -31,7 +31,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-static int port_set_from_any(Tcl_Interp *interp, Tcl_Obj *objPtr) { return TCL_ERROR; }
+static int obj_set_from_any(Tcl_Interp *interp, Tcl_Obj *objPtr) { return TCL_ERROR; }
 
 static void set_tcl_obj_string(Tcl_Obj *objPtr, const std::string &s)
 {
@@ -55,12 +55,21 @@ static void port_update_string(Tcl_Obj *objPtr)
     set_tcl_obj_string(objPtr, port_name);
 }
 
-static void port_dup(Tcl_Obj *srcPtr, Tcl_Obj *dupPtr)
+static void cell_update_string(Tcl_Obj *objPtr)
+{
+    const Context *ctx = static_cast<const Context *>(objPtr->internalRep.twoPtrValue.ptr1);
+    CellInfo *cell_info = static_cast<CellInfo *>(objPtr->internalRep.twoPtrValue.ptr2);
+
+    std::string cell_name = cell_info->name.str(ctx);
+    set_tcl_obj_string(objPtr, cell_name);
+}
+
+static void obj_dup(Tcl_Obj *srcPtr, Tcl_Obj *dupPtr)
 {
     dupPtr->internalRep.twoPtrValue = srcPtr->internalRep.twoPtrValue;
 }
 
-static void port_free(Tcl_Obj *objPtr) {}
+static void obj_free(Tcl_Obj *objPtr) {}
 
 static void Tcl_SetStringResult(Tcl_Interp *interp, const std::string &s)
 {
@@ -71,7 +80,11 @@ static void Tcl_SetStringResult(Tcl_Interp *interp, const std::string &s)
 }
 
 static Tcl_ObjType port_object = {
-        "port", port_free, port_dup, port_update_string, port_set_from_any,
+        "port", obj_free, obj_dup, port_update_string, obj_set_from_any,
+};
+
+static Tcl_ObjType cell_object = {
+        "cell", obj_free, obj_dup, cell_update_string, obj_set_from_any,
 };
 
 static int get_ports(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
@@ -106,6 +119,45 @@ static int get_ports(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CON
     }
 }
 
+static int get_cells(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
+{
+    const Context *ctx = static_cast<const Context *>(data);
+    if (objc == 1) {
+        // Return list of all ports.
+        Tcl_SetStringResult(interp, "Unimplemented");
+        return TCL_ERROR;
+    } else if (objc == 2) {
+        const char *arg0 = Tcl_GetString(objv[1]);
+        IdString cell_name = ctx->id(arg0);
+
+        CellInfo *cell = nullptr;
+        for (auto &cell_pair : ctx->cells) {
+            if (cell_pair.second.get()->name == cell_name) {
+                cell = cell_pair.second.get();
+                break;
+            }
+        }
+
+        if (cell == nullptr) {
+            Tcl_SetStringResult(interp, "Could not find cell " + cell_name.str(ctx));
+            return TCL_ERROR;
+        }
+
+        Tcl_Obj *result = Tcl_NewObj();
+        result->typePtr = &cell_object;
+        result->internalRep.twoPtrValue.ptr1 = (void *)(ctx);
+        result->internalRep.twoPtrValue.ptr2 = (void *)(cell);
+
+        result->bytes = nullptr;
+        cell_update_string(result);
+
+        Tcl_SetObjResult(interp, result);
+        return TCL_OK;
+    } else {
+        return TCL_ERROR;
+    }
+}
+
 static int set_property(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
 {
     // set_property <property> <value> <object>
@@ -118,17 +170,21 @@ static int set_property(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *
     const char *value = Tcl_GetString(objv[2]);
     const Tcl_Obj *object = objv[3];
 
-    if (object->typePtr != &port_object) {
-        Tcl_SetStringResult(interp, "Only port objects are handled right now!");
+    if (object->typePtr == &port_object) {
+        const Context *ctx = static_cast<const Context *>(object->internalRep.twoPtrValue.ptr1);
+        PortInfo *port_info = static_cast<PortInfo *>(object->internalRep.twoPtrValue.ptr2);
+        NPNR_ASSERT(port_info->net != nullptr);
+        CellInfo *cell = ctx->port_cells.at(port_info->name);
+
+        cell->attrs[ctx->id(property)] = Property(value);
+    } else if (object->typePtr == &cell_object) {
+        const Context *ctx = static_cast<const Context *>(object->internalRep.twoPtrValue.ptr1);
+        CellInfo *cell = static_cast<CellInfo *>(object->internalRep.twoPtrValue.ptr2);
+
+        cell->attrs[ctx->id(property)] = Property(value);
+    } else {
         return TCL_ERROR;
     }
-
-    const Context *ctx = static_cast<const Context *>(object->internalRep.twoPtrValue.ptr1);
-    PortInfo *port_info = static_cast<PortInfo *>(object->internalRep.twoPtrValue.ptr2);
-    NPNR_ASSERT(port_info->net != nullptr);
-    CellInfo *cell = ctx->port_cells.at(port_info->name);
-
-    cell->attrs[ctx->id(property)] = Property(value);
 
     return TCL_OK;
 }
@@ -150,6 +206,7 @@ TclInterp::TclInterp(Context *ctx)
                                  "  }\n"
                                  "}") == TCL_OK);
     Tcl_CreateObjCommand(interp, "get_ports", get_ports, ctx, nullptr);
+    Tcl_CreateObjCommand(interp, "get_cells", get_cells, ctx, nullptr);
     Tcl_CreateObjCommand(interp, "set_property", set_property, ctx, nullptr);
 }
 
