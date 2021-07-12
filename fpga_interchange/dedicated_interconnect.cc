@@ -457,12 +457,12 @@ void DedicatedInterconnect::explain_bel_status(BelId bel, const CellInfo *cell) 
         // Only check sink BELs.
         if (net->driver.cell == cell && net->driver.port == port_name) {
             if (!is_driver_on_net_valid(bel, cell, port_name, net)) {
-                log_info("Driver %s/%s is not valid on net '%s'", cell->name.c_str(ctx), port_name.c_str(ctx),
+                log_info("Driver %s/%s is not valid on net '%s'\n", cell->name.c_str(ctx), port_name.c_str(ctx),
                          net->name.c_str(ctx));
             }
         } else {
             if (!is_sink_on_net_valid(bel, cell, port_name, net)) {
-                log_info("Sink %s/%s is not valid on net '%s'", cell->name.c_str(ctx), port_name.c_str(ctx),
+                log_info("Sink %s/%s is not valid on net '%s'\n", cell->name.c_str(ctx), port_name.c_str(ctx),
                          net->name.c_str(ctx));
             }
         }

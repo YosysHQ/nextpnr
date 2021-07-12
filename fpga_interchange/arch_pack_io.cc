@@ -246,7 +246,8 @@ void Arch::pack_ports()
 
         if (possible_site_types.empty()) {
             if (getCtx()->verbose)
-                log_info("Port '%s' has no possible site types, falling back to all types!\n", port_name.c_str(getCtx()));
+                log_info("Port '%s' has no possible site types, falling back to all types!\n",
+                         port_name.c_str(getCtx()));
             possible_site_types = package_pin_site_types;
         }
 
@@ -316,6 +317,7 @@ void Arch::pack_ports()
         for (CellInfo *cell : placed_cells) {
             NPNR_ASSERT(cell->bel != BelId());
             if (!isBelLocationValid(cell->bel)) {
+                explain_bel_status(cell->bel);
                 log_error("Tightly bound BEL %s was not valid!\n", nameOfBel(cell->bel));
             }
         }
