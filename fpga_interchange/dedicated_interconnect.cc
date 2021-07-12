@@ -425,6 +425,10 @@ bool DedicatedInterconnect::isBelLocationValid(BelId bel, const CellInfo *cell) 
             continue;
         }
 
+        if (ctx->io_port_types.count(net->driver.cell->type)) {
+            continue;
+        }
+
         // Only check sink BELs.
         if (net->driver.cell == cell && net->driver.port == port_name) {
             if (!is_driver_on_net_valid(bel, cell, port_name, net)) {
@@ -453,6 +457,10 @@ void DedicatedInterconnect::explain_bel_status(BelId bel, const CellInfo *cell) 
 
         // This net doesn't have a driver, probably not valid?
         NPNR_ASSERT(net->driver.cell != nullptr);
+
+        if (ctx->io_port_types.count(net->driver.cell->type)) {
+            continue;
+        }
 
         // Only check sink BELs.
         if (net->driver.cell == cell && net->driver.port == port_name) {
