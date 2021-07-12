@@ -787,6 +787,7 @@ bool Arch::place()
     getCtx()->check();
 #endif
 
+    place_constraints();
     place_globals();
 
     std::string placer = str_or_default(settings, id("placer"), defaultPlacer);

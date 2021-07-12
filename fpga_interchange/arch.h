@@ -720,6 +720,9 @@ struct Arch : ArchAPI<ArchRanges>
     void prepare_cluster(const ClusterPOD *cluster, uint32_t index);
     dict<ClusterId, Cluster> clusters;
 
+    // User constraints
+    void place_constraints();
+
     void decode_lut_cells();
 
     const GlobalCellPOD *global_cell_info(IdString cell_type) const;
