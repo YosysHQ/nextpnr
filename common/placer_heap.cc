@@ -402,13 +402,6 @@ class HeAPPlacer
         for (auto &cell_entry : ctx->cells) {
             CellInfo *cell = cell_entry.second.get();
 
-            if (cell->bel != BelId()) {
-                if (ctx->verbose)
-                    log_error("Cell \'%s\' (%s) has already been constrianed by arch implementation",
-                              cell->name.c_str(ctx), cell->type.c_str(ctx));
-                continue;
-            }
-
             auto loc = cell->attrs.find(ctx->id("BEL"));
             if (loc != cell->attrs.end()) {
                 std::string loc_name = loc->second.as_string();

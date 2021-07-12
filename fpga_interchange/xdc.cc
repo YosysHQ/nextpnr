@@ -130,15 +130,8 @@ static int get_cells(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CON
         const char *arg0 = Tcl_GetString(objv[1]);
         IdString cell_name = ctx->id(arg0);
 
-        CellInfo *cell = nullptr;
-        for (auto &cell_pair : ctx->cells) {
-            if (cell_pair.second.get()->name == cell_name) {
-                cell = cell_pair.second.get();
-                break;
-            }
-        }
-
-        if (cell == nullptr) {
+        auto iter = ctx->cells.find(cell_name);
+        if (iter == ctx->cells.end()) {
             Tcl_SetStringResult(interp, "Could not find cell " + cell_name.str(ctx));
             return TCL_ERROR;
         }
@@ -146,7 +139,7 @@ static int get_cells(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CON
         Tcl_Obj *result = Tcl_NewObj();
         result->typePtr = &cell_object;
         result->internalRep.twoPtrValue.ptr1 = (void *)(ctx);
-        result->internalRep.twoPtrValue.ptr2 = (void *)(cell);
+        result->internalRep.twoPtrValue.ptr2 = (void *)(iter->second.get());
 
         result->bytes = nullptr;
         cell_update_string(result);

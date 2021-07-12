@@ -83,11 +83,8 @@ void Arch::place_constraints()
                       cell->name.c_str(getCtx()), nameOfBel(bel), bound_cell->name.c_str(getCtx()));
 
         bindBel(bel, cell, STRENGTH_USER);
-        if (!isBelLocationValid(bel))
-            log_error("Bel \'%s\' is not valid for cell "
-                      "\'%s\' of type \'%s\'\n",
-                      nameOfBel(bel), cell->name.c_str(getCtx()), cell->type.c_str(getCtx()));
 
+        cell->attrs.erase(id("BEL"));
         constrained_cells.emplace_back(cell->name, bel);
     }
 
@@ -95,8 +92,15 @@ void Arch::place_constraints()
         return;
 
     log_info("Cell placed via user constraints:\n");
-    for (auto cell_bel : constrained_cells)
-        log_info("  - %s placed at %s\n", cell_bel.first.c_str(getCtx()), nameOfBel(cell_bel.second));
+    for (auto cell_bel : constrained_cells) {
+        IdString cell_name = cell_bel.first;
+        BelId bel = cell_bel.second;
+
+        if (!isBelLocationValid(bel))
+            log_error("  - Bel \'%s\' is not valid for cell \'%s\'\n", nameOfBel(bel), cell_name.c_str(getCtx()));
+
+        log_info("  - %s placed at %s\n", cell_name.c_str(getCtx()), nameOfBel(cell_bel.second));
+    }
 }
 
 NEXTPNR_NAMESPACE_END
