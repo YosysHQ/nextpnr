@@ -401,6 +401,7 @@ class HeAPPlacer
         // Initial constraints placer
         for (auto &cell_entry : ctx->cells) {
             CellInfo *cell = cell_entry.second.get();
+
             auto loc = cell->attrs.find(ctx->id("BEL"));
             if (loc != cell->attrs.end()) {
                 std::string loc_name = loc->second.as_string();
