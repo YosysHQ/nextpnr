@@ -55,8 +55,6 @@ bool search_routing_for_placement(Arch *arch, WireId start_wire, CellInfo *cell,
             WireId dst = downhill ? arch->getPipDstWire(pip) : arch->getPipSrcWire(pip);
             if (already_visited.count(dst))
                 return;
-            if (!arch->is_site_wire(dst) && arch->get_wire_category(dst) == WIRE_CAT_GENERAL)
-                return; // this pass only considers dedicated routing
             visit_queue.push(dst);
             already_visited.insert(dst);
         };
@@ -83,6 +81,7 @@ void Arch::place_iobufs(WireId pad_wire, NetInfo *net,
             if (ctx->verbose)
                 log_info("Placed IO cell %s:%s at %s.\n", ctx->nameOf(cell_port.first),
                          ctx->nameOf(cell_port.first->type), ctx->nameOfBel(cell_port.first->bel));
+            placed_cells->insert(cell_port.first);
         }
     }
 
@@ -246,7 +245,9 @@ void Arch::pack_ports()
         }
 
         if (possible_site_types.empty()) {
-            log_error("Port '%s' has no possible site types!\n", port_name.c_str(getCtx()));
+            if (getCtx()->verbose)
+                log_info("Port '%s' has no possible site types, falling back to all types!\n", port_name.c_str(getCtx()));
+            possible_site_types = package_pin_site_types;
         }
 
         if (getCtx()->verbose) {
