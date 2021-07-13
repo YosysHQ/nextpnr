@@ -862,6 +862,8 @@ static void apply_constant_routing(Context *ctx, const SiteArch &site_arch, NetI
 
         SiteWire wire = user;
         PipId inverting_pip;
+        PhysicalNetlist::PhysNetlist::NetType pref_const = PhysicalNetlist::PhysNetlist::NetType::SIGNAL;
+
         while (wire != site_net->driver) {
             SitePip pip = site_net->wires.at(wire).pip;
             NPNR_ASSERT(site_arch.getPipDstWire(pip) == wire);
@@ -884,9 +886,16 @@ static void apply_constant_routing(Context *ctx, const SiteArch &site_arch, NetI
             }
 
             wire = site_arch.getPipSrcWire(pip);
+            pref_const = site_arch.prefered_constant_net_type(pip);
         }
 
-        if (!is_path_inverting && !path_can_invert) {
+        bool is_pref_const = true;
+        if (pref_const == PhysicalNetlist::PhysNetlist::NetType::VCC && net == gnd_net)
+            is_pref_const = false;
+        else if (pref_const == PhysicalNetlist::PhysNetlist::NetType::GND && net == vcc_net)
+            is_pref_const = false;
+
+        if (!is_path_inverting && (!path_can_invert || is_pref_const)) {
             // This routing is boring, use base logic.
             apply_simple_routing(ctx, site_arch, net, site_net, user);
             continue;
