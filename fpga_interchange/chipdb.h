@@ -34,7 +34,7 @@ NEXTPNR_NAMESPACE_BEGIN
  * kExpectedChipInfoVersion
  */
 
-static constexpr int32_t kExpectedChipInfoVersion = 12;
+static constexpr int32_t kExpectedChipInfoVersion = 13;
 
 // Flattened site indexing.
 //
