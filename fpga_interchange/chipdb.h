@@ -111,6 +111,8 @@ NPNR_PACKED_STRUCT(struct TileWireInfoPOD {
 
     int16_t site;         // site index in tile
     int16_t site_variant; // site variant index in tile
+
+    int32_t timing_idx;
 });
 
 NPNR_PACKED_STRUCT(struct PipInfoPOD {

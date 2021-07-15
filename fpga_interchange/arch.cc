@@ -2046,9 +2046,12 @@ void Arch::explain_bel_status(BelId bel) const
 
 static const NodeTimingPOD *get_node_timing(const Arch *arch, WireId wire)
 {
-    if (wire.tile != -1)
-        return nullptr;
-    int tmg_index = arch->chip_info->nodes[wire.index].timing_idx;
+    int tmg_index;
+    if (wire.tile != -1) {
+        tmg_index = loc_info(arch->chip_info, wire).wire_data[wire.index].timing_idx;
+    } else {
+        tmg_index = arch->chip_info->nodes[wire.index].timing_idx;
+    }
     if (tmg_index >= 0 && tmg_index < arch->chip_info->node_timings.ssize())
         return &(arch->chip_info->node_timings[tmg_index]);
     else
