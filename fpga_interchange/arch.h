@@ -1159,6 +1159,10 @@ struct Arch : ArchAPI<ArchRanges>
 
     dict<IdString, std::vector<CellInfo *>> macro_to_cells;
     void expand_macros();
+
+    // Load capacitance and drive resistance for nodes
+    dict<WireId, uint64_t> drive_res;
+    dict<WireId, uint64_t> load_cap;
 };
 
 NEXTPNR_NAMESPACE_END

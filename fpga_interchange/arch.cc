@@ -1599,6 +1599,14 @@ void Arch::unassign_wire(WireId wire)
     iter->second = nullptr;
 }
 
+static const PipTimingPOD *get_pip_timing(const Arch *arch, const PipInfoPOD &pip_data)
+{
+    if (pip_data.timing_idx >= 0 && pip_data.timing_idx < arch->chip_info->pip_timings.ssize())
+        return &(arch->chip_info->pip_timings[pip_data.timing_idx]);
+    else
+        return nullptr;
+}
+
 void Arch::unbindPip(PipId pip)
 {
     NPNR_ASSERT(pip != PipId());
@@ -1613,6 +1621,7 @@ void Arch::unbindPip(PipId pip)
     NetInfo *net = pip_iter->second;
     NPNR_ASSERT(net != nullptr);
 
+    WireId src = getPipSrcWire(pip);
     WireId dst = getPipDstWire(pip);
     auto wire_iter = wire_to_net.find(dst);
     NPNR_ASSERT(wire_iter != wire_to_net.end());
@@ -1630,6 +1639,14 @@ void Arch::unbindPip(PipId pip)
     wire_iter->second = nullptr;
     NPNR_ASSERT(net->wires.erase(dst) == 1);
 
+    {
+        auto &pip_data = pip_info(chip_info, pip);
+        auto pip_tmg = get_pip_timing(this, pip_data);
+        if (pip_tmg != nullptr) {
+            load_cap[src] -= pip_tmg->int_cap.slow_max;
+        }
+    }
+
     refreshUiPip(pip);
     refreshUiWire(dst);
 }
@@ -1642,6 +1659,7 @@ void Arch::bindPip(PipId pip, NetInfo *net, PlaceStrength strength)
         log_info("bindPip %s (%d/%d) to net %s\n", nameOfPip(pip), pip.tile, pip.index, net->name.c_str(this));
     }
 #endif
+    WireId src = getPipSrcWire(pip);
     WireId dst = getPipDstWire(pip);
     NPNR_ASSERT(dst != WireId());
 
@@ -1660,6 +1678,16 @@ void Arch::bindPip(PipId pip, NetInfo *net, PlaceStrength strength)
     {
         auto result = net->wires.emplace(dst, PipMap{pip, strength});
         NPNR_ASSERT(result.second);
+    }
+
+    {
+        auto &pip_data = pip_info(chip_info, pip);
+        auto pip_tmg = get_pip_timing(this, pip_data);
+        if (pip_tmg != nullptr) {
+            load_cap[src] += pip_tmg->int_cap.slow_max;
+            drive_res[dst] = ((pip_data.is_buffered || !drive_res.count(src)) ? 0 : drive_res.at(src)) +
+                             pip_tmg->out_res.slow_max;
+        }
     }
 
     refreshUiPip(pip);
@@ -2016,16 +2044,47 @@ void Arch::explain_bel_status(BelId bel) const
     site.explain(getCtx());
 }
 
+static const NodeTimingPOD *get_node_timing(const Arch *arch, WireId wire)
+{
+    if (wire.tile != -1)
+        return nullptr;
+    int tmg_index = arch->chip_info->nodes[wire.index].timing_idx;
+    if (tmg_index >= 0 && tmg_index < arch->chip_info->node_timings.ssize())
+        return &(arch->chip_info->node_timings[tmg_index]);
+    else
+        return nullptr;
+}
+
 DelayQuad Arch::getPipDelay(PipId pip) const
 {
     // FIXME: Implement when adding timing-driven place and route.
     const auto &pip_data = pip_info(chip_info, pip);
-
-    // Scale pseudo-pips by the number of wires they consume to make them
-    // more expensive than a single edge.  This approximation exists soley to
-    // make the non-timing driven solution avoid thinking that pseudo-pips
-    // are the same cost as regular pips.
-    return DelayQuad(100 * (1 + pip_data.pseudo_cell_wires.size()));
+    auto pip_tmg = get_pip_timing(this, pip_data);
+    if (pip_tmg == nullptr) {
+        // No explicit timing data!
+        // Scale pseudo-pips by the number of wires they consume to make them
+        // more expensive than a single edge.  This approximation exists soley to
+        // make the non-timing driven solution avoid thinking that pseudo-pips
+        // are the same cost as regular pips.
+        return DelayQuad(100 * (1 + pip_data.pseudo_cell_wires.size()));
+    } else {
+        // TODO: multi corner analysis
+        WireId src = getPipSrcWire(pip);
+        uint64_t input_res = get_or_default(drive_res, src, 0);
+        auto src_tmg = get_node_timing(this, src);
+        if (src_tmg != nullptr)
+            input_res += (src_tmg->res.slow_max / 2);
+        uint64_t input_cap = get_or_default(load_cap, src, 0);
+        // Not bound, so not included
+        auto pip_iter = pip_to_net.find(pip);
+        if (pip_iter == pip_to_net.end() || pip_iter->second == nullptr)
+            input_cap += pip_tmg->int_cap.slow_max;
+        // Scale delay (fF * uOhm -> ps)
+        delay_t total_delay = (input_res * input_cap) / uint64_t(1e9);
+        total_delay += pip_tmg->int_delay.slow_max;
+        total_delay += (uint64_t(pip_tmg->out_res.slow_max) * uint64_t(pip_tmg->out_cap.slow_max)) / uint64_t(1e9);
+        return DelayQuad(total_delay);
+    }
 }
 
 const DefaultCellConnsPOD *Arch::get_default_conns(IdString cell_type) const
