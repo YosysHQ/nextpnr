@@ -1741,8 +1741,12 @@ bool Arch::checkPipAvailForNet(PipId pip, NetInfo *net) const
         }
     }
 
-    // If this pip is a route-though, make sure all of the route-though
-    // wires are unbound.
+    // If this pip is a route-though, make sure all of the route-though are valid.
+    // A route-through is valid if:
+    //   - none of the pseudo-pip wires are bound to a net
+    //   - the pseudo pip wires are bound to the same net and there are no
+    //     lut elements in the tile type: this to prevent the router from choosing
+    //     a pseudo-pip on the same LUT and on a different input pin for the same net.
     const TileTypeInfoPOD &tile_type = loc_info(chip_info, pip);
     const PipInfoPOD &pip_data = tile_type.pip_data[pip.index];
     WireId wire;
@@ -1753,14 +1757,20 @@ bool Arch::checkPipAvailForNet(PipId pip, NetInfo *net) const
         NPNR_ASSERT(dst != wire);
 
         NetInfo *other_net = getConflictingWireNet(wire);
-        if (other_net != nullptr && other_net != net) {
+        bool is_null_net = other_net == nullptr;
+        if (!is_null_net) {
+            bool is_same_net = other_net == net;
+            bool tile_has_luts = tile_type.lut_elements.size() > 0;
+            if (!is_same_net || tile_has_luts) {
 #ifdef DEBUG_BINDING
-            if (getCtx()->verbose) {
-                log_info("Pip %s is not available because wire %s is tied to net %s\n", getCtx()->nameOfPip(pip),
-                         getCtx()->nameOfWire(wire), other_net->name.c_str(getCtx()));
-            }
+                if (getCtx()->verbose)
+                    log_info("Pip %s is not available because wire %s is tied to a different net "
+                             "(other net: %s - orig net: %s) or the pseudo pip may traverses LUTs\n",
+                             getCtx()->nameOfPip(pip), getCtx()->nameOfWire(wire), other_net->name.c_str(getCtx()),
+                             net == nullptr ? "NULL net" : net->name.c_str(getCtx()));
 #endif
-            return false;
+                return false;
+            }
         }
     }
 
