@@ -75,8 +75,7 @@ SiteLutMappingKey SiteLutMappingKey::create (const SiteInformation& siteInfo) {
         cell.type       = cellInfo->type;
         cell.belIndex   = cellInfo->bel.index;
 
-        memset((void*)cell.conns, 0,
-               sizeof(int32_t) * SiteLutMappingKey::MAX_LUT_INPUTS);
+        cell.conns.fill(0);
 
         size_t portId = 0;
         for (const auto& port : cellInfo->ports) {

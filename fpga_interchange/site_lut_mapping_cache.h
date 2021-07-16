@@ -41,13 +41,25 @@ struct SiteLutMappingKey {
         // Port to net assignments. These are local net ids generated during
         // key creation. This is to abstract connections from actual design
         // net names. the Id 0 means unconnected.
-        int32_t     conns [MAX_LUT_INPUTS];
+        std::array<int32_t, MAX_LUT_INPUTS> conns;
+
+        bool operator == (const Cell& other) const {
+            return (type == other.type) &&
+                   (belIndex == other.belIndex) &&
+                   (conns == other.conns);
+        }
+
+        bool operator != (const Cell& other) const {
+            return (type != other.type) ||
+                   (belIndex != other.belIndex) ||
+                   (conns != other.conns);
+        }
     };
 
     int32_t    tileType; // Tile type
     int32_t    siteType; // Site type in that tile type
     size_t     numCells; // LUT cell count
-    Cell       cells[MAX_LUT_CELLS]; // LUT cell data
+    std::array<Cell, MAX_LUT_CELLS> cells; // LUT cell data
 
     unsigned int    hash_; // Precomputed hash
 
@@ -66,21 +78,32 @@ struct SiteLutMappingKey {
             }
         }
     }
-   
+
+    bool compareCells (const SiteLutMappingKey &other) const {
+        if (numCells != other.numCells) {
+            return false;
+        }
+
+        for (size_t i=0; i<numCells; ++i) {
+            if (cells[i] != other.cells[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     bool operator == (const SiteLutMappingKey &other) const {
         return (hash_ == other.hash_) &&
                (tileType == other.tileType) &&
                (siteType == other.siteType) &&
-               (numCells == other.numCells) &&
-               (!memcmp(cells, other.cells, sizeof(Cell) * numCells));
+               compareCells(other);
     }
 
     bool operator != (const SiteLutMappingKey &other) const {
         return (hash_ != other.hash_) ||
                (tileType != other.tileType) ||
                (siteType != other.siteType) ||
-               (numCells != other.numCells) ||
-               (memcmp(cells, other.cells, sizeof(Cell) * numCells));
+               !compareCells(other);
     }
 
     unsigned int hash () const {
