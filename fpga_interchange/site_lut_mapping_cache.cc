@@ -73,28 +73,43 @@ SiteLutMappingKey SiteLutMappingKey::create (const SiteInformation& siteInfo) {
         cell.type       = cellInfo->type;
         cell.belIndex   = cellInfo->bel.index;
 
+        memset((void*)cell.conns, 0,
+               sizeof(int32_t) * SiteLutMappingKey::MAX_LUT_INPUTS);
+
+        size_t portId = 0;
         for (const auto& port : cellInfo->ports) {
             const auto& portInfo = port.second;
+
+            // Consider only LUT inputs
+            if (portInfo.type != PORT_IN) {
+                continue;
+            }
+
+            // Assign net id if any
+            int32_t netId = 0;
             if (portInfo.net != nullptr) {
                 auto    netInfo = portInfo.net;
-                int32_t netId   = -1;
 
                 auto it = netMap.find(netInfo->name);
                 if (it != netMap.end()) {
                     netId = it->second;
                 }
                 else {
-                    netId = (int32_t)netMap.size();
+                    netId = (int32_t)netMap.size() + 1;
                     netMap[netInfo->name] = netId;
                 }
-
-                cell.conns[portInfo.name] = netId;
             }
+
+            NPNR_ASSERT(portId < SiteLutMappingKey::MAX_LUT_INPUTS);
+            cell.conns[portId++] = netId;
         }
 
         // Add the cell entry
         key.cells.push_back(cell);
     }
+
+    // Compute hash
+    key.computeHash();
 
     return key;
 }
@@ -120,9 +135,10 @@ bool SiteLutMappingResult::apply (const SiteInformation& siteInfo) {
         // Cell <-> BEL pin map
         size_t numPins = cellInfo->lut_cell.pins.size();
         for (size_t pinIdx = 0; pinIdx < numPins; ++pinIdx) {
-            IdString cellPin = cellInfo->lut_cell.pins[pinIdx];
-            auto &belPins    = cellInfo->cell_bel_pins[cellPin];
+            const IdString& cellPin = cellInfo->lut_cell.pins[pinIdx];
+            auto &belPins           = cellInfo->cell_bel_pins[cellPin];
 
+            // There is only one pin
             belPins.resize(1);
             belPins[0] = cell.belPins[cellPin];
         }

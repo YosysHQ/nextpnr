@@ -28,6 +28,11 @@ NEXTPNR_NAMESPACE_BEGIN
 // Key structure used in site LUT mapping cache
 struct SiteLutMappingKey {
 
+    // Maximum number of LUT cells
+    static constexpr size_t MAX_LUT_CELLS  = 8;
+    // Maximum number of LUT inputs per cell
+    static constexpr size_t MAX_LUT_INPUTS = 6;
+
     // LUT Cell data
     struct Cell {
         IdString    type;       // Cell type
@@ -35,51 +40,46 @@ struct SiteLutMappingKey {
   
         // Port to net assignments. These are local net ids generated during
         // key creation. This is to abstract connections from actual design
-        // net names.
-        dict<IdString, int32_t> conns;
-
-        bool operator == (const Cell& other) const {
-            return  (type == other.type) &&
-                    (belIndex == other.belIndex) &&
-                    (conns == other.conns);
-        }
-
-        bool operator < (const Cell& other) const {            
-            return belIndex < other.belIndex;
-        }
+        // net names. the Id 0 means unconnected.
+        int32_t     conns [MAX_LUT_INPUTS];
     };
 
     int32_t           tileType; // Tile type
     int32_t           siteType; // Site type in that tile type
     std::vector<Cell> cells;    // LUT cell data
 
+    unsigned int      hash_;    // Precomputed hash
+
     static SiteLutMappingKey create (const SiteInformation& siteInfo);
+
+    void computeHash () {
+        hash_ = mkhash(0, tileType);
+        hash_ = mkhash(hash_, siteType);
+        for (const auto& cell : cells) {
+            hash_ = mkhash(hash_, cell.type.index);
+            hash_ = mkhash(hash_, cell.belIndex);
+            for (size_t i=0; i<MAX_LUT_INPUTS; ++i) {
+                hash_ = mkhash(hash_, cell.conns[i]);
+            }
+        }
+    }
    
     bool operator == (const SiteLutMappingKey &other) const {
-        return (tileType == other.tileType) &&
+        return (hash_ == other.hash_) &&
+               (tileType == other.tileType) &&
                (siteType == other.siteType) &&
                (cells == other.cells);
     }
 
     bool operator != (const SiteLutMappingKey &other) const {
-        return (tileType != other.tileType) ||
+        return (hash_ != other.hash_) ||
+               (tileType != other.tileType) ||
                (siteType != other.siteType) ||
                (cells != other.cells);
     }
 
     unsigned int hash () const {
-        unsigned int h = 0;
-        h = mkhash(h, tileType);
-        h = mkhash(h, siteType);
-        for (const auto& cell : cells) {
-            h = mkhash(h, cell.type.index);
-            h = mkhash(h, cell.belIndex);
-            for (const auto& conn : cell.conns) {
-                h = mkhash(h, conn.first.index);
-                h = mkhash(h, conn.second);
-            }
-        }
-        return h;
+        return hash_;
     }
 };
 
