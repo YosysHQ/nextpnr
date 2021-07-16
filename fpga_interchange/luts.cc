@@ -255,7 +255,8 @@ uint32_t LutMapper::check_wires(const std::vector<std::vector<int32_t>> &bel_to_
     return vcc_mask;
 }
 
-bool LutMapper::remap_luts(const Context *ctx, SiteLutMappingResult* lut_mapping, pool<const LutBel *, hash_ptr_ops> *blocked_luts)
+bool LutMapper::remap_luts(const Context *ctx, SiteLutMappingResult *lut_mapping,
+                           pool<const LutBel *, hash_ptr_ops> *blocked_luts)
 {
     dict<NetInfo *, LutPin, hash_ptr_ops> lut_pin_map;
     std::vector<const LutBel *> lut_bels;
@@ -417,7 +418,7 @@ bool LutMapper::remap_luts(const Context *ctx, SiteLutMappingResult* lut_mapping
         // Cell to BEL pin map
         for (size_t pin_idx = 0; pin_idx < cellInfo->lut_cell.pins.size(); ++pin_idx) {
             IdString cellPin = cellInfo->lut_cell.pins[pin_idx];
-            IdString belPin  = lutBel.pins[cell_to_bel_pin_remaps[cell_idx][pin_idx]];
+            IdString belPin = lutBel.pins[cell_to_bel_pin_remaps[cell_idx][pin_idx]];
             cell.belPins[cellPin] = belPin;
         }
 

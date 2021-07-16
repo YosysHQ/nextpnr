@@ -70,11 +70,11 @@ struct LutBel
 
 struct SiteLutMapping
 {
-    struct LutCellMapping {
+    struct LutCellMapping
+    {
         LutCell lut_cell;
     };
 };
-
 
 // Work forward from cell definition and cell -> bel pin map and check that
 // equation is valid.
@@ -99,7 +99,8 @@ struct LutMapper
 
     std::vector<CellInfo *> cells;
 
-    bool remap_luts(const Context *ctx, SiteLutMappingResult* lut_mapping, pool<const LutBel *, hash_ptr_ops> *blocked_luts);
+    bool remap_luts(const Context *ctx, SiteLutMappingResult *lut_mapping,
+                    pool<const LutBel *, hash_ptr_ops> *blocked_luts);
 
     // Determine which wires given the current mapping must be tied to the
     // default constant.

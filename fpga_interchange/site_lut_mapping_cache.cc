@@ -17,23 +17,22 @@
  *
  */
 
-#include "nextpnr.h"
-#include "archdefs.h"
-#include "site_arch.h"
 #include "site_lut_mapping_cache.h"
+#include "nextpnr.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
 // ============================================================================
 
-SiteLutMappingKey SiteLutMappingKey::create (const SiteInformation& siteInfo) {
+SiteLutMappingKey SiteLutMappingKey::create(const SiteInformation &siteInfo)
+{
     const Context *ctx = siteInfo.ctx;
 
     // Look for LUT cells in the site
-    std::vector<CellInfo*> lutCells;
+    std::vector<CellInfo *> lutCells;
     lutCells.reserve(siteInfo.cells_in_site.size());
 
-    for (CellInfo* cellInfo : siteInfo.cells_in_site) {
+    for (CellInfo *cellInfo : siteInfo.cells_in_site) {
 
         // Not a LUT cell
         if (cellInfo->lut_cell.pins.empty()) {
@@ -52,10 +51,7 @@ SiteLutMappingKey SiteLutMappingKey::create (const SiteInformation& siteInfo) {
 
     // Sort cells by BEL indices to maintain always the same order
     std::sort(lutCells.begin(), lutCells.end(),
-              [](const CellInfo* a, const CellInfo* b)
-    {
-        return a->bel.index > b->bel.index;
-    });
+              [](const CellInfo *a, const CellInfo *b) { return a->bel.index > b->bel.index; });
 
     // Initialize the key
     SiteLutMappingKey key;
@@ -67,19 +63,19 @@ SiteLutMappingKey SiteLutMappingKey::create (const SiteInformation& siteInfo) {
     // to get always the same key for the same LUT port configuration even
     // when the actual global net names are different.
     dict<IdString, int32_t> netMap;
-    for (CellInfo* cellInfo : lutCells) {
+    for (CellInfo *cellInfo : lutCells) {
 
         NPNR_ASSERT(key.numCells < SiteLutMappingKey::MAX_LUT_CELLS);
-        auto& cell = key.cells[key.numCells++];
+        auto &cell = key.cells[key.numCells++];
 
-        cell.type       = cellInfo->type;
-        cell.belIndex   = cellInfo->bel.index;
+        cell.type = cellInfo->type;
+        cell.belIndex = cellInfo->bel.index;
 
         cell.conns.fill(0);
 
         size_t portId = 0;
-        for (const auto& port : cellInfo->ports) {
-            const auto& portInfo = port.second;
+        for (const auto &port : cellInfo->ports) {
+            const auto &portInfo = port.second;
 
             // Consider only LUT inputs
             if (portInfo.type != PORT_IN) {
@@ -89,13 +85,12 @@ SiteLutMappingKey SiteLutMappingKey::create (const SiteInformation& siteInfo) {
             // Assign net id if any
             int32_t netId = 0;
             if (portInfo.net != nullptr) {
-                auto    netInfo = portInfo.net;
+                auto netInfo = portInfo.net;
 
                 auto it = netMap.find(netInfo->name);
                 if (it != netMap.end()) {
                     netId = it->second;
-                }
-                else {
+                } else {
                     netId = (int32_t)netMap.size() + 1;
                     netMap[netInfo->name] = netId;
                 }
@@ -114,27 +109,27 @@ SiteLutMappingKey SiteLutMappingKey::create (const SiteInformation& siteInfo) {
 
 // ============================================================================
 
+bool SiteLutMappingResult::apply(const SiteInformation &siteInfo)
+{
 
-bool SiteLutMappingResult::apply (const SiteInformation& siteInfo) {
-
-    Context *ctx = const_cast<Context*>(siteInfo.ctx);
+    Context *ctx = const_cast<Context *>(siteInfo.ctx);
     TileStatus &tileStatus = ctx->get_tile_status(siteInfo.tile);
 
-    for (auto& cell : cells) {
+    for (auto &cell : cells) {
 
         // Get the bound cell
-        CellInfo* cellInfo = tileStatus.boundcells[cell.belIndex];
+        CellInfo *cellInfo = tileStatus.boundcells[cell.belIndex];
         NPNR_ASSERT(cellInfo);
 
         // Double check BEL binding
-        NPNR_ASSERT(cellInfo->bel.tile  == siteInfo.tile);
+        NPNR_ASSERT(cellInfo->bel.tile == siteInfo.tile);
         NPNR_ASSERT(cellInfo->bel.index == cell.belIndex);
 
         // Cell <-> BEL pin map
         size_t numPins = cellInfo->lut_cell.pins.size();
         for (size_t pinIdx = 0; pinIdx < numPins; ++pinIdx) {
-            const IdString& cellPin = cellInfo->lut_cell.pins[pinIdx];
-            auto &belPins           = cellInfo->cell_bel_pins[cellPin];
+            const IdString &cellPin = cellInfo->lut_cell.pins[pinIdx];
+            auto &belPins = cellInfo->cell_bel_pins[cellPin];
 
             // There is only one pin
             belPins.resize(1);
@@ -149,14 +144,15 @@ bool SiteLutMappingResult::apply (const SiteInformation& siteInfo) {
     return true;
 }
 
-size_t SiteLutMappingResult::getSizeInBytes () const {
+size_t SiteLutMappingResult::getSizeInBytes() const
+{
 
     size_t size = 0;
 
     size += sizeof(SiteLutMappingResult);
     size += blockedWires.size() * sizeof(std::pair<IdString, IdString>);
 
-    for (const auto& cell : cells) {
+    for (const auto &cell : cells) {
         size += sizeof(Cell);
         size += cell.belPins.size() * sizeof(decltype(cell.belPins)::value_type);
     }
@@ -166,14 +162,12 @@ size_t SiteLutMappingResult::getSizeInBytes () const {
 
 // ============================================================================
 
-void SiteLutMappingCache::add (const SiteLutMappingKey& key,
-                               const SiteLutMappingResult& result)
+void SiteLutMappingCache::add(const SiteLutMappingKey &key, const SiteLutMappingResult &result)
 {
     cache_[key] = result;
 }
 
-bool SiteLutMappingCache::get (const SiteLutMappingKey& key,
-                               SiteLutMappingResult* result)
+bool SiteLutMappingCache::get(const SiteLutMappingKey &key, SiteLutMappingResult *result)
 {
     if (cache_.count(key) == 0) {
         numMisses++;
@@ -185,17 +179,18 @@ bool SiteLutMappingCache::get (const SiteLutMappingKey& key,
     return true;
 }
 
-void SiteLutMappingCache::clear () {
+void SiteLutMappingCache::clear()
+{
     cache_.clear();
     clearStats();
 }
 
-void SiteLutMappingCache::clearStats () {
-    numHits   = 0;
+void SiteLutMappingCache::clearStats()
+{
+    numHits = 0;
     numMisses = 0;
 }
 
 // ============================================================================
 
 NEXTPNR_NAMESPACE_END
-

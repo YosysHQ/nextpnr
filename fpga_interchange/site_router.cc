@@ -1099,10 +1099,7 @@ static bool map_luts_in_site(const SiteInformation &site_info, pool<std::pair<Id
         lutMapping.apply(site_info);
 
         blocked_wires->clear();
-        blocked_wires->insert(
-            lutMapping.blockedWires.begin(),
-            lutMapping.blockedWires.end()
-        );
+        blocked_wires->insert(lutMapping.blockedWires.begin(), lutMapping.blockedWires.end());
     }
 
     return lutMapping.isValid;

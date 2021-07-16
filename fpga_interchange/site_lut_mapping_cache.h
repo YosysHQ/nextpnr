@@ -20,75 +20,80 @@
 #ifndef SITE_LUT_MAPPING_CACHE_H
 #define SITE_LUT_MAPPING_CACHE_H
 
-#include "idstring.h"
 #include "nextpnr_namespaces.h"
+#include "idstring.h"
+#include "site_arch.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
 // Key structure used in site LUT mapping cache
-struct SiteLutMappingKey {
+struct SiteLutMappingKey
+{
 
     // Maximum number of LUT cells per site
-    static constexpr size_t MAX_LUT_CELLS  = 8;
+    static constexpr size_t MAX_LUT_CELLS = 8;
     // Maximum number of LUT inputs per cell
     static constexpr size_t MAX_LUT_INPUTS = 6;
 
     // LUT Cell data
-    struct Cell {
-        IdString    type;       // Cell type
-        int32_t     belIndex;   // Bound BEL index
-  
+    struct Cell
+    {
+        IdString type;    // Cell type
+        int32_t belIndex; // Bound BEL index
+
         // Port to net assignments. These are local net ids generated during
         // key creation. This is to abstract connections from actual design
         // net names. the Id 0 means unconnected.
         std::array<int32_t, MAX_LUT_INPUTS> conns;
 
-        bool operator == (const Cell& other) const {
-            return (type == other.type) &&
-                   (belIndex == other.belIndex) &&
-                   (conns == other.conns);
+        bool operator==(const Cell &other) const
+        {
+            return (type == other.type) && (belIndex == other.belIndex) && (conns == other.conns);
         }
 
-        bool operator != (const Cell& other) const {
-            return (type != other.type) ||
-                   (belIndex != other.belIndex) ||
-                   (conns != other.conns);
+        bool operator!=(const Cell &other) const
+        {
+            return (type != other.type) || (belIndex != other.belIndex) || (conns != other.conns);
         }
     };
 
-    int32_t    tileType; // Tile type
-    int32_t    siteType; // Site type in that tile type
-    size_t     numCells; // LUT cell count
+    int32_t tileType;                      // Tile type
+    int32_t siteType;                      // Site type in that tile type
+    size_t numCells;                       // LUT cell count
     std::array<Cell, MAX_LUT_CELLS> cells; // LUT cell data
 
-    unsigned int    hash_; // Precomputed hash
+    unsigned int hash_; // Precomputed hash
 
-    static SiteLutMappingKey create (const SiteInformation& siteInfo);
+    // Creates a key from the given site state
+    static SiteLutMappingKey create(const SiteInformation &siteInfo);
 
-    size_t getSizeInBytes () const {
-        return sizeof(SiteLutMappingKey);
-    }
+    // Returns size in bytes of the key
+    size_t getSizeInBytes() const { return sizeof(SiteLutMappingKey); }
 
-    void computeHash () {
+    // Precomputes hash of the key and stores it within
+    void computeHash()
+    {
         hash_ = mkhash(0, tileType);
         hash_ = mkhash(hash_, siteType);
         hash_ = mkhash(hash_, numCells);
-        for (size_t j=0; j<numCells; ++j) {
-            const auto& cell = cells[j];
+        for (size_t j = 0; j < numCells; ++j) {
+            const auto &cell = cells[j];
             hash_ = mkhash(hash_, cell.type.index);
             hash_ = mkhash(hash_, cell.belIndex);
-            for (size_t i=0; i<MAX_LUT_INPUTS; ++i) {
+            for (size_t i = 0; i < MAX_LUT_INPUTS; ++i) {
                 hash_ = mkhash(hash_, cell.conns[i]);
             }
         }
     }
 
-    bool compareCells (const SiteLutMappingKey &other) const {
+    // Compares cell data of this and other key
+    bool compareCells(const SiteLutMappingKey &other) const
+    {
         if (numCells != other.numCells) {
             return false;
         }
 
-        for (size_t i=0; i<numCells; ++i) {
+        for (size_t i = 0; i < numCells; ++i) {
             if (cells[i] != other.cells[i]) {
                 return false;
             }
@@ -96,68 +101,70 @@ struct SiteLutMappingKey {
         return true;
     }
 
-    bool operator == (const SiteLutMappingKey &other) const {
-        return (hash_ == other.hash_) &&
-               (tileType == other.tileType) &&
-               (siteType == other.siteType) &&
+    bool operator==(const SiteLutMappingKey &other) const
+    {
+        return (hash_ == other.hash_) && (tileType == other.tileType) && (siteType == other.siteType) &&
                compareCells(other);
     }
 
-    bool operator != (const SiteLutMappingKey &other) const {
-        return (hash_ != other.hash_) ||
-               (tileType != other.tileType) ||
-               (siteType != other.siteType) ||
+    bool operator!=(const SiteLutMappingKey &other) const
+    {
+        return (hash_ != other.hash_) || (tileType != other.tileType) || (siteType != other.siteType) ||
                !compareCells(other);
     }
 
-    unsigned int hash () const {
-        return hash_;
-    }
+    unsigned int hash() const { return hash_; }
 };
 
 // Site LUT mapping result data
-struct SiteLutMappingResult {
+struct SiteLutMappingResult
+{
 
     // LUT cell data
-    struct Cell {
-        int32_t                     belIndex; // BEL in tile index
-        LutCell                     lutCell;  // LUT mapping data
-        dict<IdString, IdString>    belPins;  // Cell to BEL pin mapping
+    struct Cell
+    {
+        int32_t belIndex;                 // BEL in tile index
+        LutCell lutCell;                  // LUT mapping data
+        dict<IdString, IdString> belPins; // Cell to BEL pin mapping
     };
 
-    bool                isValid; // Validity flag
-    std::vector<Cell>   cells;   // Cell data
+    bool isValid;            // Validity flag
+    std::vector<Cell> cells; // Cell data
 
-    pool<std::pair<IdString, IdString>>  blockedWires;
+    pool<std::pair<IdString, IdString>> blockedWires; // Set of blocked wires
 
     // Applies the mapping result to the site
-    bool apply  (const SiteInformation& siteInfo);
+    bool apply(const SiteInformation &siteInfo);
 
     // Returns size in bytes
-    size_t getSizeInBytes () const;
+    size_t getSizeInBytes() const;
 };
 
 // Site LUT mapping cache object
-class SiteLutMappingCache {
-public:
+class SiteLutMappingCache
+{
+  public:
+    // Adds an entry to the cache
+    void add(const SiteLutMappingKey &key, const SiteLutMappingResult &result);
+    // Retrieves an entry from the cache. Returns false if not found
+    bool get(const SiteLutMappingKey &key, SiteLutMappingResult *result);
 
-    void add    (const SiteLutMappingKey& key, const SiteLutMappingResult& result);
-    bool get    (const SiteLutMappingKey& key, SiteLutMappingResult* result);
+    // Clears the cache
+    void clear();
+    // Clears statistics counters of the cache
+    void clearStats();
 
-    void clear      ();
-    void clearStats ();
+    // Return get() miss ratio
+    float getMissRatio() const { return (float)numMisses / (float)(numHits + numMisses); }
 
-    float getMissRatio () const {
-        return (float)numMisses / (float)(numHits + numMisses);
-    }
+    // Returns count of entries in the cache
+    size_t getCount() const { return cache_.size(); }
 
-    size_t getCount () const {
-        return cache_.size();
-    }
-
-    size_t getSizeMB () const {
+    // Returns size of the cache rounded upwards to full MBs.
+    size_t getSizeMB() const
+    {
         size_t size = 0;
-        for (const auto& it : cache_) {
+        for (const auto &it : cache_) {
             size += it.first.getSizeInBytes();
             size += it.second.getSizeInBytes();
         }
@@ -166,14 +173,12 @@ public:
         return (size + MB - 1) / MB; // Round up to megabytes
     }
 
-private:
+  private:
+    dict<SiteLutMappingKey, SiteLutMappingResult> cache_; // The cache
 
-    dict<SiteLutMappingKey, SiteLutMappingResult> cache_;
-
-    size_t numHits   = 0;
-    size_t numMisses = 0;
+    size_t numHits = 0;   // Hit count
+    size_t numMisses = 0; // Miss count
 };
-
 
 NEXTPNR_NAMESPACE_END
 
