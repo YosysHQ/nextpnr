@@ -61,7 +61,7 @@ SiteLutMappingKey SiteLutMappingKey::create (const SiteInformation& siteInfo) {
     SiteLutMappingKey key;
     key.tileType = siteInfo.tile_type;
     key.siteType = ctx->chip_info->sites[siteInfo.site].site_type;
-    key.cells.reserve(lutCells.size());
+    key.numCells = 0;
 
     // Get bound nets. Store localized (to the LUT cluster) net indices only
     // to get always the same key for the same LUT port configuration even
@@ -69,7 +69,9 @@ SiteLutMappingKey SiteLutMappingKey::create (const SiteInformation& siteInfo) {
     dict<IdString, int32_t> netMap;
     for (CellInfo* cellInfo : lutCells) {
 
-        SiteLutMappingKey::Cell cell;
+        NPNR_ASSERT(key.numCells < SiteLutMappingKey::MAX_LUT_CELLS);
+        auto& cell = key.cells[key.numCells++];
+
         cell.type       = cellInfo->type;
         cell.belIndex   = cellInfo->bel.index;
 
@@ -103,9 +105,6 @@ SiteLutMappingKey SiteLutMappingKey::create (const SiteInformation& siteInfo) {
             NPNR_ASSERT(portId < SiteLutMappingKey::MAX_LUT_INPUTS);
             cell.conns[portId++] = netId;
         }
-
-        // Add the cell entry
-        key.cells.push_back(cell);
     }
 
     // Compute hash

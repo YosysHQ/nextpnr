@@ -28,7 +28,7 @@ NEXTPNR_NAMESPACE_BEGIN
 // Key structure used in site LUT mapping cache
 struct SiteLutMappingKey {
 
-    // Maximum number of LUT cells
+    // Maximum number of LUT cells per site
     static constexpr size_t MAX_LUT_CELLS  = 8;
     // Maximum number of LUT inputs per cell
     static constexpr size_t MAX_LUT_INPUTS = 6;
@@ -44,18 +44,21 @@ struct SiteLutMappingKey {
         int32_t     conns [MAX_LUT_INPUTS];
     };
 
-    int32_t           tileType; // Tile type
-    int32_t           siteType; // Site type in that tile type
-    std::vector<Cell> cells;    // LUT cell data
+    int32_t    tileType; // Tile type
+    int32_t    siteType; // Site type in that tile type
+    size_t     numCells; // LUT cell count
+    Cell       cells[MAX_LUT_CELLS]; // LUT cell data
 
-    unsigned int      hash_;    // Precomputed hash
+    unsigned int    hash_; // Precomputed hash
 
     static SiteLutMappingKey create (const SiteInformation& siteInfo);
 
     void computeHash () {
         hash_ = mkhash(0, tileType);
         hash_ = mkhash(hash_, siteType);
-        for (const auto& cell : cells) {
+        hash_ = mkhash(hash_, numCells);
+        for (size_t j=0; j<numCells; ++j) {
+            const auto& cell = cells[j];
             hash_ = mkhash(hash_, cell.type.index);
             hash_ = mkhash(hash_, cell.belIndex);
             for (size_t i=0; i<MAX_LUT_INPUTS; ++i) {
@@ -68,14 +71,16 @@ struct SiteLutMappingKey {
         return (hash_ == other.hash_) &&
                (tileType == other.tileType) &&
                (siteType == other.siteType) &&
-               (cells == other.cells);
+               (numCells == other.numCells) &&
+               (!memcmp(cells, other.cells, sizeof(Cell) * numCells));
     }
 
     bool operator != (const SiteLutMappingKey &other) const {
         return (hash_ != other.hash_) ||
                (tileType != other.tileType) ||
                (siteType != other.siteType) ||
-               (cells != other.cells);
+               (numCells != other.numCells) ||
+               (memcmp(cells, other.cells, sizeof(Cell) * numCells));
     }
 
     unsigned int hash () const {
