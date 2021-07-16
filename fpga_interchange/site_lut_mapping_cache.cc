@@ -127,8 +127,8 @@ bool SiteLutMappingResult::apply (const SiteInformation& siteInfo) {
         NPNR_ASSERT(cellInfo);
 
         // Double check BEL binding
-        NPNR_ASSERT(cellInfo->bel.tile  = siteInfo.tile);
-        NPNR_ASSERT(cellInfo->bel.index = cell.belIndex);
+        NPNR_ASSERT(cellInfo->bel.tile  == siteInfo.tile);
+        NPNR_ASSERT(cellInfo->bel.index == cell.belIndex);
 
         // Cell <-> BEL pin map
         size_t numPins = cellInfo->lut_cell.pins.size();
