@@ -65,6 +65,10 @@ struct SiteLutMappingKey {
 
     static SiteLutMappingKey create (const SiteInformation& siteInfo);
 
+    size_t getSizeInBytes () const {
+        return sizeof(SiteLutMappingKey);
+    }
+
     void computeHash () {
         hash_ = mkhash(0, tileType);
         hash_ = mkhash(hash_, siteType);
@@ -128,6 +132,9 @@ struct SiteLutMappingResult {
 
     // Applies the mapping result to the site
     bool apply  (const SiteInformation& siteInfo);
+
+    // Returns size in bytes
+    size_t getSizeInBytes () const;
 };
 
 // Site LUT mapping cache object
@@ -142,6 +149,21 @@ public:
 
     float getMissRatio () const {
         return (float)numMisses / (float)(numHits + numMisses);
+    }
+
+    size_t getCount () const {
+        return cache_.size();
+    }
+
+    size_t getSizeMB () const {
+        size_t size = 0;
+        for (const auto& it : cache_) {
+            size += it.first.getSizeInBytes();
+            size += it.second.getSizeInBytes();
+        }
+
+        const size_t MB = 1024L * 1024L;
+        return (size + MB - 1) / MB; // Round up to megabytes
     }
 
 private:

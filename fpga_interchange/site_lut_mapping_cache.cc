@@ -149,6 +149,21 @@ bool SiteLutMappingResult::apply (const SiteInformation& siteInfo) {
     return true;
 }
 
+size_t SiteLutMappingResult::getSizeInBytes () const {
+
+    size_t size = 0;
+
+    size += sizeof(SiteLutMappingResult);
+    size += blockedWires.size() * sizeof(std::pair<IdString, IdString>);
+
+    for (const auto& cell : cells) {
+        size += sizeof(Cell);
+        size += cell.belPins.size() * sizeof(decltype(cell.belPins)::value_type);
+    }
+
+    return size;
+}
+
 // ============================================================================
 
 void SiteLutMappingCache::add (const SiteLutMappingKey& key,
