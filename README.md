@@ -118,10 +118,10 @@ Nexus support is currently experimental, and has only been tested with engineeri
 
 ### nextpnr-gowin
 
-For Gowin support, install [Project Apicula](https://github.com/YosysHQ/apicula). If a virtualenv is used, the python paths need to be provided as follows:
+For Gowin support, install [Project Apicula](https://github.com/YosysHQ/apicula). If a virtualenv is used, the path to `gowin_bba` needs to be provided as follows:
 
 ```
-cmake . -DARCH=gowin -DPYTHON_EXECUTABLE=path -DGOWIN_BBA_EXECUTABLE=path
+cmake . -DARCH=gowin -DGOWIN_BBA_EXECUTABLE=path
 make -j$(nproc)
 sudo make install
 ```
