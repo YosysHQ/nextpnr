@@ -12,8 +12,6 @@ message(STATUS "gowin_bba executable: ${GOWIN_BBA_EXECUTABLE}")
 if(DEFINED GOWIN_CHIPDB)
     add_custom_target(chipdb-gowin-bbas ALL)
 else()
-    find_package(PythonInterp 3.6 REQUIRED)
-
     # shared among all families
     set(SERIALIZE_CHIPDBS TRUE CACHE BOOL
         "Serialize device data preprocessing to minimize memory use")
