@@ -115,7 +115,7 @@ jobs:
         RAPIDWRIGHT_PATH: ${{ github.workspace }}/RapidWright
         PYTHON_INTERCHANGE_PATH: ${{ github.workspace }}/python-fpga-interchange
         PYTHON_INTERCHANGE_TAG: v0.0.17
-        PRJOXIDE_REVISION: 1bf30dee9c023c4c66cfc44fd0bc28addd229c89
+        PRJOXIDE_REVISION: 9b35cdb7640dd9916f39268a548fb0c15e9355d1
         DEVICE: ${{ matrix.device }}
       run: |
         export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
