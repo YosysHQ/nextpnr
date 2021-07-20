@@ -1271,11 +1271,12 @@ static void pack_special(Context *ctx)
                     {std::make_tuple(id_SB_SPI, "0b0010"), Loc(25, 0, 1)},
                     {std::make_tuple(id_SB_I2C, "0b0011"), Loc(25, 31, 0)},
             };
-            if (map_ba74.find(std::make_tuple(ci->type, ci->params[ctx->id("BUS_ADDR74")].as_string())) ==
-                map_ba74.end())
+            std::string bus_addr74 =
+                    str_or_default(ci->params, ctx->id("BUS_ADDR74"), is_sb_i2c(ctx, ci) ? "0b0001" : "0b0000");
+            if (map_ba74.find(std::make_tuple(ci->type, bus_addr74)) == map_ba74.end())
                 log_error("Invalid value for BUS_ADDR74 for cell '%s' of type '%s'\n", ci->name.c_str(ctx),
                           ci->type.c_str(ctx));
-            Loc bel_loc = map_ba74.at(std::make_tuple(ci->type, ci->params[ctx->id("BUS_ADDR74")].as_string()));
+            Loc bel_loc = map_ba74.at(std::make_tuple(ci->type, bus_addr74));
             BelId bel = ctx->getBelByLocation(bel_loc);
             if (bel == BelId() || ctx->getBelType(bel) != ci->type)
                 log_error("Unable to find placement for cell '%s' of type '%s'\n", ci->name.c_str(ctx),
