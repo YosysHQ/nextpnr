@@ -168,6 +168,11 @@ if (BUILD_GUI AND NOT BUILD_PYTHON)
     message(FATAL_ERROR "GUI requires Python to build")
 endif()
 
+if (BUILD_GUI)
+    # For higher quality backtraces
+    set(CMAKE_ENABLE_EXPORTS ON)
+endif()
+
 find_package(PythonInterp 3.5 REQUIRED)
 if (BUILD_PYTHON)
     # TODO: sensible minimum Python version

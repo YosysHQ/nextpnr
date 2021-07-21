@@ -27,6 +27,10 @@
 #include <exception>
 #include "log.h"
 
+#ifdef __linux__
+#include <execinfo.h>
+#endif
+
 NEXTPNR_NAMESPACE_BEGIN
 
 #ifdef _WIN32
@@ -38,6 +42,53 @@ BOOL WINAPI WinHandler(DWORD dwCtrlType)
     return TRUE;
 }
 #endif
+
+namespace {
+#ifdef __linux__
+std::string get_backtrace_str()
+{
+    static const size_t MAX_BT_SIZE = 1024;
+    std::array<void *, MAX_BT_SIZE> bt_data;
+    int bt_len = backtrace(bt_data.data(), MAX_BT_SIZE);
+    char **bt_symbols = backtrace_symbols(bt_data.data(), bt_len);
+    if (bt_symbols == nullptr)
+        return "";
+    std::ostringstream ss;
+    ss << "Backtrace: " << std::endl;
+    for (int i = 0; i < bt_len; i++)
+        ss << "  " << bt_symbols[i] << std::endl;
+    free(bt_symbols);
+    return ss.str();
+}
+#else
+std::string get_backtrace_str() { return ""; }
+#endif
+
+void do_error()
+{
+    std::string bt = get_backtrace_str();
+
+    std::exception_ptr eptr = std::current_exception();
+    std::string err_msg = "Unknown Exception Type";
+
+    try {
+        if (eptr) {
+            std::rethrow_exception(eptr);
+        }
+    } catch (const std::exception &e) {
+        err_msg = e.what();
+    } catch (...) {
+    }
+
+    QString msg;
+    QTextStream out(&msg);
+    out << "Internal Error: " << err_msg.c_str() << "\n";
+    out << bt.c_str();
+    QMessageBox::critical(0, "Error", msg);
+    std::abort();
+}
+
+} // namespace
 
 Application::Application(int &argc, char **argv, bool noantialiasing) : QApplication(argc, argv)
 {
@@ -64,23 +115,18 @@ Application::Application(int &argc, char **argv, bool noantialiasing) : QApplica
 #ifdef _WIN32
     SetConsoleCtrlHandler((PHANDLER_ROUTINE)WinHandler, TRUE);
 #endif
+
+    std::set_terminate(do_error);
 }
 
 bool Application::notify(QObject *receiver, QEvent *event)
 {
-    bool retVal = true;
     try {
-        retVal = QApplication::notify(receiver, event);
-    } catch (const assertion_failure &ex) {
-        QString msg;
-        QTextStream out(&msg);
-        out << ex.filename.c_str() << " at " << ex.line << "\n";
-        out << ex.msg.c_str();
-        QMessageBox::critical(0, "Error", msg);
-    } catch (...) {
-        QMessageBox::critical(0, "Error", "Fatal error !!!");
+        return QApplication::notify(receiver, event);
+    } catch (log_execution_error_exception) {
+        QMessageBox::critical(0, "Error", "Pass failed, see log for details!");
+        return true;
     }
-    return retVal;
 }
 
 NEXTPNR_NAMESPACE_END
