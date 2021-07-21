@@ -182,6 +182,12 @@ static int set_property(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *
     return TCL_OK;
 }
 
+static int create_clock(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
+{
+    // FIXME: add implementation
+    return TCL_OK;
+}
+
 TclInterp::TclInterp(Context *ctx)
 {
     interp = Tcl_CreateInterp();
@@ -201,6 +207,7 @@ TclInterp::TclInterp(Context *ctx)
     Tcl_CreateObjCommand(interp, "get_ports", get_ports, ctx, nullptr);
     Tcl_CreateObjCommand(interp, "get_cells", get_cells, ctx, nullptr);
     Tcl_CreateObjCommand(interp, "set_property", set_property, ctx, nullptr);
+    Tcl_CreateObjCommand(interp, "create_clock", create_clock, ctx, nullptr);
 }
 
 TclInterp::~TclInterp() { Tcl_DeleteInterp(interp); }
