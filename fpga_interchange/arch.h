@@ -39,9 +39,9 @@
 #include "dedicated_interconnect.h"
 #include "lookahead.h"
 #include "pseudo_pip_model.h"
+#include "site_lut_mapping_cache.h"
 #include "site_router.h"
 #include "site_routing_cache.h"
-#include "site_lut_mapping_cache.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -51,6 +51,7 @@ struct ArchArgs
     std::string package;
     bool rebuild_lookahead;
     bool dont_write_lookahead;
+    bool disable_lut_mapping_cache;
 };
 
 struct ArchRanges

@@ -1041,13 +1041,14 @@ static void apply_routing(Context *ctx, const SiteArch &site_arch, pool<std::pai
 static bool map_luts_in_site(const SiteInformation &site_info, pool<std::pair<IdString, IdString>> *blocked_wires)
 {
     const Context *ctx = site_info.ctx;
+    bool enable_cache = !ctx->arch_args.disable_lut_mapping_cache;
 
     // Create a site LUT mapping key
     SiteLutMappingKey key = SiteLutMappingKey::create(site_info);
 
     // Get the solution from cache. If not found then compute it
     SiteLutMappingResult lutMapping;
-    if (!ctx->site_lut_mapping_cache.get(key, &lutMapping)) {
+    if (!enable_cache || !ctx->site_lut_mapping_cache.get(key, &lutMapping)) {
 
         const std::vector<LutElement> &lut_elements = ctx->lut_elements.at(site_info.tile_type);
         std::vector<LutMapper> lut_mappers;
@@ -1090,7 +1091,9 @@ static bool map_luts_in_site(const SiteInformation &site_info, pool<std::pair<Id
         lutMapping.isValid = res;
 
         // Add the solution to the cache
-        ctx->site_lut_mapping_cache.add(key, lutMapping);
+        if (enable_cache) {
+            ctx->site_lut_mapping_cache.add(key, lutMapping);
+        }
     }
 
     // Apply the solution if valid

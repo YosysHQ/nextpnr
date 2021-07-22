@@ -814,10 +814,12 @@ bool Arch::place()
     archInfoToAttributes();
 
     // Print site LUT mapping caching stats
-    log_info("Site LUT mapping cache stats:\n");
-    log_info("    miss ratio: %.1f%%\n", getCtx()->site_lut_mapping_cache.getMissRatio() * 100.0f);
-    log_info("    peak size : %zuMB (%zu items)\n", getCtx()->site_lut_mapping_cache.getSizeMB(),
-             getCtx()->site_lut_mapping_cache.getCount());
+    if (!getCtx()->arch_args.disable_lut_mapping_cache) {
+        log_info("Site LUT mapping cache stats:\n");
+        log_info("    miss ratio: %.1f%%\n", getCtx()->site_lut_mapping_cache.getMissRatio() * 100.0f);
+        log_info("    peak size : %zuMB (%zu items)\n", getCtx()->site_lut_mapping_cache.getSizeMB(),
+                 getCtx()->site_lut_mapping_cache.getCount());
+    }
 
     getCtx()->check();
 

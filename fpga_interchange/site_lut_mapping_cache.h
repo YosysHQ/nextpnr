@@ -20,8 +20,8 @@
 #ifndef SITE_LUT_MAPPING_CACHE_H
 #define SITE_LUT_MAPPING_CACHE_H
 
-#include "nextpnr_namespaces.h"
 #include "idstring.h"
+#include "nextpnr_namespaces.h"
 #include "site_arch.h"
 
 NEXTPNR_NAMESPACE_BEGIN
