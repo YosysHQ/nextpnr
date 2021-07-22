@@ -57,6 +57,7 @@ po::options_description FpgaInterchangeCommandHandler::getArchOptions()
     specific.add_options()("package", po::value<std::string>(), "Package to use");
     specific.add_options()("rebuild-lookahead", "Ignore lookahead cache and rebuild");
     specific.add_options()("dont-write-lookahead", "Don't write the lookahead file");
+    specific.add_options()("disable-lut-mapping-cache", "Disable caching of LUT mapping solutions in site router");
 
     return specific;
 }
@@ -76,6 +77,7 @@ std::unique_ptr<Context> FpgaInterchangeCommandHandler::createContext(dict<std::
     ArchArgs chipArgs;
     chipArgs.rebuild_lookahead = vm.count("rebuild_lookahead") != 0;
     chipArgs.dont_write_lookahead = vm.count("dont_write_lookahead") != 0;
+    chipArgs.disable_lut_mapping_cache = vm.count("disable-lut-mapping-cache") != 0;
 
     if (!vm.count("chipdb")) {
         log_error("chip database binary must be provided\n");

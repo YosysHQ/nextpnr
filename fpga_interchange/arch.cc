@@ -814,6 +814,14 @@ bool Arch::place()
     getCtx()->attrs[getCtx()->id("step")] = std::string("place");
     archInfoToAttributes();
 
+    // Print site LUT mapping caching stats
+    if (!getCtx()->arch_args.disable_lut_mapping_cache) {
+        log_info("Site LUT mapping cache stats:\n");
+        log_info("    miss ratio: %.1f%%\n", getCtx()->site_lut_mapping_cache.getMissRatio() * 100.0f);
+        log_info("    peak size : %zuMB (%zu items)\n", getCtx()->site_lut_mapping_cache.getSizeMB(),
+                 getCtx()->site_lut_mapping_cache.getCount());
+    }
+
     getCtx()->check();
 
     return true;
@@ -836,6 +844,9 @@ static void prepare_sites_for_routing(Context *ctx)
     // Clear the site routing cache. This is because routing at this stage is done with the extra constraint of blocked
     // pins to ensure a routeable pin choice.
     ctx->site_routing_cache.clear();
+
+    // Clear the LUT mapping cache
+    ctx->site_lut_mapping_cache.clear();
 
     // Have site router bind site routing (via bindPip and bindWire).
     // This is important so that the pseudo pips are correctly blocked prior

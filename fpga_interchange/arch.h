@@ -39,6 +39,7 @@
 #include "dedicated_interconnect.h"
 #include "lookahead.h"
 #include "pseudo_pip_model.h"
+#include "site_lut_mapping_cache.h"
 #include "site_router.h"
 #include "site_routing_cache.h"
 
@@ -50,6 +51,7 @@ struct ArchArgs
     std::string package;
     bool rebuild_lookahead;
     bool dont_write_lookahead;
+    bool disable_lut_mapping_cache;
 };
 
 struct ArchRanges
@@ -1133,6 +1135,7 @@ struct Arch : ArchAPI<ArchRanges>
     Lookahead lookahead;
     mutable RouteNodeStorage node_storage;
     mutable SiteRoutingCache site_routing_cache;
+    mutable SiteLutMappingCache site_lut_mapping_cache;
     bool disallow_site_routing;
     CellParameters cell_parameters;
 

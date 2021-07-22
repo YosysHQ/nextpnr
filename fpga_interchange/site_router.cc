@@ -1050,42 +1050,71 @@ static void apply_routing(Context *ctx, const SiteArch &site_arch, pool<std::pai
 static bool map_luts_in_site(const SiteInformation &site_info, pool<std::pair<IdString, IdString>> *blocked_wires)
 {
     const Context *ctx = site_info.ctx;
-    const std::vector<LutElement> &lut_elements = ctx->lut_elements.at(site_info.tile_type);
-    std::vector<LutMapper> lut_mappers;
-    lut_mappers.reserve(lut_elements.size());
-    for (size_t i = 0; i < lut_elements.size(); ++i) {
-        lut_mappers.push_back(LutMapper(lut_elements[i]));
+    bool enable_cache = !ctx->arch_args.disable_lut_mapping_cache;
+
+    // Create a site LUT mapping key
+    SiteLutMappingKey key = SiteLutMappingKey::create(site_info);
+
+    // Get the solution from cache. If not found then compute it
+    SiteLutMappingResult lutMapping;
+    if (!enable_cache || !ctx->site_lut_mapping_cache.get(key, &lutMapping)) {
+
+        const std::vector<LutElement> &lut_elements = ctx->lut_elements.at(site_info.tile_type);
+        std::vector<LutMapper> lut_mappers;
+        lut_mappers.reserve(lut_elements.size());
+        for (size_t i = 0; i < lut_elements.size(); ++i) {
+            lut_mappers.push_back(LutMapper(lut_elements[i]));
+        }
+
+        for (CellInfo *cell : site_info.cells_in_site) {
+            if (cell->lut_cell.pins.empty()) {
+                continue;
+            }
+
+            BelId bel = cell->bel;
+            const auto &bel_data = bel_info(ctx->chip_info, bel);
+            if (bel_data.lut_element != -1) {
+                lut_mappers[bel_data.lut_element].cells.push_back(cell);
+            }
+        }
+
+        bool res = true;
+
+        lutMapping.blockedWires.clear();
+        for (LutMapper lut_mapper : lut_mappers) {
+            if (lut_mapper.cells.empty()) {
+                continue;
+            }
+
+            pool<const LutBel *, hash_ptr_ops> blocked_luts;
+            if (!lut_mapper.remap_luts(ctx, &lutMapping, &blocked_luts)) {
+                res = false;
+                break;
+            }
+
+            for (const LutBel *lut_bel : blocked_luts) {
+                lutMapping.blockedWires.emplace(std::make_pair(lut_bel->name, lut_bel->output_pin));
+            }
+        }
+
+        lutMapping.isValid = res;
+
+        // Add the solution to the cache
+        if (enable_cache) {
+            ctx->site_lut_mapping_cache.add(key, lutMapping);
+        }
     }
 
-    for (CellInfo *cell : site_info.cells_in_site) {
-        if (cell->lut_cell.pins.empty()) {
-            continue;
-        }
+    // Apply the solution if valid
+    if (lutMapping.isValid) {
 
-        BelId bel = cell->bel;
-        const auto &bel_data = bel_info(ctx->chip_info, bel);
-        if (bel_data.lut_element != -1) {
-            lut_mappers[bel_data.lut_element].cells.push_back(cell);
-        }
+        lutMapping.apply(site_info);
+
+        blocked_wires->clear();
+        blocked_wires->insert(lutMapping.blockedWires.begin(), lutMapping.blockedWires.end());
     }
 
-    blocked_wires->clear();
-    for (LutMapper lut_mapper : lut_mappers) {
-        if (lut_mapper.cells.empty()) {
-            continue;
-        }
-
-        pool<const LutBel *, hash_ptr_ops> blocked_luts;
-        if (!lut_mapper.remap_luts(ctx, &blocked_luts)) {
-            return false;
-        }
-
-        for (const LutBel *lut_bel : blocked_luts) {
-            blocked_wires->emplace(std::make_pair(lut_bel->name, lut_bel->output_pin));
-        }
-    }
-
-    return true;
+    return lutMapping.isValid;
 }
 
 // Block outputs of unavailable LUTs to prevent site router from using them.
@@ -1255,6 +1284,7 @@ bool SiteRouter::checkSiteRouting(const Context *ctx, const TileStatus &tile_sta
     // Because site routing checks are expensive, cache them.
     // SiteRouter::bindBel/unbindBel should correctly invalid the cache by
     // setting dirty=true.
+
     if (!dirty) {
         return site_ok;
     }
