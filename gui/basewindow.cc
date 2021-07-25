@@ -180,7 +180,7 @@ void BaseMainWindow::createMenusAndBars()
 
     actionAssignBudget = new QAction("Assign Budget", this);
     actionAssignBudget->setIcon(QIcon(":/icons/resources/time_add.png"));
-    actionAssignBudget->setStatusTip("Assign time budget for current design");
+    actionAssignBudget->setStatusTip("Assign timing budget for current design");
     actionAssignBudget->setEnabled(false);
     connect(actionAssignBudget, &QAction::triggered, this, &BaseMainWindow::budget);
 
