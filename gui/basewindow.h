@@ -87,6 +87,8 @@ class BaseMainWindow : public QMainWindow
     void saveMovie();
     void saveSVG();
 
+    void about();
+
   Q_SIGNALS:
     void contextChanged(Context *ctx);
     void updateTreeView();

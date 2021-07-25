@@ -35,6 +35,7 @@
 #include "log.h"
 #include "mainwindow.h"
 #include "pythontab.h"
+#include "version.h"
 
 static void initBasenameResource() { Q_INIT_RESOURCE(base); }
 
@@ -129,6 +130,15 @@ void BaseMainWindow::closeTab(int index) { delete centralTabWidget->widget(index
 
 void BaseMainWindow::writeInfo(std::string text) { console->info(text); }
 
+void BaseMainWindow::about()
+{
+    QString msg;
+    QTextStream out(&msg);
+    out << "nextpnr-" << NPNR_STRINGIFY_MACRO(ARCHNAME) << "\n";
+    out << "Version " << GIT_DESCRIBE_STR;
+    QMessageBox::information(this, "About nextpnr", msg);
+}
+
 void BaseMainWindow::createMenusAndBars()
 {
     // File menu / project toolbar actions
@@ -140,6 +150,7 @@ void BaseMainWindow::createMenusAndBars()
 
     // Help menu actions
     QAction *actionAbout = new QAction("About", this);
+    connect(actionAbout, &QAction::triggered, this, &BaseMainWindow::about);
 
     // Gile menu options
     actionNew = new QAction("New", this);
@@ -169,7 +180,7 @@ void BaseMainWindow::createMenusAndBars()
 
     actionAssignBudget = new QAction("Assign Budget", this);
     actionAssignBudget->setIcon(QIcon(":/icons/resources/time_add.png"));
-    actionAssignBudget->setStatusTip("Assign time budget for current design");
+    actionAssignBudget->setStatusTip("Assign timing budget for current design");
     actionAssignBudget->setEnabled(false);
     connect(actionAssignBudget, &QAction::triggered, this, &BaseMainWindow::budget);
 

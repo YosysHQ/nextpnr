@@ -655,8 +655,8 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
         DelayQuad delay = ctx->getWireDelay(wire);
 
         QtProperty *delayItem = addSubGroup(topItem, "Delay");
-        addProperty(delayItem, QVariant::Double, "Min Raise", delay.minRiseDelay());
-        addProperty(delayItem, QVariant::Double, "Max Raise", delay.maxRiseDelay());
+        addProperty(delayItem, QVariant::Double, "Min Rise", delay.minRiseDelay());
+        addProperty(delayItem, QVariant::Double, "Max Rise", delay.maxRiseDelay());
         addProperty(delayItem, QVariant::Double, "Min Fall", delay.minFallDelay());
         addProperty(delayItem, QVariant::Double, "Max Fall", delay.maxFallDelay());
 
@@ -724,8 +724,8 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
         DelayQuad delay = ctx->getPipDelay(pip);
 
         QtProperty *delayItem = addSubGroup(topItem, "Delay");
-        addProperty(delayItem, QVariant::Double, "Min Raise", delay.minRiseDelay());
-        addProperty(delayItem, QVariant::Double, "Max Raise", delay.maxRiseDelay());
+        addProperty(delayItem, QVariant::Double, "Min Rise", delay.minRiseDelay());
+        addProperty(delayItem, QVariant::Double, "Max Rise", delay.maxRiseDelay());
         addProperty(delayItem, QVariant::Double, "Min Fall", delay.minFallDelay());
         addProperty(delayItem, QVariant::Double, "Max Fall", delay.maxFallDelay());
     } else if (type == ElementType::NET) {
