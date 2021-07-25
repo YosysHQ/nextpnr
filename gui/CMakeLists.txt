@@ -34,6 +34,7 @@ add_library(gui_${family} STATIC ${GUI_SOURCE_FILES} ${PYTHON_CONSOLE_SRC} ${GUI
 include(${family}/family.cmake)
 
 target_include_directories(gui_${family} PRIVATE ../${family} ${family} ../3rdparty/QtPropertyBrowser/src ../3rdparty/imgui ../3rdparty/qtimgui/)
+target_include_directories(gui_${family} PRIVATE ${CMAKE_BINARY_DIR}/generated)
 if (BUILD_PYTHON)
   target_include_directories(gui_${family} PRIVATE ../3rdparty/python-console ../3rdparty/python-console/modified)
 endif()
