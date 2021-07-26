@@ -101,22 +101,41 @@ void Arch::place_iobufs(WireId pad_wire, NetInfo *net,
             continue;
         for (auto &port : cursor->ports) {
             // Only consider routing downstream from outputs for now
-            if (port.second.type != PORT_OUT || port.second.net == nullptr)
+            if (port.second.net == nullptr)
                 continue;
             NetInfo *ni = port.second.net;
-            WireId src_wire = ctx->getNetinfoSourceWire(ni);
-            for (auto &usr : ni->users) {
-                // Look for unplaced users in the same macro
-                if (usr.cell->bel != BelId() || usr.cell->macro_parent != cursor->macro_parent)
+            if (port.second.type == PORT_OUT) {
+                WireId src_wire = ctx->getNetinfoSourceWire(ni);
+                for (auto &usr : ni->users) {
+                    // Look for unplaced users in the same macro
+                    if (usr.cell->bel != BelId() || usr.cell->macro_parent != cursor->macro_parent)
+                        continue;
+                    // Try and place using dedicated routing
+                    if (search_routing_for_placement(this, src_wire, usr.cell, usr.port, true)) {
+                        // Successful
+                        placed_cells->insert(usr.cell);
+                        place_queue.push(usr.cell);
+                        if (ctx->verbose)
+                            log_info("Placed %s at %s based on dedicated IO macro routing.\n", ctx->nameOf(usr.cell),
+                                     ctx->nameOfBel(usr.cell->bel));
+                    }
+                }
+            } else {
+                auto &drv = ni->driver;
+                // Look for unplaced driver in the same macro
+                if (drv.cell->bel != BelId() || drv.cell->macro_parent != cursor->macro_parent)
                     continue;
-                // Try and place using dedicated routing
-                if (search_routing_for_placement(this, src_wire, usr.cell, usr.port, true)) {
-                    // Successful
-                    placed_cells->insert(usr.cell);
-                    place_queue.push(usr.cell);
-                    if (ctx->verbose)
-                        log_info("Placed %s at %s based on dedicated IO macro routing.\n", ctx->nameOf(usr.cell),
-                                 ctx->nameOfBel(usr.cell->bel));
+                for (auto bel_pin : ctx->getBelPinsForCellPin(cursor, port.first)) {
+                    // Try and place using dedicated routing
+                    WireId dst_wire = ctx->getBelPinWire(cursor->bel, bel_pin);
+                    if (search_routing_for_placement(this, dst_wire, drv.cell, drv.port, false)) {
+                        // Successful
+                        placed_cells->insert(drv.cell);
+                        place_queue.push(drv.cell);
+                        if (ctx->verbose)
+                            log_info("Placed %s at %s based on dedicated IO macro routing.\n", ctx->nameOf(drv.cell),
+                                     ctx->nameOfBel(drv.cell->bel));
+                    }
                 }
             }
         }
