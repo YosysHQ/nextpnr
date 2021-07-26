@@ -808,11 +808,6 @@ struct LogicalNetlistImpl
 
     template <typename TFunc> void foreach_module(TFunc Func) const
     {
-        for (const auto &cell_inst : root.getInstList()) {
-            ModuleReader module(this, cell_inst, /*is_top=*/false);
-            Func(strings.at(cell_inst.getName()), module);
-        }
-
         auto top = root.getTopInst();
         ModuleReader top_module(this, top, /*is_top=*/true);
         Func(strings.at(top.getName()), top_module);
