@@ -77,6 +77,8 @@ void Arch::place_iobufs(WireId pad_wire, NetInfo *net,
     Context *ctx = getCtx();
     for (auto cell_port : tightly_attached_bels) {
         bool downhill = (cell_port.first->ports.at(cell_port.second).type != PORT_OUT);
+        if (cell_port.first->bel != BelId())
+            continue;
         if (search_routing_for_placement(this, pad_wire, cell_port.first, cell_port.second, downhill)) {
             if (ctx->verbose)
                 log_info("Placed IO cell %s:%s at %s.\n", ctx->nameOf(cell_port.first),
@@ -137,6 +139,8 @@ void Arch::pack_ports()
     pool<IdString> package_sites;
     // Package pin -> (Site type -> BelId)
     dict<IdString, std::vector<std::pair<IdString, BelId>>> package_pin_bels;
+    // Placed cells across all IO
+    pool<CellInfo *, hash_ptr_ops> all_placed_io;
     for (const PackagePinPOD &package_pin : chip_info->packages[package_index].pins) {
         IdString pin(package_pin.package_pin);
         IdString bel(package_pin.bel);
@@ -314,12 +318,18 @@ void Arch::pack_ports()
         WireId pad_wire = getBelPinWire(package_bel, pad_pin);
         place_iobufs(pad_wire, ports[port_pair.first].net, tightly_attached_bels, &placed_cells);
 
-        for (CellInfo *cell : placed_cells) {
-            NPNR_ASSERT(cell->bel != BelId());
-            if (!isBelLocationValid(cell->bel)) {
-                explain_bel_status(cell->bel);
-                log_error("Tightly bound BEL %s was not valid!\n", nameOfBel(cell->bel));
-            }
+        for (CellInfo *cell : placed_cells)
+            all_placed_io.insert(cell);
+    }
+
+    // Check at the end of IO placement, because differential pairs might need P and N sides to both be placed to be
+    // legal.
+    for (CellInfo *cell : all_placed_io) {
+        log_info("%s\n", getCtx()->nameOf(cell));
+        NPNR_ASSERT(cell->bel != BelId());
+        if (!isBelLocationValid(cell->bel)) {
+            explain_bel_status(cell->bel);
+            log_error("Tightly bound BEL %s was not valid!\n", nameOfBel(cell->bel));
         }
     }
 }
