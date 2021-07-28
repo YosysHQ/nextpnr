@@ -809,8 +809,9 @@ enum CellPinStyle
     PINSTYLE_INV_PD_CIB = 0x4017, // invertible, pull down by default
     PINSTYLE_INV_PU = 0x4027,     // invertible, pull up by default
 
-    PINSTYLE_IOL_CE = 0x2027, // CE type signal, with explicit 'const-1' config bit
-    PINSTYLE_GATE = 0x1011,   // gated signal that defaults to 0
+    PINSTYLE_IOL_CELSR = 0x3007, // CE type signal, with explicit 'const-1' config bit
+    PINSTYLE_IOL_CLK = 0x3107,   // CE type signal, with explicit 'const-1' config bit
+    PINSTYLE_GATE = 0x1011,      // gated signal that defaults to 0
 };
 
 // This represents the mux options for a pin

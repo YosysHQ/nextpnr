@@ -215,6 +215,31 @@ static const dict<IdString, Arch::CellPinsData> base_cell_pin_data = {
                  {id_U3END3, PINSTYLE_PD_NONCIB},
                  {id_UED0THEN, PINSTYLE_PD_NONCIB},
                  {{}, PINSTYLE_CIB},
+         }},
+        {id_SIOLOGIC,
+         {
+                 {id_SCLKIN, PINSTYLE_IOL_CLK},
+                 {id_SCLKOUT, PINSTYLE_IOL_CLK},
+                 {id_LSRIN, PINSTYLE_IOL_CELSR},
+                 {id_LSROUT, PINSTYLE_IOL_CELSR},
+                 {id_CEIN, PINSTYLE_IOL_CELSR},
+                 {id_CEOUT, PINSTYLE_IOL_CELSR},
+                 {id_TXDATA0, PINSTYLE_CIB},
+                 {id_TXDATA1, PINSTYLE_CIB},
+                 {id_TSDATA0, PINSTYLE_CIB},
+
+         }},
+        {id_IOLOGIC,
+         {
+                 {id_SCLKIN, PINSTYLE_IOL_CLK},
+                 {id_SCLKOUT, PINSTYLE_IOL_CLK},
+                 {id_LSRIN, PINSTYLE_IOL_CELSR},
+                 {id_LSROUT, PINSTYLE_IOL_CELSR},
+                 {id_CEIN, PINSTYLE_IOL_CELSR},
+                 {id_CEOUT, PINSTYLE_IOL_CELSR},
+                 {id_TXDATA0, PINSTYLE_CIB},
+                 {id_TXDATA1, PINSTYLE_CIB},
+                 {id_TSDATA0, PINSTYLE_CIB},
          }}};
 } // namespace
 
