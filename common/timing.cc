@@ -38,10 +38,11 @@ void TimingAnalyser::setup()
     run();
 }
 
-void TimingAnalyser::run()
+void TimingAnalyser::run(bool update_route_delays)
 {
     reset_times();
-    get_route_delays();
+    if (update_route_delays)
+        get_route_delays();
     walk_forward();
     walk_backward();
     compute_slack();
@@ -148,6 +149,8 @@ void TimingAnalyser::get_route_delays()
         }
     }
 }
+
+void TimingAnalyser::set_route_delay(CellPortKey port, DelayPair value) { ports.at(port).route_delay = value; }
 
 void TimingAnalyser::topo_sort()
 {

@@ -97,8 +97,12 @@ struct TimingAnalyser
   public:
     TimingAnalyser(Context *ctx) : ctx(ctx){};
     void setup();
-    void run();
+    void run(bool update_route_delays = true);
     void print_report();
+
+    // This is used when routers etc are not actually binding detailed routing (due to congestion or an abstracted
+    // model), but want to re-run STA with their own calculated delays
+    void set_route_delay(CellPortKey port, DelayPair value);
 
     float get_criticality(CellPortKey port) const { return ports.at(port).worst_crit; }
     float get_setup_slack(CellPortKey port) const { return ports.at(port).worst_setup_slack; }
