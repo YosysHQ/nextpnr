@@ -444,6 +444,8 @@ struct Router2
         // and LUT
         if (iter_count > 7)
             return false; // heuristic to assume we've hit general routing
+        if (wire_data(wire).unavailable)
+            return true;
         if (wire_data(wire).reserved_net != -1 && wire_data(wire).reserved_net != net->udata)
             return true; // reserved for another net
         for (auto bp : ctx->getWireBelPins(wire))

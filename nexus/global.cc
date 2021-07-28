@@ -26,6 +26,18 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+namespace {
+bool str_match(const std::string &s, const std::string &pattern)
+{
+    if (s.size() != pattern.size())
+        return false;
+    for (size_t i = 0; i < s.size(); i++)
+        if (pattern.at(i) != '?' && s.at(i) != pattern.at(i))
+            return false;
+    return true;
+}
+} // namespace
+
 struct NexusGlobalRouter
 {
     Context *ctx;
@@ -39,6 +51,22 @@ struct NexusGlobalRouter
         const std::string &s = dest_basename.str(ctx);
         if (s.size() > 2 && (s[0] == 'H' || s[0] == 'V') && s[1] == '0')
             return false;
+        return true;
+    }
+
+    // These rules make sure global->fabric connections are always routeable, as they won't be ripup-able by the general
+    // router
+    bool routeability_pip_filter(PipId pip) const
+    {
+        IdString dest_basename(ctx->wire_data(ctx->getPipDstWire(pip)).name);
+        const std::string &s = dest_basename.str(ctx);
+        if (str_match(s, "JDI?_DIMUX")) {
+            IdString src_basename(ctx->wire_data(ctx->getPipSrcWire(pip)).name);
+            return str_match(src_basename.str(ctx), "JM?_DIMUX");
+        } else if (str_match(s, "JDL?_DRMUX")) {
+            IdString src_basename(ctx->wire_data(ctx->getPipSrcWire(pip)).name);
+            return str_match(src_basename.str(ctx), "JD?_DRMUX");
+        }
         return true;
     }
 
@@ -141,14 +169,19 @@ struct NexusGlobalRouter
         // This DPHY clock port can't be routed without going through some general routing
         if (sink.cell->type == id_DPHY_CORE && sink.port == id_URXCKINE)
             return true;
+        // Cases where global clocks are driving fabric
+        if ((sink.cell->type == id_OXIDE_COMB && sink.port != id_WCK) ||
+            (sink.cell->type == id_OXIDE_FF && sink.port != id_CLK))
+            return true;
         return false;
     }
 
     void route_clk_net(NetInfo *net)
     {
         for (size_t i = 0; i < net->users.size(); i++)
-            backwards_bfs_route(net, i, 1000000, true,
-                                [&](PipId pip) { return is_relaxed_sink(net->users.at(i)) || global_pip_filter(pip); });
+            backwards_bfs_route(net, i, 1000000, true, [&](PipId pip) {
+                return (is_relaxed_sink(net->users.at(i)) || global_pip_filter(pip)) && routeability_pip_filter(pip);
+            });
         log_info("    routed net '%s' using global resources\n", ctx->nameOf(net));
     }
 
