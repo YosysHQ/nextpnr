@@ -1314,6 +1314,47 @@ struct Router2
 #endif
     }
 
+    delay_t get_route_delay(int net, int usr_idx, int phys_idx)
+    {
+        auto &nd = nets.at(net);
+        auto &ad = nd.arcs.at(usr_idx).at(phys_idx);
+        WireId cursor = ad.sink_wire;
+        if (cursor == WireId() || nd.src_wire == WireId())
+            return 0;
+        delay_t delay = 0;
+        while (true) {
+            delay += ctx->getWireDelay(cursor).maxDelay();
+            const auto &wd = wire_data(cursor);
+            if (!wd.bound_nets.count(net))
+                break;
+            auto &bound = wd.bound_nets.at(net);
+            if (bound.second == PipId())
+                break;
+            delay += ctx->getPipDelay(bound.second).maxDelay();
+            cursor = ctx->getPipSrcWire(bound.second);
+        }
+        NPNR_ASSERT(cursor == nd.src_wire);
+        return delay;
+    }
+
+    void update_route_delays()
+    {
+        for (int net : route_queue) {
+            NetInfo *ni = nets_by_udata.at(net);
+#ifdef ARCH_ECP5
+            if (ni->is_global)
+                continue;
+#endif
+            auto &nd = nets.at(net);
+            for (int i = 0; i < int(nd.arcs.size()); i++) {
+                delay_t arc_delay = 0;
+                for (int j = 0; j < int(nd.arcs.at(i).size()); j++)
+                    arc_delay = std::max(arc_delay, get_route_delay(net, i, j));
+                tmg.set_route_delay(CellPortKey(ni->users.at(i)), DelayPair(arc_delay));
+            }
+        }
+    }
+
     void operator()()
     {
         log_info("Running router2...\n");
@@ -1341,7 +1382,7 @@ struct Router2
             if (timing_driven && (int(route_queue.size()) > (int(nets_by_udata.size()) / 50))) {
                 // Heuristic: reduce runtime by skipping STA in the case of a "long tail" of a few
                 // congested nodes
-                tmg.run();
+                tmg.run(iter == 1);
                 for (auto n : route_queue) {
                     NetInfo *ni = nets_by_udata.at(n);
                     auto &net = nets.at(n);
@@ -1363,6 +1404,7 @@ struct Router2
             }
 #endif
             do_route();
+            update_route_delays();
             route_queue.clear();
             update_congestion();
 #if 0
