@@ -257,11 +257,11 @@ struct NexusFasmWriter
             if (pin_style & PINOPT_INV) {
                 if (pin_mux == PINMUX_INV || pin_mux == PINMUX_0)
                     write_bit(stringf("%sMUX.INV", ctx->nameOf(port.first)));
-                else if (pin_mux == PINMUX_SIG)
+                else if (pin_mux == PINMUX_SIG && !(pin_style & PINBIT_GATED))
                     write_bit(stringf("%sMUX.%s", ctx->nameOf(port.first), ctx->nameOf(port.first)));
             }
             // Pins that must be explictly enabled
-            if ((pin_style & PINBIT_GATED) && (pin_mux == PINMUX_SIG))
+            if ((pin_style & PINBIT_GATED) && (pin_mux == PINMUX_SIG) && (port.second.net != nullptr))
                 write_bit(stringf("%sMUX.%s", ctx->nameOf(port.first), ctx->nameOf(port.first)));
             // Pins that must be explictly set to 1 rather than just left floating
             if ((pin_style & PINBIT_1) && (pin_mux == PINMUX_1))
@@ -558,6 +558,18 @@ struct NexusFasmWriter
     bool is_mux_param(const std::string &key)
     {
         return (key.size() >= 3 && (key.compare(key.size() - 3, 3, "MUX") == 0));
+    }
+
+    // Write config for some kind of IOLOGIC cell
+    void write_iol(const CellInfo *cell)
+    {
+        BelId bel = cell->bel;
+        push_bel(bel);
+        write_enum(cell, "MODE");
+        write_enum(cell, "IDDRX1_ODDRX1.OUTPUT");
+        write_enum(cell, "GSR", "DISABLED");
+        write_cell_muxes(cell);
+        pop();
     }
 
     // Write config for some kind of DSP cell
@@ -872,6 +884,8 @@ struct NexusFasmWriter
                 write_lram(ci);
             else if (ci->type == id_DPHY_CORE)
                 write_dphy(ci);
+            else if (ci->type == id_IOLOGIC || ci->type == id_SIOLOGIC)
+                write_iol(ci);
             blank();
         }
         // Handle DCC route-throughs

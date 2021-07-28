@@ -1147,6 +1147,92 @@ struct NexusPacker
         }
     }
 
+    void transform_iologic()
+    {
+        dict<IdString, XFormRule> iol_rules;
+        iol_rules[id_IDDRX1].new_type = id_IOLOGIC;
+        iol_rules[id_IDDRX1].set_params.emplace_back(id_MODE, std::string("IDDRX1_ODDRX1"));
+        iol_rules[id_IDDRX1].port_xform[id_SCLK] = id_SCLKIN;
+        iol_rules[id_IDDRX1].port_xform[id_RST] = id_LSRIN;
+        iol_rules[id_IDDRX1].port_xform[id_D] = id_DI;
+        iol_rules[id_IDDRX1].port_xform[id_Q0] = id_RXDATA0;
+        iol_rules[id_IDDRX1].port_xform[id_Q1] = id_RXDATA1;
+
+        iol_rules[id_ODDRX1].new_type = id_IOLOGIC;
+        iol_rules[id_ODDRX1].set_params.emplace_back(id_MODE, std::string("IDDRX1_ODDRX1"));
+        iol_rules[id_ODDRX1].set_params.emplace_back(ctx->id("IDDRX1_ODDRX1.OUTPUT"), std::string("ENABLED"));
+        iol_rules[id_ODDRX1].port_xform[id_SCLK] = id_SCLKOUT;
+        iol_rules[id_ODDRX1].port_xform[id_RST] = id_LSROUT;
+        iol_rules[id_ODDRX1].port_xform[id_Q] = id_DOUT;
+        iol_rules[id_ODDRX1].port_xform[id_D0] = id_TXDATA0;
+        iol_rules[id_ODDRX1].port_xform[id_D1] = id_TXDATA1;
+
+        generic_xform(iol_rules, true);
+    }
+
+    void merge_iol_cell(CellInfo *base, CellInfo *mergee)
+    {
+        for (auto &param : mergee->params) {
+            if (param.first == id_MODE && base->params.count(id_MODE) && param.second.as_string() == "IREG_OREG")
+                continue; // mixed tristate register and I/ODDR
+            base->params[param.first] = param.second;
+        }
+        for (auto &port : mergee->ports) {
+            replace_port(mergee, port.first, base, port.first);
+        }
+        ctx->cells.erase(mergee->name);
+    }
+
+    void constrain_merge_iol()
+    {
+        dict<IdString, std::vector<CellInfo *>> io_to_iol;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (ci->type != id_IOLOGIC)
+                continue;
+            CellInfo *iob = nullptr;
+            NetInfo *di = get_net_or_empty(ci, id_DI);
+            if (di != nullptr && di->driver.cell != nullptr)
+                iob = di->driver.cell;
+            NetInfo *dout = get_net_or_empty(ci, id_DOUT);
+            if (dout != nullptr && dout->users.size() == 1)
+                iob = dout->users.at(0).cell;
+            NetInfo *tout = get_net_or_empty(ci, id_DOUT);
+            if (tout != nullptr && tout->users.size() == 1)
+                iob = tout->users.at(0).cell;
+            if (iob->type != id_SEIO18_CORE && iob->type != id_SEIO33_CORE && iob->type != id_DIFFIO18_CORE)
+                log_error("Failed to find associated IOB for IOLOGIC %s\n", ctx->nameOf(ci));
+            io_to_iol[iob->name].push_back(ci);
+        }
+        for (auto &io_iol : io_to_iol) {
+            // Merge all IOLOGIC on an IO into a base IOLOGIC
+            CellInfo *iol = io_iol.second.at(0);
+            for (size_t i = 1; i < io_iol.second.size(); i++)
+                merge_iol_cell(iol, io_iol.second.at(i));
+            // Constrain, and update type if appropriate
+            CellInfo *iob = ctx->cells.at(io_iol.first).get();
+            if (iob->type == id_SEIO33_CORE)
+                iol->type = id_SIOLOGIC;
+            Loc iol_loc = ctx->getBelLocation(get_bel_attr(iob));
+            if (iob->type == id_DIFFIO18_CORE)
+                iol_loc.z = 3;
+            else
+                iol_loc.z += 3;
+            BelId iol_bel = ctx->getBelByLocation(iol_loc);
+            NPNR_ASSERT(iol_bel != BelId());
+            NPNR_ASSERT(ctx->getBelType(iol_bel) == iol->type);
+            log_info("Constraining IOLOGIC %s to bel %s\n", ctx->nameOf(iol), ctx->nameOfBel(iol_bel));
+            iol->attrs[id_BEL] = ctx->getBelName(iol_bel).str(ctx);
+        }
+    }
+
+    void pack_iologic()
+    {
+        log_info("Packing IOLOGIC...\n");
+        transform_iologic();
+        constrain_merge_iol();
+    }
+
     void pack_widefn()
     {
         std::vector<CellInfo *> widefns;
@@ -1994,6 +2080,7 @@ struct NexusPacker
     void operator()()
     {
         pack_io();
+        pack_iologic();
         pack_dsps();
         convert_prims();
         pack_bram();
