@@ -329,7 +329,11 @@ struct Router2
         if (b.first == 1) {
             b.second = pip;
         } else {
-            NPNR_ASSERT(b.second == pip);
+            if (b.second != pip)
+                log_error("internal inconsistency: attempting to bind pip %s to net %s, but wire %s is already driven "
+                          "by pip %s\n",
+                          ctx->nameOfPip(pip), ctx->nameOf(net), ctx->nameOfWire(flat_wires.at(wire).w),
+                          ctx->nameOfPip(b.second));
         }
     }
 
