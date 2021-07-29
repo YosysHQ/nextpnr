@@ -285,8 +285,16 @@ PYBIND11_EMBEDDED_MODULE(MODULE_NAME, m)
     WRAP_MAP(m, WireMap, wrap_context<PipMap &>, "WireMap");
     WRAP_MAP_UPTR(m, RegionMap, "RegionMap");
 
-    WRAP_VECTOR(m, PortRefVector, wrap_context<PortRef &>);
+    typedef dict<IdString, ClockFmax> ClockFmaxMap;
+    WRAP_MAP(m, ClockFmaxMap, pass_through<ClockFmax>, "ClockFmaxMap");
 
+    auto clk_fmax_cls = py::class_<ClockFmax>(m, "ClockFmax")
+                                .def_readonly("achieved", &ClockFmax::achieved)
+                                .def_readonly("constraint", &ClockFmax::constraint);
+
+    auto tmg_result_cls = py::class_<ContextualWrapper<TimingResult &>>(m, "TimingResult");
+    readonly_wrapper<TimingResult &, decltype(&TimingResult::clock_fmax), &TimingResult::clock_fmax,
+                     wrap_context<ClockFmaxMap &>>::def_wrap(tmg_result_cls, "clock_fmax");
     arch_wrap_python(m);
 }
 

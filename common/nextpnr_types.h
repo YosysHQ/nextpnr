@@ -217,6 +217,18 @@ struct ClockConstraint
     DelayPair period;
 };
 
+struct ClockFmax
+{
+    float achieved;
+    float constraint;
+};
+
+struct TimingResult
+{
+    // Achieved and target Fmax for all clock domains
+    dict<IdString, ClockFmax> clock_fmax;
+};
+
 // Represents the contents of a non-leaf cell in a design
 // with hierarchy
 

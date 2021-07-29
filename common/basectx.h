@@ -84,6 +84,9 @@ struct BaseCtx
     // Context meta data
     dict<IdString, Property> attrs;
 
+    // Fmax data post timing analysis
+    TimingResult timing_result;
+
     Context *as_ctx = nullptr;
 
     // Has the frontend loaded a design?

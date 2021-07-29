@@ -9,6 +9,8 @@ readonly_wrapper<Context, decltype(&Context::hierarchy), &Context::hierarchy, wr
         ctx_cls, "hierarchy");
 readwrite_wrapper<Context, decltype(&Context::top_module), &Context::top_module, conv_to_str<IdString>,
                   conv_from_str<IdString>>::def_wrap(ctx_cls, "top_module");
+readonly_wrapper<Context, decltype(&Context::timing_result), &Context::timing_result,
+                 wrap_context<TimingResult &>>::def_wrap(ctx_cls, "timing_result");
 
 fn_wrapper_0a<Context, decltype(&Context::getNameDelimiter), &Context::getNameDelimiter, pass_through<char>>::def_wrap(
         ctx_cls, "getNameDelimiter");

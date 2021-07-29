@@ -1315,6 +1315,8 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
     if (print_fmax) {
         log_break();
         unsigned max_width = 0;
+        auto &result = ctx->timing_result;
+        result.clock_fmax.clear();
         for (auto &clock : clock_reports)
             max_width = std::max<unsigned>(max_width, clock.first.str(ctx).size());
         for (auto &clock : clock_reports) {
@@ -1323,6 +1325,9 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
             float target = ctx->setting<float>("target_freq") / 1e6;
             if (ctx->nets.at(clock.first)->clkconstr)
                 target = 1000 / ctx->getDelayNS(ctx->nets.at(clock.first)->clkconstr->period.minDelay());
+
+            result.clock_fmax[clock.first].achieved = clock_fmax[clock.first];
+            result.clock_fmax[clock.first].constraint = target;
 
             bool passed = target < clock_fmax[clock.first];
             if (!warn_on_failure || passed)
