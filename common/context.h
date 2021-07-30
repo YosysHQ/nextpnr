@@ -76,6 +76,10 @@ struct Context : Arch, DeterministicRNG
 
     // --------------------------------------------------------------
 
+    // provided by report.cc
+    void writeReport(std::ostream &out) const;
+    // --------------------------------------------------------------
+
     uint32_t checksum() const;
 
     void check() const;

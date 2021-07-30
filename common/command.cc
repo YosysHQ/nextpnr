@@ -173,6 +173,9 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("router2-heatmap", po::value<std::string>(),
                           "prefix for router2 resource congestion heatmaps");
 
+    general.add_options()("report", po::value<std::string>(),
+                          "write timing and utilization report in JSON format to file");
+
     general.add_options()("placed-svg", po::value<std::string>(), "write render of placement to SVG file");
     general.add_options()("routed-svg", po::value<std::string>(), "write render of routing to SVG file");
 
@@ -422,6 +425,14 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
         if (!f)
             log_error("Failed to open SDF file '%s' for writing.\n", filename.c_str());
         ctx->writeSDF(f, vm.count("sdf-cvc"));
+    }
+
+    if (vm.count("report")) {
+        std::string filename = vm["report"].as<std::string>();
+        std::ofstream f(filename);
+        if (!f)
+            log_error("Failed to open report file '%s' for writing.\n", filename.c_str());
+        ctx->writeReport(f);
     }
 
 #ifndef NO_PYTHON
