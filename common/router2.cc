@@ -579,6 +579,7 @@ struct Router2
         int backwards_limit =
                 ctx->getBelGlobalBuf(net->driver.cell->bel) ? cfg.global_backwards_max_iter : cfg.backwards_max_iter;
         t.backwards_queue.push(wire_to_idx.at(dst_wire));
+        set_visited(t, wire_to_idx.at(dst_wire), PipId(), WireScore());
         while (!t.backwards_queue.empty() && backwards_iter < backwards_limit) {
             int cursor = t.backwards_queue.front();
             t.backwards_queue.pop();
@@ -645,6 +646,9 @@ struct Router2
             bind_pip_internal(net, i, src_wire_idx, PipId());
             while (was_visited(cursor_fwd)) {
                 auto &v = flat_wires.at(cursor_fwd).visit;
+                if (v.pip == PipId()) {
+                    break;
+                }
                 cursor_fwd = wire_to_idx.at(ctx->getPipDstWire(v.pip));
                 bind_pip_internal(net, i, cursor_fwd, v.pip);
                 if (ctx->debug) {
