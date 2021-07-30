@@ -329,7 +329,11 @@ struct Router2
         if (b.first == 1) {
             b.second = pip;
         } else {
-            NPNR_ASSERT(b.second == pip);
+            if (b.second != pip)
+                log_error("internal inconsistency: attempting to bind pip %s to net %s, but wire %s is already driven "
+                          "by pip %s\n",
+                          ctx->nameOfPip(pip), ctx->nameOf(net), ctx->nameOfWire(flat_wires.at(wire).w),
+                          ctx->nameOfPip(b.second));
         }
     }
 
@@ -575,6 +579,7 @@ struct Router2
         int backwards_limit =
                 ctx->getBelGlobalBuf(net->driver.cell->bel) ? cfg.global_backwards_max_iter : cfg.backwards_max_iter;
         t.backwards_queue.push(wire_to_idx.at(dst_wire));
+        set_visited(t, wire_to_idx.at(dst_wire), PipId(), WireScore());
         while (!t.backwards_queue.empty() && backwards_iter < backwards_limit) {
             int cursor = t.backwards_queue.front();
             t.backwards_queue.pop();
@@ -641,6 +646,9 @@ struct Router2
             bind_pip_internal(net, i, src_wire_idx, PipId());
             while (was_visited(cursor_fwd)) {
                 auto &v = flat_wires.at(cursor_fwd).visit;
+                if (v.pip == PipId()) {
+                    break;
+                }
                 cursor_fwd = wire_to_idx.at(ctx->getPipDstWire(v.pip));
                 bind_pip_internal(net, i, cursor_fwd, v.pip);
                 if (ctx->debug) {
