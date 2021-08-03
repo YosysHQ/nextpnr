@@ -1488,7 +1488,10 @@ class Ecp5Packer
                 rename_param(ci, "CLKRMUX", "CLKRMUX");
                 rename_param(ci, "CSDECODE_W", "CSDECODE_A");
                 rename_param(ci, "CSDECODE_R", "CSDECODE_B");
-                rename_param(ci, "REGMODE", "REGMODE_B");
+                std::string outreg = str_or_default(ci->params, ctx->id("REGMODE"), "NOREG");
+                ci->params[ctx->id("REGMODE_A")] = outreg;
+                ci->params[ctx->id("REGMODE_B")] = outreg;
+                ci->params.erase(ctx->id("REGMODE"));
                 rename_param(ci, "DATA_WIDTH_R", "DATA_WIDTH_B");
                 if (ci->ports.count(id_RST)) {
                     autocreate_empty_port(ci, id_RSTA);
