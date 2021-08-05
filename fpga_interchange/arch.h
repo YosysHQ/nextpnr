@@ -859,6 +859,9 @@ struct Arch : ArchAPI<ArchRanges>
         const TileStatus &tile_status = iter->second;
         const CellInfo *cell = tile_status.boundcells[bel.index];
 
+        auto &bel_data = bel_info(chip_info, bel);
+        auto &site_status = get_site_status(tile_status, bel_data);
+
         if (cell != nullptr) {
             if (!dedicated_interconnect.isBelLocationValid(bel, cell))
                 return false;
@@ -873,14 +876,28 @@ struct Arch : ArchAPI<ArchRanges>
             if (!is_cell_valid_constraints(cell, tile_status, explain_constraints)) {
                 return false;
             }
+
+            for (auto ci : site_status.cells_in_site) {
+                if (ci->cluster != ClusterId() && cell->cluster != ClusterId())
+                    continue;
+                else if (ci->cluster == cell->cluster)
+                    continue;
+
+                if (ci->cluster != ClusterId() &&
+                    cluster_info(chip_info, clusters.at(ci->cluster).index).disallow_other_cells)
+                    return false;
+
+                if (cell->cluster != ClusterId() &&
+                    cluster_info(chip_info, clusters.at(cell->cluster).index).disallow_other_cells)
+                    return false;
+            }
         }
 
         // Still check site status if cell is nullptr; as other bels in the site could be illegal (for example when
         // dedicated paths can no longer be used after ripping up a cell)
-        auto &bel_data = bel_info(chip_info, bel);
-        bool site_status = get_site_status(tile_status, bel_data).checkSiteRouting(getCtx(), tile_status);
+        bool routing_status = site_status.checkSiteRouting(getCtx(), tile_status);
 
-        return site_status;
+        return routing_status;
     }
 
     CellInfo *getClusterRootCell(ClusterId cluster) const override;
