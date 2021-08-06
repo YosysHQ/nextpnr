@@ -229,8 +229,10 @@ static void pack_io(Context *ctx)
                 iob = net_only_drives(ctx, ci->ports.at(id_O).net, is_nextpnr_iob, id_I);
                 break;
             case ID_IOBUF:
+                iob = net_driven_by(ctx, ci->ports.at(id_IO).net, is_nextpnr_iob, id_O);
+                break;
             case ID_TBUF:
-                log_error("untested tristate stuff");
+                iob = net_only_drives(ctx, ci->ports.at(id_O).net, is_nextpnr_iob, id_I);
                 break;
             default:
                 break;
