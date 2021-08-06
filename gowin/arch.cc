@@ -485,8 +485,9 @@ DelayQuad Arch::getWireTypeDelay(IdString wire)
 void Arch::read_cst(std::istream &in)
 {
     std::regex iobre = std::regex("IO_LOC +\"([^\"]+)\" +([^ ;]+) *;.*");
-    std::regex portre = std::regex("IO_PORT +\"([^\"]+)\" +([^ =;]+=[^ =;]+) *;.*");
-    std::smatch match;
+    std::regex portre = std::regex("IO_PORT +\"([^\"]+)\" +([^;]+;).*");
+    std::regex port_attrre = std::regex("([^ =;]+=[^ =;]+) *([^;]*;)");
+    std::smatch match, match_attr;
     std::string line;
     bool io_loc;
     while (!in.eof()) {
@@ -517,10 +518,14 @@ void Arch::read_cst(std::istream &in)
             std::string bel = IdString(belname->src_id).str(this);
             it->second->attrs[IdString(ID_BEL)] = bel;
         } else { // IO_PORT attr=value
-            std::string attr = "&";
-            attr += match[2];
-            boost::algorithm::to_upper(attr);
-            it->second->attrs[id(attr)] = 1;
+            std::string attr_val = match[2];
+            while (std::regex_match(attr_val, match_attr, port_attrre)) {
+                std::string attr = "&";
+                attr += match_attr[1];
+                boost::algorithm::to_upper(attr);
+                it->second->attrs[id(attr)] = 1;
+                attr_val = match_attr[2];
+            }
         }
     }
 }
