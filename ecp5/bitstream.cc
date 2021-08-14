@@ -975,8 +975,20 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                               iovoltage_to_str(vccio).c_str(), ci->name.c_str(ctx));
                 }
             }
-            if (ci->attrs.count(ctx->id("OPENDRAIN")))
+            if (ci->attrs.count(ctx->id("OPENDRAIN"))) {
                 cc.tiles[pio_tile].add_enum(pio + ".OPENDRAIN", str_or_default(ci->attrs, ctx->id("OPENDRAIN"), "OFF"));
+                if (is_differential(ioType_from_str(iotype))) {
+                    std::string other;
+                    if (pio == "PIOA")
+                        other = "PIOB";
+                    else if (pio == "PIOC")
+                        other = "PIOD";
+                    else
+                        log_error("cannot set OPENDRAIN on differential IO at location %s\n", pio.c_str());
+                    cc.tiles[pio_tile].add_enum(other + ".OPENDRAIN", str_or_default(ci->attrs, ctx->id("OPENDRAIN"), "OFF"));
+                }
+            } 
+
             std::string datamux_oddr = str_or_default(ci->params, ctx->id("DATAMUX_ODDR"), "PADDO");
             if (datamux_oddr != "PADDO")
                 cc.tiles[pic_tile].add_enum(pio + ".DATAMUX_ODDR", datamux_oddr);
