@@ -388,21 +388,28 @@ struct Arch : BaseArch<ArchRanges>
         return UpDownhillPipRange(wires.at(wire).wires_uphill, wire, true);
     }
 
-    bool checkPipAvail(PipId pip) const override
+    bool is_pip_blocked(PipId pip) const
     {
-        // Check reserved routes
         WireId dst(pip.dst);
         const auto &dst_data = wires.at(dst);
         if ((dst_data.flags & WireInfo::RESERVED_ROUTE) != 0) {
             if (WireId(pip.src) != dst_data.wires_uphill.at(dst_data.flags & 0xFF))
-                return false;
+                return true;
         }
+        return false;
+    }
+
+    bool checkPipAvail(PipId pip) const override
+    {
+        // Check reserved routes
+        if (is_pip_blocked(pip))
+            return false;
         return BaseArch::checkPipAvail(pip);
     }
 
     bool checkPipAvailForNet(PipId pip, NetInfo *net) const override
     {
-        if (!checkPipAvail(pip))
+        if (is_pip_blocked(pip))
             return false;
         return BaseArch::checkPipAvailForNet(pip, net);
     }
