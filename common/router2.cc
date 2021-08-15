@@ -53,7 +53,6 @@ struct Router2
         WireId sink_wire;
         ArcBounds bb;
         bool routed = false;
-        float arc_crit = 0;
     };
 
     // As we allow overlap at first; the nextpnr bind functions can't be used
@@ -352,7 +351,7 @@ struct Router2
         ad.routed = false;
     }
 
-    float score_wire_for_arc(NetInfo *net, size_t user, size_t phys_pin, WireId wire, PipId pip)
+    float score_wire_for_arc(NetInfo *net, size_t user, size_t phys_pin, WireId wire, PipId pip, float crit_weight)
     {
         auto &wd = wire_data(wire);
         auto &nd = nets.at(net->udata);
@@ -366,16 +365,16 @@ struct Router2
             overuse -= 1;
             source_uses = nd.wires.at(wire).second;
         }
-        float present_cost = 1.0f + overuse * curr_cong_weight;
+        float present_cost = 1.0f + overuse * curr_cong_weight * crit_weight;
         if (pip != PipId()) {
             Loc pl = ctx->getPipLocation(pip);
             bias_cost = cfg.bias_cost_factor * (base_cost / int(net->users.size())) *
                         ((std::abs(pl.x - nd.cx) + std::abs(pl.y - nd.cy)) / float(nd.hpwl));
         }
-        return base_cost * hist_cost * present_cost / (1 + source_uses) + bias_cost;
+        return base_cost * hist_cost * present_cost / (1 + (source_uses * crit_weight)) + bias_cost;
     }
 
-    float get_togo_cost(NetInfo *net, size_t user, int wire, WireId src_sink, bool bwd = false)
+    float get_togo_cost(NetInfo *net, size_t user, int wire, WireId src_sink, float crit_weight, bool bwd = false)
     {
         auto &nd = nets.at(net->udata);
         auto &wd = flat_wires[wire];
@@ -385,7 +384,7 @@ struct Router2
         }
         // FIXME: timing/wirelength balance?
         delay_t est_delay = ctx->estimateDelay(bwd ? src_sink : wd.w, bwd ? wd.w : src_sink);
-        return (ctx->getDelayNS(est_delay) / (1 + source_uses)) + cfg.ipin_cost_adder;
+        return (ctx->getDelayNS(est_delay) / (1 + source_uses * crit_weight)) + cfg.ipin_cost_adder;
     }
 
     bool check_arc_routing(NetInfo *net, size_t usr, size_t phys_pin)
@@ -568,6 +567,13 @@ struct Router2
     bool was_visited_fwd(int wire) { return flat_wires.at(wire).visited_fwd; }
     bool was_visited_bwd(int wire) { return flat_wires.at(wire).visited_bwd; }
 
+    float get_arc_crit(NetInfo *net, size_t i)
+    {
+        if (!timing_driven)
+            return 0;
+        return tmg.get_criticality(CellPortKey(net->users.at(i)));
+    }
+
     ArcRouteResult route_arc(ThreadContext &t, NetInfo *net, size_t i, size_t phys_pin, bool is_mt, bool is_bb = true)
     {
         // Do some initial lookups and checks
@@ -586,6 +592,9 @@ struct Router2
                         ctx->nameOf(usr.cell));
         int src_wire_idx = wire_to_idx.at(src_wire);
         int dst_wire_idx = wire_to_idx.at(dst_wire);
+        // Calculate a timing weight based on criticality
+        float crit = get_arc_crit(net, i);
+        float crit_weight = (1.0f - std::pow(crit, 2));
         // Check if arc was already done _in this iteration_
         if (t.processed_sinks.count(dst_wire))
             return ARC_SUCCESS;
@@ -621,7 +630,7 @@ struct Router2
                 WireScore base_score;
                 base_score.cost = wire_cost;
                 int wire_idx = wire_to_idx.at(wire);
-                base_score.togo_cost = get_togo_cost(net, i, wire_idx, dst_wire, false);
+                base_score.togo_cost = get_togo_cost(net, i, wire_idx, dst_wire, false, crit_weight);
                 t.fwd_queue.push(QueuedWire(wire_idx, base_score));
                 set_visited_fwd(t, wire_idx, PipId());
             };
@@ -651,7 +660,7 @@ struct Router2
                 WireScore base_score;
                 base_score.cost = 0;
                 int wire_idx = wire_to_idx.at(wire);
-                base_score.togo_cost = get_togo_cost(net, i, wire_idx, src_wire, true);
+                base_score.togo_cost = get_togo_cost(net, i, wire_idx, src_wire, true, crit_weight);
                 t.bwd_queue.push(QueuedWire(wire_idx, base_score));
                 set_visited_bwd(t, wire_idx, PipId());
             };
@@ -702,8 +711,9 @@ struct Router2
                         if (!thread_test_wire(t, nwd))
                             continue; // thread safety issue
                         WireScore next_score;
-                        next_score.cost = curr.score.cost + score_wire_for_arc(net, i, phys_pin, next, dh);
-                        next_score.togo_cost = cfg.estimate_weight * get_togo_cost(net, i, next_idx, dst_wire, false);
+                        next_score.cost = curr.score.cost + score_wire_for_arc(net, i, phys_pin, next, dh, crit_weight);
+                        next_score.togo_cost =
+                                cfg.estimate_weight * get_togo_cost(net, i, next_idx, dst_wire, false, crit_weight);
                         set_visited_fwd(t, next_idx, dh);
                         t.fwd_queue.push(QueuedWire(next_idx, next_score, t.rng.rng()));
                     }
@@ -746,8 +756,9 @@ struct Router2
                         if (!thread_test_wire(t, nwd))
                             continue; // thread safety issue
                         WireScore next_score;
-                        next_score.cost = curr.score.cost + score_wire_for_arc(net, i, phys_pin, next, uh);
-                        next_score.togo_cost = cfg.estimate_weight * get_togo_cost(net, i, next_idx, src_wire, true);
+                        next_score.cost = curr.score.cost + score_wire_for_arc(net, i, phys_pin, next, uh, crit_weight);
+                        next_score.togo_cost =
+                                cfg.estimate_weight * get_togo_cost(net, i, next_idx, src_wire, true, crit_weight);
                         set_visited_bwd(t, next_idx, uh);
                         t.bwd_queue.push(QueuedWire(next_idx, next_score, t.rng.rng()));
                     }
@@ -870,6 +881,11 @@ struct Router2
                 t.route_arcs.emplace_back(i, j);
             }
         }
+        // Route most critical arc first
+        std::stable_sort(t.route_arcs.begin(), t.route_arcs.end(),
+                         [&](std::pair<size_t, size_t> a, std::pair<size_t, size_t> b) {
+                             return get_arc_crit(net, a.first) > get_arc_crit(net, b.first);
+                         });
         for (auto a : t.route_arcs) {
             auto res1 = route_arc(t, net, a.first, a.second, is_mt, true);
             if (res1 == ARC_FATAL)
@@ -1345,7 +1361,7 @@ struct Router2
         do {
             ctx->sorted_shuffle(route_queue);
 
-            if (timing_driven && (int(route_queue.size()) > (int(nets_by_udata.size()) / 50))) {
+            if (timing_driven && (int(route_queue.size()) > (int(nets_by_udata.size()) / 500))) {
                 // Heuristic: reduce runtime by skipping STA in the case of a "long tail" of a few
                 // congested nodes
                 tmg.run(iter == 1);
