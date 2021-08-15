@@ -1402,7 +1402,7 @@ struct Router2
                      total_overuse, overused_wires > 0 ? "NA" : std::to_string(arch_fail).c_str());
             ++iter;
             if (curr_cong_weight < 1e9)
-                curr_cong_weight *= cfg.curr_cong_mult;
+                curr_cong_weight += cfg.curr_cong_mult;
         } while (!failed_nets.empty());
         if (cfg.perf_profile) {
             std::vector<std::pair<int, IdString>> nets_by_runtime;
