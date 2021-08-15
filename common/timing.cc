@@ -269,6 +269,22 @@ void TimingAnalyser::setup_port_domains()
         // If there are loops, repeat the process until a fixed point is reached, as there might be unusual ways to
         // visit points, which would result in a missing domain key and therefore crash later on
     } while (have_loops && updated_domains);
+    for (auto &dp : domain_pairs) {
+        auto &launch_data = domains.at(dp.key.launch);
+        auto &capture_data = domains.at(dp.key.capture);
+        if (launch_data.key.clock != capture_data.key.clock)
+            continue;
+        IdString clk = launch_data.key.clock;
+        if (!ctx->nets.count(clk))
+            continue;
+        NetInfo *clk_net = ctx->nets.at(clk).get();
+        if (!clk_net->clkconstr)
+            continue;
+        delay_t period = clk_net->clkconstr->period.minDelay();
+        if (launch_data.key.edge != capture_data.key.edge)
+            period /= 2;
+        dp.period = DelayPair(period);
+    }
 }
 
 void TimingAnalyser::reset_times()
@@ -457,11 +473,12 @@ void TimingAnalyser::compute_slack()
             auto &dp = domain_pairs.at(pdp.first);
             auto &arr = pd.arrival.at(dp.key.launch);
             auto &req = pd.required.at(dp.key.capture);
-            pdp.second.setup_slack = dp.period.minDelay() - (arr.value.maxDelay() - req.value.minDelay());
+            pdp.second.setup_slack = 0 - (arr.value.maxDelay() - req.value.minDelay());
             if (!setup_only)
                 pdp.second.hold_slack = arr.value.minDelay() - req.value.maxDelay();
             pdp.second.max_path_length = arr.path_length + req.path_length;
-            pd.worst_setup_slack = std::min(pd.worst_setup_slack, pdp.second.setup_slack);
+            if (dp.key.launch == dp.key.capture)
+                pd.worst_setup_slack = std::min(pd.worst_setup_slack, dp.period.minDelay() + pdp.second.setup_slack);
             dp.worst_setup_slack = std::min(dp.worst_setup_slack, pdp.second.setup_slack);
             if (!setup_only) {
                 pd.worst_hold_slack = std::min(pd.worst_hold_slack, pdp.second.hold_slack);
