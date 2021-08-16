@@ -173,6 +173,8 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("router2-heatmap", po::value<std::string>(),
                           "prefix for router2 resource congestion heatmaps");
 
+    general.add_options()("router2-tmg-ripup", "enable experimental timing-driven ripup in router2");
+
     general.add_options()("report", po::value<std::string>(),
                           "write timing and utilization report in JSON format to file");
 
@@ -286,6 +288,8 @@ void CommandHandler::setupContext(Context *ctx)
         ctx->settings[ctx->id("placerHeap/timingWeight")] = std::to_string(vm["placer-heap-timingweight"].as<int>());
     if (vm.count("router2-heatmap"))
         ctx->settings[ctx->id("router2/heatmap")] = vm["router2-heatmap"].as<std::string>();
+    if (vm.count("router2-tmg-ripup"))
+        ctx->settings[ctx->id("router2/tmg_ripup")] = true;
 
     // Setting default values
     if (ctx->settings.find(ctx->id("target_freq")) == ctx->settings.end())
