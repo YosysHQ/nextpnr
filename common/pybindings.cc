@@ -285,6 +285,8 @@ PYBIND11_EMBEDDED_MODULE(MODULE_NAME, m)
     WRAP_MAP(m, WireMap, wrap_context<PipMap &>, "WireMap");
     WRAP_MAP_UPTR(m, RegionMap, "RegionMap");
 
+    WRAP_VECTOR(m, PortRefVector, wrap_context<PortRef &>);
+
     typedef dict<IdString, ClockFmax> ClockFmaxMap;
     WRAP_MAP(m, ClockFmaxMap, pass_through<ClockFmax>, "ClockFmaxMap");
 
