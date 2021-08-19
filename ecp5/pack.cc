@@ -1766,6 +1766,26 @@ class Ecp5Packer
             if (ci->type == id_EXTREFB) {
                 const NetInfo *refo = net_or_nullptr(ci, id_REFCLKO);
                 CellInfo *dcu = nullptr;
+                std::string loc_bel = std::string("NONE");
+                std::string dcu_bel = std::string("NONE");
+                if (ci->attrs.count(ctx->id("LOC"))) {
+                    std::string loc = ci->attrs.at(ctx->id("LOC")).as_string();
+                    if (loc == "EXTREF0" &&
+                    (ctx->args.type == ArchArgs::LFE5UM_25F || ctx->args.type == ArchArgs::LFE5UM5G_25F))
+                        loc_bel = std::string("X42/Y50/EXTREF");
+                    else if (loc == "EXTREF0" &&
+                    (ctx->args.type == ArchArgs::LFE5UM_45F || ctx->args.type == ArchArgs::LFE5UM5G_45F))
+                        loc_bel = std::string("X42/Y71/EXTREF");
+                    else if (loc == "EXTREF1" &&
+                    (ctx->args.type == ArchArgs::LFE5UM_45F || ctx->args.type == ArchArgs::LFE5UM5G_45F))
+                        loc_bel = std::string("X69/Y71/EXTREF");
+                    else if (loc == "EXTREF0" &&
+                    (ctx->args.type == ArchArgs::LFE5UM_85F || ctx->args.type == ArchArgs::LFE5UM5G_85F))
+                        loc_bel = std::string("X46/Y95/EXTREF");
+                    else if (loc == "EXTREF1" &&
+                    (ctx->args.type == ArchArgs::LFE5UM_85F || ctx->args.type == ArchArgs::LFE5UM5G_85F))
+                        loc_bel = std::string("X71/Y95/EXTREF");
+                }
                 if (refo == nullptr)
                     log_error("EXTREFB REFCLKO must not be unconnected\n");
                 for (auto user : refo->users) {
@@ -1775,12 +1795,30 @@ class Ecp5Packer
                         log_error("EXTREFB REFCLKO must only drive a single DCUA\n");
                     dcu = user.cell;
                 }
-                if (!dcu->attrs.count(ctx->id("BEL")))
-                    log_error("DCU must be constrained to a Bel!\n");
-                std::string bel = dcu->attrs.at(ctx->id("BEL")).as_string();
-                NPNR_ASSERT(bel.substr(bel.length() - 3) == "DCU");
-                bel.replace(bel.length() - 3, 3, "EXTREF");
-                ci->attrs[ctx->id("BEL")] = bel;
+                if (dcu != nullptr) {
+                    if (!dcu->attrs.count(ctx->id("BEL")))
+                        log_error("DCU must be constrained to a Bel!\n");
+                    dcu_bel = dcu->attrs.at(ctx->id("BEL")).as_string();
+                    NPNR_ASSERT(dcu_bel.substr(dcu_bel.length() - 3) == "DCU");
+                    dcu_bel.replace(dcu_bel.length() - 3, 3, "EXTREF");
+                }
+                if (dcu_bel != loc_bel) {
+                    if (dcu_bel == "NONE" && loc_bel == "NONE") {
+                        log_error("EXTREFB has neither a LOC or a directly associated DCUA\n");
+                    } else if (dcu_bel == "NONE") {
+                        ci->attrs[ctx->id("BEL")] = loc_bel;
+                        dcu_bel = loc_bel;
+                    } else if (loc_bel == "NONE") {
+                        ci->attrs[ctx->id("BEL")] = dcu_bel;
+                    } else {
+                        log_error("EXTREFB has conflicting LOC '%s' and associated DCUA '%s'\n", loc_bel.c_str(),
+                                  dcu_bel.c_str());
+                    }
+                } else {
+                    if (dcu_bel == "NONE")
+                        log_error("EXTREFB has no LOC or associated DCUA\n");
+                    ci->attrs[ctx->id("BEL")] = dcu_bel;
+                }
             } else if (ci->type == id_PCSCLKDIV) {
                 const NetInfo *clki = net_or_nullptr(ci, id_CLKI);
                 if (clki != nullptr && clki->driver.cell != nullptr && clki->driver.cell->type == id_DCUA) {
