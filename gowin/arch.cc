@@ -482,14 +482,34 @@ DelayQuad Arch::getWireTypeDelay(IdString wire)
     }
 }
 
+static Loc getLoc(std::smatch match, int maxX, int maxY)
+{
+    int col = std::stoi(match[2]);
+    int row = 1; // Top
+    std::string side = match[1].str();
+    if (side == "R") {
+        row = col;
+        col = maxX;
+    } else if (side == "B") {
+        row = maxY;
+    } else if (side == "L") {
+        row = col;
+        col = 1;
+    }
+    int z = match[3].str()[0] - 'A';
+    return Loc(col - 1, row - 1, z);
+}
+
 void Arch::read_cst(std::istream &in)
 {
     std::regex iobre = std::regex("IO_LOC +\"([^\"]+)\" +([^ ;]+) *;.*");
     std::regex portre = std::regex("IO_PORT +\"([^\"]+)\" +([^;]+;).*");
     std::regex port_attrre = std::regex("([^ =;]+=[^ =;]+) *([^;]*;)");
-    std::smatch match, match_attr;
-    std::string line;
+    std::regex iobelre = std::regex("IO([TRBL])([0-9]+)([A-Z])");
+    std::smatch match, match_attr, match_pinloc;
+    std::string line, pinline;
     bool io_loc;
+
     while (!in.eof()) {
         std::getline(in, line);
         io_loc = true;
@@ -512,11 +532,23 @@ void Arch::read_cst(std::istream &in)
         }
         if (io_loc) { // IO_LOC name pin
             IdString pinname = id(match[2]);
+            pinline = match[2];
             const PairPOD *belname = pairLookup(package->pins.get(), package->num_pins, pinname.index);
-            if (belname == nullptr)
+            if (belname != nullptr) {
+                std::string bel = IdString(belname->src_id).str(this);
+                it->second->attrs[IdString(ID_BEL)] = bel;
+            } else if (std::regex_match(pinline, match_pinloc, iobelre)) {
+                // may be it's IOx#[AB] style?
+                Loc loc = getLoc(match_pinloc, getGridDimX(), getGridDimY());
+                BelId bel = getBelByLocation(loc);
+                if (bel == BelId()) {
+                    log_error("Pin %s not found\n", pinline.c_str());
+                }
+                std::string belname = getCtx()->nameOfBel(bel);
+                it->second->attrs[IdString(ID_BEL)] = belname;
+            } else {
                 log_error("Pin %s not found\n", pinname.c_str(this));
-            std::string bel = IdString(belname->src_id).str(this);
-            it->second->attrs[IdString(ID_BEL)] = bel;
+            }
         } else { // IO_PORT attr=value
             std::string attr_val = match[2];
             while (std::regex_match(attr_val, match_attr, port_attrre)) {
