@@ -881,6 +881,24 @@ bool get_phys_pin_val(bool l6_mode, bool arith_mode, int bit, IdString pin)
         NPNR_ASSERT_FALSE("unknown physical pin!");
     }
 }
+
+static const std::array<int, 64> mlab_permute = {0,  1,  4,  5,  8,  9,  12, 13, 29, 28, 25, 24, 21, 20, 17, 16,
+                                                 2,  3,  6,  7,  10, 11, 14, 15, 31, 30, 27, 26, 23, 22, 19, 18,
+                                                 32, 33, 36, 37, 40, 41, 44, 45, 61, 60, 57, 56, 53, 52, 49, 48,
+                                                 34, 35, 38, 39, 42, 43, 46, 47, 63, 62, 59, 58, 55, 54, 51, 50};
+
+// MLABs have permuted init values in hardware, we need to correct for this
+uint64_t permute_mlab_init(uint64_t orig)
+{
+    uint64_t result = 0;
+    for (int i = 0; i < 64; i++) {
+        if ((orig >> uint64_t(i)) & 0x1) {
+            result |= (uint64_t(1) << uint64_t(mlab_permute.at(i)));
+        }
+    }
+    return result;
+}
+
 } // namespace
 
 uint64_t Arch::compute_lut_mask(uint32_t lab, uint8_t alm)
@@ -898,6 +916,7 @@ uint64_t Arch::compute_lut_mask(uint32_t lab, uint8_t alm)
         for (int j = 0; j < (alm_data.l6_mode ? 64 : 32); j++) {
             // Evaluate LUT function at this point
             uint64_t init = get_lut_init(lut, (arith && j >= 16) ? 1 : 0);
+
             int index = 0;
             for (int k = 0; k < lut->combInfo.lut_input_count; k++) {
                 IdString log_pin = get_lut_pin(lut, k);
@@ -937,6 +956,9 @@ uint64_t Arch::compute_lut_mask(uint32_t lab, uint8_t alm)
 
     // TODO: always inverted, or just certain paths?
     mask = ~mask;
+
+    if (labs.at(lab).is_mlab)
+        mask = permute_mlab_init(mask);
 
 #if 1
     if (getCtx()->debug) {
