@@ -58,6 +58,8 @@ struct ALMInfo
 
 struct LABInfo
 {
+    // LAB or MLAB?
+    bool is_mlab;
     std::array<ALMInfo, 10> alms;
     //  Control set wires
     std::array<WireId, 3> clk_wires, ena_wires;
@@ -457,9 +459,9 @@ struct Arch : BaseArch<ArchRanges>
         return WireId(cyclonev->pnode_to_rnode(CycloneV::pnode(bt, x, y, port, bi, pi)));
     }
 
-    void create_lab(int x, int y);    // lab.cc
-    void create_gpio(int x, int y);   // io.cc
-    void create_clkbuf(int x, int y); // globals.cc
+    void create_lab(int x, int y, bool is_mlab); // lab.cc
+    void create_gpio(int x, int y);              // io.cc
+    void create_clkbuf(int x, int y);            // globals.cc
 
     // -------------------------------------------------
 
