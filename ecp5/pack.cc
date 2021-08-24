@@ -1771,19 +1771,19 @@ class Ecp5Packer
                 if (ci->attrs.count(ctx->id("LOC"))) {
                     std::string loc = ci->attrs.at(ctx->id("LOC")).as_string();
                     if (loc == "EXTREF0" &&
-                    (ctx->args.type == ArchArgs::LFE5UM_25F || ctx->args.type == ArchArgs::LFE5UM5G_25F))
+                        (ctx->args.type == ArchArgs::LFE5UM_25F || ctx->args.type == ArchArgs::LFE5UM5G_25F))
                         loc_bel = std::string("X42/Y50/EXTREF");
                     else if (loc == "EXTREF0" &&
-                    (ctx->args.type == ArchArgs::LFE5UM_45F || ctx->args.type == ArchArgs::LFE5UM5G_45F))
+                             (ctx->args.type == ArchArgs::LFE5UM_45F || ctx->args.type == ArchArgs::LFE5UM5G_45F))
                         loc_bel = std::string("X42/Y71/EXTREF");
                     else if (loc == "EXTREF1" &&
-                    (ctx->args.type == ArchArgs::LFE5UM_45F || ctx->args.type == ArchArgs::LFE5UM5G_45F))
+                             (ctx->args.type == ArchArgs::LFE5UM_45F || ctx->args.type == ArchArgs::LFE5UM5G_45F))
                         loc_bel = std::string("X69/Y71/EXTREF");
                     else if (loc == "EXTREF0" &&
-                    (ctx->args.type == ArchArgs::LFE5UM_85F || ctx->args.type == ArchArgs::LFE5UM5G_85F))
+                             (ctx->args.type == ArchArgs::LFE5UM_85F || ctx->args.type == ArchArgs::LFE5UM5G_85F))
                         loc_bel = std::string("X46/Y95/EXTREF");
                     else if (loc == "EXTREF1" &&
-                    (ctx->args.type == ArchArgs::LFE5UM_85F || ctx->args.type == ArchArgs::LFE5UM5G_85F))
+                             (ctx->args.type == ArchArgs::LFE5UM_85F || ctx->args.type == ArchArgs::LFE5UM5G_85F))
                         loc_bel = std::string("X71/Y95/EXTREF");
                 }
                 if (refo == nullptr)
