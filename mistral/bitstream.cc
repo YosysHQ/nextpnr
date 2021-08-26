@@ -329,9 +329,9 @@ struct MistralBitgen
         }
         for (int i = 0; i < 3; i++) {
             // Check for fabric->clock routing
-            if (ctx->wires_connected(ctx->get_port(block_type, CycloneV::pos2x(pos), CycloneV::pos2y(pos), -1,
-                                                   CycloneV::DATAIN, 0),
-                                     lab_data.clk_wires[i]))
+            if (ctx->wires_connected(
+                        ctx->get_port(block_type, CycloneV::pos2x(pos), CycloneV::pos2y(pos), -1, CycloneV::DATAIN, 0),
+                        lab_data.clk_wires[i]))
                 cv->bmux_m_set(block_type, pos, CycloneV::CLKA_SEL, 0, CycloneV::GIN2);
         }
     }
