@@ -225,20 +225,20 @@ PYBIND11_EMBEDDED_MODULE(MODULE_NAME, m)
     auto ni_cls = py::class_<ContextualWrapper<NetInfo &>>(m, "NetInfo");
     readwrite_wrapper<NetInfo &, decltype(&NetInfo::name), &NetInfo::name, conv_to_str<IdString>,
                       conv_from_str<IdString>>::def_wrap(ni_cls, "name");
-    readwrite_wrapper<NetInfo &, decltype(&NetInfo::driver), &NetInfo::driver, wrap_context<PortRef &>,
-                      unwrap_context<PortRef &>>::def_wrap(ni_cls, "driver");
+    readonly_wrapper<NetInfo &, decltype(&NetInfo::driver), &NetInfo::driver, wrap_context<PortRef>>::def_wrap(
+            ni_cls, "driver");
     readonly_wrapper<NetInfo &, decltype(&NetInfo::users), &NetInfo::users, wrap_context<PortRefVector &>>::def_wrap(
             ni_cls, "users");
     readonly_wrapper<NetInfo &, decltype(&NetInfo::wires), &NetInfo::wires, wrap_context<WireMap &>>::def_wrap(ni_cls,
                                                                                                                "wires");
 
-    auto pr_cls = py::class_<ContextualWrapper<PortRef &>>(m, "PortRef");
-    readonly_wrapper<PortRef &, decltype(&PortRef::cell), &PortRef::cell, deref_and_wrap<CellInfo>>::def_wrap(pr_cls,
-                                                                                                              "cell");
-    readwrite_wrapper<PortRef &, decltype(&PortRef::port), &PortRef::port, conv_to_str<IdString>,
-                      conv_from_str<IdString>>::def_wrap(pr_cls, "port");
-    readwrite_wrapper<PortRef &, decltype(&PortRef::budget), &PortRef::budget, pass_through<delay_t>,
-                      pass_through<delay_t>>::def_wrap(pr_cls, "budget");
+    auto pr_cls = py::class_<ContextualWrapper<PortRef>>(m, "PortRef");
+    readonly_wrapper<PortRef, decltype(&PortRef::cell), &PortRef::cell, deref_and_wrap<CellInfo>>::def_wrap(pr_cls,
+                                                                                                            "cell");
+    readonly_wrapper<PortRef, decltype(&PortRef::port), &PortRef::port, conv_to_str<IdString>>::def_wrap(pr_cls,
+                                                                                                         "port");
+    readonly_wrapper<PortRef, decltype(&PortRef::budget), &PortRef::budget, pass_through<delay_t>>::def_wrap(pr_cls,
+                                                                                                             "budget");
 
     auto pm_cls = py::class_<ContextualWrapper<PipMap &>>(m, "PipMap");
     readwrite_wrapper<PipMap &, decltype(&PipMap::pip), &PipMap::pip, conv_to_str<PipId>,
@@ -285,7 +285,7 @@ PYBIND11_EMBEDDED_MODULE(MODULE_NAME, m)
     WRAP_MAP(m, WireMap, wrap_context<PipMap &>, "WireMap");
     WRAP_MAP_UPTR(m, RegionMap, "RegionMap");
 
-    WRAP_VECTOR(m, PortRefVector, wrap_context<PortRef &>);
+    WRAP_VECTOR(m, PortRefVector, wrap_context<PortRef>);
 
     typedef dict<IdString, ClockFmax> ClockFmaxMap;
     WRAP_MAP(m, ClockFmaxMap, pass_through<ClockFmax>, "ClockFmaxMap");
