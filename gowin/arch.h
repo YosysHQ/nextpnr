@@ -446,6 +446,9 @@ struct Arch : BaseArch<ArchRanges>
     bool cellsCompatible(const CellInfo **cells, int count) const;
 
     std::vector<IdString> cell_types;
+
+    // Permissible combinations of modes in a single slice
+    std::map<const IdString, IdString> dff_comp_mode;
 };
 
 NEXTPNR_NAMESPACE_END

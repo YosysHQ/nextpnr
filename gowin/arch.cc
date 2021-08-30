@@ -506,21 +506,31 @@ void Arch::read_cst(std::istream &in)
     std::regex portre = std::regex("IO_PORT +\"([^\"]+)\" +([^;]+;).*");
     std::regex port_attrre = std::regex("([^ =;]+=[^ =;]+) *([^;]*;)");
     std::regex iobelre = std::regex("IO([TRBL])([0-9]+)([A-Z])");
+    std::regex inslocre = std::regex("INS_LOC +\"([^\"]+)\" +R([0-9]+)C([0-9]+)\\[([0-9])\\]\\[([AB])\\] *;.*");
     std::smatch match, match_attr, match_pinloc;
     std::string line, pinline;
-    bool io_loc;
+    enum
+    {
+        ioloc,
+        ioport,
+        insloc
+    } cst_type;
 
     while (!in.eof()) {
         std::getline(in, line);
-        io_loc = true;
+        cst_type = ioloc;
         if (!std::regex_match(line, match, iobre)) {
             if (std::regex_match(line, match, portre)) {
-                io_loc = false;
+                cst_type = ioport;
             } else {
-                if ((!line.empty()) && (line.rfind("//", 0) == std::string::npos)) {
-                    log_warning("Invalid constraint: %s\n", line.c_str());
+                if (std::regex_match(line, match, inslocre)) {
+                    cst_type = insloc;
+                } else {
+                    if ((!line.empty()) && (line.rfind("//", 0) == std::string::npos)) {
+                        log_warning("Invalid constraint: %s\n", line.c_str());
+                    }
+                    continue;
                 }
-                continue;
             }
         }
 
@@ -530,13 +540,14 @@ void Arch::read_cst(std::istream &in)
             log_info("Cell %s not found\n", net.c_str(this));
             continue;
         }
-        if (io_loc) { // IO_LOC name pin
+        switch (cst_type) {
+        case ioloc: { // IO_LOC name pin
             IdString pinname = id(match[2]);
             pinline = match[2];
             const PairPOD *belname = pairLookup(package->pins.get(), package->num_pins, pinname.index);
             if (belname != nullptr) {
                 std::string bel = IdString(belname->src_id).str(this);
-                it->second->attrs[IdString(ID_BEL)] = bel;
+                it->second->setAttr(IdString(ID_BEL), bel);
             } else if (std::regex_match(pinline, match_pinloc, iobelre)) {
                 // may be it's IOx#[AB] style?
                 Loc loc = getLoc(match_pinloc, getGridDimX(), getGridDimY());
@@ -545,19 +556,29 @@ void Arch::read_cst(std::istream &in)
                     log_error("Pin %s not found\n", pinline.c_str());
                 }
                 std::string belname = getCtx()->nameOfBel(bel);
-                it->second->attrs[IdString(ID_BEL)] = belname;
+                it->second->setAttr(IdString(ID_BEL), belname);
             } else {
                 log_error("Pin %s not found\n", pinname.c_str(this));
             }
-        } else { // IO_PORT attr=value
+        } break;
+        case insloc: { // INS_LOC
+            int slice = std::stoi(match[4].str()) * 2;
+            if (match[5].str() == "B") {
+                ++slice;
+            }
+            std::string belname = std::string("R") + match[2].str() + "C" + match[3].str() + stringf("_SLICE%d", slice);
+            it->second->setAttr(IdString(ID_BEL), belname);
+        } break;
+        default: { // IO_PORT attr=value
             std::string attr_val = match[2];
             while (std::regex_match(attr_val, match_attr, port_attrre)) {
                 std::string attr = "&";
                 attr += match_attr[1];
                 boost::algorithm::to_upper(attr);
-                it->second->attrs[id(attr)] = 1;
+                it->second->setAttr(id(attr), 1);
                 attr_val = match_attr[2];
             }
+        }
         }
     }
 }
