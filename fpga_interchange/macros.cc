@@ -50,6 +50,7 @@ static IdString derived_name(Context *ctx, IdString base_name, IdString suffix)
 
 void Arch::expand_macros()
 {
+    log_info("Expand macros\n");
     // Make up a list of cells, so we don't have modify-while-iterating issues
     Context *ctx = getCtx();
     std::vector<CellInfo *> cells;
@@ -78,6 +79,7 @@ void Arch::expand_macros()
 
             // Get the ultimate root of this macro expansion
             IdString parent = (cell->macro_parent == IdString()) ? cell->name : cell->macro_parent;
+            log_info("%s %s\n", cell->name.c_str(ctx), parent.c_str(ctx));
             // Create child instances
             for (const auto &inst : macro->cell_insts) {
                 CellInfo *inst_cell =
@@ -86,6 +88,7 @@ void Arch::expand_macros()
                     inst_cell->params[IdString(param.key)] = IdString(param.value).str(ctx);
                 }
                 inst_cell->macro_parent = parent;
+                log_info("  %s %s\n", inst_cell->name.c_str(ctx), inst_cell->type.c_str(ctx));
                 next_cells.push_back(inst_cell);
             }
             // Create and connect nets

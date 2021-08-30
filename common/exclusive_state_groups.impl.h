@@ -74,10 +74,11 @@ void ExclusiveStateGroup<StateCount, StateType, CountType>::explain_requires(con
         log_info("Placing cell %s at bel %s does not violate %s.%s\n", cell.c_str(ctx), ctx->nameOfBel(bel),
                  object.c_str(ctx), definition.prefix.c_str(ctx));
     } else {
+        log_info("%d\n", state);
         log_info("Placing cell %s at bel %s does violates %s.%s, because current state is %s, constraint requires one "
                  "of:\n",
-                 cell.c_str(ctx), ctx->nameOfBel(bel), object.c_str(ctx), definition.prefix.c_str(ctx),
-                 definition.states.at(state).c_str(ctx));
+                 cell.c_str(ctx), ctx->nameOfBel(bel), object.c_str(ctx), definition.prefix.c_str(ctx), "-1");
+//                 definition.states.at(state).c_str(ctx));
 
         for (const auto required_state : state_range) {
             log_info(" - %s\n", definition.states.at(required_state).c_str(ctx));

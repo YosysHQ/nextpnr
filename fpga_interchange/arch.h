@@ -720,6 +720,7 @@ struct Arch : ArchAPI<ArchRanges>
     // Clusters
     void pack_cluster();
     void prepare_cluster(const ClusterPOD *cluster, uint32_t index);
+    void prepare_macro_cluster(const ClusterPOD *cluster, uint32_t index);
     dict<ClusterId, Cluster> clusters;
 
     // User constraints

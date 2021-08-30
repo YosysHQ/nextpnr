@@ -34,7 +34,12 @@ NEXTPNR_NAMESPACE_BEGIN
  * kExpectedChipInfoVersion
  */
 
-static constexpr int32_t kExpectedChipInfoVersion = 14;
+static constexpr int32_t kExpectedChipInfoVersion = 15;
+
+NPNR_PACKED_STRUCT(struct BelConnectedPinsPOD {
+    uint32_t pin1;
+    uint32_t pin2;
+});
 
 // Flattened site indexing.
 //
@@ -80,6 +85,8 @@ NPNR_PACKED_STRUCT(struct BelInfoPOD {
     int8_t inverting_pin;
 
     int16_t padding;
+
+    RelSlice<BelConnectedPinsPOD> connected_pins;
 });
 
 enum BELCategory
@@ -416,13 +423,45 @@ NPNR_PACKED_STRUCT(struct ChainablePortPOD {
     int16_t avg_y_offset;
 });
 
+NPNR_PACKED_STRUCT(struct ClusterRequiredCellPOD{
+    uint32_t name;
+    uint32_t count;
+});
+
+NPNR_PACKED_STRUCT(struct ClusterUsedPortPOD{
+    uint32_t name;
+});
+
+NPNR_PACKED_STRUCT(struct ClusterEdgePOD{
+    uint32_t dir;
+    uint32_t cell_pin;
+    uint32_t other_cell_pin;
+    uint32_t other_cell_type;
+});
+
+NPNR_PACKED_STRUCT(struct ClusterConnectionsPOD{
+    uint32_t target_idx;
+    RelSlice<ClusterEdgePOD> edges;
+});
+
+NPNR_PACKED_STRUCT(struct ClusterConnectionGraphPOD{
+    uint32_t idx;
+    uint32_t cell_type;
+    RelSlice<ClusterConnectionsPOD> connections;
+    RelSlice<ClusterUsedPortPOD> used_ports;
+});
+
+
 NPNR_PACKED_STRUCT(struct ClusterPOD {
     uint32_t name;
     RelSlice<uint32_t> root_cell_types;
     RelSlice<ChainablePortPOD> chainable_ports;
     RelSlice<ClusterCellPortPOD> cluster_cells_map;
+    RelSlice<ClusterRequiredCellPOD> required_cells;
+    RelSlice<ClusterConnectionGraphPOD> connection_graph;
     uint32_t out_of_site_clusters;
     uint32_t disallow_other_cells;
+    uint32_t from_macro;
 });
 
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
