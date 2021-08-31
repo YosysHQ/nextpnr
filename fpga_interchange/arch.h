@@ -878,16 +878,11 @@ struct Arch : ArchAPI<ArchRanges>
             }
 
             for (auto ci : site_status.cells_in_site) {
-                if (ci->cluster != ClusterId() && cell->cluster != ClusterId())
-                    continue;
-                else if (ci->cluster == cell->cluster)
-                    continue;
-
-                if (ci->cluster != ClusterId() &&
+                if (ci->cluster != ClusterId() && ci->cluster != cell->cluster &&
                     cluster_info(chip_info, clusters.at(ci->cluster).index).disallow_other_cells)
                     return false;
 
-                if (cell->cluster != ClusterId() &&
+                if (cell->cluster != ClusterId() && ci->cluster != cell->cluster &&
                     cluster_info(chip_info, clusters.at(cell->cluster).index).disallow_other_cells)
                     return false;
             }
