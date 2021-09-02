@@ -34,7 +34,7 @@ NEXTPNR_NAMESPACE_BEGIN
  * kExpectedChipInfoVersion
  */
 
-static constexpr int32_t kExpectedChipInfoVersion = 13;
+static constexpr int32_t kExpectedChipInfoVersion = 14;
 
 // Flattened site indexing.
 //
@@ -422,6 +422,7 @@ NPNR_PACKED_STRUCT(struct ClusterPOD {
     RelSlice<ChainablePortPOD> chainable_ports;
     RelSlice<ClusterCellPortPOD> cluster_cells_map;
     uint32_t out_of_site_clusters;
+    uint32_t disallow_other_cells;
 });
 
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
