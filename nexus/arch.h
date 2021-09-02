@@ -1034,7 +1034,11 @@ struct Arch : BaseArch<ArchRanges>
 
     std::vector<BelId> getBelsByTile(int x, int y) const override;
 
-    bool getBelGlobalBuf(BelId bel) const override { return false; }
+    bool getBelGlobalBuf(BelId bel) const override
+    {
+        IdString type = getBelType(bel);
+        return type == id_DCC || type == id_VCC_DRV;
+    }
 
     IdString getBelType(BelId bel) const override
     {
