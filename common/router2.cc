@@ -687,6 +687,7 @@ struct Router2
                     // Explore forwards
                     auto curr = t.fwd_queue.top();
                     t.fwd_queue.pop();
+                    ++explored;
                     if (was_visited_bwd(curr.wire)) {
                         // Meet in the middle; done
                         midpoint_wire = curr.wire;
@@ -729,6 +730,7 @@ struct Router2
                     // Explore backwards
                     auto curr = t.bwd_queue.top();
                     t.bwd_queue.pop();
+                    ++explored;
                     if (was_visited_fwd(curr.wire)) {
                         // Meet in the middle; done
                         midpoint_wire = curr.wire;
