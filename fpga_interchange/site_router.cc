@@ -192,7 +192,7 @@ struct SiteExpansionLoop
     }
 
     // Expand from wire specified, always downhill.
-    bool expand_net(const SiteArch *ctx, SiteRoutingCache *site_routing_cache, const SiteNetInfo *net)
+    bool expand_net(const SiteArch *ctx, SiteRoutingCache *site_routing_cache, const SiteNetInfo *net, bool cache_disabled = false)
     {
         if (net->driver == net_driver && net->users == net_users) {
             return expand_result;
@@ -203,7 +203,7 @@ struct SiteExpansionLoop
         net_driver = net->driver;
         net_users = net->users;
 
-        if (site_routing_cache->get_solution(ctx, *net, &solution)) {
+        if (!cache_disabled && site_routing_cache->get_solution(ctx, *net, &solution)) {
             expand_result = true;
             return expand_result;
         }
@@ -316,7 +316,7 @@ struct SiteExpansionLoop
             targets.erase(wire);
         }
 
-        if (targets.empty()) {
+        if (!cache_disabled && targets.empty()) {
             site_routing_cache->add_solutions(ctx, *net, solution);
         }
 
@@ -699,7 +699,7 @@ static bool find_solution_via_backtrack(SiteArch *ctx, std::vector<PossibleSolut
 }
 
 static bool route_site(SiteArch *ctx, SiteRoutingCache *site_routing_cache, RouteNodeStorage *node_storage,
-                       bool explain)
+                       bool explain, bool cache_disabled = false)
 {
     // Overview:
     // - Starting from each site net source, expand the site routing graph
@@ -723,7 +723,7 @@ static bool route_site(SiteArch *ctx, SiteRoutingCache *site_routing_cache, Rout
         expansions.push_back(net->net->loop);
 
         SiteExpansionLoop *router = expansions.back();
-        if (!router->expand_net(ctx, site_routing_cache, net)) {
+        if (!router->expand_net(ctx, site_routing_cache, net, cache_disabled)) {
             if (verbose_site_router(ctx) || explain) {
                 log_info("Net %s expansion failed to reach all users, site is unroutable!\n", ctx->nameOfNet(net));
             }
@@ -1415,7 +1415,7 @@ void SiteRouter::bindSiteRouting(Context *ctx)
     block_lut_outputs(&site_arch, blocked_wires);
     block_cluster_wires(&site_arch);
     reserve_site_ports(&site_arch);
-    NPNR_ASSERT(route_site(&site_arch, &ctx->site_routing_cache, &ctx->node_storage, /*explain=*/false));
+    NPNR_ASSERT(route_site(&site_arch, &ctx->site_routing_cache, &ctx->node_storage, /*explain=*/false, /*cache_disabled=*/true));
 
     check_routing(site_arch);
     apply_routing(ctx, site_arch, lut_thrus);
