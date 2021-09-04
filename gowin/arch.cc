@@ -804,6 +804,27 @@ Arch::Arch(ArchArgs args) : args(args)
             }
         }
     }
+
+    // Permissible combinations of modes in a single slice
+    dff_comp_mode[id_DFF] = id_DFF;
+    dff_comp_mode[id_DFFE] = id_DFFE;
+    dff_comp_mode[id_DFFS] = id_DFFR;
+    dff_comp_mode[id_DFFR] = id_DFFS;
+    dff_comp_mode[id_DFFSE] = id_DFFRE;
+    dff_comp_mode[id_DFFRE] = id_DFFSE;
+    dff_comp_mode[id_DFFP] = id_DFFC;
+    dff_comp_mode[id_DFFC] = id_DFFP;
+    dff_comp_mode[id_DFFPE] = id_DFFCE;
+    dff_comp_mode[id_DFFCE] = id_DFFPE;
+    dff_comp_mode[id_DFFNS] = id_DFFNR;
+    dff_comp_mode[id_DFFNR] = id_DFFNS;
+    dff_comp_mode[id_DFFNSE] = id_DFFNRE;
+    dff_comp_mode[id_DFFNRE] = id_DFFNSE;
+    dff_comp_mode[id_DFFNP] = id_DFFNC;
+    dff_comp_mode[id_DFFNC] = id_DFFNP;
+    dff_comp_mode[id_DFFNPE] = id_DFFNCE;
+    dff_comp_mode[id_DFFNCE] = id_DFFNPE;
+
     BaseArch::init_cell_types();
     BaseArch::init_bel_buckets();
 }
@@ -1251,8 +1272,11 @@ bool Arch::cellsCompatible(const CellInfo **cells, int count) const
                 return false;
             if (mode[cls] == IdString())
                 mode[cls] = ci->ff_type;
-            else if (mode[cls] != ci->ff_type)
-                return false;
+            else if (mode[cls] != ci->ff_type) {
+                auto res = dff_comp_mode.find(mode[cls]);
+                if (res == dff_comp_mode.end() || res->second != ci->ff_type)
+                    return false;
+            }
         }
     }
     return true;
