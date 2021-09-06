@@ -92,7 +92,7 @@ struct Router2
         int16_t x = 0, y = 0;
         // Visit data
         PipId pip_fwd, pip_bwd;
-        bool visited_fwd, visited_bwd;
+        bool visited_fwd = false, visited_bwd = false;
     };
 
     Context *ctx;
