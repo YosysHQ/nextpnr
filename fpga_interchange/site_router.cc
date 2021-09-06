@@ -192,7 +192,8 @@ struct SiteExpansionLoop
     }
 
     // Expand from wire specified, always downhill.
-    bool expand_net(const SiteArch *ctx, SiteRoutingCache *site_routing_cache, const SiteNetInfo *net, bool cache_disabled = false)
+    bool expand_net(const SiteArch *ctx, SiteRoutingCache *site_routing_cache, const SiteNetInfo *net,
+                    bool cache_disabled = false)
     {
         if (net->driver == net_driver && net->users == net_users) {
             return expand_result;
@@ -1415,7 +1416,8 @@ void SiteRouter::bindSiteRouting(Context *ctx)
     block_lut_outputs(&site_arch, blocked_wires);
     block_cluster_wires(&site_arch);
     reserve_site_ports(&site_arch);
-    NPNR_ASSERT(route_site(&site_arch, &ctx->site_routing_cache, &ctx->node_storage, /*explain=*/false, /*cache_disabled=*/true));
+    NPNR_ASSERT(route_site(&site_arch, &ctx->site_routing_cache, &ctx->node_storage, /*explain=*/false,
+                           /*cache_disabled=*/true));
 
     check_routing(site_arch);
     apply_routing(ctx, site_arch, lut_thrus);
