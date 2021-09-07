@@ -114,6 +114,9 @@ static int get_ports(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CON
 
         Tcl_SetObjResult(interp, result);
         return TCL_OK;
+    } else if (objc > 2) {
+        log_warning("get_ports options not implemented!\n");
+        return TCL_OK;
     } else {
         return TCL_ERROR;
     }
@@ -146,6 +149,9 @@ static int get_cells(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CON
 
         Tcl_SetObjResult(interp, result);
         return TCL_OK;
+    } else if (objc > 2) {
+        log_warning("get_cells options not implemented!\n");
+        return TCL_OK;
     } else {
         return TCL_ERROR;
     }
@@ -175,16 +181,15 @@ static int set_property(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *
         CellInfo *cell = static_cast<CellInfo *>(object->internalRep.twoPtrValue.ptr2);
 
         cell->attrs[ctx->id(property)] = Property(value);
-    } else {
-        return TCL_ERROR;
     }
 
     return TCL_OK;
 }
 
-static int create_clock(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
+static int not_implemented(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
 {
-    // FIXME: add implementation
+    // TCL command that is not yet implemented
+    log_warning("%s command is not implemented!\n", Tcl_GetString(objv[0]));
     return TCL_OK;
 }
 
@@ -194,6 +199,7 @@ TclInterp::TclInterp(Context *ctx)
     NPNR_ASSERT(Tcl_Init(interp) == TCL_OK);
 
     Tcl_RegisterObjType(&port_object);
+    Tcl_RegisterObjType(&cell_object);
 
     NPNR_ASSERT(Tcl_Eval(interp, "rename unknown _original_unknown") == TCL_OK);
     NPNR_ASSERT(Tcl_Eval(interp, "proc unknown args {\n"
@@ -207,7 +213,14 @@ TclInterp::TclInterp(Context *ctx)
     Tcl_CreateObjCommand(interp, "get_ports", get_ports, ctx, nullptr);
     Tcl_CreateObjCommand(interp, "get_cells", get_cells, ctx, nullptr);
     Tcl_CreateObjCommand(interp, "set_property", set_property, ctx, nullptr);
-    Tcl_CreateObjCommand(interp, "create_clock", create_clock, ctx, nullptr);
+
+    // Not implemented TCL commands
+    Tcl_CreateObjCommand(interp, "create_clock", not_implemented, ctx, nullptr);
+    Tcl_CreateObjCommand(interp, "get_iobanks", not_implemented, ctx, nullptr);
+    Tcl_CreateObjCommand(interp, "get_nets", not_implemented, ctx, nullptr);
+    Tcl_CreateObjCommand(interp, "get_pins", not_implemented, ctx, nullptr);
+    Tcl_CreateObjCommand(interp, "set_false_path", not_implemented, ctx, nullptr);
+    Tcl_CreateObjCommand(interp, "set_max_delay", not_implemented, ctx, nullptr);
 }
 
 TclInterp::~TclInterp() { Tcl_DeleteInterp(interp); }
