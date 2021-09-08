@@ -253,9 +253,19 @@ static void pack_io(Context *ctx)
             auto gwiob = new_cells.back().get();
 
             packed_cells.insert(ci->name);
-            if (iob != nullptr)
-                for (auto &attr : iob->attrs)
-                    gwiob->attrs[attr.first] = attr.second;
+            if (iob != nullptr) {
+                // in Gowin .CST port attributes take precedence over cell attributes.
+                // first copy cell attrs related to IO
+                for (auto &attr : ci->attrs) {
+                    if (attr.first == IdString(ID_BEL) || attr.first.str(ctx)[0] == '&') {
+                        gwiob->setAttr(attr.first, attr.second);
+                    }
+                }
+                // rewrite attributes from the port
+                for (auto &attr : iob->attrs) {
+                    gwiob->setAttr(attr.first, attr.second);
+                }
+            }
         }
     }
     for (auto pcell : packed_cells) {

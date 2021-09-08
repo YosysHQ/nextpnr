@@ -506,21 +506,31 @@ void Arch::read_cst(std::istream &in)
     std::regex portre = std::regex("IO_PORT +\"([^\"]+)\" +([^;]+;).*");
     std::regex port_attrre = std::regex("([^ =;]+=[^ =;]+) *([^;]*;)");
     std::regex iobelre = std::regex("IO([TRBL])([0-9]+)([A-Z])");
+    std::regex inslocre = std::regex("INS_LOC +\"([^\"]+)\" +R([0-9]+)C([0-9]+)\\[([0-9])\\]\\[([AB])\\] *;.*");
     std::smatch match, match_attr, match_pinloc;
     std::string line, pinline;
-    bool io_loc;
+    enum
+    {
+        ioloc,
+        ioport,
+        insloc
+    } cst_type;
 
     while (!in.eof()) {
         std::getline(in, line);
-        io_loc = true;
+        cst_type = ioloc;
         if (!std::regex_match(line, match, iobre)) {
             if (std::regex_match(line, match, portre)) {
-                io_loc = false;
+                cst_type = ioport;
             } else {
-                if ((!line.empty()) && (line.rfind("//", 0) == std::string::npos)) {
-                    log_warning("Invalid constraint: %s\n", line.c_str());
+                if (std::regex_match(line, match, inslocre)) {
+                    cst_type = insloc;
+                } else {
+                    if ((!line.empty()) && (line.rfind("//", 0) == std::string::npos)) {
+                        log_warning("Invalid constraint: %s\n", line.c_str());
+                    }
+                    continue;
                 }
-                continue;
             }
         }
 
@@ -530,13 +540,14 @@ void Arch::read_cst(std::istream &in)
             log_info("Cell %s not found\n", net.c_str(this));
             continue;
         }
-        if (io_loc) { // IO_LOC name pin
+        switch (cst_type) {
+        case ioloc: { // IO_LOC name pin
             IdString pinname = id(match[2]);
             pinline = match[2];
             const PairPOD *belname = pairLookup(package->pins.get(), package->num_pins, pinname.index);
             if (belname != nullptr) {
                 std::string bel = IdString(belname->src_id).str(this);
-                it->second->attrs[IdString(ID_BEL)] = bel;
+                it->second->setAttr(IdString(ID_BEL), bel);
             } else if (std::regex_match(pinline, match_pinloc, iobelre)) {
                 // may be it's IOx#[AB] style?
                 Loc loc = getLoc(match_pinloc, getGridDimX(), getGridDimY());
@@ -545,19 +556,29 @@ void Arch::read_cst(std::istream &in)
                     log_error("Pin %s not found\n", pinline.c_str());
                 }
                 std::string belname = getCtx()->nameOfBel(bel);
-                it->second->attrs[IdString(ID_BEL)] = belname;
+                it->second->setAttr(IdString(ID_BEL), belname);
             } else {
                 log_error("Pin %s not found\n", pinname.c_str(this));
             }
-        } else { // IO_PORT attr=value
+        } break;
+        case insloc: { // INS_LOC
+            int slice = std::stoi(match[4].str()) * 2;
+            if (match[5].str() == "B") {
+                ++slice;
+            }
+            std::string belname = std::string("R") + match[2].str() + "C" + match[3].str() + stringf("_SLICE%d", slice);
+            it->second->setAttr(IdString(ID_BEL), belname);
+        } break;
+        default: { // IO_PORT attr=value
             std::string attr_val = match[2];
             while (std::regex_match(attr_val, match_attr, port_attrre)) {
                 std::string attr = "&";
                 attr += match_attr[1];
                 boost::algorithm::to_upper(attr);
-                it->second->attrs[id(attr)] = 1;
+                it->second->setAttr(id(attr), 1);
                 attr_val = match_attr[2];
             }
+        }
         }
     }
 }
@@ -783,6 +804,27 @@ Arch::Arch(ArchArgs args) : args(args)
             }
         }
     }
+
+    // Permissible combinations of modes in a single slice
+    dff_comp_mode[id_DFF] = id_DFF;
+    dff_comp_mode[id_DFFE] = id_DFFE;
+    dff_comp_mode[id_DFFS] = id_DFFR;
+    dff_comp_mode[id_DFFR] = id_DFFS;
+    dff_comp_mode[id_DFFSE] = id_DFFRE;
+    dff_comp_mode[id_DFFRE] = id_DFFSE;
+    dff_comp_mode[id_DFFP] = id_DFFC;
+    dff_comp_mode[id_DFFC] = id_DFFP;
+    dff_comp_mode[id_DFFPE] = id_DFFCE;
+    dff_comp_mode[id_DFFCE] = id_DFFPE;
+    dff_comp_mode[id_DFFNS] = id_DFFNR;
+    dff_comp_mode[id_DFFNR] = id_DFFNS;
+    dff_comp_mode[id_DFFNSE] = id_DFFNRE;
+    dff_comp_mode[id_DFFNRE] = id_DFFNSE;
+    dff_comp_mode[id_DFFNP] = id_DFFNC;
+    dff_comp_mode[id_DFFNC] = id_DFFNP;
+    dff_comp_mode[id_DFFNPE] = id_DFFNCE;
+    dff_comp_mode[id_DFFNCE] = id_DFFNPE;
+
     BaseArch::init_cell_types();
     BaseArch::init_bel_buckets();
 }
@@ -1230,8 +1272,11 @@ bool Arch::cellsCompatible(const CellInfo **cells, int count) const
                 return false;
             if (mode[cls] == IdString())
                 mode[cls] = ci->ff_type;
-            else if (mode[cls] != ci->ff_type)
-                return false;
+            else if (mode[cls] != ci->ff_type) {
+                auto res = dff_comp_mode.find(mode[cls]);
+                if (res == dff_comp_mode.end() || res->second != ci->ff_type)
+                    return false;
+            }
         }
     }
     return true;
