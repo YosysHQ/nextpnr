@@ -216,9 +216,11 @@ TclInterp::TclInterp(Context *ctx)
 
     // Not implemented TCL commands
     Tcl_CreateObjCommand(interp, "create_clock", not_implemented, ctx, nullptr);
+    Tcl_CreateObjCommand(interp, "get_clocks", not_implemented, ctx, nullptr);
     Tcl_CreateObjCommand(interp, "get_iobanks", not_implemented, ctx, nullptr);
     Tcl_CreateObjCommand(interp, "get_nets", not_implemented, ctx, nullptr);
     Tcl_CreateObjCommand(interp, "get_pins", not_implemented, ctx, nullptr);
+    Tcl_CreateObjCommand(interp, "set_clock_groups", not_implemented, ctx, nullptr);
     Tcl_CreateObjCommand(interp, "set_false_path", not_implemented, ctx, nullptr);
     Tcl_CreateObjCommand(interp, "set_max_delay", not_implemented, ctx, nullptr);
 }
