@@ -183,6 +183,9 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("placed-svg", po::value<std::string>(), "write render of placement to SVG file");
     general.add_options()("routed-svg", po::value<std::string>(), "write render of routing to SVG file");
 
+    general.add_options()("timing-report", po::value<std::string>(),
+                          "write timing analysis report in CSV format to file");
+
     return general;
 }
 
@@ -247,6 +250,11 @@ void CommandHandler::setupContext(Context *ctx)
 
     if (vm.count("timing-allow-fail")) {
         ctx->settings[ctx->id("timing/allowFail")] = true;
+    }
+
+    if (vm.count("timing-report")) {
+        std::string filename = vm["timing-report"].as<std::string>();
+        ctx->settings[ctx->id("timing/reportFile")] = filename;
     }
 
     if (vm.count("placer")) {

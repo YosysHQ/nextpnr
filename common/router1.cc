@@ -874,7 +874,7 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
 
         log_info("Checksum: 0x%08x\n", ctx->checksum());
         timing_analysis(ctx, true /* slack_histogram */, true /* print_fmax */, true /* print_path */,
-                        true /* warn_on_failure */);
+                        true /* warn_on_failure */, true /* write_report */);
 
         return true;
     } catch (log_execution_error_exception) {

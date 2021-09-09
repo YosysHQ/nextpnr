@@ -637,6 +637,16 @@ struct CriticalPath
 
 typedef dict<ClockPair, CriticalPath> CriticalPathMap;
 
+struct NetSinkTiming
+{
+    ClockPair clock_pair;
+    PortRef sink;
+    delay_t delay;
+    delay_t budget;
+};
+
+typedef dict<const NetInfo*, std::vector<NetSinkTiming>, hash_ptr_ops> DetailedNetTimings;
+
 struct Timing
 {
     Context *ctx;
@@ -645,6 +655,7 @@ struct Timing
     delay_t min_slack;
     CriticalPathMap *crit_path;
     DelayFrequency *slack_histogram;
+    DetailedNetTimings *detailed_net_timings;
     IdString async_clock;
 
     struct TimingData
@@ -660,9 +671,11 @@ struct Timing
     };
 
     Timing(Context *ctx, bool net_delays, bool update, CriticalPathMap *crit_path = nullptr,
-           DelayFrequency *slack_histogram = nullptr)
+           DelayFrequency *slack_histogram = nullptr,
+           DetailedNetTimings *detailed_net_timings = nullptr)
             : ctx(ctx), net_delays(net_delays), update(update), min_slack(1.0e12 / ctx->setting<float>("target_freq")),
-              crit_path(crit_path), slack_histogram(slack_histogram), async_clock(ctx->id("$async$"))
+              crit_path(crit_path), slack_histogram(slack_histogram), detailed_net_timings(detailed_net_timings),
+              async_clock(ctx->id("$async$"))
     {
     }
 
@@ -948,6 +961,17 @@ struct Timing
                             ClockPair clockPair{startdomain.first, dest_ev};
                             nd.arrival_time[dest_ev] = std::max(nd.arrival_time[dest_ev], endpoint_arrival);
 
+                            // Store the detailed timing for each net and user (a.k.a. sink)
+                            if (detailed_net_timings) {
+                                NetSinkTiming sink_timing;
+                                sink_timing.clock_pair = clockPair;
+                                sink_timing.sink = usr;
+                                sink_timing.delay = endpoint_arrival;
+                                sink_timing.budget = period;
+
+                                (*detailed_net_timings)[net].push_back(sink_timing);
+                            }
+
                             if (crit_path) {
                                 if (!crit_nets.count(clockPair) || crit_nets.at(clockPair).first < endpoint_arrival) {
                                     crit_nets[clockPair] = std::make_pair(endpoint_arrival, net);
@@ -1111,7 +1135,7 @@ void assign_budget(Context *ctx, bool quiet)
         log_info("Checksum: 0x%08x\n", ctx->checksum());
 }
 
-void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool print_path, bool warn_on_failure)
+void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool print_path, bool warn_on_failure, bool write_report)
 {
     auto format_event = [ctx](const ClockEvent &e, int field_width = 0) {
         std::string value;
@@ -1126,9 +1150,10 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
 
     CriticalPathMap crit_paths;
     DelayFrequency slack_histogram;
+    DetailedNetTimings detailed_net_timings;
 
     Timing timing(ctx, true /* net_delays */, false /* update */, (print_path || print_fmax) ? &crit_paths : nullptr,
-                  print_histogram ? &slack_histogram : nullptr);
+                  print_histogram ? &slack_histogram : nullptr, write_report ? &detailed_net_timings : nullptr);
     timing.walk_paths();
     std::map<IdString, std::pair<ClockPair, CriticalPath>> clock_reports;
     std::map<IdString, double> clock_fmax;
@@ -1410,6 +1435,56 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
             log_info("[%6d, %6d) |%s%c\n", min_slack + bin_size * i, min_slack + bin_size * (i + 1),
                      std::string(bins[i] * bar_width / max_freq, '*').c_str(),
                      (bins[i] * bar_width) % max_freq > 0 ? '+' : ' ');
+    }
+
+    // Write detailed timing analysis report to file
+    std::string report_file;
+    if (write_report) {
+        if (ctx->settings.count(ctx->id("timing/reportFile"))) {
+            report_file = ctx->settings[ctx->id("timing/reportFile")].as_string();
+        }
+    }
+
+    if (!report_file.empty()) {
+        log_info("\nWriting timing analysis report...\n");
+
+        FILE* fp = fopen(report_file.c_str(), "w");
+        NPNR_ASSERT(fp != nullptr);
+
+        auto cellport = [&](const PortRef& port) {
+            std::string str;
+            if (port.cell != nullptr) {
+                str = std::string(port.cell->name.c_str(ctx));
+            } else {
+                str = "?";
+            }
+            return str + "." + std::string(port.port.c_str(ctx));
+        };
+
+        // Header
+        fprintf(fp, "net,source,sink,start,end,delay,budget\n");
+
+        // Content
+        for (const auto& it : detailed_net_timings) {
+            const NetInfo* net = it.first;
+            const std::string drv_port = cellport(net->driver);
+
+            for (const auto& sink_timing : it.second) {
+                fprintf(fp, "%s,%s,%s,%s %s,%s %s,%f,%f\n",
+                    net->name.c_str(ctx),
+                    drv_port.c_str(),
+                    cellport(sink_timing.sink).c_str(),
+                    edge_name(sink_timing.clock_pair.start.edge),
+                    sink_timing.clock_pair.start.clock.c_str(ctx),
+                    edge_name(sink_timing.clock_pair.end.edge),
+                    sink_timing.clock_pair.end.clock.c_str(ctx),
+                    ctx->getDelayNS(sink_timing.delay),
+                    ctx->getDelayNS(sink_timing.budget)
+                );
+            }
+        }
+
+        fclose(fp);
     }
 }
 
