@@ -26,8 +26,11 @@
 #include <utility>
 #include "log.h"
 #include "util.h"
+#include "json11.hpp"
 
 NEXTPNR_NAMESPACE_BEGIN
+
+using namespace json11;
 
 void TimingAnalyser::setup()
 {
@@ -1135,6 +1138,12 @@ void assign_budget(Context *ctx, bool quiet)
         log_info("Checksum: 0x%08x\n", ctx->checksum());
 }
 
+void write_timing_report(
+    Context* ctx,
+    const std::string& file_name,
+    const DetailedNetTimings& detailed_net_timings
+);
+
 void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool print_path, bool warn_on_failure, bool write_report)
 {
     auto format_event = [ctx](const ClockEvent &e, int field_width = 0) {
@@ -1447,45 +1456,84 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
 
     if (!report_file.empty()) {
         log_info("\nWriting timing analysis report...\n");
+        write_timing_report(ctx, report_file, detailed_net_timings);
+    }
+}
 
-        FILE* fp = fopen(report_file.c_str(), "w");
-        NPNR_ASSERT(fp != nullptr);
+void write_timing_report(
+    Context* ctx,
+    const std::string& file_name,
+    const DetailedNetTimings& detailed_net_timings
+)
+{
+    auto cellport_name = [ctx](const PortRef& port) {
+        std::string str;
+        if (port.cell != nullptr) {
+            str = std::string(port.cell->name.c_str(ctx));
+        } else {
+            str = "<none>"; // FIXME: When does that happen?
+        }
+        return str + "." + std::string(port.port.c_str(ctx));
+    };
 
-        auto cellport = [&](const PortRef& port) {
-            std::string str;
-            if (port.cell != nullptr) {
-                str = std::string(port.cell->name.c_str(ctx));
-            } else {
-                str = "?";
-            }
-            return str + "." + std::string(port.port.c_str(ctx));
-        };
+    auto event_name = [ctx](const ClockEvent &e) {
+        std::string value;
+        if (e.clock == ctx->id("$async$"))
+            value = std::string("<async>");
+        else
+            value = (e.edge == FALLING_EDGE ? std::string("negedge ") :
+                                              std::string("posedge ")) + e.clock.str(ctx);
+        return value;
+    };
 
-        // Header
-        fprintf(fp, "net,source,sink,start,end,delay,budget\n");
+    // Open the file
+    FILE* fp = fopen(file_name.c_str(), "w");
+    NPNR_ASSERT(fp != nullptr);
 
-        // Content
-        for (const auto& it : detailed_net_timings) {
-            const NetInfo* net = it.first;
-            const std::string drv_port = cellport(net->driver);
+    // Detailed net timing analysis
+    auto detailedNetTimingsJson = Json::array();
+    for (const auto& it : detailed_net_timings) {
+        const NetInfo* net = it.first;
+        const std::string drv_port = cellport_name(net->driver);
 
-            for (const auto& sink_timing : it.second) {
-                fprintf(fp, "%s,%s,%s,%s %s,%s %s,%f,%f\n",
-                    net->name.c_str(ctx),
-                    drv_port.c_str(),
-                    cellport(sink_timing.sink).c_str(),
-                    edge_name(sink_timing.clock_pair.start.edge),
-                    sink_timing.clock_pair.start.clock.c_str(ctx),
-                    edge_name(sink_timing.clock_pair.end.edge),
-                    sink_timing.clock_pair.end.clock.c_str(ctx),
-                    ctx->getDelayNS(sink_timing.delay),
-                    ctx->getDelayNS(sink_timing.budget)
-                );
-            }
+        ClockEvent start = it.second[0].clock_pair.start;
+
+        Json::array endpointsJson;
+        for (const auto& sink_timing : it.second) {
+
+            // FIXME: Is it possible that there are multiple different start
+            // events for a single net? It has a single driver
+            NPNR_ASSERT(sink_timing.clock_pair.start == start);
+
+            auto endpointJson = Json::object({
+                {"sink", cellport_name(sink_timing.sink)},
+                {"event", event_name(sink_timing.clock_pair.end)},
+                {"delay", ctx->getDelayNS(sink_timing.delay)},
+                {"budget", ctx->getDelayNS(sink_timing.budget)}
+            });
+            endpointsJson.push_back(endpointJson);
         }
 
-        fclose(fp);
+        auto netTimingJson = Json::object({
+            {"net", net->name.c_str(ctx)},
+            {"driver", drv_port},
+            {"event", event_name(start)},
+            {"endpoints", endpointsJson}
+        });
+        detailedNetTimingsJson.push_back(netTimingJson);
     }
+
+    auto analysisJson = Json::object({
+        {"detailed_net_timings", Json(detailedNetTimingsJson)}
+    });
+
+    // Assemble and serialize the final Json
+    auto jsonRoot = Json(Json::object({
+        {"timing_analysis", Json(analysisJson)}
+    }));
+
+    fputs(jsonRoot.dump().c_str(), fp);
+    fclose(fp);
 }
 
 NEXTPNR_NAMESPACE_END
