@@ -1251,8 +1251,8 @@ CriticalPathReport build_critical_path_report(Context* ctx, ClockPair &clocks, c
         seg_logic.type = CriticalPathSegment::Type::LOGIC;
         seg_logic.delay = setup;
         seg_logic.budget = 0;
-        seg_logic.from = std::make_pair(nullptr, IdString());
-        seg_logic.to = std::make_pair(const_cast<CellInfo*>(last_cell), last_port);
+        seg_logic.from = std::make_pair(const_cast<CellInfo*>(last_cell), last_port);
+        seg_logic.to = seg_logic.from;
         seg_logic.net = nullptr;
         report.segments.push_back(seg_logic);
     }
@@ -1366,7 +1366,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
 
                 if (segment.type == CriticalPathSegment::Type::LOGIC) {
                     logic_total += segment.delay;
-                    if (segment.from.first != nullptr) {
+                    if (segment.from != segment.to) {
                         log_info("%4.1f %4.1f  Source %s.%s\n",
                             ctx->getDelayNS(segment.delay),
                             ctx->getDelayNS(total),
@@ -1567,16 +1567,6 @@ void write_timing_report(
     const DetailedNetTimings& detailed_net_timings
 )
 {
-    auto cellport_name = [ctx](const PortRef& port) {
-        std::string str;
-        if (port.cell != nullptr) {
-            str = std::string(port.cell->name.c_str(ctx));
-        } else {
-            str = "<none>"; // FIXME: When does that happen?
-        }
-        return str + "." + std::string(port.port.c_str(ctx));
-    };
-
     auto event_name = [ctx](const ClockEvent &e) {
         std::string value;
         if (e.clock == ctx->id("$async$"))
@@ -1587,8 +1577,46 @@ void write_timing_report(
         return value;
     };
 
-//    auto report_critical_path = [ctx](const ClockPair &clocks, const PortRefVector &path) {
-//    }
+    auto report_critical_path = [ctx](const CriticalPathReport& report) {
+        Json::array pathJson;
+
+        for (const auto& segment : report.segments) {
+
+            auto fromLoc = ctx->getBelLocation(segment.from.first->bel);
+            auto toLoc = ctx->getBelLocation(segment.to.first->bel);
+
+            auto fromJson = Json::object({
+                {"cell", segment.from.first->name.c_str(ctx)},
+                {"port", segment.from.second.c_str(ctx)},
+                {"loc", Json::array({fromLoc.x, fromLoc.y})}
+            });
+
+            auto toJson = Json::object({
+                {"cell", segment.to.first->name.c_str(ctx)},
+                {"port", segment.to.second.c_str(ctx)},
+                {"loc", Json::array({toLoc.x, toLoc.y})}
+            });
+
+            auto segmentJson = Json::object({
+                {"delay", ctx->getDelayNS(segment.delay)},
+                {"from", fromJson},
+                {"to", toJson},
+            });
+
+            if (segment.type == CriticalPathSegment::Type::LOGIC) {
+                segmentJson["type"] = "logic";
+            }
+            else if (segment.type == CriticalPathSegment::Type::ROUTING) {
+                segmentJson["type"] = "routing";
+                segmentJson["net"] = segment.net->name.c_str(ctx);
+                segmentJson["budget"] = ctx->getDelayNS(segment.budget);
+            }
+
+            pathJson.push_back(segmentJson);
+        }
+
+        return pathJson;
+    };
 
     // Open the file
     FILE* fp = fopen(file_name.c_str(), "w");
@@ -1601,11 +1629,8 @@ void write_timing_report(
         critPathsJson.push_back(Json::object({
             {"from", event_name(report.second.clock_pair.start)},
             {"to", event_name(report.second.clock_pair.end)},
-            {"path", Json()}
+            {"path", report_critical_path(report.second)}
         }));
-
-        //auto &crit_path = clock.second.second.ports;
-        //print_path_report(clock.second.first, crit_path);
     }
 
     // Cross-domain paths
@@ -1613,17 +1638,14 @@ void write_timing_report(
         critPathsJson.push_back(Json::object({
             {"from", event_name(report.clock_pair.start)},
             {"to", event_name(report.clock_pair.end)},
-            {"path", Json()}
+            {"path", report_critical_path(report)}
         }));
-//        auto &crit_path = crit_paths.at(xclock).ports;
-//        print_path_report(xclock, crit_path);
     }
 
     // Detailed per-net timing analysis
     auto detailedNetTimingsJson = Json::array();
     for (const auto& it : detailed_net_timings) {
         const NetInfo* net = it.first;
-        const std::string drv_port = cellport_name(net->driver);
 
         ClockEvent start = it.second[0].clock_pair.start;
 
@@ -1635,7 +1657,8 @@ void write_timing_report(
             NPNR_ASSERT(sink_timing.clock_pair.start == start);
 
             auto endpointJson = Json::object({
-                {"sink", cellport_name(sink_timing.sink)},
+                {"cell", sink_timing.sink.cell->name.c_str(ctx)},
+                {"port", sink_timing.sink.port.c_str(ctx)},
                 {"event", event_name(sink_timing.clock_pair.end)},
                 {"delay", ctx->getDelayNS(sink_timing.delay)},
                 {"budget", ctx->getDelayNS(sink_timing.budget)}
@@ -1645,7 +1668,8 @@ void write_timing_report(
 
         auto netTimingJson = Json::object({
             {"net", net->name.c_str(ctx)},
-            {"driver", drv_port},
+            {"driver", net->driver.cell->name.c_str(ctx)},
+            {"port", net->driver.port.c_str(ctx)},
             {"event", event_name(start)},
             {"endpoints", endpointsJson}
         });
