@@ -49,6 +49,7 @@ struct ClusterWireNode
     WireId wire;
     ClusterWireNodeState state;
     int depth;
+    bool only_down;
 };
 
 static void handle_expansion_node(const Context *ctx, WireId prev_wire, PipId pip, ClusterWireNode curr_node,
@@ -188,18 +189,10 @@ CellInfo *Arch::getClusterRootCell(ClusterId cluster) const
     return clusters.at(cluster).root;
 }
 
-bool Arch::getClusterPlacement(ClusterId cluster, BelId root_bel,
-                               std::vector<std::pair<CellInfo *, BelId>> &placement) const
+bool Arch::normal_cluster_placement(
+    const Context *ctx, const Cluster &packed_cluster, const ClusterPOD &cluster_data,
+    CellInfo *root_cell, BelId root_bel, std::vector<std::pair<CellInfo *, BelId>> &placement) const
 {
-    const Context *ctx = getCtx();
-    const Cluster &packed_cluster = clusters.at(cluster);
-
-    auto &cluster_data = cluster_info(chip_info, packed_cluster.index);
-
-    CellInfo *root_cell = getClusterRootCell(cluster);
-    if (!ctx->isValidBelForCellType(root_cell->type, root_bel))
-        return false;
-
     BelId next_bel;
 
     // Place cluster
@@ -281,6 +274,312 @@ bool Arch::getClusterPlacement(ClusterId cluster, BelId root_bel,
     }
 
     return true;
+}
+
+static void handle_macro_expansion_node(
+                                  const Context *ctx, WireId wire, PipId pip, ClusterWireNode curr_node,
+                                  std::vector<ClusterWireNode> &nodes_to_expand, BelPin root_pin,
+                                  dict<std::pair<BelId, BelId>, dict<IdString, IdString>> &bels,
+                                  ExpansionDirection direction, pool<WireId> &visited, CellInfo *cell)
+{
+    if (curr_node.state == IN_SINK_SITE || curr_node.state == ONLY_IN_SOURCE_SITE) {
+        for (BelPin bel_pin : ctx->getWireBelPins(wire)) {
+            BelId bel = bel_pin.bel;
+            log_info("\t\t\tconsidering:\n");
+            for (auto s : ctx->getBelName(bel)){
+                log_info("\t\t\t\t - %s\n", s.c_str(ctx));
+            }
+            log_info("\t\t\t\t pin: %s\n",bel_pin.pin.c_str(ctx));
+            if (bel == root_pin.bel)
+                continue;
+            auto const &bel_data = bel_info(ctx->chip_info, bel);
+
+            if (bels.count(std::pair<BelId, BelId>(root_pin.bel, bel)))
+                continue;
+
+            if (bel_data.category != BEL_CATEGORY_LOGIC){
+                continue;
+            }
+
+            if (bel_data.synthetic)
+                continue;
+
+            if (!ctx->isValidBelForCellType(cell->type, bel))
+                continue;
+
+            log_info("\t\t\tfound: %s\n", bel_pin.pin.c_str(ctx));
+            bels[std::pair<BelId, BelId>(root_pin.bel, bel_pin.bel)].insert(
+                std::pair<IdString, IdString>(root_pin.pin, bel_pin.pin));
+        }
+    }
+
+    WireId next_wire;
+
+    if (direction == CLUSTER_UPHILL_DIR)
+        next_wire = ctx->getPipSrcWire(pip);
+    else
+        next_wire = ctx->getPipDstWire(pip);
+
+    log_info("\t\t\tPIP:\n");
+    for (auto s : ctx->getPipName(pip)){
+        log_info("\t\t\t\t - %s\n", s.c_str(ctx));
+    }
+    log_info("\t\t\t next_wire:\n");
+    for (auto s : ctx->getWireName(next_wire)){
+        log_info("\t\t\t\t - %s\n", s.c_str(ctx));
+    }
+
+    if (next_wire == WireId() || visited.count(next_wire))
+        return;
+
+    ClusterWireNode next_node;
+    next_node.wire = next_wire;
+    next_node.depth = curr_node.depth;
+    next_node.only_down = false;
+    if (direction == CLUSTER_DOWNHILL_DIR)
+        next_node.only_down = true;
+
+    if (next_node.depth >= 2)
+        return;
+
+    auto const &wire_data = ctx->wire_info(next_wire);
+
+    bool expand_node = true;
+    if (ctx->is_site_port(pip)) {
+        switch (curr_node.state) {
+        case ONLY_IN_SOURCE_SITE:
+            expand_node = false;
+            break;
+        case IN_SOURCE_SITE:
+            NPNR_ASSERT(wire_data.site == -1);
+            next_node.state = IN_ROUTING;
+            break;
+        case IN_ROUTING:
+            NPNR_ASSERT(wire_data.site != -1);
+            next_node.state = IN_SINK_SITE;
+            break;
+        case IN_SINK_SITE:
+            expand_node = false;
+            break;
+        default:
+            // Unreachable!!!
+            NPNR_ASSERT(false);
+        }
+    } else {
+        if (next_node.state == IN_ROUTING)
+            next_node.depth++;
+        next_node.state = curr_node.state;
+    }
+
+    if (curr_node.state != IN_ROUTING){
+        const auto &pip_data = pip_info(ctx->chip_info, pip);
+        BelId bel;
+        bel.tile = pip.tile;
+        bel.index = pip_data.bel;
+        log_info("Pip bel stat:\n");
+        for (auto s : ctx->getBelName(bel)){
+            log_info("\t - %s\n", s.c_str(ctx));
+        }
+        const auto &bel_data = bel_info(ctx->chip_info, bel);
+        if(bel_data.category == BEL_CATEGORY_LOGIC)
+            expand_node = false;
+    }
+
+    if (expand_node)
+        nodes_to_expand.push_back(next_node);
+    else
+        return;
+
+    return;
+}
+
+static void
+        find_macro_cluster_bels(const Context *ctx, WireId wire,
+                                dict<std::pair<BelId, BelId>, dict<IdString, IdString>> &possible_places,
+                                ExpansionDirection direction, BelPin root_pin, CellInfo *cell, bool out_of_site_expansion = false)
+{
+    std::vector<ClusterWireNode> nodes_to_expand;
+    pool<WireId> visited;
+
+    const auto &wire_data = ctx->wire_info(wire);
+    NPNR_ASSERT(wire_data.site != -1);
+
+    ClusterWireNode wire_node;
+    wire_node.wire = wire;
+    wire_node.state = IN_SOURCE_SITE;
+    if (!out_of_site_expansion)
+        wire_node.state = ONLY_IN_SOURCE_SITE;
+    wire_node.depth = 0;
+    wire_node.only_down = false;
+
+    nodes_to_expand.push_back(wire_node);
+
+    while (!nodes_to_expand.empty()) {
+        ClusterWireNode node_to_expand = nodes_to_expand.back();
+        WireId wire = node_to_expand.wire;
+        nodes_to_expand.pop_back();
+        visited.insert(wire);
+        log_info("\t\t visited:\n");
+        for (auto s : ctx->getWireName(wire)){
+            log_info("\t\t\t - %s\n", s.c_str(ctx));
+        }
+
+        if (direction == CLUSTER_DOWNHILL_DIR) {
+            for (PipId pip : ctx->getPipsDownhill(node_to_expand.wire)) {
+                if (ctx->is_pip_synthetic(pip))
+                    continue;
+
+                handle_macro_expansion_node(
+                    ctx, wire, pip, node_to_expand, nodes_to_expand,
+                    root_pin, possible_places, direction, visited, cell);
+            }
+        } else if (direction == CLUSTER_UPHILL_DIR){
+            for (PipId pip : ctx->getPipsUphill(node_to_expand.wire)) {
+                if (ctx->is_pip_synthetic(pip))
+                    continue;
+
+                handle_macro_expansion_node(
+                    ctx, wire, pip, node_to_expand, nodes_to_expand,
+                    root_pin, possible_places, direction, visited, cell);
+            }
+        } else {
+            NPNR_ASSERT(direction == CLUSTER_BOTH_DIR);
+            for (PipId pip : ctx->getPipsDownhill(node_to_expand.wire)) {
+                if (ctx->is_pip_synthetic(pip))
+                    continue;
+
+                handle_macro_expansion_node(
+                    ctx, wire, pip, node_to_expand, nodes_to_expand,
+                    root_pin, possible_places, CLUSTER_DOWNHILL_DIR, visited, cell);
+            }
+            if (!node_to_expand.only_down)
+                for (PipId pip : ctx->getPipsUphill(node_to_expand.wire)) {
+                    if (ctx->is_pip_synthetic(pip))
+                        continue;
+
+                    handle_macro_expansion_node(
+                        ctx, wire, pip, node_to_expand, nodes_to_expand,
+                        root_pin, possible_places, CLUSTER_UPHILL_DIR, visited, cell);
+                }
+        }
+    }
+    return;
+}
+
+bool Arch::macro_cluster_placement(
+    const Context *ctx, const Cluster &packed_cluster, const ClusterPOD &cluster_data,
+    CellInfo *root_cell, BelId root_bel, std::vector<std::pair<CellInfo *, BelId>> &placement) const
+{
+    const auto &bel_data = bel_info(chip_info, root_bel);
+
+    log_info("Bel_name: %s type: %s\n", IdString(bel_data.name).c_str(ctx), IdString(bel_data.type).c_str(ctx));
+    log_info("Cell_name: %s type: %s\n", root_cell->name.c_str(ctx), root_cell->type.c_str(ctx));
+
+    // Build a cell to bell mapping required to find BELs connected to the cluster ports.
+    dict<IdString, std::vector<IdString>> cell_bel_pins;
+    dict<IdString, IdString> bel_cell_pins;
+
+    int32_t mapping = bel_data.pin_map[get_cell_type_index(root_cell->type)];
+    NPNR_ASSERT(mapping >= 0);
+
+    const CellBelMapPOD &cell_pin_map = chip_info->cell_map->cell_bel_map[mapping];
+    for (const auto &pin_map : cell_pin_map.common_pins) {
+        IdString cell_pin(pin_map.cell_pin);
+        IdString bel_pin(pin_map.bel_pin);
+        log_info("%s %s\n", cell_pin.c_str(ctx), bel_pin.c_str(ctx));
+
+        cell_bel_pins[cell_pin].push_back(bel_pin);
+        bel_cell_pins[bel_pin] = cell_pin;
+    }
+
+    for (const auto &pair : bel_data.connected_pins){
+        IdString p1(pair.pin1), p2(pair.pin2);
+        IdString i1(bel_cell_pins[p1]), i2(bel_cell_pins[p2]);
+        log_info("%s %s\n", i1.c_str(ctx), i2.c_str(ctx));
+        if (root_cell->ports[i1].net != root_cell->ports[i2].net){
+            log_info("%s != %s\n", root_cell->ports[i1].net->name.c_str(ctx),
+                               root_cell->ports[i2].net->name.c_str(ctx));
+            return false;
+        }
+    }
+
+    dict<uint32_t, pool<BelId>> idx_bel_map;
+    idx_bel_map[0].insert(root_bel);
+    std::queue<uint32_t> queue;
+    queue.push(0);
+
+    while (!queue.empty()){
+        uint32_t idx = queue.front(); queue.pop();
+        std::vector<BelId> remove_bels;
+        dict<std::pair<BelId, BelId>, dict<IdString, IdString>> possible_places;
+        for (const auto &root_bel : idx_bel_map[idx]){
+            for (const auto &connection : cluster_data.connection_graph[idx].connections){
+                log_info("Target idx:%d\n", connection.target_idx);
+                CellInfo *cell_to_place = packed_cluster.cluster_nodes[connection.target_idx];
+                pool<IdString> needed_pins;
+                for (const auto &edge : connection.edges){
+                    log_info("\t - %s %s\n", IdString(edge.cell_pin).c_str(ctx), IdString(edge.other_cell_pin).c_str(ctx));
+                    for (auto &root_pin : cell_bel_pins.at(IdString(edge.cell_pin))) {
+                        WireId bel_pin_wire = ctx->getBelPinWire(root_bel, root_pin);
+                        BelPin root;
+                        root.bel = root_bel;
+                        root.pin = root_pin;
+                        needed_pins.insert(root_pin);
+                        for (auto s : ctx->getWireName(bel_pin_wire)){
+                            log_info("\t\t - %s\n", s.c_str(ctx));
+                        }
+                        find_macro_cluster_bels(
+                            ctx, bel_pin_wire, possible_places,
+                            ExpansionDirection(edge.dir), root,
+                            cell_to_place);
+                    }
+                }
+
+                for (const auto &place : possible_places){
+                    BelId check_bel = place.first.second;
+                    const auto &bel_data2 = bel_info(chip_info, check_bel);
+                    bool failed = false;
+                    for (const auto &pin : needed_pins){
+                        log_info("Pin: %s\n", pin.c_str(ctx));
+                        if (!place.second.count(pin)){
+                            failed = true;
+                            break;
+                        }
+                    }
+                    if (failed)
+                        continue;
+                    log_info("Bel_name: %s type: %s\n", IdString(bel_data2.name).c_str(ctx),
+                        IdString(bel_data2.type).c_str(ctx));
+                    log_info("Cell_name: %s type: %s\n", cell_to_place->name.c_str(ctx), cell_to_place->type.c_str(ctx));
+                }
+            }
+        }
+    }
+
+    exit(0);
+    return true;
+}
+
+bool Arch::getClusterPlacement(ClusterId cluster, BelId root_bel,
+                               std::vector<std::pair<CellInfo *, BelId>> &placement) const
+{
+    const Context *ctx = getCtx();
+    const Cluster &packed_cluster = clusters.at(cluster);
+
+    auto &cluster_data = cluster_info(chip_info, packed_cluster.index);
+
+    CellInfo *root_cell = getClusterRootCell(cluster);
+    if (!ctx->isValidBelForCellType(root_cell->type, root_bel))
+        return false;
+    if (!cluster_data.from_macro)
+        return normal_cluster_placement(ctx, packed_cluster, cluster_data, root_cell,
+                                        root_bel, placement);
+    else{
+        log_info("Macro cluster\n");
+        bool temp = macro_cluster_placement(ctx, packed_cluster, cluster_data, root_cell,
+                                        root_bel, placement);
+        return temp;
+    }
 }
 
 ArcBounds Arch::getClusterBounds(ClusterId cluster) const
@@ -692,6 +991,19 @@ void Arch::prepare_macro_cluster( const ClusterPOD *cluster, uint32_t index)
                     log_info("    - %d\n", idx);
             }
         }
+        Cluster cluster_info;
+        cluster_info.root = ci;
+        cluster_info.index = index;
+        cluster_info.cluster_nodes.resize(idx_to_cells.size());
+        ci->cluster.set(ctx, ci->name.str(ctx));
+        for (auto &arc : idx_to_cells){
+            CellInfo * sub_cell = arc.second.pop();
+            if (ctx->verbose)
+                log_info("%d %s - %s\n", arc.first, sub_cell->name.c_str(ctx), sub_cell->type.c_str(ctx));
+            sub_cell->cluster = ci->cluster;
+            cluster_info.cluster_nodes[arc.first] = sub_cell;
+        }
+        clusters.emplace(ci->cluster, cluster_info);
     }
 }
 
@@ -895,12 +1207,28 @@ void Arch::pack_cluster()
             const auto &cluster = chip_info->clusters[i];
 
             prepare_cluster(&cluster, i);
-        } else {
+        } else if(!chip_info->clusters[i].out_of_site_clusters) {
             const auto &cluster = chip_info->clusters[i];
-            if(ctx->verbose)
-                log_info("%s\n", IdString(cluster.name).c_str(ctx));
+            if(ctx->verbose){
+                log_info("%s\n", IdString(cluster.name).c_str(ctx));\
+            }
 
             prepare_macro_cluster(&cluster, i);
+        }
+        else {
+            // No good way to handle out of site clusters, as fulfiling routing requirements
+            // can be done by router. Right now cluster connection map creates connections from each
+            // cell to each cell, and in placement this is used as well.
+            // We could assume that in macros, where there are no root cells and
+            // we have multiple unconnected graphs, source cells must be in the same site.
+            // Why create a macro if these cells have nothing in common.
+            // For now python-fpga-interchange does not support this assumption
+            // and neither does placement code.
+            // Cluster preparing and packing works for both, but as we cannot place
+            // out of site clusters, we don't create them, letting generic P&R do it.
+            const auto &cluster = chip_info->clusters[i];
+            if(ctx->verbose)
+                log_info("Out of site cluster from macro: %s\n", IdString(cluster.name).c_str(ctx));
         }
     }
 }

@@ -37,8 +37,8 @@ NEXTPNR_NAMESPACE_BEGIN
 static constexpr int32_t kExpectedChipInfoVersion = 15;
 
 NPNR_PACKED_STRUCT(struct BelConnectedPinsPOD {
-    uint32_t pin1;
-    uint32_t pin2;
+    int32_t pin1;
+    int32_t pin2;
 });
 
 // Flattened site indexing.
