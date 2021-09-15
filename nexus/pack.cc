@@ -1197,10 +1197,10 @@ struct NexusPacker
             NetInfo *dout = get_net_or_empty(ci, id_DOUT);
             if (dout != nullptr && dout->users.size() == 1)
                 iob = dout->users.at(0).cell;
-            NetInfo *tout = get_net_or_empty(ci, id_DOUT);
+            NetInfo *tout = get_net_or_empty(ci, id_TOUT);
             if (tout != nullptr && tout->users.size() == 1)
                 iob = tout->users.at(0).cell;
-            if (iob->type != id_SEIO18_CORE && iob->type != id_SEIO33_CORE && iob->type != id_DIFFIO18_CORE)
+            if (iob == nullptr || (iob->type != id_SEIO18_CORE && iob->type != id_SEIO33_CORE && iob->type != id_DIFFIO18_CORE))
                 log_error("Failed to find associated IOB for IOLOGIC %s\n", ctx->nameOf(ci));
             io_to_iol[iob->name].push_back(ci);
         }
@@ -2075,6 +2075,84 @@ struct NexusPacker
         }
     }
 
+    // IOLOGIC requires some special handling around itself and IOB. This
+    // function does that.
+    void handle_iologic() {
+
+        for (auto &cell : ctx->cells) {
+            CellInfo* iol = cell.second.get();
+            if (iol->type != id_SIOLOGIC && iol->type != id_IOLOGIC) {
+                continue;
+            }
+
+            CellInfo *iob = nullptr;
+            NetInfo *di = get_net_or_empty(iol, id_DI);
+            if (di != nullptr && di->driver.cell != nullptr)
+                iob = di->driver.cell;
+            NetInfo *dout = get_net_or_empty(iol, id_DOUT);
+            if (dout != nullptr && dout->users.size() == 1)
+                iob = dout->users.at(0).cell;
+            NetInfo *tout = get_net_or_empty(iol, id_TOUT);
+            if (tout != nullptr && tout->users.size() == 1)
+                iob = tout->users.at(0).cell;
+            NPNR_ASSERT(iob != nullptr);
+
+            // SIOLOGIC handling
+            if (iol->type == id_SIOLOGIC) {
+
+                // Enable glitch filter for when it uses IDDR as observed
+                // done by the vendor toolchain.
+                NetInfo* dout = get_net_or_empty(iol, id_DOUT);
+                if (dout != nullptr && dout->users.size() == 1) {
+                    if (iol->params.count(id_MODE) && iol->params.at(id_MODE).as_string() == "IDDRX1_ODDRX1") {
+
+                        if (!iob->attrs.count(ctx->id("GLITCHFILTER"))) {
+                            iob->attrs[ctx->id("GLITCHFILTER")] = std::string("ON");
+                        }
+                    }
+                }
+
+                // Detect case when SEIO33_CORE.T is not driven by
+                // SIOLOGIC.TOUT. In this case connect SIOLOGIC.TSDATA0 to the
+                // same ned as SEIO33_CORE.I.
+                NetInfo* iob_t = get_net_or_empty(iob, id_T);
+                if (iob_t != nullptr) {
+                    NetInfo* iol_t = get_net_or_empty(iol, id_TOUT);
+
+                    // SIOLOGIC.TOUT is not driving SEIO33_CORE.I
+                    if ((iol_t == nullptr) ||
+                        (iol_t != nullptr &&  iol_t->users.empty()) ||
+                        (iol_t != nullptr && !iol_t->users.empty() && iol_t->name != iob_t->name)) {
+
+                        // In this case if SIOLOGIC.TSDATA0 is not connected
+                        // to the same net as SEIO33_CORE.I and is not
+                        // floating then that configuration is illegal.
+                        NetInfo* iol_ti = get_net_or_empty(iol, id_TSDATA0);
+                        if (iol_ti != nullptr && (iol_ti->name != iob_t->name)
+                                              && (iol_ti->name != gnd_net->name))
+                        {
+                            log_error("Cannot have %s.TSDATA0 and %s.T driven by different nets (%s vs. %s)\n",
+                                ctx->nameOf(iol), ctx->nameOf(iob),
+                                ctx->nameOf(iol_ti), ctx->nameOf(iob_t));
+                        }
+
+                        // Re-connect TSDATA (even if it has already been
+                        // connected to gnd_net, see the condition above).
+                        if (!iol->ports.count(id_TSDATA0)) {
+                            iol->addInput(id_TSDATA0);
+                        }
+                        disconnect_port(ctx, iol, id_TSDATA0);
+                        connect_port(ctx, iob_t, iol, id_TSDATA0);
+
+                        if (ctx->debug) {
+                            log_info("Reconnecting %s.TSDATA0 to %s\n", ctx->nameOf(iol), ctx->nameOf(iob_t));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     explicit NexusPacker(Context *ctx) : ctx(ctx) {}
 
     void operator()()
@@ -2096,6 +2174,7 @@ struct NexusPacker
         promote_globals();
         place_globals();
         generate_constraints();
+        handle_iologic();
     }
 };
 
