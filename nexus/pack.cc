@@ -2075,9 +2075,68 @@ struct NexusPacker
         }
     }
 
+    // Finds and returns a flip-flop that drives the given port of an IOB cell
+    // If an associated IOLOGIC cell is provided then checks whether the
+    // flip-flop matches its clock and reset.
+    CellInfo* get_ff_for_iob (CellInfo* iob, IdString port, CellInfo* iol) {
+
+        // Get the net
+        NetInfo* net = get_net_or_empty(iob, port);
+        if (net == nullptr) {
+            return nullptr;
+        }
+
+        // Get the flip-flop that drives it
+        CellInfo* ff = net->driver.cell;
+        if (ff->type != id_OXIDE_FF) {
+            return nullptr;
+        }
+
+        // Get clock nets of IOLOGIC and the flip-flop
+        if (iol != nullptr) {
+            NetInfo* iol_c = get_net_or_empty(iol, id_SCLKOUT);
+            NetInfo* ff_c  = get_net_or_empty(ff,  id_CLK);
+
+            // If one of them is floating or it is not the same net then abort
+            if (iol_c == nullptr || ff_c == nullptr) {
+                return nullptr;
+            }
+            if (iol_c->name != ff_c->name) {
+                return nullptr;
+            }
+        }
+
+        // Get reset nets of IOLOGIC and the flip-flop
+        if (iol != nullptr) {
+            NetInfo* iol_r = get_net_or_empty(iol, id_LSROUT);
+            NetInfo* ff_r  = get_net_or_empty(ff,  id_LSR);
+
+            // If one of them is floating or it is not the same net then abort.
+            // But both can be floating.
+            if (!(iol_r == nullptr && ff_r == nullptr)) {
+                if (iol_r == nullptr || ff_r == nullptr) {
+                    return nullptr;
+                }
+                if (iol_r->name != ff_r->name) {
+                    return nullptr;
+                }
+            }
+        }
+
+        // FIXME: Check if the flip-flop has:
+        // - non-inverted clock
+        // - same reset "type" as ODDR
+        // - others ?
+
+        return ff;
+    }
+
     // IOLOGIC requires some special handling around itself and IOB. This
     // function does that.
     void handle_iologic() {
+
+        // Map of flip-flop cells that drive IOLOGIC+IOB pairs
+        dict<IdString, std::vector<std::pair<IdString,IdString>>> tff_map;
 
         for (auto &cell : ctx->cells) {
             CellInfo* iol = cell.second.get();
@@ -2085,47 +2144,71 @@ struct NexusPacker
                 continue;
             }
 
+            bool isIDDR = false;
+            bool isODDR = false;
+
             CellInfo *iob = nullptr;
             NetInfo *di = get_net_or_empty(iol, id_DI);
-            if (di != nullptr && di->driver.cell != nullptr)
+            if (di != nullptr && di->driver.cell != nullptr) {
                 iob = di->driver.cell;
+                isIDDR = true;
+            }
             NetInfo *dout = get_net_or_empty(iol, id_DOUT);
-            if (dout != nullptr && dout->users.size() == 1)
+            if (dout != nullptr && dout->users.size() == 1) {
                 iob = dout->users.at(0).cell;
+                isODDR = true;
+            }
             NetInfo *tout = get_net_or_empty(iol, id_TOUT);
-            if (tout != nullptr && tout->users.size() == 1)
+            if (tout != nullptr && tout->users.size() == 1) {
                 iob = tout->users.at(0).cell;
+                isODDR = true; // FIXME: Not sure
+            }
             NPNR_ASSERT(iob != nullptr);
 
             // SIOLOGIC handling
             if (iol->type == id_SIOLOGIC) {
 
-                // Enable glitch filter for when it uses IDDR as observed
-                // done by the vendor toolchain.
-                NetInfo* dout = get_net_or_empty(iol, id_DOUT);
-                if (dout != nullptr && dout->users.size() == 1) {
-                    if (iol->params.count(id_MODE) && iol->params.at(id_MODE).as_string() == "IDDRX1_ODDRX1") {
-
-                        if (!iob->attrs.count(ctx->id("GLITCHFILTER"))) {
-                            iob->attrs[ctx->id("GLITCHFILTER")] = std::string("ON");
-                        }
+                // We have IDDR+ODDR
+                if (isODDR && isIDDR) {
+                    if (!iob->attrs.count(ctx->id("GLITCHFILTER"))) {
+                        iob->attrs[ctx->id("GLITCHFILTER")] = std::string("ON");
+                    }
+                    if (!iob->attrs.count(ctx->id("CLAMP"))) {
+                        iob->attrs[ctx->id("CLAMP")] = std::string("ON");
+                    }
+                    if (!iob->attrs.count(ctx->id("PULLMODE"))) {
+                        iob->attrs[ctx->id("PULLMODE")] = std::string("DOWN");
+                    }
+                }
+                // We have ODDR only
+                else if (isODDR && !isIDDR) {
+                    if (!iob->attrs.count(ctx->id("GLITCHFILTER"))) {
+                        iob->attrs[ctx->id("GLITCHFILTER")] = std::string("OFF");
+                    }
+                    if (!iob->attrs.count(ctx->id("CLAMP"))) {
+                        iob->attrs[ctx->id("CLAMP")] = std::string("OFF");
+                    }
+                    if (!iob->attrs.count(ctx->id("PULLMODE"))) {
+                        iob->attrs[ctx->id("PULLMODE")] = std::string("NONE");
                     }
                 }
 
                 // Detect case when SEIO33_CORE.T is not driven by
                 // SIOLOGIC.TOUT. In this case connect SIOLOGIC.TSDATA0 to the
                 // same ned as SEIO33_CORE.I.
+                //
+                //
                 NetInfo* iob_t = get_net_or_empty(iob, id_T);
-                if (iob_t != nullptr) {
+                if (iob_t != nullptr && isODDR) {
                     NetInfo* iol_t = get_net_or_empty(iol, id_TOUT);
 
-                    // SIOLOGIC.TOUT is not driving SEIO33_CORE.I
+                    // SIOLOGIC.TOUT is not driving SEIO33_CORE.T
                     if ((iol_t == nullptr) ||
                         (iol_t != nullptr &&  iol_t->users.empty()) ||
                         (iol_t != nullptr && !iol_t->users.empty() && iol_t->name != iob_t->name)) {
 
                         // In this case if SIOLOGIC.TSDATA0 is not connected
-                        // to the same net as SEIO33_CORE.I and is not
+                        // to the same net as SEIO33_CORE.T and is not
                         // floating then that configuration is illegal.
                         NetInfo* iol_ti = get_net_or_empty(iol, id_TSDATA0);
                         if (iol_ti != nullptr && (iol_ti->name != iob_t->name)
@@ -2147,9 +2230,81 @@ struct NexusPacker
                         if (ctx->debug) {
                             log_info("Reconnecting %s.TSDATA0 to %s\n", ctx->nameOf(iol), ctx->nameOf(iob_t));
                         }
+
+                        // Check if the T input is driven by a flip-flop. Store
+                        // in the map.
+                        CellInfo* ff = get_ff_for_iob(iob, id_T, iol);
+                        if (ff != nullptr) {
+                            tff_map[ff->name].push_back(std::make_pair(
+                                iol->name, iob->name));
+                        }
                     }
                 }
             }
+        }
+
+        // Integrate flip-flops that drive T with IOLOGIC
+        for (auto& it : tff_map) {
+            CellInfo* ff = ctx->cells.at(it.first).get();
+
+            NetInfo* ff_d = get_net_or_empty(ff, id_M); // FIXME: id_D or id_M ?!
+            NPNR_ASSERT(ff_d != nullptr);
+
+            NetInfo* ff_q = get_net_or_empty(ff, id_Q);
+            NPNR_ASSERT(ff_q != nullptr);
+
+            log_info("FF '%s'\n", ctx->nameOf(ff));
+            for (auto& it : ff->params) {
+                log_info(" '%s'='%s'\n", it.first.c_str(ctx), it.second.as_string().c_str());
+            }
+
+            for (auto& ios : it.second) {
+                CellInfo* iol = ctx->cells.at(ios.first).get();
+                CellInfo* iob = ctx->cells.at(ios.second).get();
+
+                log_info("Integrating %s into %s\n", ctx->nameOf(ff), ctx->nameOf(iol));
+
+                // Disconnect "old" T net
+                disconnect_port(ctx, iol, id_TSDATA0);
+                disconnect_port(ctx, iob, id_T);
+
+                // Connect the "new" one
+                connect_port(ctx, ff_d, iol, id_TSDATA0);
+                connect_port(ctx, ff_d, iob, id_T);
+
+                // Propagate parameters
+                iol->params[id_SRMODE] = ff->params.at(id_SRMODE);
+                iol->params[id_REGSET] = ff->params.at(id_REGSET);
+
+                iol->params[ctx->id("TSREG.REGSET")] = std::string("SET");
+
+                // CEOUTMUX.1
+                iol->params[ctx->id("CEOUTMUX")] = std::string("1");
+
+                // FIXME: Workaround for an unknown bit
+                IdStringList belName = IdStringList::parse(ctx, iob->attrs[id_BEL].as_string());
+                if (belName[2] == ctx->id("PIOA")) {
+                    // UNKNOWN.22.1 for A
+                    iol->params[ctx->id("UNKNOWN")] = std::string("22.1");
+                }
+                else if (belName[2] == ctx->id("PIOB")) {
+                    // UNKNOWN.77.1 for B
+                    iol->params[ctx->id("UNKNOWN")] = std::string("77.1");
+                }
+                else {
+                    log_error("Unknown IO BEL type '%s'\n", belName[2].c_str(ctx));
+                }
+            }
+
+            // Disconnect the flip-flop
+            for (auto& port : ff->ports) {
+                disconnect_port(ctx, ff, port.first);
+            }
+
+            // Remove the flip-flop
+            ctx->cells.erase(ff->name);
+            // Remove its output net
+            ctx->nets.erase(ff_q->name);
         }
     }
 
@@ -2171,10 +2326,10 @@ struct NexusPacker
         pack_constants();
         pack_luts();
         pack_ip();
+        handle_iologic();
         promote_globals();
         place_globals();
         generate_constraints();
-        handle_iologic();
     }
 };
 

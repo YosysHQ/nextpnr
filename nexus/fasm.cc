@@ -568,7 +568,13 @@ struct NexusFasmWriter
         write_enum(cell, "MODE");
         write_enum(cell, "IDDRX1_ODDRX1.OUTPUT");
         write_enum(cell, "GSR", "DISABLED");
+        write_enum(cell, "TSREG.REGSET", "RESET");
         write_cell_muxes(cell);
+        pop();
+
+        // FIXME: Workaround for unknown bits
+        push_tile(bel.tile);
+        write_enum(cell, "UNKNOWN");
         pop();
     }
 
