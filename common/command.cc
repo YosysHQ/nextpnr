@@ -122,6 +122,8 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("pre-place", po::value<std::vector<std::string>>(), "python file to run before placement");
     general.add_options()("pre-route", po::value<std::vector<std::string>>(), "python file to run before routing");
     general.add_options()("post-route", po::value<std::vector<std::string>>(), "python file to run after routing");
+    general.add_options()("on-failure", po::value<std::vector<std::string>>(),
+                          "python file to run in event of crash for design introspection");
 
 #endif
     general.add_options()("json", po::value<std::string>(), "JSON design file to ingest");
@@ -183,6 +185,15 @@ po::options_description CommandHandler::getGeneralOptions()
 
     return general;
 }
+
+namespace {
+static CommandHandler *global_command_handler = nullptr;
+void script_terminate_handler()
+{
+    if (global_command_handler != nullptr)
+        global_command_handler->run_script_hook("on-failure");
+}
+}; // namespace
 
 void CommandHandler::setupContext(Context *ctx)
 {
@@ -321,6 +332,10 @@ void CommandHandler::setupContext(Context *ctx)
 
 int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
 {
+    if (vm.count("on-failure")) {
+        global_command_handler = this;
+        std::set_terminate(script_terminate_handler);
+    }
     if (vm.count("test")) {
         ctx->archcheck();
         return 0;

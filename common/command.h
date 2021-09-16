@@ -39,6 +39,7 @@ class CommandHandler
     int exec();
     void load_json(Context *ctx, std::string filename);
     void clear();
+    void run_script_hook(const std::string &name);
 
   protected:
     virtual void setupArchContext(Context *ctx) = 0;
@@ -55,7 +56,6 @@ class CommandHandler
     void setupContext(Context *ctx);
     int executeMain(std::unique_ptr<Context> ctx);
     po::options_description getGeneralOptions();
-    void run_script_hook(const std::string &name);
     void printFooter();
 
   protected:
