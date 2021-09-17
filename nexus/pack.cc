@@ -2276,24 +2276,10 @@ struct NexusPacker
                 iol->params[id_SRMODE] = ff->params.at(id_SRMODE);
                 iol->params[id_REGSET] = ff->params.at(id_REGSET);
 
-                iol->params[ctx->id("TSREG.REGSET")] = std::string("SET");
-
-                // CEOUTMUX.1
+                // Enable the TSREG
                 iol->params[ctx->id("CEOUTMUX")] = std::string("1");
-
-                // FIXME: Workaround for an unknown bit
-                IdStringList belName = IdStringList::parse(ctx, iob->attrs[id_BEL].as_string());
-                if (belName[2] == ctx->id("PIOA")) {
-                    // UNKNOWN.22.1 for A
-                    iol->params[ctx->id("UNKNOWN")] = std::string("22.1");
-                }
-                else if (belName[2] == ctx->id("PIOB")) {
-                    // UNKNOWN.77.1 for B
-                    iol->params[ctx->id("UNKNOWN")] = std::string("77.1");
-                }
-                else {
-                    log_error("Unknown IO BEL type '%s'\n", belName[2].c_str(ctx));
-                }
+                iol->params[ctx->id("TSREG.REGSET")] = std::string("SET");
+                iol->params[ctx->id("IDDRX1_ODDRX1.TRISTATE")] = std::string("ENABLED");
             }
 
             // Disconnect the flip-flop
