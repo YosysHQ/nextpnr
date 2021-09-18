@@ -119,6 +119,12 @@ class SAPlacer
             region_bounds[r->name] = bb;
         }
         build_port_index();
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (ci->cluster == ClusterId())
+                continue;
+            cluster2cell[ci->cluster].push_back(ci);
+        }
     }
 
     ~SAPlacer()
@@ -616,56 +622,99 @@ class SAPlacer
     bool try_swap_chain(CellInfo *cell, BelId newBase)
     {
         std::vector<std::pair<CellInfo *, Loc>> cell_rel;
-        pool<IdString> cells;
-        std::vector<std::pair<CellInfo *, BelId>> moves_made;
+        dict<IdString, BelId> moved_cells;
         std::vector<std::pair<CellInfo *, BelId>> dest_bels;
         double delta = 0;
         int orig_share_cost = total_net_share;
         moveChange.reset(this);
-#if 0
-        if (ctx->debug)
-            log_info("finding cells for chain swap %s\n", cell->name.c_str(ctx));
+#if CHAIN_DEBUG
+        log_info("finding cells for chain swap %s\n", cell->name.c_str(ctx));
 #endif
-        if (!ctx->getClusterPlacement(cell->cluster, newBase, dest_bels))
-            return false;
-
-        for (const auto &db : dest_bels)
-            cells.insert(db.first->name);
-
-        for (const auto &db : dest_bels) {
-            CellInfo *bound = ctx->getBoundBelCell(db.second);
-            // We don't consider swapping chains with other chains, at least for the time being - unless it is
-            // part of this chain
-            if (bound != nullptr && !cells.count(bound->name) &&
-                (bound->belStrength >= STRENGTH_STRONG || bound->cluster != ClusterId()))
-                return false;
-
-            if (bound != nullptr)
-                if (!ctx->isValidBelForCellType(bound->type, db.first->bel))
-                    return false;
-        }
-#if 0
-        if (ctx->debug)
-            log_info("trying chain swap %s\n", cell->name.c_str(ctx));
+        std::queue<std::pair<ClusterId, BelId>> displaced_clusters;
+        displaced_clusters.emplace(cell->cluster, newBase);
+        while (!displaced_clusters.empty()) {
+            auto cursor = displaced_clusters.front();
+            displaced_clusters.pop();
+            if (!ctx->getClusterPlacement(cursor.first, cursor.second, dest_bels))
+                goto swap_fail;
+            for (const auto &db : dest_bels) {
+                // Ensure the cluster is ripped up
+                if (db.first->bel != BelId()) {
+                    moved_cells[db.first->name] = db.first->bel;
+#if CHAIN_DEBUG
+                    log_info("%d unbind %s\n", __LINE__, ctx->nameOfBel(db.first->bel));
 #endif
-        // <cell, oldBel>
-        for (const auto &db : dest_bels) {
-            BelId oldBel = swap_cell_bels(db.first, db.second);
-            moves_made.emplace_back(std::make_pair(db.first, oldBel));
-            CellInfo *bound = ctx->getBoundBelCell(oldBel);
-            add_move_cell(moveChange, db.first, oldBel);
-            if (bound != nullptr)
-                add_move_cell(moveChange, bound, db.second);
+                    ctx->unbindBel(db.first->bel);
+                }
+            }
+            for (const auto &db : dest_bels) {
+                CellInfo *bound = ctx->getBoundBelCell(db.second);
+                BelId old_bel = moved_cells.at(db.first->name);
+                if (!ctx->checkBelAvail(old_bel) && bound != nullptr) {
+                    // Simple swap no longer possible
+                    goto swap_fail;
+                }
+                if (bound != nullptr) {
+                    if (moved_cells.count(bound->name)) {
+                        // Don't move a cell multiple times in the same go
+                        goto swap_fail;
+                    } else if (bound->belStrength > STRENGTH_STRONG) {
+                        goto swap_fail;
+                    } else if (bound->cluster != ClusterId()) {
+                        // Displace the entire cluster
+                        Loc old_loc = ctx->getBelLocation(old_bel);
+                        Loc bound_loc = ctx->getBelLocation(bound->bel);
+                        Loc root_loc = ctx->getBelLocation(ctx->getClusterRootCell(bound->cluster)->bel);
+                        BelId new_root = ctx->getBelByLocation(Loc(old_loc.x + (root_loc.x - bound_loc.x),
+                                                                   old_loc.y + (root_loc.y - bound_loc.y),
+                                                                   old_loc.z + (root_loc.z - bound_loc.z)));
+                        if (new_root == BelId())
+                            goto swap_fail;
+                        for (auto cluster_cell : cluster2cell.at(bound->cluster)) {
+                            moved_cells[cluster_cell->name] = cluster_cell->bel;
+#if CHAIN_DEBUG
+                            log_info("%d unbind %s\n", __LINE__, ctx->nameOfBel(cluster_cell->bel));
+#endif
+                            ctx->unbindBel(cluster_cell->bel);
+                        }
+                        displaced_clusters.emplace(bound->cluster, new_root);
+                    } else {
+                        // Just a single cell to move
+                        moved_cells[bound->name] = bound->bel;
+#if CHAIN_DEBUG
+                        log_info("%d unbind %s\n", __LINE__, ctx->nameOfBel(bound->bel));
+                        log_info("%d bind %s %s\n", __LINE__, ctx->nameOfBel(old_bel), ctx->nameOf(bound));
+#endif
+                        ctx->unbindBel(bound->bel);
+                        ctx->bindBel(old_bel, bound, STRENGTH_WEAK);
+                        add_move_cell(moveChange, bound, moved_cells.at(bound->name));
+                        if (cfg.netShareWeight > 0)
+                            update_nets_by_tile(bound, ctx->getBelLocation(moved_cells.at(bound->name)),
+                                                ctx->getBelLocation(old_bel));
+                    }
+                } else if (!ctx->checkBelAvail(db.second)) {
+                    goto swap_fail;
+                }
+                // All those shenanigans should now mean the target bel is free to use
+#if CHAIN_DEBUG
+                log_info("%d bind %s %s\n", __LINE__, ctx->nameOfBel(db.second), ctx->nameOf(db.first));
+#endif
+                ctx->bindBel(db.second, db.first, STRENGTH_WEAK);
+                add_move_cell(moveChange, db.first, moved_cells.at(db.first->name));
+                if (cfg.netShareWeight > 0)
+                    update_nets_by_tile(db.first, ctx->getBelLocation(moved_cells.at(db.first->name)),
+                                        ctx->getBelLocation(db.second));
+            }
         }
-        for (const auto &mm : moves_made) {
-            if (!ctx->isBelLocationValid(mm.first->bel) || !mm.first->testRegion(mm.first->bel))
-                goto swap_fail;
-            if (!ctx->isBelLocationValid(mm.second))
-                goto swap_fail;
-            CellInfo *bound = ctx->getBoundBelCell(mm.second);
-            if (bound && !bound->testRegion(bound->bel))
+
+        for (const auto &mm : moved_cells) {
+            CellInfo *cell = ctx->cells.at(mm.first).get();
+            if (!ctx->isBelLocationValid(cell->bel) || !cell->testRegion(cell->bel))
                 goto swap_fail;
         }
+#if CHAIN_DEBUG
+        log_info("legal chain swap %s\n", cell->name.c_str(ctx));
+#endif
         compute_cost_changes(moveChange);
         delta = lambda * (moveChange.timing_delta / last_timing_cost) +
                 (1 - lambda) * (double(moveChange.wirelen_delta) / last_wirelen_cost);
@@ -675,11 +724,10 @@ class SAPlacer
         }
         n_move++;
         // SA acceptance criteria
-        if (delta < 0 || (temp > 1e-9 && (ctx->rng() / float(0x3fffffff)) <= std::exp(-delta / temp))) {
+        if (delta < 0 || (temp > 1e-8 && (ctx->rng() / float(0x3fffffff)) <= std::exp(-delta / temp))) {
             n_accept++;
-#if 0
-            if (ctx->debug)
-                log_info("accepted chain swap %s\n", cell->name.c_str(ctx));
+#if CHAIN_DEBUG
+            log_info("accepted chain swap %s\n", cell->name.c_str(ctx));
 #endif
         } else {
             goto swap_fail;
@@ -687,8 +735,15 @@ class SAPlacer
         commit_cost_changes(moveChange);
         return true;
     swap_fail:
-        for (const auto &entry : boost::adaptors::reverse(moves_made))
-            swap_cell_bels(entry.first, entry.second);
+        for (auto cell_pair : moved_cells) {
+            CellInfo *cell = ctx->cells.at(cell_pair.first).get();
+            if (cell->bel != BelId())
+                ctx->unbindBel(cell->bel);
+        }
+        for (auto cell_pair : moved_cells) {
+            CellInfo *cell = ctx->cells.at(cell_pair.first).get();
+            ctx->bindBel(cell_pair.second, cell, STRENGTH_WEAK);
+        }
         return false;
     }
 
@@ -1182,6 +1237,9 @@ class SAPlacer
 
     // Fast lookup for cell port to net user index
     dict<std::pair<IdString, IdString>, size_t> fast_port_to_user;
+
+    // Fast lookup for cell to clusters
+    dict<ClusterId, std::vector<CellInfo *>> cluster2cell;
 
     // Wirelength and timing cost at last and current iteration
     wirelen_t last_wirelen_cost, curr_wirelen_cost;
