@@ -427,15 +427,17 @@ void TimingAnalyser::walk_backward()
                 // Input port: propagate delay back through net, subtracting route delay
                 NetInfo *net = port_info(p).net;
                 if (net != nullptr && net->driver.cell != nullptr)
-                    set_required_time(CellPortKey(net->driver), req.first, req.second.value - pd.route_delay,
-                                      req.second.path_length, p);
+                    set_required_time(CellPortKey(net->driver), req.first,
+                                      req.second.value - DelayPair(pd.route_delay.maxDelay()), req.second.path_length,
+                                      p);
             } else if (pd.type == PORT_OUT) {
                 // Output port : propagate delay back through cell, subtracting combinational delay
                 for (auto &fanin : pd.cell_arcs) {
                     if (fanin.type != CellArc::COMBINATIONAL)
                         continue;
                     set_required_time(CellPortKey(p.cell, fanin.other_port), req.first,
-                                      req.second.value - fanin.value.delayPair(), req.second.path_length + 1, p);
+                                      req.second.value - DelayPair(fanin.value.maxDelay()), req.second.path_length + 1,
+                                      p);
                 }
             }
         }
