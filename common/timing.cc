@@ -275,12 +275,13 @@ void TimingAnalyser::setup_port_domains()
         if (launch_data.key.clock != capture_data.key.clock)
             continue;
         IdString clk = launch_data.key.clock;
-        if (!ctx->nets.count(clk))
-            continue;
-        NetInfo *clk_net = ctx->nets.at(clk).get();
-        if (!clk_net->clkconstr)
-            continue;
-        delay_t period = clk_net->clkconstr->period.minDelay();
+        delay_t period = ctx->getDelayFromNS(1.0e9 / ctx->setting<float>("target_freq"));
+        if (ctx->nets.count(clk)) {
+            NetInfo *clk_net = ctx->nets.at(clk).get();
+            if (clk_net->clkconstr) {
+                period = clk_net->clkconstr->period.minDelay();
+            }
+        }
         if (launch_data.key.edge != capture_data.key.edge)
             period /= 2;
         dp.period = DelayPair(period);
