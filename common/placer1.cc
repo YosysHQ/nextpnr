@@ -687,10 +687,6 @@ class SAPlacer
 #endif
                         ctx->unbindBel(bound->bel);
                         ctx->bindBel(old_bel, bound, STRENGTH_WEAK);
-                        add_move_cell(moveChange, bound, moved_cells.at(bound->name));
-                        if (cfg.netShareWeight > 0)
-                            update_nets_by_tile(bound, ctx->getBelLocation(moved_cells.at(bound->name)),
-                                                ctx->getBelLocation(old_bel));
                     }
                 } else if (!ctx->checkBelAvail(db.second)) {
                     goto swap_fail;
@@ -700,15 +696,15 @@ class SAPlacer
                 log_info("%d bind %s %s\n", __LINE__, ctx->nameOfBel(db.second), ctx->nameOf(db.first));
 #endif
                 ctx->bindBel(db.second, db.first, STRENGTH_WEAK);
-                add_move_cell(moveChange, db.first, moved_cells.at(db.first->name));
-                if (cfg.netShareWeight > 0)
-                    update_nets_by_tile(db.first, ctx->getBelLocation(moved_cells.at(db.first->name)),
-                                        ctx->getBelLocation(db.second));
             }
         }
 
         for (const auto &mm : moved_cells) {
             CellInfo *cell = ctx->cells.at(mm.first).get();
+            add_move_cell(moveChange, cell, moved_cells.at(cell->name));
+            if (cfg.netShareWeight > 0)
+                update_nets_by_tile(cell, ctx->getBelLocation(moved_cells.at(cell->name)),
+                                    ctx->getBelLocation(cell->bel));
             if (!ctx->isBelLocationValid(cell->bel) || !cell->testRegion(cell->bel))
                 goto swap_fail;
         }
