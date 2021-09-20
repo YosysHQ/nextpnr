@@ -2134,6 +2134,7 @@ struct NexusPacker
     // IOLOGIC requires some special handling around itself and IOB. This
     // function does that.
     void handle_iologic() {
+        log_info("Packing IOLOGIC...\n");
 
         // Map of flip-flop cells that drive IOLOGIC+IOB pairs
         dict<IdString, std::vector<std::pair<IdString,IdString>>> tff_map;
@@ -2228,13 +2229,20 @@ struct NexusPacker
                         connect_port(ctx, iob_t, iol, id_TSDATA0);
 
                         if (ctx->debug) {
-                            log_info("Reconnecting %s.TSDATA0 to %s\n", ctx->nameOf(iol), ctx->nameOf(iob_t));
+                            log_info(" Reconnecting %s.TSDATA0 to %s\n", ctx->nameOf(iol), ctx->nameOf(iob_t));
+                        }
+
+                        // Check if the net wants to use the T flip-flop in
+                        // IOLOGIC
+                        bool syn_useioff = false;
+                        if (iob_t->attrs.count(ctx->id("syn_useioff"))) {
+                            syn_useioff = iob_t->attrs.at(ctx->id("syn_useioff")).as_bool();
                         }
 
                         // Check if the T input is driven by a flip-flop. Store
-                        // in the map.
+                        // in the map for later integration with IOLOGIC.
                         CellInfo* ff = get_ff_for_iob(iob, id_T, iol);
-                        if (ff != nullptr) {
+                        if (ff != nullptr && syn_useioff) {
                             tff_map[ff->name].push_back(std::make_pair(
                                 iol->name, iob->name));
                         }
@@ -2253,16 +2261,11 @@ struct NexusPacker
             NetInfo* ff_q = get_net_or_empty(ff, id_Q);
             NPNR_ASSERT(ff_q != nullptr);
 
-            log_info("FF '%s'\n", ctx->nameOf(ff));
-            for (auto& it : ff->params) {
-                log_info(" '%s'='%s'\n", it.first.c_str(ctx), it.second.as_string().c_str());
-            }
-
             for (auto& ios : it.second) {
                 CellInfo* iol = ctx->cells.at(ios.first).get();
                 CellInfo* iob = ctx->cells.at(ios.second).get();
 
-                log_info("Integrating %s into %s\n", ctx->nameOf(ff), ctx->nameOf(iol));
+                log_info(" Integrating %s into %s\n", ctx->nameOf(ff), ctx->nameOf(iol));
 
                 // Disconnect "old" T net
                 disconnect_port(ctx, iol, id_TSDATA0);
@@ -2287,10 +2290,17 @@ struct NexusPacker
                 disconnect_port(ctx, ff, port.first);
             }
 
-            // Remove the flip-flop
-            ctx->cells.erase(ff->name);
-            // Remove its output net
-            ctx->nets.erase(ff_q->name);
+            // Check if the flip-flop can be removed
+            bool can_remove = ff_q->users.empty();
+
+            // Remove the flip-flop and its output net
+            if (can_remove) {
+                if (ctx->debug) {
+                    log_info(" Removing %s\n", ctx->nameOf(ff));
+                }
+                ctx->cells.erase(ff->name);
+                ctx->nets.erase(ff_q->name);
+            }
         }
     }
 
