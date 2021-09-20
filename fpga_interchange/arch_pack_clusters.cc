@@ -276,26 +276,25 @@ bool Arch::normal_cluster_placement(
     return true;
 }
 
+/*
 static void handle_macro_expansion_node(
                                   const Context *ctx, WireId wire, PipId pip, ClusterWireNode curr_node,
                                   std::vector<ClusterWireNode> &nodes_to_expand, BelPin root_pin,
-                                  dict<std::pair<BelId, BelId>, dict<IdString, IdString>> &bels,
+                                  dict<std::pair<BelId, BelId>, dict<IdString, pool<IdString>>> &bels,
                                   ExpansionDirection direction, pool<WireId> &visited, CellInfo *cell)
 {
     if (curr_node.state == IN_SINK_SITE || curr_node.state == ONLY_IN_SOURCE_SITE) {
         for (BelPin bel_pin : ctx->getWireBelPins(wire)) {
             BelId bel = bel_pin.bel;
-            log_info("\t\t\tconsidering:\n");
-            for (auto s : ctx->getBelName(bel)){
-                log_info("\t\t\t\t - %s\n", s.c_str(ctx));
-            }
-            log_info("\t\t\t\t pin: %s\n",bel_pin.pin.c_str(ctx));
             if (bel == root_pin.bel)
                 continue;
             auto const &bel_data = bel_info(ctx->chip_info, bel);
 
-            if (bels.count(std::pair<BelId, BelId>(root_pin.bel, bel)))
+            if (bels.count(std::pair<BelId, BelId>(root_pin.bel, bel)) &&\
+                bels[std::pair<BelId, BelId>(root_pin.bel, bel)].count(root_pin.pin) &&\
+                bels[std::pair<BelId, BelId>(root_pin.bel, bel)][root_pin.pin].count(bel_pin.pin)){
                 continue;
+            }
 
             if (bel_data.category != BEL_CATEGORY_LOGIC){
                 continue;
@@ -307,9 +306,8 @@ static void handle_macro_expansion_node(
             if (!ctx->isValidBelForCellType(cell->type, bel))
                 continue;
 
-            log_info("\t\t\tfound: %s\n", bel_pin.pin.c_str(ctx));
-            bels[std::pair<BelId, BelId>(root_pin.bel, bel_pin.bel)].insert(
-                std::pair<IdString, IdString>(root_pin.pin, bel_pin.pin));
+            bels[std::pair<BelId, BelId>(root_pin.bel, bel_pin.bel)][root_pin.pin].\
+                insert(bel_pin.pin);
         }
     }
 
@@ -319,15 +317,6 @@ static void handle_macro_expansion_node(
         next_wire = ctx->getPipSrcWire(pip);
     else
         next_wire = ctx->getPipDstWire(pip);
-
-    log_info("\t\t\tPIP:\n");
-    for (auto s : ctx->getPipName(pip)){
-        log_info("\t\t\t\t - %s\n", s.c_str(ctx));
-    }
-    log_info("\t\t\t next_wire:\n");
-    for (auto s : ctx->getWireName(next_wire)){
-        log_info("\t\t\t\t - %s\n", s.c_str(ctx));
-    }
 
     if (next_wire == WireId() || visited.count(next_wire))
         return;
@@ -376,10 +365,6 @@ static void handle_macro_expansion_node(
         BelId bel;
         bel.tile = pip.tile;
         bel.index = pip_data.bel;
-        log_info("Pip bel stat:\n");
-        for (auto s : ctx->getBelName(bel)){
-            log_info("\t - %s\n", s.c_str(ctx));
-        }
         const auto &bel_data = bel_info(ctx->chip_info, bel);
         if(bel_data.category == BEL_CATEGORY_LOGIC)
             expand_node = false;
@@ -395,7 +380,7 @@ static void handle_macro_expansion_node(
 
 static void
         find_macro_cluster_bels(const Context *ctx, WireId wire,
-                                dict<std::pair<BelId, BelId>, dict<IdString, IdString>> &possible_places,
+                                dict<std::pair<BelId, BelId>, dict<IdString, pool<IdString>>> &possible_places,
                                 ExpansionDirection direction, BelPin root_pin, CellInfo *cell, bool out_of_site_expansion = false)
 {
     std::vector<ClusterWireNode> nodes_to_expand;
@@ -419,11 +404,6 @@ static void
         WireId wire = node_to_expand.wire;
         nodes_to_expand.pop_back();
         visited.insert(wire);
-        log_info("\t\t visited:\n");
-        for (auto s : ctx->getWireName(wire)){
-            log_info("\t\t\t - %s\n", s.c_str(ctx));
-        }
-
         if (direction == CLUSTER_DOWNHILL_DIR) {
             for (PipId pip : ctx->getPipsDownhill(node_to_expand.wire)) {
                 if (ctx->is_pip_synthetic(pip))
@@ -465,98 +445,136 @@ static void
     }
     return;
 }
+*/
 
 bool Arch::macro_cluster_placement(
     const Context *ctx, const Cluster &packed_cluster, const ClusterPOD &cluster_data,
     CellInfo *root_cell, BelId root_bel, std::vector<std::pair<CellInfo *, BelId>> &placement) const
 {
+    // Check root_bel site_type
+    const auto &cluster = cluster_info(chip_info, packed_cluster.index);
+    bool found = false;
+    uint32_t idx = 0;
+    const auto &site_inst = ctx->get_site_inst(root_bel);
+    IdString site_type(site_inst.site_type);
+
+    if(ctx->debug)
+        log_info("%s\n", ctx->get_site_name(root_bel));
+
+    if (ctx->debug){
+        log_info("Root_bel site_type: %s\n", site_type.c_str(ctx));
+        log_info("Allowed site_types:\n");
+    }
+    for(const auto &site : cluster.physical_placements){
+        IdString name(site.site_type);
+        if(ctx->debug)
+            log_info("\t%s\n", name.c_str(ctx));
+
+        if (name == site_type){
+            found = true;
+            break;
+        }
+        idx++;
+    }
+    if (!found)
+        return false;
+
+    // Check if root_bel name
+    uint32_t placement_idx = 0;
+    found = false;
     const auto &bel_data = bel_info(chip_info, root_bel);
+    IdString root_bel_name(bel_data.name);
+    if(ctx->debug){
+        log_info("Root_bel name: %s\n", root_bel_name.c_str(ctx));
+        log_info("Allowed root_bels:\n");
+    }
+    for(const auto &place : cluster.physical_placements[idx].places){
+        // root_bel has idx 0
+        IdString name(place.bels[0]);
+        if(ctx->debug)
+            log_info("\t%s\n",name.c_str(ctx));
 
-    log_info("Bel_name: %s type: %s\n", IdString(bel_data.name).c_str(ctx), IdString(bel_data.type).c_str(ctx));
-    log_info("Cell_name: %s type: %s\n", root_cell->name.c_str(ctx), root_cell->type.c_str(ctx));
+        if(name == root_bel_name){
+            found = true;
+            break;
+        }
+        placement_idx++;
+    }
+    if (!found)
+        return false;
 
-    // Build a cell to bell mapping required to find BELs connected to the cluster ports.
-    dict<IdString, std::vector<IdString>> cell_bel_pins;
-    dict<IdString, IdString> bel_cell_pins;
-
-    int32_t mapping = bel_data.pin_map[get_cell_type_index(root_cell->type)];
-    NPNR_ASSERT(mapping >= 0);
-
-    const CellBelMapPOD &cell_pin_map = chip_info->cell_map->cell_bel_map[mapping];
-    for (const auto &pin_map : cell_pin_map.common_pins) {
-        IdString cell_pin(pin_map.cell_pin);
-        IdString bel_pin(pin_map.bel_pin);
-        log_info("%s %s\n", cell_pin.c_str(ctx), bel_pin.c_str(ctx));
-
-        cell_bel_pins[cell_pin].push_back(bel_pin);
-        bel_cell_pins[bel_pin] = cell_pin;
+    // Check if all better placements are used
+    auto root_bel_full_name = ctx->getBelName(root_bel);
+    for(uint32_t i = 0; i < placement_idx; i++){
+        IdStringList cpy(root_bel_full_name.size());
+        for(uint32_t j = 0; j < root_bel_full_name.size(); j++)
+            cpy.ids[j] = root_bel_full_name[j];
+        cpy.ids[1] = IdString(cluster.physical_placements[idx].places[i].bels[0]);
+        BelId t = ctx->getBelByName(cpy);
+        if(ctx->debug){
+            for (auto str : cpy)
+                log_info("%s\n", str.c_str(ctx));
+        }
+        if (ctx->getBoundBelCell(t) == nullptr)
+            return false;
     }
 
-    for (const auto &pair : bel_data.connected_pins){
-        IdString p1(pair.pin1), p2(pair.pin2);
-        IdString i1(bel_cell_pins[p1]), i2(bel_cell_pins[p2]);
-        log_info("%s %s\n", i1.c_str(ctx), i2.c_str(ctx));
-        if (root_cell->ports[i1].net != root_cell->ports[i2].net){
-            log_info("%s != %s\n", root_cell->ports[i1].net->name.c_str(ctx),
-                               root_cell->ports[i2].net->name.c_str(ctx));
+    // Check if bels are avaiable
+    dict<uint32_t, BelId> idx_bel_map;
+    uint32_t t_idx = 0;
+    for(const auto &bel : cluster.physical_placements[idx].places[placement_idx].bels){
+        IdStringList cpy(root_bel_full_name.size());
+        for(uint32_t j = 0; j < root_bel_full_name.size(); j++)
+            cpy.ids[j] = root_bel_full_name[j];
+        cpy.ids[1] = IdString(bel);
+        BelId t = ctx->getBelByName(cpy);
+        if(ctx->debug){
+            for (auto str : cpy)
+                log_info("%s\n", str.c_str(ctx));
+        }
+        if (ctx->getBoundBelCell(t) != nullptr &&
+            ctx->getBoundBelCell(t) != packed_cluster.cluster_nodes[t_idx]){
+            if(ctx->debug)
+                log_info("Failed\n");
             return false;
         }
+        idx_bel_map[t_idx] = t;
+        t_idx++;
     }
 
-    dict<uint32_t, pool<BelId>> idx_bel_map;
-    idx_bel_map[0].insert(root_bel);
-    std::queue<uint32_t> queue;
-    queue.push(0);
+/*
+    for(auto idx_bel : idx_bel_map){
+        const auto &bel_data = bel_info(chip_info, idx_bel.second);
+        dict<IdString, pool<IdString>> cell_bel_pins;
+        dict<IdString, IdString> bel_cell_pins;
 
-    while (!queue.empty()){
-        uint32_t idx = queue.front(); queue.pop();
-        std::vector<BelId> remove_bels;
-        dict<std::pair<BelId, BelId>, dict<IdString, IdString>> possible_places;
-        for (const auto &root_bel : idx_bel_map[idx]){
-            for (const auto &connection : cluster_data.connection_graph[idx].connections){
-                log_info("Target idx:%d\n", connection.target_idx);
-                CellInfo *cell_to_place = packed_cluster.cluster_nodes[connection.target_idx];
-                pool<IdString> needed_pins;
-                for (const auto &edge : connection.edges){
-                    log_info("\t - %s %s\n", IdString(edge.cell_pin).c_str(ctx), IdString(edge.other_cell_pin).c_str(ctx));
-                    for (auto &root_pin : cell_bel_pins.at(IdString(edge.cell_pin))) {
-                        WireId bel_pin_wire = ctx->getBelPinWire(root_bel, root_pin);
-                        BelPin root;
-                        root.bel = root_bel;
-                        root.pin = root_pin;
-                        needed_pins.insert(root_pin);
-                        for (auto s : ctx->getWireName(bel_pin_wire)){
-                            log_info("\t\t - %s\n", s.c_str(ctx));
-                        }
-                        find_macro_cluster_bels(
-                            ctx, bel_pin_wire, possible_places,
-                            ExpansionDirection(edge.dir), root,
-                            cell_to_place);
-                    }
-                }
+        CellInfo *cell = packed_cluster.cluster_nodes[idx_bel.first];
 
-                for (const auto &place : possible_places){
-                    BelId check_bel = place.first.second;
-                    const auto &bel_data2 = bel_info(chip_info, check_bel);
-                    bool failed = false;
-                    for (const auto &pin : needed_pins){
-                        log_info("Pin: %s\n", pin.c_str(ctx));
-                        if (!place.second.count(pin)){
-                            failed = true;
-                            break;
-                        }
-                    }
-                    if (failed)
-                        continue;
-                    log_info("Bel_name: %s type: %s\n", IdString(bel_data2.name).c_str(ctx),
-                        IdString(bel_data2.type).c_str(ctx));
-                    log_info("Cell_name: %s type: %s\n", cell_to_place->name.c_str(ctx), cell_to_place->type.c_str(ctx));
-                }
+        int32_t mapping = bel_data.pin_map[get_cell_type_index(cell->type)];
+        NPNR_ASSERT(mapping >= 0);
+
+        const CellBelMapPOD &cell_pin_map = chip_info->cell_map->cell_bel_map[mapping];
+        for (const auto &pin_map : cell_pin_map.common_pins) {
+            IdString cell_pin(pin_map.cell_pin);
+            IdString bel_pin(pin_map.bel_pin);
+            cell_bel_pins[cell_pin].insert(bel_pin);
+            bel_cell_pins[bel_pin] = cell_pin;
+        }
+
+        for (const auto &pair : bel_data.connected_pins){
+            IdString p1(pair.pin1), p2(pair.pin2);
+            IdString i1(bel_cell_pins[p1]), i2(bel_cell_pins[p2]);
+            if (root_cell->ports[i1].net != root_cell->ports[i2].net){
+                return false;
             }
         }
     }
+*/
 
-    exit(0);
+    for(auto idx_bel : idx_bel_map){
+        placement.emplace_back(packed_cluster.cluster_nodes[idx_bel.first], idx_bel.second);
+    }
+
     return true;
 }
 
@@ -575,7 +593,6 @@ bool Arch::getClusterPlacement(ClusterId cluster, BelId root_bel,
         return normal_cluster_placement(ctx, packed_cluster, cluster_data, root_cell,
                                         root_bel, placement);
     else{
-        log_info("Macro cluster\n");
         bool temp = macro_cluster_placement(ctx, packed_cluster, cluster_data, root_cell,
                                         root_bel, placement);
         return temp;
@@ -680,12 +697,8 @@ bool reduce(uint32_t x, uint32_t y, const ClusterPOD *cluster, dict<uint32_t, po
         counter ++;
     }
     for (const auto &x_cell : domain[x]){
-        if (ctx->verbose)
-            log_info("Testing cell %s\n", x_cell->name.c_str(ctx));
         bool found = false;
         for (const auto &y_cell : domain[y]){
-            if (ctx->verbose)
-                log_info("  - Y candidate: %s\n", y_cell->name.c_str(ctx));
             for (const auto edge : cluster->connection_graph[x].connections[counter].edges){
                 if (!x_cell->ports.count(IdString(edge.cell_pin)) || !y_cell->ports.count(IdString(edge.other_cell_pin)))
                     break;
@@ -701,7 +714,6 @@ bool reduce(uint32_t x, uint32_t y, const ClusterPOD *cluster, dict<uint32_t, po
                 found = true;
             }
             if (found){
-                log_info("  - Works for %s\n", y_cell->name.c_str(ctx));
                 break;
             }
         }
@@ -725,8 +737,6 @@ void binary_constraint_check(const ClusterPOD *cluster,
         workqueue.pop();
         uint32_t x,y;
         x = arc.first; y = arc.second;
-        if (ctx->verbose)
-            log_info("Checking pair %d:%d\n", x, y);
         if (reduce(x, y, cluster, idx_to_cells, ctx)){
             for (const auto &connection : cluster->connection_graph[arc.first].connections)
                 if (connection.target_idx != y)
@@ -1207,7 +1217,7 @@ void Arch::pack_cluster()
             const auto &cluster = chip_info->clusters[i];
 
             prepare_cluster(&cluster, i);
-        } else if(!chip_info->clusters[i].out_of_site_clusters) {
+        } else if(chip_info->clusters[i].physical_placements.size() > 0) {
             const auto &cluster = chip_info->clusters[i];
             if(ctx->verbose){
                 log_info("%s\n", IdString(cluster.name).c_str(ctx));\
@@ -1216,16 +1226,9 @@ void Arch::pack_cluster()
             prepare_macro_cluster(&cluster, i);
         }
         else {
-            // No good way to handle out of site clusters, as fulfiling routing requirements
-            // can be done by router. Right now cluster connection map creates connections from each
-            // cell to each cell, and in placement this is used as well.
-            // We could assume that in macros, where there are no root cells and
-            // we have multiple unconnected graphs, source cells must be in the same site.
-            // Why create a macro if these cells have nothing in common.
-            // For now python-fpga-interchange does not support this assumption
-            // and neither does placement code.
-            // Cluster preparing and packing works for both, but as we cannot place
-            // out of site clusters, we don't create them, letting generic P&R do it.
+            // No physical placement definitions found for given macro.
+            // Use default place and route algorithm as routes connectiong
+            // cells will use global routing
             const auto &cluster = chip_info->clusters[i];
             if(ctx->verbose)
                 log_info("Out of site cluster from macro: %s\n", IdString(cluster.name).c_str(ctx));

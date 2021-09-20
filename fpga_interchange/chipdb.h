@@ -451,6 +451,14 @@ NPNR_PACKED_STRUCT(struct ClusterConnectionGraphPOD{
     RelSlice<ClusterUsedPortPOD> used_ports;
 });
 
+NPNR_PACKED_STRUCT(struct ClusterPhysicalPlacementEntryPOD{
+    RelSlice<uint32_t> bels;
+});
+
+NPNR_PACKED_STRUCT(struct ClusterPhysicalPlacementsPOD{
+    uint32_t site_type;
+    RelSlice<ClusterPhysicalPlacementEntryPOD> places;
+});
 
 NPNR_PACKED_STRUCT(struct ClusterPOD {
     uint32_t name;
@@ -459,6 +467,7 @@ NPNR_PACKED_STRUCT(struct ClusterPOD {
     RelSlice<ClusterCellPortPOD> cluster_cells_map;
     RelSlice<ClusterRequiredCellPOD> required_cells;
     RelSlice<ClusterConnectionGraphPOD> connection_graph;
+    RelSlice<ClusterPhysicalPlacementsPOD> physical_placements;
     uint32_t out_of_site_clusters;
     uint32_t disallow_other_cells;
     uint32_t from_macro;

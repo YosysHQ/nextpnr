@@ -860,8 +860,6 @@ struct Arch : ArchAPI<ArchRanges>
         const TileStatus &tile_status = iter->second;
         CellInfo *cell = tile_status.boundcells[bel.index];
         auto &bel_data = bel_info(chip_info, bel);
-
-        auto &bel_data = bel_info(chip_info, bel);
         auto &site_status = get_site_status(tile_status, bel_data);
 
         if (cell != nullptr) {
