@@ -276,176 +276,19 @@ bool Arch::normal_cluster_placement(
     return true;
 }
 
-/*
-static void handle_macro_expansion_node(
-                                  const Context *ctx, WireId wire, PipId pip, ClusterWireNode curr_node,
-                                  std::vector<ClusterWireNode> &nodes_to_expand, BelPin root_pin,
-                                  dict<std::pair<BelId, BelId>, dict<IdString, pool<IdString>>> &bels,
-                                  ExpansionDirection direction, pool<WireId> &visited, CellInfo *cell)
-{
-    if (curr_node.state == IN_SINK_SITE || curr_node.state == ONLY_IN_SOURCE_SITE) {
-        for (BelPin bel_pin : ctx->getWireBelPins(wire)) {
-            BelId bel = bel_pin.bel;
-            if (bel == root_pin.bel)
-                continue;
-            auto const &bel_data = bel_info(ctx->chip_info, bel);
+static dict<int32_t, dict<IdString, BelId>> tileAndBelNameToBelIdCache;
 
-            if (bels.count(std::pair<BelId, BelId>(root_pin.bel, bel)) &&\
-                bels[std::pair<BelId, BelId>(root_pin.bel, bel)].count(root_pin.pin) &&\
-                bels[std::pair<BelId, BelId>(root_pin.bel, bel)][root_pin.pin].count(bel_pin.pin)){
-                continue;
-            }
-
-            if (bel_data.category != BEL_CATEGORY_LOGIC){
-                continue;
-            }
-
-            if (bel_data.synthetic)
-                continue;
-
-            if (!ctx->isValidBelForCellType(cell->type, bel))
-                continue;
-
-            bels[std::pair<BelId, BelId>(root_pin.bel, bel_pin.bel)][root_pin.pin].\
-                insert(bel_pin.pin);
-        }
-    }
-
-    WireId next_wire;
-
-    if (direction == CLUSTER_UPHILL_DIR)
-        next_wire = ctx->getPipSrcWire(pip);
+BelId check_and_return(int32_t tile, IdString name){
+    if(tileAndBelNameToBelIdCache.count(tile)
+       && tileAndBelNameToBelIdCache[tile].count(name))
+        return tileAndBelNameToBelIdCache[tile][name];
     else
-        next_wire = ctx->getPipDstWire(pip);
-
-    if (next_wire == WireId() || visited.count(next_wire))
-        return;
-
-    ClusterWireNode next_node;
-    next_node.wire = next_wire;
-    next_node.depth = curr_node.depth;
-    next_node.only_down = false;
-    if (direction == CLUSTER_DOWNHILL_DIR)
-        next_node.only_down = true;
-
-    if (next_node.depth >= 2)
-        return;
-
-    auto const &wire_data = ctx->wire_info(next_wire);
-
-    bool expand_node = true;
-    if (ctx->is_site_port(pip)) {
-        switch (curr_node.state) {
-        case ONLY_IN_SOURCE_SITE:
-            expand_node = false;
-            break;
-        case IN_SOURCE_SITE:
-            NPNR_ASSERT(wire_data.site == -1);
-            next_node.state = IN_ROUTING;
-            break;
-        case IN_ROUTING:
-            NPNR_ASSERT(wire_data.site != -1);
-            next_node.state = IN_SINK_SITE;
-            break;
-        case IN_SINK_SITE:
-            expand_node = false;
-            break;
-        default:
-            // Unreachable!!!
-            NPNR_ASSERT(false);
-        }
-    } else {
-        if (next_node.state == IN_ROUTING)
-            next_node.depth++;
-        next_node.state = curr_node.state;
-    }
-
-    if (curr_node.state != IN_ROUTING){
-        const auto &pip_data = pip_info(ctx->chip_info, pip);
-        BelId bel;
-        bel.tile = pip.tile;
-        bel.index = pip_data.bel;
-        const auto &bel_data = bel_info(ctx->chip_info, bel);
-        if(bel_data.category == BEL_CATEGORY_LOGIC)
-            expand_node = false;
-    }
-
-    if (expand_node)
-        nodes_to_expand.push_back(next_node);
-    else
-        return;
-
-    return;
+        return BelId();
 }
 
-static void
-        find_macro_cluster_bels(const Context *ctx, WireId wire,
-                                dict<std::pair<BelId, BelId>, dict<IdString, pool<IdString>>> &possible_places,
-                                ExpansionDirection direction, BelPin root_pin, CellInfo *cell, bool out_of_site_expansion = false)
-{
-    std::vector<ClusterWireNode> nodes_to_expand;
-    pool<WireId> visited;
-
-    const auto &wire_data = ctx->wire_info(wire);
-    NPNR_ASSERT(wire_data.site != -1);
-
-    ClusterWireNode wire_node;
-    wire_node.wire = wire;
-    wire_node.state = IN_SOURCE_SITE;
-    if (!out_of_site_expansion)
-        wire_node.state = ONLY_IN_SOURCE_SITE;
-    wire_node.depth = 0;
-    wire_node.only_down = false;
-
-    nodes_to_expand.push_back(wire_node);
-
-    while (!nodes_to_expand.empty()) {
-        ClusterWireNode node_to_expand = nodes_to_expand.back();
-        WireId wire = node_to_expand.wire;
-        nodes_to_expand.pop_back();
-        visited.insert(wire);
-        if (direction == CLUSTER_DOWNHILL_DIR) {
-            for (PipId pip : ctx->getPipsDownhill(node_to_expand.wire)) {
-                if (ctx->is_pip_synthetic(pip))
-                    continue;
-
-                handle_macro_expansion_node(
-                    ctx, wire, pip, node_to_expand, nodes_to_expand,
-                    root_pin, possible_places, direction, visited, cell);
-            }
-        } else if (direction == CLUSTER_UPHILL_DIR){
-            for (PipId pip : ctx->getPipsUphill(node_to_expand.wire)) {
-                if (ctx->is_pip_synthetic(pip))
-                    continue;
-
-                handle_macro_expansion_node(
-                    ctx, wire, pip, node_to_expand, nodes_to_expand,
-                    root_pin, possible_places, direction, visited, cell);
-            }
-        } else {
-            NPNR_ASSERT(direction == CLUSTER_BOTH_DIR);
-            for (PipId pip : ctx->getPipsDownhill(node_to_expand.wire)) {
-                if (ctx->is_pip_synthetic(pip))
-                    continue;
-
-                handle_macro_expansion_node(
-                    ctx, wire, pip, node_to_expand, nodes_to_expand,
-                    root_pin, possible_places, CLUSTER_DOWNHILL_DIR, visited, cell);
-            }
-            if (!node_to_expand.only_down)
-                for (PipId pip : ctx->getPipsUphill(node_to_expand.wire)) {
-                    if (ctx->is_pip_synthetic(pip))
-                        continue;
-
-                    handle_macro_expansion_node(
-                        ctx, wire, pip, node_to_expand, nodes_to_expand,
-                        root_pin, possible_places, CLUSTER_UPHILL_DIR, visited, cell);
-                }
-        }
-    }
-    return;
+void add_to_cache(int32_t tile, IdString name, BelId t){
+    tileAndBelNameToBelIdCache[tile][name] = t;
 }
-*/
 
 bool Arch::macro_cluster_placement(
     const Context *ctx, const Cluster &packed_cluster, const ClusterPOD &cluster_data,
@@ -489,87 +332,50 @@ bool Arch::macro_cluster_placement(
         log_info("Allowed root_bels:\n");
     }
     for(const auto &place : cluster.physical_placements[idx].places){
-        // root_bel has idx 0
-        IdString name(place.bels[0]);
-        if(ctx->debug)
-            log_info("\t%s\n",name.c_str(ctx));
+        for (const auto bel : place.bels){
+            IdString name(bel);
+            if(ctx->debug)
+                log_info("\t%s\n",name.c_str(ctx));
 
-        if(name == root_bel_name){
-            found = true;
-            break;
+            if(name == root_bel_name){
+                found = true;
+                break;
+            }
         }
+        if (found)
+            break;
         placement_idx++;
     }
     if (!found)
         return false;
 
-    // Check if all better placements are used
     auto root_bel_full_name = ctx->getBelName(root_bel);
-    for(uint32_t i = 0; i < placement_idx; i++){
-        IdStringList cpy(root_bel_full_name.size());
-        for(uint32_t j = 0; j < root_bel_full_name.size(); j++)
-            cpy.ids[j] = root_bel_full_name[j];
-        cpy.ids[1] = IdString(cluster.physical_placements[idx].places[i].bels[0]);
-        BelId t = ctx->getBelByName(cpy);
-        if(ctx->debug){
-            for (auto str : cpy)
-                log_info("%s\n", str.c_str(ctx));
-        }
-        if (ctx->getBoundBelCell(t) == nullptr)
-            return false;
-    }
-
     // Check if bels are avaiable
     dict<uint32_t, BelId> idx_bel_map;
     uint32_t t_idx = 0;
+    if(ctx->debug)
+        log_info("Used bels:\n");
     for(const auto &bel : cluster.physical_placements[idx].places[placement_idx].bels){
+        IdString s_bel(bel);
+        BelId t = check_and_return(root_bel.tile, s_bel);
         IdStringList cpy(root_bel_full_name.size());
-        for(uint32_t j = 0; j < root_bel_full_name.size(); j++)
-            cpy.ids[j] = root_bel_full_name[j];
-        cpy.ids[1] = IdString(bel);
-        BelId t = ctx->getBelByName(cpy);
-        if(ctx->debug){
-            for (auto str : cpy)
-                log_info("%s\n", str.c_str(ctx));
+        if (t == BelId()){
+            for(uint32_t j = 0; j < root_bel_full_name.size(); j++)
+                cpy.ids[j] = root_bel_full_name[j];
+            cpy.ids[1] = s_bel;
+            t = ctx->getBelByName(cpy);
+            add_to_cache(root_bel.tile, s_bel, t);
         }
-        if (ctx->getBoundBelCell(t) != nullptr &&
-            ctx->getBoundBelCell(t) != packed_cluster.cluster_nodes[t_idx]){
-            if(ctx->debug)
-                log_info("Failed\n");
-            return false;
+        if(ctx->debug){
+            for(uint32_t j = 0; j < root_bel_full_name.size(); j++)
+                cpy.ids[j] = root_bel_full_name[j];
+            cpy.ids[1] = s_bel;
+            for (auto str : cpy)
+                log_info("\t%s\n", str.c_str(ctx));
         }
         idx_bel_map[t_idx] = t;
         t_idx++;
     }
-
-/*
-    for(auto idx_bel : idx_bel_map){
-        const auto &bel_data = bel_info(chip_info, idx_bel.second);
-        dict<IdString, pool<IdString>> cell_bel_pins;
-        dict<IdString, IdString> bel_cell_pins;
-
-        CellInfo *cell = packed_cluster.cluster_nodes[idx_bel.first];
-
-        int32_t mapping = bel_data.pin_map[get_cell_type_index(cell->type)];
-        NPNR_ASSERT(mapping >= 0);
-
-        const CellBelMapPOD &cell_pin_map = chip_info->cell_map->cell_bel_map[mapping];
-        for (const auto &pin_map : cell_pin_map.common_pins) {
-            IdString cell_pin(pin_map.cell_pin);
-            IdString bel_pin(pin_map.bel_pin);
-            cell_bel_pins[cell_pin].insert(bel_pin);
-            bel_cell_pins[bel_pin] = cell_pin;
-        }
-
-        for (const auto &pair : bel_data.connected_pins){
-            IdString p1(pair.pin1), p2(pair.pin2);
-            IdString i1(bel_cell_pins[p1]), i2(bel_cell_pins[p2]);
-            if (root_cell->ports[i1].net != root_cell->ports[i2].net){
-                return false;
-            }
-        }
-    }
-*/
 
     for(auto idx_bel : idx_bel_map){
         placement.emplace_back(packed_cluster.cluster_nodes[idx_bel.first], idx_bel.second);
@@ -870,7 +676,7 @@ void Arch::prepare_macro_cluster( const ClusterPOD *cluster, uint32_t index)
                 arc.second.erase(cell);
             }
         }
-        if (ctx->verbose){
+        if (ctx->debug){
             log_info("After mono constraints are applied\n");
             dict<CellInfo *, pool<uint32_t>, hash_ptr_ops> possible_idx;
             for (const auto &arc : idx_to_cells)
@@ -892,7 +698,7 @@ void Arch::prepare_macro_cluster( const ClusterPOD *cluster, uint32_t index)
         binary_constraint_check(cluster, workqueue, idx_to_cells, ctx);
         for (const auto &arc : idx_to_cells){
             if (arc.second.size() == 0){
-                if (ctx->verbose)
+                if (ctx->debug)
                     log_info("AC-3 failed\n");
                 failed = true;
                 break;
@@ -901,7 +707,7 @@ void Arch::prepare_macro_cluster( const ClusterPOD *cluster, uint32_t index)
         if (failed)
             continue;
 
-        if (ctx->verbose){
+        if (ctx->debug){
             log_info("After AC-3\n");
             dict<CellInfo *, pool<uint32_t>, hash_ptr_ops> possible_idx;
             for (const auto &arc : idx_to_cells)
@@ -962,11 +768,11 @@ void Arch::prepare_macro_cluster( const ClusterPOD *cluster, uint32_t index)
             binary_constraint_check(cluster, workqueue, idx_to_cells, ctx);
         }while(change);
         if(failed){
-            if(ctx->verbose)
+            if(ctx->debug)
                 log_info("Single cell mapping failed\n");
             continue;
         }
-        if (ctx->verbose){
+        if (ctx->debug){
             log_info("After mapping indices with single cell\n");
             dict<CellInfo *, pool<uint32_t>, hash_ptr_ops> possible_idx;
             for (const auto &arc : idx_to_cells)
@@ -981,14 +787,14 @@ void Arch::prepare_macro_cluster( const ClusterPOD *cluster, uint32_t index)
         }
         // At this point all indices that cloud only be mapped to single cell are mapped
         // Next step is to run solver with backtracing to solve for other idx<->cell mappings
-        if (ctx->verbose)
+        if (ctx->debug)
             log_info("Back solver\n");
         if(!back_solver(cluster, idx_to_cells, ctx)){
-            if(ctx->verbose)
+            if(ctx->debug)
                 log_info("Back solver failed\n");
             continue;
         }
-        if (ctx->verbose){
+        if (ctx->debug){
             log_info("Final mapping after back solver\n");
             dict<CellInfo *, pool<uint32_t>, hash_ptr_ops> possible_idx;
             for (const auto &arc : idx_to_cells)
