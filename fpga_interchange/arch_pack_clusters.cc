@@ -505,23 +505,28 @@ bool reduce(uint32_t x, uint32_t y, const ClusterPOD *cluster, dict<uint32_t, po
     for (const auto &x_cell : domain[x]){
         bool found = false;
         for (const auto &y_cell : domain[y]){
+            found = true;
             for (const auto edge : cluster->connection_graph[x].connections[counter].edges){
-                if (!x_cell->ports.count(IdString(edge.cell_pin)) || !y_cell->ports.count(IdString(edge.other_cell_pin)))
+                if (!x_cell->ports.count(IdString(edge.cell_pin)) || !y_cell->ports.count(IdString(edge.other_cell_pin))){
+                    found = false;
                     break;
+                }
                 const auto x_net = x_cell->ports[IdString(edge.cell_pin)].net;
                 const auto y_net = y_cell->ports[IdString(edge.other_cell_pin)].net;
 
-                if (x_net != y_net)
+                if (x_net != y_net){
+                    found = false;
                     break;
+                }
                 bool x_driver = x_net->driver.cell == x_cell;
                 bool y_driver = y_net->driver.cell == y_cell;
-                if ((edge.dir != 0 || !y_driver) && (edge.dir != 1 || !x_driver) && (edge.dir != 2 || y_driver || x_driver))
+                if ((edge.dir != 0 || !y_driver) && (edge.dir != 1 || !x_driver) && (edge.dir != 2 || y_driver || x_driver)){
+                    found = false;
                     break;
-                found = true;
+                }
             }
-            if (found){
+            if (found)
                 break;
-            }
         }
         if (!found)
             remove_cell.push_back(x_cell);
@@ -544,9 +549,12 @@ void binary_constraint_check(const ClusterPOD *cluster,
         uint32_t x,y;
         x = arc.first; y = arc.second;
         if (reduce(x, y, cluster, idx_to_cells, ctx)){
-            for (const auto &connection : cluster->connection_graph[arc.first].connections)
-                if (connection.target_idx != y)
-                    workqueue.push(std::pair<uint32_t, uint32_t>(arc.first, connection.target_idx));
+            for (const auto &node : cluster->connection_graph){
+                if (node.idx != arc.first)
+                    for (const auto &connection : node.connections)
+                        if (connection.target_idx == arc.first)
+                            workqueue.push(std::pair<uint32_t, uint32_t>(node.idx, arc.first));
+            }
         }
     }
 }
