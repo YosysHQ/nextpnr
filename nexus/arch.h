@@ -86,6 +86,7 @@ NPNR_PACKED_STRUCT(struct LocWireInfoPOD {
 enum PipFlags
 {
     PIP_FIXED_CONN = 0x8000,
+    PIP_LUT_PERM = 0x4000,
 };
 
 NPNR_PACKED_STRUCT(struct PipInfoPOD {
@@ -979,9 +980,37 @@ struct Arch : BaseArch<ArchRanges>
         return tileStatus[bel.tile].boundcells[bel.index] == nullptr;
     }
 
+    bool is_pseudo_pip_disabled(PipId pip) const
+    {
+        const auto &data = pip_data(pip);
+        if (data.flags & PIP_LUT_PERM) {
+            int lut_idx = (data.flags >> 8) & 0xF;
+            int from_pin = (data.flags >> 4) & 0xF;
+            int to_pin = (data.flags >> 0) & 0xF;
+            auto &ts = tileStatus.at(pip.tile);
+            if (!ts.lts)
+                return false;
+            const CellInfo *lut = ts.lts->cells[((lut_idx / 2) << 3) | (BEL_LUT0 + (lut_idx % 2))];
+            if (lut) {
+                if (lut->lutInfo.is_memory)
+                    return true;
+                if (lut->lutInfo.is_carry && (from_pin == 3 || to_pin == 3))
+                    return true; // Upper pin is special for carries
+            }
+            if (lut_idx == 4 || lut_idx == 5) {
+                const CellInfo *ramw = ts.lts->cells[((lut_idx / 2) << 3) | BEL_RAMW];
+                if (ramw)
+                    return true; // Don't permute RAM write address
+            }
+        }
+        return false;
+    }
+
     bool checkPipAvail(PipId pip) const override
     {
         if (disabled_pips.count(pip))
+            return false;
+        if (is_pseudo_pip_disabled(pip))
             return false;
         return BaseArch::checkPipAvail(pip);
     }
@@ -989,6 +1018,8 @@ struct Arch : BaseArch<ArchRanges>
     bool checkPipAvailForNet(PipId pip, NetInfo *net) const override
     {
         if (disabled_pips.count(pip))
+            return false;
+        if (is_pseudo_pip_disabled(pip))
             return false;
         return BaseArch::checkPipAvailForNet(pip, net);
     }

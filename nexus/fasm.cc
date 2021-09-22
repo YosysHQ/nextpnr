@@ -207,7 +207,7 @@ struct NexusFasmWriter
     void write_pip(PipId pip)
     {
         auto &pd = ctx->pip_data(pip);
-        if (pd.flags & PIP_FIXED_CONN)
+        if ((pd.flags & PIP_FIXED_CONN) || (pd.flags & PIP_LUT_PERM))
             return;
         std::string tile = tile_name(pip.tile, tile_by_type_and_loc(pip.tile, IdString(pd.tile_type)));
         std::string source_wire = escape_name(ctx->pip_src_wire_name(pip).str(ctx));
@@ -317,6 +317,43 @@ struct NexusFasmWriter
         }
     }
 
+    unsigned permute_init(const CellInfo *cell)
+    {
+        unsigned orig_init = int_or_default(cell->params, id_INIT, 0);
+        std::array<std::vector<unsigned>, 4> phys_to_log;
+        const std::array<IdString, 4> ports{id_A, id_B, id_C, id_D};
+        for (unsigned i = 0; i < 4; i++) {
+            WireId pin_wire = ctx->getBelPinWire(cell->bel, ports[i]);
+            for (PipId pip : ctx->getPipsUphill(pin_wire)) {
+                if (!ctx->getBoundPipNet(pip))
+                    continue;
+                const auto &data = ctx->pip_data(pip);
+                if (data.flags & PIP_FIXED_CONN) { // non-permuting
+                    phys_to_log[i].push_back(i);
+                } else { // permuting
+                    NPNR_ASSERT(data.flags & PIP_LUT_PERM);
+                    unsigned from_pin = (data.flags >> 4) & 0xF;
+                    unsigned to_pin = (data.flags >> 0) & 0xF;
+                    NPNR_ASSERT(to_pin == i);
+                    phys_to_log[from_pin].push_back(i);
+                }
+            }
+        }
+        unsigned permuted_init = 0;
+        for (unsigned i = 0; i < 16; i++) {
+            unsigned log_idx = 0;
+            for (unsigned j = 0; j < 4; j++) {
+                if ((i >> j) & 0x1) {
+                    for (auto log_pin : phys_to_log[j])
+                        log_idx |= (1 << log_pin);
+                }
+            }
+            if ((orig_init >> log_idx) & 0x1)
+                permuted_init |= (1 << i);
+        }
+        return permuted_init;
+    }
+
     // Write config for an OXIDE_COMB cell
     void write_comb(const CellInfo *cell)
     {
@@ -327,7 +364,7 @@ struct NexusFasmWriter
         push_tile(bel.tile, id_PLC);
         push(stringf("SLICE%c", slice));
         if (cell->params.count(id_INIT))
-            write_int_vector(stringf("K%d.INIT[15:0]", k), int_or_default(cell->params, id_INIT, 0), 16);
+            write_int_vector(stringf("K%d.INIT[15:0]", k), permute_init(cell), 16);
         if (cell->lutInfo.is_carry) {
             write_bit("MODE.CCU2");
             write_enum(cell, "CCU2.INJECT", "NO");
