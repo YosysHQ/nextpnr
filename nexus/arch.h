@@ -1192,7 +1192,7 @@ struct Arch : BaseArch<ArchRanges>
     delay_t estimateDelay(WireId src, WireId dst) const override;
     delay_t predictDelay(const NetInfo *net_info, const PortRef &sink) const override;
     delay_t getDelayEpsilon() const override { return 20; }
-    delay_t getRipupDelayPenalty() const override { return 120; }
+    delay_t getRipupDelayPenalty() const override;
     delay_t getWireRipupDelayPenalty(WireId wire) const;
     float getDelayNS(delay_t v) const override { return v * 0.001; }
     delay_t getDelayFromNS(float ns) const override { return delay_t(ns * 1000); }

@@ -587,13 +587,15 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
 
 // -----------------------------------------------------------------------
 
+delay_t Arch::getRipupDelayPenalty() const { return 250; }
+
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {
     int src_x = src.tile % chip_info->width, src_y = src.tile / chip_info->width;
     int dst_x = dst.tile % chip_info->width, dst_y = dst.tile / chip_info->width;
     int dist_x = std::abs(src_x - dst_x);
     int dist_y = std::abs(src_y - dst_y);
-    return 75 * dist_x + 75 * dist_y + 200;
+    return 75 * dist_x + 75 * dist_y + 250;
 }
 delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
 {
