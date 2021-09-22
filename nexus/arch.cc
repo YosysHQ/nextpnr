@@ -967,6 +967,48 @@ TimingPortClass Arch::lookup_port_type(int type_idx, IdString port, PortType dir
         return lookup_cell_delay(type_idx, clock, port, dly) ? TMG_REGISTER_OUTPUT : TMG_COMB_OUTPUT;
     }
 }
+// -----------------------------------------------------------------------
+
+bool Arch::getClusterPlacement(ClusterId cluster, BelId root_bel,
+                               std::vector<std::pair<CellInfo *, BelId>> &placement) const
+{
+    CellInfo *root_cell = cells.at(cluster).get();
+    placement.clear();
+    NPNR_ASSERT(root_bel != BelId());
+    Loc root_loc = getBelLocation(root_bel);
+
+    if (root_cell->constr_abs_z) {
+        // Coerce root to absolute z constraint
+        root_loc.z = root_cell->constr_z;
+        root_bel = getBelByLocation(root_loc);
+        if (root_bel == BelId() || !isValidBelForCellType(root_cell->type, root_bel))
+            return false;
+    }
+    placement.emplace_back(root_cell, root_bel);
+
+    for (auto child : root_cell->constr_children) {
+        Loc child_loc;
+        child_loc.x = root_loc.x + child->constr_x;
+        child_loc.y = root_loc.y + child->constr_y;
+        child_loc.z = child->constr_abs_z ? child->constr_z : (root_loc.z + child->constr_z);
+        BelId child_bel = getBelByLocation(child_loc);
+        if (child_bel == BelId() || !isValidBelForCellType(child->type, child_bel)) {
+            // Special case for DSPs where the delta is sometimes different
+            bool fixed = false;
+            if (child->type == id_REG18_CORE && root_cell->is_9x9_18x18) {
+                child_loc.x -= 1;
+                child_loc.z += 2;
+                child_bel = getBelByLocation(child_loc);
+                if (child_bel != BelId() && isValidBelForCellType(child->type, child_bel))
+                    fixed = true;
+            }
+            if (!fixed)
+                return false;
+        }
+        placement.emplace_back(child, child_bel);
+    }
+    return true;
+}
 
 // -----------------------------------------------------------------------
 
