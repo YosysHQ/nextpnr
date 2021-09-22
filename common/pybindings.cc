@@ -304,6 +304,8 @@ PYBIND11_EMBEDDED_MODULE(MODULE_NAME, m)
 static wchar_t *program;
 #endif
 
+void (*python_sighandler)(int) = nullptr;
+
 void init_python(const char *executable)
 {
 #ifdef MAIN_EXECUTABLE
@@ -316,7 +318,7 @@ void init_python(const char *executable)
     py::initialize_interpreter();
     py::module::import(TOSTRING(MODULE_NAME));
     PyRun_SimpleString("from " TOSTRING(MODULE_NAME) " import *");
-    signal(SIGINT, SIG_DFL);
+    python_sighandler = signal(SIGINT, SIG_DFL);
 #endif
 }
 
@@ -336,7 +338,10 @@ void execute_python_file(const char *python_file)
             fprintf(stderr, "Fatal error: file not found %s\n", python_file);
             exit(1);
         }
+        if (python_sighandler)
+            signal(SIGINT, python_sighandler);
         int result = PyRun_SimpleFile(fp, python_file);
+        signal(SIGINT, SIG_DFL);
         fclose(fp);
         if (result == -1) {
             log_error("Error occurred while executing Python script %s\n", python_file);
@@ -344,6 +349,7 @@ void execute_python_file(const char *python_file)
     } catch (py::error_already_set const &) {
         // Parse and output the exception
         std::string perror_str = parse_python_exception();
+        signal(SIGINT, SIG_DFL);
         log_error("Error in Python: %s\n", perror_str.c_str());
     }
 }
