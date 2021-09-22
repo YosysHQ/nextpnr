@@ -414,10 +414,6 @@ class SAPlacer
                 }
             }
         }
-        for (auto &cell : ctx->cells)
-            if (get_constraints_distance(ctx, cell.second.get()) != 0)
-                log_error("constraint satisfaction check failed for cell '%s' at Bel '%s'\n", cell.first.c_str(ctx),
-                          ctx->nameOfBel(cell.second->bel));
         timing_analysis(ctx);
 
         return true;

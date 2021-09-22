@@ -1200,7 +1200,8 @@ struct NexusPacker
             NetInfo *tout = get_net_or_empty(ci, id_TOUT);
             if (tout != nullptr && tout->users.size() == 1)
                 iob = tout->users.at(0).cell;
-            if (iob == nullptr || (iob->type != id_SEIO18_CORE && iob->type != id_SEIO33_CORE && iob->type != id_DIFFIO18_CORE))
+            if (iob == nullptr ||
+                (iob->type != id_SEIO18_CORE && iob->type != id_SEIO33_CORE && iob->type != id_DIFFIO18_CORE))
                 log_error("Failed to find associated IOB for IOLOGIC %s\n", ctx->nameOf(ci));
             io_to_iol[iob->name].push_back(ci);
         }
@@ -1710,6 +1711,8 @@ struct NexusPacker
             }
             for (int i = 0; i < mt.N18x18; i++)
                 mult18[i] = create_dsp_cell(ci->name, id_MULT18_CORE, preadd9[0], (i / 2) * 4 + i % 2, 4);
+            if (mt.N18x18 <= 2)
+                preadd9[0]->is_9x9_18x18 = true;
             for (int i = 0; i < mt.N18x36; i++)
                 mult18x36[i] = create_dsp_cell(ci->name, id_MULT18X36_CORE, preadd9[0], (i * 4) + 2, 4);
             for (int i = 0; i < Nreg18; i++) {
@@ -2078,24 +2081,25 @@ struct NexusPacker
     // Finds and returns a flip-flop that drives the given port of an IOB cell
     // If an associated IOLOGIC cell is provided then checks whether the
     // flip-flop matches its clock and reset.
-    CellInfo* get_ff_for_iob (CellInfo* iob, IdString port, CellInfo* iol) {
+    CellInfo *get_ff_for_iob(CellInfo *iob, IdString port, CellInfo *iol)
+    {
 
         // Get the net
-        NetInfo* net = get_net_or_empty(iob, port);
+        NetInfo *net = get_net_or_empty(iob, port);
         if (net == nullptr) {
             return nullptr;
         }
 
         // Get the flip-flop that drives it
-        CellInfo* ff = net->driver.cell;
+        CellInfo *ff = net->driver.cell;
         if (ff->type != id_OXIDE_FF) {
             return nullptr;
         }
 
         // Get clock nets of IOLOGIC and the flip-flop
         if (iol != nullptr) {
-            NetInfo* iol_c = get_net_or_empty(iol, id_SCLKOUT);
-            NetInfo* ff_c  = get_net_or_empty(ff,  id_CLK);
+            NetInfo *iol_c = get_net_or_empty(iol, id_SCLKOUT);
+            NetInfo *ff_c = get_net_or_empty(ff, id_CLK);
 
             // If one of them is floating or it is not the same net then abort
             if (iol_c == nullptr || ff_c == nullptr) {
@@ -2108,8 +2112,8 @@ struct NexusPacker
 
         // Get reset nets of IOLOGIC and the flip-flop
         if (iol != nullptr) {
-            NetInfo* iol_r = get_net_or_empty(iol, id_LSROUT);
-            NetInfo* ff_r  = get_net_or_empty(ff,  id_LSR);
+            NetInfo *iol_r = get_net_or_empty(iol, id_LSROUT);
+            NetInfo *ff_r = get_net_or_empty(ff, id_LSR);
 
             // If one of them is floating or it is not the same net then abort.
             // But both can be floating.
@@ -2133,14 +2137,15 @@ struct NexusPacker
 
     // IOLOGIC requires some special handling around itself and IOB. This
     // function does that.
-    void handle_iologic() {
+    void handle_iologic()
+    {
         log_info("Packing IOLOGIC...\n");
 
         // Map of flip-flop cells that drive IOLOGIC+IOB pairs
-        dict<IdString, std::vector<std::pair<IdString,IdString>>> tff_map;
+        dict<IdString, std::vector<std::pair<IdString, IdString>>> tff_map;
 
         for (auto &cell : ctx->cells) {
-            CellInfo* iol = cell.second.get();
+            CellInfo *iol = cell.second.get();
             if (iol->type != id_SIOLOGIC && iol->type != id_IOLOGIC) {
                 continue;
             }
@@ -2199,25 +2204,21 @@ struct NexusPacker
                 // same ned as SEIO33_CORE.I.
                 //
                 //
-                NetInfo* iob_t = get_net_or_empty(iob, id_T);
+                NetInfo *iob_t = get_net_or_empty(iob, id_T);
                 if (iob_t != nullptr && isODDR) {
-                    NetInfo* iol_t = get_net_or_empty(iol, id_TOUT);
+                    NetInfo *iol_t = get_net_or_empty(iol, id_TOUT);
 
                     // SIOLOGIC.TOUT is not driving SEIO33_CORE.T
-                    if ((iol_t == nullptr) ||
-                        (iol_t != nullptr &&  iol_t->users.empty()) ||
+                    if ((iol_t == nullptr) || (iol_t != nullptr && iol_t->users.empty()) ||
                         (iol_t != nullptr && !iol_t->users.empty() && iol_t->name != iob_t->name)) {
 
                         // In this case if SIOLOGIC.TSDATA0 is not connected
                         // to the same net as SEIO33_CORE.T and is not
                         // floating then that configuration is illegal.
-                        NetInfo* iol_ti = get_net_or_empty(iol, id_TSDATA0);
-                        if (iol_ti != nullptr && (iol_ti->name != iob_t->name)
-                                              && (iol_ti->name != gnd_net->name))
-                        {
+                        NetInfo *iol_ti = get_net_or_empty(iol, id_TSDATA0);
+                        if (iol_ti != nullptr && (iol_ti->name != iob_t->name) && (iol_ti->name != gnd_net->name)) {
                             log_error("Cannot have %s.TSDATA0 and %s.T driven by different nets (%s vs. %s)\n",
-                                ctx->nameOf(iol), ctx->nameOf(iob),
-                                ctx->nameOf(iol_ti), ctx->nameOf(iob_t));
+                                      ctx->nameOf(iol), ctx->nameOf(iob), ctx->nameOf(iol_ti), ctx->nameOf(iob_t));
                         }
 
                         // Re-connect TSDATA (even if it has already been
@@ -2241,10 +2242,9 @@ struct NexusPacker
 
                         // Check if the T input is driven by a flip-flop. Store
                         // in the map for later integration with IOLOGIC.
-                        CellInfo* ff = get_ff_for_iob(iob, id_T, iol);
+                        CellInfo *ff = get_ff_for_iob(iob, id_T, iol);
                         if (ff != nullptr && syn_useioff) {
-                            tff_map[ff->name].push_back(std::make_pair(
-                                iol->name, iob->name));
+                            tff_map[ff->name].push_back(std::make_pair(iol->name, iob->name));
                         }
                     }
                 }
@@ -2252,18 +2252,18 @@ struct NexusPacker
         }
 
         // Integrate flip-flops that drive T with IOLOGIC
-        for (auto& it : tff_map) {
-            CellInfo* ff = ctx->cells.at(it.first).get();
+        for (auto &it : tff_map) {
+            CellInfo *ff = ctx->cells.at(it.first).get();
 
-            NetInfo* ff_d = get_net_or_empty(ff, id_M); // FIXME: id_D or id_M ?!
+            NetInfo *ff_d = get_net_or_empty(ff, id_M); // FIXME: id_D or id_M ?!
             NPNR_ASSERT(ff_d != nullptr);
 
-            NetInfo* ff_q = get_net_or_empty(ff, id_Q);
+            NetInfo *ff_q = get_net_or_empty(ff, id_Q);
             NPNR_ASSERT(ff_q != nullptr);
 
-            for (auto& ios : it.second) {
-                CellInfo* iol = ctx->cells.at(ios.first).get();
-                CellInfo* iob = ctx->cells.at(ios.second).get();
+            for (auto &ios : it.second) {
+                CellInfo *iol = ctx->cells.at(ios.first).get();
+                CellInfo *iob = ctx->cells.at(ios.second).get();
 
                 log_info(" Integrating %s into %s\n", ctx->nameOf(ff), ctx->nameOf(iol));
 
@@ -2286,7 +2286,7 @@ struct NexusPacker
             }
 
             // Disconnect the flip-flop
-            for (auto& port : ff->ports) {
+            for (auto &port : ff->ports) {
                 disconnect_port(ctx, ff, port.first);
             }
 

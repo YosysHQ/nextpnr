@@ -182,6 +182,8 @@ struct ArchCellInfo : BaseClusterInfo
     int tmg_index = -1;
     // Map from cell/bel ports to logical timing ports
     dict<IdString, IdString> tmg_portmap;
+    // For DSP cluster override
+    bool is_9x9_18x18 = false;
 };
 
 NEXTPNR_NAMESPACE_END

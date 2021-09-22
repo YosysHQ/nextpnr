@@ -1241,6 +1241,10 @@ struct Arch : BaseArch<ArchRanges>
     // -------------------------------------------------
     // Arch-specific global routing
     void route_globals();
+    // -------------------------------------------------
+    // Override for DSP clusters
+    bool getClusterPlacement(ClusterId cluster, BelId root_bel,
+                             std::vector<std::pair<CellInfo *, BelId>> &placement) const override;
 
     // -------------------------------------------------
 
