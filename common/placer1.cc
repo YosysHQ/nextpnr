@@ -619,7 +619,6 @@ class SAPlacer
     {
         std::vector<std::pair<CellInfo *, Loc>> cell_rel;
         dict<IdString, BelId> moved_cells;
-        std::vector<std::pair<CellInfo *, BelId>> dest_bels;
         double delta = 0;
         int orig_share_cost = total_net_share;
         moveChange.reset(this);
@@ -629,7 +628,11 @@ class SAPlacer
         std::queue<std::pair<ClusterId, BelId>> displaced_clusters;
         displaced_clusters.emplace(cell->cluster, newBase);
         while (!displaced_clusters.empty()) {
+            std::vector<std::pair<CellInfo *, BelId>> dest_bels;
             auto cursor = displaced_clusters.front();
+#if CHAIN_DEBUG
+            log_info("%d Cluster %s\n", __LINE__, cursor.first.c_str(ctx));
+#endif
             displaced_clusters.pop();
             if (!ctx->getClusterPlacement(cursor.first, cursor.second, dest_bels))
                 goto swap_fail;
@@ -727,13 +730,23 @@ class SAPlacer
         commit_cost_changes(moveChange);
         return true;
     swap_fail:
+#if CHAIN_DEBUG
+            log_info("Swap failed\n");
+#endif
         for (auto cell_pair : moved_cells) {
             CellInfo *cell = ctx->cells.at(cell_pair.first).get();
-            if (cell->bel != BelId())
+            if (cell->bel != BelId()){
+#if CHAIN_DEBUG
+                log_info("%d unbind %s\n", __LINE__, ctx->nameOfBel(cell->bel));
+#endif
                 ctx->unbindBel(cell->bel);
+            }
         }
         for (auto cell_pair : moved_cells) {
             CellInfo *cell = ctx->cells.at(cell_pair.first).get();
+#if CHAIN_DEBUG
+            log_info("%d bind %s %s\n", __LINE__, ctx->nameOfBel(cell_pair.second), cell->name.c_str(ctx));
+#endif
             ctx->bindBel(cell_pair.second, cell, STRENGTH_WEAK);
         }
         return false;
