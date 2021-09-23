@@ -528,3 +528,5 @@ X(TOUT)
 X(Q0)
 X(Q1)
 X(SCLK)
+
+X(LOCAL_VCC)

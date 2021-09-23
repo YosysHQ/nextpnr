@@ -591,6 +591,9 @@ delay_t Arch::getRipupDelayPenalty() const { return 250; }
 
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {
+    const auto &dst_data = wire_data(dst);
+    if (src.tile == 0 && dst_data.name == ID_LOCAL_VCC)
+        return 0;
     int src_x = src.tile % chip_info->width, src_y = src.tile / chip_info->width;
     int dst_x = dst.tile % chip_info->width, dst_y = dst.tile / chip_info->width;
     int dist_x = std::abs(src_x - dst_x);

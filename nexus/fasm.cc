@@ -211,6 +211,8 @@ struct NexusFasmWriter
             return;
         std::string tile = tile_name(pip.tile, tile_by_type_and_loc(pip.tile, IdString(pd.tile_type)));
         std::string source_wire = escape_name(ctx->pip_src_wire_name(pip).str(ctx));
+        if (source_wire == "LOCAL_VCC")
+            source_wire = "G__VCC";
         std::string dest_wire = escape_name(ctx->pip_dst_wire_name(pip).str(ctx));
         out << stringf("%s.PIP.%s.%s", tile.c_str(), dest_wire.c_str(), source_wire.c_str()) << std::endl;
     }
