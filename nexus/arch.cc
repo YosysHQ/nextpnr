@@ -705,6 +705,21 @@ void Arch::pre_routing()
         }
     }
 }
+namespace {
+float router2_base_cost(Context *ctx, WireId wire, PipId pip, float crit_weight)
+{
+    (void)crit_weight; // unused
+    if (pip != PipId()) {
+        auto &data = ctx->pip_data(pip);
+        if (data.flags & PIP_ZERO_RR_COST)
+            return 1e-12;
+        if (data.flags & PIP_DRMUX_C)
+            return 1e15;
+    }
+    return ctx->getDelayNS(ctx->getPipDelay(pip).maxDelay() + ctx->getWireDelay(wire).maxDelay() +
+                           ctx->getDelayEpsilon());
+}
+} // namespace
 
 bool Arch::route()
 {
@@ -719,7 +734,9 @@ bool Arch::route()
     if (router == "router1") {
         result = router1(getCtx(), Router1Cfg(getCtx()));
     } else if (router == "router2") {
-        router2(getCtx(), Router2Cfg(getCtx()));
+        Router2Cfg cfg(getCtx());
+        cfg.get_base_cost = router2_base_cost;
+        router2(getCtx(), cfg);
         result = true;
     } else {
         log_error("Nexus architecture does not support router '%s'\n", router.c_str());

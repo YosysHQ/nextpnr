@@ -21,6 +21,13 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+inline float default_base_cost(Context *ctx, WireId wire, PipId pip, float crit_weight)
+{
+    (void)crit_weight; // unused
+    return ctx->getDelayNS(ctx->getPipDelay(pip).maxDelay() + ctx->getWireDelay(wire).maxDelay() +
+                           ctx->getDelayEpsilon());
+}
+
 struct Router2Cfg
 {
     Router2Cfg(Context *ctx);
@@ -51,6 +58,7 @@ struct Router2Cfg
     bool perf_profile = false;
 
     std::string heatmap;
+    std::function<float(Context *ctx, WireId wire, PipId pip, float crit_weight)> get_base_cost = default_base_cost;
 };
 
 void router2(Context *ctx, const Router2Cfg &cfg);

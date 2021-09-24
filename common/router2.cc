@@ -355,8 +355,7 @@ struct Router2
     {
         auto &wd = wire_data(wire);
         auto &nd = nets.at(net->udata);
-        float base_cost = ctx->getDelayNS(ctx->getPipDelay(pip).maxDelay() + ctx->getWireDelay(wire).maxDelay() +
-                                          ctx->getDelayEpsilon());
+        float base_cost = cfg.get_base_cost(ctx, wire, pip, crit_weight);
         int overuse = wd.curr_cong;
         float hist_cost = 1.0f + crit_weight * (wd.hist_cong_cost - 1.0f);
         float bias_cost = 0;
