@@ -290,21 +290,13 @@ void add_to_cache(int32_t tile, IdString name, BelId t){
     tileAndBelNameToBelIdCache[tile][name] = t;
 }
 
-bool Arch::macro_cluster_placement(
-    const Context *ctx, const Cluster &packed_cluster, const ClusterPOD &cluster_data,
-    CellInfo *root_cell, BelId root_bel, std::vector<std::pair<CellInfo *, BelId>> &placement) const
-{
-    // Check root_bel site_type
-    const auto &cluster = cluster_info(chip_info, packed_cluster.index);
+bool find_site_idx(const Context *ctx, const ClusterPOD &cluster, BelId root_bel, uint32_t &idx){
     bool found = false;
-    uint32_t idx = 0;
     const auto &site_inst = ctx->get_site_inst(root_bel);
     IdString site_type(site_inst.site_type);
 
-    if(ctx->debug)
-        log_info("%s\n", ctx->get_site_name(root_bel));
-
     if (ctx->debug){
+        log_info("%s\n", ctx->get_site_name(root_bel));
         log_info("Root_bel site_type: %s\n", site_type.c_str(ctx));
         log_info("Allowed site_types:\n");
     }
@@ -319,13 +311,13 @@ bool Arch::macro_cluster_placement(
         }
         idx++;
     }
-    if (!found)
-        return false;
+    return found;
+}
 
-    // Check if root_bel name
-    uint32_t placement_idx = 0;
-    found = false;
-    const auto &bel_data = bel_info(chip_info, root_bel);
+bool find_placement_idx(const Context *ctx, const ClusterPOD &cluster,
+                        BelId root_bel, uint32_t idx, uint32_t &placement_idx){
+    bool found = false;
+    const auto &bel_data = bel_info(ctx->chip_info, root_bel);
     IdString root_bel_name(bel_data.name);
     if(ctx->debug){
         log_info("Root_bel name: %s\n", root_bel_name.c_str(ctx));
@@ -346,12 +338,13 @@ bool Arch::macro_cluster_placement(
             break;
         placement_idx++;
     }
-    if (!found)
-        return false;
+    return found;
+}
 
-    auto root_bel_full_name = ctx->getBelName(root_bel);
-    // Check if bels are avaiable
+dict<uint32_t, BelId> idx_bel_mapping(const Context *ctx, BelId root_bel,
+                                      const ClusterPOD &cluster, uint32_t idx, uint32_t placement_idx){
     dict<uint32_t, BelId> idx_bel_map;
+    auto root_bel_full_name = ctx->getBelName(root_bel);
     uint32_t t_idx = 0;
     if(ctx->debug)
         log_info("Used bels:\n");
@@ -376,6 +369,26 @@ bool Arch::macro_cluster_placement(
         idx_bel_map[t_idx] = t;
         t_idx++;
     }
+    return idx_bel_map;
+}
+
+bool Arch::macro_cluster_placement(
+    const Context *ctx, const Cluster &packed_cluster, const ClusterPOD &cluster_data,
+    CellInfo *root_cell, BelId root_bel, std::vector<std::pair<CellInfo *, BelId>> &placement) const
+{
+    // Check root_bel site_type
+    const auto &cluster = cluster_info(chip_info, packed_cluster.index);
+    uint32_t idx = 0;
+    if(!find_site_idx(ctx, cluster, root_bel, idx))
+        return false;
+
+    // Check if root_bel name
+    uint32_t placement_idx = 0;
+    if (!find_placement_idx(ctx, cluster, root_bel, idx, placement_idx))
+        return false;
+
+    // Map cells to bels
+    dict<uint32_t, BelId> idx_bel_map = idx_bel_mapping(ctx, root_bel, cluster, idx, placement_idx);
 
     for(auto idx_bel : idx_bel_map){
         placement.emplace_back(packed_cluster.cluster_nodes[idx_bel.first], idx_bel.second);
