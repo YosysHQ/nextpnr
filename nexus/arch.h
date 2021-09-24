@@ -87,6 +87,8 @@ enum PipFlags
 {
     PIP_FIXED_CONN = 0x8000,
     PIP_LUT_PERM = 0x4000,
+    PIP_ZERO_RR_COST = 0x2000,
+    PIP_DRMUX_C = 0x1000,
 };
 
 NPNR_PACKED_STRUCT(struct PipInfoPOD {
