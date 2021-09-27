@@ -50,6 +50,7 @@ static IdString derived_name(Context *ctx, IdString base_name, IdString suffix)
 
 void Arch::expand_macros()
 {
+    log_info("Expand macros\n");
     // Make up a list of cells, so we don't have modify-while-iterating issues
     Context *ctx = getCtx();
     std::vector<CellInfo *> cells;

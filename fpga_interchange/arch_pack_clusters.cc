@@ -40,7 +40,8 @@ enum ClusterWireNodeState
 enum ExpansionDirection
 {
     CLUSTER_UPHILL_DIR = 0,
-    CLUSTER_DOWNHILL_DIR = 1
+    CLUSTER_DOWNHILL_DIR = 1,
+    CLUSTER_BOTH_DIR = 2
 };
 
 struct ClusterWireNode
@@ -48,6 +49,7 @@ struct ClusterWireNode
     WireId wire;
     ClusterWireNodeState state;
     int depth;
+    bool only_down;
 };
 
 static void handle_expansion_node(const Context *ctx, WireId prev_wire, PipId pip, ClusterWireNode curr_node,
@@ -187,18 +189,10 @@ CellInfo *Arch::getClusterRootCell(ClusterId cluster) const
     return clusters.at(cluster).root;
 }
 
-bool Arch::getClusterPlacement(ClusterId cluster, BelId root_bel,
-                               std::vector<std::pair<CellInfo *, BelId>> &placement) const
+bool Arch::normal_cluster_placement(const Context *ctx, const Cluster &packed_cluster, const ClusterPOD &cluster_data,
+                                    CellInfo *root_cell, BelId root_bel,
+                                    std::vector<std::pair<CellInfo *, BelId>> &placement) const
 {
-    const Context *ctx = getCtx();
-    const Cluster &packed_cluster = clusters.at(cluster);
-
-    auto &cluster_data = cluster_info(chip_info, packed_cluster.index);
-
-    CellInfo *root_cell = getClusterRootCell(cluster);
-    if (!ctx->isValidBelForCellType(root_cell->type, root_bel))
-        return false;
-
     BelId next_bel;
 
     // Place cluster
@@ -280,6 +274,147 @@ bool Arch::getClusterPlacement(ClusterId cluster, BelId root_bel,
     }
 
     return true;
+}
+
+static dict<int32_t, dict<IdString, BelId>> tileAndBelNameToBelIdCache;
+
+BelId check_and_return(int32_t tile, IdString name)
+{
+    if (tileAndBelNameToBelIdCache.count(tile) && tileAndBelNameToBelIdCache[tile].count(name))
+        return tileAndBelNameToBelIdCache[tile][name];
+    else
+        return BelId();
+}
+
+void add_to_cache(int32_t tile, IdString name, BelId t) { tileAndBelNameToBelIdCache[tile][name] = t; }
+
+bool find_site_idx(const Context *ctx, const ClusterPOD &cluster, BelId root_bel, uint32_t &idx)
+{
+    bool found = false;
+    const auto &site_inst = ctx->get_site_inst(root_bel);
+    IdString site_type(site_inst.site_type);
+
+    if (ctx->debug) {
+        log_info("%s\n", ctx->get_site_name(root_bel));
+        log_info("Root_bel site_type: %s\n", site_type.c_str(ctx));
+        log_info("Allowed site_types:\n");
+    }
+    for (const auto &site : cluster.physical_placements) {
+        IdString name(site.site_type);
+        if (ctx->debug)
+            log_info("\t%s\n", name.c_str(ctx));
+
+        if (name == site_type) {
+            found = true;
+            break;
+        }
+        idx++;
+    }
+    return found;
+}
+
+bool find_placement_idx(const Context *ctx, const ClusterPOD &cluster, BelId root_bel, uint32_t idx,
+                        uint32_t &placement_idx)
+{
+    bool found = false;
+    const auto &bel_data = bel_info(ctx->chip_info, root_bel);
+    IdString root_bel_name(bel_data.name);
+    if (ctx->debug) {
+        log_info("Root_bel name: %s\n", root_bel_name.c_str(ctx));
+        log_info("Allowed root_bels:\n");
+    }
+    for (const auto &place : cluster.physical_placements[idx].places) {
+        for (const auto bel : place.bels) {
+            IdString name(bel);
+            if (ctx->debug)
+                log_info("\t%s\n", name.c_str(ctx));
+
+            if (name == root_bel_name) {
+                found = true;
+                break;
+            }
+        }
+        if (found)
+            break;
+        placement_idx++;
+    }
+    return found;
+}
+
+dict<uint32_t, BelId> idx_bel_mapping(const Context *ctx, BelId root_bel, const ClusterPOD &cluster, uint32_t idx,
+                                      uint32_t placement_idx)
+{
+    dict<uint32_t, BelId> idx_bel_map;
+    auto root_bel_full_name = ctx->getBelName(root_bel);
+    uint32_t t_idx = 0;
+    if (ctx->debug)
+        log_info("Used bels:\n");
+    for (const auto &bel : cluster.physical_placements[idx].places[placement_idx].bels) {
+        IdString s_bel(bel);
+        BelId t = check_and_return(root_bel.tile, s_bel);
+        IdStringList cpy(root_bel_full_name.size());
+        if (t == BelId()) {
+            for (uint32_t j = 0; j < root_bel_full_name.size(); j++)
+                cpy.ids[j] = root_bel_full_name[j];
+            cpy.ids[root_bel_full_name.size() - 1] = s_bel;
+            t = ctx->getBelByName(cpy);
+            add_to_cache(root_bel.tile, s_bel, t);
+        }
+        if (ctx->debug) {
+            for (uint32_t j = 0; j < root_bel_full_name.size(); j++)
+                cpy.ids[j] = root_bel_full_name[j];
+            cpy.ids[1] = s_bel;
+            for (auto str : cpy)
+                log_info("\t%s\n", str.c_str(ctx));
+        }
+        idx_bel_map[t_idx] = t;
+        t_idx++;
+    }
+    return idx_bel_map;
+}
+
+bool Arch::macro_cluster_placement(const Context *ctx, const Cluster &packed_cluster, const ClusterPOD &cluster_data,
+                                   CellInfo *root_cell, BelId root_bel,
+                                   std::vector<std::pair<CellInfo *, BelId>> &placement) const
+{
+    // Check root_bel site_type
+    const auto &cluster = cluster_info(chip_info, packed_cluster.index);
+    uint32_t idx = 0;
+    if (!find_site_idx(ctx, cluster, root_bel, idx))
+        return false;
+
+    // Check if root_bel name
+    uint32_t placement_idx = 0;
+    if (!find_placement_idx(ctx, cluster, root_bel, idx, placement_idx))
+        return false;
+
+    // Map cells to bels
+    dict<uint32_t, BelId> idx_bel_map = idx_bel_mapping(ctx, root_bel, cluster, idx, placement_idx);
+
+    for (auto idx_bel : idx_bel_map) {
+        placement.emplace_back(packed_cluster.cluster_nodes[idx_bel.first], idx_bel.second);
+    }
+
+    return true;
+}
+
+bool Arch::getClusterPlacement(ClusterId cluster, BelId root_bel,
+                               std::vector<std::pair<CellInfo *, BelId>> &placement) const
+{
+    const Context *ctx = getCtx();
+    const Cluster &packed_cluster = clusters.at(cluster);
+
+    auto &cluster_data = cluster_info(chip_info, packed_cluster.index);
+
+    CellInfo *root_cell = getClusterRootCell(cluster);
+    if (!ctx->isValidBelForCellType(root_cell->type, root_bel))
+        return false;
+    if (!cluster_data.from_macro)
+        return normal_cluster_placement(ctx, packed_cluster, cluster_data, root_cell, root_bel, placement);
+    else {
+        bool temp = macro_cluster_placement(ctx, packed_cluster, cluster_data, root_cell, root_bel, placement);
+        return temp;
+    }
 }
 
 ArcBounds Arch::getClusterBounds(ClusterId cluster) const
@@ -370,6 +505,354 @@ static bool check_cluster_cells_compatibility(CellInfo *old_cell, CellInfo *new_
     return true;
 }
 
+bool reduce(uint32_t x, uint32_t y, const ClusterPOD *cluster, dict<uint32_t, pool<CellInfo *, hash_ptr_ops>> &domain,
+            Context *ctx)
+{
+    // Reduce X domain by removing values, which don't satisfy binary constraint with values from Y domain.
+    bool change = false;
+    std::vector<CellInfo *> remove_cell;
+    uint32_t counter = 0;
+    for (const auto &connection : cluster->connection_graph[x].connections) {
+        if (connection.target_idx == y)
+            break;
+        counter++;
+    }
+    for (const auto &x_cell : domain[x]) {
+        bool found = false;
+        for (const auto &y_cell : domain[y]) {
+            found = true;
+            for (const auto edge : cluster->connection_graph[x].connections[counter].edges) {
+                if (!x_cell->ports.count(IdString(edge.cell_pin)) ||
+                    !y_cell->ports.count(IdString(edge.other_cell_pin))) {
+                    found = false;
+                    break;
+                }
+                const auto x_net = x_cell->ports[IdString(edge.cell_pin)].net;
+                const auto y_net = y_cell->ports[IdString(edge.other_cell_pin)].net;
+
+                if (x_net != y_net) {
+                    found = false;
+                    break;
+                }
+                bool x_driver = x_net->driver.cell == x_cell;
+                bool y_driver = y_net->driver.cell == y_cell;
+                if ((edge.dir != 0 || !y_driver) && (edge.dir != 1 || !x_driver) &&
+                    (edge.dir != 2 || y_driver || x_driver)) {
+                    found = false;
+                    break;
+                }
+            }
+            if (found)
+                break;
+        }
+        if (!found)
+            remove_cell.push_back(x_cell);
+    }
+
+    for (const auto &cell : remove_cell) {
+        domain[x].erase(cell);
+        change = true;
+    }
+
+    return change;
+}
+
+void binary_constraint_check(const ClusterPOD *cluster, std::queue<std::pair<uint32_t, uint32_t>> &workqueue,
+                             dict<uint32_t, pool<CellInfo *, hash_ptr_ops>> &idx_to_cells, Context *ctx)
+{
+    while (!workqueue.empty()) {
+        std::pair<uint32_t, uint32_t> arc = workqueue.front();
+        workqueue.pop();
+        uint32_t x, y;
+        x = arc.first;
+        y = arc.second;
+        if (reduce(x, y, cluster, idx_to_cells, ctx)) {
+            for (const auto &node : cluster->connection_graph) {
+                if (node.idx != arc.first)
+                    for (const auto &connection : node.connections)
+                        if (connection.target_idx == arc.first)
+                            workqueue.push(std::pair<uint32_t, uint32_t>(node.idx, arc.first));
+            }
+        }
+    }
+}
+
+bool back_solver(const ClusterPOD *cluster, dict<uint32_t, pool<CellInfo *, hash_ptr_ops>> &idx_to_cells, Context *ctx)
+{
+    dict<CellInfo *, pool<uint32_t>, hash_ptr_ops> possible_idx;
+    for (const auto &arc : idx_to_cells)
+        for (const auto &cell : arc.second)
+            possible_idx[cell].insert(arc.first);
+    std::queue<uint32_t> prep;
+    for (const auto &arc : idx_to_cells) {
+        if (arc.second.size() == 0)
+            return false;
+        if (arc.second.size() > 1) {
+            for (const auto &cell : arc.second) {
+                auto copy_idx_to_cells(idx_to_cells);
+                copy_idx_to_cells[arc.first].clear();
+                for (uint32_t idx : possible_idx[cell]) {
+                    copy_idx_to_cells[idx].erase(cell);
+                    prep.push(idx);
+                }
+                copy_idx_to_cells[arc.first].insert(cell);
+                std::queue<std::pair<uint32_t, uint32_t>> workqueue;
+                while (!prep.empty()) {
+                    uint32_t idx = prep.front();
+                    prep.pop();
+                    for (const auto &connection : cluster->connection_graph[idx].connections)
+                        if (arc.first != connection.target_idx)
+                            workqueue.push(std::pair<uint32_t, uint32_t>(arc.first, connection.target_idx));
+                }
+                binary_constraint_check(cluster, workqueue, copy_idx_to_cells, ctx);
+                if (back_solver(cluster, copy_idx_to_cells, ctx)) {
+                    idx_to_cells = std::move(copy_idx_to_cells);
+                    return true;
+                }
+            }
+        }
+    }
+    return true;
+}
+
+void Arch::prepare_macro_cluster(const ClusterPOD *cluster, uint32_t index)
+{
+    Context *ctx = getCtx();
+    IdString cluster_name(cluster->name);
+
+    pool<IdString> cluster_cell_types;
+    for (auto cell_type : cluster->root_cell_types)
+        cluster_cell_types.insert(IdString(cell_type));
+
+    // Find cluster roots for each macro only ones
+    dict<IdString, CellInfo *> roots;
+    for (auto &cell : cells) {
+        CellInfo *ci = cell.second.get();
+        if (ci->macro_parent == IdString())
+            continue;
+        if (ci->cluster != ClusterId())
+            continue;
+        if (!cluster_cell_types.count(ci->type))
+            continue;
+        if (roots.count(ci->macro_parent))
+            continue;
+        // Simple check based on cell type counting
+
+        dict<IdString, uint32_t> cells_in_macro, counter;
+        // cells_in_macro stores cell_types used in tested cluster and
+        // cell_types that are in macro_to_cells[ci->macro_parent]
+
+        pool<IdString> cell_types;
+        for (auto &cell_type : cluster->required_cells) {
+            cells_in_macro[IdString(cell_type.name)] = cell_type.count;
+            cell_types.insert(IdString(cell_type.name));
+        }
+
+        for (auto &node_cell : macro_to_cells[ci->macro_parent]) {
+            auto cell_type = node_cell->type;
+            counter[cell_type]++;
+            cell_types.insert(cell_type);
+        }
+        bool failed = false;
+        for (auto cell_type : cell_types) {
+            if (ctx->verbose && cells_in_macro.count(cell_type))
+                log_info("Required: %s %d\n", cell_type.c_str(ctx), cells_in_macro[cell_type]);
+            if (ctx->verbose && cells_in_macro.count(cell_type))
+                log_info("Have: %s %d\n", cell_type.c_str(ctx), counter[cell_type]);
+            if (!cells_in_macro.count(cell_type) || !counter.count(cell_type) ||
+                cells_in_macro[cell_type] != counter[cell_type])
+                failed = true;
+            if (failed && ctx->verbose)
+                log_info("Cell count stage failed, for sure not this cluster\n");
+            if (failed)
+                break;
+        }
+        if (failed) {
+            roots[ci->macro_parent] = nullptr;
+            continue;
+        }
+
+        // Arc consistency
+        dict<uint32_t, pool<CellInfo *, hash_ptr_ops>> idx_to_cells;
+        // First singular constraints, like used cell type and used_cell ports
+        for (auto &cell : macro_to_cells[ci->macro_parent])
+            for (auto &node : cluster->connection_graph)
+                if (IdString(node.cell_type) == cell->type)
+                    if (node.idx != 0 && cell->name != ci->name || node.idx == 0 && cell->name == ci->name) {
+                        idx_to_cells[node.idx].insert(cell);
+                    }
+
+        for (auto &arc : idx_to_cells) {
+            std::vector<CellInfo *> remove_cell;
+            pool<IdString> used_ports;
+            for (const auto &port : cluster->connection_graph[arc.first].used_ports)
+                used_ports.insert(IdString(port.name));
+            for (const auto &cell : arc.second) {
+                uint32_t count = 0;
+                for (const auto &port : cell->ports) {
+                    if (!used_ports.count(port.first)) {
+                        remove_cell.push_back(cell);
+                        break;
+                    }
+                    count++;
+                }
+                if (count != used_ports.size()) {
+                    remove_cell.push_back(cell);
+                    break;
+                }
+            }
+            for (const auto &cell : remove_cell) {
+                arc.second.erase(cell);
+            }
+        }
+        if (ctx->debug) {
+            log_info("After mono constraints are applied\n");
+            dict<CellInfo *, pool<uint32_t>, hash_ptr_ops> possible_idx;
+            for (const auto &arc : idx_to_cells)
+                for (const auto &cell : arc.second)
+                    possible_idx[cell].insert(arc.first);
+
+            for (const auto arc : possible_idx) {
+                log_info("Possible idx %s:\n", arc.first->name.c_str(ctx));
+                for (const auto idx : arc.second)
+                    log_info("    - %d\n", idx);
+            }
+        }
+        // Solve for binary constraints
+        std::queue<std::pair<uint32_t, uint32_t>> workqueue;
+        for (const auto &arc : idx_to_cells)
+            for (const auto &connection : cluster->connection_graph[arc.first].connections)
+                workqueue.emplace(arc.first, connection.target_idx);
+
+        binary_constraint_check(cluster, workqueue, idx_to_cells, ctx);
+        for (const auto &arc : idx_to_cells) {
+            if (arc.second.size() == 0) {
+                if (ctx->debug)
+                    log_info("AC-3 failed\n");
+                failed = true;
+                break;
+            }
+        }
+        if (failed)
+            continue;
+
+        if (ctx->debug) {
+            log_info("After AC-3\n");
+            dict<CellInfo *, pool<uint32_t>, hash_ptr_ops> possible_idx;
+            for (const auto &arc : idx_to_cells)
+                for (const auto &cell : arc.second)
+                    possible_idx[cell].insert(arc.first);
+
+            for (const auto arc : possible_idx) {
+                log_info("Possible idx %s:\n", arc.first->name.c_str(ctx));
+                for (const auto idx : arc.second)
+                    log_info("    - %d\n", idx);
+            }
+        }
+
+        bool change = false;
+        std::queue<std::pair<uint32_t, CellInfo *>> removequeue;
+        // Keep assigning cells to indices that only map to single cell
+        // Remove this cell from other mappings and recheck binary constraints
+        // Fail if there is no cell for idx or cell has no idx assign
+        do {
+            change = false;
+            dict<CellInfo *, pool<uint32_t>, hash_ptr_ops> possible_idx;
+            pool<uint32_t> changed_idxs;
+            for (const auto &arc : idx_to_cells) {
+                if (arc.second.size() == 0) {
+                    failed = true;
+                    break;
+                }
+                for (const auto &cell : arc.second)
+                    possible_idx[cell].insert(arc.first);
+            }
+            if (failed)
+                break;
+            for (auto &cell : macro_to_cells[ci->macro_parent])
+                if (possible_idx[cell].size() == 0) {
+                    failed = true;
+                    break;
+                }
+            if (failed)
+                break;
+            for (const auto &arc : idx_to_cells) {
+                if (arc.second.size() == 1)
+                    for (const auto &idx : possible_idx[*arc.second.begin()])
+                        if (idx != arc.first)
+                            removequeue.push(std::pair<uint32_t, CellInfo *>(idx, *arc.second.begin()));
+            }
+            while (!removequeue.empty()) {
+                auto t = removequeue.front();
+                removequeue.pop();
+                uint32_t idx = t.first;
+                CellInfo *cell = t.second;
+                idx_to_cells[idx].erase(cell);
+                change = true;
+                changed_idxs.insert(idx);
+            }
+            for (const uint32_t &idx : changed_idxs)
+                for (const auto &connection : cluster->connection_graph[idx].connections)
+                    workqueue.push(std::pair<uint32_t, uint32_t>(idx, connection.target_idx));
+
+            binary_constraint_check(cluster, workqueue, idx_to_cells, ctx);
+        } while (change);
+        if (failed) {
+            if (ctx->debug)
+                log_info("Single cell mapping failed\n");
+            continue;
+        }
+        if (ctx->debug) {
+            log_info("After mapping indices with single cell\n");
+            dict<CellInfo *, pool<uint32_t>, hash_ptr_ops> possible_idx;
+            for (const auto &arc : idx_to_cells)
+                for (const auto &cell : arc.second)
+                    possible_idx[cell].insert(arc.first);
+
+            for (const auto arc : possible_idx) {
+                log_info("Possible idx %s:\n", arc.first->name.c_str(ctx));
+                for (const auto idx : arc.second)
+                    log_info("    - %d\n", idx);
+            }
+        }
+        // At this point all indices that cloud only be mapped to single cell are mapped
+        // Next step is to run solver with backtracing to solve for other idx<->cell mappings
+        if (ctx->debug)
+            log_info("Back solver\n");
+        if (!back_solver(cluster, idx_to_cells, ctx)) {
+            if (ctx->debug)
+                log_info("Back solver failed\n");
+            continue;
+        }
+        if (ctx->debug) {
+            log_info("Final mapping after back solver\n");
+            dict<CellInfo *, pool<uint32_t>, hash_ptr_ops> possible_idx;
+            for (const auto &arc : idx_to_cells)
+                for (const auto &cell : arc.second)
+                    possible_idx[cell].insert(arc.first);
+
+            for (const auto arc : possible_idx) {
+                log_info("Possible idx %s:\n", arc.first->name.c_str(ctx));
+                for (const auto idx : arc.second)
+                    log_info("    - %d\n", idx);
+            }
+        }
+        Cluster cluster_info;
+        cluster_info.root = ci;
+        cluster_info.index = index;
+        cluster_info.cluster_nodes.resize(idx_to_cells.size());
+        ci->cluster = ci->name;
+        for (auto &arc : idx_to_cells) {
+            CellInfo *sub_cell = arc.second.pop();
+            if (ctx->verbose)
+                log_info("%d %s - %s\n", arc.first, sub_cell->name.c_str(ctx), sub_cell->type.c_str(ctx));
+            sub_cell->cluster = ci->cluster;
+            cluster_info.cluster_nodes[arc.first] = sub_cell;
+        }
+        clusters.emplace(ci->cluster, cluster_info);
+    }
+}
+
 void Arch::prepare_cluster(const ClusterPOD *cluster, uint32_t index)
 {
     Context *ctx = getCtx();
@@ -383,6 +866,8 @@ void Arch::prepare_cluster(const ClusterPOD *cluster, uint32_t index)
     std::vector<CellInfo *> roots;
     for (auto &cell : cells) {
         CellInfo *ci = cell.second.get();
+        if (ci->macro_parent != IdString())
+            continue;
 
         if (ci->cluster != ClusterId())
             continue;
@@ -564,9 +1049,25 @@ void Arch::pack_cluster()
         dump_clusters(chip_info, ctx);
 
     for (uint32_t i = 0; i < chip_info->clusters.size(); ++i) {
-        const auto &cluster = chip_info->clusters[i];
+        if (!chip_info->clusters[i].from_macro) {
+            const auto &cluster = chip_info->clusters[i];
 
-        prepare_cluster(&cluster, i);
+            prepare_cluster(&cluster, i);
+        } else if (chip_info->clusters[i].physical_placements.size() > 0) {
+            const auto &cluster = chip_info->clusters[i];
+            if (ctx->verbose) {
+                log_info("%s\n", IdString(cluster.name).c_str(ctx));
+            }
+
+            prepare_macro_cluster(&cluster, i);
+        } else {
+            // No physical placement definitions found for given macro.
+            // Use default place and route algorithm as routes connectiong
+            // cells will use global routing
+            const auto &cluster = chip_info->clusters[i];
+            if (ctx->verbose)
+                log_info("Out of site cluster from macro: %s\n", IdString(cluster.name).c_str(ctx));
+        }
     }
 }
 

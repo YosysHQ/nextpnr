@@ -731,11 +731,11 @@ class SAPlacer
         return true;
     swap_fail:
 #if CHAIN_DEBUG
-            log_info("Swap failed\n");
+        log_info("Swap failed\n");
 #endif
         for (auto cell_pair : moved_cells) {
             CellInfo *cell = ctx->cells.at(cell_pair.first).get();
-            if (cell->bel != BelId()){
+            if (cell->bel != BelId()) {
 #if CHAIN_DEBUG
                 log_info("%d unbind %s\n", __LINE__, ctx->nameOfBel(cell->bel));
 #endif

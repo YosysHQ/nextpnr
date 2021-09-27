@@ -720,6 +720,7 @@ struct Arch : ArchAPI<ArchRanges>
     // Clusters
     void pack_cluster();
     void prepare_cluster(const ClusterPOD *cluster, uint32_t index);
+    void prepare_macro_cluster(const ClusterPOD *cluster, uint32_t index);
     dict<ClusterId, Cluster> clusters;
 
     // User constraints
@@ -857,8 +858,7 @@ struct Arch : ArchAPI<ArchRanges>
             return true;
         }
         const TileStatus &tile_status = iter->second;
-        const CellInfo *cell = tile_status.boundcells[bel.index];
-
+        CellInfo *cell = tile_status.boundcells[bel.index];
         auto &bel_data = bel_info(chip_info, bel);
         auto &site_status = get_site_status(tile_status, bel_data);
 
@@ -899,6 +899,10 @@ struct Arch : ArchAPI<ArchRanges>
     ArcBounds getClusterBounds(ClusterId cluster) const override;
     Loc getClusterOffset(const CellInfo *cell) const override;
     bool isClusterStrict(const CellInfo *cell) const override;
+    bool normal_cluster_placement(const Context *, const Cluster &, const ClusterPOD &, CellInfo *, BelId,
+                                  std::vector<std::pair<CellInfo *, BelId>> &) const;
+    bool macro_cluster_placement(const Context *, const Cluster &, const ClusterPOD &, CellInfo *, BelId,
+                                 std::vector<std::pair<CellInfo *, BelId>> &) const;
     bool getClusterPlacement(ClusterId cluster, BelId root_bel,
                              std::vector<std::pair<CellInfo *, BelId>> &placement) const override;
 
