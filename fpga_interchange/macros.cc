@@ -79,7 +79,6 @@ void Arch::expand_macros()
 
             // Get the ultimate root of this macro expansion
             IdString parent = (cell->macro_parent == IdString()) ? cell->name : cell->macro_parent;
-            log_info("%s %s\n", cell->name.c_str(ctx), parent.c_str(ctx));
             // Create child instances
             for (const auto &inst : macro->cell_insts) {
                 CellInfo *inst_cell =
@@ -88,7 +87,6 @@ void Arch::expand_macros()
                     inst_cell->params[IdString(param.key)] = IdString(param.value).str(ctx);
                 }
                 inst_cell->macro_parent = parent;
-                log_info("  %s %s\n", inst_cell->name.c_str(ctx), inst_cell->type.c_str(ctx));
                 next_cells.push_back(inst_cell);
             }
             // Create and connect nets

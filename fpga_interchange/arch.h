@@ -899,10 +899,10 @@ struct Arch : ArchAPI<ArchRanges>
     ArcBounds getClusterBounds(ClusterId cluster) const override;
     Loc getClusterOffset(const CellInfo *cell) const override;
     bool isClusterStrict(const CellInfo *cell) const override;
-    bool normal_cluster_placement(const Context *, const Cluster &, const ClusterPOD &,CellInfo*,
-                                  BelId, std::vector<std::pair<CellInfo *, BelId>> &) const;
-    bool macro_cluster_placement(const Context *, const Cluster &, const ClusterPOD &,CellInfo*,
-                                  BelId, std::vector<std::pair<CellInfo *, BelId>> &) const;
+    bool normal_cluster_placement(const Context *, const Cluster &, const ClusterPOD &, CellInfo *, BelId,
+                                  std::vector<std::pair<CellInfo *, BelId>> &) const;
+    bool macro_cluster_placement(const Context *, const Cluster &, const ClusterPOD &, CellInfo *, BelId,
+                                 std::vector<std::pair<CellInfo *, BelId>> &) const;
     bool getClusterPlacement(ClusterId cluster, BelId root_bel,
                              std::vector<std::pair<CellInfo *, BelId>> &placement) const override;
 

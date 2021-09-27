@@ -423,39 +423,35 @@ NPNR_PACKED_STRUCT(struct ChainablePortPOD {
     int16_t avg_y_offset;
 });
 
-NPNR_PACKED_STRUCT(struct ClusterRequiredCellPOD{
+NPNR_PACKED_STRUCT(struct ClusterRequiredCellPOD {
     uint32_t name;
     uint32_t count;
 });
 
-NPNR_PACKED_STRUCT(struct ClusterUsedPortPOD{
-    uint32_t name;
-});
+NPNR_PACKED_STRUCT(struct ClusterUsedPortPOD { uint32_t name; });
 
-NPNR_PACKED_STRUCT(struct ClusterEdgePOD{
+NPNR_PACKED_STRUCT(struct ClusterEdgePOD {
     uint32_t dir;
     uint32_t cell_pin;
     uint32_t other_cell_pin;
     uint32_t other_cell_type;
 });
 
-NPNR_PACKED_STRUCT(struct ClusterConnectionsPOD{
+NPNR_PACKED_STRUCT(struct ClusterConnectionsPOD {
     uint32_t target_idx;
     RelSlice<ClusterEdgePOD> edges;
 });
 
-NPNR_PACKED_STRUCT(struct ClusterConnectionGraphPOD{
+NPNR_PACKED_STRUCT(struct ClusterConnectionGraphPOD {
     uint32_t idx;
     uint32_t cell_type;
     RelSlice<ClusterConnectionsPOD> connections;
     RelSlice<ClusterUsedPortPOD> used_ports;
 });
 
-NPNR_PACKED_STRUCT(struct ClusterPhysicalPlacementEntryPOD{
-    RelSlice<uint32_t> bels;
-});
+NPNR_PACKED_STRUCT(struct ClusterPhysicalPlacementEntryPOD { RelSlice<uint32_t> bels; });
 
-NPNR_PACKED_STRUCT(struct ClusterPhysicalPlacementsPOD{
+NPNR_PACKED_STRUCT(struct ClusterPhysicalPlacementsPOD {
     uint32_t site_type;
     RelSlice<ClusterPhysicalPlacementEntryPOD> places;
 });
