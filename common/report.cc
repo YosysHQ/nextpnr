@@ -101,7 +101,7 @@ static Json::array report_critical_paths (const Context* ctx) {
 
     // Critical paths
     for (auto &report : ctx->timing_result.clock_paths) {
-        
+
         critPathsJson.push_back(Json::object({
             {"from", clock_event_name(ctx, report.second.clock_pair.start)},
             {"to", clock_event_name(ctx, report.second.clock_pair.end)},
@@ -160,6 +160,78 @@ static Json::array report_detailed_net_timings (const Context* ctx) {
 
     return detailedNetTimingsJson;
 }
+
+/*
+Report JSON structure:
+
+{
+  "utilization": {
+    <BEL name>: {
+      "available": <available count>,
+      "used": <used count>
+    },
+    ...
+  },
+  "fmax" {
+    <clock name>: {
+      "achieved": <achieved fmax [MHz]>,
+      "constraint": <target fmax [MHz]>
+    },
+    ...
+  },
+  "critical_paths": [
+    {
+      "from": <clock event edge and name>,
+      "to": <clock event edge and name>,
+      "path": [
+        {
+          "from": {
+            "cell": <driver cell name>
+            "port": <driver port name>
+            "loc": [
+              <grid x>,
+              <grid y>
+            ]
+          },
+          "to": {
+            "cell": <sink cell name>
+            "port": <sink port name>
+            "loc": [
+              <grid x>,
+              <grid y>
+            ]
+          },
+          "type": <path segment type "logic" or "routing">,
+          "net": <net name (for routing only!)>,
+          "delay": <segment delay [ns]>,
+          "budget": <segment delay budget [ns] (for routing only!)>,
+        }
+        ...
+      ]
+    },
+    ...
+  ],
+  "detailed_net_timings": [
+    {
+      "driver": <driving cell name>,
+      "port": <driving cell port name>,
+      "event": <driver clock event name>,
+      "net": <net name>,
+      "endpoints": [
+        {
+          "cell": <sink cell name>,
+          "port": <sink cell port name>,
+          "event": <destination clock event name>,
+          "delay": <delay [ns]>,
+          "budget": <delay budget [ns]>,
+        }
+        ...
+      ]
+    }
+    ...
+  ]
+}
+*/
 
 void Context::writeReport(std::ostream &out) const
 {
