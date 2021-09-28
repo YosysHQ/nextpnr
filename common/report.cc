@@ -40,6 +40,127 @@ dict<IdString, std::pair<int, int>> get_utilization(const Context *ctx)
     return result;
 }
 } // namespace
+
+static std::string clock_event_name (const Context* ctx, const ClockEvent& e) {
+    std::string value;
+    if (e.clock == ctx->id("$async$"))
+        value = std::string("<async>");
+    else
+        value = (e.edge == FALLING_EDGE ? std::string("negedge ") :
+                                          std::string("posedge ")) + e.clock.str(ctx);
+    return value;
+};
+
+static Json::array report_critical_paths (const Context* ctx) {
+
+    auto report_critical_path = [ctx](const CriticalPath& report) {
+        Json::array pathJson;
+
+        for (const auto& segment : report.segments) {
+
+            const auto& driver = ctx->cells.at(segment.from.first);
+            const auto& sink = ctx->cells.at(segment.to.first);
+
+            auto fromLoc = ctx->getBelLocation(driver->bel);
+            auto toLoc = ctx->getBelLocation(sink->bel);
+
+            auto fromJson = Json::object({
+                {"cell", segment.from.first.c_str(ctx)},
+                {"port", segment.from.second.c_str(ctx)},
+                {"loc", Json::array({fromLoc.x, fromLoc.y})}
+            });
+
+            auto toJson = Json::object({
+                {"cell", segment.to.first.c_str(ctx)},
+                {"port", segment.to.second.c_str(ctx)},
+                {"loc", Json::array({toLoc.x, toLoc.y})}
+            });
+
+            auto segmentJson = Json::object({
+                {"delay", ctx->getDelayNS(segment.delay)},
+                {"from", fromJson},
+                {"to", toJson},
+            });
+
+            if (segment.type == CriticalPath::Segment::Type::LOGIC) {
+                segmentJson["type"] = "logic";
+            }
+            else if (segment.type == CriticalPath::Segment::Type::ROUTING) {
+                segmentJson["type"] = "routing";
+                segmentJson["net"] = segment.net.c_str(ctx);
+                segmentJson["budget"] = ctx->getDelayNS(segment.budget);
+            }
+
+            pathJson.push_back(segmentJson);
+        }
+
+        return pathJson;
+    };
+
+    auto critPathsJson = Json::array();
+
+    // Critical paths
+    for (auto &report : ctx->timing_result.clock_paths) {
+        
+        critPathsJson.push_back(Json::object({
+            {"from", clock_event_name(ctx, report.second.clock_pair.start)},
+            {"to", clock_event_name(ctx, report.second.clock_pair.end)},
+            {"path", report_critical_path(report.second)}
+        }));
+    }
+
+    // Cross-domain paths
+    for (auto &report : ctx->timing_result.xclock_paths) {
+        critPathsJson.push_back(Json::object({
+            {"from", clock_event_name(ctx, report.clock_pair.start)},
+            {"to", clock_event_name(ctx, report.clock_pair.end)},
+            {"path", report_critical_path(report)}
+        }));
+    }
+
+    return critPathsJson;
+}
+
+static Json::array report_detailed_net_timings (const Context* ctx) {
+    auto detailedNetTimingsJson = Json::array();
+
+    // Detailed per-net timing analysis
+    for (const auto& it : ctx->timing_result.detailed_net_timings) {
+
+        const NetInfo* net = ctx->nets.at(it.first).get();
+        ClockEvent start = it.second[0].clock_pair.start;
+
+        Json::array endpointsJson;
+        for (const auto& sink_timing : it.second) {
+
+            // FIXME: Is it possible that there are multiple different start
+            // events for a single net? It has a single driver
+            NPNR_ASSERT(sink_timing.clock_pair.start == start);
+
+            auto endpointJson = Json::object({
+                {"cell", sink_timing.cell_port.first.c_str(ctx)},
+                {"port", sink_timing.cell_port.second.c_str(ctx)},
+                {"event", clock_event_name(ctx, sink_timing.clock_pair.end)},
+                {"delay", ctx->getDelayNS(sink_timing.delay)},
+                {"budget", ctx->getDelayNS(sink_timing.budget)}
+            });
+            endpointsJson.push_back(endpointJson);
+        }
+
+        auto netTimingJson = Json::object({
+            {"net", net->name.c_str(ctx)},
+            {"driver", net->driver.cell->name.c_str(ctx)},
+            {"port", net->driver.port.c_str(ctx)},
+            {"event", clock_event_name(ctx, start)},
+            {"endpoints", endpointsJson}
+        });
+
+        detailedNetTimingsJson.push_back(netTimingJson);
+    }
+
+    return detailedNetTimingsJson;
+}
+
 void Context::writeReport(std::ostream &out) const
 {
     auto util = get_utilization(this);
@@ -60,6 +181,8 @@ void Context::writeReport(std::ostream &out) const
     out << Json(Json::object{
                         {"utilization", util_json},
                         {"fmax", fmax_json},
+                        {"critical_paths", report_critical_paths(this)},
+                        {"detailed_net_timings", report_detailed_net_timings(this)}
                 })
                     .dump()
         << std::endl;

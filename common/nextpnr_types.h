@@ -223,10 +223,81 @@ struct ClockFmax
     float constraint;
 };
 
+struct ClockEvent
+{
+    IdString clock;
+    ClockEdge edge;
+
+    bool operator==(const ClockEvent &other) const { return clock == other.clock && edge == other.edge; }
+    unsigned int hash() const { return mkhash(clock.hash(), int(edge)); }
+};
+
+struct ClockPair
+{
+    ClockEvent start, end;
+
+    bool operator==(const ClockPair &other) const { return start == other.start && end == other.end; }
+    unsigned int hash() const { return mkhash(start.hash(), end.hash()); }
+};
+
+struct CriticalPath
+{
+    struct Segment {
+
+        // Segment type
+        enum class Type {
+            LOGIC,
+            ROUTING
+        };
+
+        // Type
+        Type type;
+        // Net name (routing only)
+        IdString net;
+        // From cell.port
+        std::pair<IdString, IdString> from;
+        // To cell.port
+        std::pair<IdString, IdString> to;
+        // Segment delay
+        delay_t delay;
+        // Segment budget (routing only)
+        delay_t budget;
+    };
+
+    // Clock pair
+    ClockPair clock_pair;
+    // Total path delay
+    delay_t delay;
+    // Period (max allowed delay)
+    delay_t period;
+    // Individual path segments
+    std::vector<Segment> segments;
+};
+
+// Holds timing information of a single source to sink path of a net
+struct NetSinkTiming
+{
+    // Clock event pair
+    ClockPair clock_pair;
+    // Cell and port (the sink)
+    std::pair<IdString, IdString> cell_port;
+    // Delay
+    delay_t delay;
+    // Delay budget
+    delay_t budget;
+};
+
 struct TimingResult
 {
     // Achieved and target Fmax for all clock domains
     dict<IdString, ClockFmax> clock_fmax;
+    // Single domain critical paths
+    dict<IdString, CriticalPath> clock_paths;
+    // Cross-domain critical paths
+    std::vector<CriticalPath> xclock_paths;
+
+    // Detailed net timing data
+    dict<IdString, std::vector<NetSinkTiming>> detailed_net_timings;
 };
 
 // Represents the contents of a non-leaf cell in a design
