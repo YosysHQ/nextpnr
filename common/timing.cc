@@ -1299,17 +1299,6 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
         }
     }
 
-    // Update timing results in the context
-    if (update_results) {
-        auto& results = ctx->timing_result;
-
-        results.clock_fmax   = std::move(clock_fmax);
-        results.clock_paths  = std::move(clock_reports);
-        results.xclock_paths = std::move(xclock_reports);
-
-        results.detailed_net_timings = std::move(detailed_net_timings);
-    }
-
     // Print critical paths
     if (print_path) {
 
@@ -1499,6 +1488,17 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
             log_info("[%6d, %6d) |%s%c\n", min_slack + bin_size * i, min_slack + bin_size * (i + 1),
                      std::string(bins[i] * bar_width / max_freq, '*').c_str(),
                      (bins[i] * bar_width) % max_freq > 0 ? '+' : ' ');
+    }
+
+    // Update timing results in the context
+    if (update_results) {
+        auto& results = ctx->timing_result;
+
+        results.clock_fmax   = std::move(clock_fmax);
+        results.clock_paths  = std::move(clock_reports);
+        results.xclock_paths = std::move(xclock_reports);
+
+        results.detailed_net_timings = std::move(detailed_net_timings);
     }
 }
 
