@@ -29,6 +29,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+namespace {
 enum ClusterWireNodeState
 {
     IN_SINK_SITE = 0,
@@ -51,6 +52,7 @@ struct ClusterWireNode
     int depth;
     bool only_down;
 };
+} // namespace
 
 static void handle_expansion_node(const Context *ctx, WireId prev_wire, PipId pip, ClusterWireNode curr_node,
                                   std::vector<ClusterWireNode> &nodes_to_expand, pool<BelId> &bels,
@@ -678,7 +680,7 @@ void Arch::prepare_macro_cluster(const ClusterPOD *cluster, uint32_t index)
         for (auto &cell : macro_to_cells[ci->macro_parent])
             for (auto &node : cluster->connection_graph)
                 if (IdString(node.cell_type) == cell->type)
-                    if (node.idx != 0 && cell->name != ci->name || node.idx == 0 && cell->name == ci->name) {
+                    if ((node.idx != 0 && cell->name != ci->name) || (node.idx == 0 && cell->name == ci->name)) {
                         idx_to_cells[node.idx].insert(cell);
                     }
 
@@ -712,7 +714,7 @@ void Arch::prepare_macro_cluster(const ClusterPOD *cluster, uint32_t index)
                 for (const auto &cell : arc.second)
                     possible_idx[cell].insert(arc.first);
 
-            for (const auto arc : possible_idx) {
+            for (const auto &arc : possible_idx) {
                 log_info("Possible idx %s:\n", arc.first->name.c_str(ctx));
                 for (const auto idx : arc.second)
                     log_info("    - %d\n", idx);
@@ -743,7 +745,7 @@ void Arch::prepare_macro_cluster(const ClusterPOD *cluster, uint32_t index)
                 for (const auto &cell : arc.second)
                     possible_idx[cell].insert(arc.first);
 
-            for (const auto arc : possible_idx) {
+            for (const auto &arc : possible_idx) {
                 log_info("Possible idx %s:\n", arc.first->name.c_str(ctx));
                 for (const auto idx : arc.second)
                     log_info("    - %d\n", idx);
@@ -809,7 +811,7 @@ void Arch::prepare_macro_cluster(const ClusterPOD *cluster, uint32_t index)
                 for (const auto &cell : arc.second)
                     possible_idx[cell].insert(arc.first);
 
-            for (const auto arc : possible_idx) {
+            for (const auto &arc : possible_idx) {
                 log_info("Possible idx %s:\n", arc.first->name.c_str(ctx));
                 for (const auto idx : arc.second)
                     log_info("    - %d\n", idx);
@@ -831,7 +833,7 @@ void Arch::prepare_macro_cluster(const ClusterPOD *cluster, uint32_t index)
                 for (const auto &cell : arc.second)
                     possible_idx[cell].insert(arc.first);
 
-            for (const auto arc : possible_idx) {
+            for (const auto &arc : possible_idx) {
                 log_info("Possible idx %s:\n", arc.first->name.c_str(ctx));
                 for (const auto idx : arc.second)
                     log_info("    - %d\n", idx);
