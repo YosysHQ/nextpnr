@@ -250,14 +250,18 @@ void Context::writeReport(std::ostream &out) const
                 {"constraint", kv.second.constraint},
         };
     }
-    out << Json(Json::object{
-                        {"utilization", util_json},
-                        {"fmax", fmax_json},
-                        {"critical_paths", report_critical_paths(this)},
-                        {"detailed_net_timings", report_detailed_net_timings(this)}
-                })
-                    .dump()
-        << std::endl;
+
+    Json::object jsonRoot{
+        {"utilization", util_json},
+        {"fmax", fmax_json},
+        {"critical_paths", report_critical_paths(this)}
+    };
+
+    if (detailed_timing_report) {
+        jsonRoot["detailed_net_timings"] = report_detailed_net_timings(this);
+    }
+
+    out << Json(jsonRoot).dump() << std::endl;
 }
 
 NEXTPNR_NAMESPACE_END

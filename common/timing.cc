@@ -1216,7 +1216,8 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
     DetailedNetTimings detailed_net_timings;
 
     Timing timing(ctx, true /* net_delays */, false /* update */, (print_path || print_fmax) ? &crit_paths : nullptr,
-                  print_histogram ? &slack_histogram : nullptr, update_results ? &detailed_net_timings : nullptr);
+                  print_histogram ? &slack_histogram : nullptr,
+                  (update_results && ctx->detailed_timing_report) ? &detailed_net_timings : nullptr);
     timing.walk_paths();
 
     bool report_critical_paths = print_path || print_fmax || update_results;
