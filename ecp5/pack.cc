@@ -55,7 +55,7 @@ class Ecp5Packer
         new_cells.clear();
     }
 
-    // Print logic usgage
+    // Print logic usage
     int available_slices = 0;
     void print_logic_usage()
     {
