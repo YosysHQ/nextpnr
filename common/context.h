@@ -36,6 +36,8 @@ struct Context : Arch, DeterministicRNG
 
     // Should we disable printing of the location of nets in the critical path?
     bool disable_critical_path_source_print = false;
+    // True when detailed per-net timing is to be stored / reported
+    bool detailed_timing_report = false;
 
     ArchArgs arch_args;
 
