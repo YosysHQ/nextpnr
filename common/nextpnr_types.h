@@ -242,15 +242,17 @@ struct ClockPair
 
 struct CriticalPath
 {
-    struct Segment {
+    struct Segment
+    {
 
         // Segment type
-        enum class Type {
-            CLK_TO_Q,   // Clock-to-Q delay
-            SOURCE,     // Delayless source
-            LOGIC,      // Combinational logic delay
-            ROUTING,    // Routing delay
-            SETUP       // Setup time in sink
+        enum class Type
+        {
+            CLK_TO_Q, // Clock-to-Q delay
+            SOURCE,   // Delayless source
+            LOGIC,    // Combinational logic delay
+            ROUTING,  // Routing delay
+            SETUP     // Setup time in sink
         };
 
         // Type

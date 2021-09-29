@@ -644,8 +644,7 @@ struct Timing
     };
 
     Timing(Context *ctx, bool net_delays, bool update, CriticalPathDataMap *crit_path = nullptr,
-           DelayFrequency *slack_histogram = nullptr,
-           DetailedNetTimings *detailed_net_timings = nullptr)
+           DelayFrequency *slack_histogram = nullptr, DetailedNetTimings *detailed_net_timings = nullptr)
             : ctx(ctx), net_delays(net_delays), update(update), min_slack(1.0e12 / ctx->setting<float>("target_freq")),
               crit_path(crit_path), slack_histogram(slack_histogram), detailed_net_timings(detailed_net_timings),
               async_clock(ctx->id("$async$"))
@@ -1108,7 +1107,8 @@ void assign_budget(Context *ctx, bool quiet)
         log_info("Checksum: 0x%08x\n", ctx->checksum());
 }
 
-CriticalPath build_critical_path_report(Context* ctx, ClockPair &clocks, const PortRefVector &crit_path) {
+CriticalPath build_critical_path_report(Context *ctx, ClockPair &clocks, const PortRefVector &crit_path)
+{
 
     CriticalPath report;
     report.clock_pair = clocks;
@@ -1120,7 +1120,7 @@ CriticalPath build_critical_path_report(Context* ctx, ClockPair &clocks, const P
     int port_clocks;
     auto portClass = ctx->getPortTimingClass(front_driver.cell, front_driver.port, port_clocks);
 
-    const CellInfo* last_cell = front->cell;
+    const CellInfo *last_cell = front->cell;
     IdString last_port = front_driver.port;
 
     int clock_start = -1;
@@ -1128,8 +1128,7 @@ CriticalPath build_critical_path_report(Context* ctx, ClockPair &clocks, const P
         for (int i = 0; i < port_clocks; i++) {
             TimingClockingInfo clockInfo = ctx->getPortClockingInfo(front_driver.cell, front_driver.port, i);
             const NetInfo *clknet = get_net_or_empty(front_driver.cell, clockInfo.clock_port);
-            if (clknet != nullptr && clknet->name == clocks.start.clock &&
-                clockInfo.edge == clocks.start.edge) {
+            if (clknet != nullptr && clknet->name == clocks.start.clock && clockInfo.edge == clocks.start.edge) {
                 last_port = clockInfo.clock_port;
                 clock_start = i;
                 break;
@@ -1202,7 +1201,8 @@ CriticalPath build_critical_path_report(Context* ctx, ClockPair &clocks, const P
     return report;
 }
 
-void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool print_path, bool warn_on_failure, bool update_results)
+void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool print_path, bool warn_on_failure,
+                     bool update_results)
 {
     auto format_event = [ctx](const ClockEvent &e, int field_width = 0) {
         std::string value;
@@ -1251,7 +1251,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
             else
                 Fmax = 500 / ctx->getDelayNS(path.second.path_delay);
             if (!clock_fmax.count(a.clock) || Fmax < clock_fmax.at(a.clock).achieved) {
-                clock_fmax[a.clock].achieved   = Fmax;
+                clock_fmax[a.clock].achieved = Fmax;
                 clock_fmax[a.clock].constraint = 0.0f; // Will be filled later
                 clock_reports[a.clock] = build_critical_path_report(ctx, path.first, path.second.ports);
                 clock_reports[a.clock].period = path.second.path_period;
@@ -1274,9 +1274,8 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
         }
 
         std::sort(xclock_reports.begin(), xclock_reports.end(), [ctx](const CriticalPath &ra, const CriticalPath &rb) {
-
-            const auto& a = ra.clock_pair;
-            const auto& b = rb.clock_pair;
+            const auto &a = ra.clock_pair;
+            const auto &b = rb.clock_pair;
 
             if (a.start.clock.str(ctx) < b.start.clock.str(ctx))
                 return true;
@@ -1334,55 +1333,40 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
         };
 
         // A helper function for reporting one critical path
-        auto print_path_report = [ctx](const CriticalPath& path) {
+        auto print_path_report = [ctx](const CriticalPath &path) {
             delay_t total = 0, logic_total = 0, route_total = 0;
 
             log_info("curr total\n");
-            for (const auto& segment : path.segments) {
+            for (const auto &segment : path.segments) {
 
                 total += segment.delay;
 
                 if (segment.type == CriticalPath::Segment::Type::CLK_TO_Q ||
                     segment.type == CriticalPath::Segment::Type::SOURCE ||
                     segment.type == CriticalPath::Segment::Type::LOGIC ||
-                    segment.type == CriticalPath::Segment::Type::SETUP)
-                {
+                    segment.type == CriticalPath::Segment::Type::SETUP) {
                     logic_total += segment.delay;
 
                     const std::string type_name =
-                        (segment.type == CriticalPath::Segment::Type::SETUP) ?
-                        "Setup" : "Source";
+                            (segment.type == CriticalPath::Segment::Type::SETUP) ? "Setup" : "Source";
 
-                    log_info("%4.1f %4.1f  %s %s.%s\n",
-                        ctx->getDelayNS(segment.delay),
-                        ctx->getDelayNS(total),
-                        type_name.c_str(),
-                        segment.to.first.c_str(ctx),
-                        segment.to.second.c_str(ctx)
-                    );
-                }
-                else if (segment.type == CriticalPath::Segment::Type::ROUTING) {
+                    log_info("%4.1f %4.1f  %s %s.%s\n", ctx->getDelayNS(segment.delay), ctx->getDelayNS(total),
+                             type_name.c_str(), segment.to.first.c_str(ctx), segment.to.second.c_str(ctx));
+                } else if (segment.type == CriticalPath::Segment::Type::ROUTING) {
                     route_total += segment.delay;
 
-                    const auto& driver = ctx->cells.at(segment.from.first);
-                    const auto& sink = ctx->cells.at(segment.to.first);
+                    const auto &driver = ctx->cells.at(segment.from.first);
+                    const auto &sink = ctx->cells.at(segment.to.first);
 
                     auto driver_loc = ctx->getBelLocation(driver->bel);
                     auto sink_loc = ctx->getBelLocation(sink->bel);
 
-                    log_info("%4.1f %4.1f    Net %s budget %f ns (%d,%d) -> (%d,%d)\n",
-                        ctx->getDelayNS(segment.delay),
-                        ctx->getDelayNS(total),
-                        segment.net.c_str(ctx),
-                        ctx->getDelayNS(segment.budget),
-                        driver_loc.x, driver_loc.y, sink_loc.x, sink_loc.y
-                    );
-                    log_info("               Sink %s.%s\n",
-                        segment.to.first.c_str(ctx),
-                        segment.to.second.c_str(ctx)
-                    );
+                    log_info("%4.1f %4.1f    Net %s budget %f ns (%d,%d) -> (%d,%d)\n", ctx->getDelayNS(segment.delay),
+                             ctx->getDelayNS(total), segment.net.c_str(ctx), ctx->getDelayNS(segment.budget),
+                             driver_loc.x, driver_loc.y, sink_loc.x, sink_loc.y);
+                    log_info("               Sink %s.%s\n", segment.to.first.c_str(ctx), segment.to.second.c_str(ctx));
 
-                    const NetInfo* net = ctx->nets.at(segment.net).get();
+                    const NetInfo *net = ctx->nets.at(segment.net).get();
 
                     if (ctx->verbose) {
 
@@ -1424,8 +1408,8 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
         // Single domain paths
         for (auto &clock : clock_reports) {
             log_break();
-            std::string start =
-                    clock.second.clock_pair.start.edge == FALLING_EDGE ? std::string("negedge") : std::string("posedge");
+            std::string start = clock.second.clock_pair.start.edge == FALLING_EDGE ? std::string("negedge")
+                                                                                   : std::string("posedge");
             std::string end =
                     clock.second.clock_pair.end.edge == FALLING_EDGE ? std::string("negedge") : std::string("posedge");
             log_info("Critical path report for clock '%s' (%s -> %s):\n", clock.first.c_str(ctx), start.c_str(),
@@ -1455,9 +1439,9 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
             const auto &clock_name = clock.first.str(ctx);
             const int width = max_width - clock_name.size();
 
-            float fmax   = clock_fmax[clock.first].achieved;
+            float fmax = clock_fmax[clock.first].achieved;
             float target = clock_fmax[clock.first].constraint;
-            bool  passed = target < fmax;
+            bool passed = target < fmax;
 
             if (!warn_on_failure || passed)
                 log_info("Max frequency for clock %*s'%s': %.02f MHz (%s at %.02f MHz)\n", width, "",
@@ -1485,7 +1469,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
             const ClockEvent &a = report.clock_pair.start;
             const ClockEvent &b = report.clock_pair.end;
             delay_t path_delay = 0;
-            for (const auto& segment : report.segments) {
+            for (const auto &segment : report.segments) {
                 path_delay += segment.delay;
             }
             auto ev_a = format_event(a, start_field_width), ev_b = format_event(b, end_field_width);
@@ -1526,10 +1510,10 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
 
     // Update timing results in the context
     if (update_results) {
-        auto& results = ctx->timing_result;
+        auto &results = ctx->timing_result;
 
-        results.clock_fmax   = std::move(clock_fmax);
-        results.clock_paths  = std::move(clock_reports);
+        results.clock_fmax = std::move(clock_fmax);
+        results.clock_paths = std::move(clock_reports);
         results.xclock_paths = std::move(xclock_reports);
 
         results.detailed_net_timings = std::move(detailed_net_timings);

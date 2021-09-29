@@ -179,8 +179,7 @@ po::options_description CommandHandler::getGeneralOptions()
 
     general.add_options()("report", po::value<std::string>(),
                           "write timing and utilization report in JSON format to file");
-    general.add_options()("detailed-timing-report",
-                          "Append detailed net timing data to the JSON report");
+    general.add_options()("detailed-timing-report", "Append detailed net timing data to the JSON report");
 
     general.add_options()("placed-svg", po::value<std::string>(), "write render of placement to SVG file");
     general.add_options()("routed-svg", po::value<std::string>(), "write render of routing to SVG file");
