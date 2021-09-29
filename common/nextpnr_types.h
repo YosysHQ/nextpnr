@@ -246,8 +246,11 @@ struct CriticalPath
 
         // Segment type
         enum class Type {
-            LOGIC,
-            ROUTING
+            CLK_TO_Q,   // Clock-to-Q delay
+            SOURCE,     // Delayless source
+            LOGIC,      // Combinational logic delay
+            ROUTING,    // Routing delay
+            SETUP       // Setup time in sink
         };
 
         // Type

@@ -1143,20 +1143,24 @@ CriticalPath build_critical_path_report(Context* ctx, ClockPair &clocks, const P
         auto net = port.net;
         auto &driver = net->driver;
         auto driver_cell = driver.cell;
+
+        CriticalPath::Segment seg_logic;
+
         DelayQuad comb_delay;
         if (clock_start != -1) {
             auto clockInfo = ctx->getPortClockingInfo(driver_cell, driver.port, clock_start);
             comb_delay = clockInfo.clockToQ;
             clock_start = -1;
+            seg_logic.type = CriticalPath::Segment::Type::CLK_TO_Q;
         } else if (last_port == driver.port) {
             // Case where we start with a STARTPOINT etc
             comb_delay = DelayQuad(0);
+            seg_logic.type = CriticalPath::Segment::Type::SOURCE;
         } else {
             ctx->getCellDelay(driver_cell, last_port, driver.port, comb_delay);
+            seg_logic.type = CriticalPath::Segment::Type::LOGIC;
         }
 
-        CriticalPath::Segment seg_logic;
-        seg_logic.type = CriticalPath::Segment::Type::LOGIC;
         seg_logic.delay = comb_delay.maxDelay();
         seg_logic.budget = 0;
         seg_logic.from = std::make_pair(last_cell->name, last_port);
@@ -1186,7 +1190,7 @@ CriticalPath build_critical_path_report(Context* ctx, ClockPair &clocks, const P
         delay_t setup = sinkClockInfo.setup.maxDelay();
 
         CriticalPath::Segment seg_logic;
-        seg_logic.type = CriticalPath::Segment::Type::LOGIC;
+        seg_logic.type = CriticalPath::Segment::Type::SETUP;
         seg_logic.delay = setup;
         seg_logic.budget = 0;
         seg_logic.from = std::make_pair(last_cell->name, last_port);
@@ -1302,6 +1306,33 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
     // Print critical paths
     if (print_path) {
 
+        static auto print_net_source = [ctx](const NetInfo *net) {
+            // Check if this net is annotated with a source list
+            auto sources = net->attrs.find(ctx->id("src"));
+            if (sources == net->attrs.end()) {
+                // No sources for this net, can't print anything
+                return;
+            }
+
+            // Sources are separated by pipe characters.
+            // There is no guaranteed ordering on sources, so we just print all
+            auto sourcelist = sources->second.as_string();
+            std::vector<std::string> source_entries;
+            size_t current = 0, prev = 0;
+            while ((current = sourcelist.find("|", prev)) != std::string::npos) {
+                source_entries.emplace_back(sourcelist.substr(prev, current - prev));
+                prev = current + 1;
+            }
+            // Ensure we emplace the final entry
+            source_entries.emplace_back(sourcelist.substr(prev, current - prev));
+
+            // Iterate and print our source list at the correct indentation level
+            log_info("               Defined in:\n");
+            for (auto entry : source_entries) {
+                log_info("                 %s\n", entry.c_str());
+            }
+        };
+
         // A helper function for reporting one critical path
         auto print_path_report = [ctx](const CriticalPath& path) {
             delay_t total = 0, logic_total = 0, route_total = 0;
@@ -1311,27 +1342,26 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
 
                 total += segment.delay;
 
-                if (segment.type == CriticalPath::Segment::Type::LOGIC) {
+                if (segment.type == CriticalPath::Segment::Type::CLK_TO_Q ||
+                    segment.type == CriticalPath::Segment::Type::SOURCE ||
+                    segment.type == CriticalPath::Segment::Type::LOGIC ||
+                    segment.type == CriticalPath::Segment::Type::SETUP)
+                {
                     logic_total += segment.delay;
-                    if (segment.from != segment.to) {
-                        log_info("%4.1f %4.1f  Source %s.%s\n",
-                            ctx->getDelayNS(segment.delay),
-                            ctx->getDelayNS(total),
-                            segment.from.first.c_str(ctx),
-                            segment.from.second.c_str(ctx)
-                        );
-                    }
-                    else {
-                        log_info("%4.1f %4.1f  Setup %s.%s\n",
-                            ctx->getDelayNS(segment.delay),
-                            ctx->getDelayNS(total),
-                            segment.to.first.c_str(ctx),
-                            segment.to.second.c_str(ctx)
-                        );
-                    }
-                }
 
-                if (segment.type == CriticalPath::Segment::Type::ROUTING) {
+                    const std::string type_name =
+                        (segment.type == CriticalPath::Segment::Type::SETUP) ?
+                        "Setup" : "Source";
+
+                    log_info("%4.1f %4.1f  %s %s.%s\n",
+                        ctx->getDelayNS(segment.delay),
+                        ctx->getDelayNS(total),
+                        type_name.c_str(),
+                        segment.to.first.c_str(ctx),
+                        segment.to.second.c_str(ctx)
+                    );
+                }
+                else if (segment.type == CriticalPath::Segment::Type::ROUTING) {
                     route_total += segment.delay;
 
                     const auto& driver = ctx->cells.at(segment.from.first);
@@ -1352,14 +1382,14 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                         segment.to.second.c_str(ctx)
                     );
 
+                    const NetInfo* net = ctx->nets.at(segment.net).get();
+
                     if (ctx->verbose) {
 
                         PortRef sink_ref;
                         sink_ref.cell = sink.get();
                         sink_ref.port = segment.to.second;
                         sink_ref.budget = segment.budget;
-
-                        const NetInfo* net = ctx->nets.at(segment.net).get();
 
                         auto driver_wire = ctx->getNetinfoSourceWire(net);
                         auto sink_wire = ctx->getNetinfoSinkWire(net, sink_ref, 0);
@@ -1381,6 +1411,10 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                             log_info("                 %1.3f %s\n", ctx->getDelayNS(delay), ctx->nameOfPip(pip));
                             cursor = ctx->getPipSrcWire(pip);
                         }
+                    }
+
+                    if (!ctx->disable_critical_path_source_print) {
+                        print_net_source(net);
                     }
                 }
             }

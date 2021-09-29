@@ -82,8 +82,17 @@ static Json::array report_critical_paths (const Context* ctx) {
                 {"to", toJson},
             });
 
-            if (segment.type == CriticalPath::Segment::Type::LOGIC) {
+            if (segment.type == CriticalPath::Segment::Type::CLK_TO_Q) {
+                segmentJson["type"] = "clk-to-q";
+            }
+            else if (segment.type == CriticalPath::Segment::Type::SOURCE) {
+                segmentJson["type"] = "source";
+            }
+            else if (segment.type == CriticalPath::Segment::Type::LOGIC) {
                 segmentJson["type"] = "logic";
+            }
+            else if (segment.type == CriticalPath::Segment::Type::SETUP) {
+                segmentJson["type"] = "setup";
             }
             else if (segment.type == CriticalPath::Segment::Type::ROUTING) {
                 segmentJson["type"] = "routing";
@@ -201,7 +210,7 @@ Report JSON structure:
               <grid y>
             ]
           },
-          "type": <path segment type "logic" or "routing">,
+          "type": <path segment type "clk-to-q", "source", "logic", "routing" or "setup">,
           "net": <net name (for routing only!)>,
           "delay": <segment delay [ns]>,
           "budget": <segment delay budget [ns] (for routing only!)>,
