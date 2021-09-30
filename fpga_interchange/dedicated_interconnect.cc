@@ -23,7 +23,7 @@
 #include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
-
+namespace {
 // All legal routes involved at most 2 sites, the source site and the sink
 // site.  The source site and sink sites may be the same, but that is not
 // dedicated routing, that is intra site routing.
@@ -51,6 +51,7 @@ struct WireNode
     WireNodeState state;
     int depth;
 };
+} // namespace
 
 // Maximum depth that a dedicate interconnect is considered.
 //
