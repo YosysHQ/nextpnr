@@ -59,7 +59,7 @@ std::string vstringf(const char *fmt, va_list ap)
     std::string string;
     char *str = NULL;
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__CYGWIN__)
     int sz = 64 + strlen(fmt), rc;
     while (1) {
         va_list apc;
