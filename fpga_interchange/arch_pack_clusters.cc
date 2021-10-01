@@ -99,7 +99,7 @@ static void handle_expansion_node(const Context *ctx, WireId prev_wire, PipId pi
             NPNR_ASSERT(false);
         }
     } else {
-        if (next_node.state == IN_ROUTING)
+        if (curr_node.state == IN_ROUTING)
             next_node.depth++;
         next_node.state = curr_node.state;
     }
