@@ -437,6 +437,7 @@ struct Arch : BaseArch<ArchRanges>
 
     bool isValidBelForCellType(IdString cell_type, BelId bel) const override;
     BelBucketId getBelBucketForCellType(IdString cell_type) const override;
+    BelBucketId getBelBucketForBel(BelId bel) const override;
 
     // -------------------------------------------------
 
@@ -469,6 +470,7 @@ struct Arch : BaseArch<ArchRanges>
     bool is_alm_legal(uint32_t lab, uint8_t alm) const; // lab.cc
     bool is_lab_ctrlset_legal(uint32_t lab) const;      // lab.cc
     bool check_lab_input_count(uint32_t lab) const;     // lab.cc
+    bool check_mlab_groups(uint32_t lab) const;         // lab.cc
 
     void assign_comb_info(CellInfo *cell) const; // lab.cc
     void assign_ff_info(CellInfo *cell) const;   // lab.cc
@@ -479,6 +481,10 @@ struct Arch : BaseArch<ArchRanges>
     void update_alm_input_count(uint32_t lab, uint8_t alm); // lab.cc
 
     uint64_t compute_lut_mask(uint32_t lab, uint8_t alm); // lab.cc
+
+    // Keeping track of unique MLAB write ports to assign them indices
+    dict<IdString, IdString> get_mlab_key(const CellInfo *cell, bool include_raddr = false) const; // lab.cc
+    mutable idict<dict<IdString, IdString>> mlab_groups;
 
     // -------------------------------------------------
 

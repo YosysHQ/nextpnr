@@ -44,7 +44,11 @@ const dict<IdString, Arch::CellPinsData> Arch::cell_pins_db = {
                  {id_SDATA, PINSTYLE_DEDI},
                  {id_DATAIN, PINSTYLE_INP},
          }},
-};
+        {id_MISTRAL_MLAB,
+         {
+                 {id_CLK1, PINSTYLE_CLK},
+                 {id_A1EN, PINSTYLE_CE},
+         }}};
 
 CellPinStyle Arch::get_cell_pin_style(const CellInfo *cell, IdString port) const
 {
