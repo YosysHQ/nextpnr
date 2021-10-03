@@ -34,6 +34,25 @@ static void create_alm(Arch *arch, int x, int y, int z, uint32_t lab_idx)
     auto &lab = arch->labs.at(lab_idx);
     auto &alm = lab.alms.at(z);
     auto block_type = lab.is_mlab ? CycloneV::MLAB : CycloneV::LAB;
+    // Create the control set and E/F selection - which is per pair of FF
+    for (int i = 0; i < 2; i++) {
+        // Wires
+        alm.sel_clk[i] = arch->add_wire(x, y, arch->id(stringf("CLK%c[%d]", i ? 'B' : 'T', z)));
+        alm.sel_ena[i] = arch->add_wire(x, y, arch->id(stringf("ENA%c[%d]", i ? 'B' : 'T', z)));
+        alm.sel_aclr[i] = arch->add_wire(x, y, arch->id(stringf("ACLR%c[%d]", i ? 'B' : 'T', z)));
+        alm.sel_ef[i] = arch->add_wire(x, y, arch->id(stringf("%cEF[%d]", i ? 'B' : 'T', z)));
+        // Muxes - three CLK/ENA per LAB, two ACLR
+        for (int j = 0; j < 3; j++) {
+            arch->add_pip(lab.clk_wires[j], alm.sel_clk[i]);
+            arch->add_pip(lab.ena_wires[j], alm.sel_ena[i]);
+            if (j < 2)
+                arch->add_pip(lab.aclr_wires[j], alm.sel_aclr[i]);
+        }
+        // E/F pips
+        // Note that the F choice is mirrored, F from the other half is picked
+        arch->add_pip(arch->get_port(block_type, x, y, z, i ? CycloneV::E1 : CycloneV::E0), alm.sel_ef[i]);
+        arch->add_pip(arch->get_port(block_type, x, y, z, i ? CycloneV::F0 : CycloneV::F1), alm.sel_ef[i]);
+    }
     // Create the combinational part of ALMs.
     // There are two of these, for the two LUT outputs, and these also contain the carry chain and associated logic
     // Each one has all 8 ALM inputs as input pins. In many cases only a subset of these are used; depending on mode;
@@ -83,31 +102,23 @@ static void create_alm(Arch *arch, int x, int y, int z, uint32_t lab_idx)
         // Combinational output
         alm.comb_out[i] = arch->add_wire(x, y, arch->id(stringf("COMBOUT[%d]", z * 2 + i)));
         arch->add_bel_pin(bel, id_COMBOUT, PORT_OUT, alm.comb_out[i]);
+        if (lab.is_mlab) {
+            // Write address - shared between all ALMs in a LAB
+            arch->add_bel_pin(bel, id_WA0, PORT_IN, arch->get_port(block_type, x, y, 2, CycloneV::F1));
+            arch->add_bel_pin(bel, id_WA1, PORT_IN, arch->get_port(block_type, x, y, 3, CycloneV::F1));
+            arch->add_bel_pin(bel, id_WA2, PORT_IN, arch->get_port(block_type, x, y, 7, CycloneV::F1));
+            arch->add_bel_pin(bel, id_WA3, PORT_IN, arch->get_port(block_type, x, y, 6, CycloneV::F1));
+            arch->add_bel_pin(bel, id_WA4, PORT_IN, arch->get_port(block_type, x, y, 1, CycloneV::F1));
+            // Write clock and enable appear to be based on bottom FF
+            arch->add_bel_pin(bel, id_WCLK, PORT_IN, alm.sel_clk[1]);
+            arch->add_bel_pin(bel, id_WE, PORT_IN, alm.sel_ena[1]);
+        }
         // Assign indexing
         alm.lut_bels.at(i) = bel;
         auto &b = arch->bel_data(bel);
         b.lab_data.lab = lab_idx;
         b.lab_data.alm = z;
         b.lab_data.idx = i;
-    }
-    // Create the control set and E/F selection - which is per pair of FF
-    for (int i = 0; i < 2; i++) {
-        // Wires
-        alm.sel_clk[i] = arch->add_wire(x, y, arch->id(stringf("CLK%c[%d]", i ? 'B' : 'T', z)));
-        alm.sel_ena[i] = arch->add_wire(x, y, arch->id(stringf("ENA%c[%d]", i ? 'B' : 'T', z)));
-        alm.sel_aclr[i] = arch->add_wire(x, y, arch->id(stringf("ACLR%c[%d]", i ? 'B' : 'T', z)));
-        alm.sel_ef[i] = arch->add_wire(x, y, arch->id(stringf("%cEF[%d]", i ? 'B' : 'T', z)));
-        // Muxes - three CLK/ENA per LAB, two ACLR
-        for (int j = 0; j < 3; j++) {
-            arch->add_pip(lab.clk_wires[j], alm.sel_clk[i]);
-            arch->add_pip(lab.ena_wires[j], alm.sel_ena[i]);
-            if (j < 2)
-                arch->add_pip(lab.aclr_wires[j], alm.sel_aclr[i]);
-        }
-        // E/F pips
-        // Note that the F choice is mirrored, F from the other half is picked
-        arch->add_pip(arch->get_port(block_type, x, y, z, i ? CycloneV::E1 : CycloneV::E0), alm.sel_ef[i]);
-        arch->add_pip(arch->get_port(block_type, x, y, z, i ? CycloneV::F0 : CycloneV::F1), alm.sel_ef[i]);
     }
 
     // Create the flipflops and associated routing
