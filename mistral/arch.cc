@@ -152,11 +152,12 @@ IdStringList Arch::getBelName(BelId bel) const
 bool Arch::isBelLocationValid(BelId bel) const
 {
     auto &data = bel_data(bel);
-    if (data.type == id_MISTRAL_COMB) {
-        return is_alm_legal(data.lab_data.lab, data.lab_data.alm) && check_lab_input_count(data.lab_data.lab);
+    if (data.type.in(id_MISTRAL_COMB, id_MISTRAL_MCOMB)) {
+        return is_alm_legal(data.lab_data.lab, data.lab_data.alm) && check_lab_input_count(data.lab_data.lab) &&
+               check_mlab_groups(data.lab_data.lab);
     } else if (data.type == id_MISTRAL_FF) {
         return is_alm_legal(data.lab_data.lab, data.lab_data.alm) && check_lab_input_count(data.lab_data.lab) &&
-               is_lab_ctrlset_legal(data.lab_data.lab);
+               is_lab_ctrlset_legal(data.lab_data.lab) && check_mlab_groups(data.lab_data.lab);
     }
     return true;
 }
@@ -164,7 +165,7 @@ bool Arch::isBelLocationValid(BelId bel) const
 void Arch::update_bel(BelId bel)
 {
     auto &data = bel_data(bel);
-    if (data.type == id_MISTRAL_COMB || data.type == id_MISTRAL_FF) {
+    if (data.type.in(id_MISTRAL_COMB, id_MISTRAL_MCOMB, id_MISTRAL_FF)) {
         update_alm_input_count(data.lab_data.lab, data.lab_data.alm);
     }
 }
@@ -249,6 +250,8 @@ bool Arch::isValidBelForCellType(IdString cell_type, BelId bel) const
     IdString bel_type = getBelType(bel);
     if (bel_type == id_MISTRAL_COMB)
         return is_comb_cell(cell_type);
+    else if (bel_type == id_MISTRAL_MCOMB)
+        return is_comb_cell(cell_type) || (cell_type == id_MISTRAL_MLAB);
     else if (bel_type == id_MISTRAL_IO)
         return is_io_cell(cell_type);
     else if (bel_type == id_MISTRAL_CLKENA)
@@ -259,7 +262,7 @@ bool Arch::isValidBelForCellType(IdString cell_type, BelId bel) const
 
 BelBucketId Arch::getBelBucketForCellType(IdString cell_type) const
 {
-    if (is_comb_cell(cell_type))
+    if (is_comb_cell(cell_type) || cell_type == id_MISTRAL_MLAB)
         return id_MISTRAL_COMB;
     else if (is_io_cell(cell_type))
         return id_MISTRAL_IO;
@@ -267,6 +270,15 @@ BelBucketId Arch::getBelBucketForCellType(IdString cell_type) const
         return id_MISTRAL_CLKENA;
     else
         return cell_type;
+}
+
+BelBucketId Arch::getBelBucketForBel(BelId bel) const
+{
+    IdString bel_type = getBelType(bel);
+    if (bel_type == id_MISTRAL_MCOMB)
+        return id_MISTRAL_COMB;
+    else
+        return bel_type;
 }
 
 BelId Arch::bel_by_block_idx(int x, int y, IdString type, int block_index) const
@@ -380,7 +392,7 @@ void Arch::assignArchInfo()
 {
     for (auto &cell : cells) {
         CellInfo *ci = cell.second.get();
-        if (is_comb_cell(ci->type))
+        if (is_comb_cell(ci->type) || ci->type == id_MISTRAL_MLAB)
             assign_comb_info(ci);
         else if (ci->type == id_MISTRAL_FF)
             assign_ff_info(ci);

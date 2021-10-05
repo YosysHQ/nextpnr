@@ -226,11 +226,33 @@ struct MistralBitgen
             std::all_of(ffs.begin(), ffs.end(), [](CellInfo *c) { return !c; }))
             return false;
 
+        bool is_lutram =
+                (luts[0] && luts[0]->combInfo.mlab_group != -1) || (luts[1] && luts[1]->combInfo.mlab_group != -1);
+
         auto pos = alm_data.lut_bels[0].pos;
-        // Combinational mode - TODO: flop feedback
-        cv->bmux_m_set(block_type, pos, CycloneV::MODE, alm, alm_data.l6_mode ? CycloneV::L6 : CycloneV::L5);
-        // LUT function
-        cv->bmux_r_set(block_type, pos, CycloneV::LUT_MASK, alm, ctx->compute_lut_mask(lab, alm));
+        if (is_lutram) {
+            for (int i = 0; i < 10; i++) {
+                // Many MLAB settings apply to the whole LAB, not just the ALM
+                cv->bmux_m_set(block_type, pos, CycloneV::MODE, i, CycloneV::RAM);
+                cv->bmux_n_set(block_type, pos, CycloneV::T_FEEDBACK_SEL, i, 1);
+            }
+            cv->bmux_r_set(block_type, pos, CycloneV::LUT_MASK, alm, 0xFFFFFFFFFFFFFFFFULL); // TODO: LUTRAM init
+            cv->bmux_b_set(block_type, pos, CycloneV::BPKREG1, alm, true);
+            cv->bmux_b_set(block_type, pos, CycloneV::TPKREG0, alm, true);
+            cv->bmux_m_set(block_type, pos, CycloneV::MCRG_VOLTAGE, 0, CycloneV::VCCL);
+            cv->bmux_b_set(block_type, pos, CycloneV::RAM_DIS, 0, false);
+            cv->bmux_b_set(block_type, pos, CycloneV::WRITE_EN, 0, true);
+            cv->bmux_n_set(block_type, pos, CycloneV::WRITE_PULSE_LENGTH, 0, 650); // picoseconds, presumably
+            // TODO: understand how these enables really work
+            cv->bmux_b_set(block_type, pos, CycloneV::EN2_EN, 0, false);
+            cv->bmux_b_set(block_type, pos, CycloneV::EN_SCLK_LOAD_WHAT, 0, true);
+            cv->bmux_m_set(block_type, pos, CycloneV::SCLR_MUX, 0, CycloneV::GIN2);
+        } else {
+            // Combinational mode - TODO: flop feedback
+            cv->bmux_m_set(block_type, pos, CycloneV::MODE, alm, alm_data.l6_mode ? CycloneV::L6 : CycloneV::L5);
+            // LUT function
+            cv->bmux_r_set(block_type, pos, CycloneV::LUT_MASK, alm, ctx->compute_lut_mask(lab, alm));
+        }
         // DFF/LUT output selection
         const std::array<CycloneV::bmux_type_t, 6> mux_settings{CycloneV::TDFF0, CycloneV::TDFF1, CycloneV::TDFF1L,
                                                                 CycloneV::BDFF0, CycloneV::BDFF1, CycloneV::BDFF1L};
@@ -308,6 +330,26 @@ struct MistralBitgen
             if (ff->ffInfo.ctrlset.sload.net != nullptr) {
                 cv->bmux_b_set(block_type, pos, sload_en[i / 2], alm, true);
                 cv->bmux_b_set(block_type, pos, CycloneV::SLOAD_INV, 0, ff->ffInfo.ctrlset.sload.inverted);
+            }
+        }
+        if (is_lutram) {
+            for (int i = 0; i < 2; i++) {
+                CellInfo *lut = luts[i];
+                if (!lut || lut->combInfo.mlab_group == -1)
+                    continue;
+                int ce_idx = alm_data.clk_ena_idx[1];
+                cv->bmux_m_set(block_type, pos, clk_sel[1], alm, clk_choice[ce_idx]);
+                if (lut->combInfo.wclk.inverted)
+                    cv->bmux_b_set(block_type, pos, clk_inv[ce_idx], 0, true);
+                if (get_net_or_empty(lut, id_A1EN) != nullptr) {
+                    cv->bmux_b_set(block_type, pos, en_en[ce_idx], 0, true);
+                    cv->bmux_b_set(block_type, pos, en_ninv[ce_idx], 0, lut->combInfo.we.inverted);
+                } else {
+                    cv->bmux_b_set(block_type, pos, en_en[ce_idx], 0, false);
+                }
+                // TODO: understand what these are doing
+                cv->bmux_b_set(block_type, pos, sclr_dis[0], alm, true);
+                cv->bmux_b_set(block_type, pos, sclr_dis[1], alm, true);
             }
         }
         return true;

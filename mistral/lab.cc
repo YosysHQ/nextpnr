@@ -84,7 +84,8 @@ static void create_alm(Arch *arch, int x, int y, int z, uint32_t lab_idx)
             share_out = arch->add_wire(x, y, arch->id(stringf("SHARE[%d]", z * 2 + i)));
         }
 
-        BelId bel = arch->add_bel(x, y, arch->id(stringf("ALM%d_COMB%d", z, i)), id_MISTRAL_COMB);
+        BelId bel = arch->add_bel(x, y, arch->id(stringf("ALM%d_COMB%d", z, i)),
+                                  lab.is_mlab ? id_MISTRAL_MCOMB : id_MISTRAL_COMB);
         // LUT/MUX inputs
         arch->add_bel_pin(bel, id_A, PORT_IN, arch->get_port(block_type, x, y, z, CycloneV::A));
         arch->add_bel_pin(bel, id_B, PORT_IN, arch->get_port(block_type, x, y, z, CycloneV::B));
@@ -244,6 +245,23 @@ bool Arch::is_comb_cell(IdString cell_type) const
     }
 }
 
+dict<IdString, IdString> Arch::get_mlab_key(const CellInfo *cell, bool include_raddr) const
+{
+    dict<IdString, IdString> key;
+    for (auto &port : cell->ports) {
+        if (port.first.in(id_A1DATA, id_B1DATA))
+            continue;
+        if (!include_raddr && port.first.str(this).find("B1ADDR") == 0)
+            continue;
+        key[port.first] = port.second.net ? port.second.net->name : IdString();
+    }
+    if (cell->pin_data.count(id_CLK1) && cell->pin_data.at(id_CLK1).state == PIN_INV)
+        key[id_WCLK_INV] = id_Y;
+    if (cell->pin_data.count(id_A1EN) && cell->pin_data.at(id_A1EN).state == PIN_INV)
+        key[id_WE_INV] = id_Y;
+    return key;
+}
+
 void Arch::assign_comb_info(CellInfo *cell) const
 {
     cell->combInfo.is_carry = false;
@@ -252,8 +270,19 @@ void Arch::assign_comb_info(CellInfo *cell) const
     cell->combInfo.carry_start = false;
     cell->combInfo.carry_end = false;
     cell->combInfo.chain_shared_input_count = 0;
+    cell->combInfo.mlab_group = -1;
 
-    if (cell->type == id_MISTRAL_ALUT_ARITH) {
+    if (cell->type == id_MISTRAL_MLAB) {
+        cell->combInfo.wclk = get_ctrlsig(getCtx(), cell, id_CLK1);
+        cell->combInfo.we = get_ctrlsig(getCtx(), cell, id_A1EN, true);
+        cell->combInfo.lut_input_count = 5;
+        cell->combInfo.lut_bits_count = 32;
+        for (int i = 0; i < 5; i++)
+            cell->combInfo.lut_in[i] = get_net_or_empty(cell, id(stringf("B1ADDR[%d]", i)));
+        auto key = get_mlab_key(cell);
+        cell->combInfo.mlab_group = mlab_groups(key);
+        cell->combInfo.comb_out = get_net_or_empty(cell, id_B1DATA);
+    } else if (cell->type == id_MISTRAL_ALUT_ARITH) {
         cell->combInfo.is_carry = true;
         cell->combInfo.lut_input_count = 5;
         cell->combInfo.lut_bits_count = 32;
@@ -477,8 +506,9 @@ void Arch::update_alm_input_count(uint32_t lab, uint8_t alm)
                     break;
                 }
             }
-            if (shared_lut_inputs >= 2) {
-                // only 2 inputs have guaranteed sharing, without routeability based LUT permutation at least
+            if (shared_lut_inputs >= 2 && luts[0]->combInfo.mlab_group == -1) {
+                // only 2 inputs have guaranteed sharing in non-MLAB mode, without routeability based LUT permutation at
+                // least
                 break;
             }
         }
@@ -511,6 +541,38 @@ bool Arch::check_lab_input_count(uint32_t lab) const
         count += lab_data.alms.at(i).unique_input_count;
     }
     return (count <= 42);
+}
+
+bool Arch::check_mlab_groups(uint32_t lab) const
+{
+    auto &lab_data = labs.at(lab);
+    if (!lab_data.is_mlab)
+        return true;
+    int found_group = -2;
+    for (const auto &alm_data : lab_data.alms) {
+        std::array<const CellInfo *, 2> luts{getBoundBelCell(alm_data.lut_bels[0]),
+                                             getBoundBelCell(alm_data.lut_bels[1])};
+        for (const CellInfo *lut : luts) {
+            if (!lut)
+                continue;
+            if (found_group == -2)
+                found_group = lut->combInfo.mlab_group;
+            else if (found_group != lut->combInfo.mlab_group)
+                return false;
+        }
+    }
+    if (found_group >= 0) {
+        for (const auto &alm_data : lab_data.alms) {
+            std::array<const CellInfo *, 4> ffs{
+                    getBoundBelCell(alm_data.ff_bels[0]), getBoundBelCell(alm_data.ff_bels[1]),
+                    getBoundBelCell(alm_data.ff_bels[2]), getBoundBelCell(alm_data.ff_bels[3])};
+            for (const CellInfo *ff : ffs) {
+                if (ff)
+                    return false; // be conservative and don't allow LUTRAMs and FFs together
+            }
+        }
+    }
+    return true;
 }
 
 namespace {
@@ -564,7 +626,6 @@ struct LabCtrlSetWorker
                 const CellInfo *ff = arch->getBoundBelCell(arch->labs.at(lab).alms.at(alm).ff_bels.at(i));
                 if (ff == nullptr)
                     continue;
-
                 if (!check_assign_sig(clk, ff->ffInfo.ctrlset.clk))
                     return false;
                 if (!check_assign_sig(sload, ff->ffInfo.ctrlset.sload))
@@ -647,6 +708,19 @@ void Arch::assign_control_sets(uint32_t lab)
 
     for (uint8_t alm = 0; alm < 10; alm++) {
         auto &alm_data = lab_data.alms.at(alm);
+        if (lab_data.is_mlab) {
+            for (uint8_t i = 0; i < 2; i++) {
+                BelId lut_bel = alm_data.lut_bels.at(i);
+                const CellInfo *lut = getBoundBelCell(lut_bel);
+                if (!lut || lut->combInfo.mlab_group == -1)
+                    continue;
+                WireId wclk_wire = getBelPinWire(lut_bel, id_WCLK);
+                WireId we_wire = getBelPinWire(lut_bel, id_WE);
+                // Force use of CLK0/ENA0 for LUTRAMs. Might have to revisit if we ever support packing LUTRAMs and FFs
+                reserve_route(lab_data.clk_wires[0], wclk_wire);
+                reserve_route(lab_data.ena_wires[0], we_wire);
+            }
+        }
         for (uint8_t i = 0; i < 4; i++) {
             BelId ff_bel = alm_data.ff_bels.at(i);
             const CellInfo *ff = getBoundBelCell(ff_bel);
@@ -658,7 +732,7 @@ void Arch::assign_control_sets(uint32_t lab)
             for (int j = 0; j < 3; j++) {
                 if (ena_sig == worker.datain[ena_datain[j]]) {
                     if (getCtx()->debug) {
-                        log_info("Assigned CLK/ENA set %d to FF %s (%s)\n", i, nameOf(ff), getCtx()->nameOfBel(ff_bel));
+                        log_info("Assigned CLK/ENA set %d to FF %s (%s)\n", j, nameOf(ff), getCtx()->nameOfBel(ff_bel));
                     }
                     // TODO: lock clock according to ENA choice, too, when we support two clocks per ALM
                     reserve_route(lab_data.clk_wires[0], clk_wire);
@@ -667,7 +741,6 @@ void Arch::assign_control_sets(uint32_t lab)
                     break;
                 }
             }
-
             ControlSig aclr_sig = ff->ffInfo.ctrlset.aclr;
             WireId aclr_wire = getBelPinWire(ff_bel, id_ACLR);
             for (int j = 0; j < 2; j++) {
@@ -707,6 +780,22 @@ static void assign_lut6_inputs(CellInfo *cell, int lut)
         cell->pin_data[log].bel_pins.push_back(phys_pins.at(phys_idx++));
     }
 }
+
+static void assign_mlab_inputs(Context *ctx, CellInfo *cell, int lut)
+{
+    cell->pin_data[id_CLK1].bel_pins = {id_WCLK};
+    cell->pin_data[id_A1EN].bel_pins = {id_WE};
+    cell->pin_data[id_A1DATA].bel_pins = {(lut == 1) ? id_E1 : id_E0};
+    cell->pin_data[id_B1DATA].bel_pins = {id_COMBOUT};
+    cell->pin_data[id_A1EN].bel_pins = {id_WE};
+
+    std::array<IdString, 6> raddr_pins{id_A, id_B, id_C, id_D, id_F0};
+    for (int i = 0; i < 5; i++) {
+        cell->pin_data[ctx->id(stringf("A1ADDR[%d]", i))].bel_pins = {ctx->id(stringf("WA%d", i))};
+        cell->pin_data[ctx->id(stringf("B1ADDR[%d]", i))].bel_pins = {raddr_pins.at(i)};
+    }
+}
+
 } // namespace
 
 void Arch::reassign_alm_inputs(uint32_t lab, uint8_t alm)
@@ -720,16 +809,22 @@ void Arch::reassign_alm_inputs(uint32_t lab, uint8_t alm)
     std::array<CellInfo *, 4> ffs{getBoundBelCell(alm_data.ff_bels[0]), getBoundBelCell(alm_data.ff_bels[1]),
                                   getBoundBelCell(alm_data.ff_bels[2]), getBoundBelCell(alm_data.ff_bels[3])};
 
+    bool found_mlab = false;
     for (int i = 0; i < 2; i++) {
-        // Currently we treat LUT6s as a special case, as they never share inputs
-        if (luts[i] != nullptr && luts[i]->type == id_MISTRAL_ALUT6) {
+        // Currently we treat LUT6s and MLABs as a special case, as they never share inputs or have fixed mappings
+        if (!luts[i])
+            continue;
+        if (luts[i]->type == id_MISTRAL_ALUT6) {
             alm_data.l6_mode = true;
             NPNR_ASSERT(luts[1 - i] == nullptr); // only allow one LUT6 per ALM and no other LUTs
             assign_lut6_inputs(luts[i], i);
+        } else if (luts[i]->type == id_MISTRAL_MLAB) {
+            found_mlab = true;
+            assign_mlab_inputs(getCtx(), luts[i], i);
         }
     }
 
-    if (!alm_data.l6_mode) {
+    if (!alm_data.l6_mode && !found_mlab) {
         // In L5 mode; which is what we use in this case
         //  - A and B are shared
         //  - C, E0, and F0 are exclusive to the top LUT5 secion

@@ -195,6 +195,11 @@ struct ArchCellInfo : BaseClusterInfo
 
             bool is_carry, is_shared, is_extended;
             bool carry_start, carry_end;
+
+            // MLABs with compatible write ports have this set to the same non-negative integer. -1 means this isn't a
+            // MLAB
+            int mlab_group;
+            ControlSig wclk, we;
         } combInfo;
         struct
         {

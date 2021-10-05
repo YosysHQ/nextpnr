@@ -342,12 +342,52 @@ struct MistralPacker
         }
     }
 
+    void constrain_lutram()
+    {
+        // We form clusters based on both read and write address; as both being the same makes it more likely these
+        // cells should be packed together, too.
+        // This makes things easier for the placement legaliser to deal with RAM in LAB-compatible blocks without
+        // over-constraining things
+        idict<dict<IdString, IdString>> mlab_keys;
+        std::vector<std::vector<CellInfo *>> mlab_groups;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (ci->type != id_MISTRAL_MLAB)
+                continue;
+            auto key = ctx->get_mlab_key(ci, true);
+            int key_idx = mlab_keys(key);
+            if (key_idx >= int(mlab_groups.size()))
+                mlab_groups.resize(key_idx + 1);
+            mlab_groups.at(key_idx).push_back(ci);
+        }
+        // Combine into clusters
+        size_t cluster_size = 20;
+        for (auto &group : mlab_groups) {
+            for (size_t i = 0; i < group.size(); i++) {
+                CellInfo *ci = group.at(i);
+                CellInfo *base = group.at((i / cluster_size) * cluster_size);
+                int cell_index = int(i) % cluster_size;
+                int alm = i / 2;
+                int alm_cell = i % 2;
+                ci->constr_abs_z = true;
+                ci->constr_z = alm * 6 + alm_cell;
+                if (cell_index != 0) {
+                    // Not the root of a cluster
+                    base->constr_children.push_back(ci);
+                    ci->constr_x = 0;
+                    ci->constr_y = 0;
+                }
+            }
+        }
+    }
+
     void run()
     {
         init_constant_nets();
         pack_constants();
         pack_io();
         constrain_carries();
+        constrain_lutram();
     }
 };
 }; // namespace
