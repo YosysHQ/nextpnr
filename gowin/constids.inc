@@ -358,6 +358,16 @@ X(IOBH)
 X(IOBI)
 X(IOBJ)
 
+// Wide LUTs
+X(MUX2_LUT5)
+X(MUX2_LUT6)
+X(MUX2_LUT7)
+X(MUX2_LUT8)
+X(GW_MUX2_LUT5)
+X(GW_MUX2_LUT6)
+X(GW_MUX2_LUT7)
+X(GW_MUX2_LUT8)
+
 // DFF types
 X(DFF)
 X(DFFE)
@@ -409,6 +419,9 @@ X(I1)
 X(I2)
 X(I3)
 X(OEN)
+X(S0)
+X(SEL)
+X(OF)
 
 // timing
 X(X0)

@@ -58,6 +58,10 @@ std::unique_ptr<CellInfo> create_generic_cell(Context *ctx, IdString type, std::
         add_port(ctx, new_cell.get(), id_Q, PORT_OUT);
         add_port(ctx, new_cell.get(), id_CE, PORT_IN);
         add_port(ctx, new_cell.get(), id_LSR, PORT_IN);
+    } else if (type == id_GW_MUX2_LUT5 || type == id_GW_MUX2_LUT6 || type == id_GW_MUX2_LUT7 ||
+               type == id_GW_MUX2_LUT7 || type == id_GW_MUX2_LUT8) {
+        add_port(ctx, new_cell.get(), id_SEL, PORT_IN);
+        add_port(ctx, new_cell.get(), id_OF, PORT_OUT);
     } else if (type == id_IOB) {
         new_cell->params[id_INPUT_USED] = 0;
         new_cell->params[id_OUTPUT_USED] = 0;
@@ -68,7 +72,7 @@ std::unique_ptr<CellInfo> create_generic_cell(Context *ctx, IdString type, std::
         add_port(ctx, new_cell.get(), id_EN, PORT_IN);
         add_port(ctx, new_cell.get(), id_O, PORT_OUT);
     } else {
-        log_error("unable to create generic cell of type %s", type.c_str(ctx));
+        log_error("unable to create generic cell of type %s\n", type.c_str(ctx));
     }
     return new_cell;
 }
@@ -76,6 +80,23 @@ std::unique_ptr<CellInfo> create_generic_cell(Context *ctx, IdString type, std::
 void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff)
 {
     lc->params[id_INIT] = lut->params[id_INIT];
+    lc->cluster = lut->cluster;
+    lc->constr_x = lut->constr_x;
+    lc->constr_y = lut->constr_y;
+    lc->constr_z = lut->constr_z;
+
+    // add itself to the cluster root children list
+    if (lc->cluster != ClusterId()) {
+        CellInfo *cluster_root = ctx->cells.at(lc->cluster).get();
+        lc->constr_x += cluster_root->constr_x;
+        lc->constr_y += cluster_root->constr_y;
+        lc->constr_z += cluster_root->constr_z;
+        if (cluster_root->cluster != cluster_root->name) {
+            lc->cluster = cluster_root->cluster;
+            cluster_root = ctx->cells.at(cluster_root->cluster).get();
+        }
+        cluster_root->constr_children.push_back(lc);
+    }
 
     IdString sim_names[4] = {id_I0, id_I1, id_I2, id_I3};
     IdString wire_names[4] = {id_A, id_B, id_C, id_D};
