@@ -583,6 +583,87 @@ void Arch::read_cst(std::istream &in)
     }
 }
 
+// Add all MUXes for the cell
+void Arch::addMuxBels(const DatabasePOD *db, int row, int col)
+{
+    IdString belname, bel_id;
+    char buf[40];
+    int z;
+    // XXX do real delay
+    DelayQuad delay = DelayQuad(0);
+    // make all wide luts with these parameters
+    struct
+    {
+        char type;         // MUX type 5,6,7,8
+        char bel_idx;      // just bel name suffix
+        char in_prefix[2]; // input from F or OF
+        char in_idx[2];    // input from bel with idx
+    } const mux_names[] = {{'5', '0', "", {'0', '1'}},  {'6', '0', "O", {'2', '0'}}, {'5', '1', "", {'2', '3'}},
+                           {'7', '0', "O", {'5', '1'}}, {'5', '2', "", {'4', '5'}},  {'6', '1', "O", {'6', '4'}},
+                           {'5', '3', "", {'6', '7'}},  {'8', '0', "O", {'3', '3'}}};
+
+    // 4 MUX2_LUT5, 2 MUX2_LUT6, 1 MUX2_LUT7, 1 MUX2_LUT8
+    for (int j = 0; j < 8; ++j) {
+        z = j + mux_0_z;
+
+        int grow = row + 1;
+        int gcol = col + 1;
+
+        // no MUX2_LUT8 in the last column
+        if (j == 7 && col == getGridDimX() - 1) {
+            continue;
+        }
+
+        // bel
+        snprintf(buf, 40, "R%dC%d_MUX2_LUT%c%c", grow, gcol, mux_names[j].type, mux_names[j].bel_idx);
+        belname = id(buf);
+        snprintf(buf, 40, "GW_MUX2_LUT%c", mux_names[j].type);
+        bel_id = id(buf);
+        addBel(belname, bel_id, Loc(col, row, z), false);
+
+        // dummy wires
+        snprintf(buf, 40, "I0MUX%d", j);
+        IdString id_wire_i0 = id(buf);
+        IdString wire_i0_name = wireToGlobal(row, col, db, id_wire_i0);
+        addWire(wire_i0_name, id_wire_i0, col, row);
+
+        snprintf(buf, 40, "I1MUX%d", j);
+        IdString id_wire_i1 = id(buf);
+        IdString wire_i1_name = wireToGlobal(row, col, db, id_wire_i1);
+        addWire(wire_i1_name, id_wire_i1, col, row);
+
+        // dummy left pip
+        snprintf(buf, 40, "%sF%c", mux_names[j].in_prefix, mux_names[j].in_idx[0]);
+        IdString id_src_F = id(buf);
+        // LUT8's I0 is wired to the right cell
+        IdString src_F;
+        int src_col = col;
+        if (j == 7) {
+            ++src_col;
+        }
+        src_F = wireToGlobal(row, src_col, db, id_src_F);
+        snprintf(buf, 40, "R%dC%d_%s__%s", grow, gcol, id_src_F.c_str(this), id_wire_i0.c_str(this));
+        addPip(id(buf), id_wire_i0, src_F, wire_i0_name, delay, Loc(col, row, 0));
+
+        // dummy right pip
+        snprintf(buf, 40, "%sF%c", mux_names[j].in_prefix, mux_names[j].in_idx[1]);
+        id_src_F = id(buf);
+        src_F = wireToGlobal(row, col, db, id_src_F);
+        snprintf(buf, 40, "R%dC%d_%s__%s", grow, gcol, id_src_F.c_str(this), id_wire_i1.c_str(this));
+        addPip(id(buf), id_wire_i1, src_F, wire_i1_name, delay, Loc(col, row, 0));
+
+        // the MUX ports
+        snprintf(buf, 40, "R%dC%d_OF%d", grow, gcol, j);
+        addBelOutput(belname, id_OF, id(buf));
+        snprintf(buf, 40, "R%dC%d_SEL%d", grow, gcol, j);
+        addBelInput(belname, id_SEL, id(buf));
+        snprintf(buf, 40, "R%dC%d_I0MUX%d", grow, gcol, j);
+        addBelInput(belname, id_I0, id(buf));
+        snprintf(buf, 40, "R%dC%d_I1MUX%d", grow, gcol, j);
+        addBelInput(belname, id_I1, id(buf));
+    }
+}
+
 Arch::Arch(ArchArgs args) : args(args)
 {
     family = args.family;
@@ -645,7 +726,9 @@ Arch::Arch(ArchArgs args) : args(args)
     }
     // setup db
     char buf[32];
-    for (int i = 0; i < db->rows * db->cols; i++) {
+    // The reverse order of the enumeration simplifies the creation
+    // of MUX2_LUT8s: they need the existence of the wire on the right.
+    for (int i = db->rows * db->cols - 1; i >= 0; --i) {
         int row = i / db->cols;
         int col = i % db->cols;
         const TilePOD *tile = db->grid[i].get();
@@ -717,6 +800,9 @@ Arch::Arch(ArchArgs args) : args(args)
                     addBelInput(belname, id_CE, id(buf));
                     snprintf(buf, 32, "R%dC%d_Q%d", row + 1, col + 1, z);
                     addBelOutput(belname, id_Q, id(buf));
+                }
+                if (z == 0) {
+                    addMuxBels(db, row, col);
                 }
                 break;
             case ID_IOBJ:
@@ -1094,6 +1180,7 @@ ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
 bool Arch::place()
 {
     std::string placer = str_or_default(settings, id("placer"), defaultPlacer);
+    bool retVal;
     if (placer == "heap") {
         bool have_iobuf_or_constr = false;
         for (auto &cell : cells) {
@@ -1103,7 +1190,6 @@ bool Arch::place()
                 break;
             }
         }
-        bool retVal;
         if (!have_iobuf_or_constr) {
             log_warning("Unable to use HeAP due to a lack of IO buffers or constrained cells as anchors; reverting to "
                         "SA.\n");
@@ -1116,15 +1202,21 @@ bool Arch::place()
         }
         getCtx()->settings[getCtx()->id("place")] = 1;
         archInfoToAttributes();
-        return retVal;
     } else if (placer == "sa") {
-        bool retVal = placer1(getCtx(), Placer1Cfg(getCtx()));
+        retVal = placer1(getCtx(), Placer1Cfg(getCtx()));
         getCtx()->settings[getCtx()->id("place")] = 1;
         archInfoToAttributes();
         return retVal;
     } else {
         log_error("Gowin architecture does not support placer '%s'\n", placer.c_str());
     }
+    // debug placement
+    if (getCtx()->debug) {
+        for (auto &cell : getCtx()->cells) {
+            log_info("Placed: %s -> %s\n", cell.first.c_str(getCtx()), getCtx()->nameOfBel(cell.second->bel));
+        }
+    }
+    return retVal;
 }
 
 bool Arch::route()
@@ -1183,13 +1275,15 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
 
 bool Arch::isBelLocationValid(BelId bel) const
 {
-    std::vector<const CellInfo *> cells;
     Loc loc = getBelLocation(bel);
+
+    std::vector<const CellInfo *> cells;
     for (auto tbel : getBelsByTile(loc.x, loc.y)) {
         CellInfo *bound = getBoundBelCell(tbel);
         if (bound != nullptr)
             cells.push_back(bound);
     }
+
     return cellsCompatible(cells.data(), int(cells.size()));
 }
 
@@ -1213,6 +1307,7 @@ void Arch::assignArchInfo()
     for (auto &cell : getCtx()->cells) {
         IdString cname = cell.first;
         CellInfo *ci = cell.second.get();
+        ci->is_slice = false;
         if (ci->type == id("SLICE")) {
             ci->is_slice = true;
             ci->ff_used = ci->params.at(id_FF_USED).as_bool();
@@ -1238,9 +1333,6 @@ void Arch::assignArchInfo()
                 DelayQuad delay = delayLookup(speed->lut.timings.get(), speed->lut.num_timings, port_delay[i]);
                 addCellTimingDelay(cname, ports[i], id_F, delay);
             }
-
-        } else {
-            ci->is_slice = false;
         }
     }
 }

@@ -28,6 +28,266 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+// pack MUX2_LUT5
+static void pack_mux2_lut5(Context *ctx, CellInfo *ci, pool<IdString> &packed_cells, pool<IdString> &delete_nets,
+                           std::vector<std::unique_ptr<CellInfo>> &new_cells)
+{
+
+    if (bool_or_default(ci->attrs, ctx->id("SINGLE_INPUT_MUX"))) {
+        // find the muxed LUT
+        NetInfo *i1 = ci->ports.at(id_I1).net;
+
+        CellInfo *lut1 = net_driven_by(ctx, i1, is_lut, id_F);
+        if (lut1 == nullptr) {
+            log_error("MUX2_LUT5 '%s' port I1 isn't connected to the LUT\n", ci->name.c_str(ctx));
+            return;
+        }
+        if (ctx->verbose) {
+            log_info("found attached lut1 %s\n", ctx->nameOf(lut1));
+        }
+
+        // XXX enable the placement constraints
+        auto mux_bel = ci->attrs.find(ctx->id("BEL"));
+        auto lut1_bel = lut1->attrs.find(ctx->id("BEL"));
+        if (lut1_bel != lut1->attrs.end() || mux_bel != ci->attrs.end()) {
+            log_error("MUX2_LUT5 '%s' placement restrictions are not yet supported\n", ci->name.c_str(ctx));
+            return;
+        }
+
+        std::unique_ptr<CellInfo> packed = create_generic_cell(ctx, ctx->id("GW_MUX2_LUT5"), ci->name.str(ctx) + "_LC");
+        if (ctx->verbose) {
+            log_info("packed cell %s into %s\n", ctx->nameOf(ci), ctx->nameOf(packed.get()));
+        }
+        // mux is the cluster root
+        packed->cluster = packed->name;
+        lut1->cluster = packed->name;
+        lut1->constr_z = -ctx->mux_0_z + 1;
+        packed->constr_children.clear();
+
+        // reconnect MUX ports
+        replace_port(ci, id_O, packed.get(), id_OF);
+        replace_port(ci, id_I1, packed.get(), id_I1);
+
+        // remove cells
+        packed_cells.insert(ci->name);
+        // new MUX cell
+        new_cells.push_back(std::move(packed));
+    } else {
+        // find the muxed LUTs
+        NetInfo *i0 = ci->ports.at(id_I0).net;
+        NetInfo *i1 = ci->ports.at(id_I1).net;
+
+        CellInfo *lut0 = net_driven_by(ctx, i0, is_lut, id_F);
+        CellInfo *lut1 = net_driven_by(ctx, i1, is_lut, id_F);
+        if (lut0 == nullptr || lut1 == nullptr) {
+            log_error("MUX2_LUT5 '%s' port I0 or I1 isn't connected to the LUT\n", ci->name.c_str(ctx));
+            return;
+        }
+        if (ctx->verbose) {
+            log_info("found attached lut0 %s\n", ctx->nameOf(lut0));
+            log_info("found attached lut1 %s\n", ctx->nameOf(lut1));
+        }
+
+        // XXX enable the placement constraints
+        auto mux_bel = ci->attrs.find(ctx->id("BEL"));
+        auto lut0_bel = lut0->attrs.find(ctx->id("BEL"));
+        auto lut1_bel = lut1->attrs.find(ctx->id("BEL"));
+        if (lut0_bel != lut0->attrs.end() || lut1_bel != lut1->attrs.end() || mux_bel != ci->attrs.end()) {
+            log_error("MUX2_LUT5 '%s' placement restrictions are not yet supported\n", ci->name.c_str(ctx));
+            return;
+        }
+
+        std::unique_ptr<CellInfo> packed = create_generic_cell(ctx, ctx->id("GW_MUX2_LUT5"), ci->name.str(ctx) + "_LC");
+        if (ctx->verbose) {
+            log_info("packed cell %s into %s\n", ctx->nameOf(ci), ctx->nameOf(packed.get()));
+        }
+        // mux is the cluster root
+        packed->cluster = packed->name;
+        lut0->cluster = packed->name;
+        lut0->constr_z = -ctx->mux_0_z;
+        lut1->cluster = packed->name;
+        lut1->constr_z = -ctx->mux_0_z + 1;
+        packed->constr_children.clear();
+
+        // reconnect MUX ports
+        replace_port(ci, id_O, packed.get(), id_OF);
+        replace_port(ci, id_S0, packed.get(), id_SEL);
+        replace_port(ci, id_I0, packed.get(), id_I0);
+        replace_port(ci, id_I1, packed.get(), id_I1);
+
+        // remove cells
+        packed_cells.insert(ci->name);
+        // new MUX cell
+        new_cells.push_back(std::move(packed));
+    }
+}
+
+// Common MUX2 packing routine
+static void pack_mux2_lut(Context *ctx, CellInfo *ci, bool (*pred)(const BaseCtx *, const CellInfo *),
+                          char const type_suffix, IdString const type_id, int const x[2], int const z[2],
+                          pool<IdString> &packed_cells, pool<IdString> &delete_nets,
+                          std::vector<std::unique_ptr<CellInfo>> &new_cells)
+{
+    // find the muxed LUTs
+    NetInfo *i0 = ci->ports.at(id_I0).net;
+    NetInfo *i1 = ci->ports.at(id_I1).net;
+
+    CellInfo *mux0 = net_driven_by(ctx, i0, pred, id_OF);
+    CellInfo *mux1 = net_driven_by(ctx, i1, pred, id_OF);
+    if (mux0 == nullptr || mux1 == nullptr) {
+        log_error("MUX2_LUT%c '%s' port I0 or I1 isn't connected to the MUX\n", type_suffix, ci->name.c_str(ctx));
+        return;
+    }
+    if (ctx->verbose) {
+        log_info("found attached mux0 %s\n", ctx->nameOf(mux0));
+        log_info("found attached mux1 %s\n", ctx->nameOf(mux1));
+    }
+
+    // XXX enable the placement constraints
+    auto mux_bel = ci->attrs.find(ctx->id("BEL"));
+    auto mux0_bel = mux0->attrs.find(ctx->id("BEL"));
+    auto mux1_bel = mux1->attrs.find(ctx->id("BEL"));
+    if (mux0_bel != mux0->attrs.end() || mux1_bel != mux1->attrs.end() || mux_bel != ci->attrs.end()) {
+        log_error("MUX2_LUT%c '%s' placement restrictions are not yet supported\n", type_suffix, ci->name.c_str(ctx));
+        return;
+    }
+
+    std::unique_ptr<CellInfo> packed = create_generic_cell(ctx, type_id, ci->name.str(ctx) + "_LC");
+    if (ctx->verbose) {
+        log_info("packed cell %s into %s\n", ctx->nameOf(ci), ctx->nameOf(packed.get()));
+    }
+    // mux is the cluster root
+    packed->cluster = packed->name;
+    mux0->cluster = packed->name;
+    mux0->constr_x = x[0];
+    mux0->constr_z = z[0];
+    for (auto &child : mux0->constr_children) {
+        child->cluster = packed->name;
+        child->constr_x += mux0->constr_x;
+        child->constr_z += mux0->constr_z;
+        packed->constr_children.push_back(child);
+    }
+    mux0->constr_children.clear();
+    mux1->cluster = packed->name;
+    mux1->constr_x = x[1];
+    mux1->constr_z = z[1];
+    for (auto &child : mux1->constr_children) {
+        child->cluster = packed->name;
+        child->constr_x += mux1->constr_x;
+        child->constr_z += mux1->constr_z;
+        packed->constr_children.push_back(child);
+    }
+    mux1->constr_children.clear();
+    packed->constr_children.push_back(mux0);
+    packed->constr_children.push_back(mux1);
+
+    // reconnect MUX ports
+    replace_port(ci, id_O, packed.get(), id_OF);
+    replace_port(ci, id_S0, packed.get(), id_SEL);
+    replace_port(ci, id_I0, packed.get(), id_I0);
+    replace_port(ci, id_I1, packed.get(), id_I1);
+
+    // remove cells
+    packed_cells.insert(ci->name);
+    // new MUX cell
+    new_cells.push_back(std::move(packed));
+}
+
+// pack MUX2_LUT6
+static void pack_mux2_lut6(Context *ctx, CellInfo *ci, pool<IdString> &packed_cells, pool<IdString> &delete_nets,
+                           std::vector<std::unique_ptr<CellInfo>> &new_cells)
+{
+    static int x[] = {0, 0};
+    static int z[] = {+1, -1};
+    pack_mux2_lut(ctx, ci, is_gw_mux2_lut5, '6', id_GW_MUX2_LUT6, x, z, packed_cells, delete_nets, new_cells);
+}
+
+// pack MUX2_LUT7
+static void pack_mux2_lut7(Context *ctx, CellInfo *ci, pool<IdString> &packed_cells, pool<IdString> &delete_nets,
+                           std::vector<std::unique_ptr<CellInfo>> &new_cells)
+{
+    static int x[] = {0, 0};
+    static int z[] = {+2, -2};
+    pack_mux2_lut(ctx, ci, is_gw_mux2_lut6, '7', id_GW_MUX2_LUT7, x, z, packed_cells, delete_nets, new_cells);
+}
+
+// pack MUX2_LUT8
+static void pack_mux2_lut8(Context *ctx, CellInfo *ci, pool<IdString> &packed_cells, pool<IdString> &delete_nets,
+                           std::vector<std::unique_ptr<CellInfo>> &new_cells)
+{
+    static int x[] = {1, 0};
+    static int z[] = {-4, -4};
+    pack_mux2_lut(ctx, ci, is_gw_mux2_lut7, '8', id_GW_MUX2_LUT8, x, z, packed_cells, delete_nets, new_cells);
+}
+
+// Pack wide LUTs
+static void pack_wideluts(Context *ctx)
+{
+    log_info("Packing wide LUTs..\n");
+
+    pool<IdString> packed_cells;
+    pool<IdString> delete_nets;
+    std::vector<std::unique_ptr<CellInfo>> new_cells;
+
+    pool<IdString> mux2lut6;
+    pool<IdString> mux2lut7;
+    pool<IdString> mux2lut8;
+
+    // do MUX2_LUT5 and collect LUT6/7/8
+    log_info("Packing LUT5s..\n");
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
+        if (ctx->verbose) {
+            log_info("cell '%s' is of type '%s'\n", ctx->nameOf(ci), ci->type.c_str(ctx));
+        }
+        if (is_widelut(ctx, ci)) {
+            if (is_mux2_lut5(ctx, ci)) {
+                pack_mux2_lut5(ctx, ci, packed_cells, delete_nets, new_cells);
+            } else {
+                if (is_mux2_lut6(ctx, ci)) {
+                    mux2lut6.insert(ci->name);
+                } else {
+                    if (is_mux2_lut7(ctx, ci)) {
+                        mux2lut7.insert(ci->name);
+                    } else {
+                        if (is_mux2_lut8(ctx, ci)) {
+                            mux2lut8.insert(ci->name);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // do MUX_LUT6
+    log_info("Packing LUT6s..\n");
+    for (auto &cell_name : mux2lut6) {
+        pack_mux2_lut6(ctx, ctx->cells[cell_name].get(), packed_cells, delete_nets, new_cells);
+    }
+
+    // do MUX_LUT7
+    log_info("Packing LUT7s..\n");
+    for (auto &cell_name : mux2lut7) {
+        pack_mux2_lut7(ctx, ctx->cells[cell_name].get(), packed_cells, delete_nets, new_cells);
+    }
+
+    // do MUX_LUT8
+    log_info("Packing LUT8s..\n");
+    for (auto &cell_name : mux2lut8) {
+        pack_mux2_lut8(ctx, ctx->cells[cell_name].get(), packed_cells, delete_nets, new_cells);
+    }
+
+    // actual delete, erase and move cells/nets
+    for (auto pcell : packed_cells) {
+        ctx->cells.erase(pcell);
+    }
+    for (auto dnet : delete_nets) {
+        ctx->nets.erase(dnet);
+    }
+    for (auto &ncell : new_cells) {
+        ctx->cells[ncell->name] = std::move(ncell);
+    }
+}
+
 // Pack LUTs and LUT-FF pairs
 static void pack_lut_lutffs(Context *ctx)
 {
@@ -287,6 +547,7 @@ bool Arch::pack()
         log_break();
         pack_constants(ctx);
         pack_io(ctx);
+        pack_wideluts(ctx);
         pack_lut_lutffs(ctx);
         pack_nonlut_ffs(ctx);
         ctx->settings[ctx->id("pack")] = 1;

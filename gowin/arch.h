@@ -330,6 +330,7 @@ struct Arch : BaseArch<ArchRanges>
     IdString wireToGlobal(int &row, int &col, const DatabasePOD *db, IdString &wire);
     DelayQuad getWireTypeDelay(IdString wire);
     void read_cst(std::istream &in);
+    void addMuxBels(const DatabasePOD *db, int row, int col);
 
     // ---------------------------------------------------------------
     // Common Arch API. Every arch must provide the following methods.
@@ -444,6 +445,8 @@ struct Arch : BaseArch<ArchRanges>
     // Internal usage
     void assignArchInfo() override;
     bool cellsCompatible(const CellInfo **cells, int count) const;
+    // start Z for the MUX2LUT5 bels
+    int const mux_0_z = 10;
 
     std::vector<IdString> cell_types;
 
