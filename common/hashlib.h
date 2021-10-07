@@ -13,6 +13,7 @@
 #define HASHLIB_H
 
 #include <algorithm>
+#include <array>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -124,6 +125,18 @@ template <typename T> struct hash_ops<std::vector<T>>
 {
     static inline bool cmp(std::vector<T> a, std::vector<T> b) { return a == b; }
     static inline unsigned int hash(std::vector<T> a)
+    {
+        unsigned int h = mkhash_init;
+        for (auto k : a)
+            h = mkhash(h, hash_ops<T>::hash(k));
+        return h;
+    }
+};
+
+template <typename T, size_t N> struct hash_ops<std::array<T, N>>
+{
+    static inline bool cmp(std::array<T, N> a, std::array<T, N> b) { return a == b; }
+    static inline unsigned int hash(std::array<T, N> a)
     {
         unsigned int h = mkhash_init;
         for (auto k : a)
