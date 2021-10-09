@@ -60,6 +60,8 @@ std::unique_ptr<CellInfo> create_generic_cell(Context *ctx, IdString type, std::
         add_port(ctx, new_cell.get(), id_LSR, PORT_IN);
     } else if (type == id_GW_MUX2_LUT5 || type == id_GW_MUX2_LUT6 || type == id_GW_MUX2_LUT7 ||
                type == id_GW_MUX2_LUT7 || type == id_GW_MUX2_LUT8) {
+        add_port(ctx, new_cell.get(), id_I0, PORT_IN);
+        add_port(ctx, new_cell.get(), id_I1, PORT_IN);
         add_port(ctx, new_cell.get(), id_SEL, PORT_IN);
         add_port(ctx, new_cell.get(), id_OF, PORT_OUT);
     } else if (type == id_IOB) {

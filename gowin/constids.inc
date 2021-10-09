@@ -440,3 +440,6 @@ X(a_f)
 X(b_f)
 X(c_f)
 X(d_f)
+X(fx_ofx1)
+X(I01)
+

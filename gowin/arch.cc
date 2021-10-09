@@ -371,6 +371,8 @@ DelayQuad Arch::getWireTypeDelay(IdString wire)
     case ID_X06:
     case ID_X07:
     case ID_X08:
+    case ID_I0:
+    case ID_I1:
         len = id_X0;
         break;
     case ID_N100:
@@ -393,6 +395,7 @@ DelayQuad Arch::getWireTypeDelay(IdString wire)
     case ID_SN20:
     case ID_EW10:
     case ID_EW20:
+    case ID_I01:
         len = id_FX1;
         break;
     case ID_N200:
@@ -589,8 +592,7 @@ void Arch::addMuxBels(const DatabasePOD *db, int row, int col)
     IdString belname, bel_id;
     char buf[40];
     int z;
-    // XXX do real delay
-    DelayQuad delay = DelayQuad(0);
+
     // make all wide luts with these parameters
     struct
     {
@@ -632,25 +634,26 @@ void Arch::addMuxBels(const DatabasePOD *db, int row, int col)
         IdString wire_i1_name = wireToGlobal(row, col, db, id_wire_i1);
         addWire(wire_i1_name, id_wire_i1, col, row);
 
+        // dummy right pip
+        DelayQuad delay = getWireTypeDelay(id_I0);
+        snprintf(buf, 40, "%sF%c", mux_names[j].in_prefix, mux_names[j].in_idx[1]);
+        IdString id_src_F = id(buf);
+        IdString src_F = wireToGlobal(row, col, db, id_src_F);
+        snprintf(buf, 40, "R%dC%d_%s__%s", grow, gcol, id_src_F.c_str(this), id_wire_i1.c_str(this));
+        addPip(id(buf), id_wire_i1, src_F, wire_i1_name, delay, Loc(col, row, 0));
+
         // dummy left pip
         snprintf(buf, 40, "%sF%c", mux_names[j].in_prefix, mux_names[j].in_idx[0]);
-        IdString id_src_F = id(buf);
+        id_src_F = id(buf);
         // LUT8's I0 is wired to the right cell
-        IdString src_F;
         int src_col = col;
         if (j == 7) {
             ++src_col;
+            delay = getWireTypeDelay(id_I01);
         }
         src_F = wireToGlobal(row, src_col, db, id_src_F);
         snprintf(buf, 40, "R%dC%d_%s__%s", grow, gcol, id_src_F.c_str(this), id_wire_i0.c_str(this));
         addPip(id(buf), id_wire_i0, src_F, wire_i0_name, delay, Loc(col, row, 0));
-
-        // dummy right pip
-        snprintf(buf, 40, "%sF%c", mux_names[j].in_prefix, mux_names[j].in_idx[1]);
-        id_src_F = id(buf);
-        src_F = wireToGlobal(row, col, db, id_src_F);
-        snprintf(buf, 40, "R%dC%d_%s__%s", grow, gcol, id_src_F.c_str(this), id_wire_i1.c_str(this));
-        addPip(id(buf), id_wire_i1, src_F, wire_i1_name, delay, Loc(col, row, 0));
 
         // the MUX ports
         snprintf(buf, 40, "R%dC%d_OF%d", grow, gcol, j);
@@ -1307,8 +1310,10 @@ void Arch::assignArchInfo()
     for (auto &cell : getCtx()->cells) {
         IdString cname = cell.first;
         CellInfo *ci = cell.second.get();
+        DelayQuad delay = DelayQuad(0);
         ci->is_slice = false;
-        if (ci->type == id("SLICE")) {
+        switch (ci->type.index) {
+        case ID_SLICE: {
             ci->is_slice = true;
             ci->ff_used = ci->params.at(id_FF_USED).as_bool();
             ci->ff_type = id(ci->params.at(id_FF_TYPE).as_string());
@@ -1333,6 +1338,24 @@ void Arch::assignArchInfo()
                 DelayQuad delay = delayLookup(speed->lut.timings.get(), speed->lut.num_timings, port_delay[i]);
                 addCellTimingDelay(cname, ports[i], id_F, delay);
             }
+            break;
+        }
+        case ID_GW_MUX2_LUT8:
+            delay = delay + delayLookup(speed->lut.timings.get(), speed->lut.num_timings, id_fx_ofx1);
+            /* FALLTHRU */
+        case ID_GW_MUX2_LUT7:
+            delay = delay + delayLookup(speed->lut.timings.get(), speed->lut.num_timings, id_fx_ofx1);
+            /* FALLTHRU */
+        case ID_GW_MUX2_LUT6:
+            delay = delay + delayLookup(speed->lut.timings.get(), speed->lut.num_timings, id_fx_ofx1);
+            /* FALLTHRU */
+        case ID_GW_MUX2_LUT5: {
+            delay = delay + delayLookup(speed->lut.timings.get(), speed->lut.num_timings, id_fx_ofx1);
+            addCellTimingDelay(cname, id_I0, id_OF, delay);
+            addCellTimingDelay(cname, id_I1, id_OF, delay);
+        }
+        default:
+            break;
         }
     }
 }
