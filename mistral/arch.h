@@ -380,7 +380,6 @@ struct Arch : BaseArch<ArchRanges>
     IdStringList getPipName(PipId pip) const override;
     WireId getPipSrcWire(PipId pip) const override { return WireId(pip.src); };
     WireId getPipDstWire(PipId pip) const override { return WireId(pip.dst); };
-    DelayQuad getPipDelay(PipId pip) const override { return DelayQuad(100); }
     UpDownhillPipRange getPipsDownhill(WireId wire) const override
     {
         return UpDownhillPipRange(wires.at(wire).wires_downhill, wire, false);
@@ -427,6 +426,11 @@ struct Arch : BaseArch<ArchRanges>
     uint32_t getDelayChecksum(delay_t v) const override { return v; };
 
     ArcBounds getRouteBoundingBox(WireId src, WireId dst) const override;
+
+    TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const override; // delay.cc
+    TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const override; // delay.cc
+    bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const override; // delay.cc
+    DelayQuad getPipDelay(PipId pip) const override; // delay.cc
 
     // -------------------------------------------------
 

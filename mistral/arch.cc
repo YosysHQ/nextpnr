@@ -400,15 +400,6 @@ void Arch::assignArchInfo()
     }
 }
 
-delay_t Arch::estimateDelay(WireId src, WireId dst) const
-{
-    int x0 = CycloneV::rn2x(src.node);
-    int y0 = CycloneV::rn2y(src.node);
-    int x1 = CycloneV::rn2x(dst.node);
-    int y1 = CycloneV::rn2y(dst.node);
-    return 100 * std::abs(y1 - y0) + 100 * std::abs(x1 - x0) + 100;
-}
-
 ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
 {
     ArcBounds bounds;
@@ -421,17 +412,6 @@ ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
     bounds.x1 = std::max(src_x, dst_x);
     bounds.y1 = std::max(src_y, dst_y);
     return bounds;
-}
-
-delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
-{
-    if (net_info->driver.cell == nullptr || net_info->driver.cell->bel == BelId())
-        return 100;
-    if (sink.cell->bel == BelId())
-        return 100;
-    Loc src_loc = getBelLocation(net_info->driver.cell->bel);
-    Loc dst_loc = getBelLocation(sink.cell->bel);
-    return std::abs(dst_loc.y - src_loc.y) * 100 + std::abs(dst_loc.x - src_loc.x) * 100 + 100;
 }
 
 bool Arch::place()

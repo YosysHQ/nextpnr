@@ -1378,7 +1378,7 @@ struct Router2
         do {
             ctx->sorted_shuffle(route_queue);
 
-            if (timing_driven) {
+            if (timing_driven && int(route_queue.size()) >= 30) {
                 for (auto n : route_queue) {
                     NetInfo *ni = nets_by_udata.at(n);
                     auto &net = nets.at(n);
