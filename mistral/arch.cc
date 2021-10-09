@@ -64,24 +64,12 @@ Arch::Arch(ArchArgs args)
 
     log_info("Initialising bels...\n");
     bels_by_tile.resize(cyclonev->get_tile_sx() * cyclonev->get_tile_sy());
-    for (int x = 0; x < cyclonev->get_tile_sx(); x++) {
-        for (int y = 0; y < cyclonev->get_tile_sy(); y++) {
-            CycloneV::pos_t pos = cyclonev->xy2pos(x, y);
 
-            for (CycloneV::block_type_t bel : cyclonev->pos_get_bels(pos)) {
-                switch (bel) {
-                case CycloneV::block_type_t::LAB:
-                    create_lab(x, y, /*is_mlab=*/false);
-                    break;
-                case CycloneV::block_type_t::MLAB:
-                    create_lab(x, y, /*is_mlab=*/true);
-                    break;
-                default:
-                    continue;
-                }
-            }
-        }
-    }
+    for (auto lab_pos : cyclonev->lab_get_pos())
+        create_lab(CycloneV::pos2x(lab_pos), CycloneV::pos2y(lab_pos), /*is_mlab=*/false);
+
+    for (auto mlab_pos : cyclonev->mlab_get_pos())
+        create_lab(CycloneV::pos2x(mlab_pos), CycloneV::pos2y(mlab_pos), /*is_mlab=*/true);
 
     for (auto gpio_pos : cyclonev->gpio_get_pos())
         create_gpio(CycloneV::pos2x(gpio_pos), CycloneV::pos2y(gpio_pos));
