@@ -639,7 +639,7 @@ void Arch::addMuxBels(const DatabasePOD *db, int row, int col)
         snprintf(buf, 40, "%sF%c", mux_names[j].in_prefix, mux_names[j].in_idx[1]);
         IdString id_src_F = id(buf);
         IdString src_F = wireToGlobal(row, col, db, id_src_F);
-        snprintf(buf, 40, "R%dC%d_%s__%s", grow, gcol, id_src_F.c_str(this), id_wire_i1.c_str(this));
+        snprintf(buf, 40, "R%dC%d_%s_DUMMY_%s", grow, gcol, id_src_F.c_str(this), id_wire_i1.c_str(this));
         addPip(id(buf), id_wire_i1, src_F, wire_i1_name, delay, Loc(col, row, 0));
 
         // dummy left pip
@@ -652,7 +652,7 @@ void Arch::addMuxBels(const DatabasePOD *db, int row, int col)
             delay = getWireTypeDelay(id_I01);
         }
         src_F = wireToGlobal(row, src_col, db, id_src_F);
-        snprintf(buf, 40, "R%dC%d_%s__%s", grow, gcol, id_src_F.c_str(this), id_wire_i0.c_str(this));
+        snprintf(buf, 40, "R%dC%d_%s_DUMMY_%s", grow, gcol, id_src_F.c_str(this), id_wire_i0.c_str(this));
         addPip(id(buf), id_wire_i0, src_F, wire_i0_name, delay, Loc(col, row, 0));
 
         // the MUX ports
