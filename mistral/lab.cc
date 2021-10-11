@@ -492,6 +492,12 @@ void Arch::update_alm_input_count(uint32_t lab, uint8_t alm)
     for (int i = 0; i < 2; i++) {
         if (!luts[i])
             continue;
+        // MLAB that has been clustered with other MLABs (due to shared read port) costs no extra inputs
+        if (luts[i]->combInfo.mlab_group != -1 && luts[i]->constr_z > 2) {
+            alm_data.unique_input_count = 0;
+            return;
+        }
+
         total_lut_inputs += luts[i]->combInfo.used_lut_input_count - luts[i]->combInfo.chain_shared_input_count;
     }
     int shared_lut_inputs = 0;
