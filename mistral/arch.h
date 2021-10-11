@@ -427,10 +427,12 @@ struct Arch : BaseArch<ArchRanges>
 
     ArcBounds getRouteBoundingBox(WireId src, WireId dst) const override;
 
-    TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const override; // delay.cc
+    TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port,
+                                       int &clockInfoCount) const override;                                // delay.cc
     TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const override; // delay.cc
-    bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const override; // delay.cc
-    DelayQuad getPipDelay(PipId pip) const override; // delay.cc
+    bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort,
+                      DelayQuad &delay) const override; // delay.cc
+    DelayQuad getPipDelay(PipId pip) const override;    // delay.cc
 
     // -------------------------------------------------
 

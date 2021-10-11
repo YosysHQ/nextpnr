@@ -23,7 +23,8 @@ NEXTPNR_NAMESPACE_BEGIN
 TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const
 {
     clockInfoCount = 0;
-    if (cell->type.in(id_MISTRAL_NOT, id_MISTRAL_BUF, id_MISTRAL_ALUT2, id_MISTRAL_ALUT3, id_MISTRAL_ALUT4, id_MISTRAL_ALUT5, id_MISTRAL_ALUT6)) {
+    if (cell->type.in(id_MISTRAL_NOT, id_MISTRAL_BUF, id_MISTRAL_ALUT2, id_MISTRAL_ALUT3, id_MISTRAL_ALUT4,
+                      id_MISTRAL_ALUT5, id_MISTRAL_ALUT6)) {
         if (port.in(id_A, id_B, id_C, id_D, id_E, id_F))
             return TMG_COMB_INPUT;
         if (port == id_Q)
@@ -100,39 +101,40 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
     // - MLABs-as-LABs have different timings to LABs
     // - speed grades
 
-    if (cell->type.in(id_MISTRAL_NOT, id_MISTRAL_BUF, id_MISTRAL_ALUT2, id_MISTRAL_ALUT3, id_MISTRAL_ALUT4, id_MISTRAL_ALUT5, id_MISTRAL_ALUT6)) {
+    if (cell->type.in(id_MISTRAL_NOT, id_MISTRAL_BUF, id_MISTRAL_ALUT2, id_MISTRAL_ALUT3, id_MISTRAL_ALUT4,
+                      id_MISTRAL_ALUT5, id_MISTRAL_ALUT6)) {
         if (toPort == id_Q) {
             if (cell->type == id_MISTRAL_ALUT6 && fromPort == id_A) {
                 delay = DelayQuad{/* RF */ 592, /* RR */ 605, /* FF */ 567, /* FR */ 573};
                 return true;
             } else if ((cell->type == id_MISTRAL_ALUT5 && fromPort == id_A) ||
-                        (cell->type == id_MISTRAL_ALUT6 && fromPort == id_B)) {
+                       (cell->type == id_MISTRAL_ALUT6 && fromPort == id_B)) {
                 delay = DelayQuad{/* RF */ 580, /* RR */ 583, /* FF */ 560, /* FR */ 574};
                 return true;
             } else if ((cell->type == id_MISTRAL_ALUT4 && fromPort == id_A) ||
-                        (cell->type == id_MISTRAL_ALUT5 && fromPort == id_B) ||
-                        (cell->type == id_MISTRAL_ALUT6 && fromPort == id_C)) {
+                       (cell->type == id_MISTRAL_ALUT5 && fromPort == id_B) ||
+                       (cell->type == id_MISTRAL_ALUT6 && fromPort == id_C)) {
                 delay = DelayQuad{/* RR */ 429, /* RF */ 496, /* FR */ 440, /* FF */ 510};
                 return true;
             } else if ((cell->type == id_MISTRAL_ALUT3 && fromPort == id_A) ||
-                        (cell->type == id_MISTRAL_ALUT4 && fromPort == id_B) ||
-                        (cell->type == id_MISTRAL_ALUT5 && fromPort == id_C) ||
-                        (cell->type == id_MISTRAL_ALUT6 && fromPort == id_D)) {
+                       (cell->type == id_MISTRAL_ALUT4 && fromPort == id_B) ||
+                       (cell->type == id_MISTRAL_ALUT5 && fromPort == id_C) ||
+                       (cell->type == id_MISTRAL_ALUT6 && fromPort == id_D)) {
                 delay = DelayQuad{/* RR */ 432, /* RF */ 499, /* FR */ 444, /* FF */ 512};
                 return true;
             } else if ((cell->type == id_MISTRAL_ALUT2 && fromPort == id_A) ||
-                        (cell->type == id_MISTRAL_ALUT3 && fromPort == id_B) ||
-                        (cell->type == id_MISTRAL_ALUT4 && fromPort == id_C) ||
-                        (cell->type == id_MISTRAL_ALUT5 && fromPort == id_D) ||
-                        (cell->type == id_MISTRAL_ALUT6 && fromPort == id_E)) {
+                       (cell->type == id_MISTRAL_ALUT3 && fromPort == id_B) ||
+                       (cell->type == id_MISTRAL_ALUT4 && fromPort == id_C) ||
+                       (cell->type == id_MISTRAL_ALUT5 && fromPort == id_D) ||
+                       (cell->type == id_MISTRAL_ALUT6 && fromPort == id_E)) {
                 delay = DelayQuad{/* RR */ 263, /* RF */ 354, /* FF */ 362, /* FR */ 400};
                 return true;
             } else if ((cell->type.in(id_MISTRAL_NOT, id_MISTRAL_BUF) && fromPort == id_A) ||
-                        (cell->type == id_MISTRAL_ALUT2 && fromPort == id_B) ||
-                        (cell->type == id_MISTRAL_ALUT3 && fromPort == id_C) ||
-                        (cell->type == id_MISTRAL_ALUT4 && fromPort == id_D) ||
-                        (cell->type == id_MISTRAL_ALUT5 && fromPort == id_E) ||
-                        (cell->type == id_MISTRAL_ALUT6 && fromPort == id_F)) {
+                       (cell->type == id_MISTRAL_ALUT2 && fromPort == id_B) ||
+                       (cell->type == id_MISTRAL_ALUT3 && fromPort == id_C) ||
+                       (cell->type == id_MISTRAL_ALUT4 && fromPort == id_D) ||
+                       (cell->type == id_MISTRAL_ALUT5 && fromPort == id_E) ||
+                       (cell->type == id_MISTRAL_ALUT6 && fromPort == id_F)) {
                 delay = DelayQuad{/* RR */ 90, /* RF */ 96, /* FF */ 83, /* FR */ 97};
                 return true;
             }
@@ -215,15 +217,24 @@ DelayQuad Arch::getPipDelay(PipId pip) const
     auto dst_type = CycloneV::rn2t(dst.node);
 
     switch (dst_type) {
-        case CycloneV::rnode_type_t::H14: return DelayQuad{254};
-        case CycloneV::rnode_type_t::H3: return DelayQuad{214};
-        case CycloneV::rnode_type_t::H6: return DelayQuad{298};
-        case CycloneV::rnode_type_t::V2: return DelayQuad{210};
-        case CycloneV::rnode_type_t::V4: return DelayQuad{262};
-        case CycloneV::rnode_type_t::DCMUX: return DelayQuad{0};
-        case CycloneV::rnode_type_t::GIN: return DelayQuad{83}; // need to check with Sarayan
-        case CycloneV::rnode_type_t::GOUT: return DelayQuad{123};
-        case CycloneV::rnode_type_t::TCLK: return DelayQuad{46};
+    case CycloneV::rnode_type_t::H14:
+        return DelayQuad{254};
+    case CycloneV::rnode_type_t::H3:
+        return DelayQuad{214};
+    case CycloneV::rnode_type_t::H6:
+        return DelayQuad{298};
+    case CycloneV::rnode_type_t::V2:
+        return DelayQuad{210};
+    case CycloneV::rnode_type_t::V4:
+        return DelayQuad{262};
+    case CycloneV::rnode_type_t::DCMUX:
+        return DelayQuad{0};
+    case CycloneV::rnode_type_t::GIN:
+        return DelayQuad{83}; // need to check with Sarayan
+    case CycloneV::rnode_type_t::GOUT:
+        return DelayQuad{123};
+    case CycloneV::rnode_type_t::TCLK:
+        return DelayQuad{46};
     }
     return DelayQuad{308};
 }
