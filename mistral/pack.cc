@@ -367,8 +367,9 @@ struct MistralPacker
                 CellInfo *ci = group.at(i);
                 CellInfo *base = group.at((i / cluster_size) * cluster_size);
                 int cell_index = int(i) % cluster_size;
-                int alm = i / 2;
-                int alm_cell = i % 2;
+                int alm = cell_index / 2;
+                int alm_cell = cell_index % 2;
+                ci->cluster = base->name;
                 ci->constr_abs_z = true;
                 ci->constr_z = alm * 6 + alm_cell;
                 if (cell_index != 0) {
