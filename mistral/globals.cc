@@ -43,4 +43,13 @@ bool Arch::is_clkbuf_cell(IdString cell_type) const
     return cell_type == id_MISTRAL_CLKENA || cell_type == id_MISTRAL_CLKBUF;
 }
 
+void Arch::create_hps_mpu_general_purpose(int x, int y)
+{
+    BelId gp_bel = add_bel(x, y, id_cyclonev_hps_interface_mpu_general_purpose, id_cyclonev_hps_interface_mpu_general_purpose);
+    for (int i = 0; i < 32; i++) {
+        add_bel_pin(gp_bel, id(stringf("gp_in[%d]", i)),  PORT_IN,  get_port(CycloneV::HPS_MPU_GENERAL_PURPOSE, x, y, -1, CycloneV::GP_IN,  i));
+        add_bel_pin(gp_bel, id(stringf("gp_out[%d]", i)), PORT_OUT, get_port(CycloneV::HPS_MPU_GENERAL_PURPOSE, x, y, -1, CycloneV::GP_OUT, i));
+    }
+}
+
 NEXTPNR_NAMESPACE_END

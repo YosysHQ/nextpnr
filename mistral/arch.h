@@ -469,6 +469,7 @@ struct Arch : BaseArch<ArchRanges>
     void create_lab(int x, int y, bool is_mlab); // lab.cc
     void create_gpio(int x, int y);              // io.cc
     void create_clkbuf(int x, int y);            // globals.cc
+    void create_hps_mpu_general_purpose(int x, int y); // globals.cc
 
     // -------------------------------------------------
 
