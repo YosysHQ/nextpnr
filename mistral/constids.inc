@@ -95,4 +95,5 @@ X(B1DATA)
 X(WCLK_INV)
 X(WE_INV)
 
+X(cyclonev_oscillator)
 X(cyclonev_hps_interface_mpu_general_purpose)

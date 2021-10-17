@@ -52,4 +52,12 @@ void Arch::create_hps_mpu_general_purpose(int x, int y)
     }
 }
 
+void Arch::create_control(int x, int y)
+{
+    BelId oscillator_bel = add_bel(x, y, id_cyclonev_oscillator, id_cyclonev_oscillator);
+    add_bel_pin(oscillator_bel, id("oscena"),  PORT_IN,  get_port(CycloneV::CTRL, x, y, -1, CycloneV::OSC_ENA, -1));
+    add_bel_pin(oscillator_bel, id("clkout"),  PORT_OUT, get_port(CycloneV::CTRL, x, y, -1, CycloneV::CLK_OUT,  -1));
+    add_bel_pin(oscillator_bel, id("clkout1"), PORT_OUT, get_port(CycloneV::CTRL, x, y, -1, CycloneV::CLK_OUT1, -1));
+}
+
 NEXTPNR_NAMESPACE_END
