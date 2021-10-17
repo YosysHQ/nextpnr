@@ -1,6 +1,7 @@
 set(MISTRAL_ROOT "" CACHE STRING "Mistral install path")
 set(MISTRAL_DONT_INSTALL ON)
 
+add_subdirectory(${MISTRAL_ROOT}/routes-to-bin ${CMAKE_CURRENT_BINARY_DIR}/routes-to-bin)
 add_subdirectory(${MISTRAL_ROOT}/libmistral ${CMAKE_CURRENT_BINARY_DIR}/libmistral)
 
 find_package(LibLZMA REQUIRED)
