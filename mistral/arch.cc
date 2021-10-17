@@ -77,6 +77,8 @@ Arch::Arch(ArchArgs args)
     for (auto cmuxh_pos : cyclonev->cmuxh_get_pos())
         create_clkbuf(CycloneV::pos2x(cmuxh_pos), CycloneV::pos2y(cmuxh_pos));
 
+    create_control(CycloneV::pos2x(cyclonev->ctrl_get_pos()[0]), CycloneV::pos2y(cyclonev->ctrl_get_pos()[0]));
+
     auto hps_pos = cyclonev->hps_get_pos();
     if (!hps_pos.empty()) {
         create_hps_mpu_general_purpose(CycloneV::pos2x(hps_pos[CycloneV::I_HPS_MPU_GENERAL_PURPOSE]), CycloneV::pos2y(hps_pos[CycloneV::I_HPS_MPU_GENERAL_PURPOSE]));
