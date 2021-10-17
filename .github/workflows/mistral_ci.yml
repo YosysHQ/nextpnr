@@ -21,7 +21,7 @@ jobs:
     - name: Execute build nextpnr
       env:
         MISTRAL_PATH: ${{ github.workspace }}/deps/mistral
-        MISTRAL_REVISION: b5bd534444364688a57e4c0f99af1bb4037a495a
+        MISTRAL_REVISION: 8f78291541df10d70fde6c9c58765c437807c68d
       run: |
         source ./.github/ci/build_mistral.sh
         get_dependencies
