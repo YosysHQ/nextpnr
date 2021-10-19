@@ -87,17 +87,14 @@ Arch::Arch(ArchArgs args)
     // This import takes about 5s, perhaps long term we can speed it up, e.g. defer to Mistral more...
     log_info("Initialising routing graph...\n");
     int pip_count = 0;
-    for (const auto &mux : cyclonev->dest_node_to_rmux) {
-        const auto &rmux = cyclonev->rmux_info[mux.second];
-        WireId dst_wire(mux.first);
-        for (const auto &src : rmux.sources) {
-            if (CycloneV::rn2t(src) == CycloneV::NONE)
-                continue;
-            WireId src_wire(src);
-            wires[dst_wire].wires_uphill.push_back(src_wire);
-            wires[src_wire].wires_downhill.push_back(dst_wire);
-            ++pip_count;
-        }
+    for (const auto &rnode : cyclonev->rnodes()) {
+      WireId dst_wire(rnode.id());
+      for (const auto &src : rnode.sources()) {
+	WireId src_wire(src);
+	wires[dst_wire].wires_uphill.push_back(src_wire);
+	wires[src_wire].wires_downhill.push_back(dst_wire);
+	++pip_count;
+      }
     }
 
     log_info("    imported %d wires and %d pips\n", int(wires.size()), pip_count);
