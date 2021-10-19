@@ -81,20 +81,21 @@ Arch::Arch(ArchArgs args)
 
     auto hps_pos = cyclonev->hps_get_pos();
     if (!hps_pos.empty()) {
-        create_hps_mpu_general_purpose(CycloneV::pos2x(hps_pos[CycloneV::I_HPS_MPU_GENERAL_PURPOSE]), CycloneV::pos2y(hps_pos[CycloneV::I_HPS_MPU_GENERAL_PURPOSE]));
+        create_hps_mpu_general_purpose(CycloneV::pos2x(hps_pos[CycloneV::I_HPS_MPU_GENERAL_PURPOSE]),
+                                       CycloneV::pos2y(hps_pos[CycloneV::I_HPS_MPU_GENERAL_PURPOSE]));
     }
 
     // This import takes about 5s, perhaps long term we can speed it up, e.g. defer to Mistral more...
     log_info("Initialising routing graph...\n");
     int pip_count = 0;
     for (const auto &rnode : cyclonev->rnodes()) {
-      WireId dst_wire(rnode.id());
-      for (const auto &src : rnode.sources()) {
-	WireId src_wire(src);
-	wires[dst_wire].wires_uphill.push_back(src_wire);
-	wires[src_wire].wires_downhill.push_back(dst_wire);
-	++pip_count;
-      }
+        WireId dst_wire(rnode.id());
+        for (const auto &src : rnode.sources()) {
+            WireId src_wire(src);
+            wires[dst_wire].wires_uphill.push_back(src_wire);
+            wires[src_wire].wires_downhill.push_back(dst_wire);
+            ++pip_count;
+        }
     }
 
     log_info("    imported %d wires and %d pips\n", int(wires.size()), pip_count);

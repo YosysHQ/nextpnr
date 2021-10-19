@@ -45,18 +45,21 @@ bool Arch::is_clkbuf_cell(IdString cell_type) const
 
 void Arch::create_hps_mpu_general_purpose(int x, int y)
 {
-    BelId gp_bel = add_bel(x, y, id_cyclonev_hps_interface_mpu_general_purpose, id_cyclonev_hps_interface_mpu_general_purpose);
+    BelId gp_bel =
+            add_bel(x, y, id_cyclonev_hps_interface_mpu_general_purpose, id_cyclonev_hps_interface_mpu_general_purpose);
     for (int i = 0; i < 32; i++) {
-        add_bel_pin(gp_bel, id(stringf("gp_in[%d]", i)),  PORT_IN,  get_port(CycloneV::HPS_MPU_GENERAL_PURPOSE, x, y, -1, CycloneV::GP_IN,  i));
-        add_bel_pin(gp_bel, id(stringf("gp_out[%d]", i)), PORT_OUT, get_port(CycloneV::HPS_MPU_GENERAL_PURPOSE, x, y, -1, CycloneV::GP_OUT, i));
+        add_bel_pin(gp_bel, id(stringf("gp_in[%d]", i)), PORT_IN,
+                    get_port(CycloneV::HPS_MPU_GENERAL_PURPOSE, x, y, -1, CycloneV::GP_IN, i));
+        add_bel_pin(gp_bel, id(stringf("gp_out[%d]", i)), PORT_OUT,
+                    get_port(CycloneV::HPS_MPU_GENERAL_PURPOSE, x, y, -1, CycloneV::GP_OUT, i));
     }
 }
 
 void Arch::create_control(int x, int y)
 {
     BelId oscillator_bel = add_bel(x, y, id_cyclonev_oscillator, id_cyclonev_oscillator);
-    add_bel_pin(oscillator_bel, id("oscena"),  PORT_IN,  get_port(CycloneV::CTRL, x, y, -1, CycloneV::OSC_ENA, -1));
-    add_bel_pin(oscillator_bel, id("clkout"),  PORT_OUT, get_port(CycloneV::CTRL, x, y, -1, CycloneV::CLK_OUT,  -1));
+    add_bel_pin(oscillator_bel, id("oscena"), PORT_IN, get_port(CycloneV::CTRL, x, y, -1, CycloneV::OSC_ENA, -1));
+    add_bel_pin(oscillator_bel, id("clkout"), PORT_OUT, get_port(CycloneV::CTRL, x, y, -1, CycloneV::CLK_OUT, -1));
     add_bel_pin(oscillator_bel, id("clkout1"), PORT_OUT, get_port(CycloneV::CTRL, x, y, -1, CycloneV::CLK_OUT1, -1));
 }
 
