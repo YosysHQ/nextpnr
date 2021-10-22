@@ -28,6 +28,210 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+static void make_dummy_alu(Context *ctx, int alu_idx, CellInfo *ci, CellInfo *packed_head,
+                           std::vector<std::unique_ptr<CellInfo>> &new_cells)
+{
+    if ((alu_idx % 2) == 0) {
+        return;
+    }
+    std::unique_ptr<CellInfo> dummy = create_generic_cell(ctx, id_SLICE, ci->name.str(ctx) + "_DUMMY_ALULC");
+    if (ctx->verbose) {
+        log_info("packed dummy ALU %s.\n", ctx->nameOf(dummy.get()));
+    }
+    dummy->params[id_ALU_MODE] = std::string("C2L");
+    // add to cluster
+    dummy->cluster = packed_head->name;
+    dummy->constr_z = alu_idx % 6;
+    dummy->constr_x = alu_idx / 6;
+    packed_head->constr_children.push_back(dummy.get());
+    new_cells.push_back(std::move(dummy));
+}
+
+// replace ALU with LUT
+static void pack_alus(Context *ctx)
+{
+    log_info("Packing ALUs..\n");
+
+    // cell name, CIN net name
+    pool<std::pair<IdString, IdString>> alu_heads;
+
+    // collect heads
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
+        if (is_alu(ctx, ci)) {
+            NetInfo *cin = ci->ports.at(id_CIN).net;
+            CellInfo *cin_ci = cin->driver.cell;
+
+            if (cin == nullptr || cin_ci == nullptr) {
+                log_error("CIN disconnected at ALU:%s\n", ctx->nameOf(ci));
+                continue;
+            }
+
+            if (!is_alu(ctx, cin_ci) || cin->users.size() > 1) {
+                if (ctx->verbose) {
+                    log_info("ALU head found %s. CIN net is %s\n", ctx->nameOf(ci), ctx->nameOf(cin));
+                }
+                alu_heads.insert(std::make_pair(ci->name, cin->name));
+            }
+        }
+    }
+
+    pool<IdString> packed_cells;
+    pool<IdString> delete_nets;
+    std::vector<std::unique_ptr<CellInfo>> new_cells;
+
+    for (auto &head : alu_heads) {
+        CellInfo *ci = ctx->cells[head.first].get();
+        IdString cin_netId = head.second;
+        if (ctx->verbose) {
+            log_info("cell '%s' is of type '%s'\n", ctx->nameOf(ci), ci->type.c_str(ctx));
+        }
+        std::unique_ptr<CellInfo> packed_head = create_generic_cell(ctx, id_SLICE, ci->name.str(ctx) + "_HEAD_ALULC");
+
+        if (ctx->verbose) {
+            log_info("packed ALU head into %s. CIN net is %s\n", ctx->nameOf(packed_head.get()),
+                     ctx->nameOf(cin_netId));
+        }
+        connect_port(ctx, ctx->nets[ctx->id("$PACKER_VCC_NET")].get(), packed_head.get(), id_C);
+        if (cin_netId == ctx->id("$PACKER_GND_NET")) {
+            // CIN = 0
+            packed_head->params[id_ALU_MODE] = std::string("C2L");
+        } else {
+            if (cin_netId == ctx->id("$PACKER_VCC_NET")) {
+                // CIN = 1
+                packed_head->params[id_ALU_MODE] = std::string("ONE2C");
+            } else {
+                // CIN from logic
+                connect_port(ctx, ctx->nets[cin_netId].get(), packed_head.get(), id_B);
+                connect_port(ctx, ctx->nets[cin_netId].get(), packed_head.get(), id_D);
+                packed_head->params[id_ALU_MODE] = std::string("0"); // ADD
+            }
+        }
+
+        int alu_idx = 1;
+        do { // go through the ALU chain
+            auto alu_bel = ci->attrs.find(ctx->id("BEL"));
+            if (alu_bel != ci->attrs.end()) {
+                log_error("ALU %s placement restrictions are not supported.\n", ctx->nameOf(ci));
+                return;
+            }
+            // remove cell
+            packed_cells.insert(ci->name);
+
+            // CIN/COUT are hardwired, delete
+            disconnect_port(ctx, ci, id_CIN);
+            NetInfo *cout = ci->ports.at(id_COUT).net;
+            disconnect_port(ctx, ci, id_COUT);
+
+            std::unique_ptr<CellInfo> packed = create_generic_cell(ctx, id_SLICE, ci->name.str(ctx) + "_ALULC");
+            if (ctx->verbose) {
+                log_info("packed ALU into %s. COUT net is %s\n", ctx->nameOf(packed.get()), ctx->nameOf(cout));
+            }
+
+            int mode = int_or_default(ci->params, id_ALU_MODE);
+            packed->params[id_ALU_MODE] = mode;
+            if (mode == 9) { // MULT
+                connect_port(ctx, ctx->nets[ctx->id("$PACKER_GND_NET")].get(), packed.get(), id_C);
+            } else {
+                connect_port(ctx, ctx->nets[ctx->id("$PACKER_VCC_NET")].get(), packed.get(), id_C);
+            }
+
+            // add to cluster
+            packed->cluster = packed_head->name;
+            packed->constr_z = alu_idx % 6;
+            packed->constr_x = alu_idx / 6;
+            packed_head->constr_children.push_back(packed.get());
+            ++alu_idx;
+
+            // connect all remainig ports
+            replace_port(ci, id_SUM, packed.get(), id_F);
+            switch (mode) {
+            case 0: // ADD
+                replace_port(ci, id_I0, packed.get(), id_B);
+                replace_port(ci, id_I1, packed.get(), id_D);
+                break;
+            case 1: // SUB
+                replace_port(ci, id_I0, packed.get(), id_A);
+                replace_port(ci, id_I1, packed.get(), id_D);
+                break;
+            case 5: // LE
+                replace_port(ci, id_I0, packed.get(), id_A);
+                replace_port(ci, id_I1, packed.get(), id_B);
+                break;
+            case 9: // MULT
+                replace_port(ci, id_I0, packed.get(), id_A);
+                replace_port(ci, id_I1, packed.get(), id_B);
+                disconnect_port(ctx, packed.get(), id_D);
+                connect_port(ctx, ctx->nets[ctx->id("$PACKER_VCC_NET")].get(), packed.get(), id_D);
+                break;
+            default:
+                replace_port(ci, id_I0, packed.get(), id_A);
+                replace_port(ci, id_I1, packed.get(), id_B);
+                replace_port(ci, id_I3, packed.get(), id_D);
+            }
+
+            new_cells.push_back(std::move(packed));
+
+            if (cout != nullptr && cout->users.size() > 0) {
+                // if COUT used by logic
+                if ((cout->users.size() > 1) || (!is_alu(ctx, cout->users.at(0).cell))) {
+                    if (ctx->verbose) {
+                        log_info("COUT is used by logic\n");
+                    }
+                    // make gate C->logic
+                    std::unique_ptr<CellInfo> packed_tail =
+                            create_generic_cell(ctx, id_SLICE, ci->name.str(ctx) + "_TAIL_ALULC");
+                    if (ctx->verbose) {
+                        log_info("packed ALU tail into %s. COUT net is %s\n", ctx->nameOf(packed_tail.get()),
+                                 ctx->nameOf(cout));
+                    }
+                    packed_tail->params[id_ALU_MODE] = std::string("C2L");
+                    connect_port(ctx, cout, packed_tail.get(), id_F);
+                    // add to cluster
+                    packed_tail->cluster = packed_head->name;
+                    packed_tail->constr_z = alu_idx % 6;
+                    packed_tail->constr_x = alu_idx / 6;
+                    ++alu_idx;
+                    packed_head->constr_children.push_back(packed_tail.get());
+                    new_cells.push_back(std::move(packed_tail));
+                    make_dummy_alu(ctx, alu_idx, ci, packed_head.get(), new_cells);
+                    break;
+                }
+                // next ALU
+                ci = cout->users.at(0).cell;
+                // if ALU is too big
+                if (alu_idx == (ctx->gridDimX - 2) * 6 - 1) {
+                    log_error("ALU %s is the %dth in the chain. Such long chains are not supported.\n", ctx->nameOf(ci),
+                              alu_idx);
+                    break;
+                }
+            } else {
+                // COUT is unused
+                if (ctx->verbose) {
+                    log_info("cell is the ALU tail. Index is %d\n", alu_idx);
+                }
+                make_dummy_alu(ctx, alu_idx, ci, packed_head.get(), new_cells);
+                break;
+            }
+        } while (1);
+
+        // add head to the cluster
+        packed_head->cluster = packed_head->name;
+        new_cells.push_back(std::move(packed_head));
+    }
+
+    // actual delete, erase and move cells/nets
+    for (auto pcell : packed_cells) {
+        ctx->cells.erase(pcell);
+    }
+    for (auto dnet : delete_nets) {
+        ctx->nets.erase(dnet);
+    }
+    for (auto &ncell : new_cells) {
+        ctx->cells[ncell->name] = std::move(ncell);
+    }
+}
+
 // pack MUX2_LUT5
 static void pack_mux2_lut5(Context *ctx, CellInfo *ci, pool<IdString> &packed_cells, pool<IdString> &delete_nets,
                            std::vector<std::unique_ptr<CellInfo>> &new_cells)
@@ -39,7 +243,7 @@ static void pack_mux2_lut5(Context *ctx, CellInfo *ci, pool<IdString> &packed_ce
 
         CellInfo *lut1 = net_driven_by(ctx, i1, is_lut, id_F);
         if (lut1 == nullptr) {
-            log_error("MUX2_LUT5 '%s' port I1 isn't connected to the LUT\n", ci->name.c_str(ctx));
+            log_error("MUX2_LUT5 '%s' port I1 isn't connected to the LUT\n", ctx->nameOf(ci));
             return;
         }
         if (ctx->verbose) {
@@ -50,7 +254,7 @@ static void pack_mux2_lut5(Context *ctx, CellInfo *ci, pool<IdString> &packed_ce
         auto mux_bel = ci->attrs.find(ctx->id("BEL"));
         auto lut1_bel = lut1->attrs.find(ctx->id("BEL"));
         if (lut1_bel != lut1->attrs.end() || mux_bel != ci->attrs.end()) {
-            log_error("MUX2_LUT5 '%s' placement restrictions are not yet supported\n", ci->name.c_str(ctx));
+            log_error("MUX2_LUT5 '%s' placement restrictions are not supported yet\n", ctx->nameOf(ci));
             return;
         }
 
@@ -80,7 +284,7 @@ static void pack_mux2_lut5(Context *ctx, CellInfo *ci, pool<IdString> &packed_ce
         CellInfo *lut0 = net_driven_by(ctx, i0, is_lut, id_F);
         CellInfo *lut1 = net_driven_by(ctx, i1, is_lut, id_F);
         if (lut0 == nullptr || lut1 == nullptr) {
-            log_error("MUX2_LUT5 '%s' port I0 or I1 isn't connected to the LUT\n", ci->name.c_str(ctx));
+            log_error("MUX2_LUT5 '%s' port I0 or I1 isn't connected to the LUT\n", ctx->nameOf(ci));
             return;
         }
         if (ctx->verbose) {
@@ -93,7 +297,7 @@ static void pack_mux2_lut5(Context *ctx, CellInfo *ci, pool<IdString> &packed_ce
         auto lut0_bel = lut0->attrs.find(ctx->id("BEL"));
         auto lut1_bel = lut1->attrs.find(ctx->id("BEL"));
         if (lut0_bel != lut0->attrs.end() || lut1_bel != lut1->attrs.end() || mux_bel != ci->attrs.end()) {
-            log_error("MUX2_LUT5 '%s' placement restrictions are not yet supported\n", ci->name.c_str(ctx));
+            log_error("MUX2_LUT5 '%s' placement restrictions are not supported yet\n", ctx->nameOf(ci));
             return;
         }
 
@@ -135,7 +339,7 @@ static void pack_mux2_lut(Context *ctx, CellInfo *ci, bool (*pred)(const BaseCtx
     CellInfo *mux0 = net_driven_by(ctx, i0, pred, id_OF);
     CellInfo *mux1 = net_driven_by(ctx, i1, pred, id_OF);
     if (mux0 == nullptr || mux1 == nullptr) {
-        log_error("MUX2_LUT%c '%s' port I0 or I1 isn't connected to the MUX\n", type_suffix, ci->name.c_str(ctx));
+        log_error("MUX2_LUT%c '%s' port I0 or I1 isn't connected to the MUX\n", type_suffix, ctx->nameOf(ci));
         return;
     }
     if (ctx->verbose) {
@@ -148,7 +352,7 @@ static void pack_mux2_lut(Context *ctx, CellInfo *ci, bool (*pred)(const BaseCtx
     auto mux0_bel = mux0->attrs.find(ctx->id("BEL"));
     auto mux1_bel = mux1->attrs.find(ctx->id("BEL"));
     if (mux0_bel != mux0->attrs.end() || mux1_bel != mux1->attrs.end() || mux_bel != ci->attrs.end()) {
-        log_error("MUX2_LUT%c '%s' placement restrictions are not yet supported\n", type_suffix, ci->name.c_str(ctx));
+        log_error("MUX2_LUT%c '%s' placement restrictions are not supported yet\n", type_suffix, ctx->nameOf(ci));
         return;
     }
 
@@ -548,6 +752,7 @@ bool Arch::pack()
         pack_constants(ctx);
         pack_io(ctx);
         pack_wideluts(ctx);
+        pack_alus(ctx);
         pack_lut_lutffs(ctx);
         pack_nonlut_ffs(ctx);
         ctx->settings[ctx->id("pack")] = 1;

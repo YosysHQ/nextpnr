@@ -368,6 +368,11 @@ X(GW_MUX2_LUT6)
 X(GW_MUX2_LUT7)
 X(GW_MUX2_LUT8)
 
+// ALU
+X(ALU)
+X(GND)
+X(ALU_MODE)
+
 // DFF types
 X(DFF)
 X(DFFE)
@@ -421,6 +426,9 @@ X(I3)
 X(OEN)
 X(S0)
 X(SEL)
+X(SUM)
+X(CIN)
+X(COUT)
 X(OF)
 
 // timing
