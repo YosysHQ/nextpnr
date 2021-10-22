@@ -57,6 +57,8 @@ inline bool is_widelut(const BaseCtx *ctx, const CellInfo *cell)
     }
 }
 
+inline bool is_alu(const BaseCtx *ctx, const CellInfo *cell) { return (cell->type.index == ID_ALU); }
+
 // is MUX2_LUT5
 inline bool is_mux2_lut5(const BaseCtx *ctx, const CellInfo *cell) { return (cell->type.index == ID_MUX2_LUT5); }
 
