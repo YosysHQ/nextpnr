@@ -43,6 +43,7 @@ static void make_dummy_alu(Context *ctx, int alu_idx, CellInfo *ci, CellInfo *pa
     dummy->cluster = packed_head->name;
     dummy->constr_z = alu_idx % 6;
     dummy->constr_x = alu_idx / 6;
+    dummy->constr_y = 0;
     packed_head->constr_children.push_back(dummy.get());
     new_cells.push_back(std::move(dummy));
 }
@@ -140,6 +141,7 @@ static void pack_alus(Context *ctx)
             packed->cluster = packed_head->name;
             packed->constr_z = alu_idx % 6;
             packed->constr_x = alu_idx / 6;
+            packed->constr_y = 0;
             packed_head->constr_children.push_back(packed.get());
             ++alu_idx;
 
@@ -191,6 +193,7 @@ static void pack_alus(Context *ctx)
                     packed_tail->cluster = packed_head->name;
                     packed_tail->constr_z = alu_idx % 6;
                     packed_tail->constr_x = alu_idx / 6;
+                    packed_tail->constr_y = 0;
                     ++alu_idx;
                     packed_head->constr_children.push_back(packed_tail.get());
                     new_cells.push_back(std::move(packed_tail));
@@ -364,6 +367,7 @@ static void pack_mux2_lut(Context *ctx, CellInfo *ci, bool (*pred)(const BaseCtx
     packed->cluster = packed->name;
     mux0->cluster = packed->name;
     mux0->constr_x = x[0];
+    mux0->constr_y = 0;
     mux0->constr_z = z[0];
     for (auto &child : mux0->constr_children) {
         child->cluster = packed->name;
@@ -374,6 +378,7 @@ static void pack_mux2_lut(Context *ctx, CellInfo *ci, bool (*pred)(const BaseCtx
     mux0->constr_children.clear();
     mux1->cluster = packed->name;
     mux1->constr_x = x[1];
+    mux0->constr_y = 0;
     mux1->constr_z = z[1];
     for (auto &child : mux1->constr_children) {
         child->cluster = packed->name;
