@@ -229,6 +229,44 @@ static bool is_nextpnr_iob(Context *ctx, CellInfo *cell)
 
 static bool is_facade_iob(const Context *ctx, const CellInfo *cell) { return cell->type == id_FACADE_IO; }
 
+static bool nextpnr_iob_connects_only_facade_iob(Context *ctx, CellInfo *iob, NetInfo *&top) {
+    NPNR_ASSERT(is_nextpnr_iob(ctx, iob));
+
+    if(iob->type == ctx->id("$nextpnr_ibuf")) {
+        NetInfo *o = iob->ports.at(id_O).net;
+        top = o;
+
+        CellInfo *fio = net_only_drives(ctx, o, is_facade_iob, id_PAD, true);
+        return fio != nullptr;
+    } else if(iob->type == ctx->id("$nextpnr_obuf")) {
+        NetInfo *i = iob->ports.at(id_I).net;
+        top = i;
+
+        // If connected to a FACADE_IO PAD, the net attached to an I port of an
+        // $nextpnr_obuf will not have a driver, only users; an inout port
+        // like PAD cannot be a driver in nextpnr. So net_driven_by won't
+        // return anything. We exclude the IOB as one of the two users because
+        // we already know that the net drives the $nextpnr_obuf.
+        CellInfo *fio = net_only_drives(ctx, i, is_facade_iob, id_PAD, true, iob);
+        return fio != nullptr;
+    } else if(iob->type == ctx->id("$nextpnr_iobuf")) {
+        NetInfo *o = iob->ports.at(id_O).net;
+        top = o;
+
+        // When split_io is enabled in a frontend (it is for JSON), the I and O
+        // ports of a $nextpnr_iobuf are split; the I port connects to the
+        // driver of the original net before IOB insertion, and the O port
+        // connects everything else. Because FACADE_IO PADs cannot be a driver
+        // in nextpnr, the we can safely ignore the I port of an $nextpnr_iobuf
+        // for any JSON input we're interested in accepting.
+        CellInfo *fio_o = net_only_drives(ctx, o, is_facade_iob, id_PAD, true);
+        return fio_o != nullptr;
+    }
+
+    // Unreachable!
+    NPNR_ASSERT(false);
+}
+
 // Pack IO buffers- Right now, all this does is remove $nextpnr_[io]buf cells.
 // User is expected to manually instantiate FACADE_IO with BEL/IO_TYPE
 // attributes.
@@ -241,6 +279,14 @@ static void pack_io(Context *ctx)
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
         if (is_nextpnr_iob(ctx, ci)) {
+            NetInfo *top;
+
+            if(!nextpnr_iob_connects_only_facade_iob(ctx, ci, top))
+                log_error("Top level net '%s' is not connected to a FACADE_IO PAD port.\n", top->name.c_str(ctx));
+
+            if (ctx->verbose)
+                log_info("Removing top-level IOBUF '%s' of type '%s'\n", ci->name.c_str(ctx), ci->type.c_str(ctx));
+
             for (auto &p : ci->ports)
                 disconnect_port(ctx, ci, p.first);
             packed_cells.insert(ci->name);
