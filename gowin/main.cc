@@ -73,7 +73,7 @@ std::unique_ptr<Context> GowinCommandHandler::createContext(dict<std::string, Pr
         snprintf(buf, 36, "GW1N-%s", match[3].str().c_str());
     }
     chipArgs.family = buf;
-    chipArgs.package = match[5];
+    chipArgs.partnumber = match[0];
     chipArgs.speed = match[6];
     return std::unique_ptr<Context>(new Context(chipArgs));
 }

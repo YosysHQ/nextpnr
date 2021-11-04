@@ -131,6 +131,12 @@ NPNR_PACKED_STRUCT(struct TimingClassPOD {
     RelPtr<TimingGroupsPOD> groups;
 });
 
+NPNR_PACKED_STRUCT(struct PartnumberPOD {
+    uint32_t name_id;
+    uint32_t package_id;
+    uint32_t device_id;
+});
+
 NPNR_PACKED_STRUCT(struct PackagePOD {
     uint32_t name_id;
     uint32_t num_pins;
@@ -153,6 +159,8 @@ NPNR_PACKED_STRUCT(struct DatabasePOD {
     RelPtr<GlobalAliasPOD> aliases;
     uint32_t num_speeds;
     RelPtr<TimingClassPOD> speeds;
+    uint32_t num_partnumbers;
+    RelPtr<PartnumberPOD> partnumber_packages;
     uint32_t num_variants;
     RelPtr<VariantPOD> variants;
     uint16_t num_constids;
@@ -165,7 +173,7 @@ struct ArchArgs
     std::string device;
     std::string family;
     std::string speed;
-    std::string package;
+    std::string partnumber;
     // y = mx + c relationship between distance and delay for interconnect
     // delay estimates
     double delayScale = 0.4, delayOffset = 0.4;

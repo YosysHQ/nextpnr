@@ -698,24 +698,38 @@ Arch::Arch(ArchArgs args) : args(args)
     if (speed == nullptr) {
         log_error("Unsuported speed grade '%s'.\n", args.speed.c_str());
     }
+
+    IdString package_name;
+    IdString device_id;
+    for (unsigned int i = 0; i < db->num_partnumbers; i++) {
+        auto partnumber = &db->partnumber_packages[i];
+        // std::cout << IdString(partnumber->name_id).str(this) << IdString(partnumber->package_id).str(this) <<
+        // std::endl;
+        if (IdString(partnumber->name_id) == id(args.partnumber)) {
+            package_name = IdString(partnumber->package_id);
+            device_id = IdString(partnumber->device_id);
+            break;
+        }
+    }
+
     const VariantPOD *variant = nullptr;
     for (unsigned int i = 0; i < db->num_variants; i++) {
         auto var = &db->variants[i];
         // std::cout << IdString(var->name_id).str(this) << std::endl;
-        if (IdString(var->name_id) == id(args.device)) {
+        if (IdString(var->name_id) == device_id) {
             variant = var;
             break;
         }
     }
     if (variant == nullptr) {
-        log_error("Unsuported device grade '%s'.\n", args.device.c_str());
+        log_error("Unsuported device grade '%s'.\n", device_id.c_str(this));
     }
 
     package = nullptr;
     for (unsigned int i = 0; i < variant->num_packages; i++) {
         auto pkg = &variant->packages[i];
         // std::cout << IdString(pkg->name_id).str(this) << std::endl;
-        if (IdString(pkg->name_id) == id(args.package)) {
+        if (IdString(pkg->name_id) == package_name) {
             package = pkg;
             break;
         }
@@ -724,8 +738,9 @@ Arch::Arch(ArchArgs args) : args(args)
         //     std::cout << IdString(pin.src_id).str(this) << " " << IdString(pin.dest_id).str(this) << std::endl;
         // }
     }
+
     if (package == nullptr) {
-        log_error("Unsuported package '%s'.\n", args.package.c_str());
+        log_error("Unsuported package '%s'.\n", package_name.c_str(this));
     }
     // setup db
     char buf[32];
