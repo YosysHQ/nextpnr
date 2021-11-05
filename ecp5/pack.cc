@@ -2316,7 +2316,9 @@ class Ecp5Packer
                     set_iologic_mode(iol, "IREG_OREG");
                     bool drives_iologic = false;
                     for (auto user : ci->ports.at(ctx->id("Z")).net->users)
-                        if (is_iologic_input_cell(ctx, user.cell) && user.port == ctx->id("D"))
+                        if (is_iologic_input_cell(ctx, user.cell) &&
+                            (user.port == ctx->id("D") ||
+                             (user.cell->type == ctx->id("TRELLIS_FF") && user.port == ctx->id("DI"))))
                             drives_iologic = true;
                     if (drives_iologic) {
                         // Reconnect to PIO which the packer expects later on

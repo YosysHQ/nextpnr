@@ -21,6 +21,7 @@
 #define ECP5_CELLS_H
 
 #include "nextpnr.h"
+#include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -49,12 +50,17 @@ inline bool is_l6mux(const BaseCtx *ctx, const CellInfo *cell) { return cell->ty
 inline bool is_iologic_input_cell(const BaseCtx *ctx, const CellInfo *cell)
 {
     return cell->type == ctx->id("IDDRX1F") || cell->type == ctx->id("IDDRX2F") || cell->type == ctx->id("IDDR71B") ||
-           cell->type == ctx->id("IDDRX2DQA");
+           cell->type == ctx->id("IDDRX2DQA") ||
+           (cell->type == ctx->id("TRELLIS_FF") && bool_or_default(cell->attrs, ctx->id("syn_useioff")) &&
+            (str_or_default(cell->attrs, ctx->id("ioff_dir"), "") != "output"));
 }
 inline bool is_iologic_output_cell(const BaseCtx *ctx, const CellInfo *cell)
 {
     return cell->type == ctx->id("ODDRX1F") || cell->type == ctx->id("ODDRX2F") || cell->type == ctx->id("ODDR71B") ||
-           cell->type == ctx->id("ODDRX2DQA") || cell->type == ctx->id("ODDRX2DQSB") || cell->type == ctx->id("OSHX2A");
+           cell->type == ctx->id("ODDRX2DQA") || cell->type == ctx->id("ODDRX2DQSB") ||
+           cell->type == ctx->id("OSHX2A") ||
+           (cell->type == ctx->id("TRELLIS_FF") && bool_or_default(cell->attrs, ctx->id("syn_useioff")) &&
+            (str_or_default(cell->attrs, ctx->id("ioff_dir"), "") != "input"));
 }
 
 void ff_to_slice(Context *ctx, CellInfo *ff, CellInfo *lc, int index, bool driven_by_lut);
