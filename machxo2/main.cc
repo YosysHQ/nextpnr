@@ -69,7 +69,6 @@ po::options_description MachXO2CommandHandler::getArchOptions()
 
     // specific.add_options()("lpf", po::value<std::vector<std::string>>(), "LPF pin constraint file(s)");
 
-    specific.add_options()("no-iobs", "disable automatic IO buffer insertion (unimplemented- always enabled)");
     return specific;
 }
 
@@ -108,8 +107,6 @@ std::unique_ptr<Context> MachXO2CommandHandler::createContext(dict<std::string, 
     }
 
     auto ctx = std::unique_ptr<Context>(new Context(chipArgs));
-    if (vm.count("no-iobs"))
-        ctx->settings[ctx->id("disable_iobs")] = Property::State::S1;
     return ctx;
 }
 

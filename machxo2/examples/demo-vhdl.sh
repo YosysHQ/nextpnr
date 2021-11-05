@@ -19,6 +19,6 @@ set -ex
 ${YOSYS:-yosys} -p "ghdl --std=08 prims.vhd ${1}.vhd -e;
                     attrmap -tocase LOC
                     synth_machxo2 -json ${1}-vhdl.json"
-${NEXTPNR:-../../nextpnr-machxo2} --1200 --package QFN32 --no-iobs --json $1-vhdl.json --textcfg $1-vhdl.txt
+${NEXTPNR:-../../nextpnr-machxo2} --1200 --package QFN32 --json $1-vhdl.json --textcfg $1-vhdl.txt
 ecppack --compress $DB_ARG $1-vhdl.txt $1-vhdl.bit
 tinyproga -b $1-vhdl.bit
