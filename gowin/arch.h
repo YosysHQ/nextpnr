@@ -135,6 +135,7 @@ NPNR_PACKED_STRUCT(struct PartnumberPOD {
     uint32_t name_id;
     uint32_t package_id;
     uint32_t device_id;
+    uint32_t speed_id;
 });
 
 NPNR_PACKED_STRUCT(struct PackagePOD {
@@ -170,9 +171,7 @@ NPNR_PACKED_STRUCT(struct DatabasePOD {
 
 struct ArchArgs
 {
-    std::string device;
     std::string family;
-    std::string speed;
     std::string partnumber;
     // y = mx + c relationship between distance and delay for interconnect
     // delay estimates

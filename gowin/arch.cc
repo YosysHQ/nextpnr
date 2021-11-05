@@ -670,7 +670,6 @@ void Arch::addMuxBels(const DatabasePOD *db, int row, int col)
 Arch::Arch(ArchArgs args) : args(args)
 {
     family = args.family;
-    device = args.device;
 
     // Load database
     std::string chipdb = stringf("gowin/chipdb-%s.bin", family.c_str());
@@ -685,22 +684,11 @@ Arch::Arch(ArchArgs args) : args(args)
     for (size_t i = 0; i < db->num_ids; i++) {
         IdString::initialize_add(this, db->id_strs[i].get(), uint32_t(i) + db->num_constids);
     }
-    // setup timing info
-    speed = nullptr;
-    for (unsigned int i = 0; i < db->num_speeds; i++) {
-        const TimingClassPOD *tc = &db->speeds[i];
-        // std::cout << IdString(tc->name_id).str(this) << std::endl;
-        if (IdString(tc->name_id) == id(args.speed)) {
-            speed = tc->groups.get();
-            break;
-        }
-    }
-    if (speed == nullptr) {
-        log_error("Unsuported speed grade '%s'.\n", args.speed.c_str());
-    }
 
+    // setup package
     IdString package_name;
     IdString device_id;
+    IdString speed_id;
     for (unsigned int i = 0; i < db->num_partnumbers; i++) {
         auto partnumber = &db->partnumber_packages[i];
         // std::cout << IdString(partnumber->name_id).str(this) << IdString(partnumber->package_id).str(this) <<
@@ -708,8 +696,26 @@ Arch::Arch(ArchArgs args) : args(args)
         if (IdString(partnumber->name_id) == id(args.partnumber)) {
             package_name = IdString(partnumber->package_id);
             device_id = IdString(partnumber->device_id);
+            speed_id = IdString(partnumber->speed_id);
             break;
         }
+    }
+    if (package_name == IdString()) {
+        log_error("Unsuported partnumber '%s'.\n", args.partnumber.c_str());
+    }
+
+    // setup timing info
+    speed = nullptr;
+    for (unsigned int i = 0; i < db->num_speeds; i++) {
+        const TimingClassPOD *tc = &db->speeds[i];
+        // std::cout << IdString(tc->name_id).str(this) << std::endl;
+        if (IdString(tc->name_id) == speed_id) {
+            speed = tc->groups.get();
+            break;
+        }
+    }
+    if (speed == nullptr) {
+        log_error("Unsuported speed grade '%s'.\n", speed_id.c_str(this));
     }
 
     const VariantPOD *variant = nullptr;
@@ -742,6 +748,11 @@ Arch::Arch(ArchArgs args) : args(args)
     if (package == nullptr) {
         log_error("Unsuported package '%s'.\n", package_name.c_str(this));
     }
+
+    //
+    log_info("Series:%s Device:%s Package:%s Speed:%s\n", family.c_str(), device_id.c_str(this),
+             package_name.c_str(this), speed_id.c_str(this));
+
     // setup db
     char buf[32];
     // The reverse order of the enumeration simplifies the creation
