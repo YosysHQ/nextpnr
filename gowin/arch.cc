@@ -674,8 +674,12 @@ Arch::Arch(ArchArgs args) : args(args)
     // Load database
     std::string chipdb = stringf("gowin/chipdb-%s.bin", family.c_str());
     auto db = reinterpret_cast<const DatabasePOD *>(get_chipdb(chipdb));
-    if (db == nullptr)
+    if (db == nullptr) {
         log_error("Failed to load chipdb '%s'\n", chipdb.c_str());
+    }
+    if (db->version != chipdb_version) {
+        log_error("Incorrect chipdb version %u is used. Version %u is required\n", db->version, chipdb_version);
+    }
     if (db->family.get() != family) {
         log_error("Database is for family '%s' but provided device is family '%s'.\n", db->family.get(),
                   family.c_str());

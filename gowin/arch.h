@@ -454,6 +454,8 @@ struct Arch : BaseArch<ArchRanges>
     bool cellsCompatible(const CellInfo **cells, int count) const;
     // start Z for the MUX2LUT5 bels
     int const mux_0_z = 10;
+    // chip db version
+    unsigned int const chipdb_version = 1;
 
     std::vector<IdString> cell_types;
 
