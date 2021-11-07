@@ -670,13 +670,16 @@ void Arch::addMuxBels(const DatabasePOD *db, int row, int col)
 Arch::Arch(ArchArgs args) : args(args)
 {
     family = args.family;
-    device = args.device;
 
     // Load database
     std::string chipdb = stringf("gowin/chipdb-%s.bin", family.c_str());
     auto db = reinterpret_cast<const DatabasePOD *>(get_chipdb(chipdb));
-    if (db == nullptr)
+    if (db == nullptr) {
         log_error("Failed to load chipdb '%s'\n", chipdb.c_str());
+    }
+    if (db->version != chipdb_version) {
+        log_error("Incorrect chipdb version %u is used. Version %u is required\n", db->version, chipdb_version);
+    }
     if (db->family.get() != family) {
         log_error("Database is for family '%s' but provided device is family '%s'.\n", db->family.get(),
                   family.c_str());
@@ -685,37 +688,58 @@ Arch::Arch(ArchArgs args) : args(args)
     for (size_t i = 0; i < db->num_ids; i++) {
         IdString::initialize_add(this, db->id_strs[i].get(), uint32_t(i) + db->num_constids);
     }
+
+    // setup package
+    IdString package_name;
+    IdString device_id;
+    IdString speed_id;
+    for (unsigned int i = 0; i < db->num_partnumbers; i++) {
+        auto partnumber = &db->partnumber_packages[i];
+        // std::cout << IdString(partnumber->name_id).str(this) << IdString(partnumber->package_id).str(this) <<
+        // std::endl;
+        if (IdString(partnumber->name_id) == id(args.partnumber)) {
+            package_name = IdString(partnumber->package_id);
+            device_id = IdString(partnumber->device_id);
+            speed_id = IdString(partnumber->speed_id);
+            break;
+        }
+    }
+    if (package_name == IdString()) {
+        log_error("Unsuported partnumber '%s'.\n", args.partnumber.c_str());
+    }
+
     // setup timing info
     speed = nullptr;
     for (unsigned int i = 0; i < db->num_speeds; i++) {
         const TimingClassPOD *tc = &db->speeds[i];
         // std::cout << IdString(tc->name_id).str(this) << std::endl;
-        if (IdString(tc->name_id) == id(args.speed)) {
+        if (IdString(tc->name_id) == speed_id) {
             speed = tc->groups.get();
             break;
         }
     }
     if (speed == nullptr) {
-        log_error("Unsuported speed grade '%s'.\n", args.speed.c_str());
+        log_error("Unsuported speed grade '%s'.\n", speed_id.c_str(this));
     }
+
     const VariantPOD *variant = nullptr;
     for (unsigned int i = 0; i < db->num_variants; i++) {
         auto var = &db->variants[i];
         // std::cout << IdString(var->name_id).str(this) << std::endl;
-        if (IdString(var->name_id) == id(args.device)) {
+        if (IdString(var->name_id) == device_id) {
             variant = var;
             break;
         }
     }
     if (variant == nullptr) {
-        log_error("Unsuported device grade '%s'.\n", args.device.c_str());
+        log_error("Unsuported device grade '%s'.\n", device_id.c_str(this));
     }
 
     package = nullptr;
     for (unsigned int i = 0; i < variant->num_packages; i++) {
         auto pkg = &variant->packages[i];
         // std::cout << IdString(pkg->name_id).str(this) << std::endl;
-        if (IdString(pkg->name_id) == id(args.package)) {
+        if (IdString(pkg->name_id) == package_name) {
             package = pkg;
             break;
         }
@@ -724,9 +748,15 @@ Arch::Arch(ArchArgs args) : args(args)
         //     std::cout << IdString(pin.src_id).str(this) << " " << IdString(pin.dest_id).str(this) << std::endl;
         // }
     }
+
     if (package == nullptr) {
-        log_error("Unsuported package '%s'.\n", args.package.c_str());
+        log_error("Unsuported package '%s'.\n", package_name.c_str(this));
     }
+
+    //
+    log_info("Series:%s Device:%s Package:%s Speed:%s\n", family.c_str(), device_id.c_str(this),
+             package_name.c_str(this), speed_id.c_str(this));
+
     // setup db
     char buf[32];
     // The reverse order of the enumeration simplifies the creation
