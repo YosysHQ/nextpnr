@@ -2395,7 +2395,11 @@ struct NexusPacker
         pack_luts();
         pack_ip();
         handle_iologic();
-        pack_lutffs();
+
+        if (!bool_or_default(ctx->settings, ctx->id("no_pack_lutff"))) {
+            pack_lutffs();
+        }
+
         promote_globals();
         place_globals();
         generate_constraints();

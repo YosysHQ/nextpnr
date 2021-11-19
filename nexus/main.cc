@@ -51,6 +51,7 @@ po::options_description NexusCommandHandler::getArchOptions()
     specific.add_options()("fasm", po::value<std::string>(), "fasm file to write");
     specific.add_options()("pdc", po::value<std::string>(), "physical constraints file");
     specific.add_options()("no-post-place-opt", "disable post-place repacking (debugging use only)");
+    specific.add_options()("no-pack-lutff", "disable packing (clustering) LUTs and FFs together");
 
     return specific;
 }
@@ -76,6 +77,8 @@ std::unique_ptr<Context> NexusCommandHandler::createContext(dict<std::string, Pr
     auto ctx = std::unique_ptr<Context>(new Context(chipArgs));
     if (vm.count("no-post-place-opt"))
         ctx->settings[ctx->id("no_post_place_opt")] = Property::State::S1;
+    if (vm.count("no-pack-lutff"))
+        ctx->settings[ctx->id("no_pack_lutff")] = Property::State::S1;
     return ctx;
 }
 
