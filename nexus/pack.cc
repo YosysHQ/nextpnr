@@ -2304,6 +2304,78 @@ struct NexusPacker
         }
     }
 
+    void pack_lutffs () {
+        log_info("Inferring LUT+FF pairs...\n");
+
+        size_t num_comb = 0;
+        size_t num_ff   = 0;
+        size_t num_pair = 0;
+
+        for (auto &cell : ctx->cells) {
+            CellInfo *ff = cell.second.get();
+            if (ff->type != id_OXIDE_FF) {
+                continue;
+            }
+
+            num_ff++;
+
+            // Get input net
+            NetInfo *di = get_net_or_empty(ff, id_M); // At the packing stage all inputs go to M
+            if (di == nullptr || di->driver.cell == nullptr) {
+                continue;
+            }
+
+            // Skip if there are multiple sinks
+            if (di->users.size() != 1) {
+                continue;
+            }
+
+            // Check if the driver is a LUT and the direct connection is from F
+            CellInfo* lut = di->driver.cell;
+            if (lut->type != id_OXIDE_COMB || di->driver.port != id_F) {
+                continue;
+            }
+
+            // The LUT must be in LOGIC mode
+            if (str_or_default(lut->params, id_MODE, "LOGIC") != "LOGIC") {
+                continue;
+            }
+
+            // Skip clusters
+            // FIXME: In case of carry chain make the LUTFF part of the chain
+            if (lut->cluster != ClusterId() || ff->cluster != ClusterId()) {
+                continue;
+            }
+
+            // Make a cluster
+            lut->cluster = lut->name;
+            lut->constr_children.push_back(ff);
+
+            ff->cluster = lut->name;
+            ff->constr_x = 0;
+            ff->constr_y = 0;
+            ff->constr_z = 2;
+            ff->constr_abs_z = false;
+
+            num_pair++;
+        }
+
+        // Count OXIDE_COMB, OXIDE_FF are already counted
+        for (auto &cell : ctx->cells) {
+            CellInfo *ff = cell.second.get();
+            if (ff->type == id_OXIDE_COMB) {
+                num_comb++;
+            }
+        }
+
+        // Print statistics
+        log_info("    Created %zu LUT+FF pairs from %zu FFs and %zu LUTs\n",
+            num_pair,
+            num_ff,
+            num_comb
+        );
+    }
+
     explicit NexusPacker(Context *ctx) : ctx(ctx) {}
 
     void operator()()
@@ -2323,6 +2395,7 @@ struct NexusPacker
         pack_luts();
         pack_ip();
         handle_iologic();
+        pack_lutffs();
         promote_globals();
         place_globals();
         generate_constraints();
