@@ -33,6 +33,7 @@
 #include <boost/program_options.hpp>
 #include <fstream>
 #include <iostream>
+#include <random>
 #include "command.h"
 #include "design_utils.h"
 #include "json_frontend.h"
@@ -223,12 +224,9 @@ void CommandHandler::setupContext(Context *ctx)
     }
 
     if (vm.count("randomize-seed")) {
-        srand(time(NULL));
-        int r;
-        do {
-            r = rand();
-        } while (r == 0);
-        ctx->rngseed(r);
+        std::random_device randDev{};
+        std::uniform_int_distribution<int> distrib{1};
+        ctx->rngseed(distrib(randDev));
     }
 
     if (vm.count("slack_redist_iter")) {
