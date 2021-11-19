@@ -2310,6 +2310,7 @@ struct NexusPacker
         size_t num_comb = 0;
         size_t num_ff   = 0;
         size_t num_pair = 0;
+        size_t num_glue = 0;
 
         for (auto &cell : ctx->cells) {
             CellInfo *ff = cell.second.get();
@@ -2320,44 +2321,91 @@ struct NexusPacker
             num_ff++;
 
             // Get input net
-            NetInfo *di = get_net_or_empty(ff, id_M); // At the packing stage all inputs go to M
+            // At the packing stage all inputs go to M
+            NetInfo *di = get_net_or_empty(ff, id_M);
             if (di == nullptr || di->driver.cell == nullptr) {
                 continue;
             }
 
-            // Skip if there are multiple sinks
+            // Skip if there are multiple sinks on that net
             if (di->users.size() != 1) {
                 continue;
             }
 
             // Check if the driver is a LUT and the direct connection is from F
             CellInfo* lut = di->driver.cell;
-            if (lut->type != id_OXIDE_COMB || di->driver.port != id_F) {
+            if (lut->type != id_OXIDE_COMB) {
+                continue;
+            }
+            if (di->driver.port != id_F  &&
+                di->driver.port != id_F1 &&
+                di->driver.port != id_OFX)
+            {
                 continue;
             }
 
-            // The LUT must be in LOGIC mode
-            if (str_or_default(lut->params, id_MODE, "LOGIC") != "LOGIC") {
+            // The FF must not use M and DI at the same time
+            if (get_net_or_empty(ff, id_DI)) {
                 continue;
             }
 
-            // Skip clusters
-            // FIXME: In case of carry chain make the LUTFF part of the chain
-            if (lut->cluster != ClusterId() || ff->cluster != ClusterId()) {
+            // The LUT must be in LOGIC/CARRY mode
+            if (str_or_default(lut->params, id_MODE, "LOGIC") != "LOGIC" &&
+                str_or_default(lut->params, id_MODE, "LOGIC") != "CCU2") {
                 continue;
             }
 
-            // Make a cluster
-            lut->cluster = lut->name;
-            lut->constr_children.push_back(ff);
+            // The FF cannot be in another cluster
+            if (ff->cluster != ClusterId()) {
+                continue;
+            }
 
-            ff->cluster = lut->name;
-            ff->constr_x = 0;
-            ff->constr_y = 0;
-            ff->constr_z = 2;
-            ff->constr_abs_z = false;
+            // A free LUT, create a new cluster
+            if (lut->cluster == ClusterId()) {
 
-            num_pair++;
+                lut->cluster = lut->name;
+                lut->constr_children.push_back(ff);
+
+                ff->cluster = lut->name;
+                ff->constr_x = 0;
+                ff->constr_y = 0;
+                ff->constr_z = 2;
+                ff->constr_abs_z = false;
+
+                num_pair++;
+            }
+            // Attach the FF to the existing cluster of the LUT
+            else {
+
+                // Find the cluster root
+                CellInfo* root  = nullptr;
+                if (!lut->constr_children.empty()) {
+                    root  = lut;
+                }
+                else {
+                    for (auto &it : ctx->cells) {
+                        if (it.second->cluster == lut->cluster && !it.second->constr_children.empty()) {
+                            root  = it.second.get();
+                            break;
+                        }
+                    }
+                }
+                NPNR_ASSERT(root  != nullptr);
+
+                // Constrain the FF relative to the LUT
+                ff->cluster = root->cluster;
+                ff->constr_x = lut->constr_x;
+                ff->constr_y = lut->constr_y;
+                ff->constr_z = lut->constr_z + 2;
+                ff->constr_abs_z = false;
+                root->constr_children.push_back(ff);
+
+                num_glue++;
+            }
+
+            // Reconnect M to DI
+            rename_port(ctx, ff, id_M, id_DI);
+            ff->params[id_SEL] = std::string("DL");
         }
 
         // Count OXIDE_COMB, OXIDE_FF are already counted
@@ -2369,8 +2417,9 @@ struct NexusPacker
         }
 
         // Print statistics
-        log_info("    Created %zu LUT+FF pairs from %zu FFs and %zu LUTs\n",
+        log_info("    Created %zu LUT+FF pairs and extended %zu clusters using total %zu FFs and %zu LUTs\n",
             num_pair,
+            num_glue,
             num_ff,
             num_comb
         );
