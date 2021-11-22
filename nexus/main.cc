@@ -52,6 +52,7 @@ po::options_description NexusCommandHandler::getArchOptions()
     specific.add_options()("pdc", po::value<std::string>(), "physical constraints file");
     specific.add_options()("no-post-place-opt", "disable post-place repacking (debugging use only)");
     specific.add_options()("no-pack-lutff", "disable packing (clustering) LUTs and FFs together");
+    specific.add_options()("carry-lutff-ratio", po::value<float>(), "ratio of FFs to be added to carry-chain LUT clusters");
 
     return specific;
 }
@@ -79,6 +80,13 @@ std::unique_ptr<Context> NexusCommandHandler::createContext(dict<std::string, Pr
         ctx->settings[ctx->id("no_post_place_opt")] = Property::State::S1;
     if (vm.count("no-pack-lutff"))
         ctx->settings[ctx->id("no_pack_lutff")] = Property::State::S1;
+    if (vm.count("carry-lutff-ratio")) {
+        float ratio = vm["carry-lutff-ratio"].as<float>();
+        if (ratio < 0.0f || ratio > 1.0f) {
+            log_error("Carry LUT+FF packing ration must be between 0.0 and 1.0");
+        }
+        ctx->settings[ctx->id("carry_lutff_ratio")] = ratio;
+    }
     return ctx;
 }
 

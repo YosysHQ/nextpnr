@@ -2307,6 +2307,11 @@ struct NexusPacker
     void pack_lutffs () {
         log_info("Inferring LUT+FF pairs...\n");
 
+        float carry_ratio = 1.0f;
+        if (ctx->settings.find(ctx->id("carry_lutff_ratio")) != ctx->settings.end()) {
+            carry_ratio = ctx->setting<float>("carry_lutff_ratio");
+        }
+
         size_t num_comb = 0;
         size_t num_ff   = 0;
         size_t num_pair = 0;
@@ -2338,7 +2343,6 @@ struct NexusPacker
                 continue;
             }
             if (di->driver.port != id_F  &&
-                di->driver.port != id_F1 &&
                 di->driver.port != id_OFX)
             {
                 continue;
@@ -2377,27 +2381,24 @@ struct NexusPacker
             // Attach the FF to the existing cluster of the LUT
             else {
 
-                // Find the cluster root
-                CellInfo* root  = nullptr;
-                if (!lut->constr_children.empty()) {
-                    root  = lut;
-                }
-                else {
-                    for (auto &it : ctx->cells) {
-                        if (it.second->cluster == lut->cluster && !it.second->constr_children.empty()) {
-                            root  = it.second.get();
-                            break;
-                        }
+                // No order not to make too large carry clusters pack only the
+                // given fraction of FFs there.
+                if(str_or_default(lut->params, id_MODE, "LOGIC") == "CCU2") {
+                    float r = (float)(ctx->rng() % 1000) * 1e-3f;
+                    if (r > carry_ratio) {
+                        continue;
                     }
                 }
-                NPNR_ASSERT(root  != nullptr);
+
+                // Get the cluster root
+                CellInfo* root = ctx->cells.at(lut->cluster).get();
 
                 // Constrain the FF relative to the LUT
                 ff->cluster = root->cluster;
                 ff->constr_x = lut->constr_x;
                 ff->constr_y = lut->constr_y;
                 ff->constr_z = lut->constr_z + 2;
-                ff->constr_abs_z = false;
+                ff->constr_abs_z = lut->constr_abs_z;
                 root->constr_children.push_back(ff);
 
                 num_glue++;
