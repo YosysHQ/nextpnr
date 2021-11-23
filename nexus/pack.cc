@@ -2304,6 +2304,23 @@ struct NexusPacker
         }
     }
 
+    FFControlSet gather_ff_settings(CellInfo* cell) {
+        NPNR_ASSERT(cell->type == id_OXIDE_FF);
+
+        FFControlSet ctrlset;
+        ctrlset.async = str_or_default(cell->params, id_SRMODE, "LSR_OVER_CE") == "ASYNC";
+        ctrlset.regddr_en = is_enabled(cell, id_REGDDR);
+        ctrlset.gsr_en = is_enabled(cell, id_GSR);
+        ctrlset.clkmux = ctx->id(str_or_default(cell->params, id_CLKMUX, "CLK")).index;
+        ctrlset.cemux = ctx->id(str_or_default(cell->params, id_CEMUX, "CE")).index;
+        ctrlset.lsrmux = ctx->id(str_or_default(cell->params, id_LSRMUX, "LSR")).index;
+        ctrlset.clk = get_net_or_empty(cell, id_CLK);
+        ctrlset.ce = get_net_or_empty(cell, id_CE);
+        ctrlset.lsr = get_net_or_empty(cell, id_LSR);
+
+        return ctrlset;
+    }
+
     void pack_lutffs () {
         log_info("Inferring LUT+FF pairs...\n");
 
@@ -2311,6 +2328,12 @@ struct NexusPacker
         if (ctx->settings.find(ctx->id("carry_lutff_ratio")) != ctx->settings.end()) {
             carry_ratio = ctx->setting<float>("carry_lutff_ratio");
         }
+
+        // FF control settings/signals are slice-wide. The dict below is used
+        // to track settings of FFs glued to clusters which may span more than
+        // one slice (eg. carry-chains). For now it is assumed that all FFs
+        // in one cluster share the same settings and control signals.
+        dict<IdString, FFControlSet> cluster_ffinfo;
 
         size_t num_comb = 0;
         size_t num_ff   = 0;
@@ -2364,6 +2387,9 @@ struct NexusPacker
                 continue;
             }
 
+            // Get FF settings
+            auto ffinfo = gather_ff_settings(ff);
+
             // A free LUT, create a new cluster
             if (lut->cluster == ClusterId()) {
 
@@ -2380,6 +2406,19 @@ struct NexusPacker
             }
             // Attach the FF to the existing cluster of the LUT
             else {
+
+                // Check if the FF settings match those of others in this
+                // cluster. If not then reject this FF.
+                //
+                // This is a greedy approach - the first attached FF will
+                // enforce its settings on all following candidates. A better
+                // approach would be to first form groups of matching FFs for
+                // a cluster and then attach only the largest group to it.
+                if (cluster_ffinfo.count(lut->cluster)) {
+                    if (ffinfo != cluster_ffinfo.at(lut->cluster)) {
+                        continue;
+                    }
+                }
 
                 // No order not to make too large carry clusters pack only the
                 // given fraction of FFs there.
@@ -2407,6 +2446,11 @@ struct NexusPacker
             // Reconnect M to DI
             rename_port(ctx, ff, id_M, id_DI);
             ff->params[id_SEL] = std::string("DL");
+
+            // Store FF settings of the cluster
+            if (!cluster_ffinfo.count(lut->cluster)) {
+                cluster_ffinfo.emplace(lut->cluster, ffinfo);
+            }
         }
 
         // Count OXIDE_COMB, OXIDE_FF are already counted
