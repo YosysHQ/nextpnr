@@ -2304,6 +2304,172 @@ struct NexusPacker
         }
     }
 
+    FFControlSet gather_ff_settings(CellInfo* cell) {
+        NPNR_ASSERT(cell->type == id_OXIDE_FF);
+
+        FFControlSet ctrlset;
+        ctrlset.async = str_or_default(cell->params, id_SRMODE, "LSR_OVER_CE") == "ASYNC";
+        ctrlset.regddr_en = is_enabled(cell, id_REGDDR);
+        ctrlset.gsr_en = is_enabled(cell, id_GSR);
+        ctrlset.clkmux = ctx->id(str_or_default(cell->params, id_CLKMUX, "CLK")).index;
+        ctrlset.cemux = ctx->id(str_or_default(cell->params, id_CEMUX, "CE")).index;
+        ctrlset.lsrmux = ctx->id(str_or_default(cell->params, id_LSRMUX, "LSR")).index;
+        ctrlset.clk = get_net_or_empty(cell, id_CLK);
+        ctrlset.ce = get_net_or_empty(cell, id_CE);
+        ctrlset.lsr = get_net_or_empty(cell, id_LSR);
+
+        return ctrlset;
+    }
+
+    void pack_lutffs () {
+        log_info("Inferring LUT+FF pairs...\n");
+
+        float carry_ratio = 1.0f;
+        if (ctx->settings.find(ctx->id("carry_lutff_ratio")) != ctx->settings.end()) {
+            carry_ratio = ctx->setting<float>("carry_lutff_ratio");
+        }
+
+        // FF control settings/signals are slice-wide. The dict below is used
+        // to track settings of FFs glued to clusters which may span more than
+        // one slice (eg. carry-chains). For now it is assumed that all FFs
+        // in one cluster share the same settings and control signals.
+        dict<IdString, FFControlSet> cluster_ffinfo;
+
+        size_t num_comb = 0;
+        size_t num_ff   = 0;
+        size_t num_pair = 0;
+        size_t num_glue = 0;
+
+        for (auto &cell : ctx->cells) {
+            CellInfo *ff = cell.second.get();
+            if (ff->type != id_OXIDE_FF) {
+                continue;
+            }
+
+            num_ff++;
+
+            // Get input net
+            // At the packing stage all inputs go to M
+            NetInfo *di = get_net_or_empty(ff, id_M);
+            if (di == nullptr || di->driver.cell == nullptr) {
+                continue;
+            }
+
+            // Skip if there are multiple sinks on that net
+            if (di->users.size() != 1) {
+                continue;
+            }
+
+            // Check if the driver is a LUT and the direct connection is from F
+            CellInfo* lut = di->driver.cell;
+            if (lut->type != id_OXIDE_COMB) {
+                continue;
+            }
+            if (di->driver.port != id_F  &&
+                di->driver.port != id_OFX)
+            {
+                continue;
+            }
+
+            // The FF must not use M and DI at the same time
+            if (get_net_or_empty(ff, id_DI)) {
+                continue;
+            }
+
+            // The LUT must be in LOGIC/CARRY mode
+            if (str_or_default(lut->params, id_MODE, "LOGIC") != "LOGIC" &&
+                str_or_default(lut->params, id_MODE, "LOGIC") != "CCU2") {
+                continue;
+            }
+
+            // The FF cannot be in another cluster
+            if (ff->cluster != ClusterId()) {
+                continue;
+            }
+
+            // Get FF settings
+            auto ffinfo = gather_ff_settings(ff);
+
+            // A free LUT, create a new cluster
+            if (lut->cluster == ClusterId()) {
+
+                lut->cluster = lut->name;
+                lut->constr_children.push_back(ff);
+
+                ff->cluster = lut->name;
+                ff->constr_x = 0;
+                ff->constr_y = 0;
+                ff->constr_z = 2;
+                ff->constr_abs_z = false;
+
+                num_pair++;
+            }
+            // Attach the FF to the existing cluster of the LUT
+            else {
+
+                // Check if the FF settings match those of others in this
+                // cluster. If not then reject this FF.
+                //
+                // This is a greedy approach - the first attached FF will
+                // enforce its settings on all following candidates. A better
+                // approach would be to first form groups of matching FFs for
+                // a cluster and then attach only the largest group to it.
+                if (cluster_ffinfo.count(lut->cluster)) {
+                    if (ffinfo != cluster_ffinfo.at(lut->cluster)) {
+                        continue;
+                    }
+                }
+
+                // No order not to make too large carry clusters pack only the
+                // given fraction of FFs there.
+                if(str_or_default(lut->params, id_MODE, "LOGIC") == "CCU2") {
+                    float r = (float)(ctx->rng() % 1000) * 1e-3f;
+                    if (r > carry_ratio) {
+                        continue;
+                    }
+                }
+
+                // Get the cluster root
+                CellInfo* root = ctx->cells.at(lut->cluster).get();
+
+                // Constrain the FF relative to the LUT
+                ff->cluster = root->cluster;
+                ff->constr_x = lut->constr_x;
+                ff->constr_y = lut->constr_y;
+                ff->constr_z = lut->constr_z + 2;
+                ff->constr_abs_z = lut->constr_abs_z;
+                root->constr_children.push_back(ff);
+
+                num_glue++;
+            }
+
+            // Reconnect M to DI
+            rename_port(ctx, ff, id_M, id_DI);
+            ff->params[id_SEL] = std::string("DL");
+
+            // Store FF settings of the cluster
+            if (!cluster_ffinfo.count(lut->cluster)) {
+                cluster_ffinfo.emplace(lut->cluster, ffinfo);
+            }
+        }
+
+        // Count OXIDE_COMB, OXIDE_FF are already counted
+        for (auto &cell : ctx->cells) {
+            CellInfo *ff = cell.second.get();
+            if (ff->type == id_OXIDE_COMB) {
+                num_comb++;
+            }
+        }
+
+        // Print statistics
+        log_info("    Created %zu LUT+FF pairs and extended %zu clusters using total %zu FFs and %zu LUTs\n",
+            num_pair,
+            num_glue,
+            num_ff,
+            num_comb
+        );
+    }
+
     explicit NexusPacker(Context *ctx) : ctx(ctx) {}
 
     void operator()()
@@ -2323,6 +2489,11 @@ struct NexusPacker
         pack_luts();
         pack_ip();
         handle_iologic();
+
+        if (!bool_or_default(ctx->settings, ctx->id("no_pack_lutff"))) {
+            pack_lutffs();
+        }
+
         promote_globals();
         place_globals();
         generate_constraints();
