@@ -447,7 +447,17 @@ struct Arch : BaseArch<ArchRanges>
     mutable dict<IdStringList, PipId> pip_by_name;
 
     std::vector<CellInfo *> bel_to_cell;
-    dict<WireId, int> wire_fanout;
+
+    // faster replacements for base_pip2net, base_wire2net
+    // indexed by get_pip_vecidx()
+    std::vector<NetInfo*> pip2net;
+    // indexed by get_wire_vecidx()
+    std::vector<NetInfo*> wire2net;
+    std::vector<int> wire_fanout;
+    // We record the index=0 offset into pip2net for each tile, allowing us to
+    // calculate any PipId's offset from pip.index and pip.location
+    std::vector<int32_t> pip_tile_vecidx;
+    std::vector<int32_t> wire_tile_vecidx;
 
     // fast access to  X and Y IdStrings for building object names
     std::vector<IdString> x_ids, y_ids;
@@ -614,21 +624,46 @@ struct Arch : BaseArch<ArchRanges>
 
     uint32_t getWireChecksum(WireId wire) const override { return wire.index; }
 
+    uint32_t get_wire_vecidx(const WireId & e) const {
+        uint32_t tile = e.location.y * chip_info->width + e.location.x;
+        int32_t base = wire_tile_vecidx.at(tile);
+        NPNR_ASSERT(base != -1);
+        int32_t i = base + e.index;
+        return i;
+    }
+
+    void bindWire(WireId wire, NetInfo *net, PlaceStrength strength) override
+    {
+        NPNR_ASSERT(wire != WireId());
+        auto &w2n_entry = wire2net.at(get_wire_vecidx(wire));
+        NPNR_ASSERT(w2n_entry == nullptr);
+        net->wires[wire].pip = PipId();
+        net->wires[wire].strength = strength;
+        w2n_entry = net;
+        this->refreshUiWire(wire);
+    }
     void unbindWire(WireId wire) override
     {
         NPNR_ASSERT(wire != WireId());
-        NPNR_ASSERT(base_wire2net[wire] != nullptr);
+        auto &w2n_entry = wire2net.at(get_wire_vecidx(wire));
+        NPNR_ASSERT(w2n_entry != nullptr);
 
-        auto &net_wires = base_wire2net[wire]->wires;
+        auto &net_wires = w2n_entry->wires;
         auto it = net_wires.find(wire);
         NPNR_ASSERT(it != net_wires.end());
+
         auto pip = it->second.pip;
-        // As well as the default rules; need to handle fanout counting
         if (pip != PipId()) {
-            wire_fanout[getPipSrcWire(pip)]--;
+            pip2net.at(get_pip_vecidx(pip)) = nullptr;
+            wire_fanout[get_wire_vecidx(getPipSrcWire(pip))]--;
         }
-        BaseArch::unbindWire(wire);
+
+        net_wires.erase(it);
+        w2n_entry = nullptr;
+        this->refreshUiWire(wire);
     }
+    virtual bool checkWireAvail(WireId wire) const override { return getBoundWireNet(wire) == nullptr; }
+    NetInfo *getBoundWireNet(WireId wire) const override { return wire2net.at(get_wire_vecidx(wire)); }
 
     DelayQuad getWireDelay(WireId wire) const override { return DelayQuad(0); }
 
@@ -667,17 +702,54 @@ struct Arch : BaseArch<ArchRanges>
 
     uint32_t getPipChecksum(PipId pip) const override { return pip.index; }
 
+    uint32_t get_pip_vecidx(const PipId & e) const {
+        uint32_t tile = e.location.y * chip_info->width + e.location.x;
+        int32_t base = pip_tile_vecidx.at(tile);
+        NPNR_ASSERT(base != -1);
+        int32_t i = base + e.index;
+        return i;
+    }
+
     void bindPip(PipId pip, NetInfo *net, PlaceStrength strength) override
     {
-        wire_fanout[getPipSrcWire(pip)]++;
-        BaseArch::bindPip(pip, net, strength);
+        NPNR_ASSERT(pip != PipId());
+        wire_fanout[get_wire_vecidx(getPipSrcWire(pip))]++;
+
+        auto &p2n_entry = pip2net.at(get_pip_vecidx(pip));
+        NPNR_ASSERT(p2n_entry == nullptr);
+        p2n_entry = net;
+
+        WireId dst = this->getPipDstWire(pip);
+        auto &w2n_entry = wire2net.at(get_wire_vecidx(dst));
+        NPNR_ASSERT(w2n_entry == nullptr);
+        w2n_entry = net;
+        net->wires[dst].pip = pip;
+        net->wires[dst].strength = strength;
     }
 
     void unbindPip(PipId pip) override
     {
-        wire_fanout[getPipSrcWire(pip)]--;
-        BaseArch::unbindPip(pip);
+        NPNR_ASSERT(pip != PipId());
+        wire_fanout[get_wire_vecidx(getPipSrcWire(pip))]--;
+
+        auto &p2n_entry = pip2net.at(get_pip_vecidx(pip));
+        NPNR_ASSERT(p2n_entry != nullptr);
+        WireId dst = this->getPipDstWire(pip);
+
+        auto &w2n_entry = wire2net.at(get_wire_vecidx(dst));
+        NPNR_ASSERT(w2n_entry != nullptr);
+        w2n_entry = nullptr;
+
+        p2n_entry->wires.erase(dst);
+        p2n_entry = nullptr;
     }
+    bool checkPipAvail(PipId pip) const override { return getBoundPipNet(pip) == nullptr; }
+    bool checkPipAvailForNet(PipId pip, NetInfo *net) const override
+    {
+        NetInfo *bound_net = getBoundPipNet(pip);
+        return bound_net == nullptr || bound_net == net;
+    }
+    NetInfo *getBoundPipNet(PipId pip) const override { return pip2net.at(get_pip_vecidx(pip)); }
 
     AllPipRange getPips() const override
     {
@@ -713,10 +785,7 @@ struct Arch : BaseArch<ArchRanges>
     DelayQuad getPipDelay(PipId pip) const override
     {
         NPNR_ASSERT(pip != PipId());
-        int fanout = 0;
-        auto fnd_fanout = wire_fanout.find(getPipSrcWire(pip));
-        if (fnd_fanout != wire_fanout.end())
-            fanout = fnd_fanout->second;
+        int fanout = wire_fanout[get_wire_vecidx(getPipSrcWire(pip))];
         delay_t min_dly =
                 speed_grade->pip_classes[loc_info(pip)->pip_data[pip.index].timing_class].min_base_delay +
                 fanout * speed_grade->pip_classes[loc_info(pip)->pip_data[pip.index].timing_class].min_fanout_adder;

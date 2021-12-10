@@ -156,6 +156,8 @@ struct ArchNetInfo
 
 typedef IdString ClusterId;
 
+struct NetInfo;
+
 struct ArchCellInfo : BaseClusterInfo
 {
     struct

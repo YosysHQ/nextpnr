@@ -123,6 +123,27 @@ Arch::Arch(ArchArgs args) : args(args)
         y_ids.push_back(y_id);
         id_to_y[y_id] = i;
     }
+
+    wire_tile_vecidx.resize(chip_info->num_tiles, -1);
+    int n_wires = 0;
+    for (auto e : getWires()) {
+        if (e.index == 0) {
+            wire_tile_vecidx.at(e.location.y * chip_info->width + e.location.x) = n_wires;
+        }
+        n_wires++;
+    }
+    wire2net.resize(n_wires, nullptr);
+    wire_fanout.resize(n_wires, 0);
+
+    pip_tile_vecidx.resize(chip_info->num_tiles, -1);
+    int n_pips = 0;
+    for (auto e : getPips()) {
+        if (e.index == 0) {
+            pip_tile_vecidx.at(e.location.y * chip_info->width + e.location.x) = n_pips;
+        }
+        n_pips++;
+    }
+    pip2net.resize(n_pips, nullptr);
 }
 
 // -----------------------------------------------------------------------
