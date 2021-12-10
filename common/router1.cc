@@ -108,7 +108,6 @@ struct Router1
     dict<arc_key, pool<WireId>> arc_to_wires;
     pool<arc_key> queued_arcs;
 
-    dict<WireId, QueuedWire> visited;
     std::priority_queue<QueuedWire, std::vector<QueuedWire>, QueuedWire::Greater> queue;
 
     dict<WireId, int> wireScores;
@@ -503,7 +502,7 @@ struct Router1
             std::priority_queue<QueuedWire, std::vector<QueuedWire>, QueuedWire::Greater> new_queue;
             queue.swap(new_queue);
         }
-        visited.clear();
+        dict<WireId, QueuedWire> visited;
 
         // A* main loop
 
