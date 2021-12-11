@@ -464,6 +464,9 @@ struct Router2
                 if (ctx->debug)
                     log("      %s\n", ctx->nameOfWire(cursor));
                 did_something |= (wd.reserved_net != net->udata);
+                if (wd.reserved_net != -1 && wd.reserved_net != net->udata)
+                    log_error("attempting to reserve wire '%s' for nets '%s' and '%s'\n", ctx->nameOfWire(cursor),
+                              ctx->nameOf(nets_by_udata.at(wd.reserved_net)), ctx->nameOf(net));
                 wd.reserved_net = net->udata;
                 if (cursor == src)
                     break;
