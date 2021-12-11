@@ -31,9 +31,9 @@ void Arch::create_gpio(int x, int y)
         BelId bel = add_bel(x, y, id(stringf("IO[%d]", z)), id_MISTRAL_IO);
         add_bel_pin(bel, id_PAD, PORT_INOUT, pad);
         // FIXME: is the port index of zero always correct?
-        add_bel_pin(bel, id_I, PORT_IN, get_port(CycloneV::GPIO, x, y, z, CycloneV::DATAIN, 0));
+        add_bel_pin(bel, id_I, PORT_IN, get_port(CycloneV::GPIO, x, y, z, CycloneV::DATAOUT, 0));
         add_bel_pin(bel, id_OE, PORT_IN, get_port(CycloneV::GPIO, x, y, z, CycloneV::OEIN, 0));
-        add_bel_pin(bel, id_O, PORT_OUT, get_port(CycloneV::GPIO, x, y, z, CycloneV::DATAOUT, 0));
+        add_bel_pin(bel, id_O, PORT_OUT, get_port(CycloneV::GPIO, x, y, z, CycloneV::DATAIN, 0));
         bel_data(bel).block_index = z;
     }
 }
