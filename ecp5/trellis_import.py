@@ -196,12 +196,15 @@ class BinaryBlobAssembler:
         print("str |%s| %s" % (s, comment))
 
     def u8(self, v, comment):
+        assert -128 <= int(v) <= 127
         if comment is None:
             print("u8 %d" % (v,))
         else:
             print("u8 %d %s" % (v, comment))
 
     def u16(self, v, comment):
+        # is actually used as signed 16 bit
+        assert -32768 <= int(v) <= 32767
         if comment is None:
             print("u16 %d" % (v,))
         else:
@@ -413,17 +416,16 @@ def write_database(dev_name, chip, ddrg, endianness):
             for arc in loctype.arcs:
                 write_loc(arc.srcWire.rel, "src")
                 write_loc(arc.sinkWire.rel, "dst")
-                bba.u32(arc.srcWire.id, "src_idx")
-                bba.u32(arc.sinkWire.id, "dst_idx")
+                bba.u16(arc.srcWire.id, "src_idx")
+                bba.u16(arc.sinkWire.id, "dst_idx")
                 src_name = get_wire_name(idx, arc.srcWire.rel, arc.srcWire.id)
                 snk_name = get_wire_name(idx, arc.sinkWire.rel, arc.sinkWire.id)
-                bba.u32(get_pip_class(src_name, snk_name), "timing_class")
-                bba.u16(get_tiletype_index(ddrg.to_str(arc.tiletype)), "tile_type")
+                bba.u16(get_pip_class(src_name, snk_name), "timing_class")
+                bba.u8(get_tiletype_index(ddrg.to_str(arc.tiletype)), "tile_type")
                 cls = arc.cls
                 if cls == 1 and "PCS" in snk_name or "DCU" in snk_name or "DCU" in src_name:
                    cls = 2
                 bba.u8(cls, "pip_type")
-                bba.u8(0, "padding")
         if len(loctype.wires) > 0:
             for wire_idx in range(len(loctype.wires)):
                 wire = loctype.wires[wire_idx]
@@ -447,11 +449,11 @@ def write_database(dev_name, chip, ddrg, endianness):
             for wire_idx in range(len(loctype.wires)):
                 wire = loctype.wires[wire_idx]
                 bba.s(ddrg.to_str(wire.name), "name")
-                bba.u32(constids[wire_type(ddrg.to_str(wire.name))], "type")
+                bba.u16(constids[wire_type(ddrg.to_str(wire.name))], "type")
                 if ("TILE_WIRE_" + ddrg.to_str(wire.name)) in gfx_wire_ids:
-                    bba.u32(gfx_wire_ids["TILE_WIRE_" + ddrg.to_str(wire.name)], "tile_wire")
+                    bba.u16(gfx_wire_ids["TILE_WIRE_" + ddrg.to_str(wire.name)], "tile_wire")
                 else:
-                    bba.u32(0, "tile_wire")
+                    bba.u16(0, "tile_wire")
                 bba.r_slice("loc%d_wire%d_uppips" % (idx, wire_idx) if len(wire.arcsUphill) > 0 else None, len(wire.arcsUphill), "pips_uphill")
                 bba.r_slice("loc%d_wire%d_downpips" % (idx, wire_idx) if len(wire.arcsDownhill) > 0 else None, len(wire.arcsDownhill), "pips_downhill")
                 bba.r_slice("loc%d_wire%d_belpins" % (idx, wire_idx) if len(wire.belPins) > 0 else None, len(wire.belPins), "bel_pins")
