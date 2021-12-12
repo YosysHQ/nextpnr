@@ -453,12 +453,14 @@ struct Router2
     {
         bool did_something = false;
         WireId src = ctx->getNetinfoSourceWire(net);
-        for (auto sink : ctx->getNetinfoSinkWires(net, net->users.at(i))) {
+        auto &usr = net->users.at(i);
+        for (auto sink : ctx->getNetinfoSinkWires(net, usr)) {
             pool<WireId> rsv;
             WireId cursor = sink;
             bool done = false;
             if (ctx->debug)
-                log("reserving wires for arc %d of net %s\n", int(i), ctx->nameOf(net));
+                log("reserving wires for arc %d (%s.%s) of net %s\n", int(i), ctx->nameOf(usr.cell),
+                    ctx->nameOf(usr.port), ctx->nameOf(net));
             while (!done) {
                 auto &wd = wire_data(cursor);
                 if (ctx->debug)
