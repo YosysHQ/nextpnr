@@ -2304,7 +2304,8 @@ struct NexusPacker
         }
     }
 
-    FFControlSet gather_ff_settings(CellInfo* cell) {
+    FFControlSet gather_ff_settings(CellInfo *cell)
+    {
         NPNR_ASSERT(cell->type == id_OXIDE_FF);
 
         FFControlSet ctrlset;
@@ -2321,7 +2322,8 @@ struct NexusPacker
         return ctrlset;
     }
 
-    void pack_lutffs () {
+    void pack_lutffs()
+    {
         log_info("Inferring LUT+FF pairs...\n");
 
         float carry_ratio = 1.0f;
@@ -2336,7 +2338,7 @@ struct NexusPacker
         dict<IdString, FFControlSet> cluster_ffinfo;
 
         size_t num_comb = 0;
-        size_t num_ff   = 0;
+        size_t num_ff = 0;
         size_t num_pair = 0;
         size_t num_glue = 0;
 
@@ -2361,13 +2363,11 @@ struct NexusPacker
             }
 
             // Check if the driver is a LUT and the direct connection is from F
-            CellInfo* lut = di->driver.cell;
+            CellInfo *lut = di->driver.cell;
             if (lut->type != id_OXIDE_COMB) {
                 continue;
             }
-            if (di->driver.port != id_F  &&
-                di->driver.port != id_OFX)
-            {
+            if (di->driver.port != id_F && di->driver.port != id_OFX) {
                 continue;
             }
 
@@ -2422,7 +2422,7 @@ struct NexusPacker
 
                 // No order not to make too large carry clusters pack only the
                 // given fraction of FFs there.
-                if(str_or_default(lut->params, id_MODE, "LOGIC") == "CCU2") {
+                if (str_or_default(lut->params, id_MODE, "LOGIC") == "CCU2") {
                     float r = (float)(ctx->rng() % 1000) * 1e-3f;
                     if (r > carry_ratio) {
                         continue;
@@ -2430,7 +2430,7 @@ struct NexusPacker
                 }
 
                 // Get the cluster root
-                CellInfo* root = ctx->cells.at(lut->cluster).get();
+                CellInfo *root = ctx->cells.at(lut->cluster).get();
 
                 // Constrain the FF relative to the LUT
                 ff->cluster = root->cluster;
@@ -2462,12 +2462,8 @@ struct NexusPacker
         }
 
         // Print statistics
-        log_info("    Created %zu LUT+FF pairs and extended %zu clusters using total %zu FFs and %zu LUTs\n",
-            num_pair,
-            num_glue,
-            num_ff,
-            num_comb
-        );
+        log_info("    Created %zu LUT+FF pairs and extended %zu clusters using total %zu FFs and %zu LUTs\n", num_pair,
+                 num_glue, num_ff, num_comb);
     }
 
     explicit NexusPacker(Context *ctx) : ctx(ctx) {}

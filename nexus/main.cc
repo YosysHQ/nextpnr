@@ -52,7 +52,8 @@ po::options_description NexusCommandHandler::getArchOptions()
     specific.add_options()("pdc", po::value<std::string>(), "physical constraints file");
     specific.add_options()("no-post-place-opt", "disable post-place repacking (debugging use only)");
     specific.add_options()("no-pack-lutff", "disable packing (clustering) LUTs and FFs together");
-    specific.add_options()("carry-lutff-ratio", po::value<float>(), "ratio of FFs to be added to carry-chain LUT clusters");
+    specific.add_options()("carry-lutff-ratio", po::value<float>(),
+                           "ratio of FFs to be added to carry-chain LUT clusters");
 
     return specific;
 }
