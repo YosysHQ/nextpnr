@@ -450,9 +450,9 @@ struct Arch : BaseArch<ArchRanges>
 
     // faster replacements for base_pip2net, base_wire2net
     // indexed by get_pip_vecidx()
-    std::vector<NetInfo*> pip2net;
+    std::vector<NetInfo *> pip2net;
     // indexed by get_wire_vecidx()
-    std::vector<NetInfo*> wire2net;
+    std::vector<NetInfo *> wire2net;
     std::vector<int> wire_fanout;
     // We record the index=0 offset into pip2net for each tile, allowing us to
     // calculate any PipId's offset from pip.index and pip.location
@@ -624,7 +624,8 @@ struct Arch : BaseArch<ArchRanges>
 
     uint32_t getWireChecksum(WireId wire) const override { return wire.index; }
 
-    uint32_t get_wire_vecidx(const WireId & e) const {
+    uint32_t get_wire_vecidx(const WireId &e) const
+    {
         uint32_t tile = e.location.y * chip_info->width + e.location.x;
         int32_t base = wire_tile_vecidx.at(tile);
         NPNR_ASSERT(base != -1);
@@ -702,7 +703,8 @@ struct Arch : BaseArch<ArchRanges>
 
     uint32_t getPipChecksum(PipId pip) const override { return pip.index; }
 
-    uint32_t get_pip_vecidx(const PipId & e) const {
+    uint32_t get_pip_vecidx(const PipId &e) const
+    {
         uint32_t tile = e.location.y * chip_info->width + e.location.x;
         int32_t base = pip_tile_vecidx.at(tile);
         NPNR_ASSERT(base != -1);
