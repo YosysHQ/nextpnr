@@ -89,6 +89,9 @@ static void pack_alus(Context *ctx)
         }
         std::unique_ptr<CellInfo> packed_head = create_generic_cell(ctx, id_SLICE, ci->name.str(ctx) + "_HEAD_ALULC");
 
+		// Head is always SLICE0
+		packed_head->constr_z = 0;
+		packed_head->constr_abs_z = true;
         if (ctx->verbose) {
             log_info("packed ALU head into %s. CIN net is %s\n", ctx->nameOf(packed_head.get()),
                      ctx->nameOf(cin_netId));
