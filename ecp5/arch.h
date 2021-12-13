@@ -54,11 +54,10 @@ NPNR_PACKED_STRUCT(struct BelPortPOD {
 
 NPNR_PACKED_STRUCT(struct PipInfoPOD {
     LocationPOD rel_src_loc, rel_dst_loc;
-    int32_t src_idx, dst_idx;
-    int32_t timing_class;
-    int16_t tile_type;
+    int16_t src_idx, dst_idx;
+    int16_t timing_class;
+    int8_t tile_type;
     int8_t pip_type;
-    int8_t padding_0;
 });
 
 NPNR_PACKED_STRUCT(struct PipLocatorPOD {
@@ -68,8 +67,8 @@ NPNR_PACKED_STRUCT(struct PipLocatorPOD {
 
 NPNR_PACKED_STRUCT(struct WireInfoPOD {
     RelPtr<char> name;
-    int32_t type;
-    int32_t tile_wire;
+    int16_t type;
+    int16_t tile_wire;
     RelSlice<PipLocatorPOD> pips_uphill, pips_downhill;
     RelSlice<BelPortPOD> bel_pins;
 });
