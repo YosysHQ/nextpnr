@@ -144,6 +144,8 @@ Arch::Arch(ArchArgs args) : args(args)
         n_pips++;
     }
     pip2net.resize(n_pips, nullptr);
+
+    lutperm_allowed.resize(chip_info->width * chip_info->height * 4);
 }
 
 // -----------------------------------------------------------------------
@@ -624,6 +626,8 @@ bool Arch::place()
 bool Arch::route()
 {
     std::string router = str_or_default(settings, id("router"), defaultRouter);
+
+    disable_router_lutperm = getCtx()->setting<bool>("arch.disable_router_lutperm", false);
 
     setup_wire_locations();
     route_ecp5_globals(getCtx());

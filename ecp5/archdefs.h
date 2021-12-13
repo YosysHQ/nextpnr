@@ -165,6 +165,7 @@ struct ArchCellInfo : BaseClusterInfo
         bool using_dff;
         bool has_l6mux;
         bool is_carry;
+        bool is_memory;
         IdString clk_sig, lsr_sig, clkmux, lsrmux, srmode;
         int sd0, sd1;
     } sliceInfo;

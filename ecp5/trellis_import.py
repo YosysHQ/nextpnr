@@ -426,6 +426,8 @@ def write_database(dev_name, chip, ddrg, endianness):
                 if cls == 1 and "PCS" in snk_name or "DCU" in snk_name or "DCU" in src_name:
                    cls = 2
                 bba.u8(cls, "pip_type")
+                bba.u16(arc.lutperm_flags, "lutperm_flags")
+                bba.u16(0, "padding")
         if len(loctype.wires) > 0:
             for wire_idx in range(len(loctype.wires)):
                 wire = loctype.wires[wire_idx]
@@ -623,7 +625,7 @@ def main():
     # print("Initialising chip...")
     chip = pytrellis.Chip(dev_names[args.device])
     # print("Building routing graph...")
-    ddrg = pytrellis.make_dedup_chipdb(chip)
+    ddrg = pytrellis.make_dedup_chipdb(chip, include_lutperm_pips=True)
     max_row = chip.get_max_row()
     max_col = chip.get_max_col()
     process_timing_data()

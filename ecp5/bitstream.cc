@@ -522,6 +522,55 @@ static void set_pip(Context *ctx, ChipConfig &cc, PipId pip)
     cc.tiles[tile].add_arc(sink, source);
 }
 
+static unsigned permute_lut(Context *ctx, CellInfo *cell, pool<IdString> &used_phys_pins, int k, unsigned orig_init)
+{
+    std::array<std::vector<unsigned>, 4> phys_to_log;
+    const std::array<IdString, 4> ports{k ? id_A1 : id_A0, k ? id_B1 : id_B0, k ? id_C1 : id_C0, k ? id_D1 : id_D0};
+    for (unsigned i = 0; i < 4; i++) {
+        WireId pin_wire = ctx->getBelPinWire(cell->bel, ports[i]);
+        for (PipId pip : ctx->getPipsUphill(pin_wire)) {
+            if (!ctx->getBoundPipNet(pip))
+                continue;
+            unsigned lp = ctx->loc_info(pip)->pip_data[pip.index].lutperm_flags;
+            if (!is_lutperm_pip(lp)) { // non-permuting
+                phys_to_log[i].push_back(i);
+            } else { // permuting
+                unsigned from_pin = lutperm_in(lp);
+                unsigned to_pin = lutperm_out(lp);
+                NPNR_ASSERT(to_pin == i);
+                phys_to_log[from_pin].push_back(i);
+            }
+        }
+    }
+    for (unsigned i = 0; i < 4; i++)
+        if (!phys_to_log.at(i).empty())
+            used_phys_pins.insert(ports.at(i));
+    if (cell->sliceInfo.is_carry) {
+        // Insert dummy entries to ensure we keep the split between the two halves of a CCU2
+        for (unsigned i = 0; i < 4; i++) {
+            if (!phys_to_log.at(i).empty())
+                continue;
+            for (unsigned j = 2 * (i / 2); j < 2 * ((i / 2) + 1); j++) {
+                if (!ctx->getBoundWireNet(ctx->getBelPinWire(cell->bel, ports[j])))
+                    phys_to_log.at(i).push_back(j);
+            }
+        }
+    }
+    unsigned permuted_init = 0;
+    for (unsigned i = 0; i < 16; i++) {
+        unsigned log_idx = 0;
+        for (unsigned j = 0; j < 4; j++) {
+            if ((i >> j) & 0x1) {
+                for (auto log_pin : phys_to_log[j])
+                    log_idx |= (1 << log_pin);
+            }
+        }
+        if ((orig_init >> log_idx) & 0x1)
+            permuted_init |= (1 << i);
+    }
+    return permuted_init;
+}
+
 static std::vector<bool> parse_config_str(const Property &p, int length)
 {
     std::vector<bool> word;
@@ -787,12 +836,15 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
         }
         BelId bel = ci->bel;
         if (ci->type == ctx->id("TRELLIS_SLICE")) {
+            pool<IdString> used_phys_pins;
             std::string tname = ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, "PLC2");
             std::string slice = ctx->loc_info(bel)->bel_data[bel.index].name.get();
             int lut0_init = int_or_default(ci->params, ctx->id("LUT0_INITVAL"));
             int lut1_init = int_or_default(ci->params, ctx->id("LUT1_INITVAL"));
-            cc.tiles[tname].add_word(slice + ".K0.INIT", int_to_bitvector(lut0_init, 16));
-            cc.tiles[tname].add_word(slice + ".K1.INIT", int_to_bitvector(lut1_init, 16));
+            cc.tiles[tname].add_word(slice + ".K0.INIT",
+                                     int_to_bitvector(permute_lut(ctx, ci, used_phys_pins, 0, lut0_init), 16));
+            cc.tiles[tname].add_word(slice + ".K1.INIT",
+                                     int_to_bitvector(permute_lut(ctx, ci, used_phys_pins, 1, lut1_init), 16));
             cc.tiles[tname].add_enum(slice + ".MODE", str_or_default(ci->params, ctx->id("MODE"), "LOGIC"));
             cc.tiles[tname].add_enum(slice + ".GSR", str_or_default(ci->params, ctx->id("GSR"), "ENABLED"));
             cc.tiles[tname].add_enum(slice + ".REG0.SD", intstr_or_default(ci->params, ctx->id("REG0_SD"), "0"));
@@ -854,7 +906,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
 
             // Tie unused inputs high
             for (auto input : {id_A0, id_B0, id_C0, id_D0, id_A1, id_B1, id_C1, id_D1}) {
-                if (ci->ports.find(input) == ci->ports.end() || ci->ports.at(input).net == nullptr) {
+                if (!used_phys_pins.count(input)) {
                     cc.tiles[tname].add_enum(slice + "." + input.str(ctx) + "MUX", "1");
                 }
             }
