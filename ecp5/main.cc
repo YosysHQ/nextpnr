@@ -85,6 +85,7 @@ po::options_description ECP5CommandHandler::getArchOptions()
     specific.add_options()(
             "out-of-context",
             "disable IO buffer insertion and global promotion/routing, for building pre-routed blocks (experimental)");
+    specific.add_options()("disable-router-lutperm", "don't allow the router to permute LUT inputs");
 
     return specific;
 }
@@ -255,6 +256,8 @@ std::unique_ptr<Context> ECP5CommandHandler::createContext(dict<std::string, Pro
     ctx->settings[ctx->id("arch.speed")] = speedString(ctx->archArgs().speed);
     if (vm.count("out-of-context"))
         ctx->settings[ctx->id("arch.ooc")] = 1;
+    if (vm.count("disable-router-lutperm"))
+        ctx->settings[ctx->id("arch.disable_router_lutperm")] = 1;
     return ctx;
 }
 

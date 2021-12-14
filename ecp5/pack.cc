@@ -3253,7 +3253,9 @@ void Arch::assignArchInfo()
             ci->sliceInfo.clkmux = id(str_or_default(ci->params, id_CLKMUX, "CLK"));
             ci->sliceInfo.lsrmux = id(str_or_default(ci->params, id_LSRMUX, "LSR"));
             ci->sliceInfo.srmode = id(str_or_default(ci->params, id_SRMODE, "LSR_OVER_CE"));
-            ci->sliceInfo.is_carry = str_or_default(ci->params, id("MODE"), "LOGIC") == "CCU2";
+            std::string mode = str_or_default(ci->params, id("MODE"), "LOGIC");
+            ci->sliceInfo.is_carry = (mode == "CCU2");
+            ci->sliceInfo.is_memory = (mode == "DPRAM" || mode == "RAMW");
             ci->sliceInfo.sd0 = std::stoi(str_or_default(ci->params, id("REG0_SD"), "0"));
             ci->sliceInfo.sd1 = std::stoi(str_or_default(ci->params, id("REG1_SD"), "0"));
             ci->sliceInfo.has_l6mux = false;

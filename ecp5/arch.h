@@ -58,7 +58,14 @@ NPNR_PACKED_STRUCT(struct PipInfoPOD {
     int16_t timing_class;
     int8_t tile_type;
     int8_t pip_type;
+    int16_t lutperm_flags;
+    int16_t padding;
 });
+
+inline bool is_lutperm_pip(int16_t flags) { return flags & 0x4000; }
+inline uint8_t lutperm_lut(int16_t flags) { return (flags >> 4) & 0x7; }
+inline uint8_t lutperm_out(int16_t flags) { return (flags >> 2) & 0x3; }
+inline uint8_t lutperm_in(int16_t flags) { return flags & 0x3; }
 
 NPNR_PACKED_STRUCT(struct PipLocatorPOD {
     LocationPOD rel_loc;
@@ -446,6 +453,14 @@ struct Arch : BaseArch<ArchRanges>
     mutable dict<IdStringList, PipId> pip_by_name;
 
     std::vector<CellInfo *> bel_to_cell;
+    enum class LutPermRule
+    {
+        NONE,
+        CARRY,
+        ALL,
+    };
+    std::vector<LutPermRule> lutperm_allowed;
+    bool disable_router_lutperm = false;
 
     // faster replacements for base_pip2net, base_wire2net
     // indexed by get_pip_vecidx()
@@ -509,6 +524,12 @@ struct Arch : BaseArch<ArchRanges>
         return (bel.location.y * chip_info->width + bel.location.x) * max_loc_bels + bel.index;
     }
 
+    int get_slice_index(int x, int y, int slice) const
+    {
+        NPNR_ASSERT(slice >= 0 && slice < 4);
+        return (y * chip_info->width + x) * 4 + slice;
+    }
+
     void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength) override
     {
         NPNR_ASSERT(bel != BelId());
@@ -517,6 +538,11 @@ struct Arch : BaseArch<ArchRanges>
         bel_to_cell[idx] = cell;
         cell->bel = bel;
         cell->belStrength = strength;
+        if (getBelType(bel) == id_TRELLIS_SLICE) {
+            lutperm_allowed.at(get_slice_index(bel.location.x, bel.location.y, getBelLocation(bel).z)) =
+                    (cell->sliceInfo.is_memory ? LutPermRule::NONE
+                                               : (cell->sliceInfo.is_carry ? LutPermRule::CARRY : LutPermRule::ALL));
+        }
         refreshUiBel(bel);
     }
 
@@ -744,11 +770,31 @@ struct Arch : BaseArch<ArchRanges>
         p2n_entry->wires.erase(dst);
         p2n_entry = nullptr;
     }
-    bool checkPipAvail(PipId pip) const override { return getBoundPipNet(pip) == nullptr; }
+    bool is_pip_blocked(PipId pip) const
+    {
+        auto &pip_data = loc_info(pip)->pip_data[pip.index];
+        int lp = pip_data.lutperm_flags;
+        if (is_lutperm_pip(lp)) {
+            if (disable_router_lutperm)
+                return true;
+            auto rule = lutperm_allowed.at(get_slice_index(pip.location.x, pip.location.y, lutperm_lut(lp) / 2));
+            if (rule == LutPermRule::NONE) {
+                // Permutation not allowed
+                return true;
+            } else if (rule == LutPermRule::CARRY) {
+                // Can swap A/B and C/D only
+                int i = lutperm_out(lp), j = lutperm_in(lp);
+                if ((i / 2) != (j / 2))
+                    return true;
+            }
+        }
+        return false;
+    }
+    bool checkPipAvail(PipId pip) const override { return (getBoundPipNet(pip) == nullptr) && !is_pip_blocked(pip); }
     bool checkPipAvailForNet(PipId pip, NetInfo *net) const override
     {
         NetInfo *bound_net = getBoundPipNet(pip);
-        return bound_net == nullptr || bound_net == net;
+        return (bound_net == nullptr || bound_net == net) && !is_pip_blocked(pip);
     }
     NetInfo *getBoundPipNet(PipId pip) const override { return pip2net.at(get_pip_vecidx(pip)); }
 

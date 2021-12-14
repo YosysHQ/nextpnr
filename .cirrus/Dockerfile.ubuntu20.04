@@ -48,7 +48,7 @@ RUN set -e -x ;\
     cd /usr/local/src ;\
     git clone --recursive https://github.com/YosysHQ/prjtrellis.git ;\
     cd prjtrellis ;\
-    git reset --hard 210a0a72757d57b278ac7397ae6b14729f149b10 ;\
+    git reset --hard 7239331d5463321d4864164f320beef67310f1e5 ;\
     cd libtrellis ;\
     cmake . ;\
     make -j $(nproc) ;\
