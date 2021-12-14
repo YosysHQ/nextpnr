@@ -705,7 +705,7 @@ Arch::Arch(ArchArgs args) : args(args)
         }
     }
     if (package_name == IdString()) {
-        log_error("Unsuported partnumber '%s'.\n", args.partnumber.c_str());
+        log_error("Unsupported partnumber '%s'.\n", args.partnumber.c_str());
     }
 
     // setup timing info
@@ -719,7 +719,7 @@ Arch::Arch(ArchArgs args) : args(args)
         }
     }
     if (speed == nullptr) {
-        log_error("Unsuported speed grade '%s'.\n", speed_id.c_str(this));
+        log_error("Unsupported speed grade '%s'.\n", speed_id.c_str(this));
     }
 
     const VariantPOD *variant = nullptr;
@@ -732,7 +732,7 @@ Arch::Arch(ArchArgs args) : args(args)
         }
     }
     if (variant == nullptr) {
-        log_error("Unsuported device grade '%s'.\n", device_id.c_str(this));
+        log_error("Unsupported device grade '%s'.\n", device_id.c_str(this));
     }
 
     package = nullptr;
@@ -750,7 +750,7 @@ Arch::Arch(ArchArgs args) : args(args)
     }
 
     if (package == nullptr) {
-        log_error("Unsuported package '%s'.\n", package_name.c_str(this));
+        log_error("Unsupported package '%s'.\n", package_name.c_str(this));
     }
 
     //
