@@ -48,6 +48,8 @@ fn_wrapper_2a_v<Context, decltype(&Context::copyBelPorts), &Context::copyBelPort
 
 fn_wrapper_1a<Context, decltype(&Context::getBelType), &Context::getBelType, conv_to_str<IdString>,
               conv_from_str<BelId>>::def_wrap(ctx_cls, "getBelType");
+fn_wrapper_1a<Context, decltype(&Context::getBelLocation), &Context::getBelLocation, pass_through<Loc>,
+              conv_from_str<BelId>>::def_wrap(ctx_cls, "getBelLocation");
 fn_wrapper_1a<Context, decltype(&Context::checkBelAvail), &Context::checkBelAvail, pass_through<bool>,
               conv_from_str<BelId>>::def_wrap(ctx_cls, "checkBelAvail");
 fn_wrapper_1a<Context, decltype(&Context::getBelChecksum), &Context::getBelChecksum, pass_through<uint32_t>,
@@ -92,6 +94,8 @@ fn_wrapper_0a<Context, decltype(&Context::getPips), &Context::getPips, wrap_cont
                                                                                                             "getPips");
 fn_wrapper_1a<Context, decltype(&Context::getPipChecksum), &Context::getPipChecksum, pass_through<uint32_t>,
               conv_from_str<PipId>>::def_wrap(ctx_cls, "getPipChecksum");
+fn_wrapper_1a<Context, decltype(&Context::getPipLocation), &Context::getPipLocation, pass_through<Loc>,
+              conv_from_str<PipId>>::def_wrap(ctx_cls, "getPipLocation");
 fn_wrapper_3a_v<Context, decltype(&Context::bindPip), &Context::bindPip, conv_from_str<PipId>, addr_and_unwrap<NetInfo>,
                 pass_through<PlaceStrength>>::def_wrap(ctx_cls, "bindPip");
 fn_wrapper_1a_v<Context, decltype(&Context::unbindPip), &Context::unbindPip, conv_from_str<PipId>>::def_wrap(
