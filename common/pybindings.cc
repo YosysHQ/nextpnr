@@ -83,6 +83,8 @@ template <> struct string_converter<Property>
 
 } // namespace PythonConversion
 
+std::string loc_repr_py(Loc loc) { return stringf("Loc(%d, %d, %d)", loc.x, loc.y, loc.z); }
+
 PYBIND11_EMBEDDED_MODULE(MODULE_NAME, m)
 {
     py::register_exception_translator([](std::exception_ptr p) {
@@ -175,7 +177,8 @@ PYBIND11_EMBEDDED_MODULE(MODULE_NAME, m)
                            .def(py::init<int, int, int>())
                            .def_readwrite("x", &Loc::x)
                            .def_readwrite("y", &Loc::y)
-                           .def_readwrite("z", &Loc::z);
+                           .def_readwrite("z", &Loc::z)
+                           .def("__repr__", loc_repr_py);
 
     auto ci_cls = py::class_<ContextualWrapper<CellInfo &>>(m, "CellInfo");
     readwrite_wrapper<CellInfo &, decltype(&CellInfo::name), &CellInfo::name, conv_to_str<IdString>,
