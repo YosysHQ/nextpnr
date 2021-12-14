@@ -203,6 +203,8 @@ static void pack_carries(Context *ctx)
             CellInfo *carry_lc = nullptr;
             if (carry_ci_lc && carry_lcs.find(carry_ci_lc->name) != carry_lcs.end()) {
                 carry_lc = carry_ci_lc;
+            } else if (ci_const && carry_lcs.size() == 1) {
+                carry_lc = ctx->cells.at(*(carry_lcs.begin())).get();
             } else {
                 // No LC to pack into matching I0/I1, insert a new one
                 std::unique_ptr<CellInfo> created_lc =
