@@ -62,6 +62,7 @@ static std::string get_trellis_wirename(Context *ctx, Location loc, WireId wire)
     // relative coords push them outside the bounds of the chip.
     // Indents are based on wires proximity/purpose.
     auto is_pio_wire = [](std::string name) {
+        // clang-format off
         return (name.find("DI") != std::string::npos || name.find("JDI") != std::string::npos ||
                     name.find("PADD") != std::string::npos || name.find("INDD") != std::string::npos ||
                     name.find("IOLDO") != std::string::npos || name.find("IOLTO") != std::string::npos ||
@@ -77,6 +78,7 @@ static std::string get_trellis_wirename(Context *ctx, Location loc, WireId wire)
                 name.find("JIN") != std::string::npos || name.find("JIP") != std::string::npos ||
                 // Connections to global mux
                 name.find("JINCK") != std::string::npos);
+        // clang-format on
     };
 
     if (prefix2 == "G_" || prefix2 == "L_" || prefix2 == "R_" || prefix7 == "BRANCH_")
@@ -103,14 +105,14 @@ static std::string get_trellis_wirename(Context *ctx, Location loc, WireId wire)
             if (wire.location.x == 0) {
                 std::string pio_name = "W1_" + basename;
                 if (ctx->verbose)
-                    log_info("PIO wire %s was adjusted by W1 to form Trellis name %s.\n", \
-                        ctx->nameOfWire(wire), pio_name.c_str());
+                    log_info("PIO wire %s was adjusted by W1 to form Trellis name %s.\n", ctx->nameOfWire(wire),
+                             pio_name.c_str());
                 return pio_name;
             } else if (wire.location.x == max_col) {
                 std::string pio_name = "E1_" + basename;
                 if (ctx->verbose)
-                    log_info("PIO wire %s was adjusted by E1 to form Trellis name %s.\n", \
-                        ctx->nameOfWire(wire), pio_name.c_str());
+                    log_info("PIO wire %s was adjusted by E1 to form Trellis name %s.\n", ctx->nameOfWire(wire),
+                             pio_name.c_str());
                 return pio_name;
             }
         }

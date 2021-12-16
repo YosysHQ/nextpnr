@@ -229,16 +229,17 @@ static bool is_nextpnr_iob(Context *ctx, CellInfo *cell)
 
 static bool is_facade_iob(const Context *ctx, const CellInfo *cell) { return cell->type == id_FACADE_IO; }
 
-static bool nextpnr_iob_connects_only_facade_iob(Context *ctx, CellInfo *iob, NetInfo *&top) {
+static bool nextpnr_iob_connects_only_facade_iob(Context *ctx, CellInfo *iob, NetInfo *&top)
+{
     NPNR_ASSERT(is_nextpnr_iob(ctx, iob));
 
-    if(iob->type == ctx->id("$nextpnr_ibuf")) {
+    if (iob->type == ctx->id("$nextpnr_ibuf")) {
         NetInfo *o = iob->ports.at(id_O).net;
         top = o;
 
         CellInfo *fio = net_only_drives(ctx, o, is_facade_iob, id_PAD, true);
         return fio != nullptr;
-    } else if(iob->type == ctx->id("$nextpnr_obuf")) {
+    } else if (iob->type == ctx->id("$nextpnr_obuf")) {
         NetInfo *i = iob->ports.at(id_I).net;
         top = i;
 
@@ -249,7 +250,7 @@ static bool nextpnr_iob_connects_only_facade_iob(Context *ctx, CellInfo *iob, Ne
         // we already know that the net drives the $nextpnr_obuf.
         CellInfo *fio = net_only_drives(ctx, i, is_facade_iob, id_PAD, true, iob);
         return fio != nullptr;
-    } else if(iob->type == ctx->id("$nextpnr_iobuf")) {
+    } else if (iob->type == ctx->id("$nextpnr_iobuf")) {
         NetInfo *o = iob->ports.at(id_O).net;
         top = o;
 
@@ -281,7 +282,7 @@ static void pack_io(Context *ctx)
         if (is_nextpnr_iob(ctx, ci)) {
             NetInfo *top;
 
-            if(!nextpnr_iob_connects_only_facade_iob(ctx, ci, top))
+            if (!nextpnr_iob_connects_only_facade_iob(ctx, ci, top))
                 log_error("Top level net '%s' is not connected to a FACADE_IO PAD port.\n", top->name.c_str(ctx));
 
             if (ctx->verbose)
