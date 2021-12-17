@@ -229,7 +229,7 @@ template <typename FrontendType> struct GenericFrontend
             }
             name = ctx->id(comb);
             incr++;
-        } while (is_net ? ctx->nets.count(name) : ctx->cells.count(name));
+        } while (is_net ? (ctx->nets.count(name) || ctx->net_aliases.count(name)) : ctx->cells.count(name));
         return name;
     }
 
