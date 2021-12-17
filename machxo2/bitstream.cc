@@ -19,6 +19,7 @@
  */
 
 #include <fstream>
+#include <iostream>
 
 #include "bitstream.h"
 #include "config.h"
@@ -59,16 +60,25 @@ static std::string get_trellis_wirename(Context *ctx, Location loc, WireId wire)
 
     // Handle MachXO2's wonderful naming quirks for wires in left/right tiles, whose
     // relative coords push them outside the bounds of the chip.
+    // Indents are based on wires proximity/purpose.
     auto is_pio_wire = [](std::string name) {
+        // clang-format off
         return (name.find("DI") != std::string::npos || name.find("JDI") != std::string::npos ||
-                name.find("PADD") != std::string::npos || name.find("INDD") != std::string::npos ||
-                name.find("IOLDO") != std::string::npos || name.find("IOLTO") != std::string::npos ||
-                name.find("JCE") != std::string::npos || name.find("JCLK") != std::string::npos ||
-                name.find("JLSR") != std::string::npos || name.find("JONEG") != std::string::npos ||
-                name.find("JOPOS") != std::string::npos || name.find("JTS") != std::string::npos ||
+                    name.find("PADD") != std::string::npos || name.find("INDD") != std::string::npos ||
+                    name.find("IOLDO") != std::string::npos || name.find("IOLTO") != std::string::npos ||
+                // JCE0-3, JCLK0-3, JLSR0-3 connect to PIO wires named JCEA-D, JCLKA-D, JLSRA-D.
+                name.find("JCEA") != std::string::npos || name.find("JCEB") != std::string::npos ||
+                    name.find("JCEC") != std::string::npos || name.find("JCED") != std::string::npos ||
+                    name.find("JCLKA") != std::string::npos || name.find("JCLKB") != std::string::npos ||
+                    name.find("JCLKC") != std::string::npos || name.find("JCLKD") != std::string::npos ||
+                    name.find("JLSRA") != std::string::npos || name.find("JLSRB") != std::string::npos ||
+                    name.find("JLSRC") != std::string::npos || name.find("JLSRD") != std::string::npos ||
+                name.find("JONEG") != std::string::npos || name.find("JOPOS") != std::string::npos ||
+                    name.find("JTS") != std::string::npos ||
                 name.find("JIN") != std::string::npos || name.find("JIP") != std::string::npos ||
                 // Connections to global mux
                 name.find("JINCK") != std::string::npos);
+        // clang-format on
     };
 
     if (prefix2 == "G_" || prefix2 == "L_" || prefix2 == "R_" || prefix7 == "BRANCH_")
@@ -92,10 +102,19 @@ static std::string get_trellis_wirename(Context *ctx, Location loc, WireId wire)
     if (loc == wire.location) {
         // TODO: JINCK is not currently handled by this.
         if (is_pio_wire(basename)) {
-            if (wire.location.x == 0)
-                return "W1_" + basename;
-            else if (wire.location.x == max_col)
-                return "E1_" + basename;
+            if (wire.location.x == 0) {
+                std::string pio_name = "W1_" + basename;
+                if (ctx->verbose)
+                    log_info("PIO wire %s was adjusted by W1 to form Trellis name %s.\n", ctx->nameOfWire(wire),
+                             pio_name.c_str());
+                return pio_name;
+            } else if (wire.location.x == max_col) {
+                std::string pio_name = "E1_" + basename;
+                if (ctx->verbose)
+                    log_info("PIO wire %s was adjusted by E1 to form Trellis name %s.\n", ctx->nameOfWire(wire),
+                             pio_name.c_str());
+                return pio_name;
+            }
         }
         return basename;
     }
