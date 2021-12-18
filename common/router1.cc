@@ -117,14 +117,21 @@ struct Router1
     int arcs_without_ripup = 0;
     bool ripup_flag;
 
-    Router1(Context *ctx, const Router1Cfg &cfg) : ctx(ctx), cfg(cfg) {}
+    TimingAnalyser tmg;
+
+    Router1(Context *ctx, const Router1Cfg &cfg) : ctx(ctx), cfg(cfg), tmg(ctx)
+    {
+        tmg.setup();
+        tmg.run();
+    }
 
     void arc_queue_insert(const arc_key &arc, WireId src_wire, WireId dst_wire)
     {
         if (queued_arcs.count(arc))
             return;
 
-        delay_t pri = ctx->estimateDelay(src_wire, dst_wire) - arc.net_info->users[arc.user_idx].budget;
+        delay_t pri = ctx->estimateDelay(src_wire, dst_wire) *
+                      (100 * tmg.get_criticality(CellPortKey(arc.net_info->users.at(arc.user_idx))));
 
         arc_entry entry;
         entry.arc = arc;
@@ -459,6 +466,8 @@ struct Router1
         auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx], arc.phys_idx);
         ripup_flag = false;
 
+        float crit = tmg.get_criticality(CellPortKey(net_info->users.at(user_idx)));
+
         if (ctx->debug) {
             log("Routing arc %d on net %s (%d arcs total):\n", user_idx, ctx->nameOf(net_info),
                 int(net_info->users.size()));
@@ -536,6 +545,7 @@ struct Router1
                 delay_t next_delay = qw.delay + ctx->getPipDelay(pip).maxDelay();
                 delay_t next_penalty = qw.penalty;
                 delay_t next_bonus = qw.bonus;
+                delay_t penalty_delta = 0;
 
                 WireId next_wire = ctx->getPipDstWire(pip);
                 next_delay += ctx->getWireDelay(next_wire).maxDelay();
@@ -544,7 +554,7 @@ struct Router1
                 NetInfo *conflictWireNet = nullptr, *conflictPipNet = nullptr;
 
                 if (net_info->wires.count(next_wire) && net_info->wires.at(next_wire).pip == pip) {
-                    next_bonus += cfg.reuseBonus;
+                    next_bonus += cfg.reuseBonus * (1.0 - crit);
                 } else {
                     if (!ctx->checkWireAvail(next_wire)) {
                         if (!ripup)
@@ -609,33 +619,35 @@ struct Router1
                     if (conflictWireWire != WireId()) {
                         auto scores_it = wireScores.find(conflictWireWire);
                         if (scores_it != wireScores.end())
-                            next_penalty += scores_it->second * cfg.wireRipupPenalty;
-                        next_penalty += cfg.wireRipupPenalty;
+                            penalty_delta += scores_it->second * cfg.wireRipupPenalty;
+                        penalty_delta += cfg.wireRipupPenalty;
                     }
 
                     if (conflictPipWire != WireId()) {
                         auto scores_it = wireScores.find(conflictPipWire);
                         if (scores_it != wireScores.end())
-                            next_penalty += scores_it->second * cfg.wireRipupPenalty;
-                        next_penalty += cfg.wireRipupPenalty;
+                            penalty_delta += scores_it->second * cfg.wireRipupPenalty;
+                        penalty_delta += cfg.wireRipupPenalty;
                     }
 
                     if (conflictWireNet != nullptr) {
                         auto scores_it = netScores.find(conflictWireNet);
                         if (scores_it != netScores.end())
-                            next_penalty += scores_it->second * cfg.netRipupPenalty;
-                        next_penalty += cfg.netRipupPenalty;
-                        next_penalty += conflictWireNet->wires.size() * cfg.wireRipupPenalty;
+                            penalty_delta += scores_it->second * cfg.netRipupPenalty;
+                        penalty_delta += cfg.netRipupPenalty;
+                        penalty_delta += conflictWireNet->wires.size() * cfg.wireRipupPenalty;
                     }
 
                     if (conflictPipNet != nullptr) {
                         auto scores_it = netScores.find(conflictPipNet);
                         if (scores_it != netScores.end())
-                            next_penalty += scores_it->second * cfg.netRipupPenalty;
-                        next_penalty += cfg.netRipupPenalty;
-                        next_penalty += conflictPipNet->wires.size() * cfg.wireRipupPenalty;
+                            penalty_delta += scores_it->second * cfg.netRipupPenalty;
+                        penalty_delta += cfg.netRipupPenalty;
+                        penalty_delta += conflictPipNet->wires.size() * cfg.wireRipupPenalty;
                     }
                 }
+
+                next_penalty += penalty_delta * std::max(0.05, (1.0 - crit));
 
                 delay_t next_score = next_delay + next_penalty;
                 NPNR_ASSERT(next_score >= 0);
