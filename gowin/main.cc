@@ -54,7 +54,7 @@ po::options_description GowinCommandHandler::getArchOptions()
 
 std::unique_ptr<Context> GowinCommandHandler::createContext(dict<std::string, Property> &values)
 {
-    std::regex devicere = std::regex("GW1N([A-Z]*)-(LV|UV|UX)([0-9])(C?).*");
+    std::regex devicere = std::regex("GW1N(S?)[A-Z]*-(LV|UV|UX)([0-9])(C?).*");
     std::smatch match;
     std::string device = vm["device"].as<std::string>();
     if (!std::regex_match(device, match, devicere)) {
@@ -65,11 +65,7 @@ std::unique_ptr<Context> GowinCommandHandler::createContext(dict<std::string, Pr
     // GW1N and GW1NR variants share the same database.
     // Most Gowin devices are a System in Package with some SDRAM wirebonded to a GPIO bank.
     // However, it appears that the S series with embedded ARM core are unique silicon.
-    if (match[1].str().length() && match[1].str()[0] == 'S') {
-        snprintf(buf, 36, "GW1NS-%s", match[3].str().c_str());
-    } else {
-        snprintf(buf, 36, "GW1N-%s", match[3].str().c_str());
-    }
+    snprintf(buf, 36, "GW1N%s-%s", match[1].str().c_str(), match[3].str().c_str());
     chipArgs.family = buf;
     chipArgs.partnumber = match[0];
     return std::unique_ptr<Context>(new Context(chipArgs));
