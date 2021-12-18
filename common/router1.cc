@@ -119,8 +119,11 @@ struct Router1
 
     TimingAnalyser tmg;
 
+    bool timing_driven = true;
+
     Router1(Context *ctx, const Router1Cfg &cfg) : ctx(ctx), cfg(cfg), tmg(ctx)
     {
+        timing_driven = ctx->setting<bool>("timing_driven");
         tmg.setup();
         tmg.run();
     }
@@ -647,7 +650,7 @@ struct Router1
                     }
                 }
 
-                next_penalty += penalty_delta * std::max(0.05, (1.0 - crit));
+                next_penalty += penalty_delta * (timing_driven ? std::max(0.05, (1.0 - crit)) : 1);
 
                 delay_t next_score = next_delay + next_penalty;
                 NPNR_ASSERT(next_score >= 0);
@@ -790,6 +793,53 @@ struct Router1
 
         return true;
     }
+
+    delay_t find_slack_thresh()
+    {
+        // If more than 5% of arcs have negative slack; use the 5% threshold as a ripup criteria
+        int arc_count = 0;
+        int failed_count = 0;
+        delay_t default_thresh = ctx->getDelayEpsilon();
+
+        for (auto &net : ctx->nets) {
+            NetInfo *ni = net.second.get();
+            if (skip_net(ni))
+                continue;
+            for (size_t i = 0; i < ni->users.size(); i++) {
+                auto &usr = ni->users.at(i);
+                ++arc_count;
+                delay_t slack = tmg.get_setup_slack(CellPortKey(usr));
+                if (slack == std::numeric_limits<delay_t>::min())
+                    continue;
+                if (slack < default_thresh)
+                    ++failed_count;
+            }
+        }
+
+        if (arc_count < 50 || (failed_count < (0.05 * arc_count))) {
+            return default_thresh;
+        }
+
+        std::vector<delay_t> slacks;
+        for (auto &net : ctx->nets) {
+            NetInfo *ni = net.second.get();
+            if (skip_net(ni))
+                continue;
+            for (size_t i = 0; i < ni->users.size(); i++) {
+                auto &usr = ni->users.at(i);
+                delay_t slack = tmg.get_setup_slack(CellPortKey(usr));
+                if (slack == std::numeric_limits<delay_t>::min())
+                    continue;
+                slacks.push_back(slack);
+            }
+        }
+        std::sort(slacks.begin(), slacks.end());
+        delay_t thresh = slacks.at(int(slacks.size() * 0.05));
+        log_warning("%.f%% of arcs have failing slack; using %.2fns as ripup threshold. Consider a reduced Fmax "
+                    "constraint.\n",
+                    (100.0 * failed_count) / arc_count, ctx->getDelayNS(thresh));
+        return thresh;
+    }
 };
 
 } // namespace
@@ -831,6 +881,9 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
         int iter_cnt = 0;
         int last_arcs_with_ripup = 0;
         int last_arcs_without_ripup = 0;
+        int timing_fail_count = 0;
+        bool timing_ripup = ctx->setting<bool>("router/tmg_ripup", false);
+        delay_t ripup_slack = 0;
 
         log_info("           |   (re-)routed arcs  |   delta    | remaining|       time spent     |\n");
         log_info("   IterCnt |  w/ripup   wo/ripup |  w/r  wo/r |      arcs| batch(sec) total(sec)|\n");
@@ -865,6 +918,48 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
                 ctx->check();
 #endif
                 return false;
+            }
+            // Timing driven ripup
+            if (timing_ripup && router.arc_queue.empty() && timing_fail_count < 50) {
+                ++timing_fail_count;
+                router.tmg.run();
+                delay_t wns = 0, tns = 0;
+                if (timing_fail_count == 1)
+                    ripup_slack = router.find_slack_thresh();
+                for (auto &net : ctx->nets) {
+                    NetInfo *ni = net.second.get();
+                    if (router.skip_net(ni))
+                        continue;
+                    bool is_locked = false;
+                    for (auto &wire : ni->wires) {
+                        if (wire.second.strength > STRENGTH_STRONG)
+                            is_locked = true;
+                    }
+                    if (is_locked)
+                        continue;
+                    for (size_t i = 0; i < ni->users.size(); i++) {
+                        auto &usr = ni->users.at(i);
+                        delay_t slack = router.tmg.get_setup_slack(CellPortKey(usr));
+                        if (slack == std::numeric_limits<delay_t>::min())
+                            continue;
+                        if (slack < 0) {
+                            wns = std::min(wns, slack);
+                            tns += slack;
+                        }
+                        if (slack <= ripup_slack) {
+                            for (WireId w : ctx->getNetinfoSinkWires(ni, usr)) {
+                                if (ctx->checkWireAvail(w))
+                                    continue;
+                                router.ripup_wire(w);
+                            }
+                        }
+                    }
+                }
+                log_info("    %d arcs ripped up due to negative slack WNS=%.02fns TNS=%.02fns.\n",
+                         int(router.arc_queue.size()), ctx->getDelayNS(wns), ctx->getDelayNS(tns));
+                iter_cnt = 0;
+                router.wireScores.clear();
+                router.netScores.clear();
             }
         }
         auto rend = std::chrono::high_resolution_clock::now();

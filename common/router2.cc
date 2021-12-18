@@ -1373,8 +1373,8 @@ struct Router2
             route_queue.push_back(i);
 
         timing_driven = ctx->setting<bool>("timing_driven");
-        if (ctx->settings.count(ctx->id("router2/tmg_ripup")))
-            timing_driven_ripup = timing_driven && ctx->setting<bool>("router2/tmg_ripup");
+        if (ctx->settings.count(ctx->id("router/tmg_ripup")))
+            timing_driven_ripup = timing_driven && ctx->setting<bool>("router/tmg_ripup");
         else
             timing_driven_ripup = false;
         log_info("Running main router loop...\n");
