@@ -911,6 +911,7 @@ struct Arch : BaseArch<ArchRanges>
     {
         std::vector<CellInfo *> boundcells;
         std::vector<BelId> bels_by_z;
+        std::vector<NetInfo *> boundwires, boundpips;
         LogicTileStatus *lts = nullptr;
         ~TileStatus() { delete lts; }
     };
@@ -1014,7 +1015,7 @@ struct Arch : BaseArch<ArchRanges>
             return false;
         if (is_pseudo_pip_disabled(pip))
             return false;
-        return BaseArch::checkPipAvail(pip);
+        return getBoundPipNet(pip) == nullptr;
     }
 
     bool checkPipAvailForNet(PipId pip, NetInfo *net) const override
@@ -1023,7 +1024,8 @@ struct Arch : BaseArch<ArchRanges>
             return false;
         if (is_pseudo_pip_disabled(pip))
             return false;
-        return BaseArch::checkPipAvailForNet(pip, net);
+        NetInfo *bound = getBoundPipNet(pip);
+        return (bound == nullptr) || (bound == net);
     }
 
     CellInfo *getBoundBelCell(BelId bel) const override
@@ -1136,6 +1138,38 @@ struct Arch : BaseArch<ArchRanges>
         return range;
     }
 
+    void bindWire(WireId wire, NetInfo *net, PlaceStrength strength) override
+    {
+        NPNR_ASSERT(wire != WireId());
+        auto &w2n_entry = tileStatus.at(wire.tile).boundwires.at(wire.index);
+        NPNR_ASSERT(w2n_entry == nullptr);
+        net->wires[wire].pip = PipId();
+        net->wires[wire].strength = strength;
+        w2n_entry = net;
+        this->refreshUiWire(wire);
+    }
+    void unbindWire(WireId wire) override
+    {
+        NPNR_ASSERT(wire != WireId());
+        auto &w2n_entry = tileStatus.at(wire.tile).boundwires.at(wire.index);
+        NPNR_ASSERT(w2n_entry != nullptr);
+
+        auto &net_wires = w2n_entry->wires;
+        auto it = net_wires.find(wire);
+        NPNR_ASSERT(it != net_wires.end());
+
+        auto pip = it->second.pip;
+        if (pip != PipId()) {
+            tileStatus.at(pip.tile).boundpips.at(pip.index) = nullptr;
+        }
+
+        net_wires.erase(it);
+        w2n_entry = nullptr;
+        this->refreshUiWire(wire);
+    }
+    virtual bool checkWireAvail(WireId wire) const override { return getBoundWireNet(wire) == nullptr; }
+    NetInfo *getBoundWireNet(WireId wire) const override { return tileStatus.at(wire.tile).boundwires.at(wire.index); }
+
     // -------------------------------------------------
 
     PipId getPipByName(IdStringList name) const override;
@@ -1219,6 +1253,40 @@ struct Arch : BaseArch<ArchRanges>
         range.e.uphill = true;
         return range;
     }
+
+    void bindPip(PipId pip, NetInfo *net, PlaceStrength strength) override
+    {
+        NPNR_ASSERT(pip != PipId());
+
+        auto &p2n_entry = tileStatus.at(pip.tile).boundpips.at(pip.index);
+        NPNR_ASSERT(p2n_entry == nullptr);
+        p2n_entry = net;
+
+        WireId dst = this->getPipDstWire(pip);
+        auto &w2n_entry = tileStatus.at(dst.tile).boundwires.at(dst.index);
+        NPNR_ASSERT(w2n_entry == nullptr);
+        w2n_entry = net;
+        net->wires[dst].pip = pip;
+        net->wires[dst].strength = strength;
+    }
+
+    void unbindPip(PipId pip) override
+    {
+        NPNR_ASSERT(pip != PipId());
+
+        auto &p2n_entry = tileStatus.at(pip.tile).boundpips.at(pip.index);
+        NPNR_ASSERT(p2n_entry != nullptr);
+        WireId dst = this->getPipDstWire(pip);
+
+        auto &w2n_entry = tileStatus.at(dst.tile).boundwires.at(dst.index);
+        NPNR_ASSERT(w2n_entry != nullptr);
+        w2n_entry = nullptr;
+
+        p2n_entry->wires.erase(dst);
+        p2n_entry = nullptr;
+    }
+
+    NetInfo *getBoundPipNet(PipId pip) const override { return tileStatus.at(pip.tile).boundpips.at(pip.index); }
 
     // -------------------------------------------------
 

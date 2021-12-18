@@ -119,6 +119,9 @@ Arch::Arch(ArchArgs args) : args(args)
             ts.bels_by_z[bel.z].tile = i;
             ts.bels_by_z[bel.z].index = j;
         }
+        auto &ts = tileStatus.at(i);
+        ts.boundwires.resize(loc.wires.size());
+        ts.boundpips.resize(loc.pips.size());
     }
 
     for (int i = 0; i < chip_info->width; i++) {
