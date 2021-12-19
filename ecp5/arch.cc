@@ -543,26 +543,21 @@ ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
     return bb;
 }
 
-delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
+delay_t Arch::predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const
 {
-    const auto &driver = net_info->driver;
-    if ((driver.port == id_FCO && sink.port == id_FCI) || sink.port == id_FXA || sink.port == id_FXB)
+    if ((src_pin == id_FCO && dst_pin == id_FCI) || dst_pin == id_FXA || dst_pin == id_FXB)
         return 0;
-    auto driver_loc = getBelLocation(driver.cell->bel);
-    auto sink_loc = getBelLocation(sink.cell->bel);
+    auto driver_loc = getBelLocation(src_bel);
+    auto sink_loc = getBelLocation(dst_bel);
     // Encourage use of direct interconnect
     if (driver_loc.x == sink_loc.x && driver_loc.y == sink_loc.y) {
-        if ((sink.port == id_A0 || sink.port == id_A1) && (driver.port == id_F1) &&
-            (driver_loc.z == 2 || driver_loc.z == 3))
+        if ((dst_pin == id_A0 || dst_pin == id_A1) && (src_pin == id_F1) && (driver_loc.z == 2 || driver_loc.z == 3))
             return 0;
-        if ((sink.port == id_B0 || sink.port == id_B1) && (driver.port == id_F1) &&
-            (driver_loc.z == 0 || driver_loc.z == 1))
+        if ((dst_pin == id_B0 || dst_pin == id_B1) && (src_pin == id_F1) && (driver_loc.z == 0 || driver_loc.z == 1))
             return 0;
-        if ((sink.port == id_C0 || sink.port == id_C1) && (driver.port == id_F0) &&
-            (driver_loc.z == 2 || driver_loc.z == 3))
+        if ((dst_pin == id_C0 || dst_pin == id_C1) && (src_pin == id_F0) && (driver_loc.z == 2 || driver_loc.z == 3))
             return 0;
-        if ((sink.port == id_D0 || sink.port == id_D1) && (driver.port == id_F0) &&
-            (driver_loc.z == 0 || driver_loc.z == 1))
+        if ((dst_pin == id_D0 || dst_pin == id_D1) && (src_pin == id_F0) && (driver_loc.z == 0 || driver_loc.z == 1))
             return 0;
     }
 

@@ -90,6 +90,25 @@ WireId Context::getNetinfoSinkWire(const NetInfo *net_info, const PortRef &sink,
     return WireId();
 }
 
+delay_t Context::predictArcDelay(const NetInfo *net_info, const PortRef &sink) const
+{
+    if (net_info->driver.cell == nullptr || net_info->driver.cell->bel == BelId() || sink.cell->bel == BelId())
+        return 0;
+    IdString driver_pin, sink_pin;
+    // Pick the first pin for a prediction; assume all will be similar enouhg
+    for (auto pin : getBelPinsForCellPin(net_info->driver.cell, net_info->driver.port)) {
+        driver_pin = pin;
+        break;
+    }
+    for (auto pin : getBelPinsForCellPin(sink.cell, sink.port)) {
+        sink_pin = pin;
+        break;
+    }
+    if (driver_pin == IdString() || sink_pin == IdString())
+        return 0;
+    return predictDelay(net_info->driver.cell->bel, driver_pin, sink.cell->bel, sink_pin);
+}
+
 delay_t Context::getNetinfoRouteDelay(const NetInfo *net_info, const PortRef &user_info) const
 {
 #ifdef ARCH_ECP5
@@ -98,7 +117,7 @@ delay_t Context::getNetinfoRouteDelay(const NetInfo *net_info, const PortRef &us
 #endif
 
     if (net_info->wires.empty())
-        return predictDelay(net_info, user_info);
+        return predictArcDelay(net_info, user_info);
 
     WireId src_wire = getNetinfoSourceWire(net_info);
     if (src_wire == WireId())
@@ -128,7 +147,7 @@ delay_t Context::getNetinfoRouteDelay(const NetInfo *net_info, const PortRef &us
         if (cursor == src_wire)
             max_delay = std::max(max_delay, delay + getWireDelay(src_wire).maxDelay()); // routed
         else
-            max_delay = std::max(max_delay, predictDelay(net_info, user_info)); // unrouted
+            max_delay = std::max(max_delay, predictArcDelay(net_info, user_info)); // unrouted
     }
     return max_delay;
 }

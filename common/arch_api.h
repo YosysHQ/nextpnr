@@ -110,7 +110,7 @@ template <typename R> struct ArchAPI : BaseCtx
     virtual typename R::GroupPipsRangeT getGroupPips(GroupId group) const = 0;
     virtual typename R::GroupGroupsRangeT getGroupGroups(GroupId group) const = 0;
     // Delay Methods
-    virtual delay_t predictDelay(const NetInfo *net_info, const PortRef &sink) const = 0;
+    virtual delay_t predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const = 0;
     virtual delay_t getDelayEpsilon() const = 0;
     virtual delay_t getRipupDelayPenalty() const = 0;
     virtual float getDelayNS(delay_t v) const = 0;

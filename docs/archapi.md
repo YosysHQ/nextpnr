@@ -517,7 +517,7 @@ result, and for that estimate it is considered more acceptable to return a
 slightly too high result and it is considered less acceptable to return a
 too low result (thus "low upper bound").
 
-### delay\_t predictDelay(const NetInfo \*net\_info, const PortRef &sink) const
+### delay\_t predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const
 
 Return a reasonably good estimate for the total `maxDelay()` delay for the
 given arc. This should return a low upper bound for the fastest route for that arc.

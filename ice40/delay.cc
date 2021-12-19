@@ -188,13 +188,13 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     return v;
 }
 
-delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
+delay_t Arch::predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const
 {
-    const auto &driver = net_info->driver;
-    auto driver_loc = getBelLocation(driver.cell->bel);
-    auto sink_loc = getBelLocation(sink.cell->bel);
+    NPNR_UNUSED(dst_pin);
+    auto driver_loc = getBelLocation(src_bel);
+    auto sink_loc = getBelLocation(dst_bel);
 
-    if (driver.port == id_COUT) {
+    if (src_pin == id_COUT) {
         if (driver_loc.y == sink_loc.y)
             return 0;
         return 250;

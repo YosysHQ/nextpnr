@@ -33,6 +33,8 @@
 #define USING_NEXTPNR_NAMESPACE
 #endif
 
+#define NPNR_UNUSED(x) ((void)x)
+
 #if defined(__GNUC__) || defined(__clang__)
 #define NPNR_ATTRIBUTE(...) __attribute__((__VA_ARGS__))
 #define NPNR_NORETURN __attribute__((noreturn))

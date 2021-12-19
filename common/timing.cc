@@ -1378,7 +1378,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                         auto driver_wire = ctx->getNetinfoSourceWire(net);
                         auto sink_wire = ctx->getNetinfoSinkWire(net, sink_ref, 0);
                         log_info("                 prediction: %f ns estimate: %f ns\n",
-                                 ctx->getDelayNS(ctx->predictDelay(net, sink_ref)),
+                                 ctx->getDelayNS(ctx->predictArcDelay(net, sink_ref)),
                                  ctx->getDelayNS(ctx->estimateDelay(driver_wire, sink_wire)));
                         auto cursor = sink_wire;
                         delay_t delay;

@@ -1000,14 +1000,16 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
 #endif
 }
 
-delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
+delay_t Arch::predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const
 {
     // FIXME: Implement when adding timing-driven place and route.
+    NPNR_UNUSED(src_pin);
+    NPNR_UNUSED(dst_pin);
     int src_x, src_y;
-    get_tile_x_y(net_info->driver.cell->bel.tile, &src_x, &src_y);
+    get_tile_x_y(src_bel.tile, &src_x, &src_y);
 
     int dst_x, dst_y;
-    get_tile_x_y(sink.cell->bel.tile, &dst_x, &dst_y);
+    get_tile_x_y(dst_bel.tile, &dst_x, &dst_y);
 
     delay_t base = 30 * std::min(std::abs(dst_x - src_x), 18) + 10 * std::max(std::abs(dst_x - src_x) - 18, 0) +
                    60 * std::min(std::abs(dst_y - src_y), 6) + 20 * std::max(std::abs(dst_y - src_y) - 6, 0) + 300;

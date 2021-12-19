@@ -700,7 +700,7 @@ struct Arch : ArchAPI<ArchRanges>
 
     // -------------------------------------------------
     delay_t estimateDelay(WireId src, WireId dst) const final;
-    delay_t predictDelay(const NetInfo *net_info, const PortRef &sink) const final;
+    delay_t predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const final;
     ArcBounds getRouteBoundingBox(WireId src, WireId dst) const final;
     delay_t getDelayEpsilon() const final { return 20; }
     delay_t getRipupDelayPenalty() const final { return 120; }
