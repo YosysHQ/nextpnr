@@ -387,16 +387,17 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     return (abs(dst.location.x - src.location.x) + abs(dst.location.y - src.location.y)) * (0.01 + 0.01);
 }
 
-delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
+delay_t Arch::predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const
 {
-    BelId src = net_info->driver.cell->bel;
-    BelId dst = sink.cell->bel;
+    NPNR_UNUSED(src_pin);
+    NPNR_UNUSED(dst_pin);
 
-    NPNR_ASSERT(src != BelId());
-    NPNR_ASSERT(dst != BelId());
+    NPNR_ASSERT(src_bel != BelId());
+    NPNR_ASSERT(dst_bel != BelId());
 
     // TODO: Same deal applies here as with estimateDelay.
-    return (abs(dst.location.x - src.location.x) + abs(dst.location.y - src.location.y)) * (0.01 + 0.01);
+    return (abs(dst_bel.location.x - src_bel.location.x) + abs(dst_bel.location.y - src_bel.location.y)) *
+           (0.01 + 0.01);
 }
 
 ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const

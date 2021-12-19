@@ -99,7 +99,7 @@ class TimingOptimiser
                     continue;
                 for (auto user : net->users) {
                     if (user.cell == cell && user.port == port.first) {
-                        if (ctx->predictDelay(net, user) >
+                        if (ctx->predictArcDelay(net, user) >
                             1.1 * max_net_delay.at(std::make_pair(cell->name, port.first)))
                             return false;
                     }
@@ -111,7 +111,7 @@ class TimingOptimiser
                     BelId dstBel = user.cell->bel;
                     if (dstBel == BelId())
                         continue;
-                    if (ctx->predictDelay(net, user) >
+                    if (ctx->predictArcDelay(net, user) >
                         1.1 * max_net_delay.at(std::make_pair(user.cell->name, user.port))) {
 
                         return false;
@@ -413,7 +413,7 @@ class TimingOptimiser
             for (size_t j = 0; j < pn->users.size(); j++) {
                 auto &usr = pn->users.at(j);
                 if (usr.cell == path.at(i)->cell && usr.port == path.at(i)->port) {
-                    original_delay += ctx->predictDelay(pn, usr);
+                    original_delay += ctx->predictArcDelay(pn, usr);
                     break;
                 }
             }
@@ -497,7 +497,7 @@ class TimingOptimiser
                     for (size_t j = 0; j < pn->users.size(); j++) {
                         auto &usr = pn->users.at(j);
                         if (usr.cell == path.at(i)->cell && usr.port == path.at(i)->port) {
-                            total_delay += ctx->predictDelay(pn, usr);
+                            total_delay += ctx->predictArcDelay(pn, usr);
                             break;
                         }
                     }

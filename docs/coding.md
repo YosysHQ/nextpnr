@@ -80,7 +80,7 @@ As nextpnr allows arbitrary constraints on bels for more advanced packer-free fl
 There are several routes for timing information in the placer:
     - sink `PortRef`s have a `budget` value annotated by calling `assign_budget` which is an estimate of the maximum delay that an arc may have
     - sink ports can have a criticality (value between 0 and 1 where 1 is the critical path) associated with them by using `get_criticalities` and a `NetCriticalityMap`
-    - `predictDelay` returns an estimated delay for a sink port based on placement information
+    - `predictDelay` and its derivative `predictArcDelay` returns an estimated delay for a sink port based on placement information
 
 
 ### Bel Buckets

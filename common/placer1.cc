@@ -866,11 +866,11 @@ class SAPlacer
         if (ctx->getPortTimingClass(net->driver.cell, net->driver.port, cc) == TMG_IGNORE)
             return 0;
         if (cfg.budgetBased) {
-            double delay = ctx->getDelayNS(ctx->predictDelay(net, net->users.at(user)));
+            double delay = ctx->getDelayNS(ctx->predictArcDelay(net, net->users.at(user)));
             return std::min(10.0, std::exp(delay - ctx->getDelayNS(net->users.at(user).budget) / 10));
         } else {
             float crit = tmg.get_criticality(CellPortKey(net->users.at(user)));
-            double delay = ctx->getDelayNS(ctx->predictDelay(net, net->users.at(user)));
+            double delay = ctx->getDelayNS(ctx->predictArcDelay(net, net->users.at(user)));
             return delay * std::pow(crit, crit_exp);
         }
     }

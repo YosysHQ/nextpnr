@@ -50,7 +50,7 @@ wirelen_t get_net_metric(const Context *ctx, const NetInfo *net, MetricType type
         if (load_cell->bel == BelId())
             continue;
         if (timing_driven) {
-            delay_t net_delay = ctx->predictDelay(net, load);
+            delay_t net_delay = ctx->predictArcDelay(net, load);
             auto slack = load.budget - net_delay;
             if (slack < 0)
                 negative_slack += slack;

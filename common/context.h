@@ -51,6 +51,8 @@ struct Context : Arch, DeterministicRNG
 
     // --------------------------------------------------------------
 
+    delay_t predictArcDelay(const NetInfo *net_info, const PortRef &sink) const;
+
     WireId getNetinfoSourceWire(const NetInfo *net_info) const;
     SSOArray<WireId, 2> getNetinfoSinkWires(const NetInfo *net_info, const PortRef &sink) const;
     size_t getNetinfoSinkWireCount(const NetInfo *net_info, const PortRef &sink) const;

@@ -239,14 +239,12 @@ DelayQuad Arch::getPipDelay(PipId pip) const
     return DelayQuad{308};
 }
 
-delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
+delay_t Arch::predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const
 {
-    if (net_info->driver.cell == nullptr || net_info->driver.cell->bel == BelId())
-        return 100;
-    if (sink.cell->bel == BelId())
-        return 100;
-    Loc src_loc = getBelLocation(net_info->driver.cell->bel);
-    Loc dst_loc = getBelLocation(sink.cell->bel);
+    NPNR_UNUSED(src_pin);
+    NPNR_UNUSED(dst_pin);
+    Loc src_loc = getBelLocation(src_bel);
+    Loc dst_loc = getBelLocation(dst_bel);
     return std::abs(dst_loc.y - src_loc.y) * 100 + std::abs(dst_loc.x - src_loc.x) * 100 + 100;
 }
 

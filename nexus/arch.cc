@@ -603,16 +603,14 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     int dist_y = std::abs(src_y - dst_y);
     return 75 * dist_x + 75 * dist_y + 250;
 }
-delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
+delay_t Arch::predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const
 {
-    if (net_info->driver.cell == nullptr || net_info->driver.cell->bel == BelId() || sink.cell->bel == BelId())
+    NPNR_UNUSED(src_pin);
+    if (dst_pin == id_FCI)
         return 0;
-    if (sink.port == id_FCI)
-        return 0;
-    int src_x = net_info->driver.cell->bel.tile % chip_info->width,
-        src_y = net_info->driver.cell->bel.tile / chip_info->width;
+    int src_x = src_bel.tile % chip_info->width, src_y = src_bel.tile / chip_info->width;
 
-    int dst_x = sink.cell->bel.tile % chip_info->width, dst_y = sink.cell->bel.tile / chip_info->width;
+    int dst_x = dst_bel.tile % chip_info->width, dst_y = dst_bel.tile / chip_info->width;
     int dist_x = std::abs(src_x - dst_x);
     int dist_y = std::abs(src_y - dst_y);
     return 100 * dist_x + 100 * dist_y + 250;
