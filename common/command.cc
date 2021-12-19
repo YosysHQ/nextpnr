@@ -109,6 +109,7 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("debug", "debug output");
     general.add_options()("debug-placer", "debug output from placer only");
     general.add_options()("debug-router", "debug output from router only");
+    general.add_options()("threads", po::value<int>(), "number of threads for passes where this is configurable");
 
     general.add_options()("force,f", "keep running after errors");
 #ifndef NO_GUI
@@ -173,6 +174,8 @@ po::options_description CommandHandler::getGeneralOptions()
                           "placer heap criticality exponent (int, default: 2)");
     general.add_options()("placer-heap-timingweight", po::value<int>(), "placer heap timing weight (int, default: 10)");
 
+    general.add_options()("parallel-refine", "use new experimental parallelised engine for placement refinement");
+
     general.add_options()("router2-heatmap", po::value<std::string>(),
                           "prefix for router2 resource congestion heatmaps");
 
@@ -223,6 +226,10 @@ void CommandHandler::setupContext(Context *ctx)
 
     if (vm.count("seed")) {
         ctx->rngseed(vm["seed"].as<int>());
+    }
+
+    if (vm.count("threads")) {
+        ctx->settings[ctx->id("threads")] = vm["threads"].as<int>();
     }
 
     if (vm.count("randomize-seed")) {
@@ -298,6 +305,10 @@ void CommandHandler::setupContext(Context *ctx)
 
     if (vm.count("placer-heap-timingweight"))
         ctx->settings[ctx->id("placerHeap/timingWeight")] = std::to_string(vm["placer-heap-timingweight"].as<int>());
+
+    if (vm.count("parallel-refine"))
+        ctx->settings[ctx->id("placerHeap/parallelRefine")] = true;
+
     if (vm.count("router2-heatmap"))
         ctx->settings[ctx->id("router2/heatmap")] = vm["router2-heatmap"].as<std::string>();
     if (vm.count("tmg-ripup") || vm.count("router2-tmg-ripup"))
