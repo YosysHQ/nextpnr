@@ -433,7 +433,7 @@ struct NexusFasmWriter
         write_bit(stringf("BASE_TYPE.%s_%s", iodir, str_or_default(cell->attrs, id_IO_TYPE, "LVCMOS33").c_str()));
         write_ioattr(cell, "PULLMODE", "NONE");
         write_ioattr(cell, "GLITCHFILTER", "OFF");
-        write_ioattr(cell, "SLEWRATE", "MED");
+        write_ioattr(cell, "SLEWRATE", str_or_default(cell->attrs, id_SLEWRATE, "MED").c_str());
         write_cell_muxes(cell);
         pop();
     }
@@ -458,7 +458,7 @@ struct NexusFasmWriter
         const char *iodir = is_input ? "INPUT" : (is_output ? "OUTPUT" : "BIDIR");
         write_bit(stringf("BASE_TYPE.%s_%s", iodir, str_or_default(cell->attrs, id_IO_TYPE, "LVCMOS18H").c_str()));
         write_ioattr(cell, "PULLMODE", "NONE");
-        write_ioattr(cell, "SLEWRATE", "MED");
+        write_ioattr(cell, "SLEWRATE", str_or_default(cell->attrs, id_SLEWRATE, "MED").c_str());
         pop();
         write_cell_muxes(cell);
         pop();

@@ -21,6 +21,7 @@
 #include "log.h"
 #include "nextpnr.h"
 
+#include <algorithm>
 #include <iterator>
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -423,6 +424,12 @@ struct PDCParser
                         if (eqp == std::string::npos)
                             log_error("expected key-value pair separated by '=' (line %d)", lineno);
                         std::string k = kv.substr(0, eqp), v = kv.substr(eqp + 1);
+                        if (k == "SLEWRATE") {
+                            std::vector<std::string> slewrate_allowed = {"SLOW", "MED", "FAST", "NA"};
+                            if (std::find(std::begin(slewrate_allowed), std::end(slewrate_allowed), v) ==
+                                std::end(slewrate_allowed))
+                                log_error("unexpected SLEWRATE configuration %s (line %d)\n", v.c_str(), lineno);
+                        }
                         args[ctx->id(k)] = v;
                     }
                 } else {
