@@ -64,14 +64,14 @@ std::unique_ptr<CellInfo> create_generic_cell(Context *ctx, IdString type, std::
         add_port(ctx, new_cell.get(), id_I1, PORT_IN);
         add_port(ctx, new_cell.get(), id_SEL, PORT_IN);
         add_port(ctx, new_cell.get(), id_OF, PORT_OUT);
-    } else if (type == id_IOB) {
+    } else if (type == id_IOB || type == id_IOBS) {
         new_cell->params[id_INPUT_USED] = 0;
         new_cell->params[id_OUTPUT_USED] = 0;
         new_cell->params[id_ENABLE_USED] = 0;
 
         add_port(ctx, new_cell.get(), id_PAD, PORT_INOUT);
         add_port(ctx, new_cell.get(), id_I, PORT_IN);
-        add_port(ctx, new_cell.get(), id_EN, PORT_IN);
+        add_port(ctx, new_cell.get(), id_OEN, PORT_IN);
         add_port(ctx, new_cell.get(), id_O, PORT_OUT);
     } else {
         log_error("unable to create generic cell of type %s\n", type.c_str(ctx));
@@ -140,9 +140,17 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
 void gwio_to_iob(Context *ctx, CellInfo *nxio, CellInfo *iob, pool<IdString> &todelete_cells)
 {
     if (nxio->type == id_IBUF) {
+        if (iob->type == id_IOBS) {
+            // VCC -> OEN
+            connect_port(ctx, ctx->nets[ctx->id("$PACKER_VCC_NET")].get(), iob, id_OEN);
+        }
         iob->params[id_INPUT_USED] = 1;
         replace_port(nxio, id_O, iob, id_O);
     } else if (nxio->type == id_OBUF) {
+        if (iob->type == id_IOBS) {
+            // VSS -> OEN
+            connect_port(ctx, ctx->nets[ctx->id("$PACKER_GND_NET")].get(), iob, id_OEN);
+        }
         iob->params[id_OUTPUT_USED] = 1;
         replace_port(nxio, id_I, iob, id_I);
     } else if (nxio->type == id_TBUF) {
