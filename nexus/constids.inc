@@ -109,6 +109,7 @@ X(CIB_T)
 X(CIB_LR)
 
 X(IO_TYPE)
+X(SLEWRATE)
 
 
 X(OSCA)
