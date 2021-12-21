@@ -98,6 +98,10 @@ X(WE_INV)
 X(cyclonev_oscillator)
 X(cyclonev_hps_interface_mpu_general_purpose)
 
+X(MISTRAL_M10K)
+X(ADDRSTALLA)
+X(ADDRSTALLB)
+
 X(clkout)
 X(clkout1)
 X(compress_rbf)
