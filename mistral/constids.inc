@@ -101,6 +101,8 @@ X(cyclonev_hps_interface_mpu_general_purpose)
 X(MISTRAL_M10K)
 X(ADDRSTALLA)
 X(ADDRSTALLB)
+X(CFG_ABITS)
+X(CFG_DBITS)
 
 X(clkout)
 X(clkout1)
