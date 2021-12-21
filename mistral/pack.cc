@@ -382,6 +382,83 @@ struct MistralPacker
         }
     }
 
+    void setup_m10ks()
+    {
+        for (auto& cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (ci->type != id_MISTRAL_M10K)
+                continue;
+
+            auto abits = ci->attrs[id_CFG_ABITS].as_int64();
+            auto dbits = ci->attrs[id_CFG_DBITS].as_int64();
+            NPNR_ASSERT(abits >= 7 && abits <= 13);
+            NPNR_ASSERT(dbits == 1 || dbits == 2 || dbits == 5 || dbits == 10 || dbits == 20);
+
+            // Quartus doesn't seem to generate ADDRSTALL[AB], BYTEENABLE[AB][01].
+
+            // It *does* generate ACLR[01] but leaves them unconnected if unused.
+
+            // Enables.
+            // RDEN[0] and WREN[1] are left unconnected.
+            ci->pin_data[ctx->id("A1EN")].bel_pins = {ctx->id("RDEN[1]")};
+            ci->pin_data[ctx->id("B1EN")].bel_pins = {ctx->id("WREN[0]")};
+
+            // Clocks.
+            ci->pin_data[ctx->id("CLK1")].bel_pins = {ctx->id("CLKIN[0]")};
+
+            // Enables left unconnected.
+
+            // Address lines.
+            int addr_offset = std::max(12 - std::max(abits, int64_t{9}), 0l);
+            int bit_offset = 0;
+            if (abits == 13) {
+                ci->pin_data[ctx->id("A1ADDR[0]")].bel_pins = {ctx->id("DATAAIN[4]")};
+                ci->pin_data[ctx->id("B1ADDR[0]")].bel_pins = {ctx->id("DATABIN[19]")};
+                bit_offset = 1;
+            }
+            for (int bit = bit_offset; bit < abits; bit++) {
+                ci->pin_data[ctx->id(stringf("A1ADDR[%d]", bit))].bel_pins = {ctx->id(stringf("ADDRA[%d]", bit + addr_offset))};
+                ci->pin_data[ctx->id(stringf("B1ADDR[%d]", bit))].bel_pins = {ctx->id(stringf("ADDRB[%d]", bit + addr_offset))};
+            }
+
+            // Data lines
+            std::vector<int> offsets;
+            offsets.push_back(0);
+            if (abits >= 10 && dbits <= 10) {
+                offsets.push_back(10);
+            }
+            if (abits >= 11 && dbits <= 5) {
+                offsets.push_back(5);
+                offsets.push_back(15);
+            }
+            if (abits >= 12 && dbits <= 2) {
+                offsets.push_back(2);
+                offsets.push_back(7);
+                offsets.push_back(12);
+                offsets.push_back(17);
+            }
+            if (abits == 13 && dbits == 1) {
+                offsets.push_back(1);
+                offsets.push_back(3);
+                offsets.push_back(6);
+                offsets.push_back(8);
+                offsets.push_back(11);
+                offsets.push_back(13);
+                offsets.push_back(16);
+                offsets.push_back(18);
+            }
+            for (int bit = 0; bit < dbits; bit++) {
+                for (int offset : offsets) {
+                    ci->pin_data[ctx->id(stringf("A1DATA[%d]", bit))].bel_pins.push_back(ctx->id(stringf("DATAAIN[%d]", bit + offset)));
+                }
+            }
+
+            for (int bit = 0; bit < dbits; bit++) {
+                ci->pin_data[ctx->id(stringf("B1DATA[%d]", bit))].bel_pins = {ctx->id(stringf("DATABOUT[%d]", bit))};
+            }
+        }
+    }
+
     void run()
     {
         init_constant_nets();
