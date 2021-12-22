@@ -384,13 +384,13 @@ struct MistralPacker
 
     void setup_m10ks()
     {
-        for (auto& cell : ctx->cells) {
+        for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
             if (ci->type != id_MISTRAL_M10K)
                 continue;
 
-            auto abits = ci->attrs[id_CFG_ABITS].as_int64();
-            auto dbits = ci->attrs[id_CFG_DBITS].as_int64();
+            auto abits = ci->params.at(id_CFG_ABITS).as_int64();
+            auto dbits = ci->params.at(id_CFG_DBITS).as_int64();
             NPNR_ASSERT(abits >= 7 && abits <= 13);
             NPNR_ASSERT(dbits == 1 || dbits == 2 || dbits == 5 || dbits == 10 || dbits == 20);
 
@@ -417,8 +417,10 @@ struct MistralPacker
                 bit_offset = 1;
             }
             for (int bit = bit_offset; bit < abits; bit++) {
-                ci->pin_data[ctx->id(stringf("A1ADDR[%d]", bit))].bel_pins = {ctx->id(stringf("ADDRA[%d]", bit + addr_offset))};
-                ci->pin_data[ctx->id(stringf("B1ADDR[%d]", bit))].bel_pins = {ctx->id(stringf("ADDRB[%d]", bit + addr_offset))};
+                ci->pin_data[ctx->id(stringf("A1ADDR[%d]", bit))].bel_pins = {
+                        ctx->id(stringf("ADDRA[%d]", bit + addr_offset))};
+                ci->pin_data[ctx->id(stringf("B1ADDR[%d]", bit))].bel_pins = {
+                        ctx->id(stringf("ADDRB[%d]", bit + addr_offset))};
             }
 
             // Data lines
@@ -449,7 +451,10 @@ struct MistralPacker
             }
             for (int bit = 0; bit < dbits; bit++) {
                 for (int offset : offsets) {
-                    ci->pin_data[ctx->id(stringf("A1DATA[%d]", bit))].bel_pins.push_back(ctx->id(stringf("DATAAIN[%d]", bit + offset)));
+                    log_info("%s %s\n", ctx->nameOf(ctx->id(stringf("A1DATA[%d]", bit))),
+                             ctx->nameOf(ctx->id(stringf("DATAAIN[%d]", bit + offset))));
+                    ci->pin_data[ctx->id(stringf("A1DATA[%d]", bit))].bel_pins.push_back(
+                            ctx->id(stringf("DATAAIN[%d]", bit + offset)));
                 }
             }
 
@@ -466,6 +471,7 @@ struct MistralPacker
         pack_io();
         constrain_carries();
         constrain_lutram();
+        setup_m10ks();
     }
 };
 }; // namespace
