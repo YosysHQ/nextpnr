@@ -123,7 +123,7 @@ struct MistralBitgen
                 break;
             };
             case CycloneV::FPLL: {
-                if (pt == CycloneV::EXTSWITCH || (pt == CycloneV::CLKEN && pi < 2))
+                if (pt == CycloneV::EXTSWITCH0 || (pt == CycloneV::CLKEN && pi < 2))
                     cv->inv_set(pn2r.second, true);
                 break;
             };
