@@ -870,6 +870,39 @@ Arch::Arch(ArchArgs args) : args(args)
                 snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
                 addBelInput(belname, id_OEN, id(buf));
                 break;
+                // Simplified IO
+            case ID_IOBJS:
+                z++; /* fall-through*/
+            case ID_IOBIS:
+                z++; /* fall-through*/
+            case ID_IOBHS:
+                z++; /* fall-through*/
+            case ID_IOBGS:
+                z++; /* fall-through*/
+            case ID_IOBFS:
+                z++; /* fall-through*/
+            case ID_IOBES:
+                z++; /* fall-through*/
+            case ID_IOBDS:
+                z++; /* fall-through*/
+            case ID_IOBCS:
+                z++; /* fall-through*/
+            case ID_IOBBS:
+                z++; /* fall-through*/
+            case ID_IOBAS:
+                snprintf(buf, 32, "R%dC%d_IOB%c", row + 1, col + 1, 'A' + z);
+                belname = id(buf);
+                addBel(belname, id_IOBS, Loc(col, row, z), false);
+                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_O)->src_id);
+                snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
+                addBelOutput(belname, id_O, id(buf));
+                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_I)->src_id);
+                snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
+                addBelInput(belname, id_I, id(buf));
+                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_OE)->src_id);
+                snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
+                addBelInput(belname, id_OEN, id(buf));
+                break;
 
             default:
                 break;

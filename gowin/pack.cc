@@ -629,7 +629,7 @@ static void pack_constants(Context *ctx)
 
     std::vector<IdString> dead_nets;
 
-    bool gnd_used = false;
+    bool gnd_used = true; // XXX May be needed for simplified IO
 
     for (auto &net : ctx->nets) {
         NetInfo *ni = net.second.get();
@@ -718,8 +718,27 @@ static void pack_io(Context *ctx)
                 }
                 packed_cells.insert(iob->name);
             }
+            // what type to create
+            IdString new_cell_type = id_IOB;
+            std::string constr_bel_name = std::string("");
+            // check whether the given IO is limited to simplified IO cells
+            auto constr_bel = ci->attrs.find(id_BEL);
+            if (constr_bel != ci->attrs.end()) {
+                constr_bel_name = constr_bel->second.as_string();
+            }
+            constr_bel = iob->attrs.find(id_BEL);
+            if (constr_bel != iob->attrs.end()) {
+                constr_bel_name = constr_bel->second.as_string();
+            }
+            if (!constr_bel_name.empty()) {
+                BelId constr_bel = ctx->getBelByNameStr(constr_bel_name);
+                if (constr_bel != BelId()) {
+                    new_cell_type = ctx->bels[constr_bel].type;
+                }
+            }
+
             // Create a IOB buffer
-            std::unique_ptr<CellInfo> ice_cell = create_generic_cell(ctx, id_IOB, ci->name.str(ctx) + "$iob");
+            std::unique_ptr<CellInfo> ice_cell = create_generic_cell(ctx, new_cell_type, ci->name.str(ctx) + "$iob");
             gwio_to_iob(ctx, ci, ice_cell.get(), packed_cells);
             new_cells.push_back(std::move(ice_cell));
             auto gwiob = new_cells.back().get();

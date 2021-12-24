@@ -358,6 +358,19 @@ X(IOBH)
 X(IOBI)
 X(IOBJ)
 
+// simplified iobs
+X(IOBS)
+X(IOBAS)
+X(IOBBS)
+X(IOBCS)
+X(IOBDS)
+X(IOBES)
+X(IOBFS)
+X(IOBGS)
+X(IOBHS)
+X(IOBIS)
+X(IOBJS)
+
 // Wide LUTs
 X(MUX2_LUT5)
 X(MUX2_LUT6)
