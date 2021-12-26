@@ -298,7 +298,7 @@ struct Arch : BaseArch<ArchRanges>
 
     dict<DecalId, std::vector<GraphicElement>> decal_graphics;
 
-    int gridDimX, gridDimY;
+    int gridDimX = 0, gridDimY = 0;
     std::vector<std::vector<int>> tileBelDimZ;
     std::vector<std::vector<int>> tilePipDimZ;
 
