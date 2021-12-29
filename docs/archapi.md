@@ -280,7 +280,7 @@ Return a (preferably unique) number that represents this wire. This is used in d
 
 ### void bindWire(WireId wire, NetInfo \*net, PlaceStrength strength)
 
-Bind a wire to a net. This method must be used when binding a wire that is driven by a bel pin. Use `binPip()`
+Bind a wire to a net. This method must be used when binding a wire that is driven by a bel pin. Use `bindPip()`
 when binding a wire that is driven by a pip.
 
 This method must also update `net->wires`.
