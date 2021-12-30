@@ -27,9 +27,42 @@ NEXTPNR_NAMESPACE_BEGIN
 
 typedef float delay_t;
 
-typedef IdStringList BelId;
-typedef IdStringList WireId;
-typedef IdStringList PipId;
+struct BelId
+{
+    BelId() : index(-1){};
+    explicit BelId(int32_t index) : index(index){};
+    int32_t index = -1;
+
+    bool operator==(const BelId &other) const { return index == other.index; }
+    bool operator!=(const BelId &other) const { return index != other.index; }
+    bool operator<(const BelId &other) const { return index < other.index; }
+    unsigned int hash() const { return index; }
+};
+
+struct WireId
+{
+    WireId() : index(-1){};
+    explicit WireId(int32_t index) : index(index){};
+    int32_t index = -1;
+
+    bool operator==(const WireId &other) const { return index == other.index; }
+    bool operator!=(const WireId &other) const { return index != other.index; }
+    bool operator<(const WireId &other) const { return index < other.index; }
+    unsigned int hash() const { return index; }
+};
+
+struct PipId
+{
+    PipId() : index(-1){};
+    explicit PipId(int32_t index) : index(index){};
+    int32_t index = -1;
+
+    bool operator==(const PipId &other) const { return index == other.index; }
+    bool operator!=(const PipId &other) const { return index != other.index; }
+    bool operator<(const PipId &other) const { return index < other.index; }
+    unsigned int hash() const { return index; }
+};
+
 typedef IdStringList GroupId;
 typedef IdStringList DecalId;
 typedef IdString BelBucketId;

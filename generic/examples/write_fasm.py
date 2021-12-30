@@ -29,7 +29,7 @@ def write_fasm(ctx, paramCfg, f):
 	for nname, net in sorted(ctx.nets, key=lambda x: str(x[1].name)):
 		print("# Net %s" % nname, file=f)
 		for wire, pip in sorted(net.wires, key=lambda x: str(x[1])):
-			if pip.pip != "":
+			if pip.pip is not None:
 				print("%s" % pip.pip, file=f)
 		print("", file=f)
 	for cname, cell in sorted(ctx.cells, key=lambda x: str(x[1].name)):

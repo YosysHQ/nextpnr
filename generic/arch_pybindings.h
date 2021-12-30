@@ -26,6 +26,73 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+namespace PythonConversion {
+
+template <> struct string_converter<BelId>
+{
+    BelId from_str(Context *ctx, std::string name) { return ctx->getBelByNameStr(name); }
+
+    std::string to_str(Context *ctx, BelId id)
+    {
+        if (id == BelId())
+            throw bad_wrap();
+        return ctx->getBelName(id).str(ctx);
+    }
+};
+
+template <> struct string_converter<WireId>
+{
+    WireId from_str(Context *ctx, std::string name) { return ctx->getWireByNameStr(name); }
+
+    std::string to_str(Context *ctx, WireId id)
+    {
+        if (id == WireId())
+            throw bad_wrap();
+        return ctx->getWireName(id).str(ctx);
+    }
+};
+
+template <> struct string_converter<const WireId>
+{
+    WireId from_str(Context *ctx, std::string name) { return ctx->getWireByNameStr(name); }
+
+    std::string to_str(Context *ctx, WireId id)
+    {
+        if (id == WireId())
+            throw bad_wrap();
+        return ctx->getWireName(id).str(ctx);
+    }
+};
+
+template <> struct string_converter<PipId>
+{
+    PipId from_str(Context *ctx, std::string name) { return ctx->getPipByNameStr(name); }
+
+    std::string to_str(Context *ctx, PipId id)
+    {
+        if (id == PipId())
+            throw bad_wrap();
+        return ctx->getPipName(id).str(ctx);
+    }
+};
+
+template <> struct string_converter<BelPin>
+{
+    BelPin from_str(Context *ctx, std::string name)
+    {
+        NPNR_ASSERT_FALSE("string_converter<BelPin>::from_str not implemented");
+    }
+
+    std::string to_str(Context *ctx, BelPin pin)
+    {
+        if (pin.bel == BelId())
+            throw bad_wrap();
+        return ctx->getBelName(pin.bel).str(ctx) + "/" + pin.pin.str(ctx);
+    }
+};
+
+} // namespace PythonConversion
+
 NEXTPNR_NAMESPACE_END
 #endif
 #endif
