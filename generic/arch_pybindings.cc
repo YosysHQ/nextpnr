@@ -42,6 +42,10 @@ void arch_wrap_python(py::module &m)
 {
     using namespace PythonConversion;
 
+    typedef linear_range<BelId> BelRange;
+    typedef linear_range<WireId> WireRange;
+    typedef linear_range<PipId> AllPipRange;
+
     auto arch_cls = py::class_<Arch, BaseCtx>(m, "Arch").def(py::init<ArchArgs>());
 
     auto dxy_cls = py::class_<ContextualWrapper<DecalXY>>(m, "DecalXY_");
@@ -74,8 +78,8 @@ void arch_wrap_python(py::module &m)
                   conv_from_str<BelId>>::def_wrap(ctx_cls, "getBoundBelCell");
     fn_wrapper_1a<Context, decltype(&Context::getConflictingBelCell), &Context::getConflictingBelCell,
                   deref_and_wrap<CellInfo>, conv_from_str<BelId>>::def_wrap(ctx_cls, "getConflictingBelCell");
-    fn_wrapper_0a<Context, decltype(&Context::getBels), &Context::getBels,
-                  wrap_context<const std::vector<BelId> &>>::def_wrap(ctx_cls, "getBels");
+    fn_wrapper_0a<Context, decltype(&Context::getBels), &Context::getBels, wrap_context<BelRange>>::def_wrap(ctx_cls,
+                                                                                                             "getBels");
 
     fn_wrapper_2a<Context, decltype(&Context::getBelPinWire), &Context::getBelPinWire, conv_to_str<WireId>,
                   conv_from_str<BelId>, conv_from_str<IdString>>::def_wrap(ctx_cls, "getBelPinWire");
@@ -96,11 +100,11 @@ void arch_wrap_python(py::module &m)
     fn_wrapper_1a<Context, decltype(&Context::getConflictingWireNet), &Context::getConflictingWireNet,
                   deref_and_wrap<NetInfo>, conv_from_str<WireId>>::def_wrap(ctx_cls, "getConflictingWireNet");
 
-    fn_wrapper_0a<Context, decltype(&Context::getWires), &Context::getWires,
-                  wrap_context<const std::vector<WireId> &>>::def_wrap(ctx_cls, "getWires");
+    fn_wrapper_0a<Context, decltype(&Context::getWires), &Context::getWires, wrap_context<WireRange>>::def_wrap(
+            ctx_cls, "getWires");
 
-    fn_wrapper_0a<Context, decltype(&Context::getPips), &Context::getPips,
-                  wrap_context<const std::vector<PipId> &>>::def_wrap(ctx_cls, "getPips");
+    fn_wrapper_0a<Context, decltype(&Context::getPips), &Context::getPips, wrap_context<AllPipRange>>::def_wrap(
+            ctx_cls, "getPips");
     fn_wrapper_1a<Context, decltype(&Context::getPipChecksum), &Context::getPipChecksum, pass_through<uint32_t>,
                   conv_from_str<PipId>>::def_wrap(ctx_cls, "getPipChecksum");
     fn_wrapper_3a_v<Context, decltype(&Context::bindPip), &Context::bindPip, conv_from_str<PipId>,
@@ -156,50 +160,50 @@ void arch_wrap_python(py::module &m)
                                                                                              "name"_a, "type"_a, "x"_a,
                                                                                              "y"_a);
     fn_wrapper_6a_v<Context, decltype(&Context::addPip), &Context::addPip, conv_from_str<IdStringList>,
-                    conv_from_str<IdString>, conv_from_str<IdStringList>, conv_from_str<IdStringList>,
-                    pass_through<delay_t>, pass_through<Loc>>::def_wrap(ctx_cls, "addPip", "name"_a, "type"_a,
-                                                                        "srcWire"_a, "dstWire"_a, "delay"_a, "loc"_a);
+                    conv_from_str<IdString>, conv_from_str<WireId>, conv_from_str<WireId>, pass_through<delay_t>,
+                    pass_through<Loc>>::def_wrap(ctx_cls, "addPip", "name"_a, "type"_a, "srcWire"_a, "dstWire"_a,
+                                                 "delay"_a, "loc"_a);
 
     fn_wrapper_5a_v<Context, decltype(&Context::addBel), &Context::addBel, conv_from_str<IdStringList>,
                     conv_from_str<IdString>, pass_through<Loc>, pass_through<bool>,
                     pass_through<bool>>::def_wrap(ctx_cls, "addBel", "name"_a, "type"_a, "loc"_a, "gb"_a, "hidden"_a);
-    fn_wrapper_3a_v<Context, decltype(&Context::addBelInput), &Context::addBelInput, conv_from_str<IdStringList>,
-                    conv_from_str<IdString>, conv_from_str<IdStringList>>::def_wrap(ctx_cls, "addBelInput", "bel"_a,
-                                                                                    "name"_a, "wire"_a);
-    fn_wrapper_3a_v<Context, decltype(&Context::addBelOutput), &Context::addBelOutput, conv_from_str<IdStringList>,
-                    conv_from_str<IdString>, conv_from_str<IdStringList>>::def_wrap(ctx_cls, "addBelOutput", "bel"_a,
-                                                                                    "name"_a, "wire"_a);
-    fn_wrapper_3a_v<Context, decltype(&Context::addBelInout), &Context::addBelInout, conv_from_str<IdStringList>,
-                    conv_from_str<IdString>, conv_from_str<IdStringList>>::def_wrap(ctx_cls, "addBelInout", "bel"_a,
-                                                                                    "name"_a, "wire"_a);
+    fn_wrapper_3a_v<Context, decltype(&Context::addBelInput), &Context::addBelInput, conv_from_str<BelId>,
+                    conv_from_str<IdString>, conv_from_str<WireId>>::def_wrap(ctx_cls, "addBelInput", "bel"_a, "name"_a,
+                                                                              "wire"_a);
+    fn_wrapper_3a_v<Context, decltype(&Context::addBelOutput), &Context::addBelOutput, conv_from_str<BelId>,
+                    conv_from_str<IdString>, conv_from_str<WireId>>::def_wrap(ctx_cls, "addBelOutput", "bel"_a,
+                                                                              "name"_a, "wire"_a);
+    fn_wrapper_3a_v<Context, decltype(&Context::addBelInout), &Context::addBelInout, conv_from_str<BelId>,
+                    conv_from_str<IdString>, conv_from_str<WireId>>::def_wrap(ctx_cls, "addBelInout", "bel"_a, "name"_a,
+                                                                              "wire"_a);
 
     fn_wrapper_2a_v<Context, decltype(&Context::addGroupBel), &Context::addGroupBel, conv_from_str<IdStringList>,
-                    conv_from_str<IdStringList>>::def_wrap(ctx_cls, "addGroupBel", "group"_a, "bel"_a);
+                    conv_from_str<BelId>>::def_wrap(ctx_cls, "addGroupBel", "group"_a, "bel"_a);
     fn_wrapper_2a_v<Context, decltype(&Context::addGroupWire), &Context::addGroupWire, conv_from_str<IdStringList>,
-                    conv_from_str<IdStringList>>::def_wrap(ctx_cls, "addGroupWire", "group"_a, "wire"_a);
+                    conv_from_str<WireId>>::def_wrap(ctx_cls, "addGroupWire", "group"_a, "wire"_a);
     fn_wrapper_2a_v<Context, decltype(&Context::addGroupPip), &Context::addGroupPip, conv_from_str<IdStringList>,
-                    conv_from_str<IdStringList>>::def_wrap(ctx_cls, "addGroupPip", "group"_a, "pip"_a);
-    fn_wrapper_2a_v<Context, decltype(&Context::addGroupGroup), &Context::addGroupPip, conv_from_str<IdStringList>,
+                    conv_from_str<PipId>>::def_wrap(ctx_cls, "addGroupPip", "group"_a, "pip"_a);
+    fn_wrapper_2a_v<Context, decltype(&Context::addGroupGroup), &Context::addGroupGroup, conv_from_str<IdStringList>,
                     conv_from_str<IdStringList>>::def_wrap(ctx_cls, "addGroupGroup", "group"_a, "grp"_a);
 
     fn_wrapper_2a_v<Context, decltype(&Context::addDecalGraphic), &Context::addDecalGraphic, conv_from_str<DecalId>,
                     pass_through<GraphicElement>>::def_wrap(ctx_cls, "addDecalGraphic", (py::arg("decal"), "graphic"));
-    fn_wrapper_2a_v<Context, decltype(&Context::setWireDecal), &Context::setWireDecal, conv_from_str<DecalId>,
+    fn_wrapper_2a_v<Context, decltype(&Context::setWireDecal), &Context::setWireDecal, conv_from_str<WireId>,
                     unwrap_context<DecalXY>>::def_wrap(ctx_cls, "setWireDecal", "wire"_a, "decalxy"_a);
-    fn_wrapper_2a_v<Context, decltype(&Context::setPipDecal), &Context::setPipDecal, conv_from_str<DecalId>,
+    fn_wrapper_2a_v<Context, decltype(&Context::setPipDecal), &Context::setPipDecal, conv_from_str<PipId>,
                     unwrap_context<DecalXY>>::def_wrap(ctx_cls, "setPipDecal", "pip"_a, "decalxy"_a);
-    fn_wrapper_2a_v<Context, decltype(&Context::setBelDecal), &Context::setBelDecal, conv_from_str<DecalId>,
+    fn_wrapper_2a_v<Context, decltype(&Context::setBelDecal), &Context::setBelDecal, conv_from_str<BelId>,
                     unwrap_context<DecalXY>>::def_wrap(ctx_cls, "setBelDecal", "bel"_a, "decalxy"_a);
     fn_wrapper_2a_v<Context, decltype(&Context::setGroupDecal), &Context::setGroupDecal, conv_from_str<DecalId>,
                     unwrap_context<DecalXY>>::def_wrap(ctx_cls, "setGroupDecal", "group"_a, "decalxy"_a);
 
-    fn_wrapper_3a_v<Context, decltype(&Context::setWireAttr), &Context::setWireAttr, conv_from_str<DecalId>,
+    fn_wrapper_3a_v<Context, decltype(&Context::setWireAttr), &Context::setWireAttr, conv_from_str<WireId>,
                     conv_from_str<IdString>, pass_through<std::string>>::def_wrap(ctx_cls, "setWireAttr", "wire"_a,
                                                                                   "key"_a, "value"_a);
-    fn_wrapper_3a_v<Context, decltype(&Context::setBelAttr), &Context::setBelAttr, conv_from_str<DecalId>,
+    fn_wrapper_3a_v<Context, decltype(&Context::setBelAttr), &Context::setBelAttr, conv_from_str<BelId>,
                     conv_from_str<IdString>, pass_through<std::string>>::def_wrap(ctx_cls, "setBelAttr", "bel"_a,
                                                                                   "key"_a, "value"_a);
-    fn_wrapper_3a_v<Context, decltype(&Context::setPipAttr), &Context::setPipAttr, conv_from_str<DecalId>,
+    fn_wrapper_3a_v<Context, decltype(&Context::setPipAttr), &Context::setPipAttr, conv_from_str<PipId>,
                     conv_from_str<IdString>, pass_through<std::string>>::def_wrap(ctx_cls, "setPipAttr", "pip"_a,
                                                                                   "key"_a, "value"_a);
 
@@ -253,6 +257,10 @@ void arch_wrap_python(py::module &m)
     fn_wrapper_2a<Context, decltype(&Context::isValidBelForCellType), &Context::isValidBelForCellType,
                   pass_through<bool>, conv_from_str<IdString>, conv_from_str<BelId>>::def_wrap(ctx_cls,
                                                                                                "isValidBelForCellType");
+
+    WRAP_RANGE(m, Bel, conv_to_str<BelId>);
+    WRAP_RANGE(m, Wire, conv_to_str<WireId>);
+    WRAP_RANGE(m, AllPip, conv_to_str<PipId>);
 
     WRAP_MAP_UPTR(m, CellMap, "IdCellMap");
     WRAP_MAP_UPTR(m, NetMap, "IdNetMap");
