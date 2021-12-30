@@ -25,6 +25,7 @@
 #include "router1.h"
 #include "router2.h"
 #include "util.h"
+#include "viaduct_api.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -285,6 +286,8 @@ uint32_t Arch::getBelChecksum(BelId bel) const
 
 void Arch::bindBel(BelId bel, CellInfo *cell, PlaceStrength strength)
 {
+    if (uarch)
+        uarch->notifyBelChange(bel, cell);
     bel_info(bel).bound_cell = cell;
     cell->bel = bel;
     cell->belStrength = strength;
@@ -293,6 +296,8 @@ void Arch::bindBel(BelId bel, CellInfo *cell, PlaceStrength strength)
 
 void Arch::unbindBel(BelId bel)
 {
+    if (uarch)
+        uarch->notifyBelChange(bel, nullptr);
     auto &bi = bel_info(bel);
     bi.bound_cell->bel = BelId();
     bi.bound_cell->belStrength = STRENGTH_NONE;
@@ -300,7 +305,10 @@ void Arch::unbindBel(BelId bel)
     refreshUiBel(bel);
 }
 
-bool Arch::checkBelAvail(BelId bel) const { return bel_info(bel).bound_cell == nullptr; }
+bool Arch::checkBelAvail(BelId bel) const
+{
+    return (!uarch || uarch->checkBelAvail(bel)) && (bel_info(bel).bound_cell == nullptr);
+}
 
 CellInfo *Arch::getBoundBelCell(BelId bel) const { return bel_info(bel).bound_cell; }
 
@@ -359,6 +367,8 @@ uint32_t Arch::getWireChecksum(WireId wire) const { return wire.index; }
 
 void Arch::bindWire(WireId wire, NetInfo *net, PlaceStrength strength)
 {
+    if (uarch)
+        uarch->notifyWireChange(wire, net);
     wire_info(wire).bound_net = net;
     net->wires[wire].pip = PipId();
     net->wires[wire].strength = strength;
@@ -371,16 +381,22 @@ void Arch::unbindWire(WireId wire)
 
     auto pip = net_wires.at(wire).pip;
     if (pip != PipId()) {
+        if (uarch)
+            uarch->notifyPipChange(pip, nullptr);
         pip_info(pip).bound_net = nullptr;
         refreshUiPip(pip);
     }
 
+    uarch->notifyWireChange(wire, nullptr);
     net_wires.erase(wire);
     wire_info(wire).bound_net = nullptr;
     refreshUiWire(wire);
 }
 
-bool Arch::checkWireAvail(WireId wire) const { return wire_info(wire).bound_net == nullptr; }
+bool Arch::checkWireAvail(WireId wire) const
+{
+    return (!uarch || uarch->checkWireAvail(wire)) && (wire_info(wire).bound_net == nullptr);
+}
 
 NetInfo *Arch::getBoundWireNet(WireId wire) const { return wire_info(wire).bound_net; }
 
@@ -413,6 +429,10 @@ uint32_t Arch::getPipChecksum(PipId pip) const { return pip.index; }
 void Arch::bindPip(PipId pip, NetInfo *net, PlaceStrength strength)
 {
     WireId wire = pip_info(pip).dstWire;
+    if (uarch) {
+        uarch->notifyPipChange(pip, net);
+        uarch->notifyWireChange(wire, net);
+    }
     pip_info(pip).bound_net = net;
     wire_info(wire).bound_net = net;
     net->wires[wire].pip = pip;
@@ -424,6 +444,10 @@ void Arch::bindPip(PipId pip, NetInfo *net, PlaceStrength strength)
 void Arch::unbindPip(PipId pip)
 {
     WireId wire = pip_info(pip).dstWire;
+    if (uarch) {
+        uarch->notifyPipChange(pip, nullptr);
+        uarch->notifyWireChange(wire, nullptr);
+    }
     wire_info(wire).bound_net->wires.erase(wire);
     pip_info(pip).bound_net = nullptr;
     wire_info(wire).bound_net = nullptr;
@@ -431,10 +455,15 @@ void Arch::unbindPip(PipId pip)
     refreshUiWire(wire);
 }
 
-bool Arch::checkPipAvail(PipId pip) const { return pip_info(pip).bound_net == nullptr; }
+bool Arch::checkPipAvail(PipId pip) const
+{
+    return (!uarch || uarch->checkPipAvail(pip)) && (pip_info(pip).bound_net == nullptr);
+}
 
 bool Arch::checkPipAvailForNet(PipId pip, NetInfo *net) const
 {
+    if (uarch && !uarch->checkPipAvailForNet(pip, net))
+        return false;
     NetInfo *bound_net = pip_info(pip).bound_net;
     return bound_net == nullptr || bound_net == net;
 }
@@ -488,6 +517,8 @@ const std::vector<GroupId> &Arch::getGroupGroups(GroupId group) const { return g
 
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {
+    if (uarch)
+        return uarch->estimateDelay(src, dst);
     const WireInfo &s = wire_info(src);
     const WireInfo &d = wire_info(dst);
     int dx = abs(s.x - d.x);
@@ -497,8 +528,8 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
 
 delay_t Arch::predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const
 {
-    NPNR_UNUSED(src_pin);
-    NPNR_UNUSED(dst_pin);
+    if (uarch)
+        return uarch->predictDelay(src_bel, src_pin, dst_bel, dst_pin);
     auto driver_loc = getBelLocation(src_bel);
     auto sink_loc = getBelLocation(dst_bel);
 
@@ -511,6 +542,8 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
 
 ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
 {
+    if (uarch)
+        return uarch->getRouteBoundingBox(src, dst);
     ArcBounds bb;
 
     int src_x = wire_info(src).x;
@@ -537,6 +570,8 @@ ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
 
 bool Arch::place()
 {
+    if (uarch)
+        uarch->prePlace();
     std::string placer = str_or_default(settings, id("placer"), defaultPlacer);
     if (placer == "heap") {
         bool have_iobuf_or_constr = false;
@@ -548,7 +583,7 @@ bool Arch::place()
             }
         }
         bool retVal;
-        if (!have_iobuf_or_constr) {
+        if (!have_iobuf_or_constr && !uarch) {
             log_warning("Unable to use HeAP due to a lack of IO buffers or constrained cells as anchors; reverting to "
                         "SA.\n");
             retVal = placer1(getCtx(), Placer1Cfg(getCtx()));
@@ -557,11 +592,15 @@ bool Arch::place()
             cfg.ioBufTypes.insert(id("GENERIC_IOB"));
             retVal = placer_heap(getCtx(), cfg);
         }
+        if (uarch)
+            uarch->postPlace();
         getCtx()->settings[getCtx()->id("place")] = 1;
         archInfoToAttributes();
         return retVal;
     } else if (placer == "sa") {
         bool retVal = placer1(getCtx(), Placer1Cfg(getCtx()));
+        if (uarch)
+            uarch->postPlace();
         getCtx()->settings[getCtx()->id("place")] = 1;
         archInfoToAttributes();
         return retVal;
@@ -572,6 +611,8 @@ bool Arch::place()
 
 bool Arch::route()
 {
+    if (uarch)
+        uarch->preRoute();
     std::string router = str_or_default(settings, id("router"), defaultRouter);
     bool result;
     if (router == "router1") {
@@ -582,6 +623,8 @@ bool Arch::route()
     } else {
         log_error("iCE40 architecture does not support router '%s'\n", router.c_str());
     }
+    if (uarch)
+        uarch->postRoute();
     getCtx()->settings[getCtx()->id("route")] = 1;
     archInfoToAttributes();
     return result;
@@ -644,6 +687,8 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
 
 bool Arch::isBelLocationValid(BelId bel) const
 {
+    if (uarch)
+        return uarch->isBelLocationValid(bel);
     std::vector<const CellInfo *> cells;
     Loc loc = getBelLocation(bel);
     for (auto tbel : getBelsByTile(loc.x, loc.y)) {
@@ -671,6 +716,7 @@ const std::vector<std::string> Arch::availableRouters = {"router1", "router2"};
 
 void Arch::assignArchInfo()
 {
+    int index = 0;
     for (auto &cell : getCtx()->cells) {
         CellInfo *ci = cell.second.get();
         if (ci->type == id("GENERIC_SLICE")) {
@@ -684,6 +730,8 @@ void Arch::assignArchInfo()
         for (auto &p : ci->ports)
             if (!ci->bel_pins.count(p.first))
                 ci->bel_pins.emplace(p.first, std::vector<IdString>{p.first});
+        ci->flat_index = index;
+        ++index;
     }
 }
 

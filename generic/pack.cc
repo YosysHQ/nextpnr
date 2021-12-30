@@ -276,12 +276,16 @@ bool Arch::pack()
     Context *ctx = getCtx();
     try {
         log_break();
-        pack_constants(ctx);
-        pack_io(ctx);
-        pack_lut_lutffs(ctx);
-        pack_nonlut_ffs(ctx);
-        ctx->settings[ctx->id("pack")] = 1;
+        if (uarch) {
+            uarch->pack();
+        } else {
+            pack_constants(ctx);
+            pack_io(ctx);
+            pack_lut_lutffs(ctx);
+            pack_nonlut_ffs(ctx);
+        }
         ctx->assignArchInfo();
+        ctx->settings[ctx->id("pack")] = 1;
         log_info("Checksum: 0x%08x\n", ctx->checksum());
         return true;
     } catch (log_execution_error_exception) {

@@ -23,10 +23,12 @@
 #include <map>
 
 #include "arch_api.h"
+#include "base_arch.h"
 #include "idstring.h"
 #include "idstringlist.h"
 #include "nextpnr_namespaces.h"
 #include "nextpnr_types.h"
+#include "viaduct_api.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -126,7 +128,7 @@ template <typename TId> struct linear_range
     iterator end() const { return iterator(size); }
 };
 
-struct ArchRanges
+struct ArchRanges : BaseArchRanges
 {
     using ArchArgsT = ArchArgs;
     // Bels
@@ -158,9 +160,10 @@ struct ArchRanges
     using BucketBelRangeT = std::vector<BelId>;
 };
 
-struct Arch : ArchAPI<ArchRanges>
+struct Arch : BaseArch<ArchRanges>
 {
     std::string chipName;
+    std::unique_ptr<ViaductAPI> uarch{};
 
     std::vector<WireInfo> wires;
     std::vector<PipInfo> pips;
@@ -325,6 +328,8 @@ struct Arch : ArchAPI<ArchRanges>
 
     std::vector<IdString> getCellTypes() const override
     {
+        if (uarch)
+            return uarch->getCellTypes();
         pool<IdString> cell_types;
         for (auto bel : bels) {
             cell_types.insert(bel.type);
@@ -339,9 +344,15 @@ struct Arch : ArchAPI<ArchRanges>
 
     BelBucketId getBelBucketByName(IdString bucket) const override { return bucket; }
 
-    BelBucketId getBelBucketForBel(BelId bel) const override { return getBelType(bel); }
+    BelBucketId getBelBucketForBel(BelId bel) const override
+    {
+        return uarch ? uarch->getBelBucketForBel(bel) : getBelType(bel);
+    }
 
-    BelBucketId getBelBucketForCellType(IdString cell_type) const override { return cell_type; }
+    BelBucketId getBelBucketForCellType(IdString cell_type) const override
+    {
+        return uarch ? uarch->getBelBucketForCellType(cell_type) : cell_type;
+    }
 
     std::vector<BelId> getBelsInBucket(BelBucketId bucket) const override
     {
@@ -366,19 +377,11 @@ struct Arch : ArchAPI<ArchRanges>
     // Get the TimingClockingInfo of a port
     TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const override;
 
-    bool isValidBelForCellType(IdString cell_type, BelId bel) const override { return cell_type == getBelType(bel); }
-    bool isBelLocationValid(BelId bel) const override;
-
-    // TODO
-    CellInfo *getClusterRootCell(ClusterId cluster) const override { NPNR_ASSERT_FALSE("unimplemented"); }
-    ArcBounds getClusterBounds(ClusterId cluster) const override { NPNR_ASSERT_FALSE("unimplemented"); }
-    Loc getClusterOffset(const CellInfo *cell) const override { NPNR_ASSERT_FALSE("unimplemented"); }
-    bool isClusterStrict(const CellInfo *cell) const override { NPNR_ASSERT_FALSE("unimplemented"); }
-    bool getClusterPlacement(ClusterId cluster, BelId root_bel,
-                             std::vector<std::pair<CellInfo *, BelId>> &placement) const override
+    bool isValidBelForCellType(IdString cell_type, BelId bel) const override
     {
-        NPNR_ASSERT_FALSE("unimplemented");
+        return uarch ? uarch->isValidBelForCellType(cell_type, bel) : cell_type == getBelType(bel);
     }
+    bool isBelLocationValid(BelId bel) const override;
 
     static const std::string defaultPlacer;
     static const std::vector<std::string> availablePlacers;

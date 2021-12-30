@@ -20,6 +20,7 @@
 #ifndef GENERIC_ARCHDEFS_H
 #define GENERIC_ARCHDEFS_H
 
+#include "base_clusterinfo.h"
 #include "hashlib.h"
 #include "idstringlist.h"
 
@@ -74,7 +75,7 @@ struct ArchNetInfo
 
 struct NetInfo;
 
-struct ArchCellInfo
+struct ArchCellInfo : BaseClusterInfo
 {
     // Custom grouping set via "PACK_GROUP" attribute. All cells with the same group
     // value may share a tile (-1 = don't care, default if not set)
@@ -83,6 +84,8 @@ struct ArchCellInfo
     bool is_slice;
     // Only packing rule for slice type primitives is a single clock per tile
     const NetInfo *slice_clk;
+    // A flat index for cells; so viaduct uarches can have their own fast flat arrays of per-cell validity-related data
+    int flat_index;
     // Cell to bel pin mapping
     dict<IdString, std::vector<IdString>> bel_pins;
 };
