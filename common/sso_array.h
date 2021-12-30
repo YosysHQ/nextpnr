@@ -70,6 +70,26 @@ template <typename T, std::size_t N> class SSOArray
         std::copy(other.begin(), other.end(), begin());
     }
 
+    SSOArray(SSOArray &&other) : m_size(other.size())
+    {
+        if (is_heap())
+            data_heap = other.data_heap;
+        else
+            std::copy(other.begin(), other.end(), begin());
+        other.m_size = 0;
+    }
+    SSOArray &operator=(const SSOArray &other)
+    {
+        if (&other == this)
+            return *this;
+        if (is_heap())
+            delete[] data_heap;
+        m_size = other.m_size;
+        alloc();
+        std::copy(other.begin(), other.end(), begin());
+        return *this;
+    }
+
     template <typename Tother> SSOArray(const Tother &other) : m_size(other.size())
     {
         alloc();
