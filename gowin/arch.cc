@@ -612,7 +612,7 @@ void Arch::addMuxBels(const DatabasePOD *db, int row, int col)
         int gcol = col + 1;
 
         // no MUX2_LUT8 in the last column
-        if (j == 7 && col == getGridDimX() - 1) {
+        if (j == 7 && col == getGridDimX() - 2) {
             continue;
         }
 
