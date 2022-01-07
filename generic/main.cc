@@ -44,8 +44,10 @@ GenericCommandHandler::GenericCommandHandler(int argc, char **argv) : CommandHan
 
 po::options_description GenericCommandHandler::getArchOptions()
 {
+    std::string all_uarches = ViaductArch::list();
+    std::string uarch_help = stringf("viaduct micro-arch to use (available: %s)", all_uarches.c_str());
     po::options_description specific("Architecture specific options");
-    specific.add_options()("generic", "set device type to generic");
+    specific.add_options()("uarch", po::value<std::string>(), uarch_help.c_str());
     specific.add_options()("no-iobs", "disable automatic IO buffer insertion");
     return specific;
 }
@@ -63,6 +65,17 @@ std::unique_ptr<Context> GenericCommandHandler::createContext(dict<std::string, 
     auto ctx = std::unique_ptr<Context>(new Context(chipArgs));
     if (vm.count("no-iobs"))
         ctx->settings[ctx->id("disable_iobs")] = Property::State::S1;
+    if (vm.count("uarch")) {
+        std::string uarch_name = vm["uarch"].as<std::string>();
+        dict<std::string, std::string> args; // TODO
+        auto uarch = ViaductArch::create(uarch_name, args);
+        if (!uarch) {
+            std::string all_uarches = ViaductArch::list();
+            log_error("Unknown viaduct uarch '%s'; available options: '%s'\n", uarch_name.c_str(), all_uarches.c_str());
+        }
+        ctx->uarch = std::move(uarch);
+        ctx->uarch->init(ctx.get());
+    }
     return ctx;
 }
 
