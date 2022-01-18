@@ -399,9 +399,9 @@ struct MistralPacker
             // It *does* generate ACLR[01] but leaves them unconnected if unused.
 
             // Enables.
-            // RDEN[0] and WREN[1] are left unconnected.
-            ci->pin_data[ctx->id("A1EN")].bel_pins = {ctx->id("RDEN[1]")};
-            ci->pin_data[ctx->id("B1EN")].bel_pins = {ctx->id("WREN[0]")};
+            // RDEN[1] and WREN[0] are left unconnected.
+            ci->pin_data[ctx->id("A1EN")].bel_pins = {ctx->id("WREN[1]")};
+            ci->pin_data[ctx->id("B1EN")].bel_pins = {ctx->id("RDEN[0]")};
 
             // Clocks.
             ci->pin_data[ctx->id("CLK1")].bel_pins = {ctx->id("CLKIN[0]")};
@@ -451,8 +451,6 @@ struct MistralPacker
             }
             for (int bit = 0; bit < dbits; bit++) {
                 for (int offset : offsets) {
-                    log_info("%s %s\n", ctx->nameOf(ctx->id(stringf("A1DATA[%d]", bit))),
-                             ctx->nameOf(ctx->id(stringf("DATAAIN[%d]", bit + offset))));
                     ci->pin_data[ctx->id(stringf("A1DATA[%d]", bit))].bel_pins.push_back(
                             ctx->id(stringf("DATAAIN[%d]", bit + offset)));
                 }

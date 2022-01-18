@@ -126,7 +126,7 @@ struct MistralBitgen
         // DATA_FLOW_THRU is probably transparent reads.
 
         cv->bmux_b_set(CycloneV::M10K, pos, CycloneV::A_DATA_FLOW_THRU, bi, 1);
-        cv->bmux_n_set(CycloneV::M10K, pos, CycloneV::A_DATA_WIDTH, bi, ci->attrs[id_CFG_DBITS].as_int64());
+        cv->bmux_n_set(CycloneV::M10K, pos, CycloneV::A_DATA_WIDTH, bi, ci->params.at(id_CFG_DBITS).as_int64());
         cv->bmux_m_set(CycloneV::M10K, pos, CycloneV::A_FAST_WRITE, bi, CycloneV::FAST);
         cv->bmux_m_set(CycloneV::M10K, pos, CycloneV::A_OUTPUT_SEL, bi, CycloneV::REG);
         cv->bmux_r_set(CycloneV::M10K, pos, CycloneV::A_SA_WREN_DELAY, bi, 1);
@@ -135,7 +135,7 @@ struct MistralBitgen
         cv->bmux_r_set(CycloneV::M10K, pos, CycloneV::A_WR_TIMER_PULSE, bi, 0x0b);
 
         cv->bmux_r_set(CycloneV::M10K, pos, CycloneV::B_DATA_FLOW_THRU, bi, 1);
-        cv->bmux_n_set(CycloneV::M10K, pos, CycloneV::B_DATA_WIDTH, bi, ci->attrs[id_CFG_DBITS].as_int64());
+        cv->bmux_n_set(CycloneV::M10K, pos, CycloneV::B_DATA_WIDTH, bi, ci->params.at(id_CFG_DBITS).as_int64());
         cv->bmux_m_set(CycloneV::M10K, pos, CycloneV::B_FAST_WRITE, bi, CycloneV::FAST);
         cv->bmux_m_set(CycloneV::M10K, pos, CycloneV::B_OUTPUT_SEL, bi, CycloneV::REG);
         cv->bmux_r_set(CycloneV::M10K, pos, CycloneV::B_SA_WREN_DELAY, bi, 1);
