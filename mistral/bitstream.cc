@@ -97,7 +97,6 @@ struct MistralBitgen
 
             // Output gpios must also bypass things in the associated dqs
             auto dqs = cv->p2p_to(CycloneV::pnode(CycloneV::GPIO, pos, CycloneV::PNONE, bi, -1));
-            printf("%s -> %s\n", CycloneV::pn2s(CycloneV::pnode(CycloneV::GPIO, pos, CycloneV::PNONE, bi, -1)).c_str(), CycloneV::pn2s(dqs).c_str());
             if(dqs) {
                 cv->bmux_m_set(CycloneV::DQS16, CycloneV::pn2p(dqs), CycloneV::INPUT_REG4_SEL, CycloneV::pn2bi(dqs), CycloneV::SEL_LOCKED_DPA);
                 cv->bmux_r_set(CycloneV::DQS16, CycloneV::pn2p(dqs), CycloneV::RB_T9_SEL_EREG_CFF_DELAY, CycloneV::pn2bi(dqs), 0x1f);
