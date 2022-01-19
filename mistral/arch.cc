@@ -43,6 +43,42 @@ void IdString::initialize_arch(const BaseCtx *ctx)
 #undef X
 }
 
+CycloneV::rnode_t Arch::find_rnode(CycloneV::block_type_t bt, int x, int y, CycloneV::port_type_t port, int bi, int pi) const
+{
+    auto pn1 = CycloneV::pnode(bt, x, y, port, bi, pi);
+    auto rn1 = cyclonev->pnode_to_rnode(pn1);
+    if(rn1)
+        return rn1;
+
+    if(bt == CycloneV::GPIO) {
+        auto pn2 = cyclonev->p2p_to(pn1);
+        if(!pn2) {
+            auto pnv = cyclonev->p2p_from(pn1);
+            if(!pnv.empty())
+                pn2 = pnv[0];
+        }
+        auto pn3 = cyclonev->hmc_get_bypass(pn2);
+        auto rn2 = cyclonev->pnode_to_rnode(pn3);
+        return rn2;
+    }
+
+    return 0;
+}
+
+WireId Arch::get_port(CycloneV::block_type_t bt, int x, int y, int bi, CycloneV::port_type_t port, int pi) const
+{
+    auto rn = find_rnode(bt, x, y, port, bi, pi);
+    if(rn)
+        return WireId(rn);
+    
+    log_error("Trying to connect unknown node %s\n", CycloneV::pn2s(CycloneV::pnode(bt, x, y, port, bi, pi)).c_str());
+}
+
+bool Arch::has_port(CycloneV::block_type_t bt, int x, int y, int bi, CycloneV::port_type_t port, int pi) const
+{
+    return find_rnode(bt, x, y, port, bi, pi) != 0;
+}
+
 Arch::Arch(ArchArgs args)
 {
     this->args = args;

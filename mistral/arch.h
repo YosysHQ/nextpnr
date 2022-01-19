@@ -461,10 +461,9 @@ struct Arch : BaseArch<ArchRanges>
 
     void add_bel_pin(BelId bel, IdString pin, PortType dir, WireId wire);
 
-    WireId get_port(CycloneV::block_type_t bt, int x, int y, int bi, CycloneV::port_type_t port, int pi = -1) const
-    {
-        return WireId(cyclonev->pnode_to_rnode(CycloneV::pnode(bt, x, y, port, bi, pi)));
-    }
+    CycloneV::rnode_t find_rnode(CycloneV::block_type_t bt, int x, int y, CycloneV::port_type_t port, int bi = -1, int pi = -1) const;
+    WireId get_port(CycloneV::block_type_t bt, int x, int y, int bi, CycloneV::port_type_t port, int pi = -1) const;
+    bool has_port(CycloneV::block_type_t bt, int x, int y, int bi, CycloneV::port_type_t port, int pi = -1) const;
 
     void create_lab(int x, int y, bool is_mlab);       // lab.cc
     void create_gpio(int x, int y);                    // io.cc
@@ -562,7 +561,6 @@ struct Arch : BaseArch<ArchRanges>
 
     // -------------------------------------------------
 
-    void init_base_bitstream(); // base_bitstream.cc
     void build_bitstream();     // bitstream.cc
 };
 
