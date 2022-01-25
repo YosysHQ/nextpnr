@@ -1784,7 +1784,7 @@ struct NexusPacker
                     copy_port(ctx, ci, mt.has_addsub ? id_SIGNED : id_SIGNEDA, mult9[i], id_ASIGNED);
             }
 
-            bool mult36_used = (mt.a_width >= 36) && (mt.b_width >= 36);
+            bool mult36_used = (mt.a_width >= 36) && (mt.b_width >= 36) && !(mt.wide > 0);
             // Configure mult18x36s
             for (int i = 0; i < mt.N18x36; i++) {
                 mult18x36[i]->params[id_MULT36] = mult36_used ? std::string("ENABLED") : std::string("DISABLED");
