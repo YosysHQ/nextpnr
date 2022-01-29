@@ -46,6 +46,8 @@ struct GraphicElement
         TYPE_BOX,
         TYPE_CIRCLE,
         TYPE_LABEL,
+        TYPE_LOCAL_ARROW, // Located entirely within the cell boundaries, coordinates in the range [0., 1.]
+        TYPE_LOCAL_LINE,
 
         TYPE_MAX
     } type = TYPE_NONE;
