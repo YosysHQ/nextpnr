@@ -54,6 +54,8 @@ po::options_description NexusCommandHandler::getArchOptions()
     specific.add_options()("no-pack-lutff", "disable packing (clustering) LUTs and FFs together");
     specific.add_options()("carry-lutff-ratio", po::value<float>(),
                            "ratio of FFs to be added to carry-chain LUT clusters");
+    specific.add_options()("estimate-delay-mult", po::value<int>(),
+                           "multiplier for the estimate delay");
 
     return specific;
 }
@@ -88,6 +90,8 @@ std::unique_ptr<Context> NexusCommandHandler::createContext(dict<std::string, Pr
         }
         ctx->settings[ctx->id("carry_lutff_ratio")] = ratio;
     }
+    if (vm.count("estimate-delay-mult"))
+        ctx->settings[ctx->id("estimate-delay-mult")] = vm["estimate-delay-mult"].as<int>();
     return ctx;
 }
 

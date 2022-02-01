@@ -601,7 +601,8 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     int dst_x = dst.tile % chip_info->width, dst_y = dst.tile / chip_info->width;
     int dist_x = std::abs(src_x - dst_x);
     int dist_y = std::abs(src_y - dst_y);
-    return 75 * dist_x + 75 * dist_y + 250;
+
+    return estimate_delay_mult * (dist_x + dist_y) + 250;
 }
 delay_t Arch::predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const
 {
@@ -655,6 +656,10 @@ ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
 
 bool Arch::place()
 {
+    estimate_delay_mult = 75;
+    if (getCtx()->settings.count(getCtx()->id("estimate-delay-mult")))
+        estimate_delay_mult = getCtx()->setting<int>("estimate-delay-mult");
+
     std::string placer = str_or_default(settings, id("placer"), defaultPlacer);
 
     if (placer == "heap") {
