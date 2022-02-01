@@ -1290,6 +1290,7 @@ struct Arch : BaseArch<ArchRanges>
 
     // -------------------------------------------------
 
+    int32_t estimate_delay_mult;
     delay_t estimateDelay(WireId src, WireId dst) const override;
     delay_t predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const override;
     delay_t getDelayEpsilon() const override { return 20; }
