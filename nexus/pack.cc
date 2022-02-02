@@ -1988,8 +1988,8 @@ struct NexusPacker
                 } else if (ci->type == id_OSC_CORE) {
                     int div = int_or_default(ci->params, ctx->id("HF_CLK_DIV"), 128);
                     const float tol = 1.15f; // OSCA has +/-15% frequency tolerance, assume the worst case.
-                    set_period(ci, id_HFCLKOUT, delay_t(tol * (1.0e6 / 450) * (div + 1)));
-                    set_period(ci, id_LFCLKOUT, delay_t(tol * (1.0e3 / 10)));
+                    set_period(ci, id_HFCLKOUT, delay_t((1.0e6 / 450) * (div + 1) / tol));
+                    set_period(ci, id_LFCLKOUT, delay_t((1.0e3 / 10) / tol));
                 } else if (ci->type == id_PLL_CORE) {
                     static const std::array<IdString, 6> div{id_DIVA, id_DIVB, id_DIVC, id_DIVD, id_DIVE, id_DIVF};
                     static const std::array<IdString, 6> output{id_CLKOP,  id_CLKOS,  id_CLKOS2,
