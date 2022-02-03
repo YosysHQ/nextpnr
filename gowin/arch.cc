@@ -23,6 +23,7 @@
 #include <math.h>
 #include <regex>
 #include "embed.h"
+#include "gfx.h"
 #include "nextpnr.h"
 #include "placer1.h"
 #include "placer_heap.h"
@@ -31,6 +32,148 @@
 #include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
+
+// GUI
+void Arch::fixClockSpineDecals(void)
+{
+    for (auto sp : clockSpinesCache) {
+        // row: (#of spine cells, wire_id)
+        dict<int, std::pair<int, IdString>> rows;
+        IdString min_x, max_x;
+        min_x = max_x = *sp.second.begin();
+        for (auto wire : sp.second) {
+            WireInfo &wi = wire_info(wire);
+            std::pair<int, IdString> &row = rows[wi.y];
+            ++row.first;
+            row.second = wire;
+            if (wi.x < wire_info(min_x).x) {
+                min_x = wire;
+            } else {
+                if (wi.x > wire_info(max_x).x) {
+                    max_x = wire;
+                }
+            }
+        }
+        // central mux row owns the global decal
+        int mux_row = -1;
+        for (auto row : rows) {
+            if (row.second.first == 1) {
+                mux_row = row.first;
+                break;
+            }
+        }
+        // if there is no separate central mux than all decals are the same
+        if (mux_row == -1) {
+            mux_row = rows.begin()->first;
+            WireInfo &wi = wire_info(rows.at(mux_row).second);
+            GraphicElement &el_active = decal_graphics.at(wi.decalxy_active.decal).at(0);
+            GraphicElement &el_inactive = decal_graphics.at(wi.decalxy_inactive.decal).at(0);
+            el_active.y1 -= wi.y;
+            el_active.y2 -= wi.y;
+            el_inactive.y1 -= wi.y;
+            el_inactive.y2 -= wi.y;
+            el_active.x1 += wire_info(min_x).x;
+            el_active.x2 += wire_info(max_x).x;
+            el_inactive.x1 += wire_info(min_x).x;
+            el_inactive.x2 += wire_info(max_x).x;
+        } else {
+            // change the global decal
+            WireInfo &wi = wire_info(rows.at(mux_row).second);
+            // clear spine decals
+            float y = 0.;
+            for (auto wire : sp.second) {
+                if (wire == wi.name) {
+                    continue;
+                }
+                wire_info(wire).decalxy_active = DecalXY();
+                wire_info(wire).decalxy_inactive = DecalXY();
+                y = wire_info(wire).y;
+            }
+            GraphicElement &el_active = decal_graphics.at(wi.decalxy_active.decal).at(0);
+            GraphicElement &el_inactive = decal_graphics.at(wi.decalxy_inactive.decal).at(0);
+            el_active.y1 -= y;
+            el_active.y2 -= y;
+            el_inactive.y1 -= y;
+            el_inactive.y2 -= y;
+            el_active.x1 += wire_info(min_x).x;
+            el_active.x2 += wire_info(max_x).x;
+            el_inactive.x1 += wire_info(min_x).x;
+            el_inactive.x2 += wire_info(max_x).x;
+        }
+        refreshUi();
+    }
+}
+
+void Arch::updateClockSpinesCache(IdString spine_id, IdString wire_id)
+{
+    std::vector<IdString> &sp = clockSpinesCache[spine_id];
+    if (std::find(sp.begin(), sp.end(), wire_id) == sp.end()) {
+        sp.push_back(wire_id);
+    }
+}
+
+DecalXY Arch::getBelDecal(BelId bel) const
+{
+    CellInfo *ci = getBoundBelCell(bel);
+    if (ci == nullptr) {
+        return bels.at(bel).decalxy_inactive;
+    } else {
+        // LUT + used/unused DFF
+        if (bels.at(bel).type == id_SLICE) {
+            DecalXY decalxy = bels.at(bel).decalxy_active;
+            if (!ci->params.at(id_FF_USED).as_bool()) {
+                decalxy.decal = id_DECAL_LUT_UNUSED_DFF_ACTIVE;
+                if (ci->params.count(id_ALU_MODE) != 0) {
+                    decalxy.decal = id_DECAL_ALU_ACTIVE;
+                }
+            }
+            return decalxy;
+        }
+    }
+    return bels.at(bel).decalxy_active;
+}
+
+DecalXY Arch::getGroupDecal(GroupId grp) const { return groups.at(grp).decalxy; }
+
+DecalXY Arch::getPipDecal(PipId pip) const
+{
+    if (getBoundPipNet(pip) == nullptr) {
+        return pips.at(pip).decalxy_inactive;
+    }
+    return pips.at(pip).decalxy_active;
+}
+
+DecalXY Arch::getWireDecal(WireId wire) const
+{
+    static std::vector<IdString> clk_wires = {id_GB00, id_GB10, id_GB20, id_GB30, id_GB40, id_GB50, id_GB60, id_GB70};
+    static std::vector<IdString> pip_dst = {id_CLK0, id_CLK1, id_CLK2, id_EW10, id_EW20, id_SN10, id_SN20};
+    if (getBoundWireNet(wire) == nullptr) {
+        if (std::find(clk_wires.begin(), clk_wires.end(), wires.at(wire).type) != clk_wires.end()) {
+            for (auto dst : pip_dst) {
+                // check if pip is used
+                char pip_name[20];
+                snprintf(pip_name, sizeof(pip_name), "%s_%s", wire.c_str(this), dst.c_str(this));
+                if (pips.count(id(pip_name)) != 0) {
+                    if (getBoundPipNet(id(pip_name)) != nullptr) {
+                        return wires.at(wire).decalxy_active;
+                    }
+                }
+            }
+        } else {
+            // spines
+            if (clockSpinesCache.count(wires.at(wire).type) != 0) {
+                std::vector<IdString> const &sp = clockSpinesCache.at(wires.at(wire).type);
+                for (auto w : sp) {
+                    if (getBoundWireNet(w) != nullptr) {
+                        return wires.at(wire).decalxy_active;
+                    }
+                }
+            }
+        }
+        return wires.at(wire).decalxy_inactive;
+    }
+    return wires.at(wire).decalxy_active;
+}
 
 WireInfo &Arch::wire_info(IdString wire)
 {
@@ -58,7 +201,6 @@ BelInfo &Arch::bel_info(IdString bel)
 
 void Arch::addWire(IdString name, IdString type, int x, int y)
 {
-    // std::cout << name.str(this) << std::endl;
     NPNR_ASSERT(wires.count(name) == 0);
     WireInfo &wi = wires[name];
     wi.name = name;
@@ -103,6 +245,13 @@ void Arch::addPip(IdString name, IdString type, IdString srcWire, IdString dstWi
     gridDimX = std::max(gridDimX, loc.x + 1);
     gridDimY = std::max(gridDimY, loc.y + 1);
     tilePipDimZ[loc.x][loc.y] = std::max(tilePipDimZ[loc.x][loc.y], loc.z + 1);
+}
+
+void Arch::addGroup(IdString name)
+{
+    NPNR_ASSERT(groups.count(name) == 0);
+    GroupInfo &gi = groups[name];
+    gi.name = name;
 }
 
 void Arch::addBel(IdString name, IdString type, Loc loc, bool gb)
@@ -189,22 +338,39 @@ void Arch::addDecalGraphic(DecalId decal, const GraphicElement &graphic)
     refreshUi();
 }
 
-void Arch::setWireDecal(WireId wire, DecalXY decalxy)
+void Arch::setWireDecal(WireId wire, DecalXY active, DecalXY inactive)
 {
-    wire_info(wire).decalxy = decalxy;
+    wire_info(wire).decalxy_active = active;
+    wire_info(wire).decalxy_inactive = inactive;
     refreshUiWire(wire);
 }
 
-void Arch::setPipDecal(PipId pip, DecalXY decalxy)
+void Arch::setPipDecal(PipId pip, DecalXY active, DecalXY inactive)
 {
-    pip_info(pip).decalxy = decalxy;
+    pip_info(pip).decalxy_active = active;
+    pip_info(pip).decalxy_inactive = inactive;
     refreshUiPip(pip);
 }
 
-void Arch::setBelDecal(BelId bel, DecalXY decalxy)
+void Arch::setBelDecal(BelId bel, DecalXY active, DecalXY inactive)
 {
-    bel_info(bel).decalxy = decalxy;
+    bel_info(bel).decalxy_active = active;
+    bel_info(bel).decalxy_inactive = inactive;
     refreshUiBel(bel);
+}
+
+void Arch::setDefaultDecals(void)
+{
+    for (BelId bel : getBels()) {
+        gfxSetBelDefaultDecal(this, bel_info(bel));
+    }
+    for (PipId pip : getPips()) {
+        gfxSetPipDefaultDecal(this, pip_info(pip));
+    }
+    for (WireId wire : getWires()) {
+        gfxSetWireDefaultDecal(this, wire_info(wire));
+    }
+    fixClockSpineDecals();
 }
 
 void Arch::setGroupDecal(GroupId group, DecalXY decalxy)
@@ -522,6 +688,7 @@ void Arch::read_cst(std::istream &in)
         insloc
     } cst_type;
 
+    settings.erase(id("cst"));
     while (!in.eof()) {
         std::getline(in, line);
         cst_type = ioloc;
@@ -590,6 +757,7 @@ void Arch::read_cst(std::istream &in)
         }
         }
     }
+    settings[id("cst")] = 1;
 }
 
 // Add all MUXes for the cell
@@ -695,6 +863,14 @@ Arch::Arch(ArchArgs args) : args(args)
         IdString::initialize_add(this, db->id_strs[i].get(), uint32_t(i) + db->num_constids);
     }
 
+    // Empty decal
+    addDecalGraphic(IdString(), GraphicElement());
+
+    if (args.gui) {
+        // decals
+        gfxCreateBelDecals(this);
+    }
+
     // setup package
     IdString package_name;
     IdString device_id;
@@ -768,9 +944,17 @@ Arch::Arch(ArchArgs args) : args(args)
     // The reverse order of the enumeration simplifies the creation
     // of MUX2_LUT8s: they need the existence of the wire on the right.
     for (int i = db->rows * db->cols - 1; i >= 0; --i) {
+        IdString grpname;
         int row = i / db->cols;
         int col = i % db->cols;
         const TilePOD *tile = db->grid[i].get();
+        if (args.gui) {
+            // CRU decal
+            snprintf(buf, 32, "R%dC%d_CRU", row + 1, col + 1);
+            grpname = id(buf);
+            addGroup(grpname);
+            setGroupDecal(grpname, gfxGetCruGroupDecalXY(col, row));
+        }
         // setup wires
         const PairPOD *pips[2] = {tile->pips.get(), tile->clock_pips.get()};
         unsigned int num_pips[2] = {tile->num_pips, tile->num_clock_pips};
@@ -842,6 +1026,14 @@ Arch::Arch(ArchArgs args) : args(args)
                 }
                 if (z == 0) {
                     addMuxBels(db, row, col);
+                }
+                if (z % 2 == 0) {
+                    snprintf(buf, 32, "R%dC%d_LUT_GRP%d", row + 1, col + 1, z);
+                    grpname = id(buf);
+                    if (args.gui) {
+                        addGroup(grpname);
+                        setGroupDecal(grpname, gfxGetLutGroupDecalXY(col, row, z >> 1));
+                    }
                 }
                 break;
             case ID_IOBJ:
@@ -939,7 +1131,6 @@ Arch::Arch(ArchArgs args) : args(args)
                 DelayQuad delay = getWireTypeDelay(destid);
                 // local alias
                 auto local_alias = pairLookup(tile->aliases.get(), tile->num_aliases, srcid.index);
-                // std::cout << "srcid " << srcid.str(this) << std::endl;
                 if (local_alias != nullptr) {
                     srcid = IdString(local_alias->src_id);
                     gsrcname = wireToGlobal(srcrow, srccol, db, srcid);
@@ -956,11 +1147,13 @@ Arch::Arch(ArchArgs args) : args(args)
                     srcrow = alias_src->src_row;
                     srcid = IdString(alias_src->src_id);
                     gsrcname = wireToGlobal(srcrow, srccol, db, srcid);
-                    // std::cout << buf << std::endl;
                 }
                 addPip(pipname, destid, gsrcname, gdestname, delay, Loc(col, row, j));
             }
         }
+    }
+    if (args.gui) {
+        setDefaultDecals();
     }
 
     // Permissible combinations of modes in a single slice
@@ -1020,6 +1213,17 @@ BelId Arch::getBelByLocation(Loc loc) const
 }
 
 const std::vector<BelId> &Arch::getBelsByTile(int x, int y) const { return bels_by_tile.at(x).at(y); }
+
+bool Arch::haveBelType(int x, int y, IdString bel_type)
+{
+    for (auto bel : getBelsByTile(x, y)) {
+        BelInfo bi = bel_info(bel);
+        if (bi.type == bel_type) {
+            return true;
+        }
+    }
+    return false;
+}
 
 bool Arch::getBelGlobalBuf(BelId bel) const { return bels.at(bel).gb; }
 
@@ -1307,6 +1511,16 @@ bool Arch::route()
     getCtx()->settings[getCtx()->id("route")] = 1;
     archInfoToAttributes();
     return result;
+}
+
+// ---------------------------------------------------------------
+std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
+{
+    if (!decal_graphics.count(decal)) {
+        // XXX
+        return std::vector<GraphicElement>();
+    }
+    return decal_graphics.at(decal);
 }
 
 // ---------------------------------------------------------------

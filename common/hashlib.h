@@ -28,9 +28,7 @@ const int hashtable_size_factor = 3;
 
 // Cantor pairing function for two non-negative integers
 // https://en.wikipedia.org/wiki/Pairing_function
-inline unsigned int mkhash(unsigned int a, unsigned int b) {
-    return (a*a + 3*a + 2*a*b + b + b*b) / 2;
-}
+inline unsigned int mkhash(unsigned int a, unsigned int b) { return (a * a + 3 * a + 2 * a * b + b + b * b) / 2; }
 
 // traditionally 5381 is used as starting value for the djb2 hash
 const unsigned int mkhash_init = 5381;

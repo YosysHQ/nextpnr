@@ -185,7 +185,12 @@ Arch::Arch(ArchArgs args) : args(args)
             for (auto pip : getPipsUphill(w))
                 disabled_pips.insert(pip);
         }
-        NPNR_ASSERT(disabled_pips.size() == 4);
+        // TODO: find a better solution to disable these
+        WireId dcs_out = getWireByName(
+                IdStringList(std::array<IdString, 3>{x_ids.at(37), y_ids.at(10), id("JDCSOUT_DCS_DCSIP")}));
+        for (auto dcs_pip : getPipsUphill(dcs_out))
+            disabled_pips.insert(dcs_pip);
+        NPNR_ASSERT(disabled_pips.size() == 6);
     }
 }
 

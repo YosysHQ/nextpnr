@@ -30,7 +30,7 @@ void Arch::create_gpio(int x, int y)
         WireId pad = add_wire(x, y, id(stringf("PAD[%d]", z)));
         BelId bel = add_bel(x, y, id(stringf("IO[%d]", z)), id_MISTRAL_IO);
         add_bel_pin(bel, id_PAD, PORT_INOUT, pad);
-        if(has_port(CycloneV::GPIO, x, y, z, CycloneV::DATAOUT, 0)) {
+        if (has_port(CycloneV::GPIO, x, y, z, CycloneV::DATAOUT, 0)) {
             // FIXME: is the port index of zero always correct?
             add_bel_pin(bel, id_I, PORT_IN, get_port(CycloneV::GPIO, x, y, z, CycloneV::DATAOUT, 0));
             add_bel_pin(bel, id_OE, PORT_IN, get_port(CycloneV::GPIO, x, y, z, CycloneV::OEIN, 0));

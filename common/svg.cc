@@ -57,6 +57,8 @@ struct SVGWriter
             switch (el.type) {
             case GraphicElement::TYPE_LINE:
             case GraphicElement::TYPE_ARROW:
+            case GraphicElement::TYPE_LOCAL_LINE:
+            case GraphicElement::TYPE_LOCAL_ARROW:
                 out << stringf("<line x1=\"%f\" y1=\"%f\" x2=\"%f\" y2=\"%f\" stroke=\"%s\"/>", (el.x1 + dxy.x) * scale,
                                (el.y1 + dxy.y) * scale, (el.x2 + dxy.x) * scale, (el.y2 + dxy.y) * scale,
                                get_stroke_colour(el.style))

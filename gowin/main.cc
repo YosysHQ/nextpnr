@@ -61,6 +61,7 @@ std::unique_ptr<Context> GowinCommandHandler::createContext(dict<std::string, Pr
         log_error("Invalid device %s\n", device.c_str());
     }
     ArchArgs chipArgs;
+    chipArgs.gui = vm.count("gui") != 0;
     char buf[36];
     // GW1N and GW1NR variants share the same database.
     // Most Gowin devices are a System in Package with some SDRAM wirebonded to a GPIO bank.

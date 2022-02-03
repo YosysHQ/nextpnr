@@ -39,14 +39,14 @@ struct MistralBitgen
     {
         auto pn1 = CycloneV::pnode(bt, pos, port, bi, pi);
         auto rn1 = cv->pnode_to_rnode(pn1);
-        if(rn1)
+        if (rn1)
             return rn1;
 
-        if(bt == CycloneV::GPIO) {
+        if (bt == CycloneV::GPIO) {
             auto pn2 = cv->p2p_to(pn1);
-            if(!pn2) {
+            if (!pn2) {
                 auto pnv = cv->p2p_from(pn1);
-                if(!pnv.empty())
+                if (!pnv.empty())
                     pn2 = pnv[0];
             }
             auto pn3 = cv->hmc_get_bypass(pn2);
@@ -97,9 +97,11 @@ struct MistralBitgen
 
             // Output gpios must also bypass things in the associated dqs
             auto dqs = cv->p2p_to(CycloneV::pnode(CycloneV::GPIO, pos, CycloneV::PNONE, bi, -1));
-            if(dqs) {
-                cv->bmux_m_set(CycloneV::DQS16, CycloneV::pn2p(dqs), CycloneV::INPUT_REG4_SEL, CycloneV::pn2bi(dqs), CycloneV::SEL_LOCKED_DPA);
-                cv->bmux_r_set(CycloneV::DQS16, CycloneV::pn2p(dqs), CycloneV::RB_T9_SEL_EREG_CFF_DELAY, CycloneV::pn2bi(dqs), 0x1f);
+            if (dqs) {
+                cv->bmux_m_set(CycloneV::DQS16, CycloneV::pn2p(dqs), CycloneV::INPUT_REG4_SEL, CycloneV::pn2bi(dqs),
+                               CycloneV::SEL_LOCKED_DPA);
+                cv->bmux_r_set(CycloneV::DQS16, CycloneV::pn2p(dqs), CycloneV::RB_T9_SEL_EREG_CFF_DELAY,
+                               CycloneV::pn2bi(dqs), 0x1f);
             }
         }
         // There seem to be two mirrored OEIN inversion bits for constant OE for inputs/outputs. This might be to
