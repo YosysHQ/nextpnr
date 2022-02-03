@@ -505,10 +505,13 @@ static Loc getLoc(std::smatch match, int maxX, int maxY)
 
 void Arch::read_cst(std::istream &in)
 {
-    std::regex iobre = std::regex("IO_LOC +\"([^\"]+)\" +([^ ;]+) *;.*");
+    // If two locations are specified separated by commas (for differential I/O buffers),
+    // only the first location is actually recognized and used.
+    // And pin A will be Positive and pin B will be Negative in any case.
+    std::regex iobre = std::regex("IO_LOC +\"([^\"]+)\" +([^ ,;]+)(, *[^ ;]+)? *;.*");
     std::regex portre = std::regex("IO_PORT +\"([^\"]+)\" +([^;]+;).*");
     std::regex port_attrre = std::regex("([^ =;]+=[^ =;]+) *([^;]*;)");
-    std::regex iobelre = std::regex("IO([TRBL])([0-9]+)([A-Z])");
+    std::regex iobelre = std::regex("IO([TRBL])([0-9]+)\\[?([A-Z])\\]?");
     std::regex inslocre = std::regex("INS_LOC +\"([^\"]+)\" +R([0-9]+)C([0-9]+)\\[([0-9])\\]\\[([AB])\\] *;.*");
     std::smatch match, match_attr, match_pinloc;
     std::string line, pinline;
@@ -551,17 +554,20 @@ void Arch::read_cst(std::istream &in)
             if (belname != nullptr) {
                 std::string bel = IdString(belname->src_id).str(this);
                 it->second->setAttr(IdString(ID_BEL), bel);
-            } else if (std::regex_match(pinline, match_pinloc, iobelre)) {
-                // may be it's IOx#[AB] style?
-                Loc loc = getLoc(match_pinloc, getGridDimX(), getGridDimY());
-                BelId bel = getBelByLocation(loc);
-                if (bel == BelId()) {
-                    log_error("Pin %s not found\n", pinline.c_str());
-                }
-                std::string belname = getCtx()->nameOfBel(bel);
-                it->second->setAttr(IdString(ID_BEL), belname);
             } else {
-                log_error("Pin %s not found\n", pinname.c_str(this));
+                if (std::regex_match(pinline, match_pinloc, iobelre)) {
+                    // may be it's IOx#[AB] style?
+                    Loc loc = getLoc(match_pinloc, getGridDimX(), getGridDimY());
+                    BelId bel = getBelByLocation(loc);
+                    if (bel == BelId()) {
+                        log_error("Pin %s not found (TRBL style). \n", pinline.c_str());
+                    }
+                    std::string belname = getCtx()->nameOfBel(bel);
+                    it->second->setAttr(IdString(ID_BEL), belname);
+                } else {
+                    std::cout << "plain error:[" << pinline << "]" << std::endl;
+                    log_error("Pin %s not found (pin# style)\n", pinname.c_str(this));
+                }
             }
         } break;
         case insloc: { // INS_LOC
