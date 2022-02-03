@@ -35,9 +35,21 @@ class MainWindow : public BaseMainWindow
   public:
     void createMenu();
 
+  protected:
+    void onDisableActions() override;
+    void onUpdateActions() override;
+
+    void load_cst(std::string filename);
+
   protected Q_SLOTS:
     void new_proj() override;
+
+    void open_cst();
+
     void newContext(Context *ctx);
+
+  private:
+    QAction *actionLoadCST;
 };
 
 NEXTPNR_NAMESPACE_END

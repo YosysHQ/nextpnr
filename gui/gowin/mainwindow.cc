@@ -19,8 +19,11 @@
 
 #include "mainwindow.h"
 
+#include <QFileDialog>
 #include <QMessageBox>
 #include <cstdlib>
+
+#include "cst.h"
 
 static void initMainResource() { Q_INIT_RESOURCE(nextpnr); }
 
@@ -30,8 +33,10 @@ MainWindow::MainWindow(std::unique_ptr<Context> context, CommandHandler *handler
         : BaseMainWindow(std::move(context), handler, parent)
 {
     initMainResource();
-    QMessageBox::critical(0, "Error - FIXME", "No GUI support for nextpnr-gowin");
-    std::exit(1);
+    std::string title = "nextpnr-gowin - [EMPTY]";
+    setWindowTitle(title.c_str());
+    connect(this, &BaseMainWindow::contextChanged, this, &MainWindow::newContext);
+    createMenu();
 }
 
 MainWindow::~MainWindow() {}
@@ -42,8 +47,57 @@ void MainWindow::newContext(Context *ctx)
     setWindowTitle(title.c_str());
 }
 
-void MainWindow::createMenu() {}
+void MainWindow::load_cst(std::string filename)
+{
+    disableActions();
+    std::ifstream f(filename);
+    if (read_cst(ctx.get(), f)) {
+        log("Loading CST successful.\n");
+        actionPack->setEnabled(true);
+    } else {
+        actionLoadCST->setEnabled(true);
+        log("Loading CST failed.\n");
+    }
+}
+
+void MainWindow::createMenu()
+{
+    actionLoadCST = new QAction("Open CST", this);
+    actionLoadCST->setIcon(QIcon(":/icons/resources/open_cst.png"));
+    actionLoadCST->setStatusTip("Open CST file");
+    actionLoadCST->setEnabled(false);
+    connect(actionLoadCST, &QAction::triggered, this, &MainWindow::open_cst);
+
+    // Add actions in menus
+    mainActionBar->addSeparator();
+    mainActionBar->addAction(actionLoadCST);
+
+    menuDesign->addSeparator();
+    menuDesign->addAction(actionLoadCST);
+}
 
 void MainWindow::new_proj() {}
 
+void MainWindow::open_cst()
+{
+    QString fileName = QFileDialog::getOpenFileName(this, QString("Open CST"), QString(), QString("*.cst"));
+    if (!fileName.isEmpty()) {
+        load_cst(fileName.toStdString());
+    }
+}
+
+void MainWindow::onDisableActions() { actionLoadCST->setEnabled(false); }
+
+void MainWindow::onUpdateActions()
+{
+    if (ctx->settings.find(ctx->id("synth")) != ctx->settings.end()) {
+        actionLoadCST->setEnabled(true);
+    }
+    if (ctx->settings.find(ctx->id("cst")) != ctx->settings.end()) {
+        actionLoadCST->setEnabled(false);
+    }
+    if (ctx->settings.find(ctx->id("pack")) != ctx->settings.end()) {
+        actionLoadCST->setEnabled(false);
+    }
+}
 NEXTPNR_NAMESPACE_END

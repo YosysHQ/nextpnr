@@ -176,6 +176,7 @@ struct ArchArgs
     // y = mx + c relationship between distance and delay for interconnect
     // delay estimates
     double delayScale = 0.4, delayOffset = 0.4;
+    bool gui;
 };
 
 struct WireInfo;
@@ -187,7 +188,7 @@ struct PipInfo
     NetInfo *bound_net;
     WireId srcWire, dstWire;
     DelayQuad delay;
-    DecalXY decalxy;
+    DecalXY decalxy_active, decalxy_inactive;
     Loc loc;
 };
 
@@ -200,7 +201,7 @@ struct WireInfo
     BelPin uphill_bel_pin;
     std::vector<BelPin> downhill_bel_pins;
     std::vector<BelPin> bel_pins;
-    DecalXY decalxy;
+    DecalXY decalxy_active, decalxy_inactive;
     int x, y;
 };
 
@@ -217,7 +218,7 @@ struct BelInfo
     std::map<IdString, std::string> attrs;
     CellInfo *bound_cell;
     dict<IdString, PinInfo> pins;
-    DecalXY decalxy;
+    DecalXY decalxy_active, decalxy_inactive;
     int x, y, z;
     bool gb;
 };
@@ -270,8 +271,6 @@ struct ArchRanges : BaseArchRanges
     using GroupWiresRangeT = const std::vector<WireId> &;
     using GroupPipsRangeT = const std::vector<PipId> &;
     using GroupGroupsRangeT = const std::vector<GroupId> &;
-    // Decals
-    using DecalGfxRangeT = const std::vector<GraphicElement> &;
 };
 
 struct Arch : BaseArch<ArchRanges>
@@ -312,16 +311,23 @@ struct Arch : BaseArch<ArchRanges>
     void addBelOutput(IdString bel, IdString name, IdString wire);
     void addBelInout(IdString bel, IdString name, IdString wire);
 
+    void addGroup(IdString name);
     void addGroupBel(IdString group, IdString bel);
     void addGroupWire(IdString group, IdString wire);
     void addGroupPip(IdString group, IdString pip);
     void addGroupGroup(IdString group, IdString grp);
 
     void addDecalGraphic(DecalId decal, const GraphicElement &graphic);
-    void setWireDecal(WireId wire, DecalXY decalxy);
-    void setPipDecal(PipId pip, DecalXY decalxy);
-    void setBelDecal(BelId bel, DecalXY decalxy);
+    void setWireDecal(WireId wire, DecalXY active, DecalXY inactive);
+    void setPipDecal(PipId pip, DecalXY active, DecalXY inactive);
+    void setBelDecal(BelId bel, DecalXY active, DecalXY inactive);
+    void setDefaultDecals(void);
     void setGroupDecal(GroupId group, DecalXY decalxy);
+    std::vector<GraphicElement> getDecalGraphics(DecalId decal) const override;
+    DecalXY getBelDecal(BelId bel) const override;
+    DecalXY getGroupDecal(GroupId grp) const override;
+    DecalXY getPipDecal(PipId pip) const override;
+    DecalXY getWireDecal(WireId pip) const override;
 
     void setWireAttr(IdString wire, IdString key, const std::string &value);
     void setPipAttr(IdString pip, IdString key, const std::string &value);
@@ -452,12 +458,19 @@ struct Arch : BaseArch<ArchRanges>
     // Internal usage
     void assignArchInfo() override;
     bool cellsCompatible(const CellInfo **cells, int count) const;
+    bool haveBelType(int x, int y, IdString bel_type);
     // start Z for the MUX2LUT5 bels
     int const mux_0_z = 10;
     // chip db version
     unsigned int const chipdb_version = 1;
 
     std::vector<IdString> cell_types;
+
+    // clock spines cache
+    // spine_id : [wire_id, wire_id, ...]
+    dict<IdString, std::vector<IdString>> clockSpinesCache;
+    void updateClockSpinesCache(IdString spine_id, IdString wire_id);
+    void fixClockSpineDecals(void);
 
     // Permissible combinations of modes in a single slice
     std::map<const IdString, IdString> dff_comp_mode;
