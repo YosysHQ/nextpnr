@@ -24,7 +24,6 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-
 void gfxCreateBelDecals(Arch *arch);
 void gfxSetBelDefaultDecal(Arch *arch, BelInfo &bel);
 void gfxSetIOBWireDecals(Arch *arch, BelInfo &bel);
