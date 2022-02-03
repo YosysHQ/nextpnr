@@ -732,7 +732,6 @@ void Arch::read_cst(std::istream &in)
                     std::string belname = getCtx()->nameOfBel(bel);
                     it->second->setAttr(IdString(ID_BEL), belname);
                 } else {
-                    std::cout << "plain error:[" << pinline << "]" << std::endl;
                     log_error("Pin %s not found (pin# style)\n", pinname.c_str(this));
                 }
             }
