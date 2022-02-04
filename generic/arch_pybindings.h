@@ -76,6 +76,18 @@ template <> struct string_converter<PipId>
     }
 };
 
+template <> struct string_converter<const PipId &>
+{
+    PipId from_str(Context *ctx, std::string name) { return ctx->getPipByNameStr(name); }
+
+    std::string to_str(Context *ctx, const PipId &id)
+    {
+        if (id == PipId())
+            throw bad_wrap();
+        return ctx->getPipName(id).str(ctx);
+    }
+};
+
 template <> struct string_converter<BelPin>
 {
     BelPin from_str(Context *ctx, std::string name)
