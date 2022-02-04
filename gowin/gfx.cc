@@ -5260,7 +5260,8 @@ void gfxSetWireDefaultDecal(Arch *arch, WireInfo &wire)
             snprintf(buf, sizeof(buf), "%s_active", wire.name.c_str(arch));
             active_id = arch->id(buf);
             active.decal = active_id;
-            inactive_id = IdString();
+            snprintf(buf, sizeof(buf), "%s_inactive", wire.name.c_str(arch));
+            inactive_id = arch->id(buf);
             inactive.decal = inactive_id;
             active.x = inactive.x = 0;
             active.y = inactive.y = 0;
@@ -5301,9 +5302,8 @@ void gfxSetWireDefaultDecal(Arch *arch, WireInfo &wire)
                 snprintf(buf, sizeof(buf), "%s_active", wire.name.c_str(arch));
                 active_id = arch->id(buf);
                 active.decal = active_id;
-                // snprintf(buf, sizeof(buf), "%s_inactive", wire.name.c_str(arch));
-                // inactive_id = arch->id(buf);
-                inactive_id = IdString();
+                snprintf(buf, sizeof(buf), "%s_inactive", wire.name.c_str(arch));
+                inactive_id = arch->id(buf);
                 inactive.decal = inactive_id;
                 active.x = inactive.x = 0;
                 active.y = inactive.y = 0;
