@@ -82,7 +82,7 @@ void ViaductHelpers::remove_nextpnr_iobs(const pool<CellTypePort> &top_ports)
 }
 
 int ViaductHelpers::constrain_cell_pairs(const pool<CellTypePort> &src_ports, const pool<CellTypePort> &sink_ports,
-                                         int delta_z)
+                                         int delta_z, bool allow_fanout)
 {
     int constrained = 0;
     for (auto &cell : ctx->cells) {
@@ -95,6 +95,8 @@ int ViaductHelpers::constrain_cell_pairs(const pool<CellTypePort> &src_ports, co
             if (port.second.type != PORT_OUT || !port.second.net)
                 continue;
             if (!src_ports.count(CellTypePort(ci.type, port.first)))
+                continue;
+            if (!allow_fanout && port.second.net->users.size() > 1)
                 continue;
             for (auto &usr : port.second.net->users) {
                 if (!sink_ports.count(CellTypePort(usr)))
