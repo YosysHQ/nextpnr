@@ -266,6 +266,7 @@ void arch_wrap_python(py::module &m)
     WRAP_MAP_UPTR(m, NetMap, "IdNetMap");
     WRAP_MAP(m, HierarchyMap, wrap_context<HierarchicalCell &>, "HierarchyMap");
     WRAP_VECTOR(m, const std::vector<IdString>, conv_to_str<IdString>);
+    WRAP_VECTOR(m, const std::vector<PipId>, conv_to_str<PipId>);
 }
 
 NEXTPNR_NAMESPACE_END
