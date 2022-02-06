@@ -48,6 +48,7 @@ po::options_description GowinCommandHandler::getArchOptions()
 {
     po::options_description specific("Architecture specific options");
     specific.add_options()("device", po::value<std::string>(), "device name");
+    specific.add_options()("family", po::value<std::string>(), "family name");
     specific.add_options()("cst", po::value<std::string>(), "physical constraints file");
     return specific;
 }
@@ -62,12 +63,16 @@ std::unique_ptr<Context> GowinCommandHandler::createContext(dict<std::string, Pr
     }
     ArchArgs chipArgs;
     chipArgs.gui = vm.count("gui") != 0;
-    char buf[36];
-    // GW1N and GW1NR variants share the same database.
-    // Most Gowin devices are a System in Package with some SDRAM wirebonded to a GPIO bank.
-    // However, it appears that the S series with embedded ARM core are unique silicon.
-    snprintf(buf, 36, "GW1N%s-%s", match[1].str().c_str(), match[3].str().c_str());
-    chipArgs.family = buf;
+    if (vm.count("family")) {
+	    chipArgs.family = vm["family"].as<std::string>();
+    } else {
+	    char buf[36];
+	    // GW1N and GW1NR variants share the same database.
+	    // Most Gowin devices are a System in Package with some SDRAM wirebonded to a GPIO bank.
+	    // However, it appears that the S series with embedded ARM core are unique silicon.
+	    snprintf(buf, 36, "GW1N%s-%s", match[1].str().c_str(), match[3].str().c_str());
+	    chipArgs.family = buf;
+    }
     chipArgs.partnumber = match[0];
     return std::unique_ptr<Context>(new Context(chipArgs));
 }

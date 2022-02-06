@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.5)
 project(chipdb-gowin NONE)
 
-set(ALL_GOWIN_DEVICES GW1N-1 GW1N-4 GW1N-9 GW1NS-2 GW1NS-4)
+set(ALL_GOWIN_DEVICES GW1N-1 GW1N-4 GW1N-9 GW1N-9C GW1NS-2 GW1NS-4)
 set(GOWIN_DEVICES ${ALL_GOWIN_DEVICES} CACHE STRING
     "Include support for these Gowin devices (available: ${ALL_GOWIN_DEVICES})")
 message(STATUS "Enabled Gowin devices: ${GOWIN_DEVICES}")
