@@ -70,7 +70,8 @@ struct ViaductHelpers
     // expects a set of top-level port types
     void remove_nextpnr_iobs(const pool<CellTypePort> &top_ports);
     // Constrain cells with certain port connection patterns together with a fixed z-offset
-    int constrain_cell_pairs(const pool<CellTypePort> &src_ports, const pool<CellTypePort> &sink_ports, int delta_z);
+    int constrain_cell_pairs(const pool<CellTypePort> &src_ports, const pool<CellTypePort> &sink_ports, int delta_z,
+                             bool allow_fanout = true);
     // Replace constants with given driving cells
     void replace_constants(CellTypePort vcc_driver, CellTypePort gnd_driver,
                            const dict<IdString, Property> &vcc_params = {},
