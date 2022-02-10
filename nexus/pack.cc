@@ -1987,7 +1987,7 @@ struct NexusPacker
                     copy_constraint(ci, id_CLKI, id_CLKO, 1);
                 } else if (ci->type == id_OSC_CORE) {
                     int div = int_or_default(ci->params, ctx->id("HF_CLK_DIV"), 128);
-                    const float tol = 1.15f; // OSCA has +/-15% frequency tolerance, assume the worst case.
+                    const float tol = 1.07f; // OSCA has +/-7% frequency tolerance, assume the worst case.
                     set_period(ci, id_HFCLKOUT, delay_t((1.0e6 / 450) * (div + 1) / tol));
                     set_period(ci, id_LFCLKOUT, delay_t((1.0e3 / 10) / tol));
                 } else if (ci->type == id_PLL_CORE) {
