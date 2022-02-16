@@ -569,7 +569,7 @@ run the router.
 Graphics Methods
 ----------------
 
-###DecalGfxRangeT getDecalGraphics(DecalId decal) const
+### DecalGfxRangeT getDecalGraphics(DecalId decal) const
 
 Return the graphic elements that make up a decal.
 
