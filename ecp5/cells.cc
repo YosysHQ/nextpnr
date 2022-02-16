@@ -34,13 +34,9 @@ void add_port(const Context *ctx, CellInfo *cell, std::string name, PortType dir
 std::unique_ptr<CellInfo> create_ecp5_cell(Context *ctx, IdString type, std::string name)
 {
     static int auto_idx = 0;
-    std::unique_ptr<CellInfo> new_cell = std::unique_ptr<CellInfo>(new CellInfo());
-    if (name.empty()) {
-        new_cell->name = ctx->id("$nextpnr_" + type.str(ctx) + "_" + std::to_string(auto_idx++));
-    } else {
-        new_cell->name = ctx->id(name);
-    }
-    new_cell->type = type;
+    IdString name_id =
+            name.empty() ? ctx->id("$nextpnr_" + type.str(ctx) + "_" + std::to_string(auto_idx++)) : ctx->id(name);
+    std::unique_ptr<CellInfo> new_cell = std::make_unique<CellInfo>(ctx, name_id, type);
 
     auto copy_bel_ports = [&]() {
         // First find a Bel of the target type
@@ -465,11 +461,11 @@ void nxio_to_tr(Context *ctx, CellInfo *nxio, CellInfo *trio, std::vector<std::u
     if (ctx->ports.count(nxio->name)) {
         IdString tn_netname = nxio->name;
         NPNR_ASSERT(!ctx->nets.count(tn_netname));
-        std::unique_ptr<NetInfo> toplevel_net{new NetInfo};
+        ctx->net_aliases.erase(tn_netname);
+        NetInfo *toplevel_net = ctx->createNet(tn_netname);
         toplevel_net->name = tn_netname;
-        connect_port(ctx, toplevel_net.get(), trio, ctx->id("B"));
-        ctx->ports[nxio->name].net = toplevel_net.get();
-        ctx->nets[tn_netname] = std::move(toplevel_net);
+        connect_port(ctx, toplevel_net, trio, ctx->id("B"));
+        ctx->ports[nxio->name].net = toplevel_net;
     }
 
     CellInfo *tbuf = net_driven_by(

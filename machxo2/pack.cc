@@ -183,17 +183,16 @@ static void pack_constants(Context *ctx)
     const_cell->params[id_LUT0_INITVAL] = Property(0, 16);
     const_cell->params[id_LUT1_INITVAL] = Property(0xFFFF, 16);
 
-    std::unique_ptr<NetInfo> gnd_net = std::unique_ptr<NetInfo>(new NetInfo);
-    gnd_net->name = ctx->id("$PACKER_GND_NET");
+    NetInfo *gnd_net = ctx->createNet(ctx->id("$PACKER_GND_NET"));
     gnd_net->driver.cell = const_cell.get();
     gnd_net->driver.port = id_F0;
-    const_cell->ports.at(id_F0).net = gnd_net.get();
+    const_cell->ports.at(id_F0).net = gnd_net;
 
-    std::unique_ptr<NetInfo> vcc_net = std::unique_ptr<NetInfo>(new NetInfo);
+    NetInfo *vcc_net = ctx->createNet(ctx->id("$PACKER_VCC_NET"));
     vcc_net->name = ctx->id("$PACKER_VCC_NET");
     vcc_net->driver.cell = const_cell.get();
     vcc_net->driver.port = id_F1;
-    const_cell->ports.at(id_F1).net = vcc_net.get();
+    const_cell->ports.at(id_F1).net = vcc_net;
 
     std::vector<IdString> dead_nets;
 
@@ -201,20 +200,18 @@ static void pack_constants(Context *ctx)
         NetInfo *ni = net.second.get();
         if (ni->driver.cell != nullptr && ni->driver.cell->type == ctx->id("GND")) {
             IdString drv_cell = ni->driver.cell->name;
-            set_net_constant(ctx, ni, gnd_net.get(), false);
+            set_net_constant(ctx, ni, gnd_net, false);
             dead_nets.push_back(net.first);
             ctx->cells.erase(drv_cell);
         } else if (ni->driver.cell != nullptr && ni->driver.cell->type == ctx->id("VCC")) {
             IdString drv_cell = ni->driver.cell->name;
-            set_net_constant(ctx, ni, vcc_net.get(), true);
+            set_net_constant(ctx, ni, vcc_net, true);
             dead_nets.push_back(net.first);
             ctx->cells.erase(drv_cell);
         }
     }
 
     ctx->cells[const_cell->name] = std::move(const_cell);
-    ctx->nets[gnd_net->name] = std::move(gnd_net);
-    ctx->nets[vcc_net->name] = std::move(vcc_net);
 
     for (auto dn : dead_nets) {
         ctx->nets.erase(dn);

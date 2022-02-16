@@ -456,11 +456,10 @@ class Ecp5GlobalRouter
             dccptr = net->driver.cell;
         } else {
             auto dcc = create_ecp5_cell(ctx, id_DCCA, "$gbuf$" + net->name.str(ctx));
-            std::unique_ptr<NetInfo> glbnet = std::unique_ptr<NetInfo>(new NetInfo);
-            glbnet->name = ctx->id("$glbnet$" + net->name.str(ctx));
-            glbnet->driver.cell = dcc.get();
-            glbnet->driver.port = id_CLKO;
-            dcc->ports[id_CLKO].net = glbnet.get();
+            glbptr = ctx->createNet(ctx->id("$glbnet$" + net->name.str(ctx)));
+            glbptr->driver.cell = dcc.get();
+            glbptr->driver.port = id_CLKO;
+            dcc->ports[id_CLKO].net = glbptr;
             std::vector<PortRef> keep_users;
             for (auto user : net->users) {
                 if (dcs_cell != nullptr && user.cell != dcs_cell) {
@@ -473,8 +472,8 @@ class Ecp5GlobalRouter
                 } else if (is_logic_port(user)) {
                     keep_users.push_back(user);
                 } else {
-                    glbnet->users.push_back(user);
-                    user.cell->ports.at(user.port).net = glbnet.get();
+                    glbptr->users.push_back(user);
+                    user.cell->ports.at(user.port).net = glbptr;
                 }
             }
             net->users = keep_users;
@@ -485,13 +484,11 @@ class Ecp5GlobalRouter
             clki_pr.cell = dcc.get();
             net->users.push_back(clki_pr);
             if (net->clkconstr) {
-                glbnet->clkconstr = std::unique_ptr<ClockConstraint>(new ClockConstraint());
-                glbnet->clkconstr->low = net->clkconstr->low;
-                glbnet->clkconstr->high = net->clkconstr->high;
-                glbnet->clkconstr->period = net->clkconstr->period;
+                glbptr->clkconstr = std::unique_ptr<ClockConstraint>(new ClockConstraint());
+                glbptr->clkconstr->low = net->clkconstr->low;
+                glbptr->clkconstr->high = net->clkconstr->high;
+                glbptr->clkconstr->period = net->clkconstr->period;
             }
-            glbptr = glbnet.get();
-            ctx->nets[glbnet->name] = std::move(glbnet);
             dccptr = dcc.get();
             ctx->cells[dcc->name] = std::move(dcc);
         }

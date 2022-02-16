@@ -36,13 +36,10 @@ void add_port(const Context *ctx, CellInfo *cell, std::string name, PortType dir
 std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::string name)
 {
     static int auto_idx = 0;
-    std::unique_ptr<CellInfo> new_cell = std::unique_ptr<CellInfo>(new CellInfo());
-    if (name.empty()) {
-        new_cell->name = ctx->id("$nextpnr_" + type.str(ctx) + "_" + std::to_string(auto_idx++));
-    } else {
-        new_cell->name = ctx->id(name);
-    }
-    new_cell->type = type;
+    IdString name_id =
+            name.empty() ? ctx->id("$nextpnr_" + type.str(ctx) + "_" + std::to_string(auto_idx++)) : ctx->id(name);
+    auto new_cell = std::make_unique<CellInfo>(ctx, name_id, type);
+
     if (type == ctx->id("ICESTORM_LC")) {
         new_cell->params[ctx->id("LUT_INIT")] = Property(0, 16);
         new_cell->params[ctx->id("NEG_CLK")] = Property::State::S0;
@@ -459,11 +456,10 @@ void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio, pool<IdString> &to
     if (ctx->ports.count(nxio->name)) {
         IdString tn_netname = nxio->name;
         NPNR_ASSERT(!ctx->nets.count(tn_netname));
-        std::unique_ptr<NetInfo> toplevel_net{new NetInfo};
-        toplevel_net->name = tn_netname;
-        connect_port(ctx, toplevel_net.get(), sbio, ctx->id("PACKAGE_PIN"));
-        ctx->ports[nxio->name].net = toplevel_net.get();
-        ctx->nets[tn_netname] = std::move(toplevel_net);
+        ctx->net_aliases.erase(tn_netname);
+        NetInfo *toplevel_net = ctx->createNet(tn_netname);
+        connect_port(ctx, toplevel_net, sbio, ctx->id("PACKAGE_PIN"));
+        ctx->ports[nxio->name].net = toplevel_net;
     }
 
     CellInfo *tbuf = net_driven_by(

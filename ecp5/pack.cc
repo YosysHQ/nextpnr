@@ -761,17 +761,14 @@ class Ecp5Packer
                            carry->users.end());
         connect_port(ctx, carry, feedin.get(), id_A0);
 
-        std::unique_ptr<NetInfo> new_carry(new NetInfo());
-        new_carry->name = ctx->id(feedin->name.str(ctx) + "$COUT");
-        connect_port(ctx, new_carry.get(), feedin.get(), ctx->id("COUT"));
+        NetInfo *new_carry = ctx->createNet(ctx->id(feedin->name.str(ctx) + "$COUT"));
+        connect_port(ctx, new_carry, feedin.get(), ctx->id("COUT"));
         chain_in.cell->ports[chain_in.port].net = nullptr;
-        connect_port(ctx, new_carry.get(), chain_in.cell, chain_in.port);
+        connect_port(ctx, new_carry, chain_in.cell, chain_in.port);
 
         CellInfo *feedin_ptr = feedin.get();
         IdString feedin_name = feedin->name;
         ctx->cells[feedin_name] = std::move(feedin);
-        IdString new_carry_name = new_carry->name;
-        ctx->nets[new_carry_name] = std::move(new_carry);
         return feedin_ptr;
     }
 
@@ -789,11 +786,10 @@ class Ecp5Packer
         carry->driver.cell = nullptr;
         connect_port(ctx, carry, feedout.get(), ctx->id("S0"));
 
-        std::unique_ptr<NetInfo> new_cin(new NetInfo());
-        new_cin->name = ctx->id(feedout->name.str(ctx) + "$CIN");
+        NetInfo *new_cin = ctx->createNet(ctx->id(feedout->name.str(ctx) + "$CIN"));
         new_cin->driver = carry_drv;
-        carry_drv.cell->ports.at(carry_drv.port).net = new_cin.get();
-        connect_port(ctx, new_cin.get(), feedout.get(), ctx->id("CIN"));
+        carry_drv.cell->ports.at(carry_drv.port).net = new_cin;
+        connect_port(ctx, new_cin, feedout.get(), ctx->id("CIN"));
 
         if (chain_next) {
             // Loop back into LUT4_1 for feedthrough
@@ -805,23 +801,16 @@ class Ecp5Packer
                                               }),
                                carry->users.end());
 
-            std::unique_ptr<NetInfo> new_cout(new NetInfo());
-            new_cout->name = ctx->id(feedout->name.str(ctx) + "$COUT");
-            connect_port(ctx, new_cout.get(), feedout.get(), ctx->id("COUT"));
+            NetInfo *new_cout = ctx->createNet(ctx->id(feedout->name.str(ctx) + "$COUT"));
+            connect_port(ctx, new_cout, feedout.get(), ctx->id("COUT"));
 
             chain_next->cell->ports[chain_next->port].net = nullptr;
-            connect_port(ctx, new_cout.get(), chain_next->cell, chain_next->port);
-
-            IdString new_cout_name = new_cout->name;
-            ctx->nets[new_cout_name] = std::move(new_cout);
+            connect_port(ctx, new_cout, chain_next->cell, chain_next->port);
         }
 
         CellInfo *feedout_ptr = feedout.get();
         IdString feedout_name = feedout->name;
         ctx->cells[feedout_name] = std::move(feedout);
-
-        IdString new_cin_name = new_cin->name;
-        ctx->nets[new_cin_name] = std::move(new_cin);
 
         return feedout_ptr;
     }
@@ -1384,16 +1373,14 @@ class Ecp5Packer
 
         std::unique_ptr<CellInfo> gnd_cell = create_ecp5_cell(ctx, ctx->id("LUT4"), "$PACKER_GND");
         gnd_cell->params[ctx->id("INIT")] = Property(0, 16);
-        std::unique_ptr<NetInfo> gnd_net = std::unique_ptr<NetInfo>(new NetInfo);
-        gnd_net->name = ctx->id("$PACKER_GND_NET");
+        auto gnd_net = std::make_unique<NetInfo>(ctx->id("$PACKER_GND_NET"));
         gnd_net->driver.cell = gnd_cell.get();
         gnd_net->driver.port = ctx->id("Z");
         gnd_cell->ports.at(ctx->id("Z")).net = gnd_net.get();
 
         std::unique_ptr<CellInfo> vcc_cell = create_ecp5_cell(ctx, ctx->id("LUT4"), "$PACKER_VCC");
         vcc_cell->params[ctx->id("INIT")] = Property(65535, 16);
-        std::unique_ptr<NetInfo> vcc_net = std::unique_ptr<NetInfo>(new NetInfo);
-        vcc_net->name = ctx->id("$PACKER_VCC_NET");
+        auto vcc_net = std::make_unique<NetInfo>(ctx->id("$PACKER_VCC_NET"));
         vcc_net->driver.cell = vcc_cell.get();
         vcc_net->driver.port = ctx->id("Z");
         vcc_cell->ports.at(ctx->id("Z")).net = vcc_net.get();
@@ -1967,12 +1954,9 @@ class Ecp5Packer
                 IdString eckname = ctx->id(ecknet->name.str(ctx) + "$eclk" + std::to_string(bank) + "_" +
                                            std::to_string(free_eclk));
 
-                std::unique_ptr<NetInfo> promoted_ecknet(new NetInfo);
-                promoted_ecknet->name = eckname;
+                NetInfo *promoted_ecknet = ctx->createNet(eckname);
                 promoted_ecknet->attrs[ctx->id("ECP5_IS_GLOBAL")] = 1; // Prevents router etc touching this special net
-                eclk.buf = promoted_ecknet.get();
-                NPNR_ASSERT(!ctx->nets.count(eckname));
-                ctx->nets[eckname] = std::move(promoted_ecknet);
+                eclk.buf = promoted_ecknet;
 
                 // Insert TRELLIS_ECLKBUF to isolate edge clock from general routing
                 std::unique_ptr<CellInfo> eclkbuf =
@@ -2052,17 +2036,13 @@ class Ecp5Packer
             ci->ports[port].name = port;
             ci->ports[port].type = PORT_IN;
         }
-
-        std::unique_ptr<CellInfo> zero_cell{new CellInfo};
-        std::unique_ptr<NetInfo> zero_net{new NetInfo};
         IdString name = ctx->id(ci->name.str(ctx) + "$zero$" + port.str(ctx));
-        zero_cell->type = ctx->id("GND");
-        zero_cell->name = name;
-        zero_net->name = name;
-        zero_cell->ports[ctx->id("GND")].type = PORT_OUT;
-        connect_port(ctx, zero_net.get(), zero_cell.get(), ctx->id("GND"));
-        connect_port(ctx, zero_net.get(), ci, port);
-        ctx->nets[name] = std::move(zero_net);
+
+        auto zero_cell = std::make_unique<CellInfo>(ctx, name, ctx->id("GND"));
+        NetInfo *zero_net = ctx->createNet(name);
+        zero_cell->addOutput(ctx->id("GND"));
+        connect_port(ctx, zero_net, zero_cell.get(), ctx->id("GND"));
+        connect_port(ctx, zero_net, ci, port);
         new_cells.push_back(std::move(zero_cell));
     }
 

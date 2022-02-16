@@ -35,13 +35,9 @@ void add_port(const Context *ctx, CellInfo *cell, IdString id, PortType dir)
 std::unique_ptr<CellInfo> create_generic_cell(Context *ctx, IdString type, std::string name)
 {
     static int auto_idx = 0;
-    std::unique_ptr<CellInfo> new_cell = std::unique_ptr<CellInfo>(new CellInfo());
-    if (name.empty()) {
-        new_cell->name = ctx->id("$nextpnr_" + type.str(ctx) + "_" + std::to_string(auto_idx++));
-    } else {
-        new_cell->name = ctx->id(name);
-    }
-    new_cell->type = type;
+    IdString name_id =
+            name.empty() ? ctx->id("$nextpnr_" + type.str(ctx) + "_" + std::to_string(auto_idx++)) : ctx->id(name);
+    auto new_cell = std::make_unique<CellInfo>(ctx, name_id, type);
     if (type == id_SLICE) {
         new_cell->params[id_INIT] = 0;
         new_cell->params[id_FF_USED] = 0;

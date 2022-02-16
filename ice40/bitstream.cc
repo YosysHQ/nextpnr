@@ -979,9 +979,7 @@ void read_config(Context *ctx, std::istream &in, chipconfig_t &config)
                 IdString netName = ctx->id(name);
 
                 if (ctx->nets.find(netName) == ctx->nets.end()) {
-                    std::unique_ptr<NetInfo> created_net = std::unique_ptr<NetInfo>(new NetInfo);
-                    created_net->name = netName;
-                    ctx->nets[netName] = std::move(created_net);
+                    ctx->createNet(netName);
                 }
 
                 WireId wire;
