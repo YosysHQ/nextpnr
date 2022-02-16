@@ -26,12 +26,6 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-void add_port(const Context *ctx, CellInfo *cell, IdString id, PortType dir)
-{
-    NPNR_ASSERT(cell->ports.count(id) == 0);
-    cell->ports[id] = PortInfo{id, nullptr, dir};
-}
-
 std::unique_ptr<CellInfo> create_generic_cell(Context *ctx, IdString type, std::string name)
 {
     static int auto_idx = 0;
@@ -45,30 +39,30 @@ std::unique_ptr<CellInfo> create_generic_cell(Context *ctx, IdString type, std::
 
         IdString names[4] = {id_A, id_B, id_C, id_D};
         for (int i = 0; i < 4; i++) {
-            add_port(ctx, new_cell.get(), names[i], PORT_IN);
+            new_cell->addInput(names[i]);
         }
 
-        add_port(ctx, new_cell.get(), id_CLK, PORT_IN);
+        new_cell->addInput(id_CLK);
 
-        add_port(ctx, new_cell.get(), id_F, PORT_OUT);
-        add_port(ctx, new_cell.get(), id_Q, PORT_OUT);
-        add_port(ctx, new_cell.get(), id_CE, PORT_IN);
-        add_port(ctx, new_cell.get(), id_LSR, PORT_IN);
+        new_cell->addOutput(id_F);
+        new_cell->addOutput(id_Q);
+        new_cell->addInput(id_CE);
+        new_cell->addInput(id_LSR);
     } else if (type == id_GW_MUX2_LUT5 || type == id_GW_MUX2_LUT6 || type == id_GW_MUX2_LUT7 ||
                type == id_GW_MUX2_LUT7 || type == id_GW_MUX2_LUT8) {
-        add_port(ctx, new_cell.get(), id_I0, PORT_IN);
-        add_port(ctx, new_cell.get(), id_I1, PORT_IN);
-        add_port(ctx, new_cell.get(), id_SEL, PORT_IN);
-        add_port(ctx, new_cell.get(), id_OF, PORT_OUT);
+        new_cell->addInput(id_I0);
+        new_cell->addInput(id_I1);
+        new_cell->addInput(id_SEL);
+        new_cell->addOutput(id_OF);
     } else if (type == id_IOB || type == id_IOBS) {
         new_cell->params[id_INPUT_USED] = 0;
         new_cell->params[id_OUTPUT_USED] = 0;
         new_cell->params[id_ENABLE_USED] = 0;
 
-        add_port(ctx, new_cell.get(), id_PAD, PORT_INOUT);
-        add_port(ctx, new_cell.get(), id_I, PORT_IN);
-        add_port(ctx, new_cell.get(), id_OEN, PORT_IN);
-        add_port(ctx, new_cell.get(), id_O, PORT_OUT);
+        new_cell->addInout(id_PAD);
+        new_cell->addInput(id_I);
+        new_cell->addInput(id_OEN);
+        new_cell->addOutput(id_O);
     } else {
         log_error("unable to create generic cell of type %s\n", type.c_str(ctx));
     }

@@ -24,13 +24,6 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-void add_port(const Context *ctx, CellInfo *cell, std::string name, PortType dir)
-{
-    IdString id = ctx->id(name);
-    NPNR_ASSERT(cell->ports.count(id) == 0);
-    cell->ports[id] = PortInfo{id, nullptr, dir};
-}
-
 std::unique_ptr<CellInfo> create_generic_cell(Context *ctx, IdString type, std::string name)
 {
     static int auto_idx = 0;
@@ -43,21 +36,21 @@ std::unique_ptr<CellInfo> create_generic_cell(Context *ctx, IdString type, std::
         new_cell->params[ctx->id("FF_USED")] = 0;
 
         for (int i = 0; i < ctx->args.K; i++)
-            add_port(ctx, new_cell.get(), "I[" + std::to_string(i) + "]", PORT_IN);
+            new_cell->addInput(ctx->id("I[" + std::to_string(i) + "]"));
 
-        add_port(ctx, new_cell.get(), "CLK", PORT_IN);
+        new_cell->addInput(ctx->id("CLK"));
 
-        add_port(ctx, new_cell.get(), "F", PORT_OUT);
-        add_port(ctx, new_cell.get(), "Q", PORT_OUT);
+        new_cell->addOutput(ctx->id("F"));
+        new_cell->addOutput(ctx->id("Q"));
     } else if (type == ctx->id("GENERIC_IOB")) {
         new_cell->params[ctx->id("INPUT_USED")] = 0;
         new_cell->params[ctx->id("OUTPUT_USED")] = 0;
         new_cell->params[ctx->id("ENABLE_USED")] = 0;
 
-        add_port(ctx, new_cell.get(), "PAD", PORT_INOUT);
-        add_port(ctx, new_cell.get(), "I", PORT_IN);
-        add_port(ctx, new_cell.get(), "EN", PORT_IN);
-        add_port(ctx, new_cell.get(), "O", PORT_OUT);
+        new_cell->addInout(ctx->id("PAD"));
+        new_cell->addInput(ctx->id("I"));
+        new_cell->addInput(ctx->id("EN"));
+        new_cell->addOutput(ctx->id("O"));
     } else {
         log_error("unable to create generic cell of type %s", type.c_str(ctx));
     }

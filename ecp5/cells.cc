@@ -25,12 +25,6 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-void add_port(const Context *ctx, CellInfo *cell, std::string name, PortType dir)
-{
-    IdString id = ctx->id(name);
-    cell->ports[id] = PortInfo{id, nullptr, dir};
-}
-
 std::unique_ptr<CellInfo> create_ecp5_cell(Context *ctx, IdString type, std::string name)
 {
     static int auto_idx = 0;
@@ -49,7 +43,7 @@ std::unique_ptr<CellInfo> create_ecp5_cell(Context *ctx, IdString type, std::str
         }
         NPNR_ASSERT(tgt != BelId());
         for (auto port : ctx->getBelPins(tgt)) {
-            add_port(ctx, new_cell.get(), port.str(ctx), ctx->getBelPinType(tgt, port));
+            new_cell->ports[port] = PortInfo{port, nullptr, ctx->getBelPinType(tgt, port)};
         }
     };
 
@@ -70,104 +64,104 @@ std::unique_ptr<CellInfo> create_ecp5_cell(Context *ctx, IdString type, std::str
         new_cell->params[ctx->id("CCU2_INJECT1_1")] = std::string("NO");
         new_cell->params[ctx->id("WREMUX")] = std::string("WRE");
 
-        add_port(ctx, new_cell.get(), "A0", PORT_IN);
-        add_port(ctx, new_cell.get(), "B0", PORT_IN);
-        add_port(ctx, new_cell.get(), "C0", PORT_IN);
-        add_port(ctx, new_cell.get(), "D0", PORT_IN);
+        new_cell->addInput(ctx->id("A0"));
+        new_cell->addInput(ctx->id("B0"));
+        new_cell->addInput(ctx->id("C0"));
+        new_cell->addInput(ctx->id("D0"));
 
-        add_port(ctx, new_cell.get(), "A1", PORT_IN);
-        add_port(ctx, new_cell.get(), "B1", PORT_IN);
-        add_port(ctx, new_cell.get(), "C1", PORT_IN);
-        add_port(ctx, new_cell.get(), "D1", PORT_IN);
+        new_cell->addInput(ctx->id("A1"));
+        new_cell->addInput(ctx->id("B1"));
+        new_cell->addInput(ctx->id("C1"));
+        new_cell->addInput(ctx->id("D1"));
 
-        add_port(ctx, new_cell.get(), "M0", PORT_IN);
-        add_port(ctx, new_cell.get(), "M1", PORT_IN);
+        new_cell->addInput(ctx->id("M0"));
+        new_cell->addInput(ctx->id("M1"));
 
-        add_port(ctx, new_cell.get(), "FCI", PORT_IN);
-        add_port(ctx, new_cell.get(), "FXA", PORT_IN);
-        add_port(ctx, new_cell.get(), "FXB", PORT_IN);
+        new_cell->addInput(ctx->id("FCI"));
+        new_cell->addInput(ctx->id("FXA"));
+        new_cell->addInput(ctx->id("FXB"));
 
-        add_port(ctx, new_cell.get(), "CLK", PORT_IN);
-        add_port(ctx, new_cell.get(), "LSR", PORT_IN);
-        add_port(ctx, new_cell.get(), "CE", PORT_IN);
+        new_cell->addInput(ctx->id("CLK"));
+        new_cell->addInput(ctx->id("LSR"));
+        new_cell->addInput(ctx->id("CE"));
 
-        add_port(ctx, new_cell.get(), "DI0", PORT_IN);
-        add_port(ctx, new_cell.get(), "DI1", PORT_IN);
+        new_cell->addInput(ctx->id("DI0"));
+        new_cell->addInput(ctx->id("DI1"));
 
-        add_port(ctx, new_cell.get(), "WD0", PORT_IN);
-        add_port(ctx, new_cell.get(), "WD1", PORT_IN);
-        add_port(ctx, new_cell.get(), "WAD0", PORT_IN);
-        add_port(ctx, new_cell.get(), "WAD1", PORT_IN);
-        add_port(ctx, new_cell.get(), "WAD2", PORT_IN);
-        add_port(ctx, new_cell.get(), "WAD3", PORT_IN);
-        add_port(ctx, new_cell.get(), "WRE", PORT_IN);
-        add_port(ctx, new_cell.get(), "WCK", PORT_IN);
+        new_cell->addInput(ctx->id("WD0"));
+        new_cell->addInput(ctx->id("WD1"));
+        new_cell->addInput(ctx->id("WAD0"));
+        new_cell->addInput(ctx->id("WAD1"));
+        new_cell->addInput(ctx->id("WAD2"));
+        new_cell->addInput(ctx->id("WAD3"));
+        new_cell->addInput(ctx->id("WRE"));
+        new_cell->addInput(ctx->id("WCK"));
 
-        add_port(ctx, new_cell.get(), "F0", PORT_OUT);
-        add_port(ctx, new_cell.get(), "Q0", PORT_OUT);
-        add_port(ctx, new_cell.get(), "F1", PORT_OUT);
-        add_port(ctx, new_cell.get(), "Q1", PORT_OUT);
+        new_cell->addOutput(ctx->id("F0"));
+        new_cell->addOutput(ctx->id("Q0"));
+        new_cell->addOutput(ctx->id("F1"));
+        new_cell->addOutput(ctx->id("Q1"));
 
-        add_port(ctx, new_cell.get(), "FCO", PORT_OUT);
-        add_port(ctx, new_cell.get(), "OFX0", PORT_OUT);
-        add_port(ctx, new_cell.get(), "OFX1", PORT_OUT);
+        new_cell->addOutput(ctx->id("FCO"));
+        new_cell->addOutput(ctx->id("OFX0"));
+        new_cell->addOutput(ctx->id("OFX1"));
 
-        add_port(ctx, new_cell.get(), "WDO0", PORT_OUT);
-        add_port(ctx, new_cell.get(), "WDO1", PORT_OUT);
-        add_port(ctx, new_cell.get(), "WDO2", PORT_OUT);
-        add_port(ctx, new_cell.get(), "WDO3", PORT_OUT);
-        add_port(ctx, new_cell.get(), "WADO0", PORT_OUT);
-        add_port(ctx, new_cell.get(), "WADO1", PORT_OUT);
-        add_port(ctx, new_cell.get(), "WADO2", PORT_OUT);
-        add_port(ctx, new_cell.get(), "WADO3", PORT_OUT);
+        new_cell->addOutput(ctx->id("WDO0"));
+        new_cell->addOutput(ctx->id("WDO1"));
+        new_cell->addOutput(ctx->id("WDO2"));
+        new_cell->addOutput(ctx->id("WDO3"));
+        new_cell->addOutput(ctx->id("WADO0"));
+        new_cell->addOutput(ctx->id("WADO1"));
+        new_cell->addOutput(ctx->id("WADO2"));
+        new_cell->addOutput(ctx->id("WADO3"));
     } else if (type == ctx->id("TRELLIS_IO")) {
         new_cell->params[ctx->id("DIR")] = std::string("INPUT");
         new_cell->attrs[ctx->id("IO_TYPE")] = std::string("LVCMOS33");
         new_cell->params[ctx->id("DATAMUX_ODDR")] = std::string("PADDO");
         new_cell->params[ctx->id("DATAMUX_MDDR")] = std::string("PADDO");
 
-        add_port(ctx, new_cell.get(), "B", PORT_INOUT);
-        add_port(ctx, new_cell.get(), "I", PORT_IN);
-        add_port(ctx, new_cell.get(), "T", PORT_IN);
-        add_port(ctx, new_cell.get(), "O", PORT_OUT);
+        new_cell->addInout(ctx->id("B"));
+        new_cell->addInput(ctx->id("I"));
+        new_cell->addInput(ctx->id("T"));
+        new_cell->addOutput(ctx->id("O"));
 
-        add_port(ctx, new_cell.get(), "IOLDO", PORT_IN);
-        add_port(ctx, new_cell.get(), "IOLTO", PORT_IN);
+        new_cell->addInput(ctx->id("IOLDO"));
+        new_cell->addInput(ctx->id("IOLTO"));
 
     } else if (type == ctx->id("LUT4")) {
         new_cell->params[ctx->id("INIT")] = Property(0, 16);
 
-        add_port(ctx, new_cell.get(), "A", PORT_IN);
-        add_port(ctx, new_cell.get(), "B", PORT_IN);
-        add_port(ctx, new_cell.get(), "C", PORT_IN);
-        add_port(ctx, new_cell.get(), "D", PORT_IN);
-        add_port(ctx, new_cell.get(), "Z", PORT_OUT);
+        new_cell->addInput(ctx->id("A"));
+        new_cell->addInput(ctx->id("B"));
+        new_cell->addInput(ctx->id("C"));
+        new_cell->addInput(ctx->id("D"));
+        new_cell->addOutput(ctx->id("Z"));
     } else if (type == ctx->id("CCU2C")) {
         new_cell->params[ctx->id("INIT0")] = Property(0, 16);
         new_cell->params[ctx->id("INIT1")] = Property(0, 16);
         new_cell->params[ctx->id("INJECT1_0")] = std::string("YES");
         new_cell->params[ctx->id("INJECT1_1")] = std::string("YES");
 
-        add_port(ctx, new_cell.get(), "CIN", PORT_IN);
+        new_cell->addInput(ctx->id("CIN"));
 
-        add_port(ctx, new_cell.get(), "A0", PORT_IN);
-        add_port(ctx, new_cell.get(), "B0", PORT_IN);
-        add_port(ctx, new_cell.get(), "C0", PORT_IN);
-        add_port(ctx, new_cell.get(), "D0", PORT_IN);
+        new_cell->addInput(ctx->id("A0"));
+        new_cell->addInput(ctx->id("B0"));
+        new_cell->addInput(ctx->id("C0"));
+        new_cell->addInput(ctx->id("D0"));
 
-        add_port(ctx, new_cell.get(), "A1", PORT_IN);
-        add_port(ctx, new_cell.get(), "B1", PORT_IN);
-        add_port(ctx, new_cell.get(), "C1", PORT_IN);
-        add_port(ctx, new_cell.get(), "D1", PORT_IN);
+        new_cell->addInput(ctx->id("A1"));
+        new_cell->addInput(ctx->id("B1"));
+        new_cell->addInput(ctx->id("C1"));
+        new_cell->addInput(ctx->id("D1"));
 
-        add_port(ctx, new_cell.get(), "S0", PORT_OUT);
-        add_port(ctx, new_cell.get(), "S1", PORT_OUT);
-        add_port(ctx, new_cell.get(), "COUT", PORT_OUT);
+        new_cell->addOutput(ctx->id("S0"));
+        new_cell->addOutput(ctx->id("S1"));
+        new_cell->addOutput(ctx->id("COUT"));
 
     } else if (type == ctx->id("DCCA")) {
-        add_port(ctx, new_cell.get(), "CLKI", PORT_IN);
-        add_port(ctx, new_cell.get(), "CLKO", PORT_OUT);
-        add_port(ctx, new_cell.get(), "CE", PORT_IN);
+        new_cell->addInput(ctx->id("CLKI"));
+        new_cell->addOutput(ctx->id("CLKO"));
+        new_cell->addInput(ctx->id("CE"));
     } else if (type == id_IOLOGIC || type == id_SIOLOGIC) {
         new_cell->params[ctx->id("MODE")] = std::string("NONE");
         new_cell->params[ctx->id("GSR")] = std::string("DISABLED");
@@ -198,8 +192,8 @@ std::unique_ptr<CellInfo> create_ecp5_cell(Context *ctx, IdString type, std::str
         // Just copy ports from the Bel
         copy_bel_ports();
     } else if (type == id_TRELLIS_ECLKBUF) {
-        add_port(ctx, new_cell.get(), "ECLKI", PORT_IN);
-        add_port(ctx, new_cell.get(), "ECLKO", PORT_OUT);
+        new_cell->addInput(ctx->id("ECLKI"));
+        new_cell->addOutput(ctx->id("ECLKO"));
     } else {
         log_error("unable to create ECP5 cell of type %s", type.c_str(ctx));
     }
