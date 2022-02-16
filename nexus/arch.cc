@@ -186,8 +186,8 @@ Arch::Arch(ArchArgs args) : args(args)
                 disabled_pips.insert(pip);
         }
         // TODO: find a better solution to disable these
-        WireId dcs_out = getWireByName(
-                IdStringList(std::array<IdString, 3>{x_ids.at(37), y_ids.at(10), id("JDCSOUT_DCS_DCSIP")}));
+        WireId dcs_out =
+                getWireByName(IdStringList(std::array<IdString, 3>{x_ids.at(37), y_ids.at(10), id_JDCSOUT_DCS_DCSIP}));
         for (auto dcs_pip : getPipsUphill(dcs_out))
             disabled_pips.insert(dcs_pip);
         NPNR_ASSERT(disabled_pips.size() == 6);
@@ -300,13 +300,13 @@ std::vector<std::pair<IdString, std::string>> Arch::getBelAttrs(BelId bel) const
 {
     std::vector<std::pair<IdString, std::string>> ret;
 
-    ret.emplace_back(id("INDEX"), stringf("%d", bel.index));
+    ret.emplace_back(id_INDEX, stringf("%d", bel.index));
 
-    ret.emplace_back(id("GRID_X"), stringf("%d", bel.tile % chip_info->width));
-    ret.emplace_back(id("GRID_Y"), stringf("%d", bel.tile / chip_info->width));
-    ret.emplace_back(id("BEL_Z"), stringf("%d", bel_data(bel).z));
+    ret.emplace_back(id_GRID_X, stringf("%d", bel.tile % chip_info->width));
+    ret.emplace_back(id_GRID_Y, stringf("%d", bel.tile / chip_info->width));
+    ret.emplace_back(id_BEL_Z, stringf("%d", bel_data(bel).z));
 
-    ret.emplace_back(id("BEL_TYPE"), nameOf(getBelType(bel)));
+    ret.emplace_back(id_BEL_TYPE, nameOf(getBelType(bel)));
 
     return ret;
 }
@@ -337,11 +337,11 @@ std::vector<std::pair<IdString, std::string>> Arch::getWireAttrs(WireId wire) co
 {
     std::vector<std::pair<IdString, std::string>> ret;
 
-    ret.emplace_back(id("INDEX"), stringf("%d", wire.index));
+    ret.emplace_back(id_INDEX, stringf("%d", wire.index));
 
-    ret.emplace_back(id("GRID_X"), stringf("%d", wire.tile % chip_info->width));
-    ret.emplace_back(id("GRID_Y"), stringf("%d", wire.tile / chip_info->width));
-    ret.emplace_back(id("FLAGS"), stringf("%u", wire_data(wire).flags));
+    ret.emplace_back(id_GRID_X, stringf("%d", wire.tile % chip_info->width));
+    ret.emplace_back(id_GRID_Y, stringf("%d", wire.tile / chip_info->width));
+    ret.emplace_back(id_FLAGS, stringf("%u", wire_data(wire).flags));
 
     return ret;
 }
@@ -388,13 +388,13 @@ std::vector<std::pair<IdString, std::string>> Arch::getPipAttrs(PipId pip) const
 {
     std::vector<std::pair<IdString, std::string>> ret;
 
-    ret.emplace_back(id("INDEX"), stringf("%d", pip.index));
+    ret.emplace_back(id_INDEX, stringf("%d", pip.index));
 
-    ret.emplace_back(id("GRID_X"), stringf("%d", pip.tile % chip_info->width));
-    ret.emplace_back(id("GRID_Y"), stringf("%d", pip.tile / chip_info->width));
+    ret.emplace_back(id_GRID_X, stringf("%d", pip.tile % chip_info->width));
+    ret.emplace_back(id_GRID_Y, stringf("%d", pip.tile / chip_info->width));
 
-    ret.emplace_back(id("FROM_TILE_WIRE"), nameOf(IdString(loc_data(pip).wires[pip_data(pip).from_wire].name)));
-    ret.emplace_back(id("TO_TILE_WIRE"), nameOf(IdString(loc_data(pip).wires[pip_data(pip).to_wire].name)));
+    ret.emplace_back(id_FROM_TILE_WIRE, nameOf(IdString(loc_data(pip).wires[pip_data(pip).from_wire].name)));
+    ret.emplace_back(id_TO_TILE_WIRE, nameOf(IdString(loc_data(pip).wires[pip_data(pip).to_wire].name)));
 
     return ret;
 }
@@ -665,7 +665,7 @@ bool Arch::place()
     if (getCtx()->settings.count(getCtx()->id("estimate-delay-mult")))
         estimate_delay_mult = getCtx()->setting<int>("estimate-delay-mult");
 
-    std::string placer = str_or_default(settings, id("placer"), defaultPlacer);
+    std::string placer = str_or_default(settings, id_placer, defaultPlacer);
 
     if (placer == "heap") {
         PlacerHeapCfg cfg(getCtx());
@@ -689,7 +689,7 @@ bool Arch::place()
 
     post_place_opt();
 
-    getCtx()->attrs[getCtx()->id("step")] = std::string("place");
+    getCtx()->attrs[id_step] = std::string("place");
     archInfoToAttributes();
     return true;
 }
@@ -740,7 +740,7 @@ bool Arch::route()
 
     route_globals();
 
-    std::string router = str_or_default(settings, id("router"), defaultRouter);
+    std::string router = str_or_default(settings, id_router, defaultRouter);
     bool result;
     if (router == "router1") {
         result = router1(getCtx(), Router1Cfg(getCtx()));
@@ -752,7 +752,7 @@ bool Arch::route()
     } else {
         log_error("Nexus architecture does not support router '%s'\n", router.c_str());
     }
-    getCtx()->attrs[getCtx()->id("step")] = std::string("route");
+    getCtx()->attrs[id_step] = std::string("route");
     archInfoToAttributes();
     return result;
 }

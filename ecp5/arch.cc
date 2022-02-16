@@ -202,25 +202,25 @@ std::string Arch::get_full_chip_name() const
 IdString Arch::archArgsToId(ArchArgs args) const
 {
     if (args.type == ArchArgs::LFE5U_12F)
-        return id("lfe5u_12f");
+        return id_lfe5u_12f;
     if (args.type == ArchArgs::LFE5U_25F)
-        return id("lfe5u_25f");
+        return id_lfe5u_25f;
     if (args.type == ArchArgs::LFE5U_45F)
-        return id("lfe5u_45f");
+        return id_lfe5u_45f;
     if (args.type == ArchArgs::LFE5U_85F)
-        return id("lfe5u_85f");
+        return id_lfe5u_85f;
     if (args.type == ArchArgs::LFE5UM_25F)
-        return id("lfe5um_25f");
+        return id_lfe5um_25f;
     if (args.type == ArchArgs::LFE5UM_45F)
-        return id("lfe5um_45f");
+        return id_lfe5um_45f;
     if (args.type == ArchArgs::LFE5UM_85F)
-        return id("lfe5um_85f");
+        return id_lfe5um_85f;
     if (args.type == ArchArgs::LFE5UM5G_25F)
-        return id("lfe5um5g_25f");
+        return id_lfe5um5g_25f;
     if (args.type == ArchArgs::LFE5UM5G_45F)
-        return id("lfe5um5g_45f");
+        return id_lfe5um5g_45f;
     if (args.type == ArchArgs::LFE5UM5G_85F)
-        return id("lfe5um5g_85f");
+        return id_lfe5um5g_85f;
     return IdString();
 }
 
@@ -586,7 +586,7 @@ delay_t Arch::getRipupDelayPenalty() const { return 400; }
 
 bool Arch::place()
 {
-    std::string placer = str_or_default(settings, id("placer"), defaultPlacer);
+    std::string placer = str_or_default(settings, id_placer, defaultPlacer);
 
     if (placer == "heap") {
         PlacerHeapCfg cfg(getCtx());
@@ -612,7 +612,7 @@ bool Arch::place()
         for (auto &cell : cells)
             cell.second->belStrength = STRENGTH_LOCKED;
 
-    getCtx()->settings[getCtx()->id("place")] = 1;
+    getCtx()->settings[id_place] = 1;
 
     archInfoToAttributes();
     return true;
@@ -620,7 +620,7 @@ bool Arch::place()
 
 bool Arch::route()
 {
-    std::string router = str_or_default(settings, id("router"), defaultRouter);
+    std::string router = str_or_default(settings, id_router, defaultRouter);
 
     disable_router_lutperm = getCtx()->setting<bool>("arch.disable_router_lutperm", false);
 
@@ -639,7 +639,7 @@ bool Arch::route()
         log_error("ECP5 architecture does not support router '%s'\n", router.c_str());
     }
 
-    getCtx()->settings[getCtx()->id("route")] = 1;
+    getCtx()->settings[id_route] = 1;
     archInfoToAttributes();
     return result;
 }
@@ -1033,12 +1033,12 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
             get_setuphold_from_tmg_db(id_SDPRAME, id_WCK, port, info.setup, info.hold);
         } else if (port == id_DI0 || port == id_DI1 || port == id_CE || port == id_LSR || (sd0 == 0 && port == id_M0) ||
                    (sd1 == 0 && port == id_M1)) {
-            info.edge = cell->sliceInfo.clkmux == id("INV") ? FALLING_EDGE : RISING_EDGE;
+            info.edge = cell->sliceInfo.clkmux == id_INV ? FALLING_EDGE : RISING_EDGE;
             info.clock_port = id_CLK;
             get_setuphold_from_tmg_db(id_SLOGICB, id_CLK, port, info.setup, info.hold);
 
         } else {
-            info.edge = cell->sliceInfo.clkmux == id("INV") ? FALLING_EDGE : RISING_EDGE;
+            info.edge = cell->sliceInfo.clkmux == id_INV ? FALLING_EDGE : RISING_EDGE;
             info.clock_port = id_CLK;
             bool is_path = get_delay_from_tmg_db(id_SLOGICB, id_CLK, port, info.clockToQ);
             NPNR_ASSERT(is_path);
@@ -1070,8 +1070,7 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
         } else {
             info.clock_port = half_clock;
         }
-        info.edge = (str_or_default(cell->params, info.clock_port == id_CLKB ? id("CLKBMUX") : id("CLKAMUX"), "CLK") ==
-                     "INV")
+        info.edge = (str_or_default(cell->params, info.clock_port == id_CLKB ? id_CLKBMUX : id_CLKAMUX, "CLK") == "INV")
                             ? FALLING_EDGE
                             : RISING_EDGE;
         if (cell->ports.at(port).type == PORT_OUT) {
@@ -1298,7 +1297,7 @@ std::vector<std::pair<IdString, std::string>> Arch::getWireAttrs(WireId wire) co
     std::vector<std::pair<IdString, std::string>> ret;
     auto &wi = loc_info(wire)->wire_data[wire.index];
 
-    ret.push_back(std::make_pair(id("TILE_WIRE_ID"), stringf("%d", wi.tile_wire)));
+    ret.push_back(std::make_pair(id_TILE_WIRE_ID, stringf("%d", wi.tile_wire)));
 
     return ret;
 }

@@ -120,7 +120,7 @@ bool Arch::isBelLocationValid(BelId bel) const
                         break;
 
                     // Are we perhaps a PAD INPUT Bel that can be placed here?
-                    if (pll_cell->attrs[id("BEL_PAD_INPUT")] == getBelName(bel).str(getCtx()))
+                    if (pll_cell->attrs[id_BEL_PAD_INPUT] == getBelName(bel).str(getCtx()))
                         return true;
 
                     // Conflict

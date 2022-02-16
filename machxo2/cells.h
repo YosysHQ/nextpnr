@@ -40,12 +40,12 @@ enum class LutType
 std::unique_ptr<CellInfo> create_machxo2_cell(Context *ctx, IdString type, std::string name = "");
 
 // Return true if a cell is a LUT
-inline bool is_lut(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("LUT4"); }
+inline bool is_lut(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_LUT4; }
 
 // Return true if a cell is a flipflop
-inline bool is_ff(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("FACADE_FF"); }
+inline bool is_ff(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_FACADE_FF; }
 
-inline bool is_lc(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("FACADE_SLICE"); }
+inline bool is_lc(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_FACADE_SLICE; }
 
 // Convert a LUT primitive to (part of) an GENERIC_SLICE, swapping ports
 // as needed. Set no_dff if a DFF is not being used, so that the output

@@ -114,7 +114,7 @@ static void pack_alus(Context *ctx)
 
         int alu_idx = 1;
         do { // go through the ALU chain
-            auto alu_bel = ci->attrs.find(ctx->id("BEL"));
+            auto alu_bel = ci->attrs.find(id_BEL);
             if (alu_bel != ci->attrs.end()) {
                 log_error("ALU %s placement restrictions are not supported.\n", ctx->nameOf(ci));
                 return;
@@ -243,7 +243,7 @@ static void pack_mux2_lut5(Context *ctx, CellInfo *ci, pool<IdString> &packed_ce
                            std::vector<std::unique_ptr<CellInfo>> &new_cells)
 {
 
-    if (bool_or_default(ci->attrs, ctx->id("SINGLE_INPUT_MUX"))) {
+    if (bool_or_default(ci->attrs, id_SINGLE_INPUT_MUX)) {
         // find the muxed LUT
         NetInfo *i1 = ci->ports.at(id_I1).net;
 
@@ -257,14 +257,14 @@ static void pack_mux2_lut5(Context *ctx, CellInfo *ci, pool<IdString> &packed_ce
         }
 
         // XXX enable the placement constraints
-        auto mux_bel = ci->attrs.find(ctx->id("BEL"));
-        auto lut1_bel = lut1->attrs.find(ctx->id("BEL"));
+        auto mux_bel = ci->attrs.find(id_BEL);
+        auto lut1_bel = lut1->attrs.find(id_BEL);
         if (lut1_bel != lut1->attrs.end() || mux_bel != ci->attrs.end()) {
             log_error("MUX2_LUT5 '%s' placement restrictions are not supported yet\n", ctx->nameOf(ci));
             return;
         }
 
-        std::unique_ptr<CellInfo> packed = create_generic_cell(ctx, ctx->id("GW_MUX2_LUT5"), ci->name.str(ctx) + "_LC");
+        std::unique_ptr<CellInfo> packed = create_generic_cell(ctx, id_GW_MUX2_LUT5, ci->name.str(ctx) + "_LC");
         if (ctx->verbose) {
             log_info("packed cell %s into %s\n", ctx->nameOf(ci), ctx->nameOf(packed.get()));
         }
@@ -299,15 +299,15 @@ static void pack_mux2_lut5(Context *ctx, CellInfo *ci, pool<IdString> &packed_ce
         }
 
         // XXX enable the placement constraints
-        auto mux_bel = ci->attrs.find(ctx->id("BEL"));
-        auto lut0_bel = lut0->attrs.find(ctx->id("BEL"));
-        auto lut1_bel = lut1->attrs.find(ctx->id("BEL"));
+        auto mux_bel = ci->attrs.find(id_BEL);
+        auto lut0_bel = lut0->attrs.find(id_BEL);
+        auto lut1_bel = lut1->attrs.find(id_BEL);
         if (lut0_bel != lut0->attrs.end() || lut1_bel != lut1->attrs.end() || mux_bel != ci->attrs.end()) {
             log_error("MUX2_LUT5 '%s' placement restrictions are not supported yet\n", ctx->nameOf(ci));
             return;
         }
 
-        std::unique_ptr<CellInfo> packed = create_generic_cell(ctx, ctx->id("GW_MUX2_LUT5"), ci->name.str(ctx) + "_LC");
+        std::unique_ptr<CellInfo> packed = create_generic_cell(ctx, id_GW_MUX2_LUT5, ci->name.str(ctx) + "_LC");
         if (ctx->verbose) {
             log_info("packed cell %s into %s\n", ctx->nameOf(ci), ctx->nameOf(packed.get()));
         }
@@ -354,9 +354,9 @@ static void pack_mux2_lut(Context *ctx, CellInfo *ci, bool (*pred)(const BaseCtx
     }
 
     // XXX enable the placement constraints
-    auto mux_bel = ci->attrs.find(ctx->id("BEL"));
-    auto mux0_bel = mux0->attrs.find(ctx->id("BEL"));
-    auto mux1_bel = mux1->attrs.find(ctx->id("BEL"));
+    auto mux_bel = ci->attrs.find(id_BEL);
+    auto mux0_bel = mux0->attrs.find(id_BEL);
+    auto mux1_bel = mux1->attrs.find(id_BEL);
     if (mux0_bel != mux0->attrs.end() || mux1_bel != mux1->attrs.end() || mux_bel != ci->attrs.end()) {
         log_error("MUX2_LUT%c '%s' placement restrictions are not supported yet\n", type_suffix, ctx->nameOf(ci));
         return;
@@ -512,7 +512,7 @@ static void pack_lut_lutffs(Context *ctx)
         if (ctx->verbose)
             log_info("cell '%s' is of type '%s'\n", ctx->nameOf(ci), ci->type.c_str(ctx));
         if (is_lut(ctx, ci)) {
-            std::unique_ptr<CellInfo> packed = create_generic_cell(ctx, ctx->id("SLICE"), ci->name.str(ctx) + "_LC");
+            std::unique_ptr<CellInfo> packed = create_generic_cell(ctx, id_SLICE, ci->name.str(ctx) + "_LC");
             for (auto &attr : ci->attrs)
                 packed->attrs[attr.first] = attr.second;
             packed_cells.insert(ci->name);
@@ -520,14 +520,14 @@ static void pack_lut_lutffs(Context *ctx)
                 log_info("packed cell %s into %s\n", ctx->nameOf(ci), ctx->nameOf(packed.get()));
             // See if we can pack into a DFF
             // TODO: LUT cascade
-            NetInfo *o = ci->ports.at(ctx->id("F")).net;
-            CellInfo *dff = net_only_drives(ctx, o, is_ff, ctx->id("D"), true);
-            auto lut_bel = ci->attrs.find(ctx->id("BEL"));
+            NetInfo *o = ci->ports.at(id_F).net;
+            CellInfo *dff = net_only_drives(ctx, o, is_ff, id_D, true);
+            auto lut_bel = ci->attrs.find(id_BEL);
             bool packed_dff = false;
             if (dff) {
                 if (ctx->verbose)
                     log_info("found attached dff %s\n", ctx->nameOf(dff));
-                auto dff_bel = dff->attrs.find(ctx->id("BEL"));
+                auto dff_bel = dff->attrs.find(id_BEL);
                 if (lut_bel != ci->attrs.end() && dff_bel != dff->attrs.end() && lut_bel->second != dff_bel->second) {
                     // Locations don't match, can't pack
                 } else {
@@ -535,7 +535,7 @@ static void pack_lut_lutffs(Context *ctx)
                     dff_to_lc(ctx, dff, packed.get(), false);
                     ctx->nets.erase(o->name);
                     if (dff_bel != dff->attrs.end())
-                        packed->attrs[ctx->id("BEL")] = dff_bel->second;
+                        packed->attrs[id_BEL] = dff_bel->second;
                     packed_cells.insert(dff->name);
                     if (ctx->verbose)
                         log_info("packed cell %s into %s\n", ctx->nameOf(dff), ctx->nameOf(packed.get()));
@@ -567,7 +567,7 @@ static void pack_nonlut_ffs(Context *ctx)
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
         if (is_ff(ctx, ci)) {
-            std::unique_ptr<CellInfo> packed = create_generic_cell(ctx, ctx->id("SLICE"), ci->name.str(ctx) + "_DFFLC");
+            std::unique_ptr<CellInfo> packed = create_generic_cell(ctx, id_SLICE, ci->name.str(ctx) + "_DFFLC");
             for (auto &attr : ci->attrs)
                 packed->attrs[attr.first] = attr.second;
             if (ctx->verbose)
@@ -610,20 +610,20 @@ static void pack_constants(Context *ctx)
 {
     log_info("Packing constants..\n");
 
-    std::unique_ptr<CellInfo> gnd_cell = create_generic_cell(ctx, ctx->id("SLICE"), "$PACKER_GND");
-    gnd_cell->params[ctx->id("INIT")] = Property(0, 1 << 4);
+    std::unique_ptr<CellInfo> gnd_cell = create_generic_cell(ctx, id_SLICE, "$PACKER_GND");
+    gnd_cell->params[id_INIT] = Property(0, 1 << 4);
     auto gnd_net = std::make_unique<NetInfo>(ctx->id("$PACKER_GND_NET"));
     gnd_net->driver.cell = gnd_cell.get();
-    gnd_net->driver.port = ctx->id("F");
-    gnd_cell->ports.at(ctx->id("F")).net = gnd_net.get();
+    gnd_net->driver.port = id_F;
+    gnd_cell->ports.at(id_F).net = gnd_net.get();
 
-    std::unique_ptr<CellInfo> vcc_cell = create_generic_cell(ctx, ctx->id("SLICE"), "$PACKER_VCC");
+    std::unique_ptr<CellInfo> vcc_cell = create_generic_cell(ctx, id_SLICE, "$PACKER_VCC");
     // Fill with 1s
-    vcc_cell->params[ctx->id("INIT")] = Property(Property::S1).extract(0, (1 << 4), Property::S1);
+    vcc_cell->params[id_INIT] = Property(Property::S1).extract(0, (1 << 4), Property::S1);
     auto vcc_net = std::make_unique<NetInfo>(ctx->id("$PACKER_VCC_NET"));
     vcc_net->driver.cell = vcc_cell.get();
-    vcc_net->driver.port = ctx->id("F");
-    vcc_cell->ports.at(ctx->id("F")).net = vcc_net.get();
+    vcc_net->driver.port = id_F;
+    vcc_cell->ports.at(id_F).net = vcc_net.get();
 
     std::vector<IdString> dead_nets;
 
@@ -631,13 +631,13 @@ static void pack_constants(Context *ctx)
 
     for (auto &net : ctx->nets) {
         NetInfo *ni = net.second.get();
-        if (ni->driver.cell != nullptr && ni->driver.cell->type == ctx->id("GND")) {
+        if (ni->driver.cell != nullptr && ni->driver.cell->type == id_GND) {
             IdString drv_cell = ni->driver.cell->name;
             set_net_constant(ctx, ni, gnd_net.get(), false);
             gnd_used = true;
             dead_nets.push_back(net.first);
             ctx->cells.erase(drv_cell);
-        } else if (ni->driver.cell != nullptr && ni->driver.cell->type == ctx->id("VCC")) {
+        } else if (ni->driver.cell != nullptr && ni->driver.cell->type == id_VCC) {
             IdString drv_cell = ni->driver.cell->name;
             set_net_constant(ctx, ni, vcc_net.get(), true);
             dead_nets.push_back(net.first);
@@ -780,7 +780,7 @@ bool Arch::pack()
         pack_alus(ctx);
         pack_lut_lutffs(ctx);
         pack_nonlut_ffs(ctx);
-        ctx->settings[ctx->id("pack")] = 1;
+        ctx->settings[id_pack] = 1;
         ctx->assignArchInfo();
         log_info("Checksum: 0x%08x\n", ctx->checksum());
         return true;

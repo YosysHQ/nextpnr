@@ -51,20 +51,20 @@ static void pack_lut_lutffs(Context *ctx)
             // LUT4 drives more than one FF.
             NetInfo *o = ci->ports.at(id_Z).net;
             CellInfo *dff = net_only_drives(ctx, o, is_ff, id_DI, false);
-            auto lut_bel = ci->attrs.find(ctx->id("BEL"));
+            auto lut_bel = ci->attrs.find(id_BEL);
             bool packed_dff = false;
 
             if (dff) {
                 if (ctx->verbose)
                     log_info("found attached dff %s\n", dff->name.c_str(ctx));
-                auto dff_bel = dff->attrs.find(ctx->id("BEL"));
+                auto dff_bel = dff->attrs.find(id_BEL);
                 if (lut_bel != ci->attrs.end() && dff_bel != dff->attrs.end() && lut_bel->second != dff_bel->second) {
                     // Locations don't match, can't pack
                 } else {
                     lut_to_lc(ctx, ci, packed.get(), false);
                     dff_to_lc(ctx, dff, packed.get(), LutType::Normal);
                     if (dff_bel != dff->attrs.end())
-                        packed->attrs[ctx->id("BEL")] = dff_bel->second;
+                        packed->attrs[id_BEL] = dff_bel->second;
                     packed_cells.insert(dff->name);
                     if (ctx->verbose)
                         log_info("packed cell %s into %s\n", dff->name.c_str(ctx), packed->name.c_str(ctx));
@@ -104,12 +104,12 @@ static void pack_remaining_ffs(Context *ctx)
             for (auto &attr : ci->attrs)
                 packed->attrs[attr.first] = attr.second;
 
-            auto dff_bel = ci->attrs.find(ctx->id("BEL"));
+            auto dff_bel = ci->attrs.find(id_BEL);
 
             dff_to_lc(ctx, ci, packed.get(), LutType::None);
 
             if (dff_bel != ci->attrs.end())
-                packed->attrs[ctx->id("BEL")] = dff_bel->second;
+                packed->attrs[id_BEL] = dff_bel->second;
             packed_cells.insert(ci->name);
             if (ctx->verbose)
                 log_info("packed cell %s into %s\n", ci->name.c_str(ctx), packed->name.c_str(ctx));
@@ -198,12 +198,12 @@ static void pack_constants(Context *ctx)
 
     for (auto &net : ctx->nets) {
         NetInfo *ni = net.second.get();
-        if (ni->driver.cell != nullptr && ni->driver.cell->type == ctx->id("GND")) {
+        if (ni->driver.cell != nullptr && ni->driver.cell->type == id_GND) {
             IdString drv_cell = ni->driver.cell->name;
             set_net_constant(ctx, ni, gnd_net, false);
             dead_nets.push_back(net.first);
             ctx->cells.erase(drv_cell);
-        } else if (ni->driver.cell != nullptr && ni->driver.cell->type == ctx->id("VCC")) {
+        } else if (ni->driver.cell != nullptr && ni->driver.cell->type == id_VCC) {
             IdString drv_cell = ni->driver.cell->name;
             set_net_constant(ctx, ni, vcc_net, true);
             dead_nets.push_back(net.first);
@@ -294,8 +294,8 @@ static void pack_io(Context *ctx)
             // attribute already on a FACADE_IO is an error. Attributes on
             // the pin attached to the PAD of FACADE_IO are ignored by this
             // packing phase.
-            auto loc_attr_cell = ci->attrs.find(ctx->id("LOC"));
-            auto bel_attr_cell = ci->attrs.find(ctx->id("BEL"));
+            auto loc_attr_cell = ci->attrs.find(id_LOC);
+            auto bel_attr_cell = ci->attrs.find(id_BEL);
 
             if (loc_attr_cell != ci->attrs.end()) {
                 if (bel_attr_cell != ci->attrs.end()) {
@@ -312,7 +312,7 @@ static void pack_io(Context *ctx)
                 } else {
                     log_info("pin '%s' constrained to Bel '%s'.\n", ci->name.c_str(ctx), ctx->nameOfBel(pinBel));
                 }
-                ci->attrs[ctx->id("BEL")] = ctx->getBelName(pinBel).str(ctx);
+                ci->attrs[id_BEL] = ctx->getBelName(pinBel).str(ctx);
             }
         }
     }
@@ -332,7 +332,7 @@ bool Arch::pack()
         pack_io(ctx);
         pack_lut_lutffs(ctx);
         pack_remaining_ffs(ctx);
-        ctx->settings[ctx->id("pack")] = 1;
+        ctx->settings[id_pack] = 1;
         ctx->assignArchInfo();
         log_info("Checksum: 0x%08x\n", ctx->checksum());
         return true;

@@ -79,15 +79,15 @@ std::unique_ptr<Context> NexusCommandHandler::createContext(dict<std::string, Pr
     chipArgs.device = vm["device"].as<std::string>();
     auto ctx = std::unique_ptr<Context>(new Context(chipArgs));
     if (vm.count("no-post-place-opt"))
-        ctx->settings[ctx->id("no_post_place_opt")] = Property::State::S1;
+        ctx->settings[id_no_post_place_opt] = Property::State::S1;
     if (vm.count("no-pack-lutff"))
-        ctx->settings[ctx->id("no_pack_lutff")] = Property::State::S1;
+        ctx->settings[id_no_pack_lutff] = Property::State::S1;
     if (vm.count("carry-lutff-ratio")) {
         float ratio = vm["carry-lutff-ratio"].as<float>();
         if (ratio < 0.0f || ratio > 1.0f) {
             log_error("Carry LUT+FF packing ration must be between 0.0 and 1.0");
         }
-        ctx->settings[ctx->id("carry_lutff_ratio")] = ratio;
+        ctx->settings[id_carry_lutff_ratio] = ratio;
     }
     if (vm.count("estimate-delay-mult"))
         ctx->settings[ctx->id("estimate-delay-mult")] = vm["estimate-delay-mult"].as<int>();

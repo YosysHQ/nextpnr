@@ -435,7 +435,7 @@ struct Arch : BaseArch<ArchRanges>
     // Extra helper
     std::string get_full_chip_name() const;
 
-    IdString archId() const override { return id("machxo2"); }
+    IdString archId() const override { return id_machxo2; }
     ArchArgs archArgs() const override { return args; }
     IdString archArgsToId(ArchArgs args) const override;
 

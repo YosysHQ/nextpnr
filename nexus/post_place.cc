@@ -148,7 +148,7 @@ struct NexusPostPlaceOpt
 
 void Arch::post_place_opt()
 {
-    if (bool_or_default(settings, id("no_post_place_opt")))
+    if (bool_or_default(settings, id_no_post_place_opt))
         return;
     log_info("Running post-place optimisations...\n");
     NexusPostPlaceOpt opt(getCtx());

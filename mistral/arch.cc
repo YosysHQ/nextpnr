@@ -446,7 +446,7 @@ ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
 
 bool Arch::place()
 {
-    std::string placer = str_or_default(settings, id("placer"), defaultPlacer);
+    std::string placer = str_or_default(settings, id_placer, defaultPlacer);
 
     if (placer == "heap") {
         PlacerHeapCfg cfg(getCtx());
@@ -468,7 +468,7 @@ bool Arch::place()
         log_error("Mistral architecture does not support placer '%s'\n", placer.c_str());
     }
 
-    getCtx()->attrs[getCtx()->id("step")] = std::string("place");
+    getCtx()->attrs[id_step] = std::string("place");
     archInfoToAttributes();
     return true;
 }
@@ -479,7 +479,7 @@ bool Arch::route()
 
     lab_pre_route();
 
-    std::string router = str_or_default(settings, id("router"), defaultRouter);
+    std::string router = str_or_default(settings, id_router, defaultRouter);
     bool result;
     if (router == "router1") {
         result = router1(getCtx(), Router1Cfg(getCtx()));
@@ -489,7 +489,7 @@ bool Arch::route()
     } else {
         log_error("Mistral architecture does not support router '%s'\n", router.c_str());
     }
-    getCtx()->attrs[getCtx()->id("step")] = std::string("route");
+    getCtx()->attrs[id_step] = std::string("route");
     archInfoToAttributes();
     return result;
 }

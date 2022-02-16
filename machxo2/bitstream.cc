@@ -235,36 +235,34 @@ void write_bitstream(Context *ctx, std::string text_config_file)
             int int_index = slice[5] - 'A';
             NPNR_ASSERT(int_index >= 0 && int_index < 4);
 
-            int lut0_init = int_or_default(ci->params, ctx->id("LUT0_INITVAL"));
-            int lut1_init = int_or_default(ci->params, ctx->id("LUT1_INITVAL"));
+            int lut0_init = int_or_default(ci->params, id_LUT0_INITVAL);
+            int lut1_init = int_or_default(ci->params, id_LUT1_INITVAL);
             cc.tiles[tname].add_word(slice + ".K0.INIT", int_to_bitvector(lut0_init, 16));
             cc.tiles[tname].add_word(slice + ".K1.INIT", int_to_bitvector(lut1_init, 16));
-            cc.tiles[tname].add_enum(slice + ".MODE", str_or_default(ci->params, ctx->id("MODE"), "LOGIC"));
-            cc.tiles[tname].add_enum(slice + ".GSR", str_or_default(ci->params, ctx->id("GSR"), "ENABLED"));
+            cc.tiles[tname].add_enum(slice + ".MODE", str_or_default(ci->params, id_MODE, "LOGIC"));
+            cc.tiles[tname].add_enum(slice + ".GSR", str_or_default(ci->params, id_GSR, "ENABLED"));
             cc.tiles[tname].add_enum("LSR" + std::to_string(int_index) + ".SRMODE",
-                                     str_or_default(ci->params, ctx->id("SRMODE"), "LSR_OVER_CE"));
-            cc.tiles[tname].add_enum(slice + ".CEMUX", intstr_or_default(ci->params, ctx->id("CEMUX"), "1"));
+                                     str_or_default(ci->params, id_SRMODE, "LSR_OVER_CE"));
+            cc.tiles[tname].add_enum(slice + ".CEMUX", intstr_or_default(ci->params, id_CEMUX, "1"));
             cc.tiles[tname].add_enum("CLK" + std::to_string(int_index) + ".CLKMUX",
-                                     intstr_or_default(ci->params, ctx->id("CLKMUX"), "0"));
+                                     intstr_or_default(ci->params, id_CLKMUX, "0"));
             cc.tiles[tname].add_enum("LSR" + std::to_string(int_index) + ".LSRMUX",
-                                     str_or_default(ci->params, ctx->id("LSRMUX"), "LSR"));
+                                     str_or_default(ci->params, id_LSRMUX, "LSR"));
             cc.tiles[tname].add_enum("LSR" + std::to_string(int_index) + ".LSRONMUX",
-                                     intstr_or_default(ci->params, ctx->id("LSRONMUX"), "LSRMUX"));
-            cc.tiles[tname].add_enum(slice + ".REGMODE", str_or_default(ci->params, ctx->id("REGMODE"), "FF"));
-            cc.tiles[tname].add_enum(slice + ".REG0.SD", intstr_or_default(ci->params, ctx->id("REG0_SD"), "0"));
-            cc.tiles[tname].add_enum(slice + ".REG1.SD", intstr_or_default(ci->params, ctx->id("REG1_SD"), "0"));
-            cc.tiles[tname].add_enum(slice + ".REG0.REGSET",
-                                     str_or_default(ci->params, ctx->id("REG0_REGSET"), "RESET"));
-            cc.tiles[tname].add_enum(slice + ".REG1.REGSET",
-                                     str_or_default(ci->params, ctx->id("REG1_REGSET"), "RESET"));
-        } else if (ci->type == ctx->id("FACADE_IO")) {
+                                     intstr_or_default(ci->params, id_LSRONMUX, "LSRMUX"));
+            cc.tiles[tname].add_enum(slice + ".REGMODE", str_or_default(ci->params, id_REGMODE, "FF"));
+            cc.tiles[tname].add_enum(slice + ".REG0.SD", intstr_or_default(ci->params, id_REG0_SD, "0"));
+            cc.tiles[tname].add_enum(slice + ".REG1.SD", intstr_or_default(ci->params, id_REG1_SD, "0"));
+            cc.tiles[tname].add_enum(slice + ".REG0.REGSET", str_or_default(ci->params, id_REG0_REGSET, "RESET"));
+            cc.tiles[tname].add_enum(slice + ".REG1.REGSET", str_or_default(ci->params, id_REG1_REGSET, "RESET"));
+        } else if (ci->type == id_FACADE_IO) {
             std::string pio = ctx->tile_info(bel)->bel_data[bel.index].name.get();
-            std::string iotype = str_or_default(ci->attrs, ctx->id("IO_TYPE"), "LVCMOS33");
-            std::string dir = str_or_default(ci->params, ctx->id("DIR"), "INPUT");
+            std::string iotype = str_or_default(ci->attrs, id_IO_TYPE, "LVCMOS33");
+            std::string dir = str_or_default(ci->params, id_DIR, "INPUT");
             std::string pic_tile = get_pic_tile(ctx, bel);
             cc.tiles[pic_tile].add_enum(pio + ".BASE_TYPE", dir + "_" + iotype);
-        } else if (ci->type == ctx->id("OSCH")) {
-            std::string freq = str_or_default(ci->params, ctx->id("NOM_FREQ"), "2.08");
+        } else if (ci->type == id_OSCH) {
+            std::string freq = str_or_default(ci->params, id_NOM_FREQ, "2.08");
             cc.tiles[ctx->get_tile_by_type("CFG1")].add_enum("OSCH.MODE", "OSCH");
             cc.tiles[ctx->get_tile_by_type("CFG1")].add_enum("OSCH.NOM_FREQ", freq);
         }
