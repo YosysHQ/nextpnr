@@ -103,7 +103,8 @@ void SiteArch::archcheck()
     }
 }
 
-SiteArch::SiteArch(const SiteInformation *site_info) : ctx(site_info->ctx), site_info(site_info)
+SiteArch::SiteArch(const SiteInformation *site_info)
+        : ctx(site_info->ctx), site_info(site_info), blocking_net(site_info->ctx->id("$nextpnr_blocked_net"))
 {
     // Build list of input and output site ports
     //
@@ -275,7 +276,6 @@ SiteArch::SiteArch(const SiteInformation *site_info) : ctx(site_info->ctx), site
         }
     }
 
-    blocking_net.name = ctx->id("$nextpnr_blocked_net");
     blocking_site_net.net = &blocking_net;
 }
 

@@ -612,8 +612,7 @@ static void pack_constants(Context *ctx)
 
     std::unique_ptr<CellInfo> gnd_cell = create_generic_cell(ctx, ctx->id("SLICE"), "$PACKER_GND");
     gnd_cell->params[ctx->id("INIT")] = Property(0, 1 << 4);
-    std::unique_ptr<NetInfo> gnd_net = std::unique_ptr<NetInfo>(new NetInfo);
-    gnd_net->name = ctx->id("$PACKER_GND_NET");
+    auto gnd_net = std::make_unique<NetInfo>(ctx->id("$PACKER_GND_NET"));
     gnd_net->driver.cell = gnd_cell.get();
     gnd_net->driver.port = ctx->id("F");
     gnd_cell->ports.at(ctx->id("F")).net = gnd_net.get();
@@ -621,8 +620,7 @@ static void pack_constants(Context *ctx)
     std::unique_ptr<CellInfo> vcc_cell = create_generic_cell(ctx, ctx->id("SLICE"), "$PACKER_VCC");
     // Fill with 1s
     vcc_cell->params[ctx->id("INIT")] = Property(Property::S1).extract(0, (1 << 4), Property::S1);
-    std::unique_ptr<NetInfo> vcc_net = std::unique_ptr<NetInfo>(new NetInfo);
-    vcc_net->name = ctx->id("$PACKER_VCC_NET");
+    auto vcc_net = std::make_unique<NetInfo>(ctx->id("$PACKER_VCC_NET"));
     vcc_net->driver.cell = vcc_cell.get();
     vcc_net->driver.port = ctx->id("F");
     vcc_cell->ports.at(ctx->id("F")).net = vcc_net.get();

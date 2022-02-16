@@ -355,12 +355,11 @@ void PseudoPipModel::update_site(const Context *ctx, size_t site)
 
         NPNR_ASSERT(bel_data.lut_element != -1);
 
-        lut_thru_cells.emplace_back();
+        lut_thru_cells.emplace_back(nullptr, IdString(), IdString(ctx->wire_lut->cell));
         CellInfo &cell = lut_thru_cells.back();
 
         cell.bel = bel;
 
-        cell.type = IdString(ctx->wire_lut->cell);
         NPNR_ASSERT(ctx->wire_lut->input_pins.size() == 1);
         cell.lut_cell.pins.push_back(IdString(ctx->wire_lut->input_pins[0]));
 
@@ -384,7 +383,7 @@ void PseudoPipModel::update_site(const Context *ctx, size_t site)
             continue;
         }
 
-        lut_cells.emplace_back();
+        lut_cells.emplace_back(nullptr, IdString(), ctx->wire_lut ? IdString(ctx->wire_lut->cell) : IdString());
         CellInfo &cell = lut_cells.back();
 
         cell.bel.tile = tile;
@@ -393,7 +392,6 @@ void PseudoPipModel::update_site(const Context *ctx, size_t site)
         if (ctx->wire_lut == nullptr)
             continue;
 
-        cell.type = IdString(ctx->wire_lut->cell);
         NPNR_ASSERT(ctx->wire_lut->input_pins.size() == 1);
         cell.lut_cell.pins.push_back(IdString(ctx->wire_lut->input_pins[0]));
 

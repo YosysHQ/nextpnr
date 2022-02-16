@@ -354,8 +354,7 @@ static void pack_constants(Context *ctx)
 
     std::unique_ptr<CellInfo> gnd_cell = create_ice_cell(ctx, ctx->id("ICESTORM_LC"), "$PACKER_GND");
     gnd_cell->params[ctx->id("LUT_INIT")] = Property(0, 16);
-    std::unique_ptr<NetInfo> gnd_net = std::unique_ptr<NetInfo>(new NetInfo);
-    gnd_net->name = ctx->id("$PACKER_GND_NET");
+    auto gnd_net = std::make_unique<NetInfo>(ctx->id("$PACKER_GND_NET"));
     gnd_net->driver.cell = gnd_cell.get();
     gnd_net->driver.port = ctx->id("O");
     gnd_cell->ports.at(ctx->id("O")).net = gnd_net.get();
@@ -367,8 +366,7 @@ static void pack_constants(Context *ctx)
 
     std::unique_ptr<CellInfo> vcc_cell = create_ice_cell(ctx, ctx->id("ICESTORM_LC"), "$PACKER_VCC");
     vcc_cell->params[ctx->id("LUT_INIT")] = Property(1, 16);
-    std::unique_ptr<NetInfo> vcc_net = std::unique_ptr<NetInfo>(new NetInfo);
-    vcc_net->name = ctx->id("$PACKER_VCC_NET");
+    auto vcc_net = std::make_unique<NetInfo>(ctx->id("$PACKER_VCC_NET"));
     vcc_net->driver.cell = vcc_cell.get();
     vcc_net->driver.port = ctx->id("O");
     vcc_cell->ports.at(ctx->id("O")).net = vcc_net.get();
@@ -606,15 +604,14 @@ static void insert_global(Context *ctx, NetInfo *net, bool is_reset, bool is_cen
 
     pr.cell = gb.get();
     pr.port = ctx->id("GLOBAL_BUFFER_OUTPUT");
-    std::unique_ptr<NetInfo> glbnet = std::unique_ptr<NetInfo>(new NetInfo());
-    glbnet->name = ctx->id(glb_name);
+    NetInfo *glbnet = ctx->createNet(ctx->id(glb_name));
     glbnet->driver = pr;
-    gb->ports[ctx->id("GLOBAL_BUFFER_OUTPUT")].net = glbnet.get();
+    gb->ports[ctx->id("GLOBAL_BUFFER_OUTPUT")].net = glbnet;
     std::vector<PortRef> keep_users;
     for (auto user : net->users) {
         if (is_clock_port(ctx, user) || (is_reset && is_reset_port(ctx, user)) ||
             (is_cen && is_enable_port(ctx, user)) || (is_logic && is_logic_port(ctx, user))) {
-            user.cell->ports[user.port].net = glbnet.get();
+            user.cell->ports[user.port].net = glbnet;
             glbnet->users.push_back(user);
         } else {
             keep_users.push_back(user);
@@ -629,7 +626,6 @@ static void insert_global(Context *ctx, NetInfo *net, bool is_reset, bool is_cen
         glbnet->clkconstr->period = net->clkconstr->period;
     }
 
-    ctx->nets[glbnet->name] = std::move(glbnet);
     ctx->cells[gb->name] = std::move(gb);
 }
 
@@ -1026,11 +1022,10 @@ static std::unique_ptr<CellInfo> spliceLUT(Context *ctx, CellInfo *ci, IdString 
     pt->params[ctx->id("LUT_INIT")] = Property(65280, 16); // output is always I3
 
     // Create LUT output net.
-    std::unique_ptr<NetInfo> out_net = std::unique_ptr<NetInfo>(new NetInfo);
-    out_net->name = ctx->id(ci->name.str(ctx) + "$nextnr_" + portId.str(ctx) + "_lut_through_net");
+    NetInfo *out_net = ctx->createNet(ctx->id(ci->name.str(ctx) + "$nextnr_" + portId.str(ctx) + "_lut_through_net"));
     out_net->driver.cell = pt.get();
     out_net->driver.port = ctx->id("O");
-    pt->ports.at(ctx->id("O")).net = out_net.get();
+    pt->ports.at(ctx->id("O")).net = out_net;
 
     // New users of the original cell's port
     std::vector<PortRef> new_users;
@@ -1040,7 +1035,7 @@ static std::unique_ptr<CellInfo> spliceLUT(Context *ctx, CellInfo *ci, IdString 
             continue;
         }
         // Rewrite pointer into net in user.
-        user.cell->ports[user.port].net = out_net.get();
+        user.cell->ports[user.port].net = out_net;
         // Add user to net.
         PortRef pr;
         pr.cell = user.cell;
@@ -1058,7 +1053,6 @@ static std::unique_ptr<CellInfo> spliceLUT(Context *ctx, CellInfo *ci, IdString 
     // Replace users of the original net.
     port.net->users = new_users;
 
-    ctx->nets[out_net->name] = std::move(out_net);
     return pt;
 }
 

@@ -124,6 +124,7 @@ struct ClockConstraint;
 
 struct NetInfo : ArchNetInfo
 {
+    explicit NetInfo(IdString name) : name(name){};
     IdString name, hierpath;
     int32_t udata = 0;
 
@@ -155,8 +156,13 @@ struct PortInfo
     PortType type;
 };
 
+struct Context;
+
 struct CellInfo : ArchCellInfo
 {
+    CellInfo(Context *ctx, IdString name, IdString type) : ctx(ctx), name(name), type(type){};
+    Context *ctx = nullptr;
+
     IdString name, type, hierpath;
     int32_t udata;
 

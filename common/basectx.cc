@@ -211,8 +211,7 @@ NetInfo *BaseCtx::createNet(IdString name)
 {
     NPNR_ASSERT(!nets.count(name));
     NPNR_ASSERT(!net_aliases.count(name));
-    std::unique_ptr<NetInfo> net{new NetInfo};
-    net->name = name;
+    auto net = std::make_unique<NetInfo>(name);
     net_aliases[name] = name;
     NetInfo *ptr = net.get();
     nets[name] = std::move(net);
@@ -252,9 +251,7 @@ void BaseCtx::lockNetRouting(IdString name)
 CellInfo *BaseCtx::createCell(IdString name, IdString type)
 {
     NPNR_ASSERT(!cells.count(name));
-    std::unique_ptr<CellInfo> cell{new CellInfo};
-    cell->name = name;
-    cell->type = type;
+    auto cell = std::make_unique<CellInfo>(getCtx(), name, type);
     CellInfo *ptr = cell.get();
     cells[name] = std::move(cell);
     refreshUi();

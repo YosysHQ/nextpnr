@@ -114,8 +114,7 @@ class ChainConstrainer
         lc->params[ctx->id("LUT_INIT")] = Property(65280, 16); // 0xff00: O = I3
         lc->params[ctx->id("CARRY_ENABLE")] = Property::State::S1;
         lc->ports.at(id_O).net = cout_port.net;
-        std::unique_ptr<NetInfo> co_i3_net(new NetInfo());
-        co_i3_net->name = ctx->id(lc->name.str(ctx) + "$I3");
+        NetInfo *co_i3_net = ctx->createNet(ctx->id(lc->name.str(ctx) + "$I3"));
         co_i3_net->driver = cout_port.net->driver;
         PortRef i3_r;
         i3_r.port = id_I3;
@@ -125,17 +124,12 @@ class ChainConstrainer
         o_r.port = id_O;
         o_r.cell = lc.get();
         cout_port.net->driver = o_r;
-        lc->ports.at(id_I3).net = co_i3_net.get();
-        cout_port.net = co_i3_net.get();
-
-        IdString co_i3_name = co_i3_net->name;
-        NPNR_ASSERT(ctx->nets.find(co_i3_name) == ctx->nets.end());
-        ctx->nets[co_i3_name] = std::move(co_i3_net);
+        lc->ports.at(id_I3).net = co_i3_net;
+        cout_port.net = co_i3_net;
 
         // If COUT also connects to a CIN; preserve the carry chain
         if (cin_cell) {
-            std::unique_ptr<NetInfo> co_cin_net(new NetInfo());
-            co_cin_net->name = ctx->id(lc->name.str(ctx) + "$COUT");
+            NetInfo *co_cin_net = ctx->createNet(ctx->id(lc->name.str(ctx) + "$COUT"));
 
             // Connect I1 to 1 to preserve carry chain
             NetInfo *vcc = ctx->nets.at(ctx->id("$PACKER_VCC_NET")).get();
@@ -150,7 +144,7 @@ class ChainConstrainer
             co_r.port = id_COUT;
             co_r.cell = lc.get();
             co_cin_net->driver = co_r;
-            lc->ports.at(id_COUT).net = co_cin_net.get();
+            lc->ports.at(id_COUT).net = co_cin_net;
 
             // Find the user corresponding to the next CIN
             int replaced_ports = 0;
@@ -166,14 +160,11 @@ class ChainConstrainer
                 if (fnd_user != usr.end()) {
                     co_cin_net->users.push_back(*fnd_user);
                     usr.erase(fnd_user);
-                    cin_cell->ports.at(port).net = co_cin_net.get();
+                    cin_cell->ports.at(port).net = co_cin_net;
                     ++replaced_ports;
                 }
             }
             NPNR_ASSERT(replaced_ports > 0);
-            IdString co_cin_name = co_cin_net->name;
-            NPNR_ASSERT(ctx->nets.find(co_cin_name) == ctx->nets.end());
-            ctx->nets[co_cin_name] = std::move(co_cin_net);
         }
 
         IdString name = lc->name;
@@ -201,24 +192,19 @@ class ChainConstrainer
         i1_ref.port = ctx->id("I1");
         lc->ports.at(ctx->id("I1")).net->users.push_back(i1_ref);
 
-        std::unique_ptr<NetInfo> out_net(new NetInfo());
-        out_net->name = ctx->id(lc->name.str(ctx) + "$O");
+        NetInfo *out_net = ctx->createNet(ctx->id(lc->name.str(ctx) + "$O"));
 
         PortRef drv_ref;
         drv_ref.port = ctx->id("COUT");
         drv_ref.cell = lc.get();
         out_net->driver = drv_ref;
-        lc->ports.at(ctx->id("COUT")).net = out_net.get();
+        lc->ports.at(ctx->id("COUT")).net = out_net;
 
         PortRef usr_ref;
         usr_ref.port = cin_port.name;
         usr_ref.cell = cin_cell;
         out_net->users.push_back(usr_ref);
-        cin_cell->ports.at(cin_port.name).net = out_net.get();
-
-        IdString out_net_name = out_net->name;
-        NPNR_ASSERT(ctx->nets.find(out_net_name) == ctx->nets.end());
-        ctx->nets[out_net_name] = std::move(out_net);
+        cin_cell->ports.at(cin_port.name).net = out_net;
 
         IdString name = lc->name;
         ctx->assignCellInfo(lc.get());
