@@ -235,8 +235,9 @@ DelayQuad Arch::getPipDelay(PipId pip) const
         return DelayQuad{123};
     case CycloneV::rnode_type_t::TCLK:
         return DelayQuad{46};
+    default:
+        return DelayQuad{308};
     }
-    return DelayQuad{308};
 }
 
 delay_t Arch::predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const
