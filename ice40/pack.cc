@@ -41,7 +41,7 @@ static void pack_lut_lutffs(Context *ctx)
         if (ctx->verbose)
             log_info("cell '%s' is of type '%s'\n", ci->name.c_str(ctx), ci->type.c_str(ctx));
         if (is_lut(ctx, ci)) {
-            std::unique_ptr<CellInfo> packed = create_ice_cell(ctx, ctx->id("ICESTORM_LC"), ci->name.str(ctx) + "_LC");
+            std::unique_ptr<CellInfo> packed = create_ice_cell(ctx, id_ICESTORM_LC, ci->name.str(ctx) + "_LC");
             for (auto &attr : ci->attrs)
                 packed->attrs[attr.first] = attr.second;
             packed_cells.insert(ci->name);
@@ -49,14 +49,14 @@ static void pack_lut_lutffs(Context *ctx)
                 log_info("packed cell %s into %s\n", ci->name.c_str(ctx), packed->name.c_str(ctx));
             // See if we can pack into a DFF
             // TODO: LUT cascade
-            NetInfo *o = ci->ports.at(ctx->id("O")).net;
-            CellInfo *dff = net_only_drives(ctx, o, is_ff, ctx->id("D"), true);
-            auto lut_bel = ci->attrs.find(ctx->id("BEL"));
+            NetInfo *o = ci->ports.at(id_O).net;
+            CellInfo *dff = net_only_drives(ctx, o, is_ff, id_D, true);
+            auto lut_bel = ci->attrs.find(id_BEL);
             bool packed_dff = false;
             if (dff) {
                 if (ctx->verbose)
                     log_info("found attached dff %s\n", dff->name.c_str(ctx));
-                auto dff_bel = dff->attrs.find(ctx->id("BEL"));
+                auto dff_bel = dff->attrs.find(id_BEL);
                 if (lut_bel != ci->attrs.end() && dff_bel != dff->attrs.end() && lut_bel->second != dff_bel->second) {
                     // Locations don't match, can't pack
                 } else {
@@ -65,10 +65,10 @@ static void pack_lut_lutffs(Context *ctx)
                     ++lut_and_ff;
                     ctx->nets.erase(o->name);
                     if (dff_bel != dff->attrs.end())
-                        packed->attrs[ctx->id("BEL")] = dff_bel->second;
+                        packed->attrs[id_BEL] = dff_bel->second;
                     for (const auto &attr : dff->attrs) {
                         // BEL is dealt with specially
-                        if (attr.first != ctx->id("BEL"))
+                        if (attr.first != id_BEL)
                             packed->attrs[attr.first] = attr.second;
                     }
                     packed_cells.insert(dff->name);
@@ -106,8 +106,7 @@ static void pack_nonlut_ffs(Context *ctx)
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
         if (is_ff(ctx, ci)) {
-            std::unique_ptr<CellInfo> packed =
-                    create_ice_cell(ctx, ctx->id("ICESTORM_LC"), ci->name.str(ctx) + "_DFFLC");
+            std::unique_ptr<CellInfo> packed = create_ice_cell(ctx, id_ICESTORM_LC, ci->name.str(ctx) + "_DFFLC");
             for (auto &attr : ci->attrs)
                 packed->attrs[attr.first] = attr.second;
             if (ctx->verbose)
@@ -155,25 +154,25 @@ static void pack_carries(Context *ctx)
 
             CellInfo *carry_ci_lc;
             bool ci_value;
-            bool ci_const = net_is_constant(ctx, ci->ports.at(ctx->id("CI")).net, ci_value);
+            bool ci_const = net_is_constant(ctx, ci->ports.at(id_CI).net, ci_value);
             if (ci_const) {
                 carry_ci_lc = nullptr;
             } else {
-                carry_ci_lc = net_only_drives(ctx, ci->ports.at(ctx->id("CI")).net, is_lc, ctx->id("I3"), false);
+                carry_ci_lc = net_only_drives(ctx, ci->ports.at(id_CI).net, is_lc, id_I3, false);
             }
 
             std::set<IdString> i0_matches, i1_matches;
-            NetInfo *i0_net = ci->ports.at(ctx->id("I0")).net;
-            NetInfo *i1_net = ci->ports.at(ctx->id("I1")).net;
+            NetInfo *i0_net = ci->ports.at(id_I0).net;
+            NetInfo *i1_net = ci->ports.at(id_I1).net;
             // Find logic cells connected to both I0 and I1
             if (i0_net) {
                 for (auto usr : i0_net->users) {
-                    if (is_lc(ctx, usr.cell) && usr.port == ctx->id("I1")) {
+                    if (is_lc(ctx, usr.cell) && usr.port == id_I1) {
                         if (ctx->cells.find(usr.cell->name) != ctx->cells.end() &&
                             exhausted_cells.find(usr.cell->name) == exhausted_cells.end()) {
                             // This clause stops us double-packing cells
                             i0_matches.insert(usr.cell->name);
-                            if (!i1_net && !usr.cell->ports.at(ctx->id("I2")).net) {
+                            if (!i1_net && !usr.cell->ports.at(id_I2).net) {
                                 // I1 is don't care when disconnected, duplicate I0
                                 i1_matches.insert(usr.cell->name);
                             }
@@ -183,12 +182,12 @@ static void pack_carries(Context *ctx)
             }
             if (i1_net) {
                 for (auto usr : i1_net->users) {
-                    if (is_lc(ctx, usr.cell) && usr.port == ctx->id("I2")) {
+                    if (is_lc(ctx, usr.cell) && usr.port == id_I2) {
                         if (ctx->cells.find(usr.cell->name) != ctx->cells.end() &&
                             exhausted_cells.find(usr.cell->name) == exhausted_cells.end()) {
                             // This clause stops us double-packing cells
                             i1_matches.insert(usr.cell->name);
-                            if (!i0_net && !usr.cell->ports.at(ctx->id("I1")).net) {
+                            if (!i0_net && !usr.cell->ports.at(id_I1).net) {
                                 // I0 is don't care when disconnected, duplicate I1
                                 i0_matches.insert(usr.cell->name);
                             }
@@ -208,53 +207,53 @@ static void pack_carries(Context *ctx)
             } else {
                 // No LC to pack into matching I0/I1, insert a new one
                 std::unique_ptr<CellInfo> created_lc =
-                        create_ice_cell(ctx, ctx->id("ICESTORM_LC"), cell.first.str(ctx) + "$CARRY");
+                        create_ice_cell(ctx, id_ICESTORM_LC, cell.first.str(ctx) + "$CARRY");
                 carry_lc = created_lc.get();
-                created_lc->ports.at(ctx->id("I1")).net = i0_net;
+                created_lc->ports.at(id_I1).net = i0_net;
                 if (i0_net) {
                     PortRef pr;
                     pr.cell = created_lc.get();
-                    pr.port = ctx->id("I1");
+                    pr.port = id_I1;
                     i0_net->users.push_back(pr);
                 }
-                created_lc->ports.at(ctx->id("I2")).net = i1_net;
+                created_lc->ports.at(id_I2).net = i1_net;
                 if (i1_net) {
                     PortRef pr;
                     pr.cell = created_lc.get();
-                    pr.port = ctx->id("I2");
+                    pr.port = id_I2;
                     i1_net->users.push_back(pr);
                 }
                 new_cells.push_back(std::move(created_lc));
                 ++carry_only;
             }
-            carry_lc->params[ctx->id("CARRY_ENABLE")] = Property::State::S1;
-            replace_port(ci, ctx->id("CI"), carry_lc, ctx->id("CIN"));
-            replace_port(ci, ctx->id("CO"), carry_lc, ctx->id("COUT"));
+            carry_lc->params[id_CARRY_ENABLE] = Property::State::S1;
+            replace_port(ci, id_CI, carry_lc, id_CIN);
+            replace_port(ci, id_CO, carry_lc, id_COUT);
             if (i0_net) {
                 auto &i0_usrs = i0_net->users;
                 i0_usrs.erase(std::remove_if(i0_usrs.begin(), i0_usrs.end(), [ci, ctx](const PortRef &pr) {
-                    return pr.cell == ci && pr.port == ctx->id("I0");
+                    return pr.cell == ci && pr.port == id_I0;
                 }));
             }
             if (i1_net) {
                 auto &i1_usrs = i1_net->users;
                 i1_usrs.erase(std::remove_if(i1_usrs.begin(), i1_usrs.end(), [ci, ctx](const PortRef &pr) {
-                    return pr.cell == ci && pr.port == ctx->id("I1");
+                    return pr.cell == ci && pr.port == id_I1;
                 }));
             }
 
             // Check for constant driver on CIN
-            if (carry_lc->ports.at(ctx->id("CIN")).net != nullptr) {
-                IdString cin_net = carry_lc->ports.at(ctx->id("CIN")).net->name;
+            if (carry_lc->ports.at(id_CIN).net != nullptr) {
+                IdString cin_net = carry_lc->ports.at(id_CIN).net->name;
                 if (cin_net == ctx->id("$PACKER_GND_NET") || cin_net == ctx->id("$PACKER_VCC_NET")) {
-                    carry_lc->params[ctx->id("CIN_CONST")] = Property::State::S1;
-                    carry_lc->params[ctx->id("CIN_SET")] =
+                    carry_lc->params[id_CIN_CONST] = Property::State::S1;
+                    carry_lc->params[id_CIN_SET] =
                             cin_net == ctx->id("$PACKER_VCC_NET") ? Property::State::S1 : Property::State::S0;
-                    carry_lc->ports.at(ctx->id("CIN")).net = nullptr;
+                    carry_lc->ports.at(id_CIN).net = nullptr;
                     auto &cin_users = ctx->nets.at(cin_net)->users;
                     cin_users.erase(
                             std::remove_if(cin_users.begin(), cin_users.end(), [carry_lc, ctx](const PortRef &pr) {
-                                return pr.cell == carry_lc && pr.port == ctx->id("CIN");
+                                return pr.cell == carry_lc && pr.port == id_CIN;
                             }));
                 }
             }
@@ -281,18 +280,15 @@ static void pack_ram(Context *ctx)
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
         if (is_ram(ctx, ci)) {
-            std::unique_ptr<CellInfo> packed =
-                    create_ice_cell(ctx, ctx->id("ICESTORM_RAM"), ci->name.str(ctx) + "_RAM");
+            std::unique_ptr<CellInfo> packed = create_ice_cell(ctx, id_ICESTORM_RAM, ci->name.str(ctx) + "_RAM");
             packed_cells.insert(ci->name);
             for (auto attr : ci->attrs)
                 packed->attrs[attr.first] = attr.second;
             for (auto param : ci->params)
                 packed->params[param.first] = param.second;
-            packed->params[ctx->id("NEG_CLK_W")] =
-                    Property(ci->type == ctx->id("SB_RAM40_4KNW") || ci->type == ctx->id("SB_RAM40_4KNRNW"), 1);
-            packed->params[ctx->id("NEG_CLK_R")] =
-                    Property(ci->type == ctx->id("SB_RAM40_4KNR") || ci->type == ctx->id("SB_RAM40_4KNRNW"), 1);
-            packed->type = ctx->id("ICESTORM_RAM");
+            packed->params[id_NEG_CLK_W] = Property(ci->type == id_SB_RAM40_4KNW || ci->type == id_SB_RAM40_4KNRNW, 1);
+            packed->params[id_NEG_CLK_R] = Property(ci->type == id_SB_RAM40_4KNR || ci->type == id_SB_RAM40_4KNRNW, 1);
+            packed->type = id_ICESTORM_RAM;
             for (auto port : ci->ports) {
                 PortInfo &pi = port.second;
                 std::string newname = pi.name.str(ctx);
@@ -300,9 +296,9 @@ static void pack_ram(Context *ctx)
                 if (bpos != std::string::npos) {
                     newname = newname.substr(0, bpos) + "_" + newname.substr(bpos + 1, (newname.size() - bpos) - 2);
                 }
-                if (pi.name == ctx->id("RCLKN"))
+                if (pi.name == id_RCLKN)
                     newname = "RCLK";
-                else if (pi.name == ctx->id("WCLKN"))
+                else if (pi.name == id_WCLKN)
                     newname = "WCLK";
                 replace_port(ci, ctx->id(pi.name.c_str(ctx)), packed.get(), ctx->id(newname));
             }
@@ -330,13 +326,13 @@ static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constne
             if ((is_lut(ctx, uc) || is_lc(ctx, uc) || is_carry(ctx, uc)) && (user.port.str(ctx).at(0) == 'I') &&
                 !constval) {
                 uc->ports[user.port].net = nullptr;
-            } else if ((is_sb_mac16(ctx, uc) || uc->type == ctx->id("ICESTORM_DSP")) &&
-                       (user.port != ctx->id("CLK") &&
-                        ((constval && user.port == ctx->id("CE")) || (!constval && user.port != ctx->id("CE"))))) {
+            } else if ((is_sb_mac16(ctx, uc) || uc->type == id_ICESTORM_DSP) &&
+                       (user.port != id_CLK &&
+                        ((constval && user.port == id_CE) || (!constval && user.port != id_CE)))) {
                 uc->ports[user.port].net = nullptr;
-            } else if (is_ram(ctx, uc) && !constval && user.port != ctx->id("RCLK") && user.port != ctx->id("RCLKN") &&
-                       user.port != ctx->id("WCLK") && user.port != ctx->id("WCLKN") && user.port != ctx->id("RCLKE") &&
-                       user.port != ctx->id("WCLKE")) {
+            } else if (is_ram(ctx, uc) && !constval && user.port != id_RCLK && user.port != id_RCLKN &&
+                       user.port != id_WCLK && user.port != id_WCLKN && user.port != id_RCLKE &&
+                       user.port != id_WCLKE) {
                 uc->ports[user.port].net = nullptr;
             } else {
                 uc->ports[user.port].net = constnet;
@@ -352,24 +348,24 @@ static void pack_constants(Context *ctx)
 {
     log_info("Packing constants..\n");
 
-    std::unique_ptr<CellInfo> gnd_cell = create_ice_cell(ctx, ctx->id("ICESTORM_LC"), "$PACKER_GND");
-    gnd_cell->params[ctx->id("LUT_INIT")] = Property(0, 16);
+    std::unique_ptr<CellInfo> gnd_cell = create_ice_cell(ctx, id_ICESTORM_LC, "$PACKER_GND");
+    gnd_cell->params[id_LUT_INIT] = Property(0, 16);
     auto gnd_net = std::make_unique<NetInfo>(ctx->id("$PACKER_GND_NET"));
     gnd_net->driver.cell = gnd_cell.get();
-    gnd_net->driver.port = ctx->id("O");
-    gnd_cell->ports.at(ctx->id("O")).net = gnd_net.get();
+    gnd_net->driver.port = id_O;
+    gnd_cell->ports.at(id_O).net = gnd_net.get();
 
     NetInfo *gnd_net_info = gnd_net.get();
     if (ctx->nets.find(ctx->id("$PACKER_GND_NET")) != ctx->nets.end()) {
         gnd_net_info = ctx->nets.find(ctx->id("$PACKER_GND_NET"))->second.get();
     }
 
-    std::unique_ptr<CellInfo> vcc_cell = create_ice_cell(ctx, ctx->id("ICESTORM_LC"), "$PACKER_VCC");
-    vcc_cell->params[ctx->id("LUT_INIT")] = Property(1, 16);
+    std::unique_ptr<CellInfo> vcc_cell = create_ice_cell(ctx, id_ICESTORM_LC, "$PACKER_VCC");
+    vcc_cell->params[id_LUT_INIT] = Property(1, 16);
     auto vcc_net = std::make_unique<NetInfo>(ctx->id("$PACKER_VCC_NET"));
     vcc_net->driver.cell = vcc_cell.get();
-    vcc_net->driver.port = ctx->id("O");
-    vcc_cell->ports.at(ctx->id("O")).net = vcc_net.get();
+    vcc_net->driver.port = id_O;
+    vcc_cell->ports.at(id_O).net = vcc_net.get();
 
     NetInfo *vcc_net_info = vcc_net.get();
     if (ctx->nets.find(ctx->id("$PACKER_VCC_NET")) != ctx->nets.end()) {
@@ -382,13 +378,13 @@ static void pack_constants(Context *ctx)
 
     for (auto &net : ctx->nets) {
         NetInfo *ni = net.second.get();
-        if (ni->driver.cell != nullptr && ni->driver.cell->type == ctx->id("GND")) {
+        if (ni->driver.cell != nullptr && ni->driver.cell->type == id_GND) {
             IdString drv_cell = ni->driver.cell->name;
             set_net_constant(ctx, ni, gnd_net_info, false);
             gnd_used = true;
             dead_nets.push_back(net.first);
             ctx->cells.erase(drv_cell);
-        } else if (ni->driver.cell != nullptr && ni->driver.cell->type == ctx->id("VCC")) {
+        } else if (ni->driver.cell != nullptr && ni->driver.cell->type == id_VCC) {
             IdString drv_cell = ni->driver.cell->name;
             set_net_constant(ctx, ni, vcc_net_info, true);
             dead_nets.push_back(net.first);
@@ -434,16 +430,16 @@ static std::unique_ptr<CellInfo> create_padin_gbuf(Context *ctx, CellInfo *cell,
                                                    std::string gbuf_name)
 {
     // Find the matching SB_GB BEL connected to the same global network
-    if (!cell->attrs.count(ctx->id("BEL")))
+    if (!cell->attrs.count(id_BEL))
         log_error("Unconstrained SB_GB_IO %s is not supported.\n", ctx->nameOf(cell));
-    BelId bel = ctx->getBelByNameStr(cell->attrs[ctx->id("BEL")].as_string());
+    BelId bel = ctx->getBelByNameStr(cell->attrs[id_BEL].as_string());
     BelId gb_bel = find_padin_gbuf(ctx, bel, port_name);
     NPNR_ASSERT(gb_bel != BelId());
 
     // Create a SB_GB Cell and lock it there
-    std::unique_ptr<CellInfo> gb = create_ice_cell(ctx, ctx->id("SB_GB"), gbuf_name);
-    gb->attrs[ctx->id("FOR_PAD_IN")] = Property::State::S1;
-    gb->attrs[ctx->id("BEL")] = ctx->getBelName(gb_bel).str(ctx);
+    std::unique_ptr<CellInfo> gb = create_ice_cell(ctx, id_SB_GB, gbuf_name);
+    gb->attrs[id_FOR_PAD_IN] = Property::State::S1;
+    gb->attrs[id_BEL] = ctx->getBelName(gb_bel).str(ctx);
 
     // Reconnect the net to that port for easier identification it's a global net
     replace_port(cell, port_name, gb.get(), id_GLOBAL_BUFFER_OUTPUT);
@@ -475,11 +471,11 @@ static void pack_io(Context *ctx)
         if (is_nextpnr_iob(ctx, ci)) {
             CellInfo *sb = nullptr, *rgb = nullptr;
             if (ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_iobuf")) {
-                sb = net_only_drives(ctx, ci->ports.at(ctx->id("O")).net, is_ice_iob, ctx->id("PACKAGE_PIN"), true, ci);
+                sb = net_only_drives(ctx, ci->ports.at(id_O).net, is_ice_iob, id_PACKAGE_PIN, true, ci);
 
             } else if (ci->type == ctx->id("$nextpnr_obuf")) {
-                NetInfo *net = ci->ports.at(ctx->id("I")).net;
-                sb = net_only_drives(ctx, net, is_ice_iob, ctx->id("PACKAGE_PIN"), true, ci);
+                NetInfo *net = ci->ports.at(id_I).net;
+                sb = net_only_drives(ctx, net, is_ice_iob, id_PACKAGE_PIN, true, ci);
                 if (net && net->driver.cell &&
                     (is_sb_rgba_drv(ctx, net->driver.cell) || is_sb_rgb_drv(ctx, net->driver.cell)))
                     rgb = net->driver.cell;
@@ -488,7 +484,7 @@ static void pack_io(Context *ctx)
                 // Trivial case, SB_IO used. Just destroy the iobuf
                 log_info("%s feeds SB_IO %s, removing %s %s.\n", ci->name.c_str(ctx), sb->name.c_str(ctx),
                          ci->type.c_str(ctx), ci->name.c_str(ctx));
-                NetInfo *net = sb->ports.at(ctx->id("PACKAGE_PIN")).net;
+                NetInfo *net = sb->ports.at(id_PACKAGE_PIN).net;
                 if (((ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_iobuf")) &&
                      net->users.size() > 1) ||
                     (ci->type == ctx->id("$nextpnr_obuf") && (net->users.size() > 2 || net->driver.cell != nullptr)))
@@ -518,13 +514,12 @@ static void pack_io(Context *ctx)
             } else if (rgb != nullptr) {
                 log_info("%s use by SB_RGBA_DRV/SB_RGB_DRV %s, not creating SB_IO\n", ci->name.c_str(ctx),
                          rgb->name.c_str(ctx));
-                disconnect_port(ctx, ci, ctx->id("I"));
+                disconnect_port(ctx, ci, id_I);
                 packed_cells.insert(ci->name);
                 continue;
             } else {
                 // Create a SB_IO buffer
-                std::unique_ptr<CellInfo> ice_cell =
-                        create_ice_cell(ctx, ctx->id("SB_IO"), ci->name.str(ctx) + "$sb_io");
+                std::unique_ptr<CellInfo> ice_cell = create_ice_cell(ctx, id_SB_IO, ci->name.str(ctx) + "$sb_io");
                 nxio_to_sb(ctx, ci, ice_cell.get(), packed_cells);
                 new_cells.push_back(std::move(ice_cell));
                 sb = new_cells.back().get();
@@ -535,7 +530,7 @@ static void pack_io(Context *ctx)
             for (auto &attr : ci->attrs)
                 sb->attrs[attr.first] = attr.second;
         } else if (is_sb_io(ctx, ci) || is_sb_gb_io(ctx, ci)) {
-            NetInfo *net = ci->ports.at(ctx->id("PACKAGE_PIN")).net;
+            NetInfo *net = ci->ports.at(id_PACKAGE_PIN).net;
             if ((net != nullptr) && ((net->users.size() > 2) ||
                                      (net->driver.cell != nullptr &&
                                       net->driver.cell->type == ctx->id("$nextpnr_obuf") && net->users.size() > 1)))
@@ -552,8 +547,8 @@ static void pack_io(Context *ctx)
             new_cells.push_back(std::move(gb));
 
             // Make it a normal SB_IO with global marker
-            ci->type = ctx->id("SB_IO");
-            ci->attrs[ctx->id("GLOBAL")] = Property::State::S1;
+            ci->type = id_SB_IO;
+            ci->attrs[id_GLOBAL] = Property::State::S1;
         } else if (is_sb_io(ctx, ci)) {
             // Disconnect unused inputs
             NetInfo *net_in0 = ci->ports.count(id_D_IN_0) ? ci->ports[id_D_IN_0].net : nullptr;
@@ -595,18 +590,18 @@ static void insert_global(Context *ctx, NetInfo *net, bool is_reset, bool is_cen
              is_cen ? " [cen]" : "", is_logic ? " [logic]" : "", fanout);
 
     std::string glb_name = net->name.str(ctx) + std::string("_$glb_") + (is_reset ? "sr" : (is_cen ? "ce" : "clk"));
-    std::unique_ptr<CellInfo> gb = create_ice_cell(ctx, ctx->id("SB_GB"), "$gbuf_" + glb_name);
-    gb->ports[ctx->id("USER_SIGNAL_TO_GLOBAL_BUFFER")].net = net;
+    std::unique_ptr<CellInfo> gb = create_ice_cell(ctx, id_SB_GB, "$gbuf_" + glb_name);
+    gb->ports[id_USER_SIGNAL_TO_GLOBAL_BUFFER].net = net;
     PortRef pr;
     pr.cell = gb.get();
-    pr.port = ctx->id("USER_SIGNAL_TO_GLOBAL_BUFFER");
+    pr.port = id_USER_SIGNAL_TO_GLOBAL_BUFFER;
     net->users.push_back(pr);
 
     pr.cell = gb.get();
-    pr.port = ctx->id("GLOBAL_BUFFER_OUTPUT");
+    pr.port = id_GLOBAL_BUFFER_OUTPUT;
     NetInfo *glbnet = ctx->createNet(ctx->id(glb_name));
     glbnet->driver = pr;
-    gb->ports[ctx->id("GLOBAL_BUFFER_OUTPUT")].net = glbnet;
+    gb->ports[id_GLOBAL_BUFFER_OUTPUT].net = glbnet;
     std::vector<PortRef> keep_users;
     for (auto user : net->users) {
         if (is_clock_port(ctx, user) || (is_reset && is_reset_port(ctx, user)) ||
@@ -664,9 +659,9 @@ static void promote_globals(Context *ctx)
             --gbs_available;
 
             /* And possibly limits what we can promote */
-            if (cell.second->attrs.find(ctx->id("BEL")) != cell.second->attrs.end()) {
+            if (cell.second->attrs.find(id_BEL) != cell.second->attrs.end()) {
                 /* If the SB_GB is locked, doesn't matter what it drives */
-                BelId bel = ctx->getBelByNameStr(cell.second->attrs[ctx->id("BEL")].as_string());
+                BelId bel = ctx->getBelByNameStr(cell.second->attrs[id_BEL].as_string());
                 int glb_id = ctx->get_driven_glb_netwk(bel);
                 if ((glb_id % 2) == 0)
                     resets_available--;
@@ -708,7 +703,7 @@ static void promote_globals(Context *ctx)
         if (global_clock->second == 0 && prom_logics < 4 && global_logic->second > logic_fanout_thresh &&
             (global_logic->second > global_cen->second || prom_cens >= cens_available) &&
             (global_logic->second > global_reset->second || prom_resets >= resets_available) &&
-            bool_or_default(ctx->settings, ctx->id("promote_logic"), false)) {
+            bool_or_default(ctx->settings, id_promote_logic, false)) {
             NetInfo *logicnet = ctx->nets[global_logic->first].get();
             insert_global(ctx, logicnet, false, false, true, global_logic->second);
             ++prom_globals;
@@ -784,11 +779,11 @@ static void place_plls(Context *ctx)
             continue;
 
         // If it's constrained already, add to already used list
-        if (ci->attrs.count(ctx->id("BEL"))) {
-            BelId bel_constrain = ctx->getBelByNameStr(ci->attrs[ctx->id("BEL")].as_string());
+        if (ci->attrs.count(id_BEL)) {
+            BelId bel_constrain = ctx->getBelByNameStr(ci->attrs[id_BEL].as_string());
             if (pll_all_bels.count(bel_constrain) == 0)
                 log_error("PLL '%s' is constrained to invalid BEL '%s'\n", ci->name.c_str(ctx),
-                          ci->attrs[ctx->id("BEL")].as_string().c_str());
+                          ci->attrs[id_BEL].as_string().c_str());
             pll_used_bels[bel_constrain] = ci;
         }
 
@@ -802,10 +797,10 @@ static void place_plls(Context *ctx)
             continue;
 
         // Check PACKAGEPIN connection
-        if (!ci->ports.count(ctx->id("PACKAGEPIN")))
+        if (!ci->ports.count(id_PACKAGEPIN))
             log_error("PLL '%s' is of PAD type but doesn't have a PACKAGEPIN port\n", ci->name.c_str(ctx));
 
-        NetInfo *ni = ci->ports.at(ctx->id("PACKAGEPIN")).net;
+        NetInfo *ni = ci->ports.at(id_PACKAGEPIN).net;
         if (ni == nullptr || ni->driver.cell == nullptr)
             log_error("PLL '%s' is of PAD type but doesn't have a valid PACKAGEPIN connection\n", ci->name.c_str(ctx));
 
@@ -816,11 +811,11 @@ static void place_plls(Context *ctx)
                       ci->name.c_str(ctx), io_cell->type.c_str(ctx));
         if (ni->users.size() != 1)
             log_error("PLL '%s' clock input '%s' can only drive PLL\n", ci->name.c_str(ctx), ni->name.c_str(ctx));
-        if (!io_cell->attrs.count(ctx->id("BEL")))
+        if (!io_cell->attrs.count(id_BEL))
             log_error("PLL '%s' PACKAGEPIN SB_IO '%s' is unconstrained\n", ci->name.c_str(ctx),
                       io_cell->name.c_str(ctx));
 
-        BelId io_bel = ctx->getBelByNameStr(io_cell->attrs.at(ctx->id("BEL")).as_string());
+        BelId io_bel = ctx->getBelByNameStr(io_cell->attrs.at(id_BEL).as_string());
         BelId found_bel;
 
         // Find the PLL BEL that would suit that connection
@@ -843,16 +838,16 @@ static void place_plls(Context *ctx)
         }
 
         // Is it user constrained ?
-        if (ci->attrs.count(ctx->id("BEL"))) {
+        if (ci->attrs.count(id_BEL)) {
             // Yes. Check it actually matches !
-            BelId bel_constrain = ctx->getBelByNameStr(ci->attrs[ctx->id("BEL")].as_string());
+            BelId bel_constrain = ctx->getBelByNameStr(ci->attrs[id_BEL].as_string());
             if (bel_constrain != found_bel)
                 log_error("PLL '%s' is user constrained to %s but can only be placed in %s based on its PACKAGEPIN "
                           "connection\n",
                           ci->name.c_str(ctx), ctx->nameOfBel(bel_constrain), ctx->nameOfBel(found_bel));
         } else {
             // No, we can constrain it ourselves
-            ci->attrs[ctx->id("BEL")] = ctx->getBelName(found_bel).str(ctx);
+            ci->attrs[id_BEL] = ctx->getBelName(found_bel).str(ctx);
             pll_used_bels[found_bel] = ci;
         }
 
@@ -867,15 +862,15 @@ static void place_plls(Context *ctx)
             continue;
 
         // Only consider bound IO that are used as inputs
-        if (!io_ci->attrs.count(ctx->id("BEL")))
+        if (!io_ci->attrs.count(id_BEL))
             continue;
         if ((!io_ci->ports.count(id_D_IN_0) || (io_ci->ports[id_D_IN_0].net == nullptr)) &&
             (!io_ci->ports.count(id_D_IN_1) || (io_ci->ports[id_D_IN_1].net == nullptr)) &&
-            !bool_or_default(io_ci->attrs, ctx->id("GLOBAL")))
+            !bool_or_default(io_ci->attrs, id_GLOBAL))
             continue;
 
         // Check all placed PLL (either forced by user, or forced by PACKAGEPIN)
-        BelId io_bel = ctx->getBelByNameStr(io_ci->attrs[ctx->id("BEL")].as_string());
+        BelId io_bel = ctx->getBelByNameStr(io_ci->attrs[id_BEL].as_string());
 
         for (auto placed_pll : pll_used_bels) {
             BelPin pll_io_a, pll_io_b;
@@ -905,11 +900,11 @@ static void place_plls(Context *ctx)
             continue;
 
         // Only consider the bound ones
-        if (!gb_ci->attrs.count(ctx->id("BEL")))
+        if (!gb_ci->attrs.count(id_BEL))
             continue;
 
         // Check all placed PLL (either forced by user, or forced by PACKAGEPIN)
-        BelId gb_bel = ctx->getBelByNameStr(gb_ci->attrs[ctx->id("BEL")].as_string());
+        BelId gb_bel = ctx->getBelByNameStr(gb_ci->attrs[id_BEL].as_string());
 
         for (auto placed_pll : pll_used_bels) {
             CellInfo *ci = placed_pll.second;
@@ -967,8 +962,8 @@ static void place_plls(Context *ctx)
             // Could this be a PAD PLL ?
             bool could_be_pad = false;
             BelId pad_bel;
-            if (ni->users.size() == 1 && is_sb_io(ctx, ni->driver.cell) && ni->driver.cell->attrs.count(ctx->id("BEL")))
-                pad_bel = ctx->getBelByNameStr(ni->driver.cell->attrs[ctx->id("BEL")].as_string());
+            if (ni->users.size() == 1 && is_sb_io(ctx, ni->driver.cell) && ni->driver.cell->attrs.count(id_BEL))
+                pad_bel = ctx->getBelByNameStr(ni->driver.cell->attrs[id_BEL].as_string());
 
             // Find a BEL for it
             BelId found_bel;
@@ -1002,7 +997,7 @@ static void place_plls(Context *ctx)
             if (could_be_pad)
                 log_info("  (given its connections, this PLL could have been a PAD PLL)\n");
 
-            ci->attrs[ctx->id("BEL")] = ctx->getBelName(found_bel).str(ctx);
+            ci->attrs[id_BEL] = ctx->getBelName(found_bel).str(ctx);
             pll_used_bels[found_bel] = ci;
         }
     }
@@ -1017,20 +1012,20 @@ static std::unique_ptr<CellInfo> spliceLUT(Context *ctx, CellInfo *ci, IdString 
     NPNR_ASSERT(port.net != nullptr);
 
     // Create pass-through LUT.
-    std::unique_ptr<CellInfo> pt = create_ice_cell(ctx, ctx->id("ICESTORM_LC"),
-                                                   ci->name.str(ctx) + "$nextpnr_" + portId.str(ctx) + "_lut_through");
-    pt->params[ctx->id("LUT_INIT")] = Property(65280, 16); // output is always I3
+    std::unique_ptr<CellInfo> pt =
+            create_ice_cell(ctx, id_ICESTORM_LC, ci->name.str(ctx) + "$nextpnr_" + portId.str(ctx) + "_lut_through");
+    pt->params[id_LUT_INIT] = Property(65280, 16); // output is always I3
 
     // Create LUT output net.
     NetInfo *out_net = ctx->createNet(ctx->id(ci->name.str(ctx) + "$nextnr_" + portId.str(ctx) + "_lut_through_net"));
     out_net->driver.cell = pt.get();
-    out_net->driver.port = ctx->id("O");
-    pt->ports.at(ctx->id("O")).net = out_net;
+    out_net->driver.port = id_O;
+    pt->ports.at(id_O).net = out_net;
 
     // New users of the original cell's port
     std::vector<PortRef> new_users;
     for (const auto &user : port.net->users) {
-        if (onlyNonLUTs && user.cell->type == ctx->id("ICESTORM_LC")) {
+        if (onlyNonLUTs && user.cell->type == id_ICESTORM_LC) {
             new_users.push_back(user);
             continue;
         }
@@ -1046,9 +1041,9 @@ static std::unique_ptr<CellInfo> spliceLUT(Context *ctx, CellInfo *ci, IdString 
     // Add LUT to new users.
     PortRef pr;
     pr.cell = pt.get();
-    pr.port = ctx->id("I3");
+    pr.port = id_I3;
     new_users.push_back(pr);
-    pt->ports.at(ctx->id("I3")).net = port.net;
+    pt->ports.at(id_I3).net = port.net;
 
     // Replace users of the original net.
     port.net->users = new_users;
@@ -1065,7 +1060,7 @@ static BelId cell_place_unique(Context *ctx, CellInfo *ci)
         if (ctx->is_bel_locked(bel))
             continue;
         IdStringList bel_name = ctx->getBelName(bel);
-        ci->attrs[ctx->id("BEL")] = bel_name.str(ctx);
+        ci->attrs[id_BEL] = bel_name.str(ctx);
         log_info("  constrained %s '%s' to %s\n", ci->type.c_str(ctx), ci->name.c_str(ctx), ctx->nameOfBel(bel));
         return bel;
     }
@@ -1124,7 +1119,7 @@ static void pack_special(Context *ctx)
             /* Force placement (no choices anyway) */
             cell_place_unique(ctx, ci);
 
-            NetInfo *ledpu_net = ci->ports.at(ctx->id("LEDPU")).net;
+            NetInfo *ledpu_net = ci->ports.at(id_LEDPU).net;
             for (auto &user : ledpu_net->users) {
                 if (!is_sb_rgb_drv(ctx, user.cell)) {
                     log_error("SB_LED_DRV_CUR LEDPU port can only be connected to SB_RGB_DRV!\n");
@@ -1133,44 +1128,42 @@ static void pack_special(Context *ctx)
                     user.cell->ports.at(user.port).net = nullptr;
                 }
             }
-            ci->ports.erase(ctx->id("LEDPU"));
+            ci->ports.erase(id_LEDPU);
             ctx->nets.erase(ledpu_net->name);
         }
     }
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
         if (is_sb_lfosc(ctx, ci)) {
-            std::unique_ptr<CellInfo> packed =
-                    create_ice_cell(ctx, ctx->id("ICESTORM_LFOSC"), ci->name.str(ctx) + "_OSC");
+            std::unique_ptr<CellInfo> packed = create_ice_cell(ctx, id_ICESTORM_LFOSC, ci->name.str(ctx) + "_OSC");
             packed_cells.insert(ci->name);
             cell_place_unique(ctx, packed.get());
-            replace_port(ci, ctx->id("CLKLFEN"), packed.get(), ctx->id("CLKLFEN"));
-            replace_port(ci, ctx->id("CLKLFPU"), packed.get(), ctx->id("CLKLFPU"));
-            if (bool_or_default(ci->attrs, ctx->id("ROUTE_THROUGH_FABRIC"))) {
-                replace_port(ci, ctx->id("CLKLF"), packed.get(), ctx->id("CLKLF_FABRIC"));
-                set_period(ctx, packed.get(), ctx->id("CLKLF_FABRIC"), 100000000); // 10kHz
+            replace_port(ci, id_CLKLFEN, packed.get(), id_CLKLFEN);
+            replace_port(ci, id_CLKLFPU, packed.get(), id_CLKLFPU);
+            if (bool_or_default(ci->attrs, id_ROUTE_THROUGH_FABRIC)) {
+                replace_port(ci, id_CLKLF, packed.get(), id_CLKLF_FABRIC);
+                set_period(ctx, packed.get(), id_CLKLF_FABRIC, 100000000); // 10kHz
             } else {
-                replace_port(ci, ctx->id("CLKLF"), packed.get(), ctx->id("CLKLF"));
+                replace_port(ci, id_CLKLF, packed.get(), id_CLKLF);
                 std::unique_ptr<CellInfo> gb =
-                        create_padin_gbuf(ctx, packed.get(), ctx->id("CLKLF"), "$gbuf_" + ci->name.str(ctx) + "_lfosc");
+                        create_padin_gbuf(ctx, packed.get(), id_CLKLF, "$gbuf_" + ci->name.str(ctx) + "_lfosc");
                 set_period(ctx, gb.get(), id_GLOBAL_BUFFER_OUTPUT, 100000000); // 10kHz
                 new_cells.push_back(std::move(gb));
             }
             new_cells.push_back(std::move(packed));
         } else if (is_sb_hfosc(ctx, ci)) {
-            std::unique_ptr<CellInfo> packed =
-                    create_ice_cell(ctx, ctx->id("ICESTORM_HFOSC"), ci->name.str(ctx) + "_OSC");
+            std::unique_ptr<CellInfo> packed = create_ice_cell(ctx, id_ICESTORM_HFOSC, ci->name.str(ctx) + "_OSC");
             packed_cells.insert(ci->name);
             cell_place_unique(ctx, packed.get());
-            packed->params[ctx->id("TRIM_EN")] = str_or_default(ci->params, ctx->id("TRIM_EN"), "0b0");
-            packed->params[ctx->id("CLKHF_DIV")] = str_or_default(ci->params, ctx->id("CLKHF_DIV"), "0b00");
-            replace_port(ci, ctx->id("CLKHFEN"), packed.get(), ctx->id("CLKHFEN"));
-            replace_port(ci, ctx->id("CLKHFPU"), packed.get(), ctx->id("CLKHFPU"));
+            packed->params[id_TRIM_EN] = str_or_default(ci->params, id_TRIM_EN, "0b0");
+            packed->params[id_CLKHF_DIV] = str_or_default(ci->params, id_CLKHF_DIV, "0b00");
+            replace_port(ci, id_CLKHFEN, packed.get(), id_CLKHFEN);
+            replace_port(ci, id_CLKHFPU, packed.get(), id_CLKHFPU);
             for (int i = 0; i < 10; i++) {
                 auto port = ctx->id("TRIM" + std::to_string(i));
                 replace_port(ci, port, packed.get(), port);
             }
-            std::string div = packed->params[ctx->id("CLKHF_DIV")].as_string();
+            std::string div = packed->params[id_CLKHF_DIV].as_string();
             int frequency;
             if (div == "0b00")
                 frequency = 48;
@@ -1182,20 +1175,19 @@ static void pack_special(Context *ctx)
                 frequency = 6;
             else
                 log_error("Invalid HFOSC divider value '%s' - expecting 0b00, 0b01, 0b10 or 0b11\n", div.c_str());
-            if (bool_or_default(ci->attrs, ctx->id("ROUTE_THROUGH_FABRIC"))) {
-                replace_port(ci, ctx->id("CLKHF"), packed.get(), ctx->id("CLKHF_FABRIC"));
-                set_period(ctx, packed.get(), ctx->id("CLKHF_FABRIC"), 1000000 / frequency);
+            if (bool_or_default(ci->attrs, id_ROUTE_THROUGH_FABRIC)) {
+                replace_port(ci, id_CLKHF, packed.get(), id_CLKHF_FABRIC);
+                set_period(ctx, packed.get(), id_CLKHF_FABRIC, 1000000 / frequency);
             } else {
-                replace_port(ci, ctx->id("CLKHF"), packed.get(), ctx->id("CLKHF"));
+                replace_port(ci, id_CLKHF, packed.get(), id_CLKHF);
                 std::unique_ptr<CellInfo> gb =
-                        create_padin_gbuf(ctx, packed.get(), ctx->id("CLKHF"), "$gbuf_" + ci->name.str(ctx) + "_hfosc");
+                        create_padin_gbuf(ctx, packed.get(), id_CLKHF, "$gbuf_" + ci->name.str(ctx) + "_hfosc");
                 set_period(ctx, gb.get(), id_GLOBAL_BUFFER_OUTPUT, 1000000 / frequency);
                 new_cells.push_back(std::move(gb));
             }
             new_cells.push_back(std::move(packed));
         } else if (is_sb_spram(ctx, ci)) {
-            std::unique_ptr<CellInfo> packed =
-                    create_ice_cell(ctx, ctx->id("ICESTORM_SPRAM"), ci->name.str(ctx) + "_RAM");
+            std::unique_ptr<CellInfo> packed = create_ice_cell(ctx, id_ICESTORM_SPRAM, ci->name.str(ctx) + "_RAM");
             packed_cells.insert(ci->name);
             for (auto attr : ci->attrs)
                 packed->attrs[attr.first] = attr.second;
@@ -1210,8 +1202,7 @@ static void pack_special(Context *ctx)
             }
             new_cells.push_back(std::move(packed));
         } else if (is_sb_mac16(ctx, ci)) {
-            std::unique_ptr<CellInfo> packed =
-                    create_ice_cell(ctx, ctx->id("ICESTORM_DSP"), ci->name.str(ctx) + "_DSP");
+            std::unique_ptr<CellInfo> packed = create_ice_cell(ctx, id_ICESTORM_DSP, ci->name.str(ctx) + "_DSP");
             packed_cells.insert(ci->name);
             for (auto attr : ci->attrs)
                 packed->attrs[attr.first] = attr.second;
@@ -1241,7 +1232,7 @@ static void pack_special(Context *ctx)
                 if (net == nullptr)
                     continue;
 
-                if ((pi.name != ctx->id("RGB0")) && (pi.name != ctx->id("RGB1")) && (pi.name != ctx->id("RGB2")))
+                if ((pi.name != id_RGB0) && (pi.name != id_RGB1) && (pi.name != id_RGB2))
                     continue;
 
                 if (net->users.size() > 0)
@@ -1253,10 +1244,10 @@ static void pack_special(Context *ctx)
             if (is_sb_rgb_drv(ctx, ci) && !ci->ledInfo.ledCurConnected)
                 log_error("Port RGBPU of SB_RGB_DRV should be driven by port LEDPU of SB_LED_DRV_CUR!\n");
 
-            ci->ports.erase(ctx->id("RGBPU"));
-            ci->ports.erase(ctx->id("RGB0"));
-            ci->ports.erase(ctx->id("RGB1"));
-            ci->ports.erase(ctx->id("RGB2"));
+            ci->ports.erase(id_RGBPU);
+            ci->ports.erase(id_RGB0);
+            ci->ports.erase(id_RGB1);
+            ci->ports.erase(id_RGB2);
         } else if (is_sb_ledda_ip(ctx, ci)) {
             /* Force placement (no choices anyway) */
             cell_place_unique(ctx, ci);
@@ -1268,7 +1259,7 @@ static void pack_special(Context *ctx)
                     {std::make_tuple(id_SB_I2C, "0b0011"), Loc(25, 31, 0)},
             };
             std::string bus_addr74 =
-                    str_or_default(ci->params, ctx->id("BUS_ADDR74"), is_sb_i2c(ctx, ci) ? "0b0001" : "0b0000");
+                    str_or_default(ci->params, id_BUS_ADDR74, is_sb_i2c(ctx, ci) ? "0b0001" : "0b0000");
             if (map_ba74.find(std::make_tuple(ci->type, bus_addr74)) == map_ba74.end())
                 log_error("Invalid value for BUS_ADDR74 for cell '%s' of type '%s'\n", ci->name.c_str(ctx),
                           ci->type.c_str(ctx));
@@ -1278,7 +1269,7 @@ static void pack_special(Context *ctx)
                 log_error("Unable to find placement for cell '%s' of type '%s'\n", ci->name.c_str(ctx),
                           ci->type.c_str(ctx));
             IdStringList bel_name = ctx->getBelName(bel);
-            ci->attrs[ctx->id("BEL")] = bel_name.str(ctx);
+            ci->attrs[id_BEL] = bel_name.str(ctx);
             log_info("  constrained %s '%s' to %s\n", ci->type.c_str(ctx), ci->name.c_str(ctx), ctx->nameOfBel(bel));
         }
     }
@@ -1303,15 +1294,14 @@ void pack_plls(Context *ctx)
             bool is_pad = is_sb_pll40_pad(ctx, ci);
             bool is_core = !is_pad;
 
-            std::unique_ptr<CellInfo> packed =
-                    create_ice_cell(ctx, ctx->id("ICESTORM_PLL"), ci->name.str(ctx) + "_PLL");
-            packed->attrs[ctx->id("TYPE")] = ci->type.str(ctx);
+            std::unique_ptr<CellInfo> packed = create_ice_cell(ctx, id_ICESTORM_PLL, ci->name.str(ctx) + "_PLL");
+            packed->attrs[id_TYPE] = ci->type.str(ctx);
             packed_cells.insert(ci->name);
             if (!is_sb_pll40_dual(ctx, ci)) {
                 // Remove second output, so a buffer isn't created for it, for these
                 // cell types with only one output
-                packed->ports.erase(ctx->id("PLLOUT_B"));
-                packed->ports.erase(ctx->id("PLLOUT_B_GLOBAL"));
+                packed->ports.erase(id_PLLOUT_B);
+                packed->ports.erase(id_PLLOUT_B_GLOBAL);
             }
             for (auto attr : ci->attrs)
                 packed->attrs[attr.first] = attr.second;
@@ -1319,9 +1309,9 @@ void pack_plls(Context *ctx)
                 packed->params[param.first] = param.second;
 
             const std::map<IdString, IdString> pos_map_name = {
-                    {ctx->id("PLLOUT_SELECT"), ctx->id("PLLOUT_SELECT_A")},
-                    {ctx->id("PLLOUT_SELECT_PORTA"), ctx->id("PLLOUT_SELECT_A")},
-                    {ctx->id("PLLOUT_SELECT_PORTB"), ctx->id("PLLOUT_SELECT_B")},
+                    {id_PLLOUT_SELECT, id_PLLOUT_SELECT_A},
+                    {id_PLLOUT_SELECT_PORTA, id_PLLOUT_SELECT_A},
+                    {id_PLLOUT_SELECT_PORTB, id_PLLOUT_SELECT_B},
             };
             const std::map<std::string, int> pos_map_val = {
                     {"GENCLK", 0},
@@ -1336,9 +1326,8 @@ void pack_plls(Context *ctx)
                     packed->params[pos_map_name.at(param.first)] = pos_map_val.at(param.second.as_string());
                 }
             const std::map<IdString, std::pair<IdString, IdString>> delmodes = {
-                    {ctx->id("DELAY_ADJUSTMENT_MODE_FEEDBACK"), {ctx->id("DELAY_ADJMODE_FB"), ctx->id("FDA_FEEDBACK")}},
-                    {ctx->id("DELAY_ADJUSTMENT_MODE_RELATIVE"),
-                     {ctx->id("DELAY_ADJMODE_REL"), ctx->id("FDA_RELATIVE")}},
+                    {id_DELAY_ADJUSTMENT_MODE_FEEDBACK, {id_DELAY_ADJMODE_FB, id_FDA_FEEDBACK}},
+                    {id_DELAY_ADJUSTMENT_MODE_RELATIVE, {id_DELAY_ADJMODE_REL, id_FDA_RELATIVE}},
             };
             for (auto delmode : delmodes) {
                 if (ci->params.count(delmode.first)) {
@@ -1352,9 +1341,9 @@ void pack_plls(Context *ctx)
                         log_error("Invalid PLL %s selection '%s'\n", delmode.first.c_str(ctx), value.c_str());
                 }
             }
-            auto feedback_path = packed->params[ctx->id("FEEDBACK_PATH")].is_string
-                                         ? packed->params[ctx->id("FEEDBACK_PATH")].as_string()
-                                         : std::to_string(packed->params[ctx->id("FEEDBACK_PATH")].as_int64());
+            auto feedback_path = packed->params[id_FEEDBACK_PATH].is_string
+                                         ? packed->params[id_FEEDBACK_PATH].as_string()
+                                         : std::to_string(packed->params[id_FEEDBACK_PATH].as_int64());
             std::string fbp_value = feedback_path == "DELAY"             ? "0"
                                     : feedback_path == "SIMPLE"          ? "1"
                                     : feedback_path == "PHASE_AND_DELAY" ? "2"
@@ -1363,8 +1352,8 @@ void pack_plls(Context *ctx)
             if (!std::all_of(fbp_value.begin(), fbp_value.end(), isdigit))
                 log_error("PLL '%s' has unsupported FEEDBACK_PATH value '%s'\n", ci->name.c_str(ctx),
                           feedback_path.c_str());
-            packed->params[ctx->id("FEEDBACK_PATH")] = Property(std::stoi(fbp_value), 3);
-            packed->params[ctx->id("PLLTYPE")] = sb_pll40_type(ctx, ci);
+            packed->params[id_FEEDBACK_PATH] = Property(std::stoi(fbp_value), 3);
+            packed->params[id_PLLTYPE] = sb_pll40_type(ctx, ci);
 
             NetInfo *pad_packagepin_net = nullptr;
 
@@ -1379,16 +1368,16 @@ void pack_plls(Context *ctx)
                     newname = newname.substr(0, bpos) + "_" + newname.substr(bpos + 1, (newname.size() - bpos) - 2);
                 }
 
-                if (pi.name == ctx->id("PLLOUTCOREA") || pi.name == ctx->id("PLLOUTCORE"))
+                if (pi.name == id_PLLOUTCOREA || pi.name == id_PLLOUTCORE)
                     newname = "PLLOUT_A";
-                if (pi.name == ctx->id("PLLOUTCOREB"))
+                if (pi.name == id_PLLOUTCOREB)
                     newname = "PLLOUT_B";
-                if (pi.name == ctx->id("PLLOUTGLOBALA") || pi.name == ctx->id("PLLOUTGLOBAL"))
+                if (pi.name == id_PLLOUTGLOBALA || pi.name == id_PLLOUTGLOBAL)
                     newname = "PLLOUT_A_GLOBAL";
-                if (pi.name == ctx->id("PLLOUTGLOBALB"))
+                if (pi.name == id_PLLOUTGLOBALB)
                     newname = "PLLOUT_B_GLOBAL";
 
-                if (pi.name == ctx->id("PACKAGEPIN")) {
+                if (pi.name == id_PACKAGEPIN) {
                     if (!is_pad) {
                         log_error("PLL '%s' has a PACKAGEPIN but is not a PAD PLL\n", ci->name.c_str(ctx));
                     } else {
@@ -1399,7 +1388,7 @@ void pack_plls(Context *ctx)
                         continue;
                     }
                 }
-                if (pi.name == ctx->id("REFERENCECLK")) {
+                if (pi.name == id_REFERENCECLK) {
                     if (!is_core)
                         log_error("PLL '%s' has a REFERENCECLK but is not a CORE PLL\n", ci->name.c_str(ctx));
                     got_input_constr = get_period(ctx, ci, pi.name, input_constr);
@@ -1429,7 +1418,7 @@ void pack_plls(Context *ctx)
                 log_info("    Input frequency of PLL '%s' is constrained to %.1f MHz\n", ctx->nameOf(ci),
                          MHz(ctx, input_constr));
                 // Input divider (DIVR)
-                input_constr *= (int_or_default(packed->params, ctx->id("DIVR"), 0) + 1);
+                input_constr *= (int_or_default(packed->params, id_DIVR, 0) + 1);
                 delay_t vco_constr = 0;
                 delay_t outa_constr = 0, outb_constr = 0;
                 int sr_div = 4;
@@ -1452,7 +1441,7 @@ void pack_plls(Context *ctx)
                 };
 
                 // Lookup shiftreg divider
-                int sr_div_mode = int_or_default(packed->params, ctx->id("SHIFTREG_DIV_MODE"), 0);
+                int sr_div_mode = int_or_default(packed->params, id_SHIFTREG_DIV_MODE, 0);
                 switch (sr_div_mode) {
                 case 0:
                     sr_div = 4;
@@ -1470,8 +1459,8 @@ void pack_plls(Context *ctx)
                 }
                 }
                 // Determine dividers in VCO path
-                vco_constr = input_constr / (int_or_default(packed->params, ctx->id("DIVF"), 0) + 1);
-                divq = 1 << (int_or_default(packed->params, ctx->id("DIVQ"), 0));
+                vco_constr = input_constr / (int_or_default(packed->params, id_DIVF, 0) + 1);
+                divq = 1 << (int_or_default(packed->params, id_DIVQ, 0));
                 if (fbp_value != "1") // anything other than SIMPLE - feedback after DIVQ
                     vco_constr /= divq;
                 if (fbp_value == "6") { // EXTERNAL
@@ -1484,19 +1473,19 @@ void pack_plls(Context *ctx)
                 }
                 log_info("    VCO frequency of PLL '%s' is constrained to %.1f MHz\n", ctx->nameOf(ci),
                          MHz(ctx, vco_constr));
-                if (ci->type == ctx->id("SB_PLL40_2_PAD"))
+                if (ci->type == id_SB_PLL40_2_PAD)
                     outa_constr = input_constr; // 2_PAD variant passes through input to OUTPUT A
                 else
-                    outa_constr = process_output(ctx->id("PLLOUT_SELECT_A"));
-                outb_constr = process_output(ctx->id("PLLOUT_SELECT_B"));
-                set_period(ctx, packed.get(), ctx->id("PLLOUT_A"), outa_constr);
-                set_period(ctx, packed.get(), ctx->id("PLLOUT_A_GLOBAL"), outa_constr);
-                set_period(ctx, packed.get(), ctx->id("PLLOUT_B"), outb_constr);
-                set_period(ctx, packed.get(), ctx->id("PLLOUT_B_GLOBAL"), outb_constr);
+                    outa_constr = process_output(id_PLLOUT_SELECT_A);
+                outb_constr = process_output(id_PLLOUT_SELECT_B);
+                set_period(ctx, packed.get(), id_PLLOUT_A, outa_constr);
+                set_period(ctx, packed.get(), id_PLLOUT_A_GLOBAL, outa_constr);
+                set_period(ctx, packed.get(), id_PLLOUT_B, outb_constr);
+                set_period(ctx, packed.get(), id_PLLOUT_B_GLOBAL, outb_constr);
             }
         constr_fail:
             // PLL must have been placed already in place_plls()
-            BelId pll_bel = ctx->getBelByNameStr(packed->attrs[ctx->id("BEL")].as_string());
+            BelId pll_bel = ctx->getBelByNameStr(packed->attrs[id_BEL].as_string());
             NPNR_ASSERT(pll_bel != BelId());
 
             // Deal with PAD PLL peculiarities
@@ -1505,10 +1494,10 @@ void pack_plls(Context *ctx)
                 auto pll_packagepin_driver = pad_packagepin_net->driver;
                 NPNR_ASSERT(pll_packagepin_driver.cell != nullptr);
                 auto packagepin_cell = pll_packagepin_driver.cell;
-                auto packagepin_bel_name = packagepin_cell->attrs.find(ctx->id("BEL"));
+                auto packagepin_bel_name = packagepin_cell->attrs.find(id_BEL);
 
                 // Set an attribute about this PLL's PAD SB_IO.
-                packed->attrs[ctx->id("BEL_PAD_INPUT")] = packagepin_bel_name->second;
+                packed->attrs[id_BEL_PAD_INPUT] = packagepin_bel_name->second;
 
                 // Disconnect PACKAGEPIN (it's a physical HW link)
                 for (auto user : pad_packagepin_net->users)
@@ -1522,7 +1511,7 @@ void pack_plls(Context *ctx)
             // In practice, this means the LOCK signal can only directly reach LUT
             // inputs.
             // If we have a net connected to LOCK, make sure it only drives LUTs.
-            auto port = packed->ports[ctx->id("LOCK")];
+            auto port = packed->ports[id_LOCK];
             if (port.net != nullptr) {
                 log_info("  PLL '%s' has LOCK output, need to pass all outputs via LUT\n", ci->name.c_str(ctx));
                 bool found_lut = false;
@@ -1531,8 +1520,8 @@ void pack_plls(Context *ctx)
                 unsigned int lut_count = 0;
                 for (const auto &user : port.net->users) {
                     NPNR_ASSERT(user.cell != nullptr);
-                    if (user.cell->type == ctx->id("ICESTORM_LC")) {
-                        if (bool_or_default(user.cell->params, ctx->id("CARRY_ENABLE"), false)) {
+                    if (user.cell->type == id_ICESTORM_LC) {
+                        if (bool_or_default(user.cell->params, id_CARRY_ENABLE, false)) {
                             found_carry = true;
                             all_luts = false;
                         } else {
@@ -1569,14 +1558,14 @@ void pack_plls(Context *ctx)
                 int z = 0;
                 for (const auto &user : port.net->users) {
                     NPNR_ASSERT(user.cell != nullptr);
-                    NPNR_ASSERT(user.cell->type == ctx->id("ICESTORM_LC"));
+                    NPNR_ASSERT(user.cell->type == id_ICESTORM_LC);
 
                     // TODO(q3k): handle when the Bel might be already the
                     // target of another constraint.
                     NPNR_ASSERT(z < 8);
                     auto target_bel = ctx->getBelByLocation(Loc(x, y, z++));
                     auto target_bel_name = ctx->getBelName(target_bel).str(ctx);
-                    user.cell->attrs[ctx->id("BEL")] = target_bel_name;
+                    user.cell->attrs[id_BEL] = target_bel_name;
                     log_info("  constrained '%s' to %s\n", user.cell->name.c_str(ctx), target_bel_name.c_str());
                 }
             }
@@ -1586,9 +1575,9 @@ void pack_plls(Context *ctx)
                 PortInfo &pi = port.second;
                 bool is_b_port;
 
-                if (pi.name == ctx->id("PLLOUT_A_GLOBAL"))
+                if (pi.name == id_PLLOUT_A_GLOBAL)
                     is_b_port = false;
-                else if (pi.name == ctx->id("PLLOUT_B_GLOBAL"))
+                else if (pi.name == id_PLLOUT_B_GLOBAL)
                     is_b_port = true;
                 else
                     continue;
@@ -1635,13 +1624,13 @@ bool Arch::pack()
         place_plls(ctx);
         pack_special(ctx);
         pack_plls(ctx);
-        if (!bool_or_default(ctx->settings, ctx->id("no_promote_globals"), false))
+        if (!bool_or_default(ctx->settings, id_no_promote_globals, false))
             promote_globals(ctx);
         ctx->assignArchInfo();
         constrain_chains(ctx);
         ctx->fixupHierarchy();
         ctx->assignArchInfo();
-        ctx->settings[ctx->id("pack")] = 1;
+        ctx->settings[id_pack] = 1;
         archInfoToAttributes();
         log_info("Checksum: 0x%08x\n", ctx->checksum());
         return true;

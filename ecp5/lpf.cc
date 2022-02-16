@@ -134,7 +134,7 @@ bool Arch::apply_lpf(std::string filename, std::istream &in)
                         if (words.size() > 5)
                             log_error("unexpected input following LOCATE clause (on line %d)\n", lineno);
                         if (fnd_cell != cells.end()) {
-                            fnd_cell->second->attrs[id("LOC")] = strip_quotes(words.at(4));
+                            fnd_cell->second->attrs[id_LOC] = strip_quotes(words.at(4));
                         }
                     } else if (verb == "IOBUF") {
                         if (words.size() < 3)

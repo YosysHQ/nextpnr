@@ -1132,7 +1132,7 @@ struct NexusPacker
             CellInfo *ci = cell.second.get();
             if (ci->type != id_LRAM_CORE)
                 continue;
-            if (str_or_default(ci->params, ctx->id("ECC_BYTE_SEL"), "BYTE_EN") == "BYTE_EN")
+            if (str_or_default(ci->params, id_ECC_BYTE_SEL, "BYTE_EN") == "BYTE_EN")
                 continue;
             for (int i = 0; i < 0x80; i++) {
                 // FIXME: document ECC and remove this DRC
@@ -1986,7 +1986,7 @@ struct NexusPacker
                 if (ci->type == id_DCC) {
                     copy_constraint(ci, id_CLKI, id_CLKO, 1);
                 } else if (ci->type == id_OSC_CORE) {
-                    int div = int_or_default(ci->params, ctx->id("HF_CLK_DIV"), 128);
+                    int div = int_or_default(ci->params, id_HF_CLK_DIV, 128);
                     const float tol = 1.07f; // OSCA has +/-7% frequency tolerance, assume the worst case.
                     set_period(ci, id_HFCLKOUT, delay_t((1.0e6 / 450) * (div + 1) / tol));
                     set_period(ci, id_LFCLKOUT, delay_t((1.0e3 / 10) / tol));
@@ -2177,26 +2177,26 @@ struct NexusPacker
 
                 // We have IDDR+ODDR
                 if (isODDR && isIDDR) {
-                    if (!iob->attrs.count(ctx->id("GLITCHFILTER"))) {
-                        iob->attrs[ctx->id("GLITCHFILTER")] = std::string("ON");
+                    if (!iob->attrs.count(id_GLITCHFILTER)) {
+                        iob->attrs[id_GLITCHFILTER] = std::string("ON");
                     }
-                    if (!iob->attrs.count(ctx->id("CLAMP"))) {
-                        iob->attrs[ctx->id("CLAMP")] = std::string("ON");
+                    if (!iob->attrs.count(id_CLAMP)) {
+                        iob->attrs[id_CLAMP] = std::string("ON");
                     }
-                    if (!iob->attrs.count(ctx->id("PULLMODE"))) {
-                        iob->attrs[ctx->id("PULLMODE")] = std::string("DOWN");
+                    if (!iob->attrs.count(id_PULLMODE)) {
+                        iob->attrs[id_PULLMODE] = std::string("DOWN");
                     }
                 }
                 // We have ODDR only
                 else if (isODDR && !isIDDR) {
-                    if (!iob->attrs.count(ctx->id("GLITCHFILTER"))) {
-                        iob->attrs[ctx->id("GLITCHFILTER")] = std::string("OFF");
+                    if (!iob->attrs.count(id_GLITCHFILTER)) {
+                        iob->attrs[id_GLITCHFILTER] = std::string("OFF");
                     }
-                    if (!iob->attrs.count(ctx->id("CLAMP"))) {
-                        iob->attrs[ctx->id("CLAMP")] = std::string("OFF");
+                    if (!iob->attrs.count(id_CLAMP)) {
+                        iob->attrs[id_CLAMP] = std::string("OFF");
                     }
-                    if (!iob->attrs.count(ctx->id("PULLMODE"))) {
-                        iob->attrs[ctx->id("PULLMODE")] = std::string("NONE");
+                    if (!iob->attrs.count(id_PULLMODE)) {
+                        iob->attrs[id_PULLMODE] = std::string("NONE");
                     }
                 }
 
@@ -2237,8 +2237,8 @@ struct NexusPacker
                         // Check if the net wants to use the T flip-flop in
                         // IOLOGIC
                         bool syn_useioff = false;
-                        if (iob_t->attrs.count(ctx->id("syn_useioff"))) {
-                            syn_useioff = iob_t->attrs.at(ctx->id("syn_useioff")).as_bool();
+                        if (iob_t->attrs.count(id_syn_useioff)) {
+                            syn_useioff = iob_t->attrs.at(id_syn_useioff).as_bool();
                         }
 
                         // Check if the T input is driven by a flip-flop. Store
@@ -2281,7 +2281,7 @@ struct NexusPacker
                 iol->params[id_REGSET] = ff->params.at(id_REGSET);
 
                 // Enable the TSREG
-                iol->params[ctx->id("CEOUTMUX")] = std::string("1");
+                iol->params[id_CEOUTMUX] = std::string("1");
                 iol->params[ctx->id("TSREG.REGSET")] = std::string("SET");
                 iol->params[ctx->id("IDDRX1_ODDRX1.TRISTATE")] = std::string("ENABLED");
             }
@@ -2328,7 +2328,7 @@ struct NexusPacker
         log_info("Inferring LUT+FF pairs...\n");
 
         float carry_ratio = 1.0f;
-        if (ctx->settings.find(ctx->id("carry_lutff_ratio")) != ctx->settings.end()) {
+        if (ctx->settings.find(id_carry_lutff_ratio) != ctx->settings.end()) {
             carry_ratio = ctx->setting<float>("carry_lutff_ratio");
         }
 
@@ -2487,7 +2487,7 @@ struct NexusPacker
         pack_ip();
         handle_iologic();
 
-        if (!bool_or_default(ctx->settings, ctx->id("no_pack_lutff"))) {
+        if (!bool_or_default(ctx->settings, id_no_pack_lutff)) {
             pack_lutffs();
         }
 
@@ -2500,7 +2500,7 @@ struct NexusPacker
 bool Arch::pack()
 {
     (NexusPacker(getCtx()))();
-    attrs[id("step")] = std::string("pack");
+    attrs[id_step] = std::string("pack");
     archInfoToAttributes();
     assignArchInfo();
     return true;

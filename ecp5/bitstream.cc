@@ -723,10 +723,10 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
 
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
-        if (ci->bel != BelId() && ci->type == ctx->id("TRELLIS_IO")) {
+        if (ci->bel != BelId() && ci->type == id_TRELLIS_IO) {
             int bank = ctx->get_pio_bel_bank(ci->bel);
-            std::string dir = str_or_default(ci->params, ctx->id("DIR"), "INPUT");
-            std::string iotype = str_or_default(ci->attrs, ctx->id("IO_TYPE"), "LVCMOS33");
+            std::string dir = str_or_default(ci->params, id_DIR, "INPUT");
+            std::string iotype = str_or_default(ci->attrs, id_IO_TYPE, "LVCMOS33");
 
             if (dir != "INPUT" || is_referenced(ioType_from_str(iotype))) {
                 IOVoltage vcc = get_vccio(ioType_from_str(iotype));
@@ -835,71 +835,65 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             log_warning("found unplaced cell '%s' during bitstream gen\n", ci->name.c_str(ctx));
         }
         BelId bel = ci->bel;
-        if (ci->type == ctx->id("TRELLIS_SLICE")) {
+        if (ci->type == id_TRELLIS_SLICE) {
             pool<IdString> used_phys_pins;
             std::string tname = ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, "PLC2");
             std::string slice = ctx->loc_info(bel)->bel_data[bel.index].name.get();
-            int lut0_init = int_or_default(ci->params, ctx->id("LUT0_INITVAL"));
-            int lut1_init = int_or_default(ci->params, ctx->id("LUT1_INITVAL"));
+            int lut0_init = int_or_default(ci->params, id_LUT0_INITVAL);
+            int lut1_init = int_or_default(ci->params, id_LUT1_INITVAL);
             cc.tiles[tname].add_word(slice + ".K0.INIT",
                                      int_to_bitvector(permute_lut(ctx, ci, used_phys_pins, 0, lut0_init), 16));
             cc.tiles[tname].add_word(slice + ".K1.INIT",
                                      int_to_bitvector(permute_lut(ctx, ci, used_phys_pins, 1, lut1_init), 16));
-            cc.tiles[tname].add_enum(slice + ".MODE", str_or_default(ci->params, ctx->id("MODE"), "LOGIC"));
-            cc.tiles[tname].add_enum(slice + ".GSR", str_or_default(ci->params, ctx->id("GSR"), "ENABLED"));
-            cc.tiles[tname].add_enum(slice + ".REG0.SD", intstr_or_default(ci->params, ctx->id("REG0_SD"), "0"));
-            cc.tiles[tname].add_enum(slice + ".REG1.SD", intstr_or_default(ci->params, ctx->id("REG1_SD"), "0"));
-            cc.tiles[tname].add_enum(slice + ".REG0.REGSET",
-                                     str_or_default(ci->params, ctx->id("REG0_REGSET"), "RESET"));
-            cc.tiles[tname].add_enum(slice + ".REG1.REGSET",
-                                     str_or_default(ci->params, ctx->id("REG1_REGSET"), "RESET"));
-            cc.tiles[tname].add_enum(slice + ".REG0.LSRMODE",
-                                     str_or_default(ci->params, ctx->id("REG0_LSRMODE"), "LSR"));
-            cc.tiles[tname].add_enum(slice + ".REG1.LSRMODE",
-                                     str_or_default(ci->params, ctx->id("REG1_LSRMODE"), "LSR"));
-            cc.tiles[tname].add_enum(slice + ".CEMUX", str_or_default(ci->params, ctx->id("CEMUX"), "1"));
+            cc.tiles[tname].add_enum(slice + ".MODE", str_or_default(ci->params, id_MODE, "LOGIC"));
+            cc.tiles[tname].add_enum(slice + ".GSR", str_or_default(ci->params, id_GSR, "ENABLED"));
+            cc.tiles[tname].add_enum(slice + ".REG0.SD", intstr_or_default(ci->params, id_REG0_SD, "0"));
+            cc.tiles[tname].add_enum(slice + ".REG1.SD", intstr_or_default(ci->params, id_REG1_SD, "0"));
+            cc.tiles[tname].add_enum(slice + ".REG0.REGSET", str_or_default(ci->params, id_REG0_REGSET, "RESET"));
+            cc.tiles[tname].add_enum(slice + ".REG1.REGSET", str_or_default(ci->params, id_REG1_REGSET, "RESET"));
+            cc.tiles[tname].add_enum(slice + ".REG0.LSRMODE", str_or_default(ci->params, id_REG0_LSRMODE, "LSR"));
+            cc.tiles[tname].add_enum(slice + ".REG1.LSRMODE", str_or_default(ci->params, id_REG1_LSRMODE, "LSR"));
+            cc.tiles[tname].add_enum(slice + ".CEMUX", str_or_default(ci->params, id_CEMUX, "1"));
 
             if (ci->sliceInfo.using_dff) {
                 NetInfo *lsrnet = nullptr;
-                if (ci->ports.find(ctx->id("LSR")) != ci->ports.end() && ci->ports.at(ctx->id("LSR")).net != nullptr)
-                    lsrnet = ci->ports.at(ctx->id("LSR")).net;
+                if (ci->ports.find(id_LSR) != ci->ports.end() && ci->ports.at(id_LSR).net != nullptr)
+                    lsrnet = ci->ports.at(id_LSR).net;
                 if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "LSR0")) == lsrnet) {
-                    cc.tiles[tname].add_enum("LSR0.SRMODE",
-                                             str_or_default(ci->params, ctx->id("SRMODE"), "LSR_OVER_CE"));
-                    cc.tiles[tname].add_enum("LSR0.LSRMUX", str_or_default(ci->params, ctx->id("LSRMUX"), "LSR"));
+                    cc.tiles[tname].add_enum("LSR0.SRMODE", str_or_default(ci->params, id_SRMODE, "LSR_OVER_CE"));
+                    cc.tiles[tname].add_enum("LSR0.LSRMUX", str_or_default(ci->params, id_LSRMUX, "LSR"));
                 }
                 if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "LSR1")) == lsrnet) {
-                    cc.tiles[tname].add_enum("LSR1.SRMODE",
-                                             str_or_default(ci->params, ctx->id("SRMODE"), "LSR_OVER_CE"));
-                    cc.tiles[tname].add_enum("LSR1.LSRMUX", str_or_default(ci->params, ctx->id("LSRMUX"), "LSR"));
+                    cc.tiles[tname].add_enum("LSR1.SRMODE", str_or_default(ci->params, id_SRMODE, "LSR_OVER_CE"));
+                    cc.tiles[tname].add_enum("LSR1.LSRMUX", str_or_default(ci->params, id_LSRMUX, "LSR"));
                 }
 
                 NetInfo *clknet = nullptr;
-                if (ci->ports.find(ctx->id("CLK")) != ci->ports.end() && ci->ports.at(ctx->id("CLK")).net != nullptr)
-                    clknet = ci->ports.at(ctx->id("CLK")).net;
+                if (ci->ports.find(id_CLK) != ci->ports.end() && ci->ports.at(id_CLK).net != nullptr)
+                    clknet = ci->ports.at(id_CLK).net;
                 if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "CLK0")) == clknet) {
-                    cc.tiles[tname].add_enum("CLK0.CLKMUX", str_or_default(ci->params, ctx->id("CLKMUX"), "CLK"));
+                    cc.tiles[tname].add_enum("CLK0.CLKMUX", str_or_default(ci->params, id_CLKMUX, "CLK"));
                 }
                 if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "CLK1")) == clknet) {
-                    cc.tiles[tname].add_enum("CLK1.CLKMUX", str_or_default(ci->params, ctx->id("CLKMUX"), "CLK"));
+                    cc.tiles[tname].add_enum("CLK1.CLKMUX", str_or_default(ci->params, id_CLKMUX, "CLK"));
                 }
             }
 
-            if (str_or_default(ci->params, ctx->id("MODE"), "LOGIC") == "CCU2") {
+            if (str_or_default(ci->params, id_MODE, "LOGIC") == "CCU2") {
                 cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_0",
-                                         str_or_default(ci->params, ctx->id("CCU2_INJECT1_0"), "YES"));
+                                         str_or_default(ci->params, id_CCU2_INJECT1_0, "YES"));
                 cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_1",
-                                         str_or_default(ci->params, ctx->id("CCU2_INJECT1_1"), "YES"));
+                                         str_or_default(ci->params, id_CCU2_INJECT1_1, "YES"));
             } else {
                 // Don't interfere with cascade mux wiring
                 cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_0", "_NONE_");
                 cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_1", "_NONE_");
             }
 
-            if (str_or_default(ci->params, ctx->id("MODE"), "LOGIC") == "DPRAM" && slice == "SLICEA") {
-                cc.tiles[tname].add_enum(slice + ".WREMUX", str_or_default(ci->params, ctx->id("WREMUX"), "WRE"));
+            if (str_or_default(ci->params, id_MODE, "LOGIC") == "DPRAM" && slice == "SLICEA") {
+                cc.tiles[tname].add_enum(slice + ".WREMUX", str_or_default(ci->params, id_WREMUX, "WRE"));
 
-                std::string wckmux = str_or_default(ci->params, ctx->id("WCKMUX"), "WCK");
+                std::string wckmux = str_or_default(ci->params, id_WCKMUX, "WCK");
                 wckmux = (wckmux == "WCK") ? "CLK" : wckmux;
                 cc.tiles[tname].add_enum("CLK1.CLKMUX", wckmux);
             }
@@ -912,10 +906,10 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             }
 
             // TODO: CLKMUX
-        } else if (ci->type == ctx->id("TRELLIS_IO")) {
+        } else if (ci->type == id_TRELLIS_IO) {
             std::string pio = ctx->loc_info(bel)->bel_data[bel.index].name.get();
-            std::string iotype = str_or_default(ci->attrs, ctx->id("IO_TYPE"), "LVCMOS33");
-            std::string dir = str_or_default(ci->params, ctx->id("DIR"), "INPUT");
+            std::string iotype = str_or_default(ci->attrs, id_IO_TYPE, "LVCMOS33");
+            std::string dir = str_or_default(ci->params, id_DIR, "INPUT");
             std::string pio_tile = get_pio_tile(ctx, bel);
             std::string pic_tile = get_pic_tile(ctx, bel);
             cc.tiles[pio_tile].add_enum(pio + ".BASE_TYPE", dir + "_" + iotype);
@@ -950,10 +944,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             } else if (is_referenced(ioType_from_str(iotype))) {
                 cc.tiles[pio_tile].add_enum(pio + ".PULLMODE", "NONE");
             }
-            if (dir != "INPUT" &&
-                (ci->ports.find(ctx->id("T")) == ci->ports.end() || ci->ports.at(ctx->id("T")).net == nullptr) &&
-                (ci->ports.find(ctx->id("IOLTO")) == ci->ports.end() ||
-                 ci->ports.at(ctx->id("IOLTO")).net == nullptr)) {
+            if (dir != "INPUT" && (ci->ports.find(id_T) == ci->ports.end() || ci->ports.at(id_T).net == nullptr) &&
+                (ci->ports.find(id_IOLTO) == ci->ports.end() || ci->ports.at(id_IOLTO).net == nullptr)) {
                 // Tie tristate low if unconnected for outputs or bidir
                 WireId jpt_wire = ctx->get_wire_by_loc_basename(bel.location, fmt_str("JPADDT" << pio.back()));
                 PipId jpt_pip = *ctx->getPipsUphill(jpt_wire).begin();
@@ -964,31 +956,29 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             }
             if ((dir == "INPUT" || dir == "BIDIR") && !is_differential(ioType_from_str(iotype)) &&
                 !is_referenced(ioType_from_str(iotype))) {
-                cc.tiles[pio_tile].add_enum(pio + ".HYSTERESIS",
-                                            str_or_default(ci->attrs, ctx->id("HYSTERESIS"), "ON"));
+                cc.tiles[pio_tile].add_enum(pio + ".HYSTERESIS", str_or_default(ci->attrs, id_HYSTERESIS, "ON"));
             }
-            if (ci->attrs.count(ctx->id("SLEWRATE")) && !is_referenced(ioType_from_str(iotype)))
-                cc.tiles[pio_tile].add_enum(pio + ".SLEWRATE", str_or_default(ci->attrs, ctx->id("SLEWRATE"), "SLOW"));
-            if (ci->attrs.count(ctx->id("PULLMODE")))
-                cc.tiles[pio_tile].add_enum(pio + ".PULLMODE", str_or_default(ci->attrs, ctx->id("PULLMODE"), "NONE"));
-            if (ci->attrs.count(ctx->id("DIFFRESISTOR")))
-                cc.tiles[pio_tile].add_enum(pio + ".DIFFRESISTOR",
-                                            str_or_default(ci->attrs, ctx->id("DIFFRESISTOR"), "OFF"));
-            if (ci->attrs.count(ctx->id("CLAMP")))
-                cc.tiles[pio_tile].add_enum(pio + ".CLAMP", str_or_default(ci->attrs, ctx->id("CLAMP"), "OFF"));
+            if (ci->attrs.count(id_SLEWRATE) && !is_referenced(ioType_from_str(iotype)))
+                cc.tiles[pio_tile].add_enum(pio + ".SLEWRATE", str_or_default(ci->attrs, id_SLEWRATE, "SLOW"));
+            if (ci->attrs.count(id_PULLMODE))
+                cc.tiles[pio_tile].add_enum(pio + ".PULLMODE", str_or_default(ci->attrs, id_PULLMODE, "NONE"));
+            if (ci->attrs.count(id_DIFFRESISTOR))
+                cc.tiles[pio_tile].add_enum(pio + ".DIFFRESISTOR", str_or_default(ci->attrs, id_DIFFRESISTOR, "OFF"));
+            if (ci->attrs.count(id_CLAMP))
+                cc.tiles[pio_tile].add_enum(pio + ".CLAMP", str_or_default(ci->attrs, id_CLAMP, "OFF"));
 
-            if (ci->attrs.count(ctx->id("DRIVE"))) {
+            if (ci->attrs.count(id_DRIVE)) {
                 static bool drive_3v3_warning_done = false;
                 if (iotype == "LVCMOS33") {
-                    cc.tiles[pio_tile].add_enum(pio + ".DRIVE", str_or_default(ci->attrs, ctx->id("DRIVE"), "8"));
+                    cc.tiles[pio_tile].add_enum(pio + ".DRIVE", str_or_default(ci->attrs, id_DRIVE, "8"));
                 } else if (iotype == "LVCMOS33D") {
                     if (bel.location.y == 0) {
                         // Pseudo differential top IO
                         NPNR_ASSERT(dir == "OUTPUT");
                         NPNR_ASSERT(pio == "PIOA");
                         std::string cpio_tile = get_comp_pio_tile(ctx, bel);
-                        cc.tiles[pio_tile].add_enum("PIOA.DRIVE", str_or_default(ci->attrs, ctx->id("DRIVE"), "12"));
-                        cc.tiles[cpio_tile].add_enum("PIOB.DRIVE", str_or_default(ci->attrs, ctx->id("DRIVE"), "12"));
+                        cc.tiles[pio_tile].add_enum("PIOA.DRIVE", str_or_default(ci->attrs, id_DRIVE, "12"));
+                        cc.tiles[cpio_tile].add_enum("PIOB.DRIVE", str_or_default(ci->attrs, id_DRIVE, "12"));
                     } else {
                         std::string other;
                         if (pio == "PIOA")
@@ -997,9 +987,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                             other = "PIOD";
                         else
                             log_error("cannot set DRIVE on differential IO at location %s\n", pio.c_str());
-                        cc.tiles[pio_tile].add_enum(pio + ".DRIVE", str_or_default(ci->attrs, ctx->id("DRIVE"), "12"));
-                        cc.tiles[pio_tile].add_enum(other + ".DRIVE",
-                                                    str_or_default(ci->attrs, ctx->id("DRIVE"), "12"));
+                        cc.tiles[pio_tile].add_enum(pio + ".DRIVE", str_or_default(ci->attrs, id_DRIVE, "12"));
+                        cc.tiles[pio_tile].add_enum(other + ".DRIVE", str_or_default(ci->attrs, id_DRIVE, "12"));
                     }
                 } else {
                     if (!drive_3v3_warning_done)
@@ -1007,28 +996,28 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                     drive_3v3_warning_done = true;
                 }
             }
-            if (ci->attrs.count(ctx->id("TERMINATION"))) {
+            if (ci->attrs.count(id_TERMINATION)) {
                 auto vccio = get_vccio(ioType_from_str(iotype));
                 switch (vccio) {
                 case IOVoltage::VCC_1V8:
                     cc.tiles[pio_tile].add_enum(pio + ".TERMINATION_1V8",
-                                                str_or_default(ci->attrs, ctx->id("TERMINATION"), "OFF"));
+                                                str_or_default(ci->attrs, id_TERMINATION, "OFF"));
                     break;
                 case IOVoltage::VCC_1V5:
                     cc.tiles[pio_tile].add_enum(pio + ".TERMINATION_1V5",
-                                                str_or_default(ci->attrs, ctx->id("TERMINATION"), "OFF"));
+                                                str_or_default(ci->attrs, id_TERMINATION, "OFF"));
                     break;
                 case IOVoltage::VCC_1V35:
                     cc.tiles[pio_tile].add_enum(pio + ".TERMINATION_1V35",
-                                                str_or_default(ci->attrs, ctx->id("TERMINATION"), "OFF"));
+                                                str_or_default(ci->attrs, id_TERMINATION, "OFF"));
                     break;
                 default:
                     log_error("TERMINATION is not supported with Vcc = %s (on PIO %s)\n",
                               iovoltage_to_str(vccio).c_str(), ci->name.c_str(ctx));
                 }
             }
-            if (ci->attrs.count(ctx->id("OPENDRAIN"))) {
-                cc.tiles[pio_tile].add_enum(pio + ".OPENDRAIN", str_or_default(ci->attrs, ctx->id("OPENDRAIN"), "OFF"));
+            if (ci->attrs.count(id_OPENDRAIN)) {
+                cc.tiles[pio_tile].add_enum(pio + ".OPENDRAIN", str_or_default(ci->attrs, id_OPENDRAIN, "OFF"));
                 if (is_differential(ioType_from_str(iotype))) {
                     std::string other;
                     if (pio == "PIOA")
@@ -1037,25 +1026,24 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                         other = "PIOD";
                     else
                         log_error("cannot set OPENDRAIN on differential IO at location %s\n", pio.c_str());
-                    cc.tiles[pio_tile].add_enum(other + ".OPENDRAIN",
-                                                str_or_default(ci->attrs, ctx->id("OPENDRAIN"), "OFF"));
+                    cc.tiles[pio_tile].add_enum(other + ".OPENDRAIN", str_or_default(ci->attrs, id_OPENDRAIN, "OFF"));
                 }
             }
 
-            std::string datamux_oddr = str_or_default(ci->params, ctx->id("DATAMUX_ODDR"), "PADDO");
+            std::string datamux_oddr = str_or_default(ci->params, id_DATAMUX_ODDR, "PADDO");
             if (datamux_oddr != "PADDO")
                 cc.tiles[pic_tile].add_enum(pio + ".DATAMUX_ODDR", datamux_oddr);
-            std::string datamux_oreg = str_or_default(ci->params, ctx->id("DATAMUX_OREG"), "PADDO");
+            std::string datamux_oreg = str_or_default(ci->params, id_DATAMUX_OREG, "PADDO");
             if (datamux_oreg != "PADDO")
                 cc.tiles[pic_tile].add_enum(pio + ".DATAMUX_OREG", datamux_oreg);
-            std::string datamux_mddr = str_or_default(ci->params, ctx->id("DATAMUX_MDDR"), "PADDO");
+            std::string datamux_mddr = str_or_default(ci->params, id_DATAMUX_MDDR, "PADDO");
             if (datamux_mddr != "PADDO")
                 cc.tiles[pic_tile].add_enum(pio + ".DATAMUX_MDDR", datamux_mddr);
-            std::string trimux_tsreg = str_or_default(ci->params, ctx->id("TRIMUX_TSREG"), "PADDT");
+            std::string trimux_tsreg = str_or_default(ci->params, id_TRIMUX_TSREG, "PADDT");
             if (trimux_tsreg != "PADDT")
                 cc.tiles[pic_tile].add_enum(pio + ".TRIMUX_TSREG", trimux_tsreg);
-        } else if (ci->type == ctx->id("DCCA")) {
-            const NetInfo *cen = get_net_or_empty(ci, ctx->id("CE"));
+        } else if (ci->type == id_DCCA) {
+            const NetInfo *cen = get_net_or_empty(ci, id_CE);
             if (cen != nullptr) {
                 std::string belname = ctx->loc_info(bel)->bel_data[bel.index].name.get();
                 Loc loc = ctx->getBelLocation(bel);
@@ -1084,12 +1072,12 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 tg.config.add_enum(std::string("DCC_") + belname[0] + belname.substr(4) + ".MODE", "DCCA");
                 cc.tilegroups.push_back(tg);
             }
-        } else if (ci->type == ctx->id("DCSC")) {
+        } else if (ci->type == id_DCSC) {
             std::set<std::string> dcs_tiles{"EBR_CMUX_LL", "EBR_CMUX_UL", "EBR_CMUX_LL_25K", "DSP_CMUX_UL"};
             std::string tile = ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, dcs_tiles);
             std::string dcs = ctx->loc_info(bel)->bel_data[bel.index].name.get();
-            cc.tiles[tile].add_enum(dcs + ".DCSMODE", str_or_default(ci->attrs, ctx->id("DCSMODE"), "POS"));
-        } else if (ci->type == ctx->id("DP16KD")) {
+            cc.tiles[tile].add_enum(dcs + ".DCSMODE", str_or_default(ci->attrs, id_DCSMODE, "POS"));
+        } else if (ci->type == id_DP16KD) {
             TileGroup tg;
             Loc loc = ctx->getBelLocation(ci->bel);
             tg.tiles = get_bram_tiles(ctx, ci->bel);
@@ -1098,32 +1086,27 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             if (ci->ramInfo.is_pdp) {
                 tg.config.add_enum(ebr + ".MODE", "PDPW16KD");
                 tg.config.add_enum(ebr + ".PDPW16KD.DATA_WIDTH_R",
-                                   intstr_or_default(ci->params, ctx->id("DATA_WIDTH_B"), "36"));
+                                   intstr_or_default(ci->params, id_DATA_WIDTH_B, "36"));
             } else {
                 tg.config.add_enum(ebr + ".MODE", "DP16KD");
-                tg.config.add_enum(ebr + ".DP16KD.DATA_WIDTH_A",
-                                   intstr_or_default(ci->params, ctx->id("DATA_WIDTH_A"), "18"));
-                tg.config.add_enum(ebr + ".DP16KD.DATA_WIDTH_B",
-                                   intstr_or_default(ci->params, ctx->id("DATA_WIDTH_B"), "18"));
-                tg.config.add_enum(ebr + ".DP16KD.WRITEMODE_A",
-                                   str_or_default(ci->params, ctx->id("WRITEMODE_A"), "NORMAL"));
-                tg.config.add_enum(ebr + ".DP16KD.WRITEMODE_B",
-                                   str_or_default(ci->params, ctx->id("WRITEMODE_B"), "NORMAL"));
+                tg.config.add_enum(ebr + ".DP16KD.DATA_WIDTH_A", intstr_or_default(ci->params, id_DATA_WIDTH_A, "18"));
+                tg.config.add_enum(ebr + ".DP16KD.DATA_WIDTH_B", intstr_or_default(ci->params, id_DATA_WIDTH_B, "18"));
+                tg.config.add_enum(ebr + ".DP16KD.WRITEMODE_A", str_or_default(ci->params, id_WRITEMODE_A, "NORMAL"));
+                tg.config.add_enum(ebr + ".DP16KD.WRITEMODE_B", str_or_default(ci->params, id_WRITEMODE_B, "NORMAL"));
             }
 
-            auto csd_a = str_to_bitvector(str_or_default(ci->params, ctx->id("CSDECODE_A"), "0b000"), 3),
-                 csd_b = str_to_bitvector(str_or_default(ci->params, ctx->id("CSDECODE_B"), "0b000"), 3);
+            auto csd_a = str_to_bitvector(str_or_default(ci->params, id_CSDECODE_A, "0b000"), 3),
+                 csd_b = str_to_bitvector(str_or_default(ci->params, id_CSDECODE_B, "0b000"), 3);
 
-            tg.config.add_enum(ebr + ".REGMODE_A", str_or_default(ci->params, ctx->id("REGMODE_A"), "NOREG"));
-            tg.config.add_enum(ebr + ".REGMODE_B", str_or_default(ci->params, ctx->id("REGMODE_B"), "NOREG"));
+            tg.config.add_enum(ebr + ".REGMODE_A", str_or_default(ci->params, id_REGMODE_A, "NOREG"));
+            tg.config.add_enum(ebr + ".REGMODE_B", str_or_default(ci->params, id_REGMODE_B, "NOREG"));
 
-            tg.config.add_enum(ebr + ".RESETMODE", str_or_default(ci->params, ctx->id("RESETMODE"), "SYNC"));
+            tg.config.add_enum(ebr + ".RESETMODE", str_or_default(ci->params, id_RESETMODE, "SYNC"));
             tg.config.add_enum(ebr + ".ASYNC_RESET_RELEASE",
-                               str_or_default(ci->params, ctx->id("ASYNC_RESET_RELEASE"), "SYNC"));
-            tg.config.add_enum(ebr + ".GSR", str_or_default(ci->params, ctx->id("GSR"), "DISABLED"));
+                               str_or_default(ci->params, id_ASYNC_RESET_RELEASE, "SYNC"));
+            tg.config.add_enum(ebr + ".GSR", str_or_default(ci->params, id_GSR, "DISABLED"));
 
-            tg.config.add_word(ebr + ".WID",
-                               int_to_bitvector(bit_reverse(int_or_default(ci->attrs, ctx->id("WID"), 0), 9), 9));
+            tg.config.add_word(ebr + ".WID", int_to_bitvector(bit_reverse(int_or_default(ci->attrs, id_WID, 0), 9), 9));
 
             // Tie signals as appropriate
             for (auto port : ci->ports) {
@@ -1169,19 +1152,19 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 }
             }
 
-            tg.config.add_enum(ebr + ".CLKAMUX", str_or_default(ci->params, ctx->id("CLKAMUX"), "CLKA"));
-            tg.config.add_enum(ebr + ".CLKBMUX", str_or_default(ci->params, ctx->id("CLKBMUX"), "CLKB"));
+            tg.config.add_enum(ebr + ".CLKAMUX", str_or_default(ci->params, id_CLKAMUX, "CLKA"));
+            tg.config.add_enum(ebr + ".CLKBMUX", str_or_default(ci->params, id_CLKBMUX, "CLKB"));
 
-            tg.config.add_enum(ebr + ".RSTAMUX", str_or_default(ci->params, ctx->id("RSTAMUX"), "RSTA"));
-            tg.config.add_enum(ebr + ".RSTBMUX", str_or_default(ci->params, ctx->id("RSTBMUX"), "RSTB"));
+            tg.config.add_enum(ebr + ".RSTAMUX", str_or_default(ci->params, id_RSTAMUX, "RSTA"));
+            tg.config.add_enum(ebr + ".RSTBMUX", str_or_default(ci->params, id_RSTBMUX, "RSTB"));
             if (!ci->ramInfo.is_pdp) {
-                tg.config.add_enum(ebr + ".WEAMUX", str_or_default(ci->params, ctx->id("WEAMUX"), "WEA"));
-                tg.config.add_enum(ebr + ".WEBMUX", str_or_default(ci->params, ctx->id("WEBMUX"), "WEB"));
+                tg.config.add_enum(ebr + ".WEAMUX", str_or_default(ci->params, id_WEAMUX, "WEA"));
+                tg.config.add_enum(ebr + ".WEBMUX", str_or_default(ci->params, id_WEBMUX, "WEB"));
             }
-            tg.config.add_enum(ebr + ".CEAMUX", str_or_default(ci->params, ctx->id("CEAMUX"), "CEA"));
-            tg.config.add_enum(ebr + ".CEBMUX", str_or_default(ci->params, ctx->id("CEBMUX"), "CEB"));
-            tg.config.add_enum(ebr + ".OCEAMUX", str_or_default(ci->params, ctx->id("OCEAMUX"), "OCEA"));
-            tg.config.add_enum(ebr + ".OCEBMUX", str_or_default(ci->params, ctx->id("OCEBMUX"), "OCEB"));
+            tg.config.add_enum(ebr + ".CEAMUX", str_or_default(ci->params, id_CEAMUX, "CEA"));
+            tg.config.add_enum(ebr + ".CEBMUX", str_or_default(ci->params, id_CEBMUX, "CEB"));
+            tg.config.add_enum(ebr + ".OCEAMUX", str_or_default(ci->params, id_OCEAMUX, "OCEA"));
+            tg.config.add_enum(ebr + ".OCEBMUX", str_or_default(ci->params, id_OCEBMUX, "OCEB"));
 
             std::reverse(csd_a.begin(), csd_a.end());
             std::reverse(csd_b.begin(), csd_b.end());
@@ -1205,7 +1188,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                     }
                 }
             }
-            int wid = int_or_default(ci->attrs, ctx->id("WID"), 0);
+            int wid = int_or_default(ci->attrs, id_WID, 0);
             NPNR_ASSERT(!cc.bram_data.count(wid));
             cc.bram_data[wid] = init_data;
             cc.tilegroups.push_back(tg);
@@ -1214,33 +1197,30 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             Loc loc = ctx->getBelLocation(ci->bel);
             tg.tiles = get_dsp_tiles(ctx, ci->bel);
             std::string dsp = "MULT18_" + std::to_string(loc.z);
-            tg.config.add_enum(dsp + ".REG_INPUTA_CLK", str_or_default(ci->params, ctx->id("REG_INPUTA_CLK"), "NONE"));
-            tg.config.add_enum(dsp + ".REG_INPUTA_CE", str_or_default(ci->params, ctx->id("REG_INPUTA_CE"), "CE0"));
-            tg.config.add_enum(dsp + ".REG_INPUTA_RST", str_or_default(ci->params, ctx->id("REG_INPUTA_RST"), "RST0"));
-            tg.config.add_enum(dsp + ".REG_INPUTB_CLK", str_or_default(ci->params, ctx->id("REG_INPUTB_CLK"), "NONE"));
-            tg.config.add_enum(dsp + ".REG_INPUTB_CE", str_or_default(ci->params, ctx->id("REG_INPUTB_CE"), "CE0"));
-            tg.config.add_enum(dsp + ".REG_INPUTB_RST", str_or_default(ci->params, ctx->id("REG_INPUTB_RST"), "RST0"));
-            tg.config.add_enum(dsp + ".REG_INPUTC_CLK", str_or_default(ci->params, ctx->id("REG_INPUTC_CLK"), "NONE"));
-            tg.config.add_enum(dsp + ".REG_PIPELINE_CLK",
-                               str_or_default(ci->params, ctx->id("REG_PIPELINE_CLK"), "NONE"));
-            tg.config.add_enum(dsp + ".REG_PIPELINE_CE", str_or_default(ci->params, ctx->id("REG_PIPELINE_CE"), "CE0"));
-            tg.config.add_enum(dsp + ".REG_PIPELINE_RST",
-                               str_or_default(ci->params, ctx->id("REG_PIPELINE_RST"), "RST0"));
-            tg.config.add_enum(dsp + ".REG_OUTPUT_CLK", str_or_default(ci->params, ctx->id("REG_OUTPUT_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".REG_INPUTA_CLK", str_or_default(ci->params, id_REG_INPUTA_CLK, "NONE"));
+            tg.config.add_enum(dsp + ".REG_INPUTA_CE", str_or_default(ci->params, id_REG_INPUTA_CE, "CE0"));
+            tg.config.add_enum(dsp + ".REG_INPUTA_RST", str_or_default(ci->params, id_REG_INPUTA_RST, "RST0"));
+            tg.config.add_enum(dsp + ".REG_INPUTB_CLK", str_or_default(ci->params, id_REG_INPUTB_CLK, "NONE"));
+            tg.config.add_enum(dsp + ".REG_INPUTB_CE", str_or_default(ci->params, id_REG_INPUTB_CE, "CE0"));
+            tg.config.add_enum(dsp + ".REG_INPUTB_RST", str_or_default(ci->params, id_REG_INPUTB_RST, "RST0"));
+            tg.config.add_enum(dsp + ".REG_INPUTC_CLK", str_or_default(ci->params, id_REG_INPUTC_CLK, "NONE"));
+            tg.config.add_enum(dsp + ".REG_PIPELINE_CLK", str_or_default(ci->params, id_REG_PIPELINE_CLK, "NONE"));
+            tg.config.add_enum(dsp + ".REG_PIPELINE_CE", str_or_default(ci->params, id_REG_PIPELINE_CE, "CE0"));
+            tg.config.add_enum(dsp + ".REG_PIPELINE_RST", str_or_default(ci->params, id_REG_PIPELINE_RST, "RST0"));
+            tg.config.add_enum(dsp + ".REG_OUTPUT_CLK", str_or_default(ci->params, id_REG_OUTPUT_CLK, "NONE"));
             if (dsp == "MULT18_0" || dsp == "MULT18_4")
-                tg.config.add_enum(dsp + ".REG_OUTPUT_RST",
-                                   str_or_default(ci->params, ctx->id("REG_OUTPUT_RST"), "RST0"));
+                tg.config.add_enum(dsp + ".REG_OUTPUT_RST", str_or_default(ci->params, id_REG_OUTPUT_RST, "RST0"));
 
-            tg.config.add_enum(dsp + ".CLK0_DIV", str_or_default(ci->params, ctx->id("CLK0_DIV"), "ENABLED"));
-            tg.config.add_enum(dsp + ".CLK1_DIV", str_or_default(ci->params, ctx->id("CLK1_DIV"), "ENABLED"));
-            tg.config.add_enum(dsp + ".CLK2_DIV", str_or_default(ci->params, ctx->id("CLK2_DIV"), "ENABLED"));
-            tg.config.add_enum(dsp + ".CLK3_DIV", str_or_default(ci->params, ctx->id("CLK3_DIV"), "ENABLED"));
-            tg.config.add_enum(dsp + ".GSR", str_or_default(ci->params, ctx->id("GSR"), "ENABLED"));
-            tg.config.add_enum(dsp + ".SOURCEB_MODE", str_or_default(ci->params, ctx->id("SOURCEB_MODE"), "B_SHIFT"));
-            tg.config.add_enum(dsp + ".RESETMODE", str_or_default(ci->params, ctx->id("RESETMODE"), "SYNC"));
+            tg.config.add_enum(dsp + ".CLK0_DIV", str_or_default(ci->params, id_CLK0_DIV, "ENABLED"));
+            tg.config.add_enum(dsp + ".CLK1_DIV", str_or_default(ci->params, id_CLK1_DIV, "ENABLED"));
+            tg.config.add_enum(dsp + ".CLK2_DIV", str_or_default(ci->params, id_CLK2_DIV, "ENABLED"));
+            tg.config.add_enum(dsp + ".CLK3_DIV", str_or_default(ci->params, id_CLK3_DIV, "ENABLED"));
+            tg.config.add_enum(dsp + ".GSR", str_or_default(ci->params, id_GSR, "ENABLED"));
+            tg.config.add_enum(dsp + ".SOURCEB_MODE", str_or_default(ci->params, id_SOURCEB_MODE, "B_SHIFT"));
+            tg.config.add_enum(dsp + ".RESETMODE", str_or_default(ci->params, id_RESETMODE, "SYNC"));
 
             tg.config.add_enum(dsp + ".MODE", "MULT18X18D");
-            if (str_or_default(ci->params, ctx->id("REG_OUTPUT_CLK"), "NONE") == "NONE" && ci->cluster == ClusterId())
+            if (str_or_default(ci->params, id_REG_OUTPUT_CLK, "NONE") == "NONE" && ci->cluster == ClusterId())
                 tg.config.add_enum(dsp + ".CIBOUT_BYP", "ON");
 
             if (loc.z < 4)
@@ -1264,67 +1244,53 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             Loc loc = ctx->getBelLocation(ci->bel);
             tg.tiles = get_dsp_tiles(ctx, ci->bel);
             std::string dsp = "ALU54_" + std::to_string(loc.z);
-            tg.config.add_enum(dsp + ".REG_INPUTC0_CLK",
-                               str_or_default(ci->params, ctx->id("REG_INPUTC0_CLK"), "NONE"));
-            tg.config.add_enum(dsp + ".REG_INPUTC1_CLK",
-                               str_or_default(ci->params, ctx->id("REG_INPUTC1_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".REG_INPUTC0_CLK", str_or_default(ci->params, id_REG_INPUTC0_CLK, "NONE"));
+            tg.config.add_enum(dsp + ".REG_INPUTC1_CLK", str_or_default(ci->params, id_REG_INPUTC1_CLK, "NONE"));
             tg.config.add_enum(dsp + ".REG_OPCODEOP0_0_CLK",
-                               str_or_default(ci->params, ctx->id("REG_OPCODEOP0_0_CLK"), "NONE"));
-            tg.config.add_enum(dsp + ".REG_OPCODEOP0_0_CE",
-                               str_or_default(ci->params, ctx->id("REG_OPCODEOP0_0_CE"), "CE0"));
+                               str_or_default(ci->params, id_REG_OPCODEOP0_0_CLK, "NONE"));
+            tg.config.add_enum(dsp + ".REG_OPCODEOP0_0_CE", str_or_default(ci->params, id_REG_OPCODEOP0_0_CE, "CE0"));
             tg.config.add_enum(dsp + ".REG_OPCODEOP0_0_RST",
-                               str_or_default(ci->params, ctx->id("REG_OPCODEOP0_0_RST"), "RST0"));
+                               str_or_default(ci->params, id_REG_OPCODEOP0_0_RST, "RST0"));
             tg.config.add_enum(dsp + ".REG_OPCODEOP1_0_CLK",
-                               str_or_default(ci->params, ctx->id("REG_OPCODEOP1_0_CLK"), "NONE"));
+                               str_or_default(ci->params, id_REG_OPCODEOP1_0_CLK, "NONE"));
             tg.config.add_enum(dsp + ".REG_OPCODEOP0_1_CLK",
-                               str_or_default(ci->params, ctx->id("REG_OPCODEOP0_1_CLK"), "NONE"));
+                               str_or_default(ci->params, id_REG_OPCODEOP0_1_CLK, "NONE"));
             tg.config.add_enum(dsp + ".REG_OPCODEOP1_1_CLK",
-                               str_or_default(ci->params, ctx->id("REG_OPCODEOP1_1_CLK"), "NONE"));
-            tg.config.add_enum(dsp + ".REG_OPCODEOP0_1_CE",
-                               str_or_default(ci->params, ctx->id("REG_OPCODEOP0_1_CE"), "CE0"));
+                               str_or_default(ci->params, id_REG_OPCODEOP1_1_CLK, "NONE"));
+            tg.config.add_enum(dsp + ".REG_OPCODEOP0_1_CE", str_or_default(ci->params, id_REG_OPCODEOP0_1_CE, "CE0"));
             tg.config.add_enum(dsp + ".REG_OPCODEOP0_1_RST",
-                               str_or_default(ci->params, ctx->id("REG_OPCODEOP0_1_RST"), "RST0"));
-            tg.config.add_enum(dsp + ".REG_OPCODEIN_0_CLK",
-                               str_or_default(ci->params, ctx->id("REG_OPCODEIN_0_CLK"), "NONE"));
-            tg.config.add_enum(dsp + ".REG_OPCODEIN_0_CE",
-                               str_or_default(ci->params, ctx->id("REG_OPCODEIN_0_CE"), "CE0"));
-            tg.config.add_enum(dsp + ".REG_OPCODEIN_0_RST",
-                               str_or_default(ci->params, ctx->id("REG_OPCODEIN_0_RST"), "RST0"));
-            tg.config.add_enum(dsp + ".REG_OPCODEIN_1_CLK",
-                               str_or_default(ci->params, ctx->id("REG_OPCODEIN_1_CLK"), "NONE"));
-            tg.config.add_enum(dsp + ".REG_OPCODEIN_1_CE",
-                               str_or_default(ci->params, ctx->id("REG_OPCODEIN_1_CE"), "CE0"));
-            tg.config.add_enum(dsp + ".REG_OPCODEIN_1_RST",
-                               str_or_default(ci->params, ctx->id("REG_OPCODEIN_1_RST"), "RST0"));
-            tg.config.add_enum(dsp + ".REG_OUTPUT0_CLK",
-                               str_or_default(ci->params, ctx->id("REG_OUTPUT0_CLK"), "NONE"));
-            tg.config.add_enum(dsp + ".REG_OUTPUT1_CLK",
-                               str_or_default(ci->params, ctx->id("REG_OUTPUT1_CLK"), "NONE"));
-            tg.config.add_enum(dsp + ".REG_FLAG_CLK", str_or_default(ci->params, ctx->id("REG_FLAG_CLK"), "NONE"));
-            tg.config.add_enum(dsp + ".MCPAT_SOURCE", str_or_default(ci->params, ctx->id("MCPAT_SOURCE"), "STATIC"));
-            tg.config.add_enum(dsp + ".MASKPAT_SOURCE",
-                               str_or_default(ci->params, ctx->id("MASKPAT_SOURCE"), "STATIC"));
-            tg.config.add_word(dsp + ".MASK01",
-                               parse_init_str(str_or_default(ci->params, ctx->id("MASK01"), "0x00000000000000"), 56,
-                                              ci->name.c_str(ctx)));
-            tg.config.add_enum(dsp + ".CLK0_DIV", str_or_default(ci->params, ctx->id("CLK0_DIV"), "ENABLED"));
-            tg.config.add_enum(dsp + ".CLK1_DIV", str_or_default(ci->params, ctx->id("CLK1_DIV"), "ENABLED"));
-            tg.config.add_enum(dsp + ".CLK2_DIV", str_or_default(ci->params, ctx->id("CLK2_DIV"), "ENABLED"));
-            tg.config.add_enum(dsp + ".CLK3_DIV", str_or_default(ci->params, ctx->id("CLK3_DIV"), "ENABLED"));
-            tg.config.add_word(dsp + ".MCPAT",
-                               parse_init_str(str_or_default(ci->params, ctx->id("MCPAT"), "0x00000000000000"), 56,
-                                              ci->name.c_str(ctx)));
+                               str_or_default(ci->params, id_REG_OPCODEOP0_1_RST, "RST0"));
+            tg.config.add_enum(dsp + ".REG_OPCODEIN_0_CLK", str_or_default(ci->params, id_REG_OPCODEIN_0_CLK, "NONE"));
+            tg.config.add_enum(dsp + ".REG_OPCODEIN_0_CE", str_or_default(ci->params, id_REG_OPCODEIN_0_CE, "CE0"));
+            tg.config.add_enum(dsp + ".REG_OPCODEIN_0_RST", str_or_default(ci->params, id_REG_OPCODEIN_0_RST, "RST0"));
+            tg.config.add_enum(dsp + ".REG_OPCODEIN_1_CLK", str_or_default(ci->params, id_REG_OPCODEIN_1_CLK, "NONE"));
+            tg.config.add_enum(dsp + ".REG_OPCODEIN_1_CE", str_or_default(ci->params, id_REG_OPCODEIN_1_CE, "CE0"));
+            tg.config.add_enum(dsp + ".REG_OPCODEIN_1_RST", str_or_default(ci->params, id_REG_OPCODEIN_1_RST, "RST0"));
+            tg.config.add_enum(dsp + ".REG_OUTPUT0_CLK", str_or_default(ci->params, id_REG_OUTPUT0_CLK, "NONE"));
+            tg.config.add_enum(dsp + ".REG_OUTPUT1_CLK", str_or_default(ci->params, id_REG_OUTPUT1_CLK, "NONE"));
+            tg.config.add_enum(dsp + ".REG_FLAG_CLK", str_or_default(ci->params, id_REG_FLAG_CLK, "NONE"));
+            tg.config.add_enum(dsp + ".MCPAT_SOURCE", str_or_default(ci->params, id_MCPAT_SOURCE, "STATIC"));
+            tg.config.add_enum(dsp + ".MASKPAT_SOURCE", str_or_default(ci->params, id_MASKPAT_SOURCE, "STATIC"));
+            tg.config.add_word(
+                    dsp + ".MASK01",
+                    parse_init_str(str_or_default(ci->params, id_MASK01, "0x00000000000000"), 56, ci->name.c_str(ctx)));
+            tg.config.add_enum(dsp + ".CLK0_DIV", str_or_default(ci->params, id_CLK0_DIV, "ENABLED"));
+            tg.config.add_enum(dsp + ".CLK1_DIV", str_or_default(ci->params, id_CLK1_DIV, "ENABLED"));
+            tg.config.add_enum(dsp + ".CLK2_DIV", str_or_default(ci->params, id_CLK2_DIV, "ENABLED"));
+            tg.config.add_enum(dsp + ".CLK3_DIV", str_or_default(ci->params, id_CLK3_DIV, "ENABLED"));
+            tg.config.add_word(dsp + ".MCPAT", parse_init_str(str_or_default(ci->params, id_MCPAT, "0x00000000000000"),
+                                                              56, ci->name.c_str(ctx)));
             tg.config.add_word(dsp + ".MASKPAT",
-                               parse_init_str(str_or_default(ci->params, ctx->id("MASKPAT"), "0x00000000000000"), 56,
+                               parse_init_str(str_or_default(ci->params, id_MASKPAT, "0x00000000000000"), 56,
                                               ci->name.c_str(ctx)));
-            tg.config.add_word(dsp + ".RNDPAT",
-                               parse_init_str(str_or_default(ci->params, ctx->id("RNDPAT"), "0x00000000000000"), 56,
-                                              ci->name.c_str(ctx)));
-            tg.config.add_enum(dsp + ".GSR", str_or_default(ci->params, ctx->id("GSR"), "ENABLED"));
-            tg.config.add_enum(dsp + ".RESETMODE", str_or_default(ci->params, ctx->id("RESETMODE"), "SYNC"));
+            tg.config.add_word(
+                    dsp + ".RNDPAT",
+                    parse_init_str(str_or_default(ci->params, id_RNDPAT, "0x00000000000000"), 56, ci->name.c_str(ctx)));
+            tg.config.add_enum(dsp + ".GSR", str_or_default(ci->params, id_GSR, "ENABLED"));
+            tg.config.add_enum(dsp + ".RESETMODE", str_or_default(ci->params, id_RESETMODE, "SYNC"));
             tg.config.add_enum(dsp + ".FORCE_ZERO_BARREL_SHIFT",
-                               str_or_default(ci->params, ctx->id("FORCE_ZERO_BARREL_SHIFT"), "DISABLED"));
-            tg.config.add_enum(dsp + ".LEGACY", str_or_default(ci->params, ctx->id("LEGACY"), "DISABLED"));
+                               str_or_default(ci->params, id_FORCE_ZERO_BARREL_SHIFT, "DISABLED"));
+            tg.config.add_enum(dsp + ".LEGACY", str_or_default(ci->params, id_LEGACY, "DISABLED"));
 
             tg.config.add_enum(dsp + ".MODE", "ALU54B");
 
@@ -1332,14 +1298,14 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 tg.config.add_enum("DSP_LEFT.CIBOUT", "ON");
             else
                 tg.config.add_enum("DSP_RIGHT.CIBOUT", "ON");
-            if (str_or_default(ci->params, ctx->id("REG_FLAG_CLK"), "NONE") == "NONE") {
+            if (str_or_default(ci->params, id_REG_FLAG_CLK, "NONE") == "NONE") {
                 if (dsp == "ALU54_7") {
                     tg.config.add_enum("MULT18_5.CIBOUT_BYP", "ON");
                 } else if (dsp == "ALU54_3") {
                     tg.config.add_enum("MULT18_5.CIBOUT_BYP", "ON");
                 }
             }
-            if (str_or_default(ci->params, ctx->id("REG_OUTPUT0_CLK"), "NONE") == "NONE") {
+            if (str_or_default(ci->params, id_REG_OUTPUT0_CLK, "NONE") == "NONE") {
                 if (dsp == "ALU54_7") {
                     tg.config.add_enum("MULT18_4.CIBOUT_BYP", "ON");
                 } else if (dsp == "ALU54_3") {
@@ -1354,14 +1320,13 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
 
             tg.config.add_enum("MODE", "EHXPLLL");
 
-            tg.config.add_word("CLKI_DIV", int_to_bitvector(int_or_default(ci->params, ctx->id("CLKI_DIV"), 1) - 1, 7));
-            tg.config.add_word("CLKFB_DIV",
-                               int_to_bitvector(int_or_default(ci->params, ctx->id("CLKFB_DIV"), 1) - 1, 7));
+            tg.config.add_word("CLKI_DIV", int_to_bitvector(int_or_default(ci->params, id_CLKI_DIV, 1) - 1, 7));
+            tg.config.add_word("CLKFB_DIV", int_to_bitvector(int_or_default(ci->params, id_CLKFB_DIV, 1) - 1, 7));
 
-            tg.config.add_enum("CLKOP_ENABLE", str_or_default(ci->params, ctx->id("CLKOP_ENABLE"), "ENABLED"));
-            tg.config.add_enum("CLKOS_ENABLE", str_or_default(ci->params, ctx->id("CLKOS_ENABLE"), "ENABLED"));
-            tg.config.add_enum("CLKOS2_ENABLE", str_or_default(ci->params, ctx->id("CLKOS2_ENABLE"), "ENABLED"));
-            tg.config.add_enum("CLKOS3_ENABLE", str_or_default(ci->params, ctx->id("CLKOS3_ENABLE"), "ENABLED"));
+            tg.config.add_enum("CLKOP_ENABLE", str_or_default(ci->params, id_CLKOP_ENABLE, "ENABLED"));
+            tg.config.add_enum("CLKOS_ENABLE", str_or_default(ci->params, id_CLKOS_ENABLE, "ENABLED"));
+            tg.config.add_enum("CLKOS2_ENABLE", str_or_default(ci->params, id_CLKOS2_ENABLE, "ENABLED"));
+            tg.config.add_enum("CLKOS3_ENABLE", str_or_default(ci->params, id_CLKOS3_ENABLE, "ENABLED"));
 
             for (std::string out : {"CLKOP", "CLKOS", "CLKOS2", "CLKOS3"}) {
                 tg.config.add_word(out + "_DIV",
@@ -1372,73 +1337,59 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                                    int_to_bitvector(int_or_default(ci->params, ctx->id(out + "_FPHASE"), 0), 3));
             }
 
-            tg.config.add_enum("FEEDBK_PATH", str_or_default(ci->params, ctx->id("FEEDBK_PATH"), "CLKOP"));
-            tg.config.add_enum("CLKOP_TRIM_POL", str_or_default(ci->params, ctx->id("CLKOP_TRIM_POL"), "RISING"));
+            tg.config.add_enum("FEEDBK_PATH", str_or_default(ci->params, id_FEEDBK_PATH, "CLKOP"));
+            tg.config.add_enum("CLKOP_TRIM_POL", str_or_default(ci->params, id_CLKOP_TRIM_POL, "RISING"));
 
-            tg.config.add_enum("CLKOP_TRIM_DELAY", intstr_or_default(ci->params, ctx->id("CLKOP_TRIM_DELAY"), "0"));
+            tg.config.add_enum("CLKOP_TRIM_DELAY", intstr_or_default(ci->params, id_CLKOP_TRIM_DELAY, "0"));
 
-            tg.config.add_enum("CLKOS_TRIM_POL", str_or_default(ci->params, ctx->id("CLKOS_TRIM_POL"), "RISING"));
+            tg.config.add_enum("CLKOS_TRIM_POL", str_or_default(ci->params, id_CLKOS_TRIM_POL, "RISING"));
 
-            tg.config.add_enum("CLKOS_TRIM_DELAY", intstr_or_default(ci->params, ctx->id("CLKOS_TRIM_DELAY"), "0"));
+            tg.config.add_enum("CLKOS_TRIM_DELAY", intstr_or_default(ci->params, id_CLKOS_TRIM_DELAY, "0"));
 
-            tg.config.add_enum("OUTDIVIDER_MUXA", str_or_default(ci->params, ctx->id("OUTDIVIDER_MUXA"),
+            tg.config.add_enum("OUTDIVIDER_MUXA", str_or_default(ci->params, id_OUTDIVIDER_MUXA,
                                                                  get_net_or_empty(ci, id_CLKOP) ? "DIVA" : "REFCLK"));
-            tg.config.add_enum("OUTDIVIDER_MUXB", str_or_default(ci->params, ctx->id("OUTDIVIDER_MUXB"),
+            tg.config.add_enum("OUTDIVIDER_MUXB", str_or_default(ci->params, id_OUTDIVIDER_MUXB,
                                                                  get_net_or_empty(ci, id_CLKOP) ? "DIVB" : "REFCLK"));
-            tg.config.add_enum("OUTDIVIDER_MUXC", str_or_default(ci->params, ctx->id("OUTDIVIDER_MUXC"),
+            tg.config.add_enum("OUTDIVIDER_MUXC", str_or_default(ci->params, id_OUTDIVIDER_MUXC,
                                                                  get_net_or_empty(ci, id_CLKOP) ? "DIVC" : "REFCLK"));
-            tg.config.add_enum("OUTDIVIDER_MUXD", str_or_default(ci->params, ctx->id("OUTDIVIDER_MUXD"),
+            tg.config.add_enum("OUTDIVIDER_MUXD", str_or_default(ci->params, id_OUTDIVIDER_MUXD,
                                                                  get_net_or_empty(ci, id_CLKOP) ? "DIVD" : "REFCLK"));
 
-            tg.config.add_word("PLL_LOCK_MODE",
-                               int_to_bitvector(int_or_default(ci->params, ctx->id("PLL_LOCK_MODE"), 0), 3));
+            tg.config.add_word("PLL_LOCK_MODE", int_to_bitvector(int_or_default(ci->params, id_PLL_LOCK_MODE, 0), 3));
 
-            tg.config.add_enum("STDBY_ENABLE", str_or_default(ci->params, ctx->id("STDBY_ENABLE"), "DISABLED"));
-            tg.config.add_enum("REFIN_RESET", str_or_default(ci->params, ctx->id("REFIN_RESET"), "DISABLED"));
-            tg.config.add_enum("SYNC_ENABLE", str_or_default(ci->params, ctx->id("SYNC_ENABLE"), "DISABLED"));
-            tg.config.add_enum("INT_LOCK_STICKY", str_or_default(ci->params, ctx->id("INT_LOCK_STICKY"), "ENABLED"));
-            tg.config.add_enum("DPHASE_SOURCE", str_or_default(ci->params, ctx->id("DPHASE_SOURCE"), "DISABLED"));
-            tg.config.add_enum("PLLRST_ENA", str_or_default(ci->params, ctx->id("PLLRST_ENA"), "DISABLED"));
-            tg.config.add_enum("INTFB_WAKE", str_or_default(ci->params, ctx->id("INTFB_WAKE"), "DISABLED"));
+            tg.config.add_enum("STDBY_ENABLE", str_or_default(ci->params, id_STDBY_ENABLE, "DISABLED"));
+            tg.config.add_enum("REFIN_RESET", str_or_default(ci->params, id_REFIN_RESET, "DISABLED"));
+            tg.config.add_enum("SYNC_ENABLE", str_or_default(ci->params, id_SYNC_ENABLE, "DISABLED"));
+            tg.config.add_enum("INT_LOCK_STICKY", str_or_default(ci->params, id_INT_LOCK_STICKY, "ENABLED"));
+            tg.config.add_enum("DPHASE_SOURCE", str_or_default(ci->params, id_DPHASE_SOURCE, "DISABLED"));
+            tg.config.add_enum("PLLRST_ENA", str_or_default(ci->params, id_PLLRST_ENA, "DISABLED"));
+            tg.config.add_enum("INTFB_WAKE", str_or_default(ci->params, id_INTFB_WAKE, "DISABLED"));
 
-            tg.config.add_word("KVCO", int_to_bitvector(int_or_default(ci->attrs, ctx->id("KVCO"), 0), 3));
-            tg.config.add_word("LPF_CAPACITOR",
-                               int_to_bitvector(int_or_default(ci->attrs, ctx->id("LPF_CAPACITOR"), 0), 2));
-            tg.config.add_word("LPF_RESISTOR",
-                               int_to_bitvector(int_or_default(ci->attrs, ctx->id("LPF_RESISTOR"), 0), 7));
-            tg.config.add_word("ICP_CURRENT",
-                               int_to_bitvector(int_or_default(ci->attrs, ctx->id("ICP_CURRENT"), 0), 5));
+            tg.config.add_word("KVCO", int_to_bitvector(int_or_default(ci->attrs, id_KVCO, 0), 3));
+            tg.config.add_word("LPF_CAPACITOR", int_to_bitvector(int_or_default(ci->attrs, id_LPF_CAPACITOR, 0), 2));
+            tg.config.add_word("LPF_RESISTOR", int_to_bitvector(int_or_default(ci->attrs, id_LPF_RESISTOR, 0), 7));
+            tg.config.add_word("ICP_CURRENT", int_to_bitvector(int_or_default(ci->attrs, id_ICP_CURRENT, 0), 5));
             tg.config.add_word("FREQ_LOCK_ACCURACY",
-                               int_to_bitvector(int_or_default(ci->attrs, ctx->id("FREQ_LOCK_ACCURACY"), 0), 2));
+                               int_to_bitvector(int_or_default(ci->attrs, id_FREQ_LOCK_ACCURACY, 0), 2));
 
-            tg.config.add_word("MFG_GMC_GAIN",
-                               int_to_bitvector(int_or_default(ci->attrs, ctx->id("MFG_GMC_GAIN"), 0), 3));
-            tg.config.add_word("MFG_GMC_TEST",
-                               int_to_bitvector(int_or_default(ci->attrs, ctx->id("MFG_GMC_TEST"), 14), 4));
-            tg.config.add_word("MFG1_TEST", int_to_bitvector(int_or_default(ci->attrs, ctx->id("MFG1_TEST"), 0), 3));
-            tg.config.add_word("MFG2_TEST", int_to_bitvector(int_or_default(ci->attrs, ctx->id("MFG2_TEST"), 0), 3));
+            tg.config.add_word("MFG_GMC_GAIN", int_to_bitvector(int_or_default(ci->attrs, id_MFG_GMC_GAIN, 0), 3));
+            tg.config.add_word("MFG_GMC_TEST", int_to_bitvector(int_or_default(ci->attrs, id_MFG_GMC_TEST, 14), 4));
+            tg.config.add_word("MFG1_TEST", int_to_bitvector(int_or_default(ci->attrs, id_MFG1_TEST, 0), 3));
+            tg.config.add_word("MFG2_TEST", int_to_bitvector(int_or_default(ci->attrs, id_MFG2_TEST, 0), 3));
 
             tg.config.add_word("MFG_FORCE_VFILTER",
-                               int_to_bitvector(int_or_default(ci->attrs, ctx->id("MFG_FORCE_VFILTER"), 0), 1));
-            tg.config.add_word("MFG_ICP_TEST",
-                               int_to_bitvector(int_or_default(ci->attrs, ctx->id("MFG_ICP_TEST"), 0), 1));
-            tg.config.add_word("MFG_EN_UP", int_to_bitvector(int_or_default(ci->attrs, ctx->id("MFG_EN_UP"), 0), 1));
-            tg.config.add_word("MFG_FLOAT_ICP",
-                               int_to_bitvector(int_or_default(ci->attrs, ctx->id("MFG_FLOAT_ICP"), 0), 1));
-            tg.config.add_word("MFG_GMC_PRESET",
-                               int_to_bitvector(int_or_default(ci->attrs, ctx->id("MFG_GMC_PRESET"), 0), 1));
-            tg.config.add_word("MFG_LF_PRESET",
-                               int_to_bitvector(int_or_default(ci->attrs, ctx->id("MFG_LF_PRESET"), 0), 1));
-            tg.config.add_word("MFG_GMC_RESET",
-                               int_to_bitvector(int_or_default(ci->attrs, ctx->id("MFG_GMC_RESET"), 0), 1));
-            tg.config.add_word("MFG_LF_RESET",
-                               int_to_bitvector(int_or_default(ci->attrs, ctx->id("MFG_LF_RESET"), 0), 1));
-            tg.config.add_word("MFG_LF_RESGRND",
-                               int_to_bitvector(int_or_default(ci->attrs, ctx->id("MFG_LF_RESGRND"), 0), 1));
-            tg.config.add_word("MFG_GMCREF_SEL",
-                               int_to_bitvector(int_or_default(ci->attrs, ctx->id("MFG_GMCREF_SEL"), 0), 2));
+                               int_to_bitvector(int_or_default(ci->attrs, id_MFG_FORCE_VFILTER, 0), 1));
+            tg.config.add_word("MFG_ICP_TEST", int_to_bitvector(int_or_default(ci->attrs, id_MFG_ICP_TEST, 0), 1));
+            tg.config.add_word("MFG_EN_UP", int_to_bitvector(int_or_default(ci->attrs, id_MFG_EN_UP, 0), 1));
+            tg.config.add_word("MFG_FLOAT_ICP", int_to_bitvector(int_or_default(ci->attrs, id_MFG_FLOAT_ICP, 0), 1));
+            tg.config.add_word("MFG_GMC_PRESET", int_to_bitvector(int_or_default(ci->attrs, id_MFG_GMC_PRESET, 0), 1));
+            tg.config.add_word("MFG_LF_PRESET", int_to_bitvector(int_or_default(ci->attrs, id_MFG_LF_PRESET, 0), 1));
+            tg.config.add_word("MFG_GMC_RESET", int_to_bitvector(int_or_default(ci->attrs, id_MFG_GMC_RESET, 0), 1));
+            tg.config.add_word("MFG_LF_RESET", int_to_bitvector(int_or_default(ci->attrs, id_MFG_LF_RESET, 0), 1));
+            tg.config.add_word("MFG_LF_RESGRND", int_to_bitvector(int_or_default(ci->attrs, id_MFG_LF_RESGRND, 0), 1));
+            tg.config.add_word("MFG_GMCREF_SEL", int_to_bitvector(int_or_default(ci->attrs, id_MFG_GMCREF_SEL, 0), 2));
             tg.config.add_word("MFG_ENABLE_FILTEROPAMP",
-                               int_to_bitvector(int_or_default(ci->attrs, ctx->id("MFG_ENABLE_FILTEROPAMP"), 0), 1));
+                               int_to_bitvector(int_or_default(ci->attrs, id_MFG_ENABLE_FILTEROPAMP, 0), 1));
 
             cc.tilegroups.push_back(tg);
         } else if (ci->type == id_IOLOGIC || ci->type == id_SIOLOGIC) {
@@ -1466,23 +1417,22 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
         } else if (ci->type == id_EXTREFB) {
             TileGroup tg;
             tg.tiles = get_dcu_tiles(ctx, ci->bel);
-            tg.config.add_word(
-                    "EXTREF.REFCK_DCBIAS_EN",
-                    parse_config_str(get_or_default(ci->params, ctx->id("REFCK_DCBIAS_EN"), Property(0)), 1));
+            tg.config.add_word("EXTREF.REFCK_DCBIAS_EN",
+                               parse_config_str(get_or_default(ci->params, id_REFCK_DCBIAS_EN, Property(0)), 1));
             tg.config.add_word("EXTREF.REFCK_RTERM",
-                               parse_config_str(get_or_default(ci->params, ctx->id("REFCK_RTERM"), Property(0)), 1));
+                               parse_config_str(get_or_default(ci->params, id_REFCK_RTERM, Property(0)), 1));
             tg.config.add_word("EXTREF.REFCK_PWDNB",
-                               parse_config_str(get_or_default(ci->params, ctx->id("REFCK_PWDNB"), Property(0)), 1));
+                               parse_config_str(get_or_default(ci->params, id_REFCK_PWDNB, Property(0)), 1));
             cc.tilegroups.push_back(tg);
         } else if (ci->type == id_PCSCLKDIV) {
             Loc loc = ctx->getBelLocation(ci->bel);
             std::string tname = ctx->get_tile_by_type_loc(loc.y + 1, loc.x, "BMID_0H");
             cc.tiles[tname].add_enum("PCSCLKDIV" + std::to_string(loc.z),
-                                     str_or_default(ci->params, ctx->id("GSR"), "ENABLED"));
+                                     str_or_default(ci->params, id_GSR, "ENABLED"));
         } else if (ci->type == id_DTR) {
             cc.tiles[ctx->get_tile_by_type("DTR")].add_enum("DTR.MODE", "DTR");
         } else if (ci->type == id_OSCG) {
-            int div = int_or_default(ci->params, ctx->id("DIV"), 128);
+            int div = int_or_default(ci->params, id_DIV, 128);
             if (div == 128)
                 div = 127;
             cc.tiles[ctx->get_tile_by_type("EFB0_PICB0")].add_enum("OSC.DIV", std::to_string(div));
@@ -1494,22 +1444,22 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 log_warning("USRMCLK will not function correctly when MASTER_SPI_PORT is set to ENABLE.\n");
             cc.tiles[ctx->get_tile_by_type("EFB3_PICB1")].add_enum("CCLK.MODE", "USRMCLK");
         } else if (ci->type == id_GSR) {
-            cc.tiles[ctx->get_tile_by_type("EFB0_PICB0")].add_enum(
-                    "GSR.GSRMODE", str_or_default(ci->params, ctx->id("MODE"), "ACTIVE_LOW"));
-            cc.tiles[ctx->get_tile_by_type("VIQ_BUF")].add_enum(
-                    "GSR.SYNCMODE", str_or_default(ci->params, ctx->id("SYNCMODE"), "ASYNC"));
+            cc.tiles[ctx->get_tile_by_type("EFB0_PICB0")].add_enum("GSR.GSRMODE",
+                                                                   str_or_default(ci->params, id_MODE, "ACTIVE_LOW"));
+            cc.tiles[ctx->get_tile_by_type("VIQ_BUF")].add_enum("GSR.SYNCMODE",
+                                                                str_or_default(ci->params, id_SYNCMODE, "ASYNC"));
         } else if (ci->type == id_JTAGG) {
-            cc.tiles[ctx->get_tile_by_type("EFB0_PICB0")].add_enum(
-                    "JTAG.ER1", str_or_default(ci->params, ctx->id("ER1"), "ENABLED"));
-            cc.tiles[ctx->get_tile_by_type("EFB0_PICB0")].add_enum(
-                    "JTAG.ER2", str_or_default(ci->params, ctx->id("ER2"), "ENABLED"));
+            cc.tiles[ctx->get_tile_by_type("EFB0_PICB0")].add_enum("JTAG.ER1",
+                                                                   str_or_default(ci->params, id_ER1, "ENABLED"));
+            cc.tiles[ctx->get_tile_by_type("EFB0_PICB0")].add_enum("JTAG.ER2",
+                                                                   str_or_default(ci->params, id_ER2, "ENABLED"));
         } else if (ci->type == id_CLKDIVF) {
             Loc loc = ctx->getBelLocation(ci->bel);
             bool r = loc.x > 5;
             std::string clkdiv = std::string("CLKDIV_") + (r ? "R" : "L") + std::to_string(loc.z);
             std::string tile = ctx->get_tile_by_type(std::string("ECLK_") + (r ? "R" : "L"));
-            cc.tiles[tile].add_enum(clkdiv + ".DIV", str_or_default(ci->params, ctx->id("DIV"), "2.0"));
-            cc.tiles[tile].add_enum(clkdiv + ".GSR", str_or_default(ci->params, ctx->id("GSR"), "DISABLED"));
+            cc.tiles[tile].add_enum(clkdiv + ".DIV", str_or_default(ci->params, id_DIV, "2.0"));
+            cc.tiles[tile].add_enum(clkdiv + ".GSR", str_or_default(ci->params, id_GSR, "DISABLED"));
         } else if (ci->type == id_TRELLIS_ECLKBUF) {
         } else if (ci->type == id_DQSBUFM) {
             Loc loc = ctx->getBelLocation(ci->bel);
@@ -1521,13 +1471,13 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             tg.tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, pic + "0_DQS2"));
             tg.tiles.push_back(ctx->get_tile_by_type_loc(loc.y + 1, loc.x, pic + "1_DQS3"));
             tg.config.add_enum("DQS.MODE", "DQSBUFM");
-            tg.config.add_enum("DQS.DQS_LI_DEL_ADJ", str_or_default(ci->params, ctx->id("DQS_LI_DEL_ADJ"), "PLUS"));
-            tg.config.add_enum("DQS.DQS_LO_DEL_ADJ", str_or_default(ci->params, ctx->id("DQS_LO_DEL_ADJ"), "PLUS"));
-            int li_del_value = int_or_default(ci->params, ctx->id("DQS_LI_DEL_VAL"), 0);
-            if (str_or_default(ci->params, ctx->id("DQS_LI_DEL_ADJ"), "PLUS") == "MINUS")
+            tg.config.add_enum("DQS.DQS_LI_DEL_ADJ", str_or_default(ci->params, id_DQS_LI_DEL_ADJ, "PLUS"));
+            tg.config.add_enum("DQS.DQS_LO_DEL_ADJ", str_or_default(ci->params, id_DQS_LO_DEL_ADJ, "PLUS"));
+            int li_del_value = int_or_default(ci->params, id_DQS_LI_DEL_VAL, 0);
+            if (str_or_default(ci->params, id_DQS_LI_DEL_ADJ, "PLUS") == "MINUS")
                 li_del_value = (256 - li_del_value) & 0xFF;
-            int lo_del_value = int_or_default(ci->params, ctx->id("DQS_LO_DEL_VAL"), 0);
-            if (str_or_default(ci->params, ctx->id("DQS_LO_DEL_ADJ"), "PLUS") == "MINUS")
+            int lo_del_value = int_or_default(ci->params, id_DQS_LO_DEL_VAL, 0);
+            if (str_or_default(ci->params, id_DQS_LO_DEL_ADJ, "PLUS") == "MINUS")
                 lo_del_value = (256 - lo_del_value) & 0xFF;
             tg.config.add_word("DQS.DQS_LI_DEL_VAL", int_to_bitvector(li_del_value, 8));
             tg.config.add_word("DQS.DQS_LO_DEL_VAL", int_to_bitvector(lo_del_value, 8));
@@ -1539,7 +1489,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                                        ? "YES"
                                        : "NO");
             tg.config.add_enum("DQS.DDRDEL", get_net_or_empty(ci, id_DDRDEL) != nullptr ? "DDRDEL" : "0");
-            tg.config.add_enum("DQS.GSR", str_or_default(ci->params, ctx->id("GSR"), "DISABLED"));
+            tg.config.add_enum("DQS.GSR", str_or_default(ci->params, id_GSR, "DISABLED"));
             cc.tilegroups.push_back(tg);
         } else if (ci->type == id_ECLKSYNCB) {
             Loc loc = ctx->getBelLocation(ci->bel);
@@ -1565,9 +1515,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 tiletype += "A";
             std::string tile = ctx->get_tile_by_type(tiletype);
             cc.tiles[tile].add_enum("DDRDLL.MODE", "DDRDLLA");
-            cc.tiles[tile].add_enum("DDRDLL.GSR", str_or_default(ci->params, ctx->id("GSR"), "DISABLED"));
-            cc.tiles[tile].add_enum("DDRDLL.FORCE_MAX_DELAY",
-                                    str_or_default(ci->params, ctx->id("FORCE_MAX_DELAY"), "NO"));
+            cc.tiles[tile].add_enum("DDRDLL.GSR", str_or_default(ci->params, id_GSR, "DISABLED"));
+            cc.tiles[tile].add_enum("DDRDLL.FORCE_MAX_DELAY", str_or_default(ci->params, id_FORCE_MAX_DELAY, "NO"));
         } else {
             NPNR_ASSERT_FALSE("unsupported cell type");
         }

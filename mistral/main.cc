@@ -79,7 +79,7 @@ std::unique_ptr<Context> MistralCommandHandler::createContext(dict<std::string, 
     chipArgs.device = vm["device"].as<std::string>();
     auto ctx = std::unique_ptr<Context>(new Context(chipArgs));
     if (vm.count("compress-rbf"))
-        ctx->settings[ctx->id("compress_rbf")] = Property::State::S1;
+        ctx->settings[id_compress_rbf] = Property::State::S1;
     return ctx;
 }
 

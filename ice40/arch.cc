@@ -169,29 +169,29 @@ std::string Arch::getChipName() const
 IdString Arch::archArgsToId(ArchArgs args) const
 {
     if (args.type == ArchArgs::LP384)
-        return id("lp384");
+        return id_lp384;
     if (args.type == ArchArgs::LP1K)
-        return id("lp1k");
+        return id_lp1k;
     if (args.type == ArchArgs::HX1K)
-        return id("hx1k");
+        return id_hx1k;
     if (args.type == ArchArgs::UP3K)
-        return id("up3k");
+        return id_up3k;
     if (args.type == ArchArgs::UP5K)
-        return id("up5k");
+        return id_up5k;
     if (args.type == ArchArgs::U1K)
-        return id("u1k");
+        return id_u1k;
     if (args.type == ArchArgs::U2K)
-        return id("u2k");
+        return id_u2k;
     if (args.type == ArchArgs::U4K)
-        return id("u4k");
+        return id_u4k;
     if (args.type == ArchArgs::LP4K)
-        return id("lp4k");
+        return id_lp4k;
     if (args.type == ArchArgs::LP8K)
-        return id("lp8k");
+        return id_lp8k;
     if (args.type == ArchArgs::HX4K)
-        return id("hx4k");
+        return id_hx4k;
     if (args.type == ArchArgs::HX8K)
-        return id("hx8k");
+        return id_hx8k;
     return IdString();
 }
 
@@ -289,7 +289,7 @@ std::vector<std::pair<IdString, std::string>> Arch::getBelAttrs(BelId bel) const
 {
     std::vector<std::pair<IdString, std::string>> ret;
 
-    ret.push_back(std::make_pair(id("INDEX"), stringf("%d", bel.index)));
+    ret.push_back(std::make_pair(id_INDEX, stringf("%d", bel.index)));
 
     return ret;
 }
@@ -387,33 +387,33 @@ IdString Arch::getWireType(WireId wire) const
     case WireInfoPOD::WIRE_TYPE_NONE:
         return IdString();
     case WireInfoPOD::WIRE_TYPE_GLB2LOCAL:
-        return id("GLB2LOCAL");
+        return id_GLB2LOCAL;
     case WireInfoPOD::WIRE_TYPE_GLB_NETWK:
-        return id("GLB_NETWK");
+        return id_GLB_NETWK;
     case WireInfoPOD::WIRE_TYPE_LOCAL:
-        return id("LOCAL");
+        return id_LOCAL;
     case WireInfoPOD::WIRE_TYPE_LUTFF_IN:
-        return id("LUTFF_IN");
+        return id_LUTFF_IN;
     case WireInfoPOD::WIRE_TYPE_LUTFF_IN_LUT:
-        return id("LUTFF_IN_LUT");
+        return id_LUTFF_IN_LUT;
     case WireInfoPOD::WIRE_TYPE_LUTFF_LOUT:
-        return id("LUTFF_LOUT");
+        return id_LUTFF_LOUT;
     case WireInfoPOD::WIRE_TYPE_LUTFF_OUT:
-        return id("LUTFF_OUT");
+        return id_LUTFF_OUT;
     case WireInfoPOD::WIRE_TYPE_LUTFF_COUT:
-        return id("LUTFF_COUT");
+        return id_LUTFF_COUT;
     case WireInfoPOD::WIRE_TYPE_LUTFF_GLOBAL:
-        return id("LUTFF_GLOBAL");
+        return id_LUTFF_GLOBAL;
     case WireInfoPOD::WIRE_TYPE_CARRY_IN_MUX:
-        return id("CARRY_IN_MUX");
+        return id_CARRY_IN_MUX;
     case WireInfoPOD::WIRE_TYPE_SP4_V:
-        return id("SP4_V");
+        return id_SP4_V;
     case WireInfoPOD::WIRE_TYPE_SP4_H:
-        return id("SP4_H");
+        return id_SP4_H;
     case WireInfoPOD::WIRE_TYPE_SP12_V:
-        return id("SP12_V");
+        return id_SP12_V;
     case WireInfoPOD::WIRE_TYPE_SP12_H:
-        return id("SP12_H");
+        return id_SP12_H;
     }
     return IdString();
 }
@@ -423,11 +423,11 @@ std::vector<std::pair<IdString, std::string>> Arch::getWireAttrs(WireId wire) co
     std::vector<std::pair<IdString, std::string>> ret;
     auto &wi = chip_info->wire_data[wire.index];
 
-    ret.push_back(std::make_pair(id("INDEX"), stringf("%d", wire.index)));
+    ret.push_back(std::make_pair(id_INDEX, stringf("%d", wire.index)));
 
-    ret.push_back(std::make_pair(id("GRID_X"), stringf("%d", wi.x)));
-    ret.push_back(std::make_pair(id("GRID_Y"), stringf("%d", wi.y)));
-    ret.push_back(std::make_pair(id("GRID_Z"), stringf("%d", wi.z)));
+    ret.push_back(std::make_pair(id_GRID_X, stringf("%d", wi.x)));
+    ret.push_back(std::make_pair(id_GRID_Y, stringf("%d", wi.y)));
+    ret.push_back(std::make_pair(id_GRID_Z, stringf("%d", wi.z)));
 
     return ret;
 }
@@ -476,7 +476,7 @@ std::vector<std::pair<IdString, std::string>> Arch::getPipAttrs(PipId pip) const
 {
     std::vector<std::pair<IdString, std::string>> ret;
 
-    ret.push_back(std::make_pair(id("INDEX"), stringf("%d", pip.index)));
+    ret.push_back(std::make_pair(id_INDEX, stringf("%d", pip.index)));
 
     return ret;
 }
@@ -682,7 +682,7 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
 
 bool Arch::place()
 {
-    std::string placer = str_or_default(settings, id("placer"), defaultPlacer);
+    std::string placer = str_or_default(settings, id_placer, defaultPlacer);
     if (placer == "heap") {
         PlacerHeapCfg cfg(getCtx());
         cfg.ioBufTypes.insert(id_SB_IO);
@@ -695,19 +695,19 @@ bool Arch::place()
         log_error("iCE40 architecture does not support placer '%s'\n", placer.c_str());
     }
     bool retVal = true;
-    if (bool_or_default(settings, id("opt_timing"), false)) {
+    if (bool_or_default(settings, id_opt_timing, false)) {
         TimingOptCfg tocfg(getCtx());
         tocfg.cellTypes.insert(id_ICESTORM_LC);
         retVal = timing_opt(getCtx(), tocfg);
     }
-    getCtx()->settings[getCtx()->id("place")] = 1;
+    getCtx()->settings[id_place] = 1;
     archInfoToAttributes();
     return retVal;
 }
 
 bool Arch::route()
 {
-    std::string router = str_or_default(settings, id("router"), defaultRouter);
+    std::string router = str_or_default(settings, id_router, defaultRouter);
     bool result;
     if (router == "router1") {
         result = router1(getCtx(), Router1Cfg(getCtx()));
@@ -717,7 +717,7 @@ bool Arch::route()
     } else {
         log_error("iCE40 architecture does not support router '%s'\n", router.c_str());
     }
-    getCtx()->settings[getCtx()->id("route")] = 1;
+    getCtx()->settings[id_route] = 1;
     archInfoToAttributes();
     return result;
 }
@@ -1064,7 +1064,7 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
             return TMG_CLOCK_INPUT;
         return TMG_IGNORE;
     } else if (cell->type == id_SB_I2C || cell->type == id_SB_SPI) {
-        if (port == this->id("SBCLKI"))
+        if (port == id_SBCLKI)
             return TMG_CLOCK_INPUT;
 
         clockInfoCount = 1;
@@ -1108,10 +1108,10 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
     } else if (cell->type == id_ICESTORM_RAM) {
         if (port.str(this)[0] == 'R') {
             info.clock_port = id_RCLK;
-            info.edge = bool_or_default(cell->params, id("NEG_CLK_R")) ? FALLING_EDGE : RISING_EDGE;
+            info.edge = bool_or_default(cell->params, id_NEG_CLK_R) ? FALLING_EDGE : RISING_EDGE;
         } else {
             info.clock_port = id_WCLK;
-            info.edge = bool_or_default(cell->params, id("NEG_CLK_W")) ? FALLING_EDGE : RISING_EDGE;
+            info.edge = bool_or_default(cell->params, id_NEG_CLK_W) ? FALLING_EDGE : RISING_EDGE;
         }
         if (cell->ports.at(port).type == PORT_OUT) {
             bool has_clktoq = get_cell_delay_internal(cell, info.clock_port, port, info.clockToQ);
@@ -1168,7 +1168,7 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
             info.hold = DelayPair(0);
         }
     } else if (cell->type == id_SB_I2C || cell->type == id_SB_SPI) {
-        info.clock_port = this->id("SBCLKI");
+        info.clock_port = id_SBCLKI;
         info.edge = RISING_EDGE;
         if (cell->ports.at(port).type == PORT_OUT) {
             /* Dummy number */
@@ -1233,12 +1233,12 @@ void Arch::assignCellInfo(CellInfo *cell)
             cell->lcInfo.inputCount++;
     } else if (cell->type == id_SB_IO) {
         cell->ioInfo.lvds = str_or_default(cell->params, id_IO_STANDARD, "SB_LVCMOS") == "SB_LVDS_INPUT";
-        cell->ioInfo.global = bool_or_default(cell->attrs, this->id("GLOBAL"));
-        cell->ioInfo.pintype = int_or_default(cell->params, this->id("PIN_TYPE"));
-        cell->ioInfo.negtrig = bool_or_default(cell->params, this->id("NEG_TRIGGER"));
+        cell->ioInfo.global = bool_or_default(cell->attrs, id_GLOBAL);
+        cell->ioInfo.pintype = int_or_default(cell->params, id_PIN_TYPE);
+        cell->ioInfo.negtrig = bool_or_default(cell->params, id_NEG_TRIGGER);
 
     } else if (cell->type == id_SB_GB) {
-        cell->gbInfo.forPadIn = bool_or_default(cell->attrs, this->id("FOR_PAD_IN"));
+        cell->gbInfo.forPadIn = bool_or_default(cell->attrs, id_FOR_PAD_IN);
     }
 }
 

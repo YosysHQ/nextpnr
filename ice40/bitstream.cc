@@ -391,7 +391,7 @@ void write_asc(const Context *ctx, std::ostream &out)
     pool<Loc> sb_io_used_by_pll_pad;
 
     for (auto &cell : ctx->cells) {
-        if (cell.second->type != ctx->id("ICESTORM_PLL"))
+        if (cell.second->type != id_ICESTORM_PLL)
             continue;
 
         // Collect all locations matching an PLL output port
@@ -434,16 +434,16 @@ void write_asc(const Context *ctx, std::ostream &out)
             std::cout << "Found unplaced cell " << cell.first.str(ctx) << " while generating bitstream!" << std::endl;
             continue;
         }
-        if (cell.second->type == ctx->id("ICESTORM_LC")) {
+        if (cell.second->type == id_ICESTORM_LC) {
             const BelInfoPOD &beli = ci.bel_data[bel.index];
             int x = beli.x, y = beli.y, z = beli.z;
             const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_LOGIC];
-            unsigned lut_init = get_param_or_def(ctx, cell.second.get(), ctx->id("LUT_INIT"));
-            bool neg_clk = get_param_or_def(ctx, cell.second.get(), ctx->id("NEG_CLK"));
-            bool dff_enable = get_param_or_def(ctx, cell.second.get(), ctx->id("DFF_ENABLE"));
-            bool async_sr = get_param_or_def(ctx, cell.second.get(), ctx->id("ASYNC_SR"));
-            bool set_noreset = get_param_or_def(ctx, cell.second.get(), ctx->id("SET_NORESET"));
-            bool carry_enable = get_param_or_def(ctx, cell.second.get(), ctx->id("CARRY_ENABLE"));
+            unsigned lut_init = get_param_or_def(ctx, cell.second.get(), id_LUT_INIT);
+            bool neg_clk = get_param_or_def(ctx, cell.second.get(), id_NEG_CLK);
+            bool dff_enable = get_param_or_def(ctx, cell.second.get(), id_DFF_ENABLE);
+            bool async_sr = get_param_or_def(ctx, cell.second.get(), id_ASYNC_SR);
+            bool set_noreset = get_param_or_def(ctx, cell.second.get(), id_SET_NORESET);
+            bool carry_enable = get_param_or_def(ctx, cell.second.get(), id_CARRY_ENABLE);
             std::vector<bool> lc(20, false);
 
             // Discover permutation
@@ -502,20 +502,20 @@ void write_asc(const Context *ctx, std::ostream &out)
             if (dff_enable)
                 set_config(ti, config.at(y).at(x), "NegClk", neg_clk);
 
-            bool carry_const = get_param_or_def(ctx, cell.second.get(), ctx->id("CIN_CONST"));
-            bool carry_set = get_param_or_def(ctx, cell.second.get(), ctx->id("CIN_SET"));
+            bool carry_const = get_param_or_def(ctx, cell.second.get(), id_CIN_CONST);
+            bool carry_set = get_param_or_def(ctx, cell.second.get(), id_CIN_SET);
             if (carry_const) {
                 if (!ctx->force)
                     NPNR_ASSERT(z == 0);
                 set_config(ti, config.at(y).at(x), "CarryInSet", carry_set);
             }
-        } else if (cell.second->type == ctx->id("SB_IO")) {
+        } else if (cell.second->type == id_SB_IO) {
             const BelInfoPOD &beli = ci.bel_data[bel.index];
             int x = beli.x, y = beli.y, z = beli.z;
             const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
-            unsigned pin_type = get_param_or_def(ctx, cell.second.get(), ctx->id("PIN_TYPE"));
-            bool neg_trigger = get_param_or_def(ctx, cell.second.get(), ctx->id("NEG_TRIGGER"));
-            bool pullup = get_param_or_def(ctx, cell.second.get(), ctx->id("PULLUP"));
+            unsigned pin_type = get_param_or_def(ctx, cell.second.get(), id_PIN_TYPE);
+            bool neg_trigger = get_param_or_def(ctx, cell.second.get(), id_NEG_TRIGGER);
+            bool pullup = get_param_or_def(ctx, cell.second.get(), id_PULLUP);
             bool lvds = cell.second->ioInfo.lvds;
             bool used_by_pll_out = sb_io_used_by_pll_out.count(Loc(x, y, z)) > 0;
             bool used_by_pll_pad = sb_io_used_by_pll_pad.count(Loc(x, y, z)) > 0;
@@ -550,8 +550,8 @@ void write_asc(const Context *ctx, std::ostream &out)
 
                 if (ctx->args.type == ArchArgs::UP5K || ctx->args.type == ArchArgs::UP3K) {
                     std::string pullup_resistor = "100K";
-                    if (cell.second->attrs.count(ctx->id("PULLUP_RESISTOR")))
-                        pullup_resistor = cell.second->attrs.at(ctx->id("PULLUP_RESISTOR")).as_string();
+                    if (cell.second->attrs.count(id_PULLUP_RESISTOR))
+                        pullup_resistor = cell.second->attrs.at(id_PULLUP_RESISTOR).as_string();
                     NPNR_ASSERT(pullup_resistor == "100K" || pullup_resistor == "10K" || pullup_resistor == "6P8K" ||
                                 pullup_resistor == "3P3K");
                     if (iez == 0) {
@@ -599,7 +599,7 @@ void write_asc(const Context *ctx, std::ostream &out)
                     }
                 }
             }
-        } else if (cell.second->type == ctx->id("SB_GB")) {
+        } else if (cell.second->type == id_SB_GB) {
             if (cell.second->gbInfo.forPadIn) {
                 Loc gb_loc = ctx->getBelLocation(bel);
                 for (auto &glb : ci.global_network_info) {
@@ -608,7 +608,7 @@ void write_asc(const Context *ctx, std::ostream &out)
                     }
                 }
             }
-        } else if (cell.second->type == ctx->id("ICESTORM_RAM")) {
+        } else if (cell.second->type == id_ICESTORM_RAM) {
             const BelInfoPOD &beli = ci.bel_data[bel.index];
             int x = beli.x, y = beli.y;
             const TileInfoPOD &ti_ramt = bi.tiles_nonrouting[TILE_RAMT];
@@ -616,10 +616,10 @@ void write_asc(const Context *ctx, std::ostream &out)
             if (!(ctx->args.type == ArchArgs::LP1K || ctx->args.type == ArchArgs::HX1K)) {
                 set_config(ti_ramb, config.at(y).at(x), "RamConfig.PowerUp", true);
             }
-            bool negclk_r = get_param_or_def(ctx, cell.second.get(), ctx->id("NEG_CLK_R"));
-            bool negclk_w = get_param_or_def(ctx, cell.second.get(), ctx->id("NEG_CLK_W"));
-            int write_mode = get_param_or_def(ctx, cell.second.get(), ctx->id("WRITE_MODE"));
-            int read_mode = get_param_or_def(ctx, cell.second.get(), ctx->id("READ_MODE"));
+            bool negclk_r = get_param_or_def(ctx, cell.second.get(), id_NEG_CLK_R);
+            bool negclk_w = get_param_or_def(ctx, cell.second.get(), id_NEG_CLK_W);
+            int write_mode = get_param_or_def(ctx, cell.second.get(), id_WRITE_MODE);
+            int read_mode = get_param_or_def(ctx, cell.second.get(), id_READ_MODE);
             set_config(ti_ramb, config.at(y).at(x), "NegClk", negclk_w);
             set_config(ti_ramt, config.at(y + 1).at(x), "NegClk", negclk_r);
 
@@ -627,27 +627,27 @@ void write_asc(const Context *ctx, std::ostream &out)
             set_config(ti_ramt, config.at(y + 1).at(x), "RamConfig.CBIT_1", write_mode & 0x2);
             set_config(ti_ramt, config.at(y + 1).at(x), "RamConfig.CBIT_2", read_mode & 0x1);
             set_config(ti_ramt, config.at(y + 1).at(x), "RamConfig.CBIT_3", read_mode & 0x2);
-        } else if (cell.second->type == ctx->id("SB_LED_DRV_CUR")) {
+        } else if (cell.second->type == id_SB_LED_DRV_CUR) {
             set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, cell.second->bel), "LED_DRV_CUR_EN", true,
                         "IpConfig.");
-        } else if (cell.second->type == ctx->id("SB_RGB_DRV")) {
+        } else if (cell.second->type == id_SB_RGB_DRV) {
             const std::vector<std::pair<std::string, int>> rgb_params = {
                     {"RGB0_CURRENT", 6}, {"RGB1_CURRENT", 6}, {"RGB2_CURRENT", 6}};
             configure_extra_cell(config, ctx, cell.second.get(), rgb_params, true, std::string("IpConfig."));
             set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, cell.second->bel), "RGB_DRV_EN", true, "IpConfig.");
-        } else if (cell.second->type == ctx->id("SB_RGBA_DRV")) {
+        } else if (cell.second->type == id_SB_RGBA_DRV) {
             const std::vector<std::pair<std::string, int>> rgba_params = {
                     {"CURRENT_MODE", 1}, {"RGB0_CURRENT", 6}, {"RGB1_CURRENT", 6}, {"RGB2_CURRENT", 6}};
             configure_extra_cell(config, ctx, cell.second.get(), rgba_params, true, std::string("IpConfig."));
             set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, cell.second->bel), "RGBA_DRV_EN", true, "IpConfig.");
-        } else if (cell.second->type == ctx->id("SB_WARMBOOT") || cell.second->type == ctx->id("ICESTORM_LFOSC") ||
-                   cell.second->type == ctx->id("SB_LEDDA_IP")) {
+        } else if (cell.second->type == id_SB_WARMBOOT || cell.second->type == id_ICESTORM_LFOSC ||
+                   cell.second->type == id_SB_LEDDA_IP) {
             // No config needed
-        } else if (cell.second->type == ctx->id("SB_I2C")) {
-            bool sda_in_dly = !cell.second->attrs.count(ctx->id("SDA_INPUT_DELAYED")) ||
-                              cell.second->attrs[ctx->id("SDA_INPUT_DELAYED")].as_bool();
-            bool sda_out_dly = !cell.second->attrs.count(ctx->id("SDA_OUTPUT_DELAYED")) ||
-                               cell.second->attrs[ctx->id("SDA_OUTPUT_DELAYED")].as_bool();
+        } else if (cell.second->type == id_SB_I2C) {
+            bool sda_in_dly = !cell.second->attrs.count(id_SDA_INPUT_DELAYED) ||
+                              cell.second->attrs[id_SDA_INPUT_DELAYED].as_bool();
+            bool sda_out_dly = !cell.second->attrs.count(id_SDA_OUTPUT_DELAYED) ||
+                               cell.second->attrs[id_SDA_OUTPUT_DELAYED].as_bool();
             set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, cell.second->bel), "SDA_INPUT_DELAYED", sda_in_dly,
                         "IpConfig.");
             set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, cell.second->bel), "SDA_OUTPUT_DELAYED", sda_out_dly,
@@ -656,7 +656,7 @@ void write_asc(const Context *ctx, std::ostream &out)
                         "IpConfig.");
             set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, cell.second->bel), "I2C_ENABLE_1", true,
                         "IpConfig.");
-        } else if (cell.second->type == ctx->id("SB_SPI")) {
+        } else if (cell.second->type == id_SB_SPI) {
             set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, cell.second->bel), "SPI_ENABLE_0", true,
                         "IpConfig.");
             set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, cell.second->bel), "SPI_ENABLE_1", true,
@@ -665,7 +665,7 @@ void write_asc(const Context *ctx, std::ostream &out)
                         "IpConfig.");
             set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, cell.second->bel), "SPI_ENABLE_3", true,
                         "IpConfig.");
-        } else if (cell.second->type == ctx->id("ICESTORM_SPRAM")) {
+        } else if (cell.second->type == id_ICESTORM_SPRAM) {
             const BelInfoPOD &beli = ci.bel_data[bel.index];
             int x = beli.x, y = beli.y, z = beli.z;
             NPNR_ASSERT(ctx->args.type == ArchArgs::UP5K || ctx->args.type == ArchArgs::UP3K);
@@ -688,7 +688,7 @@ void write_asc(const Context *ctx, std::ostream &out)
                     NPNR_ASSERT(false);
                 }
             }
-        } else if (cell.second->type == ctx->id("ICESTORM_DSP")) {
+        } else if (cell.second->type == id_ICESTORM_DSP) {
             const std::vector<std::pair<std::string, int>> mac16_params = {{"C_REG", 1},
                                                                            {"A_REG", 1},
                                                                            {"B_REG", 1},
@@ -709,13 +709,13 @@ void write_asc(const Context *ctx, std::ostream &out)
                                                                            {"A_SIGNED", 1},
                                                                            {"B_SIGNED", 1}};
             configure_extra_cell(config, ctx, cell.second.get(), mac16_params, false, std::string("IpConfig."));
-        } else if (cell.second->type == ctx->id("ICESTORM_HFOSC")) {
+        } else if (cell.second->type == id_ICESTORM_HFOSC) {
             std::vector<std::pair<std::string, int>> hfosc_params = {{"CLKHF_DIV", 2}};
             if (ctx->args.type != ArchArgs::U4K && ctx->args.type != ArchArgs::U1K && ctx->args.type != ArchArgs::U2K)
                 hfosc_params.push_back(std::pair<std::string, int>("TRIM_EN", 1));
             configure_extra_cell(config, ctx, cell.second.get(), hfosc_params, true, std::string("IpConfig."));
 
-        } else if (cell.second->type == ctx->id("ICESTORM_PLL")) {
+        } else if (cell.second->type == id_ICESTORM_PLL) {
             const std::vector<std::pair<std::string, int>> pll_params = {{"DELAY_ADJMODE_FB", 1},
                                                                          {"DELAY_ADJMODE_REL", 1},
                                                                          {"DIVF", 7},
@@ -874,7 +874,7 @@ void write_asc(const Context *ctx, std::ostream &out)
     // Write RAM init data
     for (auto &cell : ctx->cells) {
         if (cell.second->bel != BelId()) {
-            if (cell.second->type == ctx->id("ICESTORM_RAM")) {
+            if (cell.second->type == id_ICESTORM_RAM) {
                 const BelInfoPOD &beli = ci.bel_data[cell.second->bel.index];
                 int x = beli.x, y = beli.y;
                 out << ".ram_data " << x << " " << y << std::endl;
@@ -1054,7 +1054,7 @@ bool read_asc(Context *ctx, std::istream &in)
                 isUsed |= carry_set;
 
                 if (isUsed) {
-                    std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("ICESTORM_LC"));
+                    std::unique_ptr<CellInfo> created = create_ice_cell(ctx, id_ICESTORM_LC);
                     IdString name = created->name;
                     ctx->cells[name] = std::move(created);
                     ctx->bindBel(bel, ctx->cells[name].get(), STRENGTH_WEAK);
@@ -1074,7 +1074,7 @@ bool read_asc(Context *ctx, std::istream &in)
                 isUsed |= neg_trigger;
 
                 if (isUsed) {
-                    std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("SB_IO"));
+                    std::unique_ptr<CellInfo> created = create_ice_cell(ctx, id_SB_IO);
                     IdString name = created->name;
                     ctx->cells[name] = std::move(created);
                     ctx->bindBel(bel, ctx->cells[name].get(), STRENGTH_WEAK);
@@ -1091,35 +1091,35 @@ bool read_asc(Context *ctx, std::istream &in)
 
                         if (ctx->checkBelAvail(belpin.bel)) {
                             if (ctx->getBelType(belpin.bel) == id_ICESTORM_LC) {
-                                std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("ICESTORM_LC"));
+                                std::unique_ptr<CellInfo> created = create_ice_cell(ctx, id_ICESTORM_LC);
                                 IdString name = created->name;
                                 ctx->cells[name] = std::move(created);
                                 ctx->bindBel(belpin.bel, ctx->cells[name].get(), STRENGTH_WEAK);
                                 // TODO: Add port mapping to nets
                             }
                             if (ctx->getBelType(belpin.bel) == id_SB_IO) {
-                                std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("SB_IO"));
+                                std::unique_ptr<CellInfo> created = create_ice_cell(ctx, id_SB_IO);
                                 IdString name = created->name;
                                 ctx->cells[name] = std::move(created);
                                 ctx->bindBel(belpin.bel, ctx->cells[name].get(), STRENGTH_WEAK);
                                 // TODO: Add port mapping to nets
                             }
                             if (ctx->getBelType(belpin.bel) == id_SB_GB) {
-                                std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("SB_GB"));
+                                std::unique_ptr<CellInfo> created = create_ice_cell(ctx, id_SB_GB);
                                 IdString name = created->name;
                                 ctx->cells[name] = std::move(created);
                                 ctx->bindBel(belpin.bel, ctx->cells[name].get(), STRENGTH_WEAK);
                                 // TODO: Add port mapping to nets
                             }
                             if (ctx->getBelType(belpin.bel) == id_SB_WARMBOOT) {
-                                std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("SB_WARMBOOT"));
+                                std::unique_ptr<CellInfo> created = create_ice_cell(ctx, id_SB_WARMBOOT);
                                 IdString name = created->name;
                                 ctx->cells[name] = std::move(created);
                                 ctx->bindBel(belpin.bel, ctx->cells[name].get(), STRENGTH_WEAK);
                                 // TODO: Add port mapping to nets
                             }
                             if (ctx->getBelType(belpin.bel) == id_ICESTORM_LFOSC) {
-                                std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("ICESTORM_LFOSC"));
+                                std::unique_ptr<CellInfo> created = create_ice_cell(ctx, id_ICESTORM_LFOSC);
                                 IdString name = created->name;
                                 ctx->cells[name] = std::move(created);
                                 ctx->bindBel(belpin.bel, ctx->cells[name].get(), STRENGTH_WEAK);

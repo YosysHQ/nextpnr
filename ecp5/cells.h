@@ -30,37 +30,36 @@ NEXTPNR_NAMESPACE_BEGIN
 std::unique_ptr<CellInfo> create_ecp5_cell(Context *ctx, IdString type, std::string name = "");
 
 // Return true if a cell is a LUT
-inline bool is_lut(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("LUT4"); }
+inline bool is_lut(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_LUT4; }
 
 // Return true if a cell is a flipflop
-inline bool is_ff(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("TRELLIS_FF"); }
+inline bool is_ff(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_TRELLIS_FF; }
 
-inline bool is_carry(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("CCU2C"); }
+inline bool is_carry(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_CCU2C; }
 
-inline bool is_lc(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("TRELLIS_SLICE"); }
+inline bool is_lc(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_TRELLIS_SLICE; }
 
-inline bool is_trellis_io(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("TRELLIS_IO"); }
+inline bool is_trellis_io(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_TRELLIS_IO; }
 
-inline bool is_dpram(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("TRELLIS_DPR16X4"); }
+inline bool is_dpram(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_TRELLIS_DPR16X4; }
 
-inline bool is_pfumx(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("PFUMX"); }
+inline bool is_pfumx(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_PFUMX; }
 
-inline bool is_l6mux(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("L6MUX21"); }
+inline bool is_l6mux(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_L6MUX21; }
 
 inline bool is_iologic_input_cell(const BaseCtx *ctx, const CellInfo *cell)
 {
-    return cell->type == ctx->id("IDDRX1F") || cell->type == ctx->id("IDDRX2F") || cell->type == ctx->id("IDDR71B") ||
-           cell->type == ctx->id("IDDRX2DQA") ||
-           (cell->type == ctx->id("TRELLIS_FF") && bool_or_default(cell->attrs, ctx->id("syn_useioff")) &&
-            (str_or_default(cell->attrs, ctx->id("ioff_dir"), "") != "output"));
+    return cell->type == id_IDDRX1F || cell->type == id_IDDRX2F || cell->type == id_IDDR71B ||
+           cell->type == id_IDDRX2DQA ||
+           (cell->type == id_TRELLIS_FF && bool_or_default(cell->attrs, id_syn_useioff) &&
+            (str_or_default(cell->attrs, id_ioff_dir, "") != "output"));
 }
 inline bool is_iologic_output_cell(const BaseCtx *ctx, const CellInfo *cell)
 {
-    return cell->type == ctx->id("ODDRX1F") || cell->type == ctx->id("ODDRX2F") || cell->type == ctx->id("ODDR71B") ||
-           cell->type == ctx->id("ODDRX2DQA") || cell->type == ctx->id("ODDRX2DQSB") ||
-           cell->type == ctx->id("OSHX2A") ||
-           (cell->type == ctx->id("TRELLIS_FF") && bool_or_default(cell->attrs, ctx->id("syn_useioff")) &&
-            (str_or_default(cell->attrs, ctx->id("ioff_dir"), "") != "input"));
+    return cell->type == id_ODDRX1F || cell->type == id_ODDRX2F || cell->type == id_ODDR71B ||
+           cell->type == id_ODDRX2DQA || cell->type == id_ODDRX2DQSB || cell->type == id_OSHX2A ||
+           (cell->type == id_TRELLIS_FF && bool_or_default(cell->attrs, id_syn_useioff) &&
+            (str_or_default(cell->attrs, id_ioff_dir, "") != "input"));
 }
 
 void ff_to_slice(Context *ctx, CellInfo *ff, CellInfo *lc, int index, bool driven_by_lut);

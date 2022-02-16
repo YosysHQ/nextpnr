@@ -103,12 +103,12 @@ std::unique_ptr<CellInfo> create_machxo2_cell(Context *ctx, IdString type, std::
         new_cell->addOutput(id_WADO3);
     } else if (type == id_FACADE_IO) {
         new_cell->params[id_DIR] = std::string("INPUT");
-        new_cell->attrs[ctx->id("IO_TYPE")] = std::string("LVCMOS33");
+        new_cell->attrs[id_IO_TYPE] = std::string("LVCMOS33");
 
-        new_cell->addInout(ctx->id("PAD"));
-        new_cell->addInput(ctx->id("I"));
-        new_cell->addInput(ctx->id("EN"));
-        new_cell->addOutput(ctx->id("O"));
+        new_cell->addInout(id_PAD);
+        new_cell->addInput(id_I);
+        new_cell->addInput(id_EN);
+        new_cell->addOutput(id_O);
     } else if (type == id_LUT4) {
         new_cell->params[id_INIT] = Property(0, 16);
 
@@ -126,7 +126,7 @@ std::unique_ptr<CellInfo> create_machxo2_cell(Context *ctx, IdString type, std::
 
 void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff)
 {
-    lc->params[ctx->id("LUT0_INITVAL")] = lut->params[ctx->id("INIT")];
+    lc->params[id_LUT0_INITVAL] = lut->params[id_INIT];
 
     for (std::string i : {"A", "B", "C", "D"}) {
         IdString lut_port = ctx->id(i);
@@ -134,34 +134,34 @@ void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff)
         replace_port(lut, lut_port, lc, lc_port);
     }
 
-    replace_port(lut, ctx->id("Z"), lc, ctx->id("F0"));
+    replace_port(lut, id_Z, lc, id_F0);
 }
 
 void dff_to_lc(Context *ctx, CellInfo *dff, CellInfo *lc, LutType lut_type)
 {
     // FIXME: This will have to change once we support FFs with reset value of 1.
-    lc->params[ctx->id("REG0_REGSET")] = std::string("RESET");
+    lc->params[id_REG0_REGSET] = std::string("RESET");
 
-    replace_port(dff, ctx->id("CLK"), lc, ctx->id("CLK"));
-    replace_port(dff, ctx->id("LSR"), lc, ctx->id("LSR"));
-    replace_port(dff, ctx->id("Q"), lc, ctx->id("Q0"));
+    replace_port(dff, id_CLK, lc, id_CLK);
+    replace_port(dff, id_LSR, lc, id_LSR);
+    replace_port(dff, id_Q, lc, id_Q0);
 
     if (lut_type == LutType::PassThru) {
         // If a register's DI port is fed by a constant, options for placing are
         // limited. Use the LUT to get around this.
         // LUT output will go to F0, which will feed back to DI0 input.
-        lc->params[ctx->id("LUT0_INITVAL")] = Property(0xAAAA, 16);
-        replace_port(dff, ctx->id("DI"), lc, ctx->id("A0"));
-        connect_ports(ctx, lc, ctx->id("F0"), lc, ctx->id("DI0"));
+        lc->params[id_LUT0_INITVAL] = Property(0xAAAA, 16);
+        replace_port(dff, id_DI, lc, id_A0);
+        connect_ports(ctx, lc, id_F0, lc, id_DI0);
     } else if (lut_type == LutType::None) {
         // If there is no LUT, use the M0 input because DI0 requires
         // going through the LUTs.
-        lc->params[ctx->id("REG0_SD")] = std::string("0");
-        replace_port(dff, ctx->id("DI"), lc, ctx->id("M0"));
+        lc->params[id_REG0_SD] = std::string("0");
+        replace_port(dff, id_DI, lc, id_M0);
     } else {
         // Otherwise, there's a LUT being used in the slice and mapping DI to
         // DI0 input is fine.
-        replace_port(dff, ctx->id("DI"), lc, ctx->id("DI0"));
+        replace_port(dff, id_DI, lc, id_DI0);
     }
 }
 

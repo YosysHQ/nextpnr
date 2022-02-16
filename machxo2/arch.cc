@@ -171,17 +171,17 @@ std::string Arch::get_full_chip_name() const
 IdString Arch::archArgsToId(ArchArgs args) const
 {
     if (args.type == ArchArgs::LCMXO2_256HC) {
-        return id("lcmxo2_256hc");
+        return id_lcmxo2_256hc;
     } else if (args.type == ArchArgs::LCMXO2_640HC) {
-        return id("lcmxo2_640hc");
+        return id_lcmxo2_640hc;
     } else if (args.type == ArchArgs::LCMXO2_1200HC) {
-        return id("lcmxo2_1200hc");
+        return id_lcmxo2_1200hc;
     } else if (args.type == ArchArgs::LCMXO2_2000HC) {
-        return id("lcmxo2_2000hc");
+        return id_lcmxo2_2000hc;
     } else if (args.type == ArchArgs::LCMXO2_4000HC) {
-        return id("lcmxo2_4000hc");
+        return id_lcmxo2_4000hc;
     } else if (args.type == ArchArgs::LCMXO2_7000HC) {
-        return id("lcmxo2_7000hc");
+        return id_lcmxo2_7000hc;
     }
 
     return IdString();
@@ -414,17 +414,17 @@ ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
 
 bool Arch::place()
 {
-    std::string placer = str_or_default(settings, id("placer"), defaultPlacer);
+    std::string placer = str_or_default(settings, id_placer, defaultPlacer);
     if (placer == "sa") {
         bool retVal = placer1(getCtx(), Placer1Cfg(getCtx()));
-        getCtx()->settings[getCtx()->id("place")] = 1;
+        getCtx()->settings[id_place] = 1;
         archInfoToAttributes();
         return retVal;
     } else if (placer == "heap") {
         PlacerHeapCfg cfg(getCtx());
         cfg.ioBufTypes.insert(id_FACADE_IO);
         bool retVal = placer_heap(getCtx(), cfg);
-        getCtx()->settings[getCtx()->id("place")] = 1;
+        getCtx()->settings[id_place] = 1;
         archInfoToAttributes();
         return retVal;
     } else {
@@ -434,7 +434,7 @@ bool Arch::place()
 
 bool Arch::route()
 {
-    std::string router = str_or_default(settings, id("router"), defaultRouter);
+    std::string router = str_or_default(settings, id_router, defaultRouter);
     bool result;
     if (router == "router1") {
         result = router1(getCtx(), Router1Cfg(getCtx()));
@@ -444,7 +444,7 @@ bool Arch::route()
     } else {
         log_error("MachXO2 architecture does not support router '%s'\n", router.c_str());
     }
-    getCtx()->settings[getCtx()->id("route")] = 1;
+    getCtx()->settings[id_route] = 1;
     archInfoToAttributes();
     return result;
 }

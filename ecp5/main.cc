@@ -277,7 +277,7 @@ void ECP5CommandHandler::customAfterLoad(Context *ctx)
             CellInfo *ci = cell.second.get();
             if (ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_obuf") ||
                 ci->type == ctx->id("$nextpnr_iobuf")) {
-                if (!ci->attrs.count(ctx->id("LOC"))) {
+                if (!ci->attrs.count(id_LOC)) {
                     if (vm.count("lpf-allow-unconstrained"))
                         log_warning("IO '%s' is unconstrained in LPF and will be automatically placed\n",
                                     cell.first.c_str(ctx));

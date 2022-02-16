@@ -806,3 +806,12 @@ X(DECAL_ALU_ACTIVE)
 
 
 
+
+X(SINGLE_INPUT_MUX)
+X(cst)
+X(none)
+X(pack)
+X(place)
+X(placer)
+X(route)
+X(router)

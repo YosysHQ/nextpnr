@@ -150,7 +150,7 @@ void Arch::permute_luts()
 
     for (auto &cell : cells) {
         CellInfo *ci = cell.second.get();
-        if (ci->type == id_TRELLIS_SLICE && str_or_default(ci->params, id("MODE"), "LOGIC") == "LOGIC") {
+        if (ci->type == id_TRELLIS_SLICE && str_or_default(ci->params, id_MODE, "LOGIC") == "LOGIC") {
             proc_lut(ci, 0);
             proc_lut(ci, 1);
         }

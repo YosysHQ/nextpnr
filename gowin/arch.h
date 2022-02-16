@@ -354,7 +354,7 @@ struct Arch : BaseArch<ArchRanges>
     std::string getChipName() const override { return device; }
 
     ArchArgs archArgs() const override { return args; }
-    IdString archArgsToId(ArchArgs args) const override { return id("none"); }
+    IdString archArgsToId(ArchArgs args) const override { return id_none; }
 
     int getGridDimX() const override { return gridDimX; }
     int getGridDimY() const override { return gridDimY; }

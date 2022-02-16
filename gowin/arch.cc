@@ -688,7 +688,7 @@ void Arch::read_cst(std::istream &in)
         insloc
     } cst_type;
 
-    settings.erase(id("cst"));
+    settings.erase(id_cst);
     while (!in.eof()) {
         std::getline(in, line);
         cst_type = ioloc;
@@ -756,7 +756,7 @@ void Arch::read_cst(std::istream &in)
         }
         }
     }
-    settings[id("cst")] = 1;
+    settings[id_cst] = 1;
 }
 
 // Add all MUXes for the cell
@@ -1455,13 +1455,13 @@ ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
 
 bool Arch::place()
 {
-    std::string placer = str_or_default(settings, id("placer"), defaultPlacer);
+    std::string placer = str_or_default(settings, id_placer, defaultPlacer);
     bool retVal;
     if (placer == "heap") {
         bool have_iobuf_or_constr = false;
         for (auto &cell : cells) {
             CellInfo *ci = cell.second.get();
-            if (ci->type == id("IOB") || ci->bel != BelId() || ci->attrs.count(id("BEL"))) {
+            if (ci->type == id_IOB || ci->bel != BelId() || ci->attrs.count(id_BEL)) {
                 have_iobuf_or_constr = true;
                 break;
             }
@@ -1472,15 +1472,15 @@ bool Arch::place()
             retVal = placer1(getCtx(), Placer1Cfg(getCtx()));
         } else {
             PlacerHeapCfg cfg(getCtx());
-            cfg.ioBufTypes.insert(id("IOB"));
+            cfg.ioBufTypes.insert(id_IOB);
             cfg.beta = 0.5;
             retVal = placer_heap(getCtx(), cfg);
         }
-        getCtx()->settings[getCtx()->id("place")] = 1;
+        getCtx()->settings[id_place] = 1;
         archInfoToAttributes();
     } else if (placer == "sa") {
         retVal = placer1(getCtx(), Placer1Cfg(getCtx()));
-        getCtx()->settings[getCtx()->id("place")] = 1;
+        getCtx()->settings[id_place] = 1;
         archInfoToAttributes();
         return retVal;
     } else {
@@ -1497,7 +1497,7 @@ bool Arch::place()
 
 bool Arch::route()
 {
-    std::string router = str_or_default(settings, id("router"), defaultRouter);
+    std::string router = str_or_default(settings, id_router, defaultRouter);
     bool result;
     if (router == "router1") {
         result = router1(getCtx(), Router1Cfg(getCtx()));
@@ -1507,7 +1507,7 @@ bool Arch::route()
     } else {
         log_error("Gowin architecture does not support router '%s'\n", router.c_str());
     }
-    getCtx()->settings[getCtx()->id("route")] = 1;
+    getCtx()->settings[id_route] = 1;
     archInfoToAttributes();
     return result;
 }
@@ -1600,9 +1600,9 @@ void Arch::assignArchInfo()
             ci->is_slice = true;
             ci->ff_used = ci->params.at(id_FF_USED).as_bool();
             ci->ff_type = id(ci->params.at(id_FF_TYPE).as_string());
-            ci->slice_clk = get_net_or_empty(ci, id("CLK"));
-            ci->slice_ce = get_net_or_empty(ci, id("CE"));
-            ci->slice_lsr = get_net_or_empty(ci, id("LSR"));
+            ci->slice_clk = get_net_or_empty(ci, id_CLK);
+            ci->slice_ce = get_net_or_empty(ci, id_CE);
+            ci->slice_lsr = get_net_or_empty(ci, id_LSR);
 
             // add timing paths
             addCellTimingClock(cname, id_CLK);

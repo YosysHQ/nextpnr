@@ -299,8 +299,8 @@ class Ecp5GlobalRouter
         dedicated_routing = false;
         if (drv.cell == nullptr) {
             return 0;
-        } else if (drv.cell->attrs.count(ctx->id("BEL"))) {
-            drv_bel = ctx->getBelByNameStr(drv.cell->attrs.at(ctx->id("BEL")).as_string());
+        } else if (drv.cell->attrs.count(id_BEL)) {
+            drv_bel = ctx->getBelByNameStr(drv.cell->attrs.at(id_BEL).as_string());
         } else {
             // Check if driver is a singleton
             BelId last_bel;
@@ -399,7 +399,7 @@ class Ecp5GlobalRouter
     {
         BelId best_bel;
         WireId best_bel_pclkcib;
-        bool using_ce = get_net_or_empty(dcc, ctx->id("CE")) != nullptr;
+        bool using_ce = get_net_or_empty(dcc, id_CE) != nullptr;
         wirelen_t best_wirelen = 9999999;
         bool dedicated_routing = false;
         for (auto bel : ctx->getBels()) {
@@ -492,8 +492,8 @@ class Ecp5GlobalRouter
             dccptr = dcc.get();
             ctx->cells[dcc->name] = std::move(dcc);
         }
-        glbptr->attrs[ctx->id("ECP5_IS_GLOBAL")] = 1;
-        if (str_or_default(dccptr->attrs, ctx->id("BEL"), "") == "")
+        glbptr->attrs[id_ECP5_IS_GLOBAL] = 1;
+        if (str_or_default(dccptr->attrs, id_BEL, "") == "")
             place_dcc_dcs(dccptr);
         return glbptr;
     }
@@ -514,8 +514,8 @@ class Ecp5GlobalRouter
         log_info("Promoting globals...\n");
         auto clocks = get_clocks();
         for (auto clock : clocks) {
-            bool is_noglobal = bool_or_default(clock->attrs, ctx->id("noglobal"), false) ||
-                               bool_or_default(clock->attrs, ctx->id("ECP5_IS_GLOBAL"), false);
+            bool is_noglobal = bool_or_default(clock->attrs, id_noglobal, false) ||
+                               bool_or_default(clock->attrs, id_ECP5_IS_GLOBAL, false);
             if (is_noglobal)
                 continue;
             log_info("    promoting clock net %s to global network\n", clock->name.c_str(ctx));
