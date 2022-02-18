@@ -187,6 +187,27 @@ struct CellInfo : ArchCellInfo
     void unsetAttr(IdString name);
     // check whether a bel complies with the cell's region constraint
     bool testRegion(BelId bel) const;
+
+    NetInfo *getPort(IdString name)
+    {
+        auto found = ports.find(name);
+        return (found == ports.end()) ? nullptr : found->second.net;
+    }
+    const NetInfo *getPort(IdString name) const
+    {
+        auto found = ports.find(name);
+        return (found == ports.end()) ? nullptr : found->second.net;
+    }
+    void connectPort(IdString port, NetInfo *net);
+    void disconnectPort(IdString port);
+    void connectPorts(IdString port, CellInfo *other, IdString other_port);
+    void movePortTo(IdString port, CellInfo *other, IdString other_port);
+    void renamePort(IdString old_name, IdString new_name);
+    void movePortBusTo(IdString old_name, int old_offset, bool old_brackets, CellInfo *new_cell, IdString new_name,
+                       int new_offset, bool new_brackets, int width);
+    void copyPortTo(IdString port, CellInfo *other, IdString other_port);
+    void copyPortBusTo(IdString old_name, int old_offset, bool old_brackets, CellInfo *new_cell, IdString new_name,
+                       int new_offset, bool new_brackets, int width);
 };
 
 enum TimingPortClass

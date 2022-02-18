@@ -41,13 +41,13 @@ struct MistralPacker
         vcc_drv->addOutput(id_Q);
         gnd_net = ctx->createNet(ctx->id("$PACKER_GND_NET"));
         vcc_net = ctx->createNet(ctx->id("$PACKER_VCC_NET"));
-        connect_port(ctx, gnd_net, gnd_drv, id_Q);
-        connect_port(ctx, vcc_net, vcc_drv, id_Q);
+        gnd_drv->connectPort(id_Q, gnd_net);
+        vcc_drv->connectPort(id_Q, vcc_net);
     }
 
     CellPinState get_pin_needed_muxval(CellInfo *cell, IdString port)
     {
-        NetInfo *net = get_net_or_empty(cell, port);
+        NetInfo *net = cell->getPort(port);
         if (net == nullptr || net->driver.cell == nullptr) {
             // Pin is disconnected
             // If a mux value exists already, honour it
@@ -78,14 +78,14 @@ struct MistralPacker
     void uninvert_port(CellInfo *cell, IdString port)
     {
         // Rewire a port so it is driven by the input to an inverter
-        NetInfo *net = get_net_or_empty(cell, port);
+        NetInfo *net = cell->getPort(port);
         NPNR_ASSERT(net != nullptr && net->driver.cell != nullptr && net->driver.cell->type == id_MISTRAL_NOT);
         CellInfo *inv = net->driver.cell;
-        disconnect_port(ctx, cell, port);
+        cell->disconnectPort(port);
 
-        NetInfo *inv_a = get_net_or_empty(inv, id_A);
+        NetInfo *inv_a = inv->getPort(id_A);
         if (inv_a != nullptr) {
-            connect_port(ctx, inv_a, cell, port);
+            cell->connectPort(port, inv_a);
         }
     }
 
@@ -117,12 +117,12 @@ struct MistralPacker
                 // Pin is tied to a constant
                 // If there is a hard constant option; use it
                 if ((pin_style & int(req_mux)) == req_mux) {
-                    disconnect_port(ctx, cell, port_name);
+                    cell->disconnectPort(port_name);
                     cell->pin_data[port_name].state = req_mux;
                 } else {
-                    disconnect_port(ctx, cell, port_name);
+                    cell->disconnectPort(port_name);
                     // There is no hard constant, we need to connect it to the relevant soft-constant net
-                    connect_port(ctx, (req_mux == PIN_1) ? vcc_net : gnd_net, cell, port_name);
+                    cell->connectPort(port_name, (req_mux == PIN_1) ? vcc_net : gnd_net);
                 }
             }
         }
@@ -138,7 +138,7 @@ struct MistralPacker
             if (ci->type != id_MISTRAL_NOT && ci->type != id_GND && ci->type != id_VCC)
                 continue;
             IdString port = (ci->type == id_MISTRAL_NOT) ? id_Q : id_Y;
-            NetInfo *out = get_net_or_empty(ci, port);
+            NetInfo *out = ci->getPort(port);
             if (out == nullptr) {
                 trim_cells.push_back(ci->name);
                 continue;
@@ -146,7 +146,7 @@ struct MistralPacker
             if (!out->users.empty())
                 continue;
 
-            disconnect_port(ctx, ci, id_A);
+            ci->disconnectPort(id_A);
 
             trim_cells.push_back(ci->name);
             trim_nets.push_back(out->name);
@@ -174,7 +174,7 @@ struct MistralPacker
                 continue;
             if (ci->get_pin_state(id_SLOAD) != PIN_0)
                 continue;
-            disconnect_port(ctx, ci, id_SDATA);
+            ci->disconnectPort(id_SDATA);
         }
         // Remove superfluous inverters and constant drivers
         trim_design();
@@ -197,7 +197,7 @@ struct MistralPacker
             if (ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_iobuf")) {
                 // Might have an input buffer (IB etc) connected to it
                 is_npnr_iob = true;
-                NetInfo *o = get_net_or_empty(ci, id_O);
+                NetInfo *o = ci->getPort(id_O);
                 if (o == nullptr)
                     ;
                 else if (o->users.size() > 1)
@@ -208,7 +208,7 @@ struct MistralPacker
             if (ci->type == ctx->id("$nextpnr_obuf") || ci->type == ctx->id("$nextpnr_iobuf")) {
                 // Might have an output buffer (OB etc) connected to it
                 is_npnr_iob = true;
-                NetInfo *i = get_net_or_empty(ci, id_I);
+                NetInfo *i = ci->getPort(id_I);
                 if (i != nullptr && i->driver.cell != nullptr) {
                     if (top_port.cell != nullptr)
                         log_error("Top level pin '%s' has multiple input/output buffers\n", ctx->nameOf(port.first));
@@ -245,8 +245,8 @@ struct MistralPacker
                 port.second.net = top_port.cell->ports.at(top_port.port).net;
             }
             // Now remove the nextpnr-inserted buffer
-            disconnect_port(ctx, ci, id_I);
-            disconnect_port(ctx, ci, id_O);
+            ci->disconnectPort(id_I);
+            ci->disconnectPort(id_O);
             ctx->cells.erase(port.first);
         }
     }
@@ -290,14 +290,14 @@ struct MistralPacker
             CellInfo *ci = cell.second.get();
             if (ci->type != id_MISTRAL_ALUT_ARITH)
                 continue;
-            const NetInfo *cin = get_net_or_empty(ci, id_CI);
+            const NetInfo *cin = ci->getPort(id_CI);
             if (cin != nullptr && cin->driver.cell != nullptr)
                 continue; // not the start of a chain
             std::vector<CellInfo *> chain;
             CellInfo *cursor = ci;
             while (true) {
                 chain.push_back(cursor);
-                const NetInfo *co = get_net_or_empty(cursor, id_CO);
+                const NetInfo *co = cursor->getPort(id_CO);
                 if (co == nullptr || co->users.empty())
                     break;
                 if (co->users.size() > 1)
@@ -327,7 +327,7 @@ struct MistralPacker
                 for (int i = 0; i < int(chain.size()); i++) {
                     auto &c = chain.at(i);
                     log_info("    i=%d cell=%s dy=%d z=%d ci=%s co=%s\n", i, ctx->nameOf(c), c->constr_y, c->constr_z,
-                             ctx->nameOf(get_net_or_empty(c, id_CI)), ctx->nameOf(get_net_or_empty(c, id_CO)));
+                             ctx->nameOf(c->getPort(id_CI)), ctx->nameOf(c->getPort(id_CO)));
                 }
             }
         }
@@ -338,7 +338,7 @@ struct MistralPacker
                 continue;
             if (ci->cluster == ClusterId())
                 log_error("Failed to include arith cell '%s' in any chain (CI=%s)\n", ctx->nameOf(ci),
-                          ctx->nameOf(get_net_or_empty(ci, id_CI)));
+                          ctx->nameOf(ci->getPort(id_CI)));
         }
     }
 

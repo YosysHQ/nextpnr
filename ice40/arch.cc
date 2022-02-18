@@ -1219,17 +1219,17 @@ void Arch::assignCellInfo(CellInfo *cell)
         cell->lcInfo.dffEnable = bool_or_default(cell->params, id_DFF_ENABLE);
         cell->lcInfo.carryEnable = bool_or_default(cell->params, id_CARRY_ENABLE);
         cell->lcInfo.negClk = bool_or_default(cell->params, id_NEG_CLK);
-        cell->lcInfo.clk = get_net_or_empty(cell, id_CLK);
-        cell->lcInfo.cen = get_net_or_empty(cell, id_CEN);
-        cell->lcInfo.sr = get_net_or_empty(cell, id_SR);
+        cell->lcInfo.clk = cell->getPort(id_CLK);
+        cell->lcInfo.cen = cell->getPort(id_CEN);
+        cell->lcInfo.sr = cell->getPort(id_SR);
         cell->lcInfo.inputCount = 0;
-        if (get_net_or_empty(cell, id_I0))
+        if (cell->getPort(id_I0))
             cell->lcInfo.inputCount++;
-        if (get_net_or_empty(cell, id_I1))
+        if (cell->getPort(id_I1))
             cell->lcInfo.inputCount++;
-        if (get_net_or_empty(cell, id_I2))
+        if (cell->getPort(id_I2))
             cell->lcInfo.inputCount++;
-        if (get_net_or_empty(cell, id_I3))
+        if (cell->getPort(id_I3))
             cell->lcInfo.inputCount++;
     } else if (cell->type == id_SB_IO) {
         cell->ioInfo.lvds = str_or_default(cell->params, id_IO_STANDARD, "SB_LVCMOS") == "SB_LVDS_INPUT";

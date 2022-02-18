@@ -212,7 +212,7 @@ namespace {
 ControlSig get_ctrlsig(const Context *ctx, const CellInfo *cell, IdString port, bool explicit_const = false)
 {
     ControlSig result;
-    result.net = get_net_or_empty(cell, port);
+    result.net = cell->getPort(port);
     if (result.net == nullptr && explicit_const) {
         // For ENA, 1 (and 0) are explicit control set choices even though they aren't routed, as "no ENA" still
         // consumes a clock+ENA pair
@@ -278,10 +278,10 @@ void Arch::assign_comb_info(CellInfo *cell) const
         cell->combInfo.lut_input_count = 5;
         cell->combInfo.lut_bits_count = 32;
         for (int i = 0; i < 5; i++)
-            cell->combInfo.lut_in[i] = get_net_or_empty(cell, id(stringf("B1ADDR[%d]", i)));
+            cell->combInfo.lut_in[i] = cell->getPort(id(stringf("B1ADDR[%d]", i)));
         auto key = get_mlab_key(cell);
         cell->combInfo.mlab_group = mlab_groups(key);
-        cell->combInfo.comb_out = get_net_or_empty(cell, id_B1DATA);
+        cell->combInfo.comb_out = cell->getPort(id_B1DATA);
     } else if (cell->type == id_MISTRAL_ALUT_ARITH) {
         cell->combInfo.is_carry = true;
         cell->combInfo.lut_input_count = 5;
@@ -292,14 +292,14 @@ void Arch::assign_comb_info(CellInfo *cell) const
         {
             int i = 0;
             for (auto pin : arith_pins) {
-                cell->combInfo.lut_in[i++] = get_net_or_empty(cell, pin);
+                cell->combInfo.lut_in[i++] = cell->getPort(pin);
             }
         }
 
-        const NetInfo *ci = get_net_or_empty(cell, id_CI);
-        const NetInfo *co = get_net_or_empty(cell, id_CO);
+        const NetInfo *ci = cell->getPort(id_CI);
+        const NetInfo *co = cell->getPort(id_CO);
 
-        cell->combInfo.comb_out = get_net_or_empty(cell, id_SO);
+        cell->combInfo.comb_out = cell->getPort(id_SO);
         cell->combInfo.carry_start = (ci == nullptr) || (ci->driver.cell == nullptr);
         cell->combInfo.carry_end = (co == nullptr) || (co->users.empty());
 
@@ -308,10 +308,10 @@ void Arch::assign_comb_info(CellInfo *cell) const
             const CellInfo *prev = ci->driver.cell;
             if (prev != nullptr) {
                 for (int i = 0; i < 5; i++) {
-                    const NetInfo *a = get_net_or_empty(cell, arith_pins[i]);
+                    const NetInfo *a = cell->getPort(arith_pins[i]);
                     if (a == nullptr)
                         continue;
-                    const NetInfo *b = get_net_or_empty(prev, arith_pins[i]);
+                    const NetInfo *b = prev->getPort(arith_pins[i]);
                     if (a == b)
                         ++cell->combInfo.chain_shared_input_count;
                 }
@@ -323,28 +323,28 @@ void Arch::assign_comb_info(CellInfo *cell) const
         switch (cell->type.index) {
         case ID_MISTRAL_ALUT6:
             ++cell->combInfo.lut_input_count;
-            cell->combInfo.lut_in[5] = get_net_or_empty(cell, id_F);
+            cell->combInfo.lut_in[5] = cell->getPort(id_F);
             [[fallthrough]];
         case ID_MISTRAL_ALUT5:
             ++cell->combInfo.lut_input_count;
-            cell->combInfo.lut_in[4] = get_net_or_empty(cell, id_E);
+            cell->combInfo.lut_in[4] = cell->getPort(id_E);
             [[fallthrough]];
         case ID_MISTRAL_ALUT4:
             ++cell->combInfo.lut_input_count;
-            cell->combInfo.lut_in[3] = get_net_or_empty(cell, id_D);
+            cell->combInfo.lut_in[3] = cell->getPort(id_D);
             [[fallthrough]];
         case ID_MISTRAL_ALUT3:
             ++cell->combInfo.lut_input_count;
-            cell->combInfo.lut_in[2] = get_net_or_empty(cell, id_C);
+            cell->combInfo.lut_in[2] = cell->getPort(id_C);
             [[fallthrough]];
         case ID_MISTRAL_ALUT2:
             ++cell->combInfo.lut_input_count;
-            cell->combInfo.lut_in[1] = get_net_or_empty(cell, id_B);
+            cell->combInfo.lut_in[1] = cell->getPort(id_B);
             [[fallthrough]];
         case ID_MISTRAL_BUF: // used to route through to FFs etc
         case ID_MISTRAL_NOT: // used for inverters that map to LUTs
             ++cell->combInfo.lut_input_count;
-            cell->combInfo.lut_in[0] = get_net_or_empty(cell, id_A);
+            cell->combInfo.lut_in[0] = cell->getPort(id_A);
             [[fallthrough]];
         case ID_MISTRAL_CONST:
             // MISTRAL_CONST is a nextpnr-inserted cell type for 0-input, constant-generating LUTs
@@ -375,8 +375,8 @@ void Arch::assign_ff_info(CellInfo *cell) const
         cell->ffInfo.ctrlset.sload.inverted = false;
     }
 
-    cell->ffInfo.sdata = get_net_or_empty(cell, id_SDATA);
-    cell->ffInfo.datain = get_net_or_empty(cell, id_DATAIN);
+    cell->ffInfo.sdata = cell->getPort(id_SDATA);
+    cell->ffInfo.datain = cell->getPort(id_DATAIN);
 }
 
 // Validity checking functions
@@ -883,7 +883,7 @@ void Arch::reassign_alm_inputs(uint32_t lab, uint8_t alm)
                 auto &bel_pins = luts[i]->pin_data[log].bel_pins;
                 bel_pins.clear();
 
-                NetInfo *net = get_net_or_empty(luts[i], log);
+                NetInfo *net = luts[i]->getPort(log);
                 if (net == nullptr) {
                     // Disconnected inputs don't need to be allocated a pin, because the router won't be routing these
                     continue;
@@ -922,10 +922,10 @@ void Arch::reassign_alm_inputs(uint32_t lab, uint8_t alm)
             rt_lut->addInput(id_A);
             rt_lut->addOutput(id_Q);
             // Disconnect the original data input to the FF, and connect it to the route-thru LUT instead
-            NetInfo *datain = get_net_or_empty(ff, id_DATAIN);
-            disconnect_port(getCtx(), ff, id_DATAIN);
-            connect_port(getCtx(), datain, rt_lut, id_A);
-            connect_ports(getCtx(), rt_lut, id_Q, ff, id_DATAIN);
+            NetInfo *datain = ff->getPort(id_DATAIN);
+            ff->disconnectPort(id_DATAIN);
+            rt_lut->connectPort(id_A, datain);
+            rt_lut->connectPorts(id_Q, ff, id_DATAIN);
             // Assign route-thru LUT physical ports, input goes to the first half-specific input
             rt_lut->pin_data[id_A].bel_pins.push_back(i ? id_D : id_C);
             rt_lut->pin_data[id_Q].bel_pins.push_back(id_COMBOUT);
@@ -1050,7 +1050,7 @@ uint64_t Arch::compute_lut_mask(uint32_t lab, uint8_t alm)
                 else if (state == PIN_1)
                     index |= (1 << init_idx);
                 // Ignore if no associated physical pin
-                if (get_net_or_empty(lut, log_pin) == nullptr || lut->pin_data.at(log_pin).bel_pins.empty())
+                if (lut->getPort(log_pin) == nullptr || lut->pin_data.at(log_pin).bel_pins.empty())
                     continue;
                 // ALM inputs appear to be inverted by default (TODO: check!)
                 // so only invert if an inverter has _not_ been folded into the pin

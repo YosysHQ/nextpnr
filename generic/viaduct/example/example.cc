@@ -253,10 +253,10 @@ struct ExampleImpl : ViaductAPI
             CellInfo *ci = cell.second.get();
             auto &fc = fast_cell_info.at(ci->flat_index);
             if (ci->type == id_LUT4) {
-                fc.lut_f = get_net_or_empty(ci, id_F);
-                fc.lut_i3_used = (get_net_or_empty(ci, ctx->id(stringf("I[%d]", K - 1))) != nullptr);
+                fc.lut_f = ci->getPort(id_F);
+                fc.lut_i3_used = (ci->getPort(ctx->id(stringf("I[%d]", K - 1))) != nullptr);
             } else if (ci->type == id_DFF) {
-                fc.ff_d = get_net_or_empty(ci, id_D);
+                fc.ff_d = ci->getPort(id_D);
             }
         }
     }

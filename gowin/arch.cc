@@ -1600,9 +1600,9 @@ void Arch::assignArchInfo()
             ci->is_slice = true;
             ci->ff_used = ci->params.at(id_FF_USED).as_bool();
             ci->ff_type = id(ci->params.at(id_FF_TYPE).as_string());
-            ci->slice_clk = get_net_or_empty(ci, id_CLK);
-            ci->slice_ce = get_net_or_empty(ci, id_CE);
-            ci->slice_lsr = get_net_or_empty(ci, id_LSR);
+            ci->slice_clk = ci->getPort(id_CLK);
+            ci->slice_ce = ci->getPort(id_CE);
+            ci->slice_lsr = ci->getPort(id_LSR);
 
             // add timing paths
             addCellTimingClock(cname, id_CLK);

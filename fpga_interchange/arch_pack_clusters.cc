@@ -901,7 +901,7 @@ void Arch::prepare_cluster(const ClusterPOD *cluster, uint32_t index)
             // reachable due to the fixed dedicated interconnect.
             // E.g.: The CI input of carry chains in 7series corresponds to the CIN bel port,
             //       which can only be connected to the COUT output of the tile below.
-            disconnect_port(ctx, ci, sink_port);
+            ci->disconnectPort(sink_port);
         }
     }
 

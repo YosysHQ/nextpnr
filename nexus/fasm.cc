@@ -421,7 +421,7 @@ struct NexusFasmWriter
         BelId bel = cell->bel;
         used_io.insert(bel);
         push_bel(bel);
-        const NetInfo *t = get_net_or_empty(cell, id_T);
+        const NetInfo *t = cell->getPort(id_T);
         auto tmux = ctx->get_cell_pinmux(cell, id_T);
         bool is_input = false, is_output = false;
         if (tmux == PINMUX_0) {
@@ -444,7 +444,7 @@ struct NexusFasmWriter
         used_io.insert(bel);
         push_bel(bel);
         push("SEIO18");
-        const NetInfo *t = get_net_or_empty(cell, id_T);
+        const NetInfo *t = cell->getPort(id_T);
         auto tmux = ctx->get_cell_pinmux(cell, id_T);
         bool is_input = false, is_output = false;
         if (tmux == PINMUX_0) {
@@ -481,7 +481,7 @@ struct NexusFasmWriter
 
         bank.diff_used = true;
 
-        const NetInfo *t = get_net_or_empty(cell, id_T);
+        const NetInfo *t = cell->getPort(id_T);
         auto tmux = ctx->get_cell_pinmux(cell, id_T);
         bool is_input = false, is_output = false;
         if (tmux == PINMUX_0) {
@@ -843,7 +843,7 @@ struct NexusFasmWriter
             if (!ci->attrs.count(id_IO_TYPE))
                 continue;
             // VccO only concerns outputs
-            const NetInfo *t = get_net_or_empty(ci, id_T);
+            const NetInfo *t = ci->getPort(id_T);
             auto tmux = ctx->get_cell_pinmux(ci, id_T);
             if (tmux == PINMUX_1 || (tmux != PINMUX_0 && t == nullptr))
                 continue;

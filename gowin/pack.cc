@@ -96,7 +96,7 @@ static void pack_alus(Context *ctx)
             log_info("packed ALU head into %s. CIN net is %s\n", ctx->nameOf(packed_head.get()),
                      ctx->nameOf(cin_netId));
         }
-        connect_port(ctx, ctx->nets[ctx->id("$PACKER_VCC_NET")].get(), packed_head.get(), id_C);
+        packed_head->connectPort(id_C, ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
         if (cin_netId == ctx->id("$PACKER_GND_NET")) {
             // CIN = 0
             packed_head->params[id_ALU_MODE] = std::string("C2L");
@@ -106,8 +106,8 @@ static void pack_alus(Context *ctx)
                 packed_head->params[id_ALU_MODE] = std::string("ONE2C");
             } else {
                 // CIN from logic
-                connect_port(ctx, ctx->nets[cin_netId].get(), packed_head.get(), id_B);
-                connect_port(ctx, ctx->nets[cin_netId].get(), packed_head.get(), id_D);
+                packed_head->connectPort(id_B, ctx->nets[cin_netId].get());
+                packed_head->connectPort(id_D, ctx->nets[cin_netId].get());
                 packed_head->params[id_ALU_MODE] = std::string("0"); // ADD
             }
         }
@@ -123,9 +123,9 @@ static void pack_alus(Context *ctx)
             packed_cells.insert(ci->name);
 
             // CIN/COUT are hardwired, delete
-            disconnect_port(ctx, ci, id_CIN);
+            ci->disconnectPort(id_CIN);
             NetInfo *cout = ci->ports.at(id_COUT).net;
-            disconnect_port(ctx, ci, id_COUT);
+            ci->disconnectPort(id_COUT);
 
             std::unique_ptr<CellInfo> packed = create_generic_cell(ctx, id_SLICE, ci->name.str(ctx) + "_ALULC");
             if (ctx->verbose) {
@@ -135,9 +135,9 @@ static void pack_alus(Context *ctx)
             int mode = int_or_default(ci->params, id_ALU_MODE);
             packed->params[id_ALU_MODE] = mode;
             if (mode == 9) { // MULT
-                connect_port(ctx, ctx->nets[ctx->id("$PACKER_GND_NET")].get(), packed.get(), id_C);
+                packed->connectPort(id_C, ctx->nets[ctx->id("$PACKER_GND_NET")].get());
             } else {
-                connect_port(ctx, ctx->nets[ctx->id("$PACKER_VCC_NET")].get(), packed.get(), id_C);
+                packed->connectPort(id_C, ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
             }
 
             // add to cluster
@@ -149,30 +149,30 @@ static void pack_alus(Context *ctx)
             ++alu_idx;
 
             // connect all remainig ports
-            replace_port(ci, id_SUM, packed.get(), id_F);
+            ci->movePortTo(id_SUM, packed.get(), id_F);
             switch (mode) {
             case 0: // ADD
-                replace_port(ci, id_I0, packed.get(), id_B);
-                replace_port(ci, id_I1, packed.get(), id_D);
+                ci->movePortTo(id_I0, packed.get(), id_B);
+                ci->movePortTo(id_I1, packed.get(), id_D);
                 break;
             case 1: // SUB
-                replace_port(ci, id_I0, packed.get(), id_A);
-                replace_port(ci, id_I1, packed.get(), id_D);
+                ci->movePortTo(id_I0, packed.get(), id_A);
+                ci->movePortTo(id_I1, packed.get(), id_D);
                 break;
             case 5: // LE
-                replace_port(ci, id_I0, packed.get(), id_A);
-                replace_port(ci, id_I1, packed.get(), id_B);
+                ci->movePortTo(id_I0, packed.get(), id_A);
+                ci->movePortTo(id_I1, packed.get(), id_B);
                 break;
             case 9: // MULT
-                replace_port(ci, id_I0, packed.get(), id_A);
-                replace_port(ci, id_I1, packed.get(), id_B);
-                disconnect_port(ctx, packed.get(), id_D);
-                connect_port(ctx, ctx->nets[ctx->id("$PACKER_VCC_NET")].get(), packed.get(), id_D);
+                ci->movePortTo(id_I0, packed.get(), id_A);
+                ci->movePortTo(id_I1, packed.get(), id_B);
+                packed->disconnectPort(id_D);
+                packed->connectPort(id_D, ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
                 break;
             default:
-                replace_port(ci, id_I0, packed.get(), id_A);
-                replace_port(ci, id_I1, packed.get(), id_B);
-                replace_port(ci, id_I3, packed.get(), id_D);
+                ci->movePortTo(id_I0, packed.get(), id_A);
+                ci->movePortTo(id_I1, packed.get(), id_B);
+                ci->movePortTo(id_I3, packed.get(), id_D);
             }
 
             new_cells.push_back(std::move(packed));
@@ -191,7 +191,7 @@ static void pack_alus(Context *ctx)
                                  ctx->nameOf(cout));
                     }
                     packed_tail->params[id_ALU_MODE] = std::string("C2L");
-                    connect_port(ctx, cout, packed_tail.get(), id_F);
+                    packed_tail->connectPort(id_F, cout);
                     // add to cluster
                     packed_tail->cluster = packed_head->name;
                     packed_tail->constr_z = alu_idx % 6;
@@ -275,8 +275,8 @@ static void pack_mux2_lut5(Context *ctx, CellInfo *ci, pool<IdString> &packed_ce
         packed->constr_children.clear();
 
         // reconnect MUX ports
-        replace_port(ci, id_O, packed.get(), id_OF);
-        replace_port(ci, id_I1, packed.get(), id_I1);
+        ci->movePortTo(id_O, packed.get(), id_OF);
+        ci->movePortTo(id_I1, packed.get(), id_I1);
 
         // remove cells
         packed_cells.insert(ci->name);
@@ -320,10 +320,10 @@ static void pack_mux2_lut5(Context *ctx, CellInfo *ci, pool<IdString> &packed_ce
         packed->constr_children.clear();
 
         // reconnect MUX ports
-        replace_port(ci, id_O, packed.get(), id_OF);
-        replace_port(ci, id_S0, packed.get(), id_SEL);
-        replace_port(ci, id_I0, packed.get(), id_I0);
-        replace_port(ci, id_I1, packed.get(), id_I1);
+        ci->movePortTo(id_O, packed.get(), id_OF);
+        ci->movePortTo(id_S0, packed.get(), id_SEL);
+        ci->movePortTo(id_I0, packed.get(), id_I0);
+        ci->movePortTo(id_I1, packed.get(), id_I1);
 
         // remove cells
         packed_cells.insert(ci->name);
@@ -394,10 +394,10 @@ static void pack_mux2_lut(Context *ctx, CellInfo *ci, bool (*pred)(const BaseCtx
     packed->constr_children.push_back(mux1);
 
     // reconnect MUX ports
-    replace_port(ci, id_O, packed.get(), id_OF);
-    replace_port(ci, id_S0, packed.get(), id_SEL);
-    replace_port(ci, id_I0, packed.get(), id_I0);
-    replace_port(ci, id_I1, packed.get(), id_I1);
+    ci->movePortTo(id_O, packed.get(), id_OF);
+    ci->movePortTo(id_S0, packed.get(), id_SEL);
+    ci->movePortTo(id_I0, packed.get(), id_I0);
+    ci->movePortTo(id_I1, packed.get(), id_I1);
 
     // remove cells
     packed_cells.insert(ci->name);
@@ -711,7 +711,7 @@ static void pack_io(Context *ctx)
                 // delete the $nexpnr_[io]buf
                 for (auto &p : iob->ports) {
                     IdString netname = p.second.net->name;
-                    disconnect_port(ctx, iob, p.first);
+                    iob->disconnectPort(p.first);
                     delete_nets.insert(netname);
                 }
                 packed_cells.insert(iob->name);

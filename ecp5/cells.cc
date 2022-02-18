@@ -217,7 +217,7 @@ static void replace_port_safe(bool has_ff, CellInfo *ff, IdString ff_port, CellI
                                    [ff, ff_port](PortRef port) { return port.cell == ff && port.port == ff_port; }),
                     ffnet->users.end());
     } else {
-        replace_port(ff, ff_port, lc, lc_port);
+        ff->movePortTo(ff_port, lc, lc_port);
     }
 }
 
@@ -242,21 +242,21 @@ void ff_to_slice(Context *ctx, CellInfo *ff, CellInfo *lc, int index, bool drive
     if (ff->ports.find(id_CE) != ff->ports.end())
         replace_port_safe(has_ff, ff, id_CE, lc, id_CE);
 
-    replace_port(ff, id_Q, lc, ctx->id("Q" + std::to_string(index)));
-    if (get_net_or_empty(ff, id_M) != nullptr) {
+    ff->movePortTo(id_Q, lc, ctx->id("Q" + std::to_string(index)));
+    if (ff->getPort(id_M) != nullptr) {
         // PRLD FFs that use both M and DI
         NPNR_ASSERT(!driven_by_lut);
         // As M is used; must route DI through a new LUT
         lc->params[ctx->id(reg + "_SD")] = std::string("1");
         lc->params[ctx->id("LUT" + std::to_string(index) + "_INITVAL")] = Property(0xFF00, 16);
-        replace_port(ff, id_DI, lc, ctx->id("D" + std::to_string(index)));
-        replace_port(ff, id_M, lc, ctx->id("M" + std::to_string(index)));
-        connect_ports(ctx, lc, ctx->id("F" + std::to_string(index)), lc, ctx->id("DI" + std::to_string(index)));
+        ff->movePortTo(id_DI, lc, ctx->id("D" + std::to_string(index)));
+        ff->movePortTo(id_M, lc, ctx->id("M" + std::to_string(index)));
+        lc->connectPorts(ctx->id("F" + std::to_string(index)), lc, ctx->id("DI" + std::to_string(index)));
     } else {
         if (driven_by_lut) {
-            replace_port(ff, id_DI, lc, ctx->id("DI" + std::to_string(index)));
+            ff->movePortTo(id_DI, lc, ctx->id("DI" + std::to_string(index)));
         } else {
-            replace_port(ff, id_DI, lc, ctx->id("M" + std::to_string(index)));
+            ff->movePortTo(id_DI, lc, ctx->id("M" + std::to_string(index)));
         }
     }
 }
@@ -267,11 +267,11 @@ void lut_to_slice(Context *ctx, CellInfo *lut, CellInfo *lc, int index)
         lc->hierpath = lut->hierpath;
     lc->params[ctx->id("LUT" + std::to_string(index) + "_INITVAL")] =
             get_or_default(lut->params, id_INIT, Property(0, 16));
-    replace_port(lut, id_A, lc, ctx->id("A" + std::to_string(index)));
-    replace_port(lut, id_B, lc, ctx->id("B" + std::to_string(index)));
-    replace_port(lut, id_C, lc, ctx->id("C" + std::to_string(index)));
-    replace_port(lut, id_D, lc, ctx->id("D" + std::to_string(index)));
-    replace_port(lut, id_Z, lc, ctx->id("F" + std::to_string(index)));
+    lut->movePortTo(id_A, lc, ctx->id("A" + std::to_string(index)));
+    lut->movePortTo(id_B, lc, ctx->id("B" + std::to_string(index)));
+    lut->movePortTo(id_C, lc, ctx->id("C" + std::to_string(index)));
+    lut->movePortTo(id_D, lc, ctx->id("D" + std::to_string(index)));
+    lut->movePortTo(id_Z, lc, ctx->id("F" + std::to_string(index)));
 }
 
 void ccu2c_to_slice(Context *ctx, CellInfo *ccu, CellInfo *lc)
@@ -285,22 +285,22 @@ void ccu2c_to_slice(Context *ctx, CellInfo *ccu, CellInfo *lc)
     lc->params[id_CCU2_INJECT1_0] = str_or_default(ccu->params, id_INJECT1_0, "YES");
     lc->params[id_CCU2_INJECT1_1] = str_or_default(ccu->params, id_INJECT1_1, "YES");
 
-    replace_port(ccu, id_CIN, lc, id_FCI);
+    ccu->movePortTo(id_CIN, lc, id_FCI);
 
-    replace_port(ccu, id_A0, lc, id_A0);
-    replace_port(ccu, id_B0, lc, id_B0);
-    replace_port(ccu, id_C0, lc, id_C0);
-    replace_port(ccu, id_D0, lc, id_D0);
+    ccu->movePortTo(id_A0, lc, id_A0);
+    ccu->movePortTo(id_B0, lc, id_B0);
+    ccu->movePortTo(id_C0, lc, id_C0);
+    ccu->movePortTo(id_D0, lc, id_D0);
 
-    replace_port(ccu, id_A1, lc, id_A1);
-    replace_port(ccu, id_B1, lc, id_B1);
-    replace_port(ccu, id_C1, lc, id_C1);
-    replace_port(ccu, id_D1, lc, id_D1);
+    ccu->movePortTo(id_A1, lc, id_A1);
+    ccu->movePortTo(id_B1, lc, id_B1);
+    ccu->movePortTo(id_C1, lc, id_C1);
+    ccu->movePortTo(id_D1, lc, id_D1);
 
-    replace_port(ccu, id_S0, lc, id_F0);
-    replace_port(ccu, id_S1, lc, id_F1);
+    ccu->movePortTo(id_S0, lc, id_F0);
+    ccu->movePortTo(id_S1, lc, id_F1);
 
-    replace_port(ccu, id_COUT, lc, id_FCO);
+    ccu->movePortTo(id_COUT, lc, id_FCO);
 }
 
 void dram_to_ramw(Context *ctx, CellInfo *ram, CellInfo *lc)
@@ -308,15 +308,15 @@ void dram_to_ramw(Context *ctx, CellInfo *ram, CellInfo *lc)
     if (lc->hierpath == IdString())
         lc->hierpath = ram->hierpath;
     lc->params[id_MODE] = std::string("RAMW");
-    replace_port(ram, ctx->id("WAD[0]"), lc, id_D0);
-    replace_port(ram, ctx->id("WAD[1]"), lc, id_B0);
-    replace_port(ram, ctx->id("WAD[2]"), lc, id_C0);
-    replace_port(ram, ctx->id("WAD[3]"), lc, id_A0);
+    ram->movePortTo(ctx->id("WAD[0]"), lc, id_D0);
+    ram->movePortTo(ctx->id("WAD[1]"), lc, id_B0);
+    ram->movePortTo(ctx->id("WAD[2]"), lc, id_C0);
+    ram->movePortTo(ctx->id("WAD[3]"), lc, id_A0);
 
-    replace_port(ram, ctx->id("DI[0]"), lc, id_C1);
-    replace_port(ram, ctx->id("DI[1]"), lc, id_A1);
-    replace_port(ram, ctx->id("DI[2]"), lc, id_D1);
-    replace_port(ram, ctx->id("DI[3]"), lc, id_B1);
+    ram->movePortTo(ctx->id("DI[0]"), lc, id_C1);
+    ram->movePortTo(ctx->id("DI[1]"), lc, id_A1);
+    ram->movePortTo(ctx->id("DI[2]"), lc, id_D1);
+    ram->movePortTo(ctx->id("DI[3]"), lc, id_B1);
 }
 
 static unsigned get_dram_init(const Context *ctx, const CellInfo *ram, int bit)
@@ -367,45 +367,45 @@ void dram_to_ram_slice(Context *ctx, CellInfo *ram, CellInfo *lc, CellInfo *ramw
     lc->params[id_LUT1_INITVAL] = Property(permuted_init1, 16);
 
     if (ram->ports.count(ctx->id("RAD[0]"))) {
-        connect_port(ctx, ram->ports.at(ctx->id("RAD[0]")).net, lc, id_D0);
-        connect_port(ctx, ram->ports.at(ctx->id("RAD[0]")).net, lc, id_D1);
+        lc->connectPort(id_D0, ram->ports.at(ctx->id("RAD[0]")).net);
+        lc->connectPort(id_D1, ram->ports.at(ctx->id("RAD[0]")).net);
     }
     if (ram->ports.count(ctx->id("RAD[1]"))) {
-        connect_port(ctx, ram->ports.at(ctx->id("RAD[1]")).net, lc, id_B0);
-        connect_port(ctx, ram->ports.at(ctx->id("RAD[1]")).net, lc, id_B1);
+        lc->connectPort(id_B0, ram->ports.at(ctx->id("RAD[1]")).net);
+        lc->connectPort(id_B1, ram->ports.at(ctx->id("RAD[1]")).net);
     }
     if (ram->ports.count(ctx->id("RAD[2]"))) {
-        connect_port(ctx, ram->ports.at(ctx->id("RAD[2]")).net, lc, id_C0);
-        connect_port(ctx, ram->ports.at(ctx->id("RAD[2]")).net, lc, id_C1);
+        lc->connectPort(id_C0, ram->ports.at(ctx->id("RAD[2]")).net);
+        lc->connectPort(id_C1, ram->ports.at(ctx->id("RAD[2]")).net);
     }
     if (ram->ports.count(ctx->id("RAD[3]"))) {
-        connect_port(ctx, ram->ports.at(ctx->id("RAD[3]")).net, lc, id_A0);
-        connect_port(ctx, ram->ports.at(ctx->id("RAD[3]")).net, lc, id_A1);
+        lc->connectPort(id_A0, ram->ports.at(ctx->id("RAD[3]")).net);
+        lc->connectPort(id_A1, ram->ports.at(ctx->id("RAD[3]")).net);
     }
 
     if (ram->ports.count(id_WRE))
-        connect_port(ctx, ram->ports.at(id_WRE).net, lc, id_WRE);
+        lc->connectPort(id_WRE, ram->ports.at(id_WRE).net);
     if (ram->ports.count(id_WCK))
-        connect_port(ctx, ram->ports.at(id_WCK).net, lc, id_WCK);
+        lc->connectPort(id_WCK, ram->ports.at(id_WCK).net);
 
-    connect_ports(ctx, ramw, id_WADO0, lc, id_WAD0);
-    connect_ports(ctx, ramw, id_WADO1, lc, id_WAD1);
-    connect_ports(ctx, ramw, id_WADO2, lc, id_WAD2);
-    connect_ports(ctx, ramw, id_WADO3, lc, id_WAD3);
+    ramw->connectPorts(id_WADO0, lc, id_WAD0);
+    ramw->connectPorts(id_WADO1, lc, id_WAD1);
+    ramw->connectPorts(id_WADO2, lc, id_WAD2);
+    ramw->connectPorts(id_WADO3, lc, id_WAD3);
 
     if (index == 0) {
-        connect_ports(ctx, ramw, id_WDO0, lc, id_WD0);
-        connect_ports(ctx, ramw, id_WDO1, lc, id_WD1);
+        ramw->connectPorts(id_WDO0, lc, id_WD0);
+        ramw->connectPorts(id_WDO1, lc, id_WD1);
 
-        replace_port(ram, ctx->id("DO[0]"), lc, id_F0);
-        replace_port(ram, ctx->id("DO[1]"), lc, id_F1);
+        ram->movePortTo(ctx->id("DO[0]"), lc, id_F0);
+        ram->movePortTo(ctx->id("DO[1]"), lc, id_F1);
 
     } else if (index == 1) {
-        connect_ports(ctx, ramw, id_WDO2, lc, id_WD0);
-        connect_ports(ctx, ramw, id_WDO3, lc, id_WD1);
+        ramw->connectPorts(id_WDO2, lc, id_WD0);
+        ramw->connectPorts(id_WDO3, lc, id_WD1);
 
-        replace_port(ram, ctx->id("DO[2]"), lc, id_F0);
-        replace_port(ram, ctx->id("DO[3]"), lc, id_F1);
+        ram->movePortTo(ctx->id("DO[2]"), lc, id_F0);
+        ram->movePortTo(ctx->id("DO[3]"), lc, id_F1);
     } else {
         NPNR_ASSERT_FALSE("bad DPRAM index");
     }
@@ -416,21 +416,21 @@ void nxio_to_tr(Context *ctx, CellInfo *nxio, CellInfo *trio, std::vector<std::u
 {
     if (nxio->type == ctx->id("$nextpnr_ibuf")) {
         trio->params[id_DIR] = std::string("INPUT");
-        replace_port(nxio, id_O, trio, id_O);
+        nxio->movePortTo(id_O, trio, id_O);
     } else if (nxio->type == ctx->id("$nextpnr_obuf")) {
         trio->params[id_DIR] = std::string("OUTPUT");
-        replace_port(nxio, id_I, trio, id_I);
+        nxio->movePortTo(id_I, trio, id_I);
     } else if (nxio->type == ctx->id("$nextpnr_iobuf")) {
         // N.B. tristate will be dealt with below
-        NetInfo *i = get_net_or_empty(nxio, id_I);
+        NetInfo *i = nxio->getPort(id_I);
         if (i == nullptr || i->driver.cell == nullptr)
             trio->params[id_DIR] = std::string("INPUT");
         else {
             log_info("%s: %s.%s\n", ctx->nameOf(i), ctx->nameOf(i->driver.cell), ctx->nameOf(i->driver.port));
             trio->params[id_DIR] = std::string("BIDIR");
         }
-        replace_port(nxio, id_I, trio, id_I);
-        replace_port(nxio, id_O, trio, id_O);
+        nxio->movePortTo(id_I, trio, id_I);
+        nxio->movePortTo(id_O, trio, id_O);
     } else {
         NPNR_ASSERT(false);
     }
@@ -438,9 +438,11 @@ void nxio_to_tr(Context *ctx, CellInfo *nxio, CellInfo *trio, std::vector<std::u
 
     // Rename I/O nets to avoid conflicts
     if (donet != nullptr && donet->name == nxio->name)
-        rename_net(ctx, donet, ctx->id(donet->name.str(ctx) + "$TRELLIS_IO_OUT"));
+        if (donet)
+            ctx->renameNet(donet->name, ctx->id(donet->name.str(ctx) + "$TRELLIS_IO_OUT"));
     if (dinet != nullptr && dinet->name == nxio->name)
-        rename_net(ctx, dinet, ctx->id(dinet->name.str(ctx) + "$TRELLIS_IO_IN"));
+        if (dinet)
+            ctx->renameNet(dinet->name, ctx->id(dinet->name.str(ctx) + "$TRELLIS_IO_IN"));
 
     if (ctx->nets.count(nxio->name)) {
         int i = 0;
@@ -448,7 +450,8 @@ void nxio_to_tr(Context *ctx, CellInfo *nxio, CellInfo *trio, std::vector<std::u
         do {
             new_name = ctx->id(nxio->name.str(ctx) + "$rename$" + std::to_string(i++));
         } while (ctx->nets.count(new_name));
-        rename_net(ctx, ctx->nets.at(nxio->name).get(), new_name);
+        if (ctx->nets.at(nxio->name).get())
+            ctx->renameNet(ctx->nets.at(nxio->name).get()->name, new_name);
     }
 
     // Create a new top port net for accurate IO timing analysis and simulation netlists
@@ -458,7 +461,7 @@ void nxio_to_tr(Context *ctx, CellInfo *nxio, CellInfo *trio, std::vector<std::u
         ctx->net_aliases.erase(tn_netname);
         NetInfo *toplevel_net = ctx->createNet(tn_netname);
         toplevel_net->name = tn_netname;
-        connect_port(ctx, toplevel_net, trio, id_B);
+        trio->connectPort(id_B, toplevel_net);
         ctx->ports[nxio->name].net = toplevel_net;
     }
 
@@ -466,12 +469,12 @@ void nxio_to_tr(Context *ctx, CellInfo *nxio, CellInfo *trio, std::vector<std::u
             ctx, donet, [](const Context *ctx, const CellInfo *cell) { return cell->type == ctx->id("$_TBUF_"); },
             id_Y);
     if (tbuf) {
-        replace_port(tbuf, id_A, trio, id_I);
+        tbuf->movePortTo(id_A, trio, id_I);
         // Need to invert E to form T
         std::unique_ptr<CellInfo> inv_lut = create_ecp5_cell(ctx, id_LUT4, trio->name.str(ctx) + "$invert_T");
-        replace_port(tbuf, id_E, inv_lut.get(), id_A);
+        tbuf->movePortTo(id_E, inv_lut.get(), id_A);
         inv_lut->params[id_INIT] = Property(21845, 16);
-        connect_ports(ctx, inv_lut.get(), id_Z, trio, id_T);
+        inv_lut->connectPorts(id_Z, trio, id_T);
         created_cells.push_back(std::move(inv_lut));
 
         if (donet->users.size() > 1) {
