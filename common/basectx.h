@@ -226,6 +226,7 @@ struct BaseCtx
     void disconnectPort(IdString cell, IdString port);
     void ripupNet(IdString name);
     void lockNetRouting(IdString name);
+    void renameNet(IdString old_name, IdString new_name);
 
     CellInfo *createCell(IdString name, IdString type);
     void copyBelPorts(IdString cell, BelId bel);

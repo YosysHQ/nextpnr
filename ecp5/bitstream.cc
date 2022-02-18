@@ -1043,7 +1043,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             if (trimux_tsreg != "PADDT")
                 cc.tiles[pic_tile].add_enum(pio + ".TRIMUX_TSREG", trimux_tsreg);
         } else if (ci->type == id_DCCA) {
-            const NetInfo *cen = get_net_or_empty(ci, id_CE);
+            const NetInfo *cen = ci->getPort(id_CE);
             if (cen != nullptr) {
                 std::string belname = ctx->loc_info(bel)->bel_data[bel.index].name.get();
                 Loc loc = ctx->getBelLocation(bel);
@@ -1347,13 +1347,13 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             tg.config.add_enum("CLKOS_TRIM_DELAY", intstr_or_default(ci->params, id_CLKOS_TRIM_DELAY, "0"));
 
             tg.config.add_enum("OUTDIVIDER_MUXA", str_or_default(ci->params, id_OUTDIVIDER_MUXA,
-                                                                 get_net_or_empty(ci, id_CLKOP) ? "DIVA" : "REFCLK"));
+                                                                 ci->getPort(id_CLKOP) ? "DIVA" : "REFCLK"));
             tg.config.add_enum("OUTDIVIDER_MUXB", str_or_default(ci->params, id_OUTDIVIDER_MUXB,
-                                                                 get_net_or_empty(ci, id_CLKOP) ? "DIVB" : "REFCLK"));
+                                                                 ci->getPort(id_CLKOP) ? "DIVB" : "REFCLK"));
             tg.config.add_enum("OUTDIVIDER_MUXC", str_or_default(ci->params, id_OUTDIVIDER_MUXC,
-                                                                 get_net_or_empty(ci, id_CLKOP) ? "DIVC" : "REFCLK"));
+                                                                 ci->getPort(id_CLKOP) ? "DIVC" : "REFCLK"));
             tg.config.add_enum("OUTDIVIDER_MUXD", str_or_default(ci->params, id_OUTDIVIDER_MUXD,
-                                                                 get_net_or_empty(ci, id_CLKOP) ? "DIVD" : "REFCLK"));
+                                                                 ci->getPort(id_CLKOP) ? "DIVD" : "REFCLK"));
 
             tg.config.add_word("PLL_LOCK_MODE", int_to_bitvector(int_or_default(ci->params, id_PLL_LOCK_MODE, 0), 3));
 
@@ -1404,7 +1404,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 else
                     cc.tiles[pic_tile].add_enum(prim + "." + param.first.str(ctx), param.second.as_string());
             }
-            if (get_net_or_empty(ci, id_LOADN) != nullptr) {
+            if (ci->getPort(id_LOADN) != nullptr) {
                 cc.tiles[pic_tile].add_enum(prim + ".LOADNMUX", "LOADN");
             }
         } else if (ci->type == id_DCUA) {
@@ -1481,14 +1481,12 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 lo_del_value = (256 - lo_del_value) & 0xFF;
             tg.config.add_word("DQS.DQS_LI_DEL_VAL", int_to_bitvector(li_del_value, 8));
             tg.config.add_word("DQS.DQS_LO_DEL_VAL", int_to_bitvector(lo_del_value, 8));
-            tg.config.add_enum("DQS.WRLOADN_USED", get_net_or_empty(ci, id_WRLOADN) != nullptr ? "YES" : "NO");
-            tg.config.add_enum("DQS.RDLOADN_USED", get_net_or_empty(ci, id_RDLOADN) != nullptr ? "YES" : "NO");
-            tg.config.add_enum("DQS.PAUSE_USED", get_net_or_empty(ci, id_PAUSE) != nullptr ? "YES" : "NO");
+            tg.config.add_enum("DQS.WRLOADN_USED", ci->getPort(id_WRLOADN) != nullptr ? "YES" : "NO");
+            tg.config.add_enum("DQS.RDLOADN_USED", ci->getPort(id_RDLOADN) != nullptr ? "YES" : "NO");
+            tg.config.add_enum("DQS.PAUSE_USED", ci->getPort(id_PAUSE) != nullptr ? "YES" : "NO");
             tg.config.add_enum("DQS.READ_USED",
-                               (get_net_or_empty(ci, id_READ0) != nullptr || get_net_or_empty(ci, id_READ1) != nullptr)
-                                       ? "YES"
-                                       : "NO");
-            tg.config.add_enum("DQS.DDRDEL", get_net_or_empty(ci, id_DDRDEL) != nullptr ? "DDRDEL" : "0");
+                               (ci->getPort(id_READ0) != nullptr || ci->getPort(id_READ1) != nullptr) ? "YES" : "NO");
+            tg.config.add_enum("DQS.DDRDEL", ci->getPort(id_DDRDEL) != nullptr ? "DDRDEL" : "0");
             tg.config.add_enum("DQS.GSR", str_or_default(ci->params, id_GSR, "DISABLED"));
             cc.tilegroups.push_back(tg);
         } else if (ci->type == id_ECLKSYNCB) {
@@ -1496,14 +1494,14 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             bool r = loc.x > 5;
             std::string eclksync = ctx->loc_info(bel)->bel_data[bel.index].name.get();
             std::string tile = ctx->get_tile_by_type(std::string("ECLK_") + (r ? "R" : "L"));
-            if (get_net_or_empty(ci, id_STOP) != nullptr)
+            if (ci->getPort(id_STOP) != nullptr)
                 cc.tiles[tile].add_enum(eclksync + ".MODE", "ECLKSYNCB");
         } else if (ci->type == id_ECLKBRIDGECS) {
             Loc loc = ctx->getBelLocation(ci->bel);
             bool r = loc.x > 5;
             std::string eclkb = ctx->loc_info(bel)->bel_data[bel.index].name.get();
             std::string tile = ctx->get_tile_by_type(std::string("ECLK_") + (r ? "R" : "L"));
-            if (get_net_or_empty(ci, id_STOP) != nullptr)
+            if (ci->getPort(id_STOP) != nullptr)
                 cc.tiles[tile].add_enum(eclkb + ".MODE", "ECLKBRIDGECS");
         } else if (ci->type == id_DDRDLL) {
             Loc loc = ctx->getBelLocation(ci->bel);

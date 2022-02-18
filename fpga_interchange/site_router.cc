@@ -953,7 +953,7 @@ static void apply_constant_routing(Context *ctx, const SiteArch &site_arch, NetI
         new_cell->belStrength = STRENGTH_PLACER;
         ctx->tileStatus.at(inverting_bel.tile).boundcells[inverting_bel.index] = new_cell;
 
-        connect_port(ctx, net_before_inverter, new_cell, id_I);
+        new_cell->connectPort(id_I, net_before_inverter);
 
         // The original BEL pin is now routed, but only through the inverter.
         // Because the cell/net model doesn't allow for multiple source pins

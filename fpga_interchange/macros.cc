@@ -99,9 +99,9 @@ void Arch::expand_macros()
                     // TODO: case of multiple top level ports on the same net?
                     NPNR_ASSERT(net == nullptr);
                     // Use the corresponding pre-expansion port net
-                    net = get_net_or_empty(cell, IdString(net_port.port));
+                    net = cell->getPort(IdString(net_port.port));
                     // Disconnect the original port pre-expansion
-                    disconnect_port(ctx, cell, IdString(net_port.port));
+                    cell->disconnectPort(IdString(net_port.port));
                 }
                 // If not on a top level port, create a new net
                 if (net == nullptr)
@@ -115,7 +115,7 @@ void Arch::expand_macros()
                             ctx->cells.at(derived_name(ctx, cell->name, IdString(net_port.instance))).get();
                     inst_cell->ports[port_name].name = port_name;
                     inst_cell->ports[port_name].type = PortType(net_port.dir);
-                    connect_port(ctx, net, inst_cell, port_name);
+                    inst_cell->connectPort(port_name, net);
                 }
             }
 

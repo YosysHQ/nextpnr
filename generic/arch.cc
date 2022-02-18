@@ -721,7 +721,7 @@ void Arch::assignArchInfo()
         CellInfo *ci = cell.second.get();
         if (ci->type == id("GENERIC_SLICE")) {
             ci->is_slice = true;
-            ci->slice_clk = get_net_or_empty(ci, id("CLK"));
+            ci->slice_clk = ci->getPort(id("CLK"));
         } else {
             ci->is_slice = false;
         }

@@ -340,12 +340,12 @@ void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff)
     if (lc->hierpath == IdString())
         lc->hierpath = lut->hierpath;
     lc->params[id_LUT_INIT] = lut->params[id_LUT_INIT].extract(0, 16, Property::State::S0);
-    replace_port(lut, id_I0, lc, id_I0);
-    replace_port(lut, id_I1, lc, id_I1);
-    replace_port(lut, id_I2, lc, id_I2);
-    replace_port(lut, id_I3, lc, id_I3);
+    lut->movePortTo(id_I0, lc, id_I0);
+    lut->movePortTo(id_I1, lc, id_I1);
+    lut->movePortTo(id_I2, lc, id_I2);
+    lut->movePortTo(id_I3, lc, id_I3);
     if (no_dff) {
-        replace_port(lut, id_O, lc, id_O);
+        lut->movePortTo(id_O, lc, id_O);
         lc->params[id_DFF_ENABLE] = Property::State::S0;
     }
 }
@@ -357,7 +357,7 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
     lc->params[id_DFF_ENABLE] = Property::State::S1;
     std::string config = dff->type.str(ctx).substr(6);
     auto citer = config.begin();
-    replace_port(dff, id_C, lc, id_CLK);
+    dff->movePortTo(id_C, lc, id_CLK);
 
     if (citer != config.end() && *citer == 'N') {
         lc->params[id_NEG_CLK] = Property::State::S1;
@@ -367,7 +367,7 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
     }
 
     if (citer != config.end() && *citer == 'E') {
-        replace_port(dff, id_E, lc, id_CEN);
+        dff->movePortTo(id_E, lc, id_CEN);
         ++citer;
     }
 
@@ -382,12 +382,12 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
 
         if (*citer == 'S') {
             citer++;
-            replace_port(dff, id_S, lc, id_SR);
+            dff->movePortTo(id_S, lc, id_SR);
             lc->params[id_SET_NORESET] = Property::State::S1;
         } else {
             NPNR_ASSERT(*citer == 'R');
             citer++;
-            replace_port(dff, id_R, lc, id_SR);
+            dff->movePortTo(id_R, lc, id_SR);
             lc->params[id_SET_NORESET] = Property::State::S0;
         }
     }
@@ -396,10 +396,10 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
 
     if (pass_thru_lut) {
         lc->params[id_LUT_INIT] = Property(2, 16);
-        replace_port(dff, id_D, lc, id_I0);
+        dff->movePortTo(id_D, lc, id_I0);
     }
 
-    replace_port(dff, id_Q, lc, id_O);
+    dff->movePortTo(id_Q, lc, id_O);
 }
 
 void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio, pool<IdString> &todelete_cells)
@@ -409,13 +409,13 @@ void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio, pool<IdString> &to
         auto pu_attr = nxio->attrs.find(id_PULLUP);
         if (pu_attr != nxio->attrs.end())
             sbio->params[id_PULLUP] = pu_attr->second;
-        replace_port(nxio, id_O, sbio, id_D_IN_0);
+        nxio->movePortTo(id_O, sbio, id_D_IN_0);
     } else if (nxio->type == ctx->id("$nextpnr_obuf")) {
         sbio->params[id_PIN_TYPE] = 25;
-        replace_port(nxio, id_I, sbio, id_D_OUT_0);
+        nxio->movePortTo(id_I, sbio, id_D_OUT_0);
     } else if (nxio->type == ctx->id("$nextpnr_iobuf")) {
         // N.B. tristate will be dealt with below
-        NetInfo *i = get_net_or_empty(nxio, id_I);
+        NetInfo *i = nxio->getPort(id_I);
         if (i == nullptr || i->driver.cell == nullptr)
             sbio->params[id_PIN_TYPE] = 1;
         else
@@ -423,8 +423,8 @@ void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio, pool<IdString> &to
         auto pu_attr = nxio->attrs.find(id_PULLUP);
         if (pu_attr != nxio->attrs.end())
             sbio->params[id_PULLUP] = pu_attr->second;
-        replace_port(nxio, id_I, sbio, id_D_OUT_0);
-        replace_port(nxio, id_O, sbio, id_D_IN_0);
+        nxio->movePortTo(id_I, sbio, id_D_OUT_0);
+        nxio->movePortTo(id_O, sbio, id_D_IN_0);
     } else {
         NPNR_ASSERT(false);
     }
@@ -432,9 +432,11 @@ void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio, pool<IdString> &to
 
     // Rename I/O nets to avoid conflicts
     if (donet != nullptr && donet->name == nxio->name)
-        rename_net(ctx, donet, ctx->id(donet->name.str(ctx) + "$SB_IO_OUT"));
+        if (donet)
+            ctx->renameNet(donet->name, ctx->id(donet->name.str(ctx) + "$SB_IO_OUT"));
     if (dinet != nullptr && dinet->name == nxio->name)
-        rename_net(ctx, dinet, ctx->id(dinet->name.str(ctx) + "$SB_IO_IN"));
+        if (dinet)
+            ctx->renameNet(dinet->name, ctx->id(dinet->name.str(ctx) + "$SB_IO_IN"));
 
     if (ctx->nets.count(nxio->name)) {
         int i = 0;
@@ -442,7 +444,8 @@ void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio, pool<IdString> &to
         do {
             new_name = ctx->id(nxio->name.str(ctx) + "$rename$" + std::to_string(i++));
         } while (ctx->nets.count(new_name));
-        rename_net(ctx, ctx->nets.at(nxio->name).get(), new_name);
+        if (ctx->nets.at(nxio->name).get())
+            ctx->renameNet(ctx->nets.at(nxio->name).get()->name, new_name);
     }
 
     // Create a new top port net for accurate IO timing analysis and simulation netlists
@@ -451,7 +454,7 @@ void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio, pool<IdString> &to
         NPNR_ASSERT(!ctx->nets.count(tn_netname));
         ctx->net_aliases.erase(tn_netname);
         NetInfo *toplevel_net = ctx->createNet(tn_netname);
-        connect_port(ctx, toplevel_net, sbio, id_PACKAGE_PIN);
+        sbio->connectPort(id_PACKAGE_PIN, toplevel_net);
         ctx->ports[nxio->name].net = toplevel_net;
     }
 
@@ -460,8 +463,8 @@ void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio, pool<IdString> &to
             id_Y);
     if (tbuf) {
         sbio->params[id_PIN_TYPE] = 41;
-        replace_port(tbuf, id_A, sbio, id_D_OUT_0);
-        replace_port(tbuf, id_E, sbio, id_OUTPUT_ENABLE);
+        tbuf->movePortTo(id_A, sbio, id_D_OUT_0);
+        tbuf->movePortTo(id_E, sbio, id_OUTPUT_ENABLE);
 
         if (donet->users.size() > 1) {
             for (auto user : donet->users)

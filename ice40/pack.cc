@@ -227,8 +227,8 @@ static void pack_carries(Context *ctx)
                 ++carry_only;
             }
             carry_lc->params[id_CARRY_ENABLE] = Property::State::S1;
-            replace_port(ci, id_CI, carry_lc, id_CIN);
-            replace_port(ci, id_CO, carry_lc, id_COUT);
+            ci->movePortTo(id_CI, carry_lc, id_CIN);
+            ci->movePortTo(id_CO, carry_lc, id_COUT);
             if (i0_net) {
                 auto &i0_usrs = i0_net->users;
                 i0_usrs.erase(std::remove_if(i0_usrs.begin(), i0_usrs.end(), [ci, ctx](const PortRef &pr) {
@@ -300,7 +300,7 @@ static void pack_ram(Context *ctx)
                     newname = "RCLK";
                 else if (pi.name == id_WCLKN)
                     newname = "WCLK";
-                replace_port(ci, ctx->id(pi.name.c_str(ctx)), packed.get(), ctx->id(newname));
+                ci->movePortTo(ctx->id(pi.name.c_str(ctx)), packed.get(), ctx->id(newname));
             }
             new_cells.push_back(std::move(packed));
         }
@@ -442,7 +442,7 @@ static std::unique_ptr<CellInfo> create_padin_gbuf(Context *ctx, CellInfo *cell,
     gb->attrs[id_BEL] = ctx->getBelName(gb_bel).str(ctx);
 
     // Reconnect the net to that port for easier identification it's a global net
-    replace_port(cell, port_name, gb.get(), id_GLOBAL_BUFFER_OUTPUT);
+    cell->movePortTo(port_name, gb.get(), id_GLOBAL_BUFFER_OUTPUT);
 
     return gb;
 }
@@ -514,7 +514,7 @@ static void pack_io(Context *ctx)
             } else if (rgb != nullptr) {
                 log_info("%s use by SB_RGBA_DRV/SB_RGB_DRV %s, not creating SB_IO\n", ci->name.c_str(ctx),
                          rgb->name.c_str(ctx));
-                disconnect_port(ctx, ci, id_I);
+                ci->disconnectPort(id_I);
                 packed_cells.insert(ci->name);
                 continue;
             } else {
@@ -525,7 +525,7 @@ static void pack_io(Context *ctx)
                 sb = new_cells.back().get();
             }
             for (auto port : ci->ports)
-                disconnect_port(ctx, ci, port.first);
+                ci->disconnectPort(port.first);
             packed_cells.insert(ci->name);
             for (auto &attr : ci->attrs)
                 sb->attrs[attr.first] = attr.second;
@@ -1138,13 +1138,13 @@ static void pack_special(Context *ctx)
             std::unique_ptr<CellInfo> packed = create_ice_cell(ctx, id_ICESTORM_LFOSC, ci->name.str(ctx) + "_OSC");
             packed_cells.insert(ci->name);
             cell_place_unique(ctx, packed.get());
-            replace_port(ci, id_CLKLFEN, packed.get(), id_CLKLFEN);
-            replace_port(ci, id_CLKLFPU, packed.get(), id_CLKLFPU);
+            ci->movePortTo(id_CLKLFEN, packed.get(), id_CLKLFEN);
+            ci->movePortTo(id_CLKLFPU, packed.get(), id_CLKLFPU);
             if (bool_or_default(ci->attrs, id_ROUTE_THROUGH_FABRIC)) {
-                replace_port(ci, id_CLKLF, packed.get(), id_CLKLF_FABRIC);
+                ci->movePortTo(id_CLKLF, packed.get(), id_CLKLF_FABRIC);
                 set_period(ctx, packed.get(), id_CLKLF_FABRIC, 100000000); // 10kHz
             } else {
-                replace_port(ci, id_CLKLF, packed.get(), id_CLKLF);
+                ci->movePortTo(id_CLKLF, packed.get(), id_CLKLF);
                 std::unique_ptr<CellInfo> gb =
                         create_padin_gbuf(ctx, packed.get(), id_CLKLF, "$gbuf_" + ci->name.str(ctx) + "_lfosc");
                 set_period(ctx, gb.get(), id_GLOBAL_BUFFER_OUTPUT, 100000000); // 10kHz
@@ -1157,11 +1157,11 @@ static void pack_special(Context *ctx)
             cell_place_unique(ctx, packed.get());
             packed->params[id_TRIM_EN] = str_or_default(ci->params, id_TRIM_EN, "0b0");
             packed->params[id_CLKHF_DIV] = str_or_default(ci->params, id_CLKHF_DIV, "0b00");
-            replace_port(ci, id_CLKHFEN, packed.get(), id_CLKHFEN);
-            replace_port(ci, id_CLKHFPU, packed.get(), id_CLKHFPU);
+            ci->movePortTo(id_CLKHFEN, packed.get(), id_CLKHFEN);
+            ci->movePortTo(id_CLKHFPU, packed.get(), id_CLKHFPU);
             for (int i = 0; i < 10; i++) {
                 auto port = ctx->id("TRIM" + std::to_string(i));
-                replace_port(ci, port, packed.get(), port);
+                ci->movePortTo(port, packed.get(), port);
             }
             std::string div = packed->params[id_CLKHF_DIV].as_string();
             int frequency;
@@ -1176,10 +1176,10 @@ static void pack_special(Context *ctx)
             else
                 log_error("Invalid HFOSC divider value '%s' - expecting 0b00, 0b01, 0b10 or 0b11\n", div.c_str());
             if (bool_or_default(ci->attrs, id_ROUTE_THROUGH_FABRIC)) {
-                replace_port(ci, id_CLKHF, packed.get(), id_CLKHF_FABRIC);
+                ci->movePortTo(id_CLKHF, packed.get(), id_CLKHF_FABRIC);
                 set_period(ctx, packed.get(), id_CLKHF_FABRIC, 1000000 / frequency);
             } else {
-                replace_port(ci, id_CLKHF, packed.get(), id_CLKHF);
+                ci->movePortTo(id_CLKHF, packed.get(), id_CLKHF);
                 std::unique_ptr<CellInfo> gb =
                         create_padin_gbuf(ctx, packed.get(), id_CLKHF, "$gbuf_" + ci->name.str(ctx) + "_hfosc");
                 set_period(ctx, gb.get(), id_GLOBAL_BUFFER_OUTPUT, 1000000 / frequency);
@@ -1198,7 +1198,7 @@ static void pack_special(Context *ctx)
                 if (bpos != std::string::npos) {
                     newname = newname.substr(0, bpos) + "_" + newname.substr(bpos + 1, (newname.size() - bpos) - 2);
                 }
-                replace_port(ci, ctx->id(pi.name.c_str(ctx)), packed.get(), ctx->id(newname));
+                ci->movePortTo(ctx->id(pi.name.c_str(ctx)), packed.get(), ctx->id(newname));
             }
             new_cells.push_back(std::move(packed));
         } else if (is_sb_mac16(ctx, ci)) {
@@ -1216,7 +1216,7 @@ static void pack_special(Context *ctx)
                 if (bpos != std::string::npos) {
                     newname = newname.substr(0, bpos) + "_" + newname.substr(bpos + 1, (newname.size() - bpos) - 2);
                 }
-                replace_port(ci, ctx->id(pi.name.c_str(ctx)), packed.get(), ctx->id(newname));
+                ci->movePortTo(ctx->id(pi.name.c_str(ctx)), packed.get(), ctx->id(newname));
             }
             new_cells.push_back(std::move(packed));
         } else if (is_sb_rgba_drv(ctx, ci) || is_sb_rgb_drv(ctx, ci)) {
@@ -1410,7 +1410,7 @@ void pack_plls(Context *ctx)
                         }
                     }
                 }
-                replace_port(ci, ctx->id(pi.name.c_str(ctx)), packed.get(), ctx->id(newname));
+                ci->movePortTo(ctx->id(pi.name.c_str(ctx)), packed.get(), ctx->id(newname));
             }
 
             // Compute derive constraints

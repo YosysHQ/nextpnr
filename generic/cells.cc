@@ -66,19 +66,19 @@ void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff)
 
     for (int i = 0; i < lut_k; i++) {
         IdString port = ctx->id("I[" + std::to_string(i) + "]");
-        replace_port(lut, port, lc, port);
+        lut->movePortTo(port, lc, port);
     }
 
     if (no_dff) {
         lc->params[ctx->id("FF_USED")] = 0;
-        replace_port(lut, ctx->id("Q"), lc, ctx->id("F"));
+        lut->movePortTo(ctx->id("Q"), lc, ctx->id("F"));
     }
 }
 
 void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_lut)
 {
     lc->params[ctx->id("FF_USED")] = 1;
-    replace_port(dff, ctx->id("CLK"), lc, ctx->id("CLK"));
+    dff->movePortTo(ctx->id("CLK"), lc, ctx->id("CLK"));
 
     if (pass_thru_lut) {
         // Fill LUT with alternating 10
@@ -89,26 +89,26 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
             init.append("10");
         lc->params[ctx->id("INIT")] = Property::from_string(init);
 
-        replace_port(dff, ctx->id("D"), lc, ctx->id("I[0]"));
+        dff->movePortTo(ctx->id("D"), lc, ctx->id("I[0]"));
     }
 
-    replace_port(dff, ctx->id("Q"), lc, ctx->id("Q"));
+    dff->movePortTo(ctx->id("Q"), lc, ctx->id("Q"));
 }
 
 void nxio_to_iob(Context *ctx, CellInfo *nxio, CellInfo *iob, pool<IdString> &todelete_cells)
 {
     if (nxio->type == ctx->id("$nextpnr_ibuf")) {
         iob->params[ctx->id("INPUT_USED")] = 1;
-        replace_port(nxio, ctx->id("O"), iob, ctx->id("O"));
+        nxio->movePortTo(ctx->id("O"), iob, ctx->id("O"));
     } else if (nxio->type == ctx->id("$nextpnr_obuf")) {
         iob->params[ctx->id("OUTPUT_USED")] = 1;
-        replace_port(nxio, ctx->id("I"), iob, ctx->id("I"));
+        nxio->movePortTo(ctx->id("I"), iob, ctx->id("I"));
     } else if (nxio->type == ctx->id("$nextpnr_iobuf")) {
         // N.B. tristate will be dealt with below
         iob->params[ctx->id("INPUT_USED")] = 1;
         iob->params[ctx->id("OUTPUT_USED")] = 1;
-        replace_port(nxio, ctx->id("I"), iob, ctx->id("I"));
-        replace_port(nxio, ctx->id("O"), iob, ctx->id("O"));
+        nxio->movePortTo(ctx->id("I"), iob, ctx->id("I"));
+        nxio->movePortTo(ctx->id("O"), iob, ctx->id("O"));
     } else {
         NPNR_ASSERT(false);
     }
@@ -118,8 +118,8 @@ void nxio_to_iob(Context *ctx, CellInfo *nxio, CellInfo *iob, pool<IdString> &to
             ctx->id("Y"));
     if (tbuf) {
         iob->params[ctx->id("ENABLE_USED")] = 1;
-        replace_port(tbuf, ctx->id("A"), iob, ctx->id("I"));
-        replace_port(tbuf, ctx->id("E"), iob, ctx->id("EN"));
+        tbuf->movePortTo(ctx->id("A"), iob, ctx->id("I"));
+        tbuf->movePortTo(ctx->id("E"), iob, ctx->id("EN"));
 
         if (donet->users.size() > 1) {
             for (auto user : donet->users)

@@ -124,10 +124,10 @@ void Arch::permute_luts()
         for (int i = 0; i < 4; i++) {
             IdString p = port_names.at(i);
             // log_info("%s %s %f\n", p.c_str(ctx), port_names.at(inputs.at(i).second).c_str(ctx), inputs.at(i).first);
-            disconnect_port(getCtx(), ci, p);
+            ci->disconnectPort(p);
             ci->ports.at(p).net = nullptr;
             if (orig_nets.at(inputs.at(i).second) != nullptr) {
-                connect_port(getCtx(), orig_nets.at(inputs.at(i).second), ci, p);
+                ci->connectPort(p, orig_nets.at(inputs.at(i).second));
                 ci->params[id(p.str(this) + "MUX")] = p.str(this);
             } else {
                 ci->params[id(p.str(this) + "MUX")] = std::string("1");

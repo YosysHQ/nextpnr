@@ -112,7 +112,7 @@ class Ecp5Packer
                 if (znet != nullptr) {
                     CellInfo *ff = net_only_drives(ctx, znet, is_ff, id_DI, false);
                     // Can't combine preload FF with LUT due to conflict on M
-                    if (ff != nullptr && get_net_or_empty(ff, id_M) == nullptr) {
+                    if (ff != nullptr && ff->getPort(id_M) == nullptr) {
                         lutffPairs[ci->name] = ff->name;
                         fflutPairs[ff->name] = ci->name;
                     }
@@ -124,9 +124,9 @@ class Ecp5Packer
     // Check if a flipflop is available in a slice
     bool is_ff_available(CellInfo *slice, int ff)
     {
-        if (get_net_or_empty(slice, (ff == 1) ? id_Q1 : id_Q0) != nullptr)
+        if (slice->getPort((ff == 1) ? id_Q1 : id_Q0) != nullptr)
             return false;
-        if (get_net_or_empty(slice, (ff == 1) ? id_M1 : id_M0) != nullptr)
+        if (slice->getPort((ff == 1) ? id_M1 : id_M0) != nullptr)
             return false;
         return true;
     }
@@ -146,8 +146,8 @@ class Ecp5Packer
             if (wremux != lsrmux && !(wremux == "WRE" && lsrmux == "LSR"))
                 return false;
         }
-        bool has_ff0 = get_net_or_empty(slice, id_Q0) != nullptr;
-        bool has_ff1 = get_net_or_empty(slice, id_Q1) != nullptr;
+        bool has_ff0 = slice->getPort(id_Q0) != nullptr;
+        bool has_ff1 = slice->getPort(id_Q1) != nullptr;
         if (!has_ff0 && !has_ff1)
             return true;
         if (str_or_default(ff->params, id_GSR, "DISABLED") != str_or_default(slice->params, id_GSR, "DISABLED"))
@@ -224,7 +224,7 @@ class Ecp5Packer
     // Return true if a FF can be added to a DPRAM slice
     bool can_pack_ff_dram(CellInfo *dpram, CellInfo *ff)
     {
-        if (get_net_or_empty(ff, id_M) != nullptr)
+        if (ff->getPort(id_M) != nullptr)
             return false; // skip PRLD FFs due to M/DI conflict
         std::string wckmux = str_or_default(dpram->params, id_WCKMUX, "WCK");
         std::string clkmux = str_or_default(ff->params, id_CLKMUX, "CLK");
@@ -452,7 +452,7 @@ class Ecp5Packer
                     // No IO buffer insertion in out-of-context mode, just remove the nextpnr buffer
                     // and leave the top level port
                     for (auto &port : ci->ports)
-                        disconnect_port(ctx, ci, port.first);
+                        ci->disconnectPort(port.first);
                 } else if (trio != nullptr) {
                     // Trivial case, TRELLIS_IO used. Just remove the IOBUF
                     log_info("%s feeds TRELLIS_IO %s, removing %s %s.\n", ci->name.c_str(ctx), trio->name.c_str(ctx),
@@ -498,7 +498,7 @@ class Ecp5Packer
                     trio = new_cells.back().get();
                 }
                 for (auto port : ci->ports)
-                    disconnect_port(ctx, ci, port.first);
+                    ci->disconnectPort(port.first);
                 packed_cells.insert(ci->name);
                 if (trio != nullptr) {
                     for (const auto &attr : ci->attrs)
@@ -546,16 +546,16 @@ class Ecp5Packer
                     log_error("PFUMX '%s' has ALUT driven by cell other than a LUT\n", ci->name.c_str(ctx));
                 if (ctx->verbose)
                     log_info("   mux '%s' forms part of a LUT5\n", cell.first.c_str(ctx));
-                replace_port(lut0, id_A, packed.get(), id_A0);
-                replace_port(lut0, id_B, packed.get(), id_B0);
-                replace_port(lut0, id_C, packed.get(), id_C0);
-                replace_port(lut0, id_D, packed.get(), id_D0);
-                replace_port(lut1, id_A, packed.get(), id_A1);
-                replace_port(lut1, id_B, packed.get(), id_B1);
-                replace_port(lut1, id_C, packed.get(), id_C1);
-                replace_port(lut1, id_D, packed.get(), id_D1);
-                replace_port(ci, id_C0, packed.get(), id_M0);
-                replace_port(ci, id_Z, packed.get(), id_OFX0);
+                lut0->movePortTo(id_A, packed.get(), id_A0);
+                lut0->movePortTo(id_B, packed.get(), id_B0);
+                lut0->movePortTo(id_C, packed.get(), id_C0);
+                lut0->movePortTo(id_D, packed.get(), id_D0);
+                lut1->movePortTo(id_A, packed.get(), id_A1);
+                lut1->movePortTo(id_B, packed.get(), id_B1);
+                lut1->movePortTo(id_C, packed.get(), id_C1);
+                lut1->movePortTo(id_D, packed.get(), id_D1);
+                ci->movePortTo(id_C0, packed.get(), id_M0);
+                ci->movePortTo(id_Z, packed.get(), id_OFX0);
                 packed->params[id_LUT0_INITVAL] = get_or_default(lut0->params, id_INIT, Property(0, 16));
                 packed->params[id_LUT1_INITVAL] = get_or_default(lut1->params, id_INIT, Property(0, 16));
 
@@ -611,10 +611,10 @@ class Ecp5Packer
                 }
                 if (ctx->verbose)
                     log_info("   mux '%s' forms part of a LUT6\n", cell.first.c_str(ctx));
-                replace_port(ci, id_D0, slice1, id_FXA);
-                replace_port(ci, id_D1, slice1, id_FXB);
-                replace_port(ci, id_SD, slice1, id_M1);
-                replace_port(ci, id_Z, slice1, id_OFX1);
+                ci->movePortTo(id_D0, slice1, id_FXA);
+                ci->movePortTo(id_D1, slice1, id_FXB);
+                ci->movePortTo(id_SD, slice1, id_M1);
+                ci->movePortTo(id_Z, slice1, id_OFX1);
                 slice0->constr_z = 1;
                 slice0->constr_x = 0;
                 slice0->constr_y = 0;
@@ -676,10 +676,10 @@ class Ecp5Packer
                               slice3->name.c_str(ctx), fxa_1->driver.cell->name.c_str(ctx),
                               fxa_1->driver.port.c_str(ctx));
 
-                replace_port(ci, id_D0, slice2, id_FXA);
-                replace_port(ci, id_D1, slice2, id_FXB);
-                replace_port(ci, id_SD, slice2, id_M1);
-                replace_port(ci, id_Z, slice2, id_OFX1);
+                ci->movePortTo(id_D0, slice2, id_FXA);
+                ci->movePortTo(id_D1, slice2, id_FXB);
+                ci->movePortTo(id_SD, slice2, id_M1);
+                ci->movePortTo(id_Z, slice2, id_OFX1);
 
                 for (auto slice : {slice0, slice1, slice2, slice3}) {
                     slice->constr_children.clear();
@@ -747,12 +747,12 @@ class Ecp5Packer
                                               return user.port == chain_in.port && user.cell == chain_in.cell;
                                           }),
                            carry->users.end());
-        connect_port(ctx, carry, feedin.get(), id_A0);
+        feedin->connectPort(id_A0, carry);
 
         NetInfo *new_carry = ctx->createNet(ctx->id(feedin->name.str(ctx) + "$COUT"));
-        connect_port(ctx, new_carry, feedin.get(), id_COUT);
+        feedin->connectPort(id_COUT, new_carry);
         chain_in.cell->ports[chain_in.port].net = nullptr;
-        connect_port(ctx, new_carry, chain_in.cell, chain_in.port);
+        chain_in.cell->connectPort(chain_in.port, new_carry);
 
         CellInfo *feedin_ptr = feedin.get();
         IdString feedin_name = feedin->name;
@@ -772,16 +772,16 @@ class Ecp5Packer
 
         PortRef carry_drv = carry->driver;
         carry->driver.cell = nullptr;
-        connect_port(ctx, carry, feedout.get(), id_S0);
+        feedout->connectPort(id_S0, carry);
 
         NetInfo *new_cin = ctx->createNet(ctx->id(feedout->name.str(ctx) + "$CIN"));
         new_cin->driver = carry_drv;
         carry_drv.cell->ports.at(carry_drv.port).net = new_cin;
-        connect_port(ctx, new_cin, feedout.get(), id_CIN);
+        feedout->connectPort(id_CIN, new_cin);
 
         if (chain_next) {
             // Loop back into LUT4_1 for feedthrough
-            connect_port(ctx, carry, feedout.get(), id_A1);
+            feedout->connectPort(id_A1, carry);
 
             carry->users.erase(std::remove_if(carry->users.begin(), carry->users.end(),
                                               [chain_next](const PortRef &user) {
@@ -790,10 +790,10 @@ class Ecp5Packer
                                carry->users.end());
 
             NetInfo *new_cout = ctx->createNet(ctx->id(feedout->name.str(ctx) + "$COUT"));
-            connect_port(ctx, new_cout, feedout.get(), id_COUT);
+            feedout->connectPort(id_COUT, new_cout);
 
             chain_next->cell->ports[chain_next->port].net = nullptr;
-            connect_port(ctx, new_cout, chain_next->cell, chain_next->port);
+            chain_next->cell->connectPort(chain_next->port, new_cout);
         }
 
         CellInfo *feedout_ptr = feedout.get();
@@ -970,13 +970,13 @@ class Ecp5Packer
                 dram_to_ram_slice(ctx, ci, ram1_slice.get(), ramw_slice.get(), 1);
 
                 // Disconnect ports of original cell after packing
-                disconnect_port(ctx, ci, id_WCK);
-                disconnect_port(ctx, ci, id_WRE);
+                ci->disconnectPort(id_WCK);
+                ci->disconnectPort(id_WRE);
 
-                disconnect_port(ctx, ci, ctx->id("RAD[0]"));
-                disconnect_port(ctx, ci, ctx->id("RAD[1]"));
-                disconnect_port(ctx, ci, ctx->id("RAD[2]"));
-                disconnect_port(ctx, ci, ctx->id("RAD[3]"));
+                ci->disconnectPort(ctx->id("RAD[0]"));
+                ci->disconnectPort(ctx->id("RAD[1]"));
+                ci->disconnectPort(ctx->id("RAD[2]"));
+                ci->disconnectPort(ctx->id("RAD[3]"));
 
                 // Attempt to pack FFs into RAM slices
                 std::vector<std::tuple<CellInfo *, CellInfo *, int>> ff_packing;
@@ -1159,7 +1159,7 @@ class Ecp5Packer
             CellInfo *ci = cell.second.get();
             if (is_ff(ctx, ci)) {
                 bool pack_dense = used_slices > (dense_pack_mode_thresh * available_slices);
-                bool requires_m = get_net_or_empty(ci, id_M) != nullptr;
+                bool requires_m = ci->getPort(id_M) != nullptr;
                 if (pack_dense && !requires_m) {
                     // If dense packing threshold exceeded; always try and pack the FF into an existing slice
                     // Find a SLICE with space "near" the flipflop in the netlist
@@ -1421,8 +1421,8 @@ class Ecp5Packer
         auto rename_bus = [&](CellInfo *c, const std::string &oldname, const std::string &newname, int width,
                               int oldoffset, int newoffset) {
             for (int i = 0; i < width; i++)
-                rename_port(ctx, c, ctx->id(oldname + std::to_string(i + oldoffset)),
-                            ctx->id(newname + std::to_string(i + newoffset)));
+                c->renamePort(ctx->id(oldname + std::to_string(i + oldoffset)),
+                              ctx->id(newname + std::to_string(i + newoffset)));
         };
         auto rename_param = [&](CellInfo *c, const std::string &oldname, const std::string &newname) {
             IdString o = ctx->id(oldname), n = ctx->id(newname);
@@ -1446,11 +1446,11 @@ class Ecp5Packer
                 rename_bus(ci, "DI", "DIB", 18, 18, 0);
                 rename_bus(ci, "DO", "DOA", 18, 18, 0);
                 rename_bus(ci, "DO", "DOB", 18, 0, 0);
-                rename_port(ctx, ci, id_CLKW, id_CLKA);
-                rename_port(ctx, ci, id_CLKR, id_CLKB);
-                rename_port(ctx, ci, id_CEW, id_CEA);
-                rename_port(ctx, ci, id_CER, id_CEB);
-                rename_port(ctx, ci, id_OCER, id_OCEB);
+                ci->renamePort(id_CLKW, id_CLKA);
+                ci->renamePort(id_CLKR, id_CLKB);
+                ci->renamePort(id_CEW, id_CEA);
+                ci->renamePort(id_CER, id_CEB);
+                ci->renamePort(id_OCER, id_OCEB);
                 rename_param(ci, "CLKWMUX", "CLKAMUX");
                 if (str_or_default(ci->params, id_CLKAMUX) == "CLKW")
                     ci->params[id_CLKAMUX] = std::string("CLKA");
@@ -1468,9 +1468,9 @@ class Ecp5Packer
                     autocreate_empty_port(ci, id_RSTA);
                     autocreate_empty_port(ci, id_RSTB);
                     NetInfo *rst = ci->ports.at(id_RST).net;
-                    connect_port(ctx, rst, ci, id_RSTA);
-                    connect_port(ctx, rst, ci, id_RSTB);
-                    disconnect_port(ctx, ci, id_RST);
+                    ci->connectPort(id_RSTA, rst);
+                    ci->connectPort(id_RSTB, rst);
+                    ci->disconnectPort(id_RST);
                     ci->ports.erase(id_RST);
                 }
                 ci->type = id_DP16KD;
@@ -1721,12 +1721,12 @@ class Ecp5Packer
                 // Disconnect these ports if connected to constant to prevent routing failure
                 for (auto ndport : {id_D_TXBIT_CLKP_FROM_ND, id_D_TXBIT_CLKN_FROM_ND, id_D_SYNC_ND,
                                     id_D_TXPLL_LOL_FROM_ND, id_CH0_HDINN, id_CH0_HDINP, id_CH1_HDINN, id_CH1_HDINP}) {
-                    const NetInfo *net = get_net_or_empty(ci, ndport);
+                    const NetInfo *net = ci->getPort(ndport);
                     if (net == nullptr || net->driver.cell == nullptr)
                         continue;
                     IdString ct = net->driver.cell->type;
                     if (ct == id_GND || ct == id_VCC) {
-                        disconnect_port(ctx, ci, ndport);
+                        ci->disconnectPort(ndport);
                         ci->ports.erase(ndport);
                     }
                 }
@@ -1814,9 +1814,9 @@ class Ecp5Packer
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
             if (ci->type == id_USRMCLK) {
-                rename_port(ctx, ci, id_USRMCLKI, id_PADDO);
-                rename_port(ctx, ci, id_USRMCLKTS, id_PADDT);
-                rename_port(ctx, ci, id_USRMCLKO, id_PADDI);
+                ci->renamePort(id_USRMCLKI, id_PADDO);
+                ci->renamePort(id_USRMCLKTS, id_PADDT);
+                ci->renamePort(id_USRMCLKO, id_PADDI);
             } else if (ci->type == id_GSR || ci->type == id_SGSR) {
                 ci->params[id_MODE] = std::string("ACTIVE_LOW");
                 ci->params[id_SYNCMODE] = ci->type == id_SGSR ? std::string("SYNC") : std::string("ASYNC");
@@ -1959,8 +1959,8 @@ class Ecp5Packer
 
                 eclkbuf->attrs[id_BEL] = ctx->getBelName(target_bel).str(ctx);
 
-                connect_port(ctx, ecknet, eclkbuf.get(), id_ECLKI);
-                connect_port(ctx, eclk.buf, eclkbuf.get(), id_ECLKO);
+                eclkbuf->connectPort(id_ECLKI, ecknet);
+                eclkbuf->connectPort(id_ECLKO, eclk.buf);
                 found_eclk = free_eclk;
                 eclk.buffer = eclkbuf.get();
                 new_cells.push_back(std::move(eclkbuf));
@@ -1968,9 +1968,9 @@ class Ecp5Packer
         }
 
         auto &eclk = eclks[std::make_pair(bank, found_eclk)];
-        disconnect_port(ctx, usr_cell, usr_port.name);
+        usr_cell->disconnectPort(usr_port.name);
         usr_port.net = nullptr;
-        connect_port(ctx, eclk.buf, usr_cell, usr_port.name);
+        usr_cell->connectPort(usr_port.name, eclk.buf);
 
         // Simple ECLK router
         WireId userWire = ctx->getBelPinWire(usr_bel, usr_port.name);
@@ -2024,8 +2024,8 @@ class Ecp5Packer
         auto zero_cell = std::make_unique<CellInfo>(ctx, name, id_GND);
         NetInfo *zero_net = ctx->createNet(name);
         zero_cell->addOutput(id_GND);
-        connect_port(ctx, zero_net, zero_cell.get(), id_GND);
-        connect_port(ctx, zero_net, ci, port);
+        zero_cell->connectPort(id_GND, zero_net);
+        ci->connectPort(port, zero_net);
         new_cells.push_back(std::move(zero_cell));
     }
 
@@ -2136,11 +2136,11 @@ class Ecp5Packer
                         log_error("IOLOGIC '%s' has conflicting clocks '%s' and '%s'\n", iol->name.c_str(ctx),
                                   iol->ports[id_CLK].net->name.c_str(ctx), sclk->name.c_str(ctx));
                 } else {
-                    connect_port(ctx, sclk, iol, id_CLK);
+                    iol->connectPort(id_CLK, sclk);
                 }
             }
             if (prim->ports.count(port) && disconnect)
-                disconnect_port(ctx, prim, port);
+                prim->disconnectPort(port);
         };
 
         auto set_iologic_eclk = [&](CellInfo *iol, CellInfo *prim, IdString port) {
@@ -2155,10 +2155,10 @@ class Ecp5Packer
                     log_error("IOLOGIC '%s' has conflicting ECLKs '%s' and '%s'\n", iol->name.c_str(ctx),
                               iol->ports[id_ECLK].net->name.c_str(ctx), eclk->name.c_str(ctx));
             } else {
-                connect_port(ctx, eclk, iol, id_ECLK);
+                iol->connectPort(id_ECLK, eclk);
             }
             if (prim->ports.count(port))
-                disconnect_port(ctx, prim, port);
+                prim->disconnectPort(port);
         };
 
         auto set_iologic_lsr = [&](CellInfo *iol, CellInfo *prim, IdString port, bool input, bool disconnect = true) {
@@ -2174,11 +2174,11 @@ class Ecp5Packer
                         log_error("IOLOGIC '%s' has conflicting LSR signals '%s' and '%s'\n", iol->name.c_str(ctx),
                                   iol->ports[id_LSR].net->name.c_str(ctx), lsr->name.c_str(ctx));
                 } else if (iol->ports[id_LSR].net == nullptr) {
-                    connect_port(ctx, lsr, iol, id_LSR);
+                    iol->connectPort(id_LSR, lsr);
                 }
             }
             if (prim->ports.count(port) && disconnect)
-                disconnect_port(ctx, prim, port);
+                prim->disconnectPort(port);
         };
 
         bool warned_oddrx_iddrx = false;
@@ -2245,7 +2245,7 @@ class Ecp5Packer
                     log_error("IOLOGIC '%s' has conflicting %s signals '%s' and '%s'\n", iol->name.c_str(ctx),
                               port.c_str(ctx), iol->ports[port].net->name.c_str(ctx), sig->name.c_str(ctx));
                 }
-                disconnect_port(ctx, prim, port);
+                prim->disconnectPort(port);
             } else {
                 bool dqsr;
                 int dqsgroup;
@@ -2263,7 +2263,7 @@ class Ecp5Packer
                               "%cDQ%d\n",
                               port.c_str(ctx), prim->name.c_str(ctx), dqsr ? 'R' : 'L', dqsgroup,
                               sig->driver.cell->name.c_str(ctx), driver_group.first ? 'R' : 'L', driver_group.second);
-                replace_port(prim, port, iol, port);
+                prim->movePortTo(port, iol, port);
             }
         };
 
@@ -2284,18 +2284,18 @@ class Ecp5Packer
                     if (drives_iologic) {
                         // Reconnect to PIO which the packer expects later on
                         NetInfo *input_net = ci->ports.at(id_A).net, *dly_net = ci->ports.at(id_Z).net;
-                        disconnect_port(ctx, i_pio, id_O);
+                        i_pio->disconnectPort(id_O);
                         i_pio->ports.at(id_O).net = nullptr;
-                        disconnect_port(ctx, ci, id_A);
+                        ci->disconnectPort(id_A);
                         ci->ports.at(id_A).net = nullptr;
-                        disconnect_port(ctx, ci, id_Z);
+                        ci->disconnectPort(id_Z);
                         ci->ports.at(id_Z).net = nullptr;
-                        connect_port(ctx, dly_net, i_pio, id_O);
-                        connect_port(ctx, input_net, iol, id_INDD);
-                        connect_port(ctx, input_net, iol, id_DI);
+                        i_pio->connectPort(id_O, dly_net);
+                        iol->connectPort(id_INDD, input_net);
+                        iol->connectPort(id_DI, input_net);
                     } else {
-                        replace_port(ci, id_A, iol, id_PADDI);
-                        replace_port(ci, id_Z, iol, id_INDD);
+                        ci->movePortTo(id_A, iol, id_PADDI);
+                        ci->movePortTo(id_Z, iol, id_INDD);
                     }
                     packed_cells.insert(cell.first);
                 } else if (o_pio != nullptr) {
@@ -2307,22 +2307,22 @@ class Ecp5Packer
                         input_net->driver.port == id_Q)
                         driven_by_iol = true;
                     if (driven_by_iol) {
-                        disconnect_port(ctx, o_pio, id_I);
+                        o_pio->disconnectPort(id_I);
                         o_pio->ports.at(id_I).net = nullptr;
-                        disconnect_port(ctx, ci, id_A);
+                        ci->disconnectPort(id_A);
                         ci->ports.at(id_A).net = nullptr;
-                        disconnect_port(ctx, ci, id_Z);
+                        ci->disconnectPort(id_Z);
                         ci->ports.at(id_Z).net = nullptr;
-                        connect_port(ctx, input_net, o_pio, id_I);
+                        o_pio->connectPort(id_I, input_net);
                         ctx->nets.erase(dly_net->name);
                     } else {
-                        replace_port(ci, id_A, iol, id_TXDATA0);
-                        replace_port(ci, id_Z, iol, id_IOLDO);
+                        ci->movePortTo(id_A, iol, id_TXDATA0);
+                        ci->movePortTo(id_Z, iol, id_IOLDO);
                         if (!o_pio->ports.count(id_IOLDO)) {
                             o_pio->ports[id_IOLDO].name = id_IOLDO;
                             o_pio->ports[id_IOLDO].type = PORT_IN;
                         }
-                        replace_port(o_pio, id_I, o_pio, id_IOLDO);
+                        o_pio->movePortTo(id_I, o_pio, id_IOLDO);
                     }
                     packed_cells.insert(cell.first);
                 } else {
@@ -2336,19 +2336,19 @@ class Ecp5Packer
                      std::string(ci->params.at(id_DEL_VALUE).as_string()).substr(0, 5) != "DELAY"))
                     iol->params[ctx->id("DELAY.DEL_VALUE")] = ci->params.at(id_DEL_VALUE);
                 if (ci->ports.count(id_LOADN))
-                    replace_port(ci, id_LOADN, iol, id_LOADN);
+                    ci->movePortTo(id_LOADN, iol, id_LOADN);
                 else
                     tie_zero(iol, id_LOADN);
                 if (ci->ports.count(id_MOVE))
-                    replace_port(ci, id_MOVE, iol, id_MOVE);
+                    ci->movePortTo(id_MOVE, iol, id_MOVE);
                 else
                     tie_zero(iol, id_MOVE);
                 if (ci->ports.count(id_DIRECTION))
-                    replace_port(ci, id_DIRECTION, iol, id_DIRECTION);
+                    ci->movePortTo(id_DIRECTION, iol, id_DIRECTION);
                 else
                     tie_zero(iol, id_DIRECTION);
                 if (ci->ports.count(id_CFLAG))
-                    replace_port(ci, id_CFLAG, iol, id_CFLAG);
+                    ci->movePortTo(id_CFLAG, iol, id_CFLAG);
             }
         }
 
@@ -2365,11 +2365,11 @@ class Ecp5Packer
                 else
                     iol = create_pio_iologic(pio, ci);
                 set_iologic_mode(iol, "IDDRX1_ODDRX1");
-                replace_port(ci, id_D, iol, id_PADDI);
+                ci->movePortTo(id_D, iol, id_PADDI);
                 set_iologic_sclk(iol, ci, id_SCLK, true);
                 set_iologic_lsr(iol, ci, id_RST, true);
-                replace_port(ci, id_Q0, iol, id_RXDATA0);
-                replace_port(ci, id_Q1, iol, id_RXDATA1);
+                ci->movePortTo(id_Q0, iol, id_RXDATA0);
+                ci->movePortTo(id_Q1, iol, id_RXDATA1);
                 iol->params[id_GSR] = str_or_default(ci->params, id_GSR, "DISABLED");
                 packed_cells.insert(cell.first);
             } else if (ci->type == id_ODDRX1F) {
@@ -2383,17 +2383,17 @@ class Ecp5Packer
                 else
                     iol = create_pio_iologic(pio, ci);
                 set_iologic_mode(iol, "IDDRX1_ODDRX1");
-                replace_port(ci, id_Q, iol, id_IOLDO);
+                ci->movePortTo(id_Q, iol, id_IOLDO);
                 if (!pio->ports.count(id_IOLDO)) {
                     pio->ports[id_IOLDO].name = id_IOLDO;
                     pio->ports[id_IOLDO].type = PORT_IN;
                 }
-                replace_port(pio, id_I, pio, id_IOLDO);
+                pio->movePortTo(id_I, pio, id_IOLDO);
                 pio->params[id_DATAMUX_ODDR] = std::string("IOLDO");
                 set_iologic_sclk(iol, ci, id_SCLK, false);
                 set_iologic_lsr(iol, ci, id_RST, false);
-                replace_port(ci, id_D0, iol, id_TXDATA0);
-                replace_port(ci, id_D1, iol, id_TXDATA1);
+                ci->movePortTo(id_D0, iol, id_TXDATA0);
+                ci->movePortTo(id_D1, iol, id_TXDATA1);
                 iol->params[id_GSR] = str_or_default(ci->params, id_GSR, "DISABLED");
                 packed_cells.insert(cell.first);
             } else if (ci->type == id_ODDRX2F || ci->type == id_ODDR71B) {
@@ -2407,28 +2407,28 @@ class Ecp5Packer
                 else
                     iol = create_pio_iologic(pio, ci);
                 set_iologic_mode(iol, "ODDRXN");
-                replace_port(ci, id_Q, iol, id_IOLDO);
+                ci->movePortTo(id_Q, iol, id_IOLDO);
                 if (!pio->ports.count(id_IOLDO)) {
                     pio->ports[id_IOLDO].name = id_IOLDO;
                     pio->ports[id_IOLDO].type = PORT_IN;
                 }
-                replace_port(pio, id_I, pio, id_IOLDO);
+                pio->movePortTo(id_I, pio, id_IOLDO);
                 set_iologic_sclk(iol, ci, id_SCLK, false, false);
                 set_iologic_sclk(iol, ci, id_SCLK, true);
                 set_iologic_eclk(iol, ci, id_ECLK);
                 set_iologic_lsr(iol, ci, id_RST, false, false);
                 set_iologic_lsr(iol, ci, id_RST, true);
-                replace_port(ci, id_D0, iol, id_TXDATA0);
-                replace_port(ci, id_D1, iol, id_TXDATA1);
-                replace_port(ci, id_D2, iol, id_TXDATA2);
-                replace_port(ci, id_D3, iol, id_TXDATA3);
+                ci->movePortTo(id_D0, iol, id_TXDATA0);
+                ci->movePortTo(id_D1, iol, id_TXDATA1);
+                ci->movePortTo(id_D2, iol, id_TXDATA2);
+                ci->movePortTo(id_D3, iol, id_TXDATA3);
                 if (ci->type == id_ODDR71B) {
                     Loc loc = ctx->getBelLocation(ctx->getBelByNameStr(pio->attrs.at(id_BEL).as_string()));
                     if (loc.z % 2 == 1)
                         log_error("ODDR71B '%s' can only be used at 'A' or 'C' locations\n", ci->name.c_str(ctx));
-                    replace_port(ci, id_D4, iol, id_TXDATA4);
-                    replace_port(ci, id_D5, iol, id_TXDATA5);
-                    replace_port(ci, id_D6, iol, id_TXDATA6);
+                    ci->movePortTo(id_D4, iol, id_TXDATA4);
+                    ci->movePortTo(id_D5, iol, id_TXDATA5);
+                    ci->movePortTo(id_D6, iol, id_TXDATA6);
                     iol->params[ctx->id("ODDRXN.MODE")] = std::string("ODDR71");
                 } else {
                     iol->params[ctx->id("ODDRXN.MODE")] = std::string("ODDRX2");
@@ -2447,22 +2447,22 @@ class Ecp5Packer
                 else
                     iol = create_pio_iologic(pio, ci);
                 set_iologic_mode(iol, "IDDRXN");
-                replace_port(ci, id_D, iol, id_PADDI);
+                ci->movePortTo(id_D, iol, id_PADDI);
                 set_iologic_sclk(iol, ci, id_SCLK, true);
                 set_iologic_eclk(iol, ci, id_ECLK);
                 set_iologic_lsr(iol, ci, id_RST, true);
-                replace_port(ci, id_Q0, iol, id_RXDATA0);
-                replace_port(ci, id_Q1, iol, id_RXDATA1);
-                replace_port(ci, id_Q2, iol, id_RXDATA2);
-                replace_port(ci, id_Q3, iol, id_RXDATA3);
+                ci->movePortTo(id_Q0, iol, id_RXDATA0);
+                ci->movePortTo(id_Q1, iol, id_RXDATA1);
+                ci->movePortTo(id_Q2, iol, id_RXDATA2);
+                ci->movePortTo(id_Q3, iol, id_RXDATA3);
                 if (ci->type == id_IDDR71B) {
                     Loc loc = ctx->getBelLocation(ctx->getBelByNameStr(pio->attrs.at(id_BEL).as_string()));
                     if (loc.z % 2 == 1)
                         log_error("IDDR71B '%s' can only be used at 'A' or 'C' locations\n", ci->name.c_str(ctx));
-                    replace_port(ci, id_Q4, iol, id_RXDATA4);
-                    replace_port(ci, id_Q5, iol, id_RXDATA5);
-                    replace_port(ci, id_Q6, iol, id_RXDATA6);
-                    replace_port(ci, id_ALIGNWD, iol, id_SLIP);
+                    ci->movePortTo(id_Q4, iol, id_RXDATA4);
+                    ci->movePortTo(id_Q5, iol, id_RXDATA5);
+                    ci->movePortTo(id_Q6, iol, id_RXDATA6);
+                    ci->movePortTo(id_ALIGNWD, iol, id_SLIP);
                     iol->params[ctx->id("IDDRXN.MODE")] = std::string("IDDR71");
                 } else {
                     iol->params[ctx->id("IDDRXN.MODE")] = std::string("IDDRX2");
@@ -2480,18 +2480,18 @@ class Ecp5Packer
                 else
                     iol = create_pio_iologic(pio, ci);
                 set_iologic_mode(iol, "MIDDRX_MODDRX");
-                replace_port(ci, id_Q, iol, id_IOLDO);
+                ci->movePortTo(id_Q, iol, id_IOLDO);
                 if (!pio->ports.count(id_IOLDO)) {
                     pio->ports[id_IOLDO].name = id_IOLDO;
                     pio->ports[id_IOLDO].type = PORT_IN;
                 }
-                replace_port(pio, id_I, pio, id_IOLDO);
+                pio->movePortTo(id_I, pio, id_IOLDO);
                 set_iologic_sclk(iol, ci, id_SCLK, false);
                 set_iologic_eclk(iol, ci, id_ECLK);
                 set_iologic_lsr(iol, ci, id_RST, false, false);
                 set_iologic_lsr(iol, ci, id_RST, true);
-                replace_port(ci, id_D0, iol, id_TXDATA0);
-                replace_port(ci, id_D1, iol, id_TXDATA2);
+                ci->movePortTo(id_D0, iol, id_TXDATA0);
+                ci->movePortTo(id_D1, iol, id_TXDATA2);
                 iol->params[id_GSR] = str_or_default(ci->params, id_GSR, "DISABLED");
                 iol->params[ctx->id("MODDRX.MODE")] = std::string("MOSHX2");
                 pio->params[id_DATAMUX_MDDR] = std::string("IOLDO");
@@ -2507,20 +2507,20 @@ class Ecp5Packer
                 else
                     iol = create_pio_iologic(pio, ci);
                 set_iologic_mode(iol, "MIDDRX_MODDRX");
-                replace_port(ci, id_Q, iol, id_IOLDO);
+                ci->movePortTo(id_Q, iol, id_IOLDO);
                 if (!pio->ports.count(id_IOLDO)) {
                     pio->ports[id_IOLDO].name = id_IOLDO;
                     pio->ports[id_IOLDO].type = PORT_IN;
                 }
-                replace_port(pio, id_I, pio, id_IOLDO);
+                pio->movePortTo(id_I, pio, id_IOLDO);
                 set_iologic_sclk(iol, ci, id_SCLK, false);
                 set_iologic_eclk(iol, ci, id_ECLK);
                 set_iologic_lsr(iol, ci, id_RST, false, false);
                 set_iologic_lsr(iol, ci, id_RST, true);
-                replace_port(ci, id_D0, iol, id_TXDATA0);
-                replace_port(ci, id_D1, iol, id_TXDATA1);
-                replace_port(ci, id_D2, iol, id_TXDATA2);
-                replace_port(ci, id_D3, iol, id_TXDATA3);
+                ci->movePortTo(id_D0, iol, id_TXDATA0);
+                ci->movePortTo(id_D1, iol, id_TXDATA1);
+                ci->movePortTo(id_D2, iol, id_TXDATA2);
+                ci->movePortTo(id_D3, iol, id_TXDATA3);
                 iol->params[id_GSR] = str_or_default(ci->params, id_GSR, "DISABLED");
                 iol->params[ctx->id("MODDRX.MODE")] = std::string("MODDRX2");
                 iol->params[ctx->id("MIDDRX_MODDRX.WRCLKMUX")] =
@@ -2539,15 +2539,15 @@ class Ecp5Packer
                 else
                     iol = create_pio_iologic(pio, ci);
                 set_iologic_mode(iol, "MIDDRX_MODDRX");
-                replace_port(ci, id_D, iol, id_PADDI);
+                ci->movePortTo(id_D, iol, id_PADDI);
                 set_iologic_sclk(iol, ci, id_SCLK, true);
                 set_iologic_eclk(iol, ci, id_ECLK);
                 set_iologic_lsr(iol, ci, id_RST, true);
-                replace_port(ci, id_Q0, iol, id_RXDATA0);
-                replace_port(ci, id_Q1, iol, id_RXDATA1);
-                replace_port(ci, id_Q2, iol, id_RXDATA2);
-                replace_port(ci, id_Q3, iol, id_RXDATA3);
-                replace_port(ci, id_QWL, iol, id_INFF);
+                ci->movePortTo(id_Q0, iol, id_RXDATA0);
+                ci->movePortTo(id_Q1, iol, id_RXDATA1);
+                ci->movePortTo(id_Q2, iol, id_RXDATA2);
+                ci->movePortTo(id_Q3, iol, id_RXDATA3);
+                ci->movePortTo(id_QWL, iol, id_INFF);
                 iol->params[id_GSR] = str_or_default(ci->params, id_GSR, "DISABLED");
                 iol->params[ctx->id("MIDDRX.MODE")] = std::string("MIDDRX2");
                 process_dqs_port(ci, pio, iol, id_DQSR90);
@@ -2569,17 +2569,17 @@ class Ecp5Packer
                 else
                     iol = create_pio_iologic(pio, ci);
                 set_iologic_mode(iol, "MIDDRX_MODDRX");
-                replace_port(ci, id_Q, iol, id_IOLTO);
+                ci->movePortTo(id_Q, iol, id_IOLTO);
                 if (!pio->ports.count(id_IOLTO)) {
                     pio->ports[id_IOLTO].name = id_IOLTO;
                     pio->ports[id_IOLTO].type = PORT_IN;
                 }
-                replace_port(pio, id_T, pio, id_IOLTO);
+                pio->movePortTo(id_T, pio, id_IOLTO);
                 set_iologic_sclk(iol, ci, id_SCLK, false);
                 set_iologic_eclk(iol, ci, id_ECLK);
                 set_iologic_lsr(iol, ci, id_RST, false);
-                replace_port(ci, id_T0, iol, id_TSDATA0);
-                replace_port(ci, id_T1, iol, id_TSDATA1);
+                ci->movePortTo(id_T0, iol, id_TSDATA0);
+                ci->movePortTo(id_T1, iol, id_TSDATA1);
                 process_dqs_port(ci, pio, iol, ci->type == id_TSHX2DQSA ? id_DQSW : id_DQSW270);
                 iol->params[id_GSR] = str_or_default(ci->params, id_GSR, "DISABLED");
                 iol->params[ctx->id("MTDDRX.MODE")] = std::string("MTSHX2");
@@ -2595,7 +2595,7 @@ class Ecp5Packer
                 std::string mode = str_or_default(ci->attrs, id_ioff_dir, "");
                 if (mode != "output") {
                     // See if it can be packed as an input ff
-                    NetInfo *d = get_net_or_empty(ci, id_DI);
+                    NetInfo *d = ci->getPort(id_DI);
                     CellInfo *pio = net_driven_by(ctx, d, is_trellis_io, id_O);
                     if (pio != nullptr && d->users.size() == 1) {
                         // Input FF
@@ -2613,10 +2613,10 @@ class Ecp5Packer
                         if (str_or_default(ci->params, id_CEMUX, "CE") == "CE") {
                             iol->params[id_CEIMUX] = std::string("CEMUX");
                             iol->params[id_CEMUX] = std::string("CE");
-                            if (get_net_or_empty(ci, id_CE) == nullptr)
-                                replace_port(ci, id_CE, iol, id_CE);
+                            if (ci->getPort(id_CE) == nullptr)
+                                ci->movePortTo(id_CE, iol, id_CE);
                             else
-                                disconnect_port(ctx, ci, id_CE);
+                                ci->disconnectPort(id_CE);
                         } else {
                             iol->params[id_CEIMUX] = std::string("1");
                         }
@@ -2625,8 +2625,8 @@ class Ecp5Packer
                         iol->params[ctx->id("FF.REGSET")] = str_or_default(ci->params, id_REGSET, "RESET");
                         iol->params[id_SRMODE] = str_or_default(ci->params, id_SRMODE, "ASYNC");
                         iol->params[id_GSR] = str_or_default(ci->params, id_GSR, "DISABLED");
-                        replace_port(ci, id_DI, iol, id_PADDI);
-                        replace_port(ci, id_Q, iol, id_INFF);
+                        ci->movePortTo(id_DI, iol, id_PADDI);
+                        ci->movePortTo(id_Q, iol, id_INFF);
                         packed_cells.insert(cell.first);
                         continue;
                     }
@@ -2645,21 +2645,21 @@ class Ecp5Packer
                             iol = create_pio_iologic(pio, ci);
                         set_iologic_mode(iol, "IREG_OREG");
                         // Connection between FF and PIO
-                        replace_port(ci, id_Q, iol, tri ? id_IOLTO : id_IOLDO);
+                        ci->movePortTo(id_Q, iol, tri ? id_IOLTO : id_IOLDO);
                         if (tri) {
                             if (!pio->ports.count(id_IOLTO)) {
                                 pio->ports[id_IOLTO].name = id_IOLTO;
                                 pio->ports[id_IOLTO].type = PORT_IN;
                             }
                             pio->params[id_TRIMUX_TSREG] = std::string("IOLTO");
-                            replace_port(pio, id_T, pio, id_IOLTO);
+                            pio->movePortTo(id_T, pio, id_IOLTO);
                         } else {
                             if (!pio->ports.count(id_IOLDO)) {
                                 pio->ports[id_IOLDO].name = id_IOLDO;
                                 pio->ports[id_IOLDO].type = PORT_IN;
                             }
                             pio->params[id_DATAMUX_OREG] = std::string("IOLDO");
-                            replace_port(pio, id_I, pio, id_IOLDO);
+                            pio->movePortTo(id_I, pio, id_IOLDO);
                         }
 
                         set_iologic_sclk(iol, ci, id_CLK, false);
@@ -2671,10 +2671,10 @@ class Ecp5Packer
                         if (str_or_default(ci->params, id_CEMUX, "CE") == "CE") {
                             iol->params[id_CEOMUX] = std::string("CEMUX");
                             iol->params[id_CEMUX] = std::string("CE");
-                            if (get_net_or_empty(ci, id_CE) == nullptr)
-                                replace_port(ci, id_CE, iol, id_CE);
+                            if (ci->getPort(id_CE) == nullptr)
+                                ci->movePortTo(id_CE, iol, id_CE);
                             else
-                                disconnect_port(ctx, ci, id_CE);
+                                ci->disconnectPort(id_CE);
                         } else {
                             iol->params[id_CEOMUX] = std::string("1");
                         }
@@ -2684,7 +2684,7 @@ class Ecp5Packer
                                 str_or_default(ci->params, id_REGSET, "RESET");
                         iol->params[id_SRMODE] = str_or_default(ci->params, id_SRMODE, "ASYNC");
                         // Data input
-                        replace_port(ci, id_DI, iol, tri ? id_TSDATA0 : id_TXDATA0);
+                        ci->movePortTo(id_DI, iol, tri ? id_TSDATA0 : id_TXDATA0);
                         iol->params[id_GSR] = str_or_default(ci->params, id_GSR, "DISABLED");
                         packed_cells.insert(cell.first);
                         continue;
@@ -2699,8 +2699,7 @@ class Ecp5Packer
             CellInfo *ci = cell.second.get();
             if (ci->type == id_ECLKBRIDGECS) {
                 Loc loc;
-                NetInfo *i0 = get_net_or_empty(ci, id_CLK0), *i1 = get_net_or_empty(ci, id_CLK1),
-                        *o = get_net_or_empty(ci, id_ECSOUT);
+                NetInfo *i0 = ci->getPort(id_CLK0), *i1 = ci->getPort(id_CLK1), *o = ci->getPort(id_ECSOUT);
                 for (NetInfo *input : {i0, i1}) {
                     if (input == nullptr)
                         continue;
@@ -2753,7 +2752,7 @@ class Ecp5Packer
                     for (auto user2 : o->users) {
                         // Set side hint to ensure edge clock choice is routeable
                         if (user2.cell->type == id_ECLKSYNCB && user2.port == id_ECLKI) {
-                            NetInfo *synco = get_net_or_empty(user2.cell, id_ECLKO);
+                            NetInfo *synco = user2.cell->getPort(id_ECLKO);
                             if (synco != nullptr)
                                 bridge_side_hint[synco] = (loc.x > 1) ? 0 : 1;
                         }

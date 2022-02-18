@@ -93,12 +93,12 @@ void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff)
     IdString sim_names[4] = {id_I0, id_I1, id_I2, id_I3};
     IdString wire_names[4] = {id_A, id_B, id_C, id_D};
     for (int i = 0; i < 4; i++) {
-        replace_port(lut, sim_names[i], lc, wire_names[i]);
+        lut->movePortTo(sim_names[i], lc, wire_names[i]);
     }
 
     if (no_dff) {
         lc->params[id_FF_USED] = 0;
-        replace_port(lut, id_F, lc, id_F);
+        lut->movePortTo(id_F, lc, id_F);
     }
 }
 
@@ -106,12 +106,12 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
 {
     lc->params[id_FF_USED] = 1;
     lc->params[id_FF_TYPE] = dff->type.str(ctx);
-    replace_port(dff, id_CLK, lc, id_CLK);
-    replace_port(dff, id_CE, lc, id_CE);
-    replace_port(dff, id_SET, lc, id_LSR);
-    replace_port(dff, id_RESET, lc, id_LSR);
-    replace_port(dff, id_CLEAR, lc, id_LSR);
-    replace_port(dff, id_PRESET, lc, id_LSR);
+    dff->movePortTo(id_CLK, lc, id_CLK);
+    dff->movePortTo(id_CE, lc, id_CE);
+    dff->movePortTo(id_SET, lc, id_LSR);
+    dff->movePortTo(id_RESET, lc, id_LSR);
+    dff->movePortTo(id_CLEAR, lc, id_LSR);
+    dff->movePortTo(id_PRESET, lc, id_LSR);
     if (pass_thru_lut) {
         // Fill LUT with alternating 10
         const int init_size = 1 << 4;
@@ -121,10 +121,10 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
             init.append("10");
         lc->params[id_INIT] = Property::from_string(init);
 
-        replace_port(dff, id_D, lc, id_A);
+        dff->movePortTo(id_D, lc, id_A);
     }
 
-    replace_port(dff, id_Q, lc, id_Q);
+    dff->movePortTo(id_Q, lc, id_Q);
 }
 
 void gwio_to_iob(Context *ctx, CellInfo *nxio, CellInfo *iob, pool<IdString> &todelete_cells)
@@ -132,29 +132,29 @@ void gwio_to_iob(Context *ctx, CellInfo *nxio, CellInfo *iob, pool<IdString> &to
     if (nxio->type == id_IBUF) {
         if (iob->type == id_IOBS) {
             // VCC -> OEN
-            connect_port(ctx, ctx->nets[ctx->id("$PACKER_VCC_NET")].get(), iob, id_OEN);
+            iob->connectPort(id_OEN, ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
         }
         iob->params[id_INPUT_USED] = 1;
-        replace_port(nxio, id_O, iob, id_O);
+        nxio->movePortTo(id_O, iob, id_O);
     } else if (nxio->type == id_OBUF) {
         if (iob->type == id_IOBS) {
             // VSS -> OEN
-            connect_port(ctx, ctx->nets[ctx->id("$PACKER_GND_NET")].get(), iob, id_OEN);
+            iob->connectPort(id_OEN, ctx->nets[ctx->id("$PACKER_GND_NET")].get());
         }
         iob->params[id_OUTPUT_USED] = 1;
-        replace_port(nxio, id_I, iob, id_I);
+        nxio->movePortTo(id_I, iob, id_I);
     } else if (nxio->type == id_TBUF) {
         iob->params[id_ENABLE_USED] = 1;
         iob->params[id_OUTPUT_USED] = 1;
-        replace_port(nxio, id_I, iob, id_I);
-        replace_port(nxio, id_OEN, iob, id_OEN);
+        nxio->movePortTo(id_I, iob, id_I);
+        nxio->movePortTo(id_OEN, iob, id_OEN);
     } else if (nxio->type == id_IOBUF) {
         iob->params[id_ENABLE_USED] = 1;
         iob->params[id_INPUT_USED] = 1;
         iob->params[id_OUTPUT_USED] = 1;
-        replace_port(nxio, id_I, iob, id_I);
-        replace_port(nxio, id_O, iob, id_O);
-        replace_port(nxio, id_OEN, iob, id_OEN);
+        nxio->movePortTo(id_I, iob, id_I);
+        nxio->movePortTo(id_O, iob, id_O);
+        nxio->movePortTo(id_OEN, iob, id_OEN);
     } else {
         NPNR_ASSERT(false);
     }

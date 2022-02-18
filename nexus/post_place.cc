@@ -94,12 +94,12 @@ struct NexusPostPlaceOpt
             if (ff->type != id_OXIDE_FF)
                 continue;
             // Check M ('fabric') input net
-            NetInfo *m = get_net_or_empty(ff, id_M);
+            NetInfo *m = ff->getPort(id_M);
             if (m == nullptr)
                 continue;
 
             // Ignore FFs that need both DI and M (PRLD mode)
-            if (get_net_or_empty(ff, id_DI) != nullptr)
+            if (ff->getPort(id_DI) != nullptr)
                 continue;
 
             const auto &drv = m->driver;
@@ -118,7 +118,7 @@ struct NexusPostPlaceOpt
             if (dest_ff != ff->bel) {
                 // If dest_ff is already placed *and* using direct 'DI' input, don't touch it
                 CellInfo *dest_ff_cell = ctx->getBoundBelCell(dest_ff);
-                if (dest_ff_cell != nullptr && get_net_or_empty(dest_ff_cell, id_DI) != nullptr)
+                if (dest_ff_cell != nullptr && dest_ff_cell->getPort(id_DI) != nullptr)
                     continue;
                 // Attempt the swap
                 bool swap_result = swap_cell_placement(ff, dest_ff);
@@ -126,7 +126,7 @@ struct NexusPostPlaceOpt
                     continue;
             }
             // Use direct interconnect
-            rename_port(ctx, ff, id_M, id_DI);
+            ff->renamePort(id_M, id_DI);
             ff->params[id_SEL] = std::string("DL");
             ++moves_made;
             continue;

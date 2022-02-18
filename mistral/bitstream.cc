@@ -86,8 +86,7 @@ struct MistralBitgen
 
     void write_io_cell(CellInfo *ci, int x, int y, int bi)
     {
-        bool is_output =
-                (ci->type == id_MISTRAL_OB || (ci->type == id_MISTRAL_IO && get_net_or_empty(ci, id_OE) != nullptr));
+        bool is_output = (ci->type == id_MISTRAL_OB || (ci->type == id_MISTRAL_IO && ci->getPort(id_OE) != nullptr));
         auto pos = CycloneV::xy2pos(x, y);
         // TODO: configurable pull, IO standard, etc
         cv->bmux_b_set(CycloneV::GPIO, pos, CycloneV::USE_WEAK_PULLUP, bi, false);
@@ -229,8 +228,8 @@ struct MistralBitgen
             cv->bmux_m_set(block_type, pos, clk_sel[i / 2], alm, clk_choice[ce_idx]);
             if (ff->ffInfo.ctrlset.clk.inverted)
                 cv->bmux_b_set(block_type, pos, clk_inv[ce_idx], 0, true);
-            if (get_net_or_empty(ff, id_ENA) != nullptr) { // not using ffInfo.ctrlset, this has a fake net always to
-                                                           // ensure different constants don't collide
+            if (ff->getPort(id_ENA) != nullptr) { // not using ffInfo.ctrlset, this has a fake net always to
+                                                  // ensure different constants don't collide
                 cv->bmux_b_set(block_type, pos, en_en[ce_idx], 0, true);
                 cv->bmux_b_set(block_type, pos, en_ninv[ce_idx], 0, ff->ffInfo.ctrlset.ena.inverted);
             } else {
@@ -262,7 +261,7 @@ struct MistralBitgen
                 cv->bmux_m_set(block_type, pos, clk_sel[1], alm, clk_choice[ce_idx]);
                 if (lut->combInfo.wclk.inverted)
                     cv->bmux_b_set(block_type, pos, clk_inv[ce_idx], 0, true);
-                if (get_net_or_empty(lut, id_A1EN) != nullptr) {
+                if (lut->getPort(id_A1EN) != nullptr) {
                     cv->bmux_b_set(block_type, pos, en_en[ce_idx], 0, true);
                     cv->bmux_b_set(block_type, pos, en_ninv[ce_idx], 0, lut->combInfo.we.inverted);
                 } else {

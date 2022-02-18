@@ -22,7 +22,6 @@
 #include <boost/algorithm/string.hpp>
 
 #include "context.h"
-#include "design_utils.h"
 #include "log.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -223,13 +222,23 @@ void BaseCtx::connectPort(IdString net, IdString cell, IdString port)
 {
     NetInfo *net_info = getNetByAlias(net);
     CellInfo *cell_info = cells.at(cell).get();
-    connect_port(getCtx(), net_info, cell_info, port);
+    cell_info->connectPort(port, net_info);
 }
 
 void BaseCtx::disconnectPort(IdString cell, IdString port)
 {
     CellInfo *cell_info = cells.at(cell).get();
-    disconnect_port(getCtx(), cell_info, port);
+    cell_info->disconnectPort(port);
+}
+
+void BaseCtx::renameNet(IdString old_name, IdString new_name)
+{
+    NetInfo *net = nets.at(old_name).get();
+    NPNR_ASSERT(!nets.count(new_name));
+    nets[new_name];
+    std::swap(nets.at(net->name), nets.at(new_name));
+    nets.erase(net->name);
+    net->name = new_name;
 }
 
 void BaseCtx::ripupNet(IdString name)

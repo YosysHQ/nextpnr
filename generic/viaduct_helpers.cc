@@ -59,13 +59,13 @@ void ViaductHelpers::remove_nextpnr_iobs(const pool<CellTypePort> &top_ports)
         auto &ci = *cell.second;
         if (!ci.type.in(ctx->id("$nextpnr_ibuf"), ctx->id("$nextpnr_obuf"), ctx->id("$nextpnr_iobuf")))
             continue;
-        NetInfo *i = get_net_or_empty(&ci, ctx->id("I"));
+        NetInfo *i = ci.getPort(ctx->id("I"));
         if (i && i->driver.cell) {
             if (!top_ports.count(CellTypePort(i->driver)))
                 log_error("Top-level port '%s' driven by illegal port %s.%s\n", ctx->nameOf(&ci),
                           ctx->nameOf(i->driver.cell), ctx->nameOf(i->driver.port));
         }
-        NetInfo *o = get_net_or_empty(&ci, ctx->id("O"));
+        NetInfo *o = ci.getPort(ctx->id("O"));
         if (o) {
             for (auto &usr : o->users) {
                 if (!top_ports.count(CellTypePort(usr)))
@@ -73,8 +73,8 @@ void ViaductHelpers::remove_nextpnr_iobs(const pool<CellTypePort> &top_ports)
                               ctx->nameOf(usr.cell), ctx->nameOf(usr.port));
             }
         }
-        disconnect_port(ctx, &ci, ctx->id("I"));
-        disconnect_port(ctx, &ci, ctx->id("O"));
+        ci.disconnectPort(ctx->id("I"));
+        ci.disconnectPort(ctx->id("O"));
         to_remove.push_back(ci.name);
     }
     for (IdString cell_name : to_remove)

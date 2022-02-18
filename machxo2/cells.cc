@@ -131,10 +131,10 @@ void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff)
     for (std::string i : {"A", "B", "C", "D"}) {
         IdString lut_port = ctx->id(i);
         IdString lc_port = ctx->id(i + "0");
-        replace_port(lut, lut_port, lc, lc_port);
+        lut->movePortTo(lut_port, lc, lc_port);
     }
 
-    replace_port(lut, id_Z, lc, id_F0);
+    lut->movePortTo(id_Z, lc, id_F0);
 }
 
 void dff_to_lc(Context *ctx, CellInfo *dff, CellInfo *lc, LutType lut_type)
@@ -142,26 +142,26 @@ void dff_to_lc(Context *ctx, CellInfo *dff, CellInfo *lc, LutType lut_type)
     // FIXME: This will have to change once we support FFs with reset value of 1.
     lc->params[id_REG0_REGSET] = std::string("RESET");
 
-    replace_port(dff, id_CLK, lc, id_CLK);
-    replace_port(dff, id_LSR, lc, id_LSR);
-    replace_port(dff, id_Q, lc, id_Q0);
+    dff->movePortTo(id_CLK, lc, id_CLK);
+    dff->movePortTo(id_LSR, lc, id_LSR);
+    dff->movePortTo(id_Q, lc, id_Q0);
 
     if (lut_type == LutType::PassThru) {
         // If a register's DI port is fed by a constant, options for placing are
         // limited. Use the LUT to get around this.
         // LUT output will go to F0, which will feed back to DI0 input.
         lc->params[id_LUT0_INITVAL] = Property(0xAAAA, 16);
-        replace_port(dff, id_DI, lc, id_A0);
-        connect_ports(ctx, lc, id_F0, lc, id_DI0);
+        dff->movePortTo(id_DI, lc, id_A0);
+        lc->connectPorts(id_F0, lc, id_DI0);
     } else if (lut_type == LutType::None) {
         // If there is no LUT, use the M0 input because DI0 requires
         // going through the LUTs.
         lc->params[id_REG0_SD] = std::string("0");
-        replace_port(dff, id_DI, lc, id_M0);
+        dff->movePortTo(id_DI, lc, id_M0);
     } else {
         // Otherwise, there's a LUT being used in the slice and mapping DI to
         // DI0 input is fine.
-        replace_port(dff, id_DI, lc, id_DI0);
+        dff->movePortTo(id_DI, lc, id_DI0);
     }
 }
 

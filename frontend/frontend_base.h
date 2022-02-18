@@ -484,7 +484,7 @@ template <typename FrontendType> struct GenericFrontend
                     log_error("Net '%s' is multiply driven by cell ports %s.%s and %s.%s\n", ctx->nameOf(net),
                               ctx->nameOf(net->driver.cell), ctx->nameOf(net->driver.port), ctx->nameOf(inst_name),
                               port_bit_name.c_str());
-                connect_port(ctx, net, ci, port_bit_ids);
+                ci->connectPort(port_bit_ids, net);
             }
         });
         // Import attributes and parameters
@@ -578,12 +578,12 @@ template <typename FrontendType> struct GenericFrontend
             }
             NPNR_ASSERT(net->driver.cell == nullptr);
             // Connect IBUF output and net
-            connect_port(ctx, net, iobuf, ctx->id("O"));
+            iobuf->connectPort(ctx->id("O"), net);
         } else if (dir == PORT_OUT) {
             iobuf->type = ctx->id("$nextpnr_obuf");
             iobuf->addInput(ctx->id("I"));
             // Connect IBUF input and net
-            connect_port(ctx, net, iobuf, ctx->id("I"));
+            iobuf->connectPort(ctx->id("I"), net);
         } else if (dir == PORT_INOUT) {
             iobuf->type = ctx->id("$nextpnr_iobuf");
 
@@ -597,16 +597,16 @@ template <typename FrontendType> struct GenericFrontend
                 NetInfo *split_iobuf_i = ctx->createNet(unique_name("", "$" + name + "$iobuf_i", true));
                 auto drv = net->driver;
                 if (drv.cell != nullptr) {
-                    disconnect_port(ctx, drv.cell, drv.port);
+                    drv.cell->disconnectPort(drv.port);
                     drv.cell->ports[drv.port].net = nullptr;
-                    connect_port(ctx, split_iobuf_i, drv.cell, drv.port);
+                    drv.cell->connectPort(drv.port, split_iobuf_i);
                 }
-                connect_port(ctx, split_iobuf_i, iobuf, ctx->id("I"));
+                iobuf->connectPort(ctx->id("I"), split_iobuf_i);
                 NPNR_ASSERT(net->driver.cell == nullptr);
-                connect_port(ctx, net, iobuf, ctx->id("O"));
+                iobuf->connectPort(ctx->id("O"), net);
             } else {
                 iobuf->addInout(ctx->id("IO"));
-                connect_port(ctx, net, iobuf, ctx->id("IO"));
+                iobuf->connectPort(ctx->id("IO"), net);
             }
         }
 
@@ -669,7 +669,7 @@ template <typename FrontendType> struct GenericFrontend
         if (net->driver.cell != nullptr)
             log_error("Net '%s' is multiply driven by port %s.%s and constant '%c'\n", ctx->nameOf(net),
                       ctx->nameOf(net->driver.cell), ctx->nameOf(net->driver.port), constval);
-        connect_port(ctx, net, cc, ctx->id("Y"));
+        cc->connectPort(ctx->id("Y"), net);
     }
 
     // Merge two nets - e.g. if one net in a submodule bifurcates to two output bits and therefore two different

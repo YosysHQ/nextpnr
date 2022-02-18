@@ -399,7 +399,7 @@ class Ecp5GlobalRouter
     {
         BelId best_bel;
         WireId best_bel_pclkcib;
-        bool using_ce = get_net_or_empty(dcc, id_CE) != nullptr;
+        bool using_ce = dcc->getPort(id_CE) != nullptr;
         wirelen_t best_wirelen = 9999999;
         bool dedicated_routing = false;
         for (auto bel : ctx->getBels()) {
@@ -533,7 +533,7 @@ class Ecp5GlobalRouter
         }
         for (auto ci : dcsc_cells) {
             for (auto port : {id_CLK0, id_CLK1}) {
-                NetInfo *net = get_net_or_empty(ci, port);
+                NetInfo *net = ci->getPort(port);
                 if (net != nullptr)
                     insert_dcc(net, ci);
             }
@@ -609,7 +609,7 @@ class Ecp5GlobalRouter
                     pins.push_back(id_CLK1);
                 }
                 for (auto pin : pins) {
-                    NetInfo *ni = get_net_or_empty(ci, pin);
+                    NetInfo *ni = ci->getPort(pin);
                     if (ni == nullptr)
                         continue;
                     log_info("    trying dedicated routing for edge clock source %s\n", ctx->nameOf(ni));

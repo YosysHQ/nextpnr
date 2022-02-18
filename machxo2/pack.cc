@@ -286,7 +286,7 @@ static void pack_io(Context *ctx)
                 log_info("Removing top-level IOBUF '%s' of type '%s'\n", ci->name.c_str(ctx), ci->type.c_str(ctx));
 
             for (auto &p : ci->ports)
-                disconnect_port(ctx, ci, p.first);
+                ci->disconnectPort(p.first);
             packed_cells.insert(ci->name);
         } else if (is_facade_iob(ctx, ci)) {
             // If FACADE_IO has LOC attribute, convert the LOC (pin) to a BEL
