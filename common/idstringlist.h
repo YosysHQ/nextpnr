@@ -67,6 +67,10 @@ struct IdStringList
     }
 
     static IdStringList concat(IdStringList a, IdStringList b);
+    static IdStringList concat(IdString a, IdString b) { return concat(IdStringList(a), IdStringList(b)); }
+    static IdStringList concat(IdStringList a, IdString b) { return concat(a, IdStringList(b)); }
+    static IdStringList concat(IdString a, IdStringList b) { return concat(IdStringList(a), b); }
+
     IdStringList slice(size_t s, size_t e) const;
 
     unsigned int hash() const
