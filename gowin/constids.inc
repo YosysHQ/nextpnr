@@ -636,6 +636,8 @@ X(I)
 X(O)
 X(IO)
 X(OE)
+X(OB)
+
 // bels
 X(DFF0)
 X(DFF1)
@@ -735,6 +737,7 @@ X(IBUF)
 X(OBUF)
 X(IOBUF)
 X(TBUF)
+X(TLVDS_OBUF)
 
 // primitive attributes
 X(INIT)
@@ -744,6 +747,8 @@ X(INPUT_USED)
 X(OUTPUT_USED)
 X(ENABLE_USED)
 X(BEL)
+X(DIFF)
+X(DIFF_TYPE)
 
 // ports
 X(EN)
