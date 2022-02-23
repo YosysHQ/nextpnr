@@ -678,6 +678,85 @@ static bool is_gowin_iob(const Context *ctx, const CellInfo *cell)
     }
 }
 
+static bool is_gowin_diff_iob(const Context *ctx, const CellInfo *cell)
+{
+    switch (cell->type.index) {
+    case ID_TLVDS_OBUF:
+        return true;
+    default:
+        return false;
+    }
+}
+
+static bool is_iob(const Context *ctx, const CellInfo *cell) { return (cell->type.index == ID_IOB); }
+
+// Pack differential IO buffers
+static void pack_diff_io(Context *ctx)
+{
+    pool<IdString> packed_cells;
+    pool<IdString> delete_nets;
+
+    std::vector<std::unique_ptr<CellInfo>> new_cells;
+    log_info("Packing diff IOs..\n");
+
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
+        if (ctx->verbose)
+            log_info("cell '%s' is of type '%s'\n", ctx->nameOf(ci), ci->type.c_str(ctx));
+        if (is_gowin_diff_iob(ctx, ci)) {
+            CellInfo *iob_p = nullptr;
+            CellInfo *iob_n = nullptr;
+            switch (ci->type.index) {
+            case ID_TLVDS_OBUF: {
+                iob_p = net_only_drives(ctx, ci->ports.at(id_O).net, is_iob, id_I);
+                iob_n = net_only_drives(ctx, ci->ports.at(id_OB).net, is_iob, id_I);
+                NPNR_ASSERT(iob_p != nullptr);
+                NPNR_ASSERT(iob_n != nullptr);
+                auto iob_p_bel_a = iob_p->attrs.find(id_BEL);
+                if (iob_p_bel_a == ci->attrs.end()) {
+                    log_error("LVDS '%s' must be restricted.\n", ctx->nameOf(ci));
+                    continue;
+                }
+                BelId iob_p_bel = ctx->getBelByNameStr(iob_p_bel_a->second.as_string());
+                Loc loc_p = ctx->getBelLocation(iob_p_bel);
+                if (loc_p.z != 0) {
+                    log_error("LVDS '%s' positive pin is not A.\n", ctx->nameOf(ci));
+                    continue;
+                }
+                // restrict the N buffer
+                loc_p.z = 1;
+                iob_n->attrs[id_BEL] = ctx->getBelName(ctx->getBelByLocation(loc_p)).str(ctx);
+                // mark IOBs as part of DS pair
+                iob_n->attrs[id_DIFF] = std::string("N");
+                iob_n->attrs[id_DIFF_TYPE] = std::string("TLVDS_OBUF");
+                iob_p->attrs[id_DIFF] = std::string("P");
+                iob_p->attrs[id_DIFF_TYPE] = std::string("TLVDS_OBUF");
+                // disconnect N input: it is wired internally
+                delete_nets.insert(iob_n->ports.at(id_I).net->name);
+                iob_n->disconnectPort(id_I);
+                ci->disconnectPort(id_OB);
+                // disconnect P output
+                delete_nets.insert(ci->ports.at(id_O).net->name);
+                ci->disconnectPort(id_O);
+                // connect TLVDS input to P input
+                ci->movePortTo(id_I, iob_p, id_I);
+                packed_cells.insert(ci->name);
+            } break;
+            default:
+                break;
+            }
+        }
+    }
+    for (auto pcell : packed_cells) {
+        ctx->cells.erase(pcell);
+    }
+    for (auto dnet : delete_nets) {
+        ctx->nets.erase(dnet);
+    }
+    for (auto &ncell : new_cells) {
+        ctx->cells[ncell->name] = std::move(ncell);
+    }
+}
 // Pack IO buffers
 static void pack_io(Context *ctx)
 {
@@ -689,6 +768,8 @@ static void pack_io(Context *ctx)
 
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
+        if (ctx->verbose)
+            log_info("cell '%s' is of type '%s'\n", ctx->nameOf(ci), ci->type.c_str(ctx));
         if (is_gowin_iob(ctx, ci)) {
             CellInfo *iob = nullptr;
             switch (ci->type.index) {
@@ -776,6 +857,7 @@ bool Arch::pack()
         log_break();
         pack_constants(ctx);
         pack_io(ctx);
+        pack_diff_io(ctx);
         pack_wideluts(ctx);
         pack_alus(ctx);
         pack_lut_lutffs(ctx);
