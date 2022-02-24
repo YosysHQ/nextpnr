@@ -55,7 +55,7 @@ po::options_description GowinCommandHandler::getArchOptions()
 
 std::unique_ptr<Context> GowinCommandHandler::createContext(dict<std::string, Property> &values)
 {
-    std::regex devicere = std::regex("GW1N(S?)[A-Z]*-(LV|UV|UX)([0-9])(C?).*");
+    std::regex devicere = std::regex("GW1N([SZ]?)[A-Z]*-(LV|UV|UX)([0-9])(C?).*");
     std::smatch match;
     std::string device = vm["device"].as<std::string>();
     if (!std::regex_match(device, match, devicere)) {
