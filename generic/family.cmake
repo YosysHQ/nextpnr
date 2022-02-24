@@ -1,4 +1,4 @@
-set(VIADUCT_UARCHES "example")
+set(VIADUCT_UARCHES "example" "okami")
 foreach(uarch ${VIADUCT_UARCHES})
     aux_source_directory(${family}/viaduct/${uarch} UARCH_FILES)
     foreach(target ${family_targets})
