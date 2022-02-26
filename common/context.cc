@@ -334,13 +334,13 @@ void Context::check() const
                                    nameOf(port.first), nameOf(net));
                     }
                 } else if (port.second.type == PORT_IN) {
-                    int usr_count = std::count_if(net->users.begin(), net->users.end(), [&](const PortRef &pr) {
-                        return pr.cell == c.second.get() && pr.port == port.first;
-                    });
-                    if (usr_count != 1)
-                        CHECK_FAIL("input cell port '%s.%s' appears %d rather than expected 1 times in users vector of "
-                                   "net '%s'\n",
-                                   nameOf(c.first), nameOf(port.first), usr_count, nameOf(net));
+                    if (!port.second.user_idx)
+                        CHECK_FAIL("input cell port '%s.%s' on net '%s' has no user index\n", nameOf(c.first),
+                                   nameOf(port.first), nameOf(net));
+                    auto net_user = net->users.at(port.second.user_idx);
+                    if (net_user.cell != c.second.get() || net_user.port != port.first)
+                        CHECK_FAIL("input cell port '%s.%s' not in associated user entry of net '%s'\n",
+                                   nameOf(c.first), nameOf(port.first), nameOf(net));
                 }
             }
         }

@@ -466,7 +466,7 @@ void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio, pool<IdString> &to
         tbuf->movePortTo(id_A, sbio, id_D_OUT_0);
         tbuf->movePortTo(id_E, sbio, id_OUTPUT_ENABLE);
 
-        if (donet->users.size() > 1) {
+        if (donet->users.entries() > 1) {
             for (auto user : donet->users)
                 log_info("     remaining tristate user: %s.%s\n", user.cell->name.c_str(ctx), user.port.c_str(ctx));
             log_error("unsupported tristate IO pattern for IO buffer '%s', "

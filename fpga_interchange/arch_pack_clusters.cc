@@ -945,10 +945,10 @@ void Arch::prepare_cluster(const ClusterPOD *cluster, uint32_t index)
                 if (port_info.type == PORT_OUT) {
                     exclude_nets.insert(port_info.net->name);
                     auto &users = port_info.net->users;
-                    if (users.size() != 1)
+                    if (users.entries() != 1)
                         continue;
 
-                    CellInfo *user_cell = users[0].cell;
+                    CellInfo *user_cell = (*users.begin()).cell;
                     if (user_cell == nullptr)
                         continue;
 
@@ -978,7 +978,7 @@ void Arch::prepare_cluster(const ClusterPOD *cluster, uint32_t index)
                 } else if (port_info.type == PORT_IN) {
                     auto &driver = port_info.net->driver;
                     auto &users = port_info.net->users;
-                    if (users.size() != 1)
+                    if (users.entries() != 1)
                         continue;
 
                     CellInfo *driver_cell = driver.cell;

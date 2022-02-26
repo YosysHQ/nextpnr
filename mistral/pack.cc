@@ -200,10 +200,10 @@ struct MistralPacker
                 NetInfo *o = ci->getPort(id_O);
                 if (o == nullptr)
                     ;
-                else if (o->users.size() > 1)
+                else if (o->users.entries() > 1)
                     log_error("Top level pin '%s' has multiple input buffers\n", ctx->nameOf(port.first));
-                else if (o->users.size() == 1)
-                    top_port = o->users.at(0);
+                else if (o->users.entries() == 1)
+                    top_port = *o->users.begin();
             }
             if (ci->type == ctx->id("$nextpnr_obuf") || ci->type == ctx->id("$nextpnr_iobuf")) {
                 // Might have an output buffer (OB etc) connected to it
@@ -215,9 +215,9 @@ struct MistralPacker
                     top_port = i->driver;
                 }
                 // Edge case of a bidirectional buffer driving an output pin
-                if (i->users.size() > 2) {
+                if (i->users.entries() > 2) {
                     log_error("Top level pin '%s' has illegal buffer configuration\n", ctx->nameOf(port.first));
-                } else if (i->users.size() == 2) {
+                } else if (i->users.entries() == 2) {
                     if (top_port.cell != nullptr)
                         log_error("Top level pin '%s' has illegal buffer configuration\n", ctx->nameOf(port.first));
                     for (auto &usr : i->users) {
@@ -300,9 +300,9 @@ struct MistralPacker
                 const NetInfo *co = cursor->getPort(id_CO);
                 if (co == nullptr || co->users.empty())
                     break;
-                if (co->users.size() > 1)
+                if (co->users.entries() > 1)
                     log_error("Carry net %s has more than one sink!\n", ctx->nameOf(co));
-                auto &usr = co->users.at(0);
+                auto &usr = *co->users.begin();
                 if (usr.port != id_CI)
                     log_error("Carry net %s drives port %s, expected CI\n", ctx->nameOf(co), ctx->nameOf(usr.port));
                 cursor = usr.cell;

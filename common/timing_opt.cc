@@ -73,8 +73,7 @@ class TimingOptimiser
             for (auto usr : ni->users) {
                 max_net_delay[std::make_pair(usr.cell->name, usr.port)] = std::numeric_limits<delay_t>::max();
             }
-            for (size_t i = 0; i < ni->users.size(); i++) {
-                auto &usr = ni->users.at(i);
+            for (auto usr : ni->users) {
                 delay_t net_delay = ctx->getNetinfoRouteDelay(ni, usr);
                 delay_t slack = tmg.get_setup_slack(CellPortKey(usr));
                 delay_t domain_slack = tmg.get_domain_setup_slack(CellPortKey(usr));
@@ -234,7 +233,7 @@ class TimingOptimiser
     std::vector<std::vector<PortRef *>> find_crit_paths(float crit_thresh, size_t max_count)
     {
         std::vector<std::vector<PortRef *>> crit_paths;
-        std::vector<std::pair<NetInfo *, int>> crit_nets;
+        std::vector<std::pair<NetInfo *, store_index<PortRef>>> crit_nets;
         std::vector<IdString> netnames;
         std::transform(ctx->nets.begin(), ctx->nets.end(), std::back_inserter(netnames),
                        [](const std::pair<IdString, std::unique_ptr<NetInfo>> &kv) { return kv.first; });
@@ -243,28 +242,19 @@ class TimingOptimiser
             if (crit_nets.size() >= max_count)
                 break;
             float highest_crit = 0;
-            size_t crit_user_idx = 0;
+            store_index<PortRef> crit_user_idx{};
             NetInfo *ni = ctx->nets.at(net).get();
-            for (size_t i = 0; i < ni->users.size(); i++) {
-                float crit = tmg.get_criticality(CellPortKey(ni->users.at(i)));
+            for (auto usr : ni->users.enumerate()) {
+                float crit = tmg.get_criticality(CellPortKey(usr.value));
                 if (crit > highest_crit) {
                     highest_crit = crit;
-                    crit_user_idx = i;
+                    crit_user_idx = usr.index;
                 }
             }
             if (highest_crit > crit_thresh)
-                crit_nets.push_back(std::make_pair(ni, crit_user_idx));
+                crit_nets.emplace_back(ni, crit_user_idx);
         }
 
-        auto port_user_index = [](CellInfo *cell, PortInfo &port) -> size_t {
-            NPNR_ASSERT(port.net != nullptr);
-            for (size_t i = 0; i < port.net->users.size(); i++) {
-                auto &usr = port.net->users.at(i);
-                if (usr.cell == cell && usr.port == port.name)
-                    return i;
-            }
-            NPNR_ASSERT_FALSE("port user not found on net");
-        };
         pool<PortRef *, hash_ptr_ops> used_ports;
 
         for (auto crit_net : crit_nets) {
@@ -280,7 +270,7 @@ class TimingOptimiser
             NetInfo *back_cursor = crit_net.first;
             while (back_cursor != nullptr) {
                 float max_crit = 0;
-                std::pair<NetInfo *, size_t> crit_sink{nullptr, 0};
+                std::pair<NetInfo *, store_index<PortRef>> crit_sink{nullptr, {}};
                 CellInfo *cell = back_cursor->driver.cell;
                 if (cell == nullptr)
                     break;
@@ -298,13 +288,12 @@ class TimingOptimiser
                     bool is_path = ctx->getCellDelay(cell, port.first, back_cursor->driver.port, combDelay);
                     if (!is_path)
                         continue;
-                    size_t user_idx = port_user_index(cell, port.second);
                     float usr_crit = tmg.get_criticality(CellPortKey(cell->name, port.first));
-                    if (used_ports.count(&(pn->users.at(user_idx))))
+                    if (used_ports.count(&(pn->users.at(port.second.user_idx))))
                         continue;
                     if (usr_crit >= max_crit) {
                         max_crit = usr_crit;
-                        crit_sink = std::make_pair(pn, user_idx);
+                        crit_sink = std::make_pair(pn, port.second.user_idx);
                     }
                 }
 
@@ -319,7 +308,7 @@ class TimingOptimiser
             while (fwd_cursor != nullptr) {
                 crit_path.push_back(fwd_cursor);
                 float max_crit = 0;
-                std::pair<NetInfo *, size_t> crit_sink{nullptr, 0};
+                std::pair<NetInfo *, store_index<PortRef>> crit_sink{nullptr, {}};
                 CellInfo *cell = fwd_cursor->cell;
                 for (auto port : cell->ports) {
                     if (port.second.type != PORT_OUT)
@@ -336,13 +325,13 @@ class TimingOptimiser
                     bool is_path = ctx->getCellDelay(cell, fwd_cursor->port, port.first, combDelay);
                     if (!is_path)
                         continue;
-                    for (size_t i = 0; i < pn->users.size(); i++) {
-                        if (used_ports.count(&(pn->users.at(i))))
+                    for (auto usr : pn->users.enumerate()) {
+                        if (used_ports.count(&(pn->users.at(usr.index))))
                             continue;
-                        float crit = tmg.get_criticality(CellPortKey(pn->users.at(i)));
+                        float crit = tmg.get_criticality(CellPortKey(usr.value));
                         if (crit >= max_crit) {
                             max_crit = crit;
-                            crit_sink = std::make_pair(pn, i);
+                            crit_sink = std::make_pair(pn, usr.index);
                         }
                     }
                 }
@@ -409,14 +398,10 @@ class TimingOptimiser
         delay_t original_delay = 0;
 
         for (size_t i = 0; i < path.size(); i++) {
-            NetInfo *pn = path.at(i)->cell->ports.at(path.at(i)->port).net;
-            for (size_t j = 0; j < pn->users.size(); j++) {
-                auto &usr = pn->users.at(j);
-                if (usr.cell == path.at(i)->cell && usr.port == path.at(i)->port) {
-                    original_delay += ctx->predictArcDelay(pn, usr);
-                    break;
-                }
-            }
+            auto &port = path.at(i)->cell->ports.at(path.at(i)->port);
+            NetInfo *pn = port.net;
+            if (port.user_idx)
+                original_delay += ctx->predictArcDelay(pn, pn->users.at(port.user_idx));
         }
 
         IdString last_cell;
@@ -493,14 +478,10 @@ class TimingOptimiser
                 delay_t total_delay = 0;
 
                 for (size_t i = 0; i < path.size(); i++) {
-                    NetInfo *pn = path.at(i)->cell->ports.at(path.at(i)->port).net;
-                    for (size_t j = 0; j < pn->users.size(); j++) {
-                        auto &usr = pn->users.at(j);
-                        if (usr.cell == path.at(i)->cell && usr.port == path.at(i)->port) {
-                            total_delay += ctx->predictArcDelay(pn, usr);
-                            break;
-                        }
-                    }
+                    auto &port = path.at(i)->cell->ports.at(path.at(i)->port);
+                    NetInfo *pn = port.net;
+                    if (port.user_idx)
+                        total_delay += ctx->predictArcDelay(pn, pn->users.at(port.user_idx));
                     if (path.at(i)->cell == next_cell)
                         break;
                 }

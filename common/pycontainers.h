@@ -186,6 +186,63 @@ struct vector_wrapper
 
 #define WRAP_VECTOR(m, t, conv) vector_wrapper<t, py::return_value_policy::copy, conv>().wrap(m, #t, #t "Iterator")
 
+template <typename T, py::return_value_policy P = py::return_value_policy::copy,
+          typename value_conv = PythonConversion::pass_through<T>>
+struct indexed_store_wrapper
+{
+    typedef decltype(std::declval<T>().begin()) iterator_t;
+    typedef decltype(*(std::declval<iterator_t>())) value_t;
+    typedef typename PythonConversion::ContextualWrapper<T &> wrapped_vector;
+    typedef typename PythonConversion::ContextualWrapper<std::pair<iterator_t, iterator_t>> wrapped_pair;
+    using return_t = typename value_conv::ret_type;
+    static wrapped_pair iter(wrapped_vector &range)
+    {
+        return wrapped_pair(range.ctx, std::make_pair(range.base.begin(), range.base.end()));
+    }
+
+    static std::string repr(wrapped_vector &range)
+    {
+        PythonConversion::string_converter<value_t> conv;
+        bool first = true;
+        std::stringstream ss;
+        ss << "[";
+        for (const auto &item : range.base) {
+            if (!first)
+                ss << ", ";
+            ss << "'" << conv.to_str(range.ctx, item) << "'";
+            first = false;
+        }
+        ss << "]";
+        return ss.str();
+    }
+
+    static int len(wrapped_vector &range) { return range.base.capacity(); }
+
+    static py::object getitem(wrapped_vector &range, int i)
+    {
+        store_index<std::remove_reference_t<value_t>> idx(i);
+        if (!range.base.count(idx))
+            throw py::none();
+        return py::cast(value_conv()(range.ctx, boost::ref(range.base.at(idx))));
+    }
+
+    static void wrap(py::module &m, const char *range_name, const char *iter_name)
+    {
+        py::class_<wrapped_vector>(m, range_name)
+                .def("__iter__", iter)
+                .def("__repr__", repr)
+                .def("__len__", len)
+                .def("__getitem__", getitem);
+
+        iterator_wrapper<iterator_t, P, value_conv>().wrap(m, iter_name);
+    }
+
+    typedef iterator_wrapper<iterator_t, P, value_conv> iter_wrap;
+};
+
+#define WRAP_INDEXSTORE(m, t, conv)                                                                                    \
+    indexed_store_wrapper<t, py::return_value_policy::copy, conv>().wrap(m, #t, #t "Iterator")
+
 /*
 Wrapper for a pair, allows accessing either using C++-style members (.first and
 .second) or as a Python iterable and indexable object

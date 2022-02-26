@@ -220,7 +220,7 @@ PYBIND11_EMBEDDED_MODULE(MODULE_NAME, m)
     readwrite_wrapper<PortInfo &, decltype(&PortInfo::type), &PortInfo::type, pass_through<PortType>,
                       pass_through<PortType>>::def_wrap(pi_cls, "type");
 
-    typedef std::vector<PortRef> PortRefVector;
+    typedef indexed_store<PortRef> PortRefVector;
     typedef dict<WireId, PipMap> WireMap;
     typedef pool<BelId> BelSet;
     typedef pool<WireId> WireSet;
@@ -288,7 +288,7 @@ PYBIND11_EMBEDDED_MODULE(MODULE_NAME, m)
     WRAP_MAP(m, WireMap, wrap_context<PipMap &>, "WireMap");
     WRAP_MAP_UPTR(m, RegionMap, "RegionMap");
 
-    WRAP_VECTOR(m, PortRefVector, wrap_context<PortRef>);
+    WRAP_INDEXSTORE(m, PortRefVector, wrap_context<PortRef>);
 
     typedef dict<IdString, ClockFmax> ClockFmaxMap;
     WRAP_MAP(m, ClockFmaxMap, pass_through<ClockFmax>, "ClockFmaxMap");

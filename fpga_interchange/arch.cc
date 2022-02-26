@@ -1377,7 +1377,7 @@ void Arch::merge_constant_nets()
             }
 
             NPNR_ASSERT(net->driver.port == gnd_cell_port);
-            std::vector<PortRef> users_copy = net->users;
+            indexed_store<PortRef> users_copy = net->users;
             for (const PortRef &port_ref : users_copy) {
                 IdString cell = port_ref.cell->name;
                 disconnectPort(cell, port_ref.port);
@@ -1400,7 +1400,7 @@ void Arch::merge_constant_nets()
             }
 
             NPNR_ASSERT(net->driver.port == vcc_cell_port);
-            std::vector<PortRef> users_copy = net->users;
+            indexed_store<PortRef> users_copy = net->users;
             for (const PortRef &port_ref : users_copy) {
                 IdString cell = port_ref.cell->name;
                 disconnectPort(cell, port_ref.port);

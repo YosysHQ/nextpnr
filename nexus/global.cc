@@ -72,7 +72,7 @@ struct NexusGlobalRouter
 
     // Dedicated backwards BFS routing for global networks
     template <typename Tfilt>
-    bool backwards_bfs_route(NetInfo *net, size_t user_idx, int iter_limit, bool strict, Tfilt pip_filter)
+    bool backwards_bfs_route(NetInfo *net, store_index<PortRef> user_idx, int iter_limit, bool strict, Tfilt pip_filter)
     {
         // Queue of wires to visit
         std::queue<WireId> visit;
@@ -178,9 +178,9 @@ struct NexusGlobalRouter
 
     void route_clk_net(NetInfo *net)
     {
-        for (size_t i = 0; i < net->users.size(); i++)
-            backwards_bfs_route(net, i, 1000000, true, [&](PipId pip) {
-                return (is_relaxed_sink(net->users.at(i)) || global_pip_filter(pip)) && routeability_pip_filter(pip);
+        for (auto usr : net->users.enumerate())
+            backwards_bfs_route(net, usr.index, 1000000, true, [&](PipId pip) {
+                return (is_relaxed_sink(usr.value) || global_pip_filter(pip)) && routeability_pip_filter(pip);
             });
         log_info("    routed net '%s' using global resources\n", ctx->nameOf(net));
     }

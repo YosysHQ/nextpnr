@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <type_traits>
 #include <vector>
 
 #include "nextpnr_assertions.h"
@@ -43,6 +44,7 @@ template <typename T> struct store_index
     unsigned int hash() const { return m_index; }
 
     operator bool() const { return !empty(); }
+    operator int() const = delete;
     bool operator!() const { return empty(); }
 };
 
@@ -62,11 +64,17 @@ template <typename T> class indexed_store
         friend class indexed_store<T>;
 
       public:
-        slot() : active(false), next_free(std::numeric_limits<int32_t>::max()){};
-        slot(slot &&other) : active(other.active), next_free(other.next_free)
+        slot() : next_free(std::numeric_limits<int32_t>::max()), active(false){};
+        slot(slot &&other) : next_free(other.next_free), active(other.active)
         {
             if (active)
                 ::new (static_cast<void *>(&storage)) T(std::move(other.obj()));
+        };
+
+        slot(const slot &other) : next_free(other.next_free), active(other.active)
+        {
+            if (active)
+                ::new (static_cast<void *>(&storage)) T(other.obj());
         };
 
         template <class... Args> void create(Args &&...args)
@@ -131,8 +139,16 @@ template <typename T> class indexed_store
         first_free = idx.m_index;
     }
 
+    void clear()
+    {
+        active_count = 0;
+        first_free = 0;
+        slots.clear();
+    }
+
     // Number of live entries
     int32_t entries() const { return active_count; }
+    bool empty() const { return (entries() == 0); }
 
     // Reserve a certain amount of space
     void reserve(int32_t size) { slots.reserve(size); }
@@ -155,6 +171,8 @@ template <typename T> class indexed_store
     int32_t capacity() const { return int32_t(slots.size()); }
 
     // Iterate over items
+    template <typename It, typename S> class enumerated_iterator;
+
     class iterator
     {
       private:
@@ -182,9 +200,14 @@ template <typename T> class indexed_store
             return prior;
         }
         T &operator*() { return base->at(store_index<T>(index)); }
-        template <typename It, typename S> friend class enumerated_iterator;
+        template <typename It, typename S> friend class indexed_store::enumerated_iterator;
     };
-    iterator begin() { return iterator{this, 0}; }
+    iterator begin()
+    {
+        auto it = iterator{this, -1};
+        ++it;
+        return it;
+    }
     iterator end() { return iterator{this, int32_t(slots.size())}; }
 
     class const_iterator
@@ -214,15 +237,20 @@ template <typename T> class indexed_store
             return prior;
         }
         const T &operator*() { return base->at(store_index<T>(index)); }
-        template <typename It, typename S> friend class enumerated_iterator;
+        template <typename It, typename S> friend class indexed_store::enumerated_iterator;
     };
-    const_iterator begin() const { return const_iterator{this, 0}; }
+    const_iterator begin() const
+    {
+        auto it = const_iterator{this, -1};
+        ++it;
+        return it;
+    }
     const_iterator end() const { return const_iterator{this, int32_t(slots.size())}; }
 
     template <typename S> struct enumerated_item
     {
         enumerated_item(int32_t index, T &value) : index(index), value(value){};
-        store_index<std::remove_const<S>> index;
+        store_index<std::remove_cv_t<S>> index;
         S &value;
     };
 
@@ -258,7 +286,10 @@ template <typename T> class indexed_store
     };
 
     enumerated_range<iterator, T> enumerate() { return enumerated_range<iterator, T>{begin(), end()}; }
-    enumerated_range<const_iterator, const T> enumerate() const { return enumerated_range<iterator, T>{begin(), end()}; }
+    enumerated_range<const_iterator, const T> enumerate() const
+    {
+        return enumerated_range<iterator, T>{begin(), end()};
+    }
 };
 
 NEXTPNR_NAMESPACE_END

@@ -1146,7 +1146,7 @@ bool read_asc(Context *ctx, std::istream &in)
                             if (port.second.type == PORT_OUT)
                                 net->driver = ref;
                             else
-                                net->users.push_back(ref);
+                                port.second.user_idx = net->users.add(ref);
                         }
                     }
                 }

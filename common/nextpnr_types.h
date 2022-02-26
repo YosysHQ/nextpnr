@@ -130,7 +130,7 @@ struct NetInfo : ArchNetInfo
     int32_t udata = 0;
 
     PortRef driver;
-    std::vector<PortRef> users;
+    indexed_store<PortRef> users;
     dict<IdString, Property> attrs;
 
     // wire -> uphill_pip
@@ -155,6 +155,7 @@ struct PortInfo
     IdString name;
     NetInfo *net;
     PortType type;
+    store_index<PortRef> user_idx{};
 };
 
 struct Context;

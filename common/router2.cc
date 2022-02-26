@@ -117,7 +117,7 @@ struct Router2
             NetInfo *ni = net.second.get();
             ni->udata = i;
             nets_by_udata.at(i) = ni;
-            nets.at(i).arcs.resize(ni->users.size());
+            nets.at(i).arcs.resize(ni->users.capacity());
 
             // Start net bounding box at overall min/max
             nets.at(i).bb.x0 = std::numeric_limits<int>::max();
@@ -133,10 +133,9 @@ struct Router2
                 nets.at(i).cy += drv_loc.y;
             }
 
-            for (size_t j = 0; j < ni->users.size(); j++) {
-                auto &usr = ni->users.at(j);
+            for (auto usr : ni->users.enumerate()) {
                 WireId src_wire = ctx->getNetinfoSourceWire(ni);
-                for (auto &dst_wire : ctx->getNetinfoSinkWires(ni, usr)) {
+                for (auto &dst_wire : ctx->getNetinfoSinkWires(ni, usr.value)) {
                     nets.at(i).src_wire = src_wire;
                     if (ni->driver.cell == nullptr)
                         src_wire = dst_wire;
@@ -146,10 +145,10 @@ struct Router2
                         log_error("No wire found for port %s on source cell %s.\n", ctx->nameOf(ni->driver.port),
                                   ctx->nameOf(ni->driver.cell));
                     if (dst_wire == WireId())
-                        log_error("No wire found for port %s on destination cell %s.\n", ctx->nameOf(usr.port),
-                                  ctx->nameOf(usr.cell));
-                    nets.at(i).arcs.at(j).emplace_back();
-                    auto &ad = nets.at(i).arcs.at(j).back();
+                        log_error("No wire found for port %s on destination cell %s.\n", ctx->nameOf(usr.value.port),
+                                  ctx->nameOf(usr.value.cell));
+                    nets.at(i).arcs.at(usr.index.idx()).emplace_back();
+                    auto &ad = nets.at(i).arcs.at(usr.index.idx()).back();
                     ad.sink_wire = dst_wire;
                     // Set bounding box for this arc
                     ad.bb = ctx->getRouteBoundingBox(src_wire, dst_wire);
@@ -160,14 +159,14 @@ struct Router2
                     nets.at(i).bb.y1 = std::max(nets.at(i).bb.y1, ad.bb.y1);
                 }
                 // Add location to centroid sum
-                Loc usr_loc = ctx->getBelLocation(usr.cell->bel);
+                Loc usr_loc = ctx->getBelLocation(usr.value.cell->bel);
                 nets.at(i).cx += usr_loc.x;
                 nets.at(i).cy += usr_loc.y;
             }
             nets.at(i).hpwl = std::max(
                     std::abs(nets.at(i).bb.y1 - nets.at(i).bb.y0) + std::abs(nets.at(i).bb.x1 - nets.at(i).bb.x0), 1);
-            nets.at(i).cx /= int(ni->users.size() + 1);
-            nets.at(i).cy /= int(ni->users.size() + 1);
+            nets.at(i).cx /= int(ni->users.entries() + 1);
+            nets.at(i).cy /= int(ni->users.entries() + 1);
             if (ctx->debug)
                 log_info("%s: bb=(%d, %d)->(%d, %d) c=(%d, %d) hpwl=%d\n", ctx->nameOf(ni), nets.at(i).bb.x0,
                          nets.at(i).bb.y0, nets.at(i).bb.x1, nets.at(i).bb.y1, nets.at(i).cx, nets.at(i).cy,
@@ -218,11 +217,11 @@ struct Router2
         for (auto &net_pair : ctx->nets) {
             auto *net = net_pair.second.get();
             auto &nd = nets.at(net->udata);
-            for (size_t usr = 0; usr < net->users.size(); usr++) {
-                auto &ad = nd.arcs.at(usr);
+            for (auto usr : net->users.enumerate()) {
+                auto &ad = nd.arcs.at(usr.index.idx());
                 for (size_t phys_pin = 0; phys_pin < ad.size(); phys_pin++) {
-                    if (check_arc_routing(net, usr, phys_pin)) {
-                        record_prerouted_net(net, usr, phys_pin);
+                    if (check_arc_routing(net, usr.index, phys_pin)) {
+                        record_prerouted_net(net, usr.index, phys_pin);
                     }
                 }
             }
@@ -261,7 +260,7 @@ struct Router2
         // Nets that failed routing
         std::vector<NetInfo *> failed_nets;
 
-        std::vector<std::pair<size_t, size_t>> route_arcs;
+        std::vector<std::pair<store_index<PortRef>, size_t>> route_arcs;
 
         std::priority_queue<QueuedWire, std::vector<QueuedWire>, QueuedWire::Greater> fwd_queue, bwd_queue;
         // Special case where one net has multiple logical arcs to the same physical sink
@@ -305,7 +304,7 @@ struct Router2
             log(__VA_ARGS__);                                                                                          \
     } while (0)
 
-    void bind_pip_internal(PerNetData &net, size_t user, int wire, PipId pip)
+    void bind_pip_internal(PerNetData &net, store_index<PortRef> user, int wire, PipId pip)
     {
         auto &wd = flat_wires.at(wire);
         auto found = net.wires.find(wd.w);
@@ -323,7 +322,7 @@ struct Router2
         }
     }
 
-    void unbind_pip_internal(PerNetData &net, size_t user, WireId wire)
+    void unbind_pip_internal(PerNetData &net, store_index<PortRef> user, WireId wire)
     {
         auto &wd = wire_data(wire);
         auto &b = net.wires.at(wd.w);
@@ -335,10 +334,10 @@ struct Router2
         }
     }
 
-    void ripup_arc(NetInfo *net, size_t user, size_t phys_pin)
+    void ripup_arc(NetInfo *net, store_index<PortRef> user, size_t phys_pin)
     {
         auto &nd = nets.at(net->udata);
-        auto &ad = nd.arcs.at(user).at(phys_pin);
+        auto &ad = nd.arcs.at(user.idx()).at(phys_pin);
         if (!ad.routed)
             return;
         WireId src = nets.at(net->udata).src_wire;
@@ -351,7 +350,8 @@ struct Router2
         ad.routed = false;
     }
 
-    float score_wire_for_arc(NetInfo *net, size_t user, size_t phys_pin, WireId wire, PipId pip, float crit_weight)
+    float score_wire_for_arc(NetInfo *net, store_index<PortRef> user, size_t phys_pin, WireId wire, PipId pip,
+                             float crit_weight)
     {
         auto &wd = wire_data(wire);
         auto &nd = nets.at(net->udata);
@@ -367,13 +367,14 @@ struct Router2
         float present_cost = 1.0f + overuse * curr_cong_weight * crit_weight;
         if (pip != PipId()) {
             Loc pl = ctx->getPipLocation(pip);
-            bias_cost = cfg.bias_cost_factor * (base_cost / int(net->users.size())) *
+            bias_cost = cfg.bias_cost_factor * (base_cost / int(net->users.entries())) *
                         ((std::abs(pl.x - nd.cx) + std::abs(pl.y - nd.cy)) / float(nd.hpwl));
         }
         return base_cost * hist_cost * present_cost / (1 + (source_uses * crit_weight)) + bias_cost;
     }
 
-    float get_togo_cost(NetInfo *net, size_t user, int wire, WireId src_sink, float crit_weight, bool bwd = false)
+    float get_togo_cost(NetInfo *net, store_index<PortRef> user, int wire, WireId src_sink, float crit_weight,
+                        bool bwd = false)
     {
         auto &nd = nets.at(net->udata);
         auto &wd = flat_wires[wire];
@@ -386,10 +387,10 @@ struct Router2
         return (ctx->getDelayNS(est_delay) / (1 + source_uses * crit_weight)) + cfg.ipin_cost_adder;
     }
 
-    bool check_arc_routing(NetInfo *net, size_t usr, size_t phys_pin)
+    bool check_arc_routing(NetInfo *net, store_index<PortRef> usr, size_t phys_pin)
     {
         auto &nd = nets.at(net->udata);
-        auto &ad = nd.arcs.at(usr).at(phys_pin);
+        auto &ad = nd.arcs.at(usr.idx()).at(phys_pin);
         WireId src_wire = nets.at(net->udata).src_wire;
         WireId cursor = ad.sink_wire;
         while (nd.wires.count(cursor)) {
@@ -404,10 +405,10 @@ struct Router2
         return (cursor == src_wire);
     }
 
-    void record_prerouted_net(NetInfo *net, size_t usr, size_t phys_pin)
+    void record_prerouted_net(NetInfo *net, store_index<PortRef> usr, size_t phys_pin)
     {
         auto &nd = nets.at(net->udata);
-        auto &ad = nd.arcs.at(usr).at(phys_pin);
+        auto &ad = nd.arcs.at(usr.idx()).at(phys_pin);
         ad.routed = true;
 
         WireId src = nets.at(net->udata).src_wire;
@@ -449,7 +450,7 @@ struct Router2
     }
 
     // Find all the wires that must be used to route a given arc
-    bool reserve_wires_for_arc(NetInfo *net, size_t i)
+    bool reserve_wires_for_arc(NetInfo *net, store_index<PortRef> i)
     {
         bool did_something = false;
         WireId src = ctx->getNetinfoSourceWire(net);
@@ -459,7 +460,7 @@ struct Router2
             WireId cursor = sink;
             bool done = false;
             if (ctx->debug)
-                log("reserving wires for arc %d (%s.%s) of net %s\n", int(i), ctx->nameOf(usr.cell),
+                log("reserving wires for arc %d (%s.%s) of net %s\n", i.idx(), ctx->nameOf(usr.cell),
                     ctx->nameOf(usr.port), ctx->nameOf(net));
             while (!done) {
                 auto &wd = wire_data(cursor);
@@ -501,8 +502,8 @@ struct Router2
                 WireId src = ctx->getNetinfoSourceWire(net);
                 if (src == WireId())
                     continue;
-                for (size_t i = 0; i < net->users.size(); i++)
-                    did_something |= reserve_wires_for_arc(net, i);
+                for (auto usr : net->users.enumerate())
+                    did_something |= reserve_wires_for_arc(net, usr.index);
             }
         } while (did_something);
     }
@@ -529,12 +530,12 @@ struct Router2
         return false;
     }
 
-    void update_wire_by_loc(ThreadContext &t, NetInfo *net, size_t i, size_t phys_pin, bool is_mt)
+    void update_wire_by_loc(ThreadContext &t, NetInfo *net, store_index<PortRef> i, size_t phys_pin, bool is_mt)
     {
         if (is_pseudo_const_net(net))
             return;
         auto &nd = nets.at(net->udata);
-        auto &ad = nd.arcs.at(i).at(phys_pin);
+        auto &ad = nd.arcs.at(i.idx()).at(phys_pin);
         WireId cursor = ad.sink_wire;
         if (!nd.wires.count(cursor))
             return;
@@ -571,28 +572,29 @@ struct Router2
     bool was_visited_fwd(int wire) { return flat_wires.at(wire).visited_fwd; }
     bool was_visited_bwd(int wire) { return flat_wires.at(wire).visited_bwd; }
 
-    float get_arc_crit(NetInfo *net, size_t i)
+    float get_arc_crit(NetInfo *net, store_index<PortRef> i)
     {
         if (!timing_driven)
             return 0;
         return tmg.get_criticality(CellPortKey(net->users.at(i)));
     }
 
-    bool arc_failed_slack(NetInfo *net, size_t usr_idx)
+    bool arc_failed_slack(NetInfo *net, store_index<PortRef> usr_idx)
     {
         return timing_driven_ripup &&
                (tmg.get_setup_slack(CellPortKey(net->users.at(usr_idx))) < (2 * ctx->getDelayEpsilon()));
     }
 
-    ArcRouteResult route_arc(ThreadContext &t, NetInfo *net, size_t i, size_t phys_pin, bool is_mt, bool is_bb = true)
+    ArcRouteResult route_arc(ThreadContext &t, NetInfo *net, store_index<PortRef> i, size_t phys_pin, bool is_mt,
+                             bool is_bb = true)
     {
         // Do some initial lookups and checks
         auto arc_start = std::chrono::high_resolution_clock::now();
         auto &nd = nets[net->udata];
-        auto &ad = nd.arcs.at(i).at(phys_pin);
+        auto &ad = nd.arcs.at(i.idx()).at(phys_pin);
         auto &usr = net->users.at(i);
-        ROUTE_LOG_DBG("Routing arc %d of net '%s' (%d, %d) -> (%d, %d)\n", int(i), ctx->nameOf(net), ad.bb.x0, ad.bb.y0,
-                      ad.bb.x1, ad.bb.y1);
+        ROUTE_LOG_DBG("Routing arc %d of net '%s' (%d, %d) -> (%d, %d)\n", i.idx(), ctx->nameOf(net), ad.bb.x0,
+                      ad.bb.y0, ad.bb.x1, ad.bb.y1);
         WireId src_wire = ctx->getNetinfoSourceWire(net), dst_wire = ctx->getNetinfoSinkWire(net, usr, phys_pin);
         if (src_wire == WireId())
             ARC_LOG_ERR("No wire found for port %s on source cell %s.\n", ctx->nameOf(net->driver.port),
@@ -614,7 +616,7 @@ struct Router2
         //     0. starting within a small range of existing routing
         //     1. expanding from all routing
         int mode = 0;
-        if (net->users.size() < 4 || nd.wires.empty() || (crit > 0.95))
+        if (net->users.entries() < 4 || nd.wires.empty() || (crit > 0.95))
             mode = 1;
 
         // This records the point where forwards and backwards routing met
@@ -844,11 +846,11 @@ struct Router2
             t.processed_sinks.insert(dst_wire);
             ad.routed = true;
             auto arc_end = std::chrono::high_resolution_clock::now();
-            ROUTE_LOG_DBG("Routing arc %d of net '%s' (is_bb = %d) took %02fs\n", int(i), ctx->nameOf(net), is_bb,
+            ROUTE_LOG_DBG("Routing arc %d of net '%s' (is_bb = %d) took %02fs\n", i.idx(), ctx->nameOf(net), is_bb,
                           std::chrono::duration<float>(arc_end - arc_start).count());
         } else {
             auto arc_end = std::chrono::high_resolution_clock::now();
-            ROUTE_LOG_DBG("Failed routing arc %d of net '%s' (is_bb = %d) took %02fs\n", int(i), ctx->nameOf(net),
+            ROUTE_LOG_DBG("Failed routing arc %d of net '%s' (is_bb = %d) took %02fs\n", i.idx(), ctx->nameOf(net),
                           is_bb, std::chrono::duration<float>(arc_end - arc_start).count());
             result = ARC_RETRY_WITHOUT_BB;
         }
@@ -880,26 +882,26 @@ struct Router2
         t.in_wire_by_loc.clear();
         auto &nd = nets.at(net->udata);
         bool failed_slack = false;
-        for (size_t i = 0; i < net->users.size(); i++)
-            failed_slack |= arc_failed_slack(net, i);
-        for (size_t i = 0; i < net->users.size(); i++) {
-            auto &ad = nd.arcs.at(i);
+        for (auto usr : net->users.enumerate())
+            failed_slack |= arc_failed_slack(net, usr.index);
+        for (auto usr : net->users.enumerate()) {
+            auto &ad = nd.arcs.at(usr.index.idx());
             for (size_t j = 0; j < ad.size(); j++) {
                 // Ripup failed arcs to start with
                 // Check if arc is already legally routed
-                if (!failed_slack && check_arc_routing(net, i, j)) {
-                    update_wire_by_loc(t, net, i, j, true);
+                if (!failed_slack && check_arc_routing(net, usr.index, j)) {
+                    update_wire_by_loc(t, net, usr.index, j, true);
                     continue;
                 }
 
                 // Ripup arc to start with
-                ripup_arc(net, i, j);
-                t.route_arcs.emplace_back(i, j);
+                ripup_arc(net, usr.index, j);
+                t.route_arcs.emplace_back(usr.index, j);
             }
         }
         // Route most critical arc first
         std::stable_sort(t.route_arcs.begin(), t.route_arcs.end(),
-                         [&](std::pair<size_t, size_t> a, std::pair<size_t, size_t> b) {
+                         [&](std::pair<store_index<PortRef>, size_t> a, std::pair<store_index<PortRef>, size_t> b) {
                              return get_arc_crit(net, a.first) > get_arc_crit(net, b.first);
                          });
         for (auto a : t.route_arcs) {
@@ -913,7 +915,7 @@ struct Router2
                 } else {
                     // Attempt a re-route without the bounding box constraint
                     ROUTE_LOG_DBG("Rerouting arc %d.%d of net '%s' without bounding box, possible tricky routing...\n",
-                                  int(a.first), int(a.second), ctx->nameOf(net));
+                                  a.first.idx(), int(a.second), ctx->nameOf(net));
                     auto res2 = route_arc(t, net, a.first, a.second, is_mt, false);
                     // If this also fails, no choice but to give up
                     if (res2 != ARC_SUCCESS) {
@@ -926,7 +928,7 @@ struct Router2
                                 log("\n");
                             }
                         }
-                        log_error("Failed to route arc %d.%d of net '%s', from %s to %s.\n", int(a.first),
+                        log_error("Failed to route arc %d.%d of net '%s', from %s to %s.\n", a.first.idx(),
                                   int(a.second), ctx->nameOf(net), ctx->nameOfWire(ctx->getNetinfoSourceWire(net)),
                                   ctx->nameOfWire(ctx->getNetinfoSinkWire(net, net->users.at(a.first), a.second)));
                     }
@@ -991,7 +993,7 @@ struct Router2
         }
     }
 
-    bool bind_and_check(NetInfo *net, int usr_idx, int phys_pin)
+    bool bind_and_check(NetInfo *net, store_index<PortRef> usr_idx, int phys_pin)
     {
 #ifdef ARCH_ECP5
         if (net->is_global)
@@ -999,7 +1001,7 @@ struct Router2
 #endif
         bool success = true;
         auto &nd = nets.at(net->udata);
-        auto &ad = nd.arcs.at(usr_idx).at(phys_pin);
+        auto &ad = nd.arcs.at(usr_idx.idx()).at(phys_pin);
         auto &usr = net->users.at(usr_idx);
         WireId src = ctx->getNetinfoSourceWire(net);
         // Skip routes with no source
@@ -1043,7 +1045,8 @@ struct Router2
             if (!nd.wires.count(cursor)) {
                 log("Failure details:\n");
                 log("    Cursor: %s\n", ctx->nameOfWire(cursor));
-                log_error("Internal error; incomplete route tree for arc %d of net %s.\n", usr_idx, ctx->nameOf(net));
+                log_error("Internal error; incomplete route tree for arc %d of net %s.\n", usr_idx.idx(),
+                          ctx->nameOf(net));
             }
             PipId p = nd.wires.at(cursor).first;
             if (ctx->checkPipAvailForNet(p, net)) {
@@ -1104,9 +1107,9 @@ struct Router2
             }
 
             // Bind the arcs using the routes we have discovered
-            for (size_t i = 0; i < net->users.size(); i++) {
-                for (size_t phys_pin = 0; phys_pin < nets.at(net->udata).arcs.at(i).size(); phys_pin++) {
-                    if (!bind_and_check(net, i, phys_pin)) {
+            for (auto usr : net->users.enumerate()) {
+                for (size_t phys_pin = 0; phys_pin < nets.at(net->udata).arcs.at(usr.index.idx()).size(); phys_pin++) {
+                    if (!bind_and_check(net, usr.index, phys_pin)) {
                         ++arch_fail;
                         success = false;
                     }
@@ -1313,10 +1316,10 @@ struct Router2
                 route_net(tcs.at(N), fail, false);
     }
 
-    delay_t get_route_delay(int net, int usr_idx, int phys_idx)
+    delay_t get_route_delay(int net, store_index<PortRef> usr_idx, int phys_idx)
     {
         auto &nd = nets.at(net);
-        auto &ad = nd.arcs.at(usr_idx).at(phys_idx);
+        auto &ad = nd.arcs.at(usr_idx.idx()).at(phys_idx);
         WireId cursor = ad.sink_wire;
         if (cursor == WireId() || nd.src_wire == WireId())
             return 0;
@@ -1344,11 +1347,11 @@ struct Router2
                 continue;
 #endif
             auto &nd = nets.at(net);
-            for (int i = 0; i < int(nd.arcs.size()); i++) {
+            for (auto usr : ni->users.enumerate()) {
                 delay_t arc_delay = 0;
-                for (int j = 0; j < int(nd.arcs.at(i).size()); j++)
-                    arc_delay = std::max(arc_delay, get_route_delay(net, i, j));
-                tmg.set_route_delay(CellPortKey(ni->users.at(i)), DelayPair(arc_delay));
+                for (int j = 0; j < int(nd.arcs.at(usr.index.idx()).size()); j++)
+                    arc_delay = std::max(arc_delay, get_route_delay(net, usr.index, j));
+                tmg.set_route_delay(CellPortKey(usr.value), DelayPair(arc_delay));
             }
         }
     }
@@ -1416,8 +1419,8 @@ struct Router2
             if (timing_driven_ripup && iter < 500) {
                 for (size_t i = 0; i < nets_by_udata.size(); i++) {
                     NetInfo *ni = nets_by_udata.at(i);
-                    for (size_t j = 0; j < ni->users.size(); j++) {
-                        if (arc_failed_slack(ni, j)) {
+                    for (auto usr : ni->users.enumerate()) {
+                        if (arc_failed_slack(ni, usr.index)) {
                             failed_nets.insert(i);
                             ++tmgfail;
                         }
@@ -1451,7 +1454,7 @@ struct Router2
             log_info("1000 slowest nets by runtime:\n");
             for (int i = 0; i < std::min(int(nets_by_runtime.size()), 1000); i++) {
                 log("        %80s %6d %.1fms\n", nets_by_runtime.at(i).second.c_str(ctx),
-                    int(ctx->nets.at(nets_by_runtime.at(i).second)->users.size()),
+                    int(ctx->nets.at(nets_by_runtime.at(i).second)->users.entries()),
                     nets_by_runtime.at(i).first / 1000.0);
             }
         }

@@ -655,9 +655,9 @@ class HeAPPlacer
     template <typename Tf> void foreach_port(NetInfo *net, Tf func)
     {
         if (net->driver.cell != nullptr)
-            func(net->driver, -1);
-        for (size_t i = 0; i < net->users.size(); i++)
-            func(net->users.at(i), i);
+            func(net->driver, store_index<PortRef>());
+        for (auto usr : net->users.enumerate())
+            func(usr.value, usr.index);
     }
 
     // Build the system of equations for either X or Y
@@ -682,7 +682,7 @@ class HeAPPlacer
             // Find the bounds of the net in this axis, and the ports that correspond to these bounds
             PortRef *lbport = nullptr, *ubport = nullptr;
             int lbpos = std::numeric_limits<int>::max(), ubpos = std::numeric_limits<int>::min();
-            foreach_port(ni, [&](PortRef &port, int user_idx) {
+            foreach_port(ni, [&](PortRef &port, store_index<PortRef> user_idx) {
                 int pos = cell_pos(port.cell);
                 if (pos < lbpos) {
                     lbpos = pos;
@@ -713,17 +713,17 @@ class HeAPPlacer
             };
 
             // Add all relevant connections to the matrix
-            foreach_port(ni, [&](PortRef &port, int user_idx) {
+            foreach_port(ni, [&](PortRef &port, store_index<PortRef> user_idx) {
                 int this_pos = cell_pos(port.cell);
                 auto process_arc = [&](PortRef *other) {
                     if (other == &port)
                         return;
                     int o_pos = cell_pos(other->cell);
-                    double weight = 1.0 / (ni->users.size() *
+                    double weight = 1.0 / (ni->users.entries() *
                                            std::max<double>(1, (yaxis ? cfg.hpwl_scale_y : cfg.hpwl_scale_x) *
                                                                        std::abs(o_pos - this_pos)));
 
-                    if (user_idx != -1) {
+                    if (user_idx) {
                         weight *= (1.0 + cfg.timingWeight * std::pow(tmg.get_criticality(CellPortKey(port)),
                                                                      cfg.criticalityExponent));
                     }

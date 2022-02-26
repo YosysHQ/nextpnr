@@ -96,7 +96,7 @@ int ViaductHelpers::constrain_cell_pairs(const pool<CellTypePort> &src_ports, co
                 continue;
             if (!src_ports.count(CellTypePort(ci.type, port.first)))
                 continue;
-            if (!allow_fanout && port.second.net->users.size() > 1)
+            if (!allow_fanout && port.second.net->users.entries() > 1)
                 continue;
             for (auto &usr : port.second.net->users) {
                 if (!sink_ports.count(CellTypePort(usr)))
@@ -151,7 +151,7 @@ void ViaductHelpers::replace_constants(CellTypePort vcc_driver, CellTypePort gnd
         NetInfo *replace = (ni.driver.cell->type == ctx->id("VCC")) ? vcc_net : gnd_net;
         for (auto &usr : ni.users) {
             usr.cell->ports.at(usr.port).net = replace;
-            replace->users.push_back(usr);
+            usr.cell->ports.at(usr.port).user_idx = replace->users.add(usr);
         }
         trim_cells.push_back(ni.driver.cell->name);
         trim_nets.push_back(ni.name);

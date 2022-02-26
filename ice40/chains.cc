@@ -73,8 +73,8 @@ class ChainConstrainer
             } else {
                 NetInfo *carry_net = cell->ports.at(id_COUT).net;
                 bool at_end = (curr_cell == carryc.cells.end() - 1);
-                if (carry_net != nullptr && (carry_net->users.size() > 1 || at_end)) {
-                    if (carry_net->users.size() > 2 ||
+                if (carry_net != nullptr && (carry_net->users.entries() > 1 || at_end)) {
+                    if (carry_net->users.entries() > 2 ||
                         (net_only_drives(ctx, carry_net, is_lc, id_I3, false) !=
                          net_only_drives(ctx, carry_net, is_lc, id_CIN, false)) ||
                         (at_end && !net_only_drives(ctx, carry_net, is_lc, id_I3, true))) {
@@ -116,15 +116,11 @@ class ChainConstrainer
         lc->ports.at(id_O).net = cout_port.net;
         NetInfo *co_i3_net = ctx->createNet(ctx->id(lc->name.str(ctx) + "$I3"));
         co_i3_net->driver = cout_port.net->driver;
-        PortRef i3_r;
-        i3_r.port = id_I3;
-        i3_r.cell = lc.get();
-        co_i3_net->users.push_back(i3_r);
+        lc->connectPort(id_I3, co_i3_net);
         PortRef o_r;
         o_r.port = id_O;
         o_r.cell = lc.get();
         cout_port.net->driver = o_r;
-        lc->ports.at(id_I3).net = co_i3_net;
         cout_port.net = co_i3_net;
 
         // If COUT also connects to a CIN; preserve the carry chain
@@ -133,34 +129,21 @@ class ChainConstrainer
 
             // Connect I1 to 1 to preserve carry chain
             NetInfo *vcc = ctx->nets.at(ctx->id("$PACKER_VCC_NET")).get();
-            lc->ports.at(id_I1).net = vcc;
-            PortRef i1_r;
-            i1_r.port = id_I1;
-            i1_r.cell = lc.get();
-            vcc->users.push_back(i1_r);
+            lc->connectPort(id_I1, vcc);
 
             // Connect co_cin_net to the COUT of the LC
-            PortRef co_r;
-            co_r.port = id_COUT;
-            co_r.cell = lc.get();
-            co_cin_net->driver = co_r;
-            lc->ports.at(id_COUT).net = co_cin_net;
+            lc->connectPort(id_COUT, co_cin_net);
 
             // Find the user corresponding to the next CIN
             int replaced_ports = 0;
             if (ctx->debug)
                 log_info("cell: %s\n", cin_cell->name.c_str(ctx));
             for (auto port : {id_CIN, id_I3}) {
-                auto &usr = lc->ports.at(id_O).net->users;
-                if (ctx->debug)
-                    for (auto user : usr)
-                        log_info("%s.%s\n", user.cell->name.c_str(ctx), user.port.c_str(ctx));
-                auto fnd_user = std::find_if(usr.begin(), usr.end(),
-                                             [&](const PortRef &pr) { return pr.cell == cin_cell && pr.port == port; });
-                if (fnd_user != usr.end()) {
-                    co_cin_net->users.push_back(*fnd_user);
-                    usr.erase(fnd_user);
-                    cin_cell->ports.at(port).net = co_cin_net;
+                NetInfo *out_net = lc->ports.at(id_O).net;
+                auto &cin_p = cin_cell->ports.at(port);
+                if (cin_p.net == out_net) {
+                    cin_cell->disconnectPort(port);
+                    cin_cell->connectPort(port, co_cin_net);
                     ++replaced_ports;
                 }
             }
@@ -181,30 +164,16 @@ class ChainConstrainer
         lc->params[id_CARRY_ENABLE] = Property::State::S1;
         lc->params[id_CIN_CONST] = Property::State::S1;
         lc->params[id_CIN_SET] = Property::State::S1;
-        lc->ports.at(id_I1).net = cin_port.net;
-        cin_port.net->users.erase(std::remove_if(cin_port.net->users.begin(), cin_port.net->users.end(),
-                                                 [cin_cell, cin_port](const PortRef &usr) {
-                                                     return usr.cell == cin_cell && usr.port == cin_port.name;
-                                                 }));
 
-        PortRef i1_ref;
-        i1_ref.cell = lc.get();
-        i1_ref.port = id_I1;
-        lc->ports.at(id_I1).net->users.push_back(i1_ref);
+        lc->connectPort(id_I1, cin_port.net);
+        cin_port.net->users.remove(cin_port.user_idx);
 
         NetInfo *out_net = ctx->createNet(ctx->id(lc->name.str(ctx) + "$O"));
 
-        PortRef drv_ref;
-        drv_ref.port = id_COUT;
-        drv_ref.cell = lc.get();
-        out_net->driver = drv_ref;
-        lc->ports.at(id_COUT).net = out_net;
+        lc->connectPort(id_COUT, out_net);
 
-        PortRef usr_ref;
-        usr_ref.port = cin_port.name;
-        usr_ref.cell = cin_cell;
-        out_net->users.push_back(usr_ref);
-        cin_cell->ports.at(cin_port.name).net = out_net;
+        cin_port.net = nullptr;
+        cin_cell->connectPort(cin_port.name, out_net);
 
         IdString name = lc->name;
         ctx->assignCellInfo(lc.get());

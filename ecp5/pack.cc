@@ -326,14 +326,14 @@ class Ecp5Packer
                 }
 
                 // Pack LUTs feeding the same CCU2, RAM or DFF into a SLICE
-                if (znet != nullptr && znet->users.size() < 10) {
+                if (znet != nullptr && znet->users.entries() < 10) {
                     for (auto user : znet->users) {
                         if (is_lc(ctx, user.cell) || user.cell->type == id_DP16KD || is_ff(ctx, user.cell)) {
                             for (auto port : user.cell->ports) {
                                 if (port.second.type != PORT_IN || port.second.net == nullptr ||
                                     port.second.net == znet)
                                     continue;
-                                if (port.second.net->users.size() > 10)
+                                if (port.second.net->users.entries() > 10)
                                     continue;
                                 CellInfo *drv = port.second.net->driver.cell;
                                 if (drv == nullptr)
@@ -355,11 +355,11 @@ class Ecp5Packer
                     if (!ci->ports.count(ctx->id(inp)))
                         continue;
                     NetInfo *innet = ci->ports.at(ctx->id(inp)).net;
-                    if (innet != nullptr && innet->users.size() < 5 && innet->users.size() > 1)
+                    if (innet != nullptr && innet->users.entries() < 5 && innet->users.entries() > 1)
                         inpnets.push_back(innet);
                 }
                 std::sort(inpnets.begin(), inpnets.end(),
-                          [&](const NetInfo *a, const NetInfo *b) { return a->users.size() < b->users.size(); });
+                          [&](const NetInfo *a, const NetInfo *b) { return a->users.entries() < b->users.entries(); });
                 for (auto inet : inpnets) {
                     for (auto &user : inet->users) {
                         if (user.cell == nullptr || user.cell == ci || !is_lut(ctx, user.cell))
@@ -412,7 +412,7 @@ class Ecp5Packer
             return false;
         for (auto user : net->users) {
             if (is_top_port(user)) {
-                if (net->users.size() > 1)
+                if (net->users.entries() > 1)
                     log_error("   port %s.%s must be connected to (and only to) a top level pin\n",
                               user.cell->name.c_str(ctx), user.port.c_str(ctx));
                 tp = user;
@@ -420,7 +420,7 @@ class Ecp5Packer
             }
         }
         if (net->driver.cell != nullptr && is_top_port(net->driver)) {
-            if (net->users.size() > 1)
+            if (net->users.entries() > 1)
                 log_error("   port %s.%s must be connected to (and only to) a top level pin\n",
                           net->driver.cell->name.c_str(ctx), net->driver.port.c_str(ctx));
             tp = net->driver;
@@ -460,9 +460,9 @@ class Ecp5Packer
 
                     NetInfo *net = trio->ports.at(id_B).net;
                     if (((ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_iobuf")) &&
-                         net->users.size() > 1) ||
+                         net->users.entries() > 1) ||
                         (ci->type == ctx->id("$nextpnr_obuf") &&
-                         (net->users.size() > 2 || net->driver.cell != nullptr)) ||
+                         (net->users.entries() > 2 || net->driver.cell != nullptr)) ||
                         (ci->type == ctx->id("$nextpnr_iobuf") && ci->ports.at(id_I).net != nullptr &&
                          ci->ports.at(id_I).net->driver.cell != nullptr))
                         log_error("Pin B of %s '%s' connected to more than a single top level IO.\n",
@@ -742,16 +742,14 @@ class Ecp5Packer
         feedin->params[id_INJECT1_0] = std::string("NO");
         feedin->params[id_INJECT1_1] = std::string("YES");
 
-        carry->users.erase(std::remove_if(carry->users.begin(), carry->users.end(),
-                                          [chain_in](const PortRef &user) {
-                                              return user.port == chain_in.port && user.cell == chain_in.cell;
-                                          }),
-                           carry->users.end());
+        carry->users.remove(chain_in.cell->ports.at(chain_in.port).user_idx);
         feedin->connectPort(id_A0, carry);
 
         NetInfo *new_carry = ctx->createNet(ctx->id(feedin->name.str(ctx) + "$COUT"));
         feedin->connectPort(id_COUT, new_carry);
         chain_in.cell->ports[chain_in.port].net = nullptr;
+        chain_in.cell->ports[chain_in.port].user_idx = {};
+
         chain_in.cell->connectPort(chain_in.port, new_carry);
 
         CellInfo *feedin_ptr = feedin.get();
@@ -782,12 +780,8 @@ class Ecp5Packer
         if (chain_next) {
             // Loop back into LUT4_1 for feedthrough
             feedout->connectPort(id_A1, carry);
-
-            carry->users.erase(std::remove_if(carry->users.begin(), carry->users.end(),
-                                              [chain_next](const PortRef &user) {
-                                                  return user.port == chain_next->port && user.cell == chain_next->cell;
-                                              }),
-                               carry->users.end());
+            if (chain_next->cell && chain_next->cell->ports.at(chain_next->port).user_idx)
+                carry->users.remove(chain_next->cell->ports.at(chain_next->port).user_idx);
 
             NetInfo *new_cout = ctx->createNet(ctx->id(feedout->name.str(ctx) + "$COUT"));
             feedout->connectPort(id_COUT, new_cout);
@@ -833,7 +827,7 @@ class Ecp5Packer
             } else {
                 NetInfo *carry_net = cell->ports.at(id_COUT).net;
                 bool at_end = (curr_cell == carryc.cells.end() - 1);
-                if (carry_net != nullptr && (carry_net->users.size() > 1 || at_end)) {
+                if (carry_net != nullptr && (carry_net->users.entries() > 1 || at_end)) {
                     boost::optional<PortRef> nextport;
                     if (!at_end) {
                         auto next_cell = *(curr_cell + 1);
@@ -1123,7 +1117,7 @@ class Ecp5Packer
                 if (pn == nullptr)
                     continue;
                 // Skip high-fanout nets that are unlikely to be relevant
-                if (pn->users.size() > 25)
+                if (pn->users.entries() > 25)
                     continue;
                 // Add other ports on this net if not already visited
                 auto visit_port = [&](const PortRef &port) {
@@ -1304,11 +1298,11 @@ class Ecp5Packer
                         } else {
                             // Not allowed to change to a tie-high
                             uc->ports[user.port].net = constnet;
-                            constnet->users.push_back(user);
+                            uc->ports[user.port].user_idx = constnet->users.add(user);
                         }
                     } else {
                         uc->ports[user.port].net = constnet;
-                        constnet->users.push_back(user);
+                        uc->ports[user.port].user_idx = constnet->users.add(user);
                     }
                 } else if (is_ff(ctx, uc) && user.port == id_LSR &&
                            ((!constval && str_or_default(uc->params, id_LSRMUX, "LSR") == "LSR") ||
@@ -1335,7 +1329,7 @@ class Ecp5Packer
                         user.port.str(ctx).substr(0, 6) == "SOURCE" || user.port.str(ctx).substr(0, 6) == "SIGNED" ||
                         user.port.str(ctx).substr(0, 2) == "OP") {
                         uc->ports[user.port].net = constnet;
-                        constnet->users.push_back(user);
+                        uc->ports[user.port].user_idx = constnet->users.add(user);
                     } else {
                         // Connected to CIB ABCD. Default state is bitstream configurable
                         uc->params[ctx->id(user.port.str(ctx) + "MUX")] = std::string(constval ? "1" : "0");
@@ -1343,7 +1337,7 @@ class Ecp5Packer
                     }
                 } else {
                     uc->ports[user.port].net = constnet;
-                    constnet->users.push_back(user);
+                    uc->ports[user.port].user_idx = constnet->users.add(user);
                 }
             }
         }
@@ -2037,7 +2031,7 @@ class Ecp5Packer
             CellInfo *ci = cell.second.get();
             if (ci->type == id_DQSBUFM) {
                 CellInfo *pio = net_driven_by(ctx, ci->ports.at(id_DQSI).net, is_trellis_io, id_O);
-                if (pio == nullptr || ci->ports.at(id_DQSI).net->users.size() > 1)
+                if (pio == nullptr || ci->ports.at(id_DQSI).net->users.entries() > 1)
                     log_error("DQSBUFM '%s' DQSI input must be connected only to a top level input\n",
                               ci->name.c_str(ctx));
                 if (!pio->attrs.count(id_BEL))
@@ -2273,7 +2267,7 @@ class Ecp5Packer
                 CellInfo *i_pio = net_driven_by(ctx, ci->ports.at(id_A).net, is_trellis_io, id_O);
                 CellInfo *o_pio = net_only_drives(ctx, ci->ports.at(id_Z).net, is_trellis_io, id_I, true);
                 CellInfo *iol = nullptr;
-                if (i_pio != nullptr && ci->ports.at(id_A).net->users.size() == 1) {
+                if (i_pio != nullptr && ci->ports.at(id_A).net->users.entries() == 1) {
                     iol = create_pio_iologic(i_pio, ci);
                     set_iologic_mode(iol, "IREG_OREG");
                     bool drives_iologic = false;
@@ -2356,7 +2350,7 @@ class Ecp5Packer
             CellInfo *ci = cell.second.get();
             if (ci->type == id_IDDRX1F) {
                 CellInfo *pio = net_driven_by(ctx, ci->ports.at(id_D).net, is_trellis_io, id_O);
-                if (pio == nullptr || ci->ports.at(id_D).net->users.size() > 1)
+                if (pio == nullptr || ci->ports.at(id_D).net->users.entries() > 1)
                     log_error("IDDRX1F '%s' D input must be connected only to a top level input\n",
                               ci->name.c_str(ctx));
                 CellInfo *iol;
@@ -2438,7 +2432,7 @@ class Ecp5Packer
                 packed_cells.insert(cell.first);
             } else if (ci->type == id_IDDRX2F || ci->type == id_IDDR71B) {
                 CellInfo *pio = net_driven_by(ctx, ci->ports.at(id_D).net, is_trellis_io, id_O);
-                if (pio == nullptr || ci->ports.at(id_D).net->users.size() > 1)
+                if (pio == nullptr || ci->ports.at(id_D).net->users.entries() > 1)
                     log_error("%s '%s' D input must be connected only to a top level input\n", ci->type.c_str(ctx),
                               ci->name.c_str(ctx));
                 CellInfo *iol;
@@ -2530,7 +2524,7 @@ class Ecp5Packer
                 packed_cells.insert(cell.first);
             } else if (ci->type == id_IDDRX2DQA) {
                 CellInfo *pio = net_driven_by(ctx, ci->ports.at(id_D).net, is_trellis_io, id_O);
-                if (pio == nullptr || ci->ports.at(id_D).net->users.size() > 1)
+                if (pio == nullptr || ci->ports.at(id_D).net->users.entries() > 1)
                     log_error("IDDRX2DQA '%s' D input must be connected only to a top level input\n",
                               ci->name.c_str(ctx));
                 CellInfo *iol;
@@ -2597,7 +2591,7 @@ class Ecp5Packer
                     // See if it can be packed as an input ff
                     NetInfo *d = ci->getPort(id_DI);
                     CellInfo *pio = net_driven_by(ctx, d, is_trellis_io, id_O);
-                    if (pio != nullptr && d->users.size() == 1) {
+                    if (pio != nullptr && d->users.entries() == 1) {
                         // Input FF
                         CellInfo *iol;
                         if (pio_iologic.count(pio->name))

@@ -47,14 +47,18 @@ CellInfo *net_only_drives(const Context *ctx, NetInfo *net, F1 cell_pred, IdStri
         return nullptr;
     if (exclusive) {
         if (exclude == nullptr) {
-            if (net->users.size() != 1)
+            if (net->users.entries() != 1)
                 return nullptr;
         } else {
-            if (net->users.size() > 2) {
+            if (net->users.entries() > 2) {
                 return nullptr;
-            } else if (net->users.size() == 2) {
-                if (std::find_if(net->users.begin(), net->users.end(),
-                                 [exclude](const PortRef &ref) { return ref.cell == exclude; }) == net->users.end())
+            } else if (net->users.entries() == 2) {
+                bool found = false;
+                for (auto &usr : net->users) {
+                    if (usr.cell == exclude)
+                        found = true;
+                }
+                if (!found)
                     return nullptr;
             }
         }

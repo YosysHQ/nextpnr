@@ -472,17 +472,15 @@ class Ecp5GlobalRouter
                 } else if (is_logic_port(user)) {
                     keep_users.push_back(user);
                 } else {
-                    glbptr->users.push_back(user);
                     user.cell->ports.at(user.port).net = glbptr;
+                    user.cell->ports.at(user.port).user_idx = glbptr->users.add(user);
                 }
             }
-            net->users = keep_users;
+            net->users.clear();
+            for (auto &usr : keep_users)
+                usr.cell->ports.at(usr.port).user_idx = net->users.add(usr);
 
-            dcc->ports[id_CLKI].net = net;
-            PortRef clki_pr;
-            clki_pr.port = id_CLKI;
-            clki_pr.cell = dcc.get();
-            net->users.push_back(clki_pr);
+            dcc->connectPort(id_CLKI, net);
             if (net->clkconstr) {
                 glbptr->clkconstr = std::unique_ptr<ClockConstraint>(new ClockConstraint());
                 glbptr->clkconstr->low = net->clkconstr->low;
@@ -556,9 +554,13 @@ class Ecp5GlobalRouter
             if (ci->type == id_DCCA || ci->type == id_DCSC) {
                 NetInfo *clock = ci->ports.at((ci->type == id_DCSC) ? id_DCSOUT : id_CLKO).net;
                 NPNR_ASSERT(clock != nullptr);
-                bool drives_fabric = std::any_of(clock->users.begin(), clock->users.end(),
-                                                 [this](const PortRef &port) { return !is_clock_port(port); });
-
+                bool drives_fabric = false;
+                for (auto &usr : clock->users) {
+                    if (!is_clock_port(usr)) {
+                        drives_fabric = true;
+                        break;
+                    }
+                }
                 int glbid;
                 if (drives_fabric) {
                     if (fab_globals.empty())
