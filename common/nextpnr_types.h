@@ -29,6 +29,7 @@
 
 #include "archdefs.h"
 #include "hashlib.h"
+#include "indexed_store.h"
 #include "nextpnr_base_types.h"
 #include "nextpnr_namespaces.h"
 #include "property.h"
