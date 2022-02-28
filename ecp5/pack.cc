@@ -1454,9 +1454,9 @@ class Ecp5Packer
                 rename_param(ci, "CLKWMUX", "CLKAMUX");
                 if (str_or_default(ci->params, id_CLKAMUX) == "CLKW")
                     ci->params[id_CLKAMUX] = std::string("CLKA");
+                rename_param(ci, "CLKRMUX", "CLKBMUX");
                 if (str_or_default(ci->params, id_CLKBMUX) == "CLKR")
                     ci->params[id_CLKBMUX] = std::string("CLKB");
-                rename_param(ci, "CLKRMUX", "CLKRMUX");
                 rename_param(ci, "CSDECODE_W", "CSDECODE_A");
                 rename_param(ci, "CSDECODE_R", "CSDECODE_B");
                 std::string outreg = str_or_default(ci->params, id_REGMODE, "NOREG");
