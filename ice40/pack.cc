@@ -214,14 +214,14 @@ static void pack_carries(Context *ctx)
                     PortRef pr;
                     pr.cell = created_lc.get();
                     pr.port = id_I1;
-                    i0_net->users.push_back(pr);
+                    created_lc->ports.at(id_I1).user_idx = i0_net->users.add(pr);
                 }
                 created_lc->ports.at(id_I2).net = i1_net;
                 if (i1_net) {
                     PortRef pr;
                     pr.cell = created_lc.get();
                     pr.port = id_I2;
-                    i1_net->users.push_back(pr);
+                    created_lc->ports.at(id_I2).user_idx = i1_net->users.add(pr);
                 }
                 new_cells.push_back(std::move(created_lc));
                 ++carry_only;
@@ -230,16 +230,12 @@ static void pack_carries(Context *ctx)
             ci->movePortTo(id_CI, carry_lc, id_CIN);
             ci->movePortTo(id_CO, carry_lc, id_COUT);
             if (i0_net) {
-                auto &i0_usrs = i0_net->users;
-                i0_usrs.erase(std::remove_if(i0_usrs.begin(), i0_usrs.end(), [ci, ctx](const PortRef &pr) {
-                    return pr.cell == ci && pr.port == id_I0;
-                }));
+                if (ci->ports.count(id_I0) && ci->ports.at(id_I0).user_idx)
+                    i0_net->users.remove(ci->ports.at(id_I0).user_idx);
             }
             if (i1_net) {
-                auto &i1_usrs = i1_net->users;
-                i1_usrs.erase(std::remove_if(i1_usrs.begin(), i1_usrs.end(), [ci, ctx](const PortRef &pr) {
-                    return pr.cell == ci && pr.port == id_I1;
-                }));
+                if (ci->ports.count(id_I1) && ci->ports.at(id_I1).user_idx)
+                    i1_net->users.remove(ci->ports.at(id_I1).user_idx);
             }
 
             // Check for constant driver on CIN
@@ -251,10 +247,7 @@ static void pack_carries(Context *ctx)
                             cin_net == ctx->id("$PACKER_VCC_NET") ? Property::State::S1 : Property::State::S0;
                     carry_lc->ports.at(id_CIN).net = nullptr;
                     auto &cin_users = ctx->nets.at(cin_net)->users;
-                    cin_users.erase(
-                            std::remove_if(cin_users.begin(), cin_users.end(), [carry_lc, ctx](const PortRef &pr) {
-                                return pr.cell == carry_lc && pr.port == id_CIN;
-                            }));
+                    cin_users.remove(carry_lc->ports.at(id_CIN).user_idx);
                 }
             }
             exhausted_cells.insert(carry_lc->name);
@@ -326,17 +319,20 @@ static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constne
             if ((is_lut(ctx, uc) || is_lc(ctx, uc) || is_carry(ctx, uc)) && (user.port.str(ctx).at(0) == 'I') &&
                 !constval) {
                 uc->ports[user.port].net = nullptr;
+                uc->ports[user.port].user_idx = {};
             } else if ((is_sb_mac16(ctx, uc) || uc->type == id_ICESTORM_DSP) &&
                        (user.port != id_CLK &&
                         ((constval && user.port == id_CE) || (!constval && user.port != id_CE)))) {
                 uc->ports[user.port].net = nullptr;
+                uc->ports[user.port].user_idx = {};
             } else if (is_ram(ctx, uc) && !constval && user.port != id_RCLK && user.port != id_RCLKN &&
                        user.port != id_WCLK && user.port != id_WCLKN && user.port != id_RCLKE &&
                        user.port != id_WCLKE) {
                 uc->ports[user.port].net = nullptr;
+                uc->ports[user.port].user_idx = {};
             } else {
                 uc->ports[user.port].net = constnet;
-                constnet->users.push_back(user);
+                uc->ports[user.port].user_idx = constnet->users.add(user);
             }
         }
     }
@@ -486,8 +482,8 @@ static void pack_io(Context *ctx)
                          ci->type.c_str(ctx), ci->name.c_str(ctx));
                 NetInfo *net = sb->ports.at(id_PACKAGE_PIN).net;
                 if (((ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_iobuf")) &&
-                     net->users.size() > 1) ||
-                    (ci->type == ctx->id("$nextpnr_obuf") && (net->users.size() > 2 || net->driver.cell != nullptr)))
+                     net->users.entries() > 1) ||
+                    (ci->type == ctx->id("$nextpnr_obuf") && (net->users.entries() > 2 || net->driver.cell != nullptr)))
                     log_error("PACKAGE_PIN of %s '%s' connected to more than a single top level IO.\n",
                               sb->type.c_str(ctx), sb->name.c_str(ctx));
 
@@ -531,9 +527,9 @@ static void pack_io(Context *ctx)
                 sb->attrs[attr.first] = attr.second;
         } else if (is_sb_io(ctx, ci) || is_sb_gb_io(ctx, ci)) {
             NetInfo *net = ci->ports.at(id_PACKAGE_PIN).net;
-            if ((net != nullptr) && ((net->users.size() > 2) ||
+            if ((net != nullptr) && ((net->users.entries() > 2) ||
                                      (net->driver.cell != nullptr &&
-                                      net->driver.cell->type == ctx->id("$nextpnr_obuf") && net->users.size() > 1)))
+                                      net->driver.cell->type == ctx->id("$nextpnr_obuf") && net->users.entries() > 1)))
                 log_error("PACKAGE_PIN of %s '%s' connected to more than a single top level IO.\n", ci->type.c_str(ctx),
                           ci->name.c_str(ctx));
         }
@@ -554,11 +550,11 @@ static void pack_io(Context *ctx)
             NetInfo *net_in0 = ci->ports.count(id_D_IN_0) ? ci->ports[id_D_IN_0].net : nullptr;
             NetInfo *net_in1 = ci->ports.count(id_D_IN_1) ? ci->ports[id_D_IN_1].net : nullptr;
 
-            if (net_in0 != nullptr && net_in0->users.size() == 0) {
+            if (net_in0 != nullptr && net_in0->users.entries() == 0) {
                 delete_nets.insert(net_in0->name);
                 ci->ports[id_D_IN_0].net = nullptr;
             }
-            if (net_in1 != nullptr && net_in1->users.size() == 0) {
+            if (net_in1 != nullptr && net_in1->users.entries() == 0) {
                 delete_nets.insert(net_in1->name);
                 ci->ports[id_D_IN_1].net = nullptr;
             }
@@ -591,28 +587,23 @@ static void insert_global(Context *ctx, NetInfo *net, bool is_reset, bool is_cen
 
     std::string glb_name = net->name.str(ctx) + std::string("_$glb_") + (is_reset ? "sr" : (is_cen ? "ce" : "clk"));
     std::unique_ptr<CellInfo> gb = create_ice_cell(ctx, id_SB_GB, "$gbuf_" + glb_name);
-    gb->ports[id_USER_SIGNAL_TO_GLOBAL_BUFFER].net = net;
-    PortRef pr;
-    pr.cell = gb.get();
-    pr.port = id_USER_SIGNAL_TO_GLOBAL_BUFFER;
-    net->users.push_back(pr);
-
-    pr.cell = gb.get();
-    pr.port = id_GLOBAL_BUFFER_OUTPUT;
+    gb->connectPort(id_USER_SIGNAL_TO_GLOBAL_BUFFER, net);
     NetInfo *glbnet = ctx->createNet(ctx->id(glb_name));
-    glbnet->driver = pr;
-    gb->ports[id_GLOBAL_BUFFER_OUTPUT].net = glbnet;
+    gb->connectPort(id_GLOBAL_BUFFER_OUTPUT, glbnet);
+
     std::vector<PortRef> keep_users;
     for (auto user : net->users) {
         if (is_clock_port(ctx, user) || (is_reset && is_reset_port(ctx, user)) ||
             (is_cen && is_enable_port(ctx, user)) || (is_logic && is_logic_port(ctx, user))) {
             user.cell->ports[user.port].net = glbnet;
-            glbnet->users.push_back(user);
+            user.cell->ports[user.port].user_idx = glbnet->users.add(user);
         } else {
             keep_users.push_back(user);
         }
     }
-    net->users = keep_users;
+    net->users.clear();
+    for (auto &user : keep_users)
+        user.cell->ports[user.port].user_idx = net->users.add(user);
 
     if (net->clkconstr) {
         glbnet->clkconstr = std::unique_ptr<ClockConstraint>(new ClockConstraint());
@@ -809,7 +800,7 @@ static void place_plls(Context *ctx)
             log_error("PLL '%s' has a PACKAGEPIN driven by an %s, should be directly connected to an input "
                       "SB_IO.D_IN_0 port\n",
                       ci->name.c_str(ctx), io_cell->type.c_str(ctx));
-        if (ni->users.size() != 1)
+        if (ni->users.entries() != 1)
             log_error("PLL '%s' clock input '%s' can only drive PLL\n", ci->name.c_str(ctx), ni->name.c_str(ctx));
         if (!io_cell->attrs.count(id_BEL))
             log_error("PLL '%s' PACKAGEPIN SB_IO '%s' is unconstrained\n", ci->name.c_str(ctx),
@@ -911,10 +902,10 @@ static void place_plls(Context *ctx)
 
             // Used global connections
             bool gb_a_used = ci->ports.count(id_PLLOUT_A_GLOBAL) && (ci->ports[id_PLLOUT_A_GLOBAL].net != nullptr) &&
-                             (ci->ports[id_PLLOUT_A_GLOBAL].net->users.size() > 0);
+                             (ci->ports[id_PLLOUT_A_GLOBAL].net->users.entries() > 0);
             bool gb_b_used = is_sb_pll40_dual(ctx, ci) && ci->ports.count(id_PLLOUT_B_GLOBAL) &&
                              (ci->ports[id_PLLOUT_B_GLOBAL].net != nullptr) &&
-                             (ci->ports[id_PLLOUT_B_GLOBAL].net->users.size() > 0);
+                             (ci->ports[id_PLLOUT_B_GLOBAL].net->users.entries() > 0);
 
             // Check for conflict
             BelPin pll_io_a, pll_io_b;
@@ -954,15 +945,15 @@ static void place_plls(Context *ctx)
 
             // Used global connections
             bool gb_a_used = ci->ports.count(id_PLLOUT_A_GLOBAL) && (ci->ports[id_PLLOUT_A_GLOBAL].net != nullptr) &&
-                             (ci->ports[id_PLLOUT_A_GLOBAL].net->users.size() > 0);
+                             (ci->ports[id_PLLOUT_A_GLOBAL].net->users.entries() > 0);
             bool gb_b_used = is_sb_pll40_dual(ctx, ci) && ci->ports.count(id_PLLOUT_B_GLOBAL) &&
                              (ci->ports[id_PLLOUT_B_GLOBAL].net != nullptr) &&
-                             (ci->ports[id_PLLOUT_B_GLOBAL].net->users.size() > 0);
+                             (ci->ports[id_PLLOUT_B_GLOBAL].net->users.entries() > 0);
 
             // Could this be a PAD PLL ?
             bool could_be_pad = false;
             BelId pad_bel;
-            if (ni->users.size() == 1 && is_sb_io(ctx, ni->driver.cell) && ni->driver.cell->attrs.count(id_BEL))
+            if (ni->users.entries() == 1 && is_sb_io(ctx, ni->driver.cell) && ni->driver.cell->attrs.count(id_BEL))
                 pad_bel = ctx->getBelByNameStr(ni->driver.cell->attrs[id_BEL].as_string());
 
             // Find a BEL for it
@@ -1035,7 +1026,7 @@ static std::unique_ptr<CellInfo> spliceLUT(Context *ctx, CellInfo *ci, IdString 
         PortRef pr;
         pr.cell = user.cell;
         pr.port = user.port;
-        out_net->users.push_back(pr);
+        user.cell->ports[user.port].user_idx = out_net->users.add(pr);
     }
 
     // Add LUT to new users.
@@ -1045,8 +1036,10 @@ static std::unique_ptr<CellInfo> spliceLUT(Context *ctx, CellInfo *ci, IdString 
     new_users.push_back(pr);
     pt->ports.at(id_I3).net = port.net;
 
-    // Replace users of the original net.
-    port.net->users = new_users;
+    // Replace users of the original net
+    port.net->users.clear();
+    for (auto &usr : new_users)
+        usr.cell->ports.at(usr.port).user_idx = port.net->users.add(usr);
 
     return pt;
 }
@@ -1235,7 +1228,7 @@ static void pack_special(Context *ctx)
                 if ((pi.name != id_RGB0) && (pi.name != id_RGB1) && (pi.name != id_RGB2))
                     continue;
 
-                if (net->users.size() > 0)
+                if (net->users.entries() > 0)
                     log_error("SB_RGB_DRV/SB_RGBA_DRV port connected to more than just package pin !\n");
 
                 ctx->nets.erase(net->name);
@@ -1585,7 +1578,7 @@ void pack_plls(Context *ctx)
                 // Only if there is actually a net ...
                 if (pi.net != nullptr) {
                     // ... and it's used
-                    if (pi.net->users.size() > 0) {
+                    if (pi.net->users.entries() > 0) {
                         std::unique_ptr<CellInfo> gb =
                                 create_padin_gbuf(ctx, packed.get(), pi.name,
                                                   "$gbuf_" + ci->name.str(ctx) + "_pllout_" + (is_b_port ? "b" : "a"));

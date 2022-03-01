@@ -91,7 +91,7 @@ class SAPlacer
         decltype(NetInfo::udata) n = 0;
         for (auto &net : ctx->nets) {
             old_udata.emplace_back(net.second->udata);
-            net_arc_tcost.at(n).resize(net.second->users.size());
+            net_arc_tcost.at(n).resize(net.second->users.capacity());
             net.second->udata = n++;
             net_by_udata.push_back(net.second.get());
         }
@@ -118,7 +118,6 @@ class SAPlacer
             }
             region_bounds[r->name] = bb;
         }
-        build_port_index();
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
             if (ci->cluster == ClusterId())
@@ -858,7 +857,7 @@ class SAPlacer
     }
 
     // Get the timing cost for an arc of a net
-    inline double get_timing_cost(NetInfo *net, size_t user)
+    inline double get_timing_cost(NetInfo *net, const PortRef &user)
     {
         int cc;
         if (net->driver.cell == nullptr)
@@ -866,11 +865,11 @@ class SAPlacer
         if (ctx->getPortTimingClass(net->driver.cell, net->driver.port, cc) == TMG_IGNORE)
             return 0;
         if (cfg.budgetBased) {
-            double delay = ctx->getDelayNS(ctx->predictArcDelay(net, net->users.at(user)));
-            return std::min(10.0, std::exp(delay - ctx->getDelayNS(net->users.at(user).budget) / 10));
+            double delay = ctx->getDelayNS(ctx->predictArcDelay(net, user));
+            return std::min(10.0, std::exp(delay - ctx->getDelayNS(user.budget) / 10));
         } else {
-            float crit = tmg.get_criticality(CellPortKey(net->users.at(user)));
-            double delay = ctx->getDelayNS(ctx->predictArcDelay(net, net->users.at(user)));
+            float crit = tmg.get_criticality(CellPortKey(user));
+            double delay = ctx->getDelayNS(ctx->predictArcDelay(net, user));
             return delay * std::pow(crit, crit_exp);
         }
     }
@@ -883,9 +882,9 @@ class SAPlacer
             if (ignore_net(ni))
                 continue;
             net_bounds[ni->udata] = get_net_bounds(ni);
-            if (cfg.timing_driven && int(ni->users.size()) < cfg.timingFanoutThresh)
-                for (size_t i = 0; i < ni->users.size(); i++)
-                    net_arc_tcost[ni->udata][i] = get_timing_cost(ni, i);
+            if (cfg.timing_driven && int(ni->users.entries()) < cfg.timingFanoutThresh)
+                for (auto usr : ni->users.enumerate())
+                    net_arc_tcost[ni->udata][usr.index.idx()] = get_timing_cost(ni, usr.value);
         }
     }
 
@@ -923,13 +922,13 @@ class SAPlacer
         };
 
         std::vector<decltype(NetInfo::udata)> bounds_changed_nets_x, bounds_changed_nets_y;
-        std::vector<std::pair<decltype(NetInfo::udata), size_t>> changed_arcs;
+        std::vector<std::pair<decltype(NetInfo::udata), store_index<PortRef>>> changed_arcs;
 
         std::vector<BoundChangeType> already_bounds_changed_x, already_bounds_changed_y;
         std::vector<std::vector<bool>> already_changed_arcs;
 
         std::vector<BoundingBox> new_net_bounds;
-        std::vector<std::pair<std::pair<decltype(NetInfo::udata), size_t>, double>> new_arc_costs;
+        std::vector<std::pair<std::pair<decltype(NetInfo::udata), store_index<PortRef>>, double>> new_arc_costs;
 
         wirelen_t wirelen_delta = 0;
         double timing_delta = 0;
@@ -940,7 +939,7 @@ class SAPlacer
             already_bounds_changed_y.resize(p->ctx->nets.size());
             already_changed_arcs.resize(p->ctx->nets.size());
             for (auto &net : p->ctx->nets) {
-                already_changed_arcs.at(net.second->udata).resize(net.second->users.size());
+                already_changed_arcs.at(net.second->udata).resize(net.second->users.capacity());
             }
             new_net_bounds = p->net_bounds;
         }
@@ -956,7 +955,7 @@ class SAPlacer
                 already_bounds_changed_y[bc] = NO_CHANGE;
             }
             for (const auto &tc : changed_arcs)
-                already_changed_arcs[tc.first][tc.second] = false;
+                already_changed_arcs[tc.first][tc.second.idx()] = false;
             bounds_changed_nets_x.clear();
             bounds_changed_nets_y.clear();
             changed_arcs.clear();
@@ -1100,22 +1099,22 @@ class SAPlacer
                 }
             }
 
-            if (cfg.timing_driven && int(pn->users.size()) < cfg.timingFanoutThresh) {
+            if (cfg.timing_driven && int(pn->users.entries()) < cfg.timingFanoutThresh) {
                 // Output ports - all arcs change timing
                 if (port.second.type == PORT_OUT) {
                     int cc;
                     TimingPortClass cls = ctx->getPortTimingClass(cell, port.first, cc);
                     if (cls != TMG_IGNORE)
-                        for (size_t i = 0; i < pn->users.size(); i++)
-                            if (!mc.already_changed_arcs[pn->udata][i]) {
-                                mc.changed_arcs.emplace_back(std::make_pair(pn->udata, i));
-                                mc.already_changed_arcs[pn->udata][i] = true;
+                        for (auto usr : pn->users.enumerate())
+                            if (!mc.already_changed_arcs[pn->udata][usr.index.idx()]) {
+                                mc.changed_arcs.emplace_back(std::make_pair(pn->udata, usr.index));
+                                mc.already_changed_arcs[pn->udata][usr.index.idx()] = true;
                             }
                 } else if (port.second.type == PORT_IN) {
-                    auto usr = fast_port_to_user.at(std::make_pair(cell->name, port.first));
-                    if (!mc.already_changed_arcs[pn->udata][usr]) {
-                        mc.changed_arcs.emplace_back(std::make_pair(pn->udata, usr));
-                        mc.already_changed_arcs[pn->udata][usr] = true;
+                    auto usr_idx = port.second.user_idx;
+                    if (!mc.already_changed_arcs[pn->udata][usr_idx.idx()]) {
+                        mc.changed_arcs.emplace_back(std::make_pair(pn->udata, usr_idx));
+                        mc.already_changed_arcs[pn->udata][usr_idx.idx()] = true;
                     }
                 }
             }
@@ -1142,11 +1141,12 @@ class SAPlacer
 
         if (cfg.timing_driven) {
             for (const auto &tc : md.changed_arcs) {
-                double old_cost = net_arc_tcost.at(tc.first).at(tc.second);
-                double new_cost = get_timing_cost(net_by_udata.at(tc.first), tc.second);
+                double old_cost = net_arc_tcost.at(tc.first).at(tc.second.idx());
+                double new_cost =
+                        get_timing_cost(net_by_udata.at(tc.first), net_by_udata.at(tc.first)->users.at(tc.second));
                 md.new_arc_costs.emplace_back(std::make_pair(tc, new_cost));
                 md.timing_delta += (new_cost - old_cost);
-                md.already_changed_arcs[tc.first][tc.second] = false;
+                md.already_changed_arcs[tc.first][tc.second.idx()] = false;
             }
         }
     }
@@ -1158,20 +1158,9 @@ class SAPlacer
         for (const auto &bc : md.bounds_changed_nets_y)
             net_bounds[bc] = md.new_net_bounds[bc];
         for (const auto &tc : md.new_arc_costs)
-            net_arc_tcost[tc.first.first].at(tc.first.second) = tc.second;
+            net_arc_tcost[tc.first.first].at(tc.first.second.idx()) = tc.second;
         curr_wirelen_cost += md.wirelen_delta;
         curr_timing_cost += md.timing_delta;
-    }
-    // Build the cell port -> user index
-    void build_port_index()
-    {
-        for (auto &net : ctx->nets) {
-            NetInfo *ni = net.second.get();
-            for (size_t i = 0; i < ni->users.size(); i++) {
-                auto &usr = ni->users.at(i);
-                fast_port_to_user[std::make_pair(usr.cell->name, usr.port)] = i;
-            }
-        }
     }
 
     // Simple routeability driven placement
@@ -1239,9 +1228,6 @@ class SAPlacer
     std::vector<BoundingBox> net_bounds;
     // Map net arcs to their timing cost (criticality * delay ns)
     std::vector<std::vector<double>> net_arc_tcost;
-
-    // Fast lookup for cell port to net user index
-    dict<std::pair<IdString, IdString>, size_t> fast_port_to_user;
 
     // Fast lookup for cell to clusters
     dict<ClusterId, std::vector<CellInfo *>> cluster2cell;

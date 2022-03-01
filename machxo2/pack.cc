@@ -160,7 +160,7 @@ static void set_net_constant(Context *ctx, NetInfo *orig, NetInfo *constnet, boo
                 uc->ports[user.port].net = constnet;
             }
 
-            constnet->users.push_back(user);
+            user.cell->ports.at(user.port).user_idx = constnet->users.add(user);
         }
     }
     orig->users.clear();

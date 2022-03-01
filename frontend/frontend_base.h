@@ -690,7 +690,7 @@ template <typename FrontendType> struct GenericFrontend
         // Combine users
         for (auto &usr : mergee->users) {
             usr.cell->ports[usr.port].net = base;
-            base->users.push_back(usr);
+            usr.cell->ports[usr.port].user_idx = base->users.add(usr);
         }
         // Point aliases to the new net
         for (IdString alias : mergee->aliases) {

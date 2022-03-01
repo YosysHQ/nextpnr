@@ -44,28 +44,6 @@ struct CellPortKey
     }
 };
 
-struct NetPortKey
-{
-    IdString net;
-    size_t idx;
-    NetPortKey(){};
-    explicit NetPortKey(IdString net) : net(net), idx(DRIVER_IDX){};        // driver
-    explicit NetPortKey(IdString net, size_t user) : net(net), idx(user){}; // user
-
-    static const size_t DRIVER_IDX = std::numeric_limits<size_t>::max();
-
-    inline bool is_driver() const { return (idx == DRIVER_IDX); }
-    inline size_t user_idx() const
-    {
-        NPNR_ASSERT(idx != DRIVER_IDX);
-        return idx;
-    }
-
-    unsigned int hash() const { return mkhash(net.hash(), idx); }
-
-    inline bool operator==(const NetPortKey &other) const { return (net == other.net) && (idx == other.idx); }
-};
-
 struct ClockDomainKey
 {
     IdString clock;
@@ -194,7 +172,6 @@ struct TimingAnalyser
     struct PerPort
     {
         CellPortKey cell_port;
-        NetPortKey net_port;
         PortType type;
         // per domain timings
         dict<domain_id_t, ArrivReqTime> arrival;

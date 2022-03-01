@@ -511,7 +511,7 @@ struct OkamiImpl : ViaductAPI
         const auto &ff_data = fast_cell_info.at(ff->flat_index);
         // In our example arch; the FF D can either be driven from LUT F or LUT I3
         // so either; FF D must equal LUT F or LUT I3 must be unused
-        if (ff_data.ff_d == lut_data.lut_f && lut_data.lut_f->users.size() == 1)
+        if (ff_data.ff_d == lut_data.lut_f && lut_data.lut_f->users.entries() == 1)
             return true;
         // Can't route FF and LUT output separately
         return false;

@@ -66,7 +66,7 @@ void CellInfo::connectPort(IdString port_name, NetInfo *net)
         PortRef user;
         user.cell = this;
         user.port = port_name;
-        net->users.push_back(user);
+        port.user_idx = net->users.add(user);
     } else {
         NPNR_ASSERT_FALSE("invalid port type for connect_port");
     }
@@ -78,11 +78,8 @@ void CellInfo::disconnectPort(IdString port_name)
         return;
     PortInfo &port = ports.at(port_name);
     if (port.net != nullptr) {
-        port.net->users.erase(std::remove_if(port.net->users.begin(), port.net->users.end(),
-                                             [this, port_name](const PortRef &user) {
-                                                 return user.cell == this && user.port == port_name;
-                                             }),
-                              port.net->users.end());
+        if (port.user_idx)
+            port.net->users.remove(port.user_idx);
         if (port.net->driver.cell == this && port.net->driver.port == port_name)
             port.net->driver.cell = nullptr;
         port.net = nullptr;
@@ -116,7 +113,9 @@ void CellInfo::movePortTo(IdString port, CellInfo *other, IdString other_port)
     NPNR_ASSERT(old.type == rep.type);
 
     rep.net = old.net;
+    rep.user_idx = old.user_idx;
     old.net = nullptr;
+    old.user_idx = store_index<PortRef>{};
     if (rep.type == PORT_OUT) {
         if (rep.net != nullptr) {
             rep.net->driver.cell = other;
@@ -124,12 +123,9 @@ void CellInfo::movePortTo(IdString port, CellInfo *other, IdString other_port)
         }
     } else if (rep.type == PORT_IN) {
         if (rep.net != nullptr) {
-            for (PortRef &load : rep.net->users) {
-                if (load.cell == this && load.port == port) {
-                    load.cell = other;
-                    load.port = other_port;
-                }
-            }
+            auto &load = rep.net->users.at(rep.user_idx);
+            load.cell = other;
+            load.port = other_port;
         }
     } else {
         NPNR_ASSERT(false);
@@ -144,9 +140,8 @@ void CellInfo::renamePort(IdString old_name, IdString new_name)
     if (pi.net != nullptr) {
         if (pi.net->driver.cell == this && pi.net->driver.port == old_name)
             pi.net->driver.port = new_name;
-        for (auto &usr : pi.net->users)
-            if (usr.cell == this && usr.port == old_name)
-                usr.port = new_name;
+        if (pi.user_idx)
+            pi.net->users.at(pi.user_idx).port = new_name;
     }
     ports.erase(old_name);
     pi.name = new_name;

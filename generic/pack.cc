@@ -124,9 +124,10 @@ static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constne
                 log_info("%s user %s\n", orig->name.c_str(ctx), uc->name.c_str(ctx));
             if ((is_lut(ctx, uc) || is_lc(ctx, uc)) && (user.port.str(ctx).at(0) == 'I') && !constval) {
                 uc->ports[user.port].net = nullptr;
+                uc->ports[user.port].user_idx = {};
             } else {
                 uc->ports[user.port].net = constnet;
-                constnet->users.push_back(user);
+                uc->ports[user.port].user_idx = constnet->users.add(user);
             }
         }
     }
@@ -224,8 +225,8 @@ static void pack_io(Context *ctx)
                          ci->type.c_str(ctx), ci->name.c_str(ctx));
                 NetInfo *net = iob->ports.at(ctx->id("PAD")).net;
                 if (((ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_iobuf")) &&
-                     net->users.size() > 1) ||
-                    (ci->type == ctx->id("$nextpnr_obuf") && (net->users.size() > 2 || net->driver.cell != nullptr)))
+                     net->users.entries() > 1) ||
+                    (ci->type == ctx->id("$nextpnr_obuf") && (net->users.entries() > 2 || net->driver.cell != nullptr)))
                     log_error("PAD of %s '%s' connected to more than a single top level IO.\n", iob->type.c_str(ctx),
                               iob->name.c_str(ctx));
 

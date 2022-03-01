@@ -68,7 +68,7 @@ static void pack_alus(Context *ctx)
                 continue;
             }
 
-            if (!is_alu(ctx, cin_ci) || cin->users.size() > 1) {
+            if (!is_alu(ctx, cin_ci) || cin->users.entries() > 1) {
                 if (ctx->verbose) {
                     log_info("ALU head found %s. CIN net is %s\n", ctx->nameOf(ci), ctx->nameOf(cin));
                 }
@@ -177,9 +177,9 @@ static void pack_alus(Context *ctx)
 
             new_cells.push_back(std::move(packed));
 
-            if (cout != nullptr && cout->users.size() > 0) {
+            if (cout != nullptr && cout->users.entries() > 0) {
                 // if COUT used by logic
-                if ((cout->users.size() > 1) || (!is_alu(ctx, cout->users.at(0).cell))) {
+                if ((cout->users.entries() > 1) || (!is_alu(ctx, (*cout->users.begin()).cell))) {
                     if (ctx->verbose) {
                         log_info("COUT is used by logic\n");
                     }
@@ -204,7 +204,7 @@ static void pack_alus(Context *ctx)
                     break;
                 }
                 // next ALU
-                ci = cout->users.at(0).cell;
+                ci = (*cout->users.begin()).cell;
                 // if ALU is too big
                 if (alu_idx == (ctx->gridDimX - 2) * 6 - 1) {
                     log_error("ALU %s is the %dth in the chain. Such long chains are not supported.\n", ctx->nameOf(ci),
@@ -596,9 +596,10 @@ static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constne
                 log_info("%s user %s\n", ctx->nameOf(orig), ctx->nameOf(uc));
             if ((is_lut(ctx, uc) || is_lc(ctx, uc)) && (user.port.str(ctx).at(0) == 'I') && !constval) {
                 uc->ports[user.port].net = nullptr;
+                uc->ports[user.port].user_idx = {};
             } else {
                 uc->ports[user.port].net = constnet;
-                constnet->users.push_back(user);
+                uc->ports[user.port].user_idx = constnet->users.add(user);
             }
         }
     }

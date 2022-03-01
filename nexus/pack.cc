@@ -489,10 +489,10 @@ struct NexusPacker
                 NetInfo *o = ci->getPort(id_O);
                 if (o == nullptr)
                     ;
-                else if (o->users.size() > 1)
+                else if (o->users.entries() > 1)
                     log_error("Top level pin '%s' has multiple input buffers\n", ctx->nameOf(port.first));
-                else if (o->users.size() == 1)
-                    top_port = o->users.at(0);
+                else if (o->users.entries() == 1)
+                    top_port = *o->users.begin();
             }
             if (ci->type == ctx->id("$nextpnr_obuf") || ci->type == ctx->id("$nextpnr_iobuf")) {
                 // Might have an output buffer (OB etc) connected to it
@@ -504,9 +504,9 @@ struct NexusPacker
                     top_port = i->driver;
                 }
                 // Edge case of a bidirectional buffer driving an output pin
-                if (i->users.size() > 2) {
+                if (i->users.entries() > 2) {
                     log_error("Top level pin '%s' has illegal buffer configuration\n", ctx->nameOf(port.first));
-                } else if (i->users.size() == 2) {
+                } else if (i->users.entries() == 2) {
                     if (top_port.cell != nullptr)
                         log_error("Top level pin '%s' has illegal buffer configuration\n", ctx->nameOf(port.first));
                     for (auto &usr : i->users) {
@@ -834,13 +834,15 @@ struct NexusPacker
         for (auto &usr : net->users) {
             if (pred(usr)) {
                 usr.cell->ports[usr.port].net = buffered_net;
-                buffered_net->users.push_back(usr);
+                usr.cell->ports[usr.port].user_idx = buffered_net->users.add(usr);
             } else {
                 remaining_users.push_back(usr);
             }
         }
 
-        std::swap(net->users, remaining_users);
+        net->users.clear();
+        for (auto &usr : remaining_users)
+            usr.cell->ports.at(usr.port).user_idx = net->users.add(usr);
 
         // Connect buffer input to original net
         buffer->connectPort(i, net);
@@ -1195,11 +1197,11 @@ struct NexusPacker
             if (di != nullptr && di->driver.cell != nullptr)
                 iob = di->driver.cell;
             NetInfo *dout = ci->getPort(id_DOUT);
-            if (dout != nullptr && dout->users.size() == 1)
-                iob = dout->users.at(0).cell;
+            if (dout != nullptr && dout->users.entries() == 1)
+                iob = (*dout->users.begin()).cell;
             NetInfo *tout = ci->getPort(id_TOUT);
-            if (tout != nullptr && tout->users.size() == 1)
-                iob = tout->users.at(0).cell;
+            if (tout != nullptr && tout->users.entries() == 1)
+                iob = (*tout->users.begin()).cell;
             if (iob == nullptr ||
                 (iob->type != id_SEIO18_CORE && iob->type != id_SEIO33_CORE && iob->type != id_DIFFIO18_CORE))
                 log_error("Failed to find associated IOB for IOLOGIC %s\n", ctx->nameOf(ci));
@@ -1358,11 +1360,12 @@ struct NexusPacker
                 NetInfo *fco = combs[1]->getPort(id_FCO);
                 ci = nullptr;
                 if (fco != nullptr) {
-                    if (fco->users.size() > 1)
+                    if (fco->users.entries() > 1)
                         log_error("Carry cell '%s' has multiple fanout on FCO\n", ctx->nameOf(combs[1]));
-                    else if (fco->users.size() == 1) {
-                        NPNR_ASSERT(fco->users.at(0).port == id_CIN);
-                        ci = fco->users.at(0).cell;
+                    else if (fco->users.entries() == 1) {
+                        auto &u0 = *fco->users.begin();
+                        NPNR_ASSERT(u0.port == id_CIN);
+                        ci = u0.cell;
                     }
                 }
             } while (ci != nullptr);
@@ -2161,13 +2164,13 @@ struct NexusPacker
                 isIDDR = true;
             }
             NetInfo *dout = iol->getPort(id_DOUT);
-            if (dout != nullptr && dout->users.size() == 1) {
-                iob = dout->users.at(0).cell;
+            if (dout != nullptr && dout->users.entries() == 1) {
+                iob = (*dout->users.begin()).cell;
                 isODDR = true;
             }
             NetInfo *tout = iol->getPort(id_TOUT);
-            if (tout != nullptr && tout->users.size() == 1) {
-                iob = tout->users.at(0).cell;
+            if (tout != nullptr && tout->users.entries() == 1) {
+                iob = (*tout->users.begin()).cell;
                 isODDR = true; // FIXME: Not sure
             }
             NPNR_ASSERT(iob != nullptr);
@@ -2359,7 +2362,7 @@ struct NexusPacker
             }
 
             // Skip if there are multiple sinks on that net
-            if (di->users.size() != 1) {
+            if (di->users.entries() != 1) {
                 continue;
             }
 

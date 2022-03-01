@@ -41,8 +41,8 @@ struct GlobalVist
 
 // This is our main global routing implementation. It is used both to actually route globals; and also to discover if
 // global buffers have available short routes from their source for auto-placement
-static int route_global_arc(Context *ctx, NetInfo *net, size_t usr_idx, size_t phys_port_idx, int max_hops,
-                            bool dry_run)
+static int route_global_arc(Context *ctx, NetInfo *net, store_index<PortRef> usr_idx, size_t phys_port_idx,
+                            int max_hops, bool dry_run)
 {
     auto &usr = net->users.at(usr_idx);
     WireId src = ctx->getNetinfoSourceWire(net);
@@ -51,7 +51,7 @@ static int route_global_arc(Context *ctx, NetInfo *net, size_t usr_idx, size_t p
         if (dry_run)
             return -1;
         else
-            log_error("Arc %d.%d (%s.%s) of net %s has no sink wire!\n", int(usr_idx), int(phys_port_idx),
+            log_error("Arc %d.%d (%s.%s) of net %s has no sink wire!\n", usr_idx.idx(), int(phys_port_idx),
                       ctx->nameOf(usr.cell), ctx->nameOf(usr.port), ctx->nameOf(net));
     }
     // Consider any existing routing put in place by the site router, etc
@@ -188,14 +188,6 @@ void Arch::place_globals()
             // Ignore if there is no driver; or the driver is not placed
             if (net->driver.cell == nullptr || net->driver.cell->bel == BelId())
                 continue;
-            size_t user_idx = 0;
-            bool found_user = false;
-            for (user_idx = 0; user_idx < net->users.size(); user_idx++)
-                if (net->users.at(user_idx).cell == ci && net->users.at(user_idx).port == pin_name) {
-                    found_user = true;
-                    break;
-                }
-            NPNR_ASSERT(found_user);
 
             // TODO: substantial performance improvements are probably possible, although of questionable benefit given
             // the low number of globals in a typical device...
@@ -213,7 +205,7 @@ void Arch::place_globals()
                 if (!isBelLocationValid(bel))
                     goto fail;
                 // Check distance
-                distance = route_global_arc(ctx, net, user_idx, 0, pin.max_hops, true);
+                distance = route_global_arc(ctx, net, port.user_idx, 0, pin.max_hops, true);
                 if (distance != -1 && distance < shortest_distance) {
                     best_bel = bel;
                     shortest_distance = distance;
@@ -262,16 +254,16 @@ void Arch::route_globals()
             int total_sinks = 0;
             int global_sinks = 0;
 
-            for (size_t i = 0; i < net->users.size(); i++) {
-                auto &usr = net->users.at(i);
-                for (size_t j = 0; j < ctx->getNetinfoSinkWireCount(net, usr); j++) {
-                    int result = route_global_arc(ctx, net, i, j, pin.max_hops, false);
+            for (auto usr : net->users.enumerate()) {
+                for (size_t j = 0; j < ctx->getNetinfoSinkWireCount(net, usr.value); j++) {
+                    int result = route_global_arc(ctx, net, usr.index, j, pin.max_hops, false);
                     ++total_sinks;
                     if (result != -1)
                         ++global_sinks;
                     if ((result == -1) && pin.force_routing)
                         log_error("Failed to route arc %d.%d (%s.%s) of net %s using dedicated global routing!\n",
-                                  int(i), int(j), ctx->nameOf(usr.cell), ctx->nameOf(usr.port), ctx->nameOf(net));
+                                  usr.index.idx(), int(j), ctx->nameOf(usr.value.cell), ctx->nameOf(usr.value.port),
+                                  ctx->nameOf(net));
                 }
             }
 

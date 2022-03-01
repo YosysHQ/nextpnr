@@ -29,6 +29,7 @@
 
 #include "archdefs.h"
 #include "hashlib.h"
+#include "indexed_store.h"
 #include "nextpnr_base_types.h"
 #include "nextpnr_namespaces.h"
 #include "property.h"
@@ -129,7 +130,7 @@ struct NetInfo : ArchNetInfo
     int32_t udata = 0;
 
     PortRef driver;
-    std::vector<PortRef> users;
+    indexed_store<PortRef> users;
     dict<IdString, Property> attrs;
 
     // wire -> uphill_pip
@@ -154,6 +155,7 @@ struct PortInfo
     IdString name;
     NetInfo *net;
     PortType type;
+    store_index<PortRef> user_idx{};
 };
 
 struct Context;

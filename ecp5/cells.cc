@@ -212,10 +212,7 @@ static void replace_port_safe(bool has_ff, CellInfo *ff, IdString ff_port, CellI
         NPNR_ASSERT(lc->ports.at(lc_port).net == ff->ports.at(ff_port).net);
         NetInfo *ffnet = ff->ports.at(ff_port).net;
         if (ffnet != nullptr)
-            ffnet->users.erase(
-                    std::remove_if(ffnet->users.begin(), ffnet->users.end(),
-                                   [ff, ff_port](PortRef port) { return port.cell == ff && port.port == ff_port; }),
-                    ffnet->users.end());
+            ffnet->users.remove(ff->ports.at(ff_port).user_idx);
     } else {
         ff->movePortTo(ff_port, lc, lc_port);
     }
@@ -477,7 +474,7 @@ void nxio_to_tr(Context *ctx, CellInfo *nxio, CellInfo *trio, std::vector<std::u
         inv_lut->connectPorts(id_Z, trio, id_T);
         created_cells.push_back(std::move(inv_lut));
 
-        if (donet->users.size() > 1) {
+        if (donet->users.entries() > 1) {
             for (auto user : donet->users)
                 log_info("     remaining tristate user: %s.%s\n", user.cell->name.c_str(ctx), user.port.c_str(ctx));
             log_error("unsupported tristate IO pattern for IO buffer '%s', "

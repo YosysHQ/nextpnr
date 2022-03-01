@@ -60,14 +60,6 @@ void TimingAnalyser::init_ports()
             data.cell_port = CellPortKey(ci->name, port.first);
         }
     }
-    // Cell port to net port mapping
-    for (auto &net : ctx->nets) {
-        NetInfo *ni = net.second.get();
-        if (ni->driver.cell != nullptr)
-            ports[CellPortKey(ni->driver)].net_port = NetPortKey(ni->name);
-        for (size_t i = 0; i < ni->users.size(); i++)
-            ports[CellPortKey(ni->users.at(i))].net_port = NetPortKey(ni->name, i);
-    }
 }
 
 void TimingAnalyser::get_cell_delays()
@@ -79,7 +71,7 @@ void TimingAnalyser::get_cell_delays()
 
         IdString name = port.first.port;
         // Ignore dangling ports altogether for timing purposes
-        if (pd.net_port.net == IdString())
+        if (!pi.net)
             continue;
         pd.cell_arcs.clear();
         int clkInfoCount = 0;
