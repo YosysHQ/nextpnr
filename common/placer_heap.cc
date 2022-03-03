@@ -46,6 +46,7 @@
 #include "fast_bels.h"
 #include "log.h"
 #include "nextpnr.h"
+#include "parallel_refine.h"
 #include "place_common.h"
 #include "placer1.h"
 #include "scope_lock.h"
@@ -346,8 +347,14 @@ class HeAPPlacer
         ctx->check();
         lock.unlock_early();
 
-        if (!placer1_refine(ctx, Placer1Cfg(ctx))) {
-            return false;
+        if (cfg.parallelRefine) {
+            if (!parallel_refine(ctx, ParallelRefineCfg(ctx))) {
+                return false;
+            }
+        } else {
+            if (!placer1_refine(ctx, Placer1Cfg(ctx))) {
+                return false;
+            }
         }
 
         return true;
@@ -1786,6 +1793,8 @@ PlacerHeapCfg::PlacerHeapCfg(Context *ctx)
     beta = ctx->setting<float>("placerHeap/beta");
     criticalityExponent = ctx->setting<int>("placerHeap/criticalityExponent");
     timingWeight = ctx->setting<int>("placerHeap/timingWeight");
+    parallelRefine = ctx->setting<bool>("placerHeap/parallelRefine", false);
+
     timing_driven = ctx->setting<bool>("timing_driven");
     solverTolerance = 1e-5;
     placeAllAtOnce = false;
