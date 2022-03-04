@@ -209,6 +209,16 @@ void Arch::addWire(IdString name, IdString type, int x, int y)
     wi.y = y;
 
     wire_ids.push_back(name);
+
+    // Needed to ensure empty tile bel locations
+    if (int(bels_by_tile.size()) <= x)
+        bels_by_tile.resize(x + 1);
+    if (int(bels_by_tile[x].size()) <= y)
+        bels_by_tile[x].resize(y + 1);
+    if (int(tileBelDimZ.size()) <= x)
+        tileBelDimZ.resize(x + 1);
+    if (int(tileBelDimZ[x].size()) <= y)
+        tileBelDimZ[x].resize(y + 1);
 }
 
 void Arch::addPip(IdString name, IdString type, IdString srcWire, IdString dstWire, DelayQuad delay, Loc loc)
