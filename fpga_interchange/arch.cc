@@ -224,10 +224,14 @@ Arch::Arch(ArchArgs args) : args(args), disallow_site_routing(false)
 
     // Initially LutElement vectors for each tile type.
     tile_type_index = 0;
+    max_lut_cells = 0;
+    max_lut_pins = 0;
     lut_elements.resize(chip_info->tile_types.size());
     for (const TileTypeInfoPOD &tile_type : chip_info->tile_types) {
         std::vector<LutElement> &elements = lut_elements[tile_type_index++];
         elements.reserve(tile_type.lut_elements.size());
+
+        int lut_cells_count = 0;
         for (auto &lut_element : tile_type.lut_elements) {
             elements.emplace_back();
 
@@ -252,10 +256,15 @@ Arch::Arch(ArchArgs args) : args(args), disallow_site_routing(false)
                 }
 
                 lut.output_pin = IdString(lut_bel.out_pin);
+                lut_cells_count++;
+
+                max_lut_pins = std::max((int)lut_bel.pins.size(), max_lut_pins);
             }
 
             element.compute_pin_order();
         }
+
+        max_lut_cells = std::max(lut_cells_count, max_lut_cells);
     }
 
     // Map lut cell types to their LutCellPOD

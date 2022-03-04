@@ -29,12 +29,6 @@ NEXTPNR_NAMESPACE_BEGIN
 // Key structure used in site LUT mapping cache
 struct SiteLutMappingKey
 {
-
-    // Maximum number of LUT cells per site
-    static constexpr size_t MAX_LUT_CELLS = 8;
-    // Maximum number of LUT inputs per cell
-    static constexpr size_t MAX_LUT_INPUTS = 6;
-
     // LUT Cell data
     struct Cell
     {
@@ -44,7 +38,7 @@ struct SiteLutMappingKey
         // Port to net assignments. These are local net ids generated during
         // key creation. This is to abstract connections from actual design
         // net names. the Id 0 means unconnected.
-        std::array<int32_t, MAX_LUT_INPUTS> conns;
+        std::vector<int32_t> conns;
 
         bool operator==(const Cell &other) const
         {
@@ -60,7 +54,7 @@ struct SiteLutMappingKey
     int32_t tileType;                      // Tile type
     int32_t siteType;                      // Site type in that tile type
     size_t numCells;                       // LUT cell count
-    std::array<Cell, MAX_LUT_CELLS> cells; // LUT cell data
+    std::vector<Cell> cells; // LUT cell data
 
     unsigned int hash_; // Precomputed hash
 
@@ -80,7 +74,7 @@ struct SiteLutMappingKey
             const auto &cell = cells[j];
             hash_ = mkhash(hash_, cell.type.index);
             hash_ = mkhash(hash_, cell.belIndex);
-            for (size_t i = 0; i < MAX_LUT_INPUTS; ++i) {
+            for (size_t i = 0; i < cell.conns.size(); ++i) {
                 hash_ = mkhash(hash_, cell.conns[i]);
             }
         }
