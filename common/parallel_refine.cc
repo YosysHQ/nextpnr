@@ -18,8 +18,11 @@
  */
 
 #include "parallel_refine.h"
-#include "fast_bels.h"
 #include "log.h"
+
+#if !defined(__wasm)
+
+#include "fast_bels.h"
 #include "timing.h"
 #include "scope_lock.h"
 
@@ -944,3 +947,16 @@ bool parallel_refine(Context *ctx, ParallelRefineCfg cfg)
 }
 
 NEXTPNR_NAMESPACE_END
+
+#else /* !defined(__wasm) */
+
+NEXTPNR_NAMESPACE_BEGIN
+
+bool parallel_refine(Context *ctx, ParallelRefineCfg cfg)
+{
+    log_abort();
+}
+
+NEXTPNR_NAMESPACE_END
+
+#endif

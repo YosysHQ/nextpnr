@@ -174,7 +174,9 @@ po::options_description CommandHandler::getGeneralOptions()
                           "placer heap criticality exponent (int, default: 2)");
     general.add_options()("placer-heap-timingweight", po::value<int>(), "placer heap timing weight (int, default: 10)");
 
+#if !defined(__wasm)
     general.add_options()("parallel-refine", "use new experimental parallelised engine for placement refinement");
+#endif
 
     general.add_options()("router2-heatmap", po::value<std::string>(),
                           "prefix for router2 resource congestion heatmaps");
