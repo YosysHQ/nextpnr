@@ -347,11 +347,14 @@ class HeAPPlacer
         ctx->check();
         lock.unlock_early();
 
+#if !defined(__wasm)
         if (cfg.parallelRefine) {
             if (!parallel_refine(ctx, ParallelRefineCfg(ctx))) {
                 return false;
             }
-        } else {
+        } else
+#endif
+        {
             if (!placer1_refine(ctx, Placer1Cfg(ctx))) {
                 return false;
             }
