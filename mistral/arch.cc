@@ -122,6 +122,9 @@ Arch::Arch(ArchArgs args)
                                        CycloneV::pos2y(hps_pos[CycloneV::I_HPS_MPU_GENERAL_PURPOSE]));
     }
 
+    for (auto m10k_pos : cyclonev->m10k_get_pos())
+        create_m10k(CycloneV::pos2x(m10k_pos), CycloneV::pos2y(m10k_pos));
+
     // This import takes about 5s, perhaps long term we can speed it up, e.g. defer to Mistral more...
     log_info("Initialising routing graph...\n");
     int pip_count = 0;
@@ -407,6 +410,8 @@ void Arch::add_bel_pin(BelId bel, IdString pin, PortType dir, WireId wire)
 
 void Arch::assign_default_pinmap(CellInfo *cell)
 {
+    if (cell->type == id_MISTRAL_M10K)
+        return; // M10Ks always have a custom pinmap
     for (auto &port : cell->ports) {
         auto &pinmap = cell->pin_data[port.first].bel_pins;
         if (!pinmap.empty())

@@ -467,6 +467,7 @@ struct Arch : BaseArch<ArchRanges>
     bool has_port(CycloneV::block_type_t bt, int x, int y, int bi, CycloneV::port_type_t port, int pi = -1) const;
 
     void create_lab(int x, int y, bool is_mlab);       // lab.cc
+    void create_m10k(int x, int y);                    // m10k.cc
     void create_gpio(int x, int y);                    // io.cc
     void create_clkbuf(int x, int y);                  // globals.cc
     void create_control(int x, int y);                 // globals.cc

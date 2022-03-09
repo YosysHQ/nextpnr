@@ -118,6 +118,46 @@ struct MistralBitgen
         cv->bmux_m_set(CycloneV::CMUXHG, pos, CycloneV::TESTSYN_ENOUT_SELECT, bi, CycloneV::PRE_SYNENB);
     }
 
+    void write_m10k_cell(CellInfo *ci, int x, int y, int bi)
+    {
+        auto pos = CycloneV::xy2pos(x, y);
+
+        // Notes:
+        // DATA_FLOW_THRU is probably transparent reads.
+
+        cv->bmux_b_set(CycloneV::M10K, pos, CycloneV::A_DATA_FLOW_THRU, bi, 1);
+        cv->bmux_n_set(CycloneV::M10K, pos, CycloneV::A_DATA_WIDTH, bi, ci->params.at(id_CFG_DBITS).as_int64());
+        cv->bmux_m_set(CycloneV::M10K, pos, CycloneV::A_FAST_WRITE, bi, CycloneV::FAST);
+        cv->bmux_m_set(CycloneV::M10K, pos, CycloneV::A_OUTPUT_SEL, bi, CycloneV::ASYNC);
+        cv->bmux_r_set(CycloneV::M10K, pos, CycloneV::A_SA_WREN_DELAY, bi, 1);
+        cv->bmux_r_set(CycloneV::M10K, pos, CycloneV::A_SAEN_DELAY, bi, 2);
+        cv->bmux_r_set(CycloneV::M10K, pos, CycloneV::A_WL_DELAY, bi, 2);
+        cv->bmux_r_set(CycloneV::M10K, pos, CycloneV::A_WR_TIMER_PULSE, bi, 0x0b);
+
+        cv->bmux_b_set(CycloneV::M10K, pos, CycloneV::B_DATA_FLOW_THRU, bi, 1);
+        cv->bmux_n_set(CycloneV::M10K, pos, CycloneV::B_DATA_WIDTH, bi, ci->params.at(id_CFG_DBITS).as_int64());
+        cv->bmux_m_set(CycloneV::M10K, pos, CycloneV::B_FAST_WRITE, bi, CycloneV::FAST);
+        cv->bmux_m_set(CycloneV::M10K, pos, CycloneV::B_OUTPUT_SEL, bi, CycloneV::ASYNC);
+        cv->bmux_r_set(CycloneV::M10K, pos, CycloneV::B_SA_WREN_DELAY, bi, 1);
+        cv->bmux_r_set(CycloneV::M10K, pos, CycloneV::B_SAEN_DELAY, bi, 2);
+        cv->bmux_r_set(CycloneV::M10K, pos, CycloneV::B_WL_DELAY, bi, 2);
+        cv->bmux_r_set(CycloneV::M10K, pos, CycloneV::B_WR_TIMER_PULSE, bi, 0x0b);
+
+        cv->bmux_n_set(CycloneV::M10K, pos, CycloneV::TOP_CLK_SEL, bi, 1);
+        cv->bmux_b_set(CycloneV::M10K, pos, CycloneV::TOP_W_INV, bi, 1);
+        cv->bmux_n_set(CycloneV::M10K, pos, CycloneV::TOP_W_SEL, bi, 1);
+        cv->bmux_b_set(CycloneV::M10K, pos, CycloneV::BOT_CLK_INV, bi, 1);
+        cv->bmux_n_set(CycloneV::M10K, pos, CycloneV::BOT_W_SEL, bi, 1);
+
+        cv->bmux_b_set(CycloneV::M10K, pos, CycloneV::TRUE_DUAL_PORT, bi, 0);
+
+        cv->bmux_b_set(CycloneV::M10K, pos, CycloneV::DISABLE_UNUSED, bi, 0);
+
+        // Note for future us: the RAM init contents are inverted.
+        for (int bi = 0; bi < 256; bi++)
+            cv->bmux_r_set(CycloneV::M10K, pos, CycloneV::RAM, bi, 0xffffffffff);
+    }
+
     void write_cells()
     {
         for (auto &cell : ctx->cells) {
@@ -128,6 +168,8 @@ struct MistralBitgen
                 write_io_cell(ci, loc.x, loc.y, bi);
             else if (ctx->is_clkbuf_cell(ci->type))
                 write_clkbuf_cell(ci, loc.x, loc.y, bi);
+            else if (ci->type == id_MISTRAL_M10K)
+                write_m10k_cell(ci, loc.x, loc.y, bi);
         }
     }
 

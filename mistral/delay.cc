@@ -57,6 +57,17 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
         } else if (port.in(id_B1DATA)) {
             return TMG_COMB_OUTPUT;
         }
+    } else if (cell->type == id_MISTRAL_M10K) {
+        if (port == id_CLK1) {
+            return TMG_CLOCK_INPUT;
+        } else if (port.in(id_A1DATA, id_A1EN, id_B1EN) || port.str(this).find("A1ADDR") == 0) {
+            clockInfoCount = 1;
+            return TMG_REGISTER_INPUT;
+        } else if (port.str(this).find("B1ADDR") == 0) {
+            return TMG_REGISTER_INPUT;
+        } else if (port.in(id_B1DATA)) {
+            return TMG_REGISTER_OUTPUT;
+        }
     }
     return TMG_IGNORE;
 }
@@ -85,6 +96,31 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
             timing.setup = DelayPair{86, 86};
             timing.hold = DelayPair{42, 42};
             timing.clockToQ = DelayQuad{};
+        }
+        return timing;
+    } else if (cell->type == id_MISTRAL_M10K) {
+        timing.clock_port = id_CLK1;
+        timing.edge = RISING_EDGE;
+        if (port.str(this).find("A1ADDR") == 0 || port.str(this).find("B1ADDR") == 0) {
+            timing.setup = DelayPair{125, 125};
+            timing.hold = DelayPair{42, 42};
+            timing.clockToQ = DelayQuad{};
+        } else if (port == id_A1DATA) {
+            timing.setup = DelayPair{97, 97};
+            timing.hold = DelayPair{42, 42};
+            timing.clockToQ = DelayQuad{};
+        } else if (port == id_A1EN) {
+            timing.setup = DelayPair{140, 140};
+            timing.hold = DelayPair{42, 42};
+            timing.clockToQ = DelayQuad{};
+        } else if (port == id_B1EN) {
+            timing.setup = DelayPair{161, 161};
+            timing.hold = DelayPair{42, 42};
+            timing.clockToQ = DelayQuad{};
+        } else if (port == id_B1DATA) {
+            timing.setup = DelayPair{};
+            timing.hold = DelayPair{};
+            timing.clockToQ = DelayQuad{1004};
         }
         return timing;
     }
