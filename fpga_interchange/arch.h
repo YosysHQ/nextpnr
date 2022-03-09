@@ -1134,7 +1134,7 @@ struct Arch : ArchAPI<ArchRanges>
     IdString vcc_cell_pin;
     std::vector<std::vector<LutElement>> lut_elements;
     dict<IdString, const LutCellPOD *> lut_cells;
-    
+
     // Defines the max number of LUT cells in a site and LUT pins
     // to allow a correct functioning of the site lut mapping cache
     int max_lut_cells;

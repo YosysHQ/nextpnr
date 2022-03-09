@@ -51,9 +51,9 @@ struct SiteLutMappingKey
         }
     };
 
-    int32_t tileType;                      // Tile type
-    int32_t siteType;                      // Site type in that tile type
-    size_t numCells;                       // LUT cell count
+    int32_t tileType;        // Tile type
+    int32_t siteType;        // Site type in that tile type
+    size_t numCells;         // LUT cell count
     std::vector<Cell> cells; // LUT cell data
 
     unsigned int hash_; // Precomputed hash

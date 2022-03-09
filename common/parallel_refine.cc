@@ -23,8 +23,8 @@
 #if !defined(__wasm)
 
 #include "fast_bels.h"
-#include "timing.h"
 #include "scope_lock.h"
+#include "timing.h"
 
 #include <chrono>
 #include <mutex>
@@ -952,10 +952,7 @@ NEXTPNR_NAMESPACE_END
 
 NEXTPNR_NAMESPACE_BEGIN
 
-bool parallel_refine(Context *ctx, ParallelRefineCfg cfg)
-{
-    log_abort();
-}
+bool parallel_refine(Context *ctx, ParallelRefineCfg cfg) { log_abort(); }
 
 NEXTPNR_NAMESPACE_END
 
