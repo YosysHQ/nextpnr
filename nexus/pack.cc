@@ -883,7 +883,7 @@ struct NexusPacker
         for (size_t i = 0; i < std::min<size_t>(clk_fanout.size(), available_globals); i++) {
             NetInfo *net = ctx->nets.at(clk_fanout.at(i).second).get();
             log_info("     promoting clock net '%s'\n", ctx->nameOf(net));
-            insert_buffer(net, id_DCC, "glb_clk", id_CLKI, id_CLKO, [](const PortRef &port) { return true; });
+            insert_buffer(net, id_DCC, "glb_clk", id_CLKI, id_CLKO, [&](const PortRef &port) { return port.cell->type != id_DCC; });
         }
     }
 
