@@ -153,9 +153,24 @@ struct MistralBitgen
 
         cv->bmux_b_set(CycloneV::M10K, pos, CycloneV::DISABLE_UNUSED, bi, 0);
 
-        // Note for future us: the RAM init contents are inverted.
+        auto permute_init = [](int64_t init) -> int64_t {
+            const int permutation[40] = {0, 20, 10, 30, 1, 21, 11, 31, 2, 22, 12, 32, 3, 23, 13, 33, 4, 24, 14, 34,
+                                         5, 25, 15, 35, 6, 26, 16, 36, 7, 27, 17, 37, 8, 28, 18, 38, 9, 29, 19, 39};
+
+            int64_t output = 0;
+            for (int bit = 0; bit < 40; bit++)
+                output |= ((init >> permutation[bit]) & 1) << bit;
+            return ~output; // RAM init is inverted.
+        };
+
+        Property init;
+        if (ci->params.count(id_INIT) == 0) {
+            init = Property{0, 10240};
+        } else {
+            init = ci->params.at(id_INIT);
+        }
         for (int bi = 0; bi < 256; bi++)
-            cv->bmux_r_set(CycloneV::M10K, pos, CycloneV::RAM, bi, 0xffffffffff);
+            cv->bmux_r_set(CycloneV::M10K, pos, CycloneV::RAM, bi, permute_init(init.extract(bi * 40, 40).as_int64()));
     }
 
     void write_cells()
