@@ -193,7 +193,7 @@ struct NexusGlobalRouter
             CellInfo *drv = ni->driver.cell;
             if (drv == nullptr)
                 continue;
-            if (drv->type == id_DCC) {
+            if (drv->type == id_DCC || drv->type == id_DCS) {
                 route_clk_net(ni);
                 continue;
             }

@@ -536,6 +536,15 @@ struct NexusFasmWriter
         write_cell_muxes(cell);
         pop(2);
     }
+    // Write config for DCS
+    void write_dcs(const CellInfo *cell)
+    {
+        BelId bel = cell->bel;
+        push_tile(bel.tile, ctx->id("CMUX_0"));
+        push_belname(bel);
+        write_enum(cell, "DCSMODE", "VCC");
+        pop(2);
+    }
     // Write config for an OXIDE_EBR cell
     void write_bram(const CellInfo *cell)
     {
@@ -939,6 +948,8 @@ struct NexusFasmWriter
                 write_iol(ci);
             else if (ci->type == id_DCC)
                 write_dcc(ci);
+            else if (ci->type == id_DCS)
+                write_dcs(ci);
             blank();
         }
         // Handle DCC route-throughs
