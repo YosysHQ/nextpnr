@@ -131,7 +131,7 @@ static void tie_cib_signal(Context *ctx, ChipConfig &cc, WireId wire, bool value
 inline int chtohex(char c)
 {
     static const std::string hex = "0123456789ABCDEF";
-    return hex.find(c);
+    return hex.find(std::toupper(c));
 }
 
 std::vector<bool> parse_init_str(const Property &p, int length, const char *cellname)
