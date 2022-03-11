@@ -149,6 +149,8 @@ std::vector<bool> parse_init_str(const Property &p, int length, const char *cell
         for (int i = 0; i < int(str.length()) - 2; i++) {
             char c = str.at((str.size() - i) - 1);
             int nibble = chtohex(c);
+            if (nibble == (int)std::string::npos)
+                log_error("hex string has invalid char '%c' at position %d.\n", c, i);
             result.at(i * 4) = nibble & 0x1;
             if (i * 4 + 1 < length)
                 result.at(i * 4 + 1) = nibble & 0x2;
@@ -582,13 +584,16 @@ static std::vector<bool> parse_config_str(const Property &p, int length)
         if (base == "0b") {
             for (int i = 0; i < int(str.length()) - 2; i++) {
                 char c = str.at((str.size() - 1) - i);
-                NPNR_ASSERT(c == '0' || c == '1');
+                if (!(c == '0' || c == '1'))
+                    log_error("binary string has invalid char '%c' at position %d.\n", c, i);
                 word.at(i) = (c == '1');
             }
         } else if (base == "0x") {
             for (int i = 0; i < int(str.length()) - 2; i++) {
                 char c = str.at((str.size() - i) - 1);
                 int nibble = chtohex(c);
+                if (nibble == (int)std::string::npos)
+                    log_error("hex string has invalid char '%c' at position %d.\n", c, i);
                 word.at(i * 4) = nibble & 0x1;
                 if (i * 4 + 1 < length)
                     word.at(i * 4 + 1) = nibble & 0x2;
