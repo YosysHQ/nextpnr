@@ -76,7 +76,7 @@ static int route_global_arc(Context *ctx, NetInfo *net, store_index<PortRef> usr
     while (!visit_queue.empty()) {
         WireId cursor = visit_queue.front();
         visit_queue.pop();
-        auto &curr_visit = visits.at(cursor);
+        auto curr_visit = visits.at(cursor);
         // We're now at least one layer deeper than a valid visit, any further exploration is futile
         if (startpoint != WireId() && curr_visit.total_hops > best_visit.total_hops)
             break;
