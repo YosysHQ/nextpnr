@@ -991,6 +991,14 @@ Arch::Arch(ArchArgs args) : args(args)
             int z = 0;
             bool dff = true;
             switch (static_cast<ConstIds>(bel->type_id)) {
+            case ID_GSR0:
+                snprintf(buf, 32, "R%dC%d_GSR0", row + 1, col + 1);
+                belname = id(buf);
+                addBel(belname, id_GSR, Loc(col, row, 0), false);
+                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_GSRI)->src_id);
+                snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
+                addBelInput(belname, id_GSRI, id(buf));
+                break;
             // fall through the ++
             case ID_LUT7:
                 z++;

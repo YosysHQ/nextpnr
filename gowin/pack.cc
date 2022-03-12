@@ -660,6 +660,41 @@ static void pack_constants(Context *ctx)
     }
 }
 
+// Pack global set-reset
+static void pack_gsr(Context *ctx)
+{
+    log_info("Packing GSR..\n");
+
+    bool user_gsr = false;
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
+        if (ctx->verbose)
+            log_info("cell '%s' is of type '%s'\n", ctx->nameOf(ci), ci->type.c_str(ctx));
+        if (ci->type == id_GSR) {
+            user_gsr = true;
+            break;
+        }
+    }
+    if (!user_gsr) {
+        // XXX
+        bool have_gsr_bel = false;
+        for (auto bi : ctx->bels) {
+            if (bi.second.type == id_GSR) {
+                have_gsr_bel = true;
+                break;
+            }
+        }
+        if (have_gsr_bel) {
+            // make default GSR
+            std::unique_ptr<CellInfo> gsr_cell = create_generic_cell(ctx, id_GSR, "GSR");
+            gsr_cell->connectPort(id_GSRI, ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
+            ctx->cells[gsr_cell->name] = std::move(gsr_cell);
+        } else {
+            log_info("No GSR in the chip base\n");
+        }
+    }
+}
+
 static bool is_nextpnr_iob(const Context *ctx, CellInfo *cell)
 {
     return cell->type == ctx->id("$nextpnr_ibuf") || cell->type == ctx->id("$nextpnr_obuf") ||
@@ -857,6 +892,7 @@ bool Arch::pack()
     try {
         log_break();
         pack_constants(ctx);
+        pack_gsr(ctx);
         pack_io(ctx);
         pack_diff_io(ctx);
         pack_wideluts(ctx);

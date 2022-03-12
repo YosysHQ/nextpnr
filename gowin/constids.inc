@@ -739,6 +739,11 @@ X(IOBUF)
 X(TBUF)
 X(TLVDS_OBUF)
 
+// global set/reset
+X(GSR)
+X(GSR0)
+X(GSRI)
+
 // primitive attributes
 X(INIT)
 X(FF_USED)
