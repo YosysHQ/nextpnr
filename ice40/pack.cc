@@ -49,32 +49,35 @@ static void pack_lut_lutffs(Context *ctx)
                 log_info("packed cell %s into %s\n", ci->name.c_str(ctx), packed->name.c_str(ctx));
             // See if we can pack into a DFF
             // TODO: LUT cascade
-            NetInfo *o = ci->ports.at(id_O).net;
-            CellInfo *dff = net_only_drives(ctx, o, is_ff, id_D, true);
-            auto lut_bel = ci->attrs.find(id_BEL);
+            auto port = ci->ports.find(id_O);
             bool packed_dff = false;
-            if (dff) {
-                if (ctx->verbose)
-                    log_info("found attached dff %s\n", dff->name.c_str(ctx));
-                auto dff_bel = dff->attrs.find(id_BEL);
-                if (lut_bel != ci->attrs.end() && dff_bel != dff->attrs.end() && lut_bel->second != dff_bel->second) {
-                    // Locations don't match, can't pack
-                } else {
-                    lut_to_lc(ctx, ci, packed.get(), false);
-                    dff_to_lc(ctx, dff, packed.get(), false);
-                    ++lut_and_ff;
-                    ctx->nets.erase(o->name);
-                    if (dff_bel != dff->attrs.end())
-                        packed->attrs[id_BEL] = dff_bel->second;
-                    for (const auto &attr : dff->attrs) {
-                        // BEL is dealt with specially
-                        if (attr.first != id_BEL)
-                            packed->attrs[attr.first] = attr.second;
-                    }
-                    packed_cells.insert(dff->name);
+            if (port != ci->ports.end()) {
+                NetInfo *o = port->second.net;
+                CellInfo *dff = net_only_drives(ctx, o, is_ff, id_D, true);
+                auto lut_bel = ci->attrs.find(id_BEL);
+                if (dff) {
                     if (ctx->verbose)
-                        log_info("packed cell %s into %s\n", dff->name.c_str(ctx), packed->name.c_str(ctx));
-                    packed_dff = true;
+                        log_info("found attached dff %s\n", dff->name.c_str(ctx));
+                    auto dff_bel = dff->attrs.find(id_BEL);
+                    if (lut_bel != ci->attrs.end() && dff_bel != dff->attrs.end() && lut_bel->second != dff_bel->second) {
+                        // Locations don't match, can't pack
+                    } else {
+                        lut_to_lc(ctx, ci, packed.get(), false);
+                        dff_to_lc(ctx, dff, packed.get(), false);
+                        ++lut_and_ff;
+                        ctx->nets.erase(o->name);
+                        if (dff_bel != dff->attrs.end())
+                            packed->attrs[id_BEL] = dff_bel->second;
+                        for (const auto &attr : dff->attrs) {
+                            // BEL is dealt with specially
+                            if (attr.first != id_BEL)
+                                packed->attrs[attr.first] = attr.second;
+                        }
+                        packed_cells.insert(dff->name);
+                        if (ctx->verbose)
+                            log_info("packed cell %s into %s\n", dff->name.c_str(ctx), packed->name.c_str(ctx));
+                        packed_dff = true;
+                    }
                 }
             }
             if (!packed_dff) {
