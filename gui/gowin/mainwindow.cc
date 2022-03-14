@@ -75,8 +75,8 @@ void MainWindow::createMenu()
     menuDesign->addSeparator();
     menuDesign->addAction(actionLoadCST);
 
-	// XXX
-	actionAssignBudget->setEnabled(false);
+    // XXX
+    actionAssignBudget->setEnabled(false);
 }
 
 void MainWindow::new_proj() {}
@@ -102,7 +102,7 @@ void MainWindow::onUpdateActions()
     if (ctx->settings.find(ctx->id("pack")) != ctx->settings.end()) {
         actionLoadCST->setEnabled(false);
     }
-	// XXX
-	actionAssignBudget->setEnabled(false);
+    // XXX
+    actionAssignBudget->setEnabled(false);
 }
 NEXTPNR_NAMESPACE_END
