@@ -546,6 +546,14 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
         if (type == TMG_REGISTER_INPUT || type == TMG_REGISTER_OUTPUT)
             clockInfoCount = 1;
         return type;
+    } else if (cell->type == id_DCC) {
+        if (port == id_CLKI)
+            return TMG_CLOCK_INPUT;
+        else if (port == id_CLKO)
+            return TMG_GEN_CLOCK;
+        else if (port == id_CE)
+            return TMG_COMB_INPUT;
+        return TMG_IGNORE;
     }
     return TMG_IGNORE;
 }

@@ -526,6 +526,16 @@ struct NexusFasmWriter
         write_cell_muxes(cell);
         pop(2);
     }
+    // Write config for DCC
+    void write_dcc(const CellInfo *cell)
+    {
+        BelId bel = cell->bel;
+        push_tile(bel.tile);
+        push_belname(bel);
+        write_bit("DCCEN.1"); // Explicit DCC cell implies a clock buffer
+        write_cell_muxes(cell);
+        pop(2);
+    }
     // Write config for an OXIDE_EBR cell
     void write_bram(const CellInfo *cell)
     {
@@ -927,6 +937,8 @@ struct NexusFasmWriter
                 write_dphy(ci);
             else if (ci->type == id_IOLOGIC || ci->type == id_SIOLOGIC)
                 write_iol(ci);
+            else if (ci->type == id_DCC)
+                write_dcc(ci);
             blank();
         }
         // Handle DCC route-throughs
