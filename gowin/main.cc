@@ -91,15 +91,6 @@ void GowinCommandHandler::customAfterLoad(Context *ctx)
 
 int main(int argc, char *argv[])
 {
-    // set the locale here because when you create a context you create several
-    // floating point strings whose representation depends on the locale. If
-    // you don't do this, the strings will be in the C locale and later when Qt
-    // starts it won't be able to read them back as numbers.
-    try {
-        std::locale::global(std::locale(""));
-    } catch (const std::runtime_error &e) {
-        // the locale is broken in this system, so leave it as it is
-    }
     GowinCommandHandler handler(argc, argv);
     return handler.exec();
 }
