@@ -287,8 +287,8 @@ struct Arch : BaseArch<ArchRanges>
 
     // These functions include useful errors if not found
     WireInfo &wire_info(IdString wire);
-    PipInfo &pip_info(IdString wire);
-    BelInfo &bel_info(IdString wire);
+    PipInfo &pip_info(IdString pip);
+    BelInfo &bel_info(IdString bel);
 
     std::vector<IdString> bel_ids, wire_ids, pip_ids;
 
@@ -459,8 +459,6 @@ struct Arch : BaseArch<ArchRanges>
     void assignArchInfo() override;
     bool cellsCompatible(const CellInfo **cells, int count) const;
     bool haveBelType(int x, int y, IdString bel_type);
-    // start Z for the MUX2LUT5 bels
-    int const mux_0_z = 10;
     // chip db version
     unsigned int const chipdb_version = 1;
 
@@ -475,6 +473,17 @@ struct Arch : BaseArch<ArchRanges>
     // Permissible combinations of modes in a single slice
     std::map<const IdString, IdString> dff_comp_mode;
 };
+
+// Bels Z range
+namespace BelZ {
+enum
+{
+    mux_0_z = 10,     // start Z for the MUX2LUT5 bels
+    iologic_0_z = 20, // start Z for the IOLOGIC bels
+    vcc_0_z = 277,    // virtual VCC bel Z
+    gnd_0_z = 278     // virtual VSS bel Z
+};
+}
 
 NEXTPNR_NAMESPACE_END
 

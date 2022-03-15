@@ -789,7 +789,7 @@ void Arch::addMuxBels(const DatabasePOD *db, int row, int col)
 
     // 4 MUX2_LUT5, 2 MUX2_LUT6, 1 MUX2_LUT7, 1 MUX2_LUT8
     for (int j = 0; j < 8; ++j) {
-        z = j + mux_0_z;
+        z = j + BelZ::mux_0_z;
 
         int grow = row + 1;
         int gcol = col + 1;
@@ -990,6 +990,7 @@ Arch::Arch(ArchArgs args) : args(args)
             IdString portname;
             int z = 0;
             bool dff = true;
+            bool oddrc = false;
             switch (static_cast<ConstIds>(bel->type_id)) {
             case ID_GSR0:
                 snprintf(buf, 32, "R%dC%d_GSR0", row + 1, col + 1);
@@ -1119,6 +1120,56 @@ Arch::Arch(ArchArgs args) : args(args)
                 addBelInput(belname, id_OEN, id(buf));
                 break;
 
+                // IO logic
+            case ID_ODDRCB:
+                z++; /* fall-through*/
+            case ID_ODDRCA:
+                oddrc = true;
+                z++; /* fall-through*/
+            case ID_ODDRB:
+                z++; /* fall-through*/
+            case ID_ODDRA: {
+                snprintf(buf, 32, "R%dC%d_ODDR%s%c", row + 1, col + 1, oddrc ? "C" : "", 'A' + z - (oddrc ? 2 : 0));
+                belname = id(buf);
+                addBel(belname, id_ODDR, Loc(col, row, BelZ::iologic_0_z + z), false);
+
+                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_D0)->src_id);
+                snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
+                addBelInput(belname, id_D0, id(buf));
+
+                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_D1)->src_id);
+                snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
+                addBelInput(belname, id_D1, id(buf));
+
+                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_TX)->src_id);
+                snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
+                addBelInput(belname, id_TX, id(buf));
+
+                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_CLK)->src_id);
+                snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
+                addBelInput(belname, id_CLK, id(buf));
+
+                if (oddrc) {
+                    portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_CE)->src_id);
+                    snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
+                    addBelInput(belname, id_CE, id(buf));
+                }
+
+                // dummy wires
+                snprintf(buf, 32, "ODDR%s%c_Q0", oddrc ? "C" : "", 'A' + z - (oddrc ? 2 : 0));
+                IdString id_q0 = id(buf);
+                IdString q0_name = wireToGlobal(row, col, db, id_q0);
+                if (wires.count(q0_name) == 0)
+                    addWire(q0_name, id_q0, row, col);
+                addBelOutput(belname, id_Q0, q0_name);
+
+                snprintf(buf, 32, "ODDR%s%c_Q1", oddrc ? "C" : "", 'A' + z - (oddrc ? 2 : 0));
+                IdString id_q1 = id(buf);
+                IdString q1_name = wireToGlobal(row, col, db, id_q1);
+                if (wires.count(q1_name) == 0)
+                    addWire(q1_name, id_q1, row, col);
+                addBelOutput(belname, id_Q1, q1_name);
+            } break;
             default:
                 break;
             }
