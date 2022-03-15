@@ -271,7 +271,7 @@ static void pack_mux2_lut5(Context *ctx, CellInfo *ci, pool<IdString> &packed_ce
         // mux is the cluster root
         packed->cluster = packed->name;
         lut1->cluster = packed->name;
-        lut1->constr_z = -ctx->mux_0_z + 1;
+        lut1->constr_z = -BelZ::mux_0_z + 1;
         packed->constr_children.clear();
 
         // reconnect MUX ports
@@ -314,9 +314,9 @@ static void pack_mux2_lut5(Context *ctx, CellInfo *ci, pool<IdString> &packed_ce
         // mux is the cluster root
         packed->cluster = packed->name;
         lut0->cluster = packed->name;
-        lut0->constr_z = -ctx->mux_0_z;
+        lut0->constr_z = -BelZ::mux_0_z;
         lut1->cluster = packed->name;
-        lut1->constr_z = -ctx->mux_0_z + 1;
+        lut1->constr_z = -BelZ::mux_0_z + 1;
         packed->constr_children.clear();
 
         // reconnect MUX ports
@@ -724,7 +724,99 @@ static bool is_gowin_diff_iob(const Context *ctx, const CellInfo *cell)
     }
 }
 
+static bool is_gowin_iologic(const Context *ctx, const CellInfo *cell)
+{
+    switch (cell->type.index) {
+    case ID_ODDR: /* fall-through*/
+    case ID_ODDRC:
+        return true;
+    default:
+        return false;
+    }
+}
+
 static bool is_iob(const Context *ctx, const CellInfo *cell) { return (cell->type.index == ID_IOB); }
+
+// Pack IO logic
+static void pack_iologic(Context *ctx)
+{
+    pool<IdString> packed_cells;
+    pool<IdString> delete_nets;
+
+    std::vector<std::unique_ptr<CellInfo>> new_cells;
+    log_info("Packing IO logic..\n");
+
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
+        if (ctx->verbose)
+            log_info("cell '%s' is of type '%s'\n", ctx->nameOf(ci), ci->type.c_str(ctx));
+        if (is_gowin_iologic(ctx, ci)) {
+            CellInfo *q0_dst = nullptr;
+            CellInfo *q1_dst = nullptr;
+            switch (ci->type.index) {
+            case ID_ODDRC: /* fall-through*/
+            case ID_ODDR: {
+                q0_dst = net_only_drives(ctx, ci->ports.at(id_Q0).net, is_iob, id_I);
+                NPNR_ASSERT(q0_dst != nullptr);
+
+                auto iob_bel = q0_dst->attrs.find(id_BEL);
+                if (q0_dst->attrs.count(id_DIFF_TYPE)) {
+                    ci->attrs[id_OBUF_TYPE] = std::string("DBUF");
+                } else {
+                    ci->attrs[id_OBUF_TYPE] = std::string("SBUF");
+                }
+                if (iob_bel != q0_dst->attrs.end()) {
+                    // already know there to place, no need of any cluster stuff
+                    Loc loc = ctx->getBelLocation(ctx->getBelByNameStr(iob_bel->second.as_string()));
+                    loc.z += BelZ::iologic_0_z;
+                    ci->attrs[id_BEL] = ctx->getBelName(ctx->getBelByLocation(loc)).str(ctx);
+                } else {
+                    // make cluster from ODDR and OBUF
+                    ci->cluster = ci->name;
+                    ci->constr_x = 0;
+                    ci->constr_y = 0;
+                    ci->constr_z = 0;
+                    ci->constr_abs_z = false;
+                    ci->constr_children.push_back(q0_dst);
+                    q0_dst->cluster = ci->name;
+                    q0_dst->constr_x = 0;
+                    q0_dst->constr_y = 0;
+                    q0_dst->constr_z = -BelZ::iologic_0_z;
+                    q0_dst->constr_abs_z = false;
+                }
+
+                // disconnect Q0 output: it is wired internally
+                delete_nets.insert(ci->ports.at(id_Q0).net->name);
+                q0_dst->disconnectPort(id_I);
+                ci->disconnectPort(id_Q0);
+
+                ci->attrs[id_IOBUF] = 0;
+                // if Q1 is conected then disconnet it too
+                if (port_used(ci, id_Q1)) {
+                    q1_dst = net_only_drives(ctx, ci->ports.at(id_Q1).net, is_iob, id_OEN);
+                    if (q1_dst != nullptr) {
+                        delete_nets.insert(ci->ports.at(id_Q1).net->name);
+                        q0_dst->disconnectPort(id_OEN);
+                        ci->disconnectPort(id_Q1);
+                        ci->attrs[id_IOBUF] = 1;
+                    }
+                }
+            } break;
+            default:
+                break;
+            }
+        }
+    }
+    for (auto pcell : packed_cells) {
+        ctx->cells.erase(pcell);
+    }
+    for (auto dnet : delete_nets) {
+        ctx->nets.erase(dnet);
+    }
+    for (auto &ncell : new_cells) {
+        ctx->cells[ncell->name] = std::move(ncell);
+    }
+}
 
 // Pack differential IO buffers
 static void pack_diff_io(Context *ctx)
@@ -749,7 +841,7 @@ static void pack_diff_io(Context *ctx)
                 NPNR_ASSERT(iob_p != nullptr);
                 NPNR_ASSERT(iob_n != nullptr);
                 auto iob_p_bel_a = iob_p->attrs.find(id_BEL);
-                if (iob_p_bel_a == ci->attrs.end()) {
+                if (iob_p_bel_a == iob_p->attrs.end()) {
                     log_error("LVDS '%s' must be restricted.\n", ctx->nameOf(ci));
                     continue;
                 }
@@ -793,6 +885,7 @@ static void pack_diff_io(Context *ctx)
         ctx->cells[ncell->name] = std::move(ncell);
     }
 }
+
 // Pack IO buffers
 static void pack_io(Context *ctx)
 {
@@ -895,6 +988,7 @@ bool Arch::pack()
         pack_gsr(ctx);
         pack_io(ctx);
         pack_diff_io(ctx);
+        pack_iologic(ctx);
         pack_wideluts(ctx);
         pack_alus(ctx);
         pack_lut_lutffs(ctx);

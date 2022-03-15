@@ -5639,14 +5639,14 @@ void gfxSetBelDefaultDecal(Arch *arch, BelInfo &bel)
         break;
     case ID_GW_MUX2_LUT5:
         active.x = inactive.x = bel.x + mux2lut5_x;
-        active.y = inactive.y = arch->gridDimY - 1. - bel.y + mux2lut5_y[(bel.z - arch->mux_0_z) >> 1];
+        active.y = inactive.y = arch->gridDimY - 1. - bel.y + mux2lut5_y[(bel.z - BelZ::mux_0_z) >> 1];
         active.decal = id_DECAL_MUXUPPER_ACTIVE;
         inactive.decal = id_DECAL_MUXUPPER_INACTIVE;
         arch->setBelDecal(bel.name, active, inactive);
         break;
     case ID_GW_MUX2_LUT6:
         active.x = inactive.x = bel.x + mux2lut6_x;
-        active.y = inactive.y = arch->gridDimY - 1. - bel.y + mux2lut6_y[(bel.z - arch->mux_0_z) / 5];
+        active.y = inactive.y = arch->gridDimY - 1. - bel.y + mux2lut6_y[(bel.z - BelZ::mux_0_z) / 5];
         active.decal = id_DECAL_MUXLOWER_ACTIVE;
         inactive.decal = id_DECAL_MUXLOWER_INACTIVE;
         arch->setBelDecal(bel.name, active, inactive);
