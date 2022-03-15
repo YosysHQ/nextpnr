@@ -45,7 +45,15 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-CommandHandler::CommandHandler(int argc, char **argv) : argc(argc), argv(argv) { log_streams.clear(); }
+CommandHandler::CommandHandler(int argc, char **argv) : argc(argc), argv(argv)
+{
+    try {
+        std::locale::global(std::locale(""));
+    } catch (const std::runtime_error &e) {
+        // the locale is broken in this system, so leave it as it is
+    }
+    log_streams.clear();
+}
 
 bool CommandHandler::parseOptions()
 {

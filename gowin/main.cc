@@ -21,6 +21,7 @@
 #ifdef MAIN_EXECUTABLE
 
 #include <fstream>
+#include <locale>
 #include <regex>
 #include "command.h"
 #include "design_utils.h"
