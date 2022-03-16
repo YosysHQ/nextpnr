@@ -56,6 +56,10 @@ po::options_description GowinCommandHandler::getArchOptions()
 
 std::unique_ptr<Context> GowinCommandHandler::createContext(dict<std::string, Property> &values)
 {
+    if (!vm.count("device")) {
+        log_error("The device must be specified\n");
+    }
+
     std::regex devicere = std::regex("GW1N([SZ]?)[A-Z]*-(LV|UV|UX)([0-9])(C?).*");
     std::smatch match;
     std::string device = vm["device"].as<std::string>();
