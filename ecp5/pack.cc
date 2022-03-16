@@ -85,7 +85,7 @@ class Ecp5Packer
                 used_ramwluts += 2;
             }
             if (is_ff(ctx, ci))
-                used_ffs += 2;
+                ++used_ffs;
         }
         log_info("Logic utilisation before packing:\n");
         auto pc = [](int used, int total) { return 100 * used / total; };
