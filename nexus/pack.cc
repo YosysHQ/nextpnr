@@ -860,6 +860,9 @@ struct NexusPacker
             // Skip undriven nets; and nets that are already global
             if (ni->driver.cell == nullptr)
                 continue;
+            if (ni->driver.cell->type == id_DCS) {
+                continue;
+            }
             if (ni->driver.cell->type == id_DCC) {
                 --available_globals;
                 continue;
@@ -1981,19 +1984,37 @@ struct NexusPacker
                     if (user.port == id_CLKI || user.port == id_REFCK)
                         changed_cells.insert(user.cell->name);
                 auto &drv = ctx->nets.at(net)->driver;
-                if (iter == 1 && drv.cell != nullptr && (drv.port == id_HFCLKOUT || drv.port == id_LFCLKOUT))
-                    changed_cells.insert(drv.cell->name);
+                if (iter == 1 && drv.cell != nullptr) {
+                    if (drv.cell->type == id_OSC_CORE && (drv.port == id_HFCLKOUT || drv.port == id_LFCLKOUT))
+                        changed_cells.insert(drv.cell->name);
+                    if (drv.cell->type == id_DCC && drv.port == id_CLKO)
+                        changed_cells.insert(drv.cell->name);
+                    if (drv.cell->type == id_DCS && drv.port == id_DCSOUT)
+                        changed_cells.insert(drv.cell->name);
+                }
             }
             changed_nets.clear();
             for (auto cell : changed_cells) {
                 CellInfo *ci = ctx->cells.at(cell).get();
                 if (ci->type == id_DCC) {
                     copy_constraint(ci, id_CLKI, id_CLKO, 1);
+                } else if (ci->type == id_DCS) {
+                    // For DCC copy the worst case ("fastest") constraint
+                    delay_t period_clk0 = 0, period_clk1 = 0;
+                    bool have_clk0 = get_period(ci, id_CLK0, period_clk0);
+                    bool have_clk1 = get_period(ci, id_CLK1, period_clk1);
+                    if (have_clk0 && !have_clk1) {
+                        copy_constraint(ci, id_CLK0, id_DCSOUT);
+                    } else if (!have_clk0 && have_clk1) {
+                        copy_constraint(ci, id_CLK1, id_DCSOUT);
+                    } else if ( have_clk0 && have_clk1) {
+                        set_period(ci, id_DCSOUT, std::min(period_clk0, period_clk1));
+                    }
                 } else if (ci->type == id_OSC_CORE) {
                     int div = int_or_default(ci->params, id_HF_CLK_DIV, 128);
                     const float tol = 1.07f; // OSCA has +/-7% frequency tolerance, assume the worst case.
                     set_period(ci, id_HFCLKOUT, delay_t((1.0e6 / 450) * (div + 1) / tol));
-                    set_period(ci, id_LFCLKOUT, delay_t((1.0e3 / 10) / tol));
+                    set_period(ci, id_LFCLKOUT, delay_t((1.0e9 /  32) / tol));
                 } else if (ci->type == id_PLL_CORE) {
                     static const std::array<IdString, 6> div{id_DIVA, id_DIVB, id_DIVC, id_DIVD, id_DIVE, id_DIVF};
                     static const std::array<IdString, 6> output{id_CLKOP,  id_CLKOS,  id_CLKOS2,

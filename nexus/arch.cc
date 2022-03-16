@@ -486,6 +486,12 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
         if (fromPort == id_CLK)
             return false; // don't include delays that are actually clock-to-out here
         return lookup_cell_delay(cell->tmg_index, lookup_port(fromPort), lookup_port(toPort), delay);
+    } else if(cell->type == id_DCS) {
+        if (fromPort == id_SELFORCE || fromPort == id_SEL) {
+            return false;
+        }
+        int index = get_cell_timing_idx(id_DCS, id_DCS);
+        return lookup_cell_delay(index, fromPort, toPort, delay);
     }
     return false;
 }
@@ -553,6 +559,15 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
             return TMG_GEN_CLOCK;
         else if (port == id_CE)
             return TMG_COMB_INPUT;
+    } else if (cell->type == id_DCS) {
+        // FIXME: Making inputs TMG_CLOCK_INPUT and the output TMG_CLOCK_GEN
+        // yielded in error in the timing analyzer. For now keep those as
+        // regular combinational ports.
+        if (port == id_CLK0 || port == id_CLK1)
+            return TMG_COMB_INPUT;
+        else if (port == id_DCSOUT) {
+            return TMG_COMB_OUTPUT;
+        }
         return TMG_IGNORE;
     }
     return TMG_IGNORE;
