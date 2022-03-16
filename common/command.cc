@@ -45,10 +45,17 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+struct no_separator : std::numpunct<char>
+{
+  protected:
+    virtual string_type do_grouping() const { return "\000"; } // groups of 0 (disable)
+};
+
 CommandHandler::CommandHandler(int argc, char **argv) : argc(argc), argv(argv)
 {
     try {
-        std::locale::global(std::locale(""));
+        std::locale loc("");
+        std::locale::global(std::locale(loc, new no_separator()));
     } catch (const std::runtime_error &e) {
         // the locale is broken in this system, so leave it as it is
     }
