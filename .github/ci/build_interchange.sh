@@ -48,7 +48,8 @@ function get_dependencies {
         # Install RapidWright
         git clone https://github.com/Xilinx/RapidWright.git ${RAPIDWRIGHT_PATH}
         pushd ${RAPIDWRIGHT_PATH}
-        make update_jars
+        ./gradlew updateJars --no-watch-fs
+        make compile
         popd
     fi
 }
