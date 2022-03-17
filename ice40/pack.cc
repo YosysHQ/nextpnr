@@ -59,7 +59,8 @@ static void pack_lut_lutffs(Context *ctx)
                     if (ctx->verbose)
                         log_info("found attached dff %s\n", dff->name.c_str(ctx));
                     auto dff_bel = dff->attrs.find(id_BEL);
-                    if (lut_bel != ci->attrs.end() && dff_bel != dff->attrs.end() && lut_bel->second != dff_bel->second) {
+                    if (lut_bel != ci->attrs.end() && dff_bel != dff->attrs.end() &&
+                        lut_bel->second != dff_bel->second) {
                         // Locations don't match, can't pack
                     } else {
                         lut_to_lc(ctx, ci, packed.get(), false);

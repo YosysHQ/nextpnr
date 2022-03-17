@@ -486,7 +486,7 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
         if (fromPort == id_CLK)
             return false; // don't include delays that are actually clock-to-out here
         return lookup_cell_delay(cell->tmg_index, lookup_port(fromPort), lookup_port(toPort), delay);
-    } else if(cell->type == id_DCS) {
+    } else if (cell->type == id_DCS) {
         if (fromPort == id_SELFORCE || fromPort == id_SEL) {
             return false;
         }
