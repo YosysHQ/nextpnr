@@ -16,7 +16,7 @@ jobs:
     - name: Install
       run: |
         sudo apt-get update
-        sudo apt-get install git make cmake libboost-all-dev python3-dev libeigen3-dev tcl-dev clang bison flex swig
+        sudo apt-get install git make cmake libboost-all-dev python3-dev libeigen3-dev tcl-dev clang bison flex swig locales libtinfo-dev
 
     - name: ccache
       uses: hendrikmuhs/ccache-action@v1
