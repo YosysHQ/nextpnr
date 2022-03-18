@@ -114,7 +114,7 @@ struct MistralBitgen
     {
         (void)ci; // currently unused
         auto pos = CycloneV::xy2pos(x, y);
-        cv->bmux_r_set(CycloneV::CMUXHG, pos, CycloneV::INPUT_SELECT, bi, 0x1b); // hardcode to general routing
+        cv->bmux_r_set(CycloneV::CMUXHG, pos, CycloneV::INPUT_SEL, bi, 0x1b); // hardcode to general routing
         cv->bmux_m_set(CycloneV::CMUXHG, pos, CycloneV::TESTSYN_ENOUT_SELECT, bi, CycloneV::PRE_SYNENB);
     }
 
