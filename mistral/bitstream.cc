@@ -210,7 +210,8 @@ struct MistralBitgen
         if (is_lutram) {
             for (int i = 0; i < 10; i++) {
                 // Many MLAB settings apply to the whole LAB, not just the ALM
-                cv->bmux_m_set(block_type, pos, CycloneV::MODE, i, CycloneV::RAM);
+                cv->bmux_m_set(block_type, pos, CycloneV::TMODE, i, CycloneV::RAM);
+                cv->bmux_m_set(block_type, pos, CycloneV::BMODE, i, CycloneV::RAM);
                 cv->bmux_n_set(block_type, pos, CycloneV::T_FEEDBACK_SEL, i, 1);
             }
             cv->bmux_r_set(block_type, pos, CycloneV::LUT_MASK, alm, 0xFFFFFFFFFFFFFFFFULL); // TODO: LUTRAM init
@@ -222,11 +223,11 @@ struct MistralBitgen
             cv->bmux_n_set(block_type, pos, CycloneV::WRITE_PULSE_LENGTH, 0, 650); // picoseconds, presumably
             // TODO: understand how these enables really work
             cv->bmux_b_set(block_type, pos, CycloneV::EN2_EN, 0, false);
-            cv->bmux_b_set(block_type, pos, CycloneV::EN_SCLK_LOAD_WHAT, 0, true);
-            cv->bmux_m_set(block_type, pos, CycloneV::SCLR_MUX, 0, CycloneV::GIN2);
+            cv->bmux_b_set(block_type, pos, CycloneV::SCLR_DIS, 0, true);
         } else {
-            // Combinational mode - TODO: flop feedback
-            cv->bmux_m_set(block_type, pos, CycloneV::MODE, alm, alm_data.l6_mode ? CycloneV::L6 : CycloneV::L5);
+            // Combinational mode - TODO: flop feedback and more modes...
+            cv->bmux_m_set(block_type, pos, CycloneV::TMODE, alm, alm_data.l6_mode ? CycloneV::C_E : CycloneV::E_0);
+            cv->bmux_m_set(block_type, pos, CycloneV::BMODE, alm, alm_data.l6_mode ? CycloneV::D_E : CycloneV::E_1);
             // LUT function
             cv->bmux_r_set(block_type, pos, CycloneV::LUT_MASK, alm, ctx->compute_lut_mask(lab, alm));
         }
@@ -300,12 +301,17 @@ struct MistralBitgen
             // SCLR
             if (ff->ffInfo.ctrlset.sclr.net != nullptr) {
                 cv->bmux_b_set(block_type, pos, CycloneV::SCLR_INV, 0, ff->ffInfo.ctrlset.sclr.inverted);
+                cv->bmux_b_set(block_type, pos, CycloneV::SCLR_DIS, 0, false);
             } else {
                 cv->bmux_b_set(block_type, pos, sclr_dis[i / 2], alm, true);
             }
             // SLOAD
             if (ff->ffInfo.ctrlset.sload.net != nullptr) {
                 cv->bmux_b_set(block_type, pos, sload_en[i / 2], alm, true);
+                if (ff->ffInfo.ctrlset.sload.net->name == ctx->id("$PACKER_GND_NET")) {
+                    // force-disabled LOAD (see workaround in assign_ff_info)
+                    cv->bmux_b_set(block_type, pos, CycloneV::SLOAD_EN, 0, false);
+                }
                 cv->bmux_b_set(block_type, pos, CycloneV::SLOAD_INV, 0, ff->ffInfo.ctrlset.sload.inverted);
             }
         }
@@ -340,18 +346,18 @@ struct MistralBitgen
 
         const std::array<CycloneV::bmux_type_t, 2> aclr_inp{CycloneV::ACLR0_SEL, CycloneV::ACLR1_SEL};
         for (int i = 0; i < 2; i++) {
-            // Quartus seems to set unused ACLRs to CLKI2...
-            if (!lab_data.aclr_used[i])
-                cv->bmux_m_set(block_type, pos, aclr_inp[i], 0, CycloneV::CLKI2);
-            else
-                cv->bmux_m_set(block_type, pos, aclr_inp[i], 0, (i == 1) ? CycloneV::GIN0 : CycloneV::GIN1);
+            // Quartus seems to set unused ACLRs to ACLR0
+            if (lab_data.aclr_used[i])
+                cv->bmux_m_set(block_type, pos, aclr_inp[i], 0, (i == 1) ? CycloneV::DIN2 : CycloneV::DIN3);
+            else if (i == 0)
+                cv->bmux_m_set(block_type, pos, aclr_inp[i], 0, CycloneV::ACLR0);
         }
         for (int i = 0; i < 3; i++) {
             // Check for fabric->clock routing
             if (ctx->wires_connected(
                         ctx->get_port(block_type, CycloneV::pos2x(pos), CycloneV::pos2y(pos), -1, CycloneV::DATAIN, 0),
                         lab_data.clk_wires[i]))
-                cv->bmux_m_set(block_type, pos, CycloneV::CLKA_SEL, 0, CycloneV::GIN2);
+                cv->bmux_m_set(block_type, pos, CycloneV::CLKA_SEL, 0, CycloneV::DIN0);
         }
     }
 
