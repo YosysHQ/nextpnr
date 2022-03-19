@@ -612,15 +612,12 @@ static void pack_constants(Context *ctx)
     log_info("Packing constants..\n");
 
     std::unique_ptr<CellInfo> gnd_cell = create_generic_cell(ctx, id_GND, "$PACKER_GND");
-    gnd_cell->params[id_INIT] = Property(0, 1 << 4);
     auto gnd_net = std::make_unique<NetInfo>(ctx->id("$PACKER_GND_NET"));
     gnd_net->driver.cell = gnd_cell.get();
     gnd_net->driver.port = id_G;
     gnd_cell->ports.at(id_G).net = gnd_net.get();
 
     std::unique_ptr<CellInfo> vcc_cell = create_generic_cell(ctx, id_VCC, "$PACKER_VCC");
-    // Fill with 1s
-    vcc_cell->params[id_INIT] = Property(Property::S1).extract(0, (1 << 4), Property::S1);
     auto vcc_net = std::make_unique<NetInfo>(ctx->id("$PACKER_VCC_NET"));
     vcc_net->driver.cell = vcc_cell.get();
     vcc_net->driver.port = id_V;
