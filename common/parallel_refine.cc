@@ -546,6 +546,7 @@ struct ThreadState
 
     bool accept_move()
     {
+        static constexpr double epsilon = 1e-20;
         double delta = g.cfg.lambda * (timing_delta / std::max<double>(epsilon, g.total_timing_cost)) +
                        (1.0 - g.cfg.lambda) * (double(wirelen_delta) / std::max<double>(epsilon, g.total_wirelen));
         return delta < 0 ||
@@ -565,7 +566,6 @@ struct ThreadState
         return true;
     }
 
-    static constexpr double epsilon = 1e-20;
     bool single_cell_swap(CellInfo *cell, BelId new_bel)
     {
         NPNR_ASSERT(moved_cells.empty());
