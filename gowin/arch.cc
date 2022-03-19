@@ -440,7 +440,9 @@ IdString Arch::wireToGlobal(int &row, int &col, const DatabasePOD *db, IdString 
 {
     const std::string &wirename = wire.str(this);
     char buf[32];
-    if (wirename == "VCC" || wirename == "GND") {
+    if (wirename == "VCC" || wirename == "VSS") {
+        row = 0;
+        col = 0;
         return wire;
     }
     if (!isdigit(wirename[1]) || !isdigit(wirename[2]) || !isdigit(wirename[3])) {
@@ -949,6 +951,13 @@ Arch::Arch(ArchArgs args) : args(args)
              package_name.c_str(this), speed_id.c_str(this));
 
     // setup db
+    // add global VCC and GND bels
+    addBel(id_GND, id_GND, Loc(0, 0, 998), true);
+    addWire(id_VSS, id_VSS, 0, 0);
+    addBelOutput(id_GND, id_G, id_VSS);
+    addBel(id_VCC, id_VCC, Loc(0, 0, 999), true);
+    addWire(id_VCC, id_VCC, 0, 0);
+    addBelOutput(id_VCC, id_V, id_VCC);
     char buf[32];
     // The reverse order of the enumeration simplifies the creation
     // of MUX2_LUT8s: they need the existence of the wire on the right.

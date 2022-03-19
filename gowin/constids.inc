@@ -787,6 +787,8 @@ X(SUM)
 X(CIN)
 X(COUT)
 X(OF)
+X(V)
+X(G)
 
 // timing
 X(X0)
