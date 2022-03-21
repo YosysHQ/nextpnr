@@ -952,10 +952,10 @@ Arch::Arch(ArchArgs args) : args(args)
 
     // setup db
     // add global VCC and GND bels
-    addBel(id_GND, id_GND, Loc(0, 0, 998), true);
+    addBel(id_GND, id_GND, Loc(0, 0, BelZ::gnd_0_z), true);
     addWire(id_VSS, id_VSS, 0, 0);
     addBelOutput(id_GND, id_G, id_VSS);
-    addBel(id_VCC, id_VCC, Loc(0, 0, 999), true);
+    addBel(id_VCC, id_VCC, Loc(0, 0, BelZ::vcc_0_z), true);
     addWire(id_VCC, id_VCC, 0, 0);
     addBelOutput(id_VCC, id_V, id_VCC);
     char buf[32];
