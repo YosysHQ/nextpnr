@@ -962,31 +962,56 @@ static void place_plls(Context *ctx)
 
             // Find a BEL for it
             BelId found_bel;
+            std::string conflict_str = "";
             for (auto bel_pll : pll_all_bels) {
-                if (pll_used_bels.count(bel_pll.first))
+                if (pll_used_bels.count(bel_pll.first)) {
+                    conflict_str +=
+                            stringf("    PLL bel '%s' is already used by '%s'.\n", ctx->nameOfBel(bel_pll.first),
+                                    pll_used_bels.at(bel_pll.first)->name.c_str(ctx));
                     continue;
+                }
                 BelPin pll_io_a, pll_io_b;
                 BelId gb_a, gb_b;
                 std::tie(pll_io_a, gb_a, pll_io_b, gb_b) = bel_pll.second;
                 if (bel2io.count(pll_io_a.bel)) {
                     if (pll_io_a.bel == pad_bel)
                         could_be_pad = !bel2io.count(pll_io_b.bel) || !is_sb_pll40_dual(ctx, ci);
+                    auto conflict_pin = ctx->get_bel_package_pin(pll_io_a.bel);
+                    conflict_str +=
+                            stringf("    PLL bel '%s' cannot be used as it conflicts with input '%s' on pin '%s'.\n",
+                                    ctx->nameOfBel(bel_pll.first), bel2io.at(pll_io_a.bel)->name.c_str(ctx),
+                                    conflict_pin.c_str());
                     continue;
                 }
-                if (bel2io.count(pll_io_b.bel) && is_sb_pll40_dual(ctx, ci))
+                if (bel2io.count(pll_io_b.bel) && is_sb_pll40_dual(ctx, ci)) {
+                    auto conflict_pin = ctx->get_bel_package_pin(pll_io_b.bel);
+                    conflict_str +=
+                            stringf("    PLL bel '%s' cannot be used as it conflicts with input '%s' on pin '%s'.\n",
+                                    ctx->nameOfBel(bel_pll.first), bel2io.at(pll_io_b.bel)->name.c_str(ctx),
+                                    conflict_pin.c_str());
                     continue;
-                if (gb_a_used && bel2gb.count(gb_a))
+                }
+                if (gb_a_used && bel2gb.count(gb_a)) {
+                    conflict_str += stringf(
+                            "    PLL bel '%s' cannot be used as it conflicts with global buffer '%s' at '%s'.\n",
+                            ctx->nameOfBel(bel_pll.first), bel2gb.at(gb_a)->name.c_str(ctx), ctx->nameOfBel(gb_a));
                     continue;
-                if (gb_b_used && bel2gb.count(gb_b))
+                }
+                if (gb_b_used && bel2gb.count(gb_b)) {
+                    conflict_str += stringf(
+                            "    PLL bel '%s' cannot be used as it conflicts with global buffer '%s' at '%s'.\n",
+                            ctx->nameOfBel(bel_pll.first), bel2gb.at(gb_b)->name.c_str(ctx), ctx->nameOfBel(gb_b));
                     continue;
+                }
                 found_bel = bel_pll.first;
                 break;
             }
 
             // Apply constrain & Inform user of result
-            if (found_bel == BelId())
-                log_error("PLL '%s' couldn't be placed anywhere, no suitable BEL found.%s\n", ci->name.c_str(ctx),
-                          could_be_pad ? " Did you mean to use a PAD PLL ?" : "");
+            if (found_bel == BelId()) {
+                log_error("PLL '%s' couldn't be placed anywhere, no suitable BEL found.%s\n%s\n", ci->name.c_str(ctx),
+                          could_be_pad ? " Did you mean to use a PAD PLL ?" : "", conflict_str.c_str());
+            }
 
             log_info("  constrained PLL '%s' to %s\n", ci->name.c_str(ctx), ctx->nameOfBel(found_bel));
             if (could_be_pad)
