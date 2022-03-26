@@ -798,6 +798,13 @@ static void pack_iologic(Context *ctx)
                         ci->attrs[id_IOBUF] = 1;
                     }
                 }
+                // if have XXX_ inputs connect them
+                if (ctx->ddr_has_extra_inputs) {
+                    ci->addInput(id_XXX_VSS);
+                    ci->connectPort(id_XXX_VSS, ctx->nets[ctx->id("$PACKER_GND_NET")].get());
+                    ci->addInput(id_XXX_VCC);
+                    ci->connectPort(id_XXX_VCC, ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
+                }
             } break;
             default:
                 break;

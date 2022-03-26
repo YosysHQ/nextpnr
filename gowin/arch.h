@@ -470,6 +470,9 @@ struct Arch : BaseArch<ArchRanges>
     void updateClockSpinesCache(IdString spine_id, IdString wire_id);
     void fixClockSpineDecals(void);
 
+    // XXX GW1N-9C DDR quirk
+    bool ddr_has_extra_inputs = false;
+
     // Permissible combinations of modes in a single slice
     std::map<const IdString, IdString> dff_comp_mode;
 };
