@@ -1158,6 +1158,21 @@ Arch::Arch(ArchArgs args) : args(args)
                 snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
                 addBelInput(belname, id_CLK, id(buf));
 
+                const PairPOD *xxx_port = pairLookup(bel->ports.get(), bel->num_ports, ID_XXX_VSS);
+                if (xxx_port != nullptr) {
+                    ddr_has_extra_inputs = true;
+                    portname = IdString(xxx_port->src_id);
+                    snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
+                    addBelInput(belname, id_XXX_VSS, id(buf));
+                }
+                xxx_port = pairLookup(bel->ports.get(), bel->num_ports, ID_XXX_VCC);
+                if (xxx_port != nullptr) {
+                    ddr_has_extra_inputs = true;
+                    portname = IdString(xxx_port->src_id);
+                    snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
+                    addBelInput(belname, id_XXX_VCC, id(buf));
+                }
+
                 if (oddrc) {
                     portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_CE)->src_id);
                     snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
