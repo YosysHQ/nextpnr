@@ -923,9 +923,20 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 
 bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const
 {
-    if (cell->type == id_ICESTORM_LC && cell->lcInfo.dffEnable) {
-        if (toPort == id_O)
-            return false;
+    if (cell->type == id_ICESTORM_LC) {
+        if (toPort == id_O) {
+            if (cell->lcInfo.dffEnable)
+                return false;
+            // "false paths"
+            if (fromPort == id_I0 && ((cell->lcInfo.lutInputMask & 0x1U) == 0))
+                return false;
+            if (fromPort == id_I1 && ((cell->lcInfo.lutInputMask & 0x2U) == 0))
+                return false;
+            if (fromPort == id_I2 && ((cell->lcInfo.lutInputMask & 0x4U) == 0))
+                return false;
+            if (fromPort == id_I3 && ((cell->lcInfo.lutInputMask & 0x8U) == 0))
+                return false;
+        }
     } else if (cell->type == id_ICESTORM_RAM || cell->type == id_ICESTORM_SPRAM) {
         return false;
     }
@@ -1231,6 +1242,18 @@ void Arch::assignCellInfo(CellInfo *cell)
             cell->lcInfo.inputCount++;
         if (cell->getPort(id_I3))
             cell->lcInfo.inputCount++;
+        // Find don't care LUT inputs to mask for timing analysis
+        cell->lcInfo.lutInputMask = 0x0;
+        unsigned init = int_or_default(cell->params, id_LUT_INIT);
+        for (unsigned k = 0; k < 4; k++) {
+            for (unsigned i = 0; i < 16; i++) {
+                // If toggling the LUT input makes a difference it's not a don't care
+                if (((init >> i) & 0x1U) != ((init >> (i ^ (1U << k))) & 0x1U)) {
+                    cell->lcInfo.lutInputMask |= (1U << k);
+                    break;
+                }
+            }
+        }
     } else if (cell->type == id_SB_IO) {
         cell->ioInfo.lvds = str_or_default(cell->params, id_IO_STANDARD, "SB_LVCMOS") == "SB_LVDS_INPUT";
         cell->ioInfo.global = bool_or_default(cell->attrs, id_GLOBAL);

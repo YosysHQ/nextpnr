@@ -266,6 +266,68 @@ static void pack_carries(Context *ctx)
     log_info("    %4d LCs used as CARRY only\n", carry_only);
 }
 
+static void merge_carry_luts(Context *ctx)
+{
+    // Find carrys
+    log_info("Packing indirect carry+LUT pairs...\n");
+    // Find cases where a less-than-LUT2 is driving a carry and pack them together
+    //    +----+    +-----+ |
+    // A--|LUT2|----|CARRY| |
+    // B--|    |  C-|     |-+
+    //    +----+  +-|     |
+    //            | +-----+
+    //            |
+    pool<IdString> packed_cells;
+    auto rewrite_init = [](unsigned lut_init) {
+        // I0 -> LUT I2
+        // I1, I2 -> carry; don't care
+        // I3 -> LUT I3
+        unsigned result = 0;
+        for (unsigned i = 0; i < 16; i++) {
+            unsigned j = 0;
+            if ((i & 1))
+                j |= 4;
+            if ((i & 8))
+                j |= 8;
+            if (lut_init & (1 << j))
+                result |= (1 << i);
+        }
+        return result;
+    };
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
+        if (ci->type != id_ICESTORM_LC || !bool_or_default(ci->params, id_CARRY_ENABLE))
+            continue; // not a carry LC
+        if (ci->getPort(id_O))
+            continue;                      // LUT output is already used
+        for (auto port : {id_I1, id_I2}) { // check carry inputs
+            NetInfo *i = ci->getPort(port);
+            if (!i)
+                continue;
+            CellInfo *drv = i->driver.cell;
+            if (i->driver.port != id_O)
+                continue;
+            if (!drv || drv->type != id_ICESTORM_LC || packed_cells.count(drv->name) ||
+                bool_or_default(drv->params, id_CARRY_ENABLE) || bool_or_default(drv->params, id_DFF_ENABLE))
+                continue; // not driven by a LUT, or driver already swallowed
+            // Check cardinality - must be LUT2 or less, noting top inputs used first
+            if (drv->getPort(id_I0) || drv->getPort(id_I1))
+                continue;
+            // Pack into carry
+            drv->movePortTo(id_I2, ci, id_I0);
+            drv->movePortTo(id_I3, ci, id_I3);
+            drv->movePortTo(id_O, ci, id_O);
+            ci->params[id_LUT_INIT] = Property(rewrite_init(int_or_default(drv->params, id_LUT_INIT)), 16);
+            packed_cells.insert(drv->name);
+            break;
+        }
+    }
+    for (auto pcell : packed_cells) {
+        ctx->cells.erase(pcell);
+    }
+    log_info("    %4d LUTs merged into carry LCs\n", int(packed_cells.size()));
+}
+
 // "Pack" RAMs
 static void pack_ram(Context *ctx)
 {
@@ -1642,6 +1704,7 @@ bool Arch::pack()
         pack_lut_lutffs(ctx);
         pack_nonlut_ffs(ctx);
         pack_carries(ctx);
+        merge_carry_luts(ctx);
         pack_ram(ctx);
         place_plls(ctx);
         pack_special(ctx);

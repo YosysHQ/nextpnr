@@ -29,7 +29,7 @@ RUN set -e -x ;\
     cd /usr/local/src ;\
     git clone --recursive https://github.com/YosysHQ/icestorm.git ;\
     cd icestorm ;\
-    git reset --hard 4bc68c9620e6be20f8fe10d20f84681d80beac23 ;\
+    git reset --hard 9f66f9ce16941c6417813cb87653c735a78b53ae ;\
     make -j $(nproc) ;\
     make install
 
