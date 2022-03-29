@@ -758,6 +758,12 @@ X(GSR)
 X(GSR0)
 X(GSRI)
 
+// Oscillators
+X(OSC)
+X(OSCZ)
+X(OSCH)
+X(OSCF)
+
 // primitive attributes
 X(INIT)
 X(FF_USED)
@@ -791,6 +797,8 @@ X(COUT)
 X(OF)
 X(V)
 X(G)
+X(OSCOUT)
+X(OSCEN)
 
 // timing
 X(X0)
