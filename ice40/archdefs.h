@@ -137,6 +137,7 @@ struct ArchCellInfo : BaseClusterInfo
             bool carryEnable;
             bool negClk;
             int inputCount;
+            unsigned lutInputMask;
             const NetInfo *clk, *cen, *sr;
         } lcInfo;
         struct
