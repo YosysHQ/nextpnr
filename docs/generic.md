@@ -1,8 +1,12 @@
 # nextpnr Generic Architecture
 
-Instead of implementing the [C++ API](archapi.md), you can programmatically 
+Instead of implementing the full [C++ API](archapi.md), you can programmatically 
 build up a description of an FPGA using the generic architecture and the 
-Python API.
+Python API, or the [Viaduct C++ API](viaduct.md) (described further in its own
+document).
+
+The Viaduct API allows more complex constraints to be implemented and has shorter
+startup times than using the Python API.
 
 A basic packer is provided that supports LUTs, flipflops and IO buffer insertion.
 Packing could also be implemented using the Python API.
