@@ -521,8 +521,10 @@ struct NexusFasmWriter
         write_enum(cell, "HFDIV_FABRIC_EN", "ENABLED");
         write_enum(cell, "LF_FABRIC_EN");
         write_enum(cell, "LF_OUTPUT_EN");
+        write_enum(cell, "DTR_EN", "ENABLED");
         write_enum(cell, "DEBUG_N", "DISABLED");
-        write_int_vector(stringf("HF_CLK_DIV[7:0]"), ctx->parse_lattice_param(cell, id_HF_CLK_DIV, 8, 0).intval, 8);
+        write_int_vector(stringf("HF_CLK_DIV[7:0]"), ctx->parse_lattice_param_from_cell(cell, id_HF_CLK_DIV, 8, 0).intval, 8);
+        write_int_vector(stringf("HF_SED_SEC_DIV[7:0]"), 1, 8);
         write_cell_muxes(cell);
         pop(2);
     }
@@ -681,6 +683,125 @@ struct NexusFasmWriter
             {"V2I_PP_ICTRL", 5},
     };
 
+    const dict<std::string, std::string> pll_default_params = {
+        {"BW_CTL_BIAS", "0b0101"},
+        {"CLKOP_TRIM", "0b0000"},
+        {"CLKOS_TRIM", "0b0000"},
+        {"CLKOS2_TRIM", "0b0000"},
+        {"CLKOS3_TRIM", "0b0000"},
+        {"CLKOS4_TRIM", "0b0000"},
+        {"CLKOS5_TRIM", "0b0000"},
+        {"CRIPPLE", "5P"},
+        {"CSET", "40P"},
+        {"DELAY_CTRL", "200PS"},
+        {"DELA", "0"},
+        {"DELB", "0"},
+        {"DELC", "0"},
+        {"DELD", "0"},
+        {"DELE", "0"},
+        {"DELF", "0"},
+        {"DIRECTION", "DISABLED"},
+        {"DIVA", "0"},
+        {"DIVB", "0"},
+        {"DIVC", "0"},
+        {"DIVD", "0"},
+        {"DIVE", "0"},
+        {"DIVF", "0"},
+        {"DYN_SEL", "0b000"},
+        {"DYN_SOURCE", "STATIC"},
+        {"ENCLK_CLKOP", "DISABLED"},
+        {"ENCLK_CLKOS", "DISABLED"},
+        {"ENCLK_CLKOS2", "DISABLED"},
+        {"ENCLK_CLKOS3", "DISABLED"},
+        {"ENCLK_CLKOS4", "DISABLED"},
+        {"ENCLK_CLKOS5", "DISABLED"},
+        {"ENABLE_SYNC", "DISABLED"},
+        {"FAST_LOCK_EN", "ENABLED"},
+        {"V2I_1V_EN", "DISABLED"},
+        {"FBK_CUR_BLE", "0b00000000"},
+        {"FBK_EDGE_SEL", "POSITIVE"},
+        {"FBK_IF_TIMING_CTL", "0b00"},
+        {"FBK_INTEGER_MODE", "DISABLED"},
+        {"FBK_MASK", "0b00001000"},
+        {"FBK_MMD_DIG", "8"},
+        {"FBK_MMD_PULS_CTL", "0b0000"},
+        {"FBK_MODE", "0b00"},
+        {"FBK_PI_BYPASS", "NOT_BYPASSED"},
+        {"FBK_PI_RC", "0b1100"},
+        {"FBK_PR_CC", "0b0000"},
+        {"FBK_PR_IC", "0b1000"},
+        {"FLOAT_CP", "DISABLED"},
+        {"FLOCK_CTRL", "2X"},
+        {"FLOCK_EN", "ENABLED"},
+        {"FLOCK_SRC_SEL", "REFCLK"},
+        {"FORCE_FILTER", "DISABLED"},
+        {"I_CTRL", "10UA"},
+        {"IPI_CMP", "0b1000"},
+        {"IPI_CMPN", "0b0011"},
+        {"IPI_COMP_EN", "DISABLED"},
+        {"IPP_CTRL", "0b1000"},
+        {"IPP_SEL", "0b1111"},
+        {"KP_VCO", "0b11001"},
+        {"LDT_INT_LOCK_STICKY", "DISABLED"},
+        {"LDT_LOCK", "1536CYC"},
+        {"LDT_LOCK_SEL", "U_FREQ"},
+        {"LEGACY_ATT", "DISABLED"},
+        {"LOAD_REG", "DISABLED"},
+        {"OPENLOOP_EN", "DISABLED"},
+        {"PHIA", "0"},
+        {"PHIB", "0"},
+        {"PHIC", "0"},
+        {"PHID", "0"},
+        {"PHIE", "0"},
+        {"PHIF", "0"},
+        {"PLLPDN_EN", "DISABLED"},
+        {"PLLPD_N", "UNUSED"},
+        {"PLLRESET_ENA", "DISABLED"},
+        {"REF_INTEGER_MODE", "DISABLED"},
+        {"REF_MASK", "0b00000000"},
+        {"REF_MMD_DIG", "8"},
+        {"REF_MMD_IN", "0b00001000"},
+        {"REF_MMD_PULS_CTL", "0b0000"},
+        {"REF_TIMING_CTL", "0b00"},
+        {"REFIN_RESET", "SET"},
+        {"RESET_LF", "DISABLED"},
+        {"ROTATE", "DISABLED"},
+        {"SEL_OUTA", "DISABLED"},
+        {"SEL_OUTB", "DISABLED"},
+        {"SEL_OUTC", "DISABLED"},
+        {"SEL_OUTD", "DISABLED"},
+        {"SEL_OUTE", "DISABLED"},
+        {"SEL_OUTF", "DISABLED"},
+        {"SLEEP", "DISABLED"},
+        {"SSC_DELTA", "0b000000000000000"},
+        {"SSC_DELTA_CTL", "0b00"},
+        {"SSC_DITHER", "DISABLED"},
+        {"SSC_EN_CENTER_IN", "DOWN_TRIANGLE"},
+        {"SSC_EN_SDM", "DISABLED"},
+        {"SSC_EN_SSC", "DISABLED"},
+        {"SSC_F_CODE", "0b000000000000000"},
+        {"SSC_N_CODE", "0b000010100"},
+        {"SSC_ORDER", "SDM_ORDER2"},
+        {"SSC_PI_BYPASS", "NOT_BYPASSED"},
+        {"SSC_REG_WEIGHTING_SEL", "0b000"},
+        {"SSC_SQUARE_MODE", "DISABLED"},
+        {"SSC_STEP_IN", "0b0000000"},
+        {"SSC_TBASE", "0b000000000000"},
+        {"STDBY_ATT", "DISABLED"},
+        {"TRIMOP_BYPASS_N", "BYPASSED"},
+        {"TRIMOS_BYPASS_N", "BYPASSED"},
+        {"TRIMOS2_BYPASS_N", "BYPASSED"},
+        {"TRIMOS3_BYPASS_N", "BYPASSED"},
+        {"TRIMOS4_BYPASS_N", "BYPASSED"},
+        {"TRIMOS5_BYPASS_N", "BYPASSED"},
+        {"V2I_KVCO_SEL", "85"},
+        {"V2I_PP_ICTRL", "0b00110"},
+        {"V2I_PP_RES", "10K"},
+        {"CLKMUX_FB", "CMUX_CLKOP"},
+        {"SEL_FBK", "DIVA"},
+        {"DIV_DEL", "0b0000001"},
+    };
+
     // Which MIPI params are 'word' values
     const dict<std::string, int> dphy_word_params = {
             {"CM", 8}, {"CN", 5}, {"CO", 3}, {"RSEL", 2}, {"RXCDRP", 2},
@@ -690,6 +811,14 @@ struct NexusFasmWriter
             {"U_PRG_HS_TRAIL", 6}, {"U_PRG_HS_ZERO", 6}, {"U_PRG_RXHS_SETTLE", 6}
     };
     /* clang-format on */
+
+    static bool is_number(std::string s) {
+        for (auto c  : s) {
+            if(!isdigit(c))
+                return false;
+        }
+        return true;
+    }
 
     // Write out config for some kind of PLL cell
     void write_pll(const CellInfo *cell)
@@ -701,17 +830,33 @@ struct NexusFasmWriter
         write_cell_muxes(cell);
         pop();
         push(stringf("IP_%s", ctx->nameOf(IdString(ctx->bel_data(bel).name))));
-        for (auto &param : cell->params) {
-            const std::string &name = param.first.str(ctx);
+        for (auto &value : pll_default_params) {
+            IdString n = IdString(ctx, value.first);
+            Property temp;
+            if (is_number(value.second))
+                temp = Property(std::stoi(value.second), 32);
+            else
+                temp = Property::from_string(value.second);
+            const std::string &name = n.str(ctx);
             if (is_mux_param(name) || name == "CLKMUX_FB" || name == "SEL_FBK")
                 continue;
             auto fnd_word = pll_word_params.find(name);
             if (fnd_word != pll_word_params.end()) {
-                write_int_vector(stringf("%s[%d:0]", name.c_str(), fnd_word->second - 1),
-                                 ctx->parse_lattice_param(cell, param.first, fnd_word->second, 0).as_int64(),
-                                 fnd_word->second);
+                if (cell->params.count(n)) {
+                    write_int_vector(stringf("%s[%d:0]", name.c_str(), fnd_word->second - 1),
+                                    ctx->parse_lattice_param_from_cell(cell, n, fnd_word->second, 0).as_int64(),
+                                    fnd_word->second);
+                } else {
+                    write_int_vector(stringf("%s[%d:0]", name.c_str(), fnd_word->second - 1),
+                                    ctx->parse_lattice_param(temp, n, fnd_word->second).as_int64(),
+                                    fnd_word->second);
+                }
             } else {
-                write_bit(stringf("%s.%s", name.c_str(), param.second.as_string().c_str()));
+                if (cell->params.count(n)) {
+                    write_bit(stringf("%s.%s", name.c_str(), cell->params.at(n).as_string().c_str()));
+                } else {
+                    write_bit(stringf("%s.%s", name.c_str(), temp.as_string().c_str()));
+                }
             }
         }
         pop();
@@ -729,7 +874,7 @@ struct NexusFasmWriter
             auto fnd_word = dphy_word_params.find(name);
             if (fnd_word != dphy_word_params.end()) {
                 write_int_vector(stringf("%s[%d:0]", name.c_str(), fnd_word->second - 1),
-                                 ctx->parse_lattice_param(cell, param.first, fnd_word->second, 0).as_int64(),
+                                 ctx->parse_lattice_param_from_cell(cell, param.first, fnd_word->second, 0).as_int64(),
                                  fnd_word->second);
             } else {
                 write_bit(stringf("%s.%s", name.c_str(), param.second.as_string().c_str()));
