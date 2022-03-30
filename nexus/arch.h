@@ -1408,7 +1408,8 @@ struct Arch : BaseArch<ArchRanges>
     // -------------------------------------------------
 
     // Parse a possibly-Lattice-style (C literal in Verilog string) style parameter
-    Property parse_lattice_param(const CellInfo *ci, IdString prop, int width, int64_t defval) const;
+    Property parse_lattice_param_from_cell(const CellInfo *ci, IdString prop, int width, int64_t defval) const;
+    Property parse_lattice_param(const Property &val, IdString prop, int width, const char* ci="") const;
 
     // -------------------------------------------------
 

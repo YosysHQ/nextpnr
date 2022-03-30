@@ -32,13 +32,17 @@ namespace {
 bool is_enabled(CellInfo *ci, IdString prop) { return str_or_default(ci->params, prop, "") == "ENABLED"; }
 } // namespace
 
-// Parse a possibly-Lattice-style (C literal in Verilog string) style parameter
-Property Arch::parse_lattice_param(const CellInfo *ci, IdString prop, int width, int64_t defval) const
+Property Arch::parse_lattice_param_from_cell(const CellInfo *ci, IdString prop, int width, int64_t defval) const
 {
     auto fnd = ci->params.find(prop);
     if (fnd == ci->params.end())
         return Property(defval, width);
-    const auto &val = fnd->second;
+    return this->parse_lattice_param(fnd->second, prop, width, nameOf(ci));
+}
+
+// Parse a possibly-Lattice-style (C literal in Verilog string) style parameter
+Property Arch::parse_lattice_param(const Property &val, IdString prop, int width, const char* ci) const
+{
     if (val.is_string) {
         const std::string &s = val.str;
         Property temp;
@@ -47,7 +51,7 @@ Property Arch::parse_lattice_param(const CellInfo *ci, IdString prop, int width,
             for (int i = int(s.length()) - 1; i >= 2; i--) {
                 char c = s.at(i);
                 if (c != '0' && c != '1' && c != 'x')
-                    log_error("Invalid binary digit '%c' in property %s.%s\n", c, nameOf(ci), nameOf(prop));
+                    log_error("Invalid binary digit '%c' in property %s.%s\n", c, ci, nameOf(prop));
                 temp.str.push_back(c);
             }
         } else if (boost::starts_with(s, "0x")) {
@@ -61,7 +65,7 @@ Property Arch::parse_lattice_param(const CellInfo *ci, IdString prop, int width,
                 else if (c >= 'A' && c <= 'F')
                     nibble = (c - 'A') + 10;
                 else
-                    log_error("Invalid hex digit '%c' in property %s.%s\n", c, nameOf(ci), nameOf(prop));
+                    log_error("Invalid hex digit '%c' in property %s.%s\n", c, ci, nameOf(prop));
                 for (int j = 0; j < 4; j++)
                     temp.str.push_back(((nibble >> j) & 0x1) ? Property::S1 : Property::S0);
             }
@@ -73,14 +77,14 @@ Property Arch::parse_lattice_param(const CellInfo *ci, IdString prop, int width,
                 else
                     ival = std::stoll(s);
             } catch (std::runtime_error &e) {
-                log_error("Invalid decimal value for property %s.%s", nameOf(ci), nameOf(prop));
+                log_error("Invalid decimal value for property %s.%s", ci, nameOf(prop));
             }
             temp = Property(ival);
         }
 
         for (auto b : temp.str.substr(width)) {
             if (b == Property::S1)
-                log_error("Found value for property %s.%s with width greater than %d\n", nameOf(ci), nameOf(prop),
+                log_error("Found value for property %s.%s with width greater than %d\n", ci, nameOf(prop),
                           width);
         }
         temp.update_intval();
@@ -90,7 +94,7 @@ Property Arch::parse_lattice_param(const CellInfo *ci, IdString prop, int width,
             if (b == Property::S1)
                 log_error("Found bitvector value for property %s.%s with width greater than %d - perhaps a string was "
                           "converted to bits?\n",
-                          nameOf(ci), nameOf(prop), width);
+                          ci, nameOf(prop), width);
         }
         return val.extract(0, width);
     }
@@ -170,7 +174,7 @@ struct NexusPacker
             int64_t def;
             for (const auto &p : rule.parse_params) {
                 std::tie(old_param, new_param, width, def) = p;
-                ci->params[new_param] = ctx->parse_lattice_param(ci, old_param, width, def);
+                ci->params[new_param] = ctx->parse_lattice_param_from_cell(ci, old_param, width, def);
             }
         }
 
@@ -953,7 +957,7 @@ struct NexusPacker
             ramw->connectPort(id_WCKO, int_wck);
             ramw->connectPort(id_WREO, int_wre);
 
-            uint64_t initval = ctx->parse_lattice_param(ci, id_INITVAL, 64, 0).as_int64();
+            uint64_t initval = ctx->parse_lattice_param_from_cell(ci, id_INITVAL, 64, 0).as_int64();
 
             // Rewiring - buses
             for (int i = 0; i < 4; i++) {
@@ -1272,8 +1276,8 @@ struct NexusPacker
             combs[1]->connectPort(id_F, f1);
             combs[0]->connectPort(id_F1, f1);
 
-            combs[0]->params[id_INIT] = ctx->parse_lattice_param(ci, id_INIT0, 16, 0);
-            combs[1]->params[id_INIT] = ctx->parse_lattice_param(ci, id_INIT1, 16, 0);
+            combs[0]->params[id_INIT] = ctx->parse_lattice_param_from_cell(ci, id_INIT0, 16, 0);
+            combs[1]->params[id_INIT] = ctx->parse_lattice_param_from_cell(ci, id_INIT1, 16, 0);
 
             combs[1]->cluster = combs[0]->name;
             combs[1]->constr_x = 0;
@@ -1329,8 +1333,8 @@ struct NexusPacker
                 // Copy parameters
                 if (ci->params.count(id_INJECT))
                     combs[0]->params[id_INJECT] = ci->params[id_INJECT];
-                combs[0]->params[id_INIT] = ctx->parse_lattice_param(ci, id_INIT0, 16, 0);
-                combs[1]->params[id_INIT] = ctx->parse_lattice_param(ci, id_INIT1, 16, 0);
+                combs[0]->params[id_INIT] = ctx->parse_lattice_param_from_cell(ci, id_INIT0, 16, 0);
+                combs[1]->params[id_INIT] = ctx->parse_lattice_param_from_cell(ci, id_INIT1, 16, 0);
 
                 // Internal carry net between the two split COMB cells
                 NetInfo *int_cy = ctx->createNet(ctx->id(stringf("%s$widefn_int_cy$", ctx->nameOf(ci))));
@@ -2026,9 +2030,9 @@ struct NexusPacker
                     log_info("    Input frequency of PLL '%s' is constrained to %.1f MHz\n", ci->name.c_str(ctx),
                              MHz(period_in));
 
-                    int input_div = ctx->parse_lattice_param(ci, id_REF_MMD_DIG, 8, 1).as_int64();
+                    int input_div = ctx->parse_lattice_param_from_cell(ci, id_REF_MMD_DIG, 8, 1).as_int64();
                     period_in *= input_div;
-                    int feedback_div = ctx->parse_lattice_param(ci, id_REF_MMD_DIG, 8, 1).as_int64();
+                    int feedback_div = ctx->parse_lattice_param_from_cell(ci, id_REF_MMD_DIG, 8, 1).as_int64();
                     bool found_fbk = false;
                     std::string clkmux_fb = str_or_default(ci->params, id_CLKMUX_FB, "CMUX_CLKOP");
                     for (int i = 0; i < 6; i++) {
@@ -2036,7 +2040,7 @@ struct NexusPacker
                         if (clkmux_fb != stringf("CMUX_%s", output[i].c_str(ctx)))
                             continue;
                         // Multiply feedback output divider with
-                        feedback_div *= (ctx->parse_lattice_param(ci, div[i], 7, 0).as_int64() + 1);
+                        feedback_div *= (ctx->parse_lattice_param_from_cell(ci, div[i], 7, 0).as_int64() + 1);
                         found_fbk = true;
                     }
                     if (!found_fbk) {
@@ -2050,7 +2054,7 @@ struct NexusPacker
                              MHz(vco_period));
                     for (int i = 0; i < 6; i++) {
                         set_period(ci, output[i],
-                                   (ctx->parse_lattice_param(ci, div[i], 7, 0).as_int64() + 1) * vco_period);
+                                   (ctx->parse_lattice_param_from_cell(ci, div[i], 7, 0).as_int64() + 1) * vco_period);
                     }
                 }
             }

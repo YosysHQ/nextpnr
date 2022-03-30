@@ -523,7 +523,7 @@ struct NexusFasmWriter
         write_enum(cell, "LF_OUTPUT_EN");
         write_enum(cell, "DTR_EN", "ENABLED");
         write_enum(cell, "DEBUG_N", "DISABLED");
-        write_int_vector(stringf("HF_CLK_DIV[7:0]"), ctx->parse_lattice_param(cell, id_HF_CLK_DIV, 8, 0).intval, 8);
+        write_int_vector(stringf("HF_CLK_DIV[7:0]"), ctx->parse_lattice_param_from_cell(cell, id_HF_CLK_DIV, 8, 0).intval, 8);
         write_int_vector(stringf("HF_SED_SEC_DIV[7:0]"), 1, 8);
         write_cell_muxes(cell);
         pop(2);
@@ -830,28 +830,33 @@ struct NexusFasmWriter
         write_cell_muxes(cell);
         pop();
         push(stringf("IP_%s", ctx->nameOf(IdString(ctx->bel_data(bel).name))));
-        CellInfo temp(*cell);
-        for (auto param : cell->params) temp.params.insert(param);
         for (auto &value : pll_default_params) {
             IdString n = IdString(ctx, value.first);
-            if (!temp.params.count(n)) {
-                if (is_number(value.second))
-                    temp.params[ctx->id(value.first)] = Property(std::stoi(value.second), 32);
-                else
-                    temp.params[ctx->id(value.first)] = Property::from_string(value.second);
-            }
-        }
-        for (auto &param : temp.params) {
-            const std::string &name = param.first.str(ctx);
+            Property temp;
+            if (is_number(value.second))
+                temp = Property(std::stoi(value.second), 32);
+            else
+                temp = Property::from_string(value.second);
+            const std::string &name = n.str(ctx);
             if (is_mux_param(name) || name == "CLKMUX_FB" || name == "SEL_FBK")
                 continue;
             auto fnd_word = pll_word_params.find(name);
             if (fnd_word != pll_word_params.end()) {
-                write_int_vector(stringf("%s[%d:0]", name.c_str(), fnd_word->second - 1),
-                                 ctx->parse_lattice_param(&temp, param.first, fnd_word->second, 0).as_int64(),
-                                 fnd_word->second);
+                if (cell->params.count(n)) {
+                    write_int_vector(stringf("%s[%d:0]", name.c_str(), fnd_word->second - 1),
+                                    ctx->parse_lattice_param_from_cell(cell, n, fnd_word->second, 0).as_int64(),
+                                    fnd_word->second);
+                } else {
+                    write_int_vector(stringf("%s[%d:0]", name.c_str(), fnd_word->second - 1),
+                                    ctx->parse_lattice_param(temp, n, fnd_word->second).as_int64(),
+                                    fnd_word->second);
+                }
             } else {
-                write_bit(stringf("%s.%s", name.c_str(), param.second.as_string().c_str()));
+                if (cell->params.count(n)) {
+                    write_bit(stringf("%s.%s", name.c_str(), cell->params.at(n).as_string().c_str()));
+                } else {
+                    write_bit(stringf("%s.%s", name.c_str(), temp.as_string().c_str()));
+                }
             }
         }
         pop();
@@ -869,7 +874,7 @@ struct NexusFasmWriter
             auto fnd_word = dphy_word_params.find(name);
             if (fnd_word != dphy_word_params.end()) {
                 write_int_vector(stringf("%s[%d:0]", name.c_str(), fnd_word->second - 1),
-                                 ctx->parse_lattice_param(cell, param.first, fnd_word->second, 0).as_int64(),
+                                 ctx->parse_lattice_param_from_cell(cell, param.first, fnd_word->second, 0).as_int64(),
                                  fnd_word->second);
             } else {
                 write_bit(stringf("%s.%s", name.c_str(), param.second.as_string().c_str()));
