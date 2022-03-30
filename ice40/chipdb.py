@@ -1312,7 +1312,7 @@ for t in range(num_tile_types):
 
 bba.l("wire_data_%s" % dev_name, "WireInfoPOD")
 for wire, info in enumerate(wireinfo):
-    bba.s(info["name"], "name")
+    bba.s(info["name"].replace('/', ':'), "name") # / is used as an IdStringList separator; can't also be within name
     bba.u8(info["name_x"], "name_x")
     bba.u8(info["name_y"], "name_y")
     bba.u16(0, "padding")
