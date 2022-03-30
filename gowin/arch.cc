@@ -1012,7 +1012,7 @@ Arch::Arch(ArchArgs args) : args(args)
             case ID_OSC:
                 snprintf(buf, 32, "R%dC%d_OSC", row + 1, col + 1);
                 belname = id(buf);
-                addBel(belname, id_OSC, Loc(col, row, 0), false);
+                addBel(belname, id_OSC, Loc(col, row, BelZ::osc_z), false);
                 portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_OSCOUT)->src_id);
                 snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
                 addBelOutput(belname, id_OSCOUT, id(buf));
@@ -1020,7 +1020,7 @@ Arch::Arch(ArchArgs args) : args(args)
             case ID_OSCH:
                 snprintf(buf, 32, "R%dC%d_OSCH", row + 1, col + 1);
                 belname = id(buf);
-                addBel(belname, id_OSCH, Loc(col, row, 0), false);
+                addBel(belname, id_OSCH, Loc(col, row, BelZ::osc_z), false);
                 portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_OSCOUT)->src_id);
                 snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
                 addBelOutput(belname, id_OSCOUT, id(buf));
@@ -1028,7 +1028,7 @@ Arch::Arch(ArchArgs args) : args(args)
             case ID_OSCF:
                 snprintf(buf, 32, "R%dC%d_OSCF", row + 1, col + 1);
                 belname = id(buf);
-                addBel(belname, id_OSCF, Loc(col, row, 0), false);
+                addBel(belname, id_OSCF, Loc(col, row, BelZ::osc_z), false);
                 portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_OSCOUT)->src_id);
                 snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
                 addBelOutput(belname, id_OSCOUT, id(buf));
@@ -1039,7 +1039,7 @@ Arch::Arch(ArchArgs args) : args(args)
             case ID_OSCZ:
                 snprintf(buf, 32, "R%dC%d_OSCZ", row + 1, col + 1);
                 belname = id(buf);
-                addBel(belname, id_OSCZ, Loc(col, row, 0), false);
+                addBel(belname, id_OSCZ, Loc(col, row, BelZ::osc_z), false);
                 portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_OSCOUT)->src_id);
                 snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
                 addBelOutput(belname, id_OSCOUT, id(buf));
