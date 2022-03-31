@@ -41,7 +41,7 @@ Property Arch::parse_lattice_param_from_cell(const CellInfo *ci, IdString prop, 
 }
 
 // Parse a possibly-Lattice-style (C literal in Verilog string) style parameter
-Property Arch::parse_lattice_param(const Property &val, IdString prop, int width, const char* ci) const
+Property Arch::parse_lattice_param(const Property &val, IdString prop, int width, const char *ci) const
 {
     if (val.is_string) {
         const std::string &s = val.str;
@@ -84,8 +84,7 @@ Property Arch::parse_lattice_param(const Property &val, IdString prop, int width
 
         for (auto b : temp.str.substr(width)) {
             if (b == Property::S1)
-                log_error("Found value for property %s.%s with width greater than %d\n", ci, nameOf(prop),
-                          width);
+                log_error("Found value for property %s.%s with width greater than %d\n", ci, nameOf(prop), width);
         }
         temp.update_intval();
         return temp.extract(0, width);

@@ -523,7 +523,8 @@ struct NexusFasmWriter
         write_enum(cell, "LF_OUTPUT_EN");
         write_enum(cell, "DTR_EN", "ENABLED");
         write_enum(cell, "DEBUG_N", "DISABLED");
-        write_int_vector(stringf("HF_CLK_DIV[7:0]"), ctx->parse_lattice_param_from_cell(cell, id_HF_CLK_DIV, 8, 0).intval, 8);
+        write_int_vector(stringf("HF_CLK_DIV[7:0]"),
+                         ctx->parse_lattice_param_from_cell(cell, id_HF_CLK_DIV, 8, 0).intval, 8);
         write_int_vector(stringf("HF_SED_SEC_DIV[7:0]"), 1, 8);
         write_cell_muxes(cell);
         pop(2);
@@ -812,9 +813,10 @@ struct NexusFasmWriter
     };
     /* clang-format on */
 
-    static bool is_number(std::string s) {
-        for (auto c  : s) {
-            if(!isdigit(c))
+    static bool is_number(std::string s)
+    {
+        for (auto c : s) {
+            if (!isdigit(c))
                 return false;
         }
         return true;
@@ -844,12 +846,11 @@ struct NexusFasmWriter
             if (fnd_word != pll_word_params.end()) {
                 if (cell->params.count(n)) {
                     write_int_vector(stringf("%s[%d:0]", name.c_str(), fnd_word->second - 1),
-                                    ctx->parse_lattice_param_from_cell(cell, n, fnd_word->second, 0).as_int64(),
-                                    fnd_word->second);
+                                     ctx->parse_lattice_param_from_cell(cell, n, fnd_word->second, 0).as_int64(),
+                                     fnd_word->second);
                 } else {
                     write_int_vector(stringf("%s[%d:0]", name.c_str(), fnd_word->second - 1),
-                                    ctx->parse_lattice_param(temp, n, fnd_word->second).as_int64(),
-                                    fnd_word->second);
+                                     ctx->parse_lattice_param(temp, n, fnd_word->second).as_int64(), fnd_word->second);
                 }
             } else {
                 if (cell->params.count(n)) {
