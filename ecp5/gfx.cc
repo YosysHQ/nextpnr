@@ -23,11 +23,13 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 const float slice_x1 = 0.92;
+const float slice_x2_comb = 0.927;
+const float slice_x1_ff = 0.933;
 const float slice_x2 = 0.94;
 const float slice_x2_wide = 0.97;
 const float slice_y1 = 0.71;
-const float slice_y2 = 0.745 + 0.0068;
-const float slice_pitch = 0.0374 + 0.0068;
+const float slice_y2 = 0.7275 + 0.0068 / 2;
+const float slice_pitch = (0.0374 + 0.0068) / 2;
 
 const float io_cell_v_x1 = 0.76;
 const float io_cell_v_x2 = 0.95;
@@ -54,11 +56,25 @@ void gfxTileBel(std::vector<GraphicElement> &g, int x, int y, int z, int w, int 
     GraphicElement el;
     el.type = GraphicElement::TYPE_BOX;
     el.style = style;
-    if (bel_type == id_TRELLIS_SLICE) {
+    if (bel_type == id_TRELLIS_COMB) {
         el.x1 = x + slice_x1;
+        el.x2 = x + slice_x2_comb;
+        el.y1 = y + slice_y1 + (z >> Arch::lc_idx_shift) * slice_pitch;
+        el.y2 = y + slice_y2 + (z >> Arch::lc_idx_shift) * slice_pitch;
+        g.push_back(el);
+
+        el.style = GraphicElement::STYLE_FRAME;
+        el.x1 = x + slice_x2_comb + 15 * wire_distance;
+        el.x2 = el.x1 + wire_distance;
+        el.y1 = y + slice_y2 - wire_distance * (TILE_WIRE_CLK3_SLICE - TILE_WIRE_DUMMY_D2 + 5 + (3 - z) * 26) +
+                3 * slice_pitch - 0.0007f;
+        el.y2 = el.y1 + wire_distance * 5;
+        g.push_back(el);
+    } else if (bel_type == id_TRELLIS_FF) {
+        el.x1 = x + slice_x1_ff;
         el.x2 = x + slice_x2;
-        el.y1 = y + slice_y1 + (z)*slice_pitch;
-        el.y2 = y + slice_y2 + (z)*slice_pitch;
+        el.y1 = y + slice_y1 + (z >> Arch::lc_idx_shift) * slice_pitch;
+        el.y2 = y + slice_y2 + (z >> Arch::lc_idx_shift) * slice_pitch;
         g.push_back(el);
 
         el.style = GraphicElement::STYLE_FRAME;

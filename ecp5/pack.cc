@@ -56,22 +56,21 @@ class Ecp5Packer
     }
 
     // Print logic usage
-    int available_slices = 0;
     void print_logic_usage()
     {
         int total_luts = 0, total_ffs = 0;
         int total_ramluts = 0, total_ramwluts = 0;
         for (auto bel : ctx->getBels()) {
-            if (ctx->getBelType(bel) == id_TRELLIS_SLICE) {
-                available_slices += 1;
-                total_luts += 2;
-                total_ffs += 2;
+            if (ctx->getBelType(bel) == id_TRELLIS_COMB) {
+                total_luts += 1;
                 Loc l = ctx->getBelLocation(bel);
-                if (l.z == 0 || l.z == 1)
-                    total_ramluts += 2;
-                if (l.z == 2)
-                    total_ramwluts += 2;
+                if (l.z <= 3)
+                    total_ramluts += 1;
             }
+            if (ctx->getBelType(bel) == id_TRELLIS_FF)
+                total_ffs += 1;
+            if (ctx->getBelType(bel) == id_TRELLIS_RAMW)
+                total_ramwluts += 2;
         }
         int used_lgluts = 0, used_cyluts = 0, used_ramluts = 0, used_ramwluts = 0, used_ffs = 0;
         for (auto &cell : ctx->cells) {
@@ -101,292 +100,164 @@ class Ecp5Packer
         log_break();
     }
 
-    // Find FFs associated with LUTs, or LUT expansion muxes
-    void find_lutff_pairs()
+    // Pack LUTs
+    void pack_luts()
     {
-        log_info("Finding LUTFF pairs...\n");
+        log_info("Packing LUTs...\n");
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
-            if (is_lut(ctx, ci) || is_pfumx(ctx, ci) || is_l6mux(ctx, ci)) {
-                NetInfo *znet = ci->ports.at(id_Z).net;
-                if (znet != nullptr) {
-                    CellInfo *ff = net_only_drives(ctx, znet, is_ff, id_DI, false);
-                    // Can't combine preload FF with LUT due to conflict on M
-                    if (ff != nullptr && ff->getPort(id_M) == nullptr) {
-                        lutffPairs[ci->name] = ff->name;
-                        fflutPairs[ff->name] = ci->name;
-                    }
-                }
-            }
+            if (is_lut(ctx, ci))
+                lut_to_comb(ctx, ci);
         }
     }
 
-    // Check if a flipflop is available in a slice
-    bool is_ff_available(CellInfo *slice, int ff)
+    // Gets the z-position of a cell in a macro
+    int get_macro_cell_z(const CellInfo *ci)
     {
-        if (slice->getPort((ff == 1) ? id_Q1 : id_Q0) != nullptr)
-            return false;
-        if (slice->getPort((ff == 1) ? id_M1 : id_M0) != nullptr)
-            return false;
-        return true;
-    }
-
-    // Check if a flipflop can be added to a slice
-    bool can_add_ff_to_slice(CellInfo *slice, CellInfo *ff)
-    {
-        std::string clkmux = str_or_default(ff->params, id_CLKMUX, "CLK");
-        std::string lsrmux = str_or_default(ff->params, id_LSRMUX, "LSR");
-
-        bool has_dpram = str_or_default(slice->params, id_MODE, "LOGIC") == "DPRAM";
-        if (has_dpram) {
-            std::string wckmux = str_or_default(slice->params, id_WCKMUX, "WCK");
-            std::string wremux = str_or_default(slice->params, id_WREMUX, "WRE");
-            if (wckmux != clkmux && !(wckmux == "WCK" && clkmux == "CLK"))
-                return false;
-            if (wremux != lsrmux && !(wremux == "WRE" && lsrmux == "LSR"))
-                return false;
-        }
-        bool has_ff0 = slice->getPort(id_Q0) != nullptr;
-        bool has_ff1 = slice->getPort(id_Q1) != nullptr;
-        if (!has_ff0 && !has_ff1)
-            return true;
-        if (str_or_default(ff->params, id_GSR, "DISABLED") != str_or_default(slice->params, id_GSR, "DISABLED"))
-            return false;
-        if (str_or_default(ff->params, id_SRMODE, "LSR_OVER_CE") !=
-            str_or_default(slice->params, id_SRMODE, "LSR_OVER_CE"))
-            return false;
-        if (str_or_default(ff->params, id_CEMUX, "1") != str_or_default(slice->params, id_CEMUX, "1"))
-            return false;
-        if (str_or_default(ff->params, id_LSRMUX, "LSR") != str_or_default(slice->params, id_LSRMUX, "LSR"))
-            return false;
-        if (str_or_default(ff->params, id_CLKMUX, "CLK") != str_or_default(slice->params, id_CLKMUX, "CLK"))
-            return false;
-        if (net_or_nullptr(ff, id_CLK) != net_or_nullptr(slice, id_CLK))
-            return false;
-        if (net_or_nullptr(ff, id_CE) != net_or_nullptr(slice, id_CE))
-            return false;
-        if (net_or_nullptr(ff, id_LSR) != net_or_nullptr(slice, id_LSR))
-            return false;
-        return true;
-    }
-
-    const NetInfo *net_or_nullptr(CellInfo *cell, IdString port)
-    {
-        auto fnd = cell->ports.find(port);
-        if (fnd == cell->ports.end())
-            return nullptr;
+        if (ci->constr_abs_z)
+            return ci->constr_z;
+        else if (ci->cluster != ClusterId() && ctx->getClusterRootCell(ci->cluster) != ci)
+            return ci->constr_z + get_macro_cell_z(ctx->getClusterRootCell(ci->cluster));
         else
-            return fnd->second.net;
+            return 0;
     }
 
-    // Return whether two FFs can be packed together in the same slice
-    bool can_pack_ffs(CellInfo *ff0, CellInfo *ff1)
+    // Gets the relative xy-position of a cell in a macro
+    std::pair<int, int> get_macro_cell_xy(const CellInfo *ci)
     {
-        if (str_or_default(ff0->params, id_GSR, "DISABLED") != str_or_default(ff1->params, id_GSR, "DISABLED"))
-            return false;
-        if (str_or_default(ff0->params, id_SRMODE, "LSR_OVER_CE") !=
-            str_or_default(ff1->params, id_SRMODE, "LSR_OVER_CE"))
-            return false;
-        if (str_or_default(ff0->params, id_CEMUX, "1") != str_or_default(ff1->params, id_CEMUX, "1"))
-            return false;
-        if (str_or_default(ff0->params, id_LSRMUX, "LSR") != str_or_default(ff1->params, id_LSRMUX, "LSR"))
-            return false;
-        if (str_or_default(ff0->params, id_CLKMUX, "CLK") != str_or_default(ff1->params, id_CLKMUX, "CLK"))
-            return false;
-        if (net_or_nullptr(ff0, id_CLK) != net_or_nullptr(ff1, id_CLK))
-            return false;
-        if (net_or_nullptr(ff0, id_CE) != net_or_nullptr(ff1, id_CE))
-            return false;
-        if (net_or_nullptr(ff0, id_LSR) != net_or_nullptr(ff1, id_LSR))
-            return false;
-        return true;
+        if (ci->cluster != ClusterId())
+            return {ci->constr_x, ci->constr_y};
+        else
+            return {0, 0};
     }
 
-    // Return whether or not an FF can be added to a tile (pairing checks must also be done using the fn above)
-    bool can_add_ff_to_tile(const std::vector<CellInfo *> &tile_ffs, CellInfo *ff0)
+    // Relatively constrain one cell to another
+    void rel_constr_cells(CellInfo *a, CellInfo *b, int dz)
     {
-        for (const auto &existing : tile_ffs) {
-            if (net_or_nullptr(existing, id_CLK) != net_or_nullptr(ff0, id_CLK))
-                return false;
-            if (net_or_nullptr(existing, id_LSR) != net_or_nullptr(ff0, id_LSR))
-                return false;
-            if (str_or_default(existing->params, id_CLKMUX, "CLK") != str_or_default(ff0->params, id_CLKMUX, "CLK"))
-                return false;
-            if (str_or_default(existing->params, id_LSRMUX, "LSR") != str_or_default(ff0->params, id_LSRMUX, "LSR"))
-                return false;
-            if (str_or_default(existing->params, id_SRMODE, "LSR_OVER_CE") !=
-                str_or_default(ff0->params, id_SRMODE, "LSR_OVER_CE"))
-                return false;
-        }
-        return true;
-    }
-
-    // Return true if a FF can be added to a DPRAM slice
-    bool can_pack_ff_dram(CellInfo *dpram, CellInfo *ff)
-    {
-        if (ff->getPort(id_M) != nullptr)
-            return false; // skip PRLD FFs due to M/DI conflict
-        std::string wckmux = str_or_default(dpram->params, id_WCKMUX, "WCK");
-        std::string clkmux = str_or_default(ff->params, id_CLKMUX, "CLK");
-        if (wckmux != clkmux && !(wckmux == "WCK" && clkmux == "CLK"))
-            return false;
-        std::string wremux = str_or_default(dpram->params, id_WREMUX, "WRE");
-        std::string lsrmux = str_or_default(ff->params, id_LSRMUX, "LSR");
-        if (wremux != lsrmux && !(wremux == "WRE" && lsrmux == "LSR"))
-            return false;
-        return true;
-    }
-
-    // Return true if two LUTs can be paired considering FF compatibility
-    bool can_pack_lutff(IdString lut0, IdString lut1)
-    {
-        auto ff0 = lutffPairs.find(lut0), ff1 = lutffPairs.find(lut1);
-        if (ff0 != lutffPairs.end() && ff1 != lutffPairs.end()) {
-            return can_pack_ffs(ctx->cells.at(ff0->second).get(), ctx->cells.at(ff1->second).get());
+        if (a->cluster != ClusterId() && ctx->getClusterRootCell(a->cluster) != a) {
+            NPNR_ASSERT(b->cluster == ClusterId());
+            NPNR_ASSERT(b->constr_children.empty());
+            CellInfo *root = ctx->getClusterRootCell(a->cluster);
+            root->constr_children.push_back(b);
+            b->cluster = root->cluster;
+            b->constr_x = a->constr_x;
+            b->constr_y = a->constr_y;
+            b->constr_z = get_macro_cell_z(a) + dz;
+            b->constr_abs_z = a->constr_abs_z;
+        } else if (b->cluster != ClusterId() && ctx->getClusterRootCell(b->cluster) != b) {
+            NPNR_ASSERT(a->constr_children.empty());
+            CellInfo *root = ctx->getClusterRootCell(b->cluster);
+            root->constr_children.push_back(a);
+            a->cluster = root->cluster;
+            a->constr_x = b->constr_x;
+            a->constr_y = b->constr_y;
+            a->constr_z = get_macro_cell_z(b) - dz;
+            a->constr_abs_z = b->constr_abs_z;
+        } else if (!b->constr_children.empty()) {
+            NPNR_ASSERT(a->constr_children.empty());
+            b->constr_children.push_back(a);
+            a->cluster = b->cluster;
+            a->constr_x = 0;
+            a->constr_y = 0;
+            a->constr_z = get_macro_cell_z(b) - dz;
+            a->constr_abs_z = b->constr_abs_z;
         } else {
-            return true;
+            NPNR_ASSERT(a->cluster == ClusterId() || ctx->getClusterRootCell(a->cluster) == a);
+            a->constr_children.push_back(b);
+            a->cluster = a->name;
+            b->cluster = a->name;
+            b->constr_x = 0;
+            b->constr_y = 0;
+            b->constr_z = get_macro_cell_z(a) + dz;
+            b->constr_abs_z = a->constr_abs_z;
         }
     }
 
-    // Find "closely connected" LUTs and pair them together
-    void pair_luts()
+    // Check if it is legal to add a FF to a macro
+    // This reuses the tile validity code
+    bool can_add_flipflop_to_macro(CellInfo *comb, CellInfo *ff)
     {
-        log_info("Finding LUT-LUT pairs...\n");
-        pool<IdString> procdLuts;
+        Arch::LogicTileStatus lts;
+        std::fill(lts.cells.begin(), lts.cells.end(), nullptr);
+        lts.tile_dirty = true;
+        for (auto &sl : lts.slices)
+            sl.dirty = true;
+
+        auto process_cell = [&](CellInfo *ci) {
+            if (get_macro_cell_xy(ci) != get_macro_cell_xy(comb))
+                return;
+            int z = get_macro_cell_z(ci);
+            auto &slot = lts.cells.at(z);
+            NPNR_ASSERT(slot == nullptr);
+            slot = ci;
+            // Make sure fields needed for validity checking are set correctly
+            ctx->assign_arch_info_for_cell(ci);
+        };
+
+        if (comb->cluster != ClusterId()) {
+            CellInfo *root = ctx->getClusterRootCell(comb->cluster);
+            process_cell(root);
+            for (auto &ch : root->constr_children)
+                process_cell(ch);
+        } else {
+            process_cell(comb);
+            for (auto &ch : comb->constr_children)
+                process_cell(ch);
+        }
+        int ff_z = get_macro_cell_z(comb) + (Arch::BEL_FF - Arch::BEL_COMB);
+        if (lts.cells.at(ff_z) != nullptr)
+            return false;
+        ctx->assign_arch_info_for_cell(ff);
+        lts.cells.at(ff_z) = ff;
+        return ctx->slices_compatible(&lts);
+    }
+
+    void pack_ffs()
+    {
+        log_info("Packing FFs...\n");
+        int pairs = 0;
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
-            if (is_lut(ctx, ci) && procdLuts.find(cell.first) == procdLuts.end()) {
-                NetInfo *znet = ci->ports.at(id_Z).net;
-                std::vector<NetInfo *> inpnets;
-                if (znet != nullptr) {
-                    for (auto user : znet->users) {
-                        if (is_lut(ctx, user.cell) && user.cell != ci &&
-                            procdLuts.find(user.cell->name) == procdLuts.end()) {
-                            if (can_pack_lutff(ci->name, user.cell->name)) {
-                                procdLuts.insert(ci->name);
-                                procdLuts.insert(user.cell->name);
-                                lutPairs[ci->name] = user.cell->name;
-                                goto paired;
-                            }
+            if (is_ff(ctx, ci)) {
+                NetInfo *di = get_net_or_empty(ci, id_DI);
+                if (di->driver.cell != nullptr && di->driver.cell->type == id_TRELLIS_COMB && di->driver.port == id_F) {
+                    CellInfo *comb = di->driver.cell;
+                    if (comb->cluster != ClusterId()) {
+                        // Special procedure where the comb cell is part of an existing macro
+                        // Need to make sure that CLK, CE, SR, etc are shared correctly, or
+                        // the design will not be routeable
+                        if (can_add_flipflop_to_macro(comb, ci)) {
+                            ci->params[id_SD] = std::string("1");
+                            rel_constr_cells(comb, ci, (Arch::BEL_FF - Arch::BEL_COMB));
+                            // Packed successfully
+                            ++pairs;
+                            continue;
                         }
-                    }
-                    if (false) {
-                    paired:
+                    } else {
+                        // LUT/COMB is not part of a macro, this is the easy case
+                        // Constrain FF and LUT together, no need to rewire
+                        ci->params[id_SD] = std::string("1");
+                        comb->constr_children.push_back(ci);
+                        ci->cluster = comb->name;
+                        comb->cluster = comb->name;
+                        ci->constr_x = 0;
+                        ci->constr_y = 0;
+                        ci->constr_z = (Arch::BEL_FF - Arch::BEL_COMB);
+                        ci->constr_abs_z = false;
+                        // Packed successfully
+                        ++pairs;
                         continue;
                     }
                 }
-                if (lutffPairs.find(ci->name) != lutffPairs.end()) {
-                    NetInfo *qnet = ctx->cells.at(lutffPairs[ci->name])->ports.at(id_Q).net;
-                    if (qnet != nullptr) {
-                        for (auto user : qnet->users) {
-                            if (is_lut(ctx, user.cell) && user.cell != ci &&
-                                procdLuts.find(user.cell->name) == procdLuts.end()) {
-                                if (can_pack_lutff(ci->name, user.cell->name)) {
-                                    procdLuts.insert(ci->name);
-                                    procdLuts.insert(user.cell->name);
-                                    lutPairs[ci->name] = user.cell->name;
-                                    goto paired_ff;
-                                }
-                            }
-                        }
-                        if (false) {
-                        paired_ff:
-                            continue;
-                        }
-                    }
-                }
-                for (const char *inp : {"A", "B", "C", "D"}) {
-                    if (!ci->ports.count(ctx->id(inp)))
-                        continue;
-                    NetInfo *innet = ci->ports.at(ctx->id(inp)).net;
-                    if (innet != nullptr && innet->driver.cell != nullptr) {
-                        CellInfo *drv = innet->driver.cell;
-                        if (is_lut(ctx, drv) && drv != ci && innet->driver.port == id_Z) {
-                            if (procdLuts.find(drv->name) == procdLuts.end()) {
-                                if (can_pack_lutff(ci->name, drv->name)) {
-                                    procdLuts.insert(ci->name);
-                                    procdLuts.insert(drv->name);
-                                    lutPairs[ci->name] = drv->name;
-                                    goto paired_inlut;
-                                }
-                            }
-                        } else if (is_ff(ctx, drv) && innet->driver.port == id_Q) {
-                            auto fflut = fflutPairs.find(drv->name);
-                            if (fflut != fflutPairs.end() && fflut->second != ci->name &&
-                                procdLuts.find(fflut->second) == procdLuts.end()) {
-                                if (can_pack_lutff(ci->name, fflut->second)) {
-                                    procdLuts.insert(ci->name);
-                                    procdLuts.insert(fflut->second);
-                                    lutPairs[ci->name] = fflut->second;
-                                    goto paired_inlut;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Pack LUTs feeding the same CCU2, RAM or DFF into a SLICE
-                if (znet != nullptr && znet->users.entries() < 10) {
-                    for (auto user : znet->users) {
-                        if (is_lc(ctx, user.cell) || user.cell->type == id_DP16KD || is_ff(ctx, user.cell)) {
-                            for (auto port : user.cell->ports) {
-                                if (port.second.type != PORT_IN || port.second.net == nullptr ||
-                                    port.second.net == znet)
-                                    continue;
-                                if (port.second.net->users.entries() > 10)
-                                    continue;
-                                CellInfo *drv = port.second.net->driver.cell;
-                                if (drv == nullptr)
-                                    continue;
-                                if (is_lut(ctx, drv) && !procdLuts.count(drv->name) &&
-                                    can_pack_lutff(ci->name, drv->name)) {
-                                    procdLuts.insert(ci->name);
-                                    procdLuts.insert(drv->name);
-                                    lutPairs[ci->name] = drv->name;
-                                    goto paired_inlut;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Pack LUTs sharing an input with a simple fanout-based heuristic
-                for (const char *inp : {"A", "B", "C", "D"}) {
-                    if (!ci->ports.count(ctx->id(inp)))
-                        continue;
-                    NetInfo *innet = ci->ports.at(ctx->id(inp)).net;
-                    if (innet != nullptr && innet->users.entries() < 5 && innet->users.entries() > 1)
-                        inpnets.push_back(innet);
-                }
-                std::sort(inpnets.begin(), inpnets.end(),
-                          [&](const NetInfo *a, const NetInfo *b) { return a->users.entries() < b->users.entries(); });
-                for (auto inet : inpnets) {
-                    for (auto &user : inet->users) {
-                        if (user.cell == nullptr || user.cell == ci || !is_lut(ctx, user.cell))
-                            continue;
-                        if (procdLuts.count(user.cell->name))
-                            continue;
-                        if (can_pack_lutff(ci->name, user.cell->name)) {
-                            procdLuts.insert(ci->name);
-                            procdLuts.insert(user.cell->name);
-                            lutPairs[ci->name] = user.cell->name;
-                            goto paired_inlut;
-                        }
-                    }
-                }
-
-                if (false) {
-                paired_inlut:
-                    continue;
+                {
+                    // Didn't manage to pack it with a driving combinational cell
+                    // Rewire to use general routing
+                    ci->params[id_SD] = std::string("0");
+                    ci->renamePort(id_DI, id_M);
                 }
             }
         }
-        if (ctx->debug) {
-            log_info("Singleton LUTs (packer QoR debug): \n");
-            for (auto &cell : ctx->cells)
-                if (is_lut(ctx, cell.second.get()) && !procdLuts.count(cell.first))
-                    log_info("     %s\n", cell.first.c_str(ctx));
-        }
+        log_info("    %d FFs paired with LUTs.\n", pairs);
     }
 
     // Return true if an port is a top level port that provides its own IOBUF
@@ -427,6 +298,192 @@ class Ecp5Packer
             return true;
         }
         return false;
+    }
+
+    // Pass to pack LUT5s into a newly created slice
+    void pack_lut5xs()
+    {
+        log_info("Packing LUT5-7s...\n");
+
+        // Gets the "COMB1" side of a LUT5, where we pack a LUT[67] into
+        auto get_comb1_from_lut5 = [&](CellInfo *lut5) {
+            NetInfo *f1 = get_net_or_empty(lut5, id_F1);
+            NPNR_ASSERT(f1 != nullptr);
+            NPNR_ASSERT(f1->driver.cell != nullptr);
+            return f1->driver.cell;
+        };
+
+        dict<IdString, std::pair<CellInfo *, CellInfo *>> lut5_roots, lut6_roots, lut7_roots;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (is_pfumx(ctx, ci)) {
+                NetInfo *f0 = ci->ports.at(id_BLUT).net;
+
+                if (f0 == nullptr)
+                    log_error("PFUMX '%s' has disconnected port 'BLUT'\n", ci->name.c_str(ctx));
+                NetInfo *f1 = ci->ports.at(id_ALUT).net;
+                if (f1 == nullptr)
+                    log_error("PFUMX '%s' has disconnected port 'ALUT'\n", ci->name.c_str(ctx));
+
+                CellInfo *lut0 =
+                        (f0->driver.cell && f0->driver.cell->type == id_TRELLIS_COMB && f0->driver.port == id_F)
+                                ? f0->driver.cell
+                                : nullptr;
+                CellInfo *lut1 =
+                        (f1->driver.cell && f1->driver.cell->type == id_TRELLIS_COMB && f1->driver.port == id_F)
+                                ? f1->driver.cell
+                                : nullptr;
+                if (lut0 == nullptr || lut0->cluster != ClusterId())
+                    log_error("PFUMX '%s' has BLUT driven by cell other than a LUT\n", ci->name.c_str(ctx));
+                if (lut1 == nullptr || lut1->cluster != ClusterId())
+                    log_error("PFUMX '%s' has ALUT driven by cell other than a LUT\n", ci->name.c_str(ctx));
+                lut0->addInput(id_F1);
+                lut0->addInput(id_M);
+                lut0->addOutput(id_OFX);
+
+                ci->movePortTo(id_Z, lut0, id_OFX);
+                ci->movePortTo(id_ALUT, lut0, id_F1);
+                ci->movePortTo(id_C0, lut0, id_M);
+                ci->disconnectPort(id_BLUT);
+
+                lut5_roots[lut0->name] = {lut0, lut1};
+                packed_cells.insert(ci->name);
+            }
+        }
+        flush_cells();
+        // Pack LUT6s
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (is_l6mux(ctx, ci)) {
+                NetInfo *ofx0_0 = ci->ports.at(id_D0).net;
+                if (ofx0_0 == nullptr)
+                    log_error("L6MUX21 '%s' has disconnected port 'D0'\n", ci->name.c_str(ctx));
+                NetInfo *ofx0_1 = ci->ports.at(id_D1).net;
+                if (ofx0_1 == nullptr)
+                    log_error("L6MUX21 '%s' has disconnected port 'D1'\n", ci->name.c_str(ctx));
+                CellInfo *comb0 = (ofx0_0->driver.cell && ofx0_0->driver.cell->type == id_TRELLIS_COMB &&
+                                   ofx0_0->driver.port == id_OFX)
+                                          ? ofx0_0->driver.cell
+                                          : nullptr;
+                CellInfo *comb1 = (ofx0_1->driver.cell && ofx0_1->driver.cell->type == id_TRELLIS_COMB &&
+                                   ofx0_1->driver.port == id_OFX)
+                                          ? ofx0_1->driver.cell
+                                          : nullptr;
+                if (comb0 == nullptr) {
+                    if (!net_driven_by(ctx, ofx0_0, is_l6mux, id_Z))
+                        log_error("L6MUX21 '%s' has D0 driven by cell other than a SLICE OFX0 but not a LUT7 mux "
+                                  "('%s.%s')\n",
+                                  ci->name.c_str(ctx), ofx0_0->driver.cell->name.c_str(ctx),
+                                  ofx0_0->driver.port.c_str(ctx));
+                    continue;
+                }
+                if (lut6_roots.count(comb0->name))
+                    continue;
+
+                if (comb1 == nullptr) {
+                    if (!net_driven_by(ctx, ofx0_1, is_l6mux, id_Z))
+                        log_error("L6MUX21 '%s' has D1 driven by cell other than a SLICE OFX0 but not a LUT7 mux "
+                                  "('%s.%s')\n",
+                                  ci->name.c_str(ctx), ofx0_0->driver.cell->name.c_str(ctx),
+                                  ofx0_0->driver.port.c_str(ctx));
+                    continue;
+                }
+                if (lut6_roots.count(comb1->name))
+                    continue;
+                if (ctx->verbose)
+                    log_info("   mux '%s' forms part of a LUT6\n", cell.first.c_str(ctx));
+                comb0 = get_comb1_from_lut5(comb0);
+                comb1 = get_comb1_from_lut5(comb1);
+
+                comb1->addInput(id_FXA);
+                comb1->addInput(id_FXB);
+                comb1->addInput(id_M);
+                comb1->addOutput(id_OFX);
+                ci->movePortTo(id_D0, comb1, id_FXA);
+                ci->movePortTo(id_D1, comb1, id_FXB);
+                ci->movePortTo(id_SD, comb1, id_M);
+                ci->movePortTo(id_Z, comb1, id_OFX);
+                lut6_roots[comb1->name] = {comb0, comb1};
+                packed_cells.insert(ci->name);
+            }
+        }
+        flush_cells();
+        // Pack LUT7s
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (is_l6mux(ctx, ci)) {
+                NetInfo *ofx1_0 = ci->ports.at(id_D0).net;
+                if (ofx1_0 == nullptr)
+                    log_error("L6MUX21 '%s' has disconnected port 'D0'\n", ci->name.c_str(ctx));
+                NetInfo *ofx1_1 = ci->ports.at(id_D1).net;
+                if (ofx1_1 == nullptr)
+                    log_error("L6MUX21 '%s' has disconnected port 'D1'\n", ci->name.c_str(ctx));
+                CellInfo *comb1 = (ofx1_0->driver.cell && ofx1_0->driver.cell->type == id_TRELLIS_COMB &&
+                                   ofx1_0->driver.port == id_OFX)
+                                          ? ofx1_0->driver.cell
+                                          : nullptr;
+                CellInfo *comb3 = (ofx1_1->driver.cell && ofx1_1->driver.cell->type == id_TRELLIS_COMB &&
+                                   ofx1_1->driver.port == id_OFX)
+                                          ? ofx1_1->driver.cell
+                                          : nullptr;
+                if (comb1 == nullptr)
+                    log_error("L6MUX21 '%s' has D0 driven by cell other than a SLICE OFX ('%s.%s')\n",
+                              ci->name.c_str(ctx), ofx1_0->driver.cell->name.c_str(ctx),
+                              ofx1_0->driver.port.c_str(ctx));
+                if (comb3 == nullptr)
+                    log_error("L6MUX21 '%s' has D1 driven by cell other than a SLICE OFX ('%s.%s')\n",
+                              ci->name.c_str(ctx), ofx1_1->driver.cell->name.c_str(ctx),
+                              ofx1_1->driver.port.c_str(ctx));
+
+                NetInfo *fxa_0 = comb1->ports.at(id_FXA).net;
+                if (fxa_0 == nullptr)
+                    log_error("SLICE '%s' has disconnected port 'FXA'\n", comb1->name.c_str(ctx));
+                NetInfo *fxa_1 = comb3->ports.at(id_FXA).net;
+                if (fxa_1 == nullptr)
+                    log_error("SLICE '%s' has disconnected port 'FXA'\n", comb3->name.c_str(ctx));
+
+                CellInfo *comb2 = net_driven_by(
+                        ctx, fxa_1,
+                        [](const Context *ctx, const CellInfo *ci) {
+                            (void)ctx;
+                            return ci->type == id_TRELLIS_COMB;
+                        },
+                        id_OFX);
+                if (comb2 == nullptr)
+                    log_error("SLICE '%s' has FXA driven by cell other than a SLICE OFX0 ('%s.%s')\n",
+                              comb3->name.c_str(ctx), fxa_1->driver.cell->name.c_str(ctx),
+                              fxa_1->driver.port.c_str(ctx));
+                comb2 = get_comb1_from_lut5(comb2);
+                comb2->addInput(id_FXA);
+                comb2->addInput(id_FXB);
+                comb2->addInput(id_M);
+                comb2->addOutput(id_OFX);
+                ci->movePortTo(id_D0, comb2, id_FXA);
+                ci->movePortTo(id_D1, comb2, id_FXB);
+                ci->movePortTo(id_SD, comb2, id_M);
+                ci->movePortTo(id_Z, comb2, id_OFX);
+
+                lut7_roots[comb2->name] = {comb1, comb3};
+                packed_cells.insert(ci->name);
+            }
+        }
+
+        for (auto &root : lut7_roots) {
+            auto &cells = root.second;
+            cells.second->cluster = cells.second->name;
+            cells.second->constr_abs_z = true;
+            cells.second->constr_z = (1 << Arch::lc_idx_shift) | Arch::BEL_COMB;
+            rel_constr_cells(cells.second, cells.first, (4 << Arch::lc_idx_shift));
+        }
+        for (auto &root : lut6_roots) {
+            auto &cells = root.second;
+            rel_constr_cells(cells.second, cells.first, (2 << Arch::lc_idx_shift));
+        }
+        for (auto &root : lut5_roots) {
+            auto &cells = root.second;
+            rel_constr_cells(cells.first, cells.second, (1 << Arch::lc_idx_shift));
+        }
+        flush_cells();
     }
 
     // Simple "packer" to remove nextpnr IOBUFs, this assumes IOBUFs are manually instantiated
@@ -523,215 +580,6 @@ class Ecp5Packer
         flush_cells();
     }
 
-    // Pass to pack LUT5s into a newly created slice
-    void pack_lut5xs()
-    {
-        log_info("Packing LUT5-7s...\n");
-        for (auto &cell : ctx->cells) {
-            CellInfo *ci = cell.second.get();
-            if (is_pfumx(ctx, ci)) {
-                std::unique_ptr<CellInfo> packed =
-                        create_ecp5_cell(ctx, id_TRELLIS_SLICE, ci->name.str(ctx) + "_SLICE");
-                NetInfo *f0 = ci->ports.at(id_BLUT).net;
-                if (f0 == nullptr)
-                    log_error("PFUMX '%s' has disconnected port 'BLUT'\n", ci->name.c_str(ctx));
-                NetInfo *f1 = ci->ports.at(id_ALUT).net;
-                if (f1 == nullptr)
-                    log_error("PFUMX '%s' has disconnected port 'ALUT'\n", ci->name.c_str(ctx));
-                CellInfo *lut0 = net_driven_by(ctx, f0, is_lut, id_Z);
-                CellInfo *lut1 = net_driven_by(ctx, f1, is_lut, id_Z);
-                if (lut0 == nullptr)
-                    log_error("PFUMX '%s' has BLUT driven by cell other than a LUT\n", ci->name.c_str(ctx));
-                if (lut1 == nullptr)
-                    log_error("PFUMX '%s' has ALUT driven by cell other than a LUT\n", ci->name.c_str(ctx));
-                if (ctx->verbose)
-                    log_info("   mux '%s' forms part of a LUT5\n", cell.first.c_str(ctx));
-                lut0->movePortTo(id_A, packed.get(), id_A0);
-                lut0->movePortTo(id_B, packed.get(), id_B0);
-                lut0->movePortTo(id_C, packed.get(), id_C0);
-                lut0->movePortTo(id_D, packed.get(), id_D0);
-                lut1->movePortTo(id_A, packed.get(), id_A1);
-                lut1->movePortTo(id_B, packed.get(), id_B1);
-                lut1->movePortTo(id_C, packed.get(), id_C1);
-                lut1->movePortTo(id_D, packed.get(), id_D1);
-                ci->movePortTo(id_C0, packed.get(), id_M0);
-                ci->movePortTo(id_Z, packed.get(), id_OFX0);
-                packed->params[id_LUT0_INITVAL] = get_or_default(lut0->params, id_INIT, Property(0, 16));
-                packed->params[id_LUT1_INITVAL] = get_or_default(lut1->params, id_INIT, Property(0, 16));
-
-                ctx->nets.erase(f0->name);
-                ctx->nets.erase(f1->name);
-                sliceUsage[packed->name].lut0_used = true;
-                sliceUsage[packed->name].lut1_used = true;
-                sliceUsage[packed->name].mux5_used = true;
-
-                if (lutffPairs.find(ci->name) != lutffPairs.end()) {
-                    CellInfo *ff = ctx->cells.at(lutffPairs[ci->name]).get();
-                    ff_to_slice(ctx, ff, packed.get(), 0, true);
-                    packed_cells.insert(ff->name);
-                    sliceUsage[packed->name].ff0_used = true;
-                    lutffPairs.erase(ci->name);
-                    fflutPairs.erase(ff->name);
-                }
-
-                new_cells.push_back(std::move(packed));
-                packed_cells.insert(lut0->name);
-                packed_cells.insert(lut1->name);
-                packed_cells.insert(ci->name);
-            }
-        }
-        flush_cells();
-        // Pack LUT6s
-        for (auto &cell : ctx->cells) {
-            CellInfo *ci = cell.second.get();
-            if (is_l6mux(ctx, ci)) {
-                NetInfo *ofx0_0 = ci->ports.at(id_D0).net;
-                if (ofx0_0 == nullptr)
-                    log_error("L6MUX21 '%s' has disconnected port 'D0'\n", ci->name.c_str(ctx));
-                NetInfo *ofx0_1 = ci->ports.at(id_D1).net;
-                if (ofx0_1 == nullptr)
-                    log_error("L6MUX21 '%s' has disconnected port 'D1'\n", ci->name.c_str(ctx));
-                CellInfo *slice0 = net_driven_by(ctx, ofx0_0, is_lc, id_OFX0);
-                CellInfo *slice1 = net_driven_by(ctx, ofx0_1, is_lc, id_OFX0);
-                if (slice0 == nullptr) {
-                    if (!net_driven_by(ctx, ofx0_0, is_l6mux, id_Z) && !net_driven_by(ctx, ofx0_0, is_lc, id_OFX1))
-                        log_error("L6MUX21 '%s' has D0 driven by cell other than a SLICE OFX0 but not a LUT7 mux "
-                                  "('%s.%s')\n",
-                                  ci->name.c_str(ctx), ofx0_0->driver.cell->name.c_str(ctx),
-                                  ofx0_0->driver.port.c_str(ctx));
-                    continue;
-                }
-                if (slice1 == nullptr) {
-                    if (!net_driven_by(ctx, ofx0_1, is_l6mux, id_Z) && !net_driven_by(ctx, ofx0_1, is_lc, id_OFX1))
-                        log_error("L6MUX21 '%s' has D1 driven by cell other than a SLICE OFX0 but not a LUT7 mux "
-                                  "('%s.%s')\n",
-                                  ci->name.c_str(ctx), ofx0_0->driver.cell->name.c_str(ctx),
-                                  ofx0_0->driver.port.c_str(ctx));
-                    continue;
-                }
-                if (ctx->verbose)
-                    log_info("   mux '%s' forms part of a LUT6\n", cell.first.c_str(ctx));
-                ci->movePortTo(id_D0, slice1, id_FXA);
-                ci->movePortTo(id_D1, slice1, id_FXB);
-                ci->movePortTo(id_SD, slice1, id_M1);
-                ci->movePortTo(id_Z, slice1, id_OFX1);
-                slice0->constr_z = 1;
-                slice0->constr_x = 0;
-                slice0->constr_y = 0;
-                slice0->cluster = slice1->name;
-                slice1->constr_z = 0;
-                slice1->constr_abs_z = true;
-                slice1->constr_children.push_back(slice0);
-                slice1->cluster = slice1->name;
-
-                if (lutffPairs.find(ci->name) != lutffPairs.end()) {
-                    CellInfo *ff = ctx->cells.at(lutffPairs[ci->name]).get();
-                    ff_to_slice(ctx, ff, slice1, 1, true);
-                    packed_cells.insert(ff->name);
-                    sliceUsage[slice1->name].ff1_used = true;
-                    lutffPairs.erase(ci->name);
-                    fflutPairs.erase(ff->name);
-                }
-
-                packed_cells.insert(ci->name);
-            }
-        }
-        flush_cells();
-        // Pack LUT7s
-        for (auto &cell : ctx->cells) {
-            CellInfo *ci = cell.second.get();
-            if (is_l6mux(ctx, ci)) {
-                NetInfo *ofx1_0 = ci->ports.at(id_D0).net;
-                if (ofx1_0 == nullptr)
-                    log_error("L6MUX21 '%s' has disconnected port 'D0'\n", ci->name.c_str(ctx));
-                NetInfo *ofx1_1 = ci->ports.at(id_D1).net;
-                if (ofx1_1 == nullptr)
-                    log_error("L6MUX21 '%s' has disconnected port 'D1'\n", ci->name.c_str(ctx));
-                CellInfo *slice1 = net_driven_by(ctx, ofx1_0, is_lc, id_OFX1);
-                CellInfo *slice3 = net_driven_by(ctx, ofx1_1, is_lc, id_OFX1);
-                if (slice1 == nullptr)
-                    log_error("L6MUX21 '%s' has D0 driven by cell other than a SLICE OFX ('%s.%s')\n",
-                              ci->name.c_str(ctx), ofx1_0->driver.cell->name.c_str(ctx),
-                              ofx1_0->driver.port.c_str(ctx));
-                if (slice3 == nullptr)
-                    log_error("L6MUX21 '%s' has D1 driven by cell other than a SLICE OFX ('%s.%s')\n",
-                              ci->name.c_str(ctx), ofx1_1->driver.cell->name.c_str(ctx),
-                              ofx1_1->driver.port.c_str(ctx));
-
-                NetInfo *fxa_0 = slice1->ports.at(id_FXA).net;
-                if (fxa_0 == nullptr)
-                    log_error("SLICE '%s' has disconnected port 'FXA'\n", slice1->name.c_str(ctx));
-                NetInfo *fxa_1 = slice3->ports.at(id_FXA).net;
-                if (fxa_1 == nullptr)
-                    log_error("SLICE '%s' has disconnected port 'FXA'\n", slice3->name.c_str(ctx));
-
-                CellInfo *slice0 = net_driven_by(ctx, fxa_0, is_lc, id_OFX0);
-                CellInfo *slice2 = net_driven_by(ctx, fxa_1, is_lc, id_OFX0);
-                if (slice0 == nullptr)
-                    log_error("SLICE '%s' has FXA driven by cell other than a SLICE OFX0 ('%s.%s')\n",
-                              slice1->name.c_str(ctx), fxa_0->driver.cell->name.c_str(ctx),
-                              fxa_0->driver.port.c_str(ctx));
-                if (slice2 == nullptr)
-                    log_error("SLICE '%s' has FXA driven by cell other than a SLICE OFX0 ('%s.%s')\n",
-                              slice3->name.c_str(ctx), fxa_1->driver.cell->name.c_str(ctx),
-                              fxa_1->driver.port.c_str(ctx));
-
-                ci->movePortTo(id_D0, slice2, id_FXA);
-                ci->movePortTo(id_D1, slice2, id_FXB);
-                ci->movePortTo(id_SD, slice2, id_M1);
-                ci->movePortTo(id_Z, slice2, id_OFX1);
-
-                for (auto slice : {slice0, slice1, slice2, slice3}) {
-                    slice->constr_children.clear();
-                    slice->constr_abs_z = false;
-                    slice->constr_x = 0;
-                    slice->constr_y = 0;
-                    slice->constr_z = 0;
-                    slice->cluster = ClusterId();
-                }
-                slice3->constr_children.clear();
-                slice3->constr_abs_z = true;
-                slice3->constr_z = 0;
-                slice3->cluster = slice3->name;
-
-                slice2->constr_children.clear();
-                slice2->constr_abs_z = true;
-                slice2->constr_z = 1;
-                slice2->constr_x = 0;
-                slice2->constr_y = 0;
-                slice2->cluster = slice3->name;
-                slice3->constr_children.push_back(slice2);
-
-                slice1->constr_children.clear();
-                slice1->constr_abs_z = true;
-                slice1->constr_z = 2;
-                slice1->constr_x = 0;
-                slice1->constr_y = 0;
-                slice1->cluster = slice3->name;
-                slice3->constr_children.push_back(slice1);
-
-                slice0->constr_children.clear();
-                slice0->constr_abs_z = true;
-                slice0->constr_z = 3;
-                slice0->constr_x = 0;
-                slice0->constr_y = 0;
-                slice0->cluster = slice3->name;
-                slice3->constr_children.push_back(slice0);
-
-                if (lutffPairs.find(ci->name) != lutffPairs.end()) {
-                    CellInfo *ff = ctx->cells.at(lutffPairs[ci->name]).get();
-                    ff_to_slice(ctx, ff, slice2, 1, true);
-                    packed_cells.insert(ff->name);
-                    sliceUsage[slice2->name].ff1_used = true;
-                    lutffPairs.erase(ci->name);
-                    fflutPairs.erase(ff->name);
-                }
-
-                packed_cells.insert(ci->name);
-            }
-        }
-        flush_cells();
-    }
     // Create a feed in to the carry chain
     CellInfo *make_carry_feed_in(NetInfo *carry, PortRef chain_in)
     {
@@ -881,48 +729,27 @@ class Ecp5Packer
         std::vector<std::tuple<CellInfo *, CellInfo *, int>> ff_packing;
         for (auto &chain : all_chains) {
             int cell_count = 0;
-            std::vector<CellInfo *> tile_ffs;
             std::vector<CellInfo *> packed_chain;
             for (auto &cell : chain.cells) {
-                if (cell_count % 4 == 0)
-                    tile_ffs.clear();
-                std::unique_ptr<CellInfo> slice =
-                        create_ecp5_cell(ctx, id_TRELLIS_SLICE, cell->name.str(ctx) + "$CCU2_SLICE");
+                std::unique_ptr<CellInfo> comb0 =
+                        create_ecp5_cell(ctx, id_TRELLIS_COMB, cell->name.str(ctx) + "$CCU2_COMB0");
+                std::unique_ptr<CellInfo> comb1 =
+                        create_ecp5_cell(ctx, id_TRELLIS_COMB, cell->name.str(ctx) + "$CCU2_COMB1");
+                NetInfo *carry_net = ctx->createNet(ctx->id(cell->name.str(ctx) + "$CCU2_FCI_INT"));
 
-                ccu2c_to_slice(ctx, cell, slice.get());
+                ccu2_to_comb(ctx, cell, comb0.get(), carry_net, 0);
+                ccu2_to_comb(ctx, cell, comb1.get(), carry_net, 1);
 
-                CellInfo *ff0 = nullptr;
-                NetInfo *f0net = slice->ports.at(id_F0).net;
-                if (f0net != nullptr) {
-                    ff0 = net_only_drives(ctx, f0net, is_ff, id_DI, false);
-                    if (ff0 != nullptr && can_add_ff_to_tile(tile_ffs, ff0)) {
-                        ff_packing.push_back(std::make_tuple(ff0, slice.get(), 0));
-                        tile_ffs.push_back(ff0);
-                        packed_cells.insert(ff0->name);
-                    }
-                }
+                packed_chain.push_back(comb0.get());
+                packed_chain.push_back(comb1.get());
 
-                CellInfo *ff1 = nullptr;
-                NetInfo *f1net = slice->ports.at(id_F1).net;
-                if (f1net != nullptr) {
-                    ff1 = net_only_drives(ctx, f1net, is_ff, id_DI, false);
-                    if (ff1 != nullptr && (ff0 == nullptr || can_pack_ffs(ff0, ff1)) &&
-                        can_add_ff_to_tile(tile_ffs, ff1)) {
-                        ff_packing.push_back(std::make_tuple(ff1, slice.get(), 1));
-                        tile_ffs.push_back(ff1);
-                        packed_cells.insert(ff1->name);
-                    }
-                }
-                packed_chain.push_back(slice.get());
-                new_cells.push_back(std::move(slice));
+                new_cells.push_back(std::move(comb0));
+                new_cells.push_back(std::move(comb1));
                 packed_cells.insert(cell->name);
                 cell_count++;
             }
             packed_chains.push_back(packed_chain);
         }
-
-        for (auto ff : ff_packing)
-            ff_to_slice(ctx, std::get<0>(ff), std::get<1>(ff), std::get<2>(ff), true);
 
         // Relative chain placement
         for (auto &chain : packed_chains) {
@@ -930,9 +757,9 @@ class Ecp5Packer
             chain.at(0)->constr_z = 0;
             chain.at(0)->cluster = chain.at(0)->name;
             for (int i = 1; i < int(chain.size()); i++) {
-                chain.at(i)->constr_x = (i / 4);
+                chain.at(i)->constr_x = (i / 8);
                 chain.at(i)->constr_y = 0;
-                chain.at(i)->constr_z = i % 4;
+                chain.at(i)->constr_z = (i % 8) << ctx->lc_idx_shift | Arch::BEL_COMB;
                 chain.at(i)->constr_abs_z = true;
                 chain.at(i)->cluster = chain.at(0)->name;
                 chain.at(0)->constr_children.push_back(chain.at(i));
@@ -951,261 +778,65 @@ class Ecp5Packer
 
                 // Create RAMW slice
                 std::unique_ptr<CellInfo> ramw_slice =
-                        create_ecp5_cell(ctx, id_TRELLIS_SLICE, ci->name.str(ctx) + "$RAMW_SLICE");
-                dram_to_ramw(ctx, ci, ramw_slice.get());
+                        create_ecp5_cell(ctx, id_TRELLIS_RAMW, ci->name.str(ctx) + "$RAMW_SLICE");
+                dram_to_ramw_split(ctx, ci, ramw_slice.get());
 
                 // Create actual RAM slices
-                std::unique_ptr<CellInfo> ram0_slice =
-                        create_ecp5_cell(ctx, id_TRELLIS_SLICE, ci->name.str(ctx) + "$DPRAM0_SLICE");
-                dram_to_ram_slice(ctx, ci, ram0_slice.get(), ramw_slice.get(), 0);
-
-                std::unique_ptr<CellInfo> ram1_slice =
-                        create_ecp5_cell(ctx, id_TRELLIS_SLICE, ci->name.str(ctx) + "$DPRAM1_SLICE");
-                dram_to_ram_slice(ctx, ci, ram1_slice.get(), ramw_slice.get(), 1);
+                std::unique_ptr<CellInfo> ram_comb[4];
+                for (int i = 0; i < 4; i++) {
+                    ram_comb[i] = create_ecp5_cell(ctx, id_TRELLIS_COMB,
+                                                   ci->name.str(ctx) + "$DPRAM_COMB" + std::to_string(i));
+                    dram_to_comb(ctx, ci, ram_comb[i].get(), ramw_slice.get(), i);
+                }
+                // Create 'block' SLICEs as a placement hint that these cells are mutually exclusive with the RAMW
+                std::unique_ptr<CellInfo> ramw_block[2];
+                for (int i = 0; i < 2; i++) {
+                    ramw_block[i] = create_ecp5_cell(ctx, id_TRELLIS_COMB,
+                                                     ci->name.str(ctx) + "$RAMW_BLOCK" + std::to_string(i));
+                    ramw_block[i]->params[id_MODE] = std::string("RAMW_BLOCK");
+                }
 
                 // Disconnect ports of original cell after packing
                 ci->disconnectPort(id_WCK);
                 ci->disconnectPort(id_WRE);
 
-                ci->disconnectPort(ctx->id("RAD[0]"));
-                ci->disconnectPort(ctx->id("RAD[1]"));
-                ci->disconnectPort(ctx->id("RAD[2]"));
-                ci->disconnectPort(ctx->id("RAD[3]"));
-
-                // Attempt to pack FFs into RAM slices
-                std::vector<std::tuple<CellInfo *, CellInfo *, int>> ff_packing;
-                std::vector<CellInfo *> tile_ffs;
-                for (auto slice : {ram0_slice.get(), ram1_slice.get()}) {
-                    CellInfo *ff0 = nullptr;
-                    NetInfo *f0net = slice->ports.at(id_F0).net;
-                    if (f0net != nullptr) {
-                        ff0 = net_only_drives(ctx, f0net, is_ff, id_DI, false);
-                        if (ff0 != nullptr && can_add_ff_to_tile(tile_ffs, ff0)) {
-                            if (can_pack_ff_dram(slice, ff0)) {
-                                ff_packing.push_back(std::make_tuple(ff0, slice, 0));
-                                tile_ffs.push_back(ff0);
-                                packed_cells.insert(ff0->name);
-                            }
-                        }
-                    }
-
-                    CellInfo *ff1 = nullptr;
-                    NetInfo *f1net = slice->ports.at(id_F1).net;
-                    if (f1net != nullptr) {
-                        ff1 = net_only_drives(ctx, f1net, is_ff, id_DI, false);
-                        if (ff1 != nullptr && (ff0 == nullptr || can_pack_ffs(ff0, ff1)) &&
-                            can_add_ff_to_tile(tile_ffs, ff1)) {
-                            if (can_pack_ff_dram(slice, ff1)) {
-                                ff_packing.push_back(std::make_tuple(ff1, slice, 1));
-                                tile_ffs.push_back(ff1);
-                                packed_cells.insert(ff1->name);
-                            }
-                        }
-                    }
-                }
-
-                for (auto ff : ff_packing)
-                    ff_to_slice(ctx, std::get<0>(ff), std::get<1>(ff), std::get<2>(ff), true);
+                for (int i = 0; i < 4; i++)
+                    ci->disconnectPort(ctx->id(stringf("RAD[%d]", i)));
 
                 // Setup placement constraints
-                ram0_slice->constr_abs_z = true;
-                ram0_slice->constr_z = 0;
-                ram0_slice->cluster = ram0_slice->name;
+                // Use the 0th bit as an anchor
+                ram_comb[0]->constr_abs_z = true;
+                ram_comb[0]->constr_z = Arch::BEL_COMB;
+                ram_comb[0]->cluster = ram_comb[0]->name;
+                for (int i = 1; i < 4; i++) {
+                    ram_comb[i]->cluster = ram_comb[0]->name;
+                    ram_comb[i]->constr_abs_z = true;
+                    ram_comb[i]->constr_x = 0;
+                    ram_comb[i]->constr_y = 0;
+                    ram_comb[i]->constr_z = (i << ctx->lc_idx_shift) | Arch::BEL_COMB;
+                    ram_comb[0]->constr_children.push_back(ram_comb[i].get());
+                }
+                for (int i = 0; i < 2; i++) {
+                    ramw_block[i]->cluster = ram_comb[0]->name;
+                    ramw_block[i]->constr_abs_z = true;
+                    ramw_block[i]->constr_x = 0;
+                    ramw_block[i]->constr_y = 0;
+                    ramw_block[i]->constr_z = ((i + 4) << ctx->lc_idx_shift) | Arch::BEL_COMB;
+                    ram_comb[0]->constr_children.push_back(ramw_block[i].get());
+                }
 
-                ram1_slice->cluster = ram0_slice->name;
-                ram1_slice->constr_abs_z = true;
-                ram1_slice->constr_x = 0;
-                ram1_slice->constr_y = 0;
-                ram1_slice->constr_z = 1;
-                ram0_slice->constr_children.push_back(ram1_slice.get());
-
-                ramw_slice->cluster = ram0_slice->name;
+                ramw_slice->cluster = ram_comb[0]->name;
                 ramw_slice->constr_abs_z = true;
                 ramw_slice->constr_x = 0;
                 ramw_slice->constr_y = 0;
-                ramw_slice->constr_z = 2;
-                ram0_slice->constr_children.push_back(ramw_slice.get());
+                ramw_slice->constr_z = (4 << ctx->lc_idx_shift) | Arch::BEL_RAMW;
+                ram_comb[0]->constr_children.push_back(ramw_slice.get());
 
-                new_cells.push_back(std::move(ram0_slice));
-                new_cells.push_back(std::move(ram1_slice));
+                for (int i = 0; i < 4; i++)
+                    new_cells.push_back(std::move(ram_comb[i]));
+                for (int i = 0; i < 2; i++)
+                    new_cells.push_back(std::move(ramw_block[i]));
                 new_cells.push_back(std::move(ramw_slice));
-                packed_cells.insert(ci->name);
-            }
-        }
-        flush_cells();
-    }
-
-    // Pack LUTs that have been paired together
-    void pack_lut_pairs()
-    {
-        log_info("Packing paired LUTs into a SLICE...\n");
-        for (auto pair : lutPairs) {
-            CellInfo *lut0 = ctx->cells.at(pair.first).get();
-            CellInfo *lut1 = ctx->cells.at(pair.second).get();
-            std::unique_ptr<CellInfo> slice = create_ecp5_cell(ctx, id_TRELLIS_SLICE, lut0->name.str(ctx) + "_SLICE");
-
-            lut_to_slice(ctx, lut0, slice.get(), 0);
-            lut_to_slice(ctx, lut1, slice.get(), 1);
-
-            auto ff0 = lutffPairs.find(lut0->name);
-
-            if (ff0 != lutffPairs.end()) {
-                ff_to_slice(ctx, ctx->cells.at(ff0->second).get(), slice.get(), 0, true);
-                packed_cells.insert(ff0->second);
-                fflutPairs.erase(ff0->second);
-                lutffPairs.erase(lut0->name);
-            }
-
-            auto ff1 = lutffPairs.find(lut1->name);
-
-            if (ff1 != lutffPairs.end()) {
-                ff_to_slice(ctx, ctx->cells.at(ff1->second).get(), slice.get(), 1, true);
-                packed_cells.insert(ff1->second);
-                fflutPairs.erase(ff1->second);
-                lutffPairs.erase(lut1->name);
-            }
-
-            new_cells.push_back(std::move(slice));
-            packed_cells.insert(lut0->name);
-            packed_cells.insert(lut1->name);
-        }
-        flush_cells();
-    }
-
-    // Pack single LUTs that weren't paired into their own slice,
-    // with an optional FF also
-    void pack_remaining_luts()
-    {
-        log_info("Packing unpaired LUTs into a SLICE...\n");
-        for (auto &cell : ctx->cells) {
-            CellInfo *ci = cell.second.get();
-            if (is_lut(ctx, ci)) {
-                std::unique_ptr<CellInfo> slice = create_ecp5_cell(ctx, id_TRELLIS_SLICE, ci->name.str(ctx) + "_SLICE");
-                lut_to_slice(ctx, ci, slice.get(), 1);
-                auto ff = lutffPairs.find(ci->name);
-
-                if (ff != lutffPairs.end()) {
-                    ff_to_slice(ctx, ctx->cells.at(ff->second).get(), slice.get(), 1, true);
-                    packed_cells.insert(ff->second);
-                    fflutPairs.erase(ff->second);
-                    lutffPairs.erase(ci->name);
-                }
-
-                new_cells.push_back(std::move(slice));
-                packed_cells.insert(ci->name);
-            }
-        }
-        flush_cells();
-    }
-
-    // Find a cell that meets some criteria near an origin cell
-    // Used for packing an FF into a nearby SLICE
-    template <typename TFunc> CellInfo *find_nearby_cell(CellInfo *origin, TFunc Func)
-    {
-        pool<CellInfo *, hash_ptr_ops> visited_cells;
-        std::queue<CellInfo *> to_visit;
-        visited_cells.insert(origin);
-        to_visit.push(origin);
-        int iter = 0;
-        while (!to_visit.empty() && iter < 10000) {
-            CellInfo *cursor = to_visit.front();
-            to_visit.pop();
-            if (Func(cursor))
-                return cursor;
-            for (const auto &port : cursor->ports) {
-                NetInfo *pn = port.second.net;
-                if (pn == nullptr)
-                    continue;
-                // Skip high-fanout nets that are unlikely to be relevant
-                if (pn->users.entries() > 25)
-                    continue;
-                // Add other ports on this net if not already visited
-                auto visit_port = [&](const PortRef &port) {
-                    if (port.cell == nullptr)
-                        return;
-                    if (visited_cells.count(port.cell))
-                        return;
-                    // If not already visited; add the cell of this port to the queue
-                    to_visit.push(port.cell);
-                    visited_cells.insert(port.cell);
-                };
-                visit_port(pn->driver);
-                for (const auto &usr : pn->users)
-                    visit_port(usr);
-            }
-            ++iter;
-        }
-        return nullptr;
-    }
-
-    // Pack flipflops that weren't paired with a LUT
-    float dense_pack_mode_thresh = 0.95f;
-    void pack_remaining_ffs()
-    {
-        // Enter dense flipflop packing mode once utilisation exceeds a threshold (default: 95%)
-        int used_slices = 0;
-        for (auto &cell : ctx->cells)
-            if (cell.second->type == id_TRELLIS_SLICE)
-                ++used_slices;
-
-        log_info("Packing unpaired FFs into a SLICE...\n");
-        for (auto &cell : ctx->cells) {
-            CellInfo *ci = cell.second.get();
-            if (is_ff(ctx, ci)) {
-                bool pack_dense = used_slices > (dense_pack_mode_thresh * available_slices);
-                bool requires_m = ci->getPort(id_M) != nullptr;
-                if (pack_dense && !requires_m) {
-                    // If dense packing threshold exceeded; always try and pack the FF into an existing slice
-                    // Find a SLICE with space "near" the flipflop in the netlist
-                    std::vector<CellInfo *> ltile;
-                    CellInfo *target = find_nearby_cell(ci, [&](CellInfo *cursor) {
-                        if (cursor->type != id_TRELLIS_SLICE)
-                            return false;
-                        if (cursor->cluster != ClusterId()) {
-                            auto &constr_children = ctx->cells.at(cursor->cluster)->constr_children;
-                            // Skip big chains for performance
-                            if (constr_children.size() > 8)
-                                return false;
-                            // Have to check the whole of the tile for legality when dealing with chains, not just slice
-                            ltile.clear();
-                            if (cursor->cluster != cursor->name)
-                                ltile.push_back(ctx->cells.at(cursor->cluster).get());
-                            else
-                                ltile.push_back(cursor);
-                            for (auto c : constr_children)
-                                ltile.push_back(c);
-                            if (!can_add_ff_to_tile(ltile, cursor))
-                                return false;
-                        }
-                        if (!can_add_ff_to_slice(cursor, ci))
-                            return false;
-                        for (int i = 0; i < 2; i++)
-                            if (is_ff_available(cursor, i))
-                                return true;
-                        return false;
-                    });
-
-                    // If found, add the FF to this slice instead of creating a new one
-                    if (target != nullptr) {
-                        for (int i = 0; i < 2; i++) {
-                            if (is_ff_available(target, i)) {
-                                ff_to_slice(ctx, ci, target, i, false);
-                                goto ff_packed;
-                            }
-                        }
-                    }
-
-                    if (false) {
-                    ff_packed:
-                        packed_cells.insert(ci->name);
-                        continue;
-                    }
-                }
-
-                std::unique_ptr<CellInfo> slice = create_ecp5_cell(ctx, id_TRELLIS_SLICE, ci->name.str(ctx) + "_SLICE");
-                ff_to_slice(ctx, ci, slice.get(), 0, false);
-                new_cells.push_back(std::move(slice));
-                ++used_slices;
                 packed_cells.insert(ci->name);
             }
         }
@@ -1729,7 +1360,7 @@ class Ecp5Packer
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
             if (ci->type == id_EXTREFB) {
-                const NetInfo *refo = net_or_nullptr(ci, id_REFCLKO);
+                const NetInfo *refo = ci->getPort(id_REFCLKO);
                 CellInfo *dcu = nullptr;
                 std::string loc_bel = std::string("NONE");
                 std::string dcu_bel = std::string("NONE");
@@ -1785,7 +1416,7 @@ class Ecp5Packer
                     ci->attrs[id_BEL] = dcu_bel;
                 }
             } else if (ci->type == id_PCSCLKDIV) {
-                const NetInfo *clki = net_or_nullptr(ci, id_CLKI);
+                const NetInfo *clki = ci->getPort(id_CLKI);
                 if (clki != nullptr && clki->driver.cell != nullptr && clki->driver.cell->type == id_DCUA) {
                     CellInfo *dcu = clki->driver.cell;
                     if (!dcu->attrs.count(id_BEL))
@@ -1842,7 +1473,7 @@ class Ecp5Packer
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
             if (ci->type == id_EHXPLLL && !ci->attrs.count(id_BEL)) {
-                const NetInfo *drivernet = net_or_nullptr(ci, id_CLKI);
+                const NetInfo *drivernet = ci->getPort(id_CLKI);
                 if (drivernet == nullptr || drivernet->driver.cell == nullptr)
                     continue;
                 const CellInfo *drivercell = drivernet->driver.cell;
@@ -2079,7 +1710,7 @@ class Ecp5Packer
                      {id_RDMOVE, id_RDDIRECTION, id_WRMOVE, id_WRDIRECTION, id_READ0, id_READ1, id_READCLKSEL0,
                       id_READCLKSEL1, id_READCLKSEL2, id_DYNDELAY0, id_DYNDELAY1, id_DYNDELAY2, id_DYNDELAY3,
                       id_DYNDELAY4, id_DYNDELAY5, id_DYNDELAY6, id_DYNDELAY7}) {
-                    if (net_or_nullptr(ci, zport) == nullptr)
+                    if (ci->getPort(zport) == nullptr)
                         tie_zero(ci, zport);
                 }
             }
@@ -2778,7 +2409,7 @@ class Ecp5Packer
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
             if (ci->type == id_CLKDIVF) {
-                const NetInfo *clki = net_or_nullptr(ci, id_CLKI);
+                const NetInfo *clki = ci->getPort(id_CLKI);
                 for (auto &eclk : eclks) {
                     if (eclk.second.unbuf == clki) {
                         for (auto bel : ctx->getBels()) {
@@ -2800,8 +2431,8 @@ class Ecp5Packer
             clkdiv_done:
                 continue;
             } else if (ci->type == id_ECLKSYNCB) {
-                const NetInfo *eclki = net_or_nullptr(ci, id_ECLKI);
-                const NetInfo *eclko = net_or_nullptr(ci, id_ECLKO);
+                const NetInfo *eclki = ci->getPort(id_ECLKI);
+                const NetInfo *eclko = ci->getPort(id_ECLKO);
                 if (eclki != nullptr && eclki->driver.cell != nullptr) {
                     if (eclki->driver.cell->type == id_ECLKBRIDGECS) {
                         BelId bel = ctx->getBelByNameStr(eclki->driver.cell->attrs.at(id_BEL).as_string());
@@ -2833,13 +2464,13 @@ class Ecp5Packer
                 continue;
             } else if (ci->type == id_DDRDLLA) {
                 ci->type = id_DDRDLL; // transform from Verilog to Bel name
-                const NetInfo *clk = net_or_nullptr(ci, id_CLK);
+                const NetInfo *clk = ci->getPort(id_CLK);
                 if (clk == nullptr)
                     log_error("DDRDLLA '%s' has disconnected port CLK\n", ci->name.c_str(ctx));
 
                 bool left_bank_users = false, right_bank_users = false;
                 // Check which side the delay codes (DDRDEL) are used on
-                const NetInfo *ddrdel = net_or_nullptr(ci, id_DDRDEL);
+                const NetInfo *ddrdel = ci->getPort(id_DDRDEL);
                 if (ddrdel != nullptr) {
                     for (auto &usr : ddrdel->users) {
                         const CellInfo *uc = usr.cell;
@@ -2922,7 +2553,7 @@ class Ecp5Packer
                     continue;
                 // Case of a CLKDIVF driven by an ECLKSYNC constrained above; without the input being used elsewhere as
                 // an edge clock
-                const NetInfo *clki = net_or_nullptr(ci, id_CLKI);
+                const NetInfo *clki = ci->getPort(id_CLKI);
                 if (clki == nullptr || clki->driver.cell == nullptr)
                     continue;
                 CellInfo *drv = clki->driver.cell;
@@ -3131,12 +2762,9 @@ class Ecp5Packer
         pack_constants();
         pack_dram();
         pack_carries();
-        find_lutff_pairs();
+        pack_luts();
         pack_lut5xs();
-        pair_luts();
-        pack_lut_pairs();
-        pack_remaining_luts();
-        pack_remaining_ffs();
+        pack_ffs();
         generate_constraints();
         promote_ecp5_globals(ctx);
         ctx->fixupHierarchy();
@@ -3180,122 +2808,147 @@ bool Arch::pack()
     }
 }
 
+void Arch::assign_arch_info_for_cell(CellInfo *ci)
+{
+    auto get_port_net = [&](CellInfo *ci, IdString p) {
+        NetInfo *n = get_net_or_empty(ci, p);
+        return n ? n->name : IdString();
+    };
+    if (ci->type == id_TRELLIS_COMB) {
+        std::string mode = str_or_default(ci->params, id_MODE, "LOGIC");
+        ci->combInfo.flags = ArchCellInfo::COMB_NONE;
+        if (mode == "CCU2")
+            ci->combInfo.flags |= ArchCellInfo::COMB_CARRY;
+        if (mode == "DPRAM") {
+            ci->combInfo.flags |= ArchCellInfo::COMB_LUTRAM;
+            std::string wckmux = str_or_default(ci->params, id_WCKMUX, "WCK");
+            if (wckmux == "INV")
+                ci->combInfo.flags |= ArchCellInfo::COMB_RAM_WCKINV;
+            std::string wremux = str_or_default(ci->params, id_WREMUX, "WRE");
+            if (wremux == "INV" || wremux == "0")
+                ci->combInfo.flags |= ArchCellInfo::COMB_RAM_WREINV;
+            ci->combInfo.ram_wck = get_port_net(ci, id_WCK);
+            ci->combInfo.ram_wre = get_port_net(ci, id_WRE);
+        }
+        if (mode == "RAMW_BLOCK")
+            ci->combInfo.flags |= ArchCellInfo::COMB_RAMW_BLOCK;
+        if (ci->getPort(id_F1) != nullptr)
+            ci->combInfo.flags |= ArchCellInfo::COMB_MUX5;
+        if (ci->getPort(id_FXA) != nullptr || ci->getPort(id_FXB) != nullptr) {
+            ci->combInfo.flags |= ArchCellInfo::COMB_MUX6;
+            NetInfo *fxa = ci->getPort(id_FXA);
+            if (fxa != nullptr)
+                ci->combInfo.mux_fxad = fxa->driver.cell;
+        }
+    } else if (ci->type == id_TRELLIS_FF) {
+        ci->ffInfo.flags = ArchCellInfo::FF_NONE;
+        if (str_or_default(ci->params, id_GSR, "ENABLED") == "ENABLED")
+            ci->ffInfo.flags |= ArchCellInfo::FF_GSREN;
+        if (str_or_default(ci->params, id_SRMODE, "LSR_OVER_CE") == "ASYNC")
+            ci->ffInfo.flags |= ArchCellInfo::FF_ASYNC;
+        if (ci->getPort(id_M) != nullptr)
+            ci->ffInfo.flags |= ArchCellInfo::FF_M_USED;
+        std::string clkmux = str_or_default(ci->params, id_CLKMUX, "CLK");
+        std::string cemux = str_or_default(ci->params, id_CEMUX, "CE");
+        std::string lsrmux = str_or_default(ci->params, id_LSRMUX, "LSR");
+        if (clkmux == "INV" || clkmux == "0")
+            ci->ffInfo.flags |= ArchCellInfo::FF_CLKINV;
+        if (cemux == "INV" || cemux == "0")
+            ci->ffInfo.flags |= ArchCellInfo::FF_CEINV;
+        if (cemux == "1" || cemux == "0")
+            ci->ffInfo.flags |= ArchCellInfo::FF_CECONST;
+        if (lsrmux == "INV")
+            ci->ffInfo.flags |= ArchCellInfo::FF_LSRINV;
+        ci->ffInfo.clk_sig = get_port_net(ci, id_CLK);
+        ci->ffInfo.ce_sig = get_port_net(ci, id_CE);
+        ci->ffInfo.lsr_sig = get_port_net(ci, id_LSR);
+    } else if (ci->type == id_DP16KD) {
+        ci->ramInfo.is_pdp = (int_or_default(ci->params, id_DATA_WIDTH_A, 0) == 36);
+
+        // Output register mode (REGMODE_{A,B}). Valid options are 'NOREG' and 'OUTREG'.
+        std::string regmode_a = str_or_default(ci->params, id_REGMODE_A, "NOREG");
+        if (regmode_a != "NOREG" && regmode_a != "OUTREG")
+            log_error("DP16KD %s has invalid REGMODE_A configuration '%s'\n", ci->name.c_str(this), regmode_a.c_str());
+        std::string regmode_b = str_or_default(ci->params, id_REGMODE_B, "NOREG");
+        if (regmode_b != "NOREG" && regmode_b != "OUTREG")
+            log_error("DP16KD %s has invalid REGMODE_B configuration '%s'\n", ci->name.c_str(this), regmode_b.c_str());
+        ci->ramInfo.is_output_a_registered = regmode_a == "OUTREG";
+        ci->ramInfo.is_output_b_registered = regmode_b == "OUTREG";
+
+        // Based on the REGMODE, we have different timing lookup tables.
+        if (!ci->ramInfo.is_output_a_registered && !ci->ramInfo.is_output_b_registered) {
+            ci->ramInfo.regmode_timing_id = id_DP16KD_REGMODE_A_NOREG_REGMODE_B_NOREG;
+        } else if (!ci->ramInfo.is_output_a_registered && ci->ramInfo.is_output_b_registered) {
+            ci->ramInfo.regmode_timing_id = id_DP16KD_REGMODE_A_NOREG_REGMODE_B_OUTREG;
+        } else if (ci->ramInfo.is_output_a_registered && !ci->ramInfo.is_output_b_registered) {
+            ci->ramInfo.regmode_timing_id = id_DP16KD_REGMODE_A_OUTREG_REGMODE_B_NOREG;
+        } else if (ci->ramInfo.is_output_a_registered && ci->ramInfo.is_output_b_registered) {
+            ci->ramInfo.regmode_timing_id = id_DP16KD_REGMODE_A_OUTREG_REGMODE_B_OUTREG;
+        }
+    } else if (ci->type == id_MULT18X18D) {
+        // For the multiplier block, our timing db is dictated by whether any of the input/output registers are
+        // enabled. To that end, we need to work out what the parameters are for the INPUTA_CLK, INPUTB_CLK and
+        // OUTPUT_CLK are.
+        // The clock check is the same IN_A/B and OUT, so hoist it to a function
+        auto get_clock_parameter = [&](std::string param_name) {
+            std::string clk = str_or_default(ci->params, id(param_name), "NONE");
+            if (clk != "NONE" && clk != "CLK0" && clk != "CLK1" && clk != "CLK2" && clk != "CLK3")
+                log_error("MULT18X18D %s has invalid %s configuration '%s'\n", ci->name.c_str(this), param_name.c_str(),
+                          clk.c_str());
+            return clk;
+        };
+
+        // Get the input clock setting from the cell
+        std::string reg_inputa_clk = get_clock_parameter("REG_INPUTA_CLK");
+        std::string reg_inputb_clk = get_clock_parameter("REG_INPUTB_CLK");
+
+        // Inputs are registered IFF the REG_INPUT value is not NONE
+        const bool is_in_a_registered = reg_inputa_clk != "NONE";
+        const bool is_in_b_registered = reg_inputb_clk != "NONE";
+
+        // Similarly, get the output register clock
+        std::string reg_output_clk = get_clock_parameter("REG_OUTPUT_CLK");
+        const bool is_output_registered = reg_output_clk != "NONE";
+
+        // If only one of the inputs is registered, we are going to treat that as
+        // neither input registered so that we don't have to deal with mixed timing.
+        // Emit a warning to that effect.
+        const bool any_input_registered = is_in_a_registered || is_in_b_registered;
+        const bool both_inputs_registered = is_in_a_registered && is_in_b_registered;
+        const bool input_registers_mismatched = any_input_registered && !both_inputs_registered;
+        if (input_registers_mismatched) {
+            log_warning("MULT18X18D %s has unsupported mixed input register modes (reg_inputa_clk=%s, "
+                        "reg_inputb_clk=%s)\n",
+                        ci->name.c_str(this), reg_inputa_clk.c_str(), reg_inputb_clk.c_str());
+            log_warning("Timings for MULT18X18D %s will be calculated as though neither input were registered\n",
+                        ci->name.c_str(this));
+
+            // Act as though the inputs are unregistered, so select timing DB based only on the
+            // output register mode
+            ci->multInfo.timing_id = is_output_registered ? id_MULT18X18D_REGS_OUTPUT : id_MULT18X18D_REGS_NONE;
+        } else {
+            // Based on our register settings, pick the timing data to use for this cell
+            if (!both_inputs_registered && !is_output_registered) {
+                ci->multInfo.timing_id = id_MULT18X18D_REGS_NONE;
+            } else if (both_inputs_registered && !is_output_registered) {
+                ci->multInfo.timing_id = id_MULT18X18D_REGS_INPUT;
+            } else if (!both_inputs_registered && is_output_registered) {
+                ci->multInfo.timing_id = id_MULT18X18D_REGS_OUTPUT;
+            } else if (both_inputs_registered && is_output_registered) {
+                ci->multInfo.timing_id = id_MULT18X18D_REGS_ALL;
+            }
+        }
+        // If we aren't a pure combinatorial multiplier, then our timings are
+        // calculated with respect to CLK0
+        ci->multInfo.is_clocked = ci->multInfo.timing_id != id_MULT18X18D_REGS_NONE;
+    }
+}
+
 void Arch::assignArchInfo()
 {
     for (auto &cell : cells) {
         CellInfo *ci = cell.second.get();
-        if (ci->type == id_TRELLIS_SLICE) {
-
-            ci->sliceInfo.using_dff = false;
-            if (ci->ports.count(id_Q0) && ci->ports[id_Q0].net != nullptr)
-                ci->sliceInfo.using_dff = true;
-            if (ci->ports.count(id_Q1) && ci->ports[id_Q1].net != nullptr)
-                ci->sliceInfo.using_dff = true;
-
-            if (ci->ports.count(id_CLK) && ci->ports[id_CLK].net != nullptr)
-                ci->sliceInfo.clk_sig = ci->ports[id_CLK].net->name;
-            else
-                ci->sliceInfo.clk_sig = IdString();
-
-            if (ci->ports.count(id_LSR) && ci->ports[id_LSR].net != nullptr)
-                ci->sliceInfo.lsr_sig = ci->ports[id_LSR].net->name;
-            else
-                ci->sliceInfo.lsr_sig = IdString();
-
-            ci->sliceInfo.clkmux = id(str_or_default(ci->params, id_CLKMUX, "CLK"));
-            ci->sliceInfo.lsrmux = id(str_or_default(ci->params, id_LSRMUX, "LSR"));
-            ci->sliceInfo.srmode = id(str_or_default(ci->params, id_SRMODE, "LSR_OVER_CE"));
-            std::string mode = str_or_default(ci->params, id_MODE, "LOGIC");
-            ci->sliceInfo.is_carry = (mode == "CCU2");
-            ci->sliceInfo.is_memory = (mode == "DPRAM" || mode == "RAMW");
-            ci->sliceInfo.sd0 = std::stoi(str_or_default(ci->params, id_REG0_SD, "0"));
-            ci->sliceInfo.sd1 = std::stoi(str_or_default(ci->params, id_REG1_SD, "0"));
-            ci->sliceInfo.has_l6mux = false;
-            if (ci->ports.count(id_FXA) && ci->ports[id_FXA].net != nullptr &&
-                ci->ports[id_FXA].net->driver.port == id_OFX0)
-                ci->sliceInfo.has_l6mux = true;
-        } else if (ci->type == id_DP16KD) {
-            ci->ramInfo.is_pdp = (int_or_default(ci->params, id_DATA_WIDTH_A, 0) == 36);
-
-            // Output register mode (REGMODE_{A,B}). Valid options are 'NOREG' and 'OUTREG'.
-            std::string regmode_a = str_or_default(ci->params, id_REGMODE_A, "NOREG");
-            if (regmode_a != "NOREG" && regmode_a != "OUTREG")
-                log_error("DP16KD %s has invalid REGMODE_A configuration '%s'\n", ci->name.c_str(this),
-                          regmode_a.c_str());
-            std::string regmode_b = str_or_default(ci->params, id_REGMODE_B, "NOREG");
-            if (regmode_b != "NOREG" && regmode_b != "OUTREG")
-                log_error("DP16KD %s has invalid REGMODE_B configuration '%s'\n", ci->name.c_str(this),
-                          regmode_b.c_str());
-            ci->ramInfo.is_output_a_registered = regmode_a == "OUTREG";
-            ci->ramInfo.is_output_b_registered = regmode_b == "OUTREG";
-
-            // Based on the REGMODE, we have different timing lookup tables.
-            if (!ci->ramInfo.is_output_a_registered && !ci->ramInfo.is_output_b_registered) {
-                ci->ramInfo.regmode_timing_id = id_DP16KD_REGMODE_A_NOREG_REGMODE_B_NOREG;
-            } else if (!ci->ramInfo.is_output_a_registered && ci->ramInfo.is_output_b_registered) {
-                ci->ramInfo.regmode_timing_id = id_DP16KD_REGMODE_A_NOREG_REGMODE_B_OUTREG;
-            } else if (ci->ramInfo.is_output_a_registered && !ci->ramInfo.is_output_b_registered) {
-                ci->ramInfo.regmode_timing_id = id_DP16KD_REGMODE_A_OUTREG_REGMODE_B_NOREG;
-            } else if (ci->ramInfo.is_output_a_registered && ci->ramInfo.is_output_b_registered) {
-                ci->ramInfo.regmode_timing_id = id_DP16KD_REGMODE_A_OUTREG_REGMODE_B_OUTREG;
-            }
-        } else if (ci->type == id_MULT18X18D) {
-            // For the multiplier block, our timing db is dictated by whether any of the input/output registers are
-            // enabled. To that end, we need to work out what the parameters are for the INPUTA_CLK, INPUTB_CLK and
-            // OUTPUT_CLK are.
-            // The clock check is the same IN_A/B and OUT, so hoist it to a function
-            auto get_clock_parameter = [&](std::string param_name) {
-                std::string clk = str_or_default(ci->params, id(param_name), "NONE");
-                if (clk != "NONE" && clk != "CLK0" && clk != "CLK1" && clk != "CLK2" && clk != "CLK3")
-                    log_error("MULT18X18D %s has invalid %s configuration '%s'\n", ci->name.c_str(this),
-                              param_name.c_str(), clk.c_str());
-                return clk;
-            };
-
-            // Get the input clock setting from the cell
-            std::string reg_inputa_clk = get_clock_parameter("REG_INPUTA_CLK");
-            std::string reg_inputb_clk = get_clock_parameter("REG_INPUTB_CLK");
-
-            // Inputs are registered IFF the REG_INPUT value is not NONE
-            const bool is_in_a_registered = reg_inputa_clk != "NONE";
-            const bool is_in_b_registered = reg_inputb_clk != "NONE";
-
-            // Similarly, get the output register clock
-            std::string reg_output_clk = get_clock_parameter("REG_OUTPUT_CLK");
-            const bool is_output_registered = reg_output_clk != "NONE";
-
-            // If only one of the inputs is registered, we are going to treat that as
-            // neither input registered so that we don't have to deal with mixed timing.
-            // Emit a warning to that effect.
-            const bool any_input_registered = is_in_a_registered || is_in_b_registered;
-            const bool both_inputs_registered = is_in_a_registered && is_in_b_registered;
-            const bool input_registers_mismatched = any_input_registered && !both_inputs_registered;
-            if (input_registers_mismatched) {
-                log_warning("MULT18X18D %s has unsupported mixed input register modes (reg_inputa_clk=%s, "
-                            "reg_inputb_clk=%s)\n",
-                            ci->name.c_str(this), reg_inputa_clk.c_str(), reg_inputb_clk.c_str());
-                log_warning("Timings for MULT18X18D %s will be calculated as though neither input were registered\n",
-                            ci->name.c_str(this));
-
-                // Act as though the inputs are unregistered, so select timing DB based only on the
-                // output register mode
-                ci->multInfo.timing_id = is_output_registered ? id_MULT18X18D_REGS_OUTPUT : id_MULT18X18D_REGS_NONE;
-            } else {
-                // Based on our register settings, pick the timing data to use for this cell
-                if (!both_inputs_registered && !is_output_registered) {
-                    ci->multInfo.timing_id = id_MULT18X18D_REGS_NONE;
-                } else if (both_inputs_registered && !is_output_registered) {
-                    ci->multInfo.timing_id = id_MULT18X18D_REGS_INPUT;
-                } else if (!both_inputs_registered && is_output_registered) {
-                    ci->multInfo.timing_id = id_MULT18X18D_REGS_OUTPUT;
-                } else if (both_inputs_registered && is_output_registered) {
-                    ci->multInfo.timing_id = id_MULT18X18D_REGS_ALL;
-                }
-            }
-            // If we aren't a pure combinatorial multiplier, then our timings are
-            // calculated with respect to CLK0
-            ci->multInfo.is_clocked = ci->multInfo.timing_id != id_MULT18X18D_REGS_NONE;
-        }
+        assign_arch_info_for_cell(ci);
     }
     for (auto &net : nets) {
         net.second->is_global = bool_or_default(net.second->attrs, id_ECP5_IS_GLOBAL);

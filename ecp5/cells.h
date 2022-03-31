@@ -37,8 +37,6 @@ inline bool is_ff(const BaseCtx *ctx, const CellInfo *cell) { return cell->type 
 
 inline bool is_carry(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_CCU2C; }
 
-inline bool is_lc(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_TRELLIS_SLICE; }
-
 inline bool is_trellis_io(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_TRELLIS_IO; }
 
 inline bool is_dpram(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_TRELLIS_DPR16X4; }
@@ -62,11 +60,10 @@ inline bool is_iologic_output_cell(const BaseCtx *ctx, const CellInfo *cell)
             (str_or_default(cell->attrs, id_ioff_dir, "") != "input"));
 }
 
-void ff_to_slice(Context *ctx, CellInfo *ff, CellInfo *lc, int index, bool driven_by_lut);
-void lut_to_slice(Context *ctx, CellInfo *lut, CellInfo *lc, int index);
-void ccu2c_to_slice(Context *ctx, CellInfo *ccu, CellInfo *lc);
-void dram_to_ramw(Context *ctx, CellInfo *ram, CellInfo *lc);
-void dram_to_ram_slice(Context *ctx, CellInfo *ram, CellInfo *lc, CellInfo *ramw, int index);
+void lut_to_comb(Context *ctx, CellInfo *lut);
+void dram_to_ramw_split(Context *ctx, CellInfo *ram, CellInfo *ramw);
+void ccu2_to_comb(Context *ctx, CellInfo *ccu, CellInfo *comb, NetInfo *internal_carry, int i);
+void dram_to_comb(Context *ctx, CellInfo *ram, CellInfo *comb, CellInfo *ramw, int index);
 
 // Convert a nextpnr IO buffer to a TRELLIS_IO
 void nxio_to_tr(Context *ctx, CellInfo *nxio, CellInfo *trio, std::vector<std::unique_ptr<CellInfo>> &created_cells,

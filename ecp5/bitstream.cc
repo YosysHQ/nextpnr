@@ -524,10 +524,10 @@ static void set_pip(Context *ctx, ChipConfig &cc, PipId pip)
     cc.tiles[tile].add_arc(sink, source);
 }
 
-static unsigned permute_lut(Context *ctx, CellInfo *cell, pool<IdString> &used_phys_pins, int k, unsigned orig_init)
+static unsigned permute_lut(Context *ctx, CellInfo *cell, pool<IdString> &used_phys_pins, unsigned orig_init)
 {
     std::array<std::vector<unsigned>, 4> phys_to_log;
-    const std::array<IdString, 4> ports{k ? id_A1 : id_A0, k ? id_B1 : id_B0, k ? id_C1 : id_C0, k ? id_D1 : id_D0};
+    const std::array<IdString, 4> ports{id_A, id_B, id_C, id_D};
     for (unsigned i = 0; i < 4; i++) {
         WireId pin_wire = ctx->getBelPinWire(cell->bel, ports[i]);
         for (PipId pip : ctx->getPipsUphill(pin_wire)) {
@@ -547,7 +547,7 @@ static unsigned permute_lut(Context *ctx, CellInfo *cell, pool<IdString> &used_p
     for (unsigned i = 0; i < 4; i++)
         if (!phys_to_log.at(i).empty())
             used_phys_pins.insert(ports.at(i));
-    if (cell->sliceInfo.is_carry) {
+    if (cell->combInfo.flags & ArchCellInfo::COMB_CARRY) {
         // Insert dummy entries to ensure we keep the split between the two halves of a CCU2
         for (unsigned i = 0; i < 4; i++) {
             if (!phys_to_log.at(i).empty())
@@ -840,77 +840,72 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             log_warning("found unplaced cell '%s' during bitstream gen\n", ci->name.c_str(ctx));
         }
         BelId bel = ci->bel;
-        if (ci->type == id_TRELLIS_SLICE) {
+        if (ci->type == id_TRELLIS_COMB) {
             pool<IdString> used_phys_pins;
             std::string tname = ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, "PLC2");
-            std::string slice = ctx->loc_info(bel)->bel_data[bel.index].name.get();
-            int lut0_init = int_or_default(ci->params, id_LUT0_INITVAL);
-            int lut1_init = int_or_default(ci->params, id_LUT1_INITVAL);
-            cc.tiles[tname].add_word(slice + ".K0.INIT",
-                                     int_to_bitvector(permute_lut(ctx, ci, used_phys_pins, 0, lut0_init), 16));
-            cc.tiles[tname].add_word(slice + ".K1.INIT",
-                                     int_to_bitvector(permute_lut(ctx, ci, used_phys_pins, 1, lut1_init), 16));
-            cc.tiles[tname].add_enum(slice + ".MODE", str_or_default(ci->params, id_MODE, "LOGIC"));
-            cc.tiles[tname].add_enum(slice + ".GSR", str_or_default(ci->params, id_GSR, "ENABLED"));
-            cc.tiles[tname].add_enum(slice + ".REG0.SD", intstr_or_default(ci->params, id_REG0_SD, "0"));
-            cc.tiles[tname].add_enum(slice + ".REG1.SD", intstr_or_default(ci->params, id_REG1_SD, "0"));
-            cc.tiles[tname].add_enum(slice + ".REG0.REGSET", str_or_default(ci->params, id_REG0_REGSET, "RESET"));
-            cc.tiles[tname].add_enum(slice + ".REG1.REGSET", str_or_default(ci->params, id_REG1_REGSET, "RESET"));
-            cc.tiles[tname].add_enum(slice + ".REG0.LSRMODE", str_or_default(ci->params, id_REG0_LSRMODE, "LSR"));
-            cc.tiles[tname].add_enum(slice + ".REG1.LSRMODE", str_or_default(ci->params, id_REG1_LSRMODE, "LSR"));
-            cc.tiles[tname].add_enum(slice + ".CEMUX", str_or_default(ci->params, id_CEMUX, "1"));
-
-            if (ci->sliceInfo.using_dff) {
-                NetInfo *lsrnet = nullptr;
-                if (ci->ports.find(id_LSR) != ci->ports.end() && ci->ports.at(id_LSR).net != nullptr)
-                    lsrnet = ci->ports.at(id_LSR).net;
-                if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "LSR0")) == lsrnet) {
-                    cc.tiles[tname].add_enum("LSR0.SRMODE", str_or_default(ci->params, id_SRMODE, "LSR_OVER_CE"));
-                    cc.tiles[tname].add_enum("LSR0.LSRMUX", str_or_default(ci->params, id_LSRMUX, "LSR"));
-                }
-                if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "LSR1")) == lsrnet) {
-                    cc.tiles[tname].add_enum("LSR1.SRMODE", str_or_default(ci->params, id_SRMODE, "LSR_OVER_CE"));
-                    cc.tiles[tname].add_enum("LSR1.LSRMUX", str_or_default(ci->params, id_LSRMUX, "LSR"));
-                }
-
-                NetInfo *clknet = nullptr;
-                if (ci->ports.find(id_CLK) != ci->ports.end() && ci->ports.at(id_CLK).net != nullptr)
-                    clknet = ci->ports.at(id_CLK).net;
-                if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "CLK0")) == clknet) {
-                    cc.tiles[tname].add_enum("CLK0.CLKMUX", str_or_default(ci->params, id_CLKMUX, "CLK"));
-                }
-                if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "CLK1")) == clknet) {
-                    cc.tiles[tname].add_enum("CLK1.CLKMUX", str_or_default(ci->params, id_CLKMUX, "CLK"));
-                }
-            }
-
-            if (str_or_default(ci->params, id_MODE, "LOGIC") == "CCU2") {
-                cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_0",
-                                         str_or_default(ci->params, id_CCU2_INJECT1_0, "YES"));
-                cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_1",
-                                         str_or_default(ci->params, id_CCU2_INJECT1_1, "YES"));
+            int z = ctx->loc_info(bel)->bel_data[bel.index].z >> Arch::lc_idx_shift;
+            std::string slice = std::string("SLICE") + "ABCD"[z / 2];
+            std::string lc = std::to_string(z % 2);
+            std::string mode = str_or_default(ci->params, id_MODE, "LOGIC");
+            if (mode == "RAMW_BLOCK")
+                continue;
+            int lut_init = int_or_default(ci->params, id_INITVAL);
+            cc.tiles[tname].add_enum(slice + ".MODE", mode);
+            cc.tiles[tname].add_word(slice + ".K" + lc + ".INIT",
+                                     int_to_bitvector(permute_lut(ctx, ci, used_phys_pins, lut_init), 16));
+            if (mode == "CCU2") {
+                cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_" + lc,
+                                         str_or_default(ci->params, id_CCU2_INJECT1, "YES"));
             } else {
                 // Don't interfere with cascade mux wiring
-                cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_0", "_NONE_");
-                cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_1", "_NONE_");
+                cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_" + lc, "_NONE_");
             }
-
-            if (str_or_default(ci->params, id_MODE, "LOGIC") == "DPRAM" && slice == "SLICEA") {
+            if (mode == "DPRAM" && slice == "SLICEA" && lc == "0") {
                 cc.tiles[tname].add_enum(slice + ".WREMUX", str_or_default(ci->params, id_WREMUX, "WRE"));
-
                 std::string wckmux = str_or_default(ci->params, id_WCKMUX, "WCK");
                 wckmux = (wckmux == "WCK") ? "CLK" : wckmux;
                 cc.tiles[tname].add_enum("CLK1.CLKMUX", wckmux);
             }
-
-            // Tie unused inputs high
-            for (auto input : {id_A0, id_B0, id_C0, id_D0, id_A1, id_B1, id_C1, id_D1}) {
+            for (auto input : {id_A, id_B, id_C, id_D}) {
                 if (!used_phys_pins.count(input)) {
-                    cc.tiles[tname].add_enum(slice + "." + input.str(ctx) + "MUX", "1");
+                    cc.tiles[tname].add_enum(slice + "." + input.str(ctx) + lc + "MUX", "1");
                 }
             }
+        } else if (ci->type == id_TRELLIS_FF) {
+            std::string tname = ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, "PLC2");
+            int z = ctx->loc_info(bel)->bel_data[bel.index].z >> Arch::lc_idx_shift;
+            std::string slice = std::string("SLICE") + "ABCD"[z / 2];
+            std::string lc = std::to_string(z % 2);
 
-            // TODO: CLKMUX
+            cc.tiles[tname].add_enum(slice + ".GSR", str_or_default(ci->params, id_GSR, "ENABLED"));
+            cc.tiles[tname].add_enum(slice + ".REG" + lc + ".SD", intstr_or_default(ci->params, id_SD, "0"));
+            cc.tiles[tname].add_enum(slice + ".REG" + lc + ".REGSET", str_or_default(ci->params, id_REGSET, "RESET"));
+            cc.tiles[tname].add_enum(slice + ".REG" + lc + ".LSRMODE", str_or_default(ci->params, id_LSRMODE, "LSR"));
+
+            cc.tiles[tname].add_enum(slice + ".CEMUX", str_or_default(ci->params, id_CEMUX, "1"));
+
+            NetInfo *lsrnet = ci->getPort(id_LSR);
+            if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "LSR0")) == lsrnet) {
+                cc.tiles[tname].add_enum("LSR0.SRMODE", str_or_default(ci->params, id_SRMODE, "LSR_OVER_CE"));
+                cc.tiles[tname].add_enum("LSR0.LSRMUX", str_or_default(ci->params, id_LSRMUX, "LSR"));
+            }
+            if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "LSR1")) == lsrnet) {
+                cc.tiles[tname].add_enum("LSR1.SRMODE", str_or_default(ci->params, id_SRMODE, "LSR_OVER_CE"));
+                cc.tiles[tname].add_enum("LSR1.LSRMUX", str_or_default(ci->params, id_LSRMUX, "LSR"));
+            }
+
+            NetInfo *clknet = ci->getPort(id_CLK);
+            if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "CLK0")) == clknet) {
+                cc.tiles[tname].add_enum("CLK0.CLKMUX", str_or_default(ci->params, id_CLKMUX, "CLK"));
+            }
+            if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "CLK1")) == clknet) {
+                cc.tiles[tname].add_enum("CLK1.CLKMUX", str_or_default(ci->params, id_CLKMUX, "CLK"));
+            }
+        } else if (ci->type == id_TRELLIS_RAMW) {
+            std::string tname = ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, "PLC2");
+            cc.tiles[tname].add_enum("SLICEC.MODE", "RAMW");
+            cc.tiles[tname].add_word("SLICEC.K0.INIT", std::vector<bool>(16, false));
+            cc.tiles[tname].add_word("SLICEC.K1.INIT", std::vector<bool>(16, false));
         } else if (ci->type == id_TRELLIS_IO) {
             std::string pio = ctx->loc_info(bel)->bel_data[bel.index].name.get();
             std::string iotype = str_or_default(ci->attrs, id_IO_TYPE, "LVCMOS33");

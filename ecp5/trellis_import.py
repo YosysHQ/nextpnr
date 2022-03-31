@@ -311,6 +311,64 @@ timing_port_xform = {
 }
 
 
+delay_db = {}
+# Convert from Lattice-style grouped SLICE to new nextpnr split style SLICE
+def postprocess_timing_data(cells):
+    def delay_diff(x, y):
+        return (x[0] - y[0], x[1] - y[1])
+
+    split_cells = {}
+    comb_delays = {}
+    comb_delays[("A", "F")] = delay_db["SLOGICB"][("A0", "F0")]
+    comb_delays[("B", "F")] = delay_db["SLOGICB"][("B0", "F0")]
+    comb_delays[("C", "F")] = delay_db["SLOGICB"][("C0", "F0")]
+    comb_delays[("D", "F")] = delay_db["SLOGICB"][("D0", "F0")]
+    comb_delays[("A", "OFX")] = delay_db["SLOGICB"][("A0", "OFX0")]
+    comb_delays[("B", "OFX")] = delay_db["SLOGICB"][("B0", "OFX0")]
+    comb_delays[("C", "OFX")] = delay_db["SLOGICB"][("C0", "OFX0")]
+    comb_delays[("D", "OFX")] = delay_db["SLOGICB"][("D0", "OFX0")]
+    comb_delays[("M", "OFX")] = delay_db["SLOGICB"][("M0", "OFX0")] # worst case
+    comb_delays[("F1", "OFX")] = delay_diff(delay_db["SLOGICB"][("A1", "OFX0")],
+                                            delay_db["SLOGICB"][("A1", "F1")])
+    comb_delays[("FXA", "OFX")] = delay_db["SLOGICB"][("FXA", "OFX1")]
+    comb_delays[("FXB", "OFX")] = delay_db["SLOGICB"][("FXB", "OFX1")]
+    split_cells["TRELLIS_COMB"] = comb_delays
+
+    carry0_delays = {}
+    carry0_delays[("A", "F")] = delay_db["SCCU2C"][("A0", "F0")]
+    carry0_delays[("B", "F")] = delay_db["SCCU2C"][("B0", "F0")]
+    carry0_delays[("C", "F")] = delay_db["SCCU2C"][("C0", "F0")]
+    carry0_delays[("D", "F")] = delay_db["SCCU2C"][("D0", "F0")]
+    carry0_delays[("A", "FCO")] = delay_db["SCCU2C"][("A0", "FCO")]
+    carry0_delays[("B", "FCO")] = delay_db["SCCU2C"][("B0", "FCO")]
+    carry0_delays[("C", "FCO")] = delay_db["SCCU2C"][("C0", "FCO")]
+    carry0_delays[("D", "FCO")] = delay_db["SCCU2C"][("D0", "FCO")]
+    carry0_delays[("FCI", "F")] = delay_db["SCCU2C"][("FCI", "F0")]
+    carry0_delays[("FCI", "FCO")] = delay_db["SCCU2C"][("FCI", "FCO")]
+
+    split_cells["TRELLIS_COMB_CARRY0"] = carry0_delays
+
+    carry1_delays = {}
+    carry1_delays[("A", "F")] = delay_db["SCCU2C"][("A1", "F1")]
+    carry1_delays[("B", "F")] = delay_db["SCCU2C"][("B1", "F1")]
+    carry1_delays[("C", "F")] = delay_db["SCCU2C"][("C1", "F1")]
+    carry1_delays[("D", "F")] = delay_db["SCCU2C"][("D1", "F1")]
+    carry1_delays[("A", "FCO")] = delay_db["SCCU2C"][("A1", "FCO")]
+    carry1_delays[("B", "FCO")] = delay_db["SCCU2C"][("B1", "FCO")]
+    carry1_delays[("C", "FCO")] = delay_db["SCCU2C"][("C1", "FCO")]
+    carry1_delays[("D", "FCO")] = delay_db["SCCU2C"][("D1", "FCO")]
+    carry1_delays[("FCI", "F")] = delay_diff(delay_db["SCCU2C"][("FCI", "F1")], delay_db["SCCU2C"][("FCI", "FCO")])
+    carry1_delays[("FCI", "FCO")] = (0, 0)
+
+    split_cells["TRELLIS_COMB_CARRY1"] = carry1_delays
+
+    for celltype, celldelays in sorted(split_cells.items()):
+        delays = []
+        setupholds = []
+        for (from_pin, to_pin), (min_delay, max_delay) in sorted(celldelays.items()):
+            delays.append((constids[from_pin], constids[to_pin], min_delay, max_delay))
+        cells.append((constids[celltype], delays, setupholds))
+
 def process_timing_data():
     for grade in speed_grade_names:
         with open(timing_dbs.cells_db_path("ECP5", grade)) as f:
@@ -320,6 +378,7 @@ def process_timing_data():
             celltype = constids[cell.replace(":", "_").replace("=", "_").replace(",", "_")]
             delays = []
             setupholds = []
+            delay_db[cell] = {}
             for entry in cdata:
                 if entry["type"] == "Width":
                     continue
@@ -332,6 +391,7 @@ def process_timing_data():
                         to_pin = timing_port_xform[to_pin]
                     min_delay = min(entry["rising"][0], entry["falling"][0])
                     max_delay = min(entry["rising"][2], entry["falling"][2])
+                    delay_db[cell][(from_pin, to_pin)] = (min_delay, max_delay)
                     delays.append((constids[from_pin], constids[to_pin], min_delay, max_delay))
                 elif entry["type"] == "SetupHold":
                     if type(entry["pin"]) is list:
@@ -346,6 +406,7 @@ def process_timing_data():
                 else:
                     assert False, entry["type"]
             cells.append((celltype, delays, setupholds))
+        postprocess_timing_data(cells)
         pip_class_delays = []
         for i in range(len(pip_class_to_idx)):
             pip_class_delays.append((50, 50, 0, 0))
@@ -625,7 +686,7 @@ def main():
     # print("Initialising chip...")
     chip = pytrellis.Chip(dev_names[args.device])
     # print("Building routing graph...")
-    ddrg = pytrellis.make_dedup_chipdb(chip, include_lutperm_pips=True)
+    ddrg = pytrellis.make_dedup_chipdb(chip, include_lutperm_pips=True, split_slice_mode=True)
     max_row = chip.get_max_row()
     max_col = chip.get_max_col()
     process_timing_data()
