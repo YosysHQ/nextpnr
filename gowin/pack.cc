@@ -805,6 +805,14 @@ static void pack_iologic(Context *ctx)
                     ci->addInput(id_XXX_VCC);
                     ci->connectPort(id_XXX_VCC, ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
                 }
+                if (ctx->gw1n9_quirk && iob_bel != q0_dst->attrs.end()) {
+                    bool have_XXX_VSS0 =
+                            ctx->bels[ctx->getBelByNameStr(iob_bel->second.as_string())].pins.count(id_XXX_VSS0);
+                    if (have_XXX_VSS0) {
+                        q0_dst->disconnectPort(id_XXX_VSS0);
+                        q0_dst->connectPort(id_XXX_VSS0, ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
+                    }
+                }
             } break;
             default:
                 break;
@@ -933,6 +941,7 @@ static void pack_io(Context *ctx)
             // what type to create
             IdString new_cell_type = id_IOB;
             std::string constr_bel_name = std::string("");
+            bool have_xxx_port = false;
             // check whether the given IO is limited to simplified IO cells
             auto constr_bel = ci->attrs.find(id_BEL);
             if (constr_bel != ci->attrs.end()) {
@@ -946,6 +955,9 @@ static void pack_io(Context *ctx)
                 BelId constr_bel = ctx->getBelByNameStr(constr_bel_name);
                 if (constr_bel != BelId()) {
                     new_cell_type = ctx->bels[constr_bel].type;
+                    if (ctx->gw1n9_quirk) {
+                        have_xxx_port = ctx->bels[constr_bel].pins.count(id_XXX_VSS0) != 0;
+                    }
                 }
             }
 
@@ -954,6 +966,13 @@ static void pack_io(Context *ctx)
             gwio_to_iob(ctx, ci, ice_cell.get(), packed_cells);
             new_cells.push_back(std::move(ice_cell));
             auto gwiob = new_cells.back().get();
+            // XXX GW1NR-9 quirks
+            if (have_xxx_port && ci->type != id_IBUF) {
+                gwiob->addInput(id_XXX_VSS0);
+                gwiob->connectPort(id_XXX_VSS0, ctx->nets[ctx->id("$PACKER_GND_NET")].get());
+                gwiob->addInput(id_XXX_VSS1);
+                gwiob->connectPort(id_XXX_VSS1, ctx->nets[ctx->id("$PACKER_GND_NET")].get());
+            }
 
             packed_cells.insert(ci->name);
             if (iob != nullptr) {
