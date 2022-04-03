@@ -472,6 +472,8 @@ struct Arch : BaseArch<ArchRanges>
 
     // XXX GW1N-9C DDR quirk
     bool ddr_has_extra_inputs = false;
+    // XXX GW1NR-9 iobuf quirk
+    bool gw1n9_quirk = false;
 
     // Permissible combinations of modes in a single slice
     std::map<const IdString, IdString> dff_comp_mode;

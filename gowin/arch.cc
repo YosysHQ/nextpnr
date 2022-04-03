@@ -1119,7 +1119,7 @@ Arch::Arch(ArchArgs args) : args(args)
                 z++; /* fall-through*/
             case ID_IOBB:
                 z++; /* fall-through*/
-            case ID_IOBA:
+            case ID_IOBA: {
                 snprintf(buf, 32, "R%dC%d_IOB%c", row + 1, col + 1, 'A' + z);
                 belname = id(buf);
                 addBel(belname, id_IOB, Loc(col, row, z), false);
@@ -1132,7 +1132,22 @@ Arch::Arch(ArchArgs args) : args(args)
                 portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_OE)->src_id);
                 snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
                 addBelInput(belname, id_OEN, id(buf));
-                break;
+                // GW1NR-9 quirk
+                const PairPOD *xxx_port = pairLookup(bel->ports.get(), bel->num_ports, ID_XXX_VSS0);
+                if (xxx_port != nullptr) {
+                    gw1n9_quirk = true;
+                    portname = IdString(xxx_port->src_id);
+                    snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
+                    addBelInput(belname, id_XXX_VSS0, id(buf));
+                }
+                xxx_port = pairLookup(bel->ports.get(), bel->num_ports, ID_XXX_VSS1);
+                if (xxx_port != nullptr) {
+                    gw1n9_quirk = true;
+                    portname = IdString(xxx_port->src_id);
+                    snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
+                    addBelInput(belname, id_XXX_VSS1, id(buf));
+                }
+            } break;
                 // Simplified IO
             case ID_IOBJS:
                 z++; /* fall-through*/
