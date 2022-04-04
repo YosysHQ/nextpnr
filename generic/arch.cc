@@ -119,7 +119,8 @@ void Arch::addBelInput(BelId bel, IdString name, WireId wire)
     pi.wire = wire;
     pi.type = PORT_IN;
 
-    wire_info(wire).bel_pins.push_back(BelPin{bel, name});
+    if (wire != WireId())
+        wire_info(wire).bel_pins.push_back(BelPin{bel, name});
 }
 
 void Arch::addBelOutput(BelId bel, IdString name, WireId wire)
@@ -131,7 +132,8 @@ void Arch::addBelOutput(BelId bel, IdString name, WireId wire)
     pi.wire = wire;
     pi.type = PORT_OUT;
 
-    wire_info(wire).bel_pins.push_back(BelPin{bel, name});
+    if (wire != WireId())
+        wire_info(wire).bel_pins.push_back(BelPin{bel, name});
 }
 
 void Arch::addBelInout(BelId bel, IdString name, WireId wire)
@@ -143,7 +145,8 @@ void Arch::addBelInout(BelId bel, IdString name, WireId wire)
     pi.wire = wire;
     pi.type = PORT_INOUT;
 
-    wire_info(wire).bel_pins.push_back(BelPin{bel, name});
+    if (wire != WireId())
+        wire_info(wire).bel_pins.push_back(BelPin{bel, name});
 }
 
 void Arch::addGroupBel(IdStringList group, BelId bel) { groups[group].bels.push_back(bel); }
