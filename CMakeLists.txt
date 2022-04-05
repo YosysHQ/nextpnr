@@ -257,7 +257,7 @@ if(PROFILER)
     list(APPEND EXTRA_LIB_DEPS profiler)
 endif()
 if(TBB_FOUND)
-    list(APPEND EXTRA_LIB_DEPS tbb)
+    list(APPEND EXTRA_LIB_DEPS TBB::tbb)
 endif()
 
 foreach (family ${ARCH})
