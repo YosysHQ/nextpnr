@@ -1851,3 +1851,13 @@ X(placer)
 X(route)
 X(router)
 X(syn_useioff)
+
+X(TRELLIS_COMB)
+X(TRELLIS_RAMW)
+X(TRELLIS_COMB_CARRY0)
+X(TRELLIS_COMB_CARRY1)
+
+X(WD)
+X(OFX)
+X(F)
+X(CCU2_INJECT1)

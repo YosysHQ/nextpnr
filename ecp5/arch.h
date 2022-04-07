@@ -452,7 +452,6 @@ struct Arch : BaseArch<ArchRanges>
 
     mutable dict<IdStringList, PipId> pip_by_name;
 
-    std::vector<CellInfo *> bel_to_cell;
     enum class LutPermRule
     {
         NONE,
@@ -461,6 +460,39 @@ struct Arch : BaseArch<ArchRanges>
     };
     std::vector<LutPermRule> lutperm_allowed;
     bool disable_router_lutperm = false;
+
+    // For fast, incremental validity checking of split SLICE
+
+    // BEL z-position lookup, x-ored with (index in tile) << 2
+    enum LogicBELType
+    {
+        BEL_COMB = 0,
+        BEL_FF = 1,
+        BEL_RAMW = 2
+    };
+    static const int lc_idx_shift = 2;
+
+    struct LogicTileStatus
+    {
+        // Per-SLICE valid and dirty bits
+        struct SliceStatus
+        {
+            bool valid = true, dirty = true;
+        } slices[4];
+        // Per-tile legality check for control set legality
+        bool tile_valid = true;
+        bool tile_dirty = true;
+        // Fast index from z-pos to cell
+        std::array<CellInfo *, 8 * (1 << lc_idx_shift)> cells;
+    };
+
+    struct TileStatus
+    {
+        std::vector<CellInfo *> boundcells;
+        LogicTileStatus *lts = nullptr;
+        // TODO: use similar mechanism for DSP legality checking
+        ~TileStatus() { delete lts; }
+    };
 
     // faster replacements for base_pip2net, base_wire2net
     // indexed by get_pip_vecidx()
@@ -492,7 +524,7 @@ struct Arch : BaseArch<ArchRanges>
 
     // -------------------------------------------------
 
-    static const int max_loc_bels = 20;
+    static const int max_loc_bels = 32;
 
     int getGridDimX() const override { return chip_info->width; };
     int getGridDimY() const override { return chip_info->height; };
@@ -509,6 +541,11 @@ struct Arch : BaseArch<ArchRanges>
         return &(chip_info->locations[chip_info->location_type[id.location.y * chip_info->width + id.location.x]]);
     }
 
+    template <typename Id> inline int tile_index(Id id) const
+    {
+        return id.location.y * chip_info->width + id.location.x;
+    }
+
     IdStringList getBelName(BelId bel) const override
     {
         NPNR_ASSERT(bel != BelId());
@@ -519,41 +556,57 @@ struct Arch : BaseArch<ArchRanges>
 
     uint32_t getBelChecksum(BelId bel) const override { return bel.index; }
 
-    int get_bel_flat_index(BelId bel) const
-    {
-        return (bel.location.y * chip_info->width + bel.location.x) * max_loc_bels + bel.index;
-    }
-
     int get_slice_index(int x, int y, int slice) const
     {
         NPNR_ASSERT(slice >= 0 && slice < 4);
         return (y * chip_info->width + x) * 4 + slice;
     }
 
+    void update_bel(BelId bel, CellInfo *old_cell, CellInfo *new_cell)
+    {
+        CellInfo *act_cell = (old_cell == nullptr) ? new_cell : old_cell;
+        if (act_cell->type == id_TRELLIS_FF || act_cell->type == id_TRELLIS_COMB || act_cell->type == id_TRELLIS_RAMW) {
+            LogicTileStatus *lts = tile_status.at(tile_index(bel)).lts;
+            NPNR_ASSERT(lts != nullptr);
+            int z = loc_info(bel)->bel_data[bel.index].z;
+            lts->slices[(z >> lc_idx_shift) / 2].dirty = true;
+            if (act_cell->type == id_TRELLIS_FF)
+                lts->tile_dirty = true; // because FF CLK/LSR signals are tile-wide
+            if (act_cell->type == id_TRELLIS_COMB && (act_cell->combInfo.flags & ArchCellInfo::COMB_LUTRAM))
+                lts->tile_dirty = true; // because RAM shares CLK/LSR signals with FFs
+            lts->cells[z] = new_cell;
+        }
+    }
+
     void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength) override
     {
         NPNR_ASSERT(bel != BelId());
-        int idx = get_bel_flat_index(bel);
-        NPNR_ASSERT(bel_to_cell.at(idx) == nullptr);
-        bel_to_cell[idx] = cell;
+        auto &slot = tile_status.at(tile_index(bel)).boundcells.at(bel.index);
+        NPNR_ASSERT(slot == nullptr);
+        slot = cell;
         cell->bel = bel;
         cell->belStrength = strength;
-        if (getBelType(bel) == id_TRELLIS_SLICE) {
-            lutperm_allowed.at(get_slice_index(bel.location.x, bel.location.y, getBelLocation(bel).z)) =
-                    (cell->sliceInfo.is_memory ? LutPermRule::NONE
-                                               : (cell->sliceInfo.is_carry ? LutPermRule::CARRY : LutPermRule::ALL));
+        if (getBelType(bel) == id_TRELLIS_COMB) {
+            int flags = cell->combInfo.flags;
+            lutperm_allowed.at(
+                    get_slice_index(bel.location.x, bel.location.y, (getBelLocation(bel).z >> lc_idx_shift) / 2)) =
+                    (((flags & ArchCellInfo::COMB_LUTRAM) || (flags & ArchCellInfo::COMB_RAMW_BLOCK))
+                             ? LutPermRule::NONE
+                             : ((flags & ArchCellInfo::COMB_CARRY) ? LutPermRule::CARRY : LutPermRule::ALL));
         }
+        update_bel(bel, nullptr, cell);
         refreshUiBel(bel);
     }
 
     void unbindBel(BelId bel) override
     {
         NPNR_ASSERT(bel != BelId());
-        int idx = get_bel_flat_index(bel);
-        NPNR_ASSERT(bel_to_cell.at(idx) != nullptr);
-        bel_to_cell[idx]->bel = BelId();
-        bel_to_cell[idx]->belStrength = STRENGTH_NONE;
-        bel_to_cell[idx] = nullptr;
+        auto &slot = tile_status.at(tile_index(bel)).boundcells.at(bel.index);
+        NPNR_ASSERT(slot != nullptr);
+        update_bel(bel, slot, nullptr);
+        slot->bel = BelId();
+        slot->belStrength = STRENGTH_NONE;
+        slot = nullptr;
         refreshUiBel(bel);
     }
 
@@ -574,19 +627,22 @@ struct Arch : BaseArch<ArchRanges>
     bool checkBelAvail(BelId bel) const override
     {
         NPNR_ASSERT(bel != BelId());
-        return bel_to_cell[get_bel_flat_index(bel)] == nullptr;
+        const CellInfo *slot = tile_status.at(tile_index(bel)).boundcells.at(bel.index);
+        return slot == nullptr;
     }
 
     CellInfo *getBoundBelCell(BelId bel) const override
     {
         NPNR_ASSERT(bel != BelId());
-        return bel_to_cell[get_bel_flat_index(bel)];
+        CellInfo *slot = tile_status.at(tile_index(bel)).boundcells.at(bel.index);
+        return slot;
     }
 
     CellInfo *getConflictingBelCell(BelId bel) const override
     {
         NPNR_ASSERT(bel != BelId());
-        return bel_to_cell[get_bel_flat_index(bel)];
+        CellInfo *slot = tile_status.at(tile_index(bel)).boundcells.at(bel.index);
+        return slot;
     }
 
     BelRange getBels() const override
@@ -957,11 +1013,10 @@ struct Arch : BaseArch<ArchRanges>
     bool isBelLocationValid(BelId bel) const override;
 
     // Helper function for above
-    bool slices_compatible(const std::vector<const CellInfo *> &cells) const;
+    bool slices_compatible(LogicTileStatus *lts) const;
 
+    void assign_arch_info_for_cell(CellInfo *ci);
     void assignArchInfo() override;
-
-    void permute_luts();
 
     std::vector<std::pair<std::string, std::string>> get_tiles_at_loc(int row, int col);
     std::string get_tile_by_type_loc(int row, int col, std::string type) const
@@ -1028,6 +1083,8 @@ struct Arch : BaseArch<ArchRanges>
 
     std::vector<IdString> cell_types;
     std::vector<BelBucketId> buckets;
+
+    mutable std::vector<TileStatus> tile_status;
 };
 
 NEXTPNR_NAMESPACE_END
