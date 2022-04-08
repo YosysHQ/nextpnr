@@ -216,7 +216,7 @@ configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/common/version.h.in ${CMAKE_CURRENT_BINARY_DIR}/generated/version.h
 )
 
-include_directories(common/ json/ frontend/ 3rdparty/json11/ 3rdparty/pybind11/include ${Boost_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
+include_directories(common/kernel/ common/place/ common/route/ json/ frontend/ 3rdparty/json11/ 3rdparty/pybind11/include ${Boost_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
 
 if(BUILD_HEAP)
     find_package (Eigen3 REQUIRED NO_MODULE)
@@ -225,12 +225,15 @@ if(BUILD_HEAP)
     add_definitions(-DWITH_HEAP)
 endif()
 
-aux_source_directory(common/ COMMON_SRC_FILES)
+aux_source_directory(common/kernel/ KERNEL_SRC_FILES)
+aux_source_directory(common/place/ PLACE_SRC_FILES)
+aux_source_directory(common/route/ ROUTE_SRC_FILES)
+
 aux_source_directory(json/ JSON_PARSER_FILES)
 aux_source_directory(3rdparty/json11 EXT_JSON11_FILES)
 aux_source_directory(frontend/ FRONTEND_FILES)
 
-set(COMMON_FILES ${COMMON_SRC_FILES} ${EXT_JSON11_FILES} ${JSON_PARSER_FILES} ${FRONTEND_FILES})
+set(COMMON_FILES ${KERNEL_SRC_FILES} ${PLACE_SRC_FILES} ${ROUTE_SRC_FILES} ${EXT_JSON11_FILES} ${JSON_PARSER_FILES} ${FRONTEND_FILES})
 if( NOT CMAKE_BUILD_TYPE )
     set(CMAKE_BUILD_TYPE Release)
 endif()
