@@ -1,0 +1,95 @@
+# CI for everything other than the sui generis FPGA interchange arrangements
+
+name: Arch CI tests
+
+on: [push, pull_request]
+
+jobs:
+  Build-nextpnr:
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [mistral, ice40, ecp5, generic, nexus, machxo2, gowin]
+    runs-on: ubuntu-latest
+    env:
+      DEPS_PATH: ${{ github.workspace }}/deps
+      YOSYS_REVISION: bd7ee79486d4e8788f36de8c25a3fb2df451d682
+      ICESTORM_REVISION: 9f66f9ce16941c6417813cb87653c735a78b53ae
+      TRELLIS_REVISION: 48486ebd1e03e4ac42c96299e881adf9d43bc241
+      PRJOXIDE_REVISION: c3fb1526cf4a2165e15b74f4a994d153c7695fe4
+      MISTRAL_REVISION: ebfc0dd2cc7d6d2159b641a397c88554840e93c9
+      APYCULA_REVISION: 0.2a4
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+
+    - uses: actions/setup-python@v2
+
+    - name: Install
+      run: |
+        sudo apt-get update
+        sudo apt-get install git make cmake libboost-all-dev python3-dev libeigen3-dev tcl-dev lzma-dev libftdi-dev clang bison flex swig qt5-default iverilog
+
+    - name: Cache yosys installation
+      uses: actions/cache@v2
+      id: cache-yosys
+      with:
+        path: .yosys
+        key: cache-yosys-${{ env.YOSYS_REVISION }}-r2
+
+    - name: Build yosys
+      run: |
+        source ./.github/ci/build_common.sh
+        build_yosys
+      if: steps.cache-yosys.outputs.cache-hit != 'true'
+
+    - name: Cache icestorm installation
+      uses: actions/cache@v2
+      id: cache-icestorm
+      with:
+        path: .icestorm
+        key: cache-icestorm-${{ env.ICESTORM_REVISION }}
+      if: matrix.arch == 'ice40'
+
+    - name: Build icestorm
+      run: |
+        source ./.github/ci/build_common.sh
+        build_icestorm
+      if: matrix.arch == 'ice40' && steps.cache-icestorm.outputs.cache-hit != 'true'
+
+    - name: Cache trellis installation
+      uses: actions/cache@v2
+      id: cache-trellis
+      with:
+        path: .trellis
+        key: cache-trellis-${{ env.TRELLIS_REVISION }}
+      if: matrix.arch == 'ecp5' || matrix.arch == 'machxo2'
+
+    - name: Build trellis
+      run: |
+        source ./.github/ci/build_common.sh
+        build_trellis
+      if: (matrix.arch == 'ecp5' || matrix.arch == 'machxo2') && steps.cache-trellis.outputs.cache-hit != 'true'
+
+    - name: Cache prjoxide installation
+      uses: actions/cache@v2
+      id: cache-prjoxide
+      with:
+        path: .prjoxide
+        key: cache-prjoxide-${{ env.PRJOXIDE_REVISION }}
+      if: matrix.arch == 'nexus'
+
+    - name: Build prjoxide
+      run: |
+        source ./.github/ci/build_common.sh
+        build_prjoxide
+      if: matrix.arch == 'nexus' && steps.cache-prjoxide.outputs.cache-hit != 'true'
+
+    - name: Execute build nextpnr
+      run: |
+        source ./.github/ci/build_${{ matrix.arch }}.sh
+        get_dependencies
+        build_nextpnr
+        run_tests
+        run_archcheck

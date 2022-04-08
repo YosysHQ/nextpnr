@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export MISTRAL_PATH=${DEPS_PATH}/mistral
+
 function get_dependencies {
     # Fetch mistral
     mkdir -p ${MISTRAL_PATH}
@@ -15,6 +17,10 @@ function build_nextpnr {
     cmake .. -DARCH=mistral -DMISTRAL_ROOT=${MISTRAL_PATH}
     make nextpnr-mistral -j`nproc`
     popd
+}
+
+function run_tests {
+    :
 }
 
 function run_archcheck {
