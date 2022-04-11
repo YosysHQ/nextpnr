@@ -183,43 +183,54 @@ class ChainConstrainer
 
     void process_carries()
     {
-        std::vector<CellChain> carry_chains = find_chains(
-                ctx, [](const Context *ctx, const CellInfo *cell) { return is_lc(ctx, cell); },
-                [](const Context *ctx, const
-
-                   CellInfo *cell) {
-                    CellInfo *carry_prev = net_driven_by(ctx, cell->ports.at(id_CIN).net, is_lc, id_COUT);
-                    if (carry_prev != nullptr)
-                        return carry_prev;
-                    CellInfo *i3_prev = net_driven_by(ctx, cell->ports.at(id_I3).net, is_lc, id_COUT);
-                    if (i3_prev != nullptr)
-                        return i3_prev;
-                    return (CellInfo *)nullptr;
-                },
-                [](const Context *ctx, const CellInfo *cell) {
-                    CellInfo *carry_next = net_only_drives(ctx, cell->ports.at(id_COUT).net, is_lc, id_CIN, false);
-                    if (carry_next != nullptr)
-                        return carry_next;
-                    CellInfo *i3_next = net_only_drives(ctx, cell->ports.at(id_COUT).net, is_lc, id_I3, false);
-                    if (i3_next != nullptr)
-                        return i3_next;
-                    return (CellInfo *)nullptr;
-                });
-        pool<IdString> chained;
-        for (auto &base_chain : carry_chains) {
-            for (auto c : base_chain.cells)
-                chained.insert(c->name);
-        }
-        // Any cells not in chains, but with carry enabled, must also be put in a single-carry chain
-        // for correct processing
+        // Find carry roots
+        std::vector<CellChain> carry_chains;
+        pool<IdString> processed;
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
-            if (chained.find(cell.first) == chained.end() && is_lc(ctx, ci) &&
-                bool_or_default(ci->params, id_CARRY_ENABLE)) {
-                CellChain sChain;
-                sChain.cells.push_back(ci);
-                chained.insert(cell.first);
-                carry_chains.push_back(sChain);
+            if (is_lc(ctx, ci) && bool_or_default(ci->params, id_CARRY_ENABLE)) {
+                // possibly a non-root if CIN or I3 driven by another cout
+                NetInfo *cin = ci->getPort(id_CIN);
+                if (cin && cin->driver.cell && is_lc(ctx, cin->driver.cell) && cin->driver.port == id_COUT) {
+                    continue;
+                }
+                carry_chains.emplace_back();
+                auto &cc = carry_chains.back();
+                CellInfo *cursor = ci;
+                while (cursor) {
+                    cc.cells.push_back(cursor);
+                    processed.insert(cursor->name);
+                    NetInfo *cout = cursor->getPort(id_COUT);
+                    if (!cout)
+                        break;
+                    cursor = nullptr;
+                    // look for CIN connectivity
+                    for (auto &usr : cout->users) {
+                        if (is_lc(ctx, usr.cell) && usr.port == id_CIN && !processed.count(usr.cell->name)) {
+                            cursor = usr.cell;
+                            break;
+                        }
+                    }
+                    // look for I3 connectivity - only to a top cell with no further chaining
+                    if (cursor)
+                        continue;
+                    for (auto &usr : cout->users) {
+                        if (is_lc(ctx, usr.cell) && usr.port == id_I3 && !processed.count(usr.cell->name) &&
+                            !usr.cell->getPort(id_COUT)) {
+                            cursor = usr.cell;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        // anything left behind....
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (is_lc(ctx, ci) && bool_or_default(ci->params, id_CARRY_ENABLE) && !processed.count(ci->name)) {
+                carry_chains.emplace_back();
+                carry_chains.back().cells.push_back(ci);
+                processed.insert(ci->name);
             }
         }
         std::vector<CellChain> all_chains;
