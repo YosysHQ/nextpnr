@@ -1,7 +1,7 @@
 /*
  *  nextpnr -- Next Generation Place and Route
  *
- *  Copyright (C) 2021  gatecat <gatecat@ds0.me>
+ *  Copyright (C) 2021-22  gatecat <gatecat@ds0.me>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -17,25 +17,20 @@
  *
  */
 
-#ifndef PARALLEL_REFINE_H
-#define PARALLEL_REFINE_H
+#ifndef DETAIL_PLACE_CFG_H
+#define DETAIL_PLACE_CFG_H
 
-#include "detail_place_cfg.h"
 #include "nextpnr.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
-struct ParallelRefineCfg : DetailPlaceCfg
+struct DetailPlaceCfg
 {
-    ParallelRefineCfg(Context *ctx);
-    int threads;
-    double lambda = 0.5f;
-    int inner_iters = 15;
-    int min_thread_size = 500;
+    DetailPlaceCfg(Context *ctx);
+    bool timing_driven;
+    int hpwl_scale_x, hpwl_scale_y;
+    float crit_exp = 8;
 };
 
-bool parallel_refine(Context *ctx, ParallelRefineCfg cfg);
-
 NEXTPNR_NAMESPACE_END
-
 #endif
