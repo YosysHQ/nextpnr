@@ -348,7 +348,7 @@ void DetailPlacerThreadState::compute_changes_for_cell(CellInfo *cell, BelId old
             if (new_pos > b1) {
                 // Further out than current upper bound
                 b1 = new_pos;
-                n1 = new_pos;
+                n1 = 1;
                 if (change == NO_CHANGE) {
                     change = CELL_MOVED_OUTWARDS;
                     axis.bounds_changed_nets.push_back(idx);

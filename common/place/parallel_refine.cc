@@ -39,6 +39,8 @@ struct GlobalState : DetailPlacerState
 {
     explicit GlobalState(Context *ctx, ParallelRefineCfg cfg) : DetailPlacerState(ctx, this->cfg), cfg(cfg){};
 
+    dict<ClusterId, std::vector<CellInfo *>> cluster2cells;
+
     ParallelRefineCfg cfg;
     double temperature = 1e-7;
     int radius = 3;
@@ -51,6 +53,8 @@ struct ThreadState : DetailPlacerThreadState
     // Total made and accepted moved
     GlobalState &g;
     int n_move = 0, n_accept = 0;
+
+    dict<std::pair<int, int>, std::vector<CellInfo *>> tile2cell;
 
     bool accept_move()
     {
@@ -218,6 +222,97 @@ struct ThreadState : DetailPlacerThreadState
         }
     }
 
+    bool cluster_inside_tile(ClusterId cluster, int x, int y)
+    {
+        for (auto &c : g.cluster2cells.at(cluster)) {
+            Loc l = ctx->getBelLocation(c->bel);
+            if (l.x != x || l.y != y)
+                return false;
+        }
+        return true;
+    }
+
+    bool do_tile_swap(int x, int y, int xn, int yn)
+    {
+        if (xn < p.x0 || xn > p.x1)
+            return false;
+        if (yn < p.y0 || yn > p.y1)
+            return false;
+        if ((x == xn) && (y == yn))
+            return false;
+
+        NPNR_ASSERT(moved_cells.empty());
+
+        auto move_tile = [&](int sx, int sy, int dx, int dy) -> bool {
+            for (auto c : tile2cell[std::make_pair(sx, sy)]) {
+                if (c->belStrength > STRENGTH_STRONG ||
+                    ((c->cluster != ClusterId()) && !cluster_inside_tile(c->cluster, sx, sy)))
+                    return false; // check clusters before we start moving stuff
+            }
+            for (auto c : tile2cell[std::make_pair(sx, sy)]) {
+                Loc l = ctx->getBelLocation(c->bel);
+                l.x = dx;
+                l.y = dy;
+                BelId new_bel = ctx->getBelByLocation(l);
+                if (new_bel == BelId() || !ctx->isValidBelForCellType(c->type, new_bel))
+                    return false;
+                if (!add_to_move(c, c->bel, new_bel))
+                    return false;
+            }
+            return true;
+        };
+
+        if (!move_tile(x, y, xn, yn))
+            goto fail;
+        if (!move_tile(xn, yn, x, y))
+            goto fail;
+
+        compute_total_change();
+        // SA acceptance criteria
+        if (!accept_move()) {
+            // SA fail
+            goto fail;
+        }
+        // Check validity rules
+        if (!bind_move())
+            goto fail;
+        if (!check_validity())
+            goto fail;
+        // Accepted!
+        commit_move();
+        reset_move_state();
+        std::swap(tile2cell[std::make_pair(x, y)], tile2cell[std::make_pair(xn, yn)]);
+        return true;
+    fail:
+        revert_move();
+        reset_move_state();
+        return false;
+    }
+
+    void do_tile_swaps()
+    {
+        tile2cell.clear();
+        for (auto c : p.cells) {
+            auto loc = ctx->getBelLocation(c->bel);
+            tile2cell[std::make_pair(loc.x, loc.y)].push_back(c);
+        }
+        std::vector<std::pair<int, int>> tiles;
+        for (auto &t : tile2cell)
+            tiles.push_back(t.first);
+        rng.shuffle(tiles);
+        for (auto &t : tiles) {
+            int x = t.first, y = t.second;
+            int lx = std::max(x - g.radius, p.x0), rx = std::min(x + g.radius, p.x1);
+            int by = std::max(y - g.radius, p.y0), ty = std::min(y + g.radius, p.y1);
+            int xn = lx + ctx->rng((rx - lx) + 1);
+            int yn = by + ctx->rng((ty - by) + 1);
+            ++n_move;
+            if (do_tile_swap(x, y, xn, yn)) {
+                ++n_accept;
+            }
+        }
+    }
+
     void run_iter()
     {
         setup_initial_state();
@@ -246,6 +341,8 @@ struct ThreadState : DetailPlacerThreadState
                         ++n_accept;
                 }
             }
+            if ((m % 2) == 0)
+                do_tile_swaps();
         }
     }
 };
@@ -295,6 +392,8 @@ struct ParallelRefine
         for (auto &cell : ctx->cells) {
             IdString cell_type = cell.second->type;
             cell_types_in_use.insert(cell_type);
+            if (cell.second->cluster != ClusterId())
+                g.cluster2cells[cell.second->cluster].push_back(cell.second.get());
         }
 
         for (auto cell_type : cell_types_in_use) {
