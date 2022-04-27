@@ -390,7 +390,8 @@ void Arch::unbindWire(WireId wire)
         refreshUiPip(pip);
     }
 
-    uarch->notifyWireChange(wire, nullptr);
+    if (uarch)
+        uarch->notifyWireChange(wire, nullptr);
     net_wires.erase(wire);
     wire_info(wire).bound_net = nullptr;
     refreshUiWire(wire);
