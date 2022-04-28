@@ -42,11 +42,22 @@ enum LogicLevel
 
 struct LutCell
 {
+    enum class PinConnection
+    {
+        Unconnected,
+        Gnd,
+        Vcc,
+        Const,
+        Signal
+    };
+
     // LUT cell pins for equation, LSB first.
     std::vector<IdString> pins;
     pool<IdString> lut_pins;
-    pool<IdString> vcc_pins;
+    dict<IdString, PinConnection> pin_connections;
     DynamicBitarray<> equation;
+
+    static const std::string nameOfPinConnection(PinConnection conn);
 };
 
 struct LutBel

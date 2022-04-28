@@ -874,17 +874,26 @@ static void prepare_sites_for_routing(Context *ctx)
 
     // Fixup LUT vcc pins.
     IdString vcc_net_name(ctx->chip_info->constants->vcc_net_name);
+    IdString gnd_net_name(ctx->chip_info->constants->gnd_net_name);
+
+    IdString const_net_name(ctx->chip_info->constants->best_constant_net);
+    NPNR_ASSERT(const_net_name == vcc_net_name || const_net_name == gnd_net_name);
+
     for (BelId bel : ctx->getBels()) {
         CellInfo *cell = ctx->getBoundBelCell(bel);
         if (cell == nullptr) {
             continue;
         }
 
-        if (cell->lut_cell.vcc_pins.empty()) {
-            continue;
-        }
+        for (const auto &it : cell->lut_cell.pin_connections) {
+            const auto &bel_pin = it.first;
+            const auto &conn = it.second;
 
-        for (auto bel_pin : cell->lut_cell.vcc_pins) {
+            // Connected to an active signal or unconnected
+            if (conn == LutCell::PinConnection::Signal || conn == LutCell::PinConnection::Unconnected) {
+                continue;
+            }
+
             // We can't rely on bel pins not clashing with cell names (for Xilinx they use different naming schemes, for
             // Nexus they are the same) so add a prefix to the bel pin name to disambiguate it
             IdString cell_pin = ctx->id(stringf("%s_PHYS", ctx->nameOf(bel_pin)));
@@ -896,17 +905,37 @@ static void prepare_sites_for_routing(Context *ctx)
 
 #ifdef DEBUG_LUT_MAPPING
             if (ctx->verbose) {
-                log_info("%s must be tied to VCC, tying now\n", ctx->nameOfWire(lut_pin_wire));
+                log_info("%s must be tied to %s, tying now\n", ctx->nameOfWire(lut_pin_wire),
+                         LutCell::nameOfPinConnection(conn).c_str());
             }
 #endif
+
+            IdString tie_net_name;
+            switch (conn) {
+            case LutCell::PinConnection::Vcc:
+                tie_net_name = vcc_net_name;
+                break;
+            case LutCell::PinConnection::Gnd:
+                tie_net_name = gnd_net_name;
+                break;
+            case LutCell::PinConnection::Const:
+                tie_net_name = const_net_name;
+                break;
+            default:
+                // Should never happen
+                NPNR_ASSERT_FALSE(
+                        stringf("Invalid LUT cell pin connection '%s'", LutCell::nameOfPinConnection(conn).c_str())
+                                .c_str());
+                break;
+            }
 
             auto result = cell->ports.emplace(cell_pin, port_info);
             if (result.second) {
                 cell->cell_bel_pins[cell_pin].push_back(bel_pin);
-                ctx->connectPort(vcc_net_name, cell->name, cell_pin);
+                ctx->connectPort(tie_net_name, cell->name, cell_pin);
                 cell->const_ports.emplace(cell_pin);
             } else {
-                NPNR_ASSERT(result.first->second.net == ctx->getNetByAlias(vcc_net_name));
+                NPNR_ASSERT(result.first->second.net == ctx->getNetByAlias(tie_net_name));
                 auto result2 = cell->cell_bel_pins.emplace(cell_pin, std::vector<IdString>({bel_pin}));
                 NPNR_ASSERT(result2.first->second.at(0) == bel_pin);
                 NPNR_ASSERT(result2.first->second.size() == 1);

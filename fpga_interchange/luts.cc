@@ -47,14 +47,6 @@ bool rotate_and_merge_lut_equation(std::vector<LogicLevel> *result, const LutBel
             // This address line is 0, so don't translate this bit to the cell
             // address.
             if ((bel_address & (1 << bel_pin_idx)) == 0) {
-                // This pin is unused, so the line will be tied high, this
-                // address is unreachable.
-                //
-                // FIXME: The assumption is that unused pins are tied VCC.
-                // This is not generally true.
-                //
-                // Use Arch::prefered_constant_net_type to determine what
-                // constant net should be used for unused pins.
                 if ((used_pins & (1 << bel_pin_idx)) == 0) {
                     address_reachable = false;
                     break;
@@ -132,6 +124,26 @@ struct LutPin
     bool operator<(const LutPin &other) const { return max_pin < other.max_pin; }
 };
 
+const std::string LutCell::nameOfPinConnection(LutCell::PinConnection conn)
+{
+    switch (conn) {
+    case PinConnection::Unconnected:
+        return std::string("unconnected");
+    case PinConnection::Gnd:
+        return std::string("Gnd");
+    case PinConnection::Vcc:
+        return std::string("Vcc");
+    case PinConnection::Const:
+        return std::string("Const");
+    case PinConnection::Signal:
+        return std::string("Signal");
+    default:
+        // Should never happen
+        NPNR_ASSERT_FALSE("Invalid value of LutCell::PinConnection");
+        return std::string();
+    }
+}
+
 uint32_t LutMapper::check_wires(const Context *ctx) const
 {
     // Unlike the 3 argument version of check_wires, this version needs to
@@ -184,12 +196,7 @@ uint32_t LutMapper::check_wires(const std::vector<std::vector<int32_t>> &bel_to_
         }
     }
 
-    // FIXME: The assumption is that unused pins are tied VCC.
-    // This is not generally true.
-    //
-    // Use Arch::prefered_constant_net_type to determine what
-    // constant net should be used for unused pins.
-    uint32_t vcc_mask = 0;
+    uint32_t pin_mask = 0;
 
     DynamicBitarray<> wire_equation;
     wire_equation.resize(2);
@@ -248,11 +255,11 @@ uint32_t LutMapper::check_wires(const std::vector<std::vector<int32_t>> &bel_to_
 
         bool good_for_wire = valid_pin_for_wire && !invalid_pin_for_wire;
         if (!good_for_wire) {
-            vcc_mask |= (1 << pin_idx);
+            pin_mask |= (1 << pin_idx);
         }
     }
 
-    return vcc_mask;
+    return pin_mask;
 }
 
 bool LutMapper::remap_luts(const Context *ctx, SiteLutMappingResult *lut_mapping,
@@ -381,26 +388,18 @@ bool LutMapper::remap_luts(const Context *ctx, SiteLutMappingResult *lut_mapping
     }
 
     // Not all LUT inputs are used
-    uint32_t vcc_pins = 0;
+    uint32_t pin_mask = 0;
     if (cells.size() != element.lut_bels.size()) {
-        // Look to see if wires can be run from element inputs to unused
-        // outputs. If not, block the BEL pin by tying to VCC.
-        //
-        // FIXME: The assumption is that unused pins are tied VCC.
-        // This is not generally true.
-        //
-        // Use Arch::prefered_constant_net_type to determine what
-        // constant net should be used for unused pins.
-        vcc_pins = check_wires(bel_to_cell_pin_remaps, lut_bels, used_pins, blocked_luts);
-#if defined(DEBUG_LUT_ROTATION)
-        log_info("vcc_pins = 0x%x", vcc_pins);
-        for (size_t cell_idx = 0; cell_idx < cells.size(); ++cell_idx) {
-            CellInfo *cell = cells[cell_idx];
-            log(", %s => %s", ctx->nameOfBel(cell->bel), cell->name.c_str(ctx));
-        }
-        log("\n");
-#endif
+        pin_mask = check_wires(bel_to_cell_pin_remaps, lut_bels, used_pins, blocked_luts);
     }
+
+#if defined(DEBUG_LUT_ROTATION)
+    log_info("Cell bindings:\n");
+    for (size_t cell_idx = 0; cell_idx < cells.size(); ++cell_idx) {
+        CellInfo *cell = cells[cell_idx];
+        log_info(" - %s => %s\n", ctx->nameOfBel(cell->bel), cell->name.c_str(ctx));
+    }
+#endif
 
     // Fill in the LUT mapping result
 
@@ -422,27 +421,34 @@ bool LutMapper::remap_luts(const Context *ctx, SiteLutMappingResult *lut_mapping
             cell.belPins[cellPin] = belPin;
         }
 
-        cell.lutCell.vcc_pins.clear();
+        cell.lutCell.pin_connections.clear();
 
         // All LUT inputs used
         if (cells.size() == element.lut_bels.size()) {
             for (size_t bel_pin_idx = 0; bel_pin_idx < lutBel.pins.size(); ++bel_pin_idx) {
                 if ((used_pins & (1 << bel_pin_idx)) == 0) {
                     NPNR_ASSERT(bel_to_cell_pin_remaps[cell_idx][bel_pin_idx] == -1);
-                    cell.lutCell.vcc_pins.emplace(lutBel.pins.at(bel_pin_idx));
+                    cell.lutCell.pin_connections.emplace(lutBel.pins.at(bel_pin_idx), LutCell::PinConnection::Vcc);
                 }
             }
         }
         // Only some LUT inputs used
         else {
             for (size_t bel_pin_idx = 0; bel_pin_idx < lutBel.pins.size(); ++bel_pin_idx) {
-                if ((vcc_pins & (1 << bel_pin_idx)) != 0) {
+                if ((pin_mask & (1 << bel_pin_idx)) != 0) {
                     NPNR_ASSERT(bel_to_cell_pin_remaps[cell_idx][bel_pin_idx] == -1);
                     auto pin = lutBel.pins.at(bel_pin_idx);
-                    cell.lutCell.vcc_pins.emplace(pin);
+                    cell.lutCell.pin_connections.emplace(pin, LutCell::PinConnection::Vcc);
                 }
             }
         }
+
+#if defined(DEBUG_LUT_ROTATION)
+        log_info("Pin connections for LUT cell %s:\n", cellInfo->name.c_str(ctx));
+        for (const auto &it : cell.lutCell.pin_connections) {
+            log_info(" - %s : %s\n", it.first.c_str(ctx), LutCell::nameOfPinConnection(it.second).c_str());
+        }
+#endif
 
         lut_mapping->cells.push_back(cell);
     }
@@ -456,7 +462,7 @@ void check_equation(const LutCell &lut_cell, const dict<IdString, IdString> &cel
     std::vector<int8_t> pin_map;
     pin_map.resize(lut_bel.pins.size(), -1);
 
-    NPNR_ASSERT(lut_cell.pins.size() < std::numeric_limits<decltype(pin_map)::value_type>::max());
+    NPNR_ASSERT(lut_cell.pins.size() < (size_t)std::numeric_limits<decltype(pin_map)::value_type>::max());
 
     for (size_t cell_pin_idx = 0; cell_pin_idx < lut_cell.pins.size(); ++cell_pin_idx) {
         IdString cell_pin = lut_cell.pins[cell_pin_idx];
