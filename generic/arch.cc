@@ -43,6 +43,30 @@ WireId Arch::addWire(IdStringList name, IdString type, int x, int y)
     return wire;
 }
 
+WireId Arch::addWireAsBelInput(BelId bel, IdString name)
+{
+    Loc l = getBelLocation(bel);
+    WireId w = addWire(IdStringList::concat(getBelName(bel), name), name, l.x, l.y);
+    addBelInput(bel, name, w);
+    return w;
+}
+
+WireId Arch::addWireAsBelOutput(BelId bel, IdString name)
+{
+    Loc l = getBelLocation(bel);
+    WireId w = addWire(IdStringList::concat(getBelName(bel), name), name, l.x, l.y);
+    addBelOutput(bel, name, w);
+    return w;
+}
+
+WireId Arch::addWireAsBelInout(BelId bel, IdString name)
+{
+    Loc l = getBelLocation(bel);
+    WireId w = addWire(IdStringList::concat(getBelName(bel), name), name, l.x, l.y);
+    addBelInout(bel, name, w);
+    return w;
+}
+
 PipId Arch::addPip(IdStringList name, IdString type, WireId srcWire, WireId dstWire, delay_t delay, Loc loc)
 {
     NPNR_ASSERT(pip_by_name.count(name) == 0);

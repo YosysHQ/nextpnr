@@ -58,13 +58,15 @@ struct ViaductHelpers
     Context *ctx;
     void init(Context *ctx) { this->ctx = ctx; }
     // IdStringList components for x and y locations
-    std::vector<IdString> x_ids, y_ids;
-    void resize_ids(int x, int y);
+    std::vector<IdString> x_ids, y_ids, z_ids;
+    void resize_ids(int x, int y, int z = 0);
     // Get an IdStringList for a hierarchical ID
     // Because this uses an IdStringList with seperate X and Y components; this will be much more efficient than
     // creating unique strings for each object in each X and Y position
     IdStringList xy_id(int x, int y, IdString base);
     IdStringList xy_id(int x, int y, IdStringList base);
+    IdStringList xyz_id(int x, int y, int z, IdString base);
+    IdStringList xyz_id(int x, int y, int z, IdStringList base);
     // Common packing functions
     // Remove nextpnr-inserted IO buffers; where IO buffer insertion is done in synthesis
     // expects a set of top-level port types
