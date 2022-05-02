@@ -25,9 +25,9 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-void ViaductHelpers::resize_ids(int x, int y)
+void ViaductHelpers::resize_ids(int x, int y, int z)
 {
-    NPNR_ASSERT(x >= 0 && y >= 0 && x <= 20000 && y <= 20000);
+    NPNR_ASSERT(x >= 0 && y >= 0 && x <= 20000 && y <= 20000 && z <= 1000);
     while (int(x_ids.size()) <= x) {
         IdString next = ctx->id(stringf("X%d", int(x_ids.size())));
         x_ids.push_back(next);
@@ -35,6 +35,10 @@ void ViaductHelpers::resize_ids(int x, int y)
     while (int(y_ids.size()) <= y) {
         IdString next = ctx->id(stringf("Y%d", int(y_ids.size())));
         y_ids.push_back(next);
+    }
+    while (int(z_ids.size()) <= y) {
+        IdString next = ctx->id(stringf("Z%d", int(z_ids.size())));
+        z_ids.push_back(next);
     }
 }
 
@@ -49,6 +53,20 @@ IdStringList ViaductHelpers::xy_id(int x, int y, IdStringList base)
 {
     resize_ids(x, y);
     std::array<IdString, 2> prefix{x_ids.at(x), y_ids.at(y)};
+    return IdStringList::concat(IdStringList(prefix), base);
+}
+
+IdStringList ViaductHelpers::xyz_id(int x, int y, int z, IdString base)
+{
+    resize_ids(x, y, z);
+    std::array<IdString, 4> result{x_ids.at(x), y_ids.at(y), z_ids.at(z), base};
+    return IdStringList(result);
+}
+
+IdStringList ViaductHelpers::xyz_id(int x, int y, int z, IdStringList base)
+{
+    resize_ids(x, y, z);
+    std::array<IdString, 3> prefix{x_ids.at(x), y_ids.at(y), z_ids.at(z)};
     return IdStringList::concat(IdStringList(prefix), base);
 }
 

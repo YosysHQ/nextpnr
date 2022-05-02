@@ -201,6 +201,10 @@ struct Arch : BaseArch<ArchRanges>
     void addBelOutput(BelId bel, IdString name, WireId wire);
     void addBelInout(BelId bel, IdString name, WireId wire);
 
+    WireId addWireAsBelInput(BelId bel, IdString name);
+    WireId addWireAsBelOutput(BelId bel, IdString name);
+    WireId addWireAsBelInout(BelId bel, IdString name);
+
     void addGroupBel(IdStringList group, BelId bel);
     void addGroupWire(IdStringList group, WireId wire);
     void addGroupPip(IdStringList group, PipId pip);
