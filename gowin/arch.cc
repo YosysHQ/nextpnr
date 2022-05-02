@@ -691,13 +691,15 @@ void Arch::read_cst(std::istream &in)
     std::regex port_attrre = std::regex("([^ =;]+=[^ =;]+) *([^;]*;)");
     std::regex iobelre = std::regex("IO([TRBL])([0-9]+)\\[?([A-Z])\\]?");
     std::regex inslocre = std::regex("INS_LOC +\"([^\"]+)\" +R([0-9]+)C([0-9]+)\\[([0-9])\\]\\[([AB])\\] *;.*");
+    std::regex clockre = std::regex("CLOCK_LOC +\"([^\"]+)\" +BUF([GS])[^;]*;");
     std::smatch match, match_attr, match_pinloc;
     std::string line, pinline;
     enum
     {
         ioloc,
         ioport,
-        insloc
+        insloc,
+        clock
     } cst_type;
 
     settings.erase(id_cst);
@@ -708,24 +710,42 @@ void Arch::read_cst(std::istream &in)
             if (std::regex_match(line, match, portre)) {
                 cst_type = ioport;
             } else {
-                if (std::regex_match(line, match, inslocre)) {
-                    cst_type = insloc;
+                if (std::regex_match(line, match, clockre)) {
+                    cst_type = clock;
                 } else {
-                    if ((!line.empty()) && (line.rfind("//", 0) == std::string::npos)) {
-                        log_warning("Invalid constraint: %s\n", line.c_str());
+                    if (std::regex_match(line, match, inslocre)) {
+                        cst_type = insloc;
+                    } else {
+                        if ((!line.empty()) && (line.rfind("//", 0) == std::string::npos)) {
+                            log_warning("Invalid constraint: %s\n", line.c_str());
+                        }
+                        continue;
                     }
-                    continue;
                 }
             }
         }
 
         IdString net = id(match[1]);
         auto it = cells.find(net);
-        if (it == cells.end()) {
+        if (cst_type != clock && it == cells.end()) {
             log_info("Cell %s not found\n", net.c_str(this));
             continue;
         }
         switch (cst_type) {
+        case clock: { // CLOCK name BUFG|S
+            std::string which_clock = match[2];
+            if (which_clock.at(0) == 'S') {
+                auto ni = nets.find(net);
+                if (ni == nets.end()) {
+                    log_info("Net %s not found\n", net.c_str(this));
+                    continue;
+                }
+                log_info("Long wires are not implemented. The %s network will use normal routing.\n", net.c_str(this));
+            } else {
+                log_info("BUFG isn't supported\n");
+                continue;
+            }
+        } break;
         case ioloc: { // IO_LOC name pin
             IdString pinname = id(match[2]);
             pinline = match[2];
