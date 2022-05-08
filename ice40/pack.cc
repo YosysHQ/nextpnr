@@ -671,13 +671,6 @@ static void insert_global(Context *ctx, NetInfo *net, bool is_reset, bool is_cen
     for (auto &user : keep_users)
         user.cell->ports[user.port].user_idx = net->users.add(user);
 
-    if (net->clkconstr) {
-        glbnet->clkconstr = std::unique_ptr<ClockConstraint>(new ClockConstraint());
-        glbnet->clkconstr->low = net->clkconstr->low;
-        glbnet->clkconstr->high = net->clkconstr->high;
-        glbnet->clkconstr->period = net->clkconstr->period;
-    }
-
     ctx->cells[gb->name] = std::move(gb);
 }
 
@@ -801,6 +794,29 @@ static void promote_globals(Context *ctx)
             break;
         }
     }
+}
+
+static void copy_gb_constraints(Context *ctx)
+{
+    // Copy constraints through GBs and PLLs
+    bool did_something = false;
+    do {
+        did_something = false;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (!is_gbuf(ctx, ci))
+                continue;
+            NetInfo *in = ci->getPort(id_USER_SIGNAL_TO_GLOBAL_BUFFER);
+            NetInfo *out = ci->getPort(id_GLOBAL_BUFFER_OUTPUT);
+            if (in && out && in->clkconstr && !out->clkconstr) {
+                out->clkconstr = std::unique_ptr<ClockConstraint>(new ClockConstraint());
+                out->clkconstr->low = in->clkconstr->low;
+                out->clkconstr->high = in->clkconstr->high;
+                out->clkconstr->period = in->clkconstr->period;
+                did_something = true;
+            }
+        }
+    } while (did_something);
 }
 
 // Figure out where to place PLLs
@@ -1711,6 +1727,7 @@ bool Arch::pack()
         pack_plls(ctx);
         if (!bool_or_default(ctx->settings, id_no_promote_globals, false))
             promote_globals(ctx);
+        copy_gb_constraints(ctx);
         ctx->assignArchInfo();
         constrain_chains(ctx);
         ctx->fixupHierarchy();
