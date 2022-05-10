@@ -68,7 +68,7 @@ void CellInfo::connectPort(IdString port_name, NetInfo *net)
         user.port = port_name;
         port.user_idx = net->users.add(user);
     } else {
-        NPNR_ASSERT_FALSE("invalid port type for connect_port");
+        NPNR_ASSERT_FALSE("invalid port type for connectPort");
     }
 }
 
