@@ -428,7 +428,10 @@ bool LutMapper::remap_luts(const Context *ctx, SiteLutMappingResult *lut_mapping
             for (size_t bel_pin_idx = 0; bel_pin_idx < lutBel.pins.size(); ++bel_pin_idx) {
                 if ((used_pins & (1 << bel_pin_idx)) == 0) {
                     NPNR_ASSERT(bel_to_cell_pin_remaps[cell_idx][bel_pin_idx] == -1);
-                    cell.lutCell.pin_connections.emplace(lutBel.pins.at(bel_pin_idx), LutCell::PinConnection::Vcc);
+                    cell.lutCell.pin_connections.emplace(lutBel.pins.at(bel_pin_idx), LutCell::PinConnection::Const);
+                }
+                else {
+                    cell.lutCell.pin_connections.emplace(lutBel.pins.at(bel_pin_idx), LutCell::PinConnection::Signal);
                 }
             }
         }
@@ -438,7 +441,10 @@ bool LutMapper::remap_luts(const Context *ctx, SiteLutMappingResult *lut_mapping
                 if ((pin_mask & (1 << bel_pin_idx)) != 0) {
                     NPNR_ASSERT(bel_to_cell_pin_remaps[cell_idx][bel_pin_idx] == -1);
                     auto pin = lutBel.pins.at(bel_pin_idx);
-                    cell.lutCell.pin_connections.emplace(pin, LutCell::PinConnection::Vcc);
+                    cell.lutCell.pin_connections.emplace(pin, LutCell::PinConnection::Const);
+                }
+                else {
+                    cell.lutCell.pin_connections.emplace(lutBel.pins.at(bel_pin_idx), LutCell::PinConnection::Signal);
                 }
             }
         }
