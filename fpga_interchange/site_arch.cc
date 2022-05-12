@@ -140,7 +140,12 @@ SiteArch::SiteArch(const SiteInformation *site_info)
     IdString gnd_net_name(ctx->chip_info->constants->gnd_net_name);
 
     IdString const_net_name(ctx->chip_info->constants->best_constant_net);
-    NPNR_ASSERT(const_net_name == vcc_net_name || const_net_name == gnd_net_name);
+    NPNR_ASSERT(const_net_name == IdString() || const_net_name == vcc_net_name || const_net_name == gnd_net_name);
+
+    // FIXME: Use VCC if the architecture does not device the best constant
+    if (const_net_name == IdString()) {
+        const_net_name = vcc_net_name;
+    }
 
     for (CellInfo *cell : site_info->cells_in_site) {
         for (const auto &pin_pair : cell->cell_bel_pins) {

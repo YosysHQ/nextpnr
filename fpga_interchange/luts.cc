@@ -429,8 +429,7 @@ bool LutMapper::remap_luts(const Context *ctx, SiteLutMappingResult *lut_mapping
                 if ((used_pins & (1 << bel_pin_idx)) == 0) {
                     NPNR_ASSERT(bel_to_cell_pin_remaps[cell_idx][bel_pin_idx] == -1);
                     cell.lutCell.pin_connections.emplace(lutBel.pins.at(bel_pin_idx), LutCell::PinConnection::Const);
-                }
-                else {
+                } else {
                     cell.lutCell.pin_connections.emplace(lutBel.pins.at(bel_pin_idx), LutCell::PinConnection::Signal);
                 }
             }
@@ -442,8 +441,7 @@ bool LutMapper::remap_luts(const Context *ctx, SiteLutMappingResult *lut_mapping
                     NPNR_ASSERT(bel_to_cell_pin_remaps[cell_idx][bel_pin_idx] == -1);
                     auto pin = lutBel.pins.at(bel_pin_idx);
                     cell.lutCell.pin_connections.emplace(pin, LutCell::PinConnection::Const);
-                }
-                else {
+                } else {
                     cell.lutCell.pin_connections.emplace(lutBel.pins.at(bel_pin_idx), LutCell::PinConnection::Signal);
                 }
             }

@@ -301,6 +301,12 @@ void Arch::init()
     for (size_t tile_type = 0; tile_type < chip_info->tile_types.size(); ++tile_type) {
         pseudo_pip_data.init_tile_type(getCtx(), tile_type);
     }
+
+    // Warn if there is no preferred constant net defined in the architecture
+    IdString const_net_name(getCtx()->chip_info->constants->best_constant_net);
+    if (const_net_name == IdString()) {
+        log_warning("The architecture does not specify preferred constant net. Using VCC as default.\n");
+    }
 }
 
 // -----------------------------------------------------------------------
@@ -877,7 +883,12 @@ static void prepare_sites_for_routing(Context *ctx)
     IdString gnd_net_name(ctx->chip_info->constants->gnd_net_name);
 
     IdString const_net_name(ctx->chip_info->constants->best_constant_net);
-    NPNR_ASSERT(const_net_name == vcc_net_name || const_net_name == gnd_net_name);
+    NPNR_ASSERT(const_net_name == IdString() || const_net_name == vcc_net_name || const_net_name == gnd_net_name);
+
+    // FIXME: Use VCC if the architecture does not device the best constant
+    if (const_net_name == IdString()) {
+        const_net_name = vcc_net_name;
+    }
 
     for (BelId bel : ctx->getBels()) {
         CellInfo *cell = ctx->getBoundBelCell(bel);
