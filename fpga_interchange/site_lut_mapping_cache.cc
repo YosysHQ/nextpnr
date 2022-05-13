@@ -138,8 +138,8 @@ bool SiteLutMappingResult::apply(const SiteInformation &siteInfo)
         }
 
         // LUT data
-        // FIXME: Is there any other info that is being updated than vcc_pins ?
-        cellInfo->lut_cell.vcc_pins = std::move(cell.lutCell.vcc_pins);
+        // FIXME: Is there any other info that is being updated than pin_connections ?
+        cellInfo->lut_cell.pin_connections = std::move(cell.lutCell.pin_connections);
     }
 
     return true;

@@ -133,8 +133,20 @@ SiteArch::SiteArch(const SiteInformation *site_info)
     }
 
     // Create list of out of site sources and sinks.
-
     bool have_vcc_pins = false;
+    bool have_gnd_pins = false;
+
+    IdString vcc_net_name(ctx->chip_info->constants->vcc_net_name);
+    IdString gnd_net_name(ctx->chip_info->constants->gnd_net_name);
+
+    IdString const_net_name(ctx->chip_info->constants->best_constant_net);
+    NPNR_ASSERT(const_net_name == IdString() || const_net_name == vcc_net_name || const_net_name == gnd_net_name);
+
+    // FIXME: Use VCC if the architecture does not device the best constant
+    if (const_net_name == IdString()) {
+        const_net_name = vcc_net_name;
+    }
+
     for (CellInfo *cell : site_info->cells_in_site) {
         for (const auto &pin_pair : cell->cell_bel_pins) {
             if (!cell->ports.count(pin_pair.first))
@@ -145,8 +157,18 @@ SiteArch::SiteArch(const SiteInformation *site_info)
             }
         }
 
-        if (!cell->lut_cell.vcc_pins.empty()) {
-            have_vcc_pins = true;
+        for (const auto &conn : cell->lut_cell.pin_connections) {
+            if (conn.second == LutCell::PinConnection::Vcc) {
+                have_vcc_pins = true;
+            } else if (conn.second == LutCell::PinConnection::Gnd) {
+                have_gnd_pins = true;
+            } else if (conn.second == LutCell::PinConnection::Const) {
+                if (const_net_name == vcc_net_name) {
+                    have_vcc_pins = true;
+                } else if (const_net_name == gnd_net_name) {
+                    have_gnd_pins = true;
+                }
+            }
         }
     }
 
@@ -239,10 +261,9 @@ SiteArch::SiteArch(const SiteInformation *site_info)
         }
     }
 
-    IdString vcc_net_name(ctx->chip_info->constants->vcc_net_name);
     NetInfo *vcc_net = ctx->nets.at(vcc_net_name).get();
-    auto iter = nets.find(vcc_net);
-    if (iter == nets.end() && have_vcc_pins) {
+    auto vcc_iter = nets.find(vcc_net);
+    if (vcc_iter == nets.end() && have_vcc_pins) {
         // VCC net isn't present, add it.
         SiteNetInfo net_info;
         net_info.net = vcc_net;
@@ -250,13 +271,53 @@ SiteArch::SiteArch(const SiteInformation *site_info)
         net_info.driver.net = vcc_net;
         auto result = nets.emplace(vcc_net, net_info);
         NPNR_ASSERT(result.second);
-        iter = result.first;
+        vcc_iter = result.first;
+    }
+
+    NetInfo *gnd_net = ctx->nets.at(gnd_net_name).get();
+    auto gnd_iter = nets.find(gnd_net);
+    if (gnd_iter == nets.end() && have_gnd_pins) {
+        // GND net isn't present, add it.
+        SiteNetInfo net_info;
+        net_info.net = gnd_net;
+        net_info.driver.type = SiteWire::OUT_OF_SITE_SOURCE;
+        net_info.driver.net = gnd_net;
+        auto result = nets.emplace(gnd_net, net_info);
+        NPNR_ASSERT(result.second);
+        gnd_iter = result.first;
     }
 
     for (CellInfo *cell : site_info->cells_in_site) {
-        for (IdString vcc_pin : cell->lut_cell.vcc_pins) {
-            SiteWire wire = getBelPinWire(cell->bel, vcc_pin);
-            iter->second.users.emplace(wire);
+        for (const auto &it : cell->lut_cell.pin_connections) {
+            const auto &pin = it.first;
+            const auto &conn = it.second;
+
+            if (conn == LutCell::PinConnection::Unconnected || conn == LutCell::PinConnection::Signal) {
+                continue;
+            }
+
+            if (conn == LutCell::PinConnection::Vcc) {
+                SiteWire wire = getBelPinWire(cell->bel, pin);
+                vcc_iter->second.users.emplace(wire);
+            } else if (conn == LutCell::PinConnection::Gnd) {
+                SiteWire wire = getBelPinWire(cell->bel, pin);
+                gnd_iter->second.users.emplace(wire);
+            } else if (conn == LutCell::PinConnection::Const) {
+                SiteWire wire = getBelPinWire(cell->bel, pin);
+                if (const_net_name == vcc_net_name) {
+                    vcc_iter->second.users.emplace(wire);
+                }
+                if (const_net_name == gnd_net_name) {
+                    gnd_iter->second.users.emplace(wire);
+                }
+            }
+
+#ifdef DEBUG_LUT_MAPPING
+            if (ctx->verbose) {
+                log_info("Tying %s.%s to %s\n", cell->name.c_str(ctx), pin.c_str(ctx),
+                         LutCell::nameOfPinConnection(conn).c_str());
+            }
+#endif
         }
     }
 
