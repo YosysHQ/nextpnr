@@ -131,11 +131,6 @@ static Json::array report_detailed_net_timings(const Context *ctx)
 
         Json::array endpointsJson;
         for (const auto &sink_timing : it.second) {
-
-            // FIXME: Is it possible that there are multiple different start
-            // events for a single net? It has a single driver
-            NPNR_ASSERT(sink_timing.clock_pair.start == start);
-
             auto endpointJson = Json::object({{"cell", sink_timing.cell_port.first.c_str(ctx)},
                                               {"port", sink_timing.cell_port.second.c_str(ctx)},
                                               {"event", clock_event_name(ctx, sink_timing.clock_pair.end)},
