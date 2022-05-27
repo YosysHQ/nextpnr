@@ -533,11 +533,10 @@ struct NexusFasmWriter
     void write_dcc(const CellInfo *cell)
     {
         BelId bel = cell->bel;
-        push_tile(bel.tile);
-        push_belname(bel);
+        push_bel(bel);
         write_bit("DCCEN.1"); // Explicit DCC cell implies a clock buffer
         write_cell_muxes(cell);
-        pop(2);
+        pop();
     }
     // Write config for DCS
     void write_dcs(const CellInfo *cell)
