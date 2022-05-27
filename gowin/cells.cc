@@ -69,6 +69,9 @@ std::unique_ptr<CellInfo> create_generic_cell(Context *ctx, IdString type, std::
         new_cell->addOutput(id_G);
     } else if (type == id_VCC) {
         new_cell->addOutput(id_V);
+    } else if (type == id_BUFS) {
+        new_cell->addInput(id_I);
+        new_cell->addOutput(id_O);
     } else {
         log_error("unable to create generic cell of type %s\n", type.c_str(ctx));
     }

@@ -459,6 +459,9 @@ struct Arch : BaseArch<ArchRanges>
     void assignArchInfo() override;
     bool cellsCompatible(const CellInfo **cells, int count) const;
     bool haveBelType(int x, int y, IdString bel_type);
+    bool allocate_longwire(NetInfo *ni, int lw_idx = -1);
+    void fix_longwire_bels();
+
     // chip db version
     unsigned int const chipdb_version = 1;
 
@@ -475,6 +478,9 @@ struct Arch : BaseArch<ArchRanges>
     // XXX GW1NR-9 iobuf quirk
     bool gw1n9_quirk = false;
 
+    // 8 Long wires
+    uint8_t avail_longwires = 0xff;
+
     // Permissible combinations of modes in a single slice
     std::map<const IdString, IdString> dff_comp_mode;
 };
@@ -487,7 +493,9 @@ enum
     iologic_0_z = 20, // start Z for the IOLOGIC bels
     vcc_0_z = 277,    // virtual VCC bel Z
     gnd_0_z = 278,    // virtual VSS bel Z
-    osc_z = 280       // Z for the oscillator bels
+    osc_z = 280,      // Z for the oscillator bels
+    bufs_0_z = 281,   // Z for long wire buffer bel
+    free_z = 289      // Must be the last, one can use z starting from this value, adjust accordingly.
 };
 }
 

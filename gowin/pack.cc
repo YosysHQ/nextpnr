@@ -947,9 +947,11 @@ static void pack_io(Context *ctx)
             if (constr_bel != ci->attrs.end()) {
                 constr_bel_name = constr_bel->second.as_string();
             }
-            constr_bel = iob->attrs.find(id_BEL);
-            if (constr_bel != iob->attrs.end()) {
-                constr_bel_name = constr_bel->second.as_string();
+            if (iob != nullptr) {
+                constr_bel = iob->attrs.find(id_BEL);
+                if (constr_bel != iob->attrs.end()) {
+                    constr_bel_name = constr_bel->second.as_string();
+                }
             }
             if (!constr_bel_name.empty()) {
                 BelId constr_bel = ctx->getBelByNameStr(constr_bel_name);
