@@ -166,4 +166,37 @@ void gwio_to_iob(Context *ctx, CellInfo *nxio, CellInfo *iob, pool<IdString> &to
     }
 }
 
+void sram_to_ramw_split(Context *ctx, CellInfo *ram, CellInfo *ramw)
+{
+    if (ramw->hierpath == IdString())
+        ramw->hierpath = ramw->hierpath;
+    ram->movePortTo(ctx->id("WAD[0]"), ramw, id_A4);
+    ram->movePortTo(ctx->id("WAD[1]"), ramw, id_B4);
+    ram->movePortTo(ctx->id("WAD[2]"), ramw, id_C4);
+    ram->movePortTo(ctx->id("WAD[3]"), ramw, id_D4);
+
+    ram->movePortTo(ctx->id("DI[0]"), ramw, id_A5);
+    ram->movePortTo(ctx->id("DI[1]"), ramw, id_B5);
+    ram->movePortTo(ctx->id("DI[2]"), ramw, id_C5);
+    ram->movePortTo(ctx->id("DI[3]"), ramw, id_D5);
+    
+    ram->movePortTo(ctx->id("CLK"), ramw, id_CLK);
+    ram->movePortTo(ctx->id("WRE"), ramw, id_LSR);
+}
+
+void sram_to_slice(Context *ctx, CellInfo *ram, CellInfo *slice, int index)
+{
+    char buf1[32];
+    if (slice->hierpath == IdString())
+        slice->hierpath = slice->hierpath;
+
+    snprintf(buf1, 32, "DO[%d]", index);
+    ram->movePortTo(ctx->id(buf1), slice, id_F);
+
+    ram->copyPortTo(ctx->id("RAD[0]"), slice, id_A);
+    ram->copyPortTo(ctx->id("RAD[1]"), slice, id_B);
+    ram->copyPortTo(ctx->id("RAD[2]"), slice, id_C);
+    ram->copyPortTo(ctx->id("RAD[3]"), slice, id_D);
+}
+
 NEXTPNR_NAMESPACE_END

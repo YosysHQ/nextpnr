@@ -748,6 +748,19 @@ X(DFFNPE)
 X(DFFNC)
 X(DFFNCE)
 
+// Shadow RAM
+X(RAMW)
+X(RAM16SDP4)
+X(WADA)
+X(WADB)
+X(WADC)
+X(WADD)
+X(DIA)
+X(DIB)
+X(DIC)
+X(DID)
+X(WRE)
+
 // IOB types
 X(IBUF)
 X(OBUF)

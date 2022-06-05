@@ -692,6 +692,89 @@ static void pack_gsr(Context *ctx)
     }
 }
 
+// Pack shadow RAM
+void pack_sram(Context *ctx)
+{
+    pool<IdString> packed_cells;
+    std::vector<std::unique_ptr<CellInfo>> new_cells;
+
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
+        if (is_sram(ctx, ci)) {
+
+            // Create RAMW slice
+            std::unique_ptr<CellInfo> ramw_slice =
+                    create_generic_cell(ctx, id_RAMW, ci->name.str(ctx) + "$RAMW_SLICE");
+            sram_to_ramw_split(ctx, ci, ramw_slice.get());
+
+            // Create actual RAM slices
+            std::unique_ptr<CellInfo> ram_comb[4];
+            for (int i = 0; i < 4; i++) {
+                ram_comb[i] = create_generic_cell(ctx, id_SLICE,
+                                                ci->name.str(ctx) + "$SRAM_SLICE" + std::to_string(i));
+                sram_to_slice(ctx, ci, ram_comb[i].get(), i);
+            }
+            // Create 'block' SLICEs as a placement hint that these cells are mutually exclusive with the RAMW
+            std::unique_ptr<CellInfo> ramw_block[2];
+            for (int i = 0; i < 2; i++) {
+                ramw_block[i] = create_generic_cell(ctx, id_SLICE,
+                                                    ci->name.str(ctx) + "$RAMW_BLOCK" + std::to_string(i));
+                ramw_block[i]->params[id_FF_TYPE] = std::string("RAMW_BLOCK");
+            }
+
+            // Disconnect ports of original cell after packing
+            // ci->disconnectPort(id_WCK);
+            // ci->disconnectPort(id_WRE);
+
+            for (int i = 0; i < 4; i++)
+                ci->disconnectPort(ctx->id(stringf("RAD[%d]", i)));
+
+            // Setup placement constraints
+            // Use the 0th bit as an anchor
+            ram_comb[0]->constr_abs_z = true;
+            ram_comb[0]->constr_z = 0;
+            ram_comb[0]->cluster = ram_comb[0]->name;
+            for (int i = 1; i < 4; i++) {
+                ram_comb[i]->cluster = ram_comb[0]->name;
+                ram_comb[i]->constr_abs_z = true;
+                ram_comb[i]->constr_x = 0;
+                ram_comb[i]->constr_y = 0;
+                ram_comb[i]->constr_z = i;
+                ram_comb[0]->constr_children.push_back(ram_comb[i].get());
+            }
+            for (int i = 0; i < 2; i++) {
+                ramw_block[i]->cluster = ram_comb[0]->name;
+                ramw_block[i]->constr_abs_z = true;
+                ramw_block[i]->constr_x = 0;
+                ramw_block[i]->constr_y = 0;
+                ramw_block[i]->constr_z = i + 4;
+                ram_comb[0]->constr_children.push_back(ramw_block[i].get());
+            }
+
+            ramw_slice->cluster = ram_comb[0]->name;
+            ramw_slice->constr_abs_z = true;
+            ramw_slice->constr_x = 0;
+            ramw_slice->constr_y = 0;
+            ramw_slice->constr_z = 4;
+            ram_comb[0]->constr_children.push_back(ramw_slice.get());
+
+            for (int i = 0; i < 4; i++)
+                new_cells.push_back(std::move(ram_comb[i]));
+            for (int i = 0; i < 2; i++)
+                new_cells.push_back(std::move(ramw_block[i]));
+            new_cells.push_back(std::move(ramw_slice));
+            packed_cells.insert(ci->name);
+        }
+    }
+    for (auto pcell : packed_cells) {
+        ctx->cells.erase(pcell);
+    }
+    for (auto &ncell : new_cells) {
+        ctx->cells[ncell->name] = std::move(ncell);
+    }
+}
+
+
 static bool is_nextpnr_iob(const Context *ctx, CellInfo *cell)
 {
     return cell->type == ctx->id("$nextpnr_ibuf") || cell->type == ctx->id("$nextpnr_obuf") ||

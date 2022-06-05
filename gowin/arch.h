@@ -344,6 +344,7 @@ struct Arch : BaseArch<ArchRanges>
     DelayQuad getWireTypeDelay(IdString wire);
     void read_cst(std::istream &in);
     void addMuxBels(const DatabasePOD *db, int row, int col);
+    void addShadowRamBels(const DatabasePOD *db, int row, int col);
 
     // ---------------------------------------------------------------
     // Common Arch API. Every arch must provide the following methods.
@@ -485,6 +486,7 @@ enum
 {
     mux_0_z = 10,     // start Z for the MUX2LUT5 bels
     iologic_0_z = 20, // start Z for the IOLOGIC bels
+    lutram_0_z = 30, // start Z for the IOLOGIC bels
     vcc_0_z = 277,    // virtual VCC bel Z
     gnd_0_z = 278,    // virtual VSS bel Z
     osc_z = 280       // Z for the oscillator bels

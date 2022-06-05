@@ -791,6 +791,39 @@ void Arch::read_cst(std::istream &in)
     settings[id_cst] = 1;
 }
 
+void Arch::addShadowRamBels(const DatabasePOD *db, int row, int col)
+{
+    IdString belname, bel_id;
+    char buf[32];
+    snprintf(buf, 32, "R%dC%d_RAMW", row + 1, col + 1);
+    belname = id(buf);
+    addBel(belname, id_RAMW, Loc(col, row, BelZ::lutram_0_z), false);
+
+    snprintf(buf, 32, "R%dC%d_A%d", row + 1, col + 1, 4);
+    addBelInput(belname, id_A4, id(buf));
+    snprintf(buf, 32, "R%dC%d_B%d", row + 1, col + 1, 4);
+    addBelInput(belname, id_B4, id(buf));
+    snprintf(buf, 32, "R%dC%d_C%d", row + 1, col + 1, 4);
+    addBelInput(belname, id_C4, id(buf));
+    snprintf(buf, 32, "R%dC%d_D%d", row + 1, col + 1, 4);
+    addBelInput(belname, id_D4, id(buf));
+
+    snprintf(buf, 32, "R%dC%d_A%d", row + 1, col + 1, 5);
+    addBelInput(belname, id_A5, id(buf));
+    snprintf(buf, 32, "R%dC%d_B%d", row + 1, col + 1, 5);
+    addBelInput(belname, id_B5, id(buf));
+    snprintf(buf, 32, "R%dC%d_C%d", row + 1, col + 1, 5);
+    addBelInput(belname, id_C5, id(buf));
+    snprintf(buf, 32, "R%dC%d_D%d", row + 1, col + 1, 5);
+    addBelInput(belname, id_D5, id(buf));
+
+    snprintf(buf, 32, "R%dC%d_CLK%d", row + 1, col + 1, 2);
+    addBelInput(belname, id_CLK, id(buf));
+    snprintf(buf, 32, "R%dC%d_LSR%d", row + 1, col + 1, 2);
+    addBelInput(belname, id_LSR, id(buf));
+}
+
+
 // Add all MUXes for the cell
 void Arch::addMuxBels(const DatabasePOD *db, int row, int col)
 {
@@ -1111,6 +1144,9 @@ Arch::Arch(ArchArgs args) : args(args)
                 }
                 if (z == 0) {
                     addMuxBels(db, row, col);
+                }
+                if (z == 4) {
+                    addShadowRamBels(db, row, col);
                 }
                 if (z % 2 == 0) {
                     snprintf(buf, 32, "R%dC%d_LUT_GRP%d", row + 1, col + 1, z);
