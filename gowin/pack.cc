@@ -695,6 +695,8 @@ static void pack_gsr(Context *ctx)
 // Pack shadow RAM
 void pack_sram(Context *ctx)
 {
+    log_info("Packing Shadow RAM..\n");
+
     pool<IdString> packed_cells;
     std::vector<std::unique_ptr<CellInfo>> new_cells;
 
@@ -755,7 +757,7 @@ void pack_sram(Context *ctx)
             ramw_slice->constr_abs_z = true;
             ramw_slice->constr_x = 0;
             ramw_slice->constr_y = 0;
-            ramw_slice->constr_z = 4;
+            ramw_slice->constr_z = BelZ::lutram_0_z;
             ram_comb[0]->constr_children.push_back(ramw_slice.get());
 
             for (int i = 0; i < 4; i++)
@@ -1091,6 +1093,7 @@ bool Arch::pack()
     try {
         log_break();
         pack_constants(ctx);
+        pack_sram(ctx);
         pack_gsr(ctx);
         pack_io(ctx);
         pack_diff_io(ctx);

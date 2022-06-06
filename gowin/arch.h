@@ -344,7 +344,6 @@ struct Arch : BaseArch<ArchRanges>
     DelayQuad getWireTypeDelay(IdString wire);
     void read_cst(std::istream &in);
     void addMuxBels(const DatabasePOD *db, int row, int col);
-    void addShadowRamBels(const DatabasePOD *db, int row, int col);
 
     // ---------------------------------------------------------------
     // Common Arch API. Every arch must provide the following methods.

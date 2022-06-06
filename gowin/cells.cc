@@ -48,6 +48,13 @@ std::unique_ptr<CellInfo> create_generic_cell(Context *ctx, IdString type, std::
         new_cell->addOutput(id_Q);
         new_cell->addInput(id_CE);
         new_cell->addInput(id_LSR);
+    } else if (type == id_RAMW) {
+        IdString names[8] = {id_A4, id_B4, id_C4, id_D4, id_A5, id_B5, id_C5, id_D5};
+        for (int i = 0; i < 8; i++) {
+            new_cell->addInput(names[i]);
+        }
+        new_cell->addInput(id_CLK);
+        new_cell->addInput(id_LSR);
     } else if (type == id_GW_MUX2_LUT5 || type == id_GW_MUX2_LUT6 || type == id_GW_MUX2_LUT7 ||
                type == id_GW_MUX2_LUT7 || type == id_GW_MUX2_LUT8) {
         new_cell->addInput(id_I0);
@@ -189,6 +196,9 @@ void sram_to_slice(Context *ctx, CellInfo *ram, CellInfo *slice, int index)
     char buf1[32];
     if (slice->hierpath == IdString())
         slice->hierpath = slice->hierpath;
+
+    snprintf(buf1, 32, "INIT_%d", index);
+    slice->params[id_INIT] = ram->params[ctx->id(buf1)];
 
     snprintf(buf1, 32, "DO[%d]", index);
     ram->movePortTo(ctx->id(buf1), slice, id_F);
