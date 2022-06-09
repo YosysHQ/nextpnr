@@ -34,6 +34,8 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+const PairPOD *pairLookup(const PairPOD *list, const size_t len, const int dest);
+
 // GUI
 void Arch::fixClockSpineDecals(void)
 {
@@ -627,7 +629,15 @@ IdString Arch::wireToGlobal(int &row, int &col, const DatabasePOD *db, IdString 
     }
     snprintf(buf, 32, "%c%d0", direction, num);
     wire = id(buf);
-    snprintf(buf, 32, "R%dC%d_%c%d", row + 1, col + 1, direction, num);
+    // local aliases
+    const TilePOD *tile = db->grid[row * db->cols + col].get();
+    auto local_alias = pairLookup(tile->aliases.get(), tile->num_aliases, wire.index);
+    if (local_alias != nullptr) {
+        wire = IdString(local_alias->src_id);
+        snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, wire.c_str(this));
+    } else {
+        snprintf(buf, 32, "R%dC%d_%c%d", row + 1, col + 1, direction, num);
+    }
     return id(buf);
 }
 
@@ -1491,12 +1501,6 @@ Arch::Arch(ArchArgs args) : args(args)
                 snprintf(buf, 32, "R%dC%d_%s_%s", row + 1, col + 1, srcid.c_str(this), destid.c_str(this));
                 IdString pipname = id(buf);
                 DelayQuad delay = getWireTypeDelay(destid);
-                // local alias
-                auto local_alias = pairLookup(tile->aliases.get(), tile->num_aliases, srcid.index);
-                if (local_alias != nullptr) {
-                    srcid = IdString(local_alias->src_id);
-                    gsrcname = wireToGlobal(srcrow, srccol, db, srcid);
-                }
                 // global alias
                 srcid = IdString(pip.src_id);
                 GlobalAliasPOD alias;
