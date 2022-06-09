@@ -23,6 +23,7 @@
 #include "arch_pybindings.h"
 #include "nextpnr.h"
 #include "pybindings.h"
+#include "bitstream.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -69,6 +70,8 @@ void arch_wrap_python(py::module &m)
     WRAP_MAP_UPTR(m, CellMap, "IdCellMap");
     WRAP_MAP_UPTR(m, NetMap, "IdNetMap");
     WRAP_MAP(m, HierarchyMap, wrap_context<HierarchicalCell &>, "HierarchyMap");
+
+    m.def("write_bitstream", &write_bitstream);
 }
 
 NEXTPNR_NAMESPACE_END
