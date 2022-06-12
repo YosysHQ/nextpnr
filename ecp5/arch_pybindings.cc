@@ -21,9 +21,9 @@
 #ifndef NO_PYTHON
 
 #include "arch_pybindings.h"
+#include "bitstream.h"
 #include "nextpnr.h"
 #include "pybindings.h"
-#include "bitstream.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
