@@ -1094,6 +1094,8 @@ Arch::Arch(ArchArgs args) : args(args)
                 addBelInput(belname, id_CLK, id(buf));
                 snprintf(buf, 32, "R%dC%d_LSR%d", row + 1, col + 1, 2);
                 addBelInput(belname, id_LSR, id(buf));
+                snprintf(buf, 32, "R%dC%d_CE%d", row + 1, col + 1, 2);
+                addBelInput(belname, id_CE, id(buf));
                 break;
             // fall through the ++
             case ID_LUT7:

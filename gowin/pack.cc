@@ -708,6 +708,7 @@ void pack_sram(Context *ctx)
             std::unique_ptr<CellInfo> ramw_slice =
                     create_generic_cell(ctx, id_RAMW, ci->name.str(ctx) + "$RAMW_SLICE");
             sram_to_ramw_split(ctx, ci, ramw_slice.get());
+            ramw_slice->connectPort(id_CE, ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
 
             // Create actual RAM slices
             std::unique_ptr<CellInfo> ram_comb[4];

@@ -54,6 +54,7 @@ std::unique_ptr<CellInfo> create_generic_cell(Context *ctx, IdString type, std::
             new_cell->addInput(names[i]);
         }
         new_cell->addInput(id_CLK);
+        new_cell->addInput(id_CE);
         new_cell->addInput(id_LSR);
     } else if (type == id_GW_MUX2_LUT5 || type == id_GW_MUX2_LUT6 || type == id_GW_MUX2_LUT7 ||
                type == id_GW_MUX2_LUT7 || type == id_GW_MUX2_LUT8) {
