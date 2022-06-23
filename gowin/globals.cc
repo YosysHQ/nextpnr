@@ -2,6 +2,7 @@
  *  nextpnr -- Next Generation Place and Route
  *
  *  Copyright (C) 2018  gatecat <gatecat@ds0.me>
+ *  Copyright (C) 2022  YRabbit <rabbit@yrabbit.cyou>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -63,7 +64,7 @@ class GowinGlobalRouter
 
     bool is_clock_port(PortRef const &user)
     {
-        if (user.cell->type == id_SLICE && user.port == id_CLK) {
+        if ((user.cell->type == id_SLICE || user.cell->type == id_ODDR || user.cell->type == id_ODDRC) && user.port == id_CLK) {
             return true;
         }
         return false;
@@ -78,12 +79,12 @@ class GowinGlobalRouter
             return WireId();
         }
         // clock IOs have pips output->SPINExx
-        BelInfo &bel = ctx->bels.at(driver.cell->bel);
+        BelInfo &bel = ctx->bel_info(driver.cell->bel);
         if (bel.type != id_IOB) {
             return WireId();
         }
         WireId wire = bel.pins[id_O].wire;
-        for (auto const &pip : ctx->getPipsDownhill(wire)) {
+        for (auto const pip : ctx->getPipsDownhill(wire)) {
             if (ctx->wire_info(ctx->getPipDstWire(pip)).type.str(ctx).rfind("SPINE", 0) == 0) {
                 return wire;
             }
@@ -132,7 +133,7 @@ class GowinGlobalRouter
         static std::vector<IdString> one_hop = {id_S111, id_S121, id_N111, id_N121, id_W111, id_W121, id_E111, id_E121};
         char buf[40];
         // uphill pips
-        for (auto const &uphill : ctx->getPipsUphill(dstWire)) {
+        for (auto const uphill : ctx->getPipsUphill(dstWire)) {
             WireId srcWire = ctx->getPipSrcWire(uphill);
             if (find(one_hop.begin(), one_hop.end(), ctx->wire_info(ctx->getPipSrcWire(uphill)).type) !=
                 one_hop.end()) {
@@ -197,7 +198,7 @@ class GowinGlobalRouter
                         log_info("  Can't find route to %s, net %s will be routed in a standard way.\n",
                                  dstWire.c_str(ctx), net.name.c_str(ctx));
                     }
-                    for (IdString const &undo : undo_wires) {
+                    for (IdString const undo : undo_wires) {
                         used_wires.erase(undo);
                     }
                     return;
@@ -243,7 +244,7 @@ class GowinGlobalRouter
             // meantime, we define in run-time in a completely suboptimal way.
             std::vector<std::string> clock_spine;
             dstWire = ctx->getPipSrcWire(gt_pip_id);
-            for (auto const &uphill_pip : ctx->getPipsUphill(dstWire)) {
+            for (auto const uphill_pip : ctx->getPipsUphill(dstWire)) {
                 std::string name = ctx->wire_info(ctx->getPipSrcWire(uphill_pip)).type.str(ctx);
                 if (name.rfind("SPINE", 0) == 0) {
                     clock_spine.push_back(name);
@@ -275,7 +276,7 @@ class GowinGlobalRouter
             dstWire = ctx->getPipSrcWire(spine_pip_id);
             dstWireInfo = ctx->wire_info(dstWire);
             PipId io_pip_id = PipId();
-            for (auto const &uphill_pip : ctx->getPipsUphill(dstWire)) {
+            for (auto const uphill_pip : ctx->getPipsUphill(dstWire)) {
                 if (ctx->getPipSrcWire(uphill_pip) == net.clock_io_wire) {
                     io_pip_id = uphill_pip;
                 }

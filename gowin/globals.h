@@ -2,6 +2,7 @@
  *  nextpnr -- Next Generation Place and Route
  *
  *  Copyright (C) 2018  gatecat <gatecat@ds0.me>
+ *  Copyright (C) 2022  YRabbit <rabbit@yrabbit.cyou>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
