@@ -289,6 +289,7 @@ struct Arch : BaseArch<ArchRanges>
     WireInfo &wire_info(IdString wire);
     PipInfo &pip_info(IdString pip);
     BelInfo &bel_info(IdString bel);
+    NetInfo &net_info(IdString net);
 
     std::vector<IdString> bel_ids, wire_ids, pip_ids;
 

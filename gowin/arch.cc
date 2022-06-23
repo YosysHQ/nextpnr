@@ -25,6 +25,7 @@
 #include <regex>
 #include "embed.h"
 #include "gfx.h"
+#include "globals.h"
 #include "nextpnr.h"
 #include "placer1.h"
 #include "placer_heap.h"
@@ -339,6 +340,14 @@ BelInfo &Arch::bel_info(IdString bel)
     if (b == bels.end())
         NPNR_ASSERT_FALSE_STR("no bel named " + bel.str(this));
     return b->second;
+}
+
+NetInfo &Arch::net_info(IdString net)
+{
+    auto b = nets.find(net);
+    if (b == nets.end())
+        NPNR_ASSERT_FALSE_STR("no net named " + net.str(this));
+    return *b->second;
 }
 
 void Arch::addWire(IdString name, IdString type, int x, int y)
@@ -657,6 +666,7 @@ bool aliasCompare(GlobalAliasPOD i, GlobalAliasPOD j)
     return (i.dest_row < j.dest_row) || (i.dest_row == j.dest_row && i.dest_col < j.dest_col) ||
            (i.dest_row == j.dest_row && i.dest_col == j.dest_col && i.dest_id < j.dest_id);
 }
+
 bool timingCompare(TimingPOD i, TimingPOD j) { return i.name_id < j.name_id; }
 
 template <class T, class C> const T *genericLookup(const T *first, int len, const T val, C compare)
@@ -1865,6 +1875,11 @@ bool Arch::place()
 bool Arch::route()
 {
     std::string router = str_or_default(settings, id_router, defaultRouter);
+
+    if (bool_or_default(settings, id("arch.enable-globals"))) {
+        route_gowin_globals(getCtx());
+    }
+
     bool result;
     if (router == "router1") {
         result = router1(getCtx(), Router1Cfg(getCtx()));
