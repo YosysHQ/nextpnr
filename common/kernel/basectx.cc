@@ -131,6 +131,30 @@ void BaseCtx::constrainCellToRegion(IdString cell, IdString region_name)
     if (!matched)
         log_warning("No cell matched '%s' when constraining to region '%s'\n", nameOf(cell), nameOf(region_name));
 }
+
+void BaseCtx::createRegionPlug(IdString name, IdString type, Loc approx_loc)
+{
+    CellInfo *cell = nullptr;
+    if (cells.count(name))
+        cell = cells.at(name).get();
+    else
+        cell = createCell(name, type);
+    cell->pseudo_cell = std::make_unique<RegionPlug>(approx_loc);
+}
+
+void BaseCtx::addPlugPin(IdString plug, IdString pin, PortType dir, WireId wire)
+{
+    if (!cells.count(plug))
+        log_error("no cell named '%s' found\n", plug.c_str(this));
+    CellInfo *ci = cells.at(plug).get();
+    RegionPlug *rplug = dynamic_cast<RegionPlug *>(ci->pseudo_cell.get());
+    if (!rplug)
+        log_error("cell '%s' is not a RegionPlug\n", plug.c_str(this));
+    rplug->port_wires[pin] = wire;
+    ci->ports[pin].name = pin;
+    ci->ports[pin].type = dir;
+}
+
 DecalXY BaseCtx::constructDecalXY(DecalId decal, float x, float y)
 {
     DecalXY dxy;

@@ -151,3 +151,9 @@ fn_wrapper_1a<Context, decltype(&Context::getDelayFromNS), &Context::getDelayFro
 
 fn_wrapper_1a<Context, decltype(&Context::getDelayNS), &Context::getDelayNS, pass_through<double>,
               pass_through<delay_t>>::def_wrap(ctx_cls, "getDelayNS");
+
+fn_wrapper_3a_v<Context, decltype(&Context::createRegionPlug), &Context::createRegionPlug, conv_from_str<IdString>,
+                conv_from_str<IdString>, pass_through<Loc>>::def_wrap(ctx_cls, "createRegionPlug");
+fn_wrapper_4a_v<Context, decltype(&Context::addPlugPin), &Context::addPlugPin, conv_from_str<IdString>,
+                conv_from_str<IdString>, pass_through<PortType>, conv_from_str<WireId>>::def_wrap(ctx_cls,
+                                                                                                  "addPlugPin");

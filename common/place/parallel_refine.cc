@@ -390,6 +390,8 @@ struct ParallelRefine
         // Setup fast bels map
         pool<IdString> cell_types_in_use;
         for (auto &cell : ctx->cells) {
+            if (cell.second->isPseudo())
+                continue;
             IdString cell_type = cell.second->type;
             cell_types_in_use.insert(cell_type);
             if (cell.second->cluster != ClusterId())

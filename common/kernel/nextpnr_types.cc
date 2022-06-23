@@ -177,4 +177,14 @@ void CellInfo::copyPortBusTo(IdString old_name, int old_offset, bool old_bracket
     }
 }
 
+Loc CellInfo::getLocation() const
+{
+    if (pseudo_cell) {
+        return pseudo_cell->getLocation();
+    } else {
+        NPNR_ASSERT(bel != BelId());
+        return ctx->getBelLocation(bel);
+    }
+}
+
 NEXTPNR_NAMESPACE_END

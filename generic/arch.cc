@@ -605,7 +605,7 @@ bool Arch::place()
         bool have_iobuf_or_constr = false;
         for (auto &cell : cells) {
             CellInfo *ci = cell.second.get();
-            if (ci->type == id("GENERIC_IOB") || ci->bel != BelId() || ci->attrs.count(id("BEL"))) {
+            if (ci->isPseudo() || ci->type == id("GENERIC_IOB") || ci->bel != BelId() || ci->attrs.count(id("BEL"))) {
                 have_iobuf_or_constr = true;
                 break;
             }

@@ -65,6 +65,24 @@ struct Context : Arch, DeterministicRNG
                              dict<WireId, PipId> *route = nullptr, bool useEstimate = true);
 
     // --------------------------------------------------------------
+    // Dispatch to the Arch API or pseudo-cell API accordingly
+    bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const override
+    {
+        return cell->pseudo_cell ? cell->pseudo_cell->getDelay(fromPort, toPort, delay)
+                                 : Arch::getCellDelay(cell, fromPort, toPort, delay);
+    }
+    TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const override
+    {
+        return cell->pseudo_cell ? cell->pseudo_cell->getPortTimingClass(port, clockInfoCount)
+                                 : Arch::getPortTimingClass(cell, port, clockInfoCount);
+    }
+    TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const override
+    {
+        return cell->pseudo_cell ? cell->pseudo_cell->getPortClockingInfo(port, index)
+                                 : Arch::getPortClockingInfo(cell, port, index);
+    }
+
+    // --------------------------------------------------------------
     // call after changing hierpath or adding/removing nets and cells
     void fixupHierarchy();
 

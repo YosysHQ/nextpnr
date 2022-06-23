@@ -30,6 +30,9 @@ WireId Context::getNetinfoSourceWire(const NetInfo *net_info) const
     if (net_info->driver.cell == nullptr)
         return WireId();
 
+    if (net_info->driver.cell->isPseudo())
+        return net_info->driver.cell->pseudo_cell->getPortWire(net_info->driver.port);
+
     auto src_bel = net_info->driver.cell->bel;
 
     if (src_bel == BelId())
@@ -47,6 +50,8 @@ WireId Context::getNetinfoSourceWire(const NetInfo *net_info) const
 
 SSOArray<WireId, 2> Context::getNetinfoSinkWires(const NetInfo *net_info, const PortRef &user_info) const
 {
+    if (user_info.cell->isPseudo())
+        return SSOArray<WireId, 2>(1, user_info.cell->pseudo_cell->getPortWire(user_info.port));
     auto dst_bel = user_info.cell->bel;
     if (dst_bel == BelId())
         return SSOArray<WireId, 2>(0, WireId());

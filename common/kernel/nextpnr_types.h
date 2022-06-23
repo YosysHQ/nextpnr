@@ -160,58 +160,6 @@ struct PortInfo
 
 struct Context;
 
-struct CellInfo : ArchCellInfo
-{
-    CellInfo(Context *ctx, IdString name, IdString type) : ctx(ctx), name(name), type(type){};
-    Context *ctx = nullptr;
-
-    IdString name, type, hierpath;
-    int32_t udata;
-
-    dict<IdString, PortInfo> ports;
-    dict<IdString, Property> attrs, params;
-
-    BelId bel;
-    PlaceStrength belStrength = STRENGTH_NONE;
-
-    // cell is part of a cluster if != ClusterId
-    ClusterId cluster;
-
-    Region *region = nullptr;
-
-    void addInput(IdString name);
-    void addOutput(IdString name);
-    void addInout(IdString name);
-
-    void setParam(IdString name, Property value);
-    void unsetParam(IdString name);
-    void setAttr(IdString name, Property value);
-    void unsetAttr(IdString name);
-    // check whether a bel complies with the cell's region constraint
-    bool testRegion(BelId bel) const;
-
-    NetInfo *getPort(IdString name)
-    {
-        auto found = ports.find(name);
-        return (found == ports.end()) ? nullptr : found->second.net;
-    }
-    const NetInfo *getPort(IdString name) const
-    {
-        auto found = ports.find(name);
-        return (found == ports.end()) ? nullptr : found->second.net;
-    }
-    void connectPort(IdString port, NetInfo *net);
-    void disconnectPort(IdString port);
-    void connectPorts(IdString port, CellInfo *other, IdString other_port);
-    void movePortTo(IdString port, CellInfo *other, IdString other_port);
-    void renamePort(IdString old_name, IdString new_name);
-    void movePortBusTo(IdString old_name, int old_offset, bool old_brackets, CellInfo *new_cell, IdString new_name,
-                       int new_offset, bool new_brackets, int width);
-    void copyPortTo(IdString port, CellInfo *other, IdString other_port);
-    void copyPortBusTo(IdString old_name, int old_offset, bool old_brackets, CellInfo *new_cell, IdString new_name,
-                       int new_offset, bool new_brackets, int width);
-};
-
 enum TimingPortClass
 {
     TMG_CLOCK_INPUT,     // Clock input to a sequential cell
@@ -237,6 +185,90 @@ struct TimingClockingInfo
     ClockEdge edge;
     DelayPair setup, hold; // Input timing checks
     DelayQuad clockToQ;    // Output clock-to-Q time
+};
+
+struct PseudoCell
+{
+    virtual Loc getLocation() const = 0;
+    virtual WireId getPortWire(IdString port) const = 0;
+
+    virtual bool getDelay(IdString fromPort, IdString toPort, DelayQuad &delay) const = 0;
+    virtual TimingPortClass getPortTimingClass(IdString port, int &clockInfoCount) const = 0;
+    virtual TimingClockingInfo getPortClockingInfo(IdString port, int index) const = 0;
+    virtual ~PseudoCell(){};
+};
+
+struct RegionPlug : PseudoCell
+{
+    RegionPlug(Loc loc) : loc(loc){}; // 'loc' is a notional location for the placer only
+    Loc getLocation() const override { return loc; }
+    WireId getPortWire(IdString port) const override { return port_wires.at(port); }
+
+    // TODO: partial reconfiguration region timing
+    bool getDelay(IdString fromPort, IdString toPort, DelayQuad &delay) const { return false; }
+    TimingPortClass getPortTimingClass(IdString port, int &clockInfoCount) const { return TMG_IGNORE; }
+    virtual TimingClockingInfo getPortClockingInfo(IdString port, int index) const { return TimingClockingInfo{}; }
+
+    dict<IdString, WireId> port_wires;
+    Loc loc;
+};
+
+struct CellInfo : ArchCellInfo
+{
+    CellInfo(Context *ctx, IdString name, IdString type) : ctx(ctx), name(name), type(type){};
+    Context *ctx = nullptr;
+
+    IdString name, type, hierpath;
+    int32_t udata;
+
+    dict<IdString, PortInfo> ports;
+    dict<IdString, Property> attrs, params;
+
+    BelId bel;
+    PlaceStrength belStrength = STRENGTH_NONE;
+
+    // cell is part of a cluster if != ClusterId
+    ClusterId cluster;
+
+    Region *region = nullptr;
+
+    std::unique_ptr<PseudoCell> pseudo_cell{};
+
+    void addInput(IdString name);
+    void addOutput(IdString name);
+    void addInout(IdString name);
+
+    void setParam(IdString name, Property value);
+    void unsetParam(IdString name);
+    void setAttr(IdString name, Property value);
+    void unsetAttr(IdString name);
+    // check whether a bel complies with the cell's region constraint
+    bool testRegion(BelId bel) const;
+
+    bool isPseudo() const { return bool(pseudo_cell); }
+
+    Loc getLocation() const;
+
+    NetInfo *getPort(IdString name)
+    {
+        auto found = ports.find(name);
+        return (found == ports.end()) ? nullptr : found->second.net;
+    }
+    const NetInfo *getPort(IdString name) const
+    {
+        auto found = ports.find(name);
+        return (found == ports.end()) ? nullptr : found->second.net;
+    }
+    void connectPort(IdString port, NetInfo *net);
+    void disconnectPort(IdString port);
+    void connectPorts(IdString port, CellInfo *other, IdString other_port);
+    void movePortTo(IdString port, CellInfo *other, IdString other_port);
+    void renamePort(IdString old_name, IdString new_name);
+    void movePortBusTo(IdString old_name, int old_offset, bool old_brackets, CellInfo *new_cell, IdString new_name,
+                       int new_offset, bool new_brackets, int width);
+    void copyPortTo(IdString port, CellInfo *other, IdString other_port);
+    void copyPortBusTo(IdString old_name, int old_offset, bool old_brackets, CellInfo *new_cell, IdString new_name,
+                       int new_offset, bool new_brackets, int width);
 };
 
 struct ClockConstraint
