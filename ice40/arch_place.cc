@@ -95,7 +95,7 @@ bool Arch::isBelLocationValid(BelId bel) const
         }
         return logic_cells_compatible(bel_cells.data(), num_cells);
     } else {
-        CellInfo *cell = getBoundBelCell(bel);
+        const CellInfo *cell = getBoundBelCell(bel);
         if (cell == nullptr)
             return true;
         else if (cell->type == id_SB_IO) {
@@ -107,7 +107,7 @@ bool Arch::isBelLocationValid(BelId bel) const
             for (auto pin : getWireBelPins(wire)) {
                 if (pin.pin == id_PLLOUT_A || pin.pin == id_PLLOUT_B) {
                     // Is there a PLL there ?
-                    auto pll_cell = getBoundBelCell(pin.bel);
+                    const CellInfo *pll_cell = getBoundBelCell(pin.bel);
                     if (pll_cell == nullptr)
                         break;
 
@@ -116,11 +116,11 @@ bool Arch::isBelLocationValid(BelId bel) const
                         break;
 
                     // Is that SB_IO used at an input ?
-                    if ((cell->ports[id_D_IN_0].net == nullptr) && (cell->ports[id_D_IN_1].net == nullptr))
+                    if ((cell->getPort(id_D_IN_0) == nullptr) && (cell->getPort(id_D_IN_1) == nullptr))
                         break;
 
                     // Are we perhaps a PAD INPUT Bel that can be placed here?
-                    if (pll_cell->attrs[id_BEL_PAD_INPUT] == getBelName(bel).str(getCtx()))
+                    if (str_or_default(pll_cell->attrs, id_BEL_PAD_INPUT, "") == getBelName(bel).str(getCtx()))
                         return true;
 
                     // Conflict
@@ -144,7 +144,7 @@ bool Arch::isBelLocationValid(BelId bel) const
             } else {
                 // Check LVDS IO is not placed at complement location
                 BelId compBel = getBelByLocation(compLoc);
-                CellInfo *compCell = getBoundBelCell(compBel);
+                const CellInfo *compCell = getBoundBelCell(compBel);
                 if (compCell && compCell->ioInfo.lvds)
                     return false;
 
@@ -161,10 +161,10 @@ bool Arch::isBelLocationValid(BelId bel) const
                             _io_pintype_need_clk_en(cell->ioInfo.pintype),
                             _io_pintype_need_clk_en(compCell->ioInfo.pintype),
                     };
-                    NetInfo *nets[] = {
-                            cell->ports[id_INPUT_CLK].net,    compCell->ports[id_INPUT_CLK].net,
-                            cell->ports[id_OUTPUT_CLK].net,   compCell->ports[id_OUTPUT_CLK].net,
-                            cell->ports[id_CLOCK_ENABLE].net, compCell->ports[id_CLOCK_ENABLE].net,
+                    const NetInfo *nets[] = {
+                            cell->getPort(id_INPUT_CLK),    compCell->getPort(id_INPUT_CLK),
+                            cell->getPort(id_OUTPUT_CLK),   compCell->getPort(id_OUTPUT_CLK),
+                            cell->getPort(id_CLOCK_ENABLE), compCell->getPort(id_CLOCK_ENABLE),
                     };
 
                     for (int i = 0; i < 6; i++)
