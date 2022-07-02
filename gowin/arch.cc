@@ -19,6 +19,7 @@
  */
 
 #include <boost/algorithm/string.hpp>
+#include <cells.h>
 #include <iostream>
 #include <math.h>
 #include <regex>
@@ -32,6 +33,8 @@
 #include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
+
+const PairPOD *pairLookup(const PairPOD *list, const size_t len, const int dest);
 
 // GUI
 void Arch::fixClockSpineDecals(void)
@@ -173,6 +176,145 @@ DecalXY Arch::getWireDecal(WireId wire) const
         return wires.at(wire).decalxy_inactive;
     }
     return wires.at(wire).decalxy_active;
+}
+
+bool Arch::allocate_longwire(NetInfo *ni, int lw_idx)
+{
+    NPNR_ASSERT(ni != nullptr);
+    if (ni->driver.cell == nullptr) {
+        return false;
+    }
+    if (ni->name == id("$PACKER_VCC_NET") || ni->name == id("$PACKER_GND_NET")) {
+        return false;
+    }
+    // So far only for OBUF
+    switch (ni->driver.cell->type.index) {
+    case ID_ODDR:  /* fall-through*/
+    case ID_ODDRC: /* fall-through*/
+    case ID_IOBUF: /* fall-through*/
+    case ID_TBUF:
+        return false;
+    case ID_OBUF:
+        if (getCtx()->debug) {
+            log_info("Long wire for IO %s\n", nameOf(ni));
+        }
+        ni = ni->driver.cell->ports.at(id_I).net;
+        return allocate_longwire(ni, lw_idx);
+        break;
+    default:
+        break;
+    }
+
+    if (getCtx()->debug) {
+        log_info("Requested index:%d\n", lw_idx);
+    }
+    if (avail_longwires == 0 || (lw_idx != -1 && (avail_longwires & (1 << lw_idx)) == 0)) {
+        return false;
+    }
+    int longwire = lw_idx;
+    if (lw_idx == -1) {
+        for (longwire = 7; longwire >= 0; --longwire) {
+            if (avail_longwires & (1 << longwire)) {
+                break;
+            }
+        }
+    }
+    avail_longwires &= ~(1 << longwire);
+
+    // BUFS cell
+    CellInfo *bufs;
+    char buf[40];
+    snprintf(buf, sizeof(buf), "$PACKER_BUFS%d", longwire);
+    std::unique_ptr<CellInfo> new_cell = create_generic_cell(getCtx(), id_BUFS, buf);
+    bufs = new_cell.get();
+    cells[bufs->name] = std::move(new_cell);
+    if (lw_idx != -1) {
+        bufs->cluster = bufs->name;
+        bufs->constr_z = lw_idx + BelZ::bufs_0_z;
+        bufs->constr_abs_z = true;
+        bufs->constr_children.clear();
+    }
+
+    // old driver -> bufs LW input net
+    snprintf(buf, sizeof(buf), "$PACKER_BUFS_%c", longwire + 'A');
+    auto net = std::make_unique<NetInfo>(id(buf));
+    NetInfo *bufs_net = net.get();
+    nets[net->name] = std::move(net);
+
+    // split the net
+    CellInfo *driver_cell = ni->driver.cell;
+    IdString driver_port = ni->driver.port;
+    driver_cell->disconnectPort(driver_port);
+
+    bufs->connectPort(id_O, ni);
+    bufs->connectPort(id_I, bufs_net);
+    driver_cell->connectPort(driver_port, bufs_net);
+
+    if (getCtx()->debug) {
+        log_info("Long wire %d was allocated\n", longwire);
+    }
+    return true;
+}
+
+void Arch::fix_longwire_bels()
+{
+    // After routing, it is clear which wires and in which bus SS00 and SS40 are used and
+    // in which quadrant they are routed. Here we write it in the attributes.
+    for (auto &cell : cells) {
+        CellInfo *ci = cell.second.get();
+        if (ci->type != id_BUFS) {
+            continue;
+        }
+        const NetInfo *ni = ci->getPort(id_O);
+        if (ni == nullptr) {
+            continue;
+        }
+        // bus wire is one of the wires
+        // value does not matter, but the L/R parameter itself
+        for (auto &wire : ni->wires) {
+            WireId w = wires[wire.first].type;
+            switch (w.hash()) {
+            case ID_LWSPINETL0:
+            case ID_LWSPINETL1:
+            case ID_LWSPINETL2:
+            case ID_LWSPINETL3:
+            case ID_LWSPINETL4:
+            case ID_LWSPINETL5:
+            case ID_LWSPINETL6:
+            case ID_LWSPINETL7:
+            case ID_LWSPINEBL0:
+            case ID_LWSPINEBL1:
+            case ID_LWSPINEBL2:
+            case ID_LWSPINEBL3:
+            case ID_LWSPINEBL4:
+            case ID_LWSPINEBL5:
+            case ID_LWSPINEBL6:
+            case ID_LWSPINEBL7:
+                ci->setParam(id("L"), Property(w.str(this)));
+                break;
+            case ID_LWSPINETR0:
+            case ID_LWSPINETR1:
+            case ID_LWSPINETR2:
+            case ID_LWSPINETR3:
+            case ID_LWSPINETR4:
+            case ID_LWSPINETR5:
+            case ID_LWSPINETR6:
+            case ID_LWSPINETR7:
+            case ID_LWSPINEBR0:
+            case ID_LWSPINEBR1:
+            case ID_LWSPINEBR2:
+            case ID_LWSPINEBR3:
+            case ID_LWSPINEBR4:
+            case ID_LWSPINEBR5:
+            case ID_LWSPINEBR6:
+            case ID_LWSPINEBR7:
+                ci->setParam(id("R"), Property(w.str(this)));
+                break;
+            default:
+                break;
+            }
+        }
+    }
 }
 
 WireInfo &Arch::wire_info(IdString wire)
@@ -487,7 +629,15 @@ IdString Arch::wireToGlobal(int &row, int &col, const DatabasePOD *db, IdString 
     }
     snprintf(buf, 32, "%c%d0", direction, num);
     wire = id(buf);
-    snprintf(buf, 32, "R%dC%d_%c%d", row + 1, col + 1, direction, num);
+    // local aliases
+    const TilePOD *tile = db->grid[row * db->cols + col].get();
+    auto local_alias = pairLookup(tile->aliases.get(), tile->num_aliases, wire.index);
+    if (local_alias != nullptr) {
+        wire = IdString(local_alias->src_id);
+        snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, wire.c_str(this));
+    } else {
+        snprintf(buf, 32, "R%dC%d_%c%d", row + 1, col + 1, direction, num);
+    }
     return id(buf);
 }
 
@@ -628,6 +778,28 @@ DelayQuad Arch::getWireTypeDelay(IdString wire)
     case ID_W830:
         len = id_X8;
         break;
+    case ID_LT02:
+    case ID_LT13:
+        glbsrc = id_SPINE_TAP_SCLK_0;
+        break;
+    case ID_LT01:
+    case ID_LT04:
+        glbsrc = id_SPINE_TAP_SCLK_1;
+        break;
+    case ID_LBO0:
+    case ID_LBO1:
+        glbsrc = id_TAP_BRANCH_SCLK;
+        break;
+    case ID_LB01:
+    case ID_LB11:
+    case ID_LB21:
+    case ID_LB31:
+    case ID_LB41:
+    case ID_LB51:
+    case ID_LB61:
+    case ID_LB71:
+        glbsrc = id_BRANCH_SCLK;
+        break;
     case ID_GT00:
     case ID_GT10:
         glbsrc = id_SPINE_TAP_PCLK;
@@ -647,7 +819,9 @@ DelayQuad Arch::getWireTypeDelay(IdString wire)
         glbsrc = id_BRANCH_PCLK;
         break;
     default:
-        if (wire.str(this).rfind("SPINE", 0) == 0) {
+        if (wire.str(this).rfind("LWSPINE", 0) == 0) {
+            glbsrc = IdString(ID_CENT_SPINE_SCLK);
+        } else if (wire.str(this).rfind("SPINE", 0) == 0) {
             glbsrc = IdString(ID_CENT_SPINE_PCLK);
         } else if (wire.str(this).rfind("UNK", 0) == 0) {
             glbsrc = IdString(ID_PIO_CENT_PCLK);
@@ -691,7 +865,7 @@ void Arch::read_cst(std::istream &in)
     std::regex port_attrre = std::regex("([^ =;]+=[^ =;]+) *([^;]*;)");
     std::regex iobelre = std::regex("IO([TRBL])([0-9]+)\\[?([A-Z])\\]?");
     std::regex inslocre = std::regex("INS_LOC +\"([^\"]+)\" +R([0-9]+)C([0-9]+)\\[([0-9])\\]\\[([AB])\\] *;.*");
-    std::regex clockre = std::regex("CLOCK_LOC +\"([^\"]+)\" +BUF([GS])[^;]*;");
+    std::regex clockre = std::regex("CLOCK_LOC +\"([^\"]+)\" +BUF([GS])(\\[([0-7])\\])?[^;]*;.*");
     std::smatch match, match_attr, match_pinloc;
     std::string line, pinline;
     enum
@@ -732,15 +906,23 @@ void Arch::read_cst(std::istream &in)
             continue;
         }
         switch (cst_type) {
-        case clock: { // CLOCK name BUFG|S
+        case clock: { // CLOCK name BUFG|S=#
             std::string which_clock = match[2];
+            std::string lw = match[4];
+            int lw_idx = -1;
+            if (lw.length() > 0) {
+                lw_idx = atoi(lw.c_str());
+                log_info("lw_idx:%d\n", lw_idx);
+            }
             if (which_clock.at(0) == 'S') {
                 auto ni = nets.find(net);
                 if (ni == nets.end()) {
                     log_info("Net %s not found\n", net.c_str(this));
                     continue;
                 }
-                log_info("Long wires are not implemented. The %s network will use normal routing.\n", net.c_str(this));
+                if (!allocate_longwire(ni->second.get(), lw_idx)) {
+                    log_info("Can't use the long wires. The %s network will use normal routing.\n", net.c_str(this));
+                }
             } else {
                 log_info("BUFG isn't supported\n");
                 continue;
@@ -1021,6 +1203,31 @@ Arch::Arch(ArchArgs args) : args(args)
             bool dff = true;
             bool oddrc = false;
             switch (static_cast<ConstIds>(bel->type_id)) {
+            case ID_BUFS7:
+                z++; /* fall-through*/
+            case ID_BUFS6:
+                z++; /* fall-through*/
+            case ID_BUFS5:
+                z++; /* fall-through*/
+            case ID_BUFS4:
+                z++; /* fall-through*/
+            case ID_BUFS3:
+                z++; /* fall-through*/
+            case ID_BUFS2:
+                z++; /* fall-through*/
+            case ID_BUFS1:
+                z++; /* fall-through*/
+            case ID_BUFS0:
+                snprintf(buf, 32, "R%dC%d_BUFS%d", row + 1, col + 1, z);
+                belname = id(buf);
+                addBel(belname, id_BUFS, Loc(col, row, BelZ::bufs_0_z + z), false);
+                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_I)->src_id);
+                snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
+                addBelInput(belname, id_I, id(buf));
+                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_O)->src_id);
+                snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
+                addBelOutput(belname, id_O, id(buf));
+                break;
             case ID_GSR0:
                 snprintf(buf, 32, "R%dC%d_GSR0", row + 1, col + 1);
                 belname = id(buf);
@@ -1324,12 +1531,6 @@ Arch::Arch(ArchArgs args) : args(args)
                 snprintf(buf, 32, "R%dC%d_%s_%s", row + 1, col + 1, srcid.c_str(this), destid.c_str(this));
                 IdString pipname = id(buf);
                 DelayQuad delay = getWireTypeDelay(destid);
-                // local alias
-                auto local_alias = pairLookup(tile->aliases.get(), tile->num_aliases, srcid.index);
-                if (local_alias != nullptr) {
-                    srcid = IdString(local_alias->src_id);
-                    gsrcname = wireToGlobal(srcrow, srccol, db, srcid);
-                }
                 // global alias
                 srcid = IdString(pip.src_id);
                 GlobalAliasPOD alias;
@@ -1705,6 +1906,7 @@ bool Arch::route()
     }
     getCtx()->settings[id_route] = 1;
     archInfoToAttributes();
+    fix_longwire_bels();
     return result;
 }
 
