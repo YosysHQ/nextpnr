@@ -715,6 +715,8 @@ void pack_sram(Context *ctx)
             for (int i = 0; i < 4; i++) {
                 ram_comb[i] = create_generic_cell(ctx, id_SLICE,
                                                 ci->name.str(ctx) + "$SRAM_SLICE" + std::to_string(i));
+                ram_comb[i]->params[id_FF_USED] = 1;
+                ram_comb[i]->params[id_FF_TYPE] = std::string("RAM");
                 sram_to_slice(ctx, ci, ram_comb[i].get(), i);
             }
             // Create 'block' SLICEs as a placement hint that these cells are mutually exclusive with the RAMW
@@ -722,7 +724,8 @@ void pack_sram(Context *ctx)
             for (int i = 0; i < 2; i++) {
                 ramw_block[i] = create_generic_cell(ctx, id_SLICE,
                                                     ci->name.str(ctx) + "$RAMW_BLOCK" + std::to_string(i));
-                ramw_block[i]->params[id_FF_TYPE] = std::string("RAMW_BLOCK");
+                ram_comb[i]->params[id_FF_USED] = 1;
+                ramw_block[i]->params[id_FF_TYPE] = std::string("RAM");
             }
 
             // Disconnect ports of original cell after packing
