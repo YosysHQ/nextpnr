@@ -25,7 +25,6 @@
 #include <regex>
 #include "embed.h"
 #include "gfx.h"
-#include "globals.h"
 #include "nextpnr.h"
 #include "placer1.h"
 #include "placer_heap.h"
@@ -256,6 +255,8 @@ bool Arch::allocate_longwire(NetInfo *ni, int lw_idx)
     }
     return true;
 }
+
+void Arch::auto_longwires() {}
 
 void Arch::fix_longwire_bels()
 {
@@ -550,6 +551,28 @@ void Arch::setDelayScaling(double scale, double offset)
 {
     args.delayScale = scale;
     args.delayOffset = offset;
+}
+
+void Arch::addCellTimingCombIn(IdString cell, IdString port) { cellTiming[cell].portClasses[port] = TMG_COMB_INPUT; }
+
+void Arch::addCellTimingCombOut(IdString cell, IdString port) { cellTiming[cell].portClasses[port] = TMG_COMB_OUTPUT; }
+
+void Arch::addCellTimingRegIn(IdString cell, IdString port) { cellTiming[cell].portClasses[port] = TMG_REGISTER_INPUT; }
+
+void Arch::addCellTimingRegOut(IdString cell, IdString port)
+{
+    cellTiming[cell].portClasses[port] = TMG_REGISTER_OUTPUT;
+}
+
+void Arch::addCellTimingIO(IdString cell, IdString port)
+{
+    if (port == id_I) {
+        cellTiming[cell].portClasses[port] = TMG_ENDPOINT;
+    } else {
+        if (port == id_O) {
+            cellTiming[cell].portClasses[port] = TMG_STARTPOINT;
+        }
+    }
 }
 
 void Arch::addCellTimingClock(IdString cell, IdString port) { cellTiming[cell].portClasses[port] = TMG_CLOCK_INPUT; }
@@ -1989,6 +2012,8 @@ void Arch::assignArchInfo()
 
             // add timing paths
             addCellTimingClock(cname, id_CLK);
+            addCellTimingRegIn(cname, id_CE);
+            addCellTimingRegIn(cname, id_LSR);
             IdString ports[4] = {id_A, id_B, id_C, id_D};
             for (int i = 0; i < 4; i++) {
                 DelayPair setup =
@@ -2019,7 +2044,18 @@ void Arch::assignArchInfo()
             delay = delay + delayLookup(speed->lut.timings.get(), speed->lut.num_timings, id_fx_ofx1);
             addCellTimingDelay(cname, id_I0, id_OF, delay);
             addCellTimingDelay(cname, id_I1, id_OF, delay);
+            addCellTimingCombIn(cname, id_SEL);
         }
+        case ID_IOB:
+            /* FALLTHRU */
+        case ID_IOBS:
+            addCellTimingIO(cname, id_I);
+            addCellTimingIO(cname, id_O);
+            break;
+        case ID_BUFS:
+            addCellTimingCombIn(cname, id_I);
+            addCellTimingCombOut(cname, id_O);
+            break;
         default:
             break;
         }
@@ -2061,6 +2097,24 @@ bool Arch::cellsCompatible(const CellInfo **cells, int count) const
         }
     }
     return true;
+}
+
+void Arch::route_gowin_globals(Context *ctx) { globals_router.route_globals(ctx); }
+
+void Arch::mark_gowin_globals(Context *ctx) { globals_router.mark_globals(ctx); }
+// ---------------------------------------------------------------
+void Arch::pre_pack(Context *ctx)
+{
+    if (bool_or_default(settings, id("arch.enable-auto-longwires"))) {
+        auto_longwires();
+    }
+}
+
+void Arch::post_pack(Context *ctx)
+{
+    if (bool_or_default(settings, id("arch.enable-globals"))) {
+        mark_gowin_globals(ctx);
+    }
 }
 
 NEXTPNR_NAMESPACE_END
