@@ -2045,6 +2045,7 @@ void Arch::assignArchInfo()
             addCellTimingDelay(cname, id_I0, id_OF, delay);
             addCellTimingDelay(cname, id_I1, id_OF, delay);
             addCellTimingCombIn(cname, id_SEL);
+            break;
         }
         case ID_IOB:
             /* FALLTHRU */
