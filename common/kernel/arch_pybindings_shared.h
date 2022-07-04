@@ -145,3 +145,9 @@ fn_wrapper_1a<Context, decltype(&Context::getBelsInBucket), &Context::getBelsInB
 // bool isValidBelForCellType(IdString cell\_type, BelId bel) const
 fn_wrapper_2a<Context, decltype(&Context::isValidBelForCellType), &Context::isValidBelForCellType, pass_through<bool>,
               conv_from_str<IdString>, conv_from_str<BelId>>::def_wrap(ctx_cls, "isValidBelForCellType");
+
+fn_wrapper_1a<Context, decltype(&Context::getDelayFromNS), &Context::getDelayFromNS, pass_through<delay_t>,
+              pass_through<double>>::def_wrap(ctx_cls, "getDelayFromNS");
+
+fn_wrapper_1a<Context, decltype(&Context::getDelayNS), &Context::getDelayNS, pass_through<double>,
+              pass_through<delay_t>>::def_wrap(ctx_cls, "getDelayNS");
