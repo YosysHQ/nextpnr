@@ -111,6 +111,8 @@ inline bool is_ff(const BaseCtx *ctx, const CellInfo *cell)
 
 inline bool is_lc(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_SLICE; }
 
+inline bool is_sram(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_RAM16SDP4; }
+
 // Convert a LUT primitive to (part of) an GENERIC_SLICE, swapping ports
 // as needed. Set no_dff if a DFF is not being used, so that the output
 // can be reconnected
@@ -124,6 +126,12 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
 
 // Convert a Gowin IO buffer to a IOB bel
 void gwio_to_iob(Context *ctx, CellInfo *nxio, CellInfo *sbio, pool<IdString> &todelete_cells);
+
+// Convert RAM16 to write port
+void sram_to_ramw_split(Context *ctx, CellInfo *ram, CellInfo *ramw);
+
+// Convert RAM16 to slice
+void sram_to_slice(Context *ctx, CellInfo *ram, CellInfo *slice, int index);
 
 NEXTPNR_NAMESPACE_END
 
