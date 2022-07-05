@@ -339,11 +339,7 @@ struct Arch : BaseArch<ArchRanges>
     void setDelayScaling(double scale, double offset);
 
     void addCellTimingClock(IdString cell, IdString port);
-    void addCellTimingIO(IdString cell, IdString port);
-    void addCellTimingCombIn(IdString cell, IdString port);
-    void addCellTimingCombOut(IdString cell, IdString port);
-    void addCellTimingRegIn(IdString cell, IdString port);
-    void addCellTimingRegOut(IdString cell, IdString port);
+    void addCellTimingClass(IdString cell, IdString port, TimingPortClass cls);
     void addCellTimingDelay(IdString cell, IdString fromPort, IdString toPort, DelayQuad delay);
     void addCellTimingSetupHold(IdString cell, IdString port, IdString clock, DelayPair setup, DelayPair hold);
     void addCellTimingClockToOut(IdString cell, IdString port, IdString clock, DelayQuad clktoq);

@@ -553,27 +553,7 @@ void Arch::setDelayScaling(double scale, double offset)
     args.delayOffset = offset;
 }
 
-void Arch::addCellTimingCombIn(IdString cell, IdString port) { cellTiming[cell].portClasses[port] = TMG_COMB_INPUT; }
-
-void Arch::addCellTimingCombOut(IdString cell, IdString port) { cellTiming[cell].portClasses[port] = TMG_COMB_OUTPUT; }
-
-void Arch::addCellTimingRegIn(IdString cell, IdString port) { cellTiming[cell].portClasses[port] = TMG_REGISTER_INPUT; }
-
-void Arch::addCellTimingRegOut(IdString cell, IdString port)
-{
-    cellTiming[cell].portClasses[port] = TMG_REGISTER_OUTPUT;
-}
-
-void Arch::addCellTimingIO(IdString cell, IdString port)
-{
-    if (port == id_I) {
-        cellTiming[cell].portClasses[port] = TMG_ENDPOINT;
-    } else {
-        if (port == id_O) {
-            cellTiming[cell].portClasses[port] = TMG_STARTPOINT;
-        }
-    }
-}
+void Arch::addCellTimingClass(IdString cell, IdString port, TimingPortClass cls) {cellTiming[cell].portClasses[port] = cls;}
 
 void Arch::addCellTimingClock(IdString cell, IdString port) { cellTiming[cell].portClasses[port] = TMG_CLOCK_INPUT; }
 
@@ -2042,8 +2022,8 @@ void Arch::assignArchInfo()
 
             // add timing paths
             addCellTimingClock(cname, id_CLK);
-            addCellTimingRegIn(cname, id_CE);
-            addCellTimingRegIn(cname, id_LSR);
+            addCellTimingClass(cname, id_CE, TMG_REGISTER_INPUT);
+            addCellTimingClass(cname, id_LSR, TMG_REGISTER_INPUT);
             IdString ports[4] = {id_A, id_B, id_C, id_D};
             for (int i = 0; i < 4; i++) {
                 DelayPair setup =
@@ -2074,18 +2054,18 @@ void Arch::assignArchInfo()
             delay = delay + delayLookup(speed->lut.timings.get(), speed->lut.num_timings, id_fx_ofx1);
             addCellTimingDelay(cname, id_I0, id_OF, delay);
             addCellTimingDelay(cname, id_I1, id_OF, delay);
-            addCellTimingCombIn(cname, id_SEL);
+            addCellTimingClass(cname, id_SEL, TMG_COMB_INPUT);
             break;
         }
         case ID_IOB:
             /* FALLTHRU */
         case ID_IOBS:
-            addCellTimingIO(cname, id_I);
-            addCellTimingIO(cname, id_O);
+            addCellTimingClass(cname, id_I, TMG_ENDPOINT);
+            addCellTimingClass(cname, id_O, TMG_STARTPOINT);
             break;
         case ID_BUFS:
-            addCellTimingCombIn(cname, id_I);
-            addCellTimingCombOut(cname, id_O);
+            addCellTimingClass(cname, id_I, TMG_ENDPOINT);
+            addCellTimingClass(cname, id_O, TMG_STARTPOINT);
             break;
         default:
             break;
