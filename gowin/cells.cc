@@ -48,6 +48,14 @@ std::unique_ptr<CellInfo> create_generic_cell(Context *ctx, IdString type, std::
         new_cell->addOutput(id_Q);
         new_cell->addInput(id_CE);
         new_cell->addInput(id_LSR);
+    } else if (type == id_RAMW) {
+        IdString names[8] = {id_A4, id_B4, id_C4, id_D4, id_A5, id_B5, id_C5, id_D5};
+        for (int i = 0; i < 8; i++) {
+            new_cell->addInput(names[i]);
+        }
+        new_cell->addInput(id_CLK);
+        new_cell->addInput(id_CE);
+        new_cell->addInput(id_LSR);
     } else if (type == id_GW_MUX2_LUT5 || type == id_GW_MUX2_LUT6 || type == id_GW_MUX2_LUT7 ||
                type == id_GW_MUX2_LUT7 || type == id_GW_MUX2_LUT8) {
         new_cell->addInput(id_I0);
@@ -167,6 +175,42 @@ void gwio_to_iob(Context *ctx, CellInfo *nxio, CellInfo *iob, pool<IdString> &to
     } else {
         NPNR_ASSERT(false);
     }
+}
+
+void sram_to_ramw_split(Context *ctx, CellInfo *ram, CellInfo *ramw)
+{
+    if (ramw->hierpath == IdString())
+        ramw->hierpath = ramw->hierpath;
+    ram->movePortTo(ctx->id("WAD[0]"), ramw, id_A4);
+    ram->movePortTo(ctx->id("WAD[1]"), ramw, id_B4);
+    ram->movePortTo(ctx->id("WAD[2]"), ramw, id_C4);
+    ram->movePortTo(ctx->id("WAD[3]"), ramw, id_D4);
+
+    ram->movePortTo(ctx->id("DI[0]"), ramw, id_A5);
+    ram->movePortTo(ctx->id("DI[1]"), ramw, id_B5);
+    ram->movePortTo(ctx->id("DI[2]"), ramw, id_C5);
+    ram->movePortTo(ctx->id("DI[3]"), ramw, id_D5);
+    
+    ram->movePortTo(ctx->id("CLK"), ramw, id_CLK);
+    ram->movePortTo(ctx->id("WRE"), ramw, id_LSR);
+}
+
+void sram_to_slice(Context *ctx, CellInfo *ram, CellInfo *slice, int index)
+{
+    char buf1[32];
+    if (slice->hierpath == IdString())
+        slice->hierpath = slice->hierpath;
+
+    snprintf(buf1, 32, "INIT_%d", index);
+    slice->params[id_INIT] = ram->params[ctx->id(buf1)];
+
+    snprintf(buf1, 32, "DO[%d]", index);
+    ram->movePortTo(ctx->id(buf1), slice, id_F);
+
+    ram->copyPortTo(ctx->id("RAD[0]"), slice, id_A);
+    ram->copyPortTo(ctx->id("RAD[1]"), slice, id_B);
+    ram->copyPortTo(ctx->id("RAD[2]"), slice, id_C);
+    ram->copyPortTo(ctx->id("RAD[3]"), slice, id_D);
 }
 
 NEXTPNR_NAMESPACE_END
