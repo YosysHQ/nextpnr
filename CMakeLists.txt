@@ -216,7 +216,12 @@ configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/common/version.h.in ${CMAKE_CURRENT_BINARY_DIR}/generated/version.h
 )
 
-include_directories(common/kernel/ common/place/ common/route/ json/ frontend/ 3rdparty/json11/ 3rdparty/pybind11/include ${Boost_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
+if (NOT DEFINED PYBIND11_INCLUDE_DIR)
+    # Use bundled pybind11
+    set(PYBIND11_INCLUDE_DIR "3rdparty/pybind11/include")
+endif()
+
+include_directories(common/kernel/ common/place/ common/route/ json/ frontend/ 3rdparty/json11/ ${PYBIND11_INCLUDE_DIR} ${Boost_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
 
 if(BUILD_HEAP)
     find_package (Eigen3 REQUIRED NO_MODULE)
