@@ -293,6 +293,8 @@ class ConstraintLegaliseWorker
     {
         if (cell->cluster != ClusterId() && ctx->getClusterRootCell(cell->cluster) != cell)
             return true; // Only process chain roots
+        if (cell->isPseudo())
+            return true;
         if (constraints_satisfied(cell)) {
             if (cell->cluster != ClusterId())
                 lockdown_chain(cell);
@@ -415,7 +417,7 @@ class ConstraintLegaliseWorker
     {
         log_info("Legalising relative constraints...\n");
         for (auto &cell : ctx->cells) {
-            oldLocations[cell.first] = ctx->getBelLocation(cell.second->bel);
+            oldLocations[cell.first] = cell.second->getLocation();
         }
         for (auto &cell : ctx->cells) {
             bool res = legalise_cell(cell.second.get());
@@ -448,6 +450,8 @@ bool legalise_relative_constraints(Context *ctx) { return ConstraintLegaliseWork
 int get_constraints_distance(const Context *ctx, const CellInfo *cell)
 {
     int dist = 0;
+    if (cell->isPseudo())
+        return 0;
     if (cell->bel == BelId())
         return 100000;
     Loc loc = ctx->getBelLocation(cell->bel);

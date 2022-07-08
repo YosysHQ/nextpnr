@@ -37,6 +37,8 @@ PlacePartition::PlacePartition(Context *ctx)
     x1 = 0;
     y1 = 0;
     for (auto &cell : ctx->cells) {
+        if (cell.second->isPseudo())
+            continue;
         Loc l = ctx->getBelLocation(cell.second->bel);
         x0 = std::min(x0, l.x);
         x1 = std::max(x1, l.x);
@@ -110,6 +112,8 @@ NetBB NetBB::compute(const Context *ctx, const NetInfo *net, const dict<IdString
     if (!net->driver.cell)
         return result;
     auto bel_loc = [&](const CellInfo *cell) {
+        if (cell->isPseudo())
+            return cell->getLocation();
         BelId bel = cell2bel ? cell2bel->at(cell->name) : cell->bel;
         return ctx->getBelLocation(bel);
     };
@@ -176,10 +180,12 @@ void DetailPlacerThreadState::set_partition(const PlacePartition &part)
     // Set up the original cell-bel map for all nets inside the thread
     local_cell2bel.clear();
     for (NetInfo *net : thread_nets) {
-        if (net->driver.cell)
+        if (net->driver.cell && !net->driver.cell->isPseudo())
             local_cell2bel[net->driver.cell->name] = net->driver.cell->bel;
-        for (auto &usr : net->users)
-            local_cell2bel[usr.cell->name] = usr.cell->bel;
+        for (auto &usr : net->users) {
+            if (!usr.cell->isPseudo())
+                local_cell2bel[usr.cell->name] = usr.cell->bel;
+        }
     }
 }
 
