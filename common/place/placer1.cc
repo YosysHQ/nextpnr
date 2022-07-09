@@ -76,6 +76,8 @@ class SAPlacer
 
         pool<IdString> cell_types_in_use;
         for (auto &cell : ctx->cells) {
+            if (cell.second->isPseudo())
+                continue;
             IdString cell_type = cell.second->type;
             cell_types_in_use.insert(cell_type);
         }
@@ -120,7 +122,7 @@ class SAPlacer
         }
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
-            if (ci->cluster == ClusterId())
+            if (ci->isPseudo() || ci->cluster == ClusterId())
                 continue;
             cluster2cell[ci->cluster].push_back(ci);
         }
@@ -145,6 +147,8 @@ class SAPlacer
             // Initial constraints placer
             for (auto &cell_entry : ctx->cells) {
                 CellInfo *cell = cell_entry.second.get();
+                if (cell->isPseudo())
+                    continue;
                 auto loc = cell->attrs.find(ctx->id("BEL"));
                 if (loc != cell->attrs.end()) {
                     std::string loc_name = loc->second.as_string();
@@ -187,7 +191,7 @@ class SAPlacer
 
             for (auto &cell : ctx->cells) {
                 CellInfo *ci = cell.second.get();
-                if (ci->bel == BelId()) {
+                if (!ci->isPseudo() && (ci->bel == BelId())) {
                     autoplaced.push_back(cell.second.get());
                 }
             }
@@ -217,7 +221,7 @@ class SAPlacer
         } else {
             for (auto &cell : ctx->cells) {
                 CellInfo *ci = cell.second.get();
-                if (ci->belStrength > STRENGTH_STRONG) {
+                if (ci->isPseudo() || ci->belStrength > STRENGTH_STRONG) {
                     continue;
                 } else if (ci->cluster != ClusterId()) {
                     if (ctx->getClusterRootCell(ci->cluster) == ci)
@@ -353,6 +357,8 @@ class SAPlacer
                     autoplaced.clear();
                     chain_basis.clear();
                     for (auto &cell : ctx->cells) {
+                        if (cell.second->isPseudo())
+                            continue;
                         if (cell.second->belStrength <= STRENGTH_STRONG && cell.second->cluster != ClusterId() &&
                             ctx->getClusterRootCell(cell.second->cluster) == cell.second.get())
                             chain_basis.push_back(cell.second.get());
@@ -814,7 +820,7 @@ class SAPlacer
     {
         BoundingBox bb;
         NPNR_ASSERT(net->driver.cell != nullptr);
-        Loc dloc = ctx->getBelLocation(net->driver.cell->bel);
+        Loc dloc = net->driver.cell->getLocation();
         bb.x0 = dloc.x;
         bb.x1 = dloc.x;
         bb.y0 = dloc.y;
@@ -824,9 +830,9 @@ class SAPlacer
         bb.ny0 = 1;
         bb.ny1 = 1;
         for (auto user : net->users) {
-            if (user.cell->bel == BelId())
+            if (!user.cell->isPseudo() && user.cell->bel == BelId())
                 continue;
-            Loc uloc = ctx->getBelLocation(user.cell->bel);
+            Loc uloc = user.cell->getLocation();
             if (bb.x0 == uloc.x)
                 ++bb.nx0;
             else if (uloc.x < bb.x0) {
@@ -1173,7 +1179,7 @@ class SAPlacer
         nets_by_tile.resize(max_x + 1, std::vector<dict<IdString, int>>(max_y + 1));
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
-            if (int(ci->ports.size()) > large_cell_thresh)
+            if (ci->isPseudo() || (int(ci->ports.size()) > large_cell_thresh))
                 continue;
             Loc loc = ctx->getBelLocation(ci->bel);
             auto &nbt = nets_by_tile.at(loc.x).at(loc.y);

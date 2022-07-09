@@ -147,7 +147,7 @@ class HeAPPlacer
         tmg.setup();
 
         for (auto &cell : ctx->cells)
-            if (cell.second->cluster != ClusterId())
+            if (!cell.second->isPseudo() && cell.second->cluster != ClusterId())
                 cluster2cells[cell.second->cluster].push_back(cell.second.get());
     }
 
@@ -284,6 +284,8 @@ class HeAPPlacer
                 // Save solution
                 solution.clear();
                 for (auto &cell : ctx->cells) {
+                    if (cell.second->isPseudo())
+                        continue;
                     solution.emplace_back(cell.second.get(), cell.second->bel, cell.second->belStrength);
                 }
             } else {
@@ -312,6 +314,8 @@ class HeAPPlacer
         }
 
         for (auto &cell : ctx->cells) {
+            if (cell.second->isPseudo())
+                continue;
             if (cell.second->bel == BelId())
                 log_error("Found unbound cell %s\n", cell.first.c_str(ctx));
             if (ctx->getBoundBelCell(cell.second->bel) != cell.second.get())
@@ -411,7 +415,8 @@ class HeAPPlacer
         // Initial constraints placer
         for (auto &cell_entry : ctx->cells) {
             CellInfo *cell = cell_entry.second.get();
-
+            if (cell->isPseudo())
+                continue;
             auto loc = cell->attrs.find(ctx->id("BEL"));
             if (loc != cell->attrs.end()) {
                 std::string loc_name = loc->second.as_string();
@@ -461,6 +466,8 @@ class HeAPPlacer
         pool<IdString> cell_types_in_use;
         pool<BelBucketId> buckets_in_use;
         for (auto &cell : ctx->cells) {
+            if (cell.second->isPseudo())
+                continue;
             IdString cell_type = cell.second->type;
             cell_types_in_use.insert(cell_type);
             BelBucketId bucket = ctx->getBelBucketForCellType(cell_type);
@@ -527,6 +534,8 @@ class HeAPPlacer
     {
         pool<IdString> cell_types;
         for (const auto &cell : ctx->cells) {
+            if (cell.second->isPseudo())
+                continue;
             cell_types.insert(cell.second->type);
         }
 
@@ -551,6 +560,14 @@ class HeAPPlacer
 
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
+            if (ci->isPseudo()) {
+                Loc loc = ci->pseudo_cell->getLocation();
+                cell_locs[cell.first].x = loc.x;
+                cell_locs[cell.first].y = loc.y;
+                cell_locs[cell.first].locked = true;
+                cell_locs[cell.first].global = false;
+                continue;
+            }
             if (ci->bel != BelId()) {
                 Loc loc = ctx->getBelLocation(ci->bel);
                 cell_locs[cell.first].x = loc.x;
@@ -627,8 +644,9 @@ class HeAPPlacer
         int row = 0;
         solve_cells.clear();
         // First clear the udata of all cells
-        for (auto &cell : ctx->cells)
+        for (auto &cell : ctx->cells) {
             cell.second->udata = dont_solve;
+        }
         // Then update cells to be placed, which excludes cell children
         for (auto cell : place_cells) {
             if (buckets && !buckets->count(ctx->getBelBucketForCellType(cell->type)))

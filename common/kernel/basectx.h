@@ -220,6 +220,10 @@ struct BaseCtx
     void addBelToRegion(IdString name, BelId bel);
     void constrainCellToRegion(IdString cell, IdString region_name);
 
+    // Helper functions for the partial reconfiguration plug API using PseudoCells
+    void createRegionPlug(IdString name, IdString type, Loc approx_loc);
+    void addPlugPin(IdString plug, IdString pin, PortType dir, WireId wire);
+
     // Helper functions for Python bindings
     NetInfo *createNet(IdString name);
     void connectPort(IdString net, IdString cell, IdString port);

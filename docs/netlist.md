@@ -25,10 +25,24 @@ Other structures used by these basic structures include:
  - `params` and `attrs` store parameters and attributes - from the input JSON or assigned in flows to add metadata - by mapping from parameter name `IdString` to `Property`.
  - `cluster` is used to specify that the cell is inside a placement cluster, with the details of the placement within the cluster provided by the architecture.
  - `region` is a reference to a `Region` if the cell is constrained to a placement region (e.g. for partial reconfiguration or out-of-context flows) or `nullptr` otherwise.
+ - `pseudo_cell` is an optional pointer to an implementation of the pseudo-cell API, used for cells implementing virtual functions such as partition pins without a mapped bel. `bel` will always be `BelId()` for pseudo-cells.
+
+## PseudoCellAPI
+
+Pseudo-cells can be used to implement cells with runtime-defined cell pin to wire mappings. This means they don't have to be a fixed part of the architecture, example use cases could be for implementing partition pins for partial reconfiguration regions; or forcing splits between SLRs. Pseudo-cells implement a series of virtual functions to provide data that for an ordinary cell would be obtained by calling 'bel' ArchAPI functions
+
+The pseudo-cell API is as follows:
+ - `Loc getLocation() const` : get an approximate location of the pseudocell
+ - `WireId getPortWire(IdString port) const`: gets the wire corresponding to a port (or WireId if it has no wire)
+
+It also implements functions for getting timing data, mirroring that of the Arch API:
+ - `bool getDelay(IdString fromPort, IdString toPort, DelayQuad &delay) const`
+ - `TimingPortClass getPortTimingClass(IdString port, int &clockInfoCount) const`
+ - `TimingClockingInfo getPortClockingInfo(IdString port, int index) const`
 
 ## NetInfo
 
-`NetInfo` instances have the following fields:
+`NetInfo` instances have the following fields:\
 
  - `name` is the IdString name of the net - for nets with multiple names, one name is chosen according to a set of rules by the JSON frontend
  - `hierpath` is name of the hierarchical cell containing the instance, for designs with hierarchy

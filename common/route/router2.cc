@@ -128,7 +128,7 @@ struct Router2
             nets.at(i).cy = 0;
 
             if (ni->driver.cell != nullptr) {
-                Loc drv_loc = ctx->getBelLocation(ni->driver.cell->bel);
+                Loc drv_loc = ni->driver.cell->getLocation();
                 nets.at(i).cx += drv_loc.x;
                 nets.at(i).cy += drv_loc.y;
             }
@@ -159,7 +159,7 @@ struct Router2
                     nets.at(i).bb.y1 = std::max(nets.at(i).bb.y1, ad.bb.y1);
                 }
                 // Add location to centroid sum
-                Loc usr_loc = ctx->getBelLocation(usr.value.cell->bel);
+                Loc usr_loc = usr.value.cell->getLocation();
                 nets.at(i).cx += usr_loc.x;
                 nets.at(i).cy += usr_loc.y;
             }
