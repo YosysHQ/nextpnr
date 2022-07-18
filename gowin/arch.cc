@@ -256,6 +256,8 @@ bool Arch::allocate_longwire(NetInfo *ni, int lw_idx)
     return true;
 }
 
+void Arch::auto_longwires() {}
+
 void Arch::fix_longwire_bels()
 {
     // After routing, it is clear which wires and in which bus SS00 and SS40 are used and
@@ -339,6 +341,14 @@ BelInfo &Arch::bel_info(IdString bel)
     if (b == bels.end())
         NPNR_ASSERT_FALSE_STR("no bel named " + bel.str(this));
     return b->second;
+}
+
+NetInfo &Arch::net_info(IdString net)
+{
+    auto b = nets.find(net);
+    if (b == nets.end())
+        NPNR_ASSERT_FALSE_STR("no net named " + net.str(this));
+    return *b->second;
 }
 
 void Arch::addWire(IdString name, IdString type, int x, int y)
@@ -543,6 +553,8 @@ void Arch::setDelayScaling(double scale, double offset)
     args.delayOffset = offset;
 }
 
+void Arch::addCellTimingClass(IdString cell, IdString port, TimingPortClass cls) {cellTiming[cell].portClasses[port] = cls;}
+
 void Arch::addCellTimingClock(IdString cell, IdString port) { cellTiming[cell].portClasses[port] = TMG_CLOCK_INPUT; }
 
 void Arch::addCellTimingDelay(IdString cell, IdString fromPort, IdString toPort, DelayQuad delay)
@@ -657,6 +669,7 @@ bool aliasCompare(GlobalAliasPOD i, GlobalAliasPOD j)
     return (i.dest_row < j.dest_row) || (i.dest_row == j.dest_row && i.dest_col < j.dest_col) ||
            (i.dest_row == j.dest_row && i.dest_col == j.dest_col && i.dest_id < j.dest_id);
 }
+
 bool timingCompare(TimingPOD i, TimingPOD j) { return i.name_id < j.name_id; }
 
 template <class T, class C> const T *genericLookup(const T *first, int len, const T val, C compare)
@@ -1895,6 +1908,11 @@ bool Arch::place()
 bool Arch::route()
 {
     std::string router = str_or_default(settings, id_router, defaultRouter);
+
+    if (bool_or_default(settings, id("arch.enable-globals"))) {
+        route_gowin_globals(getCtx());
+    }
+
     bool result;
     if (router == "router1") {
         result = router1(getCtx(), Router1Cfg(getCtx()));
@@ -2004,6 +2022,8 @@ void Arch::assignArchInfo()
 
             // add timing paths
             addCellTimingClock(cname, id_CLK);
+            addCellTimingClass(cname, id_CE, TMG_REGISTER_INPUT);
+            addCellTimingClass(cname, id_LSR, TMG_REGISTER_INPUT);
             IdString ports[4] = {id_A, id_B, id_C, id_D};
             for (int i = 0; i < 4; i++) {
                 DelayPair setup =
@@ -2034,7 +2054,19 @@ void Arch::assignArchInfo()
             delay = delay + delayLookup(speed->lut.timings.get(), speed->lut.num_timings, id_fx_ofx1);
             addCellTimingDelay(cname, id_I0, id_OF, delay);
             addCellTimingDelay(cname, id_I1, id_OF, delay);
+            addCellTimingClass(cname, id_SEL, TMG_COMB_INPUT);
+            break;
         }
+        case ID_IOB:
+            /* FALLTHRU */
+        case ID_IOBS:
+            addCellTimingClass(cname, id_I, TMG_ENDPOINT);
+            addCellTimingClass(cname, id_O, TMG_STARTPOINT);
+            break;
+        case ID_BUFS:
+            addCellTimingClass(cname, id_I, TMG_ENDPOINT);
+            addCellTimingClass(cname, id_O, TMG_STARTPOINT);
+            break;
         default:
             break;
         }
@@ -2076,6 +2108,24 @@ bool Arch::cellsCompatible(const CellInfo **cells, int count) const
         }
     }
     return true;
+}
+
+void Arch::route_gowin_globals(Context *ctx) { globals_router.route_globals(ctx); }
+
+void Arch::mark_gowin_globals(Context *ctx) { globals_router.mark_globals(ctx); }
+// ---------------------------------------------------------------
+void Arch::pre_pack(Context *ctx)
+{
+    if (bool_or_default(settings, id("arch.enable-auto-longwires"))) {
+        auto_longwires();
+    }
+}
+
+void Arch::post_pack(Context *ctx)
+{
+    if (bool_or_default(settings, id("arch.enable-globals"))) {
+        mark_gowin_globals(ctx);
+    }
 }
 
 NEXTPNR_NAMESPACE_END

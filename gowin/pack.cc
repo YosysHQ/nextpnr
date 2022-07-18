@@ -26,6 +26,8 @@
 #include "log.h"
 #include "util.h"
 
+#include "globals.h"
+
 NEXTPNR_NAMESPACE_BEGIN
 
 static void make_dummy_alu(Context *ctx, int alu_idx, CellInfo *ci, CellInfo *packed_head,
@@ -1098,6 +1100,7 @@ bool Arch::pack()
     Context *ctx = getCtx();
     try {
         log_break();
+        pre_pack(ctx);
         pack_constants(ctx);
         pack_sram(ctx);
         pack_gsr(ctx);
@@ -1108,6 +1111,7 @@ bool Arch::pack()
         pack_alus(ctx);
         pack_lut_lutffs(ctx);
         pack_nonlut_ffs(ctx);
+        post_pack(ctx);
         ctx->settings[id_pack] = 1;
         ctx->assignArchInfo();
         log_info("Checksum: 0x%08x\n", ctx->checksum());

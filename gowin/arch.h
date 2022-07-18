@@ -31,6 +31,8 @@
 #include "nextpnr_namespaces.h"
 #include "nextpnr_types.h"
 
+#include "globals.h"
+
 NEXTPNR_NAMESPACE_BEGIN
 
 template <typename T> struct RelPtr
@@ -289,6 +291,7 @@ struct Arch : BaseArch<ArchRanges>
     WireInfo &wire_info(IdString wire);
     PipInfo &pip_info(IdString pip);
     BelInfo &bel_info(IdString bel);
+    NetInfo &net_info(IdString net);
 
     std::vector<IdString> bel_ids, wire_ids, pip_ids;
 
@@ -336,6 +339,7 @@ struct Arch : BaseArch<ArchRanges>
     void setDelayScaling(double scale, double offset);
 
     void addCellTimingClock(IdString cell, IdString port);
+    void addCellTimingClass(IdString cell, IdString port, TimingPortClass cls);
     void addCellTimingDelay(IdString cell, IdString fromPort, IdString toPort, DelayQuad delay);
     void addCellTimingSetupHold(IdString cell, IdString port, IdString clock, DelayPair setup, DelayPair hold);
     void addCellTimingClockToOut(IdString cell, IdString port, IdString clock, DelayQuad clktoq);
@@ -461,6 +465,13 @@ struct Arch : BaseArch<ArchRanges>
     bool haveBelType(int x, int y, IdString bel_type);
     bool allocate_longwire(NetInfo *ni, int lw_idx = -1);
     void fix_longwire_bels();
+    void pre_pack(Context *ctx);
+    void post_pack(Context *ctx);
+    void auto_longwires();
+
+    GowinGlobalRouter globals_router;
+    void mark_gowin_globals(Context *ctx);
+    void route_gowin_globals(Context *ctx);
 
     // chip db version
     unsigned int const chipdb_version = 1;
