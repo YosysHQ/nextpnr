@@ -56,8 +56,8 @@ std::unique_ptr<CellInfo> create_generic_cell(Context *ctx, IdString type, std::
         new_cell->addInput(id_CLK);
         new_cell->addInput(id_CE);
         new_cell->addInput(id_LSR);
-    } else if (type == id_GW_MUX2_LUT5 || type == id_GW_MUX2_LUT6 || type == id_GW_MUX2_LUT7 ||
-               type == id_GW_MUX2_LUT7 || type == id_GW_MUX2_LUT8) {
+    } else if (type == id_MUX2_LUT5 || type == id_MUX2_LUT6 || type == id_MUX2_LUT7 || type == id_MUX2_LUT7 ||
+               type == id_MUX2_LUT8) {
         new_cell->addInput(id_I0);
         new_cell->addInput(id_I1);
         new_cell->addInput(id_SEL);
@@ -190,7 +190,7 @@ void sram_to_ramw_split(Context *ctx, CellInfo *ram, CellInfo *ramw)
     ram->movePortTo(ctx->id("DI[1]"), ramw, id_B5);
     ram->movePortTo(ctx->id("DI[2]"), ramw, id_C5);
     ram->movePortTo(ctx->id("DI[3]"), ramw, id_D5);
-    
+
     ram->movePortTo(ctx->id("CLK"), ramw, id_CLK);
     ram->movePortTo(ctx->id("WRE"), ramw, id_LSR);
 }

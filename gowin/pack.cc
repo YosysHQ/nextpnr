@@ -266,7 +266,7 @@ static void pack_mux2_lut5(Context *ctx, CellInfo *ci, pool<IdString> &packed_ce
             return;
         }
 
-        std::unique_ptr<CellInfo> packed = create_generic_cell(ctx, id_GW_MUX2_LUT5, ci->name.str(ctx) + "_LC");
+        std::unique_ptr<CellInfo> packed = create_generic_cell(ctx, id_MUX2_LUT5, ci->name.str(ctx) + "_LC");
         if (ctx->verbose) {
             log_info("packed cell %s into %s\n", ctx->nameOf(ci), ctx->nameOf(packed.get()));
         }
@@ -309,7 +309,7 @@ static void pack_mux2_lut5(Context *ctx, CellInfo *ci, pool<IdString> &packed_ce
             return;
         }
 
-        std::unique_ptr<CellInfo> packed = create_generic_cell(ctx, id_GW_MUX2_LUT5, ci->name.str(ctx) + "_LC");
+        std::unique_ptr<CellInfo> packed = create_generic_cell(ctx, id_MUX2_LUT5, ci->name.str(ctx) + "_LC");
         if (ctx->verbose) {
             log_info("packed cell %s into %s\n", ctx->nameOf(ci), ctx->nameOf(packed.get()));
         }
@@ -413,7 +413,7 @@ static void pack_mux2_lut6(Context *ctx, CellInfo *ci, pool<IdString> &packed_ce
 {
     static int x[] = {0, 0};
     static int z[] = {+1, -1};
-    pack_mux2_lut(ctx, ci, is_gw_mux2_lut5, '6', id_GW_MUX2_LUT6, x, z, packed_cells, delete_nets, new_cells);
+    pack_mux2_lut(ctx, ci, is_mux2_lut5, '6', id_MUX2_LUT6, x, z, packed_cells, delete_nets, new_cells);
 }
 
 // pack MUX2_LUT7
@@ -422,7 +422,7 @@ static void pack_mux2_lut7(Context *ctx, CellInfo *ci, pool<IdString> &packed_ce
 {
     static int x[] = {0, 0};
     static int z[] = {+2, -2};
-    pack_mux2_lut(ctx, ci, is_gw_mux2_lut6, '7', id_GW_MUX2_LUT7, x, z, packed_cells, delete_nets, new_cells);
+    pack_mux2_lut(ctx, ci, is_mux2_lut6, '7', id_MUX2_LUT7, x, z, packed_cells, delete_nets, new_cells);
 }
 
 // pack MUX2_LUT8
@@ -431,7 +431,7 @@ static void pack_mux2_lut8(Context *ctx, CellInfo *ci, pool<IdString> &packed_ce
 {
     static int x[] = {1, 0};
     static int z[] = {-4, -4};
-    pack_mux2_lut(ctx, ci, is_gw_mux2_lut7, '8', id_GW_MUX2_LUT8, x, z, packed_cells, delete_nets, new_cells);
+    pack_mux2_lut(ctx, ci, is_mux2_lut7, '8', id_MUX2_LUT8, x, z, packed_cells, delete_nets, new_cells);
 }
 
 // Pack wide LUTs
@@ -707,16 +707,14 @@ void pack_sram(Context *ctx)
         if (is_sram(ctx, ci)) {
 
             // Create RAMW slice
-            std::unique_ptr<CellInfo> ramw_slice =
-                    create_generic_cell(ctx, id_RAMW, ci->name.str(ctx) + "$RAMW_SLICE");
+            std::unique_ptr<CellInfo> ramw_slice = create_generic_cell(ctx, id_RAMW, ci->name.str(ctx) + "$RAMW_SLICE");
             sram_to_ramw_split(ctx, ci, ramw_slice.get());
             ramw_slice->connectPort(id_CE, ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
 
             // Create actual RAM slices
             std::unique_ptr<CellInfo> ram_comb[4];
             for (int i = 0; i < 4; i++) {
-                ram_comb[i] = create_generic_cell(ctx, id_SLICE,
-                                                ci->name.str(ctx) + "$SRAM_SLICE" + std::to_string(i));
+                ram_comb[i] = create_generic_cell(ctx, id_SLICE, ci->name.str(ctx) + "$SRAM_SLICE" + std::to_string(i));
                 ram_comb[i]->params[id_FF_USED] = 1;
                 ram_comb[i]->params[id_FF_TYPE] = std::string("RAM");
                 sram_to_slice(ctx, ci, ram_comb[i].get(), i);
@@ -724,8 +722,8 @@ void pack_sram(Context *ctx)
             // Create 'block' SLICEs as a placement hint that these cells are mutually exclusive with the RAMW
             std::unique_ptr<CellInfo> ramw_block[2];
             for (int i = 0; i < 2; i++) {
-                ramw_block[i] = create_generic_cell(ctx, id_SLICE,
-                                                    ci->name.str(ctx) + "$RAMW_BLOCK" + std::to_string(i));
+                ramw_block[i] =
+                        create_generic_cell(ctx, id_SLICE, ci->name.str(ctx) + "$RAMW_BLOCK" + std::to_string(i));
                 ram_comb[i]->params[id_FF_USED] = 1;
                 ramw_block[i]->params[id_FF_TYPE] = std::string("RAM");
             }
@@ -781,7 +779,6 @@ void pack_sram(Context *ctx)
         ctx->cells[ncell->name] = std::move(ncell);
     }
 }
-
 
 static bool is_nextpnr_iob(const Context *ctx, CellInfo *cell)
 {

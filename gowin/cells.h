@@ -62,22 +62,22 @@ inline bool is_alu(const BaseCtx *ctx, const CellInfo *cell) { return (cell->typ
 // is MUX2_LUT5
 inline bool is_mux2_lut5(const BaseCtx *ctx, const CellInfo *cell) { return (cell->type.index == ID_MUX2_LUT5); }
 
-inline bool is_gw_mux2_lut5(const BaseCtx *ctx, const CellInfo *cell) { return (cell->type.index == ID_GW_MUX2_LUT5); }
+inline bool is_mux2_lut5(const BaseCtx *ctx, const CellInfo *cell) { return (cell->type.index == ID_MUX2_LUT5); }
 
 // is MUX2_LUT6
 inline bool is_mux2_lut6(const BaseCtx *ctx, const CellInfo *cell) { return (cell->type.index == ID_MUX2_LUT6); }
 
-inline bool is_gw_mux2_lut6(const BaseCtx *ctx, const CellInfo *cell) { return (cell->type.index == ID_GW_MUX2_LUT6); }
+inline bool is_mux2_lut6(const BaseCtx *ctx, const CellInfo *cell) { return (cell->type.index == ID_MUX2_LUT6); }
 
 // is MUX2_LUT7
 inline bool is_mux2_lut7(const BaseCtx *ctx, const CellInfo *cell) { return (cell->type.index == ID_MUX2_LUT7); }
 
-inline bool is_gw_mux2_lut7(const BaseCtx *ctx, const CellInfo *cell) { return (cell->type.index == ID_GW_MUX2_LUT7); }
+inline bool is_mux2_lut7(const BaseCtx *ctx, const CellInfo *cell) { return (cell->type.index == ID_MUX2_LUT7); }
 
 // is MUX2_LUT8
 inline bool is_mux2_lut8(const BaseCtx *ctx, const CellInfo *cell) { return (cell->type.index == ID_MUX2_LUT8); }
 
-inline bool is_gw_mux2_lut8(const BaseCtx *ctx, const CellInfo *cell) { return (cell->type.index == ID_GW_MUX2_LUT8); }
+inline bool is_mux2_lut8(const BaseCtx *ctx, const CellInfo *cell) { return (cell->type.index == ID_MUX2_LUT8); }
 
 // Return true if a cell is a flipflop
 inline bool is_ff(const BaseCtx *ctx, const CellInfo *cell)
