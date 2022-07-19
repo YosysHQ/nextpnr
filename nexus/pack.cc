@@ -43,7 +43,7 @@ Property Arch::parse_lattice_param_from_cell(const CellInfo *ci, IdString prop, 
 // Parse a possibly-Lattice-style (C literal in Verilog string) style parameter
 Property Arch::parse_lattice_param(const Property &val, IdString prop, int width, const char *ci) const
 {
-    if (val.is_string) {
+    if (val.is_string && !prop.in(id_CSDECODE_A, id_CSDECODE_B, id_CSDECODE_R, id_CSDECODE_W)) {
         const std::string &s = val.str;
         Property temp;
 
