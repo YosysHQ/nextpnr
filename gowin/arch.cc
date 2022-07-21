@@ -553,7 +553,10 @@ void Arch::setDelayScaling(double scale, double offset)
     args.delayOffset = offset;
 }
 
-void Arch::addCellTimingClass(IdString cell, IdString port, TimingPortClass cls) {cellTiming[cell].portClasses[port] = cls;}
+void Arch::addCellTimingClass(IdString cell, IdString port, TimingPortClass cls)
+{
+    cellTiming[cell].portClasses[port] = cls;
+}
 
 void Arch::addCellTimingClock(IdString cell, IdString port) { cellTiming[cell].portClasses[port] = TMG_CLOCK_INPUT; }
 
@@ -1019,7 +1022,7 @@ void Arch::addMuxBels(const DatabasePOD *db, int row, int col)
         // bel
         snprintf(buf, 40, "R%dC%d_MUX2_LUT%c%c", grow, gcol, mux_names[j].type, mux_names[j].bel_idx);
         belname = id(buf);
-        snprintf(buf, 40, "GW_MUX2_LUT%c", mux_names[j].type);
+        snprintf(buf, 40, "MUX2_LUT%c", mux_names[j].type);
         bel_id = id(buf);
         addBel(belname, bel_id, Loc(col, row, z), false);
 
@@ -2041,16 +2044,16 @@ void Arch::assignArchInfo()
             }
             break;
         }
-        case ID_GW_MUX2_LUT8:
+        case ID_MUX2_LUT8:
             delay = delay + delayLookup(speed->lut.timings.get(), speed->lut.num_timings, id_fx_ofx1);
             /* FALLTHRU */
-        case ID_GW_MUX2_LUT7:
+        case ID_MUX2_LUT7:
             delay = delay + delayLookup(speed->lut.timings.get(), speed->lut.num_timings, id_fx_ofx1);
             /* FALLTHRU */
-        case ID_GW_MUX2_LUT6:
+        case ID_MUX2_LUT6:
             delay = delay + delayLookup(speed->lut.timings.get(), speed->lut.num_timings, id_fx_ofx1);
             /* FALLTHRU */
-        case ID_GW_MUX2_LUT5: {
+        case ID_MUX2_LUT5: {
             delay = delay + delayLookup(speed->lut.timings.get(), speed->lut.num_timings, id_fx_ofx1);
             addCellTimingDelay(cname, id_I0, id_OF, delay);
             addCellTimingDelay(cname, id_I1, id_OF, delay);
