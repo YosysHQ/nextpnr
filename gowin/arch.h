@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "base_arch.h"
+#include "globals.h"
 #include "idstring.h"
 #include "nextpnr_namespaces.h"
 #include "nextpnr_types.h"
@@ -463,6 +464,7 @@ struct Arch : BaseArch<ArchRanges>
     void assignArchInfo() override;
     bool cellsCompatible(const CellInfo **cells, int count) const;
     bool haveBelType(int x, int y, IdString bel_type);
+    void create_l2g_bel(const DatabasePOD *db, int row, int col, IdString lw_id);
     bool allocate_longwire(NetInfo *ni, int lw_idx = -1);
     void fix_longwire_bels();
     void pre_pack(Context *ctx);
@@ -507,7 +509,8 @@ enum
     gnd_0_z = 278,    // virtual VSS bel Z
     osc_z = 280,      // Z for the oscillator bels
     bufs_0_z = 281,   // Z for long wire buffer bel
-    free_z = 289      // Must be the last, one can use z starting from this value, adjust accordingly.
+    l2g_z = 289,      // Z for logic to global network gate
+    free_z = 290      // Must be the last, one can use z starting from this value, adjust accordingly.
 };
 }
 

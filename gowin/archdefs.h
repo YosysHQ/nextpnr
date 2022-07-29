@@ -65,6 +65,8 @@ struct ArchCellInfo : BaseClusterInfo
     IdString ff_type;
     // Is a slice type primitive
     bool is_slice;
+    // if its logic to global network
+    IdString lw;
 
     // Only packing rule for slice type primitives is a single clock per tile
     const NetInfo *slice_clk;

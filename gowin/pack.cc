@@ -23,6 +23,7 @@
 #include <iterator>
 #include "cells.h"
 #include "design_utils.h"
+#include "globals.h"
 #include "log.h"
 #include "util.h"
 
@@ -30,6 +31,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+// ---------------------------------------------------------------
 static void make_dummy_alu(Context *ctx, int alu_idx, CellInfo *ci, CellInfo *packed_head,
                            std::vector<std::unique_ptr<CellInfo>> &new_cells)
 {
@@ -1096,6 +1098,7 @@ bool Arch::pack()
 {
     Context *ctx = getCtx();
     try {
+        pre_pack(ctx);
         log_break();
         pre_pack(ctx);
         pack_constants(ctx);

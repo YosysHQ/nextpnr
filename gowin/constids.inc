@@ -680,6 +680,8 @@ X(IOBIS)
 X(IOBJS)
 
 // long wires
+X(DUMMY_L2G)
+X(L2GO)
 X(BUFS)
 X(BUFS0)
 X(BUFS1)

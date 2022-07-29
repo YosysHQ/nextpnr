@@ -228,16 +228,28 @@ bool Arch::allocate_longwire(NetInfo *ni, int lw_idx)
     std::unique_ptr<CellInfo> new_cell = create_generic_cell(getCtx(), id_BUFS, buf);
     bufs = new_cell.get();
     cells[bufs->name] = std::move(new_cell);
-    if (lw_idx != -1) {
-        bufs->cluster = bufs->name;
-        bufs->constr_z = lw_idx + BelZ::bufs_0_z;
-        bufs->constr_abs_z = true;
-        bufs->constr_children.clear();
-    }
+    bufs->cluster = bufs->name;
+    bufs->constr_z = longwire + BelZ::bufs_0_z;
+    bufs->constr_abs_z = true;
+    bufs->constr_children.clear();
 
-    // old driver -> bufs LW input net
-    snprintf(buf, sizeof(buf), "$PACKER_BUFS_%c", longwire + 'A');
+    // logic to global cell
+    // XXX reuse another L2G if there is one
+    snprintf(buf, sizeof(buf), "$PACKER_L2G%d", longwire);
+    std::unique_ptr<CellInfo> new_cell_l2g = create_generic_cell(getCtx(), id_DUMMY_L2G, buf);
+    CellInfo *l2g = new_cell_l2g.get();
+    snprintf(buf, sizeof(buf), "LWT%d", longwire);
+    l2g->lw = id(buf);
+    cells[l2g->name] = std::move(new_cell_l2g);
+
+    // old driver -> l2g input net -> bufs LW input net
+    snprintf(buf, sizeof(buf), "$PACKER_L2G_NET%d", longwire);
     auto net = std::make_unique<NetInfo>(id(buf));
+    NetInfo *l2g_net = net.get();
+    nets[net->name] = std::move(net);
+
+    snprintf(buf, sizeof(buf), "$PACKER_BUFS_NET%d", longwire);
+    net = std::make_unique<NetInfo>(id(buf));
     NetInfo *bufs_net = net.get();
     nets[net->name] = std::move(net);
 
@@ -246,17 +258,18 @@ bool Arch::allocate_longwire(NetInfo *ni, int lw_idx)
     IdString driver_port = ni->driver.port;
     driver_cell->disconnectPort(driver_port);
 
-    bufs->connectPort(id_O, ni);
+    driver_cell->connectPort(driver_port, l2g_net);
+    l2g->connectPort(id_I, l2g_net);
+    l2g->connectPort(id_O, bufs_net);
+
     bufs->connectPort(id_I, bufs_net);
-    driver_cell->connectPort(driver_port, bufs_net);
+    bufs->connectPort(id_O, ni);
 
     if (getCtx()->debug) {
         log_info("Long wire %d was allocated\n", longwire);
     }
     return true;
 }
-
-void Arch::auto_longwires() {}
 
 void Arch::fix_longwire_bels()
 {
@@ -315,6 +328,38 @@ void Arch::fix_longwire_bels()
             default:
                 break;
             }
+        }
+    }
+}
+
+void Arch::auto_longwires()
+{
+    log_info("Auto allocation of longwires...\n");
+    std::vector<std::tuple<int, int, IdString>> candidates;
+
+    // get all CE nets sorted by total number of ports
+    for (auto const &net : nets) {
+        NetInfo const *ni = net.second.get();
+        if (ni->name == id("$PACKER_GND_NET") || ni->name == id("$PACKER_VCC_NET")) {
+            continue;
+        }
+        int ce_ports = 0;
+        for (auto const &port : ni->users) {
+            if (port.port == id_CE) {
+                ++ce_ports;
+            }
+        }
+        if (ce_ports) {
+            candidates.push_back(std::make_tuple(ce_ports, ni->users.entries(), ni->name));
+        }
+    }
+    std::sort(candidates.begin(), candidates.end(),
+              [](auto const &a, auto const &b) -> bool { return std::get<1>(a) > std::get<1>(b); });
+
+    for (unsigned int i = 0; i < 8 && i < candidates.size(); ++i) {
+        NetInfo &ni = net_info(std::get<2>(candidates[i]));
+        if (allocate_longwire(&ni, -1) && getCtx()->verbose) {
+            log_info("Auto longwire for net %s\n", ni.name.c_str(this));
         }
     }
 }
@@ -1070,6 +1115,30 @@ void Arch::addMuxBels(const DatabasePOD *db, int row, int col)
     }
 }
 
+// Create a logic->global networks gates
+// XXX for now for long wires only
+// XXX instead of relying on the interpretation of global aliases, it would be
+// better to pass (or even create Bels) this in the base of the chip
+void Arch::create_l2g_bel(const DatabasePOD *db, int row, int col, IdString lw_id)
+{
+    char buf[32];
+    snprintf(buf, sizeof(buf), "R%dC%d_L2G", row + 1, col + 1);
+    IdString belname = id(buf);
+
+    if (!bels.count(belname)) {
+        addBel(belname, id_DUMMY_L2G, Loc(col, row, BelZ::l2g_z), true);
+        snprintf(buf, sizeof(buf), "R%dC%d_CLK2", row + 1, col + 1);
+        addBelInput(belname, id_I, id(buf));
+        IdString wire = id_L2GO;
+        IdString wire_name = wireToGlobal(row, col, db, wire);
+        addWire(wire_name, id_L2GO, col, row);
+        addBelOutput(belname, id_O, wire_name);
+    }
+    if (lw_id.str(this).rfind("LW", 0) != std::string::npos) {
+        bel_info(belname).attrs[lw_id] = "";
+    }
+}
+
 Arch::Arch(ArchArgs args) : args(args)
 {
     family = args.family;
@@ -1176,6 +1245,7 @@ Arch::Arch(ArchArgs args) : args(args)
     addBel(id_VCC, id_VCC, Loc(0, 0, BelZ::vcc_0_z), true);
     addWire(id_VCC, id_VCC, 0, 0);
     addBelOutput(id_VCC, id_V, id_VCC);
+
     char buf[32];
     // The reverse order of the enumeration simplifies the creation
     // of MUX2_LUT8s: they need the existence of the wire on the right.
@@ -1211,6 +1281,7 @@ Arch::Arch(ArchArgs args) : args(args)
                     addWire(gsrcname, srcid, srccol, srcrow);
             }
         }
+
         for (unsigned int j = 0; j < tile->num_bels; j++) {
             const BelsPOD *bel = &tile->bels[j];
             IdString belname;
@@ -1236,7 +1307,7 @@ Arch::Arch(ArchArgs args) : args(args)
             case ID_BUFS0:
                 snprintf(buf, 32, "R%dC%d_BUFS%d", row + 1, col + 1, z);
                 belname = id(buf);
-                addBel(belname, id_BUFS, Loc(col, row, BelZ::bufs_0_z + z), false);
+                addBel(belname, id_BUFS, Loc(col, row, BelZ::bufs_0_z + z), true);
                 portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_I)->src_id);
                 snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
                 addBelInput(belname, id_I, id(buf));
@@ -1558,6 +1629,12 @@ Arch::Arch(ArchArgs args) : args(args)
                     srccol = alias_src->src_col;
                     srcrow = alias_src->src_row;
                     srcid = IdString(alias_src->src_id);
+                    // XXX
+                    // logic to global networks bel
+                    if (srcid == id_CLK2) {
+                        create_l2g_bel(db, srcrow, srccol, destid);
+                        srcid = id_L2GO;
+                    }
                     gsrcname = wireToGlobal(srcrow, srccol, db, srcid);
                 }
                 addPip(pipname, destid, gsrcname, gdestname, delay, Loc(col, row, j));
@@ -1865,7 +1942,6 @@ ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
 }
 
 // ---------------------------------------------------------------
-
 bool Arch::place()
 {
     std::string placer = str_or_default(settings, id_placer, defaultPlacer);
@@ -2108,6 +2184,9 @@ bool Arch::cellsCompatible(const CellInfo **cells, int count) const
                 if (res == dff_comp_mode.end() || res->second != ci->ff_type)
                     return false;
             }
+        } else if (ci->type == id_DUMMY_L2G) {
+            BelInfo const &bi = bels.at(ci->bel);
+            return bi.attrs.count(ci->lw) != 0;
         }
     }
     return true;
@@ -2130,5 +2209,4 @@ void Arch::post_pack(Context *ctx)
         mark_gowin_globals(ctx);
     }
 }
-
 NEXTPNR_NAMESPACE_END
