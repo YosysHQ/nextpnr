@@ -134,40 +134,20 @@ BelId Arch::addBel(IdStringList name, IdString type, Loc loc, bool gb, bool hidd
     return bel;
 }
 
-void Arch::addBelInput(BelId bel, IdString name, WireId wire)
+void Arch::addBelInput(BelId bel, IdString name, WireId wire) { addBelPin(bel, name, wire, PORT_IN); }
+
+void Arch::addBelOutput(BelId bel, IdString name, WireId wire) { addBelPin(bel, name, wire, PORT_OUT); }
+
+void Arch::addBelInout(BelId bel, IdString name, WireId wire) { addBelPin(bel, name, wire, PORT_INOUT); }
+
+void Arch::addBelPin(BelId bel, IdString name, WireId wire, PortType type)
 {
     auto &bi = bel_info(bel);
     NPNR_ASSERT(bi.pins.count(name) == 0);
     PinInfo &pi = bi.pins[name];
     pi.name = name;
     pi.wire = wire;
-    pi.type = PORT_IN;
-
-    if (wire != WireId())
-        wire_info(wire).bel_pins.push_back(BelPin{bel, name});
-}
-
-void Arch::addBelOutput(BelId bel, IdString name, WireId wire)
-{
-    auto &bi = bel_info(bel);
-    NPNR_ASSERT(bi.pins.count(name) == 0);
-    PinInfo &pi = bi.pins[name];
-    pi.name = name;
-    pi.wire = wire;
-    pi.type = PORT_OUT;
-
-    if (wire != WireId())
-        wire_info(wire).bel_pins.push_back(BelPin{bel, name});
-}
-
-void Arch::addBelInout(BelId bel, IdString name, WireId wire)
-{
-    auto &bi = bel_info(bel);
-    NPNR_ASSERT(bi.pins.count(name) == 0);
-    PinInfo &pi = bi.pins[name];
-    pi.name = name;
-    pi.wire = wire;
-    pi.type = PORT_INOUT;
+    pi.type = type;
 
     if (wire != WireId())
         wire_info(wire).bel_pins.push_back(BelPin{bel, name});

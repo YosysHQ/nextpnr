@@ -200,6 +200,7 @@ struct Arch : BaseArch<ArchRanges>
     void addBelInput(BelId bel, IdString name, WireId wire);
     void addBelOutput(BelId bel, IdString name, WireId wire);
     void addBelInout(BelId bel, IdString name, WireId wire);
+    void addBelPin(BelId bel, IdString name, WireId wire, PortType type);
 
     WireId addWireAsBelInput(BelId bel, IdString name);
     WireId addWireAsBelOutput(BelId bel, IdString name);
