@@ -105,6 +105,12 @@ void arch_wrap_python(py::module &m)
     fn_wrapper_3a_v<Context, decltype(&Context::addBelInout), &Context::addBelInout, conv_from_str<BelId>,
                     conv_from_str<IdString>, conv_from_str<WireId>>::def_wrap(ctx_cls, "addBelInout", "bel"_a, "name"_a,
                                                                               "wire"_a);
+    fn_wrapper_4a_v<Context, decltype(&Context::addBelPin), &Context::addBelPin, conv_from_str<BelId>,
+                    conv_from_str<IdString>, conv_from_str<WireId>, pass_through<PortType>>::def_wrap(ctx_cls,
+                                                                                                      "addBelPin",
+                                                                                                      "bel"_a, "name"_a,
+                                                                                                      "wire"_a,
+                                                                                                      "type"_a);
 
     fn_wrapper_2a_v<Context, decltype(&Context::addGroupBel), &Context::addGroupBel, conv_from_str<IdStringList>,
                     conv_from_str<BelId>>::def_wrap(ctx_cls, "addGroupBel", "group"_a, "bel"_a);
