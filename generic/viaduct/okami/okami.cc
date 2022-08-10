@@ -120,45 +120,45 @@ struct OkamiImpl : ViaductAPI
                 auto &w = row_wires.at(x);
                 for (int z = 0; z < N; z++) {
                     // Clock input
-                    w.clk.push_back(ctx->addWire(h.xy_id(x, y, ctx->id(stringf("CLK%d", z))), ctx->id("CLK"), x, y));
+                    w.clk.push_back(ctx->addWire(h.xy_id(x, y, ctx->idf("CLK%d", z)), ctx->id("CLK"), x, y));
                     // FF input
-                    w.d.push_back(ctx->addWire(h.xy_id(x, y, ctx->id(stringf("D%d", z))), ctx->id("D"), x, y));
+                    w.d.push_back(ctx->addWire(h.xy_id(x, y, ctx->idf("D%d", z)), ctx->id("D"), x, y));
                     // FF and LUT outputs
-                    w.q.push_back(ctx->addWire(h.xy_id(x, y, ctx->id(stringf("Q%d", z))), ctx->id("Q"), x, y));
-                    w.f.push_back(ctx->addWire(h.xy_id(x, y, ctx->id(stringf("F%d", z))), ctx->id("F"), x, y));
+                    w.q.push_back(ctx->addWire(h.xy_id(x, y, ctx->idf("Q%d", z)), ctx->id("Q"), x, y));
+                    w.f.push_back(ctx->addWire(h.xy_id(x, y, ctx->idf("F%d", z)), ctx->id("F"), x, y));
                     // LUT inputs
                     for (int i = 0; i < K; i++)
                         w.slice_inputs.push_back(
-                                ctx->addWire(h.xy_id(x, y, ctx->id(stringf("L%dI%d", z, i))), ctx->id("I"), x, y));
-                    w.slice_outputs.push_back(ctx->addWire(h.xy_id(x, y, ctx->id(stringf("SLICEOUT[%d]", z))),
-                                                           ctx->id("SLICEOUT"), x, y));
+                                ctx->addWire(h.xy_id(x, y, ctx->idf("L%dI%d", z, i)), ctx->id("I"), x, y));
+                    w.slice_outputs.push_back(
+                            ctx->addWire(h.xy_id(x, y, ctx->idf("SLICEOUT[%d]", z)), ctx->id("SLICEOUT"), x, y));
                 }
                 // Tile inputs
                 for (int tile_input = 0; tile_input < InputMuxCount; tile_input++) {
-                    w.tile_inputs_north.push_back(ctx->addWire(
-                            h.xy_id(x, y, ctx->id(stringf("TILEINN[%d]", tile_input))), ctx->id("TILEINN"), x, y));
-                    w.tile_inputs_east.push_back(ctx->addWire(
-                            h.xy_id(x, y, ctx->id(stringf("TILEINE[%d]", tile_input))), ctx->id("TILEINE"), x, y));
-                    w.tile_inputs_south.push_back(ctx->addWire(
-                            h.xy_id(x, y, ctx->id(stringf("TILEINS[%d]", tile_input))), ctx->id("TILEINS"), x, y));
-                    w.tile_inputs_west.push_back(ctx->addWire(
-                            h.xy_id(x, y, ctx->id(stringf("TILEINW[%d]", tile_input))), ctx->id("TILEINW"), x, y));
+                    w.tile_inputs_north.push_back(
+                            ctx->addWire(h.xy_id(x, y, ctx->idf("TILEINN[%d]", tile_input)), ctx->id("TILEINN"), x, y));
+                    w.tile_inputs_east.push_back(
+                            ctx->addWire(h.xy_id(x, y, ctx->idf("TILEINE[%d]", tile_input)), ctx->id("TILEINE"), x, y));
+                    w.tile_inputs_south.push_back(
+                            ctx->addWire(h.xy_id(x, y, ctx->idf("TILEINS[%d]", tile_input)), ctx->id("TILEINS"), x, y));
+                    w.tile_inputs_west.push_back(
+                            ctx->addWire(h.xy_id(x, y, ctx->idf("TILEINW[%d]", tile_input)), ctx->id("TILEINW"), x, y));
                 }
                 // Tile outputs
                 for (int tile_output = 0; tile_output < OutputMuxCount; tile_output++) {
-                    w.tile_outputs_north.push_back(ctx->addWire(
-                            h.xy_id(x, y, ctx->id(stringf("TILEOUTN[%d]", tile_output))), ctx->id("TILEOUTN"), x, y));
-                    w.tile_outputs_east.push_back(ctx->addWire(
-                            h.xy_id(x, y, ctx->id(stringf("TILEOUTE[%d]", tile_output))), ctx->id("TILEOUTE"), x, y));
-                    w.tile_outputs_south.push_back(ctx->addWire(
-                            h.xy_id(x, y, ctx->id(stringf("TILEOUTS[%d]", tile_output))), ctx->id("TILEOUTS"), x, y));
-                    w.tile_outputs_west.push_back(ctx->addWire(
-                            h.xy_id(x, y, ctx->id(stringf("TILEOUTW[%d]", tile_output))), ctx->id("TILEOUTW"), x, y));
+                    w.tile_outputs_north.push_back(ctx->addWire(h.xy_id(x, y, ctx->idf("TILEOUTN[%d]", tile_output)),
+                                                                ctx->id("TILEOUTN"), x, y));
+                    w.tile_outputs_east.push_back(ctx->addWire(h.xy_id(x, y, ctx->idf("TILEOUTE[%d]", tile_output)),
+                                                               ctx->id("TILEOUTE"), x, y));
+                    w.tile_outputs_south.push_back(ctx->addWire(h.xy_id(x, y, ctx->idf("TILEOUTS[%d]", tile_output)),
+                                                                ctx->id("TILEOUTS"), x, y));
+                    w.tile_outputs_west.push_back(ctx->addWire(h.xy_id(x, y, ctx->idf("TILEOUTW[%d]", tile_output)),
+                                                               ctx->id("TILEOUTW"), x, y));
                 }
                 // Pad wires for IO
                 if (is_io(x, y) && x != y)
                     for (int z = 0; z < 2; z++)
-                        w.pad.push_back(ctx->addWire(h.xy_id(x, y, ctx->id(stringf("PAD%d", z))), id_PAD, x, y));
+                        w.pad.push_back(ctx->addWire(h.xy_id(x, y, ctx->idf("PAD%d", z)), id_PAD, x, y));
             }
         }
     }
@@ -172,7 +172,7 @@ struct OkamiImpl : ViaductAPI
     {
         auto &w = wires_by_tile.at(y).at(x);
         for (int z = 0; z < 2; z++) {
-            BelId b = ctx->addBel(h.xy_id(x, y, ctx->id(stringf("IO%d", z))), id_IOB, Loc(x, y, z), false, false);
+            BelId b = ctx->addBel(h.xy_id(x, y, ctx->idf("IO%d", z)), id_IOB, Loc(x, y, z), false, false);
             ctx->addBelInout(b, id_PAD, w.pad.at(z));
             ctx->addBelInput(b, id_I, w.slice_inputs.at(z * K + 0));
             ctx->addBelInput(b, id_EN, w.slice_inputs.at(z * K + 1));
@@ -190,17 +190,16 @@ struct OkamiImpl : ViaductAPI
         auto &w = wires_by_tile.at(y).at(x);
         for (int z = 0; z < N; z++) {
             // Create LUT bel
-            BelId lut = ctx->addBel(h.xy_id(x, y, ctx->id(stringf("SLICE%d_LUT", z))), id_LUT4, Loc(x, y, z * 2), false,
-                                    false);
+            BelId lut = ctx->addBel(h.xy_id(x, y, ctx->idf("SLICE%d_LUT", z)), id_LUT4, Loc(x, y, z * 2), false, false);
             for (int k = 0; k < K; k++)
-                ctx->addBelInput(lut, ctx->id(stringf("I[%d]", k)), w.slice_inputs.at(z * K + k));
+                ctx->addBelInput(lut, ctx->idf("I[%d]", k), w.slice_inputs.at(z * K + k));
             ctx->addBelOutput(lut, id_F, w.f.at(z));
             // FF data can come from LUT output or LUT I3
             add_pip(Loc(x, y, 0), w.f.at(z), w.d.at(z));
             add_pip(Loc(x, y, 0), w.slice_inputs.at(z * K + (K - 1)), w.d.at(z));
             // Create DFF bel
-            BelId dff = ctx->addBel(h.xy_id(x, y, ctx->id(stringf("SLICE%d_FF", z))), id_DFF, Loc(x, y, z * 2 + 1),
-                                    false, false);
+            BelId dff =
+                    ctx->addBel(h.xy_id(x, y, ctx->idf("SLICE%d_FF", z)), id_DFF, Loc(x, y, z * 2 + 1), false, false);
             ctx->addBelInput(dff, id_CLK, w.clk.at(z));
             ctx->addBelInput(dff, id_D, w.d.at(z));
             ctx->addBelOutput(dff, id_Q, w.q.at(z));
@@ -495,7 +494,7 @@ struct OkamiImpl : ViaductAPI
             auto &fc = fast_cell_info.at(ci->flat_index);
             if (ci->type == id_LUT4) {
                 fc.lut_f = ci->getPort(id_F);
-                fc.lut_i3_used = (ci->getPort(ctx->id(stringf("I[%d]", K - 1))) != nullptr);
+                fc.lut_i3_used = (ci->getPort(ctx->idf("I[%d]", K - 1)) != nullptr);
             } else if (ci->type == id_DFF) {
                 fc.ff_d = ci->getPort(id_D);
             }

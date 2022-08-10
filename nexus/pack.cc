@@ -316,8 +316,8 @@ struct NexusPacker
             return z;
         }
 
-        NetInfo *new_net = ctx->createNet(ctx->id(stringf("$CONST_%s_NET_", type.c_str(ctx))));
-        CellInfo *new_cell = ctx->createCell(ctx->id(stringf("$CONST_%s_DRV_", type.c_str(ctx))), type);
+        NetInfo *new_net = ctx->createNet(ctx->idf("$CONST_%s_NET_", type.c_str(ctx)));
+        CellInfo *new_cell = ctx->createCell(ctx->idf("$CONST_%s_DRV_", type.c_str(ctx)), type);
         new_cell->addOutput(id_Z);
         new_cell->connectPort(id_Z, new_net);
         return new_net;
@@ -823,10 +823,10 @@ struct NexusPacker
                             Tpred pred)
     {
         // Create the buffered net
-        NetInfo *buffered_net = ctx->createNet(ctx->id(stringf("%s$%s", ctx->nameOf(net), name_postfix.c_str())));
+        NetInfo *buffered_net = ctx->createNet(ctx->idf("%s$%s", ctx->nameOf(net), name_postfix.c_str()));
         // Create the buffer cell
-        CellInfo *buffer = ctx->createCell(
-                ctx->id(stringf("%s$drv_%s", ctx->nameOf(buffered_net), ctx->nameOf(buffer_type))), buffer_type);
+        CellInfo *buffer = ctx->createCell(ctx->idf("%s$drv_%s", ctx->nameOf(buffered_net), ctx->nameOf(buffer_type)),
+                                           buffer_type);
         buffer->addInput(i);
         buffer->addOutput(o);
         // Drive the buffered net with the buffer
@@ -915,9 +915,9 @@ struct NexusPacker
     }
 
     // Get a bus port name
-    IdString bus(const std::string &base, int i) { return ctx->id(stringf("%s[%d]", base.c_str(), i)); }
+    IdString bus(const std::string &base, int i) { return ctx->idf("%s[%d]", base.c_str(), i); }
 
-    IdString bus_flat(const std::string &base, int i) { return ctx->id(stringf("%s%d", base.c_str(), i)); }
+    IdString bus_flat(const std::string &base, int i) { return ctx->idf("%s%d", base.c_str(), i); }
 
     // Pack a LUTRAM into COMB and RAMW cells
     void pack_lutram()
@@ -939,11 +939,10 @@ struct NexusPacker
 
         for (CellInfo *ci : lutrams) {
             // Create constituent cells
-            CellInfo *ramw = ctx->createCell(ctx->id(stringf("%s$lutram_ramw$", ctx->nameOf(ci))), id_RAMW);
+            CellInfo *ramw = ctx->createCell(ctx->idf("%s$lutram_ramw$", ctx->nameOf(ci)), id_RAMW);
             std::vector<CellInfo *> combs;
             for (int i = 0; i < 4; i++)
-                combs.push_back(
-                        ctx->createCell(ctx->id(stringf("%s$lutram_comb[%d]$", ctx->nameOf(ci), i)), id_OXIDE_COMB));
+                combs.push_back(ctx->createCell(ctx->idf("%s$lutram_comb[%d]$", ctx->nameOf(ci), i), id_OXIDE_COMB));
             // Rewiring - external WCK and WRE
             ci->movePortTo(id_WCK, ramw, id_CLK);
             ci->movePortTo(id_WRE, ramw, id_LSR);
@@ -951,8 +950,8 @@ struct NexusPacker
             // Internal WCK and WRE signals
             ramw->addOutput(id_WCKO);
             ramw->addOutput(id_WREO);
-            NetInfo *int_wck = ctx->createNet(ctx->id(stringf("%s$lutram_wck$", ctx->nameOf(ci))));
-            NetInfo *int_wre = ctx->createNet(ctx->id(stringf("%s$lutram_wre$", ctx->nameOf(ci))));
+            NetInfo *int_wck = ctx->createNet(ctx->idf("%s$lutram_wck$", ctx->nameOf(ci)));
+            NetInfo *int_wre = ctx->createNet(ctx->idf("%s$lutram_wre$", ctx->nameOf(ci)));
             ramw->connectPort(id_WCKO, int_wck);
             ramw->connectPort(id_WREO, int_wre);
 
@@ -977,7 +976,7 @@ struct NexusPacker
                     ci->disconnectPort(bus("RAD", i));
                 }
                 // Write address - internal
-                NetInfo *int_wad = ctx->createNet(ctx->id(stringf("%s$lutram_wad[%d]$", ctx->nameOf(ci), i)));
+                NetInfo *int_wad = ctx->createNet(ctx->idf("%s$lutram_wad[%d]$", ctx->nameOf(ci), i));
                 ramw->addOutput(bus_flat("WADO", i));
                 ramw->connectPort(bus_flat("WADO", i), int_wad);
                 for (int j = 0; j < 4; j++) {
@@ -985,7 +984,7 @@ struct NexusPacker
                     combs[j]->connectPort(bus_flat("WAD", i), int_wad);
                 }
                 // Write data - internal
-                NetInfo *int_wd = ctx->createNet(ctx->id(stringf("%s$lutram_wd[%d]$", ctx->nameOf(ci), i)));
+                NetInfo *int_wd = ctx->createNet(ctx->idf("%s$lutram_wd[%d]$", ctx->nameOf(ci), i));
                 ramw->addOutput(bus_flat("WDO", i));
                 ramw->connectPort(bus_flat("WDO", i), int_wd);
                 combs[i]->addInput(id_WDI);
@@ -1256,8 +1255,7 @@ struct NexusPacker
         for (CellInfo *ci : widefns) {
             std::vector<CellInfo *> combs;
             for (int i = 0; i < 2; i++)
-                combs.push_back(
-                        ctx->createCell(ctx->id(stringf("%s$widefn_comb[%d]$", ctx->nameOf(ci), i)), id_OXIDE_COMB));
+                combs.push_back(ctx->createCell(ctx->idf("%s$widefn_comb[%d]$", ctx->nameOf(ci), i), id_OXIDE_COMB));
 
             for (int i = 0; i < 2; i++) {
                 ci->movePortTo(bus_flat("A", i), combs[i], id_A);
@@ -1269,7 +1267,7 @@ struct NexusPacker
             ci->movePortTo(id_SEL, combs[0], id_SEL);
             ci->movePortTo(id_Z, combs[0], id_OFX);
 
-            NetInfo *f1 = ctx->createNet(ctx->id(stringf("%s$widefn_f1$", ctx->nameOf(ci))));
+            NetInfo *f1 = ctx->createNet(ctx->idf("%s$widefn_f1$", ctx->nameOf(ci)));
             combs[0]->addInput(id_F1);
             combs[1]->addOutput(id_F);
             combs[1]->connectPort(id_F, f1);
@@ -1313,8 +1311,7 @@ struct NexusPacker
                 // Split the carry into two COMB cells
                 std::vector<CellInfo *> combs;
                 for (int i = 0; i < 2; i++)
-                    combs.push_back(
-                            ctx->createCell(ctx->id(stringf("%s$ccu2_comb[%d]$", ctx->nameOf(ci), i)), id_OXIDE_COMB));
+                    combs.push_back(ctx->createCell(ctx->idf("%s$ccu2_comb[%d]$", ctx->nameOf(ci), i), id_OXIDE_COMB));
                 // Rewire LUT ports
                 for (int i = 0; i < 2; i++) {
                     combs[i]->params[id_MODE] = std::string("CCU2");
@@ -1336,7 +1333,7 @@ struct NexusPacker
                 combs[1]->params[id_INIT] = ctx->parse_lattice_param_from_cell(ci, id_INIT1, 16, 0);
 
                 // Internal carry net between the two split COMB cells
-                NetInfo *int_cy = ctx->createNet(ctx->id(stringf("%s$widefn_int_cy$", ctx->nameOf(ci))));
+                NetInfo *int_cy = ctx->createNet(ctx->idf("%s$widefn_int_cy$", ctx->nameOf(ci)));
                 combs[0]->addOutput(id_FCO);
                 combs[1]->addInput(id_FCI);
                 combs[0]->connectPort(id_FCO, int_cy);
@@ -1550,7 +1547,7 @@ struct NexusPacker
     // Create a DSP cell
     CellInfo *create_dsp_cell(IdString base_name, IdString type, CellInfo *constr_base, int dx, int dz)
     {
-        IdString name = ctx->id(stringf("%s/%s_x%d_z%d", ctx->nameOf(base_name), ctx->nameOf(type), dx, dz));
+        IdString name = ctx->idf("%s/%s_x%d_z%d", ctx->nameOf(base_name), ctx->nameOf(type), dx, dz);
         CellInfo *cell = ctx->createCell(name, type);
         if (constr_base != nullptr) {
             // We might be constraining against an already-constrained cell
@@ -1739,10 +1736,10 @@ struct NexusPacker
 
                 if (mt.wide > 0) {
                     // Dot-product mode special case
-                    ci->copyPortBusTo(ctx->id(stringf("B%d", (i * 9) / mt.wide)), (i * 9) % mt.wide, true, preadd9[i],
-                                      id_B, 0, false, 9);
-                    ci->copyPortBusTo(ctx->id(stringf("A%d", (i * 9) / mt.wide)), (i * 9) % mt.wide, true, mult9[i],
-                                      id_A, 0, false, 9);
+                    ci->copyPortBusTo(ctx->idf("B%d", (i * 9) / mt.wide), (i * 9) % mt.wide, true, preadd9[i], id_B, 0,
+                                      false, 9);
+                    ci->copyPortBusTo(ctx->idf("A%d", (i * 9) / mt.wide), (i * 9) % mt.wide, true, mult9[i], id_A, 0,
+                                      false, 9);
                     ci->copyPortTo(id_CLK, mult9[i], id_CLK);
                     ci->copyPortTo((i > 1) ? id_CEA2A3 : id_CEA0A1, mult9[i], id_CEA);
                     ci->copyPortTo((i > 1) ? id_RSTA2A3 : id_RSTA0A1, mult9[i], id_RSTA);
@@ -1750,8 +1747,8 @@ struct NexusPacker
                     ci->copyPortTo((i > 1) ? id_CEB2B3 : id_CEB0B1, preadd9[i], id_CEB);
                     ci->copyPortTo((i > 1) ? id_RSTB2B3 : id_RSTB0B1, preadd9[i], id_RSTB);
                     // Copy register configuration
-                    copy_param(ci, ctx->id(stringf("REGINPUTAB%d", i)), mult9[i], id_REGBYPSA1);
-                    copy_param(ci, ctx->id(stringf("REGINPUTAB%d", i)), preadd9[i], id_REGBYPSBR0);
+                    copy_param(ci, ctx->idf("REGINPUTAB%d", i), mult9[i], id_REGBYPSA1);
+                    copy_param(ci, ctx->idf("REGINPUTAB%d", i), preadd9[i], id_REGBYPSBR0);
                 } else {
                     // B input split across pre-adders
                     ci->copyPortBusTo(id_B, b_start, true, preadd9[i], id_B, 0, false, 9);

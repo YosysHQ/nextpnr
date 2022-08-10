@@ -30,7 +30,7 @@ void Arch::create_clkbuf(int x, int y)
             continue; // TODO: why do other Zs not work?
         // For now we only consider the input path from general routing, other inputs like dedicated clock pins are
         // still a TODO
-        BelId bel = add_bel(x, y, id(stringf("CLKBUF[%d]", z)), id_MISTRAL_CLKENA);
+        BelId bel = add_bel(x, y, idf("CLKBUF[%d]", z), id_MISTRAL_CLKENA);
         add_bel_pin(bel, id_A, PORT_IN, get_port(CycloneV::CMUXHG, x, y, -1, CycloneV::CLKIN, z));
         add_bel_pin(bel, id_Q, PORT_OUT, get_port(CycloneV::CMUXHG, x, y, z, CycloneV::CLKOUT));
         // TODO: enable pin
@@ -48,9 +48,9 @@ void Arch::create_hps_mpu_general_purpose(int x, int y)
     BelId gp_bel =
             add_bel(x, y, id_cyclonev_hps_interface_mpu_general_purpose, id_cyclonev_hps_interface_mpu_general_purpose);
     for (int i = 0; i < 32; i++) {
-        add_bel_pin(gp_bel, id(stringf("gp_in[%d]", i)), PORT_IN,
+        add_bel_pin(gp_bel, idf("gp_in[%d]", i), PORT_IN,
                     get_port(CycloneV::HPS_MPU_GENERAL_PURPOSE, x, y, -1, CycloneV::GP_IN, i));
-        add_bel_pin(gp_bel, id(stringf("gp_out[%d]", i)), PORT_OUT,
+        add_bel_pin(gp_bel, idf("gp_out[%d]", i), PORT_OUT,
                     get_port(CycloneV::HPS_MPU_GENERAL_PURPOSE, x, y, -1, CycloneV::GP_OUT, i));
     }
 }

@@ -45,7 +45,7 @@ static const MacroExpansionPOD *lookup_macro_rules(const ChipInfoPOD *chip, IdSt
 
 static IdString derived_name(Context *ctx, IdString base_name, IdString suffix)
 {
-    return ctx->id(stringf("%s/%s", base_name.c_str(ctx), suffix.c_str(ctx)));
+    return ctx->idf("%s/%s", base_name.c_str(ctx), suffix.c_str(ctx));
 }
 
 void Arch::expand_macros()

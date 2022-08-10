@@ -125,12 +125,12 @@ Arch::Arch(ArchArgs args) : args(args)
     }
 
     for (int i = 0; i < chip_info->width; i++) {
-        IdString x_id = id(stringf("X%d", i));
+        IdString x_id = idf("X%d", i);
         x_ids.push_back(x_id);
         id_to_x[x_id] = i;
     }
     for (int i = 0; i < chip_info->height; i++) {
-        IdString y_id = id(stringf("Y%d", i));
+        IdString y_id = idf("Y%d", i);
         y_ids.push_back(y_id);
         id_to_y[y_id] = i;
     }
@@ -377,7 +377,7 @@ IdStringList Arch::getPipName(PipId pip) const
 {
     NPNR_ASSERT(pip != PipId());
     std::array<IdString, 5> ids{x_ids.at(pip.tile % chip_info->width), y_ids.at(pip.tile / chip_info->width),
-                                id(stringf("%d", pip.index)), IdString(loc_data(pip).wires[pip_data(pip).to_wire].name),
+                                idf("%d", pip.index), IdString(loc_data(pip).wires[pip_data(pip).to_wire].name),
                                 IdString(loc_data(pip).wires[pip_data(pip).from_wire].name)};
     return IdStringList(ids);
 }
@@ -784,7 +784,7 @@ bool Arch::route()
 
 CellPinMux Arch::get_cell_pinmux(const CellInfo *cell, IdString pin) const
 {
-    IdString param = id(stringf("%sMUX", pin.c_str(this)));
+    IdString param = idf("%sMUX", pin.c_str(this));
     auto fnd_param = cell->params.find(param);
     if (fnd_param == cell->params.end())
         return PINMUX_SIG;
@@ -805,7 +805,7 @@ CellPinMux Arch::get_cell_pinmux(const CellInfo *cell, IdString pin) const
 
 void Arch::set_cell_pinmux(CellInfo *cell, IdString pin, CellPinMux state)
 {
-    IdString param = id(stringf("%sMUX", pin.c_str(this)));
+    IdString param = idf("%sMUX", pin.c_str(this));
     switch (state) {
     case PINMUX_SIG:
         cell->params.erase(param);

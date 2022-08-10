@@ -26,6 +26,18 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+IdString BaseCtx::idf(const char *fmt, ...) const
+{
+    std::string string;
+    va_list ap;
+
+    va_start(ap, fmt);
+    string = vstringf(fmt, ap);
+    va_end(ap);
+
+    return id(string);
+}
+
 const char *BaseCtx::nameOfBel(BelId bel) const
 {
     const Context *ctx = getCtx();

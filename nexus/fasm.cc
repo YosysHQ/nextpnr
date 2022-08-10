@@ -595,7 +595,7 @@ struct NexusFasmWriter
         if (wid > 0) {
             push(stringf("IP_EBR_WID%d", wid));
             for (int i = 0; i < 64; i++) {
-                IdString param = ctx->id(stringf("INITVAL_%02X", i));
+                IdString param = ctx->idf("INITVAL_%02X", i);
                 if (!cell->params.count(param))
                     continue;
                 auto &prop = cell->params.at(param);
@@ -906,7 +906,7 @@ struct NexusFasmWriter
             l.x = 1;
         push(stringf("IP_LRAM_CORE_R%dC%d", l.y, l.x));
         for (int i = 0; i < 128; i++) {
-            IdString param = ctx->id(stringf("INITVAL_%02X", i));
+            IdString param = ctx->idf("INITVAL_%02X", i);
             if (!cell->params.count(param))
                 continue;
             auto &prop = cell->params.at(param);

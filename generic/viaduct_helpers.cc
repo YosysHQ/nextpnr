@@ -29,15 +29,15 @@ void ViaductHelpers::resize_ids(int x, int y, int z)
 {
     NPNR_ASSERT(x >= 0 && y >= 0 && x <= 20000 && y <= 20000 && z <= 1000);
     while (int(x_ids.size()) <= x) {
-        IdString next = ctx->id(stringf("X%d", int(x_ids.size())));
+        IdString next = ctx->idf("X%d", int(x_ids.size()));
         x_ids.push_back(next);
     }
     while (int(y_ids.size()) <= y) {
-        IdString next = ctx->id(stringf("Y%d", int(y_ids.size())));
+        IdString next = ctx->idf("Y%d", int(y_ids.size()));
         y_ids.push_back(next);
     }
     while (int(z_ids.size()) <= y) {
-        IdString next = ctx->id(stringf("Z%d", int(z_ids.size())));
+        IdString next = ctx->idf("Z%d", int(z_ids.size()));
         z_ids.push_back(next);
     }
 }

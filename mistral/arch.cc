@@ -88,7 +88,7 @@ Arch::Arch(ArchArgs args)
 
     // Setup fast identifier maps
     for (int i = 0; i < 1024; i++) {
-        IdString int_id = id(stringf("%d", i));
+        IdString int_id = idf("%d", i);
         int2id.push_back(int_id);
         id2int[int_id] = i;
     }

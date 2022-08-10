@@ -907,7 +907,7 @@ static void prepare_sites_for_routing(Context *ctx)
 
             // We can't rely on bel pins not clashing with cell names (for Xilinx they use different naming schemes, for
             // Nexus they are the same) so add a prefix to the bel pin name to disambiguate it
-            IdString cell_pin = ctx->id(stringf("%s_PHYS", ctx->nameOf(bel_pin)));
+            IdString cell_pin = ctx->idf("%s_PHYS", ctx->nameOf(bel_pin));
 
             PortInfo port_info;
             port_info.name = cell_pin;

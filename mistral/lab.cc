@@ -37,10 +37,10 @@ static void create_alm(Arch *arch, int x, int y, int z, uint32_t lab_idx)
     // Create the control set and E/F selection - which is per pair of FF
     for (int i = 0; i < 2; i++) {
         // Wires
-        alm.sel_clk[i] = arch->add_wire(x, y, arch->id(stringf("CLK%c[%d]", i ? 'B' : 'T', z)));
-        alm.sel_ena[i] = arch->add_wire(x, y, arch->id(stringf("ENA%c[%d]", i ? 'B' : 'T', z)));
-        alm.sel_aclr[i] = arch->add_wire(x, y, arch->id(stringf("ACLR%c[%d]", i ? 'B' : 'T', z)));
-        alm.sel_ef[i] = arch->add_wire(x, y, arch->id(stringf("%cEF[%d]", i ? 'B' : 'T', z)));
+        alm.sel_clk[i] = arch->add_wire(x, y, arch->idf("CLK%c[%d]", i ? 'B' : 'T', z));
+        alm.sel_ena[i] = arch->add_wire(x, y, arch->idf("ENA%c[%d]", i ? 'B' : 'T', z));
+        alm.sel_aclr[i] = arch->add_wire(x, y, arch->idf("ACLR%c[%d]", i ? 'B' : 'T', z));
+        alm.sel_ef[i] = arch->add_wire(x, y, arch->idf("%cEF[%d]", i ? 'B' : 'T', z));
         // Muxes - three CLK/ENA per LAB, two ACLR
         for (int j = 0; j < 3; j++) {
             arch->add_pip(lab.clk_wires[j], alm.sel_clk[i]);
@@ -72,20 +72,20 @@ static void create_alm(Arch *arch, int x, int y, int z, uint32_t lab_idx)
             }
         } else {
             // Output from last combinational unit
-            carry_in = arch->add_wire(x, y, arch->id(stringf("CARRY[%d]", (z * 2 + i) - 1)));
-            share_in = arch->add_wire(x, y, arch->id(stringf("SHARE[%d]", (z * 2 + i) - 1)));
+            carry_in = arch->add_wire(x, y, arch->idf("CARRY[%d]", (z * 2 + i) - 1));
+            share_in = arch->add_wire(x, y, arch->idf("SHARE[%d]", (z * 2 + i) - 1));
         }
 
         if (z == 9 && i == 1) {
             carry_out = arch->add_wire(x, y, id_CO);
             share_out = arch->add_wire(x, y, id_SHAREOUT);
         } else {
-            carry_out = arch->add_wire(x, y, arch->id(stringf("CARRY[%d]", z * 2 + i)));
-            share_out = arch->add_wire(x, y, arch->id(stringf("SHARE[%d]", z * 2 + i)));
+            carry_out = arch->add_wire(x, y, arch->idf("CARRY[%d]", z * 2 + i));
+            share_out = arch->add_wire(x, y, arch->idf("SHARE[%d]", z * 2 + i));
         }
 
-        BelId bel = arch->add_bel(x, y, arch->id(stringf("ALM%d_COMB%d", z, i)),
-                                  lab.is_mlab ? id_MISTRAL_MCOMB : id_MISTRAL_COMB);
+        BelId bel =
+                arch->add_bel(x, y, arch->idf("ALM%d_COMB%d", z, i), lab.is_mlab ? id_MISTRAL_MCOMB : id_MISTRAL_COMB);
         // LUT/MUX inputs
         arch->add_bel_pin(bel, id_A, PORT_IN, arch->get_port(block_type, x, y, z, CycloneV::A));
         arch->add_bel_pin(bel, id_B, PORT_IN, arch->get_port(block_type, x, y, z, CycloneV::B));
@@ -101,7 +101,7 @@ static void create_alm(Arch *arch, int x, int y, int z, uint32_t lab_idx)
         arch->add_bel_pin(bel, id_CO, PORT_OUT, carry_out);
         arch->add_bel_pin(bel, id_SHAREOUT, PORT_OUT, share_out);
         // Combinational output
-        alm.comb_out[i] = arch->add_wire(x, y, arch->id(stringf("COMBOUT[%d]", z * 2 + i)));
+        alm.comb_out[i] = arch->add_wire(x, y, arch->idf("COMBOUT[%d]", z * 2 + i));
         arch->add_bel_pin(bel, id_COMBOUT, PORT_OUT, alm.comb_out[i]);
         if (lab.is_mlab) {
             // Write address - shared between all ALMs in a LAB
@@ -128,11 +128,11 @@ static void create_alm(Arch *arch, int x, int y, int z, uint32_t lab_idx)
 
     for (int i = 0; i < 4; i++) {
         // FF input, selected by *PKREG*
-        alm.ff_in[i] = arch->add_wire(x, y, arch->id(stringf("FFIN[%d]", (z * 4) + i)));
+        alm.ff_in[i] = arch->add_wire(x, y, arch->idf("FFIN[%d]", (z * 4) + i));
         arch->add_pip(alm.comb_out[i / 2], alm.ff_in[i]);
         arch->add_pip(alm.sel_ef[i / 2], alm.ff_in[i]);
         // FF bel
-        BelId bel = arch->add_bel(x, y, arch->id(stringf("ALM%d_FF%d", z, i)), id_MISTRAL_FF);
+        BelId bel = arch->add_bel(x, y, arch->idf("ALM%d_FF%d", z, i), id_MISTRAL_FF);
         arch->add_bel_pin(bel, id_CLK, PORT_IN, alm.sel_clk[i / 2]);
         arch->add_bel_pin(bel, id_ENA, PORT_IN, alm.sel_ena[i / 2]);
         arch->add_bel_pin(bel, id_ACLR, PORT_IN, alm.sel_aclr[i / 2]);
@@ -142,7 +142,7 @@ static void create_alm(Arch *arch, int x, int y, int z, uint32_t lab_idx)
         arch->add_bel_pin(bel, id_SDATA, PORT_IN, alm.sel_ef[i / 2]);
 
         // FF output
-        alm.ff_out[i] = arch->add_wire(x, y, arch->id(stringf("FFOUT[%d]", (z * 4) + i)));
+        alm.ff_out[i] = arch->add_wire(x, y, arch->idf("FFOUT[%d]", (z * 4) + i));
         arch->add_bel_pin(bel, id_Q, PORT_OUT, alm.ff_out[i]);
         // Output mux (*DFF*)
         WireId out = arch->get_port(block_type, x, y, z, outputs[i]);
@@ -182,7 +182,7 @@ void Arch::create_lab(int x, int y, bool is_mlab)
     // Clocks - hardcode to CLKA choices, as both CLKA and CLKB coming from general routing causes unexpected
     // permutations
     for (int i = 0; i < 3; i++) {
-        lab.clk_wires[i] = add_wire(x, y, id(stringf("CLK%d", i)));
+        lab.clk_wires[i] = add_wire(x, y, idf("CLK%d", i));
         add_pip(get_port(block_type, x, y, -1, CycloneV::CLKIN, 0), lab.clk_wires[i]);  // dedicated routing
         add_pip(get_port(block_type, x, y, -1, CycloneV::DATAIN, 0), lab.clk_wires[i]); // general routing
     }
@@ -278,7 +278,7 @@ void Arch::assign_comb_info(CellInfo *cell) const
         cell->combInfo.lut_input_count = 5;
         cell->combInfo.lut_bits_count = 32;
         for (int i = 0; i < 5; i++)
-            cell->combInfo.lut_in[i] = cell->getPort(id(stringf("B1ADDR[%d]", i)));
+            cell->combInfo.lut_in[i] = cell->getPort(idf("B1ADDR[%d]", i));
         auto key = get_mlab_key(cell);
         cell->combInfo.mlab_group = mlab_groups(key);
         cell->combInfo.comb_out = cell->getPort(id_B1DATA);
@@ -797,8 +797,8 @@ static void assign_mlab_inputs(Context *ctx, CellInfo *cell, int lut)
 
     std::array<IdString, 6> raddr_pins{id_A, id_B, id_C, id_D, id_F0};
     for (int i = 0; i < 5; i++) {
-        cell->pin_data[ctx->id(stringf("A1ADDR[%d]", i))].bel_pins = {ctx->id(stringf("WA%d", i))};
-        cell->pin_data[ctx->id(stringf("B1ADDR[%d]", i))].bel_pins = {raddr_pins.at(i)};
+        cell->pin_data[ctx->idf("A1ADDR[%d]", i)].bel_pins = {ctx->idf("WA%d", i)};
+        cell->pin_data[ctx->idf("B1ADDR[%d]", i)].bel_pins = {raddr_pins.at(i)};
     }
 }
 
@@ -918,7 +918,7 @@ void Arch::reassign_alm_inputs(uint32_t lab, uint8_t alm)
             CellInfo *ff = ffs[i * 2 + j];
             if (!ff || !ff->ffInfo.datain || alm_data.l6_mode)
                 continue;
-            CellInfo *rt_lut = createCell(id(stringf("%s$ROUTETHRU", nameOf(ff))), id_MISTRAL_BUF);
+            CellInfo *rt_lut = createCell(idf("%s$ROUTETHRU", nameOf(ff)), id_MISTRAL_BUF);
             rt_lut->addInput(id_A);
             rt_lut->addOutput(id_Q);
             // Disconnect the original data input to the FF, and connect it to the route-thru LUT instead

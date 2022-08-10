@@ -162,6 +162,8 @@ struct BaseCtx
 
     IdString id(const char *s) const { return IdString(this, s); }
 
+    IdString idf(const char *fmt, ...) const; // create IdString using printf formatting
+
     Context *getCtx() { return as_ctx; }
 
     const Context *getCtx() const { return as_ctx; }
