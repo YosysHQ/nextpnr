@@ -2614,6 +2614,19 @@ void Arch::assignCellInfo(CellInfo *cell)
 
         cell->tmg_index = get_cell_timing_idx(id(str_or_default(cell->params, id_MODE, "DP16K") + "_MODE"));
         NPNR_ASSERT(cell->tmg_index != -1);
+    } else if (cell->type == id_LRAM_CORE) {
+        // Strip off bus indices to get the timing ports
+        // as timing is generally word-wide
+        for (const auto &port : cell->ports) {
+            const std::string &name = port.first.str(this);
+            size_t idx_end = name.find_last_not_of("0123456789");
+            std::string base = name.substr(0, idx_end + 1);
+            // Strip off bus index
+            cell->tmg_portmap[port.first] = id(base);
+        }
+
+        cell->tmg_index = get_cell_timing_idx(id_LRAM_CORE);
+        NPNR_ASSERT(cell->tmg_index != -1);
     } else if (is_dsp_cell(cell)) {
         // Strip off bus indices to get the timing ports
         // as timing is generally word-wide

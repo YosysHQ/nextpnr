@@ -543,6 +543,14 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
             return TMG_CLOCK_INPUT;
         clockInfoCount = 1;
         return (cell->ports.at(port).type == PORT_IN) ? TMG_REGISTER_INPUT : TMG_REGISTER_OUTPUT;
+    } else if (cell->type == id_LRAM_CORE) {
+        if (port.in(id_OPCGLDCK, id_OPCGLOADCLK, id_SCANCLK, id_SCANRST, id_TBISTN, id_INITN, id_STDBYN, id_IGN,
+                    id_DPS))
+            return TMG_IGNORE;
+        if (port == id_CLK)
+            return TMG_CLOCK_INPUT;
+        clockInfoCount = 1;
+        return (cell->ports.at(port).type == PORT_IN) ? TMG_REGISTER_INPUT : TMG_REGISTER_OUTPUT;
     } else if (cell->type == id_MULT18_CORE || cell->type == id_MULT18X36_CORE || cell->type == id_MULT36_CORE) {
         return (cell->ports.at(port).type == PORT_IN) ? TMG_COMB_INPUT : TMG_COMB_OUTPUT;
     } else if (cell->type == id_PREADD9_CORE || cell->type == id_REG18_CORE || cell->type == id_MULT9_CORE) {
@@ -601,6 +609,14 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
             lookup_cell_clock_out(cell->tmg_index, lookup_port(port), info.clock_port, info.clockToQ);
         }
         // Lookup edge based on inversion
+        info.edge = (get_cell_pinmux(cell, info.clock_port) == PINMUX_INV) ? FALLING_EDGE : RISING_EDGE;
+    } else if (cell->type == id_LRAM_CORE) {
+        info.clock_port = id_CLK;
+        if (cell->ports.at(port).type == PORT_IN) {
+            lookup_cell_setuphold(cell->tmg_index, lookup_port(port), id_CLK, info.setup, info.hold);
+        } else {
+            NPNR_ASSERT(lookup_cell_delay(cell->tmg_index, id_CLK, lookup_port(port), info.clockToQ));
+        }
         info.edge = (get_cell_pinmux(cell, info.clock_port) == PINMUX_INV) ? FALLING_EDGE : RISING_EDGE;
     } else if (cell->type == id_PREADD9_CORE || cell->type == id_REG18_CORE || cell->type == id_MULT9_CORE) {
         info.clock_port = id_CLK;
