@@ -502,13 +502,13 @@ bool is_clock_port(const BaseCtx *ctx, const PortRef &port)
     if (port.cell->type == id_ICESTORM_LC)
         return port.port == id_CLK;
     if (is_ram(ctx, port.cell) || port.cell->type == id_ICESTORM_RAM)
-        return port.port == id_RCLK || port.port == id_WCLK || port.port == id_RCLKN || port.port == id_WCLKN;
+        return port.port.in(id_RCLK, id_WCLK, id_RCLKN, id_WCLKN);
     if (is_sb_mac16(ctx, port.cell) || port.cell->type == id_ICESTORM_DSP)
         return port.port == id_CLK;
     if (is_sb_spram(ctx, port.cell) || port.cell->type == id_ICESTORM_SPRAM)
         return port.port == id_CLOCK;
     if (is_sb_io(ctx, port.cell))
-        return port.port == id_INPUT_CLK || port.port == id_OUTPUT_CLK;
+        return port.port.in(id_INPUT_CLK, id_OUTPUT_CLK);
     return false;
 }
 
@@ -517,11 +517,11 @@ bool is_reset_port(const BaseCtx *ctx, const PortRef &port)
     if (port.cell == nullptr)
         return false;
     if (is_ff(ctx, port.cell))
-        return port.port == id_R || port.port == id_S;
+        return port.port.in(id_R, id_S);
     if (port.cell->type == id_ICESTORM_LC)
         return port.port == id_SR;
     if (is_sb_mac16(ctx, port.cell) || port.cell->type == id_ICESTORM_DSP)
-        return port.port == id_IRSTTOP || port.port == id_IRSTBOT || port.port == id_ORSTTOP || port.port == id_ORSTBOT;
+        return port.port.in(id_IRSTTOP, id_IRSTBOT, id_ORSTTOP, id_ORSTBOT);
     return false;
 }
 

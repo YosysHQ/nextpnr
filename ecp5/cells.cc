@@ -133,7 +133,7 @@ std::unique_ptr<CellInfo> create_ecp5_cell(Context *ctx, IdString type, std::str
         new_cell->addInput(id_CLKI);
         new_cell->addOutput(id_CLKO);
         new_cell->addInput(id_CE);
-    } else if (type == id_IOLOGIC || type == id_SIOLOGIC) {
+    } else if (type.in(id_IOLOGIC, id_SIOLOGIC)) {
         new_cell->params[id_MODE] = std::string("NONE");
         new_cell->params[id_GSR] = std::string("DISABLED");
         new_cell->params[id_CLKIMUX] = std::string("CLK");

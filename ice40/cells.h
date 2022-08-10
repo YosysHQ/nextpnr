@@ -35,13 +35,9 @@ inline bool is_lut(const BaseCtx *ctx, const CellInfo *cell) { return cell->type
 // Return true if a cell is a flipflop
 inline bool is_ff(const BaseCtx *ctx, const CellInfo *cell)
 {
-    return cell->type == id_SB_DFF || cell->type == id_SB_DFFE || cell->type == id_SB_DFFSR ||
-           cell->type == id_SB_DFFR || cell->type == id_SB_DFFSS || cell->type == id_SB_DFFS ||
-           cell->type == id_SB_DFFESR || cell->type == id_SB_DFFER || cell->type == id_SB_DFFESS ||
-           cell->type == id_SB_DFFES || cell->type == id_SB_DFFN || cell->type == id_SB_DFFNE ||
-           cell->type == id_SB_DFFNSR || cell->type == id_SB_DFFNR || cell->type == id_SB_DFFNSS ||
-           cell->type == id_SB_DFFNS || cell->type == id_SB_DFFNESR || cell->type == id_SB_DFFNER ||
-           cell->type == id_SB_DFFNESS || cell->type == id_SB_DFFNES;
+    return cell->type.in(id_SB_DFF, id_SB_DFFE, id_SB_DFFSR, id_SB_DFFR, id_SB_DFFSS, id_SB_DFFS, id_SB_DFFESR,
+                         id_SB_DFFER, id_SB_DFFESS, id_SB_DFFES, id_SB_DFFN, id_SB_DFFNE, id_SB_DFFNSR, id_SB_DFFNR,
+                         id_SB_DFFNSS, id_SB_DFFNS, id_SB_DFFNESR, id_SB_DFFNER, id_SB_DFFNESS, id_SB_DFFNES);
 }
 
 inline bool is_carry(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_SB_CARRY; }
@@ -60,8 +56,7 @@ inline bool is_gbuf(const BaseCtx *ctx, const CellInfo *cell) { return cell->typ
 // Return true if a cell is a RAM
 inline bool is_ram(const BaseCtx *ctx, const CellInfo *cell)
 {
-    return cell->type == id_SB_RAM40_4K || cell->type == id_SB_RAM40_4KNR || cell->type == id_SB_RAM40_4KNW ||
-           cell->type == id_SB_RAM40_4KNRNW;
+    return cell->type.in(id_SB_RAM40_4K, id_SB_RAM40_4KNR, id_SB_RAM40_4KNW, id_SB_RAM40_4KNRNW);
 }
 
 inline bool is_sb_lfosc(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_SB_LFOSC; }
@@ -86,13 +81,12 @@ inline bool is_sb_spi(const BaseCtx *ctx, const CellInfo *cell) { return cell->t
 
 inline bool is_sb_pll40(const BaseCtx *ctx, const CellInfo *cell)
 {
-    return cell->type == id_SB_PLL40_PAD || cell->type == id_SB_PLL40_2_PAD || cell->type == id_SB_PLL40_2F_PAD ||
-           cell->type == id_SB_PLL40_CORE || cell->type == id_SB_PLL40_2F_CORE;
+    return cell->type.in(id_SB_PLL40_PAD, id_SB_PLL40_2_PAD, id_SB_PLL40_2F_PAD, id_SB_PLL40_CORE, id_SB_PLL40_2F_CORE);
 }
 
 inline bool is_sb_pll40_pad(const BaseCtx *ctx, const CellInfo *cell)
 {
-    return cell->type == id_SB_PLL40_PAD || cell->type == id_SB_PLL40_2_PAD || cell->type == id_SB_PLL40_2F_PAD ||
+    return cell->type.in(id_SB_PLL40_PAD, id_SB_PLL40_2_PAD, id_SB_PLL40_2F_PAD) ||
            (cell->type == id_ICESTORM_PLL && (cell->attrs.at(id_TYPE).as_string() == "SB_PLL40_PAD" ||
                                               cell->attrs.at(id_TYPE).as_string() == "SB_PLL40_2_PAD" ||
                                               cell->attrs.at(id_TYPE).as_string() == "SB_PLL40_2F_PAD"));
@@ -100,7 +94,7 @@ inline bool is_sb_pll40_pad(const BaseCtx *ctx, const CellInfo *cell)
 
 inline bool is_sb_pll40_dual(const BaseCtx *ctx, const CellInfo *cell)
 {
-    return cell->type == id_SB_PLL40_2_PAD || cell->type == id_SB_PLL40_2F_PAD || cell->type == id_SB_PLL40_2F_CORE ||
+    return cell->type.in(id_SB_PLL40_2_PAD, id_SB_PLL40_2F_PAD, id_SB_PLL40_2F_CORE) ||
            (cell->type == id_ICESTORM_PLL && (cell->attrs.at(id_TYPE).as_string() == "SB_PLL40_2_PAD" ||
                                               cell->attrs.at(id_TYPE).as_string() == "SB_PLL40_2F_PAD" ||
                                               cell->attrs.at(id_TYPE).as_string() == "SB_PLL40_2F_CORE"));

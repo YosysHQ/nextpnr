@@ -32,8 +32,7 @@ NEXTPNR_NAMESPACE_BEGIN
 
 bool GowinGlobalRouter::is_clock_port(PortRef const &user)
 {
-    if ((user.cell->type == id_SLICE || user.cell->type == id_ODDR || user.cell->type == id_ODDRC) &&
-        user.port == id_CLK) {
+    if ((user.cell->type.in(id_SLICE, id_ODDR, id_ODDRC)) && user.port == id_CLK) {
         return true;
     }
     return false;

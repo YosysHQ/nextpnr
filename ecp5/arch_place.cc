@@ -187,7 +187,7 @@ bool Arch::isBelLocationValid(BelId bel) const
         CellInfo *cell = getBoundBelCell(bel);
         if (cell == nullptr) {
             return true;
-        } else if (cell->type == id_DCUA || cell->type == id_EXTREFB || cell->type == id_PCSCLKDIV) {
+        } else if (cell->type.in(id_DCUA, id_EXTREFB, id_PCSCLKDIV)) {
             return args.type != ArchArgs::LFE5U_25F && args.type != ArchArgs::LFE5U_45F &&
                    args.type != ArchArgs::LFE5U_85F;
         } else {
@@ -203,8 +203,7 @@ void Arch::setup_wire_locations()
         CellInfo *ci = cell.second.get();
         if (ci->bel == BelId())
             continue;
-        if (ci->type == id_MULT18X18D || ci->type == id_DCUA || ci->type == id_DDRDLL || ci->type == id_DQSBUFM ||
-            ci->type == id_EHXPLLL) {
+        if (ci->type.in(id_MULT18X18D, id_DCUA, id_DDRDLL, id_DQSBUFM, id_EHXPLLL)) {
             for (auto &port : ci->ports) {
                 if (port.second.net == nullptr)
                     continue;

@@ -479,7 +479,7 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
             }
             return result;
         } else {
-            if (toPort == id_F || toPort == id_OFX)
+            if (toPort.in(id_F, id_OFX))
                 return lookup_cell_delay(cell->tmg_index, fromPort, toPort, delay);
         }
     } else if (is_dsp_cell(cell)) {
@@ -487,7 +487,7 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
             return false; // don't include delays that are actually clock-to-out here
         return lookup_cell_delay(cell->tmg_index, lookup_port(fromPort), lookup_port(toPort), delay);
     } else if (cell->type == id_DCS) {
-        if (fromPort == id_SELFORCE || fromPort == id_SEL) {
+        if (fromPort.in(id_SELFORCE, id_SEL)) {
             return false;
         }
         int index = get_cell_timing_idx(id_DCS, id_DCS);
@@ -505,10 +505,9 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
     };
     clockInfoCount = 0;
     if (cell->type == id_OXIDE_COMB) {
-        if (port == id_A || port == id_B || port == id_C || port == id_D || port == id_SEL || port == id_F1 ||
-            port == id_FCI || port == id_WDI)
+        if (port.in(id_A, id_B, id_C, id_D, id_SEL, id_F1, id_FCI, id_WDI))
             return TMG_COMB_INPUT;
-        if (port == id_F || port == id_OFX || port == id_FCO) {
+        if (port.in(id_F, id_OFX, id_FCO)) {
             if (disconnected(id_A) && disconnected(id_B) && disconnected(id_C) && disconnected(id_D) &&
                 disconnected(id_FCI) && disconnected(id_SEL) && disconnected(id_WDI))
                 return TMG_IGNORE;
@@ -528,18 +527,17 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
     } else if (cell->type == id_RAMW) {
         if (port == id_CLK)
             return TMG_CLOCK_INPUT;
-        else if (port == id_WDO0 || port == id_WDO1 || port == id_WDO2 || port == id_WDO3) {
+        else if (port.in(id_WDO0, id_WDO1, id_WDO2, id_WDO3)) {
             clockInfoCount = 1;
             return TMG_REGISTER_OUTPUT;
-        } else if (port == id_A0 || port == id_A1 || port == id_B0 || port == id_B1 || port == id_C0 || port == id_C1 ||
-                   port == id_D0 || port == id_D1) {
+        } else if (port.in(id_A0, id_A1, id_B0, id_B1, id_C0, id_C1, id_D0, id_D1)) {
             clockInfoCount = 1;
             return TMG_REGISTER_INPUT;
         }
     } else if (cell->type == id_OXIDE_EBR) {
-        if (port == id_DWS0 || port == id_DWS1 || port == id_DWS2 || port == id_DWS3 || port == id_DWS4)
+        if (port.in(id_DWS0, id_DWS1, id_DWS2, id_DWS3, id_DWS4))
             return TMG_IGNORE;
-        if (port == id_CLKA || port == id_CLKB)
+        if (port.in(id_CLKA, id_CLKB))
             return TMG_CLOCK_INPUT;
         clockInfoCount = 1;
         return (cell->ports.at(port).type == PORT_IN) ? TMG_REGISTER_INPUT : TMG_REGISTER_OUTPUT;
@@ -551,9 +549,9 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
             return TMG_CLOCK_INPUT;
         clockInfoCount = 1;
         return (cell->ports.at(port).type == PORT_IN) ? TMG_REGISTER_INPUT : TMG_REGISTER_OUTPUT;
-    } else if (cell->type == id_MULT18_CORE || cell->type == id_MULT18X36_CORE || cell->type == id_MULT36_CORE) {
+    } else if (cell->type.in(id_MULT18_CORE, id_MULT18X36_CORE, id_MULT36_CORE)) {
         return (cell->ports.at(port).type == PORT_IN) ? TMG_COMB_INPUT : TMG_COMB_OUTPUT;
-    } else if (cell->type == id_PREADD9_CORE || cell->type == id_REG18_CORE || cell->type == id_MULT9_CORE) {
+    } else if (cell->type.in(id_PREADD9_CORE, id_REG18_CORE, id_MULT9_CORE)) {
         if (port == id_CLK)
             return TMG_CLOCK_INPUT;
         auto type = lookup_port_type(cell->tmg_index, lookup_port(port), cell->ports.at(port).type, id_CLK);
@@ -571,7 +569,7 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
         // FIXME: Making inputs TMG_CLOCK_INPUT and the output TMG_CLOCK_GEN
         // yielded in error in the timing analyzer. For now keep those as
         // regular combinational ports.
-        if (port == id_CLK0 || port == id_CLK1)
+        if (port.in(id_CLK0, id_CLK1))
             return TMG_COMB_INPUT;
         else if (port == id_DCSOUT) {
             return TMG_COMB_OUTPUT;
@@ -598,7 +596,7 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
     } else if (cell->type == id_RAMW) {
         info.edge = (cell->ffInfo.ctrlset.clkmux == ID_INV) ? FALLING_EDGE : RISING_EDGE;
         info.clock_port = id_CLK;
-        if (port == id_WDO0 || port == id_WDO1 || port == id_WDO2 || port == id_WDO3)
+        if (port.in(id_WDO0, id_WDO1, id_WDO2, id_WDO3))
             NPNR_ASSERT(lookup_cell_delay(cell->tmg_index, id_CLK, port, info.clockToQ));
         else
             lookup_cell_setuphold(cell->tmg_index, port, id_CLK, info.setup, info.hold);
@@ -618,7 +616,7 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
             NPNR_ASSERT(lookup_cell_delay(cell->tmg_index, id_CLK, lookup_port(port), info.clockToQ));
         }
         info.edge = (get_cell_pinmux(cell, info.clock_port) == PINMUX_INV) ? FALLING_EDGE : RISING_EDGE;
-    } else if (cell->type == id_PREADD9_CORE || cell->type == id_REG18_CORE || cell->type == id_MULT9_CORE) {
+    } else if (cell->type.in(id_PREADD9_CORE, id_REG18_CORE, id_MULT9_CORE)) {
         info.clock_port = id_CLK;
         if (cell->ports.at(port).type == PORT_IN) {
             lookup_cell_setuphold(cell->tmg_index, lookup_port(port), id_CLK, info.setup, info.hold);
@@ -737,9 +735,8 @@ void Arch::pre_routing()
 {
     for (auto &cell : cells) {
         CellInfo *ci = cell.second.get();
-        if (ci->type == id_MULT9_CORE || ci->type == id_PREADD9_CORE || ci->type == id_MULT18_CORE ||
-            ci->type == id_MULT18X36_CORE || ci->type == id_MULT36_CORE || ci->type == id_REG18_CORE ||
-            ci->type == id_ACC54_CORE) {
+        if (ci->type.in(id_MULT9_CORE, id_PREADD9_CORE, id_MULT18_CORE, id_MULT18X36_CORE, id_MULT36_CORE,
+                        id_REG18_CORE, id_ACC54_CORE)) {
             for (auto &port : ci->ports) {
                 WireId wire = getBelPinWire(ci->bel, port.first);
                 if (wire != WireId())
@@ -953,8 +950,8 @@ int db_binary_search(const Tres *list, int count, Tgetter key_getter, Tkey key)
 
 bool Arch::is_dsp_cell(const CellInfo *cell) const
 {
-    return cell->type == id_MULT18_CORE || cell->type == id_MULT18X36_CORE || cell->type == id_MULT36_CORE ||
-           cell->type == id_PREADD9_CORE || cell->type == id_REG18_CORE || cell->type == id_MULT9_CORE;
+    return cell->type.in(id_MULT18_CORE, id_MULT18X36_CORE, id_MULT36_CORE, id_PREADD9_CORE, id_REG18_CORE,
+                         id_MULT9_CORE);
 }
 
 int Arch::get_cell_timing_idx(IdString cell_type, IdString cell_variant) const

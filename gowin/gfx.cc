@@ -4969,7 +4969,7 @@ void gfxSetPipDefaultDecal(Arch *arch, PipInfo &pip)
     // create if absent
     if (arch->decal_graphics.count(active_id) == 0) {
         // clock?
-        if (dst_loc_id == id_GT00 || dst_loc_id == id_GT10) {
+        if (dst_loc_id.in(id_GT00, id_GT10)) {
             WireInfo &wi = arch->wire_info(pip.srcWire);
             if (wi.type.str(arch).substr(0, 3) != "UNK") {
                 // create pip

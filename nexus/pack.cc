@@ -1981,11 +1981,11 @@ struct NexusPacker
             pool<IdString> changed_cells;
             for (auto net : changed_nets) {
                 for (auto &user : ctx->nets.at(net)->users)
-                    if (user.port == id_CLKI || user.port == id_REFCK)
+                    if (user.port.in(id_CLKI, id_REFCK))
                         changed_cells.insert(user.cell->name);
                 auto &drv = ctx->nets.at(net)->driver;
                 if (iter == 1 && drv.cell != nullptr) {
-                    if (drv.cell->type == id_OSC_CORE && (drv.port == id_HFCLKOUT || drv.port == id_LFCLKOUT))
+                    if (drv.cell->type == id_OSC_CORE && (drv.port.in(id_HFCLKOUT, id_LFCLKOUT)))
                         changed_cells.insert(drv.cell->name);
                     if (drv.cell->type == id_DCC && drv.port == id_CLKO)
                         changed_cells.insert(drv.cell->name);

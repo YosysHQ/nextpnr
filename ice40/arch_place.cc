@@ -105,7 +105,7 @@ bool Arch::isBelLocationValid(BelId bel) const
             // that are a PLL clock output.
             auto wire = getBelPinWire(bel, id_D_IN_0);
             for (auto pin : getWireBelPins(wire)) {
-                if (pin.pin == id_PLLOUT_A || pin.pin == id_PLLOUT_B) {
+                if (pin.pin.in(id_PLLOUT_A, id_PLLOUT_B)) {
                     // Is there a PLL there ?
                     const CellInfo *pll_cell = getBoundBelCell(pin.bel);
                     if (pll_cell == nullptr)
