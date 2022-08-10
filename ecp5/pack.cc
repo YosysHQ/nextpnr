@@ -801,7 +801,7 @@ class Ecp5Packer
                 ci->disconnectPort(id_WRE);
 
                 for (int i = 0; i < 4; i++)
-                    ci->disconnectPort(ctx->id(stringf("RAD[%d]", i)));
+                    ci->disconnectPort(ctx->idf("RAD[%d]", i));
 
                 // Setup placement constraints
                 // Use the 0th bit as an anchor

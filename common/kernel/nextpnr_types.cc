@@ -152,8 +152,8 @@ void CellInfo::movePortBusTo(IdString old_name, int old_offset, bool old_bracket
                              IdString new_name, int new_offset, bool new_brackets, int width)
 {
     for (int i = 0; i < width; i++) {
-        IdString old_port = ctx->id(stringf(old_brackets ? "%s[%d]" : "%s%d", old_name.c_str(ctx), i + old_offset));
-        IdString new_port = ctx->id(stringf(new_brackets ? "%s[%d]" : "%s%d", new_name.c_str(ctx), i + new_offset));
+        IdString old_port = ctx->idf(old_brackets ? "%s[%d]" : "%s%d", old_name.c_str(ctx), i + old_offset);
+        IdString new_port = ctx->idf(new_brackets ? "%s[%d]" : "%s%d", new_name.c_str(ctx), i + new_offset);
         movePortTo(old_port, new_cell, new_port);
     }
 }
@@ -171,8 +171,8 @@ void CellInfo::copyPortBusTo(IdString old_name, int old_offset, bool old_bracket
                              IdString new_name, int new_offset, bool new_brackets, int width)
 {
     for (int i = 0; i < width; i++) {
-        IdString old_port = ctx->id(stringf(old_brackets ? "%s[%d]" : "%s%d", old_name.c_str(ctx), i + old_offset));
-        IdString new_port = ctx->id(stringf(new_brackets ? "%s[%d]" : "%s%d", new_name.c_str(ctx), i + new_offset));
+        IdString old_port = ctx->idf(old_brackets ? "%s[%d]" : "%s%d", old_name.c_str(ctx), i + old_offset);
+        IdString new_port = ctx->idf(new_brackets ? "%s[%d]" : "%s%d", new_name.c_str(ctx), i + new_offset);
         copyPortTo(old_port, new_cell, new_port);
     }
 }

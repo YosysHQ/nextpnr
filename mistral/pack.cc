@@ -417,10 +417,8 @@ struct MistralPacker
                 bit_offset = 1;
             }
             for (int bit = bit_offset; bit < abits; bit++) {
-                ci->pin_data[ctx->id(stringf("A1ADDR[%d]", bit))].bel_pins = {
-                        ctx->id(stringf("ADDRA[%d]", bit + addr_offset))};
-                ci->pin_data[ctx->id(stringf("B1ADDR[%d]", bit))].bel_pins = {
-                        ctx->id(stringf("ADDRB[%d]", bit + addr_offset))};
+                ci->pin_data[ctx->idf("A1ADDR[%d]", bit)].bel_pins = {ctx->idf("ADDRA[%d]", bit + addr_offset)};
+                ci->pin_data[ctx->idf("B1ADDR[%d]", bit)].bel_pins = {ctx->idf("ADDRB[%d]", bit + addr_offset)};
             }
 
             // Data lines
@@ -451,13 +449,12 @@ struct MistralPacker
             }
             for (int bit = 0; bit < dbits; bit++) {
                 for (int offset : offsets) {
-                    ci->pin_data[ctx->id(stringf("A1DATA[%d]", bit))].bel_pins.push_back(
-                            ctx->id(stringf("DATAAIN[%d]", bit + offset)));
+                    ci->pin_data[ctx->idf("A1DATA[%d]", bit)].bel_pins.push_back(ctx->idf("DATAAIN[%d]", bit + offset));
                 }
             }
 
             for (int bit = 0; bit < dbits; bit++) {
-                ci->pin_data[ctx->id(stringf("B1DATA[%d]", bit))].bel_pins = {ctx->id(stringf("DATABOUT[%d]", bit))};
+                ci->pin_data[ctx->idf("B1DATA[%d]", bit)].bel_pins = {ctx->idf("DATABOUT[%d]", bit)};
             }
         }
     }

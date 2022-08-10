@@ -111,12 +111,12 @@ Arch::Arch(ArchArgs args) : args(args)
         log_error("Unsupported package '%s'.\n", args.package.c_str());
 
     for (int i = 0; i < chip_info->width; i++) {
-        IdString x_id = id(stringf("X%d", i));
+        IdString x_id = idf("X%d", i);
         x_ids.push_back(x_id);
         id_to_x[x_id] = i;
     }
     for (int i = 0; i < chip_info->height; i++) {
-        IdString y_id = id(stringf("Y%d", i));
+        IdString y_id = idf("Y%d", i);
         y_ids.push_back(y_id);
         id_to_y[y_id] = i;
     }

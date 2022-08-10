@@ -27,34 +27,28 @@ void Arch::create_m10k(int x, int y)
     add_bel_pin(bel, id_ADDRSTALLA, PORT_IN, get_port(CycloneV::M10K, x, y, -1, CycloneV::ADDRSTALLA, 0));
     add_bel_pin(bel, id_ADDRSTALLB, PORT_IN, get_port(CycloneV::M10K, x, y, -1, CycloneV::ADDRSTALLB, 0));
     for (int z = 0; z < 2; z++) {
-        add_bel_pin(bel, id(stringf("BYTEENABLEA[%d]", z)), PORT_IN,
+        add_bel_pin(bel, idf("BYTEENABLEA[%d]", z), PORT_IN,
                     get_port(CycloneV::M10K, x, y, -1, CycloneV::BYTEENABLEA, z));
-        add_bel_pin(bel, id(stringf("BYTEENABLEB[%d]", z)), PORT_IN,
+        add_bel_pin(bel, idf("BYTEENABLEB[%d]", z), PORT_IN,
                     get_port(CycloneV::M10K, x, y, -1, CycloneV::BYTEENABLEB, z));
-        add_bel_pin(bel, id(stringf("ACLR[%d]", z)), PORT_IN, get_port(CycloneV::M10K, x, y, -1, CycloneV::ACLR, z));
-        add_bel_pin(bel, id(stringf("RDEN[%d]", z)), PORT_IN, get_port(CycloneV::M10K, x, y, -1, CycloneV::RDEN, z));
-        add_bel_pin(bel, id(stringf("WREN[%d]", z)), PORT_IN, get_port(CycloneV::M10K, x, y, -1, CycloneV::WREN, z));
-        add_bel_pin(bel, id(stringf("CLKIN[%d]", z)), PORT_IN, get_port(CycloneV::M10K, x, y, -1, CycloneV::CLKIN, z));
-        add_bel_pin(bel, id(stringf("CLKIN[%d]", z + 6)), PORT_IN,
-                    get_port(CycloneV::M10K, x, y, -1, CycloneV::CLKIN, z + 6));
+        add_bel_pin(bel, idf("ACLR[%d]", z), PORT_IN, get_port(CycloneV::M10K, x, y, -1, CycloneV::ACLR, z));
+        add_bel_pin(bel, idf("RDEN[%d]", z), PORT_IN, get_port(CycloneV::M10K, x, y, -1, CycloneV::RDEN, z));
+        add_bel_pin(bel, idf("WREN[%d]", z), PORT_IN, get_port(CycloneV::M10K, x, y, -1, CycloneV::WREN, z));
+        add_bel_pin(bel, idf("CLKIN[%d]", z), PORT_IN, get_port(CycloneV::M10K, x, y, -1, CycloneV::CLKIN, z));
+        add_bel_pin(bel, idf("CLKIN[%d]", z + 6), PORT_IN, get_port(CycloneV::M10K, x, y, -1, CycloneV::CLKIN, z + 6));
     }
     for (int z = 0; z < 4; z++) {
-        add_bel_pin(bel, id(stringf("ENABLE[%d]", z)), PORT_IN,
-                    get_port(CycloneV::M10K, x, y, -1, CycloneV::ENABLE, z));
+        add_bel_pin(bel, idf("ENABLE[%d]", z), PORT_IN, get_port(CycloneV::M10K, x, y, -1, CycloneV::ENABLE, z));
     }
     for (int z = 0; z < 12; z++) {
-        add_bel_pin(bel, id(stringf("ADDRA[%d]", z)), PORT_IN, get_port(CycloneV::M10K, x, y, -1, CycloneV::ADDRA, z));
-        add_bel_pin(bel, id(stringf("ADDRB[%d]", z)), PORT_IN, get_port(CycloneV::M10K, x, y, -1, CycloneV::ADDRB, z));
+        add_bel_pin(bel, idf("ADDRA[%d]", z), PORT_IN, get_port(CycloneV::M10K, x, y, -1, CycloneV::ADDRA, z));
+        add_bel_pin(bel, idf("ADDRB[%d]", z), PORT_IN, get_port(CycloneV::M10K, x, y, -1, CycloneV::ADDRB, z));
     }
     for (int z = 0; z < 20; z++) {
-        add_bel_pin(bel, id(stringf("DATAAIN[%d]", z)), PORT_IN,
-                    get_port(CycloneV::M10K, x, y, -1, CycloneV::DATAAIN, z));
-        add_bel_pin(bel, id(stringf("DATABIN[%d]", z)), PORT_IN,
-                    get_port(CycloneV::M10K, x, y, -1, CycloneV::DATABIN, z));
-        add_bel_pin(bel, id(stringf("DATAAOUT[%d]", z)), PORT_OUT,
-                    get_port(CycloneV::M10K, x, y, -1, CycloneV::DATAAOUT, z));
-        add_bel_pin(bel, id(stringf("DATABOUT[%d]", z)), PORT_OUT,
-                    get_port(CycloneV::M10K, x, y, -1, CycloneV::DATABOUT, z));
+        add_bel_pin(bel, idf("DATAAIN[%d]", z), PORT_IN, get_port(CycloneV::M10K, x, y, -1, CycloneV::DATAAIN, z));
+        add_bel_pin(bel, idf("DATABIN[%d]", z), PORT_IN, get_port(CycloneV::M10K, x, y, -1, CycloneV::DATABIN, z));
+        add_bel_pin(bel, idf("DATAAOUT[%d]", z), PORT_OUT, get_port(CycloneV::M10K, x, y, -1, CycloneV::DATAAOUT, z));
+        add_bel_pin(bel, idf("DATABOUT[%d]", z), PORT_OUT, get_port(CycloneV::M10K, x, y, -1, CycloneV::DATABOUT, z));
     }
 }
 

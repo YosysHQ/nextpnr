@@ -108,24 +108,23 @@ struct ExampleImpl : ViaductAPI
                 auto &w = row_wires.at(x);
                 for (int z = 0; z < N; z++) {
                     // Clock input
-                    w.clk.push_back(ctx->addWire(h.xy_id(x, y, ctx->id(stringf("CLK%d", z))), ctx->id("CLK"), x, y));
+                    w.clk.push_back(ctx->addWire(h.xy_id(x, y, ctx->idf("CLK%d", z)), ctx->id("CLK"), x, y));
                     // FF input
-                    w.d.push_back(ctx->addWire(h.xy_id(x, y, ctx->id(stringf("D%d", z))), ctx->id("D"), x, y));
+                    w.d.push_back(ctx->addWire(h.xy_id(x, y, ctx->idf("D%d", z)), ctx->id("D"), x, y));
                     // FF and LUT outputs
-                    w.q.push_back(ctx->addWire(h.xy_id(x, y, ctx->id(stringf("Q%d", z))), ctx->id("Q"), x, y));
-                    w.f.push_back(ctx->addWire(h.xy_id(x, y, ctx->id(stringf("F%d", z))), ctx->id("F"), x, y));
+                    w.q.push_back(ctx->addWire(h.xy_id(x, y, ctx->idf("Q%d", z)), ctx->id("Q"), x, y));
+                    w.f.push_back(ctx->addWire(h.xy_id(x, y, ctx->idf("F%d", z)), ctx->id("F"), x, y));
                     // LUT inputs
                     for (int i = 0; i < K; i++)
-                        w.i.push_back(
-                                ctx->addWire(h.xy_id(x, y, ctx->id(stringf("L%dI%d", z, i))), ctx->id("I"), x, y));
+                        w.i.push_back(ctx->addWire(h.xy_id(x, y, ctx->idf("L%dI%d", z, i)), ctx->id("I"), x, y));
                 }
                 // Local wires
                 for (int l = 0; l < Wl; l++)
-                    w.l.push_back(ctx->addWire(h.xy_id(x, y, ctx->id(stringf("LOCAL%d", l))), ctx->id("LOCAL"), x, y));
+                    w.l.push_back(ctx->addWire(h.xy_id(x, y, ctx->idf("LOCAL%d", l)), ctx->id("LOCAL"), x, y));
                 // Pad wires for IO
                 if (is_io(x, y) && x != y)
                     for (int z = 0; z < 2; z++)
-                        w.pad.push_back(ctx->addWire(h.xy_id(x, y, ctx->id(stringf("PAD%d", z))), id_PAD, x, y));
+                        w.pad.push_back(ctx->addWire(h.xy_id(x, y, ctx->idf("PAD%d", z)), id_PAD, x, y));
             }
         }
     }
@@ -139,7 +138,7 @@ struct ExampleImpl : ViaductAPI
     {
         auto &w = wires_by_tile.at(y).at(x);
         for (int z = 0; z < 2; z++) {
-            BelId b = ctx->addBel(h.xy_id(x, y, ctx->id(stringf("IO%d", z))), id_IOB, Loc(x, y, z), false, false);
+            BelId b = ctx->addBel(h.xy_id(x, y, ctx->idf("IO%d", z)), id_IOB, Loc(x, y, z), false, false);
             ctx->addBelInout(b, id_PAD, w.pad.at(z));
             ctx->addBelInput(b, id_I, w.i.at(z * K + 0));
             ctx->addBelInput(b, id_EN, w.i.at(z * K + 1));
@@ -157,17 +156,16 @@ struct ExampleImpl : ViaductAPI
         auto &w = wires_by_tile.at(y).at(x);
         for (int z = 0; z < N; z++) {
             // Create LUT bel
-            BelId lut = ctx->addBel(h.xy_id(x, y, ctx->id(stringf("SLICE%d_LUT", z))), id_LUT4, Loc(x, y, z * 2), false,
-                                    false);
+            BelId lut = ctx->addBel(h.xy_id(x, y, ctx->idf("SLICE%d_LUT", z)), id_LUT4, Loc(x, y, z * 2), false, false);
             for (int k = 0; k < K; k++)
-                ctx->addBelInput(lut, ctx->id(stringf("I[%d]", k)), w.i.at(z * K + k));
+                ctx->addBelInput(lut, ctx->idf("I[%d]", k), w.i.at(z * K + k));
             ctx->addBelOutput(lut, id_F, w.f.at(z));
             // FF data can come from LUT output or LUT I3
             add_pip(Loc(x, y, 0), w.f.at(z), w.d.at(z));
             add_pip(Loc(x, y, 0), w.i.at(z * K + (K - 1)), w.d.at(z));
             // Create DFF bel
-            BelId dff = ctx->addBel(h.xy_id(x, y, ctx->id(stringf("SLICE%d_FF", z))), id_DFF, Loc(x, y, z * 2 + 1),
-                                    false, false);
+            BelId dff =
+                    ctx->addBel(h.xy_id(x, y, ctx->idf("SLICE%d_FF", z)), id_DFF, Loc(x, y, z * 2 + 1), false, false);
             ctx->addBelInput(dff, id_CLK, w.clk.at(z));
             ctx->addBelInput(dff, id_D, w.d.at(z));
             ctx->addBelOutput(dff, id_Q, w.q.at(z));
@@ -254,7 +252,7 @@ struct ExampleImpl : ViaductAPI
             auto &fc = fast_cell_info.at(ci->flat_index);
             if (ci->type == id_LUT4) {
                 fc.lut_f = ci->getPort(id_F);
-                fc.lut_i3_used = (ci->getPort(ctx->id(stringf("I[%d]", K - 1))) != nullptr);
+                fc.lut_i3_used = (ci->getPort(ctx->idf("I[%d]", K - 1)) != nullptr);
             } else if (ci->type == id_DFF) {
                 fc.ff_d = ci->getPort(id_D);
             }
