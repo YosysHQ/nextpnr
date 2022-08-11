@@ -38,10 +38,7 @@ void Arch::create_clkbuf(int x, int y)
     }
 }
 
-bool Arch::is_clkbuf_cell(IdString cell_type) const
-{
-    return cell_type == id_MISTRAL_CLKENA || cell_type == id_MISTRAL_CLKBUF;
-}
+bool Arch::is_clkbuf_cell(IdString cell_type) const { return cell_type.in(id_MISTRAL_CLKENA, id_MISTRAL_CLKBUF); }
 
 void Arch::create_hps_mpu_general_purpose(int x, int y)
 {

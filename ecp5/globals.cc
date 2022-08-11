@@ -57,10 +57,10 @@ class Ecp5GlobalRouter
             return true;
         if (user.cell->type == id_TRELLIS_COMB && user.port == id_WCK)
             return true;
-        if (user.cell->type == id_DCUA && (user.port == id_CH0_FF_RXI_CLK || user.port == id_CH1_FF_RXI_CLK ||
-                                           user.port == id_CH0_FF_TXI_CLK || user.port == id_CH1_FF_TXI_CLK))
+        if (user.cell->type == id_DCUA &&
+            (user.port.in(id_CH0_FF_RXI_CLK, id_CH1_FF_RXI_CLK, id_CH0_FF_TXI_CLK, id_CH1_FF_TXI_CLK)))
             return true;
-        if ((user.cell->type == id_IOLOGIC || user.cell->type == id_SIOLOGIC) && (user.port == id_CLK))
+        if ((user.cell->type.in(id_IOLOGIC, id_SIOLOGIC)) && (user.port == id_CLK))
             return true;
         return false;
     }
@@ -88,7 +88,7 @@ class Ecp5GlobalRouter
                     clockCount[ni->name]++;
                     if (user.cell->type == id_DCUA)
                         clockCount[ni->name] += 100;
-                    if (user.cell->type == id_IOLOGIC || user.cell->type == id_SIOLOGIC)
+                    if (user.cell->type.in(id_IOLOGIC, id_SIOLOGIC))
                         clockCount[ni->name] += 10;
                 }
             }
@@ -282,7 +282,7 @@ class Ecp5GlobalRouter
     bool route_onto_global(NetInfo *net, int network)
     {
         WireId glb_src;
-        NPNR_ASSERT(net->driver.cell->type == id_DCCA || net->driver.cell->type == id_DCSC);
+        NPNR_ASSERT(net->driver.cell->type.in(id_DCCA, id_DCSC));
         glb_src = ctx->getNetinfoSourceWire(net);
         for (int quad = QUAD_UL; quad < QUAD_LR + 1; quad++) {
             WireId glb_dst = get_global_wire(GlobalQuadrant(quad), network);
@@ -454,7 +454,7 @@ class Ecp5GlobalRouter
     {
         NetInfo *glbptr = nullptr;
         CellInfo *dccptr = nullptr;
-        if (net->driver.cell != nullptr && (net->driver.cell->type == id_DCCA || net->driver.cell->type == id_DCSC)) {
+        if (net->driver.cell != nullptr && (net->driver.cell->type.in(id_DCCA, id_DCSC))) {
             // Already have a DCC (such as clock gating)
             glbptr = net;
             dccptr = net->driver.cell;
@@ -502,7 +502,7 @@ class Ecp5GlobalRouter
 
     int global_route_priority(const PortRef &load)
     {
-        if (load.port == id_WCK || load.port == id_WRE)
+        if (load.port.in(id_WCK, id_WRE))
             return 90;
         return 99;
     }
@@ -555,7 +555,7 @@ class Ecp5GlobalRouter
         dict<int, NetInfo *> clocks;
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
-            if (ci->type == id_DCCA || ci->type == id_DCSC) {
+            if (ci->type.in(id_DCCA, id_DCSC)) {
                 NetInfo *clock = ci->ports.at((ci->type == id_DCSC) ? id_DCSOUT : id_CLKO).net;
                 NPNR_ASSERT(clock != nullptr);
                 bool drives_fabric = false;
@@ -591,7 +591,7 @@ class Ecp5GlobalRouter
                       return global_route_priority(*a.first) < global_route_priority(*b.first);
                   });
         for (const auto &user : toroute) {
-            if (user.first->cell->type == id_DCSC && (user.first->port == id_CLK0 || user.first->port == id_CLK1)) {
+            if (user.first->cell->type == id_DCSC && (user.first->port.in(id_CLK0, id_CLK1))) {
                 // Special case, skips most of the typical global network
                 NetInfo *net = clocks.at(user.second);
                 simple_router(net, ctx->getNetinfoSourceWire(net), ctx->getNetinfoSinkWire(net, *(user.first), 0));
@@ -606,9 +606,9 @@ class Ecp5GlobalRouter
         // Try and use dedicated paths if possible
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
-            if (ci->type == id_ECLKSYNCB || ci->type == id_TRELLIS_ECLKBUF || ci->type == id_ECLKBRIDGECS) {
+            if (ci->type.in(id_ECLKSYNCB, id_TRELLIS_ECLKBUF, id_ECLKBRIDGECS)) {
                 std::vector<IdString> pins;
-                if (ci->type == id_ECLKSYNCB || ci->type == id_TRELLIS_ECLKBUF) {
+                if (ci->type.in(id_ECLKSYNCB, id_TRELLIS_ECLKBUF)) {
                     pins.push_back(id_ECLKI);
                 } else {
                     pins.push_back(id_CLK0);

@@ -47,15 +47,13 @@ inline bool is_l6mux(const BaseCtx *ctx, const CellInfo *cell) { return cell->ty
 
 inline bool is_iologic_input_cell(const BaseCtx *ctx, const CellInfo *cell)
 {
-    return cell->type == id_IDDRX1F || cell->type == id_IDDRX2F || cell->type == id_IDDR71B ||
-           cell->type == id_IDDRX2DQA ||
+    return cell->type.in(id_IDDRX1F, id_IDDRX2F, id_IDDR71B, id_IDDRX2DQA) ||
            (cell->type == id_TRELLIS_FF && bool_or_default(cell->attrs, id_syn_useioff) &&
             (str_or_default(cell->attrs, id_ioff_dir, "") != "output"));
 }
 inline bool is_iologic_output_cell(const BaseCtx *ctx, const CellInfo *cell)
 {
-    return cell->type == id_ODDRX1F || cell->type == id_ODDRX2F || cell->type == id_ODDR71B ||
-           cell->type == id_ODDRX2DQA || cell->type == id_ODDRX2DQSB || cell->type == id_OSHX2A ||
+    return cell->type.in(id_ODDRX1F, id_ODDRX2F, id_ODDR71B, id_ODDRX2DQA, id_ODDRX2DQSB, id_OSHX2A) ||
            (cell->type == id_TRELLIS_FF && bool_or_default(cell->attrs, id_syn_useioff) &&
             (str_or_default(cell->attrs, id_ioff_dir, "") != "input"));
 }

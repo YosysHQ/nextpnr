@@ -266,11 +266,10 @@ class Ecp5Packer
         if (port.cell == nullptr)
             return false;
         if (port.cell->type == id_DCUA) {
-            return port.port == id_CH0_HDINP || port.port == id_CH0_HDINN || port.port == id_CH0_HDOUTP ||
-                   port.port == id_CH0_HDOUTN || port.port == id_CH1_HDINP || port.port == id_CH1_HDINN ||
-                   port.port == id_CH1_HDOUTP || port.port == id_CH1_HDOUTN;
+            return port.port.in(id_CH0_HDINP, id_CH0_HDINN, id_CH0_HDOUTP, id_CH0_HDOUTN, id_CH1_HDINP, id_CH1_HDINN,
+                                id_CH1_HDOUTP, id_CH1_HDOUTN);
         } else if (port.cell->type == id_EXTREFB) {
-            return port.port == id_REFCLKP || port.port == id_REFCLKN;
+            return port.port.in(id_REFCLKP, id_REFCLKN);
         } else {
             return false;
         }
@@ -905,13 +904,11 @@ class Ecp5Packer
                     uc->params[id_CEMUX] = std::string(constval ? "1" : "0");
                     uc->ports[user.port].net = nullptr;
                 } else if (is_carry(ctx, uc)) {
-                    if (constval &&
-                        (user.port == id_A0 || user.port == id_A1 || user.port == id_B0 || user.port == id_B1 ||
-                         user.port == id_C0 || user.port == id_C1 || user.port == id_D0 || user.port == id_D1)) {
+                    if (constval && (user.port.in(id_A0, id_A1, id_B0, id_B1, id_C0, id_C1, id_D0, id_D1))) {
                         // Input tied high, nothing special to do (bitstream gen will auto-enable tie-high)
                         uc->ports[user.port].net = nullptr;
                     } else if (!constval) {
-                        if (user.port == id_A0 || user.port == id_A1 || user.port == id_B0 || user.port == id_B1) {
+                        if (user.port.in(id_A0, id_A1, id_B0, id_B1)) {
                             // These inputs can be switched to tie-high without consequence
                             set_ccu2c_input_constant(uc, user.port, constval);
                         } else if (user.port == id_C0 && is_ccu2c_port_high(uc, id_D0)) {
@@ -940,10 +937,8 @@ class Ecp5Packer
                             (constval && str_or_default(uc->params, id_LSRMUX, "LSR") == "INV"))) {
                     uc->ports[user.port].net = nullptr;
                 } else if (uc->type == id_DP16KD) {
-                    if (user.port == id_CLKA || user.port == id_CLKB || user.port == id_RSTA || user.port == id_RSTB ||
-                        user.port == id_WEA || user.port == id_WEB || user.port == id_CEA || user.port == id_CEB ||
-                        user.port == id_OCEA || user.port == id_OCEB || user.port == id_CSA0 || user.port == id_CSA1 ||
-                        user.port == id_CSA2 || user.port == id_CSB0 || user.port == id_CSB1 || user.port == id_CSB2) {
+                    if (user.port.in(id_CLKA, id_CLKB, id_RSTA, id_RSTB, id_WEA, id_WEB, id_CEA, id_CEB, id_OCEA,
+                                     id_OCEB, id_CSA0, id_CSA1, id_CSA2, id_CSB0, id_CSB1, id_CSB2)) {
                         // Connect to CIB CLK, LSR or CE. Default state is 1
                         uc->params[ctx->id(user.port.str(ctx) + "MUX")] = constval ? user.port.str(ctx) : "INV";
                     } else {
@@ -951,7 +946,7 @@ class Ecp5Packer
                         uc->params[ctx->id(user.port.str(ctx) + "MUX")] = std::string(constval ? "1" : "0");
                     }
                     uc->ports[user.port].net = nullptr;
-                } else if (uc->type == id_ALU54B || uc->type == id_MULT18X18D) {
+                } else if (uc->type.in(id_ALU54B, id_MULT18X18D)) {
                     if (user.port.str(ctx).substr(0, 3) == "CLK" || user.port.str(ctx).substr(0, 2) == "CE" ||
                         user.port.str(ctx).substr(0, 3) == "RST" || user.port.str(ctx).substr(0, 3) == "SRO" ||
                         user.port.str(ctx).substr(0, 3) == "SRI" || user.port.str(ctx).substr(0, 2) == "RO" ||
@@ -1350,7 +1345,7 @@ class Ecp5Packer
                     if (net == nullptr || net->driver.cell == nullptr)
                         continue;
                     IdString ct = net->driver.cell->type;
-                    if (ct == id_GND || ct == id_VCC) {
+                    if (ct.in(id_GND, id_VCC)) {
                         ci->disconnectPort(ndport);
                         ci->ports.erase(ndport);
                     }
@@ -1442,7 +1437,7 @@ class Ecp5Packer
                 ci->renamePort(id_USRMCLKI, id_PADDO);
                 ci->renamePort(id_USRMCLKTS, id_PADDT);
                 ci->renamePort(id_USRMCLKO, id_PADDI);
-            } else if (ci->type == id_GSR || ci->type == id_SGSR) {
+            } else if (ci->type.in(id_GSR, id_SGSR)) {
                 ci->params[id_MODE] = std::string("ACTIVE_LOW");
                 ci->params[id_SYNCMODE] = ci->type == id_SGSR ? std::string("SYNC") : std::string("ASYNC");
                 ci->type = id_GSR;
@@ -1894,7 +1889,7 @@ class Ecp5Packer
 
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
-            if (ci->type == id_DELAYF || ci->type == id_DELAYG) {
+            if (ci->type.in(id_DELAYF, id_DELAYG)) {
                 CellInfo *i_pio = net_driven_by(ctx, ci->ports.at(id_A).net, is_trellis_io, id_O);
                 CellInfo *o_pio = net_only_drives(ctx, ci->ports.at(id_Z).net, is_trellis_io, id_I, true);
                 CellInfo *iol = nullptr;
@@ -2021,7 +2016,7 @@ class Ecp5Packer
                 ci->movePortTo(id_D1, iol, id_TXDATA1);
                 iol->params[id_GSR] = str_or_default(ci->params, id_GSR, "DISABLED");
                 packed_cells.insert(cell.first);
-            } else if (ci->type == id_ODDRX2F || ci->type == id_ODDR71B) {
+            } else if (ci->type.in(id_ODDRX2F, id_ODDR71B)) {
                 CellInfo *pio = net_only_drives(ctx, ci->ports.at(id_Q).net, is_trellis_io, id_I, true);
                 if (pio == nullptr)
                     log_error("%s '%s' Q output must be connected only to a top level output\n", ci->type.c_str(ctx),
@@ -2061,7 +2056,7 @@ class Ecp5Packer
                 iol->params[id_GSR] = str_or_default(ci->params, id_GSR, "DISABLED");
                 pio->params[id_DATAMUX_ODDR] = std::string("IOLDO");
                 packed_cells.insert(cell.first);
-            } else if (ci->type == id_IDDRX2F || ci->type == id_IDDR71B) {
+            } else if (ci->type.in(id_IDDRX2F, id_IDDR71B)) {
                 CellInfo *pio = net_driven_by(ctx, ci->ports.at(id_D).net, is_trellis_io, id_O);
                 if (pio == nullptr || ci->ports.at(id_D).net->users.entries() > 1)
                     log_error("%s '%s' D input must be connected only to a top level input\n", ci->type.c_str(ctx),
@@ -2121,7 +2116,7 @@ class Ecp5Packer
                 iol->params[ctx->id("MODDRX.MODE")] = std::string("MOSHX2");
                 pio->params[id_DATAMUX_MDDR] = std::string("IOLDO");
                 packed_cells.insert(cell.first);
-            } else if (ci->type == id_ODDRX2DQA || ci->type == id_ODDRX2DQSB) {
+            } else if (ci->type.in(id_ODDRX2DQA, id_ODDRX2DQSB)) {
                 CellInfo *pio = net_only_drives(ctx, ci->ports.at(id_Q).net, is_trellis_io, id_I, true);
                 if (pio == nullptr)
                     log_error("%s '%s' Q output must be connected only to a top level output\n", ci->type.c_str(ctx),
@@ -2183,7 +2178,7 @@ class Ecp5Packer
                 process_dqs_port(ci, pio, iol, id_WRPNTR1);
                 process_dqs_port(ci, pio, iol, id_WRPNTR0);
                 packed_cells.insert(cell.first);
-            } else if (ci->type == id_TSHX2DQA || ci->type == id_TSHX2DQSA) {
+            } else if (ci->type.in(id_TSHX2DQA, id_TSHX2DQSA)) {
                 CellInfo *pio = net_only_drives(ctx, ci->ports.at(id_Q).net, is_trellis_io, id_T, true);
                 if (pio == nullptr)
                     log_error("%s '%s' Q output must be connected only to a top level tristate\n", ci->type.c_str(ctx),
@@ -2388,7 +2383,7 @@ class Ecp5Packer
         // Promote/route edge clocks
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
-            if (ci->type == id_IOLOGIC || ci->type == id_DQSBUFM) {
+            if (ci->type.in(id_IOLOGIC, id_DQSBUFM)) {
                 if (!ci->ports.count(id_ECLK) || ci->ports.at(id_ECLK).net == nullptr)
                     continue;
                 BelId bel = ctx->getBelByNameStr(str_or_default(ci->attrs, id_BEL));
@@ -2669,7 +2664,7 @@ class Ecp5Packer
             pool<IdString> changed_cells;
             for (auto net : changed_nets) {
                 for (auto &user : ctx->nets.at(net)->users)
-                    if (user.port == id_CLKI || user.port == id_ECLKI || user.port == id_CLK0 || user.port == id_CLK1)
+                    if (user.port.in(id_CLKI, id_ECLKI, id_CLK0, id_CLK1))
                         changed_cells.insert(user.cell->name);
                 auto &drv = ctx->nets.at(net)->driver;
                 if (iter == 1 && drv.cell != nullptr && drv.port == id_OSC)
@@ -2688,7 +2683,7 @@ class Ecp5Packer
                     else
                         log_error("Unsupported divider ratio '%s' on CLKDIVF '%s'\n", div.c_str(), ci->name.c_str(ctx));
                     copy_constraint(ci, id_CLKI, id_CDIVX, ratio);
-                } else if (ci->type == id_ECLKSYNCB || ci->type == id_TRELLIS_ECLKBUF) {
+                } else if (ci->type.in(id_ECLKSYNCB, id_TRELLIS_ECLKBUF)) {
                     copy_constraint(ci, id_ECLKI, id_ECLKO, 1);
                 } else if (ci->type == id_ECLKBRIDGECS) {
                     copy_constraint(ci, id_CLK0, id_ECSOUT, 1);

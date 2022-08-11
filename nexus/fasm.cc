@@ -1079,9 +1079,8 @@ struct NexusFasmWriter
                 write_osc(ci);
             else if (ci->type == id_OXIDE_EBR)
                 write_bram(ci);
-            else if (ci->type == id_MULT9_CORE || ci->type == id_PREADD9_CORE || ci->type == id_MULT18_CORE ||
-                     ci->type == id_MULT18X36_CORE || ci->type == id_MULT36_CORE || ci->type == id_REG18_CORE ||
-                     ci->type == id_ACC54_CORE)
+            else if (ci->type.in(id_MULT9_CORE, id_PREADD9_CORE, id_MULT18_CORE, id_MULT18X36_CORE, id_MULT36_CORE,
+                                 id_REG18_CORE, id_ACC54_CORE))
                 write_dsp(ci);
             else if (ci->type == id_PLL_CORE)
                 write_pll(ci);
@@ -1089,7 +1088,7 @@ struct NexusFasmWriter
                 write_lram(ci);
             else if (ci->type == id_DPHY_CORE)
                 write_dphy(ci);
-            else if (ci->type == id_IOLOGIC || ci->type == id_SIOLOGIC)
+            else if (ci->type.in(id_IOLOGIC, id_SIOLOGIC))
                 write_iol(ci);
             else if (ci->type == id_DCC)
                 write_dcc(ci);

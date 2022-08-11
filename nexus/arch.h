@@ -1072,7 +1072,7 @@ struct Arch : BaseArch<ArchRanges>
     bool getBelGlobalBuf(BelId bel) const override
     {
         IdString type = getBelType(bel);
-        return type == id_DCC || type == id_VCC_DRV;
+        return type.in(id_DCC, id_VCC_DRV);
     }
 
     IdString getBelType(BelId bel) const override

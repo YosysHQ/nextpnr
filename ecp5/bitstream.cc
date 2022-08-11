@@ -1110,25 +1110,22 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
 
             // Tie signals as appropriate
             for (auto port : ci->ports) {
-                if (ci->ramInfo.is_pdp && (port.first == id_WEA || port.first == id_WEB || port.first == id_ADA4))
+                if (ci->ramInfo.is_pdp && (port.first.in(id_WEA, id_WEB, id_ADA4)))
                     continue;
                 if (port.second.net == nullptr && port.second.type == PORT_IN) {
-                    if (port.first == id_CLKA || port.first == id_CLKB || port.first == id_WEA ||
-                        port.first == id_WEB || port.first == id_RSTA || port.first == id_RSTB) {
+                    if (port.first.in(id_CLKA, id_CLKB, id_WEA, id_WEB, id_RSTA, id_RSTB)) {
                         // CIB clock or LSR. Tie to "1" (also 0 in prjtrellis db?) in CIB
                         // If MUX doesn't exist, set to INV to emulate default 0
                         tie_cib_signal(ctx, cc, ctx->getBelPinWire(ci->bel, port.first), true);
                         if (!ci->params.count(ctx->id(port.first.str(ctx) + "MUX")))
                             ci->params[ctx->id(port.first.str(ctx) + "MUX")] = std::string("INV");
-                    } else if (port.first == id_CEA || port.first == id_CEB || port.first == id_OCEA ||
-                               port.first == id_OCEB) {
+                    } else if (port.first.in(id_CEA, id_CEB, id_OCEA, id_OCEB)) {
                         // CIB CE. Tie to "1" in CIB
                         // If MUX doesn't exist, set to passthru to emulate default 1
                         tie_cib_signal(ctx, cc, ctx->getBelPinWire(ci->bel, port.first), true);
                         if (!ci->params.count(ctx->id(port.first.str(ctx) + "MUX")))
                             ci->params[ctx->id(port.first.str(ctx) + "MUX")] = port.first.str(ctx);
-                    } else if (port.first == id_CSA0 || port.first == id_CSA1 || port.first == id_CSA2 ||
-                               port.first == id_CSB0 || port.first == id_CSB1 || port.first == id_CSB2) {
+                    } else if (port.first.in(id_CSA0, id_CSA1, id_CSA2, id_CSB0, id_CSB1, id_CSB2)) {
                         // CIB CE. Tie to "1" in CIB.
                         // If MUX doesn't exist, set to INV to emulate default 0
                         tie_cib_signal(ctx, cc, ctx->getBelPinWire(ci->bel, port.first), true);
@@ -1392,7 +1389,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                                int_to_bitvector(int_or_default(ci->attrs, id_MFG_ENABLE_FILTEROPAMP, 0), 1));
 
             cc.tilegroups.push_back(tg);
-        } else if (ci->type == id_IOLOGIC || ci->type == id_SIOLOGIC) {
+        } else if (ci->type.in(id_IOLOGIC, id_SIOLOGIC)) {
             Loc pio_loc = ctx->getBelLocation(ci->bel);
             pio_loc.z -= ci->type == id_SIOLOGIC ? 2 : 4;
             std::string pic_tile = get_pic_tile(ctx, ctx->getBelByLocation(pio_loc));

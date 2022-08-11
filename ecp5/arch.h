@@ -565,7 +565,7 @@ struct Arch : BaseArch<ArchRanges>
     void update_bel(BelId bel, CellInfo *old_cell, CellInfo *new_cell)
     {
         CellInfo *act_cell = (old_cell == nullptr) ? new_cell : old_cell;
-        if (act_cell->type == id_TRELLIS_FF || act_cell->type == id_TRELLIS_COMB || act_cell->type == id_TRELLIS_RAMW) {
+        if (act_cell->type.in(id_TRELLIS_FF, id_TRELLIS_COMB, id_TRELLIS_RAMW)) {
             LogicTileStatus *lts = tile_status.at(tile_index(bel)).lts;
             NPNR_ASSERT(lts != nullptr);
             int z = loc_info(bel)->bel_data[bel.index].z;

@@ -345,8 +345,8 @@ static void pack_ram(Context *ctx)
                 packed->attrs[attr.first] = attr.second;
             for (auto param : ci->params)
                 packed->params[param.first] = param.second;
-            packed->params[id_NEG_CLK_W] = Property(ci->type == id_SB_RAM40_4KNW || ci->type == id_SB_RAM40_4KNRNW, 1);
-            packed->params[id_NEG_CLK_R] = Property(ci->type == id_SB_RAM40_4KNR || ci->type == id_SB_RAM40_4KNRNW, 1);
+            packed->params[id_NEG_CLK_W] = Property(ci->type.in(id_SB_RAM40_4KNW, id_SB_RAM40_4KNRNW), 1);
+            packed->params[id_NEG_CLK_R] = Property(ci->type.in(id_SB_RAM40_4KNR, id_SB_RAM40_4KNRNW), 1);
             packed->type = id_ICESTORM_RAM;
             for (auto port : ci->ports) {
                 PortInfo &pi = port.second;
@@ -1468,11 +1468,11 @@ void pack_plls(Context *ctx)
                     newname = newname.substr(0, bpos) + "_" + newname.substr(bpos + 1, (newname.size() - bpos) - 2);
                 }
 
-                if (pi.name == id_PLLOUTCOREA || pi.name == id_PLLOUTCORE)
+                if (pi.name.in(id_PLLOUTCOREA, id_PLLOUTCORE))
                     newname = "PLLOUT_A";
                 if (pi.name == id_PLLOUTCOREB)
                     newname = "PLLOUT_B";
-                if (pi.name == id_PLLOUTGLOBALA || pi.name == id_PLLOUTGLOBAL)
+                if (pi.name.in(id_PLLOUTGLOBALA, id_PLLOUTGLOBAL))
                     newname = "PLLOUT_A_GLOBAL";
                 if (pi.name == id_PLLOUTGLOBALB)
                     newname = "PLLOUT_B_GLOBAL";

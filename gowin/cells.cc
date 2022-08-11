@@ -56,13 +56,12 @@ std::unique_ptr<CellInfo> create_generic_cell(Context *ctx, IdString type, std::
         new_cell->addInput(id_CLK);
         new_cell->addInput(id_CE);
         new_cell->addInput(id_LSR);
-    } else if (type == id_MUX2_LUT5 || type == id_MUX2_LUT6 || type == id_MUX2_LUT7 || type == id_MUX2_LUT7 ||
-               type == id_MUX2_LUT8) {
+    } else if (type.in(id_MUX2_LUT5, id_MUX2_LUT6, id_MUX2_LUT7, id_MUX2_LUT7, id_MUX2_LUT8)) {
         new_cell->addInput(id_I0);
         new_cell->addInput(id_I1);
         new_cell->addInput(id_SEL);
         new_cell->addOutput(id_OF);
-    } else if (type == id_IOB || type == id_IOBS) {
+    } else if (type.in(id_IOB, id_IOBS)) {
         new_cell->params[id_INPUT_USED] = 0;
         new_cell->params[id_OUTPUT_USED] = 0;
         new_cell->params[id_ENABLE_USED] = 0;
