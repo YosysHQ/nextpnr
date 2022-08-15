@@ -49,6 +49,8 @@ po::options_description GenericCommandHandler::getArchOptions()
     po::options_description specific("Architecture specific options");
     specific.add_options()("uarch", po::value<std::string>(), uarch_help.c_str());
     specific.add_options()("no-iobs", "disable automatic IO buffer insertion");
+    specific.add_options()("vopt,o", po::value<std::vector<std::string>>(), "options to pass to the viaduct uarch");
+
     return specific;
 }
 
@@ -68,6 +70,16 @@ std::unique_ptr<Context> GenericCommandHandler::createContext(dict<std::string, 
     if (vm.count("uarch")) {
         std::string uarch_name = vm["uarch"].as<std::string>();
         dict<std::string, std::string> args; // TODO
+        if (vm.count("vopt")) {
+            std::vector<std::string> options = vm["vopt"].as<std::vector<std::string>>();
+            for (const auto &opt : options) {
+                size_t epos = opt.find('=');
+                if (epos == std::string::npos)
+                    args[opt] = "";
+                else
+                    args[opt.substr(0, epos)] = opt.substr(epos + 1);
+            }
+        }
         auto uarch = ViaductArch::create(uarch_name, args);
         if (!uarch) {
             std::string all_uarches = ViaductArch::list();
@@ -75,6 +87,8 @@ std::unique_ptr<Context> GenericCommandHandler::createContext(dict<std::string, 
         }
         ctx->uarch = std::move(uarch);
         ctx->uarch->init(ctx.get());
+    } else if (vm.count("vopt")) {
+        log_error("Viaduct options passed in non-viaduct mode!\n");
     }
     return ctx;
 }
