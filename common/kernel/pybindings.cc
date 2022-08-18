@@ -191,8 +191,7 @@ PYBIND11_EMBEDDED_MODULE(MODULE_NAME, m)
             ci_cls, "params");
     readonly_wrapper<CellInfo &, decltype(&CellInfo::ports), &CellInfo::ports, wrap_context<PortMap &>>::def_wrap(
             ci_cls, "ports");
-    readwrite_wrapper<CellInfo &, decltype(&CellInfo::bel), &CellInfo::bel, conv_to_str<BelId>,
-                      conv_from_str<BelId>>::def_wrap(ci_cls, "bel");
+    readonly_wrapper<CellInfo &, decltype(&CellInfo::bel), &CellInfo::bel, conv_to_str<BelId>>::def_wrap(ci_cls, "bel");
     readwrite_wrapper<CellInfo &, decltype(&CellInfo::belStrength), &CellInfo::belStrength, pass_through<PlaceStrength>,
                       pass_through<PlaceStrength>>::def_wrap(ci_cls, "belStrength");
 
