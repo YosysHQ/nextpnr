@@ -53,7 +53,7 @@ function(create_rapidwright_device_db)
 
     add_custom_target(rapidwright-${device}-device-yaml
         COMMAND
-            ${PYTHON_EXECUTABLE} -mfpga_interchange.convert
+            ${Python3_EXECUTABLE} -mfpga_interchange.convert
                 --schema_dir ${INTERCHANGE_SCHEMA_PATH}
                 --schema device
                 --input_format capnp

@@ -98,7 +98,7 @@ function(add_interchange_test)
     add_custom_command(
         OUTPUT ${netlist}
         COMMAND
-            ${PYTHON_EXECUTABLE} -mfpga_interchange.yosys_json
+            ${Python3_EXECUTABLE} -mfpga_interchange.yosys_json
                 --schema_dir ${INTERCHANGE_SCHEMA_PATH}
                 --device ${device_loc}
                 --top ${top}
@@ -117,7 +117,7 @@ function(add_interchange_test)
     add_custom_command(
         OUTPUT ${netlist_yaml}
         COMMAND
-            ${PYTHON_EXECUTABLE} -mfpga_interchange.convert
+            ${Python3_EXECUTABLE} -mfpga_interchange.convert
                 --schema_dir ${INTERCHANGE_SCHEMA_PATH}
                 --schema logical
                 --input_format capnp
@@ -248,7 +248,7 @@ function(add_interchange_test)
     add_custom_command(
         OUTPUT ${phys_yaml}
         COMMAND
-            ${PYTHON_EXECUTABLE} -mfpga_interchange.convert
+            ${Python3_EXECUTABLE} -mfpga_interchange.convert
                 --schema_dir ${INTERCHANGE_SCHEMA_PATH}
                 --schema physical
                 --input_format capnp
@@ -296,7 +296,7 @@ function(add_interchange_test)
         add_custom_command(
             OUTPUT ${fasm}
             COMMAND
-                ${PYTHON_EXECUTABLE} -mfpga_interchange.fasm_generator
+                ${Python3_EXECUTABLE} -mfpga_interchange.fasm_generator
                     --schema_dir ${INTERCHANGE_SCHEMA_PATH}
                     --family ${device_family}
                     ${device_loc}

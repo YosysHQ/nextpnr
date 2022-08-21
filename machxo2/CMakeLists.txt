@@ -10,7 +10,7 @@ message(STATUS "Enabled MachXO2 devices: ${MACHXO2_DEVICES}")
 if(DEFINED MACHXO2_CHIPDB)
     add_custom_target(chipdb-machxo2-bbas ALL)
 else()
-    find_package(PythonInterp 3.5 REQUIRED)
+    find_package(Python3 3.5 REQUIRED COMPONENTS Interpreter)
 
     # shared among all families
     set(SERIALIZE_CHIPDBS TRUE CACHE BOOL
@@ -58,7 +58,7 @@ else()
         set(device_bba chipdb/chipdb-${device}.bba)
         add_custom_command(
             OUTPUT ${device_bba}
-            COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/facade_import.py
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/facade_import.py
                 -L ${TRELLIS_LIBDIR}
                 -L ${TRELLIS_DATADIR}/util/common
                 -L ${TRELLIS_DATADIR}/timing/util
