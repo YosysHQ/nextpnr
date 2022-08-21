@@ -9,7 +9,7 @@ message(STATUS "Enabled ECP5 devices: ${ECP5_DEVICES}")
 if(DEFINED ECP5_CHIPDB)
     add_custom_target(chipdb-ecp5-bbas ALL)
 else()
-    find_package(PythonInterp 3.5 REQUIRED)
+    find_package(Python3 3.5 REQUIRED COMPONENTS Interpreter)
 
     # shared among all families
     set(SERIALIZE_CHIPDBS TRUE CACHE BOOL
@@ -81,7 +81,7 @@ else()
         set(device_bba chipdb/chipdb-${device}.bba)
         add_custom_command(
             OUTPUT ${device_bba}
-            COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/trellis_import.py
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/trellis_import.py
                 -L ${TRELLIS_LIBDIR}
                 -L ${TRELLIS_DATADIR}/util/common
                 -L ${TRELLIS_DATADIR}/timing/util

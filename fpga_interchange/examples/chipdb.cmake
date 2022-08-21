@@ -57,7 +57,7 @@ function(create_patched_device_db)
     add_custom_command(
         OUTPUT ${output_device_file}
         COMMAND
-            ${PYTHON_EXECUTABLE} -mfpga_interchange.patch
+            ${Python3_EXECUTABLE} -mfpga_interchange.patch
                 --schema_dir ${INTERCHANGE_SCHEMA_PATH}
                 --schema device
                 --patch_path ${patch_path}
@@ -76,7 +76,7 @@ function(create_patched_device_db)
 
     add_custom_target(${patch_name}-${device}-device-yaml
         COMMAND
-            ${PYTHON_EXECUTABLE} -mfpga_interchange.convert
+            ${Python3_EXECUTABLE} -mfpga_interchange.convert
                 --schema_dir ${INTERCHANGE_SCHEMA_PATH}
                 --schema device
                 --input_format capnp
@@ -145,7 +145,7 @@ function(patch_device_with_prim_lib)
     add_custom_command(
         OUTPUT ${output_device_file}
         COMMAND
-            ${PYTHON_EXECUTABLE} -mfpga_interchange.add_prim_lib
+            ${Python3_EXECUTABLE} -mfpga_interchange.add_prim_lib
                 --schema_dir ${INTERCHANGE_SCHEMA_PATH}
                 ${input_device_loc}
                 ${output_json_file}
@@ -227,7 +227,7 @@ function(generate_chipdb)
     add_custom_command(
         OUTPUT ${chipdb_bba}
         COMMAND
-            ${PYTHON_EXECUTABLE} -mfpga_interchange.nextpnr_emit
+            ${Python3_EXECUTABLE} -mfpga_interchange.nextpnr_emit
                 --schema_dir ${INTERCHANGE_SCHEMA_PATH}
                 --output_dir ${CMAKE_CURRENT_BINARY_DIR}
                 --device_config ${device_config}
