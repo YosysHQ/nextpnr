@@ -205,9 +205,9 @@ struct RegionPlug : PseudoCell
     WireId getPortWire(IdString port) const override { return port_wires.at(port); }
 
     // TODO: partial reconfiguration region timing
-    bool getDelay(IdString fromPort, IdString toPort, DelayQuad &delay) const { return false; }
-    TimingPortClass getPortTimingClass(IdString port, int &clockInfoCount) const { return TMG_IGNORE; }
-    virtual TimingClockingInfo getPortClockingInfo(IdString port, int index) const { return TimingClockingInfo{}; }
+    bool getDelay(IdString fromPort, IdString toPort, DelayQuad &delay) const override { return false; }
+    TimingPortClass getPortTimingClass(IdString port, int &clockInfoCount) const override { return TMG_IGNORE; }
+    TimingClockingInfo getPortClockingInfo(IdString port, int index) const override { return TimingClockingInfo{}; }
 
     dict<IdString, WireId> port_wires;
     Loc loc;
