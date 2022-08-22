@@ -373,8 +373,7 @@ struct Router2
         return base_cost * hist_cost * present_cost / (1 + (source_uses * crit_weight)) + bias_cost;
     }
 
-    float get_togo_cost(NetInfo *net, store_index<PortRef> user, int wire, WireId src_sink, float crit_weight,
-                        bool bwd = false)
+    float get_togo_cost(NetInfo *net, store_index<PortRef> user, int wire, WireId src_sink, bool bwd, float crit_weight)
     {
         auto &nd = nets.at(net->udata);
         auto &wd = flat_wires[wire];
