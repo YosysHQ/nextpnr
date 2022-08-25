@@ -1168,6 +1168,8 @@ Arch::Arch(ArchArgs args) : args(args)
     log_info("Series:%s Device:%s Package:%s Speed:%s\n", family.c_str(), device_id.c_str(this),
              package_name.c_str(this), speed_id.c_str(this));
 
+    device = device_id.str(this);
+
     // setup db
     // add global VCC and GND bels
     addBel(id_GND, id_GND, Loc(0, 0, BelZ::gnd_0_z), true);
