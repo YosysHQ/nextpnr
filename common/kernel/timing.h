@@ -92,6 +92,10 @@ struct TimingAnalyser
         return slack;
     }
 
+    auto get_clock_delays () const {
+        return clock_delays;
+    }
+
     bool setup_only = false;
     bool verbose_mode = false;
     bool have_loops = false;
@@ -103,6 +107,7 @@ struct TimingAnalyser
     void get_route_delays();
     void topo_sort();
     void setup_port_domains();
+    void identify_related_domains();
 
     void reset_times();
 
@@ -217,6 +222,7 @@ struct TimingAnalyser
     dict<ClockDomainPairKey, domain_id_t> pair_to_id;
     std::vector<PerDomain> domains;
     std::vector<PerDomainPair> domain_pairs;
+    dict<std::pair<IdString, IdString>, delay_t> clock_delays;
 
     std::vector<CellPortKey> topological_order;
 

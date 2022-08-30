@@ -29,12 +29,17 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+namespace {
+const char *edge_name(ClockEdge edge) { return (edge == FALLING_EDGE) ? "negedge" : "posedge"; }
+} // namespace
+
 void TimingAnalyser::setup()
 {
     init_ports();
     get_cell_delays();
     topo_sort();
     setup_port_domains();
+    identify_related_domains();
     run();
 }
 
@@ -249,6 +254,7 @@ void TimingAnalyser::setup_port_domains()
                     copy_domains(port, CellPortKey(pi.net->driver), true);
             }
         }
+
         // Iterate over ports and find domain paris
         for (auto port : topological_order) {
             auto &pd = ports.at(port);
@@ -277,6 +283,174 @@ void TimingAnalyser::setup_port_domains()
         if (launch_data.key.edge != capture_data.key.edge)
             period /= 2;
         dp.period = DelayPair(period);
+    }
+}
+
+void TimingAnalyser::identify_related_domains() {
+
+    // Identify clock nets
+    pool<IdString> clock_nets;
+    for (const auto& domain : domains) {
+        clock_nets.insert(domain.key.clock);
+    }
+
+    // For each clock net identify all nets that can possibly drive it. Compute
+    // cumulative delays to each of them.
+    std::function<void(const NetInfo*, dict<IdString, delay_t>&, delay_t, int32_t)> find_net_drivers =
+        [&] (const NetInfo* ni, dict<IdString, delay_t>& drivers, delay_t delay_acc, int32_t level)
+    {
+        // Get driving cell and port
+        const CellInfo* cell = ni->driver.cell;
+        const IdString  port = ni->driver.port;
+
+        bool didGoUpstream = false;
+
+        std::string indent (level, ' ');
+
+        log("%sout %s.%s\n", indent.c_str(), cell->name.str(ctx).c_str(), port.str(ctx).c_str());
+
+        // The cell has only one port
+        if (cell->ports.size() == 1) {
+            drivers[ni->name] = delay_acc;
+            return;
+        }
+
+        // Count cell port types
+        size_t num_inp = 0;
+        size_t num_out = 0;
+        for (const auto& it : cell->ports) {
+            const auto& pi = it.second;
+            if (pi.type != PORT_IN) {
+                num_inp++;
+            } else {
+                num_out++;
+            }
+        }
+
+        // Get the driver timing class
+        int  info_count   = 0;
+        auto timing_class = ctx->getPortTimingClass(cell, port, info_count);
+
+        // The driver must be a combinational output
+        if (timing_class != TMG_COMB_OUTPUT) {
+            drivers[ni->name] = delay_acc;
+            return;
+        }
+
+        // Recurse upstream through all input ports that have combinational
+        // paths to this driver
+        for (const auto& it : cell->ports) {
+            const auto& pi = it.second;
+
+            // Only connected inputs
+            if (pi.type != PORT_IN) {
+                continue;
+            }
+            if (pi.net == nullptr) {
+                continue;
+            }
+
+            // The input must be a combinational input
+            timing_class = ctx->getPortTimingClass(cell, pi.name, info_count);
+            if (timing_class != TMG_COMB_INPUT) {
+                continue;
+            }
+            // There must be a combinational arc
+            DelayQuad delay;
+            if (!ctx->getCellDelay(cell, pi.name, port, delay)) {
+                continue;
+            }
+
+            log("%sinp %s.%s\n", indent.c_str(), cell->name.str(ctx).c_str(), pi.name.str(ctx).c_str());
+
+            // Recurse
+            find_net_drivers(pi.net, drivers, delay_acc + delay.maxDelay(), level+1);
+            didGoUpstream = true;
+        }
+
+        // Did not propagate upstream through the cell, mark the net as driver
+        if (!didGoUpstream) {
+            log("%send %s\n", indent.c_str(), ni->name.str(ctx).c_str());
+            drivers[ni->name] = delay_acc;
+        }
+    };
+
+    // Identify possible drivers for each clock domain
+    dict<IdString, dict<IdString, delay_t>> clock_drivers;
+    for (const auto& domain : domains) {
+
+        const NetInfo* ni = ctx->nets.at(domain.key.clock).get();
+        dict<IdString, delay_t> drivers;
+        find_net_drivers(ni, drivers, 0, 0);
+
+        clock_drivers[domain.key.clock] = drivers;
+
+        log("Clock '%s' can be driven by:\n", domain.key.clock.str(ctx).c_str());
+        for (const auto& it : drivers) {
+            log(" net '%s' delay %.3fns\n", it.first.str(ctx).c_str(), ctx->getDelayNS(it.second));
+        }
+    }
+
+    // Identify related clocks
+    for (const auto& c1 : clock_drivers) {
+        for (const auto& c2 : clock_drivers) {
+
+            // Evident?
+            if (c1 == c2) {
+                continue;
+            }
+
+            // Make an intersection of the two drivers sets
+            pool<IdString> common_drivers;
+            for (const auto& it : c1.second) {
+                common_drivers.insert(it.first);
+            }
+            for (const auto& it : c2.second) {
+                common_drivers.insert(it.first);
+            }
+
+            for (auto it=common_drivers.begin(); it!=common_drivers.end();) {
+                if (!c1.second.count(*it) || !c2.second.count(*it)) {
+                    it = common_drivers.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+
+            // DEBUG //
+            log("Clocks '%s' and '%s'\n", c1.first.str(ctx).c_str(), c2.first.str(ctx).c_str());
+            for (const auto& it : common_drivers) {
+
+                // TEST //
+                const NetInfo* ni = ctx->nets.at(it).get();
+                const CellInfo* cell = ni->driver.cell;
+                const IdString  port = ni->driver.port;
+
+                int  info_count;
+                auto timing_class = ctx->getPortTimingClass(cell, port, info_count);
+                // TEST //
+
+                log(" net '%s', cell %s (%s), port %s, class%d\n", 
+                    it.str(ctx).c_str(),
+                    cell->name.str(ctx).c_str(),
+                    cell->type.str(ctx).c_str(),
+                    port.str(ctx).c_str(),
+                    int(timing_class)
+                );
+            }
+            // DEBUG //
+
+            // If there is no single driver then consider the two clocks
+            // unrelated.
+            if (common_drivers.size() != 1) {
+                continue;
+            }
+
+            // Compute delay from c1 to c2 and store it
+            auto driver = *common_drivers.begin();
+            auto delay  = c2.second.at(driver) - c1.second.at(driver);
+            clock_delays[std::make_pair(c1.first, c2.first)] = delay;
+        }
     }
 }
 
@@ -466,11 +640,23 @@ void TimingAnalyser::compute_slack()
         auto &pd = ports.at(p);
         for (auto &pdp : pd.domain_pairs) {
             auto &dp = domain_pairs.at(pdp.first);
+
+            // Get clock names
+            const auto& launch_clock = domains.at(dp.key.launch).key.clock;
+            const auto& capture_clock = domains.at(dp.key.capture).key.clock;
+
+            // Get clock-to-clock delay if any
+            delay_t clock_to_clock = 0;
+            auto clocks = std::make_pair(launch_clock, capture_clock);
+            if (clock_delays.count(clocks)) {
+                clock_to_clock = clock_delays.at(clocks);
+            }
+
             auto &arr = pd.arrival.at(dp.key.launch);
             auto &req = pd.required.at(dp.key.capture);
-            pdp.second.setup_slack = 0 - (arr.value.maxDelay() - req.value.minDelay());
+            pdp.second.setup_slack = 0 - (arr.value.maxDelay() - req.value.minDelay() + clock_to_clock);
             if (!setup_only)
-                pdp.second.hold_slack = arr.value.minDelay() - req.value.maxDelay();
+                pdp.second.hold_slack = arr.value.minDelay() - req.value.maxDelay() + clock_to_clock;
             pdp.second.max_path_length = arr.path_length + req.path_length;
             if (dp.key.launch == dp.key.capture)
                 pd.worst_setup_slack = std::min(pd.worst_setup_slack, dp.period.minDelay() + pdp.second.setup_slack);
@@ -541,10 +727,6 @@ void TimingAnalyser::print_critical_path(CellPortKey endpoint, domain_id_t domai
     }
 }
 
-namespace {
-const char *edge_name(ClockEdge edge) { return (edge == FALLING_EDGE) ? "negedge" : "posedge"; }
-} // namespace
-
 void TimingAnalyser::print_report()
 {
     for (int i = 0; i < int(domain_pairs.size()); i++) {
@@ -557,6 +739,16 @@ void TimingAnalyser::print_report()
         for (auto &ep : failing_eps)
             print_critical_path(ep, i);
         log_break();
+    }
+
+    print_fmax();
+
+    for (const auto& it : clock_delays) {
+        log_info("Clock-to-clock %s -> %s: %0.02f ns\n",
+            it.first.first.str(ctx).c_str(),
+            it.first.second.str(ctx).c_str(),
+            ctx->getDelayNS(it.second)
+        );
     }
 }
 
@@ -1216,11 +1408,15 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                   (update_results && ctx->detailed_timing_report) ? &detailed_net_timings : nullptr);
     timing.walk_paths();
 
+    TimingAnalyser timingAnalyser (ctx);
+    timingAnalyser.setup();
+
     bool report_critical_paths = print_path || print_fmax || update_results;
 
     dict<IdString, CriticalPath> clock_reports;
     std::vector<CriticalPath> xclock_reports;
     dict<IdString, ClockFmax> clock_fmax;
+    dict<std::pair<IdString, IdString>, ClockFmax> xclock_fmax;
     std::set<IdString> empty_clocks; // set of clocks with no interior paths
 
     if (report_critical_paths) {
@@ -1256,12 +1452,24 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
             if (a.clock == b.clock && a.clock != ctx->id("$async$"))
                 continue;
 
+            double Fmax;
+            if (a.edge == b.edge)
+                Fmax = 1000 / ctx->getDelayNS(path.second.path_delay);
+            else
+                Fmax = 500 / ctx->getDelayNS(path.second.path_delay);
+
+            auto key = std::make_pair(a.clock, b.clock);
+            if (!xclock_fmax.count(key) || Fmax < xclock_fmax.at(key).achieved) {
+                xclock_fmax[key].achieved = Fmax;
+                xclock_fmax[key].constraint = 0.0f; // Will be filled later
+            }
+
             auto &crit_path = crit_paths.at(path.first).ports;
             xclock_reports.push_back(build_critical_path_report(ctx, path.first, crit_path));
             xclock_reports.back().period = path.second.path_period;
         }
 
-        if (clock_reports.empty()) {
+        if (clock_reports.empty() && xclock_reports.empty()) {
             log_info("No Fmax available; no interior timing paths found in design.\n");
         }
 
@@ -1418,6 +1626,10 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
             log_info("Critical path report for cross-domain path '%s' -> '%s':\n", start.c_str(), end.c_str());
             print_path_report(report);
         }
+
+        log("== NEW CODE ==\n");
+        timingAnalyser.print_report();
+        log("== NEW CODE ==\n");
     }
 
     if (print_fmax) {
