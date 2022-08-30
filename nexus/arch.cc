@@ -492,6 +492,15 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
         }
         int index = get_cell_timing_idx(id_DCS, id_DCS);
         return lookup_cell_delay(index, fromPort, toPort, delay);
+    } else if (cell->type == id_DCC) {
+        if (fromPort == id_CLKI && toPort == id_CLKO) {
+            // TODO: Use actual DCC delays
+            delay.rise.min_delay = 1000;
+            delay.rise.max_delay = 1000;
+            delay.fall.min_delay = 1000;
+            delay.fall.max_delay = 1000;
+            return true;
+        }
     }
     return false;
 }
@@ -560,11 +569,9 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
         return type;
     } else if (cell->type == id_DCC) {
         if (port == id_CLKI)
-            return TMG_CLOCK_INPUT;
-        else if (port == id_CLKO)
-            return TMG_GEN_CLOCK;
-        else if (port == id_CE)
             return TMG_COMB_INPUT;
+        else if (port == id_CLKO)
+            return TMG_COMB_OUTPUT;
     } else if (cell->type == id_DCS) {
         // FIXME: Making inputs TMG_CLOCK_INPUT and the output TMG_CLOCK_GEN
         // yielded in error in the timing analyzer. For now keep those as
