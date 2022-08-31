@@ -1408,6 +1408,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                   (update_results && ctx->detailed_timing_report) ? &detailed_net_timings : nullptr);
     timing.walk_paths();
 
+    // Use TimingAnalyser to determine clock-to-clock relations
     TimingAnalyser timingAnalyser (ctx);
     timingAnalyser.setup();
 
@@ -1626,10 +1627,6 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
             log_info("Critical path report for cross-domain path '%s' -> '%s':\n", start.c_str(), end.c_str());
             print_path_report(report);
         }
-
-        log("== NEW CODE ==\n");
-        timingAnalyser.print_report();
-        log("== NEW CODE ==\n");
     }
 
     if (print_fmax) {
@@ -1657,6 +1654,109 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                 log_nonfatal_error("Max frequency for clock %*s'%s': %.02f MHz (%s at %.02f MHz)\n", width, "",
                                    clock_name.c_str(), fmax, passed ? "PASS" : "FAIL", target);
         }
+        log_break();
+
+        // All clock to clock delays
+        const auto& clock_delays = timingAnalyser.get_clock_delays();
+
+        // Clock to clock delays for xpaths
+        dict<ClockPair, delay_t> xclock_delays;
+        for (auto &report : xclock_reports) {
+            const auto& clock1_name = report.clock_pair.start.clock;
+            const auto& clock2_name = report.clock_pair.end.clock;
+
+            const auto key = std::make_pair(clock1_name, clock2_name);
+            if (clock_delays.count(key)) {
+                xclock_delays[report.clock_pair] = clock_delays.at(key);
+            }
+        }
+
+        unsigned max_width_xca = 0;
+        unsigned max_width_xcb = 0;
+        for (auto &report : xclock_reports) {
+            max_width_xca = std::max((unsigned)format_event(report.clock_pair.start).length(), max_width_xca);
+            max_width_xcb = std::max((unsigned)format_event(report.clock_pair.end).length(),   max_width_xcb);
+        }
+
+        // Check and report xpath delays for related clocks
+        if (!xclock_reports.empty()) {
+            for (auto &report : xclock_reports) {
+                const auto& clock_a = report.clock_pair.start.clock;
+                const auto& clock_b = report.clock_pair.end.clock;
+
+                const auto key = std::make_pair(clock_a, clock_b);
+                if (!clock_delays.count(key)) {
+                    continue;
+                }
+
+                delay_t path_delay = 0;
+                for (const auto &segment : report.segments) {
+                    path_delay += segment.delay;
+                }
+
+                // Compensate path delay for clock-to-clock delay. If the
+                // result is negative then only the latter matters. Otherwise
+                // the compensated path delay is taken.
+                auto clock_delay = clock_delays.at(key);
+                path_delay -= clock_delay;
+
+                float fmax = std::numeric_limits<float>::infinity();
+                if (path_delay < 0) {
+                    fmax = 1e3f / ctx->getDelayNS(clock_delay);
+                } else if (path_delay > 0) {
+                    fmax = 1e3f / ctx->getDelayNS(path_delay);
+                }
+
+                // Both clocks are related so they should have the same
+                // frequency. However, they may get different constraints from
+                // user input. In case of only one constraint preset take it,
+                // otherwise get the worst case (min.)
+                float target;
+                if (clock_fmax.count(clock_a) && !clock_fmax.count(clock_b)) {
+                    target = clock_fmax.at(clock_a).constraint;
+                }
+                else if (!clock_fmax.count(clock_a) && clock_fmax.count(clock_b)) {
+                    target = clock_fmax.at(clock_b).constraint;
+                }
+                else {
+                    target = std::min(clock_fmax.at(clock_a).constraint, clock_fmax.at(clock_b).constraint);
+                }
+
+                bool passed = target < fmax;
+
+                auto ev_a = format_event(report.clock_pair.start, max_width_xca);
+                auto ev_b = format_event(report.clock_pair.end,   max_width_xcb);
+
+                if (!warn_on_failure || passed)
+                    log_info("Max frequency for %s -> %s: %.02f MHz (%s at %.02f MHz)\n",
+                        ev_a.c_str(), ev_b.c_str(), fmax, passed ? "PASS" : "FAIL", target);
+                else if (bool_or_default(ctx->settings, ctx->id("timing/allowFail"), false))
+                    log_warning("Max frequency for  %s -> %s: %.02f MHz (%s at %.02f MHz)\n",
+                        ev_a.c_str(), ev_b.c_str(), fmax, passed ? "PASS" : "FAIL", target);
+                else
+                    log_nonfatal_error("Max frequency for %s -> %s: %.02f MHz (%s at %.02f MHz)\n",
+                        ev_a.c_str(), ev_b.c_str(), fmax, passed ? "PASS" : "FAIL", target);
+            }
+            log_break();
+        }
+
+        // Report clock delays for xpaths
+        if (!clock_delays.empty()) {
+            for (auto &pair : xclock_delays) {
+                auto ev_a = format_event(pair.first.start, max_width_xca);
+                auto ev_b = format_event(pair.first.end, max_width_xcb);
+
+                delay_t delay = pair.second;
+                if (pair.first.start.edge != pair.first.end.edge) {
+                    delay /= 2;
+                }
+
+                log_info("Clock to clock delay %s -> %s: %0.02f ns\n", ev_a.c_str(), ev_b.c_str(), ctx->getDelayNS(delay));
+            }
+
+            log_break();
+        }
+
         for (auto &eclock : empty_clocks) {
             if (eclock != ctx->id("$async$"))
                 log_info("Clock '%s' has no interior paths\n", eclock.c_str(ctx));
