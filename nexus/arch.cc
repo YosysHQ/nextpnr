@@ -495,10 +495,10 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
     } else if (cell->type == id_DCC) {
         if (fromPort == id_CLKI && toPort == id_CLKO) {
             // TODO: Use actual DCC delays
-            delay.rise.min_delay = 1000;
-            delay.rise.max_delay = 1000;
-            delay.fall.min_delay = 1000;
-            delay.fall.max_delay = 1000;
+            delay.rise.min_delay = 1;
+            delay.rise.max_delay = 1;
+            delay.fall.min_delay = 1;
+            delay.fall.max_delay = 1;
             return true;
         }
     }
