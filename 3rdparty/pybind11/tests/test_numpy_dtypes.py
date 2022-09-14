@@ -1,10 +1,8 @@
-# -*- coding: utf-8 -*-
 import re
 
 import pytest
 
 import env  # noqa: F401
-
 from pybind11_tests import numpy_dtypes as m
 
 np = pytest.importorskip("numpy")
@@ -16,7 +14,7 @@ def simple_dtype():
     return np.dtype(
         {
             "names": ["bool_", "uint_", "float_", "ldbl_"],
-            "formats": ["?", "u4", "f4", "f{}".format(ld.itemsize)],
+            "formats": ["?", "u4", "f4", f"f{ld.itemsize}"],
             "offsets": [0, 4, 8, (16 if ld.alignment > 4 else 12)],
         }
     )
@@ -33,8 +31,8 @@ def dt_fmt():
     e = "<" if byteorder == "little" else ">"
     return (
         "{{'names':['bool_','uint_','float_','ldbl_'],"
-        " 'formats':['?','" + e + "u4','" + e + "f4','" + e + "f{}'],"
-        " 'offsets':[0,4,8,{}], 'itemsize':{}}}"
+        "'formats':['?','" + e + "u4','" + e + "f4','" + e + "f{}'],"
+        "'offsets':[0,4,8,{}],'itemsize':{}}}"
     )
 
 
@@ -47,7 +45,7 @@ def simple_dtype_fmt():
 def packed_dtype_fmt():
     from sys import byteorder
 
-    return "[('bool_', '?'), ('uint_', '{e}u4'), ('float_', '{e}f4'), ('ldbl_', '{e}f{}')]".format(
+    return "[('bool_','?'),('uint_','{e}u4'),('float_','{e}f4'),('ldbl_','{e}f{}')]".format(
         np.dtype("longdouble").itemsize, e="<" if byteorder == "little" else ">"
     )
 
@@ -64,15 +62,21 @@ def partial_ld_offset():
 def partial_dtype_fmt():
     ld = np.dtype("longdouble")
     partial_ld_off = partial_ld_offset()
-    return dt_fmt().format(ld.itemsize, partial_ld_off, partial_ld_off + ld.itemsize)
+    partial_size = partial_ld_off + ld.itemsize
+    partial_end_padding = partial_size % np.dtype("uint64").alignment
+    return dt_fmt().format(
+        ld.itemsize, partial_ld_off, partial_size + partial_end_padding
+    )
 
 
 def partial_nested_fmt():
     ld = np.dtype("longdouble")
     partial_nested_off = 8 + 8 * (ld.alignment > 8)
     partial_ld_off = partial_ld_offset()
-    partial_nested_size = partial_nested_off * 2 + partial_ld_off + ld.itemsize
-    return "{{'names':['a'], 'formats':[{}], 'offsets':[{}], 'itemsize':{}}}".format(
+    partial_size = partial_ld_off + ld.itemsize
+    partial_end_padding = partial_size % np.dtype("uint64").alignment
+    partial_nested_size = partial_nested_off * 2 + partial_size + partial_end_padding
+    return "{{'names':['a'],'formats':[{}],'offsets':[{}],'itemsize':{}}}".format(
         partial_dtype_fmt(), partial_nested_off, partial_nested_size
     )
 
@@ -92,10 +96,12 @@ def test_format_descriptors():
     ldbl_fmt = ("4x" if ld.alignment > 4 else "") + ld.char
     ss_fmt = "^T{?:bool_:3xI:uint_:f:float_:" + ldbl_fmt + ":ldbl_:}"
     dbl = np.dtype("double")
+    end_padding = ld.itemsize % np.dtype("uint64").alignment
     partial_fmt = (
         "^T{?:bool_:3xI:uint_:f:float_:"
         + str(4 * (dbl.alignment > 4) + dbl.itemsize + 8 * (ld.alignment > 8))
-        + "xg:ldbl_:}"
+        + "xg:ldbl_:"
+        + (str(end_padding) + "x}" if end_padding > 0 else "}")
     )
     nested_extra = str(max(8, ld.alignment))
     assert m.print_format_descriptors() == [
@@ -116,25 +122,25 @@ def test_dtype(simple_dtype):
 
     e = "<" if byteorder == "little" else ">"
 
-    assert m.print_dtypes() == [
+    assert [x.replace(" ", "") for x in m.print_dtypes()] == [
         simple_dtype_fmt(),
         packed_dtype_fmt(),
-        "[('a', {}), ('b', {})]".format(simple_dtype_fmt(), packed_dtype_fmt()),
+        f"[('a',{simple_dtype_fmt()}),('b',{packed_dtype_fmt()})]",
         partial_dtype_fmt(),
         partial_nested_fmt(),
-        "[('a', 'S3'), ('b', 'S3')]",
+        "[('a','S3'),('b','S3')]",
         (
-            "{{'names':['a','b','c','d'], "
-            + "'formats':[('S4', (3,)),('"
+            "{{'names':['a','b','c','d'],"
+            + "'formats':[('S4',(3,)),('"
             + e
-            + "i4', (2,)),('u1', (3,)),('"
+            + "i4',(2,)),('u1',(3,)),('"
             + e
-            + "f4', (4, 2))], "
-            + "'offsets':[0,12,20,24], 'itemsize':56}}"
+            + "f4',(4,2))],"
+            + "'offsets':[0,12,20,24],'itemsize':56}}"
         ).format(e=e),
-        "[('e1', '" + e + "i8'), ('e2', 'u1')]",
-        "[('x', 'i1'), ('y', '" + e + "u8')]",
-        "[('cflt', '" + e + "c8'), ('cdbl', '" + e + "c16')]",
+        "[('e1','" + e + "i8'),('e2','u1')]",
+        "[('x','i1'),('y','" + e + "u8')]",
+        "[('cflt','" + e + "c8'),('cdbl','" + e + "c16')]",
     ]
 
     d1 = np.dtype(
@@ -154,6 +160,7 @@ def test_dtype(simple_dtype):
         d1,
         np.dtype("uint32"),
         d2,
+        np.dtype("d"),
     ]
 
     assert m.test_dtype_methods() == [
@@ -168,6 +175,14 @@ def test_dtype(simple_dtype):
     assert m.trailing_padding_dtype() == m.buffer_to_dtype(
         np.zeros(1, m.trailing_padding_dtype())
     )
+
+    expected_chars = "bhilqBHILQefdgFDG?MmO"
+    assert m.test_dtype_kind() == list("iiiiiuuuuuffffcccbMmO")
+    assert m.test_dtype_char_() == list(expected_chars)
+    assert m.test_dtype_num() == [np.dtype(ch).num for ch in expected_chars]
+    assert m.test_dtype_byteorder() == [np.dtype(ch).byteorder for ch in expected_chars]
+    assert m.test_dtype_alignment() == [np.dtype(ch).alignment for ch in expected_chars]
+    assert m.test_dtype_flags() == [chr(np.dtype(ch).flags) for ch in expected_chars]
 
 
 def test_recarray(simple_dtype, packed_dtype):
@@ -228,7 +243,7 @@ def test_recarray(simple_dtype, packed_dtype):
     ]
 
     arr = m.create_rec_partial(3)
-    assert str(arr.dtype) == partial_dtype_fmt()
+    assert str(arr.dtype).replace(" ", "") == partial_dtype_fmt()
     partial_dtype = arr.dtype
     assert "" not in arr.dtype.fields
     assert partial_dtype.itemsize > simple_dtype.itemsize
@@ -236,7 +251,7 @@ def test_recarray(simple_dtype, packed_dtype):
     assert_equal(arr, elements, packed_dtype)
 
     arr = m.create_rec_partial_nested(3)
-    assert str(arr.dtype) == partial_nested_fmt()
+    assert str(arr.dtype).replace(" ", "") == partial_nested_fmt()
     assert "" not in arr.dtype.fields
     assert "" not in arr.dtype.fields["a"][0].fields
     assert arr.dtype.itemsize > partial_dtype.itemsize
@@ -275,12 +290,12 @@ def test_array_array():
     e = "<" if byteorder == "little" else ">"
 
     arr = m.create_array_array(3)
-    assert str(arr.dtype) == (
-        "{{'names':['a','b','c','d'], "
-        + "'formats':[('S4', (3,)),('"
+    assert str(arr.dtype).replace(" ", "") == (
+        "{{'names':['a','b','c','d'],"
+        + "'formats':[('S4',(3,)),('"
         + e
-        + "i4', (2,)),('u1', (3,)),('{e}f4', (4, 2))], "
-        + "'offsets':[0,12,20,24], 'itemsize':56}}"
+        + "i4',(2,)),('u1',(3,)),('{e}f4',(4,2))],"
+        + "'offsets':[0,12,20,24],'itemsize':56}}"
     ).format(e=e)
     assert m.print_array_array(arr) == [
         "a={{A,B,C,D},{K,L,M,N},{U,V,W,X}},b={0,1},"
