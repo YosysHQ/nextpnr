@@ -46,1506 +46,1561 @@ void config_empty_lfe5um5g_45f(ChipConfig &cc);
 void config_empty_lfe5um5g_85f(ChipConfig &cc);
 } // namespace BaseConfigs
 
-// Convert an absolute wire name to a relative Trellis one
-static std::string get_trellis_wirename(Context *ctx, Location loc, WireId wire)
+namespace {
+struct ECP5Bitgen
 {
-    std::string basename = ctx->loc_info(wire)->wire_data[wire.index].name.get();
-    std::string prefix2 = basename.substr(0, 2);
-    if (prefix2 == "G_" || prefix2 == "L_" || prefix2 == "R_")
-        return basename;
-    if (loc == wire.location)
-        return basename;
-    std::string rel_prefix;
-    if (wire.location.y < loc.y)
-        rel_prefix += "N" + std::to_string(loc.y - wire.location.y);
-    if (wire.location.y > loc.y)
-        rel_prefix += "S" + std::to_string(wire.location.y - loc.y);
-    if (wire.location.x > loc.x)
-        rel_prefix += "E" + std::to_string(wire.location.x - loc.x);
-    if (wire.location.x < loc.x)
-        rel_prefix += "W" + std::to_string(loc.x - wire.location.x);
-    return rel_prefix + "_" + basename;
-}
-
-static std::vector<bool> int_to_bitvector(int val, int size)
-{
-    std::vector<bool> bv;
-    for (int i = 0; i < size; i++) {
-        bv.push_back((val & (1 << i)) != 0);
+    explicit ECP5Bitgen(Context *ctx) : ctx(ctx){};
+    Context *ctx;
+    ChipConfig cc;
+    std::string get_trellis_wirename(Location loc, WireId wire)
+    {
+        std::string basename = ctx->loc_info(wire)->wire_data[wire.index].name.get();
+        std::string prefix2 = basename.substr(0, 2);
+        if (prefix2 == "G_" || prefix2 == "L_" || prefix2 == "R_")
+            return basename;
+        if (loc == wire.location)
+            return basename;
+        std::string rel_prefix;
+        if (wire.location.y < loc.y)
+            rel_prefix += "N" + std::to_string(loc.y - wire.location.y);
+        if (wire.location.y > loc.y)
+            rel_prefix += "S" + std::to_string(wire.location.y - loc.y);
+        if (wire.location.x > loc.x)
+            rel_prefix += "E" + std::to_string(wire.location.x - loc.x);
+        if (wire.location.x < loc.x)
+            rel_prefix += "W" + std::to_string(loc.x - wire.location.x);
+        return rel_prefix + "_" + basename;
     }
-    return bv;
-}
-
-static std::vector<bool> str_to_bitvector(std::string str, int size)
-{
-    std::vector<bool> bv;
-    bv.resize(size, 0);
-    if (str.substr(0, 2) != "0b")
-        log_error("error parsing value '%s', expected 0b prefix\n", str.c_str());
-    for (int i = 0; i < int(str.size()) - 2; i++) {
-        char c = str.at((str.size() - i) - 1);
-        NPNR_ASSERT(c == '0' || c == '1');
-        bv.at(i) = (c == '1');
-    }
-    return bv;
-}
-
-// Tie a wire using the CIB ties
-static void tie_cib_signal(Context *ctx, ChipConfig &cc, WireId wire, bool value)
-{
-    static const std::regex cib_re("J([A-D]|CE|LSR|CLK)[0-7]");
-    std::queue<WireId> signals;
-    signals.push(wire);
-    WireId cibsig;
-    std::string basename;
-    while (true) {
-        NPNR_ASSERT(!signals.empty());
-        NPNR_ASSERT(signals.size() < 100);
-        cibsig = signals.front();
-        basename = ctx->get_wire_basename(cibsig).str(ctx);
-        signals.pop();
-        if (std::regex_match(basename, cib_re))
-            break;
-        for (auto pip : ctx->getPipsUphill(cibsig))
-            signals.push(ctx->getPipSrcWire(pip));
-    }
-
-    bool out_value = value;
-    if (basename.substr(0, 3) == "JCE")
-        NPNR_ASSERT(value);
-    if (basename.substr(0, 4) == "JCLK" || basename.substr(0, 4) == "JLSR") {
-        NPNR_ASSERT(value);
-        out_value = 0;
-    }
-
-    for (const auto &tile : ctx->get_tiles_at_loc(cibsig.location.y, cibsig.location.x)) {
-        if (tile.second.substr(0, 3) == "CIB" || tile.second.substr(0, 4) == "VCIB") {
-
-            cc.tiles[tile.first].add_enum("CIB." + basename + "MUX", out_value ? "1" : "0");
-            return;
+    std::vector<bool> int_to_bitvector(int val, int size)
+    {
+        std::vector<bool> bv;
+        for (int i = 0; i < size; i++) {
+            bv.push_back((val & (1 << i)) != 0);
         }
+        return bv;
     }
-    NPNR_ASSERT_FALSE("CIB tile not found at location");
-}
-
-inline int chtohex(char c)
-{
-    static const std::string hex = "0123456789ABCDEF";
-    return hex.find(std::toupper(c));
-}
-
-std::vector<bool> parse_init_str(const Property &p, int length, const char *cellname)
-{
-    // Parse a string that may be binary or hex
-    std::vector<bool> result;
-    result.resize(length, false);
-    if (p.is_string) {
-        std::string str = p.as_string();
-        NPNR_ASSERT(str.substr(0, 2) == "0x");
-        // Lattice style hex string
-        if (int(str.length()) > (2 + ((length + 3) / 4)))
-            log_error("hex string value too long, expected up to %d chars and found %d.\n", (2 + ((length + 3) / 4)),
-                      int(str.length()));
-        for (int i = 0; i < int(str.length()) - 2; i++) {
+    std::vector<bool> str_to_bitvector(std::string str, int size)
+    {
+        std::vector<bool> bv;
+        bv.resize(size, 0);
+        if (str.substr(0, 2) != "0b")
+            log_error("error parsing value '%s', expected 0b prefix\n", str.c_str());
+        for (int i = 0; i < int(str.size()) - 2; i++) {
             char c = str.at((str.size() - i) - 1);
-            int nibble = chtohex(c);
-            if (nibble == (int)std::string::npos)
-                log_error("hex string has invalid char '%c' at position %d.\n", c, i);
-            result.at(i * 4) = nibble & 0x1;
-            if (i * 4 + 1 < length)
-                result.at(i * 4 + 1) = nibble & 0x2;
-            if (i * 4 + 2 < length)
-                result.at(i * 4 + 2) = nibble & 0x4;
-            if (i * 4 + 3 < length)
-                result.at(i * 4 + 3) = nibble & 0x8;
+            NPNR_ASSERT(c == '0' || c == '1');
+            bv.at(i) = (c == '1');
         }
-    } else {
-        result = p.as_bits();
+        return bv;
+    }
+
+    // Tie a wire using the CIB ties
+    void tie_cib_signal(WireId wire, bool value)
+    {
+        static const std::regex cib_re("J([A-D]|CE|LSR|CLK)[0-7]");
+        std::queue<WireId> signals;
+        signals.push(wire);
+        WireId cibsig;
+        std::string basename;
+        while (true) {
+            NPNR_ASSERT(!signals.empty());
+            NPNR_ASSERT(signals.size() < 100);
+            cibsig = signals.front();
+            basename = ctx->get_wire_basename(cibsig).str(ctx);
+            signals.pop();
+            if (std::regex_match(basename, cib_re))
+                break;
+            for (auto pip : ctx->getPipsUphill(cibsig))
+                signals.push(ctx->getPipSrcWire(pip));
+        }
+
+        bool out_value = value;
+        if (basename.substr(0, 3) == "JCE")
+            NPNR_ASSERT(value);
+        if (basename.substr(0, 4) == "JCLK" || basename.substr(0, 4) == "JLSR") {
+            NPNR_ASSERT(value);
+            out_value = 0;
+        }
+
+        for (const auto &tile : ctx->get_tiles_at_loc(cibsig.location.y, cibsig.location.x)) {
+            if (tile.second.substr(0, 3) == "CIB" || tile.second.substr(0, 4) == "VCIB") {
+
+                cc.tiles[tile.first].add_enum("CIB." + basename + "MUX", out_value ? "1" : "0");
+                return;
+            }
+        }
+        NPNR_ASSERT_FALSE("CIB tile not found at location");
+    }
+
+    inline int chtohex(char c)
+    {
+        static const std::string hex = "0123456789ABCDEF";
+        return hex.find(std::toupper(c));
+    }
+
+    std::vector<bool> parse_init_str(const Property &p, int length, const char *cellname)
+    {
+        // Parse a string that may be binary or hex
+        std::vector<bool> result;
         result.resize(length, false);
-    }
-    return result;
-}
-
-inline uint16_t bit_reverse(uint16_t x, int size)
-{
-    uint16_t y = 0;
-    for (int i = 0; i < size; i++)
-        if (x & (1 << i))
-            y |= (1 << ((size - 1) - i));
-    return y;
-}
-
-// Get the PIO tile corresponding to a PIO bel
-static std::string get_pio_tile(Context *ctx, BelId bel)
-{
-    static const std::set<std::string> pioabcd_l = {"PICL1", "PICL1_DQS0", "PICL1_DQS3"};
-    static const std::set<std::string> pioabcd_r = {"PICR1", "PICR1_DQS0", "PICR1_DQS3"};
-    static const std::set<std::string> pioa_b = {"PICB0", "EFB0_PICB0", "EFB2_PICB0", "SPICB0"};
-    static const std::set<std::string> piob_b = {"PICB1", "EFB1_PICB1", "EFB3_PICB1"};
-
-    std::string pio_name = ctx->loc_info(bel)->bel_data[bel.index].name.get();
-    if (bel.location.y == 0) {
-        if (pio_name == "PIOA") {
-            return ctx->get_tile_by_type_loc(0, bel.location.x, "PIOT0");
-        } else if (pio_name == "PIOB") {
-            return ctx->get_tile_by_type_loc(0, bel.location.x + 1, "PIOT1");
-        } else {
-            NPNR_ASSERT_FALSE("bad PIO location");
-        }
-    } else if (bel.location.y == ctx->chip_info->height - 1) {
-        if (pio_name == "PIOA") {
-            return ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, pioa_b);
-        } else if (pio_name == "PIOB") {
-            return ctx->get_tile_by_type_loc(bel.location.y, bel.location.x + 1, piob_b);
-        } else {
-            NPNR_ASSERT_FALSE("bad PIO location");
-        }
-    } else if (bel.location.x == 0) {
-        return ctx->get_tile_by_type_loc(bel.location.y + 1, bel.location.x, pioabcd_l);
-    } else if (bel.location.x == ctx->chip_info->width - 1) {
-        return ctx->get_tile_by_type_loc(bel.location.y + 1, bel.location.x, pioabcd_r);
-    } else {
-        NPNR_ASSERT_FALSE("bad PIO location");
-    }
-}
-
-// Get the PIC tile corresponding to a PIO bel
-static std::string get_pic_tile(Context *ctx, BelId bel)
-{
-    static const std::set<std::string> picab_l = {"PICL0", "PICL0_DQS2"};
-    static const std::set<std::string> piccd_l = {"PICL2", "PICL2_DQS1", "MIB_CIB_LR"};
-    static const std::set<std::string> picab_r = {"PICR0", "PICR0_DQS2"};
-    static const std::set<std::string> piccd_r = {"PICR2", "PICR2_DQS1", "MIB_CIB_LR_A"};
-
-    static const std::set<std::string> pica_b = {"PICB0", "EFB0_PICB0", "EFB2_PICB0", "SPICB0"};
-    static const std::set<std::string> picb_b = {"PICB1", "EFB1_PICB1", "EFB3_PICB1"};
-
-    std::string pio_name = ctx->loc_info(bel)->bel_data[bel.index].name.get();
-    if (bel.location.y == 0) {
-        if (pio_name == "PIOA") {
-            return ctx->get_tile_by_type_loc(1, bel.location.x, "PICT0");
-        } else if (pio_name == "PIOB") {
-            return ctx->get_tile_by_type_loc(1, bel.location.x + 1, "PICT1");
-        } else {
-            NPNR_ASSERT_FALSE("bad PIO location");
-        }
-    } else if (bel.location.y == ctx->chip_info->height - 1) {
-        if (pio_name == "PIOA") {
-            return ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, pica_b);
-        } else if (pio_name == "PIOB") {
-            return ctx->get_tile_by_type_loc(bel.location.y, bel.location.x + 1, picb_b);
-        } else {
-            NPNR_ASSERT_FALSE("bad PIO location");
-        }
-    } else if (bel.location.x == 0) {
-        if (pio_name == "PIOA" || pio_name == "PIOB") {
-            return ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, picab_l);
-        } else if (pio_name == "PIOC" || pio_name == "PIOD") {
-            return ctx->get_tile_by_type_loc(bel.location.y + 2, bel.location.x, piccd_l);
-        } else {
-            NPNR_ASSERT_FALSE("bad PIO location");
-        }
-    } else if (bel.location.x == ctx->chip_info->width - 1) {
-        if (pio_name == "PIOA" || pio_name == "PIOB") {
-            return ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, picab_r);
-        } else if (pio_name == "PIOC" || pio_name == "PIOD") {
-            return ctx->get_tile_by_type_loc(bel.location.y + 2, bel.location.x, piccd_r);
-        } else {
-            NPNR_ASSERT_FALSE("bad PIO location");
-        }
-    } else {
-        NPNR_ASSERT_FALSE("bad PIO location");
-    }
-}
-
-// Get the complement PIC and PIO tiles for a pseudo differential IO
-static std::string get_comp_pio_tile(Context *ctx, BelId bel)
-{
-    NPNR_ASSERT(bel.location.y == 0);
-    return ctx->get_tile_by_type_loc(0, bel.location.x + 1, "PIOT1");
-}
-static std::string get_comp_pic_tile(Context *ctx, BelId bel)
-{
-    NPNR_ASSERT(bel.location.y == 0);
-    return ctx->get_tile_by_type_loc(1, bel.location.x + 1, "PICT1");
-}
-
-// Get the list of tiles corresponding to a blockram
-std::vector<std::string> get_bram_tiles(Context *ctx, BelId bel)
-{
-    std::vector<std::string> tiles;
-    Loc loc = ctx->getBelLocation(bel);
-
-    static const std::set<std::string> ebr0 = {"MIB_EBR0", "EBR_CMUX_UR", "EBR_CMUX_LR", "EBR_CMUX_LR_25K"};
-    static const std::set<std::string> ebr8 = {"MIB_EBR8",      "EBR_SPINE_UL1",   "EBR_SPINE_UR1", "EBR_SPINE_LL1",
-                                               "EBR_CMUX_UL",   "EBR_SPINE_LL0",   "EBR_CMUX_LL",   "EBR_SPINE_LR0",
-                                               "EBR_SPINE_LR1", "EBR_CMUX_LL_25K", "EBR_SPINE_UL2", "EBR_SPINE_UL0",
-                                               "EBR_SPINE_UR2", "EBR_SPINE_LL2",   "EBR_SPINE_LR2", "EBR_SPINE_UR0"};
-
-    switch (loc.z) {
-    case 0:
-        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, ebr0));
-        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB_EBR1"));
-        break;
-    case 1:
-        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB_EBR2"));
-        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB_EBR3"));
-        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, "MIB_EBR4"));
-        break;
-    case 2:
-        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB_EBR4"));
-        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB_EBR5"));
-        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, "MIB_EBR6"));
-        break;
-    case 3:
-        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB_EBR6"));
-        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB_EBR7"));
-        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, ebr8));
-        break;
-    default:
-        NPNR_ASSERT_FALSE("bad EBR z loc");
-    }
-    return tiles;
-}
-
-// Get the list of tiles corresponding to a DSP
-std::vector<std::string> get_dsp_tiles(Context *ctx, BelId bel)
-{
-    std::vector<std::string> tiles;
-    Loc loc = ctx->getBelLocation(bel);
-
-    static const std::set<std::string> dsp8 = {"MIB_DSP8", "DSP_SPINE_UL0", "DSP_SPINE_UR0", "DSP_SPINE_UR1"};
-    if (ctx->getBelType(bel) == id_MULT18X18D) {
-        switch (loc.z) {
-        case 0:
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB_DSP0"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB2_DSP0"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB_DSP1"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB2_DSP1"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, "MIB_DSP2"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, "MIB2_DSP2"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 3, "MIB_DSP3"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 3, "MIB2_DSP3"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 4, "MIB_DSP4"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 4, "MIB2_DSP4"));
-            break;
-        case 1:
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 1, "MIB_DSP0"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 1, "MIB2_DSP0"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB_DSP1"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB2_DSP1"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB_DSP2"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB2_DSP2"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, "MIB_DSP3"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, "MIB2_DSP3"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 3, "MIB_DSP4"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 3, "MIB2_DSP4"));
-            break;
-        case 4:
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB_DSP4"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB2_DSP4"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB_DSP5"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB2_DSP5"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, "MIB_DSP6"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, "MIB2_DSP6"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 3, "MIB_DSP7"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 3, "MIB2_DSP7"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 4, dsp8));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 4, "MIB2_DSP8"));
-            break;
-        case 5:
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 1, "MIB_DSP4"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 1, "MIB2_DSP4"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB_DSP5"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB2_DSP5"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB_DSP6"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB2_DSP6"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, "MIB_DSP7"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, "MIB2_DSP7"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 3, dsp8));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 3, "MIB2_DSP8"));
-            break;
-        default:
-            NPNR_ASSERT_FALSE("bad MULT z loc");
-        }
-    } else if (ctx->getBelType(bel) == id_ALU54B) {
-        switch (loc.z) {
-        case 3:
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 3, "MIB_DSP0"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 3, "MIB2_DSP0"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 2, "MIB_DSP1"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 2, "MIB2_DSP1"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 1, "MIB_DSP2"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 1, "MIB2_DSP2"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB_DSP3"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB2_DSP3"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB_DSP4"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB2_DSP4"));
-            break;
-        case 7:
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 3, "MIB_DSP4"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 3, "MIB2_DSP4"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 2, "MIB_DSP5"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 2, "MIB2_DSP5"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 1, "MIB_DSP6"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 1, "MIB2_DSP6"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB_DSP7"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB2_DSP7"));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, dsp8));
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB2_DSP8"));
-            break;
-        default:
-            NPNR_ASSERT_FALSE("bad ALU z loc");
-        }
-    }
-    return tiles;
-}
-
-// Get the list of tiles corresponding to a DCU
-std::vector<std::string> get_dcu_tiles(Context *ctx, BelId bel)
-{
-    std::vector<std::string> tiles;
-    Loc loc = ctx->getBelLocation(bel);
-    for (int i = 0; i < 9; i++)
-        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + i, "DCU" + std::to_string(i)));
-    return tiles;
-}
-
-// Get the list of tiles corresponding to a PLL
-std::vector<std::string> get_pll_tiles(Context *ctx, BelId bel)
-{
-    std::string name = ctx->loc_info(bel)->bel_data[bel.index].name.get();
-    std::vector<std::string> tiles;
-    Loc loc = ctx->getBelLocation(bel);
-    static const std::set<std::string> pll1_lr = {"PLL1_LR", "BANKREF4"};
-
-    if (name == "EHXPLL_UL") {
-        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 1, "PLL0_UL"));
-        tiles.push_back(ctx->get_tile_by_type_loc(loc.y + 1, loc.x - 1, "PLL1_UL"));
-    } else if (name == "EHXPLL_LL") {
-        tiles.push_back(ctx->get_tile_by_type_loc(loc.y + 1, loc.x, "PLL0_LL"));
-        tiles.push_back(ctx->get_tile_by_type_loc(loc.y + 1, loc.x + 1, "BANKREF8"));
-    } else if (name == "EHXPLL_LR") {
-        tiles.push_back(ctx->get_tile_by_type_loc(loc.y + 1, loc.x, "PLL0_LR"));
-        tiles.push_back(ctx->get_tile_by_type_loc(loc.y + 1, loc.x - 1, pll1_lr));
-    } else if (name == "EHXPLL_UR") {
-        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "PLL0_UR"));
-        tiles.push_back(ctx->get_tile_by_type_loc(loc.y + 1, loc.x + 1, "PLL1_UR"));
-    } else {
-        NPNR_ASSERT_FALSE_STR("bad PLL loc " + name);
-    }
-    return tiles;
-}
-
-void fix_tile_names(Context *ctx, ChipConfig &cc)
-{
-    // Remove the V prefix/suffix on certain tiles if device is a SERDES variant
-    if (ctx->args.type == ArchArgs::LFE5U_12F || ctx->args.type == ArchArgs::LFE5U_25F ||
-        ctx->args.type == ArchArgs::LFE5U_45F || ctx->args.type == ArchArgs::LFE5U_85F) {
-        std::map<std::string, std::string> tiletype_xform;
-        for (const auto &tile : cc.tiles) {
-            std::string newname = tile.first;
-            auto cibdcu = tile.first.find("CIB_DCU");
-            if (cibdcu != std::string::npos) {
-                // Add the V
-                if (newname.at(cibdcu - 1) != 'V') {
-                    newname.insert(cibdcu, 1, 'V');
-                    tiletype_xform[tile.first] = newname;
-                }
-            } else if (boost::ends_with(tile.first, "BMID_0H")) {
-                newname.back() = 'V';
-                tiletype_xform[tile.first] = newname;
-            } else if (boost::ends_with(tile.first, "BMID_2")) {
-                newname.push_back('V');
-                tiletype_xform[tile.first] = newname;
-            }
-        }
-        // Apply the name changes
-        for (auto xform : tiletype_xform) {
-            auto &existing = cc.tiles.at(xform.first);
-            for (const auto &carc : existing.carcs)
-                cc.tiles[xform.second].carcs.push_back(carc);
-            for (const auto &cenum : existing.cenums)
-                cc.tiles[xform.second].cenums.push_back(cenum);
-            for (const auto &cword : existing.cwords)
-                cc.tiles[xform.second].cwords.push_back(cword);
-            for (const auto &cunknown : existing.cunknowns)
-                cc.tiles[xform.second].cunknowns.push_back(cunknown);
-            cc.tiles.erase(xform.first);
-        }
-        for (auto &tg : cc.tilegroups) {
-            for (auto &t : tg.tiles) {
-                if (boost::ends_with(t, "BMID_0H"))
-                    t.back() = 'V';
-                else if (boost::ends_with(t, "BMID_2"))
-                    t.push_back('V');
-            }
-        }
-    }
-}
-
-void tieoff_dsp_ports(Context *ctx, ChipConfig &cc, CellInfo *ci)
-{
-    for (auto port : ci->ports) {
-        if (port.second.net == nullptr && port.second.type == PORT_IN) {
-            if (port.first.str(ctx).substr(0, 3) == "CLK" || port.first.str(ctx).substr(0, 2) == "CE" ||
-                port.first.str(ctx).substr(0, 3) == "RST" || port.first.str(ctx).substr(0, 3) == "SRO" ||
-                port.first.str(ctx).substr(0, 3) == "SRI" || port.first.str(ctx).substr(0, 2) == "RO" ||
-                port.first.str(ctx).substr(0, 2) == "MA" || port.first.str(ctx).substr(0, 2) == "MB" ||
-                port.first.str(ctx).substr(0, 3) == "CFB" || port.first.str(ctx).substr(0, 3) == "CIN" ||
-                port.first.str(ctx).substr(0, 6) == "SOURCE" || port.first.str(ctx).substr(0, 6) == "SIGNED" ||
-                port.first.str(ctx).substr(0, 2) == "OP")
-                continue;
-            bool value = bool_or_default(ci->params, ctx->id(port.first.str(ctx) + "MUX"), false);
-            tie_cib_signal(ctx, cc, ctx->getBelPinWire(ci->bel, port.first), value);
-        }
-    }
-}
-
-void tieoff_dcu_ports(Context *ctx, ChipConfig &cc, CellInfo *ci)
-{
-    for (auto port : ci->ports) {
-        if (port.second.net == nullptr && port.second.type == PORT_IN) {
-            if (port.first.str(ctx).find("CLK") != std::string::npos ||
-                port.first.str(ctx).find("HDIN") != std::string::npos ||
-                port.first.str(ctx).find("HDOUT") != std::string::npos)
-                continue;
-            bool value = bool_or_default(ci->params, ctx->id(port.first.str(ctx) + "MUX"), false);
-            tie_cib_signal(ctx, cc, ctx->getBelPinWire(ci->bel, port.first), value);
-        }
-    }
-}
-
-static void set_pip(Context *ctx, ChipConfig &cc, PipId pip)
-{
-    std::string tile = ctx->get_pip_tilename(pip);
-    std::string source = get_trellis_wirename(ctx, pip.location, ctx->getPipSrcWire(pip));
-    std::string sink = get_trellis_wirename(ctx, pip.location, ctx->getPipDstWire(pip));
-    cc.tiles[tile].add_arc(sink, source);
-}
-
-static unsigned permute_lut(Context *ctx, CellInfo *cell, pool<IdString> &used_phys_pins, unsigned orig_init)
-{
-    std::array<std::vector<unsigned>, 4> phys_to_log;
-    const std::array<IdString, 4> ports{id_A, id_B, id_C, id_D};
-    for (unsigned i = 0; i < 4; i++) {
-        WireId pin_wire = ctx->getBelPinWire(cell->bel, ports[i]);
-        for (PipId pip : ctx->getPipsUphill(pin_wire)) {
-            if (!ctx->getBoundPipNet(pip))
-                continue;
-            unsigned lp = ctx->loc_info(pip)->pip_data[pip.index].lutperm_flags;
-            if (!is_lutperm_pip(lp)) { // non-permuting
-                phys_to_log[i].push_back(i);
-            } else { // permuting
-                unsigned from_pin = lutperm_in(lp);
-                unsigned to_pin = lutperm_out(lp);
-                NPNR_ASSERT(to_pin == i);
-                phys_to_log[from_pin].push_back(i);
-            }
-        }
-    }
-    for (unsigned i = 0; i < 4; i++)
-        if (!phys_to_log.at(i).empty())
-            used_phys_pins.insert(ports.at(i));
-    if (cell->combInfo.flags & ArchCellInfo::COMB_CARRY) {
-        // Insert dummy entries to ensure we keep the split between the two halves of a CCU2
-        for (unsigned i = 0; i < 4; i++) {
-            if (!phys_to_log.at(i).empty())
-                continue;
-            for (unsigned j = 2 * (i / 2); j < 2 * ((i / 2) + 1); j++) {
-                if (!ctx->getBoundWireNet(ctx->getBelPinWire(cell->bel, ports[j])))
-                    phys_to_log.at(i).push_back(j);
-            }
-        }
-    }
-    unsigned permuted_init = 0;
-    for (unsigned i = 0; i < 16; i++) {
-        unsigned log_idx = 0;
-        for (unsigned j = 0; j < 4; j++) {
-            if ((i >> j) & 0x1) {
-                for (auto log_pin : phys_to_log[j])
-                    log_idx |= (1 << log_pin);
-            }
-        }
-        if ((orig_init >> log_idx) & 0x1)
-            permuted_init |= (1 << i);
-    }
-    return permuted_init;
-}
-
-static std::vector<bool> parse_config_str(const Property &p, int length)
-{
-    std::vector<bool> word;
-    if (p.is_string) {
-        std::string str = p.as_string();
-        // For DCU config which might be bin, hex or dec using prefixes accordingly
-        std::string base = str.substr(0, 2);
-        word.resize(length, false);
-        if (base == "0b") {
-            for (int i = 0; i < int(str.length()) - 2; i++) {
-                char c = str.at((str.size() - 1) - i);
-                if (!(c == '0' || c == '1'))
-                    log_error("binary string has invalid char '%c' at position %d.\n", c, i);
-                word.at(i) = (c == '1');
-            }
-        } else if (base == "0x") {
+        if (p.is_string) {
+            std::string str = p.as_string();
+            NPNR_ASSERT(str.substr(0, 2) == "0x");
+            // Lattice style hex string
+            if (int(str.length()) > (2 + ((length + 3) / 4)))
+                log_error("hex string value too long, expected up to %d chars and found %d.\n",
+                          (2 + ((length + 3) / 4)), int(str.length()));
             for (int i = 0; i < int(str.length()) - 2; i++) {
                 char c = str.at((str.size() - i) - 1);
                 int nibble = chtohex(c);
                 if (nibble == (int)std::string::npos)
                     log_error("hex string has invalid char '%c' at position %d.\n", c, i);
-                word.at(i * 4) = nibble & 0x1;
+                result.at(i * 4) = nibble & 0x1;
                 if (i * 4 + 1 < length)
-                    word.at(i * 4 + 1) = nibble & 0x2;
+                    result.at(i * 4 + 1) = nibble & 0x2;
                 if (i * 4 + 2 < length)
-                    word.at(i * 4 + 2) = nibble & 0x4;
+                    result.at(i * 4 + 2) = nibble & 0x4;
                 if (i * 4 + 3 < length)
-                    word.at(i * 4 + 3) = nibble & 0x8;
+                    result.at(i * 4 + 3) = nibble & 0x8;
             }
-        } else if (base == "0d") {
-            NPNR_ASSERT(length < 64);
-            unsigned long long value = std::stoull(str.substr(2));
-            for (int i = 0; i < length; i++)
-                if (value & (1 << i))
-                    word.at(i) = true;
         } else {
-            NPNR_ASSERT(length < 64);
-            unsigned long long value = std::stoull(str);
-            for (int i = 0; i < length; i++)
-                if (value & (1 << i))
-                    word.at(i) = true;
+            result = p.as_bits();
+            result.resize(length, false);
         }
-    } else {
-        word = p.as_bits();
-        word.resize(length, 0);
+        return result;
     }
 
-    return word;
-}
-
-std::string intstr_or_default(const dict<IdString, Property> &ct, const IdString &key, std::string def = "0")
-{
-    auto found = ct.find(key);
-    if (found == ct.end())
-        return def;
-    else {
-        if (found->second.is_string)
-            return found->second.as_string();
-        else
-            return std::to_string(found->second.as_int64());
+    inline uint16_t bit_reverse(uint16_t x, int size)
+    {
+        uint16_t y = 0;
+        for (int i = 0; i < size; i++)
+            if (x & (1 << i))
+                y |= (1 << ((size - 1) - i));
+        return y;
     }
-};
 
-void write_bitstream(Context *ctx, std::string base_config_file, std::string text_config_file)
-{
-    ChipConfig cc;
+    // Get the PIO tile corresponding to a PIO bel
+    std::string get_pio_tile(BelId bel)
+    {
+        static const std::set<std::string> pioabcd_l = {"PICL1", "PICL1_DQS0", "PICL1_DQS3"};
+        static const std::set<std::string> pioabcd_r = {"PICR1", "PICR1_DQS0", "PICR1_DQS3"};
+        static const std::set<std::string> pioa_b = {"PICB0", "EFB0_PICB0", "EFB2_PICB0", "SPICB0"};
+        static const std::set<std::string> piob_b = {"PICB1", "EFB1_PICB1", "EFB3_PICB1"};
+
+        std::string pio_name = ctx->loc_info(bel)->bel_data[bel.index].name.get();
+        if (bel.location.y == 0) {
+            if (pio_name == "PIOA") {
+                return ctx->get_tile_by_type_loc(0, bel.location.x, "PIOT0");
+            } else if (pio_name == "PIOB") {
+                return ctx->get_tile_by_type_loc(0, bel.location.x + 1, "PIOT1");
+            } else {
+                NPNR_ASSERT_FALSE("bad PIO location");
+            }
+        } else if (bel.location.y == ctx->chip_info->height - 1) {
+            if (pio_name == "PIOA") {
+                return ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, pioa_b);
+            } else if (pio_name == "PIOB") {
+                return ctx->get_tile_by_type_loc(bel.location.y, bel.location.x + 1, piob_b);
+            } else {
+                NPNR_ASSERT_FALSE("bad PIO location");
+            }
+        } else if (bel.location.x == 0) {
+            return ctx->get_tile_by_type_loc(bel.location.y + 1, bel.location.x, pioabcd_l);
+        } else if (bel.location.x == ctx->chip_info->width - 1) {
+            return ctx->get_tile_by_type_loc(bel.location.y + 1, bel.location.x, pioabcd_r);
+        } else {
+            NPNR_ASSERT_FALSE("bad PIO location");
+        }
+    }
+
+    // Get the PIC tile corresponding to a PIO bel
+    std::string get_pic_tile(BelId bel)
+    {
+        static const std::set<std::string> picab_l = {"PICL0", "PICL0_DQS2"};
+        static const std::set<std::string> piccd_l = {"PICL2", "PICL2_DQS1", "MIB_CIB_LR"};
+        static const std::set<std::string> picab_r = {"PICR0", "PICR0_DQS2"};
+        static const std::set<std::string> piccd_r = {"PICR2", "PICR2_DQS1", "MIB_CIB_LR_A"};
+
+        static const std::set<std::string> pica_b = {"PICB0", "EFB0_PICB0", "EFB2_PICB0", "SPICB0"};
+        static const std::set<std::string> picb_b = {"PICB1", "EFB1_PICB1", "EFB3_PICB1"};
+
+        std::string pio_name = ctx->loc_info(bel)->bel_data[bel.index].name.get();
+        if (bel.location.y == 0) {
+            if (pio_name == "PIOA") {
+                return ctx->get_tile_by_type_loc(1, bel.location.x, "PICT0");
+            } else if (pio_name == "PIOB") {
+                return ctx->get_tile_by_type_loc(1, bel.location.x + 1, "PICT1");
+            } else {
+                NPNR_ASSERT_FALSE("bad PIO location");
+            }
+        } else if (bel.location.y == ctx->chip_info->height - 1) {
+            if (pio_name == "PIOA") {
+                return ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, pica_b);
+            } else if (pio_name == "PIOB") {
+                return ctx->get_tile_by_type_loc(bel.location.y, bel.location.x + 1, picb_b);
+            } else {
+                NPNR_ASSERT_FALSE("bad PIO location");
+            }
+        } else if (bel.location.x == 0) {
+            if (pio_name == "PIOA" || pio_name == "PIOB") {
+                return ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, picab_l);
+            } else if (pio_name == "PIOC" || pio_name == "PIOD") {
+                return ctx->get_tile_by_type_loc(bel.location.y + 2, bel.location.x, piccd_l);
+            } else {
+                NPNR_ASSERT_FALSE("bad PIO location");
+            }
+        } else if (bel.location.x == ctx->chip_info->width - 1) {
+            if (pio_name == "PIOA" || pio_name == "PIOB") {
+                return ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, picab_r);
+            } else if (pio_name == "PIOC" || pio_name == "PIOD") {
+                return ctx->get_tile_by_type_loc(bel.location.y + 2, bel.location.x, piccd_r);
+            } else {
+                NPNR_ASSERT_FALSE("bad PIO location");
+            }
+        } else {
+            NPNR_ASSERT_FALSE("bad PIO location");
+        }
+    }
+
+    // Get the complement PIC and PIO tiles for a pseudo differential IO
+    std::string get_comp_pio_tile(BelId bel)
+    {
+        NPNR_ASSERT(bel.location.y == 0);
+        return ctx->get_tile_by_type_loc(0, bel.location.x + 1, "PIOT1");
+    }
+    std::string get_comp_pic_tile(BelId bel)
+    {
+        NPNR_ASSERT(bel.location.y == 0);
+        return ctx->get_tile_by_type_loc(1, bel.location.x + 1, "PICT1");
+    }
+
+    // Get the list of tiles corresponding to a blockram
+    std::vector<std::string> get_bram_tiles(BelId bel)
+    {
+        std::vector<std::string> tiles;
+        Loc loc = ctx->getBelLocation(bel);
+
+        static const std::set<std::string> ebr0 = {"MIB_EBR0", "EBR_CMUX_UR", "EBR_CMUX_LR", "EBR_CMUX_LR_25K"};
+        static const std::set<std::string> ebr8 = {
+                "MIB_EBR8",      "EBR_SPINE_UL1", "EBR_SPINE_UR1", "EBR_SPINE_LL1",   "EBR_CMUX_UL",   "EBR_SPINE_LL0",
+                "EBR_CMUX_LL",   "EBR_SPINE_LR0", "EBR_SPINE_LR1", "EBR_CMUX_LL_25K", "EBR_SPINE_UL2", "EBR_SPINE_UL0",
+                "EBR_SPINE_UR2", "EBR_SPINE_LL2", "EBR_SPINE_LR2", "EBR_SPINE_UR0"};
+
+        switch (loc.z) {
+        case 0:
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, ebr0));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB_EBR1"));
+            break;
+        case 1:
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB_EBR2"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB_EBR3"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, "MIB_EBR4"));
+            break;
+        case 2:
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB_EBR4"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB_EBR5"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, "MIB_EBR6"));
+            break;
+        case 3:
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB_EBR6"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB_EBR7"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, ebr8));
+            break;
+        default:
+            NPNR_ASSERT_FALSE("bad EBR z loc");
+        }
+        return tiles;
+    }
+
+    // Get the list of tiles corresponding to a DSP
+    std::vector<std::string> get_dsp_tiles(BelId bel)
+    {
+        std::vector<std::string> tiles;
+        Loc loc = ctx->getBelLocation(bel);
+
+        static const std::set<std::string> dsp8 = {"MIB_DSP8", "DSP_SPINE_UL0", "DSP_SPINE_UR0", "DSP_SPINE_UR1"};
+        if (ctx->getBelType(bel) == id_MULT18X18D) {
+            switch (loc.z) {
+            case 0:
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB_DSP0"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB2_DSP0"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB_DSP1"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB2_DSP1"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, "MIB_DSP2"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, "MIB2_DSP2"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 3, "MIB_DSP3"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 3, "MIB2_DSP3"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 4, "MIB_DSP4"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 4, "MIB2_DSP4"));
+                break;
+            case 1:
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 1, "MIB_DSP0"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 1, "MIB2_DSP0"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB_DSP1"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB2_DSP1"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB_DSP2"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB2_DSP2"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, "MIB_DSP3"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, "MIB2_DSP3"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 3, "MIB_DSP4"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 3, "MIB2_DSP4"));
+                break;
+            case 4:
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB_DSP4"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB2_DSP4"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB_DSP5"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB2_DSP5"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, "MIB_DSP6"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, "MIB2_DSP6"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 3, "MIB_DSP7"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 3, "MIB2_DSP7"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 4, dsp8));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 4, "MIB2_DSP8"));
+                break;
+            case 5:
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 1, "MIB_DSP4"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 1, "MIB2_DSP4"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB_DSP5"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB2_DSP5"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB_DSP6"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB2_DSP6"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, "MIB_DSP7"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, "MIB2_DSP7"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 3, dsp8));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 3, "MIB2_DSP8"));
+                break;
+            default:
+                NPNR_ASSERT_FALSE("bad MULT z loc");
+            }
+        } else if (ctx->getBelType(bel) == id_ALU54B) {
+            switch (loc.z) {
+            case 3:
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 3, "MIB_DSP0"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 3, "MIB2_DSP0"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 2, "MIB_DSP1"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 2, "MIB2_DSP1"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 1, "MIB_DSP2"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 1, "MIB2_DSP2"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB_DSP3"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB2_DSP3"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB_DSP4"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB2_DSP4"));
+                break;
+            case 7:
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 3, "MIB_DSP4"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 3, "MIB2_DSP4"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 2, "MIB_DSP5"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 2, "MIB2_DSP5"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 1, "MIB_DSP6"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 1, "MIB2_DSP6"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB_DSP7"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "MIB2_DSP7"));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, dsp8));
+                tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "MIB2_DSP8"));
+                break;
+            default:
+                NPNR_ASSERT_FALSE("bad ALU z loc");
+            }
+        }
+        return tiles;
+    }
+
+    // Get the list of tiles corresponding to a DCU
+    std::vector<std::string> get_dcu_tiles(BelId bel)
+    {
+        std::vector<std::string> tiles;
+        Loc loc = ctx->getBelLocation(bel);
+        for (int i = 0; i < 9; i++)
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + i, "DCU" + std::to_string(i)));
+        return tiles;
+    }
+
+    // Get the list of tiles corresponding to a PLL
+    std::vector<std::string> get_pll_tiles(BelId bel)
+    {
+        std::string name = ctx->loc_info(bel)->bel_data[bel.index].name.get();
+        std::vector<std::string> tiles;
+        Loc loc = ctx->getBelLocation(bel);
+        static const std::set<std::string> pll1_lr = {"PLL1_LR", "BANKREF4"};
+
+        if (name == "EHXPLL_UL") {
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x - 1, "PLL0_UL"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y + 1, loc.x - 1, "PLL1_UL"));
+        } else if (name == "EHXPLL_LL") {
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y + 1, loc.x, "PLL0_LL"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y + 1, loc.x + 1, "BANKREF8"));
+        } else if (name == "EHXPLL_LR") {
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y + 1, loc.x, "PLL0_LR"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y + 1, loc.x - 1, pll1_lr));
+        } else if (name == "EHXPLL_UR") {
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "PLL0_UR"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y + 1, loc.x + 1, "PLL1_UR"));
+        } else {
+            NPNR_ASSERT_FALSE_STR("bad PLL loc " + name);
+        }
+        return tiles;
+    }
+
+    void fix_tile_names()
+    {
+        // Remove the V prefix/suffix on certain tiles if device is a SERDES variant
+        if (ctx->args.type == ArchArgs::LFE5U_12F || ctx->args.type == ArchArgs::LFE5U_25F ||
+            ctx->args.type == ArchArgs::LFE5U_45F || ctx->args.type == ArchArgs::LFE5U_85F) {
+            std::map<std::string, std::string> tiletype_xform;
+            for (const auto &tile : cc.tiles) {
+                std::string newname = tile.first;
+                auto cibdcu = tile.first.find("CIB_DCU");
+                if (cibdcu != std::string::npos) {
+                    // Add the V
+                    if (newname.at(cibdcu - 1) != 'V') {
+                        newname.insert(cibdcu, 1, 'V');
+                        tiletype_xform[tile.first] = newname;
+                    }
+                } else if (boost::ends_with(tile.first, "BMID_0H")) {
+                    newname.back() = 'V';
+                    tiletype_xform[tile.first] = newname;
+                } else if (boost::ends_with(tile.first, "BMID_2")) {
+                    newname.push_back('V');
+                    tiletype_xform[tile.first] = newname;
+                }
+            }
+            // Apply the name changes
+            for (auto xform : tiletype_xform) {
+                auto &existing = cc.tiles.at(xform.first);
+                for (const auto &carc : existing.carcs)
+                    cc.tiles[xform.second].carcs.push_back(carc);
+                for (const auto &cenum : existing.cenums)
+                    cc.tiles[xform.second].cenums.push_back(cenum);
+                for (const auto &cword : existing.cwords)
+                    cc.tiles[xform.second].cwords.push_back(cword);
+                for (const auto &cunknown : existing.cunknowns)
+                    cc.tiles[xform.second].cunknowns.push_back(cunknown);
+                cc.tiles.erase(xform.first);
+            }
+            for (auto &tg : cc.tilegroups) {
+                for (auto &t : tg.tiles) {
+                    if (boost::ends_with(t, "BMID_0H"))
+                        t.back() = 'V';
+                    else if (boost::ends_with(t, "BMID_2"))
+                        t.push_back('V');
+                }
+            }
+        }
+    }
+
+    void tieoff_dsp_ports(CellInfo *ci)
+    {
+        for (auto port : ci->ports) {
+            if (port.second.net == nullptr && port.second.type == PORT_IN) {
+                if (port.first.str(ctx).substr(0, 3) == "CLK" || port.first.str(ctx).substr(0, 2) == "CE" ||
+                    port.first.str(ctx).substr(0, 3) == "RST" || port.first.str(ctx).substr(0, 3) == "SRO" ||
+                    port.first.str(ctx).substr(0, 3) == "SRI" || port.first.str(ctx).substr(0, 2) == "RO" ||
+                    port.first.str(ctx).substr(0, 2) == "MA" || port.first.str(ctx).substr(0, 2) == "MB" ||
+                    port.first.str(ctx).substr(0, 3) == "CFB" || port.first.str(ctx).substr(0, 3) == "CIN" ||
+                    port.first.str(ctx).substr(0, 6) == "SOURCE" || port.first.str(ctx).substr(0, 6) == "SIGNED" ||
+                    port.first.str(ctx).substr(0, 2) == "OP")
+                    continue;
+                bool value = bool_or_default(ci->params, ctx->id(port.first.str(ctx) + "MUX"), false);
+                tie_cib_signal(ctx->getBelPinWire(ci->bel, port.first), value);
+            }
+        }
+    }
+
+    void tieoff_dcu_ports(CellInfo *ci)
+    {
+        for (auto port : ci->ports) {
+            if (port.second.net == nullptr && port.second.type == PORT_IN) {
+                if (port.first.str(ctx).find("CLK") != std::string::npos ||
+                    port.first.str(ctx).find("HDIN") != std::string::npos ||
+                    port.first.str(ctx).find("HDOUT") != std::string::npos)
+                    continue;
+                bool value = bool_or_default(ci->params, ctx->id(port.first.str(ctx) + "MUX"), false);
+                tie_cib_signal(ctx->getBelPinWire(ci->bel, port.first), value);
+            }
+        }
+    }
+
+    void set_pip(PipId pip)
+    {
+        std::string tile = ctx->get_pip_tilename(pip);
+        std::string source = get_trellis_wirename(pip.location, ctx->getPipSrcWire(pip));
+        std::string sink = get_trellis_wirename(pip.location, ctx->getPipDstWire(pip));
+        cc.tiles[tile].add_arc(sink, source);
+    }
+
+    unsigned permute_lut(CellInfo *cell, pool<IdString> &used_phys_pins, unsigned orig_init)
+    {
+        std::array<std::vector<unsigned>, 4> phys_to_log;
+        const std::array<IdString, 4> ports{id_A, id_B, id_C, id_D};
+        for (unsigned i = 0; i < 4; i++) {
+            WireId pin_wire = ctx->getBelPinWire(cell->bel, ports[i]);
+            for (PipId pip : ctx->getPipsUphill(pin_wire)) {
+                if (!ctx->getBoundPipNet(pip))
+                    continue;
+                unsigned lp = ctx->loc_info(pip)->pip_data[pip.index].lutperm_flags;
+                if (!is_lutperm_pip(lp)) { // non-permuting
+                    phys_to_log[i].push_back(i);
+                } else { // permuting
+                    unsigned from_pin = lutperm_in(lp);
+                    unsigned to_pin = lutperm_out(lp);
+                    NPNR_ASSERT(to_pin == i);
+                    phys_to_log[from_pin].push_back(i);
+                }
+            }
+        }
+        for (unsigned i = 0; i < 4; i++)
+            if (!phys_to_log.at(i).empty())
+                used_phys_pins.insert(ports.at(i));
+        if (cell->combInfo.flags & ArchCellInfo::COMB_CARRY) {
+            // Insert dummy entries to ensure we keep the split between the two halves of a CCU2
+            for (unsigned i = 0; i < 4; i++) {
+                if (!phys_to_log.at(i).empty())
+                    continue;
+                for (unsigned j = 2 * (i / 2); j < 2 * ((i / 2) + 1); j++) {
+                    if (!ctx->getBoundWireNet(ctx->getBelPinWire(cell->bel, ports[j])))
+                        phys_to_log.at(i).push_back(j);
+                }
+            }
+        }
+        unsigned permuted_init = 0;
+        for (unsigned i = 0; i < 16; i++) {
+            unsigned log_idx = 0;
+            for (unsigned j = 0; j < 4; j++) {
+                if ((i >> j) & 0x1) {
+                    for (auto log_pin : phys_to_log[j])
+                        log_idx |= (1 << log_pin);
+                }
+            }
+            if ((orig_init >> log_idx) & 0x1)
+                permuted_init |= (1 << i);
+        }
+        return permuted_init;
+    }
+
+    std::vector<bool> parse_config_str(const Property &p, int length)
+    {
+        std::vector<bool> word;
+        if (p.is_string) {
+            std::string str = p.as_string();
+            // For DCU config which might be bin, hex or dec using prefixes accordingly
+            std::string base = str.substr(0, 2);
+            word.resize(length, false);
+            if (base == "0b") {
+                for (int i = 0; i < int(str.length()) - 2; i++) {
+                    char c = str.at((str.size() - 1) - i);
+                    if (!(c == '0' || c == '1'))
+                        log_error("binary string has invalid char '%c' at position %d.\n", c, i);
+                    word.at(i) = (c == '1');
+                }
+            } else if (base == "0x") {
+                for (int i = 0; i < int(str.length()) - 2; i++) {
+                    char c = str.at((str.size() - i) - 1);
+                    int nibble = chtohex(c);
+                    if (nibble == (int)std::string::npos)
+                        log_error("hex string has invalid char '%c' at position %d.\n", c, i);
+                    word.at(i * 4) = nibble & 0x1;
+                    if (i * 4 + 1 < length)
+                        word.at(i * 4 + 1) = nibble & 0x2;
+                    if (i * 4 + 2 < length)
+                        word.at(i * 4 + 2) = nibble & 0x4;
+                    if (i * 4 + 3 < length)
+                        word.at(i * 4 + 3) = nibble & 0x8;
+                }
+            } else if (base == "0d") {
+                NPNR_ASSERT(length < 64);
+                unsigned long long value = std::stoull(str.substr(2));
+                for (int i = 0; i < length; i++)
+                    if (value & (1 << i))
+                        word.at(i) = true;
+            } else {
+                NPNR_ASSERT(length < 64);
+                unsigned long long value = std::stoull(str);
+                for (int i = 0; i < length; i++)
+                    if (value & (1 << i))
+                        word.at(i) = true;
+            }
+        } else {
+            word = p.as_bits();
+            word.resize(length, 0);
+        }
+
+        return word;
+    }
+
+    std::string intstr_or_default(const dict<IdString, Property> &ct, const IdString &key, std::string def = "0")
+    {
+        auto found = ct.find(key);
+        if (found == ct.end())
+            return def;
+        else {
+            if (found->second.is_string)
+                return found->second.as_string();
+            else
+                return std::to_string(found->second.as_int64());
+        }
+    };
+
+    dict<int, IOVoltage> bankVcc;
+    dict<int, bool> bankLvds, bankVref, bankDiff;
+    void init_io_banks()
+    {
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (ci->bel != BelId() && ci->type == id_TRELLIS_IO) {
+                int bank = ctx->get_pio_bel_bank(ci->bel);
+                std::string dir = str_or_default(ci->params, id_DIR, "INPUT");
+                std::string iotype = str_or_default(ci->attrs, id_IO_TYPE, "LVCMOS33");
+
+                if (dir != "INPUT" || is_referenced(ioType_from_str(iotype))) {
+                    IOVoltage vcc = get_vccio(ioType_from_str(iotype));
+                    if (bankVcc.find(bank) != bankVcc.end()) {
+                        // TODO: strong and weak constraints
+                        if (bankVcc[bank] != vcc) {
+                            log_error("Error processing '%s': incompatible IO voltages %s and %s on bank %d.",
+                                      cell.first.c_str(ctx), iovoltage_to_str(bankVcc[bank]).c_str(),
+                                      iovoltage_to_str(vcc).c_str(), bank);
+                        }
+                    } else {
+                        bankVcc[bank] = vcc;
+                    }
+                }
+
+                if (iotype == "LVDS")
+                    bankLvds[bank] = true;
+                if ((dir == "INPUT" || dir == "BIDIR") && is_differential(ioType_from_str(iotype)))
+                    bankDiff[bank] = true;
+                if ((dir == "INPUT" || dir == "BIDIR") && is_referenced(ioType_from_str(iotype)))
+                    bankVref[bank] = true;
+            }
+        }
+
+        // Set all bankref tiles to appropriate VccIO
+        for (int y = 0; y < ctx->getGridDimY(); y++) {
+            for (int x = 0; x < ctx->getGridDimX(); x++) {
+                auto tiles = ctx->get_tiles_at_loc(y, x);
+                for (auto tile : tiles) {
+                    std::string type = tile.second;
+                    if (type.find("BANKREF") != std::string::npos) {
+                        int bank = std::stoi(type.substr(7));
+                        if (bank == 8 && ctx->settings.count(ctx->id("arch.sysconfig.CONFIG_IOVOLTAGE"))) {
+                            std::string vcc = str_or_default(ctx->settings, ctx->id("arch.sysconfig.CONFIG_IOVOLTAGE"));
+                            vcc.at(1) = 'V';
+                            cc.tiles[tile.first].add_enum("BANK.VCCIO", vcc);
+                        } else if (bankVcc.find(bank) != bankVcc.end()) {
+                            if (bankVcc[bank] == IOVoltage::VCC_1V35)
+                                cc.tiles[tile.first].add_enum("BANK.VCCIO", "1V2");
+                            else
+                                cc.tiles[tile.first].add_enum("BANK.VCCIO", iovoltage_to_str(bankVcc[bank]));
+                        }
+                        if (bankLvds[bank]) {
+                            cc.tiles[tile.first].add_enum("BANK.DIFF_REF", "ON");
+                            cc.tiles[tile.first].add_enum("BANK.LVDSO", "ON");
+                        }
+                        if (bankDiff[bank]) {
+                            cc.tiles[tile.first].add_enum("BANK.DIFF_REF", "ON");
+                        }
+                        if (bankVref[bank]) {
+                            cc.tiles[tile.first].add_enum("BANK.DIFF_REF", "ON");
+                            cc.tiles[tile.first].add_enum("BANK.VREF", "ON");
+                        }
+                    }
+                }
+            }
+        }
+
+        // Create dummy outputs used as Vref input buffer for banks where Vref is used
+        for (auto bv : bankVref) {
+            if (!bv.second)
+                continue;
+            BelId vrefIO = ctx->get_pio_by_function_name(fmt_str("VREF1_" << bv.first));
+            if (vrefIO == BelId())
+                log_error("unable to find VREF input for bank %d\n", bv.first);
+            if (!ctx->checkBelAvail(vrefIO)) {
+                CellInfo *bound = ctx->getBoundBelCell(vrefIO);
+                if (bound != nullptr)
+                    log_error("VREF pin %s of bank %d is occupied by IO '%s'\n",
+                              ctx->get_bel_package_pin(vrefIO).c_str(), bv.first, bound->name.c_str(ctx));
+                else
+                    log_error("VREF pin %s of bank %d is unavailable\n", ctx->get_bel_package_pin(vrefIO).c_str(),
+                              bv.first);
+            }
+            log_info("Using pin %s as VREF for bank %d\n", ctx->get_bel_package_pin(vrefIO).c_str(), bv.first);
+            std::string pio_tile = get_pio_tile(vrefIO);
+
+            std::string iotype;
+            switch (bankVcc[bv.first]) {
+            case IOVoltage::VCC_1V2:
+                iotype = "HSUL12";
+                break;
+            case IOVoltage::VCC_1V35:
+                iotype = "SSTL18_I";
+                break;
+            case IOVoltage::VCC_1V5:
+                iotype = "SSTL18_I";
+                break;
+            case IOVoltage::VCC_1V8:
+                iotype = "SSTL18_I";
+                break;
+            default:
+                log_error("Referenced inputs are not supported with bank VccIO of %s.\n",
+                          iovoltage_to_str(bankVcc[bv.first]).c_str());
+            }
+
+            std::string pio = ctx->loc_info(vrefIO)->bel_data[vrefIO.index].name.get();
+            cc.tiles[pio_tile].add_enum(pio + ".BASE_TYPE", "OUTPUT_" + iotype);
+            cc.tiles[pio_tile].add_enum(pio + ".PULLMODE", "NONE");
+        }
+    }
+
+    void write_comb(CellInfo *ci)
+    {
+        pool<IdString> used_phys_pins;
+        BelId bel = ci->bel;
+        std::string tname = ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, "PLC2");
+        int z = ctx->loc_info(bel)->bel_data[bel.index].z >> Arch::lc_idx_shift;
+        std::string slice = std::string("SLICE") + "ABCD"[z / 2];
+        std::string lc = std::to_string(z % 2);
+        std::string mode = str_or_default(ci->params, id_MODE, "LOGIC");
+        if (mode == "RAMW_BLOCK")
+            return;
+        int lut_init = int_or_default(ci->params, id_INITVAL);
+        cc.tiles[tname].add_enum(slice + ".MODE", mode);
+        cc.tiles[tname].add_word(slice + ".K" + lc + ".INIT",
+                                 int_to_bitvector(permute_lut(ci, used_phys_pins, lut_init), 16));
+        if (mode == "CCU2") {
+            cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_" + lc, str_or_default(ci->params, id_CCU2_INJECT1, "YES"));
+        } else {
+            // Don't interfere with cascade mux wiring
+            cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_" + lc, "_NONE_");
+        }
+        if (mode == "DPRAM" && slice == "SLICEA" && lc == "0") {
+            cc.tiles[tname].add_enum(slice + ".WREMUX", str_or_default(ci->params, id_WREMUX, "WRE"));
+            std::string wckmux = str_or_default(ci->params, id_WCKMUX, "WCK");
+            wckmux = (wckmux == "WCK") ? "CLK" : wckmux;
+            cc.tiles[tname].add_enum("CLK1.CLKMUX", wckmux);
+        }
+        for (auto input : {id_A, id_B, id_C, id_D}) {
+            if (!used_phys_pins.count(input)) {
+                cc.tiles[tname].add_enum(slice + "." + input.str(ctx) + lc + "MUX", "1");
+            }
+        }
+    }
+
+    void write_ff(CellInfo *ci)
+    {
+        BelId bel = ci->bel;
+        std::string tname = ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, "PLC2");
+        int z = ctx->loc_info(bel)->bel_data[bel.index].z >> Arch::lc_idx_shift;
+        std::string slice = std::string("SLICE") + "ABCD"[z / 2];
+        std::string lc = std::to_string(z % 2);
+
+        cc.tiles[tname].add_enum(slice + ".GSR", str_or_default(ci->params, id_GSR, "ENABLED"));
+        cc.tiles[tname].add_enum(slice + ".REG" + lc + ".SD", intstr_or_default(ci->params, id_SD, "0"));
+        cc.tiles[tname].add_enum(slice + ".REG" + lc + ".REGSET", str_or_default(ci->params, id_REGSET, "RESET"));
+        cc.tiles[tname].add_enum(slice + ".REG" + lc + ".LSRMODE", str_or_default(ci->params, id_LSRMODE, "LSR"));
+
+        cc.tiles[tname].add_enum(slice + ".CEMUX", str_or_default(ci->params, id_CEMUX, "1"));
+
+        NetInfo *lsrnet = ci->getPort(id_LSR);
+        if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "LSR0")) == lsrnet) {
+            cc.tiles[tname].add_enum("LSR0.SRMODE", str_or_default(ci->params, id_SRMODE, "LSR_OVER_CE"));
+            cc.tiles[tname].add_enum("LSR0.LSRMUX", str_or_default(ci->params, id_LSRMUX, "LSR"));
+        }
+        if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "LSR1")) == lsrnet) {
+            cc.tiles[tname].add_enum("LSR1.SRMODE", str_or_default(ci->params, id_SRMODE, "LSR_OVER_CE"));
+            cc.tiles[tname].add_enum("LSR1.LSRMUX", str_or_default(ci->params, id_LSRMUX, "LSR"));
+        }
+
+        NetInfo *clknet = ci->getPort(id_CLK);
+        if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "CLK0")) == clknet) {
+            cc.tiles[tname].add_enum("CLK0.CLKMUX", str_or_default(ci->params, id_CLKMUX, "CLK"));
+        }
+        if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "CLK1")) == clknet) {
+            cc.tiles[tname].add_enum("CLK1.CLKMUX", str_or_default(ci->params, id_CLKMUX, "CLK"));
+        }
+    }
 
     std::set<std::string> cib_tiles = {"CIB", "CIB_LR", "CIB_LR_S", "CIB_EFB0", "CIB_EFB1"};
 
-    if (!base_config_file.empty()) {
-        std::ifstream config_file(base_config_file);
-        if (!config_file) {
-            log_error("failed to open base config file '%s'\n", base_config_file.c_str());
-        }
-        config_file >> cc;
-    } else {
-        switch (ctx->args.type) {
-        case ArchArgs::LFE5U_12F:
-            BaseConfigs::config_empty_lfe5u_25f(cc);
-            cc.chip_name = "LFE5U-12F";
-            break;
-        case ArchArgs::LFE5U_25F:
-            BaseConfigs::config_empty_lfe5u_25f(cc);
-            break;
-        case ArchArgs::LFE5U_45F:
-            BaseConfigs::config_empty_lfe5u_45f(cc);
-            break;
-        case ArchArgs::LFE5U_85F:
-            BaseConfigs::config_empty_lfe5u_85f(cc);
-            break;
-        case ArchArgs::LFE5UM_25F:
-            BaseConfigs::config_empty_lfe5um_25f(cc);
-            break;
-        case ArchArgs::LFE5UM_45F:
-            BaseConfigs::config_empty_lfe5um_45f(cc);
-            break;
-        case ArchArgs::LFE5UM_85F:
-            BaseConfigs::config_empty_lfe5um_85f(cc);
-            break;
-        case ArchArgs::LFE5UM5G_25F:
-            BaseConfigs::config_empty_lfe5um5g_25f(cc);
-            break;
-        case ArchArgs::LFE5UM5G_45F:
-            BaseConfigs::config_empty_lfe5um5g_45f(cc);
-            break;
-        case ArchArgs::LFE5UM5G_85F:
-            BaseConfigs::config_empty_lfe5um5g_85f(cc);
-            break;
-        default:
-            NPNR_ASSERT_FALSE("Unsupported device type");
-        }
-    }
-
-    cc.metadata.push_back("Part: " + ctx->get_full_chip_name());
-
-    // Clear out DCU tieoffs in base config if DCU used
-    for (auto &cell : ctx->cells) {
-        CellInfo *ci = cell.second.get();
-        if (ci->type == id_DCUA) {
-            Loc loc = ctx->getBelLocation(ci->bel);
-            for (int i = 0; i < 12; i++) {
-                auto tiles = ctx->get_tiles_at_loc(loc.y - 1, loc.x + i);
-                for (const auto &tile : tiles) {
-                    auto cc_tile = cc.tiles.find(tile.first);
-                    if (cc_tile != cc.tiles.end()) {
-                        cc_tile->second.cenums.clear();
-                        cc_tile->second.cunknowns.clear();
-                    }
-                }
-            }
-        }
-    }
-    // Add all set, configurable pips to the config
-    for (auto pip : ctx->getPips()) {
-        if (ctx->getBoundPipNet(pip) != nullptr) {
-            if (ctx->get_pip_class(pip) == 0) { // ignore fixed pips
-                std::string source = get_trellis_wirename(ctx, pip.location, ctx->getPipSrcWire(pip));
-                if (source.find("CLKI_PLL") != std::string::npos) {
-                    // Special case - must set pip in all relevant tiles
-                    for (auto equiv_pip : ctx->getPipsUphill(ctx->getPipDstWire(pip))) {
-                        if (ctx->getPipSrcWire(equiv_pip) == ctx->getPipSrcWire(pip))
-                            set_pip(ctx, cc, equiv_pip);
-                    }
-                } else {
-                    set_pip(ctx, cc, pip);
-                }
-            }
-        }
-    }
-    // Find bank voltages
-    dict<int, IOVoltage> bankVcc;
-    dict<int, bool> bankLvds, bankVref, bankDiff;
-
-    for (auto &cell : ctx->cells) {
-        CellInfo *ci = cell.second.get();
-        if (ci->bel != BelId() && ci->type == id_TRELLIS_IO) {
-            int bank = ctx->get_pio_bel_bank(ci->bel);
-            std::string dir = str_or_default(ci->params, id_DIR, "INPUT");
-            std::string iotype = str_or_default(ci->attrs, id_IO_TYPE, "LVCMOS33");
-
-            if (dir != "INPUT" || is_referenced(ioType_from_str(iotype))) {
-                IOVoltage vcc = get_vccio(ioType_from_str(iotype));
-                if (bankVcc.find(bank) != bankVcc.end()) {
-                    // TODO: strong and weak constraints
-                    if (bankVcc[bank] != vcc) {
-                        log_error("Error processing '%s': incompatible IO voltages %s and %s on bank %d.",
-                                  cell.first.c_str(ctx), iovoltage_to_str(bankVcc[bank]).c_str(),
-                                  iovoltage_to_str(vcc).c_str(), bank);
-                    }
-                } else {
-                    bankVcc[bank] = vcc;
-                }
-            }
-
-            if (iotype == "LVDS")
-                bankLvds[bank] = true;
-            if ((dir == "INPUT" || dir == "BIDIR") && is_differential(ioType_from_str(iotype)))
-                bankDiff[bank] = true;
-            if ((dir == "INPUT" || dir == "BIDIR") && is_referenced(ioType_from_str(iotype)))
-                bankVref[bank] = true;
-        }
-    }
-
-    // Set all bankref tiles to appropriate VccIO
-    for (int y = 0; y < ctx->getGridDimY(); y++) {
-        for (int x = 0; x < ctx->getGridDimX(); x++) {
-            auto tiles = ctx->get_tiles_at_loc(y, x);
-            for (auto tile : tiles) {
-                std::string type = tile.second;
-                if (type.find("BANKREF") != std::string::npos) {
-                    int bank = std::stoi(type.substr(7));
-                    if (bank == 8 && ctx->settings.count(ctx->id("arch.sysconfig.CONFIG_IOVOLTAGE"))) {
-                        std::string vcc = str_or_default(ctx->settings, ctx->id("arch.sysconfig.CONFIG_IOVOLTAGE"));
-                        vcc.at(1) = 'V';
-                        cc.tiles[tile.first].add_enum("BANK.VCCIO", vcc);
-                    } else if (bankVcc.find(bank) != bankVcc.end()) {
-                        if (bankVcc[bank] == IOVoltage::VCC_1V35)
-                            cc.tiles[tile.first].add_enum("BANK.VCCIO", "1V2");
-                        else
-                            cc.tiles[tile.first].add_enum("BANK.VCCIO", iovoltage_to_str(bankVcc[bank]));
-                    }
-                    if (bankLvds[bank]) {
-                        cc.tiles[tile.first].add_enum("BANK.DIFF_REF", "ON");
-                        cc.tiles[tile.first].add_enum("BANK.LVDSO", "ON");
-                    }
-                    if (bankDiff[bank]) {
-                        cc.tiles[tile.first].add_enum("BANK.DIFF_REF", "ON");
-                    }
-                    if (bankVref[bank]) {
-                        cc.tiles[tile.first].add_enum("BANK.DIFF_REF", "ON");
-                        cc.tiles[tile.first].add_enum("BANK.VREF", "ON");
-                    }
-                }
-            }
-        }
-    }
-
-    // Create dummy outputs used as Vref input buffer for banks where Vref is used
-    for (auto bv : bankVref) {
-        if (!bv.second)
-            continue;
-        BelId vrefIO = ctx->get_pio_by_function_name(fmt_str("VREF1_" << bv.first));
-        if (vrefIO == BelId())
-            log_error("unable to find VREF input for bank %d\n", bv.first);
-        if (!ctx->checkBelAvail(vrefIO)) {
-            CellInfo *bound = ctx->getBoundBelCell(vrefIO);
-            if (bound != nullptr)
-                log_error("VREF pin %s of bank %d is occupied by IO '%s'\n", ctx->get_bel_package_pin(vrefIO).c_str(),
-                          bv.first, bound->name.c_str(ctx));
-            else
-                log_error("VREF pin %s of bank %d is unavailable\n", ctx->get_bel_package_pin(vrefIO).c_str(),
-                          bv.first);
-        }
-        log_info("Using pin %s as VREF for bank %d\n", ctx->get_bel_package_pin(vrefIO).c_str(), bv.first);
-        std::string pio_tile = get_pio_tile(ctx, vrefIO);
-
-        std::string iotype;
-        switch (bankVcc[bv.first]) {
-        case IOVoltage::VCC_1V2:
-            iotype = "HSUL12";
-            break;
-        case IOVoltage::VCC_1V35:
-            iotype = "SSTL18_I";
-            break;
-        case IOVoltage::VCC_1V5:
-            iotype = "SSTL18_I";
-            break;
-        case IOVoltage::VCC_1V8:
-            iotype = "SSTL18_I";
-            break;
-        default:
-            log_error("Referenced inputs are not supported with bank VccIO of %s.\n",
-                      iovoltage_to_str(bankVcc[bv.first]).c_str());
-        }
-
-        std::string pio = ctx->loc_info(vrefIO)->bel_data[vrefIO.index].name.get();
-        cc.tiles[pio_tile].add_enum(pio + ".BASE_TYPE", "OUTPUT_" + iotype);
-        cc.tiles[pio_tile].add_enum(pio + ".PULLMODE", "NONE");
-    }
-
-    // Configure slices
-    for (auto &cell : ctx->cells) {
-        CellInfo *ci = cell.second.get();
-        if (ci->bel == BelId()) {
-            log_warning("found unplaced cell '%s' during bitstream gen\n", ci->name.c_str(ctx));
-        }
+    void write_io(CellInfo *ci)
+    {
         BelId bel = ci->bel;
-        if (ci->type == id_TRELLIS_COMB) {
-            pool<IdString> used_phys_pins;
-            std::string tname = ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, "PLC2");
-            int z = ctx->loc_info(bel)->bel_data[bel.index].z >> Arch::lc_idx_shift;
-            std::string slice = std::string("SLICE") + "ABCD"[z / 2];
-            std::string lc = std::to_string(z % 2);
-            std::string mode = str_or_default(ci->params, id_MODE, "LOGIC");
-            if (mode == "RAMW_BLOCK")
-                continue;
-            int lut_init = int_or_default(ci->params, id_INITVAL);
-            cc.tiles[tname].add_enum(slice + ".MODE", mode);
-            cc.tiles[tname].add_word(slice + ".K" + lc + ".INIT",
-                                     int_to_bitvector(permute_lut(ctx, ci, used_phys_pins, lut_init), 16));
-            if (mode == "CCU2") {
-                cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_" + lc,
-                                         str_or_default(ci->params, id_CCU2_INJECT1, "YES"));
+        std::string pio = ctx->loc_info(bel)->bel_data[bel.index].name.get();
+        std::string iotype = str_or_default(ci->attrs, id_IO_TYPE, "LVCMOS33");
+        std::string dir = str_or_default(ci->params, id_DIR, "INPUT");
+        std::string pio_tile = get_pio_tile(bel);
+        std::string pic_tile = get_pic_tile(bel);
+        cc.tiles[pio_tile].add_enum(pio + ".BASE_TYPE", dir + "_" + iotype);
+        cc.tiles[pic_tile].add_enum(pio + ".BASE_TYPE", dir + "_" + iotype);
+        if (is_differential(ioType_from_str(iotype))) {
+            if (bel.location.y == 0) {
+                // Pseudo differential top IO
+                if (dir != "OUTPUT")
+                    log_error("Pseudo-differential IO '%s' must be output\n", ctx->nameOf(ci));
+                if (pio != "PIOA")
+                    log_error("Pseudo-differential IO '%s' must be constrained to 'A' side of pair\n", ctx->nameOf(ci));
+                std::string cpio_tile = get_comp_pio_tile(bel);
+                std::string cpic_tile = get_comp_pic_tile(bel);
+                cc.tiles[cpio_tile].add_enum(pio + ".BASE_TYPE", dir + "_" + iotype);
+                cc.tiles[cpic_tile].add_enum(pio + ".BASE_TYPE", dir + "_" + iotype);
             } else {
-                // Don't interfere with cascade mux wiring
-                cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_" + lc, "_NONE_");
-            }
-            if (mode == "DPRAM" && slice == "SLICEA" && lc == "0") {
-                cc.tiles[tname].add_enum(slice + ".WREMUX", str_or_default(ci->params, id_WREMUX, "WRE"));
-                std::string wckmux = str_or_default(ci->params, id_WCKMUX, "WCK");
-                wckmux = (wckmux == "WCK") ? "CLK" : wckmux;
-                cc.tiles[tname].add_enum("CLK1.CLKMUX", wckmux);
-            }
-            for (auto input : {id_A, id_B, id_C, id_D}) {
-                if (!used_phys_pins.count(input)) {
-                    cc.tiles[tname].add_enum(slice + "." + input.str(ctx) + lc + "MUX", "1");
-                }
-            }
-        } else if (ci->type == id_TRELLIS_FF) {
-            std::string tname = ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, "PLC2");
-            int z = ctx->loc_info(bel)->bel_data[bel.index].z >> Arch::lc_idx_shift;
-            std::string slice = std::string("SLICE") + "ABCD"[z / 2];
-            std::string lc = std::to_string(z % 2);
-
-            cc.tiles[tname].add_enum(slice + ".GSR", str_or_default(ci->params, id_GSR, "ENABLED"));
-            cc.tiles[tname].add_enum(slice + ".REG" + lc + ".SD", intstr_or_default(ci->params, id_SD, "0"));
-            cc.tiles[tname].add_enum(slice + ".REG" + lc + ".REGSET", str_or_default(ci->params, id_REGSET, "RESET"));
-            cc.tiles[tname].add_enum(slice + ".REG" + lc + ".LSRMODE", str_or_default(ci->params, id_LSRMODE, "LSR"));
-
-            cc.tiles[tname].add_enum(slice + ".CEMUX", str_or_default(ci->params, id_CEMUX, "1"));
-
-            NetInfo *lsrnet = ci->getPort(id_LSR);
-            if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "LSR0")) == lsrnet) {
-                cc.tiles[tname].add_enum("LSR0.SRMODE", str_or_default(ci->params, id_SRMODE, "LSR_OVER_CE"));
-                cc.tiles[tname].add_enum("LSR0.LSRMUX", str_or_default(ci->params, id_LSRMUX, "LSR"));
-            }
-            if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "LSR1")) == lsrnet) {
-                cc.tiles[tname].add_enum("LSR1.SRMODE", str_or_default(ci->params, id_SRMODE, "LSR_OVER_CE"));
-                cc.tiles[tname].add_enum("LSR1.LSRMUX", str_or_default(ci->params, id_LSRMUX, "LSR"));
-            }
-
-            NetInfo *clknet = ci->getPort(id_CLK);
-            if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "CLK0")) == clknet) {
-                cc.tiles[tname].add_enum("CLK0.CLKMUX", str_or_default(ci->params, id_CLKMUX, "CLK"));
-            }
-            if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "CLK1")) == clknet) {
-                cc.tiles[tname].add_enum("CLK1.CLKMUX", str_or_default(ci->params, id_CLKMUX, "CLK"));
-            }
-        } else if (ci->type == id_TRELLIS_RAMW) {
-            std::string tname = ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, "PLC2");
-            cc.tiles[tname].add_enum("SLICEC.MODE", "RAMW");
-            cc.tiles[tname].add_word("SLICEC.K0.INIT", std::vector<bool>(16, false));
-            cc.tiles[tname].add_word("SLICEC.K1.INIT", std::vector<bool>(16, false));
-        } else if (ci->type == id_TRELLIS_IO) {
-            std::string pio = ctx->loc_info(bel)->bel_data[bel.index].name.get();
-            std::string iotype = str_or_default(ci->attrs, id_IO_TYPE, "LVCMOS33");
-            std::string dir = str_or_default(ci->params, id_DIR, "INPUT");
-            std::string pio_tile = get_pio_tile(ctx, bel);
-            std::string pic_tile = get_pic_tile(ctx, bel);
-            cc.tiles[pio_tile].add_enum(pio + ".BASE_TYPE", dir + "_" + iotype);
-            cc.tiles[pic_tile].add_enum(pio + ".BASE_TYPE", dir + "_" + iotype);
-            if (is_differential(ioType_from_str(iotype))) {
-                if (bel.location.y == 0) {
-                    // Pseudo differential top IO
-                    if (dir != "OUTPUT")
-                        log_error("Pseudo-differential IO '%s' must be output\n", ctx->nameOf(ci));
-                    if (pio != "PIOA")
-                        log_error("Pseudo-differential IO '%s' must be constrained to 'A' side of pair\n",
-                                  ctx->nameOf(ci));
-                    std::string cpio_tile = get_comp_pio_tile(ctx, bel);
-                    std::string cpic_tile = get_comp_pic_tile(ctx, bel);
-                    cc.tiles[cpio_tile].add_enum(pio + ".BASE_TYPE", dir + "_" + iotype);
-                    cc.tiles[cpic_tile].add_enum(pio + ".BASE_TYPE", dir + "_" + iotype);
-                } else {
-                    // Explicitly disable other pair
-                    std::string other;
-                    if (pio == "PIOA")
-                        other = "PIOB";
-                    else if (pio == "PIOC")
-                        other = "PIOD";
-                    else
-                        log_error("cannot place differential IO at location %s\n", pio.c_str());
-                    // cc.tiles[pio_tile].add_enum(other + ".BASE_TYPE", "_NONE_");
-                    // cc.tiles[pic_tile].add_enum(other + ".BASE_TYPE", "_NONE_");
-                    cc.tiles[pio_tile].add_enum(other + ".PULLMODE", "NONE");
-                    cc.tiles[pio_tile].add_enum(pio + ".PULLMODE", "NONE");
-                }
-
-            } else if (is_referenced(ioType_from_str(iotype))) {
+                // Explicitly disable other pair
+                std::string other;
+                if (pio == "PIOA")
+                    other = "PIOB";
+                else if (pio == "PIOC")
+                    other = "PIOD";
+                else
+                    log_error("cannot place differential IO at location %s\n", pio.c_str());
+                // cc.tiles[pio_tile].add_enum(other + ".BASE_TYPE", "_NONE_");
+                // cc.tiles[pic_tile].add_enum(other + ".BASE_TYPE", "_NONE_");
+                cc.tiles[pio_tile].add_enum(other + ".PULLMODE", "NONE");
                 cc.tiles[pio_tile].add_enum(pio + ".PULLMODE", "NONE");
             }
-            if (dir != "INPUT" && (ci->ports.find(id_T) == ci->ports.end() || ci->ports.at(id_T).net == nullptr) &&
-                (ci->ports.find(id_IOLTO) == ci->ports.end() || ci->ports.at(id_IOLTO).net == nullptr)) {
-                // Tie tristate low if unconnected for outputs or bidir
-                WireId jpt_wire = ctx->get_wire_by_loc_basename(bel.location, fmt_str("JPADDT" << pio.back()));
-                PipId jpt_pip = *ctx->getPipsUphill(jpt_wire).begin();
-                WireId cib_wire = ctx->getPipSrcWire(jpt_pip);
-                std::string cib_tile = ctx->get_tile_by_type_loc(cib_wire.location.y, cib_wire.location.x, cib_tiles);
-                std::string cib_wirename = ctx->loc_info(cib_wire)->wire_data[cib_wire.index].name.get();
-                cc.tiles[cib_tile].add_enum("CIB." + cib_wirename + "MUX", "0");
-            }
-            if ((dir == "INPUT" || dir == "BIDIR") && !is_differential(ioType_from_str(iotype)) &&
-                !is_referenced(ioType_from_str(iotype))) {
-                cc.tiles[pio_tile].add_enum(pio + ".HYSTERESIS", str_or_default(ci->attrs, id_HYSTERESIS, "ON"));
-            }
-            if (ci->attrs.count(id_SLEWRATE) && !is_referenced(ioType_from_str(iotype)))
-                cc.tiles[pio_tile].add_enum(pio + ".SLEWRATE", str_or_default(ci->attrs, id_SLEWRATE, "SLOW"));
-            if (ci->attrs.count(id_PULLMODE))
-                cc.tiles[pio_tile].add_enum(pio + ".PULLMODE", str_or_default(ci->attrs, id_PULLMODE, "NONE"));
-            if (ci->attrs.count(id_DIFFRESISTOR))
-                cc.tiles[pio_tile].add_enum(pio + ".DIFFRESISTOR", str_or_default(ci->attrs, id_DIFFRESISTOR, "OFF"));
-            if (ci->attrs.count(id_CLAMP))
-                cc.tiles[pio_tile].add_enum(pio + ".CLAMP", str_or_default(ci->attrs, id_CLAMP, "OFF"));
 
-            if (ci->attrs.count(id_DRIVE)) {
-                static bool drive_3v3_warning_done = false;
-                if (iotype == "LVCMOS33") {
-                    cc.tiles[pio_tile].add_enum(pio + ".DRIVE", str_or_default(ci->attrs, id_DRIVE, "8"));
-                } else if (iotype == "LVCMOS33D") {
-                    if (bel.location.y == 0) {
-                        // Pseudo differential top IO
-                        NPNR_ASSERT(dir == "OUTPUT");
-                        NPNR_ASSERT(pio == "PIOA");
-                        std::string cpio_tile = get_comp_pio_tile(ctx, bel);
-                        cc.tiles[pio_tile].add_enum("PIOA.DRIVE", str_or_default(ci->attrs, id_DRIVE, "12"));
-                        cc.tiles[cpio_tile].add_enum("PIOB.DRIVE", str_or_default(ci->attrs, id_DRIVE, "12"));
-                    } else {
-                        std::string other;
-                        if (pio == "PIOA")
-                            other = "PIOB";
-                        else if (pio == "PIOC")
-                            other = "PIOD";
-                        else
-                            log_error("cannot set DRIVE on differential IO at location %s\n", pio.c_str());
-                        cc.tiles[pio_tile].add_enum(pio + ".DRIVE", str_or_default(ci->attrs, id_DRIVE, "12"));
-                        cc.tiles[pio_tile].add_enum(other + ".DRIVE", str_or_default(ci->attrs, id_DRIVE, "12"));
-                    }
+        } else if (is_referenced(ioType_from_str(iotype))) {
+            cc.tiles[pio_tile].add_enum(pio + ".PULLMODE", "NONE");
+        }
+        if (dir != "INPUT" && (ci->ports.find(id_T) == ci->ports.end() || ci->ports.at(id_T).net == nullptr) &&
+            (ci->ports.find(id_IOLTO) == ci->ports.end() || ci->ports.at(id_IOLTO).net == nullptr)) {
+            // Tie tristate low if unconnected for outputs or bidir
+            WireId jpt_wire = ctx->get_wire_by_loc_basename(bel.location, fmt_str("JPADDT" << pio.back()));
+            PipId jpt_pip = *ctx->getPipsUphill(jpt_wire).begin();
+            WireId cib_wire = ctx->getPipSrcWire(jpt_pip);
+            std::string cib_tile = ctx->get_tile_by_type_loc(cib_wire.location.y, cib_wire.location.x, cib_tiles);
+            std::string cib_wirename = ctx->loc_info(cib_wire)->wire_data[cib_wire.index].name.get();
+            cc.tiles[cib_tile].add_enum("CIB." + cib_wirename + "MUX", "0");
+        }
+        if ((dir == "INPUT" || dir == "BIDIR") && !is_differential(ioType_from_str(iotype)) &&
+            !is_referenced(ioType_from_str(iotype))) {
+            cc.tiles[pio_tile].add_enum(pio + ".HYSTERESIS", str_or_default(ci->attrs, id_HYSTERESIS, "ON"));
+        }
+        if (ci->attrs.count(id_SLEWRATE) && !is_referenced(ioType_from_str(iotype)))
+            cc.tiles[pio_tile].add_enum(pio + ".SLEWRATE", str_or_default(ci->attrs, id_SLEWRATE, "SLOW"));
+        if (ci->attrs.count(id_PULLMODE))
+            cc.tiles[pio_tile].add_enum(pio + ".PULLMODE", str_or_default(ci->attrs, id_PULLMODE, "NONE"));
+        if (ci->attrs.count(id_DIFFRESISTOR))
+            cc.tiles[pio_tile].add_enum(pio + ".DIFFRESISTOR", str_or_default(ci->attrs, id_DIFFRESISTOR, "OFF"));
+        if (ci->attrs.count(id_CLAMP))
+            cc.tiles[pio_tile].add_enum(pio + ".CLAMP", str_or_default(ci->attrs, id_CLAMP, "OFF"));
+
+        if (ci->attrs.count(id_DRIVE)) {
+            static bool drive_3v3_warning_done = false;
+            if (iotype == "LVCMOS33") {
+                cc.tiles[pio_tile].add_enum(pio + ".DRIVE", str_or_default(ci->attrs, id_DRIVE, "8"));
+            } else if (iotype == "LVCMOS33D") {
+                if (bel.location.y == 0) {
+                    // Pseudo differential top IO
+                    NPNR_ASSERT(dir == "OUTPUT");
+                    NPNR_ASSERT(pio == "PIOA");
+                    std::string cpio_tile = get_comp_pio_tile(bel);
+                    cc.tiles[pio_tile].add_enum("PIOA.DRIVE", str_or_default(ci->attrs, id_DRIVE, "12"));
+                    cc.tiles[cpio_tile].add_enum("PIOB.DRIVE", str_or_default(ci->attrs, id_DRIVE, "12"));
                 } else {
-                    if (!drive_3v3_warning_done)
-                        log_warning("Trellis limitation: DRIVE can only be set on 3V3 IO pins.\n");
-                    drive_3v3_warning_done = true;
-                }
-            }
-            if (ci->attrs.count(id_TERMINATION)) {
-                auto vccio = get_vccio(ioType_from_str(iotype));
-                switch (vccio) {
-                case IOVoltage::VCC_1V8:
-                    cc.tiles[pio_tile].add_enum(pio + ".TERMINATION_1V8",
-                                                str_or_default(ci->attrs, id_TERMINATION, "OFF"));
-                    break;
-                case IOVoltage::VCC_1V5:
-                    cc.tiles[pio_tile].add_enum(pio + ".TERMINATION_1V5",
-                                                str_or_default(ci->attrs, id_TERMINATION, "OFF"));
-                    break;
-                case IOVoltage::VCC_1V35:
-                    cc.tiles[pio_tile].add_enum(pio + ".TERMINATION_1V35",
-                                                str_or_default(ci->attrs, id_TERMINATION, "OFF"));
-                    break;
-                default:
-                    log_error("TERMINATION is not supported with Vcc = %s (on PIO %s)\n",
-                              iovoltage_to_str(vccio).c_str(), ci->name.c_str(ctx));
-                }
-            }
-            if (ci->attrs.count(id_OPENDRAIN)) {
-                cc.tiles[pio_tile].add_enum(pio + ".OPENDRAIN", str_or_default(ci->attrs, id_OPENDRAIN, "OFF"));
-                if (is_differential(ioType_from_str(iotype))) {
                     std::string other;
                     if (pio == "PIOA")
                         other = "PIOB";
                     else if (pio == "PIOC")
                         other = "PIOD";
                     else
-                        log_error("cannot set OPENDRAIN on differential IO at location %s\n", pio.c_str());
-                    cc.tiles[pio_tile].add_enum(other + ".OPENDRAIN", str_or_default(ci->attrs, id_OPENDRAIN, "OFF"));
+                        log_error("cannot set DRIVE on differential IO at location %s\n", pio.c_str());
+                    cc.tiles[pio_tile].add_enum(pio + ".DRIVE", str_or_default(ci->attrs, id_DRIVE, "12"));
+                    cc.tiles[pio_tile].add_enum(other + ".DRIVE", str_or_default(ci->attrs, id_DRIVE, "12"));
                 }
-            }
-
-            std::string datamux_oddr = str_or_default(ci->params, id_DATAMUX_ODDR, "PADDO");
-            if (datamux_oddr != "PADDO")
-                cc.tiles[pic_tile].add_enum(pio + ".DATAMUX_ODDR", datamux_oddr);
-            std::string datamux_oreg = str_or_default(ci->params, id_DATAMUX_OREG, "PADDO");
-            if (datamux_oreg != "PADDO")
-                cc.tiles[pic_tile].add_enum(pio + ".DATAMUX_OREG", datamux_oreg);
-            std::string datamux_mddr = str_or_default(ci->params, id_DATAMUX_MDDR, "PADDO");
-            if (datamux_mddr != "PADDO")
-                cc.tiles[pic_tile].add_enum(pio + ".DATAMUX_MDDR", datamux_mddr);
-            std::string trimux_tsreg = str_or_default(ci->params, id_TRIMUX_TSREG, "PADDT");
-            if (trimux_tsreg != "PADDT")
-                cc.tiles[pic_tile].add_enum(pio + ".TRIMUX_TSREG", trimux_tsreg);
-        } else if (ci->type == id_DCCA) {
-            const NetInfo *cen = ci->getPort(id_CE);
-            if (cen != nullptr) {
-                std::string belname = ctx->loc_info(bel)->bel_data[bel.index].name.get();
-                Loc loc = ctx->getBelLocation(bel);
-                TileGroup tg;
-                switch (belname[0]) {
-                case 'B':
-                    tg.tiles.push_back(
-                            ctx->get_tile_by_type_loc(loc.y, loc.x, std::set<std::string>{"BMID_0H", "BMID_0V"}));
-                    tg.tiles.push_back(
-                            ctx->get_tile_by_type_loc(loc.y, loc.x + 1, std::set<std::string>{"BMID_2", "BMID_2V"}));
-                    break;
-                case 'T':
-                    tg.tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "TMID_0"));
-                    tg.tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "TMID_1"));
-                    break;
-                case 'L':
-                    tg.tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "LMID_0"));
-                    break;
-                case 'R':
-                    tg.tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "RMID_0"));
-                    break;
-                default:
-                    NPNR_ASSERT_FALSE("bad DCC for gating");
-                    break;
-                }
-                tg.config.add_enum(std::string("DCC_") + belname[0] + belname.substr(4) + ".MODE", "DCCA");
-                cc.tilegroups.push_back(tg);
-            }
-        } else if (ci->type == id_DCSC) {
-            std::set<std::string> dcs_tiles{"EBR_CMUX_LL", "EBR_CMUX_UL", "EBR_CMUX_LL_25K", "DSP_CMUX_UL"};
-            std::string tile = ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, dcs_tiles);
-            std::string dcs = ctx->loc_info(bel)->bel_data[bel.index].name.get();
-            cc.tiles[tile].add_enum(dcs + ".DCSMODE", str_or_default(ci->attrs, id_DCSMODE, "POS"));
-        } else if (ci->type == id_DP16KD) {
-            TileGroup tg;
-            Loc loc = ctx->getBelLocation(ci->bel);
-            tg.tiles = get_bram_tiles(ctx, ci->bel);
-            std::string ebr = "EBR" + std::to_string(loc.z);
-
-            if (ci->ramInfo.is_pdp) {
-                tg.config.add_enum(ebr + ".MODE", "PDPW16KD");
-                tg.config.add_enum(ebr + ".PDPW16KD.DATA_WIDTH_R",
-                                   intstr_or_default(ci->params, id_DATA_WIDTH_B, "36"));
             } else {
-                tg.config.add_enum(ebr + ".MODE", "DP16KD");
-                tg.config.add_enum(ebr + ".DP16KD.DATA_WIDTH_A", intstr_or_default(ci->params, id_DATA_WIDTH_A, "18"));
-                tg.config.add_enum(ebr + ".DP16KD.DATA_WIDTH_B", intstr_or_default(ci->params, id_DATA_WIDTH_B, "18"));
-                tg.config.add_enum(ebr + ".DP16KD.WRITEMODE_A", str_or_default(ci->params, id_WRITEMODE_A, "NORMAL"));
-                tg.config.add_enum(ebr + ".DP16KD.WRITEMODE_B", str_or_default(ci->params, id_WRITEMODE_B, "NORMAL"));
+                if (!drive_3v3_warning_done)
+                    log_warning("Trellis limitation: DRIVE can only be set on 3V3 IO pins.\n");
+                drive_3v3_warning_done = true;
             }
-
-            auto csd_a = str_to_bitvector(str_or_default(ci->params, id_CSDECODE_A, "0b000"), 3),
-                 csd_b = str_to_bitvector(str_or_default(ci->params, id_CSDECODE_B, "0b000"), 3);
-
-            tg.config.add_enum(ebr + ".REGMODE_A", str_or_default(ci->params, id_REGMODE_A, "NOREG"));
-            tg.config.add_enum(ebr + ".REGMODE_B", str_or_default(ci->params, id_REGMODE_B, "NOREG"));
-
-            tg.config.add_enum(ebr + ".RESETMODE", str_or_default(ci->params, id_RESETMODE, "SYNC"));
-            tg.config.add_enum(ebr + ".ASYNC_RESET_RELEASE",
-                               str_or_default(ci->params, id_ASYNC_RESET_RELEASE, "SYNC"));
-            tg.config.add_enum(ebr + ".GSR", str_or_default(ci->params, id_GSR, "DISABLED"));
-
-            tg.config.add_word(ebr + ".WID", int_to_bitvector(bit_reverse(int_or_default(ci->attrs, id_WID, 0), 9), 9));
-
-            // Tie signals as appropriate
-            for (auto port : ci->ports) {
-                if (ci->ramInfo.is_pdp && (port.first.in(id_WEA, id_WEB, id_ADA4)))
-                    continue;
-                if (port.second.net == nullptr && port.second.type == PORT_IN) {
-                    if (port.first.in(id_CLKA, id_CLKB, id_WEA, id_WEB, id_RSTA, id_RSTB)) {
-                        // CIB clock or LSR. Tie to "1" (also 0 in prjtrellis db?) in CIB
-                        // If MUX doesn't exist, set to INV to emulate default 0
-                        tie_cib_signal(ctx, cc, ctx->getBelPinWire(ci->bel, port.first), true);
-                        if (!ci->params.count(ctx->id(port.first.str(ctx) + "MUX")))
-                            ci->params[ctx->id(port.first.str(ctx) + "MUX")] = std::string("INV");
-                    } else if (port.first.in(id_CEA, id_CEB, id_OCEA, id_OCEB)) {
-                        // CIB CE. Tie to "1" in CIB
-                        // If MUX doesn't exist, set to passthru to emulate default 1
-                        tie_cib_signal(ctx, cc, ctx->getBelPinWire(ci->bel, port.first), true);
-                        if (!ci->params.count(ctx->id(port.first.str(ctx) + "MUX")))
-                            ci->params[ctx->id(port.first.str(ctx) + "MUX")] = port.first.str(ctx);
-                    } else if (port.first.in(id_CSA0, id_CSA1, id_CSA2, id_CSB0, id_CSB1, id_CSB2)) {
-                        // CIB CE. Tie to "1" in CIB.
-                        // If MUX doesn't exist, set to INV to emulate default 0
-                        tie_cib_signal(ctx, cc, ctx->getBelPinWire(ci->bel, port.first), true);
-                        if (!ci->params.count(ctx->id(port.first.str(ctx) + "MUX")))
-                            ci->params[ctx->id(port.first.str(ctx) + "MUX")] = std::string("INV");
-                    } else {
-                        // CIB ABCD signal
-                        // Tie signals low unless explicit MUX param specified
-                        bool value = bool_or_default(ci->params, ctx->id(port.first.str(ctx) + "MUX"), false);
-                        tie_cib_signal(ctx, cc, ctx->getBelPinWire(ci->bel, port.first), value);
-                    }
-                }
+        }
+        if (ci->attrs.count(id_TERMINATION)) {
+            auto vccio = get_vccio(ioType_from_str(iotype));
+            switch (vccio) {
+            case IOVoltage::VCC_1V8:
+                cc.tiles[pio_tile].add_enum(pio + ".TERMINATION_1V8", str_or_default(ci->attrs, id_TERMINATION, "OFF"));
+                break;
+            case IOVoltage::VCC_1V5:
+                cc.tiles[pio_tile].add_enum(pio + ".TERMINATION_1V5", str_or_default(ci->attrs, id_TERMINATION, "OFF"));
+                break;
+            case IOVoltage::VCC_1V35:
+                cc.tiles[pio_tile].add_enum(pio + ".TERMINATION_1V35",
+                                            str_or_default(ci->attrs, id_TERMINATION, "OFF"));
+                break;
+            default:
+                log_error("TERMINATION is not supported with Vcc = %s (on PIO %s)\n", iovoltage_to_str(vccio).c_str(),
+                          ci->name.c_str(ctx));
             }
-
-            // Invert CSDECODE bits to emulate inversion muxes on CSA/CSB signals
-            for (auto &port : {std::make_pair("CSA", std::ref(csd_a)), std::make_pair("CSB", std::ref(csd_b))}) {
-                for (int bit = 0; bit < 3; bit++) {
-                    std::string sig = port.first + std::to_string(bit);
-                    if (str_or_default(ci->params, ctx->id(sig + "MUX"), sig) == "INV")
-                        port.second.at(bit) = !port.second.at(bit);
-                }
-            }
-
-            tg.config.add_enum(ebr + ".CLKAMUX", str_or_default(ci->params, id_CLKAMUX, "CLKA"));
-            tg.config.add_enum(ebr + ".CLKBMUX", str_or_default(ci->params, id_CLKBMUX, "CLKB"));
-
-            tg.config.add_enum(ebr + ".RSTAMUX", str_or_default(ci->params, id_RSTAMUX, "RSTA"));
-            tg.config.add_enum(ebr + ".RSTBMUX", str_or_default(ci->params, id_RSTBMUX, "RSTB"));
-            if (!ci->ramInfo.is_pdp) {
-                tg.config.add_enum(ebr + ".WEAMUX", str_or_default(ci->params, id_WEAMUX, "WEA"));
-                tg.config.add_enum(ebr + ".WEBMUX", str_or_default(ci->params, id_WEBMUX, "WEB"));
-            }
-            tg.config.add_enum(ebr + ".CEAMUX", str_or_default(ci->params, id_CEAMUX, "CEA"));
-            tg.config.add_enum(ebr + ".CEBMUX", str_or_default(ci->params, id_CEBMUX, "CEB"));
-            tg.config.add_enum(ebr + ".OCEAMUX", str_or_default(ci->params, id_OCEAMUX, "OCEA"));
-            tg.config.add_enum(ebr + ".OCEBMUX", str_or_default(ci->params, id_OCEBMUX, "OCEB"));
-
-            std::reverse(csd_a.begin(), csd_a.end());
-            std::reverse(csd_b.begin(), csd_b.end());
-
-            tg.config.add_word(ebr + ".CSDECODE_A", csd_a);
-            tg.config.add_word(ebr + ".CSDECODE_B", csd_b);
-
-            std::vector<uint16_t> init_data;
-            init_data.resize(2048, 0x0);
-            // INIT_00 .. INIT_3F
-            for (int i = 0; i <= 0x3F; i++) {
-                IdString param = ctx->id("INITVAL_" +
-                                         fmt_str(std::hex << std::uppercase << std::setw(2) << std::setfill('0') << i));
-                auto value = parse_init_str(get_or_default(ci->params, param, Property(0)), 320, ci->name.c_str(ctx));
-                for (int j = 0; j < 16; j++) {
-                    // INIT parameter consists of 16 18-bit words with 2-bit padding
-                    int ofs = 20 * j;
-                    for (int k = 0; k < 18; k++) {
-                        if (value.at(ofs + k))
-                            init_data.at(i * 32 + j * 2 + (k / 9)) |= (1 << (k % 9));
-                    }
-                }
-            }
-            int wid = int_or_default(ci->attrs, id_WID, 0);
-            NPNR_ASSERT(!cc.bram_data.count(wid));
-            cc.bram_data[wid] = init_data;
-            cc.tilegroups.push_back(tg);
-        } else if (ci->type == id_MULT18X18D) {
-            TileGroup tg;
-            Loc loc = ctx->getBelLocation(ci->bel);
-            tg.tiles = get_dsp_tiles(ctx, ci->bel);
-            std::string dsp = "MULT18_" + std::to_string(loc.z);
-            tg.config.add_enum(dsp + ".REG_INPUTA_CLK", str_or_default(ci->params, id_REG_INPUTA_CLK, "NONE"));
-            tg.config.add_enum(dsp + ".REG_INPUTA_CE", str_or_default(ci->params, id_REG_INPUTA_CE, "CE0"));
-            tg.config.add_enum(dsp + ".REG_INPUTA_RST", str_or_default(ci->params, id_REG_INPUTA_RST, "RST0"));
-            tg.config.add_enum(dsp + ".REG_INPUTB_CLK", str_or_default(ci->params, id_REG_INPUTB_CLK, "NONE"));
-            tg.config.add_enum(dsp + ".REG_INPUTB_CE", str_or_default(ci->params, id_REG_INPUTB_CE, "CE0"));
-            tg.config.add_enum(dsp + ".REG_INPUTB_RST", str_or_default(ci->params, id_REG_INPUTB_RST, "RST0"));
-            tg.config.add_enum(dsp + ".REG_INPUTC_CLK", str_or_default(ci->params, id_REG_INPUTC_CLK, "NONE"));
-            tg.config.add_enum(dsp + ".REG_PIPELINE_CLK", str_or_default(ci->params, id_REG_PIPELINE_CLK, "NONE"));
-            tg.config.add_enum(dsp + ".REG_PIPELINE_CE", str_or_default(ci->params, id_REG_PIPELINE_CE, "CE0"));
-            tg.config.add_enum(dsp + ".REG_PIPELINE_RST", str_or_default(ci->params, id_REG_PIPELINE_RST, "RST0"));
-            tg.config.add_enum(dsp + ".REG_OUTPUT_CLK", str_or_default(ci->params, id_REG_OUTPUT_CLK, "NONE"));
-            if (dsp == "MULT18_0" || dsp == "MULT18_4")
-                tg.config.add_enum(dsp + ".REG_OUTPUT_RST", str_or_default(ci->params, id_REG_OUTPUT_RST, "RST0"));
-
-            tg.config.add_enum(dsp + ".CLK0_DIV", str_or_default(ci->params, id_CLK0_DIV, "ENABLED"));
-            tg.config.add_enum(dsp + ".CLK1_DIV", str_or_default(ci->params, id_CLK1_DIV, "ENABLED"));
-            tg.config.add_enum(dsp + ".CLK2_DIV", str_or_default(ci->params, id_CLK2_DIV, "ENABLED"));
-            tg.config.add_enum(dsp + ".CLK3_DIV", str_or_default(ci->params, id_CLK3_DIV, "ENABLED"));
-            tg.config.add_enum(dsp + ".GSR", str_or_default(ci->params, id_GSR, "ENABLED"));
-            tg.config.add_enum(dsp + ".SOURCEB_MODE", str_or_default(ci->params, id_SOURCEB_MODE, "B_SHIFT"));
-            tg.config.add_enum(dsp + ".RESETMODE", str_or_default(ci->params, id_RESETMODE, "SYNC"));
-
-            tg.config.add_enum(dsp + ".MODE", "MULT18X18D");
-            if (str_or_default(ci->params, id_REG_OUTPUT_CLK, "NONE") == "NONE" && ci->cluster == ClusterId())
-                tg.config.add_enum(dsp + ".CIBOUT_BYP", "ON");
-
-            if (loc.z < 4)
-                tg.config.add_enum("DSP_LEFT.CIBOUT", "ON");
-            else
-                tg.config.add_enum("DSP_RIGHT.CIBOUT", "ON");
-
-            // Some muxes default to INV, make all pass-thru
-            for (auto port : {"CLK", "CE", "RST"}) {
-                for (int i = 0; i < 4; i++) {
-                    std::string sig = port + std::to_string(i);
-                    tg.config.add_enum(dsp + "." + sig + "MUX", sig);
-                }
-            }
-
-            tieoff_dsp_ports(ctx, cc, ci);
-            cc.tilegroups.push_back(tg);
-
-        } else if (ci->type == id_ALU54B) {
-            TileGroup tg;
-            Loc loc = ctx->getBelLocation(ci->bel);
-            tg.tiles = get_dsp_tiles(ctx, ci->bel);
-            std::string dsp = "ALU54_" + std::to_string(loc.z);
-            tg.config.add_enum(dsp + ".REG_INPUTC0_CLK", str_or_default(ci->params, id_REG_INPUTC0_CLK, "NONE"));
-            tg.config.add_enum(dsp + ".REG_INPUTC1_CLK", str_or_default(ci->params, id_REG_INPUTC1_CLK, "NONE"));
-            tg.config.add_enum(dsp + ".REG_OPCODEOP0_0_CLK",
-                               str_or_default(ci->params, id_REG_OPCODEOP0_0_CLK, "NONE"));
-            tg.config.add_enum(dsp + ".REG_OPCODEOP0_0_CE", str_or_default(ci->params, id_REG_OPCODEOP0_0_CE, "CE0"));
-            tg.config.add_enum(dsp + ".REG_OPCODEOP0_0_RST",
-                               str_or_default(ci->params, id_REG_OPCODEOP0_0_RST, "RST0"));
-            tg.config.add_enum(dsp + ".REG_OPCODEOP1_0_CLK",
-                               str_or_default(ci->params, id_REG_OPCODEOP1_0_CLK, "NONE"));
-            tg.config.add_enum(dsp + ".REG_OPCODEOP0_1_CLK",
-                               str_or_default(ci->params, id_REG_OPCODEOP0_1_CLK, "NONE"));
-            tg.config.add_enum(dsp + ".REG_OPCODEOP1_1_CLK",
-                               str_or_default(ci->params, id_REG_OPCODEOP1_1_CLK, "NONE"));
-            tg.config.add_enum(dsp + ".REG_OPCODEOP0_1_CE", str_or_default(ci->params, id_REG_OPCODEOP0_1_CE, "CE0"));
-            tg.config.add_enum(dsp + ".REG_OPCODEOP0_1_RST",
-                               str_or_default(ci->params, id_REG_OPCODEOP0_1_RST, "RST0"));
-            tg.config.add_enum(dsp + ".REG_OPCODEIN_0_CLK", str_or_default(ci->params, id_REG_OPCODEIN_0_CLK, "NONE"));
-            tg.config.add_enum(dsp + ".REG_OPCODEIN_0_CE", str_or_default(ci->params, id_REG_OPCODEIN_0_CE, "CE0"));
-            tg.config.add_enum(dsp + ".REG_OPCODEIN_0_RST", str_or_default(ci->params, id_REG_OPCODEIN_0_RST, "RST0"));
-            tg.config.add_enum(dsp + ".REG_OPCODEIN_1_CLK", str_or_default(ci->params, id_REG_OPCODEIN_1_CLK, "NONE"));
-            tg.config.add_enum(dsp + ".REG_OPCODEIN_1_CE", str_or_default(ci->params, id_REG_OPCODEIN_1_CE, "CE0"));
-            tg.config.add_enum(dsp + ".REG_OPCODEIN_1_RST", str_or_default(ci->params, id_REG_OPCODEIN_1_RST, "RST0"));
-            tg.config.add_enum(dsp + ".REG_OUTPUT0_CLK", str_or_default(ci->params, id_REG_OUTPUT0_CLK, "NONE"));
-            tg.config.add_enum(dsp + ".REG_OUTPUT1_CLK", str_or_default(ci->params, id_REG_OUTPUT1_CLK, "NONE"));
-            tg.config.add_enum(dsp + ".REG_FLAG_CLK", str_or_default(ci->params, id_REG_FLAG_CLK, "NONE"));
-            tg.config.add_enum(dsp + ".MCPAT_SOURCE", str_or_default(ci->params, id_MCPAT_SOURCE, "STATIC"));
-            tg.config.add_enum(dsp + ".MASKPAT_SOURCE", str_or_default(ci->params, id_MASKPAT_SOURCE, "STATIC"));
-            tg.config.add_word(
-                    dsp + ".MASK01",
-                    parse_init_str(str_or_default(ci->params, id_MASK01, "0x00000000000000"), 56, ci->name.c_str(ctx)));
-            tg.config.add_enum(dsp + ".CLK0_DIV", str_or_default(ci->params, id_CLK0_DIV, "ENABLED"));
-            tg.config.add_enum(dsp + ".CLK1_DIV", str_or_default(ci->params, id_CLK1_DIV, "ENABLED"));
-            tg.config.add_enum(dsp + ".CLK2_DIV", str_or_default(ci->params, id_CLK2_DIV, "ENABLED"));
-            tg.config.add_enum(dsp + ".CLK3_DIV", str_or_default(ci->params, id_CLK3_DIV, "ENABLED"));
-            tg.config.add_word(dsp + ".MCPAT", parse_init_str(str_or_default(ci->params, id_MCPAT, "0x00000000000000"),
-                                                              56, ci->name.c_str(ctx)));
-            tg.config.add_word(dsp + ".MASKPAT",
-                               parse_init_str(str_or_default(ci->params, id_MASKPAT, "0x00000000000000"), 56,
-                                              ci->name.c_str(ctx)));
-            tg.config.add_word(
-                    dsp + ".RNDPAT",
-                    parse_init_str(str_or_default(ci->params, id_RNDPAT, "0x00000000000000"), 56, ci->name.c_str(ctx)));
-            tg.config.add_enum(dsp + ".GSR", str_or_default(ci->params, id_GSR, "ENABLED"));
-            tg.config.add_enum(dsp + ".RESETMODE", str_or_default(ci->params, id_RESETMODE, "SYNC"));
-            tg.config.add_enum(dsp + ".FORCE_ZERO_BARREL_SHIFT",
-                               str_or_default(ci->params, id_FORCE_ZERO_BARREL_SHIFT, "DISABLED"));
-            tg.config.add_enum(dsp + ".LEGACY", str_or_default(ci->params, id_LEGACY, "DISABLED"));
-
-            tg.config.add_enum(dsp + ".MODE", "ALU54B");
-
-            if (loc.z < 4)
-                tg.config.add_enum("DSP_LEFT.CIBOUT", "ON");
-            else
-                tg.config.add_enum("DSP_RIGHT.CIBOUT", "ON");
-            if (str_or_default(ci->params, id_REG_FLAG_CLK, "NONE") == "NONE") {
-                if (dsp == "ALU54_7") {
-                    tg.config.add_enum("MULT18_5.CIBOUT_BYP", "ON");
-                } else if (dsp == "ALU54_3") {
-                    tg.config.add_enum("MULT18_5.CIBOUT_BYP", "ON");
-                }
-            }
-            if (str_or_default(ci->params, id_REG_OUTPUT0_CLK, "NONE") == "NONE") {
-                if (dsp == "ALU54_7") {
-                    tg.config.add_enum("MULT18_4.CIBOUT_BYP", "ON");
-                } else if (dsp == "ALU54_3") {
-                    tg.config.add_enum("MULT18_0.CIBOUT_BYP", "ON");
-                }
-            }
-            tieoff_dsp_ports(ctx, cc, ci);
-            cc.tilegroups.push_back(tg);
-        } else if (ci->type == id_EHXPLLL) {
-            TileGroup tg;
-            tg.tiles = get_pll_tiles(ctx, ci->bel);
-
-            tg.config.add_enum("MODE", "EHXPLLL");
-
-            tg.config.add_word("CLKI_DIV", int_to_bitvector(int_or_default(ci->params, id_CLKI_DIV, 1) - 1, 7));
-            tg.config.add_word("CLKFB_DIV", int_to_bitvector(int_or_default(ci->params, id_CLKFB_DIV, 1) - 1, 7));
-
-            tg.config.add_enum("CLKOP_ENABLE", str_or_default(ci->params, id_CLKOP_ENABLE, "ENABLED"));
-            tg.config.add_enum("CLKOS_ENABLE", str_or_default(ci->params, id_CLKOS_ENABLE, "ENABLED"));
-            tg.config.add_enum("CLKOS2_ENABLE", str_or_default(ci->params, id_CLKOS2_ENABLE, "ENABLED"));
-            tg.config.add_enum("CLKOS3_ENABLE", str_or_default(ci->params, id_CLKOS3_ENABLE, "ENABLED"));
-
-            for (std::string out : {"CLKOP", "CLKOS", "CLKOS2", "CLKOS3"}) {
-                tg.config.add_word(out + "_DIV",
-                                   int_to_bitvector(int_or_default(ci->params, ctx->id(out + "_DIV"), 8) - 1, 7));
-                tg.config.add_word(out + "_CPHASE",
-                                   int_to_bitvector(int_or_default(ci->params, ctx->id(out + "_CPHASE"), 0), 7));
-                tg.config.add_word(out + "_FPHASE",
-                                   int_to_bitvector(int_or_default(ci->params, ctx->id(out + "_FPHASE"), 0), 3));
-            }
-
-            tg.config.add_enum("FEEDBK_PATH", str_or_default(ci->params, id_FEEDBK_PATH, "CLKOP"));
-            tg.config.add_enum("CLKOP_TRIM_POL", str_or_default(ci->params, id_CLKOP_TRIM_POL, "RISING"));
-
-            tg.config.add_enum("CLKOP_TRIM_DELAY", intstr_or_default(ci->params, id_CLKOP_TRIM_DELAY, "0"));
-
-            tg.config.add_enum("CLKOS_TRIM_POL", str_or_default(ci->params, id_CLKOS_TRIM_POL, "RISING"));
-
-            tg.config.add_enum("CLKOS_TRIM_DELAY", intstr_or_default(ci->params, id_CLKOS_TRIM_DELAY, "0"));
-
-            tg.config.add_enum("OUTDIVIDER_MUXA", str_or_default(ci->params, id_OUTDIVIDER_MUXA,
-                                                                 ci->getPort(id_CLKOP) ? "DIVA" : "REFCLK"));
-            tg.config.add_enum("OUTDIVIDER_MUXB", str_or_default(ci->params, id_OUTDIVIDER_MUXB,
-                                                                 ci->getPort(id_CLKOP) ? "DIVB" : "REFCLK"));
-            tg.config.add_enum("OUTDIVIDER_MUXC", str_or_default(ci->params, id_OUTDIVIDER_MUXC,
-                                                                 ci->getPort(id_CLKOP) ? "DIVC" : "REFCLK"));
-            tg.config.add_enum("OUTDIVIDER_MUXD", str_or_default(ci->params, id_OUTDIVIDER_MUXD,
-                                                                 ci->getPort(id_CLKOP) ? "DIVD" : "REFCLK"));
-
-            tg.config.add_word("PLL_LOCK_MODE", int_to_bitvector(int_or_default(ci->params, id_PLL_LOCK_MODE, 0), 3));
-
-            tg.config.add_enum("STDBY_ENABLE", str_or_default(ci->params, id_STDBY_ENABLE, "DISABLED"));
-            tg.config.add_enum("REFIN_RESET", str_or_default(ci->params, id_REFIN_RESET, "DISABLED"));
-            tg.config.add_enum("SYNC_ENABLE", str_or_default(ci->params, id_SYNC_ENABLE, "DISABLED"));
-            tg.config.add_enum("INT_LOCK_STICKY", str_or_default(ci->params, id_INT_LOCK_STICKY, "ENABLED"));
-            tg.config.add_enum("DPHASE_SOURCE", str_or_default(ci->params, id_DPHASE_SOURCE, "DISABLED"));
-            tg.config.add_enum("PLLRST_ENA", str_or_default(ci->params, id_PLLRST_ENA, "DISABLED"));
-            tg.config.add_enum("INTFB_WAKE", str_or_default(ci->params, id_INTFB_WAKE, "DISABLED"));
-
-            tg.config.add_word("KVCO", int_to_bitvector(int_or_default(ci->attrs, id_KVCO, 0), 3));
-            tg.config.add_word("LPF_CAPACITOR", int_to_bitvector(int_or_default(ci->attrs, id_LPF_CAPACITOR, 0), 2));
-            tg.config.add_word("LPF_RESISTOR", int_to_bitvector(int_or_default(ci->attrs, id_LPF_RESISTOR, 0), 7));
-            tg.config.add_word("ICP_CURRENT", int_to_bitvector(int_or_default(ci->attrs, id_ICP_CURRENT, 0), 5));
-            tg.config.add_word("FREQ_LOCK_ACCURACY",
-                               int_to_bitvector(int_or_default(ci->attrs, id_FREQ_LOCK_ACCURACY, 0), 2));
-
-            tg.config.add_word("MFG_GMC_GAIN", int_to_bitvector(int_or_default(ci->attrs, id_MFG_GMC_GAIN, 0), 3));
-            tg.config.add_word("MFG_GMC_TEST", int_to_bitvector(int_or_default(ci->attrs, id_MFG_GMC_TEST, 14), 4));
-            tg.config.add_word("MFG1_TEST", int_to_bitvector(int_or_default(ci->attrs, id_MFG1_TEST, 0), 3));
-            tg.config.add_word("MFG2_TEST", int_to_bitvector(int_or_default(ci->attrs, id_MFG2_TEST, 0), 3));
-
-            tg.config.add_word("MFG_FORCE_VFILTER",
-                               int_to_bitvector(int_or_default(ci->attrs, id_MFG_FORCE_VFILTER, 0), 1));
-            tg.config.add_word("MFG_ICP_TEST", int_to_bitvector(int_or_default(ci->attrs, id_MFG_ICP_TEST, 0), 1));
-            tg.config.add_word("MFG_EN_UP", int_to_bitvector(int_or_default(ci->attrs, id_MFG_EN_UP, 0), 1));
-            tg.config.add_word("MFG_FLOAT_ICP", int_to_bitvector(int_or_default(ci->attrs, id_MFG_FLOAT_ICP, 0), 1));
-            tg.config.add_word("MFG_GMC_PRESET", int_to_bitvector(int_or_default(ci->attrs, id_MFG_GMC_PRESET, 0), 1));
-            tg.config.add_word("MFG_LF_PRESET", int_to_bitvector(int_or_default(ci->attrs, id_MFG_LF_PRESET, 0), 1));
-            tg.config.add_word("MFG_GMC_RESET", int_to_bitvector(int_or_default(ci->attrs, id_MFG_GMC_RESET, 0), 1));
-            tg.config.add_word("MFG_LF_RESET", int_to_bitvector(int_or_default(ci->attrs, id_MFG_LF_RESET, 0), 1));
-            tg.config.add_word("MFG_LF_RESGRND", int_to_bitvector(int_or_default(ci->attrs, id_MFG_LF_RESGRND, 0), 1));
-            tg.config.add_word("MFG_GMCREF_SEL", int_to_bitvector(int_or_default(ci->attrs, id_MFG_GMCREF_SEL, 0), 2));
-            tg.config.add_word("MFG_ENABLE_FILTEROPAMP",
-                               int_to_bitvector(int_or_default(ci->attrs, id_MFG_ENABLE_FILTEROPAMP, 0), 1));
-
-            cc.tilegroups.push_back(tg);
-        } else if (ci->type.in(id_IOLOGIC, id_SIOLOGIC)) {
-            Loc pio_loc = ctx->getBelLocation(ci->bel);
-            pio_loc.z -= ci->type == id_SIOLOGIC ? 2 : 4;
-            std::string pic_tile = get_pic_tile(ctx, ctx->getBelByLocation(pio_loc));
-            std::string prim = std::string("IOLOGIC") + "ABCD"[pio_loc.z];
-            for (auto &param : ci->params) {
-                if (param.first == ctx->id("DELAY.DEL_VALUE"))
-                    cc.tiles[pic_tile].add_word(prim + "." + param.first.str(ctx),
-                                                int_to_bitvector(param.second.as_int64(), 7));
+        }
+        if (ci->attrs.count(id_OPENDRAIN)) {
+            cc.tiles[pio_tile].add_enum(pio + ".OPENDRAIN", str_or_default(ci->attrs, id_OPENDRAIN, "OFF"));
+            if (is_differential(ioType_from_str(iotype))) {
+                std::string other;
+                if (pio == "PIOA")
+                    other = "PIOB";
+                else if (pio == "PIOC")
+                    other = "PIOD";
                 else
-                    cc.tiles[pic_tile].add_enum(prim + "." + param.first.str(ctx), param.second.as_string());
+                    log_error("cannot set OPENDRAIN on differential IO at location %s\n", pio.c_str());
+                cc.tiles[pio_tile].add_enum(other + ".OPENDRAIN", str_or_default(ci->attrs, id_OPENDRAIN, "OFF"));
             }
-            if (ci->getPort(id_LOADN) != nullptr) {
-                cc.tiles[pic_tile].add_enum(prim + ".LOADNMUX", "LOADN");
-            }
-        } else if (ci->type == id_DCUA) {
+        }
+
+        std::string datamux_oddr = str_or_default(ci->params, id_DATAMUX_ODDR, "PADDO");
+        if (datamux_oddr != "PADDO")
+            cc.tiles[pic_tile].add_enum(pio + ".DATAMUX_ODDR", datamux_oddr);
+        std::string datamux_oreg = str_or_default(ci->params, id_DATAMUX_OREG, "PADDO");
+        if (datamux_oreg != "PADDO")
+            cc.tiles[pic_tile].add_enum(pio + ".DATAMUX_OREG", datamux_oreg);
+        std::string datamux_mddr = str_or_default(ci->params, id_DATAMUX_MDDR, "PADDO");
+        if (datamux_mddr != "PADDO")
+            cc.tiles[pic_tile].add_enum(pio + ".DATAMUX_MDDR", datamux_mddr);
+        std::string trimux_tsreg = str_or_default(ci->params, id_TRIMUX_TSREG, "PADDT");
+        if (trimux_tsreg != "PADDT")
+            cc.tiles[pic_tile].add_enum(pio + ".TRIMUX_TSREG", trimux_tsreg);
+    }
+
+    void write_dcc(CellInfo *ci)
+    {
+        const NetInfo *cen = ci->getPort(id_CE);
+        if (cen != nullptr) {
+            std::string belname = ctx->loc_info(ci->bel)->bel_data[ci->bel.index].name.get();
+            Loc loc = ctx->getBelLocation(ci->bel);
             TileGroup tg;
-            tg.tiles = get_dcu_tiles(ctx, ci->bel);
-            tg.config.add_enum("DCU.MODE", "DCUA");
+            switch (belname[0]) {
+            case 'B':
+                tg.tiles.push_back(
+                        ctx->get_tile_by_type_loc(loc.y, loc.x, std::set<std::string>{"BMID_0H", "BMID_0V"}));
+                tg.tiles.push_back(
+                        ctx->get_tile_by_type_loc(loc.y, loc.x + 1, std::set<std::string>{"BMID_2", "BMID_2V"}));
+                break;
+            case 'T':
+                tg.tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "TMID_0"));
+                tg.tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, "TMID_1"));
+                break;
+            case 'L':
+                tg.tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "LMID_0"));
+                break;
+            case 'R':
+                tg.tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "RMID_0"));
+                break;
+            default:
+                NPNR_ASSERT_FALSE("bad DCC for gating");
+                break;
+            }
+            tg.config.add_enum(std::string("DCC_") + belname[0] + belname.substr(4) + ".MODE", "DCCA");
+            cc.tilegroups.push_back(tg);
+        }
+    }
+
+    void write_bram(CellInfo *ci)
+    {
+        TileGroup tg;
+        Loc loc = ctx->getBelLocation(ci->bel);
+        tg.tiles = get_bram_tiles(ci->bel);
+        std::string ebr = "EBR" + std::to_string(loc.z);
+
+        if (ci->ramInfo.is_pdp) {
+            tg.config.add_enum(ebr + ".MODE", "PDPW16KD");
+            tg.config.add_enum(ebr + ".PDPW16KD.DATA_WIDTH_R", intstr_or_default(ci->params, id_DATA_WIDTH_B, "36"));
+        } else {
+            tg.config.add_enum(ebr + ".MODE", "DP16KD");
+            tg.config.add_enum(ebr + ".DP16KD.DATA_WIDTH_A", intstr_or_default(ci->params, id_DATA_WIDTH_A, "18"));
+            tg.config.add_enum(ebr + ".DP16KD.DATA_WIDTH_B", intstr_or_default(ci->params, id_DATA_WIDTH_B, "18"));
+            tg.config.add_enum(ebr + ".DP16KD.WRITEMODE_A", str_or_default(ci->params, id_WRITEMODE_A, "NORMAL"));
+            tg.config.add_enum(ebr + ".DP16KD.WRITEMODE_B", str_or_default(ci->params, id_WRITEMODE_B, "NORMAL"));
+        }
+
+        auto csd_a = str_to_bitvector(str_or_default(ci->params, id_CSDECODE_A, "0b000"), 3),
+             csd_b = str_to_bitvector(str_or_default(ci->params, id_CSDECODE_B, "0b000"), 3);
+
+        tg.config.add_enum(ebr + ".REGMODE_A", str_or_default(ci->params, id_REGMODE_A, "NOREG"));
+        tg.config.add_enum(ebr + ".REGMODE_B", str_or_default(ci->params, id_REGMODE_B, "NOREG"));
+
+        tg.config.add_enum(ebr + ".RESETMODE", str_or_default(ci->params, id_RESETMODE, "SYNC"));
+        tg.config.add_enum(ebr + ".ASYNC_RESET_RELEASE", str_or_default(ci->params, id_ASYNC_RESET_RELEASE, "SYNC"));
+        tg.config.add_enum(ebr + ".GSR", str_or_default(ci->params, id_GSR, "DISABLED"));
+
+        tg.config.add_word(ebr + ".WID", int_to_bitvector(bit_reverse(int_or_default(ci->attrs, id_WID, 0), 9), 9));
+
+        // Tie signals as appropriate
+        for (auto port : ci->ports) {
+            if (ci->ramInfo.is_pdp && (port.first.in(id_WEA, id_WEB, id_ADA4)))
+                continue;
+            if (port.second.net == nullptr && port.second.type == PORT_IN) {
+                if (port.first.in(id_CLKA, id_CLKB, id_WEA, id_WEB, id_RSTA, id_RSTB)) {
+                    // CIB clock or LSR. Tie to "1" (also 0 in prjtrellis db?) in CIB
+                    // If MUX doesn't exist, set to INV to emulate default 0
+                    tie_cib_signal(ctx->getBelPinWire(ci->bel, port.first), true);
+                    if (!ci->params.count(ctx->id(port.first.str(ctx) + "MUX")))
+                        ci->params[ctx->id(port.first.str(ctx) + "MUX")] = std::string("INV");
+                } else if (port.first.in(id_CEA, id_CEB, id_OCEA, id_OCEB)) {
+                    // CIB CE. Tie to "1" in CIB
+                    // If MUX doesn't exist, set to passthru to emulate default 1
+                    tie_cib_signal(ctx->getBelPinWire(ci->bel, port.first), true);
+                    if (!ci->params.count(ctx->id(port.first.str(ctx) + "MUX")))
+                        ci->params[ctx->id(port.first.str(ctx) + "MUX")] = port.first.str(ctx);
+                } else if (port.first.in(id_CSA0, id_CSA1, id_CSA2, id_CSB0, id_CSB1, id_CSB2)) {
+                    // CIB CE. Tie to "1" in CIB.
+                    // If MUX doesn't exist, set to INV to emulate default 0
+                    tie_cib_signal(ctx->getBelPinWire(ci->bel, port.first), true);
+                    if (!ci->params.count(ctx->id(port.first.str(ctx) + "MUX")))
+                        ci->params[ctx->id(port.first.str(ctx) + "MUX")] = std::string("INV");
+                } else {
+                    // CIB ABCD signal
+                    // Tie signals low unless explicit MUX param specified
+                    bool value = bool_or_default(ci->params, ctx->id(port.first.str(ctx) + "MUX"), false);
+                    tie_cib_signal(ctx->getBelPinWire(ci->bel, port.first), value);
+                }
+            }
+        }
+
+        // Invert CSDECODE bits to emulate inversion muxes on CSA/CSB signals
+        for (auto &port : {std::make_pair("CSA", std::ref(csd_a)), std::make_pair("CSB", std::ref(csd_b))}) {
+            for (int bit = 0; bit < 3; bit++) {
+                std::string sig = port.first + std::to_string(bit);
+                if (str_or_default(ci->params, ctx->id(sig + "MUX"), sig) == "INV")
+                    port.second.at(bit) = !port.second.at(bit);
+            }
+        }
+
+        tg.config.add_enum(ebr + ".CLKAMUX", str_or_default(ci->params, id_CLKAMUX, "CLKA"));
+        tg.config.add_enum(ebr + ".CLKBMUX", str_or_default(ci->params, id_CLKBMUX, "CLKB"));
+
+        tg.config.add_enum(ebr + ".RSTAMUX", str_or_default(ci->params, id_RSTAMUX, "RSTA"));
+        tg.config.add_enum(ebr + ".RSTBMUX", str_or_default(ci->params, id_RSTBMUX, "RSTB"));
+        if (!ci->ramInfo.is_pdp) {
+            tg.config.add_enum(ebr + ".WEAMUX", str_or_default(ci->params, id_WEAMUX, "WEA"));
+            tg.config.add_enum(ebr + ".WEBMUX", str_or_default(ci->params, id_WEBMUX, "WEB"));
+        }
+        tg.config.add_enum(ebr + ".CEAMUX", str_or_default(ci->params, id_CEAMUX, "CEA"));
+        tg.config.add_enum(ebr + ".CEBMUX", str_or_default(ci->params, id_CEBMUX, "CEB"));
+        tg.config.add_enum(ebr + ".OCEAMUX", str_or_default(ci->params, id_OCEAMUX, "OCEA"));
+        tg.config.add_enum(ebr + ".OCEBMUX", str_or_default(ci->params, id_OCEBMUX, "OCEB"));
+
+        std::reverse(csd_a.begin(), csd_a.end());
+        std::reverse(csd_b.begin(), csd_b.end());
+
+        tg.config.add_word(ebr + ".CSDECODE_A", csd_a);
+        tg.config.add_word(ebr + ".CSDECODE_B", csd_b);
+
+        std::vector<uint16_t> init_data;
+        init_data.resize(2048, 0x0);
+        // INIT_00 .. INIT_3F
+        for (int i = 0; i <= 0x3F; i++) {
+            IdString param = ctx->idf("INITVAL_%02X", i);
+            auto value = parse_init_str(get_or_default(ci->params, param, Property(0)), 320, ci->name.c_str(ctx));
+            for (int j = 0; j < 16; j++) {
+                // INIT parameter consists of 16 18-bit words with 2-bit padding
+                int ofs = 20 * j;
+                for (int k = 0; k < 18; k++) {
+                    if (value.at(ofs + k))
+                        init_data.at(i * 32 + j * 2 + (k / 9)) |= (1 << (k % 9));
+                }
+            }
+        }
+        int wid = int_or_default(ci->attrs, id_WID, 0);
+        NPNR_ASSERT(!cc.bram_data.count(wid));
+        cc.bram_data[wid] = init_data;
+        cc.tilegroups.push_back(tg);
+    }
+
+    void write_mult18(CellInfo *ci)
+    {
+        TileGroup tg;
+        Loc loc = ctx->getBelLocation(ci->bel);
+        tg.tiles = get_dsp_tiles(ci->bel);
+        std::string dsp = "MULT18_" + std::to_string(loc.z);
+        tg.config.add_enum(dsp + ".REG_INPUTA_CLK", str_or_default(ci->params, id_REG_INPUTA_CLK, "NONE"));
+        tg.config.add_enum(dsp + ".REG_INPUTA_CE", str_or_default(ci->params, id_REG_INPUTA_CE, "CE0"));
+        tg.config.add_enum(dsp + ".REG_INPUTA_RST", str_or_default(ci->params, id_REG_INPUTA_RST, "RST0"));
+        tg.config.add_enum(dsp + ".REG_INPUTB_CLK", str_or_default(ci->params, id_REG_INPUTB_CLK, "NONE"));
+        tg.config.add_enum(dsp + ".REG_INPUTB_CE", str_or_default(ci->params, id_REG_INPUTB_CE, "CE0"));
+        tg.config.add_enum(dsp + ".REG_INPUTB_RST", str_or_default(ci->params, id_REG_INPUTB_RST, "RST0"));
+        tg.config.add_enum(dsp + ".REG_INPUTC_CLK", str_or_default(ci->params, id_REG_INPUTC_CLK, "NONE"));
+        tg.config.add_enum(dsp + ".REG_PIPELINE_CLK", str_or_default(ci->params, id_REG_PIPELINE_CLK, "NONE"));
+        tg.config.add_enum(dsp + ".REG_PIPELINE_CE", str_or_default(ci->params, id_REG_PIPELINE_CE, "CE0"));
+        tg.config.add_enum(dsp + ".REG_PIPELINE_RST", str_or_default(ci->params, id_REG_PIPELINE_RST, "RST0"));
+        tg.config.add_enum(dsp + ".REG_OUTPUT_CLK", str_or_default(ci->params, id_REG_OUTPUT_CLK, "NONE"));
+        if (dsp == "MULT18_0" || dsp == "MULT18_4")
+            tg.config.add_enum(dsp + ".REG_OUTPUT_RST", str_or_default(ci->params, id_REG_OUTPUT_RST, "RST0"));
+
+        tg.config.add_enum(dsp + ".CLK0_DIV", str_or_default(ci->params, id_CLK0_DIV, "ENABLED"));
+        tg.config.add_enum(dsp + ".CLK1_DIV", str_or_default(ci->params, id_CLK1_DIV, "ENABLED"));
+        tg.config.add_enum(dsp + ".CLK2_DIV", str_or_default(ci->params, id_CLK2_DIV, "ENABLED"));
+        tg.config.add_enum(dsp + ".CLK3_DIV", str_or_default(ci->params, id_CLK3_DIV, "ENABLED"));
+        tg.config.add_enum(dsp + ".GSR", str_or_default(ci->params, id_GSR, "ENABLED"));
+        tg.config.add_enum(dsp + ".SOURCEB_MODE", str_or_default(ci->params, id_SOURCEB_MODE, "B_SHIFT"));
+        tg.config.add_enum(dsp + ".RESETMODE", str_or_default(ci->params, id_RESETMODE, "SYNC"));
+
+        tg.config.add_enum(dsp + ".MODE", "MULT18X18D");
+        if (str_or_default(ci->params, id_REG_OUTPUT_CLK, "NONE") == "NONE" && ci->cluster == ClusterId())
+            tg.config.add_enum(dsp + ".CIBOUT_BYP", "ON");
+
+        if (loc.z < 4)
+            tg.config.add_enum("DSP_LEFT.CIBOUT", "ON");
+        else
+            tg.config.add_enum("DSP_RIGHT.CIBOUT", "ON");
+
+        // Some muxes default to INV, make all pass-thru
+        for (auto port : {"CLK", "CE", "RST"}) {
+            for (int i = 0; i < 4; i++) {
+                std::string sig = port + std::to_string(i);
+                tg.config.add_enum(dsp + "." + sig + "MUX", sig);
+            }
+        }
+
+        tieoff_dsp_ports(ci);
+        cc.tilegroups.push_back(tg);
+    }
+
+    void write_alu54(CellInfo *ci)
+    {
+        TileGroup tg;
+        Loc loc = ctx->getBelLocation(ci->bel);
+        tg.tiles = get_dsp_tiles(ci->bel);
+        std::string dsp = "ALU54_" + std::to_string(loc.z);
+        tg.config.add_enum(dsp + ".REG_INPUTC0_CLK", str_or_default(ci->params, id_REG_INPUTC0_CLK, "NONE"));
+        tg.config.add_enum(dsp + ".REG_INPUTC1_CLK", str_or_default(ci->params, id_REG_INPUTC1_CLK, "NONE"));
+        tg.config.add_enum(dsp + ".REG_OPCODEOP0_0_CLK", str_or_default(ci->params, id_REG_OPCODEOP0_0_CLK, "NONE"));
+        tg.config.add_enum(dsp + ".REG_OPCODEOP0_0_CE", str_or_default(ci->params, id_REG_OPCODEOP0_0_CE, "CE0"));
+        tg.config.add_enum(dsp + ".REG_OPCODEOP0_0_RST", str_or_default(ci->params, id_REG_OPCODEOP0_0_RST, "RST0"));
+        tg.config.add_enum(dsp + ".REG_OPCODEOP1_0_CLK", str_or_default(ci->params, id_REG_OPCODEOP1_0_CLK, "NONE"));
+        tg.config.add_enum(dsp + ".REG_OPCODEOP0_1_CLK", str_or_default(ci->params, id_REG_OPCODEOP0_1_CLK, "NONE"));
+        tg.config.add_enum(dsp + ".REG_OPCODEOP1_1_CLK", str_or_default(ci->params, id_REG_OPCODEOP1_1_CLK, "NONE"));
+        tg.config.add_enum(dsp + ".REG_OPCODEOP0_1_CE", str_or_default(ci->params, id_REG_OPCODEOP0_1_CE, "CE0"));
+        tg.config.add_enum(dsp + ".REG_OPCODEOP0_1_RST", str_or_default(ci->params, id_REG_OPCODEOP0_1_RST, "RST0"));
+        tg.config.add_enum(dsp + ".REG_OPCODEIN_0_CLK", str_or_default(ci->params, id_REG_OPCODEIN_0_CLK, "NONE"));
+        tg.config.add_enum(dsp + ".REG_OPCODEIN_0_CE", str_or_default(ci->params, id_REG_OPCODEIN_0_CE, "CE0"));
+        tg.config.add_enum(dsp + ".REG_OPCODEIN_0_RST", str_or_default(ci->params, id_REG_OPCODEIN_0_RST, "RST0"));
+        tg.config.add_enum(dsp + ".REG_OPCODEIN_1_CLK", str_or_default(ci->params, id_REG_OPCODEIN_1_CLK, "NONE"));
+        tg.config.add_enum(dsp + ".REG_OPCODEIN_1_CE", str_or_default(ci->params, id_REG_OPCODEIN_1_CE, "CE0"));
+        tg.config.add_enum(dsp + ".REG_OPCODEIN_1_RST", str_or_default(ci->params, id_REG_OPCODEIN_1_RST, "RST0"));
+        tg.config.add_enum(dsp + ".REG_OUTPUT0_CLK", str_or_default(ci->params, id_REG_OUTPUT0_CLK, "NONE"));
+        tg.config.add_enum(dsp + ".REG_OUTPUT1_CLK", str_or_default(ci->params, id_REG_OUTPUT1_CLK, "NONE"));
+        tg.config.add_enum(dsp + ".REG_FLAG_CLK", str_or_default(ci->params, id_REG_FLAG_CLK, "NONE"));
+        tg.config.add_enum(dsp + ".MCPAT_SOURCE", str_or_default(ci->params, id_MCPAT_SOURCE, "STATIC"));
+        tg.config.add_enum(dsp + ".MASKPAT_SOURCE", str_or_default(ci->params, id_MASKPAT_SOURCE, "STATIC"));
+        tg.config.add_word(dsp + ".MASK01", parse_init_str(str_or_default(ci->params, id_MASK01, "0x00000000000000"),
+                                                           56, ci->name.c_str(ctx)));
+        tg.config.add_enum(dsp + ".CLK0_DIV", str_or_default(ci->params, id_CLK0_DIV, "ENABLED"));
+        tg.config.add_enum(dsp + ".CLK1_DIV", str_or_default(ci->params, id_CLK1_DIV, "ENABLED"));
+        tg.config.add_enum(dsp + ".CLK2_DIV", str_or_default(ci->params, id_CLK2_DIV, "ENABLED"));
+        tg.config.add_enum(dsp + ".CLK3_DIV", str_or_default(ci->params, id_CLK3_DIV, "ENABLED"));
+        tg.config.add_word(dsp + ".MCPAT", parse_init_str(str_or_default(ci->params, id_MCPAT, "0x00000000000000"), 56,
+                                                          ci->name.c_str(ctx)));
+        tg.config.add_word(dsp + ".MASKPAT", parse_init_str(str_or_default(ci->params, id_MASKPAT, "0x00000000000000"),
+                                                            56, ci->name.c_str(ctx)));
+        tg.config.add_word(dsp + ".RNDPAT", parse_init_str(str_or_default(ci->params, id_RNDPAT, "0x00000000000000"),
+                                                           56, ci->name.c_str(ctx)));
+        tg.config.add_enum(dsp + ".GSR", str_or_default(ci->params, id_GSR, "ENABLED"));
+        tg.config.add_enum(dsp + ".RESETMODE", str_or_default(ci->params, id_RESETMODE, "SYNC"));
+        tg.config.add_enum(dsp + ".FORCE_ZERO_BARREL_SHIFT",
+                           str_or_default(ci->params, id_FORCE_ZERO_BARREL_SHIFT, "DISABLED"));
+        tg.config.add_enum(dsp + ".LEGACY", str_or_default(ci->params, id_LEGACY, "DISABLED"));
+
+        tg.config.add_enum(dsp + ".MODE", "ALU54B");
+
+        if (loc.z < 4)
+            tg.config.add_enum("DSP_LEFT.CIBOUT", "ON");
+        else
+            tg.config.add_enum("DSP_RIGHT.CIBOUT", "ON");
+        if (str_or_default(ci->params, id_REG_FLAG_CLK, "NONE") == "NONE") {
+            if (dsp == "ALU54_7") {
+                tg.config.add_enum("MULT18_5.CIBOUT_BYP", "ON");
+            } else if (dsp == "ALU54_3") {
+                tg.config.add_enum("MULT18_5.CIBOUT_BYP", "ON");
+            }
+        }
+        if (str_or_default(ci->params, id_REG_OUTPUT0_CLK, "NONE") == "NONE") {
+            if (dsp == "ALU54_7") {
+                tg.config.add_enum("MULT18_4.CIBOUT_BYP", "ON");
+            } else if (dsp == "ALU54_3") {
+                tg.config.add_enum("MULT18_0.CIBOUT_BYP", "ON");
+            }
+        }
+        tieoff_dsp_ports(ci);
+        cc.tilegroups.push_back(tg);
+    }
+
+    void write_pll(CellInfo *ci)
+    {
+        TileGroup tg;
+        tg.tiles = get_pll_tiles(ci->bel);
+
+        tg.config.add_enum("MODE", "EHXPLLL");
+
+        tg.config.add_word("CLKI_DIV", int_to_bitvector(int_or_default(ci->params, id_CLKI_DIV, 1) - 1, 7));
+        tg.config.add_word("CLKFB_DIV", int_to_bitvector(int_or_default(ci->params, id_CLKFB_DIV, 1) - 1, 7));
+
+        tg.config.add_enum("CLKOP_ENABLE", str_or_default(ci->params, id_CLKOP_ENABLE, "ENABLED"));
+        tg.config.add_enum("CLKOS_ENABLE", str_or_default(ci->params, id_CLKOS_ENABLE, "ENABLED"));
+        tg.config.add_enum("CLKOS2_ENABLE", str_or_default(ci->params, id_CLKOS2_ENABLE, "ENABLED"));
+        tg.config.add_enum("CLKOS3_ENABLE", str_or_default(ci->params, id_CLKOS3_ENABLE, "ENABLED"));
+
+        for (std::string out : {"CLKOP", "CLKOS", "CLKOS2", "CLKOS3"}) {
+            tg.config.add_word(out + "_DIV",
+                               int_to_bitvector(int_or_default(ci->params, ctx->id(out + "_DIV"), 8) - 1, 7));
+            tg.config.add_word(out + "_CPHASE",
+                               int_to_bitvector(int_or_default(ci->params, ctx->id(out + "_CPHASE"), 0), 7));
+            tg.config.add_word(out + "_FPHASE",
+                               int_to_bitvector(int_or_default(ci->params, ctx->id(out + "_FPHASE"), 0), 3));
+        }
+
+        tg.config.add_enum("FEEDBK_PATH", str_or_default(ci->params, id_FEEDBK_PATH, "CLKOP"));
+        tg.config.add_enum("CLKOP_TRIM_POL", str_or_default(ci->params, id_CLKOP_TRIM_POL, "RISING"));
+
+        tg.config.add_enum("CLKOP_TRIM_DELAY", intstr_or_default(ci->params, id_CLKOP_TRIM_DELAY, "0"));
+
+        tg.config.add_enum("CLKOS_TRIM_POL", str_or_default(ci->params, id_CLKOS_TRIM_POL, "RISING"));
+
+        tg.config.add_enum("CLKOS_TRIM_DELAY", intstr_or_default(ci->params, id_CLKOS_TRIM_DELAY, "0"));
+
+        tg.config.add_enum("OUTDIVIDER_MUXA",
+                           str_or_default(ci->params, id_OUTDIVIDER_MUXA, ci->getPort(id_CLKOP) ? "DIVA" : "REFCLK"));
+        tg.config.add_enum("OUTDIVIDER_MUXB",
+                           str_or_default(ci->params, id_OUTDIVIDER_MUXB, ci->getPort(id_CLKOP) ? "DIVB" : "REFCLK"));
+        tg.config.add_enum("OUTDIVIDER_MUXC",
+                           str_or_default(ci->params, id_OUTDIVIDER_MUXC, ci->getPort(id_CLKOP) ? "DIVC" : "REFCLK"));
+        tg.config.add_enum("OUTDIVIDER_MUXD",
+                           str_or_default(ci->params, id_OUTDIVIDER_MUXD, ci->getPort(id_CLKOP) ? "DIVD" : "REFCLK"));
+
+        tg.config.add_word("PLL_LOCK_MODE", int_to_bitvector(int_or_default(ci->params, id_PLL_LOCK_MODE, 0), 3));
+
+        tg.config.add_enum("STDBY_ENABLE", str_or_default(ci->params, id_STDBY_ENABLE, "DISABLED"));
+        tg.config.add_enum("REFIN_RESET", str_or_default(ci->params, id_REFIN_RESET, "DISABLED"));
+        tg.config.add_enum("SYNC_ENABLE", str_or_default(ci->params, id_SYNC_ENABLE, "DISABLED"));
+        tg.config.add_enum("INT_LOCK_STICKY", str_or_default(ci->params, id_INT_LOCK_STICKY, "ENABLED"));
+        tg.config.add_enum("DPHASE_SOURCE", str_or_default(ci->params, id_DPHASE_SOURCE, "DISABLED"));
+        tg.config.add_enum("PLLRST_ENA", str_or_default(ci->params, id_PLLRST_ENA, "DISABLED"));
+        tg.config.add_enum("INTFB_WAKE", str_or_default(ci->params, id_INTFB_WAKE, "DISABLED"));
+
+        tg.config.add_word("KVCO", int_to_bitvector(int_or_default(ci->attrs, id_KVCO, 0), 3));
+        tg.config.add_word("LPF_CAPACITOR", int_to_bitvector(int_or_default(ci->attrs, id_LPF_CAPACITOR, 0), 2));
+        tg.config.add_word("LPF_RESISTOR", int_to_bitvector(int_or_default(ci->attrs, id_LPF_RESISTOR, 0), 7));
+        tg.config.add_word("ICP_CURRENT", int_to_bitvector(int_or_default(ci->attrs, id_ICP_CURRENT, 0), 5));
+        tg.config.add_word("FREQ_LOCK_ACCURACY",
+                           int_to_bitvector(int_or_default(ci->attrs, id_FREQ_LOCK_ACCURACY, 0), 2));
+
+        tg.config.add_word("MFG_GMC_GAIN", int_to_bitvector(int_or_default(ci->attrs, id_MFG_GMC_GAIN, 0), 3));
+        tg.config.add_word("MFG_GMC_TEST", int_to_bitvector(int_or_default(ci->attrs, id_MFG_GMC_TEST, 14), 4));
+        tg.config.add_word("MFG1_TEST", int_to_bitvector(int_or_default(ci->attrs, id_MFG1_TEST, 0), 3));
+        tg.config.add_word("MFG2_TEST", int_to_bitvector(int_or_default(ci->attrs, id_MFG2_TEST, 0), 3));
+
+        tg.config.add_word("MFG_FORCE_VFILTER",
+                           int_to_bitvector(int_or_default(ci->attrs, id_MFG_FORCE_VFILTER, 0), 1));
+        tg.config.add_word("MFG_ICP_TEST", int_to_bitvector(int_or_default(ci->attrs, id_MFG_ICP_TEST, 0), 1));
+        tg.config.add_word("MFG_EN_UP", int_to_bitvector(int_or_default(ci->attrs, id_MFG_EN_UP, 0), 1));
+        tg.config.add_word("MFG_FLOAT_ICP", int_to_bitvector(int_or_default(ci->attrs, id_MFG_FLOAT_ICP, 0), 1));
+        tg.config.add_word("MFG_GMC_PRESET", int_to_bitvector(int_or_default(ci->attrs, id_MFG_GMC_PRESET, 0), 1));
+        tg.config.add_word("MFG_LF_PRESET", int_to_bitvector(int_or_default(ci->attrs, id_MFG_LF_PRESET, 0), 1));
+        tg.config.add_word("MFG_GMC_RESET", int_to_bitvector(int_or_default(ci->attrs, id_MFG_GMC_RESET, 0), 1));
+        tg.config.add_word("MFG_LF_RESET", int_to_bitvector(int_or_default(ci->attrs, id_MFG_LF_RESET, 0), 1));
+        tg.config.add_word("MFG_LF_RESGRND", int_to_bitvector(int_or_default(ci->attrs, id_MFG_LF_RESGRND, 0), 1));
+        tg.config.add_word("MFG_GMCREF_SEL", int_to_bitvector(int_or_default(ci->attrs, id_MFG_GMCREF_SEL, 0), 2));
+        tg.config.add_word("MFG_ENABLE_FILTEROPAMP",
+                           int_to_bitvector(int_or_default(ci->attrs, id_MFG_ENABLE_FILTEROPAMP, 0), 1));
+
+        cc.tilegroups.push_back(tg);
+    }
+
+    void write_iol(CellInfo *ci)
+    {
+        Loc pio_loc = ctx->getBelLocation(ci->bel);
+        pio_loc.z -= ci->type == id_SIOLOGIC ? 2 : 4;
+        std::string pic_tile = get_pic_tile(ctx->getBelByLocation(pio_loc));
+        std::string prim = std::string("IOLOGIC") + "ABCD"[pio_loc.z];
+        for (auto &param : ci->params) {
+            if (param.first == ctx->id("DELAY.DEL_VALUE"))
+                cc.tiles[pic_tile].add_word(prim + "." + param.first.str(ctx),
+                                            int_to_bitvector(param.second.as_int64(), 7));
+            else
+                cc.tiles[pic_tile].add_enum(prim + "." + param.first.str(ctx), param.second.as_string());
+        }
+        if (ci->getPort(id_LOADN) != nullptr) {
+            cc.tiles[pic_tile].add_enum(prim + ".LOADNMUX", "LOADN");
+        }
+    }
+
+    void write_dcu(CellInfo *ci)
+    {
+        TileGroup tg;
+        tg.tiles = get_dcu_tiles(ci->bel);
+        tg.config.add_enum("DCU.MODE", "DCUA");
 #include "dcu_bitstream.h"
-            cc.tilegroups.push_back(tg);
-            tieoff_dcu_ports(ctx, cc, ci);
-        } else if (ci->type == id_EXTREFB) {
-            TileGroup tg;
-            tg.tiles = get_dcu_tiles(ctx, ci->bel);
-            tg.config.add_word("EXTREF.REFCK_DCBIAS_EN",
-                               parse_config_str(get_or_default(ci->params, id_REFCK_DCBIAS_EN, Property(0)), 1));
-            tg.config.add_word("EXTREF.REFCK_RTERM",
-                               parse_config_str(get_or_default(ci->params, id_REFCK_RTERM, Property(0)), 1));
-            tg.config.add_word("EXTREF.REFCK_PWDNB",
-                               parse_config_str(get_or_default(ci->params, id_REFCK_PWDNB, Property(0)), 1));
-            cc.tilegroups.push_back(tg);
-        } else if (ci->type == id_PCSCLKDIV) {
-            Loc loc = ctx->getBelLocation(ci->bel);
-            std::string tname = ctx->get_tile_by_type_loc(loc.y + 1, loc.x, "BMID_0H");
-            cc.tiles[tname].add_enum("PCSCLKDIV" + std::to_string(loc.z),
-                                     str_or_default(ci->params, id_GSR, "ENABLED"));
-        } else if (ci->type == id_DTR) {
-            cc.tiles[ctx->get_tile_by_type("DTR")].add_enum("DTR.MODE", "DTR");
-        } else if (ci->type == id_OSCG) {
-            int div = int_or_default(ci->params, id_DIV, 128);
-            if (div == 128)
-                div = 127;
-            cc.tiles[ctx->get_tile_by_type("EFB0_PICB0")].add_enum("OSC.DIV", std::to_string(div));
-            cc.tiles[ctx->get_tile_by_type("EFB1_PICB1")].add_enum("OSC.DIV", std::to_string(div));
-            cc.tiles[ctx->get_tile_by_type("EFB1_PICB1")].add_enum("OSC.MODE", "OSCG");
-            cc.tiles[ctx->get_tile_by_type("EFB1_PICB1")].add_enum("CCLK.MODE", "_NONE_");
-        } else if (ci->type == id_USRMCLK) {
-            if (str_or_default(ctx->settings, ctx->id("arch.sysconfig.MASTER_SPI_PORT"), "") == "ENABLE")
-                log_warning("USRMCLK will not function correctly when MASTER_SPI_PORT is set to ENABLE.\n");
-            cc.tiles[ctx->get_tile_by_type("EFB3_PICB1")].add_enum("CCLK.MODE", "USRMCLK");
-        } else if (ci->type == id_GSR) {
-            cc.tiles[ctx->get_tile_by_type("EFB0_PICB0")].add_enum("GSR.GSRMODE",
-                                                                   str_or_default(ci->params, id_MODE, "ACTIVE_LOW"));
-            cc.tiles[ctx->get_tile_by_type("VIQ_BUF")].add_enum("GSR.SYNCMODE",
-                                                                str_or_default(ci->params, id_SYNCMODE, "ASYNC"));
-        } else if (ci->type == id_JTAGG) {
-            cc.tiles[ctx->get_tile_by_type("EFB0_PICB0")].add_enum("JTAG.ER1",
-                                                                   str_or_default(ci->params, id_ER1, "ENABLED"));
-            cc.tiles[ctx->get_tile_by_type("EFB0_PICB0")].add_enum("JTAG.ER2",
-                                                                   str_or_default(ci->params, id_ER2, "ENABLED"));
-        } else if (ci->type == id_CLKDIVF) {
-            Loc loc = ctx->getBelLocation(ci->bel);
-            bool r = loc.x > 5;
-            std::string clkdiv = std::string("CLKDIV_") + (r ? "R" : "L") + std::to_string(loc.z);
-            std::string tile = ctx->get_tile_by_type(std::string("ECLK_") + (r ? "R" : "L"));
-            cc.tiles[tile].add_enum(clkdiv + ".DIV", str_or_default(ci->params, id_DIV, "2.0"));
-            cc.tiles[tile].add_enum(clkdiv + ".GSR", str_or_default(ci->params, id_GSR, "DISABLED"));
-        } else if (ci->type == id_TRELLIS_ECLKBUF) {
-        } else if (ci->type == id_DQSBUFM) {
-            Loc loc = ctx->getBelLocation(ci->bel);
-            bool l = loc.x < 10;
-            std::string pic = l ? "PICL" : "PICR";
-            TileGroup tg;
-            tg.tiles.push_back(ctx->get_tile_by_type_loc(loc.y - 2, loc.x, pic + "1_DQS0"));
-            tg.tiles.push_back(ctx->get_tile_by_type_loc(loc.y - 1, loc.x, pic + "2_DQS1"));
-            tg.tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, pic + "0_DQS2"));
-            tg.tiles.push_back(ctx->get_tile_by_type_loc(loc.y + 1, loc.x, pic + "1_DQS3"));
-            tg.config.add_enum("DQS.MODE", "DQSBUFM");
-            tg.config.add_enum("DQS.DQS_LI_DEL_ADJ", str_or_default(ci->params, id_DQS_LI_DEL_ADJ, "PLUS"));
-            tg.config.add_enum("DQS.DQS_LO_DEL_ADJ", str_or_default(ci->params, id_DQS_LO_DEL_ADJ, "PLUS"));
-            int li_del_value = int_or_default(ci->params, id_DQS_LI_DEL_VAL, 0);
-            if (str_or_default(ci->params, id_DQS_LI_DEL_ADJ, "PLUS") == "MINUS")
-                li_del_value = (256 - li_del_value) & 0xFF;
-            int lo_del_value = int_or_default(ci->params, id_DQS_LO_DEL_VAL, 0);
-            if (str_or_default(ci->params, id_DQS_LO_DEL_ADJ, "PLUS") == "MINUS")
-                lo_del_value = (256 - lo_del_value) & 0xFF;
-            tg.config.add_word("DQS.DQS_LI_DEL_VAL", int_to_bitvector(li_del_value, 8));
-            tg.config.add_word("DQS.DQS_LO_DEL_VAL", int_to_bitvector(lo_del_value, 8));
-            tg.config.add_enum("DQS.WRLOADN_USED", ci->getPort(id_WRLOADN) != nullptr ? "YES" : "NO");
-            tg.config.add_enum("DQS.RDLOADN_USED", ci->getPort(id_RDLOADN) != nullptr ? "YES" : "NO");
-            tg.config.add_enum("DQS.PAUSE_USED", ci->getPort(id_PAUSE) != nullptr ? "YES" : "NO");
-            tg.config.add_enum("DQS.READ_USED",
-                               (ci->getPort(id_READ0) != nullptr || ci->getPort(id_READ1) != nullptr) ? "YES" : "NO");
-            tg.config.add_enum("DQS.DDRDEL", ci->getPort(id_DDRDEL) != nullptr ? "DDRDEL" : "0");
-            tg.config.add_enum("DQS.GSR", str_or_default(ci->params, id_GSR, "DISABLED"));
-            cc.tilegroups.push_back(tg);
-        } else if (ci->type == id_ECLKSYNCB) {
-            Loc loc = ctx->getBelLocation(ci->bel);
-            bool r = loc.x > 5;
-            std::string eclksync = ctx->loc_info(bel)->bel_data[bel.index].name.get();
-            std::string tile = ctx->get_tile_by_type(std::string("ECLK_") + (r ? "R" : "L"));
-            if (ci->getPort(id_STOP) != nullptr)
-                cc.tiles[tile].add_enum(eclksync + ".MODE", "ECLKSYNCB");
-        } else if (ci->type == id_ECLKBRIDGECS) {
-            Loc loc = ctx->getBelLocation(ci->bel);
-            bool r = loc.x > 5;
-            std::string eclkb = ctx->loc_info(bel)->bel_data[bel.index].name.get();
-            std::string tile = ctx->get_tile_by_type(std::string("ECLK_") + (r ? "R" : "L"));
-            if (ci->getPort(id_STOP) != nullptr)
-                cc.tiles[tile].add_enum(eclkb + ".MODE", "ECLKBRIDGECS");
-        } else if (ci->type == id_DDRDLL) {
-            Loc loc = ctx->getBelLocation(ci->bel);
-            bool u = loc.y<15, r = loc.x> 15;
-            std::string tiletype = fmt_str("DDRDLL_" << (u ? 'U' : 'L') << (r ? 'R' : 'L'));
-            if ((ctx->args.type == ArchArgs::LFE5U_12F || ctx->args.type == ArchArgs::LFE5U_25F ||
-                 ctx->args.type == ArchArgs::LFE5UM_25F || ctx->args.type == ArchArgs::LFE5UM5G_25F) &&
-                u)
-                tiletype += "A";
-            std::string tile = ctx->get_tile_by_type(tiletype);
-            cc.tiles[tile].add_enum("DDRDLL.MODE", "DDRDLLA");
-            cc.tiles[tile].add_enum("DDRDLL.GSR", str_or_default(ci->params, id_GSR, "DISABLED"));
-            cc.tiles[tile].add_enum("DDRDLL.FORCE_MAX_DELAY", str_or_default(ci->params, id_FORCE_MAX_DELAY, "NO"));
-        } else {
-            NPNR_ASSERT_FALSE("unsupported cell type");
-        }
+        cc.tilegroups.push_back(tg);
+        tieoff_dcu_ports(ci);
     }
 
-    // Add some SYSCONFIG settings
-    const std::string prefix = "arch.sysconfig.";
-    for (auto &setting : ctx->settings) {
-        std::string key = setting.first.str(ctx);
-        if (key.substr(0, prefix.length()) != prefix)
-            continue;
-        key = key.substr(prefix.length());
-        std::string value = setting.second.as_string();
-        if (key == "SLAVE_SPI_PORT" || key == "DONE_EX") {
-            cc.tiles[ctx->get_tile_by_type("EFB0_PICB0")].add_enum("SYSCONFIG." + key, value);
-            cc.tiles[ctx->get_tile_by_type("EFB2_PICB0")].add_enum("SYSCONFIG." + key, value);
-        } else if (key == "SLAVE_PARALLEL_PORT" || key == "BACKGROUND_RECONFIG" || key == "WAKE_UP") {
-            cc.tiles[ctx->get_tile_by_type("EFB0_PICB0")].add_enum("SYSCONFIG." + key, value);
-        } else if (key == "MASTER_SPI_PORT") {
-            cc.tiles[ctx->get_tile_by_type("EFB1_PICB1")].add_enum("SYSCONFIG." + key, value);
-        } else if (key == "TRANSFR") {
-            cc.tiles[ctx->get_tile_by_type("EFB0_PICB0")].add_enum("SYSCONFIG." + key, value);
-            cc.tiles[ctx->get_tile_by_type("EFB1_PICB1")].add_enum("SYSCONFIG." + key, value);
-        } else {
-            cc.sysconfig[key] = value;
-        }
+    void write_dqsbuf(CellInfo *ci)
+    {
+        Loc loc = ctx->getBelLocation(ci->bel);
+        bool l = loc.x < 10;
+        std::string pic = l ? "PICL" : "PICR";
+        TileGroup tg;
+        tg.tiles.push_back(ctx->get_tile_by_type_loc(loc.y - 2, loc.x, pic + "1_DQS0"));
+        tg.tiles.push_back(ctx->get_tile_by_type_loc(loc.y - 1, loc.x, pic + "2_DQS1"));
+        tg.tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, pic + "0_DQS2"));
+        tg.tiles.push_back(ctx->get_tile_by_type_loc(loc.y + 1, loc.x, pic + "1_DQS3"));
+        tg.config.add_enum("DQS.MODE", "DQSBUFM");
+        tg.config.add_enum("DQS.DQS_LI_DEL_ADJ", str_or_default(ci->params, id_DQS_LI_DEL_ADJ, "PLUS"));
+        tg.config.add_enum("DQS.DQS_LO_DEL_ADJ", str_or_default(ci->params, id_DQS_LO_DEL_ADJ, "PLUS"));
+        int li_del_value = int_or_default(ci->params, id_DQS_LI_DEL_VAL, 0);
+        if (str_or_default(ci->params, id_DQS_LI_DEL_ADJ, "PLUS") == "MINUS")
+            li_del_value = (256 - li_del_value) & 0xFF;
+        int lo_del_value = int_or_default(ci->params, id_DQS_LO_DEL_VAL, 0);
+        if (str_or_default(ci->params, id_DQS_LO_DEL_ADJ, "PLUS") == "MINUS")
+            lo_del_value = (256 - lo_del_value) & 0xFF;
+        tg.config.add_word("DQS.DQS_LI_DEL_VAL", int_to_bitvector(li_del_value, 8));
+        tg.config.add_word("DQS.DQS_LO_DEL_VAL", int_to_bitvector(lo_del_value, 8));
+        tg.config.add_enum("DQS.WRLOADN_USED", ci->getPort(id_WRLOADN) != nullptr ? "YES" : "NO");
+        tg.config.add_enum("DQS.RDLOADN_USED", ci->getPort(id_RDLOADN) != nullptr ? "YES" : "NO");
+        tg.config.add_enum("DQS.PAUSE_USED", ci->getPort(id_PAUSE) != nullptr ? "YES" : "NO");
+        tg.config.add_enum("DQS.READ_USED",
+                           (ci->getPort(id_READ0) != nullptr || ci->getPort(id_READ1) != nullptr) ? "YES" : "NO");
+        tg.config.add_enum("DQS.DDRDEL", ci->getPort(id_DDRDEL) != nullptr ? "DDRDEL" : "0");
+        tg.config.add_enum("DQS.GSR", str_or_default(ci->params, id_GSR, "DISABLED"));
+        cc.tilegroups.push_back(tg);
     }
 
-    // Fixup tile names
-    fix_tile_names(ctx, cc);
+    void run(const std::string &base_config_file)
+    {
+        if (!base_config_file.empty()) {
+            std::ifstream config_file(base_config_file);
+            if (!config_file) {
+                log_error("failed to open base config file '%s'\n", base_config_file.c_str());
+            }
+            config_file >> cc;
+        } else {
+            switch (ctx->args.type) {
+            case ArchArgs::LFE5U_12F:
+                BaseConfigs::config_empty_lfe5u_25f(cc);
+                cc.chip_name = "LFE5U-12F";
+                break;
+            case ArchArgs::LFE5U_25F:
+                BaseConfigs::config_empty_lfe5u_25f(cc);
+                break;
+            case ArchArgs::LFE5U_45F:
+                BaseConfigs::config_empty_lfe5u_45f(cc);
+                break;
+            case ArchArgs::LFE5U_85F:
+                BaseConfigs::config_empty_lfe5u_85f(cc);
+                break;
+            case ArchArgs::LFE5UM_25F:
+                BaseConfigs::config_empty_lfe5um_25f(cc);
+                break;
+            case ArchArgs::LFE5UM_45F:
+                BaseConfigs::config_empty_lfe5um_45f(cc);
+                break;
+            case ArchArgs::LFE5UM_85F:
+                BaseConfigs::config_empty_lfe5um_85f(cc);
+                break;
+            case ArchArgs::LFE5UM5G_25F:
+                BaseConfigs::config_empty_lfe5um5g_25f(cc);
+                break;
+            case ArchArgs::LFE5UM5G_45F:
+                BaseConfigs::config_empty_lfe5um5g_45f(cc);
+                break;
+            case ArchArgs::LFE5UM5G_85F:
+                BaseConfigs::config_empty_lfe5um5g_85f(cc);
+                break;
+            default:
+                NPNR_ASSERT_FALSE("Unsupported device type");
+            }
+        }
+
+        cc.metadata.push_back("Part: " + ctx->get_full_chip_name());
+
+        // Clear out DCU tieoffs in base config if DCU used
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (ci->type == id_DCUA) {
+                Loc loc = ctx->getBelLocation(ci->bel);
+                for (int i = 0; i < 12; i++) {
+                    auto tiles = ctx->get_tiles_at_loc(loc.y - 1, loc.x + i);
+                    for (const auto &tile : tiles) {
+                        auto cc_tile = cc.tiles.find(tile.first);
+                        if (cc_tile != cc.tiles.end()) {
+                            cc_tile->second.cenums.clear();
+                            cc_tile->second.cunknowns.clear();
+                        }
+                    }
+                }
+            }
+        }
+        // Add all set, configurable pips to the config
+        for (auto pip : ctx->getPips()) {
+            if (ctx->getBoundPipNet(pip) != nullptr) {
+                if (ctx->get_pip_class(pip) == 0) { // ignore fixed pips
+                    std::string source = get_trellis_wirename(pip.location, ctx->getPipSrcWire(pip));
+                    if (source.find("CLKI_PLL") != std::string::npos) {
+                        // Special case - must set pip in all relevant tiles
+                        for (auto equiv_pip : ctx->getPipsUphill(ctx->getPipDstWire(pip))) {
+                            if (ctx->getPipSrcWire(equiv_pip) == ctx->getPipSrcWire(pip))
+                                set_pip(equiv_pip);
+                        }
+                    } else {
+                        set_pip(pip);
+                    }
+                }
+            }
+        }
+
+        init_io_banks();
+
+        // Configure cells
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (ci->bel == BelId()) {
+                log_warning("found unplaced cell '%s' during bitstream gen\n", ci->name.c_str(ctx));
+            }
+            BelId bel = ci->bel;
+            if (ci->type == id_TRELLIS_COMB) {
+                write_comb(ci);
+            } else if (ci->type == id_TRELLIS_FF) {
+                write_ff(ci);
+            } else if (ci->type == id_TRELLIS_RAMW) {
+                std::string tname = ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, "PLC2");
+                cc.tiles[tname].add_enum("SLICEC.MODE", "RAMW");
+                cc.tiles[tname].add_word("SLICEC.K0.INIT", std::vector<bool>(16, false));
+                cc.tiles[tname].add_word("SLICEC.K1.INIT", std::vector<bool>(16, false));
+            } else if (ci->type == id_TRELLIS_IO) {
+                write_io(ci);
+            } else if (ci->type == id_DCCA) {
+                write_dcc(ci);
+            } else if (ci->type == id_DCSC) {
+                std::set<std::string> dcs_tiles{"EBR_CMUX_LL", "EBR_CMUX_UL", "EBR_CMUX_LL_25K", "DSP_CMUX_UL"};
+                std::string tile = ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, dcs_tiles);
+                std::string dcs = ctx->loc_info(bel)->bel_data[bel.index].name.get();
+                cc.tiles[tile].add_enum(dcs + ".DCSMODE", str_or_default(ci->attrs, id_DCSMODE, "POS"));
+            } else if (ci->type == id_DP16KD) {
+                write_bram(ci);
+            } else if (ci->type == id_MULT18X18D) {
+                write_mult18(ci);
+            } else if (ci->type == id_ALU54B) {
+                write_alu54(ci);
+            } else if (ci->type == id_EHXPLLL) {
+                write_pll(ci);
+            } else if (ci->type.in(id_IOLOGIC, id_SIOLOGIC)) {
+                write_iol(ci);
+            } else if (ci->type == id_DCUA) {
+                write_dcu(ci);
+            } else if (ci->type == id_EXTREFB) {
+                TileGroup tg;
+                tg.tiles = get_dcu_tiles(ci->bel);
+                tg.config.add_word("EXTREF.REFCK_DCBIAS_EN",
+                                   parse_config_str(get_or_default(ci->params, id_REFCK_DCBIAS_EN, Property(0)), 1));
+                tg.config.add_word("EXTREF.REFCK_RTERM",
+                                   parse_config_str(get_or_default(ci->params, id_REFCK_RTERM, Property(0)), 1));
+                tg.config.add_word("EXTREF.REFCK_PWDNB",
+                                   parse_config_str(get_or_default(ci->params, id_REFCK_PWDNB, Property(0)), 1));
+                cc.tilegroups.push_back(tg);
+            } else if (ci->type == id_PCSCLKDIV) {
+                Loc loc = ctx->getBelLocation(ci->bel);
+                std::string tname = ctx->get_tile_by_type_loc(loc.y + 1, loc.x, "BMID_0H");
+                cc.tiles[tname].add_enum("PCSCLKDIV" + std::to_string(loc.z),
+                                         str_or_default(ci->params, id_GSR, "ENABLED"));
+            } else if (ci->type == id_DTR) {
+                cc.tiles[ctx->get_tile_by_type("DTR")].add_enum("DTR.MODE", "DTR");
+            } else if (ci->type == id_OSCG) {
+                int div = int_or_default(ci->params, id_DIV, 128);
+                if (div == 128)
+                    div = 127;
+                cc.tiles[ctx->get_tile_by_type("EFB0_PICB0")].add_enum("OSC.DIV", std::to_string(div));
+                cc.tiles[ctx->get_tile_by_type("EFB1_PICB1")].add_enum("OSC.DIV", std::to_string(div));
+                cc.tiles[ctx->get_tile_by_type("EFB1_PICB1")].add_enum("OSC.MODE", "OSCG");
+                cc.tiles[ctx->get_tile_by_type("EFB1_PICB1")].add_enum("CCLK.MODE", "_NONE_");
+            } else if (ci->type == id_USRMCLK) {
+                if (str_or_default(ctx->settings, ctx->id("arch.sysconfig.MASTER_SPI_PORT"), "") == "ENABLE")
+                    log_warning("USRMCLK will not function correctly when MASTER_SPI_PORT is set to ENABLE.\n");
+                cc.tiles[ctx->get_tile_by_type("EFB3_PICB1")].add_enum("CCLK.MODE", "USRMCLK");
+            } else if (ci->type == id_GSR) {
+                cc.tiles[ctx->get_tile_by_type("EFB0_PICB0")].add_enum(
+                        "GSR.GSRMODE", str_or_default(ci->params, id_MODE, "ACTIVE_LOW"));
+                cc.tiles[ctx->get_tile_by_type("VIQ_BUF")].add_enum("GSR.SYNCMODE",
+                                                                    str_or_default(ci->params, id_SYNCMODE, "ASYNC"));
+            } else if (ci->type == id_JTAGG) {
+                cc.tiles[ctx->get_tile_by_type("EFB0_PICB0")].add_enum("JTAG.ER1",
+                                                                       str_or_default(ci->params, id_ER1, "ENABLED"));
+                cc.tiles[ctx->get_tile_by_type("EFB0_PICB0")].add_enum("JTAG.ER2",
+                                                                       str_or_default(ci->params, id_ER2, "ENABLED"));
+            } else if (ci->type == id_CLKDIVF) {
+                Loc loc = ctx->getBelLocation(ci->bel);
+                bool r = loc.x > 5;
+                std::string clkdiv = std::string("CLKDIV_") + (r ? "R" : "L") + std::to_string(loc.z);
+                std::string tile = ctx->get_tile_by_type(std::string("ECLK_") + (r ? "R" : "L"));
+                cc.tiles[tile].add_enum(clkdiv + ".DIV", str_or_default(ci->params, id_DIV, "2.0"));
+                cc.tiles[tile].add_enum(clkdiv + ".GSR", str_or_default(ci->params, id_GSR, "DISABLED"));
+            } else if (ci->type == id_TRELLIS_ECLKBUF) {
+            } else if (ci->type == id_DQSBUFM) {
+                write_dqsbuf(ci);
+            } else if (ci->type == id_ECLKSYNCB) {
+                Loc loc = ctx->getBelLocation(ci->bel);
+                bool r = loc.x > 5;
+                std::string eclksync = ctx->loc_info(bel)->bel_data[bel.index].name.get();
+                std::string tile = ctx->get_tile_by_type(std::string("ECLK_") + (r ? "R" : "L"));
+                if (ci->getPort(id_STOP) != nullptr)
+                    cc.tiles[tile].add_enum(eclksync + ".MODE", "ECLKSYNCB");
+            } else if (ci->type == id_ECLKBRIDGECS) {
+                Loc loc = ctx->getBelLocation(ci->bel);
+                bool r = loc.x > 5;
+                std::string eclkb = ctx->loc_info(bel)->bel_data[bel.index].name.get();
+                std::string tile = ctx->get_tile_by_type(std::string("ECLK_") + (r ? "R" : "L"));
+                if (ci->getPort(id_STOP) != nullptr)
+                    cc.tiles[tile].add_enum(eclkb + ".MODE", "ECLKBRIDGECS");
+            } else if (ci->type == id_DDRDLL) {
+                Loc loc = ctx->getBelLocation(ci->bel);
+                bool u = loc.y<15, r = loc.x> 15;
+                std::string tiletype = fmt_str("DDRDLL_" << (u ? 'U' : 'L') << (r ? 'R' : 'L'));
+                if ((ctx->args.type == ArchArgs::LFE5U_12F || ctx->args.type == ArchArgs::LFE5U_25F ||
+                     ctx->args.type == ArchArgs::LFE5UM_25F || ctx->args.type == ArchArgs::LFE5UM5G_25F) &&
+                    u)
+                    tiletype += "A";
+                std::string tile = ctx->get_tile_by_type(tiletype);
+                cc.tiles[tile].add_enum("DDRDLL.MODE", "DDRDLLA");
+                cc.tiles[tile].add_enum("DDRDLL.GSR", str_or_default(ci->params, id_GSR, "DISABLED"));
+                cc.tiles[tile].add_enum("DDRDLL.FORCE_MAX_DELAY", str_or_default(ci->params, id_FORCE_MAX_DELAY, "NO"));
+            } else {
+                NPNR_ASSERT_FALSE("unsupported cell type");
+            }
+        }
+
+        // Add some SYSCONFIG settings
+        const std::string prefix = "arch.sysconfig.";
+        for (auto &setting : ctx->settings) {
+            std::string key = setting.first.str(ctx);
+            if (key.substr(0, prefix.length()) != prefix)
+                continue;
+            key = key.substr(prefix.length());
+            std::string value = setting.second.as_string();
+            if (key == "SLAVE_SPI_PORT" || key == "DONE_EX") {
+                cc.tiles[ctx->get_tile_by_type("EFB0_PICB0")].add_enum("SYSCONFIG." + key, value);
+                cc.tiles[ctx->get_tile_by_type("EFB2_PICB0")].add_enum("SYSCONFIG." + key, value);
+            } else if (key == "SLAVE_PARALLEL_PORT" || key == "BACKGROUND_RECONFIG" || key == "WAKE_UP") {
+                cc.tiles[ctx->get_tile_by_type("EFB0_PICB0")].add_enum("SYSCONFIG." + key, value);
+            } else if (key == "MASTER_SPI_PORT") {
+                cc.tiles[ctx->get_tile_by_type("EFB1_PICB1")].add_enum("SYSCONFIG." + key, value);
+            } else if (key == "TRANSFR") {
+                cc.tiles[ctx->get_tile_by_type("EFB0_PICB0")].add_enum("SYSCONFIG." + key, value);
+                cc.tiles[ctx->get_tile_by_type("EFB1_PICB1")].add_enum("SYSCONFIG." + key, value);
+            } else {
+                cc.sysconfig[key] = value;
+            }
+        }
+
+        // Fixup tile names
+        fix_tile_names();
+    }
+};
+} // namespace
+
+void write_bitstream(Context *ctx, std::string base_config_file, std::string text_config_file)
+{
+    ECP5Bitgen bitgen(ctx);
+    bitgen.run(base_config_file);
+
     // Configure chip
     if (!text_config_file.empty()) {
         std::ofstream out_config(text_config_file);
-        out_config << cc;
+        out_config << bitgen.cc;
     }
 }
 
