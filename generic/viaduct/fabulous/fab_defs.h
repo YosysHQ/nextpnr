@@ -1,0 +1,39 @@
+/*
+ *  nextpnr -- Next Generation Place and Route
+ *
+ *  Copyright (C) 2022  gatecat <gatecat@ds0.me>
+ *
+ *  Permission to use, copy, modify, and/or distribute this software for any
+ *  purpose with or without fee is hereby granted, provided that the above
+ *  copyright notice and this permission notice appear in all copies.
+ *
+ *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ *  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ *  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ *  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ */
+
+#ifndef FAB_DEFS_H
+#define FAB_DEFS_H
+
+#include <cstdint>
+#include "nextpnr_namespaces.h"
+
+NEXTPNR_NAMESPACE_BEGIN
+
+/*
+This defines some compile-time maximums for the fabulous arch
+*/
+
+static constexpr unsigned MAX_LUTK = 6; // max number of LUT inputs
+
+typedef uint64_t route_mask_t; // the width of this type defines the max number of FFs in a CLB (for defining control
+                               // set route patterns)
+
+NEXTPNR_NAMESPACE_END
+
+#endif
