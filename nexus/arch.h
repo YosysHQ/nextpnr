@@ -1522,6 +1522,8 @@ struct Arch : BaseArch<ArchRanges>
 
     // -------------------------------------------------
     void write_fasm(std::ostream &out) const;
+    // -------------------------------------------------
+    static void list_devices();
 };
 
 NEXTPNR_NAMESPACE_END
