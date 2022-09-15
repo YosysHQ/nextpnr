@@ -1,8 +1,6 @@
-# -*- coding: utf-8 -*-
 import pytest
 
 import env  # noqa: F401
-
 from pybind11_tests import local_bindings as m
 
 
@@ -193,7 +191,7 @@ def test_stl_caster_vs_stl_bind(msg):
     v2 = [1, 2, 3]
     assert m.load_vector_via_caster(v2) == 6
     with pytest.raises(TypeError) as excinfo:
-        cm.load_vector_via_binding(v2) == 6
+        cm.load_vector_via_binding(v2)
     assert (
         msg(excinfo.value)
         == """
@@ -201,7 +199,7 @@ def test_stl_caster_vs_stl_bind(msg):
         1. (arg0: pybind11_cross_module_tests.VectorInt) -> int
 
     Invoked with: [1, 2, 3]
-    """  # noqa: E501 line too long
+    """
     )
 
 

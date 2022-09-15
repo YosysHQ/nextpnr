@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 #
 # pybind11 documentation build configuration file, created by
 # sphinx-quickstart on Sun Oct 11 19:23:48 2015.
@@ -13,12 +12,11 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
-import sys
 import os
-import shlex
-import subprocess
-from pathlib import Path
 import re
+import subprocess
+import sys
+from pathlib import Path
 
 DIR = Path(__file__).parent.resolve()
 
@@ -37,6 +35,7 @@ DIR = Path(__file__).parent.resolve()
 # ones.
 extensions = [
     "breathe",
+    "sphinx_copybutton",
     "sphinxcontrib.rsvgconverter",
     "sphinxcontrib.moderncmakedomain",
 ]
@@ -127,23 +126,7 @@ todo_include_todos = False
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 
-on_rtd = os.environ.get("READTHEDOCS", None) == "True"
-
-if not on_rtd:  # only import and set the theme if we're building docs locally
-    import sphinx_rtd_theme
-
-    html_theme = "sphinx_rtd_theme"
-    html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
-
-    html_context = {"css_files": ["_static/theme_overrides.css"]}
-else:
-    html_context = {
-        "css_files": [
-            "//media.readthedocs.org/css/sphinx_rtd_theme.css",
-            "//media.readthedocs.org/css/readthedocs-doc-embed.css",
-            "_static/theme_overrides.css",
-        ]
-    }
+html_theme = "furo"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -173,6 +156,10 @@ else:
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
+
+html_css_files = [
+    "css/custom.css",
+]
 
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied
@@ -238,6 +225,8 @@ html_static_path = ["_static"]
 htmlhelp_basename = "pybind11doc"
 
 # -- Options for LaTeX output ---------------------------------------------
+
+latex_engine = "pdflatex"
 
 latex_elements = {
     # The paper size ('letterpaper' or 'a4paper').
@@ -344,17 +333,20 @@ def generate_doxygen_xml(app):
         subprocess.call(["doxygen", "--version"])
         retcode = subprocess.call(["doxygen"], cwd=app.confdir)
         if retcode < 0:
-            sys.stderr.write("doxygen error code: {}\n".format(-retcode))
+            sys.stderr.write(f"doxygen error code: {-retcode}\n")
     except OSError as e:
-        sys.stderr.write("doxygen execution failed: {}\n".format(e))
+        sys.stderr.write(f"doxygen execution failed: {e}\n")
 
 
 def prepare(app):
     with open(DIR.parent / "README.rst") as f:
         contents = f.read()
 
-    # Filter out section titles for index.rst for LaTeX
     if app.builder.name == "latex":
+        # Remove badges and stuff from start
+        contents = contents[contents.find(r".. start") :]
+
+        # Filter out section titles for index.rst for LaTeX
         contents = re.sub(r"^(.*)\n[-~]{3,}$", r"**\1**", contents, flags=re.MULTILINE)
 
     with open(DIR / "readme.rst", "w") as f:

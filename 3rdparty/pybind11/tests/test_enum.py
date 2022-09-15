@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
 import pytest
+
 from pybind11_tests import enums as m
 
 
@@ -13,15 +13,24 @@ def test_unscoped_enum():
 
     # name property
     assert m.UnscopedEnum.EOne.name == "EOne"
+    assert m.UnscopedEnum.EOne.value == 1
     assert m.UnscopedEnum.ETwo.name == "ETwo"
-    assert m.EOne.name == "EOne"
-    # name readonly
+    assert m.UnscopedEnum.ETwo.value == 2
+    assert m.EOne is m.UnscopedEnum.EOne
+    # name, value readonly
     with pytest.raises(AttributeError):
         m.UnscopedEnum.EOne.name = ""
-    # name returns a copy
-    foo = m.UnscopedEnum.EOne.name
-    foo = "bar"
+    with pytest.raises(AttributeError):
+        m.UnscopedEnum.EOne.value = 10
+    # name, value returns a copy
+    # TODO: Neither the name nor value tests actually check against aliasing.
+    # Use a mutable type that has reference semantics.
+    nonaliased_name = m.UnscopedEnum.EOne.name
+    nonaliased_name = "bar"  # noqa: F841
     assert m.UnscopedEnum.EOne.name == "EOne"
+    nonaliased_value = m.UnscopedEnum.EOne.value
+    nonaliased_value = 10  # noqa: F841
+    assert m.UnscopedEnum.EOne.value == 1
 
     # __members__ property
     assert m.UnscopedEnum.__members__ == {
@@ -33,8 +42,8 @@ def test_unscoped_enum():
     with pytest.raises(AttributeError):
         m.UnscopedEnum.__members__ = {}
     # __members__ returns a copy
-    foo = m.UnscopedEnum.__members__
-    foo["bar"] = "baz"
+    nonaliased_members = m.UnscopedEnum.__members__
+    nonaliased_members["bar"] = "baz"
     assert m.UnscopedEnum.__members__ == {
         "EOne": m.UnscopedEnum.EOne,
         "ETwo": m.UnscopedEnum.ETwo,
@@ -73,16 +82,16 @@ Members:
     assert not (y == "2")
 
     with pytest.raises(TypeError):
-        y < object()
+        y < object()  # noqa: B015
 
     with pytest.raises(TypeError):
-        y <= object()
+        y <= object()  # noqa: B015
 
     with pytest.raises(TypeError):
-        y > object()
+        y > object()  # noqa: B015
 
     with pytest.raises(TypeError):
-        y >= object()
+        y >= object()  # noqa: B015
 
     with pytest.raises(TypeError):
         y | object()
@@ -134,13 +143,13 @@ def test_scoped_enum():
     assert not (z == object())
     # Scoped enums will *NOT* accept >, <, >= and <= int comparisons (Will throw exceptions)
     with pytest.raises(TypeError):
-        z > 3
+        z > 3  # noqa: B015
     with pytest.raises(TypeError):
-        z < 3
+        z < 3  # noqa: B015
     with pytest.raises(TypeError):
-        z >= 3
+        z >= 3  # noqa: B015
     with pytest.raises(TypeError):
-        z <= 3
+        z <= 3  # noqa: B015
 
     # order
     assert m.ScopedEnum.Two < m.ScopedEnum.Three
@@ -208,16 +217,44 @@ def test_binary_operators():
 def test_enum_to_int():
     m.test_enum_to_int(m.Flags.Read)
     m.test_enum_to_int(m.ClassWithUnscopedEnum.EMode.EFirstMode)
+    m.test_enum_to_int(m.ScopedCharEnum.Positive)
+    m.test_enum_to_int(m.ScopedBoolEnum.TRUE)
     m.test_enum_to_uint(m.Flags.Read)
     m.test_enum_to_uint(m.ClassWithUnscopedEnum.EMode.EFirstMode)
+    m.test_enum_to_uint(m.ScopedCharEnum.Positive)
+    m.test_enum_to_uint(m.ScopedBoolEnum.TRUE)
     m.test_enum_to_long_long(m.Flags.Read)
     m.test_enum_to_long_long(m.ClassWithUnscopedEnum.EMode.EFirstMode)
+    m.test_enum_to_long_long(m.ScopedCharEnum.Positive)
+    m.test_enum_to_long_long(m.ScopedBoolEnum.TRUE)
 
 
 def test_duplicate_enum_name():
     with pytest.raises(ValueError) as excinfo:
         m.register_bad_enum()
     assert str(excinfo.value) == 'SimpleEnum: element "ONE" already exists!'
+
+
+def test_char_underlying_enum():  # Issue #1331/PR #1334:
+    assert type(m.ScopedCharEnum.Positive.__int__()) is int
+    assert int(m.ScopedChar16Enum.Zero) == 0
+    assert hash(m.ScopedChar32Enum.Positive) == 1
+    assert type(m.ScopedCharEnum.Positive.__getstate__()) is int
+    assert m.ScopedWCharEnum(1) == m.ScopedWCharEnum.Positive
+    with pytest.raises(TypeError):
+        # Even if the underlying type is char, only an int can be used to construct the enum:
+        m.ScopedCharEnum("0")
+
+
+def test_bool_underlying_enum():
+    assert type(m.ScopedBoolEnum.TRUE.__int__()) is int
+    assert int(m.ScopedBoolEnum.FALSE) == 0
+    assert hash(m.ScopedBoolEnum.TRUE) == 1
+    assert type(m.ScopedBoolEnum.TRUE.__getstate__()) is int
+    assert m.ScopedBoolEnum(1) == m.ScopedBoolEnum.TRUE
+    # Enum could construct with a bool
+    # (bool is a strict subclass of int, and False will be converted to 0)
+    assert m.ScopedBoolEnum(False) == m.ScopedBoolEnum.FALSE
 
 
 def test_docstring_signatures():
