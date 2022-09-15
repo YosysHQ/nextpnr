@@ -58,7 +58,9 @@ Arch::Arch(ArchArgs args) : args(args)
         log_error("Unknown device string '%s' (expected device name like 'LIFCL-40-8SG72C')\n", args.device.c_str());
     device = args.device.substr(0, last_sep);
     speed = args.device.substr(last_sep + 1, 1);
-    auto package_end = args.device.find_last_of("0123456789");
+    auto package_end = args.device.find_last_of("0123456789", args.device.substr(args.device.size() - 3) == "ES2"
+                                                                      ? args.device.size() - 3
+                                                                      : std::string::npos);
     if (package_end == std::string::npos || package_end < last_sep)
         log_error("Unknown device string '%s' (expected device name like 'LIFCL-40-8SG72C')\n", args.device.c_str());
     package = args.device.substr(last_sep + 2, (package_end - (last_sep + 2)) + 1);
@@ -67,6 +69,9 @@ Arch::Arch(ArchArgs args) : args(args)
     // Check for 'ES' part
     if (rating.size() > 1 && rating.substr(1) == "ES") {
         variant = "ES";
+    } else if (rating.size() > 1 && rating.substr(1) == "ES2") {
+        // ES2 devices are production-equivalent from nextpnr's and bitstream point of view
+        variant = "";
     } else {
         variant = "";
     }
@@ -191,6 +196,35 @@ Arch::Arch(ArchArgs args) : args(args)
         for (auto dcs_pip : getPipsUphill(dcs_out))
             disabled_pips.insert(dcs_pip);
         NPNR_ASSERT(disabled_pips.size() == 6);
+    }
+}
+
+void Arch::list_devices()
+{
+    std::vector<std::string> families{
+            "LIFCL",
+    };
+    log("Supported devices: \n");
+    for (auto fam : families) {
+        std::string chipdb = stringf("nexus/chipdb-%s.bin", fam.c_str());
+        auto db_ptr = reinterpret_cast<const RelPtr<DatabasePOD> *>(get_chipdb(chipdb));
+        if (!db_ptr)
+            continue; // chipdb not available
+        // enumerate chips
+        for (auto &chip : db_ptr->get()->chips) {
+            // enumerate packages
+            for (auto &pkg : chip.packages) {
+                // enumerate suffices
+                for (auto speedgrade : {"7", "8", "9"}) { // TODO: these might depend on family
+                    for (auto rating : {"I", "C"}) {
+                        for (auto suffix : {"", "ES", "ES2"}) {
+                            log("    %s-%s%s%s%s\n", chip.device_name.get(), speedgrade, pkg.short_name.get(), rating,
+                                suffix);
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
