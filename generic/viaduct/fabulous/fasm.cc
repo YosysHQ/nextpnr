@@ -127,9 +127,12 @@ struct FabFasmWriter
 
     void write_io(const CellInfo *io)
     {
+#if 0
+        prefix = format_name(ctx->getBelName(io->bel)) + ".";
         write_bool(io, "INPUT_USED");
         write_bool(io, "OUTPUT_USED");
         write_bool(io, "ENABLE_USED");
+#endif
     }
 
     void write_generic_cell(const CellInfo *ci)
