@@ -82,3 +82,7 @@ X(out)
 
 X(mux_sc)
 X(mux_dy)
+
+X(CLK_MUX)
+X(EN_MUX)
+X(CLK_GATE_MUX)

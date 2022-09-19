@@ -77,6 +77,11 @@ struct PlbInfo {
     std::array<WireId, 4> clk_xbar;
 };
 
+struct RbufInfo {
+    std::array<WireId, 16> gclk;
+    std::array<WireId, 2> fabric_rclk;
+};
+
 struct Hercules : ViaductAPI {
     void init(Context *const ctx) override {
         init_uarch_constids(ctx); // Set up the string-interning pool.
@@ -128,7 +133,7 @@ private:
     }
 
     BelId addBel(const int x, const int y, const int z, const IdString id) {
-        return ctx->addBel(h.xy_id(x, y, IdStringList::concat(id, ctx->id(stringf("%d", z)))), id, Loc(x, y, z), /* gb = */ false, /* hidden = */ false);
+        return ctx->addBel(h.xy_id(x, y, IdStringList::concat(id, ctx->idf("%d", z))), id, Loc(x, y, z), /* gb = */ false, /* hidden = */ false);
     }
 
     WireId addWire(const int x, const int y, const IdStringList name, const IdString type) {
@@ -280,27 +285,28 @@ private:
         info.lbuf.a_sr = addWire(x, y, IdStringList(id_a_sr), id_a_sr);
         info.lbuf.mclk_b = addWire(x, y, IdStringList(id_mclk_b), id_mclk_b);
         info.lbuf.sclk = addWire(x, y, IdStringList(id_sclk), id_sclk);
-        info.lbuf.sh[0] = addWire(x, y, IdStringList::concat(id_shift, ctx->id(stringf("0"))), id_shift);
-        info.lbuf.sh[1] = addWire(x, y, IdStringList::concat(id_shift, ctx->id(stringf("1"))), id_shift);
+        info.lbuf.sh[0] = addWire(x, y, IdStringList::concat(id_shift, ctx->idf("0")), id_shift);
+        info.lbuf.sh[1] = addWire(x, y, IdStringList::concat(id_shift, ctx->idf("1")), id_shift);
 
         /* lbuf bel I guess? */
         const WireId lbuf_en{};
         add_cfgmux(Loc(x, y, 0), info.lbuf.a_sr, plbs[x][y].cclk[0], plbs[x][y].cclk[1], plbs[x][y].cclk[2], plbs[x][y].cclk[3], plbs[x][y].cclk[4], plbs[x][y].cclk[5] /*, rc[1]? */);
+        add_cfgmux(Loc(x, y, 0), info.lbuf.mclk_b, plbs[x][y].cclk[0], plbs[x][y].cclk[1], plbs[x][y].cclk[2], plbs[x][y].cclk[3], plbs[x][y].cclk[4], plbs[x][y].cclk[5]);
         //add_cfgmux(Loc(x, y, 0), lbuf_en, plbs[x][y].cclk[0], plbs[x][y].cclk[1], plbs[x][y].cclk[2], plbs[x][y].cclk[3], plbs[x][y].cclk[4], plbs[x][y].cclk[5] /*, rc[0]? */);
 
         // Setup LP wires.
         for (int lp_idx = 0; lp_idx < 4; lp_idx++) {
-            IdString lp_id = ctx->id(stringf("LP%d", lp_idx));
+            IdString lp_id = ctx->idf("LP%d", lp_idx);
             LpInfo& lp = info.lp[lp_idx];
 
             // LP inputs.
             for (int byp = 0; byp < 5; byp++)
-                lp.byp[byp] = addWire(x, y, IdStringList::concat(lp_id, ctx->id(stringf("BYP[%d]", byp))), id_BYP);
+                lp.byp[byp] = addWire(x, y, IdStringList::concat(lp_id, ctx->idf("BYP[%d]", byp)), id_BYP);
 
             for (int fx = 0; fx < 3; fx++) {
-                lp.f0[fx] = addWire(x, y, IdStringList::concat(lp_id, ctx->id(stringf("F0[%d]", fx))), id_f0);
-                lp.f1[fx] = addWire(x, y, IdStringList::concat(lp_id, ctx->id(stringf("F1[%d]", fx))), id_f1);
-                lp.f2[fx] = addWire(x, y, IdStringList::concat(lp_id, ctx->id(stringf("F2[%d]", fx))), id_f2);
+                lp.f0[fx] = addWire(x, y, IdStringList::concat(lp_id, ctx->idf("F0[%d]", fx)), id_f0);
+                lp.f1[fx] = addWire(x, y, IdStringList::concat(lp_id, ctx->idf("F1[%d]", fx)), id_f1);
+                lp.f2[fx] = addWire(x, y, IdStringList::concat(lp_id, ctx->idf("F2[%d]", fx)), id_f2);
             }
 
             if (x > 1)
@@ -312,8 +318,8 @@ private:
             info.lp[lp_idx].c_out = addWire(x, y, IdStringList::concat(lp_id, id_C_OUT), id_C_OUT);
 
             for (int dx = 0; dx < 2; dx++) {
-                lp.dx[dx] = addWire(x, y, IdStringList::concat(lp_id, ctx->id(stringf("DX[%d]", dx))), id_dx);
-                lp.qx[dx] = addWire(x, y, IdStringList::concat(lp_id, ctx->id(stringf("QX[%d]", dx))), id_qx);
+                lp.dx[dx] = addWire(x, y, IdStringList::concat(lp_id, ctx->idf("DX[%d]", dx)), id_dx);
+                lp.qx[dx] = addWire(x, y, IdStringList::concat(lp_id, ctx->idf("QX[%d]", dx)), id_qx);
             }
 
             info.lp[lp_idx].dx40 = addWire(x, y, IdStringList::concat(lp_id, id_DX40), id_DX40);
@@ -404,10 +410,10 @@ private:
             for (int a = 0; a < 4; a++)
                 for (int b = 0; b < 8; b++)
                     for (int c = 0; c < 4; c++) {
-                        IdString ixbar_id = ctx->id(stringf("IXBAR%d", ixbar));
-                        IdStringList a_id = IdStringList::concat(ixbar_id, ctx->id(stringf("IX%d", a)));
-                        IdStringList b_id = IdStringList::concat(a_id, ctx->id(stringf("IX%d", b)));
-                        IdStringList id = IdStringList::concat(b_id, ctx->id(stringf("SC_MUX_%d", c)));
+                        IdString ixbar_id = ctx->idf("IXBAR%d", ixbar);
+                        IdStringList a_id = IdStringList::concat(ixbar_id, ctx->idf("IX%d", a));
+                        IdStringList b_id = IdStringList::concat(a_id, ctx->idf("IX%d", b));
+                        IdStringList id = IdStringList::concat(b_id, ctx->idf("SC_MUX_%d", c));
                         x[a][b][c] = addWire(x_coord, y_coord, id, id_IXIX);
                     }
 
@@ -500,6 +506,30 @@ private:
         create_output_crossbar(x, y, plbs[x][y]);
     }
 
+    void create_rbuf(const int x, const int y, const int n, const WireId clk0, const WireId clk1, const WireId clk2, const WireId clk3, const WireId en0, const WireId en1) {
+        WireId clk_mux = addWire(x, y, h.xy_id(x, y, ctx->idf("RBUF%d", n)), id_CLK_MUX);
+        add_cfgmux(Loc(x, y, n), clk_mux, clk0, clk1, clk2, clk3);
+        WireId en_mux = addWire(x, y, h.xy_id(x, y, ctx->idf("RBUF%d", n)), id_EN_MUX);
+        add_cfgmux(Loc(x, y, n), en_mux, en0, en1);
+        // TODO: clock gating bel?
+        WireId clk_en_mux = clk_mux;
+
+        // TODO: investigate rbufx6.rclk_[td]_xbar_[12]
+        for (int x_offset = 0; x_offset < 8; x_offset++)
+            for (int y_offset = 0; y_offset < 2; y_offset++)
+                get(x + x_offset, y + y_offset).cclk[n] = clk_en_mux;
+    }
+
+    void create_rbufx6(const int x, const int y) {
+        RbufInfo& rbuf = rbufs[x][y];
+        create_rbuf(x, y, 0, rbuf.gclk[0], rbuf.gclk[6], rbuf.gclk[10], rbuf.gclk[12], rbuf.gclk[4], rbuf.fabric_rclk[0]);
+        create_rbuf(x, y, 1, rbuf.gclk[1], rbuf.gclk[7], rbuf.gclk[11], rbuf.gclk[13], rbuf.gclk[5], rbuf.fabric_rclk[1]);
+        create_rbuf(x, y, 2, rbuf.gclk[2], rbuf.gclk[8], rbuf.gclk[12], rbuf.gclk[14], rbuf.gclk[0], rbuf.gclk[6]);
+        create_rbuf(x, y, 3, rbuf.gclk[3], rbuf.gclk[9], rbuf.gclk[13], rbuf.gclk[15], rbuf.gclk[1], rbuf.gclk[7]);
+        create_rbuf(x, y, 4, rbuf.gclk[4], rbuf.gclk[10], rbuf.gclk[14], rbuf.fabric_rclk[0], rbuf.gclk[2], rbuf.gclk[8]);
+        create_rbuf(x, y, 5, rbuf.gclk[5], rbuf.gclk[11], rbuf.gclk[15], rbuf.fabric_rclk[1], rbuf.gclk[3], rbuf.gclk[9]);
+    }
+
     void create_bels() {
         for (int x = 0; x < COLUMNS; x++) {
             for (int y = 0; y < ROWS; y++) {
@@ -529,17 +559,17 @@ private:
 
     PlbInfo setup_plb(const int x, const int y) {
         PlbInfo plb{};
+
         for (int triple = 0; triple < 6; triple++) {
-            IdString id = ctx->id(stringf("%d", triple));
+            IdString id = ctx->idf("%d", triple);
             plb.tn0_o[triple] = addWire(x, y, IdStringList::concat(id_TN, id), id_TN);
             plb.te0_o[triple] = addWire(x, y, IdStringList::concat(id_TE, id), id_TE);
             plb.ts0_o[triple] = addWire(x, y, IdStringList::concat(id_TS, id), id_TS);
             plb.tw0_o[triple] = addWire(x, y, IdStringList::concat(id_TW, id), id_TW);
-            plb.cclk[triple] = addWire(x, y, IdStringList::concat(id_CCLK, id), id_CCLK);
         }
 
         for (int mono = 0; mono < 4; mono++) {
-            IdString id = ctx->id(stringf("%d", mono));
+            IdString id = ctx->idf("%d", mono);
             plb.mn0_o[mono] = addWire(x, y, IdStringList::concat(id_MN, id), id_MN);
             plb.me0_o[mono] = addWire(x, y, IdStringList::concat(id_ME, id), id_ME);
             plb.ms0_o[mono] = addWire(x, y, IdStringList::concat(id_MS, id), id_MS);
@@ -548,7 +578,7 @@ private:
         }
 
         for (int octal = 0; octal < 9; octal++) {
-            IdString id = ctx->id(stringf("%d", octal));
+            IdString id = ctx->idf("%d", octal);
             plb.on0_o[octal] = addWire(x, y, IdStringList::concat(id_ON, id), id_ON);
             plb.os0_o[octal] = addWire(x, y, IdStringList::concat(id_OS, id), id_OS);
             if (octal < 7) {
@@ -558,7 +588,7 @@ private:
         }
 
         for (int xy = 0; xy < 3; xy++) {
-            IdString id = ctx->id(stringf("%d", xy));
+            IdString id = ctx->idf("%d", xy);
             plb.n_xy_o[xy] = addWire(x, y, IdStringList::concat(id_XYN, id), id_XYN);
             plb.e_xy_o[xy] = addWire(x, y, IdStringList::concat(id_XYE, id), id_XYE);
             plb.s_xy_o[xy] = addWire(x, y, IdStringList::concat(id_XYS, id), id_XYS);
@@ -566,7 +596,7 @@ private:
         }
 
         for (int xy = 0; xy < 2; xy++) {
-            IdString id = ctx->id(stringf("%d", xy));
+            IdString id = ctx->idf("%d", xy);
             plb.en_xy_o[xy] = addWire(x, y, IdStringList::concat(id_XYEN, id), id_XYEN);
             plb.se_xy_o[xy] = addWire(x, y, IdStringList::concat(id_XYSE, id), id_XYSE);
             plb.ws_xy_o[xy] = addWire(x, y, IdStringList::concat(id_XYWS, id), id_XYWS);
@@ -582,7 +612,7 @@ private:
         return plb;
     }
 
-    PlbInfo get(int x, int y) const {
+    PlbInfo& get(int x, int y) {
         if (x < 0)
             x = -x;
         if (x >= COLUMNS)
@@ -635,6 +665,7 @@ private:
     static const int LP_BELS = 7;
 
     std::array<std::array<PlbInfo, ROWS>, COLUMNS> plbs;
+    std::array<std::array<RbufInfo, ROWS>, COLUMNS> rbufs;
 };
 
 struct HerculesArch : ViaductArch {
