@@ -534,6 +534,8 @@ private:
         for (int x = 0; x < COLUMNS; x++) {
             for (int y = 0; y < ROWS; y++) {
                 plbs[x][y] = setup_plb(x, y);
+                if ((x - 1) % 8 == 0 && (y - 1) % 2 == 0)
+                    create_rbufx6(x, y);
             }
         }
 
