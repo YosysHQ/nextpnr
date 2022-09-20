@@ -453,6 +453,13 @@ struct Router2
     {
         bool did_something = false;
         WireId src = ctx->getNetinfoSourceWire(net);
+        {
+            auto &src_wd = wire_data(src);
+            if (src_wd.reserved_net != -1 && src_wd.reserved_net != net->udata)
+                log_error("attempting to reserve src wire '%s' for nets '%s' and '%s'\n", ctx->nameOfWire(src),
+                          ctx->nameOf(nets_by_udata.at(src_wd.reserved_net)), ctx->nameOf(net));
+            src_wd.reserved_net = net->udata;
+        }
         auto &usr = net->users.at(i);
         for (auto sink : ctx->getNetinfoSinkWires(net, usr)) {
             pool<WireId> rsv;
