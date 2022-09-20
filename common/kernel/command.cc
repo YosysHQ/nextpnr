@@ -172,6 +172,7 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("no-pack", "process design without packing");
 
     general.add_options()("ignore-loops", "ignore combinational loops in timing analysis");
+    general.add_options()("ignore-rel-clk", "ignore clock-to-clock relations in timing checks");
 
     general.add_options()("version,V", "show version");
     general.add_options()("test", "check architecture database integrity");
@@ -268,6 +269,10 @@ void CommandHandler::setupContext(Context *ctx)
 
     if (vm.count("ignore-loops")) {
         ctx->settings[ctx->id("timing/ignoreLoops")] = true;
+    }
+
+    if (vm.count("ignore-rel-clk")) {
+        ctx->settings[ctx->id("timing/ignoreRelClk")] = true;
     }
 
     if (vm.count("timing-allow-fail")) {

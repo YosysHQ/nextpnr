@@ -285,81 +285,81 @@ void TimingAnalyser::setup_port_domains()
     }
 }
 
-void TimingAnalyser::identify_related_domains() {
+void TimingAnalyser::identify_related_domains()
+{
 
     // Identify clock nets
     pool<IdString> clock_nets;
-    for (const auto& domain : domains) {
+    for (const auto &domain : domains) {
         clock_nets.insert(domain.key.clock);
     }
 
     // For each clock net identify all nets that can possibly drive it. Compute
     // cumulative delays to each of them.
-    std::function<void(const NetInfo*, dict<IdString, delay_t>&, delay_t)> find_net_drivers =
-        [&] (const NetInfo* ni, dict<IdString, delay_t>& drivers, delay_t delay_acc)
-    {
-        // Get driving cell and port
-        const CellInfo* cell = ni->driver.cell;
-        const IdString  port = ni->driver.port;
+    std::function<void(const NetInfo *, dict<IdString, delay_t> &, delay_t)> find_net_drivers =
+            [&](const NetInfo *ni, dict<IdString, delay_t> &drivers, delay_t delay_acc) {
+                // Get driving cell and port
+                const CellInfo *cell = ni->driver.cell;
+                const IdString port = ni->driver.port;
 
-        bool didGoUpstream = false;
+                bool didGoUpstream = false;
 
-        // The cell has only one port
-        if (cell->ports.size() == 1) {
-            drivers[ni->name] = delay_acc;
-            return;
-        }
+                // The cell has only one port
+                if (cell->ports.size() == 1) {
+                    drivers[ni->name] = delay_acc;
+                    return;
+                }
 
-        // Get the driver timing class
-        int  info_count = 0;
-        auto timing_class = ctx->getPortTimingClass(cell, port, info_count);
+                // Get the driver timing class
+                int info_count = 0;
+                auto timing_class = ctx->getPortTimingClass(cell, port, info_count);
 
-        // The driver must be a combinational output
-        if (timing_class != TMG_COMB_OUTPUT) {
-            drivers[ni->name] = delay_acc;
-            return;
-        }
+                // The driver must be a combinational output
+                if (timing_class != TMG_COMB_OUTPUT) {
+                    drivers[ni->name] = delay_acc;
+                    return;
+                }
 
-        // Recurse upstream through all input ports that have combinational
-        // paths to this driver
-        for (const auto& it : cell->ports) {
-            const auto& pi = it.second;
+                // Recurse upstream through all input ports that have combinational
+                // paths to this driver
+                for (const auto &it : cell->ports) {
+                    const auto &pi = it.second;
 
-            // Only connected inputs
-            if (pi.type != PORT_IN) {
-                continue;
-            }
-            if (pi.net == nullptr) {
-                continue;
-            }
+                    // Only connected inputs
+                    if (pi.type != PORT_IN) {
+                        continue;
+                    }
+                    if (pi.net == nullptr) {
+                        continue;
+                    }
 
-            // The input must be a combinational input
-            timing_class = ctx->getPortTimingClass(cell, pi.name, info_count);
-            if (timing_class != TMG_COMB_INPUT) {
-                continue;
-            }
-            // There must be a combinational arc
-            DelayQuad delay;
-            if (!ctx->getCellDelay(cell, pi.name, port, delay)) {
-                continue;
-            }
+                    // The input must be a combinational input
+                    timing_class = ctx->getPortTimingClass(cell, pi.name, info_count);
+                    if (timing_class != TMG_COMB_INPUT) {
+                        continue;
+                    }
+                    // There must be a combinational arc
+                    DelayQuad delay;
+                    if (!ctx->getCellDelay(cell, pi.name, port, delay)) {
+                        continue;
+                    }
 
-            // Recurse
-            find_net_drivers(pi.net, drivers, delay_acc + delay.maxDelay());
-            didGoUpstream = true;
-        }
+                    // Recurse
+                    find_net_drivers(pi.net, drivers, delay_acc + delay.maxDelay());
+                    didGoUpstream = true;
+                }
 
-        // Did not propagate upstream through the cell, mark the net as driver
-        if (!didGoUpstream) {
-            drivers[ni->name] = delay_acc;
-        }
-    };
+                // Did not propagate upstream through the cell, mark the net as driver
+                if (!didGoUpstream) {
+                    drivers[ni->name] = delay_acc;
+                }
+            };
 
     // Identify possible drivers for each clock domain
     dict<IdString, dict<IdString, delay_t>> clock_drivers;
-    for (const auto& domain : domains) {
+    for (const auto &domain : domains) {
 
-        const NetInfo* ni = ctx->nets.at(domain.key.clock).get();
+        const NetInfo *ni = ctx->nets.at(domain.key.clock).get();
         dict<IdString, delay_t> drivers;
         find_net_drivers(ni, drivers, 0);
 
@@ -367,21 +367,18 @@ void TimingAnalyser::identify_related_domains() {
 
         if (ctx->debug) {
             log("Clock '%s' can be driven by:\n", domain.key.clock.str(ctx).c_str());
-            for (const auto& it : drivers) {
-                const NetInfo* net = ctx->nets.at(it.first).get();
-                log(" %s.%s delay %.3fns\n",
-                    net->driver.cell->name.str(ctx).c_str(),
-                    net->driver.port.str(ctx).c_str(),
-                    ctx->getDelayNS(it.second)
-                );
+            for (const auto &it : drivers) {
+                const NetInfo *net = ctx->nets.at(it.first).get();
+                log(" %s.%s delay %.3fns\n", net->driver.cell->name.str(ctx).c_str(), net->driver.port.str(ctx).c_str(),
+                    ctx->getDelayNS(it.second));
             }
         }
     }
 
     // Identify related clocks. For simplicity do it both for A->B and B->A
     // cases.
-    for (const auto& c1 : clock_drivers) {
-        for (const auto& c2 : clock_drivers) {
+    for (const auto &c1 : clock_drivers) {
+        for (const auto &c2 : clock_drivers) {
 
             if (c1 == c2) {
                 continue;
@@ -389,14 +386,14 @@ void TimingAnalyser::identify_related_domains() {
 
             // Make an intersection of the two drivers sets
             pool<IdString> common_drivers;
-            for (const auto& it : c1.second) {
+            for (const auto &it : c1.second) {
                 common_drivers.insert(it.first);
             }
-            for (const auto& it : c2.second) {
+            for (const auto &it : c2.second) {
                 common_drivers.insert(it.first);
             }
 
-            for (auto it=common_drivers.begin(); it!=common_drivers.end();) {
+            for (auto it = common_drivers.begin(); it != common_drivers.end();) {
                 if (!c1.second.count(*it) || !c2.second.count(*it)) {
                     it = common_drivers.erase(it);
                 } else {
@@ -406,21 +403,17 @@ void TimingAnalyser::identify_related_domains() {
 
             if (ctx->debug) {
 
-                log("Possible common driver(s) for clocks '%s' and '%s'\n",
-                    c1.first.str(ctx).c_str(), c2.first.str(ctx).c_str());
+                log("Possible common driver(s) for clocks '%s' and '%s'\n", c1.first.str(ctx).c_str(),
+                    c2.first.str(ctx).c_str());
 
-                for (const auto& it : common_drivers) {
-    
-                    const NetInfo* ni = ctx->nets.at(it).get();
-                    const CellInfo* cell = ni->driver.cell;
-                    const IdString  port = ni->driver.port;
-    
-                    log(" net '%s', cell %s (%s), port %s\n", 
-                        it.str(ctx).c_str(),
-                        cell->name.str(ctx).c_str(),
-                        cell->type.str(ctx).c_str(),
-                        port.str(ctx).c_str()
-                    );
+                for (const auto &it : common_drivers) {
+
+                    const NetInfo *ni = ctx->nets.at(it).get();
+                    const CellInfo *cell = ni->driver.cell;
+                    const IdString port = ni->driver.port;
+
+                    log(" net '%s', cell %s (%s), port %s\n", it.str(ctx).c_str(), cell->name.str(ctx).c_str(),
+                        cell->type.str(ctx).c_str(), port.str(ctx).c_str());
                 }
             }
 
@@ -432,7 +425,7 @@ void TimingAnalyser::identify_related_domains() {
 
             // Compute delay from c1 to c2 and store it
             auto driver = *common_drivers.begin();
-            auto delay  = c2.second.at(driver) - c1.second.at(driver);
+            auto delay = c2.second.at(driver) - c1.second.at(driver);
             clock_delays[std::make_pair(c1.first, c2.first)] = delay;
         }
     }
@@ -626,8 +619,8 @@ void TimingAnalyser::compute_slack()
             auto &dp = domain_pairs.at(pdp.first);
 
             // Get clock names
-            const auto& launch_clock = domains.at(dp.key.launch).key.clock;
-            const auto& capture_clock = domains.at(dp.key.capture).key.clock;
+            const auto &launch_clock = domains.at(dp.key.launch).key.clock;
+            const auto &capture_clock = domains.at(dp.key.capture).key.clock;
 
             // Get clock-to-clock delay if any
             delay_t clock_to_clock = 0;
@@ -727,12 +720,9 @@ void TimingAnalyser::print_report()
 
     print_fmax();
 
-    for (const auto& it : clock_delays) {
-        log_info("Clock-to-clock %s -> %s: %0.02f ns\n",
-            it.first.first.str(ctx).c_str(),
-            it.first.second.str(ctx).c_str(),
-            ctx->getDelayNS(it.second)
-        );
+    for (const auto &it : clock_delays) {
+        log_info("Clock-to-clock %s -> %s: %0.02f ns\n", it.first.first.str(ctx).c_str(),
+                 it.first.second.str(ctx).c_str(), ctx->getDelayNS(it.second));
     }
 }
 
@@ -1393,7 +1383,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
     timing.walk_paths();
 
     // Use TimingAnalyser to determine clock-to-clock relations
-    TimingAnalyser timingAnalyser (ctx);
+    TimingAnalyser timingAnalyser(ctx);
     timingAnalyser.setup();
 
     bool report_critical_paths = print_path || print_fmax || update_results;
@@ -1628,13 +1618,13 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
         log_break();
 
         // All clock to clock delays
-        const auto& clock_delays = timingAnalyser.get_clock_delays();
+        const auto &clock_delays = timingAnalyser.get_clock_delays();
 
         // Clock to clock delays for xpaths
         dict<ClockPair, delay_t> xclock_delays;
         for (auto &report : xclock_reports) {
-            const auto& clock1_name = report.clock_pair.start.clock;
-            const auto& clock2_name = report.clock_pair.end.clock;
+            const auto &clock1_name = report.clock_pair.start.clock;
+            const auto &clock2_name = report.clock_pair.end.clock;
 
             const auto key = std::make_pair(clock1_name, clock2_name);
             if (clock_delays.count(key)) {
@@ -1646,14 +1636,14 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
         unsigned max_width_xcb = 0;
         for (auto &report : xclock_reports) {
             max_width_xca = std::max((unsigned)format_event(report.clock_pair.start).length(), max_width_xca);
-            max_width_xcb = std::max((unsigned)format_event(report.clock_pair.end).length(),   max_width_xcb);
+            max_width_xcb = std::max((unsigned)format_event(report.clock_pair.end).length(), max_width_xcb);
         }
 
         // Check and report xpath delays for related clocks
         if (!xclock_reports.empty()) {
             for (auto &report : xclock_reports) {
-                const auto& clock_a = report.clock_pair.start.clock;
-                const auto& clock_b = report.clock_pair.end.clock;
+                const auto &clock_a = report.clock_pair.start.clock;
+                const auto &clock_b = report.clock_pair.end.clock;
 
                 const auto key = std::make_pair(clock_a, clock_b);
                 if (!clock_delays.count(key)) {
@@ -1685,28 +1675,27 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                 float target;
                 if (clock_fmax.count(clock_a) && !clock_fmax.count(clock_b)) {
                     target = clock_fmax.at(clock_a).constraint;
-                }
-                else if (!clock_fmax.count(clock_a) && clock_fmax.count(clock_b)) {
+                } else if (!clock_fmax.count(clock_a) && clock_fmax.count(clock_b)) {
                     target = clock_fmax.at(clock_b).constraint;
-                }
-                else {
+                } else {
                     target = std::min(clock_fmax.at(clock_a).constraint, clock_fmax.at(clock_b).constraint);
                 }
 
                 bool passed = target < fmax;
 
                 auto ev_a = format_event(report.clock_pair.start, max_width_xca);
-                auto ev_b = format_event(report.clock_pair.end,   max_width_xcb);
+                auto ev_b = format_event(report.clock_pair.end, max_width_xcb);
 
                 if (!warn_on_failure || passed)
-                    log_info("Max frequency for %s -> %s: %.02f MHz (%s at %.02f MHz)\n",
-                        ev_a.c_str(), ev_b.c_str(), fmax, passed ? "PASS" : "FAIL", target);
-                else if (bool_or_default(ctx->settings, ctx->id("timing/allowFail"), false))
-                    log_warning("Max frequency for  %s -> %s: %.02f MHz (%s at %.02f MHz)\n",
-                        ev_a.c_str(), ev_b.c_str(), fmax, passed ? "PASS" : "FAIL", target);
+                    log_info("Max frequency for %s -> %s: %.02f MHz (%s at %.02f MHz)\n", ev_a.c_str(), ev_b.c_str(),
+                             fmax, passed ? "PASS" : "FAIL", target);
+                else if (bool_or_default(ctx->settings, ctx->id("timing/allowFail"), false) ||
+                         bool_or_default(ctx->settings, ctx->id("timing/ignoreRelClk"), false))
+                    log_warning("Max frequency for  %s -> %s: %.02f MHz (%s at %.02f MHz)\n", ev_a.c_str(),
+                                ev_b.c_str(), fmax, passed ? "PASS" : "FAIL", target);
                 else
-                    log_nonfatal_error("Max frequency for %s -> %s: %.02f MHz (%s at %.02f MHz)\n",
-                        ev_a.c_str(), ev_b.c_str(), fmax, passed ? "PASS" : "FAIL", target);
+                    log_nonfatal_error("Max frequency for %s -> %s: %.02f MHz (%s at %.02f MHz)\n", ev_a.c_str(),
+                                       ev_b.c_str(), fmax, passed ? "PASS" : "FAIL", target);
             }
             log_break();
         }
@@ -1722,7 +1711,8 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                     delay /= 2;
                 }
 
-                log_info("Clock to clock delay %s -> %s: %0.02f ns\n", ev_a.c_str(), ev_b.c_str(), ctx->getDelayNS(delay));
+                log_info("Clock to clock delay %s -> %s: %0.02f ns\n", ev_a.c_str(), ev_b.c_str(),
+                         ctx->getDelayNS(delay));
             }
 
             log_break();

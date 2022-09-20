@@ -92,9 +92,7 @@ struct TimingAnalyser
         return slack;
     }
 
-    auto get_clock_delays () const {
-        return clock_delays;
-    }
+    auto get_clock_delays() const { return clock_delays; }
 
     bool setup_only = false;
     bool verbose_mode = false;
