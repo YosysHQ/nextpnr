@@ -680,6 +680,16 @@ struct Arch : BaseArch<ArchRanges>
         return switches_locked[pi.switch_index] == WireId();
     }
 
+    bool checkPipAvailForNet(PipId pip, NetInfo *net) const override
+    {
+        if (ice40_pip_hard_unavail(pip))
+            return false;
+
+        auto &pi = chip_info->pip_data[pip.index];
+        auto swl = switches_locked[pi.switch_index];
+        return swl == WireId() || (swl == getPipDstWire(pip) && wire_to_net[swl.index] == net);
+    }
+
     NetInfo *getBoundPipNet(PipId pip) const override
     {
         NPNR_ASSERT(pip != PipId());
