@@ -77,6 +77,16 @@ struct PlbInfo {
     std::array<WireId, 4> clk_xbar;
 };
 
+struct GbufInfo {
+    std::array<WireId, 4> clkpad_n;
+    std::array<WireId, 4> clkpad_s;
+    std::array<WireId, 8> fabric_gclk;
+    std::array<WireId, 4> pclk_c1r1;
+    std::array<WireId, 4> pclk_c1r2;
+    std::array<WireId, 4> pclk_c2r1;
+    std::array<WireId, 4> pclk_c2r2;
+};
+
 struct RbufInfo {
     std::array<WireId, 16> gclk;
     std::array<WireId, 2> fabric_rclk;
@@ -506,6 +516,37 @@ private:
         create_output_crossbar(x, y, plbs[x][y]);
     }
 
+    void create_gbuf(const int x, const int y, const int n, const WireId clk0, const WireId clk1, const WireId clk2, const WireId clk3, const WireId clk4, const WireId clk5, const WireId en0, const WireId en1) {
+        WireId clk_mux = addWire(x, y, h.xy_id(x, y, ctx->idf("GBUF%d", n)), id_CLK_MUX);
+        add_cfgmux(Loc(x, y, n), clk_mux, clk0, clk1, clk2, clk3, clk4, clk5);
+        WireId en_mux = addWire(x, y, h.xy_id(x, y, ctx->idf("GBUF%d", n)), id_EN_MUX);
+        add_cfgmux(Loc(x, y, n), en_mux, en0, en1);
+        // TODO: clock gating bel?
+        WireId clk_en_mux = clk_mux;
+
+        rbufs[x][y].gclk[n] = clk_en_mux;
+    }
+
+    void create_gbufx16(const int x, const int y) {
+        GbufInfo& gbuf = gbufs[x][y];
+        create_gbuf(x, y, 0, gbuf.pclk_c1r1[0], gbuf.pclk_c2r1[0], gbuf.pclk_c1r2[0], gbuf.pclk_c2r2[0], gbuf.clkpad_s[0], gbuf.fabric_gclk[0], gbuf.fabric_gclk[3], gbuf.fabric_gclk[4]);
+        create_gbuf(x, y, 1, gbuf.pclk_c1r1[1], gbuf.pclk_c2r1[1], gbuf.pclk_c1r2[1], gbuf.pclk_c2r2[1], gbuf.clkpad_s[1], gbuf.fabric_gclk[1], gbuf.fabric_gclk[3], gbuf.fabric_gclk[4]);
+        create_gbuf(x, y, 2, gbuf.pclk_c1r1[2], gbuf.pclk_c2r1[2], gbuf.pclk_c1r2[2], gbuf.pclk_c2r2[2], gbuf.clkpad_s[2], gbuf.fabric_gclk[2], gbuf.fabric_gclk[4], gbuf.fabric_gclk[5]);
+        create_gbuf(x, y, 3, gbuf.pclk_c1r1[3], gbuf.pclk_c2r1[3], gbuf.pclk_c1r2[3], gbuf.pclk_c2r2[3], gbuf.clkpad_s[3], gbuf.fabric_gclk[3], gbuf.fabric_gclk[4], gbuf.fabric_gclk[5]);
+        create_gbuf(x, y, 4, gbuf.pclk_c1r1[0], gbuf.pclk_c2r1[0], gbuf.pclk_c1r2[0], gbuf.pclk_c2r2[0], gbuf.clkpad_s[0], gbuf.fabric_gclk[2], gbuf.fabric_gclk[5], gbuf.fabric_gclk[6]);
+        create_gbuf(x, y, 5, gbuf.pclk_c1r1[1], gbuf.pclk_c2r1[1], gbuf.pclk_c1r2[1], gbuf.pclk_c2r2[1], gbuf.clkpad_s[1], gbuf.fabric_gclk[3], gbuf.fabric_gclk[5], gbuf.fabric_gclk[6]);
+        create_gbuf(x, y, 6, gbuf.pclk_c1r1[2], gbuf.pclk_c2r1[2], gbuf.pclk_c1r2[2], gbuf.pclk_c2r2[2], gbuf.clkpad_s[2], gbuf.fabric_gclk[4], gbuf.fabric_gclk[6], gbuf.fabric_gclk[7]);
+        create_gbuf(x, y, 7, gbuf.pclk_c1r1[3], gbuf.pclk_c2r1[3], gbuf.pclk_c1r2[3], gbuf.pclk_c2r2[3], gbuf.clkpad_s[3], gbuf.fabric_gclk[5], gbuf.fabric_gclk[6], gbuf.fabric_gclk[7]);
+        create_gbuf(x, y, 8, gbuf.pclk_c1r1[0], gbuf.pclk_c2r1[0], gbuf.pclk_c1r2[0], gbuf.pclk_c2r2[0], gbuf.clkpad_n[0], gbuf.fabric_gclk[4], gbuf.fabric_gclk[7], gbuf.fabric_gclk[0]);
+        create_gbuf(x, y, 9, gbuf.pclk_c1r1[1], gbuf.pclk_c2r1[1], gbuf.pclk_c1r2[1], gbuf.pclk_c2r2[1], gbuf.clkpad_n[1], gbuf.fabric_gclk[5], gbuf.fabric_gclk[7], gbuf.fabric_gclk[0]);
+        create_gbuf(x, y, 10, gbuf.pclk_c1r1[2], gbuf.pclk_c2r1[2], gbuf.pclk_c1r2[2], gbuf.pclk_c2r2[2], gbuf.clkpad_n[2], gbuf.fabric_gclk[6], gbuf.fabric_gclk[0], gbuf.fabric_gclk[1]);
+        create_gbuf(x, y, 11, gbuf.pclk_c1r1[3], gbuf.pclk_c2r1[3], gbuf.pclk_c1r2[3], gbuf.pclk_c2r2[3], gbuf.clkpad_n[3], gbuf.fabric_gclk[7], gbuf.fabric_gclk[0], gbuf.fabric_gclk[1]);
+        create_gbuf(x, y, 12, gbuf.pclk_c1r1[0], gbuf.pclk_c2r1[0], gbuf.pclk_c1r2[0], gbuf.pclk_c2r2[0], gbuf.clkpad_n[0], gbuf.fabric_gclk[6], gbuf.fabric_gclk[1], gbuf.fabric_gclk[2]);
+        create_gbuf(x, y, 13, gbuf.pclk_c1r1[1], gbuf.pclk_c2r1[1], gbuf.pclk_c1r2[1], gbuf.pclk_c2r2[1], gbuf.clkpad_n[1], gbuf.fabric_gclk[7], gbuf.fabric_gclk[1], gbuf.fabric_gclk[2]);
+        create_gbuf(x, y, 14, gbuf.pclk_c1r1[2], gbuf.pclk_c2r1[2], gbuf.pclk_c1r2[2], gbuf.pclk_c2r2[2], gbuf.clkpad_n[2], gbuf.fabric_gclk[0], gbuf.fabric_gclk[2], gbuf.fabric_gclk[3]);
+        create_gbuf(x, y, 15, gbuf.pclk_c1r1[3], gbuf.pclk_c2r1[3], gbuf.pclk_c1r2[3], gbuf.pclk_c2r2[3], gbuf.clkpad_n[3], gbuf.fabric_gclk[1], gbuf.fabric_gclk[2], gbuf.fabric_gclk[3]);
+    }
+
     void create_rbuf(const int x, const int y, const int n, const WireId clk0, const WireId clk1, const WireId clk2, const WireId clk3, const WireId en0, const WireId en1) {
         WireId clk_mux = addWire(x, y, h.xy_id(x, y, ctx->idf("RBUF%d", n)), id_CLK_MUX);
         add_cfgmux(Loc(x, y, n), clk_mux, clk0, clk1, clk2, clk3);
@@ -522,6 +563,11 @@ private:
 
     void create_rbufx6(const int x, const int y) {
         RbufInfo& rbuf = rbufs[x][y];
+
+        if (x < (COLUMNS / 2)) {
+            
+        }
+
         create_rbuf(x, y, 0, rbuf.gclk[0], rbuf.gclk[6], rbuf.gclk[10], rbuf.gclk[12], rbuf.gclk[4], rbuf.fabric_rclk[0]);
         create_rbuf(x, y, 1, rbuf.gclk[1], rbuf.gclk[7], rbuf.gclk[11], rbuf.gclk[13], rbuf.gclk[5], rbuf.fabric_rclk[1]);
         create_rbuf(x, y, 2, rbuf.gclk[2], rbuf.gclk[8], rbuf.gclk[12], rbuf.gclk[14], rbuf.gclk[0], rbuf.gclk[6]);
@@ -668,6 +714,7 @@ private:
 
     std::array<std::array<PlbInfo, ROWS>, COLUMNS> plbs;
     std::array<std::array<RbufInfo, ROWS>, COLUMNS> rbufs;
+    std::array<GbufInfo, 2> gbufs;
 };
 
 struct HerculesArch : ViaductArch {
