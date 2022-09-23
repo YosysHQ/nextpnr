@@ -99,6 +99,8 @@ struct TimingAnalyser
     bool have_loops = false;
     bool updated_domains = false;
 
+    void print_fmax();
+
   private:
     void init_ports();
     void get_cell_delays();
@@ -115,7 +117,6 @@ struct TimingAnalyser
     void compute_slack();
     void compute_criticality();
 
-    void print_fmax();
     // get the N most failing endpoints for a given domain pair
     std::vector<CellPortKey> get_failing_eps(domain_id_t domain_pair, int count);
     // print the critical path for an endpoint and domain pair

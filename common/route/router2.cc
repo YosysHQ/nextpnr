@@ -72,9 +72,11 @@ struct Router2
 
     struct WireScore
     {
-        float cost;
-        float togo_cost;
-        float total() const { return cost + togo_cost; }
+        float delay;
+        float togo;
+        float congest;
+        float criticality;
+        float total() const { return (delay * criticality) + (congest * (1.0f - criticality)) + togo; }
     };
 
     struct PerWireData
@@ -232,7 +234,7 @@ struct Router2
     {
 
         explicit QueuedWire(int wire = -1, WireScore score = WireScore{}, int randtag = 0)
-                : wire(wire), score(score), randtag(randtag){};
+                : wire(wire), score(score), randtag(randtag) {};
 
         int wire;
         WireScore score;
@@ -242,8 +244,8 @@ struct Router2
         {
             bool operator()(const QueuedWire &lhs, const QueuedWire &rhs) const noexcept
             {
-                float lhs_score = lhs.score.cost + lhs.score.togo_cost,
-                      rhs_score = rhs.score.cost + rhs.score.togo_cost;
+                float lhs_score = lhs.score.total(),
+                      rhs_score = rhs.score.total();
                 return lhs_score == rhs_score ? lhs.randtag > rhs.randtag : lhs_score > rhs_score;
             }
         };
@@ -350,27 +352,18 @@ struct Router2
         ad.routed = false;
     }
 
-    float score_wire_for_arc(NetInfo *net, store_index<PortRef> user, size_t phys_pin, WireId wire, PipId pip,
+    float score_wire_for_arc_congest(NetInfo *net, store_index<PortRef> user, size_t phys_pin, WireId wire, PipId pip,
                              float crit_weight)
     {
         auto &wd = wire_data(wire);
-        auto &nd = nets.at(net->udata);
-        float base_cost = cfg.get_base_cost(ctx, wire, pip, crit_weight);
-        int overuse = wd.curr_cong;
-        float hist_cost = 1.0f + crit_weight * (wd.hist_cong_cost - 1.0f);
-        float bias_cost = 0;
-        int source_uses = 0;
-        if (nd.wires.count(wire)) {
-            overuse -= 1;
-            source_uses = nd.wires.at(wire).second;
-        }
-        float present_cost = 1.0f + overuse * curr_cong_weight * crit_weight;
-        if (pip != PipId()) {
-            Loc pl = ctx->getPipLocation(pip);
-            bias_cost = cfg.bias_cost_factor * (base_cost / int(net->users.entries())) *
-                        ((std::abs(pl.x - nd.cx) + std::abs(pl.y - nd.cy)) / float(nd.hpwl));
-        }
-        return base_cost * hist_cost * present_cost / (1 + (source_uses * crit_weight)) + bias_cost;
+        float delay = cfg.get_base_cost(ctx, wire, pip, crit_weight);
+        return (wd.hist_cong_cost + delay) * (1.0f + float(wd.curr_cong) * 5.0f);
+    }
+
+    float score_wire_for_arc_delay(NetInfo *net, store_index<PortRef> user, size_t phys_pin, WireId wire, PipId pip,
+                             float crit_weight)
+    {
+        return cfg.get_base_cost(ctx, wire, pip, crit_weight);
     }
 
     float get_togo_cost(NetInfo *net, store_index<PortRef> user, int wire, WireId src_sink, bool bwd, float crit_weight)
@@ -383,7 +376,7 @@ struct Router2
         }
         // FIXME: timing/wirelength balance?
         delay_t est_delay = ctx->estimateDelay(bwd ? src_sink : wd.w, bwd ? wd.w : src_sink);
-        return (ctx->getDelayNS(est_delay) / (1 + source_uses * crit_weight)) + cfg.ipin_cost_adder;
+        return ctx->getDelayNS(est_delay) * cfg.estimate_weight;
     }
 
     bool check_arc_routing(NetInfo *net, store_index<PortRef> usr, size_t phys_pin)
@@ -647,9 +640,11 @@ struct Router2
             // Add 'forward' direction startpoints to queue
             auto seed_queue_fwd = [&](WireId wire, float wire_cost = 0) {
                 WireScore base_score;
-                base_score.cost = wire_cost;
+                base_score.criticality = crit;
+                base_score.congest = 0.0;
+                base_score.delay = wire_cost;
                 int wire_idx = wire_to_idx.at(wire);
-                base_score.togo_cost = get_togo_cost(net, i, wire_idx, dst_wire, false, crit_weight);
+                base_score.togo = get_togo_cost(net, i, wire_idx, dst_wire, false, crit);
                 t.fwd_queue.push(QueuedWire(wire_idx, base_score));
                 set_visited_fwd(t, wire_idx, PipId());
             };
@@ -677,9 +672,11 @@ struct Router2
             }
             auto seed_queue_bwd = [&](WireId wire) {
                 WireScore base_score;
-                base_score.cost = 0;
+                base_score.criticality = crit;
+                base_score.congest = 0.0;
+                base_score.delay = 0;
                 int wire_idx = wire_to_idx.at(wire);
-                base_score.togo_cost = get_togo_cost(net, i, wire_idx, src_wire, true, crit_weight);
+                base_score.togo = get_togo_cost(net, i, wire_idx, src_wire, true, crit);
                 t.bwd_queue.push(QueuedWire(wire_idx, base_score));
                 set_visited_bwd(t, wire_idx, PipId());
             };
@@ -731,9 +728,10 @@ struct Router2
                         if (!thread_test_wire(t, nwd))
                             continue; // thread safety issue
                         WireScore next_score;
-                        next_score.cost = curr.score.cost + score_wire_for_arc(net, i, phys_pin, next, dh, crit_weight);
-                        next_score.togo_cost =
-                                cfg.estimate_weight * get_togo_cost(net, i, next_idx, dst_wire, false, crit_weight);
+                        next_score.criticality = crit;
+                        next_score.congest = curr.score.congest + score_wire_for_arc_congest(net, i, phys_pin, next, dh, crit_weight);
+                        next_score.delay = curr.score.delay + score_wire_for_arc_delay(net, i, phys_pin, next, dh, crit_weight);
+                        next_score.togo = get_togo_cost(net, i, next_idx, dst_wire, false, crit_weight);
                         set_visited_fwd(t, next_idx, dh);
                         t.fwd_queue.push(QueuedWire(next_idx, next_score, t.rng.rng()));
                     }
@@ -777,9 +775,10 @@ struct Router2
                         if (!thread_test_wire(t, nwd))
                             continue; // thread safety issue
                         WireScore next_score;
-                        next_score.cost = curr.score.cost + score_wire_for_arc(net, i, phys_pin, next, uh, crit_weight);
-                        next_score.togo_cost =
-                                cfg.estimate_weight * get_togo_cost(net, i, next_idx, src_wire, true, crit_weight);
+                        next_score.criticality = crit;
+                        next_score.congest = curr.score.congest + score_wire_for_arc_congest(net, i, phys_pin, next, uh, crit_weight);
+                        next_score.delay = curr.score.delay + score_wire_for_arc_delay(net, i, phys_pin, next, uh, crit_weight);
+                        next_score.togo = get_togo_cost(net, i, next_idx, src_wire, true, crit_weight);
                         set_visited_bwd(t, next_idx, uh);
                         t.bwd_queue.push(QueuedWire(next_idx, next_score, t.rng.rng()));
                     }
@@ -1422,7 +1421,7 @@ struct Router2
             int tmgfail = 0;
             if (timing_driven)
                 tmg.run(false);
-            if (timing_driven_ripup && iter < 500) {
+            if (timing_driven_ripup && iter < 500 && overused_wires == 0) {
                 for (size_t i = 0; i < nets_by_udata.size(); i++) {
                     NetInfo *ni = nets_by_udata.at(i);
                     for (auto usr : ni->users.enumerate()) {
@@ -1431,6 +1430,12 @@ struct Router2
                             ++tmgfail;
                         }
                     }
+                }
+            }
+            if (overused_wires > 0) {
+                failed_nets.clear();
+                for (size_t i = 0; i < nets_by_udata.size(); i++) {
+                    failed_nets.insert(i);
                 }
             }
             if (overused_wires == 0 && tmgfail == 0) {
@@ -1450,6 +1455,7 @@ struct Router2
             ++iter;
             if (curr_cong_weight < 1e9)
                 curr_cong_weight += cfg.curr_cong_mult;
+            tmg.print_fmax();
         } while (!failed_nets.empty());
         if (cfg.perf_profile) {
             std::vector<std::pair<int, IdString>> nets_by_runtime;
