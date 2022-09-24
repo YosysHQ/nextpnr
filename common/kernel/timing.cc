@@ -300,6 +300,8 @@ void TimingAnalyser::identify_related_domains()
             [&](const NetInfo *ni, dict<IdString, delay_t> &drivers, delay_t delay_acc) {
                 // Get driving cell and port
                 const CellInfo *cell = ni->driver.cell;
+                if (nullptr == cell) return;
+        
                 const IdString port = ni->driver.port;
 
                 bool didGoUpstream = false;
@@ -360,6 +362,9 @@ void TimingAnalyser::identify_related_domains()
     for (const auto &domain : domains) {
 
         const NetInfo *ni = ctx->nets.at(domain.key.clock).get();
+        if (nullptr == ni) continue;
+        if (nullptr == ni->driver.cell) continue;
+        
         dict<IdString, delay_t> drivers;
         find_net_drivers(ni, drivers, 0);
 
