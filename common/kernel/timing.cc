@@ -299,9 +299,9 @@ void TimingAnalyser::identify_related_domains()
     std::function<void(const NetInfo *, dict<IdString, delay_t> &, delay_t)> find_net_drivers =
             [&](const NetInfo *ni, dict<IdString, delay_t> &drivers, delay_t delay_acc) {
                 // Get driving cell and port
-                if (nullptr == ni) return;
+                if (ni == nullptr) return;
                 const CellInfo *cell = ni->driver.cell;
-                if (nullptr == cell) return;
+                if (cell == nullptr) return;
         
                 const IdString port = ni->driver.port;
 
@@ -363,8 +363,8 @@ void TimingAnalyser::identify_related_domains()
     for (const auto &domain : domains) {
 
         const NetInfo *ni = ctx->nets.at(domain.key.clock).get();
-        if (nullptr == ni) continue;
-        if (nullptr == ni->driver.cell) continue;
+        if (ni == nullptr) continue;
+        if (ni->driver.cell == nullptr) continue;
         
         dict<IdString, delay_t> drivers;
         find_net_drivers(ni, drivers, 0);
