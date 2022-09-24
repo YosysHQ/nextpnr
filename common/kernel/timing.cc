@@ -299,6 +299,7 @@ void TimingAnalyser::identify_related_domains()
     std::function<void(const NetInfo *, dict<IdString, delay_t> &, delay_t)> find_net_drivers =
             [&](const NetInfo *ni, dict<IdString, delay_t> &drivers, delay_t delay_acc) {
                 // Get driving cell and port
+                if (nullptr == ni) return;
                 const CellInfo *cell = ni->driver.cell;
                 if (nullptr == cell) return;
         
