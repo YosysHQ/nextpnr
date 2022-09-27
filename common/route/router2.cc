@@ -589,7 +589,7 @@ struct Router2
         auto &usr = net->users.at(i);
         ROUTE_LOG_DBG("Routing arc %d of net '%s' (%d, %d) -> (%d, %d)\n", i.idx(), ctx->nameOf(net), ad.bb.x0,
                       ad.bb.y0, ad.bb.x1, ad.bb.y1);
-        bool verbose = false; //strcmp(ctx->nameOf(net), "_zz_132__LUT4_A_Z") == 0;
+        bool verbose = false; //strcmp(ctx->nameOf(net), "reset$TRELLIS_IO_IN") == 0;
         WireId src_wire = ctx->getNetinfoSourceWire(net), dst_wire = ctx->getNetinfoSinkWire(net, usr, phys_pin);
         if (src_wire == WireId())
             ARC_LOG_ERR("No wire found for port %s on source cell %s.\n", ctx->nameOf(net->driver.port),
@@ -606,9 +606,6 @@ struct Router2
         // Check if arc was already done _in this iteration_
         if (t.processed_sinks.count(dst_wire))
             return ARC_SUCCESS;
-        
-        if (verbose)
-            log("awoo\n");
 
         // Impl note:
         // t.fwd_queue = H (i.e. the high priority nodes)
@@ -627,63 +624,79 @@ struct Router2
         // Unvisit any previously visited wires
         reset_wires(t);
 
-        auto wire_count = [](int x0, int x1) {
-            unsigned int priority = 0;
+        auto wire_count = [](int x0, int x1, int y0, int y1) {
+            float priority = 0;
             auto x = x1 - x0;
+            auto y = y1 - y0;
             // HACK: ECP5-specific.
             // H6 wires:
-            priority += x / 6;
+            /*priority += x / 6;
             x -= 6 * (x / 6);
             if (x % 6 == 2 || x % 6 == 4) {
                 // Assume an extra H6 is used here.
                 priority++;
                 x -= x % 6;
-            }
+            }*/
             // H2/H1 wires:
-            priority += x / 2;
-            if (x % 2 == 1) {
+            /*if (x % 2 == 1) {
                 // Assume an extra H2 or H1 is used here.
                 priority++;
+            }*/
+            return unsigned(0.56626506*x + 0.55421686*y);
+        };
+
+        auto lowest_priority = [&](QueuedWire curr) {
+            auto &curr_data = flat_wires.at(curr.wire);
+            auto priority = std::numeric_limits<unsigned int>::max();
+            for (PipId dh : ctx->getPipsDownhill(curr_data.w)) {
+                // Skip pips outside of box in bounding-box mode
+                if (is_bb && !hit_test_pip(nd.bb, ctx->getPipLocation(dh)))
+                    continue;
+                if (!ctx->checkPipAvailForNet(dh, net))
+                    continue;
+                WireId next = ctx->getPipDstWire(dh);
+                int next_idx = wire_to_idx.at(next);
+                if (was_visited_fwd(next_idx)) {
+                    // Don't expand the same node twice.
+                    continue;
+                }
+                auto &nwd = flat_wires.at(next_idx);
+                if (nwd.unavailable)
+                    continue;
+                // Reserved for another net
+                if (nwd.reserved_net != -1 && nwd.reserved_net != net->udata)
+                    continue;
+                // Don't allow the same wire to be bound to the same net with a different driving pip
+                auto fnd_wire = nd.wires.find(next);
+                if (fnd_wire != nd.wires.end() && fnd_wire->second.first != dh)
+                    continue;
+                if (!thread_test_wire(t, nwd))
+                    continue; // thread safety issue
+                auto box = ctx->getRouteBoundingBox(ctx->getPipDstWire(dh), dst_wire);
+                unsigned int p = wire_count(box.x0, box.x1, box.y0, box.y1);
+                priority = std::min(p, priority);
             }
             return priority;
         };
 
+        dict<PipId, unsigned int> prios;
+
         // Fast maze search.
+        int nodes = 0;
         auto fast_search = [&](QueuedWire curr){
-            while (curr.wire != dst_wire_idx) {
+            if (curr.wire == dst_wire_idx) {
+                return true;
+            }
+
+            bool done = false;
+            while (!done) {
                 NPNR_ASSERT(curr.wire < flat_wires.size());
                 auto &curr_data = flat_wires.at(curr.wire);
 
+                nodes++;
+
                 // Neighbour pass 1: find priorities.
-                auto lowest_priority = std::numeric_limits<unsigned int>::max();
-                for (PipId dh : ctx->getPipsDownhill(curr_data.w)) {
-                    // Skip pips outside of box in bounding-box mode
-                    if (is_bb && !hit_test_pip(nd.bb, ctx->getPipLocation(dh)))
-                        continue;
-                    if (!ctx->checkPipAvailForNet(dh, net))
-                        continue;
-                    WireId next = ctx->getPipDstWire(dh);
-                    int next_idx = wire_to_idx.at(next);
-                    if (was_visited_fwd(next_idx)) {
-                        // Don't expand the same node twice.
-                        continue;
-                    }
-                    auto &nwd = flat_wires.at(next_idx);
-                    if (nwd.unavailable)
-                        continue;
-                    // Reserved for another net
-                    if (nwd.reserved_net != -1 && nwd.reserved_net != net->udata)
-                        continue;
-                    // Don't allow the same wire to be bound to the same net with a different driving pip
-                    auto fnd_wire = nd.wires.find(next);
-                    if (fnd_wire != nd.wires.end() && fnd_wire->second.first != dh)
-                        continue;
-                    if (!thread_test_wire(t, nwd))
-                        continue; // thread safety issue
-                    auto box = ctx->getRouteBoundingBox(ctx->getPipDstWire(dh), dst_wire);
-                    unsigned int priority = wire_count(box.x0, box.x1) + wire_count(box.y0, box.y1);
-                    lowest_priority = std::min(priority, lowest_priority);
-                }
+                auto lowest = lowest_priority(curr);
 
                 // Neighbour pass 2: add high-priority nodes to the list.
                 for (PipId dh : ctx->getPipsDownhill(curr_data.w)) {
@@ -716,8 +729,9 @@ struct Router2
                     next_score.togo = get_togo_cost(net, i, next_idx, dst_wire, false, crit_weight);
                     auto qw = QueuedWire(next_idx, next_score, t.rng.rng());
                     auto box = ctx->getRouteBoundingBox(ctx->getPipDstWire(dh), dst_wire);
-                    unsigned int priority = wire_count(box.x0, box.x1) + wire_count(box.y0, box.y1);
-                    if (priority - lowest_priority == 0) {
+                    unsigned int priority = wire_count(box.x0, box.x1, box.y0, box.y1);
+                    prios.insert({dh, priority});
+                    if (priority - lowest == 0) {
                         auto& unexplored_best = t.bwd_queue.top();
                         if (t.bwd_queue.empty() || next_score.total() <= unexplored_best.score.total()) {
                             t.fwd_queue.push(qw);
@@ -727,17 +741,27 @@ struct Router2
                     } else {
                         low_prio.push_back(qw);
                     }
+
                     set_visited_fwd(t, next_idx, dh);
+
+                    if (next_idx == dst_wire_idx) {
+                        done = true;
+                        break;
+                    }
                 }
 
                 if (t.fwd_queue.empty()) {
-                    return false;
+                    break;
                 } else {
                     curr = t.fwd_queue.top();
                     t.fwd_queue.pop();
                 }
             }
-            return true;
+
+            if (verbose)
+                log("  explored %d nodes\n", nodes);
+
+            return done;
         };
 
         auto backtrack = [&](){
@@ -785,31 +809,101 @@ struct Router2
         next_score.congest = 0.0;
         next_score.delay = 0.0;
         next_score.togo = get_togo_cost(net, i, src_wire_idx, dst_wire, false, crit_weight);
-        auto curr = QueuedWire(src_wire_idx, next_score, t.rng.rng());
-
-        NPNR_ASSERT(curr.wire < flat_wires.size());
+        auto src_qw = QueuedWire(src_wire_idx, next_score, t.rng.rng());
+        t.fwd_queue.push(src_qw);
+        t.bwd_queue.push(src_qw);
 
         bool done = false;
+
+        while (!t.fwd_queue.empty()) {
+            auto curr = t.fwd_queue.top();
+            t.fwd_queue.pop();
+            auto &curr_data = flat_wires.at(curr.wire);
+
+            nodes++;
+
+            for (PipId dh : ctx->getPipsDownhill(curr_data.w)) {
+                WireId next = ctx->getPipDstWire(dh);
+                int next_idx = wire_to_idx.at(next);
+                // Skip pips outside of box in bounding-box mode
+                if (is_bb && !hit_test_pip(nd.bb, ctx->getPipLocation(dh)))
+                    continue;
+                if (!ctx->checkPipAvailForNet(dh, net))
+                    continue;
+                if (was_visited_fwd(next_idx))
+                    continue;
+                auto &nwd = flat_wires.at(next_idx);
+                if (nwd.unavailable)
+                    continue;
+                // Reserved for another net
+                if (nwd.reserved_net != -1 && nwd.reserved_net != net->udata)
+                    continue;
+                // Don't allow the same wire to be bound to the same net with a different driving pip
+                auto fnd_wire = nd.wires.find(next);
+                if (fnd_wire != nd.wires.end() && fnd_wire->second.first != dh)
+                    continue;
+                if (!thread_test_wire(t, nwd))
+                    continue; // thread safety issue
+
+                WireScore next_score;
+                next_score.criticality = crit;
+                next_score.congest = curr.score.congest + score_wire_for_arc_congest(net, i, phys_pin, next, dh, crit_weight);
+                next_score.delay = curr.score.delay + score_wire_for_arc_delay(net, i, phys_pin, next, dh, crit_weight);
+                next_score.togo = get_togo_cost(net, i, next_idx, dst_wire, false, crit_weight);
+                auto qw = QueuedWire(next_idx, next_score, t.rng.rng());
+
+                if (net->wires.find(next) != net->wires.end()) {
+                    log("Discovered existing routing wire %s\n", ctx->nameOfWire(next));
+                    t.fwd_queue.push(qw);
+                    t.bwd_queue.push(qw);
+                } else {
+                    t.bwd_queue.push(qw);
+                }
+
+                set_visited_fwd(t, next_idx, dh);
+
+                if (next_idx == dst_wire_idx)
+                    done = true;
+            }
+        }
+
         int fs_calls = 0;
         int bt_calls = 0;
-        while (!done) {
-            fs_calls++;
-            done = fast_search(curr);
-            if (!done) {
-                if (t.bwd_queue.empty() && low_prio.empty()) {
-                    reset_wires(t);
-                    //log("fail; %d fs calls, %d bt calls\n", fs_calls, bt_calls);
-                    return ARC_RETRY_WITHOUT_BB;
-                } else {
-                    curr = backtrack();
-                    bt_calls++;
+        if (!done) {
+            NPNR_ASSERT(!t.bwd_queue.empty());
+
+            auto curr = t.bwd_queue.top();
+            t.bwd_queue.pop();
+
+            NPNR_ASSERT(curr.wire < flat_wires.size());
+
+            while (!done) {
+                fs_calls++;
+                if (verbose)
+                    log("fast_search from %s to %s\n", ctx->nameOfWire(flat_wires.at(curr.wire).w), ctx->nameOfWire(dst_wire));
+                done = fast_search(curr);
+                if (!done) {
+                    if (t.bwd_queue.empty() && low_prio.empty()) {
+                        reset_wires(t);
+                        //log("fail; %d fs calls, %d bt calls\n", fs_calls, bt_calls);
+                        return ARC_RETRY_WITHOUT_BB;
+                    } else {
+                        if (verbose)
+                            log("  failed; backtracking\n");
+                        curr = backtrack();
+                        bt_calls++;
+                    }
                 }
             }
         }
 
         int cursor_bwd = dst_wire_idx;
+        int path_prio = 0, path_len = 0;
         while (was_visited_fwd(cursor_bwd)) {
             PipId pip = flat_wires.at(cursor_bwd).pip_fwd;
+            if (prios.find(pip) != prios.end())
+                path_prio += prios.at(pip);
+            path_len++;
             if (pip == PipId() && cursor_bwd != src_wire_idx)
                 break;
             bind_pip_internal(nd, i, cursor_bwd, pip);
@@ -826,8 +920,20 @@ struct Router2
             cursor_bwd = wire_to_idx.at(ctx->getPipSrcWire(pip));
         }
 
+        update_wire_by_loc(t, net, i, phys_pin, is_mt);
+        t.processed_sinks.insert(dst_wire);
+        ad.routed = true;
+
         reset_wires(t);
-        //log("done; %d fs calls, %d bt calls\n", fs_calls, bt_calls);
+        if (verbose)
+            log("done; %d fs calls, %d bt calls\n", fs_calls, bt_calls);
+
+        auto arc_end = std::chrono::high_resolution_clock::now();
+        auto box = ctx->getRouteBoundingBox(src_wire, dst_wire);
+        //printf("%d,%d,%f,%d\n", box.x1 - box.x0, box.y1 - box.y0, crit, path_len);
+        if (verbose)
+            log("Routing arc %d of net '%s' (is_bb = %d) took %02fs; path: %.03f/%d/%d/%d nodes\n", i.idx(), ctx->nameOf(net), is_bb,
+                        std::chrono::duration<float>(arc_end - arc_start).count(), float(path_prio)/float(path_len), lowest_priority(src_qw), path_len, nodes);
 
         return ARC_SUCCESS;
     }
@@ -1703,6 +1809,23 @@ struct Router2
             ++iter;
             if (curr_cong_weight < 1e9)
                 curr_cong_weight += cfg.curr_cong_mult;
+
+            if (cfg.perf_profile) {
+                std::vector<std::pair<int, IdString>> nets_by_runtime;
+                for (auto &n : nets_by_udata) {
+                    nets_by_runtime.emplace_back(nets.at(n->udata).total_route_us, n->name);
+                }
+                std::sort(nets_by_runtime.begin(), nets_by_runtime.end(), std::greater<std::pair<int, IdString>>());
+                log_info("100 slowest nets by runtime:\n");
+                for (int i = 0; i < std::min(int(nets_by_runtime.size()), 100); i++) {
+                    if (nets_by_runtime.at(i).first < 1000000.0)
+                        break;
+                    log("        %80s %6d %.1fms\n", nets_by_runtime.at(i).second.c_str(ctx),
+                        int(ctx->nets.at(nets_by_runtime.at(i).second)->users.entries()),
+                        nets_by_runtime.at(i).first / 1000.0);
+                }
+            }
+
             tmg.print_fmax();
         } while (!failed_nets.empty());
         if (cfg.perf_profile) {
@@ -1749,7 +1872,7 @@ Router2Cfg::Router2Cfg(Context *ctx)
     hist_cong_weight = ctx->setting<float>("router2/histCongWeight", 1.0f);
     curr_cong_mult = ctx->setting<float>("router2/currCongWeightMult", 2.0f);
     estimate_weight = ctx->setting<float>("router2/estimateWeight", 1.25f);
-    perf_profile = ctx->setting<bool>("router2/perfProfile", false);
+    perf_profile = ctx->setting<bool>("router2/perfProfile", true);
     if (ctx->settings.count(ctx->id("router2/heatmap")))
         heatmap = ctx->settings.at(ctx->id("router2/heatmap")).as_string();
     else
