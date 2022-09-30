@@ -132,6 +132,53 @@ struct FabulousPacker
         }
     }
 
+    void pack_muxes()
+    {
+        // TODO: don't hardcode z-offset -- we should come up with our own constraint structure
+        int lut_muxes_dz = 9;
+        int lut_lut_dz = 1;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            unsigned k = 0;
+            if (ci->type == id_FABULOUS_MUX2)
+                k = 1;
+            else if (ci->type == id_FABULOUS_MUX4)
+                k = 2;
+            else if (ci->type == id_FABULOUS_MUX8)
+                k = 3;
+            else
+                continue;
+            unsigned m = (1U << k);
+            std::vector<CellInfo *> luts;
+            for (unsigned i = 0; i < m; i++) {
+                NetInfo *ii = ci->getPort(ctx->idf("I%d", i));
+                if (!ii || !ii->driver.cell || !ii->driver.cell->type.in(id_FABULOUS_LC, id_FABULOUS_COMB) ||
+                    ii->driver.port != id_O)
+                    log_error("mux %s input I%d net %s is not driven by a LUT!\n", ctx->nameOf(ci), i, ctx->nameOf(ii));
+                CellInfo *lut = ii->driver.cell;
+                NPNR_ASSERT(lut->cluster == ClusterId());
+                luts.push_back(lut);
+            }
+            luts.at(0)->cluster = luts.at(0)->name;
+            for (unsigned i = 0; i < m; i++) {
+                luts.at(i)->cluster = luts.at(0)->name;
+                luts.at(i)->constr_x = 0;
+                luts.at(i)->constr_y = 0;
+                luts.at(i)->constr_z = i * lut_lut_dz;
+                luts.at(i)->constr_abs_z = false;
+                if (i > 0)
+                    luts.at(0)->constr_children.push_back(luts.at(i));
+            }
+            int extra_mux_dz = (m == 8) ? 7 : (m == 4) ? 1 : 0;
+            ci->cluster = luts.at(0)->name;
+            ci->constr_x = 0;
+            ci->constr_y = 0;
+            ci->constr_z = lut_muxes_dz + extra_mux_dz;
+            ci->constr_abs_z = false;
+            luts.at(0)->constr_children.push_back(ci);
+        }
+    }
+
     void pack_ffs()
     {
         pool<IdString> to_delete;
@@ -238,6 +285,7 @@ struct FabulousPacker
         handle_constants();
         handle_io();
         pack_luts();
+        pack_muxes();
         prepare_ffs();
         pack_ffs();
     }
