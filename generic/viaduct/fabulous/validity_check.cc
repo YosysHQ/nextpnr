@@ -33,6 +33,7 @@ CLBState::CLBState(const LogicConfig &cfg)
     if (cfg.split_lc) {
         ff = std::make_unique<CellInfo *[]>(cfg.lc_per_clb * cfg.ff_per_lc);
     }
+    mux = std::make_unique<CellInfo *[]>(cfg.lc_per_clb);
     // TODO: mux
 }
 
@@ -172,6 +173,26 @@ bool CLBState::check_validity(const LogicConfig &cfg, const CellTagger &cell_dat
                     return false;
             }
         }
+    }
+    // don't allow mixed MUX types in the classic fabulous arch where ctrl sigs are shared
+    int tile_mux_type = 0;
+    for (unsigned z = 0; z < cfg.lc_per_clb; z++) {
+        const CellInfo *m = mux[z];
+        if (!m)
+            continue;
+        int this_mux = 0;
+        if (m->type == id_FABULOUS_MUX2)
+            this_mux = 2;
+        else if (m->type == id_FABULOUS_MUX4)
+            this_mux = 4;
+        else if (m->type == id_FABULOUS_MUX8)
+            this_mux = 8;
+        else
+            NPNR_ASSERT_FALSE("unknown mux type");
+        if (tile_mux_type == 0)
+            tile_mux_type = this_mux;
+        else if (tile_mux_type != this_mux)
+            return false;
     }
     // TODO: other checks...
     return true;

@@ -123,6 +123,14 @@ struct FabFasmWriter
             write_bool(lc, "NEG_SR");
             write_bool(lc, "ASYNC_SR");
         }
+        if (lc->type.in(id_FABULOUS_MUX4, id_FABULOUS_MUX8)) {
+            // TODO: don't hardcode prefix
+            out << prefix << "I.c0" << std::endl;
+        }
+        if (lc->type == id_FABULOUS_MUX8) {
+            // TODO: don't hardcode prefix
+            out << prefix << "I.c1" << std::endl;
+        }
     }
 
     void write_io(const CellInfo *io)
@@ -161,7 +169,8 @@ struct FabFasmWriter
     void write_cell(const CellInfo *ci)
     {
         out << stringf("# config for cell '%s'\n", ctx->nameOf(ci)) << std::endl;
-        if (ci->type.in(id_FABULOUS_COMB, id_FABULOUS_FF, id_FABULOUS_LC))
+        if (ci->type.in(id_FABULOUS_COMB, id_FABULOUS_FF, id_FABULOUS_LC, id_FABULOUS_MUX2, id_FABULOUS_MUX4,
+                        id_FABULOUS_MUX8))
             write_logic(ci);
         else if (ci->type == id_IO_1_bidirectional_frame_config_pass)
             write_io(ci);

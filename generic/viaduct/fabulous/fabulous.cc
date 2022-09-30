@@ -317,12 +317,13 @@ struct FabulousImpl : ViaductAPI
                 }
                 // K select inputs
                 for (unsigned j = 0; j < k; j++) {
-                    ctx->addBelInput(mux, ctx->idf("S%d", j), data.pins.at(ctx->idf("S%d",
-                        (m == 8 && j == 2) ? 3 : ((i / m) * k + j)
-                    )).wire);
+                    ctx->addBelInput(mux, ctx->idf("S%d", j),
+                                     data.pins.at(ctx->idf("S%d", (m == 8 && j == 2) ? 3 : ((i / m) * k + j))).wire);
                 }
                 // Output
-                IdString output = (m == 2) ? mux_outs.at(i / m) : (m == 4) ? mux_outs.at((i / m) * k + 1) : mux_outs.at(3);
+                IdString output = (m == 2)   ? mux_outs.at(i / m)
+                                  : (m == 4) ? mux_outs.at((i / m) * k + 1)
+                                             : mux_outs.at(3);
                 ctx->addBelOutput(mux, id_O, data.pins.at(output).wire);
             }
         }
