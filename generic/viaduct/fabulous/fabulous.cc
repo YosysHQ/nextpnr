@@ -293,12 +293,48 @@ struct FabulousImpl : ViaductAPI
         postprocess_bels();
     }
 
+    void generate_split_mux8(BelId bel)
+    {
+        // _don't_ take a reference here because it might be invalidated by adding bels
+        auto data = ctx->bel_info(bel);
+        const std::array<IdString, 4> mux_outs{id_M_AB, id_M_AD, id_M_EF, id_M_AH};
+        for (unsigned k = 1; k <= 3; k++) {
+            // create MUX2 through 8
+            unsigned m = (1U << k);
+            for (unsigned i = 0; i < 8; i += m) {
+                // mux indexing scheme
+                //  - MUX2s are at (z % 2) == 0
+                //  - MUX4s are at (z % 4) == 1
+                //  - MUX8s are at (z % 8) == 7
+                int idx = (m == 2) ? i : (m == 4) ? (i + 1) : (i + 7);
+                BelId mux =
+                        ctx->addBel(IdStringList::concat(data.name[0], ctx->idf("MUX%d_%d", m, i)),
+                                    ctx->idf("FABULOUS_MUX%d", m), Loc(data.x, data.y, data.z + 1 + idx), false, false);
+                blk_trk->set_bel_type(mux, BelFlags::BLOCK_CLB, BelFlags::FUNC_MUX, idx);
+                // M data inputs
+                for (unsigned j = 0; j < m; j++) {
+                    ctx->addBelInput(mux, ctx->idf("I%d", j), data.pins.at(ctx->idf("%c", char('A' + i + j))).wire);
+                }
+                // K select inputs
+                for (unsigned j = 0; j < k; j++) {
+                    ctx->addBelInput(mux, ctx->idf("S%d", j), data.pins.at(ctx->idf("S%d",
+                        (m == 8 && j == 2) ? 3 : ((i / m) * k + j)
+                    )).wire);
+                }
+                // Output
+                IdString output = (m == 2) ? mux_outs.at(i / m) : (m == 4) ? mux_outs.at((i / m) * k + 1) : mux_outs.at(3);
+                ctx->addBelOutput(mux, id_O, data.pins.at(output).wire);
+            }
+        }
+    }
+
     void postprocess_bels()
     {
         // This does some post-processing on bels to make them useful for nextpnr place-and-route regardless of the code
         // path that creates them. In the future, splitting muxes and creating split LCs would be done here, too
         for (auto bel : ctx->getBels()) {
-            auto &data = ctx->bel_info(bel);
+            // _don't_ take a reference here because it might be invalidated by adding bels
+            auto data = ctx->bel_info(bel);
             if (data.type == id_FABULOUS_LC) {
                 if (!data.pins.count(id_Q)) {
                     // Add a Q pseudo-pin and pseudo-pip from Q to O
@@ -309,6 +345,9 @@ struct FabulousImpl : ViaductAPI
                     // Pseudo-pip for FF mode
                     add_pseudo_pip(q_wire, o_wire, id_O2Q);
                 }
+            } else if (data.type.in(id_MUX8LUT_frame_config, id_MUX8LUT_frame_config_mux)) {
+                generate_split_mux8(bel);
+                ctx->bel_info(bel).hidden = true;
             } else if (data.type == id_IO_1_bidirectional_frame_config_pass) {
                 if (!data.pins.count(id_PAD)) {
                     // Add a PAD pseudo-pin for the top level
