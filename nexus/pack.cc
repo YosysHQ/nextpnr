@@ -1111,6 +1111,7 @@ struct NexusPacker
         lram_rules[id_SP512K_MODE].port_xform[id_WE] = id_WEA;
         lram_rules[id_SP512K_MODE].port_xform[id_RSTOUT] = id_RSTA;
         lram_rules[id_SP512K_MODE].port_xform[id_CEOUT] = id_OCEA;
+        lram_rules[id_SP512K_MODE].param_xform[id_OUTREG] = id_OUT_REGMODE_A;
         add_bus_xform(lram_rules[id_SP512K_MODE], "DI", "DIA", 32);
         add_bus_xform(lram_rules[id_SP512K_MODE], "DO", "DOA", 32);
         add_bus_xform(lram_rules[id_SP512K_MODE], "AD", "ADA", 14);
@@ -1123,6 +1124,7 @@ struct NexusPacker
         lram_rules[id_PDPSC512K_MODE].port_xform[id_CSR] = id_CSB;
         lram_rules[id_PDPSC512K_MODE].port_xform[id_WE] = id_WEA;
         lram_rules[id_PDPSC512K_MODE].port_xform[id_RSTR] = id_RSTB;
+        lram_rules[id_PDPSC512K_MODE].param_xform[id_OUTREG] = id_OUT_REGMODE_B;
         add_bus_xform(lram_rules[id_PDPSC512K_MODE], "DI", "DIA", 32);
         add_bus_xform(lram_rules[id_PDPSC512K_MODE], "DO", "DOB", 32);
         add_bus_xform(lram_rules[id_PDPSC512K_MODE], "ADW", "ADA", 14);
@@ -1132,6 +1134,8 @@ struct NexusPacker
         lram_rules[id_DPSC512K_MODE].new_type = id_LRAM_CORE;
         lram_rules[id_DPSC512K_MODE].port_xform[id_CEOUTA] = id_OCEA;
         lram_rules[id_DPSC512K_MODE].port_xform[id_CEOUTB] = id_OCEB;
+        lram_rules[id_DPSC512K_MODE].param_xform[id_OUTREG_A] = id_OUT_REGMODE_A;
+        lram_rules[id_DPSC512K_MODE].param_xform[id_OUTREG_B] = id_OUT_REGMODE_B;
 
         log_info("Packing LRAM...\n");
         generic_xform(lram_rules, true);
