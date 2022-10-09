@@ -311,6 +311,7 @@ def norm_wire_xy(x, y, name):
     return None # FIXME
     return (x, y)
 
+wire_name = re.compile(r".*_(\d+)$")
 def cmp_wire_names(newname, oldname):
     if maj_wire_name(newname):
         return True
@@ -318,8 +319,8 @@ def cmp_wire_names(newname, oldname):
         return False
 
     if newname[2].startswith("sp") and oldname[2].startswith("sp"):
-        m1 = re.match(r".*_(\d+)$", newname[2])
-        m2 = re.match(r".*_(\d+)$", oldname[2])
+        m1 = wire_name.match(newname[2])
+        m2 = wire_name.match(oldname[2])
         if m1 and m2:
             idx1 = int(m1.group(1))
             idx2 = int(m2.group(1))
@@ -409,6 +410,17 @@ def wire_type(name):
 
     return "NONE"
 
+pipdelay_matches = (
+    re.compile(r"lutff_\d+/in_\d+$"),
+    re.compile(r"lutff_\d+/in_\d+_lut"),
+    re.compile(r"ram/(MASK|RADDR|WADDR|WDATA)_"),
+    re.compile(r"lutff_\d+/out"),
+    re.compile(r"lutff_\d+/in_0"),
+    re.compile(r"lutff_\d+/in_1"),
+    re.compile(r"lutff_\d+/in_2"),
+    re.compile(r"lutff_\d+/in_3"),
+)
+
 def pipdelay(src_idx, dst_idx, db):
     if db is None:
         return 0
@@ -460,23 +472,23 @@ def pipdelay(src_idx, dst_idx, db):
     if src[2].startswith("local_") and dst[2] in ("io_0/D_OUT_0", "io_0/D_OUT_1", "io_0/OUT_ENB", "io_1/D_OUT_0", "io_1/D_OUT_1", "io_1/OUT_ENB"):
         return db["IoInMux.I.O"]
 
-    if re.match(r"lutff_\d+/in_\d+$", dst[2]):
+    if pipdelay_matches[0].match(dst[2]):
         return db["InMux.I.O"]
 
-    if re.match(r"lutff_\d+/in_\d+_lut", dst[2]):
+    if pipdelay_matches[1].match(dst[2]):
         return 0
 
-    if re.match(r"ram/(MASK|RADDR|WADDR|WDATA)_", dst[2]):
+    if pipdelay_matches[2].match(dst[2]):
         return db["InMux.I.O"]
 
-    if re.match(r"lutff_\d+/out", dst[2]):
-        if re.match(r"lutff_\d+/in_0", src[2]):
+    if pipdelay_matches[3].match(dst[2]):
+        if pipdelay_matches[4].match(src[2]):
             return db["LogicCell40.in0.lcout"]
-        if re.match(r"lutff_\d+/in_1", src[2]):
+        if pipdelay_matches[5].match(src[2]):
             return db["LogicCell40.in1.lcout"]
-        if re.match(r"lutff_\d+/in_2", src[2]):
+        if pipdelay_matches[6].match(src[2]):
             return db["LogicCell40.in2.lcout"]
-        if re.match(r"lutff_\d+/in_3", src[2]):
+        if pipdelay_matches[7].match(src[2]):
             return db["LogicCell40.in3.lcout"]
 
     print(src, dst, src_idx, dst_idx, src_type, dst_type, file=sys.stderr)
@@ -1259,9 +1271,11 @@ for wire in range(num_wires):
 
 packageinfo = []
 
+safename_rgx = re.compile("[^A-Za-z0-9]")
+
 for package in packages:
     name, pins = package
-    safename = re.sub("[^A-Za-z0-9]", "_", name)
+    safename = safename_rgx.sub("_", name)
     pins_info = []
     for pin in pins:
         pinname, x, y, z = pin
@@ -1287,7 +1301,7 @@ for t in range(num_tile_types):
     centries_info = []
     for cb in tile_bits[t]:
         name, bits = cb
-        safename = re.sub("[^A-Za-z0-9]", "_", name)
+        safename = safename_rgx.sub("_", name)
         bba.l("tile%d_%s_bits" % (t, safename), "ConfigBitPOD")
         for row, col in bits:
             bba.u8(row, "row")
