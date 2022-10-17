@@ -97,7 +97,7 @@ struct GroupId
     int8_t x = 0, y = 0;
 
     bool operator==(const GroupId &other) const { return (type == other.type) && (x == other.x) && (y == other.y); }
-    bool operator!=(const GroupId &other) const { return (type != other.type) || (x != other.x) || (y == other.y); }
+    bool operator!=(const GroupId &other) const { return (type != other.type) || (x != other.x) || (y != other.y); }
     unsigned int hash() const { return mkhash(mkhash(x, y), int(type)); }
 };
 
