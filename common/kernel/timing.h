@@ -77,6 +77,7 @@ struct TimingAnalyser
     void setup();
     void run(bool update_route_delays = true);
     void print_report();
+    void print_fmax();
 
     // This is used when routers etc are not actually binding detailed routing (due to congestion or an abstracted
     // model), but want to re-run STA with their own calculated delays
@@ -115,7 +116,6 @@ struct TimingAnalyser
     void compute_slack();
     void compute_criticality();
 
-    void print_fmax();
     // get the N most failing endpoints for a given domain pair
     std::vector<CellPortKey> get_failing_eps(domain_id_t domain_pair, int count);
     // print the critical path for an endpoint and domain pair

@@ -30,6 +30,7 @@
 #include "nextpnr.h"
 #include "placer1.h"
 #include "placer_heap.h"
+#include "placer_star.h"
 #include "router1.h"
 #include "router2.h"
 #include "timing.h"
@@ -621,6 +622,10 @@ bool Arch::place()
         cfg.beta = 0.75;
 
         if (!placer_heap(getCtx(), cfg))
+            return false;
+    } else if (placer == "star") {
+        PlacerStarCfg cfg(getCtx());
+        if (!placer_star(getCtx(), cfg))
             return false;
     } else if (placer == "sa") {
         if (!placer1(getCtx(), Placer1Cfg(getCtx())))
@@ -1242,7 +1247,7 @@ const std::string Arch::defaultPlacer = "sa";
 
 const std::vector<std::string> Arch::availablePlacers = {"sa",
 #ifdef WITH_HEAP
-                                                         "heap"
+                                                         "heap", "star"
 #endif
 };
 

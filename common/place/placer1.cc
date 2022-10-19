@@ -563,8 +563,9 @@ class SAPlacer
         new_dist = get_constraints_distance(ctx, cell);
         if (other_cell != nullptr)
             new_dist += get_constraints_distance(ctx, other_cell);
-        delta = lambda * (moveChange.timing_delta / std::max<double>(last_timing_cost, epsilon)) +
-                (1 - lambda) * (double(moveChange.wirelen_delta) / std::max<double>(last_wirelen_cost, epsilon));
+        delta = cfg.timingWeight * (moveChange.timing_delta / std::max<double>(last_timing_cost, epsilon)) +
+                (1 - cfg.timingWeight) *
+                        (double(moveChange.wirelen_delta) / std::max<double>(last_wirelen_cost, epsilon));
         delta += (cfg.constraintWeight / temp) * (new_dist - old_dist) / last_wirelen_cost;
         if (cfg.netShareWeight > 0)
             delta += -cfg.netShareWeight * (net_delta_score / std::max<double>(total_net_share, epsilon));
@@ -716,8 +717,8 @@ class SAPlacer
         log_info("legal chain swap %s\n", cell->name.c_str(ctx));
 #endif
         compute_cost_changes(moveChange);
-        delta = lambda * (moveChange.timing_delta / last_timing_cost) +
-                (1 - lambda) * (double(moveChange.wirelen_delta) / last_wirelen_cost);
+        delta = cfg.timingWeight * (moveChange.timing_delta / last_timing_cost) +
+                (1 - cfg.timingWeight) * (double(moveChange.wirelen_delta) / last_wirelen_cost);
         if (cfg.netShareWeight > 0) {
             delta +=
                     cfg.netShareWeight * (orig_share_cost - total_net_share) / std::max<double>(total_net_share, 1e-20);
@@ -1227,7 +1228,8 @@ class SAPlacer
     // Get the combined wirelen/timing metric
     inline double curr_metric()
     {
-        return lambda * curr_timing_cost + (1 - lambda) * curr_wirelen_cost - cfg.netShareWeight * total_net_share;
+        return cfg.timingWeight * curr_timing_cost + (1 - cfg.timingWeight) * curr_wirelen_cost -
+               cfg.netShareWeight * total_net_share;
     }
 
     // Map nets to their bounding box (so we can skip recompute for moves that do not exceed the bounds
@@ -1245,7 +1247,6 @@ class SAPlacer
     Context *ctx;
     float temp = 10;
     float crit_exp = 8;
-    float lambda = 0.5;
     bool improved = false;
     int n_move, n_accept;
     int diameter = 35, max_x = 1, max_y = 1;
@@ -1272,6 +1273,7 @@ Placer1Cfg::Placer1Cfg(Context *ctx)
     timingFanoutThresh = std::numeric_limits<int>::max();
     timing_driven = ctx->setting<bool>("timing_driven");
     slack_redist_iter = ctx->setting<int>("slack_redist_iter");
+    timingWeight = ctx->setting<float>("placer1/timingWeight", 0.5);
     hpwl_scale_x = 1;
     hpwl_scale_y = 1;
 }
