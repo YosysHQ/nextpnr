@@ -20,11 +20,11 @@ jobs:
       MISTRAL_REVISION: ebfc0dd2cc7d6d2159b641a397c88554840e93c9
       APYCULA_REVISION: 0.2a4
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         submodules: recursive
 
-    - uses: actions/setup-python@v2
+    - uses: actions/setup-python@v4
 
     - name: Install
       run: |
@@ -32,7 +32,7 @@ jobs:
         sudo apt-get install git make cmake libboost-all-dev python3-dev libeigen3-dev tcl-dev lzma-dev libftdi-dev clang bison flex swig qt5-default iverilog
 
     - name: Cache yosys installation
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       id: cache-yosys
       with:
         path: .yosys
@@ -45,7 +45,7 @@ jobs:
       if: steps.cache-yosys.outputs.cache-hit != 'true'
 
     - name: Cache icestorm installation
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       id: cache-icestorm
       with:
         path: .icestorm
@@ -59,7 +59,7 @@ jobs:
       if: matrix.arch == 'ice40' && steps.cache-icestorm.outputs.cache-hit != 'true'
 
     - name: Cache trellis installation
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       id: cache-trellis
       with:
         path: .trellis
@@ -73,7 +73,7 @@ jobs:
       if: (matrix.arch == 'ecp5' || matrix.arch == 'machxo2') && steps.cache-trellis.outputs.cache-hit != 'true'
 
     - name: Cache prjoxide installation
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       id: cache-prjoxide
       with:
         path: .prjoxide
