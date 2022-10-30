@@ -124,6 +124,9 @@ bool Arch::isBelLocationValid(BelId bel) const
                         return true;
 
                     // Conflict
+                    if (getCtx()->verbose)
+                        log_info("Cell '%s' conflicts with PLL cell '%s'\n",
+                                 cell->name.c_str(getCtx()), pll_cell->name.c_str(getCtx()));
                     return false;
                 }
             }
@@ -135,18 +138,29 @@ bool Arch::isBelLocationValid(BelId bel) const
             // Check LVDS pairing
             if (cell->ioInfo.lvds) {
                 // Check correct z and complement location is free
-                if (ioLoc.z != 0)
+                if (ioLoc.z != 0) {
+                    if (getCtx()->verbose)
+                        log_info("Bel '%s' can't be used for LVDS\n", getCtx()->getBelName(bel).str(getCtx()).c_str());
                     return false;
+                }
                 BelId compBel = getBelByLocation(compLoc);
                 CellInfo *compCell = getBoundBelCell(compBel);
-                if (compCell)
+                if (compCell) {
+                    if (getCtx()->verbose)
+                        log_info("Cell '%s' LVDS complement occupied by cell '%s'\n", cell->name.c_str(getCtx()),
+                                 compCell->name.c_str(getCtx()));
                     return false;
+                }
             } else {
                 // Check LVDS IO is not placed at complement location
                 BelId compBel = getBelByLocation(compLoc);
                 const CellInfo *compCell = getBoundBelCell(compBel);
-                if (compCell && compCell->ioInfo.lvds)
+                if (compCell && compCell->ioInfo.lvds) {
+                    if (getCtx()->verbose)
+                        log_info("Cell '%s' can't occupy LVDS complement of cell '%s'\n", cell->name.c_str(getCtx()),
+                                 compCell->name.c_str(getCtx()));
                     return false;
+                }
 
                 // Check for conflicts on shared nets
                 // - CLOCK_ENABLE
@@ -168,8 +182,13 @@ bool Arch::isBelLocationValid(BelId bel) const
                     };
 
                     for (int i = 0; i < 6; i++)
-                        if (use[i] && (nets[i] != nets[i ^ 1]) && (use[i ^ 1] || (nets[i ^ 1] != nullptr)))
+                        if (use[i] && (nets[i] != nets[i ^ 1]) && (use[i ^ 1] || (nets[i ^ 1] != nullptr))) {
+                            if (getCtx()->verbose)
+                                log_info("Net '%s' for cell '%s' conflicts with net '%s' for '%s'\n",
+                                         nets[i] ? nets[i]->name.c_str(getCtx()) : "", cell->name.c_str(getCtx()),
+                                         nets[i ^ 1] ? nets[i ^ 1]->name.c_str(getCtx()) : "", compCell->name.c_str(getCtx()));
                             return false;
+                        }
                 }
             }
 
