@@ -203,7 +203,7 @@ void Arch::setup_wire_locations()
         CellInfo *ci = cell.second.get();
         if (ci->bel == BelId())
             continue;
-        if (ci->type.in(id_MULT18X18D, id_DCUA, id_DDRDLL, id_DQSBUFM, id_EHXPLLL)) {
+        if (ci->type.in(id_ALU54B, id_MULT18X18D, id_DCUA, id_DDRDLL, id_DQSBUFM, id_EHXPLLL)) {
             for (auto &port : ci->ports) {
                 if (port.second.net == nullptr)
                     continue;
