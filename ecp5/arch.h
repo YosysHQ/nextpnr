@@ -1085,6 +1085,12 @@ struct Arch : BaseArch<ArchRanges>
     std::vector<BelBucketId> buckets;
 
     mutable std::vector<TileStatus> tile_status;
+
+    // -------------------------------------------------
+    bool is_dsp_location_valid(CellInfo* cell) const;
+    void remap_dsp_blocks();
+    void remap_dsp_cell(CellInfo* ci, const std::array<IdString, 4> &ports,
+                        std::array<NetInfo*, 4> &assigned_nets);
 };
 
 NEXTPNR_NAMESPACE_END

@@ -634,6 +634,10 @@ bool Arch::place()
         for (auto &cell : cells)
             cell.second->belStrength = STRENGTH_LOCKED;
 
+    // Once placement is complete, DSP slices sharing a block may need
+    // CLK/CE/RST ports remapped to avoid conflicting assignments.
+    remap_dsp_blocks();
+
     getCtx()->settings[id_place] = 1;
 
     archInfoToAttributes();
