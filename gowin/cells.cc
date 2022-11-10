@@ -79,6 +79,23 @@ std::unique_ptr<CellInfo> create_generic_cell(Context *ctx, IdString type, std::
     } else if (type == id_BUFS) {
         new_cell->addInput(id_I);
         new_cell->addOutput(id_O);
+    } else if (type == id_RPLLB) {
+        new_cell->addInput(id_RESET);
+        new_cell->addInput(id_RESET_P);
+        new_cell->addInput(id_ODSEL5);
+    } else if (type == id_RPLLA) {
+        for (IdString iid :
+             {id_CLKIN,   id_CLKFB,   id_FBDSEL0, id_FBDSEL1, id_FBDSEL2, id_FBDSEL3, id_FBDSEL4, id_FBDSEL5,
+              id_IDSEL0,  id_IDSEL1,  id_IDSEL2,  id_IDSEL3,  id_IDSEL4,  id_IDSEL5,  id_ODSEL0,  id_ODSEL1,
+              id_ODSEL2,  id_ODSEL3,  id_ODSEL4,  id_PSDA0,   id_PSDA1,   id_PSDA2,   id_PSDA3,   id_DUTYDA0,
+              id_DUTYDA1, id_DUTYDA2, id_DUTYDA3, id_FDLY0,   id_FDLY1,   id_FDLY2,   id_FDLY3}) {
+            new_cell->addInput(iid);
+        }
+        new_cell->addOutput(id_CLKOUT);
+        new_cell->addOutput(id_CLKOUTP);
+        new_cell->addOutput(id_CLKOUTD);
+        new_cell->addOutput(id_CLKOUTD3);
+        new_cell->addOutput(id_LOCK);
     } else {
         log_error("unable to create generic cell of type %s\n", type.c_str(ctx));
     }
@@ -174,6 +191,53 @@ void gwio_to_iob(Context *ctx, CellInfo *nxio, CellInfo *iob, pool<IdString> &to
     } else {
         NPNR_ASSERT(false);
     }
+}
+
+void reconnect_rplla(Context *ctx, CellInfo *pll, CellInfo *plla)
+{
+    pll->movePortTo(id_CLKIN, plla, id_CLKIN);
+    pll->movePortTo(id_CLKFB, plla, id_CLKFB);
+    pll->movePortTo(ctx->id("FBDSEL[0]"), plla, id_FBDSEL0);
+    pll->movePortTo(ctx->id("FBDSEL[1]"), plla, id_FBDSEL1);
+    pll->movePortTo(ctx->id("FBDSEL[2]"), plla, id_FBDSEL2);
+    pll->movePortTo(ctx->id("FBDSEL[3]"), plla, id_FBDSEL3);
+    pll->movePortTo(ctx->id("FBDSEL[4]"), plla, id_FBDSEL4);
+    pll->movePortTo(ctx->id("FBDSEL[5]"), plla, id_FBDSEL5);
+    pll->movePortTo(ctx->id("IDSEL[0]"), plla, id_IDSEL0);
+    pll->movePortTo(ctx->id("IDSEL[1]"), plla, id_IDSEL1);
+    pll->movePortTo(ctx->id("IDSEL[2]"), plla, id_IDSEL2);
+    pll->movePortTo(ctx->id("IDSEL[3]"), plla, id_IDSEL3);
+    pll->movePortTo(ctx->id("IDSEL[4]"), plla, id_IDSEL4);
+    pll->movePortTo(ctx->id("IDSEL[5]"), plla, id_IDSEL5);
+    pll->movePortTo(ctx->id("ODSEL[0]"), plla, id_ODSEL0);
+    pll->movePortTo(ctx->id("ODSEL[1]"), plla, id_ODSEL1);
+    pll->movePortTo(ctx->id("ODSEL[2]"), plla, id_ODSEL2);
+    pll->movePortTo(ctx->id("ODSEL[3]"), plla, id_ODSEL3);
+    pll->movePortTo(ctx->id("ODSEL[4]"), plla, id_ODSEL4);
+    pll->movePortTo(ctx->id("PSDA[0]"), plla, id_PSDA0);
+    pll->movePortTo(ctx->id("PSDA[1]"), plla, id_PSDA1);
+    pll->movePortTo(ctx->id("PSDA[2]"), plla, id_PSDA2);
+    pll->movePortTo(ctx->id("PSDA[3]"), plla, id_PSDA3);
+    pll->movePortTo(ctx->id("DUTYDA[0]"), plla, id_DUTYDA0);
+    pll->movePortTo(ctx->id("DUTYDA[1]"), plla, id_DUTYDA1);
+    pll->movePortTo(ctx->id("DUTYDA[2]"), plla, id_DUTYDA2);
+    pll->movePortTo(ctx->id("DUTYDA[3]"), plla, id_DUTYDA3);
+    pll->movePortTo(ctx->id("FDLY[0]"), plla, id_FDLY0);
+    pll->movePortTo(ctx->id("FDLY[1]"), plla, id_FDLY1);
+    pll->movePortTo(ctx->id("FDLY[2]"), plla, id_FDLY2);
+    pll->movePortTo(ctx->id("FDLY[3]"), plla, id_FDLY3);
+    pll->movePortTo(id_CLKOUT, plla, id_CLKOUT);
+    pll->movePortTo(id_CLKOUTP, plla, id_CLKOUTP);
+    pll->movePortTo(id_CLKOUTD, plla, id_CLKOUTD);
+    pll->movePortTo(id_CLKOUTD3, plla, id_CLKOUTD3);
+    pll->movePortTo(id_LOCK, plla, id_LOCK);
+}
+
+void reconnect_rpllb(Context *ctx, CellInfo *pll, CellInfo *pllb)
+{
+    pll->movePortTo(id_RESET, pllb, id_RESET);
+    pll->movePortTo(id_RESET_P, pllb, id_RESET_P);
+    pll->movePortTo(ctx->id("ODSEL[5]"), pllb, id_ODSEL5);
 }
 
 void sram_to_ramw_split(Context *ctx, CellInfo *ram, CellInfo *ramw)

@@ -986,6 +986,77 @@ static void pack_diff_io(Context *ctx)
     }
 }
 
+static bool is_pll(const Context *ctx, const CellInfo *cell)
+{
+    switch (cell->type.hash()) {
+    case ID_rPLL:
+        return true;
+    default:
+        return false;
+    }
+}
+
+// Pack PLLs
+static void pack_plls(Context *ctx)
+{
+    pool<IdString> packed_cells;
+    pool<IdString> delete_nets;
+
+    std::vector<std::unique_ptr<CellInfo>> new_cells;
+    log_info("Packing PLLs..\n");
+
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
+        if (ctx->verbose)
+            log_info("cell '%s' is of type '%s'\n", ctx->nameOf(ci), ci->type.c_str(ctx));
+        if (is_pll(ctx, ci)) {
+            std::string parm_device = str_or_default(ci->params, id_DEVICE, "GW1N-1");
+            if (parm_device != ctx->device) {
+                log_error("Wrong PLL device:%s vs %s\n", parm_device.c_str(), ctx->device.c_str());
+                continue;
+            }
+
+            switch (ci->type.hash()) {
+            case ID_rPLL: {
+                if (parm_device == "GW1N-1") {
+                    // B half
+                    std::unique_ptr<CellInfo> cell = create_generic_cell(ctx, id_RPLLB, ci->name.str(ctx) + "$rpllb");
+                    reconnect_rpllb(ctx, ci, cell.get());
+                    new_cells.push_back(std::move(cell));
+                    auto pllb_cell = new_cells.back().get();
+                    // A half
+                    cell = create_generic_cell(ctx, id_RPLLA, ci->name.str(ctx) + "$rplla");
+                    reconnect_rplla(ctx, ci, cell.get());
+                    new_cells.push_back(std::move(cell));
+                    auto plla_cell = new_cells.back().get();
+
+                    // need params for gowin_pack
+                    for (auto &parm : ci->params) {
+                        plla_cell->setParam(parm.first, parm.second);
+                        pllb_cell->setParam(parm.first, parm.second);
+                    }
+                    packed_cells.insert(ci->name);
+                } else {
+                    log_error("PLL isn't supported for %s\n", ctx->device.c_str());
+                }
+            } break;
+            default:
+                break;
+            }
+        }
+    }
+
+    for (auto pcell : packed_cells) {
+        ctx->cells.erase(pcell);
+    }
+    for (auto dnet : delete_nets) {
+        ctx->nets.erase(dnet);
+    }
+    for (auto &ncell : new_cells) {
+        ctx->cells[ncell->name] = std::move(ncell);
+    }
+}
+
 // Pack IO buffers
 static void pack_io(Context *ctx)
 {
@@ -1108,6 +1179,7 @@ bool Arch::pack()
         pack_alus(ctx);
         pack_lut_lutffs(ctx);
         pack_nonlut_ffs(ctx);
+        pack_plls(ctx);
         post_pack(ctx);
         ctx->settings[id_pack] = 1;
         ctx->assignArchInfo();

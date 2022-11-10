@@ -468,6 +468,7 @@ struct Arch : BaseArch<ArchRanges>
     void pre_pack(Context *ctx);
     void post_pack(Context *ctx);
     void auto_longwires();
+    void add_plla_ports(BelsPOD const *bel, IdString belname, int row, int col);
 
     GowinGlobalRouter globals_router;
     void mark_gowin_globals(Context *ctx);
@@ -507,7 +508,8 @@ enum
     gnd_0_z = 278,    // virtual VSS bel Z
     osc_z = 280,      // Z for the oscillator bels
     bufs_0_z = 281,   // Z for long wire buffer bel
-    free_z = 289      // Must be the last, one can use z starting from this value, adjust accordingly.
+    pll_z = 289,      // PLL
+    free_z = 290      // Must be the last, one can use z starting from this value, adjust accordingly.
 };
 }
 
