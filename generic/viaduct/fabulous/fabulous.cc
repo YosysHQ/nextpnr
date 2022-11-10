@@ -69,6 +69,7 @@ struct FabulousImpl : ViaductAPI
         blk_trk = std::make_unique<BlockTracker>(ctx, cfg);
         is_new_fab ? init_bels_v2() : init_bels_v1();
         init_pips();
+        ctx->setDelayScaling(0.25, 0.5);
     }
 
     void pack() override { fabulous_pack(ctx, cfg); }
