@@ -46,6 +46,7 @@ struct Property
     Property(const std::string &strval);
     Property(State bit);
     Property &operator=(const Property &other) = default;
+    Property(const Property &other) = default;
 
     bool is_string;
 
