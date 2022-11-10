@@ -197,35 +197,18 @@ void reconnect_rplla(Context *ctx, CellInfo *pll, CellInfo *plla)
 {
     pll->movePortTo(id_CLKIN, plla, id_CLKIN);
     pll->movePortTo(id_CLKFB, plla, id_CLKFB);
-    pll->movePortTo(ctx->id("FBDSEL[0]"), plla, id_FBDSEL0);
-    pll->movePortTo(ctx->id("FBDSEL[1]"), plla, id_FBDSEL1);
-    pll->movePortTo(ctx->id("FBDSEL[2]"), plla, id_FBDSEL2);
-    pll->movePortTo(ctx->id("FBDSEL[3]"), plla, id_FBDSEL3);
-    pll->movePortTo(ctx->id("FBDSEL[4]"), plla, id_FBDSEL4);
-    pll->movePortTo(ctx->id("FBDSEL[5]"), plla, id_FBDSEL5);
-    pll->movePortTo(ctx->id("IDSEL[0]"), plla, id_IDSEL0);
-    pll->movePortTo(ctx->id("IDSEL[1]"), plla, id_IDSEL1);
-    pll->movePortTo(ctx->id("IDSEL[2]"), plla, id_IDSEL2);
-    pll->movePortTo(ctx->id("IDSEL[3]"), plla, id_IDSEL3);
-    pll->movePortTo(ctx->id("IDSEL[4]"), plla, id_IDSEL4);
-    pll->movePortTo(ctx->id("IDSEL[5]"), plla, id_IDSEL5);
-    pll->movePortTo(ctx->id("ODSEL[0]"), plla, id_ODSEL0);
-    pll->movePortTo(ctx->id("ODSEL[1]"), plla, id_ODSEL1);
-    pll->movePortTo(ctx->id("ODSEL[2]"), plla, id_ODSEL2);
-    pll->movePortTo(ctx->id("ODSEL[3]"), plla, id_ODSEL3);
-    pll->movePortTo(ctx->id("ODSEL[4]"), plla, id_ODSEL4);
-    pll->movePortTo(ctx->id("PSDA[0]"), plla, id_PSDA0);
-    pll->movePortTo(ctx->id("PSDA[1]"), plla, id_PSDA1);
-    pll->movePortTo(ctx->id("PSDA[2]"), plla, id_PSDA2);
-    pll->movePortTo(ctx->id("PSDA[3]"), plla, id_PSDA3);
-    pll->movePortTo(ctx->id("DUTYDA[0]"), plla, id_DUTYDA0);
-    pll->movePortTo(ctx->id("DUTYDA[1]"), plla, id_DUTYDA1);
-    pll->movePortTo(ctx->id("DUTYDA[2]"), plla, id_DUTYDA2);
-    pll->movePortTo(ctx->id("DUTYDA[3]"), plla, id_DUTYDA3);
-    pll->movePortTo(ctx->id("FDLY[0]"), plla, id_FDLY0);
-    pll->movePortTo(ctx->id("FDLY[1]"), plla, id_FDLY1);
-    pll->movePortTo(ctx->id("FDLY[2]"), plla, id_FDLY2);
-    pll->movePortTo(ctx->id("FDLY[3]"), plla, id_FDLY3);
+    for (int i = 0; i < 6; ++i) {
+        pll->movePortTo(ctx->idf("FBDSEL[%d]", i), plla, ctx->idf("FBDSEL%d", i));
+        pll->movePortTo(ctx->idf("IDSEL[%d]", i), plla, ctx->idf("IDSEL%d", i));
+        if (i < 5) {
+            pll->movePortTo(ctx->idf("ODSEL[%d]", i), plla, ctx->idf("ODSEL%d", i));
+        }
+        if (i < 4) {
+            pll->movePortTo(ctx->idf("PSDA[%d]", i), plla, ctx->idf("PSDA%d", i));
+            pll->movePortTo(ctx->idf("DUTYDA[%d]", i), plla, ctx->idf("DUTYDA%d", i));
+            pll->movePortTo(ctx->idf("FDLY[%d]", i), plla, ctx->idf("FDLY%d", i));
+        }
+    }
     pll->movePortTo(id_CLKOUT, plla, id_CLKOUT);
     pll->movePortTo(id_CLKOUTP, plla, id_CLKOUTP);
     pll->movePortTo(id_CLKOUTD, plla, id_CLKOUTD);
@@ -260,15 +243,12 @@ void sram_to_ramw_split(Context *ctx, CellInfo *ram, CellInfo *ramw)
 
 void sram_to_slice(Context *ctx, CellInfo *ram, CellInfo *slice, int index)
 {
-    char buf1[32];
     if (slice->hierpath == IdString())
         slice->hierpath = slice->hierpath;
 
-    snprintf(buf1, 32, "INIT_%d", index);
-    slice->params[id_INIT] = ram->params[ctx->id(buf1)];
+    slice->params[id_INIT] = ram->params[ctx->idf("INIT_%d", index)];
 
-    snprintf(buf1, 32, "DO[%d]", index);
-    ram->movePortTo(ctx->id(buf1), slice, id_F);
+    ram->movePortTo(ctx->idf("DO[%d]", index), slice, id_F);
 
     ram->copyPortTo(ctx->id("RAD[0]"), slice, id_A);
     ram->copyPortTo(ctx->id("RAD[1]"), slice, id_B);
