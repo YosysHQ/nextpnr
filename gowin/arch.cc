@@ -236,8 +236,7 @@ bool Arch::allocate_longwire(NetInfo *ni, int lw_idx)
     }
 
     // old driver -> bufs LW input net
-    snprintf(buf, sizeof(buf), "$PACKER_BUFS_%c", longwire + 'A');
-    auto net = std::make_unique<NetInfo>(id(buf));
+    auto net = std::make_unique<NetInfo>(idf("$PACKER_BUFS_%c", longwire + 'A'));
     NetInfo *bufs_net = net.get();
     nets[net->name] = std::move(net);
 
@@ -1071,6 +1070,23 @@ void Arch::addMuxBels(const DatabasePOD *db, int row, int col)
     }
 }
 
+void Arch::add_plla_ports(BelsPOD const *bel, IdString belname, int row, int col)
+{
+    IdString portname;
+
+    for (int pid : {ID_CLKIN,   ID_CLKFB,   ID_FBDSEL0, ID_FBDSEL1, ID_FBDSEL2, ID_FBDSEL3, ID_FBDSEL4, ID_FBDSEL5,
+                    ID_IDSEL0,  ID_IDSEL1,  ID_IDSEL2,  ID_IDSEL3,  ID_IDSEL4,  ID_IDSEL5,  ID_ODSEL0,  ID_ODSEL1,
+                    ID_ODSEL2,  ID_ODSEL3,  ID_ODSEL4,  ID_PSDA0,   ID_PSDA1,   ID_PSDA2,   ID_PSDA3,   ID_DUTYDA0,
+                    ID_DUTYDA1, ID_DUTYDA2, ID_DUTYDA3, ID_FDLY0,   ID_FDLY1,   ID_FDLY2,   ID_FDLY3}) {
+        portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, pid)->src_id);
+        addBelInput(belname, IdString(pid), idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this)));
+    }
+    for (int pid : {ID_LOCK, ID_CLKOUT, ID_CLKOUTP, ID_CLKOUTD, ID_CLKOUTD3}) {
+        portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, pid)->src_id);
+        addBelOutput(belname, IdString(pid), idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this)));
+    }
+}
+
 Arch::Arch(ArchArgs args) : args(args)
 {
     family = args.family;
@@ -1222,6 +1238,26 @@ Arch::Arch(ArchArgs args) : args(args)
             bool dff = true;
             bool oddrc = false;
             switch (static_cast<ConstIds>(bel->type_id)) {
+            case ID_RPLLA: {
+                snprintf(buf, 32, "R%dC%d_RPLLA", row + 1, col + 1);
+                belname = id(buf);
+                addBel(belname, id_RPLLA, Loc(col, row, BelZ::pll_z), false);
+                add_plla_ports(bel, belname, row, col);
+            } break;
+            case ID_RPLLB:
+                snprintf(buf, 32, "R%dC%d_RPLLB", row + 1, col + 1);
+                belname = id(buf);
+                addBel(belname, id_RPLLB, Loc(col, row, BelZ::pll_z), false);
+                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_RESET)->src_id);
+                snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
+                addBelInput(belname, id_RESET, id(buf));
+                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_RESET_P)->src_id);
+                snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
+                addBelInput(belname, id_RESET_P, id(buf));
+                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_ODSEL5)->src_id);
+                snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
+                addBelInput(belname, id_ODSEL5, id(buf));
+                break;
             case ID_BUFS7:
                 z++; /* fall-through*/
             case ID_BUFS6:

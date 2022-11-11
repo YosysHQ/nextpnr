@@ -119,6 +119,10 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
 // Convert a Gowin IO buffer to a IOB bel
 void gwio_to_iob(Context *ctx, CellInfo *nxio, CellInfo *sbio, pool<IdString> &todelete_cells);
 
+// Reconnect rPLL signals (B)
+void reconnect_rplla(Context *ctx, CellInfo *pll, CellInfo *pllb);
+void reconnect_rpllb(Context *ctx, CellInfo *pll, CellInfo *pllb);
+
 // Convert RAM16 to write port
 void sram_to_ramw_split(Context *ctx, CellInfo *ram, CellInfo *ramw);
 
