@@ -1018,7 +1018,7 @@ static void pack_plls(Context *ctx)
 
             switch (ci->type.hash()) {
             case ID_rPLL: {
-                if (parm_device == "GW1N-1") {
+                if (parm_device == "GW1N-1" || parm_device == "GW1NZ-1") {
                     // B half
                     std::unique_ptr<CellInfo> cell = create_generic_cell(ctx, id_RPLLB, ci->name.str(ctx) + "$rpllb");
                     reconnect_rpllb(ctx, ci, cell.get());
