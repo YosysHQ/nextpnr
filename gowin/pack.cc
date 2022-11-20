@@ -1019,6 +1019,14 @@ static void pack_plls(Context *ctx)
             switch (ci->type.hash()) {
             case ID_rPLL: {
                 if (parm_device == "GW1N-1" || parm_device == "GW1NZ-1") {
+                    // Unused ports will be disabled during image generation. Here we add flags for such ports.
+                    Property pr_enable("ENABLE"), pr_disable("DISABLE");
+                    IdString ports[][2] = {{id_CLKOUTP, id_CLKOUTPS},    {id_CLKOUTD, id_CLKOUTDIV},
+                                           {id_CLKOUTD3, id_CLKOUTDIV3}, {id_LOCK, id_FLOCK},
+                                           {id_RESET_P, id_PWDEN},       {id_RESET, id_RSTEN}};
+                    for (int i = 0; i < 6; ++i) {
+                        ci->setParam(ports[i][1], port_used(ci, ports[i][0]) ? pr_enable : pr_disable);
+                    }
                     // B half
                     std::unique_ptr<CellInfo> cell = create_generic_cell(ctx, id_RPLLB, ci->name.str(ctx) + "$rpllb");
                     reconnect_rpllb(ctx, ci, cell.get());
