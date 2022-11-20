@@ -96,7 +96,7 @@ if (AWOOTER)
     include(FetchContent)
     FetchContent_Declare(Corrosion GIT_REPOSITORY https://github.com/corrosion-rs/corrosion.git GIT_TAG v0.3.0)
     FetchContent_MakeAvailable(Corrosion)
-    corrosion_import_crate(MANIFEST_PATH common/route/awooter/rust/Cargo.toml)
+    corrosion_import_crate(MANIFEST_PATH common/route/awooter/rust/Cargo.toml PROFILE "release")
 
     # Enable cross-lang IPO if CXX is clang.
     if (USE_IPO AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
