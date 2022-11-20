@@ -29,6 +29,7 @@ option(EXTERNAL_CHIPDB "Create build with pre-built chipdb binaries" OFF)
 option(WERROR "pass -Werror to compiler (used for CI)" OFF)
 option(PROFILER "Link against libprofiler" OFF)
 option(USE_IPO "Compile nextpnr with IPO" ON)
+option(AWOOTER "Build awooter router" ON)
 
 if (USE_IPO)
     if (ipo_supported)
@@ -97,6 +98,29 @@ if (EXTERNAL_CHIPDB)
         "External chipdb path")
     message(STATUS "Using external chipdb path: ${EXTERNAL_CHIPDB_ROOT}")
     add_definitions("-DEXTERNAL_CHIPDB_ROOT=\"${EXTERNAL_CHIPDB_ROOT}\"")
+endif()
+
+if (AWOOTER)
+    include(FetchContent)
+    FetchContent_Declare(Corrosion GIT_REPOSITORY https://github.com/corrosion-rs/corrosion.git GIT_TAG v0.3.0)
+    FetchContent_MakeAvailable(Corrosion)
+    corrosion_import_crate(MANIFEST_PATH common/route/awooter/rust/Cargo.toml)
+
+    # Enable cross-lang IPO if CXX is clang.
+    if (USE_IPO AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        # rustc and clang disagree on what the triple of Linux should be:
+        # rustc: x86_64-unknown-linux-gnu
+        # clang: x86_64-pc-linux-gnu
+        # ask clang to use the rustc triple instead.
+        set(CMAKE_C_COMPILER_TARGET x86_64-unknown-linux-gnu)
+        set(CMAKE_CXX_COMPILER_TARGET x86_64-unknown-linux-gnu)
+
+        # If we don't do this, IPO fails. I don't know why.
+        corrosion_set_cargo_flags(awooter "-Zbuild-std")
+
+        corrosion_add_target_rustflags(awooter "-Clinker-plugin-lto")
+        message(STATUS "Enabled cross-language IPO")
+    endif()
 endif()
 
 set(PROGRAM_PREFIX "" CACHE STRING "Name prefix for executables")
@@ -296,6 +320,11 @@ foreach (family ${ARCH})
     endif()
     install(TARGETS ${PROGRAM_PREFIX}nextpnr-${family} RUNTIME DESTINATION bin)
     target_compile_definitions(${PROGRAM_PREFIX}nextpnr-${family} PRIVATE MAIN_EXECUTABLE)
+
+    # Link in awooter, if enabled.
+    if (AWOOTER)
+        target_link_libraries(${PROGRAM_PREFIX}nextpnr-${family} PRIVATE awooter)
+    endif()
 
     # Add any new per-architecture targets here
     if (BUILD_TESTS)
