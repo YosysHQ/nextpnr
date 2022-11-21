@@ -2,7 +2,21 @@ use std::ptr::NonNull;
 
 #[macro_use]
 mod npnr;
-mod part;
+
+enum Subpartition {
+    Part(Box<Partition>),
+    Nets(Vec<Net>),
+}
+
+struct Partition {
+    parts: [Option<Subpartition>; 4],
+    borders: [[Vec<npnr::WireId>; 4]; 4]
+}
+
+struct Net {
+    source: npnr::WireId,
+    sinks: Vec<npnr::WireId>
+}
 
 #[no_mangle]
 pub extern "C" fn npnr_router_awooter(ctx: Option<NonNull<npnr::Context>>) -> bool {
@@ -25,7 +39,11 @@ fn route(ctx: &mut npnr::Context) -> bool {
         ctx.grid_dim_x(),
         ctx.grid_dim_y()
     );
-    // let _belid = npnr::BelId::null();
+    let _belid = npnr::BelId::null();
     log_info!("Managed to survive BelId()\n");
+
+    let nets = npnr::NetIter::new(ctx).into_iter().collect::<Vec<_>>();
+    log_info!("Found {} nets\n", nets.len());
+
     true
 }

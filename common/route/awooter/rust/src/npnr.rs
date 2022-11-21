@@ -1,4 +1,4 @@
-use std::ffi::CStr;
+use std::{ffi::CStr, collections::binary_heap::Iter};
 
 use libc::c_char;
 
@@ -24,10 +24,8 @@ pub struct NetInfo {
     private: [u8; 0],
 }
 
-#[repr(C)]
-pub struct IdString {
-    index: libc::c_int,
-}
+#[repr(transparent)]
+pub struct IdString(libc::c_int);
 
 /// A type representing a bel name.
 #[derive(Clone, Copy)]
@@ -200,7 +198,39 @@ extern "C" {
     fn npnr_context_name_of(ctx: *const Context, s: IdString) -> *const libc::c_char;
     fn npnr_context_verbose(ctx: *const Context) -> bool;
 
+    fn npnr_context_nets_key(ctx: *const Context, n: u32) -> IdString;
+    fn npnr_context_nets_value(ctx: *const Context, n: u32) -> *mut NetInfo;
     // fn npnr_context_nets(ctx: *const Context) -> *mut *mut NetInfo;
+}
+
+/// In case you missed the C++ comment; this is O(n^2) because FFI is misert.
+/// It's probably best to run it exactly once.
+pub struct NetIter<'a> {
+    ctx: &'a Context,
+    n: u32
+}
+
+impl<'a> NetIter<'a> {
+    pub fn new(ctx: &'a Context) -> Self {
+        Self {
+            ctx,
+            n: 0
+        }
+    }
+}
+
+impl<'a> Iterator for NetIter<'a> {
+    type Item = (IdString, *mut NetInfo);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let str = unsafe { npnr_context_nets_key(self.ctx, self.n) };
+        let val = unsafe { npnr_context_nets_value(self.ctx, self.n) };
+        if val.is_null() {
+            return None;
+        }
+        self.n += 1;
+        Some((str, val))
+    }
 }
 
 macro_rules! log_info {

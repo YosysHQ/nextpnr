@@ -127,11 +127,30 @@ extern "C" {
 
     void npnr_context_check(const Context *const ctx) { ctx->check(); }
     bool npnr_context_debug(const Context *const ctx) { return ctx->debug; }
-    IdString npnr_context_id(const Context *const ctx, const char *const str) { return ctx->id(str); }
+    int npnr_context_id(const Context *const ctx, const char *const str) { return ctx->id(str).hash(); }
     const char *npnr_context_name_of(const Context *const ctx, IdString str) { return ctx->nameOf(str); }
     bool npnr_context_verbose(const Context *const ctx) { return ctx->verbose; }
 
-    //NetInfo** npnr_context_nets(Context *ctx) { /* oh no */ }
+    // Yes, this is quadratic. It gets imported once and then never worried about again.
+    // There are bigger fish to fry.
+    int npnr_context_nets_key(Context *ctx, uint32_t n) {
+        for (auto& item : ctx->nets) {
+            if (n == 0) {
+                return item.first.hash();
+            }
+            n--;
+        }
+        return 0;
+    }
+    NetInfo* npnr_context_nets_value(Context *ctx, uint32_t n) {
+        for (auto& item : ctx->nets) {
+            if (n == 0) {
+                return item.second.get();
+            }
+            n--;
+        }
+        return nullptr;
+    }
 
     extern bool npnr_router_awooter(Context *ctx);
 }
