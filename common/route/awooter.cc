@@ -110,6 +110,7 @@ extern "C" {
     void npnr_log_error(const char *const format) { log_error("%s", format); }
 
     uint64_t npnr_belid_null() { return wrap(BelId()); }
+    uint64_t npnr_wireid_null() { return wrap(WireId()); }
 
     int npnr_context_get_grid_dim_x(const Context *const ctx) { return ctx->getGridDimX(); }
     int npnr_context_get_grid_dim_y(const Context *const ctx) { return ctx->getGridDimY(); }
@@ -131,9 +132,20 @@ extern "C" {
     const char *npnr_context_name_of(const Context *const ctx, IdString str) { return ctx->nameOf(str); }
     bool npnr_context_verbose(const Context *const ctx) { return ctx->verbose; }
 
+    uint64_t npnr_context_get_netinfo_source_wire(const Context *const ctx, const NetInfo *const net) { return wrap(ctx->getNetinfoSourceWire(net)); }
+    uint64_t npnr_context_get_netinfo_sink_wire(const Context *const ctx, const NetInfo *const net, const PortRef *const sink, uint32_t n) {
+        if (ctx == nullptr) {
+            return 0;
+        }
+        return wrap(ctx->getNetinfoSinkWire(net, *sink, n));
+    }
+
     // Yes, this is quadratic. It gets imported once and then never worried about again.
     // There are bigger fish to fry.
-    int npnr_context_nets_key(Context *ctx, uint32_t n) {
+    int npnr_context_nets_key(const Context *const ctx, uint32_t n) {
+        if (ctx == nullptr) {
+            return 0;
+        }
         for (auto& item : ctx->nets) {
             if (n == 0) {
                 return item.first.hash();
@@ -142,7 +154,10 @@ extern "C" {
         }
         return 0;
     }
-    NetInfo* npnr_context_nets_value(Context *ctx, uint32_t n) {
+    NetInfo* npnr_context_nets_value(const Context *const ctx, uint32_t n) {
+        if (ctx == nullptr) {
+            return nullptr;
+        }
         for (auto& item : ctx->nets) {
             if (n == 0) {
                 return item.second.get();
@@ -151,6 +166,36 @@ extern "C" {
         }
         return nullptr;
     }
+
+    PortRef* npnr_netinfo_driver(NetInfo *const net) {
+        if (net == nullptr) {
+            return nullptr;
+        }
+        return &net->driver;
+    }
+
+    PortRef* npnr_netinfo_users_value(NetInfo *const net, uint32_t n) {
+        if (net == nullptr) {
+            return nullptr;
+        }
+        for (auto& item : net->users) {
+            if (n == 0) {
+                return &item;
+            }
+            n--;
+        }
+        return nullptr;
+    }
+
+#ifdef ARCH_ECP5
+    bool npnr_netinfo_is_global(NetInfo *const net) { return net->is_global; }
+#else
+    bool npnr_netinfo_is_global(NetInfo *const net) { return false; }
+#endif
+
+    CellInfo* npnr_portref_cell(const PortRef *const port) { return port->cell; }
+    int npnr_cellinfo_get_location_x(const CellInfo *const info) { return info->getLocation().x; }
+    int npnr_cellinfo_get_location_y(const CellInfo *const info) { return info->getLocation().y; }
 
     extern bool npnr_router_awooter(Context *ctx);
 }
