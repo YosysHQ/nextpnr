@@ -1,4 +1,5 @@
-use std::{ffi::CStr, collections::{HashMap}, ptr::{NonNull}, marker::PhantomData};
+use core::slice;
+use std::{ffi::CStr, collections::{HashMap}, marker::PhantomData};
 
 use libc::c_char;
 
@@ -69,9 +70,7 @@ pub struct IdString(libc::c_int);
 /// A type representing a bel name.
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(transparent)]
-pub struct BelId {
-    _private: u64,
-}
+pub struct BelId(u64);
 
 impl BelId {
     /// Return a sentinel value that represents an invalid bel.
@@ -88,9 +87,7 @@ impl BelId {
 
 #[derive(Clone, Copy)]
 #[repr(transparent)]
-pub struct PipId {
-    _private: u64,
-}
+pub struct PipId(u64);
 
 impl PipId {
     pub fn null() -> Self {
@@ -256,6 +253,7 @@ extern "C" {
     fn npnr_context_get_pip_src_wire(ctx: *const Context, pip: PipId) -> WireId;
     fn npnr_context_get_pip_dst_wire(ctx: *const Context, pip: PipId) -> WireId;
     fn npnr_context_estimate_delay(ctx: *const Context, src: WireId, dst: WireId) -> libc::c_float;
+    fn npnr_context_get_wires_leak(ctx: *const Context, wires: *mut *mut WireId) -> u64;
 
     fn npnr_context_check(ctx: *const Context);
     fn npnr_context_debug(ctx: *const Context) -> bool;
@@ -284,9 +282,7 @@ extern "C" {
 
 /// Store for the users of a net.
 pub struct NetUsers<'a> {
-    users: NonNull<*mut PortRef>,
-    size: u32,
-    _data: PhantomData<&'a NetInfo>,
+    users: &'a [*mut PortRef],
 }
 
 impl<'a> NetUsers<'a> {
@@ -294,9 +290,9 @@ impl<'a> NetUsers<'a> {
         let mut users = std::ptr::null_mut();
         // SAFETY: net is not null because it's a &mut, and users is only written to.
         // Leaking memory is the most convenient FFI I could think of.
-        let size = unsafe { npnr_netinfo_users_leak(net, &mut users as *mut *mut *mut PortRef) };
-        let users = unsafe { NonNull::new_unchecked(users) };
-        Self { users, size, _data: PhantomData }
+        let len = unsafe { npnr_netinfo_users_leak(net, &mut users as *mut *mut *mut PortRef) };
+        let users = unsafe { slice::from_raw_parts(users, len as usize) };
+        Self { users }
     }
 
     pub fn iter(&self) -> NetUsersIter<'_> {
@@ -306,17 +302,14 @@ impl<'a> NetUsers<'a> {
 
 pub struct NetUsersIter<'a> {
     users: &'a NetUsers<'a>,
-    n: u32,
+    n: usize,
 }
 
 impl Iterator for NetUsersIter<'_> {
     type Item = *mut PortRef;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.n >= self.users.size {
-            return None;
-        }
-        let user = unsafe { *self.users.users.as_ptr().add(self.n as usize) };
+        let user = *self.users.users.get(self.n)?;
         self.n += 1;
         Some(user)
     }
@@ -386,6 +379,27 @@ impl<'a> Iterator for NetSinkWireIter<'a> {
         }
         self.n += 1;
         Some(item)
+    }
+}
+
+pub struct Wires<'a> {
+    wires: &'a [WireId],
+}
+
+impl<'a> Wires<'a> {
+    pub fn new(ctx: &'a Context) -> Wires<'a> {
+        let mut wires = std::ptr::null_mut();
+        let len = unsafe { npnr_context_get_wires_leak(ctx, &mut wires as *mut *mut WireId) };
+        let wires = unsafe { std::slice::from_raw_parts(wires, len as usize) };
+        Self { wires }
+    }
+
+    pub fn len(&self) -> usize {
+        self.wires.len()
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item=&WireId> {
+        self.wires.iter()
     }
 }
 
