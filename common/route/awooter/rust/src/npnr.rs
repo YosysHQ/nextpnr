@@ -54,7 +54,14 @@ pub struct PortRef {
 }
 
 impl PortRef {
-    pub fn cell(&self) -> Option<&mut CellInfo> {
+    pub fn cell(&self) -> Option<&CellInfo> {
+        // SAFETY: handing out &s is safe when we have &self.
+        unsafe { npnr_portref_cell(self).as_ref() }
+    }
+
+    pub fn cell_mut(&mut self) -> Option<&mut CellInfo> {
+        // SAFETY: handing out &mut is safe when we have &mut self
+        // as getting multiple &mut CellInfo would require multiple &mut PortRef.
         unsafe { npnr_portref_cell(self).as_mut() }
     }
 }
