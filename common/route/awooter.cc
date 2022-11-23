@@ -126,6 +126,19 @@ extern "C" {
     float npnr_context_estimate_delay(const Context *const ctx, uint64_t src, uint64_t dst) { return ctx->getDelayNS(ctx->estimateDelay(unwrap_wire(src), unwrap_wire(dst))); }
     float npnr_context_delay_epsilon(const Context *const ctx) { return ctx->getDelayNS(ctx->getDelayEpsilon()); }
 
+    uint64_t npnr_context_get_wires_leak(const Context *const ctx, WireId **wires) {
+        auto wire_vec = std::vector<WireId>{};
+        for (auto wire : ctx->getWires()) {
+            wire_vec.push_back(wire);
+        }
+        wire_vec.shrink_to_fit();
+        auto size = wire_vec.size();
+        *wires = wire_vec.data();
+        // Yes, by placement-newing over `wire_vec` we leak memory.
+        new (&wire_vec) std::vector<WireId>;
+        return size;
+    }
+
     void npnr_context_check(const Context *const ctx) { ctx->check(); }
     bool npnr_context_debug(const Context *const ctx) { return ctx->debug; }
     int npnr_context_id(const Context *const ctx, const char *const str) { return ctx->id(str).hash(); }
@@ -156,33 +169,6 @@ extern "C" {
         new (&name_vec) std::vector<int>;
         new (&nets_vec) std::vector<NetInfo*>;
         return size;
-    }
-
-    // Yes, this is quadratic. It gets imported once and then never worried about again.
-    // There are bigger fish to fry.
-    int npnr_context_nets_key(const Context *const ctx, uint32_t n) {
-        if (ctx == nullptr) {
-            return 0;
-        }
-        for (auto& item : ctx->nets) {
-            if (n == 0) {
-                return item.first.hash();
-            }
-            n--;
-        }
-        return 0;
-    }
-    NetInfo* npnr_context_nets_value(const Context *const ctx, uint32_t n) {
-        if (ctx == nullptr) {
-            return nullptr;
-        }
-        for (auto& item : ctx->nets) {
-            if (n == 0) {
-                return item.second.get();
-            }
-            n--;
-        }
-        return nullptr;
     }
 
     PortRef* npnr_netinfo_driver(NetInfo *const net) {
@@ -221,8 +207,6 @@ extern "C" {
 NEXTPNR_NAMESPACE_BEGIN
 
 bool router_awooter(Context *ctx) {
-    static_assert(std::is_standard_layout<IdString>::value == true, "IdString is not FFI-safe");
-
     log_info("Running Awooter...\n");
     auto result = npnr_router_awooter(ctx);
     log_info("Router returned: %d\n", result);

@@ -212,6 +212,9 @@ fn route(ctx: &mut npnr::Context) -> bool {
         ctx.grid_dim_y()
     );
 
+    let wires = npnr::Wires::new(ctx);
+    log_info!("Found {} wires\n", wires.len());
+
     let nets = npnr::Nets::new(ctx);
     log_info!("Found {} nets\n", nets.len());
 
@@ -300,6 +303,8 @@ fn route(ctx: &mut npnr::Context) -> bool {
     let y_finish = ctx.grid_dim_y();
     log_info!("=== level 1:\n");
     let (x, y, ne, se, sw, nw) = find_partition_point(&arcs, x_start, x_finish, y_start, y_finish);
+
+    todo!("figure out how to tell if a wire crosses the calculated partition boundaries");
 
     /*log_info!("=== level 2 NE:\n");
     let _ = find_partition_point(&ne, x_start, x, y_start, y);
