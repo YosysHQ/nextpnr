@@ -140,6 +140,24 @@ extern "C" {
         return wrap(ctx->getNetinfoSinkWire(net, *sink, n));
     }
 
+    uint32_t npnr_context_nets_leak(const Context *const ctx, int **names, NetInfo ***nets) {
+        auto name_vec = std::vector<int>{};
+        auto nets_vec = std::vector<NetInfo*>{};
+        for (auto& item : ctx->nets) {
+            name_vec.push_back(item.first.hash());
+            nets_vec.push_back(item.second.get());
+        }
+        name_vec.shrink_to_fit();
+        nets_vec.shrink_to_fit();
+        auto size = name_vec.size();
+        *names = name_vec.data();
+        *nets = nets_vec.data();
+        // Yes, by placement-newing over `name_vec` and `nets_vec` we leak memory.
+        new (&name_vec) std::vector<int>;
+        new (&nets_vec) std::vector<NetInfo*>;
+        return size;
+    }
+
     // Yes, this is quadratic. It gets imported once and then never worried about again.
     // There are bigger fish to fry.
     int npnr_context_nets_key(const Context *const ctx, uint32_t n) {
@@ -174,17 +192,17 @@ extern "C" {
         return &net->driver;
     }
 
-    PortRef* npnr_netinfo_users_value(NetInfo *const net, uint32_t n) {
-        if (net == nullptr) {
-            return nullptr;
-        }
+    uint32_t npnr_netinfo_users_leak(NetInfo *const net, PortRef ***users) {
+        auto x = std::vector<PortRef*>{};
         for (auto& item : net->users) {
-            if (n == 0) {
-                return &item;
-            }
-            n--;
+            x.push_back(&item);
         }
-        return nullptr;
+        x.shrink_to_fit();
+        *users = x.data();
+        auto size = x.size();
+        // Yes, by placement-newing over `x` we leak memory.
+        new (&x) std::vector<PortRef*>{};
+        return size;
     }
 
 #ifdef ARCH_ECP5

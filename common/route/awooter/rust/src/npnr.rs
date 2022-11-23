@@ -1,4 +1,4 @@
-use std::ffi::CStr;
+use std::{ffi::CStr, collections::{HashMap}, ptr::{NonNull}, marker::PhantomData};
 
 use libc::c_char;
 
@@ -39,10 +39,6 @@ impl NetInfo {
         unsafe { npnr_netinfo_driver(self) }
     }
 
-    pub fn users(&mut self) -> NetUserIter {
-        NetUserIter { net: self, n: 0 }
-    }
-
     pub fn is_global(&self) -> bool {
         unsafe { npnr_netinfo_is_global(self) }
     }
@@ -66,7 +62,7 @@ impl PortRef {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(transparent)]
 pub struct IdString(libc::c_int);
 
@@ -78,10 +74,13 @@ pub struct BelId {
 }
 
 impl BelId {
+    /// Return a sentinel value that represents an invalid bel.
     pub fn null() -> Self {
+        // SAFETY: BelId() has no safety requirements.
         unsafe { npnr_belid_null() }
     }
 
+    /// Check if this bel is invalid.
     pub fn is_null(self) -> bool {
         self == Self::null()
     }
@@ -104,10 +103,13 @@ impl PipId {
 pub struct WireId(u64);
 
 impl WireId {
+    /// Return a sentinel value that represents an invalid wire.
     pub fn null() -> Self {
+        // SAFETY: WireId() has no safety requirements.
         unsafe { npnr_wireid_null() }
     }
 
+    /// Check if this wire is invalid.
     pub fn is_null(self) -> bool {
         self == Self::null()
     }
@@ -217,10 +219,6 @@ impl Context {
     pub fn verbose(&self) -> bool {
         unsafe { npnr_context_verbose(self) }
     }
-
-    pub fn net_iter(&self) -> NetIter {
-        NetIter { ctx: self, n: 0 }
-    }
 }
 
 extern "C" {
@@ -273,11 +271,10 @@ extern "C" {
         n: u32,
     ) -> WireId;
 
-    fn npnr_context_nets_key(ctx: *const Context, n: u32) -> IdString;
-    fn npnr_context_nets_value(ctx: *const Context, n: u32) -> *mut NetInfo;
+    fn npnr_context_nets_leak(ctx: *const Context, names: *mut *mut libc::c_int, nets: *mut *mut *mut NetInfo) -> u32;
 
     fn npnr_netinfo_driver(net: *mut NetInfo) -> *mut PortRef;
-    fn npnr_netinfo_users_value(net: *mut NetInfo, n: u32) -> *mut PortRef;
+    fn npnr_netinfo_users_leak(net: *mut NetInfo, users: *mut *mut *mut PortRef) -> u32;
     fn npnr_netinfo_is_global(net: *const NetInfo) -> bool;
 
     fn npnr_portref_cell(port: *const PortRef) -> *mut CellInfo;
@@ -285,47 +282,89 @@ extern "C" {
     fn npnr_cellinfo_get_location_y(info: *const CellInfo) -> libc::c_int;
 }
 
-/// Iterate over the nets in a context.
-///
-/// In case you missed the C++ comment; this is `O(n^2)` because FFI is misery.
-/// It's probably best to run it exactly once.
-pub struct NetIter<'a> {
-    ctx: &'a Context,
-    n: u32,
+/// Store for the users of a net.
+pub struct NetUsers<'a> {
+    users: NonNull<*mut PortRef>,
+    size: u32,
+    _data: PhantomData<&'a NetInfo>,
 }
 
-impl<'a> Iterator for NetIter<'a> {
-    type Item = (IdString, *mut NetInfo);
+impl<'a> NetUsers<'a> {
+    pub fn new(net: &'a mut NetInfo) -> NetUsers<'a> {
+        let mut users = std::ptr::null_mut();
+        // SAFETY: net is not null because it's a &mut, and users is only written to.
+        // Leaking memory is the most convenient FFI I could think of.
+        let size = unsafe { npnr_netinfo_users_leak(net, &mut users as *mut *mut *mut PortRef) };
+        let users = unsafe { NonNull::new_unchecked(users) };
+        Self { users, size, _data: PhantomData }
+    }
 
-    fn next(&mut self) -> Option<Self::Item> {
-        let str = unsafe { npnr_context_nets_key(self.ctx, self.n) };
-        let val = unsafe { npnr_context_nets_value(self.ctx, self.n) };
-        if val.is_null() {
-            return None;
-        }
-        self.n += 1;
-        Some((str, val))
+    pub fn iter(&self) -> NetUsersIter<'_> {
+        NetUsersIter { users: self, n: 0 }
     }
 }
 
-/// Iterate over the users field of a net.
-///
-/// In case you missed the C++ comment; this is `O(n^2)` because FFI is misery.
-pub struct NetUserIter {
-    net: *mut NetInfo,
+pub struct NetUsersIter<'a> {
+    users: &'a NetUsers<'a>,
     n: u32,
 }
 
-impl Iterator for NetUserIter {
+impl Iterator for NetUsersIter<'_> {
     type Item = *mut PortRef;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let item = unsafe { npnr_netinfo_users_value(self.net, self.n) };
-        if item.is_null() {
+        if self.n >= self.users.size {
             return None;
         }
+        let user = unsafe { *self.users.users.as_ptr().add(self.n as usize) };
         self.n += 1;
-        Some(item)
+        Some(user)
+    }
+}
+
+/// Store for the nets of a context.
+pub struct Nets<'a> {
+    nets: HashMap<IdString, *mut NetInfo>,
+    users: HashMap<IdString, NetUsers<'a>>,
+    _data: PhantomData<&'a Context>
+}
+
+impl<'a> Nets<'a> {
+    /// Create a new store for the nets of a context.
+    ///
+    /// Note that this leaks memory created by nextpnr; the intention is this is called once.
+    pub fn new(ctx: &'a Context) -> Nets<'a> {
+        let mut names: *mut libc::c_int = std::ptr::null_mut();
+        let mut nets_ptr: *mut *mut NetInfo = std::ptr::null_mut();
+        let size = unsafe { npnr_context_nets_leak(ctx, &mut names as *mut *mut libc::c_int, &mut nets_ptr as *mut *mut *mut NetInfo) };
+        let mut nets = HashMap::new();
+        let mut users = HashMap::new();
+        for i in 0..size {
+            let name = unsafe { IdString(*names.add(i as usize)) };
+            let net = unsafe { *nets_ptr.add(i as usize) };
+            nets.insert(name, net);
+            users.insert(name, NetUsers::new(unsafe { &mut *net }));
+        }
+        // Note: the contents of `names` and `nets_ptr` are now lost.
+        Self {
+            nets,
+            users,
+            _data: PhantomData,
+        }
+    }
+
+    /// Find net users given a net's name.
+    pub fn users_by_name(&self, net: IdString) -> Option<&NetUsers> {
+        self.users.get(&net)
+    }
+
+    /// Return the number of nets in the store.
+    pub fn len(&self) -> usize {
+        self.nets.len()
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item=(&IdString, &*mut NetInfo)> {
+        self.nets.iter()
     }
 }
 
