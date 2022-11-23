@@ -212,14 +212,15 @@ fn route(ctx: &mut npnr::Context) -> bool {
         ctx.grid_dim_y()
     );
 
-    let nets = ctx.net_iter().collect::<Vec<_>>();
+    let nets = npnr::Nets::new(ctx);
     log_info!("Found {} nets\n", nets.len());
 
     let mut count = 0;
-    for (_name, net) in &nets {
+    for (name, net) in nets.iter() {
         let _src = ctx.source_wire(*net);
         let net = unsafe { net.as_mut().unwrap() };
-        for user in net.users() {
+        let users = nets.users_by_name(*name).unwrap().iter();
+        for user in users {
             count += ctx.sink_wires(net, user).count();
         }
     }
@@ -228,20 +229,24 @@ fn route(ctx: &mut npnr::Context) -> bool {
 
     let (name, net) = nets
         .iter()
-        .max_by_key(|(_name, net)| {
+        .max_by_key(|(name, net)| {
             let net = unsafe { net.as_mut().unwrap() };
             if net.is_global() {
                 0
             } else {
-                net.users()
+                nets.users_by_name(**name)
+                    .unwrap()
+                    .iter()
                     .fold(0, |acc, sink| acc + ctx.sink_wires(net, sink).count())
             }
         })
         .unwrap();
 
     let net = unsafe { net.as_mut().unwrap() };
-    let count = net
-        .users()
+    let count = nets
+        .users_by_name(*name)
+        .unwrap()
+        .iter()
         .fold(0, |acc, sink| acc + ctx.sink_wires(net, sink).count());
 
     log_info!(
@@ -255,7 +260,7 @@ fn route(ctx: &mut npnr::Context) -> bool {
     let mut x1 = 0;
     let mut y1 = 0;
 
-    for sink in net.users() {
+    for sink in nets.users_by_name(*name).unwrap().iter() {
         let sink = unsafe { sink.as_ref().unwrap() };
         let cell = sink.cell().unwrap();
         x0 = x0.min(cell.location_x());
@@ -268,7 +273,7 @@ fn route(ctx: &mut npnr::Context) -> bool {
 
     let mut arcs = Vec::new();
 
-    for (_name, net) in &nets {
+    for (name, net) in nets.iter() {
         let net = unsafe { net.as_mut().unwrap() };
         let source = unsafe { net.driver().as_ref().unwrap() };
 
@@ -280,7 +285,7 @@ fn route(ctx: &mut npnr::Context) -> bool {
         let source_x = source_cell.location_x();
         let source_y = source_cell.location_y();
 
-        for sink in net.users() {
+        for sink in nets.users_by_name(*name).unwrap().iter() {
             let sink = unsafe { sink.as_ref().unwrap() };
             let sink_x = sink.cell().unwrap().location_x();
             let sink_y = sink.cell().unwrap().location_y();
