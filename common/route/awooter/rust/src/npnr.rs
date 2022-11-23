@@ -1,4 +1,4 @@
-use std::{ffi::CStr, collections::binary_heap::Iter};
+use std::ffi::CStr;
 
 use libc::c_char;
 
@@ -19,16 +19,52 @@ pub struct CellInfo {
     private: [u8; 0],
 }
 
+impl CellInfo {
+    pub fn location_x(&self) -> i32 {
+        unsafe { npnr_cellinfo_get_location_x(self) }
+    }
+
+    pub fn location_y(&self) -> i32 {
+        unsafe { npnr_cellinfo_get_location_y(self) }
+    }
+}
+
 #[repr(C)]
 pub struct NetInfo {
     private: [u8; 0],
 }
 
+impl NetInfo {
+    pub fn driver(&mut self) -> *mut PortRef {
+        unsafe { npnr_netinfo_driver(self) }
+    }
+
+    pub fn users(&mut self) -> NetUserIter {
+        NetUserIter { net: self, n: 0 }
+    }
+
+    pub fn is_global(&self) -> bool {
+        unsafe { npnr_netinfo_is_global(self) }
+    }
+}
+
+#[repr(C)]
+pub struct PortRef {
+    private: [u8; 0],
+}
+
+impl PortRef {
+    pub fn cell(&self) -> Option<&mut CellInfo> {
+        unsafe { npnr_portref_cell(self).as_mut() }
+    }
+}
+
+#[derive(Clone, Copy)]
 #[repr(transparent)]
 pub struct IdString(libc::c_int);
 
 /// A type representing a bel name.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct BelId {
     _private: u64,
@@ -37,6 +73,10 @@ pub struct BelId {
 impl BelId {
     pub fn null() -> Self {
         unsafe { npnr_belid_null() }
+    }
+
+    pub fn is_null(self) -> bool {
+        self == Self::null()
     }
 }
 
@@ -52,15 +92,17 @@ impl PipId {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(transparent)]
-pub struct WireId {
-    _private: u64,
-}
+pub struct WireId(u64);
 
 impl WireId {
     pub fn null() -> Self {
-        todo!()
+        unsafe { npnr_wireid_null() }
+    }
+
+    pub fn is_null(self) -> bool {
+        self == Self::null()
     }
 }
 
@@ -81,7 +123,7 @@ impl Context {
     }
 
     /// Bind a given bel to a given cell with the given strength.
-    pub fn bind_bel(&mut self, bel: BelId, cell: &mut CellInfo, strength: PlaceStrength) {
+    pub fn bind_bel(&mut self, bel: BelId, cell: *mut CellInfo, strength: PlaceStrength) {
         unsafe { npnr_context_bind_bel(self, bel, cell, strength) }
     }
 
@@ -101,7 +143,7 @@ impl Context {
     }
 
     /// Bind a wire to a net. This method must be used when binding a wire that is driven by a bel pin. Use bindPip() when binding a wire that is driven by a pip.
-    pub fn bind_wire(&mut self, wire: WireId, net: &mut NetInfo, strength: PlaceStrength) {
+    pub fn bind_wire(&mut self, wire: WireId, net: *mut NetInfo, strength: PlaceStrength) {
         unsafe { npnr_context_bind_wire(self, wire, net, strength) }
     }
 
@@ -111,7 +153,7 @@ impl Context {
     }
 
     /// Bid a pip to a net. This also bind the destination wire of that pip.
-    pub fn bind_pip(&mut self, pip: PipId, net: &mut NetInfo, strength: PlaceStrength) {
+    pub fn bind_pip(&mut self, pip: PipId, net: *mut NetInfo, strength: PlaceStrength) {
         unsafe { npnr_context_bind_pip(self, pip, net, strength) }
     }
 
@@ -135,12 +177,25 @@ impl Context {
         unsafe { npnr_context_estimate_delay(self, src, dst) as f32 }
     }
 
+    pub fn source_wire(&self, net: *const NetInfo) -> WireId {
+        unsafe { npnr_context_get_netinfo_source_wire(self, net) }
+    }
+
+    pub fn sink_wires(&self, net: *const NetInfo, sink: *const PortRef) -> NetSinkWireIter {
+        NetSinkWireIter {
+            ctx: self,
+            net,
+            sink,
+            n: 0,
+        }
+    }
+
     pub fn check(&self) {
         unsafe { npnr_context_check(self) }
     }
 
     pub fn debug(&self) -> bool {
-        unsafe { npnr_context_debug(self)}
+        unsafe { npnr_context_debug(self) }
     }
 
     pub fn id(&self, s: &str) -> IdString {
@@ -155,6 +210,10 @@ impl Context {
     pub fn verbose(&self) -> bool {
         unsafe { npnr_context_verbose(self) }
     }
+
+    pub fn net_iter(&self) -> NetIter {
+        NetIter { ctx: self, n: 0 }
+    }
 }
 
 extern "C" {
@@ -162,6 +221,7 @@ extern "C" {
     pub fn npnr_log_error(format: *const c_char);
 
     fn npnr_belid_null() -> BelId;
+    fn npnr_wireid_null() -> WireId;
 
     fn npnr_context_get_grid_dim_x(ctx: *const Context) -> libc::c_int;
     fn npnr_context_get_grid_dim_y(ctx: *const Context) -> libc::c_int;
@@ -198,25 +258,33 @@ extern "C" {
     fn npnr_context_name_of(ctx: *const Context, s: IdString) -> *const libc::c_char;
     fn npnr_context_verbose(ctx: *const Context) -> bool;
 
+    fn npnr_context_get_netinfo_source_wire(ctx: *const Context, net: *const NetInfo) -> WireId;
+    fn npnr_context_get_netinfo_sink_wire(
+        ctx: *const Context,
+        net: *const NetInfo,
+        sink: *const PortRef,
+        n: u32,
+    ) -> WireId;
+
     fn npnr_context_nets_key(ctx: *const Context, n: u32) -> IdString;
     fn npnr_context_nets_value(ctx: *const Context, n: u32) -> *mut NetInfo;
-    // fn npnr_context_nets(ctx: *const Context) -> *mut *mut NetInfo;
+
+    fn npnr_netinfo_driver(net: *mut NetInfo) -> *mut PortRef;
+    fn npnr_netinfo_users_value(net: *mut NetInfo, n: u32) -> *mut PortRef;
+    fn npnr_netinfo_is_global(net: *const NetInfo) -> bool;
+
+    fn npnr_portref_cell(port: *const PortRef) -> *mut CellInfo;
+    fn npnr_cellinfo_get_location_x(info: *const CellInfo) -> libc::c_int;
+    fn npnr_cellinfo_get_location_y(info: *const CellInfo) -> libc::c_int;
 }
 
-/// In case you missed the C++ comment; this is O(n^2) because FFI is misert.
+/// Iterate over the nets in a context.
+///
+/// In case you missed the C++ comment; this is `O(n^2)` because FFI is misery.
 /// It's probably best to run it exactly once.
 pub struct NetIter<'a> {
     ctx: &'a Context,
-    n: u32
-}
-
-impl<'a> NetIter<'a> {
-    pub fn new(ctx: &'a Context) -> Self {
-        Self {
-            ctx,
-            n: 0
-        }
-    }
+    n: u32,
 }
 
 impl<'a> Iterator for NetIter<'a> {
@@ -230,6 +298,48 @@ impl<'a> Iterator for NetIter<'a> {
         }
         self.n += 1;
         Some((str, val))
+    }
+}
+
+/// Iterate over the users field of a net.
+///
+/// In case you missed the C++ comment; this is `O(n^2)` because FFI is misery.
+pub struct NetUserIter {
+    net: *mut NetInfo,
+    n: u32,
+}
+
+impl Iterator for NetUserIter {
+    type Item = *mut PortRef;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let item = unsafe { npnr_netinfo_users_value(self.net, self.n) };
+        if item.is_null() {
+            return None;
+        }
+        self.n += 1;
+        Some(item)
+    }
+}
+
+pub struct NetSinkWireIter<'a> {
+    ctx: &'a Context,
+    net: *const NetInfo,
+    sink: *const PortRef,
+    n: u32,
+}
+
+impl<'a> Iterator for NetSinkWireIter<'a> {
+    type Item = WireId;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let item =
+            unsafe { npnr_context_get_netinfo_sink_wire(self.ctx, self.net, self.sink, self.n) };
+        if item.is_null() {
+            return None;
+        }
+        self.n += 1;
+        Some(item)
     }
 }
 
