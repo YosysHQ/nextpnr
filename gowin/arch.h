@@ -140,10 +140,17 @@ NPNR_PACKED_STRUCT(struct PartnumberPOD {
     uint32_t speed_id;
 });
 
+NPNR_PACKED_STRUCT(struct PinPOD {
+    uint16_t index_id;
+    uint16_t loc_id;
+    uint32_t num_cfgs;
+    RelPtr<uint32_t> cfgs;
+});
+
 NPNR_PACKED_STRUCT(struct PackagePOD {
     uint32_t name_id;
     uint32_t num_pins;
-    RelPtr<PairPOD> pins;
+    RelPtr<PinPOD> pins;
 });
 
 NPNR_PACKED_STRUCT(struct VariantPOD {
@@ -475,7 +482,7 @@ struct Arch : BaseArch<ArchRanges>
     void route_gowin_globals(Context *ctx);
 
     // chip db version
-    unsigned int const chipdb_version = 1;
+    unsigned int const chipdb_version = 2;
 
     std::vector<IdString> cell_types;
 

@@ -666,6 +666,17 @@ const PairPOD *pairLookup(const PairPOD *list, const size_t len, const int dest)
     return nullptr;
 }
 
+const PinPOD *pinLookup(const PinPOD *list, const size_t len, const int idx)
+{
+    for (size_t i = 0; i < len; i++) {
+        const PinPOD *pin = &list[i];
+        if (pin->index_id == idx) {
+            return pin;
+        }
+    }
+    return nullptr;
+}
+
 bool aliasCompare(GlobalAliasPOD i, GlobalAliasPOD j)
 {
     return (i.dest_row < j.dest_row) || (i.dest_row == j.dest_row && i.dest_col < j.dest_col) ||
@@ -947,9 +958,9 @@ void Arch::read_cst(std::istream &in)
         case ioloc: { // IO_LOC name pin
             IdString pinname = id(match[2]);
             pinline = match[2];
-            const PairPOD *belname = pairLookup(package->pins.get(), package->num_pins, pinname.index);
+            const PinPOD *belname = pinLookup(package->pins.get(), package->num_pins, pinname.index);
             if (belname != nullptr) {
-                std::string bel = IdString(belname->src_id).str(this);
+                std::string bel = IdString(belname->loc_id).str(this);
                 it->second->setAttr(IdString(ID_BEL), bel);
             } else {
                 if (std::regex_match(pinline, match_pinloc, iobelre)) {
