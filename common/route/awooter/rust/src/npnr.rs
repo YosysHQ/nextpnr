@@ -1,5 +1,5 @@
 use core::slice;
-use std::{ffi::CStr, collections::{HashMap}, marker::PhantomData};
+use std::{collections::HashMap, ffi::CStr, marker::PhantomData};
 
 use libc::c_char;
 
@@ -21,12 +21,8 @@ pub struct CellInfo {
 }
 
 impl CellInfo {
-    pub fn location_x(&self) -> i32 {
-        unsafe { npnr_cellinfo_get_location_x(self) }
-    }
-
-    pub fn location_y(&self) -> i32 {
-        unsafe { npnr_cellinfo_get_location_y(self) }
+    pub fn location(&self) -> Loc {
+        unsafe { npnr_cellinfo_get_location(self) }
     }
 }
 
@@ -85,13 +81,13 @@ impl BelId {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(transparent)]
 pub struct PipId(u64);
 
 impl PipId {
     pub fn null() -> Self {
-        todo!()
+        unsafe { npnr_pipid_null() }
     }
 }
 
@@ -110,6 +106,13 @@ impl WireId {
     pub fn is_null(self) -> bool {
         self == Self::null()
     }
+}
+
+#[repr(C)]
+pub struct Loc {
+    pub x: libc::c_int,
+    pub y: libc::c_int,
+    pub z: libc::c_int,
 }
 
 #[repr(C)]
@@ -196,6 +199,22 @@ impl Context {
         }
     }
 
+    pub fn wires_leaking(&self) -> &[WireId] {
+        let mut wires = std::ptr::null_mut();
+        let len = unsafe { npnr_context_get_wires_leak(self, &mut wires as *mut *mut WireId) };
+        unsafe { std::slice::from_raw_parts(wires, len as usize) }
+    }
+
+    pub fn pips_leaking(&self) -> &[PipId] {
+        let mut pips = std::ptr::null_mut();
+        let len = unsafe { npnr_context_get_pips_leak(self, &mut pips as *mut *mut PipId) };
+        unsafe { std::slice::from_raw_parts(pips, len as usize) }
+    }
+
+    pub fn pip_location(&self, pip: PipId) -> Loc {
+        unsafe { npnr_context_get_pip_location(self, pip) }
+    }
+
     pub fn check(&self) {
         unsafe { npnr_context_check(self) }
     }
@@ -224,6 +243,7 @@ extern "C" {
 
     fn npnr_belid_null() -> BelId;
     fn npnr_wireid_null() -> WireId;
+    fn npnr_pipid_null() -> PipId;
 
     fn npnr_context_get_grid_dim_x(ctx: *const Context) -> libc::c_int;
     fn npnr_context_get_grid_dim_y(ctx: *const Context) -> libc::c_int;
@@ -254,6 +274,8 @@ extern "C" {
     fn npnr_context_get_pip_dst_wire(ctx: *const Context, pip: PipId) -> WireId;
     fn npnr_context_estimate_delay(ctx: *const Context, src: WireId, dst: WireId) -> libc::c_float;
     fn npnr_context_get_wires_leak(ctx: *const Context, wires: *mut *mut WireId) -> u64;
+    fn npnr_context_get_pips_leak(ctx: *const Context, pips: *mut *mut PipId) -> u64;
+    fn npnr_context_get_pip_location(ctx: *const Context, pip: PipId) -> Loc;
 
     fn npnr_context_check(ctx: *const Context);
     fn npnr_context_debug(ctx: *const Context) -> bool;
@@ -269,57 +291,25 @@ extern "C" {
         n: u32,
     ) -> WireId;
 
-    fn npnr_context_nets_leak(ctx: *const Context, names: *mut *mut libc::c_int, nets: *mut *mut *mut NetInfo) -> u32;
+    fn npnr_context_nets_leak(
+        ctx: *const Context,
+        names: *mut *mut libc::c_int,
+        nets: *mut *mut *mut NetInfo,
+    ) -> u32;
 
     fn npnr_netinfo_driver(net: *mut NetInfo) -> *mut PortRef;
     fn npnr_netinfo_users_leak(net: *mut NetInfo, users: *mut *mut *mut PortRef) -> u32;
     fn npnr_netinfo_is_global(net: *const NetInfo) -> bool;
 
     fn npnr_portref_cell(port: *const PortRef) -> *mut CellInfo;
-    fn npnr_cellinfo_get_location_x(info: *const CellInfo) -> libc::c_int;
-    fn npnr_cellinfo_get_location_y(info: *const CellInfo) -> libc::c_int;
-}
-
-/// Store for the users of a net.
-pub struct NetUsers<'a> {
-    users: &'a [*mut PortRef],
-}
-
-impl<'a> NetUsers<'a> {
-    pub fn new(net: &'a mut NetInfo) -> NetUsers<'a> {
-        let mut users = std::ptr::null_mut();
-        // SAFETY: net is not null because it's a &mut, and users is only written to.
-        // Leaking memory is the most convenient FFI I could think of.
-        let len = unsafe { npnr_netinfo_users_leak(net, &mut users as *mut *mut *mut PortRef) };
-        let users = unsafe { slice::from_raw_parts(users, len as usize) };
-        Self { users }
-    }
-
-    pub fn iter(&self) -> NetUsersIter<'_> {
-        NetUsersIter { users: self, n: 0 }
-    }
-}
-
-pub struct NetUsersIter<'a> {
-    users: &'a NetUsers<'a>,
-    n: usize,
-}
-
-impl Iterator for NetUsersIter<'_> {
-    type Item = *mut PortRef;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let user = *self.users.users.get(self.n)?;
-        self.n += 1;
-        Some(user)
-    }
+    fn npnr_cellinfo_get_location(info: *const CellInfo) -> Loc;
 }
 
 /// Store for the nets of a context.
 pub struct Nets<'a> {
     nets: HashMap<IdString, *mut NetInfo>,
-    users: HashMap<IdString, NetUsers<'a>>,
-    _data: PhantomData<&'a Context>
+    users: HashMap<IdString, &'a [*mut PortRef]>,
+    _data: PhantomData<&'a Context>,
 }
 
 impl<'a> Nets<'a> {
@@ -329,14 +319,26 @@ impl<'a> Nets<'a> {
     pub fn new(ctx: &'a Context) -> Nets<'a> {
         let mut names: *mut libc::c_int = std::ptr::null_mut();
         let mut nets_ptr: *mut *mut NetInfo = std::ptr::null_mut();
-        let size = unsafe { npnr_context_nets_leak(ctx, &mut names as *mut *mut libc::c_int, &mut nets_ptr as *mut *mut *mut NetInfo) };
+        let size = unsafe {
+            npnr_context_nets_leak(
+                ctx,
+                &mut names as *mut *mut libc::c_int,
+                &mut nets_ptr as *mut *mut *mut NetInfo,
+            )
+        };
         let mut nets = HashMap::new();
         let mut users = HashMap::new();
         for i in 0..size {
             let name = unsafe { IdString(*names.add(i as usize)) };
             let net = unsafe { *nets_ptr.add(i as usize) };
+            let mut users_ptr = std::ptr::null_mut();
+            // SAFETY: net is not null because it's a &mut, and users is only written to.
+            // Leaking memory is the most convenient FFI I could think of.
+            let len =
+                unsafe { npnr_netinfo_users_leak(net, &mut users_ptr as *mut *mut *mut PortRef) };
+            let users_slice = unsafe { slice::from_raw_parts(users_ptr, len as usize) };
             nets.insert(name, net);
-            users.insert(name, NetUsers::new(unsafe { &mut *net }));
+            users.insert(name, users_slice);
         }
         // Note: the contents of `names` and `nets_ptr` are now lost.
         Self {
@@ -347,7 +349,7 @@ impl<'a> Nets<'a> {
     }
 
     /// Find net users given a net's name.
-    pub fn users_by_name(&self, net: IdString) -> Option<&NetUsers> {
+    pub fn users_by_name(&self, net: IdString) -> Option<&&[*mut PortRef]> {
         self.users.get(&net)
     }
 
@@ -356,7 +358,7 @@ impl<'a> Nets<'a> {
         self.nets.len()
     }
 
-    pub fn iter(&self) -> impl Iterator<Item=(&IdString, &*mut NetInfo)> {
+    pub fn iter(&self) -> std::collections::hash_map::Iter<'_, IdString, *mut NetInfo> {
         self.nets.iter()
     }
 }
@@ -379,27 +381,6 @@ impl<'a> Iterator for NetSinkWireIter<'a> {
         }
         self.n += 1;
         Some(item)
-    }
-}
-
-pub struct Wires<'a> {
-    wires: &'a [WireId],
-}
-
-impl<'a> Wires<'a> {
-    pub fn new(ctx: &'a Context) -> Wires<'a> {
-        let mut wires = std::ptr::null_mut();
-        let len = unsafe { npnr_context_get_wires_leak(ctx, &mut wires as *mut *mut WireId) };
-        let wires = unsafe { std::slice::from_raw_parts(wires, len as usize) };
-        Self { wires }
-    }
-
-    pub fn len(&self) -> usize {
-        self.wires.len()
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item=&WireId> {
-        self.wires.iter()
     }
 }
 
