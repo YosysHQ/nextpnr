@@ -153,16 +153,16 @@ fn partition_nets(
     let progress = ProgressBar::new(nets.len() as u64);
     progress.set_style(
         ProgressStyle::with_template(
-            "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {msg}",
+            "[{elapsed}] [{bar:40.cyan/blue}] {msg}",
         )
         .unwrap()
-        .progress_chars("#>-"),
+        .progress_chars("━╸ ")
     );
 
     for (name, net) in nets.iter() {
         let mut message = ctx.name_of(*name).to_str().unwrap().to_string();
-        let message = if message.len() > 24 {
-            message.truncate(21);
+        let message = if message.len() > 31 {
+            message.truncate(28);
             format!("{}...", message)
         } else {
             message
@@ -345,7 +345,7 @@ fn partition_nets(
         }
     }
 
-    progress.finish_with_message("done");
+    progress.finish_and_clear();
 
     let north = ne.len() + nw.len();
     let south = se.len() + sw.len();
@@ -472,7 +472,7 @@ fn route(ctx: &mut npnr::Context) -> bool {
         .to_string();
 
     log_info!(
-        "Highest non-global fansnout net is {} with {} arcs\n",
+        "Highest non-global fanout net is {}\n  with {} arcs\n",
         ctx.name_of(*name).to_str().unwrap().bright_white(),
         count.bright_white()
     );
@@ -494,7 +494,7 @@ fn route(ctx: &mut npnr::Context) -> bool {
     let coords_min = format!("({}, {})", x0, y0);
     let coords_max = format!("({}, {})", x1, y1);
     log_info!(
-        "  which spans {} to {}\n",
+        "  which spans from {} to {}\n",
         coords_min.bright_white(),
         coords_max.bright_white()
     );
