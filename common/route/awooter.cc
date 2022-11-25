@@ -111,6 +111,7 @@ extern "C" {
 
     uint64_t npnr_belid_null() { return wrap(BelId()); }
     uint64_t npnr_wireid_null() { return wrap(WireId()); }
+    uint64_t npnr_pipid_null() { return wrap(PipId()); }
 
     int npnr_context_get_grid_dim_x(const Context *const ctx) { return ctx->getGridDimX(); }
     int npnr_context_get_grid_dim_y(const Context *const ctx) { return ctx->getGridDimY(); }
@@ -125,6 +126,20 @@ extern "C" {
     uint64_t npnr_context_get_pip_dst_wire(const Context *const ctx, uint64_t pip) { return wrap(ctx->getPipDstWire(unwrap_pip(pip))); }
     float npnr_context_estimate_delay(const Context *const ctx, uint64_t src, uint64_t dst) { return ctx->getDelayNS(ctx->estimateDelay(unwrap_wire(src), unwrap_wire(dst))); }
     float npnr_context_delay_epsilon(const Context *const ctx) { return ctx->getDelayNS(ctx->getDelayEpsilon()); }
+    Loc npnr_context_get_pip_location(const Context *const ctx, uint64_t pip) { return ctx->getPipLocation(unwrap_pip(pip)); }
+
+    uint64_t npnr_context_get_pips_leak(const Context *const ctx, PipId **pips) {
+        auto pip_vec = std::vector<PipId>{};
+        for (auto pip : ctx->getPips()) {
+            pip_vec.push_back(pip);
+        }
+        pip_vec.shrink_to_fit();
+        auto size = pip_vec.size();
+        *pips = pip_vec.data();
+        // Yes, by placement-newing over `pip_vec` we leak memory.
+        new (&pip_vec) std::vector<PipId>;
+        return size;
+    }
 
     uint64_t npnr_context_get_wires_leak(const Context *const ctx, WireId **wires) {
         auto wire_vec = std::vector<WireId>{};
@@ -198,8 +213,7 @@ extern "C" {
 #endif
 
     CellInfo* npnr_portref_cell(const PortRef *const port) { return port->cell; }
-    int npnr_cellinfo_get_location_x(const CellInfo *const info) { return info->getLocation().x; }
-    int npnr_cellinfo_get_location_y(const CellInfo *const info) { return info->getLocation().y; }
+    Loc npnr_cellinfo_get_location(const CellInfo *const info) { return info->getLocation(); }
 
     extern bool npnr_router_awooter(Context *ctx);
 }
