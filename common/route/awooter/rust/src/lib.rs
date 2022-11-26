@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     ptr::NonNull,
-    sync::{atomic::AtomicUsize, Mutex, RwLock},
+    sync::{atomic::AtomicUsize, Mutex, RwLock}, time::Instant,
 };
 
 use colored::Colorize;
@@ -743,8 +743,14 @@ fn route(ctx: &mut npnr::Context) -> bool {
         rayon::current_num_threads().to_string().bold()
     );
 
+    let start = Instant::now();
+
     let (x_part, y_part, ne, se, sw, nw) =
         find_partition_point(ctx, &nets, pips, 0, ctx.grid_dim_x(), 0, ctx.grid_dim_y());
+
+    let time = Instant::now() - start;
+
+    log_info!("Partitioning took {:.2}s\n", time.as_secs_f32());
 
     let mut invalid_arcs_in_ne = 0;
     let mut invalid_arcs_in_se = 0;
