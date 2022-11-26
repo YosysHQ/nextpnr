@@ -605,7 +605,52 @@ fn route(ctx: &mut npnr::Context) -> bool {
         coords_max.bold()
     );
 
-    let _ = find_partition_point(ctx, &nets, pips, 0, ctx.grid_dim_x(), 0, ctx.grid_dim_y());
+    let (x_part, y_part, ne, se, sw, nw) =
+        find_partition_point(ctx, &nets, pips, 0, ctx.grid_dim_x(), 0, ctx.grid_dim_y());
+
+    let mut invalid_arcs_in_ne = 0;
+    let mut invalid_arcs_in_se = 0;
+    let mut invalid_arcs_in_sw = 0;
+    let mut invalid_arcs_in_nw = 0;
+
+    for ((source_x, source_y), (sink_x, sink_y)) in ne {
+        if source_x > x_part || source_y > y_part || sink_x > x_part || sink_y > y_part {
+            invalid_arcs_in_ne += 1;
+        }
+    }
+    for ((source_x, source_y), (sink_x, sink_y)) in se {
+        if source_x < x_part || source_y > y_part || sink_x < x_part || sink_y > y_part {
+            invalid_arcs_in_se += 1;
+        }
+    }
+    for ((source_x, source_y), (sink_x, sink_y)) in sw {
+        if source_x < x_part || source_y < y_part || sink_x < x_part || sink_y < y_part {
+            invalid_arcs_in_sw += 1;
+        }
+    }
+    for ((source_x, source_y), (sink_x, sink_y)) in nw {
+        if source_x > x_part || source_y < y_part || sink_x > x_part || sink_y < y_part {
+            invalid_arcs_in_nw += 1;
+        }
+    }
+
+    if [
+        invalid_arcs_in_ne,
+        invalid_arcs_in_se,
+        invalid_arcs_in_sw,
+        invalid_arcs_in_nw,
+    ]
+    .into_iter()
+    .all(|x| x == 0)
+    {
+        println!("{}", "found no arcs crossing partition boundaries.".green());
+    } else {
+        println!("{}", "found arcs crossing partition boundaries!".yellow());
+        println!("count in ne: {}", invalid_arcs_in_ne.to_string().bold());
+        println!("count in se: {}", invalid_arcs_in_se.to_string().bold());
+        println!("count in sw: {}", invalid_arcs_in_sw.to_string().bold());
+        println!("count in nw: {}", invalid_arcs_in_nw.to_string().bold());
+    }
 
     /*log_info!("=== level 2 NE:\n");
     let _ = find_partition_point(&ne, x_start, x, y_start, y);
