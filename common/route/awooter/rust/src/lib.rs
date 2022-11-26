@@ -8,6 +8,8 @@ use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
 use rayon::prelude::*;
 
+use crate::npnr::PortRef;
+
 #[macro_use]
 mod npnr;
 
@@ -312,11 +314,10 @@ fn partition_nets(
         let arcs = nets
             .users_by_name(*name)
             .unwrap()
-            .iter()
+            .par_iter()
             .flat_map(|sink| {
-                let sink = unsafe { sink.as_ref().unwrap() };
-                ctx.sink_wires(net, sink)
-                    .into_iter()
+                ctx.sink_wires(net, (*sink) as *const PortRef)
+                    .into_par_iter()
                     .map(move |sink_wire| (sink, sink_wire))
             })
             .flat_map(|(sink, sink_wire)| {
@@ -682,7 +683,6 @@ fn route(ctx: &mut npnr::Context) -> bool {
     let mut y1 = 0;
 
     for sink in nets.users_by_name(*name).unwrap().iter() {
-        let sink = unsafe { sink.as_ref().unwrap() };
         let cell = sink.cell().unwrap().location();
         x0 = x0.min(cell.x);
         y0 = y0.min(cell.y);
