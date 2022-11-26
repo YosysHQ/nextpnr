@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     ptr::NonNull,
-    sync::{atomic::AtomicUsize, Mutex},
+    sync::{atomic::AtomicUsize, Mutex, RwLock},
 };
 
 use colored::Colorize;
@@ -219,40 +219,40 @@ fn partition_nets(
                 north += 1;
                 pips_n
                     .entry((loc.x, loc.y))
-                    .and_modify(|pip_list: &mut Vec<(npnr::PipId, Vec<npnr::IdString>)>| {
-                        pip_list.push((pip, Vec::new()))
+                    .and_modify(|pip_list: &mut Vec<(npnr::PipId, RwLock<Vec<npnr::IdString>>)>| {
+                        pip_list.push((pip, RwLock::new(Vec::new())))
                     })
-                    .or_insert_with(|| vec![(pip, Vec::new())]);
+                    .or_insert_with(|| vec![(pip, RwLock::new(Vec::new()))]);
             }
 
             if dir.x > 0 {
                 south += 1;
                 pips_s
                     .entry((loc.x, loc.y))
-                    .and_modify(|pip_list: &mut Vec<(npnr::PipId, Vec<npnr::IdString>)>| {
-                        pip_list.push((pip, Vec::new()))
+                    .and_modify(|pip_list: &mut Vec<(npnr::PipId, RwLock<Vec<npnr::IdString>>)>| {
+                        pip_list.push((pip, RwLock::new(Vec::new())))
                     })
-                    .or_insert_with(|| vec![(pip, Vec::new())]);
+                    .or_insert_with(|| vec![(pip, RwLock::new(Vec::new()))]);
             }
 
             if dir.y < 0 {
                 east += 1;
                 pips_e
                     .entry((loc.x, loc.y))
-                    .and_modify(|pip_list: &mut Vec<(npnr::PipId, Vec<npnr::IdString>)>| {
-                        pip_list.push((pip, Vec::new()))
+                    .and_modify(|pip_list: &mut Vec<(npnr::PipId, RwLock<Vec<npnr::IdString>>)>| {
+                        pip_list.push((pip, RwLock::new(Vec::new())))
                     })
-                    .or_insert_with(|| vec![(pip, Vec::new())]);
+                    .or_insert_with(|| vec![(pip, RwLock::new(Vec::new()))]);
             }
 
             if dir.y > 0 {
                 west += 1;
                 pips_w
                     .entry((loc.x, loc.y))
-                    .and_modify(|pip_list: &mut Vec<(npnr::PipId, Vec<npnr::IdString>)>| {
-                        pip_list.push((pip, Vec::new()))
+                    .and_modify(|pip_list: &mut Vec<(npnr::PipId, RwLock<Vec<npnr::IdString>>)>| {
+                        pip_list.push((pip, RwLock::new(Vec::new())))
                     })
-                    .or_insert_with(|| vec![(pip, Vec::new())]);
+                    .or_insert_with(|| vec![(pip, RwLock::new(Vec::new()))]);
             }
         }
     }
@@ -265,11 +265,6 @@ fn partition_nets(
     log_info!("    {} are east-bound\n", east.to_string().bold());
     log_info!("    {} are south-bound\n", south.to_string().bold());
     log_info!("    {} are west-bound\n", west.to_string().bold());
-
-    let pips_n = Mutex::new(pips_n);
-    let pips_e = Mutex::new(pips_e);
-    let pips_s = Mutex::new(pips_s);
-    let pips_w = Mutex::new(pips_w);
 
     let progress = ProgressBar::new(nets.len() as u64);
     progress.set_style(
@@ -336,24 +331,23 @@ fn partition_nets(
                 } else if source_is_north != sink_is_north && source_is_east == sink_is_east {
                     let middle = (x, (source.y + sink_loc.y) / 2);
                     let middle = (middle.0.clamp(1, ctx.grid_dim_x()-1), middle.1.clamp(1, ctx.grid_dim_y()-1));
-                    let mut pips_s = pips_s.lock().unwrap();
-                    let mut pips_n = pips_n.lock().unwrap();
                     let pips = match source_is_north {
-                        true => pips_s.get_mut(&middle).unwrap(),
-                        false => pips_n.get_mut(&middle).unwrap(),
+                        true => pips_s.get(&middle).unwrap(),
+                        false => pips_n.get(&middle).unwrap(),
                     };
 
                     let (selected_pip, pip_uses) = pips
-                        .iter_mut()
+                        .iter()
                         .min_by_key(|(pip, uses)| {
                             let src_to_pip =
                                 ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
                             let pip_to_snk = ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
+                            let uses = uses.read().unwrap();
                             let uses = uses.len() - (uses.contains(name) as usize);
                             (1000.0 * (src_to_pip + ((uses + 1) as f32) * pip_to_snk)) as u64
                         })
                         .unwrap();
-                    pip_uses.push(*name);
+                    pip_uses.write().unwrap().push(*name);
                     let selected_pip = *selected_pip;
                     explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::SeqCst);
 
@@ -371,24 +365,23 @@ fn partition_nets(
                 } else if source_is_north == sink_is_north && source_is_east != sink_is_east {
                     let middle = ((source.x + sink_loc.x) / 2, y);
                     let middle = (middle.0.clamp(1, ctx.grid_dim_x()-1), middle.1.clamp(1, ctx.grid_dim_y()-1));
-                    let mut pips_e = pips_e.lock().unwrap();
-                    let mut pips_w = pips_w.lock().unwrap();
                     let pips = match source_is_east {
-                        true => pips_w.get_mut(&middle).unwrap(),
-                        false => pips_e.get_mut(&middle).unwrap_or_else(|| panic!("\nwhile partitioning an arc between ({}, {}) and ({}, {})\n({}, {}) does not exist in the pip library\n", source.x, source.y, sink_loc.x, sink_loc.y, middle.0, middle.1)),
+                        true => pips_w.get(&middle).unwrap(),
+                        false => pips_e.get(&middle).unwrap_or_else(|| panic!("\nwhile partitioning an arc between ({}, {}) and ({}, {})\n({}, {}) does not exist in the pip library\n", source.x, source.y, sink_loc.x, sink_loc.y, middle.0, middle.1)),
                     };
 
                     let (selected_pip, pip_uses) = pips
-                        .iter_mut()
+                        .iter()
                         .min_by_key(|(pip, uses)| {
                             let src_to_pip =
                                 ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
                             let pip_to_snk = ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
+                            let uses = uses.read().unwrap();
                             let uses = uses.len() - (uses.contains(name) as usize);
                             (1000.0 * (src_to_pip + ((uses + 1) as f32) * pip_to_snk)) as u64
                         })
                         .unwrap();
-                    pip_uses.push(*name);
+                    pip_uses.write().unwrap().push(*name);
                     let selected_pip = *selected_pip;
                     explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::SeqCst);
 
@@ -406,47 +399,45 @@ fn partition_nets(
                 } else {
                     let middle = (x, split_line_over_x((source, sink_loc), x));
                     let middle = (middle.0.clamp(1, ctx.grid_dim_x()-1), middle.1.clamp(1, ctx.grid_dim_y()-1));
-                    let mut pips_e = pips_e.lock().unwrap();
-                    let mut pips_w = pips_w.lock().unwrap();
                     let pips = match source_is_east {
-                        true => pips_w.get_mut(&middle).unwrap(),
-                        false => pips_e.get_mut(&middle).unwrap(),
+                        true => pips_w.get(&middle).unwrap(),
+                        false => pips_e.get(&middle).unwrap(),
                     };
 
                     let (horiz_pip, pip_uses) = pips
-                        .iter_mut()
+                        .iter()
                         .min_by_key(|(pip, uses)| {
                             let src_to_pip =
                                 ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
                             let pip_to_snk = ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
+                            let uses = uses.read().unwrap();
                             let uses = uses.len() - (uses.contains(name) as usize);
                             (1000.0 * (src_to_pip + ((uses + 1) as f32) * pip_to_snk)) as u64
                         })
                         .unwrap();
-                    pip_uses.push(*name);
+                    pip_uses.write().unwrap().push(*name);
                     let horiz_pip = *horiz_pip;
                     explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::SeqCst);
 
                     let middle = (split_line_over_y((source, sink_loc), y), y);
                     let middle = (middle.0.clamp(1, ctx.grid_dim_x()-1), middle.1.clamp(1, ctx.grid_dim_y()-1));
-                    let mut pips_s = pips_s.lock().unwrap();
-                    let mut pips_n = pips_n.lock().unwrap();
                     let pips = match source_is_north {
-                        true => pips_s.get_mut(&middle).unwrap(),
-                        false => pips_n.get_mut(&middle).unwrap(),
+                        true => pips_s.get(&middle).unwrap(),
+                        false => pips_n.get(&middle).unwrap(),
                     };
 
                     let (vert_pip, pip_uses) = pips
-                        .iter_mut()
+                        .iter()
                         .min_by_key(|(pip, uses)| {
                             let src_to_pip =
                                 ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
                             let pip_to_snk = ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
+                            let uses = uses.read().unwrap();
                             let uses = uses.len() - (uses.contains(name) as usize);
                             (1000.0 * (src_to_pip + ((uses + 1) as f32) * pip_to_snk)) as u64
                         })
                         .unwrap();
-                    pip_uses.push(*name);
+                    pip_uses.write().unwrap().push(*name);
                     let vert_pip = *vert_pip;
                     explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::SeqCst);
 
