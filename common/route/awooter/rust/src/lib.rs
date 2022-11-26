@@ -52,10 +52,10 @@ fn find_partition_point(
     let mut x_diff = (x_finish - x_start) / 4;
     let mut y_diff = (y_finish - y_start) / 4;
 
-    let mut ne = Vec::new();
-    let mut se = Vec::new();
-    let mut sw = Vec::new();
-    let mut nw = Vec::new();
+    let mut ne;
+    let mut se;
+    let mut sw;
+    let mut nw;
 
     while x_diff != 0 {
         (ne, se, sw, nw) = partition_nets(ctx, nets, pips, x, y);
@@ -113,6 +113,57 @@ fn find_partition_point(
     (x, y, ne, se, sw, nw)
 }
 
+
+/// finds the y location a line would be split at if you split it at a certain x location
+///
+/// the function assumes the line goes on forever in both directions, and it truncates the actual coordinate
+fn split_line_over_x(mut line: (npnr::Loc, npnr::Loc), x_location: i32) -> i32 {
+    if line.0.x == line.0.y {
+        // the line is a straight line in the direction, there is either infinite solutions, or none
+        // we simply average the y coordinate to give a "best effort" guess
+        return (line.0.y + line.1.y) / 2;
+    }
+
+    if line.0.x > line.1.x {
+        (line.0, line.1) = (line.1, line.0);
+    }
+
+    let x_diff = line.0.x - line.1.x;
+    let y_diff = line.0.y - line.1.y;
+
+    // i hope for no overflows, maybe promote to i64 to be sure?
+    (y_diff * x_location + line.0.y * x_diff - line.0.x * y_diff) / x_diff
+}
+
+/// finds the x location a line would be split at if you split it at a certain y location, assuming the line goes on forever in both directions
+fn split_line_over_y(line: (npnr::Loc, npnr::Loc), y_location: i32) -> i32 {
+    // laziness supreme!
+    split_line_over_x(
+        (
+            npnr::Loc {
+                x: line.0.y,
+                y: line.0.x,
+                z: 0,
+            },
+            npnr::Loc {
+                x: line.1.y,
+                y: line.1.x,
+                z: 0,
+            },
+        ),
+        y_location,
+    )
+}
+
+enum Segment {
+    Northeast,
+    Southeast,
+    Southwest,
+    Northwest,
+}
+
+
+// A big thank you to @Spacecat-chan for fixing my broken and buggy partition code.
 fn partition_nets(
     ctx: &npnr::Context,
     nets: &npnr::Nets,
@@ -120,7 +171,10 @@ fn partition_nets(
     x: i32,
     y: i32,
 ) -> (ArcVec, ArcVec, ArcVec, ArcVec) {
-    let mut partition_pips = HashMap::new();
+    let mut pips_n = HashMap::new();
+    let mut pips_e = HashMap::new();
+    let mut pips_s = HashMap::new();
+    let mut pips_w = HashMap::new();
 
     let mut ne = Vec::new();
     let mut se = Vec::new();
@@ -141,23 +195,75 @@ fn partition_nets(
     // BUG: because pips don't specify direction, this puts pips of opposite directions
     // in the same entry. This is bad, since it could lead to selecting a pip of the
     // wrong direction.
-    //let mut pips_e2w = HashMap::new();
-    //let mut pips_w2e = HashMap::new();
+    //
+    // Possibly fixed? I need to double-check.
     
+    let mut candidates = 0;
+    let mut north = 0;
+    let mut east = 0;
+    let mut south = 0;
+    let mut west = 0;
     for &pip in pips {
         let loc = ctx.pip_location(pip);
         if loc.x == x || loc.y == y {
-            let src = ctx.pip_src_wire(pip);
-            let dst = ctx.pip_dst_wire(pip);
+            let dir = ctx.pip_direction(pip);
 
-            partition_pips
+            // This pip seems internal; skip it.
+            if dir.x == 0 && dir.y == 0 {
+                continue;
+            }
+
+            if dir.x < 0 && dir.y == 0 && loc.y == y {
+                candidates += 1;
+                north += 1;
+                pips_n
                 .entry((loc.x, loc.y))
                 .and_modify(|pip_list: &mut Vec<(npnr::PipId, Vec<npnr::IdString>)>| {
                     pip_list.push((pip, Vec::new()))
                 })
                 .or_insert_with(|| vec![(pip, Vec::new())]);
+            }
+
+            if dir.x > 0 && dir.y == 0 && loc.y == y {
+                candidates += 1;
+                south += 1;
+                pips_s
+                .entry((loc.x, loc.y))
+                .and_modify(|pip_list: &mut Vec<(npnr::PipId, Vec<npnr::IdString>)>| {
+                    pip_list.push((pip, Vec::new()))
+                })
+                .or_insert_with(|| vec![(pip, Vec::new())]);
+            }
+
+            if dir.x == 0 && dir.y < 0 && loc.x == x {
+                candidates += 1;
+                east += 1;
+                pips_e
+                .entry((loc.x, loc.y))
+                .and_modify(|pip_list: &mut Vec<(npnr::PipId, Vec<npnr::IdString>)>| {
+                    pip_list.push((pip, Vec::new()))
+                })
+                .or_insert_with(|| vec![(pip, Vec::new())]);
+            }
+
+            if dir.x == 0 && dir.y > 0 && loc.x == x {
+                candidates += 1;
+                west += 1;
+                pips_w
+                .entry((loc.x, loc.y))
+                .and_modify(|pip_list: &mut Vec<(npnr::PipId, Vec<npnr::IdString>)>| {
+                    pip_list.push((pip, Vec::new()))
+                })
+                .or_insert_with(|| vec![(pip, Vec::new())]);
+            }
         }
     }
+
+    log_info!("  Out of {} candidate pips:\n", candidates.to_string().bold());
+    log_info!("    {} are north-bound\n", north.to_string().bold());
+    log_info!("    {} are east-bound\n", east.to_string().bold());
+    log_info!("    {} are south-bound\n", south.to_string().bold());
+    log_info!("    {} are west-bound\n", west.to_string().bold());
 
     let progress = ProgressBar::new(nets.len() as u64);
     progress.set_style(
@@ -165,6 +271,8 @@ fn partition_nets(
             .unwrap()
             .progress_chars("━╸ "),
     );
+
+    let mut explored_pips = 0;
 
     for (name, net) in nets.iter() {
         let mut message = ctx.name_of(*name).to_str().unwrap().to_string();
@@ -193,24 +301,32 @@ fn partition_nets(
         let source_is_east = source.y < y;
         let source_wire = ctx.source_wire(net);
 
+        // I want to merge the "find best pip" code into a closure
+        // but doing so gives lifetime errors, and you can't describe
+        // lifetimes in a closure, as far as I can tell.
+
         for sink in nets.users_by_name(*name).unwrap().iter() {
             let sink = unsafe { sink.as_ref().unwrap() };
             let sink_loc = sink.cell().unwrap().location();
             let sink_is_north = sink_loc.x < x;
             let sink_is_east = sink_loc.y < y;
 
-            for sink_wire in ctx.sink_wires(net, sink) {
+            let arcs = ctx.sink_wires(net, sink).into_iter().flat_map(|sink_wire| {
                 if source_is_north == sink_is_north && source_is_east == sink_is_east {
                     let arc = ((source.x, source.y), (sink_loc.x, sink_loc.y));
-                    match (source_is_north, source_is_east) {
-                        (true, true) => ne.push(arc),
-                        (true, false) => nw.push(arc),
-                        (false, true) => se.push(arc),
-                        (false, false) => sw.push(arc),
-                    }
+                    let seg = match (source_is_north, source_is_east) {
+                        (true, true) => Segment::Northeast,
+                        (true, false) => Segment::Northwest,
+                        (false, true) => Segment::Southeast,
+                        (false, false) => Segment::Southwest,
+                    };
+                    vec![(seg, arc)]
                 } else if source_is_north != sink_is_north && source_is_east == sink_is_east {
-                    let middle = ((source.x + sink_loc.x) / 2, y);
-                    let pips = partition_pips.get_mut(&middle).unwrap();
+                    let middle = (x, (source.y + sink_loc.y) / 2);
+                    let pips = match source_is_north {
+                        true => pips_s.get_mut(&middle).unwrap(),
+                        false => pips_n.get_mut(&middle).unwrap(),
+                    };
 
                     let (selected_pip, pip_uses) = pips
                         .par_iter_mut()
@@ -223,33 +339,26 @@ fn partition_nets(
                         })
                         .unwrap();
                     pip_uses.push(*name);
+                    let selected_pip = *selected_pip;
+                    explored_pips += pips.len();
 
-                    let pip_loc = ctx.pip_location(*selected_pip);
+                    let pip_loc = ctx.pip_location(selected_pip);
                     let src_to_pip = ((source.x, source.y), (pip_loc.x, pip_loc.y));
                     let pip_to_dst = ((pip_loc.x, pip_loc.y), (sink_loc.x, sink_loc.y));
-                    match (source_is_north, source_is_east) {
-                        (true, true) => {
-                            ne.push(src_to_pip);
-                            se.push(pip_to_dst);
-                        }
-                        (true, false) => {
-                            nw.push(src_to_pip);
-                            sw.push(pip_to_dst);
-                        }
-                        (false, true) => {
-                            se.push(src_to_pip);
-                            ne.push(pip_to_dst);
-                        }
-                        (false, false) => {
-                            sw.push(src_to_pip);
-                            nw.push(pip_to_dst);
-                        }
-                    }
-
+                    let (seg1, seg2) = match (source_is_north, source_is_east) {
+                        (true, true) => (Segment::Northeast, Segment::Southeast),
+                        (true, false) => (Segment::Northwest, Segment::Southwest),
+                        (false, true) => (Segment::Southeast, Segment::Northeast),
+                        (false, false) => (Segment::Southwest, Segment::Northwest),
+                    };
                     part_horiz += 1;
+                    vec![(seg1, src_to_pip), (seg2, pip_to_dst)]
                 } else if source_is_north == sink_is_north && source_is_east != sink_is_east {
-                    let middle = (x, (source.y + sink_loc.y) / 2);
-                    let pips = partition_pips.get_mut(&middle).unwrap();
+                    let middle = ((source.x + sink_loc.x) / 2, y);
+                    let pips = match source_is_east {
+                        true => pips_w.get_mut(&middle).unwrap(),
+                        false => pips_e.get_mut(&middle).unwrap(),
+                    };
 
                     let (selected_pip, pip_uses) = pips
                         .par_iter_mut()
@@ -262,37 +371,26 @@ fn partition_nets(
                         })
                         .unwrap();
                     pip_uses.push(*name);
+                    let selected_pip = *selected_pip;
+                    explored_pips += pips.len();
 
-                    let pip_loc = ctx.pip_location(*selected_pip);
+                    let pip_loc = ctx.pip_location(selected_pip);
                     let src_to_pip = ((source.x, source.y), (pip_loc.x, pip_loc.y));
                     let pip_to_dst = ((pip_loc.x, pip_loc.y), (sink_loc.x, sink_loc.y));
-                    match (source_is_north, source_is_east) {
-                        (true, true) => {
-                            ne.push(src_to_pip);
-                            nw.push(pip_to_dst);
-                        }
-                        (true, false) => {
-                            nw.push(src_to_pip);
-                            ne.push(pip_to_dst);
-                        }
-                        (false, true) => {
-                            se.push(src_to_pip);
-                            sw.push(pip_to_dst);
-                        }
-                        (false, false) => {
-                            sw.push(src_to_pip);
-                            se.push(pip_to_dst);
-                        }
-                    }
-
+                    let (seg1, seg2) = match (source_is_north, source_is_east) {
+                        (true, true) => (Segment::Northeast, Segment::Northwest),
+                        (true, false) => (Segment::Northwest, Segment::Northeast),
+                        (false, true) => (Segment::Southeast, Segment::Southwest),
+                        (false, false) => (Segment::Southwest, Segment::Southeast),
+                    };
                     part_vert += 1;
+                    vec![(seg1, src_to_pip), (seg2, pip_to_dst)]
                 } else {
-                    // BUG: this doesn't bound the pip to be strictly east or west,
-                    // leading to a possible situation where when connecting a NW source
-                    // to a SE sink, the horizontal pip is found in the E boundary,
-                    // then the 
-                    let middle = (x, (source.y + sink_loc.y) / 2);
-                    let pips = partition_pips.get_mut(&middle).unwrap();
+                    let middle = (x, split_line_over_x((source, sink_loc), x));
+                    let pips = match source_is_east {
+                        true => pips_w.get_mut(&middle).unwrap(),
+                        false => pips_e.get_mut(&middle).unwrap(),
+                    };
 
                     let (horiz_pip, pip_uses) = pips
                         .par_iter_mut()
@@ -306,9 +404,13 @@ fn partition_nets(
                         .unwrap();
                     pip_uses.push(*name);
                     let horiz_pip = *horiz_pip;
-
-                    let middle = ((source.x + sink_loc.x) / 2, y);
-                    let pips = partition_pips.get_mut(&middle).unwrap();
+                    explored_pips += pips.len();
+                    
+                    let middle = (split_line_over_y((source, sink_loc), y), y);
+                    let pips = match source_is_north {
+                        true => pips_s.get_mut(&middle).unwrap(),
+                        false => pips_n.get_mut(&middle).unwrap(),
+                    };
 
                     let (vert_pip, pip_uses) = pips
                         .par_iter_mut()
@@ -321,42 +423,55 @@ fn partition_nets(
                         })
                         .unwrap();
                     pip_uses.push(*name);
+                    let vert_pip = *vert_pip;
+                    explored_pips += pips.len();
 
                     let horiz_loc = ctx.pip_location(horiz_pip);
-                    let vert_loc = ctx.pip_location(*vert_pip);
-                    let src_to_horiz = ((source.x, source.y), (horiz_loc.x, horiz_loc.y));
-                    let horiz_to_vert = ((horiz_loc.x, horiz_loc.y), (vert_loc.x, vert_loc.y));
-                    let vert_to_dst = ((vert_loc.x, vert_loc.y), (sink_loc.x, sink_loc.y));
-                    match (source_is_north, source_is_east) {
-                        (true, true) => {
-                            ne.push(src_to_horiz);
-                            nw.push(horiz_to_vert);
-                            sw.push(vert_to_dst);
-                        }
-                        (true, false) => {
-                            nw.push(src_to_horiz);
-                            ne.push(horiz_to_vert);
-                            se.push(vert_to_dst);
-                        }
-                        (false, true) => {
-                            se.push(src_to_horiz);
-                            sw.push(horiz_to_vert);
-                            nw.push(vert_to_dst);
-                        }
-                        (false, false) => {
-                            sw.push(src_to_horiz);
-                            se.push(horiz_to_vert);
-                            ne.push(vert_to_dst);
-                        }
-                    }
-
+                    let horiz_is_east = horiz_loc.y < y;
+                    let vert_loc = ctx.pip_location(vert_pip);
+                    let (src_to_mid1, mid1_to_mid2, mid2_to_dst) =
+                        if horiz_is_east == source_is_east {
+                            (
+                                ((source.x, source.y), (horiz_loc.x, horiz_loc.y)),
+                                ((horiz_loc.x, horiz_loc.y), (vert_loc.x, vert_loc.y)),
+                                ((vert_loc.x, vert_loc.y), (sink_loc.x, sink_loc.y)),
+                            )
+                        } else {
+                            (
+                                ((source.x, source.y), (vert_loc.x, vert_loc.y)),
+                                ((vert_loc.x, vert_loc.y), (horiz_loc.x, horiz_loc.y)),
+                                ((horiz_loc.x, horiz_loc.y), (sink_loc.x, sink_loc.y)),
+                            )
+                        };
+                    let (seg1, seg2, seg3) = match (source_is_north, source_is_east, horiz_is_east) {
+                        (true, true, true) => (Segment::Northeast, Segment::Southeast, Segment::Southwest),
+                        (true, true, false) => (Segment::Northeast, Segment::Northwest, Segment::Southwest),
+                        (true, false, true) => (Segment::Northwest, Segment::Northeast, Segment::Southeast),
+                        (true, false, false) => (Segment::Northwest, Segment::Southwest, Segment::Southeast),
+                        (false, true, true) => (Segment::Southeast, Segment::Northeast, Segment::Northwest),
+                        (false, true, false) => (Segment::Southeast, Segment::Southwest, Segment::Northwest),
+                        (false, false, true) => (Segment::Southwest, Segment::Southeast, Segment::Northeast),
+                        (false, false, false) => (Segment::Southwest, Segment::Northwest, Segment::Northwest),
+                    };
                     part_diag += 1;
+                    vec![(seg1, src_to_mid1), (seg2, mid1_to_mid2), (seg3, mid2_to_dst)]
+                }
+            });
+
+            for (segment, arc) in arcs {
+                match segment {
+                    Segment::Northeast => ne.push(arc),
+                    Segment::Southeast => se.push(arc),
+                    Segment::Southwest => sw.push(arc),
+                    Segment::Northwest => nw.push(arc),
                 }
             }
         }
     }
 
     progress.finish_and_clear();
+
+    log_info!("  {} pips explored\n", explored_pips.to_string().bold());
 
     let north = ne.len() + nw.len();
     let south = se.len() + sw.len();
@@ -536,7 +651,52 @@ fn route(ctx: &mut npnr::Context) -> bool {
         coords_max.bold()
     );
 
-    let _ = find_partition_point(ctx, &nets, pips, 0, ctx.grid_dim_x(), 0, ctx.grid_dim_y());
+    let (x_part, y_part, ne, se, sw, nw) =
+        find_partition_point(ctx, &nets, pips, 0, ctx.grid_dim_x(), 0, ctx.grid_dim_y());
+
+    let mut invalid_arcs_in_ne = 0;
+    let mut invalid_arcs_in_se = 0;
+    let mut invalid_arcs_in_sw = 0;
+    let mut invalid_arcs_in_nw = 0;
+
+    for ((source_x, source_y), (sink_x, sink_y)) in ne {
+        if source_x > x_part || source_y > y_part || sink_x > x_part || sink_y > y_part {
+            invalid_arcs_in_ne += 1;
+        }
+    }
+    for ((source_x, source_y), (sink_x, sink_y)) in se {
+        if source_x < x_part || source_y > y_part || sink_x < x_part || sink_y > y_part {
+            invalid_arcs_in_se += 1;
+        }
+    }
+    for ((source_x, source_y), (sink_x, sink_y)) in sw {
+        if source_x < x_part || source_y < y_part || sink_x < x_part || sink_y < y_part {
+            invalid_arcs_in_sw += 1;
+        }
+    }
+    for ((source_x, source_y), (sink_x, sink_y)) in nw {
+        if source_x > x_part || source_y < y_part || sink_x > x_part || sink_y < y_part {
+            invalid_arcs_in_nw += 1;
+        }
+    }
+
+    if [
+        invalid_arcs_in_ne,
+        invalid_arcs_in_se,
+        invalid_arcs_in_sw,
+        invalid_arcs_in_nw,
+    ]
+    .into_iter()
+    .all(|x| x == 0)
+    {
+        println!("{}", "found no arcs crossing partition boundaries.".green());
+    } else {
+        println!("{}", "found arcs crossing partition boundaries!".yellow());
+        println!("count in ne: {}", invalid_arcs_in_ne.to_string().bold());
+        println!("count in se: {}", invalid_arcs_in_se.to_string().bold());
+        println!("count in sw: {}", invalid_arcs_in_sw.to_string().bold());
+        println!("count in nw: {}", invalid_arcs_in_nw.to_string().bold());
+    }
 
     /*log_info!("=== level 2 NE:\n");
     let _ = find_partition_point(&ne, x_start, x, y_start, y);
