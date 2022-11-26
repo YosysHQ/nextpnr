@@ -109,6 +109,7 @@ impl WireId {
 }
 
 #[repr(C)]
+#[derive(Clone, Copy)]
 pub struct Loc {
     pub x: libc::c_int,
     pub y: libc::c_int,
@@ -215,6 +216,10 @@ impl Context {
         unsafe { npnr_context_get_pip_location(self, pip) }
     }
 
+    pub fn pip_direction(&self, pip: PipId) -> Loc {
+        unsafe { npnr_context_get_pip_direction(self, pip) }
+    }
+
     pub fn check(&self) {
         unsafe { npnr_context_check(self) }
     }
@@ -276,6 +281,7 @@ extern "C" {
     fn npnr_context_get_wires_leak(ctx: *const Context, wires: *mut *mut WireId) -> u64;
     fn npnr_context_get_pips_leak(ctx: *const Context, pips: *mut *mut PipId) -> u64;
     fn npnr_context_get_pip_location(ctx: *const Context, pip: PipId) -> Loc;
+    fn npnr_context_get_pip_direction(ctx: *const Context, pip: PipId) -> Loc;
 
     fn npnr_context_check(ctx: *const Context);
     fn npnr_context_debug(ctx: *const Context) -> bool;
