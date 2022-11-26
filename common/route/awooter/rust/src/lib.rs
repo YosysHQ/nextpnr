@@ -116,7 +116,7 @@ fn find_partition_point(
 /// finds the y location a line would be split at if you split it at a certain x location
 ///
 /// the function assumes the line goes on forever in both directions, and it truncates the actual coordinate
-fn split_line_over_x(mut line: (npnr::Loc, npnr::Loc), x_location: i32) -> i32 {
+fn split_line_over_x(line: (npnr::Loc, npnr::Loc), x_location: i32) -> i32 {
     if line.0.x == line.0.y {
         // the line is a straight line in the direction, there is either infinite solutions, or none
         // we simply average the y coordinate to give a "best effort" guess
@@ -180,7 +180,7 @@ fn partition_nets(
     // wrong direction.
     //let mut pips_e2w = HashMap::new();
     //let mut pips_w2e = HashMap::new();
-    
+
     for &pip in pips {
         let loc = ctx.pip_location(pip);
         if loc.x == x || loc.y == y {
