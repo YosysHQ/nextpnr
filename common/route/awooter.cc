@@ -136,8 +136,9 @@ extern "C" {
         pip_vec.shrink_to_fit();
         auto size = pip_vec.size();
         *pips = pip_vec.data();
-        // Yes, by placement-newing over `pip_vec` we leak memory.
-        new (&pip_vec) std::vector<PipId>;
+        auto dummy = std::vector<PipId>{};
+        // Yes, by memcpying over `pip_vec` we leak memory.
+        std::memcpy(&pip_vec, &dummy, sizeof(dummy));
         return size;
     }
 
@@ -149,8 +150,9 @@ extern "C" {
         wire_vec.shrink_to_fit();
         auto size = wire_vec.size();
         *wires = wire_vec.data();
-        // Yes, by placement-newing over `wire_vec` we leak memory.
-        new (&wire_vec) std::vector<WireId>;
+        auto dummy = std::vector<WireId>{};
+        // Yes, by memcpying over `wire_vec` we leak memory.
+        std::memcpy(&wire_vec, &dummy, sizeof(dummy));
         return size;
     }
 
@@ -180,9 +182,11 @@ extern "C" {
         auto size = name_vec.size();
         *names = name_vec.data();
         *nets = nets_vec.data();
-        // Yes, by placement-newing over `name_vec` and `nets_vec` we leak memory.
-        new (&name_vec) std::vector<int>;
-        new (&nets_vec) std::vector<NetInfo*>;
+        // Yes, by memcpying over `name_vec` and `nets_vec` we leak memory.
+        auto dummy1 = std::vector<int>{};
+        auto dummy2 = std::vector<NetInfo*>{};
+        std::memcpy(&name_vec, &dummy1, sizeof(dummy1));
+        std::memcpy(&nets_vec, &dummy2, sizeof(dummy2));
         return size;
     }
 
@@ -201,8 +205,9 @@ extern "C" {
         x.shrink_to_fit();
         *users = x.data();
         auto size = x.size();
-        // Yes, by placement-newing over `x` we leak memory.
-        new (&x) std::vector<PortRef*>{};
+        // Yes, by memcpying over `x` we leak memory.
+        auto dummy = std::vector<PortRef*>{};
+        std::memcpy(&x, &dummy, sizeof(dummy));
         return size;
     }
 
