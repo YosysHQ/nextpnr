@@ -219,40 +219,40 @@ fn partition_nets(
                 north += 1;
                 pips_n
                     .entry((loc.x, loc.y))
-                    .and_modify(|pip_list: &mut Vec<(npnr::PipId, RwLock<Vec<npnr::IdString>>)>| {
-                        pip_list.push((pip, RwLock::new(Vec::new())))
+                    .and_modify(|pip_list: &mut Vec<(npnr::PipId, AtomicUsize)>| {
+                        pip_list.push((pip, AtomicUsize::new(0)))
                     })
-                    .or_insert_with(|| vec![(pip, RwLock::new(Vec::new()))]);
+                    .or_insert_with(|| vec![(pip, AtomicUsize::new(0))]);
             }
 
             if dir.x > 0 {
                 south += 1;
                 pips_s
                     .entry((loc.x, loc.y))
-                    .and_modify(|pip_list: &mut Vec<(npnr::PipId, RwLock<Vec<npnr::IdString>>)>| {
-                        pip_list.push((pip, RwLock::new(Vec::new())))
+                    .and_modify(|pip_list: &mut Vec<(npnr::PipId, AtomicUsize)>| {
+                        pip_list.push((pip, AtomicUsize::new(0)))
                     })
-                    .or_insert_with(|| vec![(pip, RwLock::new(Vec::new()))]);
+                    .or_insert_with(|| vec![(pip, AtomicUsize::new(0))]);
             }
 
             if dir.y < 0 {
                 east += 1;
                 pips_e
                     .entry((loc.x, loc.y))
-                    .and_modify(|pip_list: &mut Vec<(npnr::PipId, RwLock<Vec<npnr::IdString>>)>| {
-                        pip_list.push((pip, RwLock::new(Vec::new())))
+                    .and_modify(|pip_list: &mut Vec<(npnr::PipId, AtomicUsize)>| {
+                        pip_list.push((pip, AtomicUsize::new(0)))
                     })
-                    .or_insert_with(|| vec![(pip, RwLock::new(Vec::new()))]);
+                    .or_insert_with(|| vec![(pip, AtomicUsize::new(0))]);
             }
 
             if dir.y > 0 {
                 west += 1;
                 pips_w
                     .entry((loc.x, loc.y))
-                    .and_modify(|pip_list: &mut Vec<(npnr::PipId, RwLock<Vec<npnr::IdString>>)>| {
-                        pip_list.push((pip, RwLock::new(Vec::new())))
+                    .and_modify(|pip_list: &mut Vec<(npnr::PipId, AtomicUsize)>| {
+                        pip_list.push((pip, AtomicUsize::new(0)))
                     })
-                    .or_insert_with(|| vec![(pip, RwLock::new(Vec::new()))]);
+                    .or_insert_with(|| vec![(pip, AtomicUsize::new(0))]);
             }
         }
     }
@@ -342,12 +342,11 @@ fn partition_nets(
                             let src_to_pip =
                                 ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
                             let pip_to_snk = ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
-                            let uses = uses.read().unwrap();
-                            let uses = uses.len() - (uses.contains(name) as usize);
+                            let uses = uses.load(std::sync::atomic::Ordering::Acquire);
                             (1000.0 * (src_to_pip + ((uses + 1) as f32) * pip_to_snk)) as u64
                         })
                         .unwrap();
-                    pip_uses.write().unwrap().push(*name);
+                    pip_uses.fetch_add(1, std::sync::atomic::Ordering::Release);
                     let selected_pip = *selected_pip;
                     explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::SeqCst);
 
@@ -376,14 +375,13 @@ fn partition_nets(
                             let src_to_pip =
                                 ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
                             let pip_to_snk = ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
-                            let uses = uses.read().unwrap();
-                            let uses = uses.len() - (uses.contains(name) as usize);
+                            let uses = uses.load(std::sync::atomic::Ordering::Acquire);
                             (1000.0 * (src_to_pip + ((uses + 1) as f32) * pip_to_snk)) as u64
                         })
                         .unwrap();
-                    pip_uses.write().unwrap().push(*name);
+                    pip_uses.fetch_add(1, std::sync::atomic::Ordering::Release);
                     let selected_pip = *selected_pip;
-                    explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::SeqCst);
+                    explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
 
                     let pip_loc = ctx.pip_location(selected_pip);
                     let src_to_pip = ((source.x, source.y), (pip_loc.x, pip_loc.y));
@@ -394,7 +392,7 @@ fn partition_nets(
                         (false, true) => (Segment::Southeast, Segment::Southwest),
                         (false, false) => (Segment::Southwest, Segment::Southeast),
                     };
-                    part_vert.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    part_vert.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     vec![(seg1, src_to_pip), (seg2, pip_to_dst)]
                 } else {
                     let middle = (x, split_line_over_x((source, sink_loc), x));
@@ -410,14 +408,13 @@ fn partition_nets(
                             let src_to_pip =
                                 ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
                             let pip_to_snk = ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
-                            let uses = uses.read().unwrap();
-                            let uses = uses.len() - (uses.contains(name) as usize);
+                            let uses = uses.load(std::sync::atomic::Ordering::Acquire);
                             (1000.0 * (src_to_pip + ((uses + 1) as f32) * pip_to_snk)) as u64
                         })
                         .unwrap();
-                    pip_uses.write().unwrap().push(*name);
+                    pip_uses.fetch_add(1, std::sync::atomic::Ordering::Release);
                     let horiz_pip = *horiz_pip;
-                    explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::SeqCst);
+                    explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
 
                     let middle = (split_line_over_y((source, sink_loc), y), y);
                     let middle = (middle.0.clamp(1, ctx.grid_dim_x()-1), middle.1.clamp(1, ctx.grid_dim_y()-1));
@@ -432,14 +429,13 @@ fn partition_nets(
                             let src_to_pip =
                                 ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
                             let pip_to_snk = ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
-                            let uses = uses.read().unwrap();
-                            let uses = uses.len() - (uses.contains(name) as usize);
+                            let uses = uses.load(std::sync::atomic::Ordering::Acquire);
                             (1000.0 * (src_to_pip + ((uses + 1) as f32) * pip_to_snk)) as u64
                         })
                         .unwrap();
-                    pip_uses.write().unwrap().push(*name);
+                    pip_uses.fetch_add(1, std::sync::atomic::Ordering::Release);
                     let vert_pip = *vert_pip;
-                    explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::SeqCst);
+                    explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
 
                     let horiz_loc = ctx.pip_location(horiz_pip);
                     let horiz_is_east = horiz_loc.y < y;
