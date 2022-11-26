@@ -128,6 +128,41 @@ extern "C" {
     float npnr_context_delay_epsilon(const Context *const ctx) { return ctx->getDelayNS(ctx->getDelayEpsilon()); }
     Loc npnr_context_get_pip_location(const Context *const ctx, uint64_t pip) { return ctx->getPipLocation(unwrap_pip(pip)); }
 
+    // This method's in C++ temporarily, while I figure out some better way of getting a pip iterator.
+    Loc npnr_context_get_pip_direction(const Context *const ctx, uint64_t _pip) {
+        auto pip = unwrap_pip(_pip);
+        auto src_loc = Loc{};
+        auto dst_loc = Loc{};
+
+        auto uh_pips = 0;
+        for (auto uh : ctx->getPipsUphill(ctx->getPipSrcWire(pip))) {
+            auto loc = ctx->getPipLocation(uh);
+            src_loc.x += loc.x;
+            src_loc.y += loc.y;
+            uh_pips++;
+        }
+        if (uh_pips > 1) {
+            src_loc.x /= uh_pips;
+            src_loc.y /= uh_pips;
+        }
+
+        auto dh_pips = 0;
+        for (auto dh : ctx->getPipsDownhill(ctx->getPipDstWire(pip))) {
+            auto loc = ctx->getPipLocation(dh);
+            dst_loc.x += loc.x;
+            dst_loc.y += loc.y;
+            dh_pips++;
+        }
+        if (dh_pips > 1) {
+            dst_loc.x /= dh_pips;
+            dst_loc.y /= dh_pips;
+        }
+
+        dst_loc.x -= src_loc.x;
+        dst_loc.y -= src_loc.y;
+        return dst_loc;
+    }
+
     uint64_t npnr_context_get_pips_leak(const Context *const ctx, PipId **pips) {
         auto pip_vec = std::vector<PipId>{};
         for (auto pip : ctx->getPips()) {
