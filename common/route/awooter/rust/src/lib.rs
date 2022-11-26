@@ -76,19 +76,19 @@ fn find_partition_point(
             return (x, y, ne, se, sw, nw);
         }
 
-        if north > south {
-            x -= x_diff;
-        } else if north < south {
-            x += x_diff;
-        }
+        x += match north.cmp(&south) {
+            std::cmp::Ordering::Less => x_diff,
+            std::cmp::Ordering::Equal => 0,
+            std::cmp::Ordering::Greater => -x_diff,
+        };
 
         let east = ne.len() + se.len();
         let west = nw.len() + sw.len();
-        if east > west {
-            y -= y_diff;
-        } else if east < west {
-            y += y_diff;
-        }
+        y += match east.cmp(&west) {
+            std::cmp::Ordering::Less => y_diff,
+            std::cmp::Ordering::Equal => 0,
+            std::cmp::Ordering::Greater => -y_diff,
+        };
 
         x_diff >>= 1;
         y_diff >>= 1;
@@ -134,13 +134,22 @@ fn partition_nets(
     let y_str = format!("Y = {}", y);
     log_info!(
         "Partitioning arcs along {}, {}\n",
-        x_str.bright_white(),
-        y_str.bright_white()
+        x_str.bold(),
+        y_str.bold()
     );
 
+    // BUG: because pips don't specify direction, this puts pips of opposite directions
+    // in the same entry. This is bad, since it could lead to selecting a pip of the
+    // wrong direction.
+    //let mut pips_e2w = HashMap::new();
+    //let mut pips_w2e = HashMap::new();
+    
     for &pip in pips {
         let loc = ctx.pip_location(pip);
         if loc.x == x || loc.y == y {
+            let src = ctx.pip_src_wire(pip);
+            let dst = ctx.pip_dst_wire(pip);
+
             partition_pips
                 .entry((loc.x, loc.y))
                 .and_modify(|pip_list: &mut Vec<(npnr::PipId, Vec<npnr::IdString>)>| {
@@ -152,11 +161,9 @@ fn partition_nets(
 
     let progress = ProgressBar::new(nets.len() as u64);
     progress.set_style(
-        ProgressStyle::with_template(
-            "[{elapsed}] [{bar:40.cyan/blue}] {msg}",
-        )
-        .unwrap()
-        .progress_chars("━╸ ")
+        ProgressStyle::with_template("[{elapsed}] [{bar:40.cyan/blue}] {msg}")
+            .unwrap()
+            .progress_chars("━╸ "),
     );
 
     for (name, net) in nets.iter() {
@@ -207,7 +214,7 @@ fn partition_nets(
 
                     let (selected_pip, pip_uses) = pips
                         .par_iter_mut()
-                        .max_by_key(|(pip, uses)| {
+                        .min_by_key(|(pip, uses)| {
                             let src_to_pip =
                                 ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
                             let pip_to_snk = ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
@@ -246,7 +253,7 @@ fn partition_nets(
 
                     let (selected_pip, pip_uses) = pips
                         .par_iter_mut()
-                        .max_by_key(|(pip, uses)| {
+                        .min_by_key(|(pip, uses)| {
                             let src_to_pip =
                                 ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
                             let pip_to_snk = ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
@@ -280,12 +287,16 @@ fn partition_nets(
 
                     part_vert += 1;
                 } else {
+                    // BUG: this doesn't bound the pip to be strictly east or west,
+                    // leading to a possible situation where when connecting a NW source
+                    // to a SE sink, the horizontal pip is found in the E boundary,
+                    // then the 
                     let middle = (x, (source.y + sink_loc.y) / 2);
                     let pips = partition_pips.get_mut(&middle).unwrap();
 
                     let (horiz_pip, pip_uses) = pips
                         .par_iter_mut()
-                        .max_by_key(|(pip, uses)| {
+                        .min_by_key(|(pip, uses)| {
                             let src_to_pip =
                                 ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
                             let pip_to_snk = ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
@@ -301,7 +312,7 @@ fn partition_nets(
 
                     let (vert_pip, pip_uses) = pips
                         .par_iter_mut()
-                        .max_by_key(|(pip, uses)| {
+                        .min_by_key(|(pip, uses)| {
                             let src_to_pip =
                                 ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
                             let pip_to_snk = ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
@@ -352,89 +363,115 @@ fn partition_nets(
 
     let nets = (north + south) as f64;
 
-    let ne_dist = f64::abs(((ne.len() as f64) / nets) - 0.25);
-    let se_dist = f64::abs(((se.len() as f64) / nets) - 0.25);
-    let sw_dist = f64::abs(((sw.len() as f64) / nets) - 0.25);
-    let nw_dist = f64::abs(((nw.len() as f64) / nets) - 0.25);
+    let ne_dist = ((ne.len() as f64) / nets) - 0.25;
+    let se_dist = ((se.len() as f64) / nets) - 0.25;
+    let sw_dist = ((sw.len() as f64) / nets) - 0.25;
+    let nw_dist = ((nw.len() as f64) / nets) - 0.25;
 
     let ne_str = ne.len().to_string();
     let se_str = se.len().to_string();
     let sw_str = sw.len().to_string();
     let nw_str = nw.len().to_string();
 
+    let dist_str = |dist: f64| {
+        if dist > 0.20 {
+            "(way too many nets)".red()
+        } else if dist > 0.05 {
+            "(too many nets)".yellow()
+        } else if dist < -0.05 {
+            "(too few nets)".yellow()
+        } else if dist < -0.20 {
+            "(way too few nets)".red()
+        } else {
+            "(balanced)".green()
+        }
+    };
+
     log_info!(
         "  {} arcs partitioned horizontally\n",
-        part_horiz.to_string().bright_white()
+        part_horiz.to_string().bold()
     );
     log_info!(
         "  {} arcs partitioned vertically\n",
-        part_vert.to_string().bright_white()
+        part_vert.to_string().bold()
     );
     log_info!(
         "  {} arcs partitioned both ways\n",
-        part_diag.to_string().bright_white()
+        part_diag.to_string().bold()
     );
     log_info!(
-        "  {} arcs in the northeast\n",
-        if ne_dist > 0.25 {
-            ne_str.red()
-        } else if ne_dist > 0.05 {
-            ne_str.yellow()
+        "  {} arcs in the northeast {}\n",
+        ne_str.color(if ne_dist.abs() > 0.20 {
+            colored::Color::Red
+        } else if ne_dist.abs() > 0.05 {
+            colored::Color::Yellow
         } else {
-            ne_str.green()
-        }
+            colored::Color::Green
+        }),
+        dist_str(ne_dist)
     );
     log_info!(
-        "  {} arcs in the southeast\n",
-        if se_dist > 0.25 {
-            se_str.red()
-        } else if se_dist > 0.05 {
-            se_str.yellow()
+        "  {} arcs in the southeast {}\n",
+        se_str.color(if se_dist.abs() > 0.20 {
+            colored::Color::Red
+        } else if se_dist.abs() > 0.05 {
+            colored::Color::Yellow
         } else {
-            se_str.green()
-        }
+            colored::Color::Green
+        }),
+        dist_str(se_dist)
     );
     log_info!(
-        "  {} arcs in the southwest\n",
-        if sw_dist > 0.25 {
-            sw_str.red()
-        } else if sw_dist > 0.05 {
-            sw_str.yellow()
+        "  {} arcs in the southwest {}\n",
+        sw_str.color(if sw_dist.abs() > 0.20 {
+            colored::Color::Red
+        } else if sw_dist.abs() > 0.05 {
+            colored::Color::Yellow
         } else {
-            sw_str.green()
-        }
+            colored::Color::Green
+        }),
+        dist_str(sw_dist)
     );
     log_info!(
-        "  {} arcs in the northwest\n",
-        if nw_dist > 0.25 {
-            nw_str.red()
-        } else if nw_dist > 0.05 {
-            nw_str.yellow()
+        "  {} arcs in the northwest {}\n",
+        nw_str.color(if nw_dist.abs() > 0.20 {
+            colored::Color::Red
+        } else if nw_dist.abs() > 0.05 {
+            colored::Color::Yellow
         } else {
-            nw_str.green()
-        }
+            colored::Color::Green
+        }),
+        dist_str(nw_dist)
     );
 
     (ne, se, sw, nw)
 }
 
 fn route(ctx: &mut npnr::Context) -> bool {
-    log_info!("Awoooo from Rust!\n");
+    log_info!(
+        "{}{}{}{}{}{} from Rust!\n",
+        "A".red(),
+        "w".green(),
+        "o".yellow(),
+        "o".blue(),
+        "o".magenta(),
+        "o".cyan()
+    );
     log_info!(
         "Running on a {}x{} grid\n",
-        ctx.grid_dim_x().to_string().bright_white(),
-        ctx.grid_dim_y().to_string().bright_white(),
+        ctx.grid_dim_x().to_string().bold(),
+        ctx.grid_dim_y().to_string().bold(),
     );
 
     let wires = ctx.wires_leaking();
-    log_info!("Found {} wires\n", wires.len().to_string().bright_white());
+    log_info!("Found {} wires\n", wires.len().to_string().bold());
 
     let pips = ctx.pips_leaking();
-    log_info!("Found {} pips\n", pips.len().to_string().bright_white());
+    log_info!("Found {} pips\n", pips.len().to_string().bold());
 
     let nets = npnr::Nets::new(ctx);
     let nets_str = nets.len().to_string();
-    log_info!("Found {} nets\n", nets_str.bright_white());
+    log_info!("Found {} nets\n", nets_str.bold());
 
     let mut count = 0;
     for (name, net) in nets.iter() {
@@ -446,7 +483,7 @@ fn route(ctx: &mut npnr::Context) -> bool {
         }
     }
 
-    log_info!("Found {} arcs\n", count.to_string().bright_white());
+    log_info!("Found {} arcs\n", count.to_string().bold());
 
     let (name, net) = nets
         .iter()
@@ -472,10 +509,10 @@ fn route(ctx: &mut npnr::Context) -> bool {
         .to_string();
 
     log_info!(
-        "Highest non-global fanout net is {}\n  with {} arcs\n",
-        ctx.name_of(*name).to_str().unwrap().bright_white(),
-        count.bright_white()
+        "Highest non-global fanout net is {}\n",
+        ctx.name_of(*name).to_str().unwrap().bold()
     );
+    log_info!("  with {} arcs\n", count.bold());
 
     let mut x0 = 0;
     let mut y0 = 0;
@@ -495,8 +532,8 @@ fn route(ctx: &mut npnr::Context) -> bool {
     let coords_max = format!("({}, {})", x1, y1);
     log_info!(
         "  which spans from {} to {}\n",
-        coords_min.bright_white(),
-        coords_max.bright_white()
+        coords_min.bold(),
+        coords_max.bold()
     );
 
     let _ = find_partition_point(ctx, &nets, pips, 0, ctx.grid_dim_x(), 0, ctx.grid_dim_y());
