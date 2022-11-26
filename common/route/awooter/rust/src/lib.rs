@@ -113,6 +113,47 @@ fn find_partition_point(
     (x, y, ne, se, sw, nw)
 }
 
+/// finds the y location a line would be split at if you split it at a certain x location
+///
+/// the function assumes the line goes on forever in both directions, and it truncates the actual coordinate
+fn split_line_over_x(mut line: (npnr::Loc, npnr::Loc), x_location: i32) -> i32 {
+    if line.0.x == line.0.y {
+        // the line is a straight line in the direction, there is either infinite solutions, or none
+        // we simply average the y coordinate to give a "best effort" guess
+        return (line.0.y + line.1.y) / 2;
+    }
+
+    if line.0.x > line.1.x {
+        (line.0, line.1) = (line.1, line.0);
+    }
+
+    let x_diff = line.0.x - line.1.x;
+    let y_diff = line.0.y - line.1.y;
+
+    // i hope for no overflows, maybe promote to i64 to be sure?
+    (y_diff * x_location + line.0.y * x_diff - line.0.x * y_diff) / x_diff
+}
+
+/// finds the x location a line would be split at if you split it at a certain y location, assuming the line goes on forever in both directions
+fn split_line_over_y(line: (npnr::Loc, npnr::Loc), y_location: i32) -> i32 {
+    // laziness supreme!
+    split_line_over_x(
+        (
+            npnr::Loc {
+                x: line.0.y,
+                y: line.0.x,
+                z: 0,
+            },
+            npnr::Loc {
+                x: line.1.y,
+                y: line.1.x,
+                z: 0,
+            },
+        ),
+        y_location,
+    )
+}
+
 fn partition_nets(
     ctx: &npnr::Context,
     nets: &npnr::Nets,
@@ -209,7 +250,7 @@ fn partition_nets(
                         (false, false) => sw.push(arc),
                     }
                 } else if source_is_north != sink_is_north && source_is_east == sink_is_east {
-                    let middle = ((source.x + sink_loc.x) / 2, y);
+                    let middle = (x, (source.y + sink_loc.y) / 2);
                     let pips = partition_pips.get_mut(&middle).unwrap();
 
                     let (selected_pip, pip_uses) = pips
@@ -248,7 +289,7 @@ fn partition_nets(
 
                     part_horiz += 1;
                 } else if source_is_north == sink_is_north && source_is_east != sink_is_east {
-                    let middle = (x, (source.y + sink_loc.y) / 2);
+                    let middle = ((source.x + sink_loc.x) / 2, y);
                     let pips = partition_pips.get_mut(&middle).unwrap();
 
                     let (selected_pip, pip_uses) = pips
@@ -287,11 +328,7 @@ fn partition_nets(
 
                     part_vert += 1;
                 } else {
-                    // BUG: this doesn't bound the pip to be strictly east or west,
-                    // leading to a possible situation where when connecting a NW source
-                    // to a SE sink, the horizontal pip is found in the E boundary,
-                    // then the 
-                    let middle = (x, (source.y + sink_loc.y) / 2);
+                    let middle = (x, split_line_over_x((source, sink_loc), x));
                     let pips = partition_pips.get_mut(&middle).unwrap();
 
                     let (horiz_pip, pip_uses) = pips
@@ -307,7 +344,7 @@ fn partition_nets(
                     pip_uses.push(*name);
                     let horiz_pip = *horiz_pip;
 
-                    let middle = ((source.x + sink_loc.x) / 2, y);
+                    let middle = (split_line_over_y((source, sink_loc), y), y);
                     let pips = partition_pips.get_mut(&middle).unwrap();
 
                     let (vert_pip, pip_uses) = pips
@@ -323,30 +360,62 @@ fn partition_nets(
                     pip_uses.push(*name);
 
                     let horiz_loc = ctx.pip_location(horiz_pip);
+                    let horiz_is_east = horiz_loc.y < y;
                     let vert_loc = ctx.pip_location(*vert_pip);
-                    let src_to_horiz = ((source.x, source.y), (horiz_loc.x, horiz_loc.y));
-                    let horiz_to_vert = ((horiz_loc.x, horiz_loc.y), (vert_loc.x, vert_loc.y));
-                    let vert_to_dst = ((vert_loc.x, vert_loc.y), (sink_loc.x, sink_loc.y));
-                    match (source_is_north, source_is_east) {
-                        (true, true) => {
-                            ne.push(src_to_horiz);
-                            nw.push(horiz_to_vert);
-                            sw.push(vert_to_dst);
+                    let (src_to_mid1, mid1_to_mid2, mid2_to_dst) =
+                        if horiz_is_east == source_is_east {
+                            (
+                                ((source.x, source.y), (horiz_loc.x, horiz_loc.y)),
+                                ((horiz_loc.x, horiz_loc.y), (vert_loc.x, vert_loc.y)),
+                                ((vert_loc.x, vert_loc.y), (sink_loc.x, sink_loc.y)),
+                            )
+                        } else {
+                            (
+                                ((source.x, source.y), (vert_loc.x, vert_loc.y)),
+                                ((vert_loc.x, vert_loc.y), (horiz_loc.x, horiz_loc.y)),
+                                ((horiz_loc.x, horiz_loc.y), (sink_loc.x, sink_loc.y)),
+                            )
+                        };
+                    match (source_is_north, source_is_east, horiz_is_east) {
+                        (true, true, true) => {
+                            ne.push(src_to_mid1);
+                            se.push(mid1_to_mid2);
+                            sw.push(mid2_to_dst);
                         }
-                        (true, false) => {
-                            nw.push(src_to_horiz);
-                            ne.push(horiz_to_vert);
-                            se.push(vert_to_dst);
+                        (true, true, false) => {
+                            ne.push(src_to_mid1);
+                            nw.push(mid1_to_mid2);
+                            sw.push(mid2_to_dst);
                         }
-                        (false, true) => {
-                            se.push(src_to_horiz);
-                            sw.push(horiz_to_vert);
-                            nw.push(vert_to_dst);
+                        (true, false, true) => {
+                            nw.push(src_to_mid1);
+                            ne.push(mid1_to_mid2);
+                            se.push(mid2_to_dst);
                         }
-                        (false, false) => {
-                            sw.push(src_to_horiz);
-                            se.push(horiz_to_vert);
-                            ne.push(vert_to_dst);
+                        (true, false, false) => {
+                            nw.push(src_to_mid1);
+                            sw.push(mid1_to_mid2);
+                            se.push(mid2_to_dst);
+                        }
+                        (false, true, true) => {
+                            se.push(src_to_mid1);
+                            ne.push(mid1_to_mid2);
+                            nw.push(mid2_to_dst);
+                        }
+                        (false, true, false) => {
+                            se.push(src_to_mid1);
+                            sw.push(mid1_to_mid2);
+                            nw.push(mid2_to_dst);
+                        }
+                        (false, false, true) => {
+                            sw.push(src_to_mid1);
+                            se.push(mid1_to_mid2);
+                            ne.push(mid2_to_dst);
+                        }
+                        (false, false, false) => {
+                            sw.push(src_to_mid1);
+                            nw.push(mid1_to_mid2);
+                            ne.push(mid2_to_dst);
                         }
                     }
 

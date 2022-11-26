@@ -109,6 +109,7 @@ impl WireId {
 }
 
 #[repr(C)]
+#[derive(Clone, Copy)]
 pub struct Loc {
     pub x: libc::c_int,
     pub y: libc::c_int,
