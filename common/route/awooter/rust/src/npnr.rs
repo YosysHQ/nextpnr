@@ -191,13 +191,18 @@ impl Context {
         unsafe { npnr_context_get_netinfo_source_wire(self, net) }
     }
 
-    pub fn sink_wires(&self, net: *const NetInfo, sink: *const PortRef) -> NetSinkWireIter {
-        NetSinkWireIter {
-            ctx: self,
-            net,
-            sink,
-            n: 0,
+    pub fn sink_wires(&self, net: *const NetInfo, sink: *const PortRef) -> Vec<WireId> {
+        let mut v = Vec::new();
+        let mut n = 0;
+        loop {
+            let wire = unsafe { npnr_context_get_netinfo_sink_wire(self, net, sink, n) };
+            if wire.is_null() {
+                break;
+            }
+            n += 1;
+            v.push(wire);
         }
+        v
     }
 
     pub fn wires_leaking(&self) -> &[WireId] {

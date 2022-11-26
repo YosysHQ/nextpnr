@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ptr::NonNull};
+use std::{collections::HashMap, ptr::NonNull, sync::{atomic::AtomicUsize, Mutex}};
 
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
@@ -117,15 +117,11 @@ fn find_partition_point(
 /// finds the y location a line would be split at if you split it at a certain x location
 ///
 /// the function assumes the line goes on forever in both directions, and it truncates the actual coordinate
-fn split_line_over_x(mut line: (npnr::Loc, npnr::Loc), x_location: i32) -> i32 {
+fn split_line_over_x(line: (npnr::Loc, npnr::Loc), x_location: i32) -> i32 {
     if line.0.x == line.0.y {
         // the line is a straight line in the direction, there is either infinite solutions, or none
         // we simply average the y coordinate to give a "best effort" guess
         return (line.0.y + line.1.y) / 2;
-    }
-
-    if line.0.x > line.1.x {
-        (line.0, line.1) = (line.1, line.0);
     }
 
     let x_diff = line.0.x - line.1.x;
@@ -180,9 +176,9 @@ fn partition_nets(
     let mut se = Vec::new();
     let mut sw = Vec::new();
     let mut nw = Vec::new();
-    let mut part_horiz = 0;
-    let mut part_vert = 0;
-    let mut part_diag = 0;
+    let mut part_horiz = AtomicUsize::new(0);
+    let mut part_vert = AtomicUsize::new(0);
+    let mut part_diag = AtomicUsize::new(0);
 
     let x_str = format!("X = {}", x);
     let y_str = format!("Y = {}", y);
@@ -213,8 +209,9 @@ fn partition_nets(
                 continue;
             }
 
-            if dir.x < 0 && dir.y == 0 && loc.y == y {
-                candidates += 1;
+            candidates += 1;
+
+            if dir.x < 0 {
                 north += 1;
                 pips_n
                 .entry((loc.x, loc.y))
@@ -224,8 +221,7 @@ fn partition_nets(
                 .or_insert_with(|| vec![(pip, Vec::new())]);
             }
 
-            if dir.x > 0 && dir.y == 0 && loc.y == y {
-                candidates += 1;
+            if dir.x > 0 {
                 south += 1;
                 pips_s
                 .entry((loc.x, loc.y))
@@ -235,8 +231,7 @@ fn partition_nets(
                 .or_insert_with(|| vec![(pip, Vec::new())]);
             }
 
-            if dir.x == 0 && dir.y < 0 && loc.x == x {
-                candidates += 1;
+            if dir.y < 0 {
                 east += 1;
                 pips_e
                 .entry((loc.x, loc.y))
@@ -246,8 +241,7 @@ fn partition_nets(
                 .or_insert_with(|| vec![(pip, Vec::new())]);
             }
 
-            if dir.x == 0 && dir.y > 0 && loc.x == x {
-                candidates += 1;
+            if dir.y > 0 {
                 west += 1;
                 pips_w
                 .entry((loc.x, loc.y))
@@ -265,6 +259,11 @@ fn partition_nets(
     log_info!("    {} are south-bound\n", south.to_string().bold());
     log_info!("    {} are west-bound\n", west.to_string().bold());
 
+    let pips_n = Mutex::new(pips_n);
+    let pips_e = Mutex::new(pips_e);
+    let pips_s = Mutex::new(pips_s);
+    let pips_w = Mutex::new(pips_w);
+
     let progress = ProgressBar::new(nets.len() as u64);
     progress.set_style(
         ProgressStyle::with_template("[{elapsed}] [{bar:40.cyan/blue}] {msg}")
@@ -272,7 +271,7 @@ fn partition_nets(
             .progress_chars("━╸ "),
     );
 
-    let mut explored_pips = 0;
+    let mut explored_pips = AtomicUsize::new(0);
 
     for (name, net) in nets.iter() {
         let mut message = ctx.name_of(*name).to_str().unwrap().to_string();
@@ -305,173 +304,181 @@ fn partition_nets(
         // but doing so gives lifetime errors, and you can't describe
         // lifetimes in a closure, as far as I can tell.
 
-        for sink in nets.users_by_name(*name).unwrap().iter() {
+        let arcs = nets.users_by_name(*name).unwrap().iter().flat_map(|sink| {
             let sink = unsafe { sink.as_ref().unwrap() };
+            ctx.sink_wires(net, sink).into_iter().map(move |sink_wire| (sink, sink_wire))
+        }).flat_map(|(sink, sink_wire)| {
             let sink_loc = sink.cell().unwrap().location();
             let sink_is_north = sink_loc.x < x;
             let sink_is_east = sink_loc.y < y;
+            if source_is_north == sink_is_north && source_is_east == sink_is_east {
+                let arc = ((source.x, source.y), (sink_loc.x, sink_loc.y));
+                let seg = match (source_is_north, source_is_east) {
+                    (true, true) => Segment::Northeast,
+                    (true, false) => Segment::Northwest,
+                    (false, true) => Segment::Southeast,
+                    (false, false) => Segment::Southwest,
+                };
+                vec![(seg, arc)]
+            } else if source_is_north != sink_is_north && source_is_east == sink_is_east {
+                let middle = (x, (source.y + sink_loc.y) / 2);
+                let mut pips_s = pips_s.lock().unwrap();
+                let mut pips_n = pips_n.lock().unwrap();
+                let pips = match source_is_north {
+                    true => pips_s.get_mut(&middle).unwrap(),
+                    false => pips_n.get_mut(&middle).unwrap(),
+                };
 
-            let arcs = ctx.sink_wires(net, sink).into_iter().flat_map(|sink_wire| {
-                if source_is_north == sink_is_north && source_is_east == sink_is_east {
-                    let arc = ((source.x, source.y), (sink_loc.x, sink_loc.y));
-                    let seg = match (source_is_north, source_is_east) {
-                        (true, true) => Segment::Northeast,
-                        (true, false) => Segment::Northwest,
-                        (false, true) => Segment::Southeast,
-                        (false, false) => Segment::Southwest,
+                let (selected_pip, pip_uses) = pips
+                    .iter_mut()
+                    .min_by_key(|(pip, uses)| {
+                        let src_to_pip =
+                            ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
+                        let pip_to_snk = ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
+                        let uses = uses.len() - (uses.contains(name) as usize);
+                        (1000.0 * (src_to_pip + ((uses + 1) as f32) * pip_to_snk)) as u64
+                    })
+                    .unwrap();
+                pip_uses.push(*name);
+                let selected_pip = *selected_pip;
+                explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::SeqCst);
+                explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::SeqCst);
+
+                let pip_loc = ctx.pip_location(selected_pip);
+                let src_to_pip = ((source.x, source.y), (pip_loc.x, pip_loc.y));
+                let pip_to_dst = ((pip_loc.x, pip_loc.y), (sink_loc.x, sink_loc.y));
+                let (seg1, seg2) = match (source_is_north, source_is_east) {
+                    (true, true) => (Segment::Northeast, Segment::Southeast),
+                    (true, false) => (Segment::Northwest, Segment::Southwest),
+                    (false, true) => (Segment::Southeast, Segment::Northeast),
+                    (false, false) => (Segment::Southwest, Segment::Northwest),
+                };
+                part_horiz.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                vec![(seg1, src_to_pip), (seg2, pip_to_dst)]
+            } else if source_is_north == sink_is_north && source_is_east != sink_is_east {
+                let middle = ((source.x + sink_loc.x) / 2, y);
+                let mut pips_e = pips_e.lock().unwrap();
+                let mut pips_w = pips_w.lock().unwrap();
+                let pips = match source_is_east {
+                    true => pips_w.get_mut(&middle).unwrap(),
+                    false => pips_e.get_mut(&middle).unwrap(),
+                };
+
+                let (selected_pip, pip_uses) = pips
+                    .iter_mut()
+                    .min_by_key(|(pip, uses)| {
+                        let src_to_pip =
+                            ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
+                        let pip_to_snk = ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
+                        let uses = uses.len() - (uses.contains(name) as usize);
+                        (1000.0 * (src_to_pip + ((uses + 1) as f32) * pip_to_snk)) as u64
+                    })
+                    .unwrap();
+                pip_uses.push(*name);
+                let selected_pip = *selected_pip;
+                explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::SeqCst);
+
+                let pip_loc = ctx.pip_location(selected_pip);
+                let src_to_pip = ((source.x, source.y), (pip_loc.x, pip_loc.y));
+                let pip_to_dst = ((pip_loc.x, pip_loc.y), (sink_loc.x, sink_loc.y));
+                let (seg1, seg2) = match (source_is_north, source_is_east) {
+                    (true, true) => (Segment::Northeast, Segment::Northwest),
+                    (true, false) => (Segment::Northwest, Segment::Northeast),
+                    (false, true) => (Segment::Southeast, Segment::Southwest),
+                    (false, false) => (Segment::Southwest, Segment::Southeast),
+                };
+                part_vert.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                vec![(seg1, src_to_pip), (seg2, pip_to_dst)]
+            } else {
+                let middle = (x, split_line_over_x((source, sink_loc), x));
+                let mut pips_e = pips_e.lock().unwrap();
+                let mut pips_w = pips_w.lock().unwrap();
+                let pips = match source_is_east {
+                    true => pips_w.get_mut(&middle).unwrap(),
+                    false => pips_e.get_mut(&middle).unwrap(),
+                };
+
+                let (horiz_pip, pip_uses) = pips
+                    .iter_mut()
+                    .min_by_key(|(pip, uses)| {
+                        let src_to_pip =
+                            ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
+                        let pip_to_snk = ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
+                        let uses = uses.len() - (uses.contains(name) as usize);
+                        (1000.0 * (src_to_pip + ((uses + 1) as f32) * pip_to_snk)) as u64
+                    })
+                    .unwrap();
+                pip_uses.push(*name);
+                let horiz_pip = *horiz_pip;
+                explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::SeqCst);
+                
+                let middle = (split_line_over_y((source, sink_loc), y), y);
+                let mut pips_s = pips_s.lock().unwrap();
+                let mut pips_n = pips_n.lock().unwrap();
+                let pips = match source_is_north {
+                    true => pips_s.get_mut(&middle).unwrap(),
+                    false => pips_n.get_mut(&middle).unwrap(),
+                };
+
+                let (vert_pip, pip_uses) = pips
+                    .iter_mut()
+                    .min_by_key(|(pip, uses)| {
+                        let src_to_pip =
+                            ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
+                        let pip_to_snk = ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
+                        let uses = uses.len() - (uses.contains(name) as usize);
+                        (1000.0 * (src_to_pip + ((uses + 1) as f32) * pip_to_snk)) as u64
+                    })
+                    .unwrap();
+                pip_uses.push(*name);
+                let vert_pip = *vert_pip;
+                explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::SeqCst);
+
+                let horiz_loc = ctx.pip_location(horiz_pip);
+                let horiz_is_east = horiz_loc.y < y;
+                let vert_loc = ctx.pip_location(vert_pip);
+                let (src_to_mid1, mid1_to_mid2, mid2_to_dst) =
+                    if horiz_is_east == source_is_east {
+                        (
+                            ((source.x, source.y), (horiz_loc.x, horiz_loc.y)),
+                            ((horiz_loc.x, horiz_loc.y), (vert_loc.x, vert_loc.y)),
+                            ((vert_loc.x, vert_loc.y), (sink_loc.x, sink_loc.y)),
+                        )
+                    } else {
+                        (
+                            ((source.x, source.y), (vert_loc.x, vert_loc.y)),
+                            ((vert_loc.x, vert_loc.y), (horiz_loc.x, horiz_loc.y)),
+                            ((horiz_loc.x, horiz_loc.y), (sink_loc.x, sink_loc.y)),
+                        )
                     };
-                    vec![(seg, arc)]
-                } else if source_is_north != sink_is_north && source_is_east == sink_is_east {
-                    let middle = (x, (source.y + sink_loc.y) / 2);
-                    let pips = match source_is_north {
-                        true => pips_s.get_mut(&middle).unwrap(),
-                        false => pips_n.get_mut(&middle).unwrap(),
-                    };
+                let (seg1, seg2, seg3) = match (source_is_north, source_is_east, horiz_is_east) {
+                    (true, true, true) => (Segment::Northeast, Segment::Southeast, Segment::Southwest),
+                    (true, true, false) => (Segment::Northeast, Segment::Northwest, Segment::Southwest),
+                    (true, false, true) => (Segment::Northwest, Segment::Northeast, Segment::Southeast),
+                    (true, false, false) => (Segment::Northwest, Segment::Southwest, Segment::Southeast),
+                    (false, true, true) => (Segment::Southeast, Segment::Northeast, Segment::Northwest),
+                    (false, true, false) => (Segment::Southeast, Segment::Southwest, Segment::Northwest),
+                    (false, false, true) => (Segment::Southwest, Segment::Southeast, Segment::Northeast),
+                    (false, false, false) => (Segment::Southwest, Segment::Northwest, Segment::Northeast),
+                };
+                part_diag.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                vec![(seg1, src_to_mid1), (seg2, mid1_to_mid2), (seg3, mid2_to_dst)]
+            }
+        }).collect::<Vec<_>>();
 
-                    let (selected_pip, pip_uses) = pips
-                        .par_iter_mut()
-                        .min_by_key(|(pip, uses)| {
-                            let src_to_pip =
-                                ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
-                            let pip_to_snk = ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
-                            let uses = uses.len() - (uses.contains(name) as usize);
-                            (1000.0 * (src_to_pip + ((uses + 1) as f32) * pip_to_snk)) as u64
-                        })
-                        .unwrap();
-                    pip_uses.push(*name);
-                    let selected_pip = *selected_pip;
-                    explored_pips += pips.len();
-
-                    let pip_loc = ctx.pip_location(selected_pip);
-                    let src_to_pip = ((source.x, source.y), (pip_loc.x, pip_loc.y));
-                    let pip_to_dst = ((pip_loc.x, pip_loc.y), (sink_loc.x, sink_loc.y));
-                    let (seg1, seg2) = match (source_is_north, source_is_east) {
-                        (true, true) => (Segment::Northeast, Segment::Southeast),
-                        (true, false) => (Segment::Northwest, Segment::Southwest),
-                        (false, true) => (Segment::Southeast, Segment::Northeast),
-                        (false, false) => (Segment::Southwest, Segment::Northwest),
-                    };
-                    part_horiz += 1;
-                    vec![(seg1, src_to_pip), (seg2, pip_to_dst)]
-                } else if source_is_north == sink_is_north && source_is_east != sink_is_east {
-                    let middle = ((source.x + sink_loc.x) / 2, y);
-                    let pips = match source_is_east {
-                        true => pips_w.get_mut(&middle).unwrap(),
-                        false => pips_e.get_mut(&middle).unwrap(),
-                    };
-
-                    let (selected_pip, pip_uses) = pips
-                        .par_iter_mut()
-                        .min_by_key(|(pip, uses)| {
-                            let src_to_pip =
-                                ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
-                            let pip_to_snk = ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
-                            let uses = uses.len() - (uses.contains(name) as usize);
-                            (1000.0 * (src_to_pip + ((uses + 1) as f32) * pip_to_snk)) as u64
-                        })
-                        .unwrap();
-                    pip_uses.push(*name);
-                    let selected_pip = *selected_pip;
-                    explored_pips += pips.len();
-
-                    let pip_loc = ctx.pip_location(selected_pip);
-                    let src_to_pip = ((source.x, source.y), (pip_loc.x, pip_loc.y));
-                    let pip_to_dst = ((pip_loc.x, pip_loc.y), (sink_loc.x, sink_loc.y));
-                    let (seg1, seg2) = match (source_is_north, source_is_east) {
-                        (true, true) => (Segment::Northeast, Segment::Northwest),
-                        (true, false) => (Segment::Northwest, Segment::Northeast),
-                        (false, true) => (Segment::Southeast, Segment::Southwest),
-                        (false, false) => (Segment::Southwest, Segment::Southeast),
-                    };
-                    part_vert += 1;
-                    vec![(seg1, src_to_pip), (seg2, pip_to_dst)]
-                } else {
-                    let middle = (x, split_line_over_x((source, sink_loc), x));
-                    let pips = match source_is_east {
-                        true => pips_w.get_mut(&middle).unwrap(),
-                        false => pips_e.get_mut(&middle).unwrap(),
-                    };
-
-                    let (horiz_pip, pip_uses) = pips
-                        .par_iter_mut()
-                        .min_by_key(|(pip, uses)| {
-                            let src_to_pip =
-                                ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
-                            let pip_to_snk = ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
-                            let uses = uses.len() - (uses.contains(name) as usize);
-                            (1000.0 * (src_to_pip + ((uses + 1) as f32) * pip_to_snk)) as u64
-                        })
-                        .unwrap();
-                    pip_uses.push(*name);
-                    let horiz_pip = *horiz_pip;
-                    explored_pips += pips.len();
-                    
-                    let middle = (split_line_over_y((source, sink_loc), y), y);
-                    let pips = match source_is_north {
-                        true => pips_s.get_mut(&middle).unwrap(),
-                        false => pips_n.get_mut(&middle).unwrap(),
-                    };
-
-                    let (vert_pip, pip_uses) = pips
-                        .par_iter_mut()
-                        .min_by_key(|(pip, uses)| {
-                            let src_to_pip =
-                                ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
-                            let pip_to_snk = ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
-                            let uses = uses.len() - (uses.contains(name) as usize);
-                            (1000.0 * (src_to_pip + ((uses + 1) as f32) * pip_to_snk)) as u64
-                        })
-                        .unwrap();
-                    pip_uses.push(*name);
-                    let vert_pip = *vert_pip;
-                    explored_pips += pips.len();
-
-                    let horiz_loc = ctx.pip_location(horiz_pip);
-                    let horiz_is_east = horiz_loc.y < y;
-                    let vert_loc = ctx.pip_location(vert_pip);
-                    let (src_to_mid1, mid1_to_mid2, mid2_to_dst) =
-                        if horiz_is_east == source_is_east {
-                            (
-                                ((source.x, source.y), (horiz_loc.x, horiz_loc.y)),
-                                ((horiz_loc.x, horiz_loc.y), (vert_loc.x, vert_loc.y)),
-                                ((vert_loc.x, vert_loc.y), (sink_loc.x, sink_loc.y)),
-                            )
-                        } else {
-                            (
-                                ((source.x, source.y), (vert_loc.x, vert_loc.y)),
-                                ((vert_loc.x, vert_loc.y), (horiz_loc.x, horiz_loc.y)),
-                                ((horiz_loc.x, horiz_loc.y), (sink_loc.x, sink_loc.y)),
-                            )
-                        };
-                    let (seg1, seg2, seg3) = match (source_is_north, source_is_east, horiz_is_east) {
-                        (true, true, true) => (Segment::Northeast, Segment::Southeast, Segment::Southwest),
-                        (true, true, false) => (Segment::Northeast, Segment::Northwest, Segment::Southwest),
-                        (true, false, true) => (Segment::Northwest, Segment::Northeast, Segment::Southeast),
-                        (true, false, false) => (Segment::Northwest, Segment::Southwest, Segment::Southeast),
-                        (false, true, true) => (Segment::Southeast, Segment::Northeast, Segment::Northwest),
-                        (false, true, false) => (Segment::Southeast, Segment::Southwest, Segment::Northwest),
-                        (false, false, true) => (Segment::Southwest, Segment::Southeast, Segment::Northeast),
-                        (false, false, false) => (Segment::Southwest, Segment::Northwest, Segment::Northwest),
-                    };
-                    part_diag += 1;
-                    vec![(seg1, src_to_mid1), (seg2, mid1_to_mid2), (seg3, mid2_to_dst)]
-                }
-            });
-
-            for (segment, arc) in arcs {
-                match segment {
-                    Segment::Northeast => ne.push(arc),
-                    Segment::Southeast => se.push(arc),
-                    Segment::Southwest => sw.push(arc),
-                    Segment::Northwest => nw.push(arc),
-                }
+        for (segment, arc) in arcs {
+            match segment {
+                Segment::Northeast => ne.push(arc),
+                Segment::Southeast => se.push(arc),
+                Segment::Southwest => sw.push(arc),
+                Segment::Northwest => nw.push(arc),
             }
         }
     }
 
     progress.finish_and_clear();
 
-    log_info!("  {} pips explored\n", explored_pips.to_string().bold());
+    log_info!("  {} pips explored\n", explored_pips.get_mut().to_string().bold());
 
     let north = ne.len() + nw.len();
     let south = se.len() + sw.len();
@@ -504,15 +511,15 @@ fn partition_nets(
 
     log_info!(
         "  {} arcs partitioned horizontally\n",
-        part_horiz.to_string().bold()
+        part_horiz.get_mut().to_string().bold()
     );
     log_info!(
         "  {} arcs partitioned vertically\n",
-        part_vert.to_string().bold()
+        part_vert.get_mut().to_string().bold()
     );
     log_info!(
         "  {} arcs partitioned both ways\n",
-        part_diag.to_string().bold()
+        part_diag.get_mut().to_string().bold()
     );
     log_info!(
         "  {} arcs in the northeast {}\n",
@@ -594,7 +601,7 @@ fn route(ctx: &mut npnr::Context) -> bool {
         let net = unsafe { net.as_mut().unwrap() };
         let users = nets.users_by_name(*name).unwrap().iter();
         for user in users {
-            count += ctx.sink_wires(net, *user).count();
+            count += ctx.sink_wires(net, *user).len();
         }
     }
 
@@ -610,7 +617,7 @@ fn route(ctx: &mut npnr::Context) -> bool {
                 nets.users_by_name(**name)
                     .unwrap()
                     .iter()
-                    .fold(0, |acc, sink| acc + ctx.sink_wires(net, *sink).count())
+                    .fold(0, |acc, sink| acc + ctx.sink_wires(net, *sink).len())
             }
         })
         .unwrap();
@@ -620,7 +627,7 @@ fn route(ctx: &mut npnr::Context) -> bool {
         .users_by_name(*name)
         .unwrap()
         .iter()
-        .fold(0, |acc, sink| acc + ctx.sink_wires(net, *sink).count())
+        .fold(0, |acc, sink| acc + ctx.sink_wires(net, *sink).len())
         .to_string();
 
     log_info!(
@@ -689,7 +696,7 @@ fn route(ctx: &mut npnr::Context) -> bool {
     .into_iter()
     .all(|x| x == 0)
     {
-        println!("{}", "found no arcs crossing partition boundaries.".green());
+        log_info!("{}\n", "Found no arcs crossing partition boundaries.".green());
     } else {
         println!("{}", "found arcs crossing partition boundaries!".yellow());
         println!("count in ne: {}", invalid_arcs_in_ne.to_string().bold());
