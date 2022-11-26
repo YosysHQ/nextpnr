@@ -334,6 +334,7 @@ fn partition_nets(
                     vec![(seg, arc)]
                 } else if source_is_north != sink_is_north && source_is_east == sink_is_east {
                     let middle = (x, (source.y + sink_loc.y) / 2);
+                    let middle = (middle.0.clamp(1, ctx.grid_dim_x()-1), middle.1.clamp(1, ctx.grid_dim_y()-1));
                     let mut pips_s = pips_s.lock().unwrap();
                     let mut pips_n = pips_n.lock().unwrap();
                     let pips = match source_is_north {
@@ -368,11 +369,12 @@ fn partition_nets(
                     vec![(seg1, src_to_pip), (seg2, pip_to_dst)]
                 } else if source_is_north == sink_is_north && source_is_east != sink_is_east {
                     let middle = ((source.x + sink_loc.x) / 2, y);
+                    let middle = (middle.0.clamp(1, ctx.grid_dim_x()-1), middle.1.clamp(1, ctx.grid_dim_y()-1));
                     let mut pips_e = pips_e.lock().unwrap();
                     let mut pips_w = pips_w.lock().unwrap();
                     let pips = match source_is_east {
                         true => pips_w.get_mut(&middle).unwrap(),
-                        false => pips_e.get_mut(&middle).unwrap(),
+                        false => pips_e.get_mut(&middle).unwrap_or_else(|| panic!("\nwhile partitioning an arc between ({}, {}) and ({}, {})\n({}, {}) does not exist in the pip library\n", source.x, source.y, sink_loc.x, sink_loc.y, middle.0, middle.1)),
                     };
 
                     let (selected_pip, pip_uses) = pips
@@ -402,6 +404,7 @@ fn partition_nets(
                     vec![(seg1, src_to_pip), (seg2, pip_to_dst)]
                 } else {
                     let middle = (x, split_line_over_x((source, sink_loc), x));
+                    let middle = (middle.0.clamp(1, ctx.grid_dim_x()-1), middle.1.clamp(1, ctx.grid_dim_y()-1));
                     let mut pips_e = pips_e.lock().unwrap();
                     let mut pips_w = pips_w.lock().unwrap();
                     let pips = match source_is_east {
@@ -424,6 +427,7 @@ fn partition_nets(
                     explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::SeqCst);
 
                     let middle = (split_line_over_y((source, sink_loc), y), y);
+                    let middle = (middle.0.clamp(1, ctx.grid_dim_x()-1), middle.1.clamp(1, ctx.grid_dim_y()-1));
                     let mut pips_s = pips_s.lock().unwrap();
                     let mut pips_n = pips_n.lock().unwrap();
                     let pips = match source_is_north {
@@ -693,6 +697,8 @@ fn route(ctx: &mut npnr::Context) -> bool {
         coords_min.bold(),
         coords_max.bold()
     );
+
+    log_info!("rayon reports {} threads available\n", rayon::current_num_threads().to_string().bold());
 
     let (x_part, y_part, ne, se, sw, nw) =
         find_partition_point(ctx, &nets, pips, 0, ctx.grid_dim_x(), 0, ctx.grid_dim_y());
