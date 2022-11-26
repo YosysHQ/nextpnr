@@ -123,10 +123,6 @@ fn split_line_over_x(mut line: (npnr::Loc, npnr::Loc), x_location: i32) -> i32 {
         return (line.0.y + line.1.y) / 2;
     }
 
-    if line.0.x > line.1.x {
-        (line.0, line.1) = (line.1, line.0);
-    }
-
     let x_diff = line.0.x - line.1.x;
     let y_diff = line.0.y - line.1.y;
 
