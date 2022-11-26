@@ -319,7 +319,7 @@ extern "C" {
 /// Store for the nets of a context.
 pub struct Nets<'a> {
     nets: HashMap<IdString, *mut NetInfo>,
-    users: HashMap<IdString, &'a [*mut PortRef]>,
+    users: HashMap<IdString, &'a [&'a mut PortRef]>,
     _data: PhantomData<&'a Context>,
 }
 
@@ -347,7 +347,7 @@ impl<'a> Nets<'a> {
             // Leaking memory is the most convenient FFI I could think of.
             let len =
                 unsafe { npnr_netinfo_users_leak(net, &mut users_ptr as *mut *mut *mut PortRef) };
-            let users_slice = unsafe { slice::from_raw_parts(users_ptr, len as usize) };
+            let users_slice = unsafe { slice::from_raw_parts(users_ptr as *mut &mut PortRef, len as usize) };
             nets.insert(name, net);
             users.insert(name, users_slice);
         }
@@ -360,7 +360,7 @@ impl<'a> Nets<'a> {
     }
 
     /// Find net users given a net's name.
-    pub fn users_by_name(&self, net: IdString) -> Option<&&[*mut PortRef]> {
+    pub fn users_by_name(&self, net: IdString) -> Option<&&[&mut PortRef]> {
         self.users.get(&net)
     }
 
