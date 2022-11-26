@@ -347,7 +347,8 @@ impl<'a> Nets<'a> {
             // Leaking memory is the most convenient FFI I could think of.
             let len =
                 unsafe { npnr_netinfo_users_leak(net, &mut users_ptr as *mut *mut *mut PortRef) };
-            let users_slice = unsafe { slice::from_raw_parts(users_ptr as *mut &mut PortRef, len as usize) };
+            let users_slice =
+                unsafe { slice::from_raw_parts(users_ptr as *mut &mut PortRef, len as usize) };
             nets.insert(name, net);
             users.insert(name, users_slice);
         }
