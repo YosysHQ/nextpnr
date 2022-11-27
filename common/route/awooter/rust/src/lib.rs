@@ -2,6 +2,8 @@ use std::{ptr::NonNull, time::Instant};
 
 use colored::Colorize;
 
+use crate::partition::Coord;
+
 #[macro_use]
 mod npnr;
 mod partition;
@@ -205,6 +207,9 @@ fn route(ctx: &mut npnr::Context) -> bool {
         println!("count in sw: {}", invalid_arcs_in_sw.to_string().bold());
         println!("count in nw: {}", invalid_arcs_in_nw.to_string().bold());
     }
+
+    let mut router = route::Router::new(Coord::new(0, 0), Coord::new(x_part, y_part));
+    router.route(ctx, &ne);
 
     /*log_info!("=== level 2 NE:\n");
     let _ = find_partition_point(&ne, x_start, x, y_start, y);

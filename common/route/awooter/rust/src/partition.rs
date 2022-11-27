@@ -42,12 +42,29 @@ impl Coord {
         self.y < other.y
     }
 
+    pub fn is_south_of(&self, other: &Self) -> bool {
+        self.x > other.x
+    }
+
+    pub fn is_west_of(&self, other: &Self) -> bool {
+        self.y > other.y
+    }
+
     pub fn segment_from(&self, other: &Self) -> Segment {
         match (self.is_north_of(other), self.is_east_of(other)) {
             (true, true) => Segment::Northeast,
             (true, false) => Segment::Northwest,
             (false, true) => Segment::Southeast,
             (false, false) => Segment::Southwest,
+        }
+    }
+}
+
+impl From<npnr::Loc> for Coord {
+    fn from(other: npnr::Loc) -> Self {
+        Self {
+            x: other.x,
+            y: other.y,
         }
     }
 }

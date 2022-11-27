@@ -1,5 +1,5 @@
 use core::slice;
-use std::{collections::HashMap, ffi::CStr, marker::PhantomData, os::raw::c_void};
+use std::{collections::HashMap, ffi::CStr, marker::PhantomData};
 
 use libc::c_char;
 
@@ -39,7 +39,15 @@ impl NetInfo {
     pub fn is_global(&self) -> bool {
         unsafe { npnr_netinfo_is_global(self) }
     }
+
+    pub fn index(&self) -> NetIndex {
+        unsafe { npnr_netinfo_udata(self) }
+    }
 }
+
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct NetIndex(i32);
 
 #[repr(C)]
 pub struct PortRef {
@@ -91,7 +99,7 @@ impl PipId {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(transparent)]
 pub struct WireId(u64);
 
@@ -185,6 +193,18 @@ impl Context {
     // TODO: Should this be a Duration? Does that even make sense?
     pub fn estimate_delay(&self, src: WireId, dst: WireId) -> f32 {
         unsafe { npnr_context_estimate_delay(self, src, dst) as f32 }
+    }
+
+    pub fn pip_delay(&self, pip: PipId) -> f32 {
+        unsafe { npnr_context_get_pip_delay(self, pip) }
+    }
+
+    pub fn wire_delay(&self, wire: WireId) -> f32 {
+        unsafe { npnr_context_get_wire_delay(self, wire) }
+    }
+
+    pub fn delay_epsilon(&self) -> f32 {
+        unsafe { npnr_context_delay_epsilon(self) }
     }
 
     pub fn source_wire(&self, net: *const NetInfo) -> WireId {
@@ -290,7 +310,10 @@ extern "C" {
     fn npnr_context_unbind_pip(ctx: *mut Context, pip: PipId);
     fn npnr_context_get_pip_src_wire(ctx: *const Context, pip: PipId) -> WireId;
     fn npnr_context_get_pip_dst_wire(ctx: *const Context, pip: PipId) -> WireId;
-    fn npnr_context_estimate_delay(ctx: *const Context, src: WireId, dst: WireId) -> libc::c_float;
+    fn npnr_context_estimate_delay(ctx: *const Context, src: WireId, dst: WireId) -> f32;
+    fn npnr_context_delay_epsilon(ctx: *const Context) -> f32;
+    fn npnr_context_get_pip_delay(ctx: *const Context, pip: PipId) -> f32;
+    fn npnr_context_get_wire_delay(ctx: *const Context, wire: WireId) -> f32;
     fn npnr_context_get_wires_leak(ctx: *const Context, wires: *mut *mut WireId) -> u64;
     fn npnr_context_get_pips_leak(ctx: *const Context, pips: *mut *mut PipId) -> u64;
     fn npnr_context_get_pip_location(ctx: *const Context, pip: PipId) -> Loc;
@@ -321,6 +344,7 @@ extern "C" {
     fn npnr_netinfo_driver(net: *mut NetInfo) -> *mut PortRef;
     fn npnr_netinfo_users_leak(net: *mut NetInfo, users: *mut *mut *mut PortRef) -> u32;
     fn npnr_netinfo_is_global(net: *const NetInfo) -> bool;
+    fn npnr_netinfo_udata(net: *const NetInfo) -> NetIndex;
 
     fn npnr_portref_cell(port: *const PortRef) -> *mut CellInfo;
     fn npnr_cellinfo_get_location(info: *const CellInfo) -> Loc;
@@ -334,6 +358,8 @@ extern "C" {
 pub struct Nets<'a> {
     nets: HashMap<IdString, *mut NetInfo>,
     users: HashMap<IdString, &'a [&'a mut PortRef]>,
+    index_to_net: Vec<IdString>,
+    net_to_index: HashMap<*mut NetInfo, i32>,
     _data: PhantomData<&'a Context>,
 }
 
@@ -353,6 +379,8 @@ impl<'a> Nets<'a> {
         };
         let mut nets = HashMap::new();
         let mut users = HashMap::new();
+        let mut index_to_net = Vec::new();
+        let mut net_to_index = HashMap::new();
         for i in 0..size {
             let name = unsafe { IdString(*names.add(i as usize)) };
             let net = unsafe { *nets_ptr.add(i as usize) };
@@ -365,11 +393,16 @@ impl<'a> Nets<'a> {
                 unsafe { slice::from_raw_parts(users_ptr as *mut &mut PortRef, len as usize) };
             nets.insert(name, net);
             users.insert(name, users_slice);
+            let index = index_to_net.len() as i32;
+            index_to_net.push(name);
+            net_to_index.insert(net, index);
         }
         // Note: the contents of `names` and `nets_ptr` are now lost.
         Self {
             nets,
             users,
+            index_to_net,
+            net_to_index,
             _data: PhantomData,
         }
     }
