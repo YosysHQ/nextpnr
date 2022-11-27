@@ -1,32 +1,15 @@
 use std::{
     collections::HashMap,
     ptr::NonNull,
-    sync::{atomic::AtomicUsize, Mutex, RwLock}, time::Instant,
+    sync::atomic::AtomicUsize, time::Instant,
 };
 
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle, ParallelProgressIterator};
 use rayon::prelude::*;
 
-use crate::npnr::PortRef;
-
 #[macro_use]
 mod npnr;
-
-enum Subpartition {
-    Part(Box<Partition>),
-    Nets(Vec<Net>),
-}
-
-struct Partition {
-    parts: [Option<Subpartition>; 4],
-    borders: [[Vec<npnr::WireId>; 4]; 4],
-}
-
-struct Net {
-    source: npnr::WireId,
-    sinks: Vec<npnr::WireId>,
-}
 
 #[no_mangle]
 pub extern "C" fn npnr_router_awooter(ctx: Option<NonNull<npnr::Context>>) -> bool {
@@ -191,12 +174,6 @@ fn partition_nets(
         x_str.bold(),
         y_str.bold()
     );
-
-    // BUG: because pips don't specify direction, this puts pips of opposite directions
-    // in the same entry. This is bad, since it could lead to selecting a pip of the
-    // wrong direction.
-    //
-    // Possibly fixed? I need to double-check.
 
     let mut candidates = 0;
     let mut north = 0;
