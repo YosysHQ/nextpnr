@@ -151,7 +151,7 @@ fn route(ctx: &mut npnr::Context) -> bool {
 
     let arcs = extract_arcs_from_nets(ctx, nets);
 
-    let (x_part, y_part, ne, se, sw, nw) = partition::find_partition_point(
+    let (x_part, y_part, ne, se, sw, nw) = partition::find_partition_point_and_sanity_check(
         ctx,
         &arcs[..],
         pips,
@@ -164,69 +164,6 @@ fn route(ctx: &mut npnr::Context) -> bool {
     let time = Instant::now() - start;
 
     log_info!("Partitioning took {:.2}s\n", time.as_secs_f32());
-
-    let mut invalid_arcs_in_ne = 0;
-    let mut invalid_arcs_in_se = 0;
-    let mut invalid_arcs_in_sw = 0;
-    let mut invalid_arcs_in_nw = 0;
-
-    for arc in &ne {
-        if arc.get_source_loc().x > x_part
-            || arc.get_source_loc().y > y_part
-            || arc.get_sink_loc().x > x_part
-            || arc.get_sink_loc().y > y_part
-        {
-            invalid_arcs_in_ne += 1;
-        }
-    }
-    for arc in &se {
-        if arc.get_source_loc().x < x_part
-            || arc.get_source_loc().y > y_part
-            || arc.get_sink_loc().x < x_part
-            || arc.get_sink_loc().y > y_part
-        {
-            invalid_arcs_in_se += 1;
-        }
-    }
-    for arc in &sw {
-        if arc.get_source_loc().x < x_part
-            || arc.get_source_loc().y < y_part
-            || arc.get_sink_loc().x < x_part
-            || arc.get_sink_loc().y < y_part
-        {
-            invalid_arcs_in_sw += 1;
-        }
-    }
-    for arc in &nw {
-        if arc.get_source_loc().x > x_part
-            || arc.get_source_loc().y < y_part
-            || arc.get_sink_loc().x > x_part
-            || arc.get_sink_loc().y < y_part
-        {
-            invalid_arcs_in_nw += 1;
-        }
-    }
-
-    if [
-        invalid_arcs_in_ne,
-        invalid_arcs_in_se,
-        invalid_arcs_in_sw,
-        invalid_arcs_in_nw,
-    ]
-    .into_iter()
-    .all(|x| x == 0)
-    {
-        log_info!(
-            "{}\n",
-            "Found no arcs crossing partition boundaries.".green()
-        );
-    } else {
-        println!("{}", "found arcs crossing partition boundaries!".yellow());
-        println!("count in ne: {}", invalid_arcs_in_ne.to_string().bold());
-        println!("count in se: {}", invalid_arcs_in_se.to_string().bold());
-        println!("count in sw: {}", invalid_arcs_in_sw.to_string().bold());
-        println!("count in nw: {}", invalid_arcs_in_nw.to_string().bold());
-    }
 
     let mut router = route::Router::new(Coord::new(0, 0), Coord::new(x_part, y_part));
     router.route(ctx, &ne);
