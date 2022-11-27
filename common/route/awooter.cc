@@ -52,6 +52,13 @@ namespace {
     }
 }
 
+using DownhillIter = decltype(Context(ArchArgs()).getPipsDownhill(WireId()).begin());
+
+struct DownhillIterWrapper {
+    DownhillIter current;
+    DownhillIter end;
+};
+
 extern "C" {
     USING_NEXTPNR_NAMESPACE;
 
@@ -254,6 +261,18 @@ extern "C" {
 
     CellInfo* npnr_portref_cell(const PortRef *const port) { return port->cell; }
     Loc npnr_cellinfo_get_location(const CellInfo *const info) { return info->getLocation(); }
+
+    void npnr_inc_downhill_iter(DownhillIterWrapper *iter) {
+        ++iter->current;
+    }
+
+    uint64_t npnr_deref_downhill_iter(DownhillIterWrapper *iter) {
+        wrap(*iter->current);
+    }
+
+    bool npnr_is_downhill_iter_done(DownhillIterWrapper *iter) {
+        return !(iter->current != iter->end);
+    }
 
     extern bool npnr_router_awooter(Context *ctx);
 }

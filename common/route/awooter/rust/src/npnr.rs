@@ -1,5 +1,5 @@
 use core::slice;
-use std::{collections::HashMap, ffi::CStr, marker::PhantomData};
+use std::{collections::HashMap, ffi::CStr, marker::PhantomData, os::raw::c_void};
 
 use libc::c_char;
 
@@ -314,6 +314,10 @@ extern "C" {
 
     fn npnr_portref_cell(port: *const PortRef) -> *mut CellInfo;
     fn npnr_cellinfo_get_location(info: *const CellInfo) -> Loc;
+
+    fn npnr_inc_downhill_iter(iter: *mut RawDownhillIter);
+    fn npnr_deref_downhill_iter(iter: *mut RawDownhillIter) -> PipId;
+    fn npnr_is_downhill_iter_done(iter: *mut RawDownhillIter) -> bool;
 }
 
 /// Store for the nets of a context.
@@ -393,6 +397,29 @@ impl<'a> Iterator for NetSinkWireIter<'a> {
         }
         self.n += 1;
         Some(item)
+    }
+}
+
+#[repr(C)]
+struct RawDownhillIter {
+    content: [u8; 0],
+}
+
+struct DownhillPipsIter {
+    iter: *mut RawDownhillIter,
+}
+
+impl Iterator for DownhillPipsIter {
+    type Item = PipId;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if unsafe { npnr_is_downhill_iter_done(self.iter) } {
+            None
+        } else {
+            let pip = unsafe { npnr_deref_downhill_iter(self.iter) };
+            unsafe { npnr_inc_downhill_iter(self.iter) };
+            Some(pip)
+        }
     }
 }
 
