@@ -6,6 +6,52 @@ use rayon::prelude::*;
 
 use crate::{npnr, Arc};
 
+pub enum Segment {
+    Northeast,
+    Southeast,
+    Southwest,
+    Northwest,
+}
+
+//        (x < P.x)
+//            N
+//            ^
+//            |
+// (y > P.y)  |  (y < P.y)
+//     W <----P----> E
+//            |
+//            |
+//            v
+//            S
+//        (x > P.x)
+pub struct Coord {
+    x: i32,
+    y: i32,
+}
+
+impl Coord {
+    pub fn new(x: i32, y: i32) -> Self {
+        Self { x, y }
+    }
+
+    pub fn is_north_of(&self, other: &Self) -> bool {
+        self.x < other.x
+    }
+
+    pub fn is_east_of(&self, other: &Self) -> bool {
+        self.y < other.y
+    }
+
+    pub fn segment_from(&self, other: &Self) -> Segment {
+        match (self.is_north_of(other), self.is_east_of(other)) {
+            (true, true) => Segment::Northeast,
+            (true, false) => Segment::Northwest,
+            (false, true) => Segment::Southeast,
+            (false, false) => Segment::Southwest,
+        }
+    }
+}
+
 pub fn find_partition_point(
     ctx: &npnr::Context,
     arcs: &[Arc],
@@ -118,13 +164,6 @@ fn split_line_over_y(line: (npnr::Loc, npnr::Loc), y_location: i32) -> i32 {
     )
 }
 
-enum Segment {
-    Northeast,
-    Southeast,
-    Southwest,
-    Northwest,
-}
-
 // A big thank you to @Spacecat-chan for fixing my broken and buggy partition code.
 fn partition(
     ctx: &npnr::Context,
@@ -229,6 +268,20 @@ fn partition(
             .progress_chars("━╸ "),
     );
 
+    let find_best_pip = |pips: &Vec<(npnr::PipId, AtomicUsize)>, source_wire: npnr::WireId, sink_wire: npnr::WireId| {
+        let (selected_pip, pip_uses) = pips
+        .iter()
+        .min_by_key(|(pip, uses)| {
+            let src_to_pip = ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
+            let pip_to_snk = ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
+            let uses = uses.load(std::sync::atomic::Ordering::Acquire);
+            (1000.0 * (src_to_pip + ((uses + 1) as f32) * pip_to_snk)) as u64
+        })
+        .unwrap();
+        pip_uses.fetch_add(1, std::sync::atomic::Ordering::Release);
+        *selected_pip
+    };
+
     let mut explored_pips = AtomicUsize::new(0);
 
     let arcs = arcs
@@ -241,12 +294,8 @@ fn partition(
             let sink_is_east = sink_loc.y < y;
             if source_is_north == sink_is_north && source_is_east == sink_is_east {
                 let arc = ((source_wire, source), (sink_wire, sink_loc));
-                let seg = match (source_is_north, source_is_east) {
-                    (true, true) => Segment::Northeast,
-                    (true, false) => Segment::Northwest,
-                    (false, true) => Segment::Southeast,
-                    (false, false) => Segment::Southwest,
-                };
+                let source = Coord::new(source.x, source.y);
+                let seg = source.segment_from(&Coord::new(x, y));
                 vec![(seg, arc)]
             } else if source_is_north != sink_is_north && source_is_east == sink_is_east {
                 let middle = (x, (source.y + sink_loc.y) / 2);
@@ -259,17 +308,7 @@ fn partition(
                     false => pips_n.get(&middle).unwrap(),
                 };
 
-                let (selected_pip, pip_uses) = pips
-                    .iter()
-                    .min_by_key(|(pip, uses)| {
-                        let src_to_pip = ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
-                        let pip_to_snk = ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
-                        let uses = uses.load(std::sync::atomic::Ordering::Acquire);
-                        (1000.0 * (src_to_pip + ((uses + 1) as f32) * pip_to_snk)) as u64
-                    })
-                    .unwrap();
-                pip_uses.fetch_add(1, std::sync::atomic::Ordering::Release);
-                let selected_pip = *selected_pip;
+                let selected_pip = find_best_pip(pips, source_wire, sink_wire);
                 explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
 
                 let pip_loc = ctx.pip_location(selected_pip);
@@ -296,17 +335,7 @@ fn partition(
                     false => pips_e.get(&middle).unwrap(),
                 };
 
-                let (selected_pip, pip_uses) = pips
-                    .iter()
-                    .min_by_key(|(pip, uses)| {
-                        let src_to_pip = ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
-                        let pip_to_snk = ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
-                        let uses = uses.load(std::sync::atomic::Ordering::Acquire);
-                        (1000.0 * (src_to_pip + ((uses + 1) as f32) * pip_to_snk)) as u64
-                    })
-                    .unwrap();
-                pip_uses.fetch_add(1, std::sync::atomic::Ordering::Release);
-                let selected_pip = *selected_pip;
+                let selected_pip = find_best_pip(pips, source_wire, sink_wire);
                 explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
 
                 let pip_loc = ctx.pip_location(selected_pip);
@@ -333,17 +362,7 @@ fn partition(
                     false => pips_e.get(&middle).unwrap(),
                 };
 
-                let (horiz_pip, pip_uses) = pips
-                    .iter()
-                    .min_by_key(|(pip, uses)| {
-                        let src_to_pip = ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
-                        let pip_to_snk = ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
-                        let uses = uses.load(std::sync::atomic::Ordering::Acquire);
-                        (1000.0 * (src_to_pip + ((uses + 1) as f32) * pip_to_snk)) as u64
-                    })
-                    .unwrap();
-                pip_uses.fetch_add(1, std::sync::atomic::Ordering::Release);
-                let horiz_pip = *horiz_pip;
+                let horiz_pip = find_best_pip(pips, source_wire, sink_wire);
                 explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
 
                 let middle = (split_line_over_y((source, sink_loc), y), y);
@@ -356,17 +375,7 @@ fn partition(
                     false => pips_n.get(&middle).unwrap(),
                 };
 
-                let (vert_pip, pip_uses) = pips
-                    .iter()
-                    .min_by_key(|(pip, uses)| {
-                        let src_to_pip = ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
-                        let pip_to_snk = ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
-                        let uses = uses.load(std::sync::atomic::Ordering::Acquire);
-                        (1000.0 * (src_to_pip + ((uses + 1) as f32) * pip_to_snk)) as u64
-                    })
-                    .unwrap();
-                pip_uses.fetch_add(1, std::sync::atomic::Ordering::Release);
-                let vert_pip = *vert_pip;
+                let vert_pip = find_best_pip(pips, source_wire, sink_wire);
                 explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
 
                 let horiz_loc = ctx.pip_location(horiz_pip);
