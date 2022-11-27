@@ -123,7 +123,7 @@ fn find_partition_point(
 ///
 /// the function assumes the line goes on forever in both directions, and it truncates the actual coordinate
 fn split_line_over_x(line: (npnr::Loc, npnr::Loc), x_location: i32) -> i32 {
-    if line.0.x == line.0.y {
+    if line.0.x == line.1.x {
         // the line is a straight line in the direction, there is either infinite solutions, or none
         // we simply average the y coordinate to give a "best effort" guess
         return (line.0.y + line.1.y) / 2;
@@ -300,15 +300,8 @@ fn partition_nets(
 
             let port_ref = dereffed_port_refs.get(name);
 
-            if port_ref.is_none() {
-                println!(
-                    "{} suddenly become none",
-                    ctx.name_of(*name).to_str().unwrap()
-                );
-            }
-
             port_ref
-                .expect("it's this one!")
+                .unwrap()
                 .into_par_iter()
                 .flat_map(|sink| {
                     ctx.sink_wires(net, *sink)
