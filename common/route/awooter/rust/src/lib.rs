@@ -5,6 +5,7 @@ use colored::Colorize;
 #[macro_use]
 mod npnr;
 mod partition;
+mod route;
 
 #[no_mangle]
 pub extern "C" fn npnr_router_awooter(ctx: Option<NonNull<npnr::Context>>) -> bool {
