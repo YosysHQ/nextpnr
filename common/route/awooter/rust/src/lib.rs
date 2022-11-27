@@ -23,9 +23,7 @@ pub extern "C" fn npnr_router_awooter(ctx: Option<NonNull<npnr::Context>>) -> bo
     })
 }
 
-type Arc = ((npnr::WireId, npnr::Loc), (npnr::WireId, npnr::Loc));
-
-fn extract_arcs_from_nets(ctx: &npnr::Context, nets: npnr::Nets) -> Vec<Arc> {
+fn extract_arcs_from_nets(ctx: &npnr::Context, nets: npnr::Nets) -> Vec<route::Arc> {
     let mut arcs = vec![];
     for (name, net) in nets.iter() {
         let net = unsafe { net.as_mut().unwrap() };
@@ -42,7 +40,13 @@ fn extract_arcs_from_nets(ctx: &npnr::Context, nets: npnr::Nets) -> Vec<Arc> {
                 let sink = sink_ref.cell().unwrap();
                 let sink = sink.location();
                 for sink_wire in ctx.sink_wires(net, *sink_ref) {
-                    arcs.push(((source_wire, source), (sink_wire, sink)))
+                    arcs.push(route::Arc::new(
+                        source_wire,
+                        source,
+                        sink_wire,
+                        sink,
+                        net.index(),
+                    ))
                 }
             }
         }
@@ -166,23 +170,39 @@ fn route(ctx: &mut npnr::Context) -> bool {
     let mut invalid_arcs_in_sw = 0;
     let mut invalid_arcs_in_nw = 0;
 
-    for ((_, source), (_, sink)) in ne {
-        if source.x > x_part || source.y > y_part || sink.x > x_part || sink.y > y_part {
+    for arc in &ne {
+        if arc.get_source_loc().x > x_part
+            || arc.get_source_loc().y > y_part
+            || arc.get_sink_loc().x > x_part
+            || arc.get_sink_loc().y > y_part
+        {
             invalid_arcs_in_ne += 1;
         }
     }
-    for ((_, source), (_, sink)) in se {
-        if source.x < x_part || source.y > y_part || sink.x < x_part || sink.y > y_part {
+    for arc in &se {
+        if arc.get_source_loc().x < x_part
+            || arc.get_source_loc().y > y_part
+            || arc.get_sink_loc().x < x_part
+            || arc.get_sink_loc().y > y_part
+        {
             invalid_arcs_in_se += 1;
         }
     }
-    for ((_, source), (_, sink)) in sw {
-        if source.x < x_part || source.y < y_part || sink.x < x_part || sink.y < y_part {
+    for arc in &sw {
+        if arc.get_source_loc().x < x_part
+            || arc.get_source_loc().y < y_part
+            || arc.get_sink_loc().x < x_part
+            || arc.get_sink_loc().y < y_part
+        {
             invalid_arcs_in_sw += 1;
         }
     }
-    for ((_, source), (_, sink)) in nw {
-        if source.x > x_part || source.y < y_part || sink.x > x_part || sink.y < y_part {
+    for arc in &nw {
+        if arc.get_source_loc().x > x_part
+            || arc.get_source_loc().y < y_part
+            || arc.get_sink_loc().x > x_part
+            || arc.get_sink_loc().y < y_part
+        {
             invalid_arcs_in_nw += 1;
         }
     }
