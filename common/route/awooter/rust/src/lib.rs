@@ -1,11 +1,7 @@
-use std::{
-    collections::HashMap,
-    ptr::NonNull,
-    sync::atomic::AtomicUsize, time::Instant,
-};
+use std::{collections::HashMap, ptr::NonNull, sync::atomic::AtomicUsize, time::Instant};
 
 use colored::Colorize;
-use indicatif::{ProgressBar, ProgressStyle, ParallelProgressIterator};
+use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
 use rayon::prelude::*;
 
 #[macro_use]
@@ -25,17 +21,17 @@ pub extern "C" fn npnr_router_awooter(ctx: Option<NonNull<npnr::Context>>) -> bo
     })
 }
 
-type ArcVec = Vec<((i32, i32), (i32, i32))>;
+type Arc = ((npnr::WireId, npnr::Loc), (npnr::WireId, npnr::Loc));
 
 fn find_partition_point(
     ctx: &npnr::Context,
-    nets: &npnr::Nets,
+    arcs: &[Arc],
     pips: &[npnr::PipId],
     x_start: i32,
     x_finish: i32,
     y_start: i32,
     y_finish: i32,
-) -> (i32, i32, ArcVec, ArcVec, ArcVec, ArcVec) {
+) -> (i32, i32, Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>) {
     let mut x = ((x_finish - x_start) / 2) + x_start;
     let mut y = ((y_finish - y_start) / 2) + y_start;
     let mut x_diff = (x_finish - x_start) / 4;
@@ -47,7 +43,7 @@ fn find_partition_point(
     let mut nw;
 
     while x_diff != 0 {
-        (ne, se, sw, nw) = partition_nets(ctx, nets, pips, x, y);
+        (ne, se, sw, nw) = partition(ctx, arcs, pips, x, y);
         let north = ne.len() + nw.len();
         let south = se.len() + sw.len();
 
@@ -83,7 +79,7 @@ fn find_partition_point(
         y_diff >>= 1;
     }
 
-    (ne, se, sw, nw) = partition_nets(ctx, nets, pips, x, y);
+    (ne, se, sw, nw) = partition(ctx, arcs, pips, x, y);
 
     let north = ne.len() + nw.len();
     let south = se.len() + sw.len();
@@ -147,22 +143,22 @@ enum Segment {
 }
 
 // A big thank you to @Spacecat-chan for fixing my broken and buggy partition code.
-fn partition_nets(
+fn partition(
     ctx: &npnr::Context,
-    nets: &npnr::Nets,
+    arcs: &[Arc],
     pips: &[npnr::PipId],
     x: i32,
     y: i32,
-) -> (ArcVec, ArcVec, ArcVec, ArcVec) {
+) -> (Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>) {
     let mut pips_n = HashMap::new();
     let mut pips_e = HashMap::new();
     let mut pips_s = HashMap::new();
     let mut pips_w = HashMap::new();
 
-    let mut ne = Vec::new();
-    let mut se = Vec::new();
-    let mut sw = Vec::new();
-    let mut nw = Vec::new();
+    let mut ne: Vec<Arc> = Vec::new();
+    let mut se: Vec<Arc> = Vec::new();
+    let mut sw: Vec<Arc> = Vec::new();
+    let mut nw: Vec<Arc> = Vec::new();
     let mut part_horiz = AtomicUsize::new(0);
     let mut part_vert = AtomicUsize::new(0);
     let mut part_diag = AtomicUsize::new(0);
@@ -243,7 +239,7 @@ fn partition_nets(
     log_info!("    {} are south-bound\n", south.to_string().bold());
     log_info!("    {} are west-bound\n", west.to_string().bold());
 
-    let progress = ProgressBar::new(nets.len() as u64);
+    let progress = ProgressBar::new(arcs.len() as u64);
     progress.set_style(
         ProgressStyle::with_template("[{elapsed}] [{bar:40.cyan/blue}] {msg}")
             .unwrap()
@@ -252,267 +248,197 @@ fn partition_nets(
 
     let mut explored_pips = AtomicUsize::new(0);
 
-    let dereffed_nets: Vec<_> = nets
-        .iter()
-        .map(|(name, net)| (name, unsafe { net.as_mut().unwrap() }))
-        .collect();
-
-    let dereffed_port_refs: HashMap<_, _> = dereffed_nets
-        .iter()
-        .filter_map(|(name, _)| nets.users_by_name(**name).map(|a| (*name, a)))
-        .collect();
-
-    let arcs = dereffed_nets
+    let arcs = arcs
         .into_par_iter()
         .progress_with(progress)
-        .filter(|(_, net)| !net.is_global())
-        .filter_map(|(name, net)| {
-            let source = unsafe { net.driver().as_ref().unwrap() };
-            source.cell().map(|cell| (name, net, cell))
-        })
-        .flat_map(|(name, net, source)| {
-            let source = source.location();
+        .flat_map(|&((source_wire, source), (sink_wire, sink_loc))| {
             let source_is_north = source.x < x;
             let source_is_east = source.y < y;
-            let source_wire = ctx.source_wire(net);
+            let sink_is_north = sink_loc.x < x;
+            let sink_is_east = sink_loc.y < y;
+            if source_is_north == sink_is_north && source_is_east == sink_is_east {
+                let arc = ((source_wire, source), (sink_wire, sink_loc));
+                let seg = match (source_is_north, source_is_east) {
+                    (true, true) => Segment::Northeast,
+                    (true, false) => Segment::Northwest,
+                    (false, true) => Segment::Southeast,
+                    (false, false) => Segment::Southwest,
+                };
+                vec![(seg, arc)]
+            } else if source_is_north != sink_is_north && source_is_east == sink_is_east {
+                let middle = (x, (source.y + sink_loc.y) / 2);
+                let middle = (
+                    middle.0.clamp(1, ctx.grid_dim_x() - 1),
+                    middle.1.clamp(1, ctx.grid_dim_y() - 1),
+                );
+                let pips = match source_is_north {
+                    true => pips_s.get(&middle).unwrap(),
+                    false => pips_n.get(&middle).unwrap(),
+                };
 
-            let port_ref = dereffed_port_refs.get(name);
+                let (selected_pip, pip_uses) = pips
+                    .iter()
+                    .min_by_key(|(pip, uses)| {
+                        let src_to_pip = ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
+                        let pip_to_snk = ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
+                        let uses = uses.load(std::sync::atomic::Ordering::Acquire);
+                        (1000.0 * (src_to_pip + ((uses + 1) as f32) * pip_to_snk)) as u64
+                    })
+                    .unwrap();
+                pip_uses.fetch_add(1, std::sync::atomic::Ordering::Release);
+                let selected_pip = *selected_pip;
+                explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
 
-            port_ref
-                .unwrap()
-                .into_par_iter()
-                .flat_map(|sink| {
-                    ctx.sink_wires(net, *sink)
-                        .into_par_iter()
-                        .map(move |sink_wire| (sink, sink_wire))
-                })
-                .map(|(sink, sink_wire)| {
+                let pip_loc = ctx.pip_location(selected_pip);
+                let pip_src_wire = ctx.pip_src_wire(selected_pip);
+                let pip_dst_wire = ctx.pip_dst_wire(selected_pip);
+                let src_to_pip = ((source_wire, source), (pip_src_wire, pip_loc));
+                let pip_to_dst = ((pip_dst_wire, pip_loc), (sink_wire, sink_loc));
+                let (seg1, seg2) = match (source_is_north, source_is_east) {
+                    (true, true) => (Segment::Northeast, Segment::Southeast),
+                    (true, false) => (Segment::Northwest, Segment::Southwest),
+                    (false, true) => (Segment::Southeast, Segment::Northeast),
+                    (false, false) => (Segment::Southwest, Segment::Northwest),
+                };
+                part_horiz.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                vec![(seg1, src_to_pip), (seg2, pip_to_dst)]
+            } else if source_is_north == sink_is_north && source_is_east != sink_is_east {
+                let middle = ((source.x + sink_loc.x) / 2, y);
+                let middle = (
+                    middle.0.clamp(1, ctx.grid_dim_x() - 1),
+                    middle.1.clamp(1, ctx.grid_dim_y() - 1),
+                );
+                let pips = match source_is_east {
+                    true => pips_w.get(&middle).unwrap(),
+                    false => pips_e.get(&middle).unwrap(),
+                };
+
+                let (selected_pip, pip_uses) = pips
+                    .iter()
+                    .min_by_key(|(pip, uses)| {
+                        let src_to_pip = ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
+                        let pip_to_snk = ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
+                        let uses = uses.load(std::sync::atomic::Ordering::Acquire);
+                        (1000.0 * (src_to_pip + ((uses + 1) as f32) * pip_to_snk)) as u64
+                    })
+                    .unwrap();
+                pip_uses.fetch_add(1, std::sync::atomic::Ordering::Release);
+                let selected_pip = *selected_pip;
+                explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
+
+                let pip_loc = ctx.pip_location(selected_pip);
+                let pip_src_wire = ctx.pip_src_wire(selected_pip);
+                let pip_dst_wire = ctx.pip_dst_wire(selected_pip);
+                let src_to_pip = ((source_wire, source), (pip_src_wire, pip_loc));
+                let pip_to_dst = ((pip_dst_wire, pip_loc), (sink_wire, sink_loc));
+                let (seg1, seg2) = match (source_is_north, source_is_east) {
+                    (true, true) => (Segment::Northeast, Segment::Northwest),
+                    (true, false) => (Segment::Northwest, Segment::Northeast),
+                    (false, true) => (Segment::Southeast, Segment::Southwest),
+                    (false, false) => (Segment::Southwest, Segment::Southeast),
+                };
+                part_vert.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                vec![(seg1, src_to_pip), (seg2, pip_to_dst)]
+            } else {
+                let middle = (x, split_line_over_x((source, sink_loc), x));
+                let middle = (
+                    middle.0.clamp(1, ctx.grid_dim_x() - 1),
+                    middle.1.clamp(1, ctx.grid_dim_y() - 1),
+                );
+                let pips = match source_is_east {
+                    true => pips_w.get(&middle).unwrap(),
+                    false => pips_e.get(&middle).unwrap(),
+                };
+
+                let (horiz_pip, pip_uses) = pips
+                    .iter()
+                    .min_by_key(|(pip, uses)| {
+                        let src_to_pip = ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
+                        let pip_to_snk = ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
+                        let uses = uses.load(std::sync::atomic::Ordering::Acquire);
+                        (1000.0 * (src_to_pip + ((uses + 1) as f32) * pip_to_snk)) as u64
+                    })
+                    .unwrap();
+                pip_uses.fetch_add(1, std::sync::atomic::Ordering::Release);
+                let horiz_pip = *horiz_pip;
+                explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
+
+                let middle = (split_line_over_y((source, sink_loc), y), y);
+                let middle = (
+                    middle.0.clamp(1, ctx.grid_dim_x() - 1),
+                    middle.1.clamp(1, ctx.grid_dim_y() - 1),
+                );
+                let pips = match source_is_north {
+                    true => pips_s.get(&middle).unwrap(),
+                    false => pips_n.get(&middle).unwrap(),
+                };
+
+                let (vert_pip, pip_uses) = pips
+                    .iter()
+                    .min_by_key(|(pip, uses)| {
+                        let src_to_pip = ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
+                        let pip_to_snk = ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
+                        let uses = uses.load(std::sync::atomic::Ordering::Acquire);
+                        (1000.0 * (src_to_pip + ((uses + 1) as f32) * pip_to_snk)) as u64
+                    })
+                    .unwrap();
+                pip_uses.fetch_add(1, std::sync::atomic::Ordering::Release);
+                let vert_pip = *vert_pip;
+                explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
+
+                let horiz_loc = ctx.pip_location(horiz_pip);
+                let horiz_src_wire = ctx.pip_src_wire(horiz_pip);
+                let horiz_dst_wire = ctx.pip_dst_wire(horiz_pip);
+                let horiz_is_east = horiz_loc.y < y;
+                let vert_loc = ctx.pip_location(vert_pip);
+                let vert_src_wire = ctx.pip_src_wire(vert_pip);
+                let vert_dst_wire = ctx.pip_dst_wire(vert_pip);
+                let (src_to_mid1, mid1_to_mid2, mid2_to_dst) = if horiz_is_east == source_is_east {
                     (
-                        sink,
-                        sink_wire,
-                        &pips_n,
-                        &pips_s,
-                        &pips_e,
-                        &pips_w,
-                        &explored_pips,
-                        &part_horiz,
-                        &part_vert,
-                        &part_diag,
+                        ((source_wire, source), (horiz_src_wire, horiz_loc)),
+                        ((horiz_dst_wire, horiz_loc), (vert_src_wire, vert_loc)),
+                        ((vert_dst_wire, vert_loc), (sink_wire, sink_loc)),
                     )
-                })
-                .flat_map(
-                    move |(
-                        sink,
-                        sink_wire,
-                        pips_n,
-                        pips_s,
-                        pips_e,
-                        pips_w,
-                        explored_pips,
-                        part_horiz,
-                        part_vert,
-                        part_diag,
-                    )| {
-                        let sink_loc = sink.cell().unwrap().location();
-                        let sink_is_north = sink_loc.x < x;
-                        let sink_is_east = sink_loc.y < y;
-                        if source_is_north == sink_is_north && source_is_east == sink_is_east {
-                            let arc = ((source.x, source.y), (sink_loc.x, sink_loc.y));
-                            let seg = match (source_is_north, source_is_east) {
-                                (true, true) => Segment::Northeast,
-                                (true, false) => Segment::Northwest,
-                                (false, true) => Segment::Southeast,
-                                (false, false) => Segment::Southwest,
-                            };
-                            vec![(seg, arc)]
-                        } else if source_is_north != sink_is_north && source_is_east == sink_is_east
-                        {
-                            let middle = (x, (source.y + sink_loc.y) / 2);
-                            let middle = (
-                                middle.0.clamp(1, ctx.grid_dim_x() - 1),
-                                middle.1.clamp(1, ctx.grid_dim_y() - 1),
-                            );
-                            let pips = match source_is_north {
-                                true => pips_s.get(&middle).unwrap(),
-                                false => pips_n.get(&middle).unwrap(),
-                            };
-
-                            let (selected_pip, pip_uses) = pips
-                                .iter()
-                                .min_by_key(|(pip, uses)| {
-                                    let src_to_pip =
-                                        ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
-                                    let pip_to_snk =
-                                        ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
-                                    let uses = uses.load(std::sync::atomic::Ordering::Acquire);
-                                    (1000.0 * (src_to_pip + ((uses + 1) as f32) * pip_to_snk))
-                                        as u64
-                                })
-                                .unwrap();
-                            pip_uses.fetch_add(1, std::sync::atomic::Ordering::Release);
-                            let selected_pip = *selected_pip;
-                            explored_pips
-                                .fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
-
-                            let pip_loc = ctx.pip_location(selected_pip);
-                            let src_to_pip = ((source.x, source.y), (pip_loc.x, pip_loc.y));
-                            let pip_to_dst = ((pip_loc.x, pip_loc.y), (sink_loc.x, sink_loc.y));
-                            let (seg1, seg2) = match (source_is_north, source_is_east) {
-                                (true, true) => (Segment::Northeast, Segment::Southeast),
-                                (true, false) => (Segment::Northwest, Segment::Southwest),
-                                (false, true) => (Segment::Southeast, Segment::Northeast),
-                                (false, false) => (Segment::Southwest, Segment::Northwest),
-                            };
-                            part_horiz.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                            vec![(seg1, src_to_pip), (seg2, pip_to_dst)]
-                        } else if source_is_north == sink_is_north && source_is_east != sink_is_east
-                        {
-                            let middle = ((source.x + sink_loc.x) / 2, y);
-                            let middle = (
-                                middle.0.clamp(1, ctx.grid_dim_x() - 1),
-                                middle.1.clamp(1, ctx.grid_dim_y() - 1),
-                            );
-                            let pips = match source_is_east {
-                                true => pips_w.get(&middle).unwrap(),
-                                false => pips_e.get(&middle).unwrap(),
-                            };
-
-                            let (selected_pip, pip_uses) = pips
-                                .iter()
-                                .min_by_key(|(pip, uses)| {
-                                    let src_to_pip =
-                                        ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
-                                    let pip_to_snk =
-                                        ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
-                                    let uses = uses.load(std::sync::atomic::Ordering::Acquire);
-                                    (1000.0 * (src_to_pip + ((uses + 1) as f32) * pip_to_snk))
-                                        as u64
-                                })
-                                .unwrap();
-                            pip_uses.fetch_add(1, std::sync::atomic::Ordering::Release);
-                            let selected_pip = *selected_pip;
-                            explored_pips
-                                .fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
-
-                            let pip_loc = ctx.pip_location(selected_pip);
-                            let src_to_pip = ((source.x, source.y), (pip_loc.x, pip_loc.y));
-                            let pip_to_dst = ((pip_loc.x, pip_loc.y), (sink_loc.x, sink_loc.y));
-                            let (seg1, seg2) = match (source_is_north, source_is_east) {
-                                (true, true) => (Segment::Northeast, Segment::Northwest),
-                                (true, false) => (Segment::Northwest, Segment::Northeast),
-                                (false, true) => (Segment::Southeast, Segment::Southwest),
-                                (false, false) => (Segment::Southwest, Segment::Southeast),
-                            };
-                            part_vert.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                            vec![(seg1, src_to_pip), (seg2, pip_to_dst)]
-                        } else {
-                            let middle = (x, split_line_over_x((source, sink_loc), x));
-                            let middle = (
-                                middle.0.clamp(1, ctx.grid_dim_x() - 1),
-                                middle.1.clamp(1, ctx.grid_dim_y() - 1),
-                            );
-                            let pips = match source_is_east {
-                                true => pips_w.get(&middle).unwrap(),
-                                false => pips_e.get(&middle).unwrap(),
-                            };
-
-                            let (horiz_pip, pip_uses) = pips
-                                .iter()
-                                .min_by_key(|(pip, uses)| {
-                                    let src_to_pip =
-                                        ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
-                                    let pip_to_snk =
-                                        ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
-                                    let uses = uses.load(std::sync::atomic::Ordering::Acquire);
-                                    (1000.0 * (src_to_pip + ((uses + 1) as f32) * pip_to_snk))
-                                        as u64
-                                })
-                                .unwrap();
-                            pip_uses.fetch_add(1, std::sync::atomic::Ordering::Release);
-                            let horiz_pip = *horiz_pip;
-                            explored_pips
-                                .fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
-
-                            let middle = (split_line_over_y((source, sink_loc), y), y);
-                            let middle = (
-                                middle.0.clamp(1, ctx.grid_dim_x() - 1),
-                                middle.1.clamp(1, ctx.grid_dim_y() - 1),
-                            );
-                            let pips = match source_is_north {
-                                true => pips_s.get(&middle).unwrap(),
-                                false => pips_n.get(&middle).unwrap(),
-                            };
-
-                            let (vert_pip, pip_uses) = pips
-                                .iter()
-                                .min_by_key(|(pip, uses)| {
-                                    let src_to_pip =
-                                        ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
-                                    let pip_to_snk =
-                                        ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
-                                    let uses = uses.load(std::sync::atomic::Ordering::Acquire);
-                                    (1000.0 * (src_to_pip + ((uses + 1) as f32) * pip_to_snk))
-                                        as u64
-                                })
-                                .unwrap();
-                            pip_uses.fetch_add(1, std::sync::atomic::Ordering::Release);
-                            let vert_pip = *vert_pip;
-                            explored_pips
-                                .fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
-
-                            let horiz_loc = ctx.pip_location(horiz_pip);
-                            let horiz_is_east = horiz_loc.y < y;
-                            let vert_loc = ctx.pip_location(vert_pip);
-                            let (src_to_mid1, mid1_to_mid2, mid2_to_dst) =
-                                if horiz_is_east == source_is_east {
-                                    (
-                                        ((source.x, source.y), (horiz_loc.x, horiz_loc.y)),
-                                        ((horiz_loc.x, horiz_loc.y), (vert_loc.x, vert_loc.y)),
-                                        ((vert_loc.x, vert_loc.y), (sink_loc.x, sink_loc.y)),
-                                    )
-                                } else {
-                                    (
-                                        ((source.x, source.y), (vert_loc.x, vert_loc.y)),
-                                        ((vert_loc.x, vert_loc.y), (horiz_loc.x, horiz_loc.y)),
-                                        ((horiz_loc.x, horiz_loc.y), (sink_loc.x, sink_loc.y)),
-                                    )
-                                };
-                            let (seg1, seg2, seg3) =
-                                match (source_is_north, source_is_east, horiz_is_east) {
-                                    (true, true, true) => {
-                                        (Segment::Northeast, Segment::Southeast, Segment::Southwest)
-                                    }
-                                    (true, true, false) => {
-                                        (Segment::Northeast, Segment::Northwest, Segment::Southwest)
-                                    }
-                                    (true, false, true) => {
-                                        (Segment::Northwest, Segment::Northeast, Segment::Southeast)
-                                    }
-                                    (true, false, false) => {
-                                        (Segment::Northwest, Segment::Southwest, Segment::Southeast)
-                                    }
-                                    (false, true, true) => {
-                                        (Segment::Southeast, Segment::Northeast, Segment::Northwest)
-                                    }
-                                    (false, true, false) => {
-                                        (Segment::Southeast, Segment::Southwest, Segment::Northwest)
-                                    }
-                                    (false, false, true) => {
-                                        (Segment::Southwest, Segment::Southeast, Segment::Northeast)
-                                    }
-                                    (false, false, false) => {
-                                        (Segment::Southwest, Segment::Northwest, Segment::Northeast)
-                                    }
-                                };
-                            part_diag.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                            vec![
-                                (seg1, src_to_mid1),
-                                (seg2, mid1_to_mid2),
-                                (seg3, mid2_to_dst),
-                            ]
-                        }
-                    },
-                )
+                } else {
+                    (
+                        ((source_wire, source), (vert_src_wire, vert_loc)),
+                        ((vert_dst_wire, vert_loc), (horiz_src_wire, horiz_loc)),
+                        ((horiz_dst_wire, horiz_loc), (sink_wire, sink_loc)),
+                    )
+                };
+                let (seg1, seg2, seg3) = match (source_is_north, source_is_east, horiz_is_east) {
+                    (true, true, true) => {
+                        (Segment::Northeast, Segment::Southeast, Segment::Southwest)
+                    }
+                    (true, true, false) => {
+                        (Segment::Northeast, Segment::Northwest, Segment::Southwest)
+                    }
+                    (true, false, true) => {
+                        (Segment::Northwest, Segment::Northeast, Segment::Southeast)
+                    }
+                    (true, false, false) => {
+                        (Segment::Northwest, Segment::Southwest, Segment::Southeast)
+                    }
+                    (false, true, true) => {
+                        (Segment::Southeast, Segment::Northeast, Segment::Northwest)
+                    }
+                    (false, true, false) => {
+                        (Segment::Southeast, Segment::Southwest, Segment::Northwest)
+                    }
+                    (false, false, true) => {
+                        (Segment::Southwest, Segment::Southeast, Segment::Northeast)
+                    }
+                    (false, false, false) => {
+                        (Segment::Southwest, Segment::Northwest, Segment::Northeast)
+                    }
+                };
+                part_diag.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                vec![
+                    (seg1, src_to_mid1),
+                    (seg2, mid1_to_mid2),
+                    (seg3, mid2_to_dst),
+                ]
+            }
         })
         .collect::<Vec<_>>();
 
@@ -619,6 +545,31 @@ fn partition_nets(
     (ne, se, sw, nw)
 }
 
+fn extract_arcs_from_nets(ctx: &npnr::Context, nets: npnr::Nets) -> Vec<Arc> {
+    let mut arcs = vec![];
+    for (name, net) in nets.iter() {
+        let net = unsafe { net.as_mut().unwrap() };
+        if net.is_global() {
+            continue;
+        }
+        let port_ref = net.driver();
+        let port_ref = unsafe { port_ref.as_ref().unwrap() };
+        if let Some(cell) = port_ref.cell() {
+            let source = cell.location();
+            let source_wire = ctx.source_wire(net);
+
+            for sink_ref in nets.users_by_name(*name).unwrap().iter() {
+                let sink = sink_ref.cell().unwrap();
+                let sink = sink.location();
+                for sink_wire in ctx.sink_wires(net, *sink_ref) {
+                    arcs.push(((source_wire, source), (sink_wire, sink)))
+                }
+            }
+        }
+    }
+    arcs
+}
+
 fn route(ctx: &mut npnr::Context) -> bool {
     log_info!(
         "{}{}{}{}{}{} from Rust!\n",
@@ -714,8 +665,17 @@ fn route(ctx: &mut npnr::Context) -> bool {
 
     let start = Instant::now();
 
-    let (x_part, y_part, ne, se, sw, nw) =
-        find_partition_point(ctx, &nets, pips, 0, ctx.grid_dim_x(), 0, ctx.grid_dim_y());
+    let arcs = extract_arcs_from_nets(ctx, nets);
+
+    let (x_part, y_part, ne, se, sw, nw) = find_partition_point(
+        ctx,
+        &arcs[..],
+        pips,
+        0,
+        ctx.grid_dim_x(),
+        0,
+        ctx.grid_dim_y(),
+    );
 
     let time = Instant::now() - start;
 
@@ -726,23 +686,23 @@ fn route(ctx: &mut npnr::Context) -> bool {
     let mut invalid_arcs_in_sw = 0;
     let mut invalid_arcs_in_nw = 0;
 
-    for ((source_x, source_y), (sink_x, sink_y)) in ne {
-        if source_x > x_part || source_y > y_part || sink_x > x_part || sink_y > y_part {
+    for ((_, source), (_, sink)) in ne {
+        if source.x > x_part || source.y > y_part || sink.x > x_part || sink.y > y_part {
             invalid_arcs_in_ne += 1;
         }
     }
-    for ((source_x, source_y), (sink_x, sink_y)) in se {
-        if source_x < x_part || source_y > y_part || sink_x < x_part || sink_y > y_part {
+    for ((_, source), (_, sink)) in se {
+        if source.x < x_part || source.y > y_part || sink.x < x_part || sink.y > y_part {
             invalid_arcs_in_se += 1;
         }
     }
-    for ((source_x, source_y), (sink_x, sink_y)) in sw {
-        if source_x < x_part || source_y < y_part || sink_x < x_part || sink_y < y_part {
+    for ((_, source), (_, sink)) in sw {
+        if source.x < x_part || source.y < y_part || sink.x < x_part || sink.y < y_part {
             invalid_arcs_in_sw += 1;
         }
     }
-    for ((source_x, source_y), (sink_x, sink_y)) in nw {
-        if source_x > x_part || source_y < y_part || sink_x > x_part || sink_y < y_part {
+    for ((_, source), (_, sink)) in nw {
+        if source.x > x_part || source.y < y_part || sink.x > x_part || sink.y < y_part {
             invalid_arcs_in_nw += 1;
         }
     }
