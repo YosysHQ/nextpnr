@@ -134,6 +134,8 @@ extern "C" {
     uint64_t npnr_context_get_pip_src_wire(const Context *const ctx, uint64_t pip) { return wrap(ctx->getPipSrcWire(unwrap_pip(pip))); }
     uint64_t npnr_context_get_pip_dst_wire(const Context *const ctx, uint64_t pip) { return wrap(ctx->getPipDstWire(unwrap_pip(pip))); }
     float npnr_context_estimate_delay(const Context *const ctx, uint64_t src, uint64_t dst) { return ctx->getDelayNS(ctx->estimateDelay(unwrap_wire(src), unwrap_wire(dst))); }
+    float npnr_context_get_pip_delay(const Context *const ctx, uint64_t pip) { return ctx->getDelayNS(ctx->getPipDelay(unwrap_pip(pip)).maxDelay()); }
+    float npnr_context_get_wire_delay(const Context *const ctx, uint64_t wire) { return ctx->getDelayNS(ctx->getWireDelay(unwrap_wire(wire)).maxDelay()); }
     float npnr_context_delay_epsilon(const Context *const ctx) { return ctx->getDelayNS(ctx->getDelayEpsilon()); }
     Loc npnr_context_get_pip_location(const Context *const ctx, uint64_t pip) { return ctx->getPipLocation(unwrap_pip(pip)); }
 
@@ -269,6 +271,8 @@ extern "C" {
 #else
     bool npnr_netinfo_is_global(NetInfo *const net) { return false; }
 #endif
+
+    int32_t npnr_netinfo_udata(NetInfo *const net) { return net->udata; }
 
     CellInfo* npnr_portref_cell(const PortRef *const port) { return port->cell; }
     Loc npnr_cellinfo_get_location(const CellInfo *const info) { return info->getLocation(); }
