@@ -5,7 +5,7 @@ use std::{
 };
 
 use colored::Colorize;
-use indicatif::{ProgressBar, ProgressStyle};
+use indicatif::{ProgressBar, ProgressStyle, ParallelProgressIterator};
 use rayon::prelude::*;
 
 use crate::npnr::PortRef;
@@ -287,6 +287,7 @@ fn partition_nets(
 
     let arcs = dereffed_nets
         .into_par_iter()
+        .progress_with(progress)
         .filter(|(_, net)| !net.is_global())
         .filter_map(|(name, net)| {
             let source = unsafe { net.driver().as_ref().unwrap() };
@@ -546,8 +547,6 @@ fn partition_nets(
             Segment::Northwest => nw.push(arc),
         }
     }
-
-    progress.finish_and_clear();
 
     log_info!(
         "  {} pips explored\n",
