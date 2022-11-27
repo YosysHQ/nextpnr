@@ -57,6 +57,8 @@ using DownhillIter = decltype(Context(ArchArgs()).getPipsDownhill(WireId()).begi
 struct DownhillIterWrapper {
     DownhillIter current;
     DownhillIter end;
+
+    DownhillIterWrapper(DownhillIter begin, DownhillIter end) : current(begin), end(end) {}
 };
 
 extern "C" {
@@ -232,6 +234,15 @@ extern "C" {
         return size;
     }
 
+    DownhillIterWrapper *npnr_context_get_pips_downhill(Context *ctx, uint64_t wire_id) {
+        auto wire = unwrap_wire(wire_id);
+        auto range = ctx->getPipsDownhill(wire);
+        return new DownhillIterWrapper(range.begin(), range.end());
+    }
+    void npnr_delete_downhill_iter(DownhillIterWrapper *iter) {
+        delete iter;
+    }
+
     PortRef* npnr_netinfo_driver(NetInfo *const net) {
         if (net == nullptr) {
             return nullptr;
@@ -267,7 +278,7 @@ extern "C" {
     }
 
     uint64_t npnr_deref_downhill_iter(DownhillIterWrapper *iter) {
-        wrap(*iter->current);
+        return wrap(*iter->current);
     }
 
     bool npnr_is_downhill_iter_done(DownhillIterWrapper *iter) {

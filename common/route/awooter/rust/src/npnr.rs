@@ -217,6 +217,14 @@ impl Context {
         unsafe { std::slice::from_raw_parts(pips, len as usize) }
     }
 
+    pub fn get_downhill_pips(&self, wire: WireId) -> DownhillPipsIter {
+        let iter = unsafe { npnr_context_get_pips_downhill(self, wire) };
+        DownhillPipsIter {
+            iter,
+            phantom_data: Default::default(),
+        }
+    }
+
     pub fn pip_location(&self, pip: PipId) -> Loc {
         unsafe { npnr_context_get_pip_location(self, pip) }
     }
@@ -307,6 +315,8 @@ extern "C" {
         names: *mut *mut libc::c_int,
         nets: *mut *mut *mut NetInfo,
     ) -> u32;
+    fn npnr_context_get_pips_downhill(ctx: *const Context, wire: WireId) -> *mut RawDownhillIter;
+    fn npnr_delete_downhill_iter(iter: *mut RawDownhillIter);
 
     fn npnr_netinfo_driver(net: *mut NetInfo) -> *mut PortRef;
     fn npnr_netinfo_users_leak(net: *mut NetInfo, users: *mut *mut *mut PortRef) -> u32;
@@ -405,11 +415,12 @@ struct RawDownhillIter {
     content: [u8; 0],
 }
 
-struct DownhillPipsIter {
+pub struct DownhillPipsIter<'a> {
     iter: *mut RawDownhillIter,
+    phantom_data: std::marker::PhantomData<&'a PipId>,
 }
 
-impl Iterator for DownhillPipsIter {
+impl<'a> Iterator for DownhillPipsIter<'a> {
     type Item = PipId;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -420,6 +431,12 @@ impl Iterator for DownhillPipsIter {
             unsafe { npnr_inc_downhill_iter(self.iter) };
             Some(pip)
         }
+    }
+}
+
+impl<'a> Drop for DownhillPipsIter<'a> {
+    fn drop(&mut self) {
+        unsafe { npnr_delete_downhill_iter(self.iter) };
     }
 }
 
