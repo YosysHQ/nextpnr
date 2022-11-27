@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::atomic::AtomicUsize};
+use std::{collections::HashMap, ops::RangeBounds, sync::atomic::AtomicUsize};
 
 use colored::Colorize;
 use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
@@ -89,7 +89,15 @@ pub fn find_partition_point(
     let mut nw;
 
     while x_diff != 0 {
-        (ne, se, sw, nw) = partition(ctx, arcs, pips, x, y);
+        (ne, se, sw, nw) = partition(
+            ctx,
+            arcs,
+            pips,
+            x,
+            y,
+            x_start..=x_finish,
+            y_start..=y_finish,
+        );
         let north = ne.len() + nw.len();
         let south = se.len() + sw.len();
 
@@ -125,7 +133,15 @@ pub fn find_partition_point(
         y_diff >>= 1;
     }
 
-    (ne, se, sw, nw) = partition(ctx, arcs, pips, x, y);
+    (ne, se, sw, nw) = partition(
+        ctx,
+        arcs,
+        pips,
+        x,
+        y,
+        x_start..=x_finish,
+        y_start..=y_finish,
+    );
 
     let north = ne.len() + nw.len();
     let south = se.len() + sw.len();
@@ -182,12 +198,14 @@ fn split_line_over_y(line: (npnr::Loc, npnr::Loc), y_location: i32) -> i32 {
 }
 
 // A big thank you to @Spacecat-chan for fixing my broken and buggy partition code.
-fn partition(
+fn partition<R: RangeBounds<i32>>(
     ctx: &npnr::Context,
     arcs: &[Arc],
     pips: &[npnr::PipId],
     x: i32,
     y: i32,
+    x_bounds: R,
+    y_bounds: R,
 ) -> (Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>) {
     let mut pips_n = HashMap::new();
     let mut pips_e = HashMap::new();
@@ -217,7 +235,7 @@ fn partition(
     let mut west = 0;
     for &pip in pips {
         let loc = ctx.pip_location(pip);
-        if loc.x == x || loc.y == y {
+        if (loc.x == x || loc.y == y) && x_bounds.contains(&loc.x) && y_bounds.contains(&loc.y) {
             let dir = ctx.pip_direction(pip);
 
             // This pip seems internal; skip it.
