@@ -245,6 +245,14 @@ impl Context {
         }
     }
 
+    pub fn get_uphill_pips(&self, wire: WireId) -> UphillPipsIter {
+        let iter = unsafe { npnr_context_get_pips_uphill(self, wire) };
+        UphillPipsIter {
+            iter,
+            phantom_data: Default::default(),
+        }
+    }
+
     pub fn pip_location(&self, pip: PipId) -> Loc {
         unsafe { npnr_context_get_pip_location(self, pip) }
     }
@@ -340,6 +348,8 @@ extern "C" {
     ) -> u32;
     fn npnr_context_get_pips_downhill(ctx: *const Context, wire: WireId) -> *mut RawDownhillIter;
     fn npnr_delete_downhill_iter(iter: *mut RawDownhillIter);
+    fn npnr_context_get_pips_uphill(ctx: *const Context, wire: WireId) -> *mut RawUphillIter;
+    fn npnr_delete_uphill_iter(iter: *mut RawUphillIter);
 
     fn npnr_netinfo_driver(net: *mut NetInfo) -> *mut PortRef;
     fn npnr_netinfo_users_leak(net: *mut NetInfo, users: *mut *mut *mut PortRef) -> u32;
@@ -352,6 +362,9 @@ extern "C" {
     fn npnr_inc_downhill_iter(iter: *mut RawDownhillIter);
     fn npnr_deref_downhill_iter(iter: *mut RawDownhillIter) -> PipId;
     fn npnr_is_downhill_iter_done(iter: *mut RawDownhillIter) -> bool;
+    fn npnr_inc_uphill_iter(iter: *mut RawUphillIter);
+    fn npnr_deref_uphill_iter(iter: *mut RawUphillIter) -> PipId;
+    fn npnr_is_uphill_iter_done(iter: *mut RawUphillIter) -> bool;
 }
 
 /// Store for the nets of a context.
@@ -470,6 +483,36 @@ impl<'a> Iterator for DownhillPipsIter<'a> {
 impl<'a> Drop for DownhillPipsIter<'a> {
     fn drop(&mut self) {
         unsafe { npnr_delete_downhill_iter(self.iter) };
+    }
+}
+
+#[repr(C)]
+struct RawUphillIter {
+    content: [u8; 0],
+}
+
+pub struct UphillPipsIter<'a> {
+    iter: *mut RawUphillIter,
+    phantom_data: std::marker::PhantomData<&'a PipId>,
+}
+
+impl<'a> Iterator for UphillPipsIter<'a> {
+    type Item = PipId;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if unsafe { npnr_is_uphill_iter_done(self.iter) } {
+            None
+        } else {
+            let pip = unsafe { npnr_deref_uphill_iter(self.iter) };
+            unsafe { npnr_inc_uphill_iter(self.iter) };
+            Some(pip)
+        }
+    }
+}
+
+impl<'a> Drop for UphillPipsIter<'a> {
+    fn drop(&mut self) {
+        unsafe { npnr_delete_uphill_iter(self.iter) };
     }
 }
 

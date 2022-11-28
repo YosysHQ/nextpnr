@@ -60,6 +60,14 @@ struct DownhillIterWrapper {
 
     DownhillIterWrapper(DownhillIter begin, DownhillIter end) : current(begin), end(end) {}
 };
+using UphillIter = decltype(Context(ArchArgs()).getPipsUphill(WireId()).begin());
+
+struct UphillIterWrapper {
+    UphillIter current;
+    UphillIter end;
+
+    UphillIterWrapper(UphillIter begin, UphillIter end) : current(begin), end(end) {}
+};
 
 extern "C" {
     USING_NEXTPNR_NAMESPACE;
@@ -244,6 +252,14 @@ extern "C" {
     void npnr_delete_downhill_iter(DownhillIterWrapper *iter) {
         delete iter;
     }
+    UphillIterWrapper *npnr_context_get_pips_uphill(Context *ctx, uint64_t wire_id) {
+        auto wire = unwrap_wire(wire_id);
+        auto range = ctx->getPipsUphill(wire);
+        return new UphillIterWrapper(range.begin(), range.end());
+    }
+    void npnr_delete_uphill_iter(UphillIterWrapper *iter) {
+        delete iter;
+    }
 
     PortRef* npnr_netinfo_driver(NetInfo *const net) {
         if (net == nullptr) {
@@ -280,12 +296,19 @@ extern "C" {
     void npnr_inc_downhill_iter(DownhillIterWrapper *iter) {
         ++iter->current;
     }
-
     uint64_t npnr_deref_downhill_iter(DownhillIterWrapper *iter) {
         return wrap(*iter->current);
     }
-
     bool npnr_is_downhill_iter_done(DownhillIterWrapper *iter) {
+        return !(iter->current != iter->end);
+    }
+    void npnr_inc_uphill_iter(UphillIterWrapper *iter) {
+        ++iter->current;
+    }
+    uint64_t npnr_deref_uphill_iter(UphillIterWrapper *iter) {
+        return wrap(*iter->current);
+    }
+    bool npnr_is_uphill_iter_done(UphillIterWrapper *iter) {
         return !(iter->current != iter->end);
     }
 
