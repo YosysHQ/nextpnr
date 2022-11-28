@@ -314,11 +314,17 @@ fn approximate_partition_results(
             // but i can't be bothered (yes this is all copy-pasted from the actual partitioner)
             let mut middle_horiz = (
                 partition_point.0,
-                split_line_over_x((arc.get_source_loc(), arc.get_sink_loc()), partition_point.0),
+                split_line_over_x(
+                    (arc.get_source_loc(), arc.get_sink_loc()),
+                    partition_point.0,
+                ),
             );
 
             let mut middle_vert = (
-                split_line_over_y((arc.get_source_loc(), arc.get_sink_loc()), partition_point.1),
+                split_line_over_y(
+                    (arc.get_source_loc(), arc.get_sink_loc()),
+                    partition_point.1,
+                ),
                 partition_point.1,
             );
 
@@ -928,7 +934,11 @@ pub fn find_partition_point_and_sanity_check(
             || arc.get_sink_loc().x <= x_start
             || arc.get_sink_loc().y <= y_start
         {
-            println!("oob: {:?} -> {:?}", arc.get_source_loc(), arc.get_sink_loc());
+            println!(
+                "oob: {:?} -> {:?}",
+                arc.get_source_loc(),
+                arc.get_sink_loc()
+            );
             out_of_bound_arcs_in_ne += 1;
         }
     }
@@ -946,7 +956,11 @@ pub fn find_partition_point_and_sanity_check(
             || arc.get_sink_loc().x >= x_finish
             || arc.get_sink_loc().y <= y_start
         {
-            println!("oob: {:?} -> {:?}", arc.get_source_loc(), arc.get_sink_loc());
+            println!(
+                "oob: {:?} -> {:?}",
+                arc.get_source_loc(),
+                arc.get_sink_loc()
+            );
             out_of_bound_arcs_in_se += 1;
         }
     }
@@ -964,7 +978,11 @@ pub fn find_partition_point_and_sanity_check(
             || arc.get_sink_loc().x >= x_finish
             || arc.get_sink_loc().y >= y_finish
         {
-            println!("oob: {:?} -> {:?}", arc.get_source_loc(), arc.get_sink_loc());
+            println!(
+                "oob: {:?} -> {:?}",
+                arc.get_source_loc(),
+                arc.get_sink_loc()
+            );
             out_of_bound_arcs_in_sw += 1;
         }
     }
@@ -982,7 +1000,11 @@ pub fn find_partition_point_and_sanity_check(
             || arc.get_sink_loc().x <= x_start
             || arc.get_sink_loc().y >= y_finish
         {
-            println!("oob: {:?} -> {:?}", arc.get_source_loc(), arc.get_sink_loc());
+            println!(
+                "oob: {:?} -> {:?}",
+                arc.get_source_loc(),
+                arc.get_sink_loc()
+            );
             out_of_bound_arcs_in_nw += 1;
         }
     }

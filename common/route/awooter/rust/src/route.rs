@@ -1,6 +1,7 @@
 use std::{
     collections::{BinaryHeap, HashMap, HashSet},
-    time::Instant, sync::RwLock,
+    sync::RwLock,
+    time::Instant,
 };
 
 use colored::Colorize;
@@ -8,7 +9,7 @@ use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use itertools::Itertools;
 
 use crate::{
-    npnr::{self, IdString, NetIndex, PipId, WireId, Loc},
+    npnr::{self, IdString, Loc, NetIndex, PipId, WireId},
     partition,
 };
 
@@ -303,7 +304,10 @@ impl Router {
 
             let mut next_arcs = Vec::new();
             for arc in this.arcs {
-                for wire in self.nets.read().unwrap()[arc.net.into_inner() as usize].wires.keys() {
+                for wire in self.nets.read().unwrap()[arc.net.into_inner() as usize]
+                    .wires
+                    .keys()
+                {
                     if overused.contains(wire) {
                         next_arcs.push(arc);
                     }
@@ -488,7 +492,9 @@ impl Router {
         dirty_wires.push(source_wire);
         dirty_wires.push(sink_wire);
 
-        let already_done = self.nets.read().unwrap()[arc.net().into_inner() as usize].done_sinks.contains(&arc.sink_wire);
+        let already_done = self.nets.read().unwrap()[arc.net().into_inner() as usize]
+            .done_sinks
+            .contains(&arc.sink_wire);
         if already_done {
             midpoint = Some(*self.wire_to_idx.get(&arc.sink_wire).unwrap());
 
@@ -537,8 +543,14 @@ impl Router {
                 ) {
                     break;
                 }*/
-                self.flat_wires[source_wire as usize].write().unwrap().visited_fwd = true;
-                self.flat_wires[sink_wire as usize].write().unwrap().visited_bwd = true;
+                self.flat_wires[source_wire as usize]
+                    .write()
+                    .unwrap()
+                    .visited_fwd = true;
+                self.flat_wires[sink_wire as usize]
+                    .write()
+                    .unwrap()
+                    .visited_bwd = true;
             }
         }
 
@@ -561,9 +573,7 @@ impl Router {
             };
             assert!(pip != PipId::null());
 
-            let node_delay = ctx.pip_delay(pip)
-                + ctx.wire_delay(wireid)
-                + ctx.delay_epsilon();
+            let node_delay = ctx.pip_delay(pip) + ctx.wire_delay(wireid) + ctx.delay_epsilon();
             calculated_delay += node_delay;
 
             self.bind_pip_internal(arc.net(), wire, pip);
@@ -579,14 +589,14 @@ impl Router {
             // do note that the order is inverted from the fwd loop
             wire = *self.wire_to_idx.get(&ctx.pip_dst_wire(pip)).unwrap();
 
-            let node_delay = ctx.pip_delay(pip)
-                + ctx.wire_delay(wireid)
-                + ctx.delay_epsilon();
+            let node_delay = ctx.pip_delay(pip) + ctx.wire_delay(wireid) + ctx.delay_epsilon();
             calculated_delay += node_delay;
 
             self.bind_pip_internal(arc.net(), wire, pip);
         }
-        self.nets.write().unwrap()[arc.net().into_inner() as usize].done_sinks.insert(arc.sink_wire);
+        self.nets.write().unwrap()[arc.net().into_inner() as usize]
+            .done_sinks
+            .insert(arc.sink_wire);
 
         self.reset_wires(&dirty_wires);
 
