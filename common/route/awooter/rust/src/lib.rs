@@ -23,9 +23,9 @@ pub extern "C" fn npnr_router_awooter(ctx: Option<NonNull<npnr::Context>>) -> bo
     })
 }
 
-fn extract_arcs_from_nets(ctx: &npnr::Context, nets: npnr::Nets) -> Vec<route::Arc> {
+fn extract_arcs_from_nets(ctx: &npnr::Context, nets: &npnr::Nets) -> Vec<route::Arc> {
     let mut arcs = vec![];
-    for (name, net) in nets.iter() {
+    for (name, net) in nets.to_vec().iter() {
         let net = unsafe { net.as_mut().unwrap() };
         if net.is_global() {
             continue;
@@ -36,7 +36,7 @@ fn extract_arcs_from_nets(ctx: &npnr::Context, nets: npnr::Nets) -> Vec<route::A
             let source = cell.location();
             let source_wire = ctx.source_wire(net);
 
-            for sink_ref in nets.users_by_name(*name).unwrap().iter() {
+            for sink_ref in nets.users_by_name(**name).unwrap().iter() {
                 let sink = sink_ref.cell().unwrap();
                 let sink = sink.location();
                 for sink_wire in ctx.sink_wires(net, *sink_ref) {
@@ -81,10 +81,10 @@ fn route(ctx: &mut npnr::Context) -> bool {
     log_info!("Found {} nets\n", nets_str.bold());
 
     let mut count = 0;
-    for (name, net) in nets.iter() {
-        let _src = ctx.source_wire(*net);
+    for (&name, net) in nets.to_vec().iter() {
+        let _src = ctx.source_wire(**net);
         let net = unsafe { net.as_mut().unwrap() };
-        let users = nets.users_by_name(*name).unwrap().iter();
+        let users = nets.users_by_name(name).unwrap().iter();
         for user in users {
             count += ctx.sink_wires(net, *user).len();
         }
@@ -92,7 +92,9 @@ fn route(ctx: &mut npnr::Context) -> bool {
 
     log_info!("Found {} arcs\n", count.to_string().bold());
 
-    let (name, net) = nets
+    let binding = nets
+        .to_vec();
+    let (name, net) = binding
         .iter()
         .max_by_key(|(name, net)| {
             let net = unsafe { net.as_mut().unwrap() };
@@ -109,7 +111,7 @@ fn route(ctx: &mut npnr::Context) -> bool {
 
     let net = unsafe { net.as_mut().unwrap() };
     let count = nets
-        .users_by_name(*name)
+        .users_by_name(**name)
         .unwrap()
         .iter()
         .fold(0, |acc, sink| acc + ctx.sink_wires(net, *sink).len())
@@ -117,7 +119,7 @@ fn route(ctx: &mut npnr::Context) -> bool {
 
     log_info!(
         "Highest non-global fanout net is {}\n",
-        ctx.name_of(*name).to_str().unwrap().bold()
+        ctx.name_of(**name).to_str().unwrap().bold()
     );
     log_info!("  with {} arcs\n", count.bold());
 
@@ -126,7 +128,7 @@ fn route(ctx: &mut npnr::Context) -> bool {
     let mut x1 = 0;
     let mut y1 = 0;
 
-    for sink in nets.users_by_name(*name).unwrap().iter() {
+    for sink in nets.users_by_name(**name).unwrap().iter() {
         let cell = sink.cell().unwrap().location();
         x0 = x0.min(cell.x);
         y0 = y0.min(cell.y);
@@ -147,12 +149,15 @@ fn route(ctx: &mut npnr::Context) -> bool {
         rayon::current_num_threads().to_string().bold()
     );
 
+
+
     let start = Instant::now();
 
-    let arcs = extract_arcs_from_nets(ctx, nets);
+    let arcs = extract_arcs_from_nets(ctx, &nets);
 
     let (x_part, y_part, ne, se, sw, nw) = partition::find_partition_point_and_sanity_check(
         ctx,
+        &nets,
         &arcs[..],
         pips,
         0,
@@ -166,7 +171,7 @@ fn route(ctx: &mut npnr::Context) -> bool {
     log_info!("Partitioning took {:.2}s\n", time.as_secs_f32());
 
     let mut router = route::Router::new(Coord::new(0, 0), Coord::new(x_part, y_part));
-    router.route(ctx, &ne);
+    router.route(ctx, &nets, &ne);
 
     /*log_info!("=== level 2 NE:\n");
     let _ = find_partition_point(&ne, x_start, x, y_start, y);

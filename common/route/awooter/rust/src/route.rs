@@ -1,4 +1,6 @@
-use std::collections::{BinaryHeap, HashMap};
+use std::{collections::{BinaryHeap, HashMap}, time::Duration};
+
+use indicatif::{ProgressBar, ProgressStyle};
 
 use crate::{
     npnr::{self, NetIndex, PipId},
@@ -64,6 +66,9 @@ impl Arc {
     pub fn get_sink_wire(&self) -> npnr::WireId {
         self.sink_wire
     }
+    pub fn net(&self) -> npnr::NetIndex {
+        self.net
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -118,34 +123,62 @@ impl Router {
         }
     }
 
-    pub fn route(&mut self, ctx: &npnr::Context, arcs: &[Arc]) {
+    pub fn route(&mut self, ctx: &npnr::Context, nets: &npnr::Nets, arcs: &[Arc]) {
+        let progress = ProgressBar::new(arcs.len() as u64);
+        progress.set_style(
+            ProgressStyle::with_template("[{elapsed}] [{bar:40.magenta/red}] {msg:30!}")
+                .unwrap()
+                .progress_chars("━╸ "),
+        );
+
+        progress.enable_steady_tick(Duration::from_secs_f32(0.2));
         for arc in arcs {
-            self.route_arc(ctx, arc);
+            let net = unsafe { nets.net_from_index(arc.net).as_ref().unwrap() };
+            let name = ctx.name_of(nets.name_from_index(arc.net)).to_str().unwrap().to_string();
+
+            if net.is_global() {
+                continue;
+            }
+            //log_info!("{}\n", name);
+            //log_info!("  {} to {}\n", ctx.name_of_wire(arc.source_wire).to_str().unwrap(), ctx.name_of_wire(arc.sink_wire).to_str().unwrap());
+            progress.inc(1);
+            progress.set_message(name);
+            self.route_arc(ctx, nets, arc);
         }
+        progress.finish_and_clear()
     }
 
-    fn route_arc(&mut self, ctx: &npnr::Context, arc: &Arc) {
+    fn route_arc(&mut self, ctx: &npnr::Context, nets: &npnr::Nets, arc: &Arc) {
         let mut queue = BinaryHeap::new();
         let mut visited = HashMap::new();
 
         queue.push(QueuedWire::new(0.0, 0.0, arc.source_wire));
         visited.insert(arc.source_wire, npnr::PipId::null());
 
+        let mut found_sink = false;
+
+        let name = ctx.name_of(nets.name_from_index(arc.net)).to_str().unwrap().to_string();
+        let verbose = name == "decode_to_execute_IS_RS2_SIGNED_LUT4_D_1_Z_CCU2C_B1_S0_CCU2C_S0_3_B1";
+
         while let Some(source) = queue.pop() {
             if source.wire == arc.sink_wire {
-                panic!("found the sink!");
+                found_sink = true;
                 break;
             }
 
+            if verbose {
+                log_info!("{}:\n", ctx.name_of_wire(source.wire).to_str().unwrap());
+            }
+
             for pip in ctx.get_downhill_pips(source.wire) {
-                let pip_loc = ctx.pip_location(pip);
+                /*let pip_loc = ctx.pip_location(pip);
                 let pip_coord = partition::Coord::from(pip_loc);
                 if pip_coord.is_north_of(&self.box_ne) || pip_coord.is_east_of(&self.box_ne) {
                     continue;
                 }
                 if pip_coord.is_south_of(&self.box_sw) || pip_coord.is_west_of(&self.box_sw) {
                     continue;
-                }
+                }*/
 
                 /*
                 if (!ctx->checkPipAvailForNet(dh, net))
@@ -175,7 +208,7 @@ impl Router {
                     continue;
                 }
 
-                let driver = self.wire_driver.get(&sink);
+                /*let driver = self.wire_driver.get(&sink);
                 if let Some(&driver) = driver {
                     if driver != pip {
                         continue;
@@ -183,9 +216,13 @@ impl Router {
                     if *self.bound_pip.get(&driver).unwrap() != arc.net {
                         continue;
                     }
-                }
+                }*/
 
                 visited.insert(sink, pip);
+
+                if verbose {
+                    log_info!("  {}\n", ctx.name_of_pip(pip).to_str().unwrap());
+                }
 
                 let delay =
                     source.cost + ctx.pip_delay(pip) + ctx.wire_delay(sink) + ctx.delay_epsilon();
@@ -194,16 +231,21 @@ impl Router {
             }
         }
 
+        assert!(found_sink, "didn't find sink wire for net {} between {} and {}", name, ctx.name_of_wire(arc.source_wire).to_str().unwrap(), ctx.name_of_wire(arc.sink_wire).to_str().unwrap());
+
         let mut wire = arc.sink_wire;
         while wire != arc.source_wire {
-            let pip = *visited.get(&wire).unwrap();
+            /*if verbose {
+                println!("Wire: {}", ctx.name_of_wire(wire).to_str().unwrap());
+            }*/
+            let pip = *visited.get(&wire).unwrap_or_else(|| panic!("Expected wire {} to have driving pip", ctx.name_of_wire(wire).to_str().unwrap()));
             self.bind_pip(pip, arc.net);
             wire = ctx.pip_src_wire(pip);
         }
     }
 
     fn bind_pip(&mut self, pip: PipId, net: NetIndex) {
-        assert!(!self.bound_pip.contains_key(&pip));
+        //assert!(!self.bound_pip.contains_key(&pip));
         self.bound_pip.insert(pip, net);
     }
 }

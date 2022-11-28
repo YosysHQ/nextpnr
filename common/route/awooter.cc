@@ -214,15 +214,12 @@ extern "C" {
     bool npnr_context_debug(const Context *const ctx) { return ctx->debug; }
     int npnr_context_id(const Context *const ctx, const char *const str) { return ctx->id(str).hash(); }
     const char *npnr_context_name_of(const Context *const ctx, IdString str) { return ctx->nameOf(str); }
+    const char *npnr_context_name_of_pip(const Context *const ctx, uint64_t pip) { return ctx->nameOfPip(unwrap_pip(pip)); }
+    const char *npnr_context_name_of_wire(const Context *const ctx, uint64_t wire) { return ctx->nameOfWire(unwrap_wire(wire)); }
     bool npnr_context_verbose(const Context *const ctx) { return ctx->verbose; }
 
     uint64_t npnr_context_get_netinfo_source_wire(const Context *const ctx, const NetInfo *const net) { return wrap(ctx->getNetinfoSourceWire(net)); }
-    uint64_t npnr_context_get_netinfo_sink_wire(const Context *const ctx, const NetInfo *const net, const PortRef *const sink, uint32_t n) {
-        if (ctx == nullptr) {
-            return 0;
-        }
-        return wrap(ctx->getNetinfoSinkWire(net, *sink, n));
-    }
+    uint64_t npnr_context_get_netinfo_sink_wire(const Context *const ctx, const NetInfo *const net, const PortRef *const sink, uint32_t n) { return wrap(ctx->getNetinfoSinkWire(net, *sink, n)); }
 
     uint32_t npnr_context_nets_leak(const Context *const ctx, int **names, NetInfo ***nets) {
         auto name_vec = std::vector<int>{};
