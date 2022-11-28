@@ -303,14 +303,12 @@ fn partition<R: RangeBounds<i32>>(
             .progress_chars("━╸ "),
     );
 
-    let find_best_pip = |pips: &Vec<(npnr::PipId, AtomicUsize)>,
-                         source_wire: npnr::WireId,
-                         sink_wire: npnr::WireId| {
+    let find_best_pip = |pips: &Vec<(npnr::PipId, AtomicUsize)>, arc: &Arc| {
         let (selected_pip, pip_uses) = pips
             .iter()
             .min_by_key(|(pip, uses)| {
-                let src_to_pip = ctx.estimate_delay(source_wire, ctx.pip_src_wire(*pip));
-                let pip_to_snk = ctx.estimate_delay(ctx.pip_dst_wire(*pip), sink_wire);
+                let src_to_pip = ctx.estimate_delay(arc.get_source_wire(), ctx.pip_src_wire(*pip));
+                let pip_to_snk = ctx.estimate_delay(ctx.pip_dst_wire(*pip), arc.get_sink_wire());
                 let uses = uses.load(std::sync::atomic::Ordering::Acquire);
                 (1000.0 * (src_to_pip + ((uses + 1) as f32) * pip_to_snk)) as u64
             })
@@ -349,7 +347,7 @@ fn partition<R: RangeBounds<i32>>(
                     false => pips_n.get(&middle).unwrap(),
                 };
 
-                let selected_pip = find_best_pip(pips, arc.get_source_wire(), arc.get_sink_wire());
+                let selected_pip = find_best_pip(pips, arc);
                 explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
 
                 let (src_to_pip, pip_to_dst) = arc.split(ctx, selected_pip);
@@ -372,7 +370,7 @@ fn partition<R: RangeBounds<i32>>(
                     false => pips_e.get(&middle).unwrap(),
                 };
 
-                let selected_pip = find_best_pip(pips, arc.get_source_wire(), arc.get_sink_wire());
+                let selected_pip = find_best_pip(pips, arc);
                 explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
 
                 let (src_to_pip, pip_to_dst) = arc.split(ctx, selected_pip);
@@ -395,7 +393,7 @@ fn partition<R: RangeBounds<i32>>(
                     false => pips_e.get(&middle).unwrap(),
                 };
 
-                let horiz_pip = find_best_pip(pips, arc.get_source_wire(), arc.get_sink_wire());
+                let horiz_pip = find_best_pip(pips, arc);
                 explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
 
                 let middle = (split_line_over_y((source_loc, sink_loc), y), y);
@@ -408,7 +406,7 @@ fn partition<R: RangeBounds<i32>>(
                     false => pips_n.get(&middle).unwrap(),
                 };
 
-                let vert_pip = find_best_pip(pips, arc.get_source_wire(), arc.get_sink_wire());
+                let vert_pip = find_best_pip(pips, arc);
                 explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
 
                 let horiz_loc: Coord = ctx.pip_location(horiz_pip).into();
