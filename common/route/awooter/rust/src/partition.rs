@@ -207,6 +207,8 @@ fn partition<R: RangeBounds<i32>>(
     x_bounds: R,
     y_bounds: R,
 ) -> (Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>) {
+    let partition_coords = Coord::new(x, y);
+
     let mut pips_n = HashMap::new();
     let mut pips_e = HashMap::new();
     let mut pips_s = HashMap::new();
@@ -236,57 +238,85 @@ fn partition<R: RangeBounds<i32>>(
     for &pip in pips {
         let loc = ctx.pip_location(pip);
         if (loc.x == x || loc.y == y) && x_bounds.contains(&loc.x) && y_bounds.contains(&loc.y) {
-            let dir = ctx.pip_direction(pip);
-
-            // This pip seems internal; skip it.
-            if dir.x == 0 && dir.y == 0 {
+            //correctly classifying the pips on the partition point is pretty much impossible
+            //just avoid the partition point
+            if loc.x == x && loc.y == y {
                 continue;
             }
-
             candidates += 1;
 
-            if dir.x < 0 {
-                north += 1;
-                pips_n
-                    .entry((loc.x, loc.y))
-                    .and_modify(|pip_list: &mut Vec<(npnr::PipId, AtomicUsize)>| {
-                        pip_list.push((pip, AtomicUsize::new(0)))
-                    })
-                    .or_insert_with(|| vec![(pip, AtomicUsize::new(0))]);
-            }
+            let pip_arc = std::sync::Arc::new((pip, AtomicUsize::new(0)));
+            if loc.y == y {
+                // pip is on east-west border
 
-            if dir.x > 0 {
-                south += 1;
-                pips_s
-                    .entry((loc.x, loc.y))
-                    .and_modify(|pip_list: &mut Vec<(npnr::PipId, AtomicUsize)>| {
-                        pip_list.push((pip, AtomicUsize::new(0)))
-                    })
-                    .or_insert_with(|| vec![(pip, AtomicUsize::new(0))]);
-            }
+                let (mut src_has_east, mut src_has_west) = (false, false);
+                let (mut dst_has_east, mut dst_has_west) = (false, false);
 
-            if dir.y < 0 {
-                east += 1;
-                pips_e
-                    .entry((loc.x, loc.y))
-                    .and_modify(|pip_list: &mut Vec<(npnr::PipId, AtomicUsize)>| {
-                        pip_list.push((pip, AtomicUsize::new(0)))
-                    })
-                    .or_insert_with(|| vec![(pip, AtomicUsize::new(0))]);
-            }
+                for src_pip in ctx.get_uphill_pips(ctx.pip_src_wire(pip)) {
+                    let src_pip_coord: Coord = ctx.pip_location(src_pip).into();
+                    if (src_pip_coord.x < x) == (loc.x < x) {
+                        src_has_east |= src_pip_coord.is_east_of(&partition_coords);
+                        src_has_west |= src_pip_coord.is_west_of(&partition_coords);
+                    }
+                }
+                for dst_pip in ctx.get_downhill_pips(ctx.pip_dst_wire(pip)) {
+                    let dst_pip_coord: Coord = ctx.pip_location(dst_pip).into();
+                    if (dst_pip_coord.x < x) == (loc.x < x) {
+                        dst_has_east |= dst_pip_coord.is_east_of(&partition_coords);
+                        dst_has_west |= dst_pip_coord.is_west_of(&partition_coords);
+                    }
+                }
+                if src_has_east && dst_has_west {
+                    west += 1;
+                    pips_w
+                        .entry((loc.x, loc.y))
+                        .or_insert(vec![])
+                        .push(pip_arc.clone());
+                }
+                if src_has_west && dst_has_east {
+                    east += 1;
+                    pips_e
+                        .entry((loc.x, loc.y))
+                        .or_insert(vec![])
+                        .push(pip_arc.clone());
+                }
+            } else {
+                // pip is on south-north border
 
-            if dir.y > 0 {
-                west += 1;
-                pips_w
-                    .entry((loc.x, loc.y))
-                    .and_modify(|pip_list: &mut Vec<(npnr::PipId, AtomicUsize)>| {
-                        pip_list.push((pip, AtomicUsize::new(0)))
-                    })
-                    .or_insert_with(|| vec![(pip, AtomicUsize::new(0))]);
+                let (mut src_has_north, mut src_has_south) = (false, false);
+                let (mut dst_has_north, mut dst_has_south) = (false, false);
+
+                for src_pip in ctx.get_uphill_pips(ctx.pip_src_wire(pip)) {
+                    let src_pip_coord: Coord = ctx.pip_location(src_pip).into();
+                    if (src_pip_coord.y < y) == (loc.y < y) {
+                        src_has_north |= src_pip_coord.is_north_of(&partition_coords);
+                        src_has_south |= src_pip_coord.is_south_of(&partition_coords);
+                    }
+                }
+                for dst_pip in ctx.get_downhill_pips(ctx.pip_dst_wire(pip)) {
+                    let dst_pip_coord: Coord = ctx.pip_location(dst_pip).into();
+                    if (dst_pip_coord.y < y) == (loc.y < y) {
+                        dst_has_north |= dst_pip_coord.is_north_of(&partition_coords);
+                        dst_has_south |= dst_pip_coord.is_south_of(&partition_coords);
+                    }
+                }
+                if src_has_north && dst_has_south {
+                    south += 1;
+                    pips_s
+                        .entry((loc.x, loc.y))
+                        .or_insert(vec![])
+                        .push(pip_arc.clone());
+                }
+                if src_has_south && dst_has_north {
+                    north += 1;
+                    pips_n
+                        .entry((loc.x, loc.y))
+                        .or_insert(vec![])
+                        .push(pip_arc.clone());
+                }
             }
         }
     }
-
     log_info!(
         "  Out of {} candidate pips:\n",
         candidates.to_string().bold()
@@ -303,9 +333,10 @@ fn partition<R: RangeBounds<i32>>(
             .progress_chars("━╸ "),
     );
 
-    let find_best_pip = |pips: &Vec<(npnr::PipId, AtomicUsize)>, arc: &Arc| {
+    let find_best_pip = |pips: &Vec<std::sync::Arc<(npnr::PipId, AtomicUsize)>>, arc: &Arc| {
         let (selected_pip, pip_uses) = pips
             .iter()
+            .map(|a| a.as_ref())
             .min_by_key(|(pip, uses)| {
                 let src_to_pip = ctx.estimate_delay(arc.get_source_wire(), ctx.pip_src_wire(*pip));
                 let pip_to_snk = ctx.estimate_delay(ctx.pip_dst_wire(*pip), arc.get_sink_wire());
@@ -318,8 +349,6 @@ fn partition<R: RangeBounds<i32>>(
     };
 
     let mut explored_pips = AtomicUsize::new(0);
-
-    let partition_coords = Coord::new(x, y);
 
     let arcs = arcs
         .into_par_iter()
@@ -338,10 +367,14 @@ fn partition<R: RangeBounds<i32>>(
                 vec![(seg, arc.clone())]
             } else if source_is_north != sink_is_north && source_is_east == sink_is_east {
                 let middle = (x, (source_coords.y + sink_coords.y) / 2);
-                let middle = (
+                let mut middle = (
                     middle.0.clamp(1, ctx.grid_dim_x() - 1),
                     middle.1.clamp(1, ctx.grid_dim_y() - 1),
                 );
+                // need to avoid the partition point
+                if middle.1 == y {
+                    middle.1 = y + 1;
+                }
                 let pips = match source_is_north {
                     true => pips_s.get(&middle).unwrap(),
                     false => pips_n.get(&middle).unwrap(),
@@ -361,10 +394,14 @@ fn partition<R: RangeBounds<i32>>(
                 vec![(seg1, src_to_pip), (seg2, pip_to_dst)]
             } else if source_is_north == sink_is_north && source_is_east != sink_is_east {
                 let middle = ((source_coords.x + sink_coords.x) / 2, y);
-                let middle = (
+                let mut middle = (
                     middle.0.clamp(1, ctx.grid_dim_x() - 1),
                     middle.1.clamp(1, ctx.grid_dim_y() - 1),
                 );
+                // need to avoid the partition point
+                if middle.0 == x {
+                    middle.0 = x + 1;
+                }
                 let pips = match source_is_east {
                     true => pips_w.get(&middle).unwrap(),
                     false => pips_e.get(&middle).unwrap(),
@@ -383,27 +420,39 @@ fn partition<R: RangeBounds<i32>>(
                 part_vert.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 vec![(seg1, src_to_pip), (seg2, pip_to_dst)]
             } else {
-                let middle = (x, split_line_over_x((source_loc, sink_loc), x));
-                let middle = (
-                    middle.0.clamp(1, ctx.grid_dim_x() - 1),
-                    middle.1.clamp(1, ctx.grid_dim_y() - 1),
+                let middle_horiz = (x, split_line_over_x((source_loc, sink_loc), x));
+                let mut middle_horiz = (
+                    middle_horiz.0.clamp(1, ctx.grid_dim_x() - 1),
+                    middle_horiz.1.clamp(1, ctx.grid_dim_y() - 1),
                 );
-                let pips = match source_is_east {
-                    true => pips_w.get(&middle).unwrap(),
-                    false => pips_e.get(&middle).unwrap(),
+                let middle_vert = (split_line_over_y((source_loc, sink_loc), y), y);
+                let mut middle_vert = (
+                    middle_vert.0.clamp(1, ctx.grid_dim_x() - 1),
+                    middle_vert.1.clamp(1, ctx.grid_dim_y() - 1),
+                );
+
+                // need to avoid the partition point
+                if middle_horiz.1 == y || middle_vert.0 == x {
+                    if source_is_east != sink_is_north {
+                        middle_horiz.1 = y + 1;
+                        middle_vert.0 = x - 1;
+                    } else {
+                        middle_horiz.1 = y + 1;
+                        middle_vert.0 = x + 1;
+                    }
+                }
+
+                let pips = match source_is_north {
+                    true => pips_s.get(&middle_horiz).unwrap(),
+                    false => pips_n.get(&middle_horiz).unwrap(),
                 };
 
                 let horiz_pip = find_best_pip(pips, arc);
                 explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
 
-                let middle = (split_line_over_y((source_loc, sink_loc), y), y);
-                let middle = (
-                    middle.0.clamp(1, ctx.grid_dim_x() - 1),
-                    middle.1.clamp(1, ctx.grid_dim_y() - 1),
-                );
-                let pips = match source_is_north {
-                    true => pips_s.get(&middle).unwrap(),
-                    false => pips_n.get(&middle).unwrap(),
+                let pips = match source_is_east {
+                    true => pips_w.get(&middle_vert).unwrap(),
+                    false => pips_e.get(&middle_vert).unwrap(),
                 };
 
                 let vert_pip = find_best_pip(pips, arc);
