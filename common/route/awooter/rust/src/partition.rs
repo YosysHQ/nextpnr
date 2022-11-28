@@ -71,6 +71,7 @@ impl From<npnr::Loc> for Coord {
 
 pub fn find_partition_point(
     ctx: &npnr::Context,
+    nets: &npnr::Nets,
     arcs: &[Arc],
     pips: &[npnr::PipId],
     x_start: i32,
@@ -91,6 +92,7 @@ pub fn find_partition_point(
     while x_diff != 0 {
         (ne, se, sw, nw) = partition(
             ctx,
+            nets,
             arcs,
             pips,
             x,
@@ -135,6 +137,7 @@ pub fn find_partition_point(
 
     (ne, se, sw, nw) = partition(
         ctx,
+        nets,
         arcs,
         pips,
         x,
@@ -200,6 +203,7 @@ fn split_line_over_y(line: (npnr::Loc, npnr::Loc), y_location: i32) -> i32 {
 // A big thank you to @Spacecat-chan for fixing my broken and buggy partition code.
 fn partition<R: RangeBounds<i32>>(
     ctx: &npnr::Context,
+    nets: &npnr::Nets,
     arcs: &[Arc],
     pips: &[npnr::PipId],
     x: i32,
@@ -243,6 +247,22 @@ fn partition<R: RangeBounds<i32>>(
             if loc.x == x && loc.y == y {
                 continue;
             }
+
+            let is_general_routing = |wire: &str| {
+                wire.contains("H01") || wire.contains("V01") ||
+                wire.contains("H02") || wire.contains("V02") ||
+                wire.contains("H06") || wire.contains("V06")
+            };
+
+            let src_wire = ctx.pip_src_wire(pip);
+            let dst_wire = ctx.pip_dst_wire(pip);
+            let src_name = ctx.name_of_wire(src_wire).to_str().unwrap();
+            let dst_name = ctx.name_of_wire(dst_wire).to_str().unwrap();
+            if !is_general_routing(src_name) || !is_general_routing(dst_name) {
+                // ECP5 hack: whitelist allowed wires.
+                continue;
+            }
+
             candidates += 1;
 
             let pip_arc = std::sync::Arc::new((pip, AtomicUsize::new(0)));
@@ -328,7 +348,7 @@ fn partition<R: RangeBounds<i32>>(
 
     let progress = ProgressBar::new(arcs.len() as u64);
     progress.set_style(
-        ProgressStyle::with_template("[{elapsed}] [{bar:40.cyan/blue}] {msg}")
+        ProgressStyle::with_template("[{elapsed}] [{bar:40.cyan/blue}] {msg:30!}")
             .unwrap()
             .progress_chars("━╸ "),
     );
@@ -362,6 +382,8 @@ fn partition<R: RangeBounds<i32>>(
             let sink_coords: Coord = sink_loc.into();
             let sink_is_north = sink_coords.is_north_of(&partition_coords);
             let sink_is_east = sink_coords.is_east_of(&partition_coords);
+            let name = ctx.name_of(nets.name_from_index(arc.net())).to_str().unwrap().to_string();
+            let verbose = name == "decode_to_execute_IS_RS2_SIGNED_LUT4_D_1_Z_CCU2C_B1_S0_CCU2C_S0_3_B1";
             if source_is_north == sink_is_north && source_is_east == sink_is_east {
                 let seg = source_coords.segment_from(&Coord::new(x, y));
                 vec![(seg, arc.clone())]
@@ -382,6 +404,10 @@ fn partition<R: RangeBounds<i32>>(
 
                 let selected_pip = find_best_pip(pips, arc);
                 explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
+
+                if verbose {
+                    log_info!("split arc {} to {} vertically across pip {}\n", ctx.name_of_wire(arc.get_source_wire()).to_str().unwrap(), ctx.name_of_wire(arc.get_sink_wire()).to_str().unwrap(), ctx.name_of_pip(selected_pip).to_str().unwrap());
+                }
 
                 let (src_to_pip, pip_to_dst) = arc.split(ctx, selected_pip);
                 let (seg1, seg2) = match (source_is_north, source_is_east) {
@@ -409,6 +435,10 @@ fn partition<R: RangeBounds<i32>>(
 
                 let selected_pip = find_best_pip(pips, arc);
                 explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
+
+                if verbose {
+                    log_info!("split arc {} to {} horizontally across pip {}\n", ctx.name_of_wire(arc.get_source_wire()).to_str().unwrap(), ctx.name_of_wire(arc.get_sink_wire()).to_str().unwrap(), ctx.name_of_pip(selected_pip).to_str().unwrap());
+                }
 
                 let (src_to_pip, pip_to_dst) = arc.split(ctx, selected_pip);
                 let (seg1, seg2) = match (source_is_north, source_is_east) {
@@ -457,6 +487,10 @@ fn partition<R: RangeBounds<i32>>(
 
                 let vert_pip = find_best_pip(pips, arc);
                 explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
+
+                if verbose {
+                    log_info!("split arc {} to {} across pips {} and {}\n", ctx.name_of_wire(arc.get_source_wire()).to_str().unwrap(), ctx.name_of_wire(arc.get_sink_wire()).to_str().unwrap(), ctx.name_of_pip(horiz_pip).to_str().unwrap(), ctx.name_of_pip(vert_pip).to_str().unwrap());
+                }
 
                 let horiz_loc: Coord = ctx.pip_location(horiz_pip).into();
                 let horiz_is_east = horiz_loc.is_east_of(&partition_coords);
@@ -610,6 +644,7 @@ fn partition<R: RangeBounds<i32>>(
 
 pub fn find_partition_point_and_sanity_check(
     ctx: &npnr::Context,
+    nets: &npnr::Nets,
     arcs: &[Arc],
     pips: &[npnr::PipId],
     x_start: i32,
@@ -618,7 +653,7 @@ pub fn find_partition_point_and_sanity_check(
     y_finish: i32,
 ) -> (i32, i32, Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>) {
     let (x_part, y_part, ne, se, sw, nw) =
-        find_partition_point(ctx, arcs, pips, x_start, x_finish, y_start, y_finish);
+        find_partition_point(ctx, &nets, arcs, pips, x_start, x_finish, y_start, y_finish);
 
     let mut invalid_arcs_in_ne = 0;
     let mut invalid_arcs_in_se = 0;

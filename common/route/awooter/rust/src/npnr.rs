@@ -278,6 +278,14 @@ impl Context {
         unsafe { CStr::from_ptr(npnr_context_name_of(self, s)) }
     }
 
+    pub fn name_of_pip(&self, pip: PipId) -> &CStr {
+        unsafe { CStr::from_ptr(npnr_context_name_of_pip(self, pip)) }
+    }
+
+    pub fn name_of_wire(&self, wire: WireId) -> &CStr {
+        unsafe { CStr::from_ptr(npnr_context_name_of_wire(self, wire)) }
+    }
+
     pub fn verbose(&self) -> bool {
         unsafe { npnr_context_verbose(self) }
     }
@@ -331,6 +339,8 @@ extern "C" {
     fn npnr_context_debug(ctx: *const Context) -> bool;
     fn npnr_context_id(ctx: *const Context, s: *const c_char) -> IdString;
     fn npnr_context_name_of(ctx: *const Context, s: IdString) -> *const libc::c_char;
+    fn npnr_context_name_of_pip(ctx: *const Context, pip: PipId) -> *const libc::c_char;
+    fn npnr_context_name_of_wire(ctx: *const Context, wire: WireId) -> *const libc::c_char;
     fn npnr_context_verbose(ctx: *const Context) -> bool;
 
     fn npnr_context_get_netinfo_source_wire(ctx: *const Context, net: *const NetInfo) -> WireId;
@@ -375,6 +385,9 @@ pub struct Nets<'a> {
     net_to_index: HashMap<*mut NetInfo, i32>,
     _data: PhantomData<&'a Context>,
 }
+
+unsafe impl Send for Nets<'_> {}
+unsafe impl Sync for Nets<'_> {}
 
 impl<'a> Nets<'a> {
     /// Create a new store for the nets of a context.
@@ -430,8 +443,19 @@ impl<'a> Nets<'a> {
         self.nets.len()
     }
 
-    pub fn iter(&self) -> std::collections::hash_map::Iter<'_, IdString, *mut NetInfo> {
-        self.nets.iter()
+    pub fn name_from_index(&self, index: NetIndex) -> IdString {
+        self.index_to_net[index.0 as usize]
+    }
+
+    pub fn net_from_index(&self, index: NetIndex) -> *mut NetInfo {
+        *self.nets.get(&self.name_from_index(index)).unwrap()
+    }
+
+    pub fn to_vec(&self) -> Vec<(&IdString, &*mut NetInfo)> {
+        let mut v = Vec::new();
+        v.extend(self.nets.iter());
+        v.sort_by_key(|(name, _net)| name.0);
+        v
     }
 }
 
