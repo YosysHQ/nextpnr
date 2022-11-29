@@ -1,5 +1,5 @@
 use core::slice;
-use std::{collections::HashMap, ffi::CStr, marker::PhantomData};
+use std::{collections::HashMap, ffi::CStr, marker::PhantomData, sync::Mutex};
 
 use libc::c_char;
 
@@ -283,6 +283,8 @@ impl Context {
     }
 
     pub fn name_of_wire(&self, wire: WireId) -> &CStr {
+        static MUTEX: Mutex<()> = Mutex::new(());
+        let lock = MUTEX.lock().unwrap();
         unsafe { CStr::from_ptr(npnr_context_name_of_wire(self, wire)) }
     }
 
