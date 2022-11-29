@@ -291,7 +291,7 @@ impl Context {
     }
 }
 
-extern "C" {
+extern "C-unwind" {
     pub fn npnr_log_info(format: *const c_char);
     pub fn npnr_log_error(format: *const c_char);
 

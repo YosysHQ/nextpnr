@@ -1,3 +1,5 @@
+#![feature(c_unwind)]
+
 use std::{ptr::NonNull, time::Instant};
 
 use colored::Colorize;
@@ -10,8 +12,11 @@ mod partition;
 mod route;
 
 #[no_mangle]
-pub extern "C" fn npnr_router_awooter(ctx: Option<NonNull<npnr::Context>>) -> bool {
-    std::panic::catch_unwind(move || {
+pub extern "C-unwind" fn npnr_router_awooter(ctx: Option<NonNull<npnr::Context>>) -> bool {
+    let ctx: &mut npnr::Context = unsafe { ctx.expect("non-null context").as_mut() };
+    route(ctx)
+
+    /*std::panic::catch_unwind(move || {
         let ctx: &mut npnr::Context = unsafe { ctx.expect("non-null context").as_mut() };
         route(ctx)
     })
@@ -20,7 +25,7 @@ pub extern "C" fn npnr_router_awooter(ctx: Option<NonNull<npnr::Context>>) -> bo
             log_error!("caught panic: {}", x);
         }
         false
-    })
+    })*/
 }
 
 fn extract_arcs_from_nets(ctx: &npnr::Context, nets: &npnr::Nets) -> Vec<route::Arc> {
@@ -152,7 +157,7 @@ fn route(ctx: &mut npnr::Context) -> bool {
 
     let arcs = extract_arcs_from_nets(ctx, &nets);
 
-    let (x_part, y_part, ne, se, sw, nw) = partition::find_partition_point_and_sanity_check(
+    let (x_part, y_part, ne, se, sw, nw, misc) = partition::find_partition_point_and_sanity_check(
         ctx,
         &nets,
         &arcs[..],
@@ -168,7 +173,17 @@ fn route(ctx: &mut npnr::Context) -> bool {
     log_info!("Partitioning took {:.2}s\n", time.as_secs_f32());
 
     let mut router = route::Router::new(Coord::new(0, 0), Coord::new(x_part, y_part));
+    log_info!("Routing northeast arcs");
     router.route(ctx, &nets, &ne);
+    log_info!("Routing southeast arcs");
+    router.route(ctx, &nets, &se);
+    log_info!("Routing southwest arcs");
+    router.route(ctx, &nets, &sw);
+    log_info!("Routing northwest arcs");
+    router.route(ctx, &nets, &nw);
+    log_info!("Routing miscellaneous arcs");
+    router.route(ctx, &nets, &misc);
+    //let mut router = route::Router::new(Coord::new(0, 0), Coord::new(x_part, y_part));
 
     /*log_info!("=== level 2 NE:\n");
     let _ = find_partition_point(&ne, x_start, x, y_start, y);

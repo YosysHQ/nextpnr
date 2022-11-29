@@ -169,8 +169,8 @@ impl Router {
             .to_str()
             .unwrap()
             .to_string();
-        let verbose =
-            name == "decode_to_execute_IS_RS2_SIGNED_LUT4_D_1_Z_CCU2C_B1_S0_CCU2C_S0_3_B1";
+        let verbose = false;
+            //name == "decode_to_execute_IS_RS2_SIGNED_LUT4_D_1_Z_CCU2C_B1_S0_CCU2C_S0_3_B1";
 
         while let Some(source) = queue.pop() {
             if source.wire == arc.sink_wire {

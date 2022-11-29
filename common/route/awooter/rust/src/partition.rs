@@ -78,7 +78,7 @@ pub fn find_partition_point(
     x_finish: i32,
     y_start: i32,
     y_finish: i32,
-) -> (i32, i32, Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>) {
+) -> (i32, i32, Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>) {
     let mut x = ((x_finish - x_start) / 2) + x_start;
     let mut y = ((y_finish - y_start) / 2) + y_start;
     let mut x_diff = (x_finish - x_start) / 4;
@@ -88,9 +88,10 @@ pub fn find_partition_point(
     let mut se;
     let mut sw;
     let mut nw;
+    let mut misc;
 
     while x_diff != 0 {
-        (ne, se, sw, nw) = partition(
+        (ne, se, sw, nw, misc) = partition(
             ctx,
             nets,
             arcs,
@@ -114,7 +115,7 @@ pub fn find_partition_point(
 
         // Stop early if Good Enough.
         if distortion <= 5.0 {
-            return (x, y, ne, se, sw, nw);
+            return (x, y, ne, se, sw, nw, misc);
         }
 
         x += match north.cmp(&south) {
@@ -135,7 +136,7 @@ pub fn find_partition_point(
         y_diff >>= 1;
     }
 
-    (ne, se, sw, nw) = partition(
+    (ne, se, sw, nw, misc) = partition(
         ctx,
         nets,
         arcs,
@@ -160,7 +161,7 @@ pub fn find_partition_point(
         100.0 * (ne_dist + se_dist + sw_dist + nw_dist)
     );
 
-    (x, y, ne, se, sw, nw)
+    (x, y, ne, se, sw, nw, misc)
 }
 
 /// finds the y location a line would be split at if you split it at a certain x location
@@ -357,6 +358,19 @@ fn partition<R: RangeBounds<i32>>(
             .progress_chars("━╸ "),
     );
 
+    let is_special_case = |arc: &Arc| {
+        let src_wire = arc.get_source_wire();
+        let dst_wire = arc.get_sink_wire();
+        let src_name = ctx.name_of_wire(arc.get_source_wire()).to_str().unwrap();
+        let dst_name = ctx.name_of_wire(arc.get_sink_wire()).to_str().unwrap();
+
+        if src_name.contains("FCO_SLICE") {
+            return true;
+        }
+
+        false
+    };
+
     let find_best_pip = |pips: &Vec<std::sync::Arc<(npnr::PipId, AtomicUsize)>>, arc: &Arc| {
         let (selected_pip, pip_uses) = pips
             .iter()
@@ -374,9 +388,16 @@ fn partition<R: RangeBounds<i32>>(
 
     let mut explored_pips = AtomicUsize::new(0);
 
+    for arc in arcs {
+        if is_special_case(arc) {
+            misc.push(arc.clone());
+        }
+    }
+
     let arcs = arcs
         .into_par_iter()
         .progress_with(progress)
+        .filter(|arc| !is_special_case(arc))
         .flat_map(|arc| {
             let source_loc = arc.get_source_loc();
             let source_coords: Coord = source_loc.into();
@@ -658,8 +679,12 @@ fn partition<R: RangeBounds<i32>>(
         }),
         dist_str(nw_dist)
     );
+    log_info!(
+        "  {} arcs special-cased\n",
+        misc.len().to_string().bold()
+    );
 
-    (ne, se, sw, nw)
+    (ne, se, sw, nw, misc)
 }
 
 pub fn find_partition_point_and_sanity_check(
@@ -671,8 +696,8 @@ pub fn find_partition_point_and_sanity_check(
     x_finish: i32,
     y_start: i32,
     y_finish: i32,
-) -> (i32, i32, Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>) {
-    let (x_part, y_part, ne, se, sw, nw) =
+) -> (i32, i32, Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>) {
+    let (x_part, y_part, ne, se, sw, nw, misc) =
         find_partition_point(ctx, nets, arcs, pips, x_start, x_finish, y_start, y_finish);
 
     let mut invalid_arcs_in_ne = 0;
@@ -738,5 +763,5 @@ pub fn find_partition_point_and_sanity_check(
         println!("count in nw: {}", invalid_arcs_in_nw.to_string().bold());
     }
 
-    (x_part, y_part, ne, se, sw, nw)
+    (x_part, y_part, ne, se, sw, nw, misc)
 }
