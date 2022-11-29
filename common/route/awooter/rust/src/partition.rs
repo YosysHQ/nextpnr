@@ -210,7 +210,7 @@ fn partition<R: RangeBounds<i32>>(
     y: i32,
     x_bounds: R,
     y_bounds: R,
-) -> (Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>) {
+) -> (Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>) {
     let partition_coords = Coord::new(x, y);
 
     let mut pips_n = HashMap::new();
@@ -222,6 +222,7 @@ fn partition<R: RangeBounds<i32>>(
     let mut se: Vec<Arc> = Vec::new();
     let mut sw: Vec<Arc> = Vec::new();
     let mut nw: Vec<Arc> = Vec::new();
+    let mut misc: Vec<Arc> = Vec::new();
     let mut part_horiz = AtomicUsize::new(0);
     let mut part_vert = AtomicUsize::new(0);
     let mut part_diag = AtomicUsize::new(0);
@@ -249,9 +250,12 @@ fn partition<R: RangeBounds<i32>>(
             }
 
             let is_general_routing = |wire: &str| {
-                wire.contains("H01") || wire.contains("V01") ||
-                wire.contains("H02") || wire.contains("V02") ||
-                wire.contains("H06") || wire.contains("V06")
+                wire.contains("H01")
+                    || wire.contains("V01")
+                    || wire.contains("H02")
+                    || wire.contains("V02")
+                    || wire.contains("H06")
+                    || wire.contains("V06")
             };
 
             let src_wire = ctx.pip_src_wire(pip);
@@ -382,8 +386,8 @@ fn partition<R: RangeBounds<i32>>(
             let sink_coords: Coord = sink_loc.into();
             let sink_is_north = sink_coords.is_north_of(&partition_coords);
             let sink_is_east = sink_coords.is_east_of(&partition_coords);
-            let name = ctx.name_of(nets.name_from_index(arc.net())).to_str().unwrap().to_string();
-            let verbose = name == "decode_to_execute_IS_RS2_SIGNED_LUT4_D_1_Z_CCU2C_B1_S0_CCU2C_S0_3_B1";
+            //let name = ctx.name_of(nets.name_from_index(arc.net())).to_str().unwrap().to_string();
+            let verbose = false; // name == "decode_to_execute_IS_RS2_SIGNED_LUT4_D_1_Z_CCU2C_B1_S0_CCU2C_S0_3_B1";
             if source_is_north == sink_is_north && source_is_east == sink_is_east {
                 let seg = source_coords.segment_from(&Coord::new(x, y));
                 vec![(seg, arc.clone())]
@@ -406,7 +410,12 @@ fn partition<R: RangeBounds<i32>>(
                 explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
 
                 if verbose {
-                    log_info!("split arc {} to {} vertically across pip {}\n", ctx.name_of_wire(arc.get_source_wire()).to_str().unwrap(), ctx.name_of_wire(arc.get_sink_wire()).to_str().unwrap(), ctx.name_of_pip(selected_pip).to_str().unwrap());
+                    log_info!(
+                        "split arc {} to {} vertically across pip {}\n",
+                        ctx.name_of_wire(arc.get_source_wire()).to_str().unwrap(),
+                        ctx.name_of_wire(arc.get_sink_wire()).to_str().unwrap(),
+                        ctx.name_of_pip(selected_pip).to_str().unwrap()
+                    );
                 }
 
                 let (src_to_pip, pip_to_dst) = arc.split(ctx, selected_pip);
@@ -437,7 +446,12 @@ fn partition<R: RangeBounds<i32>>(
                 explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
 
                 if verbose {
-                    log_info!("split arc {} to {} horizontally across pip {}\n", ctx.name_of_wire(arc.get_source_wire()).to_str().unwrap(), ctx.name_of_wire(arc.get_sink_wire()).to_str().unwrap(), ctx.name_of_pip(selected_pip).to_str().unwrap());
+                    log_info!(
+                        "split arc {} to {} horizontally across pip {}\n",
+                        ctx.name_of_wire(arc.get_source_wire()).to_str().unwrap(),
+                        ctx.name_of_wire(arc.get_sink_wire()).to_str().unwrap(),
+                        ctx.name_of_pip(selected_pip).to_str().unwrap()
+                    );
                 }
 
                 let (src_to_pip, pip_to_dst) = arc.split(ctx, selected_pip);
@@ -489,7 +503,13 @@ fn partition<R: RangeBounds<i32>>(
                 explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
 
                 if verbose {
-                    log_info!("split arc {} to {} across pips {} and {}\n", ctx.name_of_wire(arc.get_source_wire()).to_str().unwrap(), ctx.name_of_wire(arc.get_sink_wire()).to_str().unwrap(), ctx.name_of_pip(horiz_pip).to_str().unwrap(), ctx.name_of_pip(vert_pip).to_str().unwrap());
+                    log_info!(
+                        "split arc {} to {} across pips {} and {}\n",
+                        ctx.name_of_wire(arc.get_source_wire()).to_str().unwrap(),
+                        ctx.name_of_wire(arc.get_sink_wire()).to_str().unwrap(),
+                        ctx.name_of_pip(horiz_pip).to_str().unwrap(),
+                        ctx.name_of_pip(vert_pip).to_str().unwrap()
+                    );
                 }
 
                 let horiz_loc: Coord = ctx.pip_location(horiz_pip).into();
@@ -653,7 +673,7 @@ pub fn find_partition_point_and_sanity_check(
     y_finish: i32,
 ) -> (i32, i32, Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>) {
     let (x_part, y_part, ne, se, sw, nw) =
-        find_partition_point(ctx, &nets, arcs, pips, x_start, x_finish, y_start, y_finish);
+        find_partition_point(ctx, nets, arcs, pips, x_start, x_finish, y_start, y_finish);
 
     let mut invalid_arcs_in_ne = 0;
     let mut invalid_arcs_in_se = 0;

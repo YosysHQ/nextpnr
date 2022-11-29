@@ -1,4 +1,7 @@
-use std::{collections::{BinaryHeap, HashMap}, time::Duration};
+use std::{
+    collections::{BinaryHeap, HashMap},
+    time::Duration,
+};
 
 use indicatif::{ProgressBar, ProgressStyle};
 
@@ -134,7 +137,11 @@ impl Router {
         progress.enable_steady_tick(Duration::from_secs_f32(0.2));
         for arc in arcs {
             let net = unsafe { nets.net_from_index(arc.net).as_ref().unwrap() };
-            let name = ctx.name_of(nets.name_from_index(arc.net)).to_str().unwrap().to_string();
+            let name = ctx
+                .name_of(nets.name_from_index(arc.net))
+                .to_str()
+                .unwrap()
+                .to_string();
 
             if net.is_global() {
                 continue;
@@ -157,8 +164,13 @@ impl Router {
 
         let mut found_sink = false;
 
-        let name = ctx.name_of(nets.name_from_index(arc.net)).to_str().unwrap().to_string();
-        let verbose = name == "decode_to_execute_IS_RS2_SIGNED_LUT4_D_1_Z_CCU2C_B1_S0_CCU2C_S0_3_B1";
+        let name = ctx
+            .name_of(nets.name_from_index(arc.net))
+            .to_str()
+            .unwrap()
+            .to_string();
+        let verbose =
+            name == "decode_to_execute_IS_RS2_SIGNED_LUT4_D_1_Z_CCU2C_B1_S0_CCU2C_S0_3_B1";
 
         while let Some(source) = queue.pop() {
             if source.wire == arc.sink_wire {
@@ -231,14 +243,25 @@ impl Router {
             }
         }
 
-        assert!(found_sink, "didn't find sink wire for net {} between {} and {}", name, ctx.name_of_wire(arc.source_wire).to_str().unwrap(), ctx.name_of_wire(arc.sink_wire).to_str().unwrap());
+        assert!(
+            found_sink,
+            "didn't find sink wire for net {} between {} and {}",
+            name,
+            ctx.name_of_wire(arc.source_wire).to_str().unwrap(),
+            ctx.name_of_wire(arc.sink_wire).to_str().unwrap()
+        );
 
         let mut wire = arc.sink_wire;
         while wire != arc.source_wire {
             /*if verbose {
                 println!("Wire: {}", ctx.name_of_wire(wire).to_str().unwrap());
             }*/
-            let pip = *visited.get(&wire).unwrap_or_else(|| panic!("Expected wire {} to have driving pip", ctx.name_of_wire(wire).to_str().unwrap()));
+            let pip = *visited.get(&wire).unwrap_or_else(|| {
+                panic!(
+                    "Expected wire {} to have driving pip",
+                    ctx.name_of_wire(wire).to_str().unwrap()
+                )
+            });
             self.bind_pip(pip, arc.net);
             wire = ctx.pip_src_wire(pip);
         }

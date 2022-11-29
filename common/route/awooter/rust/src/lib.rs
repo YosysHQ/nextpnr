@@ -92,8 +92,7 @@ fn route(ctx: &mut npnr::Context) -> bool {
 
     log_info!("Found {} arcs\n", count.to_string().bold());
 
-    let binding = nets
-        .to_vec();
+    let binding = nets.to_vec();
     let (name, net) = binding
         .iter()
         .max_by_key(|(name, net)| {
@@ -148,8 +147,6 @@ fn route(ctx: &mut npnr::Context) -> bool {
         "rayon reports {} threads available\n",
         rayon::current_num_threads().to_string().bold()
     );
-
-
 
     let start = Instant::now();
 
