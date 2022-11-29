@@ -360,9 +360,9 @@ fn partition<R: RangeBounds<i32>>(
 
     let is_special_case = |arc: &Arc| {
         let src_wire = arc.get_source_wire();
-        let dst_wire = arc.get_sink_wire();
+        //let dst_wire = arc.get_sink_wire();
         let src_name = ctx.name_of_wire(arc.get_source_wire()).to_str().unwrap();
-        let dst_name = ctx.name_of_wire(arc.get_sink_wire()).to_str().unwrap();
+        //let dst_name = ctx.name_of_wire(arc.get_sink_wire()).to_str().unwrap();
 
         if src_name.contains("FCO_SLICE") {
             return true;

@@ -169,20 +169,25 @@ fn route(ctx: &mut npnr::Context) -> bool {
     );
 
     let time = Instant::now() - start;
-
     log_info!("Partitioning took {:.2}s\n", time.as_secs_f32());
 
+    let start = Instant::now();
+
     let mut router = route::Router::new(Coord::new(0, 0), Coord::new(x_part, y_part));
-    log_info!("Routing northeast arcs");
+    log_info!("Routing northeast arcs\n");
     router.route(ctx, &nets, &ne);
-    log_info!("Routing southeast arcs");
+    log_info!("Routing southeast arcs\n");
     router.route(ctx, &nets, &se);
-    log_info!("Routing southwest arcs");
+    log_info!("Routing southwest arcs\n");
     router.route(ctx, &nets, &sw);
-    log_info!("Routing northwest arcs");
+    log_info!("Routing northwest arcs\n");
     router.route(ctx, &nets, &nw);
-    log_info!("Routing miscellaneous arcs");
+    log_info!("Routing miscellaneous arcs\n");
     router.route(ctx, &nets, &misc);
+
+    let time = Instant::now() - start;
+    log_info!("Routing took {:.2}s\n", time.as_secs_f32());
+
     //let mut router = route::Router::new(Coord::new(0, 0), Coord::new(x_part, y_part));
 
     /*log_info!("=== level 2 NE:\n");
