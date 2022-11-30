@@ -3,7 +3,7 @@ use std::{
     time::Duration,
 };
 
-use indicatif::{ProgressBar, ProgressStyle};
+use indicatif::{ProgressBar, ProgressStyle, MultiProgress};
 
 use crate::{
     npnr::{self, NetIndex, PipId},
@@ -126,15 +126,14 @@ impl Router {
         }
     }
 
-    pub fn route(&mut self, ctx: &npnr::Context, nets: &npnr::Nets, arcs: &[Arc]) {
-        let progress = ProgressBar::new(arcs.len() as u64);
+    pub fn route(&mut self, ctx: &npnr::Context, nets: &npnr::Nets, arcs: &[Arc], progress: &MultiProgress) {
+        let progress = progress.add(ProgressBar::new(arcs.len() as u64));
         progress.set_style(
             ProgressStyle::with_template("[{elapsed}] [{bar:40.magenta/red}] {msg:30!}")
                 .unwrap()
                 .progress_chars("━╸ "),
         );
 
-        progress.enable_steady_tick(Duration::from_secs_f32(0.2));
         for arc in arcs {
             let net = unsafe { nets.net_from_index(arc.net).as_ref().unwrap() };
             let name = ctx
@@ -183,14 +182,14 @@ impl Router {
             }
 
             for pip in ctx.get_downhill_pips(source.wire) {
-                /*let pip_loc = ctx.pip_location(pip);
+                let pip_loc = ctx.pip_location(pip);
                 let pip_coord = partition::Coord::from(pip_loc);
                 if pip_coord.is_north_of(&self.box_ne) || pip_coord.is_east_of(&self.box_ne) {
                     continue;
                 }
                 if pip_coord.is_south_of(&self.box_sw) || pip_coord.is_west_of(&self.box_sw) {
                     continue;
-                }*/
+                }
 
                 /*
                 if (!ctx->checkPipAvailForNet(dh, net))
