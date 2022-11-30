@@ -3,6 +3,8 @@
 use std::{ptr::NonNull, time::Instant};
 
 use colored::Colorize;
+use indicatif::MultiProgress;
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
 use crate::partition::Coord;
 
@@ -173,20 +175,29 @@ fn route(ctx: &mut npnr::Context) -> bool {
 
     let start = Instant::now();
 
-    let mut router = route::Router::new(Coord::new(0, 0), Coord::new(x_part, y_part));
-    log_info!("Routing northeast arcs\n");
-    router.route(ctx, &nets, &ne);
-    log_info!("Routing southeast arcs\n");
-    router.route(ctx, &nets, &se);
-    log_info!("Routing southwest arcs\n");
-    router.route(ctx, &nets, &sw);
-    log_info!("Routing northwest arcs\n");
-    router.route(ctx, &nets, &nw);
+    log_info!("Routing partitioned arcs\n");
+
+    let progress = MultiProgress::new();
+
+    let partitions = [
+        (Coord::new(0, 0), Coord::new(x_part+1, y_part+1), &ne),
+        (Coord::new(x_part-1, 0), Coord::new(ctx.grid_dim_x(), y_part+1), &se),
+        (Coord::new(x_part-1, y_part-1), Coord::new(ctx.grid_dim_x(), ctx.grid_dim_y()), &sw),
+        (Coord::new(0, y_part-1), Coord::new(x_part+1, ctx.grid_dim_y()), &nw)
+    ];
+
+    partitions.par_iter().for_each(|(box_ne, box_sw, arcs)| {
+        let mut router = route::Router::new(*box_ne, *box_sw);
+        router.route(ctx, &nets, arcs, &progress);
+    });
+
     log_info!("Routing miscellaneous arcs\n");
-    router.route(ctx, &nets, &misc);
+    let mut router = route::Router::new(Coord::new(0, 0), Coord::new(ctx.grid_dim_x(), ctx.grid_dim_y()));
+    router.route(ctx, &nets, &misc, &progress);
 
     let time = Instant::now() - start;
-    log_info!("Routing took {:.2}s\n", time.as_secs_f32());
+
+    log_info!("Routing took {:.2}s\n", time.as_secs_f32().to_string().bold());
 
     //let mut router = route::Router::new(Coord::new(0, 0), Coord::new(x_part, y_part));
 

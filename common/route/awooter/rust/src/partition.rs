@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ops::RangeBounds, sync::atomic::AtomicUsize};
+use std::{collections::{HashMap, HashSet}, ops::RangeBounds, sync::atomic::AtomicUsize};
 
 use colored::Colorize;
 use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
@@ -24,6 +24,7 @@ pub enum Segment {
 //            v
 //            S
 //        (x > P.x)
+#[derive(Clone, Copy)]
 pub struct Coord {
     x: i32,
     y: i32,
@@ -359,12 +360,10 @@ fn partition<R: RangeBounds<i32>>(
     );
 
     let is_special_case = |arc: &Arc| {
-        let src_wire = arc.get_source_wire();
-        //let dst_wire = arc.get_sink_wire();
         let src_name = ctx.name_of_wire(arc.get_source_wire()).to_str().unwrap();
-        //let dst_name = ctx.name_of_wire(arc.get_sink_wire()).to_str().unwrap();
+        let dst_name = ctx.name_of_wire(arc.get_sink_wire()).to_str().unwrap();
 
-        if src_name.contains("FCO_SLICE") {
+        if src_name.contains("FCO_SLICE") || src_name.contains('J') || src_name.contains("DDR") || dst_name.contains("DDR") {
             return true;
         }
 
@@ -407,8 +406,9 @@ fn partition<R: RangeBounds<i32>>(
             let sink_coords: Coord = sink_loc.into();
             let sink_is_north = sink_coords.is_north_of(&partition_coords);
             let sink_is_east = sink_coords.is_east_of(&partition_coords);
-            //let name = ctx.name_of(nets.name_from_index(arc.net())).to_str().unwrap().to_string();
-            let verbose = false; // name == "decode_to_execute_IS_RS2_SIGNED_LUT4_D_1_Z_CCU2C_B1_S0_CCU2C_S0_3_B1";
+            // let name = ctx.name_of(nets.name_from_index(arc.net())).to_str().unwrap().to_string();
+            let verbose = false; // name == "IBusCachedPlugin_fetchPc_pc_LUT4_Z_15_B_CCU2C_S0$CCU2_FCI_INT";
+            //"soc0.processor.with_fpu.fpu_0.fpu_multiply_0.rin_CCU2C_S0_24_B1_LUT4_Z_B_CCU2C_S0_CIN_CCU2C_COUT_S1_LUT4_D_Z_LUT4_Z_D_CCU2C_S0_CIN_CCU2C_COUT_CIN_CCU2C_COUT$CCU2_FCI_INT";
             if source_is_north == sink_is_north && source_is_east == sink_is_east {
                 let seg = source_coords.segment_from(&Coord::new(x, y));
                 vec![(seg, arc.clone())]
