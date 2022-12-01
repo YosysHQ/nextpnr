@@ -76,7 +76,6 @@ impl From<npnr::Loc> for Coord {
 
 pub fn find_partition_point(
     ctx: &npnr::Context,
-    nets: &npnr::Nets,
     arcs: &[Arc],
     pips: &[npnr::PipId],
     x_start: i32,
@@ -98,7 +97,6 @@ pub fn find_partition_point(
     while x_diff != 0 {
         (ne, se, sw, nw, misc) = partition(
             ctx,
-            nets,
             arcs,
             pips,
             x,
@@ -143,7 +141,6 @@ pub fn find_partition_point(
 
     (ne, se, sw, nw, misc) = partition(
         ctx,
-        nets,
         arcs,
         pips,
         x,
@@ -207,9 +204,15 @@ fn split_line_over_y(line: (npnr::Loc, npnr::Loc), y_location: i32) -> i32 {
 }
 
 // A big thank you to @Spacecat-chan for fixing my broken and buggy partition code.
+
+// SpaceCat~Chan:
+/// ### Current State of the Partitioner:  
+/// after some annoying discoveries, it turns out that partitioning correctly requires ensuring much
+/// more that just having each pip not be reused by different nets, it turns out we also need to care
+/// about the source and sink wires, so this current partitioner is written only to produce a partition
+/// result which is correct, without any care about speed or actual pathing optimality
 fn partition<R: RangeBounds<i32>>(
     ctx: &npnr::Context,
-    nets: &npnr::Nets,
     arcs: &[Arc],
     pips: &[npnr::PipId],
     x: i32,
@@ -559,6 +562,7 @@ fn partition<R: RangeBounds<i32>>(
                     if middle.0 == x {
                         middle.0 = x + 1;
                     }
+
                     let pips = match (source_is_east, source_is_north) {
                         (true, false) => &pips_w_s,
                         (false, false) => &pips_e_s,
@@ -606,6 +610,8 @@ fn partition<R: RangeBounds<i32>>(
                         middle_vert.1.clamp(1, ctx.grid_dim_y() - 1),
                     );
 
+                    let horiz_happens_first = (middle_horiz.1 < y) == source_is_east;
+
                     // need to avoid the partition point
                     if middle_horiz.1 == y || middle_vert.0 == x {
                         if source_is_east != sink_is_north {
@@ -617,22 +623,29 @@ fn partition<R: RangeBounds<i32>>(
                         }
                     }
 
-                    let pips = match (source_is_north, source_is_east) {
-                        (true, false) => &pips_s_w,
-                        (false, false) => &pips_n_w,
-                        (true, true) => &pips_s_e,
-                        (false, true) => &pips_n_e,
+                    let pips = match (source_is_north, source_is_east, horiz_happens_first) {
+                        (true, false, true) => &pips_s_w,
+                        (false, false, true) => &pips_n_w,
+                        (true, true, true) => &pips_s_e,
+                        (false, true, true) => &pips_n_e,
+                        (true, false, false) => &pips_s_e,
+                        (false, false, false) => &pips_n_e,
+                        (true, true, false) => &pips_s_w,
+                        (false, true, false) => &pips_n_w,
                     };
 
                     let horiz_pip = find_best_pip(pips, arc, &congestion);
                     explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
 
-                    let pips = match (source_is_east, source_is_north) {
-                        // horiz pip forced to happen first, so we are now on ther other side of the north/south border
-                        (true, false) => &pips_w_n,
-                        (false, false) => &pips_e_n,
-                        (true, true) => &pips_w_s,
-                        (false, true) => &pips_e_s,
+                    let pips = match (source_is_east, source_is_north, horiz_happens_first) {
+                        (true, false, true) => &pips_w_n,
+                        (false, false, true) => &pips_e_n,
+                        (true, true, true) => &pips_w_s,
+                        (false, true, true) => &pips_e_s,
+                        (true, false, false) => &pips_w_s,
+                        (false, false, false) => &pips_e_s,
+                        (true, true, false) => &pips_w_n,
+                        (false, true, false) => &pips_e_n,
                     };
 
                     let vert_pip = find_best_pip(pips, arc, &congestion);
@@ -660,28 +673,43 @@ fn partition<R: RangeBounds<i32>>(
                         overuse.insert(ctx.pip_dst_wire(vert_pip), 1);
                     }
 
-                    let horiz_loc: Coord = ctx.pip_location(horiz_pip).into();
-                    let horiz_is_east = horiz_loc.is_east_of(&partition_coords);
-                    let (src_to_mid1, mid1_to_mid2, mid2_to_dst) = {
+                    let (src_to_mid1, mid1_to_mid2, mid2_to_dst) = if horiz_happens_first {
                         let (a, b) = arc.split(ctx, horiz_pip);
                         let (b, c) = b.split(ctx, vert_pip);
                         (a, b, c)
+                    } else {
+                        let (a, b) = arc.split(ctx, vert_pip);
+                        let (b, c) = b.split(ctx, horiz_pip);
+                        (a, b, c)
                     };
 
-                    let (seg1, seg2, seg3) = match (source_is_north, source_is_east) {
-                        (true, true) => {
-                            (Segment::Northeast, Segment::Southeast, Segment::Southwest)
-                        }
-                        (true, false) => {
-                            (Segment::Northwest, Segment::Southwest, Segment::Southeast)
-                        }
-                        (false, true) => {
-                            (Segment::Southeast, Segment::Northeast, Segment::Northwest)
-                        }
-                        (false, false) => {
-                            (Segment::Southwest, Segment::Northwest, Segment::Northeast)
-                        }
-                    };
+                    let (seg1, seg2, seg3) =
+                        match (source_is_north, source_is_east, horiz_happens_first) {
+                            (true, true, true) => {
+                                (Segment::Northeast, Segment::Southeast, Segment::Southwest)
+                            }
+                            (true, false, true) => {
+                                (Segment::Northwest, Segment::Southwest, Segment::Southeast)
+                            }
+                            (false, true, true) => {
+                                (Segment::Southeast, Segment::Northeast, Segment::Northwest)
+                            }
+                            (false, false, true) => {
+                                (Segment::Southwest, Segment::Northwest, Segment::Northeast)
+                            }
+                            (true, true, false) => {
+                                (Segment::Northeast, Segment::Northwest, Segment::Southwest)
+                            }
+                            (true, false, false) => {
+                                (Segment::Northwest, Segment::Northeast, Segment::Southeast)
+                            }
+                            (false, true, false) => {
+                                (Segment::Southeast, Segment::Southwest, Segment::Northwest)
+                            }
+                            (false, false, false) => {
+                                (Segment::Southwest, Segment::Southeast, Segment::Northeast)
+                            }
+                        };
                     part_diag.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     vec![
                         (seg1, src_to_mid1),
@@ -803,7 +831,6 @@ fn partition<R: RangeBounds<i32>>(
 
 pub fn find_partition_point_and_sanity_check(
     ctx: &npnr::Context,
-    nets: &npnr::Nets,
     arcs: &[Arc],
     pips: &[npnr::PipId],
     x_start: i32,
@@ -812,7 +839,7 @@ pub fn find_partition_point_and_sanity_check(
     y_finish: i32,
 ) -> (i32, i32, Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>) {
     let (x_part, y_part, ne, se, sw, nw, misc) =
-        find_partition_point(ctx, nets, arcs, pips, x_start, x_finish, y_start, y_finish);
+        find_partition_point(ctx, arcs, pips, x_start, x_finish, y_start, y_finish);
 
     let mut invalid_arcs_in_ne = 0;
     let mut invalid_arcs_in_se = 0;
