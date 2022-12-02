@@ -99,7 +99,7 @@ impl PipId {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash)]
 #[repr(transparent)]
 pub struct WireId(u64);
 
@@ -284,7 +284,7 @@ impl Context {
 
     pub fn name_of_wire(&self, wire: WireId) -> &CStr {
         static MUTEX: Mutex<()> = Mutex::new(());
-        let lock = MUTEX.lock().unwrap();
+        let _lock = MUTEX.lock().unwrap();
         unsafe { CStr::from_ptr(npnr_context_name_of_wire(self, wire)) }
     }
 

@@ -169,8 +169,8 @@ fn route(ctx: &mut npnr::Context) -> bool {
         ctx.grid_dim_y(),
     );
 
-    let time = Instant::now() - start;
-    log_info!("Partitioning took {:.2}s\n", time.as_secs_f32());
+    let time = format!("{:.2}", (Instant::now() - start).as_secs_f32());
+    log_info!("Partitioning took {}s\n", time.bold());
 
     let start = Instant::now();
 
@@ -209,12 +209,8 @@ fn route(ctx: &mut npnr::Context) -> bool {
     );
     router.route(ctx, &nets, &misc, &progress);
 
-    let time = Instant::now() - start;
-
-    log_info!(
-        "Routing took {:.2}s\n",
-        time.as_secs_f32().to_string().bold()
-    );
+    let time = format!("{:.2}", (Instant::now() - start).as_secs_f32());
+    log_info!("Routing took {}s\n", time.bold());
 
     //let mut router = route::Router::new(Coord::new(0, 0), Coord::new(x_part, y_part));
 

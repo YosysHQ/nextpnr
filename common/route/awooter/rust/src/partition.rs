@@ -1,5 +1,6 @@
 use std::{
-    collections::{HashMap, HashSet},
+    cmp::Ordering,
+    collections::HashMap,
     ops::RangeBounds,
     sync::{atomic::AtomicUsize, Mutex},
 };
@@ -416,52 +417,68 @@ fn partition<R: RangeBounds<i32>>(
         false
     };
 
-    let mut congestion = HashMap::new();
+    let mut used_pips: HashMap<npnr::PipId, Mutex<Option<npnr::NetIndex>>> = HashMap::new();
+    let mut used_wires: HashMap<npnr::WireId, Mutex<Option<npnr::NetIndex>>> = HashMap::new();
 
-    let used_pips = Mutex::new(HashMap::new());
-    let used_sinks = Mutex::new(HashMap::new());
-    let used_sources = Mutex::new(HashMap::new());
+    used_pips.reserve(pips.len());
 
-    let find_best_pip = |pips: &Vec<std::sync::Arc<(npnr::PipId, AtomicUsize)>>,
-                         arc: &Arc,
-                         congestion: &HashMap<npnr::WireId, i32>| {
+    let selected_pips = pips_n_e
+        .iter()
+        .chain(pips_e_n.iter())
+        .chain(pips_e_s.iter())
+        .chain(pips_s_e.iter())
+        .chain(pips_s_w.iter())
+        .chain(pips_w_s.iter())
+        .chain(pips_w_n.iter())
+        .chain(pips_n_w.iter());
+
+    for pip in selected_pips {
+        let (pip, _) = pip.as_ref();
+        used_pips.insert(*pip, Mutex::new(None));
+        used_wires.insert(ctx.pip_src_wire(*pip), Mutex::new(None));
+        used_wires.insert(ctx.pip_dst_wire(*pip), Mutex::new(None));
+    }
+
+    let find_best_pip = |pips: &Vec<std::sync::Arc<(npnr::PipId, AtomicUsize)>>, arc: &Arc| {
         let (selected_pip, pip_uses) = pips
             .iter()
             .map(|a| a.as_ref())
-            .find(|(pip, uses)| {
+            .find(|(pip, _uses)| {
                 let source = ctx.pip_src_wire(*pip);
                 let sink = ctx.pip_dst_wire(*pip);
-                let used_pips = used_pips.lock().unwrap();
-                let used_sinks = used_sinks.lock().unwrap();
-                let used_sources = used_sources.lock().unwrap();
-                if used_pips.get(pip).map(|v| *v != arc.net()).unwrap_or(false) {
+
+                let (mut source, mut sink) = match sink.cmp(&source) {
+                    Ordering::Greater => {
+                        let source = used_wires.get(&source).unwrap().lock().unwrap();
+                        let sink = used_wires.get(&sink).unwrap().lock().unwrap();
+                        (source, sink)
+                    }
+                    Ordering::Equal => return false,
+                    Ordering::Less => {
+                        let sink = used_wires.get(&sink).unwrap().lock().unwrap();
+                        let source = used_wires.get(&source).unwrap().lock().unwrap();
+                        (source, sink)
+                    }
+                };
+
+                let mut candidate = used_pips.get(pip).unwrap().lock().unwrap();
+                if candidate.map(|net| net != arc.net()).unwrap_or(false) {
                     return false;
                 }
-                if used_sinks
-                    .get(&source)
-                    .map(|v| *v != arc.net())
-                    .unwrap_or(false)
-                {
+                if source.map(|net| net != arc.net()).unwrap_or(false) {
                     return false;
                 }
-                if used_sources
-                    .get(&sink)
-                    .map(|v| *v != arc.net())
-                    .unwrap_or(false)
-                {
+                if sink.map(|net| net != arc.net()).unwrap_or(false) {
                     return false;
                 }
+
+                *candidate = Some(arc.net());
+                *source = Some(arc.net());
+                *sink = Some(arc.net());
+
                 true
             })
             .expect("unable to find a pip");
-        let source = ctx.pip_src_wire(*selected_pip);
-        let sink = ctx.pip_dst_wire(*selected_pip);
-        let mut used_pips = used_pips.lock().unwrap();
-        let mut used_sinks = used_sinks.lock().unwrap();
-        let mut used_sources = used_sources.lock().unwrap();
-        used_pips.insert(*selected_pip, arc.net());
-        used_sinks.insert(source, arc.net());
-        used_sources.insert(sink, arc.net());
         pip_uses.fetch_add(1, std::sync::atomic::Ordering::Release);
         *selected_pip
     };
@@ -524,7 +541,7 @@ fn partition<R: RangeBounds<i32>>(
                         (false, true) => &pips_n_e,
                     };
 
-                    let selected_pip = find_best_pip(pips, arc, &congestion);
+                    let selected_pip = find_best_pip(pips, arc);
                     explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
 
                     if verbose {
@@ -570,7 +587,7 @@ fn partition<R: RangeBounds<i32>>(
                         (false, true) => &pips_e_n,
                     };
 
-                    let selected_pip = find_best_pip(pips, arc, &congestion);
+                    let selected_pip = find_best_pip(pips, arc);
                     explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
 
                     if verbose {
@@ -634,7 +651,7 @@ fn partition<R: RangeBounds<i32>>(
                         (false, true, false) => &pips_n_w,
                     };
 
-                    let horiz_pip = find_best_pip(pips, arc, &congestion);
+                    let horiz_pip = find_best_pip(pips, arc);
                     explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
 
                     let pips = match (source_is_east, source_is_north, horiz_happens_first) {
@@ -648,7 +665,7 @@ fn partition<R: RangeBounds<i32>>(
                         (false, true, false) => &pips_e_n,
                     };
 
-                    let vert_pip = find_best_pip(pips, arc, &congestion);
+                    let vert_pip = find_best_pip(pips, arc);
                     explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
 
                     if verbose {
