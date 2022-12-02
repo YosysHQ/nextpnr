@@ -159,9 +159,30 @@ fn route(ctx: &mut npnr::Context) -> bool {
 
     let arcs = extract_arcs_from_nets(ctx, &nets);
 
-    let (x_part, y_part, ne, se, sw, nw, misc) = partition::find_partition_point_and_sanity_check(
+    let mut special_arcs = vec![];
+    let mut partitionable_arcs = Vec::with_capacity(arcs.len());
+    for arc in arcs {
+        let src_name = ctx.name_of_wire(arc.get_source_wire()).to_str().unwrap();
+        let dst_name = ctx.name_of_wire(arc.get_sink_wire()).to_str().unwrap();
+
+        if src_name.contains("FCO_SLICE")
+            || src_name.contains('J')
+            || src_name.contains("DDR")
+            || dst_name.contains("DDR")
+        {
+            special_arcs.push(arc);
+        } else {
+            partitionable_arcs.push(arc);
+        }
+    }
+    log_info!(
+        "  {} arcs special-cased\n",
+        special_arcs.len().to_string().bold()
+    );
+
+    let (x_part, y_part, ne, se, sw, nw) = partition::find_partition_point_and_sanity_check(
         ctx,
-        &arcs[..],
+        &partitionable_arcs[..],
         pips,
         0,
         ctx.grid_dim_x(),
@@ -207,7 +228,7 @@ fn route(ctx: &mut npnr::Context) -> bool {
         Coord::new(0, 0),
         Coord::new(ctx.grid_dim_x(), ctx.grid_dim_y()),
     );
-    router.route(ctx, &nets, &misc, &progress);
+    router.route(ctx, &nets, &special_arcs, &progress);
 
     let time = format!("{:.2}", (Instant::now() - start).as_secs_f32());
     log_info!("Routing took {}s\n", time.bold());
