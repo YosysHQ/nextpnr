@@ -1,9 +1,6 @@
-use std::{
-    collections::{BinaryHeap, HashMap},
-    time::Duration,
-};
+use std::collections::{BinaryHeap, HashMap};
 
-use indicatif::{ProgressBar, ProgressStyle, MultiProgress};
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 
 use crate::{
     npnr::{self, NetIndex, PipId},
@@ -126,7 +123,13 @@ impl Router {
         }
     }
 
-    pub fn route(&mut self, ctx: &npnr::Context, nets: &npnr::Nets, arcs: &[Arc], progress: &MultiProgress) {
+    pub fn route(
+        &mut self,
+        ctx: &npnr::Context,
+        nets: &npnr::Nets,
+        arcs: &[Arc],
+        progress: &MultiProgress,
+    ) {
         let progress = progress.add(ProgressBar::new(arcs.len() as u64));
         progress.set_style(
             ProgressStyle::with_template("[{elapsed}] [{bar:40.magenta/red}] {msg:30!}")
@@ -169,7 +172,7 @@ impl Router {
             .unwrap()
             .to_string();
         let verbose = false;
-            //name == "decode_to_execute_IS_RS2_SIGNED_LUT4_D_1_Z_CCU2C_B1_S0_CCU2C_S0_3_B1";
+        //name == "decode_to_execute_IS_RS2_SIGNED_LUT4_D_1_Z_CCU2C_B1_S0_CCU2C_S0_3_B1";
 
         while let Some(source) = queue.pop() {
             if source.wire == arc.sink_wire {
