@@ -117,11 +117,21 @@ impl WireId {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Loc {
     pub x: libc::c_int,
     pub y: libc::c_int,
     pub z: libc::c_int,
+}
+
+impl From<(i32, i32)> for Loc {
+    fn from(pos: (i32, i32)) -> Self {
+        Self {
+            x: pos.0,
+            y: pos.1,
+            z: 0,
+        }
+    }
 }
 
 #[repr(C)]

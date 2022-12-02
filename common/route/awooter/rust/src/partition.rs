@@ -18,6 +18,18 @@ pub enum Segment {
     Northwest,
 }
 
+pub enum FullSegment {
+    Northeast,
+    Southeast,
+    Southwest,
+    Northwest,
+    North,
+    South,
+    East,
+    West,
+    Exact,
+}
+
 //        (x < P.x)
 //            N
 //            ^
@@ -62,6 +74,26 @@ impl Coord {
             (true, false) => Segment::Northwest,
             (false, true) => Segment::Southeast,
             (false, false) => Segment::Southwest,
+        }
+    }
+
+    pub fn full_segment(&self, from: &Self) -> FullSegment {
+        match (
+            self.is_north_of(from),
+            self.is_east_of(from),
+            self.is_south_of(from),
+            self.is_west_of(from),
+        ) {
+            (true, true, false, false) => FullSegment::Northeast,
+            (true, false, false, true) => FullSegment::Northwest,
+            (false, true, true, false) => FullSegment::Southeast,
+            (false, false, true, true) => FullSegment::Southwest,
+            (true, false, false, false) => FullSegment::North,
+            (false, true, false, false) => FullSegment::East,
+            (false, false, true, false) => FullSegment::South,
+            (false, false, false, true) => FullSegment::West,
+            (false, false, false, false) => FullSegment::Exact,
+            _ => unreachable!(),
         }
     }
 }
@@ -222,17 +254,6 @@ fn partition<R: RangeBounds<i32>>(
 ) -> (Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>) {
     let partition_coords = Coord::new(x, y);
 
-    // first direction: where is this pip going
-    // second direction: where is this pip located
-    let mut pips_n_e = Vec::new();
-    let mut pips_e_n = Vec::new();
-    let mut pips_s_e = Vec::new();
-    let mut pips_w_n = Vec::new();
-    let mut pips_n_w = Vec::new();
-    let mut pips_e_s = Vec::new();
-    let mut pips_s_w = Vec::new();
-    let mut pips_w_s = Vec::new();
-
     let mut ne: Vec<Arc> = Vec::new();
     let mut se: Vec<Arc> = Vec::new();
     let mut sw: Vec<Arc> = Vec::new();
@@ -249,222 +270,7 @@ fn partition<R: RangeBounds<i32>>(
         y_str.bold()
     );
 
-    let mut candidates = 0;
-    let mut north = 0;
-    let mut east = 0;
-    let mut south = 0;
-    let mut west = 0;
-    for &pip in pips {
-        let loc = ctx.pip_location(pip);
-        if (loc.x == x || loc.y == y) && x_bounds.contains(&loc.x) && y_bounds.contains(&loc.y) {
-            //correctly classifying the pips on the partition point is pretty much impossible
-            //just avoid the partition point
-            if loc.x == x && loc.y == y {
-                continue;
-            }
-
-            let is_general_routing = |wire: &str| {
-                wire.contains("H01")
-                    || wire.contains("V01")
-                    || wire.contains("H02")
-                    || wire.contains("V02")
-                    || wire.contains("H06")
-                    || wire.contains("V06")
-            };
-
-            let src_wire = ctx.pip_src_wire(pip);
-            let dst_wire = ctx.pip_dst_wire(pip);
-            let src_name = ctx.name_of_wire(src_wire).to_str().unwrap();
-            let dst_name = ctx.name_of_wire(dst_wire).to_str().unwrap();
-            if !is_general_routing(src_name) || !is_general_routing(dst_name) {
-                // ECP5 hack: whitelist allowed wires.
-                continue;
-            }
-
-            candidates += 1;
-
-            let pip_arc = std::sync::Arc::new((pip, AtomicUsize::new(0)));
-            if loc.y == y {
-                // pip is on east-west border
-
-                let (mut src_has_east, mut src_has_west, mut src_has_middle) =
-                    (false, false, false);
-                let (mut dst_has_east, mut dst_has_west, mut dst_has_middle) =
-                    (false, false, false);
-
-                for src_pip in ctx.get_uphill_pips(ctx.pip_src_wire(pip)) {
-                    let src_pip_coord: Coord = ctx.pip_location(src_pip).into();
-                    if (src_pip_coord.x < x) == (loc.x < x) {
-                        src_has_middle |= src_pip_coord.y == loc.y;
-                        src_has_east |= src_pip_coord.is_east_of(&partition_coords);
-                        src_has_west |= src_pip_coord.is_west_of(&partition_coords);
-                    }
-                }
-                for dst_pip in ctx.get_downhill_pips(ctx.pip_dst_wire(pip)) {
-                    let dst_pip_coord: Coord = ctx.pip_location(dst_pip).into();
-                    if (dst_pip_coord.x < x) == (loc.x < x) {
-                        dst_has_middle |= dst_pip_coord.y == loc.y;
-                        dst_has_east |= dst_pip_coord.is_east_of(&partition_coords);
-                        dst_has_west |= dst_pip_coord.is_west_of(&partition_coords);
-                    }
-                }
-                if (src_has_east && (dst_has_west || dst_has_middle))
-                    || (src_has_middle && dst_has_west)
-                {
-                    west += 1;
-                    if loc.x < x {
-                        pips_w_n.push(pip_arc.clone());
-                    } else {
-                        pips_w_s.push(pip_arc.clone());
-                    }
-                }
-                if (src_has_west && (dst_has_east || dst_has_middle))
-                    || (src_has_middle && dst_has_east)
-                {
-                    east += 1;
-                    if loc.x < x {
-                        pips_e_n.push(pip_arc.clone());
-                    } else {
-                        pips_e_s.push(pip_arc.clone());
-                    }
-                }
-            } else {
-                // pip is on south-north border
-
-                let (mut src_has_north, mut src_has_south, mut src_has_middle) =
-                    (false, false, false);
-                let (mut dst_has_north, mut dst_has_south, mut dst_has_middle) =
-                    (false, false, false);
-
-                for src_pip in ctx.get_uphill_pips(ctx.pip_src_wire(pip)) {
-                    let src_pip_coord: Coord = ctx.pip_location(src_pip).into();
-                    if (src_pip_coord.y < y) == (loc.y < y) {
-                        src_has_middle |= src_pip_coord.x == loc.x;
-                        src_has_north |= src_pip_coord.is_north_of(&partition_coords);
-                        src_has_south |= src_pip_coord.is_south_of(&partition_coords);
-                    }
-                }
-                for dst_pip in ctx.get_downhill_pips(ctx.pip_dst_wire(pip)) {
-                    let dst_pip_coord: Coord = ctx.pip_location(dst_pip).into();
-                    if (dst_pip_coord.y < y) == (loc.y < y) {
-                        dst_has_middle |= dst_pip_coord.x == loc.x;
-                        dst_has_north |= dst_pip_coord.is_north_of(&partition_coords);
-                        dst_has_south |= dst_pip_coord.is_south_of(&partition_coords);
-                    }
-                }
-                if (src_has_north && (dst_has_south || dst_has_middle))
-                    || (src_has_middle && dst_has_south)
-                {
-                    south += 1;
-                    if loc.y < y {
-                        pips_s_e.push(pip_arc.clone());
-                    } else {
-                        pips_s_w.push(pip_arc.clone());
-                    }
-                }
-                if (src_has_south && (dst_has_north || dst_has_middle))
-                    || (src_has_middle && dst_has_north)
-                {
-                    north += 1;
-                    if loc.y < y {
-                        pips_n_e.push(pip_arc.clone());
-                    } else {
-                        pips_n_w.push(pip_arc.clone());
-                    }
-                }
-            }
-        }
-    }
-    log_info!(
-        "  Out of {} candidate pips:\n",
-        candidates.to_string().bold()
-    );
-    log_info!("    {} are north-bound\n", north.to_string().bold());
-    log_info!("    {} are east-bound\n", east.to_string().bold());
-    log_info!("    {} are south-bound\n", south.to_string().bold());
-    log_info!("    {} are west-bound\n", west.to_string().bold());
-
-    //let mut unique_sinks = HashSet::new();
-    //let mut unique_sources = HashSet::new();
-    //for pip in pips_n.iter().flat_map(|(_, pips)| pips.iter()) {
-    //    unique_sources.insert(ctx.pip_src_wire(pip.0));
-    //    unique_sinks.insert(ctx.pip_dst_wire(pip.0));
-    //}
-    //log_info!("among the north-bound pips, there are:\n");
-    //log_info!(
-    //    "    {} unique sources\n",
-    //    unique_sources.len().to_string().bold()
-    //);
-    //log_info!(
-    //    "    {} unique sinks\n",
-    //    unique_sinks.len().to_string().bold()
-    //);
-
-    let mut used_pips: HashMap<npnr::PipId, Mutex<Option<npnr::NetIndex>>> = HashMap::new();
-    let mut used_wires: HashMap<npnr::WireId, Mutex<Option<npnr::NetIndex>>> = HashMap::new();
-
-    used_pips.reserve(pips.len());
-
-    let selected_pips = pips_n_e
-        .iter()
-        .chain(pips_e_n.iter())
-        .chain(pips_e_s.iter())
-        .chain(pips_s_e.iter())
-        .chain(pips_s_w.iter())
-        .chain(pips_w_s.iter())
-        .chain(pips_w_n.iter())
-        .chain(pips_n_w.iter());
-
-    for pip in selected_pips {
-        let (pip, _) = pip.as_ref();
-        used_pips.insert(*pip, Mutex::new(None));
-        used_wires.insert(ctx.pip_src_wire(*pip), Mutex::new(None));
-        used_wires.insert(ctx.pip_dst_wire(*pip), Mutex::new(None));
-    }
-
-    let find_best_pip = |pips: &Vec<std::sync::Arc<(npnr::PipId, AtomicUsize)>>, arc: &Arc| {
-        let (selected_pip, pip_uses) = pips
-            .iter()
-            .map(|a| a.as_ref())
-            .find(|(pip, _uses)| {
-                let source = ctx.pip_src_wire(*pip);
-                let sink = ctx.pip_dst_wire(*pip);
-
-                let (mut source, mut sink) = match sink.cmp(&source) {
-                    Ordering::Greater => {
-                        let source = used_wires.get(&source).unwrap().lock().unwrap();
-                        let sink = used_wires.get(&sink).unwrap().lock().unwrap();
-                        (source, sink)
-                    }
-                    Ordering::Equal => return false,
-                    Ordering::Less => {
-                        let sink = used_wires.get(&sink).unwrap().lock().unwrap();
-                        let source = used_wires.get(&source).unwrap().lock().unwrap();
-                        (source, sink)
-                    }
-                };
-
-                let mut candidate = used_pips.get(pip).unwrap().lock().unwrap();
-                if candidate.map(|net| net != arc.net()).unwrap_or(false) {
-                    return false;
-                }
-                if source.map(|net| net != arc.net()).unwrap_or(false) {
-                    return false;
-                }
-                if sink.map(|net| net != arc.net()).unwrap_or(false) {
-                    return false;
-                }
-
-                *candidate = Some(arc.net());
-                *source = Some(arc.net());
-                *sink = Some(arc.net());
-
-                true
-            })
-            .expect("unable to find a pip");
-        pip_uses.fetch_add(1, std::sync::atomic::Ordering::Release);
-        *selected_pip
-    };
+    let pip_selector = PipSelector::new(ctx, pips, (x_bounds, y_bounds), (x, y).into());
 
     let mut explored_pips = AtomicUsize::new(0);
 
@@ -510,15 +316,9 @@ fn partition<R: RangeBounds<i32>>(
                     if middle.1 == y {
                         middle.1 = y + 1;
                     }
-                    let pips = match (source_is_north, source_is_east) {
-                        (true, false) => &pips_s_w,
-                        (false, false) => &pips_n_w,
-                        (true, true) => &pips_s_e,
-                        (false, true) => &pips_n_e,
-                    };
 
-                    let selected_pip = find_best_pip(pips, arc);
-                    explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
+                    let selected_pip =
+                        pip_selector.find_pip(ctx, middle.into(), source_loc, arc.net());
 
                     if verbose {
                         log_info!(
@@ -556,15 +356,8 @@ fn partition<R: RangeBounds<i32>>(
                         middle.0 = x + 1;
                     }
 
-                    let pips = match (source_is_east, source_is_north) {
-                        (true, false) => &pips_w_s,
-                        (false, false) => &pips_e_s,
-                        (true, true) => &pips_w_n,
-                        (false, true) => &pips_e_n,
-                    };
-
-                    let selected_pip = find_best_pip(pips, arc);
-                    explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
+                    let selected_pip =
+                        pip_selector.find_pip(ctx, middle.into(), source_loc, arc.net());
 
                     if verbose {
                         log_info!(
@@ -603,8 +396,6 @@ fn partition<R: RangeBounds<i32>>(
                         middle_vert.1.clamp(1, ctx.grid_dim_y() - 1),
                     );
 
-                    let horiz_happens_first = (middle_horiz.1 < y) == source_is_east;
-
                     // need to avoid the partition point
                     if middle_horiz.1 == y || middle_vert.0 == x {
                         if source_is_east != sink_is_north {
@@ -615,34 +406,33 @@ fn partition<R: RangeBounds<i32>>(
                             middle_vert.0 = x + 1;
                         }
                     }
+                    let horiz_happens_first = (middle_horiz.1 < y) == source_is_east;
 
-                    let pips = match (source_is_north, source_is_east, horiz_happens_first) {
-                        (true, false, true) => &pips_s_w,
-                        (false, false, true) => &pips_n_w,
-                        (true, true, true) => &pips_s_e,
-                        (false, true, true) => &pips_n_e,
-                        (true, false, false) => &pips_s_e,
-                        (false, false, false) => &pips_n_e,
-                        (true, true, false) => &pips_s_w,
-                        (false, true, false) => &pips_n_w,
+                    let (horiz_pip, vert_pip) = if horiz_happens_first {
+                        let horiz =
+                            pip_selector.find_pip(ctx, middle_horiz.into(), source_loc, arc.net());
+                        (
+                            horiz,
+                            pip_selector.find_pip(
+                                ctx,
+                                middle_vert.into(),
+                                middle_horiz.into(),
+                                arc.net(),
+                            ),
+                        )
+                    } else {
+                        let vert =
+                            pip_selector.find_pip(ctx, middle_vert.into(), source_loc, arc.net());
+                        (
+                            pip_selector.find_pip(
+                                ctx,
+                                middle_horiz.into(),
+                                middle_vert.into(),
+                                arc.net(),
+                            ),
+                            vert,
+                        )
                     };
-
-                    let horiz_pip = find_best_pip(pips, arc);
-                    explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
-
-                    let pips = match (source_is_east, source_is_north, horiz_happens_first) {
-                        (true, false, true) => &pips_w_n,
-                        (false, false, true) => &pips_e_n,
-                        (true, true, true) => &pips_w_s,
-                        (false, true, true) => &pips_e_s,
-                        (true, false, false) => &pips_w_s,
-                        (false, false, false) => &pips_e_s,
-                        (true, true, false) => &pips_w_n,
-                        (false, true, false) => &pips_e_n,
-                    };
-
-                    let vert_pip = find_best_pip(pips, arc);
-                    explored_pips.fetch_add(pips.len(), std::sync::atomic::Ordering::Relaxed);
 
                     if verbose {
                         log_info!(
@@ -712,8 +502,6 @@ fn partition<R: RangeBounds<i32>>(
                 }
             })
             .collect::<Vec<_>>();
-
-        let overuse = overuse.into_inner().unwrap();
 
         for (segment, arc) in arcs {
             match segment {
@@ -897,4 +685,279 @@ pub fn find_partition_point_and_sanity_check(
     }
 
     (x_part, y_part, ne, se, sw, nw)
+}
+
+struct PipSelector {
+    used_pips: HashMap<npnr::PipId, Mutex<Option<npnr::NetIndex>>>,
+    used_wires: HashMap<npnr::WireId, Mutex<Option<npnr::NetIndex>>>,
+
+    // first direction: where is this pip going
+    // second direction: where is this pip located
+    pips_n_e: Vec<npnr::PipId>,
+    pips_e_n: Vec<npnr::PipId>,
+    pips_s_e: Vec<npnr::PipId>,
+    pips_w_n: Vec<npnr::PipId>,
+    pips_n_w: Vec<npnr::PipId>,
+    pips_e_s: Vec<npnr::PipId>,
+    pips_s_w: Vec<npnr::PipId>,
+    pips_w_s: Vec<npnr::PipId>,
+
+    partition_loc: npnr::Loc,
+}
+
+impl PipSelector {
+    fn new<R: RangeBounds<i32>>(
+        ctx: &npnr::Context,
+        pips: &[npnr::PipId],
+        bounds: (R, R),
+        partition_point: npnr::Loc,
+    ) -> Self {
+        let mut pips_n_e = vec![];
+        let mut pips_e_n = vec![];
+        let mut pips_s_e = vec![];
+        let mut pips_w_n = vec![];
+        let mut pips_n_w = vec![];
+        let mut pips_e_s = vec![];
+        let mut pips_s_w = vec![];
+        let mut pips_w_s = vec![];
+
+        let mut candidates = 0;
+        let mut north = 0;
+        let mut east = 0;
+        let mut south = 0;
+        let mut west = 0;
+        for &pip in pips {
+            let loc = ctx.pip_location(pip);
+            if (loc.x == partition_point.x || loc.y == partition_point.y)
+                && bounds.0.contains(&loc.x)
+                && bounds.1.contains(&loc.y)
+            {
+                //correctly classifying the pips on the partition point is pretty much impossible
+                //just avoid the partition point
+                if loc.x == partition_point.x && loc.y == partition_point.y {
+                    continue;
+                }
+
+                let is_general_routing = |wire: &str| {
+                    wire.contains("H01")
+                        || wire.contains("V01")
+                        || wire.contains("H02")
+                        || wire.contains("V02")
+                        || wire.contains("H06")
+                        || wire.contains("V06")
+                };
+
+                let src_wire = ctx.pip_src_wire(pip);
+                let dst_wire = ctx.pip_dst_wire(pip);
+                let src_name = ctx.name_of_wire(src_wire).to_str().unwrap();
+                let dst_name = ctx.name_of_wire(dst_wire).to_str().unwrap();
+                if !is_general_routing(src_name) || !is_general_routing(dst_name) {
+                    // ECP5 hack: whitelist allowed wires.
+                    continue;
+                }
+
+                candidates += 1;
+
+                if loc.y == partition_point.y {
+                    // pip is on east-west border
+
+                    let (mut src_has_east, mut src_has_west, mut src_has_middle) =
+                        (false, false, false);
+                    let (mut dst_has_east, mut dst_has_west, mut dst_has_middle) =
+                        (false, false, false);
+
+                    for src_pip in ctx.get_uphill_pips(ctx.pip_src_wire(pip)) {
+                        let src_pip_coord: Coord = ctx.pip_location(src_pip).into();
+                        if (src_pip_coord.x < partition_point.x) == (loc.x < partition_point.x) {
+                            src_has_middle |= src_pip_coord.y == loc.y;
+                            src_has_east |= src_pip_coord.is_east_of(&partition_point.into());
+                            src_has_west |= src_pip_coord.is_west_of(&partition_point.into());
+                        }
+                    }
+                    for dst_pip in ctx.get_downhill_pips(ctx.pip_dst_wire(pip)) {
+                        let dst_pip_coord: Coord = ctx.pip_location(dst_pip).into();
+                        if (dst_pip_coord.x < partition_point.x) == (loc.x < partition_point.x) {
+                            dst_has_middle |= dst_pip_coord.y == loc.y;
+                            dst_has_east |= dst_pip_coord.is_east_of(&partition_point.into());
+                            dst_has_west |= dst_pip_coord.is_west_of(&partition_point.into());
+                        }
+                    }
+                    if (src_has_east && (dst_has_west || dst_has_middle))
+                        || (src_has_middle && dst_has_west)
+                    {
+                        west += 1;
+                        if loc.x < partition_point.x {
+                            pips_w_n.push(pip);
+                        } else {
+                            pips_w_s.push(pip);
+                        }
+                    }
+                    if (src_has_west && (dst_has_east || dst_has_middle))
+                        || (src_has_middle && dst_has_east)
+                    {
+                        east += 1;
+                        if loc.x < partition_point.x {
+                            pips_e_n.push(pip);
+                        } else {
+                            pips_e_s.push(pip);
+                        }
+                    }
+                } else {
+                    // pip is on south-north border
+
+                    let (mut src_has_north, mut src_has_south, mut src_has_middle) =
+                        (false, false, false);
+                    let (mut dst_has_north, mut dst_has_south, mut dst_has_middle) =
+                        (false, false, false);
+
+                    for src_pip in ctx.get_uphill_pips(ctx.pip_src_wire(pip)) {
+                        let src_pip_coord: Coord = ctx.pip_location(src_pip).into();
+                        if (src_pip_coord.y < partition_point.y) == (loc.y < partition_point.y) {
+                            src_has_middle |= src_pip_coord.x == loc.x;
+                            src_has_north |= src_pip_coord.is_north_of(&partition_point.into());
+                            src_has_south |= src_pip_coord.is_south_of(&partition_point.into());
+                        }
+                    }
+                    for dst_pip in ctx.get_downhill_pips(ctx.pip_dst_wire(pip)) {
+                        let dst_pip_coord: Coord = ctx.pip_location(dst_pip).into();
+                        if (dst_pip_coord.y < partition_point.y) == (loc.y < partition_point.y) {
+                            dst_has_middle |= dst_pip_coord.x == loc.x;
+                            dst_has_north |= dst_pip_coord.is_north_of(&partition_point.into());
+                            dst_has_south |= dst_pip_coord.is_south_of(&partition_point.into());
+                        }
+                    }
+                    if (src_has_north && (dst_has_south || dst_has_middle))
+                        || (src_has_middle && dst_has_south)
+                    {
+                        south += 1;
+                        if loc.y < partition_point.y {
+                            pips_s_e.push(pip);
+                        } else {
+                            pips_s_w.push(pip);
+                        }
+                    }
+                    if (src_has_south && (dst_has_north || dst_has_middle))
+                        || (src_has_middle && dst_has_north)
+                    {
+                        north += 1;
+                        if loc.y < partition_point.y {
+                            pips_n_e.push(pip);
+                        } else {
+                            pips_n_w.push(pip);
+                        }
+                    }
+                }
+            }
+        }
+        log_info!(
+            "  Out of {} candidate pips:\n",
+            candidates.to_string().bold()
+        );
+        log_info!("    {} are north-bound\n", north.to_string().bold());
+        log_info!("    {} are east-bound\n", east.to_string().bold());
+        log_info!("    {} are south-bound\n", south.to_string().bold());
+        log_info!("    {} are west-bound\n", west.to_string().bold());
+
+        let mut used_pips = HashMap::with_capacity(pips.len());
+        let mut used_wires = HashMap::new();
+
+        let selected_pips = pips_n_e
+            .iter()
+            .chain(pips_e_n.iter())
+            .chain(pips_e_s.iter())
+            .chain(pips_s_e.iter())
+            .chain(pips_s_w.iter())
+            .chain(pips_w_s.iter())
+            .chain(pips_w_n.iter())
+            .chain(pips_n_w.iter());
+
+        for pip in selected_pips {
+            used_pips.insert(*pip, Mutex::new(None));
+            used_wires.insert(ctx.pip_src_wire(*pip), Mutex::new(None));
+            used_wires.insert(ctx.pip_dst_wire(*pip), Mutex::new(None));
+        }
+
+        PipSelector {
+            used_pips,
+            used_wires,
+            pips_n_e,
+            pips_e_n,
+            pips_s_e,
+            pips_w_n,
+            pips_n_w,
+            pips_e_s,
+            pips_s_w,
+            pips_w_s,
+            partition_loc: partition_point,
+        }
+    }
+
+    /// finds a pip hopefully close to `desired_pip_location` which has a source accessable from `coming_from`
+    fn find_pip(
+        &self,
+        ctx: &npnr::Context,
+        desired_pip_location: npnr::Loc,
+        coming_from: npnr::Loc,
+        net: npnr::NetIndex,
+    ) -> npnr::PipId {
+        let desired_coord: Coord = desired_pip_location.into();
+        let from_coord: Coord = coming_from.into();
+        let pips = match (
+            desired_coord.full_segment(&self.partition_loc.into()),
+            from_coord.is_north_of(&self.partition_loc.into()),
+            from_coord.is_east_of(&self.partition_loc.into()),
+        ) {
+            (FullSegment::North, _, true) => &self.pips_w_n,
+            (FullSegment::South, _, true) => &self.pips_w_s,
+            (FullSegment::North, _, false) => &self.pips_e_n,
+            (FullSegment::South, _, false) => &self.pips_e_s,
+            (FullSegment::East, true, _) => &self.pips_s_e,
+            (FullSegment::West, true, _) => &self.pips_s_w,
+            (FullSegment::East, false, _) => &self.pips_n_e,
+            (FullSegment::West, false, _) => &self.pips_n_w,
+            (FullSegment::Exact, _, _) => panic!("can't find pips on the partition point"),
+            _ => panic!("pip must be on partition boundaries somewhere"),
+        };
+
+        let selected_pip = pips
+            .iter()
+            .find(|&pip| {
+                let source = ctx.pip_src_wire(*pip);
+                let sink = ctx.pip_dst_wire(*pip);
+
+                let (mut source, mut sink) = match sink.cmp(&source) {
+                    Ordering::Greater => {
+                        let source = self.used_wires.get(&source).unwrap().lock().unwrap();
+                        let sink = self.used_wires.get(&sink).unwrap().lock().unwrap();
+                        (source, sink)
+                    }
+                    Ordering::Equal => return false,
+                    Ordering::Less => {
+                        let sink = self.used_wires.get(&sink).unwrap().lock().unwrap();
+                        let source = self.used_wires.get(&source).unwrap().lock().unwrap();
+                        (source, sink)
+                    }
+                };
+
+                let mut candidate = self.used_pips.get(pip).unwrap().lock().unwrap();
+                if candidate.map(|other| other != net).unwrap_or(false) {
+                    return false;
+                }
+                if source.map(|other| other != net).unwrap_or(false) {
+                    return false;
+                }
+                if sink.map(|other| other != net).unwrap_or(false) {
+                    return false;
+                }
+
+                *candidate = Some(net);
+                *source = Some(net);
+                *sink = Some(net);
+
+                true
+            })
+            .expect("unable to find a pip");
+
+        *selected_pip
+    }
 }
