@@ -596,7 +596,7 @@ struct Arch : ArchAPI<ArchRanges>
     void unbindPip(PipId pip) final;
 
     bool checkPipAvail(PipId pip) const final;
-    bool checkPipAvailForNet(PipId pip, NetInfo *net) const final;
+    bool checkPipAvailForNet(PipId pip, const NetInfo *net) const final;
 
     NetInfo *getBoundPipNet(PipId pip) const final
     {

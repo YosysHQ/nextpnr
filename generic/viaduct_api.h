@@ -77,7 +77,7 @@ struct ViaductAPI
     // it's bound (which the base arch will deal with)
     virtual bool checkWireAvail(WireId wire) const { return true; }
     virtual bool checkPipAvail(PipId pip) const { return true; }
-    virtual bool checkPipAvailForNet(PipId pip, NetInfo *net) const { return checkPipAvail(pip); };
+    virtual bool checkPipAvailForNet(PipId pip, const NetInfo *net) const { return checkPipAvail(pip); };
 
     // --- Route lookahead ---
     virtual delay_t estimateDelay(WireId src, WireId dst) const;

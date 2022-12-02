@@ -468,7 +468,7 @@ bool Arch::checkPipAvail(PipId pip) const
     return (!uarch || uarch->checkPipAvail(pip)) && (pip_info(pip).bound_net == nullptr);
 }
 
-bool Arch::checkPipAvailForNet(PipId pip, NetInfo *net) const
+bool Arch::checkPipAvailForNet(PipId pip, const NetInfo *net) const
 {
     if (uarch && !uarch->checkPipAvailForNet(pip, net))
         return false;

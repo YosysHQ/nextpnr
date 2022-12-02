@@ -93,7 +93,7 @@ template <typename R> struct ArchAPI : BaseCtx
     virtual void bindPip(PipId pip, NetInfo *net, PlaceStrength strength) = 0;
     virtual void unbindPip(PipId pip) = 0;
     virtual bool checkPipAvail(PipId pip) const = 0;
-    virtual bool checkPipAvailForNet(PipId pip, NetInfo *net) const = 0;
+    virtual bool checkPipAvailForNet(PipId pip, const NetInfo *net) const = 0;
     virtual NetInfo *getBoundPipNet(PipId pip) const = 0;
     virtual WireId getConflictingPipWire(PipId pip) const = 0;
     virtual NetInfo *getConflictingPipNet(PipId pip) const = 0;

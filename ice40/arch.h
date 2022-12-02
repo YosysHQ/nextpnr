@@ -680,7 +680,7 @@ struct Arch : BaseArch<ArchRanges>
         return switches_locked[pi.switch_index] == WireId();
     }
 
-    bool checkPipAvailForNet(PipId pip, NetInfo *net) const override
+    bool checkPipAvailForNet(PipId pip, const NetInfo *net) const override
     {
         if (ice40_pip_hard_unavail(pip))
             return false;

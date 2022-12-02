@@ -408,7 +408,7 @@ struct Arch : BaseArch<ArchRanges>
         return BaseArch::checkPipAvail(pip);
     }
 
-    bool checkPipAvailForNet(PipId pip, NetInfo *net) const override
+    bool checkPipAvailForNet(PipId pip, const NetInfo *net) const override
     {
         if (is_pip_blocked(pip))
             return false;
