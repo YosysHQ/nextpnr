@@ -49,6 +49,12 @@ impl NetInfo {
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct NetIndex(i32);
 
+impl NetIndex {
+    pub fn into_inner(self) -> i32 {
+        self.0
+    }
+}
+
 #[repr(C)]
 pub struct PortRef {
     private: [u8; 0],
@@ -271,6 +277,10 @@ impl Context {
         unsafe { npnr_context_get_pip_direction(self, pip) }
     }
 
+    pub fn pip_avail_for_net(&self, pip: PipId, net: *mut NetInfo) -> bool {
+        unsafe { npnr_context_check_pip_avail_for_net(self, pip, net) }
+    }
+
     pub fn check(&self) {
         unsafe { npnr_context_check(self) }
     }
@@ -346,6 +356,7 @@ extern "C-unwind" {
     fn npnr_context_get_pips_leak(ctx: *const Context, pips: *mut *mut PipId) -> u64;
     fn npnr_context_get_pip_location(ctx: *const Context, pip: PipId) -> Loc;
     fn npnr_context_get_pip_direction(ctx: *const Context, pip: PipId) -> Loc;
+    fn npnr_context_check_pip_avail_for_net(ctx: *const Context, pip: PipId, net: *const NetInfo) -> bool;
 
     fn npnr_context_check(ctx: *const Context);
     fn npnr_context_debug(ctx: *const Context) -> bool;
@@ -377,6 +388,7 @@ extern "C-unwind" {
     fn npnr_netinfo_users_leak(net: *mut NetInfo, users: *mut *mut *mut PortRef) -> u32;
     fn npnr_netinfo_is_global(net: *const NetInfo) -> bool;
     fn npnr_netinfo_udata(net: *const NetInfo) -> NetIndex;
+    fn npnr_netinfo_udata_set(net: *mut NetInfo, value: NetIndex);
 
     fn npnr_portref_cell(port: *const PortRef) -> *mut CellInfo;
     fn npnr_cellinfo_get_location(info: *const CellInfo) -> Loc;
@@ -434,6 +446,7 @@ impl<'a> Nets<'a> {
             let index = index_to_net.len() as i32;
             index_to_net.push(name);
             net_to_index.insert(net, index);
+            unsafe { npnr_netinfo_udata_set(net, NetIndex(index)); }
         }
         // Note: the contents of `names` and `nets_ptr` are now lost.
         Self {

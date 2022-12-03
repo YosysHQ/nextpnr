@@ -112,9 +112,9 @@ impl From<npnr::Loc> for Coord {
 
 pub fn find_partition_point(
     ctx: &npnr::Context,
+    nets: &npnr::Nets,
     arcs: &[Arc],
     pips: &[npnr::PipId],
-    nets: &npnr::Nets,
     x_start: i32,
     x_finish: i32,
     y_start: i32,
@@ -133,9 +133,9 @@ pub fn find_partition_point(
     while x_diff != 0 {
         (ne, se, sw, nw) = partition(
             ctx,
+            nets,
             arcs,
             pips,
-            nets,
             x,
             y,
             x_start..=x_finish,
@@ -178,9 +178,9 @@ pub fn find_partition_point(
 
     (ne, se, sw, nw) = partition(
         ctx,
+        nets,
         arcs,
         pips,
-        nets,
         x,
         y,
         x_start..=x_finish,
@@ -251,9 +251,9 @@ fn split_line_over_y(line: (npnr::Loc, npnr::Loc), y_location: i32) -> i32 {
 /// result which is correct, without any care about speed or actual pathing optimality
 fn partition<R: RangeBounds<i32>>(
     ctx: &npnr::Context,
+    nets: &npnr::Nets,
     arcs: &[Arc],
     pips: &[npnr::PipId],
-    nets: &npnr::Nets,
     x: i32,
     y: i32,
     x_bounds: R,
@@ -307,9 +307,8 @@ fn partition<R: RangeBounds<i32>>(
                 let sink_coords: Coord = sink_loc.into();
                 let sink_is_north = sink_coords.is_north_of(&partition_coords);
                 let sink_is_east = sink_coords.is_east_of(&partition_coords);
-                // let name = ctx.name_of(nets.name_from_index(arc.net())).to_str().unwrap().to_string();
-                let verbose = false; // name == "IBusCachedPlugin_fetchPc_pc_LUT4_Z_15_B_CCU2C_S0$CCU2_FCI_INT";
-                                     //"soc0.processor.with_fpu.fpu_0.fpu_multiply_0.rin_CCU2C_S0_24_B1_LUT4_Z_B_CCU2C_S0_CIN_CCU2C_COUT_S1_LUT4_D_Z_LUT4_Z_D_CCU2C_S0_CIN_CCU2C_COUT_CIN_CCU2C_COUT$CCU2_FCI_INT";
+                let name = ctx.name_of(nets.name_from_index(arc.net())).to_str().unwrap().to_string();
+                let verbose = false; //name == "soc0.processor.with_fpu.fpu_0.fpu_multiply_0.rin_CCU2C_S0_4$CCU2_FCI_INT";
                 if source_is_north == sink_is_north && source_is_east == sink_is_east {
                     let seg = source_coords.segment_from(&Coord::new(x, y));
                     vec![(seg, arc.clone())]
@@ -618,16 +617,16 @@ fn partition<R: RangeBounds<i32>>(
 
 pub fn find_partition_point_and_sanity_check(
     ctx: &npnr::Context,
+    nets: &npnr::Nets,
     arcs: &[Arc],
     pips: &[npnr::PipId],
-    nets: &npnr::Nets,
     x_start: i32,
     x_finish: i32,
     y_start: i32,
     y_finish: i32,
 ) -> (i32, i32, Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>) {
     let (x_part, y_part, ne, se, sw, nw) =
-        find_partition_point(ctx, arcs, pips, nets, x_start, x_finish, y_start, y_finish);
+        find_partition_point(ctx, nets, arcs, pips,  x_start, x_finish, y_start, y_finish);
 
     let mut invalid_arcs_in_ne = 0;
     let mut invalid_arcs_in_se = 0;

@@ -34,6 +34,13 @@ fn extract_arcs_from_nets(ctx: &npnr::Context, nets: &npnr::Nets) -> Vec<route::
     let mut arcs = vec![];
     for (name, net) in nets.to_vec().iter() {
         let net = unsafe { net.as_mut().unwrap() };
+        let str = ctx.name_of(**name).to_str().unwrap().to_string();
+        let verbose = false; //str == "soc0.processor.with_fpu.fpu_0.fpu_multiply_0.rin_CCU2C_S0_4$CCU2_FCI_INT";
+
+        if verbose {
+            dbg!(str, net.is_global());
+        }
+
         if net.is_global() {
             continue;
         }
@@ -53,7 +60,13 @@ fn extract_arcs_from_nets(ctx: &npnr::Context, nets: &npnr::Nets) -> Vec<route::
                         sink_wire,
                         sink,
                         net.index(),
-                    ))
+                    ));
+
+                    if verbose {
+                        let source_wire = ctx.name_of_wire(source_wire).to_str().unwrap();
+                        let sink_wire = ctx.name_of_wire(sink_wire).to_str().unwrap();
+                        dbg!(source_wire, sink_wire, net.index().into_inner());
+                    }
                 }
             }
         }
@@ -182,9 +195,9 @@ fn route(ctx: &mut npnr::Context) -> bool {
 
     let (x_part, y_part, ne, se, sw, nw) = partition::find_partition_point_and_sanity_check(
         ctx,
+        &nets,
         &partitionable_arcs[..],
         pips,
-        &nets,
         0,
         ctx.grid_dim_x(),
         0,
@@ -221,7 +234,7 @@ fn route(ctx: &mut npnr::Context) -> bool {
 
     partitions.par_iter().for_each(|(box_ne, box_sw, arcs)| {
         let mut router = route::Router::new(*box_ne, *box_sw);
-        router.route(ctx, &nets, arcs, &progress);
+        router.route(ctx, &nets, wires, arcs, &progress);
     });
 
     log_info!("Routing miscellaneous arcs\n");
@@ -229,7 +242,7 @@ fn route(ctx: &mut npnr::Context) -> bool {
         Coord::new(0, 0),
         Coord::new(ctx.grid_dim_x(), ctx.grid_dim_y()),
     );
-    router.route(ctx, &nets, &special_arcs, &progress);
+    router.route(ctx, &nets, wires, &special_arcs, &progress);
 
     let time = format!("{:.2}", (Instant::now() - start).as_secs_f32());
     log_info!("Routing took {}s\n", time.bold());

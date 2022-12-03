@@ -146,6 +146,7 @@ extern "C" {
     float npnr_context_get_wire_delay(const Context *const ctx, uint64_t wire) { return ctx->getDelayNS(ctx->getWireDelay(unwrap_wire(wire)).maxDelay()); }
     float npnr_context_delay_epsilon(const Context *const ctx) { return ctx->getDelayNS(ctx->getDelayEpsilon()); }
     Loc npnr_context_get_pip_location(const Context *const ctx, uint64_t pip) { return ctx->getPipLocation(unwrap_pip(pip)); }
+    bool npnr_context_check_pip_avail_for_net(const Context *const ctx, uint64_t pip, NetInfo *net) { return ctx->checkPipAvailForNet(unwrap_pip(pip), net); }
 
     // This method's in C++ temporarily, while I figure out some better way of getting a pip iterator.
     Loc npnr_context_get_pip_direction(const Context *const ctx, uint64_t _pip) {
@@ -286,6 +287,7 @@ extern "C" {
 #endif
 
     int32_t npnr_netinfo_udata(NetInfo *const net) { return net->udata; }
+    void npnr_netinfo_udata_set(NetInfo *const net, int32_t value) { net->udata = value; }
 
     CellInfo* npnr_portref_cell(const PortRef *const port) { return port->cell; }
     Loc npnr_cellinfo_get_location(const CellInfo *const info) { return info->getLocation(); }
