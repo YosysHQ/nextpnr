@@ -138,8 +138,8 @@ pub fn find_partition_point(
             pips,
             x,
             y,
-            x_start..=x_finish,
-            y_start..=y_finish,
+            (x_start, x_finish),
+            (y_start, y_finish),
         );
         let north = ne.len() + nw.len();
         let south = se.len() + sw.len();
@@ -183,8 +183,8 @@ pub fn find_partition_point(
         pips,
         x,
         y,
-        x_start..=x_finish,
-        y_start..=y_finish,
+        (x_start, x_finish),
+        (y_start, y_finish),
     );
 
     let north = ne.len() + nw.len();
@@ -249,15 +249,15 @@ fn split_line_over_y(line: (npnr::Loc, npnr::Loc), y_location: i32) -> i32 {
 /// more that just having each pip not be reused by different nets, it turns out we also need to care
 /// about the source and sink wires, so this current partitioner is written only to produce a partition
 /// result which is correct, without any care about speed or actual pathing optimality
-fn partition<R: RangeBounds<i32>>(
+fn partition(
     ctx: &npnr::Context,
     nets: &npnr::Nets,
     arcs: &[Arc],
     pips: &[npnr::PipId],
     x: i32,
     y: i32,
-    x_bounds: R,
-    y_bounds: R,
+    x_bounds: (i32, i32),
+    y_bounds: (i32, i32),
 ) -> (Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>) {
     let partition_coords = Coord::new(x, y);
 
@@ -327,8 +327,13 @@ fn partition<R: RangeBounds<i32>>(
                         middle.1 = y + 1;
                     }
 
-                    let selected_pip =
-                        pip_selector.find_pip(ctx, middle.into(), source_loc, arc.net());
+                    let selected_pip = pip_selector.find_pip(
+                        ctx,
+                        middle.into(),
+                        source_loc,
+                        arc.net(),
+                        nets.net_from_index(arc.net()),
+                    );
 
                     if verbose {
                         log_info!(
@@ -366,8 +371,13 @@ fn partition<R: RangeBounds<i32>>(
                         middle.0 = x + 1;
                     }
 
-                    let selected_pip =
-                        pip_selector.find_pip(ctx, middle.into(), source_loc, arc.net());
+                    let selected_pip = pip_selector.find_pip(
+                        ctx,
+                        middle.into(),
+                        source_loc,
+                        arc.net(),
+                        nets.net_from_index(arc.net()),
+                    );
 
                     if verbose {
                         log_info!(
@@ -419,8 +429,13 @@ fn partition<R: RangeBounds<i32>>(
                     let horiz_happens_first = (middle_horiz.1 < y) == source_is_east;
 
                     let (horiz_pip, vert_pip) = if horiz_happens_first {
-                        let horiz =
-                            pip_selector.find_pip(ctx, middle_horiz.into(), source_loc, arc.net());
+                        let horiz = pip_selector.find_pip(
+                            ctx,
+                            middle_horiz.into(),
+                            source_loc,
+                            arc.net(),
+                            nets.net_from_index(arc.net()),
+                        );
                         (
                             horiz,
                             pip_selector.find_pip(
@@ -428,17 +443,24 @@ fn partition<R: RangeBounds<i32>>(
                                 middle_vert.into(),
                                 middle_horiz.into(),
                                 arc.net(),
+                                nets.net_from_index(arc.net()),
                             ),
                         )
                     } else {
-                        let vert =
-                            pip_selector.find_pip(ctx, middle_vert.into(), source_loc, arc.net());
+                        let vert = pip_selector.find_pip(
+                            ctx,
+                            middle_vert.into(),
+                            source_loc,
+                            arc.net(),
+                            nets.net_from_index(arc.net()),
+                        );
                         (
                             pip_selector.find_pip(
                                 ctx,
                                 middle_horiz.into(),
                                 middle_vert.into(),
                                 arc.net(),
+                                nets.net_from_index(arc.net()),
                             ),
                             vert,
                         )
@@ -703,29 +725,30 @@ struct PipSelector {
     used_wires: HashMap<npnr::WireId, Mutex<Option<npnr::NetIndex>>>,
 
     // how to derive index described in `find_pip_index`
-    pips: [Vec<npnr::PipId>; 8],
+    pips: [HashMap<(i32, i32), Vec<npnr::PipId>>; 8],
     pip_selection_cache: [HashMap<NetIndex, RwLock<Option<npnr::PipId>>>; 8],
 
     partition_loc: npnr::Loc,
+    boundaries: ((i32, i32), (i32, i32)),
 }
 
 impl PipSelector {
     /// explores the pips and creates a pip selector from the results
-    fn new<R: RangeBounds<i32>>(
+    fn new(
         ctx: &npnr::Context,
         pips: &[npnr::PipId],
-        bounds: (R, R),
+        bounds: ((i32, i32), (i32, i32)),
         partition_point: npnr::Loc,
         nets: &npnr::Nets,
     ) -> Self {
-        let mut pips_n_e = vec![];
-        let mut pips_e_n = vec![];
-        let mut pips_s_e = vec![];
-        let mut pips_w_n = vec![];
-        let mut pips_n_w = vec![];
-        let mut pips_e_s = vec![];
-        let mut pips_s_w = vec![];
-        let mut pips_w_s = vec![];
+        let mut pips_n_e = HashMap::new();
+        let mut pips_e_n = HashMap::new();
+        let mut pips_s_e = HashMap::new();
+        let mut pips_w_n = HashMap::new();
+        let mut pips_n_w = HashMap::new();
+        let mut pips_e_s = HashMap::new();
+        let mut pips_s_w = HashMap::new();
+        let mut pips_w_s = HashMap::new();
 
         let mut candidates = 0;
         let mut north = 0;
@@ -735,8 +758,8 @@ impl PipSelector {
         for &pip in pips {
             let loc = ctx.pip_location(pip);
             if (loc.x == partition_point.x || loc.y == partition_point.y)
-                && bounds.0.contains(&loc.x)
-                && bounds.1.contains(&loc.y)
+                && (bounds.0 .0..=bounds.0 .1).contains(&loc.x)
+                && (bounds.1 .0..=bounds.1 .1).contains(&loc.y)
             {
                 //correctly classifying the pips on the partition point is pretty much impossible
                 //just avoid the partition point
@@ -793,9 +816,9 @@ impl PipSelector {
                     {
                         west += 1;
                         if loc.x < partition_point.x {
-                            pips_w_n.push(pip);
+                            pips_w_n.entry((loc.x, loc.y)).or_insert(vec![]).push(pip);
                         } else {
-                            pips_w_s.push(pip);
+                            pips_w_s.entry((loc.x, loc.y)).or_insert(vec![]).push(pip);
                         }
                     }
                     if (src_has_west && (dst_has_east || dst_has_middle))
@@ -803,9 +826,9 @@ impl PipSelector {
                     {
                         east += 1;
                         if loc.x < partition_point.x {
-                            pips_e_n.push(pip);
+                            pips_e_n.entry((loc.x, loc.y)).or_insert(vec![]).push(pip);
                         } else {
-                            pips_e_s.push(pip);
+                            pips_e_s.entry((loc.x, loc.y)).or_insert(vec![]).push(pip);
                         }
                     }
                 } else {
@@ -837,9 +860,9 @@ impl PipSelector {
                     {
                         south += 1;
                         if loc.y < partition_point.y {
-                            pips_s_e.push(pip);
+                            pips_s_e.entry((loc.x, loc.y)).or_insert(vec![]).push(pip);
                         } else {
-                            pips_s_w.push(pip);
+                            pips_s_w.entry((loc.x, loc.y)).or_insert(vec![]).push(pip);
                         }
                     }
                     if (src_has_south && (dst_has_north || dst_has_middle))
@@ -847,9 +870,9 @@ impl PipSelector {
                     {
                         north += 1;
                         if loc.y < partition_point.y {
-                            pips_n_e.push(pip);
+                            pips_n_e.entry((loc.x, loc.y)).or_insert(vec![]).push(pip);
                         } else {
-                            pips_n_w.push(pip);
+                            pips_n_w.entry((loc.x, loc.y)).or_insert(vec![]).push(pip);
                         }
                     }
                 }
@@ -877,7 +900,7 @@ impl PipSelector {
             .chain(pips_w_n.iter())
             .chain(pips_n_w.iter());
 
-        for pip in selected_pips {
+        for pip in selected_pips.flat_map(|(_, pips)| pips.iter()) {
             used_pips.insert(*pip, Mutex::new(None));
             used_wires.insert(ctx.pip_src_wire(*pip), Mutex::new(None));
             used_wires.insert(ctx.pip_dst_wire(*pip), Mutex::new(None));
@@ -911,6 +934,7 @@ impl PipSelector {
             pip_selection_cache: caches,
 
             partition_loc: partition_point,
+            boundaries: bounds,
         }
     }
 
@@ -921,6 +945,7 @@ impl PipSelector {
         desired_pip_location: npnr::Loc,
         coming_from: npnr::Loc,
         net: npnr::NetIndex,
+        raw_net: *mut npnr::NetInfo,
     ) -> npnr::PipId {
         let pip_index = self.find_pip_index(desired_pip_location, coming_from);
         // adding a scope to avoid holding the lock for too long
@@ -936,9 +961,14 @@ impl PipSelector {
         }
         let pips = &self.pips[pip_index];
 
-        let selected_pip = pips
-            .iter()
+        let selected_pip = self
+            .pip_index_to_position_iter(pip_index, (desired_pip_location.x, desired_pip_location.y))
+            .flat_map(|pos| pips.get(&pos).unwrap().iter())
             .find(|&pip| {
+                if !ctx.pip_avail_for_net(*pip, raw_net) {
+                    return false;
+                }
+
                 let source = ctx.pip_src_wire(*pip);
                 let sink = ctx.pip_dst_wire(*pip);
 
@@ -1007,5 +1037,59 @@ impl PipSelector {
             (FullSegment::Exact, _, _) => panic!("can't find pips on the partition point"),
             _ => panic!("pip must be on partition boundaries somewhere"),
         }
+    }
+
+    fn pip_index_to_position_iter(
+        &self,
+        pip_index: usize,
+        start_position: (i32, i32),
+    ) -> impl Iterator<Item = (i32, i32)> {
+        let (offset, times_up, times_down) = match pip_index {
+            0 | 2 => (
+                (1, 0),
+                self.partition_loc.x - start_position.0 - 1,
+                start_position.0 - 1,
+            ),
+            1 | 3 => (
+                (1, 0),
+                self.boundaries.0 .1 - start_position.0 - 1,
+                start_position.0 - self.partition_loc.x - 1,
+            ),
+            4 | 6 => (
+                (0, 1),
+                self.partition_loc.y - start_position.1 - 1,
+                start_position.1 - 1,
+            ),
+            5 | 7 => (
+                (0, 1),
+                self.boundaries.1 .1 - start_position.1 - 1,
+                start_position.1 - self.partition_loc.y - 1,
+            ),
+            _ => unreachable!(),
+        };
+
+        use itertools::Itertools;
+
+        // cursed iterator magic :3
+        // (rust, can we please have generators yet?)
+        (0..=times_up)
+            .map(move |ind| {
+                (
+                    offset.0 * ind + start_position.0,
+                    offset.1 * ind + start_position.1,
+                )
+            })
+            .zip_longest((1..=times_down).map(move |ind| {
+                (
+                    offset.0 * -ind + start_position.0,
+                    offset.1 * -ind + start_position.1,
+                )
+            }))
+            .flat_map(|zip| match zip {
+                itertools::EitherOrBoth::Both(a, b) => [Some(a), Some(b)].into_iter(),
+                itertools::EitherOrBoth::Left(a) => [Some(a), None].into_iter(),
+                itertools::EitherOrBoth::Right(a) => [Some(a), None].into_iter(),
+            })
+            .flatten()
     }
 }
