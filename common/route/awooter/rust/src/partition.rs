@@ -307,7 +307,11 @@ fn partition<R: RangeBounds<i32>>(
                 let sink_coords: Coord = sink_loc.into();
                 let sink_is_north = sink_coords.is_north_of(&partition_coords);
                 let sink_is_east = sink_coords.is_east_of(&partition_coords);
-                let name = ctx.name_of(nets.name_from_index(arc.net())).to_str().unwrap().to_string();
+                let name = ctx
+                    .name_of(nets.name_from_index(arc.net()))
+                    .to_str()
+                    .unwrap()
+                    .to_string();
                 let verbose = false; //name == "soc0.processor.with_fpu.fpu_0.fpu_multiply_0.rin_CCU2C_S0_4$CCU2_FCI_INT";
                 if source_is_north == sink_is_north && source_is_east == sink_is_east {
                     let seg = source_coords.segment_from(&Coord::new(x, y));
@@ -626,7 +630,7 @@ pub fn find_partition_point_and_sanity_check(
     y_finish: i32,
 ) -> (i32, i32, Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>) {
     let (x_part, y_part, ne, se, sw, nw) =
-        find_partition_point(ctx, nets, arcs, pips,  x_start, x_finish, y_start, y_finish);
+        find_partition_point(ctx, nets, arcs, pips, x_start, x_finish, y_start, y_finish);
 
     let mut invalid_arcs_in_ne = 0;
     let mut invalid_arcs_in_se = 0;

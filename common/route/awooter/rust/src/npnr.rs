@@ -356,7 +356,11 @@ extern "C-unwind" {
     fn npnr_context_get_pips_leak(ctx: *const Context, pips: *mut *mut PipId) -> u64;
     fn npnr_context_get_pip_location(ctx: *const Context, pip: PipId) -> Loc;
     fn npnr_context_get_pip_direction(ctx: *const Context, pip: PipId) -> Loc;
-    fn npnr_context_check_pip_avail_for_net(ctx: *const Context, pip: PipId, net: *const NetInfo) -> bool;
+    fn npnr_context_check_pip_avail_for_net(
+        ctx: *const Context,
+        pip: PipId,
+        net: *const NetInfo,
+    ) -> bool;
 
     fn npnr_context_check(ctx: *const Context);
     fn npnr_context_debug(ctx: *const Context) -> bool;
@@ -446,7 +450,9 @@ impl<'a> Nets<'a> {
             let index = index_to_net.len() as i32;
             index_to_net.push(name);
             net_to_index.insert(net, index);
-            unsafe { npnr_netinfo_udata_set(net, NetIndex(index)); }
+            unsafe {
+                npnr_netinfo_udata_set(net, NetIndex(index));
+            }
         }
         // Note: the contents of `names` and `nets_ptr` are now lost.
         Self {

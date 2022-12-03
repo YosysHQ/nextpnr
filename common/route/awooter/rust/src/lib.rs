@@ -214,27 +214,30 @@ fn route(ctx: &mut npnr::Context) -> bool {
     let progress = MultiProgress::new();
 
     let partitions = [
-        (Coord::new(0, 0), Coord::new(x_part + 1, y_part + 1), &ne),
+        (Coord::new(0, 0), Coord::new(x_part + 1, y_part + 1), &ne, "NE"),
         (
             Coord::new(x_part - 1, 0),
             Coord::new(ctx.grid_dim_x(), y_part + 1),
             &se,
+            "SE"
         ),
         (
             Coord::new(x_part - 1, y_part - 1),
             Coord::new(ctx.grid_dim_x(), ctx.grid_dim_y()),
             &sw,
+            "SW"
         ),
         (
             Coord::new(0, y_part - 1),
             Coord::new(x_part + 1, ctx.grid_dim_y()),
             &nw,
+            "NW"
         ),
     ];
 
-    partitions.par_iter().for_each(|(box_ne, box_sw, arcs)| {
+    partitions.par_iter().for_each(|(box_ne, box_sw, arcs, id)| {
         let mut router = route::Router::new(*box_ne, *box_sw);
-        router.route(ctx, &nets, wires, arcs, &progress);
+        router.route(ctx, &nets, wires, arcs, &progress, id);
     });
 
     log_info!("Routing miscellaneous arcs\n");
@@ -242,7 +245,7 @@ fn route(ctx: &mut npnr::Context) -> bool {
         Coord::new(0, 0),
         Coord::new(ctx.grid_dim_x(), ctx.grid_dim_y()),
     );
-    router.route(ctx, &nets, wires, &special_arcs, &progress);
+    router.route(ctx, &nets, wires, &special_arcs, &progress, "MISC");
 
     let time = format!("{:.2}", (Instant::now() - start).as_secs_f32());
     log_info!("Routing took {}s\n", time.bold());
