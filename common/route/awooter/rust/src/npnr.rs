@@ -46,7 +46,7 @@ impl NetInfo {
 }
 
 #[repr(transparent)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct NetIndex(i32);
 
 #[repr(C)]
