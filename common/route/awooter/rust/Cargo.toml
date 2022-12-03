@@ -15,3 +15,4 @@ libc = "0.2"
 indicatif = { version = "0.17", features = ["rayon"] }
 rayon = "1.6"
 colored = "2"
+itertools = "0.10.5"
