@@ -2,14 +2,17 @@ use std::{
     cmp::Ordering,
     collections::HashMap,
     ops::RangeBounds,
-    sync::{atomic::AtomicUsize, Mutex},
+    sync::{atomic::AtomicUsize, Mutex, RwLock},
 };
 
 use colored::Colorize;
 use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
 use rayon::prelude::*;
 
-use crate::{npnr, route::Arc};
+use crate::{
+    npnr::{self, NetIndex},
+    route::Arc,
+};
 
 pub enum Segment {
     Northeast,
@@ -111,6 +114,7 @@ pub fn find_partition_point(
     ctx: &npnr::Context,
     arcs: &[Arc],
     pips: &[npnr::PipId],
+    nets: &npnr::Nets,
     x_start: i32,
     x_finish: i32,
     y_start: i32,
@@ -131,6 +135,7 @@ pub fn find_partition_point(
             ctx,
             arcs,
             pips,
+            nets,
             x,
             y,
             x_start..=x_finish,
@@ -175,6 +180,7 @@ pub fn find_partition_point(
         ctx,
         arcs,
         pips,
+        nets,
         x,
         y,
         x_start..=x_finish,
@@ -247,6 +253,7 @@ fn partition<R: RangeBounds<i32>>(
     ctx: &npnr::Context,
     arcs: &[Arc],
     pips: &[npnr::PipId],
+    nets: &npnr::Nets,
     x: i32,
     y: i32,
     x_bounds: R,
@@ -270,7 +277,7 @@ fn partition<R: RangeBounds<i32>>(
         y_str.bold()
     );
 
-    let pip_selector = PipSelector::new(ctx, pips, (x_bounds, y_bounds), (x, y).into());
+    let pip_selector = PipSelector::new(ctx, pips, (x_bounds, y_bounds), (x, y).into(), nets);
 
     let mut explored_pips = AtomicUsize::new(0);
 
@@ -613,13 +620,14 @@ pub fn find_partition_point_and_sanity_check(
     ctx: &npnr::Context,
     arcs: &[Arc],
     pips: &[npnr::PipId],
+    nets: &npnr::Nets,
     x_start: i32,
     x_finish: i32,
     y_start: i32,
     y_finish: i32,
 ) -> (i32, i32, Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>) {
     let (x_part, y_part, ne, se, sw, nw) =
-        find_partition_point(ctx, arcs, pips, x_start, x_finish, y_start, y_finish);
+        find_partition_point(ctx, arcs, pips, nets, x_start, x_finish, y_start, y_finish);
 
     let mut invalid_arcs_in_ne = 0;
     let mut invalid_arcs_in_se = 0;
@@ -691,26 +699,21 @@ struct PipSelector {
     used_pips: HashMap<npnr::PipId, Mutex<Option<npnr::NetIndex>>>,
     used_wires: HashMap<npnr::WireId, Mutex<Option<npnr::NetIndex>>>,
 
-    // first direction: where is this pip going
-    // second direction: where is this pip located
-    pips_n_e: Vec<npnr::PipId>,
-    pips_e_n: Vec<npnr::PipId>,
-    pips_s_e: Vec<npnr::PipId>,
-    pips_w_n: Vec<npnr::PipId>,
-    pips_n_w: Vec<npnr::PipId>,
-    pips_e_s: Vec<npnr::PipId>,
-    pips_s_w: Vec<npnr::PipId>,
-    pips_w_s: Vec<npnr::PipId>,
+    // how to derive index described in `find_pip_index`
+    pips: [Vec<npnr::PipId>; 8],
+    pip_selection_cache: [HashMap<NetIndex, RwLock<Option<npnr::PipId>>>; 8],
 
     partition_loc: npnr::Loc,
 }
 
 impl PipSelector {
+    /// explores the pips and creates a pip selector from the results
     fn new<R: RangeBounds<i32>>(
         ctx: &npnr::Context,
         pips: &[npnr::PipId],
         bounds: (R, R),
         partition_point: npnr::Loc,
+        nets: &npnr::Nets,
     ) -> Self {
         let mut pips_n_e = vec![];
         let mut pips_e_n = vec![];
@@ -877,17 +880,33 @@ impl PipSelector {
             used_wires.insert(ctx.pip_dst_wire(*pip), Mutex::new(None));
         }
 
+        let mut caches = [
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+            HashMap::new(),
+        ];
+
+        let nets = nets.to_vec();
+        for cache in &mut caches {
+            for (_, net) in nets.iter() {
+                let net = unsafe { net.as_ref().unwrap() };
+                cache.insert(net.index(), RwLock::new(None));
+            }
+        }
+
         PipSelector {
             used_pips,
             used_wires,
-            pips_n_e,
-            pips_e_n,
-            pips_s_e,
-            pips_w_n,
-            pips_n_w,
-            pips_e_s,
-            pips_s_w,
-            pips_w_s,
+            pips: [
+                pips_w_n, pips_w_s, pips_e_n, pips_e_s, pips_s_e, pips_s_w, pips_n_e, pips_n_w,
+            ],
+            pip_selection_cache: caches,
+
             partition_loc: partition_point,
         }
     }
@@ -900,24 +919,19 @@ impl PipSelector {
         coming_from: npnr::Loc,
         net: npnr::NetIndex,
     ) -> npnr::PipId {
-        let desired_coord: Coord = desired_pip_location.into();
-        let from_coord: Coord = coming_from.into();
-        let pips = match (
-            desired_coord.full_segment(&self.partition_loc.into()),
-            from_coord.is_north_of(&self.partition_loc.into()),
-            from_coord.is_east_of(&self.partition_loc.into()),
-        ) {
-            (FullSegment::North, _, true) => &self.pips_w_n,
-            (FullSegment::South, _, true) => &self.pips_w_s,
-            (FullSegment::North, _, false) => &self.pips_e_n,
-            (FullSegment::South, _, false) => &self.pips_e_s,
-            (FullSegment::East, true, _) => &self.pips_s_e,
-            (FullSegment::West, true, _) => &self.pips_s_w,
-            (FullSegment::East, false, _) => &self.pips_n_e,
-            (FullSegment::West, false, _) => &self.pips_n_w,
-            (FullSegment::Exact, _, _) => panic!("can't find pips on the partition point"),
-            _ => panic!("pip must be on partition boundaries somewhere"),
-        };
+        let pip_index = self.find_pip_index(desired_pip_location, coming_from);
+        // adding a scope to avoid holding the lock for too long
+        {
+            let cache = self.pip_selection_cache[pip_index]
+                .get(&net)
+                .unwrap()
+                .read()
+                .unwrap();
+            if let Some(pip) = *cache {
+                return pip;
+            }
+        }
+        let pips = &self.pips[pip_index];
 
         let selected_pip = pips
             .iter()
@@ -958,6 +972,37 @@ impl PipSelector {
             })
             .expect("unable to find a pip");
 
+        {
+            let mut cache = self.pip_selection_cache[pip_index]
+                .get(&net)
+                .unwrap()
+                .write()
+                .unwrap();
+            *cache = Some(*selected_pip);
+        }
+
         *selected_pip
+    }
+
+    /// takes in a desired pip location and where the arc is coming from and figures out which index to use in the `self.pips` array
+    fn find_pip_index(&self, desired_pip_location: npnr::Loc, coming_from: npnr::Loc) -> usize {
+        let desired_coord: Coord = desired_pip_location.into();
+        let from_coord: Coord = coming_from.into();
+        match (
+            desired_coord.full_segment(&self.partition_loc.into()),
+            from_coord.is_north_of(&self.partition_loc.into()),
+            from_coord.is_east_of(&self.partition_loc.into()),
+        ) {
+            (FullSegment::North, _, true) => 0,
+            (FullSegment::South, _, true) => 1,
+            (FullSegment::North, _, false) => 2,
+            (FullSegment::South, _, false) => 3,
+            (FullSegment::East, true, _) => 4,
+            (FullSegment::West, true, _) => 5,
+            (FullSegment::East, false, _) => 6,
+            (FullSegment::West, false, _) => 7,
+            (FullSegment::Exact, _, _) => panic!("can't find pips on the partition point"),
+            _ => panic!("pip must be on partition boundaries somewhere"),
+        }
     }
 }

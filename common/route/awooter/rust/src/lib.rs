@@ -184,6 +184,7 @@ fn route(ctx: &mut npnr::Context) -> bool {
         ctx,
         &partitionable_arcs[..],
         pips,
+        &nets,
         0,
         ctx.grid_dim_x(),
         0,
