@@ -76,12 +76,13 @@ struct QueuedWire {
     delay: f32,
     congest: f32,
     togo: f32,
+    criticality: f32,
     wire: npnr::WireId,
 }
 
 impl QueuedWire {
-    pub fn new(delay: f32, congest: f32, togo: f32, wire: npnr::WireId) -> Self {
-        Self { delay, congest, togo, wire }
+    pub fn new(delay: f32, congest: f32, togo: f32, criticality: f32, wire: npnr::WireId) -> Self {
+        Self { delay, congest, togo, criticality, wire }
     }
 }
 
@@ -95,8 +96,8 @@ impl Eq for QueuedWire {}
 
 impl Ord for QueuedWire {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        let me = (0.9 * self.delay) + (0.1 * self.congest) + self.togo;
-        let other = (0.9 * other.delay) + (0.1 * other.congest) + other.togo;
+        let me = (self.criticality * self.delay) + ((1.0 - self.criticality) * self.congest) + self.togo;
+        let other = (other.criticality * other.delay) + ((1.0 - other.criticality) * other.congest) + other.togo;
         other.total_cmp(&me)
     }
 }
@@ -173,6 +174,9 @@ impl Router {
             self.wire_to_idx.insert(wire, idx as u32);
         }
 
+        let mut delay = vec![1.0; arcs.len()];
+        let mut max_delay = 1.0;
+
         loop {
             let progress = progress.add(ProgressBar::new(arcs.len() as u64));
             progress.set_style(
@@ -181,7 +185,7 @@ impl Router {
                     .progress_chars("━╸ "),
             );
 
-            for arc in arcs {
+            for (i, arc) in arcs.iter().enumerate() {
                 let net = unsafe { nets.net_from_index(arc.net).as_ref().unwrap() };
                 let name = ctx
                     .name_of(nets.name_from_index(arc.net))
@@ -194,7 +198,7 @@ impl Router {
 
                 progress.inc(1);
                 progress.set_message(format!("{} @ {}", id, name));
-                self.route_arc(ctx, nets, arc);
+                delay[i] = self.route_arc(ctx, nets, arc, delay[i] / max_delay);
             }
             progress.finish_and_clear();
 
@@ -204,20 +208,25 @@ impl Router {
                     overused += 1;
                     wd.hist_cong += (wd.curr_cong as f32) * ACCUMULATED_OVERUSE_FACTOR;
                 }
-                wd.curr_cong = 0;
             }
 
             if overused == 0 {
                 break;
             }
 
+            for arc in arcs {
+                self.ripup_arc(ctx, arc);
+            }
+
+            max_delay = delay.iter().copied().reduce(f32::max).unwrap();
+
             progress.println(format!("{}: {} wires overused", id, overused));
         }
     }
 
-    fn route_arc(&mut self, ctx: &npnr::Context, nets: &npnr::Nets, arc: &Arc) {
+    fn route_arc(&mut self, ctx: &npnr::Context, nets: &npnr::Nets, arc: &Arc, criticality: f32) -> f32 {
         let mut queue = BinaryHeap::new();
-        queue.push(QueuedWire::new(0.0, 0.0, 0.0, arc.source_wire));
+        queue.push(QueuedWire::new(0.0, 0.0, 0.0, criticality, arc.source_wire));
 
         let mut found_sink = false;
 
@@ -228,9 +237,12 @@ impl Router {
             .to_string();
         let verbose = false; //name == "soc0.processor.with_fpu.fpu_0.fpu_multiply_0.rin_CCU2C_S0_4$CCU2_FCI_INT";
 
+        let mut delay = 0.0;
+
         while let Some(source) = queue.pop() {
             if source.wire == arc.sink_wire {
                 found_sink = true;
+                delay = source.delay;
                 break;
             }
 
@@ -299,7 +311,7 @@ impl Router {
 
                 self.set_visited_fwd(sink, pip);
 
-                let qw = QueuedWire::new(delay, congest, ctx.estimate_delay(wire, arc.sink_wire), wire);
+                let qw = QueuedWire::new(delay, congest, ctx.estimate_delay(wire, arc.sink_wire), criticality, wire);
                 queue.push(qw);
             }
         }
@@ -330,6 +342,8 @@ impl Router {
         }
 
         self.reset_wires();
+
+        return delay;
     }
 
     fn was_visited_fwd(&self, wire: u32) -> bool {
@@ -357,6 +371,29 @@ impl Router {
         }
     }
 
+    fn unbind_pip_internal(&mut self, net: NetIndex, wire: WireId) {
+        let net = net.into_inner() as usize;
+        let wireidx = *self.wire_to_idx.get(&wire).unwrap() as usize;
+        let (_pip, usage) = self.nets[net].wires.get_mut(&wire).unwrap();
+        *usage -= 1;
+        if *usage == 0 {
+            self.flat_wires[wireidx].curr_cong -= 1;
+            self.nets[net].wires.remove(&wire);
+        }
+    }
+
+    fn ripup_arc(&mut self, ctx: &npnr::Context, arc: &Arc) {
+        let net = arc.net().into_inner() as usize;
+        let source_wire = arc.source_wire;
+        let mut wire = arc.sink_wire;
+        while wire != source_wire {
+            let pip = self.nets[net].wires.get(&wire).unwrap().0;
+            assert!(pip != PipId::null());
+            self.unbind_pip_internal(arc.net(), wire);
+            wire = ctx.pip_src_wire(pip);
+        }        
+    }
+
     fn reset_wires(&mut self) {
         for &wire in &self.dirty_wires {
             self.flat_wires[wire as usize].pip_fwd = PipId::null();
@@ -364,17 +401,4 @@ impl Router {
         }
         self.dirty_wires.clear();
     }
-    /*
-    void unbind_pip_internal(PerNetData &net, store_index<PortRef> user, WireId wire)
-    {
-        auto &wd = wire_data(wire);
-        auto &b = net.wires.at(wd.w);
-        --b.second;
-        if (b.second == 0) {
-            // No remaining arcs of this net bound to this wire
-            --wd.curr_cong;
-            net.wires.erase(wd.w);
-        }
-    }
-    */
 }
