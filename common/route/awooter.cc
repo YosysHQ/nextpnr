@@ -317,8 +317,8 @@ extern "C" {
 NEXTPNR_NAMESPACE_BEGIN
 
 bool router_awooter(Context *ctx) {
-    auto pressure = ctx->setting<float>("awooter-pressure-factor", 5.0);
-    auto history = ctx->setting<float>("awooter-history-factor", 5.0);
+    auto pressure = ctx->setting<float>("awooter-pressure-factor", 0.05);
+    auto history = ctx->setting<float>("awooter-history-factor", 0.04);
     log_info("Running Awooter...\n");
     auto result = npnr_router_awooter(ctx, pressure, history);
     log_info("Router returned: %d\n", result);
