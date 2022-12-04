@@ -30,14 +30,14 @@ jobs:
     - name: Install
       run: |
         sudo apt-get update
-        sudo apt-get install git make cmake libboost-all-dev python3-dev libeigen3-dev tcl-dev lzma-dev libftdi-dev clang bison flex swig qt5-default iverilog
+        sudo apt-get install git make cmake libboost-all-dev python3-dev libeigen3-dev tcl-dev lzma-dev libftdi-dev clang bison flex swig qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools iverilog
 
     - name: Cache yosys installation
       uses: actions/cache@v3
       id: cache-yosys
       with:
         path: .yosys
-        key: cache-yosys-${{ env.YOSYS_REVISION }}-r2
+        key: cache-yosys-${{ env.YOSYS_REVISION }}-r3
 
     - name: Build yosys
       run: |
@@ -50,7 +50,7 @@ jobs:
       id: cache-icestorm
       with:
         path: .icestorm
-        key: cache-icestorm-${{ env.ICESTORM_REVISION }}
+        key: cache-icestorm-${{ env.ICESTORM_REVISION }}-r3
       if: matrix.arch == 'ice40'
 
     - name: Build icestorm
@@ -64,7 +64,7 @@ jobs:
       id: cache-trellis
       with:
         path: .trellis
-        key: cache-trellis-${{ env.TRELLIS_REVISION }}
+        key: cache-trellis-${{ env.TRELLIS_REVISION }}-r3
       if: matrix.arch == 'ecp5' || matrix.arch == 'machxo2'
 
     - name: Build trellis
@@ -78,7 +78,7 @@ jobs:
       id: cache-prjoxide
       with:
         path: .prjoxide
-        key: cache-prjoxide-${{ env.PRJOXIDE_REVISION }}
+        key: cache-prjoxide-${{ env.PRJOXIDE_REVISION }}-r3
       if: matrix.arch == 'nexus'
 
     - name: Build prjoxide

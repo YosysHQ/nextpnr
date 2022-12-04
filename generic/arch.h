@@ -294,7 +294,7 @@ struct Arch : BaseArch<ArchRanges>
     void bindPip(PipId pip, NetInfo *net, PlaceStrength strength) override;
     void unbindPip(PipId pip) override;
     bool checkPipAvail(PipId pip) const override;
-    bool checkPipAvailForNet(PipId pip, NetInfo *net) const override;
+    bool checkPipAvailForNet(PipId pip, const NetInfo *net) const override;
     NetInfo *getBoundPipNet(PipId pip) const override;
     WireId getConflictingPipWire(PipId pip) const override;
     NetInfo *getConflictingPipNet(PipId pip) const override;

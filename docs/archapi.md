@@ -402,7 +402,7 @@ pip to a net.
 
 *BaseArch default: returns `getBoundPipNet(pip) == nullptr`*
 
-### bool checkPipAvailForNet(PipId pip, NetInfo *net) const
+### bool checkPipAvailForNet(PipId pip, const NetInfo *net) const
 
 Returns true if the given pip is available to be bound to a net, or if the
 pip is already bound to that net.
