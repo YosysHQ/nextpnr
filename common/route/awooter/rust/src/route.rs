@@ -1,6 +1,7 @@
 use std::collections::{BinaryHeap, HashMap};
 
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use itertools::Itertools;
 
 use crate::{
     npnr::{self, NetIndex, PipId, WireId},
@@ -125,20 +126,21 @@ struct PerWireData {
 pub struct Router {
     box_ne: partition::Coord,
     box_sw: partition::Coord,
+    pressure: f32,
+    history: f32,
     nets: Vec<PerNetData>,
     wire_to_idx: HashMap<WireId, u32>,
     flat_wires: Vec<PerWireData>,
     dirty_wires: Vec<u32>,
 }
 
-const PRESSURE_FACTOR: u32 = 5;
-const ACCUMULATED_OVERUSE_FACTOR: f32 = 5.0;
-
 impl Router {
-    pub fn new(box_ne: partition::Coord, box_sw: partition::Coord) -> Self {
+    pub fn new(box_ne: partition::Coord, box_sw: partition::Coord, pressure: f32, history: f32) -> Self {
         Self {
             box_ne,
             box_sw,
+            pressure,
+            history,
             nets: Vec::new(),
             wire_to_idx: HashMap::new(),
             flat_wires: Vec::new(),
@@ -174,7 +176,7 @@ impl Router {
             self.wire_to_idx.insert(wire, idx as u32);
         }
 
-        let mut delay = vec![1.0; arcs.len()];
+        let mut delay = vec![1.0_f32; arcs.len()];
         let mut max_delay = 1.0;
 
         loop {
@@ -185,7 +187,7 @@ impl Router {
                     .progress_chars("━╸ "),
             );
 
-            for (i, arc) in arcs.iter().enumerate() {
+            for (i, arc) in arcs.iter().enumerate().sorted_by(|&(i, _), &(j, _)| (delay[i] / max_delay).total_cmp(&(delay[j] / max_delay))) {
                 let net = unsafe { nets.net_from_index(arc.net).as_ref().unwrap() };
                 let name = ctx
                     .name_of(nets.name_from_index(arc.net))
@@ -206,7 +208,7 @@ impl Router {
             for wd in &mut self.flat_wires {
                 if wd.curr_cong > 1 {
                     overused += 1;
-                    wd.hist_cong += (wd.curr_cong as f32) * ACCUMULATED_OVERUSE_FACTOR;
+                    wd.hist_cong += (wd.curr_cong as f32) * self.history;
                 }
             }
 
@@ -226,7 +228,7 @@ impl Router {
 
     fn route_arc(&mut self, ctx: &npnr::Context, nets: &npnr::Nets, arc: &Arc, criticality: f32) -> f32 {
         let mut queue = BinaryHeap::new();
-        queue.push(QueuedWire::new(0.0, 0.0, 0.0, criticality, arc.source_wire));
+        queue.push(QueuedWire::new(0.0, 0.0, ctx.estimate_delay(arc.source_wire, arc.sink_wire), criticality, arc.source_wire));
 
         let mut found_sink = false;
 
@@ -307,7 +309,7 @@ impl Router {
 
                 let node_delay = ctx.pip_delay(pip) + ctx.wire_delay(wire) + ctx.delay_epsilon();
                 let delay = source.delay + node_delay;
-                let congest = source.congest + (node_delay + nwd.hist_cong) * (1.0 + (nwd.curr_cong * PRESSURE_FACTOR) as f32);
+                let congest = source.congest + (node_delay + nwd.hist_cong) * (1.0 + (nwd.curr_cong as f32 * self.pressure));
 
                 self.set_visited_fwd(sink, pip);
 

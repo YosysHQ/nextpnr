@@ -14,9 +14,9 @@ mod partition;
 mod route;
 
 #[no_mangle]
-pub extern "C-unwind" fn npnr_router_awooter(ctx: Option<NonNull<npnr::Context>>) -> bool {
+pub extern "C-unwind" fn npnr_router_awooter(ctx: Option<NonNull<npnr::Context>>, pressure: f32, history: f32) -> bool {
     let ctx: &mut npnr::Context = unsafe { ctx.expect("non-null context").as_mut() };
-    route(ctx)
+    route(ctx, pressure, history)
 
     /*std::panic::catch_unwind(move || {
         let ctx: &mut npnr::Context = unsafe { ctx.expect("non-null context").as_mut() };
@@ -74,7 +74,7 @@ fn extract_arcs_from_nets(ctx: &npnr::Context, nets: &npnr::Nets) -> Vec<route::
     arcs
 }
 
-fn route(ctx: &mut npnr::Context) -> bool {
+fn route(ctx: &mut npnr::Context, pressure: f32, history: f32) -> bool {
     log_info!(
         "{}{}{}{}{}{} from Rust!\n",
         "A".red(),
@@ -207,6 +207,8 @@ fn route(ctx: &mut npnr::Context) -> bool {
     let time = format!("{:.2}", (Instant::now() - start).as_secs_f32());
     log_info!("Partitioning took {}s\n", time.bold());
 
+    log_info!("Using pressure factor {} and history factor {}\n", pressure, history);
+
     let start = Instant::now();
 
     log_info!("Routing partitioned arcs\n");
@@ -236,7 +238,7 @@ fn route(ctx: &mut npnr::Context) -> bool {
     ];
 
     partitions.par_iter().for_each(|(box_ne, box_sw, arcs, id)| {
-        let mut router = route::Router::new(*box_ne, *box_sw);
+        let mut router = route::Router::new(*box_ne, *box_sw, pressure, history);
         router.route(ctx, &nets, wires, arcs, &progress, id);
     });
 
@@ -244,6 +246,8 @@ fn route(ctx: &mut npnr::Context) -> bool {
     let mut router = route::Router::new(
         Coord::new(0, 0),
         Coord::new(ctx.grid_dim_x(), ctx.grid_dim_y()),
+        pressure,
+        history
     );
     router.route(ctx, &nets, wires, &special_arcs, &progress, "MISC");
 
