@@ -311,14 +311,16 @@ extern "C" {
         return !(iter->current != iter->end);
     }
 
-    extern bool npnr_router_awooter(Context *ctx);
+    extern bool npnr_router_awooter(Context *ctx, float pressure, float history);
 }
 
 NEXTPNR_NAMESPACE_BEGIN
 
 bool router_awooter(Context *ctx) {
+    auto pressure = ctx->setting<float>("awooter-pressure-factor", 5.0);
+    auto history = ctx->setting<float>("awooter-history-factor", 5.0);
     log_info("Running Awooter...\n");
-    auto result = npnr_router_awooter(ctx);
+    auto result = npnr_router_awooter(ctx, pressure, history);
     log_info("Router returned: %d\n", result);
     NPNR_ASSERT_FALSE_STR("I haven't implemented anything beyond this yet.");
     return result;
