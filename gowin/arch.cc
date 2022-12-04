@@ -23,6 +23,7 @@
 #include <iostream>
 #include <math.h>
 #include <regex>
+#include "design_utils.h"
 #include "embed.h"
 #include "gfx.h"
 #include "nextpnr.h"
@@ -1575,6 +1576,24 @@ Arch::Arch(ArchArgs args) : args(args)
             }
         }
     }
+
+    // IO pin configs
+    for (unsigned int i = 0; i < package->num_pins; i++) {
+        const PinPOD *pin = &package->pins[i];
+        if (pin->num_cfgs == 0) {
+            continue;
+        }
+        auto b = bels.find(IdString(pin->loc_id));
+        if (b == bels.end()) {
+            // Not all pins are transmitted, e.g. MODE, DONE etc.
+            continue;
+        }
+        std::vector<IdString> &cfgs = b->second.pin_cfgs;
+        for (unsigned int j = 0; j < pin->num_cfgs; ++j) {
+            cfgs.push_back(IdString(pin->cfgs[j]));
+        }
+    }
+
     // setup pips
     for (int i = 0; i < db->rows * db->cols; i++) {
         int row = i / db->cols;
@@ -1958,26 +1977,122 @@ bool Arch::place()
     return retVal;
 }
 
+static bool is_spec_iob(const Context *ctx, const CellInfo *cell, IdString pin_name)
+{
+    if (!is_iob(ctx, cell)) {
+        return false;
+    }
+    std::vector<IdString> const &cfgs = ctx->bels.at(cell->bel).pin_cfgs;
+    bool have_pin = std::find(cfgs.begin(), cfgs.end(), pin_name) != cfgs.end();
+    return have_pin;
+}
+
+static bool is_PLL_T_IN_iob(const Context *ctx, const CellInfo *cell)
+{
+    return is_spec_iob(ctx, cell, ctx->id("RPLL_T_IN"));
+}
+
+static bool is_PLL_T_FB_iob(const Context *ctx, const CellInfo *cell)
+{
+    return is_spec_iob(ctx, cell, ctx->id("RPLL_T_FB"));
+}
+
+// If the PLL input can be connected using a direct wire, then do so,
+// bypassing conventional routing.
+void Arch::fix_pll_nets(Context *ctx)
+{
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
+        if (ci->type != id_RPLLA) {
+            continue;
+        }
+        // *** CLKIN
+        do {
+            if (!port_used(ci, id_CLKIN)) {
+                ci->setParam(id_INSEL, Property("UNKNOWN"));
+                break;
+            }
+            NetInfo *net = ci->getPort(id_CLKIN);
+            if (net->name == id("$PACKER_VCC_NET") || net->name == id("$PACKER_GND_NET")) {
+                ci->setParam(id_INSEL, Property("UNKNOWN"));
+                break;
+            }
+            if (net_driven_by(ctx, net, is_PLL_T_IN_iob, id_O) != nullptr) {
+                ci->disconnectPort(id_CLKIN);
+                ci->setParam(id_INSEL, Property("CLKIN0"));
+                break;
+            }
+            // XXX do special bels (HCLK etc)
+            // This is general routing through CLK0 pip
+            ci->setParam(id_INSEL, Property("CLKIN1"));
+        } while (0);
+
+        do {
+            // *** CLKFB
+            if (str_or_default(ci->params, id_CLKFB_SEL, "internal") == "internal") {
+                ci->setParam(id_FBSEL, Property("CLKFB3"));
+                continue;
+            }
+            if (!port_used(ci, id_CLKFB)) {
+                ci->setParam(id_FBSEL, Property("UNKNOWN"));
+                continue;
+            }
+            NetInfo *net = ci->getPort(id_CLKFB);
+            if (net->name == id("$PACKER_VCC_NET") || net->name == id("$PACKER_GND_NET")) {
+                ci->setParam(id_FBSEL, Property("UNKNOWN"));
+                continue;
+            }
+            if (net_driven_by(ctx, net, is_PLL_T_FB_iob, id_O) != nullptr) {
+                ci->disconnectPort(id_CLKFB);
+                ci->setParam(id_FBSEL, Property("CLKFB2"));
+                break;
+            }
+            // XXX do special bels (HCLK etc)
+            // This is general routing through CLK2 pip
+            ci->setParam(id_FBSEL, Property("CLKFB0"));
+        } while (0);
+
+        // resets
+        Property pr_enable("ENABLE"), pr_disable("DISABLE");
+        NetInfo *net = ci->getPort(id_RESET);
+        ci->setParam(id_RSTEN, pr_enable);
+        if (!port_used(ci, id_RESET) || net->name == id("$PACKER_VCC_NET") || net->name == id("$PACKER_GND_NET")) {
+            ci->setParam(id_RSTEN, pr_disable);
+        }
+        ci->setParam(id_PWDEN, pr_enable);
+        net = ci->getPort(id_RESET_P);
+        if (!port_used(ci, id_RESET_P) || net->name == id("$PACKER_VCC_NET") || net->name == id("$PACKER_GND_NET")) {
+            ci->setParam(id_PWDEN, pr_disable);
+        }
+    }
+}
+
+void Arch::pre_route(Context *ctx) { fix_pll_nets(ctx); }
+
+void Arch::post_route(Context *ctx) { fix_longwire_bels(); }
+
 bool Arch::route()
 {
     std::string router = str_or_default(settings, id_router, defaultRouter);
+    Context *ctx = getCtx();
 
+    pre_route(ctx);
     if (bool_or_default(settings, id("arch.enable-globals"))) {
-        route_gowin_globals(getCtx());
+        route_gowin_globals(ctx);
     }
 
     bool result;
     if (router == "router1") {
-        result = router1(getCtx(), Router1Cfg(getCtx()));
+        result = router1(ctx, Router1Cfg(ctx));
     } else if (router == "router2") {
-        router2(getCtx(), Router2Cfg(getCtx()));
+        router2(ctx, Router2Cfg(ctx));
         result = true;
     } else {
         log_error("Gowin architecture does not support router '%s'\n", router.c_str());
     }
     getCtx()->settings[id_route] = 1;
     archInfoToAttributes();
-    fix_longwire_bels();
+    post_route(ctx);
     return result;
 }
 

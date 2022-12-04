@@ -820,8 +820,6 @@ static bool is_gowin_iologic(const Context *ctx, const CellInfo *cell)
     }
 }
 
-static bool is_iob(const Context *ctx, const CellInfo *cell) { return (cell->type.index == ID_IOB); }
-
 // Pack IO logic
 static void pack_iologic(Context *ctx)
 {
@@ -1021,10 +1019,11 @@ static void pack_plls(Context *ctx)
                 if (parm_device == "GW1N-1" || parm_device == "GW1NZ-1") {
                     // Unused ports will be disabled during image generation. Here we add flags for such ports.
                     Property pr_enable("ENABLE"), pr_disable("DISABLE");
-                    IdString ports[][2] = {{id_CLKOUTP, id_CLKOUTPS},    {id_CLKOUTD, id_CLKOUTDIV},
-                                           {id_CLKOUTD3, id_CLKOUTDIV3}, {id_LOCK, id_FLOCK},
-                                           {id_RESET_P, id_PWDEN},       {id_RESET, id_RSTEN}};
-                    for (int i = 0; i < 6; ++i) {
+                    IdString ports[][2] = {{id_CLKOUTP, id_CLKOUTPS},
+                                           {id_CLKOUTD, id_CLKOUTDIV},
+                                           {id_CLKOUTD3, id_CLKOUTDIV3},
+                                           {id_LOCK, id_FLOCK}};
+                    for (int i = 0; i < 4; ++i) {
                         ci->setParam(ports[i][1], port_used(ci, ports[i][0]) ? pr_enable : pr_disable);
                     }
                     // B half
