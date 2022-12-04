@@ -14,7 +14,11 @@ mod partition;
 mod route;
 
 #[no_mangle]
-pub extern "C-unwind" fn npnr_router_awooter(ctx: Option<NonNull<npnr::Context>>, pressure: f32, history: f32) -> bool {
+pub extern "C-unwind" fn npnr_router_awooter(
+    ctx: Option<NonNull<npnr::Context>>,
+    pressure: f32,
+    history: f32,
+) -> bool {
     let ctx: &mut npnr::Context = unsafe { ctx.expect("non-null context").as_mut() };
     route(ctx, pressure, history)
 
@@ -207,7 +211,11 @@ fn route(ctx: &mut npnr::Context, pressure: f32, history: f32) -> bool {
     let time = format!("{:.2}", (Instant::now() - start).as_secs_f32());
     log_info!("Partitioning took {}s\n", time.bold());
 
-    log_info!("Using pressure factor {} and history factor {}\n", pressure, history);
+    log_info!(
+        "Using pressure factor {} and history factor {}\n",
+        pressure,
+        history
+    );
 
     let start = Instant::now();
 
@@ -216,38 +224,45 @@ fn route(ctx: &mut npnr::Context, pressure: f32, history: f32) -> bool {
     let progress = MultiProgress::new();
 
     let partitions = [
-        (Coord::new(0, 0), Coord::new(x_part + 1, y_part + 1), &ne, "NE"),
+        (
+            Coord::new(0, 0),
+            Coord::new(x_part + 1, y_part + 1),
+            &ne,
+            "NE",
+        ),
         (
             Coord::new(x_part - 1, 0),
             Coord::new(ctx.grid_dim_x(), y_part + 1),
             &se,
-            "SE"
+            "SE",
         ),
         (
             Coord::new(x_part - 1, y_part - 1),
             Coord::new(ctx.grid_dim_x(), ctx.grid_dim_y()),
             &sw,
-            "SW"
+            "SW",
         ),
         (
             Coord::new(0, y_part - 1),
             Coord::new(x_part + 1, ctx.grid_dim_y()),
             &nw,
-            "NW"
+            "NW",
         ),
     ];
 
-    partitions.par_iter().for_each(|(box_ne, box_sw, arcs, id)| {
-        let mut router = route::Router::new(*box_ne, *box_sw, pressure, history);
-        router.route(ctx, &nets, wires, arcs, &progress, id);
-    });
+    partitions
+        .par_iter()
+        .for_each(|(box_ne, box_sw, arcs, id)| {
+            let mut router = route::Router::new(*box_ne, *box_sw, pressure, history);
+            router.route(ctx, &nets, wires, arcs, &progress, id);
+        });
 
     log_info!("Routing miscellaneous arcs\n");
     let mut router = route::Router::new(
         Coord::new(0, 0),
         Coord::new(ctx.grid_dim_x(), ctx.grid_dim_y()),
         pressure,
-        history
+        history,
     );
     router.route(ctx, &nets, wires, &special_arcs, &progress, "MISC");
 
