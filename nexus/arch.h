@@ -1018,7 +1018,7 @@ struct Arch : BaseArch<ArchRanges>
         return getBoundPipNet(pip) == nullptr;
     }
 
-    bool checkPipAvailForNet(PipId pip, NetInfo *net) const override
+    bool checkPipAvailForNet(PipId pip, const NetInfo *net) const override
     {
         if (disabled_pips.count(pip))
             return false;

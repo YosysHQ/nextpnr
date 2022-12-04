@@ -1743,7 +1743,7 @@ void Arch::bindWire(WireId wire, NetInfo *net, PlaceStrength strength)
     refreshUiWire(wire);
 }
 
-bool Arch::checkPipAvailForNet(PipId pip, NetInfo *net) const
+bool Arch::checkPipAvailForNet(PipId pip, const NetInfo *net) const
 {
     NPNR_ASSERT(pip != PipId());
     auto pip_iter = pip_to_net.find(pip);

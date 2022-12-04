@@ -847,7 +847,7 @@ struct Arch : BaseArch<ArchRanges>
         return false;
     }
     bool checkPipAvail(PipId pip) const override { return (getBoundPipNet(pip) == nullptr) && !is_pip_blocked(pip); }
-    bool checkPipAvailForNet(PipId pip, NetInfo *net) const override
+    bool checkPipAvailForNet(PipId pip, const NetInfo *net) const override
     {
         NetInfo *bound_net = getBoundPipNet(pip);
         return (bound_net == nullptr || bound_net == net) && !is_pip_blocked(pip);
