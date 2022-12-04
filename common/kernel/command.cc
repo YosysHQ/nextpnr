@@ -397,6 +397,9 @@ po::options_description CommandHandler::getGeneralOptions()
                           "enable experimental timing-driven ripup in router (deprecated; use --tmg-ripup instead)");
 
     general.add_options()("router2-alt-weights", "use alternate router2 weights");
+    
+    general.add_options()("awooter-pressure-factor", po::value<float>(), "pressure factor for awooter");
+    general.add_options()("awooter-history-factor", po::value<float>(), "history factor for awooter");
 
     general.add_options()("report", po::value<std::string>(),
                           "write timing and utilization report in JSON format to file");
@@ -536,8 +539,15 @@ void CommandHandler::setupContext(Context *ctx)
     if (vm.count("tmg-ripup") || vm.count("router2-tmg-ripup"))
         ctx->settings[ctx->id("router/tmg_ripup")] = true;
 
+<<<<<<< HEAD
     if (vm.count("router2-alt-weights"))
         ctx->settings[ctx->id("router2/alt-weights")] = true;
+=======
+    if (vm.count("awooter-pressure-factor"))
+        ctx->settings[ctx->id("awooter-pressure-factor")] = std::to_string(vm["awooter-pressure-factor"].as<float>());
+    if (vm.count("awooter-history-factor"))
+        ctx->settings[ctx->id("awooter-history-factor")] = std::to_string(vm["awooter-history-factor"].as<float>());
+>>>>>>> a401db30 (awooter: make congestion factors configurable)
 
     // Setting default values
     if (ctx->settings.find(ctx->id("target_freq")) == ctx->settings.end())
