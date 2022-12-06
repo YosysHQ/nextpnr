@@ -158,6 +158,9 @@ void ViaductHelpers::replace_constants(CellTypePort vcc_driver, CellTypePort gnd
     NetInfo *vcc_net = ctx->createNet(ctx->id("$PACKER_VCC"));
     NetInfo *gnd_net = ctx->createNet(ctx->id("$PACKER_GND"));
 
+    vcc_drv->connectPort(vcc_driver.port, vcc_net);
+    gnd_drv->connectPort(gnd_driver.port, gnd_net);
+
     std::vector<IdString> trim_cells;
     std::vector<IdString> trim_nets;
     for (auto &net : ctx->nets) {
