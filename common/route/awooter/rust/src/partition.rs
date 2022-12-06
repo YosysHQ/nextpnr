@@ -13,6 +13,7 @@ use crate::{
     route::Arc,
 };
 
+#[derive(Clone, Copy)]
 pub enum Segment {
     Northeast,
     Southeast,
@@ -45,8 +46,8 @@ pub enum FullSegment {
 //        (x > P.x)
 #[derive(Clone, Copy)]
 pub struct Coord {
-    x: i32,
-    y: i32,
+    pub x: i32,
+    pub y: i32,
 }
 
 impl Coord {
@@ -395,8 +396,6 @@ fn partition(
 
         progress.set_message(format!("overused wires: {}", overused_wires));
 
-        let overuse = Mutex::new(HashMap::new());
-
         let arcs = arcs
             .into_par_iter()
             .progress_with(progress)
@@ -421,8 +420,8 @@ fn partition(
                 } else if source_is_north != sink_is_north && source_is_east == sink_is_east {
                     let middle = (x, (source_coords.y + sink_coords.y) / 2);
                     let mut middle = (
-                        middle.0.clamp(1, ctx.grid_dim_x() - 1),
-                        middle.1.clamp(1, ctx.grid_dim_y() - 1),
+                        middle.0.clamp(x_bounds.0 + 1, x_bounds.1 - 1),
+                        middle.1.clamp(y_bounds.0 + 1, y_bounds.1 - 1),
                     );
                     // need to avoid the partition point
                     if middle.1 == y {
@@ -437,36 +436,92 @@ fn partition(
                         nets.net_from_index(arc.net()),
                     );
 
-                    if verbose {
-                        log_info!(
-                            "split arc {} to {} vertically across pip {}\n",
-                            ctx.name_of_wire(arc.source_wire()).to_str().unwrap(),
-                            ctx.name_of_wire(arc.sink_wire()).to_str().unwrap(),
-                            ctx.name_of_pip(selected_pip).to_str().unwrap()
-                        );
-                    }
+                    if let Some(selected_pip) = selected_pip {
+                        if verbose {
+                            log_info!(
+                                "split arc {} to {} vertically across pip {}\n",
+                                ctx.name_of_wire(arc.source_wire()).to_str().unwrap(),
+                                ctx.name_of_wire(arc.sink_wire()).to_str().unwrap(),
+                                ctx.name_of_pip(selected_pip).to_str().unwrap()
+                            );
+                        }
 
-                    let mut overuse = overuse.lock().unwrap();
-                    if let Some(entry) = overuse.get_mut(&ctx.pip_dst_wire(selected_pip)) {
-                        *entry += 1;
+                        let (src_to_pip, pip_to_dst) = arc.split(ctx, selected_pip);
+                        let (seg1, seg2) = match (source_is_north, source_is_east) {
+                            (true, true) => (Segment::Northeast, Segment::Southeast),
+                            (true, false) => (Segment::Northwest, Segment::Southwest),
+                            (false, true) => (Segment::Southeast, Segment::Northeast),
+                            (false, false) => (Segment::Southwest, Segment::Northwest),
+                        };
+                        part_horiz.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                        vec![(seg1, src_to_pip), (seg2, pip_to_dst)]
                     } else {
-                        overuse.insert(ctx.pip_dst_wire(selected_pip), 1);
-                    }
+                        // oh god this is horrible i hate this
+                        let (seg1, seg2, seg3, seg4) = match (source_is_north, source_is_east) {
+                            (true, true) => (
+                                Segment::Northeast,
+                                Segment::Northwest,
+                                Segment::Southwest,
+                                Segment::Southeast,
+                            ),
+                            (true, false) => (
+                                Segment::Northwest,
+                                Segment::Northeast,
+                                Segment::Southeast,
+                                Segment::Southwest,
+                            ),
+                            (false, true) => (
+                                Segment::Southeast,
+                                Segment::Southwest,
+                                Segment::Northwest,
+                                Segment::Northeast,
+                            ),
+                            (false, false) => (
+                                Segment::Southwest,
+                                Segment::Southeast,
+                                Segment::Northeast,
+                                Segment::Northwest,
+                            ),
+                        };
+                        let pip1 = pip_selector
+                            .segment_based_find_pip(
+                                ctx,
+                                seg1,
+                                seg2,
+                                arc.net(),
+                                nets.net_from_index(arc.net()),
+                            )
+                            .expect("failed backup pip selection for horizontal partition");
+                        let pip2 = pip_selector
+                            .segment_based_find_pip(
+                                ctx,
+                                seg2,
+                                seg3,
+                                arc.net(),
+                                nets.net_from_index(arc.net()),
+                            )
+                            .expect("failed backup pip selection for horizontal partition");
+                        let pip3 = pip_selector
+                            .segment_based_find_pip(
+                                ctx,
+                                seg3,
+                                seg4,
+                                arc.net(),
+                                nets.net_from_index(arc.net()),
+                            )
+                            .expect("failed backup pip selection for horizontal partition");
 
-                    let (src_to_pip, pip_to_dst) = arc.split(ctx, selected_pip);
-                    let (seg1, seg2) = match (source_is_north, source_is_east) {
-                        (true, true) => (Segment::Northeast, Segment::Southeast),
-                        (true, false) => (Segment::Northwest, Segment::Southwest),
-                        (false, true) => (Segment::Southeast, Segment::Northeast),
-                        (false, false) => (Segment::Southwest, Segment::Northwest),
-                    };
-                    part_horiz.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                    vec![(seg1, src_to_pip), (seg2, pip_to_dst)]
+                        let (arc1, rest) = arc.split(ctx, pip1);
+                        let (arc2, rest) = rest.split(ctx, pip2);
+                        let (arc3, arc4) = rest.split(ctx, pip3);
+
+                        vec![(seg1, arc1), (seg2, arc2), (seg3, arc3), (seg4, arc4)]
+                    }
                 } else if source_is_north == sink_is_north && source_is_east != sink_is_east {
                     let middle = ((source_coords.x + sink_coords.x) / 2, y);
                     let mut middle = (
-                        middle.0.clamp(1, ctx.grid_dim_x() - 1),
-                        middle.1.clamp(1, ctx.grid_dim_y() - 1),
+                        middle.0.clamp(x_bounds.0 + 1, x_bounds.1 - 1),
+                        middle.1.clamp(y_bounds.0 + 1, y_bounds.1 - 1),
                     );
                     // need to avoid the partition point
                     if middle.0 == x {
@@ -481,41 +536,97 @@ fn partition(
                         nets.net_from_index(arc.net()),
                     );
 
-                    if verbose {
-                        log_info!(
-                            "split arc {} to {} horizontally across pip {}\n",
-                            ctx.name_of_wire(arc.source_wire()).to_str().unwrap(),
-                            ctx.name_of_wire(arc.sink_wire()).to_str().unwrap(),
-                            ctx.name_of_pip(selected_pip).to_str().unwrap()
-                        );
-                    }
+                    if let Some(selected_pip) = selected_pip {
+                        if verbose {
+                            log_info!(
+                                "split arc {} to {} horizontally across pip {}\n",
+                                ctx.name_of_wire(arc.source_wire()).to_str().unwrap(),
+                                ctx.name_of_wire(arc.sink_wire()).to_str().unwrap(),
+                                ctx.name_of_pip(selected_pip).to_str().unwrap()
+                            );
+                        }
 
-                    let mut overuse = overuse.lock().unwrap();
-                    if let Some(entry) = overuse.get_mut(&ctx.pip_dst_wire(selected_pip)) {
-                        *entry += 1;
+                        let (src_to_pip, pip_to_dst) = arc.split(ctx, selected_pip);
+                        let (seg1, seg2) = match (source_is_north, source_is_east) {
+                            (true, true) => (Segment::Northeast, Segment::Northwest),
+                            (true, false) => (Segment::Northwest, Segment::Northeast),
+                            (false, true) => (Segment::Southeast, Segment::Southwest),
+                            (false, false) => (Segment::Southwest, Segment::Southeast),
+                        };
+                        part_vert.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                        vec![(seg1, src_to_pip), (seg2, pip_to_dst)]
                     } else {
-                        overuse.insert(ctx.pip_dst_wire(selected_pip), 1);
-                    }
+                        // aaaaaaaa
+                        let (seg1, seg2, seg3, seg4) = match (source_is_north, source_is_east) {
+                            (true, true) => (
+                                Segment::Northeast,
+                                Segment::Southeast,
+                                Segment::Southwest,
+                                Segment::Northwest,
+                            ),
+                            (true, false) => (
+                                Segment::Northwest,
+                                Segment::Southwest,
+                                Segment::Southeast,
+                                Segment::Northeast,
+                            ),
+                            (false, true) => (
+                                Segment::Southeast,
+                                Segment::Northeast,
+                                Segment::Northwest,
+                                Segment::Southwest,
+                            ),
+                            (false, false) => (
+                                Segment::Southwest,
+                                Segment::Northwest,
+                                Segment::Northeast,
+                                Segment::Southeast,
+                            ),
+                        };
+                        let pip1 = pip_selector
+                            .segment_based_find_pip(
+                                ctx,
+                                seg1,
+                                seg2,
+                                arc.net(),
+                                nets.net_from_index(arc.net()),
+                            )
+                            .expect("failed backup pip selection for vertical partition");
+                        let pip2 = pip_selector
+                            .segment_based_find_pip(
+                                ctx,
+                                seg2,
+                                seg3,
+                                arc.net(),
+                                nets.net_from_index(arc.net()),
+                            )
+                            .expect("failed backup pip selection for vertical partition");
+                        let pip3 = pip_selector
+                            .segment_based_find_pip(
+                                ctx,
+                                seg3,
+                                seg4,
+                                arc.net(),
+                                nets.net_from_index(arc.net()),
+                            )
+                            .expect("failed backup pip selection for vertical partition");
 
-                    let (src_to_pip, pip_to_dst) = arc.split(ctx, selected_pip);
-                    let (seg1, seg2) = match (source_is_north, source_is_east) {
-                        (true, true) => (Segment::Northeast, Segment::Northwest),
-                        (true, false) => (Segment::Northwest, Segment::Northeast),
-                        (false, true) => (Segment::Southeast, Segment::Southwest),
-                        (false, false) => (Segment::Southwest, Segment::Southeast),
-                    };
-                    part_vert.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                    vec![(seg1, src_to_pip), (seg2, pip_to_dst)]
+                        let (arc1, rest) = arc.split(ctx, pip1);
+                        let (arc2, rest) = rest.split(ctx, pip2);
+                        let (arc3, arc4) = rest.split(ctx, pip3);
+
+                        vec![(seg1, arc1), (seg2, arc2), (seg3, arc3), (seg4, arc4)]
+                    }
                 } else {
                     let middle_horiz = (x, split_line_over_x((source_loc, sink_loc), x));
                     let mut middle_horiz = (
-                        middle_horiz.0.clamp(1, ctx.grid_dim_x() - 1),
-                        middle_horiz.1.clamp(1, ctx.grid_dim_y() - 1),
+                        middle_horiz.0.clamp(x_bounds.0 + 1, x_bounds.1 - 1),
+                        middle_horiz.1.clamp(y_bounds.0 + 1, y_bounds.1 - 1),
                     );
                     let middle_vert = (split_line_over_y((source_loc, sink_loc), y), y);
                     let mut middle_vert = (
-                        middle_vert.0.clamp(1, ctx.grid_dim_x() - 1),
-                        middle_vert.1.clamp(1, ctx.grid_dim_y() - 1),
+                        middle_vert.0.clamp(x_bounds.0 + 1, x_bounds.1 - 1),
+                        middle_vert.1.clamp(y_bounds.0 + 1, y_bounds.1 - 1),
                     );
 
                     // need to avoid the partition point
@@ -528,44 +639,124 @@ fn partition(
                             middle_vert.0 = x + 1;
                         }
                     }
-                    let horiz_happens_first = (middle_horiz.1 < y) == source_is_east;
+                    let mut horiz_happens_first = (middle_horiz.1 < y) == source_is_east;
 
-                    let (horiz_pip, vert_pip) = if horiz_happens_first {
-                        let horiz = pip_selector.find_pip(
-                            ctx,
-                            middle_horiz.into(),
-                            source_loc,
-                            arc.net(),
-                            nets.net_from_index(arc.net()),
-                        );
-                        (
-                            horiz,
-                            pip_selector.find_pip(
+                    let grab_segment_order = |horiz_happens_first| match (
+                        source_is_north,
+                        source_is_east,
+                        horiz_happens_first,
+                    ) {
+                        (true, true, true) => {
+                            (Segment::Northeast, Segment::Southeast, Segment::Southwest)
+                        }
+                        (true, false, true) => {
+                            (Segment::Northwest, Segment::Southwest, Segment::Southeast)
+                        }
+                        (false, true, true) => {
+                            (Segment::Southeast, Segment::Northeast, Segment::Northwest)
+                        }
+                        (false, false, true) => {
+                            (Segment::Southwest, Segment::Northwest, Segment::Northeast)
+                        }
+                        (true, true, false) => {
+                            (Segment::Northeast, Segment::Northwest, Segment::Southwest)
+                        }
+                        (true, false, false) => {
+                            (Segment::Northwest, Segment::Northeast, Segment::Southeast)
+                        }
+                        (false, true, false) => {
+                            (Segment::Southeast, Segment::Southwest, Segment::Northwest)
+                        }
+                        (false, false, false) => {
+                            (Segment::Southwest, Segment::Southeast, Segment::Northeast)
+                        }
+                    };
+
+                    let results = (|| {
+                        if horiz_happens_first {
+                            let horiz = pip_selector.find_pip(
+                                ctx,
+                                middle_horiz.into(),
+                                source_loc,
+                                arc.net(),
+                                nets.net_from_index(arc.net()),
+                            )?;
+                            let vert = pip_selector.find_pip(
                                 ctx,
                                 middle_vert.into(),
                                 middle_horiz.into(),
                                 arc.net(),
                                 nets.net_from_index(arc.net()),
-                            ),
-                        )
+                            )?;
+                            Some((horiz, vert))
+                        } else {
+                            let vert = pip_selector.find_pip(
+                                ctx,
+                                middle_vert.into(),
+                                source_loc,
+                                arc.net(),
+                                nets.net_from_index(arc.net()),
+                            )?;
+                            let horiz = pip_selector.find_pip(
+                                ctx,
+                                middle_horiz.into(),
+                                middle_vert.into(),
+                                arc.net(),
+                                nets.net_from_index(arc.net()),
+                            )?;
+                            Some((horiz, vert))
+                        }
+                    })();
+
+                    let (horiz_pip, vert_pip) = if let Some(res) = results {
+                        res
                     } else {
-                        let vert = pip_selector.find_pip(
-                            ctx,
-                            middle_vert.into(),
-                            source_loc,
-                            arc.net(),
-                            nets.net_from_index(arc.net()),
-                        );
-                        (
-                            pip_selector.find_pip(
-                                ctx,
-                                middle_horiz.into(),
-                                middle_vert.into(),
-                                arc.net(),
-                                nets.net_from_index(arc.net()),
-                            ),
-                            vert,
-                        )
+                        // forced to flip things the other way around
+                        horiz_happens_first = !horiz_happens_first;
+                        let (seg1, seg2, seg3) = grab_segment_order(horiz_happens_first);
+                        if horiz_happens_first {
+                            (
+                                pip_selector
+                                    .segment_based_find_pip(
+                                        ctx,
+                                        seg1,
+                                        seg2,
+                                        arc.net(),
+                                        nets.net_from_index(arc.net()),
+                                    )
+                                    .expect("failed to get pip for diagonal partition"),
+                                pip_selector
+                                    .segment_based_find_pip(
+                                        ctx,
+                                        seg2,
+                                        seg3,
+                                        arc.net(),
+                                        nets.net_from_index(arc.net()),
+                                    )
+                                    .expect("failed to get pip for diagonal partition"),
+                            )
+                        } else {
+                            (
+                                pip_selector
+                                    .segment_based_find_pip(
+                                        ctx,
+                                        seg2,
+                                        seg3,
+                                        arc.net(),
+                                        nets.net_from_index(arc.net()),
+                                    )
+                                    .expect("failed to get pip for diagonal partition"),
+                                pip_selector
+                                    .segment_based_find_pip(
+                                        ctx,
+                                        seg1,
+                                        seg2,
+                                        arc.net(),
+                                        nets.net_from_index(arc.net()),
+                                    )
+                                    .expect("failed to get pip for diagonal partition"),
+                            )
+                        }
                     };
 
                     if verbose {
@@ -578,18 +769,6 @@ fn partition(
                         );
                     }
 
-                    let mut overuse = overuse.lock().unwrap();
-                    if let Some(entry) = overuse.get_mut(&ctx.pip_dst_wire(horiz_pip)) {
-                        *entry += 1;
-                    } else {
-                        overuse.insert(ctx.pip_dst_wire(horiz_pip), 1);
-                    }
-                    if let Some(entry) = overuse.get_mut(&ctx.pip_dst_wire(vert_pip)) {
-                        *entry += 1;
-                    } else {
-                        overuse.insert(ctx.pip_dst_wire(vert_pip), 1);
-                    }
-
                     let (src_to_mid1, mid1_to_mid2, mid2_to_dst) = if horiz_happens_first {
                         let (a, b) = arc.split(ctx, horiz_pip);
                         let (b, c) = b.split(ctx, vert_pip);
@@ -600,33 +779,7 @@ fn partition(
                         (a, b, c)
                     };
 
-                    let (seg1, seg2, seg3) =
-                        match (source_is_north, source_is_east, horiz_happens_first) {
-                            (true, true, true) => {
-                                (Segment::Northeast, Segment::Southeast, Segment::Southwest)
-                            }
-                            (true, false, true) => {
-                                (Segment::Northwest, Segment::Southwest, Segment::Southeast)
-                            }
-                            (false, true, true) => {
-                                (Segment::Southeast, Segment::Northeast, Segment::Northwest)
-                            }
-                            (false, false, true) => {
-                                (Segment::Southwest, Segment::Northwest, Segment::Northeast)
-                            }
-                            (true, true, false) => {
-                                (Segment::Northeast, Segment::Northwest, Segment::Southwest)
-                            }
-                            (true, false, false) => {
-                                (Segment::Northwest, Segment::Northeast, Segment::Southeast)
-                            }
-                            (false, true, false) => {
-                                (Segment::Southeast, Segment::Southwest, Segment::Northwest)
-                            }
-                            (false, false, false) => {
-                                (Segment::Southwest, Segment::Southeast, Segment::Northeast)
-                            }
-                        };
+                    let (seg1, seg2, seg3) = grab_segment_order(horiz_happens_first);
                     part_diag.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     vec![
                         (seg1, src_to_mid1),
@@ -753,6 +906,11 @@ pub fn find_partition_point_and_sanity_check(
     y_start: i32,
     y_finish: i32,
 ) -> (i32, i32, Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>) {
+    println!(
+        "bounds: {:?} -> {:?}",
+        (x_start, y_start),
+        (x_finish, y_finish)
+    );
     let (x_part, y_part, ne, se, sw, nw) =
         find_partition_point(ctx, nets, arcs, pips, x_start, x_finish, y_start, y_finish);
 
@@ -860,8 +1018,10 @@ impl PipSelector {
         for &pip in pips {
             let loc = ctx.pip_location(pip);
             if (loc.x == partition_point.x || loc.y == partition_point.y)
-                && (bounds.0 .0..=bounds.0 .1).contains(&loc.x)
-                && (bounds.1 .0..=bounds.1 .1).contains(&loc.y)
+                && loc.x > bounds.0 .0
+                && loc.x < bounds.0 .1
+                && loc.y > bounds.1 .0
+                && loc.y < bounds.1 .1
             {
                 //correctly classifying the pips on the partition point is pretty much impossible
                 //just avoid the partition point
@@ -1041,6 +1201,7 @@ impl PipSelector {
     }
 
     /// finds a pip hopefully close to `desired_pip_location` which has a source accessable from `coming_from`
+    /// returns `None` if no pip can be found
     fn find_pip(
         &self,
         ctx: &npnr::Context,
@@ -1048,8 +1209,46 @@ impl PipSelector {
         coming_from: npnr::Loc,
         net: npnr::NetIndex,
         raw_net: *mut npnr::NetInfo,
-    ) -> npnr::PipId {
+    ) -> Option<npnr::PipId> {
         let pip_index = self.find_pip_index(desired_pip_location, coming_from);
+        self.raw_find_pip(ctx, pip_index, desired_pip_location, net, raw_net)
+    }
+
+    /// an emergency find pip function for when the exact pip location doesn't matter, only where comes from and goes to
+    fn segment_based_find_pip(
+        &self,
+        ctx: &npnr::Context,
+        from_segment: Segment,
+        to_segment: Segment,
+        net: npnr::NetIndex,
+        raw_net: *mut npnr::NetInfo,
+    ) -> Option<npnr::PipId> {
+        let (pip_index, offset) = match (from_segment, to_segment) {
+            (Segment::Northeast, Segment::Northwest) => (0, (-1, 0)),
+            (Segment::Southeast, Segment::Southwest) => (1, (1, 0)),
+            (Segment::Northwest, Segment::Northeast) => (2, (-1, 0)),
+            (Segment::Southwest, Segment::Southeast) => (3, (1, 0)),
+            (Segment::Northeast, Segment::Southeast) => (4, (0, -1)),
+            (Segment::Northwest, Segment::Southwest) => (5, (0, 1)),
+            (Segment::Southeast, Segment::Northeast) => (6, (0, -1)),
+            (Segment::Southwest, Segment::Northwest) => (7, (0, 1)),
+            _ => panic!("tried to find pip between two diagonal or identical segments"),
+        };
+        let desired_location = (
+            self.partition_loc.x + offset.0,
+            self.partition_loc.y + offset.1,
+        );
+        self.raw_find_pip(ctx, pip_index, desired_location.into(), net, raw_net)
+    }
+
+    fn raw_find_pip(
+        &self,
+        ctx: &npnr::Context,
+        pip_index: usize,
+        desired_pip_location: npnr::Loc,
+        net: npnr::NetIndex,
+        raw_net: *mut npnr::NetInfo,
+    ) -> Option<npnr::PipId> {
         // adding a scope to avoid holding the lock for too long
         {
             let cache = self.pip_selection_cache[pip_index]
@@ -1058,14 +1257,19 @@ impl PipSelector {
                 .read()
                 .unwrap();
             if let Some(pip) = *cache {
-                return pip;
+                return Some(pip);
             }
         }
+
         let pips = &self.pips[pip_index];
 
         let selected_pip = self
             .pip_index_to_position_iter(pip_index, (desired_pip_location.x, desired_pip_location.y))
-            .flat_map(|pos| pips.get(&pos).unwrap().iter())
+            .flat_map(|pos| {
+                pips.get(&pos)
+                    .unwrap_or_else(|| panic!("tried at {:?}", pos))
+                    .iter()
+            })
             .find(|&pip| {
                 if !ctx.pip_avail_for_net(*pip, raw_net) {
                     return false;
@@ -1104,8 +1308,7 @@ impl PipSelector {
                 *sink = Some(net);
 
                 true
-            })
-            .expect("unable to find a pip");
+            })?;
 
         {
             let mut cache = self.pip_selection_cache[pip_index]
@@ -1116,7 +1319,7 @@ impl PipSelector {
             *cache = Some(*selected_pip);
         }
 
-        *selected_pip
+        Some(*selected_pip)
     }
 
     /// takes in a desired pip location and where the arc is coming from and figures out which index to use in the `self.pips` array
@@ -1150,7 +1353,7 @@ impl PipSelector {
             0 | 2 => (
                 (1, 0),
                 self.partition_loc.x - start_position.0 - 1,
-                start_position.0 - 1,
+                start_position.0 - self.boundaries.0 .0 - 1,
             ),
             1 | 3 => (
                 (1, 0),
@@ -1160,7 +1363,7 @@ impl PipSelector {
             4 | 6 => (
                 (0, 1),
                 self.partition_loc.y - start_position.1 - 1,
-                start_position.1 - 1,
+                start_position.1 - self.boundaries.1 .0 - 1,
             ),
             5 | 7 => (
                 (0, 1),

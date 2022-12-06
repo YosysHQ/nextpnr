@@ -196,16 +196,46 @@ fn route(ctx: &mut npnr::Context, pressure: f32, history: f32) -> bool {
         special_arcs.len().to_string().bold()
     );
 
-    let (x_part, y_part, ne, se, sw, nw) = partition::find_partition_point_and_sanity_check(
-        ctx,
-        &nets,
-        &partitionable_arcs[..],
-        pips,
-        0,
-        ctx.grid_dim_x(),
-        0,
-        ctx.grid_dim_y(),
-    );
+    let mut partitions = vec![(
+        Coord::new(0, 0),
+        Coord::new(ctx.grid_dim_x(), ctx.grid_dim_y()),
+        partitionable_arcs,
+        String::from(""),
+    )];
+
+    for _ in 0..2 {
+        let mut new_partitions = Vec::with_capacity(partitions.len() * 4);
+        for (min, max, partition, name) in &partitions {
+            let (x_part, y_part, ne, se, sw, nw) = partition::find_partition_point_and_sanity_check(
+                ctx, &nets, partition, pips, min.x, max.x, min.y, max.y,
+            );
+            new_partitions.push((
+                *min,
+                Coord::new(x_part + 1, y_part + 1),
+                ne,
+                format!("{}_NE", name),
+            ));
+            new_partitions.push((
+                Coord::new(x_part - 1, min.y),
+                Coord::new(max.x, y_part + 1),
+                se,
+                format!("{}_SE", name),
+            ));
+            new_partitions.push((
+                Coord::new(x_part - 1, y_part - 1),
+                *max,
+                sw,
+                format!("{}_SW", name),
+            ));
+            new_partitions.push((
+                Coord::new(min.x, y_part - 1),
+                Coord::new(x_part + 1, max.y),
+                nw,
+                format!("{}_NW", name),
+            ));
+        }
+        partitions = new_partitions;
+    }
 
     let time = format!("{:.2}", (Instant::now() - start).as_secs_f32());
     log_info!("Partitioning took {}s\n", time.bold());
@@ -221,33 +251,6 @@ fn route(ctx: &mut npnr::Context, pressure: f32, history: f32) -> bool {
     log_info!("Routing partitioned arcs\n");
 
     let progress = MultiProgress::new();
-
-    let partitions = [
-        (
-            Coord::new(0, 0),
-            Coord::new(x_part + 1, y_part + 1),
-            &ne,
-            "NE",
-        ),
-        (
-            Coord::new(x_part - 1, 0),
-            Coord::new(ctx.grid_dim_x(), y_part + 1),
-            &se,
-            "SE",
-        ),
-        (
-            Coord::new(x_part - 1, y_part - 1),
-            Coord::new(ctx.grid_dim_x(), ctx.grid_dim_y()),
-            &sw,
-            "SW",
-        ),
-        (
-            Coord::new(0, y_part - 1),
-            Coord::new(x_part + 1, ctx.grid_dim_y()),
-            &nw,
-            "NW",
-        ),
-    ];
 
     let mut router = route::Router::new(&nets, wires, pressure, history);
     partitions
