@@ -124,37 +124,23 @@ pub fn find_partition_point(
     let mut x_diff = (x_finish - x_start) / 4;
     let mut y_diff = (y_finish - y_start) / 4;
 
-    let mut ne;
-    let mut se;
-    let mut sw;
-    let mut nw;
-
     while x_diff != 0 {
-        (ne, se, sw, nw) = partition(
-            ctx,
-            nets,
-            arcs,
-            pips,
-            x,
-            y,
-            (x_start, x_finish),
-            (y_start, y_finish),
-        );
-        let north = ne.len() + nw.len();
-        let south = se.len() + sw.len();
+        let (ne, se, sw, nw) = approximate_partition_results(arcs, (x, y));
+        let north = ne + nw;
+        let south = se + sw;
 
         let nets = (north + south) as f64;
 
-        let ne_dist = f64::abs(((ne.len() as f64) / nets) - 0.25);
-        let se_dist = f64::abs(((se.len() as f64) / nets) - 0.25);
-        let sw_dist = f64::abs(((sw.len() as f64) / nets) - 0.25);
-        let nw_dist = f64::abs(((nw.len() as f64) / nets) - 0.25);
+        let ne_dist = f64::abs(((ne as f64) / nets) - 0.25);
+        let se_dist = f64::abs(((se as f64) / nets) - 0.25);
+        let sw_dist = f64::abs(((sw as f64) / nets) - 0.25);
+        let nw_dist = f64::abs(((nw as f64) / nets) - 0.25);
 
         let distortion = 100.0 * (ne_dist + se_dist + sw_dist + nw_dist);
 
         // Stop early if Good Enough.
         if distortion <= 5.0 {
-            return (x, y, ne, se, sw, nw);
+            break;
         }
 
         x += match north.cmp(&south) {
@@ -163,8 +149,8 @@ pub fn find_partition_point(
             std::cmp::Ordering::Greater => -x_diff,
         };
 
-        let east = ne.len() + se.len();
-        let west = nw.len() + sw.len();
+        let east = ne + se;
+        let west = nw + sw;
         y += match east.cmp(&west) {
             std::cmp::Ordering::Less => y_diff,
             std::cmp::Ordering::Equal => 0,
@@ -175,7 +161,7 @@ pub fn find_partition_point(
         y_diff >>= 1;
     }
 
-    (ne, se, sw, nw) = partition(
+    let (ne, se, sw, nw) = partition(
         ctx,
         nets,
         arcs,
@@ -201,6 +187,123 @@ pub fn find_partition_point(
     );
 
     (x, y, ne, se, sw, nw)
+}
+
+fn approximate_partition_results(
+    arcs: &[Arc],
+    partition_point: (i32, i32),
+) -> (usize, usize, usize, usize) {
+    let mut count_ne = 0;
+    let mut count_se = 0;
+    let mut count_sw = 0;
+    let mut count_nw = 0;
+    for arc in arcs {
+        // TODO(SpaceCat~Chan): stop being lazy and merge Loc and Coord already
+        let source_is_north = arc.get_source_loc().x < partition_point.0;
+        let source_is_east = arc.get_source_loc().y < partition_point.1;
+        let sink_is_north = arc.get_sink_loc().x < partition_point.0;
+        let sink_is_east = arc.get_sink_loc().y < partition_point.1;
+        if source_is_north == sink_is_north && source_is_east == sink_is_east {
+            match (source_is_north, source_is_east) {
+                (true, true) => count_ne += 1,
+                (false, true) => count_se += 1,
+                (false, false) => count_sw += 1,
+                (true, false) => count_nw += 1,
+            }
+        } else if source_is_north != sink_is_north && source_is_east == sink_is_east {
+            if source_is_east {
+                count_ne += 1;
+                count_se += 1;
+            } else {
+                count_nw += 1;
+                count_sw += 1;
+            }
+        } else if source_is_north == sink_is_north {
+            if source_is_north {
+                count_ne += 1;
+                count_nw += 1;
+            } else {
+                count_se += 1;
+                count_sw += 1;
+            }
+        } else {
+            // all of this calculation is not be needed and an approximation would be good enough
+            // but i can't be bothered (yes this is all copy-pasted from the actual partitioner)
+            let mut middle_horiz = (
+                partition_point.0,
+                split_line_over_x(
+                    (arc.get_source_loc(), arc.get_sink_loc()),
+                    partition_point.0,
+                ),
+            );
+
+            let mut middle_vert = (
+                split_line_over_y(
+                    (arc.get_source_loc(), arc.get_sink_loc()),
+                    partition_point.1,
+                ),
+                partition_point.1,
+            );
+
+            // need to avoid the partition point
+            if middle_horiz.1 == partition_point.1 || middle_vert.0 == partition_point.0 {
+                if source_is_east != sink_is_north {
+                    middle_horiz.1 = partition_point.1 + 1;
+                    middle_vert.0 = partition_point.0 - 1;
+                } else {
+                    middle_horiz.1 = partition_point.1 + 1;
+                    middle_vert.0 = partition_point.0 + 1;
+                }
+            }
+            let horiz_happens_first = (middle_horiz.1 < partition_point.1) == source_is_east;
+
+            // note: if you invert all the bools it adds to the same things, not sure how make less redundant
+            match (source_is_north, source_is_east, horiz_happens_first) {
+                (true, true, true) => {
+                    count_ne += 1;
+                    count_se += 1;
+                    count_sw += 1;
+                }
+                (true, false, true) => {
+                    count_nw += 1;
+                    count_se += 1;
+                    count_sw += 1;
+                }
+                (false, true, true) => {
+                    count_ne += 1;
+                    count_nw += 1;
+                    count_se += 1;
+                }
+                (false, false, true) => {
+                    count_ne += 1;
+                    count_nw += 1;
+                    count_sw += 1;
+                }
+                (true, true, false) => {
+                    count_ne += 1;
+                    count_nw += 1;
+                    count_sw += 1;
+                }
+                (true, false, false) => {
+                    count_ne += 1;
+                    count_nw += 1;
+                    count_se += 1;
+                }
+                (false, true, false) => {
+                    count_nw += 1;
+                    count_se += 1;
+                    count_sw += 1;
+                }
+                (false, false, false) => {
+                    count_ne += 1;
+                    count_se += 1;
+                    count_sw += 1;
+                }
+            }
+        }
+    }
+
+    (count_ne, count_se, count_sw, count_nw)
 }
 
 /// finds the y location a line would be split at if you split it at a certain x location
