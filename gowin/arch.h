@@ -227,6 +227,7 @@ struct BelInfo
     std::map<IdString, std::string> attrs;
     CellInfo *bound_cell;
     dict<IdString, PinInfo> pins;
+    std::vector<IdString> pin_cfgs;
     DecalXY decalxy_active, decalxy_inactive;
     int x, y, z;
     bool gb;
@@ -474,8 +475,11 @@ struct Arch : BaseArch<ArchRanges>
     void fix_longwire_bels();
     void pre_pack(Context *ctx);
     void post_pack(Context *ctx);
+    void pre_route(Context *ctx);
+    void post_route(Context *ctx);
     void auto_longwires();
     void add_plla_ports(BelsPOD const *bel, IdString belname, int row, int col);
+    void fix_pll_nets(Context *ctx);
 
     GowinGlobalRouter globals_router;
     void mark_gowin_globals(Context *ctx);
