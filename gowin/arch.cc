@@ -2067,7 +2067,13 @@ void Arch::fix_pll_nets(Context *ctx)
     }
 }
 
-void Arch::pre_route(Context *ctx) { fix_pll_nets(ctx); }
+void Arch::pre_route(Context *ctx)
+{
+    fix_pll_nets(ctx);
+    if (bool_or_default(settings, id("arch.enable-globals"))) {
+        mark_gowin_globals(ctx);
+    }
+}
 
 void Arch::post_route(Context *ctx) { fix_longwire_bels(); }
 
@@ -2289,11 +2295,6 @@ void Arch::pre_pack(Context *ctx)
     }
 }
 
-void Arch::post_pack(Context *ctx)
-{
-    if (bool_or_default(settings, id("arch.enable-globals"))) {
-        mark_gowin_globals(ctx);
-    }
-}
+void Arch::post_pack(Context *ctx) {}
 
 NEXTPNR_NAMESPACE_END
