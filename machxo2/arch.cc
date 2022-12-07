@@ -451,7 +451,7 @@ bool Arch::route()
 
 // ---------------------------------------------------------------
 
-bool Arch::isBelLocationValid(BelId bel) const
+bool Arch::isBelLocationValid(BelId bel, bool explain_invalid) const
 {
     // FIXME: Same deal as isValidBelForCell.
     return true;

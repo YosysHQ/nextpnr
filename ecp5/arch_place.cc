@@ -178,7 +178,7 @@ bool Arch::slices_compatible(LogicTileStatus *lts) const
     return true;
 }
 
-bool Arch::isBelLocationValid(BelId bel) const
+bool Arch::isBelLocationValid(BelId bel, bool explain_invalid) const
 {
     IdString bel_type = getBelType(bel);
     if (bel_type.in(id_TRELLIS_COMB, id_TRELLIS_FF, id_TRELLIS_RAMW)) {

@@ -698,10 +698,14 @@ return the same value regardless if other cells are placed within the fabric.
 
 *BaseArch default: returns `cell_type == getBelType(bel)`*
 
-### bool isBelLocationValid(BelId bel) const
+### bool isBelLocationValid(BelId bel, bool explain_invalid = false) const
 
 Returns true if a bel in the current configuration is legal (for example,
 a flipflop's clock signal is correctly shared with all bels in a slice.)
+
+If and only if `explain_invalid` is set to true, then a message using
+`log_nonfatal_error` should be printed explaining why the placement is invalid
+to the end user.
 
 *BaseArch default: returns true*
 

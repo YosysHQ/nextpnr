@@ -1322,7 +1322,7 @@ struct Arch : BaseArch<ArchRanges>
     // implemented in arch_place.cc)
 
     // Return true whether all Bels at a given location are valid
-    bool isBelLocationValid(BelId bel) const override;
+    bool isBelLocationValid(BelId bel, bool explain_invalid = false) const override;
 
     // -------------------------------------------------
 

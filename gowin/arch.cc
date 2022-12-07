@@ -2149,7 +2149,7 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
     return tmg.clockingInfo.at(port).at(index);
 }
 
-bool Arch::isBelLocationValid(BelId bel) const
+bool Arch::isBelLocationValid(BelId bel, bool explain_invalid) const
 {
     Loc loc = getBelLocation(bel);
 

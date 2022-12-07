@@ -182,7 +182,7 @@ IdStringList Arch::getBelName(BelId bel) const
     return IdStringList(ids);
 }
 
-bool Arch::isBelLocationValid(BelId bel) const
+bool Arch::isBelLocationValid(BelId bel, bool explain_invalid) const
 {
     auto &data = bel_data(bel);
     if (data.type.in(id_MISTRAL_COMB, id_MISTRAL_MCOMB)) {

@@ -64,7 +64,7 @@ X(F)
 ```c++
 bool checkBelAvail(BelId bel) const;
 bool isValidBelForCellType(IdString cell_type, BelId bel) const;
-bool isBelLocationValid(BelId bel) const;
+bool isBelLocationValid(BelId bel, bool explain_invalid = false) const;
 bool checkWireAvail(WireId wire) const;
 bool checkPipAvail(PipId pip) const;
 bool checkPipAvailForNet(PipId pip, NetInfo *net) const;

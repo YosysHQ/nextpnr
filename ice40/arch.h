@@ -840,7 +840,7 @@ struct Arch : BaseArch<ArchRanges>
     // implemented in arch_place.cc)
 
     // Return true whether all Bels at a given location are valid
-    bool isBelLocationValid(BelId bel) const override;
+    bool isBelLocationValid(BelId bel, bool explain_invalid = false) const override;
 
     // Helper function for above
     bool logic_cells_compatible(const CellInfo **it, const size_t size) const;

@@ -82,7 +82,7 @@ static inline bool _io_pintype_need_clk_en(unsigned pin_type)
     return _io_pintype_need_clk_in(pin_type) || _io_pintype_need_clk_out(pin_type);
 }
 
-bool Arch::isBelLocationValid(BelId bel) const
+bool Arch::isBelLocationValid(BelId bel, bool explain_invalid) const
 {
     if (getBelType(bel) == id_ICESTORM_LC) {
         std::array<const CellInfo *, 8> bel_cells;
@@ -124,6 +124,8 @@ bool Arch::isBelLocationValid(BelId bel) const
                         return true;
 
                     // Conflict
+                    if (explain_invalid)
+                        log_nonfatal_error("Cell '%s' conflicts with PLL cell '%s'\n", nameOf(cell), nameOf(pll_cell));
                     return false;
                 }
             }
@@ -135,18 +137,29 @@ bool Arch::isBelLocationValid(BelId bel) const
             // Check LVDS pairing
             if (cell->ioInfo.lvds) {
                 // Check correct z and complement location is free
-                if (ioLoc.z != 0)
+                if (ioLoc.z != 0) {
+                    if (explain_invalid)
+                        log_nonfatal_error("Bel '%s' can't be used for LVDS\n", getCtx()->nameOfBel(bel));
                     return false;
+                }
                 BelId compBel = getBelByLocation(compLoc);
                 CellInfo *compCell = getBoundBelCell(compBel);
-                if (compCell)
+                if (compCell) {
+                    if (explain_invalid)
+                        log_nonfatal_error("Cell '%s' LVDS complement occupied by cell '%s'\n", nameOf(cell),
+                                           nameOf(compCell));
                     return false;
+                }
             } else {
                 // Check LVDS IO is not placed at complement location
                 BelId compBel = getBelByLocation(compLoc);
                 const CellInfo *compCell = getBoundBelCell(compBel);
-                if (compCell && compCell->ioInfo.lvds)
+                if (compCell && compCell->ioInfo.lvds) {
+                    if (explain_invalid)
+                        log_nonfatal_error("Cell '%s' can't occupy LVDS complement of cell '%s'\n", nameOf(cell),
+                                           nameOf(compCell));
                     return false;
+                }
 
                 // Check for conflicts on shared nets
                 // - CLOCK_ENABLE
@@ -168,8 +181,13 @@ bool Arch::isBelLocationValid(BelId bel) const
                     };
 
                     for (int i = 0; i < 6; i++)
-                        if (use[i] && (nets[i] != nets[i ^ 1]) && (use[i ^ 1] || (nets[i ^ 1] != nullptr)))
+                        if (use[i] && (nets[i] != nets[i ^ 1]) && (use[i ^ 1] || (nets[i ^ 1] != nullptr))) {
+                            if (explain_invalid)
+                                log_nonfatal_error("Net '%s' for cell '%s' conflicts with net '%s' for '%s'\n",
+                                                   nameOf(nets[i]), nameOf(cell), nameOf(nets[i ^ 1]),
+                                                   nameOf(compCell));
                             return false;
+                        }
                 }
             }
 

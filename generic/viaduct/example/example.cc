@@ -62,7 +62,7 @@ struct ExampleImpl : ViaductAPI
 
     void prePlace() override { assign_cell_info(); }
 
-    bool isBelLocationValid(BelId bel) const override
+    bool isBelLocationValid(BelId bel, bool explain_invalid) const override
     {
         Loc l = ctx->getBelLocation(bel);
         if (is_io(l.x, l.y)) {

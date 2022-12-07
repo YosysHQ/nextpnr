@@ -643,7 +643,7 @@ struct Arch : BaseArch<ArchRanges>
     bool route() override;
 
     // Placer
-    bool isBelLocationValid(BelId bel) const override;
+    bool isBelLocationValid(BelId bel, bool explain_invalid = false) const override;
 
     static const std::string defaultPlacer;
     static const std::vector<std::string> availablePlacers;
