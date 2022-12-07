@@ -968,7 +968,7 @@ struct Arch : BaseArch<ArchRanges>
     // -------------------------------------------------
 
     delay_t estimateDelay(WireId src, WireId dst) const override;
-    ArcBounds getRouteBoundingBox(WireId src, WireId dst) const override;
+    BoundingBox getRouteBoundingBox(WireId src, WireId dst) const override;
     delay_t predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const override;
     delay_t getDelayEpsilon() const override { return 20; }
     delay_t getRipupDelayPenalty() const override;

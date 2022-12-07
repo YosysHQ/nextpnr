@@ -504,9 +504,9 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
            (6 + std::max(dx - 5, 0) + std::max(dy - 5, 0) + 2 * (std::min(dx, 5) + std::min(dy, 5)));
 }
 
-ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
+BoundingBox Arch::getRouteBoundingBox(WireId src, WireId dst) const
 {
-    ArcBounds bb;
+    BoundingBox bb;
 
     bb.x0 = src.location.x;
     bb.y0 = src.location.y;

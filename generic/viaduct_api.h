@@ -82,7 +82,7 @@ struct ViaductAPI
     // --- Route lookahead ---
     virtual delay_t estimateDelay(WireId src, WireId dst) const;
     virtual delay_t predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const;
-    virtual ArcBounds getRouteBoundingBox(WireId src, WireId dst) const;
+    virtual BoundingBox getRouteBoundingBox(WireId src, WireId dst) const;
 
     // --- Flow hooks ---
     virtual void pack(){}; // replaces the pack function

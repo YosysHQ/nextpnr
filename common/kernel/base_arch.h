@@ -377,10 +377,10 @@ template <typename R> struct BaseArch : ArchAPI<R>
     // Cluster methods
     virtual CellInfo *getClusterRootCell(ClusterId cluster) const override { return get_cluster_root(this, cluster); }
 
-    virtual ArcBounds getClusterBounds(ClusterId cluster) const override
+    virtual BoundingBox getClusterBounds(ClusterId cluster) const override
     {
-        return if_using_basecluster<ArcBounds>(get_cluster_root(this, cluster), [](const BaseClusterInfo *cluster) {
-            ArcBounds bounds(0, 0, 0, 0);
+        return if_using_basecluster<BoundingBox>(get_cluster_root(this, cluster), [](const BaseClusterInfo *cluster) {
+            BoundingBox bounds(0, 0, 0, 0);
             for (auto child : cluster->constr_children) {
                 if_using_basecluster<void>(child, [&](const BaseClusterInfo *child) {
                     bounds.x0 = std::min(bounds.x0, child->constr_x);

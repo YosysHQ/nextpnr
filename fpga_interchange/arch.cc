@@ -730,7 +730,7 @@ std::vector<std::pair<IdString, std::string>> Arch::getBelAttrs(BelId bel) const
 
 // -----------------------------------------------------------------------
 
-ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
+BoundingBox Arch::getRouteBoundingBox(WireId src, WireId dst) const
 {
     int dst_tile = dst.tile == -1 ? chip_info->nodes[dst.index].tile_wires[0].tile : dst.tile;
     int src_tile = src.tile == -1 ? chip_info->nodes[src.index].tile_wires[0].tile : src.tile;

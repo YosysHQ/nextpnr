@@ -51,7 +51,7 @@ struct Router2
     struct PerArcData
     {
         WireId sink_wire;
-        ArcBounds bb;
+        BoundingBox bb;
         bool routed = false;
     };
 
@@ -62,7 +62,7 @@ struct Router2
         WireId src_wire;
         dict<WireId, std::pair<PipId, int>> wires;
         std::vector<std::vector<PerArcData>> arcs;
-        ArcBounds bb;
+        BoundingBox bb;
         // Coordinates of the center of the net, used for the weight-to-average
         int cx, cy, hpwl;
         int total_route_us = 0;
@@ -206,7 +206,7 @@ struct Router2
                 }
             }
 
-            ArcBounds wire_loc = ctx->getRouteBoundingBox(wire, wire);
+            BoundingBox wire_loc = ctx->getRouteBoundingBox(wire, wire);
             pwd.x = (wire_loc.x0 + wire_loc.x1) / 2;
             pwd.y = (wire_loc.y0 + wire_loc.y1) / 2;
 
@@ -249,7 +249,7 @@ struct Router2
         };
     };
 
-    bool hit_test_pip(ArcBounds &bb, Loc l) { return l.x >= bb.x0 && l.x <= bb.x1 && l.y >= bb.y0 && l.y <= bb.y1; }
+    bool hit_test_pip(BoundingBox &bb, Loc l) { return l.x >= bb.x0 && l.x <= bb.x1 && l.y >= bb.y0 && l.y <= bb.y1; }
 
     double curr_cong_weight, hist_cong_weight, estimate_weight;
 
@@ -269,7 +269,7 @@ struct Router2
         std::vector<int> dirty_wires;
 
         // Thread bounding box
-        ArcBounds bb;
+        BoundingBox bb;
 
         DeterministicRNG rng;
 
@@ -1217,7 +1217,7 @@ struct Router2
         if (route_queue.size() < 200) {
             ThreadContext st;
             st.rng.rngseed(ctx->rng64());
-            st.bb = ArcBounds(0, 0, std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
+            st.bb = BoundingBox(0, 0, std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
             for (size_t j = 0; j < route_queue.size(); j++) {
                 route_net(st, nets_by_udata[route_queue[j]], false);
             }
@@ -1234,19 +1234,19 @@ struct Router2
         int le_y = mid_y;
         int rs_y = mid_y;
         // Set up thread bounding boxes
-        tcs.at(0).bb = ArcBounds(0, 0, mid_x, mid_y);
-        tcs.at(1).bb = ArcBounds(mid_x + 1, 0, std::numeric_limits<int>::max(), le_y);
-        tcs.at(2).bb = ArcBounds(0, mid_y + 1, mid_x, std::numeric_limits<int>::max());
+        tcs.at(0).bb = BoundingBox(0, 0, mid_x, mid_y);
+        tcs.at(1).bb = BoundingBox(mid_x + 1, 0, std::numeric_limits<int>::max(), le_y);
+        tcs.at(2).bb = BoundingBox(0, mid_y + 1, mid_x, std::numeric_limits<int>::max());
         tcs.at(3).bb =
-                ArcBounds(mid_x + 1, mid_y + 1, std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
+                BoundingBox(mid_x + 1, mid_y + 1, std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
 
-        tcs.at(4).bb = ArcBounds(0, 0, std::numeric_limits<int>::max(), mid_y);
-        tcs.at(5).bb = ArcBounds(0, mid_y + 1, std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
+        tcs.at(4).bb = BoundingBox(0, 0, std::numeric_limits<int>::max(), mid_y);
+        tcs.at(5).bb = BoundingBox(0, mid_y + 1, std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
 
-        tcs.at(6).bb = ArcBounds(0, 0, mid_x, std::numeric_limits<int>::max());
-        tcs.at(7).bb = ArcBounds(mid_x + 1, 0, std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
+        tcs.at(6).bb = BoundingBox(0, 0, mid_x, std::numeric_limits<int>::max());
+        tcs.at(7).bb = BoundingBox(mid_x + 1, 0, std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
 
-        tcs.at(8).bb = ArcBounds(0, 0, std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
+        tcs.at(8).bb = BoundingBox(0, 0, std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
 
         for (auto n : route_queue) {
             auto &nd = nets.at(n);

@@ -1300,7 +1300,7 @@ struct Arch : BaseArch<ArchRanges>
     delay_t getDelayFromNS(float ns) const override { return delay_t(ns * 1000); }
     uint32_t getDelayChecksum(delay_t v) const override { return v; }
     bool getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const override;
-    ArcBounds getRouteBoundingBox(WireId src, WireId dst) const override;
+    BoundingBox getRouteBoundingBox(WireId src, WireId dst) const override;
 
     // for better DSP bounding boxes
     void pre_routing();

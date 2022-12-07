@@ -95,12 +95,12 @@ struct Loc
     unsigned int hash() const { return mkhash(x, mkhash(y, z)); }
 };
 
-struct ArcBounds
+struct BoundingBox
 {
     int x0 = -1, y0 = -1, x1 = -1, y1 = -1;
 
-    ArcBounds() {}
-    ArcBounds(int x0, int y0, int x1, int y1) : x0(x0), y0(y0), x1(x1), y1(y1){};
+    BoundingBox() {}
+    BoundingBox(int x0, int y0, int x1, int y1) : x0(x0), y0(y0), x1(x1), y1(y1){};
 
     int distance(Loc loc) const
     {

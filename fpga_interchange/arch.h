@@ -701,7 +701,7 @@ struct Arch : ArchAPI<ArchRanges>
     // -------------------------------------------------
     delay_t estimateDelay(WireId src, WireId dst) const final;
     delay_t predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const final;
-    ArcBounds getRouteBoundingBox(WireId src, WireId dst) const final;
+    BoundingBox getRouteBoundingBox(WireId src, WireId dst) const final;
     delay_t getDelayEpsilon() const final { return 20; }
     delay_t getRipupDelayPenalty() const final { return 120; }
     float getDelayNS(delay_t v) const final { return v * 0.001; }
@@ -896,7 +896,7 @@ struct Arch : ArchAPI<ArchRanges>
     }
 
     CellInfo *getClusterRootCell(ClusterId cluster) const override;
-    ArcBounds getClusterBounds(ClusterId cluster) const override;
+    BoundingBox getClusterBounds(ClusterId cluster) const override;
     Loc getClusterOffset(const CellInfo *cell) const override;
     bool isClusterStrict(const CellInfo *cell) const override;
     bool normal_cluster_placement(const Context *, const Cluster &, const ClusterPOD &, CellInfo *, BelId,

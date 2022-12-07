@@ -702,9 +702,9 @@ delay_t Arch::predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdStr
 
 bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const { return false; }
 
-ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
+BoundingBox Arch::getRouteBoundingBox(WireId src, WireId dst) const
 {
-    ArcBounds bb;
+    BoundingBox bb;
 
     int src_x = src.tile % chip_info->width, src_y = src.tile / chip_info->width;
     int dst_x = dst.tile % chip_info->width, dst_y = dst.tile / chip_info->width;
