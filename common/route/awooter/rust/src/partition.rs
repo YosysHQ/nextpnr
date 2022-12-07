@@ -6,6 +6,7 @@ use std::{
 
 use colored::Colorize;
 use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
+use itertools::Itertools;
 use rayon::prelude::*;
 
 use crate::{
@@ -13,24 +14,56 @@ use crate::{
     route::Arc,
 };
 
-#[derive(Clone, Copy)]
-pub enum Segment {
+#[derive(Clone, Copy, Debug)]
+pub enum Quadrant {
     Northeast,
     Southeast,
     Southwest,
     Northwest,
 }
 
-pub enum FullSegment {
-    Northeast,
-    Southeast,
-    Southwest,
-    Northwest,
+#[derive(Clone, Copy, Debug)]
+pub enum Direction {
     North,
     South,
     East,
     West,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum FullSegment {
+    Quadrant(Quadrant),
+    Direction(Direction),
     Exact,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum Axis {
+    NorthSouth,
+    EastWest,
+}
+
+impl Direction {
+    fn between(a: Quadrant, b: Quadrant) -> Option<Direction> {
+        match (a, b) {
+            (Quadrant::Northeast, Quadrant::Northwest) => Some(Direction::North),
+            (Quadrant::Northwest, Quadrant::Northeast) => Some(Direction::North),
+            (Quadrant::Northeast, Quadrant::Southeast) => Some(Direction::East),
+            (Quadrant::Southeast, Quadrant::Northeast) => Some(Direction::East),
+            (Quadrant::Southeast, Quadrant::Southwest) => Some(Direction::South),
+            (Quadrant::Southwest, Quadrant::Southeast) => Some(Direction::South),
+            (Quadrant::Northwest, Quadrant::Southwest) => Some(Direction::West),
+            (Quadrant::Southwest, Quadrant::Northwest) => Some(Direction::West),
+            _ => None,
+        }
+    }
+
+    fn axis(&self) -> Axis {
+        match self {
+            Direction::North | Direction::South => Axis::NorthSouth,
+            Direction::East | Direction::West => Axis::EastWest,
+        }
+    }
 }
 
 //        (x < P.x)
@@ -44,7 +77,7 @@ pub enum FullSegment {
 //            v
 //            S
 //        (x > P.x)
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Coord {
     pub x: i32,
     pub y: i32,
@@ -71,12 +104,12 @@ impl Coord {
         self.y > other.y
     }
 
-    pub fn segment_from(&self, other: &Self) -> Segment {
+    pub fn segment_from(&self, other: &Self) -> Quadrant {
         match (self.is_north_of(other), self.is_east_of(other)) {
-            (true, true) => Segment::Northeast,
-            (true, false) => Segment::Northwest,
-            (false, true) => Segment::Southeast,
-            (false, false) => Segment::Southwest,
+            (true, true) => Quadrant::Northeast,
+            (true, false) => Quadrant::Northwest,
+            (false, true) => Quadrant::Southeast,
+            (false, false) => Quadrant::Southwest,
         }
     }
 
@@ -87,16 +120,56 @@ impl Coord {
             self.is_south_of(from),
             self.is_west_of(from),
         ) {
-            (true, true, false, false) => FullSegment::Northeast,
-            (true, false, false, true) => FullSegment::Northwest,
-            (false, true, true, false) => FullSegment::Southeast,
-            (false, false, true, true) => FullSegment::Southwest,
-            (true, false, false, false) => FullSegment::North,
-            (false, true, false, false) => FullSegment::East,
-            (false, false, true, false) => FullSegment::South,
-            (false, false, false, true) => FullSegment::West,
+            (true, true, false, false) => FullSegment::Quadrant(Quadrant::Northeast),
+            (true, false, false, true) => FullSegment::Quadrant(Quadrant::Northwest),
+            (false, true, true, false) => FullSegment::Quadrant(Quadrant::Southeast),
+            (false, false, true, true) => FullSegment::Quadrant(Quadrant::Southwest),
+            (true, false, false, false) => FullSegment::Direction(Direction::North),
+            (false, true, false, false) => FullSegment::Direction(Direction::East),
+            (false, false, true, false) => FullSegment::Direction(Direction::South),
+            (false, false, false, true) => FullSegment::Direction(Direction::West),
             (false, false, false, false) => FullSegment::Exact,
             _ => unreachable!(),
+        }
+    }
+
+    pub fn intersect(&self, other: &Self, axis: Axis, split_point: &Self) -> Self {
+        match axis {
+            Axis::NorthSouth => Coord {
+                x: split_line_over_y(((*self).into(), (*other).into()), split_point.y),
+                y: split_point.y,
+            },
+            Axis::EastWest => Coord {
+                x: split_point.x,
+                y: split_line_over_x(((*self).into(), (*other).into()), split_point.x),
+            },
+        }
+    }
+
+    pub fn clamp_in_direction(
+        &self,
+        direction: Direction,
+        min_bounds: &Self,
+        partition_point: &Self,
+        max_bounds: &Self,
+    ) -> Self {
+        match direction {
+            Direction::North => Coord {
+                x: self.x.clamp(min_bounds.x + 1, partition_point.x - 1),
+                y: self.y,
+            },
+            Direction::East => Coord {
+                x: self.x,
+                y: self.y.clamp(min_bounds.y + 1, partition_point.y - 1),
+            },
+            Direction::South => Coord {
+                x: self.x.clamp(partition_point.x + 1, max_bounds.x - 1),
+                y: self.y,
+            },
+            Direction::West => Coord {
+                x: self.x,
+                y: self.y.clamp(partition_point.y + 1, max_bounds.y - 1),
+            },
         }
     }
 }
@@ -106,6 +179,15 @@ impl From<npnr::Loc> for Coord {
         Self {
             x: other.x,
             y: other.y,
+        }
+    }
+}
+impl Into<npnr::Loc> for Coord {
+    fn into(self) -> npnr::Loc {
+        npnr::Loc {
+            x: self.x,
+            y: self.y,
+            z: 0,
         }
     }
 }
@@ -200,10 +282,10 @@ fn approximate_partition_results(
     let mut count_nw = 0;
     for arc in arcs {
         // TODO(SpaceCat~Chan): stop being lazy and merge Loc and Coord already
-        let source_is_north = arc.get_source_loc().x < partition_point.0;
-        let source_is_east = arc.get_source_loc().y < partition_point.1;
-        let sink_is_north = arc.get_sink_loc().x < partition_point.0;
-        let sink_is_east = arc.get_sink_loc().y < partition_point.1;
+        let source_is_north = arc.source_loc().x < partition_point.0;
+        let source_is_east = arc.source_loc().y < partition_point.1;
+        let sink_is_north = arc.sink_loc().x < partition_point.0;
+        let sink_is_east = arc.sink_loc().y < partition_point.1;
         if source_is_north == sink_is_north && source_is_east == sink_is_east {
             match (source_is_north, source_is_east) {
                 (true, true) => count_ne += 1,
@@ -232,17 +314,11 @@ fn approximate_partition_results(
             // but i can't be bothered (yes this is all copy-pasted from the actual partitioner)
             let mut middle_horiz = (
                 partition_point.0,
-                split_line_over_x(
-                    (arc.get_source_loc(), arc.get_sink_loc()),
-                    partition_point.0,
-                ),
+                split_line_over_x((arc.source_loc(), arc.sink_loc()), partition_point.0),
             );
 
             let mut middle_vert = (
-                split_line_over_y(
-                    (arc.get_source_loc(), arc.get_sink_loc()),
-                    partition_point.1,
-                ),
+                split_line_over_y((arc.source_loc(), arc.sink_loc()), partition_point.1),
                 partition_point.1,
             );
 
@@ -345,13 +421,6 @@ fn split_line_over_y(line: (npnr::Loc, npnr::Loc), y_location: i32) -> i32 {
 }
 
 // A big thank you to @Spacecat-chan for fixing my broken and buggy partition code.
-
-// SpaceCat~Chan:
-/// ### Current State of the Partitioner:  
-/// after some annoying discoveries, it turns out that partitioning correctly requires ensuring much
-/// more that just having each pip not be reused by different nets, it turns out we also need to care
-/// about the source and sink wires, so this current partitioner is written only to produce a partition
-/// result which is correct, without any care about speed or actual pathing optimality
 fn partition(
     ctx: &npnr::Context,
     nets: &npnr::Nets,
@@ -362,6 +431,8 @@ fn partition(
     x_bounds: (i32, i32),
     y_bounds: (i32, i32),
 ) -> (Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>) {
+    let min_bounds = Coord::new(x_bounds.0, y_bounds.0);
+    let max_bounds = Coord::new(x_bounds.1, y_bounds.1);
     let partition_coords = Coord::new(x, y);
 
     let mut ne: Vec<Arc> = Vec::new();
@@ -400,6 +471,7 @@ fn partition(
             .into_par_iter()
             .progress_with(progress)
             .flat_map(|arc| {
+                let raw_net = nets.net_from_index(arc.net());
                 let source_loc = arc.source_loc();
                 let source_coords: Coord = source_loc.into();
                 let source_is_north = source_coords.is_north_of(&partition_coords);
@@ -415,387 +487,220 @@ fn partition(
                     .to_string();
                 let verbose = false; //name == "soc0.processor.with_fpu.fpu_0.fpu_multiply_0.rin_CCU2C_S0_4$CCU2_FCI_INT";
                 if source_is_north == sink_is_north && source_is_east == sink_is_east {
-                    let seg = source_coords.segment_from(&Coord::new(x, y));
+                    let seg = source_coords.segment_from(&partition_coords);
                     vec![(seg, arc.clone())]
                 } else if source_is_north != sink_is_north && source_is_east == sink_is_east {
-                    let middle = (x, (source_coords.y + sink_coords.y) / 2);
-                    let mut middle = (
-                        middle.0.clamp(x_bounds.0 + 1, x_bounds.1 - 1),
-                        middle.1.clamp(y_bounds.0 + 1, y_bounds.1 - 1),
-                    );
-                    // need to avoid the partition point
-                    if middle.1 == y {
-                        middle.1 = y + 1;
-                    }
-
-                    let selected_pip = pip_selector.find_pip(
+                    let (seg1, seg2) = match (source_is_north, source_is_east) {
+                        (true, true) => (Quadrant::Northeast, Quadrant::Southeast),
+                        (true, false) => (Quadrant::Northwest, Quadrant::Southwest),
+                        (false, true) => (Quadrant::Southeast, Quadrant::Northeast),
+                        (false, false) => (Quadrant::Southwest, Quadrant::Northwest),
+                    };
+                    if let Some(partition) = partition_single_arc(
                         ctx,
-                        middle.into(),
-                        source_loc,
-                        arc.net(),
-                        nets.net_from_index(arc.net()),
-                    );
-
-                    if let Some(selected_pip) = selected_pip {
-                        if verbose {
-                            log_info!(
-                                "split arc {} to {} vertically across pip {}\n",
-                                ctx.name_of_wire(arc.source_wire()).to_str().unwrap(),
-                                ctx.name_of_wire(arc.sink_wire()).to_str().unwrap(),
-                                ctx.name_of_pip(selected_pip).to_str().unwrap()
-                            );
-                        }
-
-                        let (src_to_pip, pip_to_dst) = arc.split(ctx, selected_pip);
-                        let (seg1, seg2) = match (source_is_north, source_is_east) {
-                            (true, true) => (Segment::Northeast, Segment::Southeast),
-                            (true, false) => (Segment::Northwest, Segment::Southwest),
-                            (false, true) => (Segment::Southeast, Segment::Northeast),
-                            (false, false) => (Segment::Southwest, Segment::Northwest),
-                        };
-                        part_horiz.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                        vec![(seg1, src_to_pip), (seg2, pip_to_dst)]
+                        &pip_selector,
+                        arc,
+                        raw_net,
+                        partition_coords,
+                        &min_bounds,
+                        &max_bounds,
+                        &[seg1, seg2],
+                    ) {
+                        partition
                     } else {
-                        // oh god this is horrible i hate this
                         let (seg1, seg2, seg3, seg4) = match (source_is_north, source_is_east) {
                             (true, true) => (
-                                Segment::Northeast,
-                                Segment::Northwest,
-                                Segment::Southwest,
-                                Segment::Southeast,
+                                Quadrant::Northeast,
+                                Quadrant::Northwest,
+                                Quadrant::Southwest,
+                                Quadrant::Southeast,
                             ),
                             (true, false) => (
-                                Segment::Northwest,
-                                Segment::Northeast,
-                                Segment::Southeast,
-                                Segment::Southwest,
+                                Quadrant::Northwest,
+                                Quadrant::Northeast,
+                                Quadrant::Southeast,
+                                Quadrant::Southwest,
                             ),
                             (false, true) => (
-                                Segment::Southeast,
-                                Segment::Southwest,
-                                Segment::Northwest,
-                                Segment::Northeast,
+                                Quadrant::Southeast,
+                                Quadrant::Southwest,
+                                Quadrant::Northwest,
+                                Quadrant::Northeast,
                             ),
                             (false, false) => (
-                                Segment::Southwest,
-                                Segment::Southeast,
-                                Segment::Northeast,
-                                Segment::Northwest,
+                                Quadrant::Southwest,
+                                Quadrant::Southeast,
+                                Quadrant::Northeast,
+                                Quadrant::Northwest,
                             ),
                         };
-                        let pip1 = pip_selector
-                            .segment_based_find_pip(
-                                ctx,
-                                seg1,
-                                seg2,
-                                arc.net(),
-                                nets.net_from_index(arc.net()),
-                            )
-                            .expect("failed backup pip selection for horizontal partition");
-                        let pip2 = pip_selector
-                            .segment_based_find_pip(
-                                ctx,
-                                seg2,
-                                seg3,
-                                arc.net(),
-                                nets.net_from_index(arc.net()),
-                            )
-                            .expect("failed backup pip selection for horizontal partition");
-                        let pip3 = pip_selector
-                            .segment_based_find_pip(
-                                ctx,
-                                seg3,
-                                seg4,
-                                arc.net(),
-                                nets.net_from_index(arc.net()),
-                            )
-                            .expect("failed backup pip selection for horizontal partition");
-
-                        let (arc1, rest) = arc.split(ctx, pip1);
-                        let (arc2, rest) = rest.split(ctx, pip2);
-                        let (arc3, arc4) = rest.split(ctx, pip3);
-
-                        vec![(seg1, arc1), (seg2, arc2), (seg3, arc3), (seg4, arc4)]
+                        partition_single_arc(
+                            ctx,
+                            &pip_selector,
+                            arc,
+                            raw_net,
+                            partition_coords,
+                            &min_bounds,
+                            &max_bounds,
+                            &[seg1, seg2, seg3, seg4],
+                        )
+                        .expect("failed to partition arc on NorthSouth axis")
                     }
                 } else if source_is_north == sink_is_north && source_is_east != sink_is_east {
-                    let middle = ((source_coords.x + sink_coords.x) / 2, y);
-                    let mut middle = (
-                        middle.0.clamp(x_bounds.0 + 1, x_bounds.1 - 1),
-                        middle.1.clamp(y_bounds.0 + 1, y_bounds.1 - 1),
-                    );
-                    // need to avoid the partition point
-                    if middle.0 == x {
-                        middle.0 = x + 1;
-                    }
-
-                    let selected_pip = pip_selector.find_pip(
+                    let (seg1, seg2) = match (source_is_north, source_is_east) {
+                        (true, true) => (Quadrant::Northeast, Quadrant::Northwest),
+                        (true, false) => (Quadrant::Northwest, Quadrant::Northeast),
+                        (false, true) => (Quadrant::Southeast, Quadrant::Southwest),
+                        (false, false) => (Quadrant::Southwest, Quadrant::Southeast),
+                    };
+                    if let Some(partition) = partition_single_arc(
                         ctx,
-                        middle.into(),
-                        source_loc,
-                        arc.net(),
-                        nets.net_from_index(arc.net()),
-                    );
-
-                    if let Some(selected_pip) = selected_pip {
-                        if verbose {
-                            log_info!(
-                                "split arc {} to {} horizontally across pip {}\n",
-                                ctx.name_of_wire(arc.source_wire()).to_str().unwrap(),
-                                ctx.name_of_wire(arc.sink_wire()).to_str().unwrap(),
-                                ctx.name_of_pip(selected_pip).to_str().unwrap()
-                            );
-                        }
-
-                        let (src_to_pip, pip_to_dst) = arc.split(ctx, selected_pip);
-                        let (seg1, seg2) = match (source_is_north, source_is_east) {
-                            (true, true) => (Segment::Northeast, Segment::Northwest),
-                            (true, false) => (Segment::Northwest, Segment::Northeast),
-                            (false, true) => (Segment::Southeast, Segment::Southwest),
-                            (false, false) => (Segment::Southwest, Segment::Southeast),
-                        };
-                        part_vert.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                        vec![(seg1, src_to_pip), (seg2, pip_to_dst)]
+                        &pip_selector,
+                        arc,
+                        raw_net,
+                        partition_coords,
+                        &min_bounds,
+                        &max_bounds,
+                        &[seg1, seg2],
+                    ) {
+                        partition
                     } else {
-                        // aaaaaaaa
                         let (seg1, seg2, seg3, seg4) = match (source_is_north, source_is_east) {
                             (true, true) => (
-                                Segment::Northeast,
-                                Segment::Southeast,
-                                Segment::Southwest,
-                                Segment::Northwest,
+                                Quadrant::Northeast,
+                                Quadrant::Southeast,
+                                Quadrant::Southwest,
+                                Quadrant::Northwest,
                             ),
                             (true, false) => (
-                                Segment::Northwest,
-                                Segment::Southwest,
-                                Segment::Southeast,
-                                Segment::Northeast,
+                                Quadrant::Northwest,
+                                Quadrant::Southwest,
+                                Quadrant::Southeast,
+                                Quadrant::Northeast,
                             ),
                             (false, true) => (
-                                Segment::Southeast,
-                                Segment::Northeast,
-                                Segment::Northwest,
-                                Segment::Southwest,
+                                Quadrant::Southeast,
+                                Quadrant::Northeast,
+                                Quadrant::Northwest,
+                                Quadrant::Southwest,
                             ),
                             (false, false) => (
-                                Segment::Southwest,
-                                Segment::Northwest,
-                                Segment::Northeast,
-                                Segment::Southeast,
+                                Quadrant::Southwest,
+                                Quadrant::Northwest,
+                                Quadrant::Northeast,
+                                Quadrant::Southeast,
                             ),
                         };
-                        let pip1 = pip_selector
-                            .segment_based_find_pip(
-                                ctx,
-                                seg1,
-                                seg2,
-                                arc.net(),
-                                nets.net_from_index(arc.net()),
-                            )
-                            .expect("failed backup pip selection for vertical partition");
-                        let pip2 = pip_selector
-                            .segment_based_find_pip(
-                                ctx,
-                                seg2,
-                                seg3,
-                                arc.net(),
-                                nets.net_from_index(arc.net()),
-                            )
-                            .expect("failed backup pip selection for vertical partition");
-                        let pip3 = pip_selector
-                            .segment_based_find_pip(
-                                ctx,
-                                seg3,
-                                seg4,
-                                arc.net(),
-                                nets.net_from_index(arc.net()),
-                            )
-                            .expect("failed backup pip selection for vertical partition");
-
-                        let (arc1, rest) = arc.split(ctx, pip1);
-                        let (arc2, rest) = rest.split(ctx, pip2);
-                        let (arc3, arc4) = rest.split(ctx, pip3);
-
-                        vec![(seg1, arc1), (seg2, arc2), (seg3, arc3), (seg4, arc4)]
+                        partition_single_arc(
+                            ctx,
+                            &pip_selector,
+                            arc,
+                            raw_net,
+                            partition_coords,
+                            &min_bounds,
+                            &max_bounds,
+                            &[seg1, seg2, seg3, seg4],
+                        )
+                        .expect("failed to partition arc on EastWest axis")
                     }
                 } else {
                     let middle_horiz = (x, split_line_over_x((source_loc, sink_loc), x));
-                    let mut middle_horiz = (
-                        middle_horiz.0.clamp(x_bounds.0 + 1, x_bounds.1 - 1),
-                        middle_horiz.1.clamp(y_bounds.0 + 1, y_bounds.1 - 1),
-                    );
-                    let middle_vert = (split_line_over_y((source_loc, sink_loc), y), y);
-                    let mut middle_vert = (
-                        middle_vert.0.clamp(x_bounds.0 + 1, x_bounds.1 - 1),
-                        middle_vert.1.clamp(y_bounds.0 + 1, y_bounds.1 - 1),
-                    );
-
-                    // need to avoid the partition point
-                    if middle_horiz.1 == y || middle_vert.0 == x {
-                        if source_is_east != sink_is_north {
-                            middle_horiz.1 = y + 1;
-                            middle_vert.0 = x - 1;
-                        } else {
-                            middle_horiz.1 = y + 1;
-                            middle_vert.0 = x + 1;
-                        }
-                    }
-                    let mut horiz_happens_first = (middle_horiz.1 < y) == source_is_east;
+                    let horiz_happens_first = (middle_horiz.1 < y) == source_is_east;
 
                     let grab_segment_order = |horiz_happens_first| match (
                         source_is_north,
                         source_is_east,
                         horiz_happens_first,
                     ) {
-                        (true, true, true) => {
-                            (Segment::Northeast, Segment::Southeast, Segment::Southwest)
-                        }
-                        (true, false, true) => {
-                            (Segment::Northwest, Segment::Southwest, Segment::Southeast)
-                        }
-                        (false, true, true) => {
-                            (Segment::Southeast, Segment::Northeast, Segment::Northwest)
-                        }
-                        (false, false, true) => {
-                            (Segment::Southwest, Segment::Northwest, Segment::Northeast)
-                        }
-                        (true, true, false) => {
-                            (Segment::Northeast, Segment::Northwest, Segment::Southwest)
-                        }
-                        (true, false, false) => {
-                            (Segment::Northwest, Segment::Northeast, Segment::Southeast)
-                        }
-                        (false, true, false) => {
-                            (Segment::Southeast, Segment::Southwest, Segment::Northwest)
-                        }
-                        (false, false, false) => {
-                            (Segment::Southwest, Segment::Southeast, Segment::Northeast)
-                        }
+                        (true, true, true) => (
+                            Quadrant::Northeast,
+                            Quadrant::Southeast,
+                            Quadrant::Southwest,
+                        ),
+                        (true, false, true) => (
+                            Quadrant::Northwest,
+                            Quadrant::Southwest,
+                            Quadrant::Southeast,
+                        ),
+                        (false, true, true) => (
+                            Quadrant::Southeast,
+                            Quadrant::Northeast,
+                            Quadrant::Northwest,
+                        ),
+                        (false, false, true) => (
+                            Quadrant::Southwest,
+                            Quadrant::Northwest,
+                            Quadrant::Northeast,
+                        ),
+                        (true, true, false) => (
+                            Quadrant::Northeast,
+                            Quadrant::Northwest,
+                            Quadrant::Southwest,
+                        ),
+                        (true, false, false) => (
+                            Quadrant::Northwest,
+                            Quadrant::Northeast,
+                            Quadrant::Southeast,
+                        ),
+                        (false, true, false) => (
+                            Quadrant::Southeast,
+                            Quadrant::Southwest,
+                            Quadrant::Northwest,
+                        ),
+                        (false, false, false) => (
+                            Quadrant::Southwest,
+                            Quadrant::Southeast,
+                            Quadrant::Northeast,
+                        ),
                     };
-
-                    let results = (|| {
-                        if horiz_happens_first {
-                            let horiz = pip_selector.find_pip(
-                                ctx,
-                                middle_horiz.into(),
-                                source_loc,
-                                arc.net(),
-                                nets.net_from_index(arc.net()),
-                            )?;
-                            let vert = pip_selector.find_pip(
-                                ctx,
-                                middle_vert.into(),
-                                middle_horiz.into(),
-                                arc.net(),
-                                nets.net_from_index(arc.net()),
-                            )?;
-                            Some((horiz, vert))
-                        } else {
-                            let vert = pip_selector.find_pip(
-                                ctx,
-                                middle_vert.into(),
-                                source_loc,
-                                arc.net(),
-                                nets.net_from_index(arc.net()),
-                            )?;
-                            let horiz = pip_selector.find_pip(
-                                ctx,
-                                middle_horiz.into(),
-                                middle_vert.into(),
-                                arc.net(),
-                                nets.net_from_index(arc.net()),
-                            )?;
-                            Some((horiz, vert))
-                        }
-                    })();
-
-                    let (horiz_pip, vert_pip) = if let Some(res) = results {
-                        res
+                    let (seg1, seg2, seg3) = grab_segment_order(horiz_happens_first);
+                    if let Some(partition) = partition_single_arc(
+                        ctx,
+                        &pip_selector,
+                        arc,
+                        raw_net,
+                        partition_coords,
+                        &min_bounds,
+                        &max_bounds,
+                        &[seg1, seg2, seg3],
+                    ) {
+                        partition
                     } else {
-                        // forced to flip things the other way around
-                        horiz_happens_first = !horiz_happens_first;
-                        let (seg1, seg2, seg3) = grab_segment_order(horiz_happens_first);
-                        if horiz_happens_first {
-                            (
-                                pip_selector
-                                    .segment_based_find_pip(
-                                        ctx,
-                                        seg1,
-                                        seg2,
-                                        arc.net(),
-                                        nets.net_from_index(arc.net()),
-                                    )
-                                    .expect("failed to get pip for diagonal partition"),
-                                pip_selector
-                                    .segment_based_find_pip(
-                                        ctx,
-                                        seg2,
-                                        seg3,
-                                        arc.net(),
-                                        nets.net_from_index(arc.net()),
-                                    )
-                                    .expect("failed to get pip for diagonal partition"),
-                            )
-                        } else {
-                            (
-                                pip_selector
-                                    .segment_based_find_pip(
-                                        ctx,
-                                        seg2,
-                                        seg3,
-                                        arc.net(),
-                                        nets.net_from_index(arc.net()),
-                                    )
-                                    .expect("failed to get pip for diagonal partition"),
-                                pip_selector
-                                    .segment_based_find_pip(
-                                        ctx,
-                                        seg1,
-                                        seg2,
-                                        arc.net(),
-                                        nets.net_from_index(arc.net()),
-                                    )
-                                    .expect("failed to get pip for diagonal partition"),
-                            )
-                        }
-                    };
-
-                    if verbose {
-                        log_info!(
-                            "split arc {} to {} across pips {} and {}\n",
-                            ctx.name_of_wire(arc.source_wire()).to_str().unwrap(),
-                            ctx.name_of_wire(arc.sink_wire()).to_str().unwrap(),
-                            ctx.name_of_pip(horiz_pip).to_str().unwrap(),
-                            ctx.name_of_pip(vert_pip).to_str().unwrap()
-                        );
+                        // flip `horiz_happens_first` and hope for the best
+                        let (seg1, seg2, seg3) = grab_segment_order(!horiz_happens_first);
+                        partition_single_arc(
+                            ctx,
+                            &pip_selector,
+                            arc,
+                            raw_net,
+                            partition_coords,
+                            &min_bounds,
+                            &max_bounds,
+                            &[seg1, seg2, seg3],
+                        )
+                        .expect("Failed to partition Diagonal arc")
                     }
 
-                    let (src_to_mid1, mid1_to_mid2, mid2_to_dst) = if horiz_happens_first {
-                        let (a, b) = arc.split(ctx, horiz_pip);
-                        let (b, c) = b.split(ctx, vert_pip);
-                        (a, b, c)
-                    } else {
-                        let (a, b) = arc.split(ctx, vert_pip);
-                        let (b, c) = b.split(ctx, horiz_pip);
-                        (a, b, c)
-                    };
-
-                    let (seg1, seg2, seg3) = grab_segment_order(horiz_happens_first);
-                    part_diag.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                    vec![
-                        (seg1, src_to_mid1),
-                        (seg2, mid1_to_mid2),
-                        (seg3, mid2_to_dst),
-                    ]
+                    // sorry lofty ^^; you'll have to move this into `partition_single_arc`
+                    //if verbose {
+                    //    log_info!(
+                    //        "split arc {} to {} across pips {} and {}\n",
+                    //        ctx.name_of_wire(arc.get_source_wire()).to_str().unwrap(),
+                    //        ctx.name_of_wire(arc.get_sink_wire()).to_str().unwrap(),
+                    //        ctx.name_of_pip(horiz_pip).to_str().unwrap(),
+                    //        ctx.name_of_pip(vert_pip).to_str().unwrap()
+                    //    );
+                    //}
                 }
             })
             .collect::<Vec<_>>();
 
         for (segment, arc) in arcs {
             match segment {
-                Segment::Northeast => ne.push(arc),
-                Segment::Southeast => se.push(arc),
-                Segment::Southwest => sw.push(arc),
-                Segment::Northwest => nw.push(arc),
+                Quadrant::Northeast => ne.push(arc),
+                Quadrant::Southeast => se.push(arc),
+                Quadrant::Southwest => sw.push(arc),
+                Quadrant::Northwest => nw.push(arc),
             }
         }
 
@@ -896,6 +801,40 @@ fn partition(
     (ne, se, sw, nw)
 }
 
+fn partition_single_arc(
+    ctx: &npnr::Context,
+    pip_selector: &PipSelector,
+    arc: &Arc,
+    raw_net: *mut npnr::NetInfo,
+    partition_point: Coord,
+    min_bounds: &Coord,
+    max_bounds: &Coord,
+    segments: &[Quadrant],
+) -> Option<Vec<(Quadrant, Arc)>> {
+    let start_coord: Coord = arc.source_loc().into();
+    let end_coord: Coord = arc.sink_loc().into();
+    let mut current_arc = arc.clone();
+    let mut arcs = vec![];
+    for (from_quad, to_quad) in segments.iter().tuple_windows() {
+        let direction = Direction::between(*from_quad, *to_quad).unwrap();
+        let intersection = start_coord.intersect(&end_coord, direction.axis(), &partition_point);
+        let intersection =
+            intersection.clamp_in_direction(direction, min_bounds, &partition_point, max_bounds);
+        let pip = pip_selector.find_pip(
+            ctx,
+            intersection.into(),
+            current_arc.source_loc(),
+            current_arc.net(),
+            raw_net,
+        )?;
+        let (before_arc, after_arc) = current_arc.split(ctx, pip);
+        arcs.push((*from_quad, before_arc));
+        current_arc = after_arc;
+    }
+    arcs.push((*segments.last().unwrap(), current_arc));
+    Some(arcs)
+}
+
 pub fn find_partition_point_and_sanity_check(
     ctx: &npnr::Context,
     nets: &npnr::Nets,
@@ -919,40 +858,73 @@ pub fn find_partition_point_and_sanity_check(
     let mut invalid_arcs_in_sw = 0;
     let mut invalid_arcs_in_nw = 0;
 
+    let mut out_of_bound_arcs_in_ne = 0;
+    let mut out_of_bound_arcs_in_se = 0;
+    let mut out_of_bound_arcs_in_sw = 0;
+    let mut out_of_bound_arcs_in_nw = 0;
+
     for arc in &ne {
-        if arc.get_source_loc().x > x_part
-            || arc.get_source_loc().y > y_part
-            || arc.get_sink_loc().x > x_part
-            || arc.get_sink_loc().y > y_part
+        if arc.source_loc().x > x_part
+            || arc.source_loc().y > y_part
+            || arc.sink_loc().x > x_part
+            || arc.sink_loc().y > y_part
         {
             invalid_arcs_in_ne += 1;
         }
+        if arc.source_loc().x <= x_start
+            || arc.source_loc().y <= y_start
+            || arc.sink_loc().x <= x_start
+            || arc.sink_loc().y <= y_start
+        {
+            out_of_bound_arcs_in_ne += 1;
+        }
     }
     for arc in &se {
-        if arc.get_source_loc().x < x_part
-            || arc.get_source_loc().y > y_part
-            || arc.get_sink_loc().x < x_part
-            || arc.get_sink_loc().y > y_part
+        if arc.source_loc().x < x_part
+            || arc.source_loc().y > y_part
+            || arc.sink_loc().x < x_part
+            || arc.sink_loc().y > y_part
         {
             invalid_arcs_in_se += 1;
         }
+        if arc.source_loc().x >= x_finish
+            || arc.source_loc().y <= y_start
+            || arc.sink_loc().x >= x_finish
+            || arc.sink_loc().y <= y_start
+        {
+            out_of_bound_arcs_in_se += 1;
+        }
     }
     for arc in &sw {
-        if arc.get_source_loc().x < x_part
-            || arc.get_source_loc().y < y_part
-            || arc.get_sink_loc().x < x_part
-            || arc.get_sink_loc().y < y_part
+        if arc.source_loc().x < x_part
+            || arc.source_loc().y < y_part
+            || arc.sink_loc().x < x_part
+            || arc.sink_loc().y < y_part
         {
             invalid_arcs_in_sw += 1;
         }
+        if arc.source_loc().x >= x_finish
+            || arc.source_loc().y >= y_finish
+            || arc.sink_loc().x >= x_finish
+            || arc.sink_loc().y >= y_finish
+        {
+            out_of_bound_arcs_in_sw += 1;
+        }
     }
     for arc in &nw {
-        if arc.get_source_loc().x > x_part
-            || arc.get_source_loc().y < y_part
-            || arc.get_sink_loc().x > x_part
-            || arc.get_sink_loc().y < y_part
+        if arc.source_loc().x > x_part
+            || arc.source_loc().y < y_part
+            || arc.sink_loc().x > x_part
+            || arc.sink_loc().y < y_part
         {
             invalid_arcs_in_nw += 1;
+        }
+        if arc.source_loc().x <= x_start
+            || arc.source_loc().y >= y_finish
+            || arc.sink_loc().x <= x_start
+            || arc.sink_loc().y >= y_finish
+        {
+            out_of_bound_arcs_in_nw += 1;
         }
     }
 
@@ -961,20 +933,49 @@ pub fn find_partition_point_and_sanity_check(
         invalid_arcs_in_se,
         invalid_arcs_in_sw,
         invalid_arcs_in_nw,
+        out_of_bound_arcs_in_ne,
+        out_of_bound_arcs_in_se,
+        out_of_bound_arcs_in_sw,
+        out_of_bound_arcs_in_nw,
     ]
     .into_iter()
     .all(|x| x == 0)
     {
-        log_info!(
-            "{}\n",
-            "Found no arcs crossing partition boundaries.".green()
-        );
+        log_info!("{}\n", "Found no invalid arcs.".green());
     } else {
-        println!("{}", "found arcs crossing partition boundaries!".yellow());
-        println!("count in ne: {}", invalid_arcs_in_ne.to_string().bold());
-        println!("count in se: {}", invalid_arcs_in_se.to_string().bold());
-        println!("count in sw: {}", invalid_arcs_in_sw.to_string().bold());
-        println!("count in nw: {}", invalid_arcs_in_nw.to_string().bold());
+        println!("{}", "found invalid arcs!".yellow());
+        println!(
+            "count crossing borders in ne: {}",
+            invalid_arcs_in_ne.to_string().bold()
+        );
+        println!(
+            "count crossing borders in se: {}",
+            invalid_arcs_in_se.to_string().bold()
+        );
+        println!(
+            "count crossing borders in sw: {}",
+            invalid_arcs_in_sw.to_string().bold()
+        );
+        println!(
+            "count crossing borders in nw: {}",
+            invalid_arcs_in_nw.to_string().bold()
+        );
+        println!(
+            "count going out of bounds in ne: {}",
+            out_of_bound_arcs_in_ne.to_string().bold()
+        );
+        println!(
+            "count going out of bounds in se: {}",
+            out_of_bound_arcs_in_se.to_string().bold()
+        );
+        println!(
+            "count going out of bounds in sw: {}",
+            out_of_bound_arcs_in_sw.to_string().bold()
+        );
+        println!(
+            "count going out of bounds in nw: {}",
+            out_of_bound_arcs_in_nw.to_string().bold()
+        );
     }
 
     (x_part, y_part, ne, se, sw, nw)
@@ -1218,20 +1219,20 @@ impl PipSelector {
     fn segment_based_find_pip(
         &self,
         ctx: &npnr::Context,
-        from_segment: Segment,
-        to_segment: Segment,
+        from_segment: Quadrant,
+        to_segment: Quadrant,
         net: npnr::NetIndex,
         raw_net: *mut npnr::NetInfo,
     ) -> Option<npnr::PipId> {
         let (pip_index, offset) = match (from_segment, to_segment) {
-            (Segment::Northeast, Segment::Northwest) => (0, (-1, 0)),
-            (Segment::Southeast, Segment::Southwest) => (1, (1, 0)),
-            (Segment::Northwest, Segment::Northeast) => (2, (-1, 0)),
-            (Segment::Southwest, Segment::Southeast) => (3, (1, 0)),
-            (Segment::Northeast, Segment::Southeast) => (4, (0, -1)),
-            (Segment::Northwest, Segment::Southwest) => (5, (0, 1)),
-            (Segment::Southeast, Segment::Northeast) => (6, (0, -1)),
-            (Segment::Southwest, Segment::Northwest) => (7, (0, 1)),
+            (Quadrant::Northeast, Quadrant::Northwest) => (0, (-1, 0)),
+            (Quadrant::Southeast, Quadrant::Southwest) => (1, (1, 0)),
+            (Quadrant::Northwest, Quadrant::Northeast) => (2, (-1, 0)),
+            (Quadrant::Southwest, Quadrant::Southeast) => (3, (1, 0)),
+            (Quadrant::Northeast, Quadrant::Southeast) => (4, (0, -1)),
+            (Quadrant::Northwest, Quadrant::Southwest) => (5, (0, 1)),
+            (Quadrant::Southeast, Quadrant::Northeast) => (6, (0, -1)),
+            (Quadrant::Southwest, Quadrant::Northwest) => (7, (0, 1)),
             _ => panic!("tried to find pip between two diagonal or identical segments"),
         };
         let desired_location = (
@@ -1331,14 +1332,14 @@ impl PipSelector {
             from_coord.is_north_of(&self.partition_loc.into()),
             from_coord.is_east_of(&self.partition_loc.into()),
         ) {
-            (FullSegment::North, _, true) => 0,
-            (FullSegment::South, _, true) => 1,
-            (FullSegment::North, _, false) => 2,
-            (FullSegment::South, _, false) => 3,
-            (FullSegment::East, true, _) => 4,
-            (FullSegment::West, true, _) => 5,
-            (FullSegment::East, false, _) => 6,
-            (FullSegment::West, false, _) => 7,
+            (FullSegment::Direction(Direction::North), _, true) => 0,
+            (FullSegment::Direction(Direction::South), _, true) => 1,
+            (FullSegment::Direction(Direction::North), _, false) => 2,
+            (FullSegment::Direction(Direction::South), _, false) => 3,
+            (FullSegment::Direction(Direction::East), true, _) => 4,
+            (FullSegment::Direction(Direction::West), true, _) => 5,
+            (FullSegment::Direction(Direction::East), false, _) => 6,
+            (FullSegment::Direction(Direction::West), false, _) => 7,
             (FullSegment::Exact, _, _) => panic!("can't find pips on the partition point"),
             _ => panic!("pip must be on partition boundaries somewhere"),
         }
