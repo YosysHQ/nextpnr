@@ -693,10 +693,10 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
     return tmg.clockingInfo.at(port).at(index);
 }
 
-bool Arch::isBelLocationValid(BelId bel) const
+bool Arch::isBelLocationValid(BelId bel, bool explain_invalid) const
 {
     if (uarch)
-        return uarch->isBelLocationValid(bel);
+        return uarch->isBelLocationValid(bel, explain_invalid);
     std::vector<const CellInfo *> cells;
     Loc loc = getBelLocation(bel);
     for (auto tbel : getBelsByTile(loc.x, loc.y)) {

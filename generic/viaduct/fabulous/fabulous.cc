@@ -81,7 +81,10 @@ struct FabulousImpl : ViaductAPI
     }
 
     void prePlace() override { assign_cell_info(); }
-    bool isBelLocationValid(BelId bel) const override { return blk_trk->check_validity(bel, cfg, cell_tags); }
+    bool isBelLocationValid(BelId bel, bool explain_invalid) const override
+    {
+        return blk_trk->check_validity(bel, cfg, cell_tags);
+    }
 
   private:
     FabricConfig cfg; // TODO: non-default config

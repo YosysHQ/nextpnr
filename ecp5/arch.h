@@ -1010,7 +1010,7 @@ struct Arch : BaseArch<ArchRanges>
 
     // -------------------------------------------------
     // Placement validity checks
-    bool isBelLocationValid(BelId bel) const override;
+    bool isBelLocationValid(BelId bel, bool explain_invalid = false) const override;
 
     // Helper function for above
     bool slices_compatible(LogicTileStatus *lts) const;

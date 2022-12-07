@@ -327,7 +327,7 @@ class HeAPPlacer
         bool any_bad_placements = false;
         for (auto bel : ctx->getBels()) {
             CellInfo *cell = ctx->getBoundBelCell(bel);
-            if (!ctx->isBelLocationValid(bel)) {
+            if (!ctx->isBelLocationValid(bel, /* explain_invalid */ true)) {
                 std::string cell_text = "no cell";
                 if (cell != nullptr)
                     cell_text = std::string("cell '") + ctx->nameOf(cell) + "'";
@@ -434,7 +434,7 @@ class HeAPPlacer
                 }
 
                 ctx->bindBel(bel, cell, STRENGTH_USER);
-                if (!ctx->isBelLocationValid(bel)) {
+                if (!ctx->isBelLocationValid(bel, /* explain_invalid */ true)) {
                     IdString bel_type = ctx->getBelType(bel);
                     log_error("Bel \'%s\' of type \'%s\' is not valid for cell "
                               "\'%s\' of type \'%s\'\n",

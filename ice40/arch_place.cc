@@ -82,7 +82,7 @@ static inline bool _io_pintype_need_clk_en(unsigned pin_type)
     return _io_pintype_need_clk_in(pin_type) || _io_pintype_need_clk_out(pin_type);
 }
 
-bool Arch::isBelLocationValid(BelId bel) const
+bool Arch::isBelLocationValid(BelId bel, bool explain_invalid) const
 {
     if (getBelType(bel) == id_ICESTORM_LC) {
         std::array<const CellInfo *, 8> bel_cells;

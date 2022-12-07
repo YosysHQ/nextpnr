@@ -96,7 +96,7 @@ bool Arch::nexus_logic_tile_valid(LogicTileStatus &lts) const
     return true;
 }
 
-bool Arch::isBelLocationValid(BelId bel) const
+bool Arch::isBelLocationValid(BelId bel, bool explain_invalid) const
 {
     if (bel_tile_is(bel, LOC_LOGIC)) {
         LogicTileStatus *lts = tileStatus[bel.tile].lts;

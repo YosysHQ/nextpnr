@@ -333,7 +333,7 @@ struct Arch : BaseArch<ArchRanges>
     PortType getBelPinType(BelId bel, IdString pin) const override { return bel_data(bel).pins.at(pin).dir; }
     std::vector<IdString> getBelPins(BelId bel) const override;
 
-    bool isBelLocationValid(BelId bel) const override;
+    bool isBelLocationValid(BelId bel, bool explain_invalid = false) const override;
 
     void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength) override
     {

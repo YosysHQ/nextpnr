@@ -386,7 +386,7 @@ struct Arch : BaseArch<ArchRanges>
     {
         return uarch ? uarch->isValidBelForCellType(cell_type, bel) : cell_type == getBelType(bel);
     }
-    bool isBelLocationValid(BelId bel) const override;
+    bool isBelLocationValid(BelId bel, bool explain_invalid = false) const override;
 
     static const std::string defaultPlacer;
     static const std::vector<std::string> availablePlacers;

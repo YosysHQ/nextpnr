@@ -458,7 +458,7 @@ struct Arch : BaseArch<ArchRanges>
     // Get the TimingClockingInfo of a port
     TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const override;
 
-    bool isBelLocationValid(BelId bel) const override;
+    bool isBelLocationValid(BelId bel, bool explain_invalid = false) const override;
 
     static const std::string defaultPlacer;
     static const std::vector<std::string> availablePlacers;

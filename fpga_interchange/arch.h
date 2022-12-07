@@ -851,7 +851,7 @@ struct Arch : ArchAPI<ArchRanges>
     }
 
     // Return true whether all Bels at a given location are valid
-    bool isBelLocationValid(BelId bel) const final
+    bool isBelLocationValid(BelId bel, bool explain_invalid = false) const final
     {
         auto iter = tileStatus.find(bel.tile);
         if (iter == tileStatus.end()) {

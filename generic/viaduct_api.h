@@ -67,7 +67,7 @@ struct ViaductAPI
     virtual BelBucketId getBelBucketForBel(BelId bel) const;
     virtual BelBucketId getBelBucketForCellType(IdString cell_type) const;
     virtual bool isValidBelForCellType(IdString cell_type, BelId bel) const;
-    virtual bool isBelLocationValid(BelId bel) const { return true; }
+    virtual bool isBelLocationValid(BelId bel, bool explain_invalid = false) const { return true; }
 
     // --- Wire and pip functions ---
     // Called when a wire/pip is placed/unplaced (with net=nullptr for a unbind)
