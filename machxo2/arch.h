@@ -635,7 +635,7 @@ struct Arch : BaseArch<ArchRanges>
 
     uint32_t getDelayChecksum(delay_t v) const override { return v; }
 
-    ArcBounds getRouteBoundingBox(WireId src, WireId dst) const override;
+    BoundingBox getRouteBoundingBox(WireId src, WireId dst) const override;
 
     // Flow
     bool pack() override;

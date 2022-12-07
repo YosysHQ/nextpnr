@@ -61,9 +61,9 @@ delay_t ViaductAPI::predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel,
     int dy = abs(sink_loc.y - driver_loc.y);
     return (dx + dy) * ctx->args.delayScale + ctx->args.delayOffset;
 }
-ArcBounds ViaductAPI::getRouteBoundingBox(WireId src, WireId dst) const
+BoundingBox ViaductAPI::getRouteBoundingBox(WireId src, WireId dst) const
 {
-    ArcBounds bb;
+    BoundingBox bb;
     int src_x = ctx->wire_info(src).x;
     int src_y = ctx->wire_info(src).y;
     int dst_x = ctx->wire_info(dst).x;

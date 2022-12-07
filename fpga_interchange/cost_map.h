@@ -58,7 +58,7 @@ class CostMap
                     delay_t delay_penality);
 
     std::pair<delay_t, int> get_nearby_cost_entry(const boost::multi_array<delay_t, 2> &matrix, int cx, int cy,
-                                                  const ArcBounds &bounds);
+                                                  const BoundingBox &bounds);
     delay_t get_penalty(const boost::multi_array<delay_t, 2> &matrix) const;
 };
 

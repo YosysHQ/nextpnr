@@ -419,10 +419,10 @@ bool Arch::getClusterPlacement(ClusterId cluster, BelId root_bel,
     }
 }
 
-ArcBounds Arch::getClusterBounds(ClusterId cluster) const
+BoundingBox Arch::getClusterBounds(ClusterId cluster) const
 {
     // TODO: Implement this
-    ArcBounds bounds(0, 0, 0, 0);
+    BoundingBox bounds(0, 0, 0, 0);
     return bounds;
 }
 

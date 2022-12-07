@@ -333,7 +333,7 @@ Get a list of all wires on the device.
 
 Get a list of all bel pins attached to a given wire.
 
-### ArcBounds getRouteBoundingBox(WireId src, WireId dst) const
+### BoundingBox getRouteBoundingBox(WireId src, WireId dst) const
 
 Get the bounding box required to route an arc, assuming an uncongested
 chip. There may be significant performance impacts if routing regularly
@@ -732,7 +732,7 @@ Cluster Methods
 
 Gets the root cell of a cluster, which is used as a datum point when placing the cluster.
 
-### ArcBounds getClusterBounds(ClusterId cluster) const
+### BoundingBox getClusterBounds(ClusterId cluster) const
 
 Gets an approximate bounding box of the cluster. This is intended for area allocation in the placer and is permitted to occasionally give incorrect estimates, for example due to irregularities in the fabric depending on cluster placement. `getClusterPlacement` should always be used to get exact locations.
 

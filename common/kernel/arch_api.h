@@ -118,7 +118,7 @@ template <typename R> struct ArchAPI : BaseCtx
     virtual uint32_t getDelayChecksum(delay_t v) const = 0;
     virtual bool getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const = 0;
     virtual delay_t estimateDelay(WireId src, WireId dst) const = 0;
-    virtual ArcBounds getRouteBoundingBox(WireId src, WireId dst) const = 0;
+    virtual BoundingBox getRouteBoundingBox(WireId src, WireId dst) const = 0;
     // Decal methods
     virtual typename R::DecalGfxRangeT getDecalGraphics(DecalId decal) const = 0;
     virtual DecalXY getBelDecal(BelId bel) const = 0;
@@ -141,7 +141,7 @@ template <typename R> struct ArchAPI : BaseCtx
     virtual typename R::BucketBelRangeT getBelsInBucket(BelBucketId bucket) const = 0;
     // Cluster methods
     virtual CellInfo *getClusterRootCell(ClusterId cluster) const = 0;
-    virtual ArcBounds getClusterBounds(ClusterId cluster) const = 0;
+    virtual BoundingBox getClusterBounds(ClusterId cluster) const = 0;
     virtual Loc getClusterOffset(const CellInfo *cell) const = 0;
     virtual bool isClusterStrict(const CellInfo *cell) const = 0;
     virtual bool getClusterPlacement(ClusterId cluster, BelId root_bel,

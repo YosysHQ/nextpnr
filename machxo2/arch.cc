@@ -400,9 +400,9 @@ delay_t Arch::predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdStr
            (0.01 + 0.01);
 }
 
-ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
+BoundingBox Arch::getRouteBoundingBox(WireId src, WireId dst) const
 {
-    ArcBounds bb;
+    BoundingBox bb;
     bb.x0 = std::min(src.location.x, dst.location.x);
     bb.y0 = std::min(src.location.y, dst.location.y);
     bb.x1 = std::max(src.location.x, dst.location.x);

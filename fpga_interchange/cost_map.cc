@@ -184,7 +184,7 @@ static void assign_min_entry(delay_t *dst, const delay_t &src)
 }
 
 std::pair<delay_t, int> CostMap::get_nearby_cost_entry(const boost::multi_array<delay_t, 2> &matrix, int cx, int cy,
-                                                       const ArcBounds &bounds)
+                                                       const BoundingBox &bounds)
 {
 #ifdef DEBUG_FILL
     log_info("Filling %d, %d within (%d, %d, %d, %d)\n", cx, cy, bounds.x0, bounds.y0, bounds.x1, bounds.y1);
@@ -249,7 +249,7 @@ void CostMap::fill_holes(const Context *ctx, const TypeWirePair &type_pair, boos
     // find missing cost entries and fill them in by copying a nearby cost entry
     std::vector<std::tuple<unsigned, unsigned, delay_t>> missing;
     bool couldnt_fill = false;
-    auto shifted_bounds = ArcBounds(0, 0, matrix.shape()[0] - 1, matrix.shape()[1] - 1);
+    auto shifted_bounds = BoundingBox(0, 0, matrix.shape()[0] - 1, matrix.shape()[1] - 1);
     int max_fill = 0;
     for (unsigned ix = 0; ix < matrix.shape()[0]; ix++) {
         for (unsigned iy = 0; iy < matrix.shape()[1]; iy++) {

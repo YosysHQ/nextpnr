@@ -1265,9 +1265,9 @@ void Arch::assignCellInfo(CellInfo *cell)
     }
 }
 
-ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
+BoundingBox Arch::getRouteBoundingBox(WireId src, WireId dst) const
 {
-    ArcBounds bb;
+    BoundingBox bb;
 
     int src_x = chip_info->wire_data[src.index].x;
     int src_y = chip_info->wire_data[src.index].y;

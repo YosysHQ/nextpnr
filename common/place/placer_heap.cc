@@ -377,12 +377,6 @@ class HeAPPlacer
 
     TimingAnalyser tmg;
 
-    struct BoundingBox
-    {
-        // Actual bounding box
-        int x0 = 0, x1 = 0, y0 = 0, y1 = 0;
-    };
-
     dict<IdString, BoundingBox> constraint_region_bounds;
 
     // In some cases, we can't use bindBel because we allow overlap in the earlier stages. So we use this custom

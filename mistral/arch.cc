@@ -435,9 +435,9 @@ void Arch::assignArchInfo()
     }
 }
 
-ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
+BoundingBox Arch::getRouteBoundingBox(WireId src, WireId dst) const
 {
-    ArcBounds bounds;
+    BoundingBox bounds;
     int src_x = CycloneV::rn2x(src.node);
     int src_y = CycloneV::rn2y(src.node);
     int dst_x = CycloneV::rn2x(dst.node);
