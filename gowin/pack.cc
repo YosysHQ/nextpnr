@@ -1026,6 +1026,20 @@ static void pack_plls(Context *ctx)
                     for (int i = 0; i < 4; ++i) {
                         ci->setParam(ports[i][1], port_used(ci, ports[i][0]) ? pr_enable : pr_disable);
                     }
+                    // resets
+                    NetInfo *net = ci->getPort(id_RESET);
+                    ci->setParam(id_RSTEN, pr_enable);
+                    if (!port_used(ci, id_RESET) || net->name == ctx->id("$PACKER_VCC_NET") ||
+                        net->name == ctx->id("$PACKER_GND_NET")) {
+                        ci->setParam(id_RSTEN, pr_disable);
+                    }
+                    ci->setParam(id_PWDEN, pr_enable);
+                    net = ci->getPort(id_RESET_P);
+                    if (!port_used(ci, id_RESET_P) || net->name == ctx->id("$PACKER_VCC_NET") ||
+                        net->name == ctx->id("$PACKER_GND_NET")) {
+                        ci->setParam(id_PWDEN, pr_disable);
+                    }
+
                     // B half
                     std::unique_ptr<CellInfo> cell = create_generic_cell(ctx, id_RPLLB, ci->name.str(ctx) + "$rpllb");
                     reconnect_rpllb(ctx, ci, cell.get());
