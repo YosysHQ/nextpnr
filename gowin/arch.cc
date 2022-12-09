@@ -2051,19 +2051,6 @@ void Arch::fix_pll_nets(Context *ctx)
             // This is general routing through CLK2 pip
             ci->setParam(id_FBSEL, Property("CLKFB0"));
         } while (0);
-
-        // resets
-        Property pr_enable("ENABLE"), pr_disable("DISABLE");
-        NetInfo *net = ci->getPort(id_RESET);
-        ci->setParam(id_RSTEN, pr_enable);
-        if (!port_used(ci, id_RESET) || net->name == id("$PACKER_VCC_NET") || net->name == id("$PACKER_GND_NET")) {
-            ci->setParam(id_RSTEN, pr_disable);
-        }
-        ci->setParam(id_PWDEN, pr_enable);
-        net = ci->getPort(id_RESET_P);
-        if (!port_used(ci, id_RESET_P) || net->name == id("$PACKER_VCC_NET") || net->name == id("$PACKER_GND_NET")) {
-            ci->setParam(id_PWDEN, pr_disable);
-        }
     }
 }
 
