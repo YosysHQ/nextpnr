@@ -182,9 +182,11 @@ fn route(ctx: &mut npnr::Context, pressure: f32, history: f32) -> bool {
         let dst_name = ctx.name_of_wire(arc.sink_wire()).to_str().unwrap();
 
         if src_name.contains("FCO_SLICE")
+            || src_name.contains("Q6_SLICE")
             || src_name.contains('J')
             || src_name.contains("DDR")
             || dst_name.contains("DDR")
+            || dst_name.contains("X126/Y20/PADDOD_PIO")
         {
             special_arcs.push(arc);
         } else {
@@ -206,30 +208,21 @@ fn route(ctx: &mut npnr::Context, pressure: f32, history: f32) -> bool {
     for _ in 0..2 {
         let mut new_partitions = Vec::with_capacity(partitions.len() * 4);
         for (min, max, partition, name) in &partitions {
+            log_info!("partition {}:\n", name);
             let (x_part, y_part, ne, se, sw, nw) = partition::find_partition_point_and_sanity_check(
                 ctx, &nets, partition, pips, min.x, max.x, min.y, max.y,
             );
+            new_partitions.push((*min, Coord::new(x_part, y_part), ne, format!("{}_NE", name)));
             new_partitions.push((
-                *min,
-                Coord::new(x_part + 1, y_part + 1),
-                ne,
-                format!("{}_NE", name),
-            ));
-            new_partitions.push((
-                Coord::new(x_part - 1, min.y),
-                Coord::new(max.x, y_part + 1),
+                Coord::new(x_part, min.y),
+                Coord::new(max.x, y_part),
                 se,
                 format!("{}_SE", name),
             ));
+            new_partitions.push((Coord::new(x_part, y_part), *max, sw, format!("{}_SW", name)));
             new_partitions.push((
-                Coord::new(x_part - 1, y_part - 1),
-                *max,
-                sw,
-                format!("{}_SW", name),
-            ));
-            new_partitions.push((
-                Coord::new(min.x, y_part - 1),
-                Coord::new(x_part + 1, max.y),
+                Coord::new(min.x, y_part),
+                Coord::new(x_part, max.y),
                 nw,
                 format!("{}_NW", name),
             ));
