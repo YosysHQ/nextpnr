@@ -155,12 +155,12 @@ impl Coord {
     ) -> Self {
         match direction {
             Direction::North => Coord {
-                x: self.x.clamp(min_bounds.x + 1, partition_point.x - 1),
+                x: self.x.clamp(min_bounds.x, partition_point.x - 1),
                 y: self.y,
             },
             Direction::East => Coord {
                 x: self.x,
-                y: self.y.clamp(min_bounds.y + 1, partition_point.y - 1),
+                y: self.y.clamp(min_bounds.y, partition_point.y - 1),
             },
             Direction::South => Coord {
                 x: self.x.clamp(partition_point.x + 1, max_bounds.x - 1),
@@ -204,8 +204,8 @@ pub fn find_partition_point(
 ) -> (i32, i32, Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>) {
     let mut x = ((x_finish - x_start) / 2) + x_start;
     let mut y = ((y_finish - y_start) / 2) + y_start;
-    let mut x_diff = (x_finish - x_start) / 4;
-    let mut y_diff = (y_finish - y_start) / 4;
+    let mut x_diff = 0; //(x_finish - x_start) / 4;
+    let mut y_diff = 0; //(y_finish - y_start) / 4;
 
     while x_diff != 0 {
         let (ne, se, sw, nw) = approximate_partition_results(arcs, (x, y));
@@ -863,6 +863,7 @@ pub fn find_partition_point_and_sanity_check(
     let mut out_of_bound_arcs_in_sw = 0;
     let mut out_of_bound_arcs_in_nw = 0;
 
+    println!("\nne:");
     for arc in &ne {
         if arc.source_loc().x > x_part
             || arc.source_loc().y > y_part
@@ -876,9 +877,11 @@ pub fn find_partition_point_and_sanity_check(
             || arc.sink_loc().x <= x_start
             || arc.sink_loc().y <= y_start
         {
+            println!("oob: {:?} -> {:?}", arc.source_loc(), arc.sink_loc());
             out_of_bound_arcs_in_ne += 1;
         }
     }
+    println!("\nse:");
     for arc in &se {
         if arc.source_loc().x < x_part
             || arc.source_loc().y > y_part
@@ -892,9 +895,11 @@ pub fn find_partition_point_and_sanity_check(
             || arc.sink_loc().x >= x_finish
             || arc.sink_loc().y <= y_start
         {
+            println!("oob: {:?} -> {:?}", arc.source_loc(), arc.sink_loc());
             out_of_bound_arcs_in_se += 1;
         }
     }
+    println!("\nsw:");
     for arc in &sw {
         if arc.source_loc().x < x_part
             || arc.source_loc().y < y_part
@@ -908,9 +913,11 @@ pub fn find_partition_point_and_sanity_check(
             || arc.sink_loc().x >= x_finish
             || arc.sink_loc().y >= y_finish
         {
+            println!("oob: {:?} -> {:?}", arc.source_loc(), arc.sink_loc());
             out_of_bound_arcs_in_sw += 1;
         }
     }
+    println!("\nnw:");
     for arc in &nw {
         if arc.source_loc().x > x_part
             || arc.source_loc().y < y_part
@@ -924,6 +931,7 @@ pub fn find_partition_point_and_sanity_check(
             || arc.sink_loc().x <= x_start
             || arc.sink_loc().y >= y_finish
         {
+            println!("oob: {:?} -> {:?}", arc.source_loc(), arc.sink_loc());
             out_of_bound_arcs_in_nw += 1;
         }
     }
@@ -1019,8 +1027,8 @@ impl PipSelector {
         for &pip in pips {
             let loc = ctx.pip_location(pip);
             if (loc.x == partition_point.x || loc.y == partition_point.y)
-                && loc.x > bounds.0 .0
-                && loc.x < bounds.0 .1
+                && loc.x >= bounds.0 .0
+                && loc.x <= bounds.0 .1
                 && loc.y > bounds.1 .0
                 && loc.y < bounds.1 .1
             {
@@ -1050,6 +1058,10 @@ impl PipSelector {
 
                 candidates += 1;
 
+                // a stack, to do recursion, because we need that i guess
+                let mut pips = vec![];
+                const MAX_PIP_SEARCH_DEPTH: usize = 3;
+
                 if loc.y == partition_point.y {
                     // pip is on east-west border
 
@@ -1059,21 +1071,42 @@ impl PipSelector {
                         (false, false, false);
 
                     for src_pip in ctx.get_uphill_pips(ctx.pip_src_wire(pip)) {
+                        pips.push((src_pip, 0));
+                    }
+                    while let Some((src_pip, depth)) = pips.pop() {
                         let src_pip_coord: Coord = ctx.pip_location(src_pip).into();
-                        if (src_pip_coord.x < partition_point.x) == (loc.x < partition_point.x) {
-                            src_has_middle |= src_pip_coord.y == loc.y;
+                        if (src_pip_coord.x < partition_point.x) && (loc.x < partition_point.x)
+                            || (src_pip_coord.x > partition_point.x) && (loc.x > partition_point.x)
+                        {
                             src_has_east |= src_pip_coord.is_east_of(&partition_point.into());
                             src_has_west |= src_pip_coord.is_west_of(&partition_point.into());
+                            if src_pip_coord.y == loc.y && depth < MAX_PIP_SEARCH_DEPTH {
+                                for src_pip in ctx.get_uphill_pips(ctx.pip_src_wire(src_pip)) {
+                                    pips.push((src_pip, depth + 1));
+                                }
+                            }
                         }
                     }
+
                     for dst_pip in ctx.get_downhill_pips(ctx.pip_dst_wire(pip)) {
+                        pips.push((dst_pip, 0));
+                    }
+                    while let Some((dst_pip, depth)) = pips.pop() {
                         let dst_pip_coord: Coord = ctx.pip_location(dst_pip).into();
-                        if (dst_pip_coord.x < partition_point.x) == (loc.x < partition_point.x) {
-                            dst_has_middle |= dst_pip_coord.y == loc.y;
+
+                        if (dst_pip_coord.x < partition_point.x) && (loc.x < partition_point.x)
+                            || (dst_pip_coord.x > partition_point.x) && (loc.x > partition_point.x)
+                        {
                             dst_has_east |= dst_pip_coord.is_east_of(&partition_point.into());
                             dst_has_west |= dst_pip_coord.is_west_of(&partition_point.into());
+                            if dst_pip_coord.y == loc.y && depth < MAX_PIP_SEARCH_DEPTH {
+                                for dst_pip in ctx.get_downhill_pips(ctx.pip_dst_wire(dst_pip)) {
+                                    pips.push((dst_pip, depth + 1));
+                                }
+                            }
                         }
                     }
+
                     if (src_has_east && (dst_has_west || dst_has_middle))
                         || (src_has_middle && dst_has_west)
                     {
@@ -1103,21 +1136,44 @@ impl PipSelector {
                         (false, false, false);
 
                     for src_pip in ctx.get_uphill_pips(ctx.pip_src_wire(pip)) {
+                        pips.push((src_pip, 0));
+                    }
+
+                    while let Some((src_pip, depth)) = pips.pop() {
                         let src_pip_coord: Coord = ctx.pip_location(src_pip).into();
-                        if (src_pip_coord.y < partition_point.y) == (loc.y < partition_point.y) {
-                            src_has_middle |= src_pip_coord.x == loc.x;
+                        if (src_pip_coord.y < partition_point.y) && (loc.y < partition_point.y)
+                            || (src_pip_coord.y > partition_point.y) && (loc.y > partition_point.y)
+                        {
                             src_has_north |= src_pip_coord.is_north_of(&partition_point.into());
                             src_has_south |= src_pip_coord.is_south_of(&partition_point.into());
+                            if src_pip_coord.x == loc.x && depth < MAX_PIP_SEARCH_DEPTH {
+                                // yaaaaaaay, we need to everything again for this pip :)
+                                for src_pip in ctx.get_uphill_pips(ctx.pip_src_wire(src_pip)) {
+                                    pips.push((src_pip, depth + 1));
+                                }
+                            }
                         }
                     }
+
                     for dst_pip in ctx.get_downhill_pips(ctx.pip_dst_wire(pip)) {
+                        pips.push((dst_pip, 0));
+                    }
+
+                    while let Some((dst_pip, depth)) = pips.pop() {
                         let dst_pip_coord: Coord = ctx.pip_location(dst_pip).into();
-                        if (dst_pip_coord.y < partition_point.y) == (loc.y < partition_point.y) {
-                            dst_has_middle |= dst_pip_coord.x == loc.x;
+                        if (dst_pip_coord.y < partition_point.y) && (loc.y < partition_point.y)
+                            || (dst_pip_coord.y > partition_point.y) && (loc.y > partition_point.y)
+                        {
                             dst_has_north |= dst_pip_coord.is_north_of(&partition_point.into());
                             dst_has_south |= dst_pip_coord.is_south_of(&partition_point.into());
+                            if dst_pip_coord.x == loc.x && depth < MAX_PIP_SEARCH_DEPTH {
+                                for dst_pip in ctx.get_downhill_pips(ctx.pip_dst_wire(dst_pip)) {
+                                    pips.push((dst_pip, depth + 1));
+                                }
+                            }
                         }
                     }
+
                     if (src_has_north && (dst_has_south || dst_has_middle))
                         || (src_has_middle && dst_has_south)
                     {
@@ -1264,16 +1320,13 @@ impl PipSelector {
 
         let pips = &self.pips[pip_index];
 
-        let selected_pip = self
+        let (selected_pip, mut candidate, mut source, mut sink) = self
             .pip_index_to_position_iter(pip_index, (desired_pip_location.x, desired_pip_location.y))
-            .flat_map(|pos| {
-                pips.get(&pos)
-                    .unwrap_or_else(|| panic!("tried at {:?}", pos))
-                    .iter()
-            })
-            .find(|&pip| {
+            .flat_map(|pos| pips.get(&pos))
+            .flat_map(|vec| vec.iter())
+            .filter_map(|pip| {
                 if !ctx.pip_avail_for_net(*pip, raw_net) {
-                    return false;
+                    return None;
                 }
 
                 let source = ctx.pip_src_wire(*pip);
@@ -1285,7 +1338,7 @@ impl PipSelector {
                         let sink = self.used_wires.get(&sink).unwrap().lock().unwrap();
                         (source, sink)
                     }
-                    Ordering::Equal => return false,
+                    Ordering::Equal => return None,
                     Ordering::Less => {
                         let sink = self.used_wires.get(&sink).unwrap().lock().unwrap();
                         let source = self.used_wires.get(&source).unwrap().lock().unwrap();
@@ -1295,21 +1348,18 @@ impl PipSelector {
 
                 let mut candidate = self.used_pips.get(pip).unwrap().lock().unwrap();
                 if candidate.map(|other| other != net).unwrap_or(false) {
-                    return false;
+                    return None;
                 }
                 if source.map(|other| other != net).unwrap_or(false) {
-                    return false;
+                    return None;
                 }
                 if sink.map(|other| other != net).unwrap_or(false) {
-                    return false;
+                    return None;
                 }
 
-                *candidate = Some(net);
-                *source = Some(net);
-                *sink = Some(net);
-
-                true
-            })?;
+                Some((pip, candidate, source, sink))
+            })
+            .next()?;
 
         {
             let mut cache = self.pip_selection_cache[pip_index]
@@ -1317,8 +1367,18 @@ impl PipSelector {
                 .unwrap()
                 .write()
                 .unwrap();
+
+            // while we were looking, someone else might have found a pip
+            if let Some(other_pip) = *cache {
+                return Some(other_pip);
+            }
+
             *cache = Some(*selected_pip);
         }
+
+        *candidate = Some(net);
+        *source = Some(net);
+        *sink = Some(net);
 
         Some(*selected_pip)
     }
@@ -1354,7 +1414,7 @@ impl PipSelector {
             0 | 2 => (
                 (1, 0),
                 self.partition_loc.x - start_position.0 - 1,
-                start_position.0 - self.boundaries.0 .0 - 1,
+                start_position.0 - self.boundaries.0 .0,
             ),
             1 | 3 => (
                 (1, 0),
@@ -1364,7 +1424,7 @@ impl PipSelector {
             4 | 6 => (
                 (0, 1),
                 self.partition_loc.y - start_position.1 - 1,
-                start_position.1 - self.boundaries.1 .0 - 1,
+                start_position.1 - self.boundaries.1 .0,
             ),
             5 | 7 => (
                 (0, 1),
