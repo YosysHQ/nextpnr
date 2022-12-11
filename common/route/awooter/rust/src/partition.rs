@@ -14,7 +14,7 @@ use crate::{
     route::Arc,
 };
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Quadrant {
     Northeast,
     Southeast,
@@ -22,7 +22,7 @@ pub enum Quadrant {
     Northwest,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Direction {
     North,
     South,
@@ -30,14 +30,14 @@ pub enum Direction {
     West,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FullSegment {
     Quadrant(Quadrant),
     Direction(Direction),
     Exact,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Axis {
     NorthSouth,
     EastWest,
@@ -201,7 +201,7 @@ pub fn find_partition_point(
     x_finish: i32,
     y_start: i32,
     y_finish: i32,
-) -> (i32, i32, Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>) {
+) -> (i32, i32, Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>) {
     let mut x = ((x_finish - x_start) / 2) + x_start;
     let mut y = ((y_finish - y_start) / 2) + y_start;
     let mut x_diff = 0; //(x_finish - x_start) / 4;
@@ -244,7 +244,7 @@ pub fn find_partition_point(
         y_diff >>= 1;
     }
 
-    let (ne, se, sw, nw) = partition(
+    let (ne, se, sw, nw, special) = partition(
         ctx,
         nets,
         arcs,
@@ -269,7 +269,7 @@ pub fn find_partition_point(
         100.0 * (ne_dist + se_dist + sw_dist + nw_dist)
     );
 
-    (x, y, ne, se, sw, nw)
+    (x, y, ne, se, sw, nw, special)
 }
 
 fn approximate_partition_results(
@@ -430,7 +430,7 @@ fn partition(
     y: i32,
     x_bounds: (i32, i32),
     y_bounds: (i32, i32),
-) -> (Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>) {
+) -> (Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>) {
     let min_bounds = Coord::new(x_bounds.0, y_bounds.0);
     let max_bounds = Coord::new(x_bounds.1, y_bounds.1);
     let partition_coords = Coord::new(x, y);
@@ -439,6 +439,7 @@ fn partition(
     let mut se: Vec<Arc> = Vec::new();
     let mut sw: Vec<Arc> = Vec::new();
     let mut nw: Vec<Arc> = Vec::new();
+    let special = Mutex::new(Vec::new());
     let mut part_horiz = AtomicUsize::new(0);
     let mut part_vert = AtomicUsize::new(0);
     let mut part_diag = AtomicUsize::new(0);
@@ -467,6 +468,50 @@ fn partition(
 
         progress.set_message(format!("overused wires: {}", overused_wires));
 
+        let mut bad_nets = std::collections::HashSet::new();
+
+        let is_general_routing = |wire: &str| {
+            wire.contains("H00")
+                || wire.contains("V00")
+                || wire.contains("H01")
+                || wire.contains("V01")
+                || wire.contains("H02")
+                || wire.contains("V02")
+                || wire.contains("H06")
+                || wire.contains("V06")
+        };
+
+        for arc in arcs {
+            if bad_nets.contains(&arc.net()) {
+                continue;
+            }
+
+            let source_loc = arc.get_source_loc();
+            let source_coords: Coord = source_loc.into();
+            let sink_loc = arc.get_sink_loc();
+            let sink_coords: Coord = sink_loc.into();
+
+            // test for annoying special case
+            let mut have_any_in_same_segment = false;
+            for pip in ctx.get_downhill_pips(arc.get_source_wire()) {
+                let pip_coord: Coord = ctx.pip_location(pip).into();
+                let pip_seg = pip_coord.segment_from(&partition_coords);
+                have_any_in_same_segment |= pip_seg == source_coords.segment_from(&partition_coords)
+            }
+            if !have_any_in_same_segment {
+                bad_nets.insert(arc.net());
+            }
+            let mut have_any_in_same_segment = false;
+            for pip in ctx.get_uphill_pips(arc.get_sink_wire()) {
+                let pip_coord: Coord = ctx.pip_location(pip).into();
+                let pip_seg = pip_coord.segment_from(&partition_coords);
+                have_any_in_same_segment |= pip_seg == sink_coords.segment_from(&partition_coords)
+            }
+            if !have_any_in_same_segment {
+                bad_nets.insert(arc.net());
+            }
+        }
+
         let arcs = arcs
             .into_par_iter()
             .progress_with(progress)
@@ -486,6 +531,12 @@ fn partition(
                     .unwrap()
                     .to_string();
                 let verbose = false; //name == "soc0.processor.with_fpu.fpu_0.fpu_multiply_0.rin_CCU2C_S0_4$CCU2_FCI_INT";
+
+                if bad_nets.contains(&arc.net()) {
+                    special.lock().unwrap().push(arc.clone());
+                    return vec![];
+                }
+
                 if source_is_north == sink_is_north && source_is_east == sink_is_east {
                     let seg = source_coords.segment_from(&partition_coords);
                     vec![(seg, arc.clone())]
@@ -798,7 +849,7 @@ fn partition(
         dist_str(nw_dist)
     );
 
-    (ne, se, sw, nw)
+    (ne, se, sw, nw, special.into_inner().unwrap())
 }
 
 fn partition_single_arc(
@@ -844,13 +895,13 @@ pub fn find_partition_point_and_sanity_check(
     x_finish: i32,
     y_start: i32,
     y_finish: i32,
-) -> (i32, i32, Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>) {
+) -> (i32, i32, Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>) {
     println!(
         "bounds: {:?} -> {:?}",
         (x_start, y_start),
         (x_finish, y_finish)
     );
-    let (x_part, y_part, ne, se, sw, nw) =
+    let (x_part, y_part, ne, se, sw, nw, special) =
         find_partition_point(ctx, nets, arcs, pips, x_start, x_finish, y_start, y_finish);
 
     let mut invalid_arcs_in_ne = 0;
@@ -986,7 +1037,7 @@ pub fn find_partition_point_and_sanity_check(
         );
     }
 
-    (x_part, y_part, ne, se, sw, nw)
+    (x_part, y_part, ne, se, sw, nw, special)
 }
 
 struct PipSelector {
@@ -1082,7 +1133,7 @@ impl PipSelector {
                             src_has_west |= src_pip_coord.is_west_of(&partition_point.into());
                             if src_pip_coord.y == loc.y && depth < MAX_PIP_SEARCH_DEPTH {
                                 for src_pip in ctx.get_uphill_pips(ctx.pip_src_wire(src_pip)) {
-                                    pips.push((src_pip, depth + 1));
+                                    //pips.push((src_pip, depth + 1));
                                 }
                             }
                         }
@@ -1101,7 +1152,7 @@ impl PipSelector {
                             dst_has_west |= dst_pip_coord.is_west_of(&partition_point.into());
                             if dst_pip_coord.y == loc.y && depth < MAX_PIP_SEARCH_DEPTH {
                                 for dst_pip in ctx.get_downhill_pips(ctx.pip_dst_wire(dst_pip)) {
-                                    pips.push((dst_pip, depth + 1));
+                                    //pips.push((dst_pip, depth + 1));
                                 }
                             }
                         }
@@ -1149,7 +1200,7 @@ impl PipSelector {
                             if src_pip_coord.x == loc.x && depth < MAX_PIP_SEARCH_DEPTH {
                                 // yaaaaaaay, we need to everything again for this pip :)
                                 for src_pip in ctx.get_uphill_pips(ctx.pip_src_wire(src_pip)) {
-                                    pips.push((src_pip, depth + 1));
+                                    //pips.push((src_pip, depth + 1));
                                 }
                             }
                         }
@@ -1168,7 +1219,7 @@ impl PipSelector {
                             dst_has_south |= dst_pip_coord.is_south_of(&partition_point.into());
                             if dst_pip_coord.x == loc.x && depth < MAX_PIP_SEARCH_DEPTH {
                                 for dst_pip in ctx.get_downhill_pips(ctx.pip_dst_wire(dst_pip)) {
-                                    pips.push((dst_pip, depth + 1));
+                                    //pips.push((dst_pip, depth + 1));
                                 }
                             }
                         }

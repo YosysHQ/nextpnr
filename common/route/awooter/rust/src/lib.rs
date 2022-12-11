@@ -209,10 +209,11 @@ fn route(ctx: &mut npnr::Context, pressure: f32, history: f32) -> bool {
         let mut new_partitions = Vec::with_capacity(partitions.len() * 4);
         for (min, max, partition, name) in &partitions {
             log_info!("partition {}:\n", name);
-            let (x_part, y_part, ne, se, sw, nw) = partition::find_partition_point_and_sanity_check(
-                ctx, &nets, partition, pips, min.x, max.x, min.y, max.y,
-            );
-            new_partitions.push((*min, Coord::new(x_part, y_part), ne, format!("{}_NE", name)));
+            let (x_part, y_part, ne, se, sw, nw, special) =
+                partition::find_partition_point_and_sanity_check(
+                    ctx, &nets, partition, pips, min.x, max.x, min.y, max.y,
+                );
+            special_arcs.extend(special.into_iter());
             new_partitions.push((
                 Coord::new(x_part, min.y),
                 Coord::new(max.x, y_part),
@@ -220,6 +221,7 @@ fn route(ctx: &mut npnr::Context, pressure: f32, history: f32) -> bool {
                 format!("{}_SE", name),
             ));
             new_partitions.push((Coord::new(x_part, y_part), *max, sw, format!("{}_SW", name)));
+            new_partitions.push((*min, Coord::new(x_part, y_part), ne, format!("{}_NE", name)));
             new_partitions.push((
                 Coord::new(min.x, y_part),
                 Coord::new(x_part, max.y),
@@ -232,6 +234,11 @@ fn route(ctx: &mut npnr::Context, pressure: f32, history: f32) -> bool {
 
     let time = format!("{:.2}", (Instant::now() - start).as_secs_f32());
     log_info!("Partitioning took {}s\n", time.bold());
+
+    log_info!(
+        "now {} arcs special-cased\n",
+        special_arcs.len().to_string().bold()
+    );
 
     log_info!(
         "Using pressure factor {} and history factor {}\n",
