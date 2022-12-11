@@ -16,11 +16,12 @@
  *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
-
+#pragma once
 #ifndef AWOOTER_H
 #define AWOOTER_H
 
-#include "nextpnr.h"
+#include "rust/cxx.h"
+#include "../kernel/nextpnr.h"
 NEXTPNR_NAMESPACE_BEGIN
 
 extern bool router_awooter(Context* ctx);

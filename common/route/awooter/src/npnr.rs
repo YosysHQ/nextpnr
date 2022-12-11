@@ -3,17 +3,24 @@ use std::{collections::HashMap, ffi::CStr, marker::PhantomData, sync::Mutex};
 
 use libc::c_char;
 
-#[derive(Clone, Copy)]
-#[repr(C)]
-pub enum PlaceStrength {
-    None = 0,
-    Weak = 1,
-    Strong = 2,
-    Placer = 3,
-    Fixed = 4,
-    Locked = 5,
-    User = 6,
+mod ffi;
+pub use ffi::base::*;
+pub use ffi::ecp5::*;
+
+macro_rules! log_info {
+    ($($t:tt)*) => {
+        let s = std::ffi::CString::new(format!($($t)*)).unwrap();
+        unsafe { crate::npnr::npnr_log_info(s.as_ptr().cast()); }
+    };
 }
+
+macro_rules! log_error {
+    ($($t:tt)*) => {
+        let s = std::ffi::CString::new(format!($($t)*)).unwrap();
+        unsafe { crate::npnr::npnr_log_error(s.as_ptr().cast()); }
+    };
+}
+
 
 #[repr(C)]
 pub struct CellInfo {
@@ -122,14 +129,6 @@ impl WireId {
     }
 }
 
-#[repr(C)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct Loc {
-    pub x: libc::c_int,
-    pub y: libc::c_int,
-    pub z: libc::c_int,
-}
-
 impl From<(i32, i32)> for Loc {
     fn from(pos: (i32, i32)) -> Self {
         Self {
@@ -140,21 +139,11 @@ impl From<(i32, i32)> for Loc {
     }
 }
 
-#[repr(C)]
-pub struct Context {
-    _private: [u8; 0],
-}
+// Almost certainly not!
+unsafe impl Send for Context {}
+unsafe impl Sync for Context {}
 
 impl Context {
-    /// Get grid X dimension. All bels and pips must have X coordinates in the range `0 .. getGridDimX()-1` (inclusive).
-    pub fn grid_dim_x(&self) -> i32 {
-        unsafe { npnr_context_get_grid_dim_x(self) }
-    }
-
-    /// Get grid Y dimension. All bels and pips must have Y coordinates in the range `0 .. getGridDimY()-1` (inclusive).
-    pub fn grid_dim_y(&self) -> i32 {
-        unsafe { npnr_context_get_grid_dim_y(self) }
-    }
 
     /// Bind a given bel to a given cell with the given strength.
     pub fn bind_bel(&mut self, bel: BelId, cell: *mut CellInfo, strength: PlaceStrength) {
@@ -210,7 +199,6 @@ impl Context {
     pub fn estimate_delay(&self, src: WireId, dst: WireId) -> f32 {
         unsafe { npnr_context_estimate_delay(self, src, dst) }
     }
-
     pub fn pip_delay(&self, pip: PipId) -> f32 {
         unsafe { npnr_context_get_pip_delay(self, pip) }
     }
@@ -281,10 +269,6 @@ impl Context {
         unsafe { npnr_context_check_pip_avail_for_net(self, pip, net) }
     }
 
-    pub fn check(&self) {
-        unsafe { npnr_context_check(self) }
-    }
-
     pub fn debug(&self) -> bool {
         unsafe { npnr_context_debug(self) }
     }
@@ -321,8 +305,6 @@ extern "C-unwind" {
     fn npnr_wireid_null() -> WireId;
     fn npnr_pipid_null() -> PipId;
 
-    fn npnr_context_get_grid_dim_x(ctx: *const Context) -> libc::c_int;
-    fn npnr_context_get_grid_dim_y(ctx: *const Context) -> libc::c_int;
     fn npnr_context_bind_bel(
         ctx: *mut Context,
         bel: BelId,
@@ -362,7 +344,7 @@ extern "C-unwind" {
         net: *const NetInfo,
     ) -> bool;
 
-    fn npnr_context_check(ctx: *const Context);
+
     fn npnr_context_debug(ctx: *const Context) -> bool;
     fn npnr_context_id(ctx: *const Context, s: *const c_char) -> IdString;
     fn npnr_context_name_of(ctx: *const Context, s: IdString) -> *const libc::c_char;
@@ -569,18 +551,4 @@ impl<'a> Drop for UphillPipsIter<'a> {
     fn drop(&mut self) {
         unsafe { npnr_delete_uphill_iter(self.iter) };
     }
-}
-
-macro_rules! log_info {
-    ($($t:tt)*) => {
-        let s = std::ffi::CString::new(format!($($t)*)).unwrap();
-        unsafe { crate::npnr::npnr_log_info(s.as_ptr()); }
-    };
-}
-
-macro_rules! log_error {
-    ($($t:tt)*) => {
-        let s = std::ffi::CString::new(format!($($t)*)).unwrap();
-        unsafe { crate::npnr::npnr_log_error(s.as_ptr()); }
-    };
 }

@@ -41,7 +41,7 @@ impl Arc {
         }
     }
 
-    pub fn split(&self, ctx: &npnr::Context, pip: npnr::PipId) -> (Self, Self) {
+    pub fn split(&self, ctx: &npnr::Context, pip: PipId) -> (Self, Self) {
         let pip_src = ctx.pip_src_wire(pip);
         let pip_dst = ctx.pip_dst_wire(pip);
         (
@@ -64,10 +64,10 @@ impl Arc {
         )
     }
 
-    pub fn source_wire(&self) -> npnr::WireId {
+    pub fn source_wire(&self) -> WireId {
         self.source_wire
     }
-    pub fn sink_wire(&self) -> npnr::WireId {
+    pub fn sink_wire(&self) -> WireId {
         self.sink_wire
     }
     pub fn net(&self) -> npnr::NetIndex {
@@ -87,8 +87,8 @@ struct QueuedWire {
     congest: f32,
     togo: f32,
     criticality: f32,
-    wire: npnr::WireId,
-    from_pip: Option<npnr::PipId>,
+    wire: WireId,
+    from_pip: Option<PipId>,
 }
 
 impl QueuedWire {
@@ -97,8 +97,8 @@ impl QueuedWire {
         congest: f32,
         togo: f32,
         criticality: f32,
-        wire: npnr::WireId,
-        from_pip: Option<npnr::PipId>,
+        wire: WireId,
+        from_pip: Option<PipId>,
     ) -> Self {
         Self {
             delay,

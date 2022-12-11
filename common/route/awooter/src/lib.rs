@@ -1,6 +1,7 @@
 #![feature(c_unwind)]
 #![feature(let_chains)]
 
+// use core::ffi::{c_char, c_int};
 use std::{ptr::NonNull, time::Instant};
 
 use colored::Colorize;
@@ -15,12 +16,12 @@ mod partition;
 mod route;
 
 #[no_mangle]
-pub extern "C-unwind" fn npnr_router_awooter(
+pub extern "C-unwind" fn nextpnr_router_awooter(
     ctx: Option<NonNull<npnr::Context>>,
     pressure: f32,
     history: f32,
 ) -> bool {
-    let ctx: &mut npnr::Context = unsafe { ctx.expect("non-null context").as_mut() };
+    let ctx: &mut npnr::Context = unsafe { ctx.expect("context should be non-null").as_mut() };
     route(ctx, pressure, history)
 
     /*std::panic::catch_unwind(move || {

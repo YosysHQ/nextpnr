@@ -16,3 +16,7 @@ indicatif = { version = "0.17", features = ["rayon"] }
 rayon = "1.6"
 colored = "2"
 itertools = "0.10.5"
+cxx = "1.0"
+
+[build-dependencies]
+cxx-build = "1.0"

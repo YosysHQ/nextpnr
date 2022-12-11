@@ -1,4 +1,4 @@
 [workspace]
 members = [
-    "common/route/awooter/rust"
+    "common/route/awooter"
 ]
