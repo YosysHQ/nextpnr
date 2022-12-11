@@ -1,4 +1,7 @@
-use std::{collections::{BinaryHeap, HashMap, HashSet}, time::Instant};
+use std::{
+    collections::{BinaryHeap, HashMap, HashSet},
+    time::Instant,
+};
 
 use colored::Colorize;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
@@ -260,15 +263,33 @@ impl Router {
 
             if overused.is_empty() {
                 let now = (Instant::now() - start).as_secs_f32();
-                progress.println(format!("{} @ {}: {} in {:.0}m{:.03}s", id, iterations, "routing complete".green(), now / 60.0, now % 60.0));
+                progress.println(format!(
+                    "{} @ {}: {} in {:.0}m{:.03}s",
+                    id,
+                    iterations,
+                    "routing complete".green(),
+                    now / 60.0,
+                    now % 60.0
+                ));
                 break;
             } else if overused.len() < least_overuse {
                 least_overuse = overused.len();
                 iters_since_improvement = 0;
-                progress.println(format!("{} @ {}: {} wires overused {}", id, iterations, overused.len(), "(new best)".bold()));
+                progress.println(format!(
+                    "{} @ {}: {} wires overused {}",
+                    id,
+                    iterations,
+                    overused.len(),
+                    "(new best)".bold()
+                ));
             } else {
                 iters_since_improvement += 1;
-                progress.println(format!("{} @ {}: {} wires overused", id, iterations, overused.len()));
+                progress.println(format!(
+                    "{} @ {}: {} wires overused",
+                    id,
+                    iterations,
+                    overused.len()
+                ));
             }
 
             let mut next_arcs = Vec::new();
@@ -286,17 +307,26 @@ impl Router {
             for net in &mut self.nets {
                 net.done_sinks.clear();
             }
-            
+
             if iters_since_improvement > 50 {
                 iters_since_improvement = 0;
                 least_overuse = usize::MAX;
-                progress.println(format!("{} @ {}: {}", id, iterations, "bored; rerouting everything".bold()));
+                progress.println(format!(
+                    "{} @ {}: {}",
+                    id,
+                    iterations,
+                    "bored; rerouting everything".bold()
+                ));
                 route_arcs = Vec::from_iter(arcs.iter());
             } else {
                 route_arcs = next_arcs;
             }
 
-            max_delay = arcs.iter().map(|arc| *delay.get(arc).unwrap()).reduce(f32::max).unwrap();
+            max_delay = arcs
+                .iter()
+                .map(|arc| *delay.get(arc).unwrap())
+                .reduce(f32::max)
+                .unwrap();
         }
     }
 
@@ -454,9 +484,7 @@ impl Router {
             println!(
                 "{} [label=\"{}\"]",
                 source_wire,
-                ctx.name_of_wire(arc.source_wire)
-                    .to_str()
-                    .unwrap(),
+                ctx.name_of_wire(arc.source_wire).to_str().unwrap(),
                 //self.flat_wires[wire as usize].curr_cong
             );
         }
@@ -476,7 +504,11 @@ impl Router {
             let pip = self.flat_wires[wire as usize].pip_fwd;
             assert!(pip != PipId::null());
             if verbose {
-                println!("{} -> {}", *self.wire_to_idx.get(&ctx.pip_src_wire(pip)).unwrap(), wire);
+                println!(
+                    "{} -> {}",
+                    *self.wire_to_idx.get(&ctx.pip_src_wire(pip)).unwrap(),
+                    wire
+                );
             }
             self.bind_pip_internal(arc.net(), wire, pip);
             wire = *self.wire_to_idx.get(&ctx.pip_src_wire(pip)).unwrap();
