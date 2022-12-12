@@ -128,7 +128,7 @@ impl PartialOrd for QueuedWire {
 
 struct PerNetData {
     wires: HashMap<WireId, (PipId, u32)>,
-    done_sinks: HashMap<WireId, f32>,
+    done_sinks: HashSet<WireId>,
 }
 
 struct PerWireData {
@@ -185,7 +185,7 @@ impl Router {
         for _ in 0..nets.len() {
             self.nets.push(PerNetData {
                 wires: HashMap::new(),
-                done_sinks: HashMap::new(),
+                done_sinks: HashSet::new(),
             });
         }
 
@@ -380,10 +380,8 @@ impl Router {
         self.dirty_wires.push(source_wire);
         self.dirty_wires.push(sink_wire);
 
-        let mut delay = 0.0;
-        if let Some(old_delay) = nd.done_sinks.get(&arc.get_sink_wire()) {
+        if let Some(_) = nd.done_sinks.get(&arc.get_sink_wire()) {
             found_meeting_point = Some(*self.wire_to_idx.get(&arc.sink_wire).unwrap());
-            delay = *old_delay;
 
             let source = arc.get_source_wire();
             let mut wire = arc.get_sink_wire();
@@ -494,7 +492,6 @@ impl Router {
                             }
 
                             found_meeting_point = Some(sink);
-                            delay = sum_delay;
                             break;
                         }
 
@@ -502,10 +499,9 @@ impl Router {
 
                         if false && verbose {
                             log_info!(
-                                "  bwd: {}: -> {} @ ({}, {}, {}) = {}\n",
+                                "  bwd: {}: -> {} ({}, {}) = {}\n",
                                 ctx.name_of_pip(pip).to_str().unwrap(),
                                 ctx.name_of_wire(ctx.pip_dst_wire(pip)).to_str().unwrap(),
-                                delay,
                                 congest,
                                 criticality,
                                 qw.score()
@@ -613,7 +609,6 @@ impl Router {
                             }
 
                             found_meeting_point = Some(source);
-                            delay = sum_delay;
                             break;
                         }
 
@@ -621,10 +616,9 @@ impl Router {
 
                         if false && verbose {
                             log_info!(
-                                "  bwd: {}: -> {} @ ({}, {}, {}) = {}\n",
+                                "  bwd: {}: -> {} @ ({}, {}) = {}\n",
                                 ctx.name_of_pip(pip).to_str().unwrap(),
                                 ctx.name_of_wire(ctx.pip_dst_wire(pip)).to_str().unwrap(),
-                                delay,
                                 congest,
                                 criticality,
                                 qw.score()
@@ -685,6 +679,8 @@ impl Router {
             );
         }
 
+        let mut calculated_delay = 0.0;
+
         while wire != source_wire {
             if verbose {
                 println!(
@@ -705,6 +701,12 @@ impl Router {
                     wire
                 );
             }
+
+            let node_delay = ctx.pip_delay(pip)
+                + ctx.wire_delay(self.flat_wires[wire as usize].wire)
+                + ctx.delay_epsilon();
+            calculated_delay += node_delay;
+
             self.bind_pip_internal(arc.net(), wire, pip);
             wire = *self.wire_to_idx.get(&ctx.pip_src_wire(pip)).unwrap();
         }
@@ -714,14 +716,20 @@ impl Router {
             assert!(pip != PipId::null());
             // do note that the order is inverted from the fwd loop
             wire = *self.wire_to_idx.get(&ctx.pip_dst_wire(pip)).unwrap();
+
+            let node_delay = ctx.pip_delay(pip)
+                + ctx.wire_delay(self.flat_wires[wire as usize].wire)
+                + ctx.delay_epsilon();
+            calculated_delay += node_delay;
+
             self.bind_pip_internal(arc.net(), wire, pip);
         }
         let nd = &mut self.nets[arc.net().into_inner() as usize];
-        nd.done_sinks.insert(arc.get_sink_wire(), delay);
+        nd.done_sinks.insert(arc.get_sink_wire());
 
         self.reset_wires();
 
-        delay
+        calculated_delay
     }
 
     fn was_visited_fwd(&self, wire: u32) -> bool {
