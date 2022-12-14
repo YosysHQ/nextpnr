@@ -1,7 +1,6 @@
 use std::{
     cmp::Ordering,
     collections::HashMap,
-    ops::RangeBounds,
     sync::{atomic::AtomicUsize, Mutex, RwLock},
 };
 
@@ -299,11 +298,11 @@ fn partition(
             .into_par_iter()
             .progress_with(progress)
             .flat_map(|arc| {
-                let source_loc = arc.get_source_loc();
+                let source_loc = arc.source_loc();
                 let source_coords: Coord = source_loc.into();
                 let source_is_north = source_coords.is_north_of(&partition_coords);
                 let source_is_east = source_coords.is_east_of(&partition_coords);
-                let sink_loc = arc.get_sink_loc();
+                let sink_loc = arc.sink_loc();
                 let sink_coords: Coord = sink_loc.into();
                 let sink_is_north = sink_coords.is_north_of(&partition_coords);
                 let sink_is_east = sink_coords.is_east_of(&partition_coords);
@@ -338,8 +337,8 @@ fn partition(
                     if verbose {
                         log_info!(
                             "split arc {} to {} vertically across pip {}\n",
-                            ctx.name_of_wire(arc.get_source_wire()).to_str().unwrap(),
-                            ctx.name_of_wire(arc.get_sink_wire()).to_str().unwrap(),
+                            ctx.name_of_wire(arc.source_wire()).to_str().unwrap(),
+                            ctx.name_of_wire(arc.sink_wire()).to_str().unwrap(),
                             ctx.name_of_pip(selected_pip).to_str().unwrap()
                         );
                     }
@@ -382,8 +381,8 @@ fn partition(
                     if verbose {
                         log_info!(
                             "split arc {} to {} horizontally across pip {}\n",
-                            ctx.name_of_wire(arc.get_source_wire()).to_str().unwrap(),
-                            ctx.name_of_wire(arc.get_sink_wire()).to_str().unwrap(),
+                            ctx.name_of_wire(arc.source_wire()).to_str().unwrap(),
+                            ctx.name_of_wire(arc.sink_wire()).to_str().unwrap(),
                             ctx.name_of_pip(selected_pip).to_str().unwrap()
                         );
                     }
@@ -469,8 +468,8 @@ fn partition(
                     if verbose {
                         log_info!(
                             "split arc {} to {} across pips {} and {}\n",
-                            ctx.name_of_wire(arc.get_source_wire()).to_str().unwrap(),
-                            ctx.name_of_wire(arc.get_sink_wire()).to_str().unwrap(),
+                            ctx.name_of_wire(arc.source_wire()).to_str().unwrap(),
+                            ctx.name_of_wire(arc.sink_wire()).to_str().unwrap(),
                             ctx.name_of_pip(horiz_pip).to_str().unwrap(),
                             ctx.name_of_pip(vert_pip).to_str().unwrap()
                         );
