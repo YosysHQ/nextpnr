@@ -83,16 +83,25 @@ struct QueuedWire {
     togo: f32,
     criticality: f32,
     wire: npnr::WireId,
+    from_pip: Option<npnr::PipId>,
 }
 
 impl QueuedWire {
-    pub fn new(delay: f32, congest: f32, togo: f32, criticality: f32, wire: npnr::WireId) -> Self {
+    pub fn new(
+        delay: f32,
+        congest: f32,
+        togo: f32,
+        criticality: f32,
+        wire: npnr::WireId,
+        from_pip: Option<npnr::PipId>,
+    ) -> Self {
         Self {
             delay,
             congest,
             togo,
             criticality,
             wire,
+            from_pip,
         }
     }
 
@@ -352,6 +361,7 @@ impl Router {
             ctx.estimate_delay(arc.source_wire, arc.sink_wire),
             criticality,
             arc.source_wire,
+            None,
         ));
         let mut bwd_queue = BinaryHeap::new();
         bwd_queue.push(QueuedWire::new(
@@ -360,6 +370,7 @@ impl Router {
             ctx.estimate_delay(arc.source_wire, arc.sink_wire),
             criticality,
             arc.sink_wire,
+            None,
         ));
 
         let mut found_meeting_point = None;
@@ -375,8 +386,6 @@ impl Router {
         let source_wire = *self.wire_to_idx.get(&arc.source_wire).unwrap();
         let sink_wire = *self.wire_to_idx.get(&arc.sink_wire).unwrap();
 
-        self.flat_wires[source_wire as usize].visited_fwd = true;
-        self.flat_wires[sink_wire as usize].visited_bwd = true;
         self.dirty_wires.push(source_wire);
         self.dirty_wires.push(sink_wire);
 
@@ -395,8 +404,8 @@ impl Router {
         } else {
             while found_meeting_point.is_none() {
                 if let Some(source) = fwd_queue.pop() {
+                    let source_idx = *self.wire_to_idx.get(&source.wire).unwrap();
                     if verbose {
-                        let source_idx = *self.wire_to_idx.get(&source.wire).unwrap();
                         let source_cong = self.flat_wires[source_idx as usize].curr_cong;
                         log_info!(
                             "fwd: {} @ ({}, {}, {}) = {}\n",
@@ -406,6 +415,18 @@ impl Router {
                             source.criticality,
                             source.score()
                         );
+                    }
+
+                    if self.was_visited_fwd(source_idx) {
+                        continue;
+                    }
+                    if let Some(pip) = source.from_pip {
+                        self.set_visited_fwd(source_idx, pip);
+                    }
+
+                    if self.was_visited_bwd(source_idx) {
+                        found_meeting_point = Some(source_idx);
+                        break;
                     }
 
                     for pip in ctx.get_downhill_pips(source.wire) {
@@ -474,26 +495,8 @@ impl Router {
                             ctx.estimate_delay(wire, arc.sink_wire),
                             criticality,
                             wire,
+                            Some(pip),
                         );
-
-                        self.set_visited_fwd(sink, pip);
-
-                        if self.was_visited_bwd(sink) {
-                            if verbose {
-                                let source_cong = self.flat_wires[sink as usize].curr_cong;
-                                log_info!(
-                                    "bwd: {} @ ({}, {}, {}) = {}\n",
-                                    ctx.name_of_wire(wire).to_str().unwrap(),
-                                    sum_delay,
-                                    congest,
-                                    criticality,
-                                    qw.score()
-                                );
-                            }
-
-                            found_meeting_point = Some(sink);
-                            break;
-                        }
 
                         fwd_queue.push(qw);
 
@@ -512,9 +515,8 @@ impl Router {
                     break;
                 }
                 if let Some(sink) = bwd_queue.pop() {
+                    let sink_idx = *self.wire_to_idx.get(&sink.wire).unwrap();
                     if verbose {
-                        let sink_idx = *self.wire_to_idx.get(&sink.wire).unwrap();
-                        let sink_cong = self.flat_wires[sink_idx as usize].curr_cong;
                         log_info!(
                             "bwd: {} @ ({}, {}, {}) = {}\n",
                             ctx.name_of_wire(sink.wire).to_str().unwrap(),
@@ -523,6 +525,18 @@ impl Router {
                             sink.criticality,
                             sink.score()
                         );
+                    }
+
+                    if self.was_visited_bwd(sink_idx) {
+                        continue;
+                    }
+                    if let Some(pip) = sink.from_pip {
+                        self.set_visited_bwd(sink_idx, pip);
+                    }
+
+                    if self.was_visited_fwd(sink_idx) {
+                        found_meeting_point = Some(sink_idx);
+                        break;
                     }
 
                     for pip in ctx.get_uphill_pips(sink.wire) {
@@ -578,12 +592,14 @@ impl Router {
                             continue;
                         }
 
+                        let sink_wd = &self.flat_wires[sink_idx as usize];
+
                         let node_delay =
-                            ctx.pip_delay(pip) + ctx.wire_delay(wire) + ctx.delay_epsilon();
+                            ctx.pip_delay(pip) + ctx.wire_delay(sink.wire) + ctx.delay_epsilon();
                         let sum_delay = sink.delay + node_delay;
                         let congest = sink.congest
-                            + (node_delay + nwd.hist_cong)
-                                * (1.0 + (nwd.curr_cong as f32 * self.pressure));
+                            + (node_delay + sink_wd.hist_cong)
+                                * (1.0 + (sink_wd.curr_cong as f32 * self.pressure));
 
                         let qw = QueuedWire::new(
                             sum_delay,
@@ -591,26 +607,8 @@ impl Router {
                             ctx.estimate_delay(wire, arc.source_wire),
                             criticality,
                             wire,
+                            Some(pip),
                         );
-
-                        self.set_visited_bwd(source, pip);
-
-                        if self.was_visited_fwd(source) {
-                            if verbose {
-                                let source_cong = self.flat_wires[source as usize].curr_cong;
-                                log_info!(
-                                    "bwd: {} @ ({}, {}, {}) = {}\n",
-                                    ctx.name_of_wire(wire).to_str().unwrap(),
-                                    sum_delay,
-                                    congest,
-                                    criticality,
-                                    qw.score()
-                                );
-                            }
-
-                            found_meeting_point = Some(source);
-                            break;
-                        }
 
                         bwd_queue.push(qw);
 
@@ -629,6 +627,9 @@ impl Router {
                     // don't break when bwd goes bad, fwd was written by lofty, who knows all, this was written by dummy kbity
                     //break;
                 }
+
+                self.flat_wires[source_wire as usize].visited_fwd = true;
+                self.flat_wires[sink_wire as usize].visited_bwd = true;
             }
         }
 
