@@ -493,7 +493,7 @@ fn partition(
 
             // test for annoying special case
             let mut have_any_in_same_segment = false;
-            for pip in ctx.get_downhill_pips(arc.get_source_wire()) {
+            for pip in ctx.get_downhill_pips(arc.source_wire()) {
                 let pip_coord: Coord = ctx.pip_location(pip).into();
                 let pip_seg = pip_coord.segment_from(&partition_coords);
                 have_any_in_same_segment |= pip_seg == source_coords.segment_from(&partition_coords)
@@ -502,7 +502,7 @@ fn partition(
                 bad_nets.insert(arc.net());
             }
             let mut have_any_in_same_segment = false;
-            for pip in ctx.get_uphill_pips(arc.get_sink_wire()) {
+            for pip in ctx.get_uphill_pips(arc.sink_wire()) {
                 let pip_coord: Coord = ctx.pip_location(pip).into();
                 let pip_seg = pip_coord.segment_from(&partition_coords);
                 have_any_in_same_segment |= pip_seg == sink_coords.segment_from(&partition_coords)
