@@ -60,10 +60,9 @@ fn extract_arcs_from_nets(ctx: &npnr::Context, nets: &npnr::Nets) -> Vec<route::
                 for sink_wire in ctx.sink_wires(net, *sink_ref) {
                     arcs.push(route::Arc::new(
                         source_wire,
-                        source,
                         sink_wire,
-                        sink,
                         net.index(),
+                        nets.name_from_index(net.index()),
                     ));
 
                     if verbose {
@@ -179,8 +178,8 @@ fn route(ctx: &mut npnr::Context, pressure: f32, history: f32) -> bool {
     let mut special_arcs = vec![];
     let mut partitionable_arcs = Vec::with_capacity(arcs.len());
     for arc in arcs {
-        let src_name = ctx.name_of_wire(arc.get_source_wire()).to_str().unwrap();
-        let dst_name = ctx.name_of_wire(arc.get_sink_wire()).to_str().unwrap();
+        let src_name = ctx.name_of_wire(arc.source_wire()).to_str().unwrap();
+        let dst_name = ctx.name_of_wire(arc.sink_wire()).to_str().unwrap();
 
         if src_name.contains("FCO_SLICE")
             || src_name.contains('J')
@@ -250,21 +249,24 @@ fn route(ctx: &mut npnr::Context, pressure: f32, history: f32) -> bool {
         ),
     ];
 
+    let mut router = route::Router::new(&nets, wires, pressure, history);
     partitions
         .par_iter()
         .for_each(|(box_ne, box_sw, arcs, id)| {
-            let mut router = route::Router::new(*box_ne, *box_sw, pressure, history);
-            router.route(ctx, &nets, wires, arcs, &progress, id);
+            let thread = route::RouterThread::new(*box_ne, *box_sw, arcs, id, &progress);
+            router.route(ctx, &nets, &thread);
         });
 
     log_info!("Routing miscellaneous arcs\n");
-    let mut router = route::Router::new(
+    let thread = route::RouterThread::new(
         Coord::new(0, 0),
         Coord::new(ctx.grid_dim_x(), ctx.grid_dim_y()),
-        pressure,
-        history,
+        &special_arcs,
+        "MISC",
+        &progress,
     );
-    router.route(ctx, &nets, wires, &special_arcs, &progress, "MISC");
+
+    router.route(ctx, &nets, &thread);
 
     let time = format!("{:.2}", (Instant::now() - start).as_secs_f32());
     log_info!("Routing took {}s\n", time.bold());
