@@ -4971,7 +4971,7 @@ void gfxSetPipDefaultDecal(Arch *arch, PipInfo &pip)
         // clock?
         if (dst_loc_id.in(id_GT00, id_GT10)) {
             WireInfo &wi = arch->wire_info(pip.srcWire);
-            if (wi.type.str(arch).substr(0, 3) != "UNK") {
+            if (wi.type.str(arch).substr(0, 5) == "SPINE") {
                 // create pip
                 GraphicElement el;
                 el.type = GraphicElement::TYPE_LOCAL_LINE;
