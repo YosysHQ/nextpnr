@@ -1,6 +1,6 @@
 use std::{
     collections::{BinaryHeap, HashMap, HashSet},
-    time::Instant,
+    time::Instant, sync::RwLock,
 };
 
 use colored::Colorize;
@@ -8,28 +8,34 @@ use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use itertools::Itertools;
 
 use crate::{
-    npnr::{self, IdString, NetIndex, PipId, WireId},
+    npnr::{self, IdString, NetIndex, PipId, WireId, Loc},
     partition,
 };
 
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub struct Arc {
     source_wire: WireId,
+    source_loc: Loc,
     sink_wire: WireId,
+    sink_loc: Loc,
     net: NetIndex,
     name: IdString,
 }
 
 impl Arc {
     pub fn new(
-        source_wire: npnr::WireId,
-        sink_wire: npnr::WireId,
+        source_wire: WireId,
+        source_loc: Loc,
+        sink_wire: WireId,
+        sink_loc: Loc,
         net: NetIndex,
         name: IdString,
     ) -> Self {
         Self {
             source_wire,
+            source_loc,
             sink_wire,
+            sink_loc,
             net,
             name,
         }
@@ -41,13 +47,17 @@ impl Arc {
         (
             Self {
                 source_wire: self.source_wire,
+                source_loc: self.source_loc,
                 sink_wire: pip_src,
+                sink_loc: ctx.pip_location(pip),
                 net: self.net,
                 name: self.name,
             },
             Self {
                 source_wire: pip_dst,
+                source_loc: ctx.pip_location(pip),
                 sink_wire: self.sink_wire,
+                sink_loc: self.sink_loc,
                 net: self.net,
                 name: self.name,
             },
@@ -62,6 +72,12 @@ impl Arc {
     }
     pub fn net(&self) -> npnr::NetIndex {
         self.net
+    }
+    pub fn get_source_loc(&self) -> Loc {
+        self.source_loc
+    }
+    pub fn get_sink_loc(&self) -> Loc {
+        self.sink_loc
     }
 }
 
@@ -147,6 +163,7 @@ pub struct RouterThread<'a> {
     arcs: &'a [Arc],
     id: &'a str,
     progress: &'a MultiProgress,
+    dirty_wires: Vec<u32>,
 }
 
 impl<'a> RouterThread<'a> {
@@ -163,6 +180,7 @@ impl<'a> RouterThread<'a> {
             arcs,
             id,
             progress,
+            dirty_wires: Vec::new(),
         }
     }
 }
@@ -170,10 +188,9 @@ impl<'a> RouterThread<'a> {
 pub struct Router {
     pressure: f32,
     history: f32,
-    nets: Vec<PerNetData>,
+    nets: RwLock<Vec<PerNetData>>,
     wire_to_idx: HashMap<WireId, u32>,
-    flat_wires: Vec<PerWireData>,
-    dirty_wires: Vec<u32>,
+    flat_wires: Vec<RwLock<PerWireData>>,
 }
 
 impl Router {
@@ -190,7 +207,7 @@ impl Router {
         }
 
         for (idx, &wire) in wires.iter().enumerate() {
-            flat_wires.push(PerWireData {
+            flat_wires.push(RwLock::new(PerWireData {
                 wire,
                 curr_cong: 0,
                 hist_cong: 0.0,
@@ -200,21 +217,20 @@ impl Router {
                 visited_fwd: false,
                 pip_bwd: PipId::null(),
                 visited_bwd: false,
-            });
+            }));
             wire_to_idx.insert(wire, idx as u32);
         }
 
         Self {
             pressure,
             history,
-            nets: net_vec,
-            wire_to_idx: HashMap::new(),
-            flat_wires: Vec::new(),
-            dirty_wires: Vec::new(),
+            nets: RwLock::new(net_vec),
+            wire_to_idx,
+            flat_wires,
         }
     }
 
-    pub fn route(&mut self, ctx: &npnr::Context, nets: &npnr::Nets, this: &RouterThread) {
+    pub fn route(&self, ctx: &npnr::Context, nets: &npnr::Nets, this: &mut RouterThread) {
         let mut delay = HashMap::new();
 
         for arc in this.arcs {
@@ -255,9 +271,12 @@ impl Router {
             }
 
             let mut overused = HashSet::new();
-            for wd in self.flat_wires.iter_mut().filter(|wd| wd.curr_cong > 1) {
-                overused.insert(wd.wire);
-                wd.hist_cong += (wd.curr_cong as f32) * self.history;
+            for wd in self.flat_wires.iter() {
+                let mut wd = wd.write().unwrap();
+                if wd.curr_cong > 1 {
+                    overused.insert(wd.wire);
+                    wd.hist_cong += (wd.curr_cong as f32) * self.history;
+                }
             }
 
             if overused.is_empty() {
@@ -284,7 +303,7 @@ impl Router {
 
             let mut next_arcs = Vec::new();
             for arc in this.arcs {
-                for wire in self.nets[arc.net.into_inner() as usize].wires.keys() {
+                for wire in self.nets.read().unwrap()[arc.net.into_inner() as usize].wires.keys() {
                     if overused.contains(wire) {
                         next_arcs.push(arc);
                     }
@@ -294,7 +313,7 @@ impl Router {
             for &arc in &route_arcs {
                 self.ripup_arc(ctx, arc);
             }
-            for net in &mut self.nets {
+            for net in self.nets.write().unwrap().iter_mut() {
                 net.done_sinks.clear();
             }
 
@@ -336,8 +355,8 @@ impl Router {
     fn can_visit_pip(&self, ctx: &npnr::Context, nets: &npnr::Nets, arc: &Arc, pip: PipId) -> bool {
         let wire = ctx.pip_dst_wire(pip);
         let sink = *self.wire_to_idx.get(&wire).unwrap();
-        let nd = &self.nets[arc.net().into_inner() as usize];
-        let nwd = &self.flat_wires[sink as usize];
+        let nd = &self.nets.read().unwrap()[arc.net().into_inner() as usize];
+        let nwd = &self.flat_wires[sink as usize].read().unwrap();
         /*let pip_coord = partition::Coord::from(ctx.pip_location(pip));
         if pip_coord.is_north_of(&self.box_ne) || pip_coord.is_east_of(&self.box_ne) {
             return false;
@@ -361,27 +380,24 @@ impl Router {
         true
     }
 
-    fn step<F1, F2, F3, F4, F5, I>(
-        &mut self,
-        ctx: &npnr::Context,
+    #[allow(clippy::too_many_arguments)]
+    fn step<'b, 'a: 'b, I>(
+        &'a self,
+        ctx: &'b npnr::Context,
         nets: &npnr::Nets,
         arc: &Arc,
         criticality: f32,
         queue: &mut BinaryHeap<QueuedWire>,
         midpoint: &mut Option<u32>,
         target: WireId,
-        was_visited: F1,
-        set_visited: F2,
-        is_done: F3,
-        pip_iter: F4,
-        pip_wire: F5,
+        dirty_wires: &mut Vec<u32>,
+        was_visited: impl Fn(&Self, u32) -> bool,
+        set_visited: impl Fn(&Self, u32, PipId, &mut Vec<u32>),
+        is_done: impl Fn(&Self, u32) -> bool,
+        pip_iter: impl Fn(&'b npnr::Context, WireId) -> I,
+        pip_wire: impl Fn(&npnr::Context, PipId) -> WireId,
     ) -> bool
     where
-        F1: Fn(&Self, u32) -> bool,
-        F2: Fn(&mut Self, u32, PipId),
-        F3: Fn(&Self, u32) -> bool,
-        F4: Fn(&npnr::Context, WireId) -> I,
-        F5: Fn(&npnr::Context, PipId) -> WireId,
         I: Iterator<Item = PipId>,
     {
         if let Some(source) = queue.pop() {
@@ -390,7 +406,7 @@ impl Router {
                 return true;
             }
             if let Some(pip) = source.from_pip {
-                set_visited(self, source_idx, pip);
+                set_visited(self, source_idx, pip, dirty_wires);
             }
             if is_done(self, source_idx) {
                 *midpoint = Some(source_idx);
@@ -407,8 +423,9 @@ impl Router {
                 if was_visited(self, sink) {
                     continue;
                 }
-                set_visited(self, sink, pip);
-                let nwd = &self.flat_wires[sink as usize];
+
+                set_visited(self, sink, pip, dirty_wires);
+                let nwd = &self.flat_wires[sink as usize].read().unwrap();
                 let node_delay = ctx.pip_delay(pip) + ctx.wire_delay(wire) + ctx.delay_epsilon();
                 let sum_delay = source.delay + node_delay;
                 let congest = source.congest
@@ -432,7 +449,7 @@ impl Router {
     }
 
     fn route_arc(
-        &mut self,
+        &self,
         ctx: &npnr::Context,
         nets: &npnr::Nets,
         arc: &Arc,
@@ -466,17 +483,20 @@ impl Router {
         let source_wire = *self.wire_to_idx.get(&arc.source_wire).unwrap();
         let sink_wire = *self.wire_to_idx.get(&arc.sink_wire).unwrap();
 
-        self.dirty_wires.push(source_wire);
-        self.dirty_wires.push(sink_wire);
+        let mut dirty_wires = Vec::new();
 
-        let nd = &self.nets[arc.net().into_inner() as usize];
-        if nd.done_sinks.contains(&arc.sink_wire()) {
+        dirty_wires.push(source_wire);
+        dirty_wires.push(sink_wire);
+
+        let already_done = self.nets.read().unwrap()[arc.net().into_inner() as usize].done_sinks.contains(&arc.sink_wire);
+        if already_done {
             midpoint = Some(*self.wire_to_idx.get(&arc.sink_wire).unwrap());
 
             let mut wire = arc.sink_wire();
             while wire != arc.source_wire() {
+                let nd = &self.nets.read().unwrap()[arc.net().into_inner() as usize];
                 let driver = nd.wires.get(&wire).unwrap().0;
-                self.set_visited_fwd(self.wire_to_idx[&wire], driver);
+                self.set_visited_fwd(self.wire_to_idx[&wire], driver, &mut dirty_wires);
                 wire = ctx.pip_src_wire(driver);
             }
         } else {
@@ -490,6 +510,7 @@ impl Router {
                     &mut fwd_queue,
                     &mut midpoint,
                     arc.sink_wire,
+                    &mut dirty_wires,
                     Self::was_visited_fwd,
                     Self::set_visited_fwd,
                     Self::was_visited_bwd,
@@ -499,7 +520,7 @@ impl Router {
                     break;
                 }
                 // Step backward
-                if !self.step(
+                /*if !self.step(
                     ctx,
                     nets,
                     arc,
@@ -507,6 +528,7 @@ impl Router {
                     &mut bwd_queue,
                     &mut midpoint,
                     arc.source_wire,
+                    &mut dirty_wires,
                     Self::was_visited_bwd,
                     Self::set_visited_bwd,
                     Self::was_visited_fwd,
@@ -514,9 +536,9 @@ impl Router {
                     npnr::Context::pip_src_wire,
                 ) {
                     break;
-                }
-                self.flat_wires[source_wire as usize].visited_fwd = true;
-                self.flat_wires[sink_wire as usize].visited_bwd = true;
+                }*/
+                self.flat_wires[source_wire as usize].write().unwrap().visited_fwd = true;
+                self.flat_wires[sink_wire as usize].write().unwrap().visited_bwd = true;
             }
         }
 
@@ -533,11 +555,14 @@ impl Router {
         let mut calculated_delay = 0.0;
 
         while wire != source_wire {
-            let pip = self.flat_wires[wire as usize].pip_fwd;
+            let (pip, wireid) = {
+                let nwd = self.flat_wires[wire as usize].read().unwrap();
+                (nwd.pip_fwd, nwd.wire)
+            };
             assert!(pip != PipId::null());
 
             let node_delay = ctx.pip_delay(pip)
-                + ctx.wire_delay(self.flat_wires[wire as usize].wire)
+                + ctx.wire_delay(wireid)
                 + ctx.delay_epsilon();
             calculated_delay += node_delay;
 
@@ -546,94 +571,97 @@ impl Router {
         }
         let mut wire = midpoint.unwrap();
         while wire != sink_wire {
-            let pip = self.flat_wires[wire as usize].pip_bwd;
+            let (pip, wireid) = {
+                let nwd = self.flat_wires[wire as usize].read().unwrap();
+                (nwd.pip_bwd, nwd.wire)
+            };
             assert!(pip != PipId::null());
             // do note that the order is inverted from the fwd loop
             wire = *self.wire_to_idx.get(&ctx.pip_dst_wire(pip)).unwrap();
 
             let node_delay = ctx.pip_delay(pip)
-                + ctx.wire_delay(self.flat_wires[wire as usize].wire)
+                + ctx.wire_delay(wireid)
                 + ctx.delay_epsilon();
             calculated_delay += node_delay;
 
             self.bind_pip_internal(arc.net(), wire, pip);
         }
-        let nd = &mut self.nets[arc.net().into_inner() as usize];
-        nd.done_sinks.insert(arc.sink_wire());
+        self.nets.write().unwrap()[arc.net().into_inner() as usize].done_sinks.insert(arc.sink_wire);
 
-        self.reset_wires();
+        self.reset_wires(&dirty_wires);
 
         calculated_delay
     }
 
     fn was_visited_fwd(&self, wire: u32) -> bool {
-        self.flat_wires[wire as usize].visited_fwd
+        self.flat_wires[wire as usize].read().unwrap().visited_fwd
     }
 
     fn was_visited_bwd(&self, wire: u32) -> bool {
-        self.flat_wires[wire as usize].visited_bwd
+        self.flat_wires[wire as usize].read().unwrap().visited_bwd
     }
 
-    fn set_visited_fwd(&mut self, wire: u32, pip: PipId) {
-        let wd = &mut self.flat_wires[wire as usize];
+    fn set_visited_fwd(&self, wire: u32, pip: PipId, dirty_wires: &mut Vec<u32>) {
+        let mut wd = self.flat_wires[wire as usize].write().unwrap();
         if !wd.visited_fwd {
-            self.dirty_wires.push(wire);
+            dirty_wires.push(wire);
         }
         wd.pip_fwd = pip;
         wd.visited_fwd = true;
     }
 
-    fn set_visited_bwd(&mut self, wire: u32, pip: PipId) {
-        let wd = &mut self.flat_wires[wire as usize];
+    fn set_visited_bwd(&self, wire: u32, pip: PipId, dirty_wires: &mut Vec<u32>) {
+        let mut wd = self.flat_wires[wire as usize].write().unwrap();
         if !wd.visited_bwd {
-            self.dirty_wires.push(wire);
+            dirty_wires.push(wire);
         }
         wd.pip_bwd = pip;
         wd.visited_bwd = true;
     }
 
-    fn bind_pip_internal(&mut self, netindex: NetIndex, wire: u32, pip: PipId) {
-        let wireid = self.flat_wires[wire as usize].wire;
-        let net = &mut self.nets[netindex.into_inner() as usize];
+    fn bind_pip_internal(&self, netindex: NetIndex, wire: u32, pip: PipId) {
+        let wireid = self.flat_wires[wire as usize].read().unwrap().wire;
+        let net = &mut self.nets.write().unwrap()[netindex.into_inner() as usize];
         if let Some((bound_pip, usage)) = net.wires.get_mut(&wireid) {
             assert!(*bound_pip == pip);
             *usage += 1;
         } else {
             net.wires.insert(wireid, (pip, 1));
-            self.flat_wires[wire as usize].curr_cong += 1;
+            self.flat_wires[wire as usize].write().unwrap().curr_cong += 1;
         }
     }
 
-    fn unbind_pip_internal(&mut self, net: NetIndex, wire: WireId) {
+    fn unbind_pip_internal(&self, net: NetIndex, wire: WireId) {
         let net = net.into_inner() as usize;
         let wireidx = *self.wire_to_idx.get(&wire).unwrap() as usize;
-        let (_pip, usage) = self.nets[net].wires.get_mut(&wire).unwrap();
+        let nd = &mut self.nets.write().unwrap()[net];
+        let (_pip, usage) = nd.wires.get_mut(&wire).unwrap();
         *usage -= 1;
         if *usage == 0 {
-            self.flat_wires[wireidx].curr_cong -= 1;
-            self.nets[net].wires.remove(&wire);
+            self.flat_wires[wireidx].write().unwrap().curr_cong -= 1;
+            nd.wires.remove(&wire);
         }
     }
 
-    fn ripup_arc(&mut self, ctx: &npnr::Context, arc: &Arc) {
+    fn ripup_arc(&self, ctx: &npnr::Context, arc: &Arc) {
         let net = arc.net().into_inner() as usize;
         let source_wire = arc.source_wire;
         let mut wire = arc.sink_wire;
         while wire != source_wire {
-            let pip = self.nets[net].wires.get(&wire).unwrap().0;
+            let pip = self.nets.read().unwrap()[net].wires.get(&wire).unwrap().0;
             assert!(pip != PipId::null());
             self.unbind_pip_internal(arc.net(), wire);
             wire = ctx.pip_src_wire(pip);
         }
     }
 
-    fn reset_wires(&mut self) {
-        for &wire in &self.dirty_wires {
-            self.flat_wires[wire as usize].pip_fwd = PipId::null();
-            self.flat_wires[wire as usize].visited_fwd = false;
-            self.flat_wires[wire as usize].pip_bwd = PipId::null();
-            self.flat_wires[wire as usize].visited_bwd = false;
+    fn reset_wires(&self, dirty_wires: &Vec<u32>) {
+        for &wire in dirty_wires {
+            let mut nwd = self.flat_wires[wire as usize].write().unwrap();
+            nwd.pip_fwd = PipId::null();
+            nwd.visited_fwd = false;
+            nwd.pip_bwd = PipId::null();
+            nwd.visited_bwd = false;
         }
-        self.dirty_wires.clear();
     }
 }

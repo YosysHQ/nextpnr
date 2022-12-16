@@ -148,12 +148,12 @@ pub struct Context {
 impl Context {
     /// Get grid X dimension. All bels and pips must have X coordinates in the range `0 .. getGridDimX()-1` (inclusive).
     pub fn grid_dim_x(&self) -> i32 {
-        unsafe { npnr_context_get_grid_dim_x(self) as i32 }
+        unsafe { npnr_context_get_grid_dim_x(self) }
     }
 
     /// Get grid Y dimension. All bels and pips must have Y coordinates in the range `0 .. getGridDimY()-1` (inclusive).
     pub fn grid_dim_y(&self) -> i32 {
-        unsafe { npnr_context_get_grid_dim_y(self) as i32 }
+        unsafe { npnr_context_get_grid_dim_y(self) }
     }
 
     /// Bind a given bel to a given cell with the given strength.
@@ -208,7 +208,7 @@ impl Context {
 
     // TODO: Should this be a Duration? Does that even make sense?
     pub fn estimate_delay(&self, src: WireId, dst: WireId) -> f32 {
-        unsafe { npnr_context_estimate_delay(self, src, dst) as f32 }
+        unsafe { npnr_context_estimate_delay(self, src, dst) }
     }
 
     pub fn pip_delay(&self, pip: PipId) -> f32 {

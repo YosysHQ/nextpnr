@@ -1,4 +1,5 @@
 #![feature(c_unwind)]
+#![feature(let_chains)]
 
 use std::{ptr::NonNull, time::Instant};
 
@@ -60,7 +61,9 @@ fn extract_arcs_from_nets(ctx: &npnr::Context, nets: &npnr::Nets) -> Vec<route::
                 for sink_wire in ctx.sink_wires(net, *sink_ref) {
                     arcs.push(route::Arc::new(
                         source_wire,
+                        source,
                         sink_wire,
+                        sink,
                         net.index(),
                         nets.name_from_index(net.index()),
                     ));
@@ -252,16 +255,16 @@ fn route(ctx: &mut npnr::Context, pressure: f32, history: f32) -> bool {
 
     let progress = MultiProgress::new();
 
-    let mut router = route::Router::new(&nets, wires, pressure, history);
+    let router = route::Router::new(&nets, wires, pressure, history);
     partitions
         .par_iter()
         .for_each(|(box_ne, box_sw, arcs, id)| {
-            let thread = route::RouterThread::new(*box_ne, *box_sw, arcs, id, &progress);
-            router.route(ctx, &nets, &thread);
+            let mut thread = route::RouterThread::new(*box_ne, *box_sw, arcs, id, &progress);
+            router.route(ctx, &nets, &mut thread);
         });
 
     log_info!("Routing miscellaneous arcs\n");
-    let thread = route::RouterThread::new(
+    let mut thread = route::RouterThread::new(
         Coord::new(0, 0),
         Coord::new(ctx.grid_dim_x(), ctx.grid_dim_y()),
         &special_arcs,
@@ -269,7 +272,7 @@ fn route(ctx: &mut npnr::Context, pressure: f32, history: f32) -> bool {
         &progress,
     );
 
-    router.route(ctx, &nets, &thread);
+    router.route(ctx, &nets, &mut thread);
 
     let time = format!("{:.2}", (Instant::now() - start).as_secs_f32());
     log_info!("Routing took {}s\n", time.bold());
