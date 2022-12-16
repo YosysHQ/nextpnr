@@ -282,10 +282,10 @@ fn approximate_partition_results(
     let mut count_nw = 0;
     for arc in arcs {
         // TODO(SpaceCat~Chan): stop being lazy and merge Loc and Coord already
-        let source_is_north = arc.source_loc().x < partition_point.0;
-        let source_is_east = arc.source_loc().y < partition_point.1;
-        let sink_is_north = arc.sink_loc().x < partition_point.0;
-        let sink_is_east = arc.sink_loc().y < partition_point.1;
+        let source_is_north = arc.get_source_loc().x < partition_point.0;
+        let source_is_east = arc.get_source_loc().y < partition_point.1;
+        let sink_is_north = arc.get_sink_loc().x < partition_point.0;
+        let sink_is_east = arc.get_sink_loc().y < partition_point.1;
         if source_is_north == sink_is_north && source_is_east == sink_is_east {
             match (source_is_north, source_is_east) {
                 (true, true) => count_ne += 1,
@@ -314,11 +314,11 @@ fn approximate_partition_results(
             // but i can't be bothered (yes this is all copy-pasted from the actual partitioner)
             let mut middle_horiz = (
                 partition_point.0,
-                split_line_over_x((arc.source_loc(), arc.sink_loc()), partition_point.0),
+                split_line_over_x((arc.get_source_loc(), arc.get_sink_loc()), partition_point.0),
             );
 
             let mut middle_vert = (
-                split_line_over_y((arc.source_loc(), arc.sink_loc()), partition_point.1),
+                split_line_over_y((arc.get_source_loc(), arc.get_sink_loc()), partition_point.1),
                 partition_point.1,
             );
 
@@ -470,7 +470,7 @@ fn partition(
 
         let mut bad_nets = std::collections::HashSet::new();
 
-        let is_general_routing = |wire: &str| {
+        let _is_general_routing = |wire: &str| {
             wire.contains("H00")
                 || wire.contains("V00")
                 || wire.contains("H01")
@@ -517,20 +517,20 @@ fn partition(
             .progress_with(progress)
             .flat_map(|arc| {
                 let raw_net = nets.net_from_index(arc.net());
-                let source_loc = arc.source_loc();
+                let source_loc = arc.get_source_loc();
                 let source_coords: Coord = source_loc.into();
                 let source_is_north = source_coords.is_north_of(&partition_coords);
                 let source_is_east = source_coords.is_east_of(&partition_coords);
-                let sink_loc = arc.sink_loc();
+                let sink_loc = arc.get_sink_loc();
                 let sink_coords: Coord = sink_loc.into();
                 let sink_is_north = sink_coords.is_north_of(&partition_coords);
                 let sink_is_east = sink_coords.is_east_of(&partition_coords);
-                let name = ctx
+                let _name = ctx
                     .name_of(nets.name_from_index(arc.net()))
                     .to_str()
                     .unwrap()
                     .to_string();
-                let verbose = false; //name == "soc0.processor.with_fpu.fpu_0.fpu_multiply_0.rin_CCU2C_S0_4$CCU2_FCI_INT";
+                let _verbose = false; //name == "soc0.processor.with_fpu.fpu_0.fpu_multiply_0.rin_CCU2C_S0_4$CCU2_FCI_INT";
 
                 if bad_nets.contains(&arc.net()) {
                     special.lock().unwrap().push(arc.clone());
@@ -862,8 +862,8 @@ fn partition_single_arc(
     max_bounds: &Coord,
     segments: &[Quadrant],
 ) -> Option<Vec<(Quadrant, Arc)>> {
-    let start_coord: Coord = arc.source_loc().into();
-    let end_coord: Coord = arc.sink_loc().into();
+    let start_coord: Coord = arc.get_source_loc().into();
+    let end_coord: Coord = arc.get_sink_loc().into();
     let mut current_arc = arc.clone();
     let mut arcs = vec![];
     for (from_quad, to_quad) in segments.iter().tuple_windows() {
@@ -874,7 +874,7 @@ fn partition_single_arc(
         let pip = pip_selector.find_pip(
             ctx,
             intersection.into(),
-            current_arc.source_loc(),
+            current_arc.get_source_loc(),
             current_arc.net(),
             raw_net,
         )?;
@@ -916,73 +916,73 @@ pub fn find_partition_point_and_sanity_check(
 
     println!("\nne:");
     for arc in &ne {
-        if arc.source_loc().x > x_part
-            || arc.source_loc().y > y_part
-            || arc.sink_loc().x > x_part
-            || arc.sink_loc().y > y_part
+        if arc.get_source_loc().x > x_part
+            || arc.get_source_loc().y > y_part
+            || arc.get_sink_loc().x > x_part
+            || arc.get_sink_loc().y > y_part
         {
             invalid_arcs_in_ne += 1;
         }
-        if arc.source_loc().x <= x_start
-            || arc.source_loc().y <= y_start
-            || arc.sink_loc().x <= x_start
-            || arc.sink_loc().y <= y_start
+        if arc.get_source_loc().x <= x_start
+            || arc.get_source_loc().y <= y_start
+            || arc.get_sink_loc().x <= x_start
+            || arc.get_sink_loc().y <= y_start
         {
-            println!("oob: {:?} -> {:?}", arc.source_loc(), arc.sink_loc());
+            println!("oob: {:?} -> {:?}", arc.get_source_loc(), arc.get_sink_loc());
             out_of_bound_arcs_in_ne += 1;
         }
     }
     println!("\nse:");
     for arc in &se {
-        if arc.source_loc().x < x_part
-            || arc.source_loc().y > y_part
-            || arc.sink_loc().x < x_part
-            || arc.sink_loc().y > y_part
+        if arc.get_source_loc().x < x_part
+            || arc.get_source_loc().y > y_part
+            || arc.get_sink_loc().x < x_part
+            || arc.get_sink_loc().y > y_part
         {
             invalid_arcs_in_se += 1;
         }
-        if arc.source_loc().x >= x_finish
-            || arc.source_loc().y <= y_start
-            || arc.sink_loc().x >= x_finish
-            || arc.sink_loc().y <= y_start
+        if arc.get_source_loc().x >= x_finish
+            || arc.get_source_loc().y <= y_start
+            || arc.get_sink_loc().x >= x_finish
+            || arc.get_sink_loc().y <= y_start
         {
-            println!("oob: {:?} -> {:?}", arc.source_loc(), arc.sink_loc());
+            println!("oob: {:?} -> {:?}", arc.get_source_loc(), arc.get_sink_loc());
             out_of_bound_arcs_in_se += 1;
         }
     }
     println!("\nsw:");
     for arc in &sw {
-        if arc.source_loc().x < x_part
-            || arc.source_loc().y < y_part
-            || arc.sink_loc().x < x_part
-            || arc.sink_loc().y < y_part
+        if arc.get_source_loc().x < x_part
+            || arc.get_source_loc().y < y_part
+            || arc.get_sink_loc().x < x_part
+            || arc.get_sink_loc().y < y_part
         {
             invalid_arcs_in_sw += 1;
         }
-        if arc.source_loc().x >= x_finish
-            || arc.source_loc().y >= y_finish
-            || arc.sink_loc().x >= x_finish
-            || arc.sink_loc().y >= y_finish
+        if arc.get_source_loc().x >= x_finish
+            || arc.get_source_loc().y >= y_finish
+            || arc.get_sink_loc().x >= x_finish
+            || arc.get_sink_loc().y >= y_finish
         {
-            println!("oob: {:?} -> {:?}", arc.source_loc(), arc.sink_loc());
+            println!("oob: {:?} -> {:?}", arc.get_source_loc(), arc.get_sink_loc());
             out_of_bound_arcs_in_sw += 1;
         }
     }
     println!("\nnw:");
     for arc in &nw {
-        if arc.source_loc().x > x_part
-            || arc.source_loc().y < y_part
-            || arc.sink_loc().x > x_part
-            || arc.sink_loc().y < y_part
+        if arc.get_source_loc().x > x_part
+            || arc.get_source_loc().y < y_part
+            || arc.get_sink_loc().x > x_part
+            || arc.get_sink_loc().y < y_part
         {
             invalid_arcs_in_nw += 1;
         }
-        if arc.source_loc().x <= x_start
-            || arc.source_loc().y >= y_finish
-            || arc.sink_loc().x <= x_start
-            || arc.sink_loc().y >= y_finish
+        if arc.get_source_loc().x <= x_start
+            || arc.get_source_loc().y >= y_finish
+            || arc.get_sink_loc().x <= x_start
+            || arc.get_sink_loc().y >= y_finish
         {
-            println!("oob: {:?} -> {:?}", arc.source_loc(), arc.sink_loc());
+            println!("oob: {:?} -> {:?}", arc.get_source_loc(), arc.get_sink_loc());
             out_of_bound_arcs_in_nw += 1;
         }
     }
@@ -1116,9 +1116,9 @@ impl PipSelector {
                 if loc.y == partition_point.y {
                     // pip is on east-west border
 
-                    let (mut src_has_east, mut src_has_west, mut src_has_middle) =
+                    let (mut src_has_east, mut src_has_west, src_has_middle) =
                         (false, false, false);
-                    let (mut dst_has_east, mut dst_has_west, mut dst_has_middle) =
+                    let (mut dst_has_east, mut dst_has_west, dst_has_middle) =
                         (false, false, false);
 
                     for src_pip in ctx.get_uphill_pips(ctx.pip_src_wire(pip)) {
@@ -1132,7 +1132,7 @@ impl PipSelector {
                             src_has_east |= src_pip_coord.is_east_of(&partition_point.into());
                             src_has_west |= src_pip_coord.is_west_of(&partition_point.into());
                             if src_pip_coord.y == loc.y && depth < MAX_PIP_SEARCH_DEPTH {
-                                for src_pip in ctx.get_uphill_pips(ctx.pip_src_wire(src_pip)) {
+                                for _src_pip in ctx.get_uphill_pips(ctx.pip_src_wire(src_pip)) {
                                     //pips.push((src_pip, depth + 1));
                                 }
                             }
@@ -1151,7 +1151,7 @@ impl PipSelector {
                             dst_has_east |= dst_pip_coord.is_east_of(&partition_point.into());
                             dst_has_west |= dst_pip_coord.is_west_of(&partition_point.into());
                             if dst_pip_coord.y == loc.y && depth < MAX_PIP_SEARCH_DEPTH {
-                                for dst_pip in ctx.get_downhill_pips(ctx.pip_dst_wire(dst_pip)) {
+                                for _dst_pip in ctx.get_downhill_pips(ctx.pip_dst_wire(dst_pip)) {
                                     //pips.push((dst_pip, depth + 1));
                                 }
                             }
@@ -1181,9 +1181,9 @@ impl PipSelector {
                 } else {
                     // pip is on south-north border
 
-                    let (mut src_has_north, mut src_has_south, mut src_has_middle) =
+                    let (mut src_has_north, mut src_has_south, src_has_middle) =
                         (false, false, false);
-                    let (mut dst_has_north, mut dst_has_south, mut dst_has_middle) =
+                    let (mut dst_has_north, mut dst_has_south, dst_has_middle) =
                         (false, false, false);
 
                     for src_pip in ctx.get_uphill_pips(ctx.pip_src_wire(pip)) {
@@ -1199,7 +1199,7 @@ impl PipSelector {
                             src_has_south |= src_pip_coord.is_south_of(&partition_point.into());
                             if src_pip_coord.x == loc.x && depth < MAX_PIP_SEARCH_DEPTH {
                                 // yaaaaaaay, we need to everything again for this pip :)
-                                for src_pip in ctx.get_uphill_pips(ctx.pip_src_wire(src_pip)) {
+                                for _src_pip in ctx.get_uphill_pips(ctx.pip_src_wire(src_pip)) {
                                     //pips.push((src_pip, depth + 1));
                                 }
                             }
@@ -1218,7 +1218,7 @@ impl PipSelector {
                             dst_has_north |= dst_pip_coord.is_north_of(&partition_point.into());
                             dst_has_south |= dst_pip_coord.is_south_of(&partition_point.into());
                             if dst_pip_coord.x == loc.x && depth < MAX_PIP_SEARCH_DEPTH {
-                                for dst_pip in ctx.get_downhill_pips(ctx.pip_dst_wire(dst_pip)) {
+                                for _dst_pip in ctx.get_downhill_pips(ctx.pip_dst_wire(dst_pip)) {
                                     //pips.push((dst_pip, depth + 1));
                                 }
                             }
@@ -1383,7 +1383,7 @@ impl PipSelector {
                 let source = ctx.pip_src_wire(*pip);
                 let sink = ctx.pip_dst_wire(*pip);
 
-                let (mut source, mut sink) = match sink.cmp(&source) {
+                let (source, sink) = match sink.cmp(&source) {
                     Ordering::Greater => {
                         let source = self.used_wires.get(&source).unwrap().lock().unwrap();
                         let sink = self.used_wires.get(&sink).unwrap().lock().unwrap();
@@ -1397,7 +1397,7 @@ impl PipSelector {
                     }
                 };
 
-                let mut candidate = self.used_pips.get(pip).unwrap().lock().unwrap();
+                let candidate = self.used_pips.get(pip).unwrap().lock().unwrap();
                 if candidate.map(|other| other != net).unwrap_or(false) {
                     return None;
                 }
@@ -1484,8 +1484,6 @@ impl PipSelector {
             ),
             _ => unreachable!(),
         };
-
-        use itertools::Itertools;
 
         // cursed iterator magic :3
         // (rust, can we please have generators yet?)
