@@ -862,6 +862,7 @@ class HeAPPlacer
             int radius = 0;
             int iter = 0;
             int iter_at_radius = 0;
+            int total_iters_for_cell = 0;
             bool placed = false;
             BelId bestBel;
             int best_inp_len = std::numeric_limits<int>::max();
@@ -880,9 +881,9 @@ class HeAPPlacer
             while (!placed) {
 
                 // Set a conservative timeout
-                if (iter > std::max(10000, 3 * int(ctx->cells.size())))
-                    log_error("Unable to find legal placement for cell '%s', check constraints and utilisation.\n",
-                              ctx->nameOf(ci));
+                if (total_iters_for_cell > std::max(10000, 3 * int(ctx->cells.size())))
+                    log_error("Unable to find legal placement for cell '%s' after %d attempts, check constraints and utilisation.\n",
+                              ctx->nameOf(ci), total_iters_for_cell);
 
                 // Determine a search radius around the solver location (which increases over time) that is clamped to
                 // the region constraint for the cell (if applicable)
@@ -1084,6 +1085,8 @@ class HeAPPlacer
                         break;
                     }
                 }
+
+                total_iters_for_cell++;
             }
         }
         auto endt = std::chrono::high_resolution_clock::now();
