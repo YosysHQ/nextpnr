@@ -111,11 +111,10 @@ void ECP5CommandHandler::customBitstream(Context *ctx)
         log_error("bitstream generation is not available in out-of-context mode (use --write to create a post-PnR JSON "
                   "design)\n");
 
-    std::string textcfg;
-    if (vm.count("textcfg"))
-        textcfg = vm["textcfg"].as<std::string>();
-
-    write_bitstream(ctx, basecfg, textcfg);
+    if (vm.count("textcfg")) {
+        std::string textcfg = vm["textcfg"].as<std::string>();
+        write_bitstream(ctx, basecfg, textcfg);
+    }
 }
 
 static std::string speedString(ArchArgs::SpeedGrade speed)
