@@ -879,9 +879,11 @@ class HeAPPlacer
             }
 
             while (!placed) {
+                // Set a conservative timeout. This is a rather large number and could probably be
+                // shaved down, but for now it will keep the process from running indefinite.
+                int timeout_limit = (int(ctx->cells.size()) * int(ctx->cells.size()) / 8) + 1;
 
-                // Set a conservative timeout
-                if (total_iters_for_cell > std::max(10000, 3 * int(ctx->cells.size())))
+                if (total_iters_for_cell > std::max(10000, timeout_limit))
                     log_error("Unable to find legal placement for cell '%s' after %d attempts, check constraints and utilisation.\n",
                               ctx->nameOf(ci), total_iters_for_cell);
 
