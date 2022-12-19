@@ -663,7 +663,7 @@ class HeAPPlacer
             if (cell->cluster != ClusterId()) {
                 const auto base = cell_locs[cell->name];
                 for (auto child : cluster2cells.at(cell->cluster)) {
-                    if (child->type == cell->type && child != cell)
+                    if (child != cell)
                         chain_size[cell->name]++;
                     Loc offset = ctx->getClusterOffset(child);
                     cell_locs[child->name].x = std::max(0, std::min(max_x, base.x + offset.x));
@@ -856,7 +856,7 @@ class HeAPPlacer
             // Was now placed, ignore
             if (ci->bel != BelId())
                 continue;
-            // log_info("   Legalising %s (%s)\n", top.second.c_str(ctx), ci->type.c_str(ctx));
+            // log_info("   Legalising %s (%s) %d\n", top.second.c_str(ctx), ci->type.c_str(ctx), top.first);
             FastBels::FastBelsData *fb;
             fast_bels.getBelsForCellType(ci->type, &fb);
             int radius = 0;
