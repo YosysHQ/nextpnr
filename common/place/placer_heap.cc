@@ -218,7 +218,10 @@ class HeAPPlacer
 
         heap_runs.push_back(all_buckets);
         // The main HeAP placer loop
-        log_info("Running main analytical placer.\n");
+        if (cfg.cell_placement_timeout > 0)
+            log_info("Running main analytical placer, max placement attempts per cell = %d.\n", cfg.cell_placement_timeout);
+        else
+            log_info("Running main analytical placer.\n");
         while (stalled < 5 && (solved_hpwl <= legal_hpwl * 0.8)) {
             // Alternate between particular bel types and all bels
             for (auto &run : heap_runs) {
@@ -828,11 +831,6 @@ class HeAPPlacer
     // Strict placement legalisation, performed after the initial HeAP spreading
     void legalise_placement_strict(bool require_validity = false)
     {
-        int placement_timeout = cfg.no_placement_timeout ? 0 :
-            // Set a conservative timeout. This is a rather large number and could probably be
-            // shaved down, but for now it will keep the process from running indefinite.
-            std::max(10000, (int(ctx->cells.size()) * int(ctx->cells.size()) / 8) + 1);
-
         auto startt = std::chrono::high_resolution_clock::now();
 
         // Unbind all cells placed in this solution
@@ -884,8 +882,8 @@ class HeAPPlacer
             }
 
             while (!placed) {
-                if (placement_timeout > 0 && total_iters_for_cell > placement_timeout)
-                    log_error("Unable to find legal placement for cell '%s' after %d attempts, check constraints and utilisation.\n",
+                if (cfg.cell_placement_timeout > 0 && total_iters_for_cell > cfg.cell_placement_timeout)
+                    log_error("Unable to find legal placement for cell '%s' after %d attempts, check constraints and utilisation. Use `--placer-heap-cell-placement-timeout` to change the number of attempts.\n",
                               ctx->nameOf(ci), total_iters_for_cell);
 
                 // Determine a search radius around the solver location (which increases over time) that is clamped to
@@ -1819,7 +1817,10 @@ PlacerHeapCfg::PlacerHeapCfg(Context *ctx)
     timing_driven = ctx->setting<bool>("timing_driven");
     solverTolerance = 1e-5;
     placeAllAtOnce = false;
-    no_placement_timeout = ctx->setting<bool>("placerHeap/noTimeout", false);
+    cell_placement_timeout = ctx->setting<int>("placerHeap/cellPlacementTimeout",
+            // Set a conservative default. This is a rather large number and could probably
+            // be shaved down, but for now it will keep the process from running indefinite.
+            std::max(10000, (int(ctx->cells.size()) * int(ctx->cells.size()) / 8) + 1));
 
     hpwl_scale_x = 1;
     hpwl_scale_y = 1;
