@@ -42,6 +42,7 @@ struct PlacerHeapCfg
     float solverTolerance;
     bool placeAllAtOnce;
     bool parallelRefine;
+    bool no_placement_timeout;
 
     int hpwl_scale_x, hpwl_scale_y;
     int spread_scale_x, spread_scale_y;

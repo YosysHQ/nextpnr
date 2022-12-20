@@ -189,6 +189,7 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("placer-heap-critexp", po::value<int>(),
                           "placer heap criticality exponent (int, default: 2)");
     general.add_options()("placer-heap-timingweight", po::value<int>(), "placer heap timing weight (int, default: 10)");
+    general.add_options()("no-placer-timeout", "allow the placer to attempt placement without timeout");
 
 #if !defined(__wasm)
     general.add_options()("parallel-refine", "use new experimental parallelised engine for placement refinement");
@@ -327,6 +328,9 @@ void CommandHandler::setupContext(Context *ctx)
 
     if (vm.count("placer-heap-timingweight"))
         ctx->settings[ctx->id("placerHeap/timingWeight")] = std::to_string(vm["placer-heap-timingweight"].as<int>());
+
+    if (vm.count("no-placer-timeout"))
+        ctx->settings[ctx->id("placerHeap/noTimeout")] = true;
 
     if (vm.count("parallel-refine"))
         ctx->settings[ctx->id("placerHeap/parallelRefine")] = true;

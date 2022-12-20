@@ -828,6 +828,11 @@ class HeAPPlacer
     // Strict placement legalisation, performed after the initial HeAP spreading
     void legalise_placement_strict(bool require_validity = false)
     {
+        int placement_timeout = cfg.no_placement_timeout ? 0 :
+            // Set a conservative timeout. This is a rather large number and could probably be
+            // shaved down, but for now it will keep the process from running indefinite.
+            std::max(10000, (int(ctx->cells.size()) * int(ctx->cells.size()) / 8) + 1);
+
         auto startt = std::chrono::high_resolution_clock::now();
 
         // Unbind all cells placed in this solution
@@ -879,11 +884,7 @@ class HeAPPlacer
             }
 
             while (!placed) {
-                // Set a conservative timeout. This is a rather large number and could probably be
-                // shaved down, but for now it will keep the process from running indefinite.
-                int timeout_limit = (int(ctx->cells.size()) * int(ctx->cells.size()) / 8) + 1;
-
-                if (total_iters_for_cell > std::max(10000, timeout_limit))
+                if (placement_timeout > 0 && total_iters_for_cell > placement_timeout)
                     log_error("Unable to find legal placement for cell '%s' after %d attempts, check constraints and utilisation.\n",
                               ctx->nameOf(ci), total_iters_for_cell);
 
@@ -1818,6 +1819,7 @@ PlacerHeapCfg::PlacerHeapCfg(Context *ctx)
     timing_driven = ctx->setting<bool>("timing_driven");
     solverTolerance = 1e-5;
     placeAllAtOnce = false;
+    no_placement_timeout = ctx->setting<bool>("placerHeap/noTimeout", false);
 
     hpwl_scale_x = 1;
     hpwl_scale_y = 1;
