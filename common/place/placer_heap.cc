@@ -1817,10 +1817,15 @@ PlacerHeapCfg::PlacerHeapCfg(Context *ctx)
     timing_driven = ctx->setting<bool>("timing_driven");
     solverTolerance = 1e-5;
     placeAllAtOnce = false;
-    cell_placement_timeout = ctx->setting<int>("placerHeap/cellPlacementTimeout",
-            // Set a conservative default. This is a rather large number and could probably
-            // be shaved down, but for now it will keep the process from running indefinite.
-            std::max(10000, (int(ctx->cells.size()) * int(ctx->cells.size()) / 8) + 1));
+
+    int timeout_divisor = ctx->setting<int>("placerHeap/cellPlacementTimeout", 8);
+    if (timeout_divisor > 0) {
+        // Set a conservative default. This is a rather large number and could probably
+        // be shaved down, but for now it will keep the process from running indefinite.
+        cell_placement_timeout = std::max(10000, (int(ctx->cells.size()) * int(ctx->cells.size()) / timeout_divisor));
+    } else {
+        cell_placement_timeout = 0;
+    }
 
     hpwl_scale_x = 1;
     hpwl_scale_y = 1;

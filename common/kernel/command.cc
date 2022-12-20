@@ -190,7 +190,7 @@ po::options_description CommandHandler::getGeneralOptions()
                           "placer heap criticality exponent (int, default: 2)");
     general.add_options()("placer-heap-timingweight", po::value<int>(), "placer heap timing weight (int, default: 10)");
     general.add_options()("placer-heap-cell-placement-timeout", po::value<int>(),
-            "allow placer to attempt up to the given number of iterations to place the cell (int, default: design size^2 / 8, 0 for no timeout)");
+            "allow placer to attempt up to max(10000, total cells^2 / N) iterations to place a cell (int N, default: 8, 0 for no timeout)");
 
 #if !defined(__wasm)
     general.add_options()("parallel-refine", "use new experimental parallelised engine for placement refinement");
