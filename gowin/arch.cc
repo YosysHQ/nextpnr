@@ -523,6 +523,7 @@ void Arch::setBelDecal(BelId bel, DecalXY active, DecalXY inactive)
 
 void Arch::setDefaultDecals(void)
 {
+#ifndef NO_GUI
     for (BelId bel : getBels()) {
         gfxSetBelDefaultDecal(this, bel_info(bel));
     }
@@ -533,6 +534,7 @@ void Arch::setDefaultDecals(void)
         gfxSetWireDefaultDecal(this, wire_info(wire));
     }
     fixClockSpineDecals();
+#endif
 }
 
 void Arch::setGroupDecal(GroupId group, DecalXY decalxy)
@@ -1125,8 +1127,10 @@ Arch::Arch(ArchArgs args) : args(args)
     addDecalGraphic(IdString(), GraphicElement());
 
     if (args.gui) {
+#ifndef NO_GUI
         // decals
         gfxCreateBelDecals(this);
+#endif
     }
 
     // setup package
@@ -1216,11 +1220,13 @@ Arch::Arch(ArchArgs args) : args(args)
         int col = i % db->cols;
         const TilePOD *tile = db->grid[i].get();
         if (args.gui) {
+#ifndef NO_GUI
             // CRU decal
             snprintf(buf, 32, "R%dC%d_CRU", row + 1, col + 1);
             grpname = id(buf);
             addGroup(grpname);
             setGroupDecal(grpname, gfxGetCruGroupDecalXY(col, row));
+#endif
         }
         // setup wires
         const PairPOD *pips[2] = {tile->pips.get(), tile->clock_pips.get()};
@@ -1420,8 +1426,10 @@ Arch::Arch(ArchArgs args) : args(args)
                     snprintf(buf, 32, "R%dC%d_LUT_GRP%d", row + 1, col + 1, z);
                     grpname = id(buf);
                     if (args.gui) {
+#ifndef NO_GUI
                         addGroup(grpname);
                         setGroupDecal(grpname, gfxGetLutGroupDecalXY(col, row, z >> 1));
+#endif
                     }
                 }
                 break;
