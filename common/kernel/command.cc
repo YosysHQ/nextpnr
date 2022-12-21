@@ -189,6 +189,8 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("placer-heap-critexp", po::value<int>(),
                           "placer heap criticality exponent (int, default: 2)");
     general.add_options()("placer-heap-timingweight", po::value<int>(), "placer heap timing weight (int, default: 10)");
+    general.add_options()("placer-heap-cell-placement-timeout", po::value<int>(),
+            "allow placer to attempt up to max(10000, total cells^2 / N) iterations to place a cell (int N, default: 8, 0 for no timeout)");
 
 #if !defined(__wasm)
     general.add_options()("parallel-refine", "use new experimental parallelised engine for placement refinement");
@@ -327,6 +329,10 @@ void CommandHandler::setupContext(Context *ctx)
 
     if (vm.count("placer-heap-timingweight"))
         ctx->settings[ctx->id("placerHeap/timingWeight")] = std::to_string(vm["placer-heap-timingweight"].as<int>());
+
+    if (vm.count("placer-heap-cell-placement-timeout"))
+        ctx->settings[ctx->id("placerHeap/cellPlacementTimeout")] =
+            std::to_string(std::max(0, vm["placer-heap-cell-placement-timeout"].as<int>()));
 
     if (vm.count("parallel-refine"))
         ctx->settings[ctx->id("placerHeap/parallelRefine")] = true;
