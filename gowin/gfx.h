@@ -24,6 +24,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+#ifndef NO_GUI
 void gfxCreateBelDecals(Arch *arch);
 void gfxSetBelDefaultDecal(Arch *arch, BelInfo &bel);
 void gfxSetIOBWireDecals(Arch *arch, BelInfo &bel);
@@ -32,6 +33,7 @@ void gfxSetPipDefaultDecal(Arch *arch, PipInfo &pip);
 void gfxSetWireDefaultDecal(Arch *arch, WireInfo &wire);
 DecalXY gfxGetLutGroupDecalXY(int x, int y, int z);
 DecalXY gfxGetCruGroupDecalXY(int x, int y);
+#endif
 
 NEXTPNR_NAMESPACE_END
 

@@ -24,6 +24,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+#ifndef NO_GUI
 // LUTs
 const float lut_w = 0.6732 - 0.6386;
 const float lut_h = 0.9392 - 0.9074;
@@ -5824,5 +5825,6 @@ DecalXY gfxGetCruGroupDecalXY(int x, int y)
     decalxy.y = y;
     return decalxy;
 }
+#endif // NO_GUI
 
 NEXTPNR_NAMESPACE_END
