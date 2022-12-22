@@ -362,7 +362,11 @@ class HeAPPlacer
         } else
 #endif
         {
-            if (!placer1_refine(ctx, Placer1Cfg(ctx))) {
+            auto placer1_cfg = Placer1Cfg(ctx);
+            placer1_cfg.hpwl_scale_x = cfg.hpwl_scale_x;
+            placer1_cfg.hpwl_scale_y = cfg.hpwl_scale_y;
+            placer1_cfg.netShareWeight = cfg.netShareWeight;
+            if (!placer1_refine(ctx, placer1_cfg)) {
                 return false;
             }
         }
@@ -1813,6 +1817,7 @@ PlacerHeapCfg::PlacerHeapCfg(Context *ctx)
     criticalityExponent = ctx->setting<int>("placerHeap/criticalityExponent");
     timingWeight = ctx->setting<int>("placerHeap/timingWeight");
     parallelRefine = ctx->setting<bool>("placerHeap/parallelRefine", false);
+    netShareWeight = ctx->setting<float>("placerHeap/netShareWeight", 0);
 
     timing_driven = ctx->setting<bool>("timing_driven");
     solverTolerance = 1e-5;

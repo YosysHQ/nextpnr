@@ -41,6 +41,7 @@ struct PlacerHeapCfg
     bool timing_driven;
     float solverTolerance;
     bool placeAllAtOnce;
+    float netShareWeight;
     bool parallelRefine;
     int cell_placement_timeout;
 

@@ -102,25 +102,6 @@ bool bool_or_default(const Container &ct, const KeyType &key, bool def = false)
     return bool(int_or_default(ct, key, int(def)));
 };
 
-// Return a net if port exists, or nullptr
-inline const NetInfo *get_net_or_empty(const CellInfo *cell, const IdString port)
-{
-    auto found = cell->ports.find(port);
-    if (found != cell->ports.end())
-        return found->second.net;
-    else
-        return nullptr;
-}
-
-inline NetInfo *get_net_or_empty(CellInfo *cell, const IdString port)
-{
-    auto found = cell->ports.find(port);
-    if (found != cell->ports.end())
-        return found->second.net;
-    else
-        return nullptr;
-}
-
 // Get only value from a forward iterator begin/end pair.
 //
 // Generates assertion failure if std::distance(begin, end) != 1.

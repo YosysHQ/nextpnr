@@ -707,7 +707,7 @@ void TimingAnalyser::print_critical_path(CellPortKey endpoint, domain_id_t domai
         ctx->getDelayNS(ports.at(cursor).domain_pairs.at(domain_pair).setup_slack));
     while (cursor != CellPortKey()) {
         log("        %s.%s (net %s)\n", ctx->nameOf(cursor.cell), ctx->nameOf(cursor.port),
-            ctx->nameOf(get_net_or_empty(ctx->cells.at(cursor.cell).get(), cursor.port)));
+            ctx->nameOf(ctx->cells.at(cursor.cell)->getPort(cursor.port)));
         if (!ports.at(cursor).arrival.count(dp.key.launch))
             break;
         cursor = ports.at(cursor).arrival.at(dp.key.launch).bwd_max;
@@ -865,7 +865,7 @@ struct Timing
                     topological_order.emplace_back(o->net);
                     for (int i = 0; i < clocks; i++) {
                         TimingClockingInfo clkInfo = ctx->getPortClockingInfo(cell.second.get(), o->name, i);
-                        const NetInfo *clknet = get_net_or_empty(cell.second.get(), clkInfo.clock_port);
+                        const NetInfo *clknet = cell.second->getPort(clkInfo.clock_port);
                         IdString clksig = clknet ? clknet->name : async_clock;
                         net_data[o->net][ClockEvent{clksig, clknet ? clkInfo.edge : RISING_EDGE}] =
                                 TimingData{clkInfo.clockToQ.maxDelay()};
@@ -1125,7 +1125,7 @@ struct Timing
                         if (portClass == TMG_REGISTER_INPUT) {
                             for (int i = 0; i < port_clocks; i++) {
                                 TimingClockingInfo clkInfo = ctx->getPortClockingInfo(usr.cell, usr.port, i);
-                                const NetInfo *clknet = get_net_or_empty(usr.cell, clkInfo.clock_port);
+                                const NetInfo *clknet = usr.cell->getPort(clkInfo.clock_port);
                                 IdString clksig = clknet ? clknet->name : async_clock;
                                 process_endpoint(clksig, clknet ? clkInfo.edge : RISING_EDGE, clkInfo.setup.maxDelay());
                             }
@@ -1295,7 +1295,7 @@ CriticalPath build_critical_path_report(Context *ctx, ClockPair &clocks, const P
     if (portClass == TMG_REGISTER_OUTPUT) {
         for (int i = 0; i < port_clocks; i++) {
             TimingClockingInfo clockInfo = ctx->getPortClockingInfo(front_driver.cell, front_driver.port, i);
-            const NetInfo *clknet = get_net_or_empty(front_driver.cell, clockInfo.clock_port);
+            const NetInfo *clknet = front_driver.cell->getPort(clockInfo.clock_port);
             if (clknet != nullptr && clknet->name == clocks.start.clock && clockInfo.edge == clocks.start.edge) {
                 last_port = clockInfo.clock_port;
                 clock_start = i;
