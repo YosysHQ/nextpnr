@@ -362,7 +362,11 @@ class HeAPPlacer
         } else
 #endif
         {
-            if (!placer1_refine(ctx, Placer1Cfg(ctx))) {
+            auto placer1_cfg = Placer1Cfg(ctx);
+            placer1_cfg.hpwl_scale_x = cfg.hpwl_scale_x;
+            placer1_cfg.hpwl_scale_y = cfg.hpwl_scale_y;
+            placer1_cfg.netShareWeight = cfg.netShareWeight;
+            if (!placer1_refine(ctx, placer1_cfg)) {
                 return false;
             }
         }
