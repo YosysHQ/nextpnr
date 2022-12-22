@@ -31,9 +31,6 @@ NEXTPNR_NAMESPACE_BEGIN
 Utilities for design manipulation, intended for use inside packing algorithms
  */
 
-// Disconnect a net (if connected) from old, and connect it to rep
-void replace_port(CellInfo *old_cell, IdString old_name, CellInfo *rep_cell, IdString rep_name);
-
 // If a net drives a given port of a cell matching a predicate (in many
 // cases more than one cell type, e.g. SB_DFFxx so a predicate is used), return
 // the first instance of that cell (otherwise nullptr). If exclusive is set to

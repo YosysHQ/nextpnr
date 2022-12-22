@@ -219,7 +219,7 @@ class Ecp5Packer
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
             if (is_ff(ctx, ci)) {
-                NetInfo *di = get_net_or_empty(ci, id_DI);
+                NetInfo *di = ci->getPort(id_DI);
                 if (di->driver.cell != nullptr && di->driver.cell->type == id_TRELLIS_COMB && di->driver.port == id_F) {
                     CellInfo *comb = di->driver.cell;
                     if (comb->cluster != ClusterId()) {
@@ -306,7 +306,7 @@ class Ecp5Packer
 
         // Gets the "COMB1" side of a LUT5, where we pack a LUT[67] into
         auto get_comb1_from_lut5 = [&](CellInfo *lut5) {
-            NetInfo *f1 = get_net_or_empty(lut5, id_F1);
+            NetInfo *f1 = lut5->getPort(id_F1);
             NPNR_ASSERT(f1 != nullptr);
             NPNR_ASSERT(f1->driver.cell != nullptr);
             return f1->driver.cell;
@@ -2806,7 +2806,7 @@ bool Arch::pack()
 void Arch::assign_arch_info_for_cell(CellInfo *ci)
 {
     auto get_port_net = [&](CellInfo *ci, IdString p) {
-        NetInfo *n = get_net_or_empty(ci, p);
+        NetInfo *n = ci->getPort(p);
         return n ? n->name : IdString();
     };
     if (ci->type == id_TRELLIS_COMB) {
