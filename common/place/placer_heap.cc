@@ -1817,6 +1817,7 @@ PlacerHeapCfg::PlacerHeapCfg(Context *ctx)
     criticalityExponent = ctx->setting<int>("placerHeap/criticalityExponent");
     timingWeight = ctx->setting<int>("placerHeap/timingWeight");
     parallelRefine = ctx->setting<bool>("placerHeap/parallelRefine", false);
+    netShareWeight = ctx->setting<float>("placerHeap/netShareWeight", 0);
 
     timing_driven = ctx->setting<bool>("timing_driven");
     solverTolerance = 1e-5;
