@@ -42,8 +42,7 @@ It also implements functions for getting timing data, mirroring that of the Arch
 
 ## NetInfo
 
-`NetInfo` instances have the following fields:\
-
+`NetInfo` instances have the following fields:
  - `name` is the IdString name of the net - for nets with multiple names, one name is chosen according to a set of rules by the JSON frontend
  - `hierpath` is name of the hierarchical cell containing the instance, for designs with hierarchy
  - `driver` refers to the source of the net using `PortRef`; `driver.cell == nullptr` means that the net is undriven. Nets must have zero or one driver only. The corresponding cell port must be an output and its `PortInfo::net` must refer back to this net.
