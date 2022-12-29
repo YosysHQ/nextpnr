@@ -698,17 +698,28 @@ template <class T, class C> const T *genericLookup(const T *first, int len, cons
     }
 }
 
+template <class T, class C> const T *timingLookup(const T *first, int len, const T val, C compare)
+{
+    for (int i = 0; i < len; ++i) {
+        auto res = &first[i];
+        if (!(compare(*res, val) || compare(val, *res))) {
+            return res;
+        }
+    }
+    return nullptr;
+}
+
 DelayQuad delayLookup(const TimingPOD *first, int len, IdString name)
 {
     TimingPOD needle;
     needle.name_id = name.index;
-    const TimingPOD *timing = genericLookup(first, len, needle, timingCompare);
+    const TimingPOD *timing = timingLookup(first, len, needle, timingCompare);
     DelayQuad delay;
     if (timing != nullptr) {
-        delay.fall.max_delay = std::max(timing->ff, timing->rf) / 1000;
-        delay.fall.min_delay = std::min(timing->ff, timing->rf) / 1000;
-        delay.rise.max_delay = std::max(timing->rr, timing->fr) / 1000;
-        delay.rise.min_delay = std::min(timing->rr, timing->fr) / 1000;
+        delay.fall.max_delay = std::max(timing->ff, timing->rf) / 1000.;
+        delay.fall.min_delay = std::min(timing->ff, timing->rf) / 1000.;
+        delay.rise.max_delay = std::max(timing->rr, timing->fr) / 1000.;
+        delay.rise.min_delay = std::min(timing->rr, timing->fr) / 1000.;
     } else {
         delay = DelayQuad(0);
     }
