@@ -480,6 +480,7 @@ struct Arch : BaseArch<ArchRanges>
     void auto_longwires();
     void add_plla_ports(BelsPOD const *bel, IdString belname, int row, int col);
     void fix_pll_nets(Context *ctx);
+    bool is_GCLKT_iob(const CellInfo *cell);
 
     GowinGlobalRouter globals_router;
     void mark_gowin_globals(Context *ctx);

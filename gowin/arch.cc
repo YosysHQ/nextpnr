@@ -2016,6 +2016,16 @@ static bool is_PLL_T_FB_iob(const Context *ctx, const CellInfo *cell)
     return is_spec_iob(ctx, cell, ctx->id("RPLL_T_FB"));
 }
 
+bool Arch::is_GCLKT_iob(const CellInfo *cell)
+{
+    for (int i = 0; i < 6; ++i) {
+        if (is_spec_iob(getCtx(), cell, idf("GCLKT_%d", i))) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // If the PLL input can be connected using a direct wire, then do so,
 // bypassing conventional routing.
 void Arch::fix_pll_nets(Context *ctx)

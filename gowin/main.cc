@@ -51,7 +51,8 @@ po::options_description GowinCommandHandler::getArchOptions()
     specific.add_options()("device", po::value<std::string>(), "device name");
     specific.add_options()("family", po::value<std::string>(), "family name");
     specific.add_options()("cst", po::value<std::string>(), "physical constraints file");
-    specific.add_options()("enable-globals", "separate routing of the clocks");
+    specific.add_options()("enable-globals", "enable separate routing of the clocks");
+    specific.add_options()("disable-globals", "disable separate routing of the clocks");
     specific.add_options()("enable-auto-longwires", "automatic detection and routing of long wires");
     return specific;
 }
@@ -84,11 +85,10 @@ std::unique_ptr<Context> GowinCommandHandler::createContext(dict<std::string, Pr
 
     auto ctx = std::unique_ptr<Context>(new Context(chipArgs));
     // routing options
-    // the default values will change in the future
-    ctx->settings[ctx->id("arch.enable-globals")] = 0;
+    ctx->settings[ctx->id("arch.enable-globals")] = 1;
     ctx->settings[ctx->id("arch.enable-auto-longwires")] = 0;
-    if (vm.count("enable-globals")) {
-        ctx->settings[ctx->id("arch.enable-globals")] = 1;
+    if (vm.count("disable-globals")) {
+        ctx->settings[ctx->id("arch.enable-globals")] = 0;
     }
     if (vm.count("enable-auto-longwires")) {
         ctx->settings[ctx->id("arch.enable-auto-longwires")] = 1;
