@@ -38,22 +38,28 @@ bool GowinGlobalRouter::is_clock_port(PortRef const &user)
     return false;
 }
 
-std::pair<WireId, BelId> GowinGlobalRouter::clock_io(Context *ctx, PortRef const &driver)
+std::pair<WireId, BelId> GowinGlobalRouter::clock_src(Context *ctx, PortRef const &driver)
 {
-    // XXX normally all alternative functions of the pins should be passed
-    // in the chip database, but at the moment we find them from aliases/pips
-    // XXX check diff inputs too
-    if (driver.cell == nullptr || driver.cell->type != id_IOB || !driver.cell->attrs.count(id_BEL)) {
+    if (driver.cell == nullptr) {
         return std::make_pair(WireId(), BelId());
     }
-    // clock IOs have pips output->SPINExx
 
-    BelInfo &bel = ctx->bel_info(ctx->id(driver.cell->attrs[id_BEL].as_string()));
-    WireId wire = bel.pins[id_O].wire;
-    for (auto const pip : ctx->getPipsDownhill(wire)) {
-        if (ctx->wire_info(ctx->getPipDstWire(pip)).type.str(ctx).rfind("SPINE", 0) == 0) {
+    BelInfo &bel = ctx->bel_info(driver.cell->bel);
+    WireId wire;
+    if (driver.cell->type == id_IOB) {
+        if (ctx->is_GCLKT_iob(driver.cell)) {
+            wire = bel.pins[id_O].wire;
             return std::make_pair(wire, bel.name);
         }
+        return std::make_pair(WireId(), BelId());
+    }
+    if (driver.cell->type == id_RPLLA) {
+        if (driver.port == id_CLKOUT || driver.port == id_CLKOUTP || driver.port == id_CLKOUTD ||
+            driver.port == id_CLKOUTD3) {
+            wire = bel.pins[driver.port].wire;
+            return std::make_pair(wire, bel.name);
+        }
+        return std::make_pair(WireId(), BelId());
     }
     return std::make_pair(WireId(), BelId());
 }
@@ -64,12 +70,12 @@ void GowinGlobalRouter::gather_clock_nets(Context *ctx, std::vector<globalnet_t>
     for (auto const &net : ctx->nets) {
         NetInfo const *ni = net.second.get();
         auto new_clock = clock_nets.end();
-        auto clock_wire_bel = clock_io(ctx, ni->driver);
+        auto clock_wire_bel = clock_src(ctx, ni->driver);
         if (clock_wire_bel.first != WireId()) {
             clock_nets.emplace_back(net.first);
             new_clock = --clock_nets.end();
-            new_clock->clock_io_wire = clock_wire_bel.first;
-            new_clock->clock_io_bel = clock_wire_bel.second;
+            new_clock->clock_wire = clock_wire_bel.first;
+            new_clock->clock_bel = clock_wire_bel.second;
         }
         for (auto const &user : ni->users) {
             if (is_clock_port(user)) {
@@ -86,8 +92,8 @@ void GowinGlobalRouter::gather_clock_nets(Context *ctx, std::vector<globalnet_t>
 
     if (ctx->verbose) {
         for (auto const &net : clock_nets) {
-            log_info("  Net:%s, ports:%d, io:%s\n", net.name.c_str(ctx), net.clock_ports,
-                     net.clock_io_wire == WireId() ? "No" : net.clock_io_wire.c_str(ctx));
+            log_info("  Net:%s, ports:%d, clock source:%s\n", net.name.c_str(ctx), net.clock_ports,
+                     net.clock_wire == WireId() ? "No" : net.clock_wire.c_str(ctx));
         }
     }
 }
@@ -238,33 +244,35 @@ void GowinGlobalRouter::route_net(Context *ctx, globalnet_t const &net)
         }
         used_pips.insert(spine_pip_id);
 
-        // >>> SPINExx <- IO
+        // >>> SPINExx <- Src
         dstWire = ctx->getPipSrcWire(spine_pip_id);
         dstWireInfo = ctx->wire_info(dstWire);
-        PipId io_pip_id = PipId();
+        PipId src_pip_id = PipId();
         for (auto const uphill_pip : ctx->getPipsUphill(dstWire)) {
-            if (ctx->getPipSrcWire(uphill_pip) == net.clock_io_wire) {
-                io_pip_id = uphill_pip;
+            if (ctx->getPipSrcWire(uphill_pip) == net.clock_wire) {
+                src_pip_id = uphill_pip;
             }
         }
-        NPNR_ASSERT(io_pip_id != PipId());
+        NPNR_ASSERT(src_pip_id != PipId());
         if (ctx->verbose) {
-            log_info("       IO Pip:%s\n", io_pip_id.c_str(ctx));
+            log_info("       Src Pip:%s\n", src_pip_id.c_str(ctx));
         }
         // if already routed
-        if (used_pips.count(io_pip_id)) {
+        if (used_pips.count(src_pip_id)) {
             if (ctx->verbose) {
                 log_info("      ^routed already^\n");
             }
             continue;
         }
-        used_pips.insert(io_pip_id);
+        used_pips.insert(src_pip_id);
     }
     log_info("  Net %s is routed.\n", net.name.c_str(ctx));
-    for (auto const pip : used_pips) {
-        ctx->bindPip(pip, &ctx->net_info(net.name), STRENGTH_LOCKED);
+    if (!ctx->net_info(net.name).users.empty()) {
+        for (auto const pip : used_pips) {
+            ctx->bindPip(pip, &ctx->net_info(net.name), STRENGTH_LOCKED);
+        }
+        ctx->bindWire(net.clock_wire, &ctx->net_info(net.name), STRENGTH_LOCKED);
     }
-    ctx->bindWire(net.clock_io_wire, &ctx->net_info(net.name), STRENGTH_LOCKED);
 }
 
 void GowinGlobalRouter::route_globals(Context *ctx)
@@ -289,16 +297,21 @@ void GowinGlobalRouter::mark_globals(Context *ctx)
     int max_clock = 3, cur_clock = -1;
     for (auto &net : clock_nets) {
         // XXX only IO clock for now
-        if (net.clock_io_wire == WireId()) {
-            log_info(" Non IO clock, skip %s.\n", net.name.c_str(ctx));
+        if (net.clock_wire == WireId()) {
+            log_info(" Non clock source, skip %s.\n", net.name.c_str(ctx));
             continue;
         }
         if (++cur_clock >= max_clock) {
             log_info(" No more clock wires left, skip the remaining nets.\n");
             break;
         }
-        net.clock = cur_clock;
-        BelInfo &bi = ctx->bel_info(net.clock_io_bel);
+        if (ctx->net_info(net.name).users.empty()) {
+            --cur_clock;
+            net.clock = -1;
+        } else {
+            net.clock = cur_clock;
+        }
+        BelInfo &bi = ctx->bel_info(net.clock_bel);
         bi.gb = true;
         nets.emplace_back(net);
     }

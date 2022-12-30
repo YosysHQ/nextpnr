@@ -39,32 +39,32 @@ class GowinGlobalRouter
     {
         IdString name;
         int clock_ports;
-        BelId clock_io_bel;
-        WireId clock_io_wire; // IO wire if there is one
-        int clock;            // clock #
+        BelId clock_bel;
+        WireId clock_wire; // clock wire if there is one
+        int clock;         // clock #
 
         globalnet_t()
         {
             name = IdString();
             clock_ports = 0;
-            clock_io_bel = BelId();
-            clock_io_wire = WireId();
+            clock_bel = BelId();
+            clock_wire = WireId();
             clock = -1;
         }
         globalnet_t(IdString _name)
         {
             name = _name;
             clock_ports = 0;
-            clock_io_bel = BelId();
-            clock_io_wire = WireId();
+            clock_bel = BelId();
+            clock_wire = WireId();
             clock = -1;
         }
 
         // sort
         bool operator<(const globalnet_t &other) const
         {
-            if ((clock_io_wire != WireId()) ^ (other.clock_io_wire != WireId())) {
-                return !(clock_io_wire != WireId());
+            if ((clock_wire != WireId()) ^ (other.clock_wire != WireId())) {
+                return !(clock_wire != WireId());
             }
             return clock_ports < other.clock_ports;
         }
@@ -76,7 +76,7 @@ class GowinGlobalRouter
     std::vector<globalnet_t> nets;
 
     bool is_clock_port(PortRef const &user);
-    std::pair<WireId, BelId> clock_io(Context *ctx, PortRef const &driver);
+    std::pair<WireId, BelId> clock_src(Context *ctx, PortRef const &driver);
     void gather_clock_nets(Context *ctx, std::vector<globalnet_t> &clock_nets);
     IdString route_to_non_clock_port(Context *ctx, WireId const dstWire, int clock, pool<IdString> &used_pips,
                                      pool<IdString> &undo_wires);
