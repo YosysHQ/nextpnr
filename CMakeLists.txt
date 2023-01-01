@@ -94,9 +94,10 @@ endif()
 
 if (AWOOTER)
     include(FetchContent)
-    FetchContent_Declare(Corrosion GIT_REPOSITORY https://github.com/corrosion-rs/corrosion.git GIT_TAG v0.3.0)
+    FetchContent_Declare(Corrosion GIT_REPOSITORY https://github.com/corrosion-rs/corrosion.git GIT_TAG master)
     FetchContent_MakeAvailable(Corrosion)
-    corrosion_import_crate(MANIFEST_PATH common/route/awooter/rust/Cargo.toml PROFILE "release")
+    corrosion_import_crate(MANIFEST_PATH "common/route/awooter/Cargo.toml" PROFILE "release")
+    corrosion_add_cxxbridge(awooterbridge CRATE awooter MANIFEST_PATH "common/route/awooter/Cargo.toml" FILES lib.rs)
 
     # Enable cross-lang IPO if CXX is clang.
     if (USE_IPO AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
@@ -312,7 +313,11 @@ foreach (family ${ARCH})
 
     # Link in awooter, if enabled.
     if (AWOOTER)
-        target_link_libraries(${PROGRAM_PREFIX}nextpnr-${family} PRIVATE awooter)
+        include_directories(common/route/awooter 
+            common/kernel/ common/place/ common/route/ "${family}/")
+        target_link_libraries(${PROGRAM_PREFIX}nextpnr-${family}
+            PUBLIC awooter
+            PUBLIC awooterbridge)
     endif()
 
     # Add any new per-architecture targets here
