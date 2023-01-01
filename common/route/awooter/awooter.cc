@@ -16,6 +16,7 @@
  *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "cxx.h" // this is the unsolved piece of the riddle
 #include "log.h"
 #include "nextpnr.h"
 
@@ -126,30 +127,17 @@ extern "C" {
     void npnr_log_info(const char *const format) { log_info("%s", format); }
     void npnr_log_error(const char *const format) { log_error("%s", format); }
 
-    uint64_t npnr_belid_null() { return wrap(BelId()); }
-    uint64_t npnr_wireid_null() { return wrap(WireId()); }
-    uint64_t npnr_pipid_null() { return wrap(PipId()); }
+    BelId npnr_belid_null() { return BelId(); }
+    WireId npnr_wireid_null() { return WireId(); }
+    PipId npnr_pipid_null() { return PipId(); }
 
-    int npnr_context_get_grid_dim_x(const Context *const ctx) { return ctx->getGridDimX(); }
-    int npnr_context_get_grid_dim_y(const Context *const ctx) { return ctx->getGridDimY(); }
-    void npnr_context_bind_bel(Context *ctx, uint64_t bel, CellInfo* cell, PlaceStrength strength) { return ctx->bindBel(unwrap_bel(bel), cell, strength); }
-    void npnr_context_unbind_bel(Context *ctx, uint64_t bel) { return ctx->unbindBel(unwrap_bel(bel)); }
-    bool npnr_context_check_bel_avail(Context *const ctx, uint64_t bel) { return ctx->checkBelAvail(unwrap_bel(bel)); }
-    void npnr_context_bind_wire(Context *ctx, uint64_t wire, NetInfo* net, PlaceStrength strength) { ctx->bindWire(unwrap_wire(wire), net, strength); }
-    void npnr_context_unbind_wire(Context *ctx, uint64_t wire) { ctx->unbindWire(unwrap_wire(wire)); }
-    void npnr_context_bind_pip(Context *ctx, uint64_t pip, NetInfo* net, PlaceStrength strength) { ctx->bindPip(unwrap_pip(pip), net, strength); }
-    void npnr_context_unbind_pip(Context *ctx, uint64_t pip) { ctx->unbindPip(unwrap_pip(pip)); }
-    uint64_t npnr_context_get_pip_src_wire(const Context *const ctx, uint64_t pip) { return wrap(ctx->getPipSrcWire(unwrap_pip(pip))); }
-    uint64_t npnr_context_get_pip_dst_wire(const Context *const ctx, uint64_t pip) { return wrap(ctx->getPipDstWire(unwrap_pip(pip))); }
-    float npnr_context_estimate_delay(const Context *const ctx, uint64_t src, uint64_t dst) { return ctx->getDelayNS(ctx->estimateDelay(unwrap_wire(src), unwrap_wire(dst))); }
-    float npnr_context_get_pip_delay(const Context *const ctx, uint64_t pip) { return ctx->getDelayNS(ctx->getPipDelay(unwrap_pip(pip)).maxDelay()); }
-    float npnr_context_get_wire_delay(const Context *const ctx, uint64_t wire) { return ctx->getDelayNS(ctx->getWireDelay(unwrap_wire(wire)).maxDelay()); }
+    float npnr_context_estimate_delay(const Context *const ctx, const WireId &const src,  const WireId &const dst) { return ctx->getDelayNS(ctx->estimateDelay(src, dst)); }
+    float npnr_context_get_pip_delay(const Context *const ctx, const PipId &const pip) { return ctx->getDelayNS(ctx->getPipDelay(pip).maxDelay()); }
+    float npnr_context_get_wire_delay(const Context *const ctx, const WireId &const wire) { return ctx->getDelayNS(ctx->getWireDelay(wire).maxDelay()); }
     float npnr_context_delay_epsilon(const Context *const ctx) { return ctx->getDelayNS(ctx->getDelayEpsilon()); }
-    Loc npnr_context_get_pip_location(const Context *const ctx, uint64_t pip) { return ctx->getPipLocation(unwrap_pip(pip)); }
-    bool npnr_context_check_pip_avail_for_net(const Context *const ctx, uint64_t pip, NetInfo *net) { return ctx->checkPipAvailForNet(unwrap_pip(pip), net); }
 
     // This method's in C++ temporarily, while I figure out some better way of getting a pip iterator.
-    Loc npnr_context_get_pip_direction(const Context *const ctx, uint64_t _pip) {
+    Loc npnr_context_get_pip_direction(const Context *const ctx, const PipId &const _pip) {
         auto pip = unwrap_pip(_pip);
         auto src_loc = Loc{};
         auto dst_loc = Loc{};
@@ -183,32 +171,20 @@ extern "C" {
         return dst_loc;
     }
 
-    uint64_t npnr_context_get_pips_leak(const Context *const ctx, PipId **pips) {
-        auto pip_vec = std::vector<PipId>{};
+    size_t npnr_context_get_pips_leak(const Context *const ctx, rust::Vec<WireId> *pips) {
         for (auto pip : ctx->getPips()) {
-            pip_vec.push_back(pip);
+            pips.push_back(pip);
         }
-        pip_vec.shrink_to_fit();
-        auto size = pip_vec.size();
-        *pips = pip_vec.data();
-        auto dummy = std::vector<PipId>{};
-        // Yes, by memcpying over `pip_vec` we leak memory.
-        std::memcpy(&pip_vec, &dummy, sizeof(dummy));
-        return size;
+        pips.shrink_to_fit();
+        return pips.size();
     }
 
-    uint64_t npnr_context_get_wires_leak(const Context *const ctx, WireId **wires) {
-        auto wire_vec = std::vector<WireId>{};
+    size_t npnr_context_get_wires_leak(const Context *const ctx, rust::Vec<WireId> *wires) {
         for (auto wire : ctx->getWires()) {
-            wire_vec.push_back(wire);
+            wires.push_back(wire);
         }
-        wire_vec.shrink_to_fit();
-        auto size = wire_vec.size();
-        *wires = wire_vec.data();
-        auto dummy = std::vector<WireId>{};
-        // Yes, by memcpying over `wire_vec` we leak memory.
-        std::memcpy(&wire_vec, &dummy, sizeof(dummy));
-        return size;
+        wires.shrink_to_fit();
+        return wires.size();
     }
 
     void npnr_context_check(const Context *const ctx) { ctx->check(); }
@@ -218,28 +194,14 @@ extern "C" {
     const char *npnr_context_name_of_pip(const Context *const ctx, uint64_t pip) { return ctx->nameOfPip(unwrap_pip(pip)); }
     const char *npnr_context_name_of_wire(const Context *const ctx, uint64_t wire) { return ctx->nameOfWire(unwrap_wire(wire)); }
     bool npnr_context_verbose(const Context *const ctx) { return ctx->verbose; }
+    NetDict *npnr_context_nets(Context *const ctx) { return ctx->nets; }
 
-    uint64_t npnr_context_get_netinfo_source_wire(const Context *const ctx, const NetInfo *const net) { return wrap(ctx->getNetinfoSourceWire(net)); }
-    uint64_t npnr_context_get_netinfo_sink_wire(const Context *const ctx, const NetInfo *const net, const PortRef *const sink, uint32_t n) { return wrap(ctx->getNetinfoSinkWire(net, *sink, n)); }
-
-    uint32_t npnr_context_nets_leak(const Context *const ctx, int **names, NetInfo ***nets) {
-        auto name_vec = std::vector<int>{};
-        auto nets_vec = std::vector<NetInfo*>{};
-        for (auto& item : ctx->nets) {
-            name_vec.push_back(item.first.hash());
-            nets_vec.push_back(item.second.get());
+    size_t npnr_nets_names(NetDict &nets, rust::Vec<int32_t> *names) {
+        for (auto& item : nets) {
+            names.push_back(item.first.hash());
         }
-        name_vec.shrink_to_fit();
-        nets_vec.shrink_to_fit();
-        auto size = name_vec.size();
-        *names = name_vec.data();
-        *nets = nets_vec.data();
-        // Yes, by memcpying over `name_vec` and `nets_vec` we leak memory.
-        auto dummy1 = std::vector<int>{};
-        auto dummy2 = std::vector<NetInfo*>{};
-        std::memcpy(&name_vec, &dummy1, sizeof(dummy1));
-        std::memcpy(&nets_vec, &dummy2, sizeof(dummy2));
-        return size;
+        names.shrink_to_fit();
+        return names.size();
     }
 
     DownhillIterWrapper *npnr_context_get_pips_downhill(Context *ctx, uint64_t wire_id) {
@@ -264,20 +226,6 @@ extern "C" {
             return nullptr;
         }
         return &net->driver;
-    }
-
-    uint32_t npnr_netinfo_users_leak(NetInfo *const net, PortRef ***users) {
-        auto x = std::vector<PortRef*>{};
-        for (auto& item : net->users) {
-            x.push_back(&item);
-        }
-        x.shrink_to_fit();
-        *users = x.data();
-        auto size = x.size();
-        // Yes, by memcpying over `x` we leak memory.
-        auto dummy = std::vector<PortRef*>{};
-        std::memcpy(&x, &dummy, sizeof(dummy));
-        return size;
     }
 
 #ifdef ARCH_ECP5
