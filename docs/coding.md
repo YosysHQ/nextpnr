@@ -78,9 +78,9 @@ Placers might want to create their own indices of bels (for example, bels by typ
 As nextpnr allows arbitrary constraints on bels for more advanced packer-free flows and complex real-world architectures; placements must be checked for legality using `isBelLocationValid` (after placement) and the placement rejected if invalid. For analytical placement algorithms; after creating a spread-out AP solution the legality of placing each cell needs to be checked. In practice, the cost of this is fairly low as the architecture should ensure these functions are as fast as possible.
 
 There are several routes for timing information in the placer:
-    - sink `PortRef`s have a `budget` value annotated by calling `assign_budget` which is an estimate of the maximum delay that an arc may have
-    - sink ports can have a criticality (value between 0 and 1 where 1 is the critical path) associated with them by using `get_criticalities` and a `NetCriticalityMap`
-    - `predictDelay` and its derivative `predictArcDelay` returns an estimated delay for a sink port based on placement information
+ - sink `PortRef`s have a `budget` value annotated by calling `assign_budget` which is an estimate of the maximum delay that an arc may have
+ - sink ports can have a criticality (value between 0 and 1 where 1 is the critical path) associated with them by using `get_criticalities` and a `NetCriticalityMap`
+ - `predictDelay` and its derivative `predictArcDelay` returns an estimated delay for a sink port based on placement information
 
 
 ### Bel Buckets
