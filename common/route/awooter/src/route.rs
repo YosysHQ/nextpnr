@@ -1,6 +1,7 @@
 use std::{
     collections::{BinaryHeap, HashMap, HashSet},
-    time::Instant, sync::RwLock,
+    sync::RwLock,
+    time::Instant,
 };
 
 use colored::Colorize;
@@ -8,7 +9,7 @@ use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use itertools::Itertools;
 
 use crate::{
-    npnr::{self, IdString, NetIndex, PipId, WireId, Loc},
+    npnr::{self, IdString, Loc, NetIndex, PipId, WireId},
     partition,
 };
 
@@ -263,7 +264,9 @@ impl Router {
             for arc in route_arcs.iter().sorted_by(|&i, &j| {
                 (delay.get(j).unwrap() / max_delay).total_cmp(&(delay.get(i).unwrap() / max_delay))
             }) {
-                let name = ctx.name_of(arc.name).to_str().unwrap();
+                let net = nets.get_net(arc.net).unwrap();
+                let name = ctx.name_of(nets.name_from_index(arc.net));
+
                 progress.inc(1);
                 let criticality = (delay.get(arc).unwrap() / max_delay).min(0.99).powf(2.5) + 0.1;
                 progress.set_message(format!("{} @ {}: {}", this.id, iterations, name));
@@ -364,7 +367,11 @@ impl Router {
         if pip_coord.is_south_of(&self.box_sw) || pip_coord.is_west_of(&self.box_sw) {
             return false;
         }*/
-        if !ctx.pip_avail_for_net(pip, nets.net_from_index(arc.net())) {
+        // checkPipAvailForNet should really have its NetInfo arg annotated as const,
+        // thus this dubious-looking cast and nonsense unsafety
+        if unsafe {
+            !ctx.pip_avail_for_net(pip, nets.get_net(arc.net()).unwrap() as *const _ as *mut _)
+        } {
             return false;
         }
         if nwd.unavailable {
@@ -545,9 +552,9 @@ impl Router {
         assert!(
             midpoint.is_some(),
             "didn't find sink wire for net {} between {} and {}",
-            ctx.name_of(arc.name).to_str().unwrap(),
-            ctx.name_of_wire(arc.source_wire).to_str().unwrap(),
-            ctx.name_of_wire(arc.sink_wire).to_str().unwrap(),
+            ctx.name_of(arc.name),
+            ctx.name_of_wire(arc.source_wire),
+            ctx.name_of_wire(arc.sink_wire),
         );
 
         let mut wire = midpoint.unwrap();

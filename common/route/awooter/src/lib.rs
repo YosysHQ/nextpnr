@@ -2,6 +2,8 @@
 #![feature(let_chains)]
 
 // use core::ffi::{c_char, c_int};
+use std::collections::HashMap;
+use std::pin::Pin;
 use std::{ptr::NonNull, time::Instant};
 
 use colored::Colorize;
@@ -21,8 +23,39 @@ pub extern "C-unwind" fn nextpnr_router_awooter(
     pressure: f32,
     history: f32,
 ) -> bool {
-    let ctx: &mut npnr::Context = unsafe { ctx.expect("context should be non-null").as_mut() };
-    route(ctx, pressure, history)
+    let mut ctx = ctx.expect("Context* should be non-null");
+    let mut dict = unsafe { npnr::npnr_context_nets(ctx.as_ptr()) };
+    let mut index_to_net = Vec::new();
+    let name_sz = unsafe { npnr::npnr_nets_names(&*dict, &mut index_to_net) };
+    // assert_eq!(name_sz as usize, dict.size());
+    let mut nets = HashMap::new();
+    let mut users = HashMap::new();
+    for (i, &name) in index_to_net.iter().enumerate() {
+        // We don't violate anything here.
+        let mut net = unsafe {
+            Pin::new_unchecked(dict.as_mut().expect("context should be non-null")).move_net(&name)
+        };
+        unsafe {
+            npnr::npnr_netinfo_udata_set(net.pin_mut(), i as _);
+        }
+        // Leaking memory is the most convenient FFI I could think of.
+        let mut net_users = Vec::new();
+        unsafe { npnr::npnr_netinfo_users_leak(net.pin_mut(), &mut net_users) };
+
+        // Hijinx!
+        let liberated_ptr = std::mem::replace(net, cxx::UniquePtr::null());
+
+        nets.insert(name, liberated_ptr);
+        users.insert(name, net_users);
+    }
+    // Note: the contents of `names` and `nets_ptr` are now lost.
+    let nets = npnr::Nets {
+        nets,
+        users,
+        index_to_net,
+    };
+    let ctx: Pin<&mut npnr::Context> = unsafe { Pin::new_unchecked(ctx.as_mut()) };
+    route(ctx, nets, pressure, history)
 
     /*std::panic::catch_unwind(move || {
         let ctx: &mut npnr::Context = unsafe { ctx.expect("non-null context").as_mut() };
@@ -38,13 +71,12 @@ pub extern "C-unwind" fn nextpnr_router_awooter(
 
 fn extract_arcs_from_nets(ctx: &npnr::Context, nets: &npnr::Nets) -> Vec<route::Arc> {
     let mut arcs = vec![];
-    for (name, net) in nets.to_vec().iter() {
-        let net = unsafe { net.as_mut().unwrap() };
-        let str = ctx.name_of(**name).to_str().unwrap().to_string();
+    for (&name, net) in &nets.nets {
+        let s = ctx.name_of(name);
         let verbose = false; //str == "soc0.processor.with_fpu.fpu_0.fpu_multiply_0.rin_CCU2C_S0_4$CCU2_FCI_INT";
 
         if verbose {
-            dbg!(str, net.is_global());
+            dbg!(s, net.is_global());
         }
 
         if net.is_global() {
@@ -54,12 +86,12 @@ fn extract_arcs_from_nets(ctx: &npnr::Context, nets: &npnr::Nets) -> Vec<route::
         let port_ref = unsafe { port_ref.as_ref().unwrap() };
         if let Some(cell) = port_ref.cell() {
             let source = cell.location();
-            let source_wire = ctx.source_wire(net);
+            let source_wire = unsafe { ctx.source_wire(&**net) };
 
-            for sink_ref in nets.users_by_name(**name).unwrap().iter() {
+            for sink_ref in nets.users_by_name(name).unwrap().iter() {
                 let sink = sink_ref.cell().unwrap();
                 let sink = sink.location();
-                for sink_wire in ctx.sink_wires(net, *sink_ref) {
+                for sink_wire in ctx.sink_wires(&net, sink_ref) {
                     arcs.push(route::Arc::new(
                         source_wire,
                         source,
@@ -70,8 +102,8 @@ fn extract_arcs_from_nets(ctx: &npnr::Context, nets: &npnr::Nets) -> Vec<route::
                     ));
 
                     if verbose {
-                        let source_wire = ctx.name_of_wire(source_wire).to_str().unwrap();
-                        let sink_wire = ctx.name_of_wire(sink_wire).to_str().unwrap();
+                        let source_wire = ctx.name_of_wire(source_wire);
+                        let sink_wire = ctx.name_of_wire(sink_wire);
                         dbg!(source_wire, sink_wire, net.index().into_inner());
                     }
                 }
@@ -81,7 +113,7 @@ fn extract_arcs_from_nets(ctx: &npnr::Context, nets: &npnr::Nets) -> Vec<route::
     arcs
 }
 
-fn route(ctx: &mut npnr::Context, pressure: f32, history: f32) -> bool {
+fn route(mut ctx: Pin<&mut npnr::Context>, nets: npnr::Nets, pressure: f32, history: f32) -> bool {
     log_info!(
         "{}{}{}{}{}{} from Rust!\n",
         "A".red(),
@@ -103,49 +135,46 @@ fn route(ctx: &mut npnr::Context, pressure: f32, history: f32) -> bool {
     let pips = ctx.pips_leaking();
     log_info!("Found {} pips\n", pips.len().to_string().bold());
 
-    let nets = npnr::Nets::new(ctx);
     let nets_str = nets.len().to_string();
     log_info!("Found {} nets\n", nets_str.bold());
 
     let mut count = 0;
-    for (&name, net) in nets.to_vec().iter() {
-        let _src = ctx.source_wire(**net);
-        let net = unsafe { net.as_mut().unwrap() };
+    for (&name, net) in &nets.nets {
+        // let _src = ctx.source_wire(net);
+        // let net = unsafe { net.as_mut().unwrap() };
         let users = nets.users_by_name(name).unwrap().iter();
         for user in users {
-            count += ctx.sink_wires(net, *user).len();
+            count += ctx.sink_wires(&net, user).len();
         }
     }
 
     log_info!("Found {} arcs\n", count.to_string().bold());
 
-    let binding = nets.to_vec();
+    let binding = &nets.nets;
     let (name, net) = binding
-        .iter()
+        .into_iter()
         .max_by_key(|(name, net)| {
-            let net = unsafe { net.as_mut().unwrap() };
             if net.is_global() {
                 0
             } else {
                 nets.users_by_name(**name)
                     .unwrap()
                     .iter()
-                    .fold(0, |acc, sink| acc + ctx.sink_wires(net, *sink).len())
+                    .fold(0, |acc, sink| acc + ctx.sink_wires(&net, sink).len())
             }
         })
         .unwrap();
 
-    let net = unsafe { net.as_mut().unwrap() };
     let count = nets
-        .users_by_name(**name)
+        .users_by_name(*name)
         .unwrap()
         .iter()
-        .fold(0, |acc, sink| acc + ctx.sink_wires(net, *sink).len())
+        .fold(0, |acc, sink| acc + ctx.sink_wires(&net, sink).len())
         .to_string();
 
     log_info!(
         "Highest non-global fanout net is {}\n",
-        ctx.name_of(**name).to_str().unwrap().bold()
+        String::try_from(ctx.name_of(*name)).unwrap().bold()
     );
     log_info!("  with {} arcs\n", count.bold());
 
@@ -154,7 +183,7 @@ fn route(ctx: &mut npnr::Context, pressure: f32, history: f32) -> bool {
     let mut x1 = 0;
     let mut y1 = 0;
 
-    for sink in nets.users_by_name(**name).unwrap().iter() {
+    for sink in nets.users_by_name(*name).unwrap().iter() {
         let cell = sink.cell().unwrap().location();
         x0 = x0.min(cell.x);
         y0 = y0.min(cell.y);
@@ -177,13 +206,13 @@ fn route(ctx: &mut npnr::Context, pressure: f32, history: f32) -> bool {
 
     let start = Instant::now();
 
-    let arcs = extract_arcs_from_nets(ctx, &nets);
+    let arcs = extract_arcs_from_nets(&ctx, &nets);
 
     let mut special_arcs = vec![];
     let mut partitionable_arcs = Vec::with_capacity(arcs.len());
     for arc in arcs {
-        let src_name = ctx.name_of_wire(arc.source_wire()).to_str().unwrap();
-        let dst_name = ctx.name_of_wire(arc.sink_wire()).to_str().unwrap();
+        let src_name = ctx.name_of_wire(arc.source_wire());
+        let dst_name = ctx.name_of_wire(arc.sink_wire());
 
         if src_name.contains("FCO_SLICE")
             || src_name.contains("Q6_SLICE")
@@ -215,7 +244,7 @@ fn route(ctx: &mut npnr::Context, pressure: f32, history: f32) -> bool {
             log_info!("partition {}:\n", name);
             let (x_part, y_part, ne, se, sw, nw, special) =
                 partition::find_partition_point_and_sanity_check(
-                    ctx, &nets, partition, pips, min.x, max.x, min.y, max.y,
+                    &mut ctx, &nets, partition, &pips, min.x, max.x, min.y, max.y,
                 );
             special_arcs.extend(special.into_iter());
             new_partitions.push((
@@ -256,12 +285,12 @@ fn route(ctx: &mut npnr::Context, pressure: f32, history: f32) -> bool {
 
     let progress = MultiProgress::new();
 
-    let router = route::Router::new(&nets, wires, pressure, history);
+    let router = route::Router::new(&nets, &wires, pressure, history);
     partitions
         .par_iter()
         .for_each(|(box_ne, box_sw, arcs, id)| {
             let mut thread = route::RouterThread::new(*box_ne, *box_sw, arcs, id, &progress);
-            router.route(ctx, &nets, &mut thread);
+            router.route(&ctx, &nets, &mut thread);
         });
 
     log_info!("Routing miscellaneous arcs\n");
@@ -273,7 +302,7 @@ fn route(ctx: &mut npnr::Context, pressure: f32, history: f32) -> bool {
         &progress,
     );
 
-    router.route(ctx, &nets, &mut thread);
+    router.route(&ctx, &nets, &mut thread);
 
     let time = format!("{:.2}", (Instant::now() - start).as_secs_f32());
     log_info!("Routing took {}s\n", time.bold());

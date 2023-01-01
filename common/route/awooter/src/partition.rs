@@ -1,3 +1,4 @@
+use std::pin::Pin;
 use std::{
     cmp::Ordering,
     collections::HashMap,
@@ -192,8 +193,8 @@ impl Into<npnr::Loc> for Coord {
     }
 }
 
-pub fn find_partition_point(
-    ctx: &npnr::Context,
+pub fn find_partition_point<'a, 'b: 'a>(
+    ctx: &'a mut Pin<&'b mut npnr::Context>,
     nets: &npnr::Nets,
     arcs: &[Arc],
     pips: &[npnr::PipId],
@@ -452,7 +453,7 @@ fn partition(
         y_str.bold()
     );
 
-    let pip_selector = PipSelector::new(ctx, pips, (x_bounds, y_bounds), (x, y).into(), nets);
+    let pip_selector = PipSelector::new(&ctx, pips, (x_bounds, y_bounds), (x, y).into(), nets);
 
     let mut explored_pips = AtomicUsize::new(0);
 
@@ -516,7 +517,7 @@ fn partition(
             .into_par_iter()
             .progress_with(progress)
             .flat_map(|arc| {
-                let raw_net = nets.net_from_index(arc.net());
+                let raw_net = nets.get_net(arc.net()).unwrap();
                 let source_loc = arc.get_source_loc();
                 let source_coords: Coord = source_loc.into();
                 let source_is_north = source_coords.is_north_of(&partition_coords);
@@ -527,8 +528,6 @@ fn partition(
                 let sink_is_east = sink_coords.is_east_of(&partition_coords);
                 let _name = ctx
                     .name_of(nets.name_from_index(arc.net()))
-                    .to_str()
-                    .unwrap()
                     .to_string();
                 let _verbose = false; //name == "soc0.processor.with_fpu.fpu_0.fpu_multiply_0.rin_CCU2C_S0_4$CCU2_FCI_INT";
 
@@ -536,7 +535,6 @@ fn partition(
                     special.lock().unwrap().push(arc.clone());
                     return vec![];
                 }
-
                 if source_is_north == sink_is_north && source_is_east == sink_is_east {
                     let seg = source_coords.segment_from(&partition_coords);
                     vec![(seg, arc.clone())]
@@ -856,7 +854,7 @@ fn partition_single_arc(
     ctx: &npnr::Context,
     pip_selector: &PipSelector,
     arc: &Arc,
-    raw_net: *mut npnr::NetInfo,
+    raw_net: &npnr::NetInfo,
     partition_point: Coord,
     min_bounds: &Coord,
     max_bounds: &Coord,
@@ -887,7 +885,7 @@ fn partition_single_arc(
 }
 
 pub fn find_partition_point_and_sanity_check(
-    ctx: &npnr::Context,
+    ctx: &mut Pin<&mut npnr::Context>,
     nets: &npnr::Nets,
     arcs: &[Arc],
     pips: &[npnr::PipId],
@@ -1100,9 +1098,9 @@ impl PipSelector {
 
                 let src_wire = ctx.pip_src_wire(pip);
                 let dst_wire = ctx.pip_dst_wire(pip);
-                let src_name = ctx.name_of_wire(src_wire).to_str().unwrap();
-                let dst_name = ctx.name_of_wire(dst_wire).to_str().unwrap();
-                if !is_general_routing(src_name) || !is_general_routing(dst_name) {
+                let src_name = ctx.name_of_wire(src_wire);
+                let dst_name = ctx.name_of_wire(dst_wire);
+                if !is_general_routing(&src_name) || !is_general_routing(&dst_name) {
                     // ECP5 hack: whitelist allowed wires.
                     continue;
                 }
@@ -1287,9 +1285,8 @@ impl PipSelector {
             HashMap::new(),
         ];
 
-        let nets = nets.to_vec();
         for cache in &mut caches {
-            for (_, net) in nets.iter() {
+            for net in nets.nets.values() {
                 let net = unsafe { net.as_ref().unwrap() };
                 cache.insert(net.index(), RwLock::new(None));
             }
@@ -1316,7 +1313,7 @@ impl PipSelector {
         desired_pip_location: npnr::Loc,
         coming_from: npnr::Loc,
         net: npnr::NetIndex,
-        raw_net: *mut npnr::NetInfo,
+        raw_net: &npnr::NetInfo,
     ) -> Option<npnr::PipId> {
         let pip_index = self.find_pip_index(desired_pip_location, coming_from);
         self.raw_find_pip(ctx, pip_index, desired_pip_location, net, raw_net)
@@ -1329,7 +1326,7 @@ impl PipSelector {
         from_segment: Quadrant,
         to_segment: Quadrant,
         net: npnr::NetIndex,
-        raw_net: *mut npnr::NetInfo,
+        raw_net: &npnr::NetInfo,
     ) -> Option<npnr::PipId> {
         let (pip_index, offset) = match (from_segment, to_segment) {
             (Quadrant::Northeast, Quadrant::Northwest) => (0, (-1, 0)),
@@ -1355,7 +1352,7 @@ impl PipSelector {
         pip_index: usize,
         desired_pip_location: npnr::Loc,
         net: npnr::NetIndex,
-        raw_net: *mut npnr::NetInfo,
+        raw_net: &npnr::NetInfo,
     ) -> Option<npnr::PipId> {
         // adding a scope to avoid holding the lock for too long
         {
@@ -1376,14 +1373,16 @@ impl PipSelector {
             .flat_map(|pos| pips.get(&pos))
             .flat_map(|vec| vec.iter())
             .filter_map(|pip| {
-                if !ctx.pip_avail_for_net(*pip, raw_net) {
+                // checkPipAvailForNet should really have its NetInfo arg annotated as const,
+                // thus this dubious-looking cast and nonsense unsafety
+                if unsafe { !ctx.pip_avail_for_net(*pip, raw_net as *const _ as *mut _) } {
                     return None;
                 }
 
                 let source = ctx.pip_src_wire(*pip);
                 let sink = ctx.pip_dst_wire(*pip);
 
-                let (source, sink) = match sink.cmp(&source) {
+                let (mut source, mut sink) = match sink.cmp(&source) {
                     Ordering::Greater => {
                         let source = self.used_wires.get(&source).unwrap().lock().unwrap();
                         let sink = self.used_wires.get(&sink).unwrap().lock().unwrap();
