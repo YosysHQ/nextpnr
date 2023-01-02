@@ -187,6 +187,15 @@ extern "C" {
         return wires.size();
     }
 
+    size_t npnr_netinfo_users_leak(NetInfo &net, rust::Vec<PortRef> &vec) {
+        for (auto& item : net.users) {
+            vec.push_back(item);
+        }
+        vec.shrink_to_fit();
+        return vec.size();
+    }
+
+
     void npnr_context_check(const Context *const ctx) { ctx->check(); }
     bool npnr_context_debug(const Context *const ctx) { return ctx->debug; }
     int npnr_context_id(const Context *const ctx, const char *const str) { return ctx->id(str).hash(); }

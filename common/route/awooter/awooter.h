@@ -16,7 +16,6 @@
  *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
-#pragma once
 #ifndef AWOOTER_H
 #define AWOOTER_H
 
@@ -27,14 +26,6 @@ NEXTPNR_NAMESPACE_BEGIN
 typedef dict<IdString, std::unique_ptr<NetInfo>> NetDict;
 
 extern bool router_awooter(Context* ctx);
-
-uint64_t npnr_netinfo_users_leak(NetInfo &net, rust::Vec<PortRef> &vec) {
-    for (auto& item : net.users) {
-        vec.push_back(item);
-    }
-    vec.shrink_to_fit();
-    return vec.size();
-}
 
 NEXTPNR_NAMESPACE_END
 
