@@ -367,11 +367,7 @@ impl Router {
         if pip_coord.is_south_of(&self.box_sw) || pip_coord.is_west_of(&self.box_sw) {
             return false;
         }*/
-        // checkPipAvailForNet should really have its NetInfo arg annotated as const,
-        // thus this dubious-looking cast and nonsense unsafety
-        if unsafe {
-            !ctx.pip_avail_for_net(pip, nets.get_net(arc.net()).unwrap() as *const _ as *mut _)
-        } {
+        if unsafe { !ctx.pip_avail_for_net(pip, nets.get_net(arc.net()).unwrap() as *const _) } {
             return false;
         }
         if nwd.unavailable {

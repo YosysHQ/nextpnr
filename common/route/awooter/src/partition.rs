@@ -1373,9 +1373,7 @@ impl PipSelector {
             .flat_map(|pos| pips.get(&pos))
             .flat_map(|vec| vec.iter())
             .filter_map(|pip| {
-                // checkPipAvailForNet should really have its NetInfo arg annotated as const,
-                // thus this dubious-looking cast and nonsense unsafety
-                if unsafe { !ctx.pip_avail_for_net(*pip, raw_net as *const _ as *mut _) } {
+                if unsafe { !ctx.pip_avail_for_net(*pip, raw_net as *const _) } {
                     return None;
                 }
 

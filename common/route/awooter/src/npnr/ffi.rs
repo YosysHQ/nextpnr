@@ -178,7 +178,7 @@ pub mod ecp5 {
             #[rust_name = "pip_location"]
             fn getPipLocation(self: &Context, pip: PipId) -> Loc;
             #[rust_name = "pip_avail_for_net"]
-            unsafe fn checkPipAvailForNet(self: &Context, pip: PipId, net: *mut NetInfo) -> bool;
+            unsafe fn checkPipAvailForNet(self: &Context, pip: PipId, net: *const NetInfo) -> bool;
 
             /// Bid a pip to a net. This also binds the destination wire of that pip.
             #[rust_name = "bind_pip"]
