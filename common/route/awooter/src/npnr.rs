@@ -259,9 +259,6 @@ unsafe impl Send for Nets {}
 unsafe impl Sync for Nets {}
 
 impl Nets {
-    /// Create a new store for the nets of a context.
-    ///
-    /// Note that this leaks memory created by nextpnr; the intention is this is called once.
 
     /// Find net users given a net's name.
     pub fn users_by_name(&self, net: IdString) -> Option<&Vec<PortRef>> {

@@ -23,11 +23,16 @@ pub extern "C-unwind" fn nextpnr_router_awooter(
     pressure: f32,
     history: f32,
 ) -> bool {
+    // One-time pre-execution router setup in Rust happens... now.
+    // Notably, this means constructing Nets once, rather than giving it a callable constructor,
+    // as it is almost certainly erroneous to construct it twice.
+    // It's fine to query C++ for transient data after this, but if moving ownership from C++ to Rust,
+    // or anything else that looks like "mutable borrow for the rest of the program", then do it now.
+
     let mut ctx = ctx.expect("Context* should be non-null");
     let mut dict = unsafe { npnr::npnr_context_nets(ctx.as_ptr()) };
     let mut index_to_net = Vec::new();
     let name_sz = unsafe { npnr::npnr_nets_names(&*dict, &mut index_to_net) };
-    // assert_eq!(name_sz as usize, dict.size());
     let mut nets = HashMap::new();
     let mut users = HashMap::new();
     for (i, &name) in index_to_net.iter().enumerate() {
@@ -48,7 +53,7 @@ pub extern "C-unwind" fn nextpnr_router_awooter(
         nets.insert(name, liberated_ptr);
         users.insert(name, net_users);
     }
-    // Note: the contents of `names` and `nets_ptr` are now lost.
+
     let nets = npnr::Nets {
         nets,
         users,
@@ -140,8 +145,6 @@ fn route(mut ctx: Pin<&mut npnr::Context>, nets: npnr::Nets, pressure: f32, hist
 
     let mut count = 0;
     for (&name, net) in &nets.nets {
-        // let _src = ctx.source_wire(net);
-        // let net = unsafe { net.as_mut().unwrap() };
         let users = nets.users_by_name(name).unwrap().iter();
         for user in users {
             count += ctx.sink_wires(&net, user).len();
