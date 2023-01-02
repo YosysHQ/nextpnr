@@ -219,7 +219,8 @@ class HeAPPlacer
         heap_runs.push_back(all_buckets);
         // The main HeAP placer loop
         if (cfg.cell_placement_timeout > 0)
-            log_info("Running main analytical placer, max placement attempts per cell = %d.\n", cfg.cell_placement_timeout);
+            log_info("Running main analytical placer, max placement attempts per cell = %d.\n",
+                     cfg.cell_placement_timeout);
         else
             log_info("Running main analytical placer.\n");
         while (stalled < 5 && (solved_hpwl <= legal_hpwl * 0.8)) {
@@ -887,7 +888,9 @@ class HeAPPlacer
 
             while (!placed) {
                 if (cfg.cell_placement_timeout > 0 && total_iters_for_cell > cfg.cell_placement_timeout)
-                    log_error("Unable to find legal placement for cell '%s' after %d attempts, check constraints and utilisation. Use `--placer-heap-cell-placement-timeout` to change the number of attempts.\n",
+                    log_error("Unable to find legal placement for cell '%s' after %d attempts, check constraints and "
+                              "utilisation. Use `--placer-heap-cell-placement-timeout` to change the number of "
+                              "attempts.\n",
                               ctx->nameOf(ci), total_iters_for_cell);
 
                 // Determine a search radius around the solver location (which increases over time) that is clamped to
