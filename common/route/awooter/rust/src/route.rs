@@ -428,7 +428,6 @@ impl Router {
                     continue;
                 }
 
-                set_visited(self, sink, pip, dirty_wires);
                 let nwd = &self.flat_wires[sink as usize].read().unwrap();
                 let node_delay = ctx.pip_delay(pip) + ctx.wire_delay(wire) + ctx.delay_epsilon();
                 let sum_delay = source.delay + node_delay;
