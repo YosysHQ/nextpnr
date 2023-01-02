@@ -44,21 +44,22 @@ bool Arch::apply_lpf(std::string filename, std::istream &in)
     auto isempty = [](const std::string &str) {
         return std::all_of(str.begin(), str.end(), [](char c) { return isblank(c) || c == '\r' || c == '\n'; });
     };
-    auto strip_quotes = [](const std::string &str) {
-        if (str.at(0) == '"') {
-            NPNR_ASSERT(str.back() == '"');
-            return str.substr(1, str.size() - 2);
-        } else {
-            return str;
-        }
-    };
-
     try {
         if (!in)
             log_error("failed to open LPF file\n");
         std::string line;
         std::string linebuf;
         int lineno = 0;
+        auto strip_quotes = [&](const std::string &str) {
+            if (str.at(0) == '"') {
+                if (str.back() != '"') {
+                    log_error("expected '\"' at end of string '%s' (on line %d)\n", str.c_str(), lineno);
+                }
+                return str.substr(1, str.size() - 2);
+            } else {
+                return str;
+            }
+        };
         while (std::getline(in, line)) {
             ++lineno;
             size_t cstart = line.find('#');
