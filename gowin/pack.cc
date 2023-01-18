@@ -1036,7 +1036,8 @@ static void pack_plls(Context *ctx)
         if (is_pll(ctx, ci)) {
             std::string parm_device = str_or_default(ci->params, id_DEVICE, "GW1N-1");
             if (parm_device != ctx->device) {
-                log_error("Wrong PLL device:%s instead of %s\n", parm_device.c_str(), ctx->device.c_str());
+                log_error("Cell '%s': wrong PLL device:%s instead of %s\n", ctx->nameOf(ci), parm_device.c_str(),
+                          ctx->device.c_str());
                 continue;
             }
 
