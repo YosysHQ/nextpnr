@@ -324,7 +324,7 @@ void Context::writeSDF(std::ostream &out, bool cvc_mode) const
             ic.to.cell = usr.cell->name.str(this);
             ic.to.port = usr.port.str(this);
             // FIXME: min/max routing delay
-            ic.delay = convert_delay(DelayQuad(getNetinfoRouteDelay(ni, usr)));
+            ic.delay = convert_delay(getNetinfoRouteDelayQuad(ni, usr));
             wr.conn.push_back(ic);
         }
     }

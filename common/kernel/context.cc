@@ -157,6 +157,53 @@ delay_t Context::getNetinfoRouteDelay(const NetInfo *net_info, const PortRef &us
     return max_delay;
 }
 
+DelayQuad Context::getNetinfoRouteDelayQuad(const NetInfo *net_info, const PortRef &user_info) const
+{
+#ifdef ARCH_ECP5
+    if (net_info->is_global)
+        return DelayQuad(0);
+#endif
+
+    if (net_info->wires.empty())
+        return DelayQuad(predictArcDelay(net_info, user_info));
+
+    WireId src_wire = getNetinfoSourceWire(net_info);
+    if (src_wire == WireId())
+        return DelayQuad(0);
+
+    DelayQuad result(std::numeric_limits<delay_t>::max(), std::numeric_limits<delay_t>::lowest());
+
+    for (auto dst_wire : getNetinfoSinkWires(net_info, user_info)) {
+        WireId cursor = dst_wire;
+        DelayQuad delay{0};
+
+        while (cursor != WireId() && cursor != src_wire) {
+            auto it = net_info->wires.find(cursor);
+
+            if (it == net_info->wires.end())
+                break;
+
+            PipId pip = it->second.pip;
+            if (pip == PipId())
+                break;
+
+            delay = delay + getPipDelay(pip);
+            delay = delay + getWireDelay(cursor);
+            cursor = getPipSrcWire(pip);
+        }
+
+        if (cursor == src_wire)
+            delay = delay + getWireDelay(src_wire);
+        else
+            delay = DelayQuad(predictArcDelay(net_info, user_info)); // unrouted
+        result.rise.min_delay = std::min(result.rise.min_delay, delay.rise.min_delay);
+        result.rise.max_delay = std::max(result.rise.max_delay, delay.rise.max_delay);
+        result.fall.min_delay = std::min(result.fall.min_delay, delay.fall.min_delay);
+        result.fall.max_delay = std::max(result.fall.max_delay, delay.fall.max_delay);
+    }
+    return result;
+}
+
 static uint32_t xorshift32(uint32_t x)
 {
     x ^= x << 13;

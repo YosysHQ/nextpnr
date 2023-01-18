@@ -58,6 +58,7 @@ struct Context : Arch, DeterministicRNG
     size_t getNetinfoSinkWireCount(const NetInfo *net_info, const PortRef &sink) const;
     WireId getNetinfoSinkWire(const NetInfo *net_info, const PortRef &sink, size_t phys_idx) const;
     delay_t getNetinfoRouteDelay(const NetInfo *net_info, const PortRef &sink) const;
+    DelayQuad getNetinfoRouteDelayQuad(const NetInfo *net_info, const PortRef &sink) const;
 
     // provided by router1.cc
     bool checkRoutedDesign() const;
