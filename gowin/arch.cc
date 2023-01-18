@@ -2169,7 +2169,13 @@ void Arch::fix_pll_nets(Context *ctx)
                 ci->setParam(id_FBSEL, Property("UNKNOWN"));
                 continue;
             }
+            // XXX Redesign for chips other than N-1 and NS-4
             if (net_driven_by(ctx, net, is_RPLL_T_FB_iob, id_O) != nullptr) {
+                ci->disconnectPort(id_CLKFB);
+                ci->setParam(id_FBSEL, Property("CLKFB2"));
+                break;
+            }
+            if (net_driven_by(ctx, net, is_LPLL_T_FB_iob, id_O) != nullptr) {
                 ci->disconnectPort(id_CLKFB);
                 ci->setParam(id_FBSEL, Property("CLKFB2"));
                 break;
