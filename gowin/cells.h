@@ -121,7 +121,8 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
 // Convert a Gowin IO buffer to a IOB bel
 void gwio_to_iob(Context *ctx, CellInfo *nxio, CellInfo *sbio, pool<IdString> &todelete_cells);
 
-// Reconnect rPLL signals (B)
+// Reconnect PLL signals (B)
+void reconnect_pllvr(Context *ctx, CellInfo *pll, CellInfo *pllb);
 void reconnect_rplla(Context *ctx, CellInfo *pll, CellInfo *pllb);
 void reconnect_rpllb(Context *ctx, CellInfo *pll, CellInfo *pllb);
 
