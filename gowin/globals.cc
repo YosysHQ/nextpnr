@@ -53,7 +53,7 @@ std::pair<WireId, BelId> GowinGlobalRouter::clock_src(Context *ctx, PortRef cons
         }
         return std::make_pair(WireId(), BelId());
     }
-    if (driver.cell->type == id_RPLLA) {
+    if (driver.cell->type == id_RPLLA || driver.cell->type == id_PLLVR) {
         if (driver.port == id_CLKOUT || driver.port == id_CLKOUTP || driver.port == id_CLKOUTD ||
             driver.port == id_CLKOUTD3) {
             wire = bel.pins[driver.port].wire;
@@ -294,7 +294,7 @@ void GowinGlobalRouter::mark_globals(Context *ctx)
     gather_clock_nets(ctx, clock_nets);
     // XXX we need to use the list of indexes of clocks from the database
     // use 6 clocks (XXX 3 for GW1NZ-1)
-    int max_clock = 3, cur_clock = -1;
+    int max_clock = ctx->max_clock, cur_clock = -1;
     for (auto &net : clock_nets) {
         // XXX only IO clock for now
         if (net.clock_wire == WireId()) {

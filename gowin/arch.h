@@ -479,6 +479,7 @@ struct Arch : BaseArch<ArchRanges>
     void post_route(Context *ctx);
     void auto_longwires();
     void add_plla_ports(BelsPOD const *bel, IdString belname, int row, int col);
+    void add_pllvr_ports(DatabasePOD const *db, BelsPOD const *bel, IdString belname, int row, int col);
     void fix_pll_nets(Context *ctx);
     bool is_GCLKT_iob(const CellInfo *cell);
 
@@ -507,6 +508,9 @@ struct Arch : BaseArch<ArchRanges>
 
     // Permissible combinations of modes in a single slice
     std::map<const IdString, IdString> dff_comp_mode;
+
+    // max global clock wires
+    int max_clock;
 };
 
 // Bels Z range
@@ -521,7 +525,8 @@ enum
     osc_z = 280,      // Z for the oscillator bels
     bufs_0_z = 281,   // Z for long wire buffer bel
     pll_z = 289,      // PLL
-    free_z = 290      // Must be the last, one can use z starting from this value, adjust accordingly.
+    pllvr_z = 290,    // PLLVR
+    free_z = 291      // Must be the last, one can use z starting from this value, adjust accordingly.
 };
 }
 

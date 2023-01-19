@@ -989,8 +989,34 @@ static bool is_pll(const Context *ctx, const CellInfo *cell)
     switch (cell->type.hash()) {
     case ID_rPLL:
         return true;
+    case ID_PLLVR:
+        return true;
     default:
         return false;
+    }
+}
+
+static void pll_disable_unused_ports(Context *ctx, CellInfo *ci)
+{
+    // Unused ports will be disabled during image generation. Here we add flags for such ports.
+    Property pr_enable("ENABLE"), pr_disable("DISABLE");
+    IdString ports[][2] = {
+            {id_CLKOUTP, id_CLKOUTPS}, {id_CLKOUTD, id_CLKOUTDIV}, {id_CLKOUTD3, id_CLKOUTDIV3}, {id_LOCK, id_FLOCK}};
+    for (int i = 0; i < 4; ++i) {
+        ci->setParam(ports[i][1], port_used(ci, ports[i][0]) ? pr_enable : pr_disable);
+    }
+    // resets
+    NetInfo *net = ci->getPort(id_RESET);
+    ci->setParam(id_RSTEN, pr_enable);
+    if (!port_used(ci, id_RESET) || net->name == ctx->id("$PACKER_VCC_NET") ||
+        net->name == ctx->id("$PACKER_GND_NET")) {
+        ci->setParam(id_RSTEN, pr_disable);
+    }
+    ci->setParam(id_PWDEN, pr_enable);
+    net = ci->getPort(id_RESET_P);
+    if (!port_used(ci, id_RESET_P) || net->name == ctx->id("$PACKER_VCC_NET") ||
+        net->name == ctx->id("$PACKER_GND_NET")) {
+        ci->setParam(id_PWDEN, pr_disable);
     }
 }
 
@@ -1010,36 +1036,15 @@ static void pack_plls(Context *ctx)
         if (is_pll(ctx, ci)) {
             std::string parm_device = str_or_default(ci->params, id_DEVICE, "GW1N-1");
             if (parm_device != ctx->device) {
-                log_error("Wrong PLL device:%s vs %s\n", parm_device.c_str(), ctx->device.c_str());
+                log_error("Cell '%s': wrong PLL device:%s instead of %s\n", ctx->nameOf(ci), parm_device.c_str(),
+                          ctx->device.c_str());
                 continue;
             }
 
             switch (ci->type.hash()) {
             case ID_rPLL: {
                 if (parm_device == "GW1N-1" || parm_device == "GW1NZ-1") {
-                    // Unused ports will be disabled during image generation. Here we add flags for such ports.
-                    Property pr_enable("ENABLE"), pr_disable("DISABLE");
-                    IdString ports[][2] = {{id_CLKOUTP, id_CLKOUTPS},
-                                           {id_CLKOUTD, id_CLKOUTDIV},
-                                           {id_CLKOUTD3, id_CLKOUTDIV3},
-                                           {id_LOCK, id_FLOCK}};
-                    for (int i = 0; i < 4; ++i) {
-                        ci->setParam(ports[i][1], port_used(ci, ports[i][0]) ? pr_enable : pr_disable);
-                    }
-                    // resets
-                    NetInfo *net = ci->getPort(id_RESET);
-                    ci->setParam(id_RSTEN, pr_enable);
-                    if (!port_used(ci, id_RESET) || net->name == ctx->id("$PACKER_VCC_NET") ||
-                        net->name == ctx->id("$PACKER_GND_NET")) {
-                        ci->setParam(id_RSTEN, pr_disable);
-                    }
-                    ci->setParam(id_PWDEN, pr_enable);
-                    net = ci->getPort(id_RESET_P);
-                    if (!port_used(ci, id_RESET_P) || net->name == ctx->id("$PACKER_VCC_NET") ||
-                        net->name == ctx->id("$PACKER_GND_NET")) {
-                        ci->setParam(id_PWDEN, pr_disable);
-                    }
-
+                    pll_disable_unused_ports(ctx, ci);
                     // B half
                     std::unique_ptr<CellInfo> cell = create_generic_cell(ctx, id_RPLLB, ci->name.str(ctx) + "$rpllb");
                     reconnect_rpllb(ctx, ci, cell.get());
@@ -1055,6 +1060,23 @@ static void pack_plls(Context *ctx)
                     for (auto &parm : ci->params) {
                         plla_cell->setParam(parm.first, parm.second);
                         pllb_cell->setParam(parm.first, parm.second);
+                    }
+                    packed_cells.insert(ci->name);
+                } else {
+                    log_error("PLL isn't supported for %s\n", ctx->device.c_str());
+                }
+            } break;
+            case ID_PLLVR: {
+                if (parm_device == "GW1NSR-4C") {
+                    pll_disable_unused_ports(ctx, ci);
+                    std::unique_ptr<CellInfo> cell = create_generic_cell(ctx, id_PLLVR, ci->name.str(ctx) + "$pllvr");
+                    reconnect_pllvr(ctx, ci, cell.get());
+                    new_cells.push_back(std::move(cell));
+                    auto pll_cell = new_cells.back().get();
+
+                    // need params for gowin_pack
+                    for (auto &parm : ci->params) {
+                        pll_cell->setParam(parm.first, parm.second);
                     }
                     packed_cells.insert(ci->name);
                 } else {

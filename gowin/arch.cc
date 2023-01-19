@@ -384,6 +384,9 @@ void Arch::addPip(IdString name, IdString type, IdString srcWire, IdString dstWi
     pi.delay = delay;
     pi.loc = loc;
 
+    // log_info("addpip %s->%s %.6f | %s name:%s\n" , srcWire.c_str(this), dstWire.c_str(this),
+    // getDelayNS(delay.maxDelay()), srcWire.c_str(this), name.c_str(this));
+
     wire_info(srcWire).downhill.push_back(name);
     wire_info(dstWire).uphill.push_back(name);
     pip_ids.push_back(name);
@@ -1112,9 +1115,45 @@ void Arch::add_plla_ports(BelsPOD const *bel, IdString belname, int row, int col
     }
 }
 
+void Arch::add_pllvr_ports(DatabasePOD const *db, BelsPOD const *bel, IdString belname, int row, int col)
+{
+    IdString portname;
+
+    for (int pid :
+         {ID_CLKIN,   ID_CLKFB,   ID_FBDSEL0, ID_FBDSEL1, ID_FBDSEL2, ID_FBDSEL3, ID_FBDSEL4, ID_FBDSEL5, ID_IDSEL0,
+          ID_IDSEL1,  ID_IDSEL2,  ID_IDSEL3,  ID_IDSEL4,  ID_IDSEL5,  ID_ODSEL0,  ID_ODSEL1,  ID_ODSEL2,  ID_ODSEL3,
+          ID_ODSEL4,  ID_ODSEL5,  ID_VREN,    ID_PSDA0,   ID_PSDA1,   ID_PSDA2,   ID_PSDA3,   ID_DUTYDA0, ID_DUTYDA1,
+          ID_DUTYDA2, ID_DUTYDA3, ID_FDLY0,   ID_FDLY1,   ID_FDLY2,   ID_FDLY3,   ID_RESET,   ID_RESET_P}) {
+        portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, pid)->src_id);
+        IdString wire = idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
+        if (wires.count(wire) == 0) {
+            GlobalAliasPOD alias;
+            alias.dest_col = col;
+            alias.dest_row = row;
+            alias.dest_id = portname.hash();
+            auto alias_src = genericLookup(db->aliases.get(), db->num_aliases, alias, aliasCompare);
+            NPNR_ASSERT(alias_src != nullptr);
+            int srcrow = alias_src->src_row;
+            int srccol = alias_src->src_col;
+            IdString srcid = IdString(alias_src->src_id);
+            wire = wireToGlobal(srcrow, srccol, db, srcid);
+            // addWire(wire, portname, srccol, srcrow);
+        }
+        addBelInput(belname, IdString(pid), wire);
+    }
+    for (int pid : {ID_LOCK, ID_CLKOUT, ID_CLKOUTP, ID_CLKOUTD, ID_CLKOUTD3}) {
+        portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, pid)->src_id);
+        addBelOutput(belname, IdString(pid), idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this)));
+    }
+}
 Arch::Arch(ArchArgs args) : args(args)
 {
     family = args.family;
+
+    max_clock = 5;
+    if (family == "GW1NZ-1") {
+        max_clock = 3;
+    }
 
     // Load database
     std::string chipdb = stringf("gowin/chipdb-%s.bin", family.c_str());
@@ -1267,12 +1306,17 @@ Arch::Arch(ArchArgs args) : args(args)
             bool dff = true;
             bool oddrc = false;
             switch (static_cast<ConstIds>(bel->type_id)) {
-            case ID_RPLLA: {
+            case ID_PLLVR:
+                belname = idf("R%dC%d_PLLVR", row + 1, col + 1);
+                addBel(belname, id_PLLVR, Loc(col, row, BelZ::pllvr_z), false);
+                add_pllvr_ports(db, bel, belname, row, col);
+                break;
+            case ID_RPLLA:
                 snprintf(buf, 32, "R%dC%d_RPLLA", row + 1, col + 1);
                 belname = id(buf);
                 addBel(belname, id_RPLLA, Loc(col, row, BelZ::pll_z), false);
                 add_plla_ports(bel, belname, row, col);
-            } break;
+                break;
             case ID_RPLLB:
                 snprintf(buf, 32, "R%dC%d_RPLLB", row + 1, col + 1);
                 belname = id(buf);
@@ -2006,14 +2050,24 @@ static bool is_spec_iob(const Context *ctx, const CellInfo *cell, IdString pin_n
     return have_pin;
 }
 
-static bool is_PLL_T_IN_iob(const Context *ctx, const CellInfo *cell)
+static bool is_RPLL_T_IN_iob(const Context *ctx, const CellInfo *cell)
 {
     return is_spec_iob(ctx, cell, ctx->id("RPLL_T_IN"));
 }
 
-static bool is_PLL_T_FB_iob(const Context *ctx, const CellInfo *cell)
+static bool is_LPLL_T_IN_iob(const Context *ctx, const CellInfo *cell)
+{
+    return is_spec_iob(ctx, cell, ctx->id("LPLL_T_IN"));
+}
+
+static bool is_RPLL_T_FB_iob(const Context *ctx, const CellInfo *cell)
 {
     return is_spec_iob(ctx, cell, ctx->id("RPLL_T_FB"));
+}
+
+static bool is_LPLL_T_FB_iob(const Context *ctx, const CellInfo *cell)
+{
+    return is_spec_iob(ctx, cell, ctx->id("LPLL_T_FB"));
 }
 
 bool Arch::is_GCLKT_iob(const CellInfo *cell)
@@ -2032,7 +2086,7 @@ void Arch::fix_pll_nets(Context *ctx)
 {
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
-        if (ci->type != id_RPLLA) {
+        if (ci->type != id_RPLLA && ci->type != id_PLLVR) {
             continue;
         }
         // *** CLKIN
@@ -2046,10 +2100,54 @@ void Arch::fix_pll_nets(Context *ctx)
                 ci->setParam(id_INSEL, Property("UNKNOWN"));
                 break;
             }
-            if (net_driven_by(ctx, net, is_PLL_T_IN_iob, id_O) != nullptr) {
-                ci->disconnectPort(id_CLKIN);
-                ci->setParam(id_INSEL, Property("CLKIN0"));
-                break;
+            if (net_driven_by(ctx, net, is_RPLL_T_IN_iob, id_O) != nullptr) {
+                if (ci->type == id_RPLLA) {
+                    ci->disconnectPort(id_CLKIN);
+                    ci->setParam(id_INSEL, Property("CLKIN0"));
+                    break;
+                }
+                BelId bel = id("R1C37_PLLVR");
+                if (ci->type == id_PLLVR) {
+                    if (checkBelAvail(bel) || ci->belStrength != STRENGTH_LOCKED) {
+                        if (ci->bel == bel) {
+                            unbindBel(bel);
+                        } else {
+                            if (!checkBelAvail(bel) && ci->belStrength != STRENGTH_LOCKED) {
+                                CellInfo *other_ci = getBoundBelCell(bel);
+                                unbindBel(bel);
+                                BelId our_bel = ci->bel;
+                                unbindBel(our_bel);
+                                bindBel(our_bel, other_ci, STRENGTH_LOCKED);
+                            }
+                        }
+                        ci->disconnectPort(id_CLKIN);
+                        ci->setParam(id_INSEL, Property("CLKIN0"));
+                        bindBel(bel, ci, STRENGTH_LOCKED);
+                        break;
+                    }
+                }
+            }
+            if (net_driven_by(ctx, net, is_LPLL_T_IN_iob, id_O) != nullptr) {
+                BelId bel = id("R1C28_PLLVR");
+                if (ci->type == id_PLLVR) {
+                    if (checkBelAvail(bel) || ci->belStrength != STRENGTH_LOCKED) {
+                        if (ci->bel == bel) {
+                            unbindBel(bel);
+                        } else {
+                            if (!checkBelAvail(bel) && ci->belStrength != STRENGTH_LOCKED) {
+                                CellInfo *other_ci = getBoundBelCell(bel);
+                                unbindBel(bel);
+                                BelId our_bel = ci->bel;
+                                unbindBel(our_bel);
+                                bindBel(our_bel, other_ci, STRENGTH_LOCKED);
+                            }
+                        }
+                        ci->disconnectPort(id_CLKIN);
+                        ci->setParam(id_INSEL, Property("CLKIN0"));
+                        bindBel(bel, ci, STRENGTH_LOCKED);
+                        break;
+                    }
+                }
             }
             // XXX do special bels (HCLK etc)
             // This is general routing through CLK0 pip
@@ -2071,7 +2169,13 @@ void Arch::fix_pll_nets(Context *ctx)
                 ci->setParam(id_FBSEL, Property("UNKNOWN"));
                 continue;
             }
-            if (net_driven_by(ctx, net, is_PLL_T_FB_iob, id_O) != nullptr) {
+            // XXX Redesign for chips other than N-1 and NS-4
+            if (net_driven_by(ctx, net, is_RPLL_T_FB_iob, id_O) != nullptr) {
+                ci->disconnectPort(id_CLKFB);
+                ci->setParam(id_FBSEL, Property("CLKFB2"));
+                break;
+            }
+            if (net_driven_by(ctx, net, is_LPLL_T_FB_iob, id_O) != nullptr) {
                 ci->disconnectPort(id_CLKFB);
                 ci->setParam(id_FBSEL, Property("CLKFB2"));
                 break;
