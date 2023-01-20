@@ -24,6 +24,7 @@
 
 #include <boost/range/adaptor/reversed.hpp>
 #include <queue>
+#include <set>
 
 NEXTPNR_NAMESPACE_BEGIN
 namespace {

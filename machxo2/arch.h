@@ -22,6 +22,7 @@
 #define MACHXO2_ARCH_H
 
 #include <cstdint>
+#include <set>
 
 #include "base_arch.h"
 #include "nextpnr_namespaces.h"

@@ -34,6 +34,7 @@
 #include <deque>
 #include <fstream>
 #include <queue>
+#include <set>
 
 #include "log.h"
 #include "nextpnr.h"
