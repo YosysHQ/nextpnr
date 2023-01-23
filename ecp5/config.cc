@@ -20,7 +20,9 @@
 #include "config.h"
 #include <boost/range/adaptor/reversed.hpp>
 #include <iomanip>
+#include <set>
 #include "log.h"
+
 NEXTPNR_NAMESPACE_BEGIN
 
 #define fmt(x) (static_cast<const std::ostringstream &>(std::ostringstream() << x).str())

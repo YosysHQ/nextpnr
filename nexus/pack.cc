@@ -25,6 +25,7 @@
 
 #include <boost/algorithm/string.hpp>
 #include <queue>
+#include <set>
 
 NEXTPNR_NAMESPACE_BEGIN
 

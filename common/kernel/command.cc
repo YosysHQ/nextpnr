@@ -34,6 +34,8 @@
 #include <fstream>
 #include <iostream>
 #include <random>
+#include <set>
+
 #include "command.h"
 #include "design_utils.h"
 #include "json_frontend.h"
