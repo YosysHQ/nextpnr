@@ -225,8 +225,7 @@ include_directories(common/kernel/ common/place/ common/route/ json/ frontend/ 3
 
 if(BUILD_HEAP)
     find_package (Eigen3 REQUIRED NO_MODULE)
-    include_directories(${EIGEN3_INCLUDE_DIRS})
-    add_definitions(${EIGEN3_DEFINITIONS})
+    link_libraries(Eigen3::Eigen)
     add_definitions(-DWITH_HEAP)
 endif()
 
