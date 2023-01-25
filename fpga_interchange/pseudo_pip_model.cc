@@ -22,7 +22,7 @@
 
 #include "context.h"
 
-//#define DEBUG_PSEUDO_PIP
+// #define DEBUG_PSEUDO_PIP
 
 NEXTPNR_NAMESPACE_BEGIN
 

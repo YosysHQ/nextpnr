@@ -24,7 +24,7 @@
 
 #include "site_lut_mapping_cache.h"
 
-//#define DEBUG_LUT_ROTATION
+// #define DEBUG_LUT_ROTATION
 
 NEXTPNR_NAMESPACE_BEGIN
 
