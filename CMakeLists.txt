@@ -235,7 +235,7 @@ if (NOT DEFINED PYBIND11_INCLUDE_DIR)
     set(PYBIND11_INCLUDE_DIR "3rdparty/pybind11/include")
 endif()
 
-include_directories(common/kernel/ common/place/ common/route/ json/ frontend/ 3rdparty/json11/ ${PYBIND11_INCLUDE_DIR} ${Boost_INCLUDE_DIRS} ${Python3_INCLUDE_DIRS})
+include_directories(common/kernel/ common/place/ common/route/ json/ frontend/ 3rdparty/json11/  3rdparty/oourafft ${PYBIND11_INCLUDE_DIR} ${Boost_INCLUDE_DIRS} ${Python3_INCLUDE_DIRS})
 
 find_package (Eigen3 REQUIRED NO_MODULE)
 link_libraries(Eigen3::Eigen)
@@ -246,9 +246,10 @@ aux_source_directory(common/route/ ROUTE_SRC_FILES)
 
 aux_source_directory(json/ JSON_PARSER_FILES)
 aux_source_directory(3rdparty/json11 EXT_JSON11_FILES)
+aux_source_directory(3rdparty/oourafft EXT_OOURAFFT_FILES)
 aux_source_directory(frontend/ FRONTEND_FILES)
 
-set(COMMON_FILES ${KERNEL_SRC_FILES} ${PLACE_SRC_FILES} ${ROUTE_SRC_FILES} ${EXT_JSON11_FILES} ${JSON_PARSER_FILES} ${FRONTEND_FILES})
+set(COMMON_FILES ${KERNEL_SRC_FILES} ${PLACE_SRC_FILES} ${ROUTE_SRC_FILES} ${EXT_JSON11_FILES} ${EXT_OOURAFFT_FILES} ${JSON_PARSER_FILES} ${FRONTEND_FILES})
 if( NOT CMAKE_BUILD_TYPE )
     set(CMAKE_BUILD_TYPE Release)
 endif()

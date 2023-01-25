@@ -30,6 +30,7 @@
 #include "nextpnr.h"
 #include "placer1.h"
 #include "placer_heap.h"
+#include "placer_static.h"
 #include "router1.h"
 #include "router2.h"
 #include "timing.h"
@@ -586,6 +587,49 @@ delay_t Arch::getRipupDelayPenalty() const { return 400; }
 
 // -----------------------------------------------------------------------
 
+namespace {
+void configure_static(Arch *arch, PlacerStaticCfg &cfg)
+{
+    {
+        cfg.cell_groups.emplace_back();
+        auto &comb = cfg.cell_groups.back();
+        comb.name = arch->id("COMB");
+        comb.bel_area[id_TRELLIS_COMB] = StaticRect(1.0f, 0.125f);
+        comb.bel_area[id_TRELLIS_RAMW] = StaticRect(1.0f, 0.125f);
+        comb.cell_area[id_TRELLIS_COMB] = StaticRect(1.0f, 0.125f);
+        comb.cell_area[id_TRELLIS_RAMW] = StaticRect(1.0f, 0.125f);
+        comb.zero_area_cells.insert(id_TRELLIS_RAMW);
+        comb.spacer_rect = StaticRect(1.0f, 0.125f);
+    }
+
+    {
+        cfg.cell_groups.emplace_back();
+        auto &comb = cfg.cell_groups.back();
+        comb.name = arch->id("FF");
+        comb.cell_area[id_TRELLIS_FF] = StaticRect(1.0f, 0.125f);
+        comb.bel_area[id_TRELLIS_FF] = StaticRect(1.0f, 0.125f);
+        comb.spacer_rect = StaticRect(1.0f, 0.125f);
+    }
+
+    {
+        cfg.cell_groups.emplace_back();
+        auto &comb = cfg.cell_groups.back();
+        comb.name = arch->id("RAM");
+        comb.cell_area[id_DP16KD] = StaticRect(2.0f, 1.0f);
+        comb.bel_area[id_DP16KD] = StaticRect(2.0f, 1.0f);
+        comb.spacer_rect = StaticRect(2.0f, 1.0f);
+    }
+    {
+        cfg.cell_groups.emplace_back();
+        auto &comb = cfg.cell_groups.back();
+        comb.name = arch->id("MUL");
+        comb.cell_area[id_MULT18X18D] = StaticRect(2.0f, 1.0f);
+        comb.bel_area[id_MULT18X18D] = StaticRect(2.0f, 1.0f);
+        comb.spacer_rect = StaticRect(2.0f, 1.0f);
+    }
+}
+} // namespace
+
 bool Arch::place()
 {
     std::string placer = str_or_default(settings, id_placer, defaultPlacer);
@@ -608,6 +652,11 @@ bool Arch::place()
         cfg.beta = 0.75;
 
         if (!placer_heap(getCtx(), cfg))
+            return false;
+    } else if (placer == "static") {
+        PlacerStaticCfg cfg(getCtx());
+        configure_static(this, cfg);
+        if (!placer_static(getCtx(), cfg))
             return false;
     } else if (placer == "sa") {
         if (!placer1(getCtx(), Placer1Cfg(getCtx())))
@@ -1226,7 +1275,7 @@ WireId Arch::get_bank_eclk(int bank, int eclk)
 
 const std::string Arch::defaultPlacer = "heap";
 
-const std::vector<std::string> Arch::availablePlacers = {"sa", "heap"};
+const std::vector<std::string> Arch::availablePlacers = {"sa", "heap", "static"};
 
 const std::string Arch::defaultRouter = "router1";
 const std::vector<std::string> Arch::availableRouters = {"router1", "router2"};

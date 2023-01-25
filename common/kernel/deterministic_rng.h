@@ -72,6 +72,8 @@ struct DeterministicRNG
         }
     }
 
+    float rngf(float n) { return float(rng64() & 0x3fffffff) * (n / float(0x3fffffff)); }
+
     void rngseed(uint64_t seed)
     {
         rngstate = seed ? seed : 0x3141592653589793;
