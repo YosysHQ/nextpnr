@@ -1034,7 +1034,7 @@ static void pack_plls(Context *ctx)
         if (ctx->verbose)
             log_info("cell '%s' is of type '%s'\n", ctx->nameOf(ci), ci->type.c_str(ctx));
         if (is_pll(ctx, ci)) {
-            std::string parm_device = str_or_default(ci->params, id_DEVICE, "GW1N-1");
+            std::string parm_device = str_or_default(ci->params, id_DEVICE, ctx->device.c_str());
             if (parm_device != ctx->device) {
                 log_error("Cell '%s': wrong PLL device:%s instead of %s\n", ctx->nameOf(ci), parm_device.c_str(),
                           ctx->device.c_str());
@@ -1043,27 +1043,21 @@ static void pack_plls(Context *ctx)
 
             switch (ci->type.hash()) {
             case ID_rPLL: {
-                if (parm_device == "GW1N-1" || parm_device == "GW1NZ-1") {
+                if (parm_device == "GW1N-1" || parm_device == "GW1NZ-1" || parm_device == "GW1NR-9C") {
                     pll_disable_unused_ports(ctx, ci);
-                    // B half
-                    std::unique_ptr<CellInfo> cell = create_generic_cell(ctx, id_RPLLB, ci->name.str(ctx) + "$rpllb");
-                    reconnect_rpllb(ctx, ci, cell.get());
+                    // A cell
+                    std::unique_ptr<CellInfo> cell = create_generic_cell(ctx, id_rPLL, ci->name.str(ctx) + "$rpll");
+                    reconnect_rpll(ctx, ci, cell.get());
                     new_cells.push_back(std::move(cell));
-                    auto pllb_cell = new_cells.back().get();
-                    // A half
-                    cell = create_generic_cell(ctx, id_RPLLA, ci->name.str(ctx) + "$rplla");
-                    reconnect_rplla(ctx, ci, cell.get());
-                    new_cells.push_back(std::move(cell));
-                    auto plla_cell = new_cells.back().get();
+                    auto pll_cell = new_cells.back().get();
 
                     // need params for gowin_pack
                     for (auto &parm : ci->params) {
-                        plla_cell->setParam(parm.first, parm.second);
-                        pllb_cell->setParam(parm.first, parm.second);
+                        pll_cell->setParam(parm.first, parm.second);
                     }
                     packed_cells.insert(ci->name);
                 } else {
-                    log_error("PLL isn't supported for %s\n", ctx->device.c_str());
+                    log_error("rPLL isn't supported for %s\n", ctx->device.c_str());
                 }
             } break;
             case ID_PLLVR: {
@@ -1080,7 +1074,7 @@ static void pack_plls(Context *ctx)
                     }
                     packed_cells.insert(ci->name);
                 } else {
-                    log_error("PLL isn't supported for %s\n", ctx->device.c_str());
+                    log_error("PLLVR isn't supported for %s\n", ctx->device.c_str());
                 }
             } break;
             default:
