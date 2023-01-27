@@ -53,7 +53,7 @@ std::pair<WireId, BelId> GowinGlobalRouter::clock_src(Context *ctx, PortRef cons
         }
         return std::make_pair(WireId(), BelId());
     }
-    if (driver.cell->type == id_RPLLA || driver.cell->type == id_PLLVR) {
+    if (driver.cell->type == id_rPLL || driver.cell->type == id_PLLVR) {
         if (driver.port == id_CLKOUT || driver.port == id_CLKOUTP || driver.port == id_CLKOUTD ||
             driver.port == id_CLKOUTD3) {
             wire = bel.pins[driver.port].wire;
@@ -103,12 +103,20 @@ void GowinGlobalRouter::gather_clock_nets(Context *ctx, std::vector<globalnet_t>
 IdString GowinGlobalRouter::route_to_non_clock_port(Context *ctx, WireId const dstWire, int clock,
                                                     pool<IdString> &used_pips, pool<IdString> &undo_wires)
 {
-    static std::vector<IdString> one_hop = {id_S111, id_S121, id_N111, id_N121, id_W111, id_W121, id_E111, id_E121};
-    char buf[40];
+    static std::vector<IdString> one_hop_0 = {id_W111, id_W121, id_E111, id_E121};
+    static std::vector<IdString> one_hop_4 = {id_S111, id_S121, id_N111, id_N121};
     // uphill pips
     for (auto const uphill : ctx->getPipsUphill(dstWire)) {
         WireId srcWire = ctx->getPipSrcWire(uphill);
-        if (find(one_hop.begin(), one_hop.end(), ctx->wire_info(ctx->getPipSrcWire(uphill)).type) != one_hop.end()) {
+        bool found;
+        if (clock < 4) {
+            found = find(one_hop_0.begin(), one_hop_0.end(), ctx->wire_info(ctx->getPipSrcWire(uphill)).type) !=
+                    one_hop_0.end();
+        } else {
+            found = find(one_hop_4.begin(), one_hop_4.end(), ctx->wire_info(ctx->getPipSrcWire(uphill)).type) !=
+                    one_hop_4.end();
+        }
+        if (found) {
             // found one hop pip
             if (used_wires.count(srcWire)) {
                 if (used_wires[srcWire] != clock) {
@@ -117,8 +125,13 @@ IdString GowinGlobalRouter::route_to_non_clock_port(Context *ctx, WireId const d
             }
             WireInfo wi = ctx->wire_info(srcWire);
             std::string wire_alias = srcWire.str(ctx).substr(srcWire.str(ctx).rfind("_") + 1);
-            snprintf(buf, sizeof(buf), "R%dC%d_GB%d0_%s", wi.y + 1, wi.x + 1, clock, wire_alias.c_str());
-            IdString gb = ctx->id(buf);
+            IdString gb = ctx->idf("R%dC%d_GB%d0_%s", wi.y + 1, wi.x + 1, clock, wire_alias.c_str());
+            if (ctx->verbose) {
+                log_info("    1-hop gb:%s\n", gb.c_str(ctx));
+            }
+            // sanity
+            NPNR_ASSERT(find(ctx->getPipsUphill(srcWire).begin(), ctx->getPipsUphill(srcWire).end(), gb) !=
+                        ctx->getPipsUphill(srcWire).end());
             auto up_pips = ctx->getPipsUphill(srcWire);
             if (find(up_pips.begin(), up_pips.end(), gb) != up_pips.end()) {
                 if (!used_wires.count(srcWire)) {
@@ -154,11 +167,10 @@ void GowinGlobalRouter::route_net(Context *ctx, globalnet_t const &net)
 
         char buf[30];
         PipId gb_pip_id;
-        if (user.port == id_CLK) {
+        if (user.port == id_CLK || user.port == id_CLKIN) {
             WireInfo const wi = ctx->wire_info(dstWire);
-            snprintf(buf, sizeof(buf), "R%dC%d_GB%d0_%s", wi.y + 1, wi.x + 1, net.clock,
-                     ctx->wire_info(dstWire).type.c_str(ctx));
-            gb_pip_id = ctx->id(buf);
+            gb_pip_id =
+                    ctx->idf("R%dC%d_GB%d0_%s", wi.y + 1, wi.x + 1, net.clock, ctx->wire_info(dstWire).type.c_str(ctx));
             // sanity
             NPNR_ASSERT(find(ctx->getPipsUphill(dstWire).begin(), ctx->getPipsUphill(dstWire).end(), gb_pip_id) !=
                         ctx->getPipsUphill(dstWire).end());
@@ -192,11 +204,10 @@ void GowinGlobalRouter::route_net(Context *ctx, globalnet_t const &net)
         dstWire = ctx->getPipSrcWire(gb_pip_id);
         WireInfo dstWireInfo = ctx->wire_info(dstWire);
         int branch_tap_idx = net.clock > 3 ? 1 : 0;
-        snprintf(buf, sizeof(buf), "R%dC%d_GT%d0_GBO%d", dstWireInfo.y + 1, dstWireInfo.x + 1, branch_tap_idx,
-                 branch_tap_idx);
-        PipId gt_pip_id = ctx->id(buf);
+        PipId gt_pip_id =
+                ctx->idf("R%dC%d_GT%d0_GBO%d", dstWireInfo.y + 1, dstWireInfo.x + 1, branch_tap_idx, branch_tap_idx);
         if (ctx->verbose) {
-            log_info("     GT Pip:%s\n", buf);
+            log_info("     GT Pip:%s\n", gt_pip_id.c_str(ctx));
         }
         // sanity
         NPNR_ASSERT(find(ctx->getPipsUphill(dstWire).begin(), ctx->getPipsUphill(dstWire).end(), gt_pip_id) !=
@@ -251,12 +262,13 @@ void GowinGlobalRouter::route_net(Context *ctx, globalnet_t const &net)
         for (auto const uphill_pip : ctx->getPipsUphill(dstWire)) {
             if (ctx->getPipSrcWire(uphill_pip) == net.clock_wire) {
                 src_pip_id = uphill_pip;
+                break;
             }
         }
-        NPNR_ASSERT(src_pip_id != PipId());
         if (ctx->verbose) {
             log_info("       Src Pip:%s\n", src_pip_id.c_str(ctx));
         }
+        NPNR_ASSERT(src_pip_id != PipId());
         // if already routed
         if (used_pips.count(src_pip_id)) {
             if (ctx->verbose) {

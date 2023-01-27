@@ -79,16 +79,12 @@ std::unique_ptr<CellInfo> create_generic_cell(Context *ctx, IdString type, std::
     } else if (type == id_BUFS) {
         new_cell->addInput(id_I);
         new_cell->addOutput(id_O);
-    } else if (type == id_RPLLB) {
-        new_cell->addInput(id_RESET);
-        new_cell->addInput(id_RESET_P);
-        new_cell->addInput(id_ODSEL5);
-    } else if (type == id_RPLLA) {
+    } else if (type == id_rPLL) {
         for (IdString iid :
-             {id_CLKIN,   id_CLKFB,   id_FBDSEL0, id_FBDSEL1, id_FBDSEL2, id_FBDSEL3, id_FBDSEL4, id_FBDSEL5,
-              id_IDSEL0,  id_IDSEL1,  id_IDSEL2,  id_IDSEL3,  id_IDSEL4,  id_IDSEL5,  id_ODSEL0,  id_ODSEL1,
-              id_ODSEL2,  id_ODSEL3,  id_ODSEL4,  id_PSDA0,   id_PSDA1,   id_PSDA2,   id_PSDA3,   id_DUTYDA0,
-              id_DUTYDA1, id_DUTYDA2, id_DUTYDA3, id_FDLY0,   id_FDLY1,   id_FDLY2,   id_FDLY3}) {
+             {id_CLKIN,   id_CLKFB,  id_FBDSEL0, id_FBDSEL1, id_FBDSEL2, id_FBDSEL3, id_FBDSEL4, id_FBDSEL5, id_IDSEL0,
+              id_IDSEL1,  id_IDSEL2, id_IDSEL3,  id_IDSEL4,  id_IDSEL5,  id_ODSEL0,  id_ODSEL1,  id_ODSEL2,  id_ODSEL3,
+              id_ODSEL4,  id_ODSEL5, id_PSDA0,   id_PSDA1,   id_PSDA2,   id_PSDA3,   id_DUTYDA0, id_DUTYDA1, id_DUTYDA2,
+              id_DUTYDA3, id_FDLY0,  id_FDLY1,   id_FDLY2,   id_FDLY3,   id_RESET,   id_RESET_P}) {
             new_cell->addInput(iid);
         }
         new_cell->addOutput(id_CLKOUT);
@@ -206,40 +202,33 @@ void gwio_to_iob(Context *ctx, CellInfo *nxio, CellInfo *iob, pool<IdString> &to
     }
 }
 
-void reconnect_rplla(Context *ctx, CellInfo *pll, CellInfo *plla)
-{
-    pll->movePortTo(id_CLKIN, plla, id_CLKIN);
-    pll->movePortTo(id_CLKFB, plla, id_CLKFB);
-    for (int i = 0; i < 6; ++i) {
-        pll->movePortTo(ctx->idf("FBDSEL[%d]", i), plla, ctx->idf("FBDSEL%d", i));
-        pll->movePortTo(ctx->idf("IDSEL[%d]", i), plla, ctx->idf("IDSEL%d", i));
-        if (i < 5) {
-            pll->movePortTo(ctx->idf("ODSEL[%d]", i), plla, ctx->idf("ODSEL%d", i));
-        }
-        if (i < 4) {
-            pll->movePortTo(ctx->idf("PSDA[%d]", i), plla, ctx->idf("PSDA%d", i));
-            pll->movePortTo(ctx->idf("DUTYDA[%d]", i), plla, ctx->idf("DUTYDA%d", i));
-            pll->movePortTo(ctx->idf("FDLY[%d]", i), plla, ctx->idf("FDLY%d", i));
-        }
-    }
-    pll->movePortTo(id_CLKOUT, plla, id_CLKOUT);
-    pll->movePortTo(id_CLKOUTP, plla, id_CLKOUTP);
-    pll->movePortTo(id_CLKOUTD, plla, id_CLKOUTD);
-    pll->movePortTo(id_CLKOUTD3, plla, id_CLKOUTD3);
-    pll->movePortTo(id_LOCK, plla, id_LOCK);
-}
-
-void reconnect_rpllb(Context *ctx, CellInfo *pll, CellInfo *pllb)
-{
-    pll->movePortTo(id_RESET, pllb, id_RESET);
-    pll->movePortTo(id_RESET_P, pllb, id_RESET_P);
-    pll->movePortTo(ctx->id("ODSEL[5]"), pllb, id_ODSEL5);
-}
-
 void reconnect_pllvr(Context *ctx, CellInfo *pll, CellInfo *new_pll)
 {
     pll->movePortTo(id_CLKIN, new_pll, id_CLKIN);
     pll->movePortTo(id_VREN, new_pll, id_VREN);
+    pll->movePortTo(id_CLKFB, new_pll, id_CLKFB);
+    pll->movePortTo(id_RESET, new_pll, id_RESET);
+    pll->movePortTo(id_RESET_P, new_pll, id_RESET_P);
+    for (int i = 0; i < 6; ++i) {
+        pll->movePortTo(ctx->idf("FBDSEL[%d]", i), new_pll, ctx->idf("FBDSEL%d", i));
+        pll->movePortTo(ctx->idf("IDSEL[%d]", i), new_pll, ctx->idf("IDSEL%d", i));
+        pll->movePortTo(ctx->idf("ODSEL[%d]", i), new_pll, ctx->idf("ODSEL%d", i));
+        if (i < 4) {
+            pll->movePortTo(ctx->idf("PSDA[%d]", i), new_pll, ctx->idf("PSDA%d", i));
+            pll->movePortTo(ctx->idf("DUTYDA[%d]", i), new_pll, ctx->idf("DUTYDA%d", i));
+            pll->movePortTo(ctx->idf("FDLY[%d]", i), new_pll, ctx->idf("FDLY%d", i));
+        }
+    }
+    pll->movePortTo(id_CLKOUT, new_pll, id_CLKOUT);
+    pll->movePortTo(id_CLKOUTP, new_pll, id_CLKOUTP);
+    pll->movePortTo(id_CLKOUTD, new_pll, id_CLKOUTD);
+    pll->movePortTo(id_CLKOUTD3, new_pll, id_CLKOUTD3);
+    pll->movePortTo(id_LOCK, new_pll, id_LOCK);
+}
+
+void reconnect_rpll(Context *ctx, CellInfo *pll, CellInfo *new_pll)
+{
+    pll->movePortTo(id_CLKIN, new_pll, id_CLKIN);
     pll->movePortTo(id_CLKFB, new_pll, id_CLKFB);
     pll->movePortTo(id_RESET, new_pll, id_RESET);
     pll->movePortTo(id_RESET_P, new_pll, id_RESET_P);

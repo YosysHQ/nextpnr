@@ -122,9 +122,8 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
 void gwio_to_iob(Context *ctx, CellInfo *nxio, CellInfo *sbio, pool<IdString> &todelete_cells);
 
 // Reconnect PLL signals (B)
-void reconnect_pllvr(Context *ctx, CellInfo *pll, CellInfo *pllb);
-void reconnect_rplla(Context *ctx, CellInfo *pll, CellInfo *pllb);
-void reconnect_rpllb(Context *ctx, CellInfo *pll, CellInfo *pllb);
+void reconnect_pllvr(Context *ctx, CellInfo *pll, CellInfo *new_pll);
+void reconnect_rpll(Context *ctx, CellInfo *pll, CellInfo *new_pll);
 
 // Convert RAM16 to write port
 void sram_to_ramw_split(Context *ctx, CellInfo *ram, CellInfo *ramw);

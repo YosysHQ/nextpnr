@@ -855,7 +855,6 @@ X(OSCF)
 // PLLs
 X(rPLL)
 X(RPLLA)
-X(RPLLB)
 X(PLLVR)
 
 // primitive attributes

@@ -478,8 +478,8 @@ struct Arch : BaseArch<ArchRanges>
     void pre_route(Context *ctx);
     void post_route(Context *ctx);
     void auto_longwires();
-    void add_plla_ports(BelsPOD const *bel, IdString belname, int row, int col);
     void add_pllvr_ports(DatabasePOD const *db, BelsPOD const *bel, IdString belname, int row, int col);
+    void add_rpll_ports(DatabasePOD const *db, BelsPOD const *bel, IdString belname, int row, int col);
     void fix_pll_nets(Context *ctx);
     bool is_GCLKT_iob(const CellInfo *cell);
 
