@@ -2230,13 +2230,21 @@ class Ecp5Packer
                         // Handle CLK and CE muxes
                         if (str_or_default(ci->params, id_CLKMUX) == "INV")
                             iol->params[id_CLKIMUX] = std::string("INV");
-                        if (str_or_default(ci->params, id_CEMUX, "CE") == "CE") {
+                        if (str_or_default(ci->params, id_CEMUX, "CE") == "CE" ||
+                            str_or_default(ci->params, id_CEMUX, "CE") == "INV") {
                             iol->params[id_CEIMUX] = std::string("CEMUX");
-                            iol->params[id_CEMUX] = std::string("CE");
-                            if (ci->getPort(id_CE) == nullptr)
+                            if (iol->getPort(id_CE) == nullptr) {
+                                iol->params[id_CEMUX] = str_or_default(ci->params, id_CEMUX, "CE");
                                 ci->movePortTo(id_CE, iol, id_CE);
-                            else
+                            } else {
+                                if (iol->getPort(id_CE) != ci->getPort(id_CE) ||
+                                    str_or_default(ci->params, id_CEMUX, "CE") !=
+                                            str_or_default(iol->params, id_CEMUX, "CE"))
+                                    log_error("CE signal or polarity mismatch for IO flipflop %s with other IOFFs at "
+                                              "location.\n",
+                                              ctx->nameOf(ci));
                                 ci->disconnectPort(id_CE);
+                            }
                         } else {
                             iol->params[id_CEIMUX] = std::string("1");
                         }
@@ -2288,13 +2296,21 @@ class Ecp5Packer
                         // Handle CLK and CE muxes
                         if (str_or_default(ci->params, id_CLKMUX) == "INV")
                             iol->params[id_CLKOMUX] = std::string("INV");
-                        if (str_or_default(ci->params, id_CEMUX, "CE") == "CE") {
+                        if (str_or_default(ci->params, id_CEMUX, "CE") == "CE" ||
+                            str_or_default(ci->params, id_CEMUX, "CE") == "INV") {
                             iol->params[id_CEOMUX] = std::string("CEMUX");
-                            iol->params[id_CEMUX] = std::string("CE");
-                            if (ci->getPort(id_CE) == nullptr)
+                            if (iol->getPort(id_CE) == nullptr) {
+                                iol->params[id_CEMUX] = str_or_default(ci->params, id_CEMUX, "CE");
                                 ci->movePortTo(id_CE, iol, id_CE);
-                            else
+                            } else {
+                                if (iol->getPort(id_CE) != ci->getPort(id_CE) ||
+                                    str_or_default(ci->params, id_CEMUX, "CE") !=
+                                            str_or_default(iol->params, id_CEMUX, "CE"))
+                                    log_error("CE signal or polarity mismatch for IO flipflop %s with other IOFFs at "
+                                              "location.\n",
+                                              ctx->nameOf(ci));
                                 ci->disconnectPort(id_CE);
+                            }
                         } else {
                             iol->params[id_CEOMUX] = std::string("1");
                         }
