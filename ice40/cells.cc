@@ -411,7 +411,12 @@ void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio, pool<IdString> &to
         nxio->movePortTo(id_O, sbio, id_D_IN_0);
         pull_up_attr = true;
     } else if (nxio->type == ctx->id("$nextpnr_obuf")) {
-        sbio->params[id_PIN_TYPE] = 25;
+        NetInfo *i = nxio->getPort(id_I);
+        if (i == nullptr || i->driver.cell == nullptr) {
+            sbio->params[id_PIN_TYPE] = 1;
+            pull_up_attr = true;
+        } else
+            sbio->params[id_PIN_TYPE] = 25;
         nxio->movePortTo(id_I, sbio, id_D_OUT_0);
     } else if (nxio->type == ctx->id("$nextpnr_iobuf")) {
         // N.B. tristate will be dealt with below
