@@ -2108,6 +2108,47 @@ bool Arch::is_GCLKT_iob(const CellInfo *cell)
     return false;
 }
 
+void Arch::bind_pll_to_bel(CellInfo *ci, int loc)
+{
+    BelId bel;
+    switch (ci->type.hash()) {
+    case ID_PLLVR:
+        bel = loc == PLL::left ? id("R1C28_PLLVR") : id("R1C37_PLLVR");
+        break;
+    case ID_rPLL:
+        if (family == "GW1N-1" || family == "GW1NZ-1") {
+            if (loc == PLL::left) {
+                return;
+            }
+            bel = id("R1C18_rPLL");
+            break;
+        }
+        if (family == "GW1NR-9C" || family == "GW1NR-9") {
+            bel = loc == PLL::left ? id("R10C1_rPLL") : id("R10C47_rPLL");
+            break;
+        }
+        break;
+    default:
+        return;
+    }
+    if (checkBelAvail(bel) || ci->belStrength != STRENGTH_LOCKED) {
+        if (ci->bel == bel) {
+            unbindBel(bel);
+        } else {
+            if (!checkBelAvail(bel) && ci->belStrength != STRENGTH_LOCKED) {
+                CellInfo *other_ci = getBoundBelCell(bel);
+                unbindBel(bel);
+                BelId our_bel = ci->bel;
+                unbindBel(our_bel);
+                bindBel(our_bel, other_ci, STRENGTH_LOCKED);
+            }
+        }
+        ci->disconnectPort(id_CLKIN);
+        ci->setParam(id_INSEL, Property("CLKIN0"));
+        bindBel(bel, ci, STRENGTH_LOCKED);
+    }
+}
+
 // If the PLL input can be connected using a direct wire, then do so,
 // bypassing conventional routing.
 void Arch::fix_pll_nets(Context *ctx)
@@ -2129,53 +2170,12 @@ void Arch::fix_pll_nets(Context *ctx)
                 break;
             }
             if (net_driven_by(ctx, net, is_RPLL_T_IN_iob, id_O) != nullptr) {
-                if (ci->type == id_rPLL) {
-                    ci->disconnectPort(id_CLKIN);
-                    ci->setParam(id_INSEL, Property("CLKIN0"));
-                    break;
-                }
-                BelId bel = id("R1C37_PLLVR");
-                if (ci->type == id_PLLVR) {
-                    if (checkBelAvail(bel) || ci->belStrength != STRENGTH_LOCKED) {
-                        if (ci->bel == bel) {
-                            unbindBel(bel);
-                        } else {
-                            if (!checkBelAvail(bel) && ci->belStrength != STRENGTH_LOCKED) {
-                                CellInfo *other_ci = getBoundBelCell(bel);
-                                unbindBel(bel);
-                                BelId our_bel = ci->bel;
-                                unbindBel(our_bel);
-                                bindBel(our_bel, other_ci, STRENGTH_LOCKED);
-                            }
-                        }
-                        ci->disconnectPort(id_CLKIN);
-                        ci->setParam(id_INSEL, Property("CLKIN0"));
-                        bindBel(bel, ci, STRENGTH_LOCKED);
-                        break;
-                    }
-                }
+                bind_pll_to_bel(ci, PLL::right);
+                break;
             }
             if (net_driven_by(ctx, net, is_LPLL_T_IN_iob, id_O) != nullptr) {
-                BelId bel = id("R1C28_PLLVR");
-                if (ci->type == id_PLLVR) {
-                    if (checkBelAvail(bel) || ci->belStrength != STRENGTH_LOCKED) {
-                        if (ci->bel == bel) {
-                            unbindBel(bel);
-                        } else {
-                            if (!checkBelAvail(bel) && ci->belStrength != STRENGTH_LOCKED) {
-                                CellInfo *other_ci = getBoundBelCell(bel);
-                                unbindBel(bel);
-                                BelId our_bel = ci->bel;
-                                unbindBel(our_bel);
-                                bindBel(our_bel, other_ci, STRENGTH_LOCKED);
-                            }
-                        }
-                        ci->disconnectPort(id_CLKIN);
-                        ci->setParam(id_INSEL, Property("CLKIN0"));
-                        bindBel(bel, ci, STRENGTH_LOCKED);
-                        break;
-                    }
-                }
+                bind_pll_to_bel(ci, PLL::left);
+                break;
             }
             // XXX do special bels (HCLK etc)
             // This is general routing through CLK0 pip
