@@ -2108,7 +2108,7 @@ bool Arch::is_GCLKT_iob(const CellInfo *cell)
     return false;
 }
 
-void Arch::bind_pll_to_bel(CellInfo *ci, int loc)
+void Arch::bind_pll_to_bel(CellInfo *ci, PLL loc)
 {
     BelId bel;
     switch (ci->type.hash()) {
