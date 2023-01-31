@@ -2123,6 +2123,13 @@ void Arch::bind_pll_to_bel(CellInfo *ci, PLL loc)
             bel = id("R1C18_rPLL");
             break;
         }
+        if (family == "GW1NS-2") {
+            if (loc == PLL::left) {
+                return;
+            }
+            bel = id("R10C20_rPLL");
+            break;
+        }
         if (family == "GW1N-4") {
             bel = loc == PLL::left ? id("R1C10_rPLL") : id("R1C28_rPLL");
             break;

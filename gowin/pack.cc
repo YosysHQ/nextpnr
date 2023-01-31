@@ -1044,7 +1044,7 @@ static void pack_plls(Context *ctx)
             switch (ci->type.hash()) {
             case ID_rPLL: {
                 if (parm_device == "GW1N-1" || parm_device == "GW1NZ-1" || parm_device == "GW1NR-9C" ||
-                    parm_device == "GW1NR-9" || parm_device == "GW1N-4") {
+                    parm_device == "GW1NR-9" || parm_device == "GW1N-4" || parm_device == "GW1NS-2C") {
                     pll_disable_unused_ports(ctx, ci);
                     // A cell
                     std::unique_ptr<CellInfo> cell = create_generic_cell(ctx, id_rPLL, ci->name.str(ctx) + "$rpll");
