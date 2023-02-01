@@ -153,7 +153,11 @@ static void set_ec_cbit(chipconfig_t &config, const Context *ctx, const BelConfi
             return;
         }
     }
-    NPNR_ASSERT_FALSE_STR("failed to config extra cell config bit " + name);
+    if (value)
+        NPNR_ASSERT_FALSE_STR("failed to config extra cell config bit " + name);
+    else
+        log_warning("failed to config extra cell config bit %s to zero (ignored, maybe update icestorm ?)\n",
+                    name.c_str());
 }
 
 void configure_extra_cell(chipconfig_t &config, const Context *ctx, CellInfo *cell,
@@ -423,6 +427,18 @@ void write_asc(const Context *ctx, std::ostream &out)
             // If this is a PAD PLL, and this is the 'PLLOUT_A' port, then the same SB_IO is also PAD
             if (port == id_PLLOUT_A && is_sb_pll40_pad(ctx, cell.second.get()))
                 sb_io_used_by_pll_pad.insert(io_bel_loc);
+
+            // Configure the SB_IO that the clock outputs are going through.
+            // note: PINTYPE[1:0] must be set property to passes the PLL through to the fabric.
+            //       "01" if ICEGATE is disabed for that port and "11" if it's enabled
+            const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
+            bool icegate_ena = get_param_or_def(
+                    ctx, cell.second.get(), (port == id_PLLOUT_A) ? id_ENABLE_ICEGATE_PORTA : id_ENABLE_ICEGATE_PORTB);
+
+            set_config(ti, config.at(io_bel_loc.y).at(io_bel_loc.x),
+                       "IOB_" + std::to_string(io_bel_loc.z) + ".PINTYPE_1", icegate_ena);
+            set_config(ti, config.at(io_bel_loc.y).at(io_bel_loc.x),
+                       "IOB_" + std::to_string(io_bel_loc.z) + ".PINTYPE_0", true);
         }
     }
 
@@ -724,6 +740,8 @@ void write_asc(const Context *ctx, std::ostream &out)
                                                                          {"DIVF", 7},
                                                                          {"DIVQ", 3},
                                                                          {"DIVR", 4},
+                                                                         {"ENABLE_ICEGATE_PORTA", 1},
+                                                                         {"ENABLE_ICEGATE_PORTB", 1},
                                                                          {"FDA_FEEDBACK", 4},
                                                                          {"FDA_RELATIVE", 4},
                                                                          {"FEEDBACK_PATH", 3},
@@ -734,19 +752,6 @@ void write_asc(const Context *ctx, std::ostream &out)
                                                                          {"SHIFTREG_DIV_MODE", 2},
                                                                          {"TEST_MODE", 1}};
             configure_extra_cell(config, ctx, cell.second.get(), pll_params, false, std::string("PLL."));
-
-            // Configure the SB_IOs that the clock outputs are going through.
-            for (auto &io_bel_loc : sb_io_used_by_pll_out) {
-                // Write config.
-                const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
-
-                // PINTYPE[1:0] == "01" passes the PLL through to the fabric.
-                set_config(ti, config.at(io_bel_loc.y).at(io_bel_loc.x),
-                           "IOB_" + std::to_string(io_bel_loc.z) + ".PINTYPE_1", false);
-                set_config(ti, config.at(io_bel_loc.y).at(io_bel_loc.x),
-                           "IOB_" + std::to_string(io_bel_loc.z) + ".PINTYPE_0", true);
-            }
-
         } else {
             NPNR_ASSERT(false);
         }

@@ -131,9 +131,16 @@ bool Arch::apply_lpf(std::string filename, std::istream &in)
                         std::string cell = strip_quotes(words.at(2));
                         if (words.at(3) != "SITE")
                             log_error("expected 'SITE' after 'LOCATE COMP %s' (on line %d)\n", cell.c_str(), lineno);
-                        auto fnd_cell = cells.find(id(cell));
                         if (words.size() > 5)
                             log_error("unexpected input following LOCATE clause (on line %d)\n", lineno);
+                        auto fnd_cell = cells.find(id(cell));
+                        // 1-bit wires are treated as scalar by nextpnr.
+                        // In HDL they might have been a singleton vector.
+                        if (fnd_cell == cells.end() && cell.size() >= 3 && cell.substr(cell.size() - 3) == "[0]") {
+                            cell = cell.substr(0, cell.size() - 3);
+                            fnd_cell = cells.find(id(cell));
+                        }
+
                         if (fnd_cell != cells.end()) {
                             fnd_cell->second->attrs[id_LOC] = strip_quotes(words.at(4));
                         }

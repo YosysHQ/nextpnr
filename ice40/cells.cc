@@ -216,6 +216,9 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
         new_cell->params[id_PLLOUT_SELECT_A] = Property(0, 2);
         new_cell->params[id_PLLOUT_SELECT_B] = Property(0, 2);
 
+        new_cell->params[id_ENABLE_ICEGATE_PORTA] = Property::State::S0;
+        new_cell->params[id_ENABLE_ICEGATE_PORTB] = Property::State::S0;
+
         new_cell->params[id_PLLTYPE] = Property(0, 3);
         new_cell->params[id_SHIFTREG_DIVMODE] = Property::State::S0;
         new_cell->params[id_TEST_MODE] = Property::State::S0;
@@ -404,25 +407,28 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
 
 void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio, pool<IdString> &todelete_cells)
 {
+    bool pull_up_attr = false;
+
     if (nxio->type == ctx->id("$nextpnr_ibuf")) {
         sbio->params[id_PIN_TYPE] = 1;
-        auto pu_attr = nxio->attrs.find(id_PULLUP);
-        if (pu_attr != nxio->attrs.end())
-            sbio->params[id_PULLUP] = pu_attr->second;
         nxio->movePortTo(id_O, sbio, id_D_IN_0);
+        pull_up_attr = true;
     } else if (nxio->type == ctx->id("$nextpnr_obuf")) {
-        sbio->params[id_PIN_TYPE] = 25;
+        NetInfo *i = nxio->getPort(id_I);
+        if (i == nullptr || i->driver.cell == nullptr) {
+            sbio->params[id_PIN_TYPE] = 1;
+            pull_up_attr = true;
+        } else
+            sbio->params[id_PIN_TYPE] = 25;
         nxio->movePortTo(id_I, sbio, id_D_OUT_0);
     } else if (nxio->type == ctx->id("$nextpnr_iobuf")) {
         // N.B. tristate will be dealt with below
         NetInfo *i = nxio->getPort(id_I);
-        if (i == nullptr || i->driver.cell == nullptr)
+        if (i == nullptr || i->driver.cell == nullptr) {
             sbio->params[id_PIN_TYPE] = 1;
-        else
+            pull_up_attr = true;
+        } else
             sbio->params[id_PIN_TYPE] = 25;
-        auto pu_attr = nxio->attrs.find(id_PULLUP);
-        if (pu_attr != nxio->attrs.end())
-            sbio->params[id_PULLUP] = pu_attr->second;
         nxio->movePortTo(id_I, sbio, id_D_OUT_0);
         nxio->movePortTo(id_O, sbio, id_D_IN_0);
     } else {
@@ -465,6 +471,7 @@ void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio, pool<IdString> &to
         sbio->params[id_PIN_TYPE] = 41;
         tbuf->movePortTo(id_A, sbio, id_D_OUT_0);
         tbuf->movePortTo(id_E, sbio, id_OUTPUT_ENABLE);
+        pull_up_attr = true;
 
         if (donet->users.entries() > 1) {
             for (auto user : donet->users)
@@ -475,6 +482,13 @@ void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio, pool<IdString> &to
         }
         ctx->nets.erase(donet->name);
         todelete_cells.insert(tbuf->name);
+    }
+
+    // Copy pull-up attribute if there's any chance output driver isn't active
+    if (pull_up_attr) {
+        auto pu_attr = nxio->attrs.find(id_PULLUP);
+        if (pu_attr != nxio->attrs.end())
+            sbio->params[id_PULLUP] = pu_attr->second;
     }
 }
 
