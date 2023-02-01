@@ -153,7 +153,11 @@ static void set_ec_cbit(chipconfig_t &config, const Context *ctx, const BelConfi
             return;
         }
     }
-    NPNR_ASSERT_FALSE_STR("failed to config extra cell config bit " + name);
+    if (value)
+        NPNR_ASSERT_FALSE_STR("failed to config extra cell config bit " + name);
+    else
+        log_warning("failed to config extra cell config bit %s to zero (ignored, maybe update icestorm ?)\n",
+                    name.c_str());
 }
 
 void configure_extra_cell(chipconfig_t &config, const Context *ctx, CellInfo *cell,
