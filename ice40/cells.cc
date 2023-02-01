@@ -216,6 +216,9 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
         new_cell->params[id_PLLOUT_SELECT_A] = Property(0, 2);
         new_cell->params[id_PLLOUT_SELECT_B] = Property(0, 2);
 
+        new_cell->params[id_ENABLE_ICEGATE_PORTA] = Property::State::S0;
+        new_cell->params[id_ENABLE_ICEGATE_PORTB] = Property::State::S0;
+
         new_cell->params[id_PLLTYPE] = Property(0, 3);
         new_cell->params[id_SHIFTREG_DIVMODE] = Property::State::S0;
         new_cell->params[id_TEST_MODE] = Property::State::S0;
