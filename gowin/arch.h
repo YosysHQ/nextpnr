@@ -283,6 +283,12 @@ struct ArchRanges : BaseArchRanges
     using GroupGroupsRangeT = const std::vector<GroupId> &;
 };
 
+enum class PLL // fixed PLL locations
+{
+    left,
+    right
+};
+
 struct Arch : BaseArch<ArchRanges>
 {
     std::string family;
@@ -482,6 +488,7 @@ struct Arch : BaseArch<ArchRanges>
     void add_rpll_ports(DatabasePOD const *db, BelsPOD const *bel, IdString belname, int row, int col);
     void fix_pll_nets(Context *ctx);
     bool is_GCLKT_iob(const CellInfo *cell);
+    void bind_pll_to_bel(CellInfo *ci, PLL loc);
 
     GowinGlobalRouter globals_router;
     void mark_gowin_globals(Context *ctx);
