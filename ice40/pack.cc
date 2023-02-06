@@ -132,10 +132,12 @@ static void pack_nonlut_ffs(Context *ctx)
 
 static bool net_is_constant(const Context *ctx, NetInfo *net, bool &value)
 {
+    auto gnd = ctx->id("$PACKER_GND_NET");
+    auto vcc = ctx->id("$PACKER_VCC_NET");
     if (net == nullptr)
         return false;
-    if (net->name == ctx->id("$PACKER_GND_NET") || net->name == ctx->id("$PACKER_VCC_NET")) {
-        value = (net->name == ctx->id("$PACKER_VCC_NET"));
+    if (net->name.in(gnd, vcc)) {
+        value = (net->name == vcc);
         return true;
     } else {
         return false;
