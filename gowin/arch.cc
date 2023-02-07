@@ -1430,6 +1430,25 @@ Arch::Arch(ArchArgs args) : args(args)
                 snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
                 addBelInput(belname, id_OSCEN, id(buf));
                 break;
+            case ID_OSCW:
+                snprintf(buf, 32, "R%dC%d_OSCW", row + 1, col + 1);
+                belname = id(buf);
+                addBel(belname, id_OSCW, Loc(col, row, BelZ::osc_z), false);
+                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_OSCOUT)->src_id);
+                snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
+                addBelOutput(belname, id_OSCOUT, id(buf));
+                break;
+            case ID_OSCO:
+                snprintf(buf, 32, "R%dC%d_OSCO", row + 1, col + 1);
+                belname = id(buf);
+                addBel(belname, id_OSCO, Loc(col, row, BelZ::osc_z), false);
+                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_OSCOUT)->src_id);
+                snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
+                addBelOutput(belname, id_OSCOUT, id(buf));
+                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_OSCEN)->src_id);
+                snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
+                addBelInput(belname, id_OSCEN, id(buf));
+                break;
             case ID_RAM16:
                 snprintf(buf, 32, "R%dC%d_RAMW", row + 1, col + 1);
                 belname = id(buf);

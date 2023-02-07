@@ -851,6 +851,8 @@ X(OSC)
 X(OSCZ)
 X(OSCH)
 X(OSCF)
+X(OSCW)
+X(OSCO)
 
 // PLLs
 X(rPLL)
