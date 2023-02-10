@@ -68,6 +68,14 @@ struct parser_view
         return npos;
     }
 
+    size_t rfind(char tok) const
+    {
+        for (size_t i = m_length; i > 0; i--)
+            if (m_ptr[i - 1] == tok)
+                return i - 1;
+        return npos;
+    }
+
     IdString to_id(const BaseCtx *ctx)
     {
         // This isn't really ideal, let's hope one day we can move to C++20 and have proper string_views instead :3
@@ -130,6 +138,12 @@ struct parser_view
     std::pair<parser_view, parser_view> split(char delim) const
     {
         size_t pos = find(delim);
+        NPNR_ASSERT(pos != npos);
+        return std::make_pair(parser_view(m_ptr, pos), parser_view(m_ptr + pos + 1, m_length - (pos + 1)));
+    }
+    std::pair<parser_view, parser_view> rsplit(char delim) const
+    {
+        size_t pos = rfind(delim);
         NPNR_ASSERT(pos != npos);
         return std::make_pair(parser_view(m_ptr, pos), parser_view(m_ptr + pos + 1, m_length - (pos + 1)));
     }
