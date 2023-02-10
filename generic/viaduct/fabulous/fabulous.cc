@@ -237,6 +237,16 @@ struct FabulousImpl : ViaductAPI
             NPNR_ASSERT(bel_idx.size() == 1);
             int bel_z = bel_idx[0] - 'A';
             NPNR_ASSERT(bel_z >= 0 && bel_z < 26);
+            std::vector<parser_view> ports;
+            parser_view port;
+            while (!(port = csv.next_field()).empty()) {
+                ports.push_back(port);
+            }
+            IdString bel_name = bel_idx.to_id(ctx);
+            if (bel_type.in(id_InPass4_frame_config, id_OutPass4_frame_config)) {
+                // Assign BRAM IO a nicer name than just a letter
+                bel_name = ports.front().rsplit('_').first.to_id(ctx);
+            }
             /*
             In the future we will need to handle optionally splitting SLICEs into separate LUT/COMB and FF bels
             This is the preferred approach in nextpnr for arches where the LUT and FF can be used separately of
@@ -245,12 +255,7 @@ struct FabulousImpl : ViaductAPI
             While this isn't yet the standard fabulous SLICE, it should be considered as a future option in fabulous.
             */
             Loc loc(bel_x, bel_y, bel_z);
-            BelId bel = ctx->addBel(IdStringList::concat(tile, bel_idx.to_id(ctx)), bel_type, loc, false, false);
-            std::vector<parser_view> ports;
-            parser_view port;
-            while (!(port = csv.next_field()).empty()) {
-                ports.push_back(port);
-            }
+            BelId bel = ctx->addBel(IdStringList::concat(tile, bel_name), bel_type, loc, false, false);
             handle_bel_ports(bel, tile, bel_type, ports);
         }
         postprocess_bels();
