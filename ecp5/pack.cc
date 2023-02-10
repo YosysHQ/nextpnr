@@ -1508,6 +1508,10 @@ class Ecp5Packer
     // Check if two nets have identical constant drivers
     bool equal_constant(NetInfo *a, NetInfo *b)
     {
+        if (a == nullptr && b == nullptr)
+            return true;
+        if ((a == nullptr) != (b == nullptr))
+            return false;
         if (a->driver.cell == nullptr || b->driver.cell == nullptr)
             return (a->driver.cell == nullptr && b->driver.cell == nullptr);
         if (a->driver.cell->type != id_GND && a->driver.cell->type != id_VCC)
@@ -2237,7 +2241,8 @@ class Ecp5Packer
                                 iol->params[id_CEMUX] = str_or_default(ci->params, id_CEMUX, "CE");
                                 ci->movePortTo(id_CE, iol, id_CE);
                             } else {
-                                if (iol->getPort(id_CE) != ci->getPort(id_CE) ||
+                                if ((iol->getPort(id_CE) != ci->getPort(id_CE) &&
+                                     !equal_constant(iol->getPort(id_CE), ci->getPort(id_CE))) ||
                                     str_or_default(ci->params, id_CEMUX, "CE") !=
                                             str_or_default(iol->params, id_CEMUX, "CE"))
                                     log_error("CE signal or polarity mismatch for IO flipflop %s with other IOFFs at "
@@ -2303,7 +2308,8 @@ class Ecp5Packer
                                 iol->params[id_CEMUX] = str_or_default(ci->params, id_CEMUX, "CE");
                                 ci->movePortTo(id_CE, iol, id_CE);
                             } else {
-                                if (iol->getPort(id_CE) != ci->getPort(id_CE) ||
+                                if ((iol->getPort(id_CE) != ci->getPort(id_CE) &&
+                                     !equal_constant(iol->getPort(id_CE), ci->getPort(id_CE))) ||
                                     str_or_default(ci->params, id_CEMUX, "CE") !=
                                             str_or_default(iol->params, id_CEMUX, "CE"))
                                     log_error("CE signal or polarity mismatch for IO flipflop %s with other IOFFs at "
