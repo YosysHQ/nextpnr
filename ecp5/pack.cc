@@ -36,6 +36,20 @@ static bool is_nextpnr_iob(Context *ctx, CellInfo *cell)
            cell->type == ctx->id("$nextpnr_iobuf");
 }
 
+static bool net_is_constant(const Context *ctx, NetInfo *net, bool &value)
+{
+    auto gnd = ctx->id("$PACKER_GND_NET");
+    auto vcc = ctx->id("$PACKER_VCC_NET");
+    if (net == nullptr)
+        return false;
+    if (net->name.in(gnd, vcc)) {
+        value = (net->name == vcc);
+        return true;
+    } else {
+        return false;
+    }
+}
+
 class Ecp5Packer
 {
   public:
@@ -2608,6 +2622,15 @@ class Ecp5Packer
         auto MHz = [&](delay_t a) { return 1000.0 / ctx->getDelayNS(a); };
 
         auto equals_epsilon = [](delay_t a, delay_t b) { return (std::abs(a - b) / std::max(double(b), 1.0)) < 1e-3; };
+        auto equals_epsilon_pair = [&](DelayPair& a, DelayPair& b) {
+            return equals_epsilon(a.min_delay, b.min_delay)
+                && equals_epsilon(a.max_delay, b.max_delay);
+        };
+        auto equals_epsilon_constr = [&](ClockConstraint& a, ClockConstraint& b) {
+            return equals_epsilon_pair(a.high, b.high)
+                && equals_epsilon_pair(a.low, b.low)
+                && equals_epsilon_pair(a.period, b.period);
+        };
 
         pool<IdString> user_constrained, changed_nets;
         for (auto &net : ctx->nets) {
@@ -2625,24 +2648,30 @@ class Ecp5Packer
             return true;
         };
 
-        auto set_period = [&](CellInfo *ci, IdString port, delay_t period) {
+        auto simple_clk_contraint = [&](delay_t period) {
+            auto constr = std::unique_ptr<ClockConstraint>(new ClockConstraint());
+            constr->low = DelayPair(period / 2);
+            constr->high = DelayPair(period / 2);
+            constr->period = DelayPair(period);
+
+            return constr;
+        };
+
+        auto set_constraint = [&](CellInfo *ci, IdString port, std::unique_ptr<ClockConstraint> constr) {
             if (!ci->ports.count(port))
                 return;
             NetInfo *to = ci->ports.at(port).net;
             if (to == nullptr)
                 return;
             if (to->clkconstr != nullptr) {
-                if (!equals_epsilon(to->clkconstr->period.minDelay(), period) && user_constrained.count(to->name))
+                if (!equals_epsilon_constr(*to->clkconstr, *constr) && user_constrained.count(to->name))
                     log_warning(
                             "    Overriding derived constraint of %.1f MHz on net %s with user-specified constraint of "
                             "%.1f MHz.\n",
-                            MHz(to->clkconstr->period.min_delay), to->name.c_str(ctx), MHz(period));
+                            MHz(to->clkconstr->period.min_delay), to->name.c_str(ctx), MHz(constr->period.min_delay));
                 return;
             }
-            to->clkconstr = std::unique_ptr<ClockConstraint>(new ClockConstraint());
-            to->clkconstr->low = DelayPair(period / 2);
-            to->clkconstr->high = DelayPair(period / 2);
-            to->clkconstr->period = DelayPair(period);
+            to->clkconstr = std::move(constr);
             log_info("    Derived frequency constraint of %.1f MHz for net %s\n", MHz(to->clkconstr->period.minDelay()),
                      to->name.c_str(ctx));
             changed_nets.insert(to->name);
@@ -2712,6 +2741,121 @@ class Ecp5Packer
                     copy_constraint(ci, id_CLK1, id_ECSOUT, 1);
                 } else if (ci->type == id_DCCA) {
                     copy_constraint(ci, id_CLKI, id_CLKO, 1);
+                } else if (ci->type == id_DCSC) {
+                    if ((!ci->ports.count(id_CLK0) && !ci->ports.count(id_CLK1)) || !ci->ports.count(id_DCSOUT))
+                        continue;
+
+                    auto mode = str_or_default(ci->params, id_DCSMODE, "POS");
+                    bool mode_constant = false;
+                    auto mode_is_constant = net_is_constant(ctx, ci->ports.at(id_MODESEL).net, mode_constant);
+
+                    if (mode_is_constant && mode_constant == false) {
+                        if (mode == "CLK0_LOW" || mode == "CLK0_HIGH" || mode == "CLK0") {
+                            copy_constraint(ci, id_CLK0, id_DCSOUT, 1.0);
+                            continue;
+                        } else if (mode == "CLK1_LOW" || mode == "CLK1_HIGH" || mode == "CLK1") {
+                            copy_constraint(ci, id_CLK1, id_DCSOUT, 1.0);
+                            continue;
+                        } else if (mode == "LOW" || mode == "HIGH") {
+                            continue;
+                        }
+                    }
+
+                    std::unique_ptr<ClockConstraint> derived_constr = nullptr;
+                    std::vector<NetInfo*> in_ports = {
+                        ci->ports.at(id_CLK0).net,
+                        ci->ports.at(id_CLK1).net,
+                    };
+
+                    // Generate all unique clock pairs find the worst
+                    // constraint from switching between them and merge them
+                    // into the final output constraint.
+                    for (size_t i = 0; i < in_ports.size(); ++i) {
+                        auto p1 = in_ports[i];
+                        if (p1 == nullptr || p1->clkconstr == nullptr) {
+                            derived_constr = nullptr;
+                            break;
+                        }
+                        for (size_t j = i + 1; j < in_ports.size(); ++j) {
+                            auto p2 = in_ports[j];
+                            if (p2 == nullptr || p2->clkconstr == nullptr) {
+                                break;
+                            }
+                            auto& c1 = p1->clkconstr;
+                            auto& c2 = p2->clkconstr;
+
+                            auto merged_constr = std::unique_ptr<ClockConstraint>(new ClockConstraint());
+
+                            if (mode == "NEG") {
+                                merged_constr->low = DelayPair(
+                                    std::min(c1->low.min_delay, c2->low.min_delay),
+                                    std::max(
+                                        c1->low.max_delay + c2->period.max_delay,
+                                        c2->low.max_delay + c1->period.max_delay
+                                    )
+                                );
+                            } else {
+                                merged_constr->low = DelayPair(
+                                    std::min(c1->low.min_delay, c2->low.min_delay),
+                                    std::max(c1->low.max_delay, c2->low.max_delay)
+                                );
+                            }
+
+                            if (mode == "POS") {
+                                merged_constr->high = DelayPair(
+                                    std::min(c1->high.min_delay, c2->high.min_delay),
+                                    std::max(
+                                        c1->high.max_delay + c2->period.max_delay,
+                                        c2->high.max_delay + c1->period.max_delay
+                                    )
+                                );
+                            } else {
+                                merged_constr->high = DelayPair(
+                                    std::min(c1->high.min_delay, c2->high.min_delay),
+                                    std::max(c1->high.max_delay, c2->high.max_delay)
+                                );
+                            }
+
+                            merged_constr->period = DelayPair(
+                                std::min(c1->period.min_delay, c2->period.min_delay),
+                                std::max(c1->period.max_delay, c2->period.max_delay)
+                            );
+
+                            if (derived_constr == nullptr) {
+                                derived_constr = std::move(merged_constr);
+                                continue;
+                            }
+
+                            derived_constr->period.min_delay = std::min(
+                                derived_constr->period.min_delay,
+                                merged_constr->period.min_delay
+                            );
+                            derived_constr->period.max_delay = std::max(
+                                derived_constr->period.max_delay,
+                                merged_constr->period.max_delay
+                            );
+                            derived_constr->low.min_delay = std::min(
+                                derived_constr->low.min_delay,
+                                merged_constr->low.min_delay
+                            );
+                            derived_constr->low.max_delay = std::max(
+                                derived_constr->low.max_delay,
+                                merged_constr->low.max_delay
+                            );
+                            derived_constr->high.min_delay = std::min(
+                                derived_constr->high.min_delay,
+                                merged_constr->high.min_delay
+                            );
+                            derived_constr->high.max_delay = std::max(
+                                derived_constr->high.max_delay,
+                                merged_constr->high.max_delay
+                            );
+                        }
+                    }
+
+                    if (derived_constr != nullptr) {
+                        set_constraint(ci, id_DCSOUT, std::move(derived_constr));
+                    }
                 } else if (ci->type == id_EHXPLLL) {
                     delay_t period_in;
                     if (!get_period(ci, id_CLKI, period_in))
@@ -2740,13 +2884,13 @@ class Ecp5Packer
                         log_info("    Derived VCO frequency %.1f MHz of PLL '%s' is out of legal range [400MHz, "
                                  "800MHz]\n",
                                  vco_freq, ci->name.c_str(ctx));
-                    set_period(ci, id_CLKOP, vco_period * int_or_default(ci->params, id_CLKOP_DIV, 1));
-                    set_period(ci, id_CLKOS, vco_period * int_or_default(ci->params, id_CLKOS_DIV, 1));
-                    set_period(ci, id_CLKOS2, vco_period * int_or_default(ci->params, id_CLKOS2_DIV, 1));
-                    set_period(ci, id_CLKOS3, vco_period * int_or_default(ci->params, id_CLKOS3_DIV, 1));
+                    set_constraint(ci, id_CLKOP, simple_clk_contraint(vco_period * int_or_default(ci->params, id_CLKOP_DIV, 1)));
+                    set_constraint(ci, id_CLKOS, simple_clk_contraint(vco_period * int_or_default(ci->params, id_CLKOS_DIV, 1)));
+                    set_constraint(ci, id_CLKOS2, simple_clk_contraint(vco_period * int_or_default(ci->params, id_CLKOS2_DIV, 1)));
+                    set_constraint(ci, id_CLKOS3, simple_clk_contraint(vco_period * int_or_default(ci->params, id_CLKOS3_DIV, 1)));
                 } else if (ci->type == id_OSCG) {
                     int div = int_or_default(ci->params, id_DIV, 128);
-                    set_period(ci, id_OSC, delay_t((1.0e6 / (2.0 * 155)) * div));
+                    set_constraint(ci, id_OSC, simple_clk_contraint(delay_t((1.0e6 / (2.0 * 155)) * div)));
                 }
             }
         }
