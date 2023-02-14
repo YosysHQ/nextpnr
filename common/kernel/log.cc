@@ -41,6 +41,7 @@ void (*log_error_atexit)() = NULL;
 dict<LogLevel, int, loglevel_hash_ops> message_count_by_level;
 static int log_newline_count = 0;
 bool had_nonfatal_error = false;
+bool log_warn_as_error = false;
 
 std::string stringf(const char *fmt, ...)
 {
@@ -128,6 +129,22 @@ void logv_prefixed(const char *prefix, const char *format, va_list ap, LogLevel 
     log_flush();
 }
 
+void logv_nonfatal_error(const char *format, va_list ap)
+{
+    logv_prefixed("ERROR: ", format, ap, LogLevel::ERROR_MSG);
+    had_nonfatal_error = true;
+}
+
+void logv_error(const char *format, va_list ap)
+{
+    logv_prefixed("ERROR: ", format, ap, LogLevel::ERROR_MSG);
+
+    if (log_error_atexit)
+        log_error_atexit();
+
+    throw log_execution_error_exception();
+}
+
 void log_always(const char *format, ...)
 {
     va_list ap;
@@ -156,7 +173,10 @@ void log_warning(const char *format, ...)
 {
     va_list ap;
     va_start(ap, format);
-    logv_prefixed("Warning: ", format, ap, LogLevel::WARNING_MSG);
+    if (log_warn_as_error)
+        logv_nonfatal_error(format, ap);
+    else
+        logv_prefixed("Warning: ", format, ap, LogLevel::WARNING_MSG);
     va_end(ap);
 }
 
@@ -164,12 +184,7 @@ void log_error(const char *format, ...)
 {
     va_list ap;
     va_start(ap, format);
-    logv_prefixed("ERROR: ", format, ap, LogLevel::ERROR_MSG);
-
-    if (log_error_atexit)
-        log_error_atexit();
-
-    throw log_execution_error_exception();
+    logv_error(format, ap);
 }
 
 void log_break()
@@ -184,9 +199,8 @@ void log_nonfatal_error(const char *format, ...)
 {
     va_list ap;
     va_start(ap, format);
-    logv_prefixed("ERROR: ", format, ap, LogLevel::ERROR_MSG);
+    logv_nonfatal_error(format, ap);
     va_end(ap);
-    had_nonfatal_error = true;
 }
 
 void log_flush()

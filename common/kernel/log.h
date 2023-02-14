@@ -63,6 +63,7 @@ extern log_write_type log_write_function;
 extern std::string log_last_error;
 extern void (*log_error_atexit)();
 extern bool had_nonfatal_error;
+extern bool log_warn_as_error;
 extern dict<LogLevel, int, loglevel_hash_ops> message_count_by_level;
 
 std::string stringf(const char *fmt, ...);

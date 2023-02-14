@@ -105,6 +105,10 @@ bool CommandHandler::executeBeforeContext()
         log_streams.push_back(std::make_pair(&std::cerr, LogLevel::LOG_MSG));
     }
 
+    if (vm.count("Werror")) {
+        log_warn_as_error = true;
+    }
+
     if (vm.count("log")) {
         std::string logfilename = vm["log"].as<std::string>();
         logfile.open(logfilename);
@@ -121,6 +125,7 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("help,h", "show help");
     general.add_options()("verbose,v", "verbose output");
     general.add_options()("quiet,q", "quiet mode, only errors and warnings displayed");
+    general.add_options()("Werror", "Turn warnings into errors");
     general.add_options()("log,l", po::value<std::string>(),
                           "log file, all log messages are written to this file regardless of -q");
     general.add_options()("debug", "debug output");
