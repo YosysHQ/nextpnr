@@ -69,9 +69,9 @@ struct FabulousImpl : ViaductAPI
         blk_trk = std::make_unique<BlockTracker>(ctx, cfg);
         is_new_fab ? init_bels_v2() : init_bels_v1();
         init_pips();
-        ctx->setDelayScaling(2.0, 5.0);
-        ctx->delay_epsilon = 0.5;
-        ctx->ripup_penalty = 1.5;
+        ctx->setDelayScaling(3.0, 3.0);
+        ctx->delay_epsilon = 0.25;
+        ctx->ripup_penalty = 0.5;
     }
 
     void update_cell_timing(Context *ctx)
