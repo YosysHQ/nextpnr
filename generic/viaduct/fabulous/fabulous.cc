@@ -69,7 +69,35 @@ struct FabulousImpl : ViaductAPI
         blk_trk = std::make_unique<BlockTracker>(ctx, cfg);
         is_new_fab ? init_bels_v2() : init_bels_v1();
         init_pips();
-        ctx->setDelayScaling(0.25, 0.5);
+        ctx->setDelayScaling(2.0, 5.0);
+        ctx->delay_epsilon = 0.5;
+        ctx->ripup_penalty = 1.5;
+    }
+
+    void update_cell_timing(Context *ctx)
+    {
+        // These timings are not realistic. They just make sure nextpnr does some timing-driven optimisation...
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (ci->type == id_FABULOUS_LC) {
+                auto &lct = cell_tags.get(ci);
+                if (lct.ff.ff_used) {
+                    ctx->addCellTimingClock(ci->name, id_CLK);
+                    for (unsigned i = 0; i < cfg.clb.lut_k; i++)
+                        ctx->addCellTimingSetupHold(ci->name, ctx->idf("I%d", i), id_CLK, 2.5, 0.1);
+                    ctx->addCellTimingClockToOut(ci->name, id_Q, id_CLK, 1.0);
+                } else {
+                    for (unsigned i = 0; i < cfg.clb.lut_k; i++)
+                        ctx->addCellTimingDelay(ci->name, ctx->idf("I%d", i), id_O, 3.0);
+                }
+            } else if (ci->type == id_OutPass4_frame_config) {
+                for (unsigned i = 0; i < 4; i++)
+                    ctx->addCellTimingSetupHold(ci->name, ctx->idf("I%d", i), id_CLK, 2.5, 0.1);
+            } else if (ci->type == id_InPass4_frame_config) {
+                for (unsigned i = 0; i < 4; i++)
+                    ctx->addCellTimingClockToOut(ci->name, ctx->idf("O%d", i), id_CLK, 2.5);
+            }
+        }
     }
 
     void pack() override { fabulous_pack(ctx, cfg); }
@@ -80,7 +108,11 @@ struct FabulousImpl : ViaductAPI
             fabulous_write_fasm(ctx, cfg, fasm_file);
     }
 
-    void prePlace() override { assign_cell_info(); }
+    void prePlace() override
+    {
+        assign_cell_info();
+        update_cell_timing(ctx);
+    }
     bool isBelLocationValid(BelId bel, bool explain_invalid) const override
     {
         return blk_trk->check_validity(bel, cfg, cell_tags);
@@ -122,7 +154,7 @@ struct FabulousImpl : ViaductAPI
     {
         const auto &src_data = ctx->wire_info(src);
         IdStringList pip_name = IdStringList::concat(ctx->getWireName(src), ctx->getWireName(dst));
-        ctx->addPip(pip_name, pip_type, src, dst, ctx->getDelayFromNS(0.05), Loc(src_data.x, src_data.y, 0));
+        ctx->addPip(pip_name, pip_type, src, dst, ctx->getDelayFromNS(1.0), Loc(src_data.x, src_data.y, 0));
     }
 
     void handle_bel_ports(BelId bel, IdString tile, IdString bel_type, const std::vector<parser_view> &ports)
@@ -138,6 +170,11 @@ struct FabulousImpl : ViaductAPI
                 ctx->addBelPin(bel, pin, port_wire, pin.in(id_I, id_T) ? PORT_IN : PORT_OUT);
             }
         } else if (bel_type.in(id_InPass4_frame_config, id_OutPass4_frame_config)) {
+            WireId clk_wire = get_wire(tile, id_CLK, id_REG_CLK);
+            if (ctx->wires.at(clk_wire.index).uphill.empty()) {
+                add_pseudo_pip(global_clk_wire, clk_wire, id_global_clock);
+            }
+            ctx->addBelInput(bel, id_CLK, clk_wire);
             for (parser_view p : ports) {
                 IdString port_id = p.to_id(ctx);
                 WireId port_wire = get_wire(tile, port_id, port_id);
@@ -382,7 +419,7 @@ struct FabulousImpl : ViaductAPI
             WireId src_wire = get_wire(src_tile, src_port, src_port);
             WireId dst_wire = get_wire(dst_tile, dst_port, dst_port);
             ctx->addPip(IdStringList::concat(src_tile, pip_name), pip_name, src_wire, dst_wire,
-                        ctx->getDelayFromNS(0.01 * delay), tile_loc(src_tile));
+                        ctx->getDelayFromNS(0.05 * delay), tile_loc(src_tile));
         }
     }
 
