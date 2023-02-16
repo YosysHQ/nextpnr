@@ -316,8 +316,8 @@ struct Arch : BaseArch<ArchRanges>
 
     delay_t estimateDelay(WireId src, WireId dst) const override;
     delay_t predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const override;
-    delay_t getDelayEpsilon() const override { return 0.001; }
-    delay_t getRipupDelayPenalty() const override { return 0.015; }
+    delay_t getDelayEpsilon() const override { return delay_epsilon; }
+    delay_t getRipupDelayPenalty() const override { return ripup_penalty; }
     float getDelayNS(delay_t v) const override { return v; }
 
     delay_t getDelayFromNS(float ns) const override { return ns; }
@@ -397,6 +397,9 @@ struct Arch : BaseArch<ArchRanges>
     // Internal usage
     void assignArchInfo() override;
     bool cellsCompatible(const CellInfo **cells, int count) const;
+
+    float delay_epsilon = 0.001;
+    float ripup_penalty = 0.015;
 };
 
 NEXTPNR_NAMESPACE_END
