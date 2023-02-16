@@ -263,7 +263,9 @@ void CommandHandler::setupContext(Context *ctx)
     if (vm.count("randomize-seed")) {
         std::random_device randDev{};
         std::uniform_int_distribution<int> distrib{1};
-        ctx->rngseed(distrib(randDev));
+        auto seed = distrib(randDev);
+        ctx->rngseed(seed);
+        log_info("Generated random seed: %d\n", seed);
     }
 
     if (vm.count("slack_redist_iter")) {
