@@ -607,6 +607,16 @@ struct NexusPacker
                 // Get IO type for reporting purposes
                 std::string io_type = str_or_default(ci->attrs, id_IO_TYPE, "LVCMOS33");
 
+                bool is_wr_bel = (ctx->getBelType(bel) == id_SEIO33_CORE);
+                if (!ctx->io_types.count(io_type))
+                    log_error("IO '%s' has an unsupported IO type '%s'\n", ctx->nameOf(ci), io_type.c_str());
+                bool is_wr_io = (ctx->io_types.at(io_type).style & IOBANK_WR);
+                if (is_wr_io != is_wr_bel) {
+                    log_error("%s IO '%s' requires a %s bank but is placed on pin %s in a %s bank.\n", io_type.c_str(),
+                              ctx->nameOf(ci), (is_wr_io ? "wide-range" : "high-performance"), loc.c_str(),
+                              (is_wr_bel ? "wide-range" : "high-performance"));
+                }
+
                 if (ctx->is_io_type_diff(io_type)) {
                     // Convert from SEIO18 to DIFFIO18
                     if (ctx->getBelType(bel) != id_SEIO18_CORE)
