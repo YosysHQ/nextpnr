@@ -107,11 +107,15 @@ struct FabFasmWriter
         }
     }
 
+    void add_feature(const std::string &name) { out << prefix << name << std::endl; }
+
     void write_logic(const CellInfo *lc)
     {
         prefix = format_name(ctx->getBelName(lc->bel)) + ".";
         if (lc->type.in(id_FABULOUS_LC, id_FABULOUS_COMB)) {
             write_int_vector_param(lc, "INIT", 0U, 1U << cfg.clb.lut_k); // todo lut depermute and thru
+            if (bool_or_default(lc->params, id_I0MUX, false))
+                add_feature("IOmux"); // typo in FABulous?
         }
         if (lc->type == id_FABULOUS_LC) {
             write_bool(lc, "FF");

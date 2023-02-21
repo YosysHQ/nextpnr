@@ -82,6 +82,7 @@ X(EN)
 X(BEL)
 X(PAD)
 X(LUT1)
+X(LUT4_HA)
 
 X(BelBegin)
 X(BelEnd)
@@ -96,3 +97,5 @@ X(M_AB)
 X(M_AD)
 X(M_EF)
 X(M_AH)
+
+X(I0MUX)
