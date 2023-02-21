@@ -25,6 +25,8 @@
 #include "viaduct_constids.h"
 #include "viaduct_helpers.h"
 
+#include "validity_check.h"
+
 NEXTPNR_NAMESPACE_BEGIN
 
 namespace {
@@ -36,6 +38,7 @@ struct FabulousPacker
 
     dict<IdString, unsigned> lut_types;
     std::vector<IdString> lut_inputs;
+    CellTagger cell_tags;
 
     FabulousPacker(Context *ctx, const FabricConfig &cfg) : ctx(ctx), cfg(cfg)
     {
@@ -44,6 +47,8 @@ struct FabulousPacker
             lut_types[ctx->idf("LUT%d", i + 1)] = i + 1;
             lut_inputs.push_back(ctx->idf("I%d", i));
         }
+        if (cfg.clb.lut_k == 4)
+            lut_types[id_LUT4_HA] = 4; // special case for now
         h.init(ctx);
     }
 
@@ -74,6 +79,16 @@ struct FabulousPacker
             }
             new_init.update_intval();
             ci->params[id_INIT] = new_init;
+        }
+    }
+
+    void assign_lc_info()
+    {
+        int flat_index = 0;
+        for (auto &cell : ctx->cells) {
+            cell.second->flat_index = flat_index++;
+            if (cell.second->type == id_FABULOUS_LC)
+                cell_tags.assign_for(ctx, cfg, cell.second.get());
         }
     }
 
@@ -179,9 +194,34 @@ struct FabulousPacker
         }
     }
 
+    bool check_cluster_legality(CellInfo *lc) {
+        if (lc->cluster == ClusterId())
+            return true;
+        CLBState test_clb(cfg.clb);
+        auto process_cluster_cell = [&](CellInfo *ci) {
+            if (ci->constr_y != lc->constr_y)
+                return;
+            if (ci->type == id_FABULOUS_LC) {
+                NPNR_ASSERT(ci->constr_z >= 0 && ci->constr_z < int(cfg.clb.lc_per_clb));
+                test_clb.lc_comb[ci->constr_z] = ci;
+            }  else if (ci->type.in(id_FABULOUS_MUX2, id_FABULOUS_MUX4, id_FABULOUS_MUX8)) {
+                int mux_z = (ci->constr_z - cfg.clb.lc_per_clb - 1);
+                NPNR_ASSERT(mux_z >= 0 && mux_z < int(cfg.clb.lc_per_clb));
+                test_clb.mux[mux_z] = ci;
+            }
+            // TODO: non-split MODE
+        };
+        CellInfo *root = ctx->getClusterRootCell(lc->cluster);
+        process_cluster_cell(root);
+        for (auto child : root->constr_children)
+            process_cluster_cell(child);
+        return test_clb.check_validity(cfg.clb, cell_tags);
+    }
+
     void pack_ffs()
     {
         pool<IdString> to_delete;
+        assign_lc_info();
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
             if (ci->type != id_FABULOUS_FF)
@@ -194,30 +234,43 @@ struct FabulousPacker
                 continue;
             if (!cfg.clb.split_lc && d->users.entries() > 1)
                 continue; // TODO: could also resolve by duplicating LUT
-            if (drv->cluster != ClusterId()) {
-                // TODO: actually we can pack these often, we just have to be more careful to check control sets
-                continue;
-            }
             // we can pack them together
             if (cfg.clb.split_lc) {
                 // create/modify cluster and add constraints. copy from an arch where we do this already...
                 NPNR_ASSERT_FALSE("unimplemented");
             } else {
-                to_delete.insert(ci->name);
-                // this connection is packed inside the LC
-                ci->disconnectPort(id_D);
-                drv->disconnectPort(id_O);
-                // move other ports/params
+                // move config ports/params, these affect control set for the legality set
                 ci->movePortTo(id_CLK, drv, id_CLK);
                 ci->movePortTo(id_SR, drv, id_SR);
                 ci->movePortTo(id_EN, drv, id_EN);
-                ci->movePortTo(id_O, drv, id_Q);
                 drv->params[id_NEG_CLK] = ci->params[id_NEG_CLK];
                 drv->params[id_ASYNC_SR] = ci->params[id_ASYNC_SR];
                 drv->params[id_SET_NORESET] = ci->params[id_SET_NORESET];
                 drv->params[id_FF] = 1;
+                // update tags for this cluster checks
+                cell_tags.assign_for(ctx, cfg, drv);
+                if (drv->cluster != ClusterId()) {
+                    if (!check_cluster_legality(drv)) {
+                        // If packing wasn't legal; revert half-finished move
+                        for (auto p : {id_NEG_CLK, id_SR, id_EN, id_FF})
+                            drv->params.erase(p);
+                        drv->movePortTo(id_CLK, ci, id_CLK);
+                        drv->movePortTo(id_SR, ci, id_SR);
+                        drv->movePortTo(id_EN, ci, id_EN);
+                        // revert tag changes too for this cluster checks
+                        cell_tags.assign_for(ctx, cfg, drv);
+                        continue;
+                    }
+                }
+                // this connection is packed inside the LC
+                to_delete.insert(ci->name);
+                ci->movePortTo(id_O, drv, id_Q);
+                ci->disconnectPort(id_D);
+                drv->disconnectPort(id_O);
                 for (auto &attr : ci->attrs)
                     drv->attrs[attr.first] = attr.second;
+                // update tags for future cluster checks
+                cell_tags.assign_for(ctx, cfg, drv);
             }
         }
         for (auto del : to_delete)
@@ -279,6 +332,57 @@ struct FabulousPacker
         h.remove_nextpnr_iobs(top_ports);
     }
 
+    void constrain_carries()
+    {
+        std::vector<CellInfo *> carry_roots;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (!ci->type.in(id_FABULOUS_LC, id_FABULOUS_COMB))
+                continue;
+            if (!ci->getPort(id_Ci) && ci->getPort(id_Co))
+                carry_roots.push_back(ci);
+            else if (ci->getPort(id_Ci) && ci->getPort(id_Ci)->driver.cell) {
+                auto &drv = ci->getPort(id_Ci)->driver;
+                if (drv.port != id_Co || !drv.cell->type.in(id_FABULOUS_LC, id_FABULOUS_COMB))
+                    log_error("Carry cell '%s' has Ci driven by illegal port '%s.%s'\n", ctx->nameOf(ci),
+                              ctx->nameOf(drv.cell), ctx->nameOf(drv.port));
+            }
+        }
+        for (auto root : carry_roots) {
+            CellInfo *cursor = root;
+            int dy = 0, dz = 0;
+            while (true) {
+                // create cluster
+                cursor->cluster = root->name;
+                cursor->constr_z = dz;
+                cursor->constr_abs_z = true;
+                if (cursor != root) {
+                    cursor->constr_x = 0;
+                    cursor->constr_y = -dy;
+                    root->constr_children.push_back(cursor);
+                }
+                NetInfo *co = cursor->getPort(id_Co);
+                if (co && !co->users.empty()) {
+                    if (co->users.entries() > 1)
+                        log_error("Carry cell '%s' has illegal multiple fanout on Co net '%s'\n", ctx->nameOf(cursor),
+                                  ctx->nameOf(co));
+                    auto &usr = *(co->users.begin());
+                    if (usr.port != id_Ci || !usr.cell->type.in(id_FABULOUS_LC, id_FABULOUS_COMB))
+                        log_error("Carry cell '%s' has illegal fanout '%s.%s' on Co net '%s'\n", ctx->nameOf(cursor),
+                                  ctx->nameOf(usr.cell), ctx->nameOf(usr.port), ctx->nameOf(co));
+                    cursor = usr.cell;
+                } else {
+                    break;
+                }
+                ++dz;
+                if (dz == int(cfg.clb.lc_per_clb)) {
+                    dz = 0;
+                    ++dy;
+                }
+            }
+        }
+    }
+
     void run()
     {
         update_bel_attrs();
@@ -287,6 +391,7 @@ struct FabulousPacker
         pack_luts();
         pack_muxes();
         prepare_ffs();
+        constrain_carries();
         pack_ffs();
     }
 };
