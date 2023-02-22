@@ -22,10 +22,12 @@
 
 #include "fab_cfg.h"
 #include "nextpnr.h"
+#include "validity_check.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
-void fabulous_write_fasm(const Context *ctx, const FabricConfig &cfg, const std::string &filename);
+void fabulous_write_fasm(const Context *ctx, const FabricConfig &cfg, const std::vector<PseudoPipTags> &pip_tags,
+                         const std::string &filename);
 
 NEXTPNR_NAMESPACE_END
 

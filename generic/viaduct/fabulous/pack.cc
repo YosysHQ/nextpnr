@@ -194,7 +194,8 @@ struct FabulousPacker
         }
     }
 
-    bool check_cluster_legality(CellInfo *lc) {
+    bool check_cluster_legality(CellInfo *lc)
+    {
         if (lc->cluster == ClusterId())
             return true;
         CLBState test_clb(cfg.clb);
@@ -204,7 +205,7 @@ struct FabulousPacker
             if (ci->type == id_FABULOUS_LC) {
                 NPNR_ASSERT(ci->constr_z >= 0 && ci->constr_z < int(cfg.clb.lc_per_clb));
                 test_clb.lc_comb[ci->constr_z] = ci;
-            }  else if (ci->type.in(id_FABULOUS_MUX2, id_FABULOUS_MUX4, id_FABULOUS_MUX8)) {
+            } else if (ci->type.in(id_FABULOUS_MUX2, id_FABULOUS_MUX4, id_FABULOUS_MUX8)) {
                 int mux_z = (ci->constr_z - cfg.clb.lc_per_clb - 1);
                 NPNR_ASSERT(mux_z >= 0 && mux_z < int(cfg.clb.lc_per_clb));
                 test_clb.mux[mux_z] = ci;
@@ -317,9 +318,7 @@ struct FabulousPacker
 
     void handle_constants()
     {
-        const dict<IdString, Property> vcc_params = {{id_INIT, Property(0x3, 2)}};
-        const dict<IdString, Property> gnd_params = {{id_INIT, Property(0x0, 2)}};
-        h.replace_constants(CellTypePort(id_LUT1, id_O), CellTypePort(id_LUT1, id_O), vcc_params, gnd_params);
+        h.replace_constants(CellTypePort(id__CONST1_DRV, id_O), CellTypePort(id__CONST0_DRV, id_O), {}, {});
     }
 
     void handle_io()
