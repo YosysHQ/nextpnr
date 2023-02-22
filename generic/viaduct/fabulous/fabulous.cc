@@ -69,6 +69,7 @@ struct FabulousImpl : ViaductAPI
         blk_trk = std::make_unique<BlockTracker>(ctx, cfg);
         is_new_fab ? init_bels_v2() : init_bels_v1();
         init_pips();
+        init_pseudo_constant_wires();
         ctx->setDelayScaling(3.0, 3.0);
         ctx->delay_epsilon = 0.25;
         ctx->ripup_penalty = 0.5;
@@ -105,7 +106,7 @@ struct FabulousImpl : ViaductAPI
     void postRoute() override
     {
         if (!fasm_file.empty())
-            fabulous_write_fasm(ctx, cfg, fasm_file);
+            fabulous_write_fasm(ctx, cfg, pp_tags, fasm_file);
     }
 
     void prePlace() override
@@ -150,11 +151,18 @@ struct FabulousImpl : ViaductAPI
 
     pool<IdString> warned_beltypes;
 
-    void add_pseudo_pip(WireId src, WireId dst, IdString pip_type)
+    std::vector<PseudoPipTags> pp_tags;
+
+    void add_pseudo_pip(WireId src, WireId dst, IdString pip_type, float delay = 1.0,
+                        PseudoPipTags tags = PseudoPipTags())
     {
         const auto &src_data = ctx->wire_info(src);
         IdStringList pip_name = IdStringList::concat(ctx->getWireName(src), ctx->getWireName(dst));
-        ctx->addPip(pip_name, pip_type, src, dst, ctx->getDelayFromNS(1.0), Loc(src_data.x, src_data.y, 0));
+        PipId idx =
+                ctx->addPip(pip_name, pip_type, src, dst, ctx->getDelayFromNS(delay), Loc(src_data.x, src_data.y, 0));
+        if (idx.index >= int(pp_tags.size()))
+            pp_tags.resize(idx.index + 1);
+        pp_tags.at(idx.index) = tags;
     }
 
     void handle_bel_ports(BelId bel, IdString tile, IdString bel_type, const std::vector<parser_view> &ports)
@@ -405,6 +413,7 @@ struct FabulousImpl : ViaductAPI
         }
     }
 
+    int max_x = 0, max_y = 0;
     void init_pips()
     {
         std::ifstream in = open_data_rel(is_new_fab ? "/.FABulous/pips.txt" : "/npnroutput/pips.txt");
@@ -418,8 +427,11 @@ struct FabulousImpl : ViaductAPI
             IdString pip_name = csv.next_field().to_id(ctx);
             WireId src_wire = get_wire(src_tile, src_port, src_port);
             WireId dst_wire = get_wire(dst_tile, dst_port, dst_port);
+            Loc loc = tile_loc(src_tile);
+            max_x = std::max(loc.x, max_x);
+            max_y = std::max(loc.y, max_y);
             ctx->addPip(IdStringList::concat(src_tile, pip_name), pip_name, src_wire, dst_wire,
-                        ctx->getDelayFromNS(0.05 * delay), tile_loc(src_tile));
+                        ctx->getDelayFromNS(0.05 * delay), loc);
         }
     }
 
@@ -455,6 +467,67 @@ struct FabulousImpl : ViaductAPI
         return ctx->addWire(wire_name, type, loc.x, loc.y);
     }
 
+    void init_pseudo_constant_wires()
+    {
+        for (int y = 0; y <= max_y; y++) {
+            for (int x = 0; x <= max_x; x++) {
+                for (int c = 0; c <= 1; c++) {
+                    IdString name = ctx->idf("$CONST%d", c);
+                    IdString tile = ctx->idf("X%dY%d", x, y);
+                    WireId const_wire = get_wire(tile, name, name);
+                    // Driver bel; always at 0;0
+                    if (x == 0 && y == 0) {
+                        int z = 0;
+                        while (ctx->bel_by_loc.count(Loc(x, y, z)))
+                            z++;
+                        BelId const_driver = ctx->addBel(IdStringList::concat(tile, ctx->idf("_CONST%d_DRV", c)),
+                                                         ctx->idf("_CONST%d_DRV", c), Loc(x, y, z), true, true);
+                        ctx->addBelInput(const_driver, id_O, const_wire);
+                    }
+                    if (x > 0) {
+                        // 'right' pip
+                        WireId prev_wire = get_wire(ctx->idf("X%dY%d", 0, y), name, name);
+                        add_pseudo_pip(prev_wire, const_wire, name, 0.1);
+                    }
+                    if (y > 0) {
+                        // 'down' pip
+                        WireId prev_wire = get_wire(ctx->idf("X%dY%d", x, 0), name, name);
+                        add_pseudo_pip(prev_wire, const_wire, name, 0.1);
+                    }
+                }
+            }
+        }
+        // LUTs can act as constant drivers if they aren't used.
+        // To avoid an exorbitant number of pips, only do this for the first LUT in a tile
+        // This pip will only be enabled if the LUT isn't used
+        for (BelId bel : ctx->getBels()) {
+            if (!ctx->getBelType(bel).in(id_FABULOUS_LC, id_FABULOUS_COMB))
+                continue;
+            Loc loc = ctx->getBelLocation(bel);
+            WireId o = ctx->getBelPinWire(bel, id_O);
+            for (int c = 0; c <= 1; c++) {
+                IdString const_name = ctx->idf("$CONST%d", c);
+                WireId const_wire = get_wire(ctx->idf("X%dY%d", loc.x, loc.y), const_name, const_name);
+                add_pseudo_pip(const_wire, o, const_name, 0.1, PseudoPipTags(PseudoPipTags::LUT_CONST, bel, c));
+            }
+        }
+        // We can also have dedicated constant wires in the fabric
+        for (WireId wire : ctx->getWires()) {
+            auto &wire_data = ctx->wire_info(wire);
+            IdString name_suffix = wire_data.name[1];
+            int const_val = -1;
+            if (name_suffix.in(id_GND, id_GND0))
+                const_val = 0;
+            else if (name_suffix.in(id_VCC, id_VCC0, id_VDD, id_VDD0))
+                const_val = 1;
+            else
+                continue;
+            IdString const_name = ctx->idf("$CONST%d", const_val);
+            WireId const_wire = get_wire(ctx->idf("X%dY%d", wire_data.x, wire_data.y), const_name, const_name);
+            add_pseudo_pip(const_wire, wire, const_name, 0.1);
+        }
+    }
+
     CellTagger cell_tags;
     void assign_cell_info()
     {
@@ -466,6 +539,19 @@ struct FabulousImpl : ViaductAPI
     {
         CellInfo *old = ctx->getBoundBelCell(bel);
         blk_trk->update_bel(bel, old, cell);
+    }
+
+    bool checkPipAvail(PipId pip) const override
+    {
+        if (pip.index >= int(pp_tags.size()))
+            return true;
+        const auto &tags = pp_tags.at(pip.index);
+        if (tags.type == PseudoPipTags::LUT_CONST) {
+            return ctx->checkBelAvail(tags.bel);
+        } else {
+            // TODO: LUT permuation pseudopips
+            return true;
+        }
     }
 };
 

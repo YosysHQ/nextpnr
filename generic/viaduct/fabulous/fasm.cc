@@ -34,8 +34,9 @@ NEXTPNR_NAMESPACE_BEGIN
 namespace {
 struct FabFasmWriter
 {
-    FabFasmWriter(const Context *ctx, const FabricConfig &cfg, const std::string &filename)
-            : ctx(ctx), cfg(cfg), out(filename)
+    FabFasmWriter(const Context *ctx, const FabricConfig &cfg, const std::vector<PseudoPipTags> &pip_tags,
+                  const std::string &filename)
+            : ctx(ctx), cfg(cfg), pip_tags(pip_tags), out(filename)
     {
         if (!out)
             log_error("failed to open fasm file '%s' for writing\n", filename.c_str());
@@ -53,7 +54,19 @@ struct FabFasmWriter
     void write_pip(PipId pip)
     {
         auto &data = ctx->pip_info(pip);
-        if (data.type.in(id_global_clock, id_O2Q))
+        if (pip.index < int(pip_tags.size()) && pip_tags.at(pip.index).type != PseudoPipTags::NONE) {
+            // pseudo PIP
+            const auto &tag = pip_tags.at(pip.index);
+            if (tag.type == PseudoPipTags::LUT_CONST) {
+                NPNR_ASSERT(ctx->checkBelAvail(tag.bel));
+                prefix = format_name(ctx->getBelName(tag.bel)) + ".";
+                write_int_vector(stringf("INIT[%d:0]", (1U << cfg.clb.lut_k) - 1), 0, 1U << cfg.clb.lut_k,
+                                 (tag.data & 0x1));
+                prefix = "";
+            }
+            return;
+        }
+        if (data.type.in(id_global_clock, id_O2Q) || data.type.c_str(ctx)[0] == '$')
             return; // pseudo-pips with no underlying bitstream bits
         // write pip name but with '.' instead of '/' for separator
         out << format_name(data.name) << std::endl;
@@ -194,13 +207,15 @@ struct FabFasmWriter
 
     const Context *ctx;
     const FabricConfig &cfg;
+    const std::vector<PseudoPipTags> &pip_tags;
     std::ofstream out;
 };
 } // namespace
 
-void fabulous_write_fasm(const Context *ctx, const FabricConfig &cfg, const std::string &filename)
+void fabulous_write_fasm(const Context *ctx, const FabricConfig &cfg, const std::vector<PseudoPipTags> &pip_tags,
+                         const std::string &filename)
 {
-    FabFasmWriter wr(ctx, cfg, filename);
+    FabFasmWriter wr(ctx, cfg, pip_tags, filename);
     wr.write_fasm();
 }
 

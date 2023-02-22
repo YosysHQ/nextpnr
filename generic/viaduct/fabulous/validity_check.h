@@ -122,6 +122,19 @@ struct BlockTracker
     bool check_validity(BelId bel, const FabricConfig &cfg, const CellTagger &cell_data);
 };
 
+struct PseudoPipTags
+{
+    BelId bel;
+    enum PPType : uint16_t
+    {
+        NONE,
+        LUT_CONST,
+        LUT_PERM,
+    } type;
+    uint16_t data;
+    PseudoPipTags(PPType type = NONE, BelId bel = BelId(), uint16_t data = 0x0) : bel(bel), type(type), data(data) {}
+};
+
 NEXTPNR_NAMESPACE_END
 
 #endif
