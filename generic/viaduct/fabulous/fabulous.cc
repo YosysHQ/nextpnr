@@ -83,14 +83,21 @@ struct FabulousImpl : ViaductAPI
             CellInfo *ci = cell.second.get();
             if (ci->type == id_FABULOUS_LC) {
                 auto &lct = cell_tags.get(ci);
+                if (lct.comb.carry_used) {
+                    ctx->addCellTimingDelay(ci->name, id_Ci, id_Co, 1.0);
+                }
                 if (lct.ff.ff_used) {
                     ctx->addCellTimingClock(ci->name, id_CLK);
                     for (unsigned i = 0; i < cfg.clb.lut_k; i++)
                         ctx->addCellTimingSetupHold(ci->name, ctx->idf("I%d", i), id_CLK, 2.5, 0.1);
                     ctx->addCellTimingClockToOut(ci->name, id_Q, id_CLK, 1.0);
+                    if (bool_or_default(ci->params, id_I0MUX))
+                        ctx->addCellTimingSetupHold(ci->name, id_Ci, id_CLK, 2.5, 0.1);
                 } else {
                     for (unsigned i = 0; i < cfg.clb.lut_k; i++)
                         ctx->addCellTimingDelay(ci->name, ctx->idf("I%d", i), id_O, 3.0);
+                    if (bool_or_default(ci->params, id_I0MUX))
+                        ctx->addCellTimingDelay(ci->name, id_Ci, id_O, 3.0);
                 }
             } else if (ci->type == id_OutPass4_frame_config) {
                 for (unsigned i = 0; i < 4; i++)
@@ -609,6 +616,19 @@ struct FabulousImpl : ViaductAPI
             // TODO: LUT permuation pseudopips
             return true;
         }
+    }
+
+    delay_t predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const override
+    {
+        if (src_pin == id_Ci && dst_pin == id_Co)
+            return 0.5;
+
+        auto driver_loc = ctx->getBelLocation(src_bel);
+        auto sink_loc = ctx->getBelLocation(dst_bel);
+
+        int dx = abs(sink_loc.x - driver_loc.x);
+        int dy = abs(sink_loc.y - driver_loc.y);
+        return (dx + dy) * ctx->args.delayScale + ctx->args.delayOffset;
     }
 };
 
