@@ -53,7 +53,7 @@ void CellTagger::assign_for(const Context *ctx, const FabricConfig &cfg, const C
             const NetInfo *sig = ci->getPort(ctx->idf("I%d", i));
             t.comb.lut_inputs[i] = sig ? sig->name : IdString();
         }
-        t.comb.carry_used = false; // TODO
+        t.comb.carry_used = ci->getPort(id_Ci) || ci->getPort(id_Co); // TODO
         t.comb.lut_out = ci->getPort(id_O);
     }
     if (ci->type.in(id_FABULOUS_FF, id_FABULOUS_LC)) {
