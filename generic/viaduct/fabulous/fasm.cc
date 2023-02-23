@@ -122,11 +122,51 @@ struct FabFasmWriter
 
     void add_feature(const std::string &name) { out << prefix << name << std::endl; }
 
+    uint64_t depermute_lut(const CellInfo *lut)
+    {
+        uint64_t orig_init = int_or_default(lut->params, id_INIT, 0);
+        std::vector<std::vector<unsigned>> phys_to_log;
+        phys_to_log.resize(cfg.clb.lut_k);
+        for (unsigned i = 0; i < cfg.clb.lut_k; i++) {
+            WireId pin_wire = ctx->getBelPinWire(lut->bel, ctx->idf("I%d", i));
+            for (PipId pip : ctx->getPipsUphill(pin_wire)) {
+                if (!ctx->getBoundPipNet(pip))
+                    continue;
+                unsigned pip_data = pip_tags.at(pip.index).data;
+                unsigned from_pin = (pip_data >> 4) & 0xF;
+                unsigned to_pin = (pip_data)&0xF;
+                NPNR_ASSERT(to_pin == i);
+                phys_to_log[from_pin].push_back(i);
+            }
+        }
+        if (bool_or_default(lut->params, id_I0MUX, false)) // internal, hardcoded
+            phys_to_log[0].push_back(0);
+        for (unsigned i = 0; i < cfg.clb.lut_k; i++) {
+            for (auto j : phys_to_log.at(i))
+                out << stringf(" # permute phys %d log %d\n", i, j);
+        }
+        uint64_t permuted_init = 0;
+        for (unsigned i = 0; i < (1U << cfg.clb.lut_k); i++) {
+            unsigned log_idx = 0;
+            for (unsigned j = 0; j < cfg.clb.lut_k; j++) {
+                if ((i >> j) & 0x1) {
+                    for (auto log_pin : phys_to_log[j])
+                        log_idx |= (1 << log_pin);
+                }
+            }
+            if ((orig_init >> log_idx) & 0x1)
+                permuted_init |= (uint64_t(1U) << i);
+        }
+        return permuted_init;
+    }
+
     void write_logic(const CellInfo *lc)
     {
         prefix = format_name(ctx->getBelName(lc->bel)) + ".";
         if (lc->type.in(id_FABULOUS_LC, id_FABULOUS_COMB)) {
-            write_int_vector_param(lc, "INIT", 0U, 1U << cfg.clb.lut_k); // todo lut depermute and thru
+            uint64_t init = depermute_lut(lc);
+            unsigned width = 1U << cfg.clb.lut_k;
+            write_int_vector(stringf("INIT[%d:0]", width - 1), init, width); // todo lut depermute and thru
             if (bool_or_default(lc->params, id_I0MUX, false))
                 add_feature("IOmux"); // typo in FABulous?
         }

@@ -70,6 +70,7 @@ struct FabulousImpl : ViaductAPI
         is_new_fab ? init_bels_v2() : init_bels_v1();
         init_pips();
         init_pseudo_constant_wires();
+        setup_lut_permutation();
         ctx->setDelayScaling(3.0, 3.0);
         ctx->delay_epsilon = 0.25;
         ctx->ripup_penalty = 0.5;
@@ -435,6 +436,46 @@ struct FabulousImpl : ViaductAPI
         }
     }
 
+    void remove_bel_pin(BelId bel, IdString pin)
+    {
+        auto &bel_data = ctx->bel_info(bel);
+        auto &wire_data = ctx->wire_info(ctx->getBelPinWire(bel, pin));
+        std::vector<BelPin> new_wire_pins;
+        for (const auto &wire_pin : wire_data.bel_pins) {
+            if (wire_pin.bel == bel && wire_pin.pin == pin)
+                continue;
+            new_wire_pins.push_back(wire_pin);
+        }
+        wire_data.bel_pins = new_wire_pins;
+        bel_data.pins.erase(pin);
+    }
+
+    void setup_lut_permutation()
+    {
+        for (auto bel : ctx->getBels()) {
+            auto &bel_data = ctx->bel_info(bel);
+            if (!bel_data.type.in(id_FABULOUS_LC, id_FABULOUS_COMB))
+                continue;
+            std::vector<WireId> orig_inputs, new_inputs;
+            for (unsigned i = 0; i < cfg.clb.lut_k; i++) {
+                // Rewire the LUT input to a permutation pseudo-wire
+                IdString pin = ctx->idf("I%d", i);
+                orig_inputs.push_back(ctx->getBelPinWire(bel, pin));
+                remove_bel_pin(bel, pin);
+                WireId in_wire = get_wire(bel_data.name[0], ctx->idf("%s_PERM_I%d", bel_data.name[1].c_str(ctx), i),
+                                          id__LUT_PERM_IN);
+                ctx->addBelInput(bel, pin, in_wire);
+                new_inputs.push_back(in_wire);
+            }
+            for (unsigned i = 0; i < cfg.clb.lut_k; i++) {
+                for (unsigned j = 0; j < cfg.clb.lut_k; j++) {
+                    add_pseudo_pip(orig_inputs.at(i), new_inputs.at(j), id__LUT_PERM, 0.1,
+                                   PseudoPipTags(PseudoPipTags::LUT_PERM, bel, ((i << 4) | j)));
+                }
+            }
+        }
+    }
+
     // Fast lookup of tile names to XY pairs
     dict<IdString, Loc> tile2loc;
     Loc tile_loc(IdString tile)
@@ -548,6 +589,22 @@ struct FabulousImpl : ViaductAPI
         const auto &tags = pp_tags.at(pip.index);
         if (tags.type == PseudoPipTags::LUT_CONST) {
             return ctx->checkBelAvail(tags.bel);
+        } else if (tags.type == PseudoPipTags::LUT_PERM) {
+            uint8_t from = (tags.data >> 4) & 0xF, to = (tags.data & 0xF);
+            if (from == to)
+                return true;
+            const CellInfo *lut = ctx->getBoundBelCell(tags.bel);
+            if (!lut)
+                return true;
+            bool is_carry = cell_tags.get(lut).comb.carry_used;
+            if (is_carry) {
+                // Because you have to make sure you route _something_ to each HA input in this mode (undefined I1/I2 inputs aren't OK)
+                // and you also can't swap I0 because it's fixed internally
+                // LUT permutation in carry mode is just more trouble than it's worth.
+                return false;
+            } else {
+                return true; // TODO: other cases where perm illegal; e.g. LUTRAM
+            }
         } else {
             // TODO: LUT permuation pseudopips
             return true;
