@@ -52,7 +52,7 @@ aborts the entire move transaction.
 
 #include <queue>
 
-#if !defined(__wasm)
+#if !defined(NPNR_DISABLE_THREADS)
 #include <shared_mutex>
 #endif
 
@@ -98,7 +98,7 @@ struct DetailPlacerState
     wirelen_t total_wirelen = 0;
     double total_timing_cost = 0;
 
-#if !defined(__wasm)
+#if !defined(NPNR_DISABLE_THREADS)
     std::shared_timed_mutex archapi_mutex;
 #endif
 
