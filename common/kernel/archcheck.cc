@@ -17,6 +17,8 @@
  *
  */
 
+#include <list>
+
 #include "log.h"
 #include "nextpnr.h"
 
