@@ -44,26 +44,25 @@ endif()
 
 set(Boost_NO_BOOST_CMAKE ON)
 
-if(WASI)
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lwasi-emulated-mman")
-    set(USE_THREADS OFF)
-    add_definitions(
-        -DBOOST_EXCEPTION_DISABLE
-        -DBOOST_NO_EXCEPTIONS
-        -DBOOST_SP_NO_ATOMIC_ACCESS
-        -DBOOST_AC_DISABLE_THREADS
-        -DBOOST_NO_CXX11_HDR_MUTEX
-    )
-else()
-    set(USE_THREADS ON)
+find_package(Threads)
+if (Threads_FOUND)
     find_package(TBB QUIET)
     if (TBB_FOUND)
         add_definitions(-DNEXTPNR_USE_TBB)
     endif()
+else()
+    add_definitions(-DNPNR_DISABLE_THREADS)
 endif()
 
-if (NOT USE_THREADS)
-    add_definitions(-DNPNR_DISABLE_THREADS)
+if(WASI)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lwasi-emulated-mman")
+    add_definitions(
+        -DBOOST_EXCEPTION_DISABLE
+        -DBOOST_NO_EXCEPTIONS
+    )
+    if (NOT Threads_FOUND)
+        add_definitions(-DBOOST_NO_CXX11_HDR_MUTEX)
+    endif()
 endif()
 
 set(link_param "")
@@ -168,7 +167,7 @@ find_package(Sanitizers)
 
 # List of Boost libraries to include
 set(boost_libs filesystem program_options iostreams system)
-if (USE_THREADS)
+if (Threads_FOUND)
     list(APPEND boost_libs thread)
 endif()
 
