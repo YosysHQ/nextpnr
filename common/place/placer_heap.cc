@@ -355,7 +355,7 @@ class HeAPPlacer
         ctx->check();
         lock.unlock_early();
 
-#if !defined(__wasm)
+#if !defined(NPNR_DISABLE_THREADS)
         if (cfg.parallelRefine) {
             if (!parallel_refine(ctx, ParallelRefineCfg(ctx))) {
                 return false;

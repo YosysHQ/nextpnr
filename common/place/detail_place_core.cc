@@ -219,7 +219,7 @@ bool DetailPlacerThreadState::bounds_check(BelId bel)
 
 bool DetailPlacerThreadState::bind_move()
 {
-#if !defined(__wasm)
+#if !defined(NPNR_DISABLE_THREADS)
     std::unique_lock<std::shared_timed_mutex> l(g.archapi_mutex);
 #endif
     for (auto &entry : moved_cells) {
@@ -240,7 +240,7 @@ bool DetailPlacerThreadState::bind_move()
 
 bool DetailPlacerThreadState::check_validity()
 {
-#if !defined(__wasm)
+#if !defined(NPNR_DISABLE_THREADS)
     std::shared_lock<std::shared_timed_mutex> l(g.archapi_mutex);
 #endif
     bool result = true;
@@ -263,7 +263,7 @@ void DetailPlacerThreadState::revert_move()
 {
     if (arch_state_dirty) {
         // If changes to the arch state were made, revert them by restoring original cell bindings
-#if !defined(__wasm)
+#if !defined(NPNR_DISABLE_THREADS)
         std::unique_lock<std::shared_timed_mutex> l(g.archapi_mutex);
 #endif
         for (auto &entry : moved_cells) {

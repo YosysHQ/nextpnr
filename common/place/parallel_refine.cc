@@ -20,7 +20,7 @@
 #include "parallel_refine.h"
 #include "log.h"
 
-#if !defined(__wasm)
+#if !defined(NPNR_DISABLE_THREADS)
 
 #include "detail_place_core.h"
 #include "scope_lock.h"
@@ -519,7 +519,7 @@ bool parallel_refine(Context *ctx, ParallelRefineCfg cfg)
 
 NEXTPNR_NAMESPACE_END
 
-#else /* !defined(__wasm) */
+#else /* !defined(NPNR_DISABLE_THREADS) */
 
 NEXTPNR_NAMESPACE_BEGIN
 

@@ -200,7 +200,7 @@ po::options_description CommandHandler::getGeneralOptions()
                           "allow placer to attempt up to max(10000, total cells^2 / N) iterations to place a cell (int "
                           "N, default: 8, 0 for no timeout)");
 
-#if !defined(__wasm)
+#if !defined(NPNR_DISABLE_THREADS)
     general.add_options()("parallel-refine", "use new experimental parallelised engine for placement refinement");
 #endif
 
