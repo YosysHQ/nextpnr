@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.13)
 project(nextpnr CXX C)
 
+include(CheckCXXCompilerFlag)
+
 # Allow family.cmake add additional dependencies to gui_${family}.
 cmake_policy(SET CMP0079 NEW)
 
@@ -134,7 +136,13 @@ if (MSVC)
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /W4 /wd4100 /wd4244 /wd4125 /wd4800 /wd4456 /wd4458 /wd4305 /wd4459 /wd4121 /wd4996 /wd4127")
 else()
     # N.B. the -Wno-array-bounds is to work around a false positive in GCC 9
-    set(WARN_FLAGS "-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wno-array-bounds -Wno-format-truncation")
+    set(WARN_FLAGS "-Wall -Wextra")
+    foreach(TRY_WARN_FLAG no-unused-parameter no-missing-field-initializers no-array-bounds no-format-truncation)
+        check_cxx_compiler_flag("-W${TRY_WARN_FLAG}" HAS_W${TRY_WARN_FLAG})
+        if (HAS_W${TRY_WARN_FLAG})
+            set(WARN_FLAGS "${WARN_FLAGS} -W${TRY_WARN_FLAG}")
+        endif()
+    endforeach()
     if (WERROR)
         set(WARN_FLAGS "${WARN_FLAGS} -Werror")
     endif()
