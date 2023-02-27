@@ -223,6 +223,23 @@ struct FabFasmWriter
         }
     }
 
+    void write_iopass(const CellInfo *ci)
+    {
+        Loc loc = ctx->getBelLocation(ci->bel);
+        // We use 'nice' names based on function for the IOPass bels inside nextpnr
+        // but in the bitstream we need to use character names
+        NPNR_ASSERT(loc.z <= 26);
+        prefix = stringf("X%dY%d.%c.", loc.x, loc.y, 'A' + loc.z);
+        if (ci->params.count(id_I_reg)) {
+            uint64_t regval = int_or_default(ci->params, id_I_reg);
+            for (unsigned i = 0; i < 4; i++) {
+                if (regval & (1 << i))
+                    out << prefix << stringf("I%d_reg", i) << std::endl;
+            }
+        }
+        prefix = "";
+    }
+
     void write_cell(const CellInfo *ci)
     {
         out << stringf("# config for cell '%s'\n", ctx->nameOf(ci)) << std::endl;
@@ -231,6 +248,8 @@ struct FabFasmWriter
             write_logic(ci);
         else if (ci->type == id_IO_1_bidirectional_frame_config_pass)
             write_io(ci);
+        else if (ci->type.in(id_InPass4_frame_config, id_OutPass4_frame_config))
+            write_iopass(ci);
         else
             write_generic_cell(ci);
         // TODO: other cell types

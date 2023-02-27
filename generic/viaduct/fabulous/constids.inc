@@ -115,3 +115,4 @@ X(_CONST1)
 
 X(_LUT_PERM)
 X(_LUT_PERM_IN)
+X(I_reg)

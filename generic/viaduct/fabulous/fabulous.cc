@@ -102,7 +102,9 @@ struct FabulousImpl : ViaductAPI
             if (ci->type == id_FABULOUS_LC) {
                 auto &lct = cell_tags.get(ci);
                 if (lct.comb.carry_used) {
-                    ctx->addCellTimingDelay(ci->name, id_Ci, id_Co, 1.0);
+                    ctx->addCellTimingDelay(ci->name, id_Ci, id_Co, 0.2);
+                    ctx->addCellTimingDelay(ci->name, ctx->id("I1"), id_Co, 1.0);
+                    ctx->addCellTimingDelay(ci->name, ctx->id("I2"), id_Co, 1.0);
                 }
                 if (lct.ff.ff_used) {
                     ctx->addCellTimingClock(ci->name, id_CLK);
@@ -638,7 +640,7 @@ struct FabulousImpl : ViaductAPI
 
     delay_t predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const override
     {
-        if (src_pin == id_Ci && dst_pin == id_Co)
+        if (src_pin == id_Co && dst_pin == id_Ci)
             return 0.5;
 
         auto driver_loc = ctx->getBelLocation(src_bel);
