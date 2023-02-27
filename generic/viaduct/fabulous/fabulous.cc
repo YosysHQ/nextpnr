@@ -52,6 +52,7 @@ struct FabulousImpl : ViaductAPI
                 log_error("unrecognised fabulous option '%s'\n", a.first.c_str());
         }
     }
+
     ~FabulousImpl(){};
     void init(Context *ctx) override
     {
@@ -64,6 +65,7 @@ struct FabulousImpl : ViaductAPI
         else
             is_new_fab = false;
         log_info("Detected FABulous %s format project.\n", is_new_fab ? "2.0" : "1.0");
+        init_default_ctrlset_cfg();
         // To consider: a faster serialised form of the device data (like bba that other arches use) so we don't have to
         // go through the whole csv parsing malarkey each time
         blk_trk = std::make_unique<BlockTracker>(ctx, cfg);
@@ -74,6 +76,22 @@ struct FabulousImpl : ViaductAPI
         ctx->setDelayScaling(3.0, 3.0);
         ctx->delay_epsilon = 0.25;
         ctx->ripup_penalty = 0.5;
+    }
+
+    void init_default_ctrlset_cfg()
+    {
+        // TODO: loading from file or something
+        uint64_t default_routing = (1ULL << (cfg.clb.lc_per_clb * cfg.clb.ff_per_lc)) - 1;
+        auto setup_cfg = [&](ControlSetConfig &ctrl, int mask) {
+            ctrl.routing.clear();
+            ctrl.routing.push_back(default_routing);
+            ctrl.can_mask = mask;
+            ctrl.can_invert = false;
+        };
+
+        setup_cfg(cfg.clb.clk, -1);
+        setup_cfg(cfg.clb.en, 1);
+        setup_cfg(cfg.clb.sr, 0);
     }
 
     void update_cell_timing(Context *ctx)
@@ -605,9 +623,9 @@ struct FabulousImpl : ViaductAPI
                 return true;
             bool is_carry = cell_tags.get(lut).comb.carry_used;
             if (is_carry) {
-                // Because you have to make sure you route _something_ to each HA input in this mode (undefined I1/I2 inputs aren't OK)
-                // and you also can't swap I0 because it's fixed internally
-                // LUT permutation in carry mode is just more trouble than it's worth.
+                // Because you have to make sure you route _something_ to each HA input in this mode (undefined I1/I2
+                // inputs aren't OK) and you also can't swap I0 because it's fixed internally LUT permutation in carry
+                // mode is just more trouble than it's worth.
                 return false;
             } else {
                 return true; // TODO: other cases where perm illegal; e.g. LUTRAM

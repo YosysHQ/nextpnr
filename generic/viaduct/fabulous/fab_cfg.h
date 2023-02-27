@@ -43,8 +43,9 @@ struct ControlSetConfig
     signal can drive for a CLB with 8 FFs and 2 clocks split at halfway, the first entry would be 0x0F and the second
     0xF0
     */
-    std::vector<route_mask_t> routing = {0b11111111}; // default 1 shared between all
+    std::vector<route_mask_t> routing; // default 1 shared between all
     bool have_signal = true;
+    int can_mask = -1;
     bool can_invert = false;
 };
 

@@ -62,6 +62,10 @@ void CellTagger::assign_for(const Context *ctx, const FabricConfig &cfg, const C
             auto get_ctrlsig = [&](IdString name) {
                 const NetInfo *sig = ci->getPort(name);
                 bool invert = sig && bool_or_default(ci->params, ctx->idf("NEG_%s", name.c_str(ctx)));
+                if (sig && sig->driver.cell && sig->driver.cell->type.in(id__CONST0_DRV, id__CONST1_DRV)) {
+                    return ControlSig(((sig->driver.cell->type == id__CONST1_DRV) ^ invert) ? id__CONST1 : id__CONST0,
+                                      false);
+                }
                 return ControlSig(sig ? sig->name : id___disconnected, invert);
             };
             t.ff.clk = get_ctrlsig(id_CLK);
@@ -132,6 +136,13 @@ bool CLBState::check_validity(const LogicConfig &cfg, const CellTagger &cell_dat
             used_en(cfg.en.routing.size());
     auto check_ctrlsig = [&](unsigned idx, ControlSig actual, const ControlSetConfig &ctrl,
                              SSOArray<ControlSig, 2> &used) {
+        if (ctrl.can_mask != -1) {
+            // Using the per-entry control signal masking
+            if (actual.net == id___disconnected || (actual.net == id__CONST0 && ctrl.can_mask == 0) ||
+                (actual.net == id__CONST1 && ctrl.can_mask == 0)) {
+                return true;
+            }
+        }
         // see if we have an already-matching signal available
         for (unsigned i = 0; i < ctrl.routing.size(); i++) {
             // doesn't route to this pin
