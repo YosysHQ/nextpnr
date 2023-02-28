@@ -21,10 +21,22 @@
 #ifndef NO_PYTHON
 
 #include "arch_pybindings.h"
+#include "bitstream.h"
+#include "log.h"
 #include "nextpnr.h"
 #include "pybindings.h"
 
+#include <fstream>
+
 NEXTPNR_NAMESPACE_BEGIN
+
+static void write_bitstream(const Context *ctx, std::string asc_file)
+{
+    std::ofstream out(asc_file);
+    if (!out)
+        log_error("Failed to open output file %s\n", asc_file.c_str());
+    write_asc(ctx, out);
+}
 
 void arch_wrap_python(py::module &m)
 {
@@ -85,6 +97,8 @@ void arch_wrap_python(py::module &m)
     WRAP_MAP_UPTR(m, CellMap, "IdCellMap");
     WRAP_MAP_UPTR(m, NetMap, "IdNetMap");
     WRAP_MAP(m, HierarchyMap, wrap_context<HierarchicalCell &>, "HierarchyMap");
+
+    m.def("write_bitstream", &write_bitstream);
 }
 
 NEXTPNR_NAMESPACE_END
