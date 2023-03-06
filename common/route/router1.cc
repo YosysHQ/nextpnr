@@ -401,6 +401,10 @@ struct Router1
                     arc.user_idx = user.index;
                     arc.phys_idx = phys_idx++;
 
+                    if (dst_wire == WireId())
+                        log_error("No wire found for port %s on destination cell %s.\n", ctx->nameOf(user.value.port),
+                                  ctx->nameOf(user.value.cell));
+
                     if (dst_to_arc.count(dst_wire)) {
                         if (dst_to_arc.at(dst_wire).net_info == net_info)
                             continue;
