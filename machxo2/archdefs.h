@@ -107,8 +107,31 @@ struct PipId
     unsigned int hash() const { return mkhash(location.hash(), index); }
 };
 
+struct DecalId
+{
+    enum
+    {
+        TYPE_NONE,
+        TYPE_BEL,
+        TYPE_WIRE,
+        TYPE_PIP,
+        TYPE_GROUP
+    } type = TYPE_NONE;
+    Location location;
+    uint32_t z = 0;
+    bool active = false;
+    bool operator==(const DecalId &other) const
+    {
+        return type == other.type && location == other.location && z == other.z && active == other.active;
+    }
+    bool operator!=(const DecalId &other) const
+    {
+        return type != other.type || location != other.location || z != other.z || active != other.active;
+    }
+    unsigned int hash() const { return mkhash(location.hash(), mkhash(z, int(type))); }
+};
+
 typedef IdString GroupId;
-typedef IdString DecalId;
 typedef IdString BelBucketId;
 typedef IdString ClusterId;
 
