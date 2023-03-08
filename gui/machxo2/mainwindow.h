@@ -35,13 +35,19 @@ class MainWindow : public BaseMainWindow
   public:
     void createMenu();
 
+  protected:
     void onDisableActions() override;
     void onUpdateActions() override;
 
   protected Q_SLOTS:
     void new_proj() override;
-
     void newContext(Context *ctx);
+    void open_lpf();
+    void save_config();
+
+  private:
+    QAction *actionLoadLPF;
+    QAction *actionSaveConfig;
 };
 
 NEXTPNR_NAMESPACE_END
