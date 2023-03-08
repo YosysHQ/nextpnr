@@ -18,16 +18,13 @@
  */
 
 #include "mainwindow.h"
-#include <QAction>
+#include <fstream>
+#include "bitstream.h"
+#include "log.h"
+
 #include <QFileDialog>
-#include <QFileInfo>
-#include <QIcon>
 #include <QInputDialog>
 #include <QLineEdit>
-#include <QSet>
-#include <fstream>
-#include "design_utils.h"
-#include "log.h"
 
 static void initMainResource() { Q_INIT_RESOURCE(nextpnr); }
 
@@ -38,7 +35,7 @@ MainWindow::MainWindow(std::unique_ptr<Context> context, CommandHandler *handler
 {
     initMainResource();
 
-    std::string title = "nextpnr-xo2 - [EMPTY]";
+    std::string title = "nextpnr-machxo2 - [EMPTY]";
     setWindowTitle(title.c_str());
 
     connect(this, &BaseMainWindow::contextChanged, this, &MainWindow::newContext);
@@ -48,11 +45,35 @@ MainWindow::MainWindow(std::unique_ptr<Context> context, CommandHandler *handler
 
 MainWindow::~MainWindow() {}
 
+void MainWindow::newContext(Context *ctx)
+{
+    std::string title = "nextpnr-machxo2 - " + ctx->getChipName() + " ( " + ctx->archArgs().package + " )";
+    setWindowTitle(title.c_str());
+}
+
 void MainWindow::createMenu()
 {
     // Add arch specific actions
+    actionLoadLPF = new QAction("Open LPF", this);
+    actionLoadLPF->setIcon(QIcon(":/icons/resources/open_lpf.png"));
+    actionLoadLPF->setStatusTip("Open LPF file");
+    actionLoadLPF->setEnabled(false);
+    connect(actionLoadLPF, &QAction::triggered, this, &MainWindow::open_lpf);
+
+    actionSaveConfig = new QAction("Save Bitstream", this);
+    actionSaveConfig->setIcon(QIcon(":/icons/resources/save_config.png"));
+    actionSaveConfig->setStatusTip("Save Bitstream config file");
+    actionSaveConfig->setEnabled(false);
+    connect(actionSaveConfig, &QAction::triggered, this, &MainWindow::save_config);
 
     // Add actions in menus
+    mainActionBar->addSeparator();
+    mainActionBar->addAction(actionLoadLPF);
+    mainActionBar->addAction(actionSaveConfig);
+
+    menuDesign->addSeparator();
+    menuDesign->addAction(actionLoadLPF);
+    menuDesign->addAction(actionSaveConfig);
 }
 
 void MainWindow::new_proj()
@@ -94,14 +115,45 @@ void MainWindow::new_proj()
     }
 }
 
-void MainWindow::newContext(Context *ctx)
+void MainWindow::open_lpf()
 {
-    std::string title = "nextpnr-xo2 - " + ctx->getChipName();
-    setWindowTitle(title.c_str());
+    QString fileName = QFileDialog::getOpenFileName(this, QString("Open LPF"), QString(), QString("*.lpf"));
+    if (!fileName.isEmpty()) {
+        /*std::ifstream in(fileName.toStdString());
+        if (ctx->apply_lpf(fileName.toStdString(), in)) {
+            log("Loading LPF successful.\n");
+            actionPack->setEnabled(true);
+            actionLoadLPF->setEnabled(false);
+        } else {
+            actionLoadLPF->setEnabled(true);
+            log("Loading LPF failed.\n");
+        }*/
+    }
 }
 
-void MainWindow::onDisableActions() {}
+void MainWindow::save_config()
+{
+    QString fileName = QFileDialog::getSaveFileName(this, QString("Save Bitstream"), QString(), QString("*.config"));
+    if (!fileName.isEmpty()) {
+        std::string fn = fileName.toStdString();
+        disableActions();
+        write_bitstream(ctx.get(), fileName.toStdString());
+        log("Saving Bitstream successful.\n");
+    }
+}
 
-void MainWindow::onUpdateActions() {}
+void MainWindow::onDisableActions()
+{
+    actionLoadLPF->setEnabled(false);
+    actionSaveConfig->setEnabled(false);
+}
+
+void MainWindow::onUpdateActions()
+{
+    if (ctx->settings.find(ctx->id("pack")) == ctx->settings.end())
+        actionLoadLPF->setEnabled(true);
+    if (ctx->settings.find(ctx->id("route")) != ctx->settings.end())
+        actionSaveConfig->setEnabled(true);
+}
 
 NEXTPNR_NAMESPACE_END
