@@ -92,7 +92,7 @@ packages = {}
 pindata = []
 
 def process_pio_db(rg, device):
-    piofile = path.join(database.get_db_root(), "MachXO2", dev_names[device], "iodb.json")
+    piofile = path.join(database.get_db_root(), dev_family[device], dev_names[device], "iodb.json")
     with open(piofile, 'r') as f:
         piodb = json.load(f)
         for pkgname, pkgdata in sorted(piodb["packages"].items()):
@@ -330,7 +330,33 @@ def write_database(dev_name, chip, rg, endianness):
     bba.pop()
 
 
-dev_names = {"1200": "LCMXO2-1200HC"}
+dev_family = {
+    "256X": "MachXO",
+    "640X": "MachXO",
+    "1200X":"MachXO",
+    "2280X":"MachXO",
+
+    "256":  "MachXO2",
+    "640":  "MachXO2",
+    "1200": "MachXO2",
+    "2000": "MachXO2",
+    "4000": "MachXO2",
+    "7000": "MachXO2"
+}
+
+dev_names = {
+    "256X": "LCMXO256",
+    "640X": "LCMXO640",
+    "1200X":"LCMXO1200",
+    "2280X":"LCMXO2280",
+
+    "256":  "LCMXO2-256",
+    "640":  "LCMXO2-640",
+    "1200": "LCMXO2-1200",
+    "2000": "LCMXO2-2000",
+    "4000": "LCMXO2-4000",
+    "7000": "LCMXO2-7000"
+}
 
 def main():
     global max_row, max_col, const_id_count

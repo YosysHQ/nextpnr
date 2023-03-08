@@ -1,8 +1,7 @@
 cmake_minimum_required(VERSION 3.5)
 project(chipdb-machxo2 NONE)
 
-# set(ALL_MACHXO2_DEVICES 256 640 1200 2000 4000 7000)
-set(ALL_MACHXO2_DEVICES 1200)
+set(ALL_MACHXO2_DEVICES 256X 640X 1200X 2280X 256 640 1200 2000 4000 7000)
 set(MACHXO2_DEVICES 1200 CACHE STRING
     "Include support for these MachXO2 devices (available: ${ALL_MACHXO2_DEVICES})")
 message(STATUS "Enabled MachXO2 devices: ${MACHXO2_DEVICES}")
