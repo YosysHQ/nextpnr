@@ -1,4 +1,5 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 2.8.11)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.13)
+
 PROJECT(QtPropertyBrowser)
 
 ##################### Look for required libraries ######################
