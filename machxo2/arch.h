@@ -643,6 +643,13 @@ struct Arch : BaseArch<ArchRanges>
     bool place() override;
     bool route() override;
 
+    // Graphics
+    std::vector<GraphicElement> getDecalGraphics(DecalId decal) const override;
+
+    DecalXY getBelDecal(BelId bel) const override;
+    DecalXY getWireDecal(WireId wire) const override;
+    DecalXY getPipDecal(PipId pip) const override;
+
     // Placer
     bool isBelLocationValid(BelId bel, bool explain_invalid = false) const override;
 

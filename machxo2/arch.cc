@@ -21,6 +21,7 @@
 #include <iostream>
 #include <math.h>
 #include "embed.h"
+#include "gfx.h"
 #include "nextpnr.h"
 #include "placer1.h"
 #include "placer_heap.h"
@@ -448,6 +449,79 @@ bool Arch::route()
     archInfoToAttributes();
     return result;
 }
+
+// -----------------------------------------------------------------------
+
+std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
+{
+    std::vector<GraphicElement> ret;
+    if (decal.type == DecalId::TYPE_WIRE) {
+        WireId wire;
+        wire.index = decal.z;
+        wire.location = decal.location;
+        auto wire_type = getWireType(wire);
+        int x = decal.location.x;
+        int y = decal.location.y;
+        GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+        GfxTileWireId tilewire = GfxTileWireId(tile_info(wire)->wire_data[wire.index].tile_wire);
+        gfxTileWire(ret, x, y, chip_info->width, chip_info->height, wire_type, tilewire, style);
+    } else if (decal.type == DecalId::TYPE_PIP) {
+        PipId pip;
+        pip.index = decal.z;
+        pip.location = decal.location;
+        WireId src_wire = getPipSrcWire(pip);
+        WireId dst_wire = getPipDstWire(pip);
+        int x = decal.location.x;
+        int y = decal.location.y;
+        GfxTileWireId src_id = GfxTileWireId(tile_info(src_wire)->wire_data[src_wire.index].tile_wire);
+        GfxTileWireId dst_id = GfxTileWireId(tile_info(dst_wire)->wire_data[dst_wire.index].tile_wire);
+        GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_HIDDEN;
+        gfxTilePip(ret, x, y, chip_info->width, chip_info->height, src_wire, getWireType(src_wire), src_id, dst_wire,
+                   getWireType(dst_wire), dst_id, style);
+    } else if (decal.type == DecalId::TYPE_BEL) {
+        BelId bel;
+        bel.index = decal.z;
+        bel.location = decal.location;
+        auto bel_type = getBelType(bel);
+        int x = decal.location.x;
+        int y = decal.location.y;
+        int z = tile_info(bel)->bel_data[bel.index].z;
+        GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+        gfxTileBel(ret, x, y, z, chip_info->width, chip_info->height, bel_type, style);
+    }
+
+    return ret;
+}
+
+DecalXY Arch::getBelDecal(BelId bel) const
+{
+    DecalXY decalxy;
+    decalxy.decal.type = DecalId::TYPE_BEL;
+    decalxy.decal.location = bel.location;
+    decalxy.decal.z = bel.index;
+    decalxy.decal.active = getBoundBelCell(bel) != nullptr;
+    return decalxy;
+}
+
+DecalXY Arch::getWireDecal(WireId wire) const
+{
+    DecalXY decalxy;
+    decalxy.decal.type = DecalId::TYPE_WIRE;
+    decalxy.decal.location = wire.location;
+    decalxy.decal.z = wire.index;
+    decalxy.decal.active = getBoundWireNet(wire) != nullptr;
+    return decalxy;
+}
+
+DecalXY Arch::getPipDecal(PipId pip) const
+{
+    DecalXY decalxy;
+    decalxy.decal.type = DecalId::TYPE_PIP;
+    decalxy.decal.location = pip.location;
+    decalxy.decal.z = pip.index;
+    decalxy.decal.active = getBoundPipNet(pip) != nullptr;
+    return decalxy;
+};
 
 // ---------------------------------------------------------------
 
