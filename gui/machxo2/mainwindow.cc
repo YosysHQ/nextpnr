@@ -47,7 +47,7 @@ MainWindow::~MainWindow() {}
 
 void MainWindow::newContext(Context *ctx)
 {
-    std::string title = "nextpnr-machxo2 - " + ctx->getChipName() + " ( " + ctx->archArgs().package + " )";
+    std::string title = "nextpnr-machxo2 - " + std::string(ctx->device_name) + " (" + std::string(ctx->package_name) + ") - Part : " + ctx->getChipName();
     setWindowTitle(title.c_str());
 }
 
@@ -78,19 +78,7 @@ void MainWindow::createMenu()
 
 void MainWindow::new_proj()
 {
-    QMap<QString, int> arch;
-    if (Arch::is_available(ArchArgs::LCMXO2_256HC))
-        arch.insert("LCMXO2-256HC", ArchArgs::LCMXO2_256HC);
-    if (Arch::is_available(ArchArgs::LCMXO2_640HC))
-        arch.insert("LCMXO2-640HC", ArchArgs::LCMXO2_640HC);
-    if (Arch::is_available(ArchArgs::LCMXO2_1200HC))
-        arch.insert("LCMXO2-1200HC", ArchArgs::LCMXO2_1200HC);
-    if (Arch::is_available(ArchArgs::LCMXO2_2000HC))
-        arch.insert("LCMXO2-2000HC", ArchArgs::LCMXO2_2000HC);
-    if (Arch::is_available(ArchArgs::LCMXO2_4000HC))
-        arch.insert("LCMXO2-4000HC", ArchArgs::LCMXO2_4000HC);
-    if (Arch::is_available(ArchArgs::LCMXO2_7000HC))
-        arch.insert("LCMXO2-7000HC", ArchArgs::LCMXO2_7000HC);
+/*  QMap<QString, int> arch;
     bool ok;
     QString item = QInputDialog::getItem(this, "Select new context", "Chip:", arch.keys(), 0, false, &ok);
     if (ok && !item.isEmpty()) {
@@ -113,6 +101,7 @@ void MainWindow::new_proj()
             Q_EMIT contextChanged(ctx.get());
         }
     }
+*/
 }
 
 void MainWindow::open_lpf()

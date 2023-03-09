@@ -308,7 +308,7 @@ static void pack_io(Context *ctx)
                 BelId pinBel = ctx->getPackagePinBel(pin);
                 if (pinBel == BelId()) {
                     log_error("IO buffer '%s' constrained to pin '%s', which does not exist for package '%s'.\n",
-                              ci->name.c_str(ctx), pin.c_str(), ctx->args.package.c_str());
+                              ci->name.c_str(ctx), pin.c_str(), ctx->package_name);
                 } else {
                     log_info("pin '%s' constrained to Bel '%s'.\n", ci->name.c_str(ctx), ctx->nameOfBel(pinBel));
                 }

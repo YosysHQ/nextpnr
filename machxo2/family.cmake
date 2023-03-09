@@ -48,6 +48,9 @@ target_compile_options(chipdb-${family} PRIVATE -g0 -O0 -w)
 target_compile_definitions(chipdb-${family} PRIVATE NEXTPNR_NAMESPACE=nextpnr_${family})
 target_include_directories(chipdb-${family} PRIVATE ${family})
 
+configure_file(${family}/available.h.in ${family}/chipdb/available.h)
+
 foreach(family_target ${family_targets})
     target_sources(${family_target} PRIVATE $<TARGET_OBJECTS:chipdb-${family}>)
+    target_sources(${family_target} PRIVATE ${family}/chipdb/available.h)
 endforeach()

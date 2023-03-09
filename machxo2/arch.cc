@@ -28,6 +28,7 @@
 #include "router1.h"
 #include "router2.h"
 #include "util.h"
+#include "chipdb/available.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -44,51 +45,53 @@ void IdString::initialize_arch(const BaseCtx *ctx)
 
 // ---------------------------------------------------------------
 
-static const ChipInfoPOD *get_chip_info(ArchArgs::ArchArgsTypes chip)
+static void get_chip_info(std::string device, const ChipInfoPOD **chip_info, const PackageInfoPOD **package_info, const char **device_name, const char **package_name)
 {
-    std::string chipdb;
-    if (chip == ArchArgs::LCMXO2_256HC) {
-        chipdb = "machxo2/chipdb-256.bin";
-    } else if (chip == ArchArgs::LCMXO2_640HC) {
-        chipdb = "machxo2/chipdb-640.bin";
-    } else if (chip == ArchArgs::LCMXO2_1200HC) {
-        chipdb = "machxo2/chipdb-1200.bin";
-    } else if (chip == ArchArgs::LCMXO2_2000HC) {
-        chipdb = "machxo2/chipdb-2000.bin";
-    } else if (chip == ArchArgs::LCMXO2_4000HC) {
-        chipdb = "machxo2/chipdb-4000.bin";
-    } else if (chip == ArchArgs::LCMXO2_7000HC) {
-        chipdb = "machxo2/chipdb-7000.bin";
-    } else {
-        log_error("Unknown chip\n");
+    std::stringstream ss(available_devices);
+    std::string name;
+    while(getline(ss, name, ';')){ 
+        std::string chipdb = stringf("machxo2/chipdb-%s.bin", name.c_str());
+        auto db_ptr = reinterpret_cast<const RelPtr<ChipInfoPOD> *>(get_chipdb(chipdb));
+        if (!db_ptr)
+            continue; // chipdb not available
+        for (auto &chip : db_ptr->get()->variants) {
+            for (auto &pkg : chip.packages) {
+                for (auto &speedgrade : chip.speed_grades) {
+                    for (auto &rating : chip.suffixes) {
+                        std::string name = stringf("%s-%d%s%s", chip.name.get(), speedgrade.speed, pkg.short_name.get(), rating.suffix.get());
+                        if (device == name) {
+                            *chip_info = db_ptr->get();
+                            *package_info = nullptr;
+                            *package_name = pkg.name.get();
+                            *device_name = chip.name.get();
+                            for (int i = 0; i < (*chip_info)->num_packages; i++) {
+                                if (pkg.name.get() == (*chip_info)->package_info[i].name.get()) {
+                                    *package_info = &((*chip_info)->package_info[i]);
+                                    break;
+                                }
+                            }
+                            return;
+                        }
+                    }
+                }
+            }
+        }
     }
-
-    auto ptr = reinterpret_cast<const RelPtr<ChipInfoPOD> *>(get_chipdb(chipdb));
-    if (ptr == nullptr)
-        return nullptr;
-    return ptr->get();
 }
 
 // ---------------------------------------------------------------
 
 Arch::Arch(ArchArgs args) : args(args)
 {
-    chip_info = get_chip_info(args.type);
+    get_chip_info(args.device, &chip_info, &package_info, &device_name, &package_name);
     if (chip_info == nullptr)
         log_error("Unsupported MachXO2 chip type.\n");
     if (chip_info->const_id_count != DB_CONST_ID_COUNT)
         log_error("Chip database 'bba' and nextpnr code are out of sync; please rebuild (or contact distribution "
                   "maintainer)!\n");
 
-    package_info = nullptr;
-    for (int i = 0; i < chip_info->num_packages; i++) {
-        if (args.package == chip_info->package_info[i].name.get()) {
-            package_info = &(chip_info->package_info[i]);
-            break;
-        }
-    }
     if (!package_info)
-        log_error("Unsupported package '%s' for '%s'.\n", args.package.c_str(), getChipName().c_str());
+        log_error("Unsupported package '%s' for '%s'.\n", package_name, getChipName().c_str());
 
     BaseArch::init_cell_types();
     BaseArch::init_bel_buckets();
@@ -110,83 +113,32 @@ Arch::Arch(ArchArgs args) : args(args)
     }
 }
 
-bool Arch::is_available(ArchArgs::ArchArgsTypes chip) { return get_chip_info(chip) != nullptr; }
-
-std::vector<std::string> Arch::get_supported_packages(ArchArgs::ArchArgsTypes chip)
+void Arch::list_devices()
 {
-    const ChipInfoPOD *chip_info = get_chip_info(chip);
-    std::vector<std::string> pkgs;
-    for (int i = 0; i < chip_info->num_packages; i++) {
-        pkgs.push_back(chip_info->package_info[i].name.get());
-    }
-    return pkgs;
-}
-
-std::string Arch::getChipName() const
-{
-    if (args.type == ArchArgs::LCMXO2_256HC) {
-        return "LCMXO2-256HC";
-    } else if (args.type == ArchArgs::LCMXO2_640HC) {
-        return "LCMXO2-640HC";
-    } else if (args.type == ArchArgs::LCMXO2_1200HC) {
-        return "LCMXO2-1200HC";
-    } else if (args.type == ArchArgs::LCMXO2_2000HC) {
-        return "LCMXO2-2000HC";
-    } else if (args.type == ArchArgs::LCMXO2_4000HC) {
-        return "LCMXO2-4000HC";
-    } else if (args.type == ArchArgs::LCMXO2_7000HC) {
-        return "LCMXO2-7000HC";
-    } else {
-        log_error("Unknown chip\n");
+    log("Supported devices: \n");
+    std::stringstream ss(available_devices);
+    std::string name;
+    while(getline(ss, name, ';')){ 
+        std::string chipdb = stringf("machxo2/chipdb-%s.bin", name.c_str());
+        auto db_ptr = reinterpret_cast<const RelPtr<ChipInfoPOD> *>(get_chipdb(chipdb));
+        if (!db_ptr)
+            continue; // chipdb not available
+        for (auto &chip : db_ptr->get()->variants) {
+            for (auto &pkg : chip.packages) {
+                for (auto &speedgrade : chip.speed_grades) {
+                    for (auto &rating : chip.suffixes) {
+                        log("    %s-%d%s%s\n", chip.name.get(), speedgrade.speed, pkg.short_name.get(), rating.suffix.get());
+                    }
+                }
+            }
+        }
     }
 }
 
-std::string Arch::get_full_chip_name() const
-{
-    std::string name = getChipName();
-    name += "-";
-    switch (args.speed) {
-    case ArchArgs::SPEED_1:
-        name += "1";
-        break;
-    case ArchArgs::SPEED_2:
-        name += "2";
-        break;
-    case ArchArgs::SPEED_3:
-        name += "3";
-        break;
-    case ArchArgs::SPEED_4:
-        name += "4";
-        break;
-    case ArchArgs::SPEED_5:
-        name += "5";
-        break;
-    case ArchArgs::SPEED_6:
-        name += "6";
-        break;
-    }
-    name += args.package;
-    return name;
-}
+// -----------------------------------------------------------------------
 
-IdString Arch::archArgsToId(ArchArgs args) const
-{
-    if (args.type == ArchArgs::LCMXO2_256HC) {
-        return id_lcmxo2_256hc;
-    } else if (args.type == ArchArgs::LCMXO2_640HC) {
-        return id_lcmxo2_640hc;
-    } else if (args.type == ArchArgs::LCMXO2_1200HC) {
-        return id_lcmxo2_1200hc;
-    } else if (args.type == ArchArgs::LCMXO2_2000HC) {
-        return id_lcmxo2_2000hc;
-    } else if (args.type == ArchArgs::LCMXO2_4000HC) {
-        return id_lcmxo2_4000hc;
-    } else if (args.type == ArchArgs::LCMXO2_7000HC) {
-        return id_lcmxo2_7000hc;
-    }
-
-    return IdString();
-}
+std::string Arch::getChipName() const { return args.device; }
+IdString Arch::archArgsToId(ArchArgs args) const { return id(args.device); }
 
 // ---------------------------------------------------------------
 
