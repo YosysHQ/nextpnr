@@ -30,10 +30,8 @@ NEXTPNR_NAMESPACE_BEGIN
 
 // These seem simple enough to do inline for now.
 namespace BaseConfigs {
-void config_empty_lcmxo2_1200hc(ChipConfig &cc)
+void config_empty_lcmxo2_1200(ChipConfig &cc)
 {
-    cc.chip_name = "LCMXO2-1200HC";
-
     cc.tiles["EBR_R6C11:EBR1"].add_unknown(0, 12);
     cc.tiles["EBR_R6C15:EBR1"].add_unknown(0, 12);
     cc.tiles["EBR_R6C18:EBR1"].add_unknown(0, 12);
@@ -196,16 +194,16 @@ static std::string get_pic_tile(Context *ctx, BelId bel)
 void write_bitstream(Context *ctx, std::string text_config_file)
 {
     ChipConfig cc;
-
-    switch (ctx->args.type) {
-    case ArchArgs::LCMXO2_1200HC:
-        BaseConfigs::config_empty_lcmxo2_1200hc(cc);
-        break;
-    default:
+    IdString base_id = ctx->id(ctx->chip_info->device_name.get());
+    //IdString device_id = ctx->id(ctx->device_name);
+    if (base_id == ctx->id("LCMXO2-1200"))
+        BaseConfigs::config_empty_lcmxo2_1200(cc);
+    else
         NPNR_ASSERT_FALSE("Unsupported device type");
-    }
+    cc.chip_name = ctx->chip_info->device_name.get();
+    cc.chip_variant = ctx->device_name;
 
-    cc.metadata.push_back("Part: " + ctx->get_full_chip_name());
+    cc.metadata.push_back("Part: " + ctx->getChipName());
 
     // Add all set, configurable pips to the config
     for (auto pip : ctx->getPips()) {

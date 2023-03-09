@@ -25,30 +25,12 @@
 #include <set>
 
 #include "base_arch.h"
-#include "nextpnr_namespaces.h"
 #include "nextpnr_types.h"
+#include "relptr.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
 /**** Everything in this section must be kept in sync with chipdb.py ****/
-
-template <typename T> struct RelPtr
-{
-    int32_t offset;
-
-    // void set(const T *ptr) {
-    //     offset = reinterpret_cast<const char*>(ptr) -
-    //              reinterpret_cast<const char*>(this);
-    // }
-
-    const T *get() const { return reinterpret_cast<const T *>(reinterpret_cast<const char *>(this) + offset); }
-
-    const T &operator[](std::size_t index) const { return get()[index]; }
-
-    const T &operator*() const { return *(get()); }
-
-    const T *operator->() const { return get(); }
-};
 
 // FIXME: All "rel locs" are actually absolute, naming typo in facade_import.
 // Does not affect runtime functionality.
@@ -141,7 +123,29 @@ NPNR_PACKED_STRUCT(struct TileInfoPOD {
     RelPtr<TileNamePOD> tile_names;
 });
 
+NPNR_PACKED_STRUCT(struct PackageSupportedPOD {
+    RelPtr<char> name;
+    RelPtr<char> short_name;
+});
+
+NPNR_PACKED_STRUCT(struct SuffixeSupportedPOD {
+    RelPtr<char> suffix;
+});
+
+NPNR_PACKED_STRUCT(struct SpeedSupportedPOD {
+    int32_t speed;
+});
+
+NPNR_PACKED_STRUCT(struct VariantInfoPOD {
+    RelPtr<char> name;
+    RelSlice<PackageSupportedPOD> packages;
+    RelSlice<SpeedSupportedPOD> speed_grades;
+    RelSlice<SuffixeSupportedPOD> suffixes;
+});
+
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
+    RelPtr<char> family;
+    RelPtr<char> device_name;
     int32_t width, height;
     int32_t num_tiles;
     int32_t num_packages, num_pios;
@@ -151,6 +155,7 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelPtr<PackageInfoPOD> package_info;
     RelPtr<PIOInfoPOD> pio_info;
     RelPtr<TileInfoPOD> tile_info;
+    RelSlice<VariantInfoPOD> variants;
 });
 
 /************************ End of chipdb section. ************************/
@@ -361,26 +366,7 @@ struct PipRange
 
 struct ArchArgs
 {
-    enum ArchArgsTypes
-    {
-        NONE,
-        LCMXO2_256HC,
-        LCMXO2_640HC,
-        LCMXO2_1200HC,
-        LCMXO2_2000HC,
-        LCMXO2_4000HC,
-        LCMXO2_7000HC,
-    } type = NONE;
-    std::string package;
-    enum SpeedGrade
-    {
-        SPEED_1 = 0,
-        SPEED_2,
-        SPEED_3,
-        SPEED_4,
-        SPEED_5,
-        SPEED_6,
-    } speed = SPEED_4;
+    std::string device;
 };
 
 struct ArchRanges : BaseArchRanges
@@ -403,6 +389,8 @@ struct Arch : BaseArch<ArchRanges>
 {
     const ChipInfoPOD *chip_info;
     const PackageInfoPOD *package_info;
+    const char *package_name;
+    const char *device_name;
 
     mutable dict<IdStringList, PipId> pip_by_name;
 
@@ -429,8 +417,7 @@ struct Arch : BaseArch<ArchRanges>
     ArchArgs args;
     Arch(ArchArgs args);
 
-    static bool is_available(ArchArgs::ArchArgsTypes chip);
-    static std::vector<std::string> get_supported_packages(ArchArgs::ArchArgsTypes chip);
+    static void list_devices();
 
     std::string getChipName() const override;
     // Extra helper
