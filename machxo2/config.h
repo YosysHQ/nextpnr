@@ -112,6 +112,7 @@ class ChipConfig
 {
   public:
     std::string chip_name;
+    std::string chip_variant;
     std::vector<std::string> metadata;
     std::map<std::string, TileConfig> tiles;
     std::vector<TileGroup> tilegroups;
