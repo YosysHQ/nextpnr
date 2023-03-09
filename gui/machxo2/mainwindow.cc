@@ -21,6 +21,8 @@
 #include <fstream>
 #include "bitstream.h"
 #include "log.h"
+#include "embed.h"
+#include "chipdb/available.h"
 
 #include <QFileDialog>
 #include <QInputDialog>
@@ -78,30 +80,41 @@ void MainWindow::createMenu()
 
 void MainWindow::new_proj()
 {
-/*  QMap<QString, int> arch;
-    bool ok;
-    QString item = QInputDialog::getItem(this, "Select new context", "Chip:", arch.keys(), 0, false, &ok);
-    if (ok && !item.isEmpty()) {
-        ArchArgs chipArgs;
-        chipArgs.type = (ArchArgs::ArchArgsTypes)arch.value(item);
+    QList<QString> arch;
 
-        QStringList packages;
-        for (auto package : Arch::get_supported_packages(chipArgs.type))
-            packages.append(QLatin1String(package.data(), package.size()));
-        QString package = QInputDialog::getItem(this, "Select package", "Package:", packages, 0, false, &ok);
-
-        if (ok && !item.isEmpty()) {
-            handler->clear();
-            currentProj = "";
-            disableActions();
-            chipArgs.package = package.toStdString().c_str();
-            ctx = std::unique_ptr<Context>(new Context(chipArgs));
-            actionLoadJSON->setEnabled(true);
-
-            Q_EMIT contextChanged(ctx.get());
+    std::stringstream ss(available_devices);
+    std::string name;
+    while(getline(ss, name, ';')){ 
+        std::string chipdb = stringf("machxo2/chipdb-%s.bin", name.c_str());
+        auto db_ptr = reinterpret_cast<const RelPtr<ChipInfoPOD> *>(get_chipdb(chipdb));
+        if (!db_ptr)
+            continue; // chipdb not available
+        for (auto &chip : db_ptr->get()->variants) {
+            for (auto &pkg : chip.packages) {
+                for (auto &speedgrade : chip.speed_grades) {
+                    for (auto &rating : chip.suffixes) {
+                        std::string devname = stringf("%s-%d%s%s", chip.name.get(), speedgrade.speed, pkg.short_name.get(), rating.suffix.get());
+                        arch.append(QString::fromLocal8Bit(devname.c_str()));
+                    }
+                }
+            }
         }
     }
-*/
+
+    bool ok;
+    QString item = QInputDialog::getItem(this, "Select new context", "Part:", arch, 0, false, &ok);
+    if (ok && !item.isEmpty()) {
+        ArchArgs chipArgs;
+        chipArgs.device = item.toUtf8().constData();;
+
+        handler->clear();
+        currentProj = "";
+        disableActions();
+        ctx = std::unique_ptr<Context>(new Context(chipArgs));
+        actionLoadJSON->setEnabled(true);
+
+        Q_EMIT contextChanged(ctx.get());
+    }
 }
 
 void MainWindow::open_lpf()

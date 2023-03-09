@@ -58,8 +58,8 @@ static void get_chip_info(std::string device, const ChipInfoPOD **chip_info, con
             for (auto &pkg : chip.packages) {
                 for (auto &speedgrade : chip.speed_grades) {
                     for (auto &rating : chip.suffixes) {
-                        std::string name = stringf("%s-%d%s%s", chip.name.get(), speedgrade.speed, pkg.short_name.get(), rating.suffix.get());
-                        if (device == name) {
+                        std::string devname = stringf("%s-%d%s%s", chip.name.get(), speedgrade.speed, pkg.short_name.get(), rating.suffix.get());
+                        if (device == devname) {
                             *chip_info = db_ptr->get();
                             *package_info = nullptr;
                             *package_name = pkg.name.get();
