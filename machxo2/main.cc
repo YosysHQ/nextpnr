@@ -72,7 +72,7 @@ std::unique_ptr<Context> MachXO2CommandHandler::createContext(dict<std::string, 
         exit(0);
     }
     if (!vm.count("device")) {
-        log_error("device must be specified on the command line (e.g. --device LCMXO2-7000HC-4TG144I)\n");
+        log_error("device must be specified on the command line (e.g. --device LCMXO2-1200HC-4SG32C)\n");
     }
     chipArgs.device = vm["device"].as<std::string>();
     auto ctx = std::unique_ptr<Context>(new Context(chipArgs));
