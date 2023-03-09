@@ -268,6 +268,7 @@ bool TileConfig::empty() const { return carcs.empty() && cwords.empty() && cenum
 std::ostream &operator<<(std::ostream &out, const ChipConfig &cc)
 {
     out << ".device " << cc.chip_name << std::endl << std::endl;
+    out << ".variant " << cc.chip_variant << std::endl << std::endl;
     for (const auto &meta : cc.metadata)
         out << ".comment " << meta << std::endl;
     for (const auto &sc : cc.sysconfig)
@@ -312,6 +313,8 @@ std::istream &operator>>(std::istream &in, ChipConfig &cc)
         in >> verb;
         if (verb == ".device") {
             in >> cc.chip_name;
+        } else if (verb == ".variant") {
+            in >> cc.chip_variant;
         } else if (verb == ".comment") {
             std::string line;
             getline(in, line);
