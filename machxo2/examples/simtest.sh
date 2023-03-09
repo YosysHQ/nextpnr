@@ -30,7 +30,7 @@ set -ex
 
 ${YOSYS:-yosys} -p "read_verilog ${1}.v
                     synth_machxo2 -json ${1}.json"
-${NEXTPNR:-../../nextpnr-machxo2} $NEXTPNR_MODE --1200 --package QFN32 --json ${1}.json --write ${2}${1}.json
+${NEXTPNR:-../../nextpnr-machxo2} $NEXTPNR_MODE --device LCMXO2-1200HC-4SG32C --json ${1}.json --write ${2}${1}.json
 ${YOSYS:-yosys} -p "read_verilog -lib +/machxo2/cells_sim.v
                     read_json ${2}${1}.json
                     clean -purge

@@ -16,7 +16,7 @@ fi
 
 set -ex
 
-${YOSYS:-yosys} -p "synth_machxo2 -json $1.json" $1.v
-${NEXTPNR:-../../nextpnr-machxo2} --1200 --package QFN32 --json $1.json --textcfg $1.txt
+${YOSYS:-yosys} -p "read_verilog  $1.v; synth_machxo2 -json $1.json"
+${NEXTPNR:-../../nextpnr-machxo2} --device LCMXO2-1200HC-4SG32C --json $1.json --textcfg $1.txt
 ecppack --compress $DB_ARG $1.txt $1.bit
 tinyproga -b $1.bit
