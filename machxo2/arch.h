@@ -74,7 +74,8 @@ NPNR_PACKED_STRUCT(struct PipInfoPOD {
 
 NPNR_PACKED_STRUCT(struct WireInfoPOD {
     RelPtr<char> name;
-    int32_t tile_wire;
+    int16_t type;
+    int16_t tile_wire;
     int32_t num_uphill;
     int32_t num_downhill;
     RelPtr<PipLocatorPOD> pips_uphill;

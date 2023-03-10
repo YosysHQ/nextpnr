@@ -5,6 +5,8 @@ import sys
 from os import path
 
 tiletype_names = dict()
+gfx_wire_ids = dict()
+gfx_wire_names = list()
 
 parser = argparse.ArgumentParser(description="import MachXO2 routing and bels from Project Trellis")
 parser.add_argument("device", type=str, help="target device")
@@ -16,6 +18,24 @@ args = parser.parse_args()
 sys.path += args.libdir
 import pytrellis
 import database
+
+with open(args.gfxh) as f:
+    state = 0
+    for line in f:
+        if state == 0 and line.startswith("enum GfxTileWireId"):
+            state = 1
+        elif state == 1 and line.startswith("};"):
+            state = 0
+        elif state == 1 and (line.startswith("{") or line.strip() == ""):
+            pass
+        elif state == 1:
+            idx = len(gfx_wire_ids)
+            name = line.strip().rstrip(",")
+            gfx_wire_ids[name] = idx
+            gfx_wire_names.append(name)
+
+def wire_type(name):
+    return "WIRE_TYPE_NONE"
 
 # Get the index for a tiletype
 def get_tiletype_index(name):
@@ -283,12 +303,11 @@ def write_database(dev_name, chip, rg, endianness):
             for wire_idx in range(len(t.wires)):
                 wire = t.wires[wire_idx]
                 bba.s(rg.to_str(wire.name), "name")
-                # TODO: Padding until GUI support is added.
-                # bba.u32(constids[wire_type(ddrg.to_str(wire.name))], "type")
-                # if ("TILE_WIRE_" + ddrg.to_str(wire.name)) in gfx_wire_ids:
-                #     bba.u32(gfx_wire_ids["TILE_WIRE_" + ddrg.to_str(wire.name)], "tile_wire")
-                # else:
-                bba.u32(0, "tile_wire")
+                bba.u16(constids[wire_type(rg.to_str(wire.name))], "type")
+                if ("TILE_WIRE_" + rg.to_str(wire.name)) in gfx_wire_ids:
+                    bba.u16(gfx_wire_ids["TILE_WIRE_" + rg.to_str(wire.name)], "tile_wire")
+                else:
+                    bba.u16(0, "tile_wire")
                 bba.u32(len(wire.arcsUphill), "num_uphill")
                 bba.u32(len(wire.arcsDownhill), "num_downhill")
                 bba.r("loc%d_%d_wire%d_uppips" % (l.y, l.x, wire_idx) if len(wire.arcsUphill) > 0 else None, "pips_uphill")

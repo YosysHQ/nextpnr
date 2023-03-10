@@ -123,6 +123,9 @@ X(IO_TYPE)
 X(LOC)
 X(NOM_FREQ)
 X(VCC)
+
+X(WIRE_TYPE_NONE)
+
 X(machxo2)
 X(pack)
 X(place)
