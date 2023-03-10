@@ -62,6 +62,7 @@ else()
                 -L ${TRELLIS_DATADIR}/util/common
                 -L ${TRELLIS_DATADIR}/timing/util
                 -p ${CMAKE_CURRENT_SOURCE_DIR}/constids.inc
+                -g ${CMAKE_CURRENT_SOURCE_DIR}/gfx.h
                 ${device}
                 > ${device_bba}.new
             # atomically update
@@ -69,6 +70,7 @@ else()
             DEPENDS
                 ${CMAKE_CURRENT_SOURCE_DIR}/facade_import.py
                 ${CMAKE_CURRENT_SOURCE_DIR}/constids.inc
+                ${CMAKE_CURRENT_SOURCE_DIR}/gfx.h
                 ${PREVIOUS_CHIPDB_TARGET}
             VERBATIM)
         list(APPEND all_device_bbas ${device_bba})

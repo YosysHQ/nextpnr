@@ -318,6 +318,11 @@ void DesignWidget::newContext(Context *ctx)
                 wireMap[std::pair<int, int>(wire.location.x, wire.location.y)].push_back(wire);
             }
 #endif
+#ifdef ARCH_MACHXO2
+            for (const auto &wire : ctx->getWires()) {
+                wireMap[std::pair<int, int>(wire.location.x, wire.location.y)].push_back(wire);
+            }
+#endif
 #ifdef ARCH_GOWIN
             for (const auto &wire : ctx->getWires()) {
                 WireInfo wi = ctx->wire_info(wire);
