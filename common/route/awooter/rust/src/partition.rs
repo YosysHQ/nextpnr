@@ -5,6 +5,7 @@ use std::{
 };
 
 use colored::Colorize;
+use enumflags2::{bitflags, BitFlags};
 use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
 use itertools::Itertools;
 use rayon::prelude::*;
@@ -14,12 +15,52 @@ use crate::{
     route::Arc,
 };
 
+#[bitflags]
+#[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Quadrant {
-    Northeast,
-    Southeast,
-    Southwest,
-    Northwest,
+    Northeast = 1,
+    Southeast = 2,
+    Southwest = 8,
+    Northwest = 4,
+}
+
+impl Quadrant {
+    fn flip_east_west(self) -> Self {
+        match self {
+            Self::Northeast => Self::Northwest,
+            Self::Northwest => Self::Northeast,
+            Self::Southeast => Self::Southwest,
+            Self::Southwest => Self::Southeast,
+        }
+    }
+    fn flip_north_south(self) -> Self {
+        match self {
+            Self::Northeast => Self::Southeast,
+            Self::Northwest => Self::Southwest,
+            Self::Southeast => Self::Northeast,
+            Self::Southwest => Self::Northwest,
+        }
+    }
+    fn flip_diagonal(self) -> Self {
+        match self {
+            Self::Northeast => Self::Southwest,
+            Self::Northwest => Self::Southeast,
+            Self::Southeast => Self::Northwest,
+            Self::Southwest => Self::Northeast,
+        }
+    }
+}
+
+// manual bit fiddling because using .iter().map().collect() compiles down to a loop
+fn flip_quads_north_south(q: BitFlags<Quadrant>) -> BitFlags<Quadrant> {
+    BitFlags::from_bits((q.bits() & 0b1010) >> 1 | (q.bits() & 0b0101) << 1).unwrap()
+}
+fn flip_quads_east_west(q: BitFlags<Quadrant>) -> BitFlags<Quadrant> {
+    BitFlags::from_bits((q.bits() & 0b1100) >> 2 | (q.bits() & 0b0011) << 2).unwrap()
+}
+fn flip_quads_diagonal(q: BitFlags<Quadrant>) -> BitFlags<Quadrant> {
+    BitFlags::from_bits(q.bits().reverse_bits() >> 4).unwrap()
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -182,12 +223,85 @@ impl From<npnr::Loc> for Coord {
         }
     }
 }
+
 impl Into<npnr::Loc> for Coord {
     fn into(self) -> npnr::Loc {
         npnr::Loc {
             x: self.x,
             y: self.y,
             z: 0,
+        }
+    }
+}
+
+struct SegmentedArc {
+    arc: Arc,
+    source_quads: BitFlags<Quadrant>,
+    estimated_source_location: Coord,
+    sink_quads: BitFlags<Quadrant>,
+    estimated_sink_location: Coord,
+}
+
+impl SegmentedArc {
+    fn new(arc: Arc, partition_point: &Coord, ctx: &npnr::Context) -> Self {
+        let (source_quads, sum_source_pos, source_count) = if let Some(src) = arc.get_source_loc() {
+            let src: Coord = src.into();
+            (src.segment_from(partition_point).into(), src, 1)
+        } else {
+            ctx.get_uphill_pips(arc.source_wire())
+                .map(|pip| {
+                    let c: Coord = ctx.pip_location(pip).into();
+                    c
+                })
+                .fold(
+                    (BitFlags::empty(), Coord::new(0, 0), 0),
+                    |(quads, pos, count), c| {
+                        (
+                            quads | c.segment_from(partition_point),
+                            Coord::new(pos.x + c.x, pos.y + c.y),
+                            count + 1,
+                        )
+                    },
+                )
+        };
+        let (sink_quads, sum_sink_pos, sink_count) = if let Some(sink) = arc.get_sink_loc() {
+            let sink: Coord = sink.into();
+            (sink.segment_from(partition_point).into(), sink, 1)
+        } else {
+            ctx.get_downhill_pips(arc.sink_wire())
+                .map(|pip| {
+                    let c: Coord = ctx.pip_location(pip).into();
+                    c
+                })
+                .fold(
+                    (BitFlags::empty(), Coord::new(0, 0), 0),
+                    |(quads, pos, count), c| {
+                        (
+                            quads | c.segment_from(partition_point),
+                            Coord::new(pos.x + c.x, pos.y + c.y),
+                            count + 1,
+                        )
+                    },
+                )
+        };
+
+        assert!(
+            source_count != 0 && sink_count != 0,
+            "absolutely unroutable arc found"
+        );
+
+        Self {
+            arc,
+            source_quads,
+            estimated_source_location: Coord::new(
+                sum_source_pos.x / source_count,
+                sum_source_pos.y / source_count,
+            ),
+            sink_quads,
+            estimated_sink_location: Coord::new(
+                sum_sink_pos.x / sink_count,
+                sum_sink_pos.y / sink_count,
+            ),
         }
     }
 }
@@ -207,8 +321,14 @@ pub fn find_partition_point(
     let mut x_diff = 0; //(x_finish - x_start) / 4;
     let mut y_diff = 0; //(y_finish - y_start) / 4;
 
+    // TODO(SpaceCat~Chan): chache more stuff involved in created SegmentedArc to avoid doing so much ffi?
+
     while x_diff != 0 {
-        let (ne, se, sw, nw) = approximate_partition_results(arcs, (x, y));
+        let segmented_arcs = arcs
+            .iter()
+            .map(|arc| SegmentedArc::new(arc.clone(), &Coord::new(x, y), ctx))
+            .collect::<Vec<_>>();
+        let (ne, se, sw, nw) = approximate_partition_results(&segmented_arcs[..], (x, y));
         let north = ne + nw;
         let south = se + sw;
 
@@ -244,10 +364,15 @@ pub fn find_partition_point(
         y_diff >>= 1;
     }
 
+    let segmented_arcs = arcs
+        .iter()
+        .map(|arc| SegmentedArc::new(arc.clone(), &Coord::new(x, y), ctx))
+        .collect::<Vec<_>>();
+
     let (ne, se, sw, nw, special) = partition(
         ctx,
         nets,
-        arcs,
+        &segmented_arcs[..],
         pips,
         x,
         y,
@@ -273,7 +398,7 @@ pub fn find_partition_point(
 }
 
 fn approximate_partition_results(
-    arcs: &[Arc],
+    arcs: &[SegmentedArc],
     partition_point: (i32, i32),
 ) -> (usize, usize, usize, usize) {
     let mut count_ne = 0;
@@ -282,66 +407,66 @@ fn approximate_partition_results(
     let mut count_nw = 0;
     for arc in arcs {
         // TODO(SpaceCat~Chan): stop being lazy and merge Loc and Coord already
-        let source_is_north = arc.get_source_loc().x < partition_point.0;
-        let source_is_east = arc.get_source_loc().y < partition_point.1;
-        let sink_is_north = arc.get_sink_loc().x < partition_point.0;
-        let sink_is_east = arc.get_sink_loc().y < partition_point.1;
-        if source_is_north == sink_is_north && source_is_east == sink_is_east {
-            match (source_is_north, source_is_east) {
-                (true, true) => count_ne += 1,
-                (false, true) => count_se += 1,
-                (false, false) => count_sw += 1,
-                (true, false) => count_nw += 1,
+        if !(arc.source_quads & arc.sink_quads).is_empty() {
+            match (arc.source_quads & arc.sink_quads).iter().next().unwrap() {
+                Quadrant::Northeast => count_ne += 1,
+                Quadrant::Southeast => count_se += 1,
+                Quadrant::Southwest => count_sw += 1,
+                Quadrant::Northwest => count_nw += 1,
             }
-        } else if source_is_north != sink_is_north && source_is_east == sink_is_east {
-            if source_is_east {
-                count_ne += 1;
-                count_se += 1;
-            } else {
-                count_nw += 1;
-                count_sw += 1;
+        } else if !(flip_quads_north_south(arc.source_quads) & arc.sink_quads).is_empty() {
+            match (flip_quads_north_south(arc.source_quads) & arc.sink_quads)
+                .iter()
+                .next()
+                .unwrap()
+            {
+                Quadrant::Northeast | Quadrant::Southeast => {
+                    count_ne += 1;
+                    count_se += 1;
+                }
+                Quadrant::Northwest | Quadrant::Southwest => {
+                    count_nw += 1;
+                    count_sw += 1;
+                }
             }
-        } else if source_is_north == sink_is_north {
-            if source_is_north {
-                count_ne += 1;
-                count_nw += 1;
-            } else {
-                count_se += 1;
-                count_sw += 1;
+        } else if !(flip_quads_east_west(arc.source_quads) & arc.sink_quads).is_empty() {
+            match (flip_quads_east_west(arc.source_quads) & arc.sink_quads)
+                .iter()
+                .next()
+                .unwrap()
+            {
+                Quadrant::Northeast | Quadrant::Northwest => {
+                    count_ne += 1;
+                    count_nw += 1;
+                }
+                Quadrant::Southeast | Quadrant::Southwest => {
+                    count_se += 1;
+                    count_sw += 1;
+                }
             }
         } else {
             // all of this calculation is not be needed and an approximation would be good enough
             // but i can't be bothered (yes this is all copy-pasted from the actual partitioner)
-            let mut middle_horiz = (
+            let middle_horiz = (
                 partition_point.0,
                 split_line_over_x(
-                    (arc.get_source_loc(), arc.get_sink_loc()),
+                    (arc.estimated_source_location, arc.estimated_sink_location),
                     partition_point.0,
                 ),
             );
-
-            let mut middle_vert = (
-                split_line_over_y(
-                    (arc.get_source_loc(), arc.get_sink_loc()),
-                    partition_point.1,
-                ),
-                partition_point.1,
-            );
-
-            // need to avoid the partition point
-            if middle_horiz.1 == partition_point.1 || middle_vert.0 == partition_point.0 {
-                if source_is_east != sink_is_north {
-                    middle_horiz.1 = partition_point.1 + 1;
-                    middle_vert.0 = partition_point.0 - 1;
-                } else {
-                    middle_horiz.1 = partition_point.1 + 1;
-                    middle_vert.0 = partition_point.0 + 1;
-                }
-            }
-            let horiz_happens_first = (middle_horiz.1 < partition_point.1) == source_is_east;
+            let seg1 = (flip_quads_diagonal(arc.source_quads) & arc.sink_quads)
+                .iter()
+                .next()
+                .unwrap();
+            let horiz_happens_first = (middle_horiz.1 < partition_point.1)
+                == matches!(seg1, Quadrant::Northeast | Quadrant::Southeast);
 
             // note: if you invert all the bools it adds to the same things, not sure how make less redundant
-            match (source_is_north, source_is_east, horiz_happens_first) {
+            match (
+                matches!(seg1, Quadrant::Northeast | Quadrant::Northwest),
+                matches!(seg1, Quadrant::Northeast | Quadrant::Southeast),
+                horiz_happens_first,
+            ) {
                 (true, true, true) => {
                     count_ne += 1;
                     count_se += 1;
@@ -392,7 +517,7 @@ fn approximate_partition_results(
 /// finds the y location a line would be split at if you split it at a certain x location
 ///
 /// the function assumes the line goes on forever in both directions, and it truncates the actual coordinate
-fn split_line_over_x(line: (npnr::Loc, npnr::Loc), x_location: i32) -> i32 {
+fn split_line_over_x(line: (Coord, Coord), x_location: i32) -> i32 {
     if line.0.x == line.1.x {
         // the line is a straight line in the direction, there is either infinite solutions, or none
         // we simply average the y coordinate to give a "best effort" guess
@@ -407,20 +532,12 @@ fn split_line_over_x(line: (npnr::Loc, npnr::Loc), x_location: i32) -> i32 {
 }
 
 /// finds the x location a line would be split at if you split it at a certain y location, assuming the line goes on forever in both directions
-fn split_line_over_y(line: (npnr::Loc, npnr::Loc), y_location: i32) -> i32 {
+fn split_line_over_y(line: (Coord, Coord), y_location: i32) -> i32 {
     // laziness supreme!
     split_line_over_x(
         (
-            npnr::Loc {
-                x: line.0.y,
-                y: line.0.x,
-                z: 0,
-            },
-            npnr::Loc {
-                x: line.1.y,
-                y: line.1.x,
-                z: 0,
-            },
+            Coord::new(line.0.y, line.0.x),
+            Coord::new(line.1.y, line.1.x),
         ),
         y_location,
     )
@@ -430,7 +547,7 @@ fn split_line_over_y(line: (npnr::Loc, npnr::Loc), y_location: i32) -> i32 {
 fn partition(
     ctx: &npnr::Context,
     nets: &npnr::Nets,
-    arcs: &[Arc],
+    arcs: &[SegmentedArc],
     pips: &[npnr::PipId],
     x: i32,
     y: i32,
@@ -474,8 +591,6 @@ fn partition(
 
         progress.set_message(format!("overused wires: {}", overused_wires));
 
-        let mut bad_nets = std::collections::HashSet::new();
-
         let _is_general_routing = |wire: &str| {
             wire.contains("H00")
                 || wire.contains("V00")
@@ -487,72 +602,28 @@ fn partition(
                 || wire.contains("V06")
         };
 
-        for arc in arcs {
-            if bad_nets.contains(&arc.net()) {
-                continue;
-            }
-
-            let source_loc = arc.get_source_loc();
-            let source_coords: Coord = source_loc.into();
-            let sink_loc = arc.get_sink_loc();
-            let sink_coords: Coord = sink_loc.into();
-
-            // test for annoying special case
-            let mut have_any_in_same_segment = false;
-            for pip in ctx.get_downhill_pips(arc.source_wire()) {
-                let pip_coord: Coord = ctx.pip_location(pip).into();
-                let pip_seg = pip_coord.segment_from(&partition_coords);
-                have_any_in_same_segment |= pip_seg == source_coords.segment_from(&partition_coords)
-            }
-            if !have_any_in_same_segment {
-                bad_nets.insert(arc.net());
-            }
-            let mut have_any_in_same_segment = false;
-            for pip in ctx.get_uphill_pips(arc.sink_wire()) {
-                let pip_coord: Coord = ctx.pip_location(pip).into();
-                let pip_seg = pip_coord.segment_from(&partition_coords);
-                have_any_in_same_segment |= pip_seg == sink_coords.segment_from(&partition_coords)
-            }
-            if !have_any_in_same_segment {
-                bad_nets.insert(arc.net());
-            }
-        }
-
         let arcs = arcs
             .into_par_iter()
             .progress_with(progress)
             .flat_map(|arc| {
-                let raw_net = nets.net_from_index(arc.net());
-                let source_loc = arc.get_source_loc();
-                let source_coords: Coord = source_loc.into();
-                let source_is_north = source_coords.is_north_of(&partition_coords);
-                let source_is_east = source_coords.is_east_of(&partition_coords);
-                let sink_loc = arc.get_sink_loc();
-                let sink_coords: Coord = sink_loc.into();
-                let sink_is_north = sink_coords.is_north_of(&partition_coords);
-                let sink_is_east = sink_coords.is_east_of(&partition_coords);
+                let raw_net = nets.net_from_index(arc.arc.net());
                 let _name = ctx
-                    .name_of(nets.name_from_index(arc.net()))
+                    .name_of(nets.name_from_index(arc.arc.net()))
                     .to_str()
                     .unwrap()
                     .to_string();
                 let _verbose = false; //name == "soc0.processor.with_fpu.fpu_0.fpu_multiply_0.rin_CCU2C_S0_4$CCU2_FCI_INT";
 
-                if bad_nets.contains(&arc.net()) {
-                    special.lock().unwrap().push(arc.clone());
-                    return vec![];
-                }
+                if !(arc.source_quads & arc.sink_quads).is_empty() {
+                    let seg = (arc.source_quads & arc.sink_quads).iter().next().unwrap();
+                    vec![(seg, arc.arc.clone())]
+                } else if !(arc.source_quads & flip_quads_north_south(arc.sink_quads)).is_empty() {
+                    let seg1 = (arc.source_quads & flip_quads_north_south(arc.sink_quads))
+                        .iter()
+                        .next()
+                        .unwrap();
+                    let seg2 = seg1.flip_north_south();
 
-                if source_is_north == sink_is_north && source_is_east == sink_is_east {
-                    let seg = source_coords.segment_from(&partition_coords);
-                    vec![(seg, arc.clone())]
-                } else if source_is_north != sink_is_north && source_is_east == sink_is_east {
-                    let (seg1, seg2) = match (source_is_north, source_is_east) {
-                        (true, true) => (Quadrant::Northeast, Quadrant::Southeast),
-                        (true, false) => (Quadrant::Northwest, Quadrant::Southwest),
-                        (false, true) => (Quadrant::Southeast, Quadrant::Northeast),
-                        (false, false) => (Quadrant::Southwest, Quadrant::Northwest),
-                    };
                     if let Some(partition) = partition_single_arc(
                         ctx,
                         &pip_selector,
@@ -565,32 +636,8 @@ fn partition(
                     ) {
                         partition
                     } else {
-                        let (seg1, seg2, seg3, seg4) = match (source_is_north, source_is_east) {
-                            (true, true) => (
-                                Quadrant::Northeast,
-                                Quadrant::Northwest,
-                                Quadrant::Southwest,
-                                Quadrant::Southeast,
-                            ),
-                            (true, false) => (
-                                Quadrant::Northwest,
-                                Quadrant::Northeast,
-                                Quadrant::Southeast,
-                                Quadrant::Southwest,
-                            ),
-                            (false, true) => (
-                                Quadrant::Southeast,
-                                Quadrant::Southwest,
-                                Quadrant::Northwest,
-                                Quadrant::Northeast,
-                            ),
-                            (false, false) => (
-                                Quadrant::Southwest,
-                                Quadrant::Southeast,
-                                Quadrant::Northeast,
-                                Quadrant::Northwest,
-                            ),
-                        };
+                        let (seg2, seg3, seg4) =
+                            (seg1.flip_east_west(), seg2.flip_east_west(), seg2);
                         partition_single_arc(
                             ctx,
                             &pip_selector,
@@ -603,13 +650,12 @@ fn partition(
                         )
                         .expect("failed to partition arc on NorthSouth axis")
                     }
-                } else if source_is_north == sink_is_north && source_is_east != sink_is_east {
-                    let (seg1, seg2) = match (source_is_north, source_is_east) {
-                        (true, true) => (Quadrant::Northeast, Quadrant::Northwest),
-                        (true, false) => (Quadrant::Northwest, Quadrant::Northeast),
-                        (false, true) => (Quadrant::Southeast, Quadrant::Southwest),
-                        (false, false) => (Quadrant::Southwest, Quadrant::Southeast),
-                    };
+                } else if !(arc.source_quads & flip_quads_east_west(arc.sink_quads)).is_empty() {
+                    let seg1 = (arc.source_quads & flip_quads_east_west(arc.sink_quads))
+                        .iter()
+                        .next()
+                        .unwrap();
+                    let seg2 = seg1.flip_east_west();
                     if let Some(partition) = partition_single_arc(
                         ctx,
                         &pip_selector,
@@ -622,32 +668,8 @@ fn partition(
                     ) {
                         partition
                     } else {
-                        let (seg1, seg2, seg3, seg4) = match (source_is_north, source_is_east) {
-                            (true, true) => (
-                                Quadrant::Northeast,
-                                Quadrant::Southeast,
-                                Quadrant::Southwest,
-                                Quadrant::Northwest,
-                            ),
-                            (true, false) => (
-                                Quadrant::Northwest,
-                                Quadrant::Southwest,
-                                Quadrant::Southeast,
-                                Quadrant::Northeast,
-                            ),
-                            (false, true) => (
-                                Quadrant::Southeast,
-                                Quadrant::Northeast,
-                                Quadrant::Northwest,
-                                Quadrant::Southwest,
-                            ),
-                            (false, false) => (
-                                Quadrant::Southwest,
-                                Quadrant::Northwest,
-                                Quadrant::Northeast,
-                                Quadrant::Southeast,
-                            ),
-                        };
+                        let (seg2, seg3, seg4) =
+                            (seg1.flip_north_south(), seg2.flip_north_south(), seg2);
                         partition_single_arc(
                             ctx,
                             &pip_selector,
@@ -661,56 +683,31 @@ fn partition(
                         .expect("failed to partition arc on EastWest axis")
                     }
                 } else {
-                    let middle_horiz = (x, split_line_over_x((source_loc, sink_loc), x));
-                    let horiz_happens_first = (middle_horiz.1 < y) == source_is_east;
+                    let middle_horiz = (
+                        x,
+                        split_line_over_x(
+                            (arc.estimated_source_location, arc.estimated_sink_location),
+                            x,
+                        ),
+                    );
 
-                    let grab_segment_order = |horiz_happens_first| match (
-                        source_is_north,
-                        source_is_east,
-                        horiz_happens_first,
-                    ) {
-                        (true, true, true) => (
-                            Quadrant::Northeast,
-                            Quadrant::Southeast,
-                            Quadrant::Southwest,
-                        ),
-                        (true, false, true) => (
-                            Quadrant::Northwest,
-                            Quadrant::Southwest,
-                            Quadrant::Southeast,
-                        ),
-                        (false, true, true) => (
-                            Quadrant::Southeast,
-                            Quadrant::Northeast,
-                            Quadrant::Northwest,
-                        ),
-                        (false, false, true) => (
-                            Quadrant::Southwest,
-                            Quadrant::Northwest,
-                            Quadrant::Northeast,
-                        ),
-                        (true, true, false) => (
-                            Quadrant::Northeast,
-                            Quadrant::Northwest,
-                            Quadrant::Southwest,
-                        ),
-                        (true, false, false) => (
-                            Quadrant::Northwest,
-                            Quadrant::Northeast,
-                            Quadrant::Southeast,
-                        ),
-                        (false, true, false) => (
-                            Quadrant::Southeast,
-                            Quadrant::Southwest,
-                            Quadrant::Northwest,
-                        ),
-                        (false, false, false) => (
-                            Quadrant::Southwest,
-                            Quadrant::Southeast,
-                            Quadrant::Northeast,
-                        ),
-                    };
-                    let (seg1, seg2, seg3) = grab_segment_order(horiz_happens_first);
+                    let seg1 = (arc.source_quads & flip_quads_diagonal(arc.sink_quads))
+                        .iter()
+                        .next()
+                        .unwrap();
+
+                    let horiz_happens_first = (middle_horiz.1 < y)
+                        == matches!(seg1, Quadrant::Northeast | Quadrant::Southeast);
+
+                    let (seg2, seg3) = (
+                        if horiz_happens_first {
+                            seg1.flip_east_west()
+                        } else {
+                            seg1.flip_north_south()
+                        },
+                        seg1.flip_diagonal(),
+                    );
+
                     if let Some(partition) = partition_single_arc(
                         ctx,
                         &pip_selector,
@@ -723,8 +720,8 @@ fn partition(
                     ) {
                         partition
                     } else {
-                        // flip `horiz_happens_first` and hope for the best
-                        let (seg1, seg2, seg3) = grab_segment_order(!horiz_happens_first);
+                        // go other way around
+                        let seg2 = seg2.flip_diagonal();
                         partition_single_arc(
                             ctx,
                             &pip_selector,
@@ -861,16 +858,17 @@ fn partition(
 fn partition_single_arc(
     ctx: &npnr::Context,
     pip_selector: &PipSelector,
-    arc: &Arc,
+    arc: &SegmentedArc,
     raw_net: *mut npnr::NetInfo,
     partition_point: Coord,
     min_bounds: &Coord,
     max_bounds: &Coord,
     segments: &[Quadrant],
 ) -> Option<Vec<(Quadrant, Arc)>> {
-    let start_coord: Coord = arc.get_source_loc().into();
-    let end_coord: Coord = arc.get_sink_loc().into();
-    let mut current_arc = arc.clone();
+    let start_coord: Coord = arc.estimated_source_location;
+    let end_coord: Coord = arc.estimated_sink_location;
+    let mut current_coming_from = start_coord;
+    let mut current_arc = arc.arc.clone();
     let mut arcs = vec![];
     for (from_quad, to_quad) in segments.iter().tuple_windows() {
         let direction = Direction::between(*from_quad, *to_quad).unwrap();
@@ -880,13 +878,38 @@ fn partition_single_arc(
         let pip = pip_selector.find_pip(
             ctx,
             intersection.into(),
-            current_arc.get_source_loc(),
+            current_coming_from.into(),
             current_arc.net(),
             raw_net,
         )?;
+        current_coming_from = ctx.pip_location(pip).into();
         let (before_arc, after_arc) = current_arc.split(ctx, pip);
+        if *from_quad == Quadrant::Northwest {
+            println!(
+                "full arc: ({:?}, {:?}, {:?}, {:?})\ninserting: ({:?}, {:?})\nsegments: {:?}\n",
+                arc.source_quads,
+                arc.estimated_source_location,
+                arc.sink_quads,
+                arc.estimated_sink_location,
+                before_arc.get_source_loc(),
+                before_arc.get_sink_loc(),
+                segments,
+            );
+        }
         arcs.push((*from_quad, before_arc));
         current_arc = after_arc;
+    }
+    if *segments.last().unwrap() == Quadrant::Northwest {
+        println!(
+            "full arc: ({:?}, {:?}, {:?}, {:?})\ninserting: ({:?}, {:?})\nsegments: {:?}\n",
+            arc.source_quads,
+            arc.estimated_source_location,
+            arc.sink_quads,
+            arc.estimated_sink_location,
+            current_arc.get_source_loc(),
+            current_arc.get_sink_loc(),
+            segments,
+        );
     }
     arcs.push((*segments.last().unwrap(), current_arc));
     Some(arcs)
@@ -922,83 +945,107 @@ pub fn find_partition_point_and_sanity_check(
 
     println!("\nne:");
     for arc in &ne {
-        if arc.get_source_loc().x > x_part
-            || arc.get_source_loc().y > y_part
-            || arc.get_sink_loc().x > x_part
-            || arc.get_sink_loc().y > y_part
+        if arc.get_source_loc().map(|v| v.x > x_part).unwrap_or(false)
+            || arc.get_source_loc().map(|v| v.y > y_part).unwrap_or(false)
+            || arc.get_sink_loc().map(|v| v.x > x_part).unwrap_or(false)
+            || arc.get_sink_loc().map(|v| v.y > y_part).unwrap_or(false)
         {
             invalid_arcs_in_ne += 1;
         }
-        if arc.get_source_loc().x <= x_start
-            || arc.get_source_loc().y <= y_start
-            || arc.get_sink_loc().x <= x_start
-            || arc.get_sink_loc().y <= y_start
+        if arc
+            .get_source_loc()
+            .map(|v| v.x <= x_start)
+            .unwrap_or(false)
+            || arc
+                .get_source_loc()
+                .map(|v| v.y <= y_start)
+                .unwrap_or(false)
+            || arc.get_sink_loc().map(|v| v.x <= x_start).unwrap_or(false)
+            || arc.get_sink_loc().map(|v| v.y <= y_start).unwrap_or(false)
         {
-            println!(
-                "oob: {:?} -> {:?}",
-                arc.get_source_loc(),
-                arc.get_sink_loc()
-            );
+            //println!(
+            //    "oob: {:?} -> {:?}",
+            //    arc.get_source_loc(),
+            //    arc.get_sink_loc()
+            //);
             out_of_bound_arcs_in_ne += 1;
         }
     }
     println!("\nse:");
     for arc in &se {
-        if arc.get_source_loc().x < x_part
-            || arc.get_source_loc().y > y_part
-            || arc.get_sink_loc().x < x_part
-            || arc.get_sink_loc().y > y_part
+        if arc.get_source_loc().map(|v| v.x < x_part).unwrap_or(false)
+            || arc.get_source_loc().map(|v| v.y > y_part).unwrap_or(false)
+            || arc.get_sink_loc().map(|v| v.x < x_part).unwrap_or(false)
+            || arc.get_sink_loc().map(|v| v.y > y_part).unwrap_or(false)
         {
             invalid_arcs_in_se += 1;
         }
-        if arc.get_source_loc().x >= x_finish
-            || arc.get_source_loc().y <= y_start
-            || arc.get_sink_loc().x >= x_finish
-            || arc.get_sink_loc().y <= y_start
+        if arc
+            .get_source_loc()
+            .map(|v| v.x >= x_finish)
+            .unwrap_or(false)
+            || arc
+                .get_source_loc()
+                .map(|v| v.y <= y_start)
+                .unwrap_or(false)
+            || arc.get_sink_loc().map(|v| v.x >= x_finish).unwrap_or(false)
+            || arc.get_sink_loc().map(|v| v.y <= y_start).unwrap_or(false)
         {
-            println!(
-                "oob: {:?} -> {:?}",
-                arc.get_source_loc(),
-                arc.get_sink_loc()
-            );
+            //println!(
+            //    "oob: {:?} -> {:?}",
+            //    arc.get_source_loc(),
+            //    arc.get_sink_loc()
+            //);
             out_of_bound_arcs_in_se += 1;
         }
     }
     println!("\nsw:");
     for arc in &sw {
-        if arc.get_source_loc().x < x_part
-            || arc.get_source_loc().y < y_part
-            || arc.get_sink_loc().x < x_part
-            || arc.get_sink_loc().y < y_part
+        if arc.get_source_loc().map(|v| v.x < x_part).unwrap_or(false)
+            || arc.get_source_loc().map(|v| v.y < y_part).unwrap_or(false)
+            || arc.get_sink_loc().map(|v| v.x < x_part).unwrap_or(false)
+            || arc.get_sink_loc().map(|v| v.y < y_part).unwrap_or(false)
         {
             invalid_arcs_in_sw += 1;
         }
-        if arc.get_source_loc().x >= x_finish
-            || arc.get_source_loc().y >= y_finish
-            || arc.get_sink_loc().x >= x_finish
-            || arc.get_sink_loc().y >= y_finish
+        if arc
+            .get_source_loc()
+            .map(|v| v.x >= x_finish)
+            .unwrap_or(false)
+            || arc
+                .get_source_loc()
+                .map(|v| v.y >= y_finish)
+                .unwrap_or(false)
+            || arc.get_sink_loc().map(|v| v.x >= x_finish).unwrap_or(false)
+            || arc.get_sink_loc().map(|v| v.y >= y_finish).unwrap_or(false)
         {
-            println!(
-                "oob: {:?} -> {:?}",
-                arc.get_source_loc(),
-                arc.get_sink_loc()
-            );
+            //println!(
+            //    "oob: {:?} -> {:?}",
+            //    arc.get_source_loc(),
+            //    arc.get_sink_loc()
+            //);
             out_of_bound_arcs_in_sw += 1;
         }
     }
     println!("\nnw:");
     for arc in &nw {
-        if arc.get_source_loc().x > x_part
-            || arc.get_source_loc().y < y_part
-            || arc.get_sink_loc().x > x_part
-            || arc.get_sink_loc().y < y_part
+        if arc.get_source_loc().map(|v| v.x > x_part).unwrap_or(false)
+            || arc.get_source_loc().map(|v| v.y < y_part).unwrap_or(false)
+            || arc.get_sink_loc().map(|v| v.x > x_part).unwrap_or(false)
+            || arc.get_sink_loc().map(|v| v.y < y_part).unwrap_or(false)
         {
             invalid_arcs_in_nw += 1;
         }
-        if arc.get_source_loc().x <= x_start
-            || arc.get_source_loc().y >= y_finish
-            || arc.get_sink_loc().x <= x_start
-            || arc.get_sink_loc().y >= y_finish
+        if arc
+            .get_source_loc()
+            .map(|v| v.x <= x_start)
+            .unwrap_or(false)
+            || arc
+                .get_source_loc()
+                .map(|v| v.y >= y_finish)
+                .unwrap_or(false)
+            || arc.get_sink_loc().map(|v| v.x <= x_start).unwrap_or(false)
+            || arc.get_sink_loc().map(|v| v.y >= y_finish).unwrap_or(false)
         {
             println!(
                 "oob: {:?} -> {:?}",

@@ -16,9 +16,9 @@ use crate::{
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub struct Arc {
     source_wire: WireId,
-    source_loc: Loc,
+    source_loc: Option<Loc>,
     sink_wire: WireId,
-    sink_loc: Loc,
+    sink_loc: Option<Loc>,
     net: NetIndex,
     name: IdString,
 }
@@ -26,9 +26,9 @@ pub struct Arc {
 impl Arc {
     pub fn new(
         source_wire: WireId,
-        source_loc: Loc,
+        source_loc: Option<Loc>,
         sink_wire: WireId,
-        sink_loc: Loc,
+        sink_loc: Option<Loc>,
         net: NetIndex,
         name: IdString,
     ) -> Self {
@@ -43,6 +43,7 @@ impl Arc {
     }
 
     pub fn split(&self, ctx: &npnr::Context, pip: npnr::PipId) -> (Self, Self) {
+        // should this still set the sink and source using the pip? not sure
         let pip_src = ctx.pip_src_wire(pip);
         let pip_dst = ctx.pip_dst_wire(pip);
         (
@@ -50,13 +51,13 @@ impl Arc {
                 source_wire: self.source_wire,
                 source_loc: self.source_loc,
                 sink_wire: pip_src,
-                sink_loc: ctx.pip_location(pip),
+                sink_loc: Some(ctx.pip_location(pip)),
                 net: self.net,
                 name: self.name,
             },
             Self {
                 source_wire: pip_dst,
-                source_loc: ctx.pip_location(pip),
+                source_loc: Some(ctx.pip_location(pip)),
                 sink_wire: self.sink_wire,
                 sink_loc: self.sink_loc,
                 net: self.net,
@@ -74,10 +75,10 @@ impl Arc {
     pub fn net(&self) -> npnr::NetIndex {
         self.net
     }
-    pub fn get_source_loc(&self) -> Loc {
+    pub fn get_source_loc(&self) -> Option<Loc> {
         self.source_loc
     }
-    pub fn get_sink_loc(&self) -> Loc {
+    pub fn get_sink_loc(&self) -> Option<Loc> {
         self.sink_loc
     }
 }

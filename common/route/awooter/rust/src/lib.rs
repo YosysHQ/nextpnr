@@ -61,9 +61,9 @@ fn extract_arcs_from_nets(ctx: &npnr::Context, nets: &npnr::Nets) -> Vec<route::
                 for sink_wire in ctx.sink_wires(net, *sink_ref) {
                     arcs.push(route::Arc::new(
                         source_wire,
-                        source,
+                        Some(source),
                         sink_wire,
-                        sink,
+                        Some(sink),
                         net.index(),
                         nets.name_from_index(net.index()),
                     ));
