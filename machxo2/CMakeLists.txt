@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.5)
 project(chipdb-machxo2 NONE)
 
-set(ALL_MACHXO2_DEVICES 256X 640X 1200X 2280X 256 640 1200 2000 4000 7000)
-set(MACHXO2_DEVICES 1200 CACHE STRING
-    "Include support for these MachXO2 devices (available: ${ALL_MACHXO2_DEVICES})")
-message(STATUS "Enabled MachXO2 devices: ${MACHXO2_DEVICES}")
+set(ALL_MACHXO2_DEVICES 256X 640X 1200X 2280X 256 640 1200 2000 4000 7000 1300 2100 4300 6900 9400 4300D 9400D)
+set(MACHXO2_DEVICES 1200 6900 CACHE STRING
+    "Include support for these MachXO2/XO3 devices (available: ${ALL_MACHXO2_DEVICES})")
+message(STATUS "Enabled MachXO2/XO3 devices: ${MACHXO2_DEVICES}")
 
 if(DEFINED MACHXO2_CHIPDB)
     add_custom_target(chipdb-machxo2-bbas ALL)
@@ -51,7 +51,7 @@ else()
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/chipdb)
     foreach(device ${MACHXO2_DEVICES})
         if(NOT device IN_LIST ALL_MACHXO2_DEVICES)
-            message(FATAL_ERROR "Device ${device} is not a supported MachXO2 device")
+            message(FATAL_ERROR "Device ${device} is not a supported MachXO2/XO3 device")
         endif()
 
         set(device_bba chipdb/chipdb-${device}.bba)

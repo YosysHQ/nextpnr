@@ -422,7 +422,16 @@ dev_family = {
     "1200": "MachXO2",
     "2000": "MachXO2",
     "4000": "MachXO2",
-    "7000": "MachXO2"
+    "7000": "MachXO2",
+
+    "1300": "MachXO3",
+    "2100": "MachXO3",
+    "4300": "MachXO3",
+    "6900": "MachXO3",
+    "9400": "MachXO3",
+
+    "4300D": "MachXO3D",
+    "9400D": "MachXO3D"
 }
 
 dev_names = {
@@ -436,7 +445,16 @@ dev_names = {
     "1200": "LCMXO2-1200",
     "2000": "LCMXO2-2000",
     "4000": "LCMXO2-4000",
-    "7000": "LCMXO2-7000"
+    "7000": "LCMXO2-7000",
+
+    "1300": "LCMXO3-1300",
+    "2100": "LCMXO3-2100",
+    "4300": "LCMXO3-4300",
+    "6900": "LCMXO3-6900",
+    "9400": "LCMXO3-9400",
+
+    "4300D": "LCMXO3D-4300",
+    "9400D": "LCMXO3D-9400"
 }
 
 def main():

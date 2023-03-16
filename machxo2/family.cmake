@@ -1,5 +1,5 @@
 add_subdirectory(${family})
-message(STATUS "Using MachXO2 chipdb: ${MACHXO2_CHIPDB}")
+message(STATUS "Using MachXO2/XO3 chipdb: ${MACHXO2_CHIPDB}")
 
 set(chipdb_sources)
 set(chipdb_binaries)
