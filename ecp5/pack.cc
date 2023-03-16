@@ -2622,14 +2622,12 @@ class Ecp5Packer
         auto MHz = [&](delay_t a) { return 1000.0 / ctx->getDelayNS(a); };
 
         auto equals_epsilon = [](delay_t a, delay_t b) { return (std::abs(a - b) / std::max(double(b), 1.0)) < 1e-3; };
-        auto equals_epsilon_pair = [&](DelayPair& a, DelayPair& b) {
-            return equals_epsilon(a.min_delay, b.min_delay)
-                && equals_epsilon(a.max_delay, b.max_delay);
+        auto equals_epsilon_pair = [&](DelayPair &a, DelayPair &b) {
+            return equals_epsilon(a.min_delay, b.min_delay) && equals_epsilon(a.max_delay, b.max_delay);
         };
-        auto equals_epsilon_constr = [&](ClockConstraint& a, ClockConstraint& b) {
-            return equals_epsilon_pair(a.high, b.high)
-                && equals_epsilon_pair(a.low, b.low)
-                && equals_epsilon_pair(a.period, b.period);
+        auto equals_epsilon_constr = [&](ClockConstraint &a, ClockConstraint &b) {
+            return equals_epsilon_pair(a.high, b.high) && equals_epsilon_pair(a.low, b.low) &&
+                   equals_epsilon_pair(a.period, b.period);
         };
 
         pool<IdString> user_constrained, changed_nets;
@@ -2762,9 +2760,9 @@ class Ecp5Packer
                     }
 
                     std::unique_ptr<ClockConstraint> derived_constr = nullptr;
-                    std::vector<NetInfo*> in_ports = {
-                        ci->ports.at(id_CLK0).net,
-                        ci->ports.at(id_CLK1).net,
+                    std::vector<NetInfo *> in_ports = {
+                            ci->ports.at(id_CLK0).net,
+                            ci->ports.at(id_CLK1).net,
                     };
 
                     // Generate all unique clock pairs find the worst
@@ -2781,75 +2779,49 @@ class Ecp5Packer
                             if (p2 == nullptr || p2->clkconstr == nullptr) {
                                 break;
                             }
-                            auto& c1 = p1->clkconstr;
-                            auto& c2 = p2->clkconstr;
+                            auto &c1 = p1->clkconstr;
+                            auto &c2 = p2->clkconstr;
 
                             auto merged_constr = std::unique_ptr<ClockConstraint>(new ClockConstraint());
 
                             if (mode == "NEG") {
-                                merged_constr->low = DelayPair(
-                                    std::min(c1->low.min_delay, c2->low.min_delay),
-                                    std::max(
-                                        c1->low.max_delay + c2->period.max_delay,
-                                        c2->low.max_delay + c1->period.max_delay
-                                    )
-                                );
+                                merged_constr->low = DelayPair(std::min(c1->low.min_delay, c2->low.min_delay),
+                                                               std::max(c1->low.max_delay + c2->period.max_delay,
+                                                                        c2->low.max_delay + c1->period.max_delay));
                             } else {
-                                merged_constr->low = DelayPair(
-                                    std::min(c1->low.min_delay, c2->low.min_delay),
-                                    std::max(c1->low.max_delay, c2->low.max_delay)
-                                );
+                                merged_constr->low = DelayPair(std::min(c1->low.min_delay, c2->low.min_delay),
+                                                               std::max(c1->low.max_delay, c2->low.max_delay));
                             }
 
                             if (mode == "POS") {
-                                merged_constr->high = DelayPair(
-                                    std::min(c1->high.min_delay, c2->high.min_delay),
-                                    std::max(
-                                        c1->high.max_delay + c2->period.max_delay,
-                                        c2->high.max_delay + c1->period.max_delay
-                                    )
-                                );
+                                merged_constr->high = DelayPair(std::min(c1->high.min_delay, c2->high.min_delay),
+                                                                std::max(c1->high.max_delay + c2->period.max_delay,
+                                                                         c2->high.max_delay + c1->period.max_delay));
                             } else {
-                                merged_constr->high = DelayPair(
-                                    std::min(c1->high.min_delay, c2->high.min_delay),
-                                    std::max(c1->high.max_delay, c2->high.max_delay)
-                                );
+                                merged_constr->high = DelayPair(std::min(c1->high.min_delay, c2->high.min_delay),
+                                                                std::max(c1->high.max_delay, c2->high.max_delay));
                             }
 
-                            merged_constr->period = DelayPair(
-                                std::min(c1->period.min_delay, c2->period.min_delay),
-                                std::max(c1->period.max_delay, c2->period.max_delay)
-                            );
+                            merged_constr->period = DelayPair(std::min(c1->period.min_delay, c2->period.min_delay),
+                                                              std::max(c1->period.max_delay, c2->period.max_delay));
 
                             if (derived_constr == nullptr) {
                                 derived_constr = std::move(merged_constr);
                                 continue;
                             }
 
-                            derived_constr->period.min_delay = std::min(
-                                derived_constr->period.min_delay,
-                                merged_constr->period.min_delay
-                            );
-                            derived_constr->period.max_delay = std::max(
-                                derived_constr->period.max_delay,
-                                merged_constr->period.max_delay
-                            );
-                            derived_constr->low.min_delay = std::min(
-                                derived_constr->low.min_delay,
-                                merged_constr->low.min_delay
-                            );
-                            derived_constr->low.max_delay = std::max(
-                                derived_constr->low.max_delay,
-                                merged_constr->low.max_delay
-                            );
-                            derived_constr->high.min_delay = std::min(
-                                derived_constr->high.min_delay,
-                                merged_constr->high.min_delay
-                            );
-                            derived_constr->high.max_delay = std::max(
-                                derived_constr->high.max_delay,
-                                merged_constr->high.max_delay
-                            );
+                            derived_constr->period.min_delay =
+                                    std::min(derived_constr->period.min_delay, merged_constr->period.min_delay);
+                            derived_constr->period.max_delay =
+                                    std::max(derived_constr->period.max_delay, merged_constr->period.max_delay);
+                            derived_constr->low.min_delay =
+                                    std::min(derived_constr->low.min_delay, merged_constr->low.min_delay);
+                            derived_constr->low.max_delay =
+                                    std::max(derived_constr->low.max_delay, merged_constr->low.max_delay);
+                            derived_constr->high.min_delay =
+                                    std::min(derived_constr->high.min_delay, merged_constr->high.min_delay);
+                            derived_constr->high.max_delay =
+                                    std::max(derived_constr->high.max_delay, merged_constr->high.max_delay);
                         }
                     }
 
@@ -2884,10 +2856,14 @@ class Ecp5Packer
                         log_info("    Derived VCO frequency %.1f MHz of PLL '%s' is out of legal range [400MHz, "
                                  "800MHz]\n",
                                  vco_freq, ci->name.c_str(ctx));
-                    set_constraint(ci, id_CLKOP, simple_clk_contraint(vco_period * int_or_default(ci->params, id_CLKOP_DIV, 1)));
-                    set_constraint(ci, id_CLKOS, simple_clk_contraint(vco_period * int_or_default(ci->params, id_CLKOS_DIV, 1)));
-                    set_constraint(ci, id_CLKOS2, simple_clk_contraint(vco_period * int_or_default(ci->params, id_CLKOS2_DIV, 1)));
-                    set_constraint(ci, id_CLKOS3, simple_clk_contraint(vco_period * int_or_default(ci->params, id_CLKOS3_DIV, 1)));
+                    set_constraint(ci, id_CLKOP,
+                                   simple_clk_contraint(vco_period * int_or_default(ci->params, id_CLKOP_DIV, 1)));
+                    set_constraint(ci, id_CLKOS,
+                                   simple_clk_contraint(vco_period * int_or_default(ci->params, id_CLKOS_DIV, 1)));
+                    set_constraint(ci, id_CLKOS2,
+                                   simple_clk_contraint(vco_period * int_or_default(ci->params, id_CLKOS2_DIV, 1)));
+                    set_constraint(ci, id_CLKOS3,
+                                   simple_clk_contraint(vco_period * int_or_default(ci->params, id_CLKOS3_DIV, 1)));
                 } else if (ci->type == id_OSCG) {
                     int div = int_or_default(ci->params, id_DIV, 128);
                     set_constraint(ci, id_OSC, simple_clk_contraint(delay_t((1.0e6 / (2.0 * 155)) * div)));
