@@ -22,7 +22,7 @@
 #include "bitstream.h"
 #include "log.h"
 #include "embed.h"
-#include "chipdb/available.h"
+#include "machxo2_available.h"
 
 #include <QFileDialog>
 #include <QInputDialog>

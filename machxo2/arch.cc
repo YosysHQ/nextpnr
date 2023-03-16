@@ -28,7 +28,7 @@
 #include "router1.h"
 #include "router2.h"
 #include "util.h"
-#include "chipdb/available.h"
+#include "machxo2_available.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
