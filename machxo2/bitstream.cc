@@ -32,13 +32,58 @@ NEXTPNR_NAMESPACE_BEGIN
 namespace BaseConfigs {
 void config_empty_lcmxo2_1200(ChipConfig &cc)
 {
+    cc.tiles["EBR_R6C2:EBR1"].add_unknown(0, 12);
+    cc.tiles["EBR_R6C5:EBR1"].add_unknown(0, 12);
+    cc.tiles["EBR_R6C8:EBR1"].add_unknown(0, 12);
     cc.tiles["EBR_R6C11:EBR1"].add_unknown(0, 12);
     cc.tiles["EBR_R6C15:EBR1"].add_unknown(0, 12);
     cc.tiles["EBR_R6C18:EBR1"].add_unknown(0, 12);
     cc.tiles["EBR_R6C21:EBR1"].add_unknown(0, 12);
-    cc.tiles["EBR_R6C2:EBR1"].add_unknown(0, 12);
-    cc.tiles["EBR_R6C5:EBR1"].add_unknown(0, 12);
-    cc.tiles["EBR_R6C8:EBR1"].add_unknown(0, 12);
+
+    cc.tiles["PT4:CFG0"].add_unknown(5, 30);
+    cc.tiles["PT4:CFG0"].add_unknown(5, 32);
+    cc.tiles["PT4:CFG0"].add_unknown(5, 36);
+
+    cc.tiles["PT7:CFG3"].add_unknown(5, 18);
+}
+
+void config_empty_lcmxo3_6900(ChipConfig &cc)
+{
+    cc.tiles["CENTER20:CENTER_EBR_CIB_SP"].add_unknown(23, 1);
+
+    cc.tiles["CIB_R20C36:CIB_EBR0"].add_unknown(26, 30);
+
+    cc.tiles["CIB_R20C40:CIB_EBR1"].add_unknown(26, 30);
+
+    cc.tiles["EBR_R13C2:EBR1"].add_unknown(0, 12);
+    cc.tiles["EBR_R13C5:EBR1"].add_unknown(0, 12);
+    cc.tiles["EBR_R13C8:EBR1"].add_unknown(0, 12);
+    cc.tiles["EBR_R13C11:EBR1"].add_unknown(0, 12);
+    cc.tiles["EBR_R13C14:EBR1"].add_unknown(0, 12);
+    cc.tiles["EBR_R13C17:EBR1"].add_unknown(0, 12);
+    cc.tiles["EBR_R13C22:EBR1"].add_unknown(0, 12);
+    cc.tiles["EBR_R13C25:EBR1"].add_unknown(0, 12);
+    cc.tiles["EBR_R13C28:EBR1"].add_unknown(0, 12);
+    cc.tiles["EBR_R13C31:EBR1"].add_unknown(0, 12);
+    cc.tiles["EBR_R13C34:EBR1"].add_unknown(0, 12);
+    cc.tiles["EBR_R13C37:EBR1"].add_unknown(0, 12);
+    cc.tiles["EBR_R13C40:EBR1"].add_unknown(0, 12);
+
+    cc.tiles["EBR_R20C2:EBR1"].add_unknown(0, 12);
+    cc.tiles["EBR_R20C5:EBR1"].add_unknown(0, 12);
+    cc.tiles["EBR_R20C8:EBR1"].add_unknown(0, 12);
+    cc.tiles["EBR_R20C11:EBR1"].add_unknown(0, 12);
+    cc.tiles["EBR_R20C14:EBR1"].add_unknown(0, 12);
+    cc.tiles["EBR_R20C17:EBR1"].add_unknown(0, 12);
+    cc.tiles["EBR_R20C22:EBR1"].add_unknown(0, 12);
+    cc.tiles["EBR_R20C25:EBR1"].add_unknown(0, 12);
+    cc.tiles["EBR_R20C28:EBR1"].add_unknown(0, 12);
+    cc.tiles["EBR_R20C31:EBR1"].add_unknown(0, 12);
+    cc.tiles["EBR_R20C34:EBR1"].add_unknown(0, 12);
+    cc.tiles["EBR_R20C37:EBR1"].add_unknown(0, 12);
+    cc.tiles["EBR_R20C40:EBR1"].add_unknown(0, 12);
+
+    cc.tiles["PR16:PIC_R1"].add_unknown(16, 52);
 
     cc.tiles["PT4:CFG0"].add_unknown(5, 30);
     cc.tiles["PT4:CFG0"].add_unknown(5, 32);
@@ -204,6 +249,8 @@ void write_bitstream(Context *ctx, std::string text_config_file)
     // IdString device_id = ctx->id(ctx->device_name);
     if (base_id == ctx->id("LCMXO2-1200"))
         BaseConfigs::config_empty_lcmxo2_1200(cc);
+    else if (base_id == ctx->id("LCMXO3-6900"))
+        BaseConfigs::config_empty_lcmxo3_6900(cc);
     else
         NPNR_ASSERT_FALSE("Unsupported device type");
     cc.chip_name = ctx->chip_info->device_name.get();
