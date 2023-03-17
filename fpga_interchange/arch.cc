@@ -1116,17 +1116,9 @@ std::string Arch::get_part() const
 
 // -----------------------------------------------------------------------
 
-#ifdef WITH_HEAP
 const std::string Arch::defaultPlacer = "heap";
-#else
-const std::string Arch::defaultPlacer = "sa";
-#endif
 
-const std::vector<std::string> Arch::availablePlacers = {"sa",
-#ifdef WITH_HEAP
-                                                         "heap"
-#endif
-};
+const std::vector<std::string> Arch::availablePlacers = {"sa", "heap"};
 
 const std::string Arch::defaultRouter = "router2";
 const std::vector<std::string> Arch::availableRouters = {"router1", "router2"};

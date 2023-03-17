@@ -81,7 +81,7 @@ git clone git@github.com:cr1901/nextpnr.git
 cd nextpnr
 git checkout machxo2
 git submodule update --init --recursive
-cmake . -DARCH=machxo2 -DBUILD_GUI=OFF  -DTRELLIS_INSTALL_PREFIX=/usr -DBUILD_PYTHON=OFF -DBUILD_HEAP=OFF
+cmake . -DARCH=machxo2 -DBUILD_GUI=OFF  -DTRELLIS_INSTALL_PREFIX=/usr -DBUILD_PYTHON=OFF 
 make
 ```
 
