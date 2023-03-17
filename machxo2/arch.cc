@@ -368,7 +368,7 @@ bool Arch::place()
         return retVal;
     } else if (placer == "heap") {
         PlacerHeapCfg cfg(getCtx());
-        cfg.ioBufTypes.insert(id_FACADE_IO);
+        cfg.ioBufTypes.insert(id_TRELLIS_IO);
         bool retVal = placer_heap(getCtx(), cfg);
         getCtx()->settings[id_place] = 1;
         archInfoToAttributes();

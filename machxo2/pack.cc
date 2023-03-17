@@ -39,7 +39,7 @@ static void pack_lut_lutffs(Context *ctx)
         if (ctx->verbose)
             log_info("cell '%s' is of type '%s'\n", ci->name.c_str(ctx), ci->type.c_str(ctx));
         if (is_lut(ctx, ci)) {
-            std::unique_ptr<CellInfo> packed = create_machxo2_cell(ctx, id_FACADE_SLICE, ci->name.str(ctx) + "_LC");
+            std::unique_ptr<CellInfo> packed = create_machxo2_cell(ctx, id_TRELLIS_SLICE, ci->name.str(ctx) + "_LC");
             for (auto &attr : ci->attrs)
                 packed->attrs[attr.first] = attr.second;
 
@@ -100,7 +100,7 @@ static void pack_remaining_ffs(Context *ctx)
             if (ctx->verbose)
                 log_info("cell '%s' of type '%s remains unpacked'\n", ci->name.c_str(ctx), ci->type.c_str(ctx));
 
-            std::unique_ptr<CellInfo> packed = create_machxo2_cell(ctx, id_FACADE_SLICE, ci->name.str(ctx) + "_LC");
+            std::unique_ptr<CellInfo> packed = create_machxo2_cell(ctx, id_TRELLIS_SLICE, ci->name.str(ctx) + "_LC");
             for (auto &attr : ci->attrs)
                 packed->attrs[attr.first] = attr.second;
 
@@ -141,10 +141,10 @@ static void set_net_constant(Context *ctx, NetInfo *orig, NetInfo *constnet, boo
             if (ctx->verbose)
                 log_info("%s user %s\n", orig->name.c_str(ctx), uc->name.c_str(ctx));
 
-            if (uc->type == id_FACADE_FF && user.port == id_DI) {
-                log_info("FACADE_FF %s is driven by a constant\n", uc->name.c_str(ctx));
+            if (uc->type == id_TRELLIS_FF && user.port == id_DI) {
+                log_info("TRELLIS_FF %s is driven by a constant\n", uc->name.c_str(ctx));
 
-                std::unique_ptr<CellInfo> lc = create_machxo2_cell(ctx, id_FACADE_SLICE, uc->name.str(ctx) + "_CONST");
+                std::unique_ptr<CellInfo> lc = create_machxo2_cell(ctx, id_TRELLIS_SLICE, uc->name.str(ctx) + "_CONST");
                 for (auto &attr : uc->attrs)
                     lc->attrs[attr.first] = attr.second;
 
@@ -179,7 +179,7 @@ static void pack_constants(Context *ctx)
 {
     log_info("Packing constants..\n");
 
-    std::unique_ptr<CellInfo> const_cell = create_machxo2_cell(ctx, id_FACADE_SLICE, "$PACKER_CONST");
+    std::unique_ptr<CellInfo> const_cell = create_machxo2_cell(ctx, id_TRELLIS_SLICE, "$PACKER_CONST");
     const_cell->params[id_LUT0_INITVAL] = Property(0, 16);
     const_cell->params[id_LUT1_INITVAL] = Property(0xFFFF, 16);
 
@@ -224,9 +224,9 @@ static bool is_nextpnr_iob(Context *ctx, CellInfo *cell)
            cell->type == ctx->id("$nextpnr_iobuf");
 }
 
-static bool is_facade_iob(const Context *ctx, const CellInfo *cell) { return cell->type == id_FACADE_IO; }
+static bool is_trellis_iob(const Context *ctx, const CellInfo *cell) { return cell->type == id_TRELLIS_IO; }
 
-static bool nextpnr_iob_connects_only_facade_iob(Context *ctx, CellInfo *iob, NetInfo *&top)
+static bool nextpnr_iob_connects_only_trellis_iob(Context *ctx, CellInfo *iob, NetInfo *&top)
 {
     NPNR_ASSERT(is_nextpnr_iob(ctx, iob));
 
@@ -234,18 +234,18 @@ static bool nextpnr_iob_connects_only_facade_iob(Context *ctx, CellInfo *iob, Ne
         NetInfo *o = iob->ports.at(id_O).net;
         top = o;
 
-        CellInfo *fio = net_only_drives(ctx, o, is_facade_iob, id_PAD, true);
+        CellInfo *fio = net_only_drives(ctx, o, is_trellis_iob, id_B, true);
         return fio != nullptr;
     } else if (iob->type == ctx->id("$nextpnr_obuf")) {
         NetInfo *i = iob->ports.at(id_I).net;
         top = i;
 
-        // If connected to a FACADE_IO PAD, the net attached to an I port of an
+        // If connected to a TRELLIS_IO PAD, the net attached to an I port of an
         // $nextpnr_obuf will not have a driver, only users; an inout port
         // like PAD cannot be a driver in nextpnr. So net_driven_by won't
         // return anything. We exclude the IOB as one of the two users because
         // we already know that the net drives the $nextpnr_obuf.
-        CellInfo *fio = net_only_drives(ctx, i, is_facade_iob, id_PAD, true, iob);
+        CellInfo *fio = net_only_drives(ctx, i, is_trellis_iob, id_B, true, iob);
         return fio != nullptr;
     } else if (iob->type == ctx->id("$nextpnr_iobuf")) {
         NetInfo *o = iob->ports.at(id_O).net;
@@ -254,10 +254,10 @@ static bool nextpnr_iob_connects_only_facade_iob(Context *ctx, CellInfo *iob, Ne
         // When split_io is enabled in a frontend (it is for JSON), the I and O
         // ports of a $nextpnr_iobuf are split; the I port connects to the
         // driver of the original net before IOB insertion, and the O port
-        // connects everything else. Because FACADE_IO PADs cannot be a driver
+        // connects everything else. Because TRELLIS_IO PADs cannot be a driver
         // in nextpnr, the we can safely ignore the I port of an $nextpnr_iobuf
         // for any JSON input we're interested in accepting.
-        CellInfo *fio_o = net_only_drives(ctx, o, is_facade_iob, id_PAD, true);
+        CellInfo *fio_o = net_only_drives(ctx, o, is_trellis_iob, id_B, true);
         return fio_o != nullptr;
     }
 
@@ -266,7 +266,7 @@ static bool nextpnr_iob_connects_only_facade_iob(Context *ctx, CellInfo *iob, Ne
 }
 
 // Pack IO buffers- Right now, all this does is remove $nextpnr_[io]buf cells.
-// User is expected to manually instantiate FACADE_IO with BEL/IO_TYPE
+// User is expected to manually instantiate TRELLIS_IO with BEL/IO_TYPE
 // attributes.
 static void pack_io(Context *ctx)
 {
@@ -279,8 +279,8 @@ static void pack_io(Context *ctx)
         if (is_nextpnr_iob(ctx, ci)) {
             NetInfo *top;
 
-            if (!nextpnr_iob_connects_only_facade_iob(ctx, ci, top))
-                log_error("Top level net '%s' is not connected to a FACADE_IO PAD port.\n", top->name.c_str(ctx));
+            if (!nextpnr_iob_connects_only_trellis_iob(ctx, ci, top))
+                log_error("Top level net '%s' is not connected to a TRELLIS_IO PAD port.\n", top->name.c_str(ctx));
 
             if (ctx->verbose)
                 log_info("Removing top-level IOBUF '%s' of type '%s'\n", ci->name.c_str(ctx), ci->type.c_str(ctx));
@@ -288,11 +288,11 @@ static void pack_io(Context *ctx)
             for (auto &p : ci->ports)
                 ci->disconnectPort(p.first);
             packed_cells.insert(ci->name);
-        } else if (is_facade_iob(ctx, ci)) {
-            // If FACADE_IO has LOC attribute, convert the LOC (pin) to a BEL
-            // attribute and place FACADE_IO at resulting BEL location. A BEL
-            // attribute already on a FACADE_IO is an error. Attributes on
-            // the pin attached to the PAD of FACADE_IO are ignored by this
+        } else if (is_trellis_iob(ctx, ci)) {
+            // If TRELLIS_IO has LOC attribute, convert the LOC (pin) to a BEL
+            // attribute and place TRELLIS_IO at resulting BEL location. A BEL
+            // attribute already on a TRELLIS_IO is an error. Attributes on
+            // the pin attached to the PAD of TRELLIS_IO are ignored by this
             // packing phase.
             auto loc_attr_cell = ci->attrs.find(id_LOC);
             auto bel_attr_cell = ci->attrs.find(id_BEL);
