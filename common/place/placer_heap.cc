@@ -31,8 +31,6 @@
  *   - To make the placer timing-driven, the bound2bound weights are multiplied by (1 + 10 * crit^2)
  */
 
-#ifdef WITH_HEAP
-
 #include "placer_heap.h"
 #include <Eigen/Core>
 #include <Eigen/IterativeLinearSolvers>
@@ -1842,22 +1840,3 @@ PlacerHeapCfg::PlacerHeapCfg(Context *ctx)
 }
 
 NEXTPNR_NAMESPACE_END
-
-#else
-
-#include "log.h"
-#include "nextpnr.h"
-#include "placer_heap.h"
-
-NEXTPNR_NAMESPACE_BEGIN
-bool placer_heap(Context *ctx, PlacerHeapCfg cfg)
-{
-    log_error("nextpnr was built without the HeAP placer\n");
-    return false;
-}
-
-PlacerHeapCfg::PlacerHeapCfg(Context *ctx) {}
-
-NEXTPNR_NAMESPACE_END
-
-#endif

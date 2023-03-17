@@ -195,7 +195,7 @@ Additional notes for building nextpnr
 The following runs a debug build of the iCE40 architecture without GUI, without Python support, without the HeAP analytic placer and only HX1K support:
 
 ```
-cmake . -DARCH=ice40 -DCMAKE_BUILD_TYPE=Debug -DBUILD_PYTHON=OFF  -DBUILD_HEAP=OFF -DICE40_HX1K_ONLY=1
+cmake . -DARCH=ice40 -DCMAKE_BUILD_TYPE=Debug -DBUILD_PYTHON=OFF -DICE40_HX1K_ONLY=1
 make -j$(nproc)
 ```
 
