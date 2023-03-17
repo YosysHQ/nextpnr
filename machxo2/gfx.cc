@@ -43,19 +43,19 @@ void gfxTileBel(std::vector<GraphicElement> &g, int x, int y, int z, int w, int 
     GraphicElement el;
     el.type = GraphicElement::TYPE_BOX;
     el.style = style;
-    if (bel_type == id_FACADE_SLICE) {
+    if (bel_type == id_TRELLIS_SLICE) {
         el.x1 = x + slice_x1;
         el.x2 = x + slice_x2_comb;
         el.y1 = y + slice_y1 + z * slice_pitch;
         el.y2 = y + slice_y2 + z * slice_pitch;
         g.push_back(el);
-        /*    } else if (bel_type == id_FACADE_FF) {
+        /*    } else if (bel_type == id_TRELLIS_FF) {
                 el.x1 = x + slice_x1_ff;
                 el.x2 = x + slice_x2;
                 el.y1 = y + slice_y1 + z * slice_pitch;
                 el.y2 = y + slice_y2 + z * slice_pitch;
                 g.push_back(el);*/
-    } else if (bel_type.in(id_FACADE_IO)) {
+    } else if (bel_type.in(id_TRELLIS_IO)) {
         bool top_bottom = (y == 0 || y == (h - 1));
         if (top_bottom) {
             el.x1 = x + io_cell_h_x1 + (z + 2) * io_cell_gap;

@@ -32,7 +32,7 @@ std::unique_ptr<CellInfo> create_machxo2_cell(Context *ctx, IdString type, std::
             name.empty() ? ctx->id("$nextpnr_" + type.str(ctx) + "_" + std::to_string(auto_idx++)) : ctx->id(name);
     auto new_cell = std::make_unique<CellInfo>(ctx, name_id, type);
 
-    if (type == id_FACADE_SLICE) {
+    if (type == id_TRELLIS_SLICE) {
         new_cell->params[id_MODE] = std::string("LOGIC");
         new_cell->params[id_GSR] = std::string("ENABLED");
         new_cell->params[id_SRMODE] = std::string("LSR_OVER_CE");
@@ -101,11 +101,11 @@ std::unique_ptr<CellInfo> create_machxo2_cell(Context *ctx, IdString type, std::
         new_cell->addOutput(id_WADO1);
         new_cell->addOutput(id_WADO2);
         new_cell->addOutput(id_WADO3);
-    } else if (type == id_FACADE_IO) {
+    } else if (type == id_TRELLIS_IO) {
         new_cell->params[id_DIR] = std::string("INPUT");
         new_cell->attrs[id_IO_TYPE] = std::string("LVCMOS33");
 
-        new_cell->addInout(id_PAD);
+        new_cell->addInout(id_B);
         new_cell->addInput(id_I);
         new_cell->addInput(id_EN);
         new_cell->addOutput(id_O);

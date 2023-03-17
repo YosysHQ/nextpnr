@@ -225,7 +225,7 @@ void write_bitstream(Context *ctx, std::string text_config_file)
             continue;
         }
         BelId bel = ci->bel;
-        if (ci->type == id_FACADE_SLICE) {
+        if (ci->type == id_TRELLIS_SLICE) {
             std::string tname = ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, "PLC");
             std::string slice = ctx->tile_info(bel)->bel_data[bel.index].name.get();
 
@@ -253,7 +253,7 @@ void write_bitstream(Context *ctx, std::string text_config_file)
             cc.tiles[tname].add_enum(slice + ".REG1.SD", intstr_or_default(ci->params, id_REG1_SD, "0"));
             cc.tiles[tname].add_enum(slice + ".REG0.REGSET", str_or_default(ci->params, id_REG0_REGSET, "RESET"));
             cc.tiles[tname].add_enum(slice + ".REG1.REGSET", str_or_default(ci->params, id_REG1_REGSET, "RESET"));
-        } else if (ci->type == id_FACADE_IO) {
+        } else if (ci->type == id_TRELLIS_IO) {
             std::string pio = ctx->tile_info(bel)->bel_data[bel.index].name.get();
             std::string iotype = str_or_default(ci->attrs, id_IO_TYPE, "LVCMOS33");
             std::string dir = str_or_default(ci->params, id_DIR, "INPUT");
