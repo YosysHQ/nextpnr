@@ -308,12 +308,9 @@ def write_database(dev_name, chip, rg, endianness):
                     bba.u16(gfx_wire_ids["TILE_WIRE_" + rg.to_str(wire.name)], "tile_wire")
                 else:
                     bba.u16(0, "tile_wire")
-                bba.u32(len(wire.arcsUphill), "num_uphill")
-                bba.u32(len(wire.arcsDownhill), "num_downhill")
-                bba.r("loc%d_%d_wire%d_uppips" % (l.y, l.x, wire_idx) if len(wire.arcsUphill) > 0 else None, "pips_uphill")
-                bba.r("loc%d_%d_wire%d_downpips" % (l.y, l.x, wire_idx) if len(wire.arcsDownhill) > 0 else None, "pips_downhill")
-                bba.u32(len(wire.belPins), "num_bel_pins")
-                bba.r("loc%d_%d_wire%d_belpins" % (l.y, l.x, wire_idx) if len(wire.belPins) > 0 else None, "bel_pins")
+                bba.r_slice("loc%d_%d_wire%d_uppips" % (l.y, l.x, wire_idx) if len(wire.arcsUphill) > 0 else None, len(wire.arcsUphill), "pips_uphill")
+                bba.r_slice("loc%d_%d_wire%d_downpips" % (l.y, l.x, wire_idx) if len(wire.arcsDownhill) > 0 else None, len(wire.arcsDownhill), "pips_downhill")
+                bba.r_slice("loc%d_%d_wire%d_belpins" % (l.y, l.x, wire_idx) if len(wire.belPins) > 0 else None, len(wire.belPins), "bel_pins")
 
         if len(t.bels) > 0:
             for bel_idx in range(len(t.bels)):
@@ -323,15 +320,14 @@ def write_database(dev_name, chip, rg, endianness):
                     write_loc(pin.wire.rel, "rel_wire_loc")
                     bba.u32(pin.wire.id, "wire_index")
                     bba.u32(constids[rg.to_str(pin.pin)], "port")
-                    bba.u32(int(pin.dir), "dir")
+                    bba.u32(int(pin.dir), "type")
             bba.l("loc%d_%d_bels" % (l.y, l.x), "BelInfoPOD")
             for bel_idx in range(len(t.bels)):
                 bel = t.bels[bel_idx]
                 bba.s(rg.to_str(bel.name), "name")
                 bba.u32(constids[rg.to_str(bel.type)], "type")
                 bba.u32(bel.z, "z")
-                bba.u32(len(bel.wires), "num_bel_wires")
-                bba.r("loc%d_%d_bel%d_wires" % (l.y, l.x, bel_idx), "bel_wires")
+                bba.r_slice("loc%d_%d_bel%d_wires" % (l.y, l.x, bel_idx), len(bel.wires), "bel_wires")
 
     bba.l("tiles", "TileTypePOD")
     for l in loc_iter:
@@ -340,12 +336,9 @@ def write_database(dev_name, chip, rg, endianness):
         if (l.y, l.x) == (-2, -2):
             continue
 
-        bba.u32(len(t.bels), "num_bels")
-        bba.u32(len(t.wires), "num_wires")
-        bba.u32(len(t.arcs), "num_pips")
-        bba.r("loc%d_%d_bels" % (l.y, l.x) if len(t.bels) > 0 else None, "bel_data")
-        bba.r("loc%d_%d_wires" % (l.y, l.x) if len(t.wires) > 0 else None, "wire_data")
-        bba.r("loc%d_%d_pips" % (l.y, l.x) if len(t.arcs) > 0 else None, "pips_data")
+        bba.r_slice("loc%d_%d_bels" % (l.y, l.x) if len(t.bels) > 0 else None, len(t.bels), "bel_data")
+        bba.r_slice("loc%d_%d_wires" % (l.y, l.x) if len(t.wires) > 0 else None, len(t.wires), "wire_data")
+        bba.r_slice("loc%d_%d_pips" % (l.y, l.x) if len(t.arcs) > 0 else None, len(t.arcs), "pips_data")
 
     for y in range(0, max_row+1):
         for x in range(0, max_col+1):
@@ -358,8 +351,7 @@ def write_database(dev_name, chip, rg, endianness):
     bba.l("tiles_info", "TileInfoPOD")
     for y in range(0, max_row+1):
         for x in range(0, max_col+1):
-            bba.u32(len(chip.get_tiles_by_position(y, x)), "num_tiles")
-            bba.r("tile_info_%d_%d" % (x, y), "tile_names")
+            bba.r_slice("tile_info_%d_%d" % (x, y), len(chip.get_tiles_by_position(y, x)), "tile_names")
 
     for package, pkgdata in sorted(packages.items()):
         bba.l("package_data_%s" % package, "PackagePinPOD")
@@ -372,8 +364,7 @@ def write_database(dev_name, chip, rg, endianness):
     bba.l("package_data", "PackageInfoPOD")
     for package, pkgdata in sorted(packages.items()):
         bba.s(package, "name")
-        bba.u32(len(pkgdata), "num_pins")
-        bba.r("package_data_%s" % package, "pin_data")
+        bba.r_slice("package_data_%s" % package, len(pkgdata), "pin_data")
 
     bba.l("pio_info", "PIOInfoPOD")
     for pin in pindata:
@@ -417,18 +408,17 @@ def write_database(dev_name, chip, rg, endianness):
     bba.u32(max_col + 1, "width")
     bba.u32(max_row + 1, "height")
     bba.u32((max_col + 1) * (max_row + 1), "num_tiles")
-    bba.u32(len(packages), "num_packages")
-    bba.u32(len(pindata), "num_pios")
     bba.u32(const_id_count, "const_id_count")
 
-    bba.r("tiles", "tiles")
-    bba.r("tiletype_names", "tiletype_names")
-    bba.r("package_data", "package_info")
-    bba.r("pio_info", "pio_info")
-    bba.r("tiles_info", "tile_info")
+    bba.r_slice("tiles", (max_col + 1) * (max_row + 1), "tiles")
+    bba.r_slice("tiletype_names", len(tiletype_names), "tiletype_names")
+    bba.r_slice("package_data", len(packages), "package_info")
+    bba.r_slice("pio_info", len(pindata), "pio_info")
+    bba.r_slice("tiles_info", (max_col + 1) * (max_row + 1), "tile_info")
     bba.r_slice("variant_data", len(variants), "variant_info")
 
     bba.pop()
+    return bba
 
 
 dev_family = {
