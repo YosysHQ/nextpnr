@@ -132,7 +132,7 @@ static std::string get_trellis_wirename(Context *ctx, Location loc, WireId wire)
 static void set_pip(Context *ctx, ChipConfig &cc, PipId pip)
 {
     std::string tile = ctx->get_pip_tilename(pip);
-    std::string tile_type = ctx->chip_info->tiletype_names[ctx->tile_info(pip)->pips_data[pip.index].tile_type].get();
+    std::string tile_type = ctx->chip_info->tiletype_names[ctx->tile_info(pip)->pip_data[pip.index].tile_type].get();
     std::string source = get_trellis_wirename(ctx, pip.location, ctx->getPipSrcWire(pip));
     std::string sink = get_trellis_wirename(ctx, pip.location, ctx->getPipDstWire(pip));
     cc.tiles[tile].add_arc(sink, source);
@@ -179,13 +179,13 @@ static std::string get_pic_tile(Context *ctx, BelId bel)
 
     std::string pio_name = ctx->tile_info(bel)->bel_data[bel.index].name.get();
     if (bel.location.y == 0) {
-        return ctx->get_tile_by_type_and_loc(0, bel.location.x, "PIC_T0");
+        return ctx->get_tile_by_type_loc(0, bel.location.x, "PIC_T0");
     } else if (bel.location.y == ctx->chip_info->height - 1) {
-        return ctx->get_tile_by_type_and_loc(bel.location.y, bel.location.x, "PIC_B0");
+        return ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, "PIC_B0");
     } else if (bel.location.x == 0) {
-        return ctx->get_tile_by_type_and_loc(bel.location.y, 0, pio_l);
+        return ctx->get_tile_by_type_loc(bel.location.y, 0, pio_l);
     } else if (bel.location.x == ctx->chip_info->width - 1) {
-        return ctx->get_tile_by_type_and_loc(bel.location.y, bel.location.x, pio_r);
+        return ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, pio_r);
     } else {
         NPNR_ASSERT_FALSE("bad PIO location");
     }
@@ -226,7 +226,7 @@ void write_bitstream(Context *ctx, std::string text_config_file)
         }
         BelId bel = ci->bel;
         if (ci->type == id_FACADE_SLICE) {
-            std::string tname = ctx->get_tile_by_type_and_loc(bel.location.y, bel.location.x, "PLC");
+            std::string tname = ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, "PLC");
             std::string slice = ctx->tile_info(bel)->bel_data[bel.index].name.get();
 
             NPNR_ASSERT(slice.substr(0, 5) == "SLICE");

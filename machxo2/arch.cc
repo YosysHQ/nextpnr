@@ -66,9 +66,9 @@ static void get_chip_info(std::string device, const ChipInfoPOD **chip_info, con
                             *package_info = nullptr;
                             *package_name = pkg.name.get();
                             *device_name = chip.name.get();
-                            for (int i = 0; i < (*chip_info)->num_packages; i++) {
-                                if (pkg.name.get() == (*chip_info)->package_info[i].name.get()) {
-                                    *package_info = &((*chip_info)->package_info[i]);
+                            for (auto &pi : db_ptr->get()->package_info) {
+                                if (pkg.name.get() == pi.name.get()) {
+                                    *package_info = &pi;
                                     break;
                                 }
                             }
@@ -155,7 +155,7 @@ BelId Arch::getBelByName(IdStringList name) const
     loc.y = id_to_y.at(name[1]);
     ret.location = loc;
     const TileTypePOD *loci = tile_info(ret);
-    for (int i = 0; i < loci->num_bels; i++) {
+    for (int i = 0; i < loci->bel_data.ssize(); i++) {
         if (std::strcmp(loci->bel_data[i].name.get(), name[2].c_str(this)) == 0) {
             ret.index = i;
             return ret;
@@ -174,9 +174,9 @@ BelId Arch::getBelByLocation(Loc loc) const
     ret.location.x = loc.x;
     ret.location.y = loc.y;
 
-    const TileTypePOD *tilei = tile_info(ret);
-    for (int i = 0; i < tilei->num_bels; i++) {
-        if (tilei->bel_data[i].z == loc.z) {
+    const TileTypePOD *loci = tile_info(ret);
+    for (int i = 0; i < loci->bel_data.ssize(); i++) {
+        if (loci->bel_data[i].z == loc.z) {
             ret.index = i;
             return ret;
         }
@@ -192,7 +192,7 @@ BelRange Arch::getBelsByTile(int x, int y) const
     br.b.cursor_tile = y * chip_info->width + x;
     br.e.cursor_tile = y * chip_info->width + x;
     br.b.cursor_index = 0;
-    br.e.cursor_index = chip_info->tiles[y * chip_info->width + x].num_bels - 1;
+    br.e.cursor_index = chip_info->tiles[y * chip_info->width + x].bel_data.ssize() - 1;
     br.b.chip = chip_info;
     br.e.chip = chip_info;
     if (br.e.cursor_index == -1)
@@ -208,16 +208,13 @@ WireId Arch::getBelPinWire(BelId bel, IdString pin) const
 {
     NPNR_ASSERT(bel != BelId());
 
-    int num_bel_wires = tile_info(bel)->bel_data[bel.index].num_bel_wires;
-    const BelWirePOD *bel_wires = &*tile_info(bel)->bel_data[bel.index].bel_wires;
-
-    for (int i = 0; i < num_bel_wires; i++)
-        if (bel_wires[i].port == pin.index) {
+    for (auto &bw : tile_info(bel)->bel_data[bel.index].bel_wires)
+        if (bw.port == pin.index) {
             WireId ret;
 
-            ret.location.x = bel_wires[i].rel_wire_loc.x;
-            ret.location.y = bel_wires[i].rel_wire_loc.y;
-            ret.index = bel_wires[i].wire_index;
+            ret.location.x = bw.rel_wire_loc.x;
+            ret.location.y = bw.rel_wire_loc.y;
+            ret.index = bw.wire_index;
 
             return ret;
         }
@@ -229,12 +226,9 @@ PortType Arch::getBelPinType(BelId bel, IdString pin) const
 {
     NPNR_ASSERT(bel != BelId());
 
-    int num_bel_wires = tile_info(bel)->bel_data[bel.index].num_bel_wires;
-    const BelWirePOD *bel_wires = &*tile_info(bel)->bel_data[bel.index].bel_wires;
-
-    for (int i = 0; i < num_bel_wires; i++)
-        if (bel_wires[i].port == pin.index)
-            return PortType(bel_wires[i].dir);
+    for (auto &bw : tile_info(bel)->bel_data[bel.index].bel_wires)
+        if (bw.port == pin.index)
+            return PortType(bw.type);
 
     return PORT_INOUT;
 }
@@ -244,11 +238,9 @@ std::vector<IdString> Arch::getBelPins(BelId bel) const
     std::vector<IdString> ret;
     NPNR_ASSERT(bel != BelId());
 
-    int num_bel_wires = tile_info(bel)->bel_data[bel.index].num_bel_wires;
-    const BelWirePOD *bel_wires = &*tile_info(bel)->bel_data[bel.index].bel_wires;
-
-    for (int i = 0; i < num_bel_wires; i++) {
-        IdString id(bel_wires[i].port);
+    for (auto &bw : tile_info(bel)->bel_data[bel.index].bel_wires) {
+        IdString id;
+        id.index = bw.port;
         ret.push_back(id);
     }
 
@@ -259,11 +251,11 @@ std::vector<IdString> Arch::getBelPins(BelId bel) const
 
 BelId Arch::getPackagePinBel(const std::string &pin) const
 {
-    for (int i = 0; i < package_info->num_pins; i++) {
-        if (package_info->pin_data[i].name.get() == pin) {
+    for (auto &ppin : package_info->pin_data) {
+        if (ppin.name.get() == pin) {
             BelId bel;
-            bel.location = package_info->pin_data[i].abs_loc;
-            bel.index = package_info->pin_data[i].bel_index;
+            bel.location = ppin.abs_loc;
+            bel.index = ppin.bel_index;
             return bel;
         }
     }
@@ -282,7 +274,7 @@ WireId Arch::getWireByName(IdStringList name) const
     loc.y = id_to_y.at(name[1]);
     ret.location = loc;
     const TileTypePOD *loci = tile_info(ret);
-    for (int i = 0; i < loci->num_wires; i++) {
+    for (int i = 0; i < loci->wire_data.ssize(); i++) {
         if (std::strcmp(loci->wire_data[i].name.get(), name[2].c_str(this)) == 0) {
             ret.index = i;
             return ret;
@@ -308,7 +300,7 @@ PipId Arch::getPipByName(IdStringList name) const
     loc.y = id_to_y.at(name[1]);
     ret.location = loc;
     const TileTypePOD *loci = tile_info(ret);
-    for (int i = 0; i < loci->num_pips; i++) {
+    for (int i = 0; i < loci->pip_data.ssize(); i++) {
         PipId curr;
         curr.location = loc;
         curr.index = i;
@@ -321,13 +313,11 @@ PipId Arch::getPipByName(IdStringList name) const
 
 IdStringList Arch::getPipName(PipId pip) const
 {
-    auto &pip_data = tile_info(pip)->pips_data[pip.index];
+    auto &pip_data = tile_info(pip)->pip_data[pip.index];
     WireId src = getPipSrcWire(pip), dst = getPipDstWire(pip);
-    const char *src_name = tile_info(src)->wire_data[src.index].name.get();
-    const char *dst_name = tile_info(dst)->wire_data[dst.index].name.get();
-    std::string pip_name =
-            stringf("%d_%d_%s->%d_%d_%s", pip_data.src.x - pip.location.x, pip_data.src.y - pip.location.y, src_name,
-                    pip_data.dst.x - pip.location.x, pip_data.dst.y - pip.location.y, dst_name);
+    std::string pip_name = stringf("%d_%d_%s->%d_%d_%s", pip_data.src.x, pip_data.src.y,
+                                   get_wire_basename(src).c_str(this), pip_data.dst.x, pip_data.dst.y,
+                                   get_wire_basename(dst).c_str(this));
 
     std::array<IdString, 3> ids{x_ids.at(pip.location.x), y_ids.at(pip.location.y), id(pip_name)};
     return IdStringList(ids);
@@ -495,13 +485,13 @@ const std::vector<std::string> Arch::availableRouters = {"router1", "router2"};
 
 bool Arch::cells_compatible(const CellInfo **cells, int count) const { return false; }
 
-std::vector<std::pair<std::string, std::string>> Arch::get_tiles_at_location(int row, int col)
+std::vector<std::pair<std::string, std::string>> Arch::get_tiles_at_loc(int row, int col)
 {
     std::vector<std::pair<std::string, std::string>> ret;
     auto &tileloc = chip_info->tile_info[row * chip_info->width + col];
-    for (int i = 0; i < tileloc.num_tiles; i++) {
-        ret.push_back(std::make_pair(tileloc.tile_names[i].name.get(),
-                                     chip_info->tiletype_names[tileloc.tile_names[i].type_idx].get()));
+    for (auto &tn : tileloc.tile_names) {
+        ret.push_back(std::make_pair(tn.name.get(),
+                                     chip_info->tiletype_names[tn.type_idx].get()));
     }
     return ret;
 }
