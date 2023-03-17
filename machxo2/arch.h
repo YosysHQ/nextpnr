@@ -129,13 +129,9 @@ NPNR_PACKED_STRUCT(struct PackageSupportedPOD {
     RelPtr<char> short_name;
 });
 
-NPNR_PACKED_STRUCT(struct SuffixeSupportedPOD {
-    RelPtr<char> suffix;
-});
+NPNR_PACKED_STRUCT(struct SuffixeSupportedPOD { RelPtr<char> suffix; });
 
-NPNR_PACKED_STRUCT(struct SpeedSupportedPOD {
-    int32_t speed;
-});
+NPNR_PACKED_STRUCT(struct SpeedSupportedPOD { int32_t speed; });
 
 NPNR_PACKED_STRUCT(struct VariantInfoPOD {
     RelPtr<char> name;

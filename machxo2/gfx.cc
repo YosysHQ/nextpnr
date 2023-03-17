@@ -23,7 +23,7 @@ NEXTPNR_NAMESPACE_BEGIN
 
 const float slice_x1 = 0.800;
 const float slice_x2_comb = 0.927;
-//const float slice_x1_ff = 0.933;
+// const float slice_x1_ff = 0.933;
 const float slice_x2 = 0.94;
 const float slice_y1 = 0.60;
 const float slice_y2 = 0.65 + 0.1 / 4;
@@ -37,7 +37,6 @@ const float io_cell_h_x1 = 0.05;
 const float io_cell_h_y1 = 0.05;
 const float io_cell_h_y2 = 0.24;
 
-
 void gfxTileBel(std::vector<GraphicElement> &g, int x, int y, int z, int w, int h, IdString bel_type,
                 GraphicElement::style_t style)
 {
@@ -50,12 +49,12 @@ void gfxTileBel(std::vector<GraphicElement> &g, int x, int y, int z, int w, int 
         el.y1 = y + slice_y1 + z * slice_pitch;
         el.y2 = y + slice_y2 + z * slice_pitch;
         g.push_back(el);
-/*    } else if (bel_type == id_FACADE_FF) {
-        el.x1 = x + slice_x1_ff;
-        el.x2 = x + slice_x2;
-        el.y1 = y + slice_y1 + z * slice_pitch;
-        el.y2 = y + slice_y2 + z * slice_pitch;
-        g.push_back(el);*/
+        /*    } else if (bel_type == id_FACADE_FF) {
+                el.x1 = x + slice_x1_ff;
+                el.x2 = x + slice_x2;
+                el.y1 = y + slice_y1 + z * slice_pitch;
+                el.y2 = y + slice_y2 + z * slice_pitch;
+                g.push_back(el);*/
     } else if (bel_type.in(id_FACADE_IO)) {
         bool top_bottom = (y == 0 || y == (h - 1));
         if (top_bottom) {
@@ -87,7 +86,6 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
                  GraphicElement::style_t style)
 {
 }
-
 
 void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, int w, int h, WireId src, IdString src_type,
                 GfxTileWireId src_id, WireId dst, IdString dst_type, GfxTileWireId dst_id,

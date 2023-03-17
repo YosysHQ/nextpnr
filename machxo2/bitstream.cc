@@ -195,7 +195,7 @@ void write_bitstream(Context *ctx, std::string text_config_file)
 {
     ChipConfig cc;
     IdString base_id = ctx->id(ctx->chip_info->device_name.get());
-    //IdString device_id = ctx->id(ctx->device_name);
+    // IdString device_id = ctx->id(ctx->device_name);
     if (base_id == ctx->id("LCMXO2-1200"))
         BaseConfigs::config_empty_lcmxo2_1200(cc);
     else

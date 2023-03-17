@@ -22,13 +22,13 @@
 #include <math.h>
 #include "embed.h"
 #include "gfx.h"
+#include "machxo2_available.h"
 #include "nextpnr.h"
 #include "placer1.h"
 #include "placer_heap.h"
 #include "router1.h"
 #include "router2.h"
 #include "util.h"
-#include "machxo2_available.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -45,11 +45,12 @@ void IdString::initialize_arch(const BaseCtx *ctx)
 
 // ---------------------------------------------------------------
 
-static void get_chip_info(std::string device, const ChipInfoPOD **chip_info, const PackageInfoPOD **package_info, const char **device_name, const char **package_name)
+static void get_chip_info(std::string device, const ChipInfoPOD **chip_info, const PackageInfoPOD **package_info,
+                          const char **device_name, const char **package_name)
 {
     std::stringstream ss(available_devices);
     std::string name;
-    while(getline(ss, name, ';')){ 
+    while (getline(ss, name, ';')) {
         std::string chipdb = stringf("machxo2/chipdb-%s.bin", name.c_str());
         auto db_ptr = reinterpret_cast<const RelPtr<ChipInfoPOD> *>(get_chipdb(chipdb));
         if (!db_ptr)
@@ -58,7 +59,8 @@ static void get_chip_info(std::string device, const ChipInfoPOD **chip_info, con
             for (auto &pkg : chip.packages) {
                 for (auto &speedgrade : chip.speed_grades) {
                     for (auto &rating : chip.suffixes) {
-                        std::string devname = stringf("%s-%d%s%s", chip.name.get(), speedgrade.speed, pkg.short_name.get(), rating.suffix.get());
+                        std::string devname = stringf("%s-%d%s%s", chip.name.get(), speedgrade.speed,
+                                                      pkg.short_name.get(), rating.suffix.get());
                         if (device == devname) {
                             *chip_info = db_ptr->get();
                             *package_info = nullptr;
@@ -118,7 +120,7 @@ void Arch::list_devices()
     log("Supported devices: \n");
     std::stringstream ss(available_devices);
     std::string name;
-    while(getline(ss, name, ';')){ 
+    while (getline(ss, name, ';')) {
         std::string chipdb = stringf("machxo2/chipdb-%s.bin", name.c_str());
         auto db_ptr = reinterpret_cast<const RelPtr<ChipInfoPOD> *>(get_chipdb(chipdb));
         if (!db_ptr)
@@ -127,7 +129,8 @@ void Arch::list_devices()
             for (auto &pkg : chip.packages) {
                 for (auto &speedgrade : chip.speed_grades) {
                     for (auto &rating : chip.suffixes) {
-                        log("    %s-%d%s%s\n", chip.name.get(), speedgrade.speed, pkg.short_name.get(), rating.suffix.get());
+                        log("    %s-%d%s%s\n", chip.name.get(), speedgrade.speed, pkg.short_name.get(),
+                            rating.suffix.get());
                     }
                 }
             }
@@ -428,8 +431,8 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
         GfxTileWireId src_id = GfxTileWireId(tile_info(src_wire)->wire_data[src_wire.index].tile_wire);
         GfxTileWireId dst_id = GfxTileWireId(tile_info(dst_wire)->wire_data[dst_wire.index].tile_wire);
         GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_HIDDEN;
-        gfxTilePip(ret, x, chip_info->height - y - 1, chip_info->width, chip_info->height, src_wire, getWireType(src_wire), src_id, dst_wire,
-                   getWireType(dst_wire), dst_id, style);
+        gfxTilePip(ret, x, chip_info->height - y - 1, chip_info->width, chip_info->height, src_wire,
+                   getWireType(src_wire), src_id, dst_wire, getWireType(dst_wire), dst_id, style);
     } else if (decal.type == DecalId::TYPE_BEL) {
         BelId bel;
         bel.index = decal.z;

@@ -20,8 +20,8 @@
 #include "mainwindow.h"
 #include <fstream>
 #include "bitstream.h"
-#include "log.h"
 #include "embed.h"
+#include "log.h"
 #include "machxo2_available.h"
 
 #include <QFileDialog>
@@ -49,7 +49,8 @@ MainWindow::~MainWindow() {}
 
 void MainWindow::newContext(Context *ctx)
 {
-    std::string title = "nextpnr-machxo2 - " + std::string(ctx->device_name) + " (" + std::string(ctx->package_name) + ") - Part : " + ctx->getChipName();
+    std::string title = "nextpnr-machxo2 - " + std::string(ctx->device_name) + " (" + std::string(ctx->package_name) +
+                        ") - Part : " + ctx->getChipName();
     setWindowTitle(title.c_str());
 }
 
@@ -84,7 +85,7 @@ void MainWindow::new_proj()
 
     std::stringstream ss(available_devices);
     std::string name;
-    while(getline(ss, name, ';')){ 
+    while (getline(ss, name, ';')) {
         std::string chipdb = stringf("machxo2/chipdb-%s.bin", name.c_str());
         auto db_ptr = reinterpret_cast<const RelPtr<ChipInfoPOD> *>(get_chipdb(chipdb));
         if (!db_ptr)
@@ -93,7 +94,8 @@ void MainWindow::new_proj()
             for (auto &pkg : chip.packages) {
                 for (auto &speedgrade : chip.speed_grades) {
                     for (auto &rating : chip.suffixes) {
-                        std::string devname = stringf("%s-%d%s%s", chip.name.get(), speedgrade.speed, pkg.short_name.get(), rating.suffix.get());
+                        std::string devname = stringf("%s-%d%s%s", chip.name.get(), speedgrade.speed,
+                                                      pkg.short_name.get(), rating.suffix.get());
                         arch.append(QString::fromLocal8Bit(devname.c_str()));
                     }
                 }
@@ -105,7 +107,8 @@ void MainWindow::new_proj()
     QString item = QInputDialog::getItem(this, "Select new context", "Part:", arch, 0, false, &ok);
     if (ok && !item.isEmpty()) {
         ArchArgs chipArgs;
-        chipArgs.device = item.toUtf8().constData();;
+        chipArgs.device = item.toUtf8().constData();
+        ;
 
         handler->clear();
         currentProj = "";
