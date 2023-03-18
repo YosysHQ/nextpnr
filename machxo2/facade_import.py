@@ -181,14 +181,7 @@ def process_pio_db(rg, device):
             for name, pinloc in sorted(pkgdata.items()):
                 x = pinloc["col"]
                 y = pinloc["row"]
-                if x == 0 or x == max_col:
-                    # FIXME: Oversight in read_pinout.py. We use 0-based
-                    # columns for 0 and max row, but we otherwise extract
-                    # the names from the CSV, and...
-                    loc = pytrellis.Location(x, y)
-                else:
-                    # Lattice uses 1-based columns!
-                    loc = pytrellis.Location(x - 1, y)
+                loc = pytrellis.Location(x, y)
                 pio = "PIO" + pinloc["pio"]
                 bel_idx = get_bel_index(rg, loc, pio)
                 if bel_idx is not None:
@@ -197,10 +190,7 @@ def process_pio_db(rg, device):
         for metaitem in piodb["pio_metadata"]:
             x = metaitem["col"]
             y = metaitem["row"]
-            if x == 0 or x == max_col:
-                loc = pytrellis.Location(x, y)
-            else:
-                loc = pytrellis.Location(x - 1, y)
+            loc = pytrellis.Location(x, y)
             pio = "PIO" + metaitem["pio"]
             bank = metaitem["bank"]
             if "function" in metaitem:
