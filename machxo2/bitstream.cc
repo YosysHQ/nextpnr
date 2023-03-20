@@ -174,14 +174,21 @@ std::string intstr_or_default(const dict<IdString, Property> &ct, const IdString
 // Get the PIC tile corresponding to a PIO bel
 static std::string get_pic_tile(Context *ctx, BelId bel)
 {
-    static const std::set<std::string> pio_l = {"PIC_L0", "PIC_LS0", "PIC_L0_VREF3"};
-    static const std::set<std::string> pio_r = {"PIC_R0", "PIC_RS0"};
+    static const std::set<std::string> pio_t = {"PIC_T0", "PIC_T0_256", "PIC_TS0"};
+    static const std::set<std::string> pio_b = {"PIC_B0", "PIC_B0_256", "PIC_BS0_256"};
+    static const std::set<std::string> pio_l = {"PIC_L0", "PIC_L1", "PIC_L2", "PIC_L3", "PIC_LS0",
+                                                "PIC_L0_VREF3", "PIC_L0_VREF4", "PIC_L0_VREF5",
+                                                "PIC_L1_VREF3", "PIC_L1_VREF4", "PIC_L1_VREF5",
+                                                "PIC_L2_VREF4", "PIC_L2_VREF5",
+                                                "PIC_L3_VREF4", "PIC_L3_VREF5"};
+    static const std::set<std::string> pio_r = {"PIC_R0", "PIC_R1", "PIC_RS0",
+                                                "PIC_R0_256", "PIC_R1_640", "PIC_RS0_256"};
 
     std::string pio_name = ctx->tile_info(bel)->bel_data[bel.index].name.get();
     if (bel.location.y == 0) {
-        return ctx->get_tile_by_type_loc(0, bel.location.x, "PIC_T0");
+        return ctx->get_tile_by_type_loc(0, bel.location.x, pio_t);
     } else if (bel.location.y == ctx->chip_info->height - 1) {
-        return ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, "PIC_B0");
+        return ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, pio_b);
     } else if (bel.location.x == 0) {
         return ctx->get_tile_by_type_loc(bel.location.y, 0, pio_l);
     } else if (bel.location.x == ctx->chip_info->width - 1) {
