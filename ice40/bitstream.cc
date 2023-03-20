@@ -636,12 +636,12 @@ void write_asc(const Context *ctx, std::ostream &out)
             bool negclk_w = get_param_or_def(ctx, cell.second.get(), id_NEG_CLK_W);
             int write_mode = get_param_or_def(ctx, cell.second.get(), id_WRITE_MODE);
             int read_mode = get_param_or_def(ctx, cell.second.get(), id_READ_MODE);
-            if (ctx->args.type == ArchArgs::UP5K || ctx->args.type == ArchArgs::UP3K) {
-                set_config(ti_ramb, config.at(y).at(x), "NegClk", negclk_r);
-                set_config(ti_ramt, config.at(y + 1).at(x), "NegClk", negclk_w);
-            } else {
+            if (ctx->args.type == ArchArgs::LP1K || ctx->args.type == ArchArgs::HX1K) {
                 set_config(ti_ramb, config.at(y).at(x), "NegClk", negclk_w);
                 set_config(ti_ramt, config.at(y + 1).at(x), "NegClk", negclk_r);
+            } else {
+                set_config(ti_ramb, config.at(y).at(x), "NegClk", negclk_r);
+                set_config(ti_ramt, config.at(y + 1).at(x), "NegClk", negclk_w);
             }
             set_config(ti_ramt, config.at(y + 1).at(x), "RamConfig.CBIT_0", write_mode & 0x1);
             set_config(ti_ramt, config.at(y + 1).at(x), "RamConfig.CBIT_1", write_mode & 0x2);
