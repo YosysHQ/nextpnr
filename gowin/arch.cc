@@ -420,7 +420,7 @@ void Arch::addBel(IdString name, IdString type, Loc loc, bool gb)
 {
     NPNR_ASSERT(bels.count(name) == 0);
     NPNR_ASSERT(bel_by_loc.count(loc) == 0);
-    BelInfo &bi = bels.at(name);
+    BelInfo &bi = bels[name];
     bi.name = name;
     bi.type = type;
     bi.x = loc.x;
