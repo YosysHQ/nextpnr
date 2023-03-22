@@ -812,8 +812,12 @@ static bool is_gowin_diff_iob(const Context *ctx, const CellInfo *cell)
 static bool is_gowin_iologic(const Context *ctx, const CellInfo *cell)
 {
     switch (cell->type.index) {
-    case ID_ODDR: /* fall-through*/
-    case ID_ODDRC:
+    case ID_ODDR:   /* fall-through*/
+    case ID_ODDRC:  /* fall-through*/
+    case ID_OSER4:  /* fall-through*/
+    case ID_OSER8:  /* fall-through*/
+    case ID_OSER10: /* fall-through*/
+    case ID_OVIDEO:
         return true;
     default:
         return false;
@@ -836,7 +840,7 @@ static void pack_iologic(Context *ctx)
         if (is_gowin_iologic(ctx, ci)) {
             CellInfo *q0_dst = nullptr;
             CellInfo *q1_dst = nullptr;
-            switch (ci->type.index) {
+            switch (ci->type.hash()) {
             case ID_ODDRC: /* fall-through*/
             case ID_ODDR: {
                 q0_dst = net_only_drives(ctx, ci->ports.at(id_Q0).net, is_iob, id_I);
@@ -851,7 +855,7 @@ static void pack_iologic(Context *ctx)
                 if (iob_bel != q0_dst->attrs.end()) {
                     // already know there to place, no need of any cluster stuff
                     Loc loc = ctx->getBelLocation(ctx->getBelByNameStr(iob_bel->second.as_string()));
-                    loc.z += BelZ::iologic_0_z;
+                    loc.z += BelZ::oddr_0_z;
                     ci->attrs[id_BEL] = ctx->getBelName(ctx->getBelByLocation(loc)).str(ctx);
                 } else {
                     // make cluster from ODDR and OBUF
@@ -864,7 +868,7 @@ static void pack_iologic(Context *ctx)
                     q0_dst->cluster = ci->name;
                     q0_dst->constr_x = 0;
                     q0_dst->constr_y = 0;
-                    q0_dst->constr_z = -BelZ::iologic_0_z;
+                    q0_dst->constr_z = -BelZ::oddr_0_z;
                     q0_dst->constr_abs_z = false;
                 }
 
@@ -891,13 +895,142 @@ static void pack_iologic(Context *ctx)
                     ci->addInput(id_XXX_VCC);
                     ci->connectPort(id_XXX_VCC, ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
                 }
-                if (ctx->gw1n9_quirk && iob_bel != q0_dst->attrs.end()) {
-                    bool have_XXX_VSS0 =
-                            ctx->bels[ctx->getBelByNameStr(iob_bel->second.as_string())].pins.count(id_XXX_VSS0);
-                    if (have_XXX_VSS0) {
+                if (iob_bel != q0_dst->attrs.end()) {
+                    IdString io_bel_name = ctx->getBelByNameStr(iob_bel->second.as_string());
+                    if (ctx->gw1n9_quirk && ctx->bels[io_bel_name].pins.count(id_XXX_VSS0)) {
                         q0_dst->disconnectPort(id_XXX_VSS0);
                         q0_dst->connectPort(id_XXX_VSS0, ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
                     }
+                    if (ctx->bels[io_bel_name].pins.count(id_XXX_1)) {
+                        q0_dst->disconnectPort(id_XXX_1);
+                        q0_dst->connectPort(id_XXX_1, ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
+                    }
+                }
+            } break;
+            case ID_OSER4:  /* fall-through */
+            case ID_OSER8:  /* fall-through */
+            case ID_OSER10: /* fall-through */
+            case ID_OVIDEO: {
+                IdString output = id_Q;
+                IdString output_1 = IdString();
+                if (ci->type == id_OSER4 || ci->type == id_OSER8) {
+                    output = id_Q0;
+                    output_1 = id_Q1;
+                }
+                q0_dst = net_only_drives(ctx, ci->ports.at(output).net, is_iob, id_I);
+                NPNR_ASSERT(q0_dst != nullptr);
+
+                auto iob_bel = q0_dst->attrs.find(id_BEL);
+                if (iob_bel == q0_dst->attrs.end()) {
+                    log_info("No constraints for %s\n", ctx->nameOf(q0_dst));
+                    NPNR_ASSERT_FALSE("The pins for IDES/OSER must be specified explicitly.");
+                }
+
+                Loc loc = ctx->getBelLocation(ctx->getBelByNameStr(iob_bel->second.as_string()));
+                loc.z += BelZ::iologic_z;
+                ci->setAttr(id_BEL, ctx->getBelName(ctx->getBelByLocation(loc)).str(ctx));
+                BelId bel = ctx->getBelByLocation(loc);
+                if (bel == BelId()) {
+                    log_info("No bel for %s at %s\n", ctx->nameOf(ci), iob_bel->second.as_string().c_str());
+                    NPNR_ASSERT_FALSE("Can't place IDES/OSER here");
+                }
+
+                std::string out_mode;
+                switch (ci->type.hash()) {
+                case ID_OSER4:
+                    out_mode = "ODDRX2";
+                    break;
+                case ID_OSER8:
+                    out_mode = "ODDRX4";
+                    break;
+                case ID_OSER10:
+                    out_mode = "ODDRX5";
+                    break;
+                case ID_OVIDEO:
+                    out_mode = "VIDEORX";
+                    break;
+                }
+                ci->setParam(ctx->id("OUTMODE"), out_mode);
+                bool use_diff_io = false;
+                if (q0_dst->attrs.count(id_DIFF_TYPE)) {
+                    ci->setAttr(id_OBUF_TYPE, std::string("DBUF"));
+                    use_diff_io = true;
+                } else {
+                    ci->setAttr(id_OBUF_TYPE, std::string("SBUF"));
+                }
+
+                // disconnect Q output: it is wired internally
+                delete_nets.insert(ci->ports.at(output).net->name);
+                q0_dst->disconnectPort(id_I);
+                ci->disconnectPort(output);
+                bool have_XXX = ctx->bels[ctx->getBelByNameStr(iob_bel->second.as_string())].pins.count(id_XXX_1);
+                if (have_XXX) {
+                    q0_dst->disconnectPort(id_XXX_1);
+                    q0_dst->connectPort(id_XXX_1, ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
+                }
+
+                // if Q1 is connected then disconnet it too
+                if (output_1 != IdString() && port_used(ci, output_1)) {
+                    q1_dst = net_only_drives(ctx, ci->ports.at(output_1).net, is_iob, id_OEN);
+                    if (q1_dst != nullptr) {
+                        delete_nets.insert(ci->ports.at(output_1).net->name);
+                        q0_dst->disconnectPort(id_OEN);
+                        ci->disconnectPort(output_1);
+                        ci->setAttr(id_IOBUF, 1);
+                    }
+                } else {
+                    // force OEN = 0 in order to enable output
+                    // XXX check for IOBUF and TBUF
+                    if (ci->type == id_OSER4 || ci->type == id_OSER8) {
+                        int port_num = ci->type == id_OSER4 ? 2 : 4;
+                        for (int i = 0; i < port_num; ++i) {
+                            IdString port = ctx->idf("TX%d", i);
+                            ci->disconnectPort(port);
+                            ci->connectPort(port, ctx->nets[ctx->id("$PACKER_GND_NET")].get());
+                        }
+                    }
+                }
+
+                ci->setAttr(id_IOBUF, 0);
+                ci->setAttr(id_IOLOGIC_TYPE, ci->type.str(ctx));
+
+                if (ci->type == id_OSER4) {
+                    ci->type = id_IOLOGIC;
+                    // two OSER4 share FCLK, check it
+                    Loc other_loc = loc;
+                    other_loc.z = 1 - loc.z + 2 * BelZ::iologic_z;
+                    BelId other_bel = ctx->getBelByLocation(other_loc);
+                    CellInfo *other_cell = ctx->getBoundBelCell(other_bel);
+                    if (other_cell != nullptr) {
+                        NPNR_ASSERT(other_cell->type == id_OSER4);
+                        if (ci->ports.at(id_FCLK).net != other_cell->ports.at(id_FCLK).net) {
+                            log_error("%s and %s have differnet FCLK nets\n", ctx->nameOf(ci), ctx->nameOf(other_cell));
+                        }
+                    }
+                } else {
+                    std::unique_ptr<CellInfo> dummy =
+                            create_generic_cell(ctx, id_DUMMY_CELL, ci->name.str(ctx) + "_DUMMY_IOLOGIC_IO");
+                    loc.z = 1 - loc.z + BelZ::iologic_z;
+                    if (!use_diff_io) {
+                        dummy->setAttr(id_BEL, ctx->getBelName(ctx->getBelByLocation(loc)).str(ctx));
+                        new_cells.push_back(std::move(dummy));
+                    }
+                    loc.z += BelZ::iologic_z;
+
+                    std::unique_ptr<CellInfo> aux_cell =
+                            create_generic_cell(ctx, id_IOLOGIC, ci->name.str(ctx) + "_AUX");
+                    ci->setAttr(ctx->id("IOLOGIC_AUX_CELL"), ci->name.str(ctx) + "_AUX");
+                    aux_cell->setParam(ctx->id("OUTMODE"), std::string("DDRENABLE"));
+                    aux_cell->setAttr(ctx->id("IOLOGIC_MASTER_CELL"), ci->name.str(ctx));
+                    aux_cell->setAttr(id_BEL, ctx->getBelName(ctx->getBelByLocation(loc)).str(ctx));
+                    if (port_used(ci, id_RESET)) {
+                        aux_cell->connectPort(id_RESET, ci->ports.at(id_RESET).net);
+                    }
+                    if (port_used(ci, id_PCLK)) {
+                        aux_cell->connectPort(id_PCLK, ci->ports.at(id_PCLK).net);
+                    }
+                    new_cells.push_back(std::move(aux_cell));
+                    ci->type = id_IOLOGIC;
                 }
             } break;
             default:
@@ -1139,6 +1272,7 @@ static void pack_io(Context *ctx)
             IdString new_cell_type = id_IOB;
             std::string constr_bel_name = std::string("");
             bool have_xxx_port = false;
+            bool have_xxx0_port = false;
             // check whether the given IO is limited to simplified IO cells
             auto constr_bel = ci->attrs.find(id_BEL);
             if (constr_bel != ci->attrs.end()) {
@@ -1157,6 +1291,7 @@ static void pack_io(Context *ctx)
                     if (ctx->gw1n9_quirk) {
                         have_xxx_port = ctx->bels[constr_bel].pins.count(id_XXX_VSS0) != 0;
                     }
+                    have_xxx0_port = ctx->bels[constr_bel].pins.count(id_XXX_0) != 0;
                 }
             }
 
@@ -1171,6 +1306,12 @@ static void pack_io(Context *ctx)
                 gwiob->connectPort(id_XXX_VSS0, ctx->nets[ctx->id("$PACKER_GND_NET")].get());
                 gwiob->addInput(id_XXX_VSS1);
                 gwiob->connectPort(id_XXX_VSS1, ctx->nets[ctx->id("$PACKER_GND_NET")].get());
+            }
+            if (have_xxx0_port && ci->type != id_IBUF) {
+                gwiob->addInput(id_XXX_0);
+                gwiob->connectPort(id_XXX_0, ctx->nets[ctx->id("$PACKER_GND_NET")].get());
+                gwiob->addInput(id_XXX_1);
+                gwiob->connectPort(id_XXX_1, ctx->nets[ctx->id("$PACKER_GND_NET")].get());
             }
 
             packed_cells.insert(ci->name);

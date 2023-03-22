@@ -105,6 +105,10 @@ std::unique_ptr<CellInfo> create_generic_cell(Context *ctx, IdString type, std::
         new_cell->addOutput(id_CLKOUTD);
         new_cell->addOutput(id_CLKOUTD3);
         new_cell->addOutput(id_LOCK);
+    } else if (type == id_IOLOGIC) {
+        new_cell->addInput(id_PCLK);
+        new_cell->addInput(id_RESET);
+    } else if (type == id_DUMMY_CELL) {
     } else {
         log_error("unable to create generic cell of type %s\n", type.c_str(ctx));
     }
