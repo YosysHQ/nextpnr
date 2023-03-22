@@ -384,9 +384,6 @@ void Arch::addPip(IdString name, IdString type, IdString srcWire, IdString dstWi
     pi.delay = delay;
     pi.loc = loc;
 
-    // log_info("addpip %s->%s %.6f | %s name:%s\n" , srcWire.c_str(this), dstWire.c_str(this),
-    // getDelayNS(delay.maxDelay()), srcWire.c_str(this), name.c_str(this));
-
     wire_info(srcWire).downhill.push_back(name);
     wire_info(dstWire).uphill.push_back(name);
     pip_ids.push_back(name);
@@ -597,19 +594,33 @@ void Arch::addCellTimingClockToOut(IdString cell, IdString port, IdString clock,
 
 // ---------------------------------------------------------------
 
+IdString Arch::apply_local_aliases(int row, int col, const DatabasePOD *db, IdString &wire)
+{
+    const TilePOD *tile = db->grid[row * db->cols + col].get();
+    auto local_alias = pairLookup(tile->aliases.get(), tile->num_aliases, wire.index);
+    IdString res_wire = IdString();
+    if (local_alias != nullptr) {
+        wire = IdString(local_alias->src_id);
+        res_wire = idf("R%dC%d_%s", row + 1, col + 1, wire.c_str(this));
+    }
+    return res_wire;
+}
+
 // TODO represent wires more intelligently.
 IdString Arch::wireToGlobal(int &row, int &col, const DatabasePOD *db, IdString &wire)
 {
     const std::string &wirename = wire.str(this);
-    char buf[32];
     if (wirename == "VCC" || wirename == "VSS") {
         row = 0;
         col = 0;
         return wire;
     }
     if (!isdigit(wirename[1]) || !isdigit(wirename[2]) || !isdigit(wirename[3])) {
-        snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, wirename.c_str());
-        return id(buf);
+        IdString res_wire = apply_local_aliases(row, col, db, wire);
+        if (res_wire == IdString()) {
+            return idf("R%dC%d_%s", row + 1, col + 1, wirename.c_str());
+        }
+        return res_wire;
     }
     char direction = wirename[0];
     int num = std::stoi(wirename.substr(1, 2));
@@ -628,8 +639,7 @@ IdString Arch::wireToGlobal(int &row, int &col, const DatabasePOD *db, IdString 
         col += segment;
         break;
     default:
-        snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, wirename.c_str());
-        return id(buf);
+        return idf("R%dC%d_%s", row + 1, col + 1, wirename.c_str());
         break;
     }
     // wires wrap around the edges
@@ -647,18 +657,13 @@ IdString Arch::wireToGlobal(int &row, int &col, const DatabasePOD *db, IdString 
         col = 2 * db->cols - 1 - col;
         direction = 'E';
     }
-    snprintf(buf, 32, "%c%d0", direction, num);
-    wire = id(buf);
+    wire = idf("%c%d0", direction, num);
     // local aliases
-    const TilePOD *tile = db->grid[row * db->cols + col].get();
-    auto local_alias = pairLookup(tile->aliases.get(), tile->num_aliases, wire.index);
-    if (local_alias != nullptr) {
-        wire = IdString(local_alias->src_id);
-        snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, wire.c_str(this));
-    } else {
-        snprintf(buf, 32, "R%dC%d_%c%d", row + 1, col + 1, direction, num);
+    IdString res_wire = apply_local_aliases(row, col, db, wire);
+    if (res_wire == IdString()) {
+        res_wire = idf("R%dC%d_%c%d", row + 1, col + 1, direction, num);
     }
-    return id(buf);
+    return res_wire;
 }
 
 const PairPOD *pairLookup(const PairPOD *list, const size_t len, const int dest)
@@ -1581,6 +1586,10 @@ Arch::Arch(ArchArgs args) : args(args)
                     snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
                     addBelInput(belname, id_XXX_VSS1, id(buf));
                 }
+                if (!z && device_id == id("GW1NR-9C")) {
+                    addBelInput(belname, id_XXX_0, idf("R%dC%d_C6", row + 1, col + 1));
+                    addBelInput(belname, id_XXX_1, idf("R%dC%d_D6", row + 1, col + 1));
+                }
             } break;
                 // Simplified IO
             case ID_IOBJS:
@@ -1627,7 +1636,7 @@ Arch::Arch(ArchArgs args) : args(args)
             case ID_ODDRA: {
                 snprintf(buf, 32, "R%dC%d_ODDR%s%c", row + 1, col + 1, oddrc ? "C" : "", 'A' + z - (oddrc ? 2 : 0));
                 belname = id(buf);
-                addBel(belname, id_ODDR, Loc(col, row, BelZ::iologic_0_z + z), false);
+                addBel(belname, id_ODDR, Loc(col, row, BelZ::oddr_0_z + z), false);
 
                 portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_D0)->src_id);
                 snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
@@ -1680,6 +1689,64 @@ Arch::Arch(ArchArgs args) : args(args)
                 if (wires.count(q1_name) == 0)
                     addWire(q1_name, id_q1, row, col);
                 addBelOutput(belname, id_Q1, q1_name);
+            } break;
+            case ID_IOLOGICB:
+                z++; /* fall-through*/
+            case ID_IOLOGICA: {
+                belname = idf("R%dC%d_IOLOGIC%c", row + 1, col + 1, 'A' + z);
+                addBel(belname, id_IOLOGIC, Loc(col, row, BelZ::iologic_z + z), false);
+
+                for (int i = 0; i < 10; ++i) {
+                    if (i < 4) {
+                        // TX
+                        IdString const tx[] = {id_TX0, id_TX1, id_TX2, id_TX3};
+                        portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, tx[i].hash())->src_id);
+                        addBelInput(belname, tx[i], idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this)));
+                    }
+                    // D
+                    IdString const d[] = {id_D0, id_D1, id_D2, id_D3, id_D4, id_D5, id_D6, id_D7, id_D8, id_D9};
+                    portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, d[i].hash())->src_id);
+                    addBelInput(belname, d[i], idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this)));
+                }
+                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_PCLK)->src_id);
+                addBelInput(belname, id_PCLK, idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this)));
+                auto fclk = pairLookup(bel->ports.get(), bel->num_ports, ID_FCLK);
+                // XXX as long as there is no special processing of the pins
+                if (fclk != nullptr) {
+                    portname = IdString(fclk->src_id);
+                    IdString wire = idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
+                    if (wires.count(wire) == 0) {
+                        GlobalAliasPOD alias;
+                        alias.dest_col = col;
+                        alias.dest_row = row;
+                        alias.dest_id = portname.hash();
+                        auto alias_src = genericLookup(db->aliases.get(), db->num_aliases, alias, aliasCompare);
+                        if (alias_src != nullptr) {
+                            int srcrow = alias_src->src_row;
+                            int srccol = alias_src->src_col;
+                            IdString srcid = IdString(alias_src->src_id);
+                            wire = wireToGlobal(srcrow, srccol, db, srcid);
+                            if (wires.count(wire) == 0) {
+                                addWire(wire, srcid, srccol, srcrow);
+                            }
+                            addBelInput(belname, id_FCLK, wire);
+                        }
+                        // XXX here we are creating an
+                        // IOLOGIC with a missing FCLK input. This is so
+                        // because bels with the same type can be placed in
+                        // on the chip where there is no pin, so no
+                        // IOLOGIC makes sense. But since each type is
+                        // described only once in the database we can't really
+                        // mark these special bel somehow.
+                        // By creating an IOLOGIC without an FCLK input we
+                        // create a routing error later, so that "bad"
+                        // locations are handled.
+                    } else {
+                        addBelInput(belname, id_FCLK, idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this)));
+                    }
+                }
+                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_RESET)->src_id);
+                addBelInput(belname, id_RESET, idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this)));
             } break;
             default:
                 break;
@@ -2245,6 +2312,54 @@ void Arch::fix_pll_nets(Context *ctx)
     }
 }
 
+// mark with hclk is used
+void Arch::mark_used_hclk(Context *ctx)
+{
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
+        if (ci->type != id_IOLOGIC) {
+            continue;
+        }
+        if (ci->attrs.count(id_IOLOGIC_FCLK)) {
+            continue;
+        }
+        // if it's an aux cell
+        if (ci->attrs.count(id_IOLOGIC_MASTER_CELL)) {
+            continue;
+        }
+        ci->setAttr(id_IOLOGIC_FCLK, Property("UNKNOWN"));
+
+        // *** FCLK
+        if (port_used(ci, id_FCLK)) {
+            NetInfo const *net = ci->getPort(id_FCLK);
+            for (auto const &user : net->users) {
+                if (user.cell != ci) {
+                    continue;
+                }
+                if (user.port != id_FCLK) {
+                    continue;
+                }
+                WireId dstWire = ctx->getNetinfoSinkWire(net, user, 0);
+                if (ctx->verbose) {
+                    log_info("   Cell:%s, port:%s, wire:%s\n", user.cell->name.c_str(this), user.port.c_str(this),
+                             dstWire.c_str(this));
+                }
+                for (PipId const &pip : getPipsUphill(dstWire)) {
+                    if (!checkPipAvail(pip)) {
+                        WireId src_wire = getPipSrcWire(pip);
+                        ci->setAttr(id_IOLOGIC_FCLK, Property(wire_info(src_wire).type.str(this)));
+                        if (ci->attrs.count(id_IOLOGIC_AUX_CELL)) {
+                            IdString aux_cell_name = ctx->id(ci->attrs[id_IOLOGIC_AUX_CELL].as_string());
+                            ctx->cells[aux_cell_name]->setAttr(id_IOLOGIC_FCLK,
+                                                               Property(wire_info(src_wire).type.str(this)));
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 void Arch::pre_route(Context *ctx)
 {
     fix_pll_nets(ctx);
@@ -2253,7 +2368,11 @@ void Arch::pre_route(Context *ctx)
     }
 }
 
-void Arch::post_route(Context *ctx) { fix_longwire_bels(); }
+void Arch::post_route(Context *ctx)
+{
+    fix_longwire_bels();
+    mark_used_hclk(ctx);
+}
 
 bool Arch::route()
 {

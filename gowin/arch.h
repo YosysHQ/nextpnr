@@ -401,6 +401,11 @@ struct Arch : BaseArch<ArchRanges>
     PortType getBelPinType(BelId bel, IdString pin) const override;
     std::vector<IdString> getBelPins(BelId bel) const override;
     std::array<IdString, 1> getBelPinsForCellPin(const CellInfo *cell_info, IdString pin) const override;
+    // Placement validity checks
+    virtual bool isValidBelForCellType(IdString cell_type, BelId bel) const override
+    {
+        return cell_type == id_DUMMY_CELL || cell_type == this->getBelType(bel);
+    }
 
     WireId getWireByName(IdStringList name) const override;
     IdStringList getWireName(WireId wire) const override;
@@ -490,6 +495,9 @@ struct Arch : BaseArch<ArchRanges>
     bool is_GCLKT_iob(const CellInfo *cell);
     void bind_pll_to_bel(CellInfo *ci, PLL loc);
 
+    void mark_used_hclk(Context *ctx);
+    IdString apply_local_aliases(int row, int col, const DatabasePOD *db, IdString &wire);
+
     GowinGlobalRouter globals_router;
     void mark_gowin_globals(Context *ctx);
     void route_gowin_globals(Context *ctx);
@@ -524,16 +532,17 @@ struct Arch : BaseArch<ArchRanges>
 namespace BelZ {
 enum
 {
-    mux_0_z = 10,     // start Z for the MUX2LUT5 bels
-    iologic_0_z = 20, // start Z for the IOLOGIC bels
-    lutram_0_z = 30,  // start Z for the IOLOGIC bels
-    vcc_0_z = 277,    // virtual VCC bel Z
-    gnd_0_z = 278,    // virtual VSS bel Z
-    osc_z = 280,      // Z for the oscillator bels
-    bufs_0_z = 281,   // Z for long wire buffer bel
-    pll_z = 289,      // PLL
-    pllvr_z = 290,    // PLLVR
-    free_z = 291      // Must be the last, one can use z starting from this value, adjust accordingly.
+    mux_0_z = 10,    // start Z for the MUX2LUT5 bels
+    oddr_0_z = 20,   // XXX start Z for the ODDR bels
+    lutram_0_z = 30, // start Z for the LUTRAM bels
+    vcc_0_z = 277,   // virtual VCC bel Z
+    gnd_0_z = 278,   // virtual VSS bel Z
+    osc_z = 280,     // Z for the oscillator bels
+    bufs_0_z = 281,  // Z for long wire buffer bel
+    pll_z = 289,     // PLL
+    pllvr_z = 290,   // PLLVR
+    iologic_z = 291, // IOLOGIC
+    free_z = 293     // Must be the last, one can use z starting from this value, adjust accordingly.
 };
 }
 

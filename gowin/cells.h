@@ -105,7 +105,7 @@ inline bool is_lc(const BaseCtx *ctx, const CellInfo *cell) { return cell->type 
 
 inline bool is_sram(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_RAM16SDP4; }
 
-inline bool is_iob(const Context *ctx, const CellInfo *cell) { return (cell->type.index == ID_IOB); }
+inline bool is_iob(const Context *ctx, const CellInfo *cell) { return (cell->type == id_IOB || cell->type == id_IOBS); }
 
 // Convert a LUT primitive to (part of) an GENERIC_SLICE, swapping ports
 // as needed. Set no_dff if a DFF is not being used, so that the output
