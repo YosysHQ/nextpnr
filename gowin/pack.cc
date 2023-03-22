@@ -963,7 +963,8 @@ static void pack_iologic(Context *ctx)
                 delete_nets.insert(ci->ports.at(output).net->name);
                 q0_dst->disconnectPort(id_I);
                 ci->disconnectPort(output);
-                bool have_XXX = ctx->bels.at(ctx->getBelByNameStr(iob_bel->second.as_string())).pins.count(id_GW9C_ALWAYS_LOW1);
+                bool have_XXX =
+                        ctx->bels.at(ctx->getBelByNameStr(iob_bel->second.as_string())).pins.count(id_GW9C_ALWAYS_LOW1);
                 if (have_XXX) {
                     q0_dst->disconnectPort(id_GW9C_ALWAYS_LOW1);
                     q0_dst->connectPort(id_GW9C_ALWAYS_LOW1, ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
