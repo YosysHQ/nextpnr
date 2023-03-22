@@ -922,8 +922,8 @@ static void pack_iologic(Context *ctx)
 
                 auto iob_bel = q0_dst->attrs.find(id_BEL);
                 if (iob_bel == q0_dst->attrs.end()) {
-                    log_info("No constraints for %s\n", ctx->nameOf(q0_dst));
-                    NPNR_ASSERT_FALSE("The pins for IDES/OSER must be specified explicitly.");
+                    log_error("No constraints for %s. The pins for IDES/OSER must be specified explicitly.\n",
+                              ctx->nameOf(q0_dst));
                 }
 
                 Loc loc = ctx->getBelLocation(ctx->getBelByNameStr(iob_bel->second.as_string()));
@@ -931,8 +931,8 @@ static void pack_iologic(Context *ctx)
                 ci->setAttr(id_BEL, ctx->getBelName(ctx->getBelByLocation(loc)).str(ctx));
                 BelId bel = ctx->getBelByLocation(loc);
                 if (bel == BelId()) {
-                    log_info("No bel for %s at %s\n", ctx->nameOf(ci), iob_bel->second.as_string().c_str());
-                    NPNR_ASSERT_FALSE("Can't place IDES/OSER here");
+                    log_info("No bel for %s at %s. Can't place IDES/OSER here\n", ctx->nameOf(ci),
+                             iob_bel->second.as_string().c_str());
                 }
 
                 std::string out_mode;
