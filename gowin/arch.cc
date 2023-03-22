@@ -420,7 +420,7 @@ void Arch::addBel(IdString name, IdString type, Loc loc, bool gb)
 {
     NPNR_ASSERT(bels.count(name) == 0);
     NPNR_ASSERT(bel_by_loc.count(loc) == 0);
-    BelInfo &bi = bels[name];
+    BelInfo &bi = bels.at(name);
     bi.name = name;
     bi.type = type;
     bi.x = loc.x;
@@ -1572,23 +1572,23 @@ Arch::Arch(ArchArgs args) : args(args)
                 snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
                 addBelInput(belname, id_OEN, id(buf));
                 // GW1NR-9 quirk
-                const PairPOD *xxx_port = pairLookup(bel->ports.get(), bel->num_ports, ID_XXX_VSS0);
-                if (xxx_port != nullptr) {
+                const PairPOD *quirk_port = pairLookup(bel->ports.get(), bel->num_ports, ID_GW9_ALWAYS_LOW0);
+                if (quirk_port != nullptr) {
                     gw1n9_quirk = true;
-                    portname = IdString(xxx_port->src_id);
+                    portname = IdString(quirk_port->src_id);
                     snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
-                    addBelInput(belname, id_XXX_VSS0, id(buf));
+                    addBelInput(belname, id_GW9_ALWAYS_LOW0, id(buf));
                 }
-                xxx_port = pairLookup(bel->ports.get(), bel->num_ports, ID_XXX_VSS1);
-                if (xxx_port != nullptr) {
+                quirk_port = pairLookup(bel->ports.get(), bel->num_ports, ID_GW9_ALWAYS_LOW1);
+                if (quirk_port != nullptr) {
                     gw1n9_quirk = true;
-                    portname = IdString(xxx_port->src_id);
+                    portname = IdString(quirk_port->src_id);
                     snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
-                    addBelInput(belname, id_XXX_VSS1, id(buf));
+                    addBelInput(belname, id_GW9_ALWAYS_LOW1, id(buf));
                 }
                 if (!z && device_id == id("GW1NR-9C")) {
-                    addBelInput(belname, id_XXX_0, idf("R%dC%d_C6", row + 1, col + 1));
-                    addBelInput(belname, id_XXX_1, idf("R%dC%d_D6", row + 1, col + 1));
+                    addBelInput(belname, id_GW9C_ALWAYS_LOW0, idf("R%dC%d_C6", row + 1, col + 1));
+                    addBelInput(belname, id_GW9C_ALWAYS_LOW1, idf("R%dC%d_D6", row + 1, col + 1));
                 }
             } break;
                 // Simplified IO
@@ -1654,19 +1654,19 @@ Arch::Arch(ArchArgs args) : args(args)
                 snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
                 addBelInput(belname, id_CLK, id(buf));
 
-                const PairPOD *xxx_port = pairLookup(bel->ports.get(), bel->num_ports, ID_XXX_VSS);
-                if (xxx_port != nullptr) {
+                const PairPOD *quirk_port = pairLookup(bel->ports.get(), bel->num_ports, ID_ODDR_ALWAYS_LOW);
+                if (quirk_port != nullptr) {
                     ddr_has_extra_inputs = true;
-                    portname = IdString(xxx_port->src_id);
+                    portname = IdString(quirk_port->src_id);
                     snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
-                    addBelInput(belname, id_XXX_VSS, id(buf));
+                    addBelInput(belname, id_ODDR_ALWAYS_LOW, id(buf));
                 }
-                xxx_port = pairLookup(bel->ports.get(), bel->num_ports, ID_XXX_VCC);
-                if (xxx_port != nullptr) {
+                quirk_port = pairLookup(bel->ports.get(), bel->num_ports, ID_ODDR_ALWAYS_HIGH);
+                if (quirk_port != nullptr) {
                     ddr_has_extra_inputs = true;
-                    portname = IdString(xxx_port->src_id);
+                    portname = IdString(quirk_port->src_id);
                     snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
-                    addBelInput(belname, id_XXX_VCC, id(buf));
+                    addBelInput(belname, id_ODDR_ALWAYS_HIGH, id(buf));
                 }
 
                 if (oddrc) {
@@ -2344,7 +2344,7 @@ void Arch::mark_used_hclk(Context *ctx)
                     log_info("   Cell:%s, port:%s, wire:%s\n", user.cell->name.c_str(this), user.port.c_str(this),
                              dstWire.c_str(this));
                 }
-                for (PipId const &pip : getPipsUphill(dstWire)) {
+                for (PipId pip : getPipsUphill(dstWire)) {
                     if (!checkPipAvail(pip)) {
                         WireId src_wire = getPipSrcWire(pip);
                         ci->setAttr(id_IOLOGIC_FCLK, Property(wire_info(src_wire).type.str(this)));

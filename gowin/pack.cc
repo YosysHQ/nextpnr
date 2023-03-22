@@ -890,20 +890,20 @@ static void pack_iologic(Context *ctx)
                 }
                 // if have XXX_ inputs connect them
                 if (ctx->ddr_has_extra_inputs) {
-                    ci->addInput(id_XXX_VSS);
-                    ci->connectPort(id_XXX_VSS, ctx->nets[ctx->id("$PACKER_GND_NET")].get());
-                    ci->addInput(id_XXX_VCC);
-                    ci->connectPort(id_XXX_VCC, ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
+                    ci->addInput(id_ODDR_ALWAYS_LOW);
+                    ci->connectPort(id_ODDR_ALWAYS_LOW, ctx->nets[ctx->id("$PACKER_GND_NET")].get());
+                    ci->addInput(id_ODDR_ALWAYS_HIGH);
+                    ci->connectPort(id_ODDR_ALWAYS_HIGH, ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
                 }
                 if (iob_bel != q0_dst->attrs.end()) {
                     IdString io_bel_name = ctx->getBelByNameStr(iob_bel->second.as_string());
-                    if (ctx->gw1n9_quirk && ctx->bels[io_bel_name].pins.count(id_XXX_VSS0)) {
-                        q0_dst->disconnectPort(id_XXX_VSS0);
-                        q0_dst->connectPort(id_XXX_VSS0, ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
+                    if (ctx->gw1n9_quirk && ctx->bels.at(io_bel_name).pins.count(id_GW9_ALWAYS_LOW0)) {
+                        q0_dst->disconnectPort(id_GW9_ALWAYS_LOW0);
+                        q0_dst->connectPort(id_GW9_ALWAYS_LOW0, ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
                     }
-                    if (ctx->bels[io_bel_name].pins.count(id_XXX_1)) {
-                        q0_dst->disconnectPort(id_XXX_1);
-                        q0_dst->connectPort(id_XXX_1, ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
+                    if (ctx->bels.at(io_bel_name).pins.count(id_GW9C_ALWAYS_LOW1)) {
+                        q0_dst->disconnectPort(id_GW9C_ALWAYS_LOW1);
+                        q0_dst->connectPort(id_GW9C_ALWAYS_LOW1, ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
                     }
                 }
             } break;
@@ -963,10 +963,10 @@ static void pack_iologic(Context *ctx)
                 delete_nets.insert(ci->ports.at(output).net->name);
                 q0_dst->disconnectPort(id_I);
                 ci->disconnectPort(output);
-                bool have_XXX = ctx->bels[ctx->getBelByNameStr(iob_bel->second.as_string())].pins.count(id_XXX_1);
+                bool have_XXX = ctx->bels.at(ctx->getBelByNameStr(iob_bel->second.as_string())).pins.count(id_GW9C_ALWAYS_LOW1);
                 if (have_XXX) {
-                    q0_dst->disconnectPort(id_XXX_1);
-                    q0_dst->connectPort(id_XXX_1, ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
+                    q0_dst->disconnectPort(id_GW9C_ALWAYS_LOW1);
+                    q0_dst->connectPort(id_GW9C_ALWAYS_LOW1, ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
                 }
 
                 // if Q1 is connected then disconnet it too
@@ -1287,11 +1287,11 @@ static void pack_io(Context *ctx)
             if (!constr_bel_name.empty()) {
                 BelId constr_bel = ctx->getBelByNameStr(constr_bel_name);
                 if (constr_bel != BelId()) {
-                    new_cell_type = ctx->bels[constr_bel].type;
+                    new_cell_type = ctx->bels.at(constr_bel).type;
                     if (ctx->gw1n9_quirk) {
-                        have_xxx_port = ctx->bels[constr_bel].pins.count(id_XXX_VSS0) != 0;
+                        have_xxx_port = ctx->bels.at(constr_bel).pins.count(id_GW9_ALWAYS_LOW0) != 0;
                     }
-                    have_xxx0_port = ctx->bels[constr_bel].pins.count(id_XXX_0) != 0;
+                    have_xxx0_port = ctx->bels.at(constr_bel).pins.count(id_GW9C_ALWAYS_LOW0) != 0;
                 }
             }
 
@@ -1302,16 +1302,16 @@ static void pack_io(Context *ctx)
             auto gwiob = new_cells.back().get();
             // XXX GW1NR-9 quirks
             if (have_xxx_port && ci->type != id_IBUF) {
-                gwiob->addInput(id_XXX_VSS0);
-                gwiob->connectPort(id_XXX_VSS0, ctx->nets[ctx->id("$PACKER_GND_NET")].get());
-                gwiob->addInput(id_XXX_VSS1);
-                gwiob->connectPort(id_XXX_VSS1, ctx->nets[ctx->id("$PACKER_GND_NET")].get());
+                gwiob->addInput(id_GW9_ALWAYS_LOW0);
+                gwiob->connectPort(id_GW9_ALWAYS_LOW0, ctx->nets[ctx->id("$PACKER_GND_NET")].get());
+                gwiob->addInput(id_GW9_ALWAYS_LOW1);
+                gwiob->connectPort(id_GW9_ALWAYS_LOW1, ctx->nets[ctx->id("$PACKER_GND_NET")].get());
             }
             if (have_xxx0_port && ci->type != id_IBUF) {
-                gwiob->addInput(id_XXX_0);
-                gwiob->connectPort(id_XXX_0, ctx->nets[ctx->id("$PACKER_GND_NET")].get());
-                gwiob->addInput(id_XXX_1);
-                gwiob->connectPort(id_XXX_1, ctx->nets[ctx->id("$PACKER_GND_NET")].get());
+                gwiob->addInput(id_GW9C_ALWAYS_LOW0);
+                gwiob->connectPort(id_GW9C_ALWAYS_LOW0, ctx->nets[ctx->id("$PACKER_GND_NET")].get());
+                gwiob->addInput(id_GW9C_ALWAYS_LOW1);
+                gwiob->connectPort(id_GW9C_ALWAYS_LOW1, ctx->nets[ctx->id("$PACKER_GND_NET")].get());
             }
 
             packed_cells.insert(ci->name);
