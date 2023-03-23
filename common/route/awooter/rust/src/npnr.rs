@@ -302,10 +302,10 @@ impl Context {
         unsafe { CStr::from_ptr(npnr_context_name_of_pip(self, pip)) }
     }
 
-    pub fn name_of_wire(&self, wire: WireId) -> &CStr {
+    pub fn name_of_wire(&self, wire: WireId) -> &str {
         static MUTEX: Mutex<()> = Mutex::new(());
         let _lock = MUTEX.lock().unwrap();
-        unsafe { CStr::from_ptr(npnr_context_name_of_wire(self, wire)) }
+        unsafe { CStr::from_ptr(npnr_context_name_of_wire(self, wire)) }.to_str().unwrap()
     }
 
     pub fn verbose(&self) -> bool {
@@ -313,7 +313,7 @@ impl Context {
     }
 }
 
-extern "C-unwind" {
+extern "C" {
     pub fn npnr_log_info(format: *const c_char);
     pub fn npnr_log_error(format: *const c_char);
 

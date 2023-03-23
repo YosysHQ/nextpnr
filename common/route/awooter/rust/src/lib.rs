@@ -1,6 +1,3 @@
-#![feature(c_unwind)]
-#![feature(let_chains)]
-
 use std::{ptr::NonNull, time::Instant};
 
 use colored::Colorize;
@@ -15,7 +12,7 @@ mod partition;
 mod route;
 
 #[no_mangle]
-pub extern "C-unwind" fn npnr_router_awooter(
+pub extern "C" fn npnr_router_awooter(
     ctx: Option<NonNull<npnr::Context>>,
     pressure: f32,
     history: f32,
@@ -59,18 +56,21 @@ fn extract_arcs_from_nets(ctx: &npnr::Context, nets: &npnr::Nets) -> Vec<route::
                 let sink = sink_ref.cell().unwrap();
                 let sink = sink.location();
                 for sink_wire in ctx.sink_wires(net, *sink_ref) {
-                    arcs.push(route::Arc::new(
+                    let arc = route::Arc::new(
                         source_wire,
                         Some(source),
                         sink_wire,
                         Some(sink),
                         net.index(),
                         nets.name_from_index(net.index()),
-                    ));
+                    );
+                    if !arcs.contains(&arc) {
+                        arcs.push(arc);
+                    }
 
                     if verbose {
-                        let source_wire = ctx.name_of_wire(source_wire).to_str().unwrap();
-                        let sink_wire = ctx.name_of_wire(sink_wire).to_str().unwrap();
+                        let source_wire = ctx.name_of_wire(source_wire);
+                        let sink_wire = ctx.name_of_wire(sink_wire);
                         dbg!(source_wire, sink_wire, net.index().into_inner());
                     }
                 }
@@ -178,11 +178,22 @@ fn route(ctx: &mut npnr::Context, pressure: f32, history: f32) -> bool {
 
     let arcs = extract_arcs_from_nets(ctx, &nets);
 
+    let router = route::Router::new(&nets, wires, pressure, history);
+    let progress = MultiProgress::new();
+    let mut thread = route::RouterThread::new(
+    Coord::new(0, 0),
+    Coord::new(ctx.grid_dim_x(), ctx.grid_dim_y()),
+        &arcs,
+        "pre-routing",
+        &progress
+    );
+    let arcs = router.find_general_routing(ctx, &nets, &mut thread);
+
     let mut special_arcs = vec![];
     let mut partitionable_arcs = Vec::with_capacity(arcs.len());
     for arc in arcs {
-        let src_name = ctx.name_of_wire(arc.source_wire()).to_str().unwrap();
-        let dst_name = ctx.name_of_wire(arc.sink_wire()).to_str().unwrap();
+        let src_name = ctx.name_of_wire(arc.source_wire());
+        let dst_name = ctx.name_of_wire(arc.sink_wire());
 
         if src_name.contains("FCO_SLICE")
             || src_name.contains("Q6_SLICE")
@@ -208,7 +219,7 @@ fn route(ctx: &mut npnr::Context, pressure: f32, history: f32) -> bool {
         String::from(""),
     )];
 
-    for _ in 0..2 {
+    for _ in 0..0 {
         let mut new_partitions = Vec::with_capacity(partitions.len() * 4);
         for (min, max, partition, name) in &partitions {
             log_info!("partition {}:\n", name);

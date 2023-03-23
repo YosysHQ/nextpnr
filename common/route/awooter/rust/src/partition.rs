@@ -177,12 +177,12 @@ impl Coord {
     pub fn intersect(&self, other: &Self, axis: Axis, split_point: &Self) -> Self {
         match axis {
             Axis::NorthSouth => Coord {
-                x: split_line_over_y(((*self).into(), (*other).into()), split_point.y),
+                x: split_line_over_y((*self, *other), split_point.y),
                 y: split_point.y,
             },
             Axis::EastWest => Coord {
                 x: split_point.x,
-                y: split_line_over_x(((*self).into(), (*other).into()), split_point.x),
+                y: split_line_over_x((*self, *other), split_point.x),
             },
         }
     }
@@ -318,10 +318,10 @@ pub fn find_partition_point(
 ) -> (i32, i32, Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>, Vec<Arc>) {
     let mut x = ((x_finish - x_start) / 2) + x_start;
     let mut y = ((y_finish - y_start) / 2) + y_start;
-    let mut x_diff = 0; //(x_finish - x_start) / 4;
-    let mut y_diff = 0; //(y_finish - y_start) / 4;
+    let mut x_diff = 0;//(x_finish - x_start) / 4;
+    let mut y_diff = 0;//(y_finish - y_start) / 4;
 
-    // TODO(SpaceCat~Chan): chache more stuff involved in created SegmentedArc to avoid doing so much ffi?
+    // TODO(SpaceCat~Chan): cache more stuff involved in created SegmentedArc to avoid doing so much ffi?
 
     while x_diff != 0 {
         let segmented_arcs = arcs
@@ -884,32 +884,8 @@ fn partition_single_arc(
         )?;
         current_coming_from = ctx.pip_location(pip).into();
         let (before_arc, after_arc) = current_arc.split(ctx, pip);
-        if *from_quad == Quadrant::Northwest {
-            println!(
-                "full arc: ({:?}, {:?}, {:?}, {:?})\ninserting: ({:?}, {:?})\nsegments: {:?}\n",
-                arc.source_quads,
-                arc.estimated_source_location,
-                arc.sink_quads,
-                arc.estimated_sink_location,
-                before_arc.get_source_loc(),
-                before_arc.get_sink_loc(),
-                segments,
-            );
-        }
         arcs.push((*from_quad, before_arc));
         current_arc = after_arc;
-    }
-    if *segments.last().unwrap() == Quadrant::Northwest {
-        println!(
-            "full arc: ({:?}, {:?}, {:?}, {:?})\ninserting: ({:?}, {:?})\nsegments: {:?}\n",
-            arc.source_quads,
-            arc.estimated_source_location,
-            arc.sink_quads,
-            arc.estimated_sink_location,
-            current_arc.get_source_loc(),
-            current_arc.get_sink_loc(),
-            segments,
-        );
     }
     arcs.push((*segments.last().unwrap(), current_arc));
     Some(arcs)
@@ -1169,8 +1145,8 @@ impl PipSelector {
 
                 let src_wire = ctx.pip_src_wire(pip);
                 let dst_wire = ctx.pip_dst_wire(pip);
-                let src_name = ctx.name_of_wire(src_wire).to_str().unwrap();
-                let dst_name = ctx.name_of_wire(dst_wire).to_str().unwrap();
+                let src_name = ctx.name_of_wire(src_wire);
+                let dst_name = ctx.name_of_wire(dst_wire);
                 if !is_general_routing(src_name) || !is_general_routing(dst_name) {
                     // ECP5 hack: whitelist allowed wires.
                     continue;

@@ -232,6 +232,153 @@ impl Router {
         }
     }
 
+    pub fn find_general_routing(&self, ctx: &npnr::Context, nets: &npnr::Nets, this: &mut RouterThread) -> Vec<Arc> {
+        let is_general_routing = |wire: &str| {
+            wire.contains("H01")
+                || wire.contains("V01")
+                || wire.contains("H02")
+                || wire.contains("V02")
+                || wire.contains("H06")
+                || wire.contains("V06")
+        };
+
+        let mut delay = HashMap::new();
+
+        for arc in this.arcs {
+            delay.insert(arc, 1.0_f32);
+        }
+
+        let start = Instant::now();
+
+        let mut max_delay = 1.0;
+        let mut least_overuse = usize::MAX;
+        let mut iters_since_improvement = 0;
+
+        let mut route_arcs = Vec::from_iter(this.arcs.iter());
+
+        let progress = this.progress.add(ProgressBar::new(0));
+        progress.set_style(
+            ProgressStyle::with_template("[{elapsed}] [{bar:40.green/green}] {msg:30!}")
+                .unwrap()
+                .progress_chars("━╸ "),
+        );
+
+        let mut new_arcs = Vec::new();
+        let mut iterations = 0;
+
+        loop {
+            iterations += 1;
+
+            progress.set_position(0);
+            progress.set_length(route_arcs.len() as u64);
+
+            for arc in route_arcs.iter().sorted_by(|&i, &j| {
+                (delay.get(j).unwrap() / max_delay).total_cmp(&(delay.get(i).unwrap() / max_delay))
+            }) {
+                let name = ctx.name_of(arc.name).to_str().unwrap();
+                progress.inc(1);
+                let criticality = (delay.get(arc).unwrap() / max_delay).min(0.99).powf(2.5) + 0.1;
+                progress.set_message(format!("{} @ {}: {}", this.id, iterations, name));
+                *delay.get_mut(arc).unwrap() = self.route_arc(ctx, nets, arc, criticality);
+            }
+
+            let mut overused = HashSet::new();
+            for wd in self.flat_wires.iter() {
+                let mut wd = wd.write().unwrap();
+                if wd.curr_cong > 1 && !is_general_routing(ctx.name_of_wire(wd.wire)) {
+                    overused.insert(wd.wire);
+                    wd.hist_cong += (wd.curr_cong as f32) * self.history;
+                }
+            }
+
+            if overused.is_empty() {
+                break;
+            } else if overused.len() < least_overuse {
+                least_overuse = overused.len();
+                iters_since_improvement = 0;
+                progress.println(format!(
+                    "{} @ {}: {} wires overused {}",
+                    this.id,
+                    iterations,
+                    overused.len(),
+                    "(new best)".bold()
+                ));
+            } else {
+                iters_since_improvement += 1;
+                progress.println(format!(
+                    "{} @ {}: {} wires overused",
+                    this.id,
+                    iterations,
+                    overused.len()
+                ));
+            }
+
+            let mut next_arcs = HashSet::new();
+            for arc in this.arcs {
+                let nets = &*self.nets.read().unwrap();
+                for wire in nets[arc.net.into_inner() as usize]
+                    .wires
+                    .keys()
+                {
+                    if overused.contains(wire) {
+                        next_arcs.insert(arc);
+                    }
+                }
+            }
+
+            for &arc in &next_arcs {
+                self.ripup_arc(ctx, arc);
+            }
+
+            {
+                let nets = &mut *self.nets.write().unwrap();
+                for net in nets.iter_mut() {
+                    net.done_sinks.clear();
+                }
+            }
+
+            if iters_since_improvement > 50 {
+                iters_since_improvement = 0;
+                least_overuse = usize::MAX;
+                progress.println(format!(
+                    "{} @ {}: {}",
+                    this.id,
+                    iterations,
+                    "bored; rerouting everything".bold()
+                ));
+                route_arcs = Vec::from_iter(this.arcs.iter());
+            } else {
+                route_arcs = Vec::from_iter(next_arcs.into_iter());
+            }
+
+            max_delay = this
+                .arcs
+                .iter()
+                .map(|arc| *delay.get(arc).unwrap())
+                .reduce(f32::max)
+                .unwrap();
+        }
+
+        let now = start.elapsed().as_secs_f32();
+        progress.println(format!(
+            "{} @ {}: {} in {:.0}m{:.03}s",
+            this.id,
+            iterations,
+            "pre-routing complete".green(),
+           (now / 60.0).floor(),
+            now % 60.0
+        ));
+
+        progress.finish_and_clear();
+
+        for arc in this.arcs {
+            let (source_wire, sink_wire) = self.ripup_arc_general_routing(ctx, arc);
+            new_arcs.push(Arc::new(source_wire, None, sink_wire, None, arc.net, arc.name));
+        }
+
+        new_arcs
+    }
+
     pub fn route(&self, ctx: &npnr::Context, nets: &npnr::Nets, this: &mut RouterThread) {
         let mut delay = HashMap::new();
 
@@ -267,7 +414,7 @@ impl Router {
             }) {
                 let name = ctx.name_of(arc.name).to_str().unwrap();
                 progress.inc(1);
-                let criticality = (delay.get(arc).unwrap() / max_delay).min(0.99).powf(2.5) + 0.1;
+                let criticality = (delay.get(arc).unwrap() / max_delay);
                 progress.set_message(format!("{} @ {}: {}", this.id, iterations, name));
                 *delay.get_mut(arc).unwrap() = self.route_arc(ctx, nets, arc, criticality);
             }
@@ -303,23 +450,27 @@ impl Router {
                 ));
             }
 
-            let mut next_arcs = Vec::new();
+            let mut next_arcs = HashSet::new();
             for arc in this.arcs {
-                for wire in self.nets.read().unwrap()[arc.net.into_inner() as usize]
+                let nets = &*self.nets.read().unwrap();
+                for wire in nets[arc.net.into_inner() as usize]
                     .wires
                     .keys()
                 {
                     if overused.contains(wire) {
-                        next_arcs.push(arc);
+                        next_arcs.insert(arc);
                     }
                 }
             }
 
-            for &arc in &route_arcs {
+            for &arc in &next_arcs {
                 self.ripup_arc(ctx, arc);
             }
-            for net in self.nets.write().unwrap().iter_mut() {
-                net.done_sinks.clear();
+            {
+                let nets = &mut *self.nets.write().unwrap();
+                for net in nets.iter_mut() {
+                    net.done_sinks.clear();
+                }
             }
 
             if iters_since_improvement > 50 {
@@ -333,7 +484,7 @@ impl Router {
                 ));
                 route_arcs = Vec::from_iter(this.arcs.iter());
             } else {
-                route_arcs = next_arcs;
+                route_arcs = Vec::from_iter(next_arcs.into_iter());
             }
 
             max_delay = this
@@ -492,74 +643,59 @@ impl Router {
         dirty_wires.push(source_wire);
         dirty_wires.push(sink_wire);
 
-        let already_done = self.nets.read().unwrap()[arc.net().into_inner() as usize]
-            .done_sinks
-            .contains(&arc.sink_wire);
-        if already_done {
-            midpoint = Some(*self.wire_to_idx.get(&arc.sink_wire).unwrap());
-
-            let mut wire = arc.sink_wire();
-            while wire != arc.source_wire() {
-                let nd = &self.nets.read().unwrap()[arc.net().into_inner() as usize];
-                let driver = nd.wires.get(&wire).unwrap().0;
-                self.set_visited_fwd(self.wire_to_idx[&wire], driver, &mut dirty_wires);
-                wire = ctx.pip_src_wire(driver);
+        while midpoint.is_none() {
+            // Step forward
+            if !self.step(
+                ctx,
+                nets,
+                arc,
+                criticality,
+                &mut fwd_queue,
+                &mut midpoint,
+                arc.sink_wire,
+                &mut dirty_wires,
+                Self::was_visited_fwd,
+                Self::set_visited_fwd,
+                Self::was_visited_bwd,
+                npnr::Context::get_downhill_pips,
+                npnr::Context::pip_dst_wire,
+            ) {
+                break;
             }
-        } else {
-            while midpoint.is_none() {
-                // Step forward
-                if !self.step(
-                    ctx,
-                    nets,
-                    arc,
-                    criticality,
-                    &mut fwd_queue,
-                    &mut midpoint,
-                    arc.sink_wire,
-                    &mut dirty_wires,
-                    Self::was_visited_fwd,
-                    Self::set_visited_fwd,
-                    Self::was_visited_bwd,
-                    npnr::Context::get_downhill_pips,
-                    npnr::Context::pip_dst_wire,
-                ) {
-                    break;
-                }
-                // Step backward
-                /*if !self.step(
-                    ctx,
-                    nets,
-                    arc,
-                    criticality,
-                    &mut bwd_queue,
-                    &mut midpoint,
-                    arc.source_wire,
-                    &mut dirty_wires,
-                    Self::was_visited_bwd,
-                    Self::set_visited_bwd,
-                    Self::was_visited_fwd,
-                    npnr::Context::get_uphill_pips,
-                    npnr::Context::pip_src_wire,
-                ) {
-                    break;
-                }*/
-                self.flat_wires[source_wire as usize]
-                    .write()
-                    .unwrap()
-                    .visited_fwd = true;
-                self.flat_wires[sink_wire as usize]
-                    .write()
-                    .unwrap()
-                    .visited_bwd = true;
+            // Step backward
+            if !self.step(
+                ctx,
+                nets,
+                arc,
+                criticality,
+                &mut bwd_queue,
+                &mut midpoint,
+                arc.source_wire,
+                &mut dirty_wires,
+                Self::was_visited_bwd,
+                Self::set_visited_bwd,
+                Self::was_visited_fwd,
+                npnr::Context::get_uphill_pips,
+                npnr::Context::pip_src_wire,
+            ) {
+                break;
             }
+            self.flat_wires[source_wire as usize]
+                .write()
+                .unwrap()
+                .visited_fwd = true;
+            self.flat_wires[sink_wire as usize]
+                .write()
+                .unwrap()
+                .visited_bwd = true;
         }
 
         assert!(
             midpoint.is_some(),
             "didn't find sink wire for net {} between {} and {}",
             ctx.name_of(arc.name).to_str().unwrap(),
-            ctx.name_of_wire(arc.source_wire).to_str().unwrap(),
-            ctx.name_of_wire(arc.sink_wire).to_str().unwrap(),
+            ctx.name_of_wire(arc.source_wire),
+            ctx.name_of_wire(arc.sink_wire),
         );
 
         let mut wire = midpoint.unwrap();
@@ -663,6 +799,43 @@ impl Router {
             self.unbind_pip_internal(arc.net(), wire);
             wire = ctx.pip_src_wire(pip);
         }
+    }
+
+    fn ripup_arc_general_routing(&self, ctx: &npnr::Context, arc: &Arc) -> (WireId, WireId) {
+        let is_general_routing = |wire: WireId| {
+            let wire = ctx.name_of_wire(wire);
+            wire.contains("H01")
+                || wire.contains("V01")
+                || wire.contains("H02")
+                || wire.contains("V02")
+                || wire.contains("H06")
+                || wire.contains("V06")
+        };
+
+        let net = arc.net().into_inner() as usize;
+        let source_wire = arc.source_wire;
+        let mut wire = arc.sink_wire;
+        let mut last_was_general = false;
+        let mut w1 = arc.sink_wire;
+        let mut w2 = arc.source_wire;
+        while wire != source_wire {
+            let pip = self.nets.read().unwrap()[net].wires.get(&wire).expect("wire should have driving pip").0;
+            assert!(pip != PipId::null());
+            if is_general_routing(wire) {
+                if !last_was_general {
+                    w1 = wire;
+                }
+                self.unbind_pip_internal(arc.net(), wire);
+                last_was_general = true;
+            } else {
+                if last_was_general {
+                    w2 = wire;
+                }
+                last_was_general = false;
+            }
+            wire = ctx.pip_src_wire(pip);
+        }
+        (w2, w1)
     }
 
     fn reset_wires(&self, dirty_wires: &Vec<u32>) {
