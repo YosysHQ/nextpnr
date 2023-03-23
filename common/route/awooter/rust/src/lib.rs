@@ -64,7 +64,8 @@ fn extract_arcs_from_nets(ctx: &npnr::Context, nets: &npnr::Nets) -> Vec<route::
                         net.index(),
                         nets.name_from_index(net.index()),
                     );
-                    if !arcs.contains(&arc) {
+                    if !arcs.contains(&arc) && arc.source_wire() != arc.sink_wire()
+                    {
                         arcs.push(arc);
                     }
 

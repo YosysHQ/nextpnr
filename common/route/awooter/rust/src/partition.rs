@@ -248,7 +248,7 @@ impl SegmentedArc {
             let src: Coord = src.into();
             (src.segment_from(partition_point).into(), src, 1)
         } else {
-            ctx.get_uphill_pips(arc.source_wire())
+            ctx.get_downhill_pips(arc.source_wire())
                 .map(|pip| {
                     let c: Coord = ctx.pip_location(pip).into();
                     c
@@ -268,7 +268,7 @@ impl SegmentedArc {
             let sink: Coord = sink.into();
             (sink.segment_from(partition_point).into(), sink, 1)
         } else {
-            ctx.get_downhill_pips(arc.sink_wire())
+            ctx.get_uphill_pips(arc.sink_wire())
                 .map(|pip| {
                     let c: Coord = ctx.pip_location(pip).into();
                     c
