@@ -41,11 +41,12 @@ std::unique_ptr<CellInfo> create_machxo2_cell(Context *ctx, IdString type, std::
 
 // Return true if a cell is a LUT
 inline bool is_lut(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_LUT4; }
+inline bool is_carry(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_CCU2C; }
+inline bool is_dpram(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_TRELLIS_DPR16X4; }
+inline bool is_trellis_io(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_TRELLIS_IO; }
 
 // Return true if a cell is a flipflop
 inline bool is_ff(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_TRELLIS_FF; }
-
-inline bool is_lc(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_TRELLIS_SLICE; }
 
 // Convert a LUT primitive to (part of) an GENERIC_SLICE, swapping ports
 // as needed. Set no_dff if a DFF is not being used, so that the output
@@ -58,8 +59,15 @@ void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff = tr
 // ignored
 void dff_to_lc(Context *ctx, CellInfo *dff, CellInfo *lc, LutType lut_type = LutType::Normal);
 
-// Convert a nextpnr IO buffer to a GENERIC_IOB
-void nxio_to_iob(Context *ctx, CellInfo *nxio, CellInfo *sbio, pool<IdString> &todelete_cells);
+// Convert a nextpnr IO buffer to a TRELLIS_IO
+void nxio_to_tr(Context *ctx, CellInfo *nxio, CellInfo *trio, std::vector<std::unique_ptr<CellInfo>> &created_cells,
+                pool<IdString> &todelete_cells);
+
+void lut_to_comb(Context *ctx, CellInfo *lut);
+void dram_to_ramw_split(Context *ctx, CellInfo *ram, CellInfo *ramw);
+void ccu2_to_comb(Context *ctx, CellInfo *ccu, CellInfo *comb, NetInfo *internal_carry, int i);
+void dram_to_comb(Context *ctx, CellInfo *ram, CellInfo *comb, CellInfo *ramw, int index);
+
 
 NEXTPNR_NAMESPACE_END
 
