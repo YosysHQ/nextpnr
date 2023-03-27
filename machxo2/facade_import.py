@@ -481,7 +481,7 @@ def main():
     constids["PIO"] = constids["TRELLIS_IO"]
 
     chip = pytrellis.Chip(dev_names[args.device])
-    rg = pytrellis.make_optimized_chipdb(chip, split_slice_mode=False)
+    rg = pytrellis.make_optimized_chipdb(chip, split_slice_mode=True)
     max_row = chip.get_max_row()
     max_col = chip.get_max_col()
     process_pio_db(rg, args.device)

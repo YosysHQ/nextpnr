@@ -95,6 +95,20 @@ Arch::Arch(ArchArgs args) : args(args)
     if (!package_info)
         log_error("Unsupported package '%s' for '%s'.\n", package_name, getChipName().c_str());
 
+    tile_status.resize(chip_info->num_tiles);
+    for (int i = 0; i < chip_info->num_tiles; i++) {
+        auto &ts = tile_status.at(i);
+        auto &tile_data = chip_info->tile_info[i];
+        ts.boundcells.resize(chip_info->tiles[i].bel_data.size(), nullptr);
+        for (auto &name : tile_data.tile_names) {
+            if (strcmp(chip_info->tiletype_names[name.type_idx].get(), "PLC2") == 0) {
+                // Is a logic tile
+                ts.lts = new LogicTileStatus();
+                break;
+            }
+        }
+    }
+
     BaseArch::init_cell_types();
     BaseArch::init_bel_buckets();
 
@@ -469,12 +483,6 @@ DecalXY Arch::getPipDecal(PipId pip) const
 };
 
 // ---------------------------------------------------------------
-
-bool Arch::isBelLocationValid(BelId bel, bool explain_invalid) const
-{
-    // FIXME: Same deal as isValidBelForCell.
-    return true;
-}
 
 const std::string Arch::defaultPlacer = "heap";
 

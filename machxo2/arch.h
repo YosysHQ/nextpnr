@@ -381,6 +381,38 @@ struct Arch : BaseArch<ArchRanges>
     // inverse of the above for name->object mapping
     dict<IdString, int> id_to_x, id_to_y;
 
+    enum LogicBELType
+    {
+        BEL_COMB = 0,
+        BEL_FF = 1,
+        BEL_RAMW = 2
+    };
+    static const int lc_idx_shift = 2;
+
+    struct LogicTileStatus
+    {
+        // Per-SLICE valid and dirty bits
+        struct SliceStatus
+        {
+            bool valid = true, dirty = true;
+        } slices[4];
+        // Per-tile legality check for control set legality
+        bool tile_valid = true;
+        bool tile_dirty = true;
+        // Fast index from z-pos to cell
+        std::array<CellInfo *, 8 * (1 << lc_idx_shift)> cells;
+    };
+
+    struct TileStatus
+    {
+        std::vector<CellInfo *> boundcells;
+        LogicTileStatus *lts = nullptr;
+        // TODO: use similar mechanism for DSP legality checking
+        ~TileStatus() { delete lts; }
+    };
+
+    mutable std::vector<TileStatus> tile_status;
+
     // Helpers
     template <typename Id> const TileTypePOD *tile_info(Id &id) const
     {
@@ -390,6 +422,11 @@ struct Arch : BaseArch<ArchRanges>
     int get_bel_flat_index(BelId bel) const
     {
         return (bel.location.y * chip_info->width + bel.location.x) * max_loc_bels + bel.index;
+    }
+
+    template <typename Id> inline int tile_index(Id id) const
+    {
+        return id.location.y * chip_info->width + id.location.x;
     }
 
     // ---------------------------------------------------------------
@@ -623,6 +660,12 @@ struct Arch : BaseArch<ArchRanges>
 
     // Placer
     bool isBelLocationValid(BelId bel, bool explain_invalid = false) const override;
+
+    // Helper function for above
+    bool slices_compatible(LogicTileStatus *lts) const;
+
+    void assign_arch_info_for_cell(CellInfo *ci);
+    void assignArchInfo() override;
 
     static const std::string defaultPlacer;
     static const std::vector<std::string> availablePlacers;
