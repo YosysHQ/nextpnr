@@ -11,7 +11,7 @@ gfx_wire_names = list()
 parser = argparse.ArgumentParser(description="import MachXO2 routing and bels from Project Trellis")
 parser.add_argument("device", type=str, help="target device")
 parser.add_argument("-p", "--constids", type=str, help="path to constids.inc")
-parser.add_argument("-g", "--gfxh", type=str, help="path to gfx.h (unused)")
+parser.add_argument("-g", "--gfxh", type=str, help="path to gfx.h")
 parser.add_argument("-L", "--libdir", type=str, action="append", help="extra Python library path")
 args = parser.parse_args()
 
@@ -268,6 +268,8 @@ def write_database(dev_name, chip, rg, endianness):
                 cls = arc.cls
                 bba.u8(arc.cls, "pip_type")
                 bba.u8(0, "padding")
+                bba.u16(arc.lutperm_flags, "lutperm_flags")
+                bba.u16(0, "padding2")
 
         if len(t.wires) > 0:
             for wire_idx in range(len(t.wires)):
@@ -481,7 +483,7 @@ def main():
     constids["PIO"] = constids["TRELLIS_IO"]
 
     chip = pytrellis.Chip(dev_names[args.device])
-    rg = pytrellis.make_optimized_chipdb(chip, split_slice_mode=True)
+    rg = pytrellis.make_optimized_chipdb(chip, include_lutperm_pips=True, split_slice_mode=True)
     max_row = chip.get_max_row()
     max_col = chip.get_max_col()
     process_pio_db(rg, args.device)

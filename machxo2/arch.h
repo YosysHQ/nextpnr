@@ -62,6 +62,8 @@ NPNR_PACKED_STRUCT(struct PipInfoPOD {
     int16_t tile_type;
     int8_t pip_type;
     int8_t padding;
+    int16_t lutperm_flags;
+    int16_t padding2;
 });
 
 NPNR_PACKED_STRUCT(struct PipLocatorPOD {
