@@ -25,48 +25,35 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-// When packing DFFs, we need context of how it's connected to a LUT to
-// properly map DFF ports to TRELLIS_SLICEs; DI0 input muxes F0 and OFX0,
-// and a DFF inside a slice can use either DI0 or M0 as an input.
-enum class LutType
-{
-    None,
-    Normal,
-    PassThru,
-};
-
 // Create a MachXO2 arch cell and return it
 // Name will be automatically assigned if not specified
 std::unique_ptr<CellInfo> create_machxo2_cell(Context *ctx, IdString type, std::string name = "");
 
 // Return true if a cell is a LUT
 inline bool is_lut(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_LUT4; }
-inline bool is_carry(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_CCU2C; }
-inline bool is_dpram(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_TRELLIS_DPR16X4; }
-inline bool is_trellis_io(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_TRELLIS_IO; }
 
 // Return true if a cell is a flipflop
 inline bool is_ff(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_TRELLIS_FF; }
 
-// Convert a LUT primitive to (part of) an GENERIC_SLICE, swapping ports
-// as needed. Set no_dff if a DFF is not being used, so that the output
-// can be reconnected
-void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff = true);
+inline bool is_carry(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_CCU2C; }
 
-// Convert a DFF primitive to (part of) an GENERIC_SLICE, setting parameters
-// and reconnecting signals as necessary. If pass_thru_lut is True, the LUT will
-// be configured as pass through and D connected to I0, otherwise D will be
-// ignored
-void dff_to_lc(Context *ctx, CellInfo *dff, CellInfo *lc, LutType lut_type = LutType::Normal);
+inline bool is_trellis_io(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_TRELLIS_IO; }
 
-// Convert a nextpnr IO buffer to a TRELLIS_IO
-void nxio_to_tr(Context *ctx, CellInfo *nxio, CellInfo *trio, std::vector<std::unique_ptr<CellInfo>> &created_cells,
-                pool<IdString> &todelete_cells);
+inline bool is_dpram(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_TRELLIS_DPR16X4; }
+
+inline bool is_pfumx(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_PFUMX; }
+
+inline bool is_l6mux(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_L6MUX21; }
 
 void lut_to_comb(Context *ctx, CellInfo *lut);
 void dram_to_ramw_split(Context *ctx, CellInfo *ram, CellInfo *ramw);
 void ccu2_to_comb(Context *ctx, CellInfo *ccu, CellInfo *comb, NetInfo *internal_carry, int i);
 void dram_to_comb(Context *ctx, CellInfo *ram, CellInfo *comb, CellInfo *ramw, int index);
+
+// Convert a nextpnr IO buffer to a TRELLIS_IO
+void nxio_to_tr(Context *ctx, CellInfo *nxio, CellInfo *trio, std::vector<std::unique_ptr<CellInfo>> &created_cells,
+                pool<IdString> &todelete_cells);
+
 
 
 NEXTPNR_NAMESPACE_END

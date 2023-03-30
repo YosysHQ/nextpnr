@@ -249,47 +249,6 @@ void dram_to_comb(Context *ctx, CellInfo *ram, CellInfo *comb, CellInfo *ramw, i
         comb->attrs[attr.first] = attr.second;
 }
 
-void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff)
-{
-    lc->params[id_LUT0_INITVAL] = lut->params[id_INIT];
-
-    for (std::string i : {"A", "B", "C", "D"}) {
-        IdString lut_port = ctx->id(i);
-        IdString lc_port = ctx->id(i + "0");
-        lut->movePortTo(lut_port, lc, lc_port);
-    }
-
-    lut->movePortTo(id_Z, lc, id_F0);
-}
-
-void dff_to_lc(Context *ctx, CellInfo *dff, CellInfo *lc, LutType lut_type)
-{
-    // FIXME: This will have to change once we support FFs with reset value of 1.
-    lc->params[id_REG0_REGSET] = std::string("RESET");
-
-    dff->movePortTo(id_CLK, lc, id_CLK);
-    dff->movePortTo(id_LSR, lc, id_LSR);
-    dff->movePortTo(id_Q, lc, id_Q0);
-
-    if (lut_type == LutType::PassThru) {
-        // If a register's DI port is fed by a constant, options for placing are
-        // limited. Use the LUT to get around this.
-        // LUT output will go to F0, which will feed back to DI0 input.
-        lc->params[id_LUT0_INITVAL] = Property(0xAAAA, 16);
-        dff->movePortTo(id_DI, lc, id_A0);
-        lc->connectPorts(id_F0, lc, id_DI0);
-    } else if (lut_type == LutType::None) {
-        // If there is no LUT, use the M0 input because DI0 requires
-        // going through the LUTs.
-        lc->params[id_REG0_SD] = std::string("0");
-        dff->movePortTo(id_DI, lc, id_M0);
-    } else {
-        // Otherwise, there's a LUT being used in the slice and mapping DI to
-        // DI0 input is fine.
-        dff->movePortTo(id_DI, lc, id_DI0);
-    }
-}
-
 void nxio_to_tr(Context *ctx, CellInfo *nxio, CellInfo *trio, std::vector<std::unique_ptr<CellInfo>> &created_cells,
                 pool<IdString> &todelete_cells)
 {
