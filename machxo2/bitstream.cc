@@ -514,34 +514,67 @@ void write_bitstream(Context *ctx, std::string text_config_file)
             continue;
         }
         BelId bel = ci->bel;
-        if (ci->type == id_TRELLIS_SLICE) {
+
+        if (ci->type == id_TRELLIS_COMB) {
+            pool<IdString> used_phys_pins;
             std::string tname = ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, "PLC");
-            std::string slice = ctx->tile_info(bel)->bel_data[bel.index].name.get();
+            int z = ctx->tile_info(bel)->bel_data[bel.index].z >> Arch::lc_idx_shift;
+            std::string slice = std::string("SLICE") + "ABCD"[z / 2];
+            std::string lc = std::to_string(z % 2);
+            std::string mode = str_or_default(ci->params, id_MODE, "LOGIC");
+            if (mode == "RAMW_BLOCK")
+                return;
+            int lut_init = int_or_default(ci->params, id_INITVAL);
+            cc.tiles[tname].add_enum(slice + ".MODE", mode);
+            cc.tiles[tname].add_word(slice + ".K" + lc + ".INIT", int_to_bitvector(lut_init, 16));
+            if (mode == "CCU2") {
+                cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_" + lc, str_or_default(ci->params, id_CCU2_INJECT1, "YES"));
+            } else {
+                // Don't interfere with cascade mux wiring
+                cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_" + lc, "_NONE_");
+            }
+            if (mode == "DPRAM" && slice == "SLICEA" && lc == "0") {
+                cc.tiles[tname].add_enum(slice + ".WREMUX", str_or_default(ci->params, id_WREMUX, "WRE"));
+                std::string wckmux = str_or_default(ci->params, id_WCKMUX, "WCK");
+                wckmux = (wckmux == "WCK") ? "CLK" : wckmux;
+                cc.tiles[tname].add_enum("CLK1.CLKMUX", wckmux);
+            }
+        } else if (ci->type == id_TRELLIS_FF) {
+            std::string tname = ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, "PLC");
+            int z = ctx->tile_info(bel)->bel_data[bel.index].z >> Arch::lc_idx_shift;
+            std::string slice = std::string("SLICE") + "ABCD"[z / 2];
+            std::string lc = std::to_string(z % 2);
 
-            NPNR_ASSERT(slice.substr(0, 5) == "SLICE");
-            int int_index = slice[5] - 'A';
-            NPNR_ASSERT(int_index >= 0 && int_index < 4);
-
-            int lut0_init = int_or_default(ci->params, id_LUT0_INITVAL);
-            int lut1_init = int_or_default(ci->params, id_LUT1_INITVAL);
-            cc.tiles[tname].add_word(slice + ".K0.INIT", int_to_bitvector(lut0_init, 16));
-            cc.tiles[tname].add_word(slice + ".K1.INIT", int_to_bitvector(lut1_init, 16));
             cc.tiles[tname].add_enum(slice + ".MODE", str_or_default(ci->params, id_MODE, "LOGIC"));
             cc.tiles[tname].add_enum(slice + ".GSR", str_or_default(ci->params, id_GSR, "ENABLED"));
-            cc.tiles[tname].add_enum("LSR" + std::to_string(int_index) + ".SRMODE",
-                                     str_or_default(ci->params, id_SRMODE, "LSR_OVER_CE"));
-            cc.tiles[tname].add_enum(slice + ".CEMUX", intstr_or_default(ci->params, id_CEMUX, "1"));
-            cc.tiles[tname].add_enum("CLK" + std::to_string(int_index) + ".CLKMUX",
-                                     intstr_or_default(ci->params, id_CLKMUX, "0"));
-            cc.tiles[tname].add_enum("LSR" + std::to_string(int_index) + ".LSRMUX",
-                                     str_or_default(ci->params, id_LSRMUX, "LSR"));
-            cc.tiles[tname].add_enum("LSR" + std::to_string(int_index) + ".LSRONMUX",
-                                     intstr_or_default(ci->params, id_LSRONMUX, "LSRMUX"));
             cc.tiles[tname].add_enum(slice + ".REGMODE", str_or_default(ci->params, id_REGMODE, "FF"));
-            cc.tiles[tname].add_enum(slice + ".REG0.SD", intstr_or_default(ci->params, id_REG0_SD, "0"));
-            cc.tiles[tname].add_enum(slice + ".REG1.SD", intstr_or_default(ci->params, id_REG1_SD, "0"));
-            cc.tiles[tname].add_enum(slice + ".REG0.REGSET", str_or_default(ci->params, id_REG0_REGSET, "RESET"));
-            cc.tiles[tname].add_enum(slice + ".REG1.REGSET", str_or_default(ci->params, id_REG1_REGSET, "RESET"));
+            cc.tiles[tname].add_enum(slice + ".REG" + lc + ".SD", intstr_or_default(ci->params, id_SD, "0"));
+            cc.tiles[tname].add_enum(slice + ".REG" + lc + ".REGSET", str_or_default(ci->params, id_REGSET, "RESET"));
+
+            cc.tiles[tname].add_enum(slice + ".CEMUX", str_or_default(ci->params, id_CEMUX, "1"));
+
+            NetInfo *lsrnet = ci->getPort(id_LSR);
+            if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "LSR0")) == lsrnet) {
+                cc.tiles[tname].add_enum("LSR0.LSRMUX", str_or_default(ci->params, id_LSRMUX, "LSR"));
+                cc.tiles[tname].add_enum("LSR0.LSRONMUX", str_or_default(ci->params, id_LSRONMUX, "LSRMUX"));
+            }
+            if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "LSR1")) == lsrnet) {
+                cc.tiles[tname].add_enum("LSR1.LSRMUX", str_or_default(ci->params, id_LSRMUX, "LSR"));
+                cc.tiles[tname].add_enum("LSR1.LSRONMUX", str_or_default(ci->params, id_LSRONMUX, "LSRMUX"));
+            }
+
+            NetInfo *clknet = ci->getPort(id_CLK);
+            if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "CLK0")) == clknet) {
+                cc.tiles[tname].add_enum("CLK0.CLKMUX", str_or_default(ci->params, id_CLKMUX, "0"));
+            }
+            if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "CLK1")) == clknet) {
+                cc.tiles[tname].add_enum("CLK1.CLKMUX", str_or_default(ci->params, id_CLKMUX, "0"));
+            }
+        } else if (ci->type == id_TRELLIS_RAMW) {
+            std::string tname = ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, "PLC2");
+            cc.tiles[tname].add_enum("SLICEC.MODE", "RAMW");
+            cc.tiles[tname].add_word("SLICEC.K0.INIT", std::vector<bool>(16, false));
+            cc.tiles[tname].add_word("SLICEC.K1.INIT", std::vector<bool>(16, false));
         } else if (ci->type == id_TRELLIS_IO) {
             std::string pio = ctx->tile_info(bel)->bel_data[bel.index].name.get();
             std::string iotype = str_or_default(ci->attrs, id_IO_TYPE, "LVCMOS33");
