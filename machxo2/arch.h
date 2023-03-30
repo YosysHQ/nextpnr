@@ -549,6 +549,19 @@ struct Arch : BaseArch<ArchRanges>
 
     IdString get_wire_basename(WireId wire) const { return id(tile_info(wire)->wire_data[wire.index].name.get()); }
 
+    WireId get_wire_by_loc_basename(Location loc, std::string basename) const
+    {
+        WireId wireId;
+        wireId.location = loc;
+        for (int i = 0; i < tile_info(wireId)->wire_data.ssize(); i++) {
+            if (tile_info(wireId)->wire_data[i].name.get() == basename) {
+                wireId.index = i;
+                return wireId;
+            }
+        }
+        return WireId();
+    }
+
     // Pips
     PipId getPipByName(IdStringList name) const override;
     IdStringList getPipName(PipId pip) const override;
