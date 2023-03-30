@@ -66,6 +66,11 @@ NPNR_PACKED_STRUCT(struct PipInfoPOD {
     int16_t padding2;
 });
 
+inline bool is_lutperm_pip(int16_t flags) { return flags & 0x4000; }
+inline uint8_t lutperm_lut(int16_t flags) { return (flags >> 4) & 0x7; }
+inline uint8_t lutperm_out(int16_t flags) { return (flags >> 2) & 0x3; }
+inline uint8_t lutperm_in(int16_t flags) { return flags & 0x3; }
+
 NPNR_PACKED_STRUCT(struct PipLocatorPOD {
     LocationPOD rel_loc;
     int32_t index;
@@ -383,6 +388,15 @@ struct Arch : BaseArch<ArchRanges>
     // inverse of the above for name->object mapping
     dict<IdString, int> id_to_x, id_to_y;
 
+    enum class LutPermRule
+    {
+        NONE,
+        CARRY,
+        ALL,
+    };
+    std::vector<LutPermRule> lutperm_allowed;
+    bool disable_router_lutperm = false;
+
     enum LogicBELType
     {
         BEL_COMB = 0,
@@ -414,6 +428,17 @@ struct Arch : BaseArch<ArchRanges>
     };
 
     mutable std::vector<TileStatus> tile_status;
+
+    // faster replacements for base_pip2net, base_wire2net
+    // indexed by get_pip_vecidx()
+    std::vector<NetInfo *> pip2net;
+    // indexed by get_wire_vecidx()
+    std::vector<NetInfo *> wire2net;
+    std::vector<int> wire_fanout;
+    // We record the index=0 offset into pip2net for each tile, allowing us to
+    // calculate any PipId's offset from pip.index and pip.location
+    std::vector<int32_t> pip_tile_vecidx;
+    std::vector<int32_t> wire_tile_vecidx;
 
     // Helpers
     template <typename Id> const TileTypePOD *tile_info(Id &id) const
@@ -470,6 +495,62 @@ struct Arch : BaseArch<ArchRanges>
         return IdStringList(ids);
     }
 
+    uint32_t getBelChecksum(BelId bel) const override { return bel.index; }
+
+    int get_slice_index(int x, int y, int slice) const
+    {
+        NPNR_ASSERT(slice >= 0 && slice < 4);
+        return (y * chip_info->width + x) * 4 + slice;
+    }
+
+    void update_bel(BelId bel, CellInfo *old_cell, CellInfo *new_cell)
+    {
+        CellInfo *act_cell = (old_cell == nullptr) ? new_cell : old_cell;
+        if (act_cell->type.in(id_TRELLIS_FF, id_TRELLIS_COMB, id_TRELLIS_RAMW)) {
+            LogicTileStatus *lts = tile_status.at(tile_index(bel)).lts;
+            NPNR_ASSERT(lts != nullptr);
+            int z = tile_info(bel)->bel_data[bel.index].z;
+            lts->slices[(z >> lc_idx_shift) / 2].dirty = true;
+            if (act_cell->type == id_TRELLIS_FF)
+                lts->tile_dirty = true; // because FF CLK/LSR signals are tile-wide
+            if (act_cell->type == id_TRELLIS_COMB && (act_cell->combInfo.flags & ArchCellInfo::COMB_LUTRAM))
+                lts->tile_dirty = true; // because RAM shares CLK/LSR signals with FFs
+            lts->cells[z] = new_cell;
+        }
+    }
+
+    void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength) override
+    {
+        NPNR_ASSERT(bel != BelId());
+        auto &slot = tile_status.at(tile_index(bel)).boundcells.at(bel.index);
+        NPNR_ASSERT(slot == nullptr);
+        slot = cell;
+        cell->bel = bel;
+        cell->belStrength = strength;
+        if (getBelType(bel) == id_TRELLIS_COMB) {
+            int flags = cell->combInfo.flags;
+            lutperm_allowed.at(
+                    get_slice_index(bel.location.x, bel.location.y, (getBelLocation(bel).z >> lc_idx_shift) / 2)) =
+                    (((flags & ArchCellInfo::COMB_LUTRAM) || (flags & ArchCellInfo::COMB_RAMW_BLOCK))
+                             ? LutPermRule::NONE
+                             : ((flags & ArchCellInfo::COMB_CARRY) ? LutPermRule::CARRY : LutPermRule::ALL));
+        }
+        update_bel(bel, nullptr, cell);
+        refreshUiBel(bel);
+    }
+
+    void unbindBel(BelId bel) override
+    {
+        NPNR_ASSERT(bel != BelId());
+        auto &slot = tile_status.at(tile_index(bel)).boundcells.at(bel.index);
+        NPNR_ASSERT(slot != nullptr);
+        update_bel(bel, slot, nullptr);
+        slot->bel = BelId();
+        slot->belStrength = STRENGTH_NONE;
+        slot = nullptr;
+        refreshUiBel(bel);
+    }
+
     Loc getBelLocation(BelId bel) const override
     {
         NPNR_ASSERT(bel != BelId());
@@ -483,6 +564,27 @@ struct Arch : BaseArch<ArchRanges>
     BelId getBelByLocation(Loc loc) const override;
     BelRange getBelsByTile(int x, int y) const override;
     bool getBelGlobalBuf(BelId bel) const override;
+
+    bool checkBelAvail(BelId bel) const override
+    {
+        NPNR_ASSERT(bel != BelId());
+        const CellInfo *slot = tile_status.at(tile_index(bel)).boundcells.at(bel.index);
+        return slot == nullptr;
+    }
+
+    CellInfo *getBoundBelCell(BelId bel) const override
+    {
+        NPNR_ASSERT(bel != BelId());
+        CellInfo *slot = tile_status.at(tile_index(bel)).boundcells.at(bel.index);
+        return slot;
+    }
+
+    CellInfo *getConflictingBelCell(BelId bel) const override
+    {
+        NPNR_ASSERT(bel != BelId());
+        CellInfo *slot = tile_status.at(tile_index(bel)).boundcells.at(bel.index);
+        return slot;
+    }
 
     BelRange getBels() const override
     {
@@ -522,6 +624,60 @@ struct Arch : BaseArch<ArchRanges>
                                     id(tile_info(wire)->wire_data[wire.index].name.get())};
         return IdStringList(ids);
     }
+
+    IdString getWireType(WireId wire) const override
+    {
+        NPNR_ASSERT(wire != WireId());
+        IdString id;
+        id.index = tile_info(wire)->wire_data[wire.index].type;
+        return id;
+    }
+
+    std::vector<std::pair<IdString, std::string>> getWireAttrs(WireId) const override;
+
+    uint32_t getWireChecksum(WireId wire) const override { return wire.index; }
+
+    uint32_t get_wire_vecidx(const WireId &e) const
+    {
+        uint32_t tile = e.location.y * chip_info->width + e.location.x;
+        int32_t base = wire_tile_vecidx.at(tile);
+        NPNR_ASSERT(base != -1);
+        int32_t i = base + e.index;
+        return i;
+    }
+
+    void bindWire(WireId wire, NetInfo *net, PlaceStrength strength) override
+    {
+        NPNR_ASSERT(wire != WireId());
+        auto &w2n_entry = wire2net.at(get_wire_vecidx(wire));
+        NPNR_ASSERT(w2n_entry == nullptr);
+        net->wires[wire].pip = PipId();
+        net->wires[wire].strength = strength;
+        w2n_entry = net;
+        this->refreshUiWire(wire);
+    }
+    void unbindWire(WireId wire) override
+    {
+        NPNR_ASSERT(wire != WireId());
+        auto &w2n_entry = wire2net.at(get_wire_vecidx(wire));
+        NPNR_ASSERT(w2n_entry != nullptr);
+
+        auto &net_wires = w2n_entry->wires;
+        auto it = net_wires.find(wire);
+        NPNR_ASSERT(it != net_wires.end());
+
+        auto pip = it->second.pip;
+        if (pip != PipId()) {
+            pip2net.at(get_pip_vecidx(pip)) = nullptr;
+            wire_fanout[get_wire_vecidx(getPipSrcWire(pip))]--;
+        }
+
+        net_wires.erase(it);
+        w2n_entry = nullptr;
+        this->refreshUiWire(wire);
+    }
+    virtual bool checkWireAvail(WireId wire) const override { return getBoundWireNet(wire) == nullptr; }
+    NetInfo *getBoundWireNet(WireId wire) const override { return wire2net.at(get_wire_vecidx(wire)); }
 
     DelayQuad getWireDelay(WireId wire) const override { return DelayQuad(0.01); }
 
@@ -567,6 +723,78 @@ struct Arch : BaseArch<ArchRanges>
     // Pips
     PipId getPipByName(IdStringList name) const override;
     IdStringList getPipName(PipId pip) const override;
+
+    uint32_t getPipChecksum(PipId pip) const override { return pip.index; }
+
+    uint32_t get_pip_vecidx(const PipId &e) const
+    {
+        uint32_t tile = e.location.y * chip_info->width + e.location.x;
+        int32_t base = pip_tile_vecidx.at(tile);
+        NPNR_ASSERT(base != -1);
+        int32_t i = base + e.index;
+        return i;
+    }
+
+    void bindPip(PipId pip, NetInfo *net, PlaceStrength strength) override
+    {
+        NPNR_ASSERT(pip != PipId());
+        wire_fanout[get_wire_vecidx(getPipSrcWire(pip))]++;
+
+        auto &p2n_entry = pip2net.at(get_pip_vecidx(pip));
+        NPNR_ASSERT(p2n_entry == nullptr);
+        p2n_entry = net;
+
+        WireId dst = this->getPipDstWire(pip);
+        auto &w2n_entry = wire2net.at(get_wire_vecidx(dst));
+        NPNR_ASSERT(w2n_entry == nullptr);
+        w2n_entry = net;
+        net->wires[dst].pip = pip;
+        net->wires[dst].strength = strength;
+    }
+
+    void unbindPip(PipId pip) override
+    {
+        NPNR_ASSERT(pip != PipId());
+        wire_fanout[get_wire_vecidx(getPipSrcWire(pip))]--;
+
+        auto &p2n_entry = pip2net.at(get_pip_vecidx(pip));
+        NPNR_ASSERT(p2n_entry != nullptr);
+        WireId dst = this->getPipDstWire(pip);
+
+        auto &w2n_entry = wire2net.at(get_wire_vecidx(dst));
+        NPNR_ASSERT(w2n_entry != nullptr);
+        w2n_entry = nullptr;
+
+        p2n_entry->wires.erase(dst);
+        p2n_entry = nullptr;
+    }
+    bool is_pip_blocked(PipId pip) const
+    {
+        auto &pip_data = tile_info(pip)->pip_data[pip.index];
+        int lp = pip_data.lutperm_flags;
+        if (is_lutperm_pip(lp)) {
+            if (disable_router_lutperm)
+                return true;
+            auto rule = lutperm_allowed.at(get_slice_index(pip.location.x, pip.location.y, lutperm_lut(lp) / 2));
+            if (rule == LutPermRule::NONE) {
+                // Permutation not allowed
+                return true;
+            } else if (rule == LutPermRule::CARRY) {
+                // Can swap A/B and C/D only
+                int i = lutperm_out(lp), j = lutperm_in(lp);
+                if ((i / 2) != (j / 2))
+                    return true;
+            }
+        }
+        return false;
+    }
+    bool checkPipAvail(PipId pip) const override { return (getBoundPipNet(pip) == nullptr) && !is_pip_blocked(pip); }
+    bool checkPipAvailForNet(PipId pip, const NetInfo *net) const override
+    {
+        NetInfo *bound_net = getBoundPipNet(pip);
+        return (bound_net == nullptr || bound_net == net) && !is_pip_blocked(pip);
+    }
+    NetInfo *getBoundPipNet(PipId pip) const override { return pip2net.at(get_pip_vecidx(pip)); }
 
     AllPipRange getPips() const override
     {
@@ -646,6 +874,11 @@ struct Arch : BaseArch<ArchRanges>
                 return tn.name.get();
         }
         NPNR_ASSERT_FALSE("failed to find Pip tile");
+    }
+
+    std::string get_pip_tiletype(PipId pip) const
+    {
+        return chip_info->tiletype_names[tile_info(pip)->pip_data[pip.index].tile_type].get();
     }
 
     // Delay

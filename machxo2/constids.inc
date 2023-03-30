@@ -126,6 +126,7 @@ X(NOM_FREQ)
 X(VCC)
 
 X(WIRE_TYPE_NONE)
+X(TILE_WIRE_ID)
 
 X(machxo2)
 X(pack)

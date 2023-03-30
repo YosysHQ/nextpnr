@@ -127,6 +127,29 @@ Arch::Arch(ArchArgs args) : args(args)
         y_ids.push_back(y_id);
         id_to_y[y_id] = i;
     }
+
+    wire_tile_vecidx.resize(chip_info->num_tiles, -1);
+    int n_wires = 0;
+    for (auto e : getWires()) {
+        if (e.index == 0) {
+            wire_tile_vecidx.at(e.location.y * chip_info->width + e.location.x) = n_wires;
+        }
+        n_wires++;
+    }
+    wire2net.resize(n_wires, nullptr);
+    wire_fanout.resize(n_wires, 0);
+
+    pip_tile_vecidx.resize(chip_info->num_tiles, -1);
+    int n_pips = 0;
+    for (auto e : getPips()) {
+        if (e.index == 0) {
+            pip_tile_vecidx.at(e.location.y * chip_info->width + e.location.x) = n_pips;
+        }
+        n_pips++;
+    }
+    pip2net.resize(n_pips, nullptr);
+
+    lutperm_allowed.resize(chip_info->width * chip_info->height * 4);
 }
 
 void Arch::list_devices()
@@ -395,6 +418,9 @@ bool Arch::place()
 bool Arch::route()
 {
     std::string router = str_or_default(settings, id_router, defaultRouter);
+
+    disable_router_lutperm = getCtx()->setting<bool>("arch.disable_router_lutperm", false);
+
     bool result;
     if (router == "router1") {
         result = router1(getCtx(), Router1Cfg(getCtx()));
@@ -500,6 +526,18 @@ std::vector<std::pair<std::string, std::string>> Arch::get_tiles_at_loc(int row,
     for (auto &tn : tileloc.tile_names) {
         ret.push_back(std::make_pair(tn.name.get(), chip_info->tiletype_names[tn.type_idx].get()));
     }
+    return ret;
+}
+
+// -----------------------------------------------------------------------
+
+std::vector<std::pair<IdString, std::string>> Arch::getWireAttrs(WireId wire) const
+{
+    std::vector<std::pair<IdString, std::string>> ret;
+    auto &wi = tile_info(wire)->wire_data[wire.index];
+
+    ret.push_back(std::make_pair(id_TILE_WIRE_ID, stringf("%d", wi.tile_wire)));
+
     return ret;
 }
 

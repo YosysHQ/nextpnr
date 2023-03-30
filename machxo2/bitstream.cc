@@ -404,6 +404,55 @@ static void set_pip(Context *ctx, ChipConfig &cc, PipId pip)
     }
 }
 
+static unsigned permute_lut(Context *ctx, CellInfo *cell, pool<IdString> &used_phys_pins, unsigned orig_init)
+{
+    std::array<std::vector<unsigned>, 4> phys_to_log;
+    const std::array<IdString, 4> ports{id_A, id_B, id_C, id_D};
+    for (unsigned i = 0; i < 4; i++) {
+        WireId pin_wire = ctx->getBelPinWire(cell->bel, ports[i]);
+        for (PipId pip : ctx->getPipsUphill(pin_wire)) {
+            if (!ctx->getBoundPipNet(pip))
+                continue;
+            unsigned lp = ctx->tile_info(pip)->pip_data[pip.index].lutperm_flags;
+            if (!is_lutperm_pip(lp)) { // non-permuting
+                phys_to_log[i].push_back(i);
+            } else { // permuting
+                unsigned from_pin = lutperm_in(lp);
+                unsigned to_pin = lutperm_out(lp);
+                NPNR_ASSERT(to_pin == i);
+                phys_to_log[from_pin].push_back(i);
+            }
+        }
+    }
+    for (unsigned i = 0; i < 4; i++)
+        if (!phys_to_log.at(i).empty())
+            used_phys_pins.insert(ports.at(i));
+    if (cell->combInfo.flags & ArchCellInfo::COMB_CARRY) {
+        // Insert dummy entries to ensure we keep the split between the two halves of a CCU2
+        for (unsigned i = 0; i < 4; i++) {
+            if (!phys_to_log.at(i).empty())
+                continue;
+            for (unsigned j = 2 * (i / 2); j < 2 * ((i / 2) + 1); j++) {
+                if (!ctx->getBoundWireNet(ctx->getBelPinWire(cell->bel, ports[j])))
+                    phys_to_log.at(i).push_back(j);
+            }
+        }
+    }
+    unsigned permuted_init = 0;
+    for (unsigned i = 0; i < 16; i++) {
+        unsigned log_idx = 0;
+        for (unsigned j = 0; j < 4; j++) {
+            if ((i >> j) & 0x1) {
+                for (auto log_pin : phys_to_log[j])
+                    log_idx |= (1 << log_pin);
+            }
+        }
+        if ((orig_init >> log_idx) & 0x1)
+            permuted_init |= (1 << i);
+    }
+    return permuted_init;
+}
+
 static std::vector<bool> int_to_bitvector(int val, int size)
 {
     std::vector<bool> bv;
@@ -526,7 +575,8 @@ void write_bitstream(Context *ctx, std::string text_config_file)
                 return;
             int lut_init = int_or_default(ci->params, id_INITVAL);
             cc.tiles[tname].add_enum(slice + ".MODE", mode);
-            cc.tiles[tname].add_word(slice + ".K" + lc + ".INIT", int_to_bitvector(lut_init, 16));
+            cc.tiles[tname].add_word(slice + ".K" + lc + ".INIT",
+                                    int_to_bitvector(permute_lut(ctx, ci, used_phys_pins, lut_init), 16));
             if (mode == "CCU2") {
                 cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_" + lc, str_or_default(ci->params, id_CCU2_INJECT1, "YES"));
             } else {
