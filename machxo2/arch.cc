@@ -395,21 +395,33 @@ delay_t Arch::predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdStr
 bool Arch::place()
 {
     std::string placer = str_or_default(settings, id_placer, defaultPlacer);
-    if (placer == "sa") {
-        bool retVal = placer1(getCtx(), Placer1Cfg(getCtx()));
-        getCtx()->settings[id_place] = 1;
-        archInfoToAttributes();
-        return retVal;
-    } else if (placer == "heap") {
+
+    if (placer == "heap") {
         PlacerHeapCfg cfg(getCtx());
+        cfg.criticalityExponent = 4;
         cfg.ioBufTypes.insert(id_TRELLIS_IO);
-        bool retVal = placer_heap(getCtx(), cfg);
-        getCtx()->settings[id_place] = 1;
-        archInfoToAttributes();
-        return retVal;
+
+        cfg.cellGroups.emplace_back();
+        cfg.cellGroups.back().insert(id_TRELLIS_COMB);
+        cfg.cellGroups.back().insert(id_TRELLIS_FF);
+        cfg.cellGroups.back().insert(id_TRELLIS_RAMW);
+        cfg.placeAllAtOnce = true;
+
+        cfg.beta = 0.75;
+
+        if (!placer_heap(getCtx(), cfg))
+            return false;
+    } else if (placer == "sa") {
+        if (!placer1(getCtx(), Placer1Cfg(getCtx())))
+            return false;
     } else {
         log_error("MachXO2 architecture does not support placer '%s'\n", placer.c_str());
     }
+
+    getCtx()->settings[id_place] = 1;
+
+    archInfoToAttributes();
+    return true;
 }
 
 bool Arch::route()
@@ -417,6 +429,8 @@ bool Arch::route()
     std::string router = str_or_default(settings, id_router, defaultRouter);
 
     disable_router_lutperm = getCtx()->setting<bool>("arch.disable_router_lutperm", false);
+
+    assignArchInfo();
 
     bool result;
     if (router == "router1") {
