@@ -30,6 +30,8 @@ NEXTPNR_NAMESPACE_BEGIN
 
 typedef float delay_t;
 
+// -----------------------------------------------------------------------
+
 // https://bugreports.qt.io/browse/QTBUG-80789
 
 #ifndef Q_MOC_RUN
@@ -107,6 +109,22 @@ struct PipId
     unsigned int hash() const { return mkhash(location.hash(), index); }
 };
 
+typedef IdString BelBucketId;
+
+struct GroupId
+{
+    enum : int8_t
+    {
+        TYPE_NONE,
+        TYPE_SWITCHBOX
+    } type = TYPE_NONE;
+    Location location;
+
+    bool operator==(const GroupId &other) const { return (type == other.type) && (location == other.location); }
+    bool operator!=(const GroupId &other) const { return (type != other.type) || (location != other.location); }
+    unsigned int hash() const { return mkhash(location.hash(), int(type)); }
+};
+
 struct DecalId
 {
     enum
@@ -131,14 +149,13 @@ struct DecalId
     unsigned int hash() const { return mkhash(location.hash(), mkhash(z, int(type))); }
 };
 
-typedef IdString GroupId;
-typedef IdString BelBucketId;
-typedef IdString ClusterId;
-
 struct ArchNetInfo
 {
 };
 
+typedef IdString ClusterId;
+
+struct CellInfo;
 struct NetInfo;
 
 struct ArchCellInfo : BaseClusterInfo
@@ -197,5 +214,4 @@ struct ArchCellInfo : BaseClusterInfo
 };
 
 NEXTPNR_NAMESPACE_END
-
 #endif /* MACHXO2_ARCHDEFS_H */

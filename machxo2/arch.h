@@ -149,8 +149,6 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
 
 /************************ End of chipdb section. ************************/
 
-// Iterators
-// Iterate over Bels across tiles.
 struct BelIterator
 {
     const ChipInfoPOD *chip;
@@ -200,7 +198,8 @@ struct BelRange
     BelIterator end() const { return e; }
 };
 
-// Iterate over Downstream/Upstream Bels for a Wire.
+// -----------------------------------------------------------------------
+
 struct BelPinIterator
 {
     const BelPortPOD *ptr = nullptr;
@@ -225,7 +224,8 @@ struct BelPinRange
     BelPinIterator end() const { return e; }
 };
 
-// Iterator over Wires across tiles.
+// -----------------------------------------------------------------------
+
 struct WireIterator
 {
     const ChipInfoPOD *chip;
@@ -275,7 +275,8 @@ struct WireRange
     WireIterator end() const { return e; }
 };
 
-// Iterator over Pips across tiles.
+// -----------------------------------------------------------------------
+
 struct AllPipIterator
 {
     const ChipInfoPOD *chip;
@@ -325,7 +326,8 @@ struct AllPipRange
     AllPipIterator end() const { return e; }
 };
 
-// Iterate over Downstream/Upstream Pips for a Wire.
+// -----------------------------------------------------------------------
+
 struct PipIterator
 {
 
@@ -383,11 +385,6 @@ struct Arch : BaseArch<ArchRanges>
 
     mutable dict<IdStringList, PipId> pip_by_name;
 
-    // fast access to  X and Y IdStrings for building object names
-    std::vector<IdString> x_ids, y_ids;
-    // inverse of the above for name->object mapping
-    dict<IdString, int> id_to_x, id_to_y;
-
     enum class LutPermRule
     {
         NONE,
@@ -397,6 +394,9 @@ struct Arch : BaseArch<ArchRanges>
     std::vector<LutPermRule> lutperm_allowed;
     bool disable_router_lutperm = false;
 
+    // For fast, incremental validity checking of split SLICE
+
+    // BEL z-position lookup, x-ored with (index in tile) << 2
     enum LogicBELType
     {
         BEL_COMB = 0,
@@ -427,8 +427,6 @@ struct Arch : BaseArch<ArchRanges>
         ~TileStatus() { delete lts; }
     };
 
-    mutable std::vector<TileStatus> tile_status;
-
     // faster replacements for base_pip2net, base_wire2net
     // indexed by get_pip_vecidx()
     std::vector<NetInfo *> pip2net;
@@ -440,52 +438,48 @@ struct Arch : BaseArch<ArchRanges>
     std::vector<int32_t> pip_tile_vecidx;
     std::vector<int32_t> wire_tile_vecidx;
 
-    // Helpers
-    template <typename Id> const TileTypePOD *tile_info(Id &id) const
-    {
-        return &(chip_info->tiles[id.location.y * chip_info->width + id.location.x]);
-    }
+    // fast access to  X and Y IdStrings for building object names
+    std::vector<IdString> x_ids, y_ids;
+    // inverse of the above for name->object mapping
+    dict<IdString, int> id_to_x, id_to_y;
 
-    int get_bel_flat_index(BelId bel) const
-    {
-        return (bel.location.y * chip_info->width + bel.location.x) * max_loc_bels + bel.index;
-    }
-
-    template <typename Id> inline int tile_index(Id id) const
-    {
-        return id.location.y * chip_info->width + id.location.x;
-    }
-
-    // ---------------------------------------------------------------
-    // Common Arch API. Every arch must provide the following methods.
-
-    // General
     ArchArgs args;
     Arch(ArchArgs args);
 
     static void list_devices();
 
     std::string getChipName() const override;
-    // Extra helper
     std::string get_full_chip_name() const;
 
     IdString archId() const override { return id_machxo2; }
     ArchArgs archArgs() const override { return args; }
     IdString archArgsToId(ArchArgs args) const override;
 
-    static const int max_loc_bels = 20;
+    // -------------------------------------------------
 
-    int getGridDimX() const override { return chip_info->width; }
-    int getGridDimY() const override { return chip_info->height; }
-    int getTileBelDimZ(int x, int y) const override { return max_loc_bels; }
+    static const int max_loc_bels = 32;
+
+    int getGridDimX() const override { return chip_info->width; };
+    int getGridDimY() const override { return chip_info->height; };
+    int getTileBelDimZ(int, int) const override { return max_loc_bels; };
     // TODO: Make more precise? The CENTER MUX having config bits across
     // tiles can complicate this?
-    int getTilePipDimZ(int x, int y) const override { return 2; }
-
+    int getTilePipDimZ(int, int) const override { return 2; };
     char getNameDelimiter() const override { return '/'; }
 
-    // Bels
+    // -------------------------------------------------
+
     BelId getBelByName(IdStringList name) const override;
+
+    template <typename Id> const TileTypePOD *tile_info(Id &id) const
+    {
+        return &(chip_info->tiles[id.location.y * chip_info->width + id.location.x]);
+    }
+
+    template <typename Id> inline int tile_index(Id id) const
+    {
+        return id.location.y * chip_info->width + id.location.x;
+    }
 
     IdStringList getBelName(BelId bel) const override
     {
@@ -563,7 +557,8 @@ struct Arch : BaseArch<ArchRanges>
 
     BelId getBelByLocation(Loc loc) const override;
     BelRange getBelsByTile(int x, int y) const override;
-    bool getBelGlobalBuf(BelId bel) const override;
+
+    bool getBelGlobalBuf(BelId bel) const override { return false; }
 
     bool checkBelAvail(BelId bel) const override
     {
@@ -608,13 +603,22 @@ struct Arch : BaseArch<ArchRanges>
     }
 
     WireId getBelPinWire(BelId bel, IdString pin) const override;
-    PortType getBelPinType(BelId bel, IdString pin) const override;
+
+    BelPinRange getWireBelPins(WireId wire) const override
+    {
+        BelPinRange range;
+        NPNR_ASSERT(wire != WireId());
+        range.b.ptr = tile_info(wire)->wire_data[wire.index].bel_pins.begin();
+        range.b.wire_loc = wire.location;
+        range.e.ptr = tile_info(wire)->wire_data[wire.index].bel_pins.end();
+        range.e.wire_loc = wire.location;
+        return range;
+    }
+
     std::vector<IdString> getBelPins(BelId bel) const override;
 
-    // Package
-    BelId getPackagePinBel(const std::string &pin) const;
+    // -------------------------------------------------
 
-    // Wires
     WireId getWireByName(IdStringList name) const override;
 
     IdStringList getWireName(WireId wire) const override
@@ -694,17 +698,6 @@ struct Arch : BaseArch<ArchRanges>
         return range;
     }
 
-    BelPinRange getWireBelPins(WireId wire) const override
-    {
-        BelPinRange range;
-        NPNR_ASSERT(wire != WireId());
-        range.b.ptr = tile_info(wire)->wire_data[wire.index].bel_pins.begin();
-        range.b.wire_loc = wire.location;
-        range.e.ptr = tile_info(wire)->wire_data[wire.index].bel_pins.end();
-        range.e.wire_loc = wire.location;
-        return range;
-    }
-
     IdString get_wire_basename(WireId wire) const { return id(tile_info(wire)->wire_data[wire.index].name.get()); }
 
     WireId get_wire_by_loc_basename(Location loc, std::string basename) const
@@ -720,7 +713,8 @@ struct Arch : BaseArch<ArchRanges>
         return WireId();
     }
 
-    // Pips
+    // -------------------------------------------------
+
     PipId getPipByName(IdStringList name) const override;
     IdStringList getPipName(PipId pip) const override;
 
@@ -809,18 +803,6 @@ struct Arch : BaseArch<ArchRanges>
         return range;
     }
 
-    Loc getPipLocation(PipId pip) const override
-    {
-        Loc loc;
-        loc.x = pip.location.x;
-        loc.y = pip.location.y;
-
-        // FIXME: Some Pip's config bits span across tiles. Will Z
-        // be affected by this?
-        loc.z = 0;
-        return loc;
-    }
-
     WireId getPipSrcWire(PipId pip) const override
     {
         WireId wire;
@@ -863,9 +845,6 @@ struct Arch : BaseArch<ArchRanges>
         return range;
     }
 
-    // Extra Pip helpers.
-    int8_t get_pip_class(PipId pip) const { return tile_info(pip)->pip_data[pip.index].pip_type; }
-
     std::string get_pip_tilename(PipId pip) const
     {
         auto &tileloc = chip_info->tile_info[pip.location.y * chip_info->width + pip.location.x];
@@ -881,32 +860,65 @@ struct Arch : BaseArch<ArchRanges>
         return chip_info->tiletype_names[tile_info(pip)->pip_data[pip.index].tile_type].get();
     }
 
-    // Delay
+    Loc getPipLocation(PipId pip) const override
+    {
+        Loc loc;
+        loc.x = pip.location.x;
+        loc.y = pip.location.y;
+        loc.z = 0;
+        return loc;
+    }
+
+    int8_t get_pip_class(PipId pip) const { return tile_info(pip)->pip_data[pip.index].pip_type; }
+
+    BelId get_package_pin_bel(const std::string &pin) const;
+    //std::string get_bel_package_pin(BelId bel) const;
+    //int get_pio_bel_bank(BelId bel) const;
+    // For getting GCLK, PLL, Vref, etc, pins
+    //std::string get_pio_function_name(BelId bel) const;
+    //BelId get_pio_by_function_name(const std::string &name) const;
+
+    PortType getBelPinType(BelId bel, IdString pin) const override;
+
+    // -------------------------------------------------
+
+    GroupId getGroupByName(IdStringList name) const override;
+    IdStringList getGroupName(GroupId group) const override;
+    std::vector<GroupId> getGroups() const override;
+    std::vector<BelId> getGroupBels(GroupId group) const override;
+    std::vector<WireId> getGroupWires(GroupId group) const override;
+    std::vector<PipId> getGroupPips(GroupId group) const override;
+    std::vector<GroupId> getGroupGroups(GroupId group) const override;
+
+    // -------------------------------------------------
+
     delay_t estimateDelay(WireId src, WireId dst) const override;
+    BoundingBox getRouteBoundingBox(WireId src, WireId dst) const override;
     delay_t predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const override;
     delay_t getDelayEpsilon() const override { return 0.001; }
     delay_t getRipupDelayPenalty() const override { return 0.015; }
     float getDelayNS(delay_t v) const override { return v; }
-
     delay_t getDelayFromNS(float ns) const override { return ns; }
-
     uint32_t getDelayChecksum(delay_t v) const override { return v; }
+    //bool getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const override;
 
-    BoundingBox getRouteBoundingBox(WireId src, WireId dst) const override;
+    // -------------------------------------------------
 
-    // Flow
     bool pack() override;
     bool place() override;
     bool route() override;
 
-    // Graphics
+    // -------------------------------------------------
+
     std::vector<GraphicElement> getDecalGraphics(DecalId decal) const override;
 
     DecalXY getBelDecal(BelId bel) const override;
     DecalXY getWireDecal(WireId wire) const override;
     DecalXY getPipDecal(PipId pip) const override;
+    DecalXY getGroupDecal(GroupId group) const override;
 
-    // Placer
+    // -------------------------------------------------
+    // Placement validity checks
     bool isBelLocationValid(BelId bel, bool explain_invalid = false) const override;
 
     // Helper function for above
@@ -914,15 +926,6 @@ struct Arch : BaseArch<ArchRanges>
 
     void assign_arch_info_for_cell(CellInfo *ci);
     void assignArchInfo() override;
-
-    static const std::string defaultPlacer;
-    static const std::vector<std::string> availablePlacers;
-    static const std::string defaultRouter;
-    static const std::vector<std::string> availableRouters;
-
-    // ---------------------------------------------------------------
-    // Internal usage
-    bool cells_compatible(const CellInfo **cells, int count) const;
 
     std::vector<std::pair<std::string, std::string>> get_tiles_at_loc(int row, int col);
     std::string get_tile_by_type_loc(int row, int col, std::string type) const
@@ -956,6 +959,16 @@ struct Arch : BaseArch<ArchRanges>
         }
         NPNR_ASSERT_FALSE_STR("no tile with type " + type);
     }
+
+    static const std::string defaultPlacer;
+    static const std::vector<std::string> availablePlacers;
+    static const std::string defaultRouter;
+    static const std::vector<std::string> availableRouters;
+
+    mutable std::vector<TileStatus> tile_status;
+
+    // -------------------------------------------------
+
 };
 
 NEXTPNR_NAMESPACE_END

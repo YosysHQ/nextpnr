@@ -381,7 +381,7 @@ class Ecp5Packer
                     auto loc_attr = trio->attrs.find(id_LOC);
                     if (loc_attr != trio->attrs.end()) {
                         std::string pin = loc_attr->second.as_string();
-                        BelId pinBel = ctx->getPackagePinBel(pin);
+                        BelId pinBel = ctx->get_package_pin_bel(pin);
                         if (pinBel == BelId()) {
                             log_error("IO pin '%s' constrained to pin '%s', which does not exist for package '%s'.\n",
                                       trio->name.c_str(ctx), pin.c_str(), ctx->package_name);
