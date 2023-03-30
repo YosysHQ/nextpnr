@@ -201,27 +201,6 @@ BelId Arch::getBelByName(IdStringList name) const
     return BelId();
 }
 
-BelId Arch::getBelByLocation(Loc loc) const
-{
-    BelId ret;
-
-    if (loc.x >= chip_info->width || loc.y >= chip_info->height)
-        return BelId();
-
-    ret.location.x = loc.x;
-    ret.location.y = loc.y;
-
-    const TileTypePOD *loci = tile_info(ret);
-    for (int i = 0; i < loci->bel_data.ssize(); i++) {
-        if (loci->bel_data[i].z == loc.z) {
-            ret.index = i;
-            return ret;
-        }
-    }
-
-    return BelId();
-}
-
 BelRange Arch::getBelsByTile(int x, int y) const
 {
     BelRange br;
@@ -239,24 +218,21 @@ BelRange Arch::getBelsByTile(int x, int y) const
     return br;
 }
 
-bool Arch::getBelGlobalBuf(BelId bel) const { return false; }
-
 WireId Arch::getBelPinWire(BelId bel, IdString pin) const
 {
+    WireId ret;
+
     NPNR_ASSERT(bel != BelId());
 
     for (auto &bw : tile_info(bel)->bel_data[bel.index].bel_wires)
         if (bw.port == pin.index) {
-            WireId ret;
-
             ret.location.x = bw.rel_wire_loc.x;
             ret.location.y = bw.rel_wire_loc.y;
             ret.index = bw.wire_index;
-
-            return ret;
+            break;
         }
 
-    return WireId();
+    return ret;
 }
 
 PortType Arch::getBelPinType(BelId bel, IdString pin) const
@@ -268,35 +244,6 @@ PortType Arch::getBelPinType(BelId bel, IdString pin) const
             return PortType(bw.type);
 
     return PORT_INOUT;
-}
-
-std::vector<IdString> Arch::getBelPins(BelId bel) const
-{
-    std::vector<IdString> ret;
-    NPNR_ASSERT(bel != BelId());
-
-    for (auto &bw : tile_info(bel)->bel_data[bel.index].bel_wires) {
-        IdString id;
-        id.index = bw.port;
-        ret.push_back(id);
-    }
-
-    return ret;
-}
-
-// ---------------------------------------------------------------
-
-BelId Arch::getPackagePinBel(const std::string &pin) const
-{
-    for (auto &ppin : package_info->pin_data) {
-        if (ppin.name.get() == pin) {
-            BelId bel;
-            bel.location = ppin.abs_loc;
-            bel.index = ppin.bel_index;
-            return bel;
-        }
-    }
-    return BelId();
 }
 
 // ---------------------------------------------------------------
@@ -362,12 +309,72 @@ IdStringList Arch::getPipName(PipId pip) const
 
 // ---------------------------------------------------------------
 
+BelId Arch::get_package_pin_bel(const std::string &pin) const
+{
+    for (auto &ppin : package_info->pin_data) {
+        if (ppin.name.get() == pin) {
+            BelId bel;
+            bel.location = ppin.abs_loc;
+            bel.index = ppin.bel_index;
+            return bel;
+        }
+    }
+    return BelId();
+}
+
+std::vector<IdString> Arch::getBelPins(BelId bel) const
+{
+    std::vector<IdString> ret;
+    NPNR_ASSERT(bel != BelId());
+
+    for (auto &bw : tile_info(bel)->bel_data[bel.index].bel_wires) {
+        IdString id;
+        id.index = bw.port;
+        ret.push_back(id);
+    }
+
+    return ret;
+}
+
+BelId Arch::getBelByLocation(Loc loc) const
+{
+    BelId ret;
+
+    if (loc.x >= chip_info->width || loc.y >= chip_info->height)
+        return BelId();
+
+    ret.location.x = loc.x;
+    ret.location.y = loc.y;
+
+    const TileTypePOD *loci = tile_info(ret);
+    for (int i = 0; i < loci->bel_data.ssize(); i++) {
+        if (loci->bel_data[i].z == loc.z) {
+            ret.index = i;
+            return ret;
+        }
+    }
+
+    return BelId();
+}
+
+// ---------------------------------------------------------------
+
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {
     // Taxicab distance multiplied by pipDelay (0.01) and fake wireDelay (0.01).
     // TODO: This function will not work well for entrance to global routing,
     // as the entrances are located physically far from the DCCAs.
     return (abs(dst.location.x - src.location.x) + abs(dst.location.y - src.location.y)) * (0.01 + 0.01);
+}
+
+BoundingBox Arch::getRouteBoundingBox(WireId src, WireId dst) const
+{
+    BoundingBox bb;
+    bb.x0 = std::min(src.location.x, dst.location.x);
+    bb.y0 = std::min(src.location.y, dst.location.y);
+    bb.x1 = std::max(src.location.x, dst.location.x);
+    bb.y1 = std::max(src.location.y, dst.location.y);
+    return bb;
 }
 
 delay_t Arch::predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const
@@ -381,16 +388,6 @@ delay_t Arch::predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdStr
     // TODO: Same deal applies here as with estimateDelay.
     return (abs(dst_bel.location.x - src_bel.location.x) + abs(dst_bel.location.y - src_bel.location.y)) *
            (0.01 + 0.01);
-}
-
-BoundingBox Arch::getRouteBoundingBox(WireId src, WireId dst) const
-{
-    BoundingBox bb;
-    bb.x0 = std::min(src.location.x, dst.location.x);
-    bb.y0 = std::min(src.location.y, dst.location.y);
-    bb.x1 = std::max(src.location.x, dst.location.x);
-    bb.y1 = std::max(src.location.y, dst.location.y);
-    return bb;
 }
 
 // ---------------------------------------------------------------
@@ -508,6 +505,16 @@ DecalXY Arch::getPipDecal(PipId pip) const
     return decalxy;
 };
 
+DecalXY Arch::getGroupDecal(GroupId group) const
+{
+    DecalXY decalxy;
+    decalxy.decal.type = DecalId::TYPE_GROUP;
+    decalxy.decal.location = group.location;
+    decalxy.decal.z = group.type;
+    decalxy.decal.active = true;
+    return decalxy;
+}
+
 // ---------------------------------------------------------------
 
 const std::string Arch::defaultPlacer = "heap";
@@ -517,8 +524,6 @@ const std::vector<std::string> Arch::availablePlacers = {"sa", "heap"};
 const std::string Arch::defaultRouter = "router1";
 const std::vector<std::string> Arch::availableRouters = {"router1", "router2"};
 
-bool Arch::cells_compatible(const CellInfo **cells, int count) const { return false; }
-
 std::vector<std::pair<std::string, std::string>> Arch::get_tiles_at_loc(int row, int col)
 {
     std::vector<std::pair<std::string, std::string>> ret;
@@ -526,6 +531,72 @@ std::vector<std::pair<std::string, std::string>> Arch::get_tiles_at_loc(int row,
     for (auto &tn : tileloc.tile_names) {
         ret.push_back(std::make_pair(tn.name.get(), chip_info->tiletype_names[tn.type_idx].get()));
     }
+    return ret;
+}
+
+// -----------------------------------------------------------------------
+
+GroupId Arch::getGroupByName(IdStringList name) const
+{
+    for (auto g : getGroups())
+        if (getGroupName(g) == name)
+            return g;
+    return GroupId();
+}
+
+IdStringList Arch::getGroupName(GroupId group) const
+{
+    std::string suffix;
+
+    switch (group.type) {
+    case GroupId::TYPE_SWITCHBOX:
+        suffix = "switchbox";
+        break;
+    default:
+        return IdStringList();
+    }
+
+    std::array<IdString, 3> ids{x_ids.at(group.location.x), y_ids.at(group.location.y), id(suffix)};
+    return IdStringList(ids);
+}
+
+std::vector<GroupId> Arch::getGroups() const
+{
+    std::vector<GroupId> ret;
+
+    for (int y = 1; y < chip_info->height - 1; y++) {
+        for (int x = 1; x < chip_info->width - 1; x++) {
+            GroupId group;
+            group.type = GroupId::TYPE_SWITCHBOX;
+            group.location.x = x;
+            group.location.y = y;
+            ret.push_back(group);
+        }
+    }
+    return ret;
+}
+
+std::vector<BelId> Arch::getGroupBels(GroupId group) const
+{
+    std::vector<BelId> ret;
+    return ret;
+}
+
+std::vector<WireId> Arch::getGroupWires(GroupId group) const
+{
+    std::vector<WireId> ret;
+    return ret;
+}
+
+std::vector<PipId> Arch::getGroupPips(GroupId group) const
+{
+    std::vector<PipId> ret;
+    return ret;
+}
+
+std::vector<GroupId> Arch::getGroupGroups(GroupId group) const
+{
+    std::vector<GroupId> ret;
     return ret;
 }
 
