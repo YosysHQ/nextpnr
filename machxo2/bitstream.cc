@@ -571,7 +571,7 @@ void write_bitstream(Context *ctx, std::string text_config_file)
                 cc.tiles[tname].add_enum("CLK1.CLKMUX", str_or_default(ci->params, id_CLKMUX, "0"));
             }
         } else if (ci->type == id_TRELLIS_RAMW) {
-            std::string tname = ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, "PLC2");
+            std::string tname = ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, "PLC");
             cc.tiles[tname].add_enum("SLICEC.MODE", "RAMW");
             cc.tiles[tname].add_word("SLICEC.K0.INIT", std::vector<bool>(16, false));
             cc.tiles[tname].add_word("SLICEC.K1.INIT", std::vector<bool>(16, false));
