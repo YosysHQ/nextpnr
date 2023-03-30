@@ -101,7 +101,7 @@ Arch::Arch(ArchArgs args) : args(args)
         auto &tile_data = chip_info->tile_info[i];
         ts.boundcells.resize(chip_info->tiles[i].bel_data.size(), nullptr);
         for (auto &name : tile_data.tile_names) {
-            if (strcmp(chip_info->tiletype_names[name.type_idx].get(), "PLC2") == 0) {
+            if (strcmp(chip_info->tiletype_names[name.type_idx].get(), "PLC") == 0) {
                 // Is a logic tile
                 ts.lts = new LogicTileStatus();
                 break;
