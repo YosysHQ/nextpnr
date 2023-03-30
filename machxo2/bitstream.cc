@@ -201,12 +201,6 @@ void config_empty_lcmxo3_4300(ChipConfig &cc)
 
 void config_empty_lcmxo3_6900(ChipConfig &cc)
 {
-    // TODO: This block is probably clock routing
-    cc.tiles["CENTER20:CENTER_EBR_CIB_SP"].add_unknown(23, 1);
-    cc.tiles["CIB_R20C36:CIB_EBR0"].add_unknown(26, 30);
-    cc.tiles["CIB_R20C40:CIB_EBR1"].add_unknown(26, 30);
-    cc.tiles["PR16:PIC_R1"].add_unknown(16, 52);
-
     cc.tiles["EBR_R13C2:EBR1"].add_unknown(0, 12);
     cc.tiles["EBR_R13C5:EBR1"].add_unknown(0, 12);
     cc.tiles["EBR_R13C8:EBR1"].add_unknown(0, 12);
