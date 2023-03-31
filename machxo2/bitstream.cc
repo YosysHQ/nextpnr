@@ -342,7 +342,6 @@ struct MachXO2Bitgen
 
     void run()
     {
-        ChipConfig cc;
         IdString base_id = ctx->id(ctx->chip_info->device_name.get());
         if (base_id == ctx->id("LCMXO2-256"))
             BaseConfigs::config_empty_lcmxo2_256(cc);
