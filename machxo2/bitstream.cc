@@ -18,13 +18,19 @@
  *
  */
 
-#include <fstream>
-#include <iostream>
-
 #include "bitstream.h"
+
+#include <boost/algorithm/string/predicate.hpp>
+#include <fstream>
+#include <iomanip>
+#include <queue>
+#include <regex>
+#include <streambuf>
 #include "config.h"
-#include "nextpnr.h"
+#include "log.h"
 #include "util.h"
+
+#define fmt_str(x) (static_cast<const std::ostringstream &>(std::ostringstream() << x).str())
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -129,6 +135,54 @@ struct MachXO2Bitgen
             rel_prefix += "W" + std::to_string(loc.x - wire.location.x);
         return rel_prefix + "_" + basename;
     }
+    std::vector<bool> int_to_bitvector(int val, int size)
+    {
+        std::vector<bool> bv;
+        for (int i = 0; i < size; i++) {
+            bv.push_back((val & (1 << i)) != 0);
+        }
+        return bv;
+    }
+    std::vector<bool> str_to_bitvector(std::string str, int size)
+    {
+        std::vector<bool> bv;
+        bv.resize(size, 0);
+        if (str.substr(0, 2) != "0b")
+            log_error("error parsing value '%s', expected 0b prefix\n", str.c_str());
+        for (int i = 0; i < int(str.size()) - 2; i++) {
+            char c = str.at((str.size() - i) - 1);
+            NPNR_ASSERT(c == '0' || c == '1');
+            bv.at(i) = (c == '1');
+        }
+        return bv;
+    }
+
+    // Get the PIC tile corresponding to a PIO bel
+    std::string get_pic_tile(BelId bel)
+    {
+        static const std::set<std::string> pio_t = {"PIC_T0", "PIC_T0_256", "PIC_TS0"};
+        static const std::set<std::string> pio_b = {"PIC_B0", "PIC_B0_256", "PIC_BS0_256"};
+        static const std::set<std::string> pio_l = {"PIC_L0", "PIC_L1", "PIC_L2", "PIC_L3", "PIC_LS0",
+                                                    "PIC_L0_VREF3", "PIC_L0_VREF4", "PIC_L0_VREF5",
+                                                    "PIC_L1_VREF3", "PIC_L1_VREF4", "PIC_L1_VREF5",
+                                                    "PIC_L2_VREF4", "PIC_L2_VREF5",
+                                                    "PIC_L3_VREF4", "PIC_L3_VREF5"};
+        static const std::set<std::string> pio_r = {"PIC_R0", "PIC_R1", "PIC_RS0",
+                                                    "PIC_R0_256", "PIC_R1_640", "PIC_RS0_256"};
+
+        std::string pio_name = ctx->tile_info(bel)->bel_data[bel.index].name.get();
+        if (bel.location.y == 0) {
+            return ctx->get_tile_by_type_loc(0, bel.location.x, pio_t);
+        } else if (bel.location.y == ctx->chip_info->height - 1) {
+            return ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, pio_b);
+        } else if (bel.location.x == 0) {
+            return ctx->get_tile_by_type_loc(bel.location.y, 0, pio_l);
+        } else if (bel.location.x == ctx->chip_info->width - 1) {
+            return ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, pio_r);
+        } else {
+            NPNR_ASSERT_FALSE("bad PIO location");
+        }
+    }
 
     void set_pip(ChipConfig &cc, PipId pip)
     {
@@ -199,15 +253,6 @@ struct MachXO2Bitgen
         return permuted_init;
     }
 
-    std::vector<bool> int_to_bitvector(int val, int size)
-    {
-        std::vector<bool> bv;
-        for (int i = 0; i < size; i++) {
-            bv.push_back((val & (1 << i)) != 0);
-        }
-        return bv;
-    }
-
     std::string intstr_or_default(const dict<IdString, Property> &ct, const IdString &key, std::string def = "0")
     {
         auto found = ct.find(key);
@@ -221,31 +266,78 @@ struct MachXO2Bitgen
         }
     };
 
-    // Get the PIC tile corresponding to a PIO bel
-    std::string get_pic_tile(BelId bel)
+    void write_comb(CellInfo *ci)
     {
-        static const std::set<std::string> pio_t = {"PIC_T0", "PIC_T0_256", "PIC_TS0"};
-        static const std::set<std::string> pio_b = {"PIC_B0", "PIC_B0_256", "PIC_BS0_256"};
-        static const std::set<std::string> pio_l = {"PIC_L0", "PIC_L1", "PIC_L2", "PIC_L3", "PIC_LS0",
-                                                    "PIC_L0_VREF3", "PIC_L0_VREF4", "PIC_L0_VREF5",
-                                                    "PIC_L1_VREF3", "PIC_L1_VREF4", "PIC_L1_VREF5",
-                                                    "PIC_L2_VREF4", "PIC_L2_VREF5",
-                                                    "PIC_L3_VREF4", "PIC_L3_VREF5"};
-        static const std::set<std::string> pio_r = {"PIC_R0", "PIC_R1", "PIC_RS0",
-                                                    "PIC_R0_256", "PIC_R1_640", "PIC_RS0_256"};
-
-        std::string pio_name = ctx->tile_info(bel)->bel_data[bel.index].name.get();
-        if (bel.location.y == 0) {
-            return ctx->get_tile_by_type_loc(0, bel.location.x, pio_t);
-        } else if (bel.location.y == ctx->chip_info->height - 1) {
-            return ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, pio_b);
-        } else if (bel.location.x == 0) {
-            return ctx->get_tile_by_type_loc(bel.location.y, 0, pio_l);
-        } else if (bel.location.x == ctx->chip_info->width - 1) {
-            return ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, pio_r);
+        pool<IdString> used_phys_pins;
+        BelId bel = ci->bel;
+        std::string tname = ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, "PLC");
+        int z = ctx->tile_info(bel)->bel_data[bel.index].z >> Arch::lc_idx_shift;
+        std::string slice = std::string("SLICE") + "ABCD"[z / 2];
+        std::string lc = std::to_string(z % 2);
+        std::string mode = str_or_default(ci->params, id_MODE, "LOGIC");
+        if (mode == "RAMW_BLOCK")
+            return;
+        int lut_init = int_or_default(ci->params, id_INITVAL);
+        cc.tiles[tname].add_enum(slice + ".MODE", mode);
+        cc.tiles[tname].add_word(slice + ".K" + lc + ".INIT",
+                                int_to_bitvector(permute_lut(ci, used_phys_pins, lut_init), 16));
+        if (mode == "CCU2") {
+            cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_" + lc, str_or_default(ci->params, id_CCU2_INJECT1, "YES"));
         } else {
-            NPNR_ASSERT_FALSE("bad PIO location");
+            // Don't interfere with cascade mux wiring
+            cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_" + lc, "_NONE_");
         }
+        if (mode == "DPRAM" && slice == "SLICEA" && lc == "0") {
+            cc.tiles[tname].add_enum(slice + ".WREMUX", str_or_default(ci->params, id_WREMUX, "WRE"));
+            std::string wckmux = str_or_default(ci->params, id_WCKMUX, "WCK");
+            wckmux = (wckmux == "WCK") ? "CLK" : wckmux;
+            cc.tiles[tname].add_enum("CLK1.CLKMUX", wckmux);
+        }
+    }
+
+    void write_ff(CellInfo *ci)
+    {
+        BelId bel = ci->bel;
+        std::string tname = ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, "PLC");
+        int z = ctx->tile_info(bel)->bel_data[bel.index].z >> Arch::lc_idx_shift;
+        std::string slice = std::string("SLICE") + "ABCD"[z / 2];
+        std::string lc = std::to_string(z % 2);
+
+        cc.tiles[tname].add_enum(slice + ".MODE", str_or_default(ci->params, id_MODE, "LOGIC"));
+        cc.tiles[tname].add_enum(slice + ".GSR", str_or_default(ci->params, id_GSR, "ENABLED"));
+        cc.tiles[tname].add_enum(slice + ".REGMODE", str_or_default(ci->params, id_REGMODE, "FF"));
+        cc.tiles[tname].add_enum(slice + ".REG" + lc + ".SD", intstr_or_default(ci->params, id_SD, "0"));
+        cc.tiles[tname].add_enum(slice + ".REG" + lc + ".REGSET", str_or_default(ci->params, id_REGSET, "RESET"));
+
+        cc.tiles[tname].add_enum(slice + ".CEMUX", str_or_default(ci->params, id_CEMUX, "1"));
+
+        NetInfo *lsrnet = ci->getPort(id_LSR);
+        if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "LSR0")) == lsrnet) {
+            cc.tiles[tname].add_enum("LSR0.LSRMUX", str_or_default(ci->params, id_LSRMUX, "LSR"));
+            cc.tiles[tname].add_enum("LSR0.LSRONMUX", str_or_default(ci->params, id_LSRONMUX, "LSRMUX"));
+        }
+        if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "LSR1")) == lsrnet) {
+            cc.tiles[tname].add_enum("LSR1.LSRMUX", str_or_default(ci->params, id_LSRMUX, "LSR"));
+            cc.tiles[tname].add_enum("LSR1.LSRONMUX", str_or_default(ci->params, id_LSRONMUX, "LSRMUX"));
+        }
+
+        NetInfo *clknet = ci->getPort(id_CLK);
+        if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "CLK0")) == clknet) {
+            cc.tiles[tname].add_enum("CLK0.CLKMUX", str_or_default(ci->params, id_CLKMUX, "0"));
+        }
+        if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "CLK1")) == clknet) {
+            cc.tiles[tname].add_enum("CLK1.CLKMUX", str_or_default(ci->params, id_CLKMUX, "0"));
+        }
+    }
+
+    void write_io(CellInfo *ci)
+    {
+        BelId bel = ci->bel;
+        std::string pio = ctx->tile_info(bel)->bel_data[bel.index].name.get();
+        std::string iotype = str_or_default(ci->attrs, id_IO_TYPE, "LVCMOS33");
+        std::string dir = str_or_default(ci->params, id_DIR, "INPUT");
+        std::string pic_tile = get_pic_tile(bel);
+        cc.tiles[pic_tile].add_enum(pio + ".BASE_TYPE", dir + "_" + iotype);
     }
 
     void run()
@@ -312,72 +404,16 @@ struct MachXO2Bitgen
             BelId bel = ci->bel;
 
             if (ci->type == id_TRELLIS_COMB) {
-                pool<IdString> used_phys_pins;
-                std::string tname = ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, "PLC");
-                int z = ctx->tile_info(bel)->bel_data[bel.index].z >> Arch::lc_idx_shift;
-                std::string slice = std::string("SLICE") + "ABCD"[z / 2];
-                std::string lc = std::to_string(z % 2);
-                std::string mode = str_or_default(ci->params, id_MODE, "LOGIC");
-                if (mode == "RAMW_BLOCK")
-                    return;
-                int lut_init = int_or_default(ci->params, id_INITVAL);
-                cc.tiles[tname].add_enum(slice + ".MODE", mode);
-                cc.tiles[tname].add_word(slice + ".K" + lc + ".INIT",
-                                        int_to_bitvector(permute_lut(ci, used_phys_pins, lut_init), 16));
-                if (mode == "CCU2") {
-                    cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_" + lc, str_or_default(ci->params, id_CCU2_INJECT1, "YES"));
-                } else {
-                    // Don't interfere with cascade mux wiring
-                    cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_" + lc, "_NONE_");
-                }
-                if (mode == "DPRAM" && slice == "SLICEA" && lc == "0") {
-                    cc.tiles[tname].add_enum(slice + ".WREMUX", str_or_default(ci->params, id_WREMUX, "WRE"));
-                    std::string wckmux = str_or_default(ci->params, id_WCKMUX, "WCK");
-                    wckmux = (wckmux == "WCK") ? "CLK" : wckmux;
-                    cc.tiles[tname].add_enum("CLK1.CLKMUX", wckmux);
-                }
+                write_comb(ci);
             } else if (ci->type == id_TRELLIS_FF) {
-                std::string tname = ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, "PLC");
-                int z = ctx->tile_info(bel)->bel_data[bel.index].z >> Arch::lc_idx_shift;
-                std::string slice = std::string("SLICE") + "ABCD"[z / 2];
-                std::string lc = std::to_string(z % 2);
-
-                cc.tiles[tname].add_enum(slice + ".MODE", str_or_default(ci->params, id_MODE, "LOGIC"));
-                cc.tiles[tname].add_enum(slice + ".GSR", str_or_default(ci->params, id_GSR, "ENABLED"));
-                cc.tiles[tname].add_enum(slice + ".REGMODE", str_or_default(ci->params, id_REGMODE, "FF"));
-                cc.tiles[tname].add_enum(slice + ".REG" + lc + ".SD", intstr_or_default(ci->params, id_SD, "0"));
-                cc.tiles[tname].add_enum(slice + ".REG" + lc + ".REGSET", str_or_default(ci->params, id_REGSET, "RESET"));
-
-                cc.tiles[tname].add_enum(slice + ".CEMUX", str_or_default(ci->params, id_CEMUX, "1"));
-
-                NetInfo *lsrnet = ci->getPort(id_LSR);
-                if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "LSR0")) == lsrnet) {
-                    cc.tiles[tname].add_enum("LSR0.LSRMUX", str_or_default(ci->params, id_LSRMUX, "LSR"));
-                    cc.tiles[tname].add_enum("LSR0.LSRONMUX", str_or_default(ci->params, id_LSRONMUX, "LSRMUX"));
-                }
-                if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "LSR1")) == lsrnet) {
-                    cc.tiles[tname].add_enum("LSR1.LSRMUX", str_or_default(ci->params, id_LSRMUX, "LSR"));
-                    cc.tiles[tname].add_enum("LSR1.LSRONMUX", str_or_default(ci->params, id_LSRONMUX, "LSRMUX"));
-                }
-
-                NetInfo *clknet = ci->getPort(id_CLK);
-                if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "CLK0")) == clknet) {
-                    cc.tiles[tname].add_enum("CLK0.CLKMUX", str_or_default(ci->params, id_CLKMUX, "0"));
-                }
-                if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "CLK1")) == clknet) {
-                    cc.tiles[tname].add_enum("CLK1.CLKMUX", str_or_default(ci->params, id_CLKMUX, "0"));
-                }
+                write_ff(ci);
             } else if (ci->type == id_TRELLIS_RAMW) {
                 std::string tname = ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, "PLC");
                 cc.tiles[tname].add_enum("SLICEC.MODE", "RAMW");
                 cc.tiles[tname].add_word("SLICEC.K0.INIT", std::vector<bool>(16, false));
                 cc.tiles[tname].add_word("SLICEC.K1.INIT", std::vector<bool>(16, false));
             } else if (ci->type == id_TRELLIS_IO) {
-                std::string pio = ctx->tile_info(bel)->bel_data[bel.index].name.get();
-                std::string iotype = str_or_default(ci->attrs, id_IO_TYPE, "LVCMOS33");
-                std::string dir = str_or_default(ci->params, id_DIR, "INPUT");
-                std::string pic_tile = get_pic_tile(bel);
-                cc.tiles[pic_tile].add_enum(pio + ".BASE_TYPE", dir + "_" + iotype);
+                write_io(ci);
             } else if (ci->type == id_OSCH) {
                 std::string freq = str_or_default(ci->params, id_NOM_FREQ, "2.08");
                 cc.tiles[ctx->get_tile_by_type("CFG1")].add_enum("OSCH.MODE", "OSCH");
@@ -399,4 +435,5 @@ void write_bitstream(Context *ctx, std::string text_config_file)
         out_config << bitgen.cc;
     }
 }
+
 NEXTPNR_NAMESPACE_END
