@@ -92,7 +92,7 @@ std::unique_ptr<CellInfo> create_machxo2_cell(Context *ctx, IdString type, std::
         new_cell->addInput(id_C);
         new_cell->addInput(id_D);
         new_cell->addOutput(id_Z);
-    } else if (type == id_CCU2C) {
+    } else if (type == id_CCU2D) {
         new_cell->params[id_INIT0] = Property(0, 16);
         new_cell->params[id_INIT1] = Property(0, 16);
         new_cell->params[id_INJECT1_0] = std::string("YES");
