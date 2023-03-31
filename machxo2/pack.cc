@@ -586,7 +586,7 @@ class Ecp5Packer
     // Create a feed in to the carry chain
     CellInfo *make_carry_feed_in(NetInfo *carry, PortRef chain_in)
     {
-        std::unique_ptr<CellInfo> feedin = create_machxo2_cell(ctx, id_CCU2C);
+        std::unique_ptr<CellInfo> feedin = create_machxo2_cell(ctx, id_CCU2D);
 
         feedin->params[id_INIT0] = Property(10, 16); // LUT4 = 0; LUT2 = A
         feedin->params[id_INIT1] = Property(65535, 16);
@@ -612,7 +612,7 @@ class Ecp5Packer
     // Create a feed out and loop through from the carry chain
     CellInfo *make_carry_feed_out(NetInfo *carry, boost::optional<PortRef> chain_next = boost::optional<PortRef>())
     {
-        std::unique_ptr<CellInfo> feedout = create_machxo2_cell(ctx, id_CCU2C);
+        std::unique_ptr<CellInfo> feedout = create_machxo2_cell(ctx, id_CCU2D);
 
         feedout->params[id_INIT0] = Property(0, 16);
         feedout->params[id_INIT1] = Property(10, 16); // LUT4 = 0; LUT2 = A
@@ -871,7 +871,7 @@ class Ecp5Packer
         cell->ports.at(input).net = nullptr;
     }
 
-    void set_ccu2c_input_constant(CellInfo *cell, IdString input, bool value)
+    void set_ccu2d_input_constant(CellInfo *cell, IdString input, bool value)
     {
         std::string input_str = input.str(ctx);
         int lut = std::stoi(input_str.substr(1));
@@ -882,7 +882,7 @@ class Ecp5Packer
         cell->ports.at(input).net = nullptr;
     }
 
-    bool is_ccu2c_port_high(CellInfo *cell, IdString input)
+    bool is_ccu2d_port_high(CellInfo *cell, IdString input)
     {
         if (!cell->ports.count(input))
             return true; // disconnected port is high
@@ -914,19 +914,19 @@ class Ecp5Packer
                     } else if (!constval) {
                         if (user.port.in(id_A0, id_A1, id_B0, id_B1)) {
                             // These inputs can be switched to tie-high without consequence
-                            set_ccu2c_input_constant(uc, user.port, constval);
-                        } else if (user.port == id_C0 && is_ccu2c_port_high(uc, id_D0)) {
+                            set_ccu2d_input_constant(uc, user.port, constval);
+                        } else if (user.port == id_C0 && is_ccu2d_port_high(uc, id_D0)) {
                             // Partner must be tied high
-                            set_ccu2c_input_constant(uc, user.port, constval);
-                        } else if (user.port == id_D0 && is_ccu2c_port_high(uc, id_C0)) {
+                            set_ccu2d_input_constant(uc, user.port, constval);
+                        } else if (user.port == id_D0 && is_ccu2d_port_high(uc, id_C0)) {
                             // Partner must be tied high
-                            set_ccu2c_input_constant(uc, user.port, constval);
-                        } else if (user.port == id_C1 && is_ccu2c_port_high(uc, id_D1)) {
+                            set_ccu2d_input_constant(uc, user.port, constval);
+                        } else if (user.port == id_C1 && is_ccu2d_port_high(uc, id_D1)) {
                             // Partner must be tied high
-                            set_ccu2c_input_constant(uc, user.port, constval);
-                        } else if (user.port == id_D1 && is_ccu2c_port_high(uc, id_C1)) {
+                            set_ccu2d_input_constant(uc, user.port, constval);
+                        } else if (user.port == id_D1 && is_ccu2d_port_high(uc, id_C1)) {
                             // Partner must be tied high
-                            set_ccu2c_input_constant(uc, user.port, constval);
+                            set_ccu2d_input_constant(uc, user.port, constval);
                         } else {
                             // Not allowed to change to a tie-high
                             uc->ports[user.port].net = constnet;

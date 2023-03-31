@@ -35,7 +35,7 @@ inline bool is_lut(const BaseCtx *ctx, const CellInfo *cell) { return cell->type
 // Return true if a cell is a flipflop
 inline bool is_ff(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_TRELLIS_FF; }
 
-inline bool is_carry(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_CCU2C; }
+inline bool is_carry(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_CCU2D; }
 
 inline bool is_trellis_io(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_TRELLIS_IO; }
 
