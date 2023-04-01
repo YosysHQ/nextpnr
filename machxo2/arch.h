@@ -960,6 +960,9 @@ struct Arch : BaseArch<ArchRanges>
         NPNR_ASSERT_FALSE_STR("no tile with type " + type);
     }
 
+    // Apply LPF constraints to the context
+    bool apply_lpf(std::string filename, std::istream &in);
+
     static const std::string defaultPlacer;
     static const std::vector<std::string> availablePlacers;
     static const std::string defaultRouter;
