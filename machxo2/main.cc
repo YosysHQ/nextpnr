@@ -36,6 +36,7 @@ class MachXO2CommandHandler : public CommandHandler
     virtual ~MachXO2CommandHandler(){};
     std::unique_ptr<Context> createContext(dict<std::string, Property> &values) override;
     void setupArchContext(Context *ctx) override{};
+    void customAfterLoad(Context *ctx) override;
     void customBitstream(Context *ctx) override;
 
   protected:
@@ -50,7 +51,10 @@ po::options_description MachXO2CommandHandler::getArchOptions()
     specific.add_options()("device", po::value<std::string>(), "device name");
     specific.add_options()("list-devices", "list all supported device names");
     specific.add_options()("textcfg", po::value<std::string>(), "textual configuration in Trellis format to write");
-    // specific.add_options()("lpf", po::value<std::vector<std::string>>(), "LPF pin constraint file(s)");
+
+    specific.add_options()("lpf", po::value<std::vector<std::string>>(), "LPF pin constraint file(s)");
+    specific.add_options()("lpf-allow-unconstrained", "don't require LPF file(s) to constrain all IO");
+
     specific.add_options()("disable-router-lutperm", "don't allow the router to permute LUT inputs");
 
     return specific;
@@ -80,6 +84,36 @@ std::unique_ptr<Context> MachXO2CommandHandler::createContext(dict<std::string, 
     if (vm.count("disable-router-lutperm"))
         ctx->settings[ctx->id("arch.disable_router_lutperm")] = 1;
     return ctx;
+}
+
+void MachXO2CommandHandler::customAfterLoad(Context *ctx)
+{
+    if (vm.count("lpf")) {
+        std::vector<std::string> files = vm["lpf"].as<std::vector<std::string>>();
+        for (const auto &filename : files) {
+            std::ifstream in(filename);
+            if (!in)
+                log_error("failed to open LPF file '%s'\n", filename.c_str());
+            if (!ctx->apply_lpf(filename, in))
+                log_error("failed to parse LPF file '%s'\n", filename.c_str());
+        }
+
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_obuf") ||
+                ci->type == ctx->id("$nextpnr_iobuf")) {
+                if (!ci->attrs.count(id_LOC)) {
+                    if (vm.count("lpf-allow-unconstrained"))
+                        log_warning("IO '%s' is unconstrained in LPF and will be automatically placed\n",
+                                    cell.first.c_str(ctx));
+                    else
+                        log_error("IO '%s' is unconstrained in LPF (override this error with "
+                                  "--lpf-allow-unconstrained)\n",
+                                  cell.first.c_str(ctx));
+                }
+            }
+        }
+    }
 }
 
 int main(int argc, char *argv[])
