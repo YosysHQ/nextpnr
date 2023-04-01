@@ -588,7 +588,7 @@ class Ecp5Packer
     {
         std::unique_ptr<CellInfo> feedin = create_machxo2_cell(ctx, id_CCU2D);
 
-        feedin->params[id_INIT0] = Property(10, 16); // LUT4 = 0; LUT2 = A
+        feedin->params[id_INIT0] = Property(20480, 16);
         feedin->params[id_INIT1] = Property(65535, 16);
         feedin->params[id_INJECT1_0] = std::string("NO");
         feedin->params[id_INJECT1_1] = std::string("YES");
@@ -615,7 +615,7 @@ class Ecp5Packer
         std::unique_ptr<CellInfo> feedout = create_machxo2_cell(ctx, id_CCU2D);
 
         feedout->params[id_INIT0] = Property(0, 16);
-        feedout->params[id_INIT1] = Property(10, 16); // LUT4 = 0; LUT2 = A
+        feedout->params[id_INIT1] = Property(20480, 16);
         feedout->params[id_INJECT1_0] = std::string("NO");
         feedout->params[id_INJECT1_1] = std::string("NO");
 
@@ -882,14 +882,14 @@ class Ecp5Packer
         cell->ports.at(input).net = nullptr;
     }
 
-    bool is_ccu2d_port_high(CellInfo *cell, IdString input)
+    bool is_ccu2d_port_zero(CellInfo *cell, IdString input)
     {
         if (!cell->ports.count(input))
-            return true; // disconnected port is high
-        if (cell->ports.at(input).net == nullptr || cell->ports.at(input).net->name == ctx->id("$PACKER_VCC_NET"))
-            return true; // disconnected or tied-high port
-        if (cell->ports.at(input).net->driver.cell != nullptr && cell->ports.at(input).net->driver.cell->type == id_VCC)
-            return true; // pre-pack high
+            return true; // disconnected port is low
+        if (cell->ports.at(input).net == nullptr || cell->ports.at(input).net->name == ctx->id("$PACKER_GND_NET"))
+            return true; // disconnected or tied-high low
+        if (cell->ports.at(input).net->driver.cell != nullptr && cell->ports.at(input).net->driver.cell->type == id_GND)
+            return true; // pre-pack low
         return false;
     }
 
@@ -908,27 +908,27 @@ class Ecp5Packer
                     uc->params[id_CEMUX] = std::string(constval ? "1" : "0");
                     uc->ports[user.port].net = nullptr;
                 } else if (is_carry(ctx, uc)) {
-                    if (constval && (user.port.in(id_A0, id_A1, id_B0, id_B1, id_C0, id_C1, id_D0, id_D1))) {
-                        // Input tied high, nothing special to do (bitstream gen will auto-enable tie-high)
+                    if (!constval && (user.port.in(id_A0, id_A1, id_B0, id_B1, id_C0, id_C1, id_D0, id_D1))) {
+                        // Input tied low, nothing special to do (bitstream gen will auto-enable tie-low)
                         uc->ports[user.port].net = nullptr;
-                    } else if (!constval) {
+                    } else if (constval) {
                         if (user.port.in(id_A0, id_A1, id_B0, id_B1)) {
-                            // These inputs can be switched to tie-high without consequence
+                            // These inputs can be switched to tie-low without consequence
                             set_ccu2d_input_constant(uc, user.port, constval);
-                        } else if (user.port == id_C0 && is_ccu2d_port_high(uc, id_D0)) {
-                            // Partner must be tied high
+                        } else if (user.port == id_C0 && is_ccu2d_port_zero(uc, id_D0)) {
+                            // Partner must be tied low
                             set_ccu2d_input_constant(uc, user.port, constval);
-                        } else if (user.port == id_D0 && is_ccu2d_port_high(uc, id_C0)) {
-                            // Partner must be tied high
+                        } else if (user.port == id_D0 && is_ccu2d_port_zero(uc, id_C0)) {
+                            // Partner must be tied low
                             set_ccu2d_input_constant(uc, user.port, constval);
-                        } else if (user.port == id_C1 && is_ccu2d_port_high(uc, id_D1)) {
-                            // Partner must be tied high
+                        } else if (user.port == id_C1 && is_ccu2d_port_zero(uc, id_D1)) {
+                            // Partner must be tied low
                             set_ccu2d_input_constant(uc, user.port, constval);
-                        } else if (user.port == id_D1 && is_ccu2d_port_high(uc, id_C1)) {
-                            // Partner must be tied high
+                        } else if (user.port == id_D1 && is_ccu2d_port_zero(uc, id_C1)) {
+                            // Partner must be tied low
                             set_ccu2d_input_constant(uc, user.port, constval);
                         } else {
-                            // Not allowed to change to a tie-high
+                            // Not allowed to change to a tie-low
                             uc->ports[user.port].net = constnet;
                             uc->ports[user.port].user_idx = constnet->users.add(user);
                         }
