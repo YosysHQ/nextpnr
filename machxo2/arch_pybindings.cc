@@ -1,4 +1,3 @@
-
 /*
  *  nextpnr -- Next Generation Place and Route
  *
@@ -22,6 +21,7 @@
 #ifndef NO_PYTHON
 
 #include "arch_pybindings.h"
+#include "bitstream.h"
 #include "nextpnr.h"
 #include "pybindings.h"
 
@@ -70,6 +70,8 @@ void arch_wrap_python(py::module &m)
     WRAP_MAP_UPTR(m, CellMap, "IdCellMap");
     WRAP_MAP_UPTR(m, NetMap, "IdNetMap");
     WRAP_MAP(m, HierarchyMap, wrap_context<HierarchicalCell &>, "HierarchyMap");
+
+    m.def("write_bitstream", &write_bitstream);
 }
 
 NEXTPNR_NAMESPACE_END
