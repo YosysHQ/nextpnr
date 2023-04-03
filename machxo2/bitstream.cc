@@ -291,7 +291,7 @@ struct MachXO2Bitgen
             cc.tiles[tname].add_enum(slice + ".WREMUX", str_or_default(ci->params, id_WREMUX, "WRE"));
             std::string wckmux = str_or_default(ci->params, id_WCKMUX, "WCK");
             wckmux = (wckmux == "WCK") ? "CLK" : wckmux;
-            cc.tiles[tname].add_enum("CLK1.CLKMUX", wckmux);
+            cc.tiles[tname].add_enum("CLK2.CLKMUX", wckmux);
         }
     }
 
@@ -303,7 +303,6 @@ struct MachXO2Bitgen
         std::string slice = std::string("SLICE") + "ABCD"[z / 2];
         std::string lc = std::to_string(z % 2);
 
-        cc.tiles[tname].add_enum(slice + ".MODE", str_or_default(ci->params, id_MODE, "LOGIC"));
         cc.tiles[tname].add_enum(slice + ".GSR", str_or_default(ci->params, id_GSR, "ENABLED"));
         cc.tiles[tname].add_enum(slice + ".REGMODE", str_or_default(ci->params, id_REGMODE, "FF"));
         cc.tiles[tname].add_enum(slice + ".REG" + lc + ".SD", intstr_or_default(ci->params, id_SD, "0"));
@@ -311,22 +310,15 @@ struct MachXO2Bitgen
 
         cc.tiles[tname].add_enum(slice + ".CEMUX", str_or_default(ci->params, id_CEMUX, "1"));
 
-        NetInfo *lsrnet = ci->getPort(id_LSR);
-        if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "LSR0")) == lsrnet) {
-            cc.tiles[tname].add_enum("LSR0.LSRMUX", str_or_default(ci->params, id_LSRMUX, "LSR"));
-            cc.tiles[tname].add_enum("LSR0.LSRONMUX", str_or_default(ci->params, id_LSRONMUX, "LSRMUX"));
+        if (ci->getPort(id_LSR)) {
+            std::string lsr = std::string("LSR") + "0123"[z / 2];
+            cc.tiles[tname].add_enum(lsr + ".LSRMUX", str_or_default(ci->params, id_LSRMUX, "LSR"));
+            cc.tiles[tname].add_enum(lsr + ".SRMODE", str_or_default(ci->params, id_SRMODE, "LSR_OVER_CE"));
+            cc.tiles[tname].add_enum(lsr + ".LSRONMUX", str_or_default(ci->params, id_LSRONMUX, "LSRMUX"));
         }
-        if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "LSR1")) == lsrnet) {
-            cc.tiles[tname].add_enum("LSR1.LSRMUX", str_or_default(ci->params, id_LSRMUX, "LSR"));
-            cc.tiles[tname].add_enum("LSR1.LSRONMUX", str_or_default(ci->params, id_LSRONMUX, "LSRMUX"));
-        }
-
-        NetInfo *clknet = ci->getPort(id_CLK);
-        if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "CLK0")) == clknet) {
-            cc.tiles[tname].add_enum("CLK0.CLKMUX", str_or_default(ci->params, id_CLKMUX, "0"));
-        }
-        if (ctx->getBoundWireNet(ctx->get_wire_by_loc_basename(bel.location, "CLK1")) == clknet) {
-            cc.tiles[tname].add_enum("CLK1.CLKMUX", str_or_default(ci->params, id_CLKMUX, "0"));
+        if (ci->getPort(id_CLK)) {
+            std::string clk = std::string("CLK") + "0123"[z / 2];
+            cc.tiles[tname].add_enum(clk + ".CLKMUX", str_or_default(ci->params, id_CLKMUX, "0"));
         }
     }
 
