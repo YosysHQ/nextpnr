@@ -817,10 +817,50 @@ static bool is_gowin_iologic(const Context *ctx, const CellInfo *cell)
     case ID_OSER4:  /* fall-through*/
     case ID_OSER8:  /* fall-through*/
     case ID_OSER10: /* fall-through*/
-    case ID_OVIDEO:
+    case ID_OVIDEO: /* fall-through*/
+    case ID_IDDR:   /* fall-through*/
+    case ID_IDDRC:  /* fall-through*/
+    case ID_IDES4:  /* fall-through*/
+    case ID_IDES8:  /* fall-through*/
+    case ID_IDES10: /* fall-through*/
+    case ID_IVIDEO:
         return true;
     default:
         return false;
+    }
+}
+
+// IDES has different outputs
+static void reconnect_ides_outs(CellInfo *ci)
+{
+    switch (ci->type.hash()) {
+    case ID_IDES4:
+        ci->renamePort(id_Q3, id_Q9);
+        ci->renamePort(id_Q2, id_Q8);
+        ci->renamePort(id_Q1, id_Q7);
+        ci->renamePort(id_Q0, id_Q6);
+        break;
+    case ID_IVIDEO:
+        ci->renamePort(id_Q6, id_Q9);
+        ci->renamePort(id_Q5, id_Q8);
+        ci->renamePort(id_Q4, id_Q7);
+        ci->renamePort(id_Q3, id_Q6);
+        ci->renamePort(id_Q2, id_Q5);
+        ci->renamePort(id_Q1, id_Q4);
+        ci->renamePort(id_Q0, id_Q3);
+        break;
+    case ID_IDES8:
+        ci->renamePort(id_Q7, id_Q9);
+        ci->renamePort(id_Q6, id_Q8);
+        ci->renamePort(id_Q5, id_Q7);
+        ci->renamePort(id_Q4, id_Q6);
+        ci->renamePort(id_Q3, id_Q5);
+        ci->renamePort(id_Q2, id_Q4);
+        ci->renamePort(id_Q1, id_Q3);
+        ci->renamePort(id_Q0, id_Q2);
+        break;
+    default:
+        break;
     }
 }
 
@@ -1022,6 +1062,102 @@ static void pack_iologic(Context *ctx)
                             create_generic_cell(ctx, id_IOLOGIC, ci->name.str(ctx) + "_AUX");
                     ci->setAttr(ctx->id("IOLOGIC_AUX_CELL"), ci->name.str(ctx) + "_AUX");
                     aux_cell->setParam(ctx->id("OUTMODE"), std::string("DDRENABLE"));
+                    aux_cell->setAttr(ctx->id("IOLOGIC_MASTER_CELL"), ci->name.str(ctx));
+                    aux_cell->setAttr(id_BEL, ctx->getBelName(ctx->getBelByLocation(loc)).str(ctx));
+                    if (port_used(ci, id_RESET)) {
+                        aux_cell->connectPort(id_RESET, ci->ports.at(id_RESET).net);
+                    }
+                    if (port_used(ci, id_PCLK)) {
+                        aux_cell->connectPort(id_PCLK, ci->ports.at(id_PCLK).net);
+                    }
+                    new_cells.push_back(std::move(aux_cell));
+                    ci->type = id_IOLOGIC;
+                }
+            } break;
+            case ID_IDDR:   /* fall-through */
+            case ID_IDES4:  /* fall-through */
+            case ID_IDES8:  /* fall-through */
+            case ID_IDES10: /* fall-through */
+            case ID_IVIDEO: {
+                CellInfo *d_src = net_driven_by(ctx, ci->getPort(id_D), is_iob, id_O);
+                NPNR_ASSERT(d_src != nullptr);
+
+                auto iob_bel = d_src->attrs.find(id_BEL);
+                if (iob_bel == d_src->attrs.end()) {
+                    log_error("No constraints for %s. The pins for IDES/OSER must be specified explicitly.\n",
+                              ctx->nameOf(d_src));
+                }
+
+                Loc loc = ctx->getBelLocation(ctx->getBelByNameStr(iob_bel->second.as_string()));
+                loc.z += BelZ::iologic_z;
+                ci->setAttr(id_BEL, ctx->getBelName(ctx->getBelByLocation(loc)).str(ctx));
+                BelId bel = ctx->getBelByLocation(loc);
+                if (bel == BelId()) {
+                    log_info("No bel for %s at %s. Can't place IDES/OSER here\n", ctx->nameOf(ci),
+                             iob_bel->second.as_string().c_str());
+                }
+                std::string in_mode;
+                switch (ci->type.hash()) {
+                case ID_IDES4:
+                    in_mode = "IDDRX2";
+                    break;
+                case ID_IDES8:
+                    in_mode = "IDDRX4";
+                    break;
+                case ID_IDES10:
+                    in_mode = "IDDRX5";
+                    break;
+                case ID_IVIDEO:
+                    in_mode = "VIDEORX";
+                    break;
+                }
+                ci->setParam(ctx->id("INMODE"), in_mode);
+                bool use_diff_io = false;
+                if (d_src->attrs.count(id_DIFF_TYPE)) {
+                    ci->setAttr(id_OBUF_TYPE, std::string("DBUF"));
+                    use_diff_io = true;
+                } else {
+                    ci->setAttr(id_OBUF_TYPE, std::string("SBUF"));
+                }
+
+                // disconnect D input: it is wired internally
+                delete_nets.insert(ci->getPort(id_D)->name);
+                d_src->disconnectPort(id_O);
+                ci->disconnectPort(id_D);
+
+                // XXX place for -9 and -9C oddity
+
+                ci->setAttr(id_IOLOGIC_TYPE, ci->type.str(ctx));
+                reconnect_ides_outs(ci);
+
+                // common clock inputs
+                if (ci->type == id_IDES4) {
+                    ci->type = id_IOLOGIC;
+                    // two IDER4 share FCLK, check it
+                    Loc other_loc = loc;
+                    other_loc.z = 1 - loc.z + 2 * BelZ::iologic_z;
+                    BelId other_bel = ctx->getBelByLocation(other_loc);
+                    CellInfo *other_cell = ctx->getBoundBelCell(other_bel);
+                    if (other_cell != nullptr) {
+                        NPNR_ASSERT(other_cell->type == id_IDES4);
+                        if (ci->ports.at(id_FCLK).net != other_cell->ports.at(id_FCLK).net) {
+                            log_error("%s and %s have differnet FCLK nets\n", ctx->nameOf(ci), ctx->nameOf(other_cell));
+                        }
+                    }
+                } else {
+                    std::unique_ptr<CellInfo> dummy =
+                            create_generic_cell(ctx, id_DUMMY_CELL, ci->name.str(ctx) + "_DUMMY_IOLOGIC_IO");
+                    loc.z = 1 - loc.z + BelZ::iologic_z;
+                    if (!use_diff_io) {
+                        dummy->setAttr(id_BEL, ctx->getBelName(ctx->getBelByLocation(loc)).str(ctx));
+                        new_cells.push_back(std::move(dummy));
+                    }
+                    loc.z += BelZ::iologic_z;
+
+                    std::unique_ptr<CellInfo> aux_cell =
+                            create_generic_cell(ctx, id_IOLOGIC, ci->name.str(ctx) + "_AUX");
+                    ci->setAttr(ctx->id("IOLOGIC_AUX_CELL"), ci->name.str(ctx) + "_AUX");
+                    aux_cell->setParam(ctx->id("INMODE"), std::string("DDRENABLE"));
                     aux_cell->setAttr(ctx->id("IOLOGIC_MASTER_CELL"), ci->name.str(ctx));
                     aux_cell->setAttr(id_BEL, ctx->getBelName(ctx->getBelByLocation(loc)).str(ctx));
                     if (port_used(ci, id_RESET)) {

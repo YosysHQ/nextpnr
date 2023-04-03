@@ -1696,20 +1696,19 @@ Arch::Arch(ArchArgs args) : args(args)
                 belname = idf("R%dC%d_IOLOGIC%c", row + 1, col + 1, 'A' + z);
                 addBel(belname, id_IOLOGIC, Loc(col, row, BelZ::iologic_z + z), false);
 
-                for (int i = 0; i < 10; ++i) {
-                    if (i < 4) {
-                        // TX
-                        IdString const tx[] = {id_TX0, id_TX1, id_TX2, id_TX3};
-                        portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, tx[i].hash())->src_id);
-                        addBelInput(belname, tx[i], idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this)));
-                    }
-                    // D
-                    IdString const d[] = {id_D0, id_D1, id_D2, id_D3, id_D4, id_D5, id_D6, id_D7, id_D8, id_D9};
-                    portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, d[i].hash())->src_id);
-                    addBelInput(belname, d[i], idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this)));
+                IdString const iologic_in_ports[] = {id_TX0,  id_TX1, id_TX2, id_TX3, id_RESET, id_CALIB,
+                                                     id_PCLK, id_D,   id_D0,  id_D1,  id_D2,    id_D3,
+                                                     id_D4,   id_D5,  id_D6,  id_D7,  id_D8,    id_D9};
+                for (IdString port : iologic_in_ports) {
+                    portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, port.hash())->src_id);
+                    addBelInput(belname, port, idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this)));
                 }
-                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_PCLK)->src_id);
-                addBelInput(belname, id_PCLK, idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this)));
+                IdString const iologic_out_ports[] = {id_Q,  id_Q0, id_Q1, id_Q2, id_Q3, id_Q4,
+                                                      id_Q5, id_Q6, id_Q7, id_Q8, id_Q9};
+                for (IdString port : iologic_out_ports) {
+                    portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, port.hash())->src_id);
+                    addBelOutput(belname, port, idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this)));
+                }
                 auto fclk = pairLookup(bel->ports.get(), bel->num_ports, ID_FCLK);
                 // XXX as long as there is no special processing of the pins
                 if (fclk != nullptr) {
@@ -1745,8 +1744,6 @@ Arch::Arch(ArchArgs args) : args(args)
                         addBelInput(belname, id_FCLK, idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this)));
                     }
                 }
-                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_RESET)->src_id);
-                addBelInput(belname, id_RESET, idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this)));
             } break;
             default:
                 break;
