@@ -148,6 +148,7 @@ bool Arch::slices_compatible(LogicTileStatus *lts) const
             CellInfo *ff = lts->cells[(i << lc_idx_shift) | BEL_FF];
             if (ff != nullptr) {
                 if (found_global_dpram) {
+                    if (i==4 || i==5) return false;
                     CHECK_EQUAL(bool(ff->ffInfo.flags & ArchCellInfo::FF_CLKINV), global_clkinv);
                     CHECK_EQUAL(bool(ff->ffInfo.flags & ArchCellInfo::FF_LSRINV), global_lsrinv);
                 }
