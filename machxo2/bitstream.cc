@@ -310,11 +310,13 @@ struct MachXO2Bitgen
 
         cc.tiles[tname].add_enum(slice + ".CEMUX", str_or_default(ci->params, id_CEMUX, "1"));
 
+        std::string lsr = std::string("LSR") + "0123"[z / 2];
         if (ci->getPort(id_LSR)) {
-            std::string lsr = std::string("LSR") + "0123"[z / 2];
             cc.tiles[tname].add_enum(lsr + ".LSRMUX", str_or_default(ci->params, id_LSRMUX, "LSR"));
             cc.tiles[tname].add_enum(lsr + ".SRMODE", str_or_default(ci->params, id_SRMODE, "LSR_OVER_CE"));
             cc.tiles[tname].add_enum(lsr + ".LSRONMUX", str_or_default(ci->params, id_LSRONMUX, "LSRMUX"));
+        } else {
+            cc.tiles[tname].add_enum(lsr + ".LSRONMUX", "0");
         }
         if (ci->getPort(id_CLK)) {
             std::string clk = std::string("CLK") + "0123"[z / 2];
