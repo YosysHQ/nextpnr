@@ -149,15 +149,15 @@ void dram_to_ramw_split(Context *ctx, CellInfo *ram, CellInfo *ramw)
 {
     if (ramw->hierpath == IdString())
         ramw->hierpath = ramw->hierpath;
-    ram->movePortTo(ctx->id("WAD[0]"), ramw, id_D0);
+    ram->movePortTo(ctx->id("WAD[0]"), ramw, id_A0);
     ram->movePortTo(ctx->id("WAD[1]"), ramw, id_B0);
     ram->movePortTo(ctx->id("WAD[2]"), ramw, id_C0);
-    ram->movePortTo(ctx->id("WAD[3]"), ramw, id_A0);
+    ram->movePortTo(ctx->id("WAD[3]"), ramw, id_D0);
 
-    ram->movePortTo(ctx->id("DI[0]"), ramw, id_C1);
-    ram->movePortTo(ctx->id("DI[1]"), ramw, id_A1);
-    ram->movePortTo(ctx->id("DI[2]"), ramw, id_D1);
-    ram->movePortTo(ctx->id("DI[3]"), ramw, id_B1);
+    ram->movePortTo(ctx->id("DI[0]"), ramw, id_A1);
+    ram->movePortTo(ctx->id("DI[1]"), ramw, id_B1);
+    ram->movePortTo(ctx->id("DI[2]"), ramw, id_C1);
+    ram->movePortTo(ctx->id("DI[3]"), ramw, id_D1);
 }
 
 void ccu2_to_comb(Context *ctx, CellInfo *ccu, CellInfo *comb, NetInfo *internal_carry, int i)
@@ -199,27 +199,12 @@ void dram_to_comb(Context *ctx, CellInfo *ram, CellInfo *comb, CellInfo *ramw, i
     comb->params[id_WREMUX] = str_or_default(ram->params, id_WREMUX, "WRE");
     comb->params[id_WCKMUX] = str_or_default(ram->params, id_WCKMUX, "WCK");
 
-    unsigned permuted_init = 0;
     unsigned init = get_dram_init(ctx, ram, index);
 
-    for (int i = 0; i < 16; i++) {
-        int permuted_addr = 0;
-        if (i & 1)
-            permuted_addr |= 8;
-        if (i & 2)
-            permuted_addr |= 2;
-        if (i & 4)
-            permuted_addr |= 4;
-        if (i & 8)
-            permuted_addr |= 1;
-        if (init & (1 << permuted_addr))
-            permuted_init |= (1 << i);
-    }
-
-    comb->params[ctx->id("INITVAL")] = Property(permuted_init, 16);
+    comb->params[ctx->id("INITVAL")] = Property(init, 16);
 
     if (ram->ports.count(ctx->id("RAD[0]")))
-        comb->connectPort(id_D, ram->ports.at(ctx->id("RAD[0]")).net);
+        comb->connectPort(id_A, ram->ports.at(ctx->id("RAD[0]")).net);
 
     if (ram->ports.count(ctx->id("RAD[1]")))
         comb->connectPort(id_B, ram->ports.at(ctx->id("RAD[1]")).net);
@@ -228,7 +213,7 @@ void dram_to_comb(Context *ctx, CellInfo *ram, CellInfo *comb, CellInfo *ramw, i
         comb->connectPort(id_C, ram->ports.at(ctx->id("RAD[2]")).net);
 
     if (ram->ports.count(ctx->id("RAD[3]")))
-        comb->connectPort(id_A, ram->ports.at(ctx->id("RAD[3]")).net);
+        comb->connectPort(id_D, ram->ports.at(ctx->id("RAD[3]")).net);
 
     if (ram->ports.count(id_WRE))
         comb->connectPort(id_WRE, ram->ports.at(id_WRE).net);
