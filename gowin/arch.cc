@@ -1696,9 +1696,9 @@ Arch::Arch(ArchArgs args) : args(args)
                 belname = idf("R%dC%d_IOLOGIC%c", row + 1, col + 1, 'A' + z);
                 addBel(belname, id_IOLOGIC, Loc(col, row, BelZ::iologic_z + z), false);
 
-                IdString const iologic_in_ports[] = {id_TX0,  id_TX1, id_TX2, id_TX3, id_RESET, id_CALIB,
-                                                     id_PCLK, id_D,   id_D0,  id_D1,  id_D2,    id_D3,
-                                                     id_D4,   id_D5,  id_D6,  id_D7,  id_D8,    id_D9};
+                IdString const iologic_in_ports[] = {id_TX0, id_TX1, id_TX2, id_TX3, id_RESET, id_CALIB, id_PCLK,
+                                                     id_D,   id_D0,  id_D1,  id_D2,  id_D3,    id_D4,    id_D5,
+                                                     id_D6,  id_D7,  id_D8,  id_D9,  id_CLK,   id_CLEAR};
                 for (IdString port : iologic_in_ports) {
                     portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, port.hash())->src_id);
                     addBelInput(belname, port, idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this)));
