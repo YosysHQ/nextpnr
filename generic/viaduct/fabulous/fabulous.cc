@@ -349,9 +349,19 @@ struct FabulousImpl : ViaductAPI
                 NPNR_ASSERT(bel_idx.size() == 1);
                 int bel_z = bel_idx[0] - 'A';
                 NPNR_ASSERT(bel_z >= 0 && bel_z < 26);
+                IdString bel_name = bel_idx.to_id(ctx);
+                if (bel_type.in(id_InPass4_frame_config, id_OutPass4_frame_config, id_InPass4_frame_config_mux,
+                                id_OutPass4_frame_config_mux)) {
+                    // Assign BRAM IO a nicer name than just a letter
+                    auto prefix = csv.next_field();
+                    if (prefix.empty()) {
+                        log_error("Bel definition missing field; please update FABulous!\n");
+                    }
+                    bel_name = prefix.rsplit('_').first.to_id(ctx);
+                }
                 Loc loc = tile_loc(tile);
-                curr_bel = ctx->addBel(IdStringList::concat(tile, bel_idx.to_id(ctx)), bel_type,
-                                       Loc(loc.x, loc.y, bel_z), false, false);
+                curr_bel = ctx->addBel(IdStringList::concat(tile, bel_name), bel_type, Loc(loc.x, loc.y, bel_z), false,
+                                       false);
             } else if (cmd.in(id_I, id_O)) {
                 IdString port = csv.next_field().to_id(ctx);
                 auto wire_name = csv.next_field().split('.');
