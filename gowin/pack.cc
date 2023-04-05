@@ -834,6 +834,11 @@ static bool is_gowin_iologic(const Context *ctx, const CellInfo *cell)
 static void reconnect_ides_outs(CellInfo *ci)
 {
     switch (ci->type.hash()) {
+    case ID_IDDR: /* fall-through*/
+    case ID_IDDRC:
+        ci->renamePort(id_Q1, id_Q9);
+        ci->renamePort(id_Q0, id_Q8);
+        break;
     case ID_IDES4:
         ci->renamePort(id_Q3, id_Q9);
         ci->renamePort(id_Q2, id_Q8);
@@ -1036,7 +1041,6 @@ static void pack_iologic(Context *ctx)
                 ci->setAttr(id_IOLOGIC_TYPE, ci->type.str(ctx));
 
                 if (ci->type == id_OSER4) {
-                    ci->type = id_IOLOGIC;
                     // two OSER4 share FCLK, check it
                     Loc other_loc = loc;
                     other_loc.z = 1 - loc.z + 2 * BelZ::iologic_z;
@@ -1061,6 +1065,7 @@ static void pack_iologic(Context *ctx)
                     std::unique_ptr<CellInfo> aux_cell =
                             create_generic_cell(ctx, id_IOLOGIC, ci->name.str(ctx) + "_AUX");
                     ci->setAttr(ctx->id("IOLOGIC_AUX_CELL"), ci->name.str(ctx) + "_AUX");
+                    aux_cell->setAttr(id_IOLOGIC_TYPE, std::string("DUMMY"));
                     aux_cell->setParam(ctx->id("OUTMODE"), std::string("DDRENABLE"));
                     aux_cell->setAttr(ctx->id("IOLOGIC_MASTER_CELL"), ci->name.str(ctx));
                     aux_cell->setAttr(id_BEL, ctx->getBelName(ctx->getBelByLocation(loc)).str(ctx));
@@ -1071,10 +1076,11 @@ static void pack_iologic(Context *ctx)
                         aux_cell->connectPort(id_PCLK, ci->ports.at(id_PCLK).net);
                     }
                     new_cells.push_back(std::move(aux_cell));
-                    ci->type = id_IOLOGIC;
                 }
+                ci->type = id_IOLOGIC;
             } break;
             case ID_IDDR:   /* fall-through */
+            case ID_IDDRC:  /* fall-through */
             case ID_IDES4:  /* fall-through */
             case ID_IDES8:  /* fall-through */
             case ID_IDES10: /* fall-through */
@@ -1098,6 +1104,10 @@ static void pack_iologic(Context *ctx)
                 }
                 std::string in_mode;
                 switch (ci->type.hash()) {
+                case ID_IDDR: /* fall-through */
+                case ID_IDDRC:
+                    in_mode = "IDDRX1";
+                    break;
                 case ID_IDES4:
                     in_mode = "IDDRX2";
                     break;
@@ -1131,17 +1141,19 @@ static void pack_iologic(Context *ctx)
                 reconnect_ides_outs(ci);
 
                 // common clock inputs
-                if (ci->type == id_IDES4) {
-                    ci->type = id_IOLOGIC;
-                    // two IDER4 share FCLK, check it
-                    Loc other_loc = loc;
-                    other_loc.z = 1 - loc.z + 2 * BelZ::iologic_z;
-                    BelId other_bel = ctx->getBelByLocation(other_loc);
-                    CellInfo *other_cell = ctx->getBoundBelCell(other_bel);
-                    if (other_cell != nullptr) {
-                        NPNR_ASSERT(other_cell->type == id_IDES4);
-                        if (ci->ports.at(id_FCLK).net != other_cell->ports.at(id_FCLK).net) {
-                            log_error("%s and %s have differnet FCLK nets\n", ctx->nameOf(ci), ctx->nameOf(other_cell));
+                if (ci->type == id_IDES4 || ci->type == id_IDDR || ci->type == id_IDDRC) {
+                    if (ci->type == id_IDES4) {
+                        // two IDER4 share FCLK, check it
+                        Loc other_loc = loc;
+                        other_loc.z = 1 - loc.z + 2 * BelZ::iologic_z;
+                        BelId other_bel = ctx->getBelByLocation(other_loc);
+                        CellInfo *other_cell = ctx->getBoundBelCell(other_bel);
+                        if (other_cell != nullptr) {
+                            NPNR_ASSERT(other_cell->type == id_IDES4);
+                            if (ci->ports.at(id_FCLK).net != other_cell->ports.at(id_FCLK).net) {
+                                log_error("%s and %s have differnet FCLK nets\n", ctx->nameOf(ci),
+                                          ctx->nameOf(other_cell));
+                            }
                         }
                     }
                 } else {
@@ -1157,6 +1169,7 @@ static void pack_iologic(Context *ctx)
                     std::unique_ptr<CellInfo> aux_cell =
                             create_generic_cell(ctx, id_IOLOGIC, ci->name.str(ctx) + "_AUX");
                     ci->setAttr(ctx->id("IOLOGIC_AUX_CELL"), ci->name.str(ctx) + "_AUX");
+                    aux_cell->setAttr(id_IOLOGIC_TYPE, std::string("DUMMY"));
                     aux_cell->setParam(ctx->id("INMODE"), std::string("DDRENABLE"));
                     aux_cell->setAttr(ctx->id("IOLOGIC_MASTER_CELL"), ci->name.str(ctx));
                     aux_cell->setAttr(id_BEL, ctx->getBelName(ctx->getBelByLocation(loc)).str(ctx));
@@ -1167,8 +1180,8 @@ static void pack_iologic(Context *ctx)
                         aux_cell->connectPort(id_PCLK, ci->ports.at(id_PCLK).net);
                     }
                     new_cells.push_back(std::move(aux_cell));
-                    ci->type = id_IOLOGIC;
                 }
+                ci->type = id_IOLOGIC;
             } break;
             default:
                 break;
