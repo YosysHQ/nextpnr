@@ -95,10 +95,7 @@ struct MachXO2Bitgen
             // outside of the center row of tiles as far as the database is
             // concerned. So convert U_/D_ prefixes back to G_ if not in the
             // center row.
-
-            // FIXME: This is hardcoded to 1200HC coordinates for now. Perhaps
-            // add a center row/col field to chipdb?
-            if (loc.y == 6)
+            if (ctx->is_spine_row(loc.y))
                 return basename;
             else
                 return "G_" + basename.substr(2);
@@ -334,6 +331,17 @@ struct MachXO2Bitgen
         cc.tiles[pic_tile].add_enum(pio + ".BASE_TYPE", dir + "_" + iotype);
     }
 
+    void write_dcc(CellInfo *ci)
+    {
+        static const std::set<std::string> dcc = {"CENTERB", "CENTER4", "CENTER9"};
+        const NetInfo *cen = ci->getPort(id_CE);
+        if (cen != nullptr) {
+            std::string belname = ctx->tile_info(ci->bel)->bel_data[ci->bel.index].name.get();
+            std::string dcc_tile = ctx->get_tile_by_type_loc(ci->bel.location.y - 2, ci->bel.location.x, dcc);
+            cc.tiles[dcc_tile].add_enum(belname + ".MODE", "DCCA");
+        }
+    }
+
     void run()
     {
         IdString base_id = ctx->id(ctx->chip_info->device_name.get());
@@ -411,6 +419,8 @@ struct MachXO2Bitgen
                 std::string freq = str_or_default(ci->params, id_NOM_FREQ, "2.08");
                 cc.tiles[ctx->get_tile_by_type("CFG1")].add_enum("OSCH.MODE", "OSCH");
                 cc.tiles[ctx->get_tile_by_type("CFG1")].add_enum("OSCH.NOM_FREQ", freq);
+            } else if (ci->type == id_DCCA) {
+                write_dcc(ci);
             }
         }
     }
