@@ -394,6 +394,11 @@ def write_database(dev_name, chip, rg, endianness):
         bba.r_slice("supported_speed_grades_%s" % name, len(var_data["speeds"]), "supported_speed_grades")
         bba.r_slice("supported_suffixes_%s" % name, len(var_data["suffixes"]), "supported_suffixes")
 
+    bba.l("spine_info", "SpineInfoPOD")
+    spines = chip.global_data_machxo2.spines
+    for spine in spines:
+        bba.u32(spine.row, "row")
+
     bba.l("chip_info")
     bba.s(chip.info.family, "family")
     bba.s(chip.info.name, "device_name")
@@ -408,6 +413,7 @@ def write_database(dev_name, chip, rg, endianness):
     bba.r_slice("pio_info", len(pindata), "pio_info")
     bba.r_slice("tiles_info", (max_col + 1) * (max_row + 1), "tile_info")
     bba.r_slice("variant_data", len(variants), "variant_info")
+    bba.r_slice("spine_info", len(spines), "spine_info")
 
     bba.pop()
     return bba

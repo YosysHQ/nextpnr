@@ -133,6 +133,8 @@ NPNR_PACKED_STRUCT(struct VariantInfoPOD {
     RelSlice<SuffixeSupportedPOD> suffixes;
 });
 
+NPNR_PACKED_STRUCT(struct SpineInfoPOD { int32_t row; });
+
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelPtr<char> family;
     RelPtr<char> device_name;
@@ -145,6 +147,7 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelSlice<PIOInfoPOD> pio_info;
     RelSlice<TileInfoPOD> tile_info;
     RelSlice<VariantInfoPOD> variants;
+    RelSlice<SpineInfoPOD> spines;
 });
 
 /************************ End of chipdb section. ************************/
@@ -960,6 +963,7 @@ struct Arch : BaseArch<ArchRanges>
         NPNR_ASSERT_FALSE_STR("no tile with type " + type);
     }
 
+    bool is_spine_row(int row) const;
     // Apply LPF constraints to the context
     bool apply_lpf(std::string filename, std::istream &in);
 
