@@ -163,9 +163,12 @@ struct MachXO2Bitgen
                                                     "PIC_L0_VREF3", "PIC_L0_VREF4", "PIC_L0_VREF5",
                                                     "PIC_L1_VREF3", "PIC_L1_VREF4", "PIC_L1_VREF5",
                                                     "PIC_L2_VREF4", "PIC_L2_VREF5",
-                                                    "PIC_L3_VREF4", "PIC_L3_VREF5"};
+                                                    "PIC_L3_VREF4", "PIC_L3_VREF5",
+                                                    "LLC0PIC", "LLC1PIC", 
+                                                    "LLC0PIC_VREF3", "LLC3PIC_VREF3", "ULC3PIC"};
         static const std::set<std::string> pio_r = {"PIC_R0", "PIC_R1", "PIC_RS0",
-                                                    "PIC_R0_256", "PIC_R1_640", "PIC_RS0_256"};
+                                                    "PIC_R0_256", "PIC_R1_640", "PIC_RS0_256",
+                                                    "LRC1PIC1", "LRC1PIC2", "URC1PIC"};
 
         std::string pio_name = ctx->tile_info(bel)->bel_data[bel.index].name.get();
         if (bel.location.y == 0) {
