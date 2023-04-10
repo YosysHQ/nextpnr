@@ -49,10 +49,10 @@ static bool net_is_constant(const Context *ctx, NetInfo *net, bool &value)
     }
 }
 
-class Ecp5Packer
+class MachXO2Packer
 {
   public:
-    Ecp5Packer(Context *ctx) : ctx(ctx){};
+    MachXO2Packer(Context *ctx) : ctx(ctx){};
 
   private:
     // Process the contents of packed_cells and new_cells
@@ -1012,6 +1012,60 @@ class Ecp5Packer
         }
     }
 
+    // Preplace PLL
+    void preplace_plls()
+    {
+        std::set<BelId> available_plls;
+        for (auto bel : ctx->getBels()) {
+            if (ctx->getBelType(bel) == id_EHXPLLJ && ctx->checkBelAvail(bel))
+                available_plls.insert(bel);
+        }
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (ci->type == id_EHXPLLJ && ci->attrs.count(id_BEL))
+                available_plls.erase(ctx->getBelByNameStr(ci->attrs.at(id_BEL).as_string()));
+        }
+        // Place PLL connected to fixed drivers such as IO close to their source
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (ci->type == id_EHXPLLJ && !ci->attrs.count(id_BEL)) {
+                const NetInfo *drivernet = ci->getPort(id_CLKI);
+                if (drivernet == nullptr || drivernet->driver.cell == nullptr)
+                    continue;
+                const CellInfo *drivercell = drivernet->driver.cell;
+                if (!drivercell->attrs.count(id_BEL))
+                    continue;
+                BelId drvbel = ctx->getBelByNameStr(drivercell->attrs.at(id_BEL).as_string());
+                Loc drvloc = ctx->getBelLocation(drvbel);
+                BelId closest_pll;
+                int closest_distance = std::numeric_limits<int>::max();
+                for (auto bel : available_plls) {
+                    Loc pllloc = ctx->getBelLocation(bel);
+                    int distance = std::abs(drvloc.x - pllloc.x) + std::abs(drvloc.y - pllloc.y);
+                    if (distance < closest_distance) {
+                        closest_pll = bel;
+                        closest_distance = distance;
+                    }
+                }
+                if (closest_pll == BelId())
+                    log_error("failed to place PLL '%s'\n", ci->name.c_str(ctx));
+                available_plls.erase(closest_pll);
+                ci->attrs[id_BEL] = ctx->getBelName(closest_pll).str(ctx);
+            }
+        }
+        // Place PLLs driven by logic, etc, randomly
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (ci->type == id_EHXPLLJ && !ci->attrs.count(id_BEL)) {
+                if (available_plls.empty())
+                    log_error("failed to place PLL '%s'\n", ci->name.c_str(ctx));
+                BelId next_pll = *(available_plls.begin());
+                available_plls.erase(next_pll);
+                ci->attrs[id_BEL] = ctx->getBelName(next_pll).str(ctx);
+            }
+        }
+    }
+
     // Check if two nets have identical constant drivers
     bool equal_constant(NetInfo *a, NetInfo *b)
     {
@@ -1079,6 +1133,263 @@ class Ecp5Packer
             log_error("Unsupported DEL_MODE '%s'\n", del_mode.c_str());
     }
 
+    void generate_constraints()
+    {
+        log_info("Generating derived timing constraints...\n");
+        auto MHz = [&](delay_t a) { return 1000.0 / ctx->getDelayNS(a); };
+
+        auto equals_epsilon = [](delay_t a, delay_t b) { return (std::abs(a - b) / std::max(double(b), 1.0)) < 1e-3; };
+        auto equals_epsilon_pair = [&](DelayPair &a, DelayPair &b) {
+            return equals_epsilon(a.min_delay, b.min_delay) && equals_epsilon(a.max_delay, b.max_delay);
+        };
+        auto equals_epsilon_constr = [&](ClockConstraint &a, ClockConstraint &b) {
+            return equals_epsilon_pair(a.high, b.high) && equals_epsilon_pair(a.low, b.low) &&
+                   equals_epsilon_pair(a.period, b.period);
+        };
+
+        pool<IdString> user_constrained, changed_nets;
+        for (auto &net : ctx->nets) {
+            if (net.second->clkconstr != nullptr)
+                user_constrained.insert(net.first);
+            changed_nets.insert(net.first);
+        }
+        auto get_period = [&](CellInfo *ci, IdString port, delay_t &period) {
+            if (!ci->ports.count(port))
+                return false;
+            NetInfo *from = ci->ports.at(port).net;
+            if (from == nullptr || from->clkconstr == nullptr)
+                return false;
+            period = from->clkconstr->period.minDelay();
+            return true;
+        };
+
+        auto simple_clk_contraint = [&](delay_t period) {
+            auto constr = std::unique_ptr<ClockConstraint>(new ClockConstraint());
+            constr->low = DelayPair(period / 2);
+            constr->high = DelayPair(period / 2);
+            constr->period = DelayPair(period);
+
+            return constr;
+        };
+
+        auto set_constraint = [&](CellInfo *ci, IdString port, std::unique_ptr<ClockConstraint> constr) {
+            if (!ci->ports.count(port))
+                return;
+            NetInfo *to = ci->ports.at(port).net;
+            if (to == nullptr)
+                return;
+            if (to->clkconstr != nullptr) {
+                if (!equals_epsilon_constr(*to->clkconstr, *constr) && user_constrained.count(to->name))
+                    log_warning(
+                            "    Overriding derived constraint of %.1f MHz on net %s with user-specified constraint of "
+                            "%.1f MHz.\n",
+                            MHz(to->clkconstr->period.min_delay), to->name.c_str(ctx), MHz(constr->period.min_delay));
+                return;
+            }
+            to->clkconstr = std::move(constr);
+            log_info("    Derived frequency constraint of %.1f MHz for net %s\n", MHz(to->clkconstr->period.minDelay()),
+                     to->name.c_str(ctx));
+            changed_nets.insert(to->name);
+        };
+
+        auto copy_constraint = [&](CellInfo *ci, IdString fromPort, IdString toPort, double ratio = 1.0) {
+            if (!ci->ports.count(fromPort) || !ci->ports.count(toPort))
+                return;
+            NetInfo *from = ci->ports.at(fromPort).net, *to = ci->ports.at(toPort).net;
+            if (from == nullptr || from->clkconstr == nullptr || to == nullptr)
+                return;
+            if (to->clkconstr != nullptr) {
+                if (!equals_epsilon(to->clkconstr->period.minDelay(),
+                                    delay_t(from->clkconstr->period.minDelay() / ratio)) &&
+                    user_constrained.count(to->name))
+                    log_warning(
+                            "    Overriding derived constraint of %.1f MHz on net %s with user-specified constraint of "
+                            "%.1f MHz.\n",
+                            MHz(to->clkconstr->period.minDelay()), to->name.c_str(ctx),
+                            MHz(delay_t(from->clkconstr->period.minDelay() / ratio)));
+                return;
+            }
+            to->clkconstr = std::unique_ptr<ClockConstraint>(new ClockConstraint());
+            to->clkconstr->low =
+                    DelayPair(ctx->getDelayFromNS(ctx->getDelayNS(from->clkconstr->low.min_delay) / ratio));
+            to->clkconstr->high =
+                    DelayPair(ctx->getDelayFromNS(ctx->getDelayNS(from->clkconstr->high.min_delay) / ratio));
+            to->clkconstr->period =
+                    DelayPair(ctx->getDelayFromNS(ctx->getDelayNS(from->clkconstr->period.min_delay) / ratio));
+            log_info("    Derived frequency constraint of %.1f MHz for net %s\n", MHz(to->clkconstr->period.minDelay()),
+                     to->name.c_str(ctx));
+            changed_nets.insert(to->name);
+        };
+
+        // Run in a loop while constraints are changing to deal with dependencies
+        // Iteration limit avoids hanging in crazy loopback situation (self-fed PLLs or dividers, etc)
+        int iter = 0;
+        const int itermax = 5000;
+        while (!changed_nets.empty() && iter < itermax) {
+            ++iter;
+            pool<IdString> changed_cells;
+            for (auto net : changed_nets) {
+                for (auto &user : ctx->nets.at(net)->users)
+                    if (user.port.in(id_CLKI, /*id_ECLKI,*/ id_CLK0, id_CLK1))
+                        changed_cells.insert(user.cell->name);
+                auto &drv = ctx->nets.at(net)->driver;
+                if (iter == 1 && drv.cell != nullptr && drv.port == id_OSC)
+                    changed_cells.insert(drv.cell->name);
+            }
+            changed_nets.clear();
+            for (auto cell : changed_cells) {
+                CellInfo *ci = ctx->cells.at(cell).get();
+/*                if (ci->type == id_CLKDIVF) {
+                    std::string div = str_or_default(ci->params, id_DIV, "2.0");
+                    double ratio;
+                    if (div == "2.0")
+                        ratio = 1 / 2.0;
+                    else if (div == "3.5")
+                        ratio = 1 / 3.5;
+                    else
+                        log_error("Unsupported divider ratio '%s' on CLKDIVF '%s'\n", div.c_str(), ci->name.c_str(ctx));
+                    copy_constraint(ci, id_CLKI, id_CDIVX, ratio);
+                } else if (ci->type.in(id_ECLKSYNCB, id_TRELLIS_ECLKBUF)) {
+                    copy_constraint(ci, id_ECLKI, id_ECLKO, 1);
+                } else if (ci->type == id_ECLKBRIDGECS) {
+                    copy_constraint(ci, id_CLK0, id_ECSOUT, 1);
+                    copy_constraint(ci, id_CLK1, id_ECSOUT, 1);
+                } else */
+                if (ci->type == id_DCCA) {
+                    copy_constraint(ci, id_CLKI, id_CLKO, 1);
+                /*} else if (ci->type == id_DCSC) {
+                    if ((!ci->ports.count(id_CLK0) && !ci->ports.count(id_CLK1)) || !ci->ports.count(id_DCSOUT))
+                        continue;
+
+                    auto mode = str_or_default(ci->params, id_DCSMODE, "POS");
+                    bool mode_constant = false;
+                    auto mode_is_constant = net_is_constant(ctx, ci->ports.at(id_MODESEL).net, mode_constant);
+
+                    if (mode_is_constant && mode_constant == false) {
+                        if (mode == "CLK0_LOW" || mode == "CLK0_HIGH" || mode == "CLK0") {
+                            copy_constraint(ci, id_CLK0, id_DCSOUT, 1.0);
+                            continue;
+                        } else if (mode == "CLK1_LOW" || mode == "CLK1_HIGH" || mode == "CLK1") {
+                            copy_constraint(ci, id_CLK1, id_DCSOUT, 1.0);
+                            continue;
+                        } else if (mode == "LOW" || mode == "HIGH") {
+                            continue;
+                        }
+                    }
+
+                    std::unique_ptr<ClockConstraint> derived_constr = nullptr;
+                    std::vector<NetInfo *> in_ports = {
+                            ci->ports.at(id_CLK0).net,
+                            ci->ports.at(id_CLK1).net,
+                    };
+
+                    // Generate all unique clock pairs find the worst
+                    // constraint from switching between them and merge them
+                    // into the final output constraint.
+                    for (size_t i = 0; i < in_ports.size(); ++i) {
+                        auto p1 = in_ports[i];
+                        if (p1 == nullptr || p1->clkconstr == nullptr) {
+                            derived_constr = nullptr;
+                            break;
+                        }
+                        for (size_t j = i + 1; j < in_ports.size(); ++j) {
+                            auto p2 = in_ports[j];
+                            if (p2 == nullptr || p2->clkconstr == nullptr) {
+                                break;
+                            }
+                            auto &c1 = p1->clkconstr;
+                            auto &c2 = p2->clkconstr;
+
+                            auto merged_constr = std::unique_ptr<ClockConstraint>(new ClockConstraint());
+
+                            if (mode == "NEG") {
+                                merged_constr->low = DelayPair(std::min(c1->low.min_delay, c2->low.min_delay),
+                                                               std::max(c1->low.max_delay + c2->period.max_delay,
+                                                                        c2->low.max_delay + c1->period.max_delay));
+                            } else {
+                                merged_constr->low = DelayPair(std::min(c1->low.min_delay, c2->low.min_delay),
+                                                               std::max(c1->low.max_delay, c2->low.max_delay));
+                            }
+
+                            if (mode == "POS") {
+                                merged_constr->high = DelayPair(std::min(c1->high.min_delay, c2->high.min_delay),
+                                                                std::max(c1->high.max_delay + c2->period.max_delay,
+                                                                         c2->high.max_delay + c1->period.max_delay));
+                            } else {
+                                merged_constr->high = DelayPair(std::min(c1->high.min_delay, c2->high.min_delay),
+                                                                std::max(c1->high.max_delay, c2->high.max_delay));
+                            }
+
+                            merged_constr->period = DelayPair(std::min(c1->period.min_delay, c2->period.min_delay),
+                                                              std::max(c1->period.max_delay, c2->period.max_delay));
+
+                            if (derived_constr == nullptr) {
+                                derived_constr = std::move(merged_constr);
+                                continue;
+                            }
+
+                            derived_constr->period.min_delay =
+                                    std::min(derived_constr->period.min_delay, merged_constr->period.min_delay);
+                            derived_constr->period.max_delay =
+                                    std::max(derived_constr->period.max_delay, merged_constr->period.max_delay);
+                            derived_constr->low.min_delay =
+                                    std::min(derived_constr->low.min_delay, merged_constr->low.min_delay);
+                            derived_constr->low.max_delay =
+                                    std::max(derived_constr->low.max_delay, merged_constr->low.max_delay);
+                            derived_constr->high.min_delay =
+                                    std::min(derived_constr->high.min_delay, merged_constr->high.min_delay);
+                            derived_constr->high.max_delay =
+                                    std::max(derived_constr->high.max_delay, merged_constr->high.max_delay);
+                        }
+                    }
+
+                    if (derived_constr != nullptr) {
+                        set_constraint(ci, id_DCSOUT, std::move(derived_constr));
+                    }*/
+                } else if (ci->type == id_EHXPLLJ) {
+                    delay_t period_in;
+                    if (!get_period(ci, id_CLKI, period_in))
+                        continue;
+                    log_info("    Input frequency of PLL '%s' is constrained to %.1f MHz\n", ci->name.c_str(ctx),
+                             MHz(period_in));
+                    double period_in_div = period_in * int_or_default(ci->params, id_CLKI_DIV, 1);
+                    std::string path = str_or_default(ci->params, id_FEEDBK_PATH, "CLKOP");
+                    int feedback_div = int_or_default(ci->params, id_CLKFB_DIV, 1);
+                    if (path == "CLKOP" || path == "INT_OP")
+                        feedback_div *= int_or_default(ci->params, id_CLKOP_DIV, 1);
+                    else if (path == "CLKOS" || path == "INT_OS")
+                        feedback_div *= int_or_default(ci->params, id_CLKOS_DIV, 1);
+                    else if (path == "CLKOS2" || path == "INT_OS2")
+                        feedback_div *= int_or_default(ci->params, id_CLKOS2_DIV, 1);
+                    else if (path == "CLKOS3" || path == "INT_OS3")
+                        feedback_div *= int_or_default(ci->params, id_CLKOS3_DIV, 1);
+                    else {
+                        log_info("     Unable to determine output frequencies for PLL '%s' with FEEDBK_PATH=%s\n",
+                                 ci->name.c_str(ctx), path.c_str());
+                        continue;
+                    }
+                    double vco_period = period_in_div / feedback_div;
+                    double vco_freq = MHz(vco_period);
+                    if (vco_freq < 400 || vco_freq > 800)
+                        log_info("    Derived VCO frequency %.1f MHz of PLL '%s' is out of legal range [400MHz, "
+                                 "800MHz]\n",
+                                 vco_freq, ci->name.c_str(ctx));
+                    set_constraint(ci, id_CLKOP,
+                                   simple_clk_contraint(vco_period * int_or_default(ci->params, id_CLKOP_DIV, 1)));
+                    set_constraint(ci, id_CLKOS,
+                                   simple_clk_contraint(vco_period * int_or_default(ci->params, id_CLKOS_DIV, 1)));
+                    set_constraint(ci, id_CLKOS2,
+                                   simple_clk_contraint(vco_period * int_or_default(ci->params, id_CLKOS2_DIV, 1)));
+                    set_constraint(ci, id_CLKOS3,
+                                   simple_clk_contraint(vco_period * int_or_default(ci->params, id_CLKOS3_DIV, 1)));
+                }/* else if (ci->type == id_OSCH) {
+                    int div = int_or_default(ci->params, id_DIV, 128);
+                    set_constraint(ci, id_OSC, simple_clk_contraint(delay_t((1.0e6 / (2.0 * 155)) * div)));
+                }*/
+            }
+        }
+    }
+
     void prepack_checks()
     {
         // Check for legacy-style JSON (use CEMUX as a clue) and error out, avoiding a confusing assertion failure
@@ -1096,12 +1407,14 @@ class Ecp5Packer
         prepack_checks();
         print_logic_usage();
         pack_io();
+        preplace_plls();
         pack_constants();
         pack_dram();
         pack_carries();
         pack_luts();
         pack_lut5xs();
         pack_ffs();
+        generate_constraints();
         ctx->fixupHierarchy();
         ctx->check();
     }
@@ -1131,7 +1444,7 @@ bool Arch::pack()
     Context *ctx = getCtx();
     try {
         log_break();
-        Ecp5Packer(ctx).pack();
+        MachXO2Packer(ctx).pack();
         log_info("Checksum: 0x%08x\n", ctx->checksum());
         assignArchInfo();
         ctx->settings[id_pack] = 1;

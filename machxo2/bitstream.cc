@@ -184,6 +184,24 @@ struct MachXO2Bitgen
         }
     }
 
+    // Get the list of tiles corresponding to a PLL
+    std::vector<std::string> get_pll_tiles(BelId bel)
+    {
+        std::string name = ctx->tile_info(bel)->bel_data[bel.index].name.get();
+        std::vector<std::string> tiles;
+        Loc loc = ctx->getBelLocation(bel);
+
+        if (name == "EHXPLL_L") {
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y-1, loc.x-1, "GPLL_L0"));
+            //tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "CIB_PIC_T_DUMMY"));
+        } else if (name == "EHXPLL_R") {
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y+1, loc.x-1, "GPLL_R0"));
+        } else {
+            NPNR_ASSERT_FALSE_STR("bad PLL loc " + name);
+        }
+        return tiles;
+    }
+
     void set_pip(ChipConfig &cc, PipId pip)
     {
         std::string tile = ctx->get_pip_tilename(pip);
@@ -345,6 +363,107 @@ struct MachXO2Bitgen
         }
     }
 
+    void write_pll(CellInfo *ci)
+    {
+        TileGroup tg;
+        tg.tiles = get_pll_tiles(ci->bel);
+
+        tg.config.add_enum("MODE", "EHXPLLJ");
+
+        tg.config.add_word("CLKI_DIV", int_to_bitvector(int_or_default(ci->params, id_CLKI_DIV, 1) - 1, 7));
+        tg.config.add_word("CLKFB_DIV", int_to_bitvector(int_or_default(ci->params, id_CLKFB_DIV, 1) - 1, 7));
+
+        tg.config.add_enum("CLKOP_ENABLE", str_or_default(ci->params, id_CLKOP_ENABLE, "ENABLED"));
+        tg.config.add_enum("CLKOS_ENABLE", str_or_default(ci->params, id_CLKOS_ENABLE, "ENABLED"));
+        tg.config.add_enum("CLKOS2_ENABLE", str_or_default(ci->params, id_CLKOS2_ENABLE, "ENABLED"));
+        tg.config.add_enum("CLKOS3_ENABLE", str_or_default(ci->params, id_CLKOS3_ENABLE, "ENABLED"));
+
+        for (std::string out : {"CLKOP", "CLKOS", "CLKOS2", "CLKOS3"}) {
+            tg.config.add_word(out + "_DIV",
+                               int_to_bitvector(int_or_default(ci->params, ctx->id(out + "_DIV"), 8) - 1, 7));
+            tg.config.add_word(out + "_CPHASE",
+                               int_to_bitvector(int_or_default(ci->params, ctx->id(out + "_CPHASE"), 0), 7));
+            tg.config.add_word(out + "_FPHASE",
+                               int_to_bitvector(int_or_default(ci->params, ctx->id(out + "_FPHASE"), 0), 3));
+        }
+
+        tg.config.add_enum("FEEDBK_PATH", str_or_default(ci->params, id_FEEDBK_PATH, "CLKOP"));
+        tg.config.add_enum("CLKOP_TRIM_POL", str_or_default(ci->params, id_CLKOP_TRIM_POL, "RISING"));
+
+        tg.config.add_enum("CLKOP_TRIM_DELAY", intstr_or_default(ci->params, id_CLKOP_TRIM_DELAY, "0"));
+
+        tg.config.add_enum("CLKOS_TRIM_POL", str_or_default(ci->params, id_CLKOS_TRIM_POL, "RISING"));
+
+        tg.config.add_enum("CLKOS_TRIM_DELAY", intstr_or_default(ci->params, id_CLKOS_TRIM_DELAY, "0"));
+
+        tg.config.add_enum("VCO_BYPASS_A0", str_or_default(ci->params, id_VCO_BYPASS_A0, "DISABLED"));
+        tg.config.add_enum("VCO_BYPASS_B0", str_or_default(ci->params, id_VCO_BYPASS_B0, "DISABLED"));
+        tg.config.add_enum("VCO_BYPASS_C0", str_or_default(ci->params, id_VCO_BYPASS_C0, "DISABLED"));
+        tg.config.add_enum("VCO_BYPASS_D0", str_or_default(ci->params, id_VCO_BYPASS_D0, "DISABLED"));
+
+        tg.config.add_word("PREDIVIDER_MUXA1", int_to_bitvector(int_or_default(ci->attrs, id_PREDIVIDER_MUXA1, 0), 2));
+        tg.config.add_word("PREDIVIDER_MUXB1", int_to_bitvector(int_or_default(ci->attrs, id_PREDIVIDER_MUXB1, 0), 2));
+        tg.config.add_word("PREDIVIDER_MUXC1", int_to_bitvector(int_or_default(ci->attrs, id_PREDIVIDER_MUXC1, 0), 2));
+        tg.config.add_word("PREDIVIDER_MUXD1", int_to_bitvector(int_or_default(ci->attrs, id_PREDIVIDER_MUXD1, 0), 2));
+        tg.config.add_enum("OUTDIVIDER_MUXA2",
+                           str_or_default(ci->params, id_OUTDIVIDER_MUXA2, ci->getPort(id_CLKOP) ? "DIVA" : "REFCLK"));
+        tg.config.add_enum("OUTDIVIDER_MUXB2",
+                           str_or_default(ci->params, id_OUTDIVIDER_MUXB2, ci->getPort(id_CLKOP) ? "DIVB" : "REFCLK"));
+        tg.config.add_enum("OUTDIVIDER_MUXC2",
+                           str_or_default(ci->params, id_OUTDIVIDER_MUXC2, ci->getPort(id_CLKOP) ? "DIVC" : "REFCLK"));
+        tg.config.add_enum("OUTDIVIDER_MUXD2",
+                           str_or_default(ci->params, id_OUTDIVIDER_MUXD2, ci->getPort(id_CLKOP) ? "DIVD" : "REFCLK"));
+
+        tg.config.add_word("PLL_LOCK_MODE", int_to_bitvector(int_or_default(ci->params, id_PLL_LOCK_MODE, 0), 3));
+
+        tg.config.add_enum("STDBY_ENABLE", str_or_default(ci->params, id_STDBY_ENABLE, "DISABLED"));
+        tg.config.add_enum("REFIN_RESET", str_or_default(ci->params, id_REFIN_RESET, "DISABLED"));
+        tg.config.add_enum("SYNC_ENABLE", str_or_default(ci->params, id_SYNC_ENABLE, "DISABLED"));
+        tg.config.add_enum("INT_LOCK_STICKY", str_or_default(ci->params, id_INT_LOCK_STICKY, "ENABLED"));
+        tg.config.add_enum("DPHASE_SOURCE", str_or_default(ci->params, id_DPHASE_SOURCE, "DISABLED"));
+        tg.config.add_enum("PLLRST_ENA", str_or_default(ci->params, id_PLLRST_ENA, "DISABLED"));
+        tg.config.add_enum("INTFB_WAKE", str_or_default(ci->params, id_INTFB_WAKE, "DISABLED"));
+        tg.config.add_enum("PLLRST_ENA", str_or_default(ci->params, id_PLLRST_ENA, "DISABLED"));
+        tg.config.add_enum("MRST_ENA", str_or_default(ci->params, id_MRST_ENA, "DISABLED"));
+        tg.config.add_enum("DCRST_ENA", str_or_default(ci->params, id_DCRST_ENA, "DISABLED"));
+        tg.config.add_enum("DDRST_ENA", str_or_default(ci->params, id_DDRST_ENA, "DISABLED"));
+
+        tg.config.add_word("KVCO", int_to_bitvector(int_or_default(ci->attrs, id_KVCO, 0), 3));
+        tg.config.add_word("LPF_CAPACITOR", int_to_bitvector(int_or_default(ci->attrs, id_LPF_CAPACITOR, 0), 2));
+        tg.config.add_word("LPF_RESISTOR", int_to_bitvector(int_or_default(ci->attrs, id_LPF_RESISTOR, 0), 7));
+        tg.config.add_word("ICP_CURRENT", int_to_bitvector(int_or_default(ci->attrs, id_ICP_CURRENT, 0), 5));
+        tg.config.add_word("FREQ_LOCK_ACCURACY",
+                           int_to_bitvector(int_or_default(ci->attrs, id_FREQ_LOCK_ACCURACY, 0), 2));
+
+        tg.config.add_word("GMC_GAIN", int_to_bitvector(int_or_default(ci->attrs, id_GMC_GAIN, 0), 3));
+        tg.config.add_word("GMC_TEST", int_to_bitvector(int_or_default(ci->attrs, id_GMC_TEST, 14), 4));
+        tg.config.add_word("MFG1_TEST", int_to_bitvector(int_or_default(ci->attrs, id_MFG1_TEST, 0), 3));
+        tg.config.add_word("MFG2_TEST", int_to_bitvector(int_or_default(ci->attrs, id_MFG2_TEST, 0), 3));
+
+        tg.config.add_word("MFG_FORCE_VFILTER",
+                           int_to_bitvector(int_or_default(ci->attrs, id_MFG_FORCE_VFILTER, 0), 1));
+        tg.config.add_word("MFG_ICP_TEST", int_to_bitvector(int_or_default(ci->attrs, id_MFG_ICP_TEST, 0), 1));
+        tg.config.add_word("MFG_EN_UP", int_to_bitvector(int_or_default(ci->attrs, id_MFG_EN_UP, 0), 1));
+        tg.config.add_word("MFG_FLOAT_ICP", int_to_bitvector(int_or_default(ci->attrs, id_MFG_FLOAT_ICP, 0), 1));
+        tg.config.add_word("MFG_GMC_PRESET", int_to_bitvector(int_or_default(ci->attrs, id_MFG_GMC_PRESET, 0), 1));
+        tg.config.add_word("MFG_LF_PRESET", int_to_bitvector(int_or_default(ci->attrs, id_MFG_LF_PRESET, 0), 1));
+        tg.config.add_word("MFG_GMC_RESET", int_to_bitvector(int_or_default(ci->attrs, id_MFG_GMC_RESET, 0), 1));
+        tg.config.add_word("MFG_LF_RESET", int_to_bitvector(int_or_default(ci->attrs, id_MFG_LF_RESET, 0), 1));
+        tg.config.add_word("MFG_LF_RESGRND", int_to_bitvector(int_or_default(ci->attrs, id_MFG_LF_RESGRND, 0), 1));
+        tg.config.add_word("MFG_GMCREF_SEL", int_to_bitvector(int_or_default(ci->attrs, id_MFG_GMCREF_SEL, 0), 2));
+        tg.config.add_word("MFG_ENABLE_FILTEROPAMP",
+                           int_to_bitvector(int_or_default(ci->attrs, id_MFG_ENABLE_FILTEROPAMP, 0), 1));
+
+        tg.config.add_enum("CLOCK_ENABLE_PORTS", str_or_default(ci->params, id_DDRST_ENA, "DISABLED"));
+        tg.config.add_enum("PLL_EXPERT", str_or_default(ci->params, id_PLL_EXPERT, "DISABLED"));
+        tg.config.add_enum("PLL_USE_WB", str_or_default(ci->params, id_PLL_USE_WB, "DISABLED"));
+
+        tg.config.add_enum("FRACN_ENABLE", str_or_default(ci->params, id_FRACN_ENABLE, "DISABLED"));
+        tg.config.add_word("FRACN_DIV", int_to_bitvector(int_or_default(ci->attrs, id_FRACN_DIV, 0), 16));
+        tg.config.add_word("FRACN_ORDER", int_to_bitvector(int_or_default(ci->attrs, id_FRACN_ORDER, 0), 2));
+        cc.tilegroups.push_back(tg);
+    }
+
     void run()
     {
         IdString base_id = ctx->id(ctx->chip_info->device_name.get());
@@ -424,6 +543,8 @@ struct MachXO2Bitgen
                 cc.tiles[ctx->get_tile_by_type("CFG1")].add_enum("OSCH.NOM_FREQ", freq);
             } else if (ci->type == id_DCCA) {
                 write_dcc(ci);
+            } else if (ci->type == id_EHXPLLJ) {
+                write_pll(ci);
             }
         }
     }
