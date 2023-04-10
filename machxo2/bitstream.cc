@@ -154,6 +154,53 @@ struct MachXO2Bitgen
         return bv;
     }
 
+    inline int chtohex(char c)
+    {
+        static const std::string hex = "0123456789ABCDEF";
+        return hex.find(std::toupper(c));
+    }
+
+    std::vector<bool> parse_init_str(const Property &p, int length, const char *cellname)
+    {
+        // Parse a string that may be binary or hex
+        std::vector<bool> result;
+        result.resize(length, false);
+        if (p.is_string) {
+            std::string str = p.as_string();
+            NPNR_ASSERT(str.substr(0, 2) == "0x");
+            // Lattice style hex string
+            if (int(str.length()) > (2 + ((length + 3) / 4)))
+                log_error("hex string value too long, expected up to %d chars and found %d.\n",
+                          (2 + ((length + 3) / 4)), int(str.length()));
+            for (int i = 0; i < int(str.length()) - 2; i++) {
+                char c = str.at((str.size() - i) - 1);
+                int nibble = chtohex(c);
+                if (nibble == (int)std::string::npos)
+                    log_error("hex string has invalid char '%c' at position %d.\n", c, i);
+                result.at(i * 4) = nibble & 0x1;
+                if (i * 4 + 1 < length)
+                    result.at(i * 4 + 1) = nibble & 0x2;
+                if (i * 4 + 2 < length)
+                    result.at(i * 4 + 2) = nibble & 0x4;
+                if (i * 4 + 3 < length)
+                    result.at(i * 4 + 3) = nibble & 0x8;
+            }
+        } else {
+            result = p.as_bits();
+            result.resize(length, false);
+        }
+        return result;
+    }
+
+    inline uint16_t bit_reverse(uint16_t x, int size)
+    {
+        uint16_t y = 0;
+        for (int i = 0; i < size; i++)
+            if (x & (1 << i))
+                y |= (1 << ((size - 1) - i));
+        return y;
+    }
+
     // Get the PIC tile corresponding to a PIO bel
     std::string get_pic_tile(BelId bel)
     {
@@ -182,6 +229,21 @@ struct MachXO2Bitgen
         } else {
             NPNR_ASSERT_FALSE("bad PIO location");
         }
+    }
+
+    // Get the list of tiles corresponding to a blockram
+    std::vector<std::string> get_bram_tiles(BelId bel)
+    {
+        std::vector<std::string> tiles;
+        Loc loc = ctx->getBelLocation(bel);
+
+        static const std::set<std::string> ebr0 = {"EBR0", "EBR0_END", "EBR0_10K", "EBR0_END_10K"};
+        static const std::set<std::string> ebr1 = {"EBR1", "EBR1_10K"};
+        static const std::set<std::string> ebr2 = {"EBR2", "EBR2_END", "EBR2_10K", "EBR2_END_10K"};
+        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, ebr0));
+        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x+1, ebr1));
+        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x+2, ebr2));
+        return tiles;
     }
 
     // Get the list of tiles corresponding to a PLL
@@ -361,6 +423,78 @@ struct MachXO2Bitgen
             std::string dcc_tile = ctx->get_tile_by_type_loc(ci->bel.location.y - 2, ci->bel.location.x, dcc);
             cc.tiles[dcc_tile].add_enum(belname + ".MODE", "DCCA");
         }
+    }
+
+    void write_bram(CellInfo *ci)
+    {
+        TileGroup tg;
+        tg.tiles = get_bram_tiles(ci->bel);
+        std::string ebr = "EBR";
+
+        if (ci->ramInfo.is_pdp) {
+            tg.config.add_enum(ebr + ".MODE", "PDPW8KC");
+            tg.config.add_enum(ebr + ".PDPW8KC.DATA_WIDTH_R", intstr_or_default(ci->params, id_DATA_WIDTH_B, "18"));
+            tg.config.add_enum(ebr + ".FIFO8KB.DATA_WIDTH_W", "18"); // default for PDPW8KC
+        } else {
+            tg.config.add_enum(ebr + ".MODE", "DP8KC");
+            tg.config.add_enum(ebr + ".DP8KC.DATA_WIDTH_A", intstr_or_default(ci->params, id_DATA_WIDTH_A, "18"));
+            tg.config.add_enum(ebr + ".DP8KC.DATA_WIDTH_B", intstr_or_default(ci->params, id_DATA_WIDTH_B, "18"));
+            tg.config.add_enum(ebr + ".DP8KC.WRITEMODE_A", str_or_default(ci->params, id_WRITEMODE_A, "NORMAL"));
+            tg.config.add_enum(ebr + ".DP8KC.WRITEMODE_B", str_or_default(ci->params, id_WRITEMODE_B, "NORMAL"));
+        }
+
+        auto csd_a = str_to_bitvector(str_or_default(ci->params, id_CSDECODE_A, "0b000"), 3),
+             csd_b = str_to_bitvector(str_or_default(ci->params, id_CSDECODE_B, "0b000"), 3);
+
+        tg.config.add_enum(ebr + ".REGMODE_A", str_or_default(ci->params, id_REGMODE_A, "NOREG"));
+        tg.config.add_enum(ebr + ".REGMODE_B", str_or_default(ci->params, id_REGMODE_B, "NOREG"));
+
+        tg.config.add_enum(ebr + ".RESETMODE", str_or_default(ci->params, id_RESETMODE, "SYNC"));
+        tg.config.add_enum(ebr + ".ASYNC_RESET_RELEASE", str_or_default(ci->params, id_ASYNC_RESET_RELEASE, "SYNC"));
+        tg.config.add_enum(ebr + ".GSR", str_or_default(ci->params, id_GSR, "DISABLED"));
+
+        tg.config.add_word(ebr + ".WID", int_to_bitvector(int_or_default(ci->attrs, id_WID, 0), 9));
+
+       // Invert CSDECODE bits to emulate inversion muxes on CSA/CSB signals
+        for (auto &port : {std::make_pair("CSA", std::ref(csd_a)), std::make_pair("CSB", std::ref(csd_b))}) {
+            for (int bit = 0; bit < 3; bit++) {
+                std::string sig = port.first + std::to_string(bit);
+                if (str_or_default(ci->params, ctx->id(sig + "MUX"), sig) == "INV")
+                    port.second.at(bit) = !port.second.at(bit);
+            }
+        }
+        tg.config.add_enum(ebr + ".RSTAMUX", str_or_default(ci->params, id_RSTAMUX, "RSTA"));
+        tg.config.add_enum(ebr + ".RSTBMUX", str_or_default(ci->params, id_RSTBMUX, "RSTB"));
+        if (!ci->ramInfo.is_pdp) {
+            tg.config.add_enum(ebr + ".WEAMUX", str_or_default(ci->params, id_WEAMUX, "WEA"));
+            tg.config.add_enum(ebr + ".WEBMUX", str_or_default(ci->params, id_WEBMUX, "WEB"));
+
+        }
+        std::reverse(csd_a.begin(), csd_a.end());
+        std::reverse(csd_b.begin(), csd_b.end());
+
+        tg.config.add_word(ebr + ".CSDECODE_A", csd_a);
+        tg.config.add_word(ebr + ".CSDECODE_B", csd_b);
+
+        std::vector<uint16_t> init_data;
+        init_data.resize(1024, 0x0);
+        // INIT_00 .. INIT_1F
+        for (int i = 0; i <= 0x1F; i++) {
+            IdString param = ctx->idf("INITVAL_%02X", i);
+            auto value = parse_init_str(get_or_default(ci->params, param, Property(0)), 320, ci->name.c_str(ctx));
+            for (int j = 0; j < 16; j++) {
+                // INIT parameter consists of 16 18-bit words with 2-bit padding
+                int ofs = 20 * j;
+                for (int k = 0; k < 18; k++) {
+                    if (value.at(ofs + k))
+                        init_data.at(i * 32 + j * 2 + (k / 9)) |= (1 << (k % 9));
+                }
+            }
+        }
+        int wid = int_or_default(ci->attrs, id_WID, 0);
+        NPNR_ASSERT(!cc.bram_data.count(wid));
+        cc.bram_data[wid] = init_data;
+        cc.tilegroups.push_back(tg);
     }
 
     void write_pll(CellInfo *ci)
@@ -543,6 +677,8 @@ struct MachXO2Bitgen
                 cc.tiles[ctx->get_tile_by_type("CFG1")].add_enum("OSCH.NOM_FREQ", freq);
             } else if (ci->type == id_DCCA) {
                 write_dcc(ci);
+            } else if (ci->type == id_DP8KC) {
+                write_bram(ci);
             } else if (ci->type == id_EHXPLLJ) {
                 write_pll(ci);
             }
