@@ -1012,6 +1012,107 @@ class MachXO2Packer
         }
     }
 
+    // Pack EBR
+    void pack_ebr()
+    {
+        // Autoincrement WID (starting from 3 seems to match vendor behaviour?)
+        int wid = 3;
+        auto rename_bus = [&](CellInfo *c, const std::string &oldname, const std::string &newname, int width,
+                              int oldoffset, int newoffset) {
+            for (int i = 0; i < width; i++)
+                c->renamePort(ctx->id(oldname + std::to_string(i + oldoffset)),
+                              ctx->id(newname + std::to_string(i + newoffset)));
+        };
+        auto rename_param = [&](CellInfo *c, const std::string &oldname, const std::string &newname) {
+            IdString o = ctx->id(oldname), n = ctx->id(newname);
+            if (!c->params.count(o))
+                return;
+            c->params[n] = c->params[o];
+            c->params.erase(o);
+        };
+        /*for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            // Convert 36-bit PDP RAMs to regular 18-bit DP ones that match the Bel
+            if (ci->type == id_PDPW8KC) {
+                ci->params[id_DATA_WIDTH_A] = 18; // force PDP mode
+                ci->params.erase(id_DATA_WIDTH_W);
+                rename_bus(ci, "BE", "ADA", 4, 0, 0);
+                rename_bus(ci, "ADW", "ADA", 9, 0, 5);
+                rename_bus(ci, "ADR", "ADB", 14, 0, 0);
+                rename_bus(ci, "CSW", "CSA", 3, 0, 0);
+                rename_bus(ci, "CSR", "CSB", 3, 0, 0);
+                rename_bus(ci, "DI", "DIA", 18, 0, 0);
+                rename_bus(ci, "DI", "DIB", 18, 18, 0);
+                rename_bus(ci, "DO", "DOA", 18, 18, 0);
+                rename_bus(ci, "DO", "DOB", 18, 0, 0);
+                ci->renamePort(id_CLKW, id_CLKA);
+                ci->renamePort(id_CLKR, id_CLKB);
+                ci->renamePort(id_CEW, id_CEA);
+                ci->renamePort(id_CER, id_CEB);
+                ci->renamePort(id_OCER, id_OCEB);
+                rename_param(ci, "CLKWMUX", "CLKAMUX");
+                if (str_or_default(ci->params, id_CLKAMUX) == "CLKW")
+                    ci->params[id_CLKAMUX] = std::string("CLKA");
+                rename_param(ci, "CLKRMUX", "CLKBMUX");
+                if (str_or_default(ci->params, id_CLKBMUX) == "CLKR")
+                    ci->params[id_CLKBMUX] = std::string("CLKB");
+                rename_param(ci, "CSDECODE_W", "CSDECODE_A");
+                rename_param(ci, "CSDECODE_R", "CSDECODE_B");
+                std::string outreg = str_or_default(ci->params, id_REGMODE, "NOREG");
+                ci->params[id_REGMODE_A] = outreg;
+                ci->params[id_REGMODE_B] = outreg;
+                ci->params.erase(id_REGMODE);
+                rename_param(ci, "DATA_WIDTH_R", "DATA_WIDTH_B");
+                if (ci->ports.count(id_RST)) {
+                    autocreate_empty_port(ci, id_RSTA);
+                    autocreate_empty_port(ci, id_RSTB);
+                    NetInfo *rst = ci->ports.at(id_RST).net;
+                    ci->connectPort(id_RSTA, rst);
+                    ci->connectPort(id_RSTB, rst);
+                    ci->disconnectPort(id_RST);
+                    ci->ports.erase(id_RST);
+                }
+                ci->type = id_DP8KC;
+            }
+        }*/
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (ci->type == id_DP8KC) {
+                // Add ports, even if disconnected, to ensure correct tie-offs
+                for (int i = 0; i < 13; i++) {
+                    autocreate_empty_port(ci, ctx->id("ADA" + std::to_string(i)));
+                    autocreate_empty_port(ci, ctx->id("ADB" + std::to_string(i)));
+                }
+                for (int i = 0; i < 9; i++) {
+                    autocreate_empty_port(ci, ctx->id("DIA" + std::to_string(i)));
+                    autocreate_empty_port(ci, ctx->id("DIB" + std::to_string(i)));
+                }
+                for (int i = 0; i < 3; i++) {
+                    autocreate_empty_port(ci, ctx->id("CSA" + std::to_string(i)));
+                    autocreate_empty_port(ci, ctx->id("CSB" + std::to_string(i)));
+                }
+                for (int i = 0; i < 3; i++) {
+                    autocreate_empty_port(ci, ctx->id("CSA" + std::to_string(i)));
+                    autocreate_empty_port(ci, ctx->id("CSB" + std::to_string(i)));
+                }
+
+                autocreate_empty_port(ci, id_CLKA);
+                autocreate_empty_port(ci, id_CEA);
+                autocreate_empty_port(ci, id_OCEA);
+                autocreate_empty_port(ci, id_WEA);
+                autocreate_empty_port(ci, id_RSTA);
+
+                autocreate_empty_port(ci, id_CLKB);
+                autocreate_empty_port(ci, id_CEB);
+                autocreate_empty_port(ci, id_OCEB);
+                autocreate_empty_port(ci, id_WEB);
+                autocreate_empty_port(ci, id_RSTB);
+
+                ci->attrs[id_WID] = wid++;
+            }
+        }
+    }
+
     // Preplace PLL
     void preplace_plls()
     {
@@ -1408,6 +1509,7 @@ class MachXO2Packer
         print_logic_usage();
         pack_io();
         preplace_plls();
+        pack_ebr();
         pack_constants();
         pack_dram();
         pack_carries();
@@ -1510,6 +1612,18 @@ void Arch::assign_arch_info_for_cell(CellInfo *ci)
         ci->ffInfo.clk_sig = get_port_net(ci, id_CLK);
         ci->ffInfo.ce_sig = get_port_net(ci, id_CE);
         ci->ffInfo.lsr_sig = get_port_net(ci, id_LSR);
+    } else if (ci->type == id_DP8KC) {
+        ci->ramInfo.is_pdp = (int_or_default(ci->params, id_DATA_WIDTH_A, 0) == 18);
+
+        // Output register mode (REGMODE_{A,B}). Valid options are 'NOREG' and 'OUTREG'.
+        std::string regmode_a = str_or_default(ci->params, id_REGMODE_A, "NOREG");
+        if (regmode_a != "NOREG" && regmode_a != "OUTREG")
+            log_error("DP8KC %s has invalid REGMODE_A configuration '%s'\n", ci->name.c_str(this), regmode_a.c_str());
+        std::string regmode_b = str_or_default(ci->params, id_REGMODE_B, "NOREG");
+        if (regmode_b != "NOREG" && regmode_b != "OUTREG")
+            log_error("DP8KC %s has invalid REGMODE_B configuration '%s'\n", ci->name.c_str(this), regmode_b.c_str());
+        ci->ramInfo.is_output_a_registered = regmode_a == "OUTREG";
+        ci->ramInfo.is_output_b_registered = regmode_b == "OUTREG";
     }
 }
 
