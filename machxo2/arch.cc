@@ -28,6 +28,7 @@
 #include "placer_heap.h"
 #include "router1.h"
 #include "router2.h"
+#include "timing.h"
 #include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -431,6 +432,7 @@ bool Arch::route()
     disable_router_lutperm = getCtx()->setting<bool>("arch.disable_router_lutperm", false);
 
     assignArchInfo();
+    assign_budget(getCtx(), true);
 
     bool result;
     if (router == "router1") {
