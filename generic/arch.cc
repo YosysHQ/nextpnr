@@ -161,33 +161,47 @@ void Arch::addGroupPip(IdStringList group, PipId pip) { groups[group].pips.push_
 
 void Arch::addGroupGroup(IdStringList group, IdStringList grp) { groups[group].groups.push_back(grp); }
 
-void Arch::addDecalGraphic(DecalId decal, const GraphicElement &graphic)
+void Arch::addDecalGraphic(IdStringList decal, const GraphicElement &graphic)
 {
-    decal_graphics[decal].push_back(graphic);
+    decal_graphics[DecalId(decal, false)].push_back(graphic); // inactive variant
+    decal_graphics[DecalId(decal, true)].push_back(graphic);  // active variant
+
+    GraphicElement &active = decal_graphics[DecalId(decal, true)].back();
+    if (active.style == GraphicElement::STYLE_INACTIVE)
+        active.style = GraphicElement::STYLE_ACTIVE;
+
     refreshUi();
 }
 
-void Arch::setWireDecal(WireId wire, DecalXY decalxy)
+void Arch::setWireDecal(WireId wire, float x, float y, IdStringList decal)
 {
-    wires.at(wire.index).decalxy = decalxy;
+    wires.at(wire.index).decalxy.x = x;
+    wires.at(wire.index).decalxy.y = y;
+    wires.at(wire.index).decalxy.decal = DecalId(decal, false);
     refreshUiWire(wire);
 }
 
-void Arch::setPipDecal(PipId pip, DecalXY decalxy)
+void Arch::setPipDecal(PipId pip, float x, float y, IdStringList decal)
 {
-    pips.at(pip.index).decalxy = decalxy;
+    pips.at(pip.index).decalxy.x = x;
+    pips.at(pip.index).decalxy.y = y;
+    pips.at(pip.index).decalxy.decal = DecalId(decal, false);
     refreshUiPip(pip);
 }
 
-void Arch::setBelDecal(BelId bel, DecalXY decalxy)
+void Arch::setBelDecal(BelId bel, float x, float y, IdStringList decal)
 {
-    bels.at(bel.index).decalxy = decalxy;
+    bels.at(bel.index).decalxy.x = x;
+    bels.at(bel.index).decalxy.y = y;
+    bels.at(bel.index).decalxy.decal = DecalId(decal, false);
     refreshUiBel(bel);
 }
 
-void Arch::setGroupDecal(GroupId group, DecalXY decalxy)
+void Arch::setGroupDecal(GroupId group, float x, float y, IdStringList decal)
 {
-    groups[group].decalxy = decalxy;
+    groups.at(group).decalxy.x = x;
+    groups.at(group).decalxy.y = y;
+    groups.at(group).decalxy.decal = DecalId(decal, false);
     refreshUiGroup(group);
 }
 
@@ -248,7 +262,8 @@ void Arch::addCellBelPinMapping(IdString cell, IdString cell_pin, IdString bel_p
 Arch::Arch(ArchArgs args) : chipName("generic"), args(args)
 {
     // Dummy for empty decals
-    decal_graphics[DecalId()];
+    decal_graphics[DecalId(IdStringList(), false)];
+    decal_graphics[DecalId(IdStringList(), true)];
 }
 
 void IdString::initialize_arch(const BaseCtx *ctx) {}
@@ -643,16 +658,31 @@ bool Arch::route()
 const std::vector<GraphicElement> &Arch::getDecalGraphics(DecalId decal) const
 {
     if (!decal_graphics.count(decal)) {
-        std::cerr << "No decal named " << decal.str(getCtx()) << std::endl;
+        std::cerr << "No decal named " << decal.name.str(getCtx()) << std::endl;
     }
     return decal_graphics.at(decal);
 }
 
-DecalXY Arch::getBelDecal(BelId bel) const { return bel_info(bel).decalxy; }
+DecalXY Arch::getBelDecal(BelId bel) const
+{
+    DecalXY result = bel_info(bel).decalxy;
+    result.decal.active = getBoundBelCell(bel) != nullptr;
+    return result;
+}
 
-DecalXY Arch::getWireDecal(WireId wire) const { return wire_info(wire).decalxy; }
+DecalXY Arch::getWireDecal(WireId wire) const
+{
+    DecalXY result = wire_info(wire).decalxy;
+    result.decal.active = getBoundWireNet(wire) != nullptr;
+    return result;
+}
 
-DecalXY Arch::getPipDecal(PipId pip) const { return pip_info(pip).decalxy; }
+DecalXY Arch::getPipDecal(PipId pip) const
+{
+    DecalXY result = pip_info(pip).decalxy;
+    result.decal.active = getBoundPipNet(pip) != nullptr;
+    return result;
+}
 
 DecalXY Arch::getGroupDecal(GroupId group) const { return groups.at(group).decalxy; }
 

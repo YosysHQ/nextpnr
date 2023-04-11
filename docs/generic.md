@@ -56,14 +56,14 @@ Adds an input, output or inout pin to a bel, with an associated wire. Note that 
 
 Add a bel, wire, pip or subgroup to a group, which will be created if it doesn't already exist. Groups are purely for visual presentation purposes in the user interface and are not used by any place-and-route algorithms.
 
-### void addDecalGraphic(DecalId decal, const GraphicElement &graphic);
+### void addDecalGraphic(IdStringList decal, const GraphicElement &graphic);
 
 Add a graphic element to a _decal_, a reusable drawing that may be used to represent multiple wires, pips, bels or groups in the UI (with different offsets). The decal will be created if it doesn't already exist
 
-### void setWireDecal(WireId wire, DecalXY decalxy);
-### void setPipDecal(PipId pip, DecalXY decalxy);
-### void setBelDecal(BelId bel, DecalXY decalxy);
-### void setGroupDecal(GroupId group, DecalXY decalxy);
+### void setWireDecal(WireId wire, float x, float y, IdStringList decal);
+### void setPipDecal(PipId pip, float x, float y, IdStringList decal);
+### void setBelDecal(BelId bel, float x, float y, IdStringList decal);
+### void setGroupDecal(GroupId group, float x, float y, IdStringList decal);
 
 Sets the decal ID and offset for a wire, bel, pip or group in the UI.
 

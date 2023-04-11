@@ -38,6 +38,8 @@ struct ExampleImpl : ViaductAPI
         init_uarch_constids(ctx);
         ViaductAPI::init(ctx);
         h.init(ctx);
+        if (with_gui)
+            init_bel_decals();
         init_wires();
         init_bels();
         init_pips();
@@ -150,6 +152,28 @@ struct ExampleImpl : ViaductAPI
         IdStringList name = IdStringList::concat(ctx->getWireName(dst), ctx->getWireName(src));
         return ctx->addPip(name, ctx->id("PIP"), src, dst, delay, loc);
     }
+
+    static constexpr float lut_x1 = 0.8f;
+    static constexpr float lut_w = 0.07f;
+    static constexpr float ff_x1 = 0.9f;
+    static constexpr float ff_w = 0.05f;
+    static constexpr float bel_y1 = 0.2f;
+    static constexpr float bel_h = 0.03f;
+    static constexpr float bel_dy = 0.05f;
+    void init_bel_decals()
+    {
+        for (int z = 0; z < N; z++) {
+            float y1 = bel_y1 + z * bel_dy;
+            float y2 = y1 + bel_h;
+            ctx->addDecalGraphic(IdStringList(ctx->idf("LUT%d", z)),
+                                 GraphicElement(GraphicElement::TYPE_BOX, GraphicElement::STYLE_INACTIVE, lut_x1, y1,
+                                                lut_x1 + lut_w, y2, 10.0));
+            ctx->addDecalGraphic(IdStringList(ctx->idf("FF%d", z)),
+                                 GraphicElement(GraphicElement::TYPE_BOX, GraphicElement::STYLE_INACTIVE, ff_x1, y1,
+                                                ff_x1 + ff_w, y2, 10.0));
+        }
+    }
+
     // Create LUT and FF bels in a logic tile
     void add_slice_bels(int x, int y)
     {
@@ -169,6 +193,10 @@ struct ExampleImpl : ViaductAPI
             ctx->addBelInput(dff, id_CLK, w.clk.at(z));
             ctx->addBelInput(dff, id_D, w.d.at(z));
             ctx->addBelOutput(dff, id_Q, w.q.at(z));
+            if (with_gui) {
+                ctx->setBelDecal(lut, x, y, IdStringList(ctx->idf("LUT%d", z)));
+                ctx->setBelDecal(dff, x, y, IdStringList(ctx->idf("FF%d", z)));
+            }
         }
     }
     // Create bels according to tile type
