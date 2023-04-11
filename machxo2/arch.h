@@ -561,7 +561,7 @@ struct Arch : BaseArch<ArchRanges>
     BelId getBelByLocation(Loc loc) const override;
     BelRange getBelsByTile(int x, int y) const override;
 
-    bool getBelGlobalBuf(BelId bel) const override { return false; }
+    bool getBelGlobalBuf(BelId bel) const override { return getBelType(bel) == id_DCCA; }
 
     bool checkBelAvail(BelId bel) const override
     {
