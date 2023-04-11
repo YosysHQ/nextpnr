@@ -315,9 +315,9 @@ IdStringList Arch::getPipName(PipId pip) const
 {
     auto &pip_data = tile_info(pip)->pip_data[pip.index];
     WireId src = getPipSrcWire(pip), dst = getPipDstWire(pip);
-    std::string pip_name = stringf("%d_%d_%s->%d_%d_%s", pip_data.src.x, pip_data.src.y,
-                                   get_wire_basename(src).c_str(this), pip_data.dst.x, pip_data.dst.y,
-                                   get_wire_basename(dst).c_str(this));
+    std::string pip_name =
+            stringf("%d_%d_%s->%d_%d_%s", pip_data.src.x, pip_data.src.y, get_wire_basename(src).c_str(this),
+                    pip_data.dst.x, pip_data.dst.y, get_wire_basename(dst).c_str(this));
 
     std::array<IdString, 3> ids{x_ids.at(pip.location.x), y_ids.at(pip.location.y), id(pip_name)};
     return IdStringList(ids);
@@ -490,8 +490,7 @@ std::vector<std::pair<std::string, std::string>> Arch::get_tiles_at_loc(int row,
     std::vector<std::pair<std::string, std::string>> ret;
     auto &tileloc = chip_info->tile_info[row * chip_info->width + col];
     for (auto &tn : tileloc.tile_names) {
-        ret.push_back(std::make_pair(tn.name.get(),
-                                     chip_info->tiletype_names[tn.type_idx].get()));
+        ret.push_back(std::make_pair(tn.name.get(), chip_info->tiletype_names[tn.type_idx].get()));
     }
     return ret;
 }

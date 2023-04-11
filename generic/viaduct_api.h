@@ -55,6 +55,7 @@ struct ViaductAPI
 {
     virtual void init(Context *ctx);
     Context *ctx;
+    bool with_gui = false;
 
     // --- Bel functions ---
     // Called when a bel is placed/unplaced (with cell=nullptr for a unbind)

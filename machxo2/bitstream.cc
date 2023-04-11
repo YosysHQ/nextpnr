@@ -176,12 +176,11 @@ static std::string get_pic_tile(Context *ctx, BelId bel)
 {
     static const std::set<std::string> pio_t = {"PIC_T0", "PIC_T0_256", "PIC_TS0"};
     static const std::set<std::string> pio_b = {"PIC_B0", "PIC_B0_256", "PIC_BS0_256"};
-    static const std::set<std::string> pio_l = {"PIC_L0", "PIC_L1", "PIC_L2", "PIC_L3", "PIC_LS0",
-                                                "PIC_L0_VREF3", "PIC_L0_VREF4", "PIC_L0_VREF5",
-                                                "PIC_L1_VREF3", "PIC_L1_VREF4", "PIC_L1_VREF5",
-                                                "PIC_L2_VREF4", "PIC_L2_VREF5",
-                                                "PIC_L3_VREF4", "PIC_L3_VREF5"};
-    static const std::set<std::string> pio_r = {"PIC_R0", "PIC_R1", "PIC_RS0",
+    static const std::set<std::string> pio_l = {"PIC_L0",       "PIC_L1",       "PIC_L2",       "PIC_L3",
+                                                "PIC_LS0",      "PIC_L0_VREF3", "PIC_L0_VREF4", "PIC_L0_VREF5",
+                                                "PIC_L1_VREF3", "PIC_L1_VREF4", "PIC_L1_VREF5", "PIC_L2_VREF4",
+                                                "PIC_L2_VREF5", "PIC_L3_VREF4", "PIC_L3_VREF5"};
+    static const std::set<std::string> pio_r = {"PIC_R0",     "PIC_R1",     "PIC_RS0",
                                                 "PIC_R0_256", "PIC_R1_640", "PIC_RS0_256"};
 
     std::string pio_name = ctx->tile_info(bel)->bel_data[bel.index].name.get();

@@ -64,8 +64,18 @@ struct PipId
     unsigned int hash() const { return index; }
 };
 
+struct DecalId
+{
+    IdStringList name;
+    bool active = false;
+    DecalId() : name(), active(false){};
+    DecalId(IdStringList name, bool active) : name(name), active(active){};
+    bool operator==(const DecalId &other) const { return name == other.name && active == other.active; }
+    bool operator!=(const DecalId &other) const { return name != other.name || active != other.active; }
+    unsigned int hash() const { return mkhash(name.hash(), active); }
+};
+
 typedef IdStringList GroupId;
-typedef IdStringList DecalId;
 typedef IdString BelBucketId;
 typedef IdString ClusterId;
 

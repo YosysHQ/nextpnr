@@ -211,11 +211,11 @@ struct Arch : BaseArch<ArchRanges>
     void addGroupPip(IdStringList group, PipId pip);
     void addGroupGroup(IdStringList group, IdStringList grp);
 
-    void addDecalGraphic(DecalId decal, const GraphicElement &graphic);
-    void setWireDecal(WireId wire, DecalXY decalxy);
-    void setPipDecal(PipId pip, DecalXY decalxy);
-    void setBelDecal(BelId bel, DecalXY decalxy);
-    void setGroupDecal(GroupId group, DecalXY decalxy);
+    void addDecalGraphic(IdStringList decal, const GraphicElement &graphic);
+    void setWireDecal(WireId wire, float x, float y, IdStringList decal);
+    void setPipDecal(PipId pip, float x, float y, IdStringList decal);
+    void setBelDecal(BelId bel, float x, float y, IdStringList decal);
+    void setGroupDecal(GroupId group, float x, float y, IdStringList decal);
 
     void setWireAttr(WireId wire, IdString key, const std::string &value);
     void setPipAttr(PipId pip, IdString key, const std::string &value);

@@ -86,9 +86,13 @@ std::unique_ptr<Context> GenericCommandHandler::createContext(dict<std::string, 
             log_error("Unknown viaduct uarch '%s'; available options: '%s'\n", uarch_name.c_str(), all_uarches.c_str());
         }
         ctx->uarch = std::move(uarch);
+        if (vm.count("gui"))
+            ctx->uarch->with_gui = true;
         ctx->uarch->init(ctx.get());
     } else if (vm.count("vopt")) {
         log_error("Viaduct options passed in non-viaduct mode!\n");
+    } else if (vm.count("gui")) {
+        log_error("nextpnr-generic GUI only supported in viaduct mode!\n");
     }
     return ctx;
 }
