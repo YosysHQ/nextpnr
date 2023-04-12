@@ -817,12 +817,14 @@ static bool is_gowin_iologic(const Context *ctx, const CellInfo *cell)
     case ID_OSER4:  /* fall-through*/
     case ID_OSER8:  /* fall-through*/
     case ID_OSER10: /* fall-through*/
+    case ID_OSER16: /* fall-through*/
     case ID_OVIDEO: /* fall-through*/
     case ID_IDDR:   /* fall-through*/
     case ID_IDDRC:  /* fall-through*/
     case ID_IDES4:  /* fall-through*/
     case ID_IDES8:  /* fall-through*/
     case ID_IDES10: /* fall-through*/
+    case ID_IDES16: /* fall-through*/
     case ID_IVIDEO:
         return true;
     default:
@@ -866,6 +868,21 @@ static void reconnect_ides_outs(CellInfo *ci)
         break;
     default:
         break;
+    }
+}
+
+static void get_next_oser16_loc(std::string device, Loc &loc)
+{
+    if (device == "GW1NSR-4C") {
+        if (loc.y == 0) {
+            ++loc.x;
+        } else {
+            ++loc.y;
+        }
+    } else {
+        if (device == "GW1NR-9" || device == "GW1NR-9C") {
+            ++loc.x;
+        }
     }
 }
 
@@ -1054,7 +1071,7 @@ static void pack_iologic(Context *ctx)
                     }
                 } else {
                     std::unique_ptr<CellInfo> dummy =
-                            create_generic_cell(ctx, id_DUMMY_CELL, ci->name.str(ctx) + "_DUMMY_IOLOGIC_IO");
+                            create_generic_cell(ctx, id_DUMMY_CELL, ci->name.str(ctx) + "_IOLOGIC_IO");
                     loc.z = 1 - loc.z + BelZ::iologic_z;
                     if (!use_diff_io) {
                         dummy->setAttr(id_BEL, ctx->getBelName(ctx->getBelByLocation(loc)).str(ctx));
@@ -1064,7 +1081,6 @@ static void pack_iologic(Context *ctx)
 
                     std::unique_ptr<CellInfo> aux_cell =
                             create_generic_cell(ctx, id_IOLOGIC, ci->name.str(ctx) + "_AUX");
-                    ci->setAttr(ctx->id("IOLOGIC_AUX_CELL"), ci->name.str(ctx) + "_AUX");
                     aux_cell->setAttr(id_IOLOGIC_TYPE, std::string("DUMMY"));
                     aux_cell->setParam(ctx->id("OUTMODE"), std::string("DDRENABLE"));
                     aux_cell->setAttr(ctx->id("IOLOGIC_MASTER_CELL"), ci->name.str(ctx));
@@ -1099,8 +1115,8 @@ static void pack_iologic(Context *ctx)
                 ci->setAttr(id_BEL, ctx->getBelName(ctx->getBelByLocation(loc)).str(ctx));
                 BelId bel = ctx->getBelByLocation(loc);
                 if (bel == BelId()) {
-                    log_info("No bel for %s at %s. Can't place IDES/OSER here\n", ctx->nameOf(ci),
-                             iob_bel->second.as_string().c_str());
+                    log_error("No bel for %s at %s. Can't place IDES/OSER here\n", ctx->nameOf(ci),
+                              iob_bel->second.as_string().c_str());
                 }
                 std::string in_mode;
                 switch (ci->type.hash()) {
@@ -1124,19 +1140,16 @@ static void pack_iologic(Context *ctx)
                 ci->setParam(ctx->id("INMODE"), in_mode);
                 bool use_diff_io = false;
                 if (d_src->attrs.count(id_DIFF_TYPE)) {
-                    ci->setAttr(id_OBUF_TYPE, std::string("DBUF"));
+                    ci->setAttr(id_IBUF_TYPE, std::string("DBUF"));
                     use_diff_io = true;
                 } else {
-                    ci->setAttr(id_OBUF_TYPE, std::string("SBUF"));
+                    ci->setAttr(id_IBUF_TYPE, std::string("SBUF"));
                 }
 
                 // disconnect D input: it is wired internally
                 delete_nets.insert(ci->getPort(id_D)->name);
                 d_src->disconnectPort(id_O);
                 ci->disconnectPort(id_D);
-
-                // XXX place for -9 and -9C oddity
-
                 ci->setAttr(id_IOLOGIC_TYPE, ci->type.str(ctx));
                 reconnect_ides_outs(ci);
 
@@ -1158,7 +1171,7 @@ static void pack_iologic(Context *ctx)
                     }
                 } else {
                     std::unique_ptr<CellInfo> dummy =
-                            create_generic_cell(ctx, id_DUMMY_CELL, ci->name.str(ctx) + "_DUMMY_IOLOGIC_IO");
+                            create_generic_cell(ctx, id_DUMMY_CELL, ci->name.str(ctx) + "_IOLOGIC_IO");
                     loc.z = 1 - loc.z + BelZ::iologic_z;
                     if (!use_diff_io) {
                         dummy->setAttr(id_BEL, ctx->getBelName(ctx->getBelByLocation(loc)).str(ctx));
@@ -1168,7 +1181,6 @@ static void pack_iologic(Context *ctx)
 
                     std::unique_ptr<CellInfo> aux_cell =
                             create_generic_cell(ctx, id_IOLOGIC, ci->name.str(ctx) + "_AUX");
-                    ci->setAttr(ctx->id("IOLOGIC_AUX_CELL"), ci->name.str(ctx) + "_AUX");
                     aux_cell->setAttr(id_IOLOGIC_TYPE, std::string("DUMMY"));
                     aux_cell->setParam(ctx->id("INMODE"), std::string("DDRENABLE"));
                     aux_cell->setAttr(ctx->id("IOLOGIC_MASTER_CELL"), ci->name.str(ctx));
@@ -1182,6 +1194,259 @@ static void pack_iologic(Context *ctx)
                     new_cells.push_back(std::move(aux_cell));
                 }
                 ci->type = id_IOLOGIC;
+            } break;
+            case ID_OSER16: {
+                IdString output = id_Q;
+                q0_dst = net_only_drives(ctx, ci->ports.at(output).net, is_iob, id_I);
+                NPNR_ASSERT(q0_dst != nullptr);
+
+                auto iob_bel = q0_dst->attrs.find(id_BEL);
+                if (iob_bel == q0_dst->attrs.end()) {
+                    log_error("No constraints for %s. The pins for IDES/OSER must be specified explicitly.\n",
+                              ctx->nameOf(q0_dst));
+                }
+
+                Loc loc = ctx->getBelLocation(ctx->getBelByNameStr(iob_bel->second.as_string()));
+                if (loc.z != BelZ::ioba_z) {
+                    log_error("IDES16/OSER16 %s must be an A pin.\n", ctx->nameOf(ci));
+                }
+
+                loc.z = BelZ::oser16_z;
+                ci->setAttr(id_BEL, ctx->getBelName(ctx->getBelByLocation(loc)).str(ctx));
+                BelId bel = ctx->getBelByLocation(loc);
+                if (bel == BelId()) {
+                    log_error("No bel for %s at %s. Can't place IDES/OSER here\n", ctx->nameOf(ci),
+                              iob_bel->second.as_string().c_str());
+                }
+
+                bool use_diff_io = false;
+                if (q0_dst->attrs.count(id_DIFF_TYPE)) {
+                    ci->setAttr(id_OBUF_TYPE, std::string("DBUF"));
+                    use_diff_io = true;
+                } else {
+                    ci->setAttr(id_OBUF_TYPE, std::string("SBUF"));
+                }
+
+                // disconnect Q output: it is wired internally
+                delete_nets.insert(ci->ports.at(output).net->name);
+                q0_dst->disconnectPort(id_I);
+                ci->disconnectPort(output);
+                loc.z = BelZ::ioba_z;
+                if (ctx->bels.at(ctx->getBelByLocation(loc)).pins.count(id_GW9C_ALWAYS_LOW1)) {
+                    q0_dst->disconnectPort(id_GW9C_ALWAYS_LOW1);
+                    q0_dst->connectPort(id_GW9C_ALWAYS_LOW1, ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
+                }
+                if (ctx->bels.at(ctx->getBelByLocation(loc)).pins.count(id_GW9_ALWAYS_LOW0)) {
+                    q0_dst->disconnectPort(id_GW9_ALWAYS_LOW0);
+                    q0_dst->connectPort(id_GW9_ALWAYS_LOW0, ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
+                }
+
+                // make aux cells
+                std::unique_ptr<CellInfo> dummy =
+                        create_generic_cell(ctx, id_DUMMY_CELL, ci->name.str(ctx) + "_IOLOGIC_IO");
+                loc.z = BelZ::iobb_z;
+                if (!use_diff_io) {
+                    dummy->setAttr(id_BEL, ctx->getBelName(ctx->getBelByLocation(loc)).str(ctx));
+                    new_cells.push_back(std::move(dummy));
+                }
+                loc.z = BelZ::iologic_z;
+
+                // main iologic cell
+                std::string master_name = ci->name.str(ctx) + "_MAIN";
+
+                // aux cells
+                std::unique_ptr<CellInfo> aux_cell = create_generic_cell(ctx, id_IOLOGIC, ci->name.str(ctx) + "_AUX0");
+                aux_cell->setAttr(id_IOLOGIC_TYPE, std::string("OSER16"));
+                aux_cell->setAttr(ctx->id("IOLOGIC_MASTER_CELL"), master_name);
+                aux_cell->setAttr(id_BEL, ctx->getBelName(ctx->getBelByLocation(loc)).str(ctx));
+                aux_cell->setParam(ctx->id("OUTMODE"), std::string("ODDRX8"));
+                aux_cell->setParam(ctx->id("UPDATE"), std::string("SAME"));
+                if (port_used(ci, id_RESET)) {
+                    aux_cell->connectPort(id_RESET, ci->ports.at(id_RESET).net);
+                }
+                if (port_used(ci, id_PCLK)) {
+                    aux_cell->connectPort(id_PCLK, ci->ports.at(id_PCLK).net);
+                }
+                new_cells.push_back(std::move(aux_cell));
+
+                // aux iologic cells
+                loc.z = BelZ::iologic_z + 1;
+                aux_cell = create_generic_cell(ctx, id_IOLOGIC, ci->name.str(ctx) + "_AUX1");
+                aux_cell->setAttr(id_IOLOGIC_TYPE, std::string("DUMMY"));
+                aux_cell->setAttr(ctx->id("IOLOGIC_MASTER_CELL"), master_name);
+                aux_cell->setAttr(id_BEL, ctx->getBelName(ctx->getBelByLocation(loc)).str(ctx));
+                aux_cell->setParam(ctx->id("OUTMODE"), std::string("DDRENABLE16"));
+                aux_cell->setParam(ctx->id("UPDATE"), std::string("SAME"));
+                if (port_used(ci, id_RESET)) {
+                    aux_cell->connectPort(id_RESET, ci->ports.at(id_RESET).net);
+                }
+                if (port_used(ci, id_PCLK)) {
+                    aux_cell->connectPort(id_PCLK, ci->ports.at(id_PCLK).net);
+                }
+                new_cells.push_back(std::move(aux_cell));
+
+                // master
+                get_next_oser16_loc(ctx->device, loc);
+                loc.z = BelZ::iologic_z;
+                aux_cell = create_generic_cell(ctx, id_IOLOGIC, master_name);
+                aux_cell->setAttr(id_IOLOGIC_TYPE, std::string("DUMMY"));
+                aux_cell->setAttr(id_BEL, ctx->getBelName(ctx->getBelByLocation(loc)).str(ctx));
+                aux_cell->setParam(ctx->id("OUTMODE"), std::string("DDRENABLE16"));
+                aux_cell->setParam(ctx->id("UPDATE"), std::string("SAME"));
+                if (port_used(ci, id_RESET)) {
+                    aux_cell->connectPort(id_RESET, ci->ports.at(id_RESET).net);
+                }
+                if (port_used(ci, id_PCLK)) {
+                    aux_cell->connectPort(id_PCLK, ci->ports.at(id_PCLK).net);
+                }
+                ci->movePortTo(id_FCLK, aux_cell.get(), id_FCLK);
+                ci->movePortTo(id_D12, aux_cell.get(), id_D0);
+                ci->movePortTo(id_D13, aux_cell.get(), id_D1);
+                ci->movePortTo(id_D14, aux_cell.get(), id_D2);
+                ci->movePortTo(id_D15, aux_cell.get(), id_D3);
+                new_cells.push_back(std::move(aux_cell));
+
+                // bottom row is special and may need two additional ports
+                loc.z = BelZ::ioba_z;
+                if (ctx->getBelByLocation(loc) != BelId()) {
+                    dummy = create_generic_cell(ctx, id_DUMMY_CELL, ci->name.str(ctx) + "_IOLOGIC_IO0");
+                    dummy->setAttr(id_BEL, ctx->getBelName(ctx->getBelByLocation(loc)).str(ctx));
+                    new_cells.push_back(std::move(dummy));
+                }
+
+                // XXX Prohibit the use of 4th IO and IOLOGIC
+                loc.z = BelZ::iobb_z;
+                if (ctx->getBelByLocation(loc) != BelId()) {
+                    dummy = create_generic_cell(ctx, id_DUMMY_CELL, ci->name.str(ctx) + "_IOLOGIC_IO1");
+                    dummy->setAttr(id_BEL, ctx->getBelName(ctx->getBelByLocation(loc)).str(ctx));
+                    new_cells.push_back(std::move(dummy));
+                }
+                master_name = ci->name.str(ctx) + "_AUX2";
+                loc.z = BelZ::iologic_z + 1;
+                dummy = create_generic_cell(ctx, id_DUMMY_CELL, master_name);
+                dummy->setAttr(id_BEL, ctx->getBelName(ctx->getBelByLocation(loc)).str(ctx));
+                new_cells.push_back(std::move(dummy));
+            } break;
+            case ID_IDES16: {
+                CellInfo *d_src = net_driven_by(ctx, ci->getPort(id_D), is_iob, id_O);
+                NPNR_ASSERT(d_src != nullptr);
+
+                auto iob_bel = d_src->attrs.find(id_BEL);
+                if (iob_bel == d_src->attrs.end()) {
+                    log_error("No constraints for %s. The pins for IDES/OSER must be specified explicitly.\n",
+                              ctx->nameOf(d_src));
+                }
+                Loc loc = ctx->getBelLocation(ctx->getBelByNameStr(iob_bel->second.as_string()));
+                if (loc.z != BelZ::ioba_z) {
+                    log_error("IDES16/OSER16 %s must be an A pin.\n", ctx->nameOf(ci));
+                }
+
+                loc.z += BelZ::ides16_z;
+                ci->setAttr(id_BEL, ctx->getBelName(ctx->getBelByLocation(loc)).str(ctx));
+                BelId bel = ctx->getBelByLocation(loc);
+                if (bel == BelId()) {
+                    log_error("No bel for %s at %s. Can't place IDES/OSER here\n", ctx->nameOf(ci),
+                              iob_bel->second.as_string().c_str());
+                }
+
+                bool use_diff_io = false;
+                if (d_src->attrs.count(id_DIFF_TYPE)) {
+                    ci->setAttr(id_IBUF_TYPE, std::string("DBUF"));
+                    use_diff_io = true;
+                } else {
+                    ci->setAttr(id_IBUF_TYPE, std::string("SBUF"));
+                }
+                // disconnect D input: it is wired internally
+                delete_nets.insert(ci->getPort(id_D)->name);
+                d_src->disconnectPort(id_O);
+                ci->disconnectPort(id_D);
+                ci->setAttr(id_IOLOGIC_TYPE, ci->type.str(ctx));
+
+                // make aux cells
+                std::unique_ptr<CellInfo> dummy =
+                        create_generic_cell(ctx, id_DUMMY_CELL, ci->name.str(ctx) + "_IOLOGIC_IO");
+                loc.z = BelZ::iobb_z;
+                if (!use_diff_io) {
+                    dummy->setAttr(id_BEL, ctx->getBelName(ctx->getBelByLocation(loc)).str(ctx));
+                    new_cells.push_back(std::move(dummy));
+                }
+                loc.z = BelZ::iologic_z;
+
+                // main iologic cell
+                std::string master_name = ci->name.str(ctx) + "_MAIN";
+
+                // aux cells
+                std::unique_ptr<CellInfo> aux_cell = create_generic_cell(ctx, id_IOLOGIC, ci->name.str(ctx) + "_AUX0");
+                aux_cell->setAttr(id_IOLOGIC_TYPE, std::string("IDES16"));
+                aux_cell->setAttr(ctx->id("IOLOGIC_MASTER_CELL"), master_name);
+                aux_cell->setAttr(id_BEL, ctx->getBelName(ctx->getBelByLocation(loc)).str(ctx));
+                aux_cell->setParam(ctx->id("INMODE"), std::string("IDDRX8"));
+                aux_cell->setParam(ctx->id("UPDATE"), std::string("SAME"));
+                if (port_used(ci, id_RESET)) {
+                    aux_cell->connectPort(id_RESET, ci->ports.at(id_RESET).net);
+                }
+                if (port_used(ci, id_PCLK)) {
+                    aux_cell->connectPort(id_PCLK, ci->ports.at(id_PCLK).net);
+                }
+                new_cells.push_back(std::move(aux_cell));
+
+                // aux iologic cells
+                loc.z = BelZ::iologic_z + 1;
+                aux_cell = create_generic_cell(ctx, id_IOLOGIC, ci->name.str(ctx) + "_AUX1");
+                aux_cell->setAttr(id_IOLOGIC_TYPE, std::string("DUMMY"));
+                aux_cell->setAttr(ctx->id("IOLOGIC_MASTER_CELL"), master_name);
+                aux_cell->setAttr(id_BEL, ctx->getBelName(ctx->getBelByLocation(loc)).str(ctx));
+                aux_cell->setParam(ctx->id("INMODE"), std::string("DDRENABLE16"));
+                aux_cell->setParam(ctx->id("UPDATE"), std::string("SAME"));
+                if (port_used(ci, id_RESET)) {
+                    aux_cell->connectPort(id_RESET, ci->ports.at(id_RESET).net);
+                }
+                if (port_used(ci, id_PCLK)) {
+                    aux_cell->connectPort(id_PCLK, ci->ports.at(id_PCLK).net);
+                }
+                new_cells.push_back(std::move(aux_cell));
+
+                // master
+                get_next_oser16_loc(ctx->device, loc);
+                loc.z = BelZ::iologic_z;
+                aux_cell = create_generic_cell(ctx, id_IOLOGIC, master_name);
+                aux_cell->setAttr(id_IOLOGIC_TYPE, std::string("DUMMY"));
+                aux_cell->setAttr(id_BEL, ctx->getBelName(ctx->getBelByLocation(loc)).str(ctx));
+                aux_cell->setParam(ctx->id("INMODE"), std::string("DDRENABLE16"));
+                aux_cell->setParam(ctx->id("UPDATE"), std::string("SAME"));
+                if (port_used(ci, id_RESET)) {
+                    aux_cell->connectPort(id_RESET, ci->ports.at(id_RESET).net);
+                }
+                if (port_used(ci, id_PCLK)) {
+                    aux_cell->connectPort(id_PCLK, ci->ports.at(id_PCLK).net);
+                }
+                ci->movePortTo(id_FCLK, aux_cell.get(), id_FCLK);
+                ci->movePortTo(id_Q0, aux_cell.get(), id_Q6);
+                ci->movePortTo(id_Q1, aux_cell.get(), id_Q7);
+                ci->movePortTo(id_Q2, aux_cell.get(), id_Q8);
+                ci->movePortTo(id_Q3, aux_cell.get(), id_Q9);
+                new_cells.push_back(std::move(aux_cell));
+
+                // bottom row is special and may need two additional ports
+                loc.z = BelZ::ioba_z;
+                if (ctx->getBelByLocation(loc) != BelId()) {
+                    dummy = create_generic_cell(ctx, id_DUMMY_CELL, ci->name.str(ctx) + "_IOLOGIC_IO0");
+                    dummy->setAttr(id_BEL, ctx->getBelName(ctx->getBelByLocation(loc)).str(ctx));
+                    new_cells.push_back(std::move(dummy));
+                }
+
+                // XXX Prohibit the use of 4th IO and IOLOGIC
+                loc.z = BelZ::iobb_z;
+                if (ctx->getBelByLocation(loc) != BelId()) {
+                    dummy = create_generic_cell(ctx, id_DUMMY_CELL, ci->name.str(ctx) + "_IOLOGIC_IO1");
+                    dummy->setAttr(id_BEL, ctx->getBelName(ctx->getBelByLocation(loc)).str(ctx));
+                    new_cells.push_back(std::move(dummy));
+                }
+                master_name = ci->name.str(ctx) + "_AUX2";
+                loc.z = BelZ::iologic_z + 1;
+                dummy = create_generic_cell(ctx, id_DUMMY_CELL, master_name);
+                dummy->setAttr(id_BEL, ctx->getBelName(ctx->getBelByLocation(loc)).str(ctx));
+                new_cells.push_back(std::move(dummy));
             } break;
             default:
                 break;
