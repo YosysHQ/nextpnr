@@ -1194,6 +1194,70 @@ void Arch::add_rpll_ports(DatabasePOD const *db, BelsPOD const *bel, IdString be
     }
 }
 
+static bool skip_aux_oser16(std::string device, int row, int col)
+{
+    if (device == "GW1NSR-4C") {
+        switch (col) {
+        case 2:  /* fall-through*/
+        case 4:  /* fall-through*/
+        case 6:  /* fall-through*/
+        case 8:  /* fall-through*/
+        case 9:  /* fall-through*/
+        case 11: /* fall-through*/
+        case 13: /* fall-through*/
+        case 15: /* fall-through*/
+        case 17: /* fall-through*/
+        case 18: /* fall-through*/
+        case 20: /* fall-through*/
+        case 22: /* fall-through*/
+        case 24: /* fall-through*/
+        case 26: /* fall-through*/
+        case 27: /* fall-through*/
+        case 29: /* fall-through*/
+        case 31: /* fall-through*/
+        case 33: /* fall-through*/
+        case 35:
+            return true;
+        default:
+            break;
+        }
+    }
+    if (device == "GW1NR-9" || device == "GW1NR-9C") {
+        switch (col) {
+        case 2:  /* fall-through*/
+        case 4:  /* fall-through*/
+        case 6:  /* fall-through*/
+        case 8:  /* fall-through*/
+        case 9:  /* fall-through*/
+        case 11: /* fall-through*/
+        case 13: /* fall-through*/
+        case 15: /* fall-through*/
+        case 17: /* fall-through*/
+        case 18: /* fall-through*/
+        case 19: /* fall-through*/
+        case 21: /* fall-through*/
+        case 23: /* fall-through*/
+        case 25: /* fall-through*/
+        case 27: /* fall-through*/
+        case 28: /* fall-through*/
+        case 29: /* fall-through*/
+        case 31: /* fall-through*/
+        case 33: /* fall-through*/
+        case 35: /* fall-through*/
+        case 36: /* fall-through*/
+        case 37: /* fall-through*/
+        case 39: /* fall-through*/
+        case 41: /* fall-through*/
+        case 43: /* fall-through*/
+        case 45:
+            return true;
+        default:
+            break;
+        }
+    }
+    return false;
+}
+
 Arch::Arch(ArchArgs args) : args(args)
 {
     family = args.family;
@@ -1740,6 +1804,92 @@ Arch::Arch(ArchArgs args) : args(args)
                         // By creating an IOLOGIC without an FCLK input we
                         // create a routing error later, so that "bad"
                         // locations are handled.
+                    } else {
+                        addBelInput(belname, id_FCLK, idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this)));
+                    }
+                }
+            } break;
+            case ID_OSER16: {
+                if (skip_aux_oser16(device, row, col)) {
+                    break;
+                }
+                belname = idf("R%dC%d_OSER16", row + 1, col + 1);
+                addBel(belname, id_OSER16, Loc(col, row, BelZ::oser16_z), false);
+
+                IdString const oser16_in_ports[] = {id_RESET, id_PCLK, id_D0,  id_D1,  id_D2,  id_D3,
+                                                    id_D4,    id_D5,   id_D6,  id_D7,  id_D8,  id_D9,
+                                                    id_D10,   id_D11,  id_D12, id_D13, id_D14, id_D15};
+                for (IdString port : oser16_in_ports) {
+                    portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, port.hash())->src_id);
+                    addBelInput(belname, port, idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this)));
+                }
+                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, id_Q0.hash())->src_id);
+                addBelOutput(belname, id_Q, idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this)));
+                auto fclk = pairLookup(bel->ports.get(), bel->num_ports, ID_FCLK);
+                // XXX as long as there is no special processing of the pins
+                if (fclk != nullptr) {
+                    portname = IdString(fclk->src_id);
+                    IdString wire = idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
+                    if (wires.count(wire) == 0) {
+                        GlobalAliasPOD alias;
+                        alias.dest_col = col;
+                        alias.dest_row = row;
+                        alias.dest_id = portname.hash();
+                        auto alias_src = genericLookup(db->aliases.get(), db->num_aliases, alias, aliasCompare);
+                        if (alias_src != nullptr) {
+                            int srcrow = alias_src->src_row;
+                            int srccol = alias_src->src_col;
+                            IdString srcid = IdString(alias_src->src_id);
+                            wire = wireToGlobal(srcrow, srccol, db, srcid);
+                            if (wires.count(wire) == 0) {
+                                addWire(wire, srcid, srccol, srcrow);
+                            }
+                            addBelInput(belname, id_FCLK, wire);
+                        }
+                    } else {
+                        addBelInput(belname, id_FCLK, idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this)));
+                    }
+                }
+            } break;
+            case ID_IDES16: {
+                if (skip_aux_oser16(device, row, col)) {
+                    break;
+                }
+                belname = idf("R%dC%d_IDES16", row + 1, col + 1);
+                addBel(belname, id_IDES16, Loc(col, row, BelZ::ides16_z), false);
+
+                IdString const ides16_in_ports[] = {id_RESET, id_PCLK, id_CALIB, id_D};
+                for (IdString port : ides16_in_ports) {
+                    portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, port.hash())->src_id);
+                    addBelInput(belname, port, idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this)));
+                }
+                IdString const ides16_out_ports[] = {id_Q0, id_Q1, id_Q2,  id_Q3,  id_Q4,  id_Q5,  id_Q6,  id_Q7,
+                                                     id_Q8, id_Q9, id_Q10, id_Q11, id_Q12, id_Q13, id_Q14, id_Q15};
+                for (IdString port : ides16_out_ports) {
+                    portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, port.hash())->src_id);
+                    addBelOutput(belname, port, idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this)));
+                }
+                auto fclk = pairLookup(bel->ports.get(), bel->num_ports, ID_FCLK);
+                // XXX as long as there is no special processing of the pins
+                if (fclk != nullptr) {
+                    portname = IdString(fclk->src_id);
+                    IdString wire = idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
+                    if (wires.count(wire) == 0) {
+                        GlobalAliasPOD alias;
+                        alias.dest_col = col;
+                        alias.dest_row = row;
+                        alias.dest_id = portname.hash();
+                        auto alias_src = genericLookup(db->aliases.get(), db->num_aliases, alias, aliasCompare);
+                        if (alias_src != nullptr) {
+                            int srcrow = alias_src->src_row;
+                            int srccol = alias_src->src_col;
+                            IdString srcid = IdString(alias_src->src_id);
+                            wire = wireToGlobal(srcrow, srccol, db, srcid);
+                            if (wires.count(wire) == 0) {
+                                addWire(wire, srcid, srccol, srcrow);
+                            }
+                            addBelInput(belname, id_FCLK, wire);
+                        }
                     } else {
                         addBelInput(belname, id_FCLK, idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this)));
                     }
@@ -2312,6 +2462,7 @@ void Arch::fix_pll_nets(Context *ctx)
 // mark with hclk is used
 void Arch::mark_used_hclk(Context *ctx)
 {
+    pool<IdString> aux_cells;
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
         if (ci->type != id_IOLOGIC) {
@@ -2322,6 +2473,7 @@ void Arch::mark_used_hclk(Context *ctx)
         }
         // if it's an aux cell
         if (ci->attrs.count(id_IOLOGIC_MASTER_CELL)) {
+            aux_cells.insert(ci->name);
             continue;
         }
         ci->setAttr(id_IOLOGIC_FCLK, Property("UNKNOWN"));
@@ -2345,15 +2497,15 @@ void Arch::mark_used_hclk(Context *ctx)
                     if (!checkPipAvail(pip)) {
                         WireId src_wire = getPipSrcWire(pip);
                         ci->setAttr(id_IOLOGIC_FCLK, Property(wire_info(src_wire).type.str(this)));
-                        if (ci->attrs.count(id_IOLOGIC_AUX_CELL)) {
-                            IdString aux_cell_name = ctx->id(ci->attrs[id_IOLOGIC_AUX_CELL].as_string());
-                            ctx->cells[aux_cell_name]->setAttr(id_IOLOGIC_FCLK,
-                                                               Property(wire_info(src_wire).type.str(this)));
-                        }
                     }
                 }
             }
         }
+    }
+    for (auto acell : aux_cells) {
+        IdString main_cell = ctx->id(ctx->cells.at(acell)->attrs.at(id_IOLOGIC_MASTER_CELL).as_string());
+        Property &fclk = ctx->cells.at(main_cell)->attrs.at(id_IOLOGIC_FCLK);
+        ctx->cells.at(acell)->setAttr(id_IOLOGIC_FCLK, fclk);
     }
 }
 

@@ -532,6 +532,8 @@ struct Arch : BaseArch<ArchRanges>
 namespace BelZ {
 enum
 {
+    ioba_z = 0,      // IOBA
+    iobb_z = 1,      // IOBB
     mux_0_z = 10,    // start Z for the MUX2LUT5 bels
     oddr_0_z = 20,   // XXX start Z for the ODDR bels
     lutram_0_z = 30, // start Z for the LUTRAM bels
@@ -542,7 +544,9 @@ enum
     pll_z = 289,     // PLL
     pllvr_z = 290,   // PLLVR
     iologic_z = 291, // IOLOGIC
-    free_z = 293     // Must be the last, one can use z starting from this value, adjust accordingly.
+    oser16_z = 293,  // OSER16
+    ides16_z = 294,  // IDES16
+    free_z = 295     // Must be the last, one can use z starting from this value, adjust accordingly.
 };
 }
 
