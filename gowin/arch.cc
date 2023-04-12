@@ -1816,7 +1816,7 @@ Arch::Arch(ArchArgs args) : args(args)
                 belname = idf("R%dC%d_OSER16", row + 1, col + 1);
                 addBel(belname, id_OSER16, Loc(col, row, BelZ::oser16_z), false);
 
-                IdString const oser16_in_ports[] = {id_RESET, id_PCLK, id_D0,  id_D1,  id_D2,  id_D3,
+                const IdString oser16_in_ports[] = {id_RESET, id_PCLK, id_D0,  id_D1,  id_D2,  id_D3,
                                                     id_D4,    id_D5,   id_D6,  id_D7,  id_D8,  id_D9,
                                                     id_D10,   id_D11,  id_D12, id_D13, id_D14, id_D15};
                 for (IdString port : oser16_in_ports) {
