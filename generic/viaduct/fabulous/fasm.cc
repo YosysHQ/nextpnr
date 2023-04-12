@@ -99,7 +99,7 @@ struct FabFasmWriter
     {
         std::vector<bool> bits(width, false);
         for (int i = 0; i < width; i++)
-            bits[i] = (value & (1ULL << i)) != 0;
+            bits[i] = (value & (1ULL << unsigned(i))) != 0;
         write_vector(name, bits, invert);
     }
     // Write an int vector param
@@ -124,7 +124,9 @@ struct FabFasmWriter
 
     uint64_t depermute_lut(const CellInfo *lut)
     {
-        uint64_t orig_init = int_or_default(lut->params, id_INIT, 0);
+        uint64_t orig_init = 0;
+        if (lut->params.count(id_INIT))
+            orig_init = lut->params.at(id_INIT).as_int64();
         std::vector<std::vector<unsigned>> phys_to_log;
         phys_to_log.resize(cfg.clb.lut_k);
         for (unsigned i = 0; i < cfg.clb.lut_k; i++) {

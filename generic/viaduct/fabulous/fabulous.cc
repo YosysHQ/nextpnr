@@ -48,6 +48,8 @@ struct FabulousImpl : ViaductAPI
         for (auto a : args) {
             if (a.first == "fasm")
                 fasm_file = a.second;
+            else if (a.first == "lut_k")
+                cfg.clb.lut_k = std::stoi(a.second);
             else
                 log_error("unrecognised fabulous option '%s'\n", a.first.c_str());
         }
