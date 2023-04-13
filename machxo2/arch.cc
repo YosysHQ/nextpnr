@@ -432,7 +432,6 @@ bool Arch::route()
     disable_router_lutperm = getCtx()->setting<bool>("arch.disable_router_lutperm", false);
 
     assignArchInfo();
-    assign_budget(getCtx(), true);
 
     bool result;
     if (router == "router1") {
