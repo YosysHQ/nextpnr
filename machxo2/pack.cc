@@ -1030,51 +1030,6 @@ class MachXO2Packer
             c->params[n] = c->params[o];
             c->params.erase(o);
         };
-        /*for (auto &cell : ctx->cells) {
-            CellInfo *ci = cell.second.get();
-            // Convert 36-bit PDP RAMs to regular 18-bit DP ones that match the Bel
-            if (ci->type == id_PDPW8KC) {
-                ci->params[id_DATA_WIDTH_A] = 18; // force PDP mode
-                ci->params.erase(id_DATA_WIDTH_W);
-                rename_bus(ci, "BE", "ADA", 4, 0, 0);
-                rename_bus(ci, "ADW", "ADA", 9, 0, 5);
-                rename_bus(ci, "ADR", "ADB", 14, 0, 0);
-                rename_bus(ci, "CSW", "CSA", 3, 0, 0);
-                rename_bus(ci, "CSR", "CSB", 3, 0, 0);
-                rename_bus(ci, "DI", "DIA", 18, 0, 0);
-                rename_bus(ci, "DI", "DIB", 18, 18, 0);
-                rename_bus(ci, "DO", "DOA", 18, 18, 0);
-                rename_bus(ci, "DO", "DOB", 18, 0, 0);
-                ci->renamePort(id_CLKW, id_CLKA);
-                ci->renamePort(id_CLKR, id_CLKB);
-                ci->renamePort(id_CEW, id_CEA);
-                ci->renamePort(id_CER, id_CEB);
-                ci->renamePort(id_OCER, id_OCEB);
-                rename_param(ci, "CLKWMUX", "CLKAMUX");
-                if (str_or_default(ci->params, id_CLKAMUX) == "CLKW")
-                    ci->params[id_CLKAMUX] = std::string("CLKA");
-                rename_param(ci, "CLKRMUX", "CLKBMUX");
-                if (str_or_default(ci->params, id_CLKBMUX) == "CLKR")
-                    ci->params[id_CLKBMUX] = std::string("CLKB");
-                rename_param(ci, "CSDECODE_W", "CSDECODE_A");
-                rename_param(ci, "CSDECODE_R", "CSDECODE_B");
-                std::string outreg = str_or_default(ci->params, id_REGMODE, "NOREG");
-                ci->params[id_REGMODE_A] = outreg;
-                ci->params[id_REGMODE_B] = outreg;
-                ci->params.erase(id_REGMODE);
-                rename_param(ci, "DATA_WIDTH_R", "DATA_WIDTH_B");
-                if (ci->ports.count(id_RST)) {
-                    autocreate_empty_port(ci, id_RSTA);
-                    autocreate_empty_port(ci, id_RSTB);
-                    NetInfo *rst = ci->ports.at(id_RST).net;
-                    ci->connectPort(id_RSTA, rst);
-                    ci->connectPort(id_RSTB, rst);
-                    ci->disconnectPort(id_RST);
-                    ci->ports.erase(id_RST);
-                }
-                ci->type = id_DP8KC;
-            }
-        }*/
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
             if (ci->type == id_DP8KC) {
@@ -1340,113 +1295,8 @@ class MachXO2Packer
             changed_nets.clear();
             for (auto cell : changed_cells) {
                 CellInfo *ci = ctx->cells.at(cell).get();
-/*                if (ci->type == id_CLKDIVF) {
-                    std::string div = str_or_default(ci->params, id_DIV, "2.0");
-                    double ratio;
-                    if (div == "2.0")
-                        ratio = 1 / 2.0;
-                    else if (div == "3.5")
-                        ratio = 1 / 3.5;
-                    else
-                        log_error("Unsupported divider ratio '%s' on CLKDIVF '%s'\n", div.c_str(), ci->name.c_str(ctx));
-                    copy_constraint(ci, id_CLKI, id_CDIVX, ratio);
-                } else if (ci->type.in(id_ECLKSYNCB, id_TRELLIS_ECLKBUF)) {
-                    copy_constraint(ci, id_ECLKI, id_ECLKO, 1);
-                } else if (ci->type == id_ECLKBRIDGECS) {
-                    copy_constraint(ci, id_CLK0, id_ECSOUT, 1);
-                    copy_constraint(ci, id_CLK1, id_ECSOUT, 1);
-                } else */
                 if (ci->type == id_DCCA) {
                     copy_constraint(ci, id_CLKI, id_CLKO, 1);
-                /*} else if (ci->type == id_DCSC) {
-                    if ((!ci->ports.count(id_CLK0) && !ci->ports.count(id_CLK1)) || !ci->ports.count(id_DCSOUT))
-                        continue;
-
-                    auto mode = str_or_default(ci->params, id_DCSMODE, "POS");
-                    bool mode_constant = false;
-                    auto mode_is_constant = net_is_constant(ctx, ci->ports.at(id_MODESEL).net, mode_constant);
-
-                    if (mode_is_constant && mode_constant == false) {
-                        if (mode == "CLK0_LOW" || mode == "CLK0_HIGH" || mode == "CLK0") {
-                            copy_constraint(ci, id_CLK0, id_DCSOUT, 1.0);
-                            continue;
-                        } else if (mode == "CLK1_LOW" || mode == "CLK1_HIGH" || mode == "CLK1") {
-                            copy_constraint(ci, id_CLK1, id_DCSOUT, 1.0);
-                            continue;
-                        } else if (mode == "LOW" || mode == "HIGH") {
-                            continue;
-                        }
-                    }
-
-                    std::unique_ptr<ClockConstraint> derived_constr = nullptr;
-                    std::vector<NetInfo *> in_ports = {
-                            ci->ports.at(id_CLK0).net,
-                            ci->ports.at(id_CLK1).net,
-                    };
-
-                    // Generate all unique clock pairs find the worst
-                    // constraint from switching between them and merge them
-                    // into the final output constraint.
-                    for (size_t i = 0; i < in_ports.size(); ++i) {
-                        auto p1 = in_ports[i];
-                        if (p1 == nullptr || p1->clkconstr == nullptr) {
-                            derived_constr = nullptr;
-                            break;
-                        }
-                        for (size_t j = i + 1; j < in_ports.size(); ++j) {
-                            auto p2 = in_ports[j];
-                            if (p2 == nullptr || p2->clkconstr == nullptr) {
-                                break;
-                            }
-                            auto &c1 = p1->clkconstr;
-                            auto &c2 = p2->clkconstr;
-
-                            auto merged_constr = std::unique_ptr<ClockConstraint>(new ClockConstraint());
-
-                            if (mode == "NEG") {
-                                merged_constr->low = DelayPair(std::min(c1->low.min_delay, c2->low.min_delay),
-                                                               std::max(c1->low.max_delay + c2->period.max_delay,
-                                                                        c2->low.max_delay + c1->period.max_delay));
-                            } else {
-                                merged_constr->low = DelayPair(std::min(c1->low.min_delay, c2->low.min_delay),
-                                                               std::max(c1->low.max_delay, c2->low.max_delay));
-                            }
-
-                            if (mode == "POS") {
-                                merged_constr->high = DelayPair(std::min(c1->high.min_delay, c2->high.min_delay),
-                                                                std::max(c1->high.max_delay + c2->period.max_delay,
-                                                                         c2->high.max_delay + c1->period.max_delay));
-                            } else {
-                                merged_constr->high = DelayPair(std::min(c1->high.min_delay, c2->high.min_delay),
-                                                                std::max(c1->high.max_delay, c2->high.max_delay));
-                            }
-
-                            merged_constr->period = DelayPair(std::min(c1->period.min_delay, c2->period.min_delay),
-                                                              std::max(c1->period.max_delay, c2->period.max_delay));
-
-                            if (derived_constr == nullptr) {
-                                derived_constr = std::move(merged_constr);
-                                continue;
-                            }
-
-                            derived_constr->period.min_delay =
-                                    std::min(derived_constr->period.min_delay, merged_constr->period.min_delay);
-                            derived_constr->period.max_delay =
-                                    std::max(derived_constr->period.max_delay, merged_constr->period.max_delay);
-                            derived_constr->low.min_delay =
-                                    std::min(derived_constr->low.min_delay, merged_constr->low.min_delay);
-                            derived_constr->low.max_delay =
-                                    std::max(derived_constr->low.max_delay, merged_constr->low.max_delay);
-                            derived_constr->high.min_delay =
-                                    std::min(derived_constr->high.min_delay, merged_constr->high.min_delay);
-                            derived_constr->high.max_delay =
-                                    std::max(derived_constr->high.max_delay, merged_constr->high.max_delay);
-                        }
-                    }
-
-                    if (derived_constr != nullptr) {
-                        set_constraint(ci, id_DCSOUT, std::move(derived_constr));
-                    }*/
                 } else if (ci->type == id_EHXPLLJ) {
                     delay_t period_in;
                     if (!get_period(ci, id_CLKI, period_in))
@@ -1483,10 +1333,7 @@ class MachXO2Packer
                                    simple_clk_contraint(vco_period * int_or_default(ci->params, id_CLKOS2_DIV, 1)));
                     set_constraint(ci, id_CLKOS3,
                                    simple_clk_contraint(vco_period * int_or_default(ci->params, id_CLKOS3_DIV, 1)));
-                }/* else if (ci->type == id_OSCH) {
-                    int div = int_or_default(ci->params, id_DIV, 128);
-                    set_constraint(ci, id_OSC, simple_clk_contraint(delay_t((1.0e6 / (2.0 * 155)) * div)));
-                }*/
+                }
             }
         }
     }
