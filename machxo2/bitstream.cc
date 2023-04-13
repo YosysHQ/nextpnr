@@ -243,6 +243,12 @@ struct MachXO2Bitgen
         tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, ebr0));
         tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x+1, ebr1));
         tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x+2, ebr2));
+        static const std::set<std::string> cib_ebr0 = {"CIB_EBR0", "CIB_EBR0_10K", "CIB_EBR0_END0", "CIB_EBR0_END0_10K", "CIB_EBR0_END0_DLL3", "CIB_EBR0_END0_DLL5", "CIB_EBR0_END1", "CIB_EBR0_END2_DLL3", "CIB_EBR0_END2_DLL45"};
+        static const std::set<std::string> cib_ebr1 = {"CIB_EBR1", "CIB_EBR1_10K"};
+        static const std::set<std::string> cib_ebr2 = {"CIB_EBR2", "CIB_EBR2_10K", "CIB_EBR2_END0", "CIB_EBR2_END1", "CIB_EBR2_END1_10K", "CIB_EBR2_END1_SP"};
+        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, cib_ebr0));
+        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x+1, cib_ebr1));
+        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x+2, cib_ebr2));
         return tiles;
     }
 
@@ -463,6 +469,9 @@ struct MachXO2Bitgen
                     port.second.at(bit) = !port.second.at(bit);
             }
         }
+        tg.config.add_enum(ebr + ".CLKAMUX", str_or_default(ci->params, id_CLKAMUX, "CLKA"));
+        tg.config.add_enum(ebr + ".CLKBMUX", str_or_default(ci->params, id_CLKBMUX, "CLKB"));
+
         tg.config.add_enum(ebr + ".RSTAMUX", str_or_default(ci->params, id_RSTAMUX, "RSTA"));
         tg.config.add_enum(ebr + ".RSTBMUX", str_or_default(ci->params, id_RSTBMUX, "RSTB"));
         if (!ci->ramInfo.is_pdp) {
@@ -470,6 +479,11 @@ struct MachXO2Bitgen
             tg.config.add_enum(ebr + ".WEBMUX", str_or_default(ci->params, id_WEBMUX, "WEB"));
 
         }
+        tg.config.add_enum(ebr + ".CEAMUX", str_or_default(ci->params, id_CEAMUX, "CEA"));
+        tg.config.add_enum(ebr + ".CEBMUX", str_or_default(ci->params, id_CEBMUX, "CEB"));
+        tg.config.add_enum(ebr + ".OCEAMUX", str_or_default(ci->params, id_OCEAMUX, "OCEA"));
+        tg.config.add_enum(ebr + ".OCEBMUX", str_or_default(ci->params, id_OCEBMUX, "OCEB"));
+
         std::reverse(csd_a.begin(), csd_a.end());
         std::reverse(csd_b.begin(), csd_b.end());
 
