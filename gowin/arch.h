@@ -535,7 +535,6 @@ enum
     ioba_z = 0,      // IOBA
     iobb_z = 1,      // IOBB
     mux_0_z = 10,    // start Z for the MUX2LUT5 bels
-    oddr_0_z = 20,   // XXX start Z for the ODDR bels
     lutram_0_z = 30, // start Z for the LUTRAM bels
     vcc_0_z = 277,   // virtual VCC bel Z
     gnd_0_z = 278,   // virtual VSS bel Z
