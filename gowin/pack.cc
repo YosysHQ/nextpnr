@@ -903,79 +903,15 @@ static void pack_iologic(Context *ctx)
             CellInfo *q0_dst = nullptr;
             CellInfo *q1_dst = nullptr;
             switch (ci->type.hash()) {
-            case ID_ODDRC: /* fall-through*/
-            case ID_ODDR: {
-                q0_dst = net_only_drives(ctx, ci->ports.at(id_Q0).net, is_iob, id_I);
-                NPNR_ASSERT(q0_dst != nullptr);
-
-                auto iob_bel = q0_dst->attrs.find(id_BEL);
-                if (q0_dst->attrs.count(id_DIFF_TYPE)) {
-                    ci->attrs[id_OBUF_TYPE] = std::string("DBUF");
-                } else {
-                    ci->attrs[id_OBUF_TYPE] = std::string("SBUF");
-                }
-                if (iob_bel != q0_dst->attrs.end()) {
-                    // already know there to place, no need of any cluster stuff
-                    Loc loc = ctx->getBelLocation(ctx->getBelByNameStr(iob_bel->second.as_string()));
-                    loc.z += BelZ::oddr_0_z;
-                    ci->attrs[id_BEL] = ctx->getBelName(ctx->getBelByLocation(loc)).str(ctx);
-                } else {
-                    // make cluster from ODDR and OBUF
-                    ci->cluster = ci->name;
-                    ci->constr_x = 0;
-                    ci->constr_y = 0;
-                    ci->constr_z = 0;
-                    ci->constr_abs_z = false;
-                    ci->constr_children.push_back(q0_dst);
-                    q0_dst->cluster = ci->name;
-                    q0_dst->constr_x = 0;
-                    q0_dst->constr_y = 0;
-                    q0_dst->constr_z = -BelZ::oddr_0_z;
-                    q0_dst->constr_abs_z = false;
-                }
-
-                // disconnect Q0 output: it is wired internally
-                delete_nets.insert(ci->ports.at(id_Q0).net->name);
-                q0_dst->disconnectPort(id_I);
-                ci->disconnectPort(id_Q0);
-
-                ci->attrs[id_IOBUF] = 0;
-                // if Q1 is conected then disconnet it too
-                if (port_used(ci, id_Q1)) {
-                    q1_dst = net_only_drives(ctx, ci->ports.at(id_Q1).net, is_iob, id_OEN);
-                    if (q1_dst != nullptr) {
-                        delete_nets.insert(ci->ports.at(id_Q1).net->name);
-                        q0_dst->disconnectPort(id_OEN);
-                        ci->disconnectPort(id_Q1);
-                        ci->attrs[id_IOBUF] = 1;
-                    }
-                }
-                // if have XXX_ inputs connect them
-                if (ctx->ddr_has_extra_inputs) {
-                    ci->addInput(id_ODDR_ALWAYS_LOW);
-                    ci->connectPort(id_ODDR_ALWAYS_LOW, ctx->nets[ctx->id("$PACKER_GND_NET")].get());
-                    ci->addInput(id_ODDR_ALWAYS_HIGH);
-                    ci->connectPort(id_ODDR_ALWAYS_HIGH, ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
-                }
-                if (iob_bel != q0_dst->attrs.end()) {
-                    IdString io_bel_name = ctx->getBelByNameStr(iob_bel->second.as_string());
-                    if (ctx->gw1n9_quirk && ctx->bels.at(io_bel_name).pins.count(id_GW9_ALWAYS_LOW0)) {
-                        q0_dst->disconnectPort(id_GW9_ALWAYS_LOW0);
-                        q0_dst->connectPort(id_GW9_ALWAYS_LOW0, ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
-                    }
-                    if (ctx->bels.at(io_bel_name).pins.count(id_GW9C_ALWAYS_LOW1)) {
-                        q0_dst->disconnectPort(id_GW9C_ALWAYS_LOW1);
-                        q0_dst->connectPort(id_GW9C_ALWAYS_LOW1, ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
-                    }
-                }
-            } break;
+            case ID_ODDR:   /* fall-through */
+            case ID_ODDRC:  /* fall-through */
             case ID_OSER4:  /* fall-through */
             case ID_OSER8:  /* fall-through */
             case ID_OSER10: /* fall-through */
             case ID_OVIDEO: {
                 IdString output = id_Q;
                 IdString output_1 = IdString();
-                if (ci->type == id_OSER4 || ci->type == id_OSER8) {
+                if (ci->type == id_ODDR || ci->type == id_ODDRC || ci->type == id_OSER4 || ci->type == id_OSER8) {
                     output = id_Q0;
                     output_1 = id_Q1;
                 }
@@ -999,6 +935,10 @@ static void pack_iologic(Context *ctx)
 
                 std::string out_mode;
                 switch (ci->type.hash()) {
+                case ID_ODDR:
+                case ID_ODDRC:
+                    out_mode = "ODDRX1";
+                    break;
                 case ID_OSER4:
                     out_mode = "ODDRX2";
                     break;
@@ -1025,11 +965,17 @@ static void pack_iologic(Context *ctx)
                 delete_nets.insert(ci->ports.at(output).net->name);
                 q0_dst->disconnectPort(id_I);
                 ci->disconnectPort(output);
-                bool have_XXX =
-                        ctx->bels.at(ctx->getBelByNameStr(iob_bel->second.as_string())).pins.count(id_GW9C_ALWAYS_LOW1);
-                if (have_XXX) {
+                if (ctx->bels.at(ctx->getBelByNameStr(iob_bel->second.as_string())).pins.count(id_GW9C_ALWAYS_LOW1)) {
                     q0_dst->disconnectPort(id_GW9C_ALWAYS_LOW1);
                     q0_dst->connectPort(id_GW9C_ALWAYS_LOW1, ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
+                }
+                if (ctx->bels.at(ctx->getBelByLocation(loc)).pins.count(id_DAADJ0)) {
+                    ci->addInput(id_DAADJ0);
+                    ci->connectPort(id_DAADJ0, ctx->nets[ctx->id("$PACKER_GND_NET")].get());
+                }
+                if (ctx->bels.at(ctx->getBelByLocation(loc)).pins.count(id_DAADJ1)) {
+                    ci->addInput(id_DAADJ1);
+                    ci->connectPort(id_DAADJ1, ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
                 }
 
                 // if Q1 is connected then disconnet it too
@@ -1057,16 +1003,19 @@ static void pack_iologic(Context *ctx)
                 ci->setAttr(id_IOBUF, 0);
                 ci->setAttr(id_IOLOGIC_TYPE, ci->type.str(ctx));
 
-                if (ci->type == id_OSER4) {
-                    // two OSER4 share FCLK, check it
-                    Loc other_loc = loc;
-                    other_loc.z = 1 - loc.z + 2 * BelZ::iologic_z;
-                    BelId other_bel = ctx->getBelByLocation(other_loc);
-                    CellInfo *other_cell = ctx->getBoundBelCell(other_bel);
-                    if (other_cell != nullptr) {
-                        NPNR_ASSERT(other_cell->type == id_OSER4);
-                        if (ci->ports.at(id_FCLK).net != other_cell->ports.at(id_FCLK).net) {
-                            log_error("%s and %s have differnet FCLK nets\n", ctx->nameOf(ci), ctx->nameOf(other_cell));
+                if (ci->type == id_OSER4 || ci->type == id_ODDR || ci->type == id_ODDRC) {
+                    if (ci->type == id_OSER4) {
+                        // two OSER4 share FCLK, check it
+                        Loc other_loc = loc;
+                        other_loc.z = 1 - loc.z + 2 * BelZ::iologic_z;
+                        BelId other_bel = ctx->getBelByLocation(other_loc);
+                        CellInfo *other_cell = ctx->getBoundBelCell(other_bel);
+                        if (other_cell != nullptr) {
+                            NPNR_ASSERT(other_cell->type == id_OSER4);
+                            if (ci->ports.at(id_FCLK).net != other_cell->ports.at(id_FCLK).net) {
+                                log_error("%s and %s have differnet FCLK nets\n", ctx->nameOf(ci),
+                                          ctx->nameOf(other_cell));
+                            }
                         }
                     }
                 } else {

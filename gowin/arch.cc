@@ -1416,7 +1416,6 @@ Arch::Arch(ArchArgs args) : args(args)
             IdString portname;
             int z = 0;
             bool dff = true;
-            bool oddrc = false;
             switch (static_cast<ConstIds>(bel->type_id)) {
             case ID_PLLVR:
                 belname = idf("R%dC%d_PLLVR", row + 1, col + 1);
@@ -1690,82 +1689,22 @@ Arch::Arch(ArchArgs args) : args(args)
                 break;
 
                 // IO logic
-            case ID_ODDRCB:
-                z++; /* fall-through*/
-            case ID_ODDRCA:
-                oddrc = true;
-                z++; /* fall-through*/
-            case ID_ODDRB:
-                z++; /* fall-through*/
-            case ID_ODDRA: {
-                snprintf(buf, 32, "R%dC%d_ODDR%s%c", row + 1, col + 1, oddrc ? "C" : "", 'A' + z - (oddrc ? 2 : 0));
-                belname = id(buf);
-                addBel(belname, id_ODDR, Loc(col, row, BelZ::oddr_0_z + z), false);
-
-                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_D0)->src_id);
-                snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
-                addBelInput(belname, id_D0, id(buf));
-
-                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_D1)->src_id);
-                snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
-                addBelInput(belname, id_D1, id(buf));
-
-                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_TX)->src_id);
-                snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
-                addBelInput(belname, id_TX, id(buf));
-
-                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_CLK)->src_id);
-                snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
-                addBelInput(belname, id_CLK, id(buf));
-
-                const PairPOD *quirk_port = pairLookup(bel->ports.get(), bel->num_ports, ID_ODDR_ALWAYS_LOW);
-                if (quirk_port != nullptr) {
-                    ddr_has_extra_inputs = true;
-                    portname = IdString(quirk_port->src_id);
-                    snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
-                    addBelInput(belname, id_ODDR_ALWAYS_LOW, id(buf));
-                }
-                quirk_port = pairLookup(bel->ports.get(), bel->num_ports, ID_ODDR_ALWAYS_HIGH);
-                if (quirk_port != nullptr) {
-                    ddr_has_extra_inputs = true;
-                    portname = IdString(quirk_port->src_id);
-                    snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
-                    addBelInput(belname, id_ODDR_ALWAYS_HIGH, id(buf));
-                }
-
-                if (oddrc) {
-                    portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_CE)->src_id);
-                    snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
-                    addBelInput(belname, id_CE, id(buf));
-                }
-
-                // dummy wires
-                snprintf(buf, 32, "ODDR%s%c_Q0", oddrc ? "C" : "", 'A' + z - (oddrc ? 2 : 0));
-                IdString id_q0 = id(buf);
-                IdString q0_name = wireToGlobal(row, col, db, id_q0);
-                if (wires.count(q0_name) == 0)
-                    addWire(q0_name, id_q0, row, col);
-                addBelOutput(belname, id_Q0, q0_name);
-
-                snprintf(buf, 32, "ODDR%s%c_Q1", oddrc ? "C" : "", 'A' + z - (oddrc ? 2 : 0));
-                IdString id_q1 = id(buf);
-                IdString q1_name = wireToGlobal(row, col, db, id_q1);
-                if (wires.count(q1_name) == 0)
-                    addWire(q1_name, id_q1, row, col);
-                addBelOutput(belname, id_Q1, q1_name);
-            } break;
             case ID_IOLOGICB:
                 z++; /* fall-through*/
             case ID_IOLOGICA: {
                 belname = idf("R%dC%d_IOLOGIC%c", row + 1, col + 1, 'A' + z);
                 addBel(belname, id_IOLOGIC, Loc(col, row, BelZ::iologic_z + z), false);
 
-                IdString const iologic_in_ports[] = {id_TX0, id_TX1, id_TX2, id_TX3, id_RESET, id_CALIB, id_PCLK,
-                                                     id_D,   id_D0,  id_D1,  id_D2,  id_D3,    id_D4,    id_D5,
-                                                     id_D6,  id_D7,  id_D8,  id_D9,  id_CLK,   id_CLEAR};
+                IdString const iologic_in_ports[] = {id_TX,    id_TX0,  id_TX1,   id_TX2,    id_TX3,   id_RESET,
+                                                     id_CALIB, id_PCLK, id_D,     id_D0,     id_D1,    id_D2,
+                                                     id_D3,    id_D4,   id_D5,    id_D6,     id_D7,    id_D8,
+                                                     id_D9,    id_CLK,  id_CLEAR, id_DAADJ0, id_DAADJ1};
                 for (IdString port : iologic_in_ports) {
-                    portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, port.hash())->src_id);
-                    addBelInput(belname, port, idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this)));
+                    const PairPOD *portid = pairLookup(bel->ports.get(), bel->num_ports, port.hash());
+                    if (portid != nullptr) {
+                        portname = IdString(portid->src_id);
+                        addBelInput(belname, port, idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this)));
+                    }
                 }
                 IdString const iologic_out_ports[] = {id_Q,  id_Q0, id_Q1, id_Q2, id_Q3, id_Q4,
                                                       id_Q5, id_Q6, id_Q7, id_Q8, id_Q9};
