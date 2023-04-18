@@ -1258,6 +1258,28 @@ static bool skip_aux_oser16(std::string device, int row, int col)
     return false;
 }
 
+WireId Arch::get_make_port_wire(const DatabasePOD *db, const BelsPOD *bel, int row, int col, IdString port)
+{
+    IdString wirename = IdString(pairLookup(bel->ports.get(), bel->num_ports, port.hash())->src_id);
+    IdString wire = idf("R%dC%d_%s", row + 1, col + 1, wirename.c_str(this));
+    if (wires.count(wire) == 0) {
+        GlobalAliasPOD alias;
+        alias.dest_col = col;
+        alias.dest_row = row;
+        alias.dest_id = port.hash();
+        auto alias_src = genericLookup(db->aliases.get(), db->num_aliases, alias, aliasCompare);
+        NPNR_ASSERT(alias_src != nullptr);
+        int srcrow = alias_src->src_row;
+        int srccol = alias_src->src_col;
+        IdString srcid = IdString(alias_src->src_id);
+        wire = wireToGlobal(srcrow, srccol, db, srcid);
+        if (wires.count(wire) == 0) {
+            addWire(wire, srcid, srccol, srcrow);
+        }
+    }
+    return wire;
+}
+
 Arch::Arch(ArchArgs args) : args(args)
 {
     family = args.family;
@@ -1460,62 +1482,20 @@ Arch::Arch(ArchArgs args) : args(args)
                 snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
                 addBelInput(belname, id_GSRI, id(buf));
                 break;
-            case ID_OSC:
-                snprintf(buf, 32, "R%dC%d_OSC", row + 1, col + 1);
-                belname = id(buf);
-                addBel(belname, id_OSC, Loc(col, row, BelZ::osc_z), false);
-                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_OSCOUT)->src_id);
-                snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
-                addBelOutput(belname, id_OSCOUT, id(buf));
-                break;
-            case ID_OSCH:
-                snprintf(buf, 32, "R%dC%d_OSCH", row + 1, col + 1);
-                belname = id(buf);
-                addBel(belname, id_OSCH, Loc(col, row, BelZ::osc_z), false);
-                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_OSCOUT)->src_id);
-                snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
-                addBelOutput(belname, id_OSCOUT, id(buf));
-                break;
-            case ID_OSCF:
-                snprintf(buf, 32, "R%dC%d_OSCF", row + 1, col + 1);
-                belname = id(buf);
-                addBel(belname, id_OSCF, Loc(col, row, BelZ::osc_z), false);
-                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_OSCOUT)->src_id);
-                snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
-                addBelOutput(belname, id_OSCOUT, id(buf));
-                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_OSCEN)->src_id);
-                snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
-                addBelInput(belname, id_OSCEN, id(buf));
-                break;
-            case ID_OSCZ:
-                snprintf(buf, 32, "R%dC%d_OSCZ", row + 1, col + 1);
-                belname = id(buf);
-                addBel(belname, id_OSCZ, Loc(col, row, BelZ::osc_z), false);
-                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_OSCOUT)->src_id);
-                snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
-                addBelOutput(belname, id_OSCOUT, id(buf));
-                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_OSCEN)->src_id);
-                snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
-                addBelInput(belname, id_OSCEN, id(buf));
-                break;
+            case ID_OSC:  /* fall-through*/
+            case ID_OSCH: /* fall-through*/
             case ID_OSCW:
-                snprintf(buf, 32, "R%dC%d_OSCW", row + 1, col + 1);
-                belname = id(buf);
-                addBel(belname, id_OSCW, Loc(col, row, BelZ::osc_z), false);
-                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_OSCOUT)->src_id);
-                snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
-                addBelOutput(belname, id_OSCOUT, id(buf));
+                belname = idf("R%dC%d_%s", row + 1, col + 1, IdString(bel->type_id).c_str(this));
+                addBel(belname, IdString(bel->type_id), Loc(col, row, BelZ::osc_z), false);
+                addBelOutput(belname, id_OSCOUT, get_make_port_wire(db, bel, row, col, id_OSCOUT));
                 break;
+            case ID_OSCF: /* fall-through*/
+            case ID_OSCZ: /* fall-through*/
             case ID_OSCO:
-                snprintf(buf, 32, "R%dC%d_OSCO", row + 1, col + 1);
-                belname = id(buf);
-                addBel(belname, id_OSCO, Loc(col, row, BelZ::osc_z), false);
-                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_OSCOUT)->src_id);
-                snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
-                addBelOutput(belname, id_OSCOUT, id(buf));
-                portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, ID_OSCEN)->src_id);
-                snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
-                addBelInput(belname, id_OSCEN, id(buf));
+                belname = idf("R%dC%d_%s", row + 1, col + 1, IdString(bel->type_id).c_str(this));
+                addBel(belname, IdString(bel->type_id), Loc(col, row, BelZ::osc_z), false);
+                addBelOutput(belname, id_OSCOUT, get_make_port_wire(db, bel, row, col, id_OSCOUT));
+                addBelInput(belname, id_OSCEN, get_make_port_wire(db, bel, row, col, id_OSCEN));
                 break;
             case ID_RAM16:
                 snprintf(buf, 32, "R%dC%d_RAMW", row + 1, col + 1);

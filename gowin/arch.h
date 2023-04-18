@@ -498,6 +498,8 @@ struct Arch : BaseArch<ArchRanges>
     void mark_used_hclk(Context *ctx);
     IdString apply_local_aliases(int row, int col, const DatabasePOD *db, IdString &wire);
 
+    WireId get_make_port_wire(const DatabasePOD *db, const BelsPOD *bel, int row, int col, IdString port);
+
     GowinGlobalRouter globals_router;
     void mark_gowin_globals(Context *ctx);
     void route_gowin_globals(Context *ctx);
