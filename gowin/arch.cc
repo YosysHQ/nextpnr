@@ -353,7 +353,7 @@ NetInfo &Arch::net_info(IdString net)
 
 void Arch::addWire(IdString name, IdString type, int x, int y)
 {
-    NPNR_ASSERT(wires.count(name) == 0);
+    NPNR_ASSERT(!wires.count(name));
     WireInfo &wi = wires[name];
     wi.name = name;
     wi.type = type;
@@ -1114,7 +1114,7 @@ void Arch::add_pllvr_ports(DatabasePOD const *db, BelsPOD const *bel, IdString b
           ID_DUTYDA2, ID_DUTYDA3, ID_FDLY0,   ID_FDLY1,   ID_FDLY2,   ID_FDLY3,   ID_RESET,   ID_RESET_P}) {
         portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, pid)->src_id);
         IdString wire = idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
-        if (wires.count(wire) == 0) {
+        if (!wires.count(wire)) {
             GlobalAliasPOD alias;
             alias.dest_col = col;
             alias.dest_row = row;
@@ -1125,7 +1125,7 @@ void Arch::add_pllvr_ports(DatabasePOD const *db, BelsPOD const *bel, IdString b
             int srccol = alias_src->src_col;
             IdString srcid = IdString(alias_src->src_id);
             wire = wireToGlobal(srcrow, srccol, db, srcid);
-            if (wires.count(wire) == 0) {
+            if (!wires.count(wire)) {
                 addWire(wire, srcid, srccol, srcrow);
             }
         }
@@ -1155,7 +1155,7 @@ void Arch::add_rpll_ports(DatabasePOD const *db, BelsPOD const *bel, IdString be
         }
         portname = IdString(port->src_id);
         IdString wire = idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
-        if (wires.count(wire) == 0) {
+        if (!wires.count(wire)) {
             GlobalAliasPOD alias;
             alias.dest_col = col;
             alias.dest_row = row;
@@ -1166,7 +1166,7 @@ void Arch::add_rpll_ports(DatabasePOD const *db, BelsPOD const *bel, IdString be
             int srccol = alias_src->src_col;
             IdString srcid = IdString(alias_src->src_id);
             wire = wireToGlobal(srcrow, srccol, db, srcid);
-            if (wires.count(wire) == 0) {
+            if (!wires.count(wire)) {
                 addWire(wire, srcid, srccol, srcrow);
             }
         }
@@ -1175,7 +1175,7 @@ void Arch::add_rpll_ports(DatabasePOD const *db, BelsPOD const *bel, IdString be
     for (int pid : {ID_LOCK, ID_CLKOUT, ID_CLKOUTP, ID_CLKOUTD, ID_CLKOUTD3}) {
         portname = IdString(pairLookup(bel->ports.get(), bel->num_ports, pid)->src_id);
         IdString wire = idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
-        if (wires.count(wire) == 0) {
+        if (!wires.count(wire)) {
             GlobalAliasPOD alias;
             alias.dest_col = col;
             alias.dest_row = row;
@@ -1186,7 +1186,7 @@ void Arch::add_rpll_ports(DatabasePOD const *db, BelsPOD const *bel, IdString be
             int srccol = alias_src->src_col;
             IdString srcid = IdString(alias_src->src_id);
             wire = wireToGlobal(srcrow, srccol, db, srcid);
-            if (wires.count(wire) == 0) {
+            if (!wires.count(wire)) {
                 addWire(wire, srcid, srccol, srcrow);
             }
         }
@@ -1262,7 +1262,7 @@ WireId Arch::get_make_port_wire(const DatabasePOD *db, const BelsPOD *bel, int r
 {
     IdString wirename = IdString(pairLookup(bel->ports.get(), bel->num_ports, port.hash())->src_id);
     IdString wire = idf("R%dC%d_%s", row + 1, col + 1, wirename.c_str(this));
-    if (wires.count(wire) == 0) {
+    if (!wires.count(wire)) {
         GlobalAliasPOD alias;
         alias.dest_col = col;
         alias.dest_row = row;
@@ -1422,13 +1422,13 @@ Arch::Arch(ArchArgs args) : args(args)
                 int destcol = col;
                 IdString destid(pip.dest_id), gdestid(pip.dest_id);
                 IdString gdestname = wireToGlobal(destrow, destcol, db, gdestid);
-                if (wires.count(gdestname) == 0)
+                if (!wires.count(gdestname))
                     addWire(gdestname, destid, destcol, destrow);
                 int srcrow = row;
                 int srccol = col;
                 IdString srcid(pip.src_id), gsrcid(pip.src_id);
                 IdString gsrcname = wireToGlobal(srcrow, srccol, db, gsrcid);
-                if (wires.count(gsrcname) == 0)
+                if (!wires.count(gsrcname))
                     addWire(gsrcname, srcid, srccol, srcrow);
             }
         }
@@ -1697,7 +1697,7 @@ Arch::Arch(ArchArgs args) : args(args)
                 if (fclk != nullptr) {
                     portname = IdString(fclk->src_id);
                     IdString wire = idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
-                    if (wires.count(wire) == 0) {
+                    if (!wires.count(wire)) {
                         GlobalAliasPOD alias;
                         alias.dest_col = col;
                         alias.dest_row = row;
@@ -1708,7 +1708,7 @@ Arch::Arch(ArchArgs args) : args(args)
                             int srccol = alias_src->src_col;
                             IdString srcid = IdString(alias_src->src_id);
                             wire = wireToGlobal(srcrow, srccol, db, srcid);
-                            if (wires.count(wire) == 0) {
+                            if (!wires.count(wire)) {
                                 addWire(wire, srcid, srccol, srcrow);
                             }
                             addBelInput(belname, id_FCLK, wire);
@@ -1749,7 +1749,7 @@ Arch::Arch(ArchArgs args) : args(args)
                 if (fclk != nullptr) {
                     portname = IdString(fclk->src_id);
                     IdString wire = idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
-                    if (wires.count(wire) == 0) {
+                    if (!wires.count(wire)) {
                         GlobalAliasPOD alias;
                         alias.dest_col = col;
                         alias.dest_row = row;
@@ -1760,7 +1760,7 @@ Arch::Arch(ArchArgs args) : args(args)
                             int srccol = alias_src->src_col;
                             IdString srcid = IdString(alias_src->src_id);
                             wire = wireToGlobal(srcrow, srccol, db, srcid);
-                            if (wires.count(wire) == 0) {
+                            if (!wires.count(wire)) {
                                 addWire(wire, srcid, srccol, srcrow);
                             }
                             addBelInput(belname, id_FCLK, wire);
@@ -1793,7 +1793,7 @@ Arch::Arch(ArchArgs args) : args(args)
                 if (fclk != nullptr) {
                     portname = IdString(fclk->src_id);
                     IdString wire = idf("R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
-                    if (wires.count(wire) == 0) {
+                    if (!wires.count(wire)) {
                         GlobalAliasPOD alias;
                         alias.dest_col = col;
                         alias.dest_row = row;
@@ -1804,7 +1804,7 @@ Arch::Arch(ArchArgs args) : args(args)
                             int srccol = alias_src->src_col;
                             IdString srcid = IdString(alias_src->src_id);
                             wire = wireToGlobal(srcrow, srccol, db, srcid);
-                            if (wires.count(wire) == 0) {
+                            if (!wires.count(wire)) {
                                 addWire(wire, srcid, srccol, srcrow);
                             }
                             addBelInput(belname, id_FCLK, wire);
