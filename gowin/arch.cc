@@ -1273,7 +1273,7 @@ WireId Arch::get_make_port_wire(const DatabasePOD *db, const BelsPOD *bel, int r
         int srccol = alias_src->src_col;
         IdString srcid = IdString(alias_src->src_id);
         wire = wireToGlobal(srcrow, srccol, db, srcid);
-        if (wires.count(wire) == 0) {
+        if (!wires.count(wire)) {
             addWire(wire, srcid, srccol, srcrow);
         }
     }
