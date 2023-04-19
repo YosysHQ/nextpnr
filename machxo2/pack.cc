@@ -1068,6 +1068,26 @@ class MachXO2Packer
         }
     }
 
+    // Miscellaneous packer tasks
+    void pack_misc()
+    {
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (ci->type.in(id_GSR, id_SGSR)) {
+                ci->params[id_MODE] = std::string("ACTIVE_LOW");
+                ci->params[id_SYNCMODE] = ci->type == id_SGSR ? std::string("SYNC") : std::string("ASYNC");
+                ci->type = id_GSR;
+                for (BelId bel : ctx->getBels()) {
+                    if (ctx->getBelType(bel) != id_GSR)
+                        continue;
+                    ci->attrs[id_BEL] = ctx->getBelName(bel).str(ctx);
+                }
+            } else if (ci->type.in(id_TSALL)) {
+                ci->renamePort(id_TSALL, id_TSALLI);
+            }
+        }
+    }
+
     // Preplace PLL
     void preplace_plls()
     {
@@ -1357,6 +1377,7 @@ class MachXO2Packer
         pack_io();
         preplace_plls();
         pack_ebr();
+        pack_misc();
         pack_constants();
         pack_dram();
         pack_carries();

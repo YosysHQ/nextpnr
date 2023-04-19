@@ -259,10 +259,9 @@ struct MachXO2Bitgen
         std::vector<std::string> tiles;
         Loc loc = ctx->getBelLocation(bel);
 
-        if (name == "EHXPLL_L") {
+        if (name == "LPLL") {
             tiles.push_back(ctx->get_tile_by_type_loc(loc.y-1, loc.x-1, "GPLL_L0"));
-            //tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, "CIB_PIC_T_DUMMY"));
-        } else if (name == "EHXPLL_R") {
+       } else if (name == "RPLL") {
             tiles.push_back(ctx->get_tile_by_type_loc(loc.y+1, loc.x-1, "GPLL_R0"));
         } else {
             NPNR_ASSERT_FALSE_STR("bad PLL loc " + name);
@@ -695,6 +694,33 @@ struct MachXO2Bitgen
                 write_bram(ci);
             } else if (ci->type == id_EHXPLLJ) {
                 write_pll(ci);
+            } else if (ci->type == id_GSR) {
+                cc.tiles[ctx->get_tile_by_type("CFG0")].add_enum(
+                         "GSR.GSRMODE", str_or_default(ci->params, id_MODE, "ACTIVE_LOW"));
+                cc.tiles[ctx->get_tile_by_type("CFG0")].add_enum("GSR.SYNCMODE",
+                                                                 str_or_default(ci->params, id_SYNCMODE, "ASYNC"));
+            } else if (ci->type == id_JTAGF) {
+                cc.tiles[ctx->get_tile_by_type("CFG0")].add_enum("JTAG.ER1",
+                                                                 str_or_default(ci->params, id_ER1, "ENABLED"));
+                cc.tiles[ctx->get_tile_by_type("CFG0")].add_enum("JTAG.ER2",
+                                                                 str_or_default(ci->params, id_ER2, "ENABLED"));
+            } else if (ci->type == id_TSALL) {
+                cc.tiles[ctx->get_tile_by_type("CFG0")].add_enum(
+                         "TSALL.MODE", str_or_default(ci->params, id_MODE, "TSALL"));
+                cc.tiles[ctx->get_tile_by_type("CFG0")].add_enum(
+                         "TSALL.TSALL", str_or_default(ci->params, id_TSALL, "TSALL"));
+            } else if (ci->type == id_START) {
+                cc.tiles[ctx->get_tile_by_type("CIB_CFG0")].add_enum(
+                         "START.STARTCLK", str_or_default(ci->params, id_STARTCLK, "STARTCLK"));
+            } else if (ci->type == id_CLKDIVC) {
+                Loc loc = ctx->getBelLocation(ci->bel);
+                bool t = loc.y < 2;
+                std::string clkdiv = (t ? "T": "B") + std::string("CLKDIV") + std::to_string(loc.z);
+                std::string tile = ctx->get_tile_by_type(t ? "PIC_T_DUMMY_VIQ" : "PIC_B_DUMMY_VIQ_VREF");
+                cc.tiles[tile].add_enum(clkdiv + ".DIV", str_or_default(ci->params, id_DIV, "2.0"));
+                cc.tiles[tile].add_enum(clkdiv + ".GSR", str_or_default(ci->params, id_GSR, "DISABLED"));
+            } else {
+                NPNR_ASSERT_FALSE("unsupported cell type");
             }
         }
     }
