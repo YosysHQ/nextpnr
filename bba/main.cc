@@ -447,7 +447,7 @@ int main(int argc, char **argv)
             fprintf(fileOut, "%s\n", s.c_str());
 
         fprintf(fileOut, "const char %s[%d] =\n", streams[0].name.c_str(), int(data.size()) + 1);
-        fprintf(fileOut, "#embed_str \"%s\"\n", boost::filesystem::basename(files.at(2)).c_str());
+        fprintf(fileOut, "#embed_str \"%s\"\n", boost::filesystem::path(files.at(2)).stem().c_str());
         fprintf(fileOut, ";\n");
 
         for (auto &s : postText)
