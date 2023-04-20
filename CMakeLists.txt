@@ -94,9 +94,9 @@ endif()
 set(PROGRAM_PREFIX "" CACHE STRING "Name prefix for executables")
 
 # List of families to build
-set(FAMILIES generic ice40 ecp5 nexus gowin fpga_interchange machxo2 mistral)
+set(FAMILIES generic ice40 ecp5 nexus gowin fpga_interchange machxo2 mistral himbaechel)
 set(STABLE_FAMILIES generic ice40 ecp5)
-set(EXPERIMENTAL_FAMILIES nexus gowin fpga_interchange machxo2 mistral)
+set(EXPERIMENTAL_FAMILIES nexus gowin fpga_interchange machxo2 mistral himbaechel)
 
 set(ARCH "" CACHE STRING "Architecture family for nextpnr build")
 set_property(CACHE ARCH PROPERTY STRINGS ${FAMILIES})
