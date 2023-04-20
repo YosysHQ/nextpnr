@@ -42,9 +42,11 @@ void MainWindow::newContext(Context *ctx)
 
 void MainWindow::createMenu() {}
 
-void MainWindow::new_proj() {
-    QMessageBox::critical(0, "Error", "Creating a new project not supported in Viaduct mode, please re-start from command line.");
-    std::exit(1);   
+void MainWindow::new_proj()
+{
+    QMessageBox::critical(0, "Error",
+                          "Creating a new project not supported in Viaduct mode, please re-start from command line.");
+    std::exit(1);
 }
 
 NEXTPNR_NAMESPACE_END

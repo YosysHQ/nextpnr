@@ -149,7 +149,8 @@ bool Arch::slices_compatible(LogicTileStatus *lts) const
             if (ff != nullptr) {
                 if (found_global_dpram) {
                     // Do not allow SLICEC to have FF if there is already RAMW in it
-                    if (i==4 || i==5) return false;
+                    if (i == 4 || i == 5)
+                        return false;
                     CHECK_EQUAL(bool(ff->ffInfo.flags & ArchCellInfo::FF_CLKINV), global_clkinv);
                     CHECK_EQUAL(bool(ff->ffInfo.flags & ArchCellInfo::FF_LSRINV), global_lsrinv);
                 }

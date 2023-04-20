@@ -875,11 +875,11 @@ struct Arch : BaseArch<ArchRanges>
     int8_t get_pip_class(PipId pip) const { return tile_info(pip)->pip_data[pip.index].pip_type; }
 
     BelId get_package_pin_bel(const std::string &pin) const;
-    //std::string get_bel_package_pin(BelId bel) const;
-    //int get_pio_bel_bank(BelId bel) const;
-    // For getting GCLK, PLL, Vref, etc, pins
-    //std::string get_pio_function_name(BelId bel) const;
-    //BelId get_pio_by_function_name(const std::string &name) const;
+    // std::string get_bel_package_pin(BelId bel) const;
+    // int get_pio_bel_bank(BelId bel) const;
+    //  For getting GCLK, PLL, Vref, etc, pins
+    // std::string get_pio_function_name(BelId bel) const;
+    // BelId get_pio_by_function_name(const std::string &name) const;
 
     PortType getBelPinType(BelId bel, IdString pin) const override;
 
@@ -903,7 +903,7 @@ struct Arch : BaseArch<ArchRanges>
     float getDelayNS(delay_t v) const override { return v; }
     delay_t getDelayFromNS(float ns) const override { return ns; }
     uint32_t getDelayChecksum(delay_t v) const override { return v; }
-    //bool getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const override;
+    // bool getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const override;
 
     // -------------------------------------------------
 
@@ -975,7 +975,6 @@ struct Arch : BaseArch<ArchRanges>
     mutable std::vector<TileStatus> tile_status;
 
     // -------------------------------------------------
-
 };
 
 NEXTPNR_NAMESPACE_END

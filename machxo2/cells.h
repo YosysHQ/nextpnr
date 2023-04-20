@@ -54,8 +54,6 @@ void dram_to_comb(Context *ctx, CellInfo *ram, CellInfo *comb, CellInfo *ramw, i
 void nxio_to_tr(Context *ctx, CellInfo *nxio, CellInfo *trio, std::vector<std::unique_ptr<CellInfo>> &created_cells,
                 pool<IdString> &todelete_cells);
 
-
-
 NEXTPNR_NAMESPACE_END
 
 #endif
