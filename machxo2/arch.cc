@@ -631,7 +631,8 @@ std::vector<std::pair<IdString, std::string>> Arch::getWireAttrs(WireId wire) co
 bool Arch::is_spine_row(int row) const
 {
     for (auto &spine : chip_info->spines) {
-        if (row==spine.row) return true;
+        if (row == spine.row)
+            return true;
     }
     return false;
 }

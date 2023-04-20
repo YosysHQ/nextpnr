@@ -108,13 +108,13 @@ struct MachXO2Bitgen
                     std::string pio_name = "W1_" + basename;
                     if (ctx->verbose)
                         log_info("PIO wire %s was adjusted by W1 to form Trellis name %s.\n", ctx->nameOfWire(wire),
-                                pio_name.c_str());
+                                 pio_name.c_str());
                     return pio_name;
                 } else if (wire.location.x == max_col) {
                     std::string pio_name = "E1_" + basename;
                     if (ctx->verbose)
                         log_info("PIO wire %s was adjusted by E1 to form Trellis name %s.\n", ctx->nameOfWire(wire),
-                                pio_name.c_str());
+                                 pio_name.c_str());
                     return pio_name;
                 }
             }
@@ -206,16 +206,13 @@ struct MachXO2Bitgen
     {
         static const std::set<std::string> pio_t = {"PIC_T0", "PIC_T0_256", "PIC_TS0"};
         static const std::set<std::string> pio_b = {"PIC_B0", "PIC_B0_256", "PIC_BS0_256"};
-        static const std::set<std::string> pio_l = {"PIC_L0", "PIC_L1", "PIC_L2", "PIC_L3", "PIC_LS0",
-                                                    "PIC_L0_VREF3", "PIC_L0_VREF4", "PIC_L0_VREF5",
-                                                    "PIC_L1_VREF3", "PIC_L1_VREF4", "PIC_L1_VREF5",
-                                                    "PIC_L2_VREF4", "PIC_L2_VREF5",
-                                                    "PIC_L3_VREF4", "PIC_L3_VREF5",
-                                                    "LLC0PIC", "LLC1PIC", 
-                                                    "LLC0PIC_VREF3", "LLC3PIC_VREF3", "ULC3PIC"};
-        static const std::set<std::string> pio_r = {"PIC_R0", "PIC_R1", "PIC_RS0",
-                                                    "PIC_R0_256", "PIC_R1_640", "PIC_RS0_256",
-                                                    "LRC1PIC1", "LRC1PIC2", "URC1PIC"};
+        static const std::set<std::string> pio_l = {"PIC_L0",       "PIC_L1",        "PIC_L2",        "PIC_L3",
+                                                    "PIC_LS0",      "PIC_L0_VREF3",  "PIC_L0_VREF4",  "PIC_L0_VREF5",
+                                                    "PIC_L1_VREF3", "PIC_L1_VREF4",  "PIC_L1_VREF5",  "PIC_L2_VREF4",
+                                                    "PIC_L2_VREF5", "PIC_L3_VREF4",  "PIC_L3_VREF5",  "LLC0PIC",
+                                                    "LLC1PIC",      "LLC0PIC_VREF3", "LLC3PIC_VREF3", "ULC3PIC"};
+        static const std::set<std::string> pio_r = {"PIC_R0",      "PIC_R1",   "PIC_RS0",  "PIC_R0_256", "PIC_R1_640",
+                                                    "PIC_RS0_256", "LRC1PIC1", "LRC1PIC2", "URC1PIC"};
 
         std::string pio_name = ctx->tile_info(bel)->bel_data[bel.index].name.get();
         if (bel.location.y == 0) {
@@ -241,14 +238,17 @@ struct MachXO2Bitgen
         static const std::set<std::string> ebr1 = {"EBR1", "EBR1_10K"};
         static const std::set<std::string> ebr2 = {"EBR2", "EBR2_END", "EBR2_10K", "EBR2_END_10K"};
         tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, ebr0));
-        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x+1, ebr1));
-        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x+2, ebr2));
-        static const std::set<std::string> cib_ebr0 = {"CIB_EBR0", "CIB_EBR0_10K", "CIB_EBR0_END0", "CIB_EBR0_END0_10K", "CIB_EBR0_END0_DLL3", "CIB_EBR0_END0_DLL5", "CIB_EBR0_END1", "CIB_EBR0_END2_DLL3", "CIB_EBR0_END2_DLL45"};
+        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, ebr1));
+        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, ebr2));
+        static const std::set<std::string> cib_ebr0 = {
+                "CIB_EBR0",           "CIB_EBR0_10K",  "CIB_EBR0_END0",      "CIB_EBR0_END0_10K",  "CIB_EBR0_END0_DLL3",
+                "CIB_EBR0_END0_DLL5", "CIB_EBR0_END1", "CIB_EBR0_END2_DLL3", "CIB_EBR0_END2_DLL45"};
         static const std::set<std::string> cib_ebr1 = {"CIB_EBR1", "CIB_EBR1_10K"};
-        static const std::set<std::string> cib_ebr2 = {"CIB_EBR2", "CIB_EBR2_10K", "CIB_EBR2_END0", "CIB_EBR2_END1", "CIB_EBR2_END1_10K", "CIB_EBR2_END1_SP"};
+        static const std::set<std::string> cib_ebr2 = {"CIB_EBR2",      "CIB_EBR2_10K",      "CIB_EBR2_END0",
+                                                       "CIB_EBR2_END1", "CIB_EBR2_END1_10K", "CIB_EBR2_END1_SP"};
         tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x, cib_ebr0));
-        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x+1, cib_ebr1));
-        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x+2, cib_ebr2));
+        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 1, cib_ebr1));
+        tiles.push_back(ctx->get_tile_by_type_loc(loc.y, loc.x + 2, cib_ebr2));
         return tiles;
     }
 
@@ -260,9 +260,9 @@ struct MachXO2Bitgen
         Loc loc = ctx->getBelLocation(bel);
 
         if (name == "LPLL") {
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y-1, loc.x-1, "GPLL_L0"));
-       } else if (name == "RPLL") {
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y+1, loc.x-1, "GPLL_R0"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y - 1, loc.x - 1, "GPLL_L0"));
+        } else if (name == "RPLL") {
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y + 1, loc.x - 1, "GPLL_R0"));
         } else {
             NPNR_ASSERT_FALSE_STR("bad PLL loc " + name);
         }
@@ -272,7 +272,8 @@ struct MachXO2Bitgen
     void set_pip(ChipConfig &cc, PipId pip)
     {
         std::string tile = ctx->get_pip_tilename(pip);
-        std::string tile_type = ctx->chip_info->tiletype_names[ctx->tile_info(pip)->pip_data[pip.index].tile_type].get();
+        std::string tile_type =
+                ctx->chip_info->tiletype_names[ctx->tile_info(pip)->pip_data[pip.index].tile_type].get();
         std::string source = get_trellis_wirename(pip.location, ctx->getPipSrcWire(pip));
         std::string sink = get_trellis_wirename(pip.location, ctx->getPipDstWire(pip));
         cc.tiles[tile].add_arc(sink, source);
@@ -365,7 +366,7 @@ struct MachXO2Bitgen
         int lut_init = int_or_default(ci->params, id_INITVAL);
         cc.tiles[tname].add_enum(slice + ".MODE", mode);
         cc.tiles[tname].add_word(slice + ".K" + lc + ".INIT",
-                                int_to_bitvector(permute_lut(ci, used_phys_pins, lut_init), 16));
+                                 int_to_bitvector(permute_lut(ci, used_phys_pins, lut_init), 16));
         if (mode == "CCU2") {
             cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_" + lc, str_or_default(ci->params, id_CCU2_INJECT1, "YES"));
         } else {
@@ -460,7 +461,7 @@ struct MachXO2Bitgen
 
         tg.config.add_word(ebr + ".WID", int_to_bitvector(int_or_default(ci->attrs, id_WID, 0), 9));
 
-       // Invert CSDECODE bits to emulate inversion muxes on CSA/CSB signals
+        // Invert CSDECODE bits to emulate inversion muxes on CSA/CSB signals
         for (auto &port : {std::make_pair("CSA", std::ref(csd_a)), std::make_pair("CSB", std::ref(csd_b))}) {
             for (int bit = 0; bit < 3; bit++) {
                 std::string sig = port.first + std::to_string(bit);
@@ -476,7 +477,6 @@ struct MachXO2Bitgen
         if (!ci->ramInfo.is_pdp) {
             tg.config.add_enum(ebr + ".WEAMUX", str_or_default(ci->params, id_WEAMUX, "WEA"));
             tg.config.add_enum(ebr + ".WEBMUX", str_or_default(ci->params, id_WEBMUX, "WEB"));
-
         }
         tg.config.add_enum(ebr + ".CEAMUX", str_or_default(ci->params, id_CEAMUX, "CEA"));
         tg.config.add_enum(ebr + ".CEBMUX", str_or_default(ci->params, id_CEBMUX, "CEB"));
@@ -695,8 +695,8 @@ struct MachXO2Bitgen
             } else if (ci->type == id_EHXPLLJ) {
                 write_pll(ci);
             } else if (ci->type == id_GSR) {
-                cc.tiles[ctx->get_tile_by_type("CFG0")].add_enum(
-                         "GSR.GSRMODE", str_or_default(ci->params, id_MODE, "ACTIVE_LOW"));
+                cc.tiles[ctx->get_tile_by_type("CFG0")].add_enum("GSR.GSRMODE",
+                                                                 str_or_default(ci->params, id_MODE, "ACTIVE_LOW"));
                 cc.tiles[ctx->get_tile_by_type("CFG0")].add_enum("GSR.SYNCMODE",
                                                                  str_or_default(ci->params, id_SYNCMODE, "ASYNC"));
             } else if (ci->type == id_JTAGF) {
@@ -705,17 +705,17 @@ struct MachXO2Bitgen
                 cc.tiles[ctx->get_tile_by_type("CFG0")].add_enum("JTAG.ER2",
                                                                  str_or_default(ci->params, id_ER2, "ENABLED"));
             } else if (ci->type == id_TSALL) {
-                cc.tiles[ctx->get_tile_by_type("CFG0")].add_enum(
-                         "TSALL.MODE", str_or_default(ci->params, id_MODE, "TSALL"));
-                cc.tiles[ctx->get_tile_by_type("CFG0")].add_enum(
-                         "TSALL.TSALL", str_or_default(ci->params, id_TSALL, "TSALL"));
+                cc.tiles[ctx->get_tile_by_type("CFG0")].add_enum("TSALL.MODE",
+                                                                 str_or_default(ci->params, id_MODE, "TSALL"));
+                cc.tiles[ctx->get_tile_by_type("CFG0")].add_enum("TSALL.TSALL",
+                                                                 str_or_default(ci->params, id_TSALL, "TSALL"));
             } else if (ci->type == id_START) {
                 cc.tiles[ctx->get_tile_by_type("CIB_CFG0")].add_enum(
-                         "START.STARTCLK", str_or_default(ci->params, id_STARTCLK, "STARTCLK"));
+                        "START.STARTCLK", str_or_default(ci->params, id_STARTCLK, "STARTCLK"));
             } else if (ci->type == id_CLKDIVC) {
                 Loc loc = ctx->getBelLocation(ci->bel);
                 bool t = loc.y < 2;
-                std::string clkdiv = (t ? "T": "B") + std::string("CLKDIV") + std::to_string(loc.z);
+                std::string clkdiv = (t ? "T" : "B") + std::string("CLKDIV") + std::to_string(loc.z);
                 std::string tile = ctx->get_tile_by_type(t ? "PIC_T_DUMMY_VIQ" : "PIC_B_DUMMY_VIQ_VREF");
                 cc.tiles[tile].add_enum(clkdiv + ".DIV", str_or_default(ci->params, id_DIV, "2.0"));
                 cc.tiles[tile].add_enum(clkdiv + ".GSR", str_or_default(ci->params, id_GSR, "DISABLED"));

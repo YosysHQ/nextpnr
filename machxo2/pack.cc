@@ -274,10 +274,7 @@ class MachXO2Packer
     }
 
     // Return true if an port is a top level port that provides its own IOBUF
-    bool is_top_port(PortRef &port)
-    {
-        return false;
-    }
+    bool is_top_port(PortRef &port) { return false; }
 
     // Return true if a net only drives a top port
     bool drives_top_port(NetInfo *net, PortRef &tp)
@@ -788,14 +785,14 @@ class MachXO2Packer
                 std::unique_ptr<CellInfo> ram_comb[4];
                 for (int i = 0; i < 4; i++) {
                     ram_comb[i] = create_machxo2_cell(ctx, id_TRELLIS_COMB,
-                                                   ci->name.str(ctx) + "$DPRAM_COMB" + std::to_string(i));
+                                                      ci->name.str(ctx) + "$DPRAM_COMB" + std::to_string(i));
                     dram_to_comb(ctx, ci, ram_comb[i].get(), ramw_slice.get(), i);
                 }
                 // Create 'block' SLICEs as a placement hint that these cells are mutually exclusive with the RAMW
                 std::unique_ptr<CellInfo> ramw_block[2];
                 for (int i = 0; i < 2; i++) {
                     ramw_block[i] = create_machxo2_cell(ctx, id_TRELLIS_COMB,
-                                                     ci->name.str(ctx) + "$RAMW_BLOCK" + std::to_string(i));
+                                                        ci->name.str(ctx) + "$RAMW_BLOCK" + std::to_string(i));
                     ramw_block[i]->params[id_MODE] = std::string("RAMW_BLOCK");
                 }
 

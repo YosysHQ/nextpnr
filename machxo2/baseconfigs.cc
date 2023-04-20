@@ -148,7 +148,6 @@ void config_empty_lcmxo3_2100(ChipConfig &cc)
     cc.tiles["PT4:CFG0"].add_unknown(5, 32);
     cc.tiles["PT4:CFG0"].add_unknown(5, 36);
 
-
     cc.tiles["PT7:CFG3"].add_unknown(5, 18);
 }
 
@@ -227,7 +226,7 @@ void config_empty_lcmxo3_9400(ChipConfig &cc)
     cc.tiles["EBR_R15C42:EBR1_10K"].add_unknown(0, 12);
     cc.tiles["EBR_R15C45:EBR1_10K"].add_unknown(0, 12);
     cc.tiles["EBR_R15C48:EBR1_10K"].add_unknown(0, 12);
-   
+
     cc.tiles["EBR_R8C2:EBR1"].add_unknown(0, 12);
     cc.tiles["EBR_R8C5:EBR1"].add_unknown(0, 12);
     cc.tiles["EBR_R8C8:EBR1"].add_unknown(0, 12);
