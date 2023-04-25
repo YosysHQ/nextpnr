@@ -1357,7 +1357,7 @@ class MachXO2Packer
             pool<IdString> changed_cells;
             for (auto net : changed_nets) {
                 for (auto &user : ctx->nets.at(net)->users)
-                    if (user.port.in(id_CLKI, /*id_ECLKI,*/ id_CLK0, id_CLK1))
+                    if (user.port.in(id_CLKI, id_ECLKI, id_CLK0, id_CLK1))
                         changed_cells.insert(user.cell->name);
                 auto &drv = ctx->nets.at(net)->driver;
                 if (iter == 1 && drv.cell != nullptr && drv.port == id_OSC)
@@ -1366,7 +1366,24 @@ class MachXO2Packer
             changed_nets.clear();
             for (auto cell : changed_cells) {
                 CellInfo *ci = ctx->cells.at(cell).get();
-                if (ci->type == id_DCCA) {
+                if (ci->type == id_CLKDIVC) {
+                    std::string div = str_or_default(ci->params, id_DIV, "2.0");
+                    double ratio;
+                    if (div == "2.0")
+                        ratio = 1 / 2.0;
+                    else if (div == "3.5")
+                        ratio = 1 / 3.5;
+                    else if (div == "4.0")
+                        ratio = 1 / 4.0;
+                    else
+                        log_error("Unsupported divider ratio '%s' on CLKDIVC '%s'\n", div.c_str(), ci->name.c_str(ctx));
+                    copy_constraint(ci, id_CLKI, id_CDIVX, ratio);
+                } else if (ci->type.in(id_ECLKSYNCA /*, id_TRELLIS_ECLKBUF*/)) {
+                    copy_constraint(ci, id_ECLKI, id_ECLKO, 1);
+                } else if (ci->type == id_ECLKBRIDGECS) {
+                    copy_constraint(ci, id_CLK0, id_ECSOUT, 1);
+                    copy_constraint(ci, id_CLK1, id_ECSOUT, 1);
+                } else if (ci->type == id_DCCA) {
                     copy_constraint(ci, id_CLKI, id_CLKO, 1);
                 } else if (ci->type == id_EHXPLLJ) {
                     delay_t period_in;
@@ -1404,6 +1421,28 @@ class MachXO2Packer
                                    simple_clk_contraint(vco_period * int_or_default(ci->params, id_CLKOS2_DIV, 1)));
                     set_constraint(ci, id_CLKOS3,
                                    simple_clk_contraint(vco_period * int_or_default(ci->params, id_CLKOS3_DIV, 1)));
+                } else if (ci->type == id_OSCH) {
+                    static std::string const osch_freq[] = {
+                        "2.08", "2.15", "2.22", "2.29", "2.38", "2.46", "2.56", "2.66",
+                        "2.77", "2.89", "3.02", "3.17", "3.33", "3.50", "3.69", "3.91",
+                        "4.16", "4.29", "4.43", "4.59", "4.75", "4.93", "5.12", "5.32",
+                        "5.54", "5.78", "6.05", "6.33", "6.65", "7.00", "7.39", "7.82",
+                        "8.31", "8.58", "8.87", "9.17", "9.50", "9.85", "10.23", "10.64",
+                        "11.08", "11.57", "12.09", "12.67", "13.30", "14.00", "14.78", "15.65",
+                        "15.65", "16.63", "17.73", "19.00", "20.46", "22.17", "24.18", "26.60",
+                        "29.56", "33.25", "38.00", "44.33", "53.20", "66.50", "88.67", "133.00" };
+
+                    std::string freq = str_or_default(ci->params, id_NOM_FREQ, "2.08");
+                    bool found = false;
+                    for (int i=0;i<64;i++) {
+                        if (osch_freq[i] == freq) {
+                            found = true;
+                            set_constraint(ci, id_OSC, simple_clk_contraint(delay_t(1000.0 / std::stof(freq))));
+                            break;
+                        }
+                    }
+                    if (!found)
+                        log_error("Unsupported frequency '%s' on OSCH '%s'\n", freq.c_str(), ci->name.c_str(ctx));
                 }
             }
         }
