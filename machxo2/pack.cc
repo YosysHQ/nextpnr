@@ -539,11 +539,13 @@ class MachXO2Packer
                     if (ionet != nullptr) {
                         ctx->nets.erase(ionet->name);
                         tp.cell->ports.at(tp.port).net = nullptr;
+                        ci->ports.at(ci->type == ctx->id("$nextpnr_obuf") ? id_I : id_O).net = nullptr;
                     }
                     if (ci->type == ctx->id("$nextpnr_iobuf")) {
                         NetInfo *net2 = ci->ports.at(id_I).net;
                         if (net2 != nullptr) {
                             ctx->nets.erase(net2->name);
+                            ci->ports.at(id_I).net = nullptr;
                         }
                     }
                 } else {
