@@ -723,6 +723,23 @@ struct MachXO2Bitgen
                 NPNR_ASSERT_FALSE("unsupported cell type");
             }
         }
+
+        // Add some SYSCONFIG settings
+        const std::string prefix = "arch.sysconfig.";
+        for (auto &setting : ctx->settings) {
+            std::string key = setting.first.str(ctx);
+            if (key.substr(0, prefix.length()) != prefix)
+                continue;
+            key = key.substr(prefix.length());
+            std::string value = setting.second.as_string();
+            if (key == "BACKGROUND_RECONFIG" || key == "ENABLE_TRANSFR" || key == "SDM_PORT") {
+                cc.tiles[ctx->get_tile_by_type("CFG0")].add_enum("SYSCONFIG." + key, value);
+            } else if (key == "I2C_PORT" || key == "MASTER_SPI_PORT" || key == "SLAVE_SPI_PORT") {
+                cc.tiles[ctx->get_tile_by_type("CFG1")].add_enum("SYSCONFIG." + key, value);
+            } else {
+                cc.sysconfig[key] = value;
+            }
+        }
     }
 };
 } // namespace
