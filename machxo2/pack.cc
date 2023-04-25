@@ -951,6 +951,15 @@ class MachXO2Packer
     {
         log_info("Packing constants..\n");
 
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (ci->type.in(ctx->id("VLO"))) {
+                ci->type = id_GND;
+            } else if (ci->type.in(ctx->id("VHI"))) {
+                ci->type = id_VCC;
+            }
+        }
+
         std::unique_ptr<CellInfo> gnd_cell = create_machxo2_cell(ctx, id_LUT4, "$PACKER_GND");
         gnd_cell->params[id_INIT] = Property(0, 16);
         auto gnd_net = std::make_unique<NetInfo>(ctx->id("$PACKER_GND_NET"));
