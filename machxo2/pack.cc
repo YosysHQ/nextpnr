@@ -1029,6 +1029,51 @@ class MachXO2Packer
         };
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
+            // Convert 18-bit PDP RAMs to regular 9-bit DP ones that match the Bel
+            if (ci->type == id_PDPW8KC) {
+                ci->params[id_DATA_WIDTH_A] = 18; // force PDP mode
+                ci->params.erase(id_DATA_WIDTH_W);
+                rename_bus(ci, "BE", "ADA", 2, 0, 0);
+                rename_bus(ci, "ADW", "ADA", 9, 0, 4);
+                rename_bus(ci, "ADR", "ADB", 13, 0, 0);
+                rename_bus(ci, "CSW", "CSA", 3, 0, 0);
+                rename_bus(ci, "CSR", "CSB", 3, 0, 0);
+                rename_bus(ci, "DI", "DIA", 9, 0, 0);
+                rename_bus(ci, "DI", "DIB", 9, 9, 0);
+                rename_bus(ci, "DO", "DOA", 9, 9, 0);
+                rename_bus(ci, "DO", "DOB", 9, 0, 0);
+                ci->renamePort(id_CLKW, id_CLKA);
+                ci->renamePort(id_CLKR, id_CLKB);
+                ci->renamePort(id_CEW, id_CEA);
+                ci->renamePort(id_CER, id_CEB);
+                ci->renamePort(id_OCER, id_OCEB);
+                rename_param(ci, "CLKWMUX", "CLKAMUX");
+                if (str_or_default(ci->params, id_CLKAMUX) == "CLKW")
+                    ci->params[id_CLKAMUX] = std::string("CLKA");
+                rename_param(ci, "CLKRMUX", "CLKBMUX");
+                if (str_or_default(ci->params, id_CLKBMUX) == "CLKR")
+                    ci->params[id_CLKBMUX] = std::string("CLKB");
+                rename_param(ci, "CSDECODE_W", "CSDECODE_A");
+                rename_param(ci, "CSDECODE_R", "CSDECODE_B");
+                std::string outreg = str_or_default(ci->params, id_REGMODE, "NOREG");
+                ci->params[id_REGMODE_A] = outreg;
+                ci->params[id_REGMODE_B] = outreg;
+                ci->params.erase(id_REGMODE);
+                rename_param(ci, "DATA_WIDTH_R", "DATA_WIDTH_B");
+                if (ci->ports.count(id_RST)) {
+                    autocreate_empty_port(ci, id_RSTA);
+                    autocreate_empty_port(ci, id_RSTB);
+                    NetInfo *rst = ci->ports.at(id_RST).net;
+                    ci->connectPort(id_RSTA, rst);
+                    ci->connectPort(id_RSTB, rst);
+                    ci->disconnectPort(id_RST);
+                    ci->ports.erase(id_RST);
+                }
+                ci->type = id_DP8KC;
+            }
+        }
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->type == id_DP8KC) {
                 // Add ports, even if disconnected, to ensure correct tie-offs
                 for (int i = 0; i < 13; i++) {
