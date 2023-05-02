@@ -35,20 +35,6 @@ static bool is_nextpnr_iob(Context *ctx, CellInfo *cell)
            cell->type == ctx->id("$nextpnr_iobuf");
 }
 
-static bool net_is_constant(const Context *ctx, NetInfo *net, bool &value)
-{
-    auto gnd = ctx->id("$PACKER_GND_NET");
-    auto vcc = ctx->id("$PACKER_VCC_NET");
-    if (net == nullptr)
-        return false;
-    if (net->name.in(gnd, vcc)) {
-        value = (net->name == vcc);
-        return true;
-    } else {
-        return false;
-    }
-}
-
 class MachXO2Packer
 {
   public:
