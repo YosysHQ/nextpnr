@@ -17,5 +17,8 @@ function run_tests {
 }
 
 function run_archcheck {
-    :
+    pushd build
+    ./nextpnr-machxo2 --device LCMXO2-1200HC-4SG32C --test
+    ./nextpnr-machxo2 --device LCMXO3LF-6900C-6BG256C --test
+    popd
 }
