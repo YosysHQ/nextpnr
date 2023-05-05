@@ -86,9 +86,14 @@ struct MachXO2Bitgen
             // clang-format on
         };
 
-        if (prefix2 == "G_" || prefix2 == "L_" || prefix2 == "R_" || prefix7 == "BRANCH_")
+        if (prefix2 == "G_" || prefix7 == "BRANCH_")
             return basename;
 
+        if (prefix2 == "L_" || prefix2 == "R_") {
+            if (loc.x == 0 || loc.x == (ctx->getGridDimX() - 1))
+                return "G_" + basename.substr(2);
+            return basename;
+        }
         if (prefix2 == "U_" || prefix2 == "D_") {
             // We needded to keep U_ and D_ prefixes to generate the routing
             // graph connections properly, but in truth they are not relevant
