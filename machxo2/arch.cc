@@ -433,6 +433,8 @@ bool Arch::route()
 
     assignArchInfo();
 
+    route_globals();
+
     bool result;
     if (router == "router1") {
         result = router1(getCtx(), Router1Cfg(getCtx()));

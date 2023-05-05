@@ -941,60 +941,6 @@ class MachXO2Packer
         }
     }
 
-    // Preplace PLL
-    void preplace_plls()
-    {
-        std::set<BelId> available_plls;
-        for (auto bel : ctx->getBels()) {
-            if (ctx->getBelType(bel) == id_EHXPLLJ && ctx->checkBelAvail(bel))
-                available_plls.insert(bel);
-        }
-        for (auto &cell : ctx->cells) {
-            CellInfo *ci = cell.second.get();
-            if (ci->type == id_EHXPLLJ && ci->attrs.count(id_BEL))
-                available_plls.erase(ctx->getBelByNameStr(ci->attrs.at(id_BEL).as_string()));
-        }
-        // Place PLL connected to fixed drivers such as IO close to their source
-        for (auto &cell : ctx->cells) {
-            CellInfo *ci = cell.second.get();
-            if (ci->type == id_EHXPLLJ && !ci->attrs.count(id_BEL)) {
-                const NetInfo *drivernet = ci->getPort(id_CLKI);
-                if (drivernet == nullptr || drivernet->driver.cell == nullptr)
-                    continue;
-                const CellInfo *drivercell = drivernet->driver.cell;
-                if (!drivercell->attrs.count(id_BEL))
-                    continue;
-                BelId drvbel = ctx->getBelByNameStr(drivercell->attrs.at(id_BEL).as_string());
-                Loc drvloc = ctx->getBelLocation(drvbel);
-                BelId closest_pll;
-                int closest_distance = std::numeric_limits<int>::max();
-                for (auto bel : available_plls) {
-                    Loc pllloc = ctx->getBelLocation(bel);
-                    int distance = std::abs(drvloc.x - pllloc.x) + std::abs(drvloc.y - pllloc.y);
-                    if (distance < closest_distance) {
-                        closest_pll = bel;
-                        closest_distance = distance;
-                    }
-                }
-                if (closest_pll == BelId())
-                    log_error("failed to place PLL '%s'\n", ci->name.c_str(ctx));
-                available_plls.erase(closest_pll);
-                ci->attrs[id_BEL] = ctx->getBelName(closest_pll).str(ctx);
-            }
-        }
-        // Place PLLs driven by logic, etc, randomly
-        for (auto &cell : ctx->cells) {
-            CellInfo *ci = cell.second.get();
-            if (ci->type == id_EHXPLLJ && !ci->attrs.count(id_BEL)) {
-                if (available_plls.empty())
-                    log_error("failed to place PLL '%s'\n", ci->name.c_str(ctx));
-                BelId next_pll = *(available_plls.begin());
-                available_plls.erase(next_pll);
-                ci->attrs[id_BEL] = ctx->getBelName(next_pll).str(ctx);
-            }
-        }
-    }
-
     // Check if two nets have identical constant drivers
     bool equal_constant(NetInfo *a, NetInfo *b)
     {
@@ -1199,18 +1145,17 @@ class MachXO2Packer
                                    simple_clk_contraint(vco_period * int_or_default(ci->params, id_CLKOS3_DIV, 1)));
                 } else if (ci->type == id_OSCH) {
                     static std::string const osch_freq[] = {
-                        "2.08", "2.15", "2.22", "2.29", "2.38", "2.46", "2.56", "2.66",
-                        "2.77", "2.89", "3.02", "3.17", "3.33", "3.50", "3.69", "3.91",
-                        "4.16", "4.29", "4.43", "4.59", "4.75", "4.93", "5.12", "5.32",
-                        "5.54", "5.78", "6.05", "6.33", "6.65", "7.00", "7.39", "7.82",
-                        "8.31", "8.58", "8.87", "9.17", "9.50", "9.85", "10.23", "10.64",
-                        "11.08", "11.57", "12.09", "12.67", "13.30", "14.00", "14.78", "15.65",
-                        "15.65", "16.63", "17.73", "19.00", "20.46", "22.17", "24.18", "26.60",
-                        "29.56", "33.25", "38.00", "44.33", "53.20", "66.50", "88.67", "133.00" };
+                            "2.08",  "2.15",  "2.22",  "2.29",  "2.38",  "2.46",  "2.56",  "2.66",  "2.77",  "2.89",
+                            "3.02",  "3.17",  "3.33",  "3.50",  "3.69",  "3.91",  "4.16",  "4.29",  "4.43",  "4.59",
+                            "4.75",  "4.93",  "5.12",  "5.32",  "5.54",  "5.78",  "6.05",  "6.33",  "6.65",  "7.00",
+                            "7.39",  "7.82",  "8.31",  "8.58",  "8.87",  "9.17",  "9.50",  "9.85",  "10.23", "10.64",
+                            "11.08", "11.57", "12.09", "12.67", "13.30", "14.00", "14.78", "15.65", "15.65", "16.63",
+                            "17.73", "19.00", "20.46", "22.17", "24.18", "26.60", "29.56", "33.25", "38.00", "44.33",
+                            "53.20", "66.50", "88.67", "133.00"};
 
                     std::string freq = str_or_default(ci->params, id_NOM_FREQ, "2.08");
                     bool found = false;
-                    for (int i=0;i<64;i++) {
+                    for (int i = 0; i < 64; i++) {
                         if (osch_freq[i] == freq) {
                             found = true;
                             set_constraint(ci, id_OSC, simple_clk_contraint(delay_t(1000.0 / std::stof(freq))));
@@ -1235,13 +1180,262 @@ class MachXO2Packer
         }
     }
 
+    BelId get_bel_attr(const CellInfo *ci)
+    {
+        if (!ci->attrs.count(id_BEL))
+            return BelId();
+        return ctx->getBelByNameStr(ci->attrs.at(id_BEL).as_string());
+    }
+
+    // Using a BFS, search for bels of a given type either upstream or downstream of another cell
+    void find_connected_bels(const CellInfo *cell, IdString port, IdString dest_type, IdString dest_pin, int iter_limit,
+                             std::vector<BelId> &candidates)
+    {
+        int iter = 0;
+        std::queue<WireId> visit;
+        pool<WireId> seen_wires;
+        pool<BelId> seen_bels;
+
+        BelId bel = get_bel_attr(cell);
+        if (bel == BelId())
+            return;
+        WireId start_wire = ctx->getBelPinWire(bel, port);
+        NPNR_ASSERT(start_wire != WireId());
+        PortType dir = ctx->getBelPinType(bel, port);
+
+        visit.push(start_wire);
+
+        while (!visit.empty() && (iter++ < iter_limit)) {
+            WireId cursor = visit.front();
+            visit.pop();
+            // Check to see if we have reached a valid bel pin
+            for (auto bp : ctx->getWireBelPins(cursor)) {
+                if (ctx->getBelType(bp.bel) != dest_type)
+                    continue;
+                if (dest_pin != IdString() && bp.pin != dest_pin)
+                    continue;
+                if (seen_bels.count(bp.bel))
+                    continue;
+                seen_bels.insert(bp.bel);
+                candidates.push_back(bp.bel);
+            }
+            // Search in the appropriate direction up/downstream of the cursor
+            if (dir == PORT_OUT) {
+                for (PipId p : ctx->getPipsDownhill(cursor))
+                    if (ctx->checkPipAvail(p)) {
+                        WireId dst = ctx->getPipDstWire(p);
+                        if (seen_wires.count(dst))
+                            continue;
+                        seen_wires.insert(dst);
+                        visit.push(dst);
+                    }
+            } else {
+                for (PipId p : ctx->getPipsUphill(cursor))
+                    if (ctx->checkPipAvail(p)) {
+                        WireId src = ctx->getPipSrcWire(p);
+                        if (seen_wires.count(src))
+                            continue;
+                        seen_wires.insert(src);
+                        visit.push(src);
+                    }
+            }
+        }
+    }
+
+    // Find the nearest bel of a given type; matching a closure predicate
+    template <typename Tpred> BelId find_nearest_bel(const CellInfo *cell, IdString dest_type, Tpred predicate)
+    {
+        BelId origin = get_bel_attr(cell);
+        if (origin == BelId())
+            return BelId();
+        Loc origin_loc = ctx->getBelLocation(origin);
+        int best_distance = std::numeric_limits<int>::max();
+        BelId best_bel = BelId();
+
+        for (BelId bel : ctx->getBels()) {
+            if (ctx->getBelType(bel) != dest_type)
+                continue;
+            if (!predicate(bel))
+                continue;
+            Loc bel_loc = ctx->getBelLocation(bel);
+            int dist = std::abs(origin_loc.x - bel_loc.x) + std::abs(origin_loc.y - bel_loc.y);
+            if (dist < best_distance) {
+                best_distance = dist;
+                best_bel = bel;
+            }
+        }
+        return best_bel;
+    }
+
+    pool<BelId> used_bels;
+    // Pre-place a primitive based on routeability first and distance second
+    bool preplace_prim(CellInfo *cell, IdString pin, bool strict_routing)
+    {
+        std::vector<BelId> routeability_candidates;
+
+        if (cell->attrs.count(id_BEL))
+            return false;
+
+        NetInfo *pin_net = cell->getPort(pin);
+        if (pin_net == nullptr)
+            return false;
+
+        CellInfo *pin_drv = pin_net->driver.cell;
+        if (pin_drv == nullptr)
+            return false;
+
+        // Check based on routeability
+        find_connected_bels(pin_drv, pin_net->driver.port, cell->type, pin, 25000, routeability_candidates);
+
+        for (BelId cand : routeability_candidates) {
+            if (used_bels.count(cand))
+                continue;
+            log_info("    constraining %s '%s' to bel '%s' based on dedicated routing\n", ctx->nameOf(cell),
+                     ctx->nameOf(cell->type), ctx->nameOfBel(cand));
+            cell->attrs[id_BEL] = ctx->getBelName(cand).str(ctx);
+            used_bels.insert(cand);
+            return true;
+        }
+
+        // Unless in strict mode; check based on simple distance too
+        BelId nearest = find_nearest_bel(pin_drv, cell->type, [&](BelId bel) { return !used_bels.count(bel); });
+
+        if (nearest != BelId()) {
+            log_info("    constraining %s '%s' to bel '%s'\n", ctx->nameOf(cell), ctx->nameOf(cell->type),
+                     ctx->nameOfBel(nearest));
+            cell->attrs[id_BEL] = ctx->getBelName(nearest).str(ctx);
+            used_bels.insert(nearest);
+            return true;
+        }
+
+        return false;
+    }
+
+    // Pre-place a singleton primitive; so decisions can be made on routeability downstream of it
+    bool preplace_singleton(CellInfo *cell)
+    {
+        if (cell->attrs.count(id_BEL))
+            return false;
+        bool did_something = false;
+        for (BelId bel : ctx->getBels()) {
+            if (ctx->getBelType(bel) != cell->type)
+                continue;
+            // Check that the bel really is a singleton...
+            NPNR_ASSERT(!cell->attrs.count(id_BEL));
+            cell->attrs[id_BEL] = ctx->getBelName(bel).str(ctx);
+            log_info("    constraining %s '%s' to bel '%s'\n", ctx->nameOf(cell), ctx->nameOf(cell->type),
+                     ctx->nameOfBel(bel));
+            did_something = true;
+        }
+        return did_something;
+    }
+
+    // Insert a buffer primitive in a signal; moving all users that match a predicate behind it
+    template <typename Tpred>
+    CellInfo *insert_buffer(NetInfo *net, IdString buffer_type, std::string name_postfix, IdString i, IdString o,
+                            Tpred pred)
+    {
+        // Create the buffered net
+        NetInfo *buffered_net = ctx->createNet(ctx->idf("%s$%s", ctx->nameOf(net), name_postfix.c_str()));
+        // Create the buffer cell
+        CellInfo *buffer = ctx->createCell(ctx->idf("%s$drv_%s", ctx->nameOf(buffered_net), ctx->nameOf(buffer_type)),
+                                           buffer_type);
+        buffer->addInput(i);
+        buffer->addOutput(o);
+        // Drive the buffered net with the buffer
+        buffer->connectPort(o, buffered_net);
+        // Filter users
+        std::vector<PortRef> remaining_users;
+
+        for (auto &usr : net->users) {
+            if (pred(usr)) {
+                usr.cell->ports[usr.port].net = buffered_net;
+                usr.cell->ports[usr.port].user_idx = buffered_net->users.add(usr);
+            } else {
+                remaining_users.push_back(usr);
+            }
+        }
+
+        net->users.clear();
+        for (auto &usr : remaining_users)
+            usr.cell->ports.at(usr.port).user_idx = net->users.add(usr);
+
+        // Connect buffer input to original net
+        buffer->connectPort(i, net);
+
+        return buffer;
+    }
+
+    // Insert global buffers
+    void promote_globals()
+    {
+        std::vector<std::pair<int, IdString>> clk_fanout;
+        int available_globals = 8;
+        for (auto &net : ctx->nets) {
+            NetInfo *ni = net.second.get();
+            // Skip undriven nets; and nets that are already global
+            if (ni->driver.cell == nullptr)
+                continue;
+            if (ni->name.in(ctx->id("$PACKER_GND_NET"), ctx->id("$PACKER_VCC_NET")))
+                continue;
+            if (ni->driver.cell->type == id_DCMA) {
+                continue;
+            }
+            if (ni->driver.cell->type == id_DCCA) {
+                --available_globals;
+                continue;
+            }
+            // Count the number of clock ports
+            int clk_count = 0;
+            for (const auto &usr : ni->users) {
+                if (usr.cell->type == id_TRELLIS_FF && usr.port == id_CLK)
+                    clk_count++;
+                if (usr.cell->type == id_DP8KC && usr.port.in(id_CLKA, id_CLKB))
+                    clk_count++;
+            }
+            if (clk_count > 0)
+                clk_fanout.emplace_back(clk_count, ni->name);
+        }
+        if (available_globals <= 0)
+            return;
+        // Sort clocks by max fanout
+        std::sort(clk_fanout.begin(), clk_fanout.end(), std::greater<std::pair<int, IdString>>());
+        log_info("Promoting globals...\n");
+        // Promote the N highest fanout clocks
+        for (size_t i = 0; i < std::min<size_t>(clk_fanout.size(), available_globals); i++) {
+            NetInfo *net = ctx->nets.at(clk_fanout.at(i).second).get();
+            log_info("     promoting clock net '%s'\n", ctx->nameOf(net));
+            insert_buffer(net, id_DCCA, "glb_clk", id_CLKI, id_CLKO,
+                          [&](const PortRef &port) { return port.cell->type != id_DCCA; });
+        }
+    }
+
+    // Place certain global cells
+    void place_globals()
+    {
+        // Keep running until we reach a fixed point
+        log_info("Placing globals...\n");
+        bool did_something = true;
+        while (did_something) {
+            did_something = false;
+            for (auto &cell : ctx->cells) {
+                CellInfo *ci = cell.second.get();
+                if (ci->type == id_OSCH)
+                    did_something |= preplace_singleton(ci);
+                else if (ci->type == id_DCCA)
+                    did_something |= preplace_prim(ci, id_CLKI, false);
+                else if (ci->type == id_EHXPLLJ)
+                    did_something |= preplace_prim(ci, id_CLKI, false);
+            }
+        }
+    }
+
   public:
     void pack()
     {
         prepack_checks();
         print_logic_usage();
         pack_io();
-        preplace_plls();
         pack_ebr();
         pack_misc();
         pack_constants();
@@ -1249,6 +1443,8 @@ class MachXO2Packer
         pack_carries();
         pack_luts();
         pack_ffs();
+        promote_globals();
+        place_globals();
         generate_constraints();
         ctx->fixupHierarchy();
         ctx->check();

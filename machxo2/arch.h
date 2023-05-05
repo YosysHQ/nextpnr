@@ -967,6 +967,9 @@ struct Arch : BaseArch<ArchRanges>
     // Apply LPF constraints to the context
     bool apply_lpf(std::string filename, std::istream &in);
 
+    // Global clock routing
+    void route_globals();
+
     static const std::string defaultPlacer;
     static const std::vector<std::string> availablePlacers;
     static const std::string defaultRouter;
