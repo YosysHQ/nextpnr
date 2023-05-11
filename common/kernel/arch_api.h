@@ -116,7 +116,6 @@ template <typename R> struct ArchAPI : BaseCtx
     virtual float getDelayNS(delay_t v) const = 0;
     virtual delay_t getDelayFromNS(float ns) const = 0;
     virtual uint32_t getDelayChecksum(delay_t v) const = 0;
-    virtual bool getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const = 0;
     virtual delay_t estimateDelay(WireId src, WireId dst) const = 0;
     virtual BoundingBox getRouteBoundingBox(WireId src, WireId dst) const = 0;
     virtual bool getArcDelayOverride(const NetInfo *net_info, const PortRef &sink, DelayQuad &delay) const = 0;

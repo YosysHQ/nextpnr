@@ -763,8 +763,6 @@ BoundingBox Arch::getRouteBoundingBox(WireId src, WireId dst) const
     return {x0, y0, x1, y1};
 }
 
-bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const { return false; }
-
 // -----------------------------------------------------------------------
 
 bool Arch::pack()

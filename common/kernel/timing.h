@@ -143,7 +143,6 @@ struct TimingAnalyser
     struct PortDomainPairData
     {
         delay_t setup_slack = std::numeric_limits<delay_t>::max(), hold_slack = std::numeric_limits<delay_t>::max();
-        delay_t budget = std::numeric_limits<delay_t>::max();
         int max_path_length = 0;
         float criticality = 0;
     };
@@ -230,9 +229,6 @@ struct TimingAnalyser
 
     Context *ctx;
 };
-
-// Evenly redistribute the total path slack amongst all sinks on each path
-void assign_budget(Context *ctx, bool quiet = false);
 
 // Perform timing analysis and print out the fmax, and optionally the
 //    critical path

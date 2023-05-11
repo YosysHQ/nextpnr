@@ -313,10 +313,6 @@ template <typename R> struct BaseArch : ArchAPI<R>
     };
 
     // Delay methods
-    virtual bool getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const override
-    {
-        return false;
-    }
     virtual bool getArcDelayOverride(const NetInfo *net_info, const PortRef &sink, DelayQuad &delay) const override
     {
         return false;

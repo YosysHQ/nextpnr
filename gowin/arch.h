@@ -456,7 +456,6 @@ struct Arch : BaseArch<ArchRanges>
     delay_t getDelayFromNS(float ns) const override { return ns; }
 
     uint32_t getDelayChecksum(delay_t v) const override { return 0; }
-    bool getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const override;
 
     BoundingBox getRouteBoundingBox(WireId src, WireId dst) const override;
 

@@ -484,8 +484,6 @@ bool Arch::place()
 
 bool Arch::route()
 {
-    assign_budget(getCtx(), true);
-
     lab_pre_route();
 
     route_globals();

@@ -239,8 +239,6 @@ PYBIND11_EMBEDDED_MODULE(MODULE_NAME, m)
                                                                                                             "cell");
     readonly_wrapper<PortRef, decltype(&PortRef::port), &PortRef::port, conv_to_str<IdString>>::def_wrap(pr_cls,
                                                                                                          "port");
-    readonly_wrapper<PortRef, decltype(&PortRef::budget), &PortRef::budget, pass_through<delay_t>>::def_wrap(pr_cls,
-                                                                                                             "budget");
 
     auto pm_cls = py::class_<ContextualWrapper<PipMap &>>(m, "PipMap");
     readwrite_wrapper<PipMap &, decltype(&PipMap::pip), &PipMap::pip, conv_to_str<PipId>,

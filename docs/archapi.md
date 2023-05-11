@@ -545,12 +545,6 @@ Convert a real-world delay in nanoseconds to a `delay_t`.
 
 Convert a `delay_t` to an integer for checksum calculations.
 
-### bool getBudgetOverride(const NetInfo \*net\_info, const PortRef &sink, delay\_t &budget) const
-
-Overwrite or modify (in-place) the timing budget for a given arc. Returns a bool to indicate whether this was done.
-
-*BaseArch default: returns false*
-
 ### bool getArcDelayOverride(const NetInfo \*net_info, const PortRef &sink, DelayQuad &delay) const
 
 This allows an arch to provide a more precise method for calculating the delay for a routed arc than
@@ -763,5 +757,3 @@ Returns `true` if the cell **must** be placed according to the cluster; for exam
 Gets an exact placement of the cluster, with the root cell placed on or near `root_bel` (and always within the same tile). Returns false if no placement is viable, otherwise returns `true` and populates `placement` with a list of cells inside the cluster and bels they should be placed at.
 
 This approach of allowing architectures to define cluster placements enables easier handling of irregular fabrics than requiring strict and constant x, y and z offsets.
-
-

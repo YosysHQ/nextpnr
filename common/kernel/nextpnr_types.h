@@ -75,7 +75,6 @@ struct PortRef
 {
     CellInfo *cell = nullptr;
     IdString port;
-    delay_t budget = 0;
 };
 
 // minimum and maximum delay
@@ -326,8 +325,6 @@ struct CriticalPath
         std::pair<IdString, IdString> to;
         // Segment delay
         delay_t delay;
-        // Segment budget (routing only)
-        delay_t budget;
     };
 
     // Clock pair
@@ -349,8 +346,6 @@ struct NetSinkTiming
     std::pair<IdString, IdString> cell_port;
     // Delay
     delay_t delay;
-    // Delay budget
-    delay_t budget;
 };
 
 struct TimingResult

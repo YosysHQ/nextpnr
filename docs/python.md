@@ -38,7 +38,6 @@ There is a dictionary `ctx.nets` that provides access to all of the nets in a de
 A `PortRef` has three fields:
     - `cell`: a reference to the cell the port is on
     - `port`: the name of the port
-    - `budget`: the timing budget of the port
 
 ### Accessing cells
 
@@ -84,4 +83,3 @@ The value given to `setParam` and `setAttr` should be a string of `[01xz]*` for 
 ## Constraints
 
 See the [constraints documentation](constraints.md)
-

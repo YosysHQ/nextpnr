@@ -91,7 +91,6 @@ BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, CommandHandler 
     // Connect Worker
     connect(task, &TaskManager::log, this, &BaseMainWindow::writeInfo);
     connect(task, &TaskManager::pack_finished, this, &BaseMainWindow::pack_finished);
-    connect(task, &TaskManager::budget_finish, this, &BaseMainWindow::budget_finish);
     connect(task, &TaskManager::place_finished, this, &BaseMainWindow::place_finished);
     connect(task, &TaskManager::route_finished, this, &BaseMainWindow::route_finished);
     connect(task, &TaskManager::taskCanceled, this, &BaseMainWindow::taskCanceled);
@@ -177,12 +176,6 @@ void BaseMainWindow::createMenusAndBars()
     actionPack->setStatusTip("Pack current design");
     actionPack->setEnabled(false);
     connect(actionPack, &QAction::triggered, task, &TaskManager::pack);
-
-    actionAssignBudget = new QAction("Assign Budget", this);
-    actionAssignBudget->setIcon(QIcon(":/icons/resources/time_add.png"));
-    actionAssignBudget->setStatusTip("Assign timing budget for current design");
-    actionAssignBudget->setEnabled(false);
-    connect(actionAssignBudget, &QAction::triggered, this, &BaseMainWindow::budget);
 
     actionPlace = new QAction("Place", this);
     actionPlace->setIcon(QIcon(":/icons/resources/place.png"));
@@ -307,7 +300,6 @@ void BaseMainWindow::createMenusAndBars()
 
     // Add Design menu actions
     menuDesign->addAction(actionPack);
-    menuDesign->addAction(actionAssignBudget);
     menuDesign->addAction(actionPlace);
     menuDesign->addAction(actionRoute);
     menuDesign->addSeparator();
@@ -324,7 +316,6 @@ void BaseMainWindow::createMenusAndBars()
     mainActionBar->addAction(actionSaveJSON);
     mainActionBar->addSeparator();
     mainActionBar->addAction(actionPack);
-    mainActionBar->addAction(actionAssignBudget);
     mainActionBar->addAction(actionPlace);
     mainActionBar->addAction(actionRoute);
     mainActionBar->addAction(actionExecutePy);
@@ -471,17 +462,6 @@ void BaseMainWindow::pack_finished(bool status)
     }
 }
 
-void BaseMainWindow::budget_finish(bool status)
-{
-    disableActions();
-    if (status) {
-        log("Assigning timing budget successful.\n");
-        updateActions();
-    } else {
-        log("Assigning timing budget failed.\n");
-    }
-}
-
 void BaseMainWindow::place_finished(bool status)
 {
     disableActions();
@@ -524,24 +504,12 @@ void BaseMainWindow::taskPaused()
     actionStop->setEnabled(true);
 }
 
-void BaseMainWindow::budget()
-{
-    bool ok;
-    double freq = QInputDialog::getDouble(this, "Assign timing budget", "Frequency [MHz]:", 50, 0, 250, 2, &ok);
-    if (ok) {
-        freq *= 1e6;
-        timing_driven = true;
-        Q_EMIT task->budget(freq);
-    }
-}
-
 void BaseMainWindow::place() { Q_EMIT task->place(timing_driven); }
 
 void BaseMainWindow::disableActions()
 {
     actionLoadJSON->setEnabled(true);
     actionPack->setEnabled(false);
-    actionAssignBudget->setEnabled(false);
     actionPlace->setEnabled(false);
     actionRoute->setEnabled(false);
 
@@ -559,7 +527,6 @@ void BaseMainWindow::updateActions()
     if (ctx->settings.find(ctx->id("pack")) == ctx->settings.end())
         actionPack->setEnabled(true);
     else if (ctx->settings.find(ctx->id("place")) == ctx->settings.end()) {
-        actionAssignBudget->setEnabled(true);
         actionPlace->setEnabled(true);
     } else if (ctx->settings.find(ctx->id("route")) == ctx->settings.end())
         actionRoute->setEnabled(true);
