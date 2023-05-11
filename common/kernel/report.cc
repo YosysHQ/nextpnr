@@ -90,7 +90,6 @@ static Json::array report_critical_paths(const Context *ctx)
             } else if (segment.type == CriticalPath::Segment::Type::ROUTING) {
                 segmentJson["type"] = "routing";
                 segmentJson["net"] = segment.net.c_str(ctx);
-                segmentJson["budget"] = ctx->getDelayNS(segment.budget);
             }
 
             pathJson.push_back(segmentJson);
@@ -134,8 +133,7 @@ static Json::array report_detailed_net_timings(const Context *ctx)
             auto endpointJson = Json::object({{"cell", sink_timing.cell_port.first.c_str(ctx)},
                                               {"port", sink_timing.cell_port.second.c_str(ctx)},
                                               {"event", clock_event_name(ctx, sink_timing.clock_pair.end)},
-                                              {"delay", ctx->getDelayNS(sink_timing.delay)},
-                                              {"budget", ctx->getDelayNS(sink_timing.budget)}});
+                                              {"delay", ctx->getDelayNS(sink_timing.delay)}});
             endpointsJson.push_back(endpointJson);
         }
 
@@ -194,7 +192,6 @@ Report JSON structure:
           "type": <path segment type "clk-to-q", "source", "logic", "routing" or "setup">,
           "net": <net name (for routing only!)>,
           "delay": <segment delay [ns]>,
-          "budget": <segment delay budget [ns] (for routing only!)>,
         }
         ...
       ]
@@ -213,7 +210,6 @@ Report JSON structure:
           "port": <sink cell port name>,
           "event": <destination clock event name>,
           "delay": <delay [ns]>,
-          "budget": <delay budget [ns]>,
         }
         ...
       ]

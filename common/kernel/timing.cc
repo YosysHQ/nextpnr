@@ -36,7 +36,7 @@ std::string clock_event_name(const Context *ctx, ClockDomainKey &dom) {
         value = "<async>";
     else
         value = (dom.edge == FALLING_EDGE ? "negedge " : "posedge ") + dom.clock.str(ctx);
-    
+
     return value;
 }
 } // namespace
@@ -501,7 +501,6 @@ void TimingAnalyser::reset_times()
             dp.second.hold_slack = std::numeric_limits<delay_t>::max();
             dp.second.max_path_length = 0;
             dp.second.criticality = 0;
-            dp.second.budget = 0;
         }
         port.second.worst_crit = 0;
         port.second.worst_setup_slack = std::numeric_limits<delay_t>::max();
@@ -1060,7 +1059,6 @@ struct Timing
                     if (portClass == TMG_ENDPOINT || portClass == TMG_IGNORE || portClass == TMG_CLOCK_INPUT) {
                         // Skip
                     } else {
-                        auto budget_override = ctx->getBudgetOverride(net, usr, net_delay);
                         // Iterate over all output ports on the same cell as the sink
                         for (auto port : usr.cell->ports) {
                             if (port.second.type != PORT_OUT || !port.second.net)
@@ -1073,12 +1071,8 @@ struct Timing
                             auto &data = net_data[port.second.net][start_clk];
                             auto &arrival = data.max_arrival;
                             arrival = std::max(arrival, usr_arrival + comb_delay.maxDelay());
-                            if (!budget_override) { // Do not increment path length if budget overridden since it
-                                                    // doesn't
-                                // require a share of the slack
-                                auto &path_length = data.max_path_length;
-                                path_length = std::max(path_length, net_length_plus_one);
-                            }
+                            auto &path_length = data.max_path_length;
+                            path_length = std::max(path_length, net_length_plus_one);
                         }
                     }
                 }
@@ -1102,7 +1096,6 @@ struct Timing
                 auto &net_min_remaining_budget = nd.min_remaining_budget;
                 for (auto &usr : net->users) {
                     auto net_delay = net_delays ? ctx->getNetinfoRouteDelay(net, usr) : delay_t();
-                    auto budget_override = ctx->getBudgetOverride(net, usr, net_delay);
                     int port_clocks;
                     TimingPortClass portClass = ctx->getPortTimingClass(usr.cell, usr.port, port_clocks);
                     if (portClass == TMG_REGISTER_INPUT || portClass == TMG_ENDPOINT) {
@@ -1133,8 +1126,7 @@ struct Timing
                             auto path_budget = period - endpoint_arrival;
 
                             if (update) {
-                                auto budget_share = budget_override ? 0 : path_budget / net_length_plus_one;
-                                usr.budget = std::min(usr.budget, net_delay + budget_share);
+                                auto budget_share = path_budget / net_length_plus_one;
                                 net_min_remaining_budget =
                                         std::min(net_min_remaining_budget, path_budget - budget_share);
                             }
@@ -1156,7 +1148,6 @@ struct Timing
                                 sink_timing.clock_pair = clockPair;
                                 sink_timing.cell_port = std::make_pair(usr.cell->name, usr.port);
                                 sink_timing.delay = endpoint_arrival;
-                                sink_timing.budget = period;
 
                                 (*detailed_net_timings)[net->name].push_back(sink_timing);
                             }
@@ -1196,8 +1187,7 @@ struct Timing
                                 net_data.at(port.second.net).count(startdomain.first)) {
                                 auto path_budget =
                                         net_data.at(port.second.net).at(startdomain.first).min_remaining_budget;
-                                auto budget_share = budget_override ? 0 : path_budget / net_length_plus_one;
-                                usr.budget = std::min(usr.budget, net_delay + budget_share);
+                                auto budget_share = path_budget / net_length_plus_one;
                                 net_min_remaining_budget =
                                         std::min(net_min_remaining_budget, path_budget - budget_share);
                             }
@@ -1265,64 +1255,8 @@ struct Timing
         }
         return min_slack;
     }
-
-    void assign_budget()
-    {
-        // Clear delays to a very high value first
-        for (auto &net : ctx->nets) {
-            for (auto &usr : net.second->users) {
-                usr.budget = std::numeric_limits<delay_t>::max();
-            }
-        }
-
-        walk_paths();
-    }
 };
 
-void assign_budget(Context *ctx, bool quiet)
-{
-    if (!quiet) {
-        log_break();
-        log_info("Annotating ports with timing budgets for target frequency %.2f MHz\n",
-                 ctx->setting<float>("target_freq") / 1e6);
-    }
-
-    Timing timing(ctx, ctx->setting<int>("slack_redist_iter") > 0 /* net_delays */, true /* update */);
-    timing.assign_budget();
-
-    if (!quiet || ctx->verbose) {
-        for (auto &net : ctx->nets) {
-            for (auto &user : net.second->users) {
-                // Post-update check
-                if (!ctx->setting<bool>("auto_freq") && user.budget < 0)
-                    log_info("port %s.%s, connected to net '%s', has negative "
-                             "timing budget of %fns\n",
-                             user.cell->name.c_str(ctx), user.port.c_str(ctx), net.first.c_str(ctx),
-                             ctx->getDelayNS(user.budget));
-                else if (ctx->debug)
-                    log_info("port %s.%s, connected to net '%s', has "
-                             "timing budget of %fns\n",
-                             user.cell->name.c_str(ctx), user.port.c_str(ctx), net.first.c_str(ctx),
-                             ctx->getDelayNS(user.budget));
-            }
-        }
-    }
-
-    // For slack redistribution, if user has not specified a frequency dynamically adjust the target frequency to be the
-    // currently achieved maximum
-    if (ctx->setting<bool>("auto_freq") && ctx->setting<int>("slack_redist_iter") > 0) {
-        delay_t default_slack = delay_t((1.0e9 / ctx->getDelayNS(1)) / ctx->setting<float>("target_freq"));
-        ctx->settings[ctx->id("target_freq")] =
-                std::to_string(1.0e9 / ctx->getDelayNS(default_slack - timing.min_slack));
-        if (ctx->verbose)
-            log_info("minimum slack for this assign = %.2f ns, target Fmax for next "
-                     "update = %.2f MHz\n",
-                     ctx->getDelayNS(timing.min_slack), ctx->setting<float>("target_freq") / 1e6);
-    }
-
-    if (!quiet)
-        log_info("Checksum: 0x%08x\n", ctx->checksum());
-}
 
 CriticalPath build_critical_path_report(Context *ctx, ClockPair &clocks, const PortRefVector &crit_path)
 {
@@ -1378,7 +1312,6 @@ CriticalPath build_critical_path_report(Context *ctx, ClockPair &clocks, const P
         }
 
         seg_logic.delay = comb_delay.maxDelay();
-        seg_logic.budget = 0;
         seg_logic.from = std::make_pair(last_cell->name, last_port);
         seg_logic.to = std::make_pair(driver_cell->name, driver.port);
         seg_logic.net = IdString();
@@ -1389,7 +1322,6 @@ CriticalPath build_critical_path_report(Context *ctx, ClockPair &clocks, const P
         CriticalPath::Segment seg_route;
         seg_route.type = CriticalPath::Segment::Type::ROUTING;
         seg_route.delay = net_delay;
-        seg_route.budget = sink->budget;
         seg_route.from = std::make_pair(driver_cell->name, driver.port);
         seg_route.to = std::make_pair(sink_cell->name, sink->port);
         seg_route.net = net->name;
@@ -1408,7 +1340,6 @@ CriticalPath build_critical_path_report(Context *ctx, ClockPair &clocks, const P
         CriticalPath::Segment seg_logic;
         seg_logic.type = CriticalPath::Segment::Type::SETUP;
         seg_logic.delay = setup;
-        seg_logic.budget = 0;
         seg_logic.from = std::make_pair(last_cell->name, last_port);
         seg_logic.to = seg_logic.from;
         seg_logic.net = IdString();
@@ -1582,8 +1513,8 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                     auto driver_loc = ctx->getBelLocation(driver->bel);
                     auto sink_loc = ctx->getBelLocation(sink->bel);
 
-                    log_info("%4.1f %4.1f    Net %s budget %f ns (%d,%d) -> (%d,%d)\n", ctx->getDelayNS(segment.delay),
-                             ctx->getDelayNS(total), segment.net.c_str(ctx), ctx->getDelayNS(segment.budget),
+                    log_info("%4.1f %4.1f    Net %s (%d,%d) -> (%d,%d)\n", ctx->getDelayNS(segment.delay),
+                             ctx->getDelayNS(total), segment.net.c_str(ctx),
                              driver_loc.x, driver_loc.y, sink_loc.x, sink_loc.y);
                     log_info("               Sink %s.%s\n", segment.to.first.c_str(ctx), segment.to.second.c_str(ctx));
 
@@ -1594,7 +1525,6 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                         PortRef sink_ref;
                         sink_ref.cell = sink.get();
                         sink_ref.port = segment.to.second;
-                        sink_ref.budget = segment.budget;
 
                         auto driver_wire = ctx->getNetinfoSourceWire(net);
                         auto sink_wire = ctx->getNetinfoSinkWire(net, sink_ref, 0);
@@ -1842,6 +1772,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
 
         results.detailed_net_timings = std::move(detailed_net_timings);
     }
+
 }
 
 NEXTPNR_NAMESPACE_END

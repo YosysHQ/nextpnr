@@ -29,7 +29,6 @@ struct Placer1Cfg
     Placer1Cfg(Context *ctx);
     float constraintWeight, netShareWeight;
     int minBelsForGridPick;
-    bool budgetBased;
     float startTemp;
     int timingFanoutThresh;
     bool timing_driven;

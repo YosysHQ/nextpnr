@@ -69,13 +69,11 @@ class BaseMainWindow : public QMainWindow
 
     void open_json();
     void save_json();
-    void budget();
     void place();
 
     void execute_python();
 
     void pack_finished(bool status);
-    void budget_finish(bool status);
     void place_finished(bool status);
     void route_finished(bool status);
 
@@ -120,7 +118,6 @@ class BaseMainWindow : public QMainWindow
     QAction *actionSaveJSON;
 
     QAction *actionPack;
-    QAction *actionAssignBudget;
     QAction *actionPlace;
     QAction *actionRoute;
 

@@ -730,7 +730,6 @@ struct Router1
             log("  final route delay:   %8.2f\n", ctx->getDelayNS(visited[dst_wire].delay));
             log("  final route penalty: %8.2f\n", ctx->getDelayNS(visited[dst_wire].penalty));
             log("  final route bonus:   %8.2f\n", ctx->getDelayNS(visited[dst_wire].bonus));
-            log("  arc budget:      %12.2f\n", ctx->getDelayNS(net_info->users[user_idx].budget));
         }
 
         // bind resulting route (and maybe unroute other nets)

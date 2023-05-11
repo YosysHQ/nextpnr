@@ -64,18 +64,6 @@ void Worker::pack()
     }
 }
 
-void Worker::budget(double freq)
-{
-    Q_EMIT taskStarted();
-    try {
-        ctx->settings[ctx->id("target_freq")] = std::to_string(freq);
-        assign_budget(ctx);
-        Q_EMIT budget_finish(true);
-    } catch (WorkerInterruptionRequested) {
-        Q_EMIT taskCanceled();
-    }
-}
-
 void Worker::place(bool timing_driven)
 {
     Q_EMIT taskStarted();
@@ -105,7 +93,6 @@ TaskManager::TaskManager() : toTerminate(false), toPause(false)
     connect(&workerThread, &QThread::finished, worker, &QObject::deleteLater);
 
     connect(this, &TaskManager::pack, worker, &Worker::pack);
-    connect(this, &TaskManager::budget, worker, &Worker::budget);
     connect(this, &TaskManager::place, worker, &Worker::place);
     connect(this, &TaskManager::route, worker, &Worker::route);
 
@@ -113,7 +100,6 @@ TaskManager::TaskManager() : toTerminate(false), toPause(false)
 
     connect(worker, &Worker::log, this, &TaskManager::info);
     connect(worker, &Worker::pack_finished, this, &TaskManager::pack_finished);
-    connect(worker, &Worker::budget_finish, this, &TaskManager::budget_finish);
     connect(worker, &Worker::place_finished, this, &TaskManager::place_finished);
     connect(worker, &Worker::route_finished, this, &TaskManager::route_finished);
 

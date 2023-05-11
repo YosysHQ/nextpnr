@@ -582,19 +582,6 @@ delay_t Arch::predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdStr
            (3 + std::max(dx - 5, 0) + std::max(dy - 5, 0) + 2 * (std::min(dx, 5) + std::min(dy, 5)));
 }
 
-bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const
-{
-    if (net_info->driver.port == id_FCO && sink.port == id_FCI) {
-        budget = 0;
-        return true;
-    } else if (sink.port.in(id_FXA, id_FXB)) {
-        budget = 0;
-        return true;
-    } else {
-        return false;
-    }
-}
-
 delay_t Arch::getRipupDelayPenalty() const { return 400; }
 
 // -----------------------------------------------------------------------
@@ -653,7 +640,6 @@ bool Arch::route()
     setup_wire_locations();
     route_ecp5_globals(getCtx());
     assignArchInfo();
-    assign_budget(getCtx(), true);
 
     bool result;
     if (router == "router1") {

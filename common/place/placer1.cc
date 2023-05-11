@@ -211,8 +211,6 @@ class SAPlacer
             if ((placed_cells - constr_placed_cells) % 500 != 0)
                 log_info("  initial placement placed %d/%d cells\n", int(placed_cells - constr_placed_cells),
                          int(autoplaced.size()));
-            if (cfg.budgetBased && cfg.slack_redist_iter > 0)
-                assign_budget(ctx);
             ctx->yield();
             auto iplace_end = std::chrono::high_resolution_clock::now();
             log_info("Initial placement time %.02fs\n",
@@ -240,8 +238,7 @@ class SAPlacer
 
         // Invoke timing analysis to obtain criticalities
         tmg.setup_only = true;
-        if (!cfg.budgetBased)
-            tmg.setup();
+        tmg.setup();
 
         // Calculate costs after initial placement
         setup_costs();
@@ -368,18 +365,12 @@ class SAPlacer
                     // temp = post_legalise_temp;
                     // diameter = std::min<int>(M, diameter * post_legalise_dia_scale);
                     ctx->shuffle(autoplaced);
-
-                    // Legalisation is a big change so force a slack redistribution here
-                    if (cfg.slack_redist_iter > 0 && cfg.budgetBased)
-                        assign_budget(ctx, true /* quiet */);
                 }
                 require_legal = false;
-            } else if (cfg.budgetBased && cfg.slack_redist_iter > 0 && iter % cfg.slack_redist_iter == 0) {
-                assign_budget(ctx, true /* quiet */);
             }
 
             // Invoke timing analysis to obtain criticalities
-            if (!cfg.budgetBased && cfg.timing_driven)
+            if (cfg.timing_driven)
                 tmg.run();
             // Need to rebuild costs after criticalities change
             setup_costs();
@@ -870,14 +861,10 @@ class SAPlacer
             return 0;
         if (ctx->getPortTimingClass(net->driver.cell, net->driver.port, cc) == TMG_IGNORE)
             return 0;
-        if (cfg.budgetBased) {
-            double delay = ctx->getDelayNS(ctx->predictArcDelay(net, user));
-            return std::min(10.0, std::exp(delay - ctx->getDelayNS(user.budget) / 10));
-        } else {
-            float crit = tmg.get_criticality(CellPortKey(user));
-            double delay = ctx->getDelayNS(ctx->predictArcDelay(net, user));
-            return delay * std::pow(crit, crit_exp);
-        }
+        
+        float crit = tmg.get_criticality(CellPortKey(user));
+        double delay = ctx->getDelayNS(ctx->predictArcDelay(net, user));
+        return delay * std::pow(crit, crit_exp);
     }
 
     // Set up the cost maps
@@ -1267,7 +1254,6 @@ Placer1Cfg::Placer1Cfg(Context *ctx)
     constraintWeight = ctx->setting<float>("placer1/constraintWeight", 10);
     netShareWeight = ctx->setting<float>("placer1/netShareWeight", 0);
     minBelsForGridPick = ctx->setting<int>("placer1/minBelsForGridPick", 64);
-    budgetBased = ctx->setting<bool>("placer1/budgetBased", false);
     startTemp = ctx->setting<float>("placer1/startTemp", 1);
     timingFanoutThresh = std::numeric_limits<int>::max();
     timing_driven = ctx->setting<bool>("timing_driven");

@@ -171,7 +171,6 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("slack_redist_iter", po::value<int>(), "number of iterations between slack redistribution");
     general.add_options()("cstrweight", po::value<float>(), "placer weighting for relative constraint satisfaction");
     general.add_options()("starttemp", po::value<float>(), "placer SA start temperature");
-    general.add_options()("placer-budgets", "use budget rather than criticality in placer timing weights");
 
     general.add_options()("pack-only", "pack design only without placement or routing");
     general.add_options()("no-route", "process design without routing");
@@ -318,9 +317,6 @@ void CommandHandler::setupContext(Context *ctx)
         ctx->settings[ctx->id("placer1/startTemp")] = std::to_string(vm["starttemp"].as<float>());
     }
 
-    if (vm.count("placer-budgets")) {
-        ctx->settings[ctx->id("placer1/budgetBased")] = true;
-    }
     if (vm.count("freq")) {
         auto freq = vm["freq"].as<double>();
         if (freq > 0)
@@ -457,7 +453,6 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
             if (!ctx->pack() && !ctx->force)
                 log_error("Packing design failed.\n");
         }
-        assign_budget(ctx.get());
         ctx->check();
         print_utilisation(ctx.get());
 

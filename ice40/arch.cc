@@ -639,47 +639,6 @@ std::vector<GroupId> Arch::getGroupGroups(GroupId group) const
 
 // -----------------------------------------------------------------------
 
-bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const
-{
-    const auto &driver = net_info->driver;
-    if (driver.port == id_COUT) {
-        NPNR_ASSERT(sink.port.in(id_CIN, id_I3));
-        NPNR_ASSERT(driver.cell->constr_abs_z);
-        bool cin = sink.port == id_CIN;
-        bool same_y = driver.cell->constr_z < 7;
-        if (cin && same_y)
-            budget = 0;
-        else {
-            switch (args.type) {
-            case ArchArgs::HX8K:
-            case ArchArgs::HX4K:
-            case ArchArgs::HX1K:
-                budget = cin ? 190 : (same_y ? 260 : 560);
-                break;
-            case ArchArgs::LP384:
-            case ArchArgs::LP1K:
-            case ArchArgs::LP4K:
-            case ArchArgs::LP8K:
-                budget = cin ? 290 : (same_y ? 380 : 670);
-                break;
-            case ArchArgs::UP3K:
-            case ArchArgs::UP5K:
-            case ArchArgs::U1K:
-            case ArchArgs::U2K:
-            case ArchArgs::U4K:
-                budget = cin ? 560 : (same_y ? 660 : 1220);
-                break;
-            default:
-                log_error("Unsupported iCE40 chip type.\n");
-            }
-        }
-        return true;
-    }
-    return false;
-}
-
-// -----------------------------------------------------------------------
-
 bool Arch::place()
 {
     std::string placer = str_or_default(settings, id_placer, defaultPlacer);

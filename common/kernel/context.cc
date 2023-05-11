@@ -236,13 +236,11 @@ uint32_t Context::checksum() const
         if (ni.driver.cell)
             x = xorshift32(x + xorshift32(ni.driver.cell->name.index));
         x = xorshift32(x + xorshift32(ni.driver.port.index));
-        x = xorshift32(x + xorshift32(getDelayChecksum(ni.driver.budget)));
 
         for (auto &u : ni.users) {
             if (u.cell)
                 x = xorshift32(x + xorshift32(u.cell->name.index));
             x = xorshift32(x + xorshift32(u.port.index));
-            x = xorshift32(x + xorshift32(getDelayChecksum(u.budget)));
         }
 
         uint32_t attr_x_sum = 0;
