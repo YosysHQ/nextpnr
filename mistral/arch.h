@@ -503,6 +503,7 @@ struct Arch : BaseArch<ArchRanges>
     // -------------------------------------------------
 
     bool is_clkbuf_cell(IdString cell_type) const; // globals.cc
+    void route_globals();                          // globals.cc
 
     // -------------------------------------------------
 
