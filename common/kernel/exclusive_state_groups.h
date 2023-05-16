@@ -127,7 +127,7 @@ template <size_t StateCount, typename StateType = int8_t, typename CountType = u
 
     template <typename StateRange>
     bool
-        requires(const StateRange &state_range)
+        requires_range(const StateRange &state_range)
     const
     {
         if (state < 0) {

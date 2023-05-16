@@ -70,7 +70,7 @@ void ExclusiveStateGroup<StateCount, StateType, CountType>::explain_requires(con
                                                                              const Definition &definition, BelId bel,
                                                                              const StateRange state_range) const
 {
-    if (requires(state_range)) {
+    if (requires_range(state_range)) {
         log_info("Placing cell %s at bel %s does not violate %s.%s\n", cell.c_str(ctx), ctx->nameOfBel(bel),
                  object.c_str(ctx), definition.prefix.c_str(ctx));
     } else {
