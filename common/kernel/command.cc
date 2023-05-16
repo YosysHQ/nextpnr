@@ -97,13 +97,14 @@ bool CommandHandler::executeBeforeContext()
                   << " -- Next Generation Place and Route (Version " GIT_DESCRIBE_STR ")\n";
         return true;
     }
-    validate();
 
     if (vm.count("quiet")) {
         log_streams.push_back(std::make_pair(&std::cerr, LogLevel::WARNING_MSG));
     } else {
         log_streams.push_back(std::make_pair(&std::cerr, LogLevel::LOG_MSG));
     }
+
+    validate();
 
     if (vm.count("Werror")) {
         log_warn_as_error = true;
