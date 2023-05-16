@@ -462,6 +462,10 @@ bool Arch::place()
         cfg.cellGroups.back().insert({id_MISTRAL_COMB});
         cfg.cellGroups.back().insert({id_MISTRAL_FF});
 
+        // The Cyclone V is asymmetrical enough that it's somewhat beneficial to prefer connecting things horizontally.
+        cfg.hpwl_scale_x = 1;
+        cfg.hpwl_scale_y = 2;
+
         cfg.beta = 0.5; // TODO: find a good value of beta for sensible ALM spreading
         cfg.criticalityExponent = 7;
         if (!placer_heap(getCtx(), cfg))
