@@ -484,6 +484,8 @@ bool Arch::route()
 
     lab_pre_route();
 
+    route_globals();
+
     std::string router = str_or_default(settings, id_router, defaultRouter);
     bool result;
     if (router == "router1") {
