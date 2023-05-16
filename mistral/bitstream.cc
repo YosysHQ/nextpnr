@@ -20,6 +20,7 @@
 #include "log.h"
 #include "nextpnr.h"
 #include "util.h"
+#include "timing.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 namespace {
@@ -379,6 +380,7 @@ struct MistralBitgen
         write_routing();
         write_cells();
         write_labs();
+        ctx->bitstream_configured = true;
     }
 };
 } // namespace
@@ -387,6 +389,16 @@ void Arch::build_bitstream()
 {
     MistralBitgen gen(getCtx());
     gen.run();
+
+    // This is a hack to run timing analysis yet again after the bitstream is
+    // configured in Mistral, because the analogue simulator won't work until
+    // it has a bitstream in the library.
+    //
+    // A better solution would be to move a lot of this bitstream code to
+    // {un,}bind{Bel, Pip} and friends, but we're not there yet.
+    log_info("Running signoff timing analysis...\n");
+
+    timing_analysis(getCtx(), true, true, true, true, true);
 }
 
 NEXTPNR_NAMESPACE_END

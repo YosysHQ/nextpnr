@@ -289,6 +289,9 @@ struct Arch : BaseArch<ArchRanges>
     ArchArgs args;
     mistral::CycloneV *cyclonev;
 
+    // Mistral needs the bitstream configuring before it can use the simulator.
+    bool bitstream_configured = false;
+
     Arch(ArchArgs args);
     ArchArgs archArgs() const override { return args; }
 
@@ -434,6 +437,7 @@ struct Arch : BaseArch<ArchRanges>
     bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort,
                       DelayQuad &delay) const override; // delay.cc
     DelayQuad getPipDelay(PipId pip) const override;    // delay.cc
+    bool getArcDelayOverride(const NetInfo *net_info, const PortRef &sink, DelayQuad &delay) const override; // delay.cc
 
     // -------------------------------------------------
 
