@@ -92,7 +92,7 @@ bool Constraints<StateCount, StateType, CountType>::isValidBelForCellType(const 
             }
             break;
         case CONSTRAINT_TAG_REQUIRES:
-            if (!tags[constraint.tag()].requires(constraint.states())) {
+            if (!tags[constraint.tag()].requires_range(constraint.states())) {
                 return false;
             }
             break;
