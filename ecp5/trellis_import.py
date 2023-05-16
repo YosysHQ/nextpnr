@@ -167,6 +167,14 @@ def get_tiletype_index(name):
     tiletype_names[name] = idx
     return idx
 
+def package_shortname(long_name):
+    if long_name.startswith("caBGA"):
+        return "BG" + long_name[5:]
+    elif long_name.startswith("csfBGA"):
+        return "MG" + long_name[6:]
+    else:
+        print("unknown package name " + long_name)
+        sys.exit(-1)
 
 constids = dict()
 
@@ -241,6 +249,17 @@ def get_bel_index(ddrg, loc, name):
 
 packages = {}
 pindata = []
+devices = {}
+
+def process_devices_db(family, device):
+    devicefile = path.join(database.get_db_root(), "devices.json")
+    with open(devicefile, 'r') as f:
+        devicedb = json.load(f)
+        for dev in device:
+            variants = {}
+            for varname, vardata in sorted(devicedb["families"][family]["devices"][dev]["variants"].items()):
+                variants[varname] = vardata
+            devices[dev] = variants
 
 def process_pio_db(ddrg, device):
     piofile = path.join(database.get_db_root(), "ECP5", dev_names[device], "iodb.json")
@@ -640,6 +659,33 @@ def write_database(dev_name, chip, ddrg, endianness):
         bba.r_slice("cell_timing_data_%s" % grade, len(speed_grade_cells[grade]), "cell_timings")
         bba.r_slice("pip_timing_data_%s" % grade, len(speed_grade_pips[grade]), "pip_classes")
 
+    for _, dev_data in sorted(devices.items()):
+        for name, var_data in sorted(dev_data.items()):
+            bba.l("supported_packages_%s" % name, "PackageSupportedPOD")
+            for package in var_data["packages"]:
+                bba.s(package, "name")
+                bba.s(package_shortname(package), "short_name")
+            bba.l("supported_speed_grades_%s" % name, "SpeedSupportedPOD")
+            for speed in var_data["speeds"]:
+                bba.u32(speed, "speed")
+            bba.l("supported_suffixes_%s" % name, "SuffixeSupportedPOD")
+            for suffix in var_data["suffixes"]:
+                bba.s(suffix, "suffix")
+
+    for name, dev_data in sorted(devices.items()):
+        bba.l("variant_data_%s" % name, "VariantInfoPOD")
+        for name, var_data in sorted(dev_data.items()):
+            bba.s(name, "variant_name")
+            bba.r_slice("supported_packages_%s" % name, len(var_data["packages"]), "supported_packages")
+            bba.r_slice("supported_speed_grades_%s" % name, len(var_data["speeds"]), "supported_speed_grades")
+            bba.r_slice("supported_suffixes_%s" % name, len(var_data["suffixes"]), "supported_suffixes")
+
+    bba.l("devices_data", "DeviceInfoPOD")
+    for name, dev_data in sorted(devices.items()):
+        bba.s(chip.info.family, "family")
+        bba.s(name, "device_name")
+        bba.r_slice("variant_data_%s" % name, len(dev_data), "variant_info")
+
     bba.l("chip_info")
     bba.u32(max_col + 1, "width")
     bba.u32(max_row + 1, "height")
@@ -654,11 +700,12 @@ def write_database(dev_name, chip, ddrg, endianness):
     bba.r_slice("pio_info", len(pindata), "pio_info")
     bba.r_slice("tiles_info", (max_col + 1) * (max_row + 1), "tile_info")
     bba.r_slice("speed_grade_data", len(speed_grade_names), "speed_grades")
+    bba.r_slice("devices_data", len(devices), "device_info")
 
     bba.pop()
     return bba
 
-dev_names = {"25k": "LFE5UM5G-25F", "45k": "LFE5UM5G-45F", "85k": "LFE5UM5G-85F"}
+dev_names = {"25k": "LFE5UM-25F", "45k": "LFE5UM-45F", "85k": "LFE5UM-85F"}
 
 def main():
     global max_row, max_col, const_id_count
@@ -692,6 +739,7 @@ def main():
     process_timing_data()
     process_pio_db(ddrg, args.device)
     process_loc_globals(chip)
+    process_devices_db(chip.info.family, [ chip.info.name, chip.info.name.replace("LFE5UM","LFE5U") ])
     # print("{} unique location types".format(len(ddrg.locationTypes)))
     bba = write_database(args.device, chip, ddrg, "le")
 

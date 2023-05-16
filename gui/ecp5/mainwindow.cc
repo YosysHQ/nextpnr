@@ -20,7 +20,9 @@
 #include "mainwindow.h"
 #include <fstream>
 #include "bitstream.h"
+#include "embed.h"
 #include "log.h"
+#include "ecp5_available.h"
 
 #include <QFileDialog>
 #include <QInputDialog>
@@ -47,7 +49,8 @@ MainWindow::~MainWindow() {}
 
 void MainWindow::newContext(Context *ctx)
 {
-    std::string title = "nextpnr-ecp5 - " + ctx->getChipName() + " ( " + ctx->archArgs().package + " )";
+    std::string title = "nextpnr-ecp5 - " + std::string(ctx->device_name) + " (" + std::string(ctx->package_name) +
+                        ") - Part : " + ctx->getChipName();
     setWindowTitle(title.c_str());
 }
 
@@ -78,50 +81,46 @@ void MainWindow::createMenu()
 
 void MainWindow::new_proj()
 {
-    QMap<QString, int> arch;
-    if (Arch::is_available(ArchArgs::LFE5U_25F))
-        arch.insert("Lattice ECP5 LFE5U-25F", ArchArgs::LFE5U_25F);
-    if (Arch::is_available(ArchArgs::LFE5U_45F))
-        arch.insert("Lattice ECP5 LFE5U-45F", ArchArgs::LFE5U_45F);
-    if (Arch::is_available(ArchArgs::LFE5U_85F))
-        arch.insert("Lattice ECP5 LFE5U-85F", ArchArgs::LFE5U_85F);
-    if (Arch::is_available(ArchArgs::LFE5UM_25F))
-        arch.insert("Lattice ECP5 LFE5UM-25F", ArchArgs::LFE5UM_25F);
-    if (Arch::is_available(ArchArgs::LFE5UM_45F))
-        arch.insert("Lattice ECP5 LFE5UM-45F", ArchArgs::LFE5UM_45F);
-    if (Arch::is_available(ArchArgs::LFE5UM_85F))
-        arch.insert("Lattice ECP5 LFE5UM-85F", ArchArgs::LFE5UM_85F);
-    if (Arch::is_available(ArchArgs::LFE5UM5G_25F))
-        arch.insert("Lattice ECP5 LFE5UM5G-25F", ArchArgs::LFE5UM5G_25F);
-    if (Arch::is_available(ArchArgs::LFE5UM5G_45F))
-        arch.insert("Lattice ECP5 LFE5UM5G-45F", ArchArgs::LFE5UM5G_45F);
-    if (Arch::is_available(ArchArgs::LFE5UM5G_85F))
-        arch.insert("Lattice ECP5 LFE5UM5G-85F", ArchArgs::LFE5UM5G_85F);
+    QList<QString> arch;
 
-    bool ok;
-    QString item = QInputDialog::getItem(this, "Select new context", "Chip:", arch.keys(), 0, false, &ok);
-    if (ok && !item.isEmpty()) {
-        ArchArgs chipArgs;
-        chipArgs.type = (ArchArgs::ArchArgsTypes)arch.value(item);
-
-        QStringList packages;
-        for (auto package : Arch::get_supported_packages(chipArgs.type))
-            packages.append(QLatin1String(package.data(), package.size()));
-        QString package = QInputDialog::getItem(this, "Select package", "Package:", packages, 0, false, &ok);
-
-        if (ok && !item.isEmpty()) {
-            handler->clear();
-            currentProj = "";
-            disableActions();
-            chipArgs.package = package.toStdString().c_str();
-            ctx = std::unique_ptr<Context>(new Context(chipArgs));
-            actionLoadJSON->setEnabled(true);
-
-            Q_EMIT contextChanged(ctx.get());
+    std::stringstream ss(available_devices);
+    std::string name;
+    while (getline(ss, name, ';')) {
+        std::string chipdb = stringf("ecp5/chipdb-%s.bin", name.c_str());
+        auto db_ptr = reinterpret_cast<const RelPtr<ChipInfoPOD> *>(get_chipdb(chipdb));
+        if (!db_ptr)
+            continue; // chipdb not available
+        for (auto &dev : db_ptr->get()->devices) {
+            for (auto &chip : dev.variants) {
+                for (auto &pkg : chip.packages) {
+                    for (auto &speedgrade : chip.speed_grades) {
+                        for (auto &rating : chip.suffixes) {
+                            std::string devname = stringf("%s-%d%s%s", chip.name.get(), speedgrade.speed,
+                                                        pkg.short_name.get(), rating.suffix.get());
+                            arch.append(QString::fromLocal8Bit(devname.c_str()));
+                        }
+                    }
+                }
+            }
         }
     }
-}
 
+    bool ok;
+    QString item = QInputDialog::getItem(this, "Select new context", "Part:", arch, 0, false, &ok);
+    if (ok && !item.isEmpty()) {
+        ArchArgs chipArgs;
+        chipArgs.device = item.toUtf8().constData();
+        ;
+
+        handler->clear();
+        currentProj = "";
+        disableActions();
+        ctx = std::unique_ptr<Context>(new Context(chipArgs));
+        actionLoadJSON->setEnabled(true);
+
+        Q_EMIT contextChanged(ctx.get());
+    }
+}
 void MainWindow::open_lpf()
 {
     QString fileName = QFileDialog::getOpenFileName(this, QString("Open LPF"), QString(), QString("*.lpf"));

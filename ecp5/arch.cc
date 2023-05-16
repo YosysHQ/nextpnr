@@ -34,6 +34,7 @@
 #include "router2.h"
 #include "timing.h"
 #include "util.h"
+#include "ecp5_available.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -48,60 +49,89 @@ void IdString::initialize_arch(const BaseCtx *ctx)
 #undef X
 }
 
-// -----------------------------------------------------------------------
+// ---------------------------------------------------------------
 
-static const ChipInfoPOD *get_chip_info(ArchArgs::ArchArgsTypes chip)
+static void get_chip_info(std::string device, const DeviceInfoPOD **device_info, const ChipInfoPOD **chip_info, const PackageInfoPOD **package_info,
+                          const char **device_name, const char **package_name, Arch::ArchTypes *type, Arch::SpeedGrade *speed)
 {
-    std::string chipdb;
-    if (chip == ArchArgs::LFE5U_12F || chip == ArchArgs::LFE5U_25F || chip == ArchArgs::LFE5UM_25F ||
-        chip == ArchArgs::LFE5UM5G_25F) {
-        chipdb = "ecp5/chipdb-25k.bin";
-    } else if (chip == ArchArgs::LFE5U_45F || chip == ArchArgs::LFE5UM_45F || chip == ArchArgs::LFE5UM5G_45F) {
-        chipdb = "ecp5/chipdb-45k.bin";
-    } else if (chip == ArchArgs::LFE5U_85F || chip == ArchArgs::LFE5UM_85F || chip == ArchArgs::LFE5UM5G_85F) {
-        chipdb = "ecp5/chipdb-85k.bin";
-    } else {
-        log_error("Unknown chip\n");
+    std::stringstream ss(available_devices);
+    std::string name;
+    while (getline(ss, name, ';')) {
+        std::string chipdb = stringf("ecp5/chipdb-%s.bin", name.c_str());
+        auto db_ptr = reinterpret_cast<const RelPtr<ChipInfoPOD> *>(get_chipdb(chipdb));
+        if (!db_ptr)
+            continue; // chipdb not available
+        for (auto &dev : db_ptr->get()->devices) {
+            for (auto &chip : dev.variants) {
+                for (auto &pkg : chip.packages) {
+                    for (auto &speedgrade : chip.speed_grades) {
+                        for (auto &rating : chip.suffixes) {
+                            std::string devname = stringf("%s-%d%s%s", chip.name.get(), speedgrade.speed,
+                                                        pkg.short_name.get(), rating.suffix.get());
+                            if (device == devname) {
+                                *device_info = &dev;
+                                *chip_info = db_ptr->get();
+                                *package_info = nullptr;
+                                *package_name = pkg.name.get();
+                                *device_name = chip.name.get();
+                                *type = Arch::ArchTypes::NONE;
+                                if (strcmp(*device_name,"LFE5U-12F")==0 || strcmp(*device_name,"LAE5U-12F")==0)
+                                    *type = Arch::ArchTypes::LFE5U_12F;
+                                else if (strcmp(*device_name,"LFE5U-25F")==0)
+                                    *type = Arch::ArchTypes::LFE5U_25F;
+                                else if (strcmp(*device_name,"LFE5U-45F")==0)
+                                    *type = Arch::ArchTypes::LFE5U_45F;
+                                else if (strcmp(*device_name,"LFE5U-85F")==0)
+                                    *type = Arch::ArchTypes::LFE5U_85F;
+                                else if (strcmp(*device_name,"LFE5UM-25F")==0 || strcmp(*device_name,"LAE5UM-25F")==0)
+                                    *type = Arch::ArchTypes::LFE5UM_25F;
+                                else if (strcmp(*device_name,"LFE5UM-45F")==0 || strcmp(*device_name,"LAE5UM-45F")==0)
+                                    *type = Arch::ArchTypes::LFE5UM_45F;
+                                else if (strcmp(*device_name,"LFE5UM-85F")==0 || strcmp(*device_name,"LAE5UM-85F")==0)
+                                    *type = Arch::ArchTypes::LFE5UM_85F;
+                                else if (strcmp(*device_name,"LFE5UM5G-25F")==0)
+                                    *type = Arch::ArchTypes::LFE5UM5G_25F;
+                                else if (strcmp(*device_name,"LFE5UM5G-45F")==0)
+                                    *type = Arch::ArchTypes::LFE5UM5G_45F;
+                                else if (strcmp(*device_name,"LFE5UM5G-85F")==0)
+                                    *type = Arch::ArchTypes::LFE5UM5G_85F;
+                                else
+                                    log_error("Unsupported device '%s'.\n", *device_name);
+
+                                *speed = Arch::SpeedGrade(speedgrade.speed - 6);
+                                if (strstr(*device_name,"LFE5UM5G")) {
+                                    *speed = Arch::SPEED_8_5G;
+                                }
+                                for (auto &pi : db_ptr->get()->package_info) {
+                                    if (strcasecmp(pkg.name.get(),pi.name.get())==0) {
+                                        *package_info = &pi;
+                                        break;
+                                    }
+                                }
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
-
-    auto ptr = reinterpret_cast<const RelPtr<ChipInfoPOD> *>(get_chipdb(chipdb));
-    if (ptr == nullptr)
-        return nullptr;
-    return ptr->get();
 }
 
-bool Arch::is_available(ArchArgs::ArchArgsTypes chip) { return get_chip_info(chip) != nullptr; }
-
-std::vector<std::string> Arch::get_supported_packages(ArchArgs::ArchArgsTypes chip)
-{
-    const ChipInfoPOD *chip_info = get_chip_info(chip);
-    std::vector<std::string> packages;
-    for (auto &pkg : chip_info->package_info)
-        packages.push_back(pkg.name.get());
-    return packages;
-}
-
-// -----------------------------------------------------------------------
+// ---------------------------------------------------------------
 
 Arch::Arch(ArchArgs args) : args(args)
 {
-    chip_info = get_chip_info(args.type);
+    get_chip_info(args.device, &device_info, &chip_info, &package_info, &device_name, &package_name, &type, &speed);
     if (chip_info == nullptr)
-        log_error("Unsupported ECP5 chip type.\n");
+        log_error("Unsupported device '%s'.\n", args.device.c_str());
     if (chip_info->const_id_count != DB_CONST_ID_COUNT)
         log_error("Chip database 'bba' and nextpnr code are out of sync; please rebuild (or contact distribution "
                   "maintainer)!\n");
 
-    package_info = nullptr;
-    for (auto &pkg : chip_info->package_info) {
-        if (args.package == pkg.name.get()) {
-            package_info = &pkg;
-            break;
-        }
-    }
-    speed_grade = &(chip_info->speed_grades[args.speed]);
+    speed_grade = &(chip_info->speed_grades[speed]);
     if (!package_info)
-        log_error("Unsupported package '%s' for '%s'.\n", args.package.c_str(), getChipName().c_str());
+        log_error("Unsupported package '%s' for '%s'.\n", package_name, getChipName().c_str());
 
     tile_status.resize(chip_info->num_tiles);
     for (int i = 0; i < chip_info->num_tiles; i++) {
@@ -160,81 +190,35 @@ Arch::Arch(ArchArgs args) : args(args)
     lutperm_allowed.resize(chip_info->width * chip_info->height * 4);
 }
 
-// -----------------------------------------------------------------------
-
-std::string Arch::getChipName() const
+void Arch::list_devices()
 {
-    if (args.type == ArchArgs::LFE5U_12F) {
-        return "LFE5U-12F";
-    } else if (args.type == ArchArgs::LFE5U_25F) {
-        return "LFE5U-25F";
-    } else if (args.type == ArchArgs::LFE5U_45F) {
-        return "LFE5U-45F";
-    } else if (args.type == ArchArgs::LFE5U_85F) {
-        return "LFE5U-85F";
-    } else if (args.type == ArchArgs::LFE5UM_25F) {
-        return "LFE5UM-25F";
-    } else if (args.type == ArchArgs::LFE5UM_45F) {
-        return "LFE5UM-45F";
-    } else if (args.type == ArchArgs::LFE5UM_85F) {
-        return "LFE5UM-85F";
-    } else if (args.type == ArchArgs::LFE5UM5G_25F) {
-        return "LFE5UM5G-25F";
-    } else if (args.type == ArchArgs::LFE5UM5G_45F) {
-        return "LFE5UM5G-45F";
-    } else if (args.type == ArchArgs::LFE5UM5G_85F) {
-        return "LFE5UM5G-85F";
-    } else {
-        log_error("Unknown chip\n");
+    log("Supported devices: \n");
+    std::stringstream ss(available_devices);
+    std::string name;
+    while (getline(ss, name, ';')) {
+        std::string chipdb = stringf("ecp5/chipdb-%s.bin", name.c_str());
+        auto db_ptr = reinterpret_cast<const RelPtr<ChipInfoPOD> *>(get_chipdb(chipdb));
+        if (!db_ptr)
+            continue; // chipdb not available
+        for (auto &dev : db_ptr->get()->devices) {
+            for (auto &chip : dev.variants) {
+                for (auto &pkg : chip.packages) {
+                    for (auto &speedgrade : chip.speed_grades) {
+                        for (auto &rating : chip.suffixes) {
+                            log("    %s-%d%s%s\n", chip.name.get(), speedgrade.speed, pkg.short_name.get(),
+                                rating.suffix.get());
+                        }
+                    }
+                }
+            }
+        }
     }
-}
-
-std::string Arch::get_full_chip_name() const
-{
-    std::string name = getChipName();
-    name += "-";
-    switch (args.speed) {
-    case ArchArgs::SPEED_6:
-        name += "6";
-        break;
-    case ArchArgs::SPEED_7:
-        name += "7";
-        break;
-    case ArchArgs::SPEED_8:
-    case ArchArgs::SPEED_8_5G:
-        name += "8";
-        break;
-    }
-    name += args.package;
-    return name;
 }
 
 // -----------------------------------------------------------------------
 
-IdString Arch::archArgsToId(ArchArgs args) const
-{
-    if (args.type == ArchArgs::LFE5U_12F)
-        return id_lfe5u_12f;
-    if (args.type == ArchArgs::LFE5U_25F)
-        return id_lfe5u_25f;
-    if (args.type == ArchArgs::LFE5U_45F)
-        return id_lfe5u_45f;
-    if (args.type == ArchArgs::LFE5U_85F)
-        return id_lfe5u_85f;
-    if (args.type == ArchArgs::LFE5UM_25F)
-        return id_lfe5um_25f;
-    if (args.type == ArchArgs::LFE5UM_45F)
-        return id_lfe5um_45f;
-    if (args.type == ArchArgs::LFE5UM_85F)
-        return id_lfe5um_85f;
-    if (args.type == ArchArgs::LFE5UM5G_25F)
-        return id_lfe5um5g_25f;
-    if (args.type == ArchArgs::LFE5UM5G_45F)
-        return id_lfe5um5g_45f;
-    if (args.type == ArchArgs::LFE5UM5G_85F)
-        return id_lfe5um5g_85f;
-    return IdString();
-}
+std::string Arch::getChipName() const { return args.device; }
+IdString Arch::archArgsToId(ArchArgs args) const { return id(args.device); }
 
 // -----------------------------------------------------------------------
 
@@ -500,7 +484,7 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
 
     int dx = abs(src_loc.first - dst_loc.first), dy = abs(src_loc.second - dst_loc.second);
 
-    return (120 - 22 * args.speed) *
+    return (120 - 22 * speed) *
            (6 + std::max(dx - 5, 0) + std::max(dy - 5, 0) + 2 * (std::min(dx, 5) + std::min(dy, 5)));
 }
 
@@ -578,7 +562,7 @@ delay_t Arch::predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdStr
 
     int dx = abs(driver_loc.x - sink_loc.x), dy = abs(driver_loc.y - sink_loc.y);
 
-    return (120 - 22 * args.speed) *
+    return (120 - 22 * speed) *
            (3 + std::max(dx - 5, 0) + std::max(dy - 5, 0) + 2 * (std::min(dx, 5) + std::min(dy, 5)));
 }
 

@@ -169,6 +169,28 @@ NPNR_PACKED_STRUCT(struct SpeedGradePOD {
     RelSlice<PipDelayPOD> pip_classes;
 });
 
+NPNR_PACKED_STRUCT(struct PackageSupportedPOD {
+    RelPtr<char> name;
+    RelPtr<char> short_name;
+});
+
+NPNR_PACKED_STRUCT(struct SuffixeSupportedPOD { RelPtr<char> suffix; });
+
+NPNR_PACKED_STRUCT(struct SpeedSupportedPOD { int32_t speed; });
+
+NPNR_PACKED_STRUCT(struct VariantInfoPOD {
+    RelPtr<char> name;
+    RelSlice<PackageSupportedPOD> packages;
+    RelSlice<SpeedSupportedPOD> speed_grades;
+    RelSlice<SuffixeSupportedPOD> suffixes;
+});
+
+NPNR_PACKED_STRUCT(struct DeviceInfoPOD {
+    RelPtr<char> family;
+    RelPtr<char> name;
+    RelSlice<VariantInfoPOD> variants;
+});
+
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     int32_t width, height;
     int32_t num_tiles;
@@ -181,6 +203,7 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelSlice<PIOInfoPOD> pio_info;
     RelSlice<TileInfoPOD> tile_info;
     RelSlice<SpeedGradePOD> speed_grades;
+    RelSlice<DeviceInfoPOD> devices;
 });
 
 /************************ End of chipdb section. ************************/
@@ -394,28 +417,7 @@ struct PipRange
 
 struct ArchArgs
 {
-    enum ArchArgsTypes
-    {
-        NONE,
-        LFE5U_12F,
-        LFE5U_25F,
-        LFE5U_45F,
-        LFE5U_85F,
-        LFE5UM_25F,
-        LFE5UM_45F,
-        LFE5UM_85F,
-        LFE5UM5G_25F,
-        LFE5UM5G_45F,
-        LFE5UM5G_85F,
-    } type = NONE;
-    std::string package;
-    enum SpeedGrade
-    {
-        SPEED_6 = 0,
-        SPEED_7,
-        SPEED_8,
-        SPEED_8_5G,
-    } speed = SPEED_6;
+    std::string device;
 };
 
 struct DelayKey
@@ -446,9 +448,34 @@ struct ArchRanges : BaseArchRanges
 
 struct Arch : BaseArch<ArchRanges>
 {
+    const DeviceInfoPOD *device_info;
     const ChipInfoPOD *chip_info;
     const PackageInfoPOD *package_info;
     const SpeedGradePOD *speed_grade;
+    const char *package_name;
+    const char *device_name;
+    enum ArchTypes
+    {
+        NONE,
+        LFE5U_12F,
+        LFE5U_25F,
+        LFE5U_45F,
+        LFE5U_85F,
+        LFE5UM_25F,
+        LFE5UM_45F,
+        LFE5UM_85F,
+        LFE5UM5G_25F,
+        LFE5UM5G_45F,
+        LFE5UM5G_85F,
+    } type = NONE;
+
+    enum SpeedGrade
+    {
+        SPEED_6 = 0,
+        SPEED_7,
+        SPEED_8,
+        SPEED_8_5G,
+    } speed = SPEED_6;
 
     mutable dict<IdStringList, PipId> pip_by_name;
 
@@ -513,11 +540,9 @@ struct Arch : BaseArch<ArchRanges>
     ArchArgs args;
     Arch(ArchArgs args);
 
-    static bool is_available(ArchArgs::ArchArgsTypes chip);
-    static std::vector<std::string> get_supported_packages(ArchArgs::ArchArgsTypes chip);
+    static void list_devices();
 
     std::string getChipName() const override;
-    std::string get_full_chip_name() const;
 
     ArchArgs archArgs() const override { return args; }
     IdString archArgsToId(ArchArgs args) const override;

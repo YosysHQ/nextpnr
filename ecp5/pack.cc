@@ -582,7 +582,7 @@ class Ecp5Packer
                         BelId pinBel = ctx->get_package_pin_bel(pin);
                         if (pinBel == BelId()) {
                             log_error("IO pin '%s' constrained to pin '%s', which does not exist for package '%s'.\n",
-                                      trio->name.c_str(ctx), pin.c_str(), ctx->args.package.c_str());
+                                      trio->name.c_str(ctx), pin.c_str(), ctx->package_name);
                         } else {
                             log_info("pin '%s' constrained to Bel '%s'.\n", trio->name.c_str(ctx),
                                      ctx->nameOfBel(pinBel));
@@ -1323,19 +1323,19 @@ class Ecp5Packer
                 if (ci->attrs.count(id_LOC)) {
                     std::string loc = ci->attrs.at(id_LOC).as_string();
                     if (loc == "DCU0" &&
-                        (ctx->args.type == ArchArgs::LFE5UM_25F || ctx->args.type == ArchArgs::LFE5UM5G_25F))
+                        (ctx->type == Arch::ArchTypes::LFE5UM_25F || ctx->type == Arch::ArchTypes::LFE5UM5G_25F))
                         ci->attrs[id_BEL] = std::string("X42/Y50/DCU");
                     else if (loc == "DCU0" &&
-                             (ctx->args.type == ArchArgs::LFE5UM_45F || ctx->args.type == ArchArgs::LFE5UM5G_45F))
+                             (ctx->type == Arch::ArchTypes::LFE5UM_45F || ctx->type == Arch::ArchTypes::LFE5UM5G_45F))
                         ci->attrs[id_BEL] = std::string("X42/Y71/DCU");
                     else if (loc == "DCU1" &&
-                             (ctx->args.type == ArchArgs::LFE5UM_45F || ctx->args.type == ArchArgs::LFE5UM5G_45F))
+                             (ctx->type == Arch::ArchTypes::LFE5UM_45F || ctx->type == Arch::ArchTypes::LFE5UM5G_45F))
                         ci->attrs[id_BEL] = std::string("X69/Y71/DCU");
                     else if (loc == "DCU0" &&
-                             (ctx->args.type == ArchArgs::LFE5UM_85F || ctx->args.type == ArchArgs::LFE5UM5G_85F))
+                             (ctx->type == Arch::ArchTypes::LFE5UM_85F || ctx->type == Arch::ArchTypes::LFE5UM5G_85F))
                         ci->attrs[id_BEL] = std::string("X46/Y95/DCU");
                     else if (loc == "DCU1" &&
-                             (ctx->args.type == ArchArgs::LFE5UM_85F || ctx->args.type == ArchArgs::LFE5UM5G_85F))
+                             (ctx->type == Arch::ArchTypes::LFE5UM_85F || ctx->type == Arch::ArchTypes::LFE5UM5G_85F))
                         ci->attrs[id_BEL] = std::string("X71/Y95/DCU");
                     else
                         log_error("no DCU location '%s' in device '%s'\n", loc.c_str(), ctx->getChipName().c_str());
@@ -1378,19 +1378,19 @@ class Ecp5Packer
                 if (ci->attrs.count(id_LOC)) {
                     std::string loc = ci->attrs.at(id_LOC).as_string();
                     if (loc == "EXTREF0" &&
-                        (ctx->args.type == ArchArgs::LFE5UM_25F || ctx->args.type == ArchArgs::LFE5UM5G_25F))
+                        (ctx->type == Arch::ArchTypes::LFE5UM_25F || ctx->type == Arch::ArchTypes::LFE5UM5G_25F))
                         loc_bel = std::string("X42/Y50/EXTREF");
                     else if (loc == "EXTREF0" &&
-                             (ctx->args.type == ArchArgs::LFE5UM_45F || ctx->args.type == ArchArgs::LFE5UM5G_45F))
+                             (ctx->type == Arch::ArchTypes::LFE5UM_45F || ctx->type == Arch::ArchTypes::LFE5UM5G_45F))
                         loc_bel = std::string("X42/Y71/EXTREF");
                     else if (loc == "EXTREF1" &&
-                             (ctx->args.type == ArchArgs::LFE5UM_45F || ctx->args.type == ArchArgs::LFE5UM5G_45F))
+                             (ctx->type == Arch::ArchTypes::LFE5UM_45F || ctx->type == Arch::ArchTypes::LFE5UM5G_45F))
                         loc_bel = std::string("X69/Y71/EXTREF");
                     else if (loc == "EXTREF0" &&
-                             (ctx->args.type == ArchArgs::LFE5UM_85F || ctx->args.type == ArchArgs::LFE5UM5G_85F))
+                             (ctx->type == Arch::ArchTypes::LFE5UM_85F || ctx->type == Arch::ArchTypes::LFE5UM5G_85F))
                         loc_bel = std::string("X46/Y95/EXTREF");
                     else if (loc == "EXTREF1" &&
-                             (ctx->args.type == ArchArgs::LFE5UM_85F || ctx->args.type == ArchArgs::LFE5UM5G_85F))
+                             (ctx->type == Arch::ArchTypes::LFE5UM_85F || ctx->type == Arch::ArchTypes::LFE5UM5G_85F))
                         loc_bel = std::string("X71/Y95/EXTREF");
                 }
                 if (refo == nullptr)

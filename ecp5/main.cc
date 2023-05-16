@@ -49,29 +49,21 @@ ECP5CommandHandler::ECP5CommandHandler(int argc, char **argv) : CommandHandler(a
 po::options_description ECP5CommandHandler::getArchOptions()
 {
     po::options_description specific("Architecture specific options");
-    if (Arch::is_available(ArchArgs::LFE5U_12F))
-        specific.add_options()("12k", "set device type to LFE5U-12F");
-    if (Arch::is_available(ArchArgs::LFE5U_25F))
-        specific.add_options()("25k", "set device type to LFE5U-25F");
-    if (Arch::is_available(ArchArgs::LFE5U_45F))
-        specific.add_options()("45k", "set device type to LFE5U-45F");
-    if (Arch::is_available(ArchArgs::LFE5U_85F))
-        specific.add_options()("85k", "set device type to LFE5U-85F");
-    if (Arch::is_available(ArchArgs::LFE5UM_25F))
-        specific.add_options()("um-25k", "set device type to LFE5UM-25F");
-    if (Arch::is_available(ArchArgs::LFE5UM_45F))
-        specific.add_options()("um-45k", "set device type to LFE5UM-45F");
-    if (Arch::is_available(ArchArgs::LFE5UM_85F))
-        specific.add_options()("um-85k", "set device type to LFE5UM-85F");
-    if (Arch::is_available(ArchArgs::LFE5UM5G_25F))
-        specific.add_options()("um5g-25k", "set device type to LFE5UM5G-25F");
-    if (Arch::is_available(ArchArgs::LFE5UM5G_45F))
-        specific.add_options()("um5g-45k", "set device type to LFE5UM5G-45F");
-    if (Arch::is_available(ArchArgs::LFE5UM5G_85F))
-        specific.add_options()("um5g-85k", "set device type to LFE5UM5G-85F");
+    specific.add_options()("device", po::value<std::string>(), "device name");
+    specific.add_options()("list-devices", "list all supported device names");
+    specific.add_options()("12k", "set device type to LFE5U-12F (deprecated)");
+    specific.add_options()("25k", "set device type to LFE5U-25F (deprecated)");
+    specific.add_options()("45k", "set device type to LFE5U-45F (deprecated)");
+    specific.add_options()("85k", "set device type to LFE5U-85F (deprecated)");
+    specific.add_options()("um-25k", "set device type to LFE5UM-25F (deprecated)");
+    specific.add_options()("um-45k", "set device type to LFE5UM-45F (deprecated)");
+    specific.add_options()("um-85k", "set device type to LFE5UM-85F (deprecated)");
+    specific.add_options()("um5g-25k", "set device type to LFE5UM5G-25F (deprecated)");
+    specific.add_options()("um5g-45k", "set device type to LFE5UM5G-45F (deprecated)");
+    specific.add_options()("um5g-85k", "set device type to LFE5UM5G-85F (deprecated)");
 
-    specific.add_options()("package", po::value<std::string>(), "select device package (defaults to CABGA381)");
-    specific.add_options()("speed", po::value<int>(), "select device speedgrade (6, 7 or 8)");
+    specific.add_options()("package", po::value<std::string>(), "select device package (defaults to CABGA381)  (deprecated)");
+    specific.add_options()("speed", po::value<int>(), "select device speedgrade (6, 7 or 8)  (deprecated)");
 
     specific.add_options()("basecfg", po::value<std::string>(),
                            "base chip configuration in Trellis text format (deprecated)");
@@ -91,7 +83,10 @@ po::options_description ECP5CommandHandler::getArchOptions()
 }
 void ECP5CommandHandler::validate()
 {
-    if ((vm.count("25k") + vm.count("45k") + vm.count("85k")) > 1)
+    if ((vm.count("12k") + vm.count("25k") + vm.count("45k") + vm.count("85k") + 
+         vm.count("um-25k") + vm.count("um-45k") + vm.count("um-85k") + 
+         vm.count("um5g-25k") + vm.count("um5g-45k") + vm.count("um5g-85k") + 
+         vm.count("device")) > 1)
         log_error("Only one device type can be set\n");
 }
 
@@ -117,70 +112,37 @@ void ECP5CommandHandler::customBitstream(Context *ctx)
     }
 }
 
-static std::string speedString(ArchArgs::SpeedGrade speed)
-{
-    switch (speed) {
-    case ArchArgs::SPEED_6:
-        return "6";
-    case ArchArgs::SPEED_7:
-        return "7";
-    case ArchArgs::SPEED_8:
-        return "8";
-    case ArchArgs::SPEED_8_5G:
-        return "8";
-    }
-    return "";
-}
 
 std::unique_ptr<Context> ECP5CommandHandler::createContext(dict<std::string, Property> &values)
 {
     ArchArgs chipArgs;
-    chipArgs.type = ArchArgs::NONE;
-    if (vm.count("12k"))
-        chipArgs.type = ArchArgs::LFE5U_12F;
-    if (vm.count("25k"))
-        chipArgs.type = ArchArgs::LFE5U_25F;
-    if (vm.count("45k"))
-        chipArgs.type = ArchArgs::LFE5U_45F;
-    if (vm.count("85k"))
-        chipArgs.type = ArchArgs::LFE5U_85F;
-    if (vm.count("um-25k"))
-        chipArgs.type = ArchArgs::LFE5UM_25F;
-    if (vm.count("um-45k"))
-        chipArgs.type = ArchArgs::LFE5UM_45F;
-    if (vm.count("um-85k"))
-        chipArgs.type = ArchArgs::LFE5UM_85F;
-    if (vm.count("um5g-25k"))
-        chipArgs.type = ArchArgs::LFE5UM5G_25F;
-    if (vm.count("um5g-45k"))
-        chipArgs.type = ArchArgs::LFE5UM5G_45F;
-    if (vm.count("um5g-85k"))
-        chipArgs.type = ArchArgs::LFE5UM5G_85F;
-    if (vm.count("package"))
-        chipArgs.package = vm["package"].as<std::string>();
-
-    if (vm.count("speed")) {
-        int speed = vm["speed"].as<int>();
-        switch (speed) {
-        case 6:
-            chipArgs.speed = ArchArgs::SPEED_6;
-            break;
-        case 7:
-            chipArgs.speed = ArchArgs::SPEED_7;
-            break;
-        case 8:
-            chipArgs.speed = ArchArgs::SPEED_8;
-            break;
-        default:
-            log_error("Unsupported speed grade '%d'\n", speed);
-        }
-    } else {
-        if (chipArgs.type == ArchArgs::LFE5UM5G_25F || chipArgs.type == ArchArgs::LFE5UM5G_45F ||
-            chipArgs.type == ArchArgs::LFE5UM5G_85F) {
-            chipArgs.speed = ArchArgs::SPEED_8;
-        } else
-            chipArgs.speed = ArchArgs::SPEED_6;
+    if (vm.count("list-devices")) {
+        Arch::list_devices();
+        exit(0);
     }
+    if (vm.count("device"))
+        chipArgs.device = vm["device"].as<std::string>();
+    else if (vm.count("12k"))
+        chipArgs.device = "LFE5U-12F";
+    else if (vm.count("25k"))
+        chipArgs.device = "LFE5U-25F";
+    else if (vm.count("45k"))
+        chipArgs.device = "LFE5U-45F";
+    else if (vm.count("85k"))
+        chipArgs.device = "LFE5U-85F";
+    else if (vm.count("um-25k"))
+        chipArgs.device = "LFE5UM-25F";
+    else if (vm.count("um-45k"))
+        chipArgs.device = "LFE5UM-45F";
+    else if (vm.count("um-85k"))
+        chipArgs.device = "LFE5UM-85F";
+    else if (vm.count("um5g-25k"))
+        chipArgs.device = "LFE5UM5G-25F";
+    else if (vm.count("um5g-45k"))
+        chipArgs.device = "LFE5UM5G-45F";
+    else if (vm.count("um5g-85k"))
+        chipArgs.device = "LFE5UM5G-85F";
+
     if (values.find("arch.name") != values.end()) {
         std::string arch_name = values["arch.name"].as_string();
         if (arch_name != "ecp5")
@@ -188,71 +150,61 @@ std::unique_ptr<Context> ECP5CommandHandler::createContext(dict<std::string, Pro
     }
     if (values.find("arch.type") != values.end()) {
         std::string arch_type = values["arch.type"].as_string();
-        if (chipArgs.type != ArchArgs::NONE)
+        if (!chipArgs.device.empty())
             log_error("Overriding architecture is unsupported.\n");
-
-        if (arch_type == "lfe5u_12f")
-            chipArgs.type = ArchArgs::LFE5U_12F;
-        if (arch_type == "lfe5u_25f")
-            chipArgs.type = ArchArgs::LFE5U_25F;
-        if (arch_type == "lfe5u_45f")
-            chipArgs.type = ArchArgs::LFE5U_45F;
-        if (arch_type == "lfe5u_85f")
-            chipArgs.type = ArchArgs::LFE5U_85F;
-        if (arch_type == "lfe5um_25f")
-            chipArgs.type = ArchArgs::LFE5UM_25F;
-        if (arch_type == "lfe5um_45f")
-            chipArgs.type = ArchArgs::LFE5UM_45F;
-        if (arch_type == "lfe5um_85f")
-            chipArgs.type = ArchArgs::LFE5UM_85F;
-        if (arch_type == "lfe5um5g_25f")
-            chipArgs.type = ArchArgs::LFE5UM5G_25F;
-        if (arch_type == "lfe5um5g_45f")
-            chipArgs.type = ArchArgs::LFE5UM5G_45F;
-        if (arch_type == "lfe5um5g_85f")
-            chipArgs.type = ArchArgs::LFE5UM5G_85F;
-
-        if (chipArgs.type == ArchArgs::NONE)
-            log_error("Unsupported FPGA type '%s'.\n", arch_type.c_str());
-    }
-    if (values.find("arch.package") != values.end()) {
-        if (vm.count("package"))
-            log_error("Overriding architecture is unsupported.\n");
-        chipArgs.package = values["arch.package"].as_string();
-    }
-    if (values.find("arch.speed") != values.end()) {
-        std::string arch_speed = values["arch.speed"].as_string();
-        if (arch_speed == "6")
-            chipArgs.speed = ArchArgs::SPEED_6;
-        else if (arch_speed == "7")
-            chipArgs.speed = ArchArgs::SPEED_7;
-        else if (arch_speed == "8")
-            chipArgs.speed = ArchArgs::SPEED_8;
-        else
-            log_error("Unsupported speed '%s'.\n", arch_speed.c_str());
-    }
-    if (chipArgs.type == ArchArgs::NONE)
-        chipArgs.type = ArchArgs::LFE5U_45F;
-
-    if (chipArgs.package.empty()) {
-        chipArgs.package = "CABGA381";
-        log_warning("Use of default value for --package is deprecated. Please add '--package %s' to arguments.\n",
-                    chipArgs.package.c_str());
+        chipArgs.device = arch_type;
     }
 
-    if (chipArgs.type == ArchArgs::LFE5UM5G_25F || chipArgs.type == ArchArgs::LFE5UM5G_45F ||
-        chipArgs.type == ArchArgs::LFE5UM5G_85F) {
-        if (chipArgs.speed != ArchArgs::SPEED_8)
-            log_error("Only speed grade 8 is available for 5G parts\n");
-        else
-            chipArgs.speed = ArchArgs::SPEED_8_5G;
+    if (chipArgs.device.empty())
+        chipArgs.device = "LFE5UM-45F";
+
+    if (!vm.count("device")) {
+        if (vm.count("speed")) {
+            int speed = vm["speed"].as<int>();
+            switch (speed) {
+            case 6:
+                chipArgs.device += "-6";
+                break;
+            case 7:
+                chipArgs.device += "-7";
+                break;
+            case 8:
+                chipArgs.device += "-8";
+                break;
+            default:
+                log_error("Unsupported speed grade '%d'\n", speed);
+            }
+        } else {
+            if (strstr(chipArgs.device.c_str(),"LFE5UM5G")) {
+                chipArgs.device += "-8";
+            } else
+                chipArgs.device += "-6";
+        }
+        if (vm.count("package")) {
+            std::string package = vm["package"].as<std::string>();
+            if (strcasecmp(package.c_str(), "csfBGA285")==0) {
+                chipArgs.device += "MG285C";
+            } else if (strcasecmp(package.c_str(), "caBGA256")==0) {
+                chipArgs.device += "BG256C";
+            } else if (strcasecmp(package.c_str(), "caBGA381")==0) {
+                chipArgs.device += "BG381C";
+            } else if (strcasecmp(package.c_str(), "caBGA554")==0) {
+                chipArgs.device += "BG554C";
+            } else if (strcasecmp(package.c_str(), "caBGA756")==0) {
+                chipArgs.device += "BG756C";
+            } else {
+                log_error("Unsupported package '%s'\n", package.c_str());
+            }
+        }
+        else {
+            chipArgs.device += "BG381C";
+            log_warning("Use of default value for --package is deprecated. Please add '--package caBGA381' to arguments.\n");
+        }
     }
 
     auto ctx = std::unique_ptr<Context>(new Context(chipArgs));
     for (auto &val : values)
         ctx->settings[ctx->id(val.first)] = val.second;
-    ctx->settings[ctx->id("arch.package")] = ctx->archArgs().package;
-    ctx->settings[ctx->id("arch.speed")] = speedString(ctx->archArgs().speed);
     if (vm.count("out-of-context"))
         ctx->settings[ctx->id("arch.ooc")] = 1;
     if (vm.count("disable-router-lutperm"))
