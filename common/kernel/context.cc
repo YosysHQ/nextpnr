@@ -128,6 +128,12 @@ delay_t Context::getNetinfoRouteDelay(const NetInfo *net_info, const PortRef &us
     if (src_wire == WireId())
         return 0;
 
+    DelayQuad quad_result;
+    if (getArcDelayOverride(net_info, user_info, quad_result)) {
+        // Arch overrides delay
+        return quad_result.maxDelay();
+    }
+
     delay_t max_delay = 0;
 
     for (auto dst_wire : getNetinfoSinkWires(net_info, user_info)) {
@@ -172,6 +178,11 @@ DelayQuad Context::getNetinfoRouteDelayQuad(const NetInfo *net_info, const PortR
         return DelayQuad(0);
 
     DelayQuad result(std::numeric_limits<delay_t>::max(), std::numeric_limits<delay_t>::lowest());
+
+    if (getArcDelayOverride(net_info, user_info, result)) {
+        // Arch overrides delay
+        return result;
+    }
 
     for (auto dst_wire : getNetinfoSinkWires(net_info, user_info)) {
         WireId cursor = dst_wire;

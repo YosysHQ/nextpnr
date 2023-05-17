@@ -317,6 +317,10 @@ template <typename R> struct BaseArch : ArchAPI<R>
     {
         return false;
     }
+    virtual bool getArcDelayOverride(const NetInfo *net_info, const PortRef &sink, DelayQuad &delay) const override
+    {
+        return false;
+    }
 
     // Decal methods
     virtual typename R::DecalGfxRangeT getDecalGraphics(DecalId decal) const override
