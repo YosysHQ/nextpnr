@@ -551,6 +551,14 @@ Overwrite or modify (in-place) the timing budget for a given arc. Returns a bool
 
 *BaseArch default: returns false*
 
+### bool getArcDelayOverride(const NetInfo \*net_info, const PortRef &sink, DelayQuad &delay) const
+
+This allows an arch to provide a more precise method for calculating the delay for a routed arc than
+summing wire and pip delays; for example a SPICE simulation. If available, `delay` should be set and
+`true` returned.
+
+*BaseArch default: returns false*
+
 Flow Methods
 ------------
 

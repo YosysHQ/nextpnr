@@ -709,6 +709,11 @@ struct Arch : ArchAPI<ArchRanges>
     uint32_t getDelayChecksum(delay_t v) const final { return v; }
     bool getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const final;
 
+    bool getArcDelayOverride(const NetInfo *net_info, const PortRef &sink, DelayQuad &delay) const final
+    {
+        return false;
+    }
+
     // -------------------------------------------------
 
     void place_iobufs(WireId pad_wire, NetInfo *net,
