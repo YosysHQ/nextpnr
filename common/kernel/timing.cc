@@ -296,8 +296,8 @@ void TimingAnalyser::identify_related_domains()
 
     // For each clock net identify all nets that can possibly drive it. Compute
     // cumulative delays to each of them.
-    std::function<void(const NetInfo *, dict<IdString, delay_t> &, delay_t)> find_net_drivers =
-            [&](const NetInfo *ni, dict<IdString, delay_t> &drivers, delay_t delay_acc) {
+    std::function<void(const NetInfo *, std::set<IdString> &, dict<IdString, delay_t> &, delay_t)> find_net_drivers =
+            [&](const NetInfo *ni, std::set<IdString> &net_trace, dict<IdString, delay_t> &drivers, delay_t delay_acc) {
                 // Get driving cell and port
                 if (ni == nullptr)
                     return;
@@ -308,6 +308,13 @@ void TimingAnalyser::identify_related_domains()
                 const IdString port = ni->driver.port;
 
                 bool didGoUpstream = false;
+
+                // Ring oscillator driving the net
+                if (net_trace.find(ni->name) != net_trace.end()) {
+                    drivers[ni->name] = delay_acc;
+                    return;
+                }
+                net_trace.insert(ni->name);
 
                 // The cell has only one port
                 if (cell->ports.size() == 1) {
@@ -350,7 +357,7 @@ void TimingAnalyser::identify_related_domains()
                     }
 
                     // Recurse
-                    find_net_drivers(pi.net, drivers, delay_acc + delay.maxDelay());
+                    find_net_drivers(pi.net, net_trace, drivers, delay_acc + delay.maxDelay());
                     didGoUpstream = true;
                 }
 
@@ -371,7 +378,8 @@ void TimingAnalyser::identify_related_domains()
             continue;
 
         dict<IdString, delay_t> drivers;
-        find_net_drivers(ni, drivers, 0);
+        std::set<IdString> net_trace;
+        find_net_drivers(ni, net_trace, drivers, 0);
 
         clock_drivers[domain.key.clock] = drivers;
 
