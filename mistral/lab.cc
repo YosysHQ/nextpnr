@@ -425,7 +425,7 @@ bool Arch::is_alm_legal(uint32_t lab, uint8_t alm) const
             return false;
     }
 
-    bool carry_mode = false;
+    bool carry_mode = (luts[0] && luts[0]->combInfo.is_carry) || (luts[1] && luts[1]->combInfo.is_carry);
 
     // No mixing of carry and non-carry
     if (luts[0] && luts[1] && luts[0]->combInfo.is_carry != luts[1]->combInfo.is_carry)
@@ -811,6 +811,7 @@ void Arch::reassign_alm_inputs(uint32_t lab, uint8_t alm)
     // This function should also insert route-through LUTs to legalise flipflop inputs as needed.
     auto &alm_data = labs.at(lab).alms.at(alm);
     alm_data.l6_mode = false;
+    alm_data.carry_mode = false;
     std::array<CellInfo *, 2> luts{getBoundBelCell(alm_data.lut_bels[0]), getBoundBelCell(alm_data.lut_bels[1])};
     std::array<CellInfo *, 4> ffs{getBoundBelCell(alm_data.ff_bels[0]), getBoundBelCell(alm_data.ff_bels[1]),
                                   getBoundBelCell(alm_data.ff_bels[2]), getBoundBelCell(alm_data.ff_bels[3])};
@@ -820,6 +821,8 @@ void Arch::reassign_alm_inputs(uint32_t lab, uint8_t alm)
         // Currently we treat LUT6s and MLABs as a special case, as they never share inputs or have fixed mappings
         if (!luts[i])
             continue;
+        if (luts[i]->combInfo.is_carry)
+            alm_data.carry_mode = true;
         if (luts[i]->type == id_MISTRAL_ALUT6) {
             alm_data.l6_mode = true;
             NPNR_ASSERT(luts[1 - i] == nullptr); // only allow one LUT6 per ALM and no other LUTs
@@ -916,7 +919,7 @@ void Arch::reassign_alm_inputs(uint32_t lab, uint8_t alm)
             continue;
         for (int j = 0; j < 2; j++) {
             CellInfo *ff = ffs[i * 2 + j];
-            if (!ff || !ff->ffInfo.datain || alm_data.l6_mode)
+            if (!ff || !ff->ffInfo.datain || alm_data.l6_mode || alm_data.carry_mode)
                 continue;
             CellInfo *rt_lut = createCell(idf("%s$ROUTETHRU", nameOf(ff)), id_MISTRAL_BUF);
             rt_lut->addInput(id_A);
@@ -1045,10 +1048,12 @@ uint64_t Arch::compute_lut_mask(uint32_t lab, uint8_t alm)
                     }
                 }
                 CellPinState state = lut->get_pin_state(log_pin);
-                if (state == PIN_0)
+                if (state == PIN_0) {
                     continue;
-                else if (state == PIN_1)
+                } else if (state == PIN_1) {
                     index |= (1 << init_idx);
+                    continue;
+                }
                 // Ignore if no associated physical pin
                 if (lut->getPort(log_pin) == nullptr || lut->pin_data.at(log_pin).bel_pins.empty())
                     continue;

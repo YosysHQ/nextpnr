@@ -48,6 +48,7 @@ struct ALMInfo
     std::array<BelId, 4> ff_bels;
 
     bool l6_mode = false;
+    bool carry_mode = false;
 
     // Which CLK/ENA and ACLR is chosen for each half
     std::array<int, 2> clk_ena_idx, aclr_idx;
