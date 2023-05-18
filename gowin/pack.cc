@@ -30,6 +30,46 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+static bool check_availability(const Context *ctx, IdString type)
+{
+    switch (type.hash()) {
+    case ID_ELVDS_IBUF:
+        if (ctx->device != "GW1NZ-1") {
+            return true;
+        }
+        break;
+    case ID_ELVDS_IOBUF:
+        if (ctx->device == "GW1NZ-1") {
+            return true;
+        }
+        break;
+    case ID_TLVDS_IBUF:
+        if (ctx->device != "GW1NZ-1") {
+            return true;
+        }
+        break;
+    case ID_TLVDS_OBUF:
+        if (ctx->device != "GW1NZ-1" && ctx->device != "GW1N-1") {
+            return true;
+        }
+        break;
+    case ID_TLVDS_TBUF:
+        if (ctx->device != "GW1NZ-1" && ctx->device != "GW1N-1") {
+            return true;
+        }
+        break;
+    case ID_TLVDS_IOBUF:
+        if (ctx->device == "GW1N-4") {
+            return true;
+        }
+        break;
+    default:
+        return true;
+    }
+    log_info("%s is not supported for device %s.\n", type.c_str(ctx), ctx->device.c_str());
+    return false;
+}
+
 static void make_dummy_alu(Context *ctx, int alu_idx, CellInfo *ci, CellInfo *packed_head,
                            std::vector<std::unique_ptr<CellInfo>> &new_cells)
 {
@@ -803,6 +843,13 @@ static bool is_gowin_diff_iob(const Context *ctx, const CellInfo *cell)
 {
     switch (cell->type.index) {
     case ID_TLVDS_OBUF:
+    case ID_TLVDS_TBUF:
+    case ID_TLVDS_IBUF:
+    case ID_TLVDS_IOBUF:
+    case ID_ELVDS_OBUF:
+    case ID_ELVDS_TBUF:
+    case ID_ELVDS_IBUF:
+    case ID_ELVDS_IOBUF:
         return true;
     default:
         return false;
@@ -886,6 +933,26 @@ static void get_next_oser16_loc(std::string device, Loc &loc)
     }
 }
 
+// create IOB connections for gowin_pack
+static void make_iob_nets(Context *ctx, CellInfo *iob)
+{
+    for (const auto port : iob->ports) {
+        const NetInfo *net = iob->getPort(port.first);
+        std::string connected_net = "NET";
+        if (net != nullptr) {
+            if (ctx->verbose) {
+                log_info("%s: %s - %s\n", ctx->nameOf(iob), port.first.c_str(ctx), ctx->nameOf(net));
+            }
+            if (net->name == ctx->id("$PACKER_VCC_NET")) {
+                connected_net = "VCC";
+            } else if (net->name == ctx->id("$PACKER_GND_NET")) {
+                connected_net = "GND";
+            }
+            iob->setParam(ctx->idf("NET_%s", port.first.c_str(ctx)), connected_net);
+        }
+    }
+}
+
 // Pack IO logic
 static void pack_iologic(Context *ctx)
 {
@@ -899,6 +966,9 @@ static void pack_iologic(Context *ctx)
         CellInfo *ci = cell.second.get();
         if (ctx->verbose)
             log_info("cell '%s' is of type '%s'\n", ctx->nameOf(ci), ci->type.c_str(ctx));
+        if (ci->type == id_IOB) {
+            make_iob_nets(ctx, ci);
+        }
         if (is_gowin_iologic(ctx, ci)) {
             CellInfo *q0_dst = nullptr;
             CellInfo *q1_dst = nullptr;
@@ -953,12 +1023,18 @@ static void pack_iologic(Context *ctx)
                     break;
                 }
                 ci->setParam(ctx->id("OUTMODE"), out_mode);
+
+                // mark IOB as used by IOLOGIC
+                q0_dst->setParam(id_IOLOGIC_IOB, 1);
+
                 bool use_diff_io = false;
                 if (q0_dst->attrs.count(id_DIFF_TYPE)) {
-                    ci->setAttr(id_OBUF_TYPE, std::string("DBUF"));
+                    ci->setAttr(id_OBUF_TYPE, std::string("DBUF")); // XXX compatibility
+                    ci->setParam(id_OBUF_TYPE, std::string("DBUF"));
                     use_diff_io = true;
                 } else {
-                    ci->setAttr(id_OBUF_TYPE, std::string("SBUF"));
+                    ci->setAttr(id_OBUF_TYPE, std::string("SBUF")); // XXX compatibility
+                    ci->setParam(id_OBUF_TYPE, std::string("SBUF"));
                 }
 
                 // disconnect Q output: it is wired internally
@@ -987,19 +1063,7 @@ static void pack_iologic(Context *ctx)
                         ci->disconnectPort(output_1);
                         ci->setAttr(id_IOBUF, 1);
                     }
-                } else {
-                    // force OEN = 0 in order to enable output
-                    // XXX check for IOBUF and TBUF
-                    if (ci->type == id_OSER4 || ci->type == id_OSER8) {
-                        int port_num = ci->type == id_OSER4 ? 2 : 4;
-                        for (int i = 0; i < port_num; ++i) {
-                            IdString port = ctx->idf("TX%d", i);
-                            ci->disconnectPort(port);
-                            ci->connectPort(port, ctx->nets[ctx->id("$PACKER_GND_NET")].get());
-                        }
-                    }
                 }
-
                 ci->setAttr(id_IOBUF, 0);
                 ci->setAttr(id_IOLOGIC_TYPE, ci->type.str(ctx));
 
@@ -1087,12 +1151,18 @@ static void pack_iologic(Context *ctx)
                     break;
                 }
                 ci->setParam(ctx->id("INMODE"), in_mode);
+
+                // mark IOB as used by IOLOGIC
+                d_src->setParam(id_IOLOGIC_IOB, 1);
+
                 bool use_diff_io = false;
                 if (d_src->attrs.count(id_DIFF_TYPE)) {
-                    ci->setAttr(id_IBUF_TYPE, std::string("DBUF"));
+                    ci->setAttr(id_IBUF_TYPE, std::string("DBUF")); // XXX compatibility
+                    ci->setParam(id_IBUF_TYPE, std::string("DBUF"));
                     use_diff_io = true;
                 } else {
-                    ci->setAttr(id_IBUF_TYPE, std::string("SBUF"));
+                    ci->setAttr(id_IBUF_TYPE, std::string("SBUF")); // XXX compatibility
+                    ci->setParam(id_IBUF_TYPE, std::string("SBUF"));
                 }
 
                 // disconnect D input: it is wired internally
@@ -1168,12 +1238,17 @@ static void pack_iologic(Context *ctx)
                               iob_bel->second.as_string().c_str());
                 }
 
+                // mark IOB as used by IOLOGIC
+                q0_dst->setParam(id_IOLOGIC_IOB, 1);
+
                 bool use_diff_io = false;
                 if (q0_dst->attrs.count(id_DIFF_TYPE)) {
-                    ci->setAttr(id_OBUF_TYPE, std::string("DBUF"));
+                    ci->setAttr(id_OBUF_TYPE, std::string("DBUF")); // compatibility
+                    ci->setParam(id_OBUF_TYPE, std::string("DBUF"));
                     use_diff_io = true;
                 } else {
-                    ci->setAttr(id_OBUF_TYPE, std::string("SBUF"));
+                    ci->setAttr(id_OBUF_TYPE, std::string("SBUF")); // compatibility
+                    ci->setParam(id_OBUF_TYPE, std::string("SBUF"));
                 }
 
                 // disconnect Q output: it is wired internally
@@ -1297,13 +1372,17 @@ static void pack_iologic(Context *ctx)
                     log_error("No bel for %s at %s. Can't place IDES/OSER here\n", ctx->nameOf(ci),
                               iob_bel->second.as_string().c_str());
                 }
+                // mark IOB as used by IOLOGIC
+                d_src->setParam(id_IOLOGIC_IOB, 1);
 
                 bool use_diff_io = false;
                 if (d_src->attrs.count(id_DIFF_TYPE)) {
-                    ci->setAttr(id_IBUF_TYPE, std::string("DBUF"));
+                    ci->setAttr(id_IBUF_TYPE, std::string("DBUF")); // XXX compatibility
+                    ci->setParam(id_IBUF_TYPE, std::string("DBUF"));
                     use_diff_io = true;
                 } else {
-                    ci->setAttr(id_IBUF_TYPE, std::string("SBUF"));
+                    ci->setAttr(id_IBUF_TYPE, std::string("SBUF")); // XXX compatibility
+                    ci->setParam(id_IBUF_TYPE, std::string("SBUF"));
                 }
                 // disconnect D input: it is wired internally
                 delete_nets.insert(ci->getPort(id_D)->name);
@@ -1430,9 +1509,23 @@ static void pack_diff_io(Context *ctx)
             CellInfo *iob_p = nullptr;
             CellInfo *iob_n = nullptr;
             switch (ci->type.index) {
+            case ID_ELVDS_IOBUF: /* fall-through*/
+            case ID_ELVDS_IBUF:  /* fall-through*/
+            case ID_ELVDS_TBUF:  /* fall-through*/
+            case ID_ELVDS_OBUF:  /* fall-through*/
+            case ID_TLVDS_IOBUF: /* fall-through*/
+            case ID_TLVDS_IBUF:  /* fall-through*/
+            case ID_TLVDS_TBUF:  /* fall-through*/
             case ID_TLVDS_OBUF: {
-                iob_p = net_only_drives(ctx, ci->ports.at(id_O).net, is_iob, id_I);
-                iob_n = net_only_drives(ctx, ci->ports.at(id_OB).net, is_iob, id_I);
+                NPNR_ASSERT(check_availability(ctx, ci->type));
+                if (ci->type.in(id_TLVDS_TBUF, id_TLVDS_OBUF, id_TLVDS_IOBUF, id_ELVDS_TBUF, id_ELVDS_OBUF,
+                                id_ELVDS_IOBUF)) {
+                    iob_p = net_only_drives(ctx, ci->ports.at(id_O).net, is_iob, id_I);
+                    iob_n = net_only_drives(ctx, ci->ports.at(id_OB).net, is_iob, id_I);
+                } else {
+                    iob_p = net_driven_by(ctx, ci->ports.at(id_I).net, is_iob, id_O);
+                    iob_n = net_driven_by(ctx, ci->ports.at(id_IB).net, is_iob, id_O);
+                }
                 NPNR_ASSERT(iob_p != nullptr);
                 NPNR_ASSERT(iob_n != nullptr);
                 auto iob_p_bel_a = iob_p->attrs.find(id_BEL);
@@ -1442,27 +1535,65 @@ static void pack_diff_io(Context *ctx)
                 }
                 BelId iob_p_bel = ctx->getBelByNameStr(iob_p_bel_a->second.as_string());
                 Loc loc_p = ctx->getBelLocation(iob_p_bel);
-                if (loc_p.z != 0) {
-                    log_error("LVDS '%s' positive pin is not A.\n", ctx->nameOf(ci));
-                    continue;
-                }
                 // restrict the N buffer
-                loc_p.z = 1;
+                ++loc_p.z;
                 iob_n->attrs[id_BEL] = ctx->getBelName(ctx->getBelByLocation(loc_p)).str(ctx);
                 // mark IOBs as part of DS pair
-                iob_n->attrs[id_DIFF] = std::string("N");
-                iob_n->attrs[id_DIFF_TYPE] = std::string("TLVDS_OBUF");
-                iob_p->attrs[id_DIFF] = std::string("P");
-                iob_p->attrs[id_DIFF_TYPE] = std::string("TLVDS_OBUF");
-                // disconnect N input: it is wired internally
-                delete_nets.insert(iob_n->ports.at(id_I).net->name);
-                iob_n->disconnectPort(id_I);
-                ci->disconnectPort(id_OB);
-                // disconnect P output
-                delete_nets.insert(ci->ports.at(id_O).net->name);
-                ci->disconnectPort(id_O);
-                // connect TLVDS input to P input
-                ci->movePortTo(id_I, iob_p, id_I);
+                std::string io_type = ci->type.c_str(ctx);
+                // XXX compatibility
+                iob_n->setAttr(id_DIFF, std::string("N"));
+                iob_n->setAttr(id_DIFF_TYPE, io_type);
+                iob_p->setAttr(id_DIFF, std::string("P"));
+                iob_p->setAttr(id_DIFF_TYPE, io_type);
+
+                iob_n->setParam(id_DIFF, std::string("N"));
+                iob_n->setParam(id_DIFF_TYPE, io_type);
+                iob_p->setParam(id_DIFF, std::string("P"));
+                iob_p->setParam(id_DIFF_TYPE, io_type);
+
+                if (ci->type.in(id_TLVDS_TBUF, id_TLVDS_OBUF, id_ELVDS_TBUF, id_ELVDS_OBUF)) {
+                    // disconnect N input: it is wired internally
+                    delete_nets.insert(iob_n->ports.at(id_I).net->name);
+                    iob_n->disconnectPort(id_I);
+                    ci->disconnectPort(id_OB);
+                    // disconnect P output
+                    delete_nets.insert(ci->ports.at(id_O).net->name);
+                    ci->disconnectPort(id_O);
+                    // connect TLVDS input to P input
+                    ci->movePortTo(id_I, iob_p, id_I);
+                    if (ci->type.in(id_TLVDS_TBUF, id_ELVDS_TBUF)) {
+                        ci->movePortTo(id_OEN, iob_p, id_OEN);
+                    }
+                }
+                if (ci->type.in(id_TLVDS_IBUF, id_ELVDS_IBUF)) {
+                    // disconnect N input: it is wired internally
+                    delete_nets.insert(iob_n->ports.at(id_O).net->name);
+                    iob_n->disconnectPort(id_O);
+                    ci->disconnectPort(id_IB);
+                    // disconnect P input
+                    delete_nets.insert(ci->ports.at(id_I).net->name);
+                    ci->disconnectPort(id_I);
+                    // connect TLVDS output to P output
+                    ci->movePortTo(id_O, iob_p, id_O);
+                }
+                if (ci->type.in(id_TLVDS_IOBUF, id_ELVDS_IOBUF)) {
+                    // disconnect N io: it is wired internally
+                    // O port is missing after iopadmap so leave it as is
+                    delete_nets.insert(iob_n->getPort(id_I)->name);
+                    iob_n->disconnectPort(id_I);
+                    iob_n->disconnectPort(id_OEN);
+                    ci->disconnectPort(id_IOB);
+
+                    // disconnect P io
+                    delete_nets.insert(ci->getPort(id_IO)->name);
+                    iob_p->disconnectPort(id_I);
+                    iob_p->disconnectPort(id_OEN);
+                    ci->disconnectPort(id_IO);
+                    ci->movePortTo(id_I, iob_p, id_I);
+                    ci->movePortTo(id_O, iob_p, id_O);
+                    // OEN
+                    ci->movePortTo(id_OEN, iob_p, id_OEN);
+                }
                 packed_cells.insert(ci->name);
             } break;
             default:

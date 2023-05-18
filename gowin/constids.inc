@@ -638,6 +638,7 @@ X(O)
 X(IO)
 X(OE)
 X(OB)
+X(IB)
 
 // bels
 X(DFF0)
@@ -888,6 +889,13 @@ X(OBUF)
 X(IOBUF)
 X(TBUF)
 X(TLVDS_OBUF)
+X(TLVDS_TBUF)
+X(TLVDS_IBUF)
+X(TLVDS_IOBUF)
+X(ELVDS_OBUF)
+X(ELVDS_TBUF)
+X(ELVDS_IBUF)
+X(ELVDS_IOBUF)
 
 // global set/reset
 X(GSR)
@@ -918,6 +926,7 @@ X(BEL)
 X(DIFF)
 X(DIFF_TYPE)
 X(DEVICE)
+X(IOLOGIC_IOB)
 
 // ports
 X(EN)
