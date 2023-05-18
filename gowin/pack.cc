@@ -936,7 +936,7 @@ static void get_next_oser16_loc(std::string device, Loc &loc)
 // create IOB connections for gowin_pack
 static void make_iob_nets(Context *ctx, CellInfo *iob)
 {
-    for (const auto port : iob->ports) {
+    for (const auto &port : iob->ports) {
         const NetInfo *net = iob->getPort(port.first);
         std::string connected_net = "NET";
         if (net != nullptr) {
