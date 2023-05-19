@@ -1531,13 +1531,17 @@ static void pack_diff_io(Context *ctx)
                 auto iob_p_bel_a = iob_p->attrs.find(id_BEL);
                 if (iob_p_bel_a == iob_p->attrs.end()) {
                     log_error("LVDS '%s' must be restricted.\n", ctx->nameOf(ci));
-                    continue;
                 }
                 BelId iob_p_bel = ctx->getBelByNameStr(iob_p_bel_a->second.as_string());
                 Loc loc_p = ctx->getBelLocation(iob_p_bel);
                 // restrict the N buffer
                 ++loc_p.z;
-                iob_n->attrs[id_BEL] = ctx->getBelName(ctx->getBelByLocation(loc_p)).str(ctx);
+                BelId n_bel = ctx->getBelByLocation(loc_p);
+                if (n_bel == BelId()) {
+                    log_error("Invalid pin for '%s'.\n", ctx->nameOf(ci));
+                }
+                iob_n->attrs[id_BEL] = ctx->getBelName(n_bel).str(ctx);
+                iob_n->type = iob_p->type;
                 // mark IOBs as part of DS pair
                 std::string io_type = ci->type.c_str(ctx);
                 // XXX compatibility
@@ -1562,6 +1566,10 @@ static void pack_diff_io(Context *ctx)
                     // connect TLVDS input to P input
                     ci->movePortTo(id_I, iob_p, id_I);
                     if (ci->type.in(id_TLVDS_TBUF, id_ELVDS_TBUF)) {
+                        if (iob_p->type == id_IOBS) {
+                            iob_p->disconnectPort(id_OEN);
+                            iob_n->disconnectPort(id_OEN);
+                        }
                         ci->movePortTo(id_OEN, iob_p, id_OEN);
                     }
                 }
@@ -1592,6 +1600,10 @@ static void pack_diff_io(Context *ctx)
                     ci->movePortTo(id_I, iob_p, id_I);
                     ci->movePortTo(id_O, iob_p, id_O);
                     // OEN
+                    if (iob_p->type == id_IOBS) {
+                        iob_p->disconnectPort(id_OEN);
+                        iob_n->disconnectPort(id_OEN);
+                    }
                     ci->movePortTo(id_OEN, iob_p, id_OEN);
                 }
                 packed_cells.insert(ci->name);
