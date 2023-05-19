@@ -19,8 +19,8 @@
 
 #include "log.h"
 #include "nextpnr.h"
-#include "util.h"
 #include "timing.h"
+#include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 namespace {

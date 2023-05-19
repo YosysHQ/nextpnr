@@ -362,22 +362,29 @@ bool Arch::getArcDelayOverride(const NetInfo *net_info, const PortRef &sink, Del
         }
 
         if (input_wave[0].empty()) {
-            cyclonev->rnode_timing_build_input_wave(src.node, temp, CycloneV::DELAY_MAX, inverted ? mistral::CycloneV::RF_FALL : mistral::CycloneV::RF_RISE, est, input_wave[0]);
-            cyclonev->rnode_timing_build_input_wave(src.node, temp, CycloneV::DELAY_MAX, inverted ? mistral::CycloneV::RF_RISE : mistral::CycloneV::RF_FALL, est, input_wave[1]);
-            NPNR_ASSERT(!input_wave[mistral::CycloneV::RF_RISE].empty() && !input_wave[mistral::CycloneV::RF_FALL].empty());
+            cyclonev->rnode_timing_build_input_wave(src.node, temp, CycloneV::DELAY_MAX,
+                                                    inverted ? mistral::CycloneV::RF_FALL : mistral::CycloneV::RF_RISE,
+                                                    est, input_wave[0]);
+            cyclonev->rnode_timing_build_input_wave(src.node, temp, CycloneV::DELAY_MAX,
+                                                    inverted ? mistral::CycloneV::RF_RISE : mistral::CycloneV::RF_FALL,
+                                                    est, input_wave[1]);
+            NPNR_ASSERT(!input_wave[mistral::CycloneV::RF_RISE].empty() &&
+                        !input_wave[mistral::CycloneV::RF_FALL].empty());
         }
 
         for (int edge = 0; edge != 2; edge++) {
-            auto actual_edge = edge ? inverted ? mistral::CycloneV::RF_RISE : mistral::CycloneV::RF_FALL : inverted ? mistral::CycloneV::RF_FALL : mistral::CycloneV::RF_RISE;
+            auto actual_edge = edge       ? inverted ? mistral::CycloneV::RF_RISE : mistral::CycloneV::RF_FALL
+                               : inverted ? mistral::CycloneV::RF_FALL
+                                          : mistral::CycloneV::RF_RISE;
             mistral::AnalogSim sim;
             int input = -1;
             std::vector<std::pair<mistral::CycloneV::rnode_t, int>> outputs;
             cyclonev->rnode_timing_build_circuit(src.node, temp, CycloneV::DELAY_MAX, actual_edge, sim, input, outputs);
 
             sim.set_input_wave(input, input_wave[edge]);
-            auto o = std::find_if(outputs.begin(), outputs.end(), [&](std::pair<mistral::CycloneV::rnode_t, int> output) {
-                return output.first == dst.node;
-            });
+            auto o = std::find_if(
+                    outputs.begin(), outputs.end(),
+                    [&](std::pair<mistral::CycloneV::rnode_t, int> output) { return output.first == dst.node; });
             NPNR_ASSERT(o != outputs.end());
 
             output_wave[edge].clear();
@@ -393,7 +400,8 @@ bool Arch::getArcDelayOverride(const NetInfo *net_info, const PortRef &sink, Del
             inverted = !inverted;
     }
 
-    delay = DelayQuad{delay_t(output_delay_sum[0].mi*1e12), delay_t(output_delay_sum[0].mx*1e12), delay_t(output_delay_sum[1].mi*1e12), delay_t(output_delay_sum[1].mx*1e12)};
+    delay = DelayQuad{delay_t(output_delay_sum[0].mi * 1e12), delay_t(output_delay_sum[0].mx * 1e12),
+                      delay_t(output_delay_sum[1].mi * 1e12), delay_t(output_delay_sum[1].mx * 1e12)};
 
     return true;
 }
@@ -406,7 +414,7 @@ delay_t Arch::predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdStr
     Loc dst_loc = getBelLocation(dst_bel);
     int x_diff = std::abs(dst_loc.x - src_loc.x);
     int y_diff = std::abs(dst_loc.y - src_loc.y);
-    return 43*x_diff + 114*y_diff + 470;
+    return 43 * x_diff + 114 * y_diff + 470;
 }
 
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
@@ -417,7 +425,7 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     int y1 = CycloneV::rn2y(dst.node);
     int x_diff = std::abs(x1 - x0);
     int y_diff = std::abs(y1 - y0);
-    return 43*x_diff + 114*y_diff + 470;
+    return 43 * x_diff + 114 * y_diff + 470;
 }
 
 NEXTPNR_NAMESPACE_END

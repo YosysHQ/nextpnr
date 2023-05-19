@@ -23,13 +23,11 @@
 #include "log.h"
 #include "nextpnr.h"
 
-#include "util.h"
 #include "placer1.h"
 #include "placer_heap.h"
 #include "router1.h"
 #include "router2.h"
-
-
+#include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 

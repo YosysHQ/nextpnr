@@ -435,8 +435,8 @@ struct Arch : BaseArch<ArchRanges>
                                        int &clockInfoCount) const override;                                // delay.cc
     TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const override; // delay.cc
     bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort,
-                      DelayQuad &delay) const override; // delay.cc
-    DelayQuad getPipDelay(PipId pip) const override;    // delay.cc
+                      DelayQuad &delay) const override;                                                      // delay.cc
+    DelayQuad getPipDelay(PipId pip) const override;                                                         // delay.cc
     bool getArcDelayOverride(const NetInfo *net_info, const PortRef &sink, DelayQuad &delay) const override; // delay.cc
 
     // -------------------------------------------------
