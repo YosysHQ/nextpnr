@@ -296,8 +296,8 @@ void TimingAnalyser::identify_related_domains()
 
     // For each clock net identify all nets that can possibly drive it. Compute
     // cumulative delays to each of them.
-    std::function<void(const NetInfo *, std::set<IdString> &, dict<IdString, delay_t> &, delay_t)> find_net_drivers =
-            [&](const NetInfo *ni, std::set<IdString> &net_trace, dict<IdString, delay_t> &drivers, delay_t delay_acc) {
+    std::function<void(const NetInfo *, pool<IdString> &, dict<IdString, delay_t> &, delay_t)> find_net_drivers =
+            [&](const NetInfo *ni, pool<IdString> &net_trace, dict<IdString, delay_t> &drivers, delay_t delay_acc) {
                 // Get driving cell and port
                 if (ni == nullptr)
                     return;
@@ -378,7 +378,7 @@ void TimingAnalyser::identify_related_domains()
             continue;
 
         dict<IdString, delay_t> drivers;
-        std::set<IdString> net_trace;
+        pool<IdString> net_trace;
         find_net_drivers(ni, net_trace, drivers, 0);
 
         clock_drivers[domain.key.clock] = drivers;
