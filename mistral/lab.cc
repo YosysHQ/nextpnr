@@ -319,6 +319,7 @@ void Arch::assign_comb_info(CellInfo *cell) const
         }
 
     } else {
+        cell->combInfo.comb_out = cell->getPort(id_Q);
         cell->combInfo.lut_input_count = 0;
         switch (cell->type.index) {
         case ID_MISTRAL_ALUT6:
