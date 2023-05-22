@@ -188,8 +188,8 @@ bool Arch::isBelLocationValid(BelId bel, bool explain_invalid) const
         if (cell == nullptr) {
             return true;
         } else if (cell->type.in(id_DCUA, id_EXTREFB, id_PCSCLKDIV)) {
-            return type != Arch::ArchTypes::LFE5U_25F && type != Arch::ArchTypes::LFE5U_45F &&
-                   type != Arch::ArchTypes::LFE5U_85F;
+            return device.type != ArchDevice::LFE5U_25F && device.type != ArchDevice::LFE5U_45F &&
+                   device.type != ArchDevice::LFE5U_85F;
         } else if (cell->type.in(id_MULT18X18D, id_ALU54B)) {
             return is_dsp_location_valid(cell);
         } else {

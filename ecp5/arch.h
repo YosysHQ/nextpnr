@@ -446,8 +446,7 @@ struct ArchRanges : BaseArchRanges
     using AllPipsRangeT = AllPipRange;
 };
 
-struct Arch : BaseArch<ArchRanges>
-{
+struct ArchDevice {
     const DeviceInfoPOD *device_info;
     const ChipInfoPOD *chip_info;
     const PackageInfoPOD *package_info;
@@ -476,6 +475,11 @@ struct Arch : BaseArch<ArchRanges>
         SPEED_8,
         SPEED_8_5G,
     } speed = SPEED_6;
+};
+
+struct Arch : BaseArch<ArchRanges>
+{
+    ArchDevice device;
 
     mutable dict<IdStringList, PipId> pip_by_name;
 
@@ -551,8 +555,8 @@ struct Arch : BaseArch<ArchRanges>
 
     static const int max_loc_bels = 32;
 
-    int getGridDimX() const override { return chip_info->width; };
-    int getGridDimY() const override { return chip_info->height; };
+    int getGridDimX() const override { return device.chip_info->width; };
+    int getGridDimY() const override { return device.chip_info->height; };
     int getTileBelDimZ(int, int) const override { return max_loc_bels; };
     int getTilePipDimZ(int, int) const override { return 1; };
     char getNameDelimiter() const override { return '/'; }
@@ -563,12 +567,12 @@ struct Arch : BaseArch<ArchRanges>
 
     template <typename Id> const LocationTypePOD *loc_info(Id &id) const
     {
-        return &(chip_info->locations[chip_info->location_type[id.location.y * chip_info->width + id.location.x]]);
+        return &(device.chip_info->locations[device.chip_info->location_type[id.location.y * device.chip_info->width + id.location.x]]);
     }
 
     template <typename Id> inline int tile_index(Id id) const
     {
-        return id.location.y * chip_info->width + id.location.x;
+        return id.location.y * device.chip_info->width + id.location.x;
     }
 
     IdStringList getBelName(BelId bel) const override
@@ -584,7 +588,7 @@ struct Arch : BaseArch<ArchRanges>
     int get_slice_index(int x, int y, int slice) const
     {
         NPNR_ASSERT(slice >= 0 && slice < 4);
-        return (y * chip_info->width + x) * 4 + slice;
+        return (y * device.chip_info->width + x) * 4 + slice;
     }
 
     void update_bel(BelId bel, CellInfo *old_cell, CellInfo *new_cell)
@@ -675,11 +679,11 @@ struct Arch : BaseArch<ArchRanges>
         BelRange range;
         range.b.cursor_tile = 0;
         range.b.cursor_index = -1;
-        range.b.chip = chip_info;
+        range.b.chip = device.chip_info;
         ++range.b; //-1 and then ++ deals with the case of no Bels in the first tile
-        range.e.cursor_tile = chip_info->width * chip_info->height;
+        range.e.cursor_tile = device.chip_info->width * device.chip_info->height;
         range.e.cursor_index = 0;
-        range.e.chip = chip_info;
+        range.e.chip = device.chip_info;
         return range;
     }
 
@@ -732,7 +736,7 @@ struct Arch : BaseArch<ArchRanges>
 
     uint32_t get_wire_vecidx(const WireId &e) const
     {
-        uint32_t tile = e.location.y * chip_info->width + e.location.x;
+        uint32_t tile = e.location.y * device.chip_info->width + e.location.x;
         int32_t base = wire_tile_vecidx.at(tile);
         NPNR_ASSERT(base != -1);
         int32_t i = base + e.index;
@@ -779,11 +783,11 @@ struct Arch : BaseArch<ArchRanges>
         WireRange range;
         range.b.cursor_tile = 0;
         range.b.cursor_index = -1;
-        range.b.chip = chip_info;
+        range.b.chip = device.chip_info;
         ++range.b; //-1 and then ++ deals with the case of no wries in the first tile
-        range.e.cursor_tile = chip_info->width * chip_info->height;
+        range.e.cursor_tile = device.chip_info->width * device.chip_info->height;
         range.e.cursor_index = 0;
-        range.e.chip = chip_info;
+        range.e.chip = device.chip_info;
         return range;
     }
 
@@ -811,7 +815,7 @@ struct Arch : BaseArch<ArchRanges>
 
     uint32_t get_pip_vecidx(const PipId &e) const
     {
-        uint32_t tile = e.location.y * chip_info->width + e.location.x;
+        uint32_t tile = e.location.y * device.chip_info->width + e.location.x;
         int32_t base = pip_tile_vecidx.at(tile);
         NPNR_ASSERT(base != -1);
         int32_t i = base + e.index;
@@ -884,11 +888,11 @@ struct Arch : BaseArch<ArchRanges>
         AllPipRange range;
         range.b.cursor_tile = 0;
         range.b.cursor_index = -1;
-        range.b.chip = chip_info;
+        range.b.chip = device.chip_info;
         ++range.b; //-1 and then ++ deals with the case of no wries in the first tile
-        range.e.cursor_tile = chip_info->width * chip_info->height;
+        range.e.cursor_tile = device.chip_info->width * device.chip_info->height;
         range.e.cursor_index = 0;
-        range.e.chip = chip_info;
+        range.e.chip = device.chip_info;
         return range;
     }
 
@@ -915,11 +919,11 @@ struct Arch : BaseArch<ArchRanges>
         NPNR_ASSERT(pip != PipId());
         int fanout = wire_fanout[get_wire_vecidx(getPipSrcWire(pip))];
         delay_t min_dly =
-                speed_grade->pip_classes[loc_info(pip)->pip_data[pip.index].timing_class].min_base_delay +
-                fanout * speed_grade->pip_classes[loc_info(pip)->pip_data[pip.index].timing_class].min_fanout_adder;
+                device.speed_grade->pip_classes[loc_info(pip)->pip_data[pip.index].timing_class].min_base_delay +
+                fanout * device.speed_grade->pip_classes[loc_info(pip)->pip_data[pip.index].timing_class].min_fanout_adder;
         delay_t max_dly =
-                speed_grade->pip_classes[loc_info(pip)->pip_data[pip.index].timing_class].max_base_delay +
-                fanout * speed_grade->pip_classes[loc_info(pip)->pip_data[pip.index].timing_class].max_fanout_adder;
+                device.speed_grade->pip_classes[loc_info(pip)->pip_data[pip.index].timing_class].max_base_delay +
+                fanout * device.speed_grade->pip_classes[loc_info(pip)->pip_data[pip.index].timing_class].max_fanout_adder;
         return DelayQuad(min_dly, max_dly);
     }
 
@@ -947,7 +951,7 @@ struct Arch : BaseArch<ArchRanges>
 
     std::string get_pip_tilename(PipId pip) const
     {
-        auto &tileloc = chip_info->tile_info[pip.location.y * chip_info->width + pip.location.x];
+        auto &tileloc = device.chip_info->tile_info[pip.location.y * device.chip_info->width + pip.location.x];
         for (auto &tn : tileloc.tile_names) {
             if (tn.type_idx == loc_info(pip)->pip_data[pip.index].tile_type)
                 return tn.name.get();
@@ -957,7 +961,7 @@ struct Arch : BaseArch<ArchRanges>
 
     std::string get_pip_tiletype(PipId pip) const
     {
-        return chip_info->tiletype_names[loc_info(pip)->pip_data[pip.index].tile_type].get();
+        return device.chip_info->tiletype_names[loc_info(pip)->pip_data[pip.index].tile_type].get();
     }
 
     Loc getPipLocation(PipId pip) const override
@@ -1046,9 +1050,9 @@ struct Arch : BaseArch<ArchRanges>
     std::vector<std::pair<std::string, std::string>> get_tiles_at_loc(int row, int col);
     std::string get_tile_by_type_loc(int row, int col, std::string type) const
     {
-        auto &tileloc = chip_info->tile_info[row * chip_info->width + col];
+        auto &tileloc = device.chip_info->tile_info[row * device.chip_info->width + col];
         for (auto &tn : tileloc.tile_names) {
-            if (chip_info->tiletype_names[tn.type_idx].get() == type)
+            if (device.chip_info->tiletype_names[tn.type_idx].get() == type)
                 return tn.name.get();
         }
         NPNR_ASSERT_FALSE_STR("no tile at (" + std::to_string(col) + ", " + std::to_string(row) + ") with type " +
@@ -1057,9 +1061,9 @@ struct Arch : BaseArch<ArchRanges>
 
     std::string get_tile_by_type_loc(int row, int col, const std::set<std::string> &type) const
     {
-        auto &tileloc = chip_info->tile_info[row * chip_info->width + col];
+        auto &tileloc = device.chip_info->tile_info[row * device.chip_info->width + col];
         for (auto &tn : tileloc.tile_names) {
-            if (type.count(chip_info->tiletype_names[tn.type_idx].get()))
+            if (type.count(device.chip_info->tiletype_names[tn.type_idx].get()))
                 return tn.name.get();
         }
         NPNR_ASSERT_FALSE_STR("no tile at (" + std::to_string(col) + ", " + std::to_string(row) + ") with type in set");
@@ -1067,10 +1071,10 @@ struct Arch : BaseArch<ArchRanges>
 
     std::string get_tile_by_type(std::string type) const
     {
-        for (int i = 0; i < chip_info->height * chip_info->width; i++) {
-            auto &tileloc = chip_info->tile_info[i];
+        for (int i = 0; i < device.chip_info->height * device.chip_info->width; i++) {
+            auto &tileloc = device.chip_info->tile_info[i];
             for (auto &tn : tileloc.tile_names)
-                if (chip_info->tiletype_names[tn.type_idx].get() == type)
+                if (device.chip_info->tiletype_names[tn.type_idx].get() == type)
                     return tn.name.get();
         }
         NPNR_ASSERT_FALSE_STR("no tile with type " + type);

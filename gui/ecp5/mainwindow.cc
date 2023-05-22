@@ -49,7 +49,7 @@ MainWindow::~MainWindow() {}
 
 void MainWindow::newContext(Context *ctx)
 {
-    std::string title = "nextpnr-ecp5 - " + std::string(ctx->device_name) + " (" + std::string(ctx->package_name) +
+    std::string title = "nextpnr-ecp5 - " + std::string(ctx->device.device_name) + " (" + std::string(ctx->device.package_name) +
                         ") - Part : " + ctx->getChipName();
     setWindowTitle(title.c_str());
 }
