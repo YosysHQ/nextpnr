@@ -414,7 +414,7 @@ delay_t Arch::predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdStr
     Loc dst_loc = getBelLocation(dst_bel);
     int x_diff = std::abs(dst_loc.x - src_loc.x);
     int y_diff = std::abs(dst_loc.y - src_loc.y);
-    return 43 * x_diff + 114 * y_diff + 470;
+    return 75 * x_diff + 200 * y_diff;
 }
 
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
@@ -425,7 +425,7 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     int y1 = CycloneV::rn2y(dst.node);
     int x_diff = std::abs(x1 - x0);
     int y_diff = std::abs(y1 - y0);
-    return 43 * x_diff + 114 * y_diff + 470;
+    return 75 * x_diff + 200 * y_diff;
 }
 
 NEXTPNR_NAMESPACE_END
