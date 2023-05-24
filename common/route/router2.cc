@@ -1423,7 +1423,7 @@ struct Router2
             int tmgfail = 0;
             if (timing_driven)
                 tmg.run(false);
-            if (timing_driven_ripup && iter < 500) {
+            if (timing_driven_ripup && iter < 1500) {
                 for (size_t i = 0; i < nets_by_udata.size(); i++) {
                     NetInfo *ni = nets_by_udata.at(i);
                     for (auto usr : ni->users.enumerate()) {
@@ -1492,10 +1492,17 @@ Router2Cfg::Router2Cfg(Context *ctx)
     bb_margin_y = ctx->setting<int>("router2/bbMargin/y", 3);
     ipin_cost_adder = ctx->setting<float>("router2/ipinCostAdder", 0.0f);
     bias_cost_factor = ctx->setting<float>("router2/biasCostFactor", 0.25f);
-    init_curr_cong_weight = ctx->setting<float>("router2/initCurrCongWeight", 0.5f);
-    hist_cong_weight = ctx->setting<float>("router2/histCongWeight", 1.0f);
-    curr_cong_mult = ctx->setting<float>("router2/currCongWeightMult", 2.0f);
-    estimate_weight = ctx->setting<float>("router2/estimateWeight", 1.25f);
+    if (ctx->settings.count(ctx->id("router2/alt-weights"))) {
+        init_curr_cong_weight = ctx->setting<float>("router2/initCurrCongWeight", 5.0f);
+        hist_cong_weight = ctx->setting<float>("router2/histCongWeight", 0.5f);
+        curr_cong_mult = ctx->setting<float>("router2/currCongWeightMult", 0.0f);
+        estimate_weight = ctx->setting<float>("router2/estimateWeight", 1.0f);
+    } else {
+        init_curr_cong_weight = ctx->setting<float>("router2/initCurrCongWeight", 0.5f);
+        hist_cong_weight = ctx->setting<float>("router2/histCongWeight", 1.0f);
+        curr_cong_mult = ctx->setting<float>("router2/currCongWeightMult", 2.0f);
+        estimate_weight = ctx->setting<float>("router2/estimateWeight", 1.25f);
+    }
     perf_profile = ctx->setting<bool>("router2/perfProfile", false);
     if (ctx->settings.count(ctx->id("router2/heatmap")))
         heatmap = ctx->settings.at(ctx->id("router2/heatmap")).as_string();
