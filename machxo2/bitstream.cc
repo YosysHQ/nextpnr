@@ -693,6 +693,10 @@ struct MachXO2Bitgen
                 std::string freq = str_or_default(ci->params, id_NOM_FREQ, "2.08");
                 cc.tiles[ctx->get_tile_by_type("CFG1")].add_enum("OSCH.MODE", "OSCH");
                 cc.tiles[ctx->get_tile_by_type("CFG1")].add_enum("OSCH.NOM_FREQ", freq);
+            } else if (ci->type == id_OSCJ) {
+                std::string freq = str_or_default(ci->params, id_NOM_FREQ, "2.08");
+                cc.tiles[ctx->get_tile_by_type("CFG1")].add_enum("OSCJ.MODE", "OSCJ");
+                cc.tiles[ctx->get_tile_by_type("CFG1")].add_enum("OSCJ.NOM_FREQ", freq);
             } else if (ci->type == id_DCCA) {
                 write_dcc(ci);
             } else if (ci->type == id_DP8KC) {
