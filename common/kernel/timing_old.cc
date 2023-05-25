@@ -18,13 +18,13 @@
  *
  */
 
-#include "timing.h"
 #include <algorithm>
 #include <boost/range/adaptor/reversed.hpp>
 #include <deque>
 #include <map>
 #include <utility>
 #include "log.h"
+#include "timing.h"
 #include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -409,6 +409,8 @@ struct Timing
             for (auto crit_pair : crit_nets) {
                 NetInfo *crit_net = crit_pair.second.second;
                 auto &cp_ports = (*crit_path)[crit_pair.first].ports;
+                log_info("// Walk backwards from the most critical net, start point: %s.%s\n",
+                         cp_ports.at(0)->cell->name.c_str(ctx), cp_ports.at(0)->port.c_str(ctx));
                 while (crit_net) {
                     const PortInfo *crit_ipin = nullptr;
                     delay_t max_arrival = std::numeric_limits<delay_t>::min();
@@ -450,7 +452,9 @@ struct Timing
                         break;
                     // Now convert PortInfo* into a PortRef*
                     for (auto &usr : crit_ipin->net->users) {
+                        log_info("critical pin user: %s.%s\n", usr.cell->name.c_str(ctx), usr.port.c_str(ctx));
                         if (usr.cell->name == crit_net->driver.cell->name && usr.port == crit_ipin->name) {
+                            log_info("Adding %s.%s to critical path\n", usr.cell->name.c_str(ctx), usr.port.c_str(ctx));
                             cp_ports.push_back(&usr);
                             break;
                         }
@@ -464,9 +468,34 @@ struct Timing
     }
 };
 
+std::string tgp_to_string(TimingPortClass c)
+{
+    switch (c) {
+    case TMG_CLOCK_INPUT:
+        return "TMG_CLOCK_INPUT";
+    case TMG_GEN_CLOCK:
+        return "TMG_GEN_CLOCK";
+    case TMG_REGISTER_INPUT:
+        return "TMG_REGISTER_INPUT";
+    case TMG_REGISTER_OUTPUT:
+        return "TMG_REGISTER_OUTPUT";
+    case TMG_COMB_INPUT:
+        return "TMG_COMB_INPUT";
+    case TMG_COMB_OUTPUT:
+        return "TMG_COMB_OUTPUT";
+    case TMG_STARTPOINT:
+        return "TMG_STARTPOINT";
+    case TMG_ENDPOINT:
+        return "TMG_ENDPOINT";
+    case TMG_IGNORE:
+        return "TMG_IGNORE";
+    }
+
+    return "UNKNOWN";
+}
+
 CriticalPath build_critical_path_report(Context *ctx, ClockPair &clocks, const PortRefVector &crit_path)
 {
-
     CriticalPath report;
     report.clock_pair = clocks;
 
@@ -493,7 +522,11 @@ CriticalPath build_critical_path_report(Context *ctx, ClockPair &clocks, const P
         }
     }
 
+    log_info("building critical path report for clocks: %s -> %s\n", clocks.start.clock.c_str(ctx),
+             clocks.end.clock.c_str(ctx));
+
     for (auto sink : crit_path) {
+
         auto sink_cell = sink->cell;
         auto &port = sink_cell->ports.at(sink->port);
         auto net = port.net;
@@ -581,6 +614,10 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
     // Use TimingAnalyser to determine clock-to-clock relations
     TimingAnalyser timingAnalyser(ctx);
     timingAnalyser.setup();
+
+    log("start timingAnalyser.print_report();\n\n");
+    timingAnalyser.print_report();
+    log("end timingAnalyser.print_report();\n\n");
 
     bool report_critical_paths = print_path || print_fmax || update_results;
 
@@ -966,6 +1003,14 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
             log_info("[%6d, %6d) |%s%c\n", min_slack + bin_size * i, min_slack + bin_size * (i + 1),
                      std::string(bins[i] * bar_width / max_freq, '*').c_str(),
                      (bins[i] * bar_width) % max_freq > 0 ? '+' : ' ');
+    }
+
+    log_info("segments");
+    for (auto &r : clock_reports) {
+        log_info("clock: %s\n", r.first.c_str(ctx));
+        for (const auto &segment : r.second.segments) {
+            log_info("processing segment %s\n", segment.net.c_str(ctx));
+        }
     }
 
     // Update timing results in the context
