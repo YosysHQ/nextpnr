@@ -211,6 +211,8 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("router2-tmg-ripup",
                           "enable experimental timing-driven ripup in router (deprecated; use --tmg-ripup instead)");
 
+    general.add_options()("router2-alt-weights", "use alternate router2 weights");
+
     general.add_options()("report", po::value<std::string>(),
                           "write timing and utilization report in JSON format to file");
     general.add_options()("detailed-timing-report", "Append detailed net timing data to the JSON report");
@@ -351,6 +353,9 @@ void CommandHandler::setupContext(Context *ctx)
         ctx->settings[ctx->id("router2/heatmap")] = vm["router2-heatmap"].as<std::string>();
     if (vm.count("tmg-ripup") || vm.count("router2-tmg-ripup"))
         ctx->settings[ctx->id("router/tmg_ripup")] = true;
+
+    if (vm.count("router2-alt-weights"))
+        ctx->settings[ctx->id("router2/alt-weights")] = true;
 
     // Setting default values
     if (ctx->settings.find(ctx->id("target_freq")) == ctx->settings.end())
