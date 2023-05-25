@@ -368,8 +368,9 @@ bool Arch::getArcDelayOverride(const NetInfo *net_info, const PortRef &sink, Del
             cyclonev->rnode_timing_build_input_wave(src.node, temp, CycloneV::DELAY_MAX,
                                                     inverted ? mistral::CycloneV::RF_RISE : mistral::CycloneV::RF_FALL,
                                                     est, input_wave[1]);
-            NPNR_ASSERT(!input_wave[mistral::CycloneV::RF_RISE].empty() &&
-                        !input_wave[mistral::CycloneV::RF_FALL].empty());
+            if (input_wave[mistral::CycloneV::RF_RISE].empty() ||
+                    input_wave[mistral::CycloneV::RF_FALL].empty())
+                return false;
         }
 
         for (int edge = 0; edge != 2; edge++) {
