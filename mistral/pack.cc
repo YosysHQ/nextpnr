@@ -392,7 +392,7 @@ struct MistralPacker
             auto abits = ci->params.at(id_CFG_ABITS).as_int64();
             auto dbits = ci->params.at(id_CFG_DBITS).as_int64();
             NPNR_ASSERT(abits >= 7 && abits <= 13);
-            NPNR_ASSERT(dbits == 1 || dbits == 2 || dbits == 5 || dbits == 10 || dbits == 20);
+            NPNR_ASSERT(dbits == 1 || dbits == 2 || dbits == 5 || dbits == 10 || dbits == 20 || dbits == 40);
             NPNR_ASSERT((1 << abits) * dbits <= 10240);
 
             log_info("Setting up %ld-bit address, %ld-bit data M10K for %s.\n", abits, dbits, ci->name.str(ctx).c_str());
@@ -402,8 +402,11 @@ struct MistralPacker
             // It *does* generate ACLR[01] but leaves them unconnected if unused.
 
             // Enables.
-            // RDEN[1] and WREN[0] are left unconnected.
-            ci->pin_data[ctx->id("A1EN")].bel_pins = {ctx->id("WREN[1]")};
+            // RDEN[1] is left unconnected.
+            if (dbits == 40)
+                ci->pin_data[ctx->id("A1EN")].bel_pins = {ctx->id("WREN[0]")};
+            else
+                ci->pin_data[ctx->id("A1EN")].bel_pins = {ctx->id("WREN[1]")};
             ci->pin_data[ctx->id("B1EN")].bel_pins = {ctx->id("RDEN[0]")};
 
             // Clocks.
@@ -415,7 +418,7 @@ struct MistralPacker
 
             // One could remove the std::max here and the `- bit_offset`s here,
             // because they would cancel out, but I think this way is less confusing.
-            int addr_offset = std::max(12 - std::max(abits, 9L), 0L);
+            int addr_offset = std::max(12 - std::max(abits, dbits == 40 ? 8L : 9L), 0L);
             int bit_offset = (abits == 13);
             if (abits == 13) {
                 ci->pin_data[ctx->id("A1ADDR[0]")].bel_pins = {ctx->id("DATAAIN[4]")};
@@ -462,13 +465,25 @@ struct MistralPacker
                 continue;
             }
 
-            for (int bit = 0; bit < dbits; bit++) {
+            // 40-bit data mode causes some headaches...
+            bit_offset = dbits == 40 ? 20 : 0;
+
+            // Write port
+            for (int bit = 0; bit < std::min(dbits, 20L); bit++)
                 for (int offset : offsets)
                     ci->pin_data[ctx->idf("A1DATA[%d]", bit)].bel_pins.push_back(ctx->idf("DATAAIN[%d]", bit + offset));
-            }
 
-            for (int bit = 0; bit < dbits; bit++)
-                ci->pin_data[ctx->idf("B1DATA[%d]", bit)].bel_pins = {ctx->idf("DATABOUT[%d]", bit)};
+            if (dbits == 40)
+                for (int bit = bit_offset; bit < dbits; bit++)
+                    ci->pin_data[ctx->idf("A1DATA[%d]", bit)].bel_pins.push_back(ctx->idf("DATABIN[%d]", bit - bit_offset));
+
+            // Read port
+            if (dbits == 40)
+                for (int bit = 0; bit < 20; bit++)
+                    ci->pin_data[ctx->idf("B1DATA[%d]", bit)].bel_pins = {ctx->idf("DATAAOUT[%d]", bit)};
+
+            for (int bit = bit_offset; bit < dbits; bit++)
+                ci->pin_data[ctx->idf("B1DATA[%d]", bit)].bel_pins = {ctx->idf("DATABOUT[%d]", bit - bit_offset)};
         }
     }
 

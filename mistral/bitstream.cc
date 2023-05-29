@@ -126,9 +126,11 @@ struct MistralBitgen
         // Notes:
         // DATA_FLOW_THRU is probably transparent reads.
 
+        auto dbits = ci->params.at(id_CFG_DBITS).as_int64();
+
         cv->bmux_b_set(CycloneV::M10K, pos, CycloneV::A_DATA_FLOW_THRU, bi, 1);
-        cv->bmux_n_set(CycloneV::M10K, pos, CycloneV::A_DATA_WIDTH, bi, ci->params.at(id_CFG_DBITS).as_int64());
-        cv->bmux_m_set(CycloneV::M10K, pos, CycloneV::A_FAST_WRITE, bi, CycloneV::FAST);
+        cv->bmux_n_set(CycloneV::M10K, pos, CycloneV::A_DATA_WIDTH, bi, dbits);
+        cv->bmux_m_set(CycloneV::M10K, pos, CycloneV::A_FAST_WRITE, bi, dbits == 40 ? CycloneV::SLOW : CycloneV::FAST);
         cv->bmux_m_set(CycloneV::M10K, pos, CycloneV::A_OUTPUT_SEL, bi, CycloneV::ASYNC);
         cv->bmux_r_set(CycloneV::M10K, pos, CycloneV::A_SA_WREN_DELAY, bi, 1);
         cv->bmux_r_set(CycloneV::M10K, pos, CycloneV::A_SAEN_DELAY, bi, 2);
@@ -136,8 +138,8 @@ struct MistralBitgen
         cv->bmux_r_set(CycloneV::M10K, pos, CycloneV::A_WR_TIMER_PULSE, bi, 0x0b);
 
         cv->bmux_b_set(CycloneV::M10K, pos, CycloneV::B_DATA_FLOW_THRU, bi, 1);
-        cv->bmux_n_set(CycloneV::M10K, pos, CycloneV::B_DATA_WIDTH, bi, ci->params.at(id_CFG_DBITS).as_int64());
-        cv->bmux_m_set(CycloneV::M10K, pos, CycloneV::B_FAST_WRITE, bi, CycloneV::FAST);
+        cv->bmux_n_set(CycloneV::M10K, pos, CycloneV::B_DATA_WIDTH, bi, dbits);
+        cv->bmux_m_set(CycloneV::M10K, pos, CycloneV::B_FAST_WRITE, bi, dbits == 40 ? CycloneV::SLOW : CycloneV::FAST);
         cv->bmux_m_set(CycloneV::M10K, pos, CycloneV::B_OUTPUT_SEL, bi, CycloneV::ASYNC);
         cv->bmux_r_set(CycloneV::M10K, pos, CycloneV::B_SA_WREN_DELAY, bi, 1);
         cv->bmux_r_set(CycloneV::M10K, pos, CycloneV::B_SAEN_DELAY, bi, 2);
@@ -145,10 +147,10 @@ struct MistralBitgen
         cv->bmux_r_set(CycloneV::M10K, pos, CycloneV::B_WR_TIMER_PULSE, bi, 0x0b);
 
         cv->bmux_n_set(CycloneV::M10K, pos, CycloneV::TOP_CLK_SEL, bi, 1);
-        cv->bmux_b_set(CycloneV::M10K, pos, CycloneV::TOP_W_INV, bi, 1);
-        cv->bmux_n_set(CycloneV::M10K, pos, CycloneV::TOP_W_SEL, bi, 1);
-        cv->bmux_b_set(CycloneV::M10K, pos, CycloneV::BOT_CLK_INV, bi, 1);
-        cv->bmux_n_set(CycloneV::M10K, pos, CycloneV::BOT_W_SEL, bi, 1);
+        cv->bmux_b_set(CycloneV::M10K, pos, CycloneV::TOP_W_INV, bi, dbits != 40);
+        cv->bmux_n_set(CycloneV::M10K, pos, CycloneV::TOP_W_SEL, bi, dbits != 40);
+        cv->bmux_b_set(CycloneV::M10K, pos, CycloneV::BOT_CLK_INV, bi, dbits != 40);
+        cv->bmux_n_set(CycloneV::M10K, pos, CycloneV::BOT_W_SEL, bi, dbits != 40);
 
         cv->bmux_b_set(CycloneV::M10K, pos, CycloneV::TRUE_DUAL_PORT, bi, 0);
 
