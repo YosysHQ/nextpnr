@@ -393,6 +393,9 @@ struct MistralPacker
             auto dbits = ci->params.at(id_CFG_DBITS).as_int64();
             NPNR_ASSERT(abits >= 7 && abits <= 13);
             NPNR_ASSERT(dbits == 1 || dbits == 2 || dbits == 5 || dbits == 10 || dbits == 20);
+            NPNR_ASSERT((1 << abits) * dbits <= 10240);
+
+            log_info("Setting up %ld-bit address, %ld-bit data M10K for %s.\n", abits, dbits, ci->name.str(ctx).c_str());
 
             // Quartus doesn't seem to generate ADDRSTALL[AB], BYTEENABLE[AB][01].
 
@@ -409,16 +412,18 @@ struct MistralPacker
             // Enables left unconnected.
 
             // Address lines.
-            int addr_offset = std::max(12 - std::max(abits, int64_t{9}), 0l);
-            int bit_offset = 0;
+
+            // One could remove the std::max here and the `- bit_offset`s here,
+            // because they would cancel out, but I think this way is less confusing.
+            int addr_offset = std::max(12 - std::max(abits, 9L), 0L);
+            int bit_offset = (abits == 13);
             if (abits == 13) {
                 ci->pin_data[ctx->id("A1ADDR[0]")].bel_pins = {ctx->id("DATAAIN[4]")};
                 ci->pin_data[ctx->id("B1ADDR[0]")].bel_pins = {ctx->id("DATABIN[19]")};
-                bit_offset = 1;
             }
             for (int bit = bit_offset; bit < abits; bit++) {
-                ci->pin_data[ctx->idf("A1ADDR[%d]", bit)].bel_pins = {ctx->idf("ADDRA[%d]", bit + addr_offset)};
-                ci->pin_data[ctx->idf("B1ADDR[%d]", bit)].bel_pins = {ctx->idf("ADDRB[%d]", bit + addr_offset)};
+                ci->pin_data[ctx->idf("A1ADDR[%d]", bit)].bel_pins = {ctx->idf("ADDRA[%d]", bit + addr_offset - bit_offset)};
+                ci->pin_data[ctx->idf("B1ADDR[%d]", bit)].bel_pins = {ctx->idf("ADDRB[%d]", bit + addr_offset - bit_offset)};
             }
 
             // Data lines
@@ -447,15 +452,23 @@ struct MistralPacker
                 offsets.push_back(16);
                 offsets.push_back(18);
             }
-            for (int bit = 0; bit < dbits; bit++) {
-                for (int offset : offsets) {
-                    ci->pin_data[ctx->idf("A1DATA[%d]", bit)].bel_pins.push_back(ctx->idf("DATAAIN[%d]", bit + offset));
-                }
+
+            // In this corner case the pin name does not have indexing
+            // because it's a single bit wide...
+            if (abits == 13 && dbits == 1) {
+                for (int offset : offsets)
+                    ci->pin_data[ctx->idf("A1DATA")].bel_pins.push_back(ctx->idf("DATAAIN[%d]", offset));
+                ci->pin_data[ctx->idf("B1DATA")].bel_pins = {ctx->idf("DATABOUT[0]")};
+                continue;
             }
 
             for (int bit = 0; bit < dbits; bit++) {
-                ci->pin_data[ctx->idf("B1DATA[%d]", bit)].bel_pins = {ctx->idf("DATABOUT[%d]", bit)};
+                for (int offset : offsets)
+                    ci->pin_data[ctx->idf("A1DATA[%d]", bit)].bel_pins.push_back(ctx->idf("DATAAIN[%d]", bit + offset));
             }
+
+            for (int bit = 0; bit < dbits; bit++)
+                ci->pin_data[ctx->idf("B1DATA[%d]", bit)].bel_pins = {ctx->idf("DATABOUT[%d]", bit)};
         }
     }
 
