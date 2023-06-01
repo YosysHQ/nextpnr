@@ -50,17 +50,17 @@ TimingAnalyser::TimingAnalyser(Context *ctx) : ctx(ctx)
     async_clock_id = 0;
 };
 
-void TimingAnalyser::setup()
+void TimingAnalyser::setup(bool update_net_timings, bool update_histogram, bool update_crit_paths, bool update_route_delays)
 {
     init_ports();
     get_cell_delays();
     topo_sort();
     setup_port_domains();
     identify_related_domains();
-    run();
+    run(update_net_timings, update_histogram, update_crit_paths, update_route_delays);
 }
 
-void TimingAnalyser::run(bool update_route_delays)
+void TimingAnalyser::run(bool update_net_timings, bool update_histogram, bool update_crit_paths, bool update_route_delays)
 {
     reset_times();
     if (update_route_delays)
@@ -69,6 +69,25 @@ void TimingAnalyser::run(bool update_route_delays)
     walk_backward();
     compute_slack();
     compute_criticality();
+
+    // Ensure we clear all timing results if any of them has been marked as
+    // as to be updated. This is done so we ensure it's not possible to have
+    // timing_result which contains mixed reports
+    if (update_net_timings || update_histogram || update_crit_paths) {
+        ctx->timing_result = TimingResult();
+    }
+
+    if (update_net_timings) {
+        build_detailed_net_timing_report();
+    }
+
+    if (update_histogram) {
+        build_slack_histogram_report();
+    }
+
+    if (update_crit_paths) {
+        build_crit_path_reports();
+    }
 }
 
 void TimingAnalyser::init_ports()
@@ -640,19 +659,21 @@ void TimingAnalyser::walk_backward()
     }
 }
 
-dict<domain_id_t, delay_t> TimingAnalyser::max_delay_by_domain()
+dict<domain_id_t, delay_t> TimingAnalyser::max_delay_by_domain_pairs()
 {
     dict<domain_id_t, delay_t> domain_delay;
     for (auto p : topological_order) {
         auto &pd = ports.at(p);
         for (auto &req : pd.required) {
-            if (pd.arrival.count(req.first)) {
-                if (domains.at(req.first).key.is_async())
-                    continue;
-                auto &arr = pd.arrival.at(req.first);
-                delay_t delay = arr.value.maxDelay() - req.second.value.minDelay();
-                if (!domain_delay.count(req.first) || domain_delay.at(req.first) < delay)
-                    domain_delay[req.first] = delay;
+            auto &capture = req.first;
+            for (auto &arr : pd.arrival) {
+                auto &launch = arr.first;
+
+                auto dp = domain_pair_id(launch, capture);
+
+                delay_t delay = arr.second.value.maxDelay() - req.second.value.minDelay();
+                if (!domain_delay.count(dp) || domain_delay.at(dp) < delay)
+                    domain_delay[dp] = delay;
             }
         }
     }
@@ -703,6 +724,7 @@ void TimingAnalyser::compute_criticality()
 {
     for (auto p : topological_order) {
         auto &pd = ports.at(p);
+
         for (auto &pdp : pd.domain_pairs) {
             auto &dp = domain_pairs.at(pdp.first);
             // Do not set criticality for asynchronous paths
@@ -719,13 +741,51 @@ void TimingAnalyser::compute_criticality()
     }
 }
 
-std::vector<CellPortKey> TimingAnalyser::get_failing_eps(domain_id_t domain_pair, int count)
+void TimingAnalyser::build_detailed_net_timing_report()
 {
-    std::vector<CellPortKey> failing_eps;
+    auto &net_timings = ctx->timing_result.detailed_net_timings;
+
+    for (domain_id_t dom_id = 0; dom_id < domain_id_t(domains.size()); ++dom_id) {
+        auto &dom = domains.at(dom_id);
+        for (auto &ep : dom.endpoints) {
+            auto &pd = ports.at(ep.first);
+            const NetInfo *net = port_info(ep.first).net;
+
+            for (auto &arr : pd.arrival) {
+                auto &launch = domains.at(arr.first).key;
+                for (auto &req : pd.required) {
+                    auto &capture = domains.at(req.first).key;
+
+                    NetSinkTiming sink_timing;
+                    sink_timing.clock_pair = ClockPair {
+                        .start = ClockEvent {
+                            .clock = launch.clock,
+                            .edge = launch.edge
+                        },
+                        .end = ClockEvent {
+                            .clock = capture.clock,
+                            .edge = capture.edge
+                        }
+                    };
+                    sink_timing.cell_port = std::make_pair(pd.cell_port.cell, pd.cell_port.port);
+                    sink_timing.delay = arr.second.value.max_delay;
+
+                    log_info("update net_timings: %s: %f\n", net->name.c_str(ctx), (float) sink_timing.delay);
+
+                    net_timings[net->name].push_back(sink_timing);
+                }
+            }
+        }
+    }
+}
+
+std::vector<CellPortKey> TimingAnalyser::get_worst_eps(domain_id_t domain_pair, int count)
+{
+    std::vector<CellPortKey> worst_eps;
     delay_t last_slack = std::numeric_limits<delay_t>::min();
     auto &dp = domain_pairs.at(domain_pair);
     auto &cap_d = domains.at(dp.key.capture);
-    while (int(failing_eps.size()) < count) {
+    while (int(worst_eps.size()) < count) {
         CellPortKey next;
         delay_t next_slack = std::numeric_limits<delay_t>::max();
         for (auto ep : cap_d.endpoints) {
@@ -740,35 +800,10 @@ std::vector<CellPortKey> TimingAnalyser::get_failing_eps(domain_id_t domain_pair
         }
         if (next == CellPortKey())
             break;
-        failing_eps.push_back(next);
+        worst_eps.push_back(next);
         last_slack = next_slack;
     }
-    return failing_eps;
-}
-
-std::string tgp_to_string2(TimingPortClass c) {
-    switch (c) {
-        case TMG_CLOCK_INPUT:
-            return "TMG_CLOCK_INPUT";
-        case TMG_GEN_CLOCK:
-            return "TMG_GEN_CLOCK";
-        case TMG_REGISTER_INPUT:
-            return "TMG_REGISTER_INPUT";
-        case TMG_REGISTER_OUTPUT:
-            return "TMG_REGISTER_OUTPUT";
-        case TMG_COMB_INPUT:
-            return "TMG_COMB_INPUT";
-        case TMG_COMB_OUTPUT:
-            return "TMG_COMB_OUTPUT";
-        case TMG_STARTPOINT:
-            return "TMG_STARTPOINT";
-        case TMG_ENDPOINT:
-            return "TMG_ENDPOINT";
-        case TMG_IGNORE:
-            return "TMG_IGNORE";
-    }
-
-    return "UNKNOWN";
+    return worst_eps;
 }
 
 CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair, CellPortKey endpoint)
@@ -819,7 +854,7 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
             portClass != TMG_IGNORE &&
             port.type == PortType::PORT_IN)
         {
-            crit_path_rev.emplace_back(PortRef { cell, port.name });        
+            crit_path_rev.emplace_back(PortRef { cell, port.name });
         }
         if (!ports.at(cursor).arrival.count(dp.key.launch))
             break;
@@ -852,18 +887,12 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
         }
     }
 
-    log_info("building critical path report for clocks: %s -> %s\n", launch.clock.c_str(ctx), capture.clock.c_str(ctx));
-
     for (auto sink : crit_path) {
         auto sink_cell = sink.cell;
         auto &port = sink_cell->ports.at(sink.port);
         auto net = port.net;
         auto &driver = net->driver;
         auto driver_cell = driver.cell;
-
-        auto clockInfo0 = ctx->getPortTimingClass(driver_cell, driver.port, clock_start);
-
-        log_info("\t%s.%s, tmgPortClass: %s\n", sink_cell->name.c_str(ctx), port.name.c_str(ctx), tgp_to_string2(clockInfo0).c_str());
 
         CriticalPath::Segment seg_logic;
 
@@ -920,22 +949,25 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
     return report;
 }
 
-void TimingAnalyser::print_report()
+void TimingAnalyser::build_crit_path_reports()
 {
-    dict<IdString, CriticalPath> clock_reports;
-    std::vector<CriticalPath> xclock_reports;
-    dict<IdString, ClockFmax> clock_fmax;
-    std::set<IdString> empty_clocks;
+    auto &clock_reports = ctx->timing_result.clock_paths;
+    auto &xclock_reports = ctx->timing_result.xclock_paths;
+    auto &clock_fmax = ctx->timing_result.clock_fmax;
+    auto &empty_clocks = ctx->timing_result.empty_paths;
+    auto &clock_delays_ctx = ctx->timing_result.clock_delays;
 
-    auto delay_by_domain = max_delay_by_domain();
+    auto delay_by_domain = max_delay_by_domain_pairs();
+
+    auto uq_doms = ctx->timing_result.empty_paths;
+    auto clock_pairs = std::vector<std::pair<ClockDomainKey, ClockDomainKey>>();
 
     for (int i = 0; i < int(domain_pairs.size()); i++) {
         auto &dp = domain_pairs.at(i);
         auto &launch = domains.at(dp.key.launch).key;
         auto &capture = domains.at(dp.key.capture).key;
-        
-        empty_clocks.insert(launch.clock);
-        empty_clocks.insert(capture.clock);
+
+        clock_pairs.emplace_back(std::make_pair(launch, capture));
     }
 
     for (int i = 0; i < int(domain_pairs.size()); i++) {
@@ -943,7 +975,7 @@ void TimingAnalyser::print_report()
         auto &launch = domains.at(dp.key.launch).key;
         auto &capture = domains.at(dp.key.capture).key;
 
-        if (launch.clock != capture.clock || launch.clock == ctx->id("$async$"))
+        if (launch.clock != capture.clock || launch.is_async())
             continue;
 
         auto path_delay = delay_by_domain.at(dp.key.launch);
@@ -955,11 +987,15 @@ void TimingAnalyser::print_report()
             Fmax = 1000 / ctx->getDelayNS(path_delay);
         else
             Fmax = 500 / ctx->getDelayNS(path_delay);
-        
+
         if (!clock_fmax.count(launch.clock) || Fmax < clock_fmax.at(launch.clock).achieved) {
+            float target = ctx->setting<float>("target_freq") / 1e6;
+            if (ctx->nets.at(launch.clock)->clkconstr)
+                target = 1000 / ctx->getDelayNS(ctx->nets.at(launch.clock)->clkconstr->period.minDelay());
+
             clock_fmax[launch.clock].achieved = Fmax;
-            clock_fmax[launch.clock].constraint = 0.0f; // Will be filled later
-            auto worst_endpoint = get_failing_eps(i, 1).at(0);
+            clock_fmax[launch.clock].constraint = target;
+            auto worst_endpoint = get_worst_eps(i, 1).at(0);
             clock_reports[launch.clock] = build_critical_path_report(i, worst_endpoint);
         }
     }
@@ -969,15 +1005,11 @@ void TimingAnalyser::print_report()
         auto &launch = domains.at(dp.key.launch).key;
         auto &capture = domains.at(dp.key.capture).key;
 
-        if (launch.clock == capture.clock && launch.clock == ctx->id("$async$"))
+        if (launch.clock == capture.clock)
             continue;
 
-        auto worst_endpoint = get_failing_eps(i, 1).at(0);
+        auto worst_endpoint = get_worst_eps(i, 1).at(0);
         xclock_reports.emplace_back(build_critical_path_report(i, worst_endpoint));
-    }
-
-    if (clock_reports.empty() && xclock_reports.empty()) {
-        log_info("No Fmax available; no interior timing paths found in design.\n");
     }
 
     std::sort(xclock_reports.begin(), xclock_reports.end(), [&](const CriticalPath &ra, const CriticalPath &rb) {
@@ -1008,308 +1040,54 @@ void TimingAnalyser::print_report()
         clock_fmax[clock.first].constraint = target;
     }
 
+    clock_delays_ctx = clock_delays;
+}
 
-    auto print_path = true;
-    auto print_fmax =true;
+static std::string clock_event_name(const Context *ctx, const ClockDomainKey &e, int field_width = 0)
+{
+    std::string value;
+    if (e.clock == IdString() || e.clock == ctx->id("$async$"))
+        value = std::string("<async>");
+    else
+        value = (e.edge == FALLING_EDGE ? std::string("negedge ") : std::string("posedge ")) + e.clock.str(ctx);
+    if (int(value.length()) < field_width)
+        value.insert(value.length(), field_width - int(value.length()), ' ');
+    return value;
+};
 
-    auto format_event = [&](const ClockEvent &e, int field_width = 0) {
-        std::string value;
-        if (e.clock == ctx->id("$async$"))
-            value = std::string("<async>");
-        else
-            value = (e.edge == FALLING_EDGE ? std::string("negedge ") : std::string("posedge ")) + e.clock.str(ctx);
-        if (int(value.length()) < field_width)
-            value.insert(value.length(), field_width - int(value.length()), ' ');
-        return value;
-    };
+void TimingAnalyser::build_slack_histogram_report()
+{
+    auto& slack_histogram = ctx->timing_result.slack_histogram;
 
-        // Print critical paths
-    if (print_path) {
-        if (ctx->idstring_str_to_idx == nullptr) {
-            log_info("global: ctx->idstring_str_to_idx is nullptr\n");
-        } else {
-            for (const auto& kv : *ctx->idstring_str_to_idx) {
-                log_info("global: %s -> %d\n", kv.first.c_str(), kv.second);
-            }
-        }
+    for (domain_id_t dom_id = 0; dom_id < domain_id_t(domains.size()); ++dom_id) {
+        for (auto &ep : domains.at(dom_id).endpoints) {
+            auto &pd = ports.at(ep.first);
 
-        static auto print_net_source = [](Context* ctx, const NetInfo *net) {
-            // Check if this net is annotated with a source list
-            auto sources = net->attrs.find(ctx->id("src"));
-            if (sources == net->attrs.end()) {
-                // No sources for this net, can't print anything
-                return;
-            }
+            for (auto &req : pd.required) {
+                auto &capture = domains.at(req.first).key;
+                for (auto &arr : pd.arrival) {
+                    auto &launch = domains.at(arr.first).key;
 
-            // Sources are separated by pipe characters.
-            // There is no guaranteed ordering on sources, so we just print all
-            auto sourcelist = sources->second.as_string();
-            std::vector<std::string> source_entries;
-            size_t current = 0, prev = 0;
-            while ((current = sourcelist.find("|", prev)) != std::string::npos) {
-                source_entries.emplace_back(sourcelist.substr(prev, current - prev));
-                prev = current + 1;
-            }
-            // Ensure we emplace the final entry
-            source_entries.emplace_back(sourcelist.substr(prev, current - prev));
+                    // @gatecat: old timing analysis includes async path
+                    // The slack doesn' make much sense so I filter it out.
+                    if (launch.clock != capture.clock || launch.is_async())
+                        continue;
 
-            // Iterate and print our source list at the correct indentation level
-            log_info("               Defined in:\n");
-            for (auto entry : source_entries) {
-                log_info("                 %s\n", entry.c_str());
-            }
-        };
+                    float clk_period = ctx->getDelayFromNS(1.0e9 / ctx->setting<float>("target_freq"));
+                    if (ctx->nets.at(launch.clock)->clkconstr)
+                        clk_period = ctx->nets.at(launch.clock)->clkconstr->period.minDelay();
 
-        // A helper function for reporting one critical path
-        auto print_path_report = [](Context* ctx, const CriticalPath &path) {
-            delay_t total = 0, logic_total = 0, route_total = 0;
+                    if (launch.edge != capture.edge)
+                        clk_period = clk_period / 2;
 
-            log_info("curr total\n");
+                    delay_t delay = arr.second.value.maxDelay() - req.second.value.minDelay();
+                    delay_t slack = clk_period - delay;
 
-            for (const auto &segment : path.segments) {
-
-                // log_info("processing segment %s\n", segment.net.c_str(ctx));
-
-                total += segment.delay;
-
-                if (segment.type == CriticalPath::Segment::Type::CLK_TO_Q ||
-                    segment.type == CriticalPath::Segment::Type::SOURCE ||
-                    segment.type == CriticalPath::Segment::Type::LOGIC ||
-                    segment.type == CriticalPath::Segment::Type::SETUP) {
-                
-                    logic_total += segment.delay;
-
-                    const std::string type_name =
-                            (segment.type == CriticalPath::Segment::Type::SETUP) ? "Setup" : "Source";
-
-                    log_info("%4.1f %4.1f  %s %s.%s\n", ctx->getDelayNS(segment.delay), ctx->getDelayNS(total),
-                             type_name.c_str(), segment.to.first.c_str(ctx), segment.to.second.c_str(ctx));
-                } else if (segment.type == CriticalPath::Segment::Type::ROUTING) {
-                    route_total += segment.delay;
-
-                    const auto &driver = ctx->cells.at(segment.from.first);
-                    const auto &sink = ctx->cells.at(segment.to.first);
-
-                    auto driver_loc = ctx->getBelLocation(driver->bel);
-                    auto sink_loc = ctx->getBelLocation(sink->bel);
-
-                    log_info("%4.1f %4.1f    Net %s (%d,%d) -> (%d,%d)\n", ctx->getDelayNS(segment.delay),
-                             ctx->getDelayNS(total), segment.net.c_str(ctx),
-                             driver_loc.x, driver_loc.y, sink_loc.x, sink_loc.y);
-                    log_info("               Sink %s.%s\n", segment.to.first.c_str(ctx), segment.to.second.c_str(ctx));
-
-                    const NetInfo *net = ctx->nets.at(segment.net).get();
-
-                    if (ctx->verbose) {
-                        PortRef sink_ref;
-                        sink_ref.cell = sink.get();
-                        sink_ref.port = segment.to.second;
-
-                        auto driver_wire = ctx->getNetinfoSourceWire(net);
-                        auto sink_wire = ctx->getNetinfoSinkWire(net, sink_ref, 0);
-                        log_info("                 prediction: %f ns estimate: %f ns\n",
-                                 ctx->getDelayNS(ctx->predictArcDelay(net, sink_ref)),
-                                 ctx->getDelayNS(ctx->estimateDelay(driver_wire, sink_wire)));
-                        auto cursor = sink_wire;
-                        delay_t delay;
-                        while (driver_wire != cursor) {
-#ifdef ARCH_ECP5
-                            if (net->is_global)
-                                break;
-#endif
-                            auto it = net->wires.find(cursor);
-                            assert(it != net->wires.end());
-                            auto pip = it->second.pip;
-                            NPNR_ASSERT(pip != PipId());
-                            delay = ctx->getPipDelay(pip).maxDelay();
-                            log_info("                 %1.3f %s\n", ctx->getDelayNS(delay), ctx->nameOfPip(pip));
-                            cursor = ctx->getPipSrcWire(pip);
-                        }
-                    }
-
-                    if (!ctx->disable_critical_path_source_print) {
-                        print_net_source(ctx, net);
-                    }
+                    int slack_ps = ctx->getDelayNS(slack) * 1000;
+                    slack_histogram[slack_ps]++;
                 }
             }
-
-            log_info("%.1f ns logic, %.1f ns routing\n", ctx->getDelayNS(logic_total), ctx->getDelayNS(route_total));
-        };
-
-        // Single domain paths
-        for (auto &clock : clock_reports) {
-            log_break();
-            std::string start = clock.second.clock_pair.start.edge == FALLING_EDGE ? std::string("negedge")
-                                                                                   : std::string("posedge");
-            std::string end =
-                    clock.second.clock_pair.end.edge == FALLING_EDGE ? std::string("negedge") : std::string("posedge");
-            log_info("Critical path report for clock '%s' (%s -> %s):\n", clock.first.c_str(ctx), start.c_str(),
-                     end.c_str());
-            auto &report = clock.second;
-            print_path_report(ctx, report);
         }
-
-        // Cross-domain paths
-        for (auto &report : xclock_reports) {
-            log_break();
-            std::string start = format_event(report.clock_pair.start);
-            std::string end = format_event(report.clock_pair.end);
-            log_info("Critical path report for cross-domain path '%s' -> '%s':\n", start.c_str(), end.c_str());
-            print_path_report(ctx, report);
-        }
-    }
-
-    if (print_fmax) {
-        log_break();
-
-        unsigned max_width = 0;
-        for (auto &clock : clock_reports)
-            max_width = std::max<unsigned>(max_width, clock.first.str(ctx).size());
-
-        for (auto &clock : clock_reports) {
-            const auto &clock_name = clock.first.str(ctx);
-            const int width = max_width - clock_name.size();
-
-            float fmax = clock_fmax[clock.first].achieved;
-            float target = clock_fmax[clock.first].constraint;
-            bool passed = target < fmax;
-
-            if (passed)
-                log_info("Max frequency for clock %*s'%s': %.02f MHz (%s at %.02f MHz)\n", width, "",
-                         clock_name.c_str(), fmax, passed ? "PASS" : "FAIL", target);
-            else if (bool_or_default(ctx->settings, ctx->id("timing/allowFail"), false))
-                log_warning("Max frequency for clock %*s'%s': %.02f MHz (%s at %.02f MHz)\n", width, "",
-                            clock_name.c_str(), fmax, passed ? "PASS" : "FAIL", target);
-            else
-                log_nonfatal_error("Max frequency for clock %*s'%s': %.02f MHz (%s at %.02f MHz)\n", width, "",
-                                   clock_name.c_str(), fmax, passed ? "PASS" : "FAIL", target);
-        }
-        log_break();
-
-        // All clock to clock delays
-        const auto &clock_delays = get_clock_delays();
-
-        // Clock to clock delays for xpaths
-        dict<ClockPair, delay_t> xclock_delays;
-        for (auto &report : xclock_reports) {
-            const auto &clock1_name = report.clock_pair.start.clock;
-            const auto &clock2_name = report.clock_pair.end.clock;
-
-            const auto key = std::make_pair(clock1_name, clock2_name);
-            if (clock_delays.count(key)) {
-                xclock_delays[report.clock_pair] = clock_delays.at(key);
-            }
-        }
-
-        unsigned max_width_xca = 0;
-        unsigned max_width_xcb = 0;
-        for (auto &report : xclock_reports) {
-            max_width_xca = std::max((unsigned)format_event(report.clock_pair.start).length(), max_width_xca);
-            max_width_xcb = std::max((unsigned)format_event(report.clock_pair.end).length(), max_width_xcb);
-        }
-
-        // Check and report xpath delays for related clocks
-        if (!xclock_reports.empty()) {
-            for (auto &report : xclock_reports) {
-                const auto &clock_a = report.clock_pair.start.clock;
-                const auto &clock_b = report.clock_pair.end.clock;
-
-                const auto key = std::make_pair(clock_a, clock_b);
-                if (!clock_delays.count(key)) {
-                    continue;
-                }
-
-                delay_t path_delay = 0;
-                for (const auto &segment : report.segments) {
-                    path_delay += segment.delay;
-                }
-
-                // Compensate path delay for clock-to-clock delay. If the
-                // result is negative then only the latter matters. Otherwise
-                // the compensated path delay is taken.
-                auto clock_delay = clock_delays.at(key);
-                path_delay -= clock_delay;
-
-                float fmax = std::numeric_limits<float>::infinity();
-                if (path_delay < 0) {
-                    fmax = 1e3f / ctx->getDelayNS(clock_delay);
-                } else if (path_delay > 0) {
-                    fmax = 1e3f / ctx->getDelayNS(path_delay);
-                }
-
-                // Both clocks are related so they should have the same
-                // frequency. However, they may get different constraints from
-                // user input. In case of only one constraint preset take it,
-                // otherwise get the worst case (min.)
-                float target;
-                if (clock_fmax.count(clock_a) && !clock_fmax.count(clock_b)) {
-                    target = clock_fmax.at(clock_a).constraint;
-                } else if (!clock_fmax.count(clock_a) && clock_fmax.count(clock_b)) {
-                    target = clock_fmax.at(clock_b).constraint;
-                } else {
-                    target = std::min(clock_fmax.at(clock_a).constraint, clock_fmax.at(clock_b).constraint);
-                }
-
-                bool passed = target < fmax;
-
-                auto ev_a = format_event(report.clock_pair.start, max_width_xca);
-                auto ev_b = format_event(report.clock_pair.end, max_width_xcb);
-
-                if (passed)
-                    log_info("Max frequency for %s -> %s: %.02f MHz (%s at %.02f MHz)\n", ev_a.c_str(), ev_b.c_str(),
-                             fmax, passed ? "PASS" : "FAIL", target);
-                else if (bool_or_default(ctx->settings, ctx->id("timing/allowFail"), false) ||
-                         bool_or_default(ctx->settings, ctx->id("timing/ignoreRelClk"), false))
-                    log_warning("Max frequency for  %s -> %s: %.02f MHz (%s at %.02f MHz)\n", ev_a.c_str(),
-                                ev_b.c_str(), fmax, passed ? "PASS" : "FAIL", target);
-                else
-                    log_nonfatal_error("Max frequency for %s -> %s: %.02f MHz (%s at %.02f MHz)\n", ev_a.c_str(),
-                                       ev_b.c_str(), fmax, passed ? "PASS" : "FAIL", target);
-            }
-            log_break();
-        }
-
-        // Report clock delays for xpaths
-        if (!clock_delays.empty()) {
-            for (auto &pair : xclock_delays) {
-                auto ev_a = format_event(pair.first.start, max_width_xca);
-                auto ev_b = format_event(pair.first.end, max_width_xcb);
-
-                delay_t delay = pair.second;
-                if (pair.first.start.edge != pair.first.end.edge) {
-                    delay /= 2;
-                }
-
-                log_info("Clock to clock delay %s -> %s: %0.02f ns\n", ev_a.c_str(), ev_b.c_str(),
-                         ctx->getDelayNS(delay));
-            }
-
-            log_break();
-        }
-
-        for (auto &eclock : empty_clocks) {
-            if (eclock != ctx->id("$async$"))
-                log_info("Clock '%s' has no interior paths\n", eclock.c_str(ctx));
-        }
-        log_break();
-
-        int start_field_width = 0, end_field_width = 0;
-        for (auto &report : xclock_reports) {
-            start_field_width = std::max((int)format_event(report.clock_pair.start).length(), start_field_width);
-            end_field_width = std::max((int)format_event(report.clock_pair.end).length(), end_field_width);
-        }
-
-        for (auto &report : xclock_reports) {
-            const ClockEvent &a = report.clock_pair.start;
-            const ClockEvent &b = report.clock_pair.end;
-            delay_t path_delay = 0;
-            for (const auto &segment : report.segments) {
-                path_delay += segment.delay;
-            }
-            auto ev_a = format_event(a, start_field_width), ev_b = format_event(b, end_field_width);
-            log_info("Max delay %s -> %s: %0.02f ns\n", ev_a.c_str(), ev_b.c_str(), ctx->getDelayNS(path_delay));
-        }
-        log_break();
     }
 }
 
@@ -1317,6 +1095,7 @@ domain_id_t TimingAnalyser::domain_id(IdString cell, IdString clock_port, ClockE
 {
     return domain_id(ctx->cells.at(cell)->ports.at(clock_port).net, edge);
 }
+
 domain_id_t TimingAnalyser::domain_id(const NetInfo *net, ClockEdge edge)
 {
     NPNR_ASSERT(net != nullptr);
@@ -1327,6 +1106,7 @@ domain_id_t TimingAnalyser::domain_id(const NetInfo *net, ClockEdge edge)
     }
     return inserted.first->second;
 }
+
 domain_id_t TimingAnalyser::domain_pair_id(domain_id_t launch, domain_id_t capture)
 {
     ClockDomainPairKey key{launch, capture};

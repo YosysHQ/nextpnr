@@ -74,9 +74,8 @@ struct TimingAnalyser
 {
   public:
     TimingAnalyser(Context *ctx);
-    void setup();
-    void run(bool update_route_delays = true);
-    void print_report();
+    void setup(bool update_net_timings = false, bool update_histogram = false, bool update_crit_paths = false, bool update_route_delays = true);
+    void run(bool update_net_timings = false, bool update_histogram = false, bool update_crit_paths = false, bool update_route_delays = true);
 
     // This is used when routers etc are not actually binding detailed routing (due to congestion or an abstracted
     // model), but want to re-run STA with their own calculated delays
@@ -115,16 +114,19 @@ struct TimingAnalyser
     void compute_slack();
     void compute_criticality();
 
-    dict<domain_id_t, delay_t> max_delay_by_domain();
+    void build_detailed_net_timing_report();
+    // Build up CriticalPathData
+    CriticalPath build_critical_path_report(domain_id_t domain_pair, CellPortKey endpoint);
+    void build_crit_path_reports();
+    void build_slack_histogram_report();
+
+
+    dict<domain_id_t, delay_t> max_delay_by_domain_pairs();
 
     // get the N most failing endpoints for a given domain pair
-    std::vector<CellPortKey> get_failing_eps(domain_id_t domain_pair, int count);
+    std::vector<CellPortKey> get_worst_eps(domain_id_t domain_pair, int count);
     // print the critical path for an endpoint and domain pair
     void print_critical_path(CellPortKey endpoint, domain_id_t domain_pair);
-
-    // Build up CriticalPathData
-    // Build critical path report
-    CriticalPath build_critical_path_report(domain_id_t domain_pair, CellPortKey endpoint);
 
     const DelayPair init_delay{std::numeric_limits<delay_t>::max(), std::numeric_limits<delay_t>::lowest()};
 

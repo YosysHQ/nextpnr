@@ -356,9 +356,14 @@ struct TimingResult
     dict<IdString, CriticalPath> clock_paths;
     // Cross-domain critical paths
     std::vector<CriticalPath> xclock_paths;
+    // Domains with no interior paths
+    pool<IdString> empty_paths;
 
     // Detailed net timing data
     dict<IdString, std::vector<NetSinkTiming>> detailed_net_timings;
+
+    // Histogram of delays
+    dict<int, unsigned> delay_frequency;
 };
 
 // Represents the contents of a non-leaf cell in a design
