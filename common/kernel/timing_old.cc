@@ -26,6 +26,8 @@
 #include "log.h"
 #include "timing.h"
 #include "util.h"
+#include <fstream>
+#include <iostream>
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -606,6 +608,10 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
     DelayFrequency slack_histogram;
     DetailedNetTimings detailed_net_timings;
 
+    print_path = true;
+    update_results = true;
+    print_histogram = true;
+
     Timing timing(ctx, true /* net_delays */, false /* update */, (print_path || print_fmax) ? &crit_paths : nullptr,
                   print_histogram ? &slack_histogram : nullptr,
                   (update_results && ctx->detailed_timing_report) ? &detailed_net_timings : nullptr);
@@ -613,11 +619,17 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
 
     // Use TimingAnalyser to determine clock-to-clock relations
     TimingAnalyser timingAnalyser(ctx);
-    timingAnalyser.setup();
+    timingAnalyser.setup(true, true, true, true);
 
     log("start timingAnalyser.print_report();\n\n");
-    timingAnalyser.print_report();
+    // timingAnalyser.print_report();
     log("end timingAnalyser.print_report();\n\n");
+
+    std::string filename = "timingAnalyser.json";
+    std::ofstream f(filename);
+    if (!f)
+        log_error("Failed to open report file '%s' for writing.\n", filename.c_str());
+    ctx->writeReport(f);
 
     bool report_critical_paths = print_path || print_fmax || update_results;
 
@@ -633,6 +645,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
             const ClockEvent &b = path.first.end;
             empty_clocks.insert(a.clock);
             empty_clocks.insert(b.clock);
+            log_info("timing_old: clock pair: %s -> %s\n", a.clock.c_str(ctx), b.clock.c_str(ctx));
         }
         for (auto path : crit_paths) {
             const ClockEvent &a = path.first.start;
@@ -1023,6 +1036,12 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
 
         results.detailed_net_timings = std::move(detailed_net_timings);
     }
+
+    std::string filename2 = "timing_old.json";
+    std::ofstream f2(filename2);
+    if (!f)
+        log_error("Failed to open report file '%s' for writing.\n", filename.c_str());
+    ctx->writeReport(f2);
 }
 
 NEXTPNR_NAMESPACE_END
