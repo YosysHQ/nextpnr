@@ -690,12 +690,18 @@ bool Arch::is_lab_ctrlset_legal(uint32_t lab) const
 void Arch::lab_pre_route()
 {
     log_info("Preparing LABs for routing...\n");
+    int labs_used = 0;
     for (uint32_t lab = 0; lab < labs.size(); lab++) {
+        bool lab_used = false;
         assign_control_sets(lab);
         for (uint8_t alm = 0; alm < 10; alm++) {
             reassign_alm_inputs(lab, alm);
+            lab_used |= labs.at(lab).alms.at(alm).unique_input_count > 0;
         }
+        if (lab_used)
+            labs_used++;
     }
+    log_info("  %d LABs used\n", labs_used);
 }
 
 void Arch::assign_control_sets(uint32_t lab)
