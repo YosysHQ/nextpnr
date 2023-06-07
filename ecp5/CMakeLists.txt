@@ -21,7 +21,13 @@ else()
         message(STATUS "Trellis program prefix: ${TRELLIS_PROGRAM_PREFIX}")
     endif()
 
-    set(TRELLIS_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX} CACHE STRING
+    IF(DEFINED ENV{TRELLIS_INSTALL_PREFIX})
+        set(trellis_default_install_prefix $ENV{TRELLIS_INSTALL_PREFIX})
+    ELSE()
+        set(trellis_default_install_prefix ${CMAKE_INSTALL_PREFIX})
+    ENDIF()
+
+    set(TRELLIS_INSTALL_PREFIX ${trellis_default_install_prefix} CACHE STRING
         "Trellis install prefix")
     message(STATUS "Trellis install prefix: ${TRELLIS_INSTALL_PREFIX}")
 

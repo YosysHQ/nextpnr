@@ -13,7 +13,12 @@ if(DEFINED NEXUS_CHIPDB)
     add_custom_target(chipdb-nexus-bbas ALL)
 else()
     # shared among all families
-    set(OXIDE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}" CACHE STRING
+    IF(DEFINED ENV{OXIDE_INSTALL_PREFIX})
+        set(oxide_default_install_prefix $ENV{OXIDE_INSTALL_PREFIX})
+    ELSE()
+        set(oxide_default_install_prefix ${CMAKE_INSTALL_PREFIX})
+    ENDIF()
+    set(OXIDE_INSTALL_PREFIX "${oxide_default_install_prefix}" CACHE STRING
         "prjoxide install prefix")
     message(STATUS "prjoxide install prefix: ${OXIDE_INSTALL_PREFIX}")
 
