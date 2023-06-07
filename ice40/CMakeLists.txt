@@ -22,6 +22,8 @@ else()
         get_filename_component(dir ${ICEBOX_ROOT} DIRECTORY)
         get_filename_component(dir ${dir} DIRECTORY)
         set(icestorm_default_install_prefix ${dir})
+    elseif(DEFINED ENV{ICESTORM_INSTALL_PREFIX})
+        set(icestorm_default_install_prefix $ENV{ICESTORM_INSTALL_PREFIX})
     endif()
     set(ICESTORM_INSTALL_PREFIX ${icestorm_default_install_prefix} CACHE STRING
         "IceStorm install prefix")
