@@ -6,6 +6,14 @@ include(CheckCXXCompilerFlag)
 # Allow family.cmake add additional dependencies to gui_${family}.
 cmake_policy(SET CMP0079 NEW)
 
+# We want to explictly include all include directories when generating the
+# compilation database as not all clang/gcc share the same implicit includes
+# leading to essentially non-working compile_commands.json
+if(CMAKE_EXPORT_COMPILE_COMMANDS)
+  set(CMAKE_CXX_STANDARD_INCLUDE_DIRECTORIES 
+      ${CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES})
+endif()
+
 # Enable IPO support.
 cmake_policy(SET CMP0069 NEW)
 include(CheckIPOSupported)
