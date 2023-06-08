@@ -567,8 +567,43 @@ bool Arch::check_lab_input_count(uint32_t lab) const
                 continue;
             
             for (int j = 0; j < luts[i]->combInfo.lut_input_count; j++)
-                if (luts[i]->combInfo.lut_in[j])
+                if (luts[i]->combInfo.lut_in[j]) {
+                    // LD routing outputs
+
+                    const pool<int> ld_set_c = {1, 2, 4, 7};
+
+                    const pool<int> ld_inputs_a = {2, 3, 4, 5, 10, 13, 14};
+                    const pool<int> ld_inputs_b = {0, 1, 7, 9, 12, 18};
+                    const pool<int> ld_inputs_c = {6, 8, 11, 16, 17};
+                    const pool<int> ld_inputs_d = {15, 19};
+
+                    // could this be driven by LD?
+                    if (luts[i]->combInfo.lut_in[j]->driver.cell->bel.pos == alm_data.lut_bels[i].pos) {
+                        auto dst_lut = 2 * alm + i;
+                        auto& data = bel_data(luts[i]->combInfo.lut_in[j]->driver.cell->bel);
+                        auto& src_alm_data = labs.at(data.lab_data.lab).alms.at(data.lab_data.alm);
+                        bool ok = false;
+                        int src_lut = 2 * data.lab_data.alm;
+                        if (data.type == id_MISTRAL_MCOMB || data.type == id_MISTRAL_COMB) {
+                            src_lut += data.lab_data.idx;
+                            ok = true;
+                        }
+                        if (data.type == id_MISTRAL_FF && data.lab_data.idx & 1 == 1) {
+                            src_lut += (data.lab_data.idx - 1) / 2;
+                            ok = true;
+                        }
+                        if (ok && dst_lut & 1 == 0 && ld_inputs_a.count(src_lut))
+                            continue;
+                        if (ok && dst_lut & 1 == 1 && ld_inputs_b.count(src_lut))
+                            continue;
+                        if (ok && ld_set_c.count(dst_lut) && ld_inputs_c.count(src_lut))
+                            continue;
+                        if (ok && !ld_set_c.count(dst_lut) && ld_inputs_d.count(src_lut))
+                            continue;
+                    }
+
                     unique_inputs.insert(std::make_pair(luts[i]->combInfo.lut_in[j]->name, tdmux_set.at(j)));
+                }
         }
         for (int i = 0; i < 4; i++) {
             const CellInfo *ff = ffs[i];
