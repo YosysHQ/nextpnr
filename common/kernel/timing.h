@@ -73,7 +73,7 @@ struct ClockDomainPairKey
 struct TimingAnalyser
 {
   public:
-    TimingAnalyser(Context *ctx) : ctx(ctx){};
+    TimingAnalyser(Context *ctx);
     void setup();
     void run(bool update_route_delays = true);
     void print_report();
@@ -157,7 +157,9 @@ struct TimingAnalyser
             COMBINATIONAL,
             SETUP,
             HOLD,
-            CLK_TO_Q
+            CLK_TO_Q,
+            STARTPOINT,
+            ENDPOINT,
         } type;
 
         IdString other_port;
@@ -223,6 +225,8 @@ struct TimingAnalyser
     dict<std::pair<IdString, IdString>, delay_t> clock_delays;
 
     std::vector<CellPortKey> topological_order;
+
+    domain_id_t async_clock_id;
 
     Context *ctx;
 };

@@ -30,8 +30,23 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 namespace {
-const char *edge_name(ClockEdge edge) { return (edge == FALLING_EDGE) ? "negedge" : "posedge"; }
+std::string clock_event_name(const Context *ctx, ClockDomainKey &dom) {
+    std::string value;
+    if (dom.is_async())
+        value = "<async>";
+    else
+        value = (dom.edge == FALLING_EDGE ? "negedge " : "posedge ") + dom.clock.str(ctx);
+    
+    return value;
+}
 } // namespace
+
+TimingAnalyser::TimingAnalyser(Context *ctx) : ctx(ctx) {
+    ClockDomainKey key{IdString(), ClockEdge::RISING_EDGE};
+    domain_to_id.emplace(key, 0);
+    domains.emplace_back(key);
+    async_clock_id = 0;
+};
 
 void TimingAnalyser::setup()
 {
@@ -69,6 +84,8 @@ void TimingAnalyser::init_ports()
 
 void TimingAnalyser::get_cell_delays()
 {
+    auto async_clk_key = domains.at(async_clock_id);
+
     for (auto &port : ports) {
         CellInfo *ci = cell_info(port.first);
         auto &pi = port_info(port.first);
@@ -81,8 +98,7 @@ void TimingAnalyser::get_cell_delays()
         pd.cell_arcs.clear();
         int clkInfoCount = 0;
         TimingPortClass cls = ctx->getPortTimingClass(ci, name, clkInfoCount);
-        if (cls == TMG_STARTPOINT || cls == TMG_ENDPOINT || cls == TMG_CLOCK_INPUT || cls == TMG_GEN_CLOCK ||
-            cls == TMG_IGNORE)
+        if (cls == TMG_CLOCK_INPUT || cls == TMG_GEN_CLOCK || cls == TMG_IGNORE)
             continue;
         if (pi.type == PORT_IN) {
             // Input ports might have setup/hold relationships
@@ -98,15 +114,21 @@ void TimingAnalyser::get_cell_delays()
                 }
             }
             // Combinational delays through cell
-            for (auto &other_port : ci->ports) {
-                auto &op = other_port.second;
-                // ignore dangling ports and non-outputs
-                if (op.net == nullptr || op.type != PORT_OUT)
-                    continue;
-                DelayQuad delay;
-                bool is_path = ctx->getCellDelay(ci, name, other_port.first, delay);
-                if (is_path)
-                    pd.cell_arcs.emplace_back(CellArc::COMBINATIONAL, other_port.first, delay);
+            else if (cls == TMG_COMB_INPUT) {
+                for (auto &other_port : ci->ports) {
+                    auto &op = other_port.second;
+                    // ignore dangling ports and non-outputs
+                    if (op.net == nullptr || op.type != PORT_OUT)
+                        continue;
+                    DelayQuad delay;
+                    bool is_path = ctx->getCellDelay(ci, name, other_port.first, delay);
+                    if (is_path)
+                        pd.cell_arcs.emplace_back(CellArc::COMBINATIONAL, other_port.first, delay);
+                }
+            }
+            // asynchronous endpoint
+            else if (cls == TMG_ENDPOINT) {
+                pd.cell_arcs.emplace_back(CellArc::ENDPOINT, async_clk_key.key.clock, DelayQuad {});
             }
         } else if (pi.type == PORT_OUT) {
             // Output ports might have clk-to-q relationships
@@ -119,15 +141,21 @@ void TimingAnalyser::get_cell_delays()
                 }
             }
             // Combinational delays through cell
-            for (auto &other_port : ci->ports) {
-                auto &op = other_port.second;
-                // ignore dangling ports and non-inputs
-                if (op.net == nullptr || op.type != PORT_IN)
-                    continue;
-                DelayQuad delay;
-                bool is_path = ctx->getCellDelay(ci, other_port.first, name, delay);
-                if (is_path)
-                    pd.cell_arcs.emplace_back(CellArc::COMBINATIONAL, other_port.first, delay);
+            else if (cls == TMG_COMB_OUTPUT) {
+                for (auto &other_port : ci->ports) {
+                    auto &op = other_port.second;
+                    // ignore dangling ports and non-inputs
+                    if (op.net == nullptr || op.type != PORT_IN)
+                        continue;
+                    DelayQuad delay;
+                    bool is_path = ctx->getCellDelay(ci, other_port.first, name, delay);
+                    if (is_path)
+                        pd.cell_arcs.emplace_back(CellArc::COMBINATIONAL, other_port.first, delay);
+                }
+            }
+            // Asynchronous startpoint
+            else if (cls == TMG_STARTPOINT) {
+                pd.cell_arcs.emplace_back(CellArc::STARTPOINT, async_clk_key.key.clock, DelayQuad {});
             }
         }
     }
@@ -194,9 +222,9 @@ void TimingAnalyser::setup_port_domains()
         d.startpoints.clear();
         d.endpoints.clear();
     }
-    // Go forward through the topological order (domains from the PoV of arrival time)
     bool first_iter = true;
     do {
+        // Go forward through the topological order (domains from the PoV of arrival time)
         updated_domains = false;
         for (auto port : topological_order) {
             auto &pd = ports.at(port);
@@ -204,10 +232,14 @@ void TimingAnalyser::setup_port_domains()
             if (pi.type == PORT_OUT) {
                 if (first_iter) {
                     for (auto &fanin : pd.cell_arcs) {
-                        if (fanin.type != CellArc::CLK_TO_Q)
-                            continue;
+                        domain_id_t dom;
                         // registered outputs are startpoints
-                        auto dom = domain_id(port.cell, fanin.other_port, fanin.edge);
+                        if (fanin.type == CellArc::CLK_TO_Q)
+                            dom = domain_id(port.cell, fanin.other_port, fanin.edge);
+                        else if (fanin.type == CellArc::STARTPOINT)
+                            dom = async_clock_id;
+                        else
+                            continue;
                         // create per-domain data
                         pd.arrival[dom];
                         domains.at(dom).startpoints.emplace_back(port, fanin.other_port);
@@ -240,10 +272,14 @@ void TimingAnalyser::setup_port_domains()
             } else {
                 if (first_iter) {
                     for (auto &fanout : pd.cell_arcs) {
-                        if (fanout.type != CellArc::SETUP)
-                            continue;
+                        domain_id_t dom;
                         // registered inputs are endpoints
-                        auto dom = domain_id(port.cell, fanout.other_port, fanout.edge);
+                        if (fanout.type == CellArc::SETUP)
+                            dom = domain_id(port.cell, fanout.other_port, fanout.edge);
+                        else if (fanout.type == CellArc::ENDPOINT)
+                            dom = async_clock_id;
+                        else
+                            continue;
                         // create per-domain data
                         pd.required[dom];
                         domains.at(dom).endpoints.emplace_back(port, fanout.other_port);
@@ -254,7 +290,7 @@ void TimingAnalyser::setup_port_domains()
                     copy_domains(port, CellPortKey(pi.net->driver), true);
             }
         }
-        // Iterate over ports and find domain paris
+        // Iterate over ports and find domain pairs
         for (auto port : topological_order) {
             auto &pd = ports.at(port);
             for (auto &arr : pd.arrival)
@@ -370,6 +406,8 @@ void TimingAnalyser::identify_related_domains()
     // Identify possible drivers for each clock domain
     dict<IdString, dict<IdString, delay_t>> clock_drivers;
     for (const auto &domain : domains) {
+        if (domain.key.is_async())
+            continue;
 
         const NetInfo *ni = ctx->nets.at(domain.key.clock).get();
         if (ni == nullptr)
@@ -613,6 +651,8 @@ void TimingAnalyser::print_fmax()
         auto &pd = ports.at(p);
         for (auto &req : pd.required) {
             if (pd.arrival.count(req.first)) {
+                if (domains.at(req.first).key.is_async())
+                    continue;
                 auto &arr = pd.arrival.at(req.first);
                 double fmax = 1000.0 / ctx->getDelayNS(arr.value.maxDelay() - req.second.value.minDelay());
                 if (!domain_fmax.count(req.first) || domain_fmax.at(req.first) > fmax)
@@ -670,6 +710,10 @@ void TimingAnalyser::compute_criticality()
         auto &pd = ports.at(p);
         for (auto &pdp : pd.domain_pairs) {
             auto &dp = domain_pairs.at(pdp.first);
+            // Do not set criticality for asynchronous paths
+            if (domains.at(dp.key.launch).key.is_async() || domains.at(dp.key.capture).key.is_async())
+                continue;
+
             float crit =
                     1.0f - (float(pdp.second.setup_slack) - float(dp.worst_setup_slack)) / float(-dp.worst_setup_slack);
             crit = std::min(crit, 1.0f);
@@ -728,8 +772,9 @@ void TimingAnalyser::print_report()
         auto &dp = domain_pairs.at(i);
         auto &launch = domains.at(dp.key.launch);
         auto &capture = domains.at(dp.key.capture);
-        log("Worst endpoints for %s %s -> %s %s\n", edge_name(launch.key.edge), ctx->nameOf(launch.key.clock),
-            edge_name(capture.key.edge), ctx->nameOf(capture.key.clock));
+
+        log("Worst endpoints for %s -> %s\n", clock_event_name(ctx, launch.key).c_str(),
+            clock_event_name(ctx, capture.key).c_str());
         auto failing_eps = get_failing_eps(i, 5);
         for (auto &ep : failing_eps)
             print_critical_path(ep, i);
