@@ -113,22 +113,20 @@ void TimingAnalyser::get_cell_delays()
                                               info.edge);
                 }
             }
-            // Combinational delays through cell
-            else if (cls == TMG_COMB_INPUT) {
-                for (auto &other_port : ci->ports) {
-                    auto &op = other_port.second;
-                    // ignore dangling ports and non-outputs
-                    if (op.net == nullptr || op.type != PORT_OUT)
-                        continue;
-                    DelayQuad delay;
-                    bool is_path = ctx->getCellDelay(ci, name, other_port.first, delay);
-                    if (is_path)
-                        pd.cell_arcs.emplace_back(CellArc::COMBINATIONAL, other_port.first, delay);
-                }
-            }
             // asynchronous endpoint
             else if (cls == TMG_ENDPOINT) {
                 pd.cell_arcs.emplace_back(CellArc::ENDPOINT, async_clk_key.key.clock, DelayQuad {});
+            }
+            // Combinational delays through cell
+            for (auto &other_port : ci->ports) {
+                auto &op = other_port.second;
+                // ignore dangling ports and non-outputs
+                if (op.net == nullptr || op.type != PORT_OUT)
+                    continue;
+                DelayQuad delay;
+                bool is_path = ctx->getCellDelay(ci, name, other_port.first, delay);
+                if (is_path)
+                    pd.cell_arcs.emplace_back(CellArc::COMBINATIONAL, other_port.first, delay);
             }
         } else if (pi.type == PORT_OUT) {
             // Output ports might have clk-to-q relationships
@@ -140,22 +138,20 @@ void TimingAnalyser::get_cell_delays()
                     pd.cell_arcs.emplace_back(CellArc::CLK_TO_Q, info.clock_port, info.clockToQ, info.edge);
                 }
             }
-            // Combinational delays through cell
-            else if (cls == TMG_COMB_OUTPUT) {
-                for (auto &other_port : ci->ports) {
-                    auto &op = other_port.second;
-                    // ignore dangling ports and non-inputs
-                    if (op.net == nullptr || op.type != PORT_IN)
-                        continue;
-                    DelayQuad delay;
-                    bool is_path = ctx->getCellDelay(ci, other_port.first, name, delay);
-                    if (is_path)
-                        pd.cell_arcs.emplace_back(CellArc::COMBINATIONAL, other_port.first, delay);
-                }
-            }
             // Asynchronous startpoint
             else if (cls == TMG_STARTPOINT) {
                 pd.cell_arcs.emplace_back(CellArc::STARTPOINT, async_clk_key.key.clock, DelayQuad {});
+            }
+            // Combinational delays through cell
+            for (auto &other_port : ci->ports) {
+                auto &op = other_port.second;
+                // ignore dangling ports and non-inputs
+                if (op.net == nullptr || op.type != PORT_IN)
+                    continue;
+                DelayQuad delay;
+                bool is_path = ctx->getCellDelay(ci, other_port.first, name, delay);
+                if (is_path)
+                    pd.cell_arcs.emplace_back(CellArc::COMBINATIONAL, other_port.first, delay);
             }
         }
     }
