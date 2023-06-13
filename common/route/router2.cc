@@ -73,6 +73,7 @@ struct Router2
 
     struct WireScore
     {
+        float delay;
         float cost;
         float togo_cost;
         float total() const { return cost + togo_cost; }
@@ -651,9 +652,10 @@ struct Router2
             ROUTE_LOG_DBG("src_wire = %s -> dst_wire = %s\n", ctx->nameOfWire(src_wire), ctx->nameOfWire(dst_wire));
 
             // Add 'forward' direction startpoints to queue
-            auto seed_queue_fwd = [&](WireId wire, float wire_cost = 0) {
+            auto seed_queue_fwd = [&](WireId wire) {
                 WireScore base_score;
-                base_score.cost = wire_cost;
+                base_score.delay = 0;
+                base_score.cost = 0;
                 int wire_idx = wire_to_idx.at(wire);
                 base_score.togo_cost = get_togo_cost(net, i, wire_idx, dst_wire, false, crit_weight);
                 t.fwd_queue.push(QueuedWire(wire_idx, base_score));
@@ -683,6 +685,7 @@ struct Router2
             }
             auto seed_queue_bwd = [&](WireId wire) {
                 WireScore base_score;
+                base_score.delay = 0;
                 base_score.cost = 0;
                 int wire_idx = wire_to_idx.at(wire);
                 base_score.togo_cost = get_togo_cost(net, i, wire_idx, src_wire, true, crit_weight);
@@ -721,10 +724,11 @@ struct Router2
                         WireId next = ctx->getPipDstWire(dh);
                         int next_idx = wire_to_idx.at(next);
                         WireScore next_score;
+                        next_score.delay = curr.score.delay + cfg.get_base_cost(ctx, next, dh, crit_weight);
                         next_score.cost = curr.score.cost + score_wire_for_arc(net, i, phys_pin, next, dh, crit_weight);
                         next_score.togo_cost =
                                 cfg.estimate_weight * get_togo_cost(net, i, next_idx, dst_wire, false, crit_weight);
-                        if (was_visited_fwd(next_idx, next_score.cost)) {
+                        if (was_visited_fwd(next_idx, next_score.delay)) {
                             // Don't expand the same node twice.
                             continue;
                         }
@@ -740,7 +744,7 @@ struct Router2
                             continue;
                         if (!thread_test_wire(t, nwd))
                             continue; // thread safety issue
-                        set_visited_fwd(t, next_idx, dh, next_score.cost);
+                        set_visited_fwd(t, next_idx, dh, next_score.delay);
                         t.fwd_queue.push(QueuedWire(next_idx, next_score, t.rng.rng()));
                     }
                 }
@@ -771,10 +775,11 @@ struct Router2
                         WireId next = ctx->getPipSrcWire(uh);
                         int next_idx = wire_to_idx.at(next);
                         WireScore next_score;
+                        next_score.delay = curr.score.delay + cfg.get_base_cost(ctx, next, uh, crit_weight);
                         next_score.cost = curr.score.cost + score_wire_for_arc(net, i, phys_pin, next, uh, crit_weight);
                         next_score.togo_cost =
                                 cfg.estimate_weight * get_togo_cost(net, i, next_idx, src_wire, true, crit_weight);
-                        if (was_visited_bwd(next_idx, next_score.cost)) {
+                        if (was_visited_bwd(next_idx, next_score.delay)) {
                             // Don't expand the same node twice.
                             continue;
                         }
@@ -786,7 +791,7 @@ struct Router2
                             continue;
                         if (!thread_test_wire(t, nwd))
                             continue; // thread safety issue
-                        set_visited_bwd(t, next_idx, uh, next_score.cost);
+                        set_visited_bwd(t, next_idx, uh, next_score.delay);
                         t.bwd_queue.push(QueuedWire(next_idx, next_score, t.rng.rng()));
                     }
                 }
