@@ -31,6 +31,7 @@
 #include <algorithm>
 #include <boost/container/flat_map.hpp>
 #include <chrono>
+#include <cmath>
 #include <deque>
 #include <fstream>
 #include <queue>
