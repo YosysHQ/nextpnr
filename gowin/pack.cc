@@ -636,7 +636,45 @@ static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constne
             CellInfo *uc = user.cell;
             if (ctx->verbose)
                 log_info("%s user %s\n", ctx->nameOf(orig), ctx->nameOf(uc));
-            if ((is_lut(ctx, uc) || is_lc(ctx, uc)) && (user.port.str(ctx).at(0) == 'I') && !constval) {
+
+            if ((is_lut(ctx, uc)) && (user.port.str(ctx).at(0) == 'I') && !constval) {
+                auto it_param = uc->params.find(id_INIT);
+                if (it_param == uc->params.end())
+                    log_error("No initialization for lut found.\n");
+                
+                int64_t uc_init = it_param->second.intval;
+                int64_t mask = 0;
+                uint8_t amt = 0;
+
+                if (user.port == id_I0) {
+                    mask = 0x5555;
+                    amt = 1;
+                } else if (user.port == id_I1) {
+                    mask = 0x3333;
+                    amt = 2;
+                } else if (user.port == id_I2) {
+                    mask = 0x0F0F;
+                    amt = 4;
+                } else if (user.port == id_I3) {
+                    mask = 0x00FF;
+                    amt = 8;
+                } else {
+                    log_error("Port number invalid.\n");
+                }
+
+                if ((constnet->name == ctx->id("$PACKER_GND_NET"))) {
+                    uc_init = (uc_init & mask) | ((uc_init & mask) << amt);
+                } else {
+                    uc_init = (uc_init & (mask<<amt)) | ((uc_init & (mask<<amt)) >> amt);  
+                }
+
+                size_t uc_init_len = it_param->second.to_string().length();
+                uc_init &= (1LL << uc_init_len) - 1;
+
+                if (ctx->verbose)
+                    log_info("%s lut config modified from 0x%lX to 0x%lX\n", ctx->nameOf(uc), it_param->second.intval, uc_init);
+
+                it_param->second = Property(uc_init, uc_init_len); 
                 uc->ports[user.port].net = nullptr;
                 uc->ports[user.port].user_idx = {};
             } else {
@@ -679,7 +717,7 @@ static void pack_constants(Context *ctx)
             ctx->cells.erase(drv_cell);
         } else if (ni->driver.cell != nullptr && ni->driver.cell->type == id_VCC) {
             IdString drv_cell = ni->driver.cell->name;
-            set_net_constant(ctx, ni, vcc_net.get(), true);
+            set_net_constant(ctx, ni, vcc_net.get(), false);
             dead_nets.push_back(net.first);
             ctx->cells.erase(drv_cell);
         }
