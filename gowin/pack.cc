@@ -628,7 +628,7 @@ static void pack_nonlut_ffs(Context *ctx)
 }
 
 // Merge a net into a constant net
-static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constnet, bool constval)
+static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constnet)
 {
     orig->driver.cell = nullptr;
     for (auto user : orig->users) {
@@ -637,7 +637,7 @@ static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constne
             if (ctx->verbose)
                 log_info("%s user %s\n", ctx->nameOf(orig), ctx->nameOf(uc));
 
-            if ((is_lut(ctx, uc)) && (user.port.str(ctx).at(0) == 'I') && !constval) {
+            if (is_lut(ctx, uc) && (user.port.str(ctx).at(0) == 'I')) {
                 auto it_param = uc->params.find(id_INIT);
                 if (it_param == uc->params.end())
                     log_error("No initialization for lut found.\n");
@@ -711,13 +711,13 @@ static void pack_constants(Context *ctx)
         NetInfo *ni = net.second.get();
         if (ni->driver.cell != nullptr && ni->driver.cell->type == id_GND) {
             IdString drv_cell = ni->driver.cell->name;
-            set_net_constant(ctx, ni, gnd_net.get(), false);
+            set_net_constant(ctx, ni, gnd_net.get());
             gnd_used = true;
             dead_nets.push_back(net.first);
             ctx->cells.erase(drv_cell);
         } else if (ni->driver.cell != nullptr && ni->driver.cell->type == id_VCC) {
             IdString drv_cell = ni->driver.cell->name;
-            set_net_constant(ctx, ni, vcc_net.get(), false);
+            set_net_constant(ctx, ni, vcc_net.get());
             dead_nets.push_back(net.first);
             ctx->cells.erase(drv_cell);
         }
