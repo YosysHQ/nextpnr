@@ -21,13 +21,13 @@
 #include <algorithm>
 #include <boost/range/adaptor/reversed.hpp>
 #include <deque>
+#include <fstream>
+#include <iostream>
 #include <map>
 #include <utility>
 #include "log.h"
 #include "timing.h"
 #include "util.h"
-#include <fstream>
-#include <iostream>
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -622,14 +622,14 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
     timingAnalyser.setup(true, true, true, true);
 
     log("start timingAnalyser.print_report();\n\n");
-    // timingAnalyser.print_report();
+    ctx->log_timing_results(true, true, true);
     log("end timingAnalyser.print_report();\n\n");
 
     std::string filename = "timingAnalyser.json";
     std::ofstream f(filename);
     if (!f)
         log_error("Failed to open report file '%s' for writing.\n", filename.c_str());
-    ctx->writeReport(f);
+    ctx->writeJsonReport(f);
 
     bool report_critical_paths = print_path || print_fmax || update_results;
 
@@ -1041,7 +1041,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
     std::ofstream f2(filename2);
     if (!f)
         log_error("Failed to open report file '%s' for writing.\n", filename.c_str());
-    ctx->writeReport(f2);
+    ctx->writeJsonReport(f2);
 }
 
 NEXTPNR_NAMESPACE_END

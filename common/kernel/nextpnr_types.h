@@ -362,8 +362,11 @@ struct TimingResult
     // Detailed net timing data
     dict<IdString, std::vector<NetSinkTiming>> detailed_net_timings;
 
+    // clock to clock delays
+    dict<std::pair<IdString, IdString>, delay_t> clock_delays;
+
     // Histogram of delays
-    dict<int, unsigned> delay_frequency;
+    dict<int, unsigned> slack_histogram;
 };
 
 // Represents the contents of a non-leaf cell in a design
