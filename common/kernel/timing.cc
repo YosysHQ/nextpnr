@@ -1043,18 +1043,6 @@ void TimingAnalyser::build_crit_path_reports()
     clock_delays_ctx = clock_delays;
 }
 
-static std::string clock_event_name(const Context *ctx, const ClockDomainKey &e, int field_width = 0)
-{
-    std::string value;
-    if (e.clock == IdString() || e.clock == ctx->id("$async$"))
-        value = std::string("<async>");
-    else
-        value = (e.edge == FALLING_EDGE ? std::string("negedge ") : std::string("posedge ")) + e.clock.str(ctx);
-    if (int(value.length()) < field_width)
-        value.insert(value.length(), field_width - int(value.length()), ' ');
-    return value;
-};
-
 void TimingAnalyser::build_slack_histogram_report()
 {
     auto& slack_histogram = ctx->timing_result.slack_histogram;

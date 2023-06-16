@@ -505,7 +505,7 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
         std::ofstream f(filename);
         if (!f)
             log_error("Failed to open report file '%s' for writing.\n", filename.c_str());
-        ctx->writeReport(f);
+        ctx->writeJsonReport(f);
     }
 
 #ifndef NO_PYTHON

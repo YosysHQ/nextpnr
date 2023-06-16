@@ -99,8 +99,11 @@ struct Context : Arch, DeterministicRNG
 
     // --------------------------------------------------------------
 
-    // provided by report.cc
-    void writeReport(std::ostream &out) const;
+    // provided by report_json.cc
+    void writeJsonReport(std::ostream &out) const;
+
+    // provided by timing_report.cc
+    void log_timing_results(bool print_histogram, bool print_path, bool warn_on_failure);
     // --------------------------------------------------------------
 
     uint32_t checksum() const;
