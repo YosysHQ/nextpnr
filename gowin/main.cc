@@ -66,7 +66,9 @@ std::unique_ptr<Context> GowinCommandHandler::createContext(dict<std::string, Pr
     std::regex devicere = std::regex("GW1N([SZ]?)[A-Z]*-(LV|UV|UX)([0-9])(C?).*");
     std::smatch match;
     std::string device = vm["device"].as<std::string>();
-    if (!std::regex_match(device, match, devicere)) {
+    bool GW2 = device == "GW2A-LV18PG256C8/I7";
+
+    if (!GW2 && !std::regex_match(device, match, devicere)) {
         log_error("Invalid device %s\n", device.c_str());
     }
     ArchArgs chipArgs;
@@ -74,14 +76,22 @@ std::unique_ptr<Context> GowinCommandHandler::createContext(dict<std::string, Pr
     if (vm.count("family")) {
         chipArgs.family = vm["family"].as<std::string>();
     } else {
-        char buf[36];
-        // GW1N and GW1NR variants share the same database.
-        // Most Gowin devices are a System in Package with some SDRAM wirebonded to a GPIO bank.
-        // However, it appears that the S series with embedded ARM core are unique silicon.
-        snprintf(buf, 36, "GW1N%s-%s", match[1].str().c_str(), match[3].str().c_str());
-        chipArgs.family = buf;
+        if (!GW2) {
+            char buf[36];
+            // GW1N and GW1NR variants share the same database.
+            // Most Gowin devices are a System in Package with some SDRAM wirebonded to a GPIO bank.
+            // However, it appears that the S series with embedded ARM core are unique silicon.
+            snprintf(buf, 36, "GW1N%s-%s", match[1].str().c_str(), match[3].str().c_str());
+            chipArgs.family = buf;
+        } else {
+            chipArgs.family = "GW2A-18";
+        }
     }
-    chipArgs.partnumber = match[0];
+    if (!GW2) {
+        chipArgs.partnumber = match[0];
+    } else {
+        chipArgs.partnumber = device;
+    }
 
     auto ctx = std::unique_ptr<Context>(new Context(chipArgs));
     // routing options
@@ -92,6 +102,10 @@ std::unique_ptr<Context> GowinCommandHandler::createContext(dict<std::string, Pr
     }
     if (vm.count("enable-auto-longwires")) {
         ctx->settings[ctx->id("arch.enable-auto-longwires")] = 1;
+    }
+    // XXX disable clock lines for now
+    if (GW2) {
+        ctx->settings[ctx->id("arch.enable-globals")] = 0;
     }
     return ctx;
 }
