@@ -18,7 +18,7 @@ jobs:
       TRELLIS_REVISION: f1e5710099313d2e1862d4ef2582293f6b7ee122
       PRJOXIDE_REVISION: c3fb1526cf4a2165e15b74f4a994d153c7695fe4
       MISTRAL_REVISION: ebfc0dd2cc7d6d2159b641a397c88554840e93c9
-      APYCULA_REVISION: 0.5.1a1
+      APYCULA_REVISION: 0.8.2a1
     steps:
     - uses: actions/checkout@v3
       with:
