@@ -31,9 +31,9 @@
 #include <algorithm>
 #include <boost/container/flat_map.hpp>
 #include <chrono>
-#include <cmath>
 #include <deque>
 #include <fstream>
+#include <limits>
 #include <queue>
 #include <set>
 
@@ -710,7 +710,7 @@ struct Router2
                     auto curr = t.fwd_queue.top();
                     t.fwd_queue.pop();
                     ++explored;
-                    if (was_visited_bwd(curr.wire, FLT_MAX)) {
+                    if (was_visited_bwd(curr.wire, std::numeric_limits<float>::max())) {
                         // Meet in the middle; done
                         midpoint_wire = curr.wire;
                         break;
@@ -754,7 +754,7 @@ struct Router2
                     auto curr = t.bwd_queue.top();
                     t.bwd_queue.pop();
                     ++explored;
-                    if (was_visited_fwd(curr.wire, FLT_MAX)) {
+                    if (was_visited_fwd(curr.wire, std::numeric_limits<float>::max())) {
                         // Meet in the middle; done
                         midpoint_wire = curr.wire;
                         break;
@@ -804,7 +804,7 @@ struct Router2
         if (midpoint_wire != -1) {
             ROUTE_LOG_DBG("   Routed (explored %d wires): ", explored);
             int cursor_bwd = midpoint_wire;
-            while (was_visited_fwd(cursor_bwd, FLT_MAX)) {
+            while (was_visited_fwd(cursor_bwd, std::numeric_limits<float>::max())) {
                 PipId pip = flat_wires.at(cursor_bwd).pip_fwd;
                 if (pip == PipId() && cursor_bwd != src_wire_idx)
                     break;
@@ -843,7 +843,7 @@ struct Router2
             NPNR_ASSERT(cursor_bwd == src_wire_idx);
 
             int cursor_fwd = midpoint_wire;
-            while (was_visited_bwd(cursor_fwd, FLT_MAX)) {
+            while (was_visited_bwd(cursor_fwd, std::numeric_limits<float>::max())) {
                 PipId pip = flat_wires.at(cursor_fwd).pip_bwd;
                 if (pip == PipId()) {
                     break;
