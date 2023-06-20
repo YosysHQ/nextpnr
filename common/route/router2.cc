@@ -583,8 +583,14 @@ struct Router2
         wd.cost_bwd = cost;
     }
 
-    bool was_visited_fwd(int wire, float cost) { return flat_wires.at(wire).visited_fwd && flat_wires.at(wire).cost_fwd <= cost; }
-    bool was_visited_bwd(int wire, float cost) { return flat_wires.at(wire).visited_bwd && flat_wires.at(wire).cost_bwd <= cost; }
+    bool was_visited_fwd(int wire, float cost)
+    {
+        return flat_wires.at(wire).visited_fwd && flat_wires.at(wire).cost_fwd <= cost;
+    }
+    bool was_visited_bwd(int wire, float cost)
+    {
+        return flat_wires.at(wire).visited_bwd && flat_wires.at(wire).cost_bwd <= cost;
+    }
 
     float get_arc_crit(NetInfo *net, store_index<PortRef> i)
     {

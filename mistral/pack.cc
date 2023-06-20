@@ -395,7 +395,8 @@ struct MistralPacker
             NPNR_ASSERT(dbits == 1 || dbits == 2 || dbits == 5 || dbits == 10 || dbits == 20 || dbits == 40);
             NPNR_ASSERT((1 << abits) * dbits <= 10240);
 
-            log_info("Setting up %ld-bit address, %ld-bit data M10K for %s.\n", abits, dbits, ci->name.str(ctx).c_str());
+            log_info("Setting up %ld-bit address, %ld-bit data M10K for %s.\n", abits, dbits,
+                     ci->name.str(ctx).c_str());
 
             // Quartus doesn't seem to generate ADDRSTALL[AB], BYTEENABLE[AB][01].
 
@@ -425,8 +426,10 @@ struct MistralPacker
                 ci->pin_data[ctx->id("B1ADDR[0]")].bel_pins = {ctx->id("DATABIN[19]")};
             }
             for (int bit = bit_offset; bit < abits; bit++) {
-                ci->pin_data[ctx->idf("A1ADDR[%d]", bit)].bel_pins = {ctx->idf("ADDRA[%d]", bit + addr_offset - bit_offset)};
-                ci->pin_data[ctx->idf("B1ADDR[%d]", bit)].bel_pins = {ctx->idf("ADDRB[%d]", bit + addr_offset - bit_offset)};
+                ci->pin_data[ctx->idf("A1ADDR[%d]", bit)].bel_pins = {
+                        ctx->idf("ADDRA[%d]", bit + addr_offset - bit_offset)};
+                ci->pin_data[ctx->idf("B1ADDR[%d]", bit)].bel_pins = {
+                        ctx->idf("ADDRB[%d]", bit + addr_offset - bit_offset)};
             }
 
             // Data lines
@@ -475,7 +478,8 @@ struct MistralPacker
 
             if (dbits == 40)
                 for (int bit = bit_offset; bit < dbits; bit++)
-                    ci->pin_data[ctx->idf("A1DATA[%d]", bit)].bel_pins.push_back(ctx->idf("DATABIN[%d]", bit - bit_offset));
+                    ci->pin_data[ctx->idf("A1DATA[%d]", bit)].bel_pins.push_back(
+                            ctx->idf("DATABIN[%d]", bit - bit_offset));
 
             // Read port
             if (dbits == 40)

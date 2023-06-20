@@ -30,7 +30,8 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 namespace {
-std::string clock_event_name(const Context *ctx, ClockDomainKey &dom) {
+std::string clock_event_name(const Context *ctx, ClockDomainKey &dom)
+{
     std::string value;
     if (dom.is_async())
         value = "<async>";
@@ -41,7 +42,8 @@ std::string clock_event_name(const Context *ctx, ClockDomainKey &dom) {
 }
 } // namespace
 
-TimingAnalyser::TimingAnalyser(Context *ctx) : ctx(ctx) {
+TimingAnalyser::TimingAnalyser(Context *ctx) : ctx(ctx)
+{
     ClockDomainKey key{IdString(), ClockEdge::RISING_EDGE};
     domain_to_id.emplace(key, 0);
     domains.emplace_back(key);
@@ -115,7 +117,7 @@ void TimingAnalyser::get_cell_delays()
             }
             // asynchronous endpoint
             else if (cls == TMG_ENDPOINT) {
-                pd.cell_arcs.emplace_back(CellArc::ENDPOINT, async_clk_key.key.clock, DelayQuad {});
+                pd.cell_arcs.emplace_back(CellArc::ENDPOINT, async_clk_key.key.clock, DelayQuad{});
             }
             // Combinational delays through cell
             for (auto &other_port : ci->ports) {
@@ -140,7 +142,7 @@ void TimingAnalyser::get_cell_delays()
             }
             // Asynchronous startpoint
             else if (cls == TMG_STARTPOINT) {
-                pd.cell_arcs.emplace_back(CellArc::STARTPOINT, async_clk_key.key.clock, DelayQuad {});
+                pd.cell_arcs.emplace_back(CellArc::STARTPOINT, async_clk_key.key.clock, DelayQuad{});
             }
             // Combinational delays through cell
             for (auto &other_port : ci->ports) {
@@ -1257,7 +1259,6 @@ struct Timing
     }
 };
 
-
 CriticalPath build_critical_path_report(Context *ctx, ClockPair &clocks, const PortRefVector &crit_path)
 {
 
@@ -1514,8 +1515,8 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                     auto sink_loc = ctx->getBelLocation(sink->bel);
 
                     log_info("%4.1f %4.1f    Net %s (%d,%d) -> (%d,%d)\n", ctx->getDelayNS(segment.delay),
-                             ctx->getDelayNS(total), segment.net.c_str(ctx),
-                             driver_loc.x, driver_loc.y, sink_loc.x, sink_loc.y);
+                             ctx->getDelayNS(total), segment.net.c_str(ctx), driver_loc.x, driver_loc.y, sink_loc.x,
+                             sink_loc.y);
                     log_info("               Sink %s.%s\n", segment.to.first.c_str(ctx), segment.to.second.c_str(ctx));
 
                     const NetInfo *net = ctx->nets.at(segment.net).get();
@@ -1772,7 +1773,6 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
 
         results.detailed_net_timings = std::move(detailed_net_timings);
     }
-
 }
 
 NEXTPNR_NAMESPACE_END

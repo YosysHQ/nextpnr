@@ -861,7 +861,7 @@ class SAPlacer
             return 0;
         if (ctx->getPortTimingClass(net->driver.cell, net->driver.port, cc) == TMG_IGNORE)
             return 0;
-        
+
         float crit = tmg.get_criticality(CellPortKey(user));
         double delay = ctx->getDelayNS(ctx->predictArcDelay(net, user));
         return delay * std::pow(crit, crit_exp);

@@ -641,7 +641,7 @@ static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constne
                 auto it_param = uc->params.find(id_INIT);
                 if (it_param == uc->params.end())
                     log_error("No initialization for lut found.\n");
-                
+
                 int64_t uc_init = it_param->second.intval;
                 int64_t mask = 0;
                 uint8_t amt = 0;
@@ -665,16 +665,17 @@ static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constne
                 if ((constnet->name == ctx->id("$PACKER_GND_NET"))) {
                     uc_init = (uc_init & mask) | ((uc_init & mask) << amt);
                 } else {
-                    uc_init = (uc_init & (mask<<amt)) | ((uc_init & (mask<<amt)) >> amt);  
+                    uc_init = (uc_init & (mask << amt)) | ((uc_init & (mask << amt)) >> amt);
                 }
 
                 size_t uc_init_len = it_param->second.to_string().length();
                 uc_init &= (1LL << uc_init_len) - 1;
 
                 if (ctx->verbose)
-                    log_info("%s lut config modified from 0x%lX to 0x%lX\n", ctx->nameOf(uc), it_param->second.intval, uc_init);
+                    log_info("%s lut config modified from 0x%lX to 0x%lX\n", ctx->nameOf(uc), it_param->second.intval,
+                             uc_init);
 
-                it_param->second = Property(uc_init, uc_init_len); 
+                it_param->second = Property(uc_init, uc_init_len);
                 uc->ports[user.port].net = nullptr;
                 uc->ports[user.port].user_idx = {};
             } else {
