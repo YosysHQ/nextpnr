@@ -79,11 +79,10 @@ static void log_crit_paths(const Context *ctx)
                 segment.type == CriticalPath::Segment::Type::SETUP) {
                 logic_total += segment.delay;
 
-                const std::string type_name =
-                        (segment.type == CriticalPath::Segment::Type::SETUP) ? "Setup" : "Source";
+                const std::string type_name = (segment.type == CriticalPath::Segment::Type::SETUP) ? "Setup" : "Source";
 
                 log_info("%4.1f %4.1f  %s %s.%s\n", ctx->getDelayNS(segment.delay), ctx->getDelayNS(total),
-                            type_name.c_str(), segment.to.first.c_str(ctx), segment.to.second.c_str(ctx));
+                         type_name.c_str(), segment.to.first.c_str(ctx), segment.to.second.c_str(ctx));
             } else if (segment.type == CriticalPath::Segment::Type::ROUTING) {
                 route_total += segment.delay;
 
@@ -94,8 +93,8 @@ static void log_crit_paths(const Context *ctx)
                 auto sink_loc = ctx->getBelLocation(sink->bel);
 
                 log_info("%4.1f %4.1f    Net %s (%d,%d) -> (%d,%d)\n", ctx->getDelayNS(segment.delay),
-                            ctx->getDelayNS(total), segment.net.c_str(ctx),
-                            driver_loc.x, driver_loc.y, sink_loc.x, sink_loc.y);
+                         ctx->getDelayNS(total), segment.net.c_str(ctx), driver_loc.x, driver_loc.y, sink_loc.x,
+                         sink_loc.y);
                 log_info("               Sink %s.%s\n", segment.to.first.c_str(ctx), segment.to.second.c_str(ctx));
 
                 const NetInfo *net = ctx->nets.at(segment.net).get();
@@ -109,8 +108,8 @@ static void log_crit_paths(const Context *ctx)
                     auto driver_wire = ctx->getNetinfoSourceWire(net);
                     auto sink_wire = ctx->getNetinfoSinkWire(net, sink_ref, 0);
                     log_info("                 prediction: %f ns estimate: %f ns\n",
-                                ctx->getDelayNS(ctx->predictArcDelay(net, sink_ref)),
-                                ctx->getDelayNS(ctx->estimateDelay(driver_wire, sink_wire)));
+                             ctx->getDelayNS(ctx->predictArcDelay(net, sink_ref)),
+                             ctx->getDelayNS(ctx->estimateDelay(driver_wire, sink_wire)));
                     auto cursor = sink_wire;
                     delay_t delay;
                     while (driver_wire != cursor) {
@@ -139,12 +138,12 @@ static void log_crit_paths(const Context *ctx)
     // Single domain paths
     for (auto &clock : ctx->timing_result.clock_paths) {
         log_break();
-        std::string start = clock.second.clock_pair.start.edge == FALLING_EDGE ? std::string("negedge")
-                                                                                : std::string("posedge");
+        std::string start =
+                clock.second.clock_pair.start.edge == FALLING_EDGE ? std::string("negedge") : std::string("posedge");
         std::string end =
                 clock.second.clock_pair.end.edge == FALLING_EDGE ? std::string("negedge") : std::string("posedge");
         log_info("Critical path report for clock '%s' (%s -> %s):\n", clock.first.c_str(ctx), start.c_str(),
-                    end.c_str());
+                 end.c_str());
         auto &report = clock.second;
         print_path_report(report);
     }
@@ -176,17 +175,16 @@ static void log_fmax(Context *ctx, bool warn_on_failure)
         bool passed = target < fmax;
 
         if (!warn_on_failure || passed)
-            log_info("Max frequency for clock %*s'%s': %.02f MHz (%s at %.02f MHz)\n", width, "",
-                        clock_name.c_str(), fmax, passed ? "PASS" : "FAIL", target);
+            log_info("Max frequency for clock %*s'%s': %.02f MHz (%s at %.02f MHz)\n", width, "", clock_name.c_str(),
+                     fmax, passed ? "PASS" : "FAIL", target);
         else if (bool_or_default(ctx->settings, ctx->id("timing/allowFail"), false))
-            log_warning("Max frequency for clock %*s'%s': %.02f MHz (%s at %.02f MHz)\n", width, "",
-                        clock_name.c_str(), fmax, passed ? "PASS" : "FAIL", target);
+            log_warning("Max frequency for clock %*s'%s': %.02f MHz (%s at %.02f MHz)\n", width, "", clock_name.c_str(),
+                        fmax, passed ? "PASS" : "FAIL", target);
         else
             log_nonfatal_error("Max frequency for clock %*s'%s': %.02f MHz (%s at %.02f MHz)\n", width, "",
-                                clock_name.c_str(), fmax, passed ? "PASS" : "FAIL", target);
+                               clock_name.c_str(), fmax, passed ? "PASS" : "FAIL", target);
     }
     log_break();
-
 
     // Clock to clock delays for xpaths
     dict<ClockPair, delay_t> xclock_delays;
@@ -256,15 +254,15 @@ static void log_fmax(Context *ctx, bool warn_on_failure)
             auto ev_b = clock_event_name(ctx, report.clock_pair.end, max_width_xcb);
 
             if (!warn_on_failure || passed)
-                log_info("Max frequency for %s -> %s: %.02f MHz (%s at %.02f MHz)\n", ev_a.c_str(), ev_b.c_str(),
-                            fmax, passed ? "PASS" : "FAIL", target);
+                log_info("Max frequency for %s -> %s: %.02f MHz (%s at %.02f MHz)\n", ev_a.c_str(), ev_b.c_str(), fmax,
+                         passed ? "PASS" : "FAIL", target);
             else if (bool_or_default(ctx->settings, ctx->id("timing/allowFail"), false) ||
-                        bool_or_default(ctx->settings, ctx->id("timing/ignoreRelClk"), false))
-                log_warning("Max frequency for  %s -> %s: %.02f MHz (%s at %.02f MHz)\n", ev_a.c_str(),
-                            ev_b.c_str(), fmax, passed ? "PASS" : "FAIL", target);
+                     bool_or_default(ctx->settings, ctx->id("timing/ignoreRelClk"), false))
+                log_warning("Max frequency for  %s -> %s: %.02f MHz (%s at %.02f MHz)\n", ev_a.c_str(), ev_b.c_str(),
+                            fmax, passed ? "PASS" : "FAIL", target);
             else
                 log_nonfatal_error("Max frequency for %s -> %s: %.02f MHz (%s at %.02f MHz)\n", ev_a.c_str(),
-                                    ev_b.c_str(), fmax, passed ? "PASS" : "FAIL", target);
+                                   ev_b.c_str(), fmax, passed ? "PASS" : "FAIL", target);
         }
         log_break();
     }
@@ -280,8 +278,7 @@ static void log_fmax(Context *ctx, bool warn_on_failure)
                 delay /= 2;
             }
 
-            log_info("Clock to clock delay %s -> %s: %0.02f ns\n", ev_a.c_str(), ev_b.c_str(),
-                        ctx->getDelayNS(delay));
+            log_info("Clock to clock delay %s -> %s: %0.02f ns\n", ev_a.c_str(), ev_b.c_str(), ctx->getDelayNS(delay));
         }
 
         log_break();
@@ -312,7 +309,16 @@ static void log_fmax(Context *ctx, bool warn_on_failure)
     log_break();
 }
 
-static void log_histogram(Context *ctx) {
+static void log_histogram(Context *ctx)
+{
+    log_break();
+    log_info("Slack histogram:\n");
+
+    if (ctx->timing_result.slack_histogram.empty()) {
+        log_info(" No slack figures available\n");
+        return;
+    }
+
     unsigned num_bins = 20;
     unsigned bar_width = 60;
 
@@ -341,14 +347,12 @@ static void log_histogram(Context *ctx) {
     }
     bar_width = std::min(bar_width, max_freq);
 
-    log_break();
-    log_info("Slack histogram:\n");
     log_info(" legend: * represents %d endpoint(s)\n", max_freq / bar_width);
     log_info("         + represents [1,%d) endpoint(s)\n", max_freq / bar_width);
     for (unsigned i = 0; i < num_bins; ++i)
         log_info("[%6d, %6d) |%s%c\n", min_slack + bin_size * i, min_slack + bin_size * (i + 1),
-                    std::string(bins[i] * bar_width / max_freq, '*').c_str(),
-                    (bins[i] * bar_width) % max_freq > 0 ? '+' : ' ');
+                 std::string(bins[i] * bar_width / max_freq, '*').c_str(),
+                 (bins[i] * bar_width) % max_freq > 0 ? '+' : ' ');
 }
 
 void Context::log_timing_results(bool print_histogram, bool print_path, bool warn_on_failure)
