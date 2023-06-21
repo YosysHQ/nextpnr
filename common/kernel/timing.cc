@@ -48,9 +48,12 @@ TimingAnalyser::TimingAnalyser(Context *ctx) : ctx(ctx)
     domain_to_id.emplace(key, 0);
     domains.emplace_back(key);
     async_clock_id = 0;
+
+    domain_pair_id(async_clock_id, async_clock_id);
 };
 
-void TimingAnalyser::setup(bool update_net_timings, bool update_histogram, bool update_crit_paths, bool update_route_delays)
+void TimingAnalyser::setup(bool update_net_timings, bool update_histogram, bool update_crit_paths,
+                           bool update_route_delays)
 {
     init_ports();
     get_cell_delays();
@@ -60,7 +63,8 @@ void TimingAnalyser::setup(bool update_net_timings, bool update_histogram, bool 
     run(update_net_timings, update_histogram, update_crit_paths, update_route_delays);
 }
 
-void TimingAnalyser::run(bool update_net_timings, bool update_histogram, bool update_crit_paths, bool update_route_delays)
+void TimingAnalyser::run(bool update_net_timings, bool update_histogram, bool update_crit_paths,
+                         bool update_route_delays)
 {
     reset_times();
     if (update_route_delays)
@@ -757,20 +761,10 @@ void TimingAnalyser::build_detailed_net_timing_report()
                     auto &capture = domains.at(req.first).key;
 
                     NetSinkTiming sink_timing;
-                    sink_timing.clock_pair = ClockPair {
-                        .start = ClockEvent {
-                            .clock = launch.clock,
-                            .edge = launch.edge
-                        },
-                        .end = ClockEvent {
-                            .clock = capture.clock,
-                            .edge = capture.edge
-                        }
-                    };
+                    sink_timing.clock_pair = ClockPair{.start = ClockEvent{.clock = launch.clock, .edge = launch.edge},
+                                                       .end = ClockEvent{.clock = capture.clock, .edge = capture.edge}};
                     sink_timing.cell_port = std::make_pair(pd.cell_port.cell, pd.cell_port.port);
                     sink_timing.delay = arr.second.value.max_delay;
-
-                    log_info("update net_timings: %s: %f\n", net->name.c_str(ctx), (float) sink_timing.delay);
 
                     net_timings[net->name].push_back(sink_timing);
                 }
@@ -806,6 +800,32 @@ std::vector<CellPortKey> TimingAnalyser::get_worst_eps(domain_id_t domain_pair, 
     return worst_eps;
 }
 
+static std::string tgp_to_string(TimingPortClass c)
+{
+    switch (c) {
+    case TMG_CLOCK_INPUT:
+        return "TMG_CLOCK_INPUT";
+    case TMG_GEN_CLOCK:
+        return "TMG_GEN_CLOCK";
+    case TMG_REGISTER_INPUT:
+        return "TMG_REGISTER_INPUT";
+    case TMG_REGISTER_OUTPUT:
+        return "TMG_REGISTER_OUTPUT";
+    case TMG_COMB_INPUT:
+        return "TMG_COMB_INPUT";
+    case TMG_COMB_OUTPUT:
+        return "TMG_COMB_OUTPUT";
+    case TMG_STARTPOINT:
+        return "TMG_STARTPOINT";
+    case TMG_ENDPOINT:
+        return "TMG_ENDPOINT";
+    case TMG_IGNORE:
+        return "TMG_IGNORE";
+    }
+
+    return "UNKNOWN";
+}
+
 CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair, CellPortKey endpoint)
 {
     CriticalPath report;
@@ -814,16 +834,8 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
     auto &launch = domains.at(dp.key.launch).key;
     auto &capture = domains.at(dp.key.capture).key;
 
-    report.clock_pair = ClockPair {
-        .start = ClockEvent {
-            .clock = launch.clock,
-            .edge = launch.edge
-        },
-        .end = ClockEvent {
-            .clock = capture.clock,
-            .edge = capture.edge
-        }
-    };
+    report.clock_pair = ClockPair{.start = ClockEvent{.clock = launch.clock, .edge = launch.edge},
+                                  .end = ClockEvent{.clock = capture.clock, .edge = capture.edge}};
 
     report.period = ctx->getDelayFromNS(1.0e9 / ctx->setting<float>("target_freq"));
     if (launch.edge != capture.edge) {
@@ -842,19 +854,20 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
 
     std::vector<PortRef> crit_path_rev;
     auto cursor = endpoint;
+
+    log_info("Analyzing %s -> %s\n", clock_event_name(ctx, launch).c_str(), clock_event_name(ctx, capture).c_str());
     while (cursor != CellPortKey()) {
         auto cell = cell_info(cursor);
-        auto& port = port_info(cursor);
+        auto &port = port_info(cursor);
 
         int port_clocks;
         auto portClass = ctx->getPortTimingClass(cell, port.name, port_clocks);
 
-        if (portClass != TMG_CLOCK_INPUT &&
-            portClass != TMG_ENDPOINT &&
-            portClass != TMG_IGNORE &&
-            port.type == PortType::PORT_IN)
-        {
-            crit_path_rev.emplace_back(PortRef { cell, port.name });
+        log_info("\tcursor at %s.%s tmg: %s, port dir: %s\n", cell->name.c_str(ctx), port.name.c_str(ctx),
+                 tgp_to_string(portClass).c_str(), port.type == PortType::PORT_IN ? "PORT_IN" : "PORT_X");
+
+        if (portClass != TMG_CLOCK_INPUT && portClass != TMG_IGNORE && port.type == PortType::PORT_IN) {
+            crit_path_rev.emplace_back(PortRef{cell, port.name});
         }
         if (!ports.at(cursor).arrival.count(dp.key.launch))
             break;
@@ -959,15 +972,8 @@ void TimingAnalyser::build_crit_path_reports()
 
     auto delay_by_domain = max_delay_by_domain_pairs();
 
-    auto uq_doms = ctx->timing_result.empty_paths;
-    auto clock_pairs = std::vector<std::pair<ClockDomainKey, ClockDomainKey>>();
-
-    for (int i = 0; i < int(domain_pairs.size()); i++) {
-        auto &dp = domain_pairs.at(i);
-        auto &launch = domains.at(dp.key.launch).key;
-        auto &capture = domains.at(dp.key.capture).key;
-
-        clock_pairs.emplace_back(std::make_pair(launch, capture));
+    for (int i = 0; i < int(domains.size()); i++) {
+        empty_clocks.insert(domains.at(i).key.clock);
     }
 
     for (int i = 0; i < int(domain_pairs.size()); i++) {
@@ -1005,8 +1011,14 @@ void TimingAnalyser::build_crit_path_reports()
         auto &launch = domains.at(dp.key.launch).key;
         auto &capture = domains.at(dp.key.capture).key;
 
-        if (launch.clock == capture.clock)
+        log_info("testin testing %s -> %s\n", clock_event_name(ctx, launch).c_str(),
+                 clock_event_name(ctx, capture).c_str());
+
+        if (launch.clock == capture.clock && !launch.is_async())
             continue;
+
+        log_info("testin testing2 %s -> %s\n", clock_event_name(ctx, launch).c_str(),
+                 clock_event_name(ctx, capture).c_str());
 
         auto worst_endpoint = get_worst_eps(i, 1).at(0);
         xclock_reports.emplace_back(build_critical_path_report(i, worst_endpoint));
@@ -1045,7 +1057,7 @@ void TimingAnalyser::build_crit_path_reports()
 
 void TimingAnalyser::build_slack_histogram_report()
 {
-    auto& slack_histogram = ctx->timing_result.slack_histogram;
+    auto &slack_histogram = ctx->timing_result.slack_histogram;
 
     for (domain_id_t dom_id = 0; dom_id < domain_id_t(domains.size()); ++dom_id) {
         for (auto &ep : domains.at(dom_id).endpoints) {
