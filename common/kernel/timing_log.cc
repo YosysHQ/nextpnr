@@ -1,6 +1,8 @@
 /*
  *  nextpnr -- Next Generation Place and Route
  *
+ *  Copyright (C) 2018  gatecat <gatecat@ds0.me>
+ *  Copyright (C) 2018  Eddie Hung <eddieh@ece.ubc.ca>
  *  Copyright (C) 2023  rowanG077 <goemansrowan@gmail.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
@@ -35,7 +37,7 @@ static std::string clock_event_name(const Context *ctx, const ClockEvent &e, int
     return value;
 };
 
-static void log_crit_paths(const Context *ctx)
+static void log_crit_paths(const Context *ctx, TimingResult &result)
 {
     static auto print_net_source = [ctx](const NetInfo *net) {
         // Check if this net is annotated with a source list
@@ -136,7 +138,7 @@ static void log_crit_paths(const Context *ctx)
     };
 
     // Single domain paths
-    for (auto &clock : ctx->timing_result.clock_paths) {
+    for (auto &clock : result.clock_paths) {
         log_break();
         std::string start =
                 clock.second.clock_pair.start.edge == FALLING_EDGE ? std::string("negedge") : std::string("posedge");
@@ -149,7 +151,7 @@ static void log_crit_paths(const Context *ctx)
     }
 
     // Cross-domain paths
-    for (auto &report : ctx->timing_result.xclock_paths) {
+    for (auto &report : result.xclock_paths) {
         log_break();
         std::string start = clock_event_name(ctx, report.clock_pair.start);
         std::string end = clock_event_name(ctx, report.clock_pair.end);
@@ -158,20 +160,25 @@ static void log_crit_paths(const Context *ctx)
     }
 };
 
-static void log_fmax(Context *ctx, bool warn_on_failure)
+static void log_fmax(Context *ctx, TimingResult &result, bool warn_on_failure)
 {
     log_break();
 
+    if (result.clock_paths.empty() && result.clock_paths.empty()) {
+        log_info("No Fmax available; no interior timing paths found in design.\n");
+        return;
+    }
+
     unsigned max_width = 0;
-    for (auto &clock : ctx->timing_result.clock_paths)
+    for (auto &clock : result.clock_paths)
         max_width = std::max<unsigned>(max_width, clock.first.str(ctx).size());
 
-    for (auto &clock : ctx->timing_result.clock_paths) {
+    for (auto &clock : result.clock_paths) {
         const auto &clock_name = clock.first.str(ctx);
         const int width = max_width - clock_name.size();
 
-        float fmax = ctx->timing_result.clock_fmax[clock.first].achieved;
-        float target = ctx->timing_result.clock_fmax[clock.first].constraint;
+        float fmax = result.clock_fmax[clock.first].achieved;
+        float target = result.clock_fmax[clock.first].constraint;
         bool passed = target < fmax;
 
         if (!warn_on_failure || passed)
@@ -188,31 +195,31 @@ static void log_fmax(Context *ctx, bool warn_on_failure)
 
     // Clock to clock delays for xpaths
     dict<ClockPair, delay_t> xclock_delays;
-    for (auto &report : ctx->timing_result.xclock_paths) {
+    for (auto &report : result.xclock_paths) {
         const auto &clock1_name = report.clock_pair.start.clock;
         const auto &clock2_name = report.clock_pair.end.clock;
 
         const auto key = std::make_pair(clock1_name, clock2_name);
-        if (ctx->timing_result.clock_delays.count(key)) {
-            xclock_delays[report.clock_pair] = ctx->timing_result.clock_delays.at(key);
+        if (result.clock_delays.count(key)) {
+            xclock_delays[report.clock_pair] = result.clock_delays.at(key);
         }
     }
 
     unsigned max_width_xca = 0;
     unsigned max_width_xcb = 0;
-    for (auto &report : ctx->timing_result.xclock_paths) {
+    for (auto &report : result.xclock_paths) {
         max_width_xca = std::max((unsigned)clock_event_name(ctx, report.clock_pair.start).length(), max_width_xca);
         max_width_xcb = std::max((unsigned)clock_event_name(ctx, report.clock_pair.end).length(), max_width_xcb);
     }
 
     // Check and report xpath delays for related clocks
-    if (!ctx->timing_result.xclock_paths.empty()) {
-        for (auto &report : ctx->timing_result.xclock_paths) {
+    if (!result.xclock_paths.empty()) {
+        for (auto &report : result.xclock_paths) {
             const auto &clock_a = report.clock_pair.start.clock;
             const auto &clock_b = report.clock_pair.end.clock;
 
             const auto key = std::make_pair(clock_a, clock_b);
-            if (!ctx->timing_result.clock_delays.count(key)) {
+            if (!result.clock_delays.count(key)) {
                 continue;
             }
 
@@ -224,7 +231,7 @@ static void log_fmax(Context *ctx, bool warn_on_failure)
             // Compensate path delay for clock-to-clock delay. If the
             // result is negative then only the latter matters. Otherwise
             // the compensated path delay is taken.
-            auto clock_delay = ctx->timing_result.clock_delays.at(key);
+            auto clock_delay = result.clock_delays.at(key);
             path_delay -= clock_delay;
 
             float fmax = std::numeric_limits<float>::infinity();
@@ -239,7 +246,7 @@ static void log_fmax(Context *ctx, bool warn_on_failure)
             // user input. In case of only one constraint preset take it,
             // otherwise get the worst case (min.)
             float target;
-            auto &clock_fmax = ctx->timing_result.clock_fmax;
+            auto &clock_fmax = result.clock_fmax;
             if (clock_fmax.count(clock_a) && !clock_fmax.count(clock_b)) {
                 target = clock_fmax.at(clock_a).constraint;
             } else if (!clock_fmax.count(clock_a) && clock_fmax.count(clock_b)) {
@@ -268,7 +275,7 @@ static void log_fmax(Context *ctx, bool warn_on_failure)
     }
 
     // Report clock delays for xpaths
-    if (!ctx->timing_result.clock_delays.empty()) {
+    if (!result.clock_delays.empty()) {
         for (auto &pair : xclock_delays) {
             auto ev_a = clock_event_name(ctx, pair.first.start, max_width_xca);
             auto ev_b = clock_event_name(ctx, pair.first.end, max_width_xcb);
@@ -284,19 +291,19 @@ static void log_fmax(Context *ctx, bool warn_on_failure)
         log_break();
     }
 
-    for (auto &eclock : ctx->timing_result.empty_paths) {
+    for (auto &eclock : result.empty_paths) {
         if (eclock != IdString())
             log_info("Clock '%s' has no interior paths\n", eclock.c_str(ctx));
     }
     log_break();
 
     int start_field_width = 0, end_field_width = 0;
-    for (auto &report : ctx->timing_result.xclock_paths) {
+    for (auto &report : result.xclock_paths) {
         start_field_width = std::max((int)clock_event_name(ctx, report.clock_pair.start).length(), start_field_width);
         end_field_width = std::max((int)clock_event_name(ctx, report.clock_pair.end).length(), end_field_width);
     }
 
-    for (auto &report : ctx->timing_result.xclock_paths) {
+    for (auto &report : result.xclock_paths) {
         const ClockEvent &a = report.clock_pair.start;
         const ClockEvent &b = report.clock_pair.end;
         delay_t path_delay = 0;
@@ -309,23 +316,15 @@ static void log_fmax(Context *ctx, bool warn_on_failure)
     log_break();
 }
 
-static void log_histogram(Context *ctx)
+static void log_histogram(Context *ctx, TimingResult &result)
 {
-    log_break();
-    log_info("Slack histogram:\n");
-
-    if (ctx->timing_result.slack_histogram.empty()) {
-        log_info(" No slack figures available\n");
-        return;
-    }
-
     unsigned num_bins = 20;
     unsigned bar_width = 60;
 
     int min_slack = INT_MAX;
     int max_slack = INT_MIN;
 
-    for (const auto &i : ctx->timing_result.slack_histogram) {
+    for (const auto &i : result.slack_histogram) {
         if (i.first < min_slack)
             min_slack = i.first;
         if (i.first > max_slack)
@@ -335,7 +334,7 @@ static void log_histogram(Context *ctx)
     auto bin_size = std::max<unsigned>(1, ceil((max_slack - min_slack + 1) / float(num_bins)));
     std::vector<unsigned> bins(num_bins);
     unsigned max_freq = 0;
-    for (const auto &i : ctx->timing_result.slack_histogram) {
+    for (const auto &i : result.slack_histogram) {
         int bin_idx = int((i.first - min_slack) / bin_size);
         if (bin_idx < 0)
             bin_idx = 0;
@@ -347,6 +346,8 @@ static void log_histogram(Context *ctx)
     }
     bar_width = std::min(bar_width, max_freq);
 
+    log_break();
+    log_info("Slack histogram:\n");
     log_info(" legend: * represents %d endpoint(s)\n", max_freq / bar_width);
     log_info("         + represents [1,%d) endpoint(s)\n", max_freq / bar_width);
     for (unsigned i = 0; i < num_bins; ++i)
@@ -355,15 +356,17 @@ static void log_histogram(Context *ctx)
                  (bins[i] * bar_width) % max_freq > 0 ? '+' : ' ');
 }
 
-void Context::log_timing_results(bool print_histogram, bool print_path, bool warn_on_failure)
+void Context::log_timing_results(TimingResult &result, bool print_histogram, bool print_fmax, bool print_path,
+                                 bool warn_on_failure)
 {
     if (print_path)
-        log_crit_paths(this);
+        log_crit_paths(this, result);
 
-    log_fmax(this, warn_on_failure);
+    if (print_fmax)
+        log_fmax(this, result, warn_on_failure);
 
-    if (print_histogram)
-        log_histogram(this);
+    if (print_histogram && !timing_result.slack_histogram.empty())
+        log_histogram(this, result);
 }
 
 NEXTPNR_NAMESPACE_END

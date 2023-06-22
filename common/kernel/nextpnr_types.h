@@ -365,7 +365,7 @@ struct TimingResult
     // clock to clock delays
     dict<std::pair<IdString, IdString>, delay_t> clock_delays;
 
-    // Histogram of delays
+    // Histogram of slack
     dict<int, unsigned> slack_histogram;
 };
 
