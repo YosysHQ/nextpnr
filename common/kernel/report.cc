@@ -238,10 +238,7 @@ void Context::writeJsonReport(std::ostream &out) const
     }
 
     Json::object jsonRoot{
-      { "utilization", util_json },
-      { "fmax", fmax_json },
-      { "critical_paths", json_report_critical_paths(this) }
-    };
+            {"utilization", util_json}, {"fmax", fmax_json}, {"critical_paths", json_report_critical_paths(this)}};
 
     if (detailed_timing_report) {
         jsonRoot["detailed_net_timings"] = json_report_detailed_net_timings(this);
