@@ -99,7 +99,6 @@ struct TimingAnalyser
     TimingResult &get_timing_result() { return result; }
 
     bool setup_only = false;
-    bool verbose_mode = false;
     bool have_loops = false;
     bool updated_domains = false;
 
