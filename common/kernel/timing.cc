@@ -206,8 +206,10 @@ void TimingAnalyser::topo_sort()
             }
         }
     }
+
+    bool ignore_loops = bool_or_default(ctx->settings, ctx->id("timing/ignoreLoops"), false);
     bool no_loops = topo.sort();
-    if (!no_loops && verbose_mode) {
+    if (!no_loops && !ignore_loops) {
         log_info("Found %d combinational loops:\n", int(topo.loops.size()));
         int i = 0;
         for (auto &loop : topo.loops) {
@@ -217,6 +219,11 @@ void TimingAnalyser::topo_sort()
                          ctx->nameOf(port_info(port).net));
             }
         }
+
+        if (ctx->force)
+            log_warning("Timing analysis failed due to combinational loops.\n");
+        else
+            log_error("Timing analysis failed due to combinational loops.\n");
     }
     have_loops = !no_loops;
     std::swap(topological_order, topo.sorted);
@@ -661,9 +668,6 @@ dict<domain_id_t, delay_t> TimingAnalyser::max_delay_by_domain_pairs()
 
                 auto dp = domain_pair_id(launch, capture);
 
-                auto l = domains.at(launch);
-                auto c = domains.at(capture);
-
                 delay_t delay = arr.second.value.maxDelay() - req.second.value.minDelay();
                 if (!domain_delay.count(dp) || domain_delay.at(dp) < delay)
                     domain_delay[dp] = delay;
@@ -814,6 +818,7 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
         }
     }
 
+    pool<std::pair<IdString, IdString>> visited;
     std::vector<PortRef> crit_path_rev;
     auto cursor = endpoint;
 
@@ -824,9 +829,13 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
         int port_clocks;
         auto portClass = ctx->getPortTimingClass(cell, port.name, port_clocks);
 
-        if (portClass != TMG_CLOCK_INPUT && portClass != TMG_IGNORE && port.type == PortType::PORT_IN) {
+        // combinational loop
+        if (!visited.insert(std::make_pair(cell->name, port.name)).second)
+            break;
+
+        if (portClass != TMG_CLOCK_INPUT && portClass != TMG_IGNORE && port.type == PortType::PORT_IN)
             crit_path_rev.emplace_back(PortRef{cell, port.name});
-        }
+
         if (!ports.at(cursor).arrival.count(dp.key.launch))
             break;
 
@@ -1023,8 +1032,6 @@ void TimingAnalyser::build_slack_histogram_report()
                 for (auto &arr : pd.arrival) {
                     auto &launch = domains.at(arr.first).key;
 
-                    // @gatecat: old timing analysis includes async path
-                    // The slack doesn't make much sense so I filter it out.
                     if (launch.clock != capture.clock || launch.is_async())
                         continue;
 
