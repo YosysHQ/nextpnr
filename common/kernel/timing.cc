@@ -753,8 +753,10 @@ void TimingAnalyser::build_detailed_net_timing_report()
                     auto &capture = domains.at(req.first).key;
 
                     NetSinkTiming sink_timing;
-                    sink_timing.clock_pair = ClockPair{.start = ClockEvent{.clock = launch.clock, .edge = launch.edge},
-                                                       .end = ClockEvent{.clock = capture.clock, .edge = capture.edge}};
+                    sink_timing.clock_pair.start.clock = launch.clock;
+                    sink_timing.clock_pair.start.edge = launch.edge;
+                    sink_timing.clock_pair.end.clock = capture.clock;
+                    sink_timing.clock_pair.end.edge = capture.edge;
                     sink_timing.cell_port = std::make_pair(pd.cell_port.cell, pd.cell_port.port);
                     sink_timing.delay = arr.second.value.max_delay;
 
@@ -800,8 +802,10 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
     auto &launch = domains.at(dp.key.launch).key;
     auto &capture = domains.at(dp.key.capture).key;
 
-    report.clock_pair = ClockPair{.start = ClockEvent{.clock = launch.clock, .edge = launch.edge},
-                                  .end = ClockEvent{.clock = capture.clock, .edge = capture.edge}};
+    report.clock_pair.start.clock = launch.clock;
+    report.clock_pair.start.edge = launch.edge;
+    report.clock_pair.end.clock = capture.clock;
+    report.clock_pair.end.edge = capture.edge;
 
     report.period = ctx->getDelayFromNS(1.0e9 / ctx->setting<float>("target_freq"));
     if (launch.edge != capture.edge) {
