@@ -1,4 +1,4 @@
-set(HIMBAECHEL_UARCHES "example")
+set(HIMBAECHEL_UARCHES "example;gowin")
 foreach(uarch ${HIMBAECHEL_UARCHES})
     aux_source_directory(${family}/uarch/${uarch} HM_UARCH_FILES)
     foreach(target ${family_targets})
