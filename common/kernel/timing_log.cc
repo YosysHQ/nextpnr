@@ -321,8 +321,8 @@ static void log_histogram(Context *ctx, TimingResult &result)
     unsigned num_bins = 20;
     unsigned bar_width = 60;
 
-    int min_slack = INT_MAX;
-    int max_slack = INT_MIN;
+    int min_slack = std::numeric_limits<int>::max();
+    int max_slack = std::numeric_limits<int>::min();
 
     for (const auto &i : result.slack_histogram) {
         if (i.first < min_slack)
