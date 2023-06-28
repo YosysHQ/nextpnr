@@ -66,7 +66,6 @@ def create_nodes(chip: Chip, db: chipdb):
                         NodeWire(*uturn(db, x + offs[0] * 4, y + offs[1] * 4, f'{d}8{i}4')),
                         NodeWire(*uturn(db, x + offs[0] * 8, y + offs[1] * 8, f'{d}8{i}8'))])
             for node in nodes:
-                print(node)
                 chip.add_node(node)
 
 # About X and Y as parameters - in some cases, the type of manufacturer's tile
@@ -82,7 +81,7 @@ def create_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
         for src in srcs.keys():
             if not tt.has_wire(src):
                 tt.create_wire(src)
-            tt.create_pip(dst, src)
+            tt.create_pip(src, dst)
 
 def create_null_tiletype(chip: Chip, db: chipdb, x: int, y: int):
     tt = chip.create_tile_type(f"NULL_{db.grid[y][x].ttyp}")
@@ -106,7 +105,7 @@ def create_io_tiletype(chip: Chip, db: chipdb, x: int, y: int):
 # XXX 6 lut+dff only for now
 def create_logic_tiletype(chip: Chip, db: chipdb, x: int, y: int):
     N = 6
-    lut_inputs = {'A', 'B', 'C', 'D'}
+    lut_inputs = ['A', 'B', 'C', 'D']
     tt = chip.create_tile_type(f"LOGIC_{db.grid[y][x].ttyp}")
     # setup wires
     for i in range(N):
@@ -121,13 +120,14 @@ def create_logic_tiletype(chip: Chip, db: chipdb, x: int, y: int):
         tt.create_wire(f"Q{i}", "FF_OUT")
     for j in range(3):
         tt.create_wire(f"CLK{j}", "TILE_CLK")
+        tt.create_wire(f"LSR{j}", "TILE_LSR")
 
     # create logic cells
     for i in range(N):
         # LUT
         lut = tt.create_bel(f"LUT{i}", "LUT4", z=(i*2 + 0))
         for j, inp_name in enumerate(lut_inputs):
-            tt.add_bel_pin(lut, f"I[{j}]", f"{inp_name}{i}", PinType.INPUT)
+            tt.add_bel_pin(lut, f"I{j}", f"{inp_name}{i}", PinType.INPUT)
         tt.add_bel_pin(lut, "F", f"F{i}", PinType.OUTPUT)
         # FF data can come from LUT output, but we pretend that we can use
         # any LUT input
@@ -139,6 +139,7 @@ def create_logic_tiletype(chip: Chip, db: chipdb, x: int, y: int):
         tt.add_bel_pin(ff, "D", f"XD{i}", PinType.INPUT)
         tt.add_bel_pin(ff, "CLK", f"CLK{i // 2}", PinType.INPUT)
         tt.add_bel_pin(ff, "Q", f"Q{i}", PinType.OUTPUT)
+        tt.add_bel_pin(ff, "RESET", f"LSR{i // 2}", PinType.INPUT)
     create_switch_matrix(tt, db, x, y)
 
 def main():
