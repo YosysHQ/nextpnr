@@ -45,14 +45,13 @@ void GowinImpl::pack() {
 	mod_lut_inputs();
 
 	// Constrain directly connected LUTs and FFs together to use dedicated resources
-	int lutffs = h.constrain_cell_pairs(pool<CellTypePort>{{id_LUT4, id_F}}, pool<CellTypePort>{{id_DFF, id_D}}, 1);
-	lutffs += h.constrain_cell_pairs(pool<CellTypePort>{{id_LUT3, id_F}}, pool<CellTypePort>{{id_DFF, id_D}}, 1);
-	lutffs += h.constrain_cell_pairs(pool<CellTypePort>{{id_LUT2, id_F}}, pool<CellTypePort>{{id_DFF, id_D}}, 1);
-	lutffs += h.constrain_cell_pairs(pool<CellTypePort>{{id_LUT1, id_F}}, pool<CellTypePort>{{id_DFF, id_D}}, 1);
-	lutffs += h.constrain_cell_pairs(pool<CellTypePort>{{id_LUT4, id_F}}, pool<CellTypePort>{{id_DFFR, id_D}}, 1);
-	lutffs += h.constrain_cell_pairs(pool<CellTypePort>{{id_LUT3, id_F}}, pool<CellTypePort>{{id_DFFR, id_D}}, 1);
-	lutffs += h.constrain_cell_pairs(pool<CellTypePort>{{id_LUT2, id_F}}, pool<CellTypePort>{{id_DFFR, id_D}}, 1);
-	lutffs += h.constrain_cell_pairs(pool<CellTypePort>{{id_LUT1, id_F}}, pool<CellTypePort>{{id_DFFR, id_D}}, 1);
+	int lutffs = h.constrain_cell_pairs(
+			pool<CellTypePort>{{id_LUT1, id_F}, {id_LUT2, id_F}, {id_LUT3, id_F}, {id_LUT4, id_F}},
+			pool<CellTypePort>{{id_DFF, id_D}, {id_DFFE, id_D}, {id_DFFN, id_D}, {id_DFFNE, id_D},
+			  {id_DFFS, id_D}, {id_DFFSE, id_D}, {id_DFFNS, id_D}, {id_DFFNSE, id_D},
+			  {id_DFFR, id_D}, {id_DFFRE, id_D}, {id_DFFNR, id_D}, {id_DFFNRE, id_D},
+			  {id_DFFP, id_D}, {id_DFFPE, id_D}, {id_DFFNP, id_D}, {id_DFFNPE, id_D},
+			  {id_DFFC, id_D}, {id_DFFCE, id_D}, {id_DFFNC, id_D}, {id_DFFNCE, id_D}},1);
 	log_info("Constrained %d LUTFF pairs.\n", lutffs);
 }
 
@@ -70,8 +69,11 @@ IdString GowinImpl::getBelBucketForCellType(IdString cell_type) const {
 	if (cell_type.in(id_IBUF, id_OBUF)) {
 		return id_IOB;
 	}
-	if (cell_type.in(id_LUT1, id_LUT2, id_LUT3, id_LUT4)) {
+	if (type_is_lut(cell_type)) {
 		return id_LUT4;
+	}
+	if (type_is_dff(cell_type)) {
+		return id_DFF;
 	}
 	if (cell_type == id_GOWIN_GND) {
 		return id_GND;
@@ -88,10 +90,10 @@ bool GowinImpl::isValidBelForCellType(IdString cell_type, BelId bel) const {
 		return cell_type.in(id_IBUF, id_OBUF);
 	}
 	if (bel_type == id_LUT4) {
-		return cell_type.in(id_LUT1, id_LUT2, id_LUT3, id_LUT4);
+		return type_is_lut(cell_type);
 	}
 	if (bel_type == id_DFF) {
-		return cell_type.in(id_DFF, id_DFFR);
+		return type_is_dff(cell_type);
 	}
 	if (bel_type == id_GND) {
 		return cell_type == id_GOWIN_GND;
@@ -107,10 +109,18 @@ void GowinImpl::assign_cell_info() {
 	for (auto &cell : ctx->cells) {
 		CellInfo *ci = cell.second.get();
 		auto &fc = fast_cell_info.at(ci->flat_index);
-		if (ci->type.in(id_LUT1, id_LUT2, id_LUT3, id_LUT4)) {
+		if (is_lut(ci)) {
 			fc.lut_f = ci->getPort(id_F);
-		} else if (ci->type.in(id_DFF, id_DFFR)) {
+		} else if (is_dff(ci)) {
 			fc.ff_d = ci->getPort(id_D);
+			fc.ff_clk = ci->getPort(id_CLK);
+			fc.ff_ce = ci->getPort(id_CE);
+			for (IdString port : {id_SET, id_RESET, id_PRESET, id_CLEAR}) {
+				fc.ff_lsr = ci->getPort(port);
+				if (fc.ff_lsr != nullptr) {
+					break;
+				}
+			}
 		}
 	}
 }
@@ -118,12 +128,48 @@ void GowinImpl::assign_cell_info() {
 bool GowinImpl::slice_valid(int x, int y, int z) const {
 	const CellInfo *lut = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, z * 2)));
 	const CellInfo *ff = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, z * 2 + 1)));
-	if (!lut || !ff)
-		return true; // always valid if only LUT or FF used
-	const auto &lut_data = fast_cell_info.at(lut->flat_index);
+	if (!ff) {
+		return true; // always valid if only LUT used
+	}
 	const auto &ff_data = fast_cell_info.at(ff->flat_index);
-	if (ff_data.ff_d == lut_data.lut_f)
+	if (lut) {
+		const auto &lut_data = fast_cell_info.at(lut->flat_index);
+		if (ff_data.ff_d != lut_data.lut_f)
+			return false;
+	}
+	int adj_z = (1 - (z & 1) * 2 + z) * 2 + 1;
+	const CellInfo *adj_ff = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, adj_z)));
+	if (adj_ff == nullptr) {
 		return true;
+	}
+	// DFFs must be same type or compatible
+	if (ff->type != adj_ff->type &&
+			(   (ff->type.in(id_DFFS) && !adj_ff->type.in(id_DFFR))
+			 || (ff->type.in(id_DFFR) && !adj_ff->type.in(id_DFFS))
+			 || (ff->type.in(id_DFFSE) && !adj_ff->type.in(id_DFFRE))
+			 || (ff->type.in(id_DFFRE) && !adj_ff->type.in(id_DFFSE))
+			 || (ff->type.in(id_DFFP) && !adj_ff->type.in(id_DFFC))
+			 || (ff->type.in(id_DFFC) && !adj_ff->type.in(id_DFFP))
+			 || (ff->type.in(id_DFFPE) && !adj_ff->type.in(id_DFFCE))
+			 || (ff->type.in(id_DFFCE) && !adj_ff->type.in(id_DFFPE))
+			 || (ff->type.in(id_DFFNS) && !adj_ff->type.in(id_DFFNR))
+			 || (ff->type.in(id_DFFNR) && !adj_ff->type.in(id_DFFNS))
+			 || (ff->type.in(id_DFFNSE) && !adj_ff->type.in(id_DFFNRE))
+			 || (ff->type.in(id_DFFNRE) && !adj_ff->type.in(id_DFFNSE))
+			 || (ff->type.in(id_DFFNP) && !adj_ff->type.in(id_DFFNC))
+			 || (ff->type.in(id_DFFNC) && !adj_ff->type.in(id_DFFNP))
+			 || (ff->type.in(id_DFFNPE) && !adj_ff->type.in(id_DFFNCE))
+			 || (ff->type.in(id_DFFNCE) && !adj_ff->type.in(id_DFFNPE))
+			 )) {
+		return false;
+	}
+
+	// CE, LSR and CLK must match
+	const auto &adj_ff_data = fast_cell_info.at(adj_ff->flat_index);
+	if (adj_ff_data.ff_lsr == ff_data.ff_lsr) {
+		return true;
+	}
+	//
 	return false;
 }
 
@@ -140,7 +186,7 @@ void GowinImpl::mod_lut_inputs(void) {
 			if (ctx->verbose)
 				log_info("%s user %s\n", ctx->nameOf(constnet), ctx->nameOf(uc));
 
-			if (is_lut(ctx, uc) && (user.port.str(ctx).at(0) == 'I')) {
+			if (is_lut(uc) && (user.port.str(ctx).at(0) == 'I')) {
 				auto it_param = uc->params.find(id_INIT);
 				if (it_param == uc->params.end())
 					log_error("No initialization for lut found.\n");
@@ -185,18 +231,6 @@ void GowinImpl::mod_lut_inputs(void) {
 	}
 }
 
-// Return true if a cell is a LUT
-bool GowinImpl::is_lut(const BaseCtx *ctx, const CellInfo *cell) const {
-	switch (cell->type.index) {
-	case ID_LUT1:
-	case ID_LUT2:
-	case ID_LUT3:
-	case ID_LUT4:
-		return true;
-	default:
-		return false;
-	}
-}
 
 
 NEXTPNR_NAMESPACE_END
