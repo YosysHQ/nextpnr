@@ -1045,9 +1045,6 @@ X(DECAL_IOBS_INACTIVE)
 X(DECAL_IOBS_ACTIVE)
 X(DECAL_ALU_ACTIVE)
 
-
-
-
 X(SINGLE_INPUT_MUX)
 X(cst)
 X(none)
@@ -1056,4 +1053,8 @@ X(place)
 X(placer)
 X(route)
 X(router)
+
+// misc
+X(GOWIN_GND)
+X(GOWIN_VCC)
 

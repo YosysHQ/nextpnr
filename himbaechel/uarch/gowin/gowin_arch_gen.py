@@ -11,7 +11,13 @@ sys.path.append(path.join(path.dirname(__file__), "../.."))
 from himbaechel_dbgen.chip import *
 from apycula import chipdb
 
-# XXX u-turn at the rim
+# Z of the bels
+VCC_Z = 277
+GND_Z = 288
+
+created_tiletypes = set()
+
+# u-turn at the rim
 uturnlut = {'N': 'S', 'S': 'N', 'E': 'W', 'W': 'E'}
 def uturn(db: chipdb, x: int, y: int, wire: str):
     m = re.match(r"([NESW])([128]\d)(\d)", wire)
@@ -39,6 +45,7 @@ def create_nodes(chip: Chip, db: chipdb):
     dirs = { 'N': (0, -1), 'S': (0, 1), 'W': (-1, 0), 'E': (1, 0) }
     X = db.cols
     Y = db.rows
+    global_nodes = {}
     for y in range(Y):
         for x in range(X):
             nodes = []
@@ -67,6 +74,12 @@ def create_nodes(chip: Chip, db: chipdb):
                         NodeWire(*uturn(db, x + offs[0] * 8, y + offs[1] * 8, f'{d}8{i}8'))])
             for node in nodes:
                 chip.add_node(node)
+            # VCC and VSS sources in the all tiles
+            global_nodes.setdefault('GND', []).append(NodeWire(x, y, 'VSS'))
+            global_nodes.setdefault('VCC', []).append(NodeWire(x, y, 'VCC'))
+
+    for node in global_nodes.values():
+        chip.add_node(node)
 
 # About X and Y as parameters - in some cases, the type of manufacturer's tile
 # is not different, but some wires are not physically present, that is, routing
@@ -83,13 +96,37 @@ def create_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
                 tt.create_wire(src)
             tt.create_pip(src, dst)
 
-def create_null_tiletype(chip: Chip, db: chipdb, x: int, y: int):
-    tt = chip.create_tile_type(f"NULL_{db.grid[y][x].ttyp}")
+def create_null_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
+    if ttyp in created_tiletypes:
+        return ttyp
+    tt = chip.create_tile_type(f"NULL_{ttyp}")
     create_switch_matrix(tt, db, x, y)
+    return ttyp
+
+# responsible nodes, there will be IO banks, configuration, etc.
+def create_corner_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
+    if ttyp in created_tiletypes:
+        return ttyp
+    tt = chip.create_tile_type(f"CORNER_{ttyp}")
+
+    if x == 0 and y == 0:
+        # GND is the logic low level generator
+        tt.create_wire('VSS', 'GND')
+        gnd = tt.create_bel('GND', 'GND', z = GND_Z)
+        tt.add_bel_pin(gnd, "G", "VSS", PinType.OUTPUT)
+        # VCC is the logic high level generator
+        tt.create_wire('VCC', 'VCC')
+        gnd = tt.create_bel('VCC', 'VCC', z = VCC_Z)
+        tt.add_bel_pin(gnd, "V", "VCC", PinType.OUTPUT)
+
+    create_switch_matrix(tt, db, x, y)
+    return ttyp
 
 # simple IO - only A and B
-def create_io_tiletype(chip: Chip, db: chipdb, x: int, y: int):
-    tt = chip.create_tile_type(f"IO_{db.grid[y][x].ttyp}")
+def create_io_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
+    if ttyp in created_tiletypes:
+        return ttyp
+    tt = chip.create_tile_type(f"IO_{ttyp}")
     for i in range(2):
         name = ['IOBA', 'IOBB'][i]
         # wires
@@ -97,16 +134,19 @@ def create_io_tiletype(chip: Chip, db: chipdb, x: int, y: int):
         tt.create_wire(portmap['I'], "IO_I")
         tt.create_wire(portmap['O'], "IO_I")
         # bels
-        io = tt.create_bel(name, "IOB", z=i)
+        io = tt.create_bel(name, "IOB", z = i)
         tt.add_bel_pin(io, "I", portmap['I'], PinType.INPUT)
         tt.add_bel_pin(io, "O", portmap['O'], PinType.OUTPUT)
     create_switch_matrix(tt, db, x, y)
+    return ttyp
 
 # XXX 6 lut+dff only for now
-def create_logic_tiletype(chip: Chip, db: chipdb, x: int, y: int):
+def create_logic_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
     N = 6
     lut_inputs = ['A', 'B', 'C', 'D']
-    tt = chip.create_tile_type(f"LOGIC_{db.grid[y][x].ttyp}")
+    if ttyp in created_tiletypes:
+        return ttyp
+    tt = chip.create_tile_type(f"LOGIC_{ttyp}")
     # setup wires
     for i in range(N):
         for inp_name in lut_inputs:
@@ -125,7 +165,7 @@ def create_logic_tiletype(chip: Chip, db: chipdb, x: int, y: int):
     # create logic cells
     for i in range(N):
         # LUT
-        lut = tt.create_bel(f"LUT{i}", "LUT4", z=(i*2 + 0))
+        lut = tt.create_bel(f"LUT{i}", "LUT4", z = (i * 2 + 0))
         for j, inp_name in enumerate(lut_inputs):
             tt.add_bel_pin(lut, f"I{j}", f"{inp_name}{i}", PinType.INPUT)
         tt.add_bel_pin(lut, "F", f"F{i}", PinType.OUTPUT)
@@ -135,12 +175,13 @@ def create_logic_tiletype(chip: Chip, db: chipdb, x: int, y: int):
         for inp_name in lut_inputs:
             tt.create_pip(f"{inp_name}{i}", f"XD{i}")
         # FF
-        ff = tt.create_bel(f"DFF{i}", "DFF", z=(i*2 + 1))
+        ff = tt.create_bel(f"DFF{i}", "DFF", z =(i * 2 + 1))
         tt.add_bel_pin(ff, "D", f"XD{i}", PinType.INPUT)
         tt.add_bel_pin(ff, "CLK", f"CLK{i // 2}", PinType.INPUT)
         tt.add_bel_pin(ff, "Q", f"Q{i}", PinType.OUTPUT)
         tt.add_bel_pin(ff, "RESET", f"LSR{i // 2}", PinType.INPUT)
     create_switch_matrix(tt, db, x, y)
+    return ttyp
 
 def main():
     parser = argparse.ArgumentParser(description='Make Gowin BBA')
@@ -164,27 +205,29 @@ def main():
     # The manufacturer distinguishes by externally identical tiles, so keep
     # these differences (in case it turns out later that there is a slightly
     # different routing or something like that).
-    created_tiletypes = set()
     logic_tiletypes = {12, 13, 14, 15, 16, 17}
     io_tiletypes = {53, 58, 64} # Tangnano9k leds tiles and clock ;)
     # Setup tile grid
     for x in range(X):
         for y in range(Y):
             ttyp = db.grid[y][x].ttyp
+            if (x == 0 or x == X - 1) and (y == 0 or y == Y - 1):
+                assert ttyp not in created_tiletypes, "Duplication of corner types"
+                ttyp = create_corner_tiletype(ch, db, x, y, ttyp)
+                created_tiletypes.add(ttyp)
+                ch.set_tile_type(x, y, f"CORNER_{ttyp}")
+                continue
             if ttyp in logic_tiletypes:
-                if ttyp not in created_tiletypes:
-                    create_logic_tiletype(ch, db, x, y)
-                    created_tiletypes.add(ttyp)
+                ttyp = create_logic_tiletype(ch, db, x, y, ttyp)
+                created_tiletypes.add(ttyp)
                 ch.set_tile_type(x, y, f"LOGIC_{ttyp}")
             elif ttyp in io_tiletypes:
-                if ttyp not in created_tiletypes:
-                    create_io_tiletype(ch, db, x, y)
-                    created_tiletypes.add(ttyp)
+                ttyp = create_io_tiletype(ch, db, x, y, ttyp)
+                created_tiletypes.add(ttyp)
                 ch.set_tile_type(x, y, f"IO_{ttyp}")
             else:
-                if ttyp not in created_tiletypes:
-                    create_null_tiletype(ch, db, x, y)
-                    created_tiletypes.add(ttyp)
+                ttyp = create_null_tiletype(ch, db, x, y, ttyp)
+                created_tiletypes.add(ttyp)
                 ch.set_tile_type(x, y, f"NULL_{ttyp}")
 
     # Create nodes between tiles
