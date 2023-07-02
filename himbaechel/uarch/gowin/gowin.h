@@ -45,6 +45,8 @@ struct GowinImpl : HimbaechelAPI
     // modify LUTs with constant inputs
     void mod_lut_inputs(void);
 
+    void pack_wideluts(void);
+
     // Return true if a cell is a LUT
     inline bool type_is_lut(IdString cell_type) const { return cell_type.in(id_LUT1, id_LUT2, id_LUT3, id_LUT4); }
     inline bool is_lut(const CellInfo *cell) const { return type_is_lut(cell->type); }
@@ -67,6 +69,22 @@ struct GowinArch : HimbaechelArch
     }
 } exampleArch;
 } // namespace
+
+// Bels Z ranges. It is desirable that these numbers be synchronized with the chipdb generator
+namespace BelZ {
+enum
+{
+    LUT0_Z = 0,
+    LUT7_Z = 14,
+    MUX20_Z = 16,
+    MUX21_Z = 18,
+    MUX23_Z = 22,
+    MUX27_Z = 29,
+
+    VCC_Z = 277,
+    VSS_Z = 278
+};
+}
 
 NEXTPNR_NAMESPACE_END
 #endif
