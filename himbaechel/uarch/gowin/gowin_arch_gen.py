@@ -19,6 +19,7 @@ MUX20_Z = 16
 MUX21_Z = 18
 MUX23_Z = 22
 MUX27_Z = 29
+ALU0_Z  = 30 # : 35, 6 ALUs
 
 VCC_Z   = 277
 GND_Z   = 278
@@ -68,6 +69,7 @@ def create_nodes(chip: Chip, db: chipdb):
     for y in range(Y):
         for x in range(X):
             nodes = []
+            extra_tile_data = chip.tile_type_at(x, y).extra_data
             # SN and EW
             for i in [1, 2]:
                 nodes.append([NodeWire(x, y, f'SN{i}0'),
@@ -92,11 +94,25 @@ def create_nodes(chip: Chip, db: chipdb):
                         NodeWire(*uturn(db, x + offs[0] * 4, y + offs[1] * 4, f'{d}8{i}4')),
                         NodeWire(*uturn(db, x + offs[0] * 8, y + offs[1] * 8, f'{d}8{i}8'))])
             # I0 for MUX2_LUT8
-            if x < X - 1 and chip.tile_type_at(x, y).extra_data.tile_class == chip.strs.id('LOGIC') and  chip.tile_type_at(x, y).extra_data.tile_class == chip.strs.id('LOGIC'):
+            if (x < X - 1 and extra_tile_data.tile_class == chip.strs.id('LOGIC')
+                    and  chip.tile_type_at(x + 1, y).extra_data.tile_class == chip.strs.id('LOGIC')):
                 nodes.append([NodeWire(x, y, 'OF30'),
-                              NodeWire(x + 1, y, 'OF3')])
+                             NodeWire(x + 1, y, 'OF3')])
+
+            # ALU
+            if extra_tile_data.tile_class == chip.strs.id('LOGIC'):
+                # local carry chain
+                for i in range(5):
+                    nodes.append([NodeWire(x, y, f'COUT{i}'),
+                                  NodeWire(x, y, f'CIN{i + 1}')]);
+                # gobal carry chain
+                if x > 1 and chip.tile_type_at(x - 1, y).extra_data.tile_class == chip.strs.id('LOGIC'):
+                    nodes.append([NodeWire(x, y, f'CIN0'),
+                                  NodeWire(x - 1, y, f'COUT5')])
+
             for node in nodes:
                 chip.add_node(node)
+
             # VCC and VSS sources in the all tiles
             global_nodes.setdefault('GND', []).append(NodeWire(x, y, 'VSS'))
             global_nodes.setdefault('VCC', []).append(NodeWire(x, y, 'VCC'))
@@ -170,16 +186,16 @@ def create_io_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
     create_switch_matrix(tt, db, x, y)
     return ttyp
 
-# XXX lut+dff only for now
+# logic: luts, dffs, alu etc
 def create_logic_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
-    lut_inputs = ['A', 'B', 'C', 'D']
     if ttyp in created_tiletypes:
         return ttyp
     typename = "LOGIC"
     tt = chip.create_tile_type(f"{typename}_{ttyp}")
     tt.extra_data = TileExtraData(chip.strs.id(typename))
 
-    # setup wires
+    lut_inputs = ['A', 'B', 'C', 'D']
+    # setup LUT wires
     for i in range(8):
         for inp_name in lut_inputs:
             tt.create_wire(f"{inp_name}{i}", "LUT_INPUT")
@@ -190,14 +206,20 @@ def create_logic_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
         # just out of curiosity
         tt.create_wire(f"XD{i}", "FF_INPUT")
         tt.create_wire(f"Q{i}", "FF_OUT")
+    # setup DFF wires
     for j in range(3):
         tt.create_wire(f"CLK{j}", "TILE_CLK")
         tt.create_wire(f"LSR{j}", "TILE_LSR")
         tt.create_wire(f"CE{j}",  "TILE_CE")
+    # setup MUX2 wires
     for j in range(8):
         tt.create_wire(f"OF{j}", "MUX_OUT")
         tt.create_wire(f"SEL{j}", "MUX_SEL")
     tt.create_wire("OF30", "MUX_OUT")
+    # setup ALU wires
+    for j in range(6):
+        tt.create_wire(f"CIN{j}", "ALU_CIN")
+        tt.create_wire(f"COUT{j}", "ALU_COUT")
 
     # create logic cells
     for i in range(8):
@@ -222,6 +244,18 @@ def create_logic_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
             tt.add_bel_pin(ff, "PRESET", f"LSR{i // 2}", PinType.INPUT)
             tt.add_bel_pin(ff, "CLEAR", f"LSR{i // 2}", PinType.INPUT)
             tt.add_bel_pin(ff, "CE", f"CE{i // 2}", PinType.INPUT)
+
+            # ALU
+            ff = tt.create_bel(f"ALU{i}", "ALU", z = i + ALU0_Z)
+            tt.add_bel_pin(ff, "SUM", f"F{i}", PinType.OUTPUT)
+            tt.add_bel_pin(ff, "COUT", f"COUT{i}", PinType.OUTPUT)
+            tt.add_bel_pin(ff, "CIN", f"CIN{i}", PinType.INPUT)
+            # pinout for the ADDSUB ALU mode
+            tt.add_bel_pin(ff, "I0", f"A{i}", PinType.INPUT)
+            tt.add_bel_pin(ff, "I1", f"B{i}", PinType.INPUT)
+            tt.add_bel_pin(ff, "I2", f"C{i}", PinType.INPUT)
+            tt.add_bel_pin(ff, "I3", f"D{i}", PinType.INPUT)
+
     # wide luts
     for i in range(4):
         ff = tt.create_bel(f"MUX{i * 2}", "MUX2_LUT5", z = MUX20_Z + i * 4)
