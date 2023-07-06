@@ -20,6 +20,7 @@ MUX21_Z = 18
 MUX23_Z = 22
 MUX27_Z = 29
 ALU0_Z  = 30 # : 35, 6 ALUs
+RAMW_Z  = 36 # RAM16SDP4
 
 VCC_Z   = 277
 GND_Z   = 278
@@ -137,17 +138,17 @@ def create_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
 
 def create_null_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
     if ttyp in created_tiletypes:
-        return ttyp
+        return ttyp, None
     typename = "NULL"
     tt = chip.create_tile_type(f"{typename}_{ttyp}")
     tt.extra_data = TileExtraData(chip.strs.id(typename))
     create_switch_matrix(tt, db, x, y)
-    return ttyp
+    return (ttyp, tt)
 
 # responsible nodes, there will be IO banks, configuration, etc.
 def create_corner_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
     if ttyp in created_tiletypes:
-        return ttyp
+        return ttyp, None
     typename = "CORNER"
     tt = chip.create_tile_type(f"{typename}_{ttyp}")
     tt.extra_data = TileExtraData(chip.strs.id(typename))
@@ -163,12 +164,12 @@ def create_corner_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
         tt.add_bel_pin(gnd, "V", "VCC", PinType.OUTPUT)
 
     create_switch_matrix(tt, db, x, y)
-    return ttyp
+    return (ttyp, tt)
 
 # simple IO - only A and B
 def create_io_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
     if ttyp in created_tiletypes:
-        return ttyp
+        return ttyp, None
     typename = "IO"
     tt = chip.create_tile_type(f"{typename}_{ttyp}")
     tt.extra_data = TileExtraData(chip.strs.id(typename))
@@ -184,12 +185,12 @@ def create_io_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
         tt.add_bel_pin(io, "I", portmap['I'], PinType.INPUT)
         tt.add_bel_pin(io, "O", portmap['O'], PinType.OUTPUT)
     create_switch_matrix(tt, db, x, y)
-    return ttyp
+    return (ttyp, tt)
 
 # logic: luts, dffs, alu etc
 def create_logic_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
     if ttyp in created_tiletypes:
-        return ttyp
+        return ttyp, None
     typename = "LOGIC"
     tt = chip.create_tile_type(f"{typename}_{ttyp}")
     tt.extra_data = TileExtraData(chip.strs.id(typename))
@@ -281,7 +282,30 @@ def create_logic_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
     tt.add_bel_pin(ff, "S0", f"SEL7", PinType.INPUT)
 
     create_switch_matrix(tt, db, x, y)
-    return ttyp
+    return (ttyp, tt)
+
+def create_ssram_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
+    if ttyp in created_tiletypes:
+        return ttyp, None
+    # SSRAM is LUT based, so it's logic-like
+    ttyp, tt = create_logic_tiletype(chip, db, x, y, ttyp)
+
+    lut_inputs = ['A', 'B', 'C', 'D']
+    ff = tt.create_bel(f"RAM16SDP4", "RAM16SDP4", z = RAMW_Z)
+    for i in range(4):
+        tt.add_bel_pin(ff, f"DI[{i}]", f"{lut_inputs[i]}5", PinType.INPUT)
+        tt.add_bel_pin(ff, f"WAD[{i}]", f"{lut_inputs[i]}4", PinType.INPUT)
+        # RAD[0] is RAD[0] is assumed to be connected to A3, A2, A1 and A0. But
+        # for now we connect it only to A0, the others will be connected
+        # directly during packing. RAD[1...3] - similarly.
+        tt.add_bel_pin(ff, f"RAD[{i}]", f"{lut_inputs[i]}0", PinType.INPUT)
+        tt.add_bel_pin(ff, f"DO[{i}]", f"F{i}", PinType.OUTPUT)
+
+
+    tt.add_bel_pin(ff, f"CLK", "CLK2", PinType.INPUT)
+    tt.add_bel_pin(ff, f"CE",  "CE2", PinType.INPUT)
+    tt.add_bel_pin(ff, f"WRE", "LSR2", PinType.INPUT)
+    return (ttyp, tt)
 
 def main():
     parser = argparse.ArgumentParser(description='Make Gowin BBA')
@@ -305,28 +329,33 @@ def main():
     # The manufacturer distinguishes by externally identical tiles, so keep
     # these differences (in case it turns out later that there is a slightly
     # different routing or something like that).
-    logic_tiletypes = {12, 13, 14, 15, 16, 17}
+    logic_tiletypes = {12, 13, 14, 15, 16}
     io_tiletypes = {53, 55, 58, 59, 64, 65}
+    ssram_tiletypes = {17, 18, 19}
     # Setup tile grid
     for x in range(X):
         for y in range(Y):
             ttyp = db.grid[y][x].ttyp
             if (x == 0 or x == X - 1) and (y == 0 or y == Y - 1):
                 assert ttyp not in created_tiletypes, "Duplication of corner types"
-                ttyp = create_corner_tiletype(ch, db, x, y, ttyp)
+                ttyp, _ = create_corner_tiletype(ch, db, x, y, ttyp)
                 created_tiletypes.add(ttyp)
                 ch.set_tile_type(x, y, f"CORNER_{ttyp}")
                 continue
             if ttyp in logic_tiletypes:
-                ttyp = create_logic_tiletype(ch, db, x, y, ttyp)
+                ttyp, _ = create_logic_tiletype(ch, db, x, y, ttyp)
+                created_tiletypes.add(ttyp)
+                ch.set_tile_type(x, y, f"LOGIC_{ttyp}")
+            elif ttyp in ssram_tiletypes:
+                ttyp, _ = create_ssram_tiletype(ch, db, x, y, ttyp)
                 created_tiletypes.add(ttyp)
                 ch.set_tile_type(x, y, f"LOGIC_{ttyp}")
             elif ttyp in io_tiletypes:
-                ttyp = create_io_tiletype(ch, db, x, y, ttyp)
+                ttyp, _ = create_io_tiletype(ch, db, x, y, ttyp)
                 created_tiletypes.add(ttyp)
                 ch.set_tile_type(x, y, f"IO_{ttyp}")
             else:
-                ttyp = create_null_tiletype(ch, db, x, y, ttyp)
+                ttyp, _ = create_null_tiletype(ch, db, x, y, ttyp)
                 created_tiletypes.add(ttyp)
                 ch.set_tile_type(x, y, f"NULL_{ttyp}")
 

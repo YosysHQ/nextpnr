@@ -80,12 +80,15 @@ bool GowinImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
         return true;
     }
     IdString bel_type = ctx->getBelType(bel);
-    if (bel_type.in(id_LUT4, id_DFF)) {
+    switch (bel_type.hash()) {
+    case ID_LUT4: /* fall-through */
+    case ID_DFF:
         return slice_valid(l.x, l.y, l.z / 2);
-    } else {
-        if (bel_type == id_ALU) {
-            return slice_valid(l.x, l.y, l.z - BelZ::ALU0_Z);
-        }
+    case ID_ALU:
+        return slice_valid(l.x, l.y, l.z - BelZ::ALU0_Z);
+    case ID_RAM16SDP4:
+        // only slices 4 and 5 are critical for RAM
+        return slice_valid(l.x, l.y, l.z - BelZ::RAMW_Z + 5) && slice_valid(l.x, l.y, l.z - BelZ::RAMW_Z + 4);
     }
     return true;
 }
@@ -101,6 +104,9 @@ IdString GowinImpl::getBelBucketForCellType(IdString cell_type) const
     }
     if (type_is_dff(cell_type)) {
         return id_DFF;
+    }
+    if (type_is_ssram(cell_type)) {
+        return id_RAM16SDP4;
     }
     if (cell_type == id_GOWIN_GND) {
         return id_GND;
@@ -122,6 +128,9 @@ bool GowinImpl::isValidBelForCellType(IdString cell_type, BelId bel) const
     }
     if (bel_type == id_DFF) {
         return type_is_dff(cell_type);
+    }
+    if (bel_type == id_RAM16SDP4) {
+        return type_is_ssram(cell_type);
     }
     if (bel_type == id_GND) {
         return cell_type == id_GOWIN_GND;
@@ -167,9 +176,18 @@ bool GowinImpl::slice_valid(int x, int y, int z) const
     const CellInfo *lut = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, z * 2)));
     const CellInfo *ff = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, z * 2 + 1)));
     const CellInfo *alu = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, z + BelZ::ALU0_Z)));
+    const CellInfo *ramw =
+            (z == 4 || z == 5) ? ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, BelZ::RAMW_Z))) : nullptr;
 
     if (alu && lut) {
         return false;
+    }
+
+    if (ramw) {
+        if (alu || ff || lut) {
+            return false;
+        }
+        return true;
     }
 
     // check for ALU/LUT in the adjacent cell
