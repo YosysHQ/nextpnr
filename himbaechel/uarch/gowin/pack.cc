@@ -384,9 +384,91 @@ struct GowinPacker
 
         int lutffs = h.constrain_cell_pairs(lut_outs, dff_ins, 1);
         log_info("Constrained %d LUTFF pairs.\n", lutffs);
+    }
 
-        log_info("Pack ALUs...\n");
-        pack_alus();
+    // ===================================
+    // SSRAM cluster
+    // ===================================
+    // create ALU filler block
+    std::unique_ptr<CellInfo> ssram_make_lut(Context *ctx, CellInfo *ci, int index)
+    {
+        IdString name_id = ctx->idf("%s_LUT%d", ci->name.c_str(ctx), index);
+        auto lut_ci = std::make_unique<CellInfo>(ctx, name_id, id_LUT4);
+        if (index) {
+            for (IdString port : {id_I0, id_I1, id_I2, id_I3}) {
+                lut_ci->addInput(port);
+            }
+        }
+        IdString init_name = ctx->idf("INIT_%d", index);
+        if (ci->params.count(init_name)) {
+            lut_ci->params[id_INIT] = ci->params.at(init_name);
+        } else {
+            lut_ci->params[id_INIT] = std::string("1111111111111111");
+        }
+        return lut_ci;
+    }
+
+    void pack_ram16sdp4(void)
+    {
+        std::vector<std::unique_ptr<CellInfo>> new_cells;
+
+        log_info("Pack RAMs...\n");
+        for (auto &cell : ctx->cells) {
+            auto ci = cell.second.get();
+            if (ci->cluster != ClusterId()) {
+                continue;
+            }
+
+            if (is_ssram(ci)) {
+                // make cluster root
+                ci->cluster = ci->name;
+                ci->constr_abs_z = true;
+                ci->constr_x = 0;
+                ci->constr_y = 0;
+                ci->constr_z = BelZ::RAMW_Z;
+
+                ci->addInput(id_CE);
+                ci->connectPort(id_CE, ctx->nets[ctx->id("$PACKER_VCC")].get());
+
+                // RAD networks
+                NetInfo *rad[4];
+                for (int i = 0; i < 4; ++i) {
+                    rad[i] = ci->getPort(ctx->idf("RAD[%d]", i));
+                }
+
+                // active LUTs
+                int luts_num = 4;
+                if (ci->type == id_RAM16SDP1) {
+                    luts_num = 1;
+                } else {
+                    if (ci->type == id_RAM16SDP2) {
+                        luts_num = 2;
+                    }
+                }
+
+                // make actual storage cells
+                for (int i = 0; i < 4; ++i) {
+                    new_cells.push_back(std::move(ssram_make_lut(ctx, ci, i)));
+                    CellInfo *lut_ci = new_cells.back().get();
+                    ci->constr_children.push_back(lut_ci);
+                    lut_ci->cluster = ci->name;
+                    lut_ci->constr_abs_z = true;
+                    lut_ci->constr_x = 0;
+                    lut_ci->constr_y = 0;
+                    lut_ci->constr_z = i * 2;
+                    // inputs
+                    // LUT0 is already connected when generating the base
+                    if (i && i < luts_num) {
+                        for (int j = 0; j < 4; ++j) {
+                            lut_ci->connectPort(ctx->idf("I%d", j), rad[j]);
+                        }
+                    }
+                }
+            }
+        }
+        for (auto &ncell : new_cells) {
+            ctx->cells[ncell->name] = std::move(ncell);
+        }
     }
 
     void run(void)
@@ -396,6 +478,7 @@ struct GowinPacker
         pack_wideluts();
         pack_alus();
         constrain_lutffs();
+        pack_ram16sdp4();
     }
 };
 } // namespace

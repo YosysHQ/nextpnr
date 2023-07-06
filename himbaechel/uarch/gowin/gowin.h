@@ -20,6 +20,10 @@ inline bool is_dff(const CellInfo *cell) { return type_is_dff(cell->type); }
 // Return true if a cell is a ALU
 inline bool type_is_alu(IdString cell_type) { return cell_type == id_ALU; }
 inline bool is_alu(const CellInfo *cell) { return type_is_alu(cell->type); }
+
+// Return true if a cell is a SSRAM
+inline bool type_is_ssram(IdString cell_type) { return cell_type.in(id_RAM16SDP1, id_RAM16SDP2, id_RAM16SDP4); }
+inline bool is_ssram(const CellInfo *cell) { return type_is_ssram(cell->type); }
 } // namespace
 
 // Bels Z ranges. It is desirable that these numbers be synchronized with the chipdb generator
@@ -33,6 +37,7 @@ enum
     MUX23_Z = 22,
     MUX27_Z = 29,
     ALU0_Z = 30, // :35, 6 ALU
+    RAMW_Z = 36, // RAM16SDP4
 
     VCC_Z = 277,
     VSS_Z = 278
