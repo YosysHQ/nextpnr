@@ -371,6 +371,56 @@ class TileInst(BBAStruct):
             bba.ref(f"{context}_extra_data")
         else:
             bba.u32(0)
+
+@dataclass
+class PadInfo(BBAStruct):
+    # package pin name
+    package_pin: IdString
+    # reference to corresponding bel
+    tile: IdString
+    bel: IdString
+    # function name
+    pad_function: IdString
+    # index of pin bank
+    pad_bank: int
+    # extra pad flags
+    flags: int
+    extra_data: object = None
+
+    def serialise_lists(self, context: str, bba: BBAWriter):
+        pass
+    def serialise(self, context: str, bba: BBAWriter):
+        bba.u32(self.package_pin.index)
+        bba.u32(self.tile.index)
+        bba.u32(self.bel.index)
+        bba.u32(self.pad_function.index)
+        bba.u32(self.pad_bank)
+        bba.u32(self.flags)
+        if self.extra_data is not None:
+            bba.ref(f"{context}_extra_data")
+        else:
+            bba.u32(0)
+
+@dataclass
+class PackageInfo(BBAStruct):
+    strs: StringPool
+    name: IdString
+    pads: list[int] = field(default_factory=list)
+
+    def create_pad(self, package_pin: str, tile: str, bel: str, pad_function: str, pad_bank: int, flags: int = 0):
+        pad = PadInfo(package_pin = self.strs.id(package_pin), tile = self.strs.id(tile), bel = self.strs.id(bel),
+                pad_function = self.strs.id(pad_function), pad_bank = pad_bank, flags = flags)
+        self.pads.append(pad)
+        return pad
+
+    def serialise_lists(self, context: str, bba: BBAWriter):
+        for i, pad in enumerate(self.pad):
+            bel.serialise_lists(f"{context}_pad{i}", pad)
+
+    def serialise(self, context: str, bba: BBAWriter):
+        bba.u32(self.name.index)
+        bba.slice(f"{context}_pads", len(self.pads))
+
 class Chip:
     def __init__(self, uarch: str, name: str, width: int, height: int):
         self.strs = StringPool()
@@ -385,6 +435,7 @@ class Chip:
         self.node_shape_idx = dict()
         self.tile_shapes = []
         self.tile_shapes_idx = dict()
+        self.packages = []
         self.extra_data = None
     def create_tile_type(self, name: str):
         tt = TileType(self.strs, self.strs.id(name))
@@ -449,6 +500,11 @@ class Chip:
                     self.tile_shapes_idx[key] = tile.shape_idx
         print(f"{len(self.tile_shapes)} unique tile routing shapes")
 
+    def create_package(self, name: str):
+        pkg = PackageInfo(self.strs, self.strs.id(name))
+        self.packages.append(pkg)
+        return pkg
+
     def serialise(self, bba: BBAWriter):
         self.flatten_tile_shapes()
         # TODO: preface, etc
@@ -496,9 +552,8 @@ class Chip:
         bba.slice("tile_insts", self.width*self.height)
         bba.slice("node_shapes", len(self.node_shapes))
         bba.slice("tile_shapes", len(self.tile_shapes))
-        # packages: not yet used
-        bba.u32(0)
-        bba.u32(0)
+        # packages
+        bba.slice("packages", len(self.packages))
         # speed grades: not yet used
         bba.u32(0)
         bba.u32(0)
