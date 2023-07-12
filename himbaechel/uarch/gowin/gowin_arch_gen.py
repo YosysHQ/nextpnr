@@ -329,6 +329,42 @@ def create_ssram_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
     tt.add_bel_pin(ff, f"WRE", "LSR2", PinType.INPUT)
     return (ttyp, tt)
 
+_tbrlre = re.compile(r"IO([TBRL])(\d+)(\w)")
+def create_packages(chip: Chip, db: chipdb):
+    def ioloc_to_tile_bel(ioloc):
+        side, num, bel_idx = _tbrlre.match(ioloc).groups()
+        if side == 'T':
+            row = 0
+            col = int(num) - 1
+        elif side == 'B':
+            row = db.rows - 1
+            col = int(num) - 1
+        elif side == 'L':
+            row = int(num) - 1
+            col = 0
+        elif side == 'R':
+            row = int(num) - 1
+            col = db.cols - 1
+        return (f'X{col}Y{row}', f'IOB{bel_idx}')
+
+    created_pkgs = set()
+    for partno_spd, partdata in db.packages.items():
+        pkgname, variant, spd = partdata
+        partno = partno_spd.removesuffix(spd) # drop SPEED like 'C7/I6'
+        if partno in created_pkgs:
+            continue
+        pkg = chip.create_package(partno)
+        print(partno)
+        for pinno, pininfo in db.pinout[variant][pkgname].items():
+            io_loc, cfgs = pininfo
+            tile, bel = ioloc_to_tile_bel(io_loc)
+            pad_func = ""
+            for cfg in cfgs:
+                pad_func += cfg + "/"
+            pad_func = pad_func.rstrip('/')
+            bank = int(db.pin_bank[io_loc])
+            pad = pkg.create_pad(pinno, tile, bel, pad_func, bank)
+
 def main():
     parser = argparse.ArgumentParser(description='Make Gowin BBA')
     parser.add_argument('-d', '--device', required=True)
@@ -347,6 +383,9 @@ def main():
 
     # Init constant ids
     ch.strs.read_constids(path.join(path.dirname(__file__), "constids.inc"))
+
+    # packages from parntnumbers
+    create_packages(ch, db)
 
     # The manufacturer distinguishes by externally identical tiles, so keep
     # these differences (in case it turns out later that there is a slightly
