@@ -7,6 +7,7 @@
 #define HIMBAECHEL_CONSTIDS "uarch/gowin/constids.inc"
 #include "himbaechel_constids.h"
 
+#include "globals.h"
 #include "gowin.h"
 #include "pack.h"
 
@@ -20,9 +21,10 @@ struct GowinImpl : HimbaechelAPI
     void init_constids(Arch *arch) override { init_uarch_constids(arch); }
     void init(Context *ctx) override;
 
+    void pack() override;
     void prePlace() override;
     void postPlace() override;
-    void pack() override;
+    void preRoute() override;
 
     bool isBelLocationValid(BelId bel, bool explain_invalid) const override;
 
@@ -33,6 +35,9 @@ struct GowinImpl : HimbaechelAPI
 
   private:
     HimbaechelHelpers h;
+
+    IdString chip;
+    IdString partno;
 
     // Validity checking
     struct GowinCellInfo
@@ -61,17 +66,44 @@ void GowinImpl::init(Context *ctx)
 {
     h.init(ctx);
     HimbaechelAPI::init(ctx);
+
+    const ArchArgs &args = ctx->getArchArgs();
     // These fields go in the header of the output JSON file and can help
     // gowin_pack support different architectures
     ctx->settings[ctx->id("packer.arch")] = std::string("himbaechel/gowin");
-    // XXX it would be nice to write chip/base name in the header as well,
-    // but maybe that will come up when there is clarity with
-    // Arch::archArgsToId
+    ctx->settings[ctx->id("packer.chipdb")] = args.chipdb;
+
+    if (!args.options.count("partno")) {
+        log_error("Partnumber (like --vopt partno=GW1NR-LV9QN88PC6/I5) must be specified.\n");
+    }
+    ctx->settings[ctx->id("packer.partno")] = args.options.at("partno");
+
+    // GW1N-9C.xxx -> GW1N-9C
+    std::string chipdb = args.chipdb;
+    auto dot_pos = chipdb.find(".");
+    if (dot_pos != std::string::npos) {
+        chipdb.resize(dot_pos);
+    }
+    chip = ctx->id(chipdb);
+    partno = ctx->id(args.options.at("partno"));
 }
 
-void GowinImpl::prePlace() { assign_cell_info(); }
-
 void GowinImpl::pack() { gowin_pack(ctx); }
+void GowinImpl::prePlace() { assign_cell_info(); }
+void GowinImpl::postPlace()
+{
+    if (ctx->debug) {
+        log_info("================== Final Placement ===================\n");
+        for (auto &cell : ctx->cells) {
+            auto ci = cell.second.get();
+            IdStringList bel = ctx->getBelName(ci->bel);
+            log_info("%s -> %s\n", ctx->nameOf(ci), bel.str(ctx).c_str());
+        }
+        log_info("======================================================\n");
+    }
+}
+
+void GowinImpl::preRoute() { gowin_route_globals(ctx); }
 
 bool GowinImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
 {
@@ -253,17 +285,6 @@ bool GowinImpl::slice_valid(int x, int y, int z) const
     return true;
 }
 
-void GowinImpl::postPlace()
-{
-    if (ctx->debug) {
-        log_info("================== Final Placement ===================\n");
-        for (auto &cell : ctx->cells) {
-            auto ci = cell.second.get();
-            IdStringList bel = ctx->getBelName(ci->bel);
-            log_info("%s -> %s\n", ctx->nameOf(ci), bel.str(ctx).c_str());
-        }
-    }
-}
 } // namespace
 
 NEXTPNR_NAMESPACE_END

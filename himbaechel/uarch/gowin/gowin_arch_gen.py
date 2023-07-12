@@ -70,7 +70,8 @@ def create_nodes(chip: Chip, db: chipdb):
     for y in range(Y):
         for x in range(X):
             nodes = []
-            extra_tile_data = chip.tile_type_at(x, y).extra_data
+            tt = chip.tile_type_at(x, y)
+            extra_tile_data = tt.extra_data
             # SN and EW
             for i in [1, 2]:
                 nodes.append([NodeWire(x, y, f'SN{i}0'),
@@ -118,8 +119,17 @@ def create_nodes(chip: Chip, db: chipdb):
             global_nodes.setdefault('GND', []).append(NodeWire(x, y, 'VSS'))
             global_nodes.setdefault('VCC', []).append(NodeWire(x, y, 'VCC'))
 
-    for node in global_nodes.values():
+    # add nodes from the apicula db
+    for node_name, node in db.nodes.items():
+        for y, x, wire in node:
+            new_node = NodeWire(x, y, wire)
+            gl_nodes = global_nodes.setdefault(node_name, [])
+            if new_node not in gl_nodes:
+                gl_nodes.append(NodeWire(x, y, wire))
+
+    for name, node in global_nodes.items():
         chip.add_node(node)
+
 
 # About X and Y as parameters - in some cases, the type of manufacturer's tile
 # is not different, but some wires are not physically present, that is, routing
@@ -127,13 +137,25 @@ def create_nodes(chip: Chip, db: chipdb):
 # for taking this into account, but for now we make a distinction here, by
 # coordinates.
 def create_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
-    pips = db.grid[y][x].pips
-    for dst, srcs in pips.items():
+    def get_wire_type(name):
+        if name.startswith('GB') or name.startswith('GT'):
+            return "GLOBAL_CLK"
+        return ""
+
+    for dst, srcs in db.grid[y][x].pips.items():
         if not tt.has_wire(dst):
-            tt.create_wire(dst)
+            tt.create_wire(dst, get_wire_type(dst))
         for src in srcs.keys():
             if not tt.has_wire(src):
-                tt.create_wire(src)
+                tt.create_wire(src, get_wire_type(dst))
+            tt.create_pip(src, dst)
+    # clock wires
+    for dst, srcs in db.grid[y][x].clock_pips.items():
+        if not tt.has_wire(dst):
+            tt.create_wire(dst, "GLOBAL_CLK")
+        for src in srcs.keys():
+            if not tt.has_wire(src):
+                tt.create_wire(src, "GLOBAL_CLK")
             tt.create_pip(src, dst)
 
 def create_null_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
@@ -179,7 +201,7 @@ def create_io_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
         # wires
         portmap = db.grid[y][x].bels[name].portmap
         tt.create_wire(portmap['I'], "IO_I")
-        tt.create_wire(portmap['O'], "IO_I")
+        tt.create_wire(portmap['O'], "IO_O")
         # bels
         io = tt.create_bel(name, "IOB", z = i)
         tt.add_bel_pin(io, "I", portmap['I'], PinType.INPUT)
@@ -330,7 +352,7 @@ def main():
     # these differences (in case it turns out later that there is a slightly
     # different routing or something like that).
     logic_tiletypes = {12, 13, 14, 15, 16}
-    io_tiletypes = {53, 55, 58, 59, 64, 65}
+    io_tiletypes = {53, 55, 58, 59, 64, 65, 66}
     ssram_tiletypes = {17, 18, 19}
     # Setup tile grid
     for x in range(X):
