@@ -388,7 +388,10 @@ class PadInfo(BBAStruct):
     extra_data: object = None
 
     def serialise_lists(self, context: str, bba: BBAWriter):
-        pass
+        if self.extra_data is not None:
+            self.extra_data.serialise_lists(f"{context}_extra_data", bba)
+            bba.label(f"{context}_extra_data")
+            self.extra_data.serialise(f"{context}_extra_data", bba)
     def serialise(self, context: str, bba: BBAWriter):
         bba.u32(self.package_pin.index)
         bba.u32(self.tile.index)
@@ -414,8 +417,11 @@ class PackageInfo(BBAStruct):
         return pad
 
     def serialise_lists(self, context: str, bba: BBAWriter):
-        for i, pad in enumerate(self.pad):
-            bel.serialise_lists(f"{context}_pad{i}", pad)
+        for i, pad in enumerate(self.pads):
+            pad.serialise_lists(f"{context}_pad{i}", bba)
+        bba.label(f"{context}_pads")
+        for i, pad in enumerate(self.pads):
+            pad.serialise(f"{context}_pad{i}", bba)
 
     def serialise(self, context: str, bba: BBAWriter):
         bba.u32(self.name.index)
@@ -515,6 +521,8 @@ class Chip:
             shp.serialise_lists(f"nshp{i}", bba)
         for i, tsh in enumerate(self.tile_shapes):
             tsh.serialise_lists(f"tshp{i}", bba)
+        for i, pkg in enumerate(self.packages):
+            pkg.serialise_lists(f"pkg{i}", bba)
         for y, row in enumerate(self.tiles):
             for x, tinst in enumerate(row):
                 tinst.serialise_lists(f"tinst_{x}_{y}", bba)
@@ -530,6 +538,9 @@ class Chip:
         bba.label(f"tile_shapes")
         for i, tsh in enumerate(self.tile_shapes):
             tsh.serialise(f"tshp{i}", bba)
+        bba.label(f"packages")
+        for i, pkg in enumerate(self.packages):
+            pkg.serialise(f"pkg{i}", bba)
         bba.label(f"tile_insts")
         for y, row in enumerate(self.tiles):
             for x, tinst in enumerate(row):

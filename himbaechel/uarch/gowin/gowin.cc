@@ -1,3 +1,5 @@
+#include <regex>
+
 #include "himbaechel_api.h"
 #include "himbaechel_helpers.h"
 #include "log.h"
@@ -7,6 +9,7 @@
 #define HIMBAECHEL_CONSTIDS "uarch/gowin/constids.inc"
 #include "himbaechel_constids.h"
 
+#include "cst.h"
 #include "globals.h"
 #include "gowin.h"
 #include "pack.h"
@@ -76,8 +79,6 @@ void GowinImpl::init(Context *ctx)
     if (!args.options.count("partno")) {
         log_error("Partnumber (like --vopt partno=GW1NR-LV9QN88PC6/I5) must be specified.\n");
     }
-    ctx->settings[ctx->id("packer.partno")] = args.options.at("partno");
-
     // GW1N-9C.xxx -> GW1N-9C
     std::string chipdb = args.chipdb;
     auto dot_pos = chipdb.find(".");
@@ -85,10 +86,60 @@ void GowinImpl::init(Context *ctx)
         chipdb.resize(dot_pos);
     }
     chip = ctx->id(chipdb);
-    partno = ctx->id(args.options.at("partno"));
+    std::string pn = args.options.at("partno");
+    partno = ctx->id(pn);
+    ctx->settings[ctx->id("packer.partno")] = pn;
+
+    std::regex speedre = std::regex("(.*)(C[0-9]/I[0-9])$");
+    std::smatch match;
+
+    IdString spd;
+    IdString package_idx;
+    if (std::regex_match(pn, match, speedre)) {
+        package_idx = ctx->id(match[1]);
+        spd = ctx->id(match[2]);
+    } else {
+        if (pn.length() > 2 && pn.compare(pn.length() - 2, 2, "ES")) {
+            package_idx = ctx->id(pn.substr(pn.length() - 2));
+            spd = ctx->id("ES");
+        }
+    }
+
+    if (ctx->debug) {
+        log_info("packages:%d\n", ctx->chip_info->packages.ssize());
+    }
+    for (int i = 0; i < ctx->chip_info->packages.ssize(); ++i) {
+        if (IdString(ctx->chip_info->packages[i].name) == package_idx) {
+            if (ctx->debug) {
+                log_info("i:%d %s\n", i, package_idx.c_str(ctx));
+            }
+            ctx->package_info = &ctx->chip_info->packages[i];
+            break;
+        }
+    }
+    if (ctx->package_info == nullptr) {
+        log_error("No package for partnumber %s\n", partno.c_str(ctx));
+    }
+
+    if (args.options.count("cst")) {
+        ctx->settings[ctx->id("cst.filename")] = args.options.at("cst");
+    }
 }
 
-void GowinImpl::pack() { gowin_pack(ctx); }
+void GowinImpl::pack()
+{
+    if (ctx->settings.count(ctx->id("cst.filename"))) {
+        std::string filename = ctx->settings[ctx->id("cst.filename")].as_string();
+        std::ifstream in(filename);
+        if (!in) {
+            log_error("failed to open CST file '%s'\n", filename.c_str());
+        }
+        if (!gowin_apply_constraints(ctx, in)) {
+            log_error("failed to parse CST file '%s'\n", filename.c_str());
+        }
+    }
+    gowin_pack(ctx);
+}
 void GowinImpl::prePlace() { assign_cell_info(); }
 void GowinImpl::postPlace()
 {
@@ -99,7 +150,7 @@ void GowinImpl::postPlace()
             IdStringList bel = ctx->getBelName(ci->bel);
             log_info("%s -> %s\n", ctx->nameOf(ci), bel.str(ctx).c_str());
         }
-        log_info("======================================================\n");
+        log_break();
     }
 }
 
