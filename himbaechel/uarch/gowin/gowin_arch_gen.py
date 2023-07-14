@@ -353,8 +353,8 @@ def create_packages(chip: Chip, db: chipdb):
         partno = partno_spd.removesuffix(spd) # drop SPEED like 'C7/I6'
         if partno in created_pkgs:
             continue
+        created_pkgs.add(partno)
         pkg = chip.create_package(partno)
-        print(partno)
         for pinno, pininfo in db.pinout[variant][pkgname].items():
             io_loc, cfgs = pininfo
             tile, bel = ioloc_to_tile_bel(io_loc)
@@ -391,7 +391,7 @@ def main():
     # these differences (in case it turns out later that there is a slightly
     # different routing or something like that).
     logic_tiletypes = {12, 13, 14, 15, 16}
-    io_tiletypes = {53, 55, 58, 59, 64, 65, 66}
+    io_tiletypes = {52, 53, 55, 58, 59, 64, 65, 66}
     ssram_tiletypes = {17, 18, 19}
     # Setup tile grid
     for x in range(X):

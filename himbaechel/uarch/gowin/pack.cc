@@ -29,7 +29,37 @@ struct GowinPacker
                 CellTypePort(id_IBUF, id_I),
                 CellTypePort(id_OBUF, id_O),
         };
-        h.remove_nextpnr_iobs(top_ports);
+        std::vector<IdString> to_remove;
+        for (auto &cell : ctx->cells) {
+            auto &ci = *cell.second;
+            if (!ci.type.in(ctx->id("$nextpnr_ibuf"), ctx->id("$nextpnr_obuf"), ctx->id("$nextpnr_iobuf")))
+                continue;
+            NetInfo *i = ci.getPort(ctx->id("I"));
+            if (i && i->driver.cell) {
+                if (!top_ports.count(CellTypePort(i->driver)))
+                    log_error("Top-level port '%s' driven by illegal port %s.%s\n", ctx->nameOf(&ci),
+                              ctx->nameOf(i->driver.cell), ctx->nameOf(i->driver.port));
+                for (const auto &attr : ci.attrs) {
+                    i->driver.cell->attrs[attr.first] = attr.second;
+                }
+            }
+            NetInfo *o = ci.getPort(ctx->id("O"));
+            if (o) {
+                for (auto &usr : o->users) {
+                    if (!top_ports.count(CellTypePort(usr)))
+                        log_error("Top-level port '%s' driving illegal port %s.%s\n", ctx->nameOf(&ci),
+                                  ctx->nameOf(usr.cell), ctx->nameOf(usr.port));
+                    for (const auto &attr : ci.attrs) {
+                        usr.cell->attrs[attr.first] = attr.second;
+                    }
+                }
+            }
+            ci.disconnectPort(ctx->id("I"));
+            ci.disconnectPort(ctx->id("O"));
+            to_remove.push_back(ci.name);
+        }
+        for (IdString cell_name : to_remove)
+            ctx->cells.erase(cell_name);
     }
 
     // ===================================
