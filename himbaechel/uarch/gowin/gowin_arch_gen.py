@@ -22,6 +22,7 @@ MUX27_Z = 29
 ALU0_Z  = 30 # : 35, 6 ALUs
 RAMW_Z  = 36 # RAM16SDP4
 
+GSR_Z   = 276
 VCC_Z   = 277
 GND_Z   = 278
 
@@ -140,6 +141,8 @@ def create_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
     def get_wire_type(name):
         if name.startswith('GB') or name.startswith('GT'):
             return "GLOBAL_CLK"
+        elif name in {'XD0', 'XD1', 'XD2', 'XD3', 'XD4', 'XD5',}:
+            return "X0"
         return ""
 
     for dst, srcs in db.grid[y][x].pips.items():
@@ -184,6 +187,22 @@ def create_corner_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
         tt.create_wire('VCC', 'VCC')
         gnd = tt.create_bel('VCC', 'VCC', z = VCC_Z)
         tt.add_bel_pin(gnd, "V", "VCC", PinType.OUTPUT)
+
+    create_switch_matrix(tt, db, x, y)
+    return (ttyp, tt)
+
+# Global set/reset. GW2A series has special cell for it
+def create_gsr_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
+    if ttyp in created_tiletypes:
+        return ttyp, None
+    typename = "GSR"
+    tt = chip.create_tile_type(f"{typename}_{ttyp}")
+    tt.extra_data = TileExtraData(chip.strs.id(typename))
+
+    portmap = db.grid[y][x].bels['GSR'].portmap
+    tt.create_wire(portmap['GSRI'], "GSRI")
+    io = tt.create_bel("GSR", "GSR", z = GSR_Z)
+    tt.add_bel_pin(io, "GSRI", portmap['GSRI'], PinType.INPUT)
 
     create_switch_matrix(tt, db, x, y)
     return (ttyp, tt)
@@ -393,6 +412,7 @@ def main():
     logic_tiletypes = {12, 13, 14, 15, 16}
     io_tiletypes = {52, 53, 55, 58, 59, 64, 65, 66}
     ssram_tiletypes = {17, 18, 19}
+    gsr_tiletypes = {1}
     # Setup tile grid
     for x in range(X):
         for y in range(Y):
@@ -403,7 +423,11 @@ def main():
                 created_tiletypes.add(ttyp)
                 ch.set_tile_type(x, y, f"CORNER_{ttyp}")
                 continue
-            if ttyp in logic_tiletypes:
+            if ttyp in gsr_tiletypes:
+                ttyp, _ = create_gsr_tiletype(ch, db, x, y, ttyp)
+                created_tiletypes.add(ttyp)
+                ch.set_tile_type(x, y, f"GSR_{ttyp}")
+            elif ttyp in logic_tiletypes:
                 ttyp, _ = create_logic_tiletype(ch, db, x, y, ttyp)
                 created_tiletypes.add(ttyp)
                 ch.set_tile_type(x, y, f"LOGIC_{ttyp}")

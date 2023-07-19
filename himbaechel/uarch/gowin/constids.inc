@@ -1076,3 +1076,11 @@ X(MUX_SEL)
 X(ALU_CIN)
 X(ALU_COUT)
 
+// fake dff inputs
+X(XD0)
+X(XD1)
+X(XD2)
+X(XD3)
+X(XD4)
+X(XD5)
+

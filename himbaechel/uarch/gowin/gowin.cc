@@ -90,6 +90,7 @@ void GowinImpl::init(Context *ctx)
     partno = ctx->id(pn);
     ctx->settings[ctx->id("packer.partno")] = pn;
 
+    // package and speed class
     std::regex speedre = std::regex("(.*)(C[0-9]/I[0-9])$");
     std::smatch match;
 
@@ -106,7 +107,7 @@ void GowinImpl::init(Context *ctx)
     }
 
     if (ctx->debug) {
-        log_info("packages:%d\n", ctx->chip_info->packages.ssize());
+        log_info("packages:%ld\n", ctx->chip_info->packages.ssize());
     }
     for (int i = 0; i < ctx->chip_info->packages.ssize(); ++i) {
         if (IdString(ctx->chip_info->packages[i].name) == package_idx) {
@@ -121,6 +122,7 @@ void GowinImpl::init(Context *ctx)
         log_error("No package for partnumber %s\n", partno.c_str(ctx));
     }
 
+    // constraints
     if (args.options.count("cst")) {
         ctx->settings[ctx->id("cst.filename")] = args.options.at("cst");
     }

@@ -249,10 +249,14 @@ struct GowinPacker
 
         if (cin_net->name == ctx->id("$PACKER_GND")) {
             cin_ci->params[id_ALU_MODE] = std::string("C2L");
+            cin_ci->addInput(id_I2);
+            cin_ci->connectPort(id_I2, ctx->nets[ctx->id("$PACKER_VCC")].get());
             return cin_ci;
         }
         if (cin_net->name == ctx->id("$PACKER_VCC")) {
             cin_ci->params[id_ALU_MODE] = std::string("ONE2C");
+            cin_ci->addInput(id_I2);
+            cin_ci->connectPort(id_I2, ctx->nets[ctx->id("$PACKER_VCC")].get());
             return cin_ci;
         }
         // CIN from logic
@@ -501,10 +505,47 @@ struct GowinPacker
         }
     }
 
+    // Pack global set-reset
+    void pack_gsr(void)
+    {
+        log_info("Packing GSR..\n");
+
+        bool user_gsr = false;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (ctx->verbose)
+                log_info("cell '%s' is of type '%s'\n", ctx->nameOf(ci), ci->type.c_str(ctx));
+            if (ci->type == id_GSR) {
+                user_gsr = true;
+                break;
+            }
+        }
+        if (!user_gsr) {
+            bool have_gsr_bel = false;
+            auto bels = ctx->getBels();
+            for (auto bid : bels) {
+                if (ctx->getBelType(bid) == id_GSR) {
+                    have_gsr_bel = true;
+                    break;
+                }
+            }
+            if (have_gsr_bel) {
+                // make default GSR
+                auto gsr_cell = std::make_unique<CellInfo>(ctx, id_GSR, id_GSR);
+                gsr_cell->addInput(id_GSRI);
+                gsr_cell->connectPort(id_GSRI, ctx->nets[ctx->id("$PACKER_VCC")].get());
+                ctx->cells[gsr_cell->name] = std::move(gsr_cell);
+            } else {
+                log_info("No GSR in the chip base\n");
+            }
+        }
+    }
+
     void run(void)
     {
         pack_iobs();
         handle_constants();
+        pack_gsr();
         pack_wideluts();
         pack_alus();
         constrain_lutffs();
