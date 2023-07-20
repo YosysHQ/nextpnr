@@ -12,6 +12,7 @@
 #include "cst.h"
 #include "globals.h"
 #include "gowin.h"
+#include "gowin_utils.h"
 #include "pack.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -38,6 +39,7 @@ struct GowinImpl : HimbaechelAPI
 
   private:
     HimbaechelHelpers h;
+    GowinUtils gwu;
 
     IdString chip;
     IdString partno;
@@ -69,6 +71,8 @@ void GowinImpl::init(Context *ctx)
 {
     h.init(ctx);
     HimbaechelAPI::init(ctx);
+
+    gwu.init(ctx);
 
     const ArchArgs &args = ctx->getArchArgs();
     // These fields go in the header of the output JSON file and can help

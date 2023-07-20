@@ -348,6 +348,7 @@ def create_ssram_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
     tt.add_bel_pin(ff, f"WRE", "LSR2", PinType.INPUT)
     return (ttyp, tt)
 
+# pinouts, packages...
 _tbrlre = re.compile(r"IO([TBRL])(\d+)(\w)")
 def create_packages(chip: Chip, db: chipdb):
     def ioloc_to_tile_bel(ioloc):
