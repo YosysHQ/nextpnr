@@ -305,8 +305,8 @@ struct GowinPacker
     // create ALU chain
     void pack_alus(void)
     {
-        static CellTypePort cell_alu_cout = CellTypePort(id_ALU, id_COUT);
-        static CellTypePort cell_alu_cin = CellTypePort(id_ALU, id_CIN);
+        const CellTypePort cell_alu_cout = CellTypePort(id_ALU, id_COUT);
+        const CellTypePort cell_alu_cin = CellTypePort(id_ALU, id_CIN);
         std::vector<std::unique_ptr<CellInfo>> new_cells;
 
         log_info("Pack ALUs...\n");
@@ -409,12 +409,12 @@ struct GowinPacker
     void constrain_lutffs(void)
     {
         // Constrain directly connected LUTs and FFs together to use dedicated resources
-        auto lut_outs = pool<CellTypePort>{{id_LUT1, id_F}, {id_LUT2, id_F}, {id_LUT3, id_F}, {id_LUT4, id_F}};
-        auto dff_ins = pool<CellTypePort>{{id_DFF, id_D},  {id_DFFE, id_D},  {id_DFFN, id_D},  {id_DFFNE, id_D},
-                                          {id_DFFS, id_D}, {id_DFFSE, id_D}, {id_DFFNS, id_D}, {id_DFFNSE, id_D},
-                                          {id_DFFR, id_D}, {id_DFFRE, id_D}, {id_DFFNR, id_D}, {id_DFFNRE, id_D},
-                                          {id_DFFP, id_D}, {id_DFFPE, id_D}, {id_DFFNP, id_D}, {id_DFFNPE, id_D},
-                                          {id_DFFC, id_D}, {id_DFFCE, id_D}, {id_DFFNC, id_D}, {id_DFFNCE, id_D}};
+        const pool<CellTypePort> lut_outs{{id_LUT1, id_F}, {id_LUT2, id_F}, {id_LUT3, id_F}, {id_LUT4, id_F}};
+        const pool<CellTypePort> dff_ins{{id_DFF, id_D},  {id_DFFE, id_D},  {id_DFFN, id_D},  {id_DFFNE, id_D},
+                                         {id_DFFS, id_D}, {id_DFFSE, id_D}, {id_DFFNS, id_D}, {id_DFFNSE, id_D},
+                                         {id_DFFR, id_D}, {id_DFFRE, id_D}, {id_DFFNR, id_D}, {id_DFFNRE, id_D},
+                                         {id_DFFP, id_D}, {id_DFFPE, id_D}, {id_DFFNP, id_D}, {id_DFFNPE, id_D},
+                                         {id_DFFC, id_D}, {id_DFFCE, id_D}, {id_DFFNC, id_D}, {id_DFFNCE, id_D}};
 
         int lutffs = h.constrain_cell_pairs(lut_outs, dff_ins, 1);
         log_info("Constrained %d LUTFF pairs.\n", lutffs);

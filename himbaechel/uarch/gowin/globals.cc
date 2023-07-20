@@ -29,14 +29,16 @@
 
 #include "globals.h"
 #include "gowin.h"
+#include "gowin_utils.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
 struct GowinGlobalRouter
 {
     Context *ctx;
+    GowinUtils gwu;
 
-    GowinGlobalRouter(Context *ctx) : ctx(ctx){};
+    GowinGlobalRouter(Context *ctx) : ctx(ctx) { gwu.init(ctx); };
 
     // allow io->global, global->global and global->tile clock
     bool global_pip_filter(PipId pip) const
@@ -157,8 +159,18 @@ struct GowinGlobalRouter
 
     bool driver_is_clksrc(const PortRef &driver)
     {
-        // XXX dedicated pins
-        return driver.port == id_O;
+        // dedicated pins
+        if (CellTypePort(driver) == CellTypePort(id_IBUF, id_O)) {
+
+            NPNR_ASSERT(driver.cell->bel != BelId());
+            IdStringList pin_func = gwu.get_pin_funcs(driver.cell->bel);
+            for (size_t i = 0; i < pin_func.size(); ++i) {
+                if (pin_func[i].str(ctx).rfind("GCLKT", 0) == 0) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     void run(void)
