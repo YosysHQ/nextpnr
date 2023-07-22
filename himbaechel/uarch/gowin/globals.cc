@@ -43,14 +43,21 @@ struct GowinGlobalRouter
     // allow io->global, global->global and global->tile clock
     bool global_pip_filter(PipId pip) const
     {
-        /*
+        auto is_local = [&](IdString wire_type) {
+            return !wire_type.in(id_GLOBAL_CLK, id_IO_O, id_IO_I, id_PLL_O, id_PLL_I, id_TILE_CLK);
+        };
+
         IdString src_type = ctx->getWireType(ctx->getPipSrcWire(pip));
         IdString dst_type = ctx->getWireType(ctx->getPipDstWire(pip));
-        bool src_valid = src_type.in(id_GLOBAL_CLK, id_IO_O);
-        bool dst_valid = dst_type.in(id_GLOBAL_CLK, id_TILE_CLK);
-        return src_valid && dst_valid;
-        */
-        return true;
+        bool src_valid = src_type.in(id_GLOBAL_CLK, id_IO_O, id_PLL_O);
+        bool dst_valid = dst_type.in(id_GLOBAL_CLK, id_TILE_CLK, id_PLL_I, id_IO_I);
+
+        if (ctx->debug) {
+            log_info("%s <- %s [%s <- %s]\n", ctx->getWireName(ctx->getPipDstWire(pip)).str(ctx).c_str(),
+                     ctx->getWireName(ctx->getPipSrcWire(pip)).str(ctx).c_str(), dst_type.c_str(ctx),
+                     src_type.c_str(ctx));
+        }
+        return (src_valid && dst_valid) || (src_valid && is_local(dst_type)) || (is_local(src_type) && dst_valid);
     }
 
     bool is_relaxed_sink(const PortRef &sink) const { return false; }
@@ -151,10 +158,19 @@ struct GowinGlobalRouter
 
     void route_clk_net(NetInfo *net)
     {
-        for (auto usr : net->users.enumerate())
-            backwards_bfs_route(net, usr.index, 1000000, true,
-                                [&](PipId pip) { return (is_relaxed_sink(usr.value) || global_pip_filter(pip)); });
-        log_info("    routed net '%s' using global resources\n", ctx->nameOf(net));
+        bool routed = false;
+        for (auto usr : net->users.enumerate()) {
+            routed = backwards_bfs_route(net, usr.index, 1000000, true, [&](PipId pip) {
+                return (is_relaxed_sink(usr.value) || global_pip_filter(pip));
+            });
+            if (!routed) {
+                break;
+            }
+        }
+
+        if (routed) {
+            log_info("    routed net '%s' using global resources\n", ctx->nameOf(net));
+        }
     }
 
     bool driver_is_clksrc(const PortRef &driver)
@@ -166,8 +182,22 @@ struct GowinGlobalRouter
             IdStringList pin_func = gwu.get_pin_funcs(driver.cell->bel);
             for (size_t i = 0; i < pin_func.size(); ++i) {
                 if (pin_func[i].str(ctx).rfind("GCLKT", 0) == 0) {
+                    if (ctx->debug) {
+                        log_info("Clock pin:%s:%s\n", ctx->getBelName(driver.cell->bel).str(ctx).c_str(),
+                                 pin_func[i].c_str(ctx));
+                    }
                     return true;
                 }
+            }
+        }
+        // PLL outputs
+        if (driver.cell->type.in(id_rPLL, id_PLLVR)) {
+            if (driver.port.in(id_CLKOUT, id_CLKOUTD, id_CLKOUTD3, id_CLKOUTP)) {
+                if (ctx->debug) {
+                    log_info("PLL out:%s:%s\n", ctx->getBelName(driver.cell->bel).str(ctx).c_str(),
+                             driver.port.c_str(ctx));
+                }
+                return true;
             }
         }
         return false;
