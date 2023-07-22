@@ -505,17 +505,18 @@ struct GowinPacker
         }
     }
 
-    // Pack global set-reset
+    // ===================================
+    // Global set/reset
+    // ===================================
     void pack_gsr(void)
     {
         log_info("Packing GSR..\n");
 
         bool user_gsr = false;
         for (auto &cell : ctx->cells) {
-            CellInfo *ci = cell.second.get();
-            if (ctx->verbose)
-                log_info("cell '%s' is of type '%s'\n", ctx->nameOf(ci), ci->type.c_str(ctx));
-            if (ci->type == id_GSR) {
+            auto &ci = *cell.second;
+
+            if (ci.type == id_GSR) {
                 user_gsr = true;
                 break;
             }
@@ -541,6 +542,32 @@ struct GowinPacker
         }
     }
 
+    // ===================================
+    // PLL
+    // ===================================
+    void pack_pll(void)
+    {
+        log_info("Packing PLL..\n");
+
+        for (auto &cell : ctx->cells) {
+            auto &ci = *cell.second;
+
+            if (ci.type == id_rPLL) {
+                // pin renaming for compatibility
+                for (int i = 0; i < 6; ++i) {
+                    ci.renamePort(ctx->idf("FBDSEL[%d]", i), ctx->idf("FBDSEL%d", i));
+                    ci.renamePort(ctx->idf("IDSEL[%d]", i), ctx->idf("IDSEL%d", i));
+                    ci.renamePort(ctx->idf("ODSEL[%d]", i), ctx->idf("ODSEL%d", i));
+                    if (i < 4) {
+                        ci.renamePort(ctx->idf("PSDA[%d]", i), ctx->idf("PSDA%d", i));
+                        ci.renamePort(ctx->idf("DUTYDA[%d]", i), ctx->idf("DUTYDA%d", i));
+                        ci.renamePort(ctx->idf("FDLY[%d]", i), ctx->idf("FDLY%d", i));
+                    }
+                }
+            }
+        }
+    }
+
     void run(void)
     {
         pack_iobs();
@@ -549,6 +576,7 @@ struct GowinPacker
         pack_wideluts();
         pack_alus();
         constrain_lutffs();
+        pack_pll();
         pack_ram16sdp4();
     }
 };

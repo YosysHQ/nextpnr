@@ -1059,6 +1059,7 @@ X(router)
 // misc
 X(GOWIN_GND)
 X(GOWIN_VCC)
+X(PLL)
 
 // wire types
 X(GLOBAL_CLK)
@@ -1075,6 +1076,8 @@ X(MUX_OUT)
 X(MUX_SEL)
 X(ALU_CIN)
 X(ALU_COUT)
+X(PLL_O)
+X(PLL_I)
 
 // fake dff inputs
 X(XD0)

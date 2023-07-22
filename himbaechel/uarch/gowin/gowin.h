@@ -39,6 +39,8 @@ enum
     ALU0_Z = 30, // :35, 6 ALU
     RAMW_Z = 36, // RAM16SDP4
 
+    PLL_Z = 275,
+    GSR_Z = 276,
     VCC_Z = 277,
     VSS_Z = 278
 };

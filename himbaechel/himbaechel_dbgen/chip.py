@@ -235,6 +235,9 @@ class TileType(BBAStruct):
     def has_wire(self, wire: str):
         # Check if a wire has already been created
         return self.strs.id(wire) in self._wire2idx
+    def set_wire_type(self, wire: str, type: str):
+        # wire type change
+        self.wires[self._wire2idx[self.strs.id(wire)]].wire_type = self.strs.id(type)
     def serialise_lists(self, context: str, bba: BBAWriter):
         # list children of members
         for i, bel in enumerate(self.bels):

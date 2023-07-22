@@ -22,6 +22,7 @@ MUX27_Z = 29
 ALU0_Z  = 30 # : 35, 6 ALUs
 RAMW_Z  = 36 # RAM16SDP4
 
+PLL_Z   = 275
 GSR_Z   = 276
 VCC_Z   = 277
 GND_Z   = 278
@@ -121,8 +122,11 @@ def create_nodes(chip: Chip, db: chipdb):
             global_nodes.setdefault('VCC', []).append(NodeWire(x, y, 'VCC'))
 
     # add nodes from the apicula db
-    for node_name, node in db.nodes.items():
+    for node_name, node_hdr in db.nodes.items():
+        wire_type, node = node_hdr
         for y, x, wire in node:
+            if wire_type:
+                chip.tile_type_at(x, y).set_wire_type(wire, wire_type)
             new_node = NodeWire(x, y, wire)
             gl_nodes = global_nodes.setdefault(node_name, [])
             if new_node not in gl_nodes:
@@ -139,9 +143,7 @@ def create_nodes(chip: Chip, db: chipdb):
 # coordinates.
 def create_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
     def get_wire_type(name):
-        if name.startswith('GB') or name.startswith('GT'):
-            return "GLOBAL_CLK"
-        elif name in {'XD0', 'XD1', 'XD2', 'XD3', 'XD4', 'XD5',}:
+        if name in {'XD0', 'XD1', 'XD2', 'XD3', 'XD4', 'XD5',}:
             return "X0"
         return ""
 
@@ -150,7 +152,7 @@ def create_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
             tt.create_wire(dst, get_wire_type(dst))
         for src in srcs.keys():
             if not tt.has_wire(src):
-                tt.create_wire(src, get_wire_type(dst))
+                tt.create_wire(src, get_wire_type(src))
             tt.create_pip(src, dst)
     # clock wires
     for dst, srcs in db.grid[y][x].clock_pips.items():
@@ -336,16 +338,54 @@ def create_ssram_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
     for i in range(4):
         tt.add_bel_pin(ff, f"DI[{i}]", f"{lut_inputs[i]}5", PinType.INPUT)
         tt.add_bel_pin(ff, f"WAD[{i}]", f"{lut_inputs[i]}4", PinType.INPUT)
-        # RAD[0] is RAD[0] is assumed to be connected to A3, A2, A1 and A0. But
+        # RAD[0] is assumed to be connected to A3, A2, A1 and A0. But
         # for now we connect it only to A0, the others will be connected
         # directly during packing. RAD[1...3] - similarly.
         tt.add_bel_pin(ff, f"RAD[{i}]", f"{lut_inputs[i]}0", PinType.INPUT)
         tt.add_bel_pin(ff, f"DO[{i}]", f"F{i}", PinType.OUTPUT)
 
-
     tt.add_bel_pin(ff, f"CLK", "CLK2", PinType.INPUT)
     tt.add_bel_pin(ff, f"CE",  "CE2", PinType.INPUT)
     tt.add_bel_pin(ff, f"WRE", "LSR2", PinType.INPUT)
+    return (ttyp, tt)
+
+# PLL main tile
+_pll_inputs = {'CLKFB', 'FBDSEL0', 'FBDSEL1', 'FBDSEL2', 'FBDSEL3',
+        'FBDSEL4', 'FBDSEL5', 'IDSEL0', 'IDSEL1', 'IDSEL2', 'IDSEL3',
+        'IDSEL4', 'IDSEL5', 'ODSEL0', 'ODSEL1', 'ODSEL2', 'ODSEL3',
+        'ODSEL4', 'ODSEL5', 'RESET', 'RESET_P', 'PSDA0', 'PSDA1',
+        'PSDA2', 'PSDA3', 'DUTYDA0', 'DUTYDA1', 'DUTYDA2', 'DUTYDA3',
+        'FDLY0', 'FDLY1', 'FDLY2', 'FDLY3', 'CLKIN'}
+_pll_outputs = {'CLKOUT', 'LOCK', 'CLKOUTP', 'CLKOUTD', 'CLKOUTD3'}
+def create_pll_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
+    if ttyp in created_tiletypes:
+        return ttyp, None
+    typename = "PLL"
+    tt = chip.create_tile_type(f"{typename}_{ttyp}")
+    tt.extra_data = TileExtraData(chip.strs.id(typename))
+
+    # wires
+    if chip.name == 'GW1NS-4':
+        pll_name = 'PLLVR'
+        bel_type = 'PLLVR'
+    else:
+        pll_name = 'RPLLA'
+        bel_type = 'rPLL'
+    portmap = db.grid[y][x].bels[pll_name].portmap
+    pll = tt.create_bel("PLL", bel_type, z = PLL_Z)
+    # Not sure how this will affect routing - PLLs are fixed and their outputs
+    # will be handled by a dedicated router
+    #pll.flags = BEL_FLAG_GLOBAL
+    for pin, wire in portmap.items():
+        if pin in _pll_inputs:
+            tt.create_wire(wire, "PLL_I")
+            tt.add_bel_pin(pll, pin, wire, PinType.INPUT)
+        else:
+            assert pin in _pll_outputs, f"Unknown PLL pin{pin}"
+            tt.create_wire(wire, "PLL_O")
+            tt.add_bel_pin(pll, pin, wire, PinType.OUTPUT)
+
+    create_switch_matrix(tt, db, x, y)
     return (ttyp, tt)
 
 # pinouts, packages...
@@ -411,9 +451,10 @@ def main():
     # these differences (in case it turns out later that there is a slightly
     # different routing or something like that).
     logic_tiletypes = {12, 13, 14, 15, 16}
-    io_tiletypes = {52, 53, 55, 58, 59, 64, 65, 66}
+    io_tiletypes = {52, 53, 54, 55, 58, 59, 64, 65, 66}
     ssram_tiletypes = {17, 18, 19}
     gsr_tiletypes = {1}
+    pll_tiletypes = {86, 87, 42, 45}
     # Setup tile grid
     for x in range(X):
         for y in range(Y):
@@ -440,6 +481,10 @@ def main():
                 ttyp, _ = create_io_tiletype(ch, db, x, y, ttyp)
                 created_tiletypes.add(ttyp)
                 ch.set_tile_type(x, y, f"IO_{ttyp}")
+            elif ttyp in pll_tiletypes:
+                ttyp, _ = create_pll_tiletype(ch, db, x, y, ttyp)
+                created_tiletypes.add(ttyp)
+                ch.set_tile_type(x, y, f"PLL_{ttyp}")
             else:
                 ttyp, _ = create_null_tiletype(ch, db, x, y, ttyp)
                 created_tiletypes.add(ttyp)
