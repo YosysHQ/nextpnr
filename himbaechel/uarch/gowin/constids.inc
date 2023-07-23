@@ -1060,6 +1060,8 @@ X(router)
 X(GOWIN_GND)
 X(GOWIN_VCC)
 X(PLL)
+X(BOTTOM_IO_PORT_A)
+X(BOTTOM_IO_PORT_B)
 
 // wire types
 X(GLOBAL_CLK)

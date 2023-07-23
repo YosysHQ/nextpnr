@@ -22,11 +22,17 @@ MUX27_Z = 29
 ALU0_Z  = 30 # : 35, 6 ALUs
 RAMW_Z  = 36 # RAM16SDP4
 
+IOBA_Z  = 50
+IOBB_Z  = 51
+
 PLL_Z   = 275
 GSR_Z   = 276
 VCC_Z   = 277
 GND_Z   = 278
 
+# =======================================
+# Chipdb additional info
+# =======================================
 @dataclass
 class TileExtraData(BBAStruct):
     tile_class: IdString # The general functionality of the slightly different tiles,
@@ -37,6 +43,45 @@ class TileExtraData(BBAStruct):
         pass
     def serialise(self, context: str, bba: BBAWriter):
         bba.u32(self.tile_class.index)
+
+@dataclass
+class BottomIOCnd(BBAStruct):
+    wire_a_net: IdString
+    wire_b_net: IdString
+
+    def serialise_lists(self, context: str, bba: BBAWriter):
+        pass
+    def serialise(self, context: str, bba: BBAWriter):
+        bba.u32(self.wire_a_net.index)
+        bba.u32(self.wire_b_net.index)
+
+@dataclass
+class BottomIO(BBAStruct):
+    conditions: list[BottomIOCnd] = field(default_factory = list)
+
+    def serialise_lists(self, context: str, bba: BBAWriter):
+        bba.label(f"{context}_conditions")
+        for i, cnd in enumerate(self.conditions):
+            cnd.serialise(f"{context}_cnd{i}", bba)
+
+    def serialise(self, context: str, bba: BBAWriter):
+        bba.slice(f"{context}_conditions", len(self.conditions))
+
+@dataclass
+class ChipExtraData(BBAStruct):
+    strs: StringPool
+    bottom_io: BottomIO
+
+    def create_bottom_io(self):
+        self.bottom_io = BottomIO()
+
+    def add_bottom_io_cnd(self, net_a: str, net_b: str):
+        self.bottom_io.conditions.append(BottomIOCnd(self.strs.id(net_a), self.strs.id(net_b)))
+
+    def serialise_lists(self, context: str, bba: BBAWriter):
+        self.bottom_io.serialise_lists(f"{context}_bottom_io", bba)
+    def serialise(self, context: str, bba: BBAWriter):
+        self.bottom_io.serialise(f"{context}_bottom_io", bba)
 
 created_tiletypes = set()
 
@@ -224,9 +269,17 @@ def create_io_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
         tt.create_wire(portmap['I'], "IO_I")
         tt.create_wire(portmap['O'], "IO_O")
         # bels
-        io = tt.create_bel(name, "IOB", z = i)
+        io = tt.create_bel(name, "IOB", z = IOBA_Z + i)
         tt.add_bel_pin(io, "I", portmap['I'], PinType.INPUT)
         tt.add_bel_pin(io, "O", portmap['O'], PinType.OUTPUT)
+        # bottom io
+        if 'BOTTOM_IO_PORT_A' in portmap.keys():
+            if not tt.has_wire(portmap['BOTTOM_IO_PORT_A']):
+                tt.create_wire(portmap['BOTTOM_IO_PORT_A'], "IO_I")
+                tt.create_wire(portmap['BOTTOM_IO_PORT_B'], "IO_I")
+            tt.add_bel_pin(io, "BOTTOM_IO_PORT_A", portmap['BOTTOM_IO_PORT_A'], PinType.INPUT)
+            tt.add_bel_pin(io, "BOTTOM_IO_PORT_B", portmap['BOTTOM_IO_PORT_B'], PinType.INPUT)
+
     create_switch_matrix(tt, db, x, y)
     return (ttyp, tt)
 
@@ -425,6 +478,13 @@ def create_packages(chip: Chip, db: chipdb):
             bank = int(db.pin_bank[io_loc])
             pad = pkg.create_pad(pinno, tile, bel, pad_func, bank)
 
+# Extra chip data
+def create_extra_data(chip: Chip, db: chipdb):
+    chip.extra_data = ChipExtraData(chip.strs, None)
+    chip.extra_data.create_bottom_io()
+    for net_a, net_b in db.bottom_io[2]:
+        chip.extra_data.add_bottom_io_cnd(net_a, net_b)
+
 def main():
     parser = argparse.ArgumentParser(description='Make Gowin BBA')
     parser.add_argument('-d', '--device', required=True)
@@ -492,6 +552,7 @@ def main():
 
     # Create nodes between tiles
     create_nodes(ch, db)
+    create_extra_data(ch, db)
     ch.write_bba(args.output)
 if __name__ == '__main__':
     main()

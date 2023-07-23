@@ -531,6 +531,10 @@ class Chip:
                 tinst.serialise_lists(f"tinst_{x}_{y}", bba)
 
         self.strs.serialise_lists(f"constids", bba)
+        if self.extra_data is not None:
+            self.extra_data.serialise_lists("extra_data", bba)
+            bba.label("extra_data")
+            self.extra_data.serialise("extra_data", bba)
 
         bba.label(f"tile_types")
         for i, tt in enumerate(self.tile_types):
@@ -573,8 +577,11 @@ class Chip:
         bba.u32(0)
         # db-defined constids
         bba.ref("constids")
-        # extra data: not yet used
-        bba.u32(0)
+        # extra data
+        if self.extra_data is not None:
+            bba.ref("extra_data")
+        else:
+            bba.u32(0)
 
     def write_bba(self, filename):
         with open(filename, "w") as f:

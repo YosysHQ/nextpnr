@@ -146,6 +146,7 @@ void GowinImpl::pack()
     }
     gowin_pack(ctx);
 }
+
 void GowinImpl::prePlace() { assign_cell_info(); }
 void GowinImpl::postPlace()
 {

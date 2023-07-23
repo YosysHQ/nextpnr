@@ -24,6 +24,33 @@ inline bool is_alu(const CellInfo *cell) { return type_is_alu(cell->type); }
 // Return true if a cell is a SSRAM
 inline bool type_is_ssram(IdString cell_type) { return cell_type.in(id_RAM16SDP1, id_RAM16SDP2, id_RAM16SDP4); }
 inline bool is_ssram(const CellInfo *cell) { return type_is_ssram(cell->type); }
+
+// extra data in the chip db
+NPNR_PACKED_STRUCT(struct Bottom_io_cnd_POD {
+    int32_t wire_a_net;
+    int32_t wire_b_net;
+});
+
+NPNR_PACKED_STRUCT(struct Bottom_io_POD {
+    // simple OBUF
+    static constexpr int8_t NORMAL = 0;
+    RelSlice<Bottom_io_cnd_POD> conditions;
+});
+
+NPNR_PACKED_STRUCT(struct Extra_chip_data_POD { Bottom_io_POD bottom_io; });
+
+inline IdString get_bottom_io_wire_a_net(const ChipInfoPOD *chip, int8_t condition)
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(chip->extra_data.get());
+    return IdString(extra->bottom_io.conditions[condition].wire_a_net);
+}
+
+inline IdString get_bottom_io_wire_b_net(const ChipInfoPOD *chip, int8_t condition)
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(chip->extra_data.get());
+    return IdString(extra->bottom_io.conditions[condition].wire_b_net);
+}
+
 } // namespace
 
 // Bels Z ranges. It is desirable that these numbers be synchronized with the chipdb generator
@@ -38,6 +65,9 @@ enum
     MUX27_Z = 29,
     ALU0_Z = 30, // :35, 6 ALU
     RAMW_Z = 36, // RAM16SDP4
+
+    IOBA_Z = 50,
+    IOBB_Z = 51, // +IOBC...IOBL
 
     PLL_Z = 275,
     GSR_Z = 276,
