@@ -47,7 +47,7 @@ struct GowinCstReader
             row = col;
             col = 1;
         }
-        int z = match[3].str()[0] - 'A';
+        int z = match[3].str()[0] - 'A' + BelZ::IOBA_Z;
         return Loc(col - 1, row - 1, z);
     }
 

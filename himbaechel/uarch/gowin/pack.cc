@@ -21,9 +21,37 @@ struct GowinPacker
     // ===================================
     // IO
     // ===================================
-    void pack_iobs(void)
+    void config_bottom_row(CellInfo &ci, Loc loc, uint8_t cnd = Bottom_io_POD::NORMAL)
     {
-        log_info("Pack IOBs...\n");
+        if (!ci.type.in(id_OBUF, id_TBUF, id_IOBUF)) {
+            return;
+        }
+        if (cnd == Bottom_io_POD::NORMAL && loc.z != BelZ::IOBA_Z) {
+            return;
+        }
+        auto connect_io_wire = [&](IdString port, IdString net_name) {
+            // XXX it is very convenient that nothing terrible happens in case
+            // of absence/presence of a port
+            ci.disconnectPort(port);
+            ci.addInput(port);
+            if (net_name == id_VSS) {
+                ci.connectPort(port, ctx->nets[ctx->id("$PACKER_GND")].get());
+            } else {
+                NPNR_ASSERT(net_name == id_VCC);
+                ci.connectPort(port, ctx->nets[ctx->id("$PACKER_VCC")].get());
+            }
+        };
+
+        IdString wire_a_net = get_bottom_io_wire_a_net(ctx->chip_info, cnd);
+        connect_io_wire(id_BOTTOM_IO_PORT_A, wire_a_net);
+
+        IdString wire_b_net = get_bottom_io_wire_b_net(ctx->chip_info, cnd);
+        connect_io_wire(id_BOTTOM_IO_PORT_B, wire_b_net);
+    }
+
+    // Attributes of deleted cells are copied
+    void trim_nextpnr_iobs(void)
+    {
         // Trim nextpnr IOBs - assume IO buffer insertion has been done in synthesis
         const pool<CellTypePort> top_ports{
                 CellTypePort(id_IBUF, id_I),
@@ -60,6 +88,34 @@ struct GowinPacker
         }
         for (IdString cell_name : to_remove)
             ctx->cells.erase(cell_name);
+    }
+
+    BelId bind_io(CellInfo &ci)
+    {
+        BelId bel = ctx->getBelByName(IdStringList::parse(ctx, ci.attrs.at(id_BEL).as_string()));
+        ci.unsetAttr(id_BEL);
+        ctx->bindBel(bel, &ci, PlaceStrength::STRENGTH_LOCKED);
+        return bel;
+    }
+
+    void pack_iobs(void)
+    {
+        log_info("Pack IOBs...\n");
+        trim_nextpnr_iobs();
+
+        for (auto &cell : ctx->cells) {
+            CellInfo &ci = *cell.second;
+            if (!ci.type.in(id_IBUF, id_OBUF, id_IOBUF)) // XXX TBUF
+                continue;
+            if (ci.attrs.count(id_BEL) == 0) {
+                log_error("Unconstrained IO:%s\n", ctx->nameOf(&ci));
+            }
+            BelId io_bel = bind_io(ci);
+            Loc io_loc = ctx->getBelLocation(io_bel);
+            if (io_loc.y == ctx->getGridDimY() - 1) {
+                config_bottom_row(ci, io_loc);
+            }
+        }
     }
 
     // ===================================
@@ -570,8 +626,8 @@ struct GowinPacker
 
     void run(void)
     {
-        pack_iobs();
         handle_constants();
+        pack_iobs();
         pack_gsr();
         pack_wideluts();
         pack_alus();
