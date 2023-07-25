@@ -11,6 +11,9 @@ sys.path.append(path.join(path.dirname(__file__), "../.."))
 from himbaechel_dbgen.chip import *
 from apycula import chipdb
 
+# Bel flags
+BEL_FLAG_SIMPLE_IO = 0x100
+
 # Z of the bels
 # sync with C++ part!
 LUT0_Z  = 0       # z(DFFx) = z(LUTx) + 1
@@ -171,7 +174,10 @@ def create_nodes(chip: Chip, db: chipdb):
         wire_type, node = node_hdr
         for y, x, wire in node:
             if wire_type:
-                chip.tile_type_at(x, y).set_wire_type(wire, wire_type)
+                if not chip.tile_type_at(x, y).has_wire(wire):
+                    chip.tile_type_at(x, y).create_wire(wire, wire_type)
+                else:
+                    chip.tile_type_at(x, y).set_wire_type(wire, wire_type)
             new_node = NodeWire(x, y, wire)
             gl_nodes = global_nodes.setdefault(node_name, [])
             if new_node not in gl_nodes:
@@ -200,7 +206,7 @@ def create_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
                 tt.create_wire(src, get_wire_type(src))
             tt.create_pip(src, dst)
     # clock wires
-    for dst, srcs in db.grid[y][x].clock_pips.items():
+    for dst, srcs in db.grid[y][x].pure_clock_pips.items():
         if not tt.has_wire(dst):
             tt.create_wire(dst, "GLOBAL_CLK")
         for src in srcs.keys():
@@ -234,6 +240,12 @@ def create_corner_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
         tt.create_wire('VCC', 'VCC')
         gnd = tt.create_bel('VCC', 'VCC', z = VCC_Z)
         tt.add_bel_pin(gnd, "V", "VCC", PinType.OUTPUT)
+        # also here may be GSR
+        if 'GSR' in db.grid[y][x].bels.keys():
+            portmap = db.grid[y][x].bels['GSR'].portmap
+            tt.create_wire(portmap['GSRI'], "GSRI")
+            io = tt.create_bel("GSR", "GSR", z = GSR_Z)
+            tt.add_bel_pin(io, "GSRI", portmap['GSRI'], PinType.INPUT)
 
     create_switch_matrix(tt, db, x, y)
     return (ttyp, tt)
@@ -262,15 +274,27 @@ def create_io_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
     tt = chip.create_tile_type(f"{typename}_{ttyp}")
     tt.extra_data = TileExtraData(chip.strs.id(typename))
 
-    for i in range(2):
-        name = ['IOBA', 'IOBB'][i]
+    simple_io = y in db.simplio_rows and chip.name in {'GW1N-1', 'GW1NZ-1'}
+    if simple_io:
+        rng = 10
+    else:
+        rng = 2
+    for i in range(rng):
+        name = 'IOB' + 'ABCDEFGHIJ'[i]
+        # XXX some IOBs excluded from generic chipdb for some reason
+        if name not in db.grid[y][x].bels.keys():
+            continue
         # wires
         portmap = db.grid[y][x].bels[name].portmap
         tt.create_wire(portmap['I'], "IO_I")
         tt.create_wire(portmap['O'], "IO_O")
+        tt.create_wire(portmap['OE'], "IO_OE")
         # bels
         io = tt.create_bel(name, "IOB", z = IOBA_Z + i)
+        if simple_io:
+            io.flags |= BEL_FLAG_SIMPLE_IO
         tt.add_bel_pin(io, "I", portmap['I'], PinType.INPUT)
+        tt.add_bel_pin(io, "OE", portmap['OE'], PinType.INPUT)
         tt.add_bel_pin(io, "O", portmap['O'], PinType.OUTPUT)
         # bottom io
         if 'BOTTOM_IO_PORT_A' in portmap.keys():
@@ -510,11 +534,11 @@ def main():
     # The manufacturer distinguishes by externally identical tiles, so keep
     # these differences (in case it turns out later that there is a slightly
     # different routing or something like that).
-    logic_tiletypes = {12, 13, 14, 15, 16}
-    io_tiletypes = {52, 53, 54, 55, 58, 59, 64, 65, 66}
+    logic_tiletypes = db.tile_types['C']
+    io_tiletypes = db.tile_types['I']
     ssram_tiletypes = {17, 18, 19}
     gsr_tiletypes = {1}
-    pll_tiletypes = {86, 87, 42, 45}
+    pll_tiletypes = db.tile_types['P']
     # Setup tile grid
     for x in range(X):
         for y in range(Y):
