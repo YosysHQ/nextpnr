@@ -21,8 +21,26 @@ struct GowinPacker
     // ===================================
     // IO
     // ===================================
+    void config_simple_io(CellInfo &ci)
+    {
+        if (ci.type.in(id_TBUF, id_IOBUF)) {
+            return;
+        }
+        log_info("simple:%s\n", ctx->nameOf(&ci));
+        ci.addInput(id_OE);
+        if (ci.type == id_OBUF) {
+            ci.connectPort(id_OE, ctx->nets[ctx->id("$PACKER_GND")].get());
+        } else {
+            NPNR_ASSERT(ci.type == id_IBUF);
+            ci.connectPort(id_OE, ctx->nets[ctx->id("$PACKER_VCC")].get());
+        }
+    }
+
     void config_bottom_row(CellInfo &ci, Loc loc, uint8_t cnd = Bottom_io_POD::NORMAL)
     {
+        if (!have_bottom_io_cnds(ctx->chip_info)) {
+            return;
+        }
         if (!ci.type.in(id_OBUF, id_TBUF, id_IOBUF)) {
             return;
         }
@@ -93,6 +111,7 @@ struct GowinPacker
     BelId bind_io(CellInfo &ci)
     {
         BelId bel = ctx->getBelByName(IdStringList::parse(ctx, ci.attrs.at(id_BEL).as_string()));
+        NPNR_ASSERT(bel != BelId());
         ci.unsetAttr(id_BEL);
         ctx->bindBel(bel, &ci, PlaceStrength::STRENGTH_LOCKED);
         return bel;
@@ -114,6 +133,9 @@ struct GowinPacker
             Loc io_loc = ctx->getBelLocation(io_bel);
             if (io_loc.y == ctx->getGridDimY() - 1) {
                 config_bottom_row(ci, io_loc);
+            }
+            if (getBelSimpleIO(ctx->chip_info, io_bel)) {
+                config_simple_io(ci);
             }
         }
     }
@@ -138,10 +160,11 @@ struct GowinPacker
             NetInfo *constnet = net->second.get();
             for (auto user : constnet->users) {
                 CellInfo *uc = user.cell;
-                if (ctx->debug)
-                    log_info("%s user %s/%s\n", ctx->nameOf(constnet), ctx->nameOf(uc), user.port.c_str(ctx));
-
                 if (is_lut(uc) && (user.port.str(ctx).at(0) == 'I')) {
+                    if (ctx->debug) {
+                        log_info("%s user %s/%s\n", ctx->nameOf(constnet), ctx->nameOf(uc), user.port.c_str(ctx));
+                    }
+
                     auto it_param = uc->params.find(id_INIT);
                     if (it_param == uc->params.end())
                         log_error("No initialization for lut found.\n");
@@ -318,9 +341,9 @@ struct GowinPacker
         // CIN from logic
         cin_ci->addInput(id_I1);
         cin_ci->addInput(id_I3);
-        cin_ci->addInput(id_I2);
         cin_ci->connectPort(id_I1, cin_net);
         cin_ci->connectPort(id_I3, cin_net);
+        cin_ci->addInput(id_I2);
         cin_ci->connectPort(id_I2, ctx->nets[ctx->id("$PACKER_VCC")].get());
         cin_ci->params[id_ALU_MODE] = std::string("0"); // ADD
         return cin_ci;
@@ -342,6 +365,8 @@ struct GowinPacker
         cout_ci->connectPort(id_CIN, cin_net);
         cout_ci->addOutput(id_SUM);
         cout_ci->connectPort(id_SUM, cout_net);
+        cout_ci->addInput(id_I2);
+        cout_ci->connectPort(id_I2, ctx->nets[ctx->id("$PACKER_VCC")].get());
 
         cout_ci->params[id_ALU_MODE] = std::string("C2L");
         return cout_ci;
@@ -425,8 +450,8 @@ struct GowinPacker
                             cout_block_ci->constr_y = 0;
                             cout_block_ci->constr_z = alu_chain_len % 6;
                             if (ctx->debug) {
-                                log_info("Add ALU carry out to the chain (len:%d): %s\n", alu_chain_len,
-                                         ctx->nameOf(cout_block_ci));
+                                log_info("Add ALU carry out to the chain (len:%d): %s COUT-net: %s\n", alu_chain_len,
+                                         ctx->nameOf(cout_block_ci), ctx->nameOf(cout_net));
                             }
 
                             ++alu_chain_len;
@@ -566,7 +591,7 @@ struct GowinPacker
     // ===================================
     void pack_gsr(void)
     {
-        log_info("Packing GSR..\n");
+        log_info("Pack GSR..\n");
 
         bool user_gsr = false;
         for (auto &cell : ctx->cells) {
@@ -603,7 +628,7 @@ struct GowinPacker
     // ===================================
     void pack_pll(void)
     {
-        log_info("Packing PLL..\n");
+        log_info("Pack PLL..\n");
 
         for (auto &cell : ctx->cells) {
             auto &ci = *cell.second;

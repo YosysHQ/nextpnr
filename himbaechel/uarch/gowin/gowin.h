@@ -5,6 +5,10 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+namespace BelFlags {
+static constexpr uint32_t FLAG_SIMPLE_IO = 0x100;
+}
+
 namespace {
 // Return true if a cell is a LUT
 inline bool type_is_lut(IdString cell_type) { return cell_type.in(id_LUT1, id_LUT2, id_LUT3, id_LUT4); }
@@ -39,6 +43,12 @@ NPNR_PACKED_STRUCT(struct Bottom_io_POD {
 
 NPNR_PACKED_STRUCT(struct Extra_chip_data_POD { Bottom_io_POD bottom_io; });
 
+inline bool have_bottom_io_cnds(const ChipInfoPOD *chip)
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(chip->extra_data.get());
+    return extra->bottom_io.conditions.size() != 0;
+}
+
 inline IdString get_bottom_io_wire_a_net(const ChipInfoPOD *chip, int8_t condition)
 {
     const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(chip->extra_data.get());
@@ -51,6 +61,10 @@ inline IdString get_bottom_io_wire_b_net(const ChipInfoPOD *chip, int8_t conditi
     return IdString(extra->bottom_io.conditions[condition].wire_b_net);
 }
 
+inline bool getBelSimpleIO(const ChipInfoPOD *chip, BelId bel)
+{
+    return chip_bel_info(chip, bel).flags & BelFlags::FLAG_SIMPLE_IO;
+}
 } // namespace
 
 // Bels Z ranges. It is desirable that these numbers be synchronized with the chipdb generator

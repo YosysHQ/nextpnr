@@ -52,7 +52,7 @@ struct GowinGlobalRouter
         bool src_valid = src_type.in(id_GLOBAL_CLK, id_IO_O, id_PLL_O);
         bool dst_valid = dst_type.in(id_GLOBAL_CLK, id_TILE_CLK, id_PLL_I, id_IO_I);
 
-        if (ctx->debug) {
+        if (ctx->debug && false) {
             log_info("%s <- %s [%s <- %s]\n", ctx->getWireName(ctx->getPipDstWire(pip)).str(ctx).c_str(),
                      ctx->getWireName(ctx->getPipSrcWire(pip)).str(ctx).c_str(), dst_type.c_str(ctx),
                      src_type.c_str(ctx));
