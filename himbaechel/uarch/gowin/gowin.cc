@@ -155,7 +155,7 @@ void GowinImpl::postPlace()
         for (auto &cell : ctx->cells) {
             auto ci = cell.second.get();
             IdStringList bel = ctx->getBelName(ci->bel);
-            log_info("%s -> %s\n", ctx->nameOf(ci), bel.str(ctx).c_str());
+            log_info("%s: %s\n", bel.str(ctx).c_str(), ctx->nameOf(ci));
         }
         log_break();
     }
