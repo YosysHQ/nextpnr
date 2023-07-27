@@ -249,7 +249,7 @@ struct GowinPacker
             for (int i = 0; i < 2; ++i) {
                 // input src
                 NetInfo *in = ci_cursor->getPort(inputs[i].port);
-                NPNR_ASSERT(in && in->driver.cell);
+                NPNR_ASSERT(in && in->driver.cell && in->driver.cell->cluster == ClusterId());
                 int child_dx = dx + inputs[i].dx;
                 int child_dz = dz + inputs[i].dz;
                 ci_root.constr_children.push_back(in->driver.cell);
@@ -423,6 +423,7 @@ struct GowinPacker
                             log_info("Add ALU to the chain (len:%d): %s\n", alu_chain_len, ctx->nameOf(ci));
                         }
                         cin_block_ci->constr_children.push_back(ci);
+                        NPNR_ASSERT(ci->cluster == ClusterId());
                         ci->cluster = cin_block_ci->name;
                         ci->constr_abs_z = false;
                         ci->constr_x = alu_chain_len / 6;
@@ -444,6 +445,7 @@ struct GowinPacker
                             new_cells.push_back(std::move(alu_add_cout_block(ctx, ci, cout_net)));
                             CellInfo *cout_block_ci = new_cells.back().get();
                             cin_block_ci->constr_children.push_back(cout_block_ci);
+                            NPNR_ASSERT(cout_block_ci->cluster == ClusterId());
                             cout_block_ci->cluster = cin_block_ci->name;
                             cout_block_ci->constr_abs_z = false;
                             cout_block_ci->constr_x = alu_chain_len / 6;
@@ -466,6 +468,7 @@ struct GowinPacker
                         new_cells.push_back(std::move(alu_add_dummy_block(ctx, ci)));
                         CellInfo *dummy_block_ci = new_cells.back().get();
                         cin_block_ci->constr_children.push_back(dummy_block_ci);
+                        NPNR_ASSERT(dummy_block_ci->cluster == ClusterId());
                         dummy_block_ci->cluster = cin_block_ci->name;
                         dummy_block_ci->constr_abs_z = false;
                         dummy_block_ci->constr_x = alu_chain_len / 6;
