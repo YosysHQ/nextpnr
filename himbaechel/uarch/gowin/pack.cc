@@ -1,3 +1,4 @@
+#include "design_utils.h"
 #include "log.h"
 #include "nextpnr.h"
 
@@ -21,18 +22,39 @@ struct GowinPacker
     // ===================================
     // IO
     // ===================================
+    // create IOB connections for gowin_pack
+    // can be called repeatedly when switching inputs, disabled outputs do not change
+    void make_iob_nets(CellInfo &iob)
+    {
+        for (const auto &port : iob.ports) {
+            const NetInfo *net = iob.getPort(port.first);
+            std::string connected_net = "NET";
+            if (net != nullptr) {
+                if (ctx->verbose) {
+                    log_info("%s: %s - %s\n", ctx->nameOf(&iob), port.first.c_str(ctx), ctx->nameOf(net));
+                }
+                if (net->name == ctx->id("$PACKER_VCC")) {
+                    connected_net = "VCC";
+                } else if (net->name == ctx->id("$PACKER_GND")) {
+                    connected_net = "GND";
+                }
+                iob.setParam(ctx->idf("NET_%s", port.first.c_str(ctx)), connected_net);
+            }
+        }
+    }
+
     void config_simple_io(CellInfo &ci)
     {
         if (ci.type.in(id_TBUF, id_IOBUF)) {
             return;
         }
         log_info("simple:%s\n", ctx->nameOf(&ci));
-        ci.addInput(id_OE);
+        ci.addInput(id_OEN);
         if (ci.type == id_OBUF) {
-            ci.connectPort(id_OE, ctx->nets[ctx->id("$PACKER_GND")].get());
+            ci.connectPort(id_OEN, ctx->nets[ctx->id("$PACKER_GND")].get());
         } else {
             NPNR_ASSERT(ci.type == id_IBUF);
-            ci.connectPort(id_OE, ctx->nets[ctx->id("$PACKER_VCC")].get());
+            ci.connectPort(id_OEN, ctx->nets[ctx->id("$PACKER_VCC")].get());
         }
     }
 
@@ -44,7 +66,7 @@ struct GowinPacker
         if (!ci.type.in(id_OBUF, id_TBUF, id_IOBUF)) {
             return;
         }
-        if (cnd == Bottom_io_POD::NORMAL && loc.z != BelZ::IOBA_Z) {
+        if (loc.z != BelZ::IOBA_Z) {
             return;
         }
         auto connect_io_wire = [&](IdString port, IdString net_name) {
@@ -60,6 +82,7 @@ struct GowinPacker
             }
         };
 
+        log_info("cnd:%d\n", cnd);
         IdString wire_a_net = get_bottom_io_wire_a_net(ctx->chip_info, cnd);
         connect_io_wire(id_BOTTOM_IO_PORT_A, wire_a_net);
 
@@ -74,6 +97,8 @@ struct GowinPacker
         const pool<CellTypePort> top_ports{
                 CellTypePort(id_IBUF, id_I),
                 CellTypePort(id_OBUF, id_O),
+                CellTypePort(id_TBUF, id_O),
+                CellTypePort(id_IOBUF, id_IO),
         };
         std::vector<IdString> to_remove;
         for (auto &cell : ctx->cells) {
@@ -100,8 +125,18 @@ struct GowinPacker
                     }
                 }
             }
+            NetInfo *io = ci.getPort(ctx->id("IO"));
+            if (io && io->driver.cell) {
+                if (!top_ports.count(CellTypePort(io->driver)))
+                    log_error("Top-level port '%s' driven by illegal port %s.%s\n", ctx->nameOf(&ci),
+                              ctx->nameOf(io->driver.cell), ctx->nameOf(io->driver.port));
+                for (const auto &attr : ci.attrs) {
+                    io->driver.cell->attrs[attr.first] = attr.second;
+                }
+            }
             ci.disconnectPort(ctx->id("I"));
             ci.disconnectPort(ctx->id("O"));
+            ci.disconnectPort(ctx->id("IO"));
             to_remove.push_back(ci.name);
         }
         for (IdString cell_name : to_remove)
@@ -124,7 +159,7 @@ struct GowinPacker
 
         for (auto &cell : ctx->cells) {
             CellInfo &ci = *cell.second;
-            if (!ci.type.in(id_IBUF, id_OBUF, id_IOBUF)) // XXX TBUF
+            if (!ci.type.in(id_IBUF, id_OBUF, id_TBUF, id_IOBUF))
                 continue;
             if (ci.attrs.count(id_BEL) == 0) {
                 log_error("Unconstrained IO:%s\n", ctx->nameOf(&ci));
@@ -134,9 +169,242 @@ struct GowinPacker
             if (io_loc.y == ctx->getGridDimY() - 1) {
                 config_bottom_row(ci, io_loc);
             }
-            if (getBelSimpleIO(ctx->chip_info, io_bel)) {
+            if (is_simple_io_bel(ctx->chip_info, io_bel)) {
                 config_simple_io(ci);
             }
+            make_iob_nets(ci);
+        }
+    }
+
+    // ===================================
+    // Differential IO
+    // ===================================
+    static bool is_iob(const Context *ctx, CellInfo *cell)
+    {
+        return (cell->type.in(id_IBUF, id_OBUF, id_TBUF, id_IOBUF));
+    }
+
+    std::pair<CellInfo *, CellInfo *> get_pn_cells(const CellInfo &ci)
+    {
+        CellInfo *p, *n;
+        switch (ci.type.hash()) {
+        case ID_ELVDS_TBUF: /* fall-through */
+        case ID_TLVDS_TBUF: /* fall-through */
+        case ID_ELVDS_OBUF: /* fall-through */
+        case ID_TLVDS_OBUF:
+            p = net_only_drives(ctx, ci.ports.at(id_O).net, is_iob, id_I, true);
+            n = net_only_drives(ctx, ci.ports.at(id_OB).net, is_iob, id_I, true);
+            break;
+        case ID_ELVDS_IBUF: /* fall-through */
+        case ID_TLVDS_IBUF:
+            p = net_driven_by(ctx, ci.ports.at(id_I).net, is_iob, id_O);
+            n = net_driven_by(ctx, ci.ports.at(id_IB).net, is_iob, id_O);
+            break;
+        case ID_ELVDS_IOBUF: /* fall-through */
+        case ID_TLVDS_IOBUF:
+            p = net_only_drives(ctx, ci.ports.at(id_IO).net, is_iob, id_I);
+            n = net_only_drives(ctx, ci.ports.at(id_IOB).net, is_iob, id_I);
+            break;
+        default:
+            log_error("Bad diff IO '%s' type '%s'\n", ctx->nameOf(&ci), ci.type.c_str(ctx));
+        }
+        return std::make_pair(p, n);
+    }
+
+    void mark_iobs_as_diff(CellInfo &ci, std::pair<CellInfo *, CellInfo *> &pn_cells)
+    {
+        pn_cells.first->setParam(id_DIFF, std::string("P"));
+        pn_cells.first->setParam(id_DIFF_TYPE, ci.type.str(ctx));
+        pn_cells.second->setParam(id_DIFF, std::string("N"));
+        pn_cells.second->setParam(id_DIFF_TYPE, ci.type.str(ctx));
+    }
+
+    void switch_diff_ports(CellInfo &ci, std::pair<CellInfo *, CellInfo *> &pn_cells,
+                           std::vector<IdString> &nets_to_remove)
+    {
+        CellInfo *iob_p = pn_cells.first;
+        CellInfo *iob_n = pn_cells.second;
+
+        if (ci.type.in(id_TLVDS_TBUF, id_TLVDS_OBUF, id_ELVDS_TBUF, id_ELVDS_OBUF)) {
+            nets_to_remove.push_back(ci.getPort(id_O)->name);
+            ci.disconnectPort(id_O);
+            nets_to_remove.push_back(ci.getPort(id_OB)->name);
+            ci.disconnectPort(id_OB);
+            nets_to_remove.push_back(iob_n->getPort(id_I)->name);
+            iob_n->disconnectPort(id_I);
+
+            if (ci.type.in(id_TLVDS_TBUF, id_ELVDS_TBUF)) {
+                nets_to_remove.push_back(iob_n->getPort(id_OEN)->name);
+                iob_n->disconnectPort(id_OEN);
+                iob_p->disconnectPort(id_OEN);
+                ci.movePortTo(id_OEN, iob_p, id_OEN);
+            }
+            iob_p->disconnectPort(id_I);
+            ci.movePortTo(id_I, iob_p, id_I);
+            return;
+        }
+        if (ci.type.in(id_TLVDS_IBUF, id_ELVDS_IBUF)) {
+            nets_to_remove.push_back(ci.getPort(id_I)->name);
+            ci.disconnectPort(id_I);
+            nets_to_remove.push_back(ci.getPort(id_IB)->name);
+            ci.disconnectPort(id_IB);
+            iob_n->disconnectPort(id_O);
+            iob_p->disconnectPort(id_O);
+            ci.movePortTo(id_O, iob_p, id_O);
+            return;
+        }
+        if (ci.type.in(id_TLVDS_IOBUF, id_ELVDS_IOBUF)) {
+            nets_to_remove.push_back(ci.getPort(id_IO)->name);
+            ci.disconnectPort(id_IO);
+            nets_to_remove.push_back(ci.getPort(id_IOB)->name);
+            ci.disconnectPort(id_IOB);
+            nets_to_remove.push_back(iob_n->getPort(id_I)->name);
+            iob_n->disconnectPort(id_I);
+            iob_n->disconnectPort(id_OEN);
+
+            iob_p->disconnectPort(id_OEN);
+            ci.movePortTo(id_OEN, iob_p, id_OEN);
+            iob_p->disconnectPort(id_I);
+            ci.movePortTo(id_I, iob_p, id_I);
+            iob_p->disconnectPort(id_O);
+            ci.movePortTo(id_O, iob_p, id_O);
+            return;
+        }
+    }
+
+    void pack_diff_iobs(void)
+    {
+        log_info("Pack diff IOBs...\n");
+        std::vector<IdString> cells_to_remove, nets_to_remove;
+
+        for (auto &cell : ctx->cells) {
+            CellInfo &ci = *cell.second;
+            if (!is_diffio(&ci)) {
+                continue;
+            }
+            if (!is_diff_io_supported(ctx->chip_info, ci.type)) {
+                log_error("%s is not supported\n", ci.type.c_str(ctx));
+            }
+            cells_to_remove.push_back(ci.name);
+            auto pn_cells = get_pn_cells(ci);
+            NPNR_ASSERT(pn_cells.first != nullptr && pn_cells.second != nullptr);
+
+            mark_iobs_as_diff(ci, pn_cells);
+            switch_diff_ports(ci, pn_cells, nets_to_remove);
+        }
+
+        for (auto cell : cells_to_remove) {
+            ctx->cells.erase(cell);
+        }
+        for (auto net : nets_to_remove) {
+            ctx->nets.erase(net);
+        }
+    }
+
+    // ===================================
+    // IO logic
+    // ===================================
+    // the functions of these two inputs are yet to be discovered, so we set as observed
+    // in the exemplary images
+    void set_daaj_nets(CellInfo &ci, BelId bel)
+    {
+        std::vector<IdString> pins = ctx->getBelPins(bel);
+        if (std::find(pins.begin(), pins.end(), id_DAADJ0) != pins.end()) {
+            ci.addInput(id_DAADJ0);
+            ci.connectPort(id_DAADJ0, ctx->nets[ctx->id("$PACKER_GND")].get());
+        }
+        if (std::find(pins.begin(), pins.end(), id_DAADJ1) != pins.end()) {
+            ci.addInput(id_DAADJ1);
+            ci.connectPort(id_DAADJ1, ctx->nets[ctx->id("$PACKER_VCC")].get());
+        }
+    }
+
+    BelId get_iologic_bel(CellInfo *iob)
+    {
+        NPNR_ASSERT(iob->bel != BelId());
+        Loc loc = ctx->getBelLocation(iob->bel);
+        loc.z = loc.z - BelZ::IOBA_Z + BelZ::IOLOGICA_Z;
+        return ctx->getBelByLocation(loc);
+    }
+
+    void pack_bi_output_iol(CellInfo &ci, std::vector<IdString> &cells_to_remove, std::vector<IdString> &nets_to_remove)
+    {
+        // These primitives have an additional pin to control the tri-state iob - Q1.
+        IdString out_port = id_Q0;
+        IdString tx_port = id_Q1;
+
+        CellInfo *out_iob = net_only_drives(ctx, ci.ports.at(out_port).net, is_iob, id_I);
+        NPNR_ASSERT(out_iob != nullptr && out_iob->bel != BelId());
+        BelId iob_bel = out_iob->bel;
+
+        BelId l_bel = get_iologic_bel(out_iob);
+        if (l_bel == BelId()) {
+            log_error("Can't place IOLOGIC %s at %s\n", ctx->nameOf(&ci), ctx->nameOfBel(iob_bel));
+        }
+
+        if (!ctx->checkBelAvail(l_bel)) {
+            log_error("Can't place %s at %s because it's already taken by %s\n", ctx->nameOf(&ci),
+                      ctx->nameOfBel(l_bel), ctx->nameOf(ctx->getBoundBelCell(l_bel)));
+        }
+        ctx->bindBel(l_bel, &ci, PlaceStrength::STRENGTH_LOCKED);
+        std::string out_mode;
+        switch (ci.type.hash()) {
+        case ID_ODDR:
+        case ID_ODDRC:
+            out_mode = "ODDRX1";
+            break;
+        case ID_OSER4:
+            out_mode = "ODDRX2";
+            break;
+        case ID_OSER8:
+            out_mode = "ODDRX4";
+            break;
+        }
+        ci.setParam(ctx->id("OUTMODE"), out_mode);
+
+        // mark IOB as used by IOLOGIC
+        out_iob->setParam(id_IOLOGIC_IOB, 1);
+        // disconnect Q output: it is wired internally
+        nets_to_remove.push_back(ci.getPort(out_port)->name);
+        out_iob->disconnectPort(id_I);
+        ci.disconnectPort(out_port);
+        set_daaj_nets(ci, iob_bel);
+        config_bottom_row(*out_iob, ctx->getBelLocation(iob_bel), Bottom_io_POD::DDR);
+
+        // if Q1 is connected then disconnect it too
+        if (port_used(&ci, tx_port)) {
+            NPNR_ASSERT(out_iob == net_only_drives(ctx, ci.ports.at(tx_port).net, is_iob, id_OEN));
+            nets_to_remove.push_back(ci.getPort(tx_port)->name);
+            out_iob->disconnectPort(id_OEN);
+            ci.disconnectPort(tx_port);
+        }
+        make_iob_nets(*out_iob);
+    }
+
+    void pack_iologic()
+    {
+        log_info("Pack IO logic...\n");
+        std::vector<IdString> cells_to_remove, nets_to_remove;
+
+        for (auto &cell : ctx->cells) {
+            CellInfo &ci = *cell.second;
+            if (!is_iologic(&ci)) {
+                continue;
+            }
+            if (ctx->debug) {
+                log_info("pack %s of type %s.\n", ctx->nameOf(&ci), ci.type.c_str(ctx));
+            }
+            if (ci.type.in(id_ODDR, id_ODDRC, id_OSER4, id_OSER8)) {
+                pack_bi_output_iol(ci, cells_to_remove, nets_to_remove);
+                continue;
+            }
+        }
+
+        for (auto cell : cells_to_remove) {
+            ctx->cells.erase(cell);
+        }
+        for (auto net : nets_to_remove) {
+            ctx->nets.erase(net);
         }
     }
 
@@ -656,12 +924,17 @@ struct GowinPacker
     {
         handle_constants();
         pack_iobs();
+        pack_diff_iobs();
+        pack_iologic();
         pack_gsr();
         pack_wideluts();
         pack_alus();
         constrain_lutffs();
         pack_pll();
         pack_ram16sdp4();
+
+        ctx->fixupHierarchy();
+        ctx->check();
     }
 };
 } // namespace

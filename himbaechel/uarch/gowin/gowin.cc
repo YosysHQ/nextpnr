@@ -29,6 +29,7 @@ struct GowinImpl : HimbaechelAPI
     void prePlace() override;
     void postPlace() override;
     void preRoute() override;
+    void postRoute() override;
 
     bool isBelLocationValid(BelId bel, bool explain_invalid) const override;
 
@@ -37,12 +38,18 @@ struct GowinImpl : HimbaechelAPI
 
     bool isValidBelForCellType(IdString cell_type, BelId bel) const override;
 
+    // placer hits
+    void notifyBelChange(BelId bel, CellInfo *cell) override;
+    bool checkBelAvail(BelId bel) const override;
+
   private:
     HimbaechelHelpers h;
     GowinUtils gwu;
 
     IdString chip;
     IdString partno;
+
+    std::set<BelId> inactive_bels;
 
     // Validity checking
     struct GowinCellInfo
@@ -154,14 +161,54 @@ void GowinImpl::postPlace()
         log_info("================== Final Placement ===================\n");
         for (auto &cell : ctx->cells) {
             auto ci = cell.second.get();
-            IdStringList bel = ctx->getBelName(ci->bel);
-            log_info("%s: %s\n", bel.str(ctx).c_str(), ctx->nameOf(ci));
+            if (ci->bel != BelId()) {
+                log_info("%s: %s\n", ctx->nameOfBel(ci->bel), ctx->nameOf(ci));
+            } else {
+                log_info("unknown: %s\n", ctx->nameOf(ci));
+            }
         }
         log_break();
     }
 }
 
 void GowinImpl::preRoute() { gowin_route_globals(ctx); }
+
+void GowinImpl::postRoute()
+{
+    std::set<IdString> visited_hclk_users;
+
+    for (auto &cell : ctx->cells) {
+        auto ci = cell.second.get();
+        if (is_iologic(ci) && !ci->type.in(id_ODDR, id_ODDRC, id_IDDR, id_IDDRC)) {
+            if (visited_hclk_users.find(ci->name) == visited_hclk_users.end()) {
+                // mark FCLK<-HCLK connections
+                ci->setAttr(id_IOLOGIC_FCLK, Property("UNKNOWN"));
+                const NetInfo *h_net = ci->getPort(id_FCLK);
+                if (h_net) {
+                    for (auto const &user : h_net->users) {
+                        if (user.port != id_FCLK) {
+                            continue;
+                        }
+                        visited_hclk_users.insert(user.cell->name);
+                        // XXX Based on the implementation, perhaps a function
+                        // is needed to get Pip from a Wire
+                        PipId up_pip = h_net->wires.at(ctx->getNetinfoSinkWire(h_net, user, 0)).pip;
+                        IdString up_wire_name = ctx->getWireName(ctx->getPipSrcWire(up_pip))[1];
+                        if (up_wire_name.in(id_HCLK_OUT0, id_HCLK_OUT1, id_HCLK_OUT2, id_HCLK_OUT3)) {
+                            ci->setAttr(id_IOLOGIC_FCLK, Property(up_wire_name.str(ctx)));
+                        }
+                        if (ctx->debug) {
+                            log_info("HCLK user cell:%s, port:%s, wire:%s, pip:%s, up wire:%s\n",
+                                     ctx->nameOf(user.cell), user.port.c_str(ctx),
+                                     ctx->nameOfWire(ctx->getNetinfoSinkWire(h_net, user, 0)), ctx->nameOfPip(up_pip),
+                                     ctx->nameOfWire(ctx->getPipSrcWire(up_pip)));
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
 bool GowinImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
 {
@@ -198,6 +245,9 @@ IdString GowinImpl::getBelBucketForCellType(IdString cell_type) const
     if (type_is_ssram(cell_type)) {
         return id_RAM16SDP4;
     }
+    if (type_is_iologic(cell_type)) {
+        return id_IOLOGIC;
+    }
     if (cell_type == id_GOWIN_GND) {
         return id_GND;
     }
@@ -221,6 +271,9 @@ bool GowinImpl::isValidBelForCellType(IdString cell_type, BelId bel) const
     }
     if (bel_type == id_RAM16SDP4) {
         return type_is_ssram(cell_type);
+    }
+    if (bel_type == id_IOLOGIC) {
+        return type_is_iologic(cell_type);
     }
     if (bel_type == id_GND) {
         return cell_type == id_GOWIN_GND;
@@ -342,6 +395,29 @@ bool GowinImpl::slice_valid(int x, int y, int z) const
     }
     return true;
 }
+// placer hits
+void GowinImpl::notifyBelChange(BelId bel, CellInfo *cell)
+{
+    if (cell != nullptr) {
+        // OSER8 took both IOLOGIC bels in the tile
+        if (cell->type == id_OSER8) {
+            Loc loc = ctx->getBelLocation(bel);
+            loc.z = BelZ::IOLOGICA_Z + (1 - (loc.z - BelZ::IOLOGICA_Z));
+            inactive_bels.insert(ctx->getBelByLocation(loc));
+        }
+    } else {
+        // the unbind is about to happen
+        CellInfo *ci = ctx->getBoundBelCell(bel);
+        // OSER8 took both IOLOGIC bels in the tile
+        if (ci->type == id_OSER8) {
+            Loc loc = ctx->getBelLocation(bel);
+            loc.z = BelZ::IOLOGICA_Z + (1 - (loc.z - BelZ::IOLOGICA_Z));
+            inactive_bels.erase(ctx->getBelByLocation(loc));
+        }
+    }
+}
+
+bool GowinImpl::checkBelAvail(BelId bel) const { return inactive_bels.find(bel) == inactive_bels.end(); }
 
 } // namespace
 

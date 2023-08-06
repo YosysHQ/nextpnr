@@ -28,6 +28,8 @@ RAMW_Z  = 36 # RAM16SDP4
 IOBA_Z  = 50
 IOBB_Z  = 51
 
+IOLOGICA_Z = 70
+
 PLL_Z   = 275
 GSR_Z   = 276
 VCC_Z   = 277
@@ -74,6 +76,7 @@ class BottomIO(BBAStruct):
 class ChipExtraData(BBAStruct):
     strs: StringPool
     bottom_io: BottomIO
+    diff_io_types: list[IdString] = field(default_factory = list)
 
     def create_bottom_io(self):
         self.bottom_io = BottomIO()
@@ -81,12 +84,21 @@ class ChipExtraData(BBAStruct):
     def add_bottom_io_cnd(self, net_a: str, net_b: str):
         self.bottom_io.conditions.append(BottomIOCnd(self.strs.id(net_a), self.strs.id(net_b)))
 
+    def add_diff_io_type(self, diff_type: str):
+        self.diff_io_types.append(self.strs.id(diff_type))
+
     def serialise_lists(self, context: str, bba: BBAWriter):
         self.bottom_io.serialise_lists(f"{context}_bottom_io", bba)
+        bba.label(f"{context}_diff_io_types")
+        for i, diff_io_type in enumerate(self.diff_io_types):
+            bba.u32(diff_io_type.index)
+
     def serialise(self, context: str, bba: BBAWriter):
         self.bottom_io.serialise(f"{context}_bottom_io", bba)
+        bba.slice(f"{context}_diff_io_types", len(self.diff_io_types))
 
-created_tiletypes = set()
+# { ttyp : {}}
+created_tiletypes = {}
 
 # u-turn at the rim
 uturnlut = {'N': 'S', 'S': 'N', 'E': 'W', 'W': 'E'}
@@ -172,6 +184,8 @@ def create_nodes(chip: Chip, db: chipdb):
     # add nodes from the apicula db
     for node_name, node_hdr in db.nodes.items():
         wire_type, node = node_hdr
+        if len(node) < 2:
+            continue
         for y, x, wire in node:
             if wire_type:
                 if not chip.tile_type_at(x, y).has_wire(wire):
@@ -181,17 +195,11 @@ def create_nodes(chip: Chip, db: chipdb):
             new_node = NodeWire(x, y, wire)
             gl_nodes = global_nodes.setdefault(node_name, [])
             if new_node not in gl_nodes:
-                gl_nodes.append(NodeWire(x, y, wire))
+                    gl_nodes.append(NodeWire(x, y, wire))
 
     for name, node in global_nodes.items():
         chip.add_node(node)
 
-
-# About X and Y as parameters - in some cases, the type of manufacturer's tile
-# is not different, but some wires are not physically present, that is, routing
-# depends on the location of otherwise identical tiles. There are many options
-# for taking this into account, but for now we make a distinction here, by
-# coordinates.
 def create_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
     def get_wire_type(name):
         if name in {'XD0', 'XD1', 'XD2', 'XD3', 'XD4', 'XD5',}:
@@ -205,6 +213,7 @@ def create_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
             if not tt.has_wire(src):
                 tt.create_wire(src, get_wire_type(src))
             tt.create_pip(src, dst)
+
     # clock wires
     for dst, srcs in db.grid[y][x].pure_clock_pips.items():
         if not tt.has_wire(dst):
@@ -214,21 +223,58 @@ def create_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
                 tt.create_wire(src, "GLOBAL_CLK")
             tt.create_pip(src, dst)
 
-def create_null_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
+def create_hclk_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
+    # hclk wires
+    for dst, srcs in db.hclk_pips[(y, x)].items():
+        if not tt.has_wire(dst):
+            tt.create_wire(dst, "HCLK")
+        for src in srcs.keys():
+            if not tt.has_wire(src):
+                tt.create_wire(src, "HCLK")
+            tt.create_pip(src, dst)
+
+extra_type_cnt = 1
+def create_tiletype(create_func, chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
+    global extra_type_cnt
+    create_hclk_pips = False
+
+    # HCLK wires can be different in the same types of tiles, so if necessary, create a new type
     if ttyp in created_tiletypes:
-        return ttyp, None
-    typename = "NULL"
-    tt = chip.create_tile_type(f"{typename}_{ttyp}")
-    tt.extra_data = TileExtraData(chip.strs.id(typename))
+        # check if we have HCLK pips
+        if (y, x) in db.hclk_pips and created_tiletypes[ttyp]['hclk_pips'] != db.hclk_pips[y, x]:
+            create_hclk_pips = True
+            ttyp = 100 * ttyp + extra_type_cnt
+            extra_type_cnt += 1
+        else:
+            chip.set_tile_type(x, y, created_tiletypes[ttyp]['tiletype'])
+            return
+    elif (y, x) in db.hclk_pips:
+        create_hclk_pips = True
+    else:
+        created_tiletypes[ttyp] = {}
+    if create_hclk_pips:
+        created_tiletypes.setdefault(ttyp, {}).update({'hclk_pips': db.hclk_pips[y, x]})
+
+    tiletype, tt = create_func(chip, db, x, y, ttyp)
+
+    if create_hclk_pips:
+        create_hclk_switch_matrix(tt, db, x, y)
     create_switch_matrix(tt, db, x, y)
-    return (ttyp, tt)
+    chip.set_tile_type(x, y, tiletype)
+    created_tiletypes.setdefault(ttyp, {}).update({'tiletype': tiletype})
+
+def create_null_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
+    typename = "NULL"
+    tiletype = f"{typename}_{ttyp}"
+    tt = chip.create_tile_type(tiletype)
+    tt.extra_data = TileExtraData(chip.strs.id(typename))
+    return (tiletype, tt)
 
 # responsible nodes, there will be IO banks, configuration, etc.
 def create_corner_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
-    if ttyp in created_tiletypes:
-        return ttyp, None
     typename = "CORNER"
-    tt = chip.create_tile_type(f"{typename}_{ttyp}")
+    tiletype = f"{typename}_{ttyp}"
+    tt = chip.create_tile_type(tiletype)
     tt.extra_data = TileExtraData(chip.strs.id(typename))
 
     if x == 0 and y == 0:
@@ -241,21 +287,19 @@ def create_corner_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
         gnd = tt.create_bel('VCC', 'VCC', z = VCC_Z)
         tt.add_bel_pin(gnd, "V", "VCC", PinType.OUTPUT)
         # also here may be GSR
-        if 'GSR' in db.grid[y][x].bels.keys():
+        if 'GSR' in db.grid[y][x].bels:
             portmap = db.grid[y][x].bels['GSR'].portmap
             tt.create_wire(portmap['GSRI'], "GSRI")
             io = tt.create_bel("GSR", "GSR", z = GSR_Z)
             tt.add_bel_pin(io, "GSRI", portmap['GSRI'], PinType.INPUT)
 
-    create_switch_matrix(tt, db, x, y)
-    return (ttyp, tt)
+    return (tiletype, tt)
 
 # Global set/reset. GW2A series has special cell for it
 def create_gsr_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
-    if ttyp in created_tiletypes:
-        return ttyp, None
     typename = "GSR"
-    tt = chip.create_tile_type(f"{typename}_{ttyp}")
+    tiletype = f"{typename}_{ttyp}"
+    tt = chip.create_tile_type(tiletype)
     tt.extra_data = TileExtraData(chip.strs.id(typename))
 
     portmap = db.grid[y][x].bels['GSR'].portmap
@@ -263,15 +307,13 @@ def create_gsr_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
     io = tt.create_bel("GSR", "GSR", z = GSR_Z)
     tt.add_bel_pin(io, "GSRI", portmap['GSRI'], PinType.INPUT)
 
-    create_switch_matrix(tt, db, x, y)
-    return (ttyp, tt)
+    return (tiletype, tt)
 
-# simple IO - only A and B
+# IO
 def create_io_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
-    if ttyp in created_tiletypes:
-        return ttyp, None
     typename = "IO"
-    tt = chip.create_tile_type(f"{typename}_{ttyp}")
+    tiletype = f"{typename}_{ttyp}"
+    tt = chip.create_tile_type(tiletype)
     tt.extra_data = TileExtraData(chip.strs.id(typename))
 
     simple_io = y in db.simplio_rows and chip.name in {'GW1N-1', 'GW1NZ-1'}
@@ -282,7 +324,7 @@ def create_io_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
     for i in range(rng):
         name = 'IOB' + 'ABCDEFGHIJ'[i]
         # XXX some IOBs excluded from generic chipdb for some reason
-        if name not in db.grid[y][x].bels.keys():
+        if name not in db.grid[y][x].bels:
             continue
         # wires
         portmap = db.grid[y][x].bels[name].portmap
@@ -294,25 +336,39 @@ def create_io_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
         if simple_io:
             io.flags |= BEL_FLAG_SIMPLE_IO
         tt.add_bel_pin(io, "I", portmap['I'], PinType.INPUT)
-        tt.add_bel_pin(io, "OE", portmap['OE'], PinType.INPUT)
+        tt.add_bel_pin(io, "OEN", portmap['OE'], PinType.INPUT)
         tt.add_bel_pin(io, "O", portmap['O'], PinType.OUTPUT)
         # bottom io
-        if 'BOTTOM_IO_PORT_A' in portmap.keys():
+        if 'BOTTOM_IO_PORT_A' in portmap:
             if not tt.has_wire(portmap['BOTTOM_IO_PORT_A']):
                 tt.create_wire(portmap['BOTTOM_IO_PORT_A'], "IO_I")
                 tt.create_wire(portmap['BOTTOM_IO_PORT_B'], "IO_I")
             tt.add_bel_pin(io, "BOTTOM_IO_PORT_A", portmap['BOTTOM_IO_PORT_A'], PinType.INPUT)
             tt.add_bel_pin(io, "BOTTOM_IO_PORT_B", portmap['BOTTOM_IO_PORT_B'], PinType.INPUT)
-
-    create_switch_matrix(tt, db, x, y)
-    return (ttyp, tt)
+    # create IOLOGIC bels if any
+    for idx, name in {(IOLOGICA_Z, 'IOLOGICA'), (IOLOGICA_Z + 1, 'IOLOGICB')}:
+        if name not in db.grid[y][x].bels:
+            continue
+        iol = tt.create_bel(name, "IOLOGIC", z = idx)
+        for port, wire in db.grid[y][x].bels[name].portmap.items():
+            if port == 'FCLK': # XXX compatibility
+                wire = f'FCLK{name[-1]}'
+            if not tt.has_wire(wire):
+                if port in {'CLK', 'PCLK'}:
+                    tt.create_wire(wire, "TILE_CLK")
+                else:
+                    tt.create_wire(wire, "IOL_PORT")
+            if port in {'Q', 'Q0', 'Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7', 'Q8', 'Q9', 'DF', 'LAG', 'LEAD'}:
+                tt.add_bel_pin(iol, port, wire, PinType.OUTPUT)
+            else:
+                tt.add_bel_pin(iol, port, wire, PinType.INPUT)
+    return (tiletype, tt)
 
 # logic: luts, dffs, alu etc
 def create_logic_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
-    if ttyp in created_tiletypes:
-        return ttyp, None
     typename = "LOGIC"
-    tt = chip.create_tile_type(f"{typename}_{ttyp}")
+    tiletype = f"{typename}_{ttyp}"
+    tt = chip.create_tile_type(tiletype)
     tt.extra_data = TileExtraData(chip.strs.id(typename))
 
     lut_inputs = ['A', 'B', 'C', 'D']
@@ -401,14 +457,11 @@ def create_logic_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
     tt.add_bel_pin(ff, "O",  f"OF7", PinType.OUTPUT)
     tt.add_bel_pin(ff, "S0", f"SEL7", PinType.INPUT)
 
-    create_switch_matrix(tt, db, x, y)
-    return (ttyp, tt)
+    return (tiletype, tt)
 
 def create_ssram_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
-    if ttyp in created_tiletypes:
-        return ttyp, None
     # SSRAM is LUT based, so it's logic-like
-    ttyp, tt = create_logic_tiletype(chip, db, x, y, ttyp)
+    tiletype, tt = create_logic_tiletype(chip, db, x, y, ttyp)
 
     lut_inputs = ['A', 'B', 'C', 'D']
     ff = tt.create_bel(f"RAM16SDP4", "RAM16SDP4", z = RAMW_Z)
@@ -424,7 +477,7 @@ def create_ssram_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
     tt.add_bel_pin(ff, f"CLK", "CLK2", PinType.INPUT)
     tt.add_bel_pin(ff, f"CE",  "CE2", PinType.INPUT)
     tt.add_bel_pin(ff, f"WRE", "LSR2", PinType.INPUT)
-    return (ttyp, tt)
+    return (tiletype, tt)
 
 # PLL main tile
 _pll_inputs = {'CLKFB', 'FBDSEL0', 'FBDSEL1', 'FBDSEL2', 'FBDSEL3',
@@ -435,10 +488,9 @@ _pll_inputs = {'CLKFB', 'FBDSEL0', 'FBDSEL1', 'FBDSEL2', 'FBDSEL3',
         'FDLY0', 'FDLY1', 'FDLY2', 'FDLY3', 'CLKIN'}
 _pll_outputs = {'CLKOUT', 'LOCK', 'CLKOUTP', 'CLKOUTD', 'CLKOUTD3'}
 def create_pll_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
-    if ttyp in created_tiletypes:
-        return ttyp, None
     typename = "PLL"
-    tt = chip.create_tile_type(f"{typename}_{ttyp}")
+    tiletype = f"{typename}_{ttyp}"
+    tt = chip.create_tile_type(tiletype)
     tt.extra_data = TileExtraData(chip.strs.id(typename))
 
     # wires
@@ -450,20 +502,16 @@ def create_pll_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
         bel_type = 'rPLL'
     portmap = db.grid[y][x].bels[pll_name].portmap
     pll = tt.create_bel("PLL", bel_type, z = PLL_Z)
-    # Not sure how this will affect routing - PLLs are fixed and their outputs
-    # will be handled by a dedicated router
-    #pll.flags = BEL_FLAG_GLOBAL
+    pll.flags = BEL_FLAG_GLOBAL
     for pin, wire in portmap.items():
         if pin in _pll_inputs:
             tt.create_wire(wire, "PLL_I")
             tt.add_bel_pin(pll, pin, wire, PinType.INPUT)
         else:
-            assert pin in _pll_outputs, f"Unknown PLL pin{pin}"
+            assert pin in _pll_outputs, f"Unknown PLL pin {pin}"
             tt.create_wire(wire, "PLL_O")
             tt.add_bel_pin(pll, pin, wire, PinType.OUTPUT)
-
-    create_switch_matrix(tt, db, x, y)
-    return (ttyp, tt)
+    return (tiletype, tt)
 
 # pinouts, packages...
 _tbrlre = re.compile(r"IO([TBRL])(\d+)(\w)")
@@ -508,6 +556,8 @@ def create_extra_data(chip: Chip, db: chipdb):
     chip.extra_data.create_bottom_io()
     for net_a, net_b in db.bottom_io[2]:
         chip.extra_data.add_bottom_io_cnd(net_a, net_b)
+    for diff_type in db.diff_io_types:
+        chip.extra_data.add_diff_io_type(diff_type)
 
 def main():
     parser = argparse.ArgumentParser(description='Make Gowin BBA')
@@ -536,43 +586,30 @@ def main():
     # different routing or something like that).
     logic_tiletypes = db.tile_types['C']
     io_tiletypes = db.tile_types['I']
-    ssram_tiletypes = {17, 18, 19}
+    ssram_tiletypes = db.tile_types['M']
     gsr_tiletypes = {1}
     pll_tiletypes = db.tile_types['P']
+
     # Setup tile grid
     for x in range(X):
         for y in range(Y):
             ttyp = db.grid[y][x].ttyp
             if (x == 0 or x == X - 1) and (y == 0 or y == Y - 1):
                 assert ttyp not in created_tiletypes, "Duplication of corner types"
-                ttyp, _ = create_corner_tiletype(ch, db, x, y, ttyp)
-                created_tiletypes.add(ttyp)
-                ch.set_tile_type(x, y, f"CORNER_{ttyp}")
+                create_tiletype(create_corner_tiletype, ch, db, x, y, ttyp)
                 continue
             if ttyp in gsr_tiletypes:
-                ttyp, _ = create_gsr_tiletype(ch, db, x, y, ttyp)
-                created_tiletypes.add(ttyp)
-                ch.set_tile_type(x, y, f"GSR_{ttyp}")
+                create_tiletype(create_gsr_tiletype, ch, db, x, y, ttyp)
             elif ttyp in logic_tiletypes:
-                ttyp, _ = create_logic_tiletype(ch, db, x, y, ttyp)
-                created_tiletypes.add(ttyp)
-                ch.set_tile_type(x, y, f"LOGIC_{ttyp}")
+                create_tiletype(create_logic_tiletype, ch, db, x, y, ttyp)
             elif ttyp in ssram_tiletypes:
-                ttyp, _ = create_ssram_tiletype(ch, db, x, y, ttyp)
-                created_tiletypes.add(ttyp)
-                ch.set_tile_type(x, y, f"LOGIC_{ttyp}")
+                create_tiletype(create_ssram_tiletype, ch, db, x, y, ttyp)
             elif ttyp in io_tiletypes:
-                ttyp, _ = create_io_tiletype(ch, db, x, y, ttyp)
-                created_tiletypes.add(ttyp)
-                ch.set_tile_type(x, y, f"IO_{ttyp}")
+                create_tiletype(create_io_tiletype, ch, db, x, y, ttyp)
             elif ttyp in pll_tiletypes:
-                ttyp, _ = create_pll_tiletype(ch, db, x, y, ttyp)
-                created_tiletypes.add(ttyp)
-                ch.set_tile_type(x, y, f"PLL_{ttyp}")
+                create_tiletype(create_pll_tiletype, ch, db, x, y, ttyp)
             else:
-                ttyp, _ = create_null_tiletype(ch, db, x, y, ttyp)
-                created_tiletypes.add(ttyp)
-                ch.set_tile_type(x, y, f"NULL_{ttyp}")
+                create_tiletype(create_null_tiletype, ch, db, x, y, ttyp)
 
     # Create nodes between tiles
     create_nodes(ch, db)
