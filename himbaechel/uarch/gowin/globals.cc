@@ -52,12 +52,15 @@ struct GowinGlobalRouter
         bool src_valid = src_type.in(id_GLOBAL_CLK, id_IO_O, id_PLL_O);
         bool dst_valid = dst_type.in(id_GLOBAL_CLK, id_TILE_CLK, id_PLL_I, id_IO_I);
 
-        if (ctx->debug && false) {
+        bool res = (src_valid && dst_valid) || (src_valid && is_local(dst_type)) || (is_local(src_type) && dst_valid);
+        if (ctx->debug && res && false) {
             log_info("%s <- %s [%s <- %s]\n", ctx->getWireName(ctx->getPipDstWire(pip)).str(ctx).c_str(),
                      ctx->getWireName(ctx->getPipSrcWire(pip)).str(ctx).c_str(), dst_type.c_str(ctx),
                      src_type.c_str(ctx));
+            // log_info("res:%d, src_valid:%d, dst_valid:%d, src local:%d, dst local:%d\n", res, src_valid, dst_valid,
+            // is_local(src_type), is_local(dst_type));
         }
-        return (src_valid && dst_valid) || (src_valid && is_local(dst_type)) || (is_local(src_type) && dst_valid);
+        return res;
     }
 
     bool is_relaxed_sink(const PortRef &sink) const { return false; }
