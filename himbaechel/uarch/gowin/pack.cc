@@ -82,7 +82,6 @@ struct GowinPacker
             }
         };
 
-        log_info("cnd:%d\n", cnd);
         IdString wire_a_net = get_bottom_io_wire_a_net(ctx->chip_info, cnd);
         connect_io_wire(id_BOTTOM_IO_PORT_A, wire_a_net);
 
@@ -381,6 +380,40 @@ struct GowinPacker
         make_iob_nets(*out_iob);
     }
 
+    IdString create_aux_iologic_name(IdString main_name, int idx = 0)
+    {
+        std::string sfx("");
+        if (idx) {
+            sfx = std::to_string(idx);
+        }
+        return ctx->id(main_name.str(ctx) + std::string("_aux") + sfx);
+    }
+
+    BelId get_aux_iologic_bel(const CellInfo &ci)
+    {
+        return ctx->getBelByLocation(get_pair_iologic_bel(ctx->getBelLocation(ci.bel)));
+    }
+
+    void create_aux_iologic_cells(CellInfo &ci)
+    {
+        if (ci.type.in(id_ODDR, id_ODDRC, id_OSER4)) {
+            return;
+        }
+        IdString aux_name = create_aux_iologic_name(ci.name);
+        BelId bel = get_aux_iologic_bel(ci);
+        ctx->createCell(aux_name, id_IOLOGIC_DUMMY);
+        CellInfo *aux = ctx->cells[aux_name].get();
+        aux->addInput(id_PCLK);
+        ci.copyPortTo(id_PCLK, ctx->cells.at(aux_name).get(), id_PCLK);
+        aux->addInput(id_FCLK);
+        ci.copyPortTo(id_FCLK, ctx->cells.at(aux_name).get(), id_FCLK);
+        aux->addInput(id_RESET);
+        ci.copyPortTo(id_RESET, ctx->cells.at(aux_name).get(), id_RESET);
+        ctx->cells.at(aux_name)->setParam(ctx->id("OUTMODE"), Property("DDRENABLE"));
+        ctx->cells.at(aux_name)->setAttr(ctx->id("IOLOGIC_TYPE"), Property("DUMMY"));
+        ctx->bindBel(bel, aux, PlaceStrength::STRENGTH_LOCKED);
+    }
+
     void pack_iologic()
     {
         log_info("Pack IO logic...\n");
@@ -396,6 +429,7 @@ struct GowinPacker
             }
             if (ci.type.in(id_ODDR, id_ODDRC, id_OSER4, id_OSER8)) {
                 pack_bi_output_iol(ci, cells_to_remove, nets_to_remove);
+                create_aux_iologic_cells(ci);
                 continue;
             }
         }
@@ -407,7 +441,6 @@ struct GowinPacker
             ctx->nets.erase(net);
         }
     }
-
     // ===================================
     // Constant nets
     // ===================================

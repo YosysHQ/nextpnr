@@ -5,6 +5,31 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+// Bels Z ranges. It is desirable that these numbers be synchronized with the chipdb generator
+namespace BelZ {
+enum
+{
+    LUT0_Z = 0,
+    LUT7_Z = 14,
+    MUX20_Z = 16,
+    MUX21_Z = 18,
+    MUX23_Z = 22,
+    MUX27_Z = 29,
+    ALU0_Z = 30, // :35, 6 ALU
+    RAMW_Z = 36, // RAM16SDP4
+
+    IOBA_Z = 50,
+    IOBB_Z = 51, // +IOBC...IOBL
+
+    IOLOGICA_Z = 70,
+
+    PLL_Z = 275,
+    GSR_Z = 276,
+    VCC_Z = 277,
+    VSS_Z = 278
+};
+}
+
 namespace BelFlags {
 static constexpr uint32_t FLAG_SIMPLE_IO = 0x100;
 }
@@ -93,32 +118,13 @@ inline bool is_simple_io_bel(const ChipInfoPOD *chip, BelId bel)
     return chip_bel_info(chip, bel).flags & BelFlags::FLAG_SIMPLE_IO;
 }
 
-} // namespace
-
-// Bels Z ranges. It is desirable that these numbers be synchronized with the chipdb generator
-namespace BelZ {
-enum
+inline Loc get_pair_iologic_bel(Loc loc)
 {
-    LUT0_Z = 0,
-    LUT7_Z = 14,
-    MUX20_Z = 16,
-    MUX21_Z = 18,
-    MUX23_Z = 22,
-    MUX27_Z = 29,
-    ALU0_Z = 30, // :35, 6 ALU
-    RAMW_Z = 36, // RAM16SDP4
-
-    IOBA_Z = 50,
-    IOBB_Z = 51, // +IOBC...IOBL
-
-    IOLOGICA_Z = 70,
-
-    PLL_Z = 275,
-    GSR_Z = 276,
-    VCC_Z = 277,
-    VSS_Z = 278
-};
+    loc.z = BelZ::IOLOGICA_Z + (1 - (loc.z - BelZ::IOLOGICA_Z));
+    return loc;
 }
+
+} // namespace
 
 NEXTPNR_NAMESPACE_END
 #endif

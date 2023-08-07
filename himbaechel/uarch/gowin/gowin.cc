@@ -185,7 +185,7 @@ void GowinImpl::postRoute()
                 ci->setAttr(id_IOLOGIC_FCLK, Property("UNKNOWN"));
                 const NetInfo *h_net = ci->getPort(id_FCLK);
                 if (h_net) {
-                    for (auto const &user : h_net->users) {
+                    for (auto &user : h_net->users) {
                         if (user.port != id_FCLK) {
                             continue;
                         }
@@ -195,7 +195,7 @@ void GowinImpl::postRoute()
                         PipId up_pip = h_net->wires.at(ctx->getNetinfoSinkWire(h_net, user, 0)).pip;
                         IdString up_wire_name = ctx->getWireName(ctx->getPipSrcWire(up_pip))[1];
                         if (up_wire_name.in(id_HCLK_OUT0, id_HCLK_OUT1, id_HCLK_OUT2, id_HCLK_OUT3)) {
-                            ci->setAttr(id_IOLOGIC_FCLK, Property(up_wire_name.str(ctx)));
+                            user.cell->setAttr(id_IOLOGIC_FCLK, Property(up_wire_name.str(ctx)));
                         }
                         if (ctx->debug) {
                             log_info("HCLK user cell:%s, port:%s, wire:%s, pip:%s, up wire:%s\n",
@@ -402,8 +402,7 @@ void GowinImpl::notifyBelChange(BelId bel, CellInfo *cell)
         // OSER8 took both IOLOGIC bels in the tile
         if (cell->type == id_OSER8) {
             Loc loc = ctx->getBelLocation(bel);
-            loc.z = BelZ::IOLOGICA_Z + (1 - (loc.z - BelZ::IOLOGICA_Z));
-            inactive_bels.insert(ctx->getBelByLocation(loc));
+            inactive_bels.insert(ctx->getBelByLocation(get_pair_iologic_bel(loc)));
         }
     } else {
         // the unbind is about to happen
@@ -411,8 +410,7 @@ void GowinImpl::notifyBelChange(BelId bel, CellInfo *cell)
         // OSER8 took both IOLOGIC bels in the tile
         if (ci->type == id_OSER8) {
             Loc loc = ctx->getBelLocation(bel);
-            loc.z = BelZ::IOLOGICA_Z + (1 - (loc.z - BelZ::IOLOGICA_Z));
-            inactive_bels.erase(ctx->getBelByLocation(loc));
+            inactive_bels.erase(ctx->getBelByLocation(get_pair_iologic_bel(loc)));
         }
     }
 }
