@@ -38,10 +38,6 @@ struct GowinImpl : HimbaechelAPI
 
     bool isValidBelForCellType(IdString cell_type, BelId bel) const override;
 
-    // placer hits
-    void notifyBelChange(BelId bel, CellInfo *cell) override;
-    bool checkBelAvail(BelId bel) const override;
-
   private:
     HimbaechelHelpers h;
     GowinUtils gwu;
@@ -182,13 +178,13 @@ void GowinImpl::postRoute()
         if (is_iologic(ci) && !ci->type.in(id_ODDR, id_ODDRC, id_IDDR, id_IDDRC)) {
             if (visited_hclk_users.find(ci->name) == visited_hclk_users.end()) {
                 // mark FCLK<-HCLK connections
-                ci->setAttr(id_IOLOGIC_FCLK, Property("UNKNOWN"));
                 const NetInfo *h_net = ci->getPort(id_FCLK);
                 if (h_net) {
                     for (auto &user : h_net->users) {
                         if (user.port != id_FCLK) {
                             continue;
                         }
+                        user.cell->setAttr(id_IOLOGIC_FCLK, Property("UNKNOWN"));
                         visited_hclk_users.insert(user.cell->name);
                         // XXX Based on the implementation, perhaps a function
                         // is needed to get Pip from a Wire
@@ -395,27 +391,6 @@ bool GowinImpl::slice_valid(int x, int y, int z) const
     }
     return true;
 }
-// placer hits
-void GowinImpl::notifyBelChange(BelId bel, CellInfo *cell)
-{
-    if (cell != nullptr) {
-        // OSER8 took both IOLOGIC bels in the tile
-        if (cell->type == id_OSER8) {
-            Loc loc = ctx->getBelLocation(bel);
-            inactive_bels.insert(ctx->getBelByLocation(get_pair_iologic_bel(loc)));
-        }
-    } else {
-        // the unbind is about to happen
-        CellInfo *ci = ctx->getBoundBelCell(bel);
-        // OSER8 took both IOLOGIC bels in the tile
-        if (ci->type == id_OSER8) {
-            Loc loc = ctx->getBelLocation(bel);
-            inactive_bels.erase(ctx->getBelByLocation(get_pair_iologic_bel(loc)));
-        }
-    }
-}
-
-bool GowinImpl::checkBelAvail(BelId bel) const { return inactive_bels.find(bel) == inactive_bels.end(); }
 
 } // namespace
 
