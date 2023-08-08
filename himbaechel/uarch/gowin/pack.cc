@@ -7,6 +7,7 @@
 #include "himbaechel_helpers.h"
 
 #include "gowin.h"
+#include "gowin_utils.h"
 #include "pack.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -16,8 +17,13 @@ struct GowinPacker
 {
     Context *ctx;
     HimbaechelHelpers h;
+    GowinUtils gwu;
 
-    GowinPacker(Context *ctx) : ctx(ctx) { h.init(ctx); }
+    GowinPacker(Context *ctx) : ctx(ctx)
+    {
+        h.init(ctx);
+        gwu.init(ctx);
+    }
 
     // ===================================
     // IO
@@ -60,7 +66,7 @@ struct GowinPacker
 
     void config_bottom_row(CellInfo &ci, Loc loc, uint8_t cnd = Bottom_io_POD::NORMAL)
     {
-        if (!have_bottom_io_cnds(ctx->chip_info)) {
+        if (!gwu.have_bottom_io_cnds()) {
             return;
         }
         if (!ci.type.in(id_OBUF, id_TBUF, id_IOBUF)) {
@@ -82,10 +88,10 @@ struct GowinPacker
             }
         };
 
-        IdString wire_a_net = get_bottom_io_wire_a_net(ctx->chip_info, cnd);
+        IdString wire_a_net = gwu.get_bottom_io_wire_a_net(cnd);
         connect_io_wire(id_BOTTOM_IO_PORT_A, wire_a_net);
 
-        IdString wire_b_net = get_bottom_io_wire_b_net(ctx->chip_info, cnd);
+        IdString wire_b_net = gwu.get_bottom_io_wire_b_net(cnd);
         connect_io_wire(id_BOTTOM_IO_PORT_B, wire_b_net);
     }
 
@@ -168,7 +174,7 @@ struct GowinPacker
             if (io_loc.y == ctx->getGridDimY() - 1) {
                 config_bottom_row(ci, io_loc);
             }
-            if (is_simple_io_bel(ctx->chip_info, io_bel)) {
+            if (gwu.is_simple_io_bel(io_bel)) {
                 config_simple_io(ci);
             }
             make_iob_nets(ci);
@@ -281,7 +287,7 @@ struct GowinPacker
             if (!is_diffio(&ci)) {
                 continue;
             }
-            if (!is_diff_io_supported(ctx->chip_info, ci.type)) {
+            if (!gwu.is_diff_io_supported(ci.type)) {
                 log_error("%s is not supported\n", ci.type.c_str(ctx));
             }
             cells_to_remove.push_back(ci.name);
@@ -332,7 +338,7 @@ struct GowinPacker
         IdString out_port = id_Q0;
         IdString tx_port = id_Q1;
 
-        CellInfo *out_iob = net_only_drives(ctx, ci.ports.at(out_port).net, is_iob, id_I);
+        CellInfo *out_iob = net_only_drives(ctx, ci.ports.at(out_port).net, is_iob, id_I, true);
         NPNR_ASSERT(out_iob != nullptr && out_iob->bel != BelId());
         BelId iob_bel = out_iob->bel;
 
@@ -368,14 +374,63 @@ struct GowinPacker
         out_iob->disconnectPort(id_I);
         ci.disconnectPort(out_port);
         set_daaj_nets(ci, iob_bel);
-        config_bottom_row(*out_iob, ctx->getBelLocation(iob_bel), Bottom_io_POD::DDR);
+
+        Loc io_loc = ctx->getBelLocation(iob_bel);
+        if (io_loc.y == ctx->getGridDimY() - 1) {
+            config_bottom_row(*out_iob, io_loc, Bottom_io_POD::DDR);
+        }
 
         // if Q1 is connected then disconnect it too
         if (port_used(&ci, tx_port)) {
-            NPNR_ASSERT(out_iob == net_only_drives(ctx, ci.ports.at(tx_port).net, is_iob, id_OEN));
+            NPNR_ASSERT(out_iob == net_only_drives(ctx, ci.ports.at(tx_port).net, is_iob, id_OEN, true));
             nets_to_remove.push_back(ci.getPort(tx_port)->name);
             out_iob->disconnectPort(id_OEN);
             ci.disconnectPort(tx_port);
+        }
+        make_iob_nets(*out_iob);
+    }
+
+    void pack_single_output_iol(CellInfo &ci, std::vector<IdString> &cells_to_remove,
+                                std::vector<IdString> &nets_to_remove)
+    {
+        IdString out_port = id_Q;
+
+        CellInfo *out_iob = net_only_drives(ctx, ci.ports.at(out_port).net, is_iob, id_I, true);
+        NPNR_ASSERT(out_iob != nullptr && out_iob->bel != BelId());
+        BelId iob_bel = out_iob->bel;
+
+        BelId l_bel = get_iologic_bel(out_iob);
+        if (l_bel == BelId()) {
+            log_error("Can't place IOLOGIC %s at %s\n", ctx->nameOf(&ci), ctx->nameOfBel(iob_bel));
+        }
+
+        if (!ctx->checkBelAvail(l_bel)) {
+            log_error("Can't place %s at %s because it's already taken by %s\n", ctx->nameOf(&ci),
+                      ctx->nameOfBel(l_bel), ctx->nameOf(ctx->getBoundBelCell(l_bel)));
+        }
+        ctx->bindBel(l_bel, &ci, PlaceStrength::STRENGTH_LOCKED);
+        std::string out_mode;
+        switch (ci.type.hash()) {
+        case ID_OVIDEO:
+            out_mode = "VIDEORX";
+            break;
+        case ID_OSER10:
+            out_mode = "ODDRX5";
+            break;
+        }
+        ci.setParam(ctx->id("OUTMODE"), out_mode);
+
+        // mark IOB as used by IOLOGIC
+        out_iob->setParam(id_IOLOGIC_IOB, 1);
+        // disconnect Q output: it is wired internally
+        nets_to_remove.push_back(ci.getPort(out_port)->name);
+        out_iob->disconnectPort(id_I);
+        ci.disconnectPort(out_port);
+        set_daaj_nets(ci, iob_bel);
+
+        Loc io_loc = ctx->getBelLocation(iob_bel);
+        if (io_loc.y == ctx->getGridDimY() - 1) {
+            config_bottom_row(*out_iob, io_loc, Bottom_io_POD::DDR);
         }
         make_iob_nets(*out_iob);
     }
@@ -391,8 +446,10 @@ struct GowinPacker
 
     BelId get_aux_iologic_bel(const CellInfo &ci)
     {
-        return ctx->getBelByLocation(get_pair_iologic_bel(ctx->getBelLocation(ci.bel)));
+        return ctx->getBelByLocation(gwu.get_pair_iologic_bel(ctx->getBelLocation(ci.bel)));
     }
+
+    bool is_diff_io(BelId bel) { return ctx->getBoundBelCell(bel)->attrs.count(id_DIFF_TYPE) != 0; }
 
     void create_aux_iologic_cells(CellInfo &ci)
     {
@@ -401,16 +458,23 @@ struct GowinPacker
         }
         IdString aux_name = create_aux_iologic_name(ci.name);
         BelId bel = get_aux_iologic_bel(ci);
+        BelId io_bel = gwu.get_io_bel_from_iologic(bel);
+        if (!ctx->checkBelAvail(io_bel)) {
+            if (!is_diff_io(io_bel)) {
+                log_error("Can't place %s at %s because of %s\n", ctx->nameOf(&ci), ctx->nameOfBel(bel),
+                          ctx->nameOf(ctx->getBoundBelCell(io_bel)));
+            }
+        }
+
         ctx->createCell(aux_name, id_IOLOGIC_DUMMY);
         CellInfo *aux = ctx->cells[aux_name].get();
         aux->addInput(id_PCLK);
         ci.copyPortTo(id_PCLK, ctx->cells.at(aux_name).get(), id_PCLK);
-        aux->addInput(id_FCLK);
-        ci.copyPortTo(id_FCLK, ctx->cells.at(aux_name).get(), id_FCLK);
         aux->addInput(id_RESET);
         ci.copyPortTo(id_RESET, ctx->cells.at(aux_name).get(), id_RESET);
         ctx->cells.at(aux_name)->setParam(ctx->id("OUTMODE"), Property("DDRENABLE"));
         ctx->cells.at(aux_name)->setAttr(ctx->id("IOLOGIC_TYPE"), Property("DUMMY"));
+        ctx->cells.at(aux_name)->setAttr(ctx->id("MAIN_CELL"), Property(ci.name.str(ctx)));
         ctx->bindBel(bel, aux, PlaceStrength::STRENGTH_LOCKED);
     }
 
@@ -429,6 +493,11 @@ struct GowinPacker
             }
             if (ci.type.in(id_ODDR, id_ODDRC, id_OSER4, id_OSER8)) {
                 pack_bi_output_iol(ci, cells_to_remove, nets_to_remove);
+                create_aux_iologic_cells(ci);
+                continue;
+            }
+            if (ci.type.in(id_OVIDEO, id_OSER10)) {
+                pack_single_output_iol(ci, cells_to_remove, nets_to_remove);
                 create_aux_iologic_cells(ci);
                 continue;
             }
@@ -957,13 +1026,29 @@ struct GowinPacker
     {
         handle_constants();
         pack_iobs();
+        ctx->check();
+
         pack_diff_iobs();
+        ctx->check();
+
         pack_iologic();
+        ctx->check();
+
         pack_gsr();
+        ctx->check();
+
         pack_wideluts();
+        ctx->check();
+
         pack_alus();
+        ctx->check();
+
         constrain_lutffs();
+        ctx->check();
+
         pack_pll();
+        ctx->check();
+
         pack_ram16sdp4();
 
         ctx->fixupHierarchy();

@@ -49,8 +49,8 @@ struct GowinGlobalRouter
 
         IdString src_type = ctx->getWireType(ctx->getPipSrcWire(pip));
         IdString dst_type = ctx->getWireType(ctx->getPipDstWire(pip));
-        bool src_valid = src_type.in(id_GLOBAL_CLK, id_IO_O, id_PLL_O);
-        bool dst_valid = dst_type.in(id_GLOBAL_CLK, id_TILE_CLK, id_PLL_I, id_IO_I);
+        bool src_valid = src_type.in(id_GLOBAL_CLK, id_IO_O, id_PLL_O, id_HCLK);
+        bool dst_valid = dst_type.in(id_GLOBAL_CLK, id_TILE_CLK, id_PLL_I, id_IO_I, id_HCLK);
 
         bool res = (src_valid && dst_valid) || (src_valid && is_local(dst_type)) || (is_local(src_type) && dst_valid);
         if (ctx->debug && res && false) {
