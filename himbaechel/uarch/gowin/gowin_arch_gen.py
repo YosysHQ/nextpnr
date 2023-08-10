@@ -30,6 +30,7 @@ IOBB_Z  = 51
 
 IOLOGICA_Z = 70
 
+OSC_Z   = 274
 PLL_Z   = 275
 GSR_Z   = 276
 VCC_Z   = 277
@@ -292,6 +293,19 @@ def create_corner_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
             tt.create_wire(portmap['GSRI'], "GSRI")
             io = tt.create_bel("GSR", "GSR", z = GSR_Z)
             tt.add_bel_pin(io, "GSRI", portmap['GSRI'], PinType.INPUT)
+    if (y, x) in db.extra_cell_func:
+        funcs = db.extra_cell_func[(y, x)]
+        if 'osc' in funcs:
+            osc_type = funcs['osc']['type']
+            portmap = db.grid[y][x].bels[osc_type].portmap
+            for port, wire in portmap.items():
+                tt.create_wire(wire, port)
+            io = tt.create_bel(osc_type, osc_type, z = OSC_Z)
+            for port, wire in portmap.items():
+                if 'OUT' in port:
+                    tt.add_bel_pin(io, port, wire, PinType.OUTPUT)
+                else:
+                    tt.add_bel_pin(io, port, wire, PinType.INPUT)
 
     return (tiletype, tt)
 
