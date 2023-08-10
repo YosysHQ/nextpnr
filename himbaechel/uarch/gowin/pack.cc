@@ -451,9 +451,9 @@ struct GowinPacker
 
     bool is_diff_io(BelId bel) { return ctx->getBoundBelCell(bel)->attrs.count(id_DIFF_TYPE) != 0; }
 
-    void create_aux_iologic_cells(CellInfo &ci)
+    void create_aux_iologic_cells(CellInfo &ci, IdString mode)
     {
-        if (ci.type.in(id_ODDR, id_ODDRC, id_OSER4)) {
+        if (ci.type.in(id_ODDR, id_ODDRC, id_OSER4, id_IDDR, id_IDDRC, id_IDES4)) {
             return;
         }
         IdString aux_name = create_aux_iologic_name(ci.name);
@@ -472,10 +472,99 @@ struct GowinPacker
         ci.copyPortTo(id_PCLK, ctx->cells.at(aux_name).get(), id_PCLK);
         aux->addInput(id_RESET);
         ci.copyPortTo(id_RESET, ctx->cells.at(aux_name).get(), id_RESET);
-        ctx->cells.at(aux_name)->setParam(ctx->id("OUTMODE"), Property("DDRENABLE"));
+        ctx->cells.at(aux_name)->setParam(mode, Property("DDRENABLE"));
         ctx->cells.at(aux_name)->setAttr(ctx->id("IOLOGIC_TYPE"), Property("DUMMY"));
         ctx->cells.at(aux_name)->setAttr(ctx->id("MAIN_CELL"), Property(ci.name.str(ctx)));
         ctx->bindBel(bel, aux, PlaceStrength::STRENGTH_LOCKED);
+    }
+
+    void reconnect_ides_outs(CellInfo *ci)
+    {
+        switch (ci->type.hash()) {
+        case ID_IDDR: /* fall-through*/
+        case ID_IDDRC:
+            ci->renamePort(id_Q1, id_Q9);
+            ci->renamePort(id_Q0, id_Q8);
+            break;
+        case ID_IDES4:
+            ci->renamePort(id_Q3, id_Q9);
+            ci->renamePort(id_Q2, id_Q8);
+            ci->renamePort(id_Q1, id_Q7);
+            ci->renamePort(id_Q0, id_Q6);
+            break;
+        case ID_IVIDEO:
+            ci->renamePort(id_Q6, id_Q9);
+            ci->renamePort(id_Q5, id_Q8);
+            ci->renamePort(id_Q4, id_Q7);
+            ci->renamePort(id_Q3, id_Q6);
+            ci->renamePort(id_Q2, id_Q5);
+            ci->renamePort(id_Q1, id_Q4);
+            ci->renamePort(id_Q0, id_Q3);
+            break;
+        case ID_IDES8:
+            ci->renamePort(id_Q7, id_Q9);
+            ci->renamePort(id_Q6, id_Q8);
+            ci->renamePort(id_Q5, id_Q7);
+            ci->renamePort(id_Q4, id_Q6);
+            ci->renamePort(id_Q3, id_Q5);
+            ci->renamePort(id_Q2, id_Q4);
+            ci->renamePort(id_Q1, id_Q3);
+            ci->renamePort(id_Q0, id_Q2);
+            break;
+        default:
+            break;
+        }
+    }
+
+    void pack_ides_iol(CellInfo &ci, std::vector<IdString> &cells_to_remove, std::vector<IdString> &nets_to_remove)
+    {
+        IdString in_port = id_D;
+
+        CellInfo *in_iob = net_driven_by(ctx, ci.ports.at(in_port).net, is_iob, id_O);
+        NPNR_ASSERT(in_iob != nullptr && in_iob->bel != BelId());
+        BelId iob_bel = in_iob->bel;
+
+        BelId l_bel = get_iologic_bel(in_iob);
+        if (l_bel == BelId()) {
+            log_error("Can't place IOLOGIC %s at %s\n", ctx->nameOf(&ci), ctx->nameOfBel(iob_bel));
+        }
+
+        if (!ctx->checkBelAvail(l_bel)) {
+            log_error("Can't place %s at %s because it's already taken by %s\n", ctx->nameOf(&ci),
+                      ctx->nameOfBel(l_bel), ctx->nameOf(ctx->getBoundBelCell(l_bel)));
+        }
+        ctx->bindBel(l_bel, &ci, PlaceStrength::STRENGTH_LOCKED);
+        std::string in_mode;
+        switch (ci.type.hash()) {
+        case ID_IDDR:
+        case ID_IDDRC:
+            in_mode = "IDDRX1";
+            break;
+        case ID_IDES4:
+            in_mode = "IDDRX2";
+            break;
+        case ID_IDES8:
+            in_mode = "IDDRX4";
+            break;
+        case ID_IDES10:
+            in_mode = "IDDRX5";
+            break;
+        case ID_IVIDEO:
+            in_mode = "VIDEORX";
+            break;
+        }
+        ci.setParam(ctx->id("INMODE"), in_mode);
+
+        // mark IOB as used by IOLOGIC
+        in_iob->setParam(id_IOLOGIC_IOB, 1);
+        // disconnect Q output: it is wired internally
+        nets_to_remove.push_back(ci.getPort(in_port)->name);
+        in_iob->disconnectPort(id_O);
+        ci.disconnectPort(in_port);
+        set_daaj_nets(ci, iob_bel);
+        reconnect_ides_outs(&ci);
+
+        make_iob_nets(*in_iob);
     }
 
     void pack_iologic()
@@ -493,12 +582,17 @@ struct GowinPacker
             }
             if (ci.type.in(id_ODDR, id_ODDRC, id_OSER4, id_OSER8)) {
                 pack_bi_output_iol(ci, cells_to_remove, nets_to_remove);
-                create_aux_iologic_cells(ci);
+                create_aux_iologic_cells(ci, ctx->id("OUTMODE"));
                 continue;
             }
             if (ci.type.in(id_OVIDEO, id_OSER10)) {
                 pack_single_output_iol(ci, cells_to_remove, nets_to_remove);
-                create_aux_iologic_cells(ci);
+                create_aux_iologic_cells(ci, ctx->id("OUTMODE"));
+                continue;
+            }
+            if (ci.type.in(id_IDDR, id_IDDRC, id_IDES4, id_IDES8, id_IDES10, id_IVIDEO)) {
+                pack_ides_iol(ci, cells_to_remove, nets_to_remove);
+                create_aux_iologic_cells(ci, ctx->id("INMODE"));
                 continue;
             }
         }

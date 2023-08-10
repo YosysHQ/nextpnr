@@ -30,7 +30,8 @@ inline bool is_diffio(const CellInfo *cell) { return type_is_diffio(cell->type);
 
 inline bool type_is_iologic(IdString cell_type)
 {
-    return cell_type.in(id_ODDR, id_ODDRC, id_OSER4, id_OSER8, id_OSER10, id_OVIDEO);
+    return cell_type.in(id_ODDR, id_ODDRC, id_OSER4, id_OSER8, id_OSER10, id_OVIDEO, id_IDDR, id_IDDRC, id_IDES4,
+                        id_IDES8, id_IDES10, id_IVIDEO);
 }
 inline bool is_iologic(const CellInfo *cell) { return type_is_iologic(cell->type); }
 
@@ -77,6 +78,7 @@ enum
 
     IOLOGICA_Z = 70,
 
+    OSC_Z = 274,
     PLL_Z = 275,
     GSR_Z = 276,
     VCC_Z = 277,
