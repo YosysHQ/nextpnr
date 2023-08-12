@@ -1070,22 +1070,17 @@ struct GowinPacker
             }
         }
         if (!user_gsr) {
-            bool have_gsr_bel = false;
-            auto bels = ctx->getBels();
-            for (auto bid : bels) {
-                if (ctx->getBelType(bid) == id_GSR) {
-                    have_gsr_bel = true;
-                    break;
-                }
-            }
-            if (have_gsr_bel) {
-                // make default GSR
-                auto gsr_cell = std::make_unique<CellInfo>(ctx, id_GSR, id_GSR);
-                gsr_cell->addInput(id_GSRI);
-                gsr_cell->connectPort(id_GSRI, ctx->nets[ctx->id("$PACKER_VCC")].get());
-                ctx->cells[gsr_cell->name] = std::move(gsr_cell);
+            // make default GSR
+            auto gsr_cell = std::make_unique<CellInfo>(ctx, id_GSR, id_GSR);
+            gsr_cell->addInput(id_GSRI);
+            gsr_cell->connectPort(id_GSRI, ctx->nets[ctx->id("$PACKER_VCC")].get());
+            ctx->cells[gsr_cell->name] = std::move(gsr_cell);
+        }
+        if (ctx->verbose) {
+            if (user_gsr) {
+                log_info("Have user GSR\n");
             } else {
-                log_info("No GSR in the chip base\n");
+                log_info("No user GSR. Make one.\n");
             }
         }
     }
