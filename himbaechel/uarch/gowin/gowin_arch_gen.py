@@ -29,6 +29,8 @@ IOBA_Z  = 50
 IOBB_Z  = 51
 
 IOLOGICA_Z = 70
+IDES16_Z   = 72
+OSER16_Z   = 73
 
 OSC_Z   = 274
 PLL_Z   = 275
@@ -45,10 +47,15 @@ class TileExtraData(BBAStruct):
                          # let's say the behavior of LUT+DFF in the tiles are completely identical,
                          # but one of them also contains clock-wire switches,
                          # then we assign them to the same LOGIC class.
+    io16_x_off: int = 0  # OSER16/IDES16 offsets to the aux cell
+    io16_y_off: int = 0
+
     def serialise_lists(self, context: str, bba: BBAWriter):
         pass
     def serialise(self, context: str, bba: BBAWriter):
         bba.u32(self.tile_class.index)
+        bba.u16(self.io16_x_off)
+        bba.u16(self.io16_y_off)
 
 @dataclass
 class BottomIOCnd(BBAStruct):
@@ -262,6 +269,28 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
             tt.create_wire(wire, "GSRI")
             bel = tt.create_bel("GSR", "GSR", z = GSR_Z)
             tt.add_bel_pin(bel, "GSRI", wire, PinType.INPUT)
+        if func == 'io16':
+            role = desc['role']
+            if role == 'MAIN':
+                y_off, x_off = desc['pair']
+                tt.extra_data.io16_x_off = x_off
+                tt.extra_data.io16_y_off = y_off
+
+            for io_type, z in {('IDES16', IDES16_Z), ('OSER16', OSER16_Z)}:
+                bel = tt.create_bel(io_type, io_type, z = z)
+                portmap = db.grid[y][x].bels[io_type].portmap
+                for port, wire in portmap.items():
+                    if port == 'FCLK': # XXX compatibility
+                        wire = 'FCLKA'
+                    if not tt.has_wire(wire):
+                        if port in {'CLK', 'PCLK'}:
+                            tt.create_wire(wire, "TILE_CLK")
+                        else:
+                            tt.create_wire(wire, "IOL_PORT")
+                    if 'OUT' in port:
+                        tt.add_bel_pin(bel, port, wire, PinType.OUTPUT)
+                    else:
+                        tt.add_bel_pin(bel, port, wire, PinType.INPUT)
 
 def create_tiletype(create_func, chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
     has_extra_func = (y, x) in db.extra_func

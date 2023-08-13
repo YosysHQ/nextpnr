@@ -39,7 +39,15 @@ inline bool is_iologic(const CellInfo *cell) { return type_is_iologic(cell->type
 inline bool type_is_ssram(IdString cell_type) { return cell_type.in(id_RAM16SDP1, id_RAM16SDP2, id_RAM16SDP4); }
 inline bool is_ssram(const CellInfo *cell) { return type_is_ssram(cell->type); }
 
+// ==========================================
 // extra data in the chip db
+// ==========================================
+NPNR_PACKED_STRUCT(struct Tile_extra_data_POD {
+    int32_t class_id;
+    int16_t io16_x_off;
+    int16_t io16_y_off;
+});
+
 NPNR_PACKED_STRUCT(struct Bottom_io_cnd_POD {
     int32_t wire_a_net;
     int32_t wire_b_net;
@@ -77,6 +85,8 @@ enum
     IOBB_Z = 51, // +IOBC...IOBL
 
     IOLOGICA_Z = 70,
+    IDES16_Z = 72,
+    OSER16_Z = 73,
 
     OSC_Z = 274,
     PLL_Z = 275,

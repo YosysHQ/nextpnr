@@ -332,7 +332,19 @@ struct GowinPacker
         return ctx->getBelByLocation(loc);
     }
 
-    void pack_bi_output_iol(CellInfo &ci, std::vector<IdString> &cells_to_remove, std::vector<IdString> &nets_to_remove)
+    void check_iologic_placement(CellInfo &ci, Loc iob_loc, int diff /* 1 - diff */)
+    {
+        if (ci.type.in(id_ODDR, id_ODDRC, id_IDDR, id_IDDRC) || diff) {
+            return;
+        }
+        BelId l_bel = ctx->getBelByLocation(Loc(iob_loc.x, iob_loc.y, BelZ::IOBA_Z + 1 - (iob_loc.z - BelZ::IOBA_Z)));
+        if (!ctx->checkBelAvail(l_bel)) {
+            log_error("Can't place %s at %s because it's already taken by %s\n", ctx->nameOf(&ci),
+                      ctx->nameOfBel(l_bel), ctx->nameOf(ctx->getBoundBelCell(l_bel)));
+        }
+    }
+
+    void pack_bi_output_iol(CellInfo &ci, std::vector<IdString> &nets_to_remove)
     {
         // These primitives have an additional pin to control the tri-state iob - Q1.
         IdString out_port = id_Q0;
@@ -346,6 +358,9 @@ struct GowinPacker
         if (l_bel == BelId()) {
             log_error("Can't place IOLOGIC %s at %s\n", ctx->nameOf(&ci), ctx->nameOfBel(iob_bel));
         }
+        // mark IOB as used by IOLOGIC
+        out_iob->setParam(id_IOLOGIC_IOB, 1);
+        check_iologic_placement(ci, ctx->getBelLocation(iob_bel), out_iob->attrs.count(id_DIFF_TYPE));
 
         if (!ctx->checkBelAvail(l_bel)) {
             log_error("Can't place %s at %s because it's already taken by %s\n", ctx->nameOf(&ci),
@@ -367,8 +382,6 @@ struct GowinPacker
         }
         ci.setParam(ctx->id("OUTMODE"), out_mode);
 
-        // mark IOB as used by IOLOGIC
-        out_iob->setParam(id_IOLOGIC_IOB, 1);
         // disconnect Q output: it is wired internally
         nets_to_remove.push_back(ci.getPort(out_port)->name);
         out_iob->disconnectPort(id_I);
@@ -390,8 +403,7 @@ struct GowinPacker
         make_iob_nets(*out_iob);
     }
 
-    void pack_single_output_iol(CellInfo &ci, std::vector<IdString> &cells_to_remove,
-                                std::vector<IdString> &nets_to_remove)
+    void pack_single_output_iol(CellInfo &ci, std::vector<IdString> &nets_to_remove)
     {
         IdString out_port = id_Q;
 
@@ -403,6 +415,9 @@ struct GowinPacker
         if (l_bel == BelId()) {
             log_error("Can't place IOLOGIC %s at %s\n", ctx->nameOf(&ci), ctx->nameOfBel(iob_bel));
         }
+        // mark IOB as used by IOLOGIC
+        out_iob->setParam(id_IOLOGIC_IOB, 1);
+        check_iologic_placement(ci, ctx->getBelLocation(iob_bel), out_iob->attrs.count(id_DIFF_TYPE));
 
         if (!ctx->checkBelAvail(l_bel)) {
             log_error("Can't place %s at %s because it's already taken by %s\n", ctx->nameOf(&ci),
@@ -420,8 +435,6 @@ struct GowinPacker
         }
         ci.setParam(ctx->id("OUTMODE"), out_mode);
 
-        // mark IOB as used by IOLOGIC
-        out_iob->setParam(id_IOLOGIC_IOB, 1);
         // disconnect Q output: it is wired internally
         nets_to_remove.push_back(ci.getPort(out_port)->name);
         out_iob->disconnectPort(id_I);
@@ -451,12 +464,12 @@ struct GowinPacker
 
     bool is_diff_io(BelId bel) { return ctx->getBoundBelCell(bel)->attrs.count(id_DIFF_TYPE) != 0; }
 
-    void create_aux_iologic_cells(CellInfo &ci, IdString mode)
+    CellInfo *create_aux_iologic_cell(CellInfo &ci, IdString mode, bool io16 = false, int idx = 0)
     {
         if (ci.type.in(id_ODDR, id_ODDRC, id_OSER4, id_IDDR, id_IDDRC, id_IDES4)) {
-            return;
+            return nullptr;
         }
-        IdString aux_name = create_aux_iologic_name(ci.name);
+        IdString aux_name = create_aux_iologic_name(ci.name, idx);
         BelId bel = get_aux_iologic_bel(ci);
         BelId io_bel = gwu.get_io_bel_from_iologic(bel);
         if (!ctx->checkBelAvail(io_bel)) {
@@ -467,15 +480,18 @@ struct GowinPacker
         }
 
         ctx->createCell(aux_name, id_IOLOGIC_DUMMY);
-        CellInfo *aux = ctx->cells[aux_name].get();
-        aux->addInput(id_PCLK);
-        ci.copyPortTo(id_PCLK, ctx->cells.at(aux_name).get(), id_PCLK);
-        aux->addInput(id_RESET);
-        ci.copyPortTo(id_RESET, ctx->cells.at(aux_name).get(), id_RESET);
-        ctx->cells.at(aux_name)->setParam(mode, Property("DDRENABLE"));
-        ctx->cells.at(aux_name)->setAttr(ctx->id("IOLOGIC_TYPE"), Property("DUMMY"));
-        ctx->cells.at(aux_name)->setAttr(ctx->id("MAIN_CELL"), Property(ci.name.str(ctx)));
+        CellInfo *aux = ctx->cells.at(aux_name).get();
+        ci.copyPortTo(id_PCLK, aux, id_PCLK);
+        ci.copyPortTo(id_RESET, aux, id_RESET);
+        if (io16) {
+            aux->setParam(mode, Property("DDRENABLE16"));
+        } else {
+            aux->setParam(mode, Property("DDRENABLE"));
+        }
+        aux->setAttr(ctx->id("IOLOGIC_TYPE"), Property("DUMMY"));
+        aux->setAttr(ctx->id("MAIN_CELL"), Property(ci.name.str(ctx)));
         ctx->bindBel(bel, aux, PlaceStrength::STRENGTH_LOCKED);
+        return aux;
     }
 
     void reconnect_ides_outs(CellInfo *ci)
@@ -516,7 +532,7 @@ struct GowinPacker
         }
     }
 
-    void pack_ides_iol(CellInfo &ci, std::vector<IdString> &cells_to_remove, std::vector<IdString> &nets_to_remove)
+    void pack_ides_iol(CellInfo &ci, std::vector<IdString> &nets_to_remove)
     {
         IdString in_port = id_D;
 
@@ -528,6 +544,9 @@ struct GowinPacker
         if (l_bel == BelId()) {
             log_error("Can't place IOLOGIC %s at %s\n", ctx->nameOf(&ci), ctx->nameOfBel(iob_bel));
         }
+        // mark IOB as used by IOLOGIC
+        in_iob->setParam(id_IOLOGIC_IOB, 1);
+        check_iologic_placement(ci, ctx->getBelLocation(iob_bel), in_iob->attrs.count(id_DIFF_TYPE));
 
         if (!ctx->checkBelAvail(l_bel)) {
             log_error("Can't place %s at %s because it's already taken by %s\n", ctx->nameOf(&ci),
@@ -555,9 +574,7 @@ struct GowinPacker
         }
         ci.setParam(ctx->id("INMODE"), in_mode);
 
-        // mark IOB as used by IOLOGIC
-        in_iob->setParam(id_IOLOGIC_IOB, 1);
-        // disconnect Q output: it is wired internally
+        // disconnect D input: it is wired internally
         nets_to_remove.push_back(ci.getPort(in_port)->name);
         in_iob->disconnectPort(id_O);
         ci.disconnectPort(in_port);
@@ -570,7 +587,7 @@ struct GowinPacker
     void pack_iologic()
     {
         log_info("Pack IO logic...\n");
-        std::vector<IdString> cells_to_remove, nets_to_remove;
+        std::vector<IdString> nets_to_remove;
 
         for (auto &cell : ctx->cells) {
             CellInfo &ci = *cell.second;
@@ -581,29 +598,213 @@ struct GowinPacker
                 log_info("pack %s of type %s.\n", ctx->nameOf(&ci), ci.type.c_str(ctx));
             }
             if (ci.type.in(id_ODDR, id_ODDRC, id_OSER4, id_OSER8)) {
-                pack_bi_output_iol(ci, cells_to_remove, nets_to_remove);
-                create_aux_iologic_cells(ci, ctx->id("OUTMODE"));
+                pack_bi_output_iol(ci, nets_to_remove);
+                create_aux_iologic_cell(ci, ctx->id("OUTMODE"));
                 continue;
             }
             if (ci.type.in(id_OVIDEO, id_OSER10)) {
-                pack_single_output_iol(ci, cells_to_remove, nets_to_remove);
-                create_aux_iologic_cells(ci, ctx->id("OUTMODE"));
+                pack_single_output_iol(ci, nets_to_remove);
+                create_aux_iologic_cell(ci, ctx->id("OUTMODE"));
                 continue;
             }
             if (ci.type.in(id_IDDR, id_IDDRC, id_IDES4, id_IDES8, id_IDES10, id_IVIDEO)) {
-                pack_ides_iol(ci, cells_to_remove, nets_to_remove);
-                create_aux_iologic_cells(ci, ctx->id("INMODE"));
+                pack_ides_iol(ci, nets_to_remove);
+                create_aux_iologic_cell(ci, ctx->id("INMODE"));
                 continue;
             }
         }
 
-        for (auto cell : cells_to_remove) {
-            ctx->cells.erase(cell);
+        for (auto net : nets_to_remove) {
+            ctx->nets.erase(net);
+        }
+    }
+
+    // ===================================
+    // IDES16 / OSER16
+    // ===================================
+    void check_io16_placement(CellInfo &ci, Loc main_loc, Loc aux_off, int diff /* 1 - diff */)
+    {
+        int mod[][3] = {{0, 0, 1}, {1, 1, 0}, {1, 1, 1}};
+        for (int i = diff; i < 3; ++i) {
+            Loc aux_loc(main_loc.x + mod[i][0] * aux_off.x, main_loc.y + mod[i][1] * aux_off.y, main_loc.z + mod[i][2]);
+            BelId l_bel = ctx->getBelByLocation(aux_loc);
+            if (!ctx->checkBelAvail(l_bel)) {
+                log_error("Can't place %s at %s because it's already taken by %s\n", ctx->nameOf(&ci),
+                          ctx->nameOfBel(l_bel), ctx->nameOf(ctx->getBoundBelCell(l_bel)));
+            }
+        }
+    }
+
+    void pack_oser16(CellInfo &ci, std::vector<IdString> &nets_to_remove)
+    {
+        IdString out_port = id_Q;
+
+        CellInfo *out_iob = net_only_drives(ctx, ci.ports.at(out_port).net, is_iob, id_I, true);
+        NPNR_ASSERT(out_iob != nullptr && out_iob->bel != BelId());
+        // mark IOB as used by IOLOGIC
+        out_iob->setParam(id_IOLOGIC_IOB, 1);
+
+        BelId iob_bel = out_iob->bel;
+
+        Loc iob_loc = ctx->getBelLocation(iob_bel);
+        Loc aux_offset = gwu.get_tile_io16_offs(iob_loc.x, iob_loc.y);
+
+        if (aux_offset.x == 0 && aux_offset.y == 0) {
+            log_error("OSER16 %s can not be placed here\n", ctx->nameOf(&ci));
+        }
+        check_io16_placement(ci, iob_loc, aux_offset, out_iob->attrs.count(id_DIFF_TYPE));
+
+        BelId main_bel = ctx->getBelByLocation(Loc(iob_loc.x, iob_loc.y, BelZ::OSER16_Z));
+        ctx->bindBel(main_bel, &ci, PlaceStrength::STRENGTH_LOCKED);
+
+        // disconnect Q output: it is wired internally
+        nets_to_remove.push_back(ci.getPort(out_port)->name);
+        out_iob->disconnectPort(id_I);
+        ci.disconnectPort(out_port);
+
+        // to simplify packaging, the parts of the OSER16 are presented as IOLOGIC cells
+        // and one of these aux cells is declared as main
+        IdString main_name = create_aux_iologic_name(ci.name);
+
+        IdString aux_name = create_aux_iologic_name(ci.name, 1);
+        ctx->createCell(aux_name, id_IOLOGIC_DUMMY);
+        CellInfo *aux = ctx->cells.at(aux_name).get();
+
+        aux->setAttr(ctx->id("MAIN_CELL"), Property(main_name.str(ctx)));
+        aux->setParam(ctx->id("OUTMODE"), Property("ODDRX8"));
+        aux->setParam(ctx->id("UPDATE"), Property("SAME"));
+        aux->setAttr(ctx->id("IOLOGIC_TYPE"), Property("DUMMY"));
+        ci.copyPortTo(id_PCLK, aux, id_PCLK);
+        ci.copyPortTo(id_RESET, aux, id_RESET);
+        ctx->bindBel(ctx->getBelByLocation(Loc(iob_loc.x, iob_loc.y, BelZ::IOLOGICA_Z)), aux,
+                     PlaceStrength::STRENGTH_LOCKED);
+
+        // make aux cell in the first cell
+        aux = create_aux_iologic_cell(*aux, ctx->id("OUTMODE"), true, 2);
+        aux->setAttr(ctx->id("MAIN_CELL"), Property(main_name.str(ctx)));
+        aux->setParam(ctx->id("UPDATE"), Property("SAME"));
+
+        // make cell in the next location
+        ctx->createCell(main_name, id_IOLOGIC);
+        aux = ctx->cells.at(main_name).get();
+
+        aux->setAttr(ctx->id("MAIN_CELL"), Property(main_name.str(ctx)));
+        aux->setParam(ctx->id("OUTMODE"), Property("DDRENABLE16"));
+        aux->setParam(ctx->id("UPDATE"), Property("SAME"));
+        aux->setAttr(ctx->id("IOLOGIC_TYPE"), Property("DUMMY"));
+        ci.copyPortTo(id_PCLK, aux, id_PCLK);
+        ci.copyPortTo(id_RESET, aux, id_RESET);
+        ci.movePortTo(id_FCLK, aux, id_FCLK);
+        ci.movePortTo(id_D12, aux, id_D0);
+        ci.movePortTo(id_D13, aux, id_D1);
+        ci.movePortTo(id_D14, aux, id_D2);
+        ci.movePortTo(id_D15, aux, id_D3);
+        Loc next_io16(iob_loc.x + aux_offset.x, iob_loc.y + aux_offset.y, BelZ::IOLOGICA_Z);
+        ctx->bindBel(ctx->getBelByLocation(next_io16), aux, PlaceStrength::STRENGTH_LOCKED);
+
+        Loc io_loc = ctx->getBelLocation(iob_bel);
+        if (io_loc.y == ctx->getGridDimY() - 1) {
+            config_bottom_row(*out_iob, io_loc, Bottom_io_POD::DDR);
+        }
+        make_iob_nets(*out_iob);
+    }
+
+    void pack_ides16(CellInfo &ci, std::vector<IdString> &nets_to_remove)
+    {
+        IdString in_port = id_D;
+
+        CellInfo *in_iob = net_driven_by(ctx, ci.ports.at(in_port).net, is_iob, id_O);
+        NPNR_ASSERT(in_iob != nullptr && in_iob->bel != BelId());
+        // mark IOB as used by IOLOGIC
+        in_iob->setParam(id_IOLOGIC_IOB, 1);
+
+        BelId iob_bel = in_iob->bel;
+
+        Loc iob_loc = ctx->getBelLocation(iob_bel);
+        Loc aux_offset = gwu.get_tile_io16_offs(iob_loc.x, iob_loc.y);
+
+        if (aux_offset.x == 0 && aux_offset.y == 0) {
+            log_error("IDES16 %s can not be placed here\n", ctx->nameOf(&ci));
+        }
+        check_io16_placement(ci, iob_loc, aux_offset, in_iob->attrs.count(id_DIFF_TYPE));
+
+        BelId main_bel = ctx->getBelByLocation(Loc(iob_loc.x, iob_loc.y, BelZ::IDES16_Z));
+        ctx->bindBel(main_bel, &ci, PlaceStrength::STRENGTH_LOCKED);
+
+        // disconnect Q output: it is wired internally
+        nets_to_remove.push_back(ci.getPort(in_port)->name);
+        in_iob->disconnectPort(id_O);
+        ci.disconnectPort(in_port);
+
+        // to simplify packaging, the parts of the IDES16 are presented as IOLOGIC cells
+        // and one of these aux cells is declared as main
+        IdString main_name = create_aux_iologic_name(ci.name);
+
+        IdString aux_name = create_aux_iologic_name(ci.name, 1);
+        ctx->createCell(aux_name, id_IOLOGIC_DUMMY);
+        CellInfo *aux = ctx->cells.at(aux_name).get();
+
+        aux->setAttr(ctx->id("MAIN_CELL"), Property(main_name.str(ctx)));
+        aux->setParam(ctx->id("INMODE"), Property("IDDRX8"));
+        aux->setAttr(ctx->id("IOLOGIC_TYPE"), Property("DUMMY"));
+        ci.copyPortTo(id_PCLK, aux, id_PCLK);
+        ci.copyPortTo(id_RESET, aux, id_RESET);
+        ctx->bindBel(ctx->getBelByLocation(Loc(iob_loc.x, iob_loc.y, BelZ::IOLOGICA_Z)), aux,
+                     PlaceStrength::STRENGTH_LOCKED);
+
+        // make aux cell in the first cell
+        aux = create_aux_iologic_cell(*aux, ctx->id("INMODE"), true, 2);
+        aux->setAttr(ctx->id("MAIN_CELL"), Property(main_name.str(ctx)));
+        ci.copyPortTo(id_CALIB, aux, id_CALIB);
+
+        // make cell in the next location
+        ctx->createCell(main_name, id_IOLOGIC);
+        aux = ctx->cells.at(main_name).get();
+
+        aux->setAttr(ctx->id("MAIN_CELL"), Property(main_name.str(ctx)));
+        aux->setParam(ctx->id("INMODE"), Property("DDRENABLE16"));
+        aux->setAttr(ctx->id("IOLOGIC_TYPE"), Property("DUMMY"));
+        ci.copyPortTo(id_PCLK, aux, id_PCLK);
+        ci.copyPortTo(id_RESET, aux, id_RESET);
+        ci.copyPortTo(id_CALIB, aux, id_CALIB);
+        ci.movePortTo(id_FCLK, aux, id_FCLK);
+        ci.movePortTo(id_Q0, aux, id_Q6);
+        ci.movePortTo(id_Q1, aux, id_Q7);
+        ci.movePortTo(id_Q2, aux, id_Q8);
+        ci.movePortTo(id_Q3, aux, id_Q9);
+        Loc next_io16(iob_loc.x + aux_offset.x, iob_loc.y + aux_offset.y, BelZ::IOLOGICA_Z);
+        ctx->bindBel(ctx->getBelByLocation(next_io16), aux, PlaceStrength::STRENGTH_LOCKED);
+
+        make_iob_nets(*in_iob);
+    }
+
+    void pack_io16(void)
+    {
+        std::vector<IdString> nets_to_remove;
+        log_info("Pack DESER16 logic...\n");
+
+        for (auto &cell : ctx->cells) {
+            CellInfo &ci = *cell.second;
+            if (ci.type == id_OSER16) {
+                if (ctx->debug) {
+                    log_info("pack %s of type %s.\n", ctx->nameOf(&ci), ci.type.c_str(ctx));
+                }
+                pack_oser16(ci, nets_to_remove);
+                continue;
+            }
+            if (ci.type == id_IDES16) {
+                if (ctx->debug) {
+                    log_info("pack %s of type %s.\n", ctx->nameOf(&ci), ci.type.c_str(ctx));
+                }
+                pack_ides16(ci, nets_to_remove);
+                continue;
+            }
         }
         for (auto net : nets_to_remove) {
             ctx->nets.erase(net);
         }
     }
+
     // ===================================
     // Constant nets
     // ===================================
@@ -1121,6 +1322,9 @@ struct GowinPacker
         ctx->check();
 
         pack_iologic();
+        ctx->check();
+
+        pack_io16();
         ctx->check();
 
         pack_gsr();

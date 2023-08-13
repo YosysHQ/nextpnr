@@ -175,7 +175,7 @@ void GowinImpl::postRoute()
 
     for (auto &cell : ctx->cells) {
         auto ci = cell.second.get();
-        if (is_iologic(ci) && !ci->type.in(id_ODDR, id_ODDRC, id_IDDR, id_IDDRC)) {
+        if (ci->type == id_IOLOGIC || (is_iologic(ci) && !ci->type.in(id_ODDR, id_ODDRC, id_IDDR, id_IDDRC))) {
             if (visited_hclk_users.find(ci->name) == visited_hclk_users.end()) {
                 // mark FCLK<-HCLK connections
                 const NetInfo *h_net = ci->getPort(id_FCLK);
@@ -192,6 +192,9 @@ void GowinImpl::postRoute()
                         IdString up_wire_name = ctx->getWireName(ctx->getPipSrcWire(up_pip))[1];
                         if (up_wire_name.in(id_HCLK_OUT0, id_HCLK_OUT1, id_HCLK_OUT2, id_HCLK_OUT3)) {
                             user.cell->setAttr(id_IOLOGIC_FCLK, Property(up_wire_name.str(ctx)));
+                            if (ctx->debug) {
+                                log_info("set IOLOGIC_FCLK to %s\n", up_wire_name.c_str(ctx));
+                            }
                         }
                         if (ctx->debug) {
                             log_info("HCLK user cell:%s, port:%s, wire:%s, pip:%s, up wire:%s\n",

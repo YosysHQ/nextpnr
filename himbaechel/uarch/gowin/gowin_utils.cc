@@ -11,6 +11,24 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+// tile extra data
+IdString GowinUtils::get_tile_class(int x, int y)
+{
+    int tile = tile_by_xy(ctx->chip_info, x, y);
+    const Tile_extra_data_POD *extra =
+            reinterpret_cast<const Tile_extra_data_POD *>(chip_tile_info(ctx->chip_info, tile).extra_data.get());
+    return IdString(extra->class_id);
+}
+
+// oser16/ides16 aux cell offsets
+Loc GowinUtils::get_tile_io16_offs(int x, int y)
+{
+    int tile = tile_by_xy(ctx->chip_info, x, y);
+    const Tile_extra_data_POD *extra =
+            reinterpret_cast<const Tile_extra_data_POD *>(chip_tile_info(ctx->chip_info, tile).extra_data.get());
+    return Loc(extra->io16_x_off, extra->io16_y_off, 0);
+}
+
 // pin functions: GCLKT_4, SSPI_CS, READY etc
 IdStringList GowinUtils::get_pin_funcs(BelId bel)
 {
