@@ -19,6 +19,10 @@ struct GowinUtils
 
     void init(Context *ctx) { this->ctx = ctx; }
 
+    // tile
+    IdString get_tile_class(int x, int y);
+    Loc get_tile_io16_offs(int x, int y);
+
     // pin functions: GCLKT_4, SSPI_CS, READY etc
     IdStringList get_pin_funcs(BelId bel);
 
