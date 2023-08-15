@@ -53,12 +53,12 @@ struct GowinGlobalRouter
         bool dst_valid = dst_type.in(id_GLOBAL_CLK, id_TILE_CLK, id_PLL_I, id_IO_I, id_HCLK);
 
         bool res = (src_valid && dst_valid) || (src_valid && is_local(dst_type)) || (is_local(src_type) && dst_valid);
-        if (ctx->debug && res && false) {
+        if (ctx->debug && false /*&& res*/) {
             log_info("%s <- %s [%s <- %s]\n", ctx->getWireName(ctx->getPipDstWire(pip)).str(ctx).c_str(),
                      ctx->getWireName(ctx->getPipSrcWire(pip)).str(ctx).c_str(), dst_type.c_str(ctx),
                      src_type.c_str(ctx));
-            // log_info("res:%d, src_valid:%d, dst_valid:%d, src local:%d, dst local:%d\n", res, src_valid, dst_valid,
-            // is_local(src_type), is_local(dst_type));
+            log_info("res:%d, src_valid:%d, dst_valid:%d, src local:%d, dst local:%d\n", res, src_valid, dst_valid,
+                     is_local(src_type), is_local(dst_type));
         }
         return res;
     }
@@ -86,8 +86,9 @@ struct GowinGlobalRouter
             log_error("Net '%s' has an invalid sink port %s.%s\n", ctx->nameOf(net),
                       ctx->nameOf(net->users.at(user_idx).cell), ctx->nameOf(net->users.at(user_idx).port));
 
-        if (ctx->getBoundWireNet(src) != net)
+        if (ctx->getBoundWireNet(src) != net) {
             ctx->bindWire(src, net, STRENGTH_LOCKED);
+        }
 
         if (src == dst) {
             // Nothing more to do
@@ -152,10 +153,15 @@ struct GowinGlobalRouter
             }
             return true;
         } else {
-            if (strict)
+            if (strict) {
                 log_error("Failed to route net '%s' from %s to %s using dedicated routing.\n", ctx->nameOf(net),
                           ctx->nameOfWire(src), ctx->nameOfWire(dst));
-            return false;
+            } else {
+                log_warning("Failed to route net '%s' from %s to %s using dedicated routing.\n", ctx->nameOf(net),
+                            ctx->nameOfWire(src), ctx->nameOfWire(dst));
+                ctx->unbindWire(src);
+                return false;
+            }
         }
     }
 
@@ -163,7 +169,7 @@ struct GowinGlobalRouter
     {
         bool routed = false;
         for (auto usr : net->users.enumerate()) {
-            routed = backwards_bfs_route(net, usr.index, 1000000, true, [&](PipId pip) {
+            routed = backwards_bfs_route(net, usr.index, 1000000, false, [&](PipId pip) {
                 return (is_relaxed_sink(usr.value) || global_pip_filter(pip));
             });
             if (!routed) {

@@ -337,7 +337,6 @@ def create_tiletype(create_func, chip: Chip, db: chipdb, x: int, y: int, ttyp: i
         return
 
     tt = create_func(chip, db, x, y, ttyp, tdesc)
-    print(ttyp, tdesc.tiletype)
 
     create_extra_funcs(tt, db, x, y)
     create_hclk_switch_matrix(tt, db, x, y)
@@ -386,7 +385,7 @@ def create_io_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc:
     tt = chip.create_tile_type(tiletype)
     tt.extra_data = TileExtraData(chip.strs.id(typename))
 
-    simple_io = y in db.simplio_rows and chip.name in {'GW1N-1', 'GW1NZ-1'}
+    simple_io = y in db.simplio_rows and chip.name in {'GW1N-1', 'GW1NZ-1', 'GW1N-4'}
     if simple_io:
         rng = 10
     else:
@@ -559,7 +558,7 @@ _pll_inputs = {'CLKFB', 'FBDSEL0', 'FBDSEL1', 'FBDSEL2', 'FBDSEL3',
         'IDSEL4', 'IDSEL5', 'ODSEL0', 'ODSEL1', 'ODSEL2', 'ODSEL3',
         'ODSEL4', 'ODSEL5', 'RESET', 'RESET_P', 'PSDA0', 'PSDA1',
         'PSDA2', 'PSDA3', 'DUTYDA0', 'DUTYDA1', 'DUTYDA2', 'DUTYDA3',
-        'FDLY0', 'FDLY1', 'FDLY2', 'FDLY3', 'CLKIN'}
+        'FDLY0', 'FDLY1', 'FDLY2', 'FDLY3', 'CLKIN', 'VREN'}
 _pll_outputs = {'CLKOUT', 'LOCK', 'CLKOUTP', 'CLKOUTD', 'CLKOUTD3'}
 def create_pll_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc: TypeDesc):
     typename = "PLL"
