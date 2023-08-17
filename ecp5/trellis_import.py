@@ -242,11 +242,15 @@ def get_bel_index(ddrg, loc, name):
 packages = {}
 pindata = []
 
-def process_pio_db(ddrg, device):
-    piofile = path.join(database.get_db_root(), "ECP5", dev_names[device], "iodb.json")
+def process_pio_db(ddrg, device, package_filter=None):
+    piofile = path.join(database.get_db_root(), "ECP5", device, "iodb.json")
     with open(piofile, 'r') as f:
         piodb = json.load(f)
         for pkgname, pkgdata in sorted(piodb["packages"].items()):
+            if package_filter is not None and pkgname not in package_filter:
+                # we need to get the TQ144 package only out of the non-SERDES device
+                # everything else comes from the SERDES device
+                continue
             pins = []
             for name, pinloc in sorted(pkgdata.items()):
                 x = pinloc["col"]
@@ -257,30 +261,31 @@ def process_pio_db(ddrg, device):
                 if bel_idx is not None:
                     pins.append((name, loc, bel_idx))
             packages[pkgname] = pins
-        for metaitem in piodb["pio_metadata"]:
-            x = metaitem["col"]
-            y = metaitem["row"]
-            loc = pytrellis.Location(x, y)
-            pio = "PIO" + metaitem["pio"]
-            bank = metaitem["bank"]
-            if "function" in metaitem:
-                pinfunc = metaitem["function"]
-            else:
-                pinfunc = None
-            dqs = -1
-            if "dqs" in metaitem:
-                tdqs = metaitem["dqs"]
-                if tdqs[0] == "L":
-                    dqs = 0
-                elif tdqs[0] == "R":
-                    dqs = 2048
-                suffix_size = 0
-                while tdqs[-(suffix_size+1)].isdigit():
-                    suffix_size += 1
-                dqs |= int(tdqs[-suffix_size:])
-            bel_idx = get_bel_index(ddrg, loc, pio)
-            if bel_idx is not None:
-                pindata.append((loc, bel_idx, bank, pinfunc, dqs))
+        if package_filter is None:
+            for metaitem in piodb["pio_metadata"]:
+                x = metaitem["col"]
+                y = metaitem["row"]
+                loc = pytrellis.Location(x, y)
+                pio = "PIO" + metaitem["pio"]
+                bank = metaitem["bank"]
+                if "function" in metaitem:
+                    pinfunc = metaitem["function"]
+                else:
+                    pinfunc = None
+                dqs = -1
+                if "dqs" in metaitem:
+                    tdqs = metaitem["dqs"]
+                    if tdqs[0] == "L":
+                        dqs = 0
+                    elif tdqs[0] == "R":
+                        dqs = 2048
+                    suffix_size = 0
+                    while tdqs[-(suffix_size+1)].isdigit():
+                        suffix_size += 1
+                    dqs |= int(tdqs[-suffix_size:])
+                bel_idx = get_bel_index(ddrg, loc, pio)
+                if bel_idx is not None:
+                    pindata.append((loc, bel_idx, bank, pinfunc, dqs))
 
 global_data = {}
 quadrants = ["UL", "UR", "LL", "LR"]
@@ -690,7 +695,10 @@ def main():
     max_row = chip.get_max_row()
     max_col = chip.get_max_col()
     process_timing_data()
-    process_pio_db(ddrg, args.device)
+    process_pio_db(ddrg, dev_names[args.device])
+    # add TQFP144 package from non-SERDES device if appropriate
+    if args.device == "25k": process_pio_db(ddrg, "LFE5U-25F", {"TQFP144", })
+    if args.device == "45k": process_pio_db(ddrg, "LFE5U-45F", {"TQFP144", })
     process_loc_globals(chip)
     # print("{} unique location types".format(len(ddrg.locationTypes)))
     bba = write_database(args.device, chip, ddrg, "le")
