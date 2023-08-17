@@ -241,7 +241,10 @@ struct GowinPacker
             iob_n->disconnectPort(id_I);
 
             if (ci.type.in(id_TLVDS_TBUF, id_ELVDS_TBUF)) {
-                nets_to_remove.push_back(iob_n->getPort(id_OEN)->name);
+                NetInfo *oen_net = iob_n->getPort(id_OEN);
+                if (oen_net != nullptr) {
+                    nets_to_remove.push_back(oen_net->name);
+                }
                 iob_n->disconnectPort(id_OEN);
                 iob_p->disconnectPort(id_OEN);
                 ci.movePortTo(id_OEN, iob_p, id_OEN);
@@ -336,7 +339,7 @@ struct GowinPacker
 
     void check_iologic_placement(CellInfo &ci, Loc iob_loc, int diff /* 1 - diff */)
     {
-        if (ci.type.in(id_ODDR, id_ODDRC, id_IDDR, id_IDDRC) || diff) {
+        if (ci.type.in(id_ODDR, id_ODDRC, id_IDDR, id_IDDRC, id_OSER4) || diff) {
             return;
         }
         BelId l_bel = ctx->getBelByLocation(Loc(iob_loc.x, iob_loc.y, BelZ::IOBA_Z + 1 - (iob_loc.z - BelZ::IOBA_Z)));
@@ -1298,7 +1301,7 @@ struct GowinPacker
         for (auto &cell : ctx->cells) {
             auto &ci = *cell.second;
 
-            if (ci.type == id_rPLL) {
+            if (ci.type.in(id_rPLL, id_PLLVR)) {
                 // pin renaming for compatibility
                 for (int i = 0; i < 6; ++i) {
                     ci.renamePort(ctx->idf("FBDSEL[%d]", i), ctx->idf("FBDSEL%d", i));
