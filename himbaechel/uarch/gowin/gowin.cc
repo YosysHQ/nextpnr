@@ -312,6 +312,22 @@ void GowinImpl::assign_cell_info()
     }
 }
 
+// DFFs must be same type or compatible
+inline bool incompatible_ffs(const CellInfo *ff, const CellInfo *adj_ff)
+{
+    return ff->type != adj_ff->type &&
+           ((ff->type == id_DFFS && adj_ff->type != id_DFFR) || (ff->type == id_DFFR && adj_ff->type != id_DFFS) ||
+            (ff->type == id_DFFSE && adj_ff->type != id_DFFRE) || (ff->type == id_DFFRE && adj_ff->type != id_DFFSE) ||
+            (ff->type == id_DFFP && adj_ff->type != id_DFFC) || (ff->type == id_DFFC && adj_ff->type != id_DFFP) ||
+            (ff->type == id_DFFPE && adj_ff->type != id_DFFCE) || (ff->type == id_DFFCE && adj_ff->type != id_DFFPE) ||
+            (ff->type == id_DFFNS && adj_ff->type != id_DFFNR) || (ff->type == id_DFFNR && adj_ff->type != id_DFFNS) ||
+            (ff->type == id_DFFNSE && adj_ff->type != id_DFFNRE) ||
+            (ff->type == id_DFFNRE && adj_ff->type != id_DFFNSE) ||
+            (ff->type == id_DFFNP && adj_ff->type != id_DFFNC) || (ff->type == id_DFFNC && adj_ff->type != id_DFFNP) ||
+            (ff->type == id_DFFNPE && adj_ff->type != id_DFFNCE) ||
+            (ff->type == id_DFFNCE && adj_ff->type != id_DFFNPE));
+}
+
 // placement validation
 bool GowinImpl::slice_valid(int x, int y, int z) const
 {
@@ -359,23 +375,7 @@ bool GowinImpl::slice_valid(int x, int y, int z) const
             }
         }
         if (adj_ff) {
-            // DFFs must be same type or compatible
-            if (ff->type != adj_ff->type && ((ff->type.in(id_DFFS) && !adj_ff->type.in(id_DFFR)) ||
-                                             (ff->type.in(id_DFFR) && !adj_ff->type.in(id_DFFS)) ||
-                                             (ff->type.in(id_DFFSE) && !adj_ff->type.in(id_DFFRE)) ||
-                                             (ff->type.in(id_DFFRE) && !adj_ff->type.in(id_DFFSE)) ||
-                                             (ff->type.in(id_DFFP) && !adj_ff->type.in(id_DFFC)) ||
-                                             (ff->type.in(id_DFFC) && !adj_ff->type.in(id_DFFP)) ||
-                                             (ff->type.in(id_DFFPE) && !adj_ff->type.in(id_DFFCE)) ||
-                                             (ff->type.in(id_DFFCE) && !adj_ff->type.in(id_DFFPE)) ||
-                                             (ff->type.in(id_DFFNS) && !adj_ff->type.in(id_DFFNR)) ||
-                                             (ff->type.in(id_DFFNR) && !adj_ff->type.in(id_DFFNS)) ||
-                                             (ff->type.in(id_DFFNSE) && !adj_ff->type.in(id_DFFNRE)) ||
-                                             (ff->type.in(id_DFFNRE) && !adj_ff->type.in(id_DFFNSE)) ||
-                                             (ff->type.in(id_DFFNP) && !adj_ff->type.in(id_DFFNC)) ||
-                                             (ff->type.in(id_DFFNC) && !adj_ff->type.in(id_DFFNP)) ||
-                                             (ff->type.in(id_DFFNPE) && !adj_ff->type.in(id_DFFNCE)) ||
-                                             (ff->type.in(id_DFFNCE) && !adj_ff->type.in(id_DFFNPE)))) {
+            if (incompatible_ffs(ff, adj_ff)) {
                 return false;
             }
 
