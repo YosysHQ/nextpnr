@@ -1143,8 +1143,8 @@ class MachXO2Packer
                                    simple_clk_contraint(vco_period * int_or_default(ci->params, id_CLKOS2_DIV, 1)));
                     set_constraint(ci, id_CLKOS3,
                                    simple_clk_contraint(vco_period * int_or_default(ci->params, id_CLKOS3_DIV, 1)));
-                } else if (ci->type == id_OSCH) {
-                    static std::string const osch_freq[] = {
+                } else if (ci->type == id_OSCH || ci->type == id_OSCJ) {
+                    static std::string const osc_freq[] = {
                             "2.08",  "2.15",  "2.22",  "2.29",  "2.38",  "2.46",  "2.56",  "2.66",  "2.77",  "2.89",
                             "3.02",  "3.17",  "3.33",  "3.50",  "3.69",  "3.91",  "4.16",  "4.29",  "4.43",  "4.59",
                             "4.75",  "4.93",  "5.12",  "5.32",  "5.54",  "5.78",  "6.05",  "6.33",  "6.65",  "7.00",
@@ -1156,14 +1156,14 @@ class MachXO2Packer
                     std::string freq = str_or_default(ci->params, id_NOM_FREQ, "2.08");
                     bool found = false;
                     for (int i = 0; i < 64; i++) {
-                        if (osch_freq[i] == freq) {
+                        if (osc_freq[i] == freq) {
                             found = true;
                             set_constraint(ci, id_OSC, simple_clk_contraint(delay_t(1000.0 / std::stof(freq))));
                             break;
                         }
                     }
                     if (!found)
-                        log_error("Unsupported frequency '%s' on OSCH '%s'\n", freq.c_str(), ci->name.c_str(ctx));
+                        log_error("Unsupported frequency '%s' on %s '%s'\n", freq.c_str(), ci->type.c_str(ctx), ci->name.c_str(ctx));
                 }
             }
         }
