@@ -629,6 +629,11 @@ struct GowinPacker
     // ===================================
     void check_io16_placement(CellInfo &ci, Loc main_loc, Loc aux_off, int diff /* 1 - diff */)
     {
+        if (main_loc.z != BelZ::IOBA_Z) {
+            log_error("Can't place %s at %s because OSER16/IDES16 must be placed at A pin\n", ctx->nameOf(&ci),
+                      ctx->nameOfBel(ctx->getBelByLocation(main_loc)));
+        }
+
         int mod[][3] = {{0, 0, 1}, {1, 1, 0}, {1, 1, 1}};
         for (int i = diff; i < 3; ++i) {
             Loc aux_loc(main_loc.x + mod[i][0] * aux_off.x, main_loc.y + mod[i][1] * aux_off.y, main_loc.z + mod[i][2]);
@@ -655,7 +660,7 @@ struct GowinPacker
         Loc aux_offset = gwu.get_tile_io16_offs(iob_loc.x, iob_loc.y);
 
         if (aux_offset.x == 0 && aux_offset.y == 0) {
-            log_error("OSER16 %s can not be placed here\n", ctx->nameOf(&ci));
+            log_error("OSER16 %s can not be placed at %s\n", ctx->nameOf(&ci), ctx->nameOfBel(iob_bel));
         }
         check_io16_placement(ci, iob_loc, aux_offset, out_iob->attrs.count(id_DIFF_TYPE));
 
@@ -729,7 +734,7 @@ struct GowinPacker
         Loc aux_offset = gwu.get_tile_io16_offs(iob_loc.x, iob_loc.y);
 
         if (aux_offset.x == 0 && aux_offset.y == 0) {
-            log_error("IDES16 %s can not be placed here\n", ctx->nameOf(&ci));
+            log_error("IDES16 %s can not be placed at %s\n", ctx->nameOf(&ci), ctx->nameOfBel(iob_bel));
         }
         check_io16_placement(ci, iob_loc, aux_offset, in_iob->attrs.count(id_DIFF_TYPE));
 
