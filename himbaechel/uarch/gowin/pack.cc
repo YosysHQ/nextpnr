@@ -154,6 +154,10 @@ struct GowinPacker
         if (bel == BelId()) {
             log_error("No bel named %s\n", IdStringList::parse(ctx, ci.attrs.at(id_BEL).as_string()).str(ctx).c_str());
         }
+        if (!ctx->checkBelAvail(bel)) {
+            log_error("Can't place %s at %s because it's already taken by %s\n", ctx->nameOf(&ci), ctx->nameOfBel(bel),
+                      ctx->nameOf(ctx->getBoundBelCell(bel)));
+        }
         ci.unsetAttr(id_BEL);
         ctx->bindBel(bel, &ci, PlaceStrength::STRENGTH_LOCKED);
         return bel;
