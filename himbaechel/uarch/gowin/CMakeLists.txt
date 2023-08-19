@@ -20,7 +20,9 @@ foreach(device ${GOWIN_DEVICES})
 	add_custom_command(
 		OUTPUT ${device_bin}
 		COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/gowin_arch_gen.py -d ${device} -o ${device_bba}
-		COMMAND bbasm ${BBASM_ENDIAN_FLAG} ${device_bba} ${device_bin}
+		COMMAND bbasm ${BBASM_ENDIAN_FLAG} ${device_bba} ${device_bin}.new
+        # atomically update
+        COMMAND ${CMAKE_COMMAND} -E rename ${device_bin}.new ${device_bin}
 		DEPENDS
 			bbasm
 			${CMAKE_CURRENT_SOURCE_DIR}/gowin_arch_gen.py
