@@ -2,6 +2,7 @@
  *  nextpnr -- Next Generation Place and Route
  *
  *  Copyright (C) 2018  gatecat <gatecat@ds0.me>
+ *  Copyright (C) 2023  rowanG077 <goemansrowan@gmail.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -74,9 +75,10 @@ struct TimingAnalyser
 {
   public:
     TimingAnalyser(Context *ctx);
-    void setup();
-    void run(bool update_route_delays = true);
-    void print_report();
+
+    void setup(bool update_net_timings = false, bool update_histogram = false, bool update_crit_paths = false);
+    void run(bool update_net_timings = false, bool update_histogram = false, bool update_crit_paths = false,
+             bool update_route_delays = true);
 
     // This is used when routers etc are not actually binding detailed routing (due to congestion or an abstracted
     // model), but want to re-run STA with their own calculated delays
@@ -92,10 +94,11 @@ struct TimingAnalyser
         return slack;
     }
 
-    auto get_clock_delays() const { return clock_delays; }
+    dict<std::pair<IdString, IdString>, delay_t> get_clock_delays() const { return clock_delays; }
+
+    TimingResult &get_timing_result() { return result; }
 
     bool setup_only = false;
-    bool verbose_mode = false;
     bool have_loops = false;
     bool updated_domains = false;
 
@@ -115,11 +118,15 @@ struct TimingAnalyser
     void compute_slack();
     void compute_criticality();
 
-    void print_fmax();
-    // get the N most failing endpoints for a given domain pair
-    std::vector<CellPortKey> get_failing_eps(domain_id_t domain_pair, int count);
-    // print the critical path for an endpoint and domain pair
-    void print_critical_path(CellPortKey endpoint, domain_id_t domain_pair);
+    void build_detailed_net_timing_report();
+    CriticalPath build_critical_path_report(domain_id_t domain_pair, CellPortKey endpoint);
+    void build_crit_path_reports();
+    void build_slack_histogram_report();
+
+    dict<domain_id_t, delay_t> max_delay_by_domain_pairs();
+
+    // get the N worst endpoints for a given domain pair
+    std::vector<CellPortKey> get_worst_eps(domain_id_t domain_pair, int count);
 
     const DelayPair init_delay{std::numeric_limits<delay_t>::max(), std::numeric_limits<delay_t>::lowest()};
 
@@ -228,10 +235,11 @@ struct TimingAnalyser
     domain_id_t async_clock_id;
 
     Context *ctx;
+
+    TimingResult result;
 };
 
-// Perform timing analysis and print out the fmax, and optionally the
-//    critical path
+// Perform timing analysis and optionaly print out slack histogram, fmax and critical paths
 void timing_analysis(Context *ctx, bool slack_histogram = true, bool print_fmax = true, bool print_path = false,
                      bool warn_on_failure = false, bool update_results = false);
 

@@ -44,14 +44,14 @@ dict<IdString, std::pair<int, int>> get_utilization(const Context *ctx)
 static std::string clock_event_name(const Context *ctx, const ClockEvent &e)
 {
     std::string value;
-    if (e.clock == ctx->id("$async$"))
+    if (e.clock == IdString() || e.clock == ctx->id("$async$"))
         value = std::string("<async>");
     else
         value = (e.edge == FALLING_EDGE ? std::string("negedge ") : std::string("posedge ")) + e.clock.str(ctx);
     return value;
 };
 
-static Json::array report_critical_paths(const Context *ctx)
+static Json::array json_report_critical_paths(const Context *ctx)
 {
 
     auto report_critical_path = [ctx](const CriticalPath &report) {
@@ -118,7 +118,7 @@ static Json::array report_critical_paths(const Context *ctx)
     return critPathsJson;
 }
 
-static Json::array report_detailed_net_timings(const Context *ctx)
+static Json::array json_report_detailed_net_timings(const Context *ctx)
 {
     auto detailedNetTimingsJson = Json::array();
 
@@ -219,7 +219,7 @@ Report JSON structure:
 }
 */
 
-void Context::writeReport(std::ostream &out) const
+void Context::writeJsonReport(std::ostream &out) const
 {
     auto util = get_utilization(this);
     dict<std::string, Json> util_json;
@@ -238,10 +238,10 @@ void Context::writeReport(std::ostream &out) const
     }
 
     Json::object jsonRoot{
-            {"utilization", util_json}, {"fmax", fmax_json}, {"critical_paths", report_critical_paths(this)}};
+            {"utilization", util_json}, {"fmax", fmax_json}, {"critical_paths", json_report_critical_paths(this)}};
 
     if (detailed_timing_report) {
-        jsonRoot["detailed_net_timings"] = report_detailed_net_timings(this);
+        jsonRoot["detailed_net_timings"] = json_report_detailed_net_timings(this);
     }
 
     out << Json(jsonRoot).dump() << std::endl;
