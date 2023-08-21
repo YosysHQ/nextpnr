@@ -565,8 +565,17 @@ def create_pll_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc
     tiletype = f"{typename}_{ttyp}"
     if tdesc.sfx != 0:
         tiletype += f"_{tdesc.sfx}"
+
+    # disabled PLLs
+    if tdesc.extra_func and 'disabled' in tdesc.extra_func and 'PLL' in tdesc.extra_func['disabled']:
+        tiletype += '_disabled'
+        tt = chip.create_tile_type(tiletype)
+        tt.extra_data = TileExtraData(chip.strs.id(typename))
+        tdesc.tiletype = tiletype
+        return tt
     tt = chip.create_tile_type(tiletype)
     tt.extra_data = TileExtraData(chip.strs.id(typename))
+
 
     # wires
     if chip.name == 'GW1NS-4':
