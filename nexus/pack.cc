@@ -82,19 +82,22 @@ Property Arch::parse_lattice_param(const Property &val, IdString prop, int width
             }
             temp = Property(ival);
         }
-
-        for (auto b : temp.str.substr(width)) {
-            if (b == Property::S1)
-                log_error("Found value for property %s.%s with width greater than %d\n", ci, nameOf(prop), width);
+        if (int(temp.size()) > width) {
+            for (auto b : temp.str.substr(width)) {
+                if (b == Property::S1)
+                    log_error("Found value for property %s.%s with width greater than %d\n", ci, nameOf(prop), width);
+            }
         }
         temp.update_intval();
         return temp.extract(0, width);
     } else {
-        for (auto b : val.str.substr(width)) {
-            if (b == Property::S1)
-                log_error("Found bitvector value for property %s.%s with width greater than %d - perhaps a string was "
-                          "converted to bits?\n",
-                          ci, nameOf(prop), width);
+        if (int(val.str.size()) > width) {
+            for (auto b : val.str.substr(width)) {
+                if (b == Property::S1)
+                    log_error("Found bitvector value for property %s.%s with width greater than %d - perhaps a string was "
+                              "converted to bits?\n",
+                              ci, nameOf(prop), width);
+            }
         }
         return val.extract(0, width);
     }
