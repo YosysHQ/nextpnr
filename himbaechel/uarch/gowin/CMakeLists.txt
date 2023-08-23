@@ -3,15 +3,15 @@ cmake_minimum_required(VERSION 3.5)
 project(himbaechel-gowin-chipdb NONE)
 
 find_package(Python3 3.5 REQUIRED COMPONENTS Interpreter)
-set(ALL_GOWIN_DEVICES GW1N-1 GW1NZ-1 GW1NS-2 GW1N-4 GW1N-9 GW1N-9C GW1NS-4 GW2A-18)
-set(GOWIN_DEVICES ${ALL_GOWIN_DEVICES} CACHE STRING
-    "Include support for these Gowin devices (available: ${ALL_GOWIN_DEVICES})")
-message(STATUS "Enabled Himbaechel-Gowin devices: ${GOWIN_DEVICES}")
+set(ALL_HIMBAECHEL_GOWIN_DEVICES GW1N-1 GW1NZ-1 GW1NS-2 GW1N-4 GW1N-9 GW1N-9C GW1NS-4 GW2A-18 GW2A-18C)
+set(HIMBAECHEL_GOWIN_DEVICES ${ALL_HIMBAECHEL_GOWIN_DEVICES} CACHE STRING
+    "Include support for these Gowin devices (available: ${ALL_HIMBAECHEL_GOWIN_DEVICES})")
+message(STATUS "Enabled Himbaechel-Gowin devices: ${HIMBAECHEL_GOWIN_DEVICES}")
 
 set(chipdb_binaries)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/chipdb)
-foreach(device ${GOWIN_DEVICES})
-    if(NOT device IN_LIST ALL_GOWIN_DEVICES)
+foreach(device ${HIMBAECHEL_GOWIN_DEVICES})
+    if(NOT device IN_LIST ALL_HIMBAECHEL_GOWIN_DEVICES)
 		message(FATAL_ERROR "Device ${device} is not a supported Gowin device")
     endif()
 
@@ -32,3 +32,5 @@ foreach(device ${GOWIN_DEVICES})
 endforeach()
 
 add_custom_target(chipdb-himbaechel-gowin ALL DEPENDS ${chipdb_binaries})
+install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/chipdb/ DESTINATION share/nextpnr/himbaechel/gowin
+	    PATTERN "*.bba" EXCLUDE)
