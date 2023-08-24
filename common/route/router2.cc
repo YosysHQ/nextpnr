@@ -626,7 +626,7 @@ struct Router2
         int dst_wire_idx = wire_to_idx.at(dst_wire);
         // Calculate a timing weight based on criticality
         float crit = get_arc_crit(net, i);
-        float crit_weight = (1.0f - std::pow(crit, 2));
+        float crit_weight = std::max<float>(0.05f, (1.0f - std::pow(crit, 2)));
         ROUTE_LOG_DBG("     crit=%.3f crit_weight=%.3f\n", crit, crit_weight);
         // Check if arc was already done _in this iteration_
         if (t.processed_sinks.count(dst_wire))
