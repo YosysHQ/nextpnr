@@ -98,6 +98,7 @@ struct ArchNetInfo
 struct ArchCellInfo : BaseClusterInfo
 {
     int flat_index;
+    int timing_index = -1;
     dict<IdString, std::vector<IdString>> cell_bel_pins;
 };
 
