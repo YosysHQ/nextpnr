@@ -57,10 +57,10 @@ struct GowinPacker
         log_info("simple:%s\n", ctx->nameOf(&ci));
         ci.addInput(id_OEN);
         if (ci.type == id_OBUF) {
-            ci.connectPort(id_OEN, ctx->nets[ctx->id("$PACKER_GND")].get());
+            ci.connectPort(id_OEN, ctx->nets.at(ctx->id("$PACKER_GND")).get());
         } else {
             NPNR_ASSERT(ci.type == id_IBUF);
-            ci.connectPort(id_OEN, ctx->nets[ctx->id("$PACKER_VCC")].get());
+            ci.connectPort(id_OEN, ctx->nets.at(ctx->id("$PACKER_VCC")).get());
         }
     }
 
@@ -81,10 +81,10 @@ struct GowinPacker
             ci.disconnectPort(port);
             ci.addInput(port);
             if (net_name == id_VSS) {
-                ci.connectPort(port, ctx->nets[ctx->id("$PACKER_GND")].get());
+                ci.connectPort(port, ctx->nets.at(ctx->id("$PACKER_GND")).get());
             } else {
                 NPNR_ASSERT(net_name == id_VCC);
-                ci.connectPort(port, ctx->nets[ctx->id("$PACKER_VCC")].get());
+                ci.connectPort(port, ctx->nets.at(ctx->id("$PACKER_VCC")).get());
             }
         };
 
@@ -325,11 +325,11 @@ struct GowinPacker
         std::vector<IdString> pins = ctx->getBelPins(bel);
         if (std::find(pins.begin(), pins.end(), id_DAADJ0) != pins.end()) {
             ci.addInput(id_DAADJ0);
-            ci.connectPort(id_DAADJ0, ctx->nets[ctx->id("$PACKER_GND")].get());
+            ci.connectPort(id_DAADJ0, ctx->nets.at(ctx->id("$PACKER_GND")).get());
         }
         if (std::find(pins.begin(), pins.end(), id_DAADJ1) != pins.end()) {
             ci.addInput(id_DAADJ1);
-            ci.connectPort(id_DAADJ1, ctx->nets[ctx->id("$PACKER_VCC")].get());
+            ci.connectPort(id_DAADJ1, ctx->nets.at(ctx->id("$PACKER_VCC")).get());
         }
     }
 
@@ -483,8 +483,8 @@ struct GowinPacker
         BelId io_bel = gwu.get_io_bel_from_iologic(bel);
         if (!ctx->checkBelAvail(io_bel)) {
             if (!is_diff_io(io_bel)) {
-                log_error("Can't place %s at %s because of %s\n", ctx->nameOf(&ci), ctx->nameOfBel(bel),
-                          ctx->nameOf(ctx->getBoundBelCell(io_bel)));
+                log_error("Can't place %s at %s because of a conflict with another IO %s\n", ctx->nameOf(&ci),
+                          ctx->nameOfBel(bel), ctx->nameOf(ctx->getBoundBelCell(io_bel)));
             }
         }
 
@@ -505,6 +505,7 @@ struct GowinPacker
 
     void reconnect_ides_outs(CellInfo *ci)
     {
+        IdString dest_ports[] = {id_Q9, id_Q8, id_Q7, id_Q6, id_Q5, id_Q4, id_Q3, id_Q2};
         switch (ci->type.hash()) {
         case ID_IDDR: /* fall-through*/
         case ID_IDDRC:
@@ -512,29 +513,19 @@ struct GowinPacker
             ci->renamePort(id_Q0, id_Q8);
             break;
         case ID_IDES4:
-            ci->renamePort(id_Q3, id_Q9);
-            ci->renamePort(id_Q2, id_Q8);
-            ci->renamePort(id_Q1, id_Q7);
-            ci->renamePort(id_Q0, id_Q6);
+            for (int i = 0; i < 4; ++i) {
+                ci->renamePort(ctx->idf("Q%d", 3 - i), dest_ports[i]);
+            }
             break;
         case ID_IVIDEO:
-            ci->renamePort(id_Q6, id_Q9);
-            ci->renamePort(id_Q5, id_Q8);
-            ci->renamePort(id_Q4, id_Q7);
-            ci->renamePort(id_Q3, id_Q6);
-            ci->renamePort(id_Q2, id_Q5);
-            ci->renamePort(id_Q1, id_Q4);
-            ci->renamePort(id_Q0, id_Q3);
+            for (int i = 0; i < 7; ++i) {
+                ci->renamePort(ctx->idf("Q%d", 6 - i), dest_ports[i]);
+            }
             break;
         case ID_IDES8:
-            ci->renamePort(id_Q7, id_Q9);
-            ci->renamePort(id_Q6, id_Q8);
-            ci->renamePort(id_Q5, id_Q7);
-            ci->renamePort(id_Q4, id_Q6);
-            ci->renamePort(id_Q3, id_Q5);
-            ci->renamePort(id_Q2, id_Q4);
-            ci->renamePort(id_Q1, id_Q3);
-            ci->renamePort(id_Q0, id_Q2);
+            for (int i = 0; i < 8; ++i) {
+                ci->renamePort(ctx->idf("Q%d", 7 - i), dest_ports[i]);
+            }
             break;
         default:
             break;
@@ -1008,13 +999,13 @@ struct GowinPacker
         if (cin_net->name == ctx->id("$PACKER_GND")) {
             cin_ci->params[id_ALU_MODE] = std::string("C2L");
             cin_ci->addInput(id_I2);
-            cin_ci->connectPort(id_I2, ctx->nets[ctx->id("$PACKER_VCC")].get());
+            cin_ci->connectPort(id_I2, ctx->nets.at(ctx->id("$PACKER_VCC")).get());
             return cin_ci;
         }
         if (cin_net->name == ctx->id("$PACKER_VCC")) {
             cin_ci->params[id_ALU_MODE] = std::string("ONE2C");
             cin_ci->addInput(id_I2);
-            cin_ci->connectPort(id_I2, ctx->nets[ctx->id("$PACKER_VCC")].get());
+            cin_ci->connectPort(id_I2, ctx->nets.at(ctx->id("$PACKER_VCC")).get());
             return cin_ci;
         }
         // CIN from logic
@@ -1023,7 +1014,7 @@ struct GowinPacker
         cin_ci->connectPort(id_I1, cin_net);
         cin_ci->connectPort(id_I3, cin_net);
         cin_ci->addInput(id_I2);
-        cin_ci->connectPort(id_I2, ctx->nets[ctx->id("$PACKER_VCC")].get());
+        cin_ci->connectPort(id_I2, ctx->nets.at(ctx->id("$PACKER_VCC")).get());
         cin_ci->params[id_ALU_MODE] = std::string("0"); // ADD
         return cin_ci;
     }
@@ -1045,7 +1036,7 @@ struct GowinPacker
         cout_ci->addOutput(id_SUM);
         cout_ci->connectPort(id_SUM, cout_net);
         cout_ci->addInput(id_I2);
-        cout_ci->connectPort(id_I2, ctx->nets[ctx->id("$PACKER_VCC")].get());
+        cout_ci->connectPort(id_I2, ctx->nets.at(ctx->id("$PACKER_VCC")).get());
 
         cout_ci->params[id_ALU_MODE] = std::string("C2L");
         return cout_ci;
@@ -1111,7 +1102,7 @@ struct GowinPacker
                         // XXX I2 is pin C which must be set to 1 for all ALU modes except MUL
                         // we use only mode 2 ADDSUB so create and connect this pin
                         ci->addInput(id_I2);
-                        ci->connectPort(id_I2, ctx->nets[ctx->id("$PACKER_VCC")].get());
+                        ci->connectPort(id_I2, ctx->nets.at(ctx->id("$PACKER_VCC")).get());
 
                         ++alu_chain_len;
 
@@ -1225,7 +1216,7 @@ struct GowinPacker
                 ci->constr_z = BelZ::RAMW_Z;
 
                 ci->addInput(id_CE);
-                ci->connectPort(id_CE, ctx->nets[ctx->id("$PACKER_VCC")].get());
+                ci->connectPort(id_CE, ctx->nets.at(ctx->id("$PACKER_VCC")).get());
 
                 // RAD networks
                 NetInfo *rad[4];
@@ -1288,7 +1279,7 @@ struct GowinPacker
             // make default GSR
             auto gsr_cell = std::make_unique<CellInfo>(ctx, id_GSR, id_GSR);
             gsr_cell->addInput(id_GSRI);
-            gsr_cell->connectPort(id_GSRI, ctx->nets[ctx->id("$PACKER_VCC")].get());
+            gsr_cell->connectPort(id_GSRI, ctx->nets.at(ctx->id("$PACKER_VCC")).get());
             ctx->cells[gsr_cell->name] = std::move(gsr_cell);
         }
         if (ctx->verbose) {
