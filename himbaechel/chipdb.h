@@ -62,7 +62,8 @@ NPNR_PACKED_STRUCT(struct BelPinRefPOD {
 NPNR_PACKED_STRUCT(struct TileWireDataPOD {
     int32_t name;
     int32_t wire_type;
-    int32_t flags; // 32 bits of arbitrary data
+    int32_t flags;      // 32 bits of arbitrary data
+    int32_t timing_idx; // used only when the wire is not part of a node, otherwise node idx applies
     RelSlice<int32_t> pips_uphill;
     RelSlice<int32_t> pips_downhill;
     RelSlice<BelPinRefPOD> bel_pins;
@@ -85,7 +86,7 @@ NPNR_PACKED_STRUCT(struct RelTileWireRefPOD {
 
 NPNR_PACKED_STRUCT(struct NodeShapePOD {
     RelSlice<RelTileWireRefPOD> tile_wires;
-    int32_t timing_index;
+    int32_t timing_idx;
 });
 
 NPNR_PACKED_STRUCT(struct TileTypePOD {
@@ -151,12 +152,6 @@ NPNR_PACKED_STRUCT(struct TimingValue {
     int32_t slow_max;
 });
 
-NPNR_PACKED_STRUCT(struct BelPinTimingPOD {
-    TimingValue in_cap;
-    TimingValue drive_res;
-    TimingValue delay;
-});
-
 NPNR_PACKED_STRUCT(struct PipTimingPOD {
     TimingValue int_delay;
     TimingValue in_cap;
@@ -186,19 +181,19 @@ NPNR_PACKED_STRUCT(struct CellPinCombArcPOD {
 
 NPNR_PACKED_STRUCT(struct CellPinTimingPOD {
     int32_t pin;
+    int32_t flags;
     RelSlice<CellPinCombArcPOD> comb_arcs;
     RelSlice<CellPinRegArcPOD> reg_arcs;
+    static constexpr int32_t FLAG_CLK = 1;
 });
 
 NPNR_PACKED_STRUCT(struct CellTimingPOD {
-    int32_t type;
-    int32_t variant;
+    int32_t type_variant;
     RelSlice<CellPinTimingPOD> pins;
 });
 
 NPNR_PACKED_STRUCT(struct SpeedGradePOD {
     int32_t name;
-    RelSlice<BelPinTimingPOD> bel_pin_classes;
     RelSlice<PipTimingPOD> pip_classes;
     RelSlice<NodeTimingPOD> node_classes;
     RelSlice<CellTimingPOD> cell_types;

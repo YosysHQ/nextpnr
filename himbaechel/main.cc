@@ -49,6 +49,7 @@ po::options_description HimbaechelCommandHandler::getArchOptions()
     po::options_description specific("Architecture specific options");
     specific.add_options()("uarch", po::value<std::string>(), uarch_help.c_str());
     specific.add_options()("chipdb", po::value<std::string>(), "path to chip database file");
+    specific.add_options()("speed", po::value<std::string>(), "device speed grade");
     specific.add_options()("vopt,o", po::value<std::vector<std::string>>(), "options to pass to the himbächel uarch");
 
     return specific;
@@ -70,6 +71,8 @@ std::unique_ptr<Context> HimbaechelCommandHandler::createContext(dict<std::strin
         log_error("chip database path must be specified.\n");
     chipArgs.uarch = vm["uarch"].as<std::string>();
     chipArgs.chipdb = vm["chipdb"].as<std::string>();
+    if (vm.count("speed"))
+        chipArgs.speed = vm["speed"].as<std::string>();
     if (vm.count("vopt")) {
         std::vector<std::string> options = vm["vopt"].as<std::vector<std::string>>();
         for (const auto &opt : options) {

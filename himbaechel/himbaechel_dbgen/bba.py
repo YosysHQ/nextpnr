@@ -17,10 +17,13 @@ class BBAWriter:
 	def label(self, s):
 		print(f"label {s}", file=self.f)
 	def u8(self, n, comment=""):
+		assert isinstance(n, int), n
 		print(f"u8 {n} {comment}", file=self.f)
 	def u16(self, n, comment=""):
+		assert isinstance(n, int), n
 		print(f"u16 {n} {comment}", file=self.f)
 	def u32(self, n, comment=""):
+		assert isinstance(n, int), n
 		print(f"u32 {n} {comment}", file=self.f)
 	def pop(self):
 		print("pop", file=self.f)

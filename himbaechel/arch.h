@@ -388,6 +388,7 @@ struct ArchArgs
     std::string uarch;
     std::string chipdb;
     std::string device;
+    std::string speed;
     dict<std::string, std::string> options;
 };
 
@@ -426,6 +427,7 @@ struct Arch : BaseArch<ArchRanges>
     boost::iostreams::mapped_file_source blob_file;
     const ChipInfoPOD *chip_info;
     const PackageInfoPOD *package_info = nullptr;
+    const SpeedGradePOD *speed_grade = nullptr;
 
     // Unlike Viaduct, we are not -generic based and therefore uarch must be non-nullptr
     std::unique_ptr<HimbaechelAPI> uarch;
@@ -522,7 +524,27 @@ struct Arch : BaseArch<ArchRanges>
     {
         return normalise_wire(pip.tile, chip_pip_info(chip_info, pip).dst_wire);
     }
-    DelayQuad getPipDelay(PipId pip) const override { return DelayQuad(100); }
+    DelayQuad getPipDelay(PipId pip) const override
+    {
+        auto &pip_data = chip_pip_info(chip_info, pip);
+        auto pip_tmg = get_pip_timing(pip_data);
+        if (pip_tmg != nullptr) {
+            // TODO: multi corner analysis
+            WireId src = getPipSrcWire(pip);
+            uint64_t input_res = fast_pip_delays ? 0 : (drive_res.count(src) ? drive_res.at(src) : 0);
+            uint64_t input_cap = fast_pip_delays ? 0 : (load_cap.count(src) ? load_cap.at(src) : 0);
+            auto src_tmg = get_node_timing(src);
+            if (src_tmg != nullptr)
+                input_res += (src_tmg->res.slow_max / 2);
+            // Scale delay (fF * mOhm -> ps)
+            delay_t total_delay = (input_res * input_cap) / uint64_t(1e6);
+            total_delay += pip_tmg->int_delay.slow_max;
+            return DelayQuad(total_delay);
+        } else {
+            // Pip with no specified delay. Return a notional value so the router still has something to work with.
+            return DelayQuad(100);
+        }
+    }
     DownhillPipRange getPipsDownhill(WireId wire) const override
     {
         return DownhillPipRange(chip_info, get_tile_wire_range(wire));
@@ -547,11 +569,29 @@ struct Arch : BaseArch<ArchRanges>
     }
     void bindPip(PipId pip, NetInfo *net, PlaceStrength strength) override
     {
+        if (!fast_pip_delays) {
+            auto &pip_data = chip_pip_info(chip_info, pip);
+            auto pip_tmg = get_pip_timing(pip_data);
+            if (pip_tmg != nullptr) {
+                WireId src = getPipSrcWire(pip);
+                load_cap[src] += pip_tmg->in_cap.slow_max;
+                drive_res[getPipDstWire(pip)] =
+                        (((pip_tmg->flags & 1) || !drive_res.count(src)) ? 0 : drive_res.at(src)) +
+                        pip_tmg->out_res.slow_max;
+            }
+        }
         uarch->notifyPipChange(pip, net);
         BaseArch::bindPip(pip, net, strength);
     }
     void unbindPip(PipId pip) override
     {
+        if (!fast_pip_delays) {
+            auto &pip_data = chip_pip_info(chip_info, pip);
+            auto pip_tmg = get_pip_timing(pip_data);
+            if (pip_tmg != nullptr) {
+                load_cap[getPipSrcWire(pip)] -= pip_tmg->in_cap.slow_max;
+            }
+        }
         uarch->notifyPipChange(pip, nullptr);
         BaseArch::unbindPip(pip);
     }
@@ -668,9 +708,64 @@ struct Arch : BaseArch<ArchRanges>
     }
 
     // -------------------------------------------------
+
+    const PipTimingPOD *get_pip_timing(const PipDataPOD &pip_data) const
+    {
+        int32_t idx = pip_data.timing_idx;
+        if (speed_grade && idx >= 0 && idx < speed_grade->pip_classes.ssize())
+            return &(speed_grade->pip_classes[idx]);
+        else
+            return nullptr;
+    }
+
+    const NodeTimingPOD *get_node_timing(WireId wire) const
+    {
+        int idx = -1;
+        if (!speed_grade)
+            return nullptr;
+        if (is_nodal_wire(chip_info, wire.tile, wire.index)) {
+            auto &shape = chip_node_shape(chip_info, wire.tile, wire.index);
+            idx = shape.timing_idx;
+        } else {
+            auto &wire_data = chip_wire_info(chip_info, wire);
+            idx = wire_data.timing_idx;
+        }
+        if (idx >= 0 && idx < speed_grade->node_classes.ssize())
+            return &(speed_grade->node_classes[idx]);
+        else
+            return nullptr;
+    }
+
+    // -------------------------------------------------
+
+    // Given cell type and variant, get the index inside the speed grade timing data
+    int get_cell_timing_idx(IdString type_variant) const;
+    // Return true and set delay if a comb path exists in a given cell timing index
+    bool lookup_cell_delay(int type_idx, IdString from_port, IdString to_port, DelayQuad &delay) const;
+    // Get setup and hold time and associated clock for a given cell timing index and signal
+    const RelSlice<CellPinRegArcPOD> *lookup_cell_seq_timings(int type_idx, IdString port) const;
+    // Attempt to look up port type based on timing database
+    TimingPortClass lookup_port_tmg_type(int type_idx, IdString port, PortType dir) const;
+
+    // -------------------------------------------------
+
+    bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const override;
+    // Get the port class, also setting clockInfoCount to the number of TimingClockingInfos associated with a port
+    TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const override;
+    // Get the TimingClockingInfo of a port
+    TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const override;
+
+    // -------------------------------------------------
     void init_tiles();
+    void set_fast_pip_delays(bool fast_mode);
     std::vector<IdString> tile_name;
     dict<IdString, int> tile_name2idx;
+
+    // Load capacitance and drive resistance for nodes
+    // TODO: does this `dict` hurt routing performance too much?
+    bool fast_pip_delays = false;
+    dict<WireId, uint64_t> drive_res;
+    dict<WireId, uint64_t> load_cap;
 };
 
 NEXTPNR_NAMESPACE_END

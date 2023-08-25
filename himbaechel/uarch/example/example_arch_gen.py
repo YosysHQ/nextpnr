@@ -40,15 +40,15 @@ def create_switch_matrix(tt: TileType, inputs: list[str], outputs: list[str]):
     # input pips
     for i, w in enumerate(inputs):
         for j in range((i % Si), Wl, Si):
-            tt.create_pip(f"SWITCH{j}", w)
+            tt.create_pip(f"SWITCH{j}", w, timing_class="SWINPUT")
     # output pips
     for i, w in enumerate(outputs):
         for j in range((i % Sq), Wl, Sq):
-            tt.create_pip(w, f"SWITCH{j}")
+            tt.create_pip(w, f"SWITCH{j}", timing_class="SWINPUT")
     # neighbour local pips
     for i in range(Wl):
         for j, (d, dx, dy) in enumerate(dirs):
-            tt.create_pip(f"{d}{(i + j) % Wl}", f"SWITCH{i}")
+            tt.create_pip(f"{d}{(i + j) % Wl}", f"SWITCH{i}", timing_class="SWNEIGH")
     # clock "ladder"
     if not tt.has_wire("CLK"):
         tt.create_wire(f"CLK", "TILE_CLK")
@@ -185,7 +185,37 @@ def create_nodes(ch):
                     clk_node.append(NodeWire(x, y+1, "CLK_PREV"))
                 ch.add_node(clk_node)
 
+def set_timings(ch):
+    speed = "DEFAULT"
+    tmg = ch.set_speed_grades([speed])
+    # --- Routing Delays ---
+    # Notes: A simpler timing model could just use intrinsic delay and ignore R and Cs.
+    # R and C values don't have to be physically realistic, just in agreement with themselves to provide
+    # a meaningful scaling of delay with fanout. Units are subject to change.
+    tmg.set_pip_class(grade=speed, name="SWINPUT",
+        delay=TimingValue(80), # 80ps intrinstic delay
+        in_cap=TimingValue(5000), # 5pF
+        out_res=TimingValue(1000), # 1ohm
+    )
+    tmg.set_pip_class(grade=speed, name="SWOUTPUT",
+        delay=TimingValue(100), # 100ps intrinstic delay
+        in_cap=TimingValue(5000), # 5pF
+        out_res=TimingValue(800), # 0.8ohm
+    )
+    tmg.set_pip_class(grade=speed, name="SWNEIGH",
+        delay=TimingValue(120), # 120ps intrinstic delay
+        in_cap=TimingValue(7000), # 7pF
+        out_res=TimingValue(1200), # 1.2ohm
+    )
+    # TODO: also support node/wire delays and add an example of them
 
+    # --- Cell delays ---
+    lut = ch.timing.add_cell_variant(speed, "LUT4")
+    for j in range(K):
+        lut.add_comb_arc(f"I[{j}]", "F", TimingValue(150 + j * 15))
+    dff = ch.timing.add_cell_variant(speed, "DFF")
+    dff.add_setup_hold("CLK", "D", ClockEdge.RISING, TimingValue(150), TimingValue(25))
+    dff.add_clock_out("CLK", "Q", ClockEdge.RISING, TimingValue(200))
 
 def main():
     ch = Chip("example", "EX1", X, Y)
@@ -211,6 +241,8 @@ def main():
                 ch.set_tile_type(x, y, "LOGIC")
     # Create nodes between tiles
     create_nodes(ch)
+    set_timings(ch)
     ch.write_bba(sys.argv[1])
+
 if __name__ == '__main__':
     main()

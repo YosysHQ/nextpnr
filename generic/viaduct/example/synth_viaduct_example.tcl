@@ -2,7 +2,7 @@
 # tcl synth_viaduct_example.tcl {out.json}
 
 yosys read_verilog -lib [file dirname [file normalize $argv0]]/example_prims.v
-yosys hierarchy -check
+yosys hierarchy -check -top top
 yosys proc
 yosys flatten
 yosys tribuf -logic
