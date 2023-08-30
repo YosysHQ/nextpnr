@@ -18,7 +18,7 @@ set -ex
 
 ${YOSYS:-yosys} -p "ghdl --std=08 prims.vhd ${1}.vhd -e;
                     attrmap -tocase LOC
-                    synth_machxo2 -json ${1}-vhdl.json"
+                    synth_lattice -family xo2 -json ${1}-vhdl.json"
 ${NEXTPNR:-../../nextpnr-machxo2} --device LCMXO2-1200HC-4SG32C --json $1-vhdl.json --textcfg $1-vhdl.txt
 ecppack --compress $DB_ARG $1-vhdl.txt $1-vhdl.bit
 tinyproga -b $1-vhdl.bit
