@@ -29,11 +29,11 @@ fi
 set -ex
 
 ${YOSYS:-yosys} -p "read_verilog ${1}.v
-                    synth_machxo2 -json ${1}.json"
+                    synth_lattice -family xo2 -json ${1}.json"
 ${NEXTPNR:-../../nextpnr-machxo2} $NEXTPNR_MODE --device LCMXO2-1200HC-4SG32C --json ${1}.json --write ${2}${1}.json
-${YOSYS:-yosys} -p "read_verilog -lib +/machxo2/cells_sim.v
+${YOSYS:-yosys} -p "read_verilog -lib +/lattice/cells_sim_xo2.v
                     read_json ${2}${1}.json
                     clean -purge
                     write_verilog -noattr -norename ${2}${1}.v"
-iverilog -o ${1}_simtest ${CELLS_SIM:-`${YOSYS:yosys}-config --datdir/machxo2/cells_sim.v`} ${1}_tb.v ${2}${1}.v
+iverilog -o ${1}_simtest ${CELLS_SIM:-`${YOSYS:yosys}-config --datdir/lattice/cells_sim_xo2.v`} ${1}_tb.v ${2}${1}.v
 vvp -N ./${1}_simtest
