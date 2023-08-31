@@ -11,6 +11,19 @@ if(HIMBAECHEL_GOWIN_DEVICES STREQUAL "all")
 endif()
 message(STATUS "Enabled Himbaechel-Gowin devices: ${HIMBAECHEL_GOWIN_DEVICES}")
 
+if(DEFINED ENV{APYCULA_INSTALL_PREFIX})
+    set(apycula_default_install_prefix $ENV{APYCULA_INSTALL_PREFIX})
+endif()
+set(APYCULA_INSTALL_PREFIX ${apycula_default_install_prefix} CACHE STRING
+    "Apycula install prefix (virtualenv directory)")
+if(NOT APYCULA_INSTALL_PREFIX STREQUAL "")
+	message(STATUS "Apycula install prefix: ${APYCULA_INSTALL_PREFIX}")
+	set(apycula_Python3_EXECUTABLE ${APYCULA_INSTALL_PREFIX}/bin/python)
+else()
+	message(STATUS "Apycula install prefix: (using system Python)")
+	set(apycula_Python3_EXECUTABLE ${Python3_EXECUTABLE})
+endif()
+
 set(chipdb_binaries)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/chipdb)
 foreach(device ${HIMBAECHEL_GOWIN_DEVICES})
@@ -22,7 +35,7 @@ foreach(device ${HIMBAECHEL_GOWIN_DEVICES})
 	set(device_bin chipdb/chipdb-${device}.bin)
 	add_custom_command(
 		OUTPUT ${device_bin}
-		COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/gowin_arch_gen.py -d ${device} -o ${device_bba}
+		COMMAND ${apycula_Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/gowin_arch_gen.py -d ${device} -o ${device_bba}
 		COMMAND bbasm ${BBASM_ENDIAN_FLAG} ${device_bba} ${device_bin}.new
         # atomically update
         COMMAND ${CMAKE_COMMAND} -E rename ${device_bin}.new ${device_bin}
