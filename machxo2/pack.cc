@@ -1349,7 +1349,8 @@ class MachXO2Packer
                         }
                     }
                     if (!found)
-                        log_error("Unsupported frequency '%s' on %s '%s'\n", freq.c_str(), ci->type.c_str(ctx), ci->name.c_str(ctx));
+                        log_error("Unsupported frequency '%s' on %s '%s'\n", freq.c_str(), ci->type.c_str(ctx),
+                                  ci->name.c_str(ctx));
                 }
             }
         }

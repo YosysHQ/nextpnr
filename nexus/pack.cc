@@ -94,7 +94,8 @@ Property Arch::parse_lattice_param(const Property &val, IdString prop, int width
         if (int(val.str.size()) > width) {
             for (auto b : val.str.substr(width)) {
                 if (b == Property::S1)
-                    log_error("Found bitvector value for property %s.%s with width greater than %d - perhaps a string was "
+                    log_error("Found bitvector value for property %s.%s with width greater than %d - perhaps a string "
+                              "was "
                               "converted to bits?\n",
                               ci, nameOf(prop), width);
             }
