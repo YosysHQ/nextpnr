@@ -234,6 +234,12 @@ class Ecp5Packer
             CellInfo *ci = cell.second.get();
             if (is_ff(ctx, ci)) {
                 NetInfo *di = ci->getPort(id_DI);
+                NetInfo *m = ci->getPort(id_M);
+                if (ci->ports.count(id_M) && (!m || !m->driver.cell)) {
+                    // M input is floating. Remove it, so renamePort doesn't hit trouble
+                    ci->disconnectPort(id_M);
+                    ci->ports.erase(id_M);
+                }
                 if (di->driver.cell != nullptr && di->driver.cell->type == id_TRELLIS_COMB && di->driver.port == id_F) {
                     CellInfo *comb = di->driver.cell;
                     if (comb->cluster != ClusterId()) {
