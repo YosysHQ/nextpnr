@@ -106,7 +106,7 @@ struct WireId
     bool operator==(const WireId &other) const { return node == other.node; }
     bool operator!=(const WireId &other) const { return node != other.node; }
     bool operator<(const WireId &other) const { return node < other.node; }
-    unsigned int hash() const { return unsigned(node); }
+    unsigned int hash() const { return node.v; }
 };
 
 struct PipId
