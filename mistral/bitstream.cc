@@ -32,13 +32,13 @@ struct MistralBitgen
 
     using rnode_coords = CycloneV::rnode_coords;
     using pnode_coords = CycloneV::pnode_coords;
-    using pos_t = CycloneV::pos_t;
+    using xycoords = CycloneV::xycoords;
     using block_type_t = CycloneV::block_type_t;
     using port_type_t = CycloneV::port_type_t;
 
-    rnode_coords find_rnode(block_type_t bt, pos_t pos, port_type_t port, int bi = -1, int pi = -1) const
+    rnode_coords find_rnode(block_type_t bt, xycoords pos, port_type_t port, int bi = -1, int pi = -1) const
     {
-        auto pn1 = CycloneV::pnode(bt, pos, port, bi, pi);
+        auto pn1 = CycloneV::pnode_coords{bt, pos, port, bi, pi};
         auto rn1 = cv->pnode_to_rnode(pn1);
         if (rn1)
             return rn1;
@@ -55,7 +55,7 @@ struct MistralBitgen
             return rn2;
         }
 
-        return 0;
+        return CycloneV::rnode_coords{};
     }
 
     void options()
@@ -88,7 +88,7 @@ struct MistralBitgen
     void write_io_cell(CellInfo *ci, int x, int y, int bi)
     {
         bool is_output = (ci->type == id_MISTRAL_OB || (ci->type == id_MISTRAL_IO && ci->getPort(id_OE) != nullptr));
-        auto pos = CycloneV::xy2pos(x, y);
+        auto pos = CycloneV::xycoords{x, y};
         // TODO: configurable pull, IO standard, etc
         cv->bmux_b_set(CycloneV::GPIO, pos, CycloneV::USE_WEAK_PULLUP, bi, false);
         if (is_output) {
@@ -96,12 +96,12 @@ struct MistralBitgen
             cv->bmux_m_set(CycloneV::GPIO, pos, CycloneV::IOCSR_STD, bi, CycloneV::DIS);
 
             // Output gpios must also bypass things in the associated dqs
-            auto dqs = cv->p2p_to(CycloneV::pnode(CycloneV::GPIO, pos, CycloneV::PNONE, bi, -1));
+            auto dqs = cv->p2p_to(CycloneV::pnode_coords{CycloneV::GPIO, pos, CycloneV::PNONE, bi, -1});
             if (dqs) {
-                cv->bmux_m_set(CycloneV::DQS16, CycloneV::pn2p(dqs), CycloneV::INPUT_REG4_SEL, CycloneV::pn2bi(dqs),
+                cv->bmux_m_set(CycloneV::DQS16, dqs.p(), CycloneV::INPUT_REG4_SEL, dqs.bi(),
                                CycloneV::SEL_LOCKED_DPA);
-                cv->bmux_r_set(CycloneV::DQS16, CycloneV::pn2p(dqs), CycloneV::RB_T9_SEL_EREG_CFF_DELAY,
-                               CycloneV::pn2bi(dqs), 0x1f);
+                cv->bmux_r_set(CycloneV::DQS16, dqs.p(), CycloneV::RB_T9_SEL_EREG_CFF_DELAY,
+                               dqs.bi(), 0x1f);
             }
         }
         // There seem to be two mirrored OEIN inversion bits for constant OE for inputs/outputs. This might be to
@@ -114,14 +114,14 @@ struct MistralBitgen
     void write_clkbuf_cell(CellInfo *ci, int x, int y, int bi)
     {
         (void)ci; // currently unused
-        auto pos = CycloneV::xy2pos(x, y);
+        auto pos = CycloneV::xycoords{x, y};
         cv->bmux_r_set(CycloneV::CMUXHG, pos, CycloneV::INPUT_SEL, bi, 0x1b); // hardcode to general routing
         cv->bmux_m_set(CycloneV::CMUXHG, pos, CycloneV::TESTSYN_ENOUT_SELECT, bi, CycloneV::PRE_SYNENB);
     }
 
     void write_m10k_cell(CellInfo *ci, int x, int y, int bi)
     {
-        auto pos = CycloneV::xy2pos(x, y);
+        auto pos = CycloneV::xycoords{x, y};
 
         // Notes:
         // DATA_FLOW_THRU is probably transparent reads.
@@ -240,8 +240,8 @@ struct MistralBitgen
         const std::array<CycloneV::port_type_t, 6> mux_port{CycloneV::FFT0, CycloneV::FFT1, CycloneV::FFT1L,
                                                             CycloneV::FFB0, CycloneV::FFB1, CycloneV::FFB1L};
         for (int i = 0; i < 6; i++) {
-            if (ctx->wires_connected(alm_data.comb_out[i / 3], ctx->get_port(block_type, CycloneV::pos2x(pos),
-                                                                             CycloneV::pos2y(pos), alm, mux_port[i])))
+            if (ctx->wires_connected(alm_data.comb_out[i / 3], ctx->get_port(block_type, pos.x(),
+                                                                             pos.y(), alm, mux_port[i])))
                 cv->bmux_m_set(block_type, pos, mux_settings[i], alm, CycloneV::NLUT);
         }
 
@@ -358,7 +358,7 @@ struct MistralBitgen
         for (int i = 0; i < 3; i++) {
             // Check for fabric->clock routing
             if (ctx->wires_connected(
-                        ctx->get_port(block_type, CycloneV::pos2x(pos), CycloneV::pos2y(pos), -1, CycloneV::DATAIN, 0),
+                        ctx->get_port(block_type, pos.x(), pos.y(), -1, CycloneV::DATAIN, 0),
                         lab_data.clk_wires[i]))
                 cv->bmux_m_set(block_type, pos, CycloneV::CLKA_SEL, 0, CycloneV::DIN0);
         }

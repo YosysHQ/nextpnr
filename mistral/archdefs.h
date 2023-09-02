@@ -76,19 +76,19 @@ struct DelayInfo
 struct BelId
 {
     BelId() = default;
-    BelId(CycloneV::pos_t _pos, uint16_t _z) : pos{_pos}, z{_z} {}
+    BelId(CycloneV::xycoords _pos, uint16_t _z) : pos{_pos}, z{_z} {}
 
-    // pos_t is used for X/Y, nextpnr-cyclonev uses its own Z coordinate system.
-    CycloneV::pos_t pos = 0;
+    // xycoords is used for X/Y, nextpnr-cyclonev uses its own Z coordinate system.
+    CycloneV::xycoords pos{};
     uint16_t z = 0;
 
     bool operator==(const BelId &other) const { return pos == other.pos && z == other.z; }
     bool operator!=(const BelId &other) const { return pos != other.pos || z != other.z; }
     bool operator<(const BelId &other) const { return pos < other.pos || (pos == other.pos && z < other.z); }
-    unsigned int hash() const { return mkhash(pos, z); }
+    unsigned int hash() const { return mkhash(pos.v, z); }
 };
 
-static constexpr auto invalid_rnode = std::numeric_limits<CycloneV::rnode_coords>::max();
+static constexpr auto invalid_rnode = CycloneV::rnode_coords{};
 
 struct WireId
 {
@@ -100,7 +100,7 @@ struct WireId
     bool is_nextpnr_created() const
     {
         NPNR_ASSERT(node != invalid_rnode);
-        return unsigned(CycloneV::rn2t(node)) >= 128;
+        return unsigned(node.t()) >= 128;
     }
 
     bool operator==(const WireId &other) const { return node == other.node; }

@@ -56,8 +56,8 @@ bool Arch::is_io_cell(IdString cell_type) const
 BelId Arch::get_io_pin_bel(const CycloneV::pin_info_t *pin) const
 {
     auto pad = pin->pad;
-    CycloneV::pos_t pos = (pad & 0x3FFF);
-    return bel_by_block_idx(CycloneV::pos2x(pos), CycloneV::pos2y(pos), id_MISTRAL_IO, (pad >> 14));
+    CycloneV::xycoords pos = CycloneV::xycoords{pad & 0x3FFF};
+    return bel_by_block_idx(pos.x(), pos.y(), id_MISTRAL_IO, (pad >> 14));
 }
 
 NEXTPNR_NAMESPACE_END

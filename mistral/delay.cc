@@ -251,7 +251,7 @@ DelayQuad Arch::getPipDelay(PipId pip) const
         return DelayQuad{20};
 
     // This is guesswork based on average of (interconnect delay / number of pips)
-    auto src_type = CycloneV::rn2t(src.node);
+    auto src_type = src.node.t();
 
     switch (src_type) {
     case CycloneV::rnode_type_t::SCLK:
@@ -342,7 +342,7 @@ bool Arch::getArcDelayOverride(const NetInfo *net_info, const PortRef &sink, Del
             continue;
 
         if (dst.is_nextpnr_created())
-            dst.node = 0;
+            dst.node = CycloneV::rnode_coords{};
 
         auto mode = cyclonev->rnode_timing_get_mode(src.node);
         NPNR_ASSERT(mode != mistral::CycloneV::RTM_UNSUPPORTED);
@@ -419,10 +419,10 @@ delay_t Arch::predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdStr
 
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {
-    int x0 = CycloneV::rn2x(src.node);
-    int y0 = CycloneV::rn2y(src.node);
-    int x1 = CycloneV::rn2x(dst.node);
-    int y1 = CycloneV::rn2y(dst.node);
+    int x0 = src.node.x();
+    int y0 = src.node.y();
+    int x1 = dst.node.x();
+    int y1 = dst.node.y();
     int x_diff = std::abs(x1 - x0);
     int y_diff = std::abs(y1 - y0);
     return 75 * x_diff + 200 * y_diff;

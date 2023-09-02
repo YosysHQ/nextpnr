@@ -1081,7 +1081,7 @@ uint64_t Arch::compute_lut_mask(uint32_t lab, uint8_t alm)
 #if 1
     if (getCtx()->debug) {
         auto pos = alm_data.lut_bels[0].pos;
-        log("ALM %03d.%03d.%d\n", CycloneV::pos2x(pos), CycloneV::pos2y(pos), alm);
+        log("ALM %03d.%03d.%d\n", pos.x(), pos.y(), alm);
         for (int i = 0; i < 2; i++) {
             log("    LUT%d: ", i);
             if (luts[i]) {

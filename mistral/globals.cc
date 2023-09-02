@@ -71,7 +71,7 @@ struct MistralGlobalRouter
     // When routing globals; we allow global->local for some tricky cases but never local->local
     bool global_pip_filter(PipId pip) const
     {
-        auto src_type = CycloneV::rn2t(pip.src);
+        auto src_type = pip.src.t();
         return src_type != CycloneV::H14 && src_type != CycloneV::H6 && src_type != CycloneV::H3 &&
                src_type != CycloneV::V12 && src_type != CycloneV::V2 && src_type != CycloneV::V4 &&
                src_type != CycloneV::WM;
