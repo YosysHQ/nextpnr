@@ -30,13 +30,13 @@ struct MistralBitgen
     Context *ctx;
     CycloneV *cv;
 
-    using rnode_t = CycloneV::rnode_t;
-    using pnode_t = CycloneV::pnode_t;
+    using rnode_coords = CycloneV::rnode_coords;
+    using pnode_coords = CycloneV::pnode_coords;
     using pos_t = CycloneV::pos_t;
     using block_type_t = CycloneV::block_type_t;
     using port_type_t = CycloneV::port_type_t;
 
-    rnode_t find_rnode(block_type_t bt, pos_t pos, port_type_t port, int bi = -1, int pi = -1) const
+    rnode_coords find_rnode(block_type_t bt, pos_t pos, port_type_t port, int bi = -1, int pi = -1) const
     {
         auto pn1 = CycloneV::pnode(bt, pos, port, bi, pi);
         auto rn1 = cv->pnode_to_rnode(pn1);

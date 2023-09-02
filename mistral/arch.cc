@@ -43,7 +43,7 @@ void IdString::initialize_arch(const BaseCtx *ctx)
 #undef X
 }
 
-CycloneV::rnode_t Arch::find_rnode(CycloneV::block_type_t bt, int x, int y, CycloneV::port_type_t port, int bi,
+CycloneV::rnode_coords Arch::find_rnode(CycloneV::block_type_t bt, int x, int y, CycloneV::port_type_t port, int bi,
                                    int pi) const
 {
     auto pn1 = CycloneV::pnode(bt, x, y, port, bi, pi);

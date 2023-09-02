@@ -303,7 +303,7 @@ bool Arch::getArcDelayOverride(const NetInfo *net_info, const PortRef &sink, Del
     mistral::AnalogSim::wave input_wave[2], output_wave[2];
     mistral::AnalogSim::time_interval output_delays[2];
     mistral::AnalogSim::time_interval output_delay_sum[2];
-    std::vector<std::pair<mistral::CycloneV::rnode_t, int>> outputs;
+    std::vector<std::pair<mistral::CycloneV::rnode_coords, int>> outputs;
     auto temp = mistral::CycloneV::T_100;
     auto est = mistral::CycloneV::EST_SLOW;
 
@@ -378,13 +378,13 @@ bool Arch::getArcDelayOverride(const NetInfo *net_info, const PortRef &sink, Del
                                           : mistral::CycloneV::RF_RISE;
             mistral::AnalogSim sim;
             int input = -1;
-            std::vector<std::pair<mistral::CycloneV::rnode_t, int>> outputs;
+            std::vector<std::pair<mistral::CycloneV::rnode_coords, int>> outputs;
             cyclonev->rnode_timing_build_circuit(src.node, temp, CycloneV::DELAY_MAX, actual_edge, sim, input, outputs);
 
             sim.set_input_wave(input, input_wave[edge]);
             auto o = std::find_if(
                     outputs.begin(), outputs.end(),
-                    [&](std::pair<mistral::CycloneV::rnode_t, int> output) { return output.first == dst.node; });
+                    [&](std::pair<mistral::CycloneV::rnode_coords, int> output) { return output.first == dst.node; });
             NPNR_ASSERT(o != outputs.end());
 
             output_wave[edge].clear();

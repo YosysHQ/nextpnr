@@ -88,13 +88,13 @@ struct BelId
     unsigned int hash() const { return mkhash(pos, z); }
 };
 
-static constexpr auto invalid_rnode = std::numeric_limits<CycloneV::rnode_t>::max();
+static constexpr auto invalid_rnode = std::numeric_limits<CycloneV::rnode_coords>::max();
 
 struct WireId
 {
     WireId() = default;
-    explicit WireId(CycloneV::rnode_t node) : node(node){};
-    CycloneV::rnode_t node = invalid_rnode;
+    explicit WireId(CycloneV::rnode_coords node) : node(node){};
+    CycloneV::rnode_coords node = invalid_rnode;
 
     // Wires created by nextpnr have rnode type >= 128
     bool is_nextpnr_created() const
@@ -112,8 +112,8 @@ struct WireId
 struct PipId
 {
     PipId() = default;
-    PipId(CycloneV::rnode_t src, CycloneV::rnode_t dst) : src(src), dst(dst){};
-    CycloneV::rnode_t src = invalid_rnode, dst = invalid_rnode;
+    PipId(CycloneV::rnode_coords src, CycloneV::rnode_coords dst) : src(src), dst(dst){};
+    CycloneV::rnode_coords src = invalid_rnode, dst = invalid_rnode;
 
     bool operator==(const PipId &other) const { return src == other.src && dst == other.dst; }
     bool operator!=(const PipId &other) const { return src != other.src || dst != other.dst; }

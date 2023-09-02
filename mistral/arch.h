@@ -466,7 +466,7 @@ struct Arch : BaseArch<ArchRanges>
 
     void add_bel_pin(BelId bel, IdString pin, PortType dir, WireId wire);
 
-    CycloneV::rnode_t find_rnode(CycloneV::block_type_t bt, int x, int y, CycloneV::port_type_t port, int bi = -1,
+    CycloneV::rnode_coords find_rnode(CycloneV::block_type_t bt, int x, int y, CycloneV::port_type_t port, int bi = -1,
                                  int pi = -1) const;
     WireId get_port(CycloneV::block_type_t bt, int x, int y, int bi, CycloneV::port_type_t port, int pi = -1) const;
     bool has_port(CycloneV::block_type_t bt, int x, int y, int bi, CycloneV::port_type_t port, int pi = -1) const;
