@@ -1097,3 +1097,7 @@ X(HCLK_OUT1)
 X(HCLK_OUT2)
 X(HCLK_OUT3)
 
+// BUFG, clock buffers stuff
+X(BUFG)
+X(CLOCK)
+

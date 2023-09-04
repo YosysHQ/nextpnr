@@ -32,6 +32,8 @@ IOLOGICA_Z = 70
 IDES16_Z   = 72
 OSER16_Z   = 73
 
+BUFG_Z  = 74 # : 81 reserve just in case
+
 OSC_Z   = 274
 PLL_Z   = 275
 GSR_Z   = 276
@@ -291,6 +293,18 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
                         tt.add_bel_pin(bel, port, wire, PinType.OUTPUT)
                     else:
                         tt.add_bel_pin(bel, port, wire, PinType.INPUT)
+        if func == 'buf':
+            for buf_type, wires in desc.items():
+                for i, wire in enumerate(wires):
+                    if not tt.has_wire(wire):
+                        tt.create_wire(wire, "TILE_CLK")
+                    wire_out = f'{buf_type}{i}_O'
+                    tt.create_wire(wire_out, "TILE_CLK")
+                    # XXX make Z from buf_type
+                    bel = tt.create_bel(f'{buf_type}{i}', buf_type, z = BUFG_Z + i)
+                    bel.flags = BEL_FLAG_GLOBAL
+                    tt.add_bel_pin(bel, "I", wire, PinType.INPUT)
+                    tt.add_bel_pin(bel, "O", wire_out, PinType.OUTPUT)
 
 def create_tiletype(create_func, chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
     has_extra_func = (y, x) in db.extra_func

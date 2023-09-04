@@ -67,28 +67,13 @@ struct GowinGlobalRouter
 
     // Dedicated backwards BFS routing for global networks
     template <typename Tfilt>
-    bool backwards_bfs_route(NetInfo *net, store_index<PortRef> user_idx, int iter_limit, bool strict, Tfilt pip_filter)
+    bool backwards_bfs_route(NetInfo *net, WireId src, WireId dst, int iter_limit, bool strict, Tfilt pip_filter)
     {
+        // log_info("%s:%s->%s\n", net->name.c_str(ctx), ctx->nameOfWire(src), ctx->nameOfWire(dst));
         // Queue of wires to visit
         std::queue<WireId> visit;
         // Wire -> upstream pip
         dict<WireId, PipId> backtrace;
-
-        // Lookup source and destination wires
-        WireId src = ctx->getNetinfoSourceWire(net);
-        WireId dst = ctx->getNetinfoSinkWire(net, net->users.at(user_idx), 0);
-
-        if (src == WireId())
-            log_error("Net '%s' has an invalid source port %s.%s\n", ctx->nameOf(net), ctx->nameOf(net->driver.cell),
-                      ctx->nameOf(net->driver.port));
-
-        if (dst == WireId())
-            log_error("Net '%s' has an invalid sink port %s.%s\n", ctx->nameOf(net),
-                      ctx->nameOf(net->users.at(user_idx).cell), ctx->nameOf(net->users.at(user_idx).port));
-
-        if (ctx->getBoundWireNet(src) != net) {
-            ctx->bindWire(src, net, STRENGTH_LOCKED);
-        }
 
         if (src == dst) {
             // Nothing more to do
@@ -106,24 +91,29 @@ struct GowinGlobalRouter
             // Search uphill pips
             for (PipId pip : ctx->getPipsUphill(cursor)) {
                 // Skip pip if unavailable, and not because it's already used for this net
-                if (!ctx->checkPipAvail(pip) && ctx->getBoundPipNet(pip) != net)
+                if (!ctx->checkPipAvail(pip) && ctx->getBoundPipNet(pip) != net) {
                     continue;
+                }
                 WireId prev = ctx->getPipSrcWire(pip);
                 // Ditto for the upstream wire
-                if (!ctx->checkWireAvail(prev) && ctx->getBoundWireNet(prev) != net)
+                if (!ctx->checkWireAvail(prev) && ctx->getBoundWireNet(prev) != net) {
                     continue;
+                }
                 // Skip already visited wires
-                if (backtrace.count(prev))
+                if (backtrace.count(prev)) {
                     continue;
+                }
                 // Apply our custom pip filter
-                if (!pip_filter(pip))
+                if (!pip_filter(pip)) {
                     continue;
+                }
                 // Add to the queue
                 visit.push(prev);
                 backtrace[prev] = pip;
                 // Check if we are done yet
-                if (prev == src)
+                if (prev == src) {
                     goto done;
+                }
             }
             if (false) {
             done:
@@ -137,18 +127,22 @@ struct GowinGlobalRouter
             // Create a list of pips on the routed path
             while (true) {
                 PipId pip = backtrace.at(cursor);
-                if (pip == PipId())
+                if (pip == PipId()) {
                     break;
+                }
                 pips.push_back(pip);
                 cursor = ctx->getPipDstWire(pip);
+                // log_info(">> %s:%s\n", ctx->getPipName(pip).str(ctx).c_str(), ctx->nameOfWire(cursor));
             }
             // Reverse that list
             std::reverse(pips.begin(), pips.end());
             // Bind pips until we hit already-bound routing
             for (PipId pip : pips) {
                 WireId dst = ctx->getPipDstWire(pip);
-                if (ctx->getBoundWireNet(dst) == net)
+                // log_info("%s:%s\n", ctx->getPipName(pip).str(ctx).c_str(), ctx->nameOfWire(dst));
+                if (ctx->getBoundWireNet(dst) == net) {
                     break;
+                }
                 ctx->bindPip(pip, net, STRENGTH_LOCKED);
             }
             return true;
@@ -159,28 +153,89 @@ struct GowinGlobalRouter
             } else {
                 log_warning("Failed to route net '%s' from %s to %s using dedicated routing.\n", ctx->nameOf(net),
                             ctx->nameOfWire(src), ctx->nameOfWire(dst));
-                ctx->unbindWire(src);
                 return false;
             }
         }
     }
 
-    void route_clk_net(NetInfo *net)
+    bool route_direct_net(NetInfo *net)
     {
+        // Lookup source and destination wires
+        WireId src = ctx->getNetinfoSourceWire(net);
+        if (src == WireId())
+            log_error("Net '%s' has an invalid source port %s.%s\n", ctx->nameOf(net), ctx->nameOf(net->driver.cell),
+                      ctx->nameOf(net->driver.port));
+
+        if (ctx->getBoundWireNet(src) != net) {
+            ctx->bindWire(src, net, STRENGTH_LOCKED);
+        }
+
         bool routed = false;
         for (auto usr : net->users.enumerate()) {
-            routed = backwards_bfs_route(net, usr.index, 1000000, false, [&](PipId pip) {
+            WireId dst = ctx->getNetinfoSinkWire(net, net->users.at(usr.index), 0);
+            if (dst == WireId()) {
+                log_error("Net '%s' has an invalid sink port %s.%s\n", ctx->nameOf(net),
+                          ctx->nameOf(net->users.at(usr.index).cell), ctx->nameOf(net->users.at(usr.index).port));
+            }
+            routed = backwards_bfs_route(net, src, dst, 1000000, false, [&](PipId pip) {
                 return (is_relaxed_sink(usr.value) || global_pip_filter(pip));
             });
             if (!routed) {
                 break;
             }
         }
+        if (!routed) {
+            ctx->unbindWire(src);
+        }
+        return routed;
+    }
 
-        if (routed) {
+    void route_buffered_net(NetInfo *net)
+    {
+        // a) route net after buf using the buf input as source
+        CellInfo *buf_ci = net->driver.cell;
+        WireId src = ctx->getBelPinWire(buf_ci->bel, id_I);
+
+        NetInfo *net_before_buf = buf_ci->getPort(id_I);
+        NPNR_ASSERT(net_before_buf != nullptr);
+
+        if (src == WireId()) {
+            log_error("Net '%s' has an invalid source port %s.%s\n", ctx->nameOf(net), ctx->nameOf(net->driver.cell),
+                      ctx->nameOf(net->driver.port));
+        }
+        ctx->bindWire(src, net, STRENGTH_LOCKED);
+
+        for (auto usr : net->users.enumerate()) {
+            WireId dst = ctx->getNetinfoSinkWire(net, net->users.at(usr.index), 0);
+            if (dst == WireId()) {
+                log_error("Net '%s' has an invalid sink port %s.%s\n", ctx->nameOf(net),
+                          ctx->nameOf(net->users.at(usr.index).cell), ctx->nameOf(net->users.at(usr.index).port));
+            }
+            // log_info(" usr wire: %s\n", ctx->nameOfWire(dst));
+            backwards_bfs_route(net, src, dst, 1000000, true,
+                                [&](PipId pip) { return (is_relaxed_sink(usr.value) || global_pip_filter(pip)); });
+        }
+
+        // b) route net before buf from whatever to the buf input
+        WireId dst = src;
+        CellInfo *true_src_ci = net_before_buf->driver.cell;
+        src = ctx->getBelPinWire(true_src_ci->bel, net_before_buf->driver.port);
+        ctx->bindWire(src, net, STRENGTH_LOCKED);
+        ctx->unbindWire(dst);
+        backwards_bfs_route(net, src, dst, 1000000, false, [&](PipId pip) { return true; });
+        // remove net
+        buf_ci->movePortTo(id_O, true_src_ci, net_before_buf->driver.port);
+        net_before_buf->driver.cell = nullptr;
+    }
+
+    void route_clk_net(NetInfo *net)
+    {
+        if (route_direct_net(net)) {
             log_info("    routed net '%s' using global resources\n", ctx->nameOf(net));
         }
     }
+
+    bool driver_is_buf(const PortRef &driver) { return CellTypePort(driver) == CellTypePort(id_BUFG, id_O); }
 
     bool driver_is_clksrc(const PortRef &driver)
     {
@@ -219,11 +274,27 @@ struct GowinGlobalRouter
     void run(void)
     {
         log_info("Routing globals...\n");
+        // buffered nets first
         for (auto &net : ctx->nets) {
             NetInfo *ni = net.second.get();
             CellInfo *drv = ni->driver.cell;
-            if (drv == nullptr)
+            if (drv == nullptr) {
                 continue;
+            }
+            if (driver_is_buf(ni->driver)) {
+                if (ctx->verbose) {
+                    log_info("route buffered net '%s'\n", ctx->nameOf(ni));
+                }
+                route_buffered_net(ni);
+                continue;
+            }
+        }
+        for (auto &net : ctx->nets) {
+            NetInfo *ni = net.second.get();
+            CellInfo *drv = ni->driver.cell;
+            if (drv == nullptr) {
+                continue;
+            }
             if (driver_is_clksrc(ni->driver)) {
                 route_clk_net(ni);
                 continue;
