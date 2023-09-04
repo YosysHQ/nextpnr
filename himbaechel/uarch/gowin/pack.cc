@@ -110,7 +110,7 @@ struct GowinPacker
             auto &ci = *cell.second;
             if (!ci.type.in(ctx->id("$nextpnr_ibuf"), ctx->id("$nextpnr_obuf"), ctx->id("$nextpnr_iobuf")))
                 continue;
-            NetInfo *i = ci.getPort(ctx->id("I"));
+            NetInfo *i = ci.getPort(id_I);
             if (i && i->driver.cell) {
                 if (!top_ports.count(CellTypePort(i->driver)))
                     log_error("Top-level port '%s' driven by illegal port %s.%s\n", ctx->nameOf(&ci),
@@ -119,7 +119,7 @@ struct GowinPacker
                     i->driver.cell->attrs[attr.first] = attr.second;
                 }
             }
-            NetInfo *o = ci.getPort(ctx->id("O"));
+            NetInfo *o = ci.getPort(id_O);
             if (o) {
                 for (auto &usr : o->users) {
                     if (!top_ports.count(CellTypePort(usr)))
@@ -128,9 +128,21 @@ struct GowinPacker
                     for (const auto &attr : ci.attrs) {
                         usr.cell->attrs[attr.first] = attr.second;
                     }
+                    // network/port attributes that can be set in the
+                    // restriction file and that need to be transferred to real
+                    // networks before nextpnr buffers are removed.
+                    NetInfo *dst_net = usr.cell->getPort(id_O);
+                    if (dst_net != nullptr) {
+                        for (const auto &attr : o->attrs) {
+                            if (!attr.first.in(id_CLOCK)) {
+                                continue;
+                            }
+                            dst_net->attrs[attr.first] = attr.second;
+                        }
+                    }
                 }
             }
-            NetInfo *io = ci.getPort(ctx->id("IO"));
+            NetInfo *io = ci.getPort(id_IO);
             if (io && io->driver.cell) {
                 if (!top_ports.count(CellTypePort(io->driver)))
                     log_error("Top-level port '%s' driven by illegal port %s.%s\n", ctx->nameOf(&ci),
@@ -139,9 +151,9 @@ struct GowinPacker
                     io->driver.cell->attrs[attr.first] = attr.second;
                 }
             }
-            ci.disconnectPort(ctx->id("I"));
-            ci.disconnectPort(ctx->id("O"));
-            ci.disconnectPort(ctx->id("IO"));
+            ci.disconnectPort(id_I);
+            ci.disconnectPort(id_O);
+            ci.disconnectPort(id_IO);
             to_remove.push_back(ci.name);
         }
         for (IdString cell_name : to_remove)
@@ -1317,6 +1329,41 @@ struct GowinPacker
         }
     }
 
+    // =========================================
+    // Create entry points to the clock system
+    // =========================================
+    void pack_buffered_nets()
+    {
+        log_info("Pack buffered nets..\n");
+
+        for (auto &net : ctx->nets) {
+            auto &ni = *net.second;
+            if (ni.driver.cell == nullptr || ni.attrs.count(id_CLOCK) == 0 || ni.users.empty()) {
+                continue;
+            }
+
+            // make new BUF cell single user for the net driver
+            IdString buf_name = ctx->idf("%s_BUFG", net.first.c_str(ctx));
+            ctx->createCell(buf_name, id_BUFG);
+            CellInfo *buf_ci = ctx->cells.at(buf_name).get();
+            buf_ci->addInput(id_I);
+            auto s_net = std::make_unique<NetInfo>(ctx->idf("$PACKER_BUF_%s", net.first.c_str(ctx)));
+            NetInfo *buf_ni = s_net.get();
+            ctx->nets[s_net->name] = std::move(s_net);
+
+            if (ctx->verbose) {
+                log_info("Create buf '%s' with IN net '%s'\n", buf_name.c_str(ctx), buf_ni->name.c_str(ctx));
+            }
+            // move driver
+            CellInfo *driver_cell = ni.driver.cell;
+            IdString driver_port = ni.driver.port;
+
+            driver_cell->movePortTo(driver_port, buf_ci, id_O);
+            buf_ci->connectPort(id_I, buf_ni);
+            driver_cell->connectPort(driver_port, buf_ni);
+        }
+    }
+
     void run(void)
     {
         handle_constants();
@@ -1348,6 +1395,9 @@ struct GowinPacker
         ctx->check();
 
         pack_ram16sdp4();
+        ctx->check();
+
+        pack_buffered_nets();
 
         ctx->fixupHierarchy();
         ctx->check();

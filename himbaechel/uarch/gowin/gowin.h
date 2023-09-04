@@ -88,6 +88,8 @@ enum
     IDES16_Z = 72,
     OSER16_Z = 73,
 
+    BUFG_Z = 74, // : 81 reserve just in case
+
     OSC_Z = 274,
     PLL_Z = 275,
     GSR_Z = 276,

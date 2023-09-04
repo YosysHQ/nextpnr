@@ -129,8 +129,16 @@ struct GowinCstReader
                         log_info("Can't use the long wires. The %s network will use normal routing.\n", net.c_str(ctx));
                         //}
                     } else {
-                        log_info("BUFG isn't supported\n");
-                        continue;
+                        auto ni = ctx->nets.find(net);
+                        if (ni == ctx->nets.end()) {
+                            log_info("Net %s not found\n", net.c_str(ctx));
+                            continue;
+                        }
+                        if (ctx->debug) {
+                            log_info("Mark net '%s' as CLOCK\n", net.c_str(ctx));
+                        }
+                        // XXX YES for now. May be put the number here
+                        ni->second->attrs[id_CLOCK] = Property(std::string("YES"));
                     }
                 } break;
                 case ioloc: { // IO_LOC name pin
