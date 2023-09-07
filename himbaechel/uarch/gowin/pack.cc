@@ -1347,9 +1347,7 @@ struct GowinPacker
             ctx->createCell(buf_name, id_BUFG);
             CellInfo *buf_ci = ctx->cells.at(buf_name).get();
             buf_ci->addInput(id_I);
-            auto s_net = std::make_unique<NetInfo>(ctx->idf("$PACKER_BUF_%s", net.first.c_str(ctx)));
-            NetInfo *buf_ni = s_net.get();
-            ctx->nets[s_net->name] = std::move(s_net);
+            NetInfo *buf_ni = ctx->createNet(ctx->idf("$PACKER_BUF_%s", net.first.c_str(ctx)));
 
             if (ctx->verbose) {
                 log_info("Create buf '%s' with IN net '%s'\n", buf_name.c_str(ctx), buf_ni->name.c_str(ctx));
