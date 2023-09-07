@@ -540,7 +540,8 @@ void write_asc(const Context *ctx, std::ostream &out)
                 bool val = (pin_type >> i) & 0x01;
                 set_config(ti, config.at(y).at(x), "IOB_" + std::to_string(z) + ".PINTYPE_" + std::to_string(i), val);
             }
-            set_config(ti, config.at(y).at(x), "NegClk", neg_trigger);
+            if (cell.second->getPort(id_INPUT_CLK) || cell.second->getPort(id_OUTPUT_CLK))
+                set_config(ti, config.at(y).at(x), "NegClk", neg_trigger);
 
             bool input_en = false;
             if ((ctx->wire_to_net[ctx->getBelPinWire(bel, id_D_IN_0).index] != nullptr) ||
