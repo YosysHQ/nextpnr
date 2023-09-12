@@ -45,7 +45,187 @@
 #include "util.h"
 #include "version.h"
 
+#if defined(_WIN32)
+#include <io.h>
+#include <windows.h>
+#elif defined(__APPLE__)
+#include <dirent.h>
+#include <mach-o/dyld.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#else
+#include <dirent.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+#endif
+
+#ifdef __FreeBSD__
+#include <sys/sysctl.h>
+#endif
+
 NEXTPNR_NAMESPACE_BEGIN
+
+static std::string npnr_share_dirname;
+
+#ifdef _WIN32
+bool check_file_exists(std::string filename, bool) { return _access(filename.c_str(), 0) == 0; }
+#else
+bool check_file_exists(std::string filename, bool is_exec)
+{
+    return access(filename.c_str(), is_exec ? X_OK : F_OK) == 0;
+}
+#endif
+
+#if defined(__linux__) || defined(__CYGWIN__)
+std::string proc_self_dirname()
+{
+    char path[PATH_MAX];
+    ssize_t buflen = readlink("/proc/self/exe", path, sizeof(path));
+    if (buflen < 0) {
+        log_error("readlink(\"/proc/self/exe\") failed: %s\n", strerror(errno));
+    }
+    while (buflen > 0 && path[buflen - 1] != '/')
+        buflen--;
+    return std::string(path, buflen);
+}
+#elif defined(__FreeBSD__)
+std::string proc_self_dirname()
+{
+    int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, -1};
+    size_t buflen;
+    char *buffer;
+    std::string path;
+    if (sysctl(mib, 4, NULL, &buflen, NULL, 0) != 0)
+        log_error("sysctl failed: %s\n", strerror(errno));
+    buffer = (char *)malloc(buflen);
+    if (buffer == NULL)
+        log_error("malloc failed: %s\n", strerror(errno));
+    if (sysctl(mib, 4, buffer, &buflen, NULL, 0) != 0)
+        log_error("sysctl failed: %s\n", strerror(errno));
+    while (buflen > 0 && buffer[buflen - 1] != '/')
+        buflen--;
+    path.assign(buffer, buflen);
+    free(buffer);
+    return path;
+}
+#elif defined(__APPLE__)
+std::string proc_self_dirname()
+{
+    char *path = NULL;
+    uint32_t buflen = 0;
+    while (_NSGetExecutablePath(path, &buflen) != 0)
+        path = (char *)realloc((void *)path, buflen);
+    while (buflen > 0 && path[buflen - 1] != '/')
+        buflen--;
+    std::string str(path, buflen);
+    free(path);
+    return str;
+}
+#elif defined(_WIN32)
+std::string proc_self_dirname()
+{
+    int i = 0;
+#ifdef __MINGW32__
+    char longpath[MAX_PATH + 1];
+    char shortpath[MAX_PATH + 1];
+#else
+    WCHAR longpath[MAX_PATH + 1];
+    TCHAR shortpath[MAX_PATH + 1];
+#endif
+    if (!GetModuleFileName(0, longpath, MAX_PATH + 1))
+        log_error("GetModuleFileName() failed.\n");
+    if (!GetShortPathName(longpath, shortpath, MAX_PATH + 1))
+        log_error("GetShortPathName() failed.\n");
+    while (shortpath[i] != 0)
+        i++;
+    while (i > 0 && shortpath[i - 1] != '/' && shortpath[i - 1] != '\\')
+        shortpath[--i] = 0;
+    std::string path;
+    for (i = 0; shortpath[i]; i++)
+        path += char(shortpath[i]);
+    return path;
+}
+#elif defined(EMSCRIPTEN) || defined(__wasm)
+std::string proc_self_dirname() { return "/"; }
+#elif defined(__OpenBSD__)
+char npnr_path[PATH_MAX];
+char *npnr_argv0;
+
+std::string proc_self_dirname(void)
+{
+    char buf[PATH_MAX + 1] = "", *path, *p;
+    // if case argv[0] contains a valid path, return it
+    if (strlen(npnr_path) > 0) {
+        p = strrchr(npnr_path, '/');
+        snprintf(buf, sizeof buf, "%*s/", (int)(npnr_path - p), npnr_path);
+        return buf;
+    }
+    // if argv[0] does not, reconstruct the path out of $PATH
+    path = strdup(getenv("PATH"));
+    if (!path)
+        log_error("getenv(\"PATH\") failed: %s\n", strerror(errno));
+    for (p = strtok(path, ":"); p; p = strtok(NULL, ":")) {
+        snprintf(buf, sizeof buf, "%s/%s", p, npnr_argv0);
+        if (access(buf, X_OK) == 0) {
+            *(strrchr(buf, '/') + 1) = '\0';
+            free(path);
+            return buf;
+        }
+    }
+    free(path);
+    log_error("Can't determine nextpnr executable path\n.");
+    return NULL;
+}
+#else
+#error "Don't know how to determine process executable base path!"
+#endif
+
+#if defined(EMSCRIPTEN) || defined(__wasm)
+void init_share_dirname() { npnr_share_dirname = "/share/"; }
+#else
+void init_share_dirname()
+{
+    std::string proc_self_path = proc_self_dirname();
+#if defined(_WIN32) && !defined(nextpnr_WIN32_UNIX_DIR)
+    std::string proc_share_path = proc_self_path + "share\\";
+    if (check_file_exists(proc_share_path, true)) {
+        npnr_share_dirname = proc_share_path;
+        return;
+    }
+    proc_share_path = proc_self_path + "..\\share\\";
+    if (check_file_exists(proc_share_path, true)) {
+        npnr_share_dirname = proc_share_path;
+        return;
+    }
+#else
+    std::string proc_share_path = proc_self_path + "share/";
+    if (check_file_exists(proc_share_path, true)) {
+        npnr_share_dirname = proc_share_path;
+        return;
+    }
+    proc_share_path = proc_self_path + "../share/" + "nextpnr/";
+    if (check_file_exists(proc_share_path, true)) {
+        npnr_share_dirname = proc_share_path;
+        return;
+    }
+#ifdef nextpnr_DATDIR
+    proc_share_path = nextpnr_DATDIR "/";
+    if (check_file_exists(proc_share_path, true)) {
+        npnr_share_dirname = proc_share_path;
+        return;
+    }
+#endif
+#endif
+}
+#endif
+
+std::string proc_share_dirname()
+{
+    if (npnr_share_dirname.empty())
+        log_error("init_share_dirname: unable to determine share/ directory!\n");
+    return npnr_share_dirname;
+}
 
 struct no_separator : std::numpunct<char>
 {
@@ -62,6 +242,12 @@ CommandHandler::CommandHandler(int argc, char **argv) : argc(argc), argv(argv)
         // the locale is broken in this system, so leave it as it is
     }
     log_streams.clear();
+
+#if defined(__OpenBSD__)
+    // save the executable origin for proc_self_dirname()
+    npnr_argv0 = argv[0];
+    realpath(npnr_argv0, npnr_path);
+#endif
 }
 
 bool CommandHandler::parseOptions()

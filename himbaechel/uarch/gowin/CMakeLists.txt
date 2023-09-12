@@ -25,14 +25,14 @@ else()
 endif()
 
 set(chipdb_binaries)
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/chipdb)
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/share/himbaechel/gowin)
 foreach(device ${HIMBAECHEL_GOWIN_DEVICES})
     if(NOT device IN_LIST ALL_HIMBAECHEL_GOWIN_DEVICES)
 		message(FATAL_ERROR "Device ${device} is not a supported Gowin device")
     endif()
 
-	set(device_bba chipdb/chipdb-${device}.bba)
-	set(device_bin chipdb/chipdb-${device}.bin)
+	set(device_bba ${CMAKE_BINARY_DIR}/share/himbaechel/gowin/chipdb-${device}.bba)
+	set(device_bin ${CMAKE_BINARY_DIR}/share/himbaechel/gowin/chipdb-${device}.bin)
 	add_custom_command(
 		OUTPUT ${device_bin}
 		COMMAND ${apycula_Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/gowin_arch_gen.py -d ${device} -o ${device_bba}
@@ -48,5 +48,5 @@ foreach(device ${HIMBAECHEL_GOWIN_DEVICES})
 endforeach()
 
 add_custom_target(chipdb-himbaechel-gowin ALL DEPENDS ${chipdb_binaries})
-install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/chipdb/ DESTINATION share/nextpnr/himbaechel/gowin
+install(DIRECTORY ${CMAKE_BINARY_DIR}/share/himbaechel/gowin DESTINATION share/nextpnr/himbaechel/gowin
 	    PATTERN "*.bba" EXCLUDE)

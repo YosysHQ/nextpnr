@@ -40,16 +40,19 @@ class HimbaechelCommandHandler : public CommandHandler
     po::options_description getArchOptions() override;
 };
 
-HimbaechelCommandHandler::HimbaechelCommandHandler(int argc, char **argv) : CommandHandler(argc, argv) {}
+HimbaechelCommandHandler::HimbaechelCommandHandler(int argc, char **argv) : CommandHandler(argc, argv)
+{
+    init_share_dirname();
+}
 
 po::options_description HimbaechelCommandHandler::getArchOptions()
 {
     std::string all_uarches = HimbaechelArch::list();
     std::string uarch_help = stringf("himbächel micro-arch to use (available: %s)", all_uarches.c_str());
     po::options_description specific("Architecture specific options");
-    specific.add_options()("uarch", po::value<std::string>(), uarch_help.c_str());
-    specific.add_options()("chipdb", po::value<std::string>(), "path to chip database file");
-    specific.add_options()("speed", po::value<std::string>(), "device speed grade");
+    specific.add_options()("device", po::value<std::string>(), "name of device to use");
+    specific.add_options()("chipdb", po::value<std::string>(), "override path to chip database file");
+    specific.add_options()("list-uarch", "list included uarches");
     specific.add_options()("vopt,o", po::value<std::vector<std::string>>(), "options to pass to the himbächel uarch");
 
     return specific;
@@ -65,14 +68,19 @@ std::unique_ptr<Context> HimbaechelCommandHandler::createContext(dict<std::strin
         if (arch_name != "himbaechel")
             log_error("Unsupported architecture '%s'.\n", arch_name.c_str());
     }
-    if (!vm.count("uarch"))
-        log_error("uarch must be specified\n");
-    if (!vm.count("chipdb"))
-        log_error("chip database path must be specified.\n");
-    chipArgs.uarch = vm["uarch"].as<std::string>();
-    chipArgs.chipdb = vm["chipdb"].as<std::string>();
-    if (vm.count("speed"))
-        chipArgs.speed = vm["speed"].as<std::string>();
+    if (vm.count("list-uarch")) {
+        std::string uarches = HimbaechelArch::list();
+        log_info("Supported uarches: %s\n", uarches.c_str());
+        exit(0);
+    }
+    if (!vm.count("device"))
+        log_error("device must be specified\n");
+    chipArgs.device = vm["device"].as<std::string>();
+
+    if (vm.count("chipdb")) {
+        chipArgs.chipdb_override = vm["chipdb"].as<std::string>();
+    }
+
     if (vm.count("vopt")) {
         std::vector<std::string> options = vm["vopt"].as<std::vector<std::string>>();
         for (const auto &opt : options) {

@@ -69,6 +69,12 @@ class CommandHandler
     std::ofstream logfile;
 };
 
+// Relative directory functions from Yosys
+bool check_file_exists(std::string filename, bool is_exec);
+void init_share_dirname();
+std::string proc_self_dirname();
+std::string proc_share_dirname();
+
 NEXTPNR_NAMESPACE_END
 
 #endif // COMMAND_H

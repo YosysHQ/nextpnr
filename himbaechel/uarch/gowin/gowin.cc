@@ -22,7 +22,7 @@ struct GowinImpl : HimbaechelAPI
 {
 
     ~GowinImpl(){};
-    void init_constids(Arch *arch) override { init_uarch_constids(arch); }
+    void init_database(Arch *arch) override;
     void init(Context *ctx) override;
 
     void pack() override;
@@ -64,11 +64,48 @@ struct GowinImpl : HimbaechelAPI
 struct GowinArch : HimbaechelArch
 {
     GowinArch() : HimbaechelArch("gowin"){};
-    std::unique_ptr<HimbaechelAPI> create(const dict<std::string, std::string> &args)
+
+    bool match_device(const std::string &device) override { return device.size() > 2 && device.substr(0, 2) == "GW"; }
+
+    std::unique_ptr<HimbaechelAPI> create(const std::string &device, const dict<std::string, std::string> &args)
     {
         return std::make_unique<GowinImpl>();
     }
 } gowinrArch;
+
+void GowinImpl::init_database(Arch *arch)
+{
+    init_uarch_constids(arch);
+    const ArchArgs &args = arch->args;
+    std::string family;
+    if (args.options.count("family")) {
+        family = args.options.at("family");
+    } else {
+        bool GW2 = args.device == "GW2A-LV18PG256C8/I7";
+        if (GW2) {
+            family = "GW2A-18";
+        } else {
+            std::regex devicere = std::regex("GW1N([SZ]?)[A-Z]*-(LV|UV|UX)([0-9])(C?).*");
+            std::smatch match;
+            if (!std::regex_match(args.device, match, devicere)) {
+                log_error("Invalid device %s\n", args.device.c_str());
+            }
+            family = stringf("GW1N%s-%s", match[1].str().c_str(), match[3].str().c_str());
+        }
+    }
+
+    arch->load_chipdb(stringf("gowin/chipdb-%s.bin", family.c_str()));
+
+    // These fields go in the header of the output JSON file and can help
+    // gowin_pack support different architectures
+    arch->settings[arch->id("packer.arch")] = std::string("himbaechel/gowin");
+    arch->settings[arch->id("packer.chipdb")] = family;
+
+    chip = arch->id(family);
+    std::string pn = args.device;
+    partno = arch->id(pn);
+    arch->settings[arch->id("packer.partno")] = pn;
+}
 
 void GowinImpl::init(Context *ctx)
 {
@@ -78,24 +115,6 @@ void GowinImpl::init(Context *ctx)
     gwu.init(ctx);
 
     const ArchArgs &args = ctx->getArchArgs();
-    // These fields go in the header of the output JSON file and can help
-    // gowin_pack support different architectures
-    ctx->settings[ctx->id("packer.arch")] = std::string("himbaechel/gowin");
-    ctx->settings[ctx->id("packer.chipdb")] = args.chipdb;
-
-    if (!args.options.count("partno")) {
-        log_error("Partnumber (like --vopt partno=GW1NR-LV9QN88PC6/I5) must be specified.\n");
-    }
-    // GW1N-9C.xxx -> GW1N-9C
-    std::string chipdb = args.chipdb;
-    auto dot_pos = chipdb.find(".");
-    if (dot_pos != std::string::npos) {
-        chipdb.resize(dot_pos);
-    }
-    chip = ctx->id(chipdb);
-    std::string pn = args.options.at("partno");
-    partno = ctx->id(pn);
-    ctx->settings[ctx->id("packer.partno")] = pn;
 
     // package and speed class
     std::regex speedre = std::regex("(.*)(C[0-9]/I[0-9])$");
@@ -103,6 +122,7 @@ void GowinImpl::init(Context *ctx)
 
     IdString spd;
     IdString package_idx;
+    std::string pn = args.device;
     if (std::regex_match(pn, match, speedre)) {
         package_idx = ctx->id(match[1]);
         spd = ctx->id(match[2]);

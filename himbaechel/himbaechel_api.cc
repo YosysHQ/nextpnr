@@ -25,8 +25,6 @@ NEXTPNR_NAMESPACE_BEGIN
 
 void HimbaechelAPI::init(Context *ctx) { this->ctx = ctx; }
 
-void HimbaechelAPI::init_constids(Arch *arch) {}
-
 std::vector<IdString> HimbaechelAPI::getCellTypes() const
 {
     std::vector<IdString> result;
@@ -89,17 +87,17 @@ std::string HimbaechelArch::list()
     }
     return result;
 }
-std::unique_ptr<HimbaechelAPI> HimbaechelArch::create(const std::string &name,
-                                                      const dict<std::string, std::string> &args)
+
+HimbaechelArch *HimbaechelArch::find_match(const std::string &device)
 {
     HimbaechelArch *cursor = HimbaechelArch::list_head;
     while (cursor) {
-        if (cursor->name != name) {
+        if (!cursor->match_device(device)) {
             cursor = cursor->list_next;
             continue;
         }
-        return cursor->create(args);
+        return cursor;
     }
-    return {};
+    return nullptr;
 }
 NEXTPNR_NAMESPACE_END
