@@ -584,8 +584,8 @@ class CellTiming(BBAStruct):
 @dataclass
 class SpeedGrade(BBAStruct):
     name: int
-    pip_classes: list[PipTiming|None] = field(default_factory=list)
-    node_classes: list[NodeTiming|None] = field(default_factory=list)
+    pip_classes: list[Optional[PipTiming]] = field(default_factory=list)
+    node_classes: list[Optional[NodeTiming]] = field(default_factory=list)
     cell_types: list[CellTiming] = field(default_factory=list) # sorted by (cell_type, variant) ID tuple
 
     def finalise(self):
