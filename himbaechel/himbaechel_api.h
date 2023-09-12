@@ -58,8 +58,9 @@ struct PlacerHeapCfg;
 struct HimbaechelAPI
 {
     virtual void init(Context *ctx);
-    // If constids are being used, this is used to set them up early before loading the db blob
-    virtual void init_constids(Arch *arch);
+    // If constids are being used, this is used to set them up early
+    // then it is responsible for loading the db blob with arch->load_chipdb()
+    virtual void init_database(Arch *arch) = 0;
     Context *ctx;
     bool with_gui = false;
 
@@ -116,10 +117,12 @@ struct HimbaechelArch
     std::string name;
     HimbaechelArch(const std::string &name);
     ~HimbaechelArch(){};
-    virtual std::unique_ptr<HimbaechelAPI> create(const dict<std::string, std::string> &args) = 0;
+    virtual bool match_device(const std::string &device) = 0;
+    virtual std::unique_ptr<HimbaechelAPI> create(const std::string &device,
+                                                  const dict<std::string, std::string> &args) = 0;
 
     static std::string list();
-    static std::unique_ptr<HimbaechelAPI> create(const std::string &name, const dict<std::string, std::string> &args);
+    static HimbaechelArch *find_match(const std::string &device);
 };
 
 NEXTPNR_NAMESPACE_END

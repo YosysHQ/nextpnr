@@ -37,7 +37,13 @@ struct ExampleImpl : HimbaechelAPI
     static constexpr int K = 4;
 
     ~ExampleImpl(){};
-    void init_constids(Arch *arch) override { init_uarch_constids(arch); }
+    void init_database(Arch *arch) override
+    {
+        init_uarch_constids(arch);
+        arch->load_chipdb("example/example.bin");
+        arch->set_speed_grade("DEFAULT");
+    }
+
     void init(Context *ctx) override
     {
         h.init(ctx);
@@ -134,7 +140,8 @@ struct ExampleImpl : HimbaechelAPI
 struct ExampleArch : HimbaechelArch
 {
     ExampleArch() : HimbaechelArch("example"){};
-    std::unique_ptr<HimbaechelAPI> create(const dict<std::string, std::string> &args)
+    bool match_device(const std::string &device) override { return device == "EXAMPLE"; }
+    std::unique_ptr<HimbaechelAPI> create(const std::string &device, const dict<std::string, std::string> &args)
     {
         return std::make_unique<ExampleImpl>();
     }

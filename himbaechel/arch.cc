@@ -23,6 +23,7 @@
 #include "log.h"
 #include "nextpnr.h"
 
+#include "command.h"
 #include "placer1.h"
 #include "placer_heap.h"
 #include "router1.h"
@@ -33,66 +34,72 @@ NEXTPNR_NAMESPACE_BEGIN
 
 static const ChipInfoPOD *get_chip_info(const RelPtr<ChipInfoPOD> *ptr) { return ptr->get(); }
 
-Arch::Arch(ArchArgs args)
+Arch::Arch(ArchArgs args) : args(args)
 {
+    HimbaechelArch *arch = HimbaechelArch::find_match(args.device);
+    if (!arch) {
+        std::string available = HimbaechelArch::list();
+        log_error("unable to load uarch for device '%s', included uarches: %s\n", args.device.c_str(),
+                  available.c_str());
+    }
+    log_info("Using uarch '%s' for device '%s'\n", arch->name.c_str(), args.device.c_str());
+    this->args.uarch = arch->name;
+    uarch = arch->create(args.device, args.options);
+    // Load uarch
+    uarch->init_database(this);
+    if (!chip_info)
+        log_error("uarch didn't load any chipdb, probably a load_chipdb call was missing\n");
+
+    init_tiles();
+}
+
+void Arch::load_chipdb(const std::string &path)
+{
+    std::string db_path;
+    if (!args.chipdb_override.empty()) {
+        db_path = args.chipdb_override;
+    } else {
+        db_path = proc_share_dirname();
+        db_path += "/himbaechel/";
+        db_path += path;
+    }
     try {
-        blob_file.open(args.chipdb);
-        if (args.chipdb.empty() || !blob_file.is_open())
-            log_error("Unable to read chipdb %s\n", args.chipdb.c_str());
+        blob_file.open(db_path);
+        if (db_path.empty() || !blob_file.is_open())
+            log_error("Unable to read chipdb %s\n", db_path.c_str());
         const char *blob = reinterpret_cast<const char *>(blob_file.data());
         chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(blob));
     } catch (...) {
-        log_error("Unable to read chipdb %s\n", args.chipdb.c_str());
+        log_error("Unable to read chipdb %s\n", db_path.c_str());
     }
     // Check consistency of blob
     if (chip_info->magic != 0x00ca7ca7)
-        log_error("chipdb %s does not look like a valid himbächel database!\n", args.chipdb.c_str());
+        log_error("chipdb %s does not look like a valid himbächel database!\n", db_path.c_str());
     std::string blob_uarch(chip_info->uarch.get());
     if (blob_uarch != args.uarch)
         log_error("database device uarch '%s' does not match selected device uarch '%s'.\n", blob_uarch.c_str(),
                   args.uarch.c_str());
-    // Load uarch
-    uarch = HimbaechelArch::create(args.uarch, args.options);
-    if (!uarch) {
-        std::string available = HimbaechelArch::list();
-        log_error("unable to load device uarch '%s', available options: %s\n", args.uarch.c_str(), available.c_str());
-    }
-    uarch->init_constids(this);
     // Setup constids from database
     for (int i = 0; i < chip_info->extra_constids->bba_ids.ssize(); i++) {
         IdString::initialize_add(this, chip_info->extra_constids->bba_ids[i].get(),
                                  i + chip_info->extra_constids->known_id_count);
     }
+}
+
+void Arch::set_speed_grade(const std::string &speed)
+{
+    if (speed.empty())
+        return;
     // Select speed grade
-    if (args.speed.empty()) {
-        if (chip_info->speed_grades.ssize() == 0) {
-            // no timing information and no speed grade specified
-            speed_grade = nullptr;
-        } else if (chip_info->speed_grades.ssize() == 1) {
-            // speed grade not specified but only one available; use it
-            speed_grade = &(chip_info->speed_grades[0]);
-        } else {
-            std::string available_speeds = "";
-            for (const auto &speed_data : chip_info->speed_grades) {
-                if (!available_speeds.empty())
-                    available_speeds += ", ";
-                available_speeds += IdString(speed_data.name).c_str(this);
-            }
-            log_error("Speed grade must be specified using --speed (available options: %s).\n",
-                      available_speeds.c_str());
-        }
-    } else {
-        for (const auto &speed_data : chip_info->speed_grades) {
-            if (IdString(speed_data.name) == id(args.speed)) {
-                speed_grade = &speed_data;
-                break;
-            }
-        }
-        if (!speed_grade) {
-            log_error("Speed grade '%s' not found in database.\n", args.speed.c_str());
+    for (const auto &speed_data : chip_info->speed_grades) {
+        if (IdString(speed_data.name) == id(speed)) {
+            speed_grade = &speed_data;
+            break;
         }
     }
-    init_tiles();
+    if (!speed_grade) {
+        log_error("Speed grade '%s' not found in database.\n", speed.c_str());
+    }
 }
 
 void Arch::init_tiles()

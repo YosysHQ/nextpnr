@@ -386,9 +386,8 @@ struct BelPinRange
 struct ArchArgs
 {
     std::string uarch;
-    std::string chipdb;
+    std::string chipdb_override;
     std::string device;
-    std::string speed;
     dict<std::string, std::string> options;
 };
 
@@ -420,6 +419,9 @@ struct Arch : BaseArch<ArchRanges>
     ArchArgs args;
     Arch(ArchArgs args);
     ~Arch(){};
+
+    void load_chipdb(const std::string &path);
+    void set_speed_grade(const std::string &speed);
 
     void late_init();
 
