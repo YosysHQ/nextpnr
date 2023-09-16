@@ -148,7 +148,7 @@ std::string proc_self_dirname()
 }
 #elif defined(EMSCRIPTEN) || defined(__wasm)
 std::string proc_self_dirname() { return "/"; }
-#elif defined(__OpenBSD__)
+#elif defined(__OpenBSD__) || defined(__DragonFly__)
 char npnr_path[PATH_MAX];
 char *npnr_argv0;
 
