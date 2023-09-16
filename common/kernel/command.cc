@@ -156,8 +156,7 @@ std::string proc_self_dirname(void)
 {
     char buf[PATH_MAX + 1] = "", *path, *p;
     // if case argv[0] contains a valid path, return it
-    if (strlen(npnr_path) > 0) {
-        p = strrchr(npnr_path, '/');
+    if (strlen(npnr_path) > 0 && (p = strrchr(npnr_path, '/')) != NULL) {
         snprintf(buf, sizeof buf, "%*s/", (int)(npnr_path - p), npnr_path);
         return buf;
     }
