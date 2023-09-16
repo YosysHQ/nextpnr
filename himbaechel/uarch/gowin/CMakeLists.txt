@@ -48,5 +48,5 @@ foreach(device ${HIMBAECHEL_GOWIN_DEVICES})
 endforeach()
 
 add_custom_target(chipdb-himbaechel-gowin ALL DEPENDS ${chipdb_binaries})
-install(DIRECTORY ${CMAKE_BINARY_DIR}/share/himbaechel/gowin DESTINATION share/nextpnr/himbaechel/gowin
+install(DIRECTORY ${CMAKE_BINARY_DIR}/share/himbaechel/gowin/ DESTINATION share/nextpnr/himbaechel/gowin
 	    PATTERN "*.bba" EXCLUDE)
