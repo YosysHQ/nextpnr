@@ -243,7 +243,7 @@ CommandHandler::CommandHandler(int argc, char **argv) : argc(argc), argv(argv)
     }
     log_streams.clear();
 
-#if defined(__OpenBSD__)
+#if defined(__OpenBSD__) || defined(__DragonFly__)
     // save the executable origin for proc_self_dirname()
     npnr_argv0 = argv[0];
     realpath(npnr_argv0, npnr_path);
