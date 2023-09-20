@@ -1120,6 +1120,7 @@ class MachXO2Packer
                     if (ctx->getBelType(bel) != id_GSR)
                         continue;
                     ci->attrs[id_BEL] = ctx->getBelName(bel).str(ctx);
+                    ctx->gsrclk_wire = ctx->getBelPinWire(bel, id_CLK);
                 }
             } else if (ci->type.in(id_TSALL)) {
                 ci->renamePort(id_TSALL, id_TSALLI);

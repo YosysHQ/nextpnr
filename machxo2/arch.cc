@@ -18,6 +18,8 @@
  *
  */
 
+#include <boost/iostreams/device/mapped_file.hpp>
+#include <boost/range/adaptor/reversed.hpp>
 #include <iostream>
 #include <math.h>
 #include "embed.h"
@@ -48,7 +50,7 @@ void IdString::initialize_arch(const BaseCtx *ctx)
 
 static void get_chip_info(std::string device, const ChipInfoPOD **chip_info, const PackageInfoPOD **package_info,
                           const SpeedGradePOD **speed_grade,
-                          const char **device_name, const char **package_name)
+                          const char **device_name, const char **package_name, int *device_speed)
 {
     std::stringstream ss(available_devices);
     std::string name;
@@ -68,6 +70,7 @@ static void get_chip_info(std::string device, const ChipInfoPOD **chip_info, con
                             *package_info = nullptr;
                             *package_name = pkg.name.get();
                             *device_name = chip.name.get();
+                            *device_speed = speedgrade.index;
                             *speed_grade = &(db_ptr->get()->speed_grades[speedgrade.index]);
                             for (auto &pi : db_ptr->get()->package_info) {
                                 if (pkg.name.get() == pi.name.get()) {
@@ -88,7 +91,7 @@ static void get_chip_info(std::string device, const ChipInfoPOD **chip_info, con
 
 Arch::Arch(ArchArgs args) : args(args)
 {
-    get_chip_info(args.device, &chip_info, &package_info, &speed_grade, &device_name, &package_name);
+    get_chip_info(args.device, &chip_info, &package_info, &speed_grade, &device_name, &package_name, &device_speed);
     if (chip_info == nullptr)
         log_error("Unsupported MachXO2 chip type.\n");
     if (chip_info->const_id_count != DB_CONST_ID_COUNT)
@@ -364,34 +367,126 @@ BelId Arch::getBelByLocation(Loc loc) const
 
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {
-    // Taxicab distance multiplied by pipDelay (0.01) and fake wireDelay (0.01).
-    // TODO: This function will not work well for entrance to global routing,
-    // as the entrances are located physically far from the DCCAs.
-    return (abs(dst.location.x - src.location.x) + abs(dst.location.y - src.location.y)) * (0.01 + 0.01);
+    int num_uh = tile_info(dst)->wire_data[dst.index].pips_uphill.size();
+    if (num_uh < 6) {
+        for (auto uh : getPipsUphill(dst)) {
+            if (getPipSrcWire(uh) == src)
+                return getPipDelay(uh).maxDelay();
+        }
+    }
+
+    auto est_location = [&](WireId w) -> std::pair<int, int> {
+        const auto &wire = tile_info(w)->wire_data[w.index];
+        if (w == gsrclk_wire) {
+            auto phys_wire = getPipSrcWire(*(getPipsUphill(w).begin()));
+            return std::make_pair(int(phys_wire.location.x), int(phys_wire.location.y));
+        } else if (wire.bel_pins.size() > 0) {
+            return std::make_pair(wire.bel_pins[0].rel_bel_loc.x,
+                                  wire.bel_pins[0].rel_bel_loc.y);
+        } else if (wire.pips_downhill.size() > 0) {
+            return std::make_pair(wire.pips_downhill[0].rel_loc.x,
+                                  wire.pips_downhill[0].rel_loc.y);
+        } else if (wire.pips_uphill.size() > 0) {
+            return std::make_pair(wire.pips_uphill[0].rel_loc.x,
+                                  wire.pips_uphill[0].rel_loc.y);
+        } else {
+            return std::make_pair(int(w.location.x), int(w.location.y));
+        }
+    };
+
+    auto src_loc = est_location(src);
+    std::pair<int, int> dst_loc;
+    if (wire_loc_overrides.count(dst)) {
+        dst_loc = wire_loc_overrides.at(dst);
+    } else {
+        dst_loc = est_location(dst);
+    }
+
+    int dx = abs(src_loc.first - dst_loc.first), dy = abs(src_loc.second - dst_loc.second);
+
+    return (120 - 22 * device_speed) *
+           (6 + std::max(dx - 5, 0) + std::max(dy - 5, 0) + 2 * (std::min(dx, 5) + std::min(dy, 5)));
 }
 
 BoundingBox Arch::getRouteBoundingBox(WireId src, WireId dst) const
 {
     BoundingBox bb;
-    bb.x0 = std::min(src.location.x, dst.location.x);
-    bb.y0 = std::min(src.location.y, dst.location.y);
-    bb.x1 = std::max(src.location.x, dst.location.x);
-    bb.y1 = std::max(src.location.y, dst.location.y);
+
+    bb.x0 = src.location.x;
+    bb.y0 = src.location.y;
+    bb.x1 = src.location.x;
+    bb.y1 = src.location.y;
+
+    auto extend = [&](int x, int y) {
+        bb.x0 = std::min(bb.x0, x);
+        bb.x1 = std::max(bb.x1, x);
+        bb.y0 = std::min(bb.y0, y);
+        bb.y1 = std::max(bb.y1, y);
+    };
+
+    auto est_location = [&](WireId w) -> std::pair<int, int> {
+        const auto &wire = tile_info(w)->wire_data[w.index];
+        if (w == gsrclk_wire) {
+            auto phys_wire = getPipSrcWire(*(getPipsUphill(w).begin()));
+            return std::make_pair(int(phys_wire.location.x), int(phys_wire.location.y));
+        } else if (wire.bel_pins.size() > 0) {
+            return std::make_pair(wire.bel_pins[0].rel_bel_loc.x,
+                                  wire.bel_pins[0].rel_bel_loc.y);
+        } else if (wire.pips_downhill.size() > 0) {
+            return std::make_pair(wire.pips_downhill[0].rel_loc.x,
+                                  wire.pips_downhill[0].rel_loc.y);
+        } else if (wire.pips_uphill.size() > 0) {
+            return std::make_pair(wire.pips_uphill[0].rel_loc.x,
+                                  wire.pips_uphill[0].rel_loc.y);
+        } else {
+            return std::make_pair(int(w.location.x), int(w.location.y));
+        }
+    };
+
+    auto src_loc = est_location(src);
+    extend(src_loc.first, src_loc.second);
+    if (wire_loc_overrides.count(src)) {
+        extend(wire_loc_overrides.at(src).first, wire_loc_overrides.at(src).second);
+    }
+    std::pair<int, int> dst_loc;
+    extend(dst.location.x, dst.location.y);
+    if (wire_loc_overrides.count(dst)) {
+        dst_loc = wire_loc_overrides.at(dst);
+    } else {
+        dst_loc = est_location(dst);
+    }
+    extend(dst_loc.first, dst_loc.second);
     return bb;
 }
 
 delay_t Arch::predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const
 {
-    NPNR_UNUSED(src_pin);
-    NPNR_UNUSED(dst_pin);
+    if ((src_pin == id_FCO && dst_pin == id_FCI) || dst_pin.in(id_FXA, id_FXB) || (src_pin == id_F && dst_pin == id_DI))
+        return 0;
+    auto driver_loc = getBelLocation(src_bel);
+    auto sink_loc = getBelLocation(dst_bel);
+    // Encourage use of direct interconnect
+    //   exact LUT input doesn't matter as they can be permuted by the router...
+    if (driver_loc.x == sink_loc.x && driver_loc.y == sink_loc.y) {
+        if (dst_pin.in(id_A, id_B, id_C, id_D) && src_pin == id_Q) {
+            int lut = (sink_loc.z >> lc_idx_shift), ff = (driver_loc.z >> lc_idx_shift);
+            if (lut == ff)
+                return 0;
+        }
+        if (dst_pin.in(id_A, id_B, id_C, id_D) && src_pin == id_F) {
+            int l0 = (driver_loc.z >> lc_idx_shift);
+            if (l0 != 1 && l0 != 6)
+                return 0;
+        }
+    }
 
-    NPNR_ASSERT(src_bel != BelId());
-    NPNR_ASSERT(dst_bel != BelId());
+    int dx = abs(driver_loc.x - sink_loc.x), dy = abs(driver_loc.y - sink_loc.y);
 
-    // TODO: Same deal applies here as with estimateDelay.
-    return (abs(dst_bel.location.x - src_bel.location.x) + abs(dst_bel.location.y - src_bel.location.y)) *
-           (0.01 + 0.01);
+    return (120 - 22 * device_speed) *
+           (3 + std::max(dx - 5, 0) + std::max(dy - 5, 0) + 2 * (std::min(dx, 5) + std::min(dy, 5)));
 }
+
+delay_t Arch::getRipupDelayPenalty() const { return 400; }
 
 // ---------------------------------------------------------------
 
@@ -432,6 +527,8 @@ bool Arch::route()
     std::string router = str_or_default(settings, id_router, defaultRouter);
 
     disable_router_lutperm = getCtx()->setting<bool>("arch.disable_router_lutperm", false);
+
+    setup_wire_locations();
 
     assignArchInfo();
 
@@ -532,6 +629,337 @@ DecalXY Arch::getGroupDecal(GroupId group) const
     decalxy.decal.z = group.type;
     decalxy.decal.active = true;
     return decalxy;
+}
+
+// -----------------------------------------------------------------------
+
+bool Arch::get_delay_from_tmg_db(IdString tctype, IdString from, IdString to, DelayQuad &delay) const
+{
+    auto fnd_dk = celldelay_cache.find({tctype, from, to});
+    if (fnd_dk != celldelay_cache.end()) {
+        delay = fnd_dk->second.second;
+        return fnd_dk->second.first;
+    }
+    for (auto &tc : speed_grade->cell_timings) {
+        if (tc.cell_type == tctype.index) {
+            for (auto &dly : tc.prop_delays) {
+                if (dly.from_port == from.index && dly.to_port == to.index) {
+                    delay = DelayQuad(dly.min_delay, dly.max_delay);
+                    celldelay_cache[{tctype, from, to}] = std::make_pair(true, delay);
+                    return true;
+                }
+            }
+            celldelay_cache[{tctype, from, to}] = std::make_pair(false, DelayQuad());
+            return false;
+        }
+    }
+    NPNR_ASSERT_FALSE("failed to find timing cell in db");
+}
+
+void Arch::get_setuphold_from_tmg_db(IdString tctype, IdString clock, IdString port, DelayPair &setup,
+                                     DelayPair &hold) const
+{
+    for (auto &tc : speed_grade->cell_timings) {
+        if (tc.cell_type == tctype.index) {
+            for (auto &sh : tc.setup_holds) {
+                if (sh.clock_port == clock.index && sh.sig_port == port.index) {
+                    setup.max_delay = sh.max_setup;
+                    setup.min_delay = sh.min_setup;
+                    hold.max_delay = sh.max_hold;
+                    hold.min_delay = sh.min_hold;
+                    return;
+                }
+            }
+        }
+    }
+    NPNR_ASSERT_FALSE("failed to find timing cell in db");
+}
+
+bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const
+{
+    // Data for -8 grade
+    if (cell->type == id_TRELLIS_COMB) {
+        bool has_carry = cell->combInfo.flags & ArchCellInfo::COMB_CARRY;
+        IdString tmg_type = has_carry ? (((cell->constr_z >> Arch::lc_idx_shift) % 2) ? id_TRELLIS_COMB_CARRY1
+                                                                                      : id_TRELLIS_COMB_CARRY0)
+                                      : id_TRELLIS_COMB;
+        if (fromPort.in(id_A, id_B, id_C, id_D, id_M, id_F1, id_FXA, id_FXB, id_FCI))
+            return get_delay_from_tmg_db(tmg_type, fromPort, toPort, delay);
+        else
+            return false;
+    } else if (cell->type == id_TRELLIS_FF) {
+        return false;
+    } else if (cell->type == id_TRELLIS_RAMW) {
+        if ((fromPort == id_A0 && toPort == id_WADO0) || (fromPort == id_A1 && toPort == id_WDO0) ||
+            (fromPort == id_B0 && toPort == id_WADO1) || (fromPort == id_B1 && toPort == id_WDO1) ||
+            (fromPort == id_C0 && toPort == id_WADO2) || (fromPort == id_C1 && toPort == id_WDO2) ||
+            (fromPort == id_D0 && toPort == id_WADO3) || (fromPort == id_D1 && toPort == id_WDO3)) {
+            delay = DelayQuad(0);
+            return true;
+        }
+        return false;
+    } else if (cell->type == id_DCCA) {
+        if (fromPort == id_CLKI && toPort == id_CLKO) {
+            delay = DelayQuad(0);
+            return true;
+        }
+        return false;
+    } else if (cell->type == id_DP8KC) {
+        return false;
+/*    } else if (cell->type.in(id_IOLOGIC, id_SIOLOGIC)) {
+        return false;*/
+    } else {
+        return false;
+    }
+}
+
+TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const
+{
+    auto disconnected = [cell](IdString p) { return !cell->ports.count(p) || cell->ports.at(p).net == nullptr; };
+    clockInfoCount = 0;
+    if (cell->type == id_TRELLIS_COMB) {
+        if (port == id_WCK)
+            return TMG_CLOCK_INPUT;
+        if (port.in(id_A, id_B, id_C, id_D, id_FCI, id_FXA, id_FXB, id_F1))
+            return TMG_COMB_INPUT;
+        if (port == id_F && disconnected(id_A) && disconnected(id_B) && disconnected(id_C) && disconnected(id_D) &&
+            disconnected(id_FCI))
+            return TMG_IGNORE; // LUT with no inputs is a constant
+        if (port.in(id_F, id_FCO, id_OFX))
+            return TMG_COMB_OUTPUT;
+        if (port == id_M)
+            return TMG_COMB_INPUT;
+        if (port.in(id_WD, id_WAD0, id_WAD1, id_WAD2, id_WAD3, id_WRE)) {
+            clockInfoCount = 1;
+            return TMG_REGISTER_INPUT;
+        }
+        return TMG_IGNORE;
+    } else if (cell->type == id_TRELLIS_FF) {
+        bool using_m = (cell->ffInfo.flags & ArchCellInfo::FF_M_USED);
+        if (port == id_CLK)
+            return TMG_CLOCK_INPUT;
+        if (port == id_DI || (using_m && (port == id_M)) || port.in(id_CE, id_LSR)) {
+            clockInfoCount = 1;
+            return TMG_REGISTER_INPUT;
+        }
+        if (port == id_Q) {
+            clockInfoCount = 1;
+            return TMG_REGISTER_OUTPUT;
+        }
+        return TMG_IGNORE;
+    } else if (cell->type == id_TRELLIS_RAMW) {
+        if (port.in(id_A0, id_A1, id_B0, id_B1, id_C0, id_C1, id_D0, id_D1))
+            return TMG_COMB_INPUT;
+        if (port.in(id_WDO0, id_WDO1, id_WDO2, id_WDO3, id_WADO0, id_WADO1, id_WADO2, id_WADO3))
+            return TMG_COMB_OUTPUT;
+        return TMG_IGNORE;
+    } else if (cell->type == id_TRELLIS_IO) {
+        if (port.in(id_T, id_I))
+            return TMG_ENDPOINT;
+        if (port == id_O)
+            return TMG_STARTPOINT;
+        return TMG_IGNORE;
+    } else if (cell->type == id_DCCA) {
+        if (port == id_CLKI)
+            return TMG_COMB_INPUT;
+        if (port == id_CLKO)
+            return TMG_COMB_OUTPUT;
+        return TMG_IGNORE;
+/*    } else if (cell->type == id_DCSC) {
+        if (port.in(id_CLK0, id_CLK1))
+            return TMG_COMB_INPUT;
+        if (port == id_DCSOUT)
+            return TMG_COMB_OUTPUT;
+        return TMG_IGNORE;*/
+    } else if (cell->type == id_DP8KC) {
+        if (port.in(id_CLKA, id_CLKB))
+            return TMG_CLOCK_INPUT;
+        std::string port_name = port.str(this);
+        for (auto c : boost::adaptors::reverse(port_name)) {
+            if (std::isdigit(c))
+                continue;
+            if (c == 'A' || c == 'B')
+                clockInfoCount = 1;
+            else
+                NPNR_ASSERT_FALSE_STR("bad ram port");
+            return (cell->ports.at(port).type == PORT_OUT) ? TMG_REGISTER_OUTPUT : TMG_REGISTER_INPUT;
+        }
+        NPNR_ASSERT_FALSE_STR("no timing type for RAM port '" + port.str(this) + "'");
+    } else if (cell->type == id_EHXPLLJ) {
+        return TMG_IGNORE;
+/*    } else if (cell->type.in(id_DCUA, id_EXTREFB, id_PCSCLKDIV)) {
+        if (port.in(id_CH0_FF_TXI_CLK, id_CH0_FF_RXI_CLK, id_CH1_FF_TXI_CLK, id_CH1_FF_RXI_CLK))
+            return TMG_CLOCK_INPUT;
+        std::string prefix = port.str(this).substr(0, 9);
+        if (prefix == "CH0_FF_TX" || prefix == "CH0_FF_RX" || prefix == "CH1_FF_TX" || prefix == "CH1_FF_RX") {
+            clockInfoCount = 1;
+            return (cell->ports.at(port).type == PORT_OUT) ? TMG_REGISTER_OUTPUT : TMG_REGISTER_INPUT;
+        }
+        return TMG_IGNORE;
+    } else if (cell->type.in(id_IOLOGIC, id_SIOLOGIC)) {
+        if (port.in(id_CLK, id_ECLK)) {
+            return TMG_CLOCK_INPUT;
+        } else if (port.in(id_IOLDO, id_IOLDOI, id_IOLDOD, id_IOLTO, id_PADDI, id_DQSR90, id_DQSW, id_DQSW270)) {
+            return TMG_IGNORE;
+        } else {
+            clockInfoCount = 1;
+            return (cell->ports.at(port).type == PORT_OUT) ? TMG_REGISTER_OUTPUT : TMG_REGISTER_INPUT;
+        }*/
+    } else if (cell->type.in(/*id_DTR, id_USRMCLK,*/ id_SEDFA, id_GSR, id_JTAGF)) {
+        return (cell->ports.at(port).type == PORT_OUT) ? TMG_STARTPOINT : TMG_ENDPOINT;
+    } else if (cell->type.in(id_OSCH,id_OSCJ)) {
+        if (port == id_OSC)
+            return TMG_GEN_CLOCK;
+        else
+            return TMG_IGNORE;
+    } else if (cell->type == id_CLKDIVC) {
+        if (port == id_CLKI)
+            return TMG_CLOCK_INPUT;
+        else if (port.in(id_RST, id_ALIGNWD))
+            return TMG_ENDPOINT;
+        else if (port == id_CDIVX)
+            return TMG_GEN_CLOCK;
+        else
+            NPNR_ASSERT_FALSE("bad clkdiv port");
+/*    } else if (cell->type == id_DQSBUFM) {
+        if (port.in(id_READ0, id_READ1)) {
+            clockInfoCount = 1;
+            return TMG_REGISTER_INPUT;
+        } else if (port == id_DATAVALID) {
+            clockInfoCount = 1;
+            return TMG_REGISTER_OUTPUT;
+        } else if (port.in(id_SCLK, id_ECLK, id_DQSI)) {
+            return TMG_CLOCK_INPUT;
+        } else if (port.in(id_DQSR90, id_DQSW, id_DQSW270)) {
+            return TMG_GEN_CLOCK;
+        }
+        return (cell->ports.at(port).type == PORT_OUT) ? TMG_STARTPOINT : TMG_ENDPOINT;
+    } else if (cell->type == id_DDRDLL) {
+        if (port == id_CLK)
+            return TMG_CLOCK_INPUT;
+        return (cell->ports.at(port).type == PORT_OUT) ? TMG_STARTPOINT : TMG_ENDPOINT;
+    } else if (cell->type == id_TRELLIS_ECLKBUF) {
+        return (cell->ports.at(port).type == PORT_OUT) ? TMG_COMB_OUTPUT : TMG_COMB_INPUT;
+    } else if (cell->type == id_ECLKSYNCB) {
+        if (cell->ports.at(port).name == id_STOP)
+            return TMG_ENDPOINT;
+        return (cell->ports.at(port).type == PORT_OUT) ? TMG_COMB_OUTPUT : TMG_COMB_INPUT;
+    } else if (cell->type == id_ECLKBRIDGECS) {
+        if (cell->ports.at(port).name == id_SEL)
+            return TMG_ENDPOINT;
+        return (cell->ports.at(port).type == PORT_OUT) ? TMG_COMB_OUTPUT : TMG_COMB_INPUT;
+*/
+    } else {
+        log_error("cell type '%s' is unsupported (instantiated as '%s')\n", cell->type.c_str(this),
+                  cell->name.c_str(this));
+    }
+}
+
+TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port, int index) const
+{
+    TimingClockingInfo info;
+    info.setup = DelayPair(0);
+    info.hold = DelayPair(0);
+    info.clockToQ = DelayQuad(0);
+    if (cell->type == id_TRELLIS_COMB) {
+        if (port.in(id_WD, id_WAD0, id_WAD1, id_WAD2, id_WAD3, id_WRE)) {
+            if (port == id_WD)
+                port = id_WD0;
+            info.edge = (cell->combInfo.flags & ArchCellInfo::COMB_RAM_WCKINV) ? FALLING_EDGE : RISING_EDGE;
+            info.clock_port = id_WCK;
+            get_setuphold_from_tmg_db(id_TRELLIS_SLICE, id_WCK, port, info.setup, info.hold);
+        }
+    } else if (cell->type == id_TRELLIS_FF) {
+        bool using_m = (cell->ffInfo.flags & ArchCellInfo::FF_M_USED);
+        if (port.in(id_DI, id_CE, id_LSR) || (using_m && port == id_M)) {
+            if (port == id_DI)
+                port = id_DI0;
+            if (port == id_M)
+                port = id_M0;
+            info.edge = (cell->ffInfo.flags & ArchCellInfo::FF_CLKINV) ? FALLING_EDGE : RISING_EDGE;
+            info.clock_port = id_CLK;
+            get_setuphold_from_tmg_db(id_TRELLIS_SLICE, id_CLK, port, info.setup, info.hold);
+        } else {
+            NPNR_ASSERT(port == id_Q);
+            port = id_Q0;
+            info.edge = (cell->ffInfo.flags & ArchCellInfo::FF_CLKINV) ? FALLING_EDGE : RISING_EDGE;
+            info.clock_port = id_CLK;
+            bool is_path = get_delay_from_tmg_db(id_TRELLIS_SLICE, id_CLK, port, info.clockToQ);
+            NPNR_ASSERT(is_path);
+        }
+    } else if (cell->type == id_DP8KC) {
+        std::string port_name = port.str(this);
+        IdString half_clock;
+        for (auto c : boost::adaptors::reverse(port_name)) {
+            if (std::isdigit(c))
+                continue;
+            if (c == 'A') {
+                half_clock = id_CLKA;
+                break;
+            } else if (c == 'B') {
+                half_clock = id_CLKB;
+                break;
+            } else
+                NPNR_ASSERT_FALSE_STR("bad ram port " + port.str(this));
+        }
+        if (cell->ramInfo.is_pdp) {
+            bool is_output = cell->ports.at(port).type == PORT_OUT;
+            // In PDP mode, all read signals are in CLKB domain and write signals in CLKA domain
+            if (is_output || port.in(id_OCEB, id_CEB, id_ADB5, id_ADB6, id_ADB7, id_ADB8, id_ADB9, id_ADB10, id_ADB11,
+                                     id_ADB12))
+                info.clock_port = id_CLKB;
+            else
+                info.clock_port = id_CLKA;
+        } else {
+            info.clock_port = half_clock;
+        }
+        info.edge = (str_or_default(cell->params, info.clock_port == id_CLKB ? id_CLKBMUX : id_CLKAMUX, "CLK") == "INV")
+                            ? FALLING_EDGE
+                            : RISING_EDGE;
+        if (cell->ports.at(port).type == PORT_OUT) {
+            bool is_path = get_delay_from_tmg_db(cell->ramInfo.regmode_timing_id, half_clock, port, info.clockToQ);
+            NPNR_ASSERT(is_path);
+        } else {
+            get_setuphold_from_tmg_db(cell->ramInfo.regmode_timing_id, half_clock, port, info.setup, info.hold);
+        }
+/*    } else if (cell->type == id_DCUA) {
+        std::string prefix = port.str(this).substr(0, 9);
+        info.edge = RISING_EDGE;
+        if (prefix == "CH0_FF_TX")
+            info.clock_port = id_CH0_FF_TXI_CLK;
+        else if (prefix == "CH0_FF_RX")
+            info.clock_port = id_CH0_FF_RXI_CLK;
+        else if (prefix == "CH1_FF_TX")
+            info.clock_port = id_CH1_FF_TXI_CLK;
+        else if (prefix == "CH1_FF_RX")
+            info.clock_port = id_CH1_FF_RXI_CLK;
+        if (cell->ports.at(port).type == PORT_OUT) {
+            info.clockToQ = DelayQuad(getDelayFromNS(0.7));
+        } else {
+            info.setup = DelayPair(getDelayFromNS(1));
+            info.hold = DelayPair(getDelayFromNS(0));
+        }
+    } else if (cell->type.in(id_IOLOGIC, id_SIOLOGIC)) {
+        info.clock_port = id_CLK;
+        info.edge = RISING_EDGE;
+        if (cell->ports.at(port).type == PORT_OUT) {
+            info.clockToQ = DelayQuad(getDelayFromNS(0.5));
+        } else {
+            info.setup = DelayPair(getDelayFromNS(0.1));
+            info.hold = DelayPair(getDelayFromNS(0));
+        }
+    } else if (cell->type == id_DQSBUFM) {
+        info.clock_port = id_SCLK;
+        info.edge = RISING_EDGE;
+        if (port == id_DATAVALID) {
+            info.clockToQ = DelayQuad(getDelayFromNS(0.2));
+        } else if (port.in(id_READ0, id_READ1)) {
+            info.setup = DelayPair(getDelayFromNS(0.5));
+            info.hold = DelayPair(getDelayFromNS(-0.4));
+        } else {
+            NPNR_ASSERT_FALSE("unknown DQSBUFM register port");*/
+        }
+    return info;
 }
 
 // ---------------------------------------------------------------
