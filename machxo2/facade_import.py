@@ -410,8 +410,8 @@ def write_database(family, dev_name, chip, rg, endianness):
             for arc in t.arcs:
                 write_loc(arc.srcWire.rel, "src")
                 write_loc(arc.sinkWire.rel, "dst")
-                bba.u32(arc.srcWire.id, "src_idx {}".format(get_wire_name(arc.srcWire.rel, arc.srcWire.id)))
-                bba.u32(arc.sinkWire.id, "dst_idx {}".format(get_wire_name(arc.sinkWire.rel, arc.sinkWire.id)))
+                bba.u16(arc.srcWire.id, "src_idx {}".format(get_wire_name(arc.srcWire.rel, arc.srcWire.id)))
+                bba.u16(arc.sinkWire.id, "dst_idx {}".format(get_wire_name(arc.sinkWire.rel, arc.sinkWire.id)))
                 src_name = get_wire_name(arc.srcWire.rel, arc.srcWire.id)
                 snk_name = get_wire_name(arc.sinkWire.rel, arc.sinkWire.id)
                 bba.u16(get_pip_class(src_name, snk_name), "timing_class")
@@ -419,7 +419,7 @@ def write_database(family, dev_name, chip, rg, endianness):
                 cls = arc.cls
                 bba.u8(cls, "pip_type")
                 bba.u16(arc.lutperm_flags, "lutperm_flags")
-                bba.u16(0, "padding2")
+                bba.u16(0, "padding")
 
         if len(t.wires) > 0:
             for wire_idx in range(len(t.wires)):
