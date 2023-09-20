@@ -190,4 +190,36 @@ bool Arch::isBelLocationValid(BelId bel, bool explain_invalid) const
     return true;
 }
 
+void Arch::setup_wire_locations()
+{
+    wire_loc_overrides.clear();
+    for (auto &cell : cells) {
+        CellInfo *ci = cell.second.get();
+        if (ci->bel == BelId())
+            continue;
+        if (ci->type.in(/*id_ALU54B, id_MULT18X18D, id_DCUA, id_DDRDLL, id_DQSBUFM,*/ id_EHXPLLJ)) {
+            for (auto &port : ci->ports) {
+                if (port.second.net == nullptr)
+                    continue;
+                WireId pw = getBelPinWire(ci->bel, port.first);
+                if (pw == WireId())
+                    continue;
+                if (port.second.type == PORT_OUT) {
+                    for (auto dh : getPipsDownhill(pw)) {
+                        WireId pip_dst = getPipDstWire(dh);
+                        wire_loc_overrides[pw] = std::make_pair(pip_dst.location.x, pip_dst.location.y);
+                        break;
+                    }
+                } else {
+                    for (auto uh : getPipsUphill(pw)) {
+                        WireId pip_src = getPipSrcWire(uh);
+                        wire_loc_overrides[pw] = std::make_pair(pip_src.location.x, pip_src.location.y);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+}
+
 NEXTPNR_NAMESPACE_END

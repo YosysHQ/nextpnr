@@ -400,6 +400,16 @@ struct ArchArgs
     std::string device;
 };
 
+struct DelayKey
+{
+    IdString celltype, from, to;
+    inline bool operator==(const DelayKey &other) const
+    {
+        return celltype == other.celltype && from == other.from && to == other.to;
+    }
+    unsigned int hash() const { return mkhash(celltype.hash(), mkhash(from.hash(), to.hash())); }
+};
+
 struct ArchRanges : BaseArchRanges
 {
     using ArchArgsT = ArchArgs;
@@ -424,6 +434,7 @@ struct Arch : BaseArch<ArchRanges>
 
     const char *package_name;
     const char *device_name;
+    int device_speed;
 
     mutable dict<IdStringList, PipId> pip_by_name;
 
@@ -725,7 +736,7 @@ struct Arch : BaseArch<ArchRanges>
     virtual bool checkWireAvail(WireId wire) const override { return getBoundWireNet(wire) == nullptr; }
     NetInfo *getBoundWireNet(WireId wire) const override { return wire2net.at(get_wire_vecidx(wire)); }
 
-    DelayQuad getWireDelay(WireId wire) const override { return DelayQuad(0.01); }
+    DelayQuad getWireDelay(WireId wire) const override { return DelayQuad(0); }
 
     WireRange getWires() const override
     {
@@ -863,7 +874,18 @@ struct Arch : BaseArch<ArchRanges>
         return wire;
     }
 
-    DelayQuad getPipDelay(PipId pip) const override { return DelayQuad(0.01); }
+    DelayQuad getPipDelay(PipId pip) const override
+    {
+        NPNR_ASSERT(pip != PipId());
+        int fanout = wire_fanout[get_wire_vecidx(getPipSrcWire(pip))];
+        delay_t min_dly =
+                speed_grade->pip_classes[tile_info(pip)->pip_data[pip.index].timing_class].min_base_delay +
+                fanout * speed_grade->pip_classes[tile_info(pip)->pip_data[pip.index].timing_class].min_fanout_adder;
+        delay_t max_dly =
+                speed_grade->pip_classes[tile_info(pip)->pip_data[pip.index].timing_class].max_base_delay +
+                fanout * speed_grade->pip_classes[tile_info(pip)->pip_data[pip.index].timing_class].max_fanout_adder;
+        return DelayQuad(min_dly, max_dly);
+    }
 
     PipRange getPipsDownhill(WireId wire) const override
     {
@@ -937,10 +959,10 @@ struct Arch : BaseArch<ArchRanges>
     delay_t estimateDelay(WireId src, WireId dst) const override;
     BoundingBox getRouteBoundingBox(WireId src, WireId dst) const override;
     delay_t predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const override;
-    delay_t getDelayEpsilon() const override { return 0.001; }
-    delay_t getRipupDelayPenalty() const override { return 0.015; }
-    float getDelayNS(delay_t v) const override { return v; }
-    delay_t getDelayFromNS(float ns) const override { return ns; }
+    delay_t getDelayEpsilon() const override { return 20; }
+    delay_t getRipupDelayPenalty() const override;
+    float getDelayNS(delay_t v) const override { return v * 0.001; }
+    delay_t getDelayFromNS(float ns) const override { return delay_t(ns * 1000); }
     uint32_t getDelayChecksum(delay_t v) const override { return v; }
 
     // -------------------------------------------------
@@ -957,6 +979,20 @@ struct Arch : BaseArch<ArchRanges>
     DecalXY getWireDecal(WireId wire) const override;
     DecalXY getPipDecal(PipId pip) const override;
     DecalXY getGroupDecal(GroupId group) const override;
+
+    // -------------------------------------------------
+
+    // Get the delay through a cell from one port to another, returning false
+    // if no path exists
+    bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const override;
+    // Get the port class, also setting clockInfoCount to the number of TimingClockingInfos associated with a port
+    TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const override;
+    // Get the TimingClockingInfo of a port
+    TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const override;
+
+    bool get_delay_from_tmg_db(IdString tctype, IdString from, IdString to, DelayQuad &delay) const;
+    void get_setuphold_from_tmg_db(IdString tctype, IdString clock, IdString port, DelayPair &setup,
+                                   DelayPair &hold) const;
 
     // -------------------------------------------------
     // Placement validity checks
@@ -1004,6 +1040,17 @@ struct Arch : BaseArch<ArchRanges>
     bool is_spine_row(int row) const;
     // Apply LPF constraints to the context
     bool apply_lpf(std::string filename, std::istream &in);
+
+    // Special case for delay estimates due to its physical location
+    // being far from the logical location of its primitive
+    WireId gsrclk_wire;
+    // Improves directivity of routing to DSP inputs, avoids issues
+    // with different routes to the same physical reset wire causing
+    // conflicts and slow routing
+    dict<WireId, std::pair<int, int>> wire_loc_overrides;
+    void setup_wire_locations();
+
+    mutable dict<DelayKey, std::pair<bool, DelayQuad>> celldelay_cache;
 
     // Global clock routing
     void route_globals();
