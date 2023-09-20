@@ -342,7 +342,7 @@ def process_timing_data(family):
             max_delay = pipdata["delay"][2] * 1.1
             min_fanout = pipdata["fanout"][0]
             max_fanout = pipdata["fanout"][2]
-            if grade == "6":
+            if grade == speed_grade_names[family][0]:
                 pip_class_to_idx[pipclass] = len(pip_class_delays)
                 pip_class_delays.append((min_delay, max_delay, min_fanout, max_fanout))
             else:
