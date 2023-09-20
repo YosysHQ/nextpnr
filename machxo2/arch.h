@@ -57,12 +57,12 @@ NPNR_PACKED_STRUCT(struct BelPortPOD {
 
 NPNR_PACKED_STRUCT(struct PipInfoPOD {
     LocationPOD src, dst;
-    int32_t src_idx, dst_idx;
+    int16_t src_idx, dst_idx;
     int16_t timing_class;
     int8_t tile_type;
     int8_t pip_type;
     int16_t lutperm_flags;
-    int16_t padding2;
+    int16_t padding;
 });
 
 inline bool is_lutperm_pip(int16_t flags) { return flags & 0x4000; }
