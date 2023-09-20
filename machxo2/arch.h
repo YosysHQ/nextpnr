@@ -58,10 +58,9 @@ NPNR_PACKED_STRUCT(struct BelPortPOD {
 NPNR_PACKED_STRUCT(struct PipInfoPOD {
     LocationPOD src, dst;
     int32_t src_idx, dst_idx;
-    int32_t timing_class;
-    int16_t tile_type;
+    int16_t timing_class;
+    int8_t tile_type;
     int8_t pip_type;
-    int8_t padding;
     int16_t lutperm_flags;
     int16_t padding2;
 });
@@ -117,6 +116,40 @@ NPNR_PACKED_STRUCT(struct TileNamePOD {
 
 NPNR_PACKED_STRUCT(struct TileInfoPOD { RelSlice<TileNamePOD> tile_names; });
 
+NPNR_PACKED_STRUCT(struct CellPropDelayPOD {
+    int32_t from_port;
+    int32_t to_port;
+    int32_t min_delay;
+    int32_t max_delay;
+});
+
+NPNR_PACKED_STRUCT(struct CellSetupHoldPOD {
+    int32_t sig_port;
+    int32_t clock_port;
+    int32_t min_setup;
+    int32_t max_setup;
+    int32_t min_hold;
+    int32_t max_hold;
+});
+
+NPNR_PACKED_STRUCT(struct CellTimingPOD {
+    int32_t cell_type;
+    RelSlice<CellPropDelayPOD> prop_delays;
+    RelSlice<CellSetupHoldPOD> setup_holds;
+});
+
+NPNR_PACKED_STRUCT(struct PipDelayPOD {
+    int32_t min_base_delay;
+    int32_t max_base_delay;
+    int32_t min_fanout_adder;
+    int32_t max_fanout_adder;
+});
+
+NPNR_PACKED_STRUCT(struct SpeedGradePOD {
+    RelSlice<CellTimingPOD> cell_timings;
+    RelSlice<PipDelayPOD> pip_classes;
+});
+
 NPNR_PACKED_STRUCT(struct PackageSupportedPOD {
     RelPtr<char> name;
     RelPtr<char> short_name;
@@ -124,12 +157,15 @@ NPNR_PACKED_STRUCT(struct PackageSupportedPOD {
 
 NPNR_PACKED_STRUCT(struct SuffixeSupportedPOD { RelPtr<char> suffix; });
 
-NPNR_PACKED_STRUCT(struct SpeedSupportedPOD { int32_t speed; });
+NPNR_PACKED_STRUCT(struct SpeedSupportedPOD { 
+    int16_t speed; 
+    int16_t index;
+});
 
 NPNR_PACKED_STRUCT(struct VariantInfoPOD {
     RelPtr<char> name;
     RelSlice<PackageSupportedPOD> packages;
-    RelSlice<SpeedSupportedPOD> speed_grades;
+    RelSlice<SpeedSupportedPOD> speeds;
     RelSlice<SuffixeSupportedPOD> suffixes;
 });
 
@@ -148,6 +184,7 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelSlice<TileInfoPOD> tile_info;
     RelSlice<VariantInfoPOD> variants;
     RelSlice<SpineInfoPOD> spines;
+    RelSlice<SpeedGradePOD> speed_grades;
 });
 
 /************************ End of chipdb section. ************************/
@@ -383,6 +420,8 @@ struct Arch : BaseArch<ArchRanges>
 {
     const ChipInfoPOD *chip_info;
     const PackageInfoPOD *package_info;
+    const SpeedGradePOD *speed_grade;
+
     const char *package_name;
     const char *device_name;
 
