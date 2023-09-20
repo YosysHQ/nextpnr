@@ -47,6 +47,7 @@ void IdString::initialize_arch(const BaseCtx *ctx)
 // ---------------------------------------------------------------
 
 static void get_chip_info(std::string device, const ChipInfoPOD **chip_info, const PackageInfoPOD **package_info,
+                          const SpeedGradePOD **speed_grade,
                           const char **device_name, const char **package_name)
 {
     std::stringstream ss(available_devices);
@@ -58,7 +59,7 @@ static void get_chip_info(std::string device, const ChipInfoPOD **chip_info, con
             continue; // chipdb not available
         for (auto &chip : db_ptr->get()->variants) {
             for (auto &pkg : chip.packages) {
-                for (auto &speedgrade : chip.speed_grades) {
+                for (auto &speedgrade : chip.speeds) {
                     for (auto &rating : chip.suffixes) {
                         std::string devname = stringf("%s-%d%s%s", chip.name.get(), speedgrade.speed,
                                                       pkg.short_name.get(), rating.suffix.get());
@@ -67,6 +68,7 @@ static void get_chip_info(std::string device, const ChipInfoPOD **chip_info, con
                             *package_info = nullptr;
                             *package_name = pkg.name.get();
                             *device_name = chip.name.get();
+                            *speed_grade = &(db_ptr->get()->speed_grades[speedgrade.index]);
                             for (auto &pi : db_ptr->get()->package_info) {
                                 if (pkg.name.get() == pi.name.get()) {
                                     *package_info = &pi;
@@ -86,7 +88,7 @@ static void get_chip_info(std::string device, const ChipInfoPOD **chip_info, con
 
 Arch::Arch(ArchArgs args) : args(args)
 {
-    get_chip_info(args.device, &chip_info, &package_info, &device_name, &package_name);
+    get_chip_info(args.device, &chip_info, &package_info, &speed_grade, &device_name, &package_name);
     if (chip_info == nullptr)
         log_error("Unsupported MachXO2 chip type.\n");
     if (chip_info->const_id_count != DB_CONST_ID_COUNT)
@@ -165,7 +167,7 @@ void Arch::list_devices()
             continue; // chipdb not available
         for (auto &chip : db_ptr->get()->variants) {
             for (auto &pkg : chip.packages) {
-                for (auto &speedgrade : chip.speed_grades) {
+                for (auto &speedgrade : chip.speeds) {
                     for (auto &rating : chip.suffixes) {
                         log("    %s-%d%s%s\n", chip.name.get(), speedgrade.speed, pkg.short_name.get(),
                             rating.suffix.get());

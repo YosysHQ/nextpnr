@@ -18,6 +18,8 @@ args = parser.parse_args()
 sys.path += args.libdir
 import pytrellis
 import database
+import pip_classes
+import timing_dbs
 
 with open(args.gfxh) as f:
     state = 0
@@ -213,7 +215,158 @@ def process_pio_db(rg, device):
             if bel_idx is not None:
                 pindata.append((loc, bel_idx, bank, pinfunc, dqs))
 
-def write_database(dev_name, chip, rg, endianness):
+
+speed_grade_names = { 
+    "MachXO2": ["1", "2", "3", "4", "5", "6"],
+    "MachXO3": ["5", "6"],
+    "MachXO3D": ["2", "3", "5", "6"]
+}
+speed_grade_cells = {}
+speed_grade_pips = {}
+
+pip_class_to_idx = {"default": 0, "zero": 1}
+
+timing_port_xform = {
+    "RAD0": "D0",
+    "RAD1": "B0",
+    "RAD2": "C0",
+    "RAD3": "A0",
+}
+
+
+delay_db = {}
+# Convert from Lattice-style grouped SLICE to new nextpnr split style SLICE
+def postprocess_timing_data(cells):
+    def delay_diff(x, y):
+        return (x[0] - y[0], x[1] - y[1])
+
+    split_cells = {}
+    comb_delays = {}
+    comb_delays[("A", "F")] = delay_db["SLICE"][("A0", "F0")]
+    comb_delays[("B", "F")] = delay_db["SLICE"][("B0", "F0")]
+    comb_delays[("C", "F")] = delay_db["SLICE"][("C0", "F0")]
+    comb_delays[("D", "F")] = delay_db["SLICE"][("D0", "F0")]
+    #comb_delays[("A", "OFX")] = delay_db["SLICE"][("A0", "OFX0")]
+    #comb_delays[("B", "OFX")] = delay_db["SLICE"][("B0", "OFX0")]
+    #comb_delays[("C", "OFX")] = delay_db["SLICE"][("C0", "OFX0")]
+    #comb_delays[("D", "OFX")] = delay_db["SLICE"][("D0", "OFX0")]
+    #comb_delays[("M", "OFX")] = delay_db["SLICE"][("M0", "OFX0")] # worst case
+    #comb_delays[("F1", "OFX")] = delay_diff(delay_db["SLICE"][("A1", "OFX0")],
+    #                                        delay_db["SLICE"][("A1", "F1")])
+    #comb_delays[("FXA", "OFX")] = delay_db["SLICE"][("FXA", "OFX1")]
+    #comb_delays[("FXB", "OFX")] = delay_db["SLICE"][("FXB", "OFX1")]
+    split_cells["TRELLIS_COMB"] = comb_delays
+
+    carry0_delays = {}
+    carry0_delays[("A", "F")] = delay_db["SLICE"][("A0", "F0")]
+    carry0_delays[("B", "F")] = delay_db["SLICE"][("B0", "F0")]
+    carry0_delays[("C", "F")] = delay_db["SLICE"][("C0", "F0")]
+    carry0_delays[("D", "F")] = delay_db["SLICE"][("D0", "F0")]
+    #carry0_delays[("A", "FCO")] = delay_db["SLICE"][("A0", "FCO")]
+    #carry0_delays[("B", "FCO")] = delay_db["SLICE"][("B0", "FCO")]
+    #carry0_delays[("C", "FCO")] = delay_db["SLICE"][("C0", "FCO")]
+    #carry0_delays[("D", "FCO")] = delay_db["SLICE"][("D0", "FCO")]
+    #carry0_delays[("FCI", "F")] = delay_db["SLICE"][("FCI", "F0")]
+    #carry0_delays[("FCI", "FCO")] = delay_db["SLICE"][("FCI", "FCO")]
+
+    split_cells["TRELLIS_COMB_CARRY0"] = carry0_delays
+
+    carry1_delays = {}
+    carry1_delays[("A", "F")] = delay_db["SLICE"][("A1", "F1")]
+    carry1_delays[("B", "F")] = delay_db["SLICE"][("B1", "F1")]
+    carry1_delays[("C", "F")] = delay_db["SLICE"][("C1", "F1")]
+    carry1_delays[("D", "F")] = delay_db["SLICE"][("D1", "F1")]
+    #carry1_delays[("A", "FCO")] = delay_db["SLICE"][("A1", "FCO")]
+    #carry1_delays[("B", "FCO")] = delay_db["SLICE"][("B1", "FCO")]
+    #carry1_delays[("C", "FCO")] = delay_db["SLICE"][("C1", "FCO")]
+    #carry1_delays[("D", "FCO")] = delay_db["SLICE"][("D1", "FCO")]
+    #carry1_delays[("FCI", "F")] = delay_diff(delay_db["SLICE"][("FCI", "F1")], delay_db["SLICE"][("FCI", "FCO")])
+    #carry1_delays[("FCI", "FCO")] = (0, 0)
+
+    split_cells["TRELLIS_COMB_CARRY1"] = carry1_delays
+
+    for celltype, celldelays in sorted(split_cells.items()):
+        delays = []
+        setupholds = []
+        for (from_pin, to_pin), (min_delay, max_delay) in sorted(celldelays.items()):
+            delays.append((constids[from_pin], constids[to_pin], min_delay, max_delay))
+        cells.append((constids[celltype], delays, setupholds))
+
+def process_timing_data(family):
+    for grade in speed_grade_names[family]:
+        with open(timing_dbs.cells_db_path(family, grade)) as f:
+            cell_data = json.load(f)
+        cells = []
+        for cell, cdata in sorted(cell_data.items()):
+            celltype = constids[cell.replace(":", "_").replace("=", "_").replace(",", "_")]
+            delays = []
+            setupholds = []
+            delay_db[cell] = {}
+            for entry in cdata:
+                if entry["type"] == "Width":
+                    continue
+                elif entry["type"] == "IOPath":
+                    from_pin = entry["from_pin"][1] if type(entry["from_pin"]) is list else entry["from_pin"]
+                    if from_pin in timing_port_xform:
+                        from_pin = timing_port_xform[from_pin]
+                    to_pin = entry["to_pin"]
+                    if to_pin in timing_port_xform:
+                        to_pin = timing_port_xform[to_pin]
+                    min_delay = min(entry["rising"][0], entry["falling"][0])
+                    max_delay = min(entry["rising"][2], entry["falling"][2])
+                    delay_db[cell][(from_pin, to_pin)] = (min_delay, max_delay)
+                    delays.append((constids[from_pin], constids[to_pin], min_delay, max_delay))
+                elif entry["type"] == "SetupHold":
+                    if type(entry["pin"]) is list:
+                        continue
+                    pin = constids[entry["pin"]]
+                    clock = constids[entry["clock"][1]]
+                    min_setup = entry["setup"][0]
+                    max_setup = entry["setup"][2]
+                    min_hold = entry["hold"][0]
+                    max_hold = entry["hold"][2]
+                    setupholds.append((pin, clock, min_setup, max_setup, min_hold, max_hold))
+                else:
+                    assert False, entry["type"]
+            cells.append((celltype, delays, setupholds))
+        postprocess_timing_data(cells)
+        pip_class_delays = []
+        for i in range(len(pip_class_to_idx)):
+            pip_class_delays.append((50, 50, 0, 0))
+        pip_class_delays[pip_class_to_idx["zero"]] = (0, 0, 0, 0)
+        with open(timing_dbs.interconnect_db_path(family, grade)) as f:
+            interconn_data = json.load(f)
+        for pipclass, pipdata in sorted(interconn_data.items()):
+
+            min_delay = pipdata["delay"][0] * 1.1
+            max_delay = pipdata["delay"][2] * 1.1
+            min_fanout = pipdata["fanout"][0]
+            max_fanout = pipdata["fanout"][2]
+            if grade == "6":
+                pip_class_to_idx[pipclass] = len(pip_class_delays)
+                pip_class_delays.append((min_delay, max_delay, min_fanout, max_fanout))
+            else:
+                if pipclass in pip_class_to_idx:
+                    pip_class_delays[pip_class_to_idx[pipclass]] = (min_delay, max_delay, min_fanout, max_fanout)
+        speed_grade_cells[grade] = cells
+        speed_grade_pips[grade] = pip_class_delays
+
+
+def get_pip_class(wire_from, wire_to):
+
+    if "FCO" in wire_from or "FCI" in wire_to:
+        return pip_class_to_idx["zero"]
+    if "F5" in wire_from or "FX" in wire_from or "FXA" in wire_to or "FXB" in wire_to:
+        return pip_class_to_idx["zero"]
+
+    class_name = pip_classes.get_pip_class(wire_from, wire_to)
+    if class_name is None or class_name not in pip_class_to_idx:
+        class_name = "default"
+    return pip_class_to_idx[class_name]
+
+
+
+def write_database(family, dev_name, chip, rg, endianness):
     def write_loc(loc, sym_name):
         bba.u16(loc.x, "%s.x" % sym_name)
         bba.u16(loc.y, "%s.y" % sym_name)
@@ -261,13 +414,10 @@ def write_database(dev_name, chip, rg, endianness):
                 bba.u32(arc.sinkWire.id, "dst_idx {}".format(get_wire_name(arc.sinkWire.rel, arc.sinkWire.id)))
                 src_name = get_wire_name(arc.srcWire.rel, arc.srcWire.id)
                 snk_name = get_wire_name(arc.sinkWire.rel, arc.sinkWire.id)
-                # TODO: ECP5 timing-model-specific. Reuse for MachXO2?
-                # bba.u32(get_pip_class(src_name, snk_name), "timing_class")
-                bba.u32(0, "timing_class")
-                bba.u16(get_tiletype_index(rg.to_str(arc.tiletype)), "tile_type")
+                bba.u16(get_pip_class(src_name, snk_name), "timing_class")
+                bba.u8(get_tiletype_index(rg.to_str(arc.tiletype)), "tile_type")
                 cls = arc.cls
-                bba.u8(arc.cls, "pip_type")
-                bba.u8(0, "padding")
+                bba.u8(cls, "pip_type")
                 bba.u16(arc.lutperm_flags, "lutperm_flags")
                 bba.u16(0, "padding2")
 
@@ -375,6 +525,45 @@ def write_database(dev_name, chip, rg, endianness):
     for tt, idx in sorted(tiletype_names.items(), key=lambda x: x[1]):
         bba.s(tt, "name")
 
+    for grade in speed_grade_names[family]:
+        for cell in speed_grade_cells[grade]:
+            celltype, delays, setupholds = cell
+            if len(delays) > 0:
+                bba.l("cell_%d_delays_%s" % (celltype, grade))
+                for delay in delays:
+                    from_pin, to_pin, min_delay, max_delay = delay
+                    bba.u32(from_pin, "from_pin")
+                    bba.u32(to_pin, "to_pin")
+                    bba.u32(min_delay, "min_delay")
+                    bba.u32(max_delay, "max_delay")
+            if len(setupholds) > 0:
+                bba.l("cell_%d_setupholds_%s" % (celltype, grade))
+                for sh in setupholds:
+                    pin, clock, min_setup, max_setup, min_hold, max_hold = sh
+                    bba.u32(pin, "sig_port")
+                    bba.u32(clock, "clock_port")
+                    bba.u32(min_setup, "min_setup")
+                    bba.u32(max_setup, "max_setup")
+                    bba.u32(min_hold, "min_hold")
+                    bba.u32(max_hold, "max_hold")
+        bba.l("cell_timing_data_%s" % grade)
+        for cell in speed_grade_cells[grade]:
+            celltype, delays, setupholds = cell
+            bba.u32(celltype, "cell_type")
+            bba.r_slice("cell_%d_delays_%s" % (celltype, grade) if len(delays) > 0 else None, len(delays), "delays")
+            bba.r_slice("cell_%d_setupholds_%s" % (celltype, grade) if len(delays) > 0 else None, len(setupholds), "setupholds")
+        bba.l("pip_timing_data_%s" % grade)
+        for pipclass in speed_grade_pips[grade]:
+            min_delay, max_delay, min_fanout, max_fanout = pipclass
+            bba.u32(min_delay, "min_delay")
+            bba.u32(max_delay, "max_delay")
+            bba.u32(min_fanout, "min_fanout")
+            bba.u32(max_fanout, "max_fanout")
+    bba.l("speed_grade_data")
+    for grade in speed_grade_names[family]:
+        bba.r_slice("cell_timing_data_%s" % grade, len(speed_grade_cells[grade]), "cell_timings")
+        bba.r_slice("pip_timing_data_%s" % grade, len(speed_grade_pips[grade]), "pip_classes")
+
     for name, var_data in sorted(variants.items()):
         bba.l("supported_packages_%s" % name, "PackageSupportedPOD")
         for package in var_data["packages"]:
@@ -382,7 +571,8 @@ def write_database(dev_name, chip, rg, endianness):
             bba.s(package_shortname(package, chip.info.family), "short_name")
         bba.l("supported_speed_grades_%s" % name, "SpeedSupportedPOD")
         for speed in var_data["speeds"]:
-            bba.u32(speed, "speed")
+            bba.u16(speed, "speed")
+            bba.u16(speed_grade_names[family].index(str(speed)), "index")
         bba.l("supported_suffixes_%s" % name, "SuffixeSupportedPOD")
         for suffix in var_data["suffixes"]:
             bba.s(suffix, "suffix")
@@ -414,6 +604,7 @@ def write_database(dev_name, chip, rg, endianness):
     bba.r_slice("tiles_info", (max_col + 1) * (max_row + 1), "tile_info")
     bba.r_slice("variant_data", len(variants), "variant_info")
     bba.r_slice("spine_info", len(spines), "spine_info")
+    bba.r_slice("speed_grade_data", len(speed_grade_names[family]), "speed_grades")
 
     bba.pop()
     return bba
@@ -492,9 +683,10 @@ def main():
     rg = pytrellis.make_optimized_chipdb(chip, include_lutperm_pips=True, split_slice_mode=True)
     max_row = chip.get_max_row()
     max_col = chip.get_max_col()
+    process_timing_data(dev_family[args.device])
     process_pio_db(rg, args.device)
     process_devices_db(chip.info.family, chip.info.name)
-    bba = write_database(args.device, chip, rg, "le")
+    bba = write_database(dev_family[args.device],args.device, chip, rg, "le")
 
 
 
