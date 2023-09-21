@@ -227,10 +227,10 @@ speed_grade_pips = {}
 pip_class_to_idx = {"default": 0, "zero": 1}
 
 timing_port_xform = {
-    "RAD0": "D0",
+    "RAD0": "A0",
     "RAD1": "B0",
     "RAD2": "C0",
-    "RAD3": "A0",
+    "RAD3": "D0",
 }
 
 
@@ -246,15 +246,15 @@ def postprocess_timing_data(cells):
     comb_delays[("B", "F")] = delay_db["SLICE"][("B0", "F0")]
     comb_delays[("C", "F")] = delay_db["SLICE"][("C0", "F0")]
     comb_delays[("D", "F")] = delay_db["SLICE"][("D0", "F0")]
-    #comb_delays[("A", "OFX")] = delay_db["SLICE"][("A0", "OFX0")]
-    #comb_delays[("B", "OFX")] = delay_db["SLICE"][("B0", "OFX0")]
-    #comb_delays[("C", "OFX")] = delay_db["SLICE"][("C0", "OFX0")]
-    #comb_delays[("D", "OFX")] = delay_db["SLICE"][("D0", "OFX0")]
-    #comb_delays[("M", "OFX")] = delay_db["SLICE"][("M0", "OFX0")] # worst case
-    #comb_delays[("F1", "OFX")] = delay_diff(delay_db["SLICE"][("A1", "OFX0")],
-    #                                        delay_db["SLICE"][("A1", "F1")])
-    #comb_delays[("FXA", "OFX")] = delay_db["SLICE"][("FXA", "OFX1")]
-    #comb_delays[("FXB", "OFX")] = delay_db["SLICE"][("FXB", "OFX1")]
+    comb_delays[("A", "OFX")] = delay_db["SLICE"][("A0", "OFX0")]
+    comb_delays[("B", "OFX")] = delay_db["SLICE"][("B0", "OFX0")]
+    comb_delays[("C", "OFX")] = delay_db["SLICE"][("C0", "OFX0")]
+    comb_delays[("D", "OFX")] = delay_db["SLICE"][("D0", "OFX0")]
+    comb_delays[("M", "OFX")] = delay_db["SLICE"][("M0", "OFX0")] # worst case
+    comb_delays[("F1", "OFX")] = delay_diff(delay_db["SLICE"][("A1", "OFX0")],
+                                            delay_db["SLICE"][("A1", "F1")])
+    comb_delays[("FXA", "OFX")] = delay_db["SLICE"][("FXA", "OFX1")]
+    comb_delays[("FXB", "OFX")] = delay_db["SLICE"][("FXB", "OFX1")]
     split_cells["TRELLIS_COMB"] = comb_delays
 
     carry0_delays = {}
@@ -262,12 +262,12 @@ def postprocess_timing_data(cells):
     carry0_delays[("B", "F")] = delay_db["SLICE"][("B0", "F0")]
     carry0_delays[("C", "F")] = delay_db["SLICE"][("C0", "F0")]
     carry0_delays[("D", "F")] = delay_db["SLICE"][("D0", "F0")]
-    #carry0_delays[("A", "FCO")] = delay_db["SLICE"][("A0", "FCO")]
-    #carry0_delays[("B", "FCO")] = delay_db["SLICE"][("B0", "FCO")]
-    #carry0_delays[("C", "FCO")] = delay_db["SLICE"][("C0", "FCO")]
-    #carry0_delays[("D", "FCO")] = delay_db["SLICE"][("D0", "FCO")]
-    #carry0_delays[("FCI", "F")] = delay_db["SLICE"][("FCI", "F0")]
-    #carry0_delays[("FCI", "FCO")] = delay_db["SLICE"][("FCI", "FCO")]
+    carry0_delays[("A", "FCO")] = delay_db["SLICE"][("A0", "FCO")]
+    carry0_delays[("B", "FCO")] = delay_db["SLICE"][("B0", "FCO")]
+    carry0_delays[("C", "FCO")] = delay_db["SLICE"][("A0", "FCO")] # missing
+    carry0_delays[("D", "FCO")] = delay_db["SLICE"][("A0", "FCO")] # missing
+    carry0_delays[("FCI", "F")] = delay_db["SLICE"][("FCI", "F0")]
+    carry0_delays[("FCI", "FCO")] = delay_db["SLICE"][("FCI", "FCO")]
 
     split_cells["TRELLIS_COMB_CARRY0"] = carry0_delays
 
@@ -276,12 +276,12 @@ def postprocess_timing_data(cells):
     carry1_delays[("B", "F")] = delay_db["SLICE"][("B1", "F1")]
     carry1_delays[("C", "F")] = delay_db["SLICE"][("C1", "F1")]
     carry1_delays[("D", "F")] = delay_db["SLICE"][("D1", "F1")]
-    #carry1_delays[("A", "FCO")] = delay_db["SLICE"][("A1", "FCO")]
-    #carry1_delays[("B", "FCO")] = delay_db["SLICE"][("B1", "FCO")]
-    #carry1_delays[("C", "FCO")] = delay_db["SLICE"][("C1", "FCO")]
-    #carry1_delays[("D", "FCO")] = delay_db["SLICE"][("D1", "FCO")]
-    #carry1_delays[("FCI", "F")] = delay_diff(delay_db["SLICE"][("FCI", "F1")], delay_db["SLICE"][("FCI", "FCO")])
-    #carry1_delays[("FCI", "FCO")] = (0, 0)
+    carry1_delays[("A", "FCO")] = delay_db["SLICE"][("A1", "FCO")]
+    carry1_delays[("B", "FCO")] = delay_db["SLICE"][("B1", "FCO")]
+    carry1_delays[("C", "FCO")] = delay_db["SLICE"][("C1", "FCO")]
+    carry1_delays[("D", "FCO")] = delay_db["SLICE"][("C1", "FCO")] # missing
+    carry1_delays[("FCI", "F")] = delay_diff(delay_db["SLICE"][("FCI", "F1")], delay_db["SLICE"][("FCI", "FCO")])
+    carry1_delays[("FCI", "FCO")] = (0, 0)
 
     split_cells["TRELLIS_COMB_CARRY1"] = carry1_delays
 
