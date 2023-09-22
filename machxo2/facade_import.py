@@ -264,8 +264,8 @@ def postprocess_timing_data(cells):
     carry0_delays[("D", "F")] = delay_db["SLICE"][("D0", "F0")]
     carry0_delays[("A", "FCO")] = delay_db["SLICE"][("A0", "FCO")]
     carry0_delays[("B", "FCO")] = delay_db["SLICE"][("B0", "FCO")]
-    carry0_delays[("C", "FCO")] = delay_db["SLICE"][("A0", "FCO")] # missing
-    carry0_delays[("D", "FCO")] = delay_db["SLICE"][("A0", "FCO")] # missing
+    carry0_delays[("C", "FCO")] = delay_db["SLICE"][("C0", "FCO")]
+    carry0_delays[("D", "FCO")] = delay_db["SLICE"][("D0", "FCO")]
     carry0_delays[("FCI", "F")] = delay_db["SLICE"][("FCI", "F0")]
     carry0_delays[("FCI", "FCO")] = delay_db["SLICE"][("FCI", "FCO")]
 
@@ -279,7 +279,7 @@ def postprocess_timing_data(cells):
     carry1_delays[("A", "FCO")] = delay_db["SLICE"][("A1", "FCO")]
     carry1_delays[("B", "FCO")] = delay_db["SLICE"][("B1", "FCO")]
     carry1_delays[("C", "FCO")] = delay_db["SLICE"][("C1", "FCO")]
-    carry1_delays[("D", "FCO")] = delay_db["SLICE"][("C1", "FCO")] # missing
+    carry1_delays[("D", "FCO")] = delay_db["SLICE"][("D1", "FCO")]
     carry1_delays[("FCI", "F")] = delay_diff(delay_db["SLICE"][("FCI", "F1")], delay_db["SLICE"][("FCI", "FCO")])
     carry1_delays[("FCI", "FCO")] = (0, 0)
 
