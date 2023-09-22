@@ -28,7 +28,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-typedef float delay_t;
+typedef int delay_t;
 
 // -----------------------------------------------------------------------
 
