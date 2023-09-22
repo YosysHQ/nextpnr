@@ -358,7 +358,8 @@ def get_pip_class(wire_from, wire_to):
         return pip_class_to_idx["zero"]
     if "F5" in wire_from or "FX" in wire_from or "FXA" in wire_to or "FXB" in wire_to:
         return pip_class_to_idx["zero"]
-
+    if "JCLK" in wire_from:
+        wire_from = wire_from.replace("JCLK","CLK")
     class_name = pip_classes.get_pip_class(wire_from, wire_to)
     if class_name is None or class_name not in pip_class_to_idx:
         class_name = "default"
