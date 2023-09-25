@@ -77,8 +77,8 @@ struct TimingAnalyser
     TimingAnalyser(Context *ctx);
 
     void setup(bool update_net_timings = false, bool update_histogram = false, bool update_crit_paths = false);
-    void run(bool update_net_timings = false, bool update_histogram = false, bool update_crit_paths = false,
-             bool update_route_delays = true);
+    void run(bool update_route_delays = true, bool update_net_timings = false, bool update_histogram = false,
+             bool update_crit_paths = false);
 
     // This is used when routers etc are not actually binding detailed routing (due to congestion or an abstracted
     // model), but want to re-run STA with their own calculated delays
