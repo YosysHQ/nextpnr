@@ -45,11 +45,11 @@ void TimingAnalyser::setup(bool update_net_timings, bool update_histogram, bool 
     topo_sort();
     setup_port_domains();
     identify_related_domains();
-    run(update_net_timings, update_histogram, update_crit_paths, true);
+    run(true, update_net_timings, update_histogram, update_crit_paths);
 }
 
-void TimingAnalyser::run(bool update_net_timings, bool update_histogram, bool update_crit_paths,
-                         bool update_route_delays)
+void TimingAnalyser::run(bool update_route_delays, bool update_net_timings, bool update_histogram,
+                         bool update_crit_paths)
 {
     reset_times();
     if (update_route_delays)
