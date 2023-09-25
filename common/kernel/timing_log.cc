@@ -365,7 +365,7 @@ void Context::log_timing_results(TimingResult &result, bool print_histogram, boo
     if (print_fmax)
         log_fmax(this, result, warn_on_failure);
 
-    if (print_histogram && !timing_result.slack_histogram.empty())
+    if (print_histogram && !result.slack_histogram.empty())
         log_histogram(this, result);
 }
 
