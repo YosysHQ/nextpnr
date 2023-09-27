@@ -1004,7 +1004,7 @@ template <typename K, typename OPS> class pool
 
     bool operator!=(const pool &other) const { return !operator==(other); }
 
-    bool hash() const
+    unsigned int hash() const
     {
         unsigned int hashval = mkhash_init;
         for (auto &it : entries)
