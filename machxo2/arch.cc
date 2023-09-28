@@ -70,7 +70,7 @@ static void get_chip_info(std::string device, const ChipInfoPOD **chip_info, con
                             *package_info = nullptr;
                             *package_name = pkg.name.get();
                             *device_name = chip.name.get();
-                            *device_speed = speedgrade.index;
+                            *device_speed = speedgrade.speed;
                             *speed_grade = &(db_ptr->get()->speed_grades[speedgrade.index]);
                             for (auto &pi : db_ptr->get()->package_info) {
                                 if (pkg.name.get() == pi.name.get()) {
@@ -404,7 +404,7 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
 
     int dx = abs(src_loc.first - dst_loc.first), dy = abs(src_loc.second - dst_loc.second);
 
-    return (120 - 22 * device_speed) *
+    return (500 - 22 * device_speed) *
            (6 + std::max(dx - 5, 0) + std::max(dy - 5, 0) + 2 * (std::min(dx, 5) + std::min(dy, 5)));
 }
 
@@ -482,7 +482,7 @@ delay_t Arch::predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdStr
 
     int dx = abs(driver_loc.x - sink_loc.x), dy = abs(driver_loc.y - sink_loc.y);
 
-    return (120 - 22 * device_speed) *
+    return (500 - 22 * device_speed) *
            (3 + std::max(dx - 5, 0) + std::max(dy - 5, 0) + 2 * (std::min(dx, 5) + std::min(dy, 5)));
 }
 
