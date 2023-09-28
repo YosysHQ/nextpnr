@@ -318,7 +318,7 @@ void CostMap::fill_holes(const Context *ctx, const TypeWirePair &type_pair, boos
 delay_t CostMap::get_penalty(const boost::multi_array<delay_t, 2> &matrix) const
 {
     delay_t min_delay = std::numeric_limits<delay_t>::max();
-    delay_t max_delay = std::numeric_limits<delay_t>::min();
+    delay_t max_delay = std::numeric_limits<delay_t>::lowest();
 
     std::pair<int32_t, int32_t> min_location(0, 0), max_location(0, 0);
     for (unsigned ix = 0; ix < matrix.shape()[0]; ix++) {

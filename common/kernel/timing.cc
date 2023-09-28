@@ -770,7 +770,7 @@ void TimingAnalyser::build_detailed_net_timing_report()
 std::vector<CellPortKey> TimingAnalyser::get_worst_eps(domain_id_t domain_pair, int count)
 {
     std::vector<CellPortKey> worst_eps;
-    delay_t last_slack = std::numeric_limits<delay_t>::min();
+    delay_t last_slack = std::numeric_limits<delay_t>::lowest();
     auto &dp = domain_pairs.at(domain_pair);
     auto &cap_d = domains.at(dp.key.capture);
     while (int(worst_eps.size()) < count) {
