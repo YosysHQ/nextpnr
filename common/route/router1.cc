@@ -811,7 +811,7 @@ struct Router1
             for (auto &usr : ni->users) {
                 ++arc_count;
                 delay_t slack = tmg.get_setup_slack(CellPortKey(usr));
-                if (slack == std::numeric_limits<delay_t>::min())
+                if (slack == std::numeric_limits<delay_t>::lowest())
                     continue;
                 if (slack < default_thresh)
                     ++failed_count;
@@ -829,7 +829,7 @@ struct Router1
                 continue;
             for (auto &usr : ni->users) {
                 delay_t slack = tmg.get_setup_slack(CellPortKey(usr));
-                if (slack == std::numeric_limits<delay_t>::min())
+                if (slack == std::numeric_limits<delay_t>::lowest())
                     continue;
                 slacks.push_back(slack);
             }
@@ -941,7 +941,7 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
                         continue;
                     for (auto &usr : ni->users) {
                         delay_t slack = router.tmg.get_setup_slack(CellPortKey(usr));
-                        if (slack == std::numeric_limits<delay_t>::min())
+                        if (slack == std::numeric_limits<delay_t>::lowest())
                             continue;
                         if (slack < 0) {
                             wns = std::min(wns, slack);
