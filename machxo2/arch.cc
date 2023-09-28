@@ -706,8 +706,6 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
         return false;
     } else if (cell->type == id_DP8KC) {
         return false;
-/*    } else if (cell->type.in(id_IOLOGIC, id_SIOLOGIC)) {
-        return false;*/
     } else {
         return false;
     }
@@ -765,12 +763,6 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
         if (port == id_CLKO)
             return TMG_COMB_OUTPUT;
         return TMG_IGNORE;
-/*    } else if (cell->type == id_DCSC) {
-        if (port.in(id_CLK0, id_CLK1))
-            return TMG_COMB_INPUT;
-        if (port == id_DCSOUT)
-            return TMG_COMB_OUTPUT;
-        return TMG_IGNORE;*/
     } else if (cell->type == id_DP8KC) {
         if (port.in(id_CLKA, id_CLKB))
             return TMG_CLOCK_INPUT;
@@ -787,25 +779,7 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
         NPNR_ASSERT_FALSE_STR("no timing type for RAM port '" + port.str(this) + "'");
     } else if (cell->type == id_EHXPLLJ) {
         return TMG_IGNORE;
-/*    } else if (cell->type.in(id_DCUA, id_EXTREFB, id_PCSCLKDIV)) {
-        if (port.in(id_CH0_FF_TXI_CLK, id_CH0_FF_RXI_CLK, id_CH1_FF_TXI_CLK, id_CH1_FF_RXI_CLK))
-            return TMG_CLOCK_INPUT;
-        std::string prefix = port.str(this).substr(0, 9);
-        if (prefix == "CH0_FF_TX" || prefix == "CH0_FF_RX" || prefix == "CH1_FF_TX" || prefix == "CH1_FF_RX") {
-            clockInfoCount = 1;
-            return (cell->ports.at(port).type == PORT_OUT) ? TMG_REGISTER_OUTPUT : TMG_REGISTER_INPUT;
-        }
-        return TMG_IGNORE;
-    } else if (cell->type.in(id_IOLOGIC, id_SIOLOGIC)) {
-        if (port.in(id_CLK, id_ECLK)) {
-            return TMG_CLOCK_INPUT;
-        } else if (port.in(id_IOLDO, id_IOLDOI, id_IOLDOD, id_IOLTO, id_PADDI, id_DQSR90, id_DQSW, id_DQSW270)) {
-            return TMG_IGNORE;
-        } else {
-            clockInfoCount = 1;
-            return (cell->ports.at(port).type == PORT_OUT) ? TMG_REGISTER_OUTPUT : TMG_REGISTER_INPUT;
-        }*/
-    } else if (cell->type.in(/*id_DTR, id_USRMCLK,*/ id_SEDFA, id_GSR, id_JTAGF)) {
+    } else if (cell->type.in(id_SEDFA, id_GSR, id_JTAGF)) {
         return (cell->ports.at(port).type == PORT_OUT) ? TMG_STARTPOINT : TMG_ENDPOINT;
     } else if (cell->type.in(id_OSCH,id_OSCJ)) {
         if (port == id_OSC)
@@ -821,34 +795,6 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
             return TMG_GEN_CLOCK;
         else
             NPNR_ASSERT_FALSE("bad clkdiv port");
-/*    } else if (cell->type == id_DQSBUFM) {
-        if (port.in(id_READ0, id_READ1)) {
-            clockInfoCount = 1;
-            return TMG_REGISTER_INPUT;
-        } else if (port == id_DATAVALID) {
-            clockInfoCount = 1;
-            return TMG_REGISTER_OUTPUT;
-        } else if (port.in(id_SCLK, id_ECLK, id_DQSI)) {
-            return TMG_CLOCK_INPUT;
-        } else if (port.in(id_DQSR90, id_DQSW, id_DQSW270)) {
-            return TMG_GEN_CLOCK;
-        }
-        return (cell->ports.at(port).type == PORT_OUT) ? TMG_STARTPOINT : TMG_ENDPOINT;
-    } else if (cell->type == id_DDRDLL) {
-        if (port == id_CLK)
-            return TMG_CLOCK_INPUT;
-        return (cell->ports.at(port).type == PORT_OUT) ? TMG_STARTPOINT : TMG_ENDPOINT;
-    } else if (cell->type == id_TRELLIS_ECLKBUF) {
-        return (cell->ports.at(port).type == PORT_OUT) ? TMG_COMB_OUTPUT : TMG_COMB_INPUT;
-    } else if (cell->type == id_ECLKSYNCB) {
-        if (cell->ports.at(port).name == id_STOP)
-            return TMG_ENDPOINT;
-        return (cell->ports.at(port).type == PORT_OUT) ? TMG_COMB_OUTPUT : TMG_COMB_INPUT;
-    } else if (cell->type == id_ECLKBRIDGECS) {
-        if (cell->ports.at(port).name == id_SEL)
-            return TMG_ENDPOINT;
-        return (cell->ports.at(port).type == PORT_OUT) ? TMG_COMB_OUTPUT : TMG_COMB_INPUT;
-*/
     } else {
         log_error("cell type '%s' is unsupported (instantiated as '%s')\n", cell->type.c_str(this),
                   cell->name.c_str(this));
@@ -922,43 +868,7 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
         } else {
             get_setuphold_from_tmg_db(cell->ramInfo.regmode_timing_id, half_clock, port, info.setup, info.hold);
         }
-/*    } else if (cell->type == id_DCUA) {
-        std::string prefix = port.str(this).substr(0, 9);
-        info.edge = RISING_EDGE;
-        if (prefix == "CH0_FF_TX")
-            info.clock_port = id_CH0_FF_TXI_CLK;
-        else if (prefix == "CH0_FF_RX")
-            info.clock_port = id_CH0_FF_RXI_CLK;
-        else if (prefix == "CH1_FF_TX")
-            info.clock_port = id_CH1_FF_TXI_CLK;
-        else if (prefix == "CH1_FF_RX")
-            info.clock_port = id_CH1_FF_RXI_CLK;
-        if (cell->ports.at(port).type == PORT_OUT) {
-            info.clockToQ = DelayQuad(getDelayFromNS(0.7));
-        } else {
-            info.setup = DelayPair(getDelayFromNS(1));
-            info.hold = DelayPair(getDelayFromNS(0));
-        }
-    } else if (cell->type.in(id_IOLOGIC, id_SIOLOGIC)) {
-        info.clock_port = id_CLK;
-        info.edge = RISING_EDGE;
-        if (cell->ports.at(port).type == PORT_OUT) {
-            info.clockToQ = DelayQuad(getDelayFromNS(0.5));
-        } else {
-            info.setup = DelayPair(getDelayFromNS(0.1));
-            info.hold = DelayPair(getDelayFromNS(0));
-        }
-    } else if (cell->type == id_DQSBUFM) {
-        info.clock_port = id_SCLK;
-        info.edge = RISING_EDGE;
-        if (port == id_DATAVALID) {
-            info.clockToQ = DelayQuad(getDelayFromNS(0.2));
-        } else if (port.in(id_READ0, id_READ1)) {
-            info.setup = DelayPair(getDelayFromNS(0.5));
-            info.hold = DelayPair(getDelayFromNS(-0.4));
-        } else {
-            NPNR_ASSERT_FALSE("unknown DQSBUFM register port");*/
-        }
+    }
     return info;
 }
 
