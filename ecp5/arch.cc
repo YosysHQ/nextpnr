@@ -30,6 +30,7 @@
 #include "nextpnr.h"
 #include "placer1.h"
 #include "placer_heap.h"
+#include "placer_phetdp.h"
 #include "placer_static.h"
 #include "router1.h"
 #include "router2.h"
@@ -661,6 +662,8 @@ bool Arch::place()
     } else if (placer == "sa") {
         if (!placer1(getCtx(), Placer1Cfg(getCtx())))
             return false;
+    } else if (placer == "phetdp") {
+        placer_phetdp(getCtx());
     } else {
         log_error("ECP5 architecture does not support placer '%s'\n", placer.c_str());
     }
@@ -1274,8 +1277,7 @@ WireId Arch::get_bank_eclk(int bank, int eclk)
 }
 
 const std::string Arch::defaultPlacer = "heap";
-
-const std::vector<std::string> Arch::availablePlacers = {"sa", "heap", "static"};
+const std::vector<std::string> Arch::availablePlacers = {"sa", "heap", "static", "phetdp"};
 
 const std::string Arch::defaultRouter = "router1";
 const std::vector<std::string> Arch::availableRouters = {"router1", "router2"};
