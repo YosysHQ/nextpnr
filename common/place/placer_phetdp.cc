@@ -43,6 +43,53 @@ struct BinSpace {
     int x, y;
 };
 
+class Cluster {
+public:
+    Cluster(NetInfo* net, BinSpace bin) : nets{net}, bin{bin} {}
+
+    size_t size() const {
+        auto size = size_t{0};
+        dict<IdString, int> type_count;
+
+        for (const auto* net : nets) {
+            auto result1 = type_count.insert({net->driver.cell->type, 1});
+            if (!result1.second)
+                result1.first->second++;
+            for (const auto port : net->users) {
+                auto cell = port.cell;
+                auto result2 = type_count.insert({cell->type, 1});
+                if (!result2.second)
+                    result2.first->second++;
+            }
+        }
+
+        // TODO: PFUMX, L6MX21, CCU2C, DP16KD, TRELLIS_DPR16X4
+        return 10 * type_count.count(id_LUT4) +
+            9 * type_count.count(id_TRELLIS_FF) +
+            5 * type_count.count(id_MULT18X18D) +
+            3 * type_count.count(id_DP16KD);
+    }
+
+    void insert_net(NetInfo* net) {
+        nets.push_back(net);
+    }
+
+    BinSpace containing_bin() const {
+        return bin;
+    }
+
+    template<typename F>
+    void sort(F net_size) {
+        std::sort(nets.begin(), nets.end(), [&](const NetInfo* a, const NetInfo* b) {
+            return net_size(a) > net_size(b);
+        });
+    }
+
+private:
+    std::vector<NetInfo*> nets;
+    BinSpace bin;
+};
+
 class GlobalBin {
 public:
     GlobalBin(size_t capacity = 1250) : capacity{capacity}, conns{}, nets{} {}
@@ -56,7 +103,7 @@ public:
     // Confusingly, this term is e_uv in Formula (2), but also `c_x <- (n_i ∩ n_j)` in Formula (3).
     int edge_count(const NetInfo *candidate) const {
         auto edges = 0;
-        auto result = conns.find(candidate->name);
+        auto result = conns.find(candidate->driver.cell->name);
         if (result != conns.end())
             edges += result->second;
         for (const auto port : candidate->users) {
@@ -110,6 +157,52 @@ public:
         return net;
     }
 
+    std::vector<Cluster> clusterise(BinSpace bin) const {
+        auto v = std::vector<Cluster>{};
+        auto remaining_nets = std::vector<NetInfo*>{nets};
+        while (!remaining_nets.empty()) {
+            // Find the biggest single-net cluster.
+            std::sort(remaining_nets.begin(), remaining_nets.end(), [&](NetInfo* a, NetInfo* b) {
+                return Cluster{a, BinSpace{0, 0}}.size() > Cluster{b, BinSpace{0, 0}}.size();
+            });
+
+            // Pop it.
+            auto net = remaining_nets.back();
+            auto cluster = Cluster{net, bin};
+            remaining_nets.pop_back();
+
+            auto ports = pool<IdString>{};
+            auto port_pair = [&](PortRef port) {
+                return port.cell->name;
+            };
+            ports.insert(port_pair(net->driver));
+            for (auto port : net->users)
+                ports.insert(port_pair(port));
+
+            // Can we attach any nets to this cluster?
+            bool found_something = true;
+            while (found_something) {
+                auto p = std::partition(remaining_nets.begin(), remaining_nets.end(), [&](NetInfo* candidate) {
+                    bool in_cluster = ports.count(port_pair(candidate->driver)) != 0;
+                    for (auto port : candidate->users)
+                        in_cluster |= ports.count(port_pair(port)) != 0;
+                    return !in_cluster;
+                });
+                found_something = p != remaining_nets.end();
+                for (auto it = p; it != remaining_nets.end(); it++) {
+                    cluster.insert_net(*it);
+                    ports.insert(port_pair((*it)->driver));
+                    for (auto port : (*it)->users)
+                        ports.insert(port_pair(port));
+                }
+                remaining_nets.erase(p, remaining_nets.end());
+            }
+
+            v.push_back(cluster);
+        }
+        return v;
+    }
+
 private:
     // Incrementally update conn when a new net is added.
     void build_connectivity_for_net(const NetInfo *net) {
@@ -129,10 +222,14 @@ private:
     std::vector<NetInfo*> nets;
 };
 
-
 class GlobalBins {
 public:
     GlobalBins(Context *ctx) : ctx{ctx}, bins{12, std::vector<GlobalBin>(12)} {}
+
+    // Insert a net into a bin.
+    void insert_net(BinSpace bin, NetInfo* net) {
+        bins.at(bin.x).at(bin.y).insert_net(net);
+    }
 
     // Return the net with the highest connectivity score.
     // TODO: can I turn this into a std::max_element call?
@@ -155,11 +252,6 @@ public:
         return BinSpace{best_x, best_y};
     }
 
-    // Insert a net into a bin.
-    void insert_net(BinSpace bin, NetInfo* net) {
-        bins.at(bin.x).at(bin.y).insert_net(net);
-    }
-
     // Reduce congestion by spreading cells with low connectivity into neighbouring cells.
     void spread_whitespace() {
         for (int x = 0; x < 12; x++) {
@@ -178,6 +270,32 @@ public:
             }
             printf("\n");
         }
+    }
+
+    std::vector<Cluster> clusterise() {
+        auto v = std::vector<Cluster>{};
+        for (int x = 0; x < 12; x++) {
+            for (int y = 0; y < 12; y++) {
+                auto clusters = bins.at(x).at(y).clusterise(BinSpace{x, y});
+                std::move(clusters.begin(), clusters.end(), std::back_inserter(v));
+            }
+        }
+        std::sort(v.begin(), v.end(), [&](const Cluster& a, const Cluster& b) {
+            return a.size() > b.size();
+        });
+        return v;
+    }
+
+    int edge_count_except(const NetInfo* net, const BinSpace exclude) {
+        auto edges = 0;
+        for (int x = 0; x < 12; x++) {
+            for (int y = 0; y < 12; y++) {
+                if (exclude.x == x && exclude.y == y)
+                    continue;
+                edges += bins.at(x).at(y).edge_count(net);
+            }
+        }
+        return edges;
     }
 
 private:
@@ -242,11 +360,19 @@ public:
         // Step 3: spreading of whitespace to reduce congestion
         initial_spread_whitespace();
         auto post_spread_whitespace = high_resolution_clock::now();
+        // Step 4: turning nets into clusters and sorting by size.
+        global_clusterise();
+        auto post_clusterise = high_resolution_clock::now();
+        // Step 5: selecting net ordering based on logic contents.
+        global_net_select();
+        auto post_net_select = high_resolution_clock::now();
         log_info("=== PHetDP FINISH ===\n");
-        log_info("initial placement:\n");
+        log_info("global placement:\n");
         log_info("    initial_place_constraints(): %.02fs\n", duration<double>(post_initial_constraints - start_time).count());
         log_info("    initial_place_rest():        %.02fs\n", duration<double>(post_initial_rest - post_initial_constraints).count());
-        log_info("    initial_spread_whitespace(): %.02fs\n", duration<double>(post_spread_whitespace - post_initial_rest).count()); 
+        log_info("    initial_spread_whitespace(): %.02fs\n", duration<double>(post_spread_whitespace - post_initial_rest).count());
+        log_info("    global_clusterise():         %.02fs\n", duration<double>(post_clusterise - post_spread_whitespace).count());
+        log_info("    global_net_select():         %.02fs\n", duration<double>(post_net_select - post_clusterise).count());
         NPNR_ASSERT_FALSE_STR("not yet implemented");
     }
 
@@ -298,7 +424,7 @@ public:
             }
         }
         log_info("Placed %d cells based on constraints.\n", int(placed_cells));
-        log_info("after fixed initial placement:\n");
+        log_info("after fixed initial placement:");
         g.print_occupancy();
     }
 
@@ -321,18 +447,40 @@ public:
             placed_cells++;
         }
         log_info("Binned %d cells.\n", int(placed_cells));
-        log_info("after connectivity-based initial placement:\n");
+        log_info("after connectivity-based initial placement:");
         g.print_occupancy();
     }
 
     void initial_spread_whitespace() {
         g.spread_whitespace();
-        log_info("after whitespace spreading:\n");
+        log_info("after whitespace spreading:");
         g.print_occupancy();
+    }
+
+    void global_clusterise() {
+        clusters = std::move(g.clusterise());
+        log_info("found %zu clusters\n", clusters.size());
+        log_info("largest cluster is %zu\n", clusters.front().size());
+    }
+
+    void global_net_select() {
+        for (auto& cluster : clusters) {
+            cluster.sort([&](const NetInfo* net) {
+                pool<IdString> cell_types;
+                cell_types.insert(net->driver.cell->type);
+                for (auto port : net->users)
+                    cell_types.insert(port.cell->type);
+                
+                auto lut_ffs = cell_types.count(id_LUT4) + cell_types.count(id_TRELLIS_FF);
+
+                return float(g.edge_count_except(net, cluster.containing_bin())) * float(lut_ffs) / float(1 + net->users.entries());
+            });
+        }
     }
 private:
     Context* ctx;
 
+    std::vector<Cluster> clusters;
     GlobalBins g;
 };
 
