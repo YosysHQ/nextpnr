@@ -45,33 +45,43 @@ struct BinSpace {
 
 class Cluster {
 public:
-    Cluster(NetInfo* net, BinSpace bin) : nets{net}, bin{bin} {}
+    Cluster(Context *ctx, NetInfo *net, BinSpace bin) : ctx{ctx}, bin{bin} {
+        _nets = std::vector<NetInfo*>{};
+        insert_net(net);
+    }
 
     size_t size() const {
-        auto size = size_t{0};
-        dict<IdString, int> type_count;
+        return _size;
+    }
 
-        for (const auto* net : nets) {
-            auto result1 = type_count.insert({net->driver.cell->type, 1});
-            if (!result1.second)
-                result1.first->second++;
-            for (const auto port : net->users) {
-                auto cell = port.cell;
-                auto result2 = type_count.insert({cell->type, 1});
-                if (!result2.second)
-                    result2.first->second++;
-            }
+    static size_t size_of_net(NetInfo* net) {
+        dict<IdString, int> type_count;
+        type_count.insert({net->driver.cell->type, 1});
+        for (const auto port : net->users) {
+            auto cell = port.cell;
+            auto result2 = type_count.insert({cell->type, 1});
+            if (!result2.second)
+                result2.first->second++;
         }
 
+#ifdef ARCH_ECP5
         // TODO: PFUMX, L6MX21, CCU2C, DP16KD, TRELLIS_DPR16X4
-        return 10 * type_count.count(id_LUT4) +
+        return 40 * type_count.count(id_TRELLIS_DPR16X4) +
+            20 * type_count.count(id_CCU2C) +
+            10 * type_count.count(id_LUT4) +
             9 * type_count.count(id_TRELLIS_FF) +
             5 * type_count.count(id_MULT18X18D) +
-            3 * type_count.count(id_DP16KD);
+            3 * type_count.count(id_DP16KD) +
+            1 * type_count.count(id_PFUMX) +
+            1 * type_count.count(id_L6MUX21);
+#else
+        return 0;
+#endif
     }
 
     void insert_net(NetInfo* net) {
-        nets.push_back(net);
+        _nets.push_back(net);
+        _size += size_of_net(net);
     }
 
     BinSpace containing_bin() const {
@@ -80,19 +90,37 @@ public:
 
     template<typename F>
     void sort(F net_size) {
-        std::sort(nets.begin(), nets.end(), [&](const NetInfo* a, const NetInfo* b) {
+        std::sort(_nets.begin(), _nets.end(), [&](const NetInfo* a, const NetInfo* b) {
             return net_size(a) > net_size(b);
         });
     }
 
+    void print() const {
+        log_info("Cluster at (%d, %d):\n", bin.x, bin.y);
+        for (auto* net : _nets) {
+            log_info("Net %s\n", net->name.c_str(ctx));
+            if (net->driver.cell)
+                log_info("  %s: %s\n", net->driver.cell->name.str(ctx).c_str(), net->name.str(ctx).c_str());
+            else
+                log_info("  ???: %s\n", net->name.c_str(ctx));
+        }
+    }
+
+    const std::vector<NetInfo*>& nets() const {
+        return _nets;
+    }
+
 private:
-    std::vector<NetInfo*> nets;
+    Context *ctx;
+
+    std::vector<NetInfo*> _nets;
     BinSpace bin;
+    size_t _size;
 };
 
 class GlobalBin {
 public:
-    GlobalBin(size_t capacity = 1250) : capacity{capacity}, conns{}, nets{} {}
+    GlobalBin(Context *ctx, size_t capacity = 1250) : capacity{capacity}, conns{}, nets{} {}
 
     // The amount of available space in this bin.
     int whitespace() const {
@@ -120,6 +148,13 @@ public:
         build_connectivity_for_net(net);
     }
 
+    // Add a cluster to this bin.
+    void insert_cluster(Cluster cluster) {
+        clusters.push_back(cluster);
+        for (auto* net : cluster.nets())
+            insert_net(net);
+    }
+
     // Formula (3), which scores how connected this net is to the other nets in this bin.
     float gamma(const NetInfo* net) const {
         return float(1 + edge_count(net)) / float(1 + net->users.entries());
@@ -141,10 +176,16 @@ public:
 
     // Pop the lowest-gamma net from this bin.
     NetInfo* pop_least_connected() {
-        if (nets.empty())
+        NetInfo* net = nullptr;
+        for (auto it = nets.rbegin(); it != nets.rend(); it++) {
+            if ((*it)->driver.cell->cluster == ClusterId()) {
+                net = *it;
+                nets.erase((it+1).base());
+                break;
+            }
+        }
+        if (net == nullptr)
             return nullptr;
-        auto net = nets.back();
-        nets.pop_back();
         auto cell_name = net->driver.cell->name;
         auto result1 = conns.find(cell_name);
         if (result1 != conns.end())
@@ -158,18 +199,24 @@ public:
     }
 
     std::vector<Cluster> clusterise(BinSpace bin) const {
-        auto v = std::vector<Cluster>{};
-        auto remaining_nets = std::vector<NetInfo*>{nets};
+        auto v = clusters;
+        auto remaining_nets = nets;
+
         while (!remaining_nets.empty()) {
             // Find the biggest single-net cluster.
             std::sort(remaining_nets.begin(), remaining_nets.end(), [&](NetInfo* a, NetInfo* b) {
-                return Cluster{a, BinSpace{0, 0}}.size() > Cluster{b, BinSpace{0, 0}}.size();
+                return Cluster::size_of_net(a) > Cluster::size_of_net(b);
             });
 
             // Pop it.
             auto net = remaining_nets.back();
-            auto cluster = Cluster{net, bin};
             remaining_nets.pop_back();
+
+            // Skip already-clustered nets though.
+            if (net->driver.cell->cluster != ClusterId())
+                continue;
+
+            auto cluster = Cluster{ctx, net, bin};
 
             auto ports = pool<IdString>{};
             auto port_pair = [&](PortRef port) {
@@ -197,7 +244,7 @@ public:
                 }
                 remaining_nets.erase(p, remaining_nets.end());
             }
-
+            cluster.print();
             v.push_back(cluster);
         }
         return v;
@@ -217,18 +264,27 @@ private:
         }
     }
 
+    Context *ctx;
+
     size_t capacity;
     dict<IdString, int> conns;
     std::vector<NetInfo*> nets;
+    std::vector<Cluster> clusters;
 };
 
 class GlobalBins {
 public:
-    GlobalBins(Context *ctx) : ctx{ctx}, bins{12, std::vector<GlobalBin>(12)} {}
+    GlobalBins(Context *ctx) : ctx{ctx}, bins{12, std::vector<GlobalBin>{12, GlobalBin(ctx)}} {}
 
     // Insert a net into a bin.
     void insert_net(BinSpace bin, NetInfo* net) {
         bins.at(bin.x).at(bin.y).insert_net(net);
+    }
+
+    // Insert a cluster into a bin.
+    void insert_cluster(Cluster cluster) {
+        auto bin = cluster.containing_bin();
+        bins.at(bin.x).at(bin.y).insert_cluster(cluster);
     }
 
     // Return the net with the highest connectivity score.
@@ -308,6 +364,8 @@ private:
         while (did_something) {
             did_something = false;
             auto net = bins.at(x).at(y).pop_least_connected();
+            if (net == nullptr)
+                break;
             auto best_x = 0;
             auto best_y = 0;
             auto best_score = 100000;
@@ -430,6 +488,9 @@ public:
 
     void initial_place_rest() {
         size_t placed_cells = 0;
+
+        dict<ClusterId, std::vector<NetInfo*>> clusters;
+
         for (auto &net_entry : ctx->nets) {
             NetInfo *net = net_entry.second.get();
             CellInfo *cell = net->driver.cell;
@@ -437,15 +498,36 @@ public:
                 continue; // maybe?
             if (cell->isPseudo())
                 continue;
-            
+
             // Fixed constraints are handled in initial_place_constraints().
             auto loc = cell->attrs.find(ctx->id("BEL"));
             if (loc != cell->attrs.end())
                 continue;
 
+            if (cell->cluster != ClusterId()) {
+                auto result = clusters.insert({cell->cluster, std::vector<NetInfo*>{net}});
+                if (!result.second)
+                    result.first->second.push_back(net);
+                continue;
+            }
+
             g.insert_net(g.highest_connectivity(net), net);
             placed_cells++;
         }
+
+        log_info("Found %zu existing clusters.\n", clusters.size());
+
+        for (auto cluster_info : clusters) {
+            auto& v = cluster_info.second;
+            auto bin = g.highest_connectivity(v[0]);
+            auto cluster = Cluster{ctx, v[0], bin};
+            for (auto it = v.begin() + 1; it != v.end(); it++) {
+                cluster.insert_net(*it);
+                placed_cells++;
+            }
+            g.insert_cluster(cluster);
+        }
+
         log_info("Binned %d cells.\n", int(placed_cells));
         log_info("after connectivity-based initial placement:");
         g.print_occupancy();
@@ -471,7 +553,11 @@ public:
                 for (auto port : net->users)
                     cell_types.insert(port.cell->type);
                 
+#ifdef ARCH_ECP5
                 auto lut_ffs = cell_types.count(id_LUT4) + cell_types.count(id_TRELLIS_FF);
+#else
+                auto lut_ffs = 1;
+#endif
 
                 return float(g.edge_count_except(net, cluster.containing_bin())) * float(lut_ffs) / float(1 + net->users.entries());
             });
