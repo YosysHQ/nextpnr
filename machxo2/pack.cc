@@ -1345,7 +1345,7 @@ class MachXO2Packer
                     for (int i = 0; i < 64; i++) {
                         if (osc_freq[i] == freq) {
                             found = true;
-                            set_constraint(ci, id_OSC, simple_clk_contraint(delay_t(1000.0 / std::stof(freq))));
+                            set_constraint(ci, id_OSC, simple_clk_contraint(delay_t(1.0e6 / std::stof(freq))));
                             break;
                         }
                     }
