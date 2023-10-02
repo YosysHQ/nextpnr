@@ -1742,6 +1742,17 @@ void Arch::assign_arch_info_for_cell(CellInfo *ci)
             log_error("DP8KC %s has invalid REGMODE_B configuration '%s'\n", ci->name.c_str(this), regmode_b.c_str());
         ci->ramInfo.is_output_a_registered = regmode_a == "OUTREG";
         ci->ramInfo.is_output_b_registered = regmode_b == "OUTREG";
+
+        // Based on the REGMODE, we have different timing lookup tables.
+        if (!ci->ramInfo.is_output_a_registered && !ci->ramInfo.is_output_b_registered) {
+            ci->ramInfo.regmode_timing_id = id_DP8KC_REGMODE_A_NOREG_REGMODE_B_NOREG;
+        } else if (!ci->ramInfo.is_output_a_registered && ci->ramInfo.is_output_b_registered) {
+            ci->ramInfo.regmode_timing_id = id_DP8KC_REGMODE_A_NOREG_REGMODE_B_OUTREG;
+        } else if (ci->ramInfo.is_output_a_registered && !ci->ramInfo.is_output_b_registered) {
+            ci->ramInfo.regmode_timing_id = id_DP8KC_REGMODE_A_OUTREG_REGMODE_B_NOREG;
+        } else if (ci->ramInfo.is_output_a_registered && ci->ramInfo.is_output_b_registered) {
+            ci->ramInfo.regmode_timing_id = id_DP8KC_REGMODE_A_OUTREG_REGMODE_B_OUTREG;
+        }
     }
 }
 
