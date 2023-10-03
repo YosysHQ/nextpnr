@@ -33,6 +33,7 @@ IDES16_Z   = 72
 OSER16_Z   = 73
 
 BUFG_Z  = 74 # : 81 reserve just in case
+BSRAM_Z = 100
 
 OSC_Z   = 274
 PLL_Z   = 275
@@ -561,9 +562,49 @@ def create_ssram_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tde
         tt.add_bel_pin(ff, f"RAD[{i}]", f"{lut_inputs[i]}0", PinType.INPUT)
         tt.add_bel_pin(ff, f"DO[{i}]", f"F{i}", PinType.OUTPUT)
 
-    tt.add_bel_pin(ff, f"CLK", "CLK2", PinType.INPUT)
-    tt.add_bel_pin(ff, f"CE",  "CE2", PinType.INPUT)
-    tt.add_bel_pin(ff, f"WRE", "LSR2", PinType.INPUT)
+    tt.add_bel_pin(ff, "CLK", "CLK2", PinType.INPUT)
+    tt.add_bel_pin(ff, "CE",  "CE2", PinType.INPUT)
+    tt.add_bel_pin(ff, "WRE", "LSR2", PinType.INPUT)
+    return tt
+
+# BSRAM
+_bsram_inputs = {'CLK', 'OCE', 'CE', 'RESET', 'WRE'}
+def create_bsram_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc: TypeDesc):
+    typename = "BSRAM"
+    tiletype = f"{typename}_{ttyp}"
+    if tdesc.sfx != 0:
+        tiletype += f"_{tdesc.sfx}"
+    tt = chip.create_tile_type(tiletype)
+    tt.extra_data = TileExtraData(chip.strs.id(typename))
+
+    portmap = db.grid[y][x].bels['BSRAM'].portmap
+    bsram = tt.create_bel("BSRAM", "BSRAM", z = BSRAM_Z)
+
+    def add_port_wire(tt, bel, name, wire_type = "BSRAM_I", port_type = PinType.INPUT):
+        wire = portmap[name]
+        if not tt.has_wire(wire):
+            if name.startswith('CLK'):
+                tt.create_wire(wire, "TILE_CLK")
+            else:
+                tt.create_wire(wire, wire_type)
+        tt.add_bel_pin(bel, name, wire, port_type)
+
+    for sfx in {'', 'A', 'B'}:
+        for inp in _bsram_inputs:
+            add_port_wire(tt, bsram, f"{inp}{sfx}")
+        for idx in range(3):
+            add_port_wire(tt, bsram, f"BLKSEL{sfx}{idx}")
+        for idx in range(14):
+            add_port_wire(tt, bsram, f"AD{sfx}{idx}")
+        for idx in range(18):
+            add_port_wire(tt, bsram, f"DI{sfx}{idx}")
+            add_port_wire(tt, bsram, f"DO{sfx}{idx}", "BSRAM_O", PinType.OUTPUT)
+        if not sfx:
+            for idx in range(18, 36):
+                add_port_wire(tt, bsram, f"DI{idx}")
+                add_port_wire(tt, bsram, f"DO{idx}", "BSRAM_O", PinType.OUTPUT)
+
+    tdesc.tiletype = tiletype
     return tt
 
 # PLL main tile
@@ -687,6 +728,7 @@ def main():
     io_tiletypes = db.tile_types['I']
     ssram_tiletypes = db.tile_types['M']
     pll_tiletypes = db.tile_types['P']
+    bsram_tiletypes = db.tile_types['B']
 
     # Setup tile grid
     for x in range(X):
@@ -704,6 +746,8 @@ def main():
                 create_tiletype(create_io_tiletype, ch, db, x, y, ttyp)
             elif ttyp in pll_tiletypes:
                 create_tiletype(create_pll_tiletype, ch, db, x, y, ttyp)
+            elif ttyp in bsram_tiletypes:
+                create_tiletype(create_bsram_tiletype, ch, db, x, y, ttyp)
             else:
                 create_tiletype(create_null_tiletype, ch, db, x, y, ttyp)
 

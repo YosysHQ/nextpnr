@@ -266,6 +266,9 @@ IdString GowinImpl::getBelBucketForCellType(IdString cell_type) const
     if (type_is_iologic(cell_type)) {
         return id_IOLOGIC;
     }
+    if (type_is_bsram(cell_type)) {
+        return id_BSRAM;
+    }
     if (cell_type == id_GOWIN_GND) {
         return id_GND;
     }
@@ -292,6 +295,9 @@ bool GowinImpl::isValidBelForCellType(IdString cell_type, BelId bel) const
     }
     if (bel_type == id_IOLOGIC) {
         return type_is_iologic(cell_type);
+    }
+    if (bel_type == id_BSRAM) {
+        return type_is_bsram(cell_type);
     }
     if (bel_type == id_GND) {
         return cell_type == id_GOWIN_GND;
