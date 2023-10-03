@@ -1189,7 +1189,6 @@ struct GowinPacker
     // ===================================
     // SSRAM cluster
     // ===================================
-    // create ALU filler block
     std::unique_ptr<CellInfo> ssram_make_lut(Context *ctx, CellInfo *ci, int index)
     {
         IdString name_id = ctx->idf("%s_LUT%d", ci->name.c_str(ctx), index);
@@ -1268,6 +1267,82 @@ struct GowinPacker
         }
         for (auto &ncell : new_cells) {
             ctx->cells[ncell->name] = std::move(ncell);
+        }
+    }
+
+    // ===================================
+    // Block RAM
+    // ===================================
+    void pack_ROM(CellInfo *ci)
+    {
+        // use block 111
+        ci->setParam(ctx->id("BLK_SEL"), Property(7, 32));
+        if (ci->type == id_pROM) {
+            ci->setAttr(id_BSRAM_SUBTYPE, Property(""));
+        } else {
+            ci->setAttr(id_BSRAM_SUBTYPE, Property("X9"));
+        }
+
+        NetInfo *vcc_net = ctx->nets.at(ctx->id("$PACKER_VCC")).get();
+        NetInfo *vss_net = ctx->nets.at(ctx->id("$PACKER_GND")).get();
+        for (int i = 0; i < 3; ++i) {
+            IdString port = ctx->idf("BLKSEL%d", i);
+            ci->addInput(port);
+            ci->connectPort(port, vcc_net);
+            port = ctx->idf("BLKSELB%d", i);
+            ci->addInput(port);
+            ci->connectPort(port, vcc_net);
+        }
+        // use port B
+        ci->renamePort(id_CLK, id_CLKB);
+        ci->renamePort(id_OCE, id_OCEB);
+        ci->renamePort(id_CE, id_CEB);
+        ci->renamePort(id_RESET, id_RESETB);
+        ci->addInput(id_WRE);
+        ci->connectPort(id_WRE, vss_net);
+        ci->addInput(id_WREB);
+        ci->connectPort(id_WREB, vss_net);
+
+        if (!ci->params.count(id_BIT_WIDTH)) {
+            ci->setParam(id_BIT_WIDTH, Property(32, 32));
+        }
+        int bit_width = ci->params[id_BIT_WIDTH].as_int64();
+        if (bit_width == 32 || bit_width == 36) {
+            log_error("Bit width %d is not supported\n", bit_width);
+        }
+        for (int i = 0; i < 14; ++i) {
+            ci->renamePort(ctx->idf("AD[%d]", i), ctx->idf("ADB%d", i));
+        }
+        int out_num = (bit_width == 9 || bit_width == 18) ? 36 : 32;
+        for (int i = 0, j = 18; i < out_num; ++i, ++j) {
+            if (((i + 1) % 9) == 0 && bit_width == 16) {
+                ++j;
+            }
+            ci->renamePort(ctx->idf("DO[%d]", i), ctx->idf("DO%d", j % 36));
+        }
+    }
+
+    void pack_bsram(void)
+    {
+        log_info("Pack BSRAMs...\n");
+
+        for (auto &cell : ctx->cells) {
+            auto ci = cell.second.get();
+
+            if (is_bsram(ci)) {
+                if (ctx->verbose) {
+                    log_info(" pack %s\n", ci->type.c_str(ctx));
+                }
+                switch (ci->type.hash()) {
+                case ID_pROM: /* fallthrough */
+                case ID_pROMX9:
+                    pack_ROM(ci);
+                    ci->type = id_ROM;
+                    break;
+                default:
+                    log_error("Unsupported BSRAM type '%s'\n", ci->type.c_str(ctx));
+                }
+            }
         }
     }
 
@@ -1393,6 +1468,9 @@ struct GowinPacker
         ctx->check();
 
         pack_ram16sdp4();
+        ctx->check();
+
+        pack_bsram();
         ctx->check();
 
         pack_buffered_nets();

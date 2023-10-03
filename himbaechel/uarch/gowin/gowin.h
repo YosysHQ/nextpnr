@@ -39,6 +39,10 @@ inline bool is_iologic(const CellInfo *cell) { return type_is_iologic(cell->type
 inline bool type_is_ssram(IdString cell_type) { return cell_type.in(id_RAM16SDP1, id_RAM16SDP2, id_RAM16SDP4); }
 inline bool is_ssram(const CellInfo *cell) { return type_is_ssram(cell->type); }
 
+// Return true if a cell is a SSRAM
+inline bool type_is_bsram(IdString cell_type) { return cell_type.in(id_SP, id_SPX9, id_pROM, id_pROMX9, id_ROM); }
+inline bool is_bsram(const CellInfo *cell) { return type_is_bsram(cell->type); }
+
 // ==========================================
 // extra data in the chip db
 // ==========================================
@@ -89,6 +93,7 @@ enum
     OSER16_Z = 73,
 
     BUFG_Z = 74, // : 81 reserve just in case
+    BSRAM_Z = 100,
 
     OSC_Z = 274,
     PLL_Z = 275,
