@@ -160,10 +160,12 @@ void GowinImpl::init(Context *ctx)
     if (std::regex_match(pn, match, speedre)) {
         package_idx = ctx->id(match[1]);
         spd = ctx->id(match[2]);
+        ctx->set_speed_grade(match[2]);
     } else {
         if (pn.length() > 2 && pn.compare(pn.length() - 2, 2, "ES")) {
             package_idx = ctx->id(pn.substr(pn.length() - 2));
             spd = ctx->id("ES");
+            ctx->set_speed_grade("ES");
         }
     }
 
