@@ -231,6 +231,11 @@ class TypeDesc:
         self.sfx = sfx
 created_tiletypes = {}
 
+# get timing class by wire name
+def get_tm_class(db: chipdb, wire: str):
+    assert wire in db.wire_delay, f"Unknown timing class for {wire}"
+    return db.wire_delay[wire]
+
 # u-turn at the rim
 uturnlut = {'N': 'S', 'S': 'N', 'E': 'W', 'W': 'E'}
 def uturn(db: chipdb, x: int, y: int, wire: str):
@@ -341,12 +346,14 @@ def create_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
         if not tt.has_wire(dst):
             tt.create_wire(dst, get_wire_type(dst))
         for src in srcs.keys():
+            if src not in db.wire_delay:
+                continue
             if not tt.has_wire(src):
                 if src in {"VSS", "VCC"}:
                     tt.create_wire(src, get_wire_type(src), const_value = src)
                 else:
                     tt.create_wire(src, get_wire_type(src))
-            tt.create_pip(src, dst)
+            tt.create_pip(src, dst, get_tm_class(db, src))
 
     # clock wires
     for dst, srcs in db.grid[y][x].pure_clock_pips.items():
@@ -355,7 +362,7 @@ def create_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
         for src in srcs.keys():
             if not tt.has_wire(src):
                 tt.create_wire(src, "GLOBAL_CLK")
-            tt.create_pip(src, dst)
+            tt.create_pip(src, dst, get_tm_class(db, "X01")) # XXX
 
 def create_hclk_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
     if (y, x) not in db.hclk_pips:
@@ -367,7 +374,7 @@ def create_hclk_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
         for src in srcs.keys():
             if not tt.has_wire(src):
                 tt.create_wire(src, "HCLK")
-            tt.create_pip(src, dst)
+            tt.create_pip(src, dst, get_tm_class(db, "X01")) # XXX
     
     hclk_bel_zs = {
         "CLKDIV2_HCLK0_SECT0": CLKDIV2_0_Z,
@@ -687,7 +694,7 @@ def create_logic_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tde
     # setup LUT wires
     for i in range(8):
         for inp_name in lut_inputs:
-            tt.create_wire(f"{inp_name}{i}", "LUT_INPUT")
+            tt.create_wire(f"{inp_name}{i}", "LUT_IN")
         tt.create_wire(f"F{i}", "LUT_OUT")
         # experimental. the wire is false - it is assumed that DFF is always
         # connected to the LUT's output F{i}, but we can place primitives
@@ -720,9 +727,9 @@ def create_logic_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tde
         if i < 6:
             # FF data can come from LUT output, but we pretend that we can use
             # any LUT input
-            tt.create_pip(f"F{i}", f"XD{i}")
+            tt.create_pip(f"F{i}", f"XD{i}", get_tm_class(db, f"F{i}"))
             for inp_name in lut_inputs:
-                tt.create_pip(f"{inp_name}{i}", f"XD{i}")
+                tt.create_pip(f"{inp_name}{i}", f"XD{i}", get_tm_class(db, f"{inp_name}{i}"))
             # FF
             ff = tt.create_bel(f"DFF{i}", "DFF", z =(i * 2 + 1))
             tt.add_bel_pin(ff, "D", f"XD{i}", PinType.INPUT)
@@ -1151,6 +1158,134 @@ def create_extra_data(chip: Chip, db: chipdb, chip_flags: int):
     for spine, bel in dcs_bels.items():
         chip.extra_data.add_dcs_bel(spine, bel[0], bel[1], bel[2])
 
+def create_timing_info(chip: Chip, db: chipdb.Device):
+    def group_to_timingvalue(group):
+        # if himbaechel ever recognises unateness, this should match that order.
+        ff = int(group[0] * 1000)
+        fr = int(group[1] * 1000)
+        rr = int(group[2] * 1000)
+        rf = int(group[3] * 1000)
+        return TimingValue(min(ff, fr, rf, rr), max(ff, fr, rf, rr))
+
+    speed_grades = []
+    for speed, _ in db.timing.items():
+        speed_grades.append(speed)
+
+    tmg = chip.set_speed_grades(speed_grades)
+    
+    print("device {}:".format(chip.name))
+    for speed, groups in db.timing.items():
+        for group, arc in groups.items():
+            if group == "lut":
+                lut = tmg.add_cell_variant(speed, "LUT4")
+                lut.add_comb_arc("I0", "F", group_to_timingvalue(arc["a_f"]))
+                lut.add_comb_arc("I1", "F", group_to_timingvalue(arc["b_f"]))
+                lut.add_comb_arc("I2", "F", group_to_timingvalue(arc["c_f"]))
+                lut.add_comb_arc("I3", "F", group_to_timingvalue(arc["d_f"]))
+                mux5 = tmg.add_cell_variant(speed, "MUX2_LUT5")
+                mux5.add_comb_arc("I0", "O", group_to_timingvalue(arc["m0_ofx0"]))
+                mux5.add_comb_arc("I1", "O", group_to_timingvalue(arc["m1_ofx1"]))
+                mux5.add_comb_arc("S0", "O", group_to_timingvalue(arc["fx_ofx1"]))
+                mux6 = tmg.add_cell_variant(speed, "MUX2_LUT6")
+                mux6.add_comb_arc("I0", "O", group_to_timingvalue(arc["m0_ofx0"]))
+                mux6.add_comb_arc("I1", "O", group_to_timingvalue(arc["m1_ofx1"]))
+                mux6.add_comb_arc("S0", "O", group_to_timingvalue(arc["fx_ofx1"]))
+                mux7 = tmg.add_cell_variant(speed, "MUX2_LUT7")
+                mux7.add_comb_arc("I0", "O", group_to_timingvalue(arc["m0_ofx0"]))
+                mux7.add_comb_arc("I1", "O", group_to_timingvalue(arc["m1_ofx1"]))
+                mux7.add_comb_arc("S0", "O", group_to_timingvalue(arc["fx_ofx1"]))
+                mux8 = tmg.add_cell_variant(speed, "MUX2_LUT8")
+                mux8.add_comb_arc("I0", "O", group_to_timingvalue(arc["m0_ofx0"]))
+                mux8.add_comb_arc("I1", "O", group_to_timingvalue(arc["m1_ofx1"]))
+                mux8.add_comb_arc("S0", "O", group_to_timingvalue(arc["fx_ofx1"]))
+            elif group == "alu":
+                alu = tmg.add_cell_variant(speed, "ALU")
+                alu.add_comb_arc("I0", "SUM", group_to_timingvalue(arc["a_f"]))
+                alu.add_comb_arc("I1", "SUM", group_to_timingvalue(arc["b_f"]))
+                alu.add_comb_arc("I3", "SUM", group_to_timingvalue(arc["d_f"]))
+                alu.add_comb_arc("CIN", "SUM", group_to_timingvalue(arc["fci_f0"]))
+                alu.add_comb_arc("I0", "COUT", group_to_timingvalue(arc["a0_fco"]))
+                alu.add_comb_arc("I1", "COUT", group_to_timingvalue(arc["b0_fco"]))
+                alu.add_comb_arc("I3", "COUT", group_to_timingvalue(arc["d0_fco"]))
+                alu.add_comb_arc("CIN", "COUT", group_to_timingvalue(arc["fci_fco"]))
+            elif group == "sram":
+                sram = tmg.add_cell_variant(speed, "RAM16SDP4")
+                for do in range(4):
+                    for rad in range(4):
+                        sram.add_comb_arc(f"RAD[{rad}]", f"DO[{do}]", group_to_timingvalue(arc[f"rad{rad}_do"]))
+                    sram.add_clock_out("CLK", f"DO[{do}]", ClockEdge.RISING, group_to_timingvalue(arc["clk_do"]))
+                for di in range(4):
+                    sram.add_setup_hold("CLK", f"DI[{di}", ClockEdge.RISING, group_to_timingvalue(arc["clk_di_set"]), group_to_timingvalue(arc["clk_di_hold"]))
+                sram.add_setup_hold("CLK", "WRE", ClockEdge.RISING, group_to_timingvalue(arc["clk_wre_set"]), group_to_timingvalue(arc["clk_wre_hold"]))
+                for wad in range(4):
+                    sram.add_setup_hold("CLK", f"WAD[{wad}]", ClockEdge.RISING, group_to_timingvalue(arc[f"clk_wad{wad}_set"]), group_to_timingvalue(arc[f"clk_wad{wad}_hold"]))
+            elif group == "dff":
+                for reset_type in ('', 'P', 'C', 'S', 'R'):
+                    for clock_enable in ('', 'E'):
+                        cell_name = "DFF{}{}".format(reset_type, clock_enable)
+                        dff = tmg.add_cell_variant(speed, cell_name)
+                        dff.add_setup_hold("CLK", "D", ClockEdge.RISING, group_to_timingvalue(arc["di_clksetpos"]), group_to_timingvalue(arc["di_clkholdpos"]))
+                        dff.add_setup_hold("CLK", "CE", ClockEdge.RISING, group_to_timingvalue(arc["ce_clksetpos"]), group_to_timingvalue(arc["ce_clkholdpos"]))
+                        dff.add_clock_out("CLK", "Q", ClockEdge.RISING, group_to_timingvalue(arc["clk_qpos"]))
+
+                        if reset_type in ('S', 'R'):
+                            port = "RESET" if reset_type == 'R' else "SET"
+                            dff.add_setup_hold("CLK", port, ClockEdge.RISING, group_to_timingvalue(arc["lsr_clksetpos_syn"]), group_to_timingvalue(arc["lsr_clkholdpos_syn"]))
+                        elif reset_type in ('P', 'C'):
+                            port = "CLEAR" if reset_type == 'C' else "PRESET"
+                            dff.add_setup_hold("CLK", port, ClockEdge.RISING, group_to_timingvalue(arc["lsr_clksetpos_asyn"]), group_to_timingvalue(arc["lsr_clkholdpos_asyn"]))
+                            dff.add_comb_arc(port, "Q", group_to_timingvalue(arc["lsr_q"]))
+
+                        cell_name = "DFFN{}{}".format(reset_type, clock_enable)
+                        dff = tmg.add_cell_variant(speed, cell_name)
+                        dff.add_setup_hold("CLK", "D", ClockEdge.FALLING, group_to_timingvalue(arc["di_clksetneg"]), group_to_timingvalue(arc["di_clkholdneg"]))
+                        dff.add_setup_hold("CLK", "CE", ClockEdge.FALLING, group_to_timingvalue(arc["ce_clksteneg"]), group_to_timingvalue(arc["ce_clkholdneg"])) # the DBs have a typo...
+                        dff.add_clock_out("CLK", "Q", ClockEdge.FALLING, group_to_timingvalue(arc["clk_qneg"]))
+
+                        if reset_type in ('S', 'R'):
+                            port = "RESET" if reset_type == 'R' else "SET"
+                            dff.add_setup_hold("CLK", port, ClockEdge.FALLING, group_to_timingvalue(arc["lsr_clksetneg_syn"]), group_to_timingvalue(arc["lsr_clkholdneg_syn"]))
+                        elif reset_type in ('P', 'C'):
+                            port = "CLEAR" if reset_type == 'C' else "PRESET"
+                            dff.add_setup_hold("CLK", port, ClockEdge.FALLING, group_to_timingvalue(arc["lsr_clksetneg_asyn"]), group_to_timingvalue(arc["lsr_clkholdneg_asyn"]))
+                            dff.add_comb_arc(port, "Q", group_to_timingvalue(arc["lsr_q"]))
+            elif group == "bram":
+                pass # TODO
+            elif group == "fanout":
+                pass # handled in "wire"
+            elif group == "glbsrc":
+                pass # TODO
+            elif group == "hclk":
+                pass # TODO
+            elif group == "iodelay":
+                pass # TODO
+            elif group == "wire":
+                # wires with delay and fanout delay
+                for name in ["X0", "X2", "X8"]:
+                    tmg.set_pip_class(speed, name, group_to_timingvalue(arc[name]), group_to_timingvalue(groups["fanout"][f"{name}Fan"]), TimingValue(round(1e6 / groups["fanout"][f"{name}FanNum"])))
+                # wires with delay but no fanout delay
+                for name in ["X0CTL", "X0CLK", "FX1"]:
+                    tmg.set_pip_class(speed, name, group_to_timingvalue(arc[name]))
+                # wires with presently-unknown delay
+                for name in ["LUT_IN", "DI", "SEL", "CIN", "COUT", "VCC", "VSS", "LW_TAP", "LW_TAP_0", "LW_BRANCH", "LW_SPAN", "GCLK_TAP", "GCLK_BRANCH"]:
+                    tmg.set_pip_class(speed, name, TimingValue())
+                # wires with fanout-only delay; used on cell output pips
+                for name, mapping in [("LUT_OUT", "FFan"), ("FF_OUT", "QFan"), ("OF", "OFFan")]:
+                    tmg.set_pip_class(speed, name, TimingValue(), group_to_timingvalue(groups["fanout"][mapping]), TimingValue(round(1e6 / groups["fanout"][f"{mapping}Num"])))
+
+        print("speed {}:".format(speed))
+        for group, arc in groups.items():
+            print("  group {}:".format(group))
+            for name, items in arc.items():
+                print("    name {}:".format(str(name)))
+                try:
+                    items[0]
+                    for item in items:
+                        print("      item {}".format(item))
+                except TypeError:
+                    print("      item {}".format(items))
+                    continue
+
 def main():
     parser = argparse.ArgumentParser(description='Make Gowin BBA')
     parser.add_argument('-d', '--device', required=True)
@@ -1226,6 +1361,7 @@ def main():
     # Create nodes between tiles
     create_nodes(ch, db)
     create_extra_data(ch, db, chip_flags)
+    create_timing_info(ch, db)
     ch.write_bba(args.output)
 if __name__ == '__main__':
     main()
