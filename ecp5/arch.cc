@@ -595,7 +595,7 @@ void configure_static(Arch *arch, PlacerStaticCfg &cfg)
         auto &comb = cfg.cell_groups.back();
         comb.name = arch->id("COMB");
         comb.bel_area[id_TRELLIS_COMB] = StaticRect(1.0f, 0.125f);
-        comb.bel_area[id_TRELLIS_RAMW] = StaticRect(1.0f, 0.125f);
+        comb.bel_area[id_TRELLIS_RAMW] = StaticRect(0.0f, 0.0f);
         comb.cell_area[id_TRELLIS_COMB] = StaticRect(1.0f, 0.125f);
         comb.cell_area[id_TRELLIS_RAMW] = StaticRect(1.0f, 0.125f);
         comb.zero_area_cells.insert(id_TRELLIS_RAMW);
