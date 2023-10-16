@@ -546,6 +546,15 @@ struct Arch : BaseArch<ArchRanges>
             // Scale delay (fF * mOhm -> ps)
             delay_t total_delay = (input_res * input_cap) / uint64_t(1e6);
             total_delay += pip_tmg->int_delay.slow_max;
+
+            WireId dst = getPipDstWire(pip);
+            auto dst_tmg = get_node_timing(dst);
+            if (dst_tmg != nullptr) {
+                total_delay +=
+                        ((pip_tmg->out_res.slow_max + uint64_t(dst_tmg->res.slow_max) / 2) * dst_tmg->cap.slow_max) /
+                        uint64_t(1e6);
+            }
+
             return DelayQuad(total_delay);
         } else {
             // Pip with no specified delay. Return a notional value so the router still has something to work with.
