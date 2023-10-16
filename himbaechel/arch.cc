@@ -318,7 +318,7 @@ const std::string Arch::defaultPlacer = "heap";
 
 const std::vector<std::string> Arch::availablePlacers = {"sa", "heap"};
 
-const std::string Arch::defaultRouter = "router1";
+const std::string Arch::defaultRouter = "router2";
 const std::vector<std::string> Arch::availableRouters = {"router1", "router2"};
 
 void Arch::set_fast_pip_delays(bool fast_mode)

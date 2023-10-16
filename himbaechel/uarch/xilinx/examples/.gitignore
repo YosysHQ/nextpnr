@@ -1,0 +1,6 @@
+*.bin
+*.json
+*.log
+*.frames
+*.fasm
+abc.history

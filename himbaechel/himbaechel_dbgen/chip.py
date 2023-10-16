@@ -301,6 +301,7 @@ class NodeShape(BBAStruct):
     def key(self):
         m = hashlib.md5()
         m.update(struct.pack("h"*len(self.wires), *self.wires))
+        m.update(struct.pack("i", self.timing_index))
         return m.digest()
 
     def serialise_lists(self, context: str, bba: BBAWriter):
@@ -644,7 +645,11 @@ class TimingPool(BBAStruct):
         if idx >= len(sg.pip_classes):
             sg.pip_classes += [None for i in range(1 + idx - len(sg.pip_classes))]
         assert sg.pip_classes[idx] is None, f"attempting to set pip class {name} in speed grade {grade} twice"
-        sg.pip_classes[idx] = PipTiming(int_delay=delay, in_cap=in_cap, out_res=out_res, flags=(1 if is_buffered else 0))
+        sg.pip_classes[idx] = PipTiming(int_delay=delay,
+            in_cap=in_cap or TimingValue(),
+            out_res=out_res or TimingValue(),
+            flags=(1 if is_buffered else 0)
+        )
 
     def set_bel_pin_class(self, grade: str, name: str, delay: TimingValue,
             in_cap: Optional[TimingValue]=None, out_res: Optional[TimingValue]=None):
@@ -658,7 +663,7 @@ class TimingPool(BBAStruct):
         if idx >= len(sg.node_classes):
             sg.node_classes += [None for i in range(1 + idx - len(sg.node_classes))]
         assert sg.node_classes[idx] is None, f"attempting to set node class {name} in speed grade {grade} twice"
-        sg.node_classes[idx] = NodeTiming(delay=delay, res=res, cap=cap)
+        sg.node_classes[idx] = NodeTiming(delay=delay, res=res or TimingValue(), cap=cap or TimingValue())
 
     def add_cell_variant(self, speed_grade: str, name: str):
         cell = CellTiming(self.strs, name)
@@ -700,13 +705,13 @@ class Chip:
     def set_speed_grades(self, speed_grades: list):
         self.timing.set_speed_grades(speed_grades)
         return self.timing
-    def add_node(self, wires: list[NodeWire]):
+    def add_node(self, wires: list[NodeWire], timing_class=""):
         # add a node - joining between multiple tile wires into a single connection (from nextpnr's point of view)
         # all the tile wires must exist, and the tile types must be set, first
         x0 = wires[0].x
         y0 = wires[0].y
         # compute node shape
-        shape = NodeShape()
+        shape = NodeShape(timing_index=self.timing.node_class_idx(timing_class))
         for w in wires:
             if isinstance(w.wire, int):
                 wire_index = w.wire
