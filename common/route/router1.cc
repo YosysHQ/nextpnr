@@ -133,8 +133,10 @@ struct Router1
         if (queued_arcs.count(arc))
             return;
 
-        delay_t pri = ctx->estimateDelay(src_wire, dst_wire) *
-                      (100 * tmg.get_criticality(CellPortKey(arc.net_info->users.at(arc.user_idx))));
+        delay_t pri = (arc.net_info->constant_value == IdString())
+                              ? (ctx->estimateDelay(src_wire, dst_wire) *
+                                 (100 * tmg.get_criticality(CellPortKey(arc.net_info->users.at(arc.user_idx)))))
+                              : 0;
 
         arc_entry entry;
         entry.arc = arc;
@@ -293,7 +295,7 @@ struct Router1
         if (net_info->is_global)
             return true;
 #endif
-        if (net_info->driver.cell == nullptr)
+        if (net_info->driver.cell == nullptr && net_info->constant_value == IdString())
             return true;
 
         return false;
@@ -380,7 +382,7 @@ struct Router1
 
             auto src_wire = ctx->getNetinfoSourceWire(net_info);
 
-            if (src_wire == WireId())
+            if (src_wire == WireId() && net_info->constant_value == IdString())
                 log_error("No wire found for port %s on source cell %s.\n", ctx->nameOf(net_info->driver.port),
                           ctx->nameOf(net_info->driver.cell));
 
@@ -430,7 +432,8 @@ struct Router1
                     wire_to_arcs[cursor].insert(arc);
                     arc_to_wires[arc].insert(cursor);
 
-                    while (src_wire != cursor) {
+                    while (src_wire != cursor && (net_info->constant_value == IdString() ||
+                                                  ctx->getWireConstantValue(cursor) != net_info->constant_value)) {
                         auto it = net_info->wires.find(cursor);
                         if (it == net_info->wires.end()) {
                             arc_queue_insert(arc, src_wire, dst_wire);
@@ -797,6 +800,298 @@ struct Router1
         return true;
     }
 
+    bool route_const_arc(const arc_key &arc, bool ripup)
+    {
+
+        NetInfo *net_info = arc.net_info;
+        auto user_idx = arc.user_idx;
+
+        auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx], arc.phys_idx);
+        ripup_flag = false;
+
+        if (ctx->debug) {
+            log("Routing constant arc %d on net %s (%d arcs total):\n", user_idx.idx(), ctx->nameOf(net_info),
+                int(net_info->users.capacity()));
+            log("  value ... %s\n", ctx->nameOf(net_info->constant_value));
+            log("  sink ..... %s\n", ctx->nameOfWire(dst_wire));
+        }
+
+        // unbind wires that are currently used exclusively by this arc
+
+        pool<WireId> old_arc_wires;
+        old_arc_wires.swap(arc_to_wires[arc]);
+
+        for (WireId wire : old_arc_wires) {
+            auto &arc_wires = wire_to_arcs.at(wire);
+            NPNR_ASSERT(arc_wires.count(arc));
+            arc_wires.erase(arc);
+            if (arc_wires.empty()) {
+                if (ctx->debug)
+                    log("  unbind %s\n", ctx->nameOfWire(wire));
+                ctx->unbindWire(wire);
+            }
+        }
+
+        // special case
+
+        if (ctx->getWireConstantValue(dst_wire) == net_info->constant_value) {
+            NetInfo *bound = ctx->getBoundWireNet(dst_wire);
+            if (bound != nullptr)
+                NPNR_ASSERT(bound == net_info);
+            else {
+                ctx->bindWire(dst_wire, net_info, STRENGTH_WEAK);
+            }
+            arc_to_wires[arc].insert(dst_wire);
+            wire_to_arcs[dst_wire].insert(arc);
+            return true;
+        }
+
+        // reset wire queue
+
+        if (!queue.empty()) {
+            std::priority_queue<QueuedWire, std::vector<QueuedWire>, QueuedWire::Greater> new_queue;
+            queue.swap(new_queue);
+        }
+        dict<WireId, QueuedWire> visited;
+
+        // A* main loop
+
+        int visitCnt = 0;
+        int maxVisitCnt = INT_MAX;
+        delay_t best_score = -1;
+        WireId best_src;
+
+        {
+            QueuedWire qw;
+            qw.wire = dst_wire;
+            qw.pip = PipId();
+            qw.delay = ctx->getWireDelay(qw.wire).maxDelay();
+            qw.penalty = 0;
+            qw.bonus = 0;
+            qw.randtag = ctx->rng();
+
+            queue.push(qw);
+            visited[qw.wire] = qw;
+        }
+
+        while (visitCnt++ < maxVisitCnt && !queue.empty()) {
+            QueuedWire qw = queue.top();
+            queue.pop();
+
+            for (auto pip : ctx->getPipsUphill(qw.wire)) {
+                delay_t next_delay = qw.delay + ctx->getPipDelay(pip).maxDelay();
+                delay_t next_penalty = qw.penalty;
+                delay_t next_bonus = qw.bonus;
+                delay_t penalty_delta = 0;
+
+                WireId next_wire = ctx->getPipSrcWire(pip);
+                next_delay += ctx->getWireDelay(next_wire).maxDelay();
+
+                WireId conflictWireWire = WireId(), conflictPipWire = WireId();
+                NetInfo *conflictWireNet = nullptr, *conflictPipNet = nullptr;
+
+                if (net_info->wires.count(qw.wire)) {
+                    if (net_info->wires.at(qw.wire).pip != pip)
+                        continue;
+                    next_bonus += cfg.reuseBonus;
+                } else {
+                    if (!ctx->checkWireAvail(next_wire)) {
+                        if (!ripup)
+                            continue;
+                        conflictWireWire = ctx->getConflictingWireWire(next_wire);
+                        if (conflictWireWire == WireId()) {
+                            conflictWireNet = ctx->getConflictingWireNet(next_wire);
+                            if (conflictWireNet == nullptr)
+                                continue;
+                            else {
+                                if (conflictWireNet->wires.count(next_wire) &&
+                                    conflictWireNet->wires.at(next_wire).strength > STRENGTH_STRONG)
+                                    continue;
+                            }
+                        } else {
+                            NetInfo *conflicting = ctx->getBoundWireNet(conflictWireWire);
+                            if (conflicting != nullptr) {
+                                if (conflicting->wires.count(conflictWireWire) &&
+                                    conflicting->wires.at(conflictWireWire).strength > STRENGTH_STRONG)
+                                    continue;
+                            }
+                        }
+                    }
+
+                    if (!ctx->checkPipAvail(pip)) {
+                        if (!ripup)
+                            continue;
+                        conflictPipWire = ctx->getConflictingPipWire(pip);
+                        if (conflictPipWire == WireId()) {
+                            conflictPipNet = ctx->getConflictingPipNet(pip);
+                            if (conflictPipNet == nullptr)
+                                continue;
+                            else {
+                                if (conflictPipNet->wires.count(next_wire) &&
+                                    conflictPipNet->wires.at(next_wire).strength > STRENGTH_STRONG)
+                                    continue;
+                            }
+                        } else {
+                            NetInfo *conflicting = ctx->getBoundWireNet(conflictPipWire);
+                            if (conflicting != nullptr) {
+                                if (conflicting->wires.count(conflictPipWire) &&
+                                    conflicting->wires.at(conflictPipWire).strength > STRENGTH_STRONG)
+                                    continue;
+                            }
+                        }
+                    }
+
+                    if (conflictWireNet != nullptr && conflictPipWire != WireId() &&
+                        conflictWireNet->wires.count(conflictPipWire))
+                        conflictPipWire = WireId();
+
+                    if (conflictPipNet != nullptr && conflictWireWire != WireId() &&
+                        conflictPipNet->wires.count(conflictWireWire))
+                        conflictWireWire = WireId();
+
+                    if (conflictWireWire == conflictPipWire)
+                        conflictWireWire = WireId();
+
+                    if (conflictWireNet == conflictPipNet)
+                        conflictWireNet = nullptr;
+
+                    if (conflictWireWire != WireId()) {
+                        auto scores_it = wireScores.find(conflictWireWire);
+                        if (scores_it != wireScores.end())
+                            penalty_delta += scores_it->second * cfg.wireRipupPenalty;
+                        penalty_delta += cfg.wireRipupPenalty;
+                    }
+
+                    if (conflictPipWire != WireId()) {
+                        auto scores_it = wireScores.find(conflictPipWire);
+                        if (scores_it != wireScores.end())
+                            penalty_delta += scores_it->second * cfg.wireRipupPenalty;
+                        penalty_delta += cfg.wireRipupPenalty;
+                    }
+
+                    if (conflictWireNet != nullptr) {
+                        auto scores_it = netScores.find(conflictWireNet);
+                        if (scores_it != netScores.end())
+                            penalty_delta += scores_it->second * cfg.netRipupPenalty;
+                        penalty_delta += cfg.netRipupPenalty;
+                        penalty_delta += conflictWireNet->wires.size() * cfg.wireRipupPenalty;
+                    }
+
+                    if (conflictPipNet != nullptr) {
+                        auto scores_it = netScores.find(conflictPipNet);
+                        if (scores_it != netScores.end())
+                            penalty_delta += scores_it->second * cfg.netRipupPenalty;
+                        penalty_delta += cfg.netRipupPenalty;
+                        penalty_delta += conflictPipNet->wires.size() * cfg.wireRipupPenalty;
+                    }
+                }
+
+                next_penalty += penalty_delta;
+
+                delay_t next_score = next_delay + next_penalty;
+                NPNR_ASSERT(next_score >= 0);
+
+                if ((best_score >= 0) && (next_score - next_bonus - cfg.estimatePrecision > best_score))
+                    continue;
+
+                auto old_visited_it = visited.find(next_wire);
+                if (old_visited_it != visited.end()) {
+                    continue;
+                }
+
+                QueuedWire next_qw;
+                next_qw.wire = next_wire;
+                next_qw.pip = pip;
+                next_qw.delay = next_delay;
+                next_qw.penalty = next_penalty;
+                next_qw.bonus = next_bonus;
+                next_qw.randtag = ctx->rng();
+
+                visited[next_qw.wire] = next_qw;
+                queue.push(next_qw);
+
+                if (ctx->getWireConstantValue(next_wire) == net_info->constant_value) {
+                    maxVisitCnt = std::min(maxVisitCnt, 2 * visitCnt + (next_qw.penalty > 0 ? 100 : 0));
+                    if (best_src == WireId() || next_score < best_score) {
+                        best_src = next_wire;
+                    }
+                    best_score = next_score - next_bonus;
+                }
+            }
+        }
+
+        if (ctx->debug)
+            log("  total number of visited nodes: %d\n", visitCnt);
+
+        if (best_src == WireId()) {
+            if (ctx->debug)
+                log("  no route found for this arc\n");
+            return false;
+        }
+
+        if (ctx->debug) {
+            log("  final route delay:   %8.2f\n", ctx->getDelayNS(visited[dst_wire].delay));
+            log("  final route penalty: %8.2f\n", ctx->getDelayNS(visited[dst_wire].penalty));
+            log("  final route bonus:   %8.2f\n", ctx->getDelayNS(visited[dst_wire].bonus));
+        }
+
+        // bind resulting route (and maybe unroute other nets)
+
+        pool<WireId> unassign_wires = arc_to_wires[arc];
+
+        WireId cursor = best_src;
+
+        if (!net_info->wires.count(cursor)) {
+            if (!ctx->checkWireAvail(cursor)) {
+                ripup_wire(cursor);
+                NPNR_ASSERT(ctx->checkWireAvail(cursor));
+            }
+            ctx->bindWire(cursor, net_info, STRENGTH_WEAK);
+        }
+
+        wire_to_arcs[cursor].insert(arc);
+        arc_to_wires[arc].insert(cursor);
+
+        while (1) {
+            auto pip = visited[cursor].pip;
+
+            if (pip == PipId()) {
+                NPNR_ASSERT(cursor == dst_wire);
+                break;
+            }
+
+            WireId next = ctx->getPipDstWire(pip);
+
+            if (!net_info->wires.count(next) || (net_info->wires.count(next) && net_info->wires.at(next).pip != pip)) {
+                if (!ctx->checkWireAvail(next)) {
+                    ripup_wire(next);
+                    NPNR_ASSERT(ctx->checkWireAvail(next));
+                }
+
+                if (!ctx->checkPipAvail(pip)) {
+                    ripup_pip(pip);
+                    NPNR_ASSERT(ctx->checkPipAvail(pip));
+                }
+
+                if (ctx->debug)
+                    log("    bind pip %s\n", ctx->nameOfPip(pip));
+                ctx->bindPip(pip, net_info, STRENGTH_WEAK);
+            }
+
+            wire_to_arcs[next].insert(arc);
+            arc_to_wires[arc].insert(next);
+
+            cursor = next;
+        }
+
+        if (ripup_flag)
+            arcs_with_ripup++;
+        else
+            arcs_without_ripup++;
+
+        return true;
+    }
+
     delay_t find_slack_thresh()
     {
         // If more than 5% of arcs have negative slack; use the 5% threshold as a ripup criteria
@@ -911,15 +1206,26 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
                 log("-- %d --\n", iter_cnt);
 
             arc_key arc = router.arc_queue_pop();
-
-            if (!router.route_arc(arc, true)) {
-                log_warning("Failed to find a route for arc %d of net %s.\n", arc.user_idx.idx(),
-                            ctx->nameOf(arc.net_info));
+            if (arc.net_info->constant_value != IdString()) {
+                if (!router.route_const_arc(arc, true)) {
+                    log_warning("Failed to find a route for arc %d of net %s.\n", arc.user_idx.idx(),
+                                ctx->nameOf(arc.net_info));
 #ifndef NDEBUG
-                router.check();
-                ctx->check();
+                    router.check();
+                    ctx->check();
 #endif
-                return false;
+                    return false;
+                }
+            } else {
+                if (!router.route_arc(arc, true)) {
+                    log_warning("Failed to find a route for arc %d of net %s.\n", arc.user_idx.idx(),
+                                ctx->nameOf(arc.net_info));
+#ifndef NDEBUG
+                    router.check();
+                    ctx->check();
+#endif
+                    return false;
+                }
             }
             // Timing driven ripup
             if (timing_ripup && router.arc_queue.empty() && timing_fail_count < 50) {
@@ -1039,17 +1345,19 @@ bool Context::checkRoutedDesign() const
         }
 
         auto src_wire = ctx->getNetinfoSourceWire(net_info);
-        if (src_wire == WireId()) {
-            log_assert(net_info->driver.cell == nullptr);
-            if (ctx->debug)
-                log("  undriven and unrouted\n");
-            continue;
-        }
+        if (net_info->constant_value == IdString()) {
+            if (src_wire == WireId()) {
+                log_assert(net_info->driver.cell == nullptr);
+                if (ctx->debug)
+                    log("  undriven and unrouted\n");
+                continue;
+            }
 
-        if (net_info->wires.count(src_wire) == 0) {
-            if (ctx->debug)
-                log("  source (%s) not bound to net\n", ctx->nameOfWire(src_wire));
-            found_unrouted = true;
+            if (net_info->wires.count(src_wire) == 0) {
+                if (ctx->debug)
+                    log("  source (%s) not bound to net\n", ctx->nameOfWire(src_wire));
+                found_unrouted = true;
+            }
         }
 
         dict<WireId, store_index<PortRef>> dest_wires;
@@ -1100,7 +1408,14 @@ bool Context::checkRoutedDesign() const
             log("  driver: %s\n", ctx->nameOfWire(src_wire));
             logged_wires.insert(src_wire);
         }
-        setOrderNum(src_wire, 1);
+        if (net_info->constant_value != IdString()) {
+            for (const auto &wire : net_info->wires) {
+                if (wire.second.pip == PipId() && ctx->getWireConstantValue(wire.first) == net_info->constant_value)
+                    setOrderNum(wire.first, 1);
+            }
+        } else {
+            setOrderNum(src_wire, 1);
+        }
 
         pool<WireId> dangling_wires;
 

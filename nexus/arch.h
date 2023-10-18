@@ -1170,6 +1170,13 @@ struct Arch : BaseArch<ArchRanges>
     virtual bool checkWireAvail(WireId wire) const override { return getBoundWireNet(wire) == nullptr; }
     NetInfo *getBoundWireNet(WireId wire) const override { return tileStatus.at(wire.tile).boundwires.at(wire.index); }
 
+    IdString getWireConstantValue(WireId wire) const override
+    {
+        if (chip_wire_data(db, chip_info, wire).name == ID_LOCAL_VCC)
+            return id_VCC_DRV;
+        else
+            return {};
+    }
     // -------------------------------------------------
 
     PipId getPipByName(IdStringList name) const override;

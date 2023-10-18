@@ -237,6 +237,7 @@ template <typename R> struct BaseArch : ArchAPI<R>
     }
     virtual WireId getConflictingWireWire(WireId wire) const override { return wire; };
     virtual NetInfo *getConflictingWireNet(WireId wire) const override { return getBoundWireNet(wire); }
+    virtual IdString getWireConstantValue(WireId wire) const override { return {}; }
 
     // Pip methods
     virtual IdString getPipType(PipId pip) const override { return IdString(); }
