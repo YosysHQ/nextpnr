@@ -132,6 +132,10 @@ struct NetInfo : ArchNetInfo
     indexed_store<PortRef> users;
     dict<IdString, Property> attrs;
 
+    // If this is set to a non-empty ID, then the driver is ignored and it will be routed from any wire with a matching
+    // getWireConstantValue
+    IdString constant_value;
+
     // wire -> uphill_pip
     dict<WireId, PipMap> wires;
 

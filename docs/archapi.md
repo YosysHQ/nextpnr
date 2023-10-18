@@ -340,6 +340,14 @@ chip. There may be significant performance impacts if routing regularly
 exceeds these bounds by more than a small margin; so an over-estimate
 of the bounds is almost always better than an under-estimate.
 
+### IdString getWireConstantValue() const
+
+If not an empty string, indicate this wire can be used to source nets
+with their `constant_value` equal to its return value.
+
+*BaseArch default: returns `IdString()`*
+
+
 Pip Methods
 -----------
 

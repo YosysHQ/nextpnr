@@ -325,6 +325,8 @@ struct NexusPacker
         CellInfo *new_cell = ctx->createCell(ctx->idf("$CONST_%s_DRV_", type.c_str(ctx)), type);
         new_cell->addOutput(id_Z);
         new_cell->connectPort(id_Z, new_net);
+        if (type == id_VCC_DRV)
+            new_net->constant_value = id_VCC_DRV;
         return new_net;
     }
 

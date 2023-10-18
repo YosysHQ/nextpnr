@@ -83,6 +83,7 @@ template <typename R> struct ArchAPI : BaseCtx
     virtual WireId getConflictingWireWire(WireId wire) const = 0;
     virtual NetInfo *getConflictingWireNet(WireId wire) const = 0;
     virtual DelayQuad getWireDelay(WireId wire) const = 0;
+    virtual IdString getWireConstantValue(WireId wire) const = 0;
     // Pip methods
     virtual typename R::AllPipsRangeT getPips() const = 0;
     virtual PipId getPipByName(IdStringList name) const = 0;
