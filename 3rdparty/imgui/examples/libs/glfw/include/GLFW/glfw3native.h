@@ -85,7 +85,8 @@ extern "C" {
  // example to allow applications to correctly declare a GL_ARB_debug_output
  // callback) but windows.h assumes no one will define APIENTRY before it does
  #undef APIENTRY
- #include <windows.h>
+ #define NOMINMAX
+#include <windows.h>
 #elif defined(GLFW_EXPOSE_NATIVE_COCOA)
  #include <ApplicationServices/ApplicationServices.h>
  #if defined(__OBJC__)

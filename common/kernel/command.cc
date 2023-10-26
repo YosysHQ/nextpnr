@@ -46,8 +46,8 @@
 #include "version.h"
 
 #if defined(_WIN32)
-#define NOMINMAX
 #include <io.h>
+#define NOMINMAX
 #include <windows.h>
 #elif defined(__APPLE__)
 #include <dirent.h>

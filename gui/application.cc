@@ -34,6 +34,7 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 #ifdef _WIN32
+#define NOMINMAX
 #include <windows.h>
 BOOL WINAPI WinHandler(DWORD dwCtrlType)
 {
