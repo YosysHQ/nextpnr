@@ -412,6 +412,7 @@ macro definitions
 #ifndef FFT2D_THREADS_BEGIN_N
 #define FFT2D_THREADS_BEGIN_N 131072
 #endif
+#define NOMINMAX
 #include <windows.h>
 #define fft2d_thread_t HANDLE
 #define fft2d_thread_create(thp, func, argp)                       \

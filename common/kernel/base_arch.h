@@ -24,7 +24,6 @@
 #include <array>
 #include <vector>
 
-#define NOMINMAX
 #include "arch_api.h"
 #include "base_clusterinfo.h"
 #include "idstring.h"
