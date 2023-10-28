@@ -551,7 +551,7 @@ class StaticPlacer
             g.overlap /= std::max(1.0f, total_area);
             if (!overlap_str.empty())
                 overlap_str += ", ";
-            overlap_str += stringf("%s=%.1f%%", cfg.cell_groups.at(idx).name.c_str(ctx), g.overlap*100);
+            overlap_str += stringf("%s=%.1f%%", cfg.cell_groups.at(idx).name.c_str(ctx), g.overlap * 100);
             g.conc_density.write_csv(stringf("out_conc_density_%d_%d.csv", iter, idx));
         }
         log_info("overlap: %s\n", overlap_str.c_str());
@@ -896,7 +896,7 @@ class StaticPlacer
             for (int c : macro.conc_cells) {
                 auto &cc = ccells.at(c);
                 auto &mc = mcells.at(c);
-                mc.pos = mc.pos * (1-alpha) + (pos + RealPair(cc.chunk_dx, cc.chunk_dy)) * alpha;
+                mc.pos = mc.pos * (1 - alpha) + (pos + RealPair(cc.chunk_dx, cc.chunk_dy)) * alpha;
                 mc.ref_pos = mc.ref_pos * (1 - alpha) + (ref_pos + RealPair(cc.chunk_dx, cc.chunk_dy)) * alpha;
             }
         }
@@ -927,7 +927,8 @@ class StaticPlacer
         compute_overlap();
     }
 
-    void legalise_step(bool dsp_bram) {
+    void legalise_step(bool dsp_bram)
+    {
         // assume DSP and BRAM are all groups 2+ for now
         for (int i = 0; i < int(ccells.size()); i++) {
             auto &mc = mcells.at(i);
@@ -937,7 +938,7 @@ class StaticPlacer
             if (!dsp_bram && mc.group >= 2)
                 continue;
             if (cc.macro_idx != -1 && i != macros.at(cc.macro_idx).root->udata)
-                continue; // not macro root
+                continue;      // not macro root
             if (mc.is_fixed) { // already placed
                 NPNR_ASSERT(cc.base_cell->bel != BelId());
                 continue;
@@ -959,7 +960,8 @@ class StaticPlacer
         log_info("HPWL after legalise: %f (delta: %f)\n", post_hpwl, post_hpwl - pre_hpwl);
     }
 
-    void enqueue_legalise(int cell_idx) {
+    void enqueue_legalise(int cell_idx)
+    {
         NPNR_ASSERT(cell_idx < int(ccells.size())); // we should never be legalising spacers or dark nodes
         auto &ccell = ccells.at(cell_idx);
         if (ccell.macro_idx != -1) {
@@ -971,7 +973,8 @@ class StaticPlacer
         }
     }
 
-    void enqueue_legalise(CellInfo *ci) {
+    void enqueue_legalise(CellInfo *ci)
+    {
         if (ci->udata != -1) {
             // managed by static
             enqueue_legalise(ci->udata);
@@ -1011,7 +1014,7 @@ class StaticPlacer
             total_iters_noreset++;
             if (total_iters > int(ccells.size())) {
                 total_iters = 0;
-                ripup_radius = std::max(std::max(width+1, height+1), ripup_radius * 2);
+                ripup_radius = std::max(std::max(width + 1, height + 1), ripup_radius * 2);
             }
 
             if (total_iters_noreset > std::max(5000, 8 * int(ctx->cells.size()))) {
@@ -1039,23 +1042,21 @@ class StaticPlacer
                 iter_at_radius++;
                 if (iter >= (10 * (radius + 1))) {
                     // No luck yet, increase radius
-                    radius = std::min(std::max(width+1, height+1), radius + 1);
-                    while (radius < std::max(width+1, height+1)) {
+                    radius = std::min(std::max(width + 1, height + 1), radius + 1);
+                    while (radius < std::max(width + 1, height + 1)) {
                         // Keep increasing the radius until it will actually increase the number of cells we are
                         // checking (e.g. BRAM and DSP will not be in all cols/rows), so we don't waste effort
-                        for (int x = std::max(0, cx - radius);
-                             x <= std::min(width+1, cx + radius); x++) {
+                        for (int x = std::max(0, cx - radius); x <= std::min(width + 1, cx + radius); x++) {
                             if (x >= int(fb->size()))
                                 break;
-                            for (int y = std::max(0, cy - radius);
-                                 y <= std::min(height+1, cy + radius); y++) {
+                            for (int y = std::max(0, cy - radius); y <= std::min(height + 1, cy + radius); y++) {
                                 if (y >= int(fb->at(x).size()))
                                     break;
                                 if (fb->at(x).at(y).size() > 0)
                                     goto notempty;
                             }
                         }
-                        radius = std::min(std::max(width+1, height+1), radius + 1);
+                        radius = std::min(std::max(width + 1, height + 1), radius + 1);
                     }
                 notempty:
                     iter_at_radius = 0;
@@ -1063,9 +1064,9 @@ class StaticPlacer
                 }
                 // If our randomly chosen cooridnate is out of bounds; or points to a tile with no relevant bels; ignore
                 // it
-                if (nx < 0 || nx > width+1)
+                if (nx < 0 || nx > width + 1)
                     continue;
-                if (ny < 0 || ny > height+1)
+                if (ny < 0 || ny > height + 1)
                     continue;
 
                 if (nx >= int(fb->size()))

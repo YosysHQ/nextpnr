@@ -49,8 +49,8 @@ void IdString::initialize_arch(const BaseCtx *ctx)
 // ---------------------------------------------------------------
 
 static void get_chip_info(std::string device, const ChipInfoPOD **chip_info, const PackageInfoPOD **package_info,
-                          const SpeedGradePOD **speed_grade,
-                          const char **device_name, const char **package_name, int *device_speed)
+                          const SpeedGradePOD **speed_grade, const char **device_name, const char **package_name,
+                          int *device_speed)
 {
     std::stringstream ss(available_devices);
     std::string name;
@@ -381,14 +381,11 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
             auto phys_wire = getPipSrcWire(*(getPipsUphill(w).begin()));
             return std::make_pair(int(phys_wire.location.x), int(phys_wire.location.y));
         } else if (wire.bel_pins.size() > 0) {
-            return std::make_pair(wire.bel_pins[0].rel_bel_loc.x,
-                                  wire.bel_pins[0].rel_bel_loc.y);
+            return std::make_pair(wire.bel_pins[0].rel_bel_loc.x, wire.bel_pins[0].rel_bel_loc.y);
         } else if (wire.pips_downhill.size() > 0) {
-            return std::make_pair(wire.pips_downhill[0].rel_loc.x,
-                                  wire.pips_downhill[0].rel_loc.y);
+            return std::make_pair(wire.pips_downhill[0].rel_loc.x, wire.pips_downhill[0].rel_loc.y);
         } else if (wire.pips_uphill.size() > 0) {
-            return std::make_pair(wire.pips_uphill[0].rel_loc.x,
-                                  wire.pips_uphill[0].rel_loc.y);
+            return std::make_pair(wire.pips_uphill[0].rel_loc.x, wire.pips_uphill[0].rel_loc.y);
         } else {
             return std::make_pair(int(w.location.x), int(w.location.y));
         }
@@ -430,14 +427,11 @@ BoundingBox Arch::getRouteBoundingBox(WireId src, WireId dst) const
             auto phys_wire = getPipSrcWire(*(getPipsUphill(w).begin()));
             return std::make_pair(int(phys_wire.location.x), int(phys_wire.location.y));
         } else if (wire.bel_pins.size() > 0) {
-            return std::make_pair(wire.bel_pins[0].rel_bel_loc.x,
-                                  wire.bel_pins[0].rel_bel_loc.y);
+            return std::make_pair(wire.bel_pins[0].rel_bel_loc.x, wire.bel_pins[0].rel_bel_loc.y);
         } else if (wire.pips_downhill.size() > 0) {
-            return std::make_pair(wire.pips_downhill[0].rel_loc.x,
-                                  wire.pips_downhill[0].rel_loc.y);
+            return std::make_pair(wire.pips_downhill[0].rel_loc.x, wire.pips_downhill[0].rel_loc.y);
         } else if (wire.pips_uphill.size() > 0) {
-            return std::make_pair(wire.pips_uphill[0].rel_loc.x,
-                                  wire.pips_uphill[0].rel_loc.y);
+            return std::make_pair(wire.pips_uphill[0].rel_loc.x, wire.pips_uphill[0].rel_loc.y);
         } else {
             return std::make_pair(int(w.location.x), int(w.location.y));
         }
@@ -781,7 +775,7 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
         return TMG_IGNORE;
     } else if (cell->type.in(id_SEDFA, id_GSR, id_JTAGF)) {
         return (cell->ports.at(port).type == PORT_OUT) ? TMG_STARTPOINT : TMG_ENDPOINT;
-    } else if (cell->type.in(id_OSCH,id_OSCJ)) {
+    } else if (cell->type.in(id_OSCH, id_OSCJ)) {
         if (port == id_OSC)
             return TMG_GEN_CLOCK;
         else
@@ -851,8 +845,8 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
         if (cell->ramInfo.is_pdp) {
             bool is_output = cell->ports.at(port).type == PORT_OUT;
             // In PDP mode, all read signals are in CLKB domain and write signals in CLKA domain
-            if (is_output || port.in(id_OCEB, id_CEB, id_ADB5, id_ADB6, id_ADB7, id_ADB8, id_ADB9, id_ADB10, id_ADB11,
-                                     id_ADB12))
+            if (is_output ||
+                port.in(id_OCEB, id_CEB, id_ADB5, id_ADB6, id_ADB7, id_ADB8, id_ADB9, id_ADB10, id_ADB11, id_ADB12))
                 info.clock_port = id_CLKB;
             else
                 info.clock_port = id_CLKA;
