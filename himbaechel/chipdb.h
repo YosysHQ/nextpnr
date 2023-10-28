@@ -76,6 +76,8 @@ NPNR_PACKED_STRUCT(struct PipDataPOD {
     uint32_t type;
     uint32_t flags;
     int32_t timing_idx;
+
+    RelPtr<uint8_t> extra_data;
 });
 
 NPNR_PACKED_STRUCT(struct RelTileWireRefPOD {

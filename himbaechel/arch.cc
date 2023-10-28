@@ -32,6 +32,8 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+static constexpr int database_version = 2;
+
 static const ChipInfoPOD *get_chip_info(const RelPtr<ChipInfoPOD> *ptr) { return ptr->get(); }
 
 Arch::Arch(ArchArgs args) : args(args)
@@ -75,6 +77,10 @@ void Arch::load_chipdb(const std::string &path)
     // Check consistency of blob
     if (chip_info->magic != 0x00ca7ca7)
         log_error("chipdb %s does not look like a valid himbächel database!\n", db_path.c_str());
+    if (chip_info->version != database_version)
+        log_error(
+                "chipdb uses db version %d but nextpnr is expecting version %d (did you forget a database rebuild?).\n",
+                chip_info->version, database_version);
     std::string blob_uarch(chip_info->uarch.get());
     if (blob_uarch != args.uarch)
         log_error("database device uarch '%s' does not match selected device uarch '%s'.\n", blob_uarch.c_str(),
@@ -99,6 +105,22 @@ void Arch::set_speed_grade(const std::string &speed)
     }
     if (!speed_grade) {
         log_error("Speed grade '%s' not found in database.\n", speed.c_str());
+    }
+}
+
+void Arch::set_package(const std::string &package)
+{
+    if (package.empty())
+        return;
+    // Select speed grade
+    for (const auto &pkg_data : chip_info->packages) {
+        if (IdString(pkg_data.name) == id(package)) {
+            package_info = &pkg_data;
+            break;
+        }
+    }
+    if (!package_info) {
+        log_error("Package '%s' not found in database.\n", package.c_str());
     }
 }
 
@@ -442,6 +464,41 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
     result.clockToQ = DelayQuad(arc.clk_q.fast_min, arc.clk_q.slow_max);
 
     return result;
+}
+
+const PadInfoPOD *Arch::get_package_pin(IdString pin) const
+{
+    NPNR_ASSERT(package_info);
+    for (const auto &pad : package_info->pads) {
+        if (IdString(pad.package_pin) == pin)
+            return &pad;
+    }
+    return nullptr;
+}
+
+const PadInfoPOD *Arch::get_bel_package_pin(BelId bel) const
+{
+    IdStringList bel_name = getBelName(bel);
+    NPNR_ASSERT(package_info);
+    for (const auto &pad : package_info->pads) {
+        if (IdString(pad.tile) == bel_name[0] && IdString(pad.bel) == bel_name[1])
+            return &pad;
+    }
+    return nullptr;
+}
+
+BelId Arch::get_package_pin_bel(IdString pin) const
+{
+    auto pin_data = get_package_pin(pin);
+    if (!pin_data)
+        return BelId();
+    return getBelByName(IdStringList::concat(IdString(pin_data->tile), IdString(pin_data->bel)));
+}
+
+IdString Arch::get_tile_type(int tile) const
+{
+    auto &tile_data = chip_tile_info(chip_info, tile);
+    return IdString(tile_data.type_name);
 }
 
 NEXTPNR_NAMESPACE_END

@@ -112,6 +112,7 @@ class BelData(BBAStruct):
             pin.serialise(f"{context}_pin{i}", bba)
         # extra data (optional)
         if self.extra_data is not None:
+            self.extra_data.serialise_lists(f"{context}_extra_data", bba)
             bba.label(f"{context}_extra_data")
             self.extra_data.serialise(f"{context}_extra_data", bba)
     def serialise(self, context: str, bba: BBAWriter):
@@ -181,15 +182,24 @@ class PipData(BBAStruct):
     pip_type: IdString = field(default_factory=IdString)
     flags: int = 0
     timing_idx: int = -1
+    extra_data: object = None
+
     def serialise_lists(self, context: str, bba: BBAWriter):
-        pass
+        # extra data (optional)
+        if self.extra_data is not None:
+            self.extra_data.serialise_lists(f"{context}_extra_data", bba)
+            bba.label(f"{context}_extra_data")
+            self.extra_data.serialise(f"{context}_extra_data", bba)
     def serialise(self, context: str, bba: BBAWriter):
         bba.u32(self.src_wire)
         bba.u32(self.dst_wire)
         bba.u32(self.pip_type.index)
         bba.u32(self.flags)
         bba.u32(self.timing_idx)
-
+        if self.extra_data is not None:
+            bba.ref(f"{context}_extra_data")
+        else:
+            bba.u32(0)
 @dataclass
 class TileType(BBAStruct):
     strs: StringPool
@@ -262,6 +272,7 @@ class TileType(BBAStruct):
             pip.serialise(f"{context}_pip{i}", bba)
         # extra data (optional)
         if self.extra_data is not None:
+            self.extra_data.serialise_lists(f"{context}_extra_data", bba)
             bba.label(f"{context}_extra_data")
             self.extra_data.serialise(f"{context}_extra_data", bba)
     def serialise(self, context: str, bba: BBAWriter):
@@ -281,41 +292,25 @@ class NodeWire:
     y: int
     wire: str
 
-# Post deduplication (node shapes merged, relative coords)
-@dataclass
-class TileWireRef(BBAStruct):
-    dx: int
-    dy: int
-    wire: int
-
-    def serialise_lists(self, context: str, bba: BBAWriter):
-        pass
-    def serialise(self, context: str, bba: BBAWriter):
-        bba.u16(self.dx)
-        bba.u16(self.dy)
-        bba.u16(self.wire)
 
 @dataclass
 class NodeShape(BBAStruct):
-    wires: list[TileWireRef] = field(default_factory=list)
+    wires: list[int] = field(default_factory=list)
     timing_index: int = -1
 
     def key(self):
-        m = hashlib.sha1()
-        for wire in self.wires:
-            m.update(wire.dx.to_bytes(2, 'little', signed=True))
-            m.update(wire.dy.to_bytes(2, 'little', signed=True))
-            m.update(wire.wire.to_bytes(2, 'little'))
+        m = hashlib.md5()
+        m.update(struct.pack("h"*len(self.wires), *self.wires))
         return m.digest()
 
     def serialise_lists(self, context: str, bba: BBAWriter):
         bba.label(f"{context}_wires")
-        for i, w in enumerate(self.wires):
-            w.serialise(f"{context}_w{i}", bba)
+        for w in self.wires:
+            bba.u16(w)
         if len(self.wires) % 2 != 0:
             bba.u16(0) # alignment
     def serialise(self, context: str, bba: BBAWriter):
-        bba.slice(f"{context}_wires", len(self.wires))
+        bba.slice(f"{context}_wires", len(self.wires)//3)
         bba.u32(self.timing_index) # timing index (not yet used)
 
 MODE_TILE_WIRE = 0x7000
@@ -337,23 +332,20 @@ class RelNodeRef(BBAStruct):
 
 @dataclass
 class TileRoutingShape(BBAStruct):
-    wire_to_node: list[RelNodeRef] = field(default_factory=list)
+    wire_to_node: list[int] = field(default_factory=list)
     def key(self):
-        m = hashlib.sha1()
-        for wire in self.wire_to_node:
-            m.update(wire.dx_mode.to_bytes(2, 'little', signed=True))
-            m.update(wire.dy.to_bytes(2, 'little', signed=(wire.dy < 0)))
-            m.update(wire.wire.to_bytes(2, 'little', signed=True))
+        m = hashlib.md5()
+        m.update(struct.pack("h"*len(self.wire_to_node), *self.wire_to_node))
         return m.digest()
 
     def serialise_lists(self, context: str, bba: BBAWriter):
         bba.label(f"{context}_w2n")
-        for i, w in enumerate(self.wire_to_node):
-            w.serialise(f"{context}_w{i}", bba)
+        for x in self.wire_to_node:
+            bba.u16(x)
         if len(self.wire_to_node) % 2 != 0:
             bba.u16(0) # alignment
     def serialise(self, context: str, bba: BBAWriter):
-        bba.slice(f"{context}_w2n", len(self.wire_to_node))
+        bba.slice(f"{context}_w2n", len(self.wire_to_node)//3)
         bba.u32(-1) # timing index
 
 @dataclass
@@ -701,6 +693,7 @@ class Chip:
         return tt
     def set_tile_type(self, x: int, y: int, type: str):
         self.tiles[y][x].type_idx = self.tile_type_idx[type]
+        return self.tiles[y][x]
     def tile_type_at(self, x: int, y: int):
         assert self.tiles[y][x].type_idx is not None, f"tile type at ({x}, {y}) must be set"
         return self.tile_types[self.tiles[y][x].type_idx]
@@ -715,11 +708,12 @@ class Chip:
         # compute node shape
         shape = NodeShape()
         for w in wires:
-            wire_id = w.wire if w.wire is IdString else self.strs.id(w.wire)
-            shape.wires.append(TileWireRef(
-                dx=w.x-x0, dy=w.y-y0,
-                wire=self.tile_type_at(w.x, w.y)._wire2idx[wire_id]
-            ))
+            if isinstance(w.wire, int):
+                wire_index = w.wire
+            else:
+                wire_id = w.wire if w.wire is IdString else self.strs.id(w.wire)
+                wire_index = self.tile_type_at(w.x, w.y)._wire2idx[wire_id]
+            shape.wires += [w.x-x0, w.y-y0, wire_index]
         # deduplicate node shapes
         key = shape.key()
         if key in self.node_shape_idx:
@@ -731,24 +725,29 @@ class Chip:
         # update tile wire to node ref
         for i, w in enumerate(wires):
             inst = self.tiles[w.y][w.x]
-            wire_idx = shape.wires[i].wire
+            wire_idx = shape.wires[i*3+2]
             # make sure there's actually enough space; first
-            if wire_idx >= len(inst.shape.wire_to_node):
-                inst.shape.wire_to_node += [RelNodeRef() for k in range(len(inst.shape.wire_to_node), wire_idx+1)]
+            while 3*wire_idx >= len(inst.shape.wire_to_node):
+                inst.shape.wire_to_node += [MODE_TILE_WIRE, 0, 0]
             if i == 0:
                 # root of the node. we don't need to back-reference anything because the node is based here
                 # so we re-use the structure to store the index of the node shape, instead
-                assert inst.shape.wire_to_node[wire_idx].dx_mode == MODE_TILE_WIRE, "attempting to add wire to multiple nodes!"
-                inst.shape.wire_to_node[wire_idx] = RelNodeRef(MODE_IS_ROOT, (shape_idx & 0xFFFF), ((shape_idx >> 16) & 0xFFFF))
+                assert inst.shape.wire_to_node[3*wire_idx+0] == MODE_TILE_WIRE, "attempting to add wire to multiple nodes!"
+                inst.shape.wire_to_node[3*wire_idx+0] = MODE_IS_ROOT
+                inst.shape.wire_to_node[3*wire_idx+1] = (shape_idx & 0xFFFF)
+                inst.shape.wire_to_node[3*wire_idx+2] = ((shape_idx >> 16) & 0xFFFF)
             else:
                 # back-reference to the root of the node
                 dx = x0 - w.x
                 dy = y0 - w.y
                 assert dx < MODE_TILE_WIRE, "dx range causes overlap with magic values!"
-                assert inst.shape.wire_to_node[wire_idx].dx_mode == MODE_TILE_WIRE, "attempting to add wire to multiple nodes!"
-                inst.shape.wire_to_node[wire_idx] = RelNodeRef(dx, dy, shape.wires[0].wire)
+                assert inst.shape.wire_to_node[3*wire_idx+0] == MODE_TILE_WIRE, "attempting to add wire to multiple nodes!"
+                inst.shape.wire_to_node[3*wire_idx+0] = dx
+                inst.shape.wire_to_node[3*wire_idx+1] = dy
+                inst.shape.wire_to_node[3*wire_idx+2] = shape.wires[0*3+2]
 
     def flatten_tile_shapes(self):
+        print("Deduplicating tile shapes...")
         for row in self.tiles:
             for tile in row:
                 key = tile.shape.key()
@@ -812,7 +811,7 @@ class Chip:
 
         bba.label("chip_info")
         bba.u32(0x00ca7ca7) # magic
-        bba.u32(1) # version (TODO)
+        bba.u32(2) # version
         bba.u32(self.width)
         bba.u32(self.height)
 
