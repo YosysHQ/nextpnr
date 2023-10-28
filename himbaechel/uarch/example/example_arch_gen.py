@@ -30,6 +30,9 @@ dirs = [ # name, dx, dy
 
 def create_switch_matrix(tt: TileType, inputs: list[str], outputs: list[str]):
     # FIXME: terrible routing matrix, just for a toy example...
+    # constant wires
+    tt.create_wire("GND", "GND", const_value="GND")
+    tt.create_wire("VCC", "VCC", const_value="VCC")
     # switch wires
     for i in range(Wl):
         tt.create_wire(f"SWITCH{i}", "SWITCH")
@@ -45,6 +48,10 @@ def create_switch_matrix(tt: TileType, inputs: list[str], outputs: list[str]):
     for i, w in enumerate(outputs):
         for j in range((i % Sq), Wl, Sq):
             tt.create_pip(w, f"SWITCH{j}", timing_class="SWINPUT")
+    # constant pips
+    for i in range(Wl):
+        tt.create_pip("GND", f"SWITCH{i}")
+        tt.create_pip("VCC", f"SWITCH{i}")
     # neighbour local pips
     for i in range(Wl):
         for j, (d, dx, dy) in enumerate(dirs):
@@ -147,6 +154,15 @@ def create_corner_tiletype(ch):
     tt.create_wire(f"CLK", "TILE_CLK")
     tt.create_wire(f"CLK_PREV", "CLK_ROUTE")
     tt.create_pip(f"CLK_PREV", f"CLK")
+
+    tt.create_wire(f"GND", "GND", const_value="GND")
+    tt.create_wire(f"VCC", "VCC", const_value="VCC")
+
+    gnd = tt.create_bel(f"GND_DRV", f"GND_DRV", z=0)
+    tt.add_bel_pin(gnd, "GND", "GND", PinType.OUTPUT)
+    vcc = tt.create_bel(f"VCC_DRV", f"VCC_DRV", z=1)
+    tt.add_bel_pin(vcc, "VCC", "VCC", PinType.OUTPUT)
+
     return tt
 
 def is_corner(x, y):

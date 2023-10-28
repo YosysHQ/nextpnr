@@ -12,3 +12,8 @@ X(O)
 X(IOB)
 X(PAD)
 X(INIT)
+
+X(GND)
+X(GND_DRV)
+X(VCC)
+X(VCC_DRV)

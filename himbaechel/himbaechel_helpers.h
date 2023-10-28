@@ -67,7 +67,8 @@ struct HimbaechelHelpers
     // Replace constants with given driving cells
     void replace_constants(CellTypePort vcc_driver, CellTypePort gnd_driver,
                            const dict<IdString, Property> &vcc_params = {},
-                           const dict<IdString, Property> &gnd_params = {});
+                           const dict<IdString, Property> &gnd_params = {}, IdString vcc_const_val = IdString(),
+                           IdString gnd_const_val = IdString());
 };
 
 NEXTPNR_NAMESPACE_END
