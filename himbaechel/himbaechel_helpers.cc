@@ -98,7 +98,8 @@ int HimbaechelHelpers::constrain_cell_pairs(const pool<CellTypePort> &src_ports,
 
 void HimbaechelHelpers::replace_constants(CellTypePort vcc_driver, CellTypePort gnd_driver,
                                           const dict<IdString, Property> &vcc_params,
-                                          const dict<IdString, Property> &gnd_params)
+                                          const dict<IdString, Property> &gnd_params, IdString vcc_const_val,
+                                          IdString gnd_const_val)
 {
     CellInfo *vcc_drv = ctx->createCell(ctx->id("$PACKER_VCC_DRV"), vcc_driver.cell_type);
     vcc_drv->addOutput(vcc_driver.port);
@@ -112,6 +113,9 @@ void HimbaechelHelpers::replace_constants(CellTypePort vcc_driver, CellTypePort 
 
     NetInfo *vcc_net = ctx->createNet(ctx->id("$PACKER_VCC"));
     NetInfo *gnd_net = ctx->createNet(ctx->id("$PACKER_GND"));
+
+    vcc_net->constant_value = vcc_const_val;
+    gnd_net->constant_value = gnd_const_val;
 
     vcc_drv->connectPort(vcc_driver.port, vcc_net);
     gnd_drv->connectPort(gnd_driver.port, gnd_net);

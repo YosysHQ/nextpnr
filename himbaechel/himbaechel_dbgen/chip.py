@@ -144,11 +144,9 @@ class TileWireData:
     index: int
     name: IdString
     wire_type: IdString
+    const_value: IdString = field(default_factory=list)
     flags: int = 0
     timing_idx: int = -1
-
-    # not serialised, but used to build the global constant networks
-    const_val: int = -1
 
     # these crossreferences will be updated by finalise(), no need to manually update
     pips_uphill: list[int] = field(default_factory=list)
@@ -168,6 +166,7 @@ class TileWireData:
     def serialise(self, context: str, bba: BBAWriter):
         bba.u32(self.name.index)
         bba.u32(self.wire_type.index)
+        bba.u32(self.const_value.index)
         bba.u32(self.flags)
         bba.u32(self.timing_idx)
         bba.slice(f"{context}_pips_uh", len(self.pips_uphill))
@@ -228,11 +227,12 @@ class TileType(BBAStruct):
         bel.pins.append(BelPin(pin_id, wire_idx, dir))
         self.wires[wire_idx].bel_pins.append(BelPinRef(bel.index, pin_id))
 
-    def create_wire(self, name: str, type: str=""):
+    def create_wire(self, name: str, type: str="", const_value: str=""):
         # Create a new tile wire of a given name and type (optional) in the tile type
         wire = TileWireData(index=len(self.wires),
             name=self.strs.id(name),
-            wire_type=self.strs.id(type))
+            wire_type=self.strs.id(type),
+            const_value=self.strs.id(const_value))
         self._wire2idx[wire.name] = wire.index
         self.wires.append(wire)
         return wire
@@ -811,7 +811,7 @@ class Chip:
 
         bba.label("chip_info")
         bba.u32(0x00ca7ca7) # magic
-        bba.u32(2) # version
+        bba.u32(3) # version
         bba.u32(self.width)
         bba.u32(self.height)
 

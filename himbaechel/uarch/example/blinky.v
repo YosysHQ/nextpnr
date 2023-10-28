@@ -11,6 +11,6 @@ always @(posedge clk)
 	else
 		ctr <= ctr + 1'b1;
 
-assign leds = ctr;
+assign leds = {4'b1010, ctr[7:4]};
 
 endmodule
