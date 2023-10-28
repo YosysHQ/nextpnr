@@ -422,6 +422,7 @@ struct Arch : BaseArch<ArchRanges>
 
     void load_chipdb(const std::string &path);
     void set_speed_grade(const std::string &speed);
+    void set_package(const std::string &package);
 
     void late_init();
 
@@ -762,6 +763,12 @@ struct Arch : BaseArch<ArchRanges>
     void set_fast_pip_delays(bool fast_mode);
     std::vector<IdString> tile_name;
     dict<IdString, int> tile_name2idx;
+
+    // -------------------------------------------------
+    IdString get_tile_type(int tile) const;
+    const PadInfoPOD *get_package_pin(IdString pin) const;
+    const PadInfoPOD *get_bel_package_pin(BelId bel) const;
+    BelId get_package_pin_bel(IdString pin) const;
 
     // Load capacitance and drive resistance for nodes
     // TODO: does this `dict` hurt routing performance too much?
