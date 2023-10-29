@@ -27,6 +27,7 @@
 #include "nextpnr.h"
 #include "placer1.h"
 #include "placer_heap.h"
+#include "placer_static.h"
 #include "router1.h"
 #include "router2.h"
 #include "timing_opt.h"
@@ -650,6 +651,45 @@ bool Arch::place()
     } else if (placer == "sa") {
         if (!placer1(getCtx(), Placer1Cfg(getCtx())))
             return false;
+    } else if (placer == "static") {
+        PlacerStaticCfg cfg(getCtx());
+        {
+            cfg.cell_groups.emplace_back();
+            auto &comb = cfg.cell_groups.back();
+            comb.name = getCtx()->id("COMB");
+            comb.cell_area[id_ICESTORM_LC] = StaticRect(1.0f, 0.125f);
+            comb.bel_area[id_ICESTORM_LC] = StaticRect(1.0f, 0.125f);
+            comb.spacer_rect = StaticRect(1.0f, 0.125f);
+        }
+
+        {
+            cfg.cell_groups.emplace_back();
+            auto &comb = cfg.cell_groups.back();
+            comb.name = getCtx()->id("RAM");
+            comb.cell_area[id_ICESTORM_RAM] = StaticRect(1.0f, 2.0f);
+            comb.bel_area[id_ICESTORM_RAM] = StaticRect(1.0f, 2.0f);
+            comb.spacer_rect = StaticRect(1.0f, 2.0f);
+        }
+
+        {
+            cfg.cell_groups.emplace_back();
+            auto &comb = cfg.cell_groups.back();
+            comb.name = getCtx()->id("GB");
+            comb.cell_area[id_SB_GB] = StaticRect(0.5f, 0.5f);
+            comb.bel_area[id_SB_GB] = StaticRect(0.5f, 0.5f);
+            comb.spacer_rect = StaticRect(0.5f, 0.5f);
+        }
+
+        {
+            cfg.cell_groups.emplace_back();
+            auto &comb = cfg.cell_groups.back();
+            comb.name = getCtx()->id("WARMBOOT");
+            comb.cell_area[id_SB_WARMBOOT] = StaticRect(1.0f, 1.0f);
+            comb.bel_area[id_SB_WARMBOOT] = StaticRect(1.0f, 1.0f);
+            comb.spacer_rect = StaticRect(1.0f, 1.0f);
+        }
+        if (!placer_static(getCtx(), cfg))
+            return false;
     } else {
         log_error("iCE40 architecture does not support placer '%s'\n", placer.c_str());
     }
@@ -1250,7 +1290,7 @@ BoundingBox Arch::getRouteBoundingBox(WireId src, WireId dst) const
 
 const std::string Arch::defaultPlacer = "heap";
 
-const std::vector<std::string> Arch::availablePlacers = {"sa", "heap"};
+const std::vector<std::string> Arch::availablePlacers = {"sa", "heap", "static"};
 
 const std::string Arch::defaultRouter = "router1";
 const std::vector<std::string> Arch::availableRouters = {"router1", "router2"};

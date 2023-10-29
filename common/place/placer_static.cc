@@ -293,7 +293,7 @@ class StaticPlacer
     {
         if (ci->udata == -1) {
             // not handled?
-            NPNR_ASSERT(ci->bel != BelId()); // already fixed
+            NPNR_ASSERT_MSG(ci->bel != BelId(), stringf("Cell %s of type %s has no bel", ci->name.c_str(ctx), ci->type.c_str(ctx)).c_str()); // already fixed
             return RealPair(ctx->getBelLocation(ci->bel), 0.5f);
         } else {
             return ref ? mcells.at(ci->udata).ref_pos : mcells.at(ci->udata).pos;
