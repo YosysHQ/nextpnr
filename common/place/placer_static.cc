@@ -703,7 +703,7 @@ class StaticPlacer
         return gradient;
     }
 
-    float dens_penalty = 0.025f;
+    std::vector<float> dens_penalty;
     float nesterov_a = 1.0f;
 
     void update_gradients(bool ref = true, bool set_prev = true, bool init_penalty = false)
@@ -748,18 +748,27 @@ class StaticPlacer
         }
         if (init_penalty) {
             // set initial density penalty
-            float wirelen_sum = 0;
-            float force_sum = 0;
+            dict<int, float> wirelen_sum;
+            dict<int, float> force_sum;
             for (auto &cell : ctx->cells) {
                 CellInfo *ci = cell.second.get();
                 if (ci->udata == -1)
                     continue;
                 auto &mc = mcells.at(ci->udata);
-                wirelen_sum += std::abs(mc.ref_wl_grad.x) + std::abs(mc.ref_wl_grad.y);
-                force_sum += std::abs(mc.ref_dens_grad.x) + std::abs(mc.ref_dens_grad.y);
+                auto res1 = wirelen_sum.insert({mc.group, std::abs(mc.ref_wl_grad.x) + std::abs(mc.ref_wl_grad.y)});
+                if (!res1.second)
+                    res1.first->second += std::abs(mc.ref_wl_grad.x) + std::abs(mc.ref_wl_grad.y);
+                auto res2 = force_sum.insert({mc.group, std::abs(mc.ref_dens_grad.x) + std::abs(mc.ref_dens_grad.y)});
+                if (!res2.second)
+                    res2.first->second += std::abs(mc.ref_dens_grad.x) + std::abs(mc.ref_dens_grad.y);
             }
-            dens_penalty = wirelen_sum / force_sum;
-            log_info(" initial density penalty: %f\n", dens_penalty);
+            dens_penalty = std::vector<float>(wirelen_sum.size(), 0.0);
+            for (auto& item : wirelen_sum) {
+                auto group = item.first;
+                auto wirelen = item.second;
+                dens_penalty[group] = wirelen / force_sum.at(group);
+                log_info(" initial density penalty for %s: %f\n", cfg.cell_groups.at(group).name.c_str(ctx), dens_penalty[group]);
+            }
         }
         // Third loop: compute total gradient, and precondition
         // TODO: ALM as well as simple penalty
@@ -772,11 +781,13 @@ class StaticPlacer
             }
 #endif
             // Preconditioner from replace for now
-            float precond = std::max(1.0f, float(cell.pin_count) + dens_penalty * cell.rect.area());
-            (ref ? cell.ref_total_grad : cell.total_grad) =
-                    (((ref ? cell.ref_wl_grad : cell.wl_grad) * -1) -
-                     (ref ? cell.ref_dens_grad : cell.dens_grad) * dens_penalty) /
-                    precond;
+
+            float precond = std::max(1.0f, float(cell.pin_count) + dens_penalty[cell.group] * cell.rect.area());
+            if (ref) {
+                cell.ref_total_grad = ((cell.ref_wl_grad * -1) - cell.ref_dens_grad * dens_penalty[cell.group]) / precond;
+            } else {
+                cell.total_grad = ((cell.wl_grad * -1) - cell.dens_grad * dens_penalty[cell.group]) / precond;
+            }
         }
     }
 
@@ -1250,7 +1261,8 @@ class StaticPlacer
         bool legalised_ip = false;
         while (true) {
             step();
-            dens_penalty *= 1.025;
+            for (auto& penalty : dens_penalty)
+                penalty *= 1.025;
             if (!legalised_ip) {
                 float ip_overlap = 0;
                 for (int i = 2; i < int(groups.size()); i++)
