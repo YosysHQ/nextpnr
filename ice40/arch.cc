@@ -688,6 +688,15 @@ bool Arch::place()
             comb.bel_area[id_SB_WARMBOOT] = StaticRect(1.0f, 1.0f);
             comb.spacer_rect = StaticRect(1.0f, 1.0f);
         }
+
+        {
+            cfg.cell_groups.emplace_back();
+            auto &comb = cfg.cell_groups.back();
+            comb.name = getCtx()->id("IO");
+            comb.cell_area[id_SB_IO] = StaticRect(0.5f, 0.5f);
+            comb.bel_area[id_SB_IO] = StaticRect(0.5f, 0.5f);
+            comb.spacer_rect = StaticRect(1.0f, 1.0f);
+        }
         if (!placer_static(getCtx(), cfg))
             return false;
     } else {
