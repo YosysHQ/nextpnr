@@ -293,7 +293,9 @@ class StaticPlacer
     {
         if (ci->udata == -1) {
             // not handled?
-            NPNR_ASSERT_MSG(ci->bel != BelId(), stringf("Cell %s of type %s has no bel", ci->name.c_str(ctx), ci->type.c_str(ctx)).c_str()); // already fixed
+            NPNR_ASSERT_MSG(ci->bel != BelId(),
+                            stringf("Cell %s of type %s has no bel", ci->name.c_str(ctx), ci->type.c_str(ctx))
+                                    .c_str()); // already fixed
             return RealPair(ctx->getBelLocation(ci->bel), 0.5f);
         } else {
             return ref ? mcells.at(ci->udata).ref_pos : mcells.at(ci->udata).pos;
@@ -763,11 +765,12 @@ class StaticPlacer
                     res2.first->second += std::abs(mc.ref_dens_grad.x) + std::abs(mc.ref_dens_grad.y);
             }
             dens_penalty = std::vector<float>(wirelen_sum.size(), 0.0);
-            for (auto& item : wirelen_sum) {
+            for (auto &item : wirelen_sum) {
                 auto group = item.first;
                 auto wirelen = item.second;
                 dens_penalty[group] = wirelen / force_sum.at(group);
-                log_info(" initial density penalty for %s: %f\n", cfg.cell_groups.at(group).name.c_str(ctx), dens_penalty[group]);
+                log_info(" initial density penalty for %s: %f\n", cfg.cell_groups.at(group).name.c_str(ctx),
+                         dens_penalty[group]);
             }
         }
         // Third loop: compute total gradient, and precondition
@@ -784,7 +787,8 @@ class StaticPlacer
 
             float precond = std::max(1.0f, float(cell.pin_count) + dens_penalty[cell.group] * cell.rect.area());
             if (ref) {
-                cell.ref_total_grad = ((cell.ref_wl_grad * -1) - cell.ref_dens_grad * dens_penalty[cell.group]) / precond;
+                cell.ref_total_grad =
+                        ((cell.ref_wl_grad * -1) - cell.ref_dens_grad * dens_penalty[cell.group]) / precond;
             } else {
                 cell.total_grad = ((cell.wl_grad * -1) - cell.dens_grad * dens_penalty[cell.group]) / precond;
             }
@@ -1261,7 +1265,7 @@ class StaticPlacer
         bool legalised_ip = false;
         while (true) {
             step();
-            for (auto& penalty : dens_penalty)
+            for (auto &penalty : dens_penalty)
                 penalty *= 1.025;
             if (!legalised_ip) {
                 float ip_overlap = 0;
