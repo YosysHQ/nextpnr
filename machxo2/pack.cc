@@ -1592,6 +1592,8 @@ class MachXO2Packer
         // Promote the N highest fanout clocks
         for (size_t i = 0; i < std::min<size_t>(clk_fanout.size(), available_globals); i++) {
             NetInfo *net = ctx->nets.at(clk_fanout.at(i).second).get();
+            if (!net->driver.cell->attrs.count(id_BEL))
+                continue;
             log_info("     promoting clock net '%s'\n", ctx->nameOf(net));
             insert_buffer(net, id_DCCA, "glb_clk", id_CLKI, id_CLKO,
                           [&](const PortRef &port) { return port.cell->type != id_DCCA; });
