@@ -10,6 +10,8 @@
 #include "gowin_utils.h"
 #include "pack.h"
 
+#include <cinttypes>
+
 NEXTPNR_NAMESPACE_BEGIN
 
 namespace {
@@ -881,7 +883,7 @@ struct GowinPacker
                     uc_init &= (1LL << uc_init_len) - 1;
 
                     if (ctx->verbose && it_param->second.intval != uc_init)
-                        log_info("%s lut config modified from 0x%lX to 0x%lX\n", ctx->nameOf(uc),
+                        log_info("%s lut config modified from 0x%" PRIX64 " to 0x%" PRIX64 "\n", ctx->nameOf(uc),
                                  it_param->second.intval, uc_init);
 
                     it_param->second = Property(uc_init, uc_init_len);

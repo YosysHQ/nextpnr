@@ -246,7 +246,7 @@ struct GowinGlobalRouter
             IdStringList pin_func = gwu.get_pin_funcs(driver.cell->bel);
             for (size_t i = 0; i < pin_func.size(); ++i) {
                 if (ctx->debug) {
-                    log_info("bel:%s, pin func: %lu:%s\n", ctx->nameOfBel(driver.cell->bel), i,
+                    log_info("bel:%s, pin func: %zu:%s\n", ctx->nameOfBel(driver.cell->bel), i,
                              pin_func[i].str(ctx).c_str());
                 }
                 if (pin_func[i].str(ctx).rfind("GCLKT", 0) == 0) {
