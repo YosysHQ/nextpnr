@@ -752,8 +752,7 @@ class HeAPPlacer
                                                                        std::abs(o_pos - this_pos)));
 
                     if (user_idx) {
-                        weight *= (1.0 + cfg.timingWeight * std::pow(tmg.get_criticality(CellPortKey(port)),
-                                                                     cfg.criticalityExponent));
+                        weight = tmg.get_criticality(CellPortKey(port)) * ni->users.entries() * double(std::abs(o_pos - this_pos));
                     }
 
                     // If cell 0 is not fixed, it will stamp +w on its equation and -w on the other end's equation,
