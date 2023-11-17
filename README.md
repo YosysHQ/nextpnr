@@ -37,6 +37,7 @@ of the selected architecture:
 - CMake 3.3 or later
 - Modern C++14 compiler (`clang-format` required for development)
 - Python 3.5 or later, including development libraries (`python3-dev` for Ubuntu)
+  - Python 3.9 or later is required for `nextpnr-himbaechel`
   - on Windows make sure to install same version as supported by [vcpkg](https://github.com/Microsoft/vcpkg/blob/master/ports/python3/CONTROL)
 - Boost libraries (`libboost-dev libboost-filesystem-dev libboost-thread-dev libboost-program-options-dev libboost-iostreams-dev libboost-dev` or `libboost-all-dev` for Ubuntu)
 - Eigen3 (`libeigen3-dev` for Ubuntu) is required to build the analytic placer
