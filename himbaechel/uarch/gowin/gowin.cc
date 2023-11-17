@@ -14,6 +14,7 @@
 #include "gowin.h"
 #include "gowin_utils.h"
 #include "pack.h"
+#include "family_aliases.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -97,6 +98,9 @@ void GowinImpl::init_database(Arch *arch)
         }
     }
 
+    if (gowin_family_aliases.count(family)) {
+        family = gowin_family_aliases.at(family);
+    }
     arch->load_chipdb(stringf("gowin/chipdb-%s.bin", family.c_str()));
 
     // These fields go in the header of the output JSON file and can help
