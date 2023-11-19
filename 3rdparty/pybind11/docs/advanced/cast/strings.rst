@@ -174,7 +174,8 @@ decoded to Python ``str``.
 .. code-block:: c++
 
     #define UNICODE
-    #include <windows.h>
+    #define NOMINMAX
+#include <windows.h>
 
     m.def("set_window_text",
         [](HWND hwnd, std::wstring s) {

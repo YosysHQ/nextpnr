@@ -92,7 +92,7 @@ void MainWindow::new_proj()
             continue; // chipdb not available
         for (auto &chip : db_ptr->get()->variants) {
             for (auto &pkg : chip.packages) {
-                for (auto &speedgrade : chip.speed_grades) {
+                for (auto &speedgrade : chip.speeds) {
                     for (auto &rating : chip.suffixes) {
                         std::string devname = stringf("%s-%d%s%s", chip.name.get(), speedgrade.speed,
                                                       pkg.short_name.get(), rating.suffix.get());

@@ -346,7 +346,8 @@ struct Router2
             return;
         WireId src = nets.at(net->udata).src_wire;
         WireId cursor = ad.sink_wire;
-        while (cursor != src) {
+        while (cursor != src &&
+               (net->constant_value == IdString() || ctx->getWireConstantValue(cursor) == net->constant_value)) {
             PipId pip = nd.wires.at(cursor).first;
             unbind_pip_internal(nd, user, cursor);
             cursor = ctx->getPipSrcWire(pip);
@@ -533,18 +534,11 @@ struct Router2
 
     // These nets have very-high-fanout pips and special rules must be followed (only working backwards) to avoid
     // crippling perf
-    bool is_pseudo_const_net(const NetInfo *net)
-    {
-#ifdef ARCH_NEXUS
-        if (net->driver.cell != nullptr && net->driver.cell->type == id_VCC_DRV)
-            return true;
-#endif
-        return false;
-    }
+    bool is_dedi_const_net(const NetInfo *net) { return net->constant_value != IdString(); }
 
     void update_wire_by_loc(ThreadContext &t, NetInfo *net, store_index<PortRef> i, size_t phys_pin, bool is_mt)
     {
-        if (is_pseudo_const_net(net))
+        if (is_dedi_const_net(net))
             return;
         auto &nd = nets.at(net->udata);
         auto &ad = nd.arcs.at(i.idx()).at(phys_pin);
@@ -613,16 +607,17 @@ struct Router2
         auto &nd = nets[net->udata];
         auto &ad = nd.arcs.at(i.idx()).at(phys_pin);
         auto &usr = net->users.at(i);
+        bool const_mode = is_dedi_const_net(net);
         ROUTE_LOG_DBG("Routing arc %d of net '%s' (%d, %d) -> (%d, %d)\n", i.idx(), ctx->nameOf(net), ad.bb.x0,
                       ad.bb.y0, ad.bb.x1, ad.bb.y1);
         WireId src_wire = ctx->getNetinfoSourceWire(net), dst_wire = ctx->getNetinfoSinkWire(net, usr, phys_pin);
-        if (src_wire == WireId())
+        if (src_wire == WireId() && !const_mode)
             ARC_LOG_ERR("No wire found for port %s on source cell %s.\n", ctx->nameOf(net->driver.port),
                         ctx->nameOf(net->driver.cell));
         if (dst_wire == WireId())
             ARC_LOG_ERR("No wire found for port %s on destination cell %s.\n", ctx->nameOf(usr.port),
                         ctx->nameOf(usr.cell));
-        int src_wire_idx = wire_to_idx.at(src_wire);
+        int src_wire_idx = const_mode ? -1 : wire_to_idx.at(src_wire);
         int dst_wire_idx = wire_to_idx.at(dst_wire);
         // Calculate a timing weight based on criticality
         float crit = get_arc_crit(net, i);
@@ -683,12 +678,13 @@ struct Router2
 
             if (mode == 0 && t.fwd_queue.size() < 4)
                 continue;
-
-            if (mode == 1 && !is_pseudo_const_net(net)) {
-                // Seed forwards with the source wire, if less than 8 existing wires added
-                seed_queue_fwd(src_wire);
-            } else {
-                set_visited_fwd(t, src_wire_idx, PipId(), 0.0);
+            if (!const_mode) {
+                if (mode == 1) {
+                    // Seed forwards with the source wire, if less than 8 existing wires added
+                    seed_queue_fwd(src_wire);
+                } else {
+                    set_visited_fwd(t, src_wire_idx, PipId(), 0.0);
+                }
             }
             auto seed_queue_bwd = [&](WireId wire) {
                 WireScore base_score;
@@ -711,7 +707,7 @@ struct Router2
                                 : (!t.fwd_queue.empty() || !t.bwd_queue.empty())) &&
                    (!is_bb || iter < toexplore)) {
                 ++iter;
-                if (!t.fwd_queue.empty()) {
+                if (!t.fwd_queue.empty() && !const_mode) {
                     // Explore forwards
                     auto curr = t.fwd_queue.top();
                     t.fwd_queue.pop();
@@ -760,12 +756,13 @@ struct Router2
                     auto curr = t.bwd_queue.top();
                     t.bwd_queue.pop();
                     ++explored;
-                    if (was_visited_fwd(curr.wire, std::numeric_limits<float>::max())) {
+                    auto &curr_data = flat_wires.at(curr.wire);
+                    if (was_visited_fwd(curr.wire, std::numeric_limits<float>::max()) ||
+                        (const_mode && ctx->getWireConstantValue(curr_data.w) == net->constant_value)) {
                         // Meet in the middle; done
                         midpoint_wire = curr.wire;
                         break;
                     }
-                    auto &curr_data = flat_wires.at(curr.wire);
                     // Don't allow the same wire to be bound to the same net with a different driving pip
                     PipId bound_pip;
                     auto fnd_wire = nd.wires.find(curr_data.w);
@@ -785,7 +782,7 @@ struct Router2
                         next_score.delay = curr.score.delay + cfg.get_base_cost(ctx, next, uh, crit_weight);
                         next_score.cost = curr.score.cost + score_wire_for_arc(net, i, phys_pin, next, uh, crit_weight);
                         next_score.togo_cost =
-                                cfg.estimate_weight * get_togo_cost(net, i, next_idx, src_wire, true, crit_weight);
+                                const_mode ? 0 : cfg.estimate_weight * get_togo_cost(net, i, next_idx, src_wire, true, crit_weight);
                         if (was_visited_bwd(next_idx, next_score.delay)) {
                             // Don't expand the same node twice.
                             continue;
@@ -809,44 +806,48 @@ struct Router2
         ArcRouteResult result = ARC_SUCCESS;
         if (midpoint_wire != -1) {
             ROUTE_LOG_DBG("   Routed (explored %d wires): ", explored);
-            int cursor_bwd = midpoint_wire;
-            while (was_visited_fwd(cursor_bwd, std::numeric_limits<float>::max())) {
-                PipId pip = flat_wires.at(cursor_bwd).pip_fwd;
-                if (pip == PipId() && cursor_bwd != src_wire_idx)
-                    break;
-                bind_pip_internal(nd, i, cursor_bwd, pip);
-                if (ctx->debug && !is_mt) {
-                    auto &wd = flat_wires.at(cursor_bwd);
-                    ROUTE_LOG_DBG("      fwd wire: %s (curr %d hist %f share %d)\n", ctx->nameOfWire(wd.w),
-                                  wd.curr_cong - 1, wd.hist_cong_cost, nd.wires.at(wd.w).second);
+            if (const_mode) {
+                bind_pip_internal(nd, i, midpoint_wire, PipId());
+            } else {
+                int cursor_bwd = midpoint_wire;
+                while (was_visited_fwd(cursor_bwd, std::numeric_limits<float>::max())) {
+                    PipId pip = flat_wires.at(cursor_bwd).pip_fwd;
+                    if (pip == PipId() && cursor_bwd != src_wire_idx)
+                        break;
+                    bind_pip_internal(nd, i, cursor_bwd, pip);
+                    if (ctx->debug && !is_mt) {
+                        auto &wd = flat_wires.at(cursor_bwd);
+                        ROUTE_LOG_DBG("      fwd wire: %s (curr %d hist %f share %d)\n", ctx->nameOfWire(wd.w),
+                                      wd.curr_cong - 1, wd.hist_cong_cost, nd.wires.at(wd.w).second);
+                    }
+                    if (pip == PipId()) {
+                        break;
+                    }
+                    ROUTE_LOG_DBG("         fwd pip: %s (%d, %d)\n", ctx->nameOfPip(pip), ctx->getPipLocation(pip).x,
+                                  ctx->getPipLocation(pip).y);
+                    cursor_bwd = wire_to_idx.at(ctx->getPipSrcWire(pip));
                 }
-                if (pip == PipId()) {
-                    break;
-                }
-                ROUTE_LOG_DBG("         fwd pip: %s (%d, %d)\n", ctx->nameOfPip(pip), ctx->getPipLocation(pip).x,
-                              ctx->getPipLocation(pip).y);
-                cursor_bwd = wire_to_idx.at(ctx->getPipSrcWire(pip));
-            }
 
-            while (cursor_bwd != src_wire_idx) {
-                // Tack onto existing routing
-                WireId bwd_w = flat_wires.at(cursor_bwd).w;
-                if (!nd.wires.count(bwd_w))
-                    break;
-                auto &bound = nd.wires.at(bwd_w);
-                PipId pip = bound.first;
-                if (ctx->debug && !is_mt) {
-                    auto &wd = flat_wires.at(cursor_bwd);
-                    ROUTE_LOG_DBG("      ext wire: %s (curr %d hist %f share %d)\n", ctx->nameOfWire(wd.w),
-                                  wd.curr_cong - 1, wd.hist_cong_cost, bound.second);
+                while (cursor_bwd != src_wire_idx) {
+                    // Tack onto existing routing
+                    WireId bwd_w = flat_wires.at(cursor_bwd).w;
+                    if (!nd.wires.count(bwd_w))
+                        break;
+                    auto &bound = nd.wires.at(bwd_w);
+                    PipId pip = bound.first;
+                    if (ctx->debug && !is_mt) {
+                        auto &wd = flat_wires.at(cursor_bwd);
+                        ROUTE_LOG_DBG("      ext wire: %s (curr %d hist %f share %d)\n", ctx->nameOfWire(wd.w),
+                                      wd.curr_cong - 1, wd.hist_cong_cost, bound.second);
+                    }
+                    bind_pip_internal(nd, i, cursor_bwd, pip);
+                    if (pip == PipId())
+                        break;
+                    cursor_bwd = wire_to_idx.at(ctx->getPipSrcWire(pip));
                 }
-                bind_pip_internal(nd, i, cursor_bwd, pip);
-                if (pip == PipId())
-                    break;
-                cursor_bwd = wire_to_idx.at(ctx->getPipSrcWire(pip));
-            }
 
-            NPNR_ASSERT(cursor_bwd == src_wire_idx);
+                NPNR_ASSERT(cursor_bwd == src_wire_idx);
+            }
 
             int cursor_fwd = midpoint_wire;
             while (was_visited_bwd(cursor_fwd, std::numeric_limits<float>::max())) {
@@ -1029,7 +1030,7 @@ struct Router2
         auto &usr = net->users.at(usr_idx);
         WireId src = ctx->getNetinfoSourceWire(net);
         // Skip routes with no source
-        if (src == WireId())
+        if (src == WireId() && net->constant_value == IdString())
             return true;
         WireId dst = ctx->getNetinfoSinkWire(net, usr, phys_pin);
         if (dst == WireId())
@@ -1086,6 +1087,10 @@ struct Router2
                 break;
             }
             cursor = ctx->getPipSrcWire(p);
+            if (net->constant_value != IdString() && ctx->getWireConstantValue(cursor) == net->constant_value) {
+                src = cursor;
+                break;
+            }
         }
 
         if (success) {
@@ -1343,6 +1348,8 @@ struct Router2
     delay_t get_route_delay(int net, store_index<PortRef> usr_idx, int phys_idx)
     {
         auto &nd = nets.at(net);
+        if (nets_by_udata.at(net)->constant_value != IdString())
+            return 0;
         auto &ad = nd.arcs.at(usr_idx.idx()).at(phys_idx);
         WireId cursor = ad.sink_wire;
         if (cursor == WireId() || nd.src_wire == WireId())

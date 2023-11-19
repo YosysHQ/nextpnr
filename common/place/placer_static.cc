@@ -293,7 +293,9 @@ class StaticPlacer
     {
         if (ci->udata == -1) {
             // not handled?
-            NPNR_ASSERT(ci->bel != BelId()); // already fixed
+            NPNR_ASSERT_MSG(ci->bel != BelId(),
+                            stringf("Cell %s of type %s has no bel", ci->name.c_str(ctx), ci->type.c_str(ctx))
+                                    .c_str()); // already fixed
             return RealPair(ctx->getBelLocation(ci->bel), 0.5f);
         } else {
             return ref ? mcells.at(ci->udata).ref_pos : mcells.at(ci->udata).pos;
@@ -551,7 +553,7 @@ class StaticPlacer
             g.overlap /= std::max(1.0f, total_area);
             if (!overlap_str.empty())
                 overlap_str += ", ";
-            overlap_str += stringf("%s=%.1f%%", cfg.cell_groups.at(idx).name.c_str(ctx), g.overlap*100);
+            overlap_str += stringf("%s=%.1f%%", cfg.cell_groups.at(idx).name.c_str(ctx), g.overlap * 100);
             g.conc_density.write_csv(stringf("out_conc_density_%d_%d.csv", iter, idx));
         }
         log_info("overlap: %s\n", overlap_str.c_str());
@@ -703,7 +705,7 @@ class StaticPlacer
         return gradient;
     }
 
-    float dens_penalty = 0.025f;
+    std::vector<float> dens_penalty;
     float nesterov_a = 1.0f;
 
     void update_gradients(bool ref = true, bool set_prev = true, bool init_penalty = false)
@@ -748,18 +750,28 @@ class StaticPlacer
         }
         if (init_penalty) {
             // set initial density penalty
-            float wirelen_sum = 0;
-            float force_sum = 0;
+            dict<int, float> wirelen_sum;
+            dict<int, float> force_sum;
             for (auto &cell : ctx->cells) {
                 CellInfo *ci = cell.second.get();
                 if (ci->udata == -1)
                     continue;
                 auto &mc = mcells.at(ci->udata);
-                wirelen_sum += std::abs(mc.ref_wl_grad.x) + std::abs(mc.ref_wl_grad.y);
-                force_sum += std::abs(mc.ref_dens_grad.x) + std::abs(mc.ref_dens_grad.y);
+                auto res1 = wirelen_sum.insert({mc.group, std::abs(mc.ref_wl_grad.x) + std::abs(mc.ref_wl_grad.y)});
+                if (!res1.second)
+                    res1.first->second += std::abs(mc.ref_wl_grad.x) + std::abs(mc.ref_wl_grad.y);
+                auto res2 = force_sum.insert({mc.group, std::abs(mc.ref_dens_grad.x) + std::abs(mc.ref_dens_grad.y)});
+                if (!res2.second)
+                    res2.first->second += std::abs(mc.ref_dens_grad.x) + std::abs(mc.ref_dens_grad.y);
             }
-            dens_penalty = wirelen_sum / force_sum;
-            log_info(" initial density penalty: %f\n", dens_penalty);
+            dens_penalty = std::vector<float>(wirelen_sum.size(), 0.0);
+            for (auto &item : wirelen_sum) {
+                auto group = item.first;
+                auto wirelen = item.second;
+                dens_penalty[group] = wirelen / force_sum.at(group);
+                log_info(" initial density penalty for %s: %f\n", cfg.cell_groups.at(group).name.c_str(ctx),
+                         dens_penalty[group]);
+            }
         }
         // Third loop: compute total gradient, and precondition
         // TODO: ALM as well as simple penalty
@@ -772,11 +784,14 @@ class StaticPlacer
             }
 #endif
             // Preconditioner from replace for now
-            float precond = std::max(1.0f, float(cell.pin_count) + dens_penalty * cell.rect.area());
-            (ref ? cell.ref_total_grad : cell.total_grad) =
-                    (((ref ? cell.ref_wl_grad : cell.wl_grad) * -1) -
-                     (ref ? cell.ref_dens_grad : cell.dens_grad) * dens_penalty) /
-                    precond;
+
+            float precond = std::max(1.0f, float(cell.pin_count) + dens_penalty[cell.group] * cell.rect.area());
+            if (ref) {
+                cell.ref_total_grad =
+                        ((cell.ref_wl_grad * -1) - cell.ref_dens_grad * dens_penalty[cell.group]) / precond;
+            } else {
+                cell.total_grad = ((cell.wl_grad * -1) - cell.dens_grad * dens_penalty[cell.group]) / precond;
+            }
         }
     }
 
@@ -896,7 +911,7 @@ class StaticPlacer
             for (int c : macro.conc_cells) {
                 auto &cc = ccells.at(c);
                 auto &mc = mcells.at(c);
-                mc.pos = mc.pos * (1-alpha) + (pos + RealPair(cc.chunk_dx, cc.chunk_dy)) * alpha;
+                mc.pos = mc.pos * (1 - alpha) + (pos + RealPair(cc.chunk_dx, cc.chunk_dy)) * alpha;
                 mc.ref_pos = mc.ref_pos * (1 - alpha) + (ref_pos + RealPair(cc.chunk_dx, cc.chunk_dy)) * alpha;
             }
         }
@@ -927,7 +942,8 @@ class StaticPlacer
         compute_overlap();
     }
 
-    void legalise_step(bool dsp_bram) {
+    void legalise_step(bool dsp_bram)
+    {
         // assume DSP and BRAM are all groups 2+ for now
         for (int i = 0; i < int(ccells.size()); i++) {
             auto &mc = mcells.at(i);
@@ -937,7 +953,7 @@ class StaticPlacer
             if (!dsp_bram && mc.group >= 2)
                 continue;
             if (cc.macro_idx != -1 && i != macros.at(cc.macro_idx).root->udata)
-                continue; // not macro root
+                continue;      // not macro root
             if (mc.is_fixed) { // already placed
                 NPNR_ASSERT(cc.base_cell->bel != BelId());
                 continue;
@@ -959,7 +975,8 @@ class StaticPlacer
         log_info("HPWL after legalise: %f (delta: %f)\n", post_hpwl, post_hpwl - pre_hpwl);
     }
 
-    void enqueue_legalise(int cell_idx) {
+    void enqueue_legalise(int cell_idx)
+    {
         NPNR_ASSERT(cell_idx < int(ccells.size())); // we should never be legalising spacers or dark nodes
         auto &ccell = ccells.at(cell_idx);
         if (ccell.macro_idx != -1) {
@@ -971,7 +988,8 @@ class StaticPlacer
         }
     }
 
-    void enqueue_legalise(CellInfo *ci) {
+    void enqueue_legalise(CellInfo *ci)
+    {
         if (ci->udata != -1) {
             // managed by static
             enqueue_legalise(ci->udata);
@@ -1011,7 +1029,7 @@ class StaticPlacer
             total_iters_noreset++;
             if (total_iters > int(ccells.size())) {
                 total_iters = 0;
-                ripup_radius = std::max(std::max(width+1, height+1), ripup_radius * 2);
+                ripup_radius = std::max(std::max(width + 1, height + 1), ripup_radius * 2);
             }
 
             if (total_iters_noreset > std::max(5000, 8 * int(ctx->cells.size()))) {
@@ -1039,23 +1057,21 @@ class StaticPlacer
                 iter_at_radius++;
                 if (iter >= (10 * (radius + 1))) {
                     // No luck yet, increase radius
-                    radius = std::min(std::max(width+1, height+1), radius + 1);
-                    while (radius < std::max(width+1, height+1)) {
+                    radius = std::min(std::max(width + 1, height + 1), radius + 1);
+                    while (radius < std::max(width + 1, height + 1)) {
                         // Keep increasing the radius until it will actually increase the number of cells we are
                         // checking (e.g. BRAM and DSP will not be in all cols/rows), so we don't waste effort
-                        for (int x = std::max(0, cx - radius);
-                             x <= std::min(width+1, cx + radius); x++) {
+                        for (int x = std::max(0, cx - radius); x <= std::min(width + 1, cx + radius); x++) {
                             if (x >= int(fb->size()))
                                 break;
-                            for (int y = std::max(0, cy - radius);
-                                 y <= std::min(height+1, cy + radius); y++) {
+                            for (int y = std::max(0, cy - radius); y <= std::min(height + 1, cy + radius); y++) {
                                 if (y >= int(fb->at(x).size()))
                                     break;
                                 if (fb->at(x).at(y).size() > 0)
                                     goto notempty;
                             }
                         }
-                        radius = std::min(std::max(width+1, height+1), radius + 1);
+                        radius = std::min(std::max(width + 1, height + 1), radius + 1);
                     }
                 notempty:
                     iter_at_radius = 0;
@@ -1063,9 +1079,9 @@ class StaticPlacer
                 }
                 // If our randomly chosen cooridnate is out of bounds; or points to a tile with no relevant bels; ignore
                 // it
-                if (nx < 0 || nx > width+1)
+                if (nx < 0 || nx > width + 1)
                     continue;
-                if (ny < 0 || ny > height+1)
+                if (ny < 0 || ny > height + 1)
                     continue;
 
                 if (nx >= int(fb->size()))
@@ -1249,7 +1265,8 @@ class StaticPlacer
         bool legalised_ip = false;
         while (true) {
             step();
-            dens_penalty *= 1.025;
+            for (auto &penalty : dens_penalty)
+                penalty *= 1.025;
             if (!legalised_ip) {
                 float ip_overlap = 0;
                 for (int i = 2; i < int(groups.size()); i++)

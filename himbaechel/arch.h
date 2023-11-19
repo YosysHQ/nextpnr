@@ -422,6 +422,7 @@ struct Arch : BaseArch<ArchRanges>
 
     void load_chipdb(const std::string &path);
     void set_speed_grade(const std::string &speed);
+    void set_package(const std::string &package);
 
     void late_init();
 
@@ -487,6 +488,10 @@ struct Arch : BaseArch<ArchRanges>
     IdString getWireType(WireId wire) const override { return IdString(chip_wire_info(chip_info, wire).wire_type); }
     DelayQuad getWireDelay(WireId wire) const override { return DelayQuad(0); } // TODO
     BelPinRange getWireBelPins(WireId wire) const override { return BelPinRange(chip_info, get_tile_wire_range(wire)); }
+    IdString getWireConstantValue(WireId wire) const override
+    {
+        return IdString(chip_wire_info(chip_info, wire).const_value);
+    }
     WireRange getWires() const override { return WireRange(chip_info); }
     bool checkWireAvail(WireId wire) const override
     {
@@ -541,6 +546,15 @@ struct Arch : BaseArch<ArchRanges>
             // Scale delay (fF * mOhm -> ps)
             delay_t total_delay = (input_res * input_cap) / uint64_t(1e6);
             total_delay += pip_tmg->int_delay.slow_max;
+
+            WireId dst = getPipDstWire(pip);
+            auto dst_tmg = get_node_timing(dst);
+            if (dst_tmg != nullptr) {
+                total_delay +=
+                        ((pip_tmg->out_res.slow_max + uint64_t(dst_tmg->res.slow_max) / 2) * dst_tmg->cap.slow_max) /
+                        uint64_t(1e6);
+            }
+
             return DelayQuad(total_delay);
         } else {
             // Pip with no specified delay. Return a notional value so the router still has something to work with.
@@ -762,6 +776,12 @@ struct Arch : BaseArch<ArchRanges>
     void set_fast_pip_delays(bool fast_mode);
     std::vector<IdString> tile_name;
     dict<IdString, int> tile_name2idx;
+
+    // -------------------------------------------------
+    IdString get_tile_type(int tile) const;
+    const PadInfoPOD *get_package_pin(IdString pin) const;
+    const PadInfoPOD *get_bel_package_pin(BelId bel) const;
+    BelId get_package_pin_bel(IdString pin) const;
 
     // Load capacitance and drive resistance for nodes
     // TODO: does this `dict` hurt routing performance too much?

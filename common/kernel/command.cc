@@ -47,6 +47,7 @@
 
 #if defined(_WIN32)
 #include <io.h>
+#define NOMINMAX
 #include <windows.h>
 #elif defined(__APPLE__)
 #include <dirent.h>
@@ -126,7 +127,7 @@ std::string proc_self_dirname()
 std::string proc_self_dirname()
 {
     int i = 0;
-#ifdef __MINGW32__
+#ifdef _WIN32
     char longpath[MAX_PATH + 1];
     char shortpath[MAX_PATH + 1];
 #else

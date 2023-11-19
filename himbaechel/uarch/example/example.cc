@@ -63,7 +63,7 @@ struct ExampleImpl : HimbaechelAPI
         // Replace constants with LUTs
         const dict<IdString, Property> vcc_params = {{id_INIT, Property(0xFFFF, 16)}};
         const dict<IdString, Property> gnd_params = {{id_INIT, Property(0x0000, 16)}};
-        h.replace_constants(CellTypePort(id_LUT4, id_F), CellTypePort(id_LUT4, id_F), vcc_params, gnd_params);
+        h.replace_constants(CellTypePort(id_VCC_DRV, id_VCC), CellTypePort(id_GND_DRV, id_GND), {}, {}, id_VCC, id_GND);
         // Constrain directly connected LUTs and FFs together to use dedicated resources
         int lutffs = h.constrain_cell_pairs(pool<CellTypePort>{{id_LUT4, id_F}}, pool<CellTypePort>{{id_DFF, id_D}}, 1);
         log_info("Constrained %d LUTFF pairs.\n", lutffs);

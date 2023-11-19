@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <iostream>
 #include <iterator>
+#include <cinttypes>
 #include "cells.h"
 #include "design_utils.h"
 #include "log.h"
@@ -672,7 +673,7 @@ static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constne
                 uc_init &= (1LL << uc_init_len) - 1;
 
                 if (ctx->verbose)
-                    log_info("%s lut config modified from 0x%lX to 0x%lX\n", ctx->nameOf(uc), it_param->second.intval,
+                    log_info("%s lut config modified from 0x%" PRIX64 " to 0x%" PRIX64 "\n", ctx->nameOf(uc), it_param->second.intval,
                              uc_init);
 
                 it_param->second = Property(uc_init, uc_init_len);

@@ -1,5 +1,6 @@
 #include <map>
 #if defined(WIN32)
+#define NOMINMAX
 #include <windows.h>
 #endif
 #include <boost/filesystem.hpp>

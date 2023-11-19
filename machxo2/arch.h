@@ -157,8 +157,8 @@ NPNR_PACKED_STRUCT(struct PackageSupportedPOD {
 
 NPNR_PACKED_STRUCT(struct SuffixeSupportedPOD { RelPtr<char> suffix; });
 
-NPNR_PACKED_STRUCT(struct SpeedSupportedPOD { 
-    int16_t speed; 
+NPNR_PACKED_STRUCT(struct SpeedSupportedPOD {
+    int16_t speed;
     int16_t index;
 });
 

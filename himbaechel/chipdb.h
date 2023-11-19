@@ -62,6 +62,7 @@ NPNR_PACKED_STRUCT(struct BelPinRefPOD {
 NPNR_PACKED_STRUCT(struct TileWireDataPOD {
     int32_t name;
     int32_t wire_type;
+    int32_t const_value;
     int32_t flags;      // 32 bits of arbitrary data
     int32_t timing_idx; // used only when the wire is not part of a node, otherwise node idx applies
     RelSlice<int32_t> pips_uphill;
@@ -76,6 +77,8 @@ NPNR_PACKED_STRUCT(struct PipDataPOD {
     uint32_t type;
     uint32_t flags;
     int32_t timing_idx;
+
+    RelPtr<uint8_t> extra_data;
 });
 
 NPNR_PACKED_STRUCT(struct RelTileWireRefPOD {

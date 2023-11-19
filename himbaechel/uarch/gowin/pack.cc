@@ -10,6 +10,8 @@
 #include "gowin_utils.h"
 #include "pack.h"
 
+#include <cinttypes>
+
 NEXTPNR_NAMESPACE_BEGIN
 
 namespace {
@@ -381,7 +383,7 @@ struct GowinPacker
         }
         // mark IOB as used by IOLOGIC
         out_iob->setParam(id_IOLOGIC_IOB, 1);
-        check_iologic_placement(ci, ctx->getBelLocation(iob_bel), out_iob->attrs.count(id_DIFF_TYPE));
+        check_iologic_placement(ci, ctx->getBelLocation(iob_bel), out_iob->params.count(id_DIFF_TYPE));
 
         if (!ctx->checkBelAvail(l_bel)) {
             log_error("Can't place %s at %s because it's already taken by %s\n", ctx->nameOf(&ci),
@@ -438,7 +440,7 @@ struct GowinPacker
         }
         // mark IOB as used by IOLOGIC
         out_iob->setParam(id_IOLOGIC_IOB, 1);
-        check_iologic_placement(ci, ctx->getBelLocation(iob_bel), out_iob->attrs.count(id_DIFF_TYPE));
+        check_iologic_placement(ci, ctx->getBelLocation(iob_bel), out_iob->params.count(id_DIFF_TYPE));
 
         if (!ctx->checkBelAvail(l_bel)) {
             log_error("Can't place %s at %s because it's already taken by %s\n", ctx->nameOf(&ci),
@@ -483,7 +485,7 @@ struct GowinPacker
         return ctx->getBelByLocation(gwu.get_pair_iologic_bel(ctx->getBelLocation(ci.bel)));
     }
 
-    bool is_diff_io(BelId bel) { return ctx->getBoundBelCell(bel)->attrs.count(id_DIFF_TYPE) != 0; }
+    bool is_diff_io(BelId bel) { return ctx->getBoundBelCell(bel)->params.count(id_DIFF_TYPE) != 0; }
 
     CellInfo *create_aux_iologic_cell(CellInfo &ci, IdString mode, bool io16 = false, int idx = 0)
     {
@@ -558,7 +560,7 @@ struct GowinPacker
         }
         // mark IOB as used by IOLOGIC
         in_iob->setParam(id_IOLOGIC_IOB, 1);
-        check_iologic_placement(ci, ctx->getBelLocation(iob_bel), in_iob->attrs.count(id_DIFF_TYPE));
+        check_iologic_placement(ci, ctx->getBelLocation(iob_bel), in_iob->params.count(id_DIFF_TYPE));
 
         if (!ctx->checkBelAvail(l_bel)) {
             log_error("Can't place %s at %s because it's already taken by %s\n", ctx->nameOf(&ci),
@@ -669,7 +671,7 @@ struct GowinPacker
         if (aux_offset.x == 0 && aux_offset.y == 0) {
             log_error("OSER16 %s can not be placed at %s\n", ctx->nameOf(&ci), ctx->nameOfBel(iob_bel));
         }
-        check_io16_placement(ci, iob_loc, aux_offset, out_iob->attrs.count(id_DIFF_TYPE));
+        check_io16_placement(ci, iob_loc, aux_offset, out_iob->params.count(id_DIFF_TYPE));
 
         BelId main_bel = ctx->getBelByLocation(Loc(iob_loc.x, iob_loc.y, BelZ::OSER16_Z));
         ctx->bindBel(main_bel, &ci, PlaceStrength::STRENGTH_LOCKED);
@@ -743,7 +745,7 @@ struct GowinPacker
         if (aux_offset.x == 0 && aux_offset.y == 0) {
             log_error("IDES16 %s can not be placed at %s\n", ctx->nameOf(&ci), ctx->nameOfBel(iob_bel));
         }
-        check_io16_placement(ci, iob_loc, aux_offset, in_iob->attrs.count(id_DIFF_TYPE));
+        check_io16_placement(ci, iob_loc, aux_offset, in_iob->params.count(id_DIFF_TYPE));
 
         BelId main_bel = ctx->getBelByLocation(Loc(iob_loc.x, iob_loc.y, BelZ::IDES16_Z));
         ctx->bindBel(main_bel, &ci, PlaceStrength::STRENGTH_LOCKED);
@@ -881,7 +883,7 @@ struct GowinPacker
                     uc_init &= (1LL << uc_init_len) - 1;
 
                     if (ctx->verbose && it_param->second.intval != uc_init)
-                        log_info("%s lut config modified from 0x%lX to 0x%lX\n", ctx->nameOf(uc),
+                        log_info("%s lut config modified from 0x%" PRIX64 " to 0x%" PRIX64 "\n", ctx->nameOf(uc),
                                  it_param->second.intval, uc_init);
 
                     it_param->second = Property(uc_init, uc_init_len);
