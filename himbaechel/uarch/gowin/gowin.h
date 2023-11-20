@@ -40,7 +40,11 @@ inline bool type_is_ssram(IdString cell_type) { return cell_type.in(id_RAM16SDP1
 inline bool is_ssram(const CellInfo *cell) { return type_is_ssram(cell->type); }
 
 // Return true if a cell is a SSRAM
-inline bool type_is_bsram(IdString cell_type) { return cell_type.in(id_SP, id_SPX9, id_pROM, id_pROMX9, id_ROM); }
+inline bool type_is_bsram(IdString cell_type)
+{
+    return cell_type.in(id_SP, id_SPX9, id_pROM, id_pROMX9, id_ROM, id_SDP, id_SDPB, id_SDPX9B, id_DP, id_DPB,
+                        id_DPX9B);
+}
 inline bool is_bsram(const CellInfo *cell) { return type_is_bsram(cell->type); }
 
 // ==========================================

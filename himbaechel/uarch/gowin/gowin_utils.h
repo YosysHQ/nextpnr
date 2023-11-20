@@ -35,6 +35,9 @@ struct GowinUtils
     bool have_bottom_io_cnds(void);
     IdString get_bottom_io_wire_a_net(int8_t condition);
     IdString get_bottom_io_wire_b_net(int8_t condition);
+
+    // wires
+    inline bool is_wire_type_default(IdString wire_type) { return wire_type == IdString(); }
 };
 
 NEXTPNR_NAMESPACE_END
