@@ -1023,6 +1023,8 @@ struct GowinPacker
             return cin_ci;
         }
         // CIN from logic
+        cin_ci->addInput(id_I0);
+        cin_ci->connectPort(id_I0, ctx->nets.at(ctx->id("$PACKER_GND")).get());
         cin_ci->addInput(id_I1);
         cin_ci->addInput(id_I3);
         cin_ci->connectPort(id_I1, cin_net);
@@ -1113,6 +1115,12 @@ struct GowinPacker
                         ci->constr_x = alu_chain_len / 6;
                         ci->constr_y = 0;
                         ci->constr_z = alu_chain_len % 6;
+                        // XXX mode 0 - ADD
+                        if (ci->params[id_ALU_MODE].as_int64() == 0) {
+                            ci->renamePort(id_I3, id_I2);
+                            ci->renamePort(id_I0, id_I3);
+                            ci->renamePort(id_I2, id_I0);
+                        }
                         // XXX I2 is pin C which must be set to 1 for all ALU modes except MUL
                         // we use only mode 2 ADDSUB so create and connect this pin
                         ci->addInput(id_I2);
@@ -1184,7 +1192,7 @@ struct GowinPacker
                                          {id_DFFP, id_D}, {id_DFFPE, id_D}, {id_DFFNP, id_D}, {id_DFFNPE, id_D},
                                          {id_DFFC, id_D}, {id_DFFCE, id_D}, {id_DFFNC, id_D}, {id_DFFNCE, id_D}};
 
-        int lutffs = h.constrain_cell_pairs(lut_outs, dff_ins, 1);
+        int lutffs = h.constrain_cell_pairs(lut_outs, dff_ins, 0);
         log_info("Constrained %d LUTFF pairs.\n", lutffs);
     }
 
@@ -1275,9 +1283,20 @@ struct GowinPacker
     // ===================================
     // Block RAM
     // ===================================
+    void bsram_rename_ports(CellInfo *ci, int bit_width, char const *from, char const *to, int offset = 0)
+    {
+        int num = (bit_width == 9 || bit_width == 18 || bit_width == 36) ? 36 : 32;
+        for (int i = 0, j = offset; i < num; ++i, ++j) {
+            if (((i + 1) % 9) == 0 && (bit_width == 16 || bit_width == 32)) {
+                ++j;
+            }
+            ci->renamePort(ctx->idf(from, i), ctx->idf(to, offset ? j % 36 : j));
+        }
+    }
+
     void pack_ROM(CellInfo *ci)
     {
-        // use block 111
+        // XXX use block 111
         ci->setParam(ctx->id("BLK_SEL"), Property(7, 32));
         if (ci->type == id_pROM) {
             ci->setAttr(id_BSRAM_SUBTYPE, Property(""));
@@ -1295,11 +1314,7 @@ struct GowinPacker
             ci->addInput(port);
             ci->connectPort(port, vcc_net);
         }
-        // use port B
-        ci->renamePort(id_CLK, id_CLKB);
-        ci->renamePort(id_OCE, id_OCEB);
-        ci->renamePort(id_CE, id_CEB);
-        ci->renamePort(id_RESET, id_RESETB);
+
         ci->addInput(id_WRE);
         ci->connectPort(id_WRE, vss_net);
         ci->addInput(id_WREB);
@@ -1308,20 +1323,158 @@ struct GowinPacker
         if (!ci->params.count(id_BIT_WIDTH)) {
             ci->setParam(id_BIT_WIDTH, Property(32, 32));
         }
+
         int bit_width = ci->params[id_BIT_WIDTH].as_int64();
+        if (bit_width == 32 || bit_width == 36) {
+            ci->copyPortTo(id_CLK, ci, id_CLKB);
+            ci->copyPortTo(id_CE, ci, id_CEB);
+            ci->copyPortTo(id_OCE, ci, id_OCEB);
+            ci->copyPortTo(id_RESET, ci, id_RESETB);
+
+            for (int i = 0; i < 14; ++i) {
+                ci->renamePort(ctx->idf("AD[%d]", i), ctx->idf("ADA%d", i));
+                ci->copyPortTo(ctx->idf("ADA%d", i), ci, ctx->idf("ADB%d", i));
+            }
+            bsram_rename_ports(ci, bit_width, "DO[%d]", "DO%d");
+        } else {
+            // use port B
+            ci->renamePort(id_CLK, id_CLKB);
+            ci->renamePort(id_OCE, id_OCEB);
+            ci->renamePort(id_CE, id_CEB);
+            ci->renamePort(id_RESET, id_RESETB);
+
+            ci->addInput(id_CEA);
+            ci->connectPort(id_CEA, vss_net);
+            for (int i = 0; i < 14; ++i) {
+                ci->renamePort(ctx->idf("AD[%d]", i), ctx->idf("ADB%d", i));
+            }
+            bsram_rename_ports(ci, bit_width, "DO[%d]", "DO%d", 18);
+        }
+    }
+
+    void pack_SDPB(CellInfo *ci)
+    {
+        if (ci->type == id_SDPB) {
+            ci->setAttr(id_BSRAM_SUBTYPE, Property(""));
+        } else {
+            ci->setAttr(id_BSRAM_SUBTYPE, Property("X9"));
+        }
+
+        NetInfo *vcc_net = ctx->nets.at(ctx->id("$PACKER_VCC")).get();
+        NetInfo *vss_net = ctx->nets.at(ctx->id("$PACKER_GND")).get();
+
+        for (int i = 0; i < 14; ++i) {
+            ci->renamePort(ctx->idf("ADA[%d]", i), ctx->idf("ADA%d", i));
+            ci->renamePort(ctx->idf("ADB[%d]", i), ctx->idf("ADB%d", i));
+        }
+
+        for (int i = 0; i < 3; ++i) {
+            ci->renamePort(ctx->idf("BLKSELA[%d]", i), ctx->idf("BLKSELA%d", i));
+            ci->renamePort(ctx->idf("BLKSELB[%d]", i), ctx->idf("BLKSELB%d", i));
+        }
+
+        ci->copyPortTo(id_OCE, ci, id_OCEB);
+
+        // Port A
+        ci->addInput(id_WRE);
+        ci->connectPort(id_WRE, vcc_net);
+
+        if (!ci->params.count(id_BIT_WIDTH_0)) {
+            ci->setParam(id_BIT_WIDTH_0, Property(32, 32));
+        }
+
+        int bit_width = ci->params[id_BIT_WIDTH_0].as_int64();
+        bsram_rename_ports(ci, bit_width, "DI[%d]", "DI%d");
+
+        // Port B
+        ci->addInput(id_WREB);
+        if (!ci->params.count(id_BIT_WIDTH_1)) {
+            ci->setParam(id_BIT_WIDTH_1, Property(32, 32));
+        }
+        bit_width = ci->params[id_BIT_WIDTH_1].as_int64();
+        if (bit_width == 32 || bit_width == 36) {
+            ci->connectPort(id_WREB, vcc_net);
+            bsram_rename_ports(ci, bit_width, "DO[%d]", "DO%d");
+        } else {
+            ci->connectPort(id_WREB, vss_net);
+            bsram_rename_ports(ci, bit_width, "DO[%d]", "DO%d", 18);
+        }
+    }
+
+    void pack_DPB(CellInfo *ci)
+    {
+        if (ci->type == id_DPB) {
+            ci->setAttr(id_BSRAM_SUBTYPE, Property(""));
+        } else {
+            ci->setAttr(id_BSRAM_SUBTYPE, Property("X9"));
+        }
+
+        for (int i = 0; i < 14; ++i) {
+            ci->renamePort(ctx->idf("ADA[%d]", i), ctx->idf("ADA%d", i));
+            ci->renamePort(ctx->idf("ADB[%d]", i), ctx->idf("ADB%d", i));
+        }
+
+        for (int i = 0; i < 3; ++i) {
+            ci->renamePort(ctx->idf("BLKSELA[%d]", i), ctx->idf("BLKSELA%d", i));
+            ci->renamePort(ctx->idf("BLKSELB[%d]", i), ctx->idf("BLKSELB%d", i));
+        }
+
+        if (!ci->params.count(id_BIT_WIDTH_0)) {
+            ci->setParam(id_BIT_WIDTH_0, Property(16, 32));
+        }
+        int bit_width = ci->params[id_BIT_WIDTH_0].as_int64();
         if (bit_width == 32 || bit_width == 36) {
             log_error("Bit width %d is not supported\n", bit_width);
         }
+        bsram_rename_ports(ci, bit_width, "DIA[%d]", "DIA%d");
+        bsram_rename_ports(ci, bit_width, "DOA[%d]", "DOA%d");
+
+        if (!ci->params.count(id_BIT_WIDTH_1)) {
+            ci->setParam(id_BIT_WIDTH_1, Property(16, 32));
+        }
+        bit_width = ci->params[id_BIT_WIDTH_1].as_int64();
+        if (bit_width == 32 || bit_width == 36) {
+            log_error("Bit width %d is not supported\n", bit_width);
+        }
+        bsram_rename_ports(ci, bit_width, "DIB[%d]", "DIB%d");
+        bsram_rename_ports(ci, bit_width, "DOB[%d]", "DOB%d");
+    }
+
+    void pack_SP(CellInfo *ci)
+    {
+        if (ci->type == id_SP) {
+            ci->setAttr(id_BSRAM_SUBTYPE, Property(""));
+        } else {
+            ci->setAttr(id_BSRAM_SUBTYPE, Property("X9"));
+        }
+
+        NetInfo *vcc_net = ctx->nets.at(ctx->id("$PACKER_VCC")).get();
+        for (int i = 0; i < 3; ++i) {
+            ci->renamePort(ctx->idf("BLKSEL[%d]", i), ctx->idf("BLKSEL%d", i));
+            ci->copyPortTo(ctx->idf("BLKSEL%d", i), ci, ctx->idf("BLKSELB%d", i));
+        }
+
+        if (!ci->params.count(id_BIT_WIDTH)) {
+            ci->setParam(id_BIT_WIDTH, Property(32, 32));
+        }
+        int bit_width = ci->params[id_BIT_WIDTH].as_int64();
         for (int i = 0; i < 14; ++i) {
-            ci->renamePort(ctx->idf("AD[%d]", i), ctx->idf("ADB%d", i));
-        }
-        int out_num = (bit_width == 9 || bit_width == 18) ? 36 : 32;
-        for (int i = 0, j = 18; i < out_num; ++i, ++j) {
-            if (((i + 1) % 9) == 0 && bit_width == 16) {
-                ++j;
+            ci->renamePort(ctx->idf("AD[%d]", i), ctx->idf("AD%d", i));
+            if (bit_width == 32 || bit_width == 36) {
+                ci->copyPortTo(ctx->idf("AD%d", i), ci, ctx->idf("ADB%d", i));
             }
-            ci->renamePort(ctx->idf("DO[%d]", i), ctx->idf("DO%d", j % 36));
         }
+        if (bit_width == 32 || bit_width == 36) {
+            ci->copyPortTo(id_CLK, ci, id_CLKB);
+            ci->copyPortTo(id_OCE, ci, id_OCEB);
+            ci->copyPortTo(id_CE, ci, id_CEB);
+            ci->copyPortTo(id_RESET, ci, id_RESETB);
+            ci->copyPortTo(id_WRE, ci, id_WREB);
+            ci->disconnectPort(ctx->id("ADB4"));
+            ci->connectPort(ctx->id("ADB4"), vcc_net);
+        }
+        bsram_rename_ports(ci, bit_width, "DI[%d]", "DI%d");
+        bsram_rename_ports(ci, bit_width, "DO[%d]", "DO%d");
     }
 
     void pack_bsram(void)
@@ -1336,10 +1489,25 @@ struct GowinPacker
                     log_info(" pack %s\n", ci->type.c_str(ctx));
                 }
                 switch (ci->type.hash()) {
-                case ID_pROM: /* fallthrough */
-                case ID_pROMX9:
+                case ID_pROMX9: /* fallthrough */
+                case ID_pROM:
                     pack_ROM(ci);
                     ci->type = id_ROM;
+                    break;
+                case ID_SDPX9B: /* fallthrough */
+                case ID_SDPB:
+                    pack_SDPB(ci);
+                    ci->type = id_SDP;
+                    break;
+                case ID_DPX9B: /* fallthrough */
+                case ID_DPB:
+                    pack_DPB(ci);
+                    ci->type = id_DP;
+                    break;
+                case ID_SPX9: /* fallthrough */
+                case ID_SP:
+                    pack_SP(ci);
+                    ci->type = id_SP;
                     break;
                 default:
                     log_error("Unsupported BSRAM type '%s'\n", ci->type.c_str(ctx));
@@ -1463,7 +1631,8 @@ struct GowinPacker
         pack_alus();
         ctx->check();
 
-        constrain_lutffs();
+        // XXX Leads to the impossibility of placement on lower models.
+        // constrain_lutffs();
         ctx->check();
 
         pack_pll();

@@ -728,7 +728,7 @@ def main():
     io_tiletypes = db.tile_types['I']
     ssram_tiletypes = db.tile_types['M']
     pll_tiletypes = db.tile_types['P']
-    bsram_tiletypes = db.tile_types['B']
+    bsram_tiletypes = db.tile_types.get('B', set())
 
     # Setup tile grid
     for x in range(X):
