@@ -5,7 +5,6 @@ NEXTPNR_NAMESPACE_BEGIN
 namespace BaseConfigs {
 void config_empty_lfe5u_25f(ChipConfig &cc)
 {
-    cc.chip_name = "LFE5U-25F";
     cc.tiles["CIB_R49C3:CIB_PLL3"].add_enum("CIB.JA3MUX", "0");
     cc.tiles["CIB_R49C3:CIB_PLL3"].add_enum("CIB.JB3MUX", "0");
     cc.tiles["CIB_R49C42:VCIB_DCU0"].add_enum("CIB.JA1MUX", "0");
@@ -189,7 +188,6 @@ void config_empty_lfe5u_25f(ChipConfig &cc)
 
 void config_empty_lfe5u_45f(ChipConfig &cc)
 {
-    cc.chip_name = "LFE5U-45F";
     cc.tiles["CIB_R10C3:PVT_COUNT2"].add_unknown(2, 0);
     cc.tiles["CIB_R10C3:PVT_COUNT2"].add_unknown(3, 0);
     cc.tiles["CIB_R10C3:PVT_COUNT2"].add_unknown(5, 0);
@@ -522,7 +520,6 @@ void config_empty_lfe5u_45f(ChipConfig &cc)
 
 void config_empty_lfe5u_85f(ChipConfig &cc)
 {
-    cc.chip_name = "LFE5U-85F";
     cc.tiles["CIB_R10C3:PVT_COUNT2"].add_unknown(2, 0);
     cc.tiles["CIB_R10C3:PVT_COUNT2"].add_unknown(3, 0);
     cc.tiles["CIB_R10C3:PVT_COUNT2"].add_unknown(5, 0);
@@ -879,7 +876,6 @@ void config_empty_lfe5u_85f(ChipConfig &cc)
 
 void config_empty_lfe5um_25f(ChipConfig &cc)
 {
-    cc.chip_name = "LFE5UM-25F";
     cc.tiles["CIB_R49C3:CIB_PLL3"].add_enum("CIB.JA3MUX", "0");
     cc.tiles["CIB_R49C3:CIB_PLL3"].add_enum("CIB.JB3MUX", "0");
     cc.tiles["CIB_R49C42:CIB_DCU0"].add_unknown(20, 10);
@@ -1063,7 +1059,6 @@ void config_empty_lfe5um_25f(ChipConfig &cc)
 
 void config_empty_lfe5um_45f(ChipConfig &cc)
 {
-    cc.chip_name = "LFE5UM-45F";
     cc.tiles["CIB_R10C3:PVT_COUNT2"].add_unknown(2, 0);
     cc.tiles["CIB_R10C3:PVT_COUNT2"].add_unknown(3, 0);
     cc.tiles["CIB_R10C3:PVT_COUNT2"].add_unknown(5, 0);
@@ -1396,7 +1391,6 @@ void config_empty_lfe5um_45f(ChipConfig &cc)
 
 void config_empty_lfe5um5g_25f(ChipConfig &cc)
 {
-    cc.chip_name = "LFE5UM5G-25F";
     cc.tiles["CIB_R49C3:CIB_PLL3"].add_enum("CIB.JA3MUX", "0");
     cc.tiles["CIB_R49C3:CIB_PLL3"].add_enum("CIB.JB3MUX", "0");
     cc.tiles["CIB_R49C42:CIB_DCU0"].add_unknown(20, 10);
@@ -1580,7 +1574,6 @@ void config_empty_lfe5um5g_25f(ChipConfig &cc)
 
 void config_empty_lfe5um5g_45f(ChipConfig &cc)
 {
-    cc.chip_name = "LFE5UM5G-45F";
     cc.tiles["CIB_R10C3:PVT_COUNT2"].add_unknown(2, 0);
     cc.tiles["CIB_R10C3:PVT_COUNT2"].add_unknown(3, 0);
     cc.tiles["CIB_R10C3:PVT_COUNT2"].add_unknown(5, 0);
@@ -1913,7 +1906,6 @@ void config_empty_lfe5um5g_45f(ChipConfig &cc)
 
 void config_empty_lfe5um5g_85f(ChipConfig &cc)
 {
-    cc.chip_name = "LFE5UM5G-85F";
     cc.tiles["CIB_R10C3:PVT_COUNT2"].add_unknown(2, 0);
     cc.tiles["CIB_R10C3:PVT_COUNT2"].add_unknown(3, 0);
     cc.tiles["CIB_R10C3:PVT_COUNT2"].add_unknown(5, 0);
@@ -2270,7 +2262,6 @@ void config_empty_lfe5um5g_85f(ChipConfig &cc)
 
 void config_empty_lfe5um_85f(ChipConfig &cc)
 {
-    cc.chip_name = "LFE5UM-85F";
     cc.tiles["CIB_R10C3:PVT_COUNT2"].add_unknown(2, 0);
     cc.tiles["CIB_R10C3:PVT_COUNT2"].add_unknown(3, 0);
     cc.tiles["CIB_R10C3:PVT_COUNT2"].add_unknown(5, 0);

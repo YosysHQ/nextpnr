@@ -195,7 +195,7 @@ struct ECP5Bitgen
             } else {
                 NPNR_ASSERT_FALSE("bad PIO location");
             }
-        } else if (bel.location.y == ctx->chip_info->height - 1) {
+        } else if (bel.location.y == ctx->device.chip_info->height - 1) {
             if (pio_name == "PIOA") {
                 return ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, pioa_b);
             } else if (pio_name == "PIOB") {
@@ -205,7 +205,7 @@ struct ECP5Bitgen
             }
         } else if (bel.location.x == 0) {
             return ctx->get_tile_by_type_loc(bel.location.y + 1, bel.location.x, pioabcd_l);
-        } else if (bel.location.x == ctx->chip_info->width - 1) {
+        } else if (bel.location.x == ctx->device.chip_info->width - 1) {
             return ctx->get_tile_by_type_loc(bel.location.y + 1, bel.location.x, pioabcd_r);
         } else {
             NPNR_ASSERT_FALSE("bad PIO location");
@@ -232,7 +232,7 @@ struct ECP5Bitgen
             } else {
                 NPNR_ASSERT_FALSE("bad PIO location");
             }
-        } else if (bel.location.y == ctx->chip_info->height - 1) {
+        } else if (bel.location.y == ctx->device.chip_info->height - 1) {
             if (pio_name == "PIOA") {
                 return ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, pica_b);
             } else if (pio_name == "PIOB") {
@@ -248,7 +248,7 @@ struct ECP5Bitgen
             } else {
                 NPNR_ASSERT_FALSE("bad PIO location");
             }
-        } else if (bel.location.x == ctx->chip_info->width - 1) {
+        } else if (bel.location.x == ctx->device.chip_info->width - 1) {
             if (pio_name == "PIOA" || pio_name == "PIOB") {
                 return ctx->get_tile_by_type_loc(bel.location.y, bel.location.x, picab_r);
             } else if (pio_name == "PIOC" || pio_name == "PIOD") {
@@ -443,8 +443,8 @@ struct ECP5Bitgen
     void fix_tile_names()
     {
         // Remove the V prefix/suffix on certain tiles if device is a SERDES variant
-        if (ctx->args.type == ArchArgs::LFE5U_12F || ctx->args.type == ArchArgs::LFE5U_25F ||
-            ctx->args.type == ArchArgs::LFE5U_45F || ctx->args.type == ArchArgs::LFE5U_85F) {
+        if (ctx->device.type == ArchDevice::LFE5U_12F || ctx->device.type == ArchDevice::LFE5U_25F ||
+            ctx->device.type == ArchDevice::LFE5U_45F || ctx->device.type == ArchDevice::LFE5U_85F) {
             std::map<std::string, std::string> tiletype_xform;
             for (const auto &tile : cc.tiles) {
                 std::string newname = tile.first;
@@ -1370,36 +1370,35 @@ struct ECP5Bitgen
             }
             config_file >> cc;
         } else {
-            switch (ctx->args.type) {
-            case ArchArgs::LFE5U_12F:
-                BaseConfigs::config_empty_lfe5u_25f(cc);
-                cc.chip_name = "LFE5U-12F";
-                break;
-            case ArchArgs::LFE5U_25F:
+            switch (ctx->device.type) {
+            case ArchDevice::LFE5U_12F:
                 BaseConfigs::config_empty_lfe5u_25f(cc);
                 break;
-            case ArchArgs::LFE5U_45F:
+            case ArchDevice::LFE5U_25F:
+                BaseConfigs::config_empty_lfe5u_25f(cc);
+                break;
+            case ArchDevice::LFE5U_45F:
                 BaseConfigs::config_empty_lfe5u_45f(cc);
                 break;
-            case ArchArgs::LFE5U_85F:
+            case ArchDevice::LFE5U_85F:
                 BaseConfigs::config_empty_lfe5u_85f(cc);
                 break;
-            case ArchArgs::LFE5UM_25F:
+            case ArchDevice::LFE5UM_25F:
                 BaseConfigs::config_empty_lfe5um_25f(cc);
                 break;
-            case ArchArgs::LFE5UM_45F:
+            case ArchDevice::LFE5UM_45F:
                 BaseConfigs::config_empty_lfe5um_45f(cc);
                 break;
-            case ArchArgs::LFE5UM_85F:
+            case ArchDevice::LFE5UM_85F:
                 BaseConfigs::config_empty_lfe5um_85f(cc);
                 break;
-            case ArchArgs::LFE5UM5G_25F:
+            case ArchDevice::LFE5UM5G_25F:
                 BaseConfigs::config_empty_lfe5um5g_25f(cc);
                 break;
-            case ArchArgs::LFE5UM5G_45F:
+            case ArchDevice::LFE5UM5G_45F:
                 BaseConfigs::config_empty_lfe5um5g_45f(cc);
                 break;
-            case ArchArgs::LFE5UM5G_85F:
+            case ArchDevice::LFE5UM5G_85F:
                 BaseConfigs::config_empty_lfe5um5g_85f(cc);
                 break;
             default:
@@ -1407,7 +1406,9 @@ struct ECP5Bitgen
             }
         }
 
-        cc.metadata.push_back("Part: " + ctx->get_full_chip_name());
+        cc.chip_name = ctx->device.device_info->name.get();
+        cc.chip_variant = ctx->device.device_name;
+        cc.metadata.push_back("Part: " + ctx->getChipName());
 
         // Clear out DCU tieoffs in base config if DCU used
         for (auto &cell : ctx->cells) {
@@ -1550,8 +1551,8 @@ struct ECP5Bitgen
                 Loc loc = ctx->getBelLocation(ci->bel);
                 bool u = loc.y<15, r = loc.x> 15;
                 std::string tiletype = fmt_str("DDRDLL_" << (u ? 'U' : 'L') << (r ? 'R' : 'L'));
-                if ((ctx->args.type == ArchArgs::LFE5U_12F || ctx->args.type == ArchArgs::LFE5U_25F ||
-                     ctx->args.type == ArchArgs::LFE5UM_25F || ctx->args.type == ArchArgs::LFE5UM5G_25F) &&
+                if ((ctx->device.type == ArchDevice::LFE5U_12F || ctx->device.type == ArchDevice::LFE5U_25F ||
+                     ctx->device.type == ArchDevice::LFE5UM_25F || ctx->device.type == ArchDevice::LFE5UM5G_25F) &&
                     u)
                     tiletype += "A";
                 std::string tile = ctx->get_tile_by_type(tiletype);

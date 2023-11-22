@@ -35,6 +35,7 @@
 #include "router2.h"
 #include "timing.h"
 #include "util.h"
+#include "ecp5_available.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -49,68 +50,103 @@ void IdString::initialize_arch(const BaseCtx *ctx)
 #undef X
 }
 
-// -----------------------------------------------------------------------
+// ---------------------------------------------------------------
 
-static const ChipInfoPOD *get_chip_info(ArchArgs::ArchArgsTypes chip)
+bool is_equal(const std::string& a, const std::string& b)
 {
-    std::string chipdb;
-    if (chip == ArchArgs::LFE5U_12F || chip == ArchArgs::LFE5U_25F || chip == ArchArgs::LFE5UM_25F ||
-        chip == ArchArgs::LFE5UM5G_25F) {
-        chipdb = "ecp5/chipdb-25k.bin";
-    } else if (chip == ArchArgs::LFE5U_45F || chip == ArchArgs::LFE5UM_45F || chip == ArchArgs::LFE5UM5G_45F) {
-        chipdb = "ecp5/chipdb-45k.bin";
-    } else if (chip == ArchArgs::LFE5U_85F || chip == ArchArgs::LFE5UM_85F || chip == ArchArgs::LFE5UM5G_85F) {
-        chipdb = "ecp5/chipdb-85k.bin";
-    } else {
-        log_error("Unknown chip\n");
+    return std::equal(a.begin(), a.end(), b.begin(), b.end(),
+                      [](char a, char b) { return tolower(a) == tolower(b); });
+}
+
+static void get_chip_info(std::string device, ArchDevice *selected_device)
+{
+    std::stringstream ss(available_devices);
+    std::string name;
+    while (getline(ss, name, ';')) {
+        std::string chipdb = stringf("ecp5/chipdb-%s.bin", name.c_str());
+        auto db_ptr = reinterpret_cast<const RelPtr<ChipInfoPOD> *>(get_chipdb(chipdb));
+        if (!db_ptr)
+            continue; // chipdb not available
+        for (auto &dev : db_ptr->get()->devices) {
+            for (auto &chip : dev.variants) {
+                for (auto &pkg : chip.packages) {
+                    for (auto &speedgrade : chip.speed_grades) {
+                        for (auto &rating : chip.suffixes) {
+                            std::string devname = stringf("%s-%d%s%s", chip.name.get(), speedgrade.speed,
+                                                        pkg.short_name.get(), rating.suffix.get());
+                            if (device == devname) {
+                                selected_device->device_info = &dev;
+                                selected_device->chip_info = db_ptr->get();
+                                selected_device->package_info = nullptr;
+                                selected_device->package_name = pkg.name.get();
+                                selected_device->device_name = chip.name.get();
+                                selected_device->type = ArchDevice::NONE;
+                                std::string device_name = chip.name.get();
+                                if ((device_name == "LFE5U-12F")|| (device_name == "LAE5U-12F"))
+                                    selected_device->type = ArchDevice::LFE5U_12F;
+                                else if (device_name == "LFE5U-25F")
+                                    selected_device->type = ArchDevice::LFE5U_25F;
+                                else if (device_name == "LFE5U-45F")
+                                    selected_device->type = ArchDevice::LFE5U_45F;
+                                else if (device_name == "LFE5U-85F")
+                                    selected_device->type = ArchDevice::LFE5U_85F;
+                                else if ((device_name == "LFE5UM-25F") || (device_name == "LAE5UM-25F"))
+                                    selected_device->type = ArchDevice::LFE5UM_25F;
+                                else if ((device_name == "LFE5UM-45F") || (device_name == "LAE5UM-45F"))
+                                    selected_device->type = ArchDevice::LFE5UM_45F;
+                                else if ((device_name == "LFE5UM-85F") || (device_name == "LAE5UM-85F"))
+                                    selected_device->type = ArchDevice::LFE5UM_85F;
+                                else if (device_name == "LFE5UM5G-25F")
+                                    selected_device->type = ArchDevice::LFE5UM5G_25F;
+                                else if (device_name == "LFE5UM5G-45F")
+                                    selected_device->type = ArchDevice::LFE5UM5G_45F;
+                                else if (device_name == "LFE5UM5G-85F")
+                                    selected_device->type = ArchDevice::LFE5UM5G_85F;
+                                else
+                                    log_error("Unsupported device '%s'.\n", device_name.c_str());
+
+                                selected_device->speed = ArchDevice::SpeedGrade(speedgrade.speed - 6);
+                                if (device_name.rfind("LFE5UM5G")==0) {
+                                    selected_device->speed = ArchDevice::SPEED_8_5G;
+                                }
+                                selected_device->speed_grade = &(selected_device->chip_info->speed_grades[selected_device->speed]);
+                                for (auto &pi : db_ptr->get()->package_info) {
+                                    if (is_equal(pkg.name.get(),pi.name.get())) {
+                                        selected_device->package_info = &pi;
+                                        break;
+                                    }
+                                }
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
-
-    auto ptr = reinterpret_cast<const RelPtr<ChipInfoPOD> *>(get_chipdb(chipdb));
-    if (ptr == nullptr)
-        return nullptr;
-    return ptr->get();
 }
 
-bool Arch::is_available(ArchArgs::ArchArgsTypes chip) { return get_chip_info(chip) != nullptr; }
-
-std::vector<std::string> Arch::get_supported_packages(ArchArgs::ArchArgsTypes chip)
-{
-    const ChipInfoPOD *chip_info = get_chip_info(chip);
-    std::vector<std::string> packages;
-    for (auto &pkg : chip_info->package_info)
-        packages.push_back(pkg.name.get());
-    return packages;
-}
-
-// -----------------------------------------------------------------------
+// ---------------------------------------------------------------
 
 Arch::Arch(ArchArgs args) : args(args)
 {
-    chip_info = get_chip_info(args.type);
-    if (chip_info == nullptr)
-        log_error("Unsupported ECP5 chip type.\n");
-    if (chip_info->const_id_count != DB_CONST_ID_COUNT)
+    get_chip_info(args.device, &device);
+    if (device.chip_info == nullptr)
+        log_error("Unsupported device '%s'.\n", args.device.c_str());
+    if (device.chip_info->const_id_count != DB_CONST_ID_COUNT)
         log_error("Chip database 'bba' and nextpnr code are out of sync; please rebuild (or contact distribution "
                   "maintainer)!\n");
 
-    package_info = nullptr;
-    for (auto &pkg : chip_info->package_info) {
-        if (args.package == pkg.name.get()) {
-            package_info = &pkg;
-            break;
-        }
-    }
-    speed_grade = &(chip_info->speed_grades[args.speed]);
-    if (!package_info)
-        log_error("Unsupported package '%s' for '%s'.\n", args.package.c_str(), getChipName().c_str());
+    if (!device.package_info)
+        log_error("Unsupported package '%s' for '%s'.\n", device.package_name, getChipName().c_str());
 
-    tile_status.resize(chip_info->num_tiles);
-    for (int i = 0; i < chip_info->num_tiles; i++) {
+    tile_status.resize(device.chip_info->num_tiles);
+    for (int i = 0; i < device.chip_info->num_tiles; i++) {
         auto &ts = tile_status.at(i);
-        auto &tile_data = chip_info->tile_info[i];
-        ts.boundcells.resize(chip_info->locations[chip_info->location_type[i]].bel_data.size(), nullptr);
+        auto &tile_data = device.chip_info->tile_info[i];
+        ts.boundcells.resize(device.chip_info->locations[device.chip_info->location_type[i]].bel_data.size(), nullptr);
         for (auto &name : tile_data.tile_names) {
-            if (strcmp(chip_info->tiletype_names[name.type_idx].get(), "PLC2") == 0) {
+            if (strcmp(device.chip_info->tiletype_names[name.type_idx].get(), "PLC2") == 0) {
                 // Is a logic tile
                 ts.lts = new LogicTileStatus();
                 break;
@@ -121,121 +157,75 @@ Arch::Arch(ArchArgs args) : args(args)
     BaseArch::init_cell_types();
     BaseArch::init_bel_buckets();
 
-    for (int i = 0; i < chip_info->width; i++)
+    for (int i = 0; i < device.chip_info->width; i++)
         x_ids.push_back(idf("X%d", i));
-    for (int i = 0; i < chip_info->height; i++)
+    for (int i = 0; i < device.chip_info->height; i++)
         y_ids.push_back(idf("Y%d", i));
 
-    for (int i = 0; i < chip_info->width; i++) {
+    for (int i = 0; i < device.chip_info->width; i++) {
         IdString x_id = idf("X%d", i);
         x_ids.push_back(x_id);
         id_to_x[x_id] = i;
     }
-    for (int i = 0; i < chip_info->height; i++) {
+    for (int i = 0; i < device.chip_info->height; i++) {
         IdString y_id = idf("Y%d", i);
         y_ids.push_back(y_id);
         id_to_y[y_id] = i;
     }
 
-    wire_tile_vecidx.resize(chip_info->num_tiles, -1);
+    wire_tile_vecidx.resize(device.chip_info->num_tiles, -1);
     int n_wires = 0;
     for (auto e : getWires()) {
         if (e.index == 0) {
-            wire_tile_vecidx.at(e.location.y * chip_info->width + e.location.x) = n_wires;
+            wire_tile_vecidx.at(e.location.y * device.chip_info->width + e.location.x) = n_wires;
         }
         n_wires++;
     }
     wire2net.resize(n_wires, nullptr);
     wire_fanout.resize(n_wires, 0);
 
-    pip_tile_vecidx.resize(chip_info->num_tiles, -1);
+    pip_tile_vecidx.resize(device.chip_info->num_tiles, -1);
     int n_pips = 0;
     for (auto e : getPips()) {
         if (e.index == 0) {
-            pip_tile_vecidx.at(e.location.y * chip_info->width + e.location.x) = n_pips;
+            pip_tile_vecidx.at(e.location.y * device.chip_info->width + e.location.x) = n_pips;
         }
         n_pips++;
     }
     pip2net.resize(n_pips, nullptr);
 
-    lutperm_allowed.resize(chip_info->width * chip_info->height * 4);
+    lutperm_allowed.resize(device.chip_info->width * device.chip_info->height * 4);
+}
+
+void Arch::list_devices()
+{
+    log("Supported devices: \n");
+    std::stringstream ss(available_devices);
+    std::string name;
+    while (getline(ss, name, ';')) {
+        std::string chipdb = stringf("ecp5/chipdb-%s.bin", name.c_str());
+        auto db_ptr = reinterpret_cast<const RelPtr<ChipInfoPOD> *>(get_chipdb(chipdb));
+        if (!db_ptr)
+            continue; // chipdb not available
+        for (auto &dev : db_ptr->get()->devices) {
+            for (auto &chip : dev.variants) {
+                for (auto &pkg : chip.packages) {
+                    for (auto &speedgrade : chip.speed_grades) {
+                        for (auto &rating : chip.suffixes) {
+                            log("    %s-%d%s%s\n", chip.name.get(), speedgrade.speed, pkg.short_name.get(),
+                                rating.suffix.get());
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 // -----------------------------------------------------------------------
 
-std::string Arch::getChipName() const
-{
-    if (args.type == ArchArgs::LFE5U_12F) {
-        return "LFE5U-12F";
-    } else if (args.type == ArchArgs::LFE5U_25F) {
-        return "LFE5U-25F";
-    } else if (args.type == ArchArgs::LFE5U_45F) {
-        return "LFE5U-45F";
-    } else if (args.type == ArchArgs::LFE5U_85F) {
-        return "LFE5U-85F";
-    } else if (args.type == ArchArgs::LFE5UM_25F) {
-        return "LFE5UM-25F";
-    } else if (args.type == ArchArgs::LFE5UM_45F) {
-        return "LFE5UM-45F";
-    } else if (args.type == ArchArgs::LFE5UM_85F) {
-        return "LFE5UM-85F";
-    } else if (args.type == ArchArgs::LFE5UM5G_25F) {
-        return "LFE5UM5G-25F";
-    } else if (args.type == ArchArgs::LFE5UM5G_45F) {
-        return "LFE5UM5G-45F";
-    } else if (args.type == ArchArgs::LFE5UM5G_85F) {
-        return "LFE5UM5G-85F";
-    } else {
-        log_error("Unknown chip\n");
-    }
-}
-
-std::string Arch::get_full_chip_name() const
-{
-    std::string name = getChipName();
-    name += "-";
-    switch (args.speed) {
-    case ArchArgs::SPEED_6:
-        name += "6";
-        break;
-    case ArchArgs::SPEED_7:
-        name += "7";
-        break;
-    case ArchArgs::SPEED_8:
-    case ArchArgs::SPEED_8_5G:
-        name += "8";
-        break;
-    }
-    name += args.package;
-    return name;
-}
-
-// -----------------------------------------------------------------------
-
-IdString Arch::archArgsToId(ArchArgs args) const
-{
-    if (args.type == ArchArgs::LFE5U_12F)
-        return id_lfe5u_12f;
-    if (args.type == ArchArgs::LFE5U_25F)
-        return id_lfe5u_25f;
-    if (args.type == ArchArgs::LFE5U_45F)
-        return id_lfe5u_45f;
-    if (args.type == ArchArgs::LFE5U_85F)
-        return id_lfe5u_85f;
-    if (args.type == ArchArgs::LFE5UM_25F)
-        return id_lfe5um_25f;
-    if (args.type == ArchArgs::LFE5UM_45F)
-        return id_lfe5um_45f;
-    if (args.type == ArchArgs::LFE5UM_85F)
-        return id_lfe5um_85f;
-    if (args.type == ArchArgs::LFE5UM5G_25F)
-        return id_lfe5um5g_25f;
-    if (args.type == ArchArgs::LFE5UM5G_45F)
-        return id_lfe5um5g_45f;
-    if (args.type == ArchArgs::LFE5UM5G_85F)
-        return id_lfe5um5g_85f;
-    return IdString();
-}
+std::string Arch::getChipName() const { return args.device; }
+IdString Arch::archArgsToId(ArchArgs args) const { return id(args.device); }
 
 // -----------------------------------------------------------------------
 
@@ -262,12 +252,12 @@ BelRange Arch::getBelsByTile(int x, int y) const
 {
     BelRange br;
 
-    br.b.cursor_tile = y * chip_info->width + x;
-    br.e.cursor_tile = y * chip_info->width + x;
+    br.b.cursor_tile = y * device.chip_info->width + x;
+    br.e.cursor_tile = y * device.chip_info->width + x;
     br.b.cursor_index = 0;
-    br.e.cursor_index = chip_info->locations[chip_info->location_type[br.b.cursor_tile]].bel_data.ssize() - 1;
-    br.b.chip = chip_info;
-    br.e.chip = chip_info;
+    br.e.cursor_index = device.chip_info->locations[device.chip_info->location_type[br.b.cursor_tile]].bel_data.ssize() - 1;
+    br.b.chip = device.chip_info;
+    br.e.chip = device.chip_info;
     if (br.e.cursor_index == -1)
         ++br.e.cursor_index;
     else
@@ -370,7 +360,7 @@ IdStringList Arch::getPipName(PipId pip) const
 
 BelId Arch::get_package_pin_bel(const std::string &pin) const
 {
-    for (auto &ppin : package_info->pin_data) {
+    for (auto &ppin : device.package_info->pin_data) {
         if (ppin.name.get() == pin) {
             BelId bel;
             bel.location = ppin.abs_loc;
@@ -383,7 +373,7 @@ BelId Arch::get_package_pin_bel(const std::string &pin) const
 
 std::string Arch::get_bel_package_pin(BelId bel) const
 {
-    for (auto &ppin : package_info->pin_data) {
+    for (auto &ppin : device.package_info->pin_data) {
         if (Location(ppin.abs_loc) == bel.location && ppin.bel_index == bel.index) {
             return ppin.name.get();
         }
@@ -393,7 +383,7 @@ std::string Arch::get_bel_package_pin(BelId bel) const
 
 int Arch::get_pio_bel_bank(BelId bel) const
 {
-    for (auto &pio : chip_info->pio_info) {
+    for (auto &pio : device.chip_info->pio_info) {
         if (Location(pio.abs_loc) == bel.location && pio.bel_index == bel.index) {
             return pio.bank;
         }
@@ -403,7 +393,7 @@ int Arch::get_pio_bel_bank(BelId bel) const
 
 std::string Arch::get_pio_function_name(BelId bel) const
 {
-    for (auto &pio : chip_info->pio_info) {
+    for (auto &pio : device.chip_info->pio_info) {
         if (Location(pio.abs_loc) == bel.location && pio.bel_index == bel.index) {
             const char *func = pio.function_name.get();
             if (func == nullptr)
@@ -417,7 +407,7 @@ std::string Arch::get_pio_function_name(BelId bel) const
 
 BelId Arch::get_pio_by_function_name(const std::string &name) const
 {
-    for (auto &pio : chip_info->pio_info) {
+    for (auto &pio : device.chip_info->pio_info) {
         const char *func = pio.function_name.get();
         if (func != nullptr && func == name) {
             BelId bel;
@@ -445,9 +435,9 @@ std::vector<IdString> Arch::getBelPins(BelId bel) const
 
 BelId Arch::getBelByLocation(Loc loc) const
 {
-    if (loc.x >= chip_info->width || loc.y >= chip_info->height)
+    if (loc.x >= device.chip_info->width || loc.y >= device.chip_info->height)
         return BelId();
-    const LocationTypePOD &locI = chip_info->locations[chip_info->location_type[loc.y * chip_info->width + loc.x]];
+    const LocationTypePOD &locI = device.chip_info->locations[device.chip_info->location_type[loc.y * device.chip_info->width + loc.x]];
     for (int i = 0; i < locI.bel_data.ssize(); i++) {
         if (locI.bel_data[i].z == loc.z) {
             BelId bi;
@@ -501,7 +491,7 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
 
     int dx = abs(src_loc.first - dst_loc.first), dy = abs(src_loc.second - dst_loc.second);
 
-    return (120 - 22 * args.speed) *
+    return (120 - 22 * device.speed) *
            (6 + std::max(dx - 5, 0) + std::max(dy - 5, 0) + 2 * (std::min(dx, 5) + std::min(dy, 5)));
 }
 
@@ -579,7 +569,7 @@ delay_t Arch::predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdStr
 
     int dx = abs(driver_loc.x - sink_loc.x), dy = abs(driver_loc.y - sink_loc.y);
 
-    return (120 - 22 * args.speed) *
+    return (120 - 22 * device.speed) *
            (3 + std::max(dx - 5, 0) + std::max(dy - 5, 0) + 2 * (std::min(dx, 5) + std::min(dy, 5)));
 }
 
@@ -736,7 +726,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
         int y = decal.location.y;
         GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
         GfxTileWireId tilewire = GfxTileWireId(loc_info(wire)->wire_data[wire.index].tile_wire);
-        gfxTileWire(ret, x, y, chip_info->width, chip_info->height, wire_type, tilewire, style);
+        gfxTileWire(ret, x, y, device.chip_info->width, device.chip_info->height, wire_type, tilewire, style);
     } else if (decal.type == DecalId::TYPE_PIP) {
         PipId pip;
         pip.index = decal.z;
@@ -748,7 +738,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
         GfxTileWireId src_id = GfxTileWireId(loc_info(src_wire)->wire_data[src_wire.index].tile_wire);
         GfxTileWireId dst_id = GfxTileWireId(loc_info(dst_wire)->wire_data[dst_wire.index].tile_wire);
         GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_HIDDEN;
-        gfxTilePip(ret, x, y, chip_info->width, chip_info->height, src_wire, getWireType(src_wire), src_id, dst_wire,
+        gfxTilePip(ret, x, y, device.chip_info->width, device.chip_info->height, src_wire, getWireType(src_wire), src_id, dst_wire,
                    getWireType(dst_wire), dst_id, style);
     } else if (decal.type == DecalId::TYPE_BEL) {
         BelId bel;
@@ -759,7 +749,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
         int y = decal.location.y;
         int z = loc_info(bel)->bel_data[bel.index].z;
         GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-        gfxTileBel(ret, x, y, z, chip_info->width, chip_info->height, bel_type, style);
+        gfxTileBel(ret, x, y, z, device.chip_info->width, device.chip_info->height, bel_type, style);
     }
 
     return ret;
@@ -814,7 +804,7 @@ bool Arch::get_delay_from_tmg_db(IdString tctype, IdString from, IdString to, De
         delay = fnd_dk->second.second;
         return fnd_dk->second.first;
     }
-    for (auto &tc : speed_grade->cell_timings) {
+    for (auto &tc : device.speed_grade->cell_timings) {
         if (tc.cell_type == tctype.index) {
             for (auto &dly : tc.prop_delays) {
                 if (dly.from_port == from.index && dly.to_port == to.index) {
@@ -833,7 +823,7 @@ bool Arch::get_delay_from_tmg_db(IdString tctype, IdString from, IdString to, De
 void Arch::get_setuphold_from_tmg_db(IdString tctype, IdString clock, IdString port, DelayPair &setup,
                                      DelayPair &hold) const
 {
-    for (auto &tc : speed_grade->cell_timings) {
+    for (auto &tc : device.speed_grade->cell_timings) {
         if (tc.cell_type == tctype.index) {
             for (auto &sh : tc.setup_holds) {
                 if (sh.clock_port == clock.index && sh.sig_port == port.index) {
@@ -1223,22 +1213,22 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
 std::vector<std::pair<std::string, std::string>> Arch::get_tiles_at_loc(int row, int col)
 {
     std::vector<std::pair<std::string, std::string>> ret;
-    auto &tileloc = chip_info->tile_info[row * chip_info->width + col];
+    auto &tileloc = device.chip_info->tile_info[row * device.chip_info->width + col];
     for (auto &tn : tileloc.tile_names) {
-        ret.push_back(std::make_pair(tn.name.get(), chip_info->tiletype_names[tn.type_idx].get()));
+        ret.push_back(std::make_pair(tn.name.get(), device.chip_info->tiletype_names[tn.type_idx].get()));
     }
     return ret;
 }
 
 GlobalInfoPOD Arch::global_info_at_loc(Location loc)
 {
-    int locidx = loc.y * chip_info->width + loc.x;
-    return chip_info->location_glbinfo[locidx];
+    int locidx = loc.y * device.chip_info->width + loc.x;
+    return device.chip_info->location_glbinfo[locidx];
 }
 
 bool Arch::get_pio_dqs_group(BelId pio, bool &dqsright, int &dqsrow)
 {
-    for (auto &ppio : chip_info->pio_info) {
+    for (auto &ppio : device.chip_info->pio_info) {
         if (Location(ppio.abs_loc) == pio.location && ppio.bel_index == pio.index) {
             int dqs = ppio.dqsgroup;
             if (dqs == -1)
@@ -1257,7 +1247,7 @@ BelId Arch::get_dqsbuf(bool dqsright, int dqsrow)
 {
     BelId bel;
     bel.location.y = dqsrow;
-    bel.location.x = (dqsright ? (chip_info->width - 1) : 0);
+    bel.location.x = (dqsright ? (device.chip_info->width - 1) : 0);
     for (int i = 0; i < loc_info(bel)->bel_data.ssize(); i++) {
         auto &bd = loc_info(bel)->bel_data[i];
         if (bd.type == id_DQSBUFM.index) {
@@ -1310,8 +1300,8 @@ std::vector<GroupId> Arch::getGroups() const
 {
     std::vector<GroupId> ret;
 
-    for (int y = 1; y < chip_info->height - 1; y++) {
-        for (int x = 1; x < chip_info->width - 1; x++) {
+    for (int y = 1; y < device.chip_info->height - 1; y++) {
+        for (int x = 1; x < device.chip_info->width - 1; x++) {
             GroupId group;
             group.type = GroupId::TYPE_SWITCHBOX;
             group.location.x = x;
