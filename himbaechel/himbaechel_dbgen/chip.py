@@ -706,6 +706,12 @@ class Chip:
         self.timing.set_speed_grades(speed_grades)
         return self.timing
     def add_node(self, wires: list[NodeWire], timing_class=""):
+        # encode a 0..65535 unsigned value into -32768..32767 signed value so struct.pack doesn't complain
+        # (we use the same field as signed and unsigned in different modes)
+        def _twos(x):
+            if x & 0x8000:
+                x = x - 0x10000
+            return x
         # add a node - joining between multiple tile wires into a single connection (from nextpnr's point of view)
         # all the tile wires must exist, and the tile types must be set, first
         x0 = wires[0].x
@@ -739,7 +745,7 @@ class Chip:
                 # so we re-use the structure to store the index of the node shape, instead
                 assert inst.shape.wire_to_node[3*wire_idx+0] == MODE_TILE_WIRE, "attempting to add wire to multiple nodes!"
                 inst.shape.wire_to_node[3*wire_idx+0] = MODE_IS_ROOT
-                inst.shape.wire_to_node[3*wire_idx+1] = (shape_idx & 0xFFFF)
+                inst.shape.wire_to_node[3*wire_idx+1] = _twos(shape_idx & 0xFFFF)
                 inst.shape.wire_to_node[3*wire_idx+2] = ((shape_idx >> 16) & 0xFFFF)
             else:
                 # back-reference to the root of the node
