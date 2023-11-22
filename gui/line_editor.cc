@@ -118,7 +118,7 @@ void LineEditor::clearHistory()
 void LineEditor::autocomplete()
 {
     QString line = text();
-    const std::list<std::string> &suggestions = pyinterpreter_suggest(line.toStdString());
+    const std::list<std::string> suggestions = pyinterpreter_suggest(line.toStdString());
     if (suggestions.size() == 1) {
         line = suggestions.back().c_str();
     } else {
