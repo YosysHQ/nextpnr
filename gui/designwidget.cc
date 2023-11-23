@@ -329,6 +329,13 @@ void DesignWidget::newContext(Context *ctx)
                 wireMap[std::pair<int, int>(wi.x, wi.y)].push_back(wire);
             }
 #endif
+#ifdef ARCH_HIMBAECHEL
+            for (const auto &wire : ctx->getWires()) {
+                Loc loc;
+                tile_xy(ctx->chip_info, wire.tile, loc.x, loc.y);
+                wireMap[std::pair<int, int>(loc.x, loc.y)].push_back(wire);
+            }
+#endif
             auto wireGetter = [](Context *ctx, WireId id) { return ctx->getWireName(id); };
             getTreeByElementType(ElementType::WIRE)
                     ->loadData(ctx,
