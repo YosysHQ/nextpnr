@@ -572,6 +572,10 @@ void FPGAViewWidget::renderLines(void)
         for (float i = 0.0f; i < 1.0f * ctx_->getGridDimY() + 1; i += 1.0f) {
             PolyLine(0.0f, i, 1.0f * ctx_->getGridDimX(), i).build(rendererData_->gfxGrid);
         }
+        rendererData_->bbGlobal.setX0(-1.0f);
+        rendererData_->bbGlobal.setY0(-1.0f);
+        rendererData_->bbGlobal.setX1(1.0f * (ctx_->getGridDimX()+1));
+        rendererData_->bbGlobal.setY1(1.0f * (ctx_->getGridDimY()+1));
         rendererData_->gfxGrid.last_render++;
     }
     if (highlightedOrSelectedChanged) {
