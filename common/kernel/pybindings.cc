@@ -300,22 +300,14 @@ PYBIND11_EMBEDDED_MODULE(MODULE_NAME, m)
     arch_wrap_python(m);
 }
 
-#ifdef MAIN_EXECUTABLE
-static wchar_t *program;
-#endif
-
 void (*python_sighandler)(int) = nullptr;
 
 void init_python(const char *executable)
 {
 #ifdef MAIN_EXECUTABLE
-    program = Py_DecodeLocale(executable, NULL);
-    if (program == NULL) {
-        fprintf(stderr, "Fatal error: cannot decode executable filename\n");
-        exit(1);
-    }
-    Py_SetProgramName(program);
-    py::initialize_interpreter();
+    static const char* python_argv[1];
+    python_argv[0] = executable;
+    py::initialize_interpreter(true, 1, python_argv);
     py::module::import(TOSTRING(MODULE_NAME));
     PyRun_SimpleString("from " TOSTRING(MODULE_NAME) " import *");
     python_sighandler = signal(SIGINT, SIG_DFL);
@@ -326,7 +318,6 @@ void deinit_python()
 {
 #ifdef MAIN_EXECUTABLE
     py::finalize_interpreter();
-    PyMem_RawFree(program);
 #endif
 }
 

@@ -500,6 +500,8 @@ struct Arch : ArchAPI<ArchRanges>
 
     WireId getConflictingWireWire(WireId wire) const final { return wire; }
 
+    IdString getWireConstantValue(WireId wire) const final { return {}; }
+
     NetInfo *getConflictingWireNet(WireId wire) const final
     {
         NPNR_ASSERT(wire != WireId());
