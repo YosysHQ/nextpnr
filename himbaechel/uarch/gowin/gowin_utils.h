@@ -38,6 +38,12 @@ struct GowinUtils
 
     // wires
     inline bool is_wire_type_default(IdString wire_type) { return wire_type == IdString(); }
+
+    // chip dependent
+    bool have_SP32(void);
+
+    // make cell but do not include it in the list of chip cells.
+    std::unique_ptr<CellInfo> create_cell(IdString name, IdString type);
 };
 
 NEXTPNR_NAMESPACE_END

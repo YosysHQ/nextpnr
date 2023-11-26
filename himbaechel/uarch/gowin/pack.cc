@@ -118,7 +118,7 @@ struct GowinPacker
                     log_error("Top-level port '%s' driven by illegal port %s.%s\n", ctx->nameOf(&ci),
                               ctx->nameOf(i->driver.cell), ctx->nameOf(i->driver.port));
                 for (const auto &attr : ci.attrs) {
-                    i->driver.cell->attrs[attr.first] = attr.second;
+                    i->driver.cell->setAttr(attr.first, attr.second);
                 }
             }
             NetInfo *o = ci.getPort(id_O);
@@ -128,7 +128,7 @@ struct GowinPacker
                         log_error("Top-level port '%s' driving illegal port %s.%s\n", ctx->nameOf(&ci),
                                   ctx->nameOf(usr.cell), ctx->nameOf(usr.port));
                     for (const auto &attr : ci.attrs) {
-                        usr.cell->attrs[attr.first] = attr.second;
+                        usr.cell->setAttr(attr.first, attr.second);
                     }
                     // network/port attributes that can be set in the
                     // restriction file and that need to be transferred to real
@@ -150,7 +150,7 @@ struct GowinPacker
                     log_error("Top-level port '%s' driven by illegal port %s.%s\n", ctx->nameOf(&ci),
                               ctx->nameOf(io->driver.cell), ctx->nameOf(io->driver.port));
                 for (const auto &attr : ci.attrs) {
-                    io->driver.cell->attrs[attr.first] = attr.second;
+                    io->driver.cell->setAttr(attr.first, attr.second);
                 }
             }
             ci.disconnectPort(id_I);
@@ -1011,13 +1011,13 @@ struct GowinPacker
         cin_ci->connectPort(id_COUT, cout_net);
 
         if (cin_net->name == ctx->id("$PACKER_GND")) {
-            cin_ci->params[id_ALU_MODE] = std::string("C2L");
+            cin_ci->setParam(id_ALU_MODE, std::string("C2L"));
             cin_ci->addInput(id_I2);
             cin_ci->connectPort(id_I2, ctx->nets.at(ctx->id("$PACKER_VCC")).get());
             return cin_ci;
         }
         if (cin_net->name == ctx->id("$PACKER_VCC")) {
-            cin_ci->params[id_ALU_MODE] = std::string("ONE2C");
+            cin_ci->setParam(id_ALU_MODE, std::string("ONE2C"));
             cin_ci->addInput(id_I2);
             cin_ci->connectPort(id_I2, ctx->nets.at(ctx->id("$PACKER_VCC")).get());
             return cin_ci;
@@ -1031,7 +1031,7 @@ struct GowinPacker
         cin_ci->connectPort(id_I3, cin_net);
         cin_ci->addInput(id_I2);
         cin_ci->connectPort(id_I2, ctx->nets.at(ctx->id("$PACKER_VCC")).get());
-        cin_ci->params[id_ALU_MODE] = std::string("0"); // ADD
+        cin_ci->setParam(id_ALU_MODE, std::string("0")); // ADD
         return cin_ci;
     }
 
@@ -1054,7 +1054,7 @@ struct GowinPacker
         cout_ci->addInput(id_I2);
         cout_ci->connectPort(id_I2, ctx->nets.at(ctx->id("$PACKER_VCC")).get());
 
-        cout_ci->params[id_ALU_MODE] = std::string("C2L");
+        cout_ci->setParam(id_ALU_MODE, std::string("C2L"));
         return cout_ci;
     }
 
@@ -1065,7 +1065,7 @@ struct GowinPacker
         IdString name_id = ctx->id(name);
 
         auto dummy_ci = std::make_unique<CellInfo>(ctx, name_id, id_ALU);
-        dummy_ci->params[id_ALU_MODE] = std::string("C2L");
+        dummy_ci->setParam(id_ALU_MODE, std::string("C2L"));
         return dummy_ci;
     }
 
@@ -1116,7 +1116,7 @@ struct GowinPacker
                         ci->constr_y = 0;
                         ci->constr_z = alu_chain_len % 6;
                         // XXX mode 0 - ADD
-                        if (ci->params[id_ALU_MODE].as_int64() == 0) {
+                        if (ci->params.at(id_ALU_MODE).as_int64() == 0) {
                             ci->renamePort(id_I3, id_I2);
                             ci->renamePort(id_I0, id_I3);
                             ci->renamePort(id_I2, id_I0);
@@ -1210,9 +1210,9 @@ struct GowinPacker
         }
         IdString init_name = ctx->idf("INIT_%d", index);
         if (ci->params.count(init_name)) {
-            lut_ci->params[id_INIT] = ci->params.at(init_name);
+            lut_ci->setParam(id_INIT, ci->params.at(init_name));
         } else {
-            lut_ci->params[id_INIT] = std::string("1111111111111111");
+            lut_ci->setParam(id_INIT, std::string("1111111111111111"));
         }
         return lut_ci;
     }
@@ -1296,12 +1296,14 @@ struct GowinPacker
 
     void pack_ROM(CellInfo *ci)
     {
+        int default_bw = 32;
         // XXX use block 111
         ci->setParam(ctx->id("BLK_SEL"), Property(7, 32));
         if (ci->type == id_pROM) {
             ci->setAttr(id_BSRAM_SUBTYPE, Property(""));
         } else {
             ci->setAttr(id_BSRAM_SUBTYPE, Property("X9"));
+            default_bw = 36;
         }
 
         NetInfo *vcc_net = ctx->nets.at(ctx->id("$PACKER_VCC")).get();
@@ -1321,10 +1323,10 @@ struct GowinPacker
         ci->connectPort(id_WREB, vss_net);
 
         if (!ci->params.count(id_BIT_WIDTH)) {
-            ci->setParam(id_BIT_WIDTH, Property(32, 32));
+            ci->setParam(id_BIT_WIDTH, Property(default_bw, 32));
         }
 
-        int bit_width = ci->params[id_BIT_WIDTH].as_int64();
+        int bit_width = ci->params.at(id_BIT_WIDTH).as_int64();
         if (bit_width == 32 || bit_width == 36) {
             ci->copyPortTo(id_CLK, ci, id_CLKB);
             ci->copyPortTo(id_CE, ci, id_CEB);
@@ -1354,10 +1356,12 @@ struct GowinPacker
 
     void pack_SDPB(CellInfo *ci)
     {
+        int default_bw = 32;
         if (ci->type == id_SDPB) {
             ci->setAttr(id_BSRAM_SUBTYPE, Property(""));
         } else {
             ci->setAttr(id_BSRAM_SUBTYPE, Property("X9"));
+            default_bw = 36;
         }
 
         NetInfo *vcc_net = ctx->nets.at(ctx->id("$PACKER_VCC")).get();
@@ -1380,18 +1384,18 @@ struct GowinPacker
         ci->connectPort(id_WRE, vcc_net);
 
         if (!ci->params.count(id_BIT_WIDTH_0)) {
-            ci->setParam(id_BIT_WIDTH_0, Property(32, 32));
+            ci->setParam(id_BIT_WIDTH_0, Property(default_bw, 32));
         }
 
-        int bit_width = ci->params[id_BIT_WIDTH_0].as_int64();
+        int bit_width = ci->params.at(id_BIT_WIDTH_0).as_int64();
         bsram_rename_ports(ci, bit_width, "DI[%d]", "DI%d");
 
         // Port B
         ci->addInput(id_WREB);
         if (!ci->params.count(id_BIT_WIDTH_1)) {
-            ci->setParam(id_BIT_WIDTH_1, Property(32, 32));
+            ci->setParam(id_BIT_WIDTH_1, Property(default_bw, 32));
         }
-        bit_width = ci->params[id_BIT_WIDTH_1].as_int64();
+        bit_width = ci->params.at(id_BIT_WIDTH_1).as_int64();
         if (bit_width == 32 || bit_width == 36) {
             ci->connectPort(id_WREB, vcc_net);
             bsram_rename_ports(ci, bit_width, "DO[%d]", "DO%d");
@@ -1403,10 +1407,12 @@ struct GowinPacker
 
     void pack_DPB(CellInfo *ci)
     {
+        int default_bw = 16;
         if (ci->type == id_DPB) {
             ci->setAttr(id_BSRAM_SUBTYPE, Property(""));
         } else {
             ci->setAttr(id_BSRAM_SUBTYPE, Property("X9"));
+            default_bw = 18;
         }
 
         for (int i = 0; i < 14; ++i) {
@@ -1420,44 +1426,109 @@ struct GowinPacker
         }
 
         if (!ci->params.count(id_BIT_WIDTH_0)) {
-            ci->setParam(id_BIT_WIDTH_0, Property(16, 32));
+            ci->setParam(id_BIT_WIDTH_0, Property(default_bw, 32));
         }
-        int bit_width = ci->params[id_BIT_WIDTH_0].as_int64();
-        if (bit_width == 32 || bit_width == 36) {
-            log_error("Bit width %d is not supported\n", bit_width);
-        }
+        int bit_width = ci->params.at(id_BIT_WIDTH_0).as_int64();
         bsram_rename_ports(ci, bit_width, "DIA[%d]", "DIA%d");
         bsram_rename_ports(ci, bit_width, "DOA[%d]", "DOA%d");
 
         if (!ci->params.count(id_BIT_WIDTH_1)) {
-            ci->setParam(id_BIT_WIDTH_1, Property(16, 32));
+            ci->setParam(id_BIT_WIDTH_1, Property(default_bw, 32));
         }
-        bit_width = ci->params[id_BIT_WIDTH_1].as_int64();
-        if (bit_width == 32 || bit_width == 36) {
-            log_error("Bit width %d is not supported\n", bit_width);
-        }
+        bit_width = ci->params.at(id_BIT_WIDTH_1).as_int64();
         bsram_rename_ports(ci, bit_width, "DIB[%d]", "DIB%d");
         bsram_rename_ports(ci, bit_width, "DOB[%d]", "DOB%d");
     }
 
-    void pack_SP(CellInfo *ci)
+    void divide_sp(CellInfo *ci, std::vector<std::unique_ptr<CellInfo>> &new_cells)
     {
+        int bw = ci->params.at(id_BIT_WIDTH).as_int64();
+        NetInfo *vcc_net = ctx->nets.at(ctx->id("$PACKER_VCC")).get();
+        NetInfo *vss_net = ctx->nets.at(ctx->id("$PACKER_GND")).get();
+
+        IdString cell_type = id_SP;
+        if (bw == 36) {
+            cell_type = id_SPX9;
+        }
+        IdString name = ctx->idf("%s_AUX", ctx->nameOf(ci));
+
+        auto sp_cell = gwu.create_cell(name, cell_type);
+        CellInfo *sp = sp_cell.get();
+
+        ci->copyPortTo(id_CLK, sp, id_CLK);
+        ci->copyPortTo(id_OCE, sp, id_OCE);
+        ci->copyPortTo(id_CE, sp, id_CE);
+        ci->copyPortTo(id_RESET, sp, id_RESET);
+        ci->copyPortTo(id_WRE, sp, id_WRE);
+
+        // XXX Separate "byte enable" port
+        ci->movePortTo(ctx->id("AD[2]"), sp, ctx->id("AD0"));
+        ci->movePortTo(ctx->id("AD[3]"), sp, ctx->id("AD1"));
+        ci->connectPort(ctx->id("AD[2]"), vss_net);
+        ci->connectPort(ctx->id("AD[3]"), vss_net);
+
+        sp->addInput(ctx->id("AD2"));
+        sp->connectPort(ctx->id("AD2"), vss_net);
+        sp->addInput(ctx->id("AD3"));
+        sp->connectPort(ctx->id("AD3"), vss_net);
+
+        ci->disconnectPort(ctx->id("AD[4]"));
+        ci->connectPort(ctx->id("AD[4]"), vss_net);
+        sp->addInput(ctx->id("AD4"));
+        sp->connectPort(ctx->id("AD4"), vcc_net);
+
+        ci->copyPortBusTo(id_AD, 5, true, sp, id_AD, 5, false, 14 - 5 + 1);
+
+        sp->params = ci->params;
+        sp->setAttr(id_BSRAM_SUBTYPE, ci->attrs.at(id_BSRAM_SUBTYPE));
+
+        if (bw == 32) {
+            ci->setParam(id_BIT_WIDTH, Property(16, 32));
+            sp->setParam(id_BIT_WIDTH, Property(16, 32));
+            ci->movePortBusTo(id_DI, 16, true, sp, id_DI, 0, false, 16);
+            ci->movePortBusTo(id_DO, 16, true, sp, id_DO, 0, false, 16);
+        } else {
+            ci->setParam(id_BIT_WIDTH, Property(18, 32));
+            sp->setParam(id_BIT_WIDTH, Property(18, 32));
+            ci->movePortBusTo(id_DI, 18, true, sp, id_DI, 0, false, 18);
+            ci->movePortBusTo(id_DO, 18, true, sp, id_DO, 0, false, 18);
+        }
+        ci->copyPortBusTo(ctx->id("BLKSEL"), 0, true, sp, ctx->id("BLKSEL"), 0, false, 3);
+
+        new_cells.push_back(std::move(sp_cell));
+    }
+
+    void pack_SP(CellInfo *ci, std::vector<std::unique_ptr<CellInfo>> &new_cells)
+    {
+        int default_bw = 32;
         if (ci->type == id_SP) {
             ci->setAttr(id_BSRAM_SUBTYPE, Property(""));
         } else {
             ci->setAttr(id_BSRAM_SUBTYPE, Property("X9"));
+            default_bw = 36;
+        }
+        if (!ci->params.count(id_BIT_WIDTH)) {
+            ci->setParam(id_BIT_WIDTH, Property(default_bw, 32));
+        }
+
+        int bit_width = ci->params.at(id_BIT_WIDTH).as_int64();
+        // XXX UG285-1.3.6_E Gowin BSRAM & SSRAM User Guide:
+        // For GW1N-9/GW1NR-9/GW1NS-4 series, 32/36-bit SP/SPX9 is divided into two
+        // SP/SPX9s, which occupy two BSRAMs.
+        // So divide it here
+        if ((bit_width == 32 || bit_width == 36) && !gwu.have_SP32()) {
+            divide_sp(ci, new_cells);
+            bit_width = ci->params.at(id_BIT_WIDTH).as_int64();
         }
 
         NetInfo *vcc_net = ctx->nets.at(ctx->id("$PACKER_VCC")).get();
         for (int i = 0; i < 3; ++i) {
             ci->renamePort(ctx->idf("BLKSEL[%d]", i), ctx->idf("BLKSEL%d", i));
-            ci->copyPortTo(ctx->idf("BLKSEL%d", i), ci, ctx->idf("BLKSELB%d", i));
+            if (bit_width == 32 || bit_width == 36) {
+                ci->copyPortTo(ctx->idf("BLKSEL%d", i), ci, ctx->idf("BLKSELB%d", i));
+            }
         }
 
-        if (!ci->params.count(id_BIT_WIDTH)) {
-            ci->setParam(id_BIT_WIDTH, Property(32, 32));
-        }
-        int bit_width = ci->params[id_BIT_WIDTH].as_int64();
         for (int i = 0; i < 14; ++i) {
             ci->renamePort(ctx->idf("AD[%d]", i), ctx->idf("AD%d", i));
             if (bit_width == 32 || bit_width == 36) {
@@ -1479,11 +1550,11 @@ struct GowinPacker
 
     void pack_bsram(void)
     {
+        std::vector<std::unique_ptr<CellInfo>> new_cells;
         log_info("Pack BSRAMs...\n");
 
         for (auto &cell : ctx->cells) {
             auto ci = cell.second.get();
-
             if (is_bsram(ci)) {
                 if (ctx->verbose) {
                     log_info(" pack %s\n", ci->type.c_str(ctx));
@@ -1506,13 +1577,17 @@ struct GowinPacker
                     break;
                 case ID_SPX9: /* fallthrough */
                 case ID_SP:
-                    pack_SP(ci);
+                    pack_SP(ci, new_cells);
                     ci->type = id_SP;
                     break;
                 default:
                     log_error("Unsupported BSRAM type '%s'\n", ci->type.c_str(ctx));
                 }
             }
+        }
+
+        for (auto &cell : new_cells) {
+            ctx->cells[cell->name] = std::move(cell);
         }
     }
 

@@ -91,4 +91,17 @@ IdString GowinUtils::get_bottom_io_wire_b_net(int8_t condition)
     const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
     return IdString(extra->bottom_io.conditions[condition].wire_b_net);
 }
+
+bool GowinUtils::have_SP32(void)
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    return extra->chip_flags & Extra_chip_data_POD::HAS_SP32;
+}
+
+std::unique_ptr<CellInfo> GowinUtils::create_cell(IdString name, IdString type)
+{
+    NPNR_ASSERT(!ctx->cells.count(name));
+    return std::make_unique<CellInfo>(ctx, name, type);
+}
+
 NEXTPNR_NAMESPACE_END

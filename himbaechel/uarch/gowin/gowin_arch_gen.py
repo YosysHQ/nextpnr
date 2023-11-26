@@ -14,6 +14,9 @@ from apycula import chipdb
 # Bel flags
 BEL_FLAG_SIMPLE_IO = 0x100
 
+# Chip flags
+CHIP_HAS_SP32 = 0x1
+
 # Z of the bels
 # sync with C++ part!
 LUT0_Z  = 0       # z(DFFx) = z(LUTx) + 1
@@ -86,6 +89,7 @@ class BottomIO(BBAStruct):
 @dataclass
 class ChipExtraData(BBAStruct):
     strs: StringPool
+    flags: int
     bottom_io: BottomIO
     diff_io_types: list[IdString] = field(default_factory = list)
 
@@ -105,6 +109,7 @@ class ChipExtraData(BBAStruct):
             bba.u32(diff_io_type.index)
 
     def serialise(self, context: str, bba: BBAWriter):
+        bba.u32(self.flags)
         self.bottom_io.serialise(f"{context}_bottom_io", bba)
         bba.slice(f"{context}_diff_io_types", len(self.diff_io_types))
 
@@ -691,8 +696,8 @@ def create_packages(chip: Chip, db: chipdb):
             pad = pkg.create_pad(pinno, tile, bel, pad_func, bank)
 
 # Extra chip data
-def create_extra_data(chip: Chip, db: chipdb):
-    chip.extra_data = ChipExtraData(chip.strs, None)
+def create_extra_data(chip: Chip, db: chipdb, chip_flags: int):
+    chip.extra_data = ChipExtraData(chip.strs, chip_flags, None)
     chip.extra_data.create_bottom_io()
     for net_a, net_b in db.bottom_io[2]:
         chip.extra_data.add_bottom_io_cnd(net_a, net_b)
@@ -709,6 +714,10 @@ def main():
     device = args.device
     with gzip.open(importlib.resources.files("apycula").joinpath(f"{device}.pickle"), 'rb') as f:
         db = pickle.load(f)
+
+    chip_flags = 0;
+    if device not in {"GW1NS-4", "GW1N-9"}:
+        chip_flags &= CHIP_HAS_SP32;
 
     X = db.cols;
     Y = db.rows;
@@ -753,7 +762,7 @@ def main():
 
     # Create nodes between tiles
     create_nodes(ch, db)
-    create_extra_data(ch, db)
+    create_extra_data(ch, db, chip_flags)
     ch.write_bba(args.output)
 if __name__ == '__main__':
     main()

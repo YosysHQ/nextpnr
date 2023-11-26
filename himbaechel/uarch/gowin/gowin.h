@@ -39,7 +39,7 @@ inline bool is_iologic(const CellInfo *cell) { return type_is_iologic(cell->type
 inline bool type_is_ssram(IdString cell_type) { return cell_type.in(id_RAM16SDP1, id_RAM16SDP2, id_RAM16SDP4); }
 inline bool is_ssram(const CellInfo *cell) { return type_is_ssram(cell->type); }
 
-// Return true if a cell is a SSRAM
+// Return true if a cell is a BSRAM
 inline bool type_is_bsram(IdString cell_type)
 {
     return cell_type.in(id_SP, id_SPX9, id_pROM, id_pROMX9, id_ROM, id_SDP, id_SDPB, id_SDPX9B, id_DP, id_DPB,
@@ -70,8 +70,11 @@ NPNR_PACKED_STRUCT(struct Bottom_io_POD {
 });
 
 NPNR_PACKED_STRUCT(struct Extra_chip_data_POD {
+    int32_t chip_flags;
     Bottom_io_POD bottom_io;
     RelSlice<IdString> diff_io_types;
+    // chip flags
+    static constexpr int32_t HAS_SP32 = 0;
 });
 
 } // namespace

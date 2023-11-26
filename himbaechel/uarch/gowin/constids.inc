@@ -1022,6 +1022,9 @@ X(CLKOUTP)
 X(CLKOUTD)
 X(CLKOUTD3)
 X(LOCK)
+X(AD)
+X(DI)
+X(DO)
 
 // PLL parameters
 X(CLKOUTPS)
@@ -1132,4 +1135,5 @@ X(HCLK_OUT3)
 // BUFG, clock buffers stuff
 X(BUFG)
 X(CLOCK)
+
 
