@@ -282,8 +282,8 @@ class StaticPlacer
         float m = std::sqrt(-2.f * std::log(u1));
         float z0 = m * std::cos(2.f * pi * u2);
         float z1 = m * std::sin(2.f * pi * u2);
-        float x = (width / 2.f) + (width / 50.f) * z0;
-        float y = (height / 2.f) + (height / 50.f) * z1;
+        float x = (width / 2.f) + (width / 250.f) * z0;
+        float y = (height / 2.f) + (height / 250.f) * z1;
         x = std::min<float>(width - 1.f, std::max<float>(x, 0));
         y = std::min<float>(height - 1.f, std::max<float>(y, 0));
         return RealPair(x, y);
@@ -527,8 +527,6 @@ class StaticPlacer
         for (int idx = 0; idx < int(ccells.size()); idx++) {
             auto &mc = mcells.at(idx);
             auto &g = groups.at(mc.group);
-            // scale width and height to be at least one bin (local density smoothing from the eplace paper)
-            // TODO: should we really do this every iteration?
             auto loc = mc.pos;
             auto size = mc.rect;
 
@@ -923,7 +921,7 @@ class StaticPlacer
         steplen = get_steplen();
         log_info("iter=%d steplen=%f a=%f\n", iter, steplen, nesterov_a);
         float a_next = (1.0f + std::sqrt(4.0f * nesterov_a * nesterov_a + 1)) / 2.0f;
-        // Update positions according to trivial gradient descent (let's leave Nesterov's for later...)
+        // Update positions using Nesterov's
         for (auto &cell : mcells) {
             if (cell.is_fixed || cell.is_dark)
                 continue;
