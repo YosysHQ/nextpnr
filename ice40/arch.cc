@@ -30,6 +30,7 @@
 #include "placer_static.h"
 #include "router1.h"
 #include "router2.h"
+#include "rust.h"
 #include "timing_opt.h"
 #include "util.h"
 NEXTPNR_NAMESPACE_BEGIN
@@ -642,6 +643,12 @@ std::vector<GroupId> Arch::getGroupGroups(GroupId group) const
 
 bool Arch::place()
 {
+#ifdef USE_RUST
+    log_info("Calling Rust\n");
+    example_printnets(getCtx());
+    log_info("Returned from Rust\n");
+#endif
+
     std::string placer = str_or_default(settings, id_placer, defaultPlacer);
     if (placer == "heap") {
         PlacerHeapCfg cfg(getCtx());
