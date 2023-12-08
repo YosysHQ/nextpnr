@@ -41,9 +41,6 @@ wirelen_t get_cell_metric(const Context *ctx, const CellInfo *cell, MetricType t
 // Return the wirelength of all nets connected to a cell, when the cell is at a given bel
 wirelen_t get_cell_metric_at_bel(const Context *ctx, CellInfo *cell, BelId bel, MetricType type);
 
-// Place a single cell in the lowest wirelength Bel available, optionally requiring validity check
-bool place_single_cell(Context *ctx, CellInfo *cell, bool require_legality);
-
 // Modify a design s.t. all relative placement constraints are satisfied
 bool legalise_relative_constraints(Context *ctx);
 

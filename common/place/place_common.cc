@@ -19,6 +19,7 @@
 
 #include "place_common.h"
 #include <cmath>
+#include "fast_bels.h"
 #include "log.h"
 #include "util.h"
 
@@ -102,77 +103,6 @@ wirelen_t get_cell_metric_at_bel(const Context *ctx, CellInfo *cell, BelId bel, 
     return wirelen;
 }
 
-// Placing a single cell
-bool place_single_cell(Context *ctx, CellInfo *cell, bool require_legality)
-{
-    bool all_placed = false;
-    int iters = 25;
-    while (!all_placed) {
-        BelId best_bel = BelId();
-        wirelen_t best_wirelen = std::numeric_limits<wirelen_t>::max(),
-                  best_ripup_wirelen = std::numeric_limits<wirelen_t>::max();
-        CellInfo *ripup_target = nullptr;
-        BelId ripup_bel = BelId();
-        if (cell->bel != BelId()) {
-            ctx->unbindBel(cell->bel);
-        }
-        IdString targetType = cell->type;
-        for (auto bel : ctx->getBels()) {
-            if (ctx->isValidBelForCellType(targetType, bel)) {
-                if (ctx->checkBelAvail(bel)) {
-                    wirelen_t wirelen = get_cell_metric_at_bel(ctx, cell, bel, MetricType::COST);
-                    if (iters >= 4)
-                        wirelen += ctx->rng(25);
-                    if (wirelen <= best_wirelen) {
-                        best_wirelen = wirelen;
-                        best_bel = bel;
-                    }
-                } else {
-                    wirelen_t wirelen = get_cell_metric_at_bel(ctx, cell, bel, MetricType::COST);
-                    if (iters >= 4)
-                        wirelen += ctx->rng(25);
-                    if (wirelen <= best_ripup_wirelen) {
-                        CellInfo *curr_cell = ctx->getBoundBelCell(bel);
-                        if (curr_cell->belStrength < STRENGTH_STRONG) {
-                            best_ripup_wirelen = wirelen;
-                            ripup_bel = bel;
-                            ripup_target = curr_cell;
-                        }
-                    }
-                }
-            }
-        }
-        if (best_bel == BelId()) {
-            if (iters == 0) {
-                log_error("failed to place cell '%s' of type '%s' (ripup iteration limit exceeded)\n",
-                          cell->name.c_str(ctx), cell->type.c_str(ctx));
-            }
-            if (ripup_bel == BelId()) {
-                log_error("failed to place cell '%s' of type '%s'\n", cell->name.c_str(ctx), cell->type.c_str(ctx));
-            }
-            --iters;
-            ctx->unbindBel(ripup_target->bel);
-            best_bel = ripup_bel;
-        } else {
-            ripup_target = nullptr;
-            all_placed = true;
-        }
-        ctx->bindBel(best_bel, cell, STRENGTH_WEAK);
-        if (require_legality && !ctx->isBelLocationValid(best_bel)) {
-            ctx->unbindBel(best_bel);
-            if (ripup_target != nullptr) {
-                ctx->bindBel(best_bel, ripup_target, STRENGTH_WEAK);
-            }
-            all_placed = false;
-            continue;
-        }
-        if (ctx->verbose)
-            log_info("   placed single cell '%s' at '%s'\n", cell->name.c_str(ctx), ctx->nameOfBel(best_bel));
-        cell = ripup_target;
-    }
-    return true;
-}
-
 class ConstraintLegaliseWorker
 {
   private:
@@ -180,6 +110,7 @@ class ConstraintLegaliseWorker
     std::set<IdString> rippedCells;
     dict<IdString, Loc> oldLocations;
     dict<ClusterId, std::vector<CellInfo *>> cluster2cells;
+    FastBels fast_bels;
 
     class IncreasingDiameterSearch
     {
@@ -376,8 +307,87 @@ class ConstraintLegaliseWorker
     // Check if constraints are currently satisfied on a cell and its children
     bool constraints_satisfied(const CellInfo *cell) { return get_constraints_distance(ctx, cell) == 0; }
 
+    // Placing a single cell
+    bool place_single_cell(CellInfo *cell)
+    {
+        int diameter = 1;
+        while (cell) {
+            CellInfo *ripup_target = nullptr;
+            if (cell->bel != BelId()) {
+                ctx->unbindBel(cell->bel);
+            }
+            FastBels::FastBelsData *bel_data;
+            fast_bels.getBelsForCellType(cell->type, &bel_data);
+
+            int iter = 0;
+            BelId best_bel = BelId();
+            wirelen_t best_metric = std::numeric_limits<wirelen_t>::max();
+
+            while (true) {
+                ++iter;
+                if (iter >= (5 * diameter)) {
+                    iter = 0;
+                    if (diameter < std::max(ctx->getGridDimX(), ctx->getGridDimY()))
+                        ++diameter;
+                    if (best_bel != BelId())
+                        break;
+                }
+                auto old_loc = oldLocations.at(cell->name);
+                int nx = old_loc.x - (diameter / 2) + ctx->rng(diameter),
+                    ny = old_loc.y - (diameter / 2) + ctx->rng(diameter);
+                if (nx < 0 || nx >= int(bel_data->size()))
+                    continue;
+                if (ny < 0 || ny >= int(bel_data->at(nx).size()))
+                    continue;
+                const auto &fb = bel_data->at(nx).at(ny);
+                if (fb.size() == 0)
+                    continue;
+                BelId bel = fb.at(ctx->rng(int(fb.size())));
+                if (cell->region && cell->region->constr_bels && !cell->region->bels.count(bel))
+                    continue;
+                if (!ctx->isValidBelForCellType(cell->type, bel))
+                    continue;
+                ripup_target = ctx->getBoundBelCell(bel);
+                if (ripup_target != nullptr) {
+                    if (ripup_target->belStrength > STRENGTH_STRONG || ripup_target->cluster != ClusterId())
+                        continue;
+                    ctx->unbindBel(bel);
+                } else if (!ctx->checkBelAvail(bel)) {
+                    continue;
+                }
+                ctx->bindBel(bel, cell, STRENGTH_WEAK);
+                if (!ctx->isBelLocationValid(bel)) {
+                    ctx->unbindBel(bel);
+                    if (ripup_target)
+                        ctx->bindBel(bel, ripup_target, STRENGTH_WEAK);
+                    continue;
+                }
+                wirelen_t new_metric = get_cell_metric(ctx, cell, MetricType::COST);
+                if (ripup_target)
+                    new_metric *= 5;
+                if (new_metric < best_metric) {
+                    best_bel = bel;
+                    best_metric = new_metric;
+                }
+                ctx->unbindBel(bel);
+                if (ripup_target)
+                    ctx->bindBel(bel, ripup_target, STRENGTH_WEAK);
+            }
+
+            // Back annotate location
+            ripup_target = ctx->getBoundBelCell(best_bel);
+            if (ripup_target)
+                ctx->unbindBel(best_bel);
+            ctx->bindBel(best_bel, cell, STRENGTH_WEAK);
+
+            cell->attrs[ctx->id("BEL")] = ctx->getBelName(cell->bel).str(ctx);
+            cell = ripup_target;
+        }
+        return true;
+    }
+
   public:
-    ConstraintLegaliseWorker(Context *ctx) : ctx(ctx)
+    ConstraintLegaliseWorker(Context *ctx) : ctx(ctx), fast_bels(ctx, /*check_bel_available=*/false, 0)
     {
         for (auto &cell : ctx->cells) {
             if (cell.second->cluster != ClusterId())
@@ -429,7 +439,7 @@ class ConstraintLegaliseWorker
         if (print_stats("legalising chains") == 0)
             return 0;
         for (auto rippedCell : rippedCells) {
-            bool res = place_single_cell(ctx, ctx->cells.at(rippedCell).get(), true);
+            bool res = place_single_cell(ctx->cells.at(rippedCell).get());
             if (!res) {
                 log_error("failed to place cell '%s' after relative constraint legalisation\n", rippedCell.c_str(ctx));
                 return -1;
