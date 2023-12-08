@@ -1,0 +1,6 @@
+[workspace]
+
+members = [
+    "nextpnr",
+    "example_printnets",
+]

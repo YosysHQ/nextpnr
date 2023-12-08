@@ -7,3 +7,6 @@
 [submodule "himbaechel/uarch/xilinx/meta"]
 	path = himbaechel/uarch/xilinx/meta
 	url = https://github.com/gatecat/nextpnr-xilinx-meta
+[submodule "3rdparty/corrosion"]
+	path = 3rdparty/corrosion
+	url = https://github.com/corrosion-rs/corrosion
