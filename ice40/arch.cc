@@ -653,6 +653,7 @@ bool Arch::place()
             return false;
     } else if (placer == "static") {
         PlacerStaticCfg cfg(getCtx());
+        cfg.logic_groups = 1;
         {
             cfg.cell_groups.emplace_back();
             auto &comb = cfg.cell_groups.back();
@@ -673,6 +674,15 @@ bool Arch::place()
 
         {
             cfg.cell_groups.emplace_back();
+            auto& comb = cfg.cell_groups.back();
+            comb.name = getCtx()->id("DSP");
+            comb.cell_area[id_ICESTORM_DSP] = StaticRect(0.9f, 5.0f);
+            comb.bel_area[id_ICESTORM_DSP] = StaticRect(0.9f, 5.0f);
+            comb.spacer_rect = StaticRect(0.9f, 5.0f);
+        }
+
+        {
+            cfg.cell_groups.emplace_back();
             auto &comb = cfg.cell_groups.back();
             comb.name = getCtx()->id("GB");
             comb.cell_area[id_SB_GB] = StaticRect(0.5f, 0.5f);
@@ -684,9 +694,9 @@ bool Arch::place()
             cfg.cell_groups.emplace_back();
             auto &comb = cfg.cell_groups.back();
             comb.name = getCtx()->id("WARMBOOT");
-            comb.cell_area[id_SB_WARMBOOT] = StaticRect(1.0f, 1.0f);
-            comb.bel_area[id_SB_WARMBOOT] = StaticRect(1.0f, 1.0f);
-            comb.spacer_rect = StaticRect(1.0f, 1.0f);
+            comb.cell_area[id_SB_WARMBOOT] = StaticRect(0.5f, 1.0f);
+            comb.bel_area[id_SB_WARMBOOT] = StaticRect(0.5f, 1.0f);
+            comb.spacer_rect = StaticRect(0.5f, 1.0f);
         }
 
         {
@@ -695,7 +705,7 @@ bool Arch::place()
             comb.name = getCtx()->id("IO");
             comb.cell_area[id_SB_IO] = StaticRect(0.5f, 0.5f);
             comb.bel_area[id_SB_IO] = StaticRect(0.5f, 0.5f);
-            comb.spacer_rect = StaticRect(1.0f, 1.0f);
+            comb.spacer_rect = StaticRect(0.5f, 0.5f);
         }
         if (!placer_static(getCtx(), cfg))
             return false;

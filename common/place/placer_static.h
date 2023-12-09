@@ -61,8 +61,9 @@ struct PlacerStaticCfg
     // estimate = c + mx*dx + my * dy
     delay_t timing_c = 100, timing_mx = 100, timing_my = 100;
     // groups of cells that should be placed together.
-    // group 0 must be LUTs and group 1 must be FFs, further groups for BRAM/DSP/misc
+    // groups < logic_groups are logic like LUTs and FFs, further groups for BRAM/DSP/misc
     std::vector<StaticCellGroupCfg> cell_groups;
+    int logic_groups = 2;
 };
 
 extern bool placer_static(Context *ctx, PlacerStaticCfg cfg);
