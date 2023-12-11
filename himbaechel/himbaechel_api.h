@@ -95,6 +95,13 @@ struct HimbaechelAPI
     // Cell->bel pin mapping
     virtual bool map_cell_bel_pins(CellInfo *cell) const { return false; }
 
+    // Cluster
+    virtual CellInfo *getClusterRootCell(ClusterId cluster) const;
+    virtual BoundingBox getClusterBounds(ClusterId cluster) const;
+    virtual Loc getClusterOffset(const CellInfo *cell) const;
+    virtual bool isClusterStrict(const CellInfo *cell) const;
+    virtual bool getClusterPlacement(ClusterId cluster, BelId root_bel,
+                                     std::vector<std::pair<CellInfo *, BelId>> &placement) const;
     // --- Flow hooks ---
     virtual void pack(){}; // replaces the pack function
     // Called before and after main placement and routing

@@ -69,6 +69,22 @@ BoundingBox HimbaechelAPI::getRouteBoundingBox(WireId src, WireId dst) const
     return bb;
 }
 
+CellInfo *HimbaechelAPI::getClusterRootCell(ClusterId cluster) const
+{
+    return ctx->BaseArch::getClusterRootCell(cluster);
+}
+BoundingBox HimbaechelAPI::getClusterBounds(ClusterId cluster) const
+{
+    return ctx->BaseArch::getClusterBounds(cluster);
+}
+Loc HimbaechelAPI::getClusterOffset(const CellInfo *cell) const { return ctx->BaseArch::getClusterOffset(cell); }
+bool HimbaechelAPI::isClusterStrict(const CellInfo *cell) const { return ctx->BaseArch::isClusterStrict(cell); }
+bool HimbaechelAPI::getClusterPlacement(ClusterId cluster, BelId root_bel,
+                                        std::vector<std::pair<CellInfo *, BelId>> &placement) const
+{
+    return ctx->BaseArch::getClusterPlacement(cluster, root_bel, placement);
+}
+
 HimbaechelArch *HimbaechelArch::list_head;
 HimbaechelArch::HimbaechelArch(const std::string &name) : name(name)
 {

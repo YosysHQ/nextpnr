@@ -684,7 +684,20 @@ struct Arch : BaseArch<ArchRanges>
 
     // ------------------------------------------------
 
-    // clusters: BaseArch; for now
+    // Cluster methods
+    CellInfo *getClusterRootCell(ClusterId cluster) const override { return uarch->getClusterRootCell(cluster); }
+
+    BoundingBox getClusterBounds(ClusterId cluster) const override { return uarch->getClusterBounds(cluster); }
+
+    Loc getClusterOffset(const CellInfo *cell) const override { return uarch->getClusterOffset(cell); }
+
+    bool isClusterStrict(const CellInfo *cell) const override { return uarch->isClusterStrict(cell); }
+
+    bool getClusterPlacement(ClusterId cluster, BelId root_bel,
+                             std::vector<std::pair<CellInfo *, BelId>> &placement) const override
+    {
+        return uarch->getClusterPlacement(cluster, root_bel, placement);
+    }
     // ------------------------------------------------
 
     bool pack() override;
