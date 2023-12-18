@@ -1318,8 +1318,14 @@ struct NexusPacker
             CellInfo *ci = cell.second.get();
             if (ci->type != id_CCU2)
                 continue;
-            if (ci->getPort(id_CIN) != nullptr)
+            NetInfo *cin = ci->getPort(id_CIN);
+            if (cin) {
+                if (cin->driver.cell && cin->driver.cell->type != id_CCU2) {
+                    log_error("CCU2 '%s' CIN net '%s' driven by non-CCU2 cell '%s'.\n",
+                        ctx->nameOf(ci), ctx->nameOf(cin), ctx->nameOf(cin->driver.cell));
+                }
                 continue;
+            }
             roots.push_back(ci);
         }
         for (CellInfo *root : roots) {
