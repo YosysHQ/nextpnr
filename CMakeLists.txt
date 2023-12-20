@@ -34,7 +34,6 @@ option(USE_RUST "Enable Rust bindings" OFF)
 if (USE_RUST)
     add_subdirectory(3rdparty/corrosion)
     corrosion_import_crate(MANIFEST_PATH rust/Cargo.toml PROFILE "release" IMPORTED_CRATES RUST_CRATES)
-    aux_source_directory(rust RUST_FILES)
 endif()
 
 if (USE_IPO)
