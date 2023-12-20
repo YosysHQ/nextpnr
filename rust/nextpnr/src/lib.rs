@@ -157,7 +157,10 @@ impl Context {
     }
 
     /// Bind a given bel to a given cell with the given strength.
-    pub fn bind_bel(&mut self, bel: BelId, cell: *mut CellInfo, strength: PlaceStrength) {
+    ///
+    /// # Safety
+    /// `cell` must be valid and not null.
+    pub unsafe fn bind_bel(&mut self, bel: BelId, cell: *mut CellInfo, strength: PlaceStrength) {
         unsafe { npnr_context_bind_bel(self, bel, cell, strength) }
     }
 
@@ -172,7 +175,10 @@ impl Context {
     }
 
     /// Bind a wire to a net. This method must be used when binding a wire that is driven by a bel pin. Use bindPip() when binding a wire that is driven by a pip.
-    pub fn bind_wire(&mut self, wire: WireId, net: *mut NetInfo, strength: PlaceStrength) {
+    ///
+    /// # Safety
+    /// `net` must be valid and not null.
+    pub unsafe fn bind_wire(&mut self, wire: WireId, net: *mut NetInfo, strength: PlaceStrength) {
         unsafe { npnr_context_bind_wire(self, wire, net, strength) }
     }
 
@@ -181,8 +187,11 @@ impl Context {
         unsafe { npnr_context_unbind_wire(self, wire) }
     }
 
-    /// Bid a pip to a net. This also bind the destination wire of that pip.
-    pub fn bind_pip(&mut self, pip: PipId, net: *mut NetInfo, strength: PlaceStrength) {
+    /// Bind a pip to a net. This also binds the destination wire of that pip.
+    ///
+    /// # Safety
+    /// `net` must be valid and not null.
+    pub unsafe fn bind_pip(&mut self, pip: PipId, net: *mut NetInfo, strength: PlaceStrength) {
         unsafe { npnr_context_bind_pip(self, pip, net, strength) }
     }
 
@@ -218,11 +227,15 @@ impl Context {
         unsafe { npnr_context_delay_epsilon(self) }
     }
 
-    pub fn source_wire(&self, net: *const NetInfo) -> WireId {
+    /// # Safety
+    /// `net` must be valid and not null.
+    pub unsafe fn source_wire(&self, net: *const NetInfo) -> WireId {
         unsafe { npnr_context_get_netinfo_source_wire(self, net) }
     }
 
-    pub fn sink_wires(&self, net: *const NetInfo, sink: *const PortRef) -> Vec<WireId> {
+    /// # Safety
+    /// `net` and `sink` must be valid and not null.
+    pub unsafe fn sink_wires(&self, net: *const NetInfo, sink: *const PortRef) -> Vec<WireId> {
         let mut v = Vec::new();
         let mut n = 0;
         loop {
@@ -269,10 +282,39 @@ impl Context {
     }
 
     pub fn pip_direction(&self, pip: PipId) -> Loc {
-        unsafe { npnr_context_get_pip_direction(self, pip) }
+        let mut src = Loc{x: 0, y: 0, z: 0};
+        let mut dst = Loc{x: 0, y: 0, z: 0};
+
+        let mut pips = 0;
+        for pip in self.get_uphill_pips(self.pip_src_wire(pip)) {
+            let loc = self.pip_location(pip);
+            src.x += loc.x;
+            src.y += loc.y;
+            pips += 1;
+        }
+        if pips != 0 {
+            src.x /= pips;
+            src.y /= pips;
+        }
+
+        let mut pips = 0;
+        for pip in self.get_downhill_pips(self.pip_dst_wire(pip)) {
+            let loc = self.pip_location(pip);
+            dst.x += loc.x;
+            dst.y += loc.y;
+            pips += 1;
+        }
+        if pips != 0 {
+            dst.x /= pips;
+            dst.y /= pips;
+        }
+
+        Loc{x: dst.x - src.x, y: dst.y - src.y, z: 0}
     }
 
-    pub fn pip_avail_for_net(&self, pip: PipId, net: *mut NetInfo) -> bool {
+    /// # Safety
+    /// `net` must be valid and not null.
+    pub unsafe fn pip_avail_for_net(&self, pip: PipId, net: *mut NetInfo) -> bool {
         unsafe { npnr_context_check_pip_avail_for_net(self, pip, net) }
     }
 
@@ -349,7 +391,6 @@ extern "C" {
     fn npnr_context_get_wires_leak(ctx: *const Context, wires: *mut *mut WireId) -> u64;
     fn npnr_context_get_pips_leak(ctx: *const Context, pips: *mut *mut PipId) -> u64;
     fn npnr_context_get_pip_location(ctx: *const Context, pip: PipId) -> Loc;
-    fn npnr_context_get_pip_direction(ctx: *const Context, pip: PipId) -> Loc;
     fn npnr_context_check_pip_avail_for_net(
         ctx: *const Context,
         pip: PipId,
@@ -404,7 +445,6 @@ pub struct Nets<'a> {
     nets: HashMap<IdString, *mut NetInfo>,
     users: HashMap<IdString, &'a [&'a mut PortRef]>,
     index_to_net: Vec<IdString>,
-    net_to_index: HashMap<*mut NetInfo, i32>,
     _data: PhantomData<&'a Context>,
 }
 
@@ -428,7 +468,6 @@ impl<'a> Nets<'a> {
         let mut nets = HashMap::new();
         let mut users = HashMap::new();
         let mut index_to_net = Vec::new();
-        let mut net_to_index = HashMap::new();
         for i in 0..size {
             let name = unsafe { IdString(*names.add(i as usize)) };
             let net = unsafe { *nets_ptr.add(i as usize) };
@@ -443,7 +482,6 @@ impl<'a> Nets<'a> {
             users.insert(name, users_slice);
             let index = index_to_net.len() as i32;
             index_to_net.push(name);
-            net_to_index.insert(net, index);
             unsafe {
                 npnr_netinfo_udata_set(net, NetIndex(index));
             }
@@ -453,7 +491,6 @@ impl<'a> Nets<'a> {
             nets,
             users,
             index_to_net,
-            net_to_index,
             _data: PhantomData,
         }
     }
@@ -466,6 +503,10 @@ impl<'a> Nets<'a> {
     /// Return the number of nets in the store.
     pub fn len(&self) -> usize {
         self.nets.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.nets.len() == 0
     }
 
     pub fn name_from_index(&self, index: NetIndex) -> IdString {
