@@ -781,8 +781,10 @@ struct Router2
                         WireScore next_score;
                         next_score.delay = curr.score.delay + cfg.get_base_cost(ctx, next, uh, crit_weight);
                         next_score.cost = curr.score.cost + score_wire_for_arc(net, i, phys_pin, next, uh, crit_weight);
-                        next_score.togo_cost =
-                                const_mode ? 0 : cfg.estimate_weight * get_togo_cost(net, i, next_idx, src_wire, true, crit_weight);
+                        next_score.togo_cost = const_mode
+                                                       ? 0
+                                                       : cfg.estimate_weight * get_togo_cost(net, i, next_idx, src_wire,
+                                                                                             true, crit_weight);
                         if (was_visited_bwd(next_idx, next_score.delay)) {
                             // Don't expand the same node twice.
                             continue;

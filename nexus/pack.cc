@@ -1321,8 +1321,8 @@ struct NexusPacker
             NetInfo *cin = ci->getPort(id_CIN);
             if (cin) {
                 if (cin->driver.cell && cin->driver.cell->type != id_CCU2) {
-                    log_error("CCU2 '%s' CIN net '%s' driven by non-CCU2 cell '%s'.\n",
-                        ctx->nameOf(ci), ctx->nameOf(cin), ctx->nameOf(cin->driver.cell));
+                    log_error("CCU2 '%s' CIN net '%s' driven by non-CCU2 cell '%s'.\n", ctx->nameOf(ci),
+                              ctx->nameOf(cin), ctx->nameOf(cin->driver.cell));
                 }
                 continue;
             }

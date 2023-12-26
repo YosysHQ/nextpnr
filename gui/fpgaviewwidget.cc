@@ -574,8 +574,8 @@ void FPGAViewWidget::renderLines(void)
         }
         rendererData_->bbGlobal.setX0(-1.0f);
         rendererData_->bbGlobal.setY0(-1.0f);
-        rendererData_->bbGlobal.setX1(1.0f * (ctx_->getGridDimX()+1));
-        rendererData_->bbGlobal.setY1(1.0f * (ctx_->getGridDimY()+1));
+        rendererData_->bbGlobal.setX1(1.0f * (ctx_->getGridDimX() + 1));
+        rendererData_->bbGlobal.setY1(1.0f * (ctx_->getGridDimY() + 1));
         rendererData_->gfxGrid.last_render++;
     }
     if (highlightedOrSelectedChanged) {

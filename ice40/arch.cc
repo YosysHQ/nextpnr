@@ -674,7 +674,7 @@ bool Arch::place()
 
         {
             cfg.cell_groups.emplace_back();
-            auto& comb = cfg.cell_groups.back();
+            auto &comb = cfg.cell_groups.back();
             comb.name = getCtx()->id("DSP");
             comb.cell_area[id_ICESTORM_DSP] = StaticRect(0.9f, 5.0f);
             comb.bel_area[id_ICESTORM_DSP] = StaticRect(0.9f, 5.0f);

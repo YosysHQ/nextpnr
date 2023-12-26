@@ -305,7 +305,7 @@ void (*python_sighandler)(int) = nullptr;
 void init_python(const char *executable)
 {
 #ifdef MAIN_EXECUTABLE
-    static const char* python_argv[1];
+    static const char *python_argv[1];
     python_argv[0] = executable;
     py::initialize_interpreter(true, 1, python_argv);
     py::module::import(TOSTRING(MODULE_NAME));

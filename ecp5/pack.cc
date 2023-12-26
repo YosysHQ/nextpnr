@@ -240,7 +240,8 @@ class Ecp5Packer
                     ci->disconnectPort(id_M);
                     ci->ports.erase(id_M);
                 }
-                if (di && di->driver.cell != nullptr && di->driver.cell->type == id_TRELLIS_COMB && di->driver.port == id_F) {
+                if (di && di->driver.cell != nullptr && di->driver.cell->type == id_TRELLIS_COMB &&
+                    di->driver.port == id_F) {
                     CellInfo *comb = di->driver.cell;
                     if (comb->cluster != ClusterId()) {
                         // Special procedure where the comb cell is part of an existing macro
