@@ -101,11 +101,12 @@ extern "C" {
         auto size = size_t{};
         for (auto _pip : ctx->getPips())
             size++;
-        auto *pip_vec = new std::vector<uint64_t>{};
-        pip_vec->reserve(size);
-        for (auto pip : ctx->getPips())
-            pip_vec->push_back(wrap(pip));
-        *pips = pip_vec->data();
+        *pips = new uint64_t[size];
+        auto idx = 0;
+        for (auto pip : ctx->getPips()) {
+            *pips[idx] = wrap(pip);
+            idx++;
+        }
         // Yes, by never deleting pip_vec, we leak memory.
         return size;
     }
@@ -114,12 +115,13 @@ extern "C" {
         auto size = size_t{};
         for (auto _wire : ctx->getWires())
             size++;
-        auto *wire_vec = new std::vector<uint64_t>{};
-        wire_vec->reserve(size);
-        for (auto wire : ctx->getWires())
-            wire_vec->push_back(wrap(wire));
-        *wires = wire_vec->data();
-        // Yes, by never deleting wire_vec, we leak memory.
+        *wires = new uint64_t[size];
+        auto idx = 0;
+        for (auto wire : ctx->getWires()) {
+            *wires[idx] = wrap(wire);
+            idx++;
+        }
+        // Yes, by never deleting wires, we leak memory.
         return size;
     }
 
@@ -136,17 +138,15 @@ extern "C" {
 
     uint32_t npnr_context_nets_leak(const Context *ctx, int **names, NetInfo ***nets) {
         auto size = ctx->nets.size();
-        auto *name_vec = new std::vector<int>{};
-        auto *nets_vec = new std::vector<NetInfo*>{};
-        name_vec->reserve(size);
-        nets_vec->reserve(size);
+        *names = new int[size];
+        *nets = new NetInfo*[size];
+        auto idx = 0;
         for (auto& item : ctx->nets) {
-            name_vec->push_back(item.first.hash());
-            nets_vec->push_back(item.second.get());
+            *names[idx] = item.first.hash();
+            *nets[idx] = item.second.get();
+            idx++;
         }
-        *names = name_vec->data();
-        *nets = nets_vec->data();
-        // Yes, by never deleting `name_vec` and `nets_vec` we leak memory.
+        // Yes, by never deleting `names` and `nets` we leak memory.
         return size;
     }
 
@@ -175,16 +175,14 @@ extern "C" {
     }
 
     uint32_t npnr_netinfo_users_leak(NetInfo *net, PortRef ***users) {
-        auto x = std::vector<PortRef*>{};
+        auto size = net->users.entries();
+        *users = new PortRef*[size];
+        auto idx = 0;
         for (auto& item : net->users) {
-            x.push_back(&item);
+            *users[idx] = &item;
+            idx++;
         }
-        x.shrink_to_fit();
-        *users = x.data();
-        auto size = x.size();
-        // Yes, by memcpying over `x` we leak memory.
-        auto dummy = std::vector<PortRef*>{};
-        std::memcpy(&x, &dummy, sizeof(dummy));
+        // Yes, by not freeing `users`, we leak memory.
         return size;
     }
 
