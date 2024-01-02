@@ -25,6 +25,7 @@
 #include "json_frontend.h"
 #include "log.h"
 #include "nextpnr.h"
+#include "rust.h"
 
 #include <fstream>
 #include <memory>
@@ -248,6 +249,9 @@ PYBIND11_EMBEDDED_MODULE(MODULE_NAME, m)
 
     m.def("parse_json", parse_json_shim);
     m.def("load_design", load_design_shim, py::return_value_policy::take_ownership);
+#ifdef USE_RUST
+    m.def("example_printnets", example_printnets);
+#endif
 
     auto region_cls = py::class_<ContextualWrapper<Region &>>(m, "Region");
     readwrite_wrapper<Region &, decltype(&Region::name), &Region::name, conv_to_str<IdString>,
