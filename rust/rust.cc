@@ -142,7 +142,7 @@ extern "C" {
         *nets = new NetInfo*[size];
         auto idx = 0;
         for (auto& item : ctx->nets) {
-            *names[idx] = item.first.hash();
+            *names[idx] = item.first.index;
             *nets[idx] = item.second.get();
             idx++;
         }
