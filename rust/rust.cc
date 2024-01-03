@@ -16,6 +16,7 @@
  *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <numeric>
 #include "log.h"
 #include "nextpnr.h"
 
@@ -117,15 +118,15 @@ extern "C" {
         return size;
     }
 
-    uint64_t npnr_context_get_wires_leak(const Context *ctx, uint64_t **wires) {
-        auto size = size_t{};
-        for (auto _wire : ctx->getWires()) {
-            NPNR_UNUSED(_wire);
-            size++;
-        }
+    uint64_t npnr_context_get_wires_leak(const Context *const ctx, uint64_t **const wires) {
+        const auto ctx_wires{ctx->getWires()};
+        const auto size{
+            std::accumulate(ctx_wires.begin(), ctx_wires.end(), /*initial value*/ size_t{},
+                [](size_t value, const auto &/*wire*/) { return value + 1U; }
+        )};
         *wires = new uint64_t[size];
         auto idx = 0;
-        for (auto wire : ctx->getWires()) {
+        for (const auto &wire : ctx_wires) {
             (*wires)[idx] = wrap(wire);
             idx++;
         }
