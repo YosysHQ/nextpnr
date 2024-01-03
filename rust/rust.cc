@@ -196,7 +196,7 @@ extern "C" {
 #ifdef ARCH_ECP5
     bool npnr_netinfo_is_global(NetInfo *net) { return net->is_global; }
 #else
-    bool npnr_netinfo_is_global(NetInfo *net) { return false; }
+    bool npnr_netinfo_is_global(NetInfo * /*net*/) { return false; }
 #endif
 
     int32_t npnr_netinfo_udata(NetInfo *net) { return net->udata; }
