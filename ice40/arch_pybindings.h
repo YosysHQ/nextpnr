@@ -78,7 +78,7 @@ template <> struct string_converter<PipId>
 
 template <> struct string_converter<BelPin>
 {
-    BelPin from_str(Context *ctx, std::string name)
+    BelPin from_str(Context * /*ctx*/, std::string /*name*/)
     {
         NPNR_ASSERT_FALSE("string_converter<BelPin>::from_str not implemented");
     }
