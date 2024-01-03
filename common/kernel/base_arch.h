@@ -143,8 +143,8 @@ template <typename R> struct BaseArch : ArchAPI<R>
 
     // Basic config
     virtual IdString archId() const override { return this->id(NPNR_STRINGIFY(ARCHNAME)); }
-    virtual IdString archArgsToId(typename R::ArchArgsT args) const override { return IdString(); }
-    virtual int getTilePipDimZ(int x, int y) const override { return 1; }
+    virtual IdString archArgsToId(typename R::ArchArgsT /*args*/) const override { return IdString(); }
+    virtual int getTilePipDimZ(int /*x*/, int /*y*/) const override { return 1; }
     virtual char getNameDelimiter() const override { return ' '; }
 
     // Bel methods
@@ -170,9 +170,9 @@ template <typename R> struct BaseArch : ArchAPI<R>
         this->refreshUiBel(bel);
     }
 
-    virtual bool getBelHidden(BelId bel) const override { return false; }
+    virtual bool getBelHidden(BelId /*bel*/) const override { return false; }
 
-    virtual bool getBelGlobalBuf(BelId bel) const override { return false; }
+    virtual bool getBelGlobalBuf(BelId /*bel*/) const override { return false; }
     virtual bool checkBelAvail(BelId bel) const override { return getBoundBelCell(bel) == nullptr; };
     virtual CellInfo *getBoundBelCell(BelId bel) const override
     {
@@ -180,18 +180,18 @@ template <typename R> struct BaseArch : ArchAPI<R>
         return fnd == base_bel2cell.end() ? nullptr : fnd->second;
     }
     virtual CellInfo *getConflictingBelCell(BelId bel) const override { return getBoundBelCell(bel); }
-    virtual typename R::BelAttrsRangeT getBelAttrs(BelId bel) const override
+    virtual typename R::BelAttrsRangeT getBelAttrs(BelId /*bel*/) const override
     {
         return empty_if_possible<typename R::BelAttrsRangeT>();
     }
 
-    virtual typename R::CellBelPinRangeT getBelPinsForCellPin(const CellInfo *cell_info, IdString pin) const override
+    virtual typename R::CellBelPinRangeT getBelPinsForCellPin(const CellInfo * /*cell_info*/, IdString pin) const override
     {
         return return_if_match<std::array<IdString, 1>, typename R::CellBelPinRangeT>({pin});
     }
 
     // Wire methods
-    virtual IdString getWireType(WireId wire) const override { return IdString(); }
+    virtual IdString getWireType(WireId /*wire*/) const override { return IdString(); }
     virtual typename R::WireAttrsRangeT getWireAttrs(WireId) const override
     {
         return empty_if_possible<typename R::WireAttrsRangeT>();
@@ -237,10 +237,10 @@ template <typename R> struct BaseArch : ArchAPI<R>
     }
     virtual WireId getConflictingWireWire(WireId wire) const override { return wire; };
     virtual NetInfo *getConflictingWireNet(WireId wire) const override { return getBoundWireNet(wire); }
-    virtual IdString getWireConstantValue(WireId wire) const override { return {}; }
+    virtual IdString getWireConstantValue(WireId /*wire*/) const override { return {}; }
 
     // Pip methods
-    virtual IdString getPipType(PipId pip) const override { return IdString(); }
+    virtual IdString getPipType(PipId /*pip*/) const override { return IdString(); }
     virtual typename R::PipAttrsRangeT getPipAttrs(PipId) const override
     {
         return empty_if_possible<typename R::PipAttrsRangeT>();
@@ -285,60 +285,60 @@ template <typename R> struct BaseArch : ArchAPI<R>
         auto fnd = base_pip2net.find(pip);
         return fnd == base_pip2net.end() ? nullptr : fnd->second;
     }
-    virtual WireId getConflictingPipWire(PipId pip) const override { return WireId(); }
+    virtual WireId getConflictingPipWire(PipId /*pip*/) const override { return WireId(); }
     virtual NetInfo *getConflictingPipNet(PipId pip) const override { return getBoundPipNet(pip); }
 
     // Group methods
-    virtual GroupId getGroupByName(IdStringList name) const override { return GroupId(); };
-    virtual IdStringList getGroupName(GroupId group) const override { return IdStringList(); };
+    virtual GroupId getGroupByName(IdStringList /*name*/) const override { return GroupId(); };
+    virtual IdStringList getGroupName(GroupId /*group*/) const override { return IdStringList(); };
     virtual typename R::AllGroupsRangeT getGroups() const override
     {
         return empty_if_possible<typename R::AllGroupsRangeT>();
     }
     // Default implementation of these assumes no groups so never called
-    virtual typename R::GroupBelsRangeT getGroupBels(GroupId group) const override
+    virtual typename R::GroupBelsRangeT getGroupBels(GroupId /*group*/) const override
     {
         NPNR_ASSERT_FALSE("unreachable");
     };
-    virtual typename R::GroupWiresRangeT getGroupWires(GroupId group) const override
+    virtual typename R::GroupWiresRangeT getGroupWires(GroupId /*group*/) const override
     {
         NPNR_ASSERT_FALSE("unreachable");
     };
-    virtual typename R::GroupPipsRangeT getGroupPips(GroupId group) const override
+    virtual typename R::GroupPipsRangeT getGroupPips(GroupId /*group*/) const override
     {
         NPNR_ASSERT_FALSE("unreachable");
     };
-    virtual typename R::GroupGroupsRangeT getGroupGroups(GroupId group) const override
+    virtual typename R::GroupGroupsRangeT getGroupGroups(GroupId /*group*/) const override
     {
         NPNR_ASSERT_FALSE("unreachable");
     };
 
     // Delay methods
-    virtual bool getArcDelayOverride(const NetInfo *net_info, const PortRef &sink, DelayQuad &delay) const override
+    virtual bool getArcDelayOverride(const NetInfo * /*net_info*/, const PortRef &/*sink*/, DelayQuad &/*delay*/) const override
     {
         return false;
     }
 
     // Decal methods
-    virtual typename R::DecalGfxRangeT getDecalGraphics(DecalId decal) const override
+    virtual typename R::DecalGfxRangeT getDecalGraphics(DecalId /*decal*/) const override
     {
         return empty_if_possible<typename R::DecalGfxRangeT>();
     };
-    virtual DecalXY getBelDecal(BelId bel) const override { return DecalXY(); }
-    virtual DecalXY getWireDecal(WireId wire) const override { return DecalXY(); }
-    virtual DecalXY getPipDecal(PipId pip) const override { return DecalXY(); }
-    virtual DecalXY getGroupDecal(GroupId group) const override { return DecalXY(); }
+    virtual DecalXY getBelDecal(BelId /*bel*/) const override { return DecalXY(); }
+    virtual DecalXY getWireDecal(WireId /*wire*/) const override { return DecalXY(); }
+    virtual DecalXY getPipDecal(PipId /*pip*/) const override { return DecalXY(); }
+    virtual DecalXY getGroupDecal(GroupId /*group*/) const override { return DecalXY(); }
 
     // Cell timing methods
-    virtual bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const override
+    virtual bool getCellDelay(const CellInfo * /*cell*/, IdString /*fromPort*/, IdString /*toPort*/, DelayQuad &/*delay*/) const override
     {
         return false;
     }
-    virtual TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const override
+    virtual TimingPortClass getPortTimingClass(const CellInfo * /*cell*/, IdString /*port*/, int &/*clockInfoCount*/) const override
     {
         return TMG_IGNORE;
     }
-    virtual TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const override
+    virtual TimingClockingInfo getPortClockingInfo(const CellInfo * /*cell*/, IdString /*port*/, int /*index*/) const override
     {
         NPNR_ASSERT_FALSE("unreachable");
     }
@@ -358,7 +358,7 @@ template <typename R> struct BaseArch : ArchAPI<R>
     {
         return getBelBucketByName(cell_type);
     };
-    virtual bool isBelLocationValid(BelId bel, bool explain_invalid = false) const override { return true; }
+    virtual bool isBelLocationValid(BelId /*bel*/, bool /*explain_invalid*/ = false) const override { return true; }
     virtual typename R::CellTypeRangeT getCellTypes() const override
     {
         NPNR_ASSERT(cell_types_initialised);
@@ -400,7 +400,7 @@ template <typename R> struct BaseArch : ArchAPI<R>
                                          [](const BaseClusterInfo *c) { return Loc(c->constr_x, c->constr_y, 0); });
     }
 
-    virtual bool isClusterStrict(const CellInfo *cell) const override { return true; }
+    virtual bool isClusterStrict(const CellInfo * /*cell*/) const override { return true; }
 
     virtual bool getClusterPlacement(ClusterId cluster, BelId root_bel,
                                      std::vector<std::pair<CellInfo *, BelId>> &placement) const override

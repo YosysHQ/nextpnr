@@ -35,9 +35,9 @@ template <typename T> struct ContextualWrapper
     Context *ctx;
     T base;
 
-    inline ContextualWrapper(Context *c, T x) : ctx(c), base(x){};
+    inline ContextualWrapper(Context *c, T x) : ctx(c), base(x) { }
 
-    inline operator T() { return base; };
+    inline operator T() { return base; }
     typedef T base_type;
 };
 
@@ -83,7 +83,7 @@ class bad_wrap
 // Action options
 template <typename T> struct pass_through
 {
-    inline T operator()(Context *ctx, T x) { return x; }
+    inline T operator()(Context * /*ctx*/, T x) { return x; }
 
     using ret_type = T;
     using arg_type = T;
@@ -99,7 +99,7 @@ template <typename T> struct wrap_context
 
 template <typename T> struct unwrap_context
 {
-    inline T operator()(Context *ctx, ContextualWrapper<T> x) { return x.base; }
+    inline T operator()(Context * /*ctx*/, ContextualWrapper<T> x) { return x.base; }
 
     using ret_type = T;
     using arg_type = ContextualWrapper<T>;
@@ -136,7 +136,7 @@ template <typename T> struct deref_and_wrap
 
 template <typename T> struct addr_and_unwrap
 {
-    inline T *operator()(Context *ctx, ContextualWrapper<T &> x) { return &(x.base); }
+    inline T *operator()(Context * /*ctx*/, ContextualWrapper<T &> x) { return &(x.base); }
 
     using arg_type = ContextualWrapper<T &>;
     using ret_type = T *;
