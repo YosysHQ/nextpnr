@@ -16,6 +16,7 @@
  *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <array>
 #include <numeric>
 #include "log.h"
 #include "nextpnr.h"
@@ -33,28 +34,30 @@ namespace {
         memcpy(&b, &thing, sizeof(T));
         return b;
     }
-
-    BelId unwrap_bel(uint64_t bel) {
-        static_assert(sizeof(BelId) <= 8, "T is too big for FFI");
-        auto b = BelId();
-        memcpy(&b, &bel, sizeof(BelId));
-        return b;
-    }
-
-    PipId unwrap_pip(uint64_t pip) {
-        static_assert(sizeof(PipId) <= 8, "T is too big for FFI");
-        auto p = PipId();
-        memcpy(&p, &pip, sizeof(PipId));
-        return p;
-    }
-
-    WireId unwrap_wire(uint64_t wire) {
-        static_assert(sizeof(WireId) <= 8, "T is too big for FFI");
-        auto w = WireId();
-        memcpy(&w, &wire, sizeof(WireId));
-        return w;
-    }
 #pragma GCC diagnostic pop
+
+    template<typename T> static inline T unwrap(const std::array<uint8_t, 8> &value) noexcept {
+        static_assert(sizeof(T) <= 8, "T is too big for FFI");
+        T result{};
+        memcpy(&result, value.data(), sizeof(result));
+        return result;
+    }
+
+    template<typename T> static inline T unwrap(const uint64_t value) noexcept {
+        std::array<uint8_t, 8> data{};
+        static_assert(sizeof(value) >= data.size(), "uint64_t is not an appropriate size");
+        memcpy(data.data(), &value, data.size());
+        return unwrap<T>(data);
+    }
+
+    static inline BelId unwrap_bel(const uint64_t bel) noexcept
+        { return unwrap<BelId>(bel); }
+
+    static inline PipId unwrap_pip(const uint64_t pip) noexcept
+        { return unwrap<PipId>(pip); }
+
+    static inline WireId unwrap_wire(const uint64_t wire) noexcept
+        { return unwrap<WireId>(wire); }
 }
 
 using DownhillIter = decltype(Context(ArchArgs()).getPipsDownhill(WireId()).begin());
