@@ -71,7 +71,7 @@ class Item
         if (parent_ != nullptr) {
             parent_->addChild(this);
         }
-    };
+    }
 
     // Number of children.
     int count() const { return children_.count(); }
@@ -102,9 +102,9 @@ class Item
     virtual bool canFetchMore() const { return false; }
     virtual void fetchMore() {}
 
-    virtual boost::optional<Item *> getById(IdStringList id) { return boost::none; }
-    virtual void search(QList<Item *> &results, QString text, int limit) {}
-    virtual void updateElements(Context *ctx, std::vector<IdStringList> elements) {}
+    virtual boost::optional<Item *> getById(IdStringList /*id*/) { return boost::none; }
+    virtual void search(QList<Item *> &/*results*/, QString /*text*/, int /*limit*/) { }
+    virtual void updateElements(Context * /*ctx*/, std::vector<IdStringList> /*elements*/) { }
 
     virtual ~Item()
     {
@@ -147,7 +147,7 @@ class IdList : public Item
   public:
     // Create an IdList at given parent that will contain elements of
     // the given type.
-    IdList(ElementType type) : Item("root", nullptr), child_type_(type) {}
+    IdList(ElementType type) : Item("root", nullptr), child_type_(type) { }
 
     // Split a name into alpha/non-alpha parts, which is then used for sorting
     // of children.
