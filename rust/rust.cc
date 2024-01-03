@@ -102,15 +102,15 @@ extern "C" {
     Loc npnr_context_get_pip_location(const Context *ctx, uint64_t pip) { return ctx->getPipLocation(unwrap_pip(pip)); }
     bool npnr_context_check_pip_avail_for_net(const Context *ctx, uint64_t pip, NetInfo *net) { return ctx->checkPipAvailForNet(unwrap_pip(pip), net); }
 
-    uint64_t npnr_context_get_pips_leak(const Context *ctx, uint64_t **pips) {
-        auto size = size_t{};
-        for (auto _pip : ctx->getPips()) {
-            NPNR_UNUSED(_pip);
-            size++;
-        }
+    uint64_t npnr_context_get_pips_leak(const Context *const ctx, uint64_t **const pips) {
+        const auto ctx_pips{ctx->getPips()};
+        const auto size{
+            std::accumulate(ctx_pips.begin(), ctx_pips.end(), /*initial value*/ size_t{},
+                [](size_t value, const auto &/*pip*/) { return value + 1U; }
+        )};
         *pips = new uint64_t[size];
         auto idx = 0;
-        for (auto pip : ctx->getPips()) {
+        for (const auto &pip : ctx_pips) {
             (*pips)[idx] = wrap(pip);
             idx++;
         }
