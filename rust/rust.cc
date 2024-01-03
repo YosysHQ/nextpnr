@@ -104,7 +104,7 @@ extern "C" {
         *pips = new uint64_t[size];
         auto idx = 0;
         for (auto pip : ctx->getPips()) {
-            *pips[idx] = wrap(pip);
+            (*pips)[idx] = wrap(pip);
             idx++;
         }
         // Yes, by never deleting pip_vec, we leak memory.
@@ -118,7 +118,7 @@ extern "C" {
         *wires = new uint64_t[size];
         auto idx = 0;
         for (auto wire : ctx->getWires()) {
-            *wires[idx] = wrap(wire);
+            (*wires)[idx] = wrap(wire);
             idx++;
         }
         // Yes, by never deleting wires, we leak memory.
@@ -142,8 +142,8 @@ extern "C" {
         *nets = new NetInfo*[size];
         auto idx = 0;
         for (auto& item : ctx->nets) {
-            *names[idx] = item.first.index;
-            *nets[idx] = item.second.get();
+            (*names)[idx] = item.first.index;
+            (*nets)[idx] = item.second.get();
             idx++;
         }
         // Yes, by never deleting `names` and `nets` we leak memory.
@@ -179,7 +179,7 @@ extern "C" {
         *users = new PortRef*[size];
         auto idx = 0;
         for (auto& item : net->users) {
-            *users[idx] = &item;
+            (*users)[idx] = &item;
             idx++;
         }
         // Yes, by not freeing `users`, we leak memory.
