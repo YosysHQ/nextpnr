@@ -24,17 +24,12 @@
 namespace {
     USING_NEXTPNR_NAMESPACE;
 
-    // `memcpy` is used here to avoid strict-aliasing problems, but GCC dislikes it.
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wclass-memaccess"
-    template<typename T>
-    uint64_t wrap(T thing) {
+    template<typename T> static inline uint64_t wrap(const T &thing) noexcept {
         static_assert(sizeof(T) <= 8, "T is too big for FFI");
         uint64_t b = 0;
         memcpy(&b, &thing, sizeof(T));
         return b;
     }
-#pragma GCC diagnostic pop
 
     template<typename T> static inline T unwrap(const std::array<uint8_t, 8> &value) noexcept {
         static_assert(sizeof(T) <= 8, "T is too big for FFI");
