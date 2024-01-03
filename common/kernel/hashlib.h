@@ -367,7 +367,7 @@ template <typename K, typename T, typename OPS> class dict
     using mapped_type = T;
     using value_type = std::pair<K, T>;
 
-    class const_iterator : public std::iterator<std::forward_iterator_tag, std::pair<K, T>>
+    class const_iterator
     {
         friend class dict;
 
@@ -377,6 +377,11 @@ template <typename K, typename T, typename OPS> class dict
         const_iterator(const dict *ptr, int index) : ptr(ptr), index(index) {}
 
       public:
+        using iterator_category = std::forward_iterator_tag;
+        using value_type = std::pair<K, T>;
+        using difference_type = std::ptrdiff_t;
+        using pointer = std::pair<K, T>*;
+        using reference = std::pair<K, T>&;
         const_iterator() {}
         const_iterator operator++()
         {
@@ -395,7 +400,7 @@ template <typename K, typename T, typename OPS> class dict
         const std::pair<K, T> *operator->() const { return &ptr->entries[index].udata; }
     };
 
-    class iterator : public std::iterator<std::forward_iterator_tag, std::pair<K, T>>
+    class iterator
     {
         friend class dict;
 
@@ -405,6 +410,11 @@ template <typename K, typename T, typename OPS> class dict
         iterator(dict *ptr, int index) : ptr(ptr), index(index) {}
 
       public:
+        using iterator_category = std::forward_iterator_tag;
+        using value_type = std::pair<K, T>;
+        using difference_type = std::ptrdiff_t;
+        using pointer = std::pair<K, T>*;
+        using reference = std::pair<K, T>&;
         iterator() {}
         iterator operator++()
         {
@@ -808,7 +818,7 @@ template <typename K, typename OPS> class pool
     }
 
   public:
-    class const_iterator : public std::iterator<std::forward_iterator_tag, K>
+    class const_iterator
     {
         friend class pool;
 
@@ -818,6 +828,11 @@ template <typename K, typename OPS> class pool
         const_iterator(const pool *ptr, int index) : ptr(ptr), index(index) {}
 
       public:
+        using iterator_category = std::forward_iterator_tag;
+        using value_type = K;
+        using difference_type = std::ptrdiff_t;
+        using pointer = K*;
+        using reference = K&;
         const_iterator() {}
         const_iterator operator++()
         {
@@ -830,7 +845,7 @@ template <typename K, typename OPS> class pool
         const K *operator->() const { return &ptr->entries[index].udata; }
     };
 
-    class iterator : public std::iterator<std::forward_iterator_tag, K>
+    class iterator
     {
         friend class pool;
 
@@ -840,6 +855,11 @@ template <typename K, typename OPS> class pool
         iterator(pool *ptr, int index) : ptr(ptr), index(index) {}
 
       public:
+        using iterator_category = std::forward_iterator_tag;
+        using value_type = K;
+        using difference_type = std::ptrdiff_t;
+        using pointer = K*;
+        using reference = K&;
         iterator() {}
         iterator operator++()
         {
@@ -1035,7 +1055,7 @@ template <typename K, int offset, typename OPS> class idict
     pool<K, OPS> database;
 
   public:
-    class const_iterator : public std::iterator<std::forward_iterator_tag, K>
+    class const_iterator
     {
         friend class idict;
 
@@ -1045,6 +1065,11 @@ template <typename K, int offset, typename OPS> class idict
         const_iterator(const idict &container, int index) : container(container), index(index) {}
 
       public:
+        using iterator_category = std::forward_iterator_tag;
+        using value_type = K;
+        using difference_type = std::ptrdiff_t;
+        using pointer = K*;
+        using reference = K&;
         const_iterator() {}
         const_iterator operator++()
         {
