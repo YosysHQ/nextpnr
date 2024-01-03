@@ -22,6 +22,9 @@
 namespace {
     USING_NEXTPNR_NAMESPACE;
 
+    // `memcpy` is used here to avoid strict-aliasing problems, but GCC dislikes it.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wclass-memaccess"
     template<typename T>
     uint64_t wrap(T thing) {
         static_assert(sizeof(T) <= 8, "T is too big for FFI");
@@ -50,6 +53,7 @@ namespace {
         memcpy(&w, &wire, sizeof(WireId));
         return w;
     }
+#pragma GCC diagnostic pop
 }
 
 using DownhillIter = decltype(Context(ArchArgs()).getPipsDownhill(WireId()).begin());
@@ -99,8 +103,10 @@ extern "C" {
 
     uint64_t npnr_context_get_pips_leak(const Context *ctx, uint64_t **pips) {
         auto size = size_t{};
-        for (auto _pip : ctx->getPips())
+        for (auto _pip : ctx->getPips()) {
+            NPNR_UNUSED(_pip);
             size++;
+        }
         *pips = new uint64_t[size];
         auto idx = 0;
         for (auto pip : ctx->getPips()) {
@@ -113,8 +119,10 @@ extern "C" {
 
     uint64_t npnr_context_get_wires_leak(const Context *ctx, uint64_t **wires) {
         auto size = size_t{};
-        for (auto _wire : ctx->getWires())
+        for (auto _wire : ctx->getWires()) {
+            NPNR_UNUSED(_wire);
             size++;
+        }
         *wires = new uint64_t[size];
         auto idx = 0;
         for (auto wire : ctx->getWires()) {
