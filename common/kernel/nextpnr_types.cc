@@ -23,7 +23,14 @@
 
 #include "nextpnr_namespaces.h"
 
+#include <type_traits>
+
 NEXTPNR_NAMESPACE_BEGIN
+
+// Invariant: architecture ID types must all be trivially copyable
+static_assert(std::is_trivially_copyable<BelId>::value == true);
+static_assert(std::is_trivially_copyable<WireId>::value == true);
+static_assert(std::is_trivially_copyable<PipId>::value == true);
 
 void CellInfo::addInput(IdString name)
 {
