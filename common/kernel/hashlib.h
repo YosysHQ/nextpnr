@@ -380,8 +380,8 @@ template <typename K, typename T, typename OPS> class dict
         using iterator_category = std::forward_iterator_tag;
         using value_type = std::pair<K, T>;
         using difference_type = std::ptrdiff_t;
-        using pointer = const std::pair<K, T>*;
-        using reference = const std::pair<K, T>&;
+        using pointer = const std::pair<K, T> *;
+        using reference = const std::pair<K, T> &;
         const_iterator() {}
         const_iterator operator++()
         {
@@ -413,8 +413,8 @@ template <typename K, typename T, typename OPS> class dict
         using iterator_category = std::forward_iterator_tag;
         using value_type = std::pair<K, T>;
         using difference_type = std::ptrdiff_t;
-        using pointer = std::pair<K, T>*;
-        using reference = std::pair<K, T>&;
+        using pointer = std::pair<K, T> *;
+        using reference = std::pair<K, T> &;
         iterator() {}
         iterator operator++()
         {
@@ -831,8 +831,8 @@ template <typename K, typename OPS> class pool
         using iterator_category = std::forward_iterator_tag;
         using value_type = K;
         using difference_type = std::ptrdiff_t;
-        using pointer = const K*;
-        using reference = const K&;
+        using pointer = const K *;
+        using reference = const K &;
         const_iterator() {}
         const_iterator operator++()
         {
@@ -858,8 +858,8 @@ template <typename K, typename OPS> class pool
         using iterator_category = std::forward_iterator_tag;
         using value_type = K;
         using difference_type = std::ptrdiff_t;
-        using pointer = K*;
-        using reference = K&;
+        using pointer = K *;
+        using reference = K &;
         iterator() {}
         iterator operator++()
         {
@@ -1068,8 +1068,8 @@ template <typename K, int offset, typename OPS> class idict
         using iterator_category = std::forward_iterator_tag;
         using value_type = K;
         using difference_type = std::ptrdiff_t;
-        using pointer = const K*;
-        using reference = const K&;
+        using pointer = const K *;
+        using reference = const K &;
         const_iterator() {}
         const_iterator operator++()
         {

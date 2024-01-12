@@ -35,10 +35,10 @@ struct IdStringList
 {
     SSOArray<IdString, 4> ids;
 
-    IdStringList() : ids(1, IdString()) { }
-    explicit IdStringList(size_t n) : ids(n, IdString()) { }
-    explicit IdStringList(IdString id) : ids(1, id) { }
-    template <typename Tlist> explicit IdStringList(const Tlist &list) : ids(list) { }
+    IdStringList() : ids(1, IdString()) {}
+    explicit IdStringList(size_t n) : ids(n, IdString()) {}
+    explicit IdStringList(IdString id) : ids(1, id) {}
+    template <typename Tlist> explicit IdStringList(const Tlist &list) : ids(list) {}
 
     static IdStringList parse(Context *ctx, const std::string &str);
     void build_str(const Context *ctx, std::string &str) const;

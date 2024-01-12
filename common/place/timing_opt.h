@@ -24,7 +24,7 @@ NEXTPNR_NAMESPACE_BEGIN
 
 struct TimingOptCfg
 {
-    TimingOptCfg(Context * /*ctx*/) { }
+    TimingOptCfg(Context * /*ctx*/) {}
 
     // The timing optimiser will *only* optimise cells of these types
     // Normally these would only be logic cells (or tiles if applicable), the algorithm makes little sense

@@ -185,7 +185,8 @@ template <typename R> struct BaseArch : ArchAPI<R>
         return empty_if_possible<typename R::BelAttrsRangeT>();
     }
 
-    virtual typename R::CellBelPinRangeT getBelPinsForCellPin(const CellInfo * /*cell_info*/, IdString pin) const override
+    virtual typename R::CellBelPinRangeT getBelPinsForCellPin(const CellInfo * /*cell_info*/,
+                                                              IdString pin) const override
     {
         return return_if_match<std::array<IdString, 1>, typename R::CellBelPinRangeT>({pin});
     }
@@ -314,7 +315,8 @@ template <typename R> struct BaseArch : ArchAPI<R>
     };
 
     // Delay methods
-    virtual bool getArcDelayOverride(const NetInfo * /*net_info*/, const PortRef &/*sink*/, DelayQuad &/*delay*/) const override
+    virtual bool getArcDelayOverride(const NetInfo * /*net_info*/, const PortRef & /*sink*/,
+                                     DelayQuad & /*delay*/) const override
     {
         return false;
     }
@@ -330,15 +332,18 @@ template <typename R> struct BaseArch : ArchAPI<R>
     virtual DecalXY getGroupDecal(GroupId /*group*/) const override { return DecalXY(); }
 
     // Cell timing methods
-    virtual bool getCellDelay(const CellInfo * /*cell*/, IdString /*fromPort*/, IdString /*toPort*/, DelayQuad &/*delay*/) const override
+    virtual bool getCellDelay(const CellInfo * /*cell*/, IdString /*fromPort*/, IdString /*toPort*/,
+                              DelayQuad & /*delay*/) const override
     {
         return false;
     }
-    virtual TimingPortClass getPortTimingClass(const CellInfo * /*cell*/, IdString /*port*/, int &/*clockInfoCount*/) const override
+    virtual TimingPortClass getPortTimingClass(const CellInfo * /*cell*/, IdString /*port*/,
+                                               int & /*clockInfoCount*/) const override
     {
         return TMG_IGNORE;
     }
-    virtual TimingClockingInfo getPortClockingInfo(const CellInfo * /*cell*/, IdString /*port*/, int /*index*/) const override
+    virtual TimingClockingInfo getPortClockingInfo(const CellInfo * /*cell*/, IdString /*port*/,
+                                                   int /*index*/) const override
     {
         NPNR_ASSERT_FALSE("unreachable");
     }

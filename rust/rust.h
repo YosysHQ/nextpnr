@@ -25,7 +25,7 @@
 #include "nextpnr.h"
 NEXTPNR_NAMESPACE_BEGIN
 
-void example_printnets(Context* ctx);
+void example_printnets(Context *ctx);
 
 NEXTPNR_NAMESPACE_END
 

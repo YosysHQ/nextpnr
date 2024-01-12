@@ -35,7 +35,7 @@ template <typename T> struct ContextualWrapper
     Context *ctx;
     T base;
 
-    inline ContextualWrapper(Context *c, T x) : ctx(c), base(x) { }
+    inline ContextualWrapper(Context *c, T x) : ctx(c), base(x) {}
 
     inline operator T() { return base; }
     typedef T base_type;

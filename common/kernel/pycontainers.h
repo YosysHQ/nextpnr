@@ -290,7 +290,7 @@ template <typename T1, typename T2> struct pair_wrapper
             x.second = val.cast<T2>();
     }
 
-    static int len(T &/*x*/) { return 2; }
+    static int len(T & /*x*/) { return 2; }
 
     static iter_pair<T &, int> iter(T &x) { return iter_pair<T &, int>(boost::ref(x), 0); };
 
@@ -348,7 +348,7 @@ template <typename T1, typename T2, typename value_conv> struct map_pair_wrapper
                                                                                                        x.base.first));
     }
 
-    static int len(wrapped_pair &/*x*/) { return 2; }
+    static int len(wrapped_pair & /*x*/) { return 2; }
 
     static iter_pair<wrapped_pair &, int> iter(wrapped_pair &x)
     {
@@ -472,11 +472,11 @@ template <typename T1, typename T2> struct map_pair_wrapper_uptr
         if (i >= 2 || i < 0)
             KeyError();
         return i == 1 ? py::cast(PythonConversion::ContextualWrapper<V &>(x.ctx, *x.base.second.get()))
-                        : py::cast(PythonConversion::string_converter<decltype(x.base.first)>().to_str(x.ctx,
-                                                                                                       x.base.first));
+                      : py::cast(PythonConversion::string_converter<decltype(x.base.first)>().to_str(x.ctx,
+                                                                                                     x.base.first));
     }
 
-    static int len(wrapped_pair &/*x*/) { return 2; }
+    static int len(wrapped_pair & /*x*/) { return 2; }
 
     static iter_pair<wrapped_pair &, int> iter(wrapped_pair &x)
     {

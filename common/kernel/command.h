@@ -34,7 +34,7 @@ class CommandHandler
 {
   public:
     CommandHandler(int argc, char **argv);
-    virtual ~CommandHandler() { }
+    virtual ~CommandHandler() {}
 
     int exec();
     void load_json(Context *ctx, std::string filename);
@@ -45,9 +45,9 @@ class CommandHandler
     virtual void setupArchContext(Context *ctx) = 0;
     virtual std::unique_ptr<Context> createContext(dict<std::string, Property> &values) = 0;
     virtual po::options_description getArchOptions() = 0;
-    virtual void validate() { }
-    virtual void customAfterLoad(Context * /*ctx*/) { }
-    virtual void customBitstream(Context * /*ctx*/) { }
+    virtual void validate() {}
+    virtual void customAfterLoad(Context * /*ctx*/) {}
+    virtual void customBitstream(Context * /*ctx*/) {}
     void conflicting_options(const boost::program_options::variables_map &vm, const char *opt1, const char *opt2);
 
   private:

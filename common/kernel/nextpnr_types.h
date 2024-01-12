@@ -81,8 +81,8 @@ struct PortRef
 struct DelayPair
 {
     DelayPair(){};
-    explicit DelayPair(delay_t delay) : min_delay(delay), max_delay(delay) { }
-    DelayPair(delay_t min_delay, delay_t max_delay) : min_delay(min_delay), max_delay(max_delay) { }
+    explicit DelayPair(delay_t delay) : min_delay(delay), max_delay(delay) {}
+    DelayPair(delay_t min_delay, delay_t max_delay) : min_delay(min_delay), max_delay(max_delay) {}
     delay_t minDelay() const { return min_delay; }
     delay_t maxDelay() const { return max_delay; }
     delay_t min_delay, max_delay;
@@ -100,12 +100,14 @@ struct DelayPair
 struct DelayQuad
 {
     DelayPair rise, fall;
-    DelayQuad() { }
-    explicit DelayQuad(delay_t delay) : rise(delay), fall(delay) { }
-    DelayQuad(delay_t min_delay, delay_t max_delay) : rise(min_delay, max_delay), fall(min_delay, max_delay) { }
-    DelayQuad(DelayPair rise, DelayPair fall) : rise(rise), fall(fall) { }
+    DelayQuad() {}
+    explicit DelayQuad(delay_t delay) : rise(delay), fall(delay) {}
+    DelayQuad(delay_t min_delay, delay_t max_delay) : rise(min_delay, max_delay), fall(min_delay, max_delay) {}
+    DelayQuad(DelayPair rise, DelayPair fall) : rise(rise), fall(fall) {}
     DelayQuad(delay_t min_rise, delay_t max_rise, delay_t min_fall, delay_t max_fall)
-            : rise(min_rise, max_rise), fall(min_fall, max_fall) { }
+            : rise(min_rise, max_rise), fall(min_fall, max_fall)
+    {
+    }
 
     delay_t minRiseDelay() const { return rise.minDelay(); }
     delay_t maxRiseDelay() const { return rise.maxDelay(); }
@@ -124,7 +126,7 @@ struct ClockConstraint;
 
 struct NetInfo : ArchNetInfo
 {
-    explicit NetInfo(IdString name) : name(name) { }
+    explicit NetInfo(IdString name) : name(name) {}
     IdString name, hierpath;
     int32_t udata = 0;
 
@@ -203,14 +205,20 @@ struct PseudoCell
 
 struct RegionPlug : PseudoCell
 {
-    RegionPlug(Loc loc) : loc(loc) { } // 'loc' is a notional location for the placer only
+    RegionPlug(Loc loc) : loc(loc) {} // 'loc' is a notional location for the placer only
     Loc getLocation() const override { return loc; }
     WireId getPortWire(IdString port) const override { return port_wires.at(port); }
 
     // TODO: partial reconfiguration region timing
-    bool getDelay(IdString /*fromPort*/, IdString /*toPort*/, DelayQuad &/*delay*/) const override { return false; }
-    TimingPortClass getPortTimingClass(IdString /*port*/, int &/*clockInfoCount*/) const override { return TMG_IGNORE; }
-    TimingClockingInfo getPortClockingInfo(IdString /*port*/, int /*index*/) const override { return TimingClockingInfo{}; }
+    bool getDelay(IdString /*fromPort*/, IdString /*toPort*/, DelayQuad & /*delay*/) const override { return false; }
+    TimingPortClass getPortTimingClass(IdString /*port*/, int & /*clockInfoCount*/) const override
+    {
+        return TMG_IGNORE;
+    }
+    TimingClockingInfo getPortClockingInfo(IdString /*port*/, int /*index*/) const override
+    {
+        return TimingClockingInfo{};
+    }
 
     dict<IdString, WireId> port_wires;
     Loc loc;
@@ -218,7 +226,7 @@ struct RegionPlug : PseudoCell
 
 struct CellInfo : ArchCellInfo
 {
-    CellInfo(Context *ctx, IdString name, IdString type) : ctx(ctx), name(name), type(type) { }
+    CellInfo(Context *ctx, IdString name, IdString type) : ctx(ctx), name(name), type(type) {}
     Context *ctx = nullptr;
 
     IdString name, type, hierpath;
