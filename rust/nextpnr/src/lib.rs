@@ -390,9 +390,9 @@ extern "C" {
     fn npnr_context_check(ctx: &Context);
     fn npnr_context_debug(ctx: &Context) -> bool;
     fn npnr_context_id(ctx: &Context, s: *const c_char) -> IdString;
-    fn npnr_context_name_of(ctx: &Context, s: IdString) -> &libc::c_char;
-    fn npnr_context_name_of_pip(ctx: &Context, pip: PipId) -> &libc::c_char;
-    fn npnr_context_name_of_wire(ctx: &Context, wire: WireId) -> &libc::c_char;
+    fn npnr_context_name_of(ctx: &Context, s: IdString) -> *const libc::c_char;
+    fn npnr_context_name_of_pip(ctx: &Context, pip: PipId) -> *const libc::c_char;
+    fn npnr_context_name_of_wire(ctx: &Context, wire: WireId) -> *const libc::c_char;
     fn npnr_context_verbose(ctx: &Context) -> bool;
 
     fn npnr_context_get_netinfo_source_wire(ctx: &Context, net: &NetInfo) -> WireId;
