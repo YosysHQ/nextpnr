@@ -61,9 +61,8 @@ pub struct PortRef {
 }
 
 impl PortRef {
-    pub fn cell_mut(&mut self) -> Option<&mut CellInfo> {
-        // SAFETY: handing out &mut is safe when we have &mut self
-        // as getting multiple &mut CellInfo would require multiple &mut PortRef.
+    pub fn cell(&self) -> Option<&CellInfo> {
+        // SAFETY: handing out &s is safe when we have &self.
         unsafe { npnr_portref_cell(self) }
     }
 }
@@ -419,7 +418,7 @@ extern "C" {
     fn npnr_netinfo_udata(net: &NetInfo) -> NetIndex;
     fn npnr_netinfo_udata_set(net: &mut NetInfo, value: NetIndex);
 
-    fn npnr_portref_cell(port: &mut PortRef) -> Option<&mut CellInfo>;
+    fn npnr_portref_cell(port: &PortRef) -> Option<&CellInfo>;
     fn npnr_cellinfo_get_location(info: &CellInfo) -> Loc;
 
     fn npnr_inc_downhill_iter(iter: &mut RawDownhillIter);
