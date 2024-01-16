@@ -217,7 +217,7 @@ PortRef *npnr_netinfo_driver(NetInfo *net)
 uint32_t npnr_netinfo_users_leak(const NetInfo *net, const PortRef ***users)
 {
     auto size = net->users.entries();
-    *users = new PortRef *[size];
+    *users = new const PortRef *[size];
     auto idx = 0;
     for (auto &item : net->users) {
         (*users)[idx] = &item;
