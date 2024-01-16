@@ -140,6 +140,9 @@ impl From<(i32, i32)> for Loc {
     }
 }
 
+static RINGBUFFER_MUTEX: Mutex<()> = Mutex::new(());
+static ARCH_MUTEX: Mutex<()> = Mutex::new(());
+
 #[repr(C)]
 pub struct Context {
     _private: [u8; 0],
@@ -157,15 +160,14 @@ impl Context {
     }
 
     /// Bind a given bel to a given cell with the given strength.
-    ///
-    /// # Safety
-    /// `cell` must be valid and not null.
-    pub unsafe fn bind_bel(&mut self, bel: BelId, cell: *mut CellInfo, strength: PlaceStrength) {
+    pub fn bind_bel(&mut self, bel: BelId, cell: &mut CellInfo, strength: PlaceStrength) {
+        let _lock = ARCH_MUTEX.lock().unwrap();
         unsafe { npnr_context_bind_bel(self, bel, cell, strength) }
     }
 
     /// Unbind a bel.
     pub fn unbind_bel(&mut self, bel: BelId) {
+        let _lock = ARCH_MUTEX.lock().unwrap();
         unsafe { npnr_context_unbind_bel(self, bel) }
     }
 
@@ -175,28 +177,26 @@ impl Context {
     }
 
     /// Bind a wire to a net. This method must be used when binding a wire that is driven by a bel pin. Use bindPip() when binding a wire that is driven by a pip.
-    ///
-    /// # Safety
-    /// `net` must be valid and not null.
-    pub unsafe fn bind_wire(&mut self, wire: WireId, net: *mut NetInfo, strength: PlaceStrength) {
+    pub fn bind_wire(&mut self, wire: WireId, net: &mut NetInfo, strength: PlaceStrength) {
+        let _lock = ARCH_MUTEX.lock().unwrap();
         unsafe { npnr_context_bind_wire(self, wire, net, strength) }
     }
 
     /// Unbind a wire. For wires that are driven by a pip, this will also unbind the driving pip.
     pub fn unbind_wire(&mut self, wire: WireId) {
+        let _lock = ARCH_MUTEX.lock().unwrap();
         unsafe { npnr_context_unbind_wire(self, wire) }
     }
 
     /// Bind a pip to a net. This also binds the destination wire of that pip.
-    ///
-    /// # Safety
-    /// `net` must be valid and not null.
-    pub unsafe fn bind_pip(&mut self, pip: PipId, net: *mut NetInfo, strength: PlaceStrength) {
+    pub fn bind_pip(&mut self, pip: PipId, net: &mut NetInfo, strength: PlaceStrength) {
+        let _lock = ARCH_MUTEX.lock().unwrap();
         unsafe { npnr_context_bind_pip(self, pip, net, strength) }
     }
 
     /// Unbind a pip and the wire driven by that pip.
     pub fn unbind_pip(&mut self, pip: PipId) {
+        let _lock = ARCH_MUTEX.lock().unwrap();
         unsafe { npnr_context_unbind_pip(self, pip) }
     }
 
@@ -332,16 +332,17 @@ impl Context {
     }
 
     pub fn name_of(&self, s: IdString) -> &CStr {
+        let _lock = RINGBUFFER_MUTEX.lock().unwrap();
         unsafe { CStr::from_ptr(npnr_context_name_of(self, s)) }
     }
 
     pub fn name_of_pip(&self, pip: PipId) -> &CStr {
+        let _lock = RINGBUFFER_MUTEX.lock().unwrap();
         unsafe { CStr::from_ptr(npnr_context_name_of_pip(self, pip)) }
     }
 
     pub fn name_of_wire(&self, wire: WireId) -> &CStr {
-        static MUTEX: Mutex<()> = Mutex::new(());
-        let _lock = MUTEX.lock().unwrap();
+        let _lock = RINGBUFFER_MUTEX.lock().unwrap();
         unsafe { CStr::from_ptr(npnr_context_name_of_wire(self, wire)) }
     }
 
