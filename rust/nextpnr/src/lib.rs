@@ -32,7 +32,7 @@ pub struct NetInfo {
 }
 
 impl NetInfo {
-    pub fn driver(&mut self) -> *mut PortRef {
+    pub fn driver(&mut self) -> &mut PortRef {
         unsafe { npnr_netinfo_driver(self) }
     }
 
@@ -61,15 +61,10 @@ pub struct PortRef {
 }
 
 impl PortRef {
-    pub fn cell(&self) -> Option<&CellInfo> {
-        // SAFETY: handing out &s is safe when we have &self.
-        unsafe { npnr_portref_cell(self).as_ref() }
-    }
-
     pub fn cell_mut(&mut self) -> Option<&mut CellInfo> {
         // SAFETY: handing out &mut is safe when we have &mut self
         // as getting multiple &mut CellInfo would require multiple &mut PortRef.
-        unsafe { npnr_portref_cell(self).as_mut() }
+        unsafe { npnr_portref_cell(self) }
     }
 }
 
@@ -227,15 +222,11 @@ impl Context {
         unsafe { npnr_context_delay_epsilon(self) }
     }
 
-    /// # Safety
-    /// `net` must be valid and not null.
-    pub unsafe fn source_wire(&self, net: *const NetInfo) -> WireId {
+    pub fn source_wire(&self, net: &NetInfo) -> WireId {
         unsafe { npnr_context_get_netinfo_source_wire(self, net) }
     }
 
-    /// # Safety
-    /// `net` and `sink` must be valid and not null.
-    pub unsafe fn sink_wires(&self, net: *const NetInfo, sink: *const PortRef) -> Vec<WireId> {
+    pub fn sink_wires(&self, net: &NetInfo, sink: &PortRef) -> Vec<WireId> {
         let mut v = Vec::new();
         let mut n = 0;
         loop {
@@ -312,9 +303,7 @@ impl Context {
         Loc{x: dst.x - src.x, y: dst.y - src.y, z: 0}
     }
 
-    /// # Safety
-    /// `net` must be valid and not null.
-    pub unsafe fn pip_avail_for_net(&self, pip: PipId, net: *mut NetInfo) -> bool {
+    pub fn pip_avail_for_net(&self, pip: PipId, net: &mut NetInfo) -> bool {
         unsafe { npnr_context_check_pip_avail_for_net(self, pip, net) }
     }
 
@@ -359,92 +348,92 @@ extern "C" {
     fn npnr_wireid_null() -> WireId;
     fn npnr_pipid_null() -> PipId;
 
-    fn npnr_context_get_grid_dim_x(ctx: *const Context) -> libc::c_int;
-    fn npnr_context_get_grid_dim_y(ctx: *const Context) -> libc::c_int;
+    fn npnr_context_get_grid_dim_x(ctx: &Context) -> libc::c_int;
+    fn npnr_context_get_grid_dim_y(ctx: &Context) -> libc::c_int;
     fn npnr_context_bind_bel(
-        ctx: *mut Context,
+        ctx: &mut Context,
         bel: BelId,
-        cell: *mut CellInfo,
+        cell: &mut CellInfo,
         strength: PlaceStrength,
     );
-    fn npnr_context_unbind_bel(ctx: *mut Context, bel: BelId);
-    fn npnr_context_check_bel_avail(ctx: *const Context, bel: BelId) -> bool;
+    fn npnr_context_unbind_bel(ctx: &mut Context, bel: BelId);
+    fn npnr_context_check_bel_avail(ctx: &Context, bel: BelId) -> bool;
     fn npnr_context_bind_wire(
-        ctx: *mut Context,
+        ctx: &mut Context,
         wire: WireId,
-        net: *mut NetInfo,
+        net: &mut NetInfo,
         strength: PlaceStrength,
     );
-    fn npnr_context_unbind_wire(ctx: *mut Context, wire: WireId);
+    fn npnr_context_unbind_wire(ctx: &mut Context, wire: WireId);
     fn npnr_context_bind_pip(
-        ctx: *mut Context,
+        ctx: &mut Context,
         pip: PipId,
-        net: *mut NetInfo,
+        net: &mut NetInfo,
         strength: PlaceStrength,
     );
-    fn npnr_context_unbind_pip(ctx: *mut Context, pip: PipId);
-    fn npnr_context_get_pip_src_wire(ctx: *const Context, pip: PipId) -> WireId;
-    fn npnr_context_get_pip_dst_wire(ctx: *const Context, pip: PipId) -> WireId;
-    fn npnr_context_estimate_delay(ctx: *const Context, src: WireId, dst: WireId) -> f32;
-    fn npnr_context_delay_epsilon(ctx: *const Context) -> f32;
-    fn npnr_context_get_pip_delay(ctx: *const Context, pip: PipId) -> f32;
-    fn npnr_context_get_wire_delay(ctx: *const Context, wire: WireId) -> f32;
-    fn npnr_context_get_wires_leak(ctx: *const Context, wires: *mut *mut WireId) -> u64;
-    fn npnr_context_get_pips_leak(ctx: *const Context, pips: *mut *mut PipId) -> u64;
-    fn npnr_context_get_pip_location(ctx: *const Context, pip: PipId) -> Loc;
+    fn npnr_context_unbind_pip(ctx: &mut Context, pip: PipId);
+    fn npnr_context_get_pip_src_wire(ctx: &Context, pip: PipId) -> WireId;
+    fn npnr_context_get_pip_dst_wire(ctx: &Context, pip: PipId) -> WireId;
+    fn npnr_context_estimate_delay(ctx: &Context, src: WireId, dst: WireId) -> f32;
+    fn npnr_context_delay_epsilon(ctx: &Context) -> f32;
+    fn npnr_context_get_pip_delay(ctx: &Context, pip: PipId) -> f32;
+    fn npnr_context_get_wire_delay(ctx: &Context, wire: WireId) -> f32;
+    fn npnr_context_get_wires_leak(ctx: &Context, wires: *mut *mut WireId) -> u64;
+    fn npnr_context_get_pips_leak(ctx: &Context, pips: *mut *mut PipId) -> u64;
+    fn npnr_context_get_pip_location(ctx: &Context, pip: PipId) -> Loc;
     fn npnr_context_check_pip_avail_for_net(
-        ctx: *const Context,
+        ctx: &Context,
         pip: PipId,
-        net: *const NetInfo,
+        net: &NetInfo,
     ) -> bool;
 
-    fn npnr_context_check(ctx: *const Context);
-    fn npnr_context_debug(ctx: *const Context) -> bool;
-    fn npnr_context_id(ctx: *const Context, s: *const c_char) -> IdString;
-    fn npnr_context_name_of(ctx: *const Context, s: IdString) -> *const libc::c_char;
-    fn npnr_context_name_of_pip(ctx: *const Context, pip: PipId) -> *const libc::c_char;
-    fn npnr_context_name_of_wire(ctx: *const Context, wire: WireId) -> *const libc::c_char;
-    fn npnr_context_verbose(ctx: *const Context) -> bool;
+    fn npnr_context_check(ctx: &Context);
+    fn npnr_context_debug(ctx: &Context) -> bool;
+    fn npnr_context_id(ctx: &Context, s: *const c_char) -> IdString;
+    fn npnr_context_name_of(ctx: &Context, s: IdString) -> &libc::c_char;
+    fn npnr_context_name_of_pip(ctx: &Context, pip: PipId) -> &libc::c_char;
+    fn npnr_context_name_of_wire(ctx: &Context, wire: WireId) -> &libc::c_char;
+    fn npnr_context_verbose(ctx: &Context) -> bool;
 
-    fn npnr_context_get_netinfo_source_wire(ctx: *const Context, net: *const NetInfo) -> WireId;
+    fn npnr_context_get_netinfo_source_wire(ctx: &Context, net: &NetInfo) -> WireId;
     fn npnr_context_get_netinfo_sink_wire(
-        ctx: *const Context,
-        net: *const NetInfo,
-        sink: *const PortRef,
+        ctx: &Context,
+        net: &NetInfo,
+        sink: &PortRef,
         n: u32,
     ) -> WireId;
 
     fn npnr_context_nets_leak(
-        ctx: *const Context,
+        ctx: &Context,
         names: *mut *mut libc::c_int,
         nets: *mut *mut *mut NetInfo,
     ) -> u32;
-    fn npnr_context_get_pips_downhill(ctx: *const Context, wire: WireId) -> *mut RawDownhillIter;
-    fn npnr_delete_downhill_iter(iter: *mut RawDownhillIter);
-    fn npnr_context_get_pips_uphill(ctx: *const Context, wire: WireId) -> *mut RawUphillIter;
-    fn npnr_delete_uphill_iter(iter: *mut RawUphillIter);
+    fn npnr_context_get_pips_downhill(ctx: &Context, wire: WireId) -> &mut RawDownhillIter;
+    fn npnr_delete_downhill_iter(iter: &mut RawDownhillIter);
+    fn npnr_context_get_pips_uphill(ctx: &Context, wire: WireId) -> &mut RawUphillIter;
+    fn npnr_delete_uphill_iter(iter: &mut RawUphillIter);
 
-    fn npnr_netinfo_driver(net: *mut NetInfo) -> *mut PortRef;
-    fn npnr_netinfo_users_leak(net: *mut NetInfo, users: *mut *mut *mut PortRef) -> u32;
-    fn npnr_netinfo_is_global(net: *const NetInfo) -> bool;
-    fn npnr_netinfo_udata(net: *const NetInfo) -> NetIndex;
-    fn npnr_netinfo_udata_set(net: *mut NetInfo, value: NetIndex);
+    fn npnr_netinfo_driver(net: &mut NetInfo) -> &mut PortRef;
+    fn npnr_netinfo_users_leak(net: &NetInfo, users: *mut *mut *const PortRef) -> u32;
+    fn npnr_netinfo_is_global(net: &NetInfo) -> bool;
+    fn npnr_netinfo_udata(net: &NetInfo) -> NetIndex;
+    fn npnr_netinfo_udata_set(net: &mut NetInfo, value: NetIndex);
 
-    fn npnr_portref_cell(port: *const PortRef) -> *mut CellInfo;
-    fn npnr_cellinfo_get_location(info: *const CellInfo) -> Loc;
+    fn npnr_portref_cell(port: &mut PortRef) -> Option<&mut CellInfo>;
+    fn npnr_cellinfo_get_location(info: &CellInfo) -> Loc;
 
-    fn npnr_inc_downhill_iter(iter: *mut RawDownhillIter);
-    fn npnr_deref_downhill_iter(iter: *mut RawDownhillIter) -> PipId;
-    fn npnr_is_downhill_iter_done(iter: *mut RawDownhillIter) -> bool;
-    fn npnr_inc_uphill_iter(iter: *mut RawUphillIter);
-    fn npnr_deref_uphill_iter(iter: *mut RawUphillIter) -> PipId;
-    fn npnr_is_uphill_iter_done(iter: *mut RawUphillIter) -> bool;
+    fn npnr_inc_downhill_iter(iter: &mut RawDownhillIter);
+    fn npnr_deref_downhill_iter(iter: &mut RawDownhillIter) -> PipId;
+    fn npnr_is_downhill_iter_done(iter: &mut RawDownhillIter) -> bool;
+    fn npnr_inc_uphill_iter(iter: &mut RawUphillIter);
+    fn npnr_deref_uphill_iter(iter: &mut RawUphillIter) -> PipId;
+    fn npnr_is_uphill_iter_done(iter: &mut RawUphillIter) -> bool;
 }
 
 /// Store for the nets of a context.
 pub struct Nets<'a> {
-    nets: HashMap<IdString, *mut NetInfo>,
-    users: HashMap<IdString, &'a [&'a mut PortRef]>,
+    nets: HashMap<IdString, &'a mut NetInfo>,
+    users: HashMap<IdString, &'a [&'a PortRef]>,
     index_to_net: Vec<IdString>,
     _data: PhantomData<&'a Context>,
 }
@@ -471,21 +460,21 @@ impl<'a> Nets<'a> {
         let mut index_to_net = Vec::new();
         for i in 0..size {
             let name = unsafe { IdString(*names.add(i as usize)) };
-            let net = unsafe { *nets_ptr.add(i as usize) };
+            let net = unsafe { &mut **nets_ptr.add(i as usize) };
             let mut users_ptr = std::ptr::null_mut();
             // SAFETY: net is not null because it's a &mut, and users is only written to.
             // Leaking memory is the most convenient FFI I could think of.
             let len =
-                unsafe { npnr_netinfo_users_leak(net, &mut users_ptr as *mut *mut *mut PortRef) };
+                unsafe { npnr_netinfo_users_leak(net, &mut users_ptr as *mut *mut *const PortRef) };
             let users_slice =
-                unsafe { slice::from_raw_parts(users_ptr as *mut &mut PortRef, len as usize) };
-            nets.insert(name, net);
-            users.insert(name, users_slice);
+                unsafe { slice::from_raw_parts(users_ptr as *mut &PortRef, len as usize) };
             let index = index_to_net.len() as i32;
             index_to_net.push(name);
             unsafe {
                 npnr_netinfo_udata_set(net, NetIndex(index));
             }
+            nets.insert(name, net);
+            users.insert(name, users_slice);
         }
         // Note: the contents of `names` and `nets_ptr` are now lost.
         Self {
@@ -497,7 +486,7 @@ impl<'a> Nets<'a> {
     }
 
     /// Find net users given a net's name.
-    pub fn users_by_name(&self, net: IdString) -> Option<&&[&mut PortRef]> {
+    pub fn users_by_name(&self, net: IdString) -> Option<&&[&PortRef]> {
         self.users.get(&net)
     }
 
@@ -514,11 +503,11 @@ impl<'a> Nets<'a> {
         self.index_to_net[index.0 as usize]
     }
 
-    pub fn net_from_index(&self, index: NetIndex) -> *mut NetInfo {
-        *self.nets.get(&self.name_from_index(index)).unwrap()
+    pub fn net_from_index(&self, index: NetIndex) -> &NetInfo {
+        self.nets.get(&self.name_from_index(index)).unwrap()
     }
 
-    pub fn to_vec(&self) -> Vec<(&IdString, &*mut NetInfo)> {
+    pub fn to_vec(&self) -> Vec<(&IdString, &&mut NetInfo)> {
         let mut v = Vec::new();
         v.extend(self.nets.iter());
         v.sort_by_key(|(name, _net)| name.0);
@@ -528,8 +517,8 @@ impl<'a> Nets<'a> {
 
 pub struct NetSinkWireIter<'a> {
     ctx: &'a Context,
-    net: *const NetInfo,
-    sink: *const PortRef,
+    net: &'a NetInfo,
+    sink: &'a PortRef,
     n: u32,
 }
 
@@ -553,8 +542,8 @@ struct RawDownhillIter {
 }
 
 pub struct DownhillPipsIter<'a> {
-    iter: *mut RawDownhillIter,
-    phantom_data: std::marker::PhantomData<&'a PipId>,
+    iter: &'a mut RawDownhillIter,
+    phantom_data: PhantomData<&'a PipId>,
 }
 
 impl<'a> Iterator for DownhillPipsIter<'a> {
@@ -583,8 +572,8 @@ struct RawUphillIter {
 }
 
 pub struct UphillPipsIter<'a> {
-    iter: *mut RawUphillIter,
-    phantom_data: std::marker::PhantomData<&'a PipId>,
+    iter: &'a mut RawUphillIter,
+    phantom_data: PhantomData<&'a PipId>,
 }
 
 impl<'a> Iterator for UphillPipsIter<'a> {
