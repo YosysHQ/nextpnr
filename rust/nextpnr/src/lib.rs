@@ -438,9 +438,6 @@ pub struct Nets<'a> {
     _data: PhantomData<&'a Context>,
 }
 
-unsafe impl Send for Nets<'_> {}
-unsafe impl Sync for Nets<'_> {}
-
 impl<'a> Nets<'a> {
     /// Create a new store for the nets of a context.
     ///
