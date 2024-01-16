@@ -129,7 +129,7 @@ bool npnr_context_check_pip_avail_for_net(const Context *ctx, uint64_t pip, NetI
     return ctx->checkPipAvailForNet(unwrap_pip(pip), net);
 }
 
-uint64_t npnr_context_get_pips_leak(const Context *const ctx, uint64_t **const pips)
+uint64_t npnr_context_get_pips_leak(const Context *ctx, uint64_t **const pips)
 {
     const auto ctx_pips{ctx->getPips()};
     const auto size{std::accumulate(ctx_pips.begin(), ctx_pips.end(), /*initial value*/ size_t{},
@@ -144,7 +144,7 @@ uint64_t npnr_context_get_pips_leak(const Context *const ctx, uint64_t **const p
     return size;
 }
 
-uint64_t npnr_context_get_wires_leak(const Context *const ctx, uint64_t **const wires)
+uint64_t npnr_context_get_wires_leak(const Context *ctx, uint64_t **const wires)
 {
     const auto ctx_wires{ctx->getWires()};
     const auto size{std::accumulate(ctx_wires.begin(), ctx_wires.end(), /*initial value*/ size_t{},
