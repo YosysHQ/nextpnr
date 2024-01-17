@@ -32,7 +32,7 @@ pub struct NetInfo {
 }
 
 impl NetInfo {
-    pub fn driver(&mut self) -> &mut PortRef {
+    pub fn driver(&mut self) -> Option<&mut PortRef> {
         unsafe { npnr_netinfo_driver(self) }
     }
 
@@ -412,7 +412,7 @@ extern "C" {
     fn npnr_context_get_pips_uphill(ctx: &Context, wire: WireId) -> &mut RawUphillIter;
     fn npnr_delete_uphill_iter(iter: &mut RawUphillIter);
 
-    fn npnr_netinfo_driver(net: &mut NetInfo) -> &mut PortRef;
+    fn npnr_netinfo_driver(net: &mut NetInfo) -> Option<&mut PortRef>;
     fn npnr_netinfo_users_leak(net: &NetInfo, users: *mut *mut *const PortRef) -> u32;
     fn npnr_netinfo_is_global(net: &NetInfo) -> bool;
     fn npnr_netinfo_udata(net: &NetInfo) -> NetIndex;
