@@ -116,7 +116,7 @@ template <typename CoordinateT, typename ElementT> class QuadTreeNode
     BoundingBox bound_;
     // How many elements should be contained in this node until it splits into
     // sub-nodes.
-    const size_t max_elems_;
+    size_t max_elems_;
     // Four sub-nodes or nullptr if it hasn't split yet.
     std::unique_ptr<QuadTreeNode<CoordinateT, ElementT>[]> children_ = nullptr;
     // Coordinates of the split.
