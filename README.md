@@ -118,18 +118,6 @@ sudo make install
 
 Nexus support is currently experimental, and has only been tested with engineering sample silicon.
 
-### nextpnr-gowin
-
-For Gowin support, install [Project Apicula](https://github.com/YosysHQ/apicula). If a virtualenv is used, the path to `gowin_bba` needs to be provided as follows:
-
-```
-cmake . -DARCH=gowin -DGOWIN_BBA_EXECUTABLE=path
-make -j$(nproc)
-sudo make install
-```
-
- - Examples of the Gowin flow for a range of boards can be found in the [Project Apicula Examples](https://github.com/YosysHQ/apicula/tree/master/examples).
-
 ### nextpnr-generic
 
 The generic target allows running placement and routing for arbitrary custom architectures.
@@ -141,6 +129,22 @@ sudo make install
 ```
 
 An example of how to use the generic flow is in [generic/examples](generic/examples). See also the [Generic Architecture docs](docs/generic.md).
+
+### nextpnr-himbaechel
+
+The himbaechel target allows running placement and routing for larger architectures that share a common structure.
+
+#### gowin
+
+For Gowin support, install [Project Apicula](https://github.com/YosysHQ/apicula)
+
+```
+cmake . -DARCH="himbaechel" -DHIMBAECHEL_GOWIN_DEVICES="all"
+make -j$(nproc)
+sudo make install
+```
+
+ - Examples of the Gowin flow for a range of boards can be found in the [Project Apicula Examples](https://github.com/YosysHQ/apicula/tree/master/examples).
 
 ### GUI
 
