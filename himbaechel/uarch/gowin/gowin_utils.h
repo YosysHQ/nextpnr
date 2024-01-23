@@ -38,6 +38,21 @@ struct GowinUtils
 
     // wires
     inline bool is_wire_type_default(IdString wire_type) { return wire_type == IdString(); }
+    // If wire is an important part of the global network (like SPINExx)
+    inline bool is_global_wire(WireId wire) const
+    {
+        return ctx->getWireName(wire)[1].in(
+                id_SPINE0, id_SPINE1, id_SPINE2, id_SPINE3, id_SPINE4, id_SPINE5, id_SPINE6, id_SPINE7, id_SPINE8,
+                id_SPINE9, id_SPINE10, id_SPINE11, id_SPINE12, id_SPINE13, id_SPINE14, id_SPINE15, id_SPINE16,
+                id_SPINE17, id_SPINE18, id_SPINE19, id_SPINE20, id_SPINE21, id_SPINE22, id_SPINE23, id_SPINE24,
+                id_SPINE25, id_SPINE26, id_SPINE27, id_SPINE28, id_SPINE29, id_SPINE30, id_SPINE31);
+    }
+
+    // pips
+    inline bool is_global_pip(PipId pip) const
+    {
+        return is_global_wire(ctx->getPipSrcWire(pip)) || is_global_wire(ctx->getPipDstWire(pip));
+    }
 
     // chip dependent
     bool have_SP32(void);

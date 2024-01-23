@@ -40,6 +40,8 @@ struct GowinGlobalRouter
 
     GowinGlobalRouter(Context *ctx) : ctx(ctx) { gwu.init(ctx); };
 
+    bool checkPipAvail(PipId pip) const { return gwu.is_global_pip(pip) || ctx->checkPipAvail(pip); };
+
     // allow io->global, global->global and global->tile clock
     bool global_pip_filter(PipId pip) const
     {
@@ -91,7 +93,7 @@ struct GowinGlobalRouter
             // Search uphill pips
             for (PipId pip : ctx->getPipsUphill(cursor)) {
                 // Skip pip if unavailable, and not because it's already used for this net
-                if (!ctx->checkPipAvail(pip) && ctx->getBoundPipNet(pip) != net) {
+                if (!checkPipAvail(pip) && ctx->getBoundPipNet(pip) != net) {
                     continue;
                 }
                 WireId prev = ctx->getPipSrcWire(pip);

@@ -38,6 +38,9 @@ struct GowinImpl : HimbaechelAPI
 
     bool isValidBelForCellType(IdString cell_type, BelId bel) const override;
 
+    // wires
+    bool checkPipAvail(PipId pip) const override;
+
   private:
     HimbaechelHelpers h;
     GowinUtils gwu;
@@ -153,6 +156,9 @@ void GowinImpl::init(Context *ctx)
         ctx->settings[ctx->id("cst.filename")] = args.options.at("cst");
     }
 }
+
+// We do not allow the use of global wires that bypass a special router.
+bool GowinImpl::checkPipAvail(PipId pip) const { return !gwu.is_global_pip(pip); }
 
 void GowinImpl::pack()
 {

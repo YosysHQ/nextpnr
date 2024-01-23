@@ -1294,6 +1294,24 @@ struct GowinPacker
         }
     }
 
+    // If the memory is controlled by the CE, then it is logical for the OCE to
+    // also respond to this signal, unless the OCE is controlled separately.
+    void bsram_handle_sp_oce(CellInfo *ci, IdString ce_pin, IdString oce_pin)
+    {
+        const NetInfo *net = ci->getPort(oce_pin);
+        NPNR_ASSERT(ci->getPort(ce_pin) != nullptr);
+        if (net == nullptr || net->name == ctx->id("$PACKER_VCC") || net->name == ctx->id("$PACKER_GND")) {
+            if (net != nullptr) {
+                ci->disconnectPort(oce_pin);
+            }
+            ci->copyPortTo(ce_pin, ci, oce_pin);
+        }
+        if (ctx->verbose) {
+            log_info("%s: %s = %s = %s\n", ctx->nameOf(ci), ce_pin.c_str(ctx), oce_pin.c_str(ctx),
+                     ctx->nameOf(ci->getPort(oce_pin)));
+        }
+    }
+
     void pack_ROM(CellInfo *ci)
     {
         int default_bw = 32;
@@ -1512,6 +1530,8 @@ struct GowinPacker
         }
 
         int bit_width = ci->params.at(id_BIT_WIDTH).as_int64();
+        bsram_handle_sp_oce(ci, id_CE, id_OCE);
+
         // XXX UG285-1.3.6_E Gowin BSRAM & SSRAM User Guide:
         // For GW1N-9/GW1NR-9/GW1NS-4 series, 32/36-bit SP/SPX9 is divided into two
         // SP/SPX9s, which occupy two BSRAMs.
@@ -1624,6 +1644,25 @@ struct GowinPacker
     }
 
     // ===================================
+    // Replace INV with LUT
+    // ===================================
+    void pack_inv(void)
+    {
+        log_info("Pack INV..\n");
+
+        for (auto &cell : ctx->cells) {
+            auto &ci = *cell.second;
+
+            if (ci.type == id_INV) {
+                ci.type = id_LUT4;
+                ci.renamePort(id_O, id_F);
+                ci.renamePort(id_I, id_I3); // use D - it's simple for INIT
+                ci.params[id_INIT] = Property(0x00ff);
+            }
+        }
+    }
+
+    // ===================================
     // PLL
     // ===================================
     void pack_pll(void)
@@ -1698,6 +1737,9 @@ struct GowinPacker
         ctx->check();
 
         pack_gsr();
+        ctx->check();
+
+        pack_inv();
         ctx->check();
 
         pack_wideluts();
