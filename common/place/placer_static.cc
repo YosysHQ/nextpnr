@@ -40,6 +40,14 @@
 
 #include "fftsg.h"
 
+#ifndef NEXTPNR_DISABLE_THREADS
+#include <atomic>
+#include <condition_variable>
+#include <mutex>
+#include <thread>
+
+#endif
+
 NEXTPNR_NAMESPACE_BEGIN
 
 using namespace StaticUtil;
@@ -140,6 +148,93 @@ struct PlacerNet
     int hpwl() { return (b1.x - b0.x) + (b1.y - b0.y); }
 };
 
+#ifdef NEXTPNR_DISABLE_THREADS
+struct ThreadPool
+{
+    ThreadPool(int){};
+
+    void run(int N, std::function<void(int)> func)
+    {
+        for (int i = 0; i < N; i++)
+            func(i);
+    };
+};
+#else
+struct ThreadPool
+{
+    ThreadPool(int thread_count)
+    {
+        done.resize(thread_count, false);
+        for (int i = 0; i < thread_count; i++) {
+            threads.emplace_back([this, i]() { this->worker(i); });
+        }
+    }
+    std::vector<std::thread> threads;
+    std::condition_variable cv_start, cv_done;
+    std::mutex mutex;
+
+    bool work_available = false;
+    bool shutdown = false;
+    std::vector<bool> done;
+    std::function<void(int)> work;
+    int work_count;
+
+    ~ThreadPool()
+    {
+        {
+            std::lock_guard lk(mutex);
+            shutdown = true;
+        }
+        cv_start.notify_all();
+        for (auto &t : threads)
+            t.join();
+    }
+
+    void run(int N, std::function<void(int)> func)
+    {
+        {
+            std::lock_guard lk(mutex);
+            work = func;
+            work_count = N;
+            work_available = true;
+            std::fill(done.begin(), done.end(), false);
+        }
+        cv_start.notify_all();
+        {
+            std::unique_lock lk(mutex);
+            cv_done.wait(lk, [this] { return std::all_of(done.begin(), done.end(), [](bool x) { return x; }); });
+            work_available = false;
+        }
+    }
+
+    void worker(int idx)
+    {
+        while (true) {
+            std::unique_lock lk(mutex);
+            cv_start.wait(lk, [this, idx] { return (work_available && !done.at(idx)) || shutdown; });
+            if (shutdown) {
+                lk.unlock();
+                break;
+            } else if (work_available && !done.at(idx)) {
+                int work_per_thread = (work_count + int(threads.size()) - 1) / threads.size();
+                int begin = work_per_thread * idx;
+                int end = std::min(work_count, work_per_thread * (idx + 1));
+                lk.unlock();
+
+                for (int j = begin; j < end; j++) {
+                    work(j);
+                }
+
+                lk.lock();
+                done.at(idx) = true;
+                lk.unlock();
+                cv_done.notify_one();
+            }
+        }
+    }
+};
+#endif
+
 class StaticPlacer
 {
     Context *ctx;
@@ -154,6 +249,7 @@ class StaticPlacer
 
     FastBels fast_bels;
     TimingAnalyser tmg;
+    ThreadPool pool;
 
     int width, height;
     int iter = 0;
@@ -626,12 +722,14 @@ class StaticPlacer
 
     RealPair wl_coeff{0.5f, 0.5f};
 
-    void update_nets(Axis axis, bool ref)
+    void update_nets(bool ref)
     {
         static constexpr float min_wirelen_force = -300.f;
-        for (auto &net : nets) {
+        pool.run(2 * nets.size(), [&](int i) {
+            auto &net = nets.at(i / 2);
+            auto axis = (i % 2) ? Axis::Y : Axis::X;
             if (net.skip)
-                continue;
+                return;
             net.min_exp.at(axis) = 0;
             net.x_min_exp.at(axis) = 0;
             net.max_exp.at(axis) = 0;
@@ -665,7 +763,7 @@ class StaticPlacer
             }
             net.wa_wl.at(axis) =
                     (net.x_max_exp.at(axis) / net.max_exp.at(axis)) - (net.x_min_exp.at(axis) / net.min_exp.at(axis));
-        }
+        });
     }
 
     float wirelen_grad(CellInfo *cell, Axis axis, bool ref)
@@ -709,13 +807,11 @@ class StaticPlacer
     void update_gradients(bool ref = true, bool set_prev = true, bool init_penalty = false)
     {
         // TODO: skip non-group cells more efficiently?
-        for (int group = 0; group < int(groups.size()); group++) {
+        pool.run(groups.size(), [&](int group) {
             compute_density(group, ref);
             run_fft(group);
-        }
-        for (auto axis : {Axis::X, Axis::Y}) {
-            update_nets(axis, ref);
-        }
+        });
+        update_nets(ref);
         // First loop: back up gradients if required; set to zero; and compute density gradient
         for (auto &cell : mcells) {
             auto &g = groups.at(cell.group);
@@ -966,9 +1062,7 @@ class StaticPlacer
         log_info("Strict legalising %d cells...\n", int(to_legalise.size()));
         float pre_hpwl = system_hpwl();
         legalise_placement_strict(true);
-        for (auto axis : {Axis::X, Axis::Y}) {
-            update_nets(axis, true);
-        }
+        update_nets(true);
         float post_hpwl = system_hpwl();
         log_info("HPWL after legalise: %f (delta: %f)\n", post_hpwl, post_hpwl - pre_hpwl);
     }
@@ -1244,7 +1338,8 @@ class StaticPlacer
     }
 
   public:
-    StaticPlacer(Context *ctx, PlacerStaticCfg cfg) : ctx(ctx), cfg(cfg), fast_bels(ctx, true, 8), tmg(ctx)
+    StaticPlacer(Context *ctx, PlacerStaticCfg cfg)
+            : ctx(ctx), cfg(cfg), fast_bels(ctx, true, 8), tmg(ctx), pool(ctx->setting<int>("threads", 8))
     {
         groups.resize(cfg.cell_groups.size());
     };
