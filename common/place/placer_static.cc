@@ -40,7 +40,7 @@
 
 #include "fftsg.h"
 
-#ifndef NEXTPNR_DISABLE_THREADS
+#ifndef NPNR_DISABLE_THREADS
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
@@ -148,7 +148,7 @@ struct PlacerNet
     int hpwl() { return (b1.x - b0.x) + (b1.y - b0.y); }
 };
 
-#ifdef NEXTPNR_DISABLE_THREADS
+#ifdef NPNR_DISABLE_THREADS
 struct ThreadPool
 {
     ThreadPool(int){};
