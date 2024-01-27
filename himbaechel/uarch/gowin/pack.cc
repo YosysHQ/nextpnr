@@ -1465,9 +1465,6 @@ struct GowinPacker
         NetInfo *vss_net = ctx->nets.at(ctx->id("$PACKER_GND")).get();
 
         IdString cell_type = id_SP;
-        if (bw == 36) {
-            cell_type = id_SPX9;
-        }
         IdString name = ctx->idf("%s_AUX", ctx->nameOf(ci));
 
         auto sp_cell = gwu.create_cell(name, cell_type);
