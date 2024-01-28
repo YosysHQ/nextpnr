@@ -186,9 +186,6 @@ struct GowinGlobalRouter
                 break;
             }
         }
-        if (!routed) {
-            ctx->unbindWire(src);
-        }
         return routed;
     }
 
@@ -280,7 +277,10 @@ struct GowinGlobalRouter
         for (auto &net : ctx->nets) {
             NetInfo *ni = net.second.get();
             CellInfo *drv = ni->driver.cell;
-            if (drv == nullptr) {
+            if (drv == nullptr || ni->users.empty()) {
+                if (ctx->verbose) {
+                    log_info("skip empty or driverless net:%s\n", ctx->nameOf(ni));
+                }
                 continue;
             }
             if (driver_is_buf(ni->driver)) {
@@ -294,7 +294,10 @@ struct GowinGlobalRouter
         for (auto &net : ctx->nets) {
             NetInfo *ni = net.second.get();
             CellInfo *drv = ni->driver.cell;
-            if (drv == nullptr) {
+            if (drv == nullptr || ni->users.empty()) {
+                if (ctx->verbose) {
+                    log_info("skip empty or driverless net:%s\n", ctx->nameOf(ni));
+                }
                 continue;
             }
             if (driver_is_clksrc(ni->driver)) {
