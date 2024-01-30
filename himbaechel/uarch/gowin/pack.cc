@@ -1395,6 +1395,7 @@ struct GowinPacker
             ci->renamePort(ctx->idf("BLKSELB[%d]", i), ctx->idf("BLKSELB%d", i));
         }
 
+        bsram_handle_sp_oce(ci, id_CEB, id_OCE);
         ci->copyPortTo(id_OCE, ci, id_OCEB);
 
         // Port A
