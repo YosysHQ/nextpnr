@@ -71,7 +71,7 @@ struct GowinGlobalRouter
     template <typename Tfilt>
     bool backwards_bfs_route(NetInfo *net, WireId src, WireId dst, int iter_limit, bool strict, Tfilt pip_filter)
     {
-        // log_info("%s:%s->%s\n", net->name.c_str(ctx), ctx->nameOfWire(src), ctx->nameOfWire(dst));
+        // log_info("route arc %s:%s->%s\n", net->name.c_str(ctx), ctx->nameOfWire(src), ctx->nameOfWire(dst));
         // Queue of wires to visit
         std::queue<WireId> visit;
         // Wire -> upstream pip
@@ -141,7 +141,7 @@ struct GowinGlobalRouter
             // Bind pips until we hit already-bound routing
             for (PipId pip : pips) {
                 WireId dst = ctx->getPipDstWire(pip);
-                // log_info("%s:%s\n", ctx->getPipName(pip).str(ctx).c_str(), ctx->nameOfWire(dst));
+                // log_info("bind pip %s:%s\n", ctx->getPipName(pip).str(ctx).c_str(), ctx->nameOfWire(dst));
                 if (ctx->getBoundWireNet(dst) == net) {
                     break;
                 }
@@ -160,7 +160,14 @@ struct GowinGlobalRouter
         }
     }
 
-    bool route_direct_net(NetInfo *net)
+    enum RouteResult
+    {
+        NOT_ROUTED = 0,
+        ROUTED_PARTIALLY,
+        ROUTED_ALL
+    };
+
+    RouteResult route_direct_net(NetInfo *net)
     {
         // Lookup source and destination wires
         WireId src = ctx->getNetinfoSourceWire(net);
@@ -172,19 +179,23 @@ struct GowinGlobalRouter
             ctx->bindWire(src, net, STRENGTH_LOCKED);
         }
 
-        bool routed = false;
+        RouteResult routed = NOT_ROUTED;
         for (auto usr : net->users.enumerate()) {
             WireId dst = ctx->getNetinfoSinkWire(net, net->users.at(usr.index), 0);
             if (dst == WireId()) {
                 log_error("Net '%s' has an invalid sink port %s.%s\n", ctx->nameOf(net),
                           ctx->nameOf(net->users.at(usr.index).cell), ctx->nameOf(net->users.at(usr.index).port));
             }
-            routed = backwards_bfs_route(net, src, dst, 1000000, false, [&](PipId pip) {
-                return (is_relaxed_sink(usr.value) || global_pip_filter(pip));
-            });
-            if (!routed) {
-                break;
+            if (backwards_bfs_route(net, src, dst, 1000000, false, [&](PipId pip) {
+                    return (is_relaxed_sink(usr.value) || global_pip_filter(pip));
+                })) {
+                routed = routed == ROUTED_PARTIALLY ? routed : ROUTED_ALL;
+            } else {
+                routed = routed == NOT_ROUTED ? routed : ROUTED_PARTIALLY;
             }
+        }
+        if (routed == NOT_ROUTED) {
+            ctx->unbindWire(src);
         }
         return routed;
     }
@@ -229,8 +240,10 @@ struct GowinGlobalRouter
 
     void route_clk_net(NetInfo *net)
     {
-        if (route_direct_net(net)) {
-            log_info("    routed net '%s' using global resources\n", ctx->nameOf(net));
+        RouteResult res = route_direct_net(net);
+        if (res) {
+            log_info("    routed net '%s' using global resources %s\n", ctx->nameOf(net),
+                     res == ROUTED_ALL ? "completely" : "partially");
         }
     }
 
@@ -301,6 +314,9 @@ struct GowinGlobalRouter
                 continue;
             }
             if (driver_is_clksrc(ni->driver)) {
+                if (ctx->verbose) {
+                    log_info("route clock net '%s'\n", ctx->nameOf(ni));
+                }
                 route_clk_net(ni);
                 continue;
             }
