@@ -302,7 +302,7 @@ impl Context {
         Loc{x: dst.x - src.x, y: dst.y - src.y, z: 0}
     }
 
-    pub fn pip_avail_for_net(&self, pip: PipId, net: &mut NetInfo) -> bool {
+    pub fn pip_avail_for_net(&self, pip: PipId, net: &NetInfo) -> bool {
         unsafe { npnr_context_check_pip_avail_for_net(self, pip, net) }
     }
 
@@ -508,6 +508,18 @@ impl<'a> Nets<'a> {
         v.extend(self.nets.iter());
         v.sort_by_key(|(name, _net)| name.0);
         v
+    }
+
+    pub fn to_arc_vec(&self) -> Vec<(IdString, &NetInfo, &PortRef)> {
+        self.nets.iter()
+            .filter_map(|(&name, net)| {
+                self.users.get(&name)
+                .map(|&users|
+                    users.iter().map(move |&user| (name, &**net, user))
+                )
+            })
+            .flatten()
+            .collect()
     }
 }
 

@@ -1,0 +1,19 @@
+[package]
+name = "awooter"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "awooter"
+path = "src/lib.rs"
+crate-type = ["staticlib"]
+
+[dependencies]
+nextpnr = { path = "../nextpnr" }
+indicatif = { version = "0.17", features = ["rayon"] }
+rayon = "1.6"
+colored = "2"
+itertools = "0.10.5"
+enumflags2 = "0.7.5"

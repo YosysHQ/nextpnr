@@ -3,4 +3,6 @@
 members = [
     "nextpnr",
     "example_printnets",
+    "awooter",
 ]
+resolver = "2"
