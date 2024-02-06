@@ -242,8 +242,8 @@ struct GowinGlobalRouter
     {
         RouteResult res = route_direct_net(net);
         if (res) {
-            log_info("    routed net '%s' using global resources %s\n", ctx->nameOf(net),
-                     res == ROUTED_ALL ? "completely" : "partially");
+            log_info("    routed net '%s' using global resources %s.\n", ctx->nameOf(net),
+                     res == ROUTED_ALL ? "only" : "partially");
         }
     }
 
