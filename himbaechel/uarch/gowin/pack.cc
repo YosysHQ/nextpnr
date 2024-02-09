@@ -347,11 +347,19 @@ struct GowinPacker
         }
     }
 
-    BelId get_iologic_bel(CellInfo *iob)
+    BelId get_iologico_bel(CellInfo *iob)
     {
         NPNR_ASSERT(iob->bel != BelId());
         Loc loc = ctx->getBelLocation(iob->bel);
         loc.z = loc.z - BelZ::IOBA_Z + BelZ::IOLOGICA_Z;
+        return ctx->getBelByLocation(loc);
+    }
+
+    BelId get_iologici_bel(CellInfo *iob)
+    {
+        NPNR_ASSERT(iob->bel != BelId());
+        Loc loc = ctx->getBelLocation(iob->bel);
+        loc.z = loc.z - BelZ::IOBA_Z + BelZ::IOLOGICA_Z + 2;
         return ctx->getBelByLocation(loc);
     }
 
@@ -367,6 +375,26 @@ struct GowinPacker
         }
     }
 
+    // While we require an exact match of the type, in the future the criteria
+    // may be relaxed and there will be a comparison of the control networks
+    // used.
+    bool are_iologic_compatible(CellInfo *ci_0, CellInfo *ci_1)
+    {
+        switch (ci_0->type.hash()) {
+        case ID_ODDR:
+            return ci_1->type == id_IDDR;
+        case ID_ODDRC:
+            return ci_1->type == id_IDDRC;
+        case ID_IDDR:
+            return ci_1->type == id_ODDR;
+        case ID_IDDRC:
+            return ci_1->type == id_ODDRC;
+        default:
+            return false;
+        }
+        return false;
+    }
+
     void pack_bi_output_iol(CellInfo &ci, std::vector<IdString> &nets_to_remove)
     {
         // These primitives have an additional pin to control the tri-state iob - Q1.
@@ -377,7 +405,16 @@ struct GowinPacker
         NPNR_ASSERT(out_iob != nullptr && out_iob->bel != BelId());
         BelId iob_bel = out_iob->bel;
 
-        BelId l_bel = get_iologic_bel(out_iob);
+        BelId l_bel = get_iologico_bel(out_iob);
+        // check compatible Input and Output iologic if any
+        BelId in_l_bel = get_iologici_bel(out_iob);
+        if (in_l_bel != BelId() && !ctx->checkBelAvail(in_l_bel)) {
+            CellInfo *in_iologic_ci = ctx->getBoundBelCell(in_l_bel);
+            if (!are_iologic_compatible(&ci, in_iologic_ci)) {
+                log_error("IOLOGIC %s at %s cannot coexist with %s\n", ctx->nameOf(&ci), ctx->nameOfBel(iob_bel),
+                          ctx->nameOf(in_iologic_ci));
+            }
+        }
         if (l_bel == BelId()) {
             log_error("Can't place IOLOGIC %s at %s\n", ctx->nameOf(&ci), ctx->nameOfBel(iob_bel));
         }
@@ -434,7 +471,7 @@ struct GowinPacker
         NPNR_ASSERT(out_iob != nullptr && out_iob->bel != BelId());
         BelId iob_bel = out_iob->bel;
 
-        BelId l_bel = get_iologic_bel(out_iob);
+        BelId l_bel = get_iologico_bel(out_iob);
         if (l_bel == BelId()) {
             log_error("Can't place IOLOGIC %s at %s\n", ctx->nameOf(&ci), ctx->nameOfBel(iob_bel));
         }
@@ -554,7 +591,7 @@ struct GowinPacker
         NPNR_ASSERT(in_iob != nullptr && in_iob->bel != BelId());
         BelId iob_bel = in_iob->bel;
 
-        BelId l_bel = get_iologic_bel(in_iob);
+        BelId l_bel = get_iologici_bel(in_iob);
         if (l_bel == BelId()) {
             log_error("Can't place IOLOGIC %s at %s\n", ctx->nameOf(&ci), ctx->nameOfBel(iob_bel));
         }
@@ -605,7 +642,7 @@ struct GowinPacker
 
         for (auto &cell : ctx->cells) {
             CellInfo &ci = *cell.second;
-            if (!is_iologic(&ci)) {
+            if (!(is_iologici(&ci) || is_iologico(&ci))) {
                 continue;
             }
             if (ctx->debug) {
@@ -704,7 +741,7 @@ struct GowinPacker
         aux->setParam(ctx->id("UPDATE"), Property("SAME"));
 
         // make cell in the next location
-        ctx->createCell(main_name, id_IOLOGIC);
+        ctx->createCell(main_name, id_IOLOGICO);
         aux = ctx->cells.at(main_name).get();
 
         aux->setAttr(ctx->id("MAIN_CELL"), Property(main_name.str(ctx)));
@@ -777,7 +814,7 @@ struct GowinPacker
         ci.copyPortTo(id_CALIB, aux, id_CALIB);
 
         // make cell in the next location
-        ctx->createCell(main_name, id_IOLOGIC);
+        ctx->createCell(main_name, id_IOLOGICI);
         aux = ctx->cells.at(main_name).get();
 
         aux->setAttr(ctx->id("MAIN_CELL"), Property(main_name.str(ctx)));
