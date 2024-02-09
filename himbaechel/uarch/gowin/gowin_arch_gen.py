@@ -32,10 +32,10 @@ IOBA_Z  = 50
 IOBB_Z  = 51
 
 IOLOGICA_Z = 70
-IDES16_Z   = 72
-OSER16_Z   = 73
+IDES16_Z   = 74
+OSER16_Z   = 75
 
-BUFG_Z  = 74 # : 81 reserve just in case
+BUFG_Z  = 76 # : 81 reserve just in case
 BSRAM_Z = 100
 
 OSC_Z   = 274
@@ -438,19 +438,20 @@ def create_io_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc:
     for idx, name in {(IOLOGICA_Z, 'IOLOGICA'), (IOLOGICA_Z + 1, 'IOLOGICB')}:
         if name not in db.grid[y][x].bels:
             continue
-        iol = tt.create_bel(name, "IOLOGIC", z = idx)
-        for port, wire in db.grid[y][x].bels[name].portmap.items():
-            if port == 'FCLK': # XXX compatibility
-                wire = f'FCLK{name[-1]}'
-            if not tt.has_wire(wire):
-                if port in {'CLK', 'PCLK'}:
-                    tt.create_wire(wire, "TILE_CLK")
+        for off, io_type in {(0, 'O'), (2, 'I')}:
+            iol = tt.create_bel(f"{name}{io_type}", f"IOLOGIC{io_type}", z = idx + off)
+            for port, wire in db.grid[y][x].bels[name].portmap.items():
+                if port == 'FCLK': # XXX compatibility
+                    wire = f'FCLK{name[-1]}'
+                if not tt.has_wire(wire):
+                    if port in {'CLK', 'PCLK'}:
+                        tt.create_wire(wire, "TILE_CLK")
+                    else:
+                        tt.create_wire(wire, "IOL_PORT")
+                if port in {'Q', 'Q0', 'Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7', 'Q8', 'Q9', 'DF', 'LAG', 'LEAD'}:
+                    tt.add_bel_pin(iol, port, wire, PinType.OUTPUT)
                 else:
-                    tt.create_wire(wire, "IOL_PORT")
-            if port in {'Q', 'Q0', 'Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7', 'Q8', 'Q9', 'DF', 'LAG', 'LEAD'}:
-                tt.add_bel_pin(iol, port, wire, PinType.OUTPUT)
-            else:
-                tt.add_bel_pin(iol, port, wire, PinType.INPUT)
+                    tt.add_bel_pin(iol, port, wire, PinType.INPUT)
     tdesc.tiletype = tiletype
     return tt
 

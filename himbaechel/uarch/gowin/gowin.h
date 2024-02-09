@@ -28,12 +28,19 @@ inline bool type_is_diffio(IdString cell_type)
 }
 inline bool is_diffio(const CellInfo *cell) { return type_is_diffio(cell->type); }
 
-inline bool type_is_iologic(IdString cell_type)
+// IOLOGIC input and output separately
+
+inline bool type_is_iologico(IdString cell_type)
 {
-    return cell_type.in(id_ODDR, id_ODDRC, id_OSER4, id_OSER8, id_OSER10, id_OVIDEO, id_IDDR, id_IDDRC, id_IDES4,
-                        id_IDES8, id_IDES10, id_IVIDEO);
+    return cell_type.in(id_ODDR, id_ODDRC, id_OSER4, id_OSER8, id_OSER10, id_OVIDEO);
 }
-inline bool is_iologic(const CellInfo *cell) { return type_is_iologic(cell->type); }
+inline bool is_iologico(const CellInfo *cell) { return type_is_iologico(cell->type); }
+
+inline bool type_is_iologici(IdString cell_type)
+{
+    return cell_type.in(id_IDDR, id_IDDRC, id_IDES4, id_IDES8, id_IDES10, id_IVIDEO);
+}
+inline bool is_iologici(const CellInfo *cell) { return type_is_iologici(cell->type); }
 
 // Return true if a cell is a SSRAM
 inline bool type_is_ssram(IdString cell_type) { return cell_type.in(id_RAM16SDP1, id_RAM16SDP2, id_RAM16SDP4); }
@@ -96,10 +103,10 @@ enum
     IOBB_Z = 51, // +IOBC...IOBL
 
     IOLOGICA_Z = 70,
-    IDES16_Z = 72,
-    OSER16_Z = 73,
+    IDES16_Z = 74,
+    OSER16_Z = 75,
 
-    BUFG_Z = 74, // : 81 reserve just in case
+    BUFG_Z = 76, // : 81 reserve just in case
     BSRAM_Z = 100,
 
     OSC_Z = 274,

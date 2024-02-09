@@ -200,7 +200,8 @@ void GowinImpl::postRoute()
 
     for (auto &cell : ctx->cells) {
         auto ci = cell.second.get();
-        if (ci->type == id_IOLOGIC || (is_iologic(ci) && !ci->type.in(id_ODDR, id_ODDRC, id_IDDR, id_IDDRC))) {
+        if (ci->type.in(id_IOLOGICI, id_IOLOGICO) ||
+            ((is_iologici(ci) || is_iologico(ci)) && !ci->type.in(id_ODDR, id_ODDRC, id_IDDR, id_IDDRC))) {
             if (visited_hclk_users.find(ci->name) == visited_hclk_users.end()) {
                 // mark FCLK<-HCLK connections
                 const NetInfo *h_net = ci->getPort(id_FCLK);
@@ -269,8 +270,11 @@ IdString GowinImpl::getBelBucketForCellType(IdString cell_type) const
     if (type_is_ssram(cell_type)) {
         return id_RAM16SDP4;
     }
-    if (type_is_iologic(cell_type)) {
-        return id_IOLOGIC;
+    if (type_is_iologici(cell_type)) {
+        return id_IOLOGICI;
+    }
+    if (type_is_iologico(cell_type)) {
+        return id_IOLOGICO;
     }
     if (type_is_bsram(cell_type)) {
         return id_BSRAM;
@@ -299,8 +303,11 @@ bool GowinImpl::isValidBelForCellType(IdString cell_type, BelId bel) const
     if (bel_type == id_RAM16SDP4) {
         return type_is_ssram(cell_type);
     }
-    if (bel_type == id_IOLOGIC) {
-        return type_is_iologic(cell_type);
+    if (bel_type == id_IOLOGICI) {
+        return type_is_iologici(cell_type);
+    }
+    if (bel_type == id_IOLOGICO) {
+        return type_is_iologico(cell_type);
     }
     if (bel_type == id_BSRAM) {
         return type_is_bsram(cell_type);

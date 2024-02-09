@@ -52,14 +52,15 @@ bool GowinUtils::is_simple_io_bel(BelId bel)
 
 Loc GowinUtils::get_pair_iologic_bel(Loc loc)
 {
-    loc.z = BelZ::IOLOGICA_Z + (1 - (loc.z - BelZ::IOLOGICA_Z));
+    int const z[] = {1, 0, 3, 2};
+    loc.z = BelZ::IOLOGICA_Z + z[(loc.z - BelZ::IOLOGICA_Z)];
     return loc;
 }
 
 BelId GowinUtils::get_io_bel_from_iologic(BelId bel)
 {
     Loc loc = ctx->getBelLocation(bel);
-    loc.z = BelZ::IOBA_Z + loc.z - BelZ::IOLOGICA_Z;
+    loc.z = BelZ::IOBA_Z + ((loc.z - BelZ::IOLOGICA_Z) & 1);
     return ctx->getBelByLocation(loc);
 }
 
