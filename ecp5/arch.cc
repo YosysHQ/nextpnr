@@ -627,6 +627,9 @@ void configure_static(Arch *arch, PlacerStaticCfg &cfg)
         comb.bel_area[id_MULT18X18D] = StaticRect(2.0f, 1.0f);
         comb.spacer_rect = StaticRect(2.0f, 1.0f);
     }
+    cfg.timing_c = (120 - 22 * arch->args.speed) * 6;
+    cfg.timing_mx = (120 - 22 * arch->args.speed);
+    cfg.timing_my = (120 - 22 * arch->args.speed);
 }
 } // namespace
 
