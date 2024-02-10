@@ -741,7 +741,7 @@ struct GowinPacker
         aux->setParam(ctx->id("UPDATE"), Property("SAME"));
 
         // make cell in the next location
-        ctx->createCell(main_name, id_IOLOGICO);
+        ctx->createCell(main_name, id_IOLOGIC);
         aux = ctx->cells.at(main_name).get();
 
         aux->setAttr(ctx->id("MAIN_CELL"), Property(main_name.str(ctx)));
@@ -814,7 +814,7 @@ struct GowinPacker
         ci.copyPortTo(id_CALIB, aux, id_CALIB);
 
         // make cell in the next location
-        ctx->createCell(main_name, id_IOLOGICI);
+        ctx->createCell(main_name, id_IOLOGIC);
         aux = ctx->cells.at(main_name).get();
 
         aux->setAttr(ctx->id("MAIN_CELL"), Property(main_name.str(ctx)));
