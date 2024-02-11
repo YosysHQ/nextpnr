@@ -286,12 +286,14 @@ struct GowinGlobalRouter
     void run(void)
     {
         log_info("Routing globals...\n");
+
+        std::vector<IdString> routed_nets;
         // buffered nets first
         for (auto &net : ctx->nets) {
             NetInfo *ni = net.second.get();
             CellInfo *drv = ni->driver.cell;
             if (drv == nullptr || ni->users.empty()) {
-                if (ctx->verbose) {
+                if (ctx->debug) {
                     log_info("skip empty or driverless net:%s\n", ctx->nameOf(ni));
                 }
                 continue;
@@ -301,14 +303,21 @@ struct GowinGlobalRouter
                     log_info("route buffered net '%s'\n", ctx->nameOf(ni));
                 }
                 route_buffered_net(ni);
+                routed_nets.push_back(net.first);
                 continue;
             }
         }
         for (auto &net : ctx->nets) {
+            if (std::find(routed_nets.begin(), routed_nets.end(), net.first) != routed_nets.end()) {
+                if (ctx->debug) {
+                    log_info("skip already routed net:%s\n", net.first.c_str(ctx));
+                }
+                continue;
+            }
             NetInfo *ni = net.second.get();
             CellInfo *drv = ni->driver.cell;
             if (drv == nullptr || ni->users.empty()) {
-                if (ctx->verbose) {
+                if (ctx->debug) {
                     log_info("skip empty or driverless net:%s\n", ctx->nameOf(ni));
                 }
                 continue;
