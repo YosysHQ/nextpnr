@@ -408,7 +408,17 @@ class StaticPlacer
             StaticRect rect;
             // Mismatched group case
             if (!lookup_group(ci->type, cell_group, rect)) {
-                // TODO: what is the best thing to do here? singletons/odd cells we can probably mostly randomly place
+                for (auto bel : ctx->getBels()) {
+                    if (ctx->isValidBelForCellType(ci->type, bel) && ctx->checkBelAvail(bel)) {
+                        ctx->bindBel(bel, ci, STRENGTH_STRONG);
+                        if (!ctx->isBelLocationValid(bel)) {
+                            ctx->unbindBel(bel);
+                        } else {
+                            log_info("    placed potpourri cell '%s' at bel '%s'\n", ctx->nameOf(ci), ctx->nameOfBel(bel));
+                            break;
+                        }
+                    }
+                }
                 continue;
             }
             if (ci->cluster != ClusterId()) {
