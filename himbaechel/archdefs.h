@@ -85,7 +85,28 @@ struct PipId
     unsigned int hash() const { return mkhash(tile, index); }
 };
 
-typedef IdString DecalId;
+struct DecalId
+{
+    int32_t tile = -1;
+    int32_t index = -1;
+    enum DecalType
+    {
+        TYPE_NONE,
+        TYPE_BEL,
+        TYPE_WIRE,
+        TYPE_PIP,
+        TYPE_GROUP
+    } type = TYPE_NONE;
+    bool active = false;
+
+    DecalId() = default;
+    DecalId(int32_t tile, int32_t index, DecalType type) : tile(tile), index(index), type(type) {};
+
+    bool operator==(const DecalId &other) const { return tile == other.tile && index == other.index && type == other.type; }
+    bool operator!=(const DecalId &other) const { return tile != other.tile || index != other.index || type != other.type; }
+    unsigned int hash() const { return mkhash(tile, mkhash(index, type)); }
+};
+
 typedef IdString GroupId;
 typedef IdString BelBucketId;
 typedef IdString ClusterId;
