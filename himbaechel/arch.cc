@@ -501,4 +501,71 @@ IdString Arch::get_tile_type(int tile) const
     return IdString(tile_data.type_name);
 }
 
+std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
+{
+    uint32_t flags = uarch->gfxAttributes();
+    bool invert_y = flags & GfxFlags::FLAG_INVERT_Y;
+    std::vector<GraphicElement> ret;
+    if (flags & GfxFlags::FLAG_SHOW_BEL && decal.type == DecalId::TYPE_BEL) {
+        BelId bel(decal.tile, decal.index);
+        Loc loc = getBelLocation(bel);
+        if (invert_y)
+            loc.y = getGridDimY() - loc.y - 1;
+        GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+        uarch->gfxTileBel(ret, loc.x, loc.y, loc.z, getGridDimX(), getGridDimY(), getBelType(bel), style);
+    } else if (flags & GfxFlags::FLAG_SHOW_WIRE && decal.type == DecalId::TYPE_WIRE) {
+        WireId wire(decal.tile, decal.index);
+        auto wire_type = getWireType(wire);
+        GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+        Loc loc;
+        tile_xy(chip_info, wire.tile, loc.x, loc.y);
+        if (invert_y)
+            loc.y = getGridDimY() - loc.y - 1;
+        int32_t tilewire = chip_wire_info(chip_info, wire).flags;
+        uarch->gfxTileWire(ret, loc.x, loc.y, getGridDimX(), getGridDimY(), wire_type, tilewire, style);
+    } else if (flags & GfxFlags::FLAG_SHOW_PIP && decal.type == DecalId::TYPE_PIP) {
+        PipId pip(decal.tile, decal.index);
+        WireId src_wire = getPipSrcWire(pip);
+        WireId dst_wire = getPipDstWire(pip);
+        Loc loc = getPipLocation(pip);
+        if (invert_y)
+            loc.y = getGridDimY() - loc.y - 1;
+        int32_t src_id = chip_wire_info(chip_info, src_wire).flags;
+        int32_t dst_id = chip_wire_info(chip_info, dst_wire).flags;
+        GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_HIDDEN;
+        uarch->gfxTilePip(ret, loc.x, loc.y, getGridDimX(), getGridDimY(), src_wire, getWireType(src_wire), src_id, dst_wire,
+                   getWireType(dst_wire), dst_id, style);
+    }
+    return ret;
+}
+
+DecalXY Arch::getBelDecal(BelId bel) const
+{
+    DecalXY decalxy;
+    decalxy.decal = DecalId(bel.tile, bel.index, DecalId::TYPE_BEL);
+    decalxy.decal.active = getBoundBelCell(bel) != nullptr;
+    return decalxy;
+}
+
+DecalXY Arch::getWireDecal(WireId wire) const
+{
+    DecalXY decalxy;
+    decalxy.decal = DecalId(wire.tile, wire.index, DecalId::TYPE_WIRE);
+    decalxy.decal.active = getBoundWireNet(wire) != nullptr;
+    return decalxy;
+}
+
+DecalXY Arch::getPipDecal(PipId pip) const
+{
+    DecalXY decalxy;
+    decalxy.decal = DecalId(pip.tile, pip.index, DecalId::TYPE_PIP);
+    decalxy.decal.active = getBoundPipNet(pip) != nullptr;
+    return decalxy;
+}
+
+DecalXY Arch::getGroupDecal(GroupId group) const
+{
+    return DecalXY();
+}
+
 NEXTPNR_NAMESPACE_END
