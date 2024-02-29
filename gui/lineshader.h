@@ -170,6 +170,7 @@ class LineShader
 
   public:
     LineShader(QObject *parent) : parent_(parent), program_(nullptr) {}
+    ~LineShader() { ((QOpenGLWidget*) parent_)->makeCurrent(); }
 
     static constexpr const char *vertexShaderSource_ =
             "#version 150\n"
