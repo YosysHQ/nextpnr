@@ -29,6 +29,7 @@ a.out
 *.il
 /generic/examples/blinky.png
 build/
+share/
 *.asc
 *.bin
 /Testing/*
