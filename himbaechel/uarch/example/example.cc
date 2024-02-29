@@ -135,6 +135,49 @@ struct ExampleImpl : HimbaechelAPI
             return false;
         return true;
     }
+
+    uint32_t gfxAttributes() override { return GfxFlags::FLAG_INVERT_Y | GfxFlags::FLAG_SHOW_BEL; }
+
+    void gfxTileBel(std::vector<GraphicElement> &g, int x, int y, int z, int w, int h, IdString bel_type,
+                GraphicElement::style_t style) override
+    {
+        GraphicElement el;
+        el.type = GraphicElement::TYPE_BOX;
+        el.style = style;
+        switch (bel_type.index)
+        {
+            case id_LUT4.index :
+                el.x1 = x + 0.15;
+                el.x2 = el.x1 + 0.25;
+                el.y1 = y + 0.85 - (z / 2) * 0.1;
+                el.y2 = el.y1 - 0.05;
+                g.push_back(el);
+                break;
+            case id_DFF.index :
+                el.x1 = x + 0.55;
+                el.x2 = el.x1 + 0.25;
+                el.y1 = y + 0.85 - (z / 2) * 0.1;
+                el.y2 = el.y1 - 0.05;
+                g.push_back(el);
+                break;
+            case id_GND_DRV.index :
+            case id_VCC_DRV.index :
+            case id_IOB.index :
+                el.x1 = x + 0.25;
+                el.x2 = el.x1 + 0.50;
+                el.y1 = y + 0.80 - z * 0.40;
+                el.y2 = el.y1 - 0.25;
+                g.push_back(el);
+                break;
+            case id_BRAM_512X16.index :
+                el.x1 = x + 0.25;
+                el.x2 = el.x1 + 0.50;
+                el.y1 = y + 0.80;
+                el.y2 = el.y1 - 0.60;
+                g.push_back(el);
+                break;
+        }
+    }
 };
 
 struct ExampleArch : HimbaechelArch

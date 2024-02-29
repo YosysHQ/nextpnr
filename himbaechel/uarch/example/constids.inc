@@ -13,6 +13,8 @@ X(IOB)
 X(PAD)
 X(INIT)
 
+X(BRAM_512X16)
+
 X(GND)
 X(GND_DRV)
 X(VCC)
