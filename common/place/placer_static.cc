@@ -408,7 +408,17 @@ class StaticPlacer
             StaticRect rect;
             // Mismatched group case
             if (!lookup_group(ci->type, cell_group, rect)) {
-                // TODO: what is the best thing to do here? singletons/odd cells we can probably mostly randomly place
+                for (auto bel : ctx->getBels()) {
+                    if (ctx->isValidBelForCellType(ci->type, bel) && ctx->checkBelAvail(bel)) {
+                        ctx->bindBel(bel, ci, STRENGTH_STRONG);
+                        if (!ctx->isBelLocationValid(bel)) {
+                            ctx->unbindBel(bel);
+                        } else {
+                            log_info("    placed potpourri cell '%s' at bel '%s'\n", ctx->nameOf(ci), ctx->nameOfBel(bel));
+                            break;
+                        }
+                    }
+                }
                 continue;
             }
             if (ci->cluster != ClusterId()) {
@@ -795,7 +805,19 @@ class StaticPlacer
                          wl_coeff.at(axis) * pd.max_exp.at(axis) * x_max_sum) /
                         (max_sum * max_sum);
             }
-            gradient += (d_min - d_max);
+            float crit = 0.0;
+            if (cfg.timing_driven) {
+                if (port.second.type == PORT_IN) {
+                    crit = tmg.get_criticality(CellPortKey(cell->name, port.first));
+                } else if (port.second.type == PORT_OUT) {
+                    if (ni && ni->users.entries() < 5) {
+                        for (auto usr : ni->users)
+                            crit = std::max(crit, tmg.get_criticality(CellPortKey(usr)));
+                    }
+                }
+            }
+            float weight = 1.0 + 5 * std::pow(crit, 2);
+            gradient += weight * (d_min - d_max);
         }
 
         return gradient;
@@ -975,6 +997,7 @@ class StaticPlacer
                 initial_steplength *= 10;
             }
         }
+        update_timing();
     }
 
     RealPair clamp_loc(RealPair loc)
@@ -1034,6 +1057,26 @@ class StaticPlacer
         update_gradients(true);
         log_info("   system potential: %f hpwl: %f\n", system_potential(), system_hpwl());
         compute_overlap();
+        if ((iter % 5) == 0)
+            update_timing();
+    }
+
+    void update_timing()
+    {
+        if (!cfg.timing_driven)
+            return;
+        for (auto &net : nets) {
+            NetInfo *ni = net.ni;
+            if (ni->driver.cell == nullptr)
+                continue;
+            RealPair drv_loc = cell_loc(ni->driver.cell, false);
+            for (auto usr : ni->users.enumerate()) {
+                RealPair usr_loc = cell_loc(usr.value.cell, false);
+                delay_t est_delay = cfg.timing_c + cfg.timing_mx * std::abs(drv_loc.x - usr_loc.x) + cfg.timing_my * std::abs(drv_loc.y - usr_loc.y);
+                tmg.set_route_delay(CellPortKey(usr.value), DelayPair(est_delay));
+            }
+        }
+        tmg.run(false);
     }
 
     void legalise_step(bool dsp_bram)
@@ -1342,6 +1385,8 @@ class StaticPlacer
             : ctx(ctx), cfg(cfg), fast_bels(ctx, true, 8), tmg(ctx), pool(ctx->setting<int>("threads", 8))
     {
         groups.resize(cfg.cell_groups.size());
+        tmg.setup_only = true;
+        tmg.setup();
     };
     void place()
     {
