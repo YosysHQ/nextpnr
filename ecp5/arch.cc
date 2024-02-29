@@ -501,7 +501,7 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
 
     int dx = abs(src_loc.first - dst_loc.first), dy = abs(src_loc.second - dst_loc.second);
 
-    return (120 - 22 * args.speed) *
+    return (80 - 9 * args.speed) *
            (6 + std::max(dx - 5, 0) + std::max(dy - 5, 0) + 2 * (std::min(dx, 5) + std::min(dy, 5)));
 }
 
@@ -579,11 +579,11 @@ delay_t Arch::predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdStr
 
     int dx = abs(driver_loc.x - sink_loc.x), dy = abs(driver_loc.y - sink_loc.y);
 
-    return (120 - 22 * args.speed) *
-           (3 + std::max(dx - 5, 0) + std::max(dy - 5, 0) + 2 * (std::min(dx, 5) + std::min(dy, 5)));
+    return (80 - 9 * args.speed) *
+           (6 + std::max(dx - 5, 0) + std::max(dy - 5, 0) + 2 * (std::min(dx, 5) + std::min(dy, 5)));
 }
 
-delay_t Arch::getRipupDelayPenalty() const { return 400; }
+delay_t Arch::getRipupDelayPenalty() const { return 550 - 50 * args.speed; }
 
 // -----------------------------------------------------------------------
 
@@ -627,6 +627,9 @@ void configure_static(Arch *arch, PlacerStaticCfg &cfg)
         comb.bel_area[id_MULT18X18D] = StaticRect(2.0f, 1.0f);
         comb.spacer_rect = StaticRect(2.0f, 1.0f);
     }
+    cfg.timing_c = (120 - 22 * arch->args.speed) * 6;
+    cfg.timing_mx = (120 - 22 * arch->args.speed);
+    cfg.timing_my = (120 - 22 * arch->args.speed);
 }
 } // namespace
 
