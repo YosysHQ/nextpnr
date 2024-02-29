@@ -40,7 +40,7 @@ struct ExampleImpl : HimbaechelAPI
     void init_database(Arch *arch) override
     {
         init_uarch_constids(arch);
-        arch->load_chipdb("example/example.bin");
+        arch->load_chipdb("example/chipdb-example.bin");
         arch->set_speed_grade("DEFAULT");
     }
 

@@ -170,7 +170,7 @@ def is_corner(x, y):
 
 def create_nodes(ch):
     for y in range(Y):
-        print(f"generating nodes for row {y}")
+        #print(f"generating nodes for row {y}")
         for x in range(X):
             if not is_corner(x, y):
                 # connect up actual neighbours
