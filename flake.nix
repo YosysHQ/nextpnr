@@ -73,7 +73,7 @@
           packages.default = self.packages.${system}.nextpnr;
 
           devShell = pkgs.mkShell {
-            buildInputs = [ self.packages.${system}.default ];
+            inputsFrom = [ self.packages.${system}.default ];
 
             shellHook = ''
              export TRELLIS_INSTALL_PREFIX=${pkgs.trellis}
