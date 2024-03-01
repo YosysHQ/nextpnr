@@ -74,6 +74,12 @@
 
           devShell = pkgs.mkShell {
             buildInputs = [ self.packages.${system}.default ];
+
+            shellHook = ''
+             export TRELLIS_INSTALL_PREFIX=${pkgs.trellis}
+             export ICESTORM_INSTALL_PREFIX=${pkgs.icestorm}
+             export QT_QPA_PLATFORM_PLUGIN_PATH="${pkgs.libsForQt5.qt5.qtbase.bin}/lib/qt-${pkgs.libsForQt5.qt5.qtbase.version}/plugins";
+            '';
           };
         });
 }
