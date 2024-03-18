@@ -44,6 +44,50 @@ GSR_Z   = 276
 VCC_Z   = 277
 GND_Z   = 278
 
+DSP_Z          = 509
+
+DSP_0_Z        = 511 # DSP macro 0
+PADD18_0_0_Z   = 512
+PADD9_0_0_Z    = 512 + 1
+PADD9_0_1_Z    = 512 + 2
+PADD18_0_1_Z   = 516
+PADD9_0_2_Z    = 516 + 1
+PADD9_0_3_Z    = 516 + 2
+
+MULT18X18_0_0_Z  = 520
+MULT9X9_0_0_Z    = 520 + 1
+MULT9X9_0_1_Z    = 520 + 2
+MULT18X18_0_1_Z  = 524
+MULT9X9_0_2_Z    = 524 + 1
+MULT9X9_0_3_Z    = 524 + 2
+
+ALU54D_0_Z       = 524 + 3
+MULTALU18X18_0_Z = 528
+MULTALU36X18_0_Z = 528 + 1
+MULTADDALU18X18_0_Z = 528 + 2
+
+MULT36X36_Z    = 528 + 3
+
+DSP_1_Z        = 543 # DSP macro 1
+PADD18_1_0_Z   = 544
+PADD9_1_0_Z    = 544 + 1
+PADD9_1_1_Z    = 544 + 2
+PADD18_1_1_Z   = 548
+PADD9_1_2_Z    = 548 + 1
+PADD9_1_3_Z    = 548 + 2
+
+MULT18X18_1_0_Z  = 552
+MULT9X9_1_0_Z    = 552 + 1
+MULT9X9_1_1_Z    = 552 + 2
+MULT18X18_1_1_Z  = 556
+MULT9X9_1_2_Z    = 556 + 1
+MULT9X9_1_3_Z    = 556 + 2
+
+ALU54D_1_Z       = 556 + 3
+MULTALU18X18_1_Z = 560
+MULTALU36X18_1_Z = 560 + 1
+MULTADDALU18X18_1_Z = 560 + 2
+
 # =======================================
 # Chipdb additional info
 # =======================================
@@ -363,6 +407,15 @@ def create_tiletype(create_func, chip: Chip, db: chipdb, x: int, y: int, ttyp: i
     create_switch_matrix(tt, db, x, y)
     chip.set_tile_type(x, y, tdesc.tiletype)
 
+def add_port_wire(tt, bel, portmap, name, wire_type, port_type):
+    wire = portmap[name]
+    if not tt.has_wire(wire):
+        if name.startswith('CLK'):
+            tt.create_wire(wire, "TILE_CLK")
+        else:
+            tt.create_wire(wire, wire_type)
+    tt.add_bel_pin(bel, name, wire, port_type)
+
 def create_null_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc: TypeDesc):
     typename = "NULL"
     tiletype = f"{typename}_{ttyp}"
@@ -586,29 +639,234 @@ def create_bsram_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tde
     portmap = db.grid[y][x].bels['BSRAM'].portmap
     bsram = tt.create_bel("BSRAM", "BSRAM", z = BSRAM_Z)
 
-    def add_port_wire(tt, bel, name, wire_type = "BSRAM_I", port_type = PinType.INPUT):
-        wire = portmap[name]
-        if not tt.has_wire(wire):
-            if name.startswith('CLK'):
-                tt.create_wire(wire, "TILE_CLK")
-            else:
-                tt.create_wire(wire, wire_type)
-        tt.add_bel_pin(bel, name, wire, port_type)
 
     for sfx in {'', 'A', 'B'}:
         for inp in _bsram_inputs:
-            add_port_wire(tt, bsram, f"{inp}{sfx}")
+            add_port_wire(tt, bsram, portmap, f"{inp}{sfx}", "BSRAM_I", PinType.INPUT)
         for idx in range(3):
-            add_port_wire(tt, bsram, f"BLKSEL{sfx}{idx}")
+            add_port_wire(tt, bsram, portmap, f"BLKSEL{sfx}{idx}", "BSRAM_I", PinType.INPUT)
         for idx in range(14):
-            add_port_wire(tt, bsram, f"AD{sfx}{idx}")
+            add_port_wire(tt, bsram, portmap, f"AD{sfx}{idx}", "BSRAM_I", PinType.INPUT)
         for idx in range(18):
-            add_port_wire(tt, bsram, f"DI{sfx}{idx}")
-            add_port_wire(tt, bsram, f"DO{sfx}{idx}", "BSRAM_O", PinType.OUTPUT)
+            add_port_wire(tt, bsram, portmap, f"DI{sfx}{idx}", "BSRAM_I", PinType.INPUT)
+            add_port_wire(tt, bsram, portmap, f"DO{sfx}{idx}", "BSRAM_O", PinType.OUTPUT)
         if not sfx:
             for idx in range(18, 36):
-                add_port_wire(tt, bsram, f"DI{idx}")
-                add_port_wire(tt, bsram, f"DO{idx}", "BSRAM_O", PinType.OUTPUT)
+                add_port_wire(tt, bsram, portmap, f"DI{idx}", "BSRAM_I", PinType.INPUT)
+                add_port_wire(tt, bsram, portmap, f"DO{idx}", "BSRAM_O", PinType.OUTPUT)
+
+    tdesc.tiletype = tiletype
+    return tt
+
+# DSP
+_mult_inputs = {'ASEL', 'BSEL', 'ASIGN', 'BSIGN'}
+def create_dsp_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc: TypeDesc):
+    typename = "DSP"
+    tiletype = f"{typename}_{ttyp}"
+    if tdesc.sfx != 0:
+        tiletype += f"_{tdesc.sfx}"
+    tt = chip.create_tile_type(tiletype)
+    tt.extra_data = TileExtraData(chip.strs.id(typename))
+
+    # create big DSP
+    belname = f'DSP'
+    portmap = db.grid[y][x].bels[belname].portmap
+    dsp = tt.create_bel(belname, "DSP", DSP_Z)
+    dsp.flags = BEL_FLAG_HIDDEN
+
+    # create DSP macros
+    for idx in range(2):
+        belname = f'DSP{idx}'
+        portmap = db.grid[y][x].bels[belname].portmap
+        dsp = tt.create_bel(belname, "DSP", eval(f'DSP_{idx}_Z'))
+        dsp.flags = BEL_FLAG_HIDDEN
+
+    # create pre-adders
+    for mac, idx in [(mac, idx) for mac in range(2) for idx in range(4)]:
+        belname = f'PADD9{mac}{idx}'
+        portmap = db.grid[y][x].bels[belname].portmap
+        dsp = tt.create_bel(belname, "PADD9", eval(f'PADD9_{mac}_{idx}_Z'))
+
+        add_port_wire(tt, dsp, portmap, "ADDSUB", "DSP_I", PinType.INPUT)
+        for sfx in {'A', 'B'}:
+            for inp in range(9):
+                add_port_wire(tt, dsp, portmap, f"{sfx}{inp}", "DSP_I", PinType.INPUT)
+        for inp in range(9):
+            add_port_wire(tt, dsp, portmap, f"C{inp}", "DSP_I", PinType.INPUT)
+        for inp in range(4):
+            add_port_wire(tt, dsp, portmap, f"CE{inp}", "DSP_I", PinType.INPUT)
+            add_port_wire(tt, dsp, portmap, f"CLK{inp}", "DSP_I", PinType.INPUT)
+            add_port_wire(tt, dsp, portmap, f"RESET{inp}", "DSP_I", PinType.INPUT)
+        add_port_wire(tt, dsp, portmap, "ASEL", "DSP_I", PinType.INPUT)
+        for outp in range(9):
+            add_port_wire(tt, dsp, portmap, f"DOUT{outp}", "DSP_O", PinType.OUTPUT)
+
+    for mac, idx in [(mac, idx) for mac in range(2) for idx in range(2)]:
+        belname = f'PADD18{mac}{idx}'
+        portmap = db.grid[y][x].bels[belname].portmap
+        dsp = tt.create_bel(belname, "PADD18", eval(f'PADD18_{mac}_{idx}_Z'))
+
+        add_port_wire(tt, dsp, portmap, "ADDSUB", "DSP_I", PinType.INPUT)
+        for sfx in {'A', 'B'}:
+            for inp in range(18):
+                add_port_wire(tt, dsp, portmap, f"{sfx}{inp}", "DSP_I", PinType.INPUT)
+        for inp in range(18):
+            add_port_wire(tt, dsp, portmap, f"C{inp}", "DSP_I", PinType.INPUT)
+        for inp in range(4):
+            add_port_wire(tt, dsp, portmap, f"CE{inp}", "DSP_I", PinType.INPUT)
+            add_port_wire(tt, dsp, portmap, f"CLK{inp}", "DSP_I", PinType.INPUT)
+            add_port_wire(tt, dsp, portmap, f"RESET{inp}", "DSP_I", PinType.INPUT)
+        add_port_wire(tt, dsp, portmap, "ASEL", "DSP_I", PinType.INPUT)
+        for outp in range(18):
+            add_port_wire(tt, dsp, portmap, f"DOUT{outp}", "DSP_O", PinType.OUTPUT)
+
+    # create multipliers
+    # mult 9x9
+    for mac, idx in [(mac, idx) for mac in range(2) for idx in range(4)]:
+        belname = f'MULT9X9{mac}{idx}'
+        portmap = db.grid[y][x].bels[belname].portmap
+        dsp = tt.create_bel(belname, "MULT9X9", eval(f'MULT9X9_{mac}_{idx}_Z'))
+
+        for sfx in {'A', 'B'}:
+            for inp in range(9):
+                add_port_wire(tt, dsp, portmap, f"{sfx}{inp}", "DSP_I", PinType.INPUT)
+        for inp in _mult_inputs:
+            add_port_wire(tt, dsp, portmap, inp, "DSP_I", PinType.INPUT)
+        for inp in range(4):
+            add_port_wire(tt, dsp, portmap, f"CE{inp}", "DSP_I", PinType.INPUT)
+            add_port_wire(tt, dsp, portmap, f"CLK{inp}", "DSP_I", PinType.INPUT)
+            add_port_wire(tt, dsp, portmap, f"RESET{inp}", "DSP_I", PinType.INPUT)
+        for outp in range(18):
+            add_port_wire(tt, dsp, portmap, f"DOUT{outp}", "DSP_O", PinType.OUTPUT)
+
+    # mult 18x18
+    for mac, idx in [(mac, idx) for mac in range(2) for idx in range(2)]:
+        belname = f'MULT18X18{mac}{idx}'
+        portmap = db.grid[y][x].bels[belname].portmap
+        dsp = tt.create_bel(belname, "MULT18X18", eval(f'MULT18X18_{mac}_{idx}_Z'))
+
+        for sfx in {'A', 'B'}:
+            for inp in range(18):
+                add_port_wire(tt, dsp, portmap, f"{sfx}{inp}", "DSP_I", PinType.INPUT)
+        for inp in _mult_inputs:
+            add_port_wire(tt, dsp, portmap, inp, "DSP_I", PinType.INPUT)
+        for inp in range(4):
+            add_port_wire(tt, dsp, portmap, f"CE{inp}", "DSP_I", PinType.INPUT)
+            add_port_wire(tt, dsp, portmap, f"CLK{inp}", "DSP_I", PinType.INPUT)
+            add_port_wire(tt, dsp, portmap, f"RESET{inp}", "DSP_I", PinType.INPUT)
+        for outp in range(36):
+            add_port_wire(tt, dsp, portmap, f"DOUT{outp}", "DSP_O", PinType.OUTPUT)
+
+    # mult 36x36
+    belname = 'MULT36X36'
+    portmap = db.grid[y][x].bels[belname].portmap
+    dsp = tt.create_bel(belname, "MULT36X36", MULT36X36_Z)
+
+    for i in range(2):
+        for sfx in {'A', 'B'}:
+            for inp in range(36):
+                add_port_wire(tt, dsp, portmap, f"{sfx}{inp}{i}", "DSP_I", PinType.INPUT)
+        for inp in {'ASIGN', 'BSIGN'}:
+            add_port_wire(tt, dsp, portmap, f"{inp}{i}", "DSP_I", PinType.INPUT)
+        for inp in range(4):
+            add_port_wire(tt, dsp, portmap, f"CE{inp}{i}", "DSP_I", PinType.INPUT)
+            add_port_wire(tt, dsp, portmap, f"CLK{inp}{i}", "DSP_I", PinType.INPUT)
+            add_port_wire(tt, dsp, portmap, f"RESET{inp}{i}", "DSP_I", PinType.INPUT)
+    for outp in range(72):
+        add_port_wire(tt, dsp, portmap, f"DOUT{outp}", "DSP_O", PinType.OUTPUT)
+
+    # create alus
+    for mac in range(2):
+        belname = f'ALU54D{mac}'
+        portmap = db.grid[y][x].bels[belname].portmap
+        dsp = tt.create_bel(belname, "ALU54D", eval(f'ALU54D_{mac}_Z'))
+
+        for sfx in {'A', 'B'}:
+            for inp in range(54):
+                add_port_wire(tt, dsp, portmap, f"{sfx}{inp}", "DSP_I", PinType.INPUT)
+        for inp in {'ASIGN', 'BSIGN'}:
+            add_port_wire(tt, dsp, portmap, inp, "DSP_I", PinType.INPUT)
+        for inp in range(4):
+            add_port_wire(tt, dsp, portmap, f"CE{inp}", "DSP_I", PinType.INPUT)
+            add_port_wire(tt, dsp, portmap, f"CLK{inp}", "DSP_I", PinType.INPUT)
+            add_port_wire(tt, dsp, portmap, f"RESET{inp}", "DSP_I", PinType.INPUT)
+            if inp < 2:
+                add_port_wire(tt, dsp, portmap, f"ACCLOAD{inp}", "DSP_I", PinType.INPUT)
+        for outp in range(54):
+            add_port_wire(tt, dsp, portmap, f"DOUT{outp}", "DSP_O", PinType.OUTPUT)
+
+    # create multalus
+    # MULTALU18X18
+    for mac in range(2):
+        belname = f'MULTALU18X18{mac}'
+        portmap = db.grid[y][x].bels[belname].portmap
+        dsp = tt.create_bel(belname, "MULTALU18X18", eval(f'MULTALU18X18_{mac}_Z'))
+
+        for i in range(2):
+            for sfx in {'ASIGN', 'BSIGN'}:
+                add_port_wire(tt, dsp, portmap, f"{sfx}{i}", "DSP_I", PinType.INPUT)
+            for sfx in {'A', 'B'}:
+                for inp in range(18):
+                    add_port_wire(tt, dsp, portmap, f"{sfx}{inp}{i}", "DSP_I", PinType.INPUT)
+        for sfx in {'C', 'D'}:
+            for inp in range(54):
+                add_port_wire(tt, dsp, portmap, f"{sfx}{inp}", "DSP_I", PinType.INPUT)
+        add_port_wire(tt, dsp, portmap, "DSIGN", "DSP_I", PinType.INPUT)
+        for inp in range(4):
+            add_port_wire(tt, dsp, portmap, f"CE{inp}", "DSP_I", PinType.INPUT)
+            add_port_wire(tt, dsp, portmap, f"CLK{inp}", "DSP_I", PinType.INPUT)
+            add_port_wire(tt, dsp, portmap, f"RESET{inp}", "DSP_I", PinType.INPUT)
+            if inp < 2:
+                add_port_wire(tt, dsp, portmap, f"ACCLOAD{inp}", "DSP_I", PinType.INPUT)
+        for outp in range(54):
+            add_port_wire(tt, dsp, portmap, f"DOUT{outp}", "DSP_O", PinType.OUTPUT)
+
+    # MULTALU36X18
+    for mac in range(2):
+        belname = f'MULTALU36X18{mac}'
+        portmap = db.grid[y][x].bels[belname].portmap
+        dsp = tt.create_bel(belname, "MULTALU36X18", eval(f'MULTALU36X18_{mac}_Z'))
+
+        for i in range(2):
+            for sfx in {'ASIGN', 'BSIGN'}:
+                add_port_wire(tt, dsp, portmap, f"{sfx}{i}", "DSP_I", PinType.INPUT)
+            for inp in range(18):
+                add_port_wire(tt, dsp, portmap, f"A{inp}{i}", "DSP_I", PinType.INPUT)
+        for inp in range(7):
+            add_port_wire(tt, dsp, portmap, f"ALUSEL{inp}", "DSP_I", PinType.INPUT)
+        for inp in range(36):
+            add_port_wire(tt, dsp, portmap, f"B{inp}", "DSP_I", PinType.INPUT)
+        for inp in range(54):
+            add_port_wire(tt, dsp, portmap, f"C{inp}", "DSP_I", PinType.INPUT)
+        for inp in range(4):
+            add_port_wire(tt, dsp, portmap, f"CE{inp}", "DSP_I", PinType.INPUT)
+            add_port_wire(tt, dsp, portmap, f"CLK{inp}", "DSP_I", PinType.INPUT)
+            add_port_wire(tt, dsp, portmap, f"RESET{inp}", "DSP_I", PinType.INPUT)
+        for outp in range(54):
+            add_port_wire(tt, dsp, portmap, f"DOUT{outp}", "DSP_O", PinType.OUTPUT)
+
+    # MULTADDALU18X18
+    for mac in range(2):
+        belname = f'MULTADDALU18X18{mac}'
+        portmap = db.grid[y][x].bels[belname].portmap
+        dsp = tt.create_bel(belname, "MULTADDALU18X18", eval(f'MULTADDALU18X18_{mac}_Z'))
+
+        for i in range(2):
+            for sfx in {'ASIGN', 'BSIGN', 'ASEL', 'BSEL'}:
+                add_port_wire(tt, dsp, portmap, f"{sfx}{i}", "DSP_I", PinType.INPUT)
+            for inp in range(18):
+                add_port_wire(tt, dsp, portmap, f"A{inp}{i}", "DSP_I", PinType.INPUT)
+                add_port_wire(tt, dsp, portmap, f"B{inp}{i}", "DSP_I", PinType.INPUT)
+        for inp in range(7):
+            add_port_wire(tt, dsp, portmap, f"ALUSEL{inp}", "DSP_I", PinType.INPUT)
+        for inp in range(54):
+            add_port_wire(tt, dsp, portmap, f"C{inp}", "DSP_I", PinType.INPUT)
+        for inp in range(4):
+            add_port_wire(tt, dsp, portmap, f"CE{inp}", "DSP_I", PinType.INPUT)
+            add_port_wire(tt, dsp, portmap, f"CLK{inp}", "DSP_I", PinType.INPUT)
+            add_port_wire(tt, dsp, portmap, f"RESET{inp}", "DSP_I", PinType.INPUT)
+        for outp in range(54):
+            add_port_wire(tt, dsp, portmap, f"DOUT{outp}", "DSP_O", PinType.OUTPUT)
 
     tdesc.tiletype = tiletype
     return tt
@@ -739,6 +997,7 @@ def main():
     ssram_tiletypes = db.tile_types['M']
     pll_tiletypes = db.tile_types['P']
     bsram_tiletypes = db.tile_types.get('B', set())
+    dsp_tiletypes = db.tile_types.get('D', set())
 
     # Setup tile grid
     for x in range(X):
@@ -758,6 +1017,8 @@ def main():
                 create_tiletype(create_pll_tiletype, ch, db, x, y, ttyp)
             elif ttyp in bsram_tiletypes:
                 create_tiletype(create_bsram_tiletype, ch, db, x, y, ttyp)
+            elif ttyp in dsp_tiletypes:
+                create_tiletype(create_dsp_tiletype, ch, db, x, y, ttyp)
             else:
                 create_tiletype(create_null_tiletype, ch, db, x, y, ttyp)
 

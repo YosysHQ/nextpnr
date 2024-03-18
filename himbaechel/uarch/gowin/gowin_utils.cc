@@ -105,4 +105,124 @@ std::unique_ptr<CellInfo> GowinUtils::create_cell(IdString name, IdString type)
     return std::make_unique<CellInfo>(ctx, name, type);
 }
 
+// DSP
+Loc GowinUtils::get_dsp_next_9_in_chain(Loc from) const
+{
+    Loc res;
+    res.y = from.y;
+    if (get_dsp_18_idx(from.z) == 0) {
+        res.x = from.x;
+        res.z = from.z + 4;
+        return res;
+    }
+    if (get_dsp_macro_num(from.z)) {
+        // next DSP
+        res.x = from.x + 9;
+        res.z = from.z & (~0x24);
+    } else {
+        // next macro
+        res.x = from.x;
+        res.z = get_dsp_next_macro(from.z) & (~4);
+    }
+    return res;
+}
+
+Loc GowinUtils::get_dsp_next_macro_in_chain(Loc from) const
+{
+    Loc res;
+    res.y = from.y;
+    if (get_dsp_macro_num(from.z)) {
+        // next DSP
+        res.x = from.x + 9;
+        res.z = from.z & (~0x20);
+    } else {
+        // next macro
+        res.x = from.x;
+        res.z = get_dsp_next_macro(from.z);
+    }
+    return res;
+}
+
+Loc GowinUtils::get_dsp_next_in_chain(Loc from, IdString dsp_type) const
+{
+    if (dsp_type.in(id_PADD9, id_PADD18, id_MULT9X9, id_MULT18X18)) {
+        return get_dsp_next_9_in_chain(from);
+    }
+    if (dsp_type.in(id_ALU54D, id_MULTALU18X18, id_MULTALU36X18, id_MULTADDALU18X18)) {
+        return get_dsp_next_macro_in_chain(from);
+    }
+    NPNR_ASSERT_FALSE("Unknown DSP cell type.");
+}
+
+CellInfo *GowinUtils::dsp_bus_src(const CellInfo *ci, const char *bus_prefix, int wire_num) const
+{
+    bool connected_to_const = false; // and disconnected too
+    CellInfo *connected_to_cell = nullptr;
+
+    for (int i = 0; i < wire_num; ++i) {
+        const NetInfo *net = ci->getPort(ctx->idf("%s[%d]", bus_prefix, i));
+        if (connected_to_cell == nullptr) {
+            if (net == nullptr || net->driver.cell == nullptr || net->name == ctx->id("$PACKER_VCC") ||
+                net->name == ctx->id("$PACKER_GND")) {
+                connected_to_const = true;
+                continue;
+            } else {
+                if (connected_to_const) {
+                    log_error("The %s cell %s bus is connected simultaneously to constants and to another DSP.\n",
+                              ctx->nameOf(ci), bus_prefix);
+                }
+            }
+        }
+        if (net == nullptr || !is_dsp(net->driver.cell)) {
+            log_error("The %s cell %s bus is not connected to another DSP.\n", ctx->nameOf(ci), bus_prefix);
+        }
+        if (connected_to_cell != nullptr && net->driver.cell != connected_to_cell) {
+            log_error("The %s cell %s bus is connected to different DSPs: %s and %s.\n", ctx->nameOf(ci), bus_prefix,
+                      ctx->nameOf(connected_to_cell), ctx->nameOf(net->driver.cell));
+        }
+        connected_to_cell = net->driver.cell;
+    }
+    if (connected_to_const) {
+        return nullptr;
+    }
+    return connected_to_cell;
+}
+
+CellInfo *GowinUtils::dsp_bus_dst(const CellInfo *ci, const char *bus_prefix, int wire_num) const
+{
+    bool disconnected = false; // and disconnected too
+    CellInfo *connected_to_cell = nullptr;
+
+    for (int i = 0; i < wire_num; ++i) {
+        const NetInfo *net = ci->getPort(ctx->idf("%s[%d]", bus_prefix, i));
+        if (connected_to_cell == nullptr) {
+            if (net == nullptr || net->users.entries() == 0) {
+                disconnected = true;
+                continue;
+            } else {
+                if (disconnected) {
+                    log_error("The %s cell %s bus is partially disconnected.\n", ctx->nameOf(ci), bus_prefix);
+                }
+            }
+        }
+        if (net->users.entries() > 1) {
+            log_error("Net %s has >1 users.\n", ctx->nameOf(net));
+        }
+
+        CellInfo *dst = (*net->users.begin()).cell;
+        if (net == nullptr || !is_dsp(dst)) {
+            log_error("The %s cell %s bus is not connected to another DSP.\n", ctx->nameOf(ci), bus_prefix);
+        }
+        if (connected_to_cell != nullptr && dst != connected_to_cell) {
+            log_error("The %s cell %s bus is connected to different DSPs: %s and %s.\n", ctx->nameOf(ci), bus_prefix,
+                      ctx->nameOf(connected_to_cell), ctx->nameOf(dst));
+        }
+        connected_to_cell = dst;
+    }
+    if (disconnected) {
+        return nullptr;
+    }
+    return connected_to_cell;
+}
+
 NEXTPNR_NAMESPACE_END
