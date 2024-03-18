@@ -215,6 +215,7 @@ struct GowinGlobalRouter
         }
         ctx->bindWire(src, net, STRENGTH_LOCKED);
 
+        RouteResult routed = NOT_ROUTED;
         for (auto usr : net->users.enumerate()) {
             WireId dst = ctx->getNetinfoSinkWire(net, net->users.at(usr.index), 0);
             if (dst == WireId()) {
@@ -222,8 +223,16 @@ struct GowinGlobalRouter
                           ctx->nameOf(net->users.at(usr.index).cell), ctx->nameOf(net->users.at(usr.index).port));
             }
             // log_info(" usr wire: %s\n", ctx->nameOfWire(dst));
-            backwards_bfs_route(net, src, dst, 1000000, true,
-                                [&](PipId pip) { return (is_relaxed_sink(usr.value) || global_pip_filter(pip)); });
+            if (backwards_bfs_route(net, src, dst, 1000000, false, [&](PipId pip) {
+                    return (is_relaxed_sink(usr.value) || global_pip_filter(pip));
+                })) {
+                routed = routed == ROUTED_PARTIALLY ? routed : ROUTED_ALL;
+            } else {
+                routed = routed == NOT_ROUTED ? routed : ROUTED_PARTIALLY;
+            }
+        }
+        if (routed == NOT_ROUTED) {
+            ctx->unbindWire(src);
         }
 
         // b) route net before buf from whatever to the buf input

@@ -54,6 +54,14 @@ inline bool type_is_bsram(IdString cell_type)
 }
 inline bool is_bsram(const CellInfo *cell) { return type_is_bsram(cell->type); }
 
+// Return true if a cell is a DSP
+inline bool type_is_dsp(IdString cell_type)
+{
+    return cell_type.in(id_PADD9, id_PADD18, id_MULT9X9, id_MULT18X18, id_MULT36X36, id_ALU54D, id_MULTALU18X18,
+                        id_MULTALU36X18, id_MULTADDALU18X18);
+}
+inline bool is_dsp(const CellInfo *cell) { return type_is_dsp(cell->type); }
+
 // ==========================================
 // extra data in the chip db
 // ==========================================
@@ -113,7 +121,54 @@ enum
     PLL_Z = 275,
     GSR_Z = 276,
     VCC_Z = 277,
-    VSS_Z = 278
+    VSS_Z = 278,
+
+    // The two least significant bits encode Z for 9-bit adders and
+    // multipliers, if they are equal to 0, then we get Z of their common
+    // 18-bit equivalent.
+    DSP_Z = 509, // DSP
+
+    DSP_0_Z = 511, // DSP macro 0
+    PADD18_0_0_Z = 512,
+    PADD9_0_0_Z = 512 + 1,
+    PADD9_0_1_Z = 512 + 2,
+    PADD18_0_1_Z = 516,
+    PADD9_0_2_Z = 516 + 1,
+    PADD9_0_3_Z = 516 + 2,
+
+    MULT18X18_0_0_Z = 520,
+    MULT9X9_0_0_Z = 520 + 1,
+    MULT9X9_0_1_Z = 520 + 2,
+    MULT18X18_0_1_Z = 524,
+    MULT9X9_0_2_Z = 524 + 1,
+    MULT9X9_0_3_Z = 524 + 2,
+
+    ALU54D_0_Z = 524 + 3,
+    MULTALU18X18_0_Z = 528,
+    MULTALU36X18_0_Z = 528 + 1,
+    MULTADDALU18X18_0_Z = 528 + 2,
+
+    MULT36X36_Z = 528 + 3,
+
+    DSP_1_Z = 543, // DSP macro 1
+    PADD18_1_0_Z = 544,
+    PADD9_1_0_Z = 544 + 1,
+    PADD9_1_1_Z = 544 + 2,
+    PADD18_1_1_Z = 548,
+    PADD9_1_2_Z = 548 + 1,
+    PADD9_1_3_Z = 548 + 2,
+
+    MULT18X18_1_0_Z = 552,
+    MULT9X9_1_0_Z = 552 + 1,
+    MULT9X9_1_1_Z = 552 + 2,
+    MULT18X18_1_1_Z = 556,
+    MULT9X9_1_2_Z = 556 + 1,
+    MULT9X9_1_3_Z = 556 + 2,
+
+    ALU54D_1_Z = 556 + 3,
+    MULTALU18X18_1_Z = 560,
+    MULTALU36X18_1_Z = 560 + 1,
+    MULTADDALU18X18_1_Z = 560 + 2
 };
 }
 

@@ -31,6 +31,30 @@ struct GowinUtils
     Loc get_pair_iologic_bel(Loc loc);
     BelId get_io_bel_from_iologic(BelId bel);
 
+    // DSP
+    inline int get_dsp_18_z(int z) const { return z & (~3); }
+    inline int get_dsp_9_idx(int z) const { return z & 3; }
+    inline int get_dsp_18_idx(int z) const { return z & 4; }
+    inline int get_dsp_paired_9(int z) const { return (3 - get_dsp_9_idx(z)) | (z & (~3)); }
+    inline int get_dsp_mult_from_padd(int padd_z) const { return padd_z + 8; }
+    inline int get_dsp_padd_from_mult(int mult_z) const { return mult_z - 8; }
+    inline int get_dsp_next_macro(int z) const { return z + 32; }
+    inline int get_dsp(int z) const { return BelZ::DSP_Z; }
+    inline int get_dsp_macro(int z) const { return (z & 0x20) + BelZ::DSP_0_Z; }
+    inline int get_dsp_macro_num(int z) const { return (z & 0x20) >> 5; }
+    Loc get_dsp_next_9_in_chain(Loc from) const;
+    Loc get_dsp_next_macro_in_chain(Loc from) const;
+    Loc get_dsp_next_in_chain(Loc from, IdString dsp_type) const;
+
+    // check bus.
+    // This is necessary to find the head in the DSP chain - these buses are
+    // not switched in the hardware, but in software you can leave them
+    // unconnected or connect them to VCC or VSS, which is the same - as I
+    // already said, they are hard-wired and we are only discovering the fact
+    // that they are not connected to another DSP in the chain.
+    CellInfo *dsp_bus_src(const CellInfo *ci, const char *bus_prefix, int wire_num) const;
+    CellInfo *dsp_bus_dst(const CellInfo *ci, const char *bus_prefix, int wire_num) const;
+
     bool is_diff_io_supported(IdString type);
     bool have_bottom_io_cnds(void);
     IdString get_bottom_io_wire_a_net(int8_t condition);
