@@ -22,6 +22,7 @@ foreach(device ${HIMBAECHEL_EXAMPLE_DEVICES})
 			bbasm
 			${CMAKE_CURRENT_SOURCE_DIR}/example_arch_gen.py
 			${CMAKE_CURRENT_SOURCE_DIR}/constids.inc
+			${CMAKE_CURRENT_SOURCE_DIR}/gfx.h
 		VERBATIM)
 	list(APPEND chipdb_binaries ${device_bin})
 endforeach()
