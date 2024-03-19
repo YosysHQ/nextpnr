@@ -114,17 +114,12 @@ struct HimbaechelAPI
                                      std::vector<std::pair<CellInfo *, BelId>> &placement) const;
 
     // Graphics
-    virtual uint32_t gfxAttributes() { return 0; }
+    virtual void drawBel(std::vector<GraphicElement> &g, GraphicElement::style_t style, IdString bel_type, Loc loc) {};
 
-    virtual void gfxTileBel(std::vector<GraphicElement> &g, int x, int y, int z, int w, int h,
-                IdString bel_type, GraphicElement::style_t style) {};
+    virtual void drawWire(std::vector<GraphicElement> &g, GraphicElement::style_t style, Loc loc, IdString wire_type, int32_t tilewire) {};
 
-    virtual void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdString wire_type,
-                int32_t tilewire, GraphicElement::style_t style) {};
-
-    virtual void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, int w, int h, WireId src,
-                IdString src_type, int32_t src_id, WireId dst, IdString dst_type, int32_t dst_id,
-                GraphicElement::style_t style) {};
+    virtual void drawPip(std::vector<GraphicElement> &g,GraphicElement::style_t style, Loc loc,
+                WireId src, IdString src_type, int32_t src_id, WireId dst, IdString dst_type, int32_t dst_id) {};
 
     // --- Flow hooks ---
     virtual void pack() {}; // replaces the pack function

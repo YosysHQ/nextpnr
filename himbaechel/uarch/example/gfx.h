@@ -1,0 +1,101 @@
+/*
+ *  nextpnr -- Next Generation Place and Route
+ *
+ *  Copyright (C) 2018  gatecat <gatecat@ds0.me>
+ *
+ *  Permission to use, copy, modify, and/or distribute this software for any
+ *  purpose with or without fee is hereby granted, provided that the above
+ *  copyright notice and this permission notice appear in all copies.
+ *
+ *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ *  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ *  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ *  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ */
+
+#ifndef HIMBAECHEL_EXAMPLE_GFX_H
+#define HIMBAECHEL_EXAMPLE_GFX_H
+
+#include "nextpnr.h"
+
+NEXTPNR_NAMESPACE_BEGIN
+
+enum GfxTileWireId
+{
+    TILE_WIRE_NONE,
+
+    TILE_WIRE_L0_O,
+    TILE_WIRE_L1_O,
+    TILE_WIRE_L2_O,
+    TILE_WIRE_L3_O,
+    TILE_WIRE_L4_O,
+    TILE_WIRE_L5_O,
+    TILE_WIRE_L6_O,
+    TILE_WIRE_L7_O,
+
+    TILE_WIRE_L0_I0,
+    TILE_WIRE_L0_I1,
+    TILE_WIRE_L0_I2,
+    TILE_WIRE_L0_I3,
+
+    TILE_WIRE_L1_I0,
+    TILE_WIRE_L1_I1,
+    TILE_WIRE_L1_I2,
+    TILE_WIRE_L1_I3,
+
+    TILE_WIRE_L2_I0,
+    TILE_WIRE_L2_I1,
+    TILE_WIRE_L2_I2,
+    TILE_WIRE_L2_I3,
+
+    TILE_WIRE_L3_I0,
+    TILE_WIRE_L3_I1,
+    TILE_WIRE_L3_I2,
+    TILE_WIRE_L3_I3,
+
+    TILE_WIRE_L4_I0,
+    TILE_WIRE_L4_I1,
+    TILE_WIRE_L4_I2,
+    TILE_WIRE_L4_I3,
+
+    TILE_WIRE_L5_I0,
+    TILE_WIRE_L5_I1,
+    TILE_WIRE_L5_I2,
+    TILE_WIRE_L5_I3,
+
+    TILE_WIRE_L6_I0,
+    TILE_WIRE_L6_I1,
+    TILE_WIRE_L6_I2,
+    TILE_WIRE_L6_I3,
+
+    TILE_WIRE_L7_I0,
+    TILE_WIRE_L7_I1,
+    TILE_WIRE_L7_I2,
+    TILE_WIRE_L7_I3,
+
+    TILE_WIRE_L0_D,
+    TILE_WIRE_L1_D,
+    TILE_WIRE_L2_D,
+    TILE_WIRE_L3_D,
+    TILE_WIRE_L4_D,
+    TILE_WIRE_L5_D,
+    TILE_WIRE_L6_D,
+    TILE_WIRE_L7_D,
+
+    TILE_WIRE_L0_Q,
+    TILE_WIRE_L1_Q,
+    TILE_WIRE_L2_Q,
+    TILE_WIRE_L3_Q,
+    TILE_WIRE_L4_Q,
+    TILE_WIRE_L5_Q,
+    TILE_WIRE_L6_Q,
+    TILE_WIRE_L7_Q,
+};
+
+NEXTPNR_NAMESPACE_END
+
+#endif
