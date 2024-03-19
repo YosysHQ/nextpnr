@@ -917,7 +917,6 @@ class StaticPlacer
     {
         float coord_dist = 0;
         float grad_dist = 0;
-        int n = 0;
         for (auto &cell : mcells) {
             coord_dist += (cell.ref_pos.x - cell.last_ref_pos.x) * (cell.ref_pos.x - cell.last_ref_pos.x);
             coord_dist += (cell.ref_pos.y - cell.last_ref_pos.y) * (cell.ref_pos.y - cell.last_ref_pos.y);
@@ -925,8 +924,6 @@ class StaticPlacer
                     (cell.ref_total_grad.x - cell.last_total_grad.x) * (cell.ref_total_grad.x - cell.last_total_grad.x);
             grad_dist +=
                     (cell.ref_total_grad.y - cell.last_total_grad.y) * (cell.ref_total_grad.y - cell.last_total_grad.y);
-            // keep track of N separately, because we might exclude some cells
-            ++n;
         }
         coord_dist = std::sqrt(coord_dist / (2 * float(mcells.size())));
         grad_dist = std::sqrt(grad_dist / (2 * float(mcells.size())));
@@ -1155,7 +1152,6 @@ class StaticPlacer
             int radius = 0;
             int iter = 0;
             int iter_at_radius = 0;
-            int total_iters_for_cell = 0;
             bool placed = false;
             BelId bestBel;
             int best_inp_len = std::numeric_limits<int>::max();
@@ -1374,8 +1370,6 @@ class StaticPlacer
                         break;
                     }
                 }
-
-                total_iters_for_cell++;
             }
         }
     }

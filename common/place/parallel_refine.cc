@@ -177,7 +177,6 @@ struct ThreadState : DetailPlacerThreadState
     {
         IdString targetType = cell->type;
         Loc curr_loc = ctx->getBelLocation(cell->bel);
-        int count = 0;
 
         int dx = g.radius, dy = g.radius;
         if (cell->region != nullptr && cell->region->constr_bels) {
@@ -217,7 +216,6 @@ struct ThreadState : DetailPlacerThreadState
             }
             if (!cell->testRegion(bel))
                 continue;
-            count++;
             return bel;
         }
     }

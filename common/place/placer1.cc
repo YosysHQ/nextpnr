@@ -732,7 +732,6 @@ class SAPlacer
     {
         IdString targetType = cell->type;
         Loc curr_loc = ctx->getBelLocation(cell->bel);
-        int count = 0;
 
         int dx = diameter, dy = diameter;
         if (cell->region != nullptr && cell->region->constr_bels) {
@@ -772,7 +771,6 @@ class SAPlacer
                 continue;
             if (locked_bels.find(bel) != locked_bels.end())
                 continue;
-            count++;
             return bel;
         }
     }
