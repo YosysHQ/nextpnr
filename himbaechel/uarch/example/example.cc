@@ -177,7 +177,7 @@ struct ExampleImpl : HimbaechelAPI
         }
     }
 
-    void drawWire(std::vector<GraphicElement> &g, GraphicElement::style_t style, Loc loc, IdString wire_type, int32_t tilewire)
+    void drawWire(std::vector<GraphicElement> &g, GraphicElement::style_t style, Loc loc, IdString wire_type, int32_t tilewire, IdString tile_type)
     {
         GraphicElement el;
         el.type = GraphicElement::TYPE_LINE;
@@ -216,6 +216,27 @@ struct ExampleImpl : HimbaechelAPI
                 el.y1 = loc.y + 0.85 - z * 0.1 - 0.025;
                 el.y2 = el.y1;
                 g.push_back(el);
+                break;
+            case id_TILE_CLK.index:
+                switch(tile_type.index)
+                {
+                    case id_LOGIC.index:
+                        for(int i=0;i<8; i++) {
+                            GraphicElement el;
+                            el.type = GraphicElement::TYPE_LINE;
+                            el.style = style;
+                            el.x1 = loc.x + 0.6;
+                            el.x2 = el.x1;
+                            el.y1 = loc.y + 0.85 - i * 0.1 - 0.05;
+                            el.y2 = el.y1 - 0.05;
+                            g.push_back(el);
+                        }
+                        break;
+                    case id_BRAM.index:
+                        break;
+                    case id_IO.index:
+                        break;
+                }
                 break;
         }
     }
