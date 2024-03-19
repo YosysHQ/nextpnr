@@ -515,7 +515,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
         Loc loc;
         tile_xy(chip_info, wire.tile, loc.x, loc.y);
         int32_t tilewire = chip_wire_info(chip_info, wire).tile_wire;
-        uarch->drawWire(ret, style, loc, wire_type, tilewire);
+        uarch->drawWire(ret, style, loc, wire_type, tilewire, get_tile_type(wire.tile));
     } else if (decal.type == DecalId::TYPE_PIP) {
         PipId pip(decal.tile, decal.index);
         WireId src_wire = getPipSrcWire(pip);
