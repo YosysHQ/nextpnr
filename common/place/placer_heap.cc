@@ -1543,12 +1543,10 @@ class HeAPPlacer
         {
             cut_cells.clear();
             auto &cal = cells_at_location;
-            int total_cells = 0, total_bels = 0;
+            int total_cells = 0;
             for (int x = r.x0; x <= r.x1; x++) {
                 for (int y = r.y0; y <= r.y1; y++) {
                     std::copy(cal.at(x).at(y).begin(), cal.at(x).at(y).end(), std::back_inserter(cut_cells));
-                    for (size_t t = 0; t < buckets.size(); t++)
-                        total_bels += bels_at(x, y, t);
                 }
             }
             for (auto &cell : cut_cells) {
