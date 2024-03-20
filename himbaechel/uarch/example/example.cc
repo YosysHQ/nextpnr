@@ -183,44 +183,44 @@ struct ExampleImpl : HimbaechelAPI
         el.type = GraphicElement::TYPE_LINE;
         el.style = style;
         int z;
-        switch (wire_type.index)
+        switch(tile_type.index)
         {
-            case id_LUT_INPUT.index:
-                z = (tilewire - TILE_WIRE_L0_I0) / 4;
-                el.x1 = loc.x + 0.10;
-                el.x2 = el.x1 + 0.05;
-                el.y1 = loc.y + 0.85 - z * 0.1  - ((tilewire - TILE_WIRE_L0_I0) % 4 + 1) * 0.01;
-                el.y2 = el.y1;
-                g.push_back(el);
-                break;
-            case id_LUT_OUT.index:
-                z = tilewire - TILE_WIRE_L0_O;
-                el.x1 = loc.x + 0.40;
-                el.x2 = el.x1 + 0.05;
-                el.y1 = loc.y + 0.85 - z * 0.1 - 0.025;
-                el.y2 = el.y1;
-                g.push_back(el);
-                break;
-            case id_FF_DATA.index:
-                z = tilewire - TILE_WIRE_L0_D;
-                el.x1 = loc.x + 0.50;
-                el.x2 = el.x1 + 0.05;
-                el.y1 = loc.y + 0.85 - z * 0.1 - 0.025;
-                el.y2 = el.y1;
-                g.push_back(el);
-                break;
-            case id_FF_OUT.index:
-                z = tilewire - TILE_WIRE_L0_Q;
-                el.x1 = loc.x + 0.80;
-                el.x2 = el.x1 + 0.05;
-                el.y1 = loc.y + 0.85 - z * 0.1 - 0.025;
-                el.y2 = el.y1;
-                g.push_back(el);
-                break;
-            case id_TILE_CLK.index:
-                switch(tile_type.index)
+            case id_LOGIC.index:
+                switch (wire_type.index)
                 {
-                    case id_LOGIC.index:
+                    case id_LUT_INPUT.index:
+                        z = (tilewire - TILE_WIRE_L0_I0) / 4;
+                        el.x1 = loc.x + 0.10;
+                        el.x2 = el.x1 + 0.05;
+                        el.y1 = loc.y + 0.85 - z * 0.1  - ((tilewire - TILE_WIRE_L0_I0) % 4 + 1) * 0.01;
+                        el.y2 = el.y1;
+                        g.push_back(el);
+                        break;
+                    case id_LUT_OUT.index:
+                        z = tilewire - TILE_WIRE_L0_O;
+                        el.x1 = loc.x + 0.40;
+                        el.x2 = el.x1 + 0.05;
+                        el.y1 = loc.y + 0.85 - z * 0.1 - 0.025;
+                        el.y2 = el.y1;
+                        g.push_back(el);
+                        break;
+                    case id_FF_DATA.index:
+                        z = tilewire - TILE_WIRE_L0_D;
+                        el.x1 = loc.x + 0.50;
+                        el.x2 = el.x1 + 0.05;
+                        el.y1 = loc.y + 0.85 - z * 0.1 - 0.025;
+                        el.y2 = el.y1;
+                        g.push_back(el);
+                        break;
+                    case id_FF_OUT.index:
+                        z = tilewire - TILE_WIRE_L0_Q;
+                        el.x1 = loc.x + 0.80;
+                        el.x2 = el.x1 + 0.05;
+                        el.y1 = loc.y + 0.85 - z * 0.1 - 0.025;
+                        el.y2 = el.y1;
+                        g.push_back(el);
+                        break;
+                    case id_TILE_CLK.index:
                         for(int i=0;i<8; i++) {
                             GraphicElement el;
                             el.type = GraphicElement::TYPE_LINE;
@@ -232,9 +232,63 @@ struct ExampleImpl : HimbaechelAPI
                             g.push_back(el);
                         }
                         break;
-                    case id_BRAM.index:
+                }
+                break;
+            case id_BRAM.index:
+                switch (wire_type.index)
+                {
+                    case id_RAM_IN.index:
+                        z = tilewire - TILE_WIRE_RAM_WA0;
+                        el.x1 = loc.x + 0.20;
+                        el.x2 = el.x1 + 0.05;
+                        el.y1 = loc.y + 0.78 - z * 0.015;
+                        el.y2 = el.y1;
+                        g.push_back(el);
                         break;
-                    case id_IO.index:
+                    case id_RAM_OUT.index:
+                        z = tilewire - TILE_WIRE_RAM_DO0;
+                        el.x1 = loc.x + 0.75;
+                        el.x2 = el.x1 + 0.05;
+                        el.y1 = loc.y + 0.78 - z * 0.015;
+                        el.y2 = el.y1;
+                        g.push_back(el);                    
+                        break;
+                    case id_TILE_CLK.index:
+                        el.x1 = loc.x + 0.6;
+                        el.x2 = el.x1;
+                        el.y1 = loc.y + 0.20;
+                        el.y2 = el.y1 - 0.05;
+                        g.push_back(el);
+                        break;
+                }
+                break;
+            case id_IO.index:
+                switch (wire_type.index)
+                {
+                    case id_IO_I.index:
+                        break;
+                    case id_IO_O.index:
+                        break;
+                    case id_IO_T.index:
+                        break;
+                    case id_IO_PAD.index:
+                        break;
+                    case id_TILE_CLK.index:
+                        break;
+                    case id_GCLK.index:
+                        break;
+                }
+                break;
+            case id_NULL.index:
+                switch (wire_type.index)
+                {
+                    case id_CLK_ROUTE.index:
+                        break;
+                    case id_GND.index:
+                        break;
+                    case id_VCC.index:
+                        break;
+                    case id_TILE_CLK.index:
                         break;
                 }
                 break;
