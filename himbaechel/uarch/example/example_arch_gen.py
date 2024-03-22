@@ -170,7 +170,7 @@ def is_corner(x, y):
 
 def create_nodes(ch):
     for y in range(Y):
-        print(f"generating nodes for row {y}")
+        #print(f"generating nodes for row {y}")
         for x in range(X):
             if not is_corner(x, y):
                 # connect up actual neighbours
@@ -237,6 +237,7 @@ def main():
     ch = Chip("example", "EX1", X, Y)
     # Init constant ids
     ch.strs.read_constids(path.join(path.dirname(__file__), "constids.inc"))
+    ch.read_gfx_h(path.join(path.dirname(__file__), "gfx.h")) 
     logic = create_logic_tiletype(ch)
     io = create_io_tiletype(ch)
     bram = create_bram_tiletype(ch)
