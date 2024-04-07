@@ -24,7 +24,10 @@ struct GowinUtils
     Loc get_tile_io16_offs(int x, int y);
 
     // pin functions: GCLKT_4, SSPI_CS, READY etc
-    IdStringList get_pin_funcs(BelId bel);
+    IdStringList get_pin_funcs(BelId io_bel);
+
+    // PLL pads (type - CLKIN, FeedBack, etc)
+    BelId get_pll_bel(BelId io_bel, IdString type);
 
     // Bels and pips
     bool is_simple_io_bel(BelId bel);

@@ -2624,6 +2624,8 @@ struct GowinPacker
     {
         log_info("Pack PLL...\n");
 
+        pool<BelId> used_pll_bels;
+
         for (auto &cell : ctx->cells) {
             auto &ci = *cell.second;
 
@@ -2637,6 +2639,26 @@ struct GowinPacker
                         ci.renamePort(ctx->idf("PSDA[%d]", i), ctx->idf("PSDA%d", i));
                         ci.renamePort(ctx->idf("DUTYDA[%d]", i), ctx->idf("DUTYDA%d", i));
                         ci.renamePort(ctx->idf("FDLY[%d]", i), ctx->idf("FDLY%d", i));
+                    }
+                }
+                // If CLKIN is connected to a special pin, then it makes sense
+                // to try to place the PLL so that it uses a direct connection
+                // to this pin.
+                if (ci.bel == BelId()) {
+                    NetInfo *ni = ci.getPort(id_CLKIN);
+                    if (ni && ni->driver.cell) {
+                        BelId pll_bel = gwu.get_pll_bel(ni->driver.cell->bel, id_CLKIN_T);
+                        if (ctx->debug) {
+                            log_info("PLL clkin driver:%s at %s, PLL bel:%s\n", ctx->nameOf(ni->driver.cell),
+                                     ctx->getBelName(ni->driver.cell->bel).str(ctx).c_str(),
+                                     pll_bel != BelId() ? ctx->getBelName(pll_bel).str(ctx).c_str() : "NULL");
+                        }
+                        if (pll_bel != BelId() && used_pll_bels.count(pll_bel) == 0) {
+                            used_pll_bels.insert(pll_bel);
+                            ctx->bindBel(pll_bel, &ci, PlaceStrength::STRENGTH_LOCKED);
+                            ci.disconnectPort(id_CLKIN);
+                            ci.setParam(id_INSEL, std::string("CLKIN0"));
+                        }
                     }
                 }
             }

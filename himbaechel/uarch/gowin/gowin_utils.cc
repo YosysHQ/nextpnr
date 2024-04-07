@@ -30,9 +30,9 @@ Loc GowinUtils::get_tile_io16_offs(int x, int y)
 }
 
 // pin functions: GCLKT_4, SSPI_CS, READY etc
-IdStringList GowinUtils::get_pin_funcs(BelId bel)
+IdStringList GowinUtils::get_pin_funcs(BelId io_bel)
 {
-    IdStringList bel_name = ctx->getBelName(bel);
+    IdStringList bel_name = ctx->getBelName(io_bel);
 
     const PadInfoPOD *pins = ctx->package_info->pads.get();
     size_t len = ctx->package_info->pads.ssize();
@@ -43,6 +43,25 @@ IdStringList GowinUtils::get_pin_funcs(BelId bel)
         }
     }
     return IdStringList();
+}
+
+// PLL pads
+BelId GowinUtils::get_pll_bel(BelId io_bel, IdString type)
+{
+    IdStringList bel_name = ctx->getBelName(io_bel);
+
+    const PadInfoPOD *pins = ctx->package_info->pads.get();
+    size_t len = ctx->package_info->pads.ssize();
+    for (size_t i = 0; i < len; i++) {
+        const PadInfoPOD *pin = &pins[i];
+        if (IdString(pin->tile) == bel_name[0] && IdString(pin->bel) == bel_name[1]) {
+            const Pad_extra_data_POD *extra = reinterpret_cast<const Pad_extra_data_POD *>(pin->extra_data.get());
+            if (extra != nullptr && IdString(extra->pll_type) == type) {
+                return ctx->getBelByName(IdStringList::concat(IdString(extra->pll_tile), IdString(extra->pll_bel)));
+            }
+        }
+    }
+    return BelId();
 }
 
 bool GowinUtils::is_simple_io_bel(BelId bel)

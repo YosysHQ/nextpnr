@@ -65,6 +65,12 @@ inline bool is_dsp(const CellInfo *cell) { return type_is_dsp(cell->type); }
 // ==========================================
 // extra data in the chip db
 // ==========================================
+NPNR_PACKED_STRUCT(struct Pad_extra_data_POD {
+    int32_t pll_tile;
+    int32_t pll_bel;
+    int32_t pll_type;
+});
+
 NPNR_PACKED_STRUCT(struct Tile_extra_data_POD {
     int32_t class_id;
     int16_t io16_x_off;
