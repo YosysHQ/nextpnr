@@ -2646,7 +2646,7 @@ struct GowinPacker
                 // to this pin.
                 if (ci.bel == BelId()) {
                     NetInfo *ni = ci.getPort(id_CLKIN);
-                    if (ni && ni->driver.cell) {
+                    if (ni && ni->driver.cell && ni->driver.cell->bel != BelId()) {
                         BelId pll_bel = gwu.get_pll_bel(ni->driver.cell->bel, id_CLKIN_T);
                         if (ctx->debug) {
                             log_info("PLL clkin driver:%s at %s, PLL bel:%s\n", ctx->nameOf(ni->driver.cell),
