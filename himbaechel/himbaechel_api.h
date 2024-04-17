@@ -58,6 +58,7 @@ struct PlacerHeapCfg;
 struct HimbaechelAPI
 {
     virtual void init(Context *ctx);
+    virtual void setupArchContext() {}
     // If constids are being used, this is used to set them up early
     // then it is responsible for loading the db blob with arch->load_chipdb()
     virtual void init_database(Arch *arch) = 0;
