@@ -421,14 +421,17 @@ def create_tiletype(create_func, chip: Chip, db: chipdb, x: int, y: int, ttyp: i
     create_switch_matrix(tt, db, x, y)
     chip.set_tile_type(x, y, tdesc.tiletype)
 
-def add_port_wire(tt, bel, portmap, name, wire_type, port_type):
+def add_port_wire(tt, bel, portmap, name, wire_type, port_type, pin_name = None):
     wire = portmap[name]
     if not tt.has_wire(wire):
         if name.startswith('CLK'):
             tt.create_wire(wire, "TILE_CLK")
         else:
             tt.create_wire(wire, wire_type)
-    tt.add_bel_pin(bel, name, wire, port_type)
+    if pin_name:
+        tt.add_bel_pin(bel, pin_name, wire, port_type)
+    else:
+        tt.add_bel_pin(bel, name, wire, port_type)
 
 def create_null_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc: TypeDesc):
     typename = "NULL"
@@ -776,6 +779,11 @@ def create_dsp_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc
     portmap = db.grid[y][x].bels[belname].portmap
     dsp = tt.create_bel(belname, "MULT36X36", MULT36X36_Z)
 
+    # LSB 18x18 multipliers sign ports must be zero
+    add_port_wire(tt, dsp, db.grid[y][x].bels['MULT18X1800'].portmap, 'ASIGN', "DSP_I", PinType.INPUT, 'ZERO_ASIGN0')
+    add_port_wire(tt, dsp, db.grid[y][x].bels['MULT18X1800'].portmap, 'BSIGN', "DSP_I", PinType.INPUT, 'ZERO_BSIGN0')
+    add_port_wire(tt, dsp, db.grid[y][x].bels['MULT18X1801'].portmap, 'BSIGN', "DSP_I", PinType.INPUT, 'ZERO_BSIGN1')
+    add_port_wire(tt, dsp, db.grid[y][x].bels['MULT18X1810'].portmap, 'ASIGN', "DSP_I", PinType.INPUT, 'ZERO_ASIGN1')
     for i in range(2):
         for sfx in {'A', 'B'}:
             for inp in range(36):
