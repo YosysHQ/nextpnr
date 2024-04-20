@@ -61,8 +61,15 @@ void Arch::load_chipdb(const std::string &path)
     if (!args.chipdb_override.empty()) {
         db_path = args.chipdb_override;
     } else {
+        std::string separator;
+#if defined(_WIN32)
+        separator = "\\";
+#else
+        separator = "/";
+#endif
         db_path = proc_share_dirname();
-        db_path += "/himbaechel/";
+        db_path += "himbaechel";
+        db_path += separator;
         db_path += path;
     }
     try {

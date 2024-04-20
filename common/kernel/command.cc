@@ -197,7 +197,7 @@ void init_share_dirname()
         npnr_share_dirname = proc_share_path;
         return;
     }
-    proc_share_path = proc_self_path + "..\\share\\";
+    proc_share_path = proc_self_path + "..\\share\\" + "nextpnr\\";
     if (check_file_exists(proc_share_path, true)) {
         npnr_share_dirname = proc_share_path;
         return;

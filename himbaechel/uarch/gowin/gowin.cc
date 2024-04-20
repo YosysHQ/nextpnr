@@ -128,7 +128,17 @@ void GowinImpl::init_database(Arch *arch)
         }
     }
 
-    arch->load_chipdb(stringf("gowin/chipdb-%s.bin", family.c_str()));
+    char separator;
+#if defined(_WIN32)
+    separator = '\\';
+#else
+    separator = '/';
+#endif
+    arch->load_chipdb(stringf(
+        "gowin%cchipdb-%s.bin",
+        separator,
+        family.c_str()
+    ));
 
     // These fields go in the header of the output JSON file and can help
     // gowin_pack support different architectures
