@@ -22,6 +22,7 @@
 #include "chipdb.h"
 #include "log.h"
 #include "nextpnr.h"
+#include <boost/filesystem/convenience.hpp>
 
 #include "command.h"
 #include "placer1.h"
@@ -61,16 +62,11 @@ void Arch::load_chipdb(const std::string &path)
     if (!args.chipdb_override.empty()) {
         db_path = args.chipdb_override;
     } else {
-        std::string separator;
-#if defined(_WIN32)
-        separator = "\\";
-#else
-        separator = "/";
-#endif
         db_path = proc_share_dirname();
-        db_path += "himbaechel";
-        db_path += separator;
+        db_path += "himbaechel/";
         db_path += path;
+        boost::filesystem::path p(db_path);
+        db_path = p.make_preferred().string();
     }
     try {
         blob_file.open(db_path);
