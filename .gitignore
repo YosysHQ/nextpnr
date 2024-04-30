@@ -5,7 +5,6 @@
 /nextpnr-ecp5*
 /nextpnr-nexus*
 /nextpnr-fpga_interchange*
-/nextpnr-gowin*
 /nextpnr-machxo2*
 /nextpnr-himbaechel*
 .cache

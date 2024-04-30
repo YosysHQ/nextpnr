@@ -9,7 +9,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [mistral, ice40, ecp5, generic, nexus, machxo2, gowin, himbaechel]
+        arch: [mistral, ice40, ecp5, generic, nexus, machxo2, himbaechel]
     runs-on: ubuntu-latest
     env:
       DEPS_PATH: ${{ github.workspace }}/deps
