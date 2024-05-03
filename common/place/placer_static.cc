@@ -792,15 +792,15 @@ class StaticPlacer
             auto &pd = nd.ports.at(port.second.type == PORT_OUT ? (nd.ports.size() - 1) : port.second.user_idx.idx());
             // From Replace
             // TODO: check these derivatives on paper
-            float d_min = 0, d_max = 0;
+            double d_min = 0, d_max = 0;
             if (pd.has_min_exp(axis)) {
-                float min_sum = nd.min_exp.at(axis), x_min_sum = nd.x_min_exp.at(axis);
+                double min_sum = nd.min_exp.at(axis), x_min_sum = nd.x_min_exp.at(axis);
                 d_min = (min_sum * (pd.min_exp.at(axis) * (1.0f - wl_coeff.at(axis) * loc.at(axis))) +
                          wl_coeff.at(axis) * pd.min_exp.at(axis) * x_min_sum) /
                         (min_sum * min_sum);
             }
             if (pd.has_max_exp(axis)) {
-                float max_sum = nd.max_exp.at(axis), x_max_sum = nd.x_max_exp.at(axis);
+                double max_sum = nd.max_exp.at(axis), x_max_sum = nd.x_max_exp.at(axis);
                 d_max = (max_sum * (pd.max_exp.at(axis) * (1.0f + wl_coeff.at(axis) * loc.at(axis))) -
                          wl_coeff.at(axis) * pd.max_exp.at(axis) * x_max_sum) /
                         (max_sum * max_sum);
