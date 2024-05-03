@@ -917,16 +917,20 @@ class StaticPlacer
     {
         float coord_dist = 0;
         float grad_dist = 0;
+        int n = 0;
         for (auto &cell : mcells) {
+            if (cell.is_fixed || cell.is_dark)
+                continue;
             coord_dist += (cell.ref_pos.x - cell.last_ref_pos.x) * (cell.ref_pos.x - cell.last_ref_pos.x);
             coord_dist += (cell.ref_pos.y - cell.last_ref_pos.y) * (cell.ref_pos.y - cell.last_ref_pos.y);
             grad_dist +=
                     (cell.ref_total_grad.x - cell.last_total_grad.x) * (cell.ref_total_grad.x - cell.last_total_grad.x);
             grad_dist +=
                     (cell.ref_total_grad.y - cell.last_total_grad.y) * (cell.ref_total_grad.y - cell.last_total_grad.y);
+            n++;
         }
-        coord_dist = std::sqrt(coord_dist / (2 * float(mcells.size())));
-        grad_dist = std::sqrt(grad_dist / (2 * float(mcells.size())));
+        coord_dist = std::sqrt(coord_dist / (2 * float(n)));
+        grad_dist = std::sqrt(grad_dist / (2 * float(n)));
         log_info("coord_dist: %f grad_dist: %f\n", coord_dist, grad_dist);
         return coord_dist / grad_dist;
         // return 0.1;
@@ -969,7 +973,7 @@ class StaticPlacer
             update_gradients(true, true, /* init_penalty */ true);
             // compute a "fake" previous position based on an arbitrary steplength and said gradients for nesterov
             for (auto &cell : mcells) {
-                if (cell.is_fixed)
+                if (cell.is_fixed || cell.is_dark)
                     continue;
                 // save current position in last_pos
                 cell.last_pos = cell.pos;
@@ -981,6 +985,8 @@ class StaticPlacer
             update_gradients(true);
             // Now we have the fake previous state in the current state
             for (auto &cell : mcells) {
+                if (cell.is_fixed || cell.is_dark)
+                    continue;
                 std::swap(cell.last_ref_pos, cell.ref_pos);
                 std::swap(cell.ref_total_grad, cell.last_total_grad);
                 std::swap(cell.ref_wl_grad, cell.last_wl_grad);
