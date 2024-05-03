@@ -233,15 +233,18 @@ struct BitstreamJsonBackend
     void write_dfr(CellInfo *cell) {
         auto& cfg = get_cfg(cell, "BFR");
         //cfg["config"]["data_inv"] = bool_or_default(cell->params, ctx->id("data_inv"), false);
-        cfg["config"]["dff_edge"] = bool_or_default(cell->params, ctx->id("dff_edge"), false);
+        //cfg["config"]["dff_edge"] = bool_or_default(cell->params, ctx->id("dff_edge"), false);
         //cfg["config"]["dff_init"] = bool_or_default(cell->params, ctx->id("dff_init"), false);
         //cfg["config"]["dff_load"] = bool_or_default(cell->params, ctx->id("dff_load"), false);
-        cfg["config"]["dff_sync"] = bool_or_default(cell->params, ctx->id("dff_sync"), false);
+        //cfg["config"]["dff_sync"] = bool_or_default(cell->params, ctx->id("dff_sync"), false);
         //cfg["config"]["dff_type"] = bool_or_default(cell->params, ctx->id("dff_type"), false);
         //cfg["config"]["location"] = str_or_default(cell->params, ctx->id("location"), "");
         cfg["config"]["mode"] = int_or_default(cell->params, ctx->id("mode"), 2);
         //cfg["config"]["path"] = int_or_default(cell->params, ctx->id("path"), 0);
         cfg["config"]["iobname"] = str_or_default(cell->params, ctx->id("iobname"), "");
+        if (cell->params.count(ctx->id("data_inv"))) {
+            cfg["config"]["data_inv"] = bool_or_default(cell->params, ctx->id("data_inv"), false);
+        }
     }
 
     void write_cy(CellInfo *cell) {
@@ -262,7 +265,7 @@ struct BitstreamJsonBackend
             std::string subtype = str_or_default(cell->params, ctx->id("type"), "DFF");
             auto& cfg = get_cfg_fe(cell, subtype, ".DFF", "_D");
             if (subtype =="DFF") {
-                //cfg["config"]["dff_ctxt"] = int_or_default(cell->params, ctx->id("dff_ctxt"), 0);
+                cfg["config"]["dff_ctxt"] = std::to_string(int_or_default(cell->params, ctx->id("dff_ctxt"), 0));
                 cfg["config"]["dff_edge"] = bool_or_default(cell->params, ctx->id("dff_edge"), false);
                 cfg["config"]["dff_init"] = bool_or_default(cell->params, ctx->id("dff_init"), false);
                 cfg["config"]["dff_load"] = bool_or_default(cell->params, ctx->id("dff_load"), false);

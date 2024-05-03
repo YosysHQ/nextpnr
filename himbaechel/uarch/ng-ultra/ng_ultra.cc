@@ -157,10 +157,12 @@ void NgUltraImpl::postRoute()
                                                     loc.z -= 2;
                                                     cell->setParam(ctx->id("mode"), Property(2, 2));
                                                     cell->setParam(ctx->id("path"), Property(0, 2));
+                                                    cell->setParam(ctx->id("data_inv"), Property(0, 1));
                                                 } else {
                                                     loc.z -= 1;
                                                     cell->setParam(ctx->id("mode"), Property(2, 2));
                                                     cell->setParam(ctx->id("path"), Property(1, 2));
+                                                    cell->setParam(ctx->id("data_inv"), Property(0, 1));
                                                 }
                                                 CellInfo *iob = ctx->getBoundBelCell(ctx->getBelByLocation(loc));
                                                 if (iob) {
