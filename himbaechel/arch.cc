@@ -22,7 +22,7 @@
 #include "chipdb.h"
 #include "log.h"
 #include "nextpnr.h"
-#include <boost/filesystem/convenience.hpp>
+#include <boost/filesystem/path.hpp>
 
 #include "command.h"
 #include "placer1.h"
