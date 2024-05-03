@@ -254,6 +254,7 @@ class StaticPlacer
     int width, height;
     int iter = 0;
     bool fft_debug = false;
+    bool dump_density = false;
 
     // legalisation queue
     std::priority_queue<std::pair<int, IdString>> to_legalise;
@@ -658,7 +659,8 @@ class StaticPlacer
             if (!overlap_str.empty())
                 overlap_str += ", ";
             overlap_str += stringf("%s=%.1f%%", cfg.cell_groups.at(idx).name.c_str(ctx), g.overlap * 100);
-            g.conc_density.write_csv(stringf("out_conc_density_%d_%d.csv", iter, idx));
+            if (dump_density)
+                g.conc_density.write_csv(stringf("out_conc_density_%d_%d.csv", iter, idx));
         }
         log_info("overlap: %s\n", overlap_str.c_str());
     }
@@ -1387,6 +1389,7 @@ class StaticPlacer
         groups.resize(cfg.cell_groups.size());
         tmg.setup_only = true;
         tmg.setup();
+        dump_density = ctx->setting<bool>("static/dump_density", false);
     };
     void place()
     {

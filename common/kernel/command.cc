@@ -389,6 +389,9 @@ po::options_description CommandHandler::getGeneralOptions()
                           "allow placer to attempt up to max(10000, total cells^2 / N) iterations to place a cell (int "
                           "N, default: 8, 0 for no timeout)");
 
+    general.add_options()("static-dump-density", "write density csv files during placer-static flow");
+
+
 #if !defined(NPNR_DISABLE_THREADS)
     general.add_options()("parallel-refine", "use new experimental parallelised engine for placement refinement");
 #endif
@@ -542,6 +545,10 @@ void CommandHandler::setupContext(Context *ctx)
 
     if (vm.count("router2-alt-weights"))
         ctx->settings[ctx->id("router2/alt-weights")] = true;
+
+    if (vm.count("static-dump-density"))
+        ctx->settings[ctx->id("static/dump_density")] = true;
+
 
     // Setting default values
     if (ctx->settings.find(ctx->id("target_freq")) == ctx->settings.end())
