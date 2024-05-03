@@ -23,8 +23,6 @@
 #include <fstream>
 #include <regex>
 
-#include "json.hpp"
-
 #include "extra_data.h"
 #include "himbaechel_api.h"
 #include "log.h"
@@ -42,11 +40,22 @@ namespace {
 struct BitstreamJsonBackend
 {
     Context *ctx;
-    nlohmann::json json;
     NgUltraImpl *uarch;
     std::ostream &out;
+    bool first_instance;
 
     BitstreamJsonBackend(Context *ctx, NgUltraImpl *uarch, std::ostream &out) : ctx(ctx), uarch(uarch), out(out){};
+
+    std::string get_string(std::string str)
+    {
+        std::string newstr = "\"";
+        for (char c : str) {
+            if (c == '\\')
+                newstr += c;
+            newstr += c;
+        }
+        return newstr + "\"";
+    }
 
     std::string update_name(std::string tile, std::string name)
     {
@@ -111,10 +120,13 @@ struct BitstreamJsonBackend
 
     void write_nets()
     {
+        out << "\t\"nets\": {\n";
+        bool first_net = true;
         for (auto &net : ctx->nets) {
             NetInfo *ni = net.second.get();
             if (ni->wires.size()==0) continue;
-            auto& cfg = json["nets"][cleanup_name(ni->name.c_str(ctx))];
+            out << (first_net ? "" : ",\n"); first_net = false;
+            out << stringf("\t\t%s: [\n", get_string(cleanup_name(ni->name.c_str(ctx))).c_str());
             std::set<std::string> nets;
             for (auto &w : ni->wires) {
                 if (w.second.pip != PipId()) {
@@ -149,12 +161,17 @@ struct BitstreamJsonBackend
                         add_net(nets, s_tile_name, src.c_str(ctx), tile_name, stringf("%s.%s", bel_name.c_str(ctx), u.port.c_str(ctx)), src_type, src_type);
                     }
                 }
-            }           
-            cfg = nets;
+            }
+            bool first = true;
+            for (auto &str : nets) {
+                out << (first ? "" : ",\n");
+                out << stringf("\t\t\t%s",get_string(str).c_str());
+                first = false;
+            }
+            out << "\n\t\t]";
         }
-
+        out << "\n\t},\n";
     }
-
 
     template <typename KeyType>
     std::string str_or_n_value(const dict<KeyType, Property> &ct, const KeyType &key, std::string def = "N")
@@ -172,54 +189,87 @@ struct BitstreamJsonBackend
     };
 
 
-    nlohmann::json &get_cfg(CellInfo *cell, std::string type = "", std::string rename = "")
+    std::vector<std::string> config;
+
+    void open_instance(CellInfo *cell, std::string type = "", std::string rename = "")
     {
-        auto& cfg = json["instances"][cleanup_name(rename.empty() ? cell->name.c_str(ctx) : rename.c_str())];
+        out << stringf("%s", first_instance ? "" : ",\n"); first_instance = false;
+        out << stringf("\t\t%s: {\n", get_string(cleanup_name(rename.empty() ? cell->name.c_str(ctx) : rename.c_str())).c_str());
         std::string tile_name = uarch->tile_name(cell->bel.tile);
         IdString idx = ctx->getBelName(cell->bel)[1];
         std::string belname = idx.c_str(ctx);
-        cfg["location"] = tile_name + ":" + belname;
-        cfg["type"] = type.empty() ? str_or_default(cell->params, ctx->id("type"), "") : type;
-        return cfg;
+        config.clear();
+        out << stringf("\t\t\t\"location\": %s,\n",get_string(tile_name + ":" + belname).c_str());
+        out << stringf("\t\t\t\"type\": %s",get_string(type.empty() ? str_or_default(cell->params, ctx->id("type"), "") : type).c_str());
     }
 
-    nlohmann::json &get_cfg_fe(CellInfo *cell, std::string type, std::string replace, std::string postfix = "")
+    void open_instance_fe(CellInfo *cell, std::string type, std::string replace, std::string postfix = "")
     {
-        auto& cfg = json["instances"][cleanup_name(cell->name.c_str(ctx)) + postfix];
+        out << stringf("%s", first_instance ? "" : ",\n"); first_instance = false;
+        out << stringf("\t\t%s: {\n", get_string(cleanup_name(cell->name.c_str(ctx)) + postfix).c_str());
         std::string tile_name = uarch->tile_name(cell->bel.tile);
         IdString idx = ctx->getBelName(cell->bel)[1];
         std::string belname = idx.c_str(ctx);
         boost::replace_all(belname, ".FE", replace);
-        cfg["location"] = tile_name + ":" + belname;
-        cfg["type"] = type;
-        return cfg;
+        config.clear();
+        out << stringf("\t\t\t\"location\": %s,\n",get_string(tile_name + ":" + belname).c_str());
+        out << stringf("\t\t\t\"type\": %s",get_string(type).c_str());
+    }
+
+    inline void add_config(std::string name, int val)
+    {
+        config.push_back(stringf("\t\t\t\t%s:%d", get_string(name).c_str(), val));
+    }
+
+    inline void add_config(std::string name, bool val)
+    {
+        config.push_back(stringf("\t\t\t\t%s:%s", get_string(name).c_str(), val ? "true" : "false"));
+    }
+
+    inline void add_config(std::string name, std::string val)
+    {
+        config.push_back(stringf("\t\t\t\t%s:%s", get_string(name).c_str(), get_string(val).c_str()));
+    }
+
+    void close_instance() {
+        bool first = true;
+        if (!config.empty()) out << ",\n\t\t\t\"config\": {\n";
+        for (auto &str : config) {
+            out << (first ? "" : ",\n");
+            out << str.c_str();
+            first = false;
+        }
+        if (!config.empty()) out << "\n\t\t\t}";
+        out << "\n\t\t}";
+        config.clear();
     }
 
     void write_iop(CellInfo *cell) {
-        auto& cfg = get_cfg(cell, "", str_or_default(cell->params, ctx->id("iobname"), ""));
-        //cfg["config"]["alias_vhdl"] = str_or_default(cell->params, ctx->id("alias_vhdl"), "");
-        //cfg["config"]["alias_vlog"] = str_or_default(cell->params, ctx->id("alias_vlog"), "");
-        //cfg["config"]["differential"] = str_or_n_value(cell->params, ctx->id("differential"), "N");
-        cfg["config"]["drive"] = str_or_default(cell->params, ctx->id("drive"), "2mA");
-        //cfg["config"]["dynDrive"] = str_or_n_value(cell->params, ctx->id("dynDrive"), "N");
-        //cfg["config"]["dynInput"] = str_or_n_value(cell->params, ctx->id("dynInput"), "N");
-        //cfg["config"]["dynTerm"] = str_or_n_value(cell->params, ctx->id("dynTerm"), "N");
-        //cfg["config"]["extra"] = int_or_default(cell->params, ctx->id("extra"), 2);
-        //cfg["config"]["inputDelayLine"] = str_or_default(cell->params, ctx->id("inputDelayLine"), "");
-        //cfg["config"]["inputDelayOn"] = str_or_n_value(cell->params, ctx->id("inputDelayOn"), "N");
-        //cfg["config"]["inputSignalSlope"] = str_or_default(cell->params, ctx->id("inputSignalSlope"), "");
-        cfg["config"]["location"] = str_or_default(cell->params, ctx->id("location"), "");
-        //cfg["config"]["locked"] = bool_or_default(cell->params, ctx->id("locked"), false);
-        //cfg["config"]["outputCapacity"] = str_or_default(cell->params, ctx->id("outputCapacity"), "");
-        //cfg["config"]["outputDelayLine"] = str_or_default(cell->params, ctx->id("outputDelayLine"), "");
-        //cfg["config"]["outputDelayOn"] = str_or_n_value(cell->params, ctx->id("outputDelayOn"), "N");
-        //cfg["config"]["slewRate"] = str_or_default(cell->params, ctx->id("slewRate"), "");
-        cfg["config"]["standard"] = str_or_default(cell->params, ctx->id("standard"), "LVCMOS");
-        //cfg["config"]["termination"] = str_or_n_value(cell->params, ctx->id("termination"), "N");
-        //cfg["config"]["terminationReference"] = str_or_n_value(cell->params, ctx->id("terminationReference"), "N");
-        //cfg["config"]["turbo"] = str_or_n_value(cell->params, ctx->id("turbo"), "N");
-        //cfg["config"]["weakTermination"] = str_or_n_value(cell->params, ctx->id("weakTermination"), "N");
+        open_instance(cell, "", str_or_default(cell->params, ctx->id("iobname"), ""));      
+        //add_config("alias_vhdl", str_or_default(cell->params, ctx->id("alias_vhdl"), ""));
+        //add_config("alias_vlog", str_or_default(cell->params, ctx->id("alias_vlog"), ""));
+        //add_config("differential", str_or_n_value(cell->params, ctx->id("differential"), "N"));
+        add_config("drive", str_or_default(cell->params, ctx->id("drive"), "2mA"));
+        //add_config("dynDrive", str_or_n_value(cell->params, ctx->id("dynDrive"), "N"));
+        //add_config("dynInput", str_or_n_value(cell->params, ctx->id("dynInput"), "N"));
+        //add_config("dynTerm", str_or_n_value(cell->params, ctx->id("dynTerm"), "N"));
+        //add_config("extra", int_or_default(cell->params, ctx->id("extra"), 2));
+        //add_config("inputDelayLine", str_or_default(cell->params, ctx->id("inputDelayLine"), ""));
+        //add_config("inputDelayOn", str_or_n_value(cell->params, ctx->id("inputDelayOn"), "N"));
+        //add_config("inputSignalSlope", str_or_default(cell->params, ctx->id("inputSignalSlope"), ""));
+        add_config("location", str_or_default(cell->params, ctx->id("location"), ""));
+        //add_config("locked", bool_or_default(cell->params, ctx->id("locked"), false));
+        //add_config("outputCapacity", str_or_default(cell->params, ctx->id("outputCapacity"), ""));
+        //add_config("outputDelayLine", str_or_default(cell->params, ctx->id("outputDelayLine"), ""));
+        //add_config("outputDelayOn", str_or_n_value(cell->params, ctx->id("outputDelayOn"), "N"));
+        //add_config("slewRate", str_or_default(cell->params, ctx->id("slewRate"), ""));
+        add_config("standard", str_or_default(cell->params, ctx->id("standard"), "LVCMOS"));
+        //add_config("termination", str_or_n_value(cell->params, ctx->id("termination"), "N"));
+        //add_config("terminationReference", str_or_n_value(cell->params, ctx->id("terminationReference"), "N"));
+        //add_config("turbo", str_or_n_value(cell->params, ctx->id("turbo"), "N"));
+        //add_config("weakTermination", str_or_n_value(cell->params, ctx->id("weakTermination"), "N"));
 
+        close_instance();
         std::string tile_name = uarch->tile_name(cell->bel.tile);
         std::string bank = tile_name.substr(0, tile_name.rfind(':'));
         if (uarch->bank_voltage.count(bank)==0) {
@@ -231,65 +281,72 @@ struct BitstreamJsonBackend
     }
 
     void write_dfr(CellInfo *cell) {
-        auto& cfg = get_cfg(cell, "BFR");
-        //cfg["config"]["data_inv"] = bool_or_default(cell->params, ctx->id("data_inv"), false);
-        //cfg["config"]["dff_edge"] = bool_or_default(cell->params, ctx->id("dff_edge"), false);
-        //cfg["config"]["dff_init"] = bool_or_default(cell->params, ctx->id("dff_init"), false);
-        //cfg["config"]["dff_load"] = bool_or_default(cell->params, ctx->id("dff_load"), false);
-        //cfg["config"]["dff_sync"] = bool_or_default(cell->params, ctx->id("dff_sync"), false);
-        //cfg["config"]["dff_type"] = bool_or_default(cell->params, ctx->id("dff_type"), false);
-        //cfg["config"]["location"] = str_or_default(cell->params, ctx->id("location"), "");
-        cfg["config"]["mode"] = int_or_default(cell->params, ctx->id("mode"), 2);
-        //cfg["config"]["path"] = int_or_default(cell->params, ctx->id("path"), 0);
-        cfg["config"]["iobname"] = str_or_default(cell->params, ctx->id("iobname"), "");
+        open_instance(cell, "BFR");
+        //add_config("data_inv", bool_or_default(cell->params, ctx->id("data_inv"), false));
+        //add_config("dff_edge", bool_or_default(cell->params, ctx->id("dff_edge"), false));
+        //add_config("dff_init", bool_or_default(cell->params, ctx->id("dff_init"), false));
+        //add_config("dff_load", bool_or_default(cell->params, ctx->id("dff_load"), false));
+        //add_config("dff_sync", bool_or_default(cell->params, ctx->id("dff_sync"), false));
+        //add_config("dff_type", bool_or_default(cell->params, ctx->id("dff_type"), false));
+        //add_config("location", str_or_default(cell->params, ctx->id("location"), ""));
+        add_config("mode", int_or_default(cell->params, ctx->id("mode"), 2));
+        //add_config("path", int_or_default(cell->params, ctx->id("path"), 0));
+        add_config("iobname", str_or_default(cell->params, ctx->id("iobname"), ""));
         if (cell->params.count(ctx->id("data_inv"))) {
-            cfg["config"]["data_inv"] = bool_or_default(cell->params, ctx->id("data_inv"), false);
+            add_config("data_inv", bool_or_default(cell->params, ctx->id("data_inv"), false));
         }
+        close_instance();
     }
 
     void write_cy(CellInfo *cell) {
-        auto& cfg = get_cfg(cell, "CY");
-        cfg["config"]["add_carry"] = int_or_default(cell->params, ctx->id("add_carry"), 0);
-        cfg["config"]["shifter"] = bool_or_default(cell->params, ctx->id("shifter"), false);
+        open_instance(cell, "CY");
+        add_config("add_carry", int_or_default(cell->params, ctx->id("add_carry"), 0));
+        add_config("shifter", bool_or_default(cell->params, ctx->id("shifter"), false));
+        close_instance();
     }
 
     void write_fe(CellInfo *cell) {
         if (bool_or_default(cell->params, id_lut_used)) {
-            auto& cfg = get_cfg_fe(cell, "LUT", ".LUT");
+            open_instance_fe(cell, "LUT", ".LUT");
             Property init = get_or_default(cell->params, id_lut_table, Property()).extract(0, 16);
             std::string lut = init.str;
             std::reverse(lut.begin(), lut.end());
-            cfg["config"]["lut_table"] = lut;
+            add_config("lut_table", lut);
+            close_instance();
         }
         if (bool_or_default(cell->params, id_dff_used)) {
             std::string subtype = str_or_default(cell->params, ctx->id("type"), "DFF");
-            auto& cfg = get_cfg_fe(cell, subtype, ".DFF", "_D");
+            open_instance_fe(cell, subtype, ".DFF", "_D");
             if (subtype =="DFF") {
-                cfg["config"]["dff_ctxt"] = std::to_string(int_or_default(cell->params, ctx->id("dff_ctxt"), 0));
-                cfg["config"]["dff_edge"] = bool_or_default(cell->params, ctx->id("dff_edge"), false);
-                cfg["config"]["dff_init"] = bool_or_default(cell->params, ctx->id("dff_init"), false);
-                cfg["config"]["dff_load"] = bool_or_default(cell->params, ctx->id("dff_load"), false);
-                cfg["config"]["dff_sync"] = bool_or_default(cell->params, ctx->id("dff_sync"), false);
-                cfg["config"]["dff_type"] = bool_or_default(cell->params, ctx->id("dff_type"), false);
+                add_config("dff_ctxt", std::to_string(int_or_default(cell->params, ctx->id("dff_ctxt"), 0)));
+                add_config("dff_edge", bool_or_default(cell->params, ctx->id("dff_edge"), false));
+                add_config("dff_init", bool_or_default(cell->params, ctx->id("dff_init"), false));
+                add_config("dff_load", bool_or_default(cell->params, ctx->id("dff_load"), false));
+                add_config("dff_sync", bool_or_default(cell->params, ctx->id("dff_sync"), false));
+                add_config("dff_type", bool_or_default(cell->params, ctx->id("dff_type"), false));
             }
+            close_instance();
         }
     }
 
     void write_iom(CellInfo *cell) {
-        auto& cfg = get_cfg(cell, "IOM");
-        cfg["config"]["pads_path"] = str_or_default(cell->params, ctx->id("pads_path"), ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;");
+        open_instance(cell, "IOM");
+        add_config("pads_path", str_or_default(cell->params, ctx->id("pads_path"), ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;"));
+        close_instance();
     }
 
     void write_gck(CellInfo *cell) {
-        auto& cfg = get_cfg(cell, "GCK");
-        cfg["config"]["inv_in"] = bool_or_default(cell->params, ctx->id("inv_in"), false);
-        cfg["config"]["inv_out"] = bool_or_default(cell->params, ctx->id("inv_out"), false);
-        cfg["config"]["std_mode"] = str_or_default(cell->params, ctx->id("std_mode"), "BYPASS");
+        open_instance(cell, "GCK");
+        add_config("inv_in", bool_or_default(cell->params, ctx->id("inv_in"), false));
+        add_config("inv_out", bool_or_default(cell->params, ctx->id("inv_out"), false));
+        add_config("std_mode", str_or_default(cell->params, ctx->id("std_mode"), "BYPASS"));
+        close_instance();
     }
 
     void write_wfg(CellInfo *cell) {
         std::string subtype = str_or_default(cell->params, ctx->id("type"), "WFB");
-        get_cfg(cell, subtype);
+        open_instance(cell, subtype);
+        close_instance();
     }
 
     void write_interconnections()
@@ -313,14 +370,13 @@ struct BitstreamJsonBackend
                         type = "ITC";
                     if (boost::starts_with(src_name,"SO1.")) type = "OTS";
                     if (boost::starts_with(src_name,"SI1.")) type = "ITS";
-                    std::string name = cleanup_name(std::string(ni->name.c_str(ctx))+ "_" + type);
-                    while (json["instances"].contains(name))
-                        name += "_2";
-                    auto& cfg = json["instances"][name];
-                    cfg["type"] = type;
                     src_name = update_name(tile_name, src_name);
                     src_name = src_name.substr(0, src_name.size() - 2);
-                    cfg["location"] = tile_name + ":" + src_name;
+
+                    std::string name = cleanup_name(std::string(ni->name.c_str(ctx))+ "_" + src_name.substr(4));
+                    out << stringf(",\n\t\t%s: {\n", get_string(name).c_str());
+                    out << stringf("\t\t\t\"location\": %s,\n",get_string(tile_name + ":" + src_name).c_str());
+                    out << stringf("\t\t\t\"type\": %s\n\t\t}",get_string(type).c_str());
                 }
             }
         }
@@ -328,6 +384,8 @@ struct BitstreamJsonBackend
 
     void write_instances()
     {
+        out << "\t\"instances\": {\n";
+        first_instance = true;
         for (auto &cell : ctx->cells) {
             switch (cell.second->type.index) {
                 case id_IOP.index : write_iop(cell.second.get()); break;
@@ -357,23 +415,30 @@ struct BitstreamJsonBackend
             }
         }
         write_interconnections();
+        out << "\n\t},\n";
     }
-    
+  
     void write_setup()
     {
-        json["setup"]["variant"] = "NG-ULTRA";
-        auto& cfg = json["setup"]["iobanks"];
-        for (auto &bank : uarch->bank_voltage)
-            cfg[bank.first] = bank.second;
+        out << "\t\"setup\": {\n";
+        out << "\t\t\"variant\": \"NG-ULTRA\",\n";
+        out << "\t\t\"iobanks\": {\n";
+        bool first = true;
+        for (auto &bank : uarch->bank_voltage) {
+            out << (first ? "" : ",\n");
+            out << stringf("\t\t\t%s:%s",get_string(bank.first).c_str(),get_string(bank.second).c_str());
+            first = false;
+        }
+        out << "\n\t\t}\n\t}\n";
     }
 
     void write_json()
     {
+        out << "{\n";
         write_nets();
         write_instances();
         write_setup();
-
-        out << std::setw(4) << json << std::endl;
+        out << "}\n";
     }
 };
 
