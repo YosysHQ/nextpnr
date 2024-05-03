@@ -255,6 +255,154 @@ struct Router2
 
     bool hit_test_pip(BoundingBox &bb, Loc l) { return l.x >= bb.x0 && l.x <= bb.x1 && l.y >= bb.y0 && l.y <= bb.y1; }
 
+    std::mutex delay_lookahead_mutex;
+    dict<IdString, dict<IdString, std::vector<delay_t>>> delay_lookahead;
+    dict<IdString, pool<IdString>> lookahead_learning_complete;
+    int total_lookahead_calc_us = 0;
+
+    void compute_delay_lookahead(WireId src, WireId dst) {
+        std::priority_queue<QueuedWire, std::vector<QueuedWire>, QueuedWire::Greater> queue;
+        pool<WireId> visited;
+
+        auto src_type = ctx->getWireType(src);
+        auto dst_type = ctx->getWireType(dst);
+
+        // Are we likely to gain anything from another round of search?
+        if (lookahead_learning_complete.count(src_type) == 0)
+            lookahead_learning_complete.insert({src_type, pool<IdString>{}});
+        if (lookahead_learning_complete.at(src_type).count(dst_type) != 0)
+            return;
+
+        auto setup = [&](WireId s, WireId d) {
+            auto s_type = ctx->getWireType(s);
+            auto d_type = ctx->getWireType(d);
+            if (delay_lookahead.count(s_type) == 0)
+                delay_lookahead.insert({s_type, dict<IdString, std::vector<delay_t>>{}});
+            if (delay_lookahead.at(s_type).count(d_type) == 0)
+                delay_lookahead.at(s_type).insert({d_type, std::vector<delay_t>((ctx->getGridDimX() + 1)*(ctx->getGridDimY() + 1), ctx->getDelayFromNS(1000.0))});
+        };
+
+        auto start_time = std::chrono::high_resolution_clock::now();
+
+        setup(src, dst);
+
+        auto sd_bb = ctx->getRouteBoundingBox(src, dst);
+        auto sd_dx = std::abs(sd_bb.x1 - sd_bb.x0);
+        auto sd_dy = std::abs(sd_bb.y1 - sd_bb.y0);
+
+        {
+            WireScore score;
+            score.delay = 0;
+            score.cost = 0;
+            score.togo_cost = 0;
+            queue.push(QueuedWire(wire_to_idx.at(src), score));
+        }
+
+        int updates = 0;
+
+        while (!queue.empty()) {
+            auto w = queue.top();
+            queue.pop();
+
+            for (auto dh : ctx->getPipsDownhill(flat_wires.at(w.wire).w)) {
+                auto wire = ctx->getPipDstWire(dh);
+                auto wire_type = ctx->getWireType(wire);
+                if (visited.count(wire))
+                    continue;
+
+                visited.insert(wire);
+                auto bb = ctx->getRouteBoundingBox(src, wire);
+                auto dx = std::min(std::abs(bb.x1 - bb.x0), ctx->getGridDimX());
+                auto dy = std::min(std::abs(bb.y1 - bb.y0), ctx->getGridDimY());
+
+                auto delay = w.score.cost;
+
+                setup(src, wire);
+
+                auto lookahead_delay = delay_lookahead.at(src_type).at(wire_type).at((ctx->getGridDimX() + 1)*dy + dx);
+                updates += lookahead_delay > ctx->getDelayFromNS(delay);
+                delay_lookahead.at(src_type).at(wire_type).at((ctx->getGridDimX() + 1)*dy + dx) = std::min(lookahead_delay, ctx->getDelayFromNS(delay));
+
+                setup(wire, src);
+
+                lookahead_delay = delay_lookahead.at(wire_type).at(src_type).at((ctx->getGridDimX() + 1)*dy + dx);
+                updates += lookahead_delay > ctx->getDelayFromNS(delay);
+                delay_lookahead.at(wire_type).at(src_type).at((ctx->getGridDimX() + 1)*dy + dx) = std::min(lookahead_delay, ctx->getDelayFromNS(delay));
+
+                WireScore score;
+                score.delay = 0;
+                score.cost = delay + cfg.get_base_cost(ctx, wire, dh, 1.0);
+                score.togo_cost = 0;
+                queue.push(QueuedWire(wire_to_idx.at(wire), score));
+            }
+        }
+
+        {
+            WireScore score;
+            score.delay = 0;
+            score.cost = 0;
+            score.togo_cost = 0;
+            queue.push(QueuedWire(wire_to_idx.at(src), score));
+        }
+
+        while (!queue.empty()) {
+            auto w = queue.top();
+            queue.pop();
+
+            for (auto uh : ctx->getPipsUphill(flat_wires.at(w.wire).w)) {
+                auto wire = ctx->getPipSrcWire(uh);
+                auto wire_type = ctx->getWireType(wire);
+                if (visited.count(wire))
+                    continue;
+
+                visited.insert(wire);
+                auto bb = ctx->getRouteBoundingBox(src, wire);
+                auto dx = std::min(std::abs(bb.x1 - bb.x0), ctx->getGridDimX());
+                auto dy = std::min(std::abs(bb.y1 - bb.y0), ctx->getGridDimY());
+
+                auto delay = w.score.cost;
+
+                setup(src, wire);
+
+                auto lookahead_delay = delay_lookahead.at(src_type).at(wire_type).at((ctx->getGridDimX() + 1)*dy + dx);
+                updates += lookahead_delay > ctx->getDelayFromNS(delay);
+                delay_lookahead.at(src_type).at(wire_type).at((ctx->getGridDimX() + 1)*dy + dx) = std::min(lookahead_delay, ctx->getDelayFromNS(delay));
+
+                setup(wire, src);
+
+                lookahead_delay = delay_lookahead.at(wire_type).at(src_type).at((ctx->getGridDimX() + 1)*dy + dx);
+                updates += lookahead_delay > ctx->getDelayFromNS(delay);
+                delay_lookahead.at(wire_type).at(src_type).at((ctx->getGridDimX() + 1)*dy + dx) = std::min(lookahead_delay, ctx->getDelayFromNS(delay));
+
+                WireScore score;
+                score.delay = 0;
+                score.cost = delay + cfg.get_base_cost(ctx, wire, uh, 1.0);
+                score.togo_cost = 0;
+                queue.push(QueuedWire(wire_to_idx.at(wire), score));
+            }
+        }
+
+        auto end_time = std::chrono::high_resolution_clock::now();
+
+        total_lookahead_calc_us += std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+
+        if (updates == 0)
+            lookahead_learning_complete.at(src_type).insert(dst_type);
+    }
+
+    delay_t get_delay_lookahead(WireId src, WireId dst) {
+        auto src_type = ctx->getWireType(src);
+        auto dst_type = ctx->getWireType(dst);
+        auto bb = ctx->getRouteBoundingBox(src, dst);
+        auto dx = std::min(std::abs(bb.x1 - bb.x0), ctx->getGridDimX());
+        auto dy = std::min(std::abs(bb.y1 - bb.y0), ctx->getGridDimY());
+        if (delay_lookahead.count(src_type) != 0 && delay_lookahead.at(src_type).count(dst_type) != 0 && delay_lookahead.at(src_type).at(dst_type).at((ctx->getGridDimX() + 1)*dy + dx) < ctx->getDelayFromNS(500))
+            return delay_lookahead.at(src_type).at(dst_type).at((ctx->getGridDimX() + 1)*dy + dx);
+        std::unique_lock lock(delay_lookahead_mutex);
+        compute_delay_lookahead(src, dst);
+        return delay_lookahead.at(src_type).at(dst_type).at((ctx->getGridDimX() + 1)*dy + dx);
+    }
+
     double curr_cong_weight, hist_cong_weight, estimate_weight;
 
     struct ThreadContext
@@ -387,7 +535,7 @@ struct Router2
             source_uses = nd.wires.at(wd.w).second;
         }
         // FIXME: timing/wirelength balance?
-        delay_t est_delay = ctx->estimateDelay(bwd ? src_sink : wd.w, bwd ? wd.w : src_sink);
+        delay_t est_delay = get_delay_lookahead(bwd ? src_sink : wd.w, bwd ? wd.w : src_sink); //ctx->estimateDelay(bwd ? src_sink : wd.w, bwd ? wd.w : src_sink);
         return (ctx->getDelayNS(est_delay) / (1 + source_uses * crit_weight)) + cfg.ipin_cost_adder;
     }
 
@@ -579,11 +727,11 @@ struct Router2
 
     bool was_visited_fwd(int wire, float cost)
     {
-        return flat_wires.at(wire).visited_fwd && flat_wires.at(wire).cost_fwd <= cost;
+        return flat_wires.at(wire).visited_fwd;
     }
     bool was_visited_bwd(int wire, float cost)
     {
-        return flat_wires.at(wire).visited_bwd && flat_wires.at(wire).cost_bwd <= cost;
+        return flat_wires.at(wire).visited_bwd;
     }
 
     float get_arc_crit(NetInfo *net, store_index<PortRef> i)
@@ -1493,6 +1641,7 @@ struct Router2
         }
         auto rend = std::chrono::high_resolution_clock::now();
         log_info("Router2 time %.02fs\n", std::chrono::duration<float>(rend - rstart).count());
+        log_info("  Lookahead calculation time %.02fs\n", float(total_lookahead_calc_us) * 1e-6);
 
         log_info("Running router1 to check that route is legal...\n");
 
@@ -1527,7 +1676,7 @@ Router2Cfg::Router2Cfg(Context *ctx)
         init_curr_cong_weight = ctx->setting<float>("router2/initCurrCongWeight", 0.5f);
         hist_cong_weight = ctx->setting<float>("router2/histCongWeight", 1.0f);
         curr_cong_mult = ctx->setting<float>("router2/currCongWeightMult", 2.0f);
-        estimate_weight = ctx->setting<float>("router2/estimateWeight", 1.25f);
+        estimate_weight = ctx->setting<float>("router2/estimateWeight", 0.75f);
     }
     perf_profile = ctx->setting<bool>("router2/perfProfile", false);
     if (ctx->settings.count(ctx->id("router2/heatmap")))
