@@ -587,8 +587,8 @@ class StaticPlacer
             height = bin_h;
         }
 
-        double x0 = pos.x - (width / 2), x1 = pos.x + (width / 2);
-        double y0 = pos.y - (height / 2), y1 = pos.y + (height / 2);
+        double x0 = pos.x, x1 = pos.x + width;
+        double y0 = pos.y, y1 = pos.y + height;
         for (int y = int(y0 / bin_h); y <= int(y1 / bin_h); y++) {
             for (int x = int(x0 / bin_w); x <= int(x1 / bin_w); x++) {
                 int xb = std::max(0, std::min(x, m - 1));
@@ -1043,7 +1043,11 @@ class StaticPlacer
     {
         // TODO: update penalties; wirelength factor; etc
         steplen = get_steplen();
-        log_info("iter=%d steplen=%f a=%f\n", iter, steplen, nesterov_a);
+        std::string penalty_str = "";
+        for (auto p : dens_penalty) {
+            penalty_str += stringf("%s%.2f", penalty_str.empty() ? "" : ", ", p);
+        }
+        log_info("iter=%d steplen=%f a=%f penalty=[%s]\n", iter, steplen, nesterov_a, penalty_str.c_str());
         float a_next = (1.0f + std::sqrt(4.0f * nesterov_a * nesterov_a + 1)) / 2.0f;
         // Update positions using Nesterov's
         for (auto &cell : mcells) {
