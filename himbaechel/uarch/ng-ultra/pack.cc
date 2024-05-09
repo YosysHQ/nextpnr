@@ -302,48 +302,74 @@ void NgUltraPacker::pack_iobs(void)
 {
     log_info("Pack IOBs...\n");
     // Trim nextpnr IOBs - assume IO buffer insertion has been done in synthesis
-    const pool<CellTypePort> top_ports{
-            CellTypePort(id_NX_IOB_I, id_IO),
-            CellTypePort(id_NX_IOB_O, id_IO),
-    };
-    std::vector<IdString> to_remove;
-    for (auto &cell : ctx->cells) {
-        auto &ci = *cell.second;
-        if (!ci.type.in(ctx->id("$nextpnr_ibuf"), ctx->id("$nextpnr_obuf"), ctx->id("$nextpnr_iobuf")))
-            continue;
-        NetInfo *i = ci.getPort(id_I);
-        if (i && i->driver.cell) {
-            if (!top_ports.count(CellTypePort(i->driver)))
-                log_error("Top-level port '%s' driven by illegal port %s.%s\n", ctx->nameOf(&ci),
-                          ctx->nameOf(i->driver.cell), ctx->nameOf(i->driver.port));
-            for (auto &attrs : ci.attrs)
-                i->driver.cell->attrs[attrs.first] = attrs.second;
-            for (auto &params : ci.params)
-                i->driver.cell->params[params.first] = params.second;
+    for (auto &port : ctx->ports) {
+        if (!ctx->cells.count(port.first))
+            log_error("Port '%s' doesn't seem to have a corresponding top level IO\n", ctx->nameOf(port.first));
+        CellInfo *ci = ctx->cells.at(port.first).get();
+
+        PortRef top_port;
+        top_port.cell = nullptr;
+        bool is_npnr_iob = false;
+
+        if (ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_iobuf")) {
+            // Might have an input buffer connected to it
+            is_npnr_iob = true;
+            NetInfo *o = ci->getPort(id_O);
+            if (o == nullptr)
+                ;
+            else if (o->users.entries() > 1)
+                log_error("Top level pin '%s' has multiple input buffers\n", ctx->nameOf(port.first));
+            else if (o->users.entries() == 1)
+                top_port = *o->users.begin();
         }
-        NetInfo *o = ci.getPort(id_O);
-        if (o) {
-            for (auto &usr : o->users) {
-                if (!top_ports.count(CellTypePort(usr)))
-                    log_error("Top-level port '%s' driving illegal port %s.%s\n", ctx->nameOf(&ci),
-                              ctx->nameOf(usr.cell), ctx->nameOf(usr.port));
-                for (auto &attrs : ci.attrs)
-                    usr.cell->attrs[attrs.first] = attrs.second;
-                for (auto &params : ci.params)
-                    usr.cell->params[params.first] = params.second;
+        if (ci->type == ctx->id("$nextpnr_obuf") || ci->type == ctx->id("$nextpnr_iobuf")) {
+            // Might have an output buffer connected to it
+            is_npnr_iob = true;
+            NetInfo *i = ci->getPort(id_I);
+            if (i != nullptr && i->driver.cell != nullptr) {
+                if (top_port.cell != nullptr)
+                    log_error("Top level pin '%s' has multiple input/output buffers\n", ctx->nameOf(port.first));
+                top_port = i->driver;
+            }
+            // Edge case of a bidirectional buffer driving an output pin
+            if (i->users.entries() > 2) {
+                log_error("Top level pin '%s' has illegal buffer configuration\n", ctx->nameOf(port.first));
+            } else if (i->users.entries() == 2) {
+                if (top_port.cell != nullptr)
+                    log_error("Top level pin '%s' has illegal buffer configuration\n", ctx->nameOf(port.first));
+                for (auto &usr : i->users) {
+                    if (usr.cell->type == ctx->id("$nextpnr_obuf") || usr.cell->type == ctx->id("$nextpnr_iobuf"))
+                        continue;
+                    top_port = usr;
+                    break;
+                }
             }
         }
-        ci.disconnectPort(id_I);
-        ci.disconnectPort(id_O);
-        to_remove.push_back(ci.name);
-    }
-    for (IdString cell_name : to_remove)
-        ctx->cells.erase(cell_name);
+        if (!is_npnr_iob)
+            log_error("Port '%s' doesn't seem to have a corresponding top level IO (internal cell type mismatch)\n",
+                        ctx->nameOf(port.first));
 
+        if (top_port.cell == nullptr) {
+            log_info("Trimming port '%s' as it is unused.\n", ctx->nameOf(port.first));
+        } else {
+            // Copy attributes to real IO buffer
+            for (auto &attrs : ci->attrs)
+                top_port.cell->attrs[attrs.first] = attrs.second;
+            for (auto &params : ci->params)
+                top_port.cell->params[params.first] = params.second;
+
+            // Make sure that top level net is set correctly
+            port.second.net = top_port.cell->ports.at(top_port.port).net;
+        }
+        // Now remove the nextpnr-inserted buffer
+        ci->disconnectPort(id_I);
+        ci->disconnectPort(id_O);
+        ctx->cells.erase(port.first);
+    }
     std::vector<CellInfo*> to_update;
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
-        if (!ci.type.in(id_NX_IOB_I, id_NX_IOB_O))
+        if (!ci.type.in(id_NX_IOB_I, id_NX_IOB_O, id_NX_IOB))
             continue;
         if (ci.params.count(id_location) && ci.attrs.count(id_LOC)) {
             if (ci.params[id_location].as_string() != ci.attrs[id_LOC].as_string())

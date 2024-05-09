@@ -145,7 +145,7 @@ void NgUltraImpl::parse_csv(const std::string &filename)
 
                     std::vector<CellInfo *> dest = get_cells(arguments.at(0));
                     for (auto c : dest) {
-                        c->attrs[id_LOC] = arguments.at(1);
+                        c->params[ctx->id("location")] = arguments.at(1);
                         c->params[ctx->id("iobname")] = arguments.at(0);
                         c->params[ctx->id("standard")] = arguments.at(2);
                         c->params[ctx->id("drive")] = arguments.at(3);

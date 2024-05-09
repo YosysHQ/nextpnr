@@ -149,25 +149,19 @@ void NgUltraImpl::postRoute()
                                             {
                                                 Loc loc = ctx->getBelLocation(bel);
                                                 cell->setParam(ctx->id("type"), Property("BFR"));
+                                                cell->setParam(ctx->id("mode"), Property(2, 2));
+                                                cell->setParam(ctx->id("data_inv"), Property(0, 1));
                                                 if (boost::ends_with(bel_name, "CD")) {
                                                     loc.z -= 3;
-                                                    //cell->setParam(ctx->id("mode"), Property(0, 2));
-                                                    cell->setParam(ctx->id("path"), Property(2, 2));
                                                 } else if (boost::ends_with(bel_name, "OD")) {
                                                     loc.z -= 2;
-                                                    cell->setParam(ctx->id("mode"), Property(2, 2));
-                                                    cell->setParam(ctx->id("path"), Property(0, 2));
-                                                    cell->setParam(ctx->id("data_inv"), Property(0, 1));
                                                 } else {
                                                     loc.z -= 1;
-                                                    cell->setParam(ctx->id("mode"), Property(2, 2));
-                                                    cell->setParam(ctx->id("path"), Property(1, 2));
-                                                    cell->setParam(ctx->id("data_inv"), Property(0, 1));
                                                 }
                                                 CellInfo *iob = ctx->getBoundBelCell(ctx->getBelByLocation(loc));
-                                                if (iob) {
-                                                    cell->setParam(ctx->id("iobname"), iob->params[ctx->id("iobname")]);
-                                                }
+                                                if (!iob || iob->params.count(ctx->id("iobname"))==0)
+                                                    log_error("IOB for '%s' must have iobname defined.\n", cell->name.c_str(ctx));
+                                                cell->setParam(ctx->id("iobname"), iob->params[ctx->id("iobname")]);
                                             }                                    
                                             break;
                         default:
