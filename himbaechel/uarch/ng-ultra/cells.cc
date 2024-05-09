@@ -84,6 +84,11 @@ CellInfo *NgUltraPacker::create_cell_ptr(IdString type, IdString name)
         add_port("I2", PORT_IN);
         add_port("O2", PORT_OUT);
         add_port("CKF", PORT_IN);
+    } else if (type == id_IOM) {
+        add_port("P17RI", PORT_IN);
+        add_port("CKO1", PORT_OUT);
+        add_port("P19RI", PORT_IN);
+        add_port("CKO2", PORT_OUT);
     }
     return cell;
 }

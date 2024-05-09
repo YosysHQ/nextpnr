@@ -697,6 +697,82 @@ void NgUltraPacker::pack_cys(void)
     flush_cells();
 }
 
+// There are 20 dedicated clock inputs capable of being routed using global network
+// to be able to best route them, IOM needs to be used to propagate these clock signals
+void NgUltraPacker::promote_globals()
+{
+    std::vector<std::pair<int, IdString>> glb_fanout;
+    int available_globals = 20;
+    for (auto &net : ctx->nets) {
+        NetInfo *ni = net.second.get();
+        // Skip undriven nets; and nets that are already global
+        if (ni->driver.cell == nullptr)
+            continue;
+        if (ni->name.in(ctx->id("$PACKER_GND_NET"), ctx->id("$PACKER_VCC_NET")))
+            continue;
+        if (ni->driver.cell->type == id_IOM) {
+            continue;
+        }
+        if (ni->driver.cell->type == id_GCK) {
+            --available_globals;
+            continue;
+        }
+        if (!ni->driver.cell->type.in(id_DDFR)) {
+            continue;
+        }
+        Loc iotp_loc = ni->driver.cell->getLocation();
+        iotp_loc.z -= 1;
+        BelId bel = ctx->getBelByLocation(iotp_loc);
+        if (uarch->global_capable_bels.count(bel)==0)
+            continue;
+        // Count the number of clock ports
+        int glb_count = 0;
+        for (const auto &usr : ni->users) {
+            if (usr.cell->type == id_BEYOND_FE && usr.port == id_CK)
+                glb_count++;
+        }
+        if (glb_count > 0)
+            glb_fanout.emplace_back(glb_count, ni->name);
+    }
+    if (available_globals <= 0)
+        return;
+    // Sort clocks by max fanout
+    std::sort(glb_fanout.begin(), glb_fanout.end(), std::greater<std::pair<int, IdString>>());
+    log_info("Promoting globals...\n");
+    // Promote the N highest fanout clocks
+    for (size_t i = 0; i < std::min<size_t>(glb_fanout.size(), available_globals); i++) {
+        NetInfo *net = ctx->nets.at(glb_fanout.at(i).second).get();
+        log_info("     promoting clock net '%s'\n", ctx->nameOf(net));
+        Loc iotp_loc = net->driver.cell->getLocation();
+        iotp_loc.z -= 1;
+        BelId iotp_bel = ctx->getBelByLocation(iotp_loc);
+
+        IdString iob = uarch->tile_name_id(iotp_bel.tile);
+        BelId bel = uarch->iom_bels[iob];
+
+        CellInfo *iom = nullptr;
+        IdString port = uarch->global_capable_bels.at(iotp_bel);
+        if (!ctx->checkBelAvail(bel)) {
+            iom = ctx->getBoundBelCell(bel);
+        } else {
+            iom = create_cell_ptr(id_IOM, ctx->id(std::string(iob.c_str(ctx)) + "$iom"));
+        }
+        if (iom->getPort(port)) {
+            log_error("Port '%s' of IOM cell '%s' is already used.\n", port.c_str(ctx), iom->name.c_str(ctx));
+        }
+        CellInfo *input_pad = ctx->getBoundBelCell(iotp_bel);
+        NetInfo *iom_to_clk = ctx->createNet(ctx->id(std::string(net->name.c_str(ctx)) + "$iom"));
+        for (const auto &usr : net->users) {
+            if (usr.cell->type == id_BEYOND_FE && usr.port == id_CK) {
+                usr.cell->disconnectPort(id_CK);
+                usr.cell->connectPort(id_CK, iom_to_clk);
+            }
+        }       
+        iom->connectPort(port, input_pad->getPort(id_O));
+        iom->connectPort((port==id_P17RI) ?  id_CKO1 : id_CKO2, iom_to_clk);
+        ctx->bindBel(bel, iom, PlaceStrength::STRENGTH_LOCKED);
+    }
+}
 void NgUltraImpl::pack()
 {
     const ArchArgs &args = ctx->args;
@@ -713,6 +789,7 @@ void NgUltraImpl::pack()
     packer.pack_lut_dffs();
     packer.pack_dffs();
     packer.remove_constants();
+    packer.promote_globals();
 }
 
 void NgUltraImpl::route_clocks()

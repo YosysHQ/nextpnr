@@ -65,6 +65,7 @@ public:
 
     dict<IdString,BelId> iom_bels;
     dict<std::string, std::string> bank_voltage;
+    dict<BelId,IdString> global_capable_bels;
 
 private:
     void write_bitstream_json(const std::string &filename);

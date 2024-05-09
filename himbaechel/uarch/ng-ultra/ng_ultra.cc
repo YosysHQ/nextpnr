@@ -57,6 +57,12 @@ void NgUltraImpl::init(Context *ctx)
             std::deque<BelId> wfgs;
             IdString bank = tile_name_id(bel.tile);
             iom_bels.emplace(bank,bel);
+        } else if (ctx->getBelType(bel) == id_IOTP) {
+            if (ctx->getBelName(bel)[1] == ctx->id("D08P_CLK.IOTP")) {
+                global_capable_bels.emplace(bel,id_P17RI);
+            } else if (ctx->getBelName(bel)[1] == ctx->id("D09P_CLK.IOTP")) {
+                global_capable_bels.emplace(bel,id_P19RI);
+            }
         }
     }
 }
