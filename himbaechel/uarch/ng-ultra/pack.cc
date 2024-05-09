@@ -371,17 +371,10 @@ void NgUltraPacker::pack_iobs(void)
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_NX_IOB_I, id_NX_IOB_O, id_NX_IOB))
             continue;
-        if (ci.params.count(id_location) && ci.attrs.count(id_LOC)) {
-            if (ci.params[id_location].as_string() != ci.attrs[id_LOC].as_string())
-                log_error("Found conflicting LOC and location for IO:%s\n", ctx->nameOf(&ci));
-        }
-        if (ci.params.count(id_location) != 0)
-            ci.setAttr(id_LOC, ci.params[id_location]);
-        if (ci.attrs.count(id_LOC) == 0) {
+        if (ci.params.count(id_location) == 0) {
             log_error("Unconstrained IO:%s\n", ctx->nameOf(&ci));
         }
-        std::string loc = ci.attrs.at(id_LOC).to_string();
-        ci.setParam(id_location, Property(loc));
+        std::string loc = ci.params.at(id_location).to_string();
         BelId bel = ctx->get_package_pin_bel(ctx->id(loc));
         if (bel == BelId())
             log_error("Unable to constrain IO '%s', device does not have a pin named '%s'\n", ci.name.c_str(ctx),
@@ -399,9 +392,7 @@ void NgUltraPacker::pack_iobs(void)
         if (ci.type==id_NX_IOB_O) subtype = "OP";
         if (ci.type==id_NX_IOB_I) subtype = "IP";
 
-        ci.unsetAttr(id_LOC);
         ci.setParam(ctx->id("type"), Property(subtype));
-        ci.setParam(ctx->id("alias_vhdl"), Property(ci.type.c_str(ctx)));
 
         ci.type = new_type;
 
