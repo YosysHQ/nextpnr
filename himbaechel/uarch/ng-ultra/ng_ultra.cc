@@ -114,7 +114,7 @@ void NgUltraImpl::postRoute()
     ctx->assignArchInfo();
     log_break();
     log_info("Resources spent on routing:\n");
-    int dff_bypass = 0, fe_new = 0, wfg_bypass = 0, gck_bypass = 0, ddfr_bypass = 0;
+    int dff_bypass = 0, fe_new = 0, wfg_bypass = 0, gck_bypass = 0;
     for (auto &net : ctx->nets) {
         NetInfo *ni = net.second.get();
         for (auto &w : ni->wires) {
@@ -132,7 +132,6 @@ void NgUltraImpl::postRoute()
                         if (type==id_BEYOND_FE) fe_new++;
                     }
                     CellInfo *cell = ctx->getBoundBelCell(bel);
-                    std::string bel_name = ctx->getBelName(cell->bel)[1].c_str(ctx);
                     switch(type.index) {
                         case id_BEYOND_FE.index : 
                                             dff_bypass++;
@@ -144,26 +143,6 @@ void NgUltraImpl::postRoute()
                                             cell->setParam(ctx->id("type"), Property("WFB"));
                                             break;
                         case id_GCK.index : gck_bypass++; break;
-                        case id_DDFR.index :
-                        case id_DFR.index : ddfr_bypass++;
-                                            {
-                                                Loc loc = ctx->getBelLocation(bel);
-                                                cell->setParam(ctx->id("type"), Property("BFR"));
-                                                cell->setParam(ctx->id("mode"), Property(2, 2));
-                                                cell->setParam(ctx->id("data_inv"), Property(0, 1));
-                                                if (boost::ends_with(bel_name, "CD")) {
-                                                    loc.z -= 3;
-                                                } else if (boost::ends_with(bel_name, "OD")) {
-                                                    loc.z -= 2;
-                                                } else {
-                                                    loc.z -= 1;
-                                                }
-                                                CellInfo *iob = ctx->getBoundBelCell(ctx->getBelByLocation(loc));
-                                                if (!iob || iob->params.count(ctx->id("iobname"))==0)
-                                                    log_error("IOB for '%s' must have iobname defined.\n", cell->name.c_str(ctx));
-                                                cell->setParam(ctx->id("iobname"), iob->params[ctx->id("iobname")]);
-                                            }                                    
-                                            break;
                         default:
                             log_error("Unmaped bel type '%s' for routing\n",type.c_str(ctx));
                     }
@@ -174,7 +153,6 @@ void NgUltraImpl::postRoute()
     log_info("    %6d DFFs used as BFF (%d new allocated FEs)\n", dff_bypass, fe_new);
     log_info("    %6d WFGs used as WFB\n", wfg_bypass);
     log_info("    %6d GCK\n", gck_bypass);
-    log_info("    %6d DFR/DDFR as BFR\n", ddfr_bypass);
 
     // Handle LUT permutation
     for (auto &cell : ctx->cells) {

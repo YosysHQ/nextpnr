@@ -44,6 +44,9 @@ inline bool is_dff(const BaseCtx *ctx, const CellInfo *cell) { return cell->type
 // Return true if a cell is a FE
 inline bool is_fe(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_BEYOND_FE; }
 
+// Return true if a cell is a DFR
+inline bool is_dfr(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_NX_DFR; }
+
 // Process the contents of packed_cells
 void NgUltraPacker::flush_cells()
 {
@@ -397,31 +400,106 @@ void NgUltraPacker::pack_iobs(void)
         ci.type = new_type;
 
         ctx->bindBel(bel, &ci, PlaceStrength::STRENGTH_LOCKED);
+        to_update.push_back(&ci);
+    }
+    int dfr_as_bfr = 0, ddrf_as_bfr = 0;
+    for (auto cell : to_update) {
+        NetInfo *c_net = cell->getPort(id_C);
+        if (!c_net)
+            log_error("C input of IO primitive %s must be connected.\n", cell->name.c_str(ctx));
+        if (c_net->name == ctx->id("$PACKER_GND") && !cell->getPort(id_O))
+            log_error("O port of IO primitive %s must be connected.\n", cell->name.c_str(ctx));
+        if (c_net->name == ctx->id("$PACKER_VCC") && !cell->getPort(id_I))
+            log_error("I port of IO primitive %s must be connected.\n", cell->name.c_str(ctx));
+        if (!cell->getPort(id_I) && !cell->getPort(id_O))
+            log_error("I or O port of IO primitive %s must be connected.\n", cell->name.c_str(ctx));
 
-        NetInfo *net = ci.getPort(id_C);
-        if (net && net->name.in(ctx->id("$PACKER_GND"), ctx->id("$PACKER_VCC")))
         {
-            to_update.push_back(&ci);
+            CellInfo *iod = net_driven_by(ctx, c_net, is_dfr, id_O);
+            if (iod && c_net->users.entries()!=1)
+                log_error("NX_DFR '%s can only directly drive IOB.\n", iod->name.c_str(ctx));
+            if (!iod) {
+                if (cell->type==id_IOTP) ddrf_as_bfr++; else dfr_as_bfr++;
+                iod = create_cell_ptr((cell->type==id_IOTP) ? id_DDFR : id_DFR, ctx->id(cell->name.str(ctx) + "$iod_cd"));
+                NetInfo *new_out = ctx->createNet(ctx->id(iod->name.str(ctx) + "$O"));
+                iod->setParam(ctx->id("iobname"),str_or_default(cell->params, ctx->id("iobname"), ""));
+                iod->setParam(ctx->id("type"), Property("BFR"));
+                cell->disconnectPort(id_C);
+                if (c_net->name == ctx->id("$PACKER_GND"))
+                    iod->setParam(ctx->id("mode"), Property(0, 2));
+                else if (c_net->name == ctx->id("$PACKER_VCC"))
+                    iod->setParam(ctx->id("mode"), Property(1, 2));
+                else {
+                    iod->connectPort(id_I, c_net);
+                    iod->setParam(ctx->id("mode"), Property(2, 2));
+                    iod->setParam(ctx->id("data_inv"), Property(0, 1));
+                }
+                iod->connectPort(id_O, new_out);
+                cell->connectPort(id_C,new_out);
+            } else log_error("TODO handle DFR");
+            Loc cd_loc = cell->getLocation();
+            cd_loc.z += 3;
+            BelId bel = ctx->getBelByLocation(cd_loc);
+            ctx->bindBel(bel, iod, PlaceStrength::STRENGTH_LOCKED);
+        }
+        NetInfo *i_net = cell->getPort(id_I);
+        if (i_net) {
+            CellInfo *iod = net_driven_by(ctx, i_net, is_dfr, id_O);
+            if (iod && i_net->users.entries()!=1)
+                log_error("NX_DFR '%s can only directly drive IOB.\n", iod->name.c_str(ctx));
+            if (!iod) {
+                if (cell->type==id_IOTP) ddrf_as_bfr++; else dfr_as_bfr++;
+                iod = create_cell_ptr((cell->type==id_IOTP) ? id_DDFR : id_DFR, ctx->id(cell->name.str(ctx) + "$iod_od"));
+                NetInfo *new_out = ctx->createNet(ctx->id(iod->name.str(ctx) + "$O"));
+                iod->setParam(ctx->id("iobname"),str_or_default(cell->params, ctx->id("iobname"), ""));
+                iod->setParam(ctx->id("type"), Property("BFR"));
+                cell->disconnectPort(id_I);
+                if (i_net->name == ctx->id("$PACKER_GND"))
+                    iod->setParam(ctx->id("mode"), Property(0, 2));
+                else if (i_net->name == ctx->id("$PACKER_VCC"))
+                    iod->setParam(ctx->id("mode"), Property(1, 2));
+                else {
+                    iod->connectPort(id_I, i_net);
+                    iod->setParam(ctx->id("mode"), Property(2, 2));
+                    iod->setParam(ctx->id("data_inv"), Property(0, 1));
+                }
+                iod->connectPort(id_O, new_out);
+                cell->connectPort(id_I,new_out);
+            } else log_error("TODO handle DFR");
+            Loc cd_loc = cell->getLocation();
+            cd_loc.z += 2;
+            BelId bel = ctx->getBelByLocation(cd_loc);
+            ctx->bindBel(bel, iod, PlaceStrength::STRENGTH_LOCKED);
+        }
+
+        NetInfo *o_net = cell->getPort(id_O);
+        if (o_net) {
+            CellInfo *iod = net_only_drives(ctx, o_net, is_dfr, id_I, true);
+            if (!iod) {
+                if (cell->type==id_IOTP) ddrf_as_bfr++; else dfr_as_bfr++;
+                iod = create_cell_ptr((cell->type==id_IOTP) ? id_DDFR : id_DFR, ctx->id(cell->name.str(ctx) + "$iod_id"));
+                NetInfo *new_in = ctx->createNet(ctx->id(iod->name.str(ctx) + "$I"));
+                iod->setParam(ctx->id("iobname"),str_or_default(cell->params, ctx->id("iobname"), ""));
+                iod->setParam(ctx->id("type"), Property("BFR"));
+                cell->disconnectPort(id_O);
+                iod->connectPort(id_O, o_net);
+                iod->setParam(ctx->id("mode"), Property(2, 2));
+                iod->setParam(ctx->id("data_inv"), Property(0, 1));
+                iod->connectPort(id_I, new_in);
+                cell->connectPort(id_O,new_in);
+            } else log_error("TODO handle DFR");
+            Loc cd_loc = cell->getLocation();
+            cd_loc.z += 1;
+            BelId bel = ctx->getBelByLocation(cd_loc);
+            ctx->bindBel(bel, iod, PlaceStrength::STRENGTH_LOCKED);
         }
     }
-    for (auto cell : to_update) {
-        CellInfo *iod_cd = create_cell_ptr((cell->type==id_IOTP) ? id_DDFR : id_DFR, ctx->id(cell->name.str(ctx) + "$iod_cd"));
-        cell->disconnectPort(id_C);
-        NetInfo *new_out = ctx->createNet(ctx->id(iod_cd->name.str(ctx) + "$O"));
-        iod_cd->connectPort(id_O, new_out);
-        iod_cd->setParam(ctx->id("iobname"),str_or_default(cell->params, ctx->id("iobname"), ""));
-        iod_cd->setParam(ctx->id("type"), Property("BFR"));
-        if (cell->params[ctx->id("type")].as_string()=="IP")
-            iod_cd->setParam(ctx->id("mode"), Property(0, 2));
-        else
-            iod_cd->setParam(ctx->id("mode"), Property(1, 2));
-        cell->connectPort(id_C,new_out);
-        Loc loc = cell->getLocation();
-        loc.z += 3;
-        BelId bel = ctx->getBelByLocation(loc);
-        ctx->bindBel(bel, iod_cd, PlaceStrength::STRENGTH_LOCKED);
-    }
+    if (dfr_as_bfr)
+        log_info("    %6d DFRs used as BFR\n", dfr_as_bfr);
+    if (ddrf_as_bfr)
+        log_info("    %6d DDFRs used as BFR\n", ddrf_as_bfr);
 }
+
 void NgUltraPacker::pack_ioms(void)
 {
     log_info("Pack IOMs...\n");
