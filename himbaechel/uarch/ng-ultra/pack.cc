@@ -739,10 +739,11 @@ void NgUltraPacker::promote_globals()
     // Sort clocks by max fanout
     std::sort(glb_fanout.begin(), glb_fanout.end(), std::greater<std::pair<int, IdString>>());
     log_info("Promoting globals...\n");
+    int ddfr_removed = 0;
     // Promote the N highest fanout clocks
     for (size_t i = 0; i < std::min<size_t>(glb_fanout.size(), available_globals); i++) {
         NetInfo *net = ctx->nets.at(glb_fanout.at(i).second).get();
-        log_info("     promoting clock net '%s'\n", ctx->nameOf(net));
+        log_info("    Promoting clock net '%s'\n", ctx->nameOf(net));
         Loc iotp_loc = net->driver.cell->getLocation();
         iotp_loc.z -= 1;
         BelId iotp_bel = ctx->getBelByLocation(iotp_loc);
@@ -771,7 +772,16 @@ void NgUltraPacker::promote_globals()
         iom->connectPort(port, input_pad->getPort(id_O));
         iom->connectPort((port==id_P17RI) ?  id_CKO1 : id_CKO2, iom_to_clk);
         ctx->bindBel(bel, iom, PlaceStrength::STRENGTH_LOCKED);
+        CellInfo *ddfr = net->driver.cell;
+        if (ddfr->getPort(id_O)->users.empty() && str_or_default(ddfr->params, ctx->id("type"), "")=="BFR") {
+            ddfr->disconnectPort(id_O);
+            ddfr->disconnectPort(id_I);
+            ddfr_removed++;
+            ctx->cells.erase(ddfr->name);
+        }
     }
+    if (ddfr_removed)
+        log_info("    Removed %d unused DDFRs\n", ddfr_removed);
 }
 void NgUltraImpl::pack()
 {
