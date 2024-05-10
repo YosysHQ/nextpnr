@@ -59,6 +59,8 @@ struct NgUltraImpl : HimbaechelAPI
     delay_t estimateDelay(WireId src, WireId dst) const override;
     delay_t predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const override;
 
+    bool checkPipAvail(PipId pip) const override { return blocked_pips.count(pip)==0; }
+    bool checkPipAvailForNet(PipId pip, const NetInfo *net) const override { return checkPipAvail(pip); };
 public:
     IdString tile_name_id(int tile) const;
     std::string tile_name(int tile) const;
@@ -66,6 +68,8 @@ public:
     dict<IdString,BelId> iom_bels;
     dict<std::string, std::string> bank_voltage;
     dict<BelId,IdString> global_capable_bels;
+
+    pool<PipId> blocked_pips;
 
 private:
     void write_bitstream_json(const std::string &filename);

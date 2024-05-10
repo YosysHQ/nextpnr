@@ -475,6 +475,7 @@ void NgUltraPacker::pack_iobs(void)
         NetInfo *o_net = cell->getPort(id_O);
         if (o_net) {
             CellInfo *iod = net_only_drives(ctx, o_net, is_dfr, id_I, true);
+            bool bfr_mode = false;
             if (!iod) {
                 if (cell->type==id_IOTP) ddrf_as_bfr++; else dfr_as_bfr++;
                 iod = create_cell_ptr((cell->type==id_IOTP) ? id_DDFR : id_DFR, ctx->id(cell->name.str(ctx) + "$iod_id"));
@@ -487,11 +488,28 @@ void NgUltraPacker::pack_iobs(void)
                 iod->setParam(ctx->id("data_inv"), Property(0, 1));
                 iod->connectPort(id_I, new_in);
                 cell->connectPort(id_O,new_in);
+                bfr_mode = true;
             } else log_error("TODO handle DFR");
             Loc cd_loc = cell->getLocation();
             cd_loc.z += 1;
             BelId bel = ctx->getBelByLocation(cd_loc);
             ctx->bindBel(bel, iod, PlaceStrength::STRENGTH_LOCKED);
+
+            // Depending of DDFR mode we must use one of dedicated routes (ITCs)
+            if (iod->type==id_DDFR) {
+                WireId dwire = ctx->getBelPinWire(bel, id_O);
+                for (PipId pip : ctx->getPipsDownhill(dwire)) {
+                    const auto &pip_data = chip_pip_info(ctx->chip_info, pip);
+                    const auto &extra_data = *reinterpret_cast<const NGUltraPipExtraDataPOD *>(pip_data.extra_data.get());
+                    if (!extra_data.name) continue;
+                    if (extra_data.type != PipExtra::PIP_EXTRA_MUX) continue;
+                    if (bfr_mode && extra_data.input == 2) {
+                        uarch->blocked_pips.emplace(pip);
+                    } else if (!bfr_mode && extra_data.input == 1) {
+                        uarch->blocked_pips.emplace(pip);
+                    }
+                }
+            }
         }
     }
     if (dfr_as_bfr)
