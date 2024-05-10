@@ -392,8 +392,8 @@ def create_tile_types(ch: Chip, bels, bel_pins, crossbars, interconnects, muxes,
                     by = tt.create_pip(f"{name}.SI1",f"{name}.SO","BYPASS")
                     by.extra_data = PipExtraData(ch.strs.id(name),PIP_EXTRA_BYPASS,0,0)
                     # there are CMD signals that can be bypassed as well
-                    #by = tt.create_pip(f"{name}.CMD",f"{name}.SO","BYPASS")
-                    #by.extra_data = PipExtraData(ch.strs.id(name),PIP_EXTRA_BYPASS,0,0)
+                    by = tt.create_pip(f"{name}.CMD",f"{name}.SO","BYPASS")
+                    by.extra_data = PipExtraData(ch.strs.id(name),PIP_EXTRA_BYPASS,1,0)
                 
 
             # Add LUT permutation

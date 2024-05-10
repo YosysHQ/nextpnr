@@ -154,7 +154,9 @@ void NgUltraImpl::postRoute()
                         case id_WFG.index : wfg_bypass++;
                                             cell->setParam(ctx->id("type"), Property("WFB"));
                                             break;
-                        case id_GCK.index : gck_bypass++; break;
+                        case id_GCK.index : gck_bypass++; 
+                                            cell->setParam(ctx->id("std_mode"), extra_data.input == 0 ? Property("BYPASS") : Property("CSC"));
+                                            break;
                         default:
                             log_error("Unmaped bel type '%s' for routing\n",type.c_str(ctx));
                     }
