@@ -373,6 +373,9 @@ def create_tile_types(ch: Chip, bels, bel_pins, crossbars, interconnects, muxes,
                     # DFF bypass
                     by = tt.create_pip(f"{name}.DI",f"{name}.DO","BYPASS")
                     by.extra_data = PipExtraData(ch.strs.id(name),PIP_EXTRA_BYPASS,0,0)
+                    # LUT bypass
+                    by = tt.create_pip(f"{name}.I1",f"{name}.LO","BYPASS")
+                    by.extra_data = PipExtraData(ch.strs.id(name),PIP_EXTRA_BYPASS,1,0)
                 elif (tile_type.startswith("TILE") and bel=="CY"):
                     # matrix of each input to each output combination
                     # crossbar but use mux placeholder for convenience

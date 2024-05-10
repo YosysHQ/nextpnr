@@ -120,7 +120,7 @@ void NgUltraImpl::postRoute()
     ctx->assignArchInfo();
     log_break();
     log_info("Resources spent on routing:\n");
-    int dff_bypass = 0, fe_new = 0, wfg_bypass = 0, gck_bypass = 0;
+    int dff_bypass = 0, lut_bypass = 0, fe_new = 0, wfg_bypass = 0, gck_bypass = 0;
     for (auto &net : ctx->nets) {
         NetInfo *ni = net.second.get();
         for (auto &w : ni->wires) {
@@ -140,10 +140,16 @@ void NgUltraImpl::postRoute()
                     CellInfo *cell = ctx->getBoundBelCell(bel);
                     switch(type.index) {
                         case id_BEYOND_FE.index : 
-                                            dff_bypass++;
-                                            // set bypass mode for DFF
-                                            cell->setParam(ctx->id("type"), Property("BFF"));
-                                            cell->params[id_dff_used] = Property(1,1);
+                                           if (extra_data.input==0) {
+                                                dff_bypass++;
+                                                // set bypass mode for DFF
+                                                cell->setParam(ctx->id("type"), Property("BFF"));
+                                                cell->params[id_dff_used] = Property(1,1);
+                                            } else {
+                                                lut_bypass++;
+                                                cell->params[id_lut_used] = Property(1,1);
+                                                cell->params[id_lut_table] = Property(0xaaaa, 16);
+                                            }
                                             break;
                         case id_WFG.index : wfg_bypass++;
                                             cell->setParam(ctx->id("type"), Property("WFB"));
@@ -156,7 +162,9 @@ void NgUltraImpl::postRoute()
             }
         }
     }
-    log_info("    %6d DFFs used as BFF (%d new allocated FEs)\n", dff_bypass, fe_new);
+    log_info("    %6d DFFs used in bypass mode (BFF)\n", dff_bypass);
+    log_info("    %6d LUTs used in bypass mode\n", lut_bypass);
+    log_info("    %6d newly allocated FEs\n", fe_new);
     log_info("    %6d WFGs used as WFB\n", wfg_bypass);
     log_info("    %6d GCK\n", gck_bypass);
 
