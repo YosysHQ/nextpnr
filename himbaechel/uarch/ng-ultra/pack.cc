@@ -717,6 +717,211 @@ void NgUltraPacker::pack_cys(void)
     flush_cells();
 }
 
+ClusterPlacement getPortPlacement(Context *ctx, IdString port)
+{
+    switch(port.index)
+    {
+        case id_I1.index :    return PLACE_XRF_I1;
+        case id_I2.index :    return PLACE_XRF_I2;
+        case id_I3.index :    return PLACE_XRF_I3;
+        case id_I4.index :    return PLACE_XRF_I4;
+        case id_I5.index :    return PLACE_XRF_I5;
+        case id_I6.index :    return PLACE_XRF_I6;
+        case id_I7.index :    return PLACE_XRF_I7;
+        case id_I8.index :    return PLACE_XRF_I8;
+        case id_I9.index :    return PLACE_XRF_I9;
+        case id_I10.index :   return PLACE_XRF_I10;
+        case id_I11.index :   return PLACE_XRF_I11;
+        case id_I12.index :   return PLACE_XRF_I12;
+        case id_I13.index :   return PLACE_XRF_I13;
+        case id_I14.index :   return PLACE_XRF_I14;
+        case id_I15.index :   return PLACE_XRF_I15;
+        case id_I16.index :   return PLACE_XRF_I16;
+        case id_I17.index :   return PLACE_XRF_I17;
+        case id_I18.index :   return PLACE_XRF_I18;
+        case id_I19.index :   return PLACE_XRF_I19;
+        case id_I20.index :   return PLACE_XRF_I20;
+        case id_I21.index :   return PLACE_XRF_I21;
+        case id_I22.index :   return PLACE_XRF_I22;
+        case id_I23.index :   return PLACE_XRF_I23;
+        case id_I24.index :   return PLACE_XRF_I24;
+        case id_I25.index :   return PLACE_XRF_I25;
+        case id_I26.index :   return PLACE_XRF_I26;
+        case id_I27.index :   return PLACE_XRF_I27;
+        case id_I28.index :   return PLACE_XRF_I28;
+        case id_I29.index :   return PLACE_XRF_I29;
+        case id_I30.index :   return PLACE_XRF_I30;
+        case id_I31.index :   return PLACE_XRF_I31;
+        case id_I32.index :   return PLACE_XRF_I32;
+        case id_I33.index :   return PLACE_XRF_I33;
+        case id_I34.index :   return PLACE_XRF_I34;
+        case id_I35.index :   return PLACE_XRF_I35;
+        case id_I36.index :   return PLACE_XRF_I36;
+        case id_RA1.index :   return PLACE_XRF_RA1;
+        case id_RA2.index :   return PLACE_XRF_RA2;
+        case id_RA3.index :   return PLACE_XRF_RA3;
+        case id_RA4.index :   return PLACE_XRF_RA4;
+        case id_RA5.index :   return PLACE_XRF_RA5;
+        case id_RA6.index :   return PLACE_XRF_RA6;
+        case id_RA7.index :   return PLACE_XRF_RA7;
+        case id_RA8.index :   return PLACE_XRF_RA8;
+        case id_RA9.index :   return PLACE_XRF_RA9;
+        case id_RA10.index :  return PLACE_XRF_RA10;
+        case id_WA1.index :   return PLACE_XRF_WA1;
+        case id_WA2.index :   return PLACE_XRF_WA2;
+        case id_WA3.index :   return PLACE_XRF_WA3;
+        case id_WA4.index :   return PLACE_XRF_WA4;
+        case id_WA5.index :   return PLACE_XRF_WA5;
+        case id_WA6.index :   return PLACE_XRF_WA6;
+        case id_WE.index :    return PLACE_XRF_WE;
+        case id_WEA.index :   return PLACE_XRF_WEA;
+        default:
+            log_error("Unhandled port %s\n", port.c_str(ctx));
+    }
+}
+
+void NgUltraPacker::pack_xrf_input_and_output(CellInfo *xrf, IdString cluster, IdString in_port, IdString out_port, int &lut_only, int &lut_and_ff, int &dff_only)
+{
+    NetInfo *net = xrf->getPort(in_port);
+    NetInfo *net_out = nullptr;
+    if (out_port != IdString())
+        net_out = xrf->getPort(out_port);
+    if (!net && !net_out) return;
+    CellInfo *fe = create_cell_ptr(id_BEYOND_FE, ctx->id(xrf->name.str(ctx) + "$" + in_port.c_str(ctx)));
+    
+    if (net) {
+        if (net->name.in(ctx->id("$PACKER_GND"), ctx->id("$PACKER_VCC"))) {
+            fe->params[id_lut_table] = Property((net->name ==ctx->id("$PACKER_GND")) ? 0x0000 : 0xffff, 16);
+            fe->params[id_lut_used] = Property(1,1);
+            xrf->disconnectPort(in_port);
+            NetInfo *new_out = ctx->createNet(ctx->id(fe->name.str(ctx) + "$o"));
+            fe->connectPort(id_LO, new_out);
+            xrf->connectPort(in_port, new_out);
+        } else {
+            CellInfo *lut = net_driven_by(ctx, net, is_lut, id_O);
+            if (lut && net->users.entries()==1) {
+                if (!lut->params.count(id_lut_table))
+                    log_error("Cell '%s' missing lut_table\n", lut->name.c_str(ctx));
+                lut_to_fe(lut, fe, false, lut->params[id_lut_table]);
+                packed_cells.insert(lut->name);
+            } else {
+                fe->params[id_lut_table] = Property(0xaaaa, 16);
+                fe->params[id_lut_used] = Property(1,1);
+                xrf->disconnectPort(in_port);
+                NetInfo *new_out = ctx->createNet(ctx->id(fe->name.str(ctx) + "$o"));
+                fe->connectPort(id_I1, net);
+                fe->connectPort(id_LO, new_out);
+                xrf->connectPort(in_port, new_out);
+            }
+        }
+        lut_only++;
+    }
+    if (net_out) {
+        CellInfo *dff = net_only_drives(ctx, net_out, is_dff, id_I, true);
+        if (dff) {
+            if (ctx->verbose)
+                log_info("found attached dff %s\n", dff->name.c_str(ctx));
+            dff_to_fe(dff, fe, false);
+            packed_cells.insert(dff->name);
+            if (net) {
+                lut_only--;
+                lut_and_ff++;
+            } else 
+                dff_only++;
+        }
+    }
+    fe->cluster = cluster;
+    fe->constr_z = getPortPlacement(ctx,in_port);
+    xrf->constr_children.push_back(fe);
+}
+
+void NgUltraPacker::pack_rfs(void)
+{
+    log_info("Packing RFs..\n");
+    int lut_only = 0, lut_and_ff = 0, dff_only = 0;
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (!ci.type.in(id_NX_RFB_U))
+            continue;
+        ci.type = id_RF;
+        //ci.ports[id_WCK1].name = id_WCK1;
+        //ci.ports[id_WCK1].type = PORT_IN;
+        //ci.ports[id_WCK2].name = id_WCK2;
+        //ci.ports[id_WCK2].type = PORT_IN;
+
+        //NetInfo *net = ci.getPort(id_WCK);
+        //if (net) {
+         //   ci.disconnectPort(id_WCK);
+//
+            //ci.connectPort(id_WCK1, net);
+            //ci.connectPort(id_WCK2, net);
+        //}
+        ci.cluster = ci.name;
+
+        pack_xrf_input_and_output(&ci, ci.name, id_I1, id_O1, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I2, id_O2, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I3, id_O3, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I4, id_O4, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I5, id_O5, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I6, id_O6, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I7, id_O7, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I8, id_O8, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I9, id_O9, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I10, id_O10, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I11, id_O11, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I12, id_O12, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I13, id_O13, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I14, id_O14, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I15, id_O15, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I16, id_O16, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I17, id_O17, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I18, id_O18, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I19, id_O19, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I20, id_O20, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I21, id_O21, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I22, id_O22, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I23, id_O23, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I24, id_O24, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I25, id_O25, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I26, id_O26, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I27, id_O27, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I28, id_O28, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I29, id_O29, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I30, id_O30, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I31, id_O31, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I32, id_O32, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I33, id_O33, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I34, id_O34, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I35, id_O35, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I36, id_O36, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_RA1, IdString(), lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_RA2, IdString(), lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_RA3, IdString(), lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_RA4, IdString(), lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_RA5, IdString(), lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_RA6, IdString(), lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_RA7, IdString(), lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_RA8, IdString(), lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_RA9, IdString(), lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_RA10, IdString(), lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_WA1, IdString(), lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_WA2, IdString(), lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_WA3, IdString(), lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_WA4, IdString(), lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_WA5, IdString(), lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_WA6, IdString(), lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_WE, IdString(), lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_WEA, IdString(), lut_only, lut_and_ff, dff_only);
+    }
+    if (lut_only)
+        log_info("    %6d FEs used as LUT only\n", lut_only);
+    if (lut_and_ff)
+        log_info("    %6d FEs used as LUT and DFF\n", lut_and_ff);
+    if (dff_only)
+        log_info("    %6d FEs used as DFF only\n", dff_only);
+    flush_cells();
+}
+
 // There are 20 dedicated clock inputs capable of being routed using global network
 // to be able to best route them, IOM needs to be used to propagate these clock signals
 void NgUltraPacker::promote_globals()
@@ -815,6 +1020,7 @@ void NgUltraImpl::pack()
     packer.update_dffs();
     packer.pack_iobs();
     packer.pack_ioms();
+    packer.pack_rfs();
     packer.pack_cys();
     packer.pack_lut_dffs();
     packer.pack_dffs();

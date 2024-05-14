@@ -48,6 +48,7 @@ struct NgUltraPacker
     void pack_lut_dffs();
     void pack_dffs();
     void pack_cys();
+    void pack_rfs();
 
     // IO
     void pack_iobs();
@@ -62,6 +63,8 @@ private:
 
     void exchange_if_constant(CellInfo *cell, IdString input1, IdString input2);
     void pack_cy_input_and_output(CellInfo *cy, IdString cluster, IdString in_port, IdString out_port, int placer, int &lut_only, int &lut_and_ff, int &dff_only);
+
+    void pack_xrf_input_and_output(CellInfo *cy, IdString cluster, IdString in_port, IdString out_port, int &lut_only, int &lut_and_ff, int &dff_only);
 
     // General helper functions
     void flush_cells();

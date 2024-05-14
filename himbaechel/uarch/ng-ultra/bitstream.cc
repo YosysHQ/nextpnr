@@ -349,6 +349,12 @@ struct BitstreamJsonBackend
         close_instance();
     }
 
+    void write_rf(CellInfo *cell) {
+        open_instance(cell, "RF");
+        add_config("wck_edge", bool_or_default(cell->params, ctx->id("wck_edge"), false));
+        close_instance();
+    }
+
     void write_interconnections()
     {
         for (auto &net : ctx->nets) {
@@ -400,7 +406,8 @@ struct BitstreamJsonBackend
                 //case id_XLUT.index:
                 //case id_RAM.index:
                 //case id_RF.index:
-                //case id_XRF.index:
+                case id_RF.index: write_rf(cell.second.get()); break;
+                //case id_XRF.index: write_xrf(cell.second.get()); break;
                 //case id_FIFO.index:
                 //case id_XFIFO.index:
                 //case id_CDC.index:

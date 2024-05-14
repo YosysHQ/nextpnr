@@ -347,6 +347,78 @@ Loc getCYFE(Loc root, int pos)
     return result;
 }
 
+Loc getXRFFE(Loc root, int pos)
+{
+   static const std::vector<Loc> map = 
+    {
+        Loc(-1, 0, 1),// I/O1
+        Loc(-1, 0, 2),// I/O2
+        Loc(-1, 0, 5),// I/O3
+        Loc(-1, 0, 6),// I/O4
+        Loc(-1, 0, 7),// I/O5
+        Loc(-1, 0, 9),// I/O6
+        Loc(-1, 0, 10),// I/O7
+        Loc(-1, 0, 13),// I/O8
+        Loc(-1, 0, 14),// I/O9
+        Loc(-1, 0, 15),// I/O10
+        Loc(-1, 0, 16),// I/O11
+        Loc(-1, 0, 17),// I/O12
+        Loc(-1, 0, 18),// I/O13
+        Loc(-1, 0, 21),// I/O14
+        Loc(-1, 0, 24),// I/O15
+        Loc(-1, 0, 25),// I/O16
+        Loc(-1, 0, 26),// I/O17
+        Loc(-1, 0, 29),// I/O18
+        Loc(+1, 0, 1),// I/O19
+        Loc(+1, 0, 2),// I/O20
+        Loc(+1, 0, 5),// I/O21
+        Loc(+1, 0, 6),// I/O22
+        Loc(+1, 0, 7),// I/O23
+        Loc(+1, 0, 9),// I/O24
+        Loc(+1, 0, 10),// I/O25
+        Loc(+1, 0, 13),// I/O26
+        Loc(+1, 0, 14),// I/O27
+        Loc(+1, 0, 15),// I/O28
+        Loc(+1, 0, 16),// I/O29
+        Loc(+1, 0, 17),// I/O30
+        Loc(+1, 0, 18),// I/O31
+        Loc(+1, 0, 21),// I/O32
+        Loc(+1, 0, 24),// I/O33
+        Loc(+1, 0, 25),// I/O34
+        Loc(+1, 0, 26),// I/O35
+        Loc(+1, 0, 29),// I/O36
+
+
+        Loc(-1, 0, 4),// RA1
+        Loc(-1, 0, 12),// RA2
+        Loc(-1, 0, 20),// RA3
+        Loc(-1, 0, 27),// RA4
+        Loc(-1, 0, 31),// RA5
+        Loc(+1, 0, 4),// RA6
+        Loc(+1, 0, 12),// RA7
+        Loc(+1, 0, 20),// RA8
+        Loc(+1, 0, 27),// RA9
+        Loc(+1, 0, 31),// RA10
+
+        Loc(-1, 0, 3),// WA1
+        Loc(-1, 0, 11),// WA2
+        Loc(-1, 0, 19),// WA3
+        Loc(-1, 0, 23),// WA4
+        Loc(-1, 0, 28),// WA5
+        Loc(+1, 0, 3),// WA6
+
+        Loc(-1, 0, 0),// WE
+        Loc(-1, 0, 8),// WEA
+
+    };
+ 
+    Loc result = map.at(pos);
+    result.x += root.x;
+    result.y = root.y;
+    return result;
+
+}
+
 bool NgUltraImpl::getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc,
                                     std::vector<std::pair<CellInfo *, BelId>> &placement) const
 {
@@ -359,6 +431,61 @@ bool NgUltraImpl::getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc
                 case PLACE_CY_FE2: return getCYFE(root_loc,1);
                 case PLACE_CY_FE3: return getCYFE(root_loc,2);
                 case PLACE_CY_FE4: return getCYFE(root_loc,3);
+                case PLACE_XRF_I1:
+                case PLACE_XRF_I2:
+                case PLACE_XRF_I3:
+                case PLACE_XRF_I4:
+                case PLACE_XRF_I5:
+                case PLACE_XRF_I6:
+                case PLACE_XRF_I7:
+                case PLACE_XRF_I8:
+                case PLACE_XRF_I9:
+                case PLACE_XRF_I10:
+                case PLACE_XRF_I11:
+                case PLACE_XRF_I12:
+                case PLACE_XRF_I13:
+                case PLACE_XRF_I14:
+                case PLACE_XRF_I15:
+                case PLACE_XRF_I16:
+                case PLACE_XRF_I17:
+                case PLACE_XRF_I18:
+                case PLACE_XRF_I19:
+                case PLACE_XRF_I20:
+                case PLACE_XRF_I21:
+                case PLACE_XRF_I22:
+                case PLACE_XRF_I23:
+                case PLACE_XRF_I24:
+                case PLACE_XRF_I25:
+                case PLACE_XRF_I26:
+                case PLACE_XRF_I27:
+                case PLACE_XRF_I28:
+                case PLACE_XRF_I29:
+                case PLACE_XRF_I30:
+                case PLACE_XRF_I31:
+                case PLACE_XRF_I32:
+                case PLACE_XRF_I33:
+                case PLACE_XRF_I34:
+                case PLACE_XRF_I35:
+                case PLACE_XRF_I36:
+                case PLACE_XRF_RA1:
+                case PLACE_XRF_RA2:
+                case PLACE_XRF_RA3:
+                case PLACE_XRF_RA4:
+                case PLACE_XRF_RA5:
+                case PLACE_XRF_RA6:
+                case PLACE_XRF_RA7:
+                case PLACE_XRF_RA8:
+                case PLACE_XRF_RA9:
+                case PLACE_XRF_RA10:
+                case PLACE_XRF_WA1:
+                case PLACE_XRF_WA2:
+                case PLACE_XRF_WA3:
+                case PLACE_XRF_WA4:
+                case PLACE_XRF_WA5:
+                case PLACE_XRF_WA6:
+                case PLACE_XRF_WE:
+                case PLACE_XRF_WEA:
+                                    return getXRFFE(root_loc, child->constr_z - PLACE_XRF_I1 );
                 default:
                     Loc result;
                     result.x = root_loc.x + child->constr_x;
