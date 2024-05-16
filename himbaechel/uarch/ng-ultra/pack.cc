@@ -797,7 +797,7 @@ void NgUltraPacker::pack_xrf_input_and_output(CellInfo *xrf, IdString cluster, I
     NetInfo *net_out = nullptr;
     if (out_port != IdString()) {
         net_out = xrf->getPort(out_port);
-        if (net_out->users.entries()==0) {
+        if (net_out && net_out->users.entries()==0) {
             xrf->disconnectPort(out_port);
             net_out = nullptr;
         }
