@@ -916,18 +916,46 @@ struct NexusPacker
     {
         // Keep running until we reach a fixed point
         log_info("Placing globals...\n");
-        bool did_something = true;
-        while (did_something) {
-            did_something = false;
-            for (auto &cell : ctx->cells) {
-                CellInfo *ci = cell.second.get();
-                if (ci->type == id_OSC_CORE)
-                    did_something |= preplace_singleton(ci);
-                else if (ci->type == id_DCC)
-                    did_something |= preplace_prim(ci, id_CLKI, false);
-                else if (ci->type == id_PLL_CORE)
-                    did_something |= preplace_prim(ci, id_REFCK, false);
+        TopoSort<IdString> sorter;
+        auto is_glb_cell = [&](const CellInfo *cell) {
+            return cell->type.in(id_OSC_CORE, id_DCC, id_PLL_CORE, id_DCS);
+        };
+
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (is_glb_cell(ci)) {
+                sorter.node(ci->name);
+
+                auto do_pin = [&](IdString pin) {
+                    NetInfo *net = ci->getPort(pin);
+                    if (!net || !net->driver.cell || !is_glb_cell(net->driver.cell))
+                        return;
+                    sorter.edge(net->driver.cell->name, ci->name);
+                };
+
+                if (ci->type == id_PLL_CORE) {
+                    do_pin(id_REFCK);
+                } else if (ci->type == id_DCC) {
+                    do_pin(id_CLKI);
+                } else if (ci->type == id_DCS) {
+                    do_pin(id_CLK0);
+                    do_pin(id_CLK1);
+                }
             }
+        }
+
+        sorter.sort();
+
+        for (IdString cell_name : sorter.sorted) {
+            CellInfo *ci = ctx->cells.at(cell_name).get();
+            if (ci->type == id_OSC_CORE)
+                preplace_singleton(ci);
+            else if (ci->type == id_DCC)
+                preplace_prim(ci, id_CLKI, false);
+            else if (ci->type == id_PLL_CORE)
+                preplace_prim(ci, id_REFCK, false);
+            else if (ci->type == id_DCS)
+                preplace_prim(ci, id_CLK0, false);
         }
     }
 
