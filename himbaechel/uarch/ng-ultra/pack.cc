@@ -195,6 +195,16 @@ void NgUltraPacker::set_lut_input_if_constant(CellInfo *cell, IdString input)
     cell->disconnectPort(input);
 }
 
+void NgUltraPacker::disconnect_if_gnd(CellInfo *cell, IdString input)
+{
+    NetInfo *net = cell->getPort(input);
+    if (!net)
+        return;
+    if (net->name.in(ctx->id("$PACKER_GND"))) {
+        cell->disconnectPort(input);
+    }
+}
+
 void NgUltraPacker::lut_to_fe(CellInfo *lut, CellInfo *fe, bool no_dff, Property lut_table)
 {
     fe->params[id_lut_table] = lut_table;
@@ -782,10 +792,16 @@ ClusterPlacement getPortPlacement(Context *ctx, IdString port)
 
 void NgUltraPacker::pack_xrf_input_and_output(CellInfo *xrf, IdString cluster, IdString in_port, IdString out_port, int &lut_only, int &lut_and_ff, int &dff_only)
 {
+    disconnect_if_gnd(xrf, in_port);
     NetInfo *net = xrf->getPort(in_port);
     NetInfo *net_out = nullptr;
-    if (out_port != IdString())
+    if (out_port != IdString()) {
         net_out = xrf->getPort(out_port);
+        if (net_out->users.entries()==0) {
+            xrf->disconnectPort(out_port);
+            net_out = nullptr;
+        }
+    }
     if (!net && !net_out) return;
     CellInfo *fe = create_cell_ptr(id_BEYOND_FE, ctx->id(xrf->name.str(ctx) + "$" + in_port.c_str(ctx)));
     
@@ -843,19 +859,24 @@ void NgUltraPacker::pack_rfs(void)
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_NX_RFB_U))
             continue;
+        int mode = int_or_default(ci.params, ctx->id("mode"), 0);
         ci.type = id_RF;
-        //ci.ports[id_WCK1].name = id_WCK1;
-        //ci.ports[id_WCK1].type = PORT_IN;
-        //ci.ports[id_WCK2].name = id_WCK2;
-        //ci.ports[id_WCK2].type = PORT_IN;
+        if (mode > 1) {
+            // XRF
+            ci.type = id_XRF;
+            ci.ports[id_WCK1].name = id_WCK1;
+            ci.ports[id_WCK1].type = PORT_IN;
+            ci.ports[id_WCK2].name = id_WCK2;
+            ci.ports[id_WCK2].type = PORT_IN;
 
-        //NetInfo *net = ci.getPort(id_WCK);
-        //if (net) {
-         //   ci.disconnectPort(id_WCK);
-//
-            //ci.connectPort(id_WCK1, net);
-            //ci.connectPort(id_WCK2, net);
-        //}
+            NetInfo *net = ci.getPort(id_WCK);
+            if (net) {
+                ci.disconnectPort(id_WCK);
+
+                ci.connectPort(id_WCK1, net);
+                ci.connectPort(id_WCK2, net);
+            }
+        }
         ci.cluster = ci.name;
 
         pack_xrf_input_and_output(&ci, ci.name, id_I1, id_O1, lut_only, lut_and_ff, dff_only);
@@ -1008,6 +1029,18 @@ void NgUltraPacker::promote_globals()
     if (ddfr_removed)
         log_info("    Removed %d unused DDFRs\n", ddfr_removed);
 }
+
+void NgUltraPacker::pack_rams(void)
+{
+    log_info("Packing RAMs..\n");
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (!ci.type.in(id_NX_RAM))
+            continue;
+        ci.type = id_RAM;
+    }
+}
+
 void NgUltraImpl::pack()
 {
     const ArchArgs &args = ctx->args;
@@ -1020,6 +1053,7 @@ void NgUltraImpl::pack()
     packer.update_dffs();
     packer.pack_iobs();
     packer.pack_ioms();
+    packer.pack_rams();
     packer.pack_rfs();
     packer.pack_cys();
     packer.pack_lut_dffs();

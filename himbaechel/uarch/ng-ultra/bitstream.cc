@@ -188,6 +188,13 @@ struct BitstreamJsonBackend
         }
     };
 
+    template <typename KeyType> std::string extract_bits_or_default(const dict<KeyType, Property> &ct, const KeyType &key, int bits, int def = 0)
+    {
+        Property extr = get_or_default(ct, key, Property()).extract(0, bits);
+        std::string str = extr.str;
+        std::reverse(str.begin(), str.end());
+        return str;
+    };
 
     std::vector<std::string> config;
 
@@ -308,10 +315,7 @@ struct BitstreamJsonBackend
     void write_fe(CellInfo *cell) {
         if (bool_or_default(cell->params, id_lut_used)) {
             open_instance_fe(cell, "LUT", ".LUT");
-            Property init = get_or_default(cell->params, id_lut_table, Property()).extract(0, 16);
-            std::string lut = init.str;
-            std::reverse(lut.begin(), lut.end());
-            add_config("lut_table", lut);
+            add_config("lut_table", extract_bits_or_default(cell->params, id_lut_table, 16));
             close_instance();
         }
         if (bool_or_default(cell->params, id_dff_used)) {
@@ -350,8 +354,25 @@ struct BitstreamJsonBackend
     }
 
     void write_rf(CellInfo *cell) {
-        open_instance(cell, "RF");
+        int mode = int_or_default(cell->params, ctx->id("mode"), 0);
+        switch(mode) {
+            case 0 : open_instance(cell, "RF"); break;
+            case 1 : open_instance(cell, "RFSP"); break;
+            case 2 : open_instance(cell, "XHRF"); break;
+            case 3 : open_instance(cell, "XWRF"); break;
+            case 4 : open_instance(cell, "XPRF"); break;
+            default:
+                log_error("Unknown mode %d for cell '%s'.\n", mode, cell->name.c_str(ctx));
+        }        
+        add_config("mode", mode);
         add_config("wck_edge", bool_or_default(cell->params, ctx->id("wck_edge"), false));
+        close_instance();
+    }
+
+    void write_ram(CellInfo *cell) {
+        open_instance(cell, "RAM");
+        add_config("raw_config0", extract_bits_or_default(cell->params, ctx->id("raw_config0"), 4));
+        add_config("raw_config1", extract_bits_or_default(cell->params, ctx->id("raw_config1"), 16));
         close_instance();
     }
 
@@ -404,10 +425,10 @@ struct BitstreamJsonBackend
                 case id_DDFR.index: write_dfr(cell.second.get()); break;
                 case id_DFR.index: write_dfr(cell.second.get()); break;
                 //case id_XLUT.index:
-                //case id_RAM.index:
+                case id_RAM.index: write_ram(cell.second.get()); break;
                 //case id_RF.index:
                 case id_RF.index: write_rf(cell.second.get()); break;
-                //case id_XRF.index: write_xrf(cell.second.get()); break;
+                case id_XRF.index: write_rf(cell.second.get()); break;
                 //case id_FIFO.index:
                 //case id_XFIFO.index:
                 //case id_CDC.index:
