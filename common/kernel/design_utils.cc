@@ -44,7 +44,7 @@ void print_utilisation(const Context *ctx)
     for (auto type : available_types) {
         IdString type_id = type.first;
         int used_bels = get_or_default(used_types, type.first, 0);
-        log_info("\t%20s: %5d/%5d %5d%%\n", type_id.c_str(ctx), used_bels, type.second, 100 * used_bels / type.second);
+        log_info("\t%20s: %7d/%7d %5d%%\n", type_id.c_str(ctx), used_bels, type.second, 100 * used_bels / type.second);
     }
     log_break();
 }

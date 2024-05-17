@@ -254,6 +254,7 @@ class StaticPlacer
     int width, height;
     int iter = 0;
     bool fft_debug = false;
+    bool dump_density = false;
 
     // legalisation queue
     std::priority_queue<std::pair<int, IdString>> to_legalise;
@@ -586,8 +587,8 @@ class StaticPlacer
             height = bin_h;
         }
 
-        double x0 = pos.x - (width / 2), x1 = pos.x + (width / 2);
-        double y0 = pos.y - (height / 2), y1 = pos.y + (height / 2);
+        double x0 = pos.x, x1 = pos.x + width;
+        double y0 = pos.y, y1 = pos.y + height;
         for (int y = int(y0 / bin_h); y <= int(y1 / bin_h); y++) {
             for (int x = int(x0 / bin_w); x <= int(x1 / bin_w); x++) {
                 int xb = std::max(0, std::min(x, m - 1));
@@ -658,7 +659,8 @@ class StaticPlacer
             if (!overlap_str.empty())
                 overlap_str += ", ";
             overlap_str += stringf("%s=%.1f%%", cfg.cell_groups.at(idx).name.c_str(ctx), g.overlap * 100);
-            g.conc_density.write_csv(stringf("out_conc_density_%d_%d.csv", iter, idx));
+            if (dump_density)
+                g.conc_density.write_csv(stringf("out_conc_density_%d_%d.csv", iter, idx));
         }
         log_info("overlap: %s\n", overlap_str.c_str());
     }
@@ -792,15 +794,15 @@ class StaticPlacer
             auto &pd = nd.ports.at(port.second.type == PORT_OUT ? (nd.ports.size() - 1) : port.second.user_idx.idx());
             // From Replace
             // TODO: check these derivatives on paper
-            float d_min = 0, d_max = 0;
+            double d_min = 0, d_max = 0;
             if (pd.has_min_exp(axis)) {
-                float min_sum = nd.min_exp.at(axis), x_min_sum = nd.x_min_exp.at(axis);
+                double min_sum = nd.min_exp.at(axis), x_min_sum = nd.x_min_exp.at(axis);
                 d_min = (min_sum * (pd.min_exp.at(axis) * (1.0f - wl_coeff.at(axis) * loc.at(axis))) +
                          wl_coeff.at(axis) * pd.min_exp.at(axis) * x_min_sum) /
                         (min_sum * min_sum);
             }
             if (pd.has_max_exp(axis)) {
-                float max_sum = nd.max_exp.at(axis), x_max_sum = nd.x_max_exp.at(axis);
+                double max_sum = nd.max_exp.at(axis), x_max_sum = nd.x_max_exp.at(axis);
                 d_max = (max_sum * (pd.max_exp.at(axis) * (1.0f + wl_coeff.at(axis) * loc.at(axis))) -
                          wl_coeff.at(axis) * pd.max_exp.at(axis) * x_max_sum) /
                         (max_sum * max_sum);
@@ -917,16 +919,20 @@ class StaticPlacer
     {
         float coord_dist = 0;
         float grad_dist = 0;
+        int n = 0;
         for (auto &cell : mcells) {
+            if (cell.is_fixed || cell.is_dark)
+                continue;
             coord_dist += (cell.ref_pos.x - cell.last_ref_pos.x) * (cell.ref_pos.x - cell.last_ref_pos.x);
             coord_dist += (cell.ref_pos.y - cell.last_ref_pos.y) * (cell.ref_pos.y - cell.last_ref_pos.y);
             grad_dist +=
                     (cell.ref_total_grad.x - cell.last_total_grad.x) * (cell.ref_total_grad.x - cell.last_total_grad.x);
             grad_dist +=
                     (cell.ref_total_grad.y - cell.last_total_grad.y) * (cell.ref_total_grad.y - cell.last_total_grad.y);
+            n++;
         }
-        coord_dist = std::sqrt(coord_dist / (2 * float(mcells.size())));
-        grad_dist = std::sqrt(grad_dist / (2 * float(mcells.size())));
+        coord_dist = std::sqrt(coord_dist / (2 * float(n)));
+        grad_dist = std::sqrt(grad_dist / (2 * float(n)));
         log_info("coord_dist: %f grad_dist: %f\n", coord_dist, grad_dist);
         return coord_dist / grad_dist;
         // return 0.1;
@@ -969,7 +975,7 @@ class StaticPlacer
             update_gradients(true, true, /* init_penalty */ true);
             // compute a "fake" previous position based on an arbitrary steplength and said gradients for nesterov
             for (auto &cell : mcells) {
-                if (cell.is_fixed)
+                if (cell.is_fixed || cell.is_dark)
                     continue;
                 // save current position in last_pos
                 cell.last_pos = cell.pos;
@@ -981,6 +987,8 @@ class StaticPlacer
             update_gradients(true);
             // Now we have the fake previous state in the current state
             for (auto &cell : mcells) {
+                if (cell.is_fixed || cell.is_dark)
+                    continue;
                 std::swap(cell.last_ref_pos, cell.ref_pos);
                 std::swap(cell.ref_total_grad, cell.last_total_grad);
                 std::swap(cell.ref_wl_grad, cell.last_wl_grad);
@@ -1035,7 +1043,11 @@ class StaticPlacer
     {
         // TODO: update penalties; wirelength factor; etc
         steplen = get_steplen();
-        log_info("iter=%d steplen=%f a=%f\n", iter, steplen, nesterov_a);
+        std::string penalty_str = "";
+        for (auto p : dens_penalty) {
+            penalty_str += stringf("%s%.2f", penalty_str.empty() ? "" : ", ", p);
+        }
+        log_info("iter=%d steplen=%f a=%f penalty=[%s]\n", iter, steplen, nesterov_a, penalty_str.c_str());
         float a_next = (1.0f + std::sqrt(4.0f * nesterov_a * nesterov_a + 1)) / 2.0f;
         // Update positions using Nesterov's
         for (auto &cell : mcells) {
@@ -1381,6 +1393,7 @@ class StaticPlacer
         groups.resize(cfg.cell_groups.size());
         tmg.setup_only = true;
         tmg.setup();
+        dump_density = ctx->setting<bool>("static/dump_density", false);
     };
     void place()
     {
