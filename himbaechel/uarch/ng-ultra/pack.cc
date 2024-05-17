@@ -1037,6 +1037,13 @@ void NgUltraPacker::pack_rams(void)
         if (!ci.type.in(id_NX_RAM))
             continue;
         ci.type = id_RAM;
+        // These ACKx and BCKx exists for NX_RAM, but are not available on NX_ULTRA
+        ci.disconnectPort(id_ACKC);
+        ci.disconnectPort(id_ACKD);
+        ci.disconnectPort(id_ACKR);
+        ci.disconnectPort(id_BCKC);
+        ci.disconnectPort(id_BCKD);
+        ci.disconnectPort(id_BCKR);
     }
 }
 
