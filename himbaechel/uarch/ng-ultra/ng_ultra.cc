@@ -274,6 +274,45 @@ bool NgUltraImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
         SectionFEWorker worker;
         return worker.run(this, ctx, bel);
     }
+    else if (ctx->getBelType(bel).in(id_RF, id_XRF)) {
+        CellInfo *cell = ctx->getBoundBelCell(bel);
+        if (cell == nullptr) {
+            return true;
+        }
+        Loc loc = ctx->getBelLocation(bel);
+        if (loc.z == BEL_XRF_Z) {
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,BEL_RF_Z)))) return false;
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,BEL_RF_Z+1)))) return false;
+        } else {
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,BEL_XRF_Z)))) return false;
+        }
+    }
+    else if (ctx->getBelType(bel).in(id_FIFO, id_XFIFO)) {
+        CellInfo *cell = ctx->getBoundBelCell(bel);
+        if (cell == nullptr) {
+            return true;
+        }
+        Loc loc = ctx->getBelLocation(bel);
+        if (loc.z == BEL_XFIFO_Z) {
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,BEL_FIFO_Z)))) return false;
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,BEL_FIFO_Z+1)))) return false;
+        } else {
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,BEL_XFIFO_Z)))) return false;
+        }
+    }
+    else if (ctx->getBelType(bel).in(id_CDC, id_XCDC)) {
+        CellInfo *cell = ctx->getBoundBelCell(bel);
+        if (cell == nullptr) {
+            return true;
+        }
+        Loc loc = ctx->getBelLocation(bel);
+        if (loc.z == BEL_XCDC_Z) {
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,BEL_CDC_Z)))) return false;
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,BEL_CDC_Z+1)))) return false;
+        } else {
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,BEL_XCDC_Z)))) return false;
+        }
+    }
     return true;
 }
 
@@ -369,6 +408,7 @@ Loc getXRFFE(Loc root, int pos)
         Loc(-1, 0, 25),// I/O16
         Loc(-1, 0, 26),// I/O17
         Loc(-1, 0, 29),// I/O18
+
         Loc(+1, 0, 1),// I/O19
         Loc(+1, 0, 2),// I/O20
         Loc(+1, 0, 5),// I/O21
@@ -388,12 +428,12 @@ Loc getXRFFE(Loc root, int pos)
         Loc(+1, 0, 26),// I/O35
         Loc(+1, 0, 29),// I/O36
 
-
         Loc(-1, 0, 4),// RA1
         Loc(-1, 0, 12),// RA2
         Loc(-1, 0, 20),// RA3
         Loc(-1, 0, 27),// RA4
         Loc(-1, 0, 31),// RA5
+
         Loc(+1, 0, 4),// RA6
         Loc(+1, 0, 12),// RA7
         Loc(+1, 0, 20),// RA8
@@ -405,6 +445,7 @@ Loc getXRFFE(Loc root, int pos)
         Loc(-1, 0, 19),// WA3
         Loc(-1, 0, 23),// WA4
         Loc(-1, 0, 28),// WA5
+        
         Loc(+1, 0, 3),// WA6
 
         Loc(-1, 0, 0),// WE
@@ -413,10 +454,15 @@ Loc getXRFFE(Loc root, int pos)
     };
  
     Loc result = map.at(pos);
-    result.x += root.x;
+    if (root.z == BEL_XRF_Z) {
+        // XRF1
+        result.x += root.x;
+    } else  {
+        // RF1 or RF2
+        result.x = root.x + ((root.z == BEL_RF_Z) ? -1 : +1);
+    }
     result.y = root.y;
     return result;
-
 }
 
 bool NgUltraImpl::getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc,

@@ -861,22 +861,6 @@ void NgUltraPacker::pack_rfs(void)
             continue;
         int mode = int_or_default(ci.params, ctx->id("mode"), 0);
         ci.type = id_RF;
-        if (mode > 1) {
-            // XRF
-            ci.type = id_XRF;
-            ci.ports[id_WCK1].name = id_WCK1;
-            ci.ports[id_WCK1].type = PORT_IN;
-            ci.ports[id_WCK2].name = id_WCK2;
-            ci.ports[id_WCK2].type = PORT_IN;
-
-            NetInfo *net = ci.getPort(id_WCK);
-            if (net) {
-                ci.disconnectPort(id_WCK);
-
-                ci.connectPort(id_WCK1, net);
-                ci.connectPort(id_WCK2, net);
-            }
-        }
         ci.cluster = ci.name;
 
         pack_xrf_input_and_output(&ci, ci.name, id_I1, id_O1, lut_only, lut_and_ff, dff_only);
@@ -897,42 +881,57 @@ void NgUltraPacker::pack_rfs(void)
         pack_xrf_input_and_output(&ci, ci.name, id_I16, id_O16, lut_only, lut_and_ff, dff_only);
         pack_xrf_input_and_output(&ci, ci.name, id_I17, id_O17, lut_only, lut_and_ff, dff_only);
         pack_xrf_input_and_output(&ci, ci.name, id_I18, id_O18, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I19, id_O19, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I20, id_O20, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I21, id_O21, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I22, id_O22, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I23, id_O23, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I24, id_O24, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I25, id_O25, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I26, id_O26, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I27, id_O27, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I28, id_O28, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I29, id_O29, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I30, id_O30, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I31, id_O31, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I32, id_O32, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I33, id_O33, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I34, id_O34, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I35, id_O35, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I36, id_O36, lut_only, lut_and_ff, dff_only);
         pack_xrf_input_and_output(&ci, ci.name, id_RA1, IdString(), lut_only, lut_and_ff, dff_only);
         pack_xrf_input_and_output(&ci, ci.name, id_RA2, IdString(), lut_only, lut_and_ff, dff_only);
         pack_xrf_input_and_output(&ci, ci.name, id_RA3, IdString(), lut_only, lut_and_ff, dff_only);
         pack_xrf_input_and_output(&ci, ci.name, id_RA4, IdString(), lut_only, lut_and_ff, dff_only);
         pack_xrf_input_and_output(&ci, ci.name, id_RA5, IdString(), lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_RA6, IdString(), lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_RA7, IdString(), lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_RA8, IdString(), lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_RA9, IdString(), lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_RA10, IdString(), lut_only, lut_and_ff, dff_only);
         pack_xrf_input_and_output(&ci, ci.name, id_WA1, IdString(), lut_only, lut_and_ff, dff_only);
         pack_xrf_input_and_output(&ci, ci.name, id_WA2, IdString(), lut_only, lut_and_ff, dff_only);
         pack_xrf_input_and_output(&ci, ci.name, id_WA3, IdString(), lut_only, lut_and_ff, dff_only);
         pack_xrf_input_and_output(&ci, ci.name, id_WA4, IdString(), lut_only, lut_and_ff, dff_only);
         pack_xrf_input_and_output(&ci, ci.name, id_WA5, IdString(), lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_WA6, IdString(), lut_only, lut_and_ff, dff_only);
         pack_xrf_input_and_output(&ci, ci.name, id_WE, IdString(), lut_only, lut_and_ff, dff_only);
         pack_xrf_input_and_output(&ci, ci.name, id_WEA, IdString(), lut_only, lut_and_ff, dff_only);
+        if (mode > 1) {
+            // XRF
+            ci.type = id_XRF;
+            pack_xrf_input_and_output(&ci, ci.name, id_I19, id_O19, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I20, id_O20, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I21, id_O21, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I22, id_O22, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I23, id_O23, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I24, id_O24, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I25, id_O25, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I26, id_O26, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I27, id_O27, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I28, id_O28, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I29, id_O29, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I30, id_O30, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I31, id_O31, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I32, id_O32, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I33, id_O33, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I34, id_O34, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I35, id_O35, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I36, id_O36, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_RA6, IdString(), lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_RA7, IdString(), lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_RA8, IdString(), lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_RA9, IdString(), lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_RA10, IdString(), lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_WA6, IdString(), lut_only, lut_and_ff, dff_only);
+            ci.ports[id_WCK1].name = id_WCK1;
+            ci.ports[id_WCK1].type = PORT_IN;
+            ci.ports[id_WCK2].name = id_WCK2;
+            ci.ports[id_WCK2].type = PORT_IN;
+            NetInfo *net = ci.getPort(id_WCK);
+            if (net) {
+                ci.disconnectPort(id_WCK);
+
+                ci.connectPort(id_WCK1, net);
+                ci.connectPort(id_WCK2, net);
+            }
+        }
     }
     if (lut_only)
         log_info("    %6d FEs used as LUT only\n", lut_only);
