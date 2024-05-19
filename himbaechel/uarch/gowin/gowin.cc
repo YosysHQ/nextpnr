@@ -41,6 +41,7 @@ struct GowinImpl : HimbaechelAPI
 
     // wires
     bool checkPipAvail(PipId pip) const override;
+    bool checkPipAvailForNet(PipId pip, const NetInfo *net) const override;
 
     // Cluster
     bool isClusterStrict(const CellInfo *cell) const { return true; }
@@ -187,6 +188,16 @@ void GowinImpl::init(Context *ctx)
 
 // We do not allow the use of global wires that bypass a special router.
 bool GowinImpl::checkPipAvail(PipId pip) const { return !gwu.is_global_pip(pip); }
+
+bool GowinImpl::checkPipAvailForNet(PipId pip, const NetInfo *net) const {
+    if (gwu.is_global_pip(pip)) {
+        // Available for a globally routed net
+        auto prop = net->attrs.find(id_GLOBALLY_ROUTED);
+        return prop != net->attrs.end() && prop->second == Property("YES");
+    }
+
+    return true;
+}
 
 void GowinImpl::pack()
 {

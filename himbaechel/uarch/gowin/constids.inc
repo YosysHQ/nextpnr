@@ -1192,4 +1192,5 @@ X(HCLK_OUT3)
 X(BUFG)
 X(CLOCK)
 
-
+// Globally routed
+X(GLOBALLY_ROUTED)
