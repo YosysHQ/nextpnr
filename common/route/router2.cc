@@ -1159,7 +1159,7 @@ struct Router2
         return success;
     }
 
-    void write_wiretype_heatmap(std::ostream &out)
+    void write_congestion_by_wiretype_heatmap(std::ostream &out)
     {
         dict<IdString, std::vector<int>> cong_by_type;
         size_t max_cong = 0;
@@ -1181,6 +1181,33 @@ struct Router2
             out << ctx->nameOf(ty.first) << ",";
             for (int count : ty.second)
                 out << count << ",";
+            out << std::endl;
+        }
+    }
+
+    void write_utilisation_by_wiretype_heatmap(std::ostream &out)
+    {
+        dict<IdString, int> util_by_type;
+        for (auto &wd : flat_wires) {
+            IdString type = ctx->getWireType(wd.w);
+            if (wd.curr_cong > 0)
+                util_by_type[type] += wd.curr_cong;
+        }
+        // Write csv
+        for (auto &u : util_by_type)
+            out << u.first.c_str(ctx) << "," << u.second << std::endl;
+    }
+
+    void write_congestion_by_coordinate_heatmap(std::ostream &out)
+    {
+        auto util_by_coord = std::vector<std::vector<int>>(ctx->getGridDimX() + 1, std::vector<int>(ctx->getGridDimY() + 1, 0));
+        for (auto &wd : flat_wires)
+            if (wd.curr_cong > 1)
+                util_by_coord[wd.x][wd.y] += wd.curr_cong;
+        // Write csv
+        for (auto &x : util_by_coord) {
+            for (auto y : x)
+                out << y << ",";
             out << std::endl;
         }
     }
@@ -1444,12 +1471,30 @@ struct Router2
             update_congestion();
 
             if (!cfg.heatmap.empty()) {
-                std::string filename(cfg.heatmap + "_" + std::to_string(iter) + ".csv");
-                std::ofstream cong_map(filename);
-                if (!cong_map)
-                    log_error("Failed to open wiretype heatmap %s for writing.\n", filename.c_str());
-                write_wiretype_heatmap(cong_map);
-                log_info("        wrote wiretype heatmap to %s.\n", filename.c_str());
+                {
+                    std::string filename(cfg.heatmap + "_congestion_by_wiretype_" + std::to_string(iter) + ".csv");
+                    std::ofstream cong_map(filename);
+                    if (!cong_map)
+                        log_error("Failed to open congestion-by-wiretype heatmap %s for writing.\n", filename.c_str());
+                    write_congestion_by_wiretype_heatmap(cong_map);
+                    log_info("        wrote congestion-by-wiretype heatmap to %s.\n", filename.c_str());
+                }
+                {
+                    std::string filename(cfg.heatmap + "_utilisation_by_wiretype_" + std::to_string(iter) + ".csv");
+                    std::ofstream cong_map(filename);
+                    if (!cong_map)
+                        log_error("Failed to open utilisation-by-wiretype heatmap %s for writing.\n", filename.c_str());
+                    write_utilisation_by_wiretype_heatmap(cong_map);
+                    log_info("        wrote utilisation-by-wiretype heatmap to %s.\n", filename.c_str());
+                }
+                {
+                    std::string filename(cfg.heatmap + "_congestion_by_coordinate_" + std::to_string(iter) + ".csv");
+                    std::ofstream cong_map(filename);
+                    if (!cong_map)
+                        log_error("Failed to open congestion-by-coordinate heatmap %s for writing.\n", filename.c_str());
+                    write_congestion_by_coordinate_heatmap(cong_map);
+                    log_info("        wrote congestion-by-coordinate heatmap to %s.\n", filename.c_str());
+                }
             }
             int tmgfail = 0;
             if (timing_driven)
