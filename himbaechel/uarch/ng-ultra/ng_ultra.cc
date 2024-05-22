@@ -477,60 +477,7 @@ bool NgUltraImpl::getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc
                 case PLACE_CY_FE2: return getCYFE(root_loc,1);
                 case PLACE_CY_FE3: return getCYFE(root_loc,2);
                 case PLACE_CY_FE4: return getCYFE(root_loc,3);
-                case PLACE_XRF_I1:
-                case PLACE_XRF_I2:
-                case PLACE_XRF_I3:
-                case PLACE_XRF_I4:
-                case PLACE_XRF_I5:
-                case PLACE_XRF_I6:
-                case PLACE_XRF_I7:
-                case PLACE_XRF_I8:
-                case PLACE_XRF_I9:
-                case PLACE_XRF_I10:
-                case PLACE_XRF_I11:
-                case PLACE_XRF_I12:
-                case PLACE_XRF_I13:
-                case PLACE_XRF_I14:
-                case PLACE_XRF_I15:
-                case PLACE_XRF_I16:
-                case PLACE_XRF_I17:
-                case PLACE_XRF_I18:
-                case PLACE_XRF_I19:
-                case PLACE_XRF_I20:
-                case PLACE_XRF_I21:
-                case PLACE_XRF_I22:
-                case PLACE_XRF_I23:
-                case PLACE_XRF_I24:
-                case PLACE_XRF_I25:
-                case PLACE_XRF_I26:
-                case PLACE_XRF_I27:
-                case PLACE_XRF_I28:
-                case PLACE_XRF_I29:
-                case PLACE_XRF_I30:
-                case PLACE_XRF_I31:
-                case PLACE_XRF_I32:
-                case PLACE_XRF_I33:
-                case PLACE_XRF_I34:
-                case PLACE_XRF_I35:
-                case PLACE_XRF_I36:
-                case PLACE_XRF_RA1:
-                case PLACE_XRF_RA2:
-                case PLACE_XRF_RA3:
-                case PLACE_XRF_RA4:
-                case PLACE_XRF_RA5:
-                case PLACE_XRF_RA6:
-                case PLACE_XRF_RA7:
-                case PLACE_XRF_RA8:
-                case PLACE_XRF_RA9:
-                case PLACE_XRF_RA10:
-                case PLACE_XRF_WA1:
-                case PLACE_XRF_WA2:
-                case PLACE_XRF_WA3:
-                case PLACE_XRF_WA4:
-                case PLACE_XRF_WA5:
-                case PLACE_XRF_WA6:
-                case PLACE_XRF_WE:
-                case PLACE_XRF_WEA:
+                case PLACE_XRF_I1 ... PLACE_XRF_WEA:
                                     return getXRFFE(root_loc, child->constr_z - PLACE_XRF_I1 );
                 default:
                     Loc result;
