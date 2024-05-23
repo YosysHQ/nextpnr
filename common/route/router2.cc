@@ -1373,6 +1373,13 @@ struct Router2
 
     void update_route_delays()
     {
+        std::ofstream f;
+        if (!cfg.heuristic_test.empty()) {
+            f.open(cfg.heuristic_test);
+            if (!f)
+                log_error("Failed to open heuristic test output file %s for writing.\n", cfg.heuristic_test.c_str());
+            f << "source wire,sink wire,heuristic delay (ns),actual delay (ns)" << std::endl;
+        }
         for (int net : route_queue) {
             NetInfo *ni = nets_by_udata.at(net);
 #ifdef ARCH_ECP5
@@ -1382,8 +1389,16 @@ struct Router2
             auto &nd = nets.at(net);
             for (auto usr : ni->users.enumerate()) {
                 delay_t arc_delay = 0;
-                for (int j = 0; j < int(nd.arcs.at(usr.index.idx()).size()); j++)
-                    arc_delay = std::max(arc_delay, get_route_delay(net, usr.index, j));
+                for (int j = 0; j < int(nd.arcs.at(usr.index.idx()).size()); j++) {
+                    delay_t route_delay = get_route_delay(net, usr.index, j);
+                    if (f) {
+                        auto src_wire = nd.src_wire;
+                        auto sink_wire = nd.arcs.at(usr.index.idx()).at(j).sink_wire;
+                        if (src_wire != WireId() && sink_wire != WireId())
+                            f << ctx->nameOfWire(src_wire) << "," << ctx->nameOfWire(sink_wire) << "," << ctx->getDelayNS(ctx->estimateDelay(src_wire, sink_wire)) << "," << ctx->getDelayNS(route_delay) << std::endl;
+                    }
+                    arc_delay = std::max(arc_delay, route_delay);
+                }
                 tmg.set_route_delay(CellPortKey(usr.value), DelayPair(arc_delay));
             }
         }
@@ -1446,6 +1461,9 @@ struct Router2
                 write_wiretype_heatmap(cong_map);
                 log_info("        wrote wiretype heatmap to %s.\n", filename.c_str());
             }
+
+            NPNR_ASSERT_MSG(cfg.heuristic_test.empty(), "congestion-free routing complete; nextpnr will exit now");
+
             int tmgfail = 0;
             if (timing_driven)
                 tmg.run(false);
@@ -1523,6 +1541,12 @@ Router2Cfg::Router2Cfg(Context *ctx)
         hist_cong_weight = ctx->setting<float>("router2/histCongWeight", 0.5f);
         curr_cong_mult = ctx->setting<float>("router2/currCongWeightMult", 0.0f);
         estimate_weight = ctx->setting<float>("router2/estimateWeight", 1.0f);
+    } else if (ctx->settings.count(ctx->id("router2/heuristic-test"))) {
+        init_curr_cong_weight = 0.0f;
+        hist_cong_weight = 0.0f;
+        curr_cong_mult = 0.0f;
+        estimate_weight = 1.25f;
+        heuristic_test = ctx->settings.at(ctx->id("router2/heuristic-test")).as_string();
     } else {
         init_curr_cong_weight = ctx->setting<float>("router2/initCurrCongWeight", 0.5f);
         hist_cong_weight = ctx->setting<float>("router2/histCongWeight", 1.0f);

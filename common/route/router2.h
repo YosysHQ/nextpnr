@@ -57,6 +57,8 @@ struct Router2Cfg
     // Print additional performance profiling information
     bool perf_profile = false;
 
+    std::string heuristic_test;
+
     std::string heatmap;
     std::function<float(Context *ctx, WireId wire, PipId pip, float crit_weight)> get_base_cost = default_base_cost;
 };

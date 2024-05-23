@@ -404,6 +404,8 @@ po::options_description CommandHandler::getGeneralOptions()
                           "enable experimental timing-driven ripup in router (deprecated; use --tmg-ripup instead)");
 
     general.add_options()("router2-alt-weights", "use alternate router2 weights");
+    general.add_options()("router2-heuristic-test", po::value<std::string>(),
+                          "write heuristic vs congestion-free delay data in CSV format to file");
 
     general.add_options()("report", po::value<std::string>(),
                           "write timing and utilization report in JSON format to file");
@@ -545,6 +547,9 @@ void CommandHandler::setupContext(Context *ctx)
 
     if (vm.count("router2-alt-weights"))
         ctx->settings[ctx->id("router2/alt-weights")] = true;
+
+    if (vm.count("router2-heuristic-test"))
+        ctx->settings[ctx->id("router2/heuristic-test")] = vm["router2-heuristic-test"].as<std::string>();
 
     if (vm.count("static-dump-density"))
         ctx->settings[ctx->id("static/dump_density")] = true;
