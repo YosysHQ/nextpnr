@@ -931,6 +931,31 @@ void NgUltraPacker::pack_rfs(void)
                 ci.connectPort(id_WCK1, net);
                 ci.connectPort(id_WCK2, net);
             }
+        } else {
+            ci.disconnectPort(id_I19); ci.disconnectPort(id_O19);
+            ci.disconnectPort(id_I20); ci.disconnectPort(id_O20);
+            ci.disconnectPort(id_I21); ci.disconnectPort(id_O21);
+            ci.disconnectPort(id_I22); ci.disconnectPort(id_O22);
+            ci.disconnectPort(id_I23); ci.disconnectPort(id_O23);
+            ci.disconnectPort(id_I24); ci.disconnectPort(id_O24);
+            ci.disconnectPort(id_I25); ci.disconnectPort(id_O25);
+            ci.disconnectPort(id_I26); ci.disconnectPort(id_O26);
+            ci.disconnectPort(id_I27); ci.disconnectPort(id_O27);
+            ci.disconnectPort(id_I28); ci.disconnectPort(id_O28);
+            ci.disconnectPort(id_I29); ci.disconnectPort(id_O29);
+            ci.disconnectPort(id_I30); ci.disconnectPort(id_O30);
+            ci.disconnectPort(id_I31); ci.disconnectPort(id_O31);
+            ci.disconnectPort(id_I32); ci.disconnectPort(id_O32);
+            ci.disconnectPort(id_I33); ci.disconnectPort(id_O33);
+            ci.disconnectPort(id_I34); ci.disconnectPort(id_O34);
+            ci.disconnectPort(id_I35); ci.disconnectPort(id_O35);
+            ci.disconnectPort(id_I36); ci.disconnectPort(id_O36);
+            ci.disconnectPort(id_RA6);
+            ci.disconnectPort(id_RA7);
+            ci.disconnectPort(id_RA8);
+            ci.disconnectPort(id_RA9);
+            ci.disconnectPort(id_RA10);
+            ci.disconnectPort(id_WA6);
         }
     }
     if (lut_only)
