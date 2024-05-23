@@ -1044,6 +1044,10 @@ void NgUltraPacker::pack_rams(void)
         ci.disconnectPort(id_BCKC);
         ci.disconnectPort(id_BCKD);
         ci.disconnectPort(id_BCKR);
+        for (auto &p : ci.ports) {
+            if (p.second.type == PortType::PORT_IN) 
+                disconnect_if_gnd(&ci, p.first);
+        }
     }
 }
 

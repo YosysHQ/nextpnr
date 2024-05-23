@@ -365,14 +365,20 @@ struct BitstreamJsonBackend
                 log_error("Unknown mode %d for cell '%s'.\n", mode, cell->name.c_str(ctx));
         }        
         add_config("mode", mode);
+        add_config("context", str_or_default(cell->params, ctx->id("mem_ctxt"), ""));
         add_config("wck_edge", bool_or_default(cell->params, ctx->id("wck_edge"), false));
         close_instance();
     }
 
     void write_ram(CellInfo *cell) {
         open_instance(cell, "RAM");
+        add_config("mcka_edge", bool_or_default(cell->params, ctx->id("mcka_edge"), false));
+        add_config("mckb_edge", bool_or_default(cell->params, ctx->id("mckb_edge"), false));
+        add_config("pcka_edge", bool_or_default(cell->params, ctx->id("pcka_edge"), false));
+        add_config("pckb_edge", bool_or_default(cell->params, ctx->id("pckb_edge"), false));
         add_config("raw_config0", extract_bits_or_default(cell->params, ctx->id("raw_config0"), 4));
         add_config("raw_config1", extract_bits_or_default(cell->params, ctx->id("raw_config1"), 16));
+        add_config("context", str_or_default(cell->params, ctx->id("mem_ctxt"), ""));
         close_instance();
     }
 
