@@ -1069,11 +1069,7 @@ void NgUltraPacker::promote_globals()
         // Count the number of clock ports
         int glb_count = 0;
         for (const auto &usr : ni->users) {
-            if (usr.cell->type == id_BEYOND_FE && usr.port == id_CK)
-                glb_count++;
-            if (usr.cell->type == id_RF && usr.port == id_WCK)
-                glb_count++;
-            if (usr.cell->type == id_XRF && usr.port.in(id_WCK1,id_WCK2))
+            if (clock_sinks.count(usr.cell->type) && clock_sinks[usr.cell->type].count(usr.port))
                 glb_count++;
         }
         if (glb_count > 0)
@@ -1109,21 +1105,10 @@ void NgUltraPacker::promote_globals()
         CellInfo *input_pad = ctx->getBoundBelCell(iotp_bel);
         NetInfo *iom_to_clk = ctx->createNet(ctx->id(std::string(net->name.c_str(ctx)) + "$iom"));
         for (const auto &usr : net->users) {
-            if (usr.cell->type == id_BEYOND_FE && usr.port == id_CK) {
-                usr.cell->disconnectPort(id_CK);
-                usr.cell->connectPort(id_CK, iom_to_clk);
-            }
-            if (usr.cell->type == id_RF && usr.port == id_WCK) {
-                usr.cell->disconnectPort(id_WCK);
-                usr.cell->connectPort(id_WCK, iom_to_clk);
-            }
-            if (usr.cell->type == id_XRF && usr.port == id_WCK1) {
-                usr.cell->disconnectPort(id_WCK1);
-                usr.cell->connectPort(id_WCK1, iom_to_clk);
-            }
-            if (usr.cell->type == id_XRF && usr.port == id_WCK2) {
-                usr.cell->disconnectPort(id_WCK2);
-                usr.cell->connectPort(id_WCK2, iom_to_clk);
+            if (clock_sinks.count(usr.cell->type) && clock_sinks[usr.cell->type].count(usr.port)) {
+                IdString port = usr.port;
+                usr.cell->disconnectPort(port);
+                usr.cell->connectPort(port, iom_to_clk);
             }
         }       
         iom->connectPort(port, input_pad->getPort(id_O));
@@ -1163,6 +1148,16 @@ void NgUltraPacker::pack_rams(void)
     }
 }
 
+void NgUltraPacker::setup()
+{
+    clock_sinks[id_BEYOND_FE].insert(id_CK);
+    clock_sinks[id_RF].insert(id_WCK);
+    clock_sinks[id_XRF].insert(id_WCK1);
+    clock_sinks[id_XRF].insert(id_WCK2);
+    clock_sinks[id_RAM].insert(id_ACK);
+    clock_sinks[id_RAM].insert(id_BCK);
+}
+
 void NgUltraImpl::pack()
 {
     const ArchArgs &args = ctx->args;
@@ -1170,6 +1165,7 @@ void NgUltraImpl::pack()
         parse_csv(args.options.at("csv"));
     }
     NgUltraPacker packer(ctx, this);
+    packer.setup();
     packer.pack_constants();
     packer.update_lut_init();
     packer.update_dffs();

@@ -58,6 +58,8 @@ struct NgUltraPacker
 
     void promote_globals();
 
+    void setup();
+
 private:
     void set_lut_input_if_constant(CellInfo *cell, IdString input);
     void lut_to_fe(CellInfo *lut, CellInfo *fe, bool no_dff, Property lut_table);
@@ -83,6 +85,7 @@ private:
 
     pool<IdString> packed_cells;
     std::vector<std::unique_ptr<CellInfo>> new_cells;
+    dict<IdString,pool<IdString>> clock_sinks;
 
     HimbaechelHelpers h;
 };
