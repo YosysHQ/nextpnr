@@ -66,8 +66,9 @@ private:
     void exchange_if_constant(CellInfo *cell, IdString input1, IdString input2);
     void pack_cy_input_and_output(CellInfo *cy, IdString cluster, IdString in_port, IdString out_port, int placer, int &lut_only, int &lut_and_ff, int &dff_only);
 
-    void pack_xrf_input_and_output(CellInfo *cy, IdString cluster, IdString in_port, IdString out_port, int &lut_only, int &lut_and_ff, int &dff_only);
+    void pack_xrf_input_and_output(CellInfo *cy, IdString cluster, IdString in_port, IdString out_port, ClusterPlacement placement, int &lut_only, int &lut_and_ff, int &dff_only);
 
+    void connect_gnd_if_unconnected(CellInfo *cell, IdString input);
     void disconnect_if_gnd(CellInfo *cell, IdString input);
 
     // General helper functions

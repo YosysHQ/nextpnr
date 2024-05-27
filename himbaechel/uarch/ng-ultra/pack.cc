@@ -205,6 +205,17 @@ void NgUltraPacker::disconnect_if_gnd(CellInfo *cell, IdString input)
     }
 }
 
+void NgUltraPacker::connect_gnd_if_unconnected(CellInfo *cell, IdString input)
+{
+    NetInfo *net = cell->getPort(input);
+    if (net)
+        return;
+    auto fnd_net = ctx->nets.find(ctx->id("$PACKER_GND"));
+    if (fnd_net != ctx->nets.end()) {
+        cell->connectPort(input, fnd_net->second.get());
+    }
+}
+
 void NgUltraPacker::lut_to_fe(CellInfo *lut, CellInfo *fe, bool no_dff, Property lut_table)
 {
     fe->params[id_lut_table] = lut_table;
@@ -727,72 +738,9 @@ void NgUltraPacker::pack_cys(void)
     flush_cells();
 }
 
-ClusterPlacement getPortPlacement(Context *ctx, IdString port)
-{
-    switch(port.index)
-    {
-        case id_I1.index :    return PLACE_XRF_I1;
-        case id_I2.index :    return PLACE_XRF_I2;
-        case id_I3.index :    return PLACE_XRF_I3;
-        case id_I4.index :    return PLACE_XRF_I4;
-        case id_I5.index :    return PLACE_XRF_I5;
-        case id_I6.index :    return PLACE_XRF_I6;
-        case id_I7.index :    return PLACE_XRF_I7;
-        case id_I8.index :    return PLACE_XRF_I8;
-        case id_I9.index :    return PLACE_XRF_I9;
-        case id_I10.index :   return PLACE_XRF_I10;
-        case id_I11.index :   return PLACE_XRF_I11;
-        case id_I12.index :   return PLACE_XRF_I12;
-        case id_I13.index :   return PLACE_XRF_I13;
-        case id_I14.index :   return PLACE_XRF_I14;
-        case id_I15.index :   return PLACE_XRF_I15;
-        case id_I16.index :   return PLACE_XRF_I16;
-        case id_I17.index :   return PLACE_XRF_I17;
-        case id_I18.index :   return PLACE_XRF_I18;
-        case id_I19.index :   return PLACE_XRF_I19;
-        case id_I20.index :   return PLACE_XRF_I20;
-        case id_I21.index :   return PLACE_XRF_I21;
-        case id_I22.index :   return PLACE_XRF_I22;
-        case id_I23.index :   return PLACE_XRF_I23;
-        case id_I24.index :   return PLACE_XRF_I24;
-        case id_I25.index :   return PLACE_XRF_I25;
-        case id_I26.index :   return PLACE_XRF_I26;
-        case id_I27.index :   return PLACE_XRF_I27;
-        case id_I28.index :   return PLACE_XRF_I28;
-        case id_I29.index :   return PLACE_XRF_I29;
-        case id_I30.index :   return PLACE_XRF_I30;
-        case id_I31.index :   return PLACE_XRF_I31;
-        case id_I32.index :   return PLACE_XRF_I32;
-        case id_I33.index :   return PLACE_XRF_I33;
-        case id_I34.index :   return PLACE_XRF_I34;
-        case id_I35.index :   return PLACE_XRF_I35;
-        case id_I36.index :   return PLACE_XRF_I36;
-        case id_RA1.index :   return PLACE_XRF_RA1;
-        case id_RA2.index :   return PLACE_XRF_RA2;
-        case id_RA3.index :   return PLACE_XRF_RA3;
-        case id_RA4.index :   return PLACE_XRF_RA4;
-        case id_RA5.index :   return PLACE_XRF_RA5;
-        case id_RA6.index :   return PLACE_XRF_RA6;
-        case id_RA7.index :   return PLACE_XRF_RA7;
-        case id_RA8.index :   return PLACE_XRF_RA8;
-        case id_RA9.index :   return PLACE_XRF_RA9;
-        case id_RA10.index :  return PLACE_XRF_RA10;
-        case id_WA1.index :   return PLACE_XRF_WA1;
-        case id_WA2.index :   return PLACE_XRF_WA2;
-        case id_WA3.index :   return PLACE_XRF_WA3;
-        case id_WA4.index :   return PLACE_XRF_WA4;
-        case id_WA5.index :   return PLACE_XRF_WA5;
-        case id_WA6.index :   return PLACE_XRF_WA6;
-        case id_WE.index :    return PLACE_XRF_WE;
-        case id_WEA.index :   return PLACE_XRF_WEA;
-        default:
-            log_error("Unhandled port %s\n", port.c_str(ctx));
-    }
-}
 
-void NgUltraPacker::pack_xrf_input_and_output(CellInfo *xrf, IdString cluster, IdString in_port, IdString out_port, int &lut_only, int &lut_and_ff, int &dff_only)
+void NgUltraPacker::pack_xrf_input_and_output(CellInfo *xrf, IdString cluster, IdString in_port, IdString out_port, ClusterPlacement placement, int &lut_only, int &lut_and_ff, int &dff_only)
 {
-    disconnect_if_gnd(xrf, in_port);
     NetInfo *net = xrf->getPort(in_port);
     NetInfo *net_out = nullptr;
     if (out_port != IdString()) {
@@ -803,7 +751,9 @@ void NgUltraPacker::pack_xrf_input_and_output(CellInfo *xrf, IdString cluster, I
         }
     }
     if (!net && !net_out) return;
-    CellInfo *fe = create_cell_ptr(id_BEYOND_FE, ctx->id(xrf->name.str(ctx) + "$" + in_port.c_str(ctx)));
+    IdString name = in_port;
+    if (name == IdString()) name = out_port;
+    CellInfo *fe = create_cell_ptr(id_BEYOND_FE, ctx->id(xrf->name.str(ctx) + "$" + name.c_str(ctx)));
     
     if (net) {
         if (net->name.in(ctx->id("$PACKER_GND"), ctx->id("$PACKER_VCC"))) {
@@ -847,7 +797,7 @@ void NgUltraPacker::pack_xrf_input_and_output(CellInfo *xrf, IdString cluster, I
         }
     }
     fe->cluster = cluster;
-    fe->constr_z = getPortPlacement(ctx,in_port);
+    fe->constr_z = placement;
     xrf->constr_children.push_back(fe);
 }
 
@@ -863,74 +813,185 @@ void NgUltraPacker::pack_rfs(void)
         ci.type = id_RF;
         ci.cluster = ci.name;
 
-        pack_xrf_input_and_output(&ci, ci.name, id_I1, id_O1, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I2, id_O2, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I3, id_O3, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I4, id_O4, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I5, id_O5, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I6, id_O6, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I7, id_O7, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I8, id_O8, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I9, id_O9, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I10, id_O10, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I11, id_O11, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I12, id_O12, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I13, id_O13, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I14, id_O14, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I15, id_O15, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I16, id_O16, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I17, id_O17, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I18, id_O18, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_RA1, IdString(), lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_RA2, IdString(), lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_RA3, IdString(), lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_RA4, IdString(), lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_RA5, IdString(), lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_WA1, IdString(), lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_WA2, IdString(), lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_WA3, IdString(), lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_WA4, IdString(), lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_WA5, IdString(), lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_WE, IdString(), lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_WEA, IdString(), lut_only, lut_and_ff, dff_only);
-        if (mode > 1) {
-            // XRF
-            ci.type = id_XRF;
-            pack_xrf_input_and_output(&ci, ci.name, id_I19, id_O19, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I20, id_O20, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I21, id_O21, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I22, id_O22, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I23, id_O23, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I24, id_O24, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I25, id_O25, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I26, id_O26, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I27, id_O27, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I28, id_O28, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I29, id_O29, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I30, id_O30, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I31, id_O31, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I32, id_O32, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I33, id_O33, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I34, id_O34, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I35, id_O35, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I36, id_O36, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_RA6, IdString(), lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_RA7, IdString(), lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_RA8, IdString(), lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_RA9, IdString(), lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_RA10, IdString(), lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_WA6, IdString(), lut_only, lut_and_ff, dff_only);
-            ci.ports[id_WCK1].name = id_WCK1;
-            ci.ports[id_WCK1].type = PORT_IN;
-            ci.ports[id_WCK2].name = id_WCK2;
-            ci.ports[id_WCK2].type = PORT_IN;
-            NetInfo *net = ci.getPort(id_WCK);
-            if (net) {
-                ci.disconnectPort(id_WCK);
+        connect_gnd_if_unconnected(&ci, id_I1);
+        connect_gnd_if_unconnected(&ci, id_I2);
+        connect_gnd_if_unconnected(&ci, id_I3);
+        connect_gnd_if_unconnected(&ci, id_I4);
+        connect_gnd_if_unconnected(&ci, id_I5);
+        connect_gnd_if_unconnected(&ci, id_I6);
+        connect_gnd_if_unconnected(&ci, id_I7);
+        connect_gnd_if_unconnected(&ci, id_I8);
+        connect_gnd_if_unconnected(&ci, id_I9);
+        connect_gnd_if_unconnected(&ci, id_I10);
+        connect_gnd_if_unconnected(&ci, id_I11);
+        connect_gnd_if_unconnected(&ci, id_I12);
+        connect_gnd_if_unconnected(&ci, id_I13);
+        connect_gnd_if_unconnected(&ci, id_I14);
+        connect_gnd_if_unconnected(&ci, id_I15);
+        connect_gnd_if_unconnected(&ci, id_I16);
+        connect_gnd_if_unconnected(&ci, id_I17);
+        connect_gnd_if_unconnected(&ci, id_I18);
+        pack_xrf_input_and_output(&ci, ci.name, id_I1, id_O1, PLACE_XRF_I1, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I2, id_O2, PLACE_XRF_I2, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I3, id_O3, PLACE_XRF_I3, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I4, id_O4, PLACE_XRF_I4, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I5, id_O5, PLACE_XRF_I5, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I6, id_O6, PLACE_XRF_I6, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I7, id_O7, PLACE_XRF_I7, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I8, id_O8, PLACE_XRF_I8, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I9, id_O9, PLACE_XRF_I9, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I10, id_O10, PLACE_XRF_I10, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I11, id_O11, PLACE_XRF_I11, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I12, id_O12, PLACE_XRF_I12, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I13, id_O13, PLACE_XRF_I13, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I14, id_O14, PLACE_XRF_I14, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I15, id_O15, PLACE_XRF_I15, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I16, id_O16, PLACE_XRF_I16, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I17, id_O17, PLACE_XRF_I17, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_I18, id_O18, PLACE_XRF_I18, lut_only, lut_and_ff, dff_only);
 
-                ci.connectPort(id_WCK1, net);
-                ci.connectPort(id_WCK2, net);
-            }
+        if (mode!=1) {
+            connect_gnd_if_unconnected(&ci, id_RA1);
+            connect_gnd_if_unconnected(&ci, id_RA2);
+            connect_gnd_if_unconnected(&ci, id_RA3);
+            connect_gnd_if_unconnected(&ci, id_RA4);
+            connect_gnd_if_unconnected(&ci, id_RA5);
+            pack_xrf_input_and_output(&ci, ci.name, id_RA1, IdString(), PLACE_XRF_RA1, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_RA2, IdString(), PLACE_XRF_RA2, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_RA3, IdString(), PLACE_XRF_RA3, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_RA4, IdString(), PLACE_XRF_RA4, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_RA5, IdString(), PLACE_XRF_RA5, lut_only, lut_and_ff, dff_only);
+        } else {
+            // SPREG mode does not use RA inputs
+            ci.disconnectPort(id_RA1);
+            ci.disconnectPort(id_RA2);
+            ci.disconnectPort(id_RA3);
+            ci.disconnectPort(id_RA4);
+            ci.disconnectPort(id_RA5);
+        }
+        
+        if (mode==2 || mode==4) {
+            connect_gnd_if_unconnected(&ci, id_RA6);
+            pack_xrf_input_and_output(&ci, ci.name, id_RA6, IdString(), PLACE_XRF_RA6, lut_only, lut_and_ff, dff_only);
+        } else {
+            ci.disconnectPort(id_RA6);
+        }
+
+        if (mode==4) {
+            connect_gnd_if_unconnected(&ci, id_RA7);
+            connect_gnd_if_unconnected(&ci, id_RA8);
+            connect_gnd_if_unconnected(&ci, id_RA9);
+            connect_gnd_if_unconnected(&ci, id_RA10);
+            pack_xrf_input_and_output(&ci, ci.name, id_RA7, IdString(), PLACE_XRF_RA7, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_RA8, IdString(), PLACE_XRF_RA8, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_RA9, IdString(), PLACE_XRF_RA9, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_RA10, IdString(), PLACE_XRF_RA10, lut_only, lut_and_ff, dff_only);
+        } else {
+            ci.disconnectPort(id_RA7);
+            ci.disconnectPort(id_RA8);
+            ci.disconnectPort(id_RA9);
+            ci.disconnectPort(id_RA10);
+        }
+
+
+        connect_gnd_if_unconnected(&ci, id_WA1);
+        connect_gnd_if_unconnected(&ci, id_WA2);
+        connect_gnd_if_unconnected(&ci, id_WA3);
+        connect_gnd_if_unconnected(&ci, id_WA4);
+        connect_gnd_if_unconnected(&ci, id_WA5);
+        pack_xrf_input_and_output(&ci, ci.name, id_WA1, IdString(), PLACE_XRF_WA1, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_WA2, IdString(), PLACE_XRF_WA2, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_WA3, IdString(), PLACE_XRF_WA3, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_WA4, IdString(), PLACE_XRF_WA4, lut_only, lut_and_ff, dff_only);
+        pack_xrf_input_and_output(&ci, ci.name, id_WA5, IdString(), PLACE_XRF_WA5, lut_only, lut_and_ff, dff_only);
+        
+        if (mode==2) {
+            connect_gnd_if_unconnected(&ci, id_WA6);
+            pack_xrf_input_and_output(&ci, ci.name, id_WA6, IdString(), PLACE_XRF_WA6, lut_only, lut_and_ff, dff_only);
+        } else {
+            ci.disconnectPort(id_WA6);
+        }
+
+        connect_gnd_if_unconnected(&ci, id_WE);
+        pack_xrf_input_and_output(&ci, ci.name, id_WE, IdString(), PLACE_XRF_WE, lut_only, lut_and_ff, dff_only);
+
+        disconnect_if_gnd(&ci, id_WEA);
+        pack_xrf_input_and_output(&ci, ci.name, id_WEA, IdString(), PLACE_XRF_WEA, lut_only, lut_and_ff, dff_only);
+
+        if (mode == 3) {
+            connect_gnd_if_unconnected(&ci, id_I19);
+            connect_gnd_if_unconnected(&ci, id_I20);
+            connect_gnd_if_unconnected(&ci, id_I21);
+            connect_gnd_if_unconnected(&ci, id_I22);
+            connect_gnd_if_unconnected(&ci, id_I23);
+            connect_gnd_if_unconnected(&ci, id_I24);
+            connect_gnd_if_unconnected(&ci, id_I25);
+            connect_gnd_if_unconnected(&ci, id_I26);
+            connect_gnd_if_unconnected(&ci, id_I27);
+            connect_gnd_if_unconnected(&ci, id_I28);
+            connect_gnd_if_unconnected(&ci, id_I29);
+            connect_gnd_if_unconnected(&ci, id_I30);
+            connect_gnd_if_unconnected(&ci, id_I31);
+            connect_gnd_if_unconnected(&ci, id_I32);
+            connect_gnd_if_unconnected(&ci, id_I33);
+            connect_gnd_if_unconnected(&ci, id_I34);
+            connect_gnd_if_unconnected(&ci, id_I35);
+            connect_gnd_if_unconnected(&ci, id_I36);
+            pack_xrf_input_and_output(&ci, ci.name, id_I19, id_O19, PLACE_XRF_I19, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I20, id_O20, PLACE_XRF_I20, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I21, id_O21, PLACE_XRF_I21, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I22, id_O22, PLACE_XRF_I22, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I23, id_O23, PLACE_XRF_I23, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I24, id_O24, PLACE_XRF_I24, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I25, id_O25, PLACE_XRF_I25, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I26, id_O26, PLACE_XRF_I26, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I27, id_O27, PLACE_XRF_I27, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I28, id_O28, PLACE_XRF_I28, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I29, id_O29, PLACE_XRF_I29, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I30, id_O30, PLACE_XRF_I30, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I31, id_O31, PLACE_XRF_I31, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I32, id_O32, PLACE_XRF_I32, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I33, id_O33, PLACE_XRF_I33, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I34, id_O34, PLACE_XRF_I34, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I35, id_O35, PLACE_XRF_I35, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_I36, id_O36, PLACE_XRF_I36, lut_only, lut_and_ff, dff_only);
+        } else if (mode == 4) {
+            ci.disconnectPort(id_I19);
+            ci.disconnectPort(id_I20);
+            ci.disconnectPort(id_I21);
+            ci.disconnectPort(id_I22);
+            ci.disconnectPort(id_I23);
+            ci.disconnectPort(id_I24);
+            ci.disconnectPort(id_I25);
+            ci.disconnectPort(id_I26);
+            ci.disconnectPort(id_I27);
+            ci.disconnectPort(id_I28);
+            ci.disconnectPort(id_I29);
+            ci.disconnectPort(id_I30);
+            ci.disconnectPort(id_I31);
+            ci.disconnectPort(id_I32);
+            ci.disconnectPort(id_I33);
+            ci.disconnectPort(id_I34);
+            ci.disconnectPort(id_I35);
+            ci.disconnectPort(id_I36);
+            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O19, PLACE_XRF_I19, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O20, PLACE_XRF_I20, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O21, PLACE_XRF_I21, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O22, PLACE_XRF_I22, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O23, PLACE_XRF_I23, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O24, PLACE_XRF_I24, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O25, PLACE_XRF_I25, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O26, PLACE_XRF_I26, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O27, PLACE_XRF_I27, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O28, PLACE_XRF_I28, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O29, PLACE_XRF_I29, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O30, PLACE_XRF_I30, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O31, PLACE_XRF_I31, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O32, PLACE_XRF_I32, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O33, PLACE_XRF_I33, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O34, PLACE_XRF_I34, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O35, PLACE_XRF_I35, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O36, PLACE_XRF_I36, lut_only, lut_and_ff, dff_only);
         } else {
             ci.disconnectPort(id_I19); ci.disconnectPort(id_O19);
             ci.disconnectPort(id_I20); ci.disconnectPort(id_O20);
@@ -950,12 +1011,22 @@ void NgUltraPacker::pack_rfs(void)
             ci.disconnectPort(id_I34); ci.disconnectPort(id_O34);
             ci.disconnectPort(id_I35); ci.disconnectPort(id_O35);
             ci.disconnectPort(id_I36); ci.disconnectPort(id_O36);
-            ci.disconnectPort(id_RA6);
-            ci.disconnectPort(id_RA7);
-            ci.disconnectPort(id_RA8);
-            ci.disconnectPort(id_RA9);
-            ci.disconnectPort(id_RA10);
-            ci.disconnectPort(id_WA6);
+        }
+
+        if (mode > 1) {
+            // XRF
+            ci.type = id_XRF;
+            ci.ports[id_WCK1].name = id_WCK1;
+            ci.ports[id_WCK1].type = PORT_IN;
+            ci.ports[id_WCK2].name = id_WCK2;
+            ci.ports[id_WCK2].type = PORT_IN;
+            NetInfo *net = ci.getPort(id_WCK);
+            if (net) {
+                ci.disconnectPort(id_WCK);
+
+                ci.connectPort(id_WCK1, net);
+                ci.connectPort(id_WCK2, net);
+            }
         }
     }
     if (lut_only)
@@ -1000,6 +1071,10 @@ void NgUltraPacker::promote_globals()
         for (const auto &usr : ni->users) {
             if (usr.cell->type == id_BEYOND_FE && usr.port == id_CK)
                 glb_count++;
+            if (usr.cell->type == id_RF && usr.port == id_WCK)
+                glb_count++;
+            if (usr.cell->type == id_XRF && usr.port.in(id_WCK1,id_WCK2))
+                glb_count++;
         }
         if (glb_count > 0)
             glb_fanout.emplace_back(glb_count, ni->name);
@@ -1037,6 +1112,18 @@ void NgUltraPacker::promote_globals()
             if (usr.cell->type == id_BEYOND_FE && usr.port == id_CK) {
                 usr.cell->disconnectPort(id_CK);
                 usr.cell->connectPort(id_CK, iom_to_clk);
+            }
+            if (usr.cell->type == id_RF && usr.port == id_WCK) {
+                usr.cell->disconnectPort(id_WCK);
+                usr.cell->connectPort(id_WCK, iom_to_clk);
+            }
+            if (usr.cell->type == id_XRF && usr.port == id_WCK1) {
+                usr.cell->disconnectPort(id_WCK1);
+                usr.cell->connectPort(id_WCK1, iom_to_clk);
+            }
+            if (usr.cell->type == id_XRF && usr.port == id_WCK2) {
+                usr.cell->disconnectPort(id_WCK2);
+                usr.cell->connectPort(id_WCK2, iom_to_clk);
             }
         }       
         iom->connectPort(port, input_pad->getPort(id_O));

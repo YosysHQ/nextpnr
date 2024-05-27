@@ -364,7 +364,6 @@ struct BitstreamJsonBackend
             default:
                 log_error("Unknown mode %d for cell '%s'.\n", mode, cell->name.c_str(ctx));
         }        
-        add_config("mode", mode);
         add_config("context", str_or_default(cell->params, ctx->id("mem_ctxt"), ""));
         add_config("wck_edge", bool_or_default(cell->params, ctx->id("wck_edge"), false));
         close_instance();
