@@ -45,6 +45,8 @@ std::unique_ptr<CellInfo> NgUltraPacker::create_cell(IdString type, IdString nam
         add_port("CK", PORT_IN);
         add_port("R", PORT_IN);
         add_port("DO", PORT_OUT);
+    } else {
+        log_error("Trying to create unknown cell type %s\n", type.c_str(ctx));
     }
     return cell;
 }
@@ -69,6 +71,9 @@ CellInfo *NgUltraPacker::create_cell_ptr(IdString type, IdString name)
         add_port("CK", PORT_IN);
         add_port("R", PORT_IN);
         add_port("DO", PORT_OUT);
+    } else if (type == id_BFR) {
+        add_port("I", PORT_IN);
+        add_port("O", PORT_OUT);
     } else if (type == id_DFR) {
         add_port("I", PORT_IN);
         add_port("O", PORT_OUT);
@@ -89,6 +94,8 @@ CellInfo *NgUltraPacker::create_cell_ptr(IdString type, IdString name)
         add_port("CKO1", PORT_OUT);
         add_port("P19RI", PORT_IN);
         add_port("CKO2", PORT_OUT);
+    } else {
+        log_error("Trying to create unknown cell type %s\n", type.c_str(ctx));
     }
     return cell;
 }

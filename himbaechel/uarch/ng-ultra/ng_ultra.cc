@@ -152,7 +152,7 @@ void NgUltraImpl::postRoute()
                                             }
                                             break;
                         case id_WFG.index : wfg_bypass++;
-                                            cell->setParam(ctx->id("type"), Property("WFB"));
+                                            cell->type = id_WFB;
                                             break;
                         case id_GCK.index : gck_bypass++; 
                                             cell->setParam(ctx->id("std_mode"), extra_data.input == 0 ? Property("BYPASS") : Property("CSC"));
@@ -319,16 +319,39 @@ bool NgUltraImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
 // Bel bucket functions
 IdString NgUltraImpl::getBelBucketForCellType(IdString cell_type) const
 {
-    return cell_type;
+    if (cell_type.in(id_IOP,id_IP,id_OP))
+        return id_IOP;
+    else if (cell_type.in(id_IOTP,id_ITP,id_OTP))
+        return id_IOTP;
+    else if (cell_type.in(id_BFR))
+        return id_DFR;
+    else if (cell_type.in(id_RF, id_RFSP))
+        return id_RF;
+    else if (cell_type.in(id_XHRF, id_XWRF, id_XPRF))
+        return id_XRF;
+    else if (cell_type.in(id_WFB, id_WFG))
+        return id_WFG;
+    else
+        return cell_type;
 }
 
 bool NgUltraImpl::isValidBelForCellType(IdString cell_type, BelId bel) const
 {
     IdString bel_type = ctx->getBelType(bel);
     if (bel_type == id_IOTP)
-        return cell_type.in(id_IOP,id_IOTP);
+        return cell_type.in(id_IOP,id_IP,id_OP,id_IOTP,id_ITP,id_OTP);
+    else if (bel_type == id_IOP)
+        return cell_type.in(id_IOP,id_IP,id_OP);
     else if (bel_type == id_DDFR)
-        return cell_type.in(id_DFR,id_DDFR);
+        return cell_type.in(id_BFR,id_DFR,id_DDFR);
+    else if (bel_type == id_DFR)
+        return cell_type.in(id_BFR,id_DFR);
+    else if (bel_type == id_RF)
+        return cell_type.in(id_RF,id_RFSP);
+    else if (bel_type == id_XRF)
+        return cell_type.in(id_XHRF,id_XWRF,id_XPRF);
+    else if (bel_type == id_WFG)
+        return cell_type.in(id_WFB,id_WFG);
     else
         return (bel_type == cell_type);
 }

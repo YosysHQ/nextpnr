@@ -409,21 +409,14 @@ void NgUltraPacker::pack_iobs(void)
                       ctx->nameOf(ctx->getBoundBelCell(bel)));
         }
 
-        char last = loc.back();
-        IdString new_type = (last == 'N' or last == 'P') ? id_IOTP : id_IOP;
-
-        std::string subtype = "IOP";
-        if (ci.type==id_NX_IOB_O) subtype = "OP";
-        if (ci.type==id_NX_IOB_I) subtype = "IP";
-
-        ci.setParam(ctx->id("type"), Property(subtype));
-
+        IdString new_type = id_IOP;
+        if (ci.type==id_NX_IOB_O) new_type = id_OP;
+        if (ci.type==id_NX_IOB_I) new_type = id_IP;
         ci.type = new_type;
-
         ctx->bindBel(bel, &ci, PlaceStrength::STRENGTH_LOCKED);
         to_update.push_back(&ci);
     }
-    int dfr_as_bfr = 0, ddrf_as_bfr = 0;
+    int bfr_added = 0;
     for (auto cell : to_update) {
         NetInfo *c_net = cell->getPort(id_C);
         if (!c_net)
@@ -440,11 +433,10 @@ void NgUltraPacker::pack_iobs(void)
             if (iod && c_net->users.entries()!=1)
                 log_error("NX_DFR '%s can only directly drive IOB.\n", iod->name.c_str(ctx));
             if (!iod) {
-                if (cell->type==id_IOTP) ddrf_as_bfr++; else dfr_as_bfr++;
-                iod = create_cell_ptr((cell->type==id_IOTP) ? id_DDFR : id_DFR, ctx->id(cell->name.str(ctx) + "$iod_cd"));
+                bfr_added++;
+                iod = create_cell_ptr(id_BFR, ctx->id(cell->name.str(ctx) + "$iod_cd"));
                 NetInfo *new_out = ctx->createNet(ctx->id(iod->name.str(ctx) + "$O"));
                 iod->setParam(ctx->id("iobname"),str_or_default(cell->params, ctx->id("iobname"), ""));
-                iod->setParam(ctx->id("type"), Property("BFR"));
                 cell->disconnectPort(id_C);
                 if (c_net->name == ctx->id("$PACKER_GND"))
                     iod->setParam(ctx->id("mode"), Property(0, 2));
@@ -469,11 +461,10 @@ void NgUltraPacker::pack_iobs(void)
             if (iod && i_net->users.entries()!=1)
                 log_error("NX_DFR '%s can only directly drive IOB.\n", iod->name.c_str(ctx));
             if (!iod) {
-                if (cell->type==id_IOTP) ddrf_as_bfr++; else dfr_as_bfr++;
-                iod = create_cell_ptr((cell->type==id_IOTP) ? id_DDFR : id_DFR, ctx->id(cell->name.str(ctx) + "$iod_od"));
+                bfr_added++;
+                iod = create_cell_ptr(id_BFR, ctx->id(cell->name.str(ctx) + "$iod_od"));
                 NetInfo *new_out = ctx->createNet(ctx->id(iod->name.str(ctx) + "$O"));
                 iod->setParam(ctx->id("iobname"),str_or_default(cell->params, ctx->id("iobname"), ""));
-                iod->setParam(ctx->id("type"), Property("BFR"));
                 cell->disconnectPort(id_I);
                 if (i_net->name == ctx->id("$PACKER_GND"))
                     iod->setParam(ctx->id("mode"), Property(0, 2));
@@ -499,11 +490,10 @@ void NgUltraPacker::pack_iobs(void)
             if (!(o_net->users.entries()==1 && (*o_net->users.begin()).cell->type == id_NX_IOM_U)) {
                 bool bfr_mode = false;
                 if (!iod) {
-                    if (cell->type==id_IOTP) ddrf_as_bfr++; else dfr_as_bfr++;
-                    iod = create_cell_ptr((cell->type==id_IOTP) ? id_DDFR : id_DFR, ctx->id(cell->name.str(ctx) + "$iod_id"));
+                    bfr_added++;
+                    iod = create_cell_ptr(id_BFR, ctx->id(cell->name.str(ctx) + "$iod_id"));
                     NetInfo *new_in = ctx->createNet(ctx->id(iod->name.str(ctx) + "$I"));
                     iod->setParam(ctx->id("iobname"),str_or_default(cell->params, ctx->id("iobname"), ""));
-                    iod->setParam(ctx->id("type"), Property("BFR"));
                     cell->disconnectPort(id_O);
                     iod->connectPort(id_O, o_net);
                     iod->setParam(ctx->id("mode"), Property(2, 2));
@@ -518,7 +508,7 @@ void NgUltraPacker::pack_iobs(void)
                 ctx->bindBel(bel, iod, PlaceStrength::STRENGTH_LOCKED);
 
                 // Depending of DDFR mode we must use one of dedicated routes (ITCs)
-                if (iod->type==id_DDFR) {
+                if (ctx->getBelType(bel)==id_DDFR) {
                     WireId dwire = ctx->getBelPinWire(bel, id_O);
                     for (PipId pip : ctx->getPipsDownhill(dwire)) {
                         const auto &pip_data = chip_pip_info(ctx->chip_info, pip);
@@ -535,10 +525,8 @@ void NgUltraPacker::pack_iobs(void)
             }
         }
     }
-    if (dfr_as_bfr)
-        log_info("    %6d DFRs used as BFR\n", dfr_as_bfr);
-    if (ddrf_as_bfr)
-        log_info("    %6d DDFRs used as BFR\n", ddrf_as_bfr);
+    if (bfr_added)
+        log_info("    %6d DFRs/DDFRs used as BFR\n", bfr_added);
 }
 
 void NgUltraPacker::pack_ioms(void)
@@ -810,7 +798,15 @@ void NgUltraPacker::pack_rfs(void)
         if (!ci.type.in(id_NX_RFB_U))
             continue;
         int mode = int_or_default(ci.params, ctx->id("mode"), 0);
-        ci.type = id_RF;
+        switch(mode) {
+            case 0 : ci.type = id_RF; break;
+            case 1 : ci.type = id_RFSP; break;
+            case 2 : ci.type = id_XHRF; break;
+            case 3 : ci.type = id_XWRF; break;
+            case 4 : ci.type = id_XPRF; break;
+            default:
+                log_error("Unknown mode %d for cell '%s'.\n", mode, ci.name.c_str(ctx));
+        }        
         ci.cluster = ci.name;
 
         connect_gnd_if_unconnected(&ci, id_I1);
@@ -1015,7 +1011,6 @@ void NgUltraPacker::pack_rfs(void)
 
         if (mode > 1) {
             // XRF
-            ci.type = id_XRF;
             ci.ports[id_WCK1].name = id_WCK1;
             ci.ports[id_WCK1].type = PORT_IN;
             ci.ports[id_WCK2].name = id_WCK2;
@@ -1058,7 +1053,7 @@ void NgUltraPacker::promote_globals()
             --available_globals;
             continue;
         }
-        if (!ni->driver.cell->type.in(id_DDFR)) {
+        if (!ni->driver.cell->type.in(id_BFR)) {
             continue;
         }
         Loc iotp_loc = ni->driver.cell->getLocation();
@@ -1080,7 +1075,7 @@ void NgUltraPacker::promote_globals()
     // Sort clocks by max fanout
     std::sort(glb_fanout.begin(), glb_fanout.end(), std::greater<std::pair<int, IdString>>());
     log_info("Promoting globals...\n");
-    int ddfr_removed = 0;
+    int bfr_removed = 0;
     // Promote the N highest fanout clocks
     for (size_t i = 0; i < std::min<size_t>(glb_fanout.size(), available_globals); i++) {
         NetInfo *net = ctx->nets.at(glb_fanout.at(i).second).get();
@@ -1114,16 +1109,16 @@ void NgUltraPacker::promote_globals()
         iom->connectPort(port, input_pad->getPort(id_O));
         iom->connectPort((port==id_P17RI) ?  id_CKO1 : id_CKO2, iom_to_clk);
         ctx->bindBel(bel, iom, PlaceStrength::STRENGTH_LOCKED);
-        CellInfo *ddfr = net->driver.cell;
-        if (ddfr->getPort(id_O)->users.empty() && str_or_default(ddfr->params, ctx->id("type"), "")=="BFR") {
-            ddfr->disconnectPort(id_O);
-            ddfr->disconnectPort(id_I);
-            ddfr_removed++;
-            ctx->cells.erase(ddfr->name);
+        CellInfo *bfr = net->driver.cell;
+        if (bfr->type == id_BFR && bfr->getPort(id_O)->users.empty()) {
+            bfr->disconnectPort(id_O);
+            bfr->disconnectPort(id_I);
+            bfr_removed++;
+            ctx->cells.erase(bfr->name);
         }
     }
-    if (ddfr_removed)
-        log_info("    Removed %d unused DDFRs\n", ddfr_removed);
+    if (bfr_removed)
+        log_info("    Removed %d unused BFR\n", bfr_removed);
 }
 
 void NgUltraPacker::pack_rams(void)
@@ -1152,8 +1147,13 @@ void NgUltraPacker::setup()
 {
     clock_sinks[id_BEYOND_FE].insert(id_CK);
     clock_sinks[id_RF].insert(id_WCK);
-    clock_sinks[id_XRF].insert(id_WCK1);
-    clock_sinks[id_XRF].insert(id_WCK2);
+    clock_sinks[id_RFSP].insert(id_WCK);
+    clock_sinks[id_XHRF].insert(id_WCK1);
+    clock_sinks[id_XHRF].insert(id_WCK2);
+    clock_sinks[id_XWRF].insert(id_WCK1);
+    clock_sinks[id_XWRF].insert(id_WCK2);
+    clock_sinks[id_XPRF].insert(id_WCK1);
+    clock_sinks[id_XPRF].insert(id_WCK2);
     clock_sinks[id_RAM].insert(id_ACK);
     clock_sinks[id_RAM].insert(id_BCK);
 }

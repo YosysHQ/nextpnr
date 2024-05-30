@@ -198,7 +198,7 @@ struct BitstreamJsonBackend
 
     std::vector<std::string> config;
 
-    void open_instance(CellInfo *cell, std::string type = "", std::string rename = "")
+    void open_instance(CellInfo *cell, std::string rename = "")
     {
         out << stringf("%s", first_instance ? "" : ",\n"); first_instance = false;
         out << stringf("\t\t%s: {\n", get_string(cleanup_name(rename.empty() ? cell->name.c_str(ctx) : rename.c_str())).c_str());
@@ -207,7 +207,7 @@ struct BitstreamJsonBackend
         std::string belname = idx.c_str(ctx);
         config.clear();
         out << stringf("\t\t\t\"location\": %s,\n",get_string(tile_name + ":" + belname).c_str());
-        out << stringf("\t\t\t\"type\": %s",get_string(type.empty() ? str_or_default(cell->params, ctx->id("type"), "") : type).c_str());
+        out << stringf("\t\t\t\"type\": %s",get_string(cell->type.c_str(ctx)).c_str());
     }
 
     void open_instance_fe(CellInfo *cell, std::string type, std::string replace, std::string postfix = "")
@@ -252,7 +252,7 @@ struct BitstreamJsonBackend
     }
 
     void write_iop(CellInfo *cell) {
-        open_instance(cell, "", str_or_default(cell->params, ctx->id("iobname"), ""));      
+        open_instance(cell, str_or_default(cell->params, ctx->id("iobname"), ""));
         //add_config("alias_vhdl", str_or_default(cell->params, ctx->id("alias_vhdl"), ""));
         //add_config("alias_vlog", str_or_default(cell->params, ctx->id("alias_vlog"), ""));
         //add_config("differential", str_or_n_value(cell->params, ctx->id("differential"), "N"));
@@ -288,7 +288,7 @@ struct BitstreamJsonBackend
     }
 
     void write_dfr(CellInfo *cell) {
-        open_instance(cell, "BFR");
+        open_instance(cell);
         //add_config("data_inv", bool_or_default(cell->params, ctx->id("data_inv"), false));
         //add_config("dff_edge", bool_or_default(cell->params, ctx->id("dff_edge"), false));
         //add_config("dff_init", bool_or_default(cell->params, ctx->id("dff_init"), false));
@@ -306,7 +306,7 @@ struct BitstreamJsonBackend
     }
 
     void write_cy(CellInfo *cell) {
-        open_instance(cell, "CY");
+        open_instance(cell);
         add_config("add_carry", int_or_default(cell->params, ctx->id("add_carry"), 0));
         add_config("shifter", bool_or_default(cell->params, ctx->id("shifter"), false));
         close_instance();
@@ -334,13 +334,13 @@ struct BitstreamJsonBackend
     }
 
     void write_iom(CellInfo *cell) {
-        open_instance(cell, "IOM");
+        open_instance(cell);
         add_config("pads_path", str_or_default(cell->params, ctx->id("pads_path"), ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;"));
         close_instance();
     }
 
     void write_gck(CellInfo *cell) {
-        open_instance(cell, "GCK");
+        open_instance(cell);
         add_config("inv_in", bool_or_default(cell->params, ctx->id("inv_in"), false));
         add_config("inv_out", bool_or_default(cell->params, ctx->id("inv_out"), false));
         add_config("std_mode", str_or_default(cell->params, ctx->id("std_mode"), "BYPASS"));
@@ -348,29 +348,19 @@ struct BitstreamJsonBackend
     }
 
     void write_wfg(CellInfo *cell) {
-        std::string subtype = str_or_default(cell->params, ctx->id("type"), "WFB");
-        open_instance(cell, subtype);
+        open_instance(cell);
         close_instance();
     }
 
-    void write_rf(CellInfo *cell) {
-        int mode = int_or_default(cell->params, ctx->id("mode"), 0);
-        switch(mode) {
-            case 0 : open_instance(cell, "RF"); break;
-            case 1 : open_instance(cell, "RFSP"); break;
-            case 2 : open_instance(cell, "XHRF"); break;
-            case 3 : open_instance(cell, "XWRF"); break;
-            case 4 : open_instance(cell, "XPRF"); break;
-            default:
-                log_error("Unknown mode %d for cell '%s'.\n", mode, cell->name.c_str(ctx));
-        }        
+    void write_rfb(CellInfo *cell) {
+        open_instance(cell);
         add_config("context", str_or_default(cell->params, ctx->id("mem_ctxt"), ""));
         add_config("wck_edge", bool_or_default(cell->params, ctx->id("wck_edge"), false));
         close_instance();
     }
 
     void write_ram(CellInfo *cell) {
-        open_instance(cell, "RAM");
+        open_instance(cell);
         add_config("mcka_edge", bool_or_default(cell->params, ctx->id("mcka_edge"), false));
         add_config("mckb_edge", bool_or_default(cell->params, ctx->id("mckb_edge"), false));
         add_config("pcka_edge", bool_or_default(cell->params, ctx->id("pcka_edge"), false));
@@ -420,20 +410,28 @@ struct BitstreamJsonBackend
         first_instance = true;
         for (auto &cell : ctx->cells) {
             switch (cell.second->type.index) {
-                case id_IOP.index : write_iop(cell.second.get()); break;
-                case id_IOTP.index : write_iop(cell.second.get()); break;
-                case id_BEYOND_FE.index : write_fe(cell.second.get()); break;
-                case id_CY.index : write_cy(cell.second.get()); break;
-                case id_WFG.index : write_wfg(cell.second.get()); break;
-                case id_GCK.index : write_gck(cell.second.get()); break;
-                case id_IOM.index : write_iom(cell.second.get()); break;
-                case id_DDFR.index: write_dfr(cell.second.get()); break;
+                case id_BEYOND_FE.index: write_fe(cell.second.get()); break;
+                case id_IOP.index:
+                case id_IP.index:
+                case id_OP.index:
+                case id_IOTP.index:
+                case id_ITP.index:
+                case id_OTP.index: write_iop(cell.second.get()); break;
+                case id_CY.index: write_cy(cell.second.get()); break;
+                case id_WFB.index:
+                case id_WFG.index: write_wfg(cell.second.get()); break;
+                case id_GCK.index: write_gck(cell.second.get()); break;
+                case id_IOM.index: write_iom(cell.second.get()); break;
+                case id_BFR.index:
+                case id_DDFR.index:
                 case id_DFR.index: write_dfr(cell.second.get()); break;
-                //case id_XLUT.index:
                 case id_RAM.index: write_ram(cell.second.get()); break;
-                //case id_RF.index:
-                case id_RF.index: write_rf(cell.second.get()); break;
-                case id_XRF.index: write_rf(cell.second.get()); break;
+                case id_RF.index:
+                case id_RFSP.index:
+                case id_XHRF.index:
+                case id_XWRF.index:
+                case id_XPRF.index: write_rfb(cell.second.get()); break;
+                //case id_XLUT.index:
                 //case id_FIFO.index:
                 //case id_XFIFO.index:
                 //case id_CDC.index:
@@ -445,6 +443,8 @@ struct BitstreamJsonBackend
                 //case id_PMA.index:
                 //case id_Service.index:
                 //case id_SOCIF.index:
+                default:
+                    log_error("Unhandled cell %s of type %s\n", cell.second.get()->name.c_str(ctx), cell.second->type.c_str(ctx));
             }
         }
         write_interconnections();
