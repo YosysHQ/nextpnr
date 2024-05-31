@@ -246,19 +246,18 @@ struct SectionFEWorker
     std::array<const NetInfo *, 4> reset_load{};
     bool run(const NgUltraImpl *impl,const Context *ctx, BelId bel)
     {
-        CellInfo *cell = ctx->getBoundBelCell(bel);
-        if (cell == nullptr) {
-            return true;
-        }
         Loc loc = ctx->getBelLocation(bel);
         for (uint8_t id = 0; id <= BEL_LUT_MAX_Z; id++) {
             const CellInfo *ff = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,id)));
             if (ff == nullptr)
                 continue;
+            // TODO: This restriction is too limited, need to revisit
+            /*
             if (!check_assign_sig(reset_load, ff->getPort(id_R)))
                 return false;
             if (!check_assign_sig(reset_load, ff->getPort(id_L)))
                 return false;
+            */
             if (!check_assign_sig(clk, ff->getPort(id_CK)))
                 return false;
         }
@@ -270,47 +269,90 @@ struct SectionFEWorker
 
 bool NgUltraImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
 {
+    CellInfo *cell = ctx->getBoundBelCell(bel);
+    if (cell == nullptr) {
+        return true;
+    }
     if (ctx->getBelType(bel) == id_BEYOND_FE) {
         SectionFEWorker worker;
         return worker.run(this, ctx, bel);
     }
     else if (ctx->getBelType(bel).in(id_RF, id_XRF)) {
-        CellInfo *cell = ctx->getBoundBelCell(bel);
-        if (cell == nullptr) {
-            return true;
-        }
         Loc loc = ctx->getBelLocation(bel);
         if (loc.z == BEL_XRF_Z) {
+            // If we used any of RFs we can not used XRF
             if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,BEL_RF_Z)))) return false;
             if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,BEL_RF_Z+1)))) return false;
+            // If we used any FIFO we can not use XRF
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,BEL_FIFO_Z)))) return false;
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,BEL_FIFO_Z+1)))) return false;
+            // If we used XFIFO we can not use XRF
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,BEL_XFIFO_Z)))) return false;
         } else {
+            // If we used XRF we can not use individual RF
             if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,BEL_XRF_Z)))) return false;
+            // If we used XFIFO we can not use RF
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,BEL_XFIFO_Z)))) return false;
+            int index = loc.z - BEL_RF_Z;
+            // If we used coresponding FIFO we can not use RF
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,BEL_FIFO_Z + index)))) return false;
         }
     }
     else if (ctx->getBelType(bel).in(id_FIFO, id_XFIFO)) {
-        CellInfo *cell = ctx->getBoundBelCell(bel);
-        if (cell == nullptr) {
-            return true;
-        }
         Loc loc = ctx->getBelLocation(bel);
         if (loc.z == BEL_XFIFO_Z) {
+            // If we used any of RFs we can not used XFIFO
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,BEL_RF_Z)))) return false;
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,BEL_RF_Z+1)))) return false;
+            // If we used any FIFO we can not use XFIFO
             if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,BEL_FIFO_Z)))) return false;
             if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,BEL_FIFO_Z+1)))) return false;
-        } else {
+            // If we used XFIFO we can not use XFIFO
             if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,BEL_XFIFO_Z)))) return false;
+            // If we used any CDC we can not use XFIFO
+            // NOTE: CDC1 is in S4 and CDC2 is S12
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x-1,loc.y,BEL_CDC_Z)))) return false;
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x+1,loc.y,BEL_CDC_Z+1)))) return false;
+            // If we used XCDC we can not use XFIFO
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,BEL_XCDC_Z)))) return false;
+        } else {
+            // If we used XFIFO we can not use individual FIFO
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,BEL_XFIFO_Z)))) return false;
+            // If we used XRF we can not use FIFO
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,BEL_XRF_Z)))) return false;
+            // If we used XCDC we can not use FIFO
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,BEL_XCDC_Z)))) return false;
+            int index = loc.z - BEL_FIFO_Z;
+            // If we used coresponding RF we can not use FIFO
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,BEL_RF_Z + index)))) return false;
+            // If we used coresponding CDC we can not use FIFO
+            // NOTE: CDC1 is in S4 and CDC2 is S12
+            int rel = (index == 0) ? -1 : +1;
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x + rel,loc.y,BEL_CDC_Z + index)))) return false;
         }
     }
     else if (ctx->getBelType(bel).in(id_CDC, id_XCDC)) {
-        CellInfo *cell = ctx->getBoundBelCell(bel);
-        if (cell == nullptr) {
-            return true;
-        }
         Loc loc = ctx->getBelLocation(bel);
         if (loc.z == BEL_XCDC_Z) {
-            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,BEL_CDC_Z)))) return false;
-            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,BEL_CDC_Z+1)))) return false;
+            // If we used any of CDCs we can not used XCDC
+            // NOTE: CDC1 is in S4 and CDC2 is S12
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x-1,loc.y,BEL_CDC_Z)))) return false;
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x+1,loc.y,BEL_CDC_Z+1)))) return false;
+            // If we used any FIFO we can not use XCDC
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,BEL_FIFO_Z)))) return false;
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,BEL_FIFO_Z+1)))) return false;
+            // If we used XFIFO we can not use XCDC
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,BEL_XFIFO_Z)))) return false;
         } else {
-            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,BEL_XCDC_Z)))) return false;
+            // NOTE: CDC1 is in S4 and CDC2 is S12 so we move calculation relative to S8
+            int index = loc.z - BEL_CDC_Z;
+            int fix = (index == 0) ? +1 : -1;
+            // If we used XCDC we can not use individual CDC
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x+fix,loc.y,BEL_XCDC_Z)))) return false;
+            // If we used XFIFO we can not use CDC
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x+fix,loc.y,BEL_XFIFO_Z)))) return false;
+            // If we used coresponding FIFO we can not use CDC
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x+fix,loc.y,BEL_FIFO_Z + index)))) return false;
         }
     }
     return true;
