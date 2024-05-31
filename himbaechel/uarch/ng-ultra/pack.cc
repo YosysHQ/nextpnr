@@ -608,6 +608,8 @@ void NgUltraPacker::pack_cy_input_and_output(CellInfo *cy, IdString cluster, IdS
             lut_and_ff++;
         } else 
             dff_only++;
+    } else {
+        fe->timing_index = ctx->get_cell_timing_idx(ctx->id("BEYOND_FE_LUT"));
     }
     fe->cluster = cluster;
     fe->constr_z = placer;
@@ -1145,7 +1147,9 @@ void NgUltraPacker::pack_rams(void)
 
 void NgUltraPacker::setup()
 {
+    // Note: These are per Cell type not Bel type
     clock_sinks[id_BEYOND_FE].insert(id_CK);
+    //clock_sinks[id_DFF].insert(id_CK); // This is part of BEYOND_FE
     clock_sinks[id_RF].insert(id_WCK);
     clock_sinks[id_RFSP].insert(id_WCK);
     clock_sinks[id_XHRF].insert(id_WCK1);
@@ -1156,6 +1160,57 @@ void NgUltraPacker::setup()
     clock_sinks[id_XPRF].insert(id_WCK2);
     clock_sinks[id_RAM].insert(id_ACK);
     clock_sinks[id_RAM].insert(id_BCK);
+
+    // clock_sinks[id_CDC].insert(id_CK1);
+    // clock_sinks[id_CDC].insert(id_CK2);
+    // clock_sinks[id_DDE].insert(id_CK1);
+    // clock_sinks[id_DDE].insert(id_CK2);
+    // clock_sinks[id_TDE].insert(id_CK1);
+    // clock_sinks[id_TDE].insert(id_CK2);
+    // clock_sinks[id_XCDC].insert(id_CK1);
+    // clock_sinks[id_XCDC].insert(id_CK2);
+
+    // clock_sinks[id_FIFO].insert(id_RCK);
+    // clock_sinks[id_FIFO].insert(id_WCK);
+    // clock_sinks[id_XHFIFO].insert(id_RCK1);
+    // clock_sinks[id_XHFIFO].insert(id_RCK2);
+    // clock_sinks[id_XHFIFO].insert(id_WCK1);
+    // clock_sinks[id_XHFIFO].insert(id_WCK2);
+    // clock_sinks[id_XWFIFO].insert(id_RCK1);
+    // clock_sinks[id_XWFIFO].insert(id_RCK2);
+    // clock_sinks[id_XWFIFO].insert(id_WCK1);
+    // clock_sinks[id_XWFIFO].insert(id_WCK2);
+
+    // clock_sinks[id_DSP].insert(id_CK);
+
+    // clock_sinks[id_PLL].insert(id_CLK_CAL);
+    // clock_sinks[id_PLL].insert(id_FBK);
+    // clock_sinks[id_PLL].insert(id_REF);
+    // clock_sinks[id_GCK].insert(id_SI1);
+    // clock_sinks[id_GCK].insert(id_SI2);
+
+    // clock_sinks[id_IOM].insert(id_ALCK1);
+    // clock_sinks[id_IOM].insert(id_ALCK2);
+    // clock_sinks[id_IOM].insert(id_ALCK3);
+    // clock_sinks[id_IOM].insert(id_CCK);
+    // clock_sinks[id_IOM].insert(id_FCK1);
+    // clock_sinks[id_IOM].insert(id_FCK2);
+    // clock_sinks[id_IOM].insert(id_FDCK);
+    // clock_sinks[id_IOM].insert(id_LDSCK1);
+    // clock_sinks[id_IOM].insert(id_LDSCK2);
+    // clock_sinks[id_IOM].insert(id_LDSCK3);
+    // clock_sinks[id_IOM].insert(id_SWRX1CK);
+    // clock_sinks[id_IOM].insert(id_SWRX2CK);
+
+    // clock_sinks[id_DFR].insert(id_CK);
+    // clock_sinks[id_DDFR].insert(id_CK);
+    // clock_sinks[id_DDFR].insert(id_CKF);   
+    // clock_sinks[id_CRX].insert(id_LINK);
+    // clock_sinks[id_CTX].insert(id_LINK);
+    // clock_sinks[id_PMA].insert(id_hssl_clock_i1);
+    // clock_sinks[id_PMA].insert(id_hssl_clock_i2);
+    // clock_sinks[id_PMA].insert(id_hssl_clock_i3);
+    // clock_sinks[id_PMA].insert(id_hssl_clock_i4);
 }
 
 void NgUltraImpl::pack()
