@@ -578,6 +578,9 @@ void NgUltraPacker::pack_cy_input_and_output(CellInfo *cy, IdString cluster, IdS
             fe->connectPort(id_LO, new_out);
             cy->connectPort(in_port, new_out);
         } else {
+            // TODO: This is too constrained, since makes rest of logic
+            // separated from input
+            /*
             CellInfo *lut = net_driven_by(ctx, net, is_lut, id_O);
             if (lut && net->users.entries()==1) {
                 if (!lut->params.count(id_lut_table))
@@ -585,6 +588,7 @@ void NgUltraPacker::pack_cy_input_and_output(CellInfo *cy, IdString cluster, IdS
                 lut_to_fe(lut, fe, false, lut->params[id_lut_table]);
                 packed_cells.insert(lut->name);
             } else {
+            */
                 fe->params[id_lut_table] = Property(0xaaaa, 16);
                 fe->params[id_lut_used] = Property(1,1);
                 cy->disconnectPort(in_port);
@@ -592,7 +596,7 @@ void NgUltraPacker::pack_cy_input_and_output(CellInfo *cy, IdString cluster, IdS
                 fe->connectPort(id_I1, net);
                 fe->connectPort(id_LO, new_out);
                 cy->connectPort(in_port, new_out);
-            }
+            //}
         }
         lut_only++;
     }
