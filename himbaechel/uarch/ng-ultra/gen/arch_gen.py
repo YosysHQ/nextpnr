@@ -412,7 +412,7 @@ def create_tile_types(ch: Chip, bels, bel_pins, crossbars, interconnects, muxes,
                 outputs = list()
                 for index in bel_pins[xb].keys():
                     pin = bel_pins[xb][index]
-                    tt.create_wire(name=f"{name}."+pin["name"], type="CROSSBAR_INPUT_WIRE" if pin["direction"] == "Input" else "CROSSBAR_OUTPUT_WIRE")
+                    tt.create_wire(name=f"{name}."+pin["name"], type="CROSSBAR_"+xb+"_INPUT_WIRE" if pin["direction"] == "Input" else "CROSSBAR_"+xb+"_OUTPUT_WIRE")
                 for index in bel_pins[xb].keys():
                     pin = bel_pins[xb][index]
                     if pin["direction"] == "Input":

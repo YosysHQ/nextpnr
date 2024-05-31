@@ -103,7 +103,8 @@ struct BitstreamJsonBackend
 
     void add_net(std::set<std::string> &nets, std::string src_tile, std::string src_name, std::string dst_tile, std::string dst_name, IdString src_type, IdString dst_type)
     {
-        if (src_type.in(ctx->id("CROSSBAR_INPUT_WIRE"), ctx->id("LUT_PERMUTATION_WIRE"), ctx->id("MUX_WIRE"), ctx->id("INTERCONNECT_INPUT"))) return;
+        if (src_type.in(ctx->id("LUT_PERMUTATION_WIRE"), ctx->id("MUX_WIRE"), ctx->id("INTERCONNECT_INPUT"))) return;
+        if (boost::starts_with(src_type.c_str(ctx),"CROSSBAR_") && boost::ends_with(src_type.c_str(ctx),"INPUT_WIRE")) return;
         if (dst_type == ctx->id("MUX_WIRE"))
             dst_name = dst_name.substr(0, dst_name.rfind('.'));
         src_name = update_name(src_tile, src_name);
