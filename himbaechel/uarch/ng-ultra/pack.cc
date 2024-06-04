@@ -210,9 +210,12 @@ void NgUltraPacker::connect_gnd_if_unconnected(CellInfo *cell, IdString input)
     NetInfo *net = cell->getPort(input);
     if (net)
         return;
+    if (!cell->ports.count(input))
+        cell->addInput(input);
     auto fnd_net = ctx->nets.find(ctx->id("$PACKER_GND"));
     if (fnd_net != ctx->nets.end()) {
         cell->connectPort(input, fnd_net->second.get());
+        log_warning("Connected GND to mandatory port '%s' of cell '%s'(%s).\n", input.c_str(ctx), cell->name.c_str(ctx), cell->type.c_str(ctx));
     }
 }
 
@@ -806,6 +809,17 @@ void NgUltraPacker::pack_xrf_input_and_output(CellInfo *xrf, IdString cluster, I
     xrf->constr_children.push_back(fe);
 }
 
+void NgUltraPacker::disconnectUsed(CellInfo *cell, IdString port)
+{
+    NetInfo *net = cell->getPort(port);
+    if (net) {
+        // NanoXplore tools usually connects 0 to unused port, no need to warn
+        if (!net->name.in(ctx->id("$PACKER_GND")))
+            log_warning("Disconnected unused port '%s' from cell '%s'.\n", port.c_str(ctx), cell->name.c_str(ctx));
+        cell->disconnectPort(port);
+    }
+}
+
 void NgUltraPacker::pack_rfs(void)
 {
     log_info("Packing RFs..\n");
@@ -876,18 +890,18 @@ void NgUltraPacker::pack_rfs(void)
             pack_xrf_input_and_output(&ci, ci.name, id_RA5, IdString(), PLACE_XRF_RA5, lut_only, lut_and_ff, dff_only);
         } else {
             // SPREG mode does not use RA inputs
-            ci.disconnectPort(id_RA1);
-            ci.disconnectPort(id_RA2);
-            ci.disconnectPort(id_RA3);
-            ci.disconnectPort(id_RA4);
-            ci.disconnectPort(id_RA5);
+            disconnectUsed(&ci,id_RA1);
+            disconnectUsed(&ci,id_RA2);
+            disconnectUsed(&ci,id_RA3);
+            disconnectUsed(&ci,id_RA4);
+            disconnectUsed(&ci,id_RA5);
         }
         
         if (mode==2 || mode==4) {
             connect_gnd_if_unconnected(&ci, id_RA6);
             pack_xrf_input_and_output(&ci, ci.name, id_RA6, IdString(), PLACE_XRF_RA6, lut_only, lut_and_ff, dff_only);
         } else {
-            ci.disconnectPort(id_RA6);
+            disconnectUsed(&ci,id_RA6);
         }
 
         if (mode==4) {
@@ -900,10 +914,10 @@ void NgUltraPacker::pack_rfs(void)
             pack_xrf_input_and_output(&ci, ci.name, id_RA9, IdString(), PLACE_XRF_RA9, lut_only, lut_and_ff, dff_only);
             pack_xrf_input_and_output(&ci, ci.name, id_RA10, IdString(), PLACE_XRF_RA10, lut_only, lut_and_ff, dff_only);
         } else {
-            ci.disconnectPort(id_RA7);
-            ci.disconnectPort(id_RA8);
-            ci.disconnectPort(id_RA9);
-            ci.disconnectPort(id_RA10);
+            disconnectUsed(&ci,id_RA7);
+            disconnectUsed(&ci,id_RA8);
+            disconnectUsed(&ci,id_RA9);
+            disconnectUsed(&ci,id_RA10);
         }
 
 
@@ -922,7 +936,7 @@ void NgUltraPacker::pack_rfs(void)
             connect_gnd_if_unconnected(&ci, id_WA6);
             pack_xrf_input_and_output(&ci, ci.name, id_WA6, IdString(), PLACE_XRF_WA6, lut_only, lut_and_ff, dff_only);
         } else {
-            ci.disconnectPort(id_WA6);
+            disconnectUsed(&ci,id_WA6);
         }
 
         connect_gnd_if_unconnected(&ci, id_WE);
@@ -969,24 +983,24 @@ void NgUltraPacker::pack_rfs(void)
             pack_xrf_input_and_output(&ci, ci.name, id_I35, id_O35, PLACE_XRF_I35, lut_only, lut_and_ff, dff_only);
             pack_xrf_input_and_output(&ci, ci.name, id_I36, id_O36, PLACE_XRF_I36, lut_only, lut_and_ff, dff_only);
         } else if (mode == 4) {
-            ci.disconnectPort(id_I19);
-            ci.disconnectPort(id_I20);
-            ci.disconnectPort(id_I21);
-            ci.disconnectPort(id_I22);
-            ci.disconnectPort(id_I23);
-            ci.disconnectPort(id_I24);
-            ci.disconnectPort(id_I25);
-            ci.disconnectPort(id_I26);
-            ci.disconnectPort(id_I27);
-            ci.disconnectPort(id_I28);
-            ci.disconnectPort(id_I29);
-            ci.disconnectPort(id_I30);
-            ci.disconnectPort(id_I31);
-            ci.disconnectPort(id_I32);
-            ci.disconnectPort(id_I33);
-            ci.disconnectPort(id_I34);
-            ci.disconnectPort(id_I35);
-            ci.disconnectPort(id_I36);
+            disconnectUsed(&ci,id_I19);
+            disconnectUsed(&ci,id_I20);
+            disconnectUsed(&ci,id_I21);
+            disconnectUsed(&ci,id_I22);
+            disconnectUsed(&ci,id_I23);
+            disconnectUsed(&ci,id_I24);
+            disconnectUsed(&ci,id_I25);
+            disconnectUsed(&ci,id_I26);
+            disconnectUsed(&ci,id_I27);
+            disconnectUsed(&ci,id_I28);
+            disconnectUsed(&ci,id_I29);
+            disconnectUsed(&ci,id_I30);
+            disconnectUsed(&ci,id_I31);
+            disconnectUsed(&ci,id_I32);
+            disconnectUsed(&ci,id_I33);
+            disconnectUsed(&ci,id_I34);
+            disconnectUsed(&ci,id_I35);
+            disconnectUsed(&ci,id_I36);
             pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O19, PLACE_XRF_I19, lut_only, lut_and_ff, dff_only);
             pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O20, PLACE_XRF_I20, lut_only, lut_and_ff, dff_only);
             pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O21, PLACE_XRF_I21, lut_only, lut_and_ff, dff_only);
@@ -1006,24 +1020,24 @@ void NgUltraPacker::pack_rfs(void)
             pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O35, PLACE_XRF_I35, lut_only, lut_and_ff, dff_only);
             pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O36, PLACE_XRF_I36, lut_only, lut_and_ff, dff_only);
         } else {
-            ci.disconnectPort(id_I19); ci.disconnectPort(id_O19);
-            ci.disconnectPort(id_I20); ci.disconnectPort(id_O20);
-            ci.disconnectPort(id_I21); ci.disconnectPort(id_O21);
-            ci.disconnectPort(id_I22); ci.disconnectPort(id_O22);
-            ci.disconnectPort(id_I23); ci.disconnectPort(id_O23);
-            ci.disconnectPort(id_I24); ci.disconnectPort(id_O24);
-            ci.disconnectPort(id_I25); ci.disconnectPort(id_O25);
-            ci.disconnectPort(id_I26); ci.disconnectPort(id_O26);
-            ci.disconnectPort(id_I27); ci.disconnectPort(id_O27);
-            ci.disconnectPort(id_I28); ci.disconnectPort(id_O28);
-            ci.disconnectPort(id_I29); ci.disconnectPort(id_O29);
-            ci.disconnectPort(id_I30); ci.disconnectPort(id_O30);
-            ci.disconnectPort(id_I31); ci.disconnectPort(id_O31);
-            ci.disconnectPort(id_I32); ci.disconnectPort(id_O32);
-            ci.disconnectPort(id_I33); ci.disconnectPort(id_O33);
-            ci.disconnectPort(id_I34); ci.disconnectPort(id_O34);
-            ci.disconnectPort(id_I35); ci.disconnectPort(id_O35);
-            ci.disconnectPort(id_I36); ci.disconnectPort(id_O36);
+            disconnectUsed(&ci,id_I19); disconnectUsed(&ci,id_O19);
+            disconnectUsed(&ci,id_I20); disconnectUsed(&ci,id_O20);
+            disconnectUsed(&ci,id_I21); disconnectUsed(&ci,id_O21);
+            disconnectUsed(&ci,id_I22); disconnectUsed(&ci,id_O22);
+            disconnectUsed(&ci,id_I23); disconnectUsed(&ci,id_O23);
+            disconnectUsed(&ci,id_I24); disconnectUsed(&ci,id_O24);
+            disconnectUsed(&ci,id_I25); disconnectUsed(&ci,id_O25);
+            disconnectUsed(&ci,id_I26); disconnectUsed(&ci,id_O26);
+            disconnectUsed(&ci,id_I27); disconnectUsed(&ci,id_O27);
+            disconnectUsed(&ci,id_I28); disconnectUsed(&ci,id_O28);
+            disconnectUsed(&ci,id_I29); disconnectUsed(&ci,id_O29);
+            disconnectUsed(&ci,id_I30); disconnectUsed(&ci,id_O30);
+            disconnectUsed(&ci,id_I31); disconnectUsed(&ci,id_O31);
+            disconnectUsed(&ci,id_I32); disconnectUsed(&ci,id_O32);
+            disconnectUsed(&ci,id_I33); disconnectUsed(&ci,id_O33);
+            disconnectUsed(&ci,id_I34); disconnectUsed(&ci,id_O34);
+            disconnectUsed(&ci,id_I35); disconnectUsed(&ci,id_O35);
+            disconnectUsed(&ci,id_I36); disconnectUsed(&ci,id_O36);
         }
 
         if (mode > 1) {
@@ -1138,6 +1152,58 @@ void NgUltraPacker::promote_globals()
         log_info("    Removed %d unused BFR\n", bfr_removed);
 }
 
+void NgUltraPacker::mandatory_param(CellInfo *cell, IdString param)
+{
+    if (!cell->params.count(param))
+        log_error("Mandatory parameter '%s' of cell '%s'(%s) is missing.\n", param.c_str(ctx), cell->name.c_str(ctx), cell->type.c_str(ctx));
+}
+
+static int memory_width(int config, bool ecc)
+{
+    if (ecc) {
+        if (config==4)
+            return 18; 
+        else
+            log_error("ECC mode only support width of 18.\n");
+    } else {
+        switch(config) 
+        {
+            case 0: return 1;
+            case 1: return 2;
+            case 2: return 4;
+            case 3: return 8;
+            case 4: return 12;
+            case 5: return 24;
+            case 6: return 3;
+            case 7: return 6;
+        }
+        log_error("Unknown memory configuration width config '%d'.\n", config);
+    }
+}
+
+static int memory_addr_bits(int config,bool ecc)
+{
+    if (ecc) {
+        if (config==4)
+            return 11; 
+        else
+            log_error("ECC mode only support width of 18.\n");
+    } else {
+        switch(config) 
+        {
+            case 0: return 16;
+            case 1: return 15;
+            case 2: return 14;
+            case 3: return 13;
+            case 4: return 12;
+            case 5: return 11;
+            case 6: return 14;
+            case 7: return 13;
+        }
+        log_error("Unknown memory configuration width config '%d'.\n", config);
+    }
+}
+
 void NgUltraPacker::pack_rams(void)
 {
     log_info("Packing RAMs..\n");
@@ -1153,6 +1219,55 @@ void NgUltraPacker::pack_rams(void)
         ci.disconnectPort(id_BCKC);
         ci.disconnectPort(id_BCKD);
         ci.disconnectPort(id_BCKR);
+        mandatory_param(&ci, id_raw_config0);
+        mandatory_param(&ci, id_raw_config1);
+        Property extr = ci.params[id_raw_config1].extract(0, 16);        
+        std::vector<bool> bits = extr.as_bits();
+        //int ecc_mode = (bits[12] ? 1 : 0) | (bits[13] ? 2 : 0) | (bits[14] ? 4 : 0) | (bits[15] ? 8 : 0);
+        bool ecc = bits[12];
+        int a_in_width = memory_width((bits[0] ? 1 : 0) | (bits[1] ? 2 : 0) | (bits[2] ? 4 : 0), ecc);
+        int b_in_width = memory_width((bits[3] ? 1 : 0) | (bits[4] ? 2 : 0) | (bits[5] ? 4 : 0), ecc);
+        int a_out_width = memory_width((bits[6] ? 1 : 0) | (bits[7] ? 2 : 0) | (bits[8] ? 4 : 0), ecc);
+        int b_out_width = memory_width((bits[9] ? 1 : 0) | (bits[10] ? 2 : 0) | (bits[11] ? 4 : 0), ecc);
+
+        int a_addr = std::max(memory_addr_bits((bits[0] ? 1 : 0) | (bits[1] ? 2 : 0) | (bits[2] ? 4 : 0), ecc) ,
+                     memory_addr_bits((bits[6] ? 1 : 0) | (bits[7] ? 2 : 0) | (bits[8] ? 4 : 0), ecc));
+        int b_addr = std::max(memory_addr_bits((bits[3] ? 1 : 0) | (bits[4] ? 2 : 0) | (bits[5] ? 4 : 0), ecc) ,
+                     memory_addr_bits((bits[9] ? 1 : 0) | (bits[10] ? 2 : 0) | (bits[11] ? 4 : 0), ecc));
+
+        static IdString AI[24] = { id_AI1, id_AI2, id_AI3, id_AI4, id_AI5, id_AI6, id_AI7, id_AI8, id_AI9, id_AI10, id_AI11, id_AI12,
+                            id_AI13, id_AI14, id_AI15, id_AI16, id_AI17, id_AI18, id_AI19, id_AI20, id_AI21, id_AI22, id_AI23, id_AI24 };
+        static IdString AO[24] = { id_AO1, id_AO2, id_AO3, id_AO4, id_AO5, id_AO6, id_AO7, id_AO8, id_AO9, id_AO10, id_AO11, id_AO12,
+                            id_AO13, id_AO14, id_AO15, id_AO16, id_AO17, id_AO18, id_AO19, id_AO20, id_AO21, id_AO22, id_AO23, id_AO24 };
+        static IdString AA[24] = { id_AA1, id_AA2, id_AA3, id_AA4, id_AA5, id_AA6, id_AA7, id_AA8, id_AA9, id_AA10, id_AA11, id_AA12, id_AA13, id_AA14, id_AA15, id_AA16};
+        static IdString BI[24] = { id_BI1, id_BI2, id_BI3, id_BI4, id_BI5, id_BI6, id_BI7, id_BI8, id_BI9, id_BI10, id_BI11, id_BI12,
+                            id_BI13, id_BI14, id_BI15, id_BI16, id_BI17, id_BI18, id_BI19, id_BI20, id_BI21, id_BI22, id_BI23, id_BI24 };
+        static IdString BO[24] = { id_BO1, id_BO2, id_BO3, id_BO4, id_BO5, id_BO6, id_BO7, id_BO8, id_BO9, id_BO10, id_BO11, id_BO12,
+                            id_BO13, id_BO14, id_BO15, id_BO16, id_BO17, id_BO18, id_BO19, id_BO20, id_BO21, id_BO22, id_BO23, id_BO24 };
+        static IdString BA[24] = { id_BA1, id_BA2, id_BA3, id_BA4, id_BA5, id_BA6, id_BA7, id_BA8, id_BA9, id_BA10, id_BA11, id_BA12, id_BA13, id_BA14, id_BA15, id_BA16};
+
+        for(int i=0;i<a_in_width;i++)
+            connect_gnd_if_unconnected(&ci, AI[i]);
+        for(int i=a_in_width;i<24;i++)
+            disconnectUsed(&ci, AI[i]);
+        for(int i=a_out_width;i<24;i++)
+            disconnectUsed(&ci, AO[i]);
+        for(int i=0;i<a_addr;i++)
+            connect_gnd_if_unconnected(&ci, AA[i]);
+        for(int i=a_addr;i<16;i++)
+            disconnectUsed(&ci, AA[i]);
+
+        for(int i=0;i<b_in_width;i++)
+            connect_gnd_if_unconnected(&ci, BI[i]);
+        for(int i=b_in_width;i<24;i++)
+            disconnectUsed(&ci, BI[i]);
+        for(int i=b_out_width;i<24;i++)
+            disconnectUsed(&ci, BO[i]);
+        for(int i=0;i<b_addr;i++)
+            connect_gnd_if_unconnected(&ci, BA[i]);
+        for(int i=b_addr;i<16;i++)
+            disconnectUsed(&ci, BA[i]);
+
         for (auto &p : ci.ports) {
             if (p.second.type == PortType::PORT_IN) 
                 disconnect_if_gnd(&ci, p.first);

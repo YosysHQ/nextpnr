@@ -73,6 +73,8 @@ private:
     void connect_gnd_if_unconnected(CellInfo *cell, IdString input);
     void disconnect_if_gnd(CellInfo *cell, IdString input);
 
+    void mandatory_param(CellInfo *cell, IdString param);
+    void disconnectUsed(CellInfo *cell, IdString port);
     // General helper functions
     void flush_cells();
 
