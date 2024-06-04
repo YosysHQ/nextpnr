@@ -410,10 +410,20 @@ void NgUltraPacker::pack_iobs(void)
         }
 
         IdString new_type = id_IOP;
-        if (ci.type==id_NX_IOB_O) new_type = id_OP;
-        if (ci.type==id_NX_IOB_I) new_type = id_IP;
+        disconnect_if_gnd(&ci, id_T);
+        if (ci.getPort(id_T)) {
+            // In case T input is used must use different types
+            new_type = id_IOTP;
+            if (ci.type==id_NX_IOB_O) new_type = id_OTP;
+            if (ci.type==id_NX_IOB_I) new_type = id_ITP;
+        } else {
+            if (ci.type==id_NX_IOB_O) new_type = id_OP;
+            if (ci.type==id_NX_IOB_I) new_type = id_IP;
+        }
         ci.type = new_type;
         ctx->bindBel(bel, &ci, PlaceStrength::STRENGTH_LOCKED);
+        if (!ctx->isValidBelForCellType(ctx->getBelBucketForCellType(new_type),bel))
+            log_error("Invalid type of IO for specified location %s %s.\n", new_type.c_str(ctx), ctx->getBelType(bel).c_str(ctx));
         to_update.push_back(&ci);
     }
     int bfr_added = 0;
