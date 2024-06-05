@@ -809,12 +809,13 @@ void NgUltraPacker::pack_xrf_input_and_output(CellInfo *xrf, IdString cluster, I
     xrf->constr_children.push_back(fe);
 }
 
-void NgUltraPacker::disconnectUsed(CellInfo *cell, IdString port)
+void NgUltraPacker::disconnect_unused(CellInfo *cell, IdString port)
 {
     NetInfo *net = cell->getPort(port);
     if (net) {
         // NanoXplore tools usually connects 0 to unused port, no need to warn
-        if (!net->name.in(ctx->id("$PACKER_GND")))
+        // Sometimes there is unused nets, so number of entries is zero
+        if (net->users.entries()!=0 && !net->name.in(ctx->id("$PACKER_GND")))
             log_warning("Disconnected unused port '%s' from cell '%s'.\n", port.c_str(ctx), cell->name.c_str(ctx));
         cell->disconnectPort(port);
     }
@@ -840,103 +841,49 @@ void NgUltraPacker::pack_rfs(void)
         }        
         ci.cluster = ci.name;
 
-        connect_gnd_if_unconnected(&ci, id_I1);
-        connect_gnd_if_unconnected(&ci, id_I2);
-        connect_gnd_if_unconnected(&ci, id_I3);
-        connect_gnd_if_unconnected(&ci, id_I4);
-        connect_gnd_if_unconnected(&ci, id_I5);
-        connect_gnd_if_unconnected(&ci, id_I6);
-        connect_gnd_if_unconnected(&ci, id_I7);
-        connect_gnd_if_unconnected(&ci, id_I8);
-        connect_gnd_if_unconnected(&ci, id_I9);
-        connect_gnd_if_unconnected(&ci, id_I10);
-        connect_gnd_if_unconnected(&ci, id_I11);
-        connect_gnd_if_unconnected(&ci, id_I12);
-        connect_gnd_if_unconnected(&ci, id_I13);
-        connect_gnd_if_unconnected(&ci, id_I14);
-        connect_gnd_if_unconnected(&ci, id_I15);
-        connect_gnd_if_unconnected(&ci, id_I16);
-        connect_gnd_if_unconnected(&ci, id_I17);
-        connect_gnd_if_unconnected(&ci, id_I18);
-        pack_xrf_input_and_output(&ci, ci.name, id_I1, id_O1, PLACE_XRF_I1, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I2, id_O2, PLACE_XRF_I2, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I3, id_O3, PLACE_XRF_I3, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I4, id_O4, PLACE_XRF_I4, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I5, id_O5, PLACE_XRF_I5, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I6, id_O6, PLACE_XRF_I6, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I7, id_O7, PLACE_XRF_I7, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I8, id_O8, PLACE_XRF_I8, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I9, id_O9, PLACE_XRF_I9, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I10, id_O10, PLACE_XRF_I10, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I11, id_O11, PLACE_XRF_I11, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I12, id_O12, PLACE_XRF_I12, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I13, id_O13, PLACE_XRF_I13, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I14, id_O14, PLACE_XRF_I14, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I15, id_O15, PLACE_XRF_I15, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I16, id_O16, PLACE_XRF_I16, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I17, id_O17, PLACE_XRF_I17, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_I18, id_O18, PLACE_XRF_I18, lut_only, lut_and_ff, dff_only);
-
+        for (int i = 1; i <= 18; i++) {
+            connect_gnd_if_unconnected(&ci, ctx->idf("I%d",i));
+            pack_xrf_input_and_output(&ci, ci.name, ctx->idf("I%d",i), ctx->idf("O%d",i), ClusterPlacement(PLACE_XRF_I1 + i-1), lut_only, lut_and_ff, dff_only);
+        }
         if (mode!=1) {
-            connect_gnd_if_unconnected(&ci, id_RA1);
-            connect_gnd_if_unconnected(&ci, id_RA2);
-            connect_gnd_if_unconnected(&ci, id_RA3);
-            connect_gnd_if_unconnected(&ci, id_RA4);
-            connect_gnd_if_unconnected(&ci, id_RA5);
-            pack_xrf_input_and_output(&ci, ci.name, id_RA1, IdString(), PLACE_XRF_RA1, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_RA2, IdString(), PLACE_XRF_RA2, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_RA3, IdString(), PLACE_XRF_RA3, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_RA4, IdString(), PLACE_XRF_RA4, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_RA5, IdString(), PLACE_XRF_RA5, lut_only, lut_and_ff, dff_only);
+            for (int i = 1; i <= 5; i++) {
+                connect_gnd_if_unconnected(&ci, ctx->idf("RA%d",i));
+                pack_xrf_input_and_output(&ci, ci.name, ctx->idf("RA%d",i), IdString(), ClusterPlacement(PLACE_XRF_RA1 + i-1), lut_only, lut_and_ff, dff_only);
+            }
         } else {
             // SPREG mode does not use RA inputs
-            disconnectUsed(&ci,id_RA1);
-            disconnectUsed(&ci,id_RA2);
-            disconnectUsed(&ci,id_RA3);
-            disconnectUsed(&ci,id_RA4);
-            disconnectUsed(&ci,id_RA5);
+            for (int i = 1; i <= 5; i++)
+                disconnect_unused(&ci, ctx->idf("RA%d",i));
         }
         
         if (mode==2 || mode==4) {
             connect_gnd_if_unconnected(&ci, id_RA6);
             pack_xrf_input_and_output(&ci, ci.name, id_RA6, IdString(), PLACE_XRF_RA6, lut_only, lut_and_ff, dff_only);
         } else {
-            disconnectUsed(&ci,id_RA6);
+            disconnect_unused(&ci,id_RA6);
         }
 
         if (mode==4) {
-            connect_gnd_if_unconnected(&ci, id_RA7);
-            connect_gnd_if_unconnected(&ci, id_RA8);
-            connect_gnd_if_unconnected(&ci, id_RA9);
-            connect_gnd_if_unconnected(&ci, id_RA10);
-            pack_xrf_input_and_output(&ci, ci.name, id_RA7, IdString(), PLACE_XRF_RA7, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_RA8, IdString(), PLACE_XRF_RA8, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_RA9, IdString(), PLACE_XRF_RA9, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_RA10, IdString(), PLACE_XRF_RA10, lut_only, lut_and_ff, dff_only);
+            for (int i = 7; i <= 10; i++) {
+                connect_gnd_if_unconnected(&ci, ctx->idf("RA%d",i));
+                pack_xrf_input_and_output(&ci, ci.name, ctx->idf("RA%d",i), IdString(), ClusterPlacement(PLACE_XRF_RA1 + i-1), lut_only, lut_and_ff, dff_only);
+            }
         } else {
-            disconnectUsed(&ci,id_RA7);
-            disconnectUsed(&ci,id_RA8);
-            disconnectUsed(&ci,id_RA9);
-            disconnectUsed(&ci,id_RA10);
+            for (int i = 7; i <= 10; i++)
+                disconnect_unused(&ci, ctx->idf("RA%d",i));
         }
 
 
-        connect_gnd_if_unconnected(&ci, id_WA1);
-        connect_gnd_if_unconnected(&ci, id_WA2);
-        connect_gnd_if_unconnected(&ci, id_WA3);
-        connect_gnd_if_unconnected(&ci, id_WA4);
-        connect_gnd_if_unconnected(&ci, id_WA5);
-        pack_xrf_input_and_output(&ci, ci.name, id_WA1, IdString(), PLACE_XRF_WA1, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_WA2, IdString(), PLACE_XRF_WA2, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_WA3, IdString(), PLACE_XRF_WA3, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_WA4, IdString(), PLACE_XRF_WA4, lut_only, lut_and_ff, dff_only);
-        pack_xrf_input_and_output(&ci, ci.name, id_WA5, IdString(), PLACE_XRF_WA5, lut_only, lut_and_ff, dff_only);
+        for (int i = 1; i <= 5; i++) {
+            connect_gnd_if_unconnected(&ci, ctx->idf("WA%d",i));
+            pack_xrf_input_and_output(&ci, ci.name, ctx->idf("WA%d",i), IdString(), ClusterPlacement(PLACE_XRF_WA1 + i-1), lut_only, lut_and_ff, dff_only);
+        }
         
         if (mode==2) {
             connect_gnd_if_unconnected(&ci, id_WA6);
             pack_xrf_input_and_output(&ci, ci.name, id_WA6, IdString(), PLACE_XRF_WA6, lut_only, lut_and_ff, dff_only);
         } else {
-            disconnectUsed(&ci,id_WA6);
+            disconnect_unused(&ci,id_WA6);
         }
 
         connect_gnd_if_unconnected(&ci, id_WE);
@@ -946,98 +893,20 @@ void NgUltraPacker::pack_rfs(void)
         pack_xrf_input_and_output(&ci, ci.name, id_WEA, IdString(), PLACE_XRF_WEA, lut_only, lut_and_ff, dff_only);
 
         if (mode == 3) {
-            connect_gnd_if_unconnected(&ci, id_I19);
-            connect_gnd_if_unconnected(&ci, id_I20);
-            connect_gnd_if_unconnected(&ci, id_I21);
-            connect_gnd_if_unconnected(&ci, id_I22);
-            connect_gnd_if_unconnected(&ci, id_I23);
-            connect_gnd_if_unconnected(&ci, id_I24);
-            connect_gnd_if_unconnected(&ci, id_I25);
-            connect_gnd_if_unconnected(&ci, id_I26);
-            connect_gnd_if_unconnected(&ci, id_I27);
-            connect_gnd_if_unconnected(&ci, id_I28);
-            connect_gnd_if_unconnected(&ci, id_I29);
-            connect_gnd_if_unconnected(&ci, id_I30);
-            connect_gnd_if_unconnected(&ci, id_I31);
-            connect_gnd_if_unconnected(&ci, id_I32);
-            connect_gnd_if_unconnected(&ci, id_I33);
-            connect_gnd_if_unconnected(&ci, id_I34);
-            connect_gnd_if_unconnected(&ci, id_I35);
-            connect_gnd_if_unconnected(&ci, id_I36);
-            pack_xrf_input_and_output(&ci, ci.name, id_I19, id_O19, PLACE_XRF_I19, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I20, id_O20, PLACE_XRF_I20, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I21, id_O21, PLACE_XRF_I21, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I22, id_O22, PLACE_XRF_I22, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I23, id_O23, PLACE_XRF_I23, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I24, id_O24, PLACE_XRF_I24, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I25, id_O25, PLACE_XRF_I25, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I26, id_O26, PLACE_XRF_I26, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I27, id_O27, PLACE_XRF_I27, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I28, id_O28, PLACE_XRF_I28, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I29, id_O29, PLACE_XRF_I29, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I30, id_O30, PLACE_XRF_I30, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I31, id_O31, PLACE_XRF_I31, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I32, id_O32, PLACE_XRF_I32, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I33, id_O33, PLACE_XRF_I33, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I34, id_O34, PLACE_XRF_I34, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I35, id_O35, PLACE_XRF_I35, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_I36, id_O36, PLACE_XRF_I36, lut_only, lut_and_ff, dff_only);
+            for (int i = 19; i <= 36; i++) {
+                connect_gnd_if_unconnected(&ci, ctx->idf("I%d",i));
+                pack_xrf_input_and_output(&ci, ci.name, ctx->idf("I%d",i), ctx->idf("O%d",i), ClusterPlacement(PLACE_XRF_I1 + i-1), lut_only, lut_and_ff, dff_only);
+            }
         } else if (mode == 4) {
-            disconnectUsed(&ci,id_I19);
-            disconnectUsed(&ci,id_I20);
-            disconnectUsed(&ci,id_I21);
-            disconnectUsed(&ci,id_I22);
-            disconnectUsed(&ci,id_I23);
-            disconnectUsed(&ci,id_I24);
-            disconnectUsed(&ci,id_I25);
-            disconnectUsed(&ci,id_I26);
-            disconnectUsed(&ci,id_I27);
-            disconnectUsed(&ci,id_I28);
-            disconnectUsed(&ci,id_I29);
-            disconnectUsed(&ci,id_I30);
-            disconnectUsed(&ci,id_I31);
-            disconnectUsed(&ci,id_I32);
-            disconnectUsed(&ci,id_I33);
-            disconnectUsed(&ci,id_I34);
-            disconnectUsed(&ci,id_I35);
-            disconnectUsed(&ci,id_I36);
-            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O19, PLACE_XRF_I19, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O20, PLACE_XRF_I20, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O21, PLACE_XRF_I21, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O22, PLACE_XRF_I22, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O23, PLACE_XRF_I23, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O24, PLACE_XRF_I24, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O25, PLACE_XRF_I25, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O26, PLACE_XRF_I26, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O27, PLACE_XRF_I27, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O28, PLACE_XRF_I28, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O29, PLACE_XRF_I29, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O30, PLACE_XRF_I30, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O31, PLACE_XRF_I31, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O32, PLACE_XRF_I32, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O33, PLACE_XRF_I33, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O34, PLACE_XRF_I34, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O35, PLACE_XRF_I35, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_O36, PLACE_XRF_I36, lut_only, lut_and_ff, dff_only);
+            for (int i = 19; i <= 36; i++) {
+                disconnect_unused(&ci,ctx->idf("I%d",i));
+                pack_xrf_input_and_output(&ci, ci.name, IdString(), ctx->idf("O%d",i), ClusterPlacement(PLACE_XRF_I1 + i-1), lut_only, lut_and_ff, dff_only);
+            }
         } else {
-            disconnectUsed(&ci,id_I19); disconnectUsed(&ci,id_O19);
-            disconnectUsed(&ci,id_I20); disconnectUsed(&ci,id_O20);
-            disconnectUsed(&ci,id_I21); disconnectUsed(&ci,id_O21);
-            disconnectUsed(&ci,id_I22); disconnectUsed(&ci,id_O22);
-            disconnectUsed(&ci,id_I23); disconnectUsed(&ci,id_O23);
-            disconnectUsed(&ci,id_I24); disconnectUsed(&ci,id_O24);
-            disconnectUsed(&ci,id_I25); disconnectUsed(&ci,id_O25);
-            disconnectUsed(&ci,id_I26); disconnectUsed(&ci,id_O26);
-            disconnectUsed(&ci,id_I27); disconnectUsed(&ci,id_O27);
-            disconnectUsed(&ci,id_I28); disconnectUsed(&ci,id_O28);
-            disconnectUsed(&ci,id_I29); disconnectUsed(&ci,id_O29);
-            disconnectUsed(&ci,id_I30); disconnectUsed(&ci,id_O30);
-            disconnectUsed(&ci,id_I31); disconnectUsed(&ci,id_O31);
-            disconnectUsed(&ci,id_I32); disconnectUsed(&ci,id_O32);
-            disconnectUsed(&ci,id_I33); disconnectUsed(&ci,id_O33);
-            disconnectUsed(&ci,id_I34); disconnectUsed(&ci,id_O34);
-            disconnectUsed(&ci,id_I35); disconnectUsed(&ci,id_O35);
-            disconnectUsed(&ci,id_I36); disconnectUsed(&ci,id_O36);
+            for (int i = 19; i <= 36; i++) {
+                disconnect_unused(&ci,ctx->idf("I%d",i));
+                disconnect_unused(&ci,ctx->idf("O%d",i));
+            }
         }
 
         if (mode > 1) {
@@ -1235,38 +1104,27 @@ void NgUltraPacker::pack_rams(void)
         int b_addr = std::max(memory_addr_bits((bits[3] ? 1 : 0) | (bits[4] ? 2 : 0) | (bits[5] ? 4 : 0), ecc) ,
                      memory_addr_bits((bits[9] ? 1 : 0) | (bits[10] ? 2 : 0) | (bits[11] ? 4 : 0), ecc));
 
-        static IdString AI[24] = { id_AI1, id_AI2, id_AI3, id_AI4, id_AI5, id_AI6, id_AI7, id_AI8, id_AI9, id_AI10, id_AI11, id_AI12,
-                            id_AI13, id_AI14, id_AI15, id_AI16, id_AI17, id_AI18, id_AI19, id_AI20, id_AI21, id_AI22, id_AI23, id_AI24 };
-        static IdString AO[24] = { id_AO1, id_AO2, id_AO3, id_AO4, id_AO5, id_AO6, id_AO7, id_AO8, id_AO9, id_AO10, id_AO11, id_AO12,
-                            id_AO13, id_AO14, id_AO15, id_AO16, id_AO17, id_AO18, id_AO19, id_AO20, id_AO21, id_AO22, id_AO23, id_AO24 };
-        static IdString AA[24] = { id_AA1, id_AA2, id_AA3, id_AA4, id_AA5, id_AA6, id_AA7, id_AA8, id_AA9, id_AA10, id_AA11, id_AA12, id_AA13, id_AA14, id_AA15, id_AA16};
-        static IdString BI[24] = { id_BI1, id_BI2, id_BI3, id_BI4, id_BI5, id_BI6, id_BI7, id_BI8, id_BI9, id_BI10, id_BI11, id_BI12,
-                            id_BI13, id_BI14, id_BI15, id_BI16, id_BI17, id_BI18, id_BI19, id_BI20, id_BI21, id_BI22, id_BI23, id_BI24 };
-        static IdString BO[24] = { id_BO1, id_BO2, id_BO3, id_BO4, id_BO5, id_BO6, id_BO7, id_BO8, id_BO9, id_BO10, id_BO11, id_BO12,
-                            id_BO13, id_BO14, id_BO15, id_BO16, id_BO17, id_BO18, id_BO19, id_BO20, id_BO21, id_BO22, id_BO23, id_BO24 };
-        static IdString BA[24] = { id_BA1, id_BA2, id_BA3, id_BA4, id_BA5, id_BA6, id_BA7, id_BA8, id_BA9, id_BA10, id_BA11, id_BA12, id_BA13, id_BA14, id_BA15, id_BA16};
-
         for(int i=0;i<a_in_width;i++)
-            connect_gnd_if_unconnected(&ci, AI[i]);
+            connect_gnd_if_unconnected(&ci, ctx->idf("AI%d",i+1));
         for(int i=a_in_width;i<24;i++)
-            disconnectUsed(&ci, AI[i]);
+            disconnect_unused(&ci, ctx->idf("AI%d",i+1));
         for(int i=a_out_width;i<24;i++)
-            disconnectUsed(&ci, AO[i]);
+            disconnect_unused(&ci, ctx->idf("AO%d",i+1));
         for(int i=0;i<a_addr;i++)
-            connect_gnd_if_unconnected(&ci, AA[i]);
+            connect_gnd_if_unconnected(&ci, ctx->idf("AA%d",i+1));
         for(int i=a_addr;i<16;i++)
-            disconnectUsed(&ci, AA[i]);
+            disconnect_unused(&ci, ctx->idf("AA%d",i+1));
 
         for(int i=0;i<b_in_width;i++)
-            connect_gnd_if_unconnected(&ci, BI[i]);
+            connect_gnd_if_unconnected(&ci, ctx->idf("BI%d",i+1));
         for(int i=b_in_width;i<24;i++)
-            disconnectUsed(&ci, BI[i]);
+            disconnect_unused(&ci, ctx->idf("BI%d",i+1));
         for(int i=b_out_width;i<24;i++)
-            disconnectUsed(&ci, BO[i]);
+            disconnect_unused(&ci, ctx->idf("BO%d",i+1));
         for(int i=0;i<b_addr;i++)
-            connect_gnd_if_unconnected(&ci, BA[i]);
+            connect_gnd_if_unconnected(&ci, ctx->idf("BA%d",i+1));
         for(int i=b_addr;i<16;i++)
-            disconnectUsed(&ci, BA[i]);
+            disconnect_unused(&ci, ctx->idf("BA%d",i+1));
 
         for (auto &p : ci.ports) {
             if (p.second.type == PortType::PORT_IN) 
