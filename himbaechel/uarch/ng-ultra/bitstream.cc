@@ -350,6 +350,9 @@ struct BitstreamJsonBackend
 
     void write_wfg(CellInfo *cell) {
         open_instance(cell);
+        add_config("delay_on", bool_or_default(cell->params, ctx->id("delay_on"), false));
+        add_config("delay", int_or_default(cell->params, ctx->id("delay"), 0));
+        add_config("wfg_edge", bool_or_default(cell->params, ctx->id("wfg_edge"), false));
         close_instance();
     }
 
