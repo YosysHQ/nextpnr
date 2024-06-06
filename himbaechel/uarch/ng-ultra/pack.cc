@@ -1109,6 +1109,70 @@ static int memory_addr_bits(int config,bool ecc)
     }
 }
 
+void NgUltraPacker::pack_plls(void)
+{
+    log_info("Packing PLLs..\n");
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (!ci.type.in(id_NX_PLL_U))
+            continue;
+        ci.type = id_PLL;
+
+        disconnect_if_gnd(&ci, id_FBK);
+        disconnect_if_gnd(&ci, id_CLK_CAL);
+        disconnect_if_gnd(&ci, id_R);
+        disconnect_if_gnd(&ci, id_EXT_CAL1);
+        disconnect_if_gnd(&ci, id_EXT_CAL2);
+        disconnect_if_gnd(&ci, id_EXT_CAL3);
+        disconnect_if_gnd(&ci, id_EXT_CAL4);
+        disconnect_if_gnd(&ci, id_EXT_CAL5);
+        disconnect_if_gnd(&ci, id_EXT_CAL_LOCKED);
+        disconnect_if_gnd(&ci, id_ARST_CAL);
+    }
+}
+
+void NgUltraPacker::pack_wfgs(void)
+{
+    log_info("Packing WFGs..\n");
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (!ci.type.in(id_NX_WFG_U))
+            continue;
+        ci.type = id_WFG;
+        int mode = int_or_default(ci.params, ctx->id("mode"), 1);
+        if (mode == 0) { // WFB - bypass mode
+            // must not be used, zero is tollerated
+            disconnect_unused(&ci, id_SI);
+            disconnect_unused(&ci, id_SO);
+            disconnect_unused(&ci, id_R);
+        } else {
+            // Can be unused, if zero it is unused
+            disconnect_if_gnd(&ci, id_SI);
+            disconnect_if_gnd(&ci, id_R);
+        }
+    }
+}
+
+void NgUltraPacker::pack_gcks(void)
+{
+    log_info("Packing GCKs..\n");
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (!ci.type.in(id_NX_GCK_U))
+            continue;
+        ci.type = id_GCK;
+        std::string mode = str_or_default(ci.params, ctx->id("std_mode"), "BYPASS");
+        if (mode == "BYPASS") {
+            disconnect_unused(&ci, id_SI2);
+            disconnect_unused(&ci, id_CMD);
+        } else if (mode == "CSC") {
+            disconnect_unused(&ci, id_SI1);
+            disconnect_unused(&ci, id_SI2);
+        }
+    }
+}
+
+
 void NgUltraPacker::pack_rams(void)
 {
     log_info("Packing RAMs..\n");
@@ -1263,6 +1327,9 @@ void NgUltraImpl::pack()
     packer.update_dffs();
     packer.pack_iobs();
     packer.pack_ioms();
+    packer.pack_gcks();
+    packer.pack_plls();
+    packer.pack_wfgs();
     packer.pack_rams();
     packer.pack_rfs();
     packer.pack_cys();

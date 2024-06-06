@@ -56,6 +56,10 @@ struct NgUltraPacker
     void pack_iobs();
     void pack_ioms();
 
+    void pack_gcks();
+    void pack_plls();
+    void pack_wfgs();
+
     void promote_globals();
 
     void setup();

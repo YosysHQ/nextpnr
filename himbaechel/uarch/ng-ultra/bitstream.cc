@@ -348,11 +348,57 @@ struct BitstreamJsonBackend
         close_instance();
     }
 
-    void write_wfg(CellInfo *cell) {
+    void write_wfb(CellInfo *cell) {
         open_instance(cell);
         add_config("delay_on", bool_or_default(cell->params, ctx->id("delay_on"), false));
         add_config("delay", int_or_default(cell->params, ctx->id("delay"), 0));
         add_config("wfg_edge", bool_or_default(cell->params, ctx->id("wfg_edge"), false));
+        close_instance();
+    }
+
+    void write_wfg(CellInfo *cell) {
+        open_instance(cell);
+        add_config("mode", int_or_default(cell->params, ctx->id("mode"), 0));
+        add_config("delay_on", bool_or_default(cell->params, ctx->id("delay_on"), false));
+        add_config("delay", int_or_default(cell->params, ctx->id("delay"), 0));
+        add_config("wfg_edge", bool_or_default(cell->params, ctx->id("wfg_edge"), false));
+        add_config("pattern", extract_bits_or_default(cell->params, ctx->id("pattern"), 16));
+        add_config("pattern_end", int_or_default(cell->params, ctx->id("pattern_end"), 0));
+        add_config("div_ratio", int_or_default(cell->params, ctx->id("div_ratio"), 0));
+        add_config("div_phase", bool_or_default(cell->params, ctx->id("div_phase"), false));
+        add_config("reset_on_pll_lock_n", bool_or_default(cell->params, ctx->id("reset_on_pll_lock_n"), false));
+        add_config("reset_on_pll_locka_n", bool_or_default(cell->params, ctx->id("reset_on_pll_locka_n"), false));
+        add_config("reset_on_cal_lock_n", bool_or_default(cell->params, ctx->id("reset_on_cal_lock_n"), false));        
+        close_instance();
+    }
+
+    void write_pll(CellInfo *cell) {
+        open_instance(cell);
+        add_config("clk_outdiv1", int_or_default(cell->params, ctx->id("clk_outdiv1"), 0));
+        add_config("clk_outdiv2", int_or_default(cell->params, ctx->id("clk_outdiv2"), 0));
+        add_config("clk_outdiv3", int_or_default(cell->params, ctx->id("clk_outdiv3"), 0));
+        add_config("clk_outdiv4", int_or_default(cell->params, ctx->id("clk_outdiv4"), 0));
+        add_config("clk_outdivd1", int_or_default(cell->params, ctx->id("clk_outdivd1"), 0));
+        add_config("clk_outdivd2", int_or_default(cell->params, ctx->id("clk_outdivd2"), 0));
+        add_config("clk_outdivd3", int_or_default(cell->params, ctx->id("clk_outdivd3"), 0));
+        add_config("clk_outdivd4", int_or_default(cell->params, ctx->id("clk_outdivd4"), 0));
+        add_config("clk_outdivd5", int_or_default(cell->params, ctx->id("clk_outdivd5"), 0));
+        add_config("use_cal", bool_or_default(cell->params, ctx->id("use_cal"), false));
+        add_config("clk_cal_sel", int_or_default(cell->params, ctx->id("clk_cal_sel"), 0));
+        add_config("pll_odf", int_or_default(cell->params, ctx->id("pll_odf"), 0));
+        add_config("pll_lpf_res", int_or_default(cell->params, ctx->id("pll_lpf_res"), 0));
+        add_config("pll_lpf_cap", int_or_default(cell->params, ctx->id("pll_lpf_cap"), 0));
+        add_config("cal_div", int_or_default(cell->params, ctx->id("cal_div"), 0));
+        add_config("cal_delay", int_or_default(cell->params, ctx->id("cal_delay"), 0));
+        add_config("use_pll", bool_or_default(cell->params, ctx->id("use_pll"), false));
+        add_config("ref_intdiv", int_or_default(cell->params, ctx->id("ref_intdiv"), 0));
+        add_config("ref_osc_on", bool_or_default(cell->params, ctx->id("ref_osc_on"), false));
+        add_config("pll_cpump", int_or_default(cell->params, ctx->id("pll_cpump"), 0));
+        add_config("pll_lock", int_or_default(cell->params, ctx->id("pll_lock"), 0));
+        add_config("ext_fbk_on", bool_or_default(cell->params, ctx->id("ext_fbk_on"), false));
+        add_config("fbk_intdiv", int_or_default(cell->params, ctx->id("fbk_intdiv"), 0));
+        add_config("fbk_delay_on", bool_or_default(cell->params, ctx->id("fbk_delay_on"), false));
+        add_config("fbk_delay", int_or_default(cell->params, ctx->id("fbk_delay"), 0));
         close_instance();
     }
 
@@ -422,7 +468,7 @@ struct BitstreamJsonBackend
                 case id_ITP.index:
                 case id_OTP.index: write_iop(cell.second.get()); break;
                 case id_CY.index: write_cy(cell.second.get()); break;
-                case id_WFB.index:
+                case id_WFB.index: write_wfb(cell.second.get()); break;
                 case id_WFG.index: write_wfg(cell.second.get()); break;
                 case id_GCK.index: write_gck(cell.second.get()); break;
                 case id_IOM.index: write_iom(cell.second.get()); break;
@@ -443,7 +489,7 @@ struct BitstreamJsonBackend
                 //case id_CRX.index:
                 //case id_CTX.index:
                 //case id_DSP.index:
-                //case id_PLL.index:
+                case id_PLL.index: write_pll(cell.second.get()); break;
                 //case id_PMA.index:
                 //case id_Service.index:
                 //case id_SOCIF.index:
