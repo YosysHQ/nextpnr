@@ -969,26 +969,14 @@ void NgUltraPacker::pack_rfs(void)
     flush_cells();
 }
 
-// There are 20 dedicated clock inputs capable of being routed using global network
-// to be able to best route them, IOM needs to be used to propagate these clock signals
-void NgUltraPacker::promote_globals()
+void NgUltraPacker::insert_ioms()
 {
-    std::vector<std::pair<int, IdString>> glb_fanout;
-    int available_globals = 20;
+    std::vector<IdString> pins_needing_iom;
     for (auto &net : ctx->nets) {
         NetInfo *ni = net.second.get();
-        // Skip undriven nets; and nets that are already global
+        // Skip undriven nets
         if (ni->driver.cell == nullptr)
             continue;
-        if (ni->name.in(ctx->id("$PACKER_GND_NET"), ctx->id("$PACKER_VCC_NET")))
-            continue;
-        if (ni->driver.cell->type == id_IOM) {
-            continue;
-        }
-        if (ni->driver.cell->type == id_GCK) {
-            --available_globals;
-            continue;
-        }
         if (!ni->driver.cell->type.in(id_BFR)) {
             continue;
         }
@@ -997,25 +985,18 @@ void NgUltraPacker::promote_globals()
         BelId bel = ctx->getBelByLocation(iotp_loc);
         if (uarch->global_capable_bels.count(bel)==0)
             continue;
-        // Count the number of clock ports
-        int glb_count = 0;
         for (const auto &usr : ni->users) {
-            if (clock_sinks.count(usr.cell->type) && clock_sinks[usr.cell->type].count(usr.port))
-                glb_count++;
+            if (clock_sinks.count(usr.cell->type) && clock_sinks[usr.cell->type].count(usr.port)) {
+                pins_needing_iom.emplace_back(ni->name);
+                break;
+            }
         }
-        if (glb_count > 0)
-            glb_fanout.emplace_back(glb_count, ni->name);
     }
-    if (available_globals <= 0)
-        return;
     // Sort clocks by max fanout
-    std::sort(glb_fanout.begin(), glb_fanout.end(), std::greater<std::pair<int, IdString>>());
-    log_info("Promoting globals...\n");
+    log_info("Inserting IOMs...\n");
     int bfr_removed = 0;
-    // Promote the N highest fanout clocks
-    for (size_t i = 0; i < std::min<size_t>(glb_fanout.size(), available_globals); i++) {
-        NetInfo *net = ctx->nets.at(glb_fanout.at(i).second).get();
-        log_info("    Promoting clock net '%s'\n", ctx->nameOf(net));
+    for (size_t i = 0; i < pins_needing_iom.size(); i++) {
+        NetInfo *net = ctx->nets.at(pins_needing_iom.at(i)).get();
         Loc iotp_loc = net->driver.cell->getLocation();
         iotp_loc.z -= 1;
         BelId iotp_bel = ctx->getBelByLocation(iotp_loc);
@@ -1025,26 +1006,28 @@ void NgUltraPacker::promote_globals()
 
         CellInfo *iom = nullptr;
         IdString port = uarch->global_capable_bels.at(iotp_bel);
+        CellInfo *input_pad = ctx->getBoundBelCell(iotp_bel);
+        std::string iobname = str_or_default(input_pad->params, ctx->id("iobname"), "");
         if (!ctx->checkBelAvail(bel)) {
             iom = ctx->getBoundBelCell(bel);
+            log_info("    Reusing IOM in bank '%s' for signal '%s'\n", iob.c_str(ctx), iobname.c_str());
         } else {
             iom = create_cell_ptr(id_IOM, ctx->id(std::string(iob.c_str(ctx)) + "$iom"));
+            log_info("    Adding IOM in bank '%s' for signal '%s'\n", iob.c_str(ctx), iobname.c_str());
         }
         if (iom->getPort(port)) {
             log_error("Port '%s' of IOM cell '%s' is already used.\n", port.c_str(ctx), iom->name.c_str(ctx));
         }
-        CellInfo *input_pad = ctx->getBoundBelCell(iotp_bel);
         NetInfo *iom_to_clk = ctx->createNet(ctx->id(std::string(net->name.c_str(ctx)) + "$iom"));
         for (const auto &usr : net->users) {
-            if (clock_sinks.count(usr.cell->type) && clock_sinks[usr.cell->type].count(usr.port)) {
-                IdString port = usr.port;
-                usr.cell->disconnectPort(port);
-                usr.cell->connectPort(port, iom_to_clk);
-            }
+            IdString port = usr.port;
+            usr.cell->disconnectPort(port);
+            usr.cell->connectPort(port, iom_to_clk);
         }       
         iom->connectPort(port, input_pad->getPort(id_O));
         iom->connectPort((port==id_P17RI) ?  id_CKO1 : id_CKO2, iom_to_clk);
-        ctx->bindBel(bel, iom, PlaceStrength::STRENGTH_LOCKED);
+        if (ctx->checkBelAvail(bel))
+            ctx->bindBel(bel, iom, PlaceStrength::STRENGTH_LOCKED);
         CellInfo *bfr = net->driver.cell;
         if (bfr->type == id_BFR && bfr->getPort(id_O)->users.empty()) {
             bfr->disconnectPort(id_O);
@@ -1109,6 +1092,19 @@ static int memory_addr_bits(int config,bool ecc)
     }
 }
 
+void NgUltraPacker::insert_wfb(CellInfo *cell, IdString port)
+{
+    NetInfo *net = cell->getPort(port);
+    if (net) {
+        CellInfo *wfb = create_cell_ptr(id_WFB, ctx->id(std::string(cell->name.c_str(ctx)) + "$" + port.c_str(ctx)));
+        cell->disconnectPort(port);
+        wfb->connectPort(id_ZO, net);
+        NetInfo *new_out = ctx->createNet(ctx->id(net->name.str(ctx) + "$" + port.c_str(ctx)));
+        cell->connectPort(port, new_out);
+        wfb->connectPort(id_ZI, new_out);
+    }
+}
+
 void NgUltraPacker::pack_plls(void)
 {
     log_info("Packing PLLs..\n");
@@ -1128,6 +1124,17 @@ void NgUltraPacker::pack_plls(void)
         disconnect_if_gnd(&ci, id_EXT_CAL5);
         disconnect_if_gnd(&ci, id_EXT_CAL_LOCKED);
         disconnect_if_gnd(&ci, id_ARST_CAL);
+        insert_wfb(&ci, id_VCO);
+        insert_wfb(&ci, id_REFO);
+        insert_wfb(&ci, id_LDFO);
+        insert_wfb(&ci, id_CLK_DIV1);
+        insert_wfb(&ci, id_CLK_DIV2);
+        insert_wfb(&ci, id_CLK_DIV3);
+        insert_wfb(&ci, id_CLK_DIVD1);
+        insert_wfb(&ci, id_CLK_DIVD2);
+        insert_wfb(&ci, id_CLK_DIVD3);
+        insert_wfb(&ci, id_CLK_DIVD4);
+        insert_wfb(&ci, id_CLK_DIVD5);
     }
 }
 
@@ -1284,11 +1291,11 @@ void NgUltraPacker::setup()
 
     // clock_sinks[id_DSP].insert(id_CK);
 
-    // clock_sinks[id_PLL].insert(id_CLK_CAL);
-    // clock_sinks[id_PLL].insert(id_FBK);
-    // clock_sinks[id_PLL].insert(id_REF);
-    // clock_sinks[id_GCK].insert(id_SI1);
-    // clock_sinks[id_GCK].insert(id_SI2);
+    clock_sinks[id_PLL].insert(id_CLK_CAL);
+    clock_sinks[id_PLL].insert(id_FBK);
+    clock_sinks[id_PLL].insert(id_REF);
+    clock_sinks[id_GCK].insert(id_SI1);
+    clock_sinks[id_GCK].insert(id_SI2);
 
     // clock_sinks[id_IOM].insert(id_ALCK1);
     // clock_sinks[id_IOM].insert(id_ALCK2);
@@ -1312,6 +1319,8 @@ void NgUltraPacker::setup()
     // clock_sinks[id_PMA].insert(id_hssl_clock_i2);
     // clock_sinks[id_PMA].insert(id_hssl_clock_i3);
     // clock_sinks[id_PMA].insert(id_hssl_clock_i4);
+    clock_sinks[id_WFB].insert(id_ZI);
+    clock_sinks[id_WFG].insert(id_ZI);
 }
 
 void NgUltraImpl::pack()
@@ -1335,7 +1344,7 @@ void NgUltraImpl::pack()
     packer.pack_cys();
     packer.pack_lut_dffs();
     packer.pack_dffs();
-    packer.promote_globals();
+    packer.insert_ioms();
 }
 
 
@@ -1376,28 +1385,32 @@ void NgUltraImpl::postPlace()
 
 void NgUltraImpl::route_clocks()
 {
-    log_info("Routing global clocks...\n");
+    dict<IdString,pool<IdString>> glb_sources;
+    glb_sources[id_IOM].insert(id_CKO1);
+    glb_sources[id_IOM].insert(id_CKO2);
+    glb_sources[id_WFB].insert(id_ZO);
+    glb_sources[id_WFG].insert(id_ZO);
+    glb_sources[id_GCK].insert(id_SO);
+
+    log_info("Routing global nets...\n");
     for (auto &net : ctx->nets) {
-        NetInfo *clk_net = net.second.get();
-        if (!clk_net->driver.cell)
+        NetInfo *glb_net = net.second.get();
+        if (!glb_net->driver.cell)
             continue;
 
         // check if we have a global clock net, skip otherwise
-        bool is_global = false;
-        if (clk_net->driver.cell->type.in(id_IOM) && clk_net->driver.port.in(id_CKO1, id_CKO2))
-            is_global = true;
-        if (!is_global)
+        if (!(glb_sources.count(glb_net->driver.cell->type) && glb_sources[glb_net->driver.cell->type].count(glb_net->driver.port)))
             continue;
 
-        log_info("    routing clock '%s'\n", clk_net->name.c_str(ctx));
-        ctx->bindWire(ctx->getNetinfoSourceWire(clk_net), clk_net, STRENGTH_LOCKED);
+        log_info("    routing net '%s'\n", glb_net->name.c_str(ctx));
+        ctx->bindWire(ctx->getNetinfoSourceWire(glb_net), glb_net, STRENGTH_LOCKED);
 
-        for (auto &usr : clk_net->users) {
+        for (auto &usr : glb_net->users) {
             std::queue<WireId> visit;
             dict<WireId, PipId> backtrace;
             WireId dest = WireId();
 
-            auto sink_wire = ctx->getNetinfoSinkWire(clk_net, usr, 0);
+            auto sink_wire = ctx->getNetinfoSinkWire(glb_net, usr, 0);
             if (ctx->debug) {
                 auto sink_wire_name = "(uninitialized)";
                 if (sink_wire != WireId())
@@ -1409,7 +1422,7 @@ void NgUltraImpl::route_clocks()
             while (!visit.empty()) {
                 WireId curr = visit.front();
                 visit.pop();
-                if (ctx->getBoundWireNet(curr) == clk_net) {
+                if (ctx->getBoundWireNet(curr) == glb_net) {
                     dest = curr;
                     break;
                 }
@@ -1419,7 +1432,7 @@ void NgUltraImpl::route_clocks()
                     WireId src = ctx->getPipSrcWire(uh);
                     if (backtrace.count(src))
                         continue;
-                    if (!ctx->checkWireAvail(src) && ctx->getBoundWireNet(src) != clk_net)
+                    if (!ctx->checkWireAvail(src) && ctx->getBoundWireNet(src) != glb_net)
                         continue;
                     backtrace[src] = uh;
                     visit.push(src);
@@ -1431,13 +1444,13 @@ void NgUltraImpl::route_clocks()
             while (backtrace.count(dest)) {
                 auto uh = backtrace[dest];
                 dest = ctx->getPipDstWire(uh);
-                if (ctx->getBoundWireNet(dest) == clk_net) {
-                    NPNR_ASSERT(clk_net->wires.at(dest).pip == uh);
+                if (ctx->getBoundWireNet(dest) == glb_net) {
+                    NPNR_ASSERT(glb_net->wires.at(dest).pip == uh);
                     break;
                 }
                 if (ctx->debug)
                     log_info("            bind pip %s --> %s\n", ctx->nameOfPip(uh), ctx->nameOfWire(dest));
-                ctx->bindPip(uh, clk_net, STRENGTH_LOCKED);
+                ctx->bindPip(uh, glb_net, STRENGTH_LOCKED);
             }
         }
     }

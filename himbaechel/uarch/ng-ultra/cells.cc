@@ -94,6 +94,9 @@ CellInfo *NgUltraPacker::create_cell_ptr(IdString type, IdString name)
         add_port("CKO1", PORT_OUT);
         add_port("P19RI", PORT_IN);
         add_port("CKO2", PORT_OUT);
+    } else if (type == id_WFB) {
+        add_port("ZI", PORT_IN);
+        add_port("ZO", PORT_OUT);
     } else {
         log_error("Trying to create unknown cell type %s\n", type.c_str(ctx));
     }

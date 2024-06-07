@@ -60,7 +60,7 @@ struct NgUltraPacker
     void pack_plls();
     void pack_wfgs();
 
-    void promote_globals();
+    void insert_ioms();
 
     void setup();
 
@@ -76,6 +76,8 @@ private:
 
     void connect_gnd_if_unconnected(CellInfo *cell, IdString input, bool warn);
     void disconnect_if_gnd(CellInfo *cell, IdString input);
+
+    void insert_wfb(CellInfo *cell, IdString port);
 
     void mandatory_param(CellInfo *cell, IdString param);
     void disconnect_unused(CellInfo *cell, IdString port);

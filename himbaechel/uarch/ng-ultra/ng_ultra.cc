@@ -91,7 +91,9 @@ int NgUltraImpl::tile_lobe(int tile) const
 
 void NgUltraImpl::preRoute()
 {
+    log_break();
     route_clocks();
+    log_break();
 }
 
 bool NgUltraImpl::get_mux_data(BelId bel, IdString port, uint8_t *value)
