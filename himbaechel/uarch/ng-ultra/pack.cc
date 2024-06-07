@@ -1037,14 +1037,14 @@ static int memory_width(int config, bool ecc)
     } else {
         switch(config) 
         {
-            case 0: return 1;
-            case 1: return 2;
-            case 2: return 4;
-            case 3: return 8;
-            case 4: return 12;
-            case 5: return 24;
-            case 6: return 3;
-            case 7: return 6;
+            case 0: return 1;  // NOECC_48kx1
+            case 1: return 2;  // NOECC_24kx2
+            case 2: return 4;  // NOECC_12kx4
+            case 3: return 8;  // NOECC_6kx8
+            case 4: return 12; // NOECC_4kx12
+            case 5: return 24; // NOECC_2kx24
+            case 6: return 3;  // NOECC_16kx3
+            case 7: return 6;  // NOECC_8kx6
         }
         log_error("Unknown memory configuration width config '%d'.\n", config);
     }
@@ -1060,14 +1060,14 @@ static int memory_addr_bits(int config,bool ecc)
     } else {
         switch(config) 
         {
-            case 0: return 16;
-            case 1: return 15;
-            case 2: return 14;
-            case 3: return 13;
-            case 4: return 12;
-            case 5: return 11;
-            case 6: return 14;
-            case 7: return 13;
+            case 0: return 16; // NOECC_48kx1
+            case 1: return 15; // NOECC_24kx2
+            case 2: return 14; // NOECC_12kx4
+            case 3: return 13; // NOECC_6kx8
+            case 4: return 12; // NOECC_4kx12
+            case 5: return 11; // NOECC_2kx24
+            case 6: return 14; // NOECC_16kx3
+            case 7: return 13; // NOECC_8kx6
         }
         log_error("Unknown memory configuration width config '%d'.\n", config);
     }
@@ -1094,8 +1094,8 @@ void NgUltraPacker::pack_rams(void)
         std::vector<bool> bits = extr.as_bits();
         //int ecc_mode = (bits[12] ? 1 : 0) | (bits[13] ? 2 : 0) | (bits[14] ? 4 : 0) | (bits[15] ? 8 : 0);
         bool ecc = bits[12];
-        int a_in_width = memory_width((bits[0] ? 1 : 0) | (bits[1] ? 2 : 0) | (bits[2] ? 4 : 0), ecc);
-        int b_in_width = memory_width((bits[3] ? 1 : 0) | (bits[4] ? 2 : 0) | (bits[5] ? 4 : 0), ecc);
+        //int a_in_width = memory_width((bits[0] ? 1 : 0) | (bits[1] ? 2 : 0) | (bits[2] ? 4 : 0), ecc);
+        //int b_in_width = memory_width((bits[3] ? 1 : 0) | (bits[4] ? 2 : 0) | (bits[5] ? 4 : 0), ecc);
         int a_out_width = memory_width((bits[6] ? 1 : 0) | (bits[7] ? 2 : 0) | (bits[8] ? 4 : 0), ecc);
         int b_out_width = memory_width((bits[9] ? 1 : 0) | (bits[10] ? 2 : 0) | (bits[11] ? 4 : 0), ecc);
 
@@ -1104,27 +1104,40 @@ void NgUltraPacker::pack_rams(void)
         int b_addr = std::max(memory_addr_bits((bits[3] ? 1 : 0) | (bits[4] ? 2 : 0) | (bits[5] ? 4 : 0), ecc) ,
                      memory_addr_bits((bits[9] ? 1 : 0) | (bits[10] ? 2 : 0) | (bits[11] ? 4 : 0), ecc));
 
-        for(int i=0;i<a_in_width;i++)
-            connect_gnd_if_unconnected(&ci, ctx->idf("AI%d",i+1));
-        for(int i=a_in_width;i<24;i++)
-            disconnect_unused(&ci, ctx->idf("AI%d",i+1));
-        for(int i=a_out_width;i<24;i++)
-            disconnect_unused(&ci, ctx->idf("AO%d",i+1));
-        for(int i=0;i<a_addr;i++)
-            connect_gnd_if_unconnected(&ci, ctx->idf("AA%d",i+1));
-        for(int i=a_addr;i<16;i++)
-            disconnect_unused(&ci, ctx->idf("AA%d",i+1));
 
-        for(int i=0;i<b_in_width;i++)
-            connect_gnd_if_unconnected(&ci, ctx->idf("BI%d",i+1));
-        for(int i=b_in_width;i<24;i++)
-            disconnect_unused(&ci, ctx->idf("BI%d",i+1));
-        for(int i=b_out_width;i<24;i++)
-            disconnect_unused(&ci, ctx->idf("BO%d",i+1));
-        for(int i=0;i<b_addr;i++)
-            connect_gnd_if_unconnected(&ci, ctx->idf("BA%d",i+1));
-        for(int i=b_addr;i<16;i++)
-            disconnect_unused(&ci, ctx->idf("BA%d",i+1));
+        NetInfo *a_cs = ci.getPort(id_ACS);
+        if (!a_cs || a_cs->name.in(ctx->id("$PACKER_GND"))) {
+            // If there is no chip-select disconnect all
+            disconnect_unused(&ci, id_ACK);
+            for(int i=0;i<24;i++) {
+                disconnect_unused(&ci, ctx->idf("AI%d",i+1));
+                disconnect_unused(&ci, ctx->idf("AO%d",i+1));
+            }
+            for(int i=0;i<16;i++)
+                disconnect_unused(&ci, ctx->idf("AA%d",i+1));
+        } else {
+            for(int i=a_out_width;i<24;i++)
+                disconnect_unused(&ci, ctx->idf("AO%d",i+1));
+            for(int i=a_addr;i<16;i++)
+                disconnect_unused(&ci, ctx->idf("AA%d",i+1));
+        }
+
+        NetInfo *b_cs = ci.getPort(id_BCS);
+        if (!b_cs || b_cs->name.in(ctx->id("$PACKER_GND"))) {
+            // If there is no chip-select disconnect all
+            disconnect_unused(&ci, id_BCK);
+            for(int i=0;i<24;i++) {
+                disconnect_unused(&ci, ctx->idf("BI%d",i+1));
+                disconnect_unused(&ci, ctx->idf("BO%d",i+1));
+            }
+            for(int i=0;i<16;i++)
+                disconnect_unused(&ci, ctx->idf("BA%d",i+1));
+        } else {
+            for(int i=b_out_width;i<24;i++)
+                disconnect_unused(&ci, ctx->idf("BO%d",i+1));
+            for(int i=b_addr;i<16;i++)
+                disconnect_unused(&ci, ctx->idf("BA%d",i+1));
+        }
 
         for (auto &p : ci.ports) {
             if (p.second.type == PortType::PORT_IN) 
