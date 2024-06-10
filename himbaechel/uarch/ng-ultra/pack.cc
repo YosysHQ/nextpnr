@@ -557,7 +557,7 @@ void NgUltraPacker::pack_ioms(void)
                 if (port.second.net->name == ctx->id("$PACKER_GND"))
                     ci.disconnectPort(port.first);
                 else if (port.second.net->driver.cell != nullptr &&
-                         port.second.net->driver.cell->type == id_IOTP) {
+                         port.second.net->driver.cell->type.in(id_IP, id_OP, id_IOP, id_ITP, id_OTP, id_IOTP)) {
                     IdString loc = uarch->tile_name_id(port.second.net->driver.cell->bel.tile);
                     if (iob != IdString() && loc != iob) {
                         log_error("Unable to constrain IOM '%s', connection to multiple IO banks exist.\n",
