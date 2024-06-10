@@ -205,7 +205,7 @@ void NgUltraPacker::disconnect_if_gnd(CellInfo *cell, IdString input)
     }
 }
 
-void NgUltraPacker::connect_gnd_if_unconnected(CellInfo *cell, IdString input)
+void NgUltraPacker::connect_gnd_if_unconnected(CellInfo *cell, IdString input, bool warn = true)
 {
     NetInfo *net = cell->getPort(input);
     if (net)
@@ -215,7 +215,8 @@ void NgUltraPacker::connect_gnd_if_unconnected(CellInfo *cell, IdString input)
     auto fnd_net = ctx->nets.find(ctx->id("$PACKER_GND"));
     if (fnd_net != ctx->nets.end()) {
         cell->connectPort(input, fnd_net->second.get());
-        log_warning("Connected GND to mandatory port '%s' of cell '%s'(%s).\n", input.c_str(ctx), cell->name.c_str(ctx), cell->type.c_str(ctx));
+        if (warn)
+            log_warning("Connected GND to mandatory port '%s' of cell '%s'(%s).\n", input.c_str(ctx), cell->name.c_str(ctx), cell->type.c_str(ctx));
     }
 }
 
@@ -640,6 +641,8 @@ void NgUltraPacker::exchange_if_constant(CellInfo *cell, IdString input1, IdStri
     NetInfo *net2 = cell->getPort(input2);
     if (!net1 || !net2)
         return;
+    if (net2->name.in(ctx->id("$PACKER_GND"), ctx->id("$PACKER_VCC"))) 
+        return;
     if (net1->name.in(ctx->id("$PACKER_GND"), ctx->id("$PACKER_VCC"))) {
         cell->disconnectPort(input1);
         cell->disconnectPort(input2);
@@ -661,10 +664,9 @@ void NgUltraPacker::pack_cys(void)
         if (!ci_net || !ci_net->driver.cell || ci_net->driver.cell->type != id_NX_CY) {
             root_cys.push_back(ci);
         }
-        exchange_if_constant(ci, id_A1, id_B1);
-        exchange_if_constant(ci, id_A2, id_B2);
-        exchange_if_constant(ci, id_A3, id_B3);
-        exchange_if_constant(ci, id_A4, id_B4);
+        for (int i=1;i<=4;i++) {
+            exchange_if_constant(ci, ctx->idf("A%d",i), ctx->idf("B%d",i));
+        }
     }
 
     std::vector<std::vector<CellInfo *>> groups;
@@ -675,6 +677,9 @@ void NgUltraPacker::pack_cys(void)
         while (true) {
             NetInfo *co_net = cy->getPort(id_CO);
             if (co_net && co_net->users.entries() > 0) {
+                for (int i=1;i<=4;i++) {
+                    connect_gnd_if_unconnected(cy, ctx->idf("B%d",i), true);
+                }
                 cy = (*co_net->users.begin()).cell;
                 if (cy->type != id_NX_CY || co_net->users.entries() != 1) {
                     log_warning("Cells %s CO output connected to:\n",group.back()->name.c_str(ctx));
@@ -684,21 +689,25 @@ void NgUltraPacker::pack_cys(void)
                 }
                 group.push_back(cy);
             } else {
+                disconnect_unused(cy,id_CO);
                 // Disconnect unused ports on last CY in chain
                 // at least id_A1 and id_B1 will be connected
                 // Reverse direction, must stop if used, then
                 // rest is used as well
                 if (!cy->getPort(id_S4) || cy->getPort(id_S4)->users.entries()==0) {
-                    cy->disconnectPort(id_A4);
-                    cy->disconnectPort(id_B4);
+                    disconnect_unused(cy,id_S4);
+                    disconnect_unused(cy,id_A4);
+                    disconnect_unused(cy,id_B4);
                 } else break;
                 if (!cy->getPort(id_S3) || cy->getPort(id_S3)->users.entries()==0) {
-                    cy->disconnectPort(id_A3);
-                    cy->disconnectPort(id_B3);
+                    disconnect_unused(cy,id_S3);
+                    disconnect_unused(cy,id_A3);
+                    disconnect_unused(cy,id_B3);
                 } else break;
                 if (!cy->getPort(id_S2) || cy->getPort(id_S2)->users.entries()==0) {
-                    cy->disconnectPort(id_A2);
-                    cy->disconnectPort(id_B2);
+                    disconnect_unused(cy,id_S2);
+                    disconnect_unused(cy,id_A2);
+                    disconnect_unused(cy,id_B2);
                 } else break;
                 break;
             }
@@ -721,10 +730,20 @@ void NgUltraPacker::pack_cys(void)
                 root->constr_children.push_back(cy);
                 cy->constr_z = PLACE_CY_CHAIN;
             }
+            for(int i=1;i<=4;i++) {
+                IdString s_port = ctx->idf("S%d",i);
+                if (!cy->getPort(s_port) || cy->getPort(s_port)->users.entries()==0) {
+                    disconnect_unused(cy, s_port);
+                }
+            }
             pack_cy_input_and_output(cy, root->name, id_B1, id_S1, PLACE_CY_FE1, lut_only, lut_and_ff, dff_only);
-            pack_cy_input_and_output(cy, root->name, id_B2, id_S2, PLACE_CY_FE2, lut_only, lut_and_ff, dff_only);
-            pack_cy_input_and_output(cy, root->name, id_B3, id_S3, PLACE_CY_FE3, lut_only, lut_and_ff, dff_only);
-            pack_cy_input_and_output(cy, root->name, id_B4, id_S4, PLACE_CY_FE4, lut_only, lut_and_ff, dff_only);
+            // Must check for B input otherwise we have bogus FEs
+            if (cy->getPort(id_B2))
+                pack_cy_input_and_output(cy, root->name, id_B2, id_S2, PLACE_CY_FE2, lut_only, lut_and_ff, dff_only);
+            if (cy->getPort(id_B3))
+                pack_cy_input_and_output(cy, root->name, id_B3, id_S3, PLACE_CY_FE3, lut_only, lut_and_ff, dff_only);
+            if (cy->getPort(id_B4))
+                pack_cy_input_and_output(cy, root->name, id_B4, id_S4, PLACE_CY_FE4, lut_only, lut_and_ff, dff_only);
             NetInfo *net = cy->getPort(id_CI);
             if (net) {
                 if (net->name.in(ctx->id("$PACKER_GND"), ctx->id("$PACKER_VCC"))) {

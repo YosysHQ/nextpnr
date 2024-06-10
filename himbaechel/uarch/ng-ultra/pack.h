@@ -70,7 +70,7 @@ private:
 
     void pack_xrf_input_and_output(CellInfo *cy, IdString cluster, IdString in_port, IdString out_port, ClusterPlacement placement, int &lut_only, int &lut_and_ff, int &dff_only);
 
-    void connect_gnd_if_unconnected(CellInfo *cell, IdString input);
+    void connect_gnd_if_unconnected(CellInfo *cell, IdString input, bool warn);
     void disconnect_if_gnd(CellInfo *cell, IdString input);
 
     void mandatory_param(CellInfo *cell, IdString param);
