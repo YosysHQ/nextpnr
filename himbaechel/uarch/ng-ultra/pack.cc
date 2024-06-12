@@ -1105,6 +1105,28 @@ void NgUltraPacker::insert_wfb(CellInfo *cell, IdString port)
     }
 }
 
+void NgUltraPacker::constrain_location(CellInfo *cell)
+{
+    std::string location = str_or_default(cell->params, ctx->id("location"), "");
+    if (!location.empty()) {
+        if (uarch->locations.count(location)) {
+            BelId bel = uarch->locations[location];
+            if (ctx->getBelType(bel)!= cell->type) {
+                log_error("Location '%s' is wrong for bel type '%s'.\n", location.c_str(), cell->type.c_str(ctx));
+            }
+            if (ctx->checkBelAvail(bel)) {
+                log_info("    Constraining %s '%s' to '%s'\n", cell->type.c_str(ctx), cell->name.c_str(ctx), location.c_str());
+                ctx->bindBel(bel, cell, PlaceStrength::STRENGTH_LOCKED);
+            } else {
+                log_error("Bel at location '%s' is already used by other cell.\n", location.c_str());
+            }
+
+        } else {
+            log_error("Unknown location '%s' for cell '%s'.\n", location.c_str(), cell->name.c_str(ctx));
+        }
+    }
+}
+
 void NgUltraPacker::pack_plls(void)
 {
     log_info("Packing PLLs..\n");
@@ -1113,6 +1135,7 @@ void NgUltraPacker::pack_plls(void)
         if (!ci.type.in(id_NX_PLL_U))
             continue;
         ci.type = id_PLL;
+        constrain_location(&ci);
 
         disconnect_if_gnd(&ci, id_FBK);
         disconnect_if_gnd(&ci, id_CLK_CAL);
@@ -1146,6 +1169,7 @@ void NgUltraPacker::pack_wfgs(void)
         if (!ci.type.in(id_NX_WFG_U))
             continue;
         ci.type = id_WFG;
+        constrain_location(&ci);
         int mode = int_or_default(ci.params, ctx->id("mode"), 1);
         if (mode == 0) { // WFB - bypass mode
             // must not be used, zero is tollerated

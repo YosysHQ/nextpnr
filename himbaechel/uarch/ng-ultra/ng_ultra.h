@@ -69,6 +69,7 @@ public:
     dict<IdString,BelId> iom_bels;
     dict<std::string, std::string> bank_voltage;
     dict<BelId,IdString> global_capable_bels;
+    dict<std::string,BelId> locations;
 
     pool<PipId> blocked_pips;
 

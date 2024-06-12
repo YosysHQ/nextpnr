@@ -84,6 +84,7 @@ private:
     // General helper functions
     void flush_cells();
 
+    void constrain_location(CellInfo *cell);
     // Cell creating
     std::unique_ptr<CellInfo> create_cell(IdString type, IdString name);
     CellInfo *create_cell_ptr(IdString type, IdString name);

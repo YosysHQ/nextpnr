@@ -64,6 +64,9 @@ void NgUltraImpl::init(Context *ctx)
                 global_capable_bels.emplace(bel,id_P19RI);
             }
         }
+        if (ctx->getBelType(bel).in(id_PLL, id_WFG)) {
+            locations.emplace(stringf("%s:%s",tile_name(bel.tile).c_str(), ctx->getBelName(bel)[1].c_str(ctx)),bel);
+        }
     }
 }
 
