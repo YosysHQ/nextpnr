@@ -69,7 +69,13 @@ struct ThreadState : DetailPlacerThreadState
     {
         NPNR_ASSERT(moved_cells.empty());
         BelId old_bel = cell->bel;
-        CellInfo *bound = ctx->getBoundBelCell(new_bel);
+        CellInfo *bound = nullptr;
+        {
+            #if !defined(NPNR_DISABLE_THREADS)
+                std::shared_lock<std::shared_timed_mutex> l(g.archapi_mutex);
+            #endif
+            bound = ctx->getBoundBelCell(new_bel);
+        }
         if (bound && (bound->belStrength > STRENGTH_STRONG || bound->cluster != ClusterId()))
             return false;
         if (!add_to_move(cell, old_bel, new_bel))
@@ -119,8 +125,13 @@ struct ThreadState : DetailPlacerThreadState
                 if (used_bels.count(db.second))
                     goto fail;
                 used_bels.insert(db.second);
-
-                CellInfo *bound = ctx->getBoundBelCell(db.second);
+                CellInfo *bound = nullptr;
+                {
+                    #if !defined(NPNR_DISABLE_THREADS)
+                        std::shared_lock<std::shared_timed_mutex> l(g.archapi_mutex);
+                    #endif
+                    bound = ctx->getBoundBelCell(db.second);
+                }
                 if (bound) {
                     if (moved_cells.count(bound->name)) {
                         // Don't move a cell multiple times in the same go
@@ -146,8 +157,16 @@ struct ThreadState : DetailPlacerThreadState
                         if (!add_to_move(bound, bound->bel, old_bel))
                             goto fail;
                     }
-                } else if (!ctx->checkBelAvail(db.second)) {
-                    goto fail;
+                } else {
+                    bool avail = false;
+                    {
+                        #if !defined(NPNR_DISABLE_THREADS)
+                            std::shared_lock<std::shared_timed_mutex> l(g.archapi_mutex);
+                        #endif
+                        avail = ctx->checkBelAvail(db.second);
+                    }
+                    if (!avail)
+                        goto fail;
                 }
             }
         }
