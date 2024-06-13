@@ -33,7 +33,7 @@ class HimbaechelCommandHandler : public CommandHandler
     HimbaechelCommandHandler(int argc, char **argv);
     virtual ~HimbaechelCommandHandler(){};
     std::unique_ptr<Context> createContext(dict<std::string, Property> &values) override;
-    void setupArchContext(Context *ctx) override{};
+    void setupArchContext(Context *ctx) override;
     void customBitstream(Context *ctx) override;
 
   protected:
@@ -57,6 +57,8 @@ po::options_description HimbaechelCommandHandler::getArchOptions()
 
     return specific;
 }
+
+void HimbaechelCommandHandler::setupArchContext(Context *ctx) { ctx->uarch->setupArchContext(); }
 
 void HimbaechelCommandHandler::customBitstream(Context *ctx) {}
 
