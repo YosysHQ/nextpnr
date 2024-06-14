@@ -81,6 +81,7 @@ private:
 
     void mandatory_param(CellInfo *cell, IdString param);
     void disconnect_unused(CellInfo *cell, IdString port);
+    void bind_attr_loc(CellInfo *cell, dict<IdString, Property> *attrs);
     // General helper functions
     void flush_cells();
 

@@ -279,6 +279,18 @@ void NgUltraPacker::dff_to_fe(CellInfo *dff, CellInfo *fe, bool pass_thru_lut)
     }
 }
 
+void NgUltraPacker::bind_attr_loc(CellInfo *cell, dict<IdString, Property> *attrs)
+{
+    if (attrs->count(id_LOC)) {
+        std::string name = attrs->at(id_LOC).as_string();
+        if (!uarch->locations.count(name)) {
+            log_error("Unable to find location %s\n", name.c_str());
+        }
+        BelId bel = uarch->locations.at(name);
+        ctx->bindBel(bel, cell, PlaceStrength::STRENGTH_LOCKED);
+    }
+}
+
 void NgUltraPacker::pack_lut_dffs(void)
 {
     log_info("Pack LUT-DFFs...\n");
@@ -293,6 +305,7 @@ void NgUltraPacker::pack_lut_dffs(void)
 
         std::unique_ptr<CellInfo> packed = create_cell(id_BEYOND_FE, ctx->id(ci.name.str(ctx) + "$fe"));
         packed_cells.insert(ci.name);
+        bind_attr_loc(packed.get(), &ci.attrs);
 
         bool packed_dff = false;
         NetInfo *o = ci.getPort(id_O);
@@ -333,6 +346,7 @@ void NgUltraPacker::pack_dffs(void)
         std::unique_ptr<CellInfo> packed = create_cell(id_BEYOND_FE, ctx->id(ci.name.str(ctx) + "$fe"));
         packed_cells.insert(ci.name);
         dff_to_fe(&ci, packed.get(), true);
+        bind_attr_loc(packed.get(), &ci.attrs);
         ++dff_only;
         new_cells.push_back(std::move(packed));
     }
@@ -677,6 +691,7 @@ void NgUltraPacker::pack_cys(void)
         CellInfo *ci = cell.second.get();
         if (ci->type != id_NX_CY)
             continue;
+        bind_attr_loc(ci, &ci->attrs);
         NetInfo *ci_net = ci->getPort(id_CI);
         if (!ci_net || !ci_net->driver.cell || ci_net->driver.cell->type != id_NX_CY) {
             root_cys.push_back(ci);
@@ -876,6 +891,7 @@ void NgUltraPacker::pack_rfs(void)
                 log_error("Unknown mode %d for cell '%s'.\n", mode, ci.name.c_str(ctx));
         }        
         ci.cluster = ci.name;
+        bind_attr_loc(&ci, &ci.attrs);
 
         for (int i = 1; i <= 18; i++) {
             connect_gnd_if_unconnected(&ci, ctx->idf("I%d",i));
@@ -1212,6 +1228,7 @@ void NgUltraPacker::pack_rams(void)
         if (!ci.type.in(id_NX_RAM))
             continue;
         ci.type = id_RAM;
+        bind_attr_loc(&ci, &ci.attrs);
         // These ACKx and BCKx exists for NX_RAM, but are not available on NX_ULTRA
         ci.disconnectPort(id_ACKC);
         ci.disconnectPort(id_ACKD);
