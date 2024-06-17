@@ -20,6 +20,7 @@
 
 #include "pack.h"
 #include <algorithm>
+#include <boost/algorithm/string.hpp>
 #include <boost/optional.hpp>
 #include <iterator>
 #include <queue>
@@ -73,13 +74,16 @@ void NgUltraPacker::pack_constants(void)
     h.replace_constants(CellTypePort(id_BEYOND_FE, id_LO), CellTypePort(id_BEYOND_FE, id_LO), vcc_params, gnd_params);
 }
 
-void NgUltraPacker::remove_constants()
+void remove_constants(Context *ctx)
 {
     log_info("Removing constants..\n");
     auto fnd_cell = ctx->cells.find(ctx->id("$PACKER_VCC_DRV"));
     if (fnd_cell != ctx->cells.end()) {
         auto fnd_net = ctx->nets.find(ctx->id("$PACKER_VCC"));
         if (fnd_net != ctx->nets.end() && fnd_net->second->users.entries()==0) {
+            BelId bel = (*fnd_cell).second.get()->bel;
+            if (bel != BelId())
+                ctx->unbindBel(bel);
             ctx->cells.erase(fnd_cell);
             ctx->nets.erase(fnd_net);
             log_info("    Removed unused VCC cell\n");
@@ -89,6 +93,9 @@ void NgUltraPacker::remove_constants()
     if (fnd_cell != ctx->cells.end()) {
         auto fnd_net = ctx->nets.find(ctx->id("$PACKER_GND"));
         if (fnd_net != ctx->nets.end() && fnd_net->second->users.entries()==0) {
+            BelId bel = (*fnd_cell).second.get()->bel;
+            if (bel != BelId())
+                ctx->unbindBel(bel);
             ctx->cells.erase(fnd_cell);
             ctx->nets.erase(fnd_net);
             log_info("    Removed unused GND cell\n");
@@ -1261,8 +1268,45 @@ void NgUltraImpl::pack()
     packer.pack_cys();
     packer.pack_lut_dffs();
     packer.pack_dffs();
-    packer.remove_constants();
     packer.promote_globals();
+}
+
+
+void NgUltraImpl::postPlace()
+{
+    log_break();
+    log_info("Limiting routing...\n");
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (!ci.type.in(id_CY))
+            continue;
+        // In case A input is actually used, but it is connectd to GND
+        // it is considered that signal is comming from RI1 crossbar.
+        // We need to prevent router to use that crossbar output for
+        // any other signal.
+        Loc loc = ctx->getBelLocation(ci.bel);
+        for (int i=1;i<=4;i++) {
+            IdString port = ctx->idf("A%d",i);
+            NetInfo *net = ci.getPort(port);
+            if (!net)
+                continue;
+            if (net->name.in(ctx->id("$PACKER_GND"))) {
+                BelId bel = ctx->getBelByLocation(loc);
+                WireId dwire = ctx->getBelPinWire(bel, port);
+                for (PipId pip : ctx->getPipsUphill(dwire)) {
+                    WireId src = ctx->getPipSrcWire(pip);
+                    std::string src_name = ctx->getWireName(src)[1].c_str(ctx);
+                    if (boost::starts_with(src_name,"RI1")) {
+                        for (PipId pip2 : ctx->getPipsDownhill(src)) {
+                            blocked_pips.emplace(pip2);
+                        }
+                    }
+                }
+                ci.disconnectPort(port); // Disconnect A
+            }
+        }
+    }
+    remove_constants(ctx);
 }
 
 void NgUltraImpl::route_clocks()

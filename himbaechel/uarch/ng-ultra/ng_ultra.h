@@ -45,6 +45,7 @@ struct NgUltraImpl : HimbaechelAPI
 
     // Flow management
     void pack() override;
+    void postPlace() override;
     void preRoute() override;
     void postRoute() override;
 
