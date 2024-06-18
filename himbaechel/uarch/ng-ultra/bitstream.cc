@@ -421,6 +421,15 @@ struct BitstreamJsonBackend
         close_instance();
     }
 
+    void write_dsp(CellInfo *cell) {
+        open_instance(cell);
+        add_config("raw_config0", extract_bits_or_default(cell->params, ctx->id("raw_config0"), 27));
+        add_config("raw_config1", extract_bits_or_default(cell->params, ctx->id("raw_config1"), 24));
+        add_config("raw_config2", extract_bits_or_default(cell->params, ctx->id("raw_config2"), 14));
+        add_config("raw_config3", extract_bits_or_default(cell->params, ctx->id("raw_config3"), 3));
+        close_instance();
+    }
+
     void write_interconnections()
     {
         for (auto &net : ctx->nets) {
@@ -488,7 +497,7 @@ struct BitstreamJsonBackend
                 //case id_XCDC.index:
                 //case id_CRX.index:
                 //case id_CTX.index:
-                //case id_DSP.index:
+                case id_DSP.index: write_dsp(cell.second.get()); break;
                 case id_PLL.index: write_pll(cell.second.get()); break;
                 //case id_PMA.index:
                 //case id_Service.index:

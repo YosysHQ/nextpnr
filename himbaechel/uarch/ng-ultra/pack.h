@@ -51,6 +51,7 @@ struct NgUltraPacker
     void pack_rfs();
 
     void pack_rams();
+    void pack_dsps();
 
     // IO
     void pack_iobs();

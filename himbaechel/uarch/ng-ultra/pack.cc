@@ -1294,6 +1294,22 @@ void NgUltraPacker::pack_rams(void)
     }
 }
 
+void NgUltraPacker::pack_dsps(void)
+{
+    log_info("Packing DSPs..\n");
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (!ci.type.in(id_NX_DSP_U))
+            continue;
+        ci.type = id_DSP;
+        bind_attr_loc(&ci, &ci.attrs);
+
+        for (auto &p : ci.ports) {
+            if (p.second.type == PortType::PORT_IN) 
+                disconnect_if_gnd(&ci, p.first);
+        }
+    }
+}
 void NgUltraPacker::setup()
 {
     // Note: These are per Cell type not Bel type
@@ -1381,6 +1397,7 @@ void NgUltraImpl::pack()
     packer.pack_plls();
     packer.pack_wfgs();
     packer.pack_rams();
+    packer.pack_dsps();
     packer.pack_rfs();
     packer.pack_cys();
     packer.pack_lut_dffs();
