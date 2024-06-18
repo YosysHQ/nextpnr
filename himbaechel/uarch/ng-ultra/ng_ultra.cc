@@ -78,6 +78,9 @@ void NgUltraImpl::init(Context *ctx)
             } else if (ctx->getBelName(bel)[1] == ctx->id("D09P_CLK.IOTP")) {
                 global_capable_bels.emplace(bel,id_P19RI);
             }
+        } else if (ctx->getBelType(bel) == id_GCK) {
+            int lobe = ctx->getBelName(bel)[1].c_str(ctx)[1] - '0';
+            gck_per_lobe[lobe].emplace(bel);
         }
         locations.emplace(stringf("%s:%s",tile_name(bel.tile).c_str(), ctx->getBelName(bel)[1].c_str(ctx)),bel);
     }

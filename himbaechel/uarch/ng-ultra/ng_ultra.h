@@ -62,6 +62,7 @@ struct NgUltraImpl : HimbaechelAPI
 
     bool checkPipAvail(PipId pip) const override { return blocked_pips.count(pip)==0; }
     bool checkPipAvailForNet(PipId pip, const NetInfo *net) const override { return checkPipAvail(pip); };
+    int tile_lobe(int tile) const;
 public:
     IdString tile_name_id(int tile) const;
     std::string tile_name(int tile) const;
@@ -70,6 +71,7 @@ public:
     dict<std::string, std::string> bank_voltage;
     dict<BelId,IdString> global_capable_bels;
     dict<std::string,BelId> locations;
+    dict<int,pool<BelId>> gck_per_lobe;
 
     pool<PipId> blocked_pips;
     dict<IdString, std::deque<BelId>> wfg_c_per_bank;
@@ -86,7 +88,6 @@ private:
     bool get_mux_data(WireId wire, uint8_t *value);
 
     const NGUltraTileInstExtraDataPOD *tile_extra_data(int tile) const;
-    int tile_lobe(int tile) const;
 
 };
 

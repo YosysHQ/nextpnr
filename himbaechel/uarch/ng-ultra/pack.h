@@ -65,6 +65,10 @@ struct NgUltraPacker
 
     void setup();
 
+    // Post placement
+    void duplicate_gck();
+    void insert_bypass_gck();
+
 private:
     void set_lut_input_if_constant(CellInfo *cell, IdString input);
     void lut_to_fe(CellInfo *lut, CellInfo *fe, bool no_dff, Property lut_table);

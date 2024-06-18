@@ -1456,8 +1456,93 @@ void NgUltraImpl::postPlace()
         }
     }
     remove_constants();
+
+
+    NgUltraPacker packer(ctx, this);
+    log_break();
+    log_info("Running post-placement ...\n");
+    packer.duplicate_gck();
+    packer.insert_bypass_gck();
+    //log_info("Running post-placement legalisation...\n");
+    log_break();
+    ctx->assignArchInfo();
 }
 
+void NgUltraPacker::duplicate_gck()
+{
+    //log_info("Duplicating existing GCKs...\n");
+}
+
+void NgUltraPacker::insert_bypass_gck()
+{
+    dict<IdString,pool<IdString>> glb_sources;
+    glb_sources[id_IOM].insert(id_CKO1);
+    glb_sources[id_IOM].insert(id_CKO2);
+    glb_sources[id_WFB].insert(id_ZO);
+    glb_sources[id_WFG].insert(id_ZO);
+
+    dict<IdString,pool<IdString>> clock_sinks;
+    clock_sinks[id_BEYOND_FE].insert(id_CK);
+    //clock_sinks[id_DFF].insert(id_CK); // This is part of BEYOND_FE
+    clock_sinks[id_RF].insert(id_WCK);
+    clock_sinks[id_RFSP].insert(id_WCK);
+    clock_sinks[id_XHRF].insert(id_WCK1);
+    clock_sinks[id_XHRF].insert(id_WCK2);
+    clock_sinks[id_XWRF].insert(id_WCK1);
+    clock_sinks[id_XWRF].insert(id_WCK2);
+    clock_sinks[id_XPRF].insert(id_WCK1);
+    clock_sinks[id_XPRF].insert(id_WCK2);
+    clock_sinks[id_RAM].insert(id_ACK);
+    clock_sinks[id_RAM].insert(id_BCK);
+    //glb_sources[id_BFR].insert(id_O);
+    //glb_sources[id_GCK].insert(id_SO);
+
+    log_info("Inserting bypass GCKs...\n");
+    for (auto &net : ctx->nets) {
+        NetInfo *glb_net = net.second.get();
+        if (!glb_net->driver.cell)
+            continue;
+
+        // check if we have a global clock net, skip otherwise
+        if (!(glb_sources.count(glb_net->driver.cell->type) && glb_sources[glb_net->driver.cell->type].count(glb_net->driver.port)))
+            continue;
+
+        log_info("    Global signal '%s'\n", glb_net->name.c_str(ctx));
+        dict<int, std::vector<PortRef>> connections;
+        for (const auto &usr : glb_net->users) {
+            if (clock_sinks.count(usr.cell->type) && clock_sinks[usr.cell->type].count(usr.port)) {
+                if (usr.cell->bel==BelId()) {
+                    log_error("Cell '%s' not placed\n",usr.cell->name.c_str(ctx));
+                }
+                int lobe = uarch->tile_lobe(usr.cell->bel.tile);
+                if (lobe > 0) {
+                    connections[lobe].push_back(usr);
+                    usr.cell->disconnectPort(usr.port);
+                }
+            }
+        }
+        for (auto &conn : connections) {
+            pool<BelId>& gck = uarch->gck_per_lobe[conn.first];
+            if (gck.size()==0)
+                log_error("No GCK left to promote global signal.\n");
+
+            BelId bel = gck.pop();
+
+            log_info("        Create GCK for lobe %d\n",conn.first);
+            CellInfo *gck_cell = create_cell_ptr(id_GCK, ctx->id(glb_net->name.str(ctx) + "$gck_"+ std::to_string(conn.first)));
+            gck_cell->params[id_std_mode] = Property("BYPASS");
+            gck_cell->connectPort(id_SI1, glb_net);
+            NetInfo *new_clk = ctx->createNet(ctx->id(gck_cell->name.str(ctx)));
+            gck_cell->connectPort(id_SO, new_clk);
+            for (const auto &usr : conn.second) {
+                CellInfo *cell = usr.cell;
+                IdString port = usr.port;
+                cell->connectPort(port, new_clk);                
+            }
+            ctx->bindBel(bel, gck_cell, PlaceStrength::STRENGTH_LOCKED);
+        }
+    }
+}
 void NgUltraImpl::route_clocks()
 {
     dict<IdString,pool<IdString>> glb_sources;
