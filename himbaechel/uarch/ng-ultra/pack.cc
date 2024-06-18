@@ -1052,6 +1052,15 @@ void NgUltraPacker::insert_ioms()
             ctx->cells.erase(bfr->name);
         }
     }
+
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (!ci.type.in(id_IOM))
+            continue;
+        insert_wfb(&ci, id_CKO1);
+        insert_wfb(&ci, id_CKO2);
+    }
+
     if (bfr_removed)
         log_info("    Removed %d unused BFR\n", bfr_removed);
 }
@@ -1111,14 +1120,22 @@ static int memory_addr_bits(int config,bool ecc)
 void NgUltraPacker::insert_wfb(CellInfo *cell, IdString port)
 {
     NetInfo *net = cell->getPort(port);
-    if (net) {
-        CellInfo *wfb = create_cell_ptr(id_WFB, ctx->id(std::string(cell->name.c_str(ctx)) + "$" + port.c_str(ctx)));
-        cell->disconnectPort(port);
-        wfb->connectPort(id_ZO, net);
-        NetInfo *new_out = ctx->createNet(ctx->id(net->name.str(ctx) + "$" + port.c_str(ctx)));
-        cell->connectPort(port, new_out);
-        wfb->connectPort(id_ZI, new_out);
+    if (!net) return;
+    IdString bank;
+    if (cell->type == id_IOM) {
+        bank = uarch->tile_name_id(cell->bel.tile);
+        log("bank:%s\n",bank.c_str(ctx));
     }
+    BelId bel = uarch->wfg_c_per_bank[bank].back();
+    uarch->wfg_c_per_bank[bank].pop_back();
+    log_info("    Inserting WFB for cell '%s' port '%s'\n", cell->name.c_str(ctx), port.c_str(ctx));
+    CellInfo *wfb = create_cell_ptr(id_WFB, ctx->id(std::string(cell->name.c_str(ctx)) + "$" + port.c_str(ctx)));
+    cell->disconnectPort(port);
+    wfb->connectPort(id_ZO, net);
+    NetInfo *new_out = ctx->createNet(ctx->id(net->name.str(ctx) + "$" + port.c_str(ctx)));
+    cell->connectPort(port, new_out);
+    wfb->connectPort(id_ZI, new_out);
+    ctx->bindBel(bel, wfb, PlaceStrength::STRENGTH_LOCKED);
 }
 
 void NgUltraPacker::constrain_location(CellInfo *cell)
@@ -1497,7 +1514,7 @@ void NgUltraImpl::route_clocks()
                 }
             }
             if (dest == WireId()) {
-                log_info("            failed to find a route using dedicated resources.\n");
+                log_info("            failed to find a route using dedicated resources. %s -> %s\n",glb_net->driver.cell->name.c_str(ctx),usr.cell->name.c_str(ctx));
             }
             while (backtrace.count(dest)) {
                 auto uh = backtrace[dest];

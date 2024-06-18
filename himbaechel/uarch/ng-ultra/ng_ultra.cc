@@ -55,8 +55,23 @@ void NgUltraImpl::init(Context *ctx)
     for (auto bel : ctx->getBels()) {
         if (ctx->getBelType(bel) == id_IOM) {
             std::deque<BelId> wfgs;
+            std::deque<BelId> plls;
             IdString bank = tile_name_id(bel.tile);
             iom_bels.emplace(bank,bel);
+            WireId belpin = ctx->getBelPinWire(bel,id_CKO1);
+            for (auto dh : ctx->getPipsDownhill(belpin)) {
+                WireId pip_dst = ctx->getPipDstWire(dh);
+                for (const auto &item : ctx->getWireBelPins(pip_dst)) {
+                    if (boost::contains(ctx->nameOfBel(item.bel),"WFG_C")) {
+                        wfgs.push_back(item.bel);
+                    }
+                    else if (boost::contains(ctx->nameOfBel(item.bel),"PLL")) {
+                        plls.push_back(item.bel);
+                    }
+                }
+            }
+            wfg_c_per_bank.emplace(bank,wfgs);
+            pll_per_bank.emplace(bank,plls);
         } else if (ctx->getBelType(bel) == id_IOTP) {
             if (ctx->getBelName(bel)[1] == ctx->id("D08P_CLK.IOTP")) {
                 global_capable_bels.emplace(bel,id_P17RI);

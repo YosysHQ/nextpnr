@@ -384,9 +384,9 @@ def create_tile_types(ch: Chip, bels, bel_pins, crossbars, interconnects, muxes,
                             pd = tt.create_pip(f"{name}."+inp,f"{name}."+out,"MATRIX_PIP")
                             pd.extra_data = PipExtraData(ch.strs.id(f"{name}."+inp),PIP_EXTRA_MUX,int(inp[1:])-1,int(out[1:])-1)
 
-                elif (tile_type.startswith("CKG") and bel=="WFG"):
-                    by = tt.create_pip(f"{name}.ZI",f"{name}.ZO","BYPASS")
-                    by.extra_data = PipExtraData(ch.strs.id(name),PIP_EXTRA_BYPASS,0,0)
+                #elif (tile_type.startswith("CKG") and bel=="WFG"):
+                #    by = tt.create_pip(f"{name}.ZI",f"{name}.ZO","BYPASS")
+                #    by.extra_data = PipExtraData(ch.strs.id(name),PIP_EXTRA_BYPASS,0,0)
                 elif (tile_type.startswith("TUBE") and bel=="GCK"):
                     # 20 clock signals comming to 20 GCK, SI1 is bypass
                     by = tt.create_pip(f"{name}.SI1",f"{name}.SO","BYPASS")

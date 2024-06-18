@@ -72,6 +72,8 @@ public:
     dict<std::string,BelId> locations;
 
     pool<PipId> blocked_pips;
+    dict<IdString, std::deque<BelId>> wfg_c_per_bank;
+    dict<IdString, std::deque<BelId>> pll_per_bank;
 
 private:
     void write_bitstream_json(const std::string &filename);
