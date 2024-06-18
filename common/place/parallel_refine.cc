@@ -71,9 +71,9 @@ struct ThreadState : DetailPlacerThreadState
         BelId old_bel = cell->bel;
         CellInfo *bound = nullptr;
         {
-            #if !defined(NPNR_DISABLE_THREADS)
-                std::shared_lock<std::shared_timed_mutex> l(g.archapi_mutex);
-            #endif
+#if !defined(NPNR_DISABLE_THREADS)
+            std::shared_lock<std::shared_timed_mutex> l(g.archapi_mutex);
+#endif
             bound = ctx->getBoundBelCell(new_bel);
         }
         if (bound && (bound->belStrength > STRENGTH_STRONG || bound->cluster != ClusterId()))
@@ -127,9 +127,9 @@ struct ThreadState : DetailPlacerThreadState
                 used_bels.insert(db.second);
                 CellInfo *bound = nullptr;
                 {
-                    #if !defined(NPNR_DISABLE_THREADS)
-                        std::shared_lock<std::shared_timed_mutex> l(g.archapi_mutex);
-                    #endif
+#if !defined(NPNR_DISABLE_THREADS)
+                    std::shared_lock<std::shared_timed_mutex> l(g.archapi_mutex);
+#endif
                     bound = ctx->getBoundBelCell(db.second);
                 }
                 if (bound) {
@@ -160,9 +160,9 @@ struct ThreadState : DetailPlacerThreadState
                 } else {
                     bool avail = false;
                     {
-                        #if !defined(NPNR_DISABLE_THREADS)
-                            std::shared_lock<std::shared_timed_mutex> l(g.archapi_mutex);
-                        #endif
+#if !defined(NPNR_DISABLE_THREADS)
+                        std::shared_lock<std::shared_timed_mutex> l(g.archapi_mutex);
+#endif
                         avail = ctx->checkBelAvail(db.second);
                     }
                     if (!avail)

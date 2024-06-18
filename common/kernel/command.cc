@@ -391,7 +391,6 @@ po::options_description CommandHandler::getGeneralOptions()
 
     general.add_options()("static-dump-density", "write density csv files during placer-static flow");
 
-
 #if !defined(NPNR_DISABLE_THREADS)
     general.add_options()("parallel-refine", "use new experimental parallelised engine for placement refinement");
 #endif
@@ -548,7 +547,6 @@ void CommandHandler::setupContext(Context *ctx)
 
     if (vm.count("static-dump-density"))
         ctx->settings[ctx->id("static/dump_density")] = true;
-
 
     // Setting default values
     if (ctx->settings.find(ctx->id("target_freq")) == ctx->settings.end())

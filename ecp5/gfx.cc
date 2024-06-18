@@ -134,9 +134,9 @@ void gfxTileBel(std::vector<GraphicElement> &g, int x, int y, int z, int w, int 
         }
         g.push_back(el);
     } else if (bel_type == id_DCCA) {
-        el.x1 = x + switchbox_x1 + (z)*0.025;
+        el.x1 = x + switchbox_x1 + (z) * 0.025;
         el.y1 = y + 0.14;
-        el.x2 = x + switchbox_x1 + (z)*0.025 + 0.020;
+        el.x2 = x + switchbox_x1 + (z) * 0.025 + 0.020;
         el.y2 = y + 0.18;
         g.push_back(el);
     } else if (bel_type.in(id_DP16KD, id_MULT18X18D, id_ALU54B)) {

@@ -420,7 +420,8 @@ class StaticPlacer
                             if (!ctx->isBelLocationValid(bel)) {
                                 ctx->unbindBel(bel);
                             } else {
-                                log_info("    placed potpourri cell '%s' at bel '%s'\n", ctx->nameOf(ci), ctx->nameOfBel(bel));
+                                log_info("    placed potpourri cell '%s' at bel '%s'\n", ctx->nameOf(ci),
+                                         ctx->nameOfBel(bel));
                                 break;
                             }
                         }
@@ -910,7 +911,7 @@ class StaticPlacer
                 force_sum += std::abs(mc.ref_dens_grad.x) + std::abs(mc.ref_dens_grad.y);
             }
             const float eta = 1e-1;
-            float init_dens_penalty = eta * (wirelen_sum / force_sum); 
+            float init_dens_penalty = eta * (wirelen_sum / force_sum);
             log_info("initial density penalty: %f\n", init_dens_penalty);
             dens_penalty.resize(groups.size(), init_dens_penalty);
             update_potentials(true); // set initial potential
@@ -1003,14 +1004,15 @@ class StaticPlacer
     float penalty_beta = 2.0e3f;
     float alpha_l = 1.05f, alpha_h = 1.06f;
     double penalty_incr = alpha_h - 1;
-    void update_penalties() {
+    void update_penalties()
+    {
         float pot_norm = 0;
         // compute L2-norm of relative system potential
         std::vector<float> rel_pot;
         for (int g = 0; g < int(groups.size()); g++) {
             auto &group = groups.at(g);
             if (!group.enabled)
-               continue;
+                continue;
             float phi_hat = group.curr_potential / group.init_potential;
             rel_pot.push_back(phi_hat);
             pot_norm += phi_hat * phi_hat;
@@ -1019,16 +1021,15 @@ class StaticPlacer
         log_info("pot_norm: %f\n", pot_norm);
         // update penalty multiplier (ELFPlace equation 22)
         double log_term = std::log(penalty_beta * pot_norm + 1);
-        penalty_incr = penalty_incr * ((log_term  / (log_term + 1)) * (alpha_h - alpha_l) + alpha_l);
+        penalty_incr = penalty_incr * ((log_term / (log_term + 1)) * (alpha_h - alpha_l) + alpha_l);
         // update density penalties (ELFPlace equation 21)
         for (int g = 0; g < int(groups.size()); g++) {
             if (!groups.at(g).enabled)
-                 continue;
+                continue;
             float next_penalty = dens_penalty.at(g) + (penalty_incr * (rel_pot.at(g) / pot_norm));
             dens_penalty.at(g) = next_penalty;
         }
     }
-
 
     void initialise()
     {
@@ -1152,7 +1153,8 @@ class StaticPlacer
             RealPair drv_loc = cell_loc(ni->driver.cell, false);
             for (auto usr : ni->users.enumerate()) {
                 RealPair usr_loc = cell_loc(usr.value.cell, false);
-                delay_t est_delay = cfg.timing_c + cfg.timing_mx * std::abs(drv_loc.x - usr_loc.x) + cfg.timing_my * std::abs(drv_loc.y - usr_loc.y);
+                delay_t est_delay = cfg.timing_c + cfg.timing_mx * std::abs(drv_loc.x - usr_loc.x) +
+                                    cfg.timing_my * std::abs(drv_loc.y - usr_loc.y);
                 tmg.set_route_delay(CellPortKey(usr.value), DelayPair(est_delay));
             }
         }
