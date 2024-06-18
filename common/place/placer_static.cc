@@ -801,6 +801,8 @@ class StaticPlacer
         });
     }
 
+    std::vector<std::pair<CellInfo *, RealPair>> gathered_wirelen_grad;
+
     float wirelen_grad(CellInfo *cell, Axis axis, bool ref)
     {
         float gradient = 0;
@@ -878,16 +880,26 @@ class StaticPlacer
             // total gradient computed at the end
             (ref ? cell.ref_total_grad : cell.total_grad) = RealPair(0, 0);
         }
-        // Second loop: sum up wirelength gradients across concrete cell instances
-        for (auto &cell : ctx->cells) {
-            CellInfo *ci = cell.second.get();
-            if (ci->udata == -1)
-                continue;
-            auto &mc = mcells.at(ci->udata);
-            // TODO: exploit parallelism across axes
+        if (gathered_wirelen_grad.empty()) {
+            for (auto &cell : ctx->cells) {
+                CellInfo *ci = cell.second.get();
+                if (ci->udata == -1)
+                    continue;
+                gathered_wirelen_grad.emplace_back(ci, RealPair());
+            }
+        }
+        // Compute wirelength gradients for cells in parallel, this is a slow part
+        pool.run(gathered_wirelen_grad.size(), [&](int i) {
+            auto &entry = gathered_wirelen_grad.at(i);
+            CellInfo *ci = entry.first;
             float wl_gx = wirelen_grad(ci, Axis::X, ref);
             float wl_gy = wirelen_grad(ci, Axis::Y, ref);
-            (ref ? mc.ref_wl_grad : mc.wl_grad) += RealPair(wl_gx, wl_gy);
+            entry.second = RealPair(wl_gx, wl_gy);
+        });
+        // Second loop: sum up wirelength gradients across concrete cell instances
+        for (auto entry : gathered_wirelen_grad) {
+            auto &mc = mcells.at(entry.first->udata);
+            (ref ? mc.ref_wl_grad : mc.wl_grad) += entry.second;
         }
         if (init_penalty) {
             // set initial density penalty
