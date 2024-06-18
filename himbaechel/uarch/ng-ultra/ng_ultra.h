@@ -76,6 +76,7 @@ private:
     void write_bitstream_json(const std::string &filename);
     void route_clocks();
     void parse_csv(const std::string &filename);
+    void remove_constants();
 
     // Misc utility functions
     bool get_mux_data(BelId bel, IdString port, uint8_t *value);

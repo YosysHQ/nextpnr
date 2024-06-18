@@ -74,7 +74,7 @@ void NgUltraPacker::pack_constants(void)
     h.replace_constants(CellTypePort(id_BEYOND_FE, id_LO), CellTypePort(id_BEYOND_FE, id_LO), vcc_params, gnd_params);
 }
 
-void remove_constants(Context *ctx)
+void NgUltraImpl::remove_constants()
 {
     log_info("Removing constants..\n");
     auto fnd_cell = ctx->cells.find(ctx->id("$PACKER_VCC_DRV"));
@@ -1284,18 +1284,16 @@ void NgUltraImpl::postPlace()
         // it is considered that signal is comming from RI1 crossbar.
         // We need to prevent router to use that crossbar output for
         // any other signal.
-        Loc loc = ctx->getBelLocation(ci.bel);
         for (int i=1;i<=4;i++) {
             IdString port = ctx->idf("A%d",i);
             NetInfo *net = ci.getPort(port);
             if (!net)
                 continue;
             if (net->name.in(ctx->id("$PACKER_GND"))) {
-                BelId bel = ctx->getBelByLocation(loc);
-                WireId dwire = ctx->getBelPinWire(bel, port);
+                WireId dwire = ctx->getBelPinWire(ci.bel, port);
                 for (PipId pip : ctx->getPipsUphill(dwire)) {
                     WireId src = ctx->getPipSrcWire(pip);
-                    std::string src_name = ctx->getWireName(src)[1].c_str(ctx);
+                    const std::string src_name = ctx->getWireName(src)[1].str(ctx);
                     if (boost::starts_with(src_name,"RI1")) {
                         for (PipId pip2 : ctx->getPipsDownhill(src)) {
                             blocked_pips.emplace(pip2);
@@ -1306,7 +1304,7 @@ void NgUltraImpl::postPlace()
             }
         }
     }
-    remove_constants(ctx);
+    remove_constants();
 }
 
 void NgUltraImpl::route_clocks()
