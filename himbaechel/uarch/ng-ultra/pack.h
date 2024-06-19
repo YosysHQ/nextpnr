@@ -60,8 +60,10 @@ struct NgUltraPacker
     void pack_gcks();
     void pack_plls();
     void pack_wfgs();
+    void pre_place();
 
     void insert_ioms();
+    void insert_wfbs();
 
     void setup();
 

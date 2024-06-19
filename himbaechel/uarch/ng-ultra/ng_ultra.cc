@@ -54,8 +54,8 @@ void NgUltraImpl::init(Context *ctx)
     HimbaechelAPI::init(ctx);
     for (auto bel : ctx->getBels()) {
         if (ctx->getBelType(bel) == id_IOM) {
-            std::deque<BelId> wfgs;
-            std::deque<BelId> plls;
+            pool<BelId> wfgs;
+            pool<BelId> plls;
             IdString bank = tile_name_id(bel.tile);
             iom_bels.emplace(bank,bel);
             WireId belpin = ctx->getBelPinWire(bel,id_CKO1);
@@ -63,10 +63,12 @@ void NgUltraImpl::init(Context *ctx)
                 WireId pip_dst = ctx->getPipDstWire(dh);
                 for (const auto &item : ctx->getWireBelPins(pip_dst)) {
                     if (boost::contains(ctx->nameOfBel(item.bel),"WFG_C")) {
-                        wfgs.push_back(item.bel);
+                        wfgs.emplace(item.bel);
+                        unused_wfg.emplace(item.bel);
                     }
                     else if (boost::contains(ctx->nameOfBel(item.bel),"PLL")) {
-                        plls.push_back(item.bel);
+                        plls.emplace(item.bel);
+                        unused_pll.emplace(item.bel);
                     }
                 }
             }

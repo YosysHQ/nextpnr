@@ -48,6 +48,9 @@ inline bool is_fe(const BaseCtx *ctx, const CellInfo *cell) { return cell->type 
 // Return true if a cell is a DFR
 inline bool is_dfr(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_NX_DFR; }
 
+// Return true if a cell is a WFG/WFB
+inline bool is_wfg(const BaseCtx *ctx, const CellInfo *cell) { return cell->type.in(id_WFB, id_WFG); }
+
 // Process the contents of packed_cells
 void NgUltraPacker::flush_cells()
 {
@@ -1052,17 +1055,32 @@ void NgUltraPacker::insert_ioms()
             ctx->cells.erase(bfr->name);
         }
     }
-
-    for (auto &cell : ctx->cells) {
-        CellInfo &ci = *cell.second;
-        if (!ci.type.in(id_IOM))
-            continue;
-        insert_wfb(&ci, id_CKO1);
-        insert_wfb(&ci, id_CKO2);
-    }
-
     if (bfr_removed)
         log_info("    Removed %d unused BFR\n", bfr_removed);
+}
+
+void NgUltraPacker::insert_wfbs()
+{
+    log_info("Inserting WFBs for IOMs...\n");
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (ci.type.in(id_IOM)) {
+            insert_wfb(&ci, id_CKO1);
+            insert_wfb(&ci, id_CKO2);
+        } else if (ci.type.in(id_PLL)) {
+            insert_wfb(&ci, id_VCO);
+            insert_wfb(&ci, id_REFO);
+            insert_wfb(&ci, id_LDFO);
+            insert_wfb(&ci, id_CLK_DIV1);
+            insert_wfb(&ci, id_CLK_DIV2);
+            insert_wfb(&ci, id_CLK_DIV3);
+            insert_wfb(&ci, id_CLK_DIVD1);
+            insert_wfb(&ci, id_CLK_DIVD2);
+            insert_wfb(&ci, id_CLK_DIVD3);
+            insert_wfb(&ci, id_CLK_DIVD4);
+            insert_wfb(&ci, id_CLK_DIVD5);
+        }
+    }
 }
 
 void NgUltraPacker::mandatory_param(CellInfo *cell, IdString param)
@@ -1121,13 +1139,9 @@ void NgUltraPacker::insert_wfb(CellInfo *cell, IdString port)
 {
     NetInfo *net = cell->getPort(port);
     if (!net) return;
-    IdString bank;
-    if (cell->type == id_IOM) {
-        bank = uarch->tile_name_id(cell->bel.tile);
-        log("bank:%s\n",bank.c_str(ctx));
-    }
-    BelId bel = uarch->wfg_c_per_bank[bank].back();
-    uarch->wfg_c_per_bank[bank].pop_back();
+
+    CellInfo *wfg = net_only_drives(ctx, net, is_wfg, id_ZI, true);
+    if (wfg) return;
     log_info("    Inserting WFB for cell '%s' port '%s'\n", cell->name.c_str(ctx), port.c_str(ctx));
     CellInfo *wfb = create_cell_ptr(id_WFB, ctx->id(std::string(cell->name.c_str(ctx)) + "$" + port.c_str(ctx)));
     cell->disconnectPort(port);
@@ -1135,7 +1149,6 @@ void NgUltraPacker::insert_wfb(CellInfo *cell, IdString port)
     NetInfo *new_out = ctx->createNet(ctx->id(net->name.str(ctx) + "$" + port.c_str(ctx)));
     cell->connectPort(port, new_out);
     wfb->connectPort(id_ZI, new_out);
-    ctx->bindBel(bel, wfb, PlaceStrength::STRENGTH_LOCKED);
 }
 
 void NgUltraPacker::constrain_location(CellInfo *cell)
@@ -1180,17 +1193,6 @@ void NgUltraPacker::pack_plls(void)
         disconnect_if_gnd(&ci, id_EXT_CAL5);
         disconnect_if_gnd(&ci, id_EXT_CAL_LOCKED);
         disconnect_if_gnd(&ci, id_ARST_CAL);
-        insert_wfb(&ci, id_VCO);
-        insert_wfb(&ci, id_REFO);
-        insert_wfb(&ci, id_LDFO);
-        insert_wfb(&ci, id_CLK_DIV1);
-        insert_wfb(&ci, id_CLK_DIV2);
-        insert_wfb(&ci, id_CLK_DIV3);
-        insert_wfb(&ci, id_CLK_DIVD1);
-        insert_wfb(&ci, id_CLK_DIVD2);
-        insert_wfb(&ci, id_CLK_DIVD3);
-        insert_wfb(&ci, id_CLK_DIVD4);
-        insert_wfb(&ci, id_CLK_DIVD5);
     }
 }
 
@@ -1363,7 +1365,7 @@ void NgUltraPacker::setup()
     // clock_sinks[id_XWFIFO].insert(id_WCK1);
     // clock_sinks[id_XWFIFO].insert(id_WCK2);
 
-    // clock_sinks[id_DSP].insert(id_CK);
+    clock_sinks[id_DSP].insert(id_CK);
 
     clock_sinks[id_PLL].insert(id_CLK_CAL);
     clock_sinks[id_PLL].insert(id_FBK);
@@ -1403,25 +1405,95 @@ void NgUltraImpl::pack()
     if (args.options.count("csv")) {
         parse_csv(args.options.at("csv"));
     }
+
+    // Setup
     NgUltraPacker packer(ctx, this);
     packer.setup();
     packer.pack_constants();
     packer.update_lut_init();
     packer.update_dffs();
-    packer.pack_iobs();
-    packer.pack_ioms();
-    packer.pack_gcks();
-    packer.pack_plls();
-    packer.pack_wfgs();
+
+    // CGB
     packer.pack_rams();
     packer.pack_dsps();
+
+    // TILE
     packer.pack_rfs();
     packer.pack_cys();
     packer.pack_lut_dffs();
     packer.pack_dffs();
+
+    // Tube
+    packer.pack_gcks();
+
+    // Ring
+    packer.pack_iobs();
+    packer.pack_ioms();
+    packer.pack_plls();
+    packer.pack_wfgs();
     packer.insert_ioms();
+    packer.insert_wfbs();
+
+    packer.pre_place();
 }
 
+
+void NgUltraPacker::pre_place(void)
+{
+    log_info("Pre-placing PLLs..\n");
+    
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (!ci.type.in(id_PLL))
+            continue;
+        // Remove from list those that are used
+        if (ci.bel != BelId()) {
+            uarch->unused_pll.erase(ci.bel);
+        }
+    }
+    // First process those on dedicated clock pins
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (!ci.type.in(id_PLL) || ci.bel != BelId())
+            continue;
+
+        NetInfo *ref = ci.getPort(id_REF);
+        if (ref && ref->driver.cell && ref->driver.cell->type == id_IOM) {
+            IdString bank= uarch->tile_name_id(ref->driver.cell->bel.tile);
+            bool found = false;
+            for (auto &bel : uarch->pll_per_bank[bank]) {
+                if (uarch->unused_pll.count(bel)) {
+                    uarch->unused_pll.erase(bel);
+                    log_info("    Using PLL in '%s' for cell '%s'.\n", uarch->tile_name(bel.tile).c_str(), ci.name.c_str(ctx));
+                    ctx->bindBel(bel, &ci, PlaceStrength::STRENGTH_LOCKED);
+                    found = true;
+                    break;
+                }
+            }
+            if (!found)
+                log_error("    No more available PLLs for driving '%s'.\n", ci.name.c_str(ctx));
+        }
+    }
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (!ci.type.in(id_PLL) || ci.bel != BelId())
+            continue;
+        log_warning("    PLL '%s' is not driven by clock dedicated pin.\n", ci.name.c_str(ctx));
+        if (uarch->unused_pll.empty())
+            log_error("    No more available PLLs for driving '%s'.\n", ci.name.c_str(ctx));
+        BelId bel = *uarch->unused_pll.begin();
+        uarch->unused_pll.erase(bel);
+        log_info("    Using PLL in '%s' for cell '%s'.\n", uarch->tile_name(bel.tile).c_str(), ci.name.c_str(ctx));
+        ctx->bindBel(bel, &ci, PlaceStrength::STRENGTH_LOCKED);
+    }
+
+    log_info("Pre-placing WFB/WFGs..\n");
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (!ci.type.in(id_WFG, id_WFB))
+            continue;
+    }
+}
 
 void NgUltraImpl::postPlace()
 {
