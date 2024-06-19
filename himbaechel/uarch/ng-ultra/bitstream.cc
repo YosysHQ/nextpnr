@@ -429,6 +429,113 @@ struct BitstreamJsonBackend
         add_config("raw_config3", extract_bits_or_default(cell->params, ctx->id("raw_config3"), 3));
         close_instance();
     }
+/*
+    // mode 0
+            "config": {
+                "ck0_edge": false,
+                "ck1_edge": false,
+                "ack_sel": false,
+                "bck_sel": false,
+                "use_adest_arst": false,
+                "use_bdest_arst": false
+            },
+            "location": "TILE[47x26]:S4.CDC1",
+            "type": "DDE"
+        },           
+    // mode 1
+        "i_b2g_cdc": {
+            "config": {
+                "ck0_edge": false,
+                "ck1_edge": false,
+                "ack_sel": false,
+                "bck_sel": false,
+                "use_asrc_arst": false,
+                "use_bsrc_arst": false,
+                "use_adest_arst": false,
+                "use_bdest_arst": false
+            },
+            "location": "TILE[47x26]:S4.CDC1",
+            "type": "TDE"
+        },   
+        // mode 2
+        "i_b2g_cdc": {
+            "config": {
+                "ck0_edge": false,
+                "ck1_edge": false,
+                "ack_sel": false,
+                "bck_sel": false,
+                "use_asrc_arst": false,
+                "use_bsrc_arst": false,
+                "use_adest_arst": false,
+                "use_bdest_arst": false
+            },
+            "location": "TILE[47x26]:S4.CDC1",
+            "type": "CDC"
+        },     
+        // mode 3                
+         "i_b2g_cdc": {
+            "location": "TILE[47x26]:S4.CDC1",
+            "type": "BGC"
+        },     
+        // mode 4
+         "i_b2g_cdc": {
+            "location": "TILE[47x26]:S4.CDC1",
+            "type": "GBC"
+        },     
+        // mode 5
+         "i_b2g_cdc": {
+            "config": {
+                "ck0_edge": false,
+                "ck1_edge": false,
+                "ack_sel": false,
+                "bck_sel": false,
+                "cck_sel": false,
+                "dck_sel": false,
+                "use_asrc_arst": false,
+                "use_bsrc_arst": false,
+                "use_csrc_arst": false,
+                "use_dsrc_arst": false,
+                "use_adest_arst": false,
+                "use_bdest_arst": false,
+                "use_cdest_arst": false,
+                "use_ddest_arst": false,
+                "link_BA": false,
+                "link_CB": false,
+                "link_DC": false
+            },
+            "location": "TILE[47x26]:S8.XCDC1",
+            "type": "XCDC"
+        },              
+
+
+        // FIFO mode 0
+
+        ERROR generating that one
+        // FIFO mode 1
+        "i_fifo_fifo": {
+            "config": {
+                "rck_edge": false,
+                "wck_edge": false,
+                "use_read_arst": false,
+                "use_write_arst": false,
+                "read_addr_inv": 0
+            },
+            "location": "TILE[46x26]:S8.XFIFO1",
+            "type": "XHFIFO"
+        },         
+        // FIFO mode 2
+        "i_fifo_fifo": {
+            "config": {
+                "rck_edge": false,
+                "wck_edge": false,
+                "use_read_arst": false,
+                "use_write_arst": false,
+                "read_addr_inv": 0
+            },
+            "location": "TILE[46x26]:S8.XFIFO1",
+            "type": "XWFIFO"
+        },    
+*/
 
     void write_interconnections()
     {
