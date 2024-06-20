@@ -1320,6 +1320,32 @@ void NgUltraPacker::pack_rams(void)
     }
 }
 
+void NgUltraPacker::dsp_same_driver(IdString port, CellInfo *cell, CellInfo **target)
+{
+    if (cell->getPort(port)) {
+        CellInfo *driver = cell->getPort(port)->driver.cell;
+        if (!driver->type.in(id_DSP, id_NX_DSP_U))
+            log_error("Port '%s' of '%s' can only be driven by DSP.\n", port.c_str(ctx), cell->name.c_str(ctx));
+        if (*target && *target != driver)
+            log_error("CAI1-24, CBI1-18, CZI1..56 and CCI must be from same DSP for '%s'.\n", cell->name.c_str(ctx));
+        *target = driver;
+    }
+}
+
+void NgUltraPacker::dsp_same_sink(IdString port, CellInfo *cell, CellInfo **target)
+{
+    if (cell->getPort(port)) {
+        if (cell->getPort(port)->users.entries()!=1)
+            log_error("Port '%s' of '%s' can only drive one DSP.\n", port.c_str(ctx), cell->name.c_str(ctx));
+        CellInfo *driver = (*cell->getPort(port)->users.begin()).cell;
+        if (!driver->type.in(id_DSP, id_NX_DSP_U))
+            log_error("Port '%s' of '%s' can only drive DSP.\n", port.c_str(ctx), cell->name.c_str(ctx));
+        if (*target && *target != driver)
+            log_error("CAI1-24, CBI1-18, CZI1..56 and CCI must be from same DSP for '%s'.\n", cell->name.c_str(ctx));
+        *target = driver;
+    }
+}
+
 void NgUltraPacker::pack_dsps(void)
 {
     log_info("Packing DSPs..\n");
@@ -1334,6 +1360,26 @@ void NgUltraPacker::pack_dsps(void)
             if (p.second.type == PortType::PORT_IN) 
                 disconnect_if_gnd(&ci, p.first);
         }
+
+        // CAI1-24, CBI1-18, CZI1..56 and CCI must be from same DSP
+        CellInfo *dsp = nullptr;
+        for(int i=1;i<=24;i++)
+            dsp_same_driver(ctx->idf("CAI%d",i), &ci, &dsp);
+        for(int i=1;i<=18;i++)
+            dsp_same_driver(ctx->idf("CBI%d",i), &ci, &dsp);
+        for(int i=1;i<=56;i++)
+            dsp_same_driver(ctx->idf("CZI%d",i), &ci, &dsp);
+        dsp_same_driver(id_CCI, &ci, &dsp);
+
+        // CAO1-24, CBO1-18, CZO1..56 and CCO must go to same DSP
+        dsp = nullptr;
+        for(int i=1;i<=24;i++)
+            dsp_same_sink(ctx->idf("CAO%d",i), &ci, &dsp);
+        for(int i=1;i<=18;i++)
+            dsp_same_sink(ctx->idf("CBO%d",i), &ci, &dsp);
+        for(int i=1;i<=56;i++)
+            dsp_same_sink(ctx->idf("CZO%d",i), &ci, &dsp);
+        dsp_same_sink(id_CCO, &ci, &dsp);
     }
 }
 void NgUltraPacker::setup()

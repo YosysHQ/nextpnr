@@ -93,6 +93,8 @@ private:
     void flush_cells();
 
     IdString assign_wfg(IdString ckg, IdString ckg2, CellInfo *cell);
+    void dsp_same_driver(IdString port, CellInfo *cell, CellInfo **target);
+    void dsp_same_sink(IdString port, CellInfo *cell, CellInfo **target);
 
     void constrain_location(CellInfo *cell);
     // Cell creating
