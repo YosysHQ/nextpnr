@@ -54,8 +54,7 @@ void NgUltraImpl::init(Context *ctx)
     HimbaechelAPI::init(ctx);
     for (auto bel : ctx->getBels()) {
         if (ctx->getBelType(bel) == id_IOM) {
-            pool<BelId> wfgs;
-            pool<BelId> plls;
+            std::set<IdString> ckg;
             IdString bank = tile_name_id(bel.tile);
             iom_bels.emplace(bank,bel);
             WireId belpin = ctx->getBelPinWire(bel,id_CKO1);
@@ -63,17 +62,18 @@ void NgUltraImpl::init(Context *ctx)
                 WireId pip_dst = ctx->getPipDstWire(dh);
                 for (const auto &item : ctx->getWireBelPins(pip_dst)) {
                     if (boost::contains(ctx->nameOfBel(item.bel),"WFG_C")) {
-                        wfgs.emplace(item.bel);
-                        unused_wfg.emplace(item.bel);
+                        unused_wfg[item.bel] = tile_name_id(item.bel.tile);
                     }
                     else if (boost::contains(ctx->nameOfBel(item.bel),"PLL")) {
-                        plls.emplace(item.bel);
-                        unused_pll.emplace(item.bel);
+                        ckg.emplace(tile_name_id(item.bel.tile));
+                        unused_pll[item.bel] = tile_name_id(item.bel.tile);
                     }
                 }
             }
-            wfg_c_per_bank.emplace(bank,wfgs);
-            pll_per_bank.emplace(bank,plls);
+            std::pair<IdString,IdString> p;
+            p.first = *ckg.begin();
+            if (ckg.size()==2) p.second = *ckg.end();
+            bank_to_ckg[bank] = p;
         } else if (ctx->getBelType(bel) == id_IOTP) {
             if (ctx->getBelName(bel)[1] == ctx->id("D08P_CLK.IOTP")) {
                 global_capable_bels.emplace(bel,id_P17RI);

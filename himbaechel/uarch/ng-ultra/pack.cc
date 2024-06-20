@@ -1061,12 +1061,12 @@ void NgUltraPacker::insert_ioms()
 
 void NgUltraPacker::insert_wfbs()
 {
-    log_info("Inserting WFBs for IOMs...\n");
+    log_info("Inserting WFBs...\n");
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (ci.type.in(id_IOM)) {
-            insert_wfb(&ci, id_CKO1);
-            insert_wfb(&ci, id_CKO2);
+            //insert_wfb(&ci, id_CKO1);
+            //insert_wfb(&ci, id_CKO2);
         } else if (ci.type.in(id_PLL)) {
             insert_wfb(&ci, id_VCO);
             insert_wfb(&ci, id_REFO);
@@ -1216,6 +1216,13 @@ void NgUltraPacker::pack_wfgs(void)
             disconnect_if_gnd(&ci, id_SI);
             disconnect_if_gnd(&ci, id_R);
         }
+        NetInfo *zi = ci.getPort(id_ZI);
+        if (!zi || !zi->driver.cell)
+            log_error("WFG port ZI of '%s' must be driven.\n", ci.name.c_str(ctx));
+        NetInfo *zo = ci.getPort(id_ZO);
+        if (!zo || zo->users.entries()==0)
+            log_error("WFG port ZO of '%s' must be connected.\n", ci.name.c_str(ctx));
+
     }
 }
 
@@ -1437,6 +1444,20 @@ void NgUltraImpl::pack()
     packer.pre_place();
 }
 
+IdString NgUltraPacker::assign_wfg(IdString ckg, IdString ckg2, CellInfo *cell)
+{
+    for (auto &item : uarch->unused_wfg) {
+        BelId bel = item.first;
+        if (item.second == ckg || item.second == ckg2) {
+            IdString ckg = item.second;
+            uarch->unused_wfg.erase(bel);
+            log_info("    Using '%s:%s' for cell '%s'.\n", uarch->tile_name(bel.tile).c_str(), ctx->getBelName(bel)[1].c_str(ctx), cell->name.c_str(ctx));
+            ctx->bindBel(bel, cell, PlaceStrength::STRENGTH_LOCKED);
+            return ckg;
+        }
+    }
+    log_error("    No more available WFGs for cell '%s'.\n", cell->name.c_str(ctx));
+}
 
 void NgUltraPacker::pre_place(void)
 {
@@ -1461,8 +1482,10 @@ void NgUltraPacker::pre_place(void)
         if (ref && ref->driver.cell && ref->driver.cell->type == id_IOM) {
             IdString bank= uarch->tile_name_id(ref->driver.cell->bel.tile);
             bool found = false;
-            for (auto &bel : uarch->pll_per_bank[bank]) {
-                if (uarch->unused_pll.count(bel)) {
+            for (auto &item : uarch->unused_pll) {
+                BelId bel = item.first;
+                std::pair<IdString,IdString>& ckgs = uarch->bank_to_ckg[bank];
+                if (item.second == ckgs.first || item.second == ckgs.second) {
                     uarch->unused_pll.erase(bel);
                     log_info("    Using PLL in '%s' for cell '%s'.\n", uarch->tile_name(bel.tile).c_str(), ci.name.c_str(ctx));
                     ctx->bindBel(bel, &ci, PlaceStrength::STRENGTH_LOCKED);
@@ -1474,6 +1497,7 @@ void NgUltraPacker::pre_place(void)
                 log_error("    No more available PLLs for driving '%s'.\n", ci.name.c_str(ctx));
         }
     }
+    // If PLL use any other pin, location is not relevant, so we pick available
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_PLL) || ci.bel != BelId())
@@ -1481,17 +1505,79 @@ void NgUltraPacker::pre_place(void)
         log_warning("    PLL '%s' is not driven by clock dedicated pin.\n", ci.name.c_str(ctx));
         if (uarch->unused_pll.empty())
             log_error("    No more available PLLs for driving '%s'.\n", ci.name.c_str(ctx));
-        BelId bel = *uarch->unused_pll.begin();
+        BelId bel = uarch->unused_pll.begin()->first;
         uarch->unused_pll.erase(bel);
         log_info("    Using PLL in '%s' for cell '%s'.\n", uarch->tile_name(bel.tile).c_str(), ci.name.c_str(ctx));
         ctx->bindBel(bel, &ci, PlaceStrength::STRENGTH_LOCKED);
     }
 
     log_info("Pre-placing WFB/WFGs..\n");
+
+    std::vector<CellInfo *> root_wfgs;
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_WFG, id_WFB))
             continue;
+        NetInfo *zi = ci.getPort(id_ZI);
+        if (!zi || !zi->driver.cell || !zi->driver.cell->type.in(id_WFG, id_WFB))
+            root_wfgs.push_back(&ci);
+    }
+
+    std::vector<std::vector<CellInfo *>> groups;
+    for (auto root : root_wfgs) {
+        std::vector<CellInfo *> group;
+        CellInfo *wfg = root;
+        group.push_back(wfg);
+        while (true) {
+            NetInfo *zo_net = wfg->getPort(id_ZO);
+            if (zo_net && zo_net->users.entries() > 0) {
+                wfg = (*zo_net->users.begin()).cell;
+                if (wfg->type.in(id_WFG, id_WFB)) {
+                    if (zo_net->users.entries() != 1)
+                        log_error("WFG can only be chained with one other WFG cell\n");
+                    group.push_back(wfg);
+                } else break;
+            } else break;
+        }
+        groups.push_back(group);
+    }
+
+    // First pre-place those depending of PLL
+    for (auto &grp : groups) {
+        CellInfo *root = grp.front();
+        NetInfo *zi = root->getPort(id_ZI);
+        if (zi->driver.cell->type.in(id_PLL)) {
+            IdString ckg = uarch->tile_name_id(zi->driver.cell->bel.tile);
+            assign_wfg(ckg, IdString(), root);
+            for (int i = 1; i < int(grp.size()); i++) {
+                assign_wfg(ckg, IdString(), grp.at(i));
+            }
+        }
+    }
+    // Then those that depend on IOM
+    for (auto &grp : groups) {
+        CellInfo *root = grp.front();
+        NetInfo *zi = root->getPort(id_ZI);
+        if (zi->driver.cell->type.in(id_IOM)) {
+            IdString bank = uarch->tile_name_id(zi->driver.cell->bel.tile);
+            std::pair<IdString,IdString>& ckgs = uarch->bank_to_ckg[bank];
+            IdString ckg = assign_wfg(ckgs.first, ckgs.second, root);
+            for (int i = 1; i < int(grp.size()); i++) {
+                assign_wfg(ckg, IdString(), grp.at(i));
+            }
+        }
+    }
+    for (auto &grp : groups) {
+        CellInfo *root = grp.front();
+        if (root->bel != BelId())
+            continue;
+        // Assign first available
+        BelId bel = uarch->unused_pll.begin()->first;
+        IdString ckg = uarch->unused_pll.begin()->second;
+        uarch->unused_pll.erase(bel);
+        for (int i = 1; i < int(grp.size()); i++) {
+            assign_wfg(ckg, IdString(), grp.at(i));
+        }
     }
 }
 

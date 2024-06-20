@@ -74,10 +74,9 @@ public:
     dict<int,pool<BelId>> gck_per_lobe;
 
     pool<PipId> blocked_pips;
-    dict<IdString, pool<BelId>> wfg_c_per_bank;
-    dict<IdString, pool<BelId>> pll_per_bank;
-    std::set<BelId> unused_wfg;
-    std::set<BelId> unused_pll;
+    dict<IdString, std::pair<IdString,IdString>> bank_to_ckg;
+    dict<BelId, IdString> unused_wfg;
+    dict<BelId, IdString> unused_pll;
 
 private:
     void write_bitstream_json(const std::string &filename);

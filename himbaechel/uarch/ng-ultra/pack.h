@@ -92,6 +92,8 @@ private:
     // General helper functions
     void flush_cells();
 
+    IdString assign_wfg(IdString ckg, IdString ckg2, CellInfo *cell);
+
     void constrain_location(CellInfo *cell);
     // Cell creating
     std::unique_ptr<CellInfo> create_cell(IdString type, IdString name);
