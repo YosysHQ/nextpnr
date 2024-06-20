@@ -96,6 +96,7 @@ enum ClusterPlacement
     PLACE_XRF_WA6,
     PLACE_XRF_WE,
     PLACE_XRF_WEA,
+    PLACE_DSP_CHAIN,
 };
 
 enum PipExtra

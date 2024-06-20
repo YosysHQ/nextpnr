@@ -1065,8 +1065,8 @@ void NgUltraPacker::insert_wfbs()
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (ci.type.in(id_IOM)) {
-            //insert_wfb(&ci, id_CKO1);
-            //insert_wfb(&ci, id_CKO2);
+            insert_wfb(&ci, id_CKO1);
+            insert_wfb(&ci, id_CKO2);
         } else if (ci.type.in(id_PLL)) {
             insert_wfb(&ci, id_VCO);
             insert_wfb(&ci, id_REFO);
@@ -1349,6 +1349,8 @@ void NgUltraPacker::dsp_same_sink(IdString port, CellInfo *cell, CellInfo **targ
 void NgUltraPacker::pack_dsps(void)
 {
     log_info("Packing DSPs..\n");
+    dict<IdString, CellInfo*> dsp_output;
+    std::vector<CellInfo *> root_dsps;
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_NX_DSP_U))
@@ -1370,6 +1372,8 @@ void NgUltraPacker::pack_dsps(void)
         for(int i=1;i<=56;i++)
             dsp_same_driver(ctx->idf("CZI%d",i), &ci, &dsp);
         dsp_same_driver(id_CCI, &ci, &dsp);
+        if (!dsp)
+            root_dsps.push_back(&ci);
 
         // CAO1-24, CBO1-18, CZO1..56 and CCO must go to same DSP
         dsp = nullptr;
@@ -1380,6 +1384,20 @@ void NgUltraPacker::pack_dsps(void)
         for(int i=1;i<=56;i++)
             dsp_same_sink(ctx->idf("CZO%d",i), &ci, &dsp);
         dsp_same_sink(id_CCO, &ci, &dsp);
+        if (dsp)
+            dsp_output.emplace(ci.name, dsp);
+    }
+    for (auto root : root_dsps) {
+        CellInfo *dsp = root;
+        if (dsp_output.count(dsp->name)==0) continue;
+        root->cluster = root->name;
+        while (true) {
+            if (dsp_output.count(dsp->name)==0) break;
+            dsp = dsp_output[dsp->name];
+            dsp->cluster = root->name;
+            root->constr_children.push_back(dsp);
+            dsp->constr_z = PLACE_DSP_CHAIN;
+        }
     }
 }
 void NgUltraPacker::setup()
@@ -1698,6 +1716,7 @@ void NgUltraPacker::insert_bypass_gck()
     clock_sinks[id_XPRF].insert(id_WCK2);
     clock_sinks[id_RAM].insert(id_ACK);
     clock_sinks[id_RAM].insert(id_BCK);
+    clock_sinks[id_DSP].insert(id_CK);
     //glb_sources[id_BFR].insert(id_O);
     //glb_sources[id_GCK].insert(id_SO);
 

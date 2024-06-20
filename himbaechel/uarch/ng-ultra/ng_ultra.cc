@@ -86,6 +86,21 @@ void NgUltraImpl::init(Context *ctx)
         }
         locations.emplace(stringf("%s:%s",tile_name(bel.tile).c_str(), ctx->getBelName(bel)[1].c_str(ctx)),bel);
     }
+    for (auto bel : ctx->getBels()) {
+        if (ctx->getBelType(bel) == id_DSP) {
+            WireId cco = ctx->getBelPinWire(bel,id_CCO);
+            WireId cci;
+            for (auto dh : ctx->getPipsDownhill(cco)) {
+                cci = ctx->getPipDstWire(dh);
+            }
+            if (cci!=WireId()) {
+                std::string loc = stringf("%s:%s",tile_name(cci.tile).c_str(), ctx->getWireName(cci)[1].c_str(ctx));
+                loc.erase(loc.find(".CCI"));
+                BelId dsp_bel = locations[loc];
+                dsp_cascade.emplace(dsp_bel, bel);
+            }
+        }
+    }
 }
 
 const NGUltraTileInstExtraDataPOD *NgUltraImpl::tile_extra_data(int tile) const
@@ -421,6 +436,13 @@ bool NgUltraImpl::isValidBelForCellType(IdString cell_type, BelId bel) const
         return (bel_type == cell_type);
 }
 
+Loc getNextLocInDSPChain(const NgUltraImpl *impl, Loc loc)
+{
+    BelId bel = impl->ctx->getBelByLocation(loc);
+    BelId dsp = impl->dsp_cascade.at(bel);
+    return impl->ctx->getBelLocation(dsp);
+}
+
 Loc getNextLocInCYChain(Loc loc)
 {
     static const std::vector<Loc> map = 
@@ -567,6 +589,7 @@ bool NgUltraImpl::getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc
                 case PLACE_CY_FE4: return getCYFE(root_loc,3);
                 case PLACE_XRF_I1 ... PLACE_XRF_WEA:
                                     return getXRFFE(root_loc, child->constr_z - PLACE_XRF_I1 );
+                case PLACE_DSP_CHAIN : { Loc l = getNextLocInDSPChain(this, prev); prev = l; return l; }
                 default:
                     Loc result;
                     result.x = root_loc.x + child->constr_x;

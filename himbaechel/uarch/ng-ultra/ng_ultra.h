@@ -77,6 +77,7 @@ public:
     dict<IdString, std::pair<IdString,IdString>> bank_to_ckg;
     dict<BelId, IdString> unused_wfg;
     dict<BelId, IdString> unused_pll;
+    dict<BelId, BelId> dsp_cascade;
 
 private:
     void write_bitstream_json(const std::string &filename);
