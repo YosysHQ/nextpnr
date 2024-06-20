@@ -25,6 +25,7 @@
 #include <regex>
 #include "command.h"
 #include "design_utils.h"
+#include "family_aliases.h"
 #include "log.h"
 #include "timing.h"
 
@@ -87,6 +88,10 @@ std::unique_ptr<Context> GowinCommandHandler::createContext(dict<std::string, Pr
             chipArgs.family = "GW2A-18";
         }
     }
+    if (gowin_family_aliases.count(chipArgs.family)) {
+        chipArgs.family = gowin_family_aliases.at(chipArgs.family);
+    }
+
     if (!GW2) {
         chipArgs.partnumber = match[0];
     } else {
