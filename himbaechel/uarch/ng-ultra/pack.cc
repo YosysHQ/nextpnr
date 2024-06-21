@@ -1357,6 +1357,10 @@ void NgUltraPacker::pack_dsps(void)
             continue;
         ci.type = id_DSP;
         bind_attr_loc(&ci, &ci.attrs);
+        mandatory_param(&ci, id_raw_config0);
+        mandatory_param(&ci, id_raw_config1);
+        mandatory_param(&ci, id_raw_config2);
+        mandatory_param(&ci, id_raw_config3);
 
         for (auto &p : ci.ports) {
             if (p.second.type == PortType::PORT_IN) 
