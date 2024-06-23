@@ -34,6 +34,10 @@ struct GowinUtils
     Loc get_pair_iologic_bel(Loc loc);
     BelId get_io_bel_from_iologic(BelId bel);
 
+    // BSRAM
+    bool have_SP32(void);
+    bool need_SP_fix(void);
+
     // DSP
     inline int get_dsp_18_z(int z) const { return z & (~3); }
     inline int get_dsp_9_idx(int z) const { return z & 3; }
@@ -80,9 +84,6 @@ struct GowinUtils
     {
         return is_global_wire(ctx->getPipSrcWire(pip)) || is_global_wire(ctx->getPipDstWire(pip));
     }
-
-    // chip dependent
-    bool have_SP32(void);
 
     // make cell but do not include it in the list of chip cells.
     std::unique_ptr<CellInfo> create_cell(IdString name, IdString type);
