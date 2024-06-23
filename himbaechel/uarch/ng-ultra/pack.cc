@@ -1602,25 +1602,25 @@ void NgUltraPacker::setup()
     clock_sinks[id_RAM].insert(id_ACK);
     clock_sinks[id_RAM].insert(id_BCK);
 
-    // clock_sinks[id_CDC].insert(id_CK1);
-    // clock_sinks[id_CDC].insert(id_CK2);
-    // clock_sinks[id_DDE].insert(id_CK1);
-    // clock_sinks[id_DDE].insert(id_CK2);
-    // clock_sinks[id_TDE].insert(id_CK1);
-    // clock_sinks[id_TDE].insert(id_CK2);
-    // clock_sinks[id_XCDC].insert(id_CK1);
-    // clock_sinks[id_XCDC].insert(id_CK2);
+    clock_sinks[id_CDC].insert(id_CK1);
+    clock_sinks[id_CDC].insert(id_CK2);
+    clock_sinks[id_DDE].insert(id_CK1);
+    clock_sinks[id_DDE].insert(id_CK2);
+    clock_sinks[id_TDE].insert(id_CK1);
+    clock_sinks[id_TDE].insert(id_CK2);
+    clock_sinks[id_XCDC].insert(id_CK1);
+    clock_sinks[id_XCDC].insert(id_CK2);
 
-    // clock_sinks[id_FIFO].insert(id_RCK);
-    // clock_sinks[id_FIFO].insert(id_WCK);
-    // clock_sinks[id_XHFIFO].insert(id_RCK1);
-    // clock_sinks[id_XHFIFO].insert(id_RCK2);
-    // clock_sinks[id_XHFIFO].insert(id_WCK1);
-    // clock_sinks[id_XHFIFO].insert(id_WCK2);
-    // clock_sinks[id_XWFIFO].insert(id_RCK1);
-    // clock_sinks[id_XWFIFO].insert(id_RCK2);
-    // clock_sinks[id_XWFIFO].insert(id_WCK1);
-    // clock_sinks[id_XWFIFO].insert(id_WCK2);
+    clock_sinks[id_FIFO].insert(id_RCK);
+    clock_sinks[id_FIFO].insert(id_WCK);
+    clock_sinks[id_XHFIFO].insert(id_RCK1);
+    clock_sinks[id_XHFIFO].insert(id_RCK2);
+    clock_sinks[id_XHFIFO].insert(id_WCK1);
+    clock_sinks[id_XHFIFO].insert(id_WCK2);
+    clock_sinks[id_XWFIFO].insert(id_RCK1);
+    clock_sinks[id_XWFIFO].insert(id_RCK2);
+    clock_sinks[id_XWFIFO].insert(id_WCK1);
+    clock_sinks[id_XWFIFO].insert(id_WCK2);
 
     clock_sinks[id_DSP].insert(id_CK);
 
@@ -1909,6 +1909,25 @@ void NgUltraPacker::duplicate_gck()
     clock_sinks[id_DSP].insert(id_CK);
     //glb_sources[id_BFR].insert(id_O);
     //glb_sources[id_GCK].insert(id_SO);
+    clock_sinks[id_CDC].insert(id_CK1);
+    clock_sinks[id_CDC].insert(id_CK2);
+    clock_sinks[id_DDE].insert(id_CK1);
+    clock_sinks[id_DDE].insert(id_CK2);
+    clock_sinks[id_TDE].insert(id_CK1);
+    clock_sinks[id_TDE].insert(id_CK2);
+    clock_sinks[id_XCDC].insert(id_CK1);
+    clock_sinks[id_XCDC].insert(id_CK2);
+
+    clock_sinks[id_FIFO].insert(id_RCK);
+    clock_sinks[id_FIFO].insert(id_WCK);
+    clock_sinks[id_XHFIFO].insert(id_RCK1);
+    clock_sinks[id_XHFIFO].insert(id_RCK2);
+    clock_sinks[id_XHFIFO].insert(id_WCK1);
+    clock_sinks[id_XHFIFO].insert(id_WCK2);
+    clock_sinks[id_XWFIFO].insert(id_RCK1);
+    clock_sinks[id_XWFIFO].insert(id_RCK2);
+    clock_sinks[id_XWFIFO].insert(id_WCK1);
+    clock_sinks[id_XWFIFO].insert(id_WCK2);
 
     log_info("Duplicating existing GCKs...\n");
     for (auto &net : ctx->nets) {
@@ -1990,6 +2009,25 @@ void NgUltraPacker::insert_bypass_gck()
     clock_sinks[id_DSP].insert(id_CK);
     //glb_sources[id_BFR].insert(id_O);
     //glb_sources[id_GCK].insert(id_SO);
+    clock_sinks[id_CDC].insert(id_CK1);
+    clock_sinks[id_CDC].insert(id_CK2);
+    clock_sinks[id_DDE].insert(id_CK1);
+    clock_sinks[id_DDE].insert(id_CK2);
+    clock_sinks[id_TDE].insert(id_CK1);
+    clock_sinks[id_TDE].insert(id_CK2);
+    clock_sinks[id_XCDC].insert(id_CK1);
+    clock_sinks[id_XCDC].insert(id_CK2);
+
+    clock_sinks[id_FIFO].insert(id_RCK);
+    clock_sinks[id_FIFO].insert(id_WCK);
+    clock_sinks[id_XHFIFO].insert(id_RCK1);
+    clock_sinks[id_XHFIFO].insert(id_RCK2);
+    clock_sinks[id_XHFIFO].insert(id_WCK1);
+    clock_sinks[id_XHFIFO].insert(id_WCK2);
+    clock_sinks[id_XWFIFO].insert(id_RCK1);
+    clock_sinks[id_XWFIFO].insert(id_RCK2);
+    clock_sinks[id_XWFIFO].insert(id_WCK1);
+    clock_sinks[id_XWFIFO].insert(id_WCK2);
 
     log_info("Inserting bypass GCKs...\n");
     for (auto &net : ctx->nets) {
