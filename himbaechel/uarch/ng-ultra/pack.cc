@@ -988,6 +988,172 @@ void NgUltraPacker::pack_rfs(void)
     flush_cells();
 }
 
+void NgUltraPacker::pack_cdcs(void)
+{
+    log_info("Packing CDCs..\n");
+    int lut_only = 0, lut_and_ff = 0, dff_only = 0;
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (!ci.type.in(id_NX_CDC_U))
+            continue;
+        int mode = int_or_default(ci.params, ctx->id("mode"), 0);
+        switch(mode) {
+            case 0 : ci.type = id_DDE; break;
+            case 1 : ci.type = id_TDE; break;
+            case 2 : ci.type = id_CDC; break;
+            case 3 : ci.type = id_BGC; break;
+            case 4 : ci.type = id_GBC; break;
+            case 5 : ci.type = id_XCDC; break;
+            default:
+                log_error("Unknown mode %d for cell '%s'.\n", mode, ci.name.c_str(ctx));
+        }        
+        ci.cluster = ci.name;
+
+        // If unconnected, connect GND to inputs that are actually used as outputs
+        for (int i = 1; i <= 6; i++) {
+            if (ci.getPort(ctx->idf("AO%d",i))) {
+                connect_gnd_if_unconnected(&ci, ctx->idf("AI%d",i));
+                pack_xrf_input_and_output(&ci, ci.name, ctx->idf("AI%d",i), ctx->idf("AO%d",i), ClusterPlacement(PLACE_CDC_AI1 + i-1), lut_only, lut_and_ff, dff_only);
+            } else
+                disconnect_unused(&ci, ctx->idf("AI%d",i));
+            if (ci.getPort(ctx->idf("BO%d",i))) {
+                connect_gnd_if_unconnected(&ci, ctx->idf("BI%d",i));
+                pack_xrf_input_and_output(&ci, ci.name, ctx->idf("BI%d",i), ctx->idf("BO%d",i), ClusterPlacement(PLACE_CDC_BI1 + i-1), lut_only, lut_and_ff, dff_only);
+            } else 
+                disconnect_unused(&ci, ctx->idf("BI%d",i));
+            if (ci.type.in(id_XCDC)) {
+                if (ci.getPort(ctx->idf("CO%d",i))) {
+                    connect_gnd_if_unconnected(&ci, ctx->idf("CI%d",i));
+                    pack_xrf_input_and_output(&ci, ci.name, ctx->idf("CI%d",i), ctx->idf("CO%d",i), ClusterPlacement(PLACE_CDC_CI1 + i-1), lut_only, lut_and_ff, dff_only);
+                } else
+                    disconnect_unused(&ci, ctx->idf("CI%d",i));
+                if (ci.getPort(ctx->idf("DO%d",i))) {
+                    connect_gnd_if_unconnected(&ci, ctx->idf("DI%d",i));
+                    pack_xrf_input_and_output(&ci, ci.name, ctx->idf("DI%d",i), ctx->idf("DO%d",i), ClusterPlacement(PLACE_CDC_DI1 + i-1), lut_only, lut_and_ff, dff_only);
+                } else 
+                    disconnect_unused(&ci, ctx->idf("DI%d",i));
+            }
+        }
+
+        // Remove inputs and outputs that are not used for specific types
+        if (ci.type.in(id_BGC, id_GBC)) {
+            disconnect_unused(&ci, id_CK1);
+            disconnect_unused(&ci, id_CK2);
+            disconnect_unused(&ci, id_ADRSTI);
+            disconnect_unused(&ci, id_ADRSTO);
+            disconnect_unused(&ci, id_BDRSTI);
+            disconnect_unused(&ci, id_BDRSTO);
+        } else {
+            connect_gnd_if_unconnected(&ci, id_ADRSTI);
+            pack_xrf_input_and_output(&ci, ci.name, id_ADRSTI, id_ADRSTO, PLACE_CDC_ADRSTI, lut_only, lut_and_ff, dff_only);
+            connect_gnd_if_unconnected(&ci, id_BDRSTI);
+            pack_xrf_input_and_output(&ci, ci.name, id_BDRSTI, id_BDRSTO, PLACE_CDC_BDRSTI, lut_only, lut_and_ff, dff_only);
+        }
+        if (ci.type.in(id_BGC, id_GBC, id_DDE)) {
+            disconnect_unused(&ci, id_ASRSTI);
+            disconnect_unused(&ci, id_ASRSTO);
+            disconnect_unused(&ci, id_BSRSTI);
+            disconnect_unused(&ci, id_BSRSTO);
+        } else {
+            connect_gnd_if_unconnected(&ci, id_ASRSTI);
+            pack_xrf_input_and_output(&ci, ci.name, id_ASRSTI, id_ASRSTO, PLACE_CDC_ASRSTI, lut_only, lut_and_ff, dff_only);
+            connect_gnd_if_unconnected(&ci, id_BSRSTI);
+            pack_xrf_input_and_output(&ci, ci.name, id_BSRSTI, id_BSRSTO, PLACE_CDC_BSRSTI, lut_only, lut_and_ff, dff_only);
+        }
+
+        // Only XCDC is using these ports, remove from others if used
+        if (!ci.type.in(id_XCDC)) {
+            disconnect_unused(&ci, id_CDRSTI);
+            disconnect_unused(&ci, id_CDRSTO);
+            for (int i = 1; i <= 6; i++) {
+                disconnect_unused(&ci,ctx->idf("CI%d",i));
+                disconnect_unused(&ci,ctx->idf("CO%d",i));
+            }
+            disconnect_unused(&ci, id_CSRSTI);
+            disconnect_unused(&ci, id_CSRSTO);
+
+            disconnect_unused(&ci, id_DDRSTI);
+            disconnect_unused(&ci, id_DDRSTO);
+            for (int i = 1; i <= 6; i++) {
+                disconnect_unused(&ci,ctx->idf("DI%d",i));
+                disconnect_unused(&ci,ctx->idf("DO%d",i));
+            }
+            disconnect_unused(&ci, id_DSRSTI);
+            disconnect_unused(&ci, id_DSRSTO);
+        } else {
+            connect_gnd_if_unconnected(&ci, id_CDRSTI);
+            pack_xrf_input_and_output(&ci, ci.name, id_CDRSTI, id_CDRSTO, PLACE_CDC_CDRSTI, lut_only, lut_and_ff, dff_only);
+            connect_gnd_if_unconnected(&ci, id_DDRSTI);
+            pack_xrf_input_and_output(&ci, ci.name, id_DDRSTI, id_DDRSTO, PLACE_CDC_DDRSTI, lut_only, lut_and_ff, dff_only);
+            connect_gnd_if_unconnected(&ci, id_CSRSTI);
+            pack_xrf_input_and_output(&ci, ci.name, id_CSRSTI, id_CSRSTO, PLACE_CDC_CSRSTI, lut_only, lut_and_ff, dff_only);
+            connect_gnd_if_unconnected(&ci, id_DSRSTI);
+            pack_xrf_input_and_output(&ci, ci.name, id_DSRSTI, id_DSRSTO, PLACE_CDC_DSRSTI, lut_only, lut_and_ff, dff_only);
+        }
+    }
+    if (lut_only)
+        log_info("    %6d FEs used as LUT only\n", lut_only);
+    if (lut_and_ff)
+        log_info("    %6d FEs used as LUT and DFF\n", lut_and_ff);
+    if (dff_only)
+        log_info("    %6d FEs used as DFF only\n", dff_only);
+    flush_cells();
+}
+
+void NgUltraPacker::pack_fifos(void)
+{
+    log_info("Packing FIFOs..\n");
+    int lut_only = 0, lut_and_ff = 0, dff_only = 0;
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (!ci.type.in(id_NX_FIFO_U))
+            continue;
+        int mode = int_or_default(ci.params, ctx->id("mode"), 0);
+        switch(mode) {
+            case 0 : ci.type = id_FIFO; break;
+            case 1 : ci.type = id_XHFIFO; break;
+            case 2 : ci.type = id_XWFIFO; break;
+            default:
+                log_error("Unknown mode %d for cell '%s'.\n", mode, ci.name.c_str(ctx));
+        }        
+        //ci.cluster = ci.name;
+
+        if (mode > 0) {
+            // XFIFO
+            ci.ports[id_WCK1].name = id_WCK1;
+            ci.ports[id_WCK1].type = PORT_IN;
+            ci.ports[id_WCK2].name = id_WCK2;
+            ci.ports[id_WCK2].type = PORT_IN;
+            ci.ports[id_RCK1].name = id_RCK1;
+            ci.ports[id_RCK1].type = PORT_IN;
+            ci.ports[id_RCK2].name = id_RCK2;
+            ci.ports[id_RCK2].type = PORT_IN;
+            NetInfo *net = ci.getPort(id_WCK);
+            if (net) {
+                ci.disconnectPort(id_WCK);
+
+                ci.connectPort(id_WCK1, net);
+                ci.connectPort(id_WCK2, net);
+            }
+            net = ci.getPort(id_RCK);
+            if (net) {
+                ci.disconnectPort(id_RCK);
+
+                ci.connectPort(id_RCK1, net);
+                ci.connectPort(id_RCK2, net);
+            }
+        }
+
+    }
+    if (lut_only)
+        log_info("    %6d FEs used as LUT only\n", lut_only);
+    if (lut_and_ff)
+        log_info("    %6d FEs used as LUT and DFF\n", lut_and_ff);
+    if (dff_only)
+        log_info("    %6d FEs used as DFF only\n", dff_only);
+    flush_cells();
+}
+
 void NgUltraPacker::insert_ioms()
 {
     std::vector<IdString> pins_needing_iom;
@@ -1404,6 +1570,22 @@ void NgUltraPacker::pack_dsps(void)
         }
     }
 }
+
+void NgUltraPacker::remove_not_used()
+{
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        for (auto &p : ci.ports) {
+            if (p.second.type == PortType::PORT_OUT) {
+                NetInfo *net = ci.getPort(p.first);
+                if (net && net->users.entries()==0) {
+                    ci.disconnectPort(p.first);
+                }
+            }
+        }
+    }
+}
+
 void NgUltraPacker::setup()
 {
     // Note: These are per Cell type not Bel type
@@ -1484,6 +1666,7 @@ void NgUltraImpl::pack()
     // Setup
     NgUltraPacker packer(ctx, this);
     packer.setup();
+    packer.remove_not_used();
     packer.pack_constants();
     packer.update_lut_init();
     packer.update_dffs();
@@ -1494,6 +1677,8 @@ void NgUltraImpl::pack()
 
     // TILE
     packer.pack_rfs();
+    packer.pack_cdcs();
+    packer.pack_fifos();
     packer.pack_cys();
     packer.pack_lut_dffs();
     packer.pack_dffs();
@@ -1549,7 +1734,7 @@ void NgUltraPacker::pre_place(void)
         NetInfo *ref = ci.getPort(id_REF);
         if (ref && ref->driver.cell && ref->driver.cell->type == id_IOM) {
             IdString bank= uarch->tile_name_id(ref->driver.cell->bel.tile);
-            bool found = false;
+            //bool found = false;
             for (auto &item : uarch->unused_pll) {
                 BelId bel = item.first;
                 std::pair<IdString,IdString>& ckgs = uarch->bank_to_ckg[bank];
@@ -1557,7 +1742,7 @@ void NgUltraPacker::pre_place(void)
                     uarch->unused_pll.erase(bel);
                     log_info("    Using PLL in '%s' for cell '%s'.\n", uarch->tile_name(bel.tile).c_str(), ci.name.c_str(ctx));
                     ctx->bindBel(bel, &ci, PlaceStrength::STRENGTH_LOCKED);
-                    found = true;
+                    //found = true;
                     break;
                 }
             }

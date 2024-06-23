@@ -38,6 +38,7 @@ struct NgUltraPacker
 {
     NgUltraPacker(Context *ctx, NgUltraImpl *uarch) : ctx(ctx), uarch(uarch) { h.init(ctx); };
 
+    void remove_not_used();
     // Constants
     void pack_constants();
     void remove_constants();
@@ -49,6 +50,8 @@ struct NgUltraPacker
     void pack_dffs();
     void pack_cys();
     void pack_rfs();
+    void pack_cdcs();
+    void pack_fifos();
 
     void pack_rams();
     void pack_dsps();

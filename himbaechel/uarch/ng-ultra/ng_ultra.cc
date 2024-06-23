@@ -409,6 +409,14 @@ IdString NgUltraImpl::getBelBucketForCellType(IdString cell_type) const
         return id_RF;
     else if (cell_type.in(id_XHRF, id_XWRF, id_XPRF))
         return id_XRF;
+    else if (cell_type.in(id_DDE, id_TDE, id_CDC, id_BGC, id_GBC))
+        return id_CDC;
+    else if (cell_type.in(id_XCDC))
+        return id_XCDC;
+    else if (cell_type.in(id_FIFO))
+        return id_FIFO;
+    else if (cell_type.in(id_XHFIFO, id_XWFIFO))
+        return id_XFIFO;
     else if (cell_type.in(id_WFB, id_WFG))
         return id_WFG;
     else
@@ -430,6 +438,14 @@ bool NgUltraImpl::isValidBelForCellType(IdString cell_type, BelId bel) const
         return cell_type.in(id_RF,id_RFSP);
     else if (bel_type == id_XRF)
         return cell_type.in(id_XHRF,id_XWRF,id_XPRF);
+    else if (bel_type == id_CDC)
+        return cell_type.in(id_DDE, id_TDE, id_CDC, id_BGC, id_GBC);
+    else if (bel_type == id_XCDC)
+        return cell_type.in(id_XCDC);
+    else if (bel_type == id_FIFO)
+        return cell_type.in(id_FIFO);
+    else if (bel_type == id_XFIFO)
+        return cell_type.in(id_XHFIFO, id_XWFIFO);
     else if (bel_type == id_WFG)
         return cell_type.in(id_WFB,id_WFG);
     else
@@ -575,6 +591,109 @@ Loc getXRFFE(Loc root, int pos)
     return result;
 }
 
+
+Loc getCDCFE(Loc root, int pos)
+{
+    static const std::vector<Loc> cdc1 = 
+    {       
+        Loc(+1, 0, 1), // AI1
+        Loc(+1, 0, 2), // AI2
+        Loc(+1, 0, 9), // AI3
+        Loc(+1, 0, 17),// AI4
+        Loc(+1, 0, 18),// AI5
+        Loc(+1, 0, 25),// AI6
+
+        Loc(+1, 0, 3), // BI1
+        Loc(+1, 0, 10),// BI2
+        Loc(+1, 0, 11),// BI3
+        Loc(+1, 0, 19),// BI4
+        Loc(+1, 0, 26),// BI5
+        Loc(+1, 0, 27),// BI6
+        
+        Loc( 0, 0, 22),// ASRSTI
+        Loc( 0, 0, 30),// ADRSTI
+        Loc(+1, 0, 24),// BSRSTI
+        Loc(+1, 0, 8), // BDRSTI
+    };
+
+    static const std::vector<Loc> cdc2 = 
+    {
+        Loc(-1, 0, 4), // AI1
+        Loc(-1, 0, 5), // AI2
+        Loc(-1, 0, 12),// AI3
+        Loc(-1, 0, 20),// AI4
+        Loc(-1, 0, 21),// AI5
+        Loc(-1, 0, 28),// AI6
+
+        Loc(-1, 0, 6), // BI1
+        Loc(-1, 0, 13),// BI2
+        Loc(-1, 0, 14),// BI3
+        Loc(-1, 0, 22),// BI4
+        Loc(-1, 0, 29),// BI5
+        Loc(-1, 0, 30),// BI6
+
+        Loc( 0, 0, 22),// ASRSTI
+        Loc( 0, 0, 30),// ADRSTI
+        Loc(-1, 0, 23),// BSRSTI
+        Loc(-1, 0, 7), // BDRSTI
+    };
+
+    static const std::vector<Loc> xcdc = 
+    {
+        Loc( 0, 0, 1), // AI1
+        Loc( 0, 0, 2), // AI2
+        Loc( 0, 0, 9), // AI3
+        Loc( 0, 0, 17),// AI4
+        Loc( 0, 0, 18),// AI5
+        Loc( 0, 0, 25),// AI6
+
+        Loc( 0, 0, 4), // BI1
+        Loc( 0, 0, 5), // BI2
+        Loc( 0, 0, 12),// BI3
+        Loc( 0, 0, 20),// BI4
+        Loc( 0, 0, 21),// BI5
+        Loc( 0, 0, 28),// BI6
+
+        Loc(-1, 0, 22),// ASRSTI
+        Loc(-1, 0, 30),// ADRSTI
+        Loc(+1, 0, 22),// BSRSTI
+        Loc(+1, 0, 30),// BDRSTI
+        
+        Loc( 0, 0, 3), // CI1
+        Loc( 0, 0, 10),// CI2
+        Loc( 0, 0, 11),// CI3
+        Loc( 0, 0, 19),// CI4
+        Loc( 0, 0, 26),// CI5
+        Loc( 0, 0, 27),// CI6
+
+        Loc( 0, 0, 6), // DI1
+        Loc( 0, 0, 13),// DI2
+        Loc( 0, 0, 14),// DI3
+        Loc( 0, 0, 22),// DI4
+        Loc( 0, 0, 29),// DI5
+        Loc( 0, 0, 30),// DI6
+
+        Loc( 0, 0, 24),// CSRSTI
+        Loc( 0, 0, 8), // CDRSTI
+        Loc( 0, 0, 23),// DSRSTI
+        Loc( 0, 0, 7), // DDRSTI
+    };
+
+    Loc result;
+    if (root.z == BEL_CDC_Z) {
+        result = cdc1.at(pos);
+    } else if (root.z == BEL_CDC_Z+1) {
+        result = cdc2.at(pos);
+    } else if (root.z == BEL_XCDC_Z) {
+        result = xcdc.at(pos);
+    } else {
+        log_error("Trying to place CDC on wrong location.\n");
+    }
+    result.x += root.x;
+    result.y = root.y;
+    return result;
+}
+
 bool NgUltraImpl::getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc,
                                     std::vector<std::pair<CellInfo *, BelId>> &placement) const
 {
@@ -589,6 +708,8 @@ bool NgUltraImpl::getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc
                 case PLACE_CY_FE4: return getCYFE(root_loc,3);
                 case PLACE_XRF_I1 ... PLACE_XRF_WEA:
                                     return getXRFFE(root_loc, child->constr_z - PLACE_XRF_I1 );
+                case PLACE_CDC_AI1 ... PLACE_CDC_DDRSTI:
+                                    return getCDCFE(root_loc, child->constr_z - PLACE_CDC_AI1 );
                 case PLACE_DSP_CHAIN : { Loc l = getNextLocInDSPChain(this, prev); prev = l; return l; }
                 default:
                     Loc result;
