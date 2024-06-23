@@ -334,6 +334,12 @@ struct BitstreamJsonBackend
         }
     }
 
+    void write_xlut(CellInfo *cell) {
+        open_instance(cell);
+        add_config("lut_table", extract_bits_or_default(cell->params, id_lut_table, 16));
+        close_instance();
+    }
+
     void write_iom(CellInfo *cell) {
         open_instance(cell);
         add_config("pads_path", str_or_default(cell->params, ctx->id("pads_path"), ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;"));
@@ -429,113 +435,51 @@ struct BitstreamJsonBackend
         add_config("raw_config3", extract_bits_or_default(cell->params, ctx->id("raw_config3"), 3));
         close_instance();
     }
-/*
-    // mode 0
-            "config": {
-                "ck0_edge": false,
-                "ck1_edge": false,
-                "ack_sel": false,
-                "bck_sel": false,
-                "use_adest_arst": false,
-                "use_bdest_arst": false
-            },
-            "location": "TILE[47x26]:S4.CDC1",
-            "type": "DDE"
-        },           
-    // mode 1
-        "i_b2g_cdc": {
-            "config": {
-                "ck0_edge": false,
-                "ck1_edge": false,
-                "ack_sel": false,
-                "bck_sel": false,
-                "use_asrc_arst": false,
-                "use_bsrc_arst": false,
-                "use_adest_arst": false,
-                "use_bdest_arst": false
-            },
-            "location": "TILE[47x26]:S4.CDC1",
-            "type": "TDE"
-        },   
-        // mode 2
-        "i_b2g_cdc": {
-            "config": {
-                "ck0_edge": false,
-                "ck1_edge": false,
-                "ack_sel": false,
-                "bck_sel": false,
-                "use_asrc_arst": false,
-                "use_bsrc_arst": false,
-                "use_adest_arst": false,
-                "use_bdest_arst": false
-            },
-            "location": "TILE[47x26]:S4.CDC1",
-            "type": "CDC"
-        },     
-        // mode 3                
-         "i_b2g_cdc": {
-            "location": "TILE[47x26]:S4.CDC1",
-            "type": "BGC"
-        },     
-        // mode 4
-         "i_b2g_cdc": {
-            "location": "TILE[47x26]:S4.CDC1",
-            "type": "GBC"
-        },     
-        // mode 5
-         "i_b2g_cdc": {
-            "config": {
-                "ck0_edge": false,
-                "ck1_edge": false,
-                "ack_sel": false,
-                "bck_sel": false,
-                "cck_sel": false,
-                "dck_sel": false,
-                "use_asrc_arst": false,
-                "use_bsrc_arst": false,
-                "use_csrc_arst": false,
-                "use_dsrc_arst": false,
-                "use_adest_arst": false,
-                "use_bdest_arst": false,
-                "use_cdest_arst": false,
-                "use_ddest_arst": false,
-                "link_BA": false,
-                "link_CB": false,
-                "link_DC": false
-            },
-            "location": "TILE[47x26]:S8.XCDC1",
-            "type": "XCDC"
-        },              
 
+    void write_cdc(CellInfo *cell) {
+        open_instance(cell);
+        if (cell->type.in(id_DDE, id_TDE, id_CDC, id_XCDC)) {
+            add_config("ck0_edge", bool_or_default(cell->params, ctx->id("ck0_edge"), false));
+            add_config("ck1_edge", bool_or_default(cell->params, ctx->id("ck1_edge"), false));
+            add_config("ack_sel", bool_or_default(cell->params, ctx->id("ack_sel"), false));
+            add_config("bck_sel", bool_or_default(cell->params, ctx->id("bck_sel"), false));
+            if (cell->type.in(id_XCDC)) {
+                add_config("cck_sel", bool_or_default(cell->params, ctx->id("cck_sel"), false));
+                add_config("dck_sel", bool_or_default(cell->params, ctx->id("dck_sel"), false));
+            }
+            if (cell->type.in(id_TDE, id_CDC, id_XCDC)) {
+                add_config("use_asrc_arst", bool_or_default(cell->params, ctx->id("use_asrc_arst"), false));
+                add_config("use_bsrc_arst", bool_or_default(cell->params, ctx->id("use_bsrc_arst"), false));
+            }
+            if (cell->type.in(id_XCDC)) {
+                add_config("use_csrc_arst", bool_or_default(cell->params, ctx->id("use_csrc_arst"), false));
+                add_config("use_dsrc_arst", bool_or_default(cell->params, ctx->id("use_dsrc_arst"), false));
+            }
+            add_config("use_adest_arst", bool_or_default(cell->params, ctx->id("use_adest_arst"), false));
+            add_config("use_bdest_arst", bool_or_default(cell->params, ctx->id("use_bdest_arst"), false));
+            if (cell->type.in(id_XCDC)) {
+                add_config("use_cdest_arst", bool_or_default(cell->params, ctx->id("use_cdest_arst"), false));
+                add_config("use_ddest_arst", bool_or_default(cell->params, ctx->id("use_ddest_arst"), false));
+            }
+            add_config("link_BA", bool_or_default(cell->params, ctx->id("link_BA"), false));
+            add_config("link_CB", bool_or_default(cell->params, ctx->id("link_CB"), false));
+            add_config("link_DC", bool_or_default(cell->params, ctx->id("link_DC"), false));
+        }
+        close_instance();
+    }
 
-        // FIFO mode 0
-
-        ERROR generating that one
-        // FIFO mode 1
-        "i_fifo_fifo": {
-            "config": {
-                "rck_edge": false,
-                "wck_edge": false,
-                "use_read_arst": false,
-                "use_write_arst": false,
-                "read_addr_inv": 0
-            },
-            "location": "TILE[46x26]:S8.XFIFO1",
-            "type": "XHFIFO"
-        },         
-        // FIFO mode 2
-        "i_fifo_fifo": {
-            "config": {
-                "rck_edge": false,
-                "wck_edge": false,
-                "use_read_arst": false,
-                "use_write_arst": false,
-                "read_addr_inv": 0
-            },
-            "location": "TILE[46x26]:S8.XFIFO1",
-            "type": "XWFIFO"
-        },    
-*/
+    void write_fifo(CellInfo *cell) {
+        open_instance(cell);
+        add_config("rck_edge", bool_or_default(cell->params, ctx->id("rck_edge"), false));
+        add_config("wck_edge", bool_or_default(cell->params, ctx->id("wck_edge"), false));
+        if (cell->type.in(id_XHFIFO, id_XWFIFO)) {
+            add_config("use_read_arst", bool_or_default(cell->params, ctx->id("use_read_arst"), false));
+            add_config("use_write_arst", bool_or_default(cell->params, ctx->id("use_write_arst"), false));
+        }
+        add_config("read_addr_inv", int_or_default(cell->params, ctx->id("read_addr_inv"), 0));
+        //add_config("read_addr_inv", extract_bits_or_default(cell->params, ctx->id("read_addr_inv"), cell->type == id_FIFO ? 6 : 7));
+        close_instance();
+    }
 
     void write_interconnections()
     {
@@ -597,15 +541,20 @@ struct BitstreamJsonBackend
                 case id_XHRF.index:
                 case id_XWRF.index:
                 case id_XPRF.index: write_rfb(cell.second.get()); break;
-                //case id_XLUT.index:
-                //case id_FIFO.index:
-                //case id_XFIFO.index:
-                //case id_CDC.index:
-                //case id_XCDC.index:
-                //case id_CRX.index:
-                //case id_CTX.index:
+                case id_XLUT.index: write_xlut(cell.second.get()); break;
+                case id_FIFO.index: // mode 0
+                case id_XHFIFO.index: // mode 1
+                case id_XWFIFO.index: write_fifo(cell.second.get()); break; // mode 2
+                case id_DDE.index: // mode 0
+                case id_TDE.index: // mode 1
+                case id_CDC.index: // mode 2
+                case id_BGC.index: // mode 3
+                case id_GBC.index: // mode 4
+                case id_XCDC.index: write_cdc(cell.second.get()); break; // mode 5
                 case id_DSP.index: write_dsp(cell.second.get()); break;
                 case id_PLL.index: write_pll(cell.second.get()); break;
+                //case id_CRX.index:
+                //case id_CTX.index:
                 //case id_PMA.index:
                 //case id_Service.index:
                 //case id_SOCIF.index:
