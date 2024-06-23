@@ -1116,9 +1116,82 @@ void NgUltraPacker::pack_fifos(void)
             default:
                 log_error("Unknown mode %d for cell '%s'.\n", mode, ci.name.c_str(ctx));
         }        
-        //ci.cluster = ci.name;
+        ci.cluster = ci.name;
 
-        if (mode > 0) {
+        int rsti = (ci.type == id_FIFO) ? 2 : 4;
+        for (int i=1;i<=rsti;i++) {
+            IdString port = ctx->idf("WRSTI%d",i);
+            ci.ports[port].name = port;
+            ci.ports[port].type = PORT_IN;
+            port = ctx->idf("RRSTI%d",i);
+            ci.ports[port].name = port;
+            ci.ports[port].type = PORT_IN;
+        }
+
+        NetInfo *wrsti_net = ci.getPort(ctx->id("WRSTI"));
+        if (wrsti_net) {
+            ci.disconnectPort(ctx->id("WRSTI"));
+            for (int i=1;i<=rsti;i++)
+                ci.connectPort(ctx->idf("WRSTI%d",i), wrsti_net);
+        }
+        NetInfo *rrsti_net = ci.getPort(ctx->id("RRSTI"));
+        if (rrsti_net) {
+            ci.disconnectPort(ctx->id("RRSTI"));
+            for (int i=1;i<=rsti;i++)
+                ci.connectPort(ctx->idf("RRSTI%d",i), rrsti_net);
+        }
+
+        for (int i = 1; i <= 18; i++) {
+            connect_gnd_if_unconnected(&ci, ctx->idf("I%d",i));
+            pack_xrf_input_and_output(&ci, ci.name, ctx->idf("I%d",i), ctx->idf("O%d",i), ClusterPlacement(PLACE_FIFO_I1 + i-1), lut_only, lut_and_ff, dff_only);
+        }
+
+        if (mode==0) {
+            for (int i = 19; i <= 36; i++) {
+                disconnect_unused(&ci,ctx->idf("I%d",i));
+                disconnect_unused(&ci,ctx->idf("O%d",i));
+            }
+        } else {
+            for (int i = 19; i <= 36; i++) {
+                connect_gnd_if_unconnected(&ci, ctx->idf("I%d",i));
+                pack_xrf_input_and_output(&ci, ci.name, ctx->idf("I%d",i), ctx->idf("O%d",i), ClusterPlacement(PLACE_FIFO_I1 + i-1), lut_only, lut_and_ff, dff_only);
+            }
+        }
+        for (int i = 1; i <= 6; i++) {
+            connect_gnd_if_unconnected(&ci, ctx->idf("RAI%d",i));
+            pack_xrf_input_and_output(&ci, ci.name, ctx->idf("RAI%d",i), ctx->idf("RAO%d",i), ClusterPlacement(PLACE_FIFO_RAI1 + i-1), lut_only, lut_and_ff, dff_only);
+
+            connect_gnd_if_unconnected(&ci, ctx->idf("WAI%d",i));
+            pack_xrf_input_and_output(&ci, ci.name, ctx->idf("WAI%d",i), ctx->idf("WAO%d",i), ClusterPlacement(PLACE_FIFO_WAI1 + i-1), lut_only, lut_and_ff, dff_only);
+        }
+
+        if (mode==0) {
+            disconnect_unused(&ci, id_RAI7);
+            disconnect_unused(&ci, id_WAI7);
+        } else {
+            connect_gnd_if_unconnected(&ci, id_RAI7);
+            pack_xrf_input_and_output(&ci, ci.name, id_RAI7, id_RAO7, PLACE_FIFO_RAI7, lut_only, lut_and_ff, dff_only);
+
+            connect_gnd_if_unconnected(&ci, id_WAI7);
+            pack_xrf_input_and_output(&ci, ci.name, id_WAI7, id_WAO7, PLACE_FIFO_WAI7, lut_only, lut_and_ff, dff_only);
+        }
+
+        connect_gnd_if_unconnected(&ci, id_WE);
+        pack_xrf_input_and_output(&ci, ci.name, id_WE, IdString(), PLACE_FIFO_WE, lut_only, lut_and_ff, dff_only);
+
+        disconnect_if_gnd(&ci, id_WEA);
+        pack_xrf_input_and_output(&ci, ci.name, id_WEA, IdString(), PLACE_FIFO_WEA, lut_only, lut_and_ff, dff_only);
+
+        if (mode==0) {
+            // FIFO
+            ci.renamePort(id_WEQ1, ctx->id("WEQ"));
+            pack_xrf_input_and_output(&ci, ci.name, IdString(), ctx->id("WEQ"), PLACE_FIFO_WEQ1, lut_only, lut_and_ff, dff_only);
+            disconnect_unused(&ci, id_WEQ2);
+
+            ci.renamePort(id_REQ1, ctx->id("REQ"));
+            pack_xrf_input_and_output(&ci, ci.name, IdString(), ctx->id("REQ"), PLACE_FIFO_REQ1, lut_only, lut_and_ff, dff_only);
+            disconnect_unused(&ci, id_REQ2);
+        } else {
             // XFIFO
             ci.ports[id_WCK1].name = id_WCK1;
             ci.ports[id_WCK1].type = PORT_IN;
