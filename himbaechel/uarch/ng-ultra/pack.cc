@@ -1561,8 +1561,8 @@ void NgUltraPacker::pre_place(void)
                     break;
                 }
             }
-            if (!found)
-                log_error("    No more available PLLs for driving '%s'.\n", ci.name.c_str(ctx));
+            //if (!found)
+            //    log_error("    No more available PLLs for driving '%s'.\n", ci.name.c_str(ctx));
         }
     }
     // If PLL use any other pin, location is not relevant, so we pick available
@@ -1570,7 +1570,7 @@ void NgUltraPacker::pre_place(void)
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_PLL) || ci.bel != BelId())
             continue;
-        log_warning("    PLL '%s' is not driven by clock dedicated pin.\n", ci.name.c_str(ctx));
+        //log_warning("    PLL '%s' is not driven by clock dedicated pin.\n", ci.name.c_str(ctx));
         if (uarch->unused_pll.empty())
             log_error("    No more available PLLs for driving '%s'.\n", ci.name.c_str(ctx));
         BelId bel = uarch->unused_pll.begin()->first;
