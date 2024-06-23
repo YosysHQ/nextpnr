@@ -95,7 +95,8 @@ NPNR_PACKED_STRUCT(struct Extra_chip_data_POD {
     Bottom_io_POD bottom_io;
     RelSlice<IdString> diff_io_types;
     // chip flags
-    static constexpr int32_t HAS_SP32 = 0;
+    static constexpr int32_t HAS_SP32 = 1;
+    static constexpr int32_t NEED_SP_FIX = 2;
 });
 
 } // namespace

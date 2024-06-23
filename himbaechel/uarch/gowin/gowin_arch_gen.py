@@ -15,7 +15,8 @@ from apycula import chipdb
 BEL_FLAG_SIMPLE_IO = 0x100
 
 # Chip flags
-CHIP_HAS_SP32 = 0x1
+CHIP_HAS_SP32    = 0x1
+CHIP_NEED_SP_FIX = 0x2
 
 # Z of the bels
 # sync with C++ part!
@@ -1008,8 +1009,15 @@ def main():
         db = pickle.load(f)
 
     chip_flags = 0;
-    if device not in {"GW1NS-4", "GW1N-9"}:
-        chip_flags &= CHIP_HAS_SP32;
+    # XXX compatibility
+    if not hasattr(db, "chip_flags"):
+        if device not in {"GW1NS-4", "GW1N-9"}:
+            chip_flags |= CHIP_HAS_SP32;
+    else:
+        if "HAS_SP32" in db.chip_flags:
+            chip_flags |= CHIP_HAS_SP32;
+        if "NEED_SP_FIX" in db.chip_flags:
+            chip_flags |= CHIP_NEED_SP_FIX;
 
     X = db.cols;
     Y = db.rows;
