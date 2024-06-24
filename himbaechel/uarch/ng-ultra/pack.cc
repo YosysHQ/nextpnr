@@ -1117,6 +1117,8 @@ void NgUltraPacker::pack_fifos(void)
                 log_error("Unknown mode %d for cell '%s'.\n", mode, ci.name.c_str(ctx));
         }        
         ci.cluster = ci.name;
+        bool use_write_arst = bool_or_default(ci.params, ctx->id("use_write_arst"), false);
+        bool use_read_arst = bool_or_default(ci.params, ctx->id("use_read_arst"), false);
 
         int rsti = (ci.type == id_FIFO) ? 2 : 4;
         for (int i=1;i<=rsti;i++) {
@@ -1128,17 +1130,37 @@ void NgUltraPacker::pack_fifos(void)
             ci.ports[port].type = PORT_IN;
         }
 
-        NetInfo *wrsti_net = ci.getPort(ctx->id("WRSTI"));
-        if (wrsti_net) {
-            ci.disconnectPort(ctx->id("WRSTI"));
+        if (use_write_arst) {
+            IdString port = ctx->idf("WRSTI");
+            connect_gnd_if_unconnected(&ci, port);
+            NetInfo *wrsti_net = ci.getPort(port);
+            ci.disconnectPort(port);
             for (int i=1;i<=rsti;i++)
                 ci.connectPort(ctx->idf("WRSTI%d",i), wrsti_net);
+            pack_xrf_input_and_output(&ci, ci.name, id_WRSTI1, id_WRSTO,   PLACE_FIFO_WRSTI1, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_WRSTI2, IdString(), PLACE_FIFO_WRSTI2, lut_only, lut_and_ff, dff_only);
+            if (mode != 0) {
+                pack_xrf_input_and_output(&ci, ci.name, id_WRSTI3, IdString(), PLACE_FIFO_WRSTI3, lut_only, lut_and_ff, dff_only);
+                pack_xrf_input_and_output(&ci, ci.name, id_WRSTI4, IdString(), PLACE_FIFO_WRSTI4, lut_only, lut_and_ff, dff_only);
+            }
+        } else {
+            disconnect_unused(&ci,ctx->id("WRSTI"));
         }
-        NetInfo *rrsti_net = ci.getPort(ctx->id("RRSTI"));
-        if (rrsti_net) {
-            ci.disconnectPort(ctx->id("RRSTI"));
+        if (use_read_arst) {
+            IdString port = ctx->idf("RRSTI");
+            connect_gnd_if_unconnected(&ci, port);
+            NetInfo *rrsti_net = ci.getPort(port);
+            ci.disconnectPort(port);
             for (int i=1;i<=rsti;i++)
                 ci.connectPort(ctx->idf("RRSTI%d",i), rrsti_net);
+            pack_xrf_input_and_output(&ci, ci.name, id_RRSTI1, id_RRSTO,   PLACE_FIFO_RRSTI1, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_RRSTI2, IdString(), PLACE_FIFO_RRSTI2, lut_only, lut_and_ff, dff_only);
+            if (mode != 0) {
+                pack_xrf_input_and_output(&ci, ci.name, id_RRSTI3, IdString(), PLACE_FIFO_RRSTI3, lut_only, lut_and_ff, dff_only);
+                pack_xrf_input_and_output(&ci, ci.name, id_RRSTI4, IdString(), PLACE_FIFO_RRSTI4, lut_only, lut_and_ff, dff_only);
+            }
+        } else {
+            disconnect_unused(&ci,ctx->id("RRSTI"));
         }
 
         for (int i = 1; i <= 18; i++) {
@@ -1192,6 +1214,11 @@ void NgUltraPacker::pack_fifos(void)
             pack_xrf_input_and_output(&ci, ci.name, IdString(), ctx->id("REQ"), PLACE_FIFO_REQ1, lut_only, lut_and_ff, dff_only);
             disconnect_unused(&ci, id_REQ2);
         } else {
+            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_WEQ1, PLACE_FIFO_WEQ1, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_WEQ2, PLACE_FIFO_WEQ2, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_WEQ1, PLACE_FIFO_REQ1, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_WEQ2, PLACE_FIFO_REQ2, lut_only, lut_and_ff, dff_only);
+
             // XFIFO
             ci.ports[id_WCK1].name = id_WCK1;
             ci.ports[id_WCK1].type = PORT_IN;
