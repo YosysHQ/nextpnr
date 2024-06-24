@@ -396,7 +396,7 @@ struct BitstreamJsonBackend
         add_config("pll_lpf_cap", int_or_default(cell->params, ctx->id("pll_lpf_cap"), 0));
         add_config("cal_div", int_or_default(cell->params, ctx->id("cal_div"), 0));
         add_config("cal_delay", int_or_default(cell->params, ctx->id("cal_delay"), 0));
-        add_config("use_pll", bool_or_default(cell->params, ctx->id("use_pll"), false));
+        add_config("use_pll", bool_or_default(cell->params, ctx->id("use_pll"), true));
         add_config("ref_intdiv", int_or_default(cell->params, ctx->id("ref_intdiv"), 0));
         add_config("ref_osc_on", bool_or_default(cell->params, ctx->id("ref_osc_on"), false));
         add_config("pll_cpump", int_or_default(cell->params, ctx->id("pll_cpump"), 0));
