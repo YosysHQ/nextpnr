@@ -705,21 +705,21 @@ void NgUltraPacker::pack_cys(void)
             exchange_if_constant(ci, ctx->idf("A%d",i), ctx->idf("B%d",i));
         }
         NetInfo *co_net = ci->getPort(id_CO);
-        if (!co_net || co_net->users.entries()==0) {
+        if (!co_net) {
             disconnect_unused(ci,id_CO);
             // Disconnect unused ports on last CY in chain
             // at least id_A1 and id_B1 will be connected
             // Reverse direction, must stop if used, then
             // rest is used as well
-            if (!ci->getPort(id_S4) || ci->getPort(id_S4)->users.entries()==0) {
+            if (!ci->getPort(id_S4)) {
                 disconnect_unused(ci,id_S4);
                 disconnect_unused(ci,id_A4);
                 disconnect_unused(ci,id_B4);
-                if (!ci->getPort(id_S3) || ci->getPort(id_S3)->users.entries()==0) {
+                if (!ci->getPort(id_S3)) {
                     disconnect_unused(ci,id_S3);
                     disconnect_unused(ci,id_A3);
                     disconnect_unused(ci,id_B3);
-                    if (!ci->getPort(id_S2) || ci->getPort(id_S2)->users.entries()==0) {
+                    if (!ci->getPort(id_S2)) {
                         disconnect_unused(ci,id_S2);
                         disconnect_unused(ci,id_A2);
                         disconnect_unused(ci,id_B2);
@@ -764,12 +764,6 @@ void NgUltraPacker::pack_cys(void)
                 cy->cluster = root->name;
                 root->constr_children.push_back(cy);
                 cy->constr_z = PLACE_CY_CHAIN;
-            }
-            for(int i=1;i<=4;i++) {
-                IdString s_port = ctx->idf("S%d",i);
-                if (!cy->getPort(s_port) || cy->getPort(s_port)->users.entries()==0) {
-                    disconnect_unused(cy, s_port);
-                }
             }
             pack_cy_input_and_output(cy, root->name, id_B1, id_S1, PLACE_CY_FE1, lut_only, lut_and_ff, dff_only);
             // Must check for B input otherwise we have bogus FEs
