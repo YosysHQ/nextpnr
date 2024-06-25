@@ -297,7 +297,7 @@ void NgUltraPacker::bind_attr_loc(CellInfo *cell, dict<IdString, Property> *attr
 void NgUltraPacker::pack_xluts(void)
 {
     log_info("Pack XLUTs...\n");
-    int lut_only = 0;//, lut_and_ff = 0;
+    int xlut_used = 0, lut_only = 0;//, lut_and_ff = 0;
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_NX_LUT))
@@ -332,7 +332,7 @@ void NgUltraPacker::pack_xluts(void)
         ci.type = id_XLUT;
         bind_attr_loc(&ci, &ci.attrs);
         ci.cluster = ci.name;
-        lut_only++;
+        xlut_used++;
         for (int i=0;i<4;i++) {
             ci.constr_children.push_back(lut[i]);
             lut[i]->cluster = ci.cluster;
@@ -344,6 +344,8 @@ void NgUltraPacker::pack_xluts(void)
             lut_only++;
         }
     }
+    if (xlut_used)
+        log_info("    %6d XLUTs used\n", xlut_used);
     if (lut_only)
         log_info("    %6d FEs used as LUT only\n", lut_only);
     //if (lut_and_ff)
