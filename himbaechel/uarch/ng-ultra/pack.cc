@@ -294,6 +294,63 @@ void NgUltraPacker::bind_attr_loc(CellInfo *cell, dict<IdString, Property> *attr
     }
 }
 
+void NgUltraPacker::pack_xluts(void)
+{
+    log_info("Pack XLUTs...\n");
+    int lut_only = 0;//, lut_and_ff = 0;
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (!ci.type.in(id_NX_LUT))
+            continue;
+        if (!ci.params.count(id_lut_table))
+            log_error("Cell '%s' missing lut_table\n", ci.name.c_str(ctx));
+
+        if (ci.cluster!=ClusterId())
+            continue;
+        CellInfo *lut[4];
+        if (!ci.getPort(id_I1))
+            continue;
+        if (!ci.getPort(id_I2))
+            continue;
+        if (!ci.getPort(id_I3))
+            continue;
+        if (!ci.getPort(id_I4))
+            continue;
+        lut[0] = net_driven_by(ctx, ci.getPort(id_I1), is_lut, id_O);
+        if (!lut[0] || ci.getPort(id_I1)->users.entries()!=1)
+            continue;
+        lut[1] = net_driven_by(ctx, ci.getPort(id_I2), is_lut, id_O);
+        if (!lut[1] || ci.getPort(id_I2)->users.entries()!=1)
+            continue;
+        lut[2] = net_driven_by(ctx, ci.getPort(id_I3), is_lut, id_O);
+        if (!lut[2] || ci.getPort(id_I3)->users.entries()!=1)
+            continue;
+        lut[3] = net_driven_by(ctx, ci.getPort(id_I4), is_lut, id_O);
+        if (!lut[3] || ci.getPort(id_I4)->users.entries()!=1)
+            continue;
+        
+        ci.type = id_XLUT;
+        bind_attr_loc(&ci, &ci.attrs);
+        ci.cluster = ci.name;
+        lut_only++;
+        for (int i=0;i<4;i++) {
+            ci.constr_children.push_back(lut[i]);
+            lut[i]->cluster = ci.cluster;
+            lut[i]->type = id_BEYOND_FE;
+            lut[i]->constr_z = PLACE_XLUT_FE1 + i;
+            lut[i]->renamePort(id_O, id_LO);
+            lut[i]->params[id_lut_used] = Property(1,1);
+            lut[i]->timing_index = ctx->get_cell_timing_idx(ctx->id("BEYOND_FE_LUT"));
+            lut_only++;
+        }
+    }
+    if (lut_only)
+        log_info("    %6d FEs used as LUT only\n", lut_only);
+    //if (lut_and_ff)
+    //    log_info("    %6d FEs used as LUT and DFF\n", lut_and_ff);
+    flush_cells();
+}
+
 void NgUltraPacker::pack_lut_dffs(void)
 {
     log_info("Pack LUT-DFFs...\n");
@@ -1774,6 +1831,7 @@ void NgUltraImpl::pack()
     packer.pack_cdcs();
     packer.pack_fifos();
     packer.pack_cys();
+    packer.pack_xluts();
     packer.pack_lut_dffs();
     packer.pack_dffs();
 

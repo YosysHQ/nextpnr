@@ -512,6 +512,15 @@ Loc getCYFE(Loc root, int pos)
     return result;
 }
 
+Loc getXLUTFE(Loc root, int pos)
+{
+    Loc result;
+    result.x = root.x;
+    result.y = root.y;
+    result.z = root.z - BEL_XLUT_Z + 8 * pos;
+    return result;
+}
+
 Loc getXRFFE(Loc root, int pos)
 {
     static const std::vector<Loc> map = 
@@ -590,7 +599,6 @@ Loc getXRFFE(Loc root, int pos)
     result.y = root.y;
     return result;
 }
-
 
 Loc getCDCFE(Loc root, int pos)
 {
@@ -963,10 +971,8 @@ bool NgUltraImpl::getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc
         Loc child_loc = if_using_basecluster<Loc>(child, [&](const BaseClusterInfo *child) {
             switch(child->constr_z) {
                 case PLACE_CY_CHAIN : { Loc l = getNextLocInCYChain(prev); prev = l; return l; }
-                case PLACE_CY_FE1: return getCYFE(root_loc,0);
-                case PLACE_CY_FE2: return getCYFE(root_loc,1);
-                case PLACE_CY_FE3: return getCYFE(root_loc,2);
-                case PLACE_CY_FE4: return getCYFE(root_loc,3);
+                case PLACE_CY_FE1 ... PLACE_CY_FE4: return getCYFE(root_loc, child->constr_z - PLACE_CY_FE1 );
+                case PLACE_XLUT_FE1 ... PLACE_XLUT_FE4: return getXLUTFE(root_loc, child->constr_z - PLACE_XLUT_FE1 );
                 case PLACE_XRF_I1 ... PLACE_XRF_WEA:
                                     return getXRFFE(root_loc, child->constr_z - PLACE_XRF_I1 );
                 case PLACE_CDC_AI1 ... PLACE_CDC_DDRSTI:

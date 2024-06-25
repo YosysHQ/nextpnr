@@ -376,6 +376,10 @@ def create_tile_types(ch: Chip, bels, bel_pins, crossbars, interconnects, muxes,
                     # LUT bypass
                     by = tt.create_pip(f"{name}.I1",f"{name}.LO","BYPASS")
                     by.extra_data = PipExtraData(ch.strs.id(name),PIP_EXTRA_BYPASS,1,0)
+                elif (tile_type.startswith("TILE") and bel=="XLUT"):
+                    for out in ["G1","G2","G3","G4"]:
+                        vi = tt.create_pip(f"{name}.J",f"{name}.{out}","Virtual")
+                        vi.extra_data = PipExtraData(ch.strs.id(name),PIP_EXTRA_VIRTUAL,0,0)
                 elif (tile_type.startswith("TILE") and bel=="CY"):
                     # matrix of each input to each output combination
                     # crossbar but use mux placeholder for convenience
@@ -384,16 +388,16 @@ def create_tile_types(ch: Chip, bels, bel_pins, crossbars, interconnects, muxes,
                             pd = tt.create_pip(f"{name}."+inp,f"{name}."+out,"MATRIX_PIP")
                             pd.extra_data = PipExtraData(ch.strs.id(f"{name}."+inp),PIP_EXTRA_MUX,int(inp[1:])-1,int(out[1:])-1)
 
-                #elif (tile_type.startswith("CKG") and bel=="WFG"):
-                #    by = tt.create_pip(f"{name}.ZI",f"{name}.ZO","BYPASS")
-                #    by.extra_data = PipExtraData(ch.strs.id(name),PIP_EXTRA_BYPASS,0,0)
-                #elif (tile_type.startswith("TUBE") and bel=="GCK"):
-                #    # 20 clock signals comming to 20 GCK, SI1 is bypass
-                #    by = tt.create_pip(f"{name}.SI1",f"{name}.SO","BYPASS")
-                #    by.extra_data = PipExtraData(ch.strs.id(name),PIP_EXTRA_BYPASS,0,0)
-                #    # there are CMD signals that can be bypassed as well
-                #    by = tt.create_pip(f"{name}.CMD",f"{name}.SO","BYPASS")
-                #    by.extra_data = PipExtraData(ch.strs.id(name),PIP_EXTRA_BYPASS,1,0)
+                elif (tile_type.startswith("CKG") and bel=="WFG"):
+                    by = tt.create_pip(f"{name}.ZI",f"{name}.ZO","BYPASS")
+                    by.extra_data = PipExtraData(ch.strs.id(name),PIP_EXTRA_BYPASS,0,0)
+                elif (tile_type.startswith("TUBE") and bel=="GCK"):
+                    # 20 clock signals comming to 20 GCK, SI1 is bypass
+                    by = tt.create_pip(f"{name}.SI1",f"{name}.SO","BYPASS")
+                    by.extra_data = PipExtraData(ch.strs.id(name),PIP_EXTRA_BYPASS,0,0)
+                    # there are CMD signals that can be bypassed as well
+                    by = tt.create_pip(f"{name}.CMD",f"{name}.SO","BYPASS")
+                    by.extra_data = PipExtraData(ch.strs.id(name),PIP_EXTRA_BYPASS,1,0)
                 
 
             # Add LUT permutation
