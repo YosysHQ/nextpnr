@@ -196,7 +196,10 @@ struct GowinGlobalRouter
         }
         if (routed == NOT_ROUTED) {
             ctx->unbindWire(src);
+        } else {
+            net->attrs[id_GLOBALLY_ROUTED] = Property("YES");
         }
+
         return routed;
     }
 
@@ -233,6 +236,8 @@ struct GowinGlobalRouter
         }
         if (routed == NOT_ROUTED) {
             ctx->unbindWire(src);
+        } else {
+            net->attrs[id_GLOBALLY_ROUTED] = Property("YES");
         }
 
         // b) route net before buf from whatever to the buf input
