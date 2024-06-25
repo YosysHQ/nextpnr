@@ -15,8 +15,9 @@ from apycula import chipdb
 BEL_FLAG_SIMPLE_IO = 0x100
 
 # Chip flags
-CHIP_HAS_SP32    = 0x1
-CHIP_NEED_SP_FIX = 0x2
+CHIP_HAS_SP32             = 0x1
+CHIP_NEED_SP_FIX          = 0x2
+CHIP_NEED_BSRAM_OUTREG_FIX = 0x4
 
 # Z of the bels
 # sync with C++ part!
@@ -1018,6 +1019,8 @@ def main():
             chip_flags |= CHIP_HAS_SP32;
         if "NEED_SP_FIX" in db.chip_flags:
             chip_flags |= CHIP_NEED_SP_FIX;
+        if "NEED_BSRAM_OUTREG_FIX" in db.chip_flags:
+            chip_flags |= CHIP_NEED_BSRAM_OUTREG_FIX;
 
     X = db.cols;
     Y = db.rows;

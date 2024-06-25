@@ -124,6 +124,12 @@ bool GowinUtils::need_SP_fix(void)
     return extra->chip_flags & Extra_chip_data_POD::NEED_SP_FIX;
 }
 
+bool GowinUtils::need_BSRAM_OUTREG_fix(void)
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    return extra->chip_flags & Extra_chip_data_POD::NEED_BSRAM_OUTREG_FIX;
+}
+
 std::unique_ptr<CellInfo> GowinUtils::create_cell(IdString name, IdString type)
 {
     NPNR_ASSERT(!ctx->cells.count(name));
