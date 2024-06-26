@@ -476,8 +476,7 @@ struct BitstreamJsonBackend
             add_config("use_read_arst", bool_or_default(cell->params, ctx->id("use_read_arst"), false));
             add_config("use_write_arst", bool_or_default(cell->params, ctx->id("use_write_arst"), false));
         }
-        add_config("read_addr_inv", int_or_default(cell->params, ctx->id("read_addr_inv"), 0));
-        //add_config("read_addr_inv", extract_bits_or_default(cell->params, ctx->id("read_addr_inv"), cell->type == id_FIFO ? 6 : 7));
+        add_config("read_addr_inv", extract_bits_or_default(cell->params, ctx->id("read_addr_inv"), cell->type == id_FIFO ? 6 : 7));
         close_instance();
     }
 
