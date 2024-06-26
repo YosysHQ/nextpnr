@@ -2107,23 +2107,30 @@ void NgUltraPacker::duplicate_gck()
                 }
             }
         }
-        
-        if (connections.size()>1) 
-            log_error("Unhandled\n");
-        
+        int cnt = 0;
+        CellInfo *driver = glb_net->driver.cell;
+        NetInfo *si1 = driver->getPort(id_SI1);
+        NetInfo *si2 = driver->getPort(id_SI2);
+        NetInfo *cmd = driver->getPort(id_CMD);        
         for (auto &conn : connections) {
             pool<BelId>& gck = uarch->gck_per_lobe[conn.first];
             if (gck.size()==0)
                 log_error("No GCK left to promote global signal.\n");
 
             BelId bel = gck.pop();
-            CellInfo *gck_cell = glb_net->driver.cell;
-            log_info("        Assign GCK '%s' to lobe %d\n",gck_cell->name.c_str(ctx), conn.first);
-            /*
-            log_info("        Create GCK for lobe %d\n",conn.first);
-            CellInfo *gck_cell = create_cell_ptr(id_GCK, ctx->id(glb_net->name.str(ctx) + "$gck_"+ std::to_string(conn.first)));
-            gck_cell->params[id_std_mode] = Property("BYPASS");
-            gck_cell->connectPort(id_SI1, glb_net);*/
+            CellInfo *gck_cell = nullptr;
+            if (cnt==0) {
+                gck_cell = driver;
+                log_info("        Assign GCK '%s' to lobe %d\n",gck_cell->name.c_str(ctx), conn.first);
+            } else {
+                gck_cell = create_cell_ptr(id_GCK, ctx->id(driver->name.str(ctx) + "$gck_"+ std::to_string(conn.first)));
+                log_info("        Create GCK '%s' for lobe %d\n",gck_cell->name.c_str(ctx), conn.first);
+                for (auto &params : driver->params)
+                    gck_cell->params[params.first] = params.second;
+                if (si1) gck_cell->connectPort(id_SI1, si1);
+                if (si2) gck_cell->connectPort(id_SI2, si2);
+                if (cmd) gck_cell->connectPort(id_CMD, cmd);
+            }
             gck_cell->disconnectPort(id_SO);
             NetInfo *new_clk = ctx->createNet(ctx->id(gck_cell->name.str(ctx) + "$gck_"+ std::to_string(conn.first)));
             gck_cell->connectPort(id_SO, new_clk);
@@ -2134,6 +2141,7 @@ void NgUltraPacker::duplicate_gck()
             }
             
             ctx->bindBel(bel, gck_cell, PlaceStrength::STRENGTH_LOCKED);
+            cnt++;
         }
     }
 
