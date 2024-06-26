@@ -1190,6 +1190,7 @@ void NgUltraPacker::pack_fifos(void)
             ci.disconnectPort(port);
             for (int i=1;i<=rsti;i++)
                 ci.connectPort(ctx->idf("WRSTI%d",i), wrsti_net);
+            if (mode!=0) disconnect_unused(&ci, id_WRSTO);
             pack_xrf_input_and_output(&ci, ci.name, id_WRSTI1, id_WRSTO,   PLACE_FIFO_WRSTI1, lut_only, lut_and_ff, dff_only);
             pack_xrf_input_and_output(&ci, ci.name, id_WRSTI2, IdString(), PLACE_FIFO_WRSTI2, lut_only, lut_and_ff, dff_only);
             if (mode != 0) {
@@ -1206,6 +1207,7 @@ void NgUltraPacker::pack_fifos(void)
             ci.disconnectPort(port);
             for (int i=1;i<=rsti;i++)
                 ci.connectPort(ctx->idf("RRSTI%d",i), rrsti_net);
+            if (mode!=0) disconnect_unused(&ci, id_RRSTO);
             pack_xrf_input_and_output(&ci, ci.name, id_RRSTI1, id_RRSTO,   PLACE_FIFO_RRSTI1, lut_only, lut_and_ff, dff_only);
             pack_xrf_input_and_output(&ci, ci.name, id_RRSTI2, IdString(), PLACE_FIFO_RRSTI2, lut_only, lut_and_ff, dff_only);
             if (mode != 0) {
