@@ -1331,6 +1331,70 @@ struct GowinPacker
         }
     }
 
+    // We solve the BLKSEL problems that are observed on some chips by
+    // connecting the BLKSEL ports to constant networks so that this BSRAM will
+    // be selected, the actual selection is made by manipulating the Clock
+    // Enable pin using a LUT-based decoder.
+    void bsram_fix_blksel(CellInfo *ci, std::vector<std::unique_ptr<CellInfo>> &new_cells)
+    {
+        // is BSRAM enabled
+        NetInfo *ce_net = ci->getPort(id_CE);
+        if (ce_net == nullptr || ce_net->name == ctx->id("$PACKER_GND")) {
+            return;
+        }
+
+        // port name, BLK_SEL parameter for this port
+        std::vector<std::pair<IdString, int>> dyn_blksel;
+
+        int blk_sel_parameter = ci->params.at(id_BLK_SEL).as_int64();
+        for (int i = 0; i < 3; ++i) {
+            IdString pin_name = ctx->idf("BLKSEL[%d]", i);
+            NetInfo *net = ci->getPort(pin_name);
+            if (net == nullptr || net->name == ctx->id("$PACKER_GND") || net->name == ctx->id("$PACKER_VCC")) {
+                continue;
+            }
+            dyn_blksel.push_back(std::make_pair(pin_name, (blk_sel_parameter >> i) & 1));
+        }
+
+        if (dyn_blksel.empty()) {
+            return;
+        }
+
+        if (ctx->verbose) {
+            log_info("  apply the BSRAM BLKSEL fix\n");
+        }
+
+        // Make a decoder
+        auto lut_cell = gwu.create_cell(create_aux_name(ci->name, 0, "_blksel_lut$"), id_LUT4);
+        CellInfo *lut = lut_cell.get();
+        lut->addInput(id_I3);
+        ci->movePortTo(id_CE, lut, id_I3);
+        lut->addOutput(id_F);
+        ci->connectPorts(id_CE, lut, id_F);
+
+        NetInfo *vcc_net = ctx->nets.at(ctx->id("$PACKER_VCC")).get();
+        NetInfo *vss_net = ctx->nets.at(ctx->id("$PACKER_GND")).get();
+
+        // Connected CE to I3 to make it easy to calculate the decoder
+        int init = 0x100; // CE == 0 -->  F = 0
+                          // CE == 1 -->  F = decoder result
+        int idx = 0;
+        for (auto &port : dyn_blksel) {
+            IdString lut_input_name = ctx->idf("I%d", idx);
+            ci->movePortTo(port.first, lut, lut_input_name);
+            if (port.second) {
+                init <<= (1 << idx);
+                ci->connectPort(port.first, vcc_net);
+            } else {
+                ci->connectPort(port.first, vss_net);
+            }
+            ++idx;
+        }
+        lut->setParam(id_INIT, init);
+
+        new_cells.push_back(std::move(lut_cell));
+    }
+
     // Some chips cannot, for some reason, use internal BSRAM registers to
     // implement READ_MODE=1'b1 (pipeline) with a word width other than 32 or
     // 36 bits.
@@ -1727,6 +1791,11 @@ struct GowinPacker
         // Some chips have faulty output registers
         if (gwu.need_BSRAM_OUTREG_fix()) {
             bsram_fix_outreg(ci, new_cells);
+        }
+
+        // Some chips have problems with BLKSEL ports
+        if (gwu.need_BLKSEL_fix()) {
+            bsram_fix_blksel(ci, new_cells);
         }
 
         // XXX UG285-1.3.6_E Gowin BSRAM & SSRAM User Guide:
