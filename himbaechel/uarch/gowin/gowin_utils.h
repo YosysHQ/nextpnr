@@ -38,6 +38,7 @@ struct GowinUtils
     bool have_SP32(void);
     bool need_SP_fix(void);
     bool need_BSRAM_OUTREG_fix(void);
+    bool need_BLKSEL_fix(void);
 
     // DSP
     inline int get_dsp_18_z(int z) const { return z & (~3); }
