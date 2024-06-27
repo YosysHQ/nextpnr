@@ -101,6 +101,13 @@ private:
     void dsp_same_driver(IdString port, CellInfo *cell, CellInfo **target);
     void dsp_same_sink(IdString port, CellInfo *cell, CellInfo **target);
 
+    bool is_fabric_clock_sink(const PortRef &ref);
+    bool is_ring_clock_sink(const PortRef &ref);
+    bool is_tube_clock_sink(const PortRef &ref);
+
+    bool is_ring_clock_source(const PortRef &ref);
+    bool is_tube_clock_source(const PortRef &ref);
+
     void constrain_location(CellInfo *cell);
     // Cell creating
     std::unique_ptr<CellInfo> create_cell(IdString type, IdString name);
@@ -111,7 +118,13 @@ private:
 
     pool<IdString> packed_cells;
     std::vector<std::unique_ptr<CellInfo>> new_cells;
-    dict<IdString,pool<IdString>> clock_sinks;
+
+    dict<IdString,pool<IdString>> fabric_clock_sinks;
+    dict<IdString,pool<IdString>> ring_clock_sinks;
+    dict<IdString,pool<IdString>> tube_clock_sinks;
+
+    dict<IdString,pool<IdString>> ring_clock_source;
+    dict<IdString,pool<IdString>> tube_clock_source;
 
     HimbaechelHelpers h;
 };

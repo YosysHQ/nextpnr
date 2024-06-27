@@ -1336,7 +1336,7 @@ void NgUltraPacker::insert_ioms()
         if (uarch->global_capable_bels.count(bel)==0)
             continue;
         for (const auto &usr : ni->users) {
-            if (clock_sinks.count(usr.cell->type) && clock_sinks[usr.cell->type].count(usr.port)) {
+            if (is_fabric_clock_sink(usr) || is_ring_clock_sink(usr) || is_tube_clock_sink(usr)) {
                 pins_needing_iom.emplace_back(ni->name);
                 break;
             }
@@ -1754,71 +1754,111 @@ void NgUltraPacker::remove_not_used()
 void NgUltraPacker::setup()
 {
     // Note: These are per Cell type not Bel type
-    clock_sinks[id_BEYOND_FE].insert(id_CK);
-    //clock_sinks[id_DFF].insert(id_CK); // This is part of BEYOND_FE
-    clock_sinks[id_RF].insert(id_WCK);
-    clock_sinks[id_RFSP].insert(id_WCK);
-    clock_sinks[id_XHRF].insert(id_WCK1);
-    clock_sinks[id_XHRF].insert(id_WCK2);
-    clock_sinks[id_XWRF].insert(id_WCK1);
-    clock_sinks[id_XWRF].insert(id_WCK2);
-    clock_sinks[id_XPRF].insert(id_WCK1);
-    clock_sinks[id_XPRF].insert(id_WCK2);
-    clock_sinks[id_RAM].insert(id_ACK);
-    clock_sinks[id_RAM].insert(id_BCK);
+    // TILE - DFF
+    fabric_clock_sinks[id_BEYOND_FE].insert(id_CK);
+    //fabric_clock_sinks[id_DFF].insert(id_CK); // This is part of BEYOND_FE
+    // TILE - Register file
+    fabric_clock_sinks[id_RF].insert(id_WCK);
+    fabric_clock_sinks[id_RFSP].insert(id_WCK);
+    fabric_clock_sinks[id_XHRF].insert(id_WCK1);
+    fabric_clock_sinks[id_XHRF].insert(id_WCK2);
+    fabric_clock_sinks[id_XWRF].insert(id_WCK1);
+    fabric_clock_sinks[id_XWRF].insert(id_WCK2);
+    fabric_clock_sinks[id_XPRF].insert(id_WCK1);
+    fabric_clock_sinks[id_XPRF].insert(id_WCK2);
+    // TILE - CDC
+    fabric_clock_sinks[id_CDC].insert(id_CK1);
+    fabric_clock_sinks[id_CDC].insert(id_CK2);
+    fabric_clock_sinks[id_DDE].insert(id_CK1);
+    fabric_clock_sinks[id_DDE].insert(id_CK2);
+    fabric_clock_sinks[id_TDE].insert(id_CK1);
+    fabric_clock_sinks[id_TDE].insert(id_CK2);
+    fabric_clock_sinks[id_XCDC].insert(id_CK1);
+    fabric_clock_sinks[id_XCDC].insert(id_CK2);
+    // TILE - FIFO
+    fabric_clock_sinks[id_FIFO].insert(id_RCK);
+    fabric_clock_sinks[id_FIFO].insert(id_WCK);
+    fabric_clock_sinks[id_XHFIFO].insert(id_RCK1);
+    fabric_clock_sinks[id_XHFIFO].insert(id_RCK2);
+    fabric_clock_sinks[id_XHFIFO].insert(id_WCK1);
+    fabric_clock_sinks[id_XHFIFO].insert(id_WCK2);
+    fabric_clock_sinks[id_XWFIFO].insert(id_RCK1);
+    fabric_clock_sinks[id_XWFIFO].insert(id_RCK2);
+    fabric_clock_sinks[id_XWFIFO].insert(id_WCK1);
+    fabric_clock_sinks[id_XWFIFO].insert(id_WCK2);
+    // CGB - RAM
+    fabric_clock_sinks[id_RAM].insert(id_ACK);
+    fabric_clock_sinks[id_RAM].insert(id_BCK);
+    // CGB - DSP
+    fabric_clock_sinks[id_DSP].insert(id_CK);
 
-    clock_sinks[id_CDC].insert(id_CK1);
-    clock_sinks[id_CDC].insert(id_CK2);
-    clock_sinks[id_DDE].insert(id_CK1);
-    clock_sinks[id_DDE].insert(id_CK2);
-    clock_sinks[id_TDE].insert(id_CK1);
-    clock_sinks[id_TDE].insert(id_CK2);
-    clock_sinks[id_XCDC].insert(id_CK1);
-    clock_sinks[id_XCDC].insert(id_CK2);
+    // CKG
+    ring_clock_sinks[id_PLL].insert(id_CLK_CAL);
+    ring_clock_sinks[id_PLL].insert(id_FBK);
+    ring_clock_sinks[id_PLL].insert(id_REF);
+    ring_clock_sinks[id_WFB].insert(id_ZI);
+    ring_clock_sinks[id_WFG].insert(id_ZI);
 
-    clock_sinks[id_FIFO].insert(id_RCK);
-    clock_sinks[id_FIFO].insert(id_WCK);
-    clock_sinks[id_XHFIFO].insert(id_RCK1);
-    clock_sinks[id_XHFIFO].insert(id_RCK2);
-    clock_sinks[id_XHFIFO].insert(id_WCK1);
-    clock_sinks[id_XHFIFO].insert(id_WCK2);
-    clock_sinks[id_XWFIFO].insert(id_RCK1);
-    clock_sinks[id_XWFIFO].insert(id_RCK2);
-    clock_sinks[id_XWFIFO].insert(id_WCK1);
-    clock_sinks[id_XWFIFO].insert(id_WCK2);
+    // IOB
+    // ring_clock_sinks[id_DFR].insert(id_CK);
+    // ring_clock_sinks[id_DDFR].insert(id_CK);
+    // ring_clock_sinks[id_DDFR].insert(id_CKF);
+    // ring_clock_sinks[id_IOM].insert(id_ALCK1);
+    // ring_clock_sinks[id_IOM].insert(id_ALCK2);
+    // ring_clock_sinks[id_IOM].insert(id_ALCK3);
+    // ring_clock_sinks[id_IOM].insert(id_CCK);
+    // ring_clock_sinks[id_IOM].insert(id_FCK1);
+    // ring_clock_sinks[id_IOM].insert(id_FCK2);
+    // ring_clock_sinks[id_IOM].insert(id_FDCK);
+    // ring_clock_sinks[id_IOM].insert(id_LDSCK1);
+    // ring_clock_sinks[id_IOM].insert(id_LDSCK2);
+    // ring_clock_sinks[id_IOM].insert(id_LDSCK3);
+    // ring_clock_sinks[id_IOM].insert(id_SWRX1CK);
+    // ring_clock_sinks[id_IOM].insert(id_SWRX2CK);
 
-    clock_sinks[id_DSP].insert(id_CK);
+    // HSSL
+    // ring_clock_sinks[id_CRX].insert(id_LINK);
+    // ring_clock_sinks[id_CTX].insert(id_LINK);
+    // ring_clock_sinks[id_PMA].insert(id_hssl_clock_i1);
+    // ring_clock_sinks[id_PMA].insert(id_hssl_clock_i2);
+    // ring_clock_sinks[id_PMA].insert(id_hssl_clock_i3);
+    // ring_clock_sinks[id_PMA].insert(id_hssl_clock_i4);
+    
+    // TUBE
+    tube_clock_sinks[id_GCK].insert(id_SI1);
+    tube_clock_sinks[id_GCK].insert(id_SI2);
 
-    clock_sinks[id_PLL].insert(id_CLK_CAL);
-    clock_sinks[id_PLL].insert(id_FBK);
-    clock_sinks[id_PLL].insert(id_REF);
-    clock_sinks[id_GCK].insert(id_SI1);
-    clock_sinks[id_GCK].insert(id_SI2);
+    ring_clock_source[id_IOM].insert(id_CKO1);
+    ring_clock_source[id_IOM].insert(id_CKO2);
+    ring_clock_source[id_WFB].insert(id_ZO);
+    ring_clock_source[id_WFG].insert(id_ZO);
 
-    // clock_sinks[id_IOM].insert(id_ALCK1);
-    // clock_sinks[id_IOM].insert(id_ALCK2);
-    // clock_sinks[id_IOM].insert(id_ALCK3);
-    // clock_sinks[id_IOM].insert(id_CCK);
-    // clock_sinks[id_IOM].insert(id_FCK1);
-    // clock_sinks[id_IOM].insert(id_FCK2);
-    // clock_sinks[id_IOM].insert(id_FDCK);
-    // clock_sinks[id_IOM].insert(id_LDSCK1);
-    // clock_sinks[id_IOM].insert(id_LDSCK2);
-    // clock_sinks[id_IOM].insert(id_LDSCK3);
-    // clock_sinks[id_IOM].insert(id_SWRX1CK);
-    // clock_sinks[id_IOM].insert(id_SWRX2CK);
+    tube_clock_source[id_GCK].insert(id_SO);
+}
 
-    // clock_sinks[id_DFR].insert(id_CK);
-    // clock_sinks[id_DDFR].insert(id_CK);
-    // clock_sinks[id_DDFR].insert(id_CKF);   
-    // clock_sinks[id_CRX].insert(id_LINK);
-    // clock_sinks[id_CTX].insert(id_LINK);
-    // clock_sinks[id_PMA].insert(id_hssl_clock_i1);
-    // clock_sinks[id_PMA].insert(id_hssl_clock_i2);
-    // clock_sinks[id_PMA].insert(id_hssl_clock_i3);
-    // clock_sinks[id_PMA].insert(id_hssl_clock_i4);
-    clock_sinks[id_WFB].insert(id_ZI);
-    clock_sinks[id_WFG].insert(id_ZI);
+bool NgUltraPacker::is_fabric_clock_sink(const PortRef &ref)
+{
+    return fabric_clock_sinks.count(ref.cell->type) && fabric_clock_sinks[ref.cell->type].count(ref.port);
+}
+
+bool NgUltraPacker::is_ring_clock_sink(const PortRef &ref)
+{
+    return ring_clock_sinks.count(ref.cell->type) && ring_clock_sinks[ref.cell->type].count(ref.port);
+}
+
+bool NgUltraPacker::is_tube_clock_sink(const PortRef &ref)
+{
+    return tube_clock_sinks.count(ref.cell->type) && tube_clock_sinks[ref.cell->type].count(ref.port);
+}
+
+bool NgUltraPacker::is_ring_clock_source(const PortRef &ref)
+{
+    return ring_clock_source.count(ref.cell->type) && ring_clock_source[ref.cell->type].count(ref.port);
+}
+
+bool NgUltraPacker::is_tube_clock_source(const PortRef &ref)
+{
+    return tube_clock_source.count(ref.cell->type) && tube_clock_source[ref.cell->type].count(ref.port);
 }
 
 void NgUltraImpl::pack()
@@ -2036,6 +2076,7 @@ void NgUltraImpl::postPlace()
 
 
     NgUltraPacker packer(ctx, this);
+    packer.setup();
     log_break();
     log_info("Running post-placement ...\n");
     packer.duplicate_gck();
@@ -2066,6 +2107,7 @@ BelId NgUltraPacker::get_available_gck(int lobe, NetInfo *si1, NetInfo *si2)
     log_error("No GCK left to promote global signal.\n");
     return BelId();
 }
+
 void NgUltraPacker::duplicate_gck()
 {
     // Unbind all GCKs that are inserted
@@ -2076,60 +2118,19 @@ void NgUltraPacker::duplicate_gck()
         ctx->unbindBel(ci.bel);
     }
 
-
-    dict<IdString,pool<IdString>> glb_sources;
-    glb_sources[id_GCK].insert(id_SO);
-
-    dict<IdString,pool<IdString>> clock_sinks;
-    clock_sinks[id_BEYOND_FE].insert(id_CK);
-    //clock_sinks[id_DFF].insert(id_CK); // This is part of BEYOND_FE
-    clock_sinks[id_RF].insert(id_WCK);
-    clock_sinks[id_RFSP].insert(id_WCK);
-    clock_sinks[id_XHRF].insert(id_WCK1);
-    clock_sinks[id_XHRF].insert(id_WCK2);
-    clock_sinks[id_XWRF].insert(id_WCK1);
-    clock_sinks[id_XWRF].insert(id_WCK2);
-    clock_sinks[id_XPRF].insert(id_WCK1);
-    clock_sinks[id_XPRF].insert(id_WCK2);
-    clock_sinks[id_RAM].insert(id_ACK);
-    clock_sinks[id_RAM].insert(id_BCK);
-    clock_sinks[id_DSP].insert(id_CK);
-    //glb_sources[id_BFR].insert(id_O);
-    //glb_sources[id_GCK].insert(id_SO);
-    clock_sinks[id_CDC].insert(id_CK1);
-    clock_sinks[id_CDC].insert(id_CK2);
-    clock_sinks[id_DDE].insert(id_CK1);
-    clock_sinks[id_DDE].insert(id_CK2);
-    clock_sinks[id_TDE].insert(id_CK1);
-    clock_sinks[id_TDE].insert(id_CK2);
-    clock_sinks[id_XCDC].insert(id_CK1);
-    clock_sinks[id_XCDC].insert(id_CK2);
-
-    clock_sinks[id_FIFO].insert(id_RCK);
-    clock_sinks[id_FIFO].insert(id_WCK);
-    clock_sinks[id_XHFIFO].insert(id_RCK1);
-    clock_sinks[id_XHFIFO].insert(id_RCK2);
-    clock_sinks[id_XHFIFO].insert(id_WCK1);
-    clock_sinks[id_XHFIFO].insert(id_WCK2);
-    clock_sinks[id_XWFIFO].insert(id_RCK1);
-    clock_sinks[id_XWFIFO].insert(id_RCK2);
-    clock_sinks[id_XWFIFO].insert(id_WCK1);
-    clock_sinks[id_XWFIFO].insert(id_WCK2);
-
     log_info("Duplicating existing GCKs...\n");
     for (auto &net : ctx->nets) {
         NetInfo *glb_net = net.second.get();
         if (!glb_net->driver.cell)
             continue;
 
-        // check if we have a global clock net, skip otherwise
-        if (!(glb_sources.count(glb_net->driver.cell->type) && glb_sources[glb_net->driver.cell->type].count(glb_net->driver.port)))
+        if (!is_tube_clock_source(glb_net->driver))
             continue;
 
         log_info("    Global signal '%s'\n", glb_net->name.c_str(ctx));
         dict<int, std::vector<PortRef>> connections;
         for (const auto &usr : glb_net->users) {
-            if (clock_sinks.count(usr.cell->type) && clock_sinks[usr.cell->type].count(usr.port)) {
+            if (is_fabric_clock_sink(usr)) {
                 if (usr.cell->bel==BelId()) {
                     log_error("Cell '%s' not placed\n",usr.cell->name.c_str(ctx));
                 }
@@ -2178,62 +2179,19 @@ void NgUltraPacker::duplicate_gck()
 
 void NgUltraPacker::insert_bypass_gck()
 {
-    dict<IdString,pool<IdString>> glb_sources;
-    glb_sources[id_IOM].insert(id_CKO1);
-    glb_sources[id_IOM].insert(id_CKO2);
-    glb_sources[id_WFB].insert(id_ZO);
-    glb_sources[id_WFG].insert(id_ZO);
-
-    dict<IdString,pool<IdString>> clock_sinks;
-    clock_sinks[id_BEYOND_FE].insert(id_CK);
-    //clock_sinks[id_DFF].insert(id_CK); // This is part of BEYOND_FE
-    clock_sinks[id_RF].insert(id_WCK);
-    clock_sinks[id_RFSP].insert(id_WCK);
-    clock_sinks[id_XHRF].insert(id_WCK1);
-    clock_sinks[id_XHRF].insert(id_WCK2);
-    clock_sinks[id_XWRF].insert(id_WCK1);
-    clock_sinks[id_XWRF].insert(id_WCK2);
-    clock_sinks[id_XPRF].insert(id_WCK1);
-    clock_sinks[id_XPRF].insert(id_WCK2);
-    clock_sinks[id_RAM].insert(id_ACK);
-    clock_sinks[id_RAM].insert(id_BCK);
-    clock_sinks[id_DSP].insert(id_CK);
-    //glb_sources[id_BFR].insert(id_O);
-    //glb_sources[id_GCK].insert(id_SO);
-    clock_sinks[id_CDC].insert(id_CK1);
-    clock_sinks[id_CDC].insert(id_CK2);
-    clock_sinks[id_DDE].insert(id_CK1);
-    clock_sinks[id_DDE].insert(id_CK2);
-    clock_sinks[id_TDE].insert(id_CK1);
-    clock_sinks[id_TDE].insert(id_CK2);
-    clock_sinks[id_XCDC].insert(id_CK1);
-    clock_sinks[id_XCDC].insert(id_CK2);
-
-    clock_sinks[id_FIFO].insert(id_RCK);
-    clock_sinks[id_FIFO].insert(id_WCK);
-    clock_sinks[id_XHFIFO].insert(id_RCK1);
-    clock_sinks[id_XHFIFO].insert(id_RCK2);
-    clock_sinks[id_XHFIFO].insert(id_WCK1);
-    clock_sinks[id_XHFIFO].insert(id_WCK2);
-    clock_sinks[id_XWFIFO].insert(id_RCK1);
-    clock_sinks[id_XWFIFO].insert(id_RCK2);
-    clock_sinks[id_XWFIFO].insert(id_WCK1);
-    clock_sinks[id_XWFIFO].insert(id_WCK2);
-
     log_info("Inserting bypass GCKs...\n");
     for (auto &net : ctx->nets) {
         NetInfo *glb_net = net.second.get();
         if (!glb_net->driver.cell)
             continue;
 
-        // check if we have a global clock net, skip otherwise
-        if (!(glb_sources.count(glb_net->driver.cell->type) && glb_sources[glb_net->driver.cell->type].count(glb_net->driver.port)))
+        if (!is_ring_clock_source(glb_net->driver))
             continue;
 
         log_info("    Global signal '%s'\n", glb_net->name.c_str(ctx));
         dict<int, std::vector<PortRef>> connections;
         for (const auto &usr : glb_net->users) {
-            if (clock_sinks.count(usr.cell->type) && clock_sinks[usr.cell->type].count(usr.port)) {
+            if (is_fabric_clock_sink(usr)) {
                 if (usr.cell->bel==BelId()) {
                     log_error("Cell '%s' not placed\n",usr.cell->name.c_str(ctx));
                 }
