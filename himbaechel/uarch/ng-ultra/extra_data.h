@@ -20,7 +20,15 @@ NPNR_PACKED_STRUCT(struct NGUltraPipExtraDataPOD {
 });
 
 NPNR_PACKED_STRUCT(struct NGUltraBelExtraDataPOD { int32_t flags; });
-   
+
+struct GckConfig {
+    explicit GckConfig(BelId belid) { bel = belid; si1 = IdString(); si2 = IdString(); used = false; }
+    BelId bel;
+    IdString si1;
+    IdString si2;
+    bool used;
+};
+
 enum TILETypeZ
 {
     BEL_LUT_Z   = 0,

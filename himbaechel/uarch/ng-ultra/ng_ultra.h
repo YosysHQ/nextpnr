@@ -71,7 +71,7 @@ public:
     dict<std::string, std::string> bank_voltage;
     dict<BelId,IdString> global_capable_bels;
     dict<std::string,BelId> locations;
-    dict<int,pool<BelId>> gck_per_lobe;
+    dict<int,std::vector<GckConfig>> gck_per_lobe;
 
     pool<PipId> blocked_pips;
     dict<IdString, std::pair<IdString,IdString>> bank_to_ckg;

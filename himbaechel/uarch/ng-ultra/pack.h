@@ -93,6 +93,7 @@ private:
     void mandatory_param(CellInfo *cell, IdString param);
     void disconnect_unused(CellInfo *cell, IdString port);
     void bind_attr_loc(CellInfo *cell, dict<IdString, Property> *attrs);
+    BelId get_available_gck(int lobe, NetInfo *si1, NetInfo *si2);
     // General helper functions
     void flush_cells();
 

@@ -527,12 +527,21 @@ void NgUltraPacker::pack_iobs(void)
         NetInfo *c_net = cell->getPort(id_C);
         if (!c_net)
             log_error("C input of IO primitive %s must be connected.\n", cell->name.c_str(ctx));
-        if (c_net->name == ctx->id("$PACKER_GND") && !cell->getPort(id_O))
-            log_error("O port of IO primitive %s must be connected.\n", cell->name.c_str(ctx));
-        if (c_net->name == ctx->id("$PACKER_VCC") && !cell->getPort(id_I))
-            log_error("I port of IO primitive %s must be connected.\n", cell->name.c_str(ctx));
-        if (!cell->getPort(id_I) && !cell->getPort(id_O))
-            log_error("I or O port of IO primitive %s must be connected.\n", cell->name.c_str(ctx));
+        if (c_net->name == ctx->id("$PACKER_GND") && !cell->getPort(id_O)) {
+            log_warning("O port of IO primitive %s must be connected. Removing cell.\n", cell->name.c_str(ctx));
+            packed_cells.emplace(cell->name);
+            continue;
+        }
+        if (c_net->name == ctx->id("$PACKER_VCC") && !cell->getPort(id_I)) {
+            log_warning("I port of IO primitive %s must be connected. Removing cell.\n", cell->name.c_str(ctx));
+            packed_cells.emplace(cell->name);
+            continue;
+        }
+        if (!cell->getPort(id_I) && !cell->getPort(id_O)) {
+            log_warning("I or O port of IO primitive %s must be connected. Removing cell.\n", cell->name.c_str(ctx));
+            packed_cells.emplace(cell->name);
+            continue;
+        }
 
         {
             CellInfo *iod = net_driven_by(ctx, c_net, is_dfr, id_O);
@@ -633,6 +642,7 @@ void NgUltraPacker::pack_iobs(void)
     }
     if (bfr_added)
         log_info("    %6d DFRs/DDFRs used as BFR\n", bfr_added);
+    flush_cells();
 }
 
 void NgUltraPacker::pack_ioms(void)
@@ -2035,6 +2045,27 @@ void NgUltraImpl::postPlace()
     ctx->assignArchInfo();
 }
 
+BelId NgUltraPacker::get_available_gck(int lobe, NetInfo *si1, NetInfo *si2)
+{
+    auto &gcks = uarch->gck_per_lobe[lobe];
+    for(int i=0;i<20;i++) {
+        auto &g = gcks.at(i);
+        if (g.used) continue;
+        if (si1 && g.si1!=IdString() && g.si1!=si1->name) continue;
+        if (si2 && g.si2!=IdString() && g.si2!=si2->name) continue;
+        if (si1) g.si1 = si1->name;
+        if (si2) g.si2 = si2->name;
+        g.used = true;
+        if (i%2==0) {
+            // next GCK share inputs in reverse order
+            if (si2) gcks.at(i+1).si1 = si2->name;
+            if (si1) gcks.at(i+1).si2 = si1->name;
+        }
+        return g.bel;
+    }
+    log_error("No GCK left to promote global signal.\n");
+    return BelId();
+}
 void NgUltraPacker::duplicate_gck()
 {
     // Unbind all GCKs that are inserted
@@ -2115,11 +2146,7 @@ void NgUltraPacker::duplicate_gck()
         NetInfo *si2 = driver->getPort(id_SI2);
         NetInfo *cmd = driver->getPort(id_CMD);        
         for (auto &conn : connections) {
-            pool<BelId>& gck = uarch->gck_per_lobe[conn.first];
-            if (gck.size()==0)
-                log_error("No GCK left to promote global signal.\n");
-
-            BelId bel = gck.pop();
+            BelId bel = get_available_gck(conn.first, si1, si2);
             CellInfo *gck_cell = nullptr;
             if (cnt==0) {
                 gck_cell = driver;
@@ -2218,11 +2245,7 @@ void NgUltraPacker::insert_bypass_gck()
             }
         }
         for (auto &conn : connections) {
-            pool<BelId>& gck = uarch->gck_per_lobe[conn.first];
-            if (gck.size()==0)
-                log_error("No GCK left to promote global signal.\n");
-
-            BelId bel = gck.pop();
+            BelId bel = get_available_gck(conn.first, glb_net, nullptr);
 
             log_info("        Create GCK for lobe %d\n",conn.first);
             CellInfo *gck_cell = create_cell_ptr(id_GCK, ctx->id(glb_net->name.str(ctx) + "$gck_"+ std::to_string(conn.first)));
