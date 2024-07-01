@@ -62,10 +62,18 @@ struct NgUltraImpl : HimbaechelAPI
 
     bool checkPipAvail(PipId pip) const override { return blocked_pips.count(pip)==0; }
     bool checkPipAvailForNet(PipId pip, const NetInfo *net) const override { return checkPipAvail(pip); };
-    int tile_lobe(int tile) const;
+
 public:
+    int tile_lobe(int tile) const;
     IdString tile_name_id(int tile) const;
     std::string tile_name(int tile) const;
+
+    bool is_fabric_clock_sink(const PortRef &ref);
+    bool is_ring_clock_sink(const PortRef &ref);
+    bool is_tube_clock_sink(const PortRef &ref);
+
+    bool is_ring_clock_source(const PortRef &ref);
+    bool is_tube_clock_source(const PortRef &ref);
 
     dict<IdString,BelId> iom_bels;
     dict<std::string, std::string> bank_voltage;
@@ -81,7 +89,7 @@ public:
 
 private:
     void write_bitstream_json(const std::string &filename);
-    void route_clocks();
+    void route_lowskew();
     void parse_csv(const std::string &filename);
     void remove_constants();
 
@@ -91,6 +99,12 @@ private:
 
     const NGUltraTileInstExtraDataPOD *tile_extra_data(int tile) const;
 
+    dict<IdString,pool<IdString>> fabric_clock_sinks;
+    dict<IdString,pool<IdString>> ring_clock_sinks;
+    dict<IdString,pool<IdString>> tube_clock_sinks;
+
+    dict<IdString,pool<IdString>> ring_clock_source;
+    dict<IdString,pool<IdString>> tube_clock_source;
 };
 
 NEXTPNR_NAMESPACE_END

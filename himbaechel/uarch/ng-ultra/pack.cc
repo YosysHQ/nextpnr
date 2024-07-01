@@ -1336,7 +1336,7 @@ void NgUltraPacker::insert_ioms()
         if (uarch->global_capable_bels.count(bel)==0)
             continue;
         for (const auto &usr : ni->users) {
-            if (is_fabric_clock_sink(usr) || is_ring_clock_sink(usr) || is_tube_clock_sink(usr)) {
+            if (uarch->is_fabric_clock_sink(usr) || uarch->is_ring_clock_sink(usr) || uarch->is_tube_clock_sink(usr)) {
                 pins_needing_iom.emplace_back(ni->name);
                 break;
             }
@@ -1479,7 +1479,7 @@ void NgUltraPacker::insert_wfb(CellInfo *cell, IdString port)
     bool in_fabric = false;
     bool in_ring = false;
     for (const auto &usr : net->users) {
-        if (is_fabric_clock_sink(usr))
+        if (uarch->is_fabric_clock_sink(usr))
             in_fabric = true;
         else
             in_ring = true;
@@ -1494,7 +1494,7 @@ void NgUltraPacker::insert_wfb(CellInfo *cell, IdString port)
         NetInfo *net_zo = ctx->createNet(ctx->id(net->name.str(ctx) + "$ZO"));
         wfb->connectPort(id_ZO, net_zo);
         for (const auto &usr : net->users) {
-            if (is_fabric_clock_sink(usr)) {
+            if (uarch->is_fabric_clock_sink(usr)) {
                 usr.cell->disconnectPort(usr.port);
                 usr.cell->connectPort(usr.port, net_zo);
             }
@@ -1777,133 +1777,6 @@ void NgUltraPacker::remove_not_used()
     }
 }
 
-void NgUltraPacker::setup()
-{
-    // Note: These are per Cell type not Bel type
-    // Sinks
-    // TILE - DFF
-    fabric_clock_sinks[id_BEYOND_FE].insert(id_CK);
-    //fabric_clock_sinks[id_DFF].insert(id_CK); // This is part of BEYOND_FE
-    // TILE - Register file
-    fabric_clock_sinks[id_RF].insert(id_WCK);
-    fabric_clock_sinks[id_RFSP].insert(id_WCK);
-    fabric_clock_sinks[id_XHRF].insert(id_WCK1);
-    fabric_clock_sinks[id_XHRF].insert(id_WCK2);
-    fabric_clock_sinks[id_XWRF].insert(id_WCK1);
-    fabric_clock_sinks[id_XWRF].insert(id_WCK2);
-    fabric_clock_sinks[id_XPRF].insert(id_WCK1);
-    fabric_clock_sinks[id_XPRF].insert(id_WCK2);
-    // TILE - CDC
-    fabric_clock_sinks[id_CDC].insert(id_CK1);
-    fabric_clock_sinks[id_CDC].insert(id_CK2);
-    fabric_clock_sinks[id_DDE].insert(id_CK1);
-    fabric_clock_sinks[id_DDE].insert(id_CK2);
-    fabric_clock_sinks[id_TDE].insert(id_CK1);
-    fabric_clock_sinks[id_TDE].insert(id_CK2);
-    fabric_clock_sinks[id_XCDC].insert(id_CK1);
-    fabric_clock_sinks[id_XCDC].insert(id_CK2);
-    // TILE - FIFO
-    fabric_clock_sinks[id_FIFO].insert(id_RCK);
-    fabric_clock_sinks[id_FIFO].insert(id_WCK);
-    fabric_clock_sinks[id_XHFIFO].insert(id_RCK1);
-    fabric_clock_sinks[id_XHFIFO].insert(id_RCK2);
-    fabric_clock_sinks[id_XHFIFO].insert(id_WCK1);
-    fabric_clock_sinks[id_XHFIFO].insert(id_WCK2);
-    fabric_clock_sinks[id_XWFIFO].insert(id_RCK1);
-    fabric_clock_sinks[id_XWFIFO].insert(id_RCK2);
-    fabric_clock_sinks[id_XWFIFO].insert(id_WCK1);
-    fabric_clock_sinks[id_XWFIFO].insert(id_WCK2);
-    // CGB - RAM
-    fabric_clock_sinks[id_RAM].insert(id_ACK);
-    fabric_clock_sinks[id_RAM].insert(id_BCK);
-    // CGB - DSP
-    fabric_clock_sinks[id_DSP].insert(id_CK);
-
-    // CKG
-    ring_clock_sinks[id_PLL].insert(id_CLK_CAL);
-    ring_clock_sinks[id_PLL].insert(id_FBK);
-    ring_clock_sinks[id_PLL].insert(id_REF);
-    ring_clock_sinks[id_WFB].insert(id_ZI);
-    ring_clock_sinks[id_WFG].insert(id_ZI);
-
-    // IOB
-    // ring_clock_sinks[id_DFR].insert(id_CK);
-    // ring_clock_sinks[id_DDFR].insert(id_CK);
-    // ring_clock_sinks[id_DDFR].insert(id_CKF);
-    // ring_clock_sinks[id_IOM].insert(id_ALCK1);
-    // ring_clock_sinks[id_IOM].insert(id_ALCK2);
-    // ring_clock_sinks[id_IOM].insert(id_ALCK3);
-    // ring_clock_sinks[id_IOM].insert(id_CCK);
-    // ring_clock_sinks[id_IOM].insert(id_FCK1);
-    // ring_clock_sinks[id_IOM].insert(id_FCK2);
-    // ring_clock_sinks[id_IOM].insert(id_FDCK);
-    // ring_clock_sinks[id_IOM].insert(id_LDSCK1);
-    // ring_clock_sinks[id_IOM].insert(id_LDSCK2);
-    // ring_clock_sinks[id_IOM].insert(id_LDSCK3);
-    // ring_clock_sinks[id_IOM].insert(id_SWRX1CK);
-    // ring_clock_sinks[id_IOM].insert(id_SWRX2CK);
-
-    // HSSL
-    // ring_clock_sinks[id_CRX].insert(id_LINK);
-    // ring_clock_sinks[id_CTX].insert(id_LINK);
-    // ring_clock_sinks[id_PMA].insert(id_hssl_clock_i1);
-    // ring_clock_sinks[id_PMA].insert(id_hssl_clock_i2);
-    // ring_clock_sinks[id_PMA].insert(id_hssl_clock_i3);
-    // ring_clock_sinks[id_PMA].insert(id_hssl_clock_i4);
-    
-    // TUBE
-    tube_clock_sinks[id_GCK].insert(id_SI1);
-    tube_clock_sinks[id_GCK].insert(id_SI2);
-
-    // Sources
-    // CKG
-    ring_clock_source[id_IOM].insert(id_CKO1);
-    ring_clock_source[id_IOM].insert(id_CKO2);
-    ring_clock_source[id_WFB].insert(id_ZO);
-    ring_clock_source[id_WFG].insert(id_ZO);
-    ring_clock_source[id_PLL].insert(id_OSC);
-    ring_clock_source[id_PLL].insert(id_VCO);
-    ring_clock_source[id_PLL].insert(id_REFO);
-    ring_clock_source[id_PLL].insert(id_LDFO);
-    ring_clock_source[id_PLL].insert(id_CLK_DIV1);
-    ring_clock_source[id_PLL].insert(id_CLK_DIV2);
-    ring_clock_source[id_PLL].insert(id_CLK_DIV3);
-    ring_clock_source[id_PLL].insert(id_CLK_DIV4);
-    ring_clock_source[id_PLL].insert(id_CLK_DIVD1);
-    ring_clock_source[id_PLL].insert(id_CLK_DIVD2);
-    ring_clock_source[id_PLL].insert(id_CLK_DIVD3);
-    ring_clock_source[id_PLL].insert(id_CLK_DIVD4);
-    ring_clock_source[id_PLL].insert(id_CLK_DIVD5);
-    ring_clock_source[id_PLL].insert(id_CLK_CAL_DIV);
-
-    // TUBE
-    tube_clock_source[id_GCK].insert(id_SO);
-}
-
-bool NgUltraPacker::is_fabric_clock_sink(const PortRef &ref)
-{
-    return fabric_clock_sinks.count(ref.cell->type) && fabric_clock_sinks[ref.cell->type].count(ref.port);
-}
-
-bool NgUltraPacker::is_ring_clock_sink(const PortRef &ref)
-{
-    return ring_clock_sinks.count(ref.cell->type) && ring_clock_sinks[ref.cell->type].count(ref.port);
-}
-
-bool NgUltraPacker::is_tube_clock_sink(const PortRef &ref)
-{
-    return tube_clock_sinks.count(ref.cell->type) && tube_clock_sinks[ref.cell->type].count(ref.port);
-}
-
-bool NgUltraPacker::is_ring_clock_source(const PortRef &ref)
-{
-    return ring_clock_source.count(ref.cell->type) && ring_clock_source[ref.cell->type].count(ref.port);
-}
-
-bool NgUltraPacker::is_tube_clock_source(const PortRef &ref)
-{
-    return tube_clock_source.count(ref.cell->type) && tube_clock_source[ref.cell->type].count(ref.port);
-}
 
 void NgUltraImpl::pack()
 {
@@ -1914,7 +1787,6 @@ void NgUltraImpl::pack()
 
     // Setup
     NgUltraPacker packer(ctx, this);
-    packer.setup();
     packer.remove_not_used();
     packer.pack_constants();
     packer.update_lut_init();
@@ -2120,7 +1992,6 @@ void NgUltraImpl::postPlace()
 
 
     NgUltraPacker packer(ctx, this);
-    packer.setup();
     log_break();
     log_info("Running post-placement ...\n");
     packer.duplicate_gck();
@@ -2168,13 +2039,13 @@ void NgUltraPacker::duplicate_gck()
         if (!glb_net->driver.cell)
             continue;
 
-        if (!is_tube_clock_source(glb_net->driver))
+        if (!uarch->is_tube_clock_source(glb_net->driver))
             continue;
 
         log_info("    Lowskew signal '%s'\n", glb_net->name.c_str(ctx));
         dict<int, std::vector<PortRef>> connections;
         for (const auto &usr : glb_net->users) {
-            if (is_fabric_clock_sink(usr)) {
+            if (uarch->is_fabric_clock_sink(usr)) {
                 if (usr.cell->bel==BelId()) {
                     log_error("Cell '%s' not placed\n",usr.cell->name.c_str(ctx));
                 }
@@ -2229,13 +2100,13 @@ void NgUltraPacker::insert_bypass_gck()
         if (!glb_net->driver.cell)
             continue;
 
-        if (!is_ring_clock_source(glb_net->driver))
+        if (!uarch->is_ring_clock_source(glb_net->driver))
             continue;
 
         log_info("    Lowskew signal '%s'\n", glb_net->name.c_str(ctx));
         dict<int, std::vector<PortRef>> connections;
         for (const auto &usr : glb_net->users) {
-            if (is_fabric_clock_sink(usr)) {
+            if (uarch->is_fabric_clock_sink(usr)) {
                 if (usr.cell->bel==BelId()) {
                     log_error("Cell '%s' not placed\n",usr.cell->name.c_str(ctx));
                 }
@@ -2264,29 +2135,8 @@ void NgUltraPacker::insert_bypass_gck()
         }
     }
 }
-void NgUltraImpl::route_clocks()
+void NgUltraImpl::route_lowskew()
 {
-    dict<IdString,pool<IdString>> glb_sources;
-    glb_sources[id_IOM].insert(id_CKO1);
-    glb_sources[id_IOM].insert(id_CKO2);
-    glb_sources[id_WFB].insert(id_ZO);
-    glb_sources[id_WFG].insert(id_ZO);
-    glb_sources[id_GCK].insert(id_SO);
-    glb_sources[id_PLL].insert(id_OSC);
-    glb_sources[id_PLL].insert(id_VCO);
-    glb_sources[id_PLL].insert(id_REFO);
-    glb_sources[id_PLL].insert(id_LDFO);
-    glb_sources[id_PLL].insert(id_CLK_DIV1);
-    glb_sources[id_PLL].insert(id_CLK_DIV2);
-    glb_sources[id_PLL].insert(id_CLK_DIV3);
-    glb_sources[id_PLL].insert(id_CLK_DIV4);
-    glb_sources[id_PLL].insert(id_CLK_DIVD1);
-    glb_sources[id_PLL].insert(id_CLK_DIVD2);
-    glb_sources[id_PLL].insert(id_CLK_DIVD3);
-    glb_sources[id_PLL].insert(id_CLK_DIVD4);
-    glb_sources[id_PLL].insert(id_CLK_DIVD5);
-    glb_sources[id_PLL].insert(id_CLK_CAL_DIV);
-
     log_info("Routing lowskew nets...\n");
     for (auto &net : ctx->nets) {
         NetInfo *glb_net = net.second.get();
@@ -2294,7 +2144,7 @@ void NgUltraImpl::route_clocks()
             continue;
 
         // check if we have a lowskew net, skip otherwise
-        if (!(glb_sources.count(glb_net->driver.cell->type) && glb_sources[glb_net->driver.cell->type].count(glb_net->driver.port)))
+        if (!is_ring_clock_source(glb_net->driver))
             continue;
 
         log_info("    routing net '%s'\n", glb_net->name.c_str(ctx));

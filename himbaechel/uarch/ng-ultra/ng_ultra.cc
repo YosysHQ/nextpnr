@@ -105,6 +105,131 @@ void NgUltraImpl::init(Context *ctx)
             }
         }
     }
+
+    // Note: These are per Cell type not Bel type
+    // Sinks
+    // TILE - DFF
+    fabric_clock_sinks[id_BEYOND_FE].insert(id_CK);
+    //fabric_clock_sinks[id_DFF].insert(id_CK); // This is part of BEYOND_FE
+    // TILE - Register file
+    fabric_clock_sinks[id_RF].insert(id_WCK);
+    fabric_clock_sinks[id_RFSP].insert(id_WCK);
+    fabric_clock_sinks[id_XHRF].insert(id_WCK1);
+    fabric_clock_sinks[id_XHRF].insert(id_WCK2);
+    fabric_clock_sinks[id_XWRF].insert(id_WCK1);
+    fabric_clock_sinks[id_XWRF].insert(id_WCK2);
+    fabric_clock_sinks[id_XPRF].insert(id_WCK1);
+    fabric_clock_sinks[id_XPRF].insert(id_WCK2);
+    // TILE - CDC
+    fabric_clock_sinks[id_CDC].insert(id_CK1);
+    fabric_clock_sinks[id_CDC].insert(id_CK2);
+    fabric_clock_sinks[id_DDE].insert(id_CK1);
+    fabric_clock_sinks[id_DDE].insert(id_CK2);
+    fabric_clock_sinks[id_TDE].insert(id_CK1);
+    fabric_clock_sinks[id_TDE].insert(id_CK2);
+    fabric_clock_sinks[id_XCDC].insert(id_CK1);
+    fabric_clock_sinks[id_XCDC].insert(id_CK2);
+    // TILE - FIFO
+    fabric_clock_sinks[id_FIFO].insert(id_RCK);
+    fabric_clock_sinks[id_FIFO].insert(id_WCK);
+    fabric_clock_sinks[id_XHFIFO].insert(id_RCK1);
+    fabric_clock_sinks[id_XHFIFO].insert(id_RCK2);
+    fabric_clock_sinks[id_XHFIFO].insert(id_WCK1);
+    fabric_clock_sinks[id_XHFIFO].insert(id_WCK2);
+    fabric_clock_sinks[id_XWFIFO].insert(id_RCK1);
+    fabric_clock_sinks[id_XWFIFO].insert(id_RCK2);
+    fabric_clock_sinks[id_XWFIFO].insert(id_WCK1);
+    fabric_clock_sinks[id_XWFIFO].insert(id_WCK2);
+    // CGB - RAM
+    fabric_clock_sinks[id_RAM].insert(id_ACK);
+    fabric_clock_sinks[id_RAM].insert(id_BCK);
+    // CGB - DSP
+    fabric_clock_sinks[id_DSP].insert(id_CK);
+
+    // CKG
+    ring_clock_sinks[id_PLL].insert(id_CLK_CAL);
+    ring_clock_sinks[id_PLL].insert(id_FBK);
+    ring_clock_sinks[id_PLL].insert(id_REF);
+    ring_clock_sinks[id_WFB].insert(id_ZI);
+    ring_clock_sinks[id_WFG].insert(id_ZI);
+
+    // IOB
+    // ring_clock_sinks[id_DFR].insert(id_CK);
+    // ring_clock_sinks[id_DDFR].insert(id_CK);
+    // ring_clock_sinks[id_DDFR].insert(id_CKF);
+    // ring_clock_sinks[id_IOM].insert(id_ALCK1);
+    // ring_clock_sinks[id_IOM].insert(id_ALCK2);
+    // ring_clock_sinks[id_IOM].insert(id_ALCK3);
+    // ring_clock_sinks[id_IOM].insert(id_CCK);
+    // ring_clock_sinks[id_IOM].insert(id_FCK1);
+    // ring_clock_sinks[id_IOM].insert(id_FCK2);
+    // ring_clock_sinks[id_IOM].insert(id_FDCK);
+    // ring_clock_sinks[id_IOM].insert(id_LDSCK1);
+    // ring_clock_sinks[id_IOM].insert(id_LDSCK2);
+    // ring_clock_sinks[id_IOM].insert(id_LDSCK3);
+    // ring_clock_sinks[id_IOM].insert(id_SWRX1CK);
+    // ring_clock_sinks[id_IOM].insert(id_SWRX2CK);
+
+    // HSSL
+    // ring_clock_sinks[id_CRX].insert(id_LINK);
+    // ring_clock_sinks[id_CTX].insert(id_LINK);
+    // ring_clock_sinks[id_PMA].insert(id_hssl_clock_i1);
+    // ring_clock_sinks[id_PMA].insert(id_hssl_clock_i2);
+    // ring_clock_sinks[id_PMA].insert(id_hssl_clock_i3);
+    // ring_clock_sinks[id_PMA].insert(id_hssl_clock_i4);
+    
+    // TUBE
+    tube_clock_sinks[id_GCK].insert(id_SI1);
+    tube_clock_sinks[id_GCK].insert(id_SI2);
+
+    // Sources
+    // CKG
+    ring_clock_source[id_IOM].insert(id_CKO1);
+    ring_clock_source[id_IOM].insert(id_CKO2);
+    ring_clock_source[id_WFB].insert(id_ZO);
+    ring_clock_source[id_WFG].insert(id_ZO);
+    ring_clock_source[id_PLL].insert(id_OSC);
+    ring_clock_source[id_PLL].insert(id_VCO);
+    ring_clock_source[id_PLL].insert(id_REFO);
+    ring_clock_source[id_PLL].insert(id_LDFO);
+    ring_clock_source[id_PLL].insert(id_CLK_DIV1);
+    ring_clock_source[id_PLL].insert(id_CLK_DIV2);
+    ring_clock_source[id_PLL].insert(id_CLK_DIV3);
+    ring_clock_source[id_PLL].insert(id_CLK_DIV4);
+    ring_clock_source[id_PLL].insert(id_CLK_DIVD1);
+    ring_clock_source[id_PLL].insert(id_CLK_DIVD2);
+    ring_clock_source[id_PLL].insert(id_CLK_DIVD3);
+    ring_clock_source[id_PLL].insert(id_CLK_DIVD4);
+    ring_clock_source[id_PLL].insert(id_CLK_DIVD5);
+    ring_clock_source[id_PLL].insert(id_CLK_CAL_DIV);
+
+    // TUBE
+    tube_clock_source[id_GCK].insert(id_SO);
+}
+
+bool NgUltraImpl::is_fabric_clock_sink(const PortRef &ref)
+{
+    return fabric_clock_sinks.count(ref.cell->type) && fabric_clock_sinks[ref.cell->type].count(ref.port);
+}
+
+bool NgUltraImpl::is_ring_clock_sink(const PortRef &ref)
+{
+    return ring_clock_sinks.count(ref.cell->type) && ring_clock_sinks[ref.cell->type].count(ref.port);
+}
+
+bool NgUltraImpl::is_tube_clock_sink(const PortRef &ref)
+{
+    return tube_clock_sinks.count(ref.cell->type) && tube_clock_sinks[ref.cell->type].count(ref.port);
+}
+
+bool NgUltraImpl::is_ring_clock_source(const PortRef &ref)
+{
+    return ring_clock_source.count(ref.cell->type) && ring_clock_source[ref.cell->type].count(ref.port);
+}
+
+bool NgUltraImpl::is_tube_clock_source(const PortRef &ref)
+{
+    return tube_clock_source.count(ref.cell->type) && tube_clock_source[ref.cell->type].count(ref.port);
 }
 
 const NGUltraTileInstExtraDataPOD *NgUltraImpl::tile_extra_data(int tile) const
@@ -132,7 +257,7 @@ int NgUltraImpl::tile_lobe(int tile) const
 void NgUltraImpl::preRoute()
 {
     log_break();
-    route_clocks();
+    route_lowskew();
     log_break();
 }
 
