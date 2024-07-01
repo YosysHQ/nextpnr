@@ -1479,7 +1479,7 @@ void NgUltraPacker::insert_wfb(CellInfo *cell, IdString port)
     bool in_fabric = false;
     bool in_ring = false;
     for (const auto &usr : net->users) {
-        if (uarch->is_fabric_clock_sink(usr))
+        if (uarch->is_fabric_clock_sink(usr) || uarch->is_tube_clock_sink(usr))
             in_fabric = true;
         else
             in_ring = true;
@@ -1565,14 +1565,17 @@ void NgUltraPacker::pack_wfgs(void)
         constrain_location(&ci);
         int mode = int_or_default(ci.params, ctx->id("mode"), 1);
         if (mode == 0) { // WFB - bypass mode
+            ci.type = id_WFB;
             // must not be used, zero is tollerated
             disconnect_unused(&ci, id_SI);
             disconnect_unused(&ci, id_SO);
             disconnect_unused(&ci, id_R);
-        } else {
+        } else if (mode == 1) {
             // Can be unused, if zero it is unused
             disconnect_if_gnd(&ci, id_SI);
             disconnect_if_gnd(&ci, id_R);
+        } else {
+            log_error("Unknown mode %d for cell '%s'.\n", mode, ci.name.c_str(ctx));
         }
         NetInfo *zi = ci.getPort(id_ZI);
         if (!zi || !zi->driver.cell)
@@ -1599,7 +1602,11 @@ void NgUltraPacker::pack_gcks(void)
         } else if (mode == "CSC") {
             disconnect_unused(&ci, id_SI1);
             disconnect_unused(&ci, id_SI2);
-        }
+        } else if (mode == "CKS") {
+            disconnect_unused(&ci, id_SI2);
+        } else if (mode == "MUX") {
+            // all used
+        } else log_error("Unknown mode '%s' for cell '%s'.\n", mode.c_str(), ci.name.c_str(ctx));
     }
 }
 
@@ -2077,7 +2084,7 @@ void NgUltraPacker::duplicate_gck()
                 if (cmd) gck_cell->connectPort(id_CMD, cmd);
             }
             gck_cell->disconnectPort(id_SO);
-            NetInfo *new_clk = ctx->createNet(ctx->id(gck_cell->name.str(ctx) + "$gck_"+ std::to_string(conn.first)));
+            NetInfo *new_clk = ctx->createNet(ctx->id(gck_cell->name.str(ctx)));
             gck_cell->connectPort(id_SO, new_clk);
             for (const auto &usr : conn.second) {
                 CellInfo *cell = usr.cell;
@@ -2144,7 +2151,7 @@ void NgUltraImpl::route_lowskew()
             continue;
 
         // check if we have a lowskew net, skip otherwise
-        if (!is_ring_clock_source(glb_net->driver))
+        if (!(is_ring_clock_source(glb_net->driver) || is_tube_clock_source(glb_net->driver)))
             continue;
 
         log_info("    routing net '%s'\n", glb_net->name.c_str(ctx));
