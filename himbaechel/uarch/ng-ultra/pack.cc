@@ -1399,17 +1399,20 @@ void NgUltraPacker::insert_wfbs()
             insert_wfb(&ci, id_CKO1);
             insert_wfb(&ci, id_CKO2);
         } else if (ci.type.in(id_PLL)) {
+            insert_wfb(&ci, id_OSC);
             insert_wfb(&ci, id_VCO);
             insert_wfb(&ci, id_REFO);
             insert_wfb(&ci, id_LDFO);
             insert_wfb(&ci, id_CLK_DIV1);
             insert_wfb(&ci, id_CLK_DIV2);
             insert_wfb(&ci, id_CLK_DIV3);
+            insert_wfb(&ci, id_CLK_DIV4);
             insert_wfb(&ci, id_CLK_DIVD1);
             insert_wfb(&ci, id_CLK_DIVD2);
             insert_wfb(&ci, id_CLK_DIVD3);
             insert_wfb(&ci, id_CLK_DIVD4);
             insert_wfb(&ci, id_CLK_DIVD5);
+            insert_wfb(&ci, id_CLK_CAL_DIV);
         }
     }
 }
@@ -1777,6 +1780,7 @@ void NgUltraPacker::remove_not_used()
 void NgUltraPacker::setup()
 {
     // Note: These are per Cell type not Bel type
+    // Sinks
     // TILE - DFF
     fabric_clock_sinks[id_BEYOND_FE].insert(id_CK);
     //fabric_clock_sinks[id_DFF].insert(id_CK); // This is part of BEYOND_FE
@@ -1851,11 +1855,28 @@ void NgUltraPacker::setup()
     tube_clock_sinks[id_GCK].insert(id_SI1);
     tube_clock_sinks[id_GCK].insert(id_SI2);
 
+    // Sources
+    // CKG
     ring_clock_source[id_IOM].insert(id_CKO1);
     ring_clock_source[id_IOM].insert(id_CKO2);
     ring_clock_source[id_WFB].insert(id_ZO);
     ring_clock_source[id_WFG].insert(id_ZO);
+    ring_clock_source[id_PLL].insert(id_OSC);
+    ring_clock_source[id_PLL].insert(id_VCO);
+    ring_clock_source[id_PLL].insert(id_REFO);
+    ring_clock_source[id_PLL].insert(id_LDFO);
+    ring_clock_source[id_PLL].insert(id_CLK_DIV1);
+    ring_clock_source[id_PLL].insert(id_CLK_DIV2);
+    ring_clock_source[id_PLL].insert(id_CLK_DIV3);
+    ring_clock_source[id_PLL].insert(id_CLK_DIV4);
+    ring_clock_source[id_PLL].insert(id_CLK_DIVD1);
+    ring_clock_source[id_PLL].insert(id_CLK_DIVD2);
+    ring_clock_source[id_PLL].insert(id_CLK_DIVD3);
+    ring_clock_source[id_PLL].insert(id_CLK_DIVD4);
+    ring_clock_source[id_PLL].insert(id_CLK_DIVD5);
+    ring_clock_source[id_PLL].insert(id_CLK_CAL_DIV);
 
+    // TUBE
     tube_clock_source[id_GCK].insert(id_SO);
 }
 
@@ -2127,7 +2148,7 @@ BelId NgUltraPacker::get_available_gck(int lobe, NetInfo *si1, NetInfo *si2)
         }
         return g.bel;
     }
-    log_error("No GCK left to promote global signal.\n");
+    log_error("No GCK left to promote lowskew signal.\n");
     return BelId();
 }
 
@@ -2150,7 +2171,7 @@ void NgUltraPacker::duplicate_gck()
         if (!is_tube_clock_source(glb_net->driver))
             continue;
 
-        log_info("    Global signal '%s'\n", glb_net->name.c_str(ctx));
+        log_info("    Lowskew signal '%s'\n", glb_net->name.c_str(ctx));
         dict<int, std::vector<PortRef>> connections;
         for (const auto &usr : glb_net->users) {
             if (is_fabric_clock_sink(usr)) {
@@ -2211,7 +2232,7 @@ void NgUltraPacker::insert_bypass_gck()
         if (!is_ring_clock_source(glb_net->driver))
             continue;
 
-        log_info("    Global signal '%s'\n", glb_net->name.c_str(ctx));
+        log_info("    Lowskew signal '%s'\n", glb_net->name.c_str(ctx));
         dict<int, std::vector<PortRef>> connections;
         for (const auto &usr : glb_net->users) {
             if (is_fabric_clock_sink(usr)) {
@@ -2251,14 +2272,28 @@ void NgUltraImpl::route_clocks()
     glb_sources[id_WFB].insert(id_ZO);
     glb_sources[id_WFG].insert(id_ZO);
     glb_sources[id_GCK].insert(id_SO);
+    glb_sources[id_PLL].insert(id_OSC);
+    glb_sources[id_PLL].insert(id_VCO);
+    glb_sources[id_PLL].insert(id_REFO);
+    glb_sources[id_PLL].insert(id_LDFO);
+    glb_sources[id_PLL].insert(id_CLK_DIV1);
+    glb_sources[id_PLL].insert(id_CLK_DIV2);
+    glb_sources[id_PLL].insert(id_CLK_DIV3);
+    glb_sources[id_PLL].insert(id_CLK_DIV4);
+    glb_sources[id_PLL].insert(id_CLK_DIVD1);
+    glb_sources[id_PLL].insert(id_CLK_DIVD2);
+    glb_sources[id_PLL].insert(id_CLK_DIVD3);
+    glb_sources[id_PLL].insert(id_CLK_DIVD4);
+    glb_sources[id_PLL].insert(id_CLK_DIVD5);
+    glb_sources[id_PLL].insert(id_CLK_CAL_DIV);
 
-    log_info("Routing global nets...\n");
+    log_info("Routing lowskew nets...\n");
     for (auto &net : ctx->nets) {
         NetInfo *glb_net = net.second.get();
         if (!glb_net->driver.cell)
             continue;
 
-        // check if we have a global clock net, skip otherwise
+        // check if we have a lowskew net, skip otherwise
         if (!(glb_sources.count(glb_net->driver.cell->type) && glb_sources[glb_net->driver.cell->type].count(glb_net->driver.port)))
             continue;
 
