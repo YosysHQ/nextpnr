@@ -1473,13 +1473,37 @@ void NgUltraPacker::insert_wfb(CellInfo *cell, IdString port)
 
     CellInfo *wfg = net_only_drives(ctx, net, is_wfg, id_ZI, true);
     if (wfg) return;
+    bool in_fabric = false;
+    bool in_ring = false;
+    for (const auto &usr : net->users) {
+        if (is_fabric_clock_sink(usr))
+            in_fabric = true;
+        else
+            in_ring = true;
+    }
+    // If all in ring and none in fabric no need for WFB
+    if (in_ring && !in_fabric) return;
     log_info("    Inserting WFB for cell '%s' port '%s'\n", cell->name.c_str(ctx), port.c_str(ctx));
     CellInfo *wfb = create_cell_ptr(id_WFB, ctx->id(std::string(cell->name.c_str(ctx)) + "$" + port.c_str(ctx)));
-    cell->disconnectPort(port);
-    wfb->connectPort(id_ZO, net);
-    NetInfo *new_out = ctx->createNet(ctx->id(net->name.str(ctx) + "$" + port.c_str(ctx)));
-    cell->connectPort(port, new_out);
-    wfb->connectPort(id_ZI, new_out);
+    if (in_ring && in_fabric) {
+        // If both in ring and in fabric create new signal
+        wfb->connectPort(id_ZI, net);
+        NetInfo *net_zo = ctx->createNet(ctx->id(net->name.str(ctx) + "$ZO"));
+        wfb->connectPort(id_ZO, net_zo);
+        for (const auto &usr : net->users) {
+            if (is_fabric_clock_sink(usr)) {
+                usr.cell->disconnectPort(usr.port);
+                usr.cell->connectPort(usr.port, net_zo);
+            }
+        }
+    } else {
+        // Only in fabric, reconnect wire directly to WFB
+        cell->disconnectPort(port);
+        wfb->connectPort(id_ZO, net);
+        NetInfo *new_out = ctx->createNet(ctx->id(net->name.str(ctx) + "$" + port.c_str(ctx)));
+        cell->connectPort(port, new_out);
+        wfb->connectPort(id_ZI, new_out);
+    }
 }
 
 void NgUltraPacker::constrain_location(CellInfo *cell)
@@ -1575,7 +1599,6 @@ void NgUltraPacker::pack_gcks(void)
         }
     }
 }
-
 
 void NgUltraPacker::pack_rams(void)
 {
