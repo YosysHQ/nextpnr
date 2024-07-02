@@ -51,6 +51,9 @@ inline bool is_dfr(const BaseCtx *ctx, const CellInfo *cell) { return cell->type
 // Return true if a cell is a WFG/WFB
 inline bool is_wfg(const BaseCtx *ctx, const CellInfo *cell) { return cell->type.in(id_WFB, id_WFG); }
 
+// Return true if a cell is a GCK
+inline bool is_gck(const BaseCtx *ctx, const CellInfo *cell) { return cell->type.in(id_GCK, id_NX_GCK_U); }
+
 // Process the contents of packed_cells
 void NgUltraPacker::flush_cells()
 {
@@ -1607,6 +1610,12 @@ void NgUltraPacker::pack_gcks(void)
         } else if (mode == "MUX") {
             // all used
         } else log_error("Unknown mode '%s' for cell '%s'.\n", mode.c_str(), ci.name.c_str(ctx));
+
+        if (net_driven_by(ctx, ci.getPort(id_SI1), is_gck, id_SO) ||
+            net_driven_by(ctx, ci.getPort(id_SI2), is_gck, id_SO) ||
+            net_driven_by(ctx, ci.getPort(id_CMD), is_gck, id_SO)) {
+            log_error("Cascaded GCKs are not allowed.\n");
+        }
     }
 }
 
