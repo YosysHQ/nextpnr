@@ -319,27 +319,18 @@ void NgUltraPacker::pack_xluts(void)
         if (ci.cluster!=ClusterId())
             continue;
         CellInfo *lut[4];
-        if (!ci.getPort(id_I1))
+        int inputs_used = 0;
+        for(int i=0;i<4;i++) {
+            NetInfo *net = ci.getPort(ctx->idf("I%d",i+1));
+            if (!net)
+                continue;
+            lut[i] = net_driven_by(ctx, net, is_lut, id_O);
+            if (lut[i] && net->users.entries()==1)
+                inputs_used++;
+        }
+        if (inputs_used!=4)
             continue;
-        if (!ci.getPort(id_I2))
-            continue;
-        if (!ci.getPort(id_I3))
-            continue;
-        if (!ci.getPort(id_I4))
-            continue;
-        lut[0] = net_driven_by(ctx, ci.getPort(id_I1), is_lut, id_O);
-        if (!lut[0] || ci.getPort(id_I1)->users.entries()!=1)
-            continue;
-        lut[1] = net_driven_by(ctx, ci.getPort(id_I2), is_lut, id_O);
-        if (!lut[1] || ci.getPort(id_I2)->users.entries()!=1)
-            continue;
-        lut[2] = net_driven_by(ctx, ci.getPort(id_I3), is_lut, id_O);
-        if (!lut[2] || ci.getPort(id_I3)->users.entries()!=1)
-            continue;
-        lut[3] = net_driven_by(ctx, ci.getPort(id_I4), is_lut, id_O);
-        if (!lut[3] || ci.getPort(id_I4)->users.entries()!=1)
-            continue;
-        
+
         ci.type = id_XLUT;
         bind_attr_loc(&ci, &ci.attrs);
         ci.cluster = ci.name;

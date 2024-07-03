@@ -32,6 +32,7 @@
 #include "himbaechel_helpers.h"
 
 #include "ng_ultra.h"
+#include "location_map.h"
 
 #define GEN_INIT_CONSTIDS
 #define HIMBAECHEL_CONSTIDS "uarch/ng-ultra/constids.inc"
@@ -595,40 +596,8 @@ Loc getNextLocInDSPChain(const NgUltraImpl *impl, Loc loc)
 
 Loc getNextLocInCYChain(Loc loc)
 {
-    static const std::vector<Loc> map = 
-    {
-        Loc(0, 1,  0), // S1 0 -> S2 0  CY24->CY1
-        Loc(0, 0, -1), // S1 1 -> S1 0  CY23->CY24
-        Loc(0, 0, -1), // S1 2 -> S1 1  CY22->CY23
-        Loc(0, 0, -1), // S1 3 -> S1 2  CY21->CY22
-
-        Loc(-1, 0,+3), // S5 0 -> S1 1  CY20->CY21
-        Loc(0, 0, -1), // S5 1 -> S5 0  CY19->CY20
-        Loc(0, 0, -1), // S5 2 -> S5 1  CY18->CY19
-        Loc(0, 0, -1), // S5 3 -> S5 2  CY17->CY18
-
-        Loc(-1, 0,+3), // S9 0 -> S5 1  CY16->CY17
-        Loc(0, 0, -1), // S9 1 -> S9 0  CY15->CY16
-        Loc(0, 0, -1), // S9 2 -> S9 1  CY14->CY15
-        Loc(0, 0, -1), // S9 3 -> S9 2  CY13->CY14
-
-        Loc(0, 0, +1), // S2 0 -> S2 1  CY1->CY2
-        Loc(0, 0, +1), // S2 1 -> S2 2  CY2->CY3
-        Loc(0, 0, +1), // S2 2 -> S2 3  CY3->CY4
-        Loc(1, 0, -3), // S2 3 -> S6 0  CY4->CY5
-
-        Loc(0, 0, +1), // S6 0 -> S6 1  CY5->CY6
-        Loc(0, 0, +1), // S6 1 -> S6 2  CY6->CY7
-        Loc(0, 0, +1), // S6 2 -> S6 3  CY7->CY8
-        Loc(1, 0, -3), // S6 3 -> S10 0 CY8->CY9
-
-        Loc(0, 0, +1), // S10 0 -> S10 1 CY9->CY10
-        Loc(0, 0, +1), // S10 1 -> S10 2 CY10->CY11
-        Loc(0, 0, +1), // S10 2 -> S10 3 CY11->CY12
-        Loc(0,-1,  0), // S10 3 -> S9  3 CY12->CY13
-    };
     int section = (loc.x % 4 - 1 + 3 * (loc.y % 4)) * 4 + loc.z - BEL_CY_Z;
-    Loc result = map.at(section);
+    Loc result = ng_ultra_place_cy_map[section];
     result.x += loc.x;
     result.y += loc.y;
     result.z += loc.z;
@@ -657,72 +626,7 @@ Loc getXLUTFE(Loc root, int pos)
 
 Loc getXRFFE(Loc root, int pos)
 {
-    static const std::vector<Loc> map = 
-    {
-        Loc(-1, 0, 1),// I/O1
-        Loc(-1, 0, 2),// I/O2
-        Loc(-1, 0, 5),// I/O3
-        Loc(-1, 0, 6),// I/O4
-        Loc(-1, 0, 7),// I/O5
-        Loc(-1, 0, 9),// I/O6
-        Loc(-1, 0, 10),// I/O7
-        Loc(-1, 0, 13),// I/O8
-        Loc(-1, 0, 14),// I/O9
-        Loc(-1, 0, 15),// I/O10
-        Loc(-1, 0, 16),// I/O11
-        Loc(-1, 0, 17),// I/O12
-        Loc(-1, 0, 18),// I/O13
-        Loc(-1, 0, 21),// I/O14
-        Loc(-1, 0, 24),// I/O15
-        Loc(-1, 0, 25),// I/O16
-        Loc(-1, 0, 26),// I/O17
-        Loc(-1, 0, 29),// I/O18
-
-        Loc(+1, 0, 1),// I/O19
-        Loc(+1, 0, 2),// I/O20
-        Loc(+1, 0, 5),// I/O21
-        Loc(+1, 0, 6),// I/O22
-        Loc(+1, 0, 7),// I/O23
-        Loc(+1, 0, 9),// I/O24
-        Loc(+1, 0, 10),// I/O25
-        Loc(+1, 0, 13),// I/O26
-        Loc(+1, 0, 14),// I/O27
-        Loc(+1, 0, 15),// I/O28
-        Loc(+1, 0, 16),// I/O29
-        Loc(+1, 0, 17),// I/O30
-        Loc(+1, 0, 18),// I/O31
-        Loc(+1, 0, 21),// I/O32
-        Loc(+1, 0, 24),// I/O33
-        Loc(+1, 0, 25),// I/O34
-        Loc(+1, 0, 26),// I/O35
-        Loc(+1, 0, 29),// I/O36
-
-        Loc(-1, 0, 4),// RA1
-        Loc(-1, 0, 12),// RA2
-        Loc(-1, 0, 20),// RA3
-        Loc(-1, 0, 27),// RA4
-        Loc(-1, 0, 31),// RA5
-
-        Loc(+1, 0, 4),// RA6
-        Loc(+1, 0, 12),// RA7
-        Loc(+1, 0, 20),// RA8
-        Loc(+1, 0, 27),// RA9
-        Loc(+1, 0, 31),// RA10
-
-        Loc(-1, 0, 3),// WA1
-        Loc(-1, 0, 11),// WA2
-        Loc(-1, 0, 19),// WA3
-        Loc(-1, 0, 23),// WA4
-        Loc(-1, 0, 28),// WA5
-        
-        Loc(+1, 0, 3),// WA6
-
-        Loc(-1, 0, 0),// WE
-        Loc(-1, 0, 8),// WEA
-
-    };
- 
-    Loc result = map.at(pos);
+    Loc result = ng_ultra_place_xrf[pos];
     if (root.z == BEL_XRF_Z) {
         // XRF1
         result.x += root.x;
@@ -736,98 +640,13 @@ Loc getXRFFE(Loc root, int pos)
 
 Loc getCDCFE(Loc root, int pos)
 {
-    static const std::vector<Loc> cdc1 = 
-    {       
-        Loc(+1, 0, 1), // AI1
-        Loc(+1, 0, 2), // AI2
-        Loc(+1, 0, 9), // AI3
-        Loc(+1, 0, 17),// AI4
-        Loc(+1, 0, 18),// AI5
-        Loc(+1, 0, 25),// AI6
-
-        Loc(+1, 0, 3), // BI1
-        Loc(+1, 0, 10),// BI2
-        Loc(+1, 0, 11),// BI3
-        Loc(+1, 0, 19),// BI4
-        Loc(+1, 0, 26),// BI5
-        Loc(+1, 0, 27),// BI6
-        
-        Loc( 0, 0, 22),// ASRSTI
-        Loc( 0, 0, 30),// ADRSTI
-        Loc(+1, 0, 24),// BSRSTI
-        Loc(+1, 0, 8), // BDRSTI
-    };
-
-    static const std::vector<Loc> cdc2 = 
-    {
-        Loc(-1, 0, 4), // AI1
-        Loc(-1, 0, 5), // AI2
-        Loc(-1, 0, 12),// AI3
-        Loc(-1, 0, 20),// AI4
-        Loc(-1, 0, 21),// AI5
-        Loc(-1, 0, 28),// AI6
-
-        Loc(-1, 0, 6), // BI1
-        Loc(-1, 0, 13),// BI2
-        Loc(-1, 0, 14),// BI3
-        Loc(-1, 0, 22),// BI4
-        Loc(-1, 0, 29),// BI5
-        Loc(-1, 0, 30),// BI6
-
-        Loc( 0, 0, 22),// ASRSTI
-        Loc( 0, 0, 30),// ADRSTI
-        Loc(-1, 0, 23),// BSRSTI
-        Loc(-1, 0, 7), // BDRSTI
-    };
-
-    static const std::vector<Loc> xcdc = 
-    {
-        Loc( 0, 0, 1), // AI1
-        Loc( 0, 0, 2), // AI2
-        Loc( 0, 0, 9), // AI3
-        Loc( 0, 0, 17),// AI4
-        Loc( 0, 0, 18),// AI5
-        Loc( 0, 0, 25),// AI6
-
-        Loc( 0, 0, 4), // BI1
-        Loc( 0, 0, 5), // BI2
-        Loc( 0, 0, 12),// BI3
-        Loc( 0, 0, 20),// BI4
-        Loc( 0, 0, 21),// BI5
-        Loc( 0, 0, 28),// BI6
-
-        Loc(-1, 0, 22),// ASRSTI
-        Loc(-1, 0, 30),// ADRSTI
-        Loc(+1, 0, 22),// BSRSTI
-        Loc(+1, 0, 30),// BDRSTI
-        
-        Loc( 0, 0, 3), // CI1
-        Loc( 0, 0, 10),// CI2
-        Loc( 0, 0, 11),// CI3
-        Loc( 0, 0, 19),// CI4
-        Loc( 0, 0, 26),// CI5
-        Loc( 0, 0, 27),// CI6
-
-        Loc( 0, 0, 6), // DI1
-        Loc( 0, 0, 13),// DI2
-        Loc( 0, 0, 14),// DI3
-        Loc( 0, 0, 22),// DI4
-        Loc( 0, 0, 29),// DI5
-        Loc( 0, 0, 30),// DI6
-
-        Loc( 0, 0, 24),// CSRSTI
-        Loc( 0, 0, 8), // CDRSTI
-        Loc( 0, 0, 23),// DSRSTI
-        Loc( 0, 0, 7), // DDRSTI
-    };
-
     Loc result;
     if (root.z == BEL_CDC_Z) {
-        result = cdc1.at(pos);
+        result = ng_ultra_place_cdc1[pos];
     } else if (root.z == BEL_CDC_Z+1) {
-        result = cdc2.at(pos);
+        result = ng_ultra_place_cdc2[pos];
     } else if (root.z == BEL_XCDC_Z) {
-        result = xcdc.at(pos);
+        result = ng_ultra_place_xcdc[pos];
     } else {
         log_error("Trying to place CDC on wrong location.\n");
     }
@@ -838,257 +657,13 @@ Loc getCDCFE(Loc root, int pos)
 
 Loc getFIFOFE(Loc root, int pos)
 {
-    static const std::vector<Loc> fifo1 = 
-    {
-        Loc(-1, 0, 1), // I/O1
-        Loc(-1, 0, 2), // I/O2
-        Loc(-1, 0, 5), // I/O3
-        Loc(-1, 0, 6), // I/O4
-        Loc(-1, 0, 7), // I/O5
-        Loc(-1, 0, 9), // I/O6
-        Loc(-1, 0, 10),// I/O7
-        Loc(-1, 0, 13),// I/O8
-        Loc(-1, 0, 14),// I/O9
-        Loc(-1, 0, 15),// I/O10
-        Loc(-1, 0, 16),// I/O11
-        Loc(-1, 0, 17),// I/O12
-        Loc(-1, 0, 18),// I/O13
-        Loc(-1, 0, 21),// I/O14
-        Loc(-1, 0, 24),// I/O15
-        Loc(-1, 0, 25),// I/O16
-        Loc(-1, 0, 26),// I/O17
-        Loc(-1, 0, 29),// I/O18
-
-        Loc( 0, 0,  0),// I/O19
-        Loc( 0, 0,  0),// I/O20
-        Loc( 0, 0,  0),// I/O21
-        Loc( 0, 0,  0),// I/O22
-        Loc( 0, 0,  0),// I/O23
-        Loc( 0, 0,  0),// I/O24
-        Loc( 0, 0,  0),// I/O25
-        Loc( 0, 0,  0),// I/O26
-        Loc( 0, 0,  0),// I/O27
-        Loc( 0, 0,  0),// I/O28
-        Loc( 0, 0,  0),// I/O29
-        Loc( 0, 0,  0),// I/O30
-        Loc( 0, 0,  0),// I/O31
-        Loc( 0, 0,  0),// I/O32
-        Loc( 0, 0,  0),// I/O33
-        Loc( 0, 0,  0),// I/O34
-        Loc( 0, 0,  0),// I/O35
-        Loc( 0, 0,  0),// I/O36
-
-        Loc( 0, 0, 3), // RAI1/RAO1
-        Loc( 0, 0, 10),// RAI2/RAO2
-        Loc( 0, 0, 11),// RAI3/RAO3
-        Loc( 0, 0, 19),// RAI4/RAO4
-        Loc( 0, 0, 26),// RAI5/RAO5
-        Loc( 0, 0, 27),// RAI6/RAO6
-        Loc( 0, 0,  0),// RAI7/RAO7
-
-        Loc( 0, 0, 1), // WAI1/WAO1
-        Loc( 0, 0, 2), // WAI2/WAO2
-        Loc( 0, 0, 9), // WAI3/WAO3
-        Loc( 0, 0, 17),// WAI4/WAO4
-        Loc( 0, 0, 18),// WAI5/WAO5
-        Loc( 0, 0, 25),// WAI6/WAO6
-        Loc( 0, 0,  0),// WAI7/WAO7
-
-        Loc(-1, 0, 0), // WE
-        Loc(-1, 0, 8), // WEA
-
-        Loc(-1, 0, 22),// WRSTI1/WRSTO
-        Loc(-1, 0, 30),// RRSTI1/RRSTO
-        Loc( 0, 0, 8), // WRSTI2
-        Loc( 0, 0, 24),// RRSTI2
-        Loc( 0, 0, 0), // WRSTI3/WRSTO
-        Loc( 0, 0, 0), // RRSTI3/RRSTO
-        Loc( 0, 0, 0), // WRSTI4
-        Loc( 0, 0, 0), // RRSTI4
-
-        Loc(-1, 0, 3), // WEQ
-        Loc(-1, 0, 4), // REQ
-        // Loc(-1, 0, 11), WEQ
-        // Loc(-1, 0, 12), REQ
-        // Loc(-1, 0, 19), WEQ
-        // Loc(-1, 0, 20), REQ
-        // Loc(-1, 0, 27), WEQ
-        // Loc(-1, 0, 28), REQ
-        Loc( 0, 0, 0), // WEQ2
-        Loc( 0, 0, 0), // REQ2
-    };
-
-    static const std::vector<Loc> fifo2 = 
-    {
-        Loc(+1, 0, 1), // I/O1
-        Loc(+1, 0, 2), // I/O2
-        Loc(+1, 0, 5), // I/O3
-        Loc(+1, 0, 6), // I/O4
-        Loc(+1, 0, 7), // I/O5
-        Loc(+1, 0, 9), // I/O6
-        Loc(+1, 0, 10),// I/O7
-        Loc(+1, 0, 13),// I/O8
-        Loc(+1, 0, 14),// I/O9
-        Loc(+1, 0, 15),// I/O10
-        Loc(+1, 0, 16),// I/O11
-        Loc(+1, 0, 17),// I/O12
-        Loc(+1, 0, 18),// I/O13
-        Loc(+1, 0, 21),// I/O14
-        Loc(+1, 0, 24),// I/O15
-        Loc(+1, 0, 25),// I/O16
-        Loc(+1, 0, 26),// I/O17
-        Loc(+1, 0, 29),// I/O18
-
-        Loc( 0, 0,  0),// I/O19
-        Loc( 0, 0,  0),// I/O20
-        Loc( 0, 0,  0),// I/O21
-        Loc( 0, 0,  0),// I/O22
-        Loc( 0, 0,  0),// I/O23
-        Loc( 0, 0,  0),// I/O24
-        Loc( 0, 0,  0),// I/O25
-        Loc( 0, 0,  0),// I/O26
-        Loc( 0, 0,  0),// I/O27
-        Loc( 0, 0,  0),// I/O28
-        Loc( 0, 0,  0),// I/O29
-        Loc( 0, 0,  0),// I/O30
-        Loc( 0, 0,  0),// I/O31
-        Loc( 0, 0,  0),// I/O32
-        Loc( 0, 0,  0),// I/O33
-        Loc( 0, 0,  0),// I/O34
-        Loc( 0, 0,  0),// I/O35
-        Loc( 0, 0,  0),// I/O36
-
-        Loc( 0, 0, 6), // RAI1/RAO1
-        Loc( 0, 0, 13),// RAI2/RAO2
-        Loc( 0, 0, 14),// RAI3/RAO3
-        Loc( 0, 0, 22),// RAI4/RAO4
-        Loc( 0, 0, 29),// RAI5/RAO5
-        Loc( 0, 0, 30),// RAI6/RAO6
-        Loc( 0, 0,  0),// RAI7/RAO7 
-
-        Loc( 0, 0, 4), // WAI1/WAO1
-        Loc( 0, 0, 5), // WAI2/WAO2
-        Loc( 0, 0, 12),// WAI3/WAO3
-        Loc( 0, 0, 20),// WAI4/WAO4
-        Loc( 0, 0, 21),// WAI5/WAO5
-        Loc( 0, 0, 28),// WAI6/WAO6
-        Loc( 0, 0,  0),// WAI7/WAO7
-
-        Loc(+1, 0, 0), // WE
-        Loc(+1, 0, 8), // WEA
-
-        Loc(+1, 0, 22),// WRSTI1/WRSTO
-        Loc(+1, 0, 30),// RRSTI1/RRSTO
-        Loc( 0, 0, 7), // WRSTI2
-        Loc( 0, 0, 23),// RRSTI2
-        Loc( 0, 0, 0), // WRSTI3/WRSTO
-        Loc( 0, 0, 0), // RRSTI3/RRSTO
-        Loc( 0, 0, 0), // WRSTI4
-        Loc( 0, 0, 0), // RRSTI4
-
-        Loc(+1, 0, 3), // WEQ
-        Loc(+1, 0, 4), // REQ
-        // Loc(+1, 0, 11), WEQ
-        // Loc(+1, 0, 12), REQ
-        // Loc(+1, 0, 19), WEQ
-        // Loc(+1, 0, 20), REQ
-        // Loc(+1, 0, 27), WEQ
-        // Loc(+1, 0, 28), REQ
-        Loc( 0, 0, 0), // WEQ2
-        Loc( 0, 0, 0), // REQ2
-    };
-
-    static const std::vector<Loc> xfifo = 
-    {
-        Loc(-1, 0, 1), // I/O1
-        Loc(-1, 0, 2), // I/O2
-        Loc(-1, 0, 5), // I/O3
-        Loc(-1, 0, 6), // I/O4
-        Loc(-1, 0, 7), // I/O5
-        Loc(-1, 0, 9), // I/O6
-        Loc(-1, 0, 10),// I/O7
-        Loc(-1, 0, 13),// I/O8
-        Loc(-1, 0, 14),// I/O9
-        Loc(-1, 0, 15),// I/O10
-        Loc(-1, 0, 16),// I/O11
-        Loc(-1, 0, 17),// I/O12
-        Loc(-1, 0, 18),// I/O13
-        Loc(-1, 0, 21),// I/O14
-        Loc(-1, 0, 24),// I/O15
-        Loc(-1, 0, 25),// I/O16
-        Loc(-1, 0, 26),// I/O17
-        Loc(-1, 0, 29),// I/O18
-        Loc(+1, 0, 1), // I/O19
-        Loc(+1, 0, 2), // I/O20
-        Loc(+1, 0, 5), // I/O21
-        Loc(+1, 0, 6), // I/O22
-        Loc(+1, 0, 7), // I/O23
-        Loc(+1, 0, 9), // I/O24
-        Loc(+1, 0, 10),// I/O25
-        Loc(+1, 0, 13),// I/O26
-        Loc(+1, 0, 14),// I/O27
-        Loc(+1, 0, 15),// I/O28
-        Loc(+1, 0, 16),// I/O29
-        Loc(+1, 0, 17),// I/O30
-        Loc(+1, 0, 18),// I/O31
-        Loc(+1, 0, 21),// I/O32
-        Loc(+1, 0, 24),// I/O33
-        Loc(+1, 0, 25),// I/O34
-        Loc(+1, 0, 26),// I/O35
-        Loc(+1, 0, 29),// I/O36
-
-        Loc( 0, 0, 3), // RAI1/RAO1
-        Loc( 0, 0, 10),// RAI2/RAO2
-        Loc( 0, 0, 11),// RAI3/RAO3
-        Loc( 0, 0, 19),// RAI4/RAO4
-        Loc( 0, 0, 26),// RAI5/RAO5
-        Loc( 0, 0, 27),// RAI6/RAO6
-        Loc( 0, 0, 6), // RAI7/RAO7
-
-        Loc( 0, 0, 1), // WAI1/WAO1
-        Loc( 0, 0, 2), // WAI2/WAO2
-        Loc( 0, 0, 9), // WAI3/WAO3
-        Loc( 0, 0, 17),// WAI4/WAO4
-        Loc( 0, 0, 18),// WAI5/WAO5
-        Loc( 0, 0, 25),// WAI6/WAO6
-        Loc( 0, 0, 4), // WAI7/WAO7
-
-        Loc(-1, 0, 0), // WE
-        Loc(-1, 0, 8), // WEA
-
-        Loc(-1, 0, 22),// WRSTI1/WRSTO
-        Loc(-1, 0, 30),// RRSTI1/RRSTO
-        Loc( 0, 0, 8), // WRSTI2
-        Loc( 0, 0, 24),// RRSTI2
-        Loc(+1, 0, 22),// WRSTI3/WRSTO
-        Loc(+1, 0, 30),// RRSTI3/RRSTO
-        Loc( 0, 0, 7), // WRSTI4
-        Loc( 0, 0, 23),// RRSTI4
-
-        Loc(-1, 0, 3), // WEQ1
-        Loc(-1, 0, 4), // REQ1
-        // Loc(-1, 0, 11), WEQ1
-        // Loc(-1, 0, 12), REQ1
-        // Loc(-1, 0, 19), WEQ1
-        // Loc(-1, 0, 20), REQ1
-        // Loc(-1, 0, 27), WEQ1
-        // Loc(-1, 0, 28), REQ1
-        Loc(+1, 0, 3), // WEQ2
-        Loc(+1, 0, 4), // REQ2
-        // Loc(+1, 0, 11), WEQ2
-        // Loc(+1, 0, 12), REQ2
-        // Loc(+1, 0, 19), WEQ2
-        // Loc(+1, 0, 20), REQ2
-        // Loc(+1, 0, 27), WEQ2
-        // Loc(+1, 0, 28), REQ2
-    };
     Loc result;
     if (root.z == BEL_FIFO_Z) {
-        result = fifo1.at(pos);
+        result = ng_ultra_place_fifo1[pos];
     } else if (root.z == BEL_FIFO_Z+1) {
-        result = fifo2.at(pos);
+        result = ng_ultra_place_fifo2[pos];
     } else if (root.z == BEL_XFIFO_Z) {
-        result = xfifo.at(pos);
+        result = ng_ultra_place_xfifo[pos];
     } else {
         log_error("Trying to place CDC on wrong location.\n");
     }
