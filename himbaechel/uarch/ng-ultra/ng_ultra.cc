@@ -154,9 +154,9 @@ void NgUltraImpl::init(Context *ctx)
     ring_clock_sinks[id_WFG].insert(id_ZI);
 
     // IOB
-    // ring_clock_sinks[id_DFR].insert(id_CK);
-    // ring_clock_sinks[id_DDFR].insert(id_CK);
-    // ring_clock_sinks[id_DDFR].insert(id_CKF);
+    ring_over_tile_clock_sinks[id_DFR].insert(id_CK);
+    ring_over_tile_clock_sinks[id_DDFR].insert(id_CK);
+    ring_over_tile_clock_sinks[id_DDFR].insert(id_CKF);
     // ring_clock_sinks[id_IOM].insert(id_ALCK1);
     // ring_clock_sinks[id_IOM].insert(id_ALCK2);
     // ring_clock_sinks[id_IOM].insert(id_ALCK3);
@@ -215,6 +215,11 @@ bool NgUltraImpl::is_fabric_clock_sink(const PortRef &ref)
 bool NgUltraImpl::is_ring_clock_sink(const PortRef &ref)
 {
     return ring_clock_sinks.count(ref.cell->type) && ring_clock_sinks[ref.cell->type].count(ref.port);
+}
+
+bool NgUltraImpl::is_ring_over_tile_clock_sink(const PortRef &ref)
+{
+    return ring_over_tile_clock_sinks.count(ref.cell->type) && ring_over_tile_clock_sinks[ref.cell->type].count(ref.port);
 }
 
 bool NgUltraImpl::is_tube_clock_sink(const PortRef &ref)

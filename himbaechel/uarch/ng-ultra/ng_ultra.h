@@ -70,6 +70,7 @@ public:
 
     bool is_fabric_clock_sink(const PortRef &ref);
     bool is_ring_clock_sink(const PortRef &ref);
+    bool is_ring_over_tile_clock_sink(const PortRef &ref);
     bool is_tube_clock_sink(const PortRef &ref);
 
     bool is_ring_clock_source(const PortRef &ref);
@@ -101,6 +102,7 @@ private:
 
     dict<IdString,pool<IdString>> fabric_clock_sinks;
     dict<IdString,pool<IdString>> ring_clock_sinks;
+    dict<IdString,pool<IdString>> ring_over_tile_clock_sinks;
     dict<IdString,pool<IdString>> tube_clock_sinks;
 
     dict<IdString,pool<IdString>> ring_clock_source;

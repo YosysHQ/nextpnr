@@ -660,6 +660,20 @@ def main():
                 tmp = name.replace("TILE[","").replace("CGB[","").replace("]","")
                 x,y = tmp.split("x")
                 lobe = ((int(y)-1) // 12)*2 + (1 if int(x)>46 else 0) + 1
+            elif item["orig"].startswith("IOB") or item["orig"].startswith("HSSL"):
+                match item["orig"]:
+                    case "IOB0" | "IOB1":
+                        lobe = 5
+                    case "IOB6" | "IOB7":
+                        lobe = 6
+                    case "IOB8" | "IOB9" | "IOB10":
+                        lobe = 2
+                    case "IOB11" | "IOB12" | "IOB13":
+                        lobe = 1
+                    case "IOB2" | "IOB3" | "HSSL0" | "HSSL1" | "HSSL2" | "HSSL3":
+                        lobe = 7
+                    case "IOB4" | "IOB5" | "HSSL4" | "HSSL5" | "HSSL6" | "HSSL7":
+                        lobe = 8
             ti.extra_data = TileExtraData(ch.strs.id(name),lobe)
 
     for name, data in tilegrid.items():

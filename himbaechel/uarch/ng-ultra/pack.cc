@@ -1361,7 +1361,7 @@ void NgUltraPacker::insert_ioms()
         if (uarch->global_capable_bels.count(bel)==0)
             continue;
         for (const auto &usr : ni->users) {
-            if (uarch->is_fabric_clock_sink(usr) || uarch->is_ring_clock_sink(usr) || uarch->is_tube_clock_sink(usr)) {
+            if (uarch->is_fabric_clock_sink(usr) || uarch->is_ring_clock_sink(usr) || uarch->is_tube_clock_sink(usr) || uarch->is_ring_over_tile_clock_sink(usr)) {
                 pins_needing_iom.emplace_back(ni->name);
                 break;
             }
@@ -1504,7 +1504,7 @@ void NgUltraPacker::insert_wfb(CellInfo *cell, IdString port)
     bool in_fabric = false;
     bool in_ring = false;
     for (const auto &usr : net->users) {
-        if (uarch->is_fabric_clock_sink(usr) || uarch->is_tube_clock_sink(usr))
+        if (uarch->is_fabric_clock_sink(usr) || uarch->is_tube_clock_sink(usr) || uarch->is_ring_over_tile_clock_sink(usr))
             in_fabric = true;
         else
             in_ring = true;
@@ -1519,7 +1519,7 @@ void NgUltraPacker::insert_wfb(CellInfo *cell, IdString port)
         NetInfo *net_zo = ctx->createNet(ctx->id(net->name.str(ctx) + "$ZO"));
         wfb->connectPort(id_ZO, net_zo);
         for (const auto &usr : net->users) {
-            if (uarch->is_fabric_clock_sink(usr)) {
+            if (uarch->is_fabric_clock_sink(usr) || uarch->is_ring_over_tile_clock_sink(usr)) {
                 usr.cell->disconnectPort(usr.port);
                 usr.cell->connectPort(usr.port, net_zo);
             }
@@ -2083,7 +2083,7 @@ void NgUltraPacker::duplicate_gck()
         log_info("    Lowskew signal '%s'\n", glb_net->name.c_str(ctx));
         dict<int, std::vector<PortRef>> connections;
         for (const auto &usr : glb_net->users) {
-            if (uarch->is_fabric_clock_sink(usr)) {
+            if (uarch->is_fabric_clock_sink(usr) || uarch->is_ring_over_tile_clock_sink(usr)) {
                 if (usr.cell->bel==BelId()) {
                     log_error("Cell '%s' not placed\n",usr.cell->name.c_str(ctx));
                 }
@@ -2144,7 +2144,7 @@ void NgUltraPacker::insert_bypass_gck()
         log_info("    Lowskew signal '%s'\n", glb_net->name.c_str(ctx));
         dict<int, std::vector<PortRef>> connections;
         for (const auto &usr : glb_net->users) {
-            if (uarch->is_fabric_clock_sink(usr)) {
+            if (uarch->is_fabric_clock_sink(usr) || uarch->is_ring_over_tile_clock_sink(usr)) {
                 if (usr.cell->bel==BelId()) {
                     log_error("Cell '%s' not placed\n",usr.cell->name.c_str(ctx));
                 }
