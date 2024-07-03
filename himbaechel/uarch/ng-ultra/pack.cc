@@ -131,6 +131,45 @@ void NgUltraPacker::update_lut_init()
     flush_cells();
 }
 
+void NgUltraPacker::dff_rewrite(CellInfo *cell)
+{
+    if (int_or_default(cell->params, ctx->id("dff_init"), 0)==0) {
+        // Reset not used
+        cell->disconnectPort(id_R);
+    } else {
+        // Reset used
+        NetInfo *net = cell->getPort(id_R);
+        if (net) {
+            if (net->name == ctx->id("$PACKER_GND")) {
+                log_warning("Removing reset on '%s' since it is always 0.\n", cell->name.c_str(ctx));
+                cell->disconnectPort(id_R);
+            } else if (net->name == ctx->id("$PACKER_VCC")) {
+                log_error("Invalid DFF configuration, reset on '%s' is always 1.\n", cell->name.c_str(ctx));
+            }
+        }
+    }
+
+    if (int_or_default(cell->params, ctx->id("dff_load"), 0)==0) {
+        // Load not used
+        cell->disconnectPort(id_L);
+    } else {
+        // Load used
+        NetInfo *net = cell->getPort(id_L);
+        if (net) {
+            if (net->name == ctx->id("$PACKER_VCC")) {
+                log_warning("Removing load enable on '%s' since it is always 1.\n", cell->name.c_str(ctx));
+                cell->disconnectPort(id_L);
+            } else if (net->name == ctx->id("$PACKER_GND")) {
+                log_warning("Converting to self loop, since load enable on '%s' is always 0.\n", cell->name.c_str(ctx));
+                cell->disconnectPort(id_L);
+                cell->disconnectPort(id_I);
+                NetInfo *out = cell->getPort(id_O);
+                cell->connectPort(id_I, out);
+            }
+        }
+    }
+}
+
 void NgUltraPacker::update_dffs()
 {
     log_info("Update DFFs...\n");
@@ -138,42 +177,7 @@ void NgUltraPacker::update_dffs()
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_NX_DFF))
             continue;
-        
-        if (int_or_default(ci.params, ctx->id("dff_init"), 0)==0) {
-            // Reset not used
-            ci.disconnectPort(id_R);
-        } else {
-            // Reset used
-            NetInfo *net = ci.getPort(id_R);
-            if (net) {
-                if (net->name == ctx->id("$PACKER_GND")) {
-                    log_warning("Removing reset on '%s' since it is always 0.\n", ci.name.c_str(ctx));
-                    ci.disconnectPort(id_R);
-                } else if (net->name == ctx->id("$PACKER_VCC")) {
-                    log_error("Invalid DFF configuration, reset on '%s' is always 1.\n", ci.name.c_str(ctx));
-                }
-            }
-        }
-
-        if (int_or_default(ci.params, ctx->id("dff_load"), 0)==0) {
-            // Load not used
-            ci.disconnectPort(id_L);
-        } else {
-            // Load used
-            NetInfo *net = ci.getPort(id_L);
-            if (net) {
-                if (net->name == ctx->id("$PACKER_VCC")) {
-                    log_warning("Removing load enable on '%s' since it is always 1.\n", ci.name.c_str(ctx));
-                    ci.disconnectPort(id_L);
-                } else if (net->name == ctx->id("$PACKER_GND")) {
-                    log_warning("Converting to self loop, since load enable on '%s' is always 0.\n", ci.name.c_str(ctx));
-                    ci.disconnectPort(id_L);
-                    ci.disconnectPort(id_I);
-                    NetInfo *out = ci.getPort(id_O);
-                    ci.connectPort(id_I, out);
-                }
-            }
-        }
+        dff_rewrite(&ci);
     }
 }
 
@@ -526,6 +530,7 @@ void NgUltraPacker::pack_iobs(void)
         to_update.push_back(&ci);
     }
     int bfr_added = 0;
+    int dfr_added = 0;
     for (auto cell : to_update) {
         NetInfo *c_net = cell->getPort(id_C);
         if (!c_net)
@@ -567,7 +572,12 @@ void NgUltraPacker::pack_iobs(void)
                 }
                 iod->connectPort(id_O, new_out);
                 cell->connectPort(id_C,new_out);
-            } else log_error("TODO handle DFR");
+            } else {
+                dfr_added++;
+                iod->type = id_DFR;
+                iod->setParam(ctx->id("iobname"),str_or_default(cell->params, ctx->id("iobname"), ""));
+                dff_rewrite(iod);
+            }
             Loc cd_loc = cell->getLocation();
             cd_loc.z += 3;
             BelId bel = ctx->getBelByLocation(cd_loc);
@@ -595,7 +605,12 @@ void NgUltraPacker::pack_iobs(void)
                 }
                 iod->connectPort(id_O, new_out);
                 cell->connectPort(id_I,new_out);
-            } else log_error("TODO handle DFR");
+            } else {
+                dfr_added++;
+                iod->type = id_DFR;
+                iod->setParam(ctx->id("iobname"),str_or_default(cell->params, ctx->id("iobname"), ""));
+                dff_rewrite(iod);
+            }
             Loc cd_loc = cell->getLocation();
             cd_loc.z += 2;
             BelId bel = ctx->getBelByLocation(cd_loc);
@@ -619,7 +634,12 @@ void NgUltraPacker::pack_iobs(void)
                     iod->connectPort(id_I, new_in);
                     cell->connectPort(id_O,new_in);
                     bfr_mode = true;
-                } else log_error("TODO handle DFR");
+                } else {
+                    dfr_added++;
+                    iod->type = id_DFR;
+                    iod->setParam(ctx->id("iobname"),str_or_default(cell->params, ctx->id("iobname"), ""));
+                    dff_rewrite(iod);
+                }
                 Loc cd_loc = cell->getLocation();
                 cd_loc.z += 1;
                 BelId bel = ctx->getBelByLocation(cd_loc);
@@ -643,6 +663,8 @@ void NgUltraPacker::pack_iobs(void)
             }
         }
     }
+    if (dfr_added)
+        log_info("    %6d DFRs/DDFRs used as DFR\n", dfr_added);
     if (bfr_added)
         log_info("    %6d DFRs/DDFRs used as BFR\n", bfr_added);
     flush_cells();

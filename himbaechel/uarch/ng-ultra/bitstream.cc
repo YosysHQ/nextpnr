@@ -290,15 +290,20 @@ struct BitstreamJsonBackend
 
     void write_dfr(CellInfo *cell) {
         open_instance(cell);
-        //add_config("data_inv", bool_or_default(cell->params, ctx->id("data_inv"), false));
-        //add_config("dff_edge", bool_or_default(cell->params, ctx->id("dff_edge"), false));
-        //add_config("dff_init", bool_or_default(cell->params, ctx->id("dff_init"), false));
-        //add_config("dff_load", bool_or_default(cell->params, ctx->id("dff_load"), false));
-        //add_config("dff_sync", bool_or_default(cell->params, ctx->id("dff_sync"), false));
-        //add_config("dff_type", bool_or_default(cell->params, ctx->id("dff_type"), false));
-        //add_config("location", str_or_default(cell->params, ctx->id("location"), ""));
+        add_config("data_inv", bool_or_default(cell->params, ctx->id("data_inv"), false));
+        add_config("dff_edge", bool_or_default(cell->params, ctx->id("dff_edge"), false));
+        add_config("dff_init", bool_or_default(cell->params, ctx->id("dff_init"), false));
+        add_config("dff_load", bool_or_default(cell->params, ctx->id("dff_load"), false));
+        add_config("dff_sync", bool_or_default(cell->params, ctx->id("dff_sync"), false));
+        add_config("dff_type", bool_or_default(cell->params, ctx->id("dff_type"), false));
+        add_config("mode", int_or_default(cell->params, ctx->id("mode"), 3));
+        add_config("iobname", str_or_default(cell->params, ctx->id("iobname"), ""));
+        close_instance();
+    }
+
+    void write_bfr(CellInfo *cell) {
+        open_instance(cell);
         add_config("mode", int_or_default(cell->params, ctx->id("mode"), 2));
-        //add_config("path", int_or_default(cell->params, ctx->id("path"), 0));
         add_config("iobname", str_or_default(cell->params, ctx->id("iobname"), ""));
         if (cell->params.count(ctx->id("data_inv"))) {
             add_config("data_inv", bool_or_default(cell->params, ctx->id("data_inv"), false));
@@ -531,8 +536,8 @@ struct BitstreamJsonBackend
                 case id_WFG.index: write_wfg(cell.second.get()); break;
                 case id_GCK.index: write_gck(cell.second.get()); break;
                 case id_IOM.index: write_iom(cell.second.get()); break;
-                case id_BFR.index:
-                case id_DDFR.index:
+                case id_BFR.index: write_bfr(cell.second.get()); break;
+                //case id_DDFR.index:
                 case id_DFR.index: write_dfr(cell.second.get()); break;
                 case id_RAM.index: write_ram(cell.second.get()); break;
                 case id_RF.index:

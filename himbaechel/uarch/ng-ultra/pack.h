@@ -77,6 +77,7 @@ private:
     void set_lut_input_if_constant(CellInfo *cell, IdString input);
     void lut_to_fe(CellInfo *lut, CellInfo *fe, bool no_dff, Property lut_table);
     void dff_to_fe(CellInfo *dff, CellInfo *fe, bool pass_thru_lut);
+    void dff_rewrite(CellInfo *cell);
 
     void exchange_if_constant(CellInfo *cell, IdString input1, IdString input2);
     void pack_cy_input_and_output(CellInfo *cy, IdString cluster, IdString in_port, IdString out_port, int placer, int &lut_only, int &lut_and_ff, int &dff_only);
