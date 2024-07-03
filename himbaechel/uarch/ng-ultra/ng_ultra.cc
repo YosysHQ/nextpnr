@@ -894,8 +894,8 @@ Loc getFIFOFE(Loc root, int pos)
         Loc( 0, 0, 25),// WAI6/WAO6
         Loc( 0, 0,  0),// WAI7/WAO7
 
-        Loc(-1, 0, 0),// WE
-        Loc(-1, 0, 8),// WEA
+        Loc(-1, 0, 0), // WE
+        Loc(-1, 0, 8), // WEA
 
         Loc(-1, 0, 22),// WRSTI1/WRSTO
         Loc(-1, 0, 30),// RRSTI1/RRSTO
@@ -906,16 +906,16 @@ Loc getFIFOFE(Loc root, int pos)
         Loc( 0, 0, 0), // WRSTI4
         Loc( 0, 0, 0), // RRSTI4
 
-        Loc(-1, 0, 3),// WEQ
-        Loc(-1, 0, 4),// REQ
+        Loc(-1, 0, 3), // WEQ
+        Loc(-1, 0, 4), // REQ
         // Loc(-1, 0, 11), WEQ
         // Loc(-1, 0, 12), REQ
         // Loc(-1, 0, 19), WEQ
         // Loc(-1, 0, 20), REQ
         // Loc(-1, 0, 27), WEQ
         // Loc(-1, 0, 28), REQ
-        Loc( 0, 0, 0),// WEQ2
-        Loc( 0, 0, 0),// REQ2
+        Loc( 0, 0, 0), // WEQ2
+        Loc( 0, 0, 0), // REQ2
     };
 
     static const std::vector<Loc> fifo2 = 
@@ -974,8 +974,8 @@ Loc getFIFOFE(Loc root, int pos)
         Loc( 0, 0, 28),// WAI6/WAO6
         Loc( 0, 0,  0),// WAI7/WAO7
 
-        Loc(+1, 0, 0),// WE
-        Loc(+1, 0, 8),// WEA
+        Loc(+1, 0, 0), // WE
+        Loc(+1, 0, 8), // WEA
 
         Loc(+1, 0, 22),// WRSTI1/WRSTO
         Loc(+1, 0, 30),// RRSTI1/RRSTO
@@ -986,16 +986,16 @@ Loc getFIFOFE(Loc root, int pos)
         Loc( 0, 0, 0), // WRSTI4
         Loc( 0, 0, 0), // RRSTI4
 
-        Loc(+1, 0, 3),// WEQ
-        Loc(+1, 0, 4),// REQ
+        Loc(+1, 0, 3), // WEQ
+        Loc(+1, 0, 4), // REQ
         // Loc(+1, 0, 11), WEQ
         // Loc(+1, 0, 12), REQ
         // Loc(+1, 0, 19), WEQ
         // Loc(+1, 0, 20), REQ
         // Loc(+1, 0, 27), WEQ
         // Loc(+1, 0, 28), REQ
-        Loc( 0, 0, 0),// WEQ2
-        Loc( 0, 0, 0),// REQ2
+        Loc( 0, 0, 0), // WEQ2
+        Loc( 0, 0, 0), // REQ2
     };
 
     static const std::vector<Loc> xfifo = 
@@ -1005,7 +1005,7 @@ Loc getFIFOFE(Loc root, int pos)
         Loc(-1, 0, 5), // I/O3
         Loc(-1, 0, 6), // I/O4
         Loc(-1, 0, 7), // I/O5
-        Loc(-1, 0, 9),// I/O6
+        Loc(-1, 0, 9), // I/O6
         Loc(-1, 0, 10),// I/O7
         Loc(-1, 0, 13),// I/O8
         Loc(-1, 0, 14),// I/O9
@@ -1053,8 +1053,8 @@ Loc getFIFOFE(Loc root, int pos)
         Loc( 0, 0, 25),// WAI6/WAO6
         Loc( 0, 0, 4), // WAI7/WAO7
 
-        Loc(-1, 0, 0),// WE
-        Loc(-1, 0, 8),// WEA
+        Loc(-1, 0, 0), // WE
+        Loc(-1, 0, 8), // WEA
 
         Loc(-1, 0, 22),// WRSTI1/WRSTO
         Loc(-1, 0, 30),// RRSTI1/RRSTO
@@ -1065,16 +1065,16 @@ Loc getFIFOFE(Loc root, int pos)
         Loc( 0, 0, 7), // WRSTI4
         Loc( 0, 0, 23),// RRSTI4
 
-        Loc(-1, 0, 3),// WEQ1
-        Loc(-1, 0, 4),// REQ1
+        Loc(-1, 0, 3), // WEQ1
+        Loc(-1, 0, 4), // REQ1
         // Loc(-1, 0, 11), WEQ1
         // Loc(-1, 0, 12), REQ1
         // Loc(-1, 0, 19), WEQ1
         // Loc(-1, 0, 20), REQ1
         // Loc(-1, 0, 27), WEQ1
         // Loc(-1, 0, 28), REQ1
-        Loc(+1, 0, 3),// WEQ2
-        Loc(+1, 0, 4),// REQ2
+        Loc(+1, 0, 3), // WEQ2
+        Loc(+1, 0, 4), // REQ2
         // Loc(+1, 0, 11), WEQ2
         // Loc(+1, 0, 12), REQ2
         // Loc(+1, 0, 19), WEQ2

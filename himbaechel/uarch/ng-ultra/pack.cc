@@ -293,6 +293,10 @@ void NgUltraPacker::bind_attr_loc(CellInfo *cell, dict<IdString, Property> *attr
 {
     if (attrs->count(id_LOC)) {
         std::string name = attrs->at(id_LOC).as_string();
+        if (boost::starts_with(name,"TILE[")) {
+            boost::replace_all(name, ".DFF", ".FE");
+            boost::replace_all(name, ".LUT", ".FE");
+        }
         if (!uarch->locations.count(name)) {
             log_error("Unable to find location %s\n", name.c_str());
         }
@@ -304,7 +308,7 @@ void NgUltraPacker::bind_attr_loc(CellInfo *cell, dict<IdString, Property> *attr
 void NgUltraPacker::pack_xluts(void)
 {
     log_info("Pack XLUTs...\n");
-    int xlut_used = 0, lut_only = 0;//, lut_and_ff = 0;
+    int xlut_used = 0, lut_only = 0;
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_NX_LUT))
@@ -355,8 +359,6 @@ void NgUltraPacker::pack_xluts(void)
         log_info("    %6d XLUTs used\n", xlut_used);
     if (lut_only)
         log_info("    %6d FEs used as LUT only\n", lut_only);
-    //if (lut_and_ff)
-    //    log_info("    %6d FEs used as LUT and DFF\n", lut_and_ff);
     flush_cells();
 }
 
@@ -1906,8 +1908,6 @@ void NgUltraPacker::pre_place(void)
                     break;
                 }
             }
-            //if (!found)
-            //    log_error("    No more available PLLs for driving '%s'.\n", ci.name.c_str(ctx));
         }
     }
     // If PLL use any other pin, location is not relevant, so we pick available
@@ -1915,7 +1915,6 @@ void NgUltraPacker::pre_place(void)
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_PLL) || ci.bel != BelId())
             continue;
-        //log_warning("    PLL '%s' is not driven by clock dedicated pin.\n", ci.name.c_str(ctx));
         if (uarch->unused_pll.empty())
             log_error("    No more available PLLs for driving '%s'.\n", ci.name.c_str(ctx));
         BelId bel = uarch->unused_pll.begin()->first;
@@ -2034,7 +2033,6 @@ void NgUltraImpl::postPlace()
     log_info("Running post-placement ...\n");
     packer.duplicate_gck();
     packer.insert_bypass_gck();
-    //log_info("Running post-placement legalisation...\n");
     log_break();
     ctx->assignArchInfo();
 }
