@@ -448,27 +448,23 @@ struct BitstreamJsonBackend
             add_config("ck1_edge", bool_or_default(cell->params, ctx->id("ck1_edge"), false));
             add_config("ack_sel", bool_or_default(cell->params, ctx->id("ack_sel"), false));
             add_config("bck_sel", bool_or_default(cell->params, ctx->id("bck_sel"), false));
-            if (cell->type.in(id_XCDC)) {
-                add_config("cck_sel", bool_or_default(cell->params, ctx->id("cck_sel"), false));
-                add_config("dck_sel", bool_or_default(cell->params, ctx->id("dck_sel"), false));
-            }
-            if (cell->type.in(id_TDE, id_CDC, id_XCDC)) {
+            add_config("use_adest_arst", bool_or_default(cell->params, ctx->id("use_adest_arst"), false));
+            add_config("use_bdest_arst", bool_or_default(cell->params, ctx->id("use_bdest_arst"), false));
+            if (cell->type != id_DDE) {
                 add_config("use_asrc_arst", bool_or_default(cell->params, ctx->id("use_asrc_arst"), false));
                 add_config("use_bsrc_arst", bool_or_default(cell->params, ctx->id("use_bsrc_arst"), false));
             }
-            if (cell->type.in(id_XCDC)) {
+            if (cell->type == id_XCDC) {
+                add_config("cck_sel", bool_or_default(cell->params, ctx->id("cck_sel"), false));
+                add_config("dck_sel", bool_or_default(cell->params, ctx->id("dck_sel"), false));
                 add_config("use_csrc_arst", bool_or_default(cell->params, ctx->id("use_csrc_arst"), false));
                 add_config("use_dsrc_arst", bool_or_default(cell->params, ctx->id("use_dsrc_arst"), false));
-            }
-            add_config("use_adest_arst", bool_or_default(cell->params, ctx->id("use_adest_arst"), false));
-            add_config("use_bdest_arst", bool_or_default(cell->params, ctx->id("use_bdest_arst"), false));
-            if (cell->type.in(id_XCDC)) {
                 add_config("use_cdest_arst", bool_or_default(cell->params, ctx->id("use_cdest_arst"), false));
                 add_config("use_ddest_arst", bool_or_default(cell->params, ctx->id("use_ddest_arst"), false));
+                add_config("link_BA", bool_or_default(cell->params, ctx->id("link_BA"), false));
+                add_config("link_CB", bool_or_default(cell->params, ctx->id("link_CB"), false));
+                add_config("link_DC", bool_or_default(cell->params, ctx->id("link_DC"), false));
             }
-            add_config("link_BA", bool_or_default(cell->params, ctx->id("link_BA"), false));
-            add_config("link_CB", bool_or_default(cell->params, ctx->id("link_CB"), false));
-            add_config("link_DC", bool_or_default(cell->params, ctx->id("link_DC"), false));
         }
         close_instance();
     }
@@ -477,7 +473,7 @@ struct BitstreamJsonBackend
         open_instance(cell);
         add_config("rck_edge", bool_or_default(cell->params, ctx->id("rck_edge"), false));
         add_config("wck_edge", bool_or_default(cell->params, ctx->id("wck_edge"), false));
-        if (cell->type.in(id_XHFIFO, id_XWFIFO)) {
+        if (cell->type != id_FIFO) {
             add_config("use_read_arst", bool_or_default(cell->params, ctx->id("use_read_arst"), false));
             add_config("use_write_arst", bool_or_default(cell->params, ctx->id("use_write_arst"), false));
         }
