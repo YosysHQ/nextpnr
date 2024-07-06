@@ -99,6 +99,7 @@ NPNR_PACKED_STRUCT(struct Extra_chip_data_POD {
     static constexpr int32_t NEED_SP_FIX = 2;
     static constexpr int32_t NEED_BSRAM_OUTREG_FIX = 4;
     static constexpr int32_t NEED_BLKSEL_FIX = 8;
+    static constexpr int32_t HAS_BANDGAP = 16;
 });
 
 } // namespace
@@ -131,6 +132,7 @@ enum
     GSR_Z = 276,
     VCC_Z = 277,
     VSS_Z = 278,
+    BANDGAP_Z = 279,
 
     // The two least significant bits encode Z for 9-bit adders and
     // multipliers, if they are equal to 0, then we get Z of their common

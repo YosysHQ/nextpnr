@@ -19,6 +19,7 @@ CHIP_HAS_SP32              = 0x1
 CHIP_NEED_SP_FIX           = 0x2
 CHIP_NEED_BSRAM_OUTREG_FIX = 0x4
 CHIP_NEED_BLKSEL_FIX       = 0x8
+CHIP_HAS_BANDGAP           = 0x10
 
 # Z of the bels
 # sync with C++ part!
@@ -46,6 +47,7 @@ PLL_Z   = 275
 GSR_Z   = 276
 VCC_Z   = 277
 GND_Z   = 278
+BANDGAP_Z = 279
 
 DSP_Z          = 509
 
@@ -338,6 +340,11 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
             tt.create_wire(wire, "GSRI")
             bel = tt.create_bel("GSR", "GSR", z = GSR_Z)
             tt.add_bel_pin(bel, "GSRI", wire, PinType.INPUT)
+        elif func == 'bandgap':
+            wire = desc['wire']
+            tt.create_wire(wire, "BGEN")
+            bel = tt.create_bel("BANDGAP", "BANDGAP", z = BANDGAP_Z)
+            tt.add_bel_pin(bel, "BGEN", wire, PinType.INPUT)
         if func == 'io16':
             role = desc['role']
             if role == 'MAIN':
@@ -1024,6 +1031,8 @@ def main():
             chip_flags |= CHIP_NEED_BSRAM_OUTREG_FIX;
         if "NEED_BLKSEL_FIX" in db.chip_flags:
             chip_flags |= CHIP_NEED_BLKSEL_FIX;
+        if "HAS_BANDGAP" in db.chip_flags:
+            chip_flags |= CHIP_HAS_BANDGAP;
 
     X = db.cols;
     Y = db.rows;

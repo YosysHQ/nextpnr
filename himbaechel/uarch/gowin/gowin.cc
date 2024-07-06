@@ -259,7 +259,7 @@ void GowinImpl::adjust_dsp_pin_mapping(void)
 void GowinImpl::prePlace() { assign_cell_info(); }
 void GowinImpl::postPlace()
 {
-    gwu.have_SP32();
+    gwu.has_SP32();
     if (ctx->debug) {
         log_info("================== Final Placement ===================\n");
         for (auto &cell : ctx->cells) {

@@ -987,6 +987,10 @@ X(GSR)
 X(GSR0)
 X(GSRI)
 
+// power saving
+X(BANDGAP)
+X(BGEN)
+
 // inverter
 X(INV)
 
