@@ -35,10 +35,13 @@ struct GowinUtils
     BelId get_io_bel_from_iologic(BelId bel);
 
     // BSRAM
-    bool have_SP32(void);
+    bool has_SP32(void);
     bool need_SP_fix(void);
     bool need_BSRAM_OUTREG_fix(void);
     bool need_BLKSEL_fix(void);
+
+    // Power saving
+    bool has_BANDGAP(void);
 
     // DSP
     inline int get_dsp_18_z(int z) const { return z & (~3); }
@@ -65,7 +68,7 @@ struct GowinUtils
     CellInfo *dsp_bus_dst(const CellInfo *ci, const char *bus_prefix, int wire_num) const;
 
     bool is_diff_io_supported(IdString type);
-    bool have_bottom_io_cnds(void);
+    bool has_bottom_io_cnds(void);
     IdString get_bottom_io_wire_a_net(int8_t condition);
     IdString get_bottom_io_wire_b_net(int8_t condition);
 

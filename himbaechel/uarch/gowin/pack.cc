@@ -68,7 +68,7 @@ struct GowinPacker
 
     void config_bottom_row(CellInfo &ci, Loc loc, uint8_t cnd = Bottom_io_POD::NORMAL)
     {
-        if (!gwu.have_bottom_io_cnds()) {
+        if (!gwu.has_bottom_io_cnds()) {
             return;
         }
         if (!ci.type.in(id_OBUF, id_TBUF, id_IOBUF)) {
@@ -1802,7 +1802,7 @@ struct GowinPacker
         // For GW1N-9/GW1NR-9/GW1NS-4 series, 32/36-bit SP/SPX9 is divided into two
         // SP/SPX9s, which occupy two BSRAMs.
         // So divide it here
-        if ((bit_width == 32 || bit_width == 36) && !gwu.have_SP32()) {
+        if ((bit_width == 32 || bit_width == 36) && !gwu.has_SP32()) {
             divide_sp(ci, new_cells);
             bit_width = ci->params.at(id_BIT_WIDTH).as_int64();
         }
@@ -2840,6 +2840,41 @@ struct GowinPacker
     }
 
     // ===================================
+    // Global power regulator
+    // ===================================
+    void pack_bandgap(void)
+    {
+        if (!gwu.has_BANDGAP()) {
+            return;
+        }
+        log_info("Pack BANDGAP...\n");
+
+        bool user_bandgap = false;
+        for (auto &cell : ctx->cells) {
+            auto &ci = *cell.second;
+
+            if (ci.type == id_BANDGAP) {
+                user_bandgap = true;
+                break;
+            }
+        }
+        if (!user_bandgap) {
+            // make default BANDGAP
+            auto bandgap_cell = std::make_unique<CellInfo>(ctx, id_BANDGAP, id_BANDGAP);
+            bandgap_cell->addInput(id_BGEN);
+            bandgap_cell->connectPort(id_BGEN, ctx->nets.at(ctx->id("$PACKER_VCC")).get());
+            ctx->cells[bandgap_cell->name] = std::move(bandgap_cell);
+        }
+        if (ctx->verbose) {
+            if (user_bandgap) {
+                log_info("Have user BANDGAP\n");
+            } else {
+                log_info("No user BANDGAP. Make one.\n");
+            }
+        }
+    }
+
+    // ===================================
     // Replace INV with LUT
     // ===================================
     void pack_inv(void)
@@ -2955,6 +2990,9 @@ struct GowinPacker
         ctx->check();
 
         pack_gsr();
+        ctx->check();
+
+        pack_bandgap();
         ctx->check();
 
         pack_wideluts();
