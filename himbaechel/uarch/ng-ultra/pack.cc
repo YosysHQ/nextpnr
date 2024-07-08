@@ -1505,7 +1505,7 @@ void NgUltraPacker::insert_wfb(CellInfo *cell, IdString port)
     // If all in ring and none in fabric no need for WFB
     if (in_ring && !in_fabric) return;
     log_info("    Inserting WFB for cell '%s' port '%s'\n", cell->name.c_str(ctx), port.c_str(ctx));
-    CellInfo *wfb = create_cell_ptr(id_WFB, ctx->id(std::string(cell->name.c_str(ctx)) + "$" + port.c_str(ctx)));
+    CellInfo *wfb = create_cell_ptr(id_WFB, ctx->idf("%s$%s", cell->name.c_str(ctx), port.c_str(ctx)));
     if (in_ring && in_fabric) {
         // If both in ring and in fabric create new signal
         wfb->connectPort(id_ZI, net);
@@ -1521,7 +1521,7 @@ void NgUltraPacker::insert_wfb(CellInfo *cell, IdString port)
         // Only in fabric, reconnect wire directly to WFB
         cell->disconnectPort(port);
         wfb->connectPort(id_ZO, net);
-        NetInfo *new_out = ctx->createNet(ctx->id(net->name.str(ctx) + "$" + port.c_str(ctx)));
+        NetInfo *new_out = ctx->createNet(ctx->idf("%s$%s", net->name.c_str(ctx), port.c_str(ctx)));
         cell->connectPort(port, new_out);
         wfb->connectPort(id_ZI, new_out);
     }
@@ -2095,7 +2095,7 @@ void NgUltraPacker::duplicate_gck()
                 gck_cell = driver;
                 log_info("        Assign GCK '%s' to lobe %d\n",gck_cell->name.c_str(ctx), conn.first);
             } else {
-                gck_cell = create_cell_ptr(id_GCK, ctx->id(driver->name.str(ctx) + "$gck_"+ std::to_string(conn.first)));
+                gck_cell = create_cell_ptr(id_GCK, ctx->idf("%s$gck_%d", driver->name.c_str(ctx), conn.first));
                 log_info("        Create GCK '%s' for lobe %d\n",gck_cell->name.c_str(ctx), conn.first);
                 for (auto &params : driver->params)
                     gck_cell->params[params.first] = params.second;
@@ -2148,7 +2148,7 @@ void NgUltraPacker::insert_bypass_gck()
             BelId bel = get_available_gck(conn.first, glb_net, nullptr);
 
             log_info("        Create GCK for lobe %d\n",conn.first);
-            CellInfo *gck_cell = create_cell_ptr(id_GCK, ctx->id(glb_net->name.str(ctx) + "$gck_"+ std::to_string(conn.first)));
+            CellInfo *gck_cell = create_cell_ptr(id_GCK, ctx->idf("%s$gck_%d", glb_net->name.c_str(ctx), conn.first));
             gck_cell->params[id_std_mode] = Property("BYPASS");
             gck_cell->connectPort(id_SI1, glb_net);
             NetInfo *new_clk = ctx->createNet(ctx->id(gck_cell->name.str(ctx)));

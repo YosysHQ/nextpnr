@@ -25,6 +25,8 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+namespace ng_ultra {
+
 Loc getNextLocInDSPChain(const NgUltraImpl *impl, Loc loc);
 Loc getNextLocInCYChain(Loc loc);
 Loc getCYFE(Loc root, int pos);
@@ -32,6 +34,8 @@ Loc getXLUTFE(Loc root, int pos);
 Loc getXRFFE(Loc root, int pos);
 Loc getCDCFE(Loc root, int pos);
 Loc getFIFOFE(Loc root, int pos);
+
+};
 
 NEXTPNR_NAMESPACE_END
 #endif

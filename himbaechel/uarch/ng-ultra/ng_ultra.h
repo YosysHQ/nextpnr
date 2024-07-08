@@ -105,14 +105,6 @@ TESTABLE_PRIVATE:
     bool get_mux_data(WireId wire, uint8_t *value);
 
     const NGUltraTileInstExtraDataPOD *tile_extra_data(int tile) const;
-
-    dict<IdString,pool<IdString>> fabric_clock_sinks;
-    dict<IdString,pool<IdString>> ring_clock_sinks;
-    dict<IdString,pool<IdString>> ring_over_tile_clock_sinks;
-    dict<IdString,pool<IdString>> tube_clock_sinks;
-
-    dict<IdString,pool<IdString>> ring_clock_source;
-    dict<IdString,pool<IdString>> tube_clock_source;
 };
 
 NEXTPNR_NAMESPACE_END

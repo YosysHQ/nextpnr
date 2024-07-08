@@ -21,7 +21,9 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-static const Loc ng_ultra_place_cy_map[24] = {
+namespace {
+
+const Loc ng_ultra_place_cy_map[24] = {
     { 0, 1,  0 }, // S1 0 -> S2 0  CY24->CY1
     { 0, 0, -1 }, // S1 1 -> S1 0  CY23->CY24
     { 0, 0, -1 }, // S1 2 -> S1 1  CY22->CY23
@@ -53,7 +55,7 @@ static const Loc ng_ultra_place_cy_map[24] = {
     {0,-1,  0}, // S10 3 -> S9  3 CY12->CY13
 };
 
-static const Loc ng_ultra_place_xrf[] = 
+const Loc ng_ultra_place_xrf[] = 
 {
     {-1, 0, 1},// I/O1
     {-1, 0, 2},// I/O2
@@ -118,7 +120,7 @@ static const Loc ng_ultra_place_xrf[] =
 
 };
 
-static const Loc ng_ultra_place_cdc1[] = 
+const Loc ng_ultra_place_cdc1[] = 
 {       
     {+1, 0, 1}, // AI1
     {+1, 0, 2}, // AI2
@@ -140,7 +142,7 @@ static const Loc ng_ultra_place_cdc1[] =
     {+1, 0, 8}, // BDRSTI
 };
 
-static const Loc ng_ultra_place_cdc2[] = 
+const Loc ng_ultra_place_cdc2[] = 
 {
     {-1, 0, 4}, // AI1
     {-1, 0, 5}, // AI2
@@ -162,7 +164,7 @@ static const Loc ng_ultra_place_cdc2[] =
     {-1, 0, 7}, // BDRSTI
 };
 
-static const Loc ng_ultra_place_xcdc[] = 
+const Loc ng_ultra_place_xcdc[] = 
 {
     { 0, 0, 1}, // AI1
     { 0, 0, 2}, // AI2
@@ -203,7 +205,7 @@ static const Loc ng_ultra_place_xcdc[] =
     { 0, 0, 7}, // DDRSTI
 };
 
-static const Loc ng_ultra_place_fifo1[] = 
+const Loc ng_ultra_place_fifo1[] = 
 {
     {-1, 0, 1}, // I/O1
     {-1, 0, 2}, // I/O2
@@ -283,7 +285,7 @@ static const Loc ng_ultra_place_fifo1[] =
     { 0, 0, 0}, // REQ2
 };
 
-static const Loc ng_ultra_place_fifo2[] = 
+const Loc ng_ultra_place_fifo2[] = 
 {
     {+1, 0, 1}, // I/O1
     {+1, 0, 2}, // I/O2
@@ -363,7 +365,7 @@ static const Loc ng_ultra_place_fifo2[] =
     { 0, 0, 0}, // REQ2
 };
 
-static const Loc ng_ultra_place_xfifo[] = 
+const Loc ng_ultra_place_xfifo[] = 
 {
     {-1, 0, 1}, // I/O1
     {-1, 0, 2}, // I/O2
@@ -447,6 +449,10 @@ static const Loc ng_ultra_place_xfifo[] =
     // {+1, 0, 27}, WEQ2
     // {+1, 0, 28}, REQ2
 };
+
+};
+
+namespace ng_ultra {
 
 Loc getNextLocInDSPChain(const NgUltraImpl *impl, Loc loc)
 {
@@ -533,4 +539,5 @@ Loc getFIFOFE(Loc root, int pos)
     return result;
 }
 
+};
 NEXTPNR_NAMESPACE_END

@@ -37,6 +37,7 @@
 #define GEN_INIT_CONSTIDS
 #define HIMBAECHEL_CONSTIDS "uarch/ng-ultra/constids.inc"
 #include "himbaechel_constids.h"
+using namespace NEXTPNR_NAMESPACE_PREFIX ng_ultra;
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -75,7 +76,7 @@ void NgUltraImpl::init(Context *ctx)
             }
             std::pair<IdString,IdString> p;
             p.first = *ckg.begin();
-            if (ckg.size()==2) p.second = *ckg.end();
+            if (ckg.size()==2) p.second = *(ckg.begin()++);
             bank_to_ckg[bank] = p;
         } else if (ctx->getBelType(bel) == id_IOTP) {
             if (ctx->getBelName(bel)[1] == ctx->id("D08P_CLK.IOTP")) {
@@ -85,8 +86,8 @@ void NgUltraImpl::init(Context *ctx)
             }
         } else if (ctx->getBelType(bel) == id_GCK) {
             std::string name = ctx->getBelName(bel)[1].c_str(ctx);
-            int lobe = name[1] - '0';
-            int num = atoi(name.substr(4,2).c_str());
+            int lobe = std::stoi(name.substr(1,1));
+            int num = std::stoi(name.substr(4,2).c_str());
             gck_per_lobe[lobe].insert(gck_per_lobe[lobe].begin()+num-1, GckConfig(bel));
         }
         locations.emplace(stringf("%s:%s",tile_name(bel.tile).c_str(), ctx->getBelName(bel)[1].c_str(ctx)),bel);
@@ -106,136 +107,109 @@ void NgUltraImpl::init(Context *ctx)
             }
         }
     }
+}
 
-    // Note: These are per Cell type not Bel type
-    // Sinks
+namespace {
+// Note: These are per Cell type not Bel type
+// Sinks
+const dict<IdString,pool<IdString>> fabric_clock_sinks = {
     // TILE - DFF
-    fabric_clock_sinks[id_BEYOND_FE].insert(id_CK);
-    //fabric_clock_sinks[id_DFF].insert(id_CK); // This is part of BEYOND_FE
+    { id_BEYOND_FE, { id_CK }},
+    // { id_DFF, { id_CK }},  // This is part of BEYOND_FE
     // TILE - Register file
-    fabric_clock_sinks[id_RF].insert(id_WCK);
-    fabric_clock_sinks[id_RFSP].insert(id_WCK);
-    fabric_clock_sinks[id_XHRF].insert(id_WCK1);
-    fabric_clock_sinks[id_XHRF].insert(id_WCK2);
-    fabric_clock_sinks[id_XWRF].insert(id_WCK1);
-    fabric_clock_sinks[id_XWRF].insert(id_WCK2);
-    fabric_clock_sinks[id_XPRF].insert(id_WCK1);
-    fabric_clock_sinks[id_XPRF].insert(id_WCK2);
+    { id_RF,   { id_WCK }},
+    { id_RFSP, { id_WCK }},
+    { id_XHRF, { id_WCK1, id_WCK2 }},
+    { id_XWRF, { id_WCK1, id_WCK2 }},
+    { id_XPRF, { id_WCK1, id_WCK2 }},
     // TILE - CDC
-    fabric_clock_sinks[id_CDC].insert(id_CK1);
-    fabric_clock_sinks[id_CDC].insert(id_CK2);
-    fabric_clock_sinks[id_DDE].insert(id_CK1);
-    fabric_clock_sinks[id_DDE].insert(id_CK2);
-    fabric_clock_sinks[id_TDE].insert(id_CK1);
-    fabric_clock_sinks[id_TDE].insert(id_CK2);
-    fabric_clock_sinks[id_XCDC].insert(id_CK1);
-    fabric_clock_sinks[id_XCDC].insert(id_CK2);
+    { id_CDC, { id_CK1, id_CK2 }},
+    { id_DDE, { id_CK1, id_CK2 }},
+    { id_TDE, { id_CK1, id_CK2 }},
+    { id_XCDC, { id_CK1, id_CK2 }},
     // TILE - FIFO
-    fabric_clock_sinks[id_FIFO].insert(id_RCK);
-    fabric_clock_sinks[id_FIFO].insert(id_WCK);
-    fabric_clock_sinks[id_XHFIFO].insert(id_RCK1);
-    fabric_clock_sinks[id_XHFIFO].insert(id_RCK2);
-    fabric_clock_sinks[id_XHFIFO].insert(id_WCK1);
-    fabric_clock_sinks[id_XHFIFO].insert(id_WCK2);
-    fabric_clock_sinks[id_XWFIFO].insert(id_RCK1);
-    fabric_clock_sinks[id_XWFIFO].insert(id_RCK2);
-    fabric_clock_sinks[id_XWFIFO].insert(id_WCK1);
-    fabric_clock_sinks[id_XWFIFO].insert(id_WCK2);
+    { id_FIFO, { id_RCK, id_WCK }},
+    { id_XHFIFO, { id_RCK1, id_RCK2, id_WCK1, id_WCK2 }},
+    { id_XWFIFO, { id_RCK1, id_RCK2, id_WCK1, id_WCK2 }},
     // CGB - RAM
-    fabric_clock_sinks[id_RAM].insert(id_ACK);
-    fabric_clock_sinks[id_RAM].insert(id_BCK);
+    { id_RAM, { id_ACK, id_BCK }},
     // CGB - DSP
-    fabric_clock_sinks[id_DSP].insert(id_CK);
+    { id_DSP, {id_CK }},
+};
 
+const dict<IdString,pool<IdString>> ring_clock_sinks = {
     // CKG
-    ring_clock_sinks[id_PLL].insert(id_CLK_CAL);
-    ring_clock_sinks[id_PLL].insert(id_FBK);
-    ring_clock_sinks[id_PLL].insert(id_REF);
-    ring_clock_sinks[id_WFB].insert(id_ZI);
-    ring_clock_sinks[id_WFG].insert(id_ZI);
+    { id_PLL, { id_CLK_CAL, id_FBK, id_REF }},
+    { id_WFB, { id_ZI }},
+    { id_WFG, { id_ZI }}
+};
 
+const dict<IdString,pool<IdString>> ring_over_tile_clock_sinks = {
     // IOB
-    ring_over_tile_clock_sinks[id_DFR].insert(id_CK);
-    ring_over_tile_clock_sinks[id_DDFR].insert(id_CK);
-    ring_over_tile_clock_sinks[id_DDFR].insert(id_CKF);
-    // ring_clock_sinks[id_IOM].insert(id_ALCK1);
-    // ring_clock_sinks[id_IOM].insert(id_ALCK2);
-    // ring_clock_sinks[id_IOM].insert(id_ALCK3);
-    // ring_clock_sinks[id_IOM].insert(id_CCK);
-    // ring_clock_sinks[id_IOM].insert(id_FCK1);
-    // ring_clock_sinks[id_IOM].insert(id_FCK2);
-    // ring_clock_sinks[id_IOM].insert(id_FDCK);
-    // ring_clock_sinks[id_IOM].insert(id_LDSCK1);
-    // ring_clock_sinks[id_IOM].insert(id_LDSCK2);
-    // ring_clock_sinks[id_IOM].insert(id_LDSCK3);
-    // ring_clock_sinks[id_IOM].insert(id_SWRX1CK);
-    // ring_clock_sinks[id_IOM].insert(id_SWRX2CK);
+    { id_DFR, { id_CK }},
+    { id_DDFR, { id_CK }},
+    { id_DDFR, { id_CKF }},
+};
+    // IOB
+    // { id_IOM, { id_ALCK1, id_ALCK2, id_ALCK3, id_CCK, id_FCK1, id_FCK2, id_FDCK,
+    //             id_LDSCK1, id_LDSCK2, id_LDSCK3, id_SWRX1CK, id_SWRX2CK }},
 
     // HSSL
-    // ring_clock_sinks[id_CRX].insert(id_LINK);
-    // ring_clock_sinks[id_CTX].insert(id_LINK);
-    // ring_clock_sinks[id_PMA].insert(id_hssl_clock_i1);
-    // ring_clock_sinks[id_PMA].insert(id_hssl_clock_i2);
-    // ring_clock_sinks[id_PMA].insert(id_hssl_clock_i3);
-    // ring_clock_sinks[id_PMA].insert(id_hssl_clock_i4);
-    
+    // { id_CRX, { id_LINK }},
+    // { id_CTX, { id_LINK }},
+    // { id_PMA, { id_hssl_clock_i1, id_hssl_clock_i2, id_hssl_clock_i3, id_hssl_clock_i4 },
+
+const dict<IdString,pool<IdString>> tube_clock_sinks = {
     // TUBE
-    tube_clock_sinks[id_GCK].insert(id_SI1);
-    tube_clock_sinks[id_GCK].insert(id_SI2);
+    { id_GCK, { id_SI1, id_SI2 }},
+};
 
     // Sources
     // CKG
-    ring_clock_source[id_IOM].insert(id_CKO1);
-    ring_clock_source[id_IOM].insert(id_CKO2);
-    ring_clock_source[id_WFB].insert(id_ZO);
-    ring_clock_source[id_WFG].insert(id_ZO);
-    ring_clock_source[id_PLL].insert(id_OSC);
-    ring_clock_source[id_PLL].insert(id_VCO);
-    ring_clock_source[id_PLL].insert(id_REFO);
-    ring_clock_source[id_PLL].insert(id_LDFO);
-    ring_clock_source[id_PLL].insert(id_CLK_DIV1);
-    ring_clock_source[id_PLL].insert(id_CLK_DIV2);
-    ring_clock_source[id_PLL].insert(id_CLK_DIV3);
-    ring_clock_source[id_PLL].insert(id_CLK_DIV4);
-    ring_clock_source[id_PLL].insert(id_CLK_DIVD1);
-    ring_clock_source[id_PLL].insert(id_CLK_DIVD2);
-    ring_clock_source[id_PLL].insert(id_CLK_DIVD3);
-    ring_clock_source[id_PLL].insert(id_CLK_DIVD4);
-    ring_clock_source[id_PLL].insert(id_CLK_DIVD5);
-    ring_clock_source[id_PLL].insert(id_CLK_CAL_DIV);
-
+const dict<IdString,pool<IdString>> ring_clock_source = {
+    { id_IOM, { id_CKO1, id_CKO2 }},
+    { id_WFB, { id_ZO }},
+    { id_WFG, { id_ZO }},
+    { id_PLL, { id_OSC, id_VCO, id_REFO, id_LDFO,
+                id_CLK_DIV1, id_CLK_DIV2, id_CLK_DIV3, id_CLK_DIV4,
+                id_CLK_DIVD1, id_CLK_DIVD2, id_CLK_DIVD3, id_CLK_DIVD4, id_CLK_DIVD5,
+                id_CLK_CAL_DIV }}
+};
     // TUBE
-    tube_clock_source[id_GCK].insert(id_SO);
-}
+const dict<IdString,pool<IdString>> tube_clock_source = {
+    { id_GCK, { id_SO }},
+};
+
+};
 
 bool NgUltraImpl::is_fabric_clock_sink(const PortRef &ref)
 {
-    return fabric_clock_sinks.count(ref.cell->type) && fabric_clock_sinks[ref.cell->type].count(ref.port);
+    return fabric_clock_sinks.count(ref.cell->type) && fabric_clock_sinks.at(ref.cell->type).count(ref.port);
 }
 
 bool NgUltraImpl::is_ring_clock_sink(const PortRef &ref)
 {
-    return ring_clock_sinks.count(ref.cell->type) && ring_clock_sinks[ref.cell->type].count(ref.port);
+    return ring_clock_sinks.count(ref.cell->type) && ring_clock_sinks.at(ref.cell->type).count(ref.port);
 }
 
 bool NgUltraImpl::is_ring_over_tile_clock_sink(const PortRef &ref)
 {
-    return ring_over_tile_clock_sinks.count(ref.cell->type) && ring_over_tile_clock_sinks[ref.cell->type].count(ref.port);
+    return ring_over_tile_clock_sinks.count(ref.cell->type) && ring_over_tile_clock_sinks.at(ref.cell->type).count(ref.port);
 }
 
 bool NgUltraImpl::is_tube_clock_sink(const PortRef &ref)
 {
-    return tube_clock_sinks.count(ref.cell->type) && tube_clock_sinks[ref.cell->type].count(ref.port);
+    return tube_clock_sinks.count(ref.cell->type) && tube_clock_sinks.at(ref.cell->type).count(ref.port);
 }
 
 bool NgUltraImpl::is_ring_clock_source(const PortRef &ref)
 {
-    return ring_clock_source.count(ref.cell->type) && ring_clock_source[ref.cell->type].count(ref.port);
+    return ring_clock_source.count(ref.cell->type) && ring_clock_source.at(ref.cell->type).count(ref.port);
 }
 
 bool NgUltraImpl::is_tube_clock_source(const PortRef &ref)
 {
-    return tube_clock_source.count(ref.cell->type) && tube_clock_source[ref.cell->type].count(ref.port);
+    return tube_clock_source.count(ref.cell->type) && tube_clock_source.at(ref.cell->type).count(ref.port);
 }
 
 const NGUltraTileInstExtraDataPOD *NgUltraImpl::tile_extra_data(int tile) const
