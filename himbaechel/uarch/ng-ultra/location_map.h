@@ -18,20 +18,20 @@
  */
 
 #include "nextpnr.h"
+#include "ng_ultra.h"
 
 #ifndef NG_ULTRA_LOCATION_MAP_H
 #define NG_ULTRA_LOCATION_MAP_H
 
 NEXTPNR_NAMESPACE_BEGIN
 
-extern const Loc ng_ultra_place_cy_map[];
-extern const Loc ng_ultra_place_xrf[];
-extern const Loc ng_ultra_place_cdc1[];
-extern const Loc ng_ultra_place_cdc2[];
-extern const Loc ng_ultra_place_xcdc[];
-extern const Loc ng_ultra_place_fifo1[];
-extern const Loc ng_ultra_place_fifo2[];
-extern const Loc ng_ultra_place_xfifo[];
+Loc getNextLocInDSPChain(const NgUltraImpl *impl, Loc loc);
+Loc getNextLocInCYChain(Loc loc);
+Loc getCYFE(Loc root, int pos);
+Loc getXLUTFE(Loc root, int pos);
+Loc getXRFFE(Loc root, int pos);
+Loc getCDCFE(Loc root, int pos);
+Loc getFIFOFE(Loc root, int pos);
 
 NEXTPNR_NAMESPACE_END
 #endif
