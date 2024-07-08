@@ -391,8 +391,6 @@ void NgUltraImpl::postRoute()
 
 void NgUltraImpl::configurePlacerHeap(PlacerHeapCfg &cfg)
 {
-    cfg.hpwl_scale_x = 2;
-    cfg.hpwl_scale_y = 1;
     cfg.beta = 0.5;
     cfg.placeAllAtOnce = true;
 }
