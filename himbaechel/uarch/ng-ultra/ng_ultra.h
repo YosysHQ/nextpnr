@@ -30,6 +30,12 @@
 
 #include "himbaechel_helpers.h"
 
+#ifdef GTEST_API_
+#define TESTABLE_PRIVATE public
+#else
+#define TESTABLE_PRIVATE private
+#endif
+
 NEXTPNR_NAMESPACE_BEGIN
 
 struct NgUltraImpl : HimbaechelAPI
@@ -88,7 +94,7 @@ public:
     dict<BelId, IdString> unused_pll;
     dict<BelId, BelId> dsp_cascade;
 
-private:
+TESTABLE_PRIVATE:
     void write_bitstream_json(const std::string &filename);
     void route_lowskew();
     void parse_csv(const std::string &filename);

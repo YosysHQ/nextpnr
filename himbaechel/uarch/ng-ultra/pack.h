@@ -73,7 +73,7 @@ struct NgUltraPacker
     void duplicate_gck();
     void insert_bypass_gck();
 
-private:
+TESTABLE_PRIVATE:
     void set_lut_input_if_constant(CellInfo *cell, IdString input);
     void lut_to_fe(CellInfo *lut, CellInfo *fe, bool no_dff, Property lut_table);
     void dff_to_fe(CellInfo *dff, CellInfo *fe, bool pass_thru_lut);
@@ -99,6 +99,11 @@ private:
     IdString assign_wfg(IdString ckg, IdString ckg2, CellInfo *cell);
     void dsp_same_driver(IdString port, CellInfo *cell, CellInfo **target);
     void dsp_same_sink(IdString port, CellInfo *cell, CellInfo **target);
+
+    int make_init_with_const_input(int init, int input, bool value);
+
+    int memory_width(int config, bool ecc);
+    int memory_addr_bits(int config,bool ecc);
 
     void constrain_location(CellInfo *cell);
     // Cell creating

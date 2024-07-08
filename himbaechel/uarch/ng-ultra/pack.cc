@@ -181,7 +181,7 @@ void NgUltraPacker::update_dffs()
     }
 }
 
-int make_init_with_const_input(int init, int input, bool value)
+int NgUltraPacker::make_init_with_const_input(int init, int input, bool value)
 {
     int new_init = 0;
     for (int i = 0; i < 16; i++) {
@@ -1441,7 +1441,7 @@ void NgUltraPacker::mandatory_param(CellInfo *cell, IdString param)
         log_error("Mandatory parameter '%s' of cell '%s'(%s) is missing.\n", param.c_str(ctx), cell->name.c_str(ctx), cell->type.c_str(ctx));
 }
 
-static int memory_width(int config, bool ecc)
+int NgUltraPacker::memory_width(int config, bool ecc)
 {
     if (ecc) {
         if (config==4)
@@ -1464,7 +1464,7 @@ static int memory_width(int config, bool ecc)
     }
 }
 
-static int memory_addr_bits(int config,bool ecc)
+int NgUltraPacker::memory_addr_bits(int config,bool ecc)
 {
     if (ecc) {
         if (config==4)
