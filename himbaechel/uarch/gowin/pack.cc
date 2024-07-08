@@ -1612,11 +1612,11 @@ struct GowinPacker
             ci->connectPort(id_WREB, vcc_net);
 
             // disconnect lower address bits for ROM
-            static int rom_ignore_bits[] = {2, 4, 8, 16, 32};
-            static int romx9_ignore_bits[] = {9, 9, 9, 18, 36};
+            std::array rom_ignore_bits = {2, 4, 8, 16, 32};
+            std::array romx9_ignore_bits = {9, 9, 9, 18, 36};
             for (unsigned int i = 0; i < 14; ++i) {
-                if (i < sizeof(rom_ignore_bits) && ((ci->type == id_pROM && bit_width >= rom_ignore_bits[i]) ||
-                                                    (ci->type == id_pROMX9 && bit_width >= romx9_ignore_bits[i]))) {
+                if (i < size(rom_ignore_bits) && ((ci->type == id_pROM && bit_width >= rom_ignore_bits[i]) ||
+                                                  (ci->type == id_pROMX9 && bit_width >= romx9_ignore_bits[i]))) {
                     ci->disconnectPort(ctx->idf("AD[%d]", i));
                 } else {
                     ci->renamePort(ctx->idf("AD[%d]", i), ctx->idf("ADA%d", i));
@@ -1823,13 +1823,19 @@ struct GowinPacker
             bsram_fix_blksel(ci, new_cells);
         }
 
-        // XXX
+        // The statement in the Gowin documentation that in the reading mode
+        // "READ_MODE=0" the output register is not used and the OCE signal is
+        // ignored is not confirmed by practice - if the OCE was left
+        // unconnected or connected to the constant network, then a change in
+        // output data was observed even with CE=0, as well as the absence of
+        // such at CE=1.
+        // Synchronizing CE and OCE helps but it's definitely a hack.
         NetInfo *oce_net = ci->getPort(id_OCE);
         if (oce_net == nullptr || oce_net->name == ctx->id("$PACKER_VCC") || oce_net->name == ctx->id("$PACKER_GND")) {
             if (oce_net != nullptr) {
                 ci->disconnectPort(id_OCE);
-                ci->copyPortTo(id_CE, ci, id_OCE);
             }
+            ci->copyPortTo(id_CE, ci, id_OCE);
         }
 
         // XXX UG285-1.3.6_E Gowin BSRAM & SSRAM User Guide:
