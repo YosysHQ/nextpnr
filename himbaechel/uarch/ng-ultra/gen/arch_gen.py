@@ -366,8 +366,8 @@ def create_tile_types(ch: Chip, bels, bel_pins, crossbars, interconnects, muxes,
                     vi.extra_data = PipExtraData(ch.strs.id(name),PIP_EXTRA_VIRTUAL,0,0)
                     vi = tt.create_pip(f"{name}.DJ",f"{name}.DC","Virtual")
                     vi.extra_data = PipExtraData(ch.strs.id(name),PIP_EXTRA_VIRTUAL,0,0)
-                    #vi = tt.create_pip(f"{name}.DJ",f"{name}.DS","Virtual")
-                    #vi.extra_data = PipExtraData(ch.strs.id(name),PIP_EXTRA_VIRTUAL,0,0)
+                    vi = tt.create_pip(f"{name}.DJ",f"{name}.DS","Virtual")
+                    vi.extra_data = PipExtraData(ch.strs.id(name),PIP_EXTRA_VIRTUAL,0,0)
                     vi = tt.create_pip(f"{name}.DJ",f"{name}.DK","Virtual")
                     vi.extra_data = PipExtraData(ch.strs.id(name),PIP_EXTRA_VIRTUAL,0,0)
                     # DFF bypass

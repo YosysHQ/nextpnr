@@ -1984,35 +1984,58 @@ void NgUltraPacker::pre_place(void)
     }
 }
 
+void NgUltraImpl::disable_beyond_fe_s_output(BelId bel)
+{
+    WireId dwire = ctx->getBelPinWire(bel, id_DO);
+    for (PipId pip : ctx->getPipsDownhill(dwire)) {
+        for (PipId pip2 : ctx->getPipsDownhill(ctx->getPipDstWire(pip))) {
+            IdString dst = ctx->getWireName(ctx->getPipDstWire(pip2))[1];
+            if (boost::ends_with(dst.c_str(ctx),".DS")) {
+                blocked_pips.emplace(pip2);
+                return;
+            }
+        }
+    }
+}
+
 void NgUltraImpl::postPlace()
 {
     log_break();
     log_info("Limiting routing...\n");
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
-        if (!ci.type.in(id_CY))
-            continue;
-        // In case A input is actually used, but it is connectd to GND
-        // it is considered that signal is comming from RI1 crossbar.
-        // We need to prevent router to use that crossbar output for
-        // any other signal.
-        for (int i=1;i<=4;i++) {
-            IdString port = ctx->idf("A%d",i);
-            NetInfo *net = ci.getPort(port);
-            if (!net)
-                continue;
-            if (net->name.in(ctx->id("$PACKER_GND"))) {
-                WireId dwire = ctx->getBelPinWire(ci.bel, port);
-                for (PipId pip : ctx->getPipsUphill(dwire)) {
-                    WireId src = ctx->getPipSrcWire(pip);
-                    const std::string src_name = ctx->getWireName(src)[1].str(ctx);
-                    if (boost::starts_with(src_name,"RI1")) {
-                        for (PipId pip2 : ctx->getPipsDownhill(src)) {
-                            blocked_pips.emplace(pip2);
+        if (ci.type == id_BEYOND_FE) {
+            const auto &bel_data = chip_bel_info(ctx->chip_info, ci.bel);
+            const auto &extra_data = *reinterpret_cast<const NGUltraBelExtraDataPOD *>(bel_data.extra_data.get());
+            // Check if CSC mode only if FE is capable
+            if ((extra_data.flags & BEL_EXTRA_FE_CSC)) {
+                if (str_or_default(ci.params, ctx->id("type"), "")!="DFF") continue;
+                // Disable routing to S output if DFF used
+                disable_beyond_fe_s_output(ci.bel);
+            }
+        } else if (ci.type == id_CY) {
+            // In case A input is actually used, but it is connectd to GND
+            // it is considered that signal is comming from RI1 crossbar.
+            // We need to prevent router to use that crossbar output for
+            // any other signal.
+            for (int i=1;i<=4;i++) {
+                IdString port = ctx->idf("A%d",i);
+                NetInfo *net = ci.getPort(port);
+                if (!net)
+                    continue;
+                if (net->name.in(ctx->id("$PACKER_GND"))) {
+                    WireId dwire = ctx->getBelPinWire(ci.bel, port);
+                    for (PipId pip : ctx->getPipsUphill(dwire)) {
+                        WireId src = ctx->getPipSrcWire(pip);
+                        const std::string src_name = ctx->getWireName(src)[1].str(ctx);
+                        if (boost::starts_with(src_name,"RI1")) {
+                            for (PipId pip2 : ctx->getPipsDownhill(src)) {
+                                blocked_pips.emplace(pip2);
+                            }
                         }
                     }
+                    ci.disconnectPort(port); // Disconnect A
                 }
-                ci.disconnectPort(port); // Disconnect A
             }
         }
     }

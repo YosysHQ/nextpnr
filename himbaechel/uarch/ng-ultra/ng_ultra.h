@@ -99,6 +99,9 @@ TESTABLE_PRIVATE:
     void route_lowskew();
     void parse_csv(const std::string &filename);
     void remove_constants();
+    bool update_bff_to_csc(CellInfo *cell, BelId bel, PipId dst_pip);
+    bool update_bff_to_scc(CellInfo *cell, BelId bel, PipId dst_pip);
+    void disable_beyond_fe_s_output(BelId bel);
 
     // Misc utility functions
     bool get_mux_data(BelId bel, IdString port, uint8_t *value);

@@ -262,12 +262,60 @@ bool NgUltraImpl::get_mux_data(WireId wire, uint8_t *value)
     return false;
 }
 
+bool NgUltraImpl::update_bff_to_csc(CellInfo *cell, BelId bel, PipId dst_pip)
+{
+    const auto &bel_data = chip_bel_info(ctx->chip_info, bel);
+    const auto &extra_data = *reinterpret_cast<const NGUltraBelExtraDataPOD *>(bel_data.extra_data.get());
+    // Check if CSC mode only if FE is capable
+    if (extra_data.flags & BEL_EXTRA_FE_CSC) {
+        WireId dwire = ctx->getPipDstWire(dst_pip);
+        for (PipId pip : ctx->getPipsDownhill(dwire)) {
+            if (!ctx->getBoundPipNet(pip))
+                continue;
+            for (PipId pip2 : ctx->getPipsDownhill(ctx->getPipDstWire(pip))) {
+                if (!ctx->getBoundPipNet(pip2))
+                    continue;
+                IdString dst = ctx->getWireName(ctx->getPipDstWire(pip2))[1];
+                if (boost::ends_with(dst.c_str(ctx),".DS")) {
+                    cell->setParam(ctx->id("type"), Property("CSC"));
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+bool NgUltraImpl::update_bff_to_scc(CellInfo *cell, BelId bel, PipId dst_pip)
+{
+    const auto &bel_data = chip_bel_info(ctx->chip_info, bel);
+    const auto &extra_data = *reinterpret_cast<const NGUltraBelExtraDataPOD *>(bel_data.extra_data.get());
+    // Check if SCC mode only if FE is capable
+    if (extra_data.flags & BEL_EXTRA_FE_SCC) {
+        WireId dwire = ctx->getPipDstWire(dst_pip);
+        for (PipId pip : ctx->getPipsUphill(dwire)) {
+            if (!ctx->getBoundPipNet(pip))
+                continue;
+            for (PipId pip2 : ctx->getPipsUphill(ctx->getPipSrcWire(pip))) {
+                if (!ctx->getBoundPipNet(pip2))
+                    continue;
+                IdString dst = ctx->getWireName(ctx->getPipSrcWire(pip2))[1];
+                if (boost::starts_with(dst.c_str(ctx),"SYSTEM.ST1")) {
+                    cell->setParam(ctx->id("type"), Property("SCC"));
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
 void NgUltraImpl::postRoute()
 {
     ctx->assignArchInfo();
     log_break();
     log_info("Resources spent on routing:\n");
-    int dff_bypass = 0, lut_bypass = 0, fe_new = 0, wfg_bypass = 0, gck_bypass = 0;
+    int bff_count = 0, csc_count = 0, scc_count = 0, lut_bypass = 0, fe_new = 0, wfg_bypass = 0, gck_bypass = 0;
     for (auto &net : ctx->nets) {
         NetInfo *ni = net.second.get();
         for (auto &w : ni->wires) {
@@ -288,10 +336,16 @@ void NgUltraImpl::postRoute()
                     switch(type.index) {
                         case id_BEYOND_FE.index : 
                                            if (extra_data.input==0) {
-                                                dff_bypass++;
                                                 // set bypass mode for DFF
                                                 cell->setParam(ctx->id("type"), Property("BFF"));
                                                 cell->params[id_dff_used] = Property(1,1);
+                                                // Note: no conflict, CSC and SCC modes are never available on same position
+                                                if (update_bff_to_csc(cell, bel, w.second.pip))
+                                                    csc_count++;
+                                                else if(update_bff_to_scc(cell, bel, w.second.pip))
+                                                    scc_count++;
+                                                else
+                                                    bff_count++;
                                             } else {
                                                 lut_bypass++;
                                                 cell->params[id_lut_used] = Property(1,1);
@@ -311,11 +365,20 @@ void NgUltraImpl::postRoute()
             }
         }
     }
-    log_info("    %6d DFFs used in bypass mode (BFF)\n", dff_bypass);
-    log_info("    %6d LUTs used in bypass mode\n", lut_bypass);
-    log_info("    %6d newly allocated FEs\n", fe_new);
-    log_info("    %6d WFGs used as WFB\n", wfg_bypass);
-    log_info("    %6d GCK\n", gck_bypass);
+    if (bff_count)
+        log_info("    %6d DFFs used as BFF\n", bff_count);
+    if (csc_count)
+        log_info("    %6d DFFs used as CSC\n", csc_count);
+    if (scc_count)    
+        log_info("    %6d DFFs used as SCC\n", scc_count);
+    if(lut_bypass)
+        log_info("    %6d LUTs used in bypass mode\n", lut_bypass);
+    if (fe_new)
+        log_info("    %6d newly allocated FEs\n", fe_new);
+    if (wfg_bypass)
+        log_info("    %6d WFGs used as WFB\n", wfg_bypass);
+    if (gck_bypass)
+        log_info("    %6d GCK\n", gck_bypass);
 
     // Handle LUT permutation
     for (auto &cell : ctx->cells) {
