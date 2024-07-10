@@ -452,7 +452,7 @@ struct SectionFEWorker
 {
     std::array<const NetInfo *, 2> clk{};
     std::array<const NetInfo *, 4> reset_load{};
-    bool run(const NgUltraImpl *impl,const Context *ctx, BelId bel)
+    bool run(const NgUltraImpl *impl,const Context *ctx, BelId bel, CellInfo *cell)
     {
         Loc loc = ctx->getBelLocation(bel);
         for (uint8_t id = 0; id <= BEL_LUT_MAX_Z; id++) {
@@ -469,6 +469,11 @@ struct SectionFEWorker
             if (!check_assign_sig(clk, ff->getPort(id_CK)))
                 return false;
         }
+        const auto &bel_data = chip_bel_info(ctx->chip_info, bel);
+        const auto &extra_data = *reinterpret_cast<const NGUltraBelExtraDataPOD *>(bel_data.extra_data.get());
+        std::string type = str_or_default(cell->params, ctx->id("type"), "");
+        if (type=="CSC" && (extra_data.flags & BEL_EXTRA_FE_CSC) == 0) return false; // No CSC capability on FE
+        if (type=="SCC" && (extra_data.flags & BEL_EXTRA_FE_SCC) == 0) return false; // No SCC capability on FE
         return true;
     }
 };
@@ -483,7 +488,7 @@ bool NgUltraImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
     }
     if (ctx->getBelType(bel) == id_BEYOND_FE) {
         SectionFEWorker worker;
-        return worker.run(this, ctx, bel);
+        return worker.run(this, ctx, bel, cell);
     }
     else if (ctx->getBelType(bel).in(id_RF, id_XRF)) {
         Loc loc = ctx->getBelLocation(bel);
