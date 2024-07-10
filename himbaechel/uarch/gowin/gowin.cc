@@ -71,6 +71,9 @@ struct GowinImpl : HimbaechelAPI
     std::vector<GowinCellInfo> fast_cell_info;
     void assign_cell_info();
 
+    // Remember HCLK sections that have been reserved to route HCLK signals
+    std::set<BelId> routing_reserved_hclk_sections;
+
     // dsp control nets
     // Each DSP and each macro has a small set of control wires that are
     // allocated to internal primitives as needed. It is assumed that most
@@ -87,9 +90,14 @@ struct GowinImpl : HimbaechelAPI
                                           // since this information is already lost during unbinding
     void adjust_dsp_pin_mapping(void);
 
+    // Place explicityl constrained or implicitly constrained (by IOLOGIC) CLKDIV and CLKDIV2 cells
+    // to avoid routing conflicts and maximize utilization
+    void place_constrained_hclk_cells();
+
     // bel placement validation
     bool slice_valid(int x, int y, int z) const;
     bool dsp_valid(Loc l, IdString bel_type, bool explain_invalid) const;
+    bool hclk_valid(BelId bel, IdString bel_type) const;
 };
 
 struct GowinArch : HimbaechelArch
@@ -256,7 +264,238 @@ void GowinImpl::adjust_dsp_pin_mapping(void)
     }
 }
 
-void GowinImpl::prePlace() { assign_cell_info(); }
+/*
+   Each HCLK section can serve one of three purposes:
+       1. A simple routing path to IOLOGIC FCLK
+       2. CLKDIV2
+       3. CLKDIV (only one section at any time)
+
+   Our task is to distribute HCLK signal providers to sections in a way that maximizes utilization while
+   enforcing user constraints on CLKDIV placement. We achieve this by solving two bipartite matchings:
+   - The first determines the best HCLK to place a CLKDIV within the established graph. This is then refined
+       to determine what section to assign the CLKDIV to based on what IOLOGIC it connects to
+   - The second determines which HCLK sections to use as CLKDIV2 or to reserve for routing.
+*/
+void GowinImpl::place_constrained_hclk_cells()
+{
+    log_info("Running custom HCLK placer...\n");
+    std::map<IdStringList, IdString> constrained_clkdivs;
+    std::map<BelId, std::set<std::pair<IdString, int>>> bel_cell_map;
+    std::vector<std::pair<IdString, int>> alias_cells;
+    std::map<std::pair<IdString, int>, BelId> final_placement;
+
+    std::set<IdString> seen_hclk_users;
+    for (auto &cell : ctx->cells) {
+        auto ci = cell.second.get();
+
+        if (is_clkdiv(ci) && ci->attrs.count(id_BEL)) {
+            BelId constrained_bel = ctx->getBelByName(IdStringList::parse(ctx, ci->attrs.at(id_BEL).as_string()));
+            NPNR_ASSERT(constrained_bel != BelId() && ctx->getBelType(constrained_bel) == id_CLKDIV);
+            auto hclk_id_loc = gwu.get_hclk_id(constrained_bel);
+            constrained_clkdivs[hclk_id_loc] = ci->name;
+        }
+
+        if ((seen_hclk_users.find(ci->name) != seen_hclk_users.end()))
+            continue;
+
+        if (((is_iologici(ci) || is_iologico(ci)) && !ci->type.in(id_ODDR, id_ODDRC, id_IDDR, id_IDDRC))) {
+            NetInfo *hclk_net = ci->getPort(id_FCLK);
+            if (hclk_net == nullptr)
+                continue;
+            CellInfo *hclk_driver = hclk_net->driver.cell;
+
+            if (chip.str(ctx) == "GW1N-9C" && hclk_driver->type != id_CLKDIV2) {
+                // CLKDIV doesn't seem to connect directly to FCLK on this device, and routing is guaranteed to succeed.
+                continue;
+            }
+
+            int alias_count = 0;
+            std::set<std::set<BelId>> seen_options;
+            for (auto user : hclk_net->users) {
+                std::vector<BelId> bel_candidates;
+                std::set<BelId> these_options;
+
+                if (!(user.port == id_FCLK && (is_iologici(user.cell) || is_iologico(user.cell)) &&
+                      !user.cell->type.in(id_ODDR, id_ODDRC, id_IDDR, id_IDDRC)))
+                    continue;
+                if (seen_hclk_users.find(user.cell->name) != seen_hclk_users.end())
+                    continue;
+                seen_hclk_users.insert(user.cell->name);
+
+                if (ctx->debug) {
+                    log_info("Custom HCLK Placer: Found HCLK user: %s\n", user.cell->name.c_str(ctx));
+                }
+
+                gwu.find_connected_bels(user.cell, id_FCLK, id_CLKDIV2, id_CLKOUT, 16, bel_candidates);
+                these_options.insert(bel_candidates.begin(), bel_candidates.end());
+
+                if (seen_options.find(these_options) != seen_options.end())
+                    continue;
+                seen_options.insert(these_options);
+
+                // When an HCLK signal is routed to different (and disconnected) FCLKs, we treat each new
+                // HCLK-FCLK connection as a pseudo-HCLK cell since it must also be assigned an HCLK section
+                auto alias_index = std::pair<IdString, int>(hclk_driver->name, alias_count);
+                alias_cells.push_back(alias_index);
+                alias_count++;
+
+                for (auto option : these_options) {
+                    bel_cell_map[option].insert(alias_index);
+                }
+            }
+        }
+    }
+
+    // First matching. We use the upper CLKDIV2 as the ID for an HCLK
+    std::map<IdStringList, std::set<IdString>> clkdiv_graph;
+    for (auto bel_cell_candidates : bel_cell_map) {
+        auto bel = bel_cell_candidates.first;
+        auto hclk_id_loc = gwu.get_hclk_id(bel);
+        if (constrained_clkdivs.find(hclk_id_loc) != constrained_clkdivs.end()) {
+            continue;
+        }
+        for (auto candidate : bel_cell_candidates.second) {
+            auto ci = ctx->cells.at(candidate.first).get();
+            if ((ci->type != id_CLKDIV) || ci->attrs.count(id_BEL)) {
+                continue;
+            }
+            clkdiv_graph[hclk_id_loc].insert(candidate.first);
+        }
+    }
+
+    if (ctx->debug) {
+        log_info("<-----CUSTOM HCLK PLACER: Constrained CLKDIVs----->\n");
+        for (auto match_pair : constrained_clkdivs) {
+            log_info("%s cell <-----> CLKDIV at HCLK %s\n", match_pair.second.c_str(ctx), match_pair.second.c_str(ctx));
+        }
+        log("\n");
+    }
+
+    auto matching = gwu.find_maximum_bipartite_matching<IdStringList, IdString>(
+            clkdiv_graph); // these will serve as constraints
+    constrained_clkdivs.insert(matching.begin(), matching.end());
+
+    if (ctx->debug) {
+        log_info("<-----CUSTOM HCLK PLACER: First Matching(CLKDIV) Results----->\n");
+        for (auto match_pair : matching) {
+            log_info("%s cell <-----> CLKDIV at HCLK %s\n", match_pair.second.c_str(ctx), match_pair.second.c_str(ctx));
+        }
+        log("\n");
+    }
+
+    // Refine matching to HCLK section, based on what connections actually exist
+    std::map<IdString, std::pair<IdString, int>> true_clkdivs;
+    std::set<BelId> used_bels;
+    for (auto constr_pair : constrained_clkdivs) {
+        BelId option1 = ctx->getBelByName(constr_pair.first);
+        BelId option2 = gwu.get_other_hclk_clkdiv2(option1);
+
+        // log_info("%s: option1: %s, option2: %s\n", constr_pair.second.c_str(ctx), ctx->nameOfBel(option1),
+        //          ctx->nameOfBel(option2));
+        bool placed = false;
+        for (auto option : {option1, option2}) {
+            if (placed || (used_bels.find(option) != used_bels.end()))
+                continue;
+            for (auto option_cell : bel_cell_map[option]) {
+                if ((option_cell.first != constr_pair.second) ||
+                    (true_clkdivs.find(option_cell.first) != true_clkdivs.end()))
+                    continue;
+                final_placement[option_cell] = option;
+                true_clkdivs[option_cell.first] = option_cell;
+                used_bels.insert(option);
+                placed = true;
+                break;
+            }
+        }
+        // This must be a constrained CLKDIV that either does not serve IOLOGIC Or
+        // does not have a direct (HCLK-FCLK) connection IOLOGIC it serves
+        // We create a new alias to represent this
+        if (!placed) {
+            auto new_alias = std::pair<IdString, int>(constr_pair.second, -1);
+            bel_cell_map[option1].insert(new_alias);
+            bel_cell_map[option2].insert(new_alias);
+            alias_cells.push_back(new_alias);
+            true_clkdivs[constr_pair.second] = new_alias;
+        }
+    }
+
+    // Second Matching for CLKDIV2 and routing reservation
+    std::map<IdStringList, std::set<std::pair<IdString, int>>> full_hclk_graph;
+    for (auto bel_cell_candidates : bel_cell_map) {
+        auto bel = bel_cell_candidates.first;
+        auto bel_name = ctx->getBelName(bel);
+        if (!used_bels.count(bel)) {
+            for (auto candidate : bel_cell_candidates.second) {
+                if (((candidate.second == -1) || (!true_clkdivs.count(candidate.first)) ||
+                     !(true_clkdivs[candidate.first] == candidate))) {
+                    full_hclk_graph[bel_name].insert(candidate);
+                }
+            }
+        }
+    }
+
+    auto full_matching = gwu.find_maximum_bipartite_matching(full_hclk_graph);
+    for (auto belname_cellalias : full_matching) {
+        auto bel = ctx->getBelByName(belname_cellalias.first);
+        NPNR_ASSERT(!used_bels.count(bel));
+        final_placement[belname_cellalias.second] = bel;
+    }
+
+    if (ctx->debug) {
+        log_info("<-----CUSTOM HCLK PLACER: Second Matching(CLKDIV2 and Routing) Results------>\n");
+        for (auto match_pair : full_matching) {
+            auto alias = match_pair.second;
+            auto bel = match_pair.first;
+            auto cell_type = ctx->cells.at(alias.first).get()->type;
+            log_info("%s cell %s Alias %d <-----> HCLK Section at %s\n", cell_type.c_str(ctx), alias.first.c_str(ctx),
+                     alias.second, bel.str(ctx).c_str());
+        }
+        log("\n");
+    }
+
+    for (auto cell_alias : alias_cells) {
+        auto ci = ctx->cells.at(cell_alias.first).get();
+
+        if (final_placement.find(cell_alias) == final_placement.end())
+            if (ci->type == id_CLKDIV2 || ci->type == id_CLKDIV)
+                log_error("Unable to place HCLK cell %s; no BELs available to implement cell type %s\n",
+                          ci->name.c_str(ctx), ci->type.c_str(ctx));
+            else
+                log_error("Unable to route HCLK signal from %s to IOLOGIC\n", ci->name.c_str(ctx));
+
+        else {
+            auto placement = final_placement[cell_alias];
+            if (ctx->debug)
+                log_info("Custom HCLK Placer: Placing %s Alias %d at %s\n", cell_alias.first.c_str(ctx),
+                         cell_alias.second, ctx->nameOfBel(placement));
+            if (ci->type == id_CLKDIV2)
+                ctx->bindBel(placement, ci, STRENGTH_LOCKED);
+
+            else if ((ci->type == id_CLKDIV) && (true_clkdivs[cell_alias.first] == cell_alias)) {
+                NetInfo *in = ci->getPort(id_HCLKIN);
+                if (in && in->driver.cell->type == id_CLKDIV2) {
+                    ctx->bindBel(placement, in->driver.cell, STRENGTH_LOCKED);
+                }
+                auto clkdiv_bel = gwu.get_clkdiv_for_clkdiv2(placement);
+                ctx->bindBel(clkdiv_bel, ci, STRENGTH_LOCKED);
+            } else {
+                if (ctx->debug)
+                    log_info("Custom HCLK Placer: Reserving HCLK %s to route clock from %s\n",
+                             ctx->nameOfBel(placement), ci->name.c_str(ctx));
+                routing_reserved_hclk_sections.insert(placement);
+            }
+        }
+        if (ci->attrs.count(id_BEL))
+            ci->unsetAttr(id_BEL);
+    }
+}
+
+void GowinImpl::prePlace()
+{
+    place_constrained_hclk_cells();
+    assign_cell_info();
+}
+
 void GowinImpl::postPlace()
 {
     gwu.has_SP32();
@@ -346,6 +585,9 @@ bool GowinImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
     case ID_MULT36X36:       /* fall-through */
     case ID_ALU54D:
         return dsp_valid(l, bel_type, explain_invalid);
+    case ID_CLKDIV2: /* fall-through */
+    case ID_CLKDIV:
+        return hclk_valid(bel, bel_type);
     }
     return true;
 }
@@ -600,6 +842,52 @@ bool GowinImpl::slice_valid(int x, int y, int z) const
         }
     }
     return true;
+}
+/*
+    Every HCLK section can be used in one of 3 ways:
+        1. As a simple routing path to IOLOGIC FCLK
+        2. As a CLKDIV2
+        3. As a CLKDIV (potentially fed by the CLKDIV2 in its section)
+
+    Here we validate that the placement of cells fits within these 3 use cases, while ensuring that
+    we enforce the constraint that only 1 CLKDIV can be used per HCLK (there is only 1 CLKDIV in each
+    HCLK but we pretend there are two because doing so makes it easier to enforce the real constraint
+    that HCLK signals don't crisscross between HCLK sections even after "transformation" by a CLKDIV
+    or CLKDIV2)
+*/
+bool GowinImpl::hclk_valid(BelId bel, IdString bel_type) const
+{
+    if (bel_type == id_CLKDIV2) {
+        if (routing_reserved_hclk_sections.count(bel))
+            return false;
+        auto clkdiv_cell = ctx->getBoundBelCell(gwu.get_clkdiv_for_clkdiv2(bel));
+        if (clkdiv_cell && ctx->getBoundBelCell(bel)->cluster != clkdiv_cell->name)
+            return false;
+        return true;
+    } else if (bel_type == id_CLKDIV) {
+        BelId clkdiv2_bel = gwu.get_clkdiv2_for_clkdiv(bel);
+        if (routing_reserved_hclk_sections.count(clkdiv2_bel)) {
+            return false;
+        }
+
+        auto other_clkdiv_cell = ctx->getBoundBelCell(gwu.get_other_hclk_clkdiv(bel));
+        if (other_clkdiv_cell)
+            return false;
+
+        auto clkdiv2_bel_cell = ctx->getBoundBelCell(clkdiv2_bel);
+        if (clkdiv2_bel_cell && clkdiv2_bel_cell->cluster != ctx->getBoundBelCell(bel)->name)
+            return false;
+
+        if (clkdiv2_bel_cell && chip.str(ctx) == "GW1N-9C") {
+            // On the GW1N(R)-9C, it appears that only the 'odd' CLKDIV2 is connected to CLKDIV
+            Loc loc = ctx->getBelLocation(bel);
+            if (loc.z == BelZ::CLKDIV_0_Z || loc.z == BelZ::CLKDIV_2_Z)
+                return false;
+        }
+
+        return true;
+    }
+    return false;
 }
 
 // Cluster

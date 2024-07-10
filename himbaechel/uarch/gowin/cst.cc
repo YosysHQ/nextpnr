@@ -51,6 +51,26 @@ struct GowinCstReader
         return Loc(col - 1, row - 1, z);
     }
 
+    BelId getConstrainedHCLKBel(std::smatch match, int maxX, int maxY)
+    {
+        int idx = std::stoi(match[3]);
+        int bel_z = BelZ::CLKDIV_0_Z + 2 * idx;
+
+        std::string side = match[2].str();
+        bool lr = (side == "LEFT") || (side == "RIGHT");
+        int y_coord = (side == "BOTTOM") ? maxY - 1 : 0;
+        int x_coord = (side == "RIGHT") ? maxX - 1 : 0;
+
+        for (auto &bel : ctx->getBelsInBucket(ctx->getBelBucketForCellType(id_CLKDIV))) {
+            auto this_loc = ctx->getBelLocation(bel);
+            if (!lr && this_loc.y == y_coord && this_loc.z == bel_z) // top or bottom side
+                return bel;
+            else if (lr && this_loc.x == x_coord && this_loc.z == bel_z) // left or right side
+                return bel;
+        }
+        return BelId();
+    }
+
     bool run(void)
     {
         pool<std::pair<IdString, IdStringList>> constrained_cells;
@@ -71,15 +91,19 @@ struct GowinCstReader
             std::regex iobelre = std::regex("IO([TRBL])([0-9]+)\\[?([A-Z])\\]?");
             std::regex inslocre =
                     std::regex("INS_LOC +\"([^\"]+)\" +R([0-9]+)C([0-9]+)\\[([0-9])\\]\\[([AB])\\] *;.*[\\s\\S]*");
+            std::regex hclkre =
+                    std::regex("INS_LOC +\"([^\"]+)\" +(TOP|RIGHT|BOTTOM|LEFT)SIDE\\[([0,1])\\] *;*[\\s\\S]*");
             std::regex clockre = std::regex("CLOCK_LOC +\"([^\"]+)\" +BUF([GS])(\\[([0-7])\\])?[^;]*;.*[\\s\\S]*");
             std::smatch match, match_attr, match_pinloc;
             std::string line, pinline;
+            std::vector<IdStringList> constrained_clkdivs;
             enum
             {
                 ioloc,
                 ioport,
                 insloc,
-                clock
+                clock,
+                hclk
             } cst_type;
 
             while (!in.eof()) {
@@ -95,10 +119,14 @@ struct GowinCstReader
                             if (std::regex_match(line, match, inslocre)) {
                                 cst_type = insloc;
                             } else {
-                                if ((!line.empty()) && (line.rfind("//", 0) == std::string::npos)) {
-                                    log_warning("Invalid constraint: %s\n", line.c_str());
+                                if (std::regex_match(line, match, hclkre)) {
+                                    cst_type = hclk;
+                                } else {
+                                    if ((!line.empty()) && (line.rfind("//", 0) == std::string::npos)) {
+                                        log_warning("Invalid constraint: %s\n", line.c_str());
+                                    }
+                                    continue;
                                 }
-                                continue;
                             }
                         }
                     }
@@ -164,6 +192,27 @@ struct GowinCstReader
                         } else {
                             log_error("Pin %s not found (pin# style)\n", pinname.c_str(ctx));
                         }
+                    }
+                } break;
+                case hclk: {
+                    IdString cell_type = it->second->type;
+                    if (cell_type != IdString(ID_CLKDIV)) {
+                        log_error("Unsupported or invalid cell type %s for hclk\n", cell_type.c_str(ctx));
+                    }
+                    BelId hclk_bel = getConstrainedHCLKBel(match, ctx->getGridDimX(), ctx->getGridDimY());
+                    if (hclk_bel != BelId()) {
+                        auto hclk_bel_name = ctx->getBelName(hclk_bel);
+                        if (std::find(constrained_clkdivs.begin(), constrained_clkdivs.end(), hclk_bel_name) !=
+                            constrained_clkdivs.end()) {
+                            log_error("Only one CLKDIV can be placed at %sSIDE[%s]\n", match[2].str().c_str(),
+                                      match[3].str().c_str());
+                        }
+                        constrained_clkdivs.push_back(hclk_bel_name);
+                        it->second->setAttr(id_BEL, ctx->getBelName(hclk_bel).str(ctx));
+                        debug_cell(it->second->name, ctx->getBelName(hclk_bel));
+                    } else {
+                        log_error("No Bel of type CLKDIV found at constrained location %sSIDE[%s]\n",
+                                  match[2].str().c_str(), match[3].str().c_str());
                     }
                 } break;
                 default: { // IO_PORT attr=value

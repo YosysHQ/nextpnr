@@ -62,6 +62,17 @@ inline bool type_is_dsp(IdString cell_type)
 }
 inline bool is_dsp(const CellInfo *cell) { return type_is_dsp(cell->type); }
 
+// Return true if a cell is CLKDIV
+inline bool type_is_clkdiv(IdString cell_type) { return cell_type == id_CLKDIV; }
+inline bool is_clkdiv(const CellInfo *cell) { return type_is_clkdiv(cell->type); }
+
+// Return true if a cell is CLKDIV2
+inline bool type_is_clkdiv2(IdString cell_type) { return cell_type == id_CLKDIV2; }
+inline bool is_clkdiv2(const CellInfo *cell) { return type_is_clkdiv2(cell->type); }
+
+// Return true for HCLK BELs
+inline bool is_hclk(const CellInfo *cell) { return type_is_clkdiv2(cell->type) || type_is_clkdiv(cell->type); }
+
 // ==========================================
 // extra data in the chip db
 // ==========================================
@@ -179,7 +190,18 @@ enum
     ALU54D_1_Z = 556 + 3,
     MULTALU18X18_1_Z = 560,
     MULTALU36X18_1_Z = 560 + 1,
-    MULTADDALU18X18_1_Z = 560 + 2
+    MULTADDALU18X18_1_Z = 560 + 2,
+
+    // HCLK Bels
+    CLKDIV2_0_Z = 610,
+    CLKDIV2_1_Z = 611,
+    CLKDIV2_2_Z = 612,
+    CLKDIV2_3_Z = 613,
+
+    CLKDIV_0_Z = 620,
+    CLKDIV_1_Z = 621,
+    CLKDIV_2_Z = 622,
+    CLKDIV_3_Z = 623
 };
 }
 

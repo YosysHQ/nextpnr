@@ -2941,6 +2941,37 @@ struct GowinPacker
         }
     }
 
+    // ===================================
+    // HCLK -- CLKDIV and CLKDIV2 for now
+    // ===================================
+    void pack_hclk(void)
+    {
+        log_info("Pack HCLK cells...\n");
+
+        for (auto &cell : ctx->cells) {
+            auto ci = cell.second.get();
+            if (ci->type == id_CLKDIV) {
+                NetInfo *in = ci->getPort(id_HCLKIN);
+                CellInfo *this_driver = in->driver.cell;
+                if (this_driver->type == id_CLKDIV2) {
+                    NetInfo *out = this_driver->getPort(id_CLKOUT);
+                    if (out->users.entries() > 1) {
+                        // We could do as the IDE does sometimes and replicate the CLKDIV2 cell
+                        // as many times as we need. For now, we keep things simple
+                        log_error("CLKDIV2 that drives CLKDIV should drive no other cells");
+                    }
+                    ci->cluster = ci->name;
+                    this_driver->cluster = ci->name;
+                    ci->constr_children.push_back(this_driver);
+                    this_driver->constr_x = 0;
+                    this_driver->constr_y = 0;
+                    this_driver->constr_z = BelZ::CLKDIV2_0_Z - BelZ::CLKDIV_0_Z;
+                    this_driver->constr_abs_z = false;
+                }
+            }
+        }
+    }
+
     // =========================================
     // Create entry points to the clock system
     // =========================================
@@ -2990,6 +3021,9 @@ struct GowinPacker
         ctx->check();
 
         pack_gsr();
+        ctx->check();
+
+        pack_hclk();
         ctx->check();
 
         pack_bandgap();

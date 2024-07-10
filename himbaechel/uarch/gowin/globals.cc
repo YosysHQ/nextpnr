@@ -289,6 +289,16 @@ struct GowinGlobalRouter
                 return true;
             }
         }
+        // HCLK outputs
+        if (driver.cell->type.in(id_CLKDIV, id_CLKDIV2)) {
+            if (driver.port.in(id_CLKOUT)) {
+                if (ctx->debug) {
+                    log_info("%s out:%s:%s\n", driver.cell->type.c_str(ctx),
+                             ctx->getBelName(driver.cell->bel).str(ctx).c_str(), driver.port.c_str(ctx));
+                }
+                return true;
+            }
+        }
         return false;
     }
 
