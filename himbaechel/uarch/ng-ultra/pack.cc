@@ -40,7 +40,7 @@ NEXTPNR_NAMESPACE_BEGIN
 inline bool is_lut(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_NX_LUT; }
 
 // Return true if a cell is a flipflop
-inline bool is_dff(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_NX_DFF; }
+inline bool is_dff(const BaseCtx *ctx, const CellInfo *cell) { return cell->type.in(id_NX_DFF,id_NX_BFF); }
 
 // Return true if a cell is a FE
 inline bool is_fe(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_BEYOND_FE; }
@@ -269,19 +269,23 @@ void NgUltraPacker::dff_to_fe(CellInfo *dff, CellInfo *fe, bool pass_thru_lut)
     else
         dff->movePortTo(id_I, fe, id_DI);
     fe->params[id_dff_used] = Property(1,1);
-    fe->setParam(ctx->id("type"), Property("DFF"));
-    dff->movePortTo(id_R, fe, id_R);
-    dff->movePortTo(id_CK, fe, id_CK);
-    dff->movePortTo(id_L, fe, id_L);
     dff->movePortTo(id_O, fe, id_DO);
+    if (dff->type == id_NX_BFF) {
+        fe->setParam(ctx->id("type"), Property("BFF"));
+    } else {
+        fe->setParam(ctx->id("type"), Property("DFF"));
 
-    if (dff->params.count(ctx->id("dff_ctxt"))) fe->setParam(ctx->id("dff_ctxt"),dff->params[ctx->id("dff_ctxt")]);
-    if (dff->params.count(ctx->id("dff_edge"))) fe->setParam(ctx->id("dff_edge"),dff->params[ctx->id("dff_edge")]);
-    if (dff->params.count(ctx->id("dff_init"))) fe->setParam(ctx->id("dff_init"),dff->params[ctx->id("dff_init")]);
-    if (dff->params.count(ctx->id("dff_load"))) fe->setParam(ctx->id("dff_load"),dff->params[ctx->id("dff_load")]);
-    if (dff->params.count(ctx->id("dff_sync"))) fe->setParam(ctx->id("dff_sync"),dff->params[ctx->id("dff_sync")]);
-    if (dff->params.count(ctx->id("dff_type"))) fe->setParam(ctx->id("dff_type"),dff->params[ctx->id("dff_type")]);
+        dff->movePortTo(id_R, fe, id_R);
+        dff->movePortTo(id_CK, fe, id_CK);
+        dff->movePortTo(id_L, fe, id_L);
 
+        if (dff->params.count(ctx->id("dff_ctxt"))) fe->setParam(ctx->id("dff_ctxt"),dff->params[ctx->id("dff_ctxt")]);
+        if (dff->params.count(ctx->id("dff_edge"))) fe->setParam(ctx->id("dff_edge"),dff->params[ctx->id("dff_edge")]);
+        if (dff->params.count(ctx->id("dff_init"))) fe->setParam(ctx->id("dff_init"),dff->params[ctx->id("dff_init")]);
+        if (dff->params.count(ctx->id("dff_load"))) fe->setParam(ctx->id("dff_load"),dff->params[ctx->id("dff_load")]);
+        if (dff->params.count(ctx->id("dff_sync"))) fe->setParam(ctx->id("dff_sync"),dff->params[ctx->id("dff_sync")]);
+        if (dff->params.count(ctx->id("dff_type"))) fe->setParam(ctx->id("dff_type"),dff->params[ctx->id("dff_type")]);
+    }
     if (pass_thru_lut) {
         NetInfo *new_out = ctx->createNet(ctx->id(dff->name.str(ctx) + "$LO"));
         fe->connectPort(id_LO, new_out);
@@ -403,7 +407,7 @@ void NgUltraPacker::pack_dffs(void)
     int dff_only = 0;
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
-        if (!ci.type.in(id_NX_DFF))
+        if (!ci.type.in(id_NX_DFF, id_NX_BFF))
             continue;
         std::unique_ptr<CellInfo> packed = create_cell(id_BEYOND_FE, ctx->id(ci.name.str(ctx) + "$fe"));
         packed_cells.insert(ci.name);
@@ -2009,8 +2013,8 @@ void NgUltraImpl::postPlace()
             const auto &extra_data = *reinterpret_cast<const NGUltraBelExtraDataPOD *>(bel_data.extra_data.get());
             // Check if CSC mode only if FE is capable
             if ((extra_data.flags & BEL_EXTRA_FE_CSC)) {
-                if (str_or_default(ci.params, ctx->id("type"), "")!="DFF") continue;
-                // Disable routing to S output if DFF used
+                if (str_or_default(ci.params, ctx->id("type"), "")=="CSC") continue;
+                // Disable routing to S output if CSC is not used
                 disable_beyond_fe_s_output(ci.bel);
             }
         } else if (ci.type == id_CY) {
