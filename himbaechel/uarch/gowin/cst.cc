@@ -196,7 +196,7 @@ struct GowinCstReader
                 } break;
                 case hclk: {
                     IdString cell_type = it->second->type;
-                    if (cell_type != IdString(ID_CLKDIV)) {
+                    if (cell_type != id_CLKDIV) {
                         log_error("Unsupported or invalid cell type %s for hclk\n", cell_type.c_str(ctx));
                     }
                     BelId hclk_bel = getConstrainedHCLKBel(match, ctx->getGridDimX(), ctx->getGridDimY());

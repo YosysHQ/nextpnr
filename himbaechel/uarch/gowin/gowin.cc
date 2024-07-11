@@ -300,10 +300,11 @@ void GowinImpl::place_constrained_hclk_cells()
 
         if (((is_iologici(ci) || is_iologico(ci)) && !ci->type.in(id_ODDR, id_ODDRC, id_IDDR, id_IDDRC))) {
             NetInfo *hclk_net = ci->getPort(id_FCLK);
-            if (hclk_net == nullptr)
+            if (hclk_net)
                 continue;
             CellInfo *hclk_driver = hclk_net->driver.cell;
-
+            if (!hclk_driver)
+                continue;
             if (chip.str(ctx) == "GW1N-9C" && hclk_driver->type != id_CLKDIV2) {
                 // CLKDIV doesn't seem to connect directly to FCLK on this device, and routing is guaranteed to succeed.
                 continue;
