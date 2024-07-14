@@ -49,6 +49,9 @@ VCC_Z   = 277
 GND_Z   = 278
 BANDGAP_Z = 279
 
+DQCE_Z = 280 # : 286 reserve for 6 DQCEs
+DCS_Z  = 286 # : 287 reserve for 2 DCSs
+
 DSP_Z          = 509
 
 DSP_0_Z        = 511 # DSP macro 0
@@ -135,12 +138,30 @@ class BottomIO(BBAStruct):
     def serialise(self, context: str, bba: BBAWriter):
         bba.slice(f"{context}_conditions", len(self.conditions))
 
+# spine -> bel for different bels
+@dataclass
+class SpineBel(BBAStruct):
+    spine: IdString
+    bel_x: int
+    bel_y: int
+    bel_z: int
+
+    def serialise_lists(self, context: str, bba: BBAWriter):
+        pass
+    def serialise(self, context: str, bba: BBAWriter):
+        bba.u32(self.spine.index)
+        bba.u32(self.bel_x)
+        bba.u32(self.bel_y)
+        bba.u32(self.bel_z)
+
 @dataclass
 class ChipExtraData(BBAStruct):
     strs: StringPool
     flags: int
     bottom_io: BottomIO
     diff_io_types: list[IdString] = field(default_factory = list)
+    dqce_bels: list[SpineBel] = field(default_factory = list)
+    dcs_bels: list[SpineBel] = field(default_factory = list)
 
     def create_bottom_io(self):
         self.bottom_io = BottomIO()
@@ -151,16 +172,30 @@ class ChipExtraData(BBAStruct):
     def add_diff_io_type(self, diff_type: str):
         self.diff_io_types.append(self.strs.id(diff_type))
 
+    def add_dqce_bel(self, spine: str, x: int, y: int, z: int):
+        self.dqce_bels.append(SpineBel(self.strs.id(spine), x, y, z))
+
+    def add_dcs_bel(self, spine: str, x: int, y: int, z: int):
+        self.dcs_bels.append(SpineBel(self.strs.id(spine), x, y, z))
+
     def serialise_lists(self, context: str, bba: BBAWriter):
         self.bottom_io.serialise_lists(f"{context}_bottom_io", bba)
         bba.label(f"{context}_diff_io_types")
         for i, diff_io_type in enumerate(self.diff_io_types):
             bba.u32(diff_io_type.index)
+        bba.label(f"{context}_dqce_bels")
+        for i, t in enumerate(self.dqce_bels):
+            t.serialise(f"{context}_dqce_bel{i}", bba)
+        bba.label(f"{context}_dcs_bels")
+        for i, t in enumerate(self.dcs_bels):
+            t.serialise(f"{context}_dcs_bel{i}", bba)
 
     def serialise(self, context: str, bba: BBAWriter):
         bba.u32(self.flags)
         self.bottom_io.serialise(f"{context}_bottom_io", bba)
         bba.slice(f"{context}_diff_io_types", len(self.diff_io_types))
+        bba.slice(f"{context}_dqce_bels", len(self.dqce_bels))
+        bba.slice(f"{context}_dcs_bels", len(self.dcs_bels))
 
 @dataclass
 class PadExtraData(BBAStruct):
@@ -296,7 +331,10 @@ def create_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
             tt.create_wire(dst, get_wire_type(dst))
         for src in srcs.keys():
             if not tt.has_wire(src):
-                tt.create_wire(src, get_wire_type(src))
+                if src in {"VSS", "VCC"}:
+                    tt.create_wire(src, get_wire_type(src), const_value = src)
+                else:
+                    tt.create_wire(src, get_wire_type(src))
             tt.create_pip(src, dst)
 
     # clock wires
@@ -320,6 +358,11 @@ def create_hclk_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
                 tt.create_wire(src, "HCLK")
             tt.create_pip(src, dst)
 
+# map spine -> dqce bel
+dqce_bels = {}
+# map spine -> dcs bel
+dcs_bels = {}
+
 def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
     if (y, x) not in db.extra_func:
         return
@@ -328,7 +371,8 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
             osc_type = desc['type']
             portmap = db.grid[y][x].bels[osc_type].portmap
             for port, wire in portmap.items():
-                tt.create_wire(wire, port)
+                if not tt.has_wire(wire):
+                    tt.create_wire(wire, port)
             bel = tt.create_bel(osc_type, osc_type, z = OSC_Z)
             for port, wire in portmap.items():
                 if 'OUT' in port:
@@ -337,15 +381,58 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
                     tt.add_bel_pin(bel, port, wire, PinType.INPUT)
         elif func == 'gsr':
             wire = desc['wire']
-            tt.create_wire(wire, "GSRI")
+            if not tt.has_wire(wire):
+                tt.create_wire(wire)
             bel = tt.create_bel("GSR", "GSR", z = GSR_Z)
             tt.add_bel_pin(bel, "GSRI", wire, PinType.INPUT)
         elif func == 'bandgap':
             wire = desc['wire']
-            tt.create_wire(wire, "BGEN")
+            if not tt.has_wire(wire):
+                tt.create_wire(wire)
             bel = tt.create_bel("BANDGAP", "BANDGAP", z = BANDGAP_Z)
             tt.add_bel_pin(bel, "BGEN", wire, PinType.INPUT)
-        if func == 'io16':
+        elif func == 'dqce':
+            for idx in range(6):
+                bel_z = DQCE_Z + idx
+                bel = tt.create_bel(f"DQCE{idx}", "DQCE", bel_z)
+                wire = desc[idx]['clkin']
+                dqce_bels[wire] = (x, y, bel_z)
+                if not tt.has_wire(wire):
+                    tt.create_wire(wire, "GLOBAL_CLK")
+                tt.add_bel_pin(bel, "CLKIN", wire, PinType.INPUT)
+                tt.add_bel_pin(bel, "CLKOUT", wire, PinType.OUTPUT)
+                wire = desc[idx]['ce']
+                if not tt.has_wire(wire):
+                    tt.create_wire(wire)
+                tt.add_bel_pin(bel, "CE", wire, PinType.INPUT)
+        elif func == 'dcs':
+            for idx in range(2):
+                if idx not in desc:
+                    continue
+                bel_z = DCS_Z + idx
+                bel = tt.create_bel(f"DCS{idx}", "DCS", bel_z)
+                wire = desc[idx]['clkout']
+                if not tt.has_wire(wire):
+                    tt.create_wire(wire)
+                tt.add_bel_pin(bel, "CLKOUT", wire, PinType.OUTPUT)
+                clkout_wire = wire
+                for clk_idx, wire in enumerate(desc[idx]['clk']):
+                    if not tt.has_wire(wire):
+                        tt.create_wire(wire, "GLOBAL_CLK")
+                    tt.add_bel_pin(bel, f"CLK{clk_idx}", wire, PinType.INPUT)
+                    # This is a fake PIP that allows routing “through” this
+                    # primitive from the CLK input to the CLKOUT output.
+                    tt.create_pip(wire, clkout_wire)
+                    dcs_bels[wire] = (x, y, bel_z)
+                for i, wire in enumerate(desc[idx]['clksel']):
+                    if not tt.has_wire(wire):
+                        tt.create_wire(wire)
+                    tt.add_bel_pin(bel, f"CLKSEL{i}", wire, PinType.INPUT)
+                wire = desc[idx]['selforce']
+                if not tt.has_wire(wire):
+                    tt.create_wire(wire)
+                tt.add_bel_pin(bel, "SELFORCE", wire, PinType.INPUT)
+        elif func == 'io16':
             role = desc['role']
             if role == 'MAIN':
                 y_off, x_off = desc['pair']
@@ -367,13 +454,13 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
                         tt.add_bel_pin(bel, port, wire, PinType.OUTPUT)
                     else:
                         tt.add_bel_pin(bel, port, wire, PinType.INPUT)
-        if func == 'buf':
+        elif func == 'buf':
             for buf_type, wires in desc.items():
                 for i, wire in enumerate(wires):
                     if not tt.has_wire(wire):
                         tt.create_wire(wire, "TILE_CLK")
                     wire_out = f'{buf_type}{i}_O'
-                    tt.create_wire(wire_out, "TILE_CLK")
+                    tt.create_wire(wire_out, "BUFG_O")
                     # XXX make Z from buf_type
                     bel = tt.create_bel(f'{buf_type}{i}', buf_type, z = BUFG_Z + i)
                     bel.flags = BEL_FLAG_GLOBAL
@@ -464,11 +551,11 @@ def create_corner_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, td
 
     if x == 0 and y == 0:
         # GND is the logic low level generator
-        tt.create_wire('VSS', 'GND')
+        tt.create_wire('VSS', 'GND', const_value = 'VSS')
         gnd = tt.create_bel('GND', 'GND', z = GND_Z)
         tt.add_bel_pin(gnd, "G", "VSS", PinType.OUTPUT)
         # VCC is the logic high level generator
-        tt.create_wire('VCC', 'VCC')
+        tt.create_wire('VCC', 'VCC', const_value = 'VCC')
         gnd = tt.create_bel('VCC', 'VCC', z = VCC_Z)
         tt.add_bel_pin(gnd, "V", "VCC", PinType.OUTPUT)
 
@@ -1005,6 +1092,12 @@ def create_extra_data(chip: Chip, db: chipdb, chip_flags: int):
         chip.extra_data.add_bottom_io_cnd(net_a, net_b)
     for diff_type in db.diff_io_types:
         chip.extra_data.add_diff_io_type(diff_type)
+    # create spine->dqce bel map
+    for spine, bel in dqce_bels.items():
+        chip.extra_data.add_dqce_bel(spine, bel[0], bel[1], bel[2])
+    # create spine->dcs bel map
+    for spine, bel in dcs_bels.items():
+        chip.extra_data.add_dcs_bel(spine, bel[0], bel[1], bel[2])
 
 def main():
     parser = argparse.ArgumentParser(description='Make Gowin BBA')

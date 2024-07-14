@@ -90,10 +90,19 @@ NPNR_PACKED_STRUCT(struct Bottom_io_POD {
     RelSlice<Bottom_io_cnd_POD> conditions;
 });
 
+NPNR_PACKED_STRUCT(struct Spine_bel_POD {
+    int32_t spine;
+    int32_t bel_x;
+    int32_t bel_y;
+    int32_t bel_z;
+});
+
 NPNR_PACKED_STRUCT(struct Extra_chip_data_POD {
     int32_t chip_flags;
     Bottom_io_POD bottom_io;
     RelSlice<IdString> diff_io_types;
+    RelSlice<Spine_bel_POD> dqce_bels;
+    RelSlice<Spine_bel_POD> dcs_bels;
     // chip flags
     static constexpr int32_t HAS_SP32 = 1;
     static constexpr int32_t NEED_SP_FIX = 2;
@@ -133,6 +142,9 @@ enum
     VCC_Z = 277,
     VSS_Z = 278,
     BANDGAP_Z = 279,
+
+    DQCE_Z = 280, // : 286 reserve for 6 DQCEs
+    DCS_Z = 286,  // : 287 reserve for 2 DCSs
 
     // The two least significant bits encode Z for 9-bit adders and
     // multipliers, if they are equal to 0, then we get Z of their common
