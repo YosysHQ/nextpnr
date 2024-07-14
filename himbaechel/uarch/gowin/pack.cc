@@ -165,9 +165,9 @@ struct GowinPacker
 
     BelId bind_io(CellInfo &ci)
     {
-        BelId bel = ctx->getBelByName(IdStringList::parse(ctx, ci.attrs.at(id_BEL).as_string()));
+        BelId bel = ctx->getBelByNameStr(ci.attrs.at(id_BEL).as_string());
         if (bel == BelId()) {
-            log_error("No bel named %s\n", IdStringList::parse(ctx, ci.attrs.at(id_BEL).as_string()).str(ctx).c_str());
+            log_error("No bel named %s\n", ci.attrs.at(id_BEL).as_string().c_str());
         }
         if (!ctx->checkBelAvail(bel)) {
             log_error("Can't place %s at %s because it's already taken by %s\n", ctx->nameOf(&ci), ctx->nameOfBel(bel),
@@ -2999,18 +2999,83 @@ struct GowinPacker
             ctx->createCell(buf_name, id_BUFG);
             CellInfo *buf_ci = ctx->cells.at(buf_name).get();
             buf_ci->addInput(id_I);
-            NetInfo *buf_ni = ctx->createNet(ctx->idf("$PACKER_BUF_%s", net.first.c_str(ctx)));
-
-            if (ctx->verbose) {
-                log_info("Create buf '%s' with IN net '%s'\n", buf_name.c_str(ctx), buf_ni->name.c_str(ctx));
-            }
             // move driver
             CellInfo *driver_cell = ni.driver.cell;
             IdString driver_port = ni.driver.port;
 
             driver_cell->movePortTo(driver_port, buf_ci, id_O);
-            buf_ci->connectPort(id_I, buf_ni);
-            driver_cell->connectPort(driver_port, buf_ni);
+            buf_ci->connectPorts(id_I, driver_cell, driver_port);
+        }
+    }
+
+    // =========================================
+    // Create DQCEs
+    // =========================================
+    void pack_dqce()
+    {
+        // At the placement stage, nothing can be said definitively about DQCE,
+        // so we make user cells virtual but allocate all available bels by
+        // creating and placing cells - we will use some of them after, and
+        // delete the rest.
+        // We do this here because the decision about which physical DQCEs to
+        // use is made during routing, but some of the information (let’s say
+        // mapping cell pins -> bel pins) is filled in before routing.
+        bool grab_bels = false;
+        for (auto &cell : ctx->cells) {
+            auto &ci = *cell.second;
+            if (ci.type == id_DQCE) {
+                ci.pseudo_cell = std::make_unique<RegionPlug>(Loc(0, 0, 0));
+                grab_bels = true;
+            }
+        }
+        if (grab_bels) {
+            for (int i = 0; i < 32; ++i) {
+                BelId dqce_bel = gwu.get_dqce_bel(ctx->idf("SPINE%d", i));
+                if (dqce_bel != BelId()) {
+                    IdString dqce_name = ctx->idf("$PACKER_DQCE_SPINE%d", i);
+                    CellInfo *dqce = ctx->createCell(dqce_name, id_DQCE);
+                    dqce->addInput(id_CE);
+                    ctx->bindBel(dqce_bel, dqce, STRENGTH_LOCKED);
+                }
+            }
+        }
+    }
+
+    // =========================================
+    // Create DCSs
+    // =========================================
+    void pack_dcs()
+    {
+        // At the placement stage, nothing can be said definitively about DCS,
+        // so we make user cells virtual but allocate all available bels by
+        // creating and placing cells - we will use some of them after, and
+        // delete the rest.
+        // We do this here because the decision about which physical DCEs to
+        // use is made during routing, but some of the information (let’s say
+        // mapping cell pins -> bel pins) is filled in before routing.
+        bool grab_bels = false;
+        for (auto &cell : ctx->cells) {
+            auto &ci = *cell.second;
+            if (ci.type == id_DCS) {
+                ci.pseudo_cell = std::make_unique<RegionPlug>(Loc(0, 0, 0));
+                grab_bels = true;
+            }
+        }
+        if (grab_bels) {
+            for (int i = 0; i < 8; ++i) {
+                BelId dcs_bel = gwu.get_dcs_bel(ctx->idf("P%d%dA", 1 + (i % 4), 6 + (i >> 2)));
+                if (dcs_bel != BelId()) {
+                    IdString dcs_name = ctx->idf("$PACKER_DCS_SPINE%d", 8 * (i % 4) + 6 + (i >> 2));
+                    CellInfo *dcs = ctx->createCell(dcs_name, id_DCS);
+                    dcs->addInput(id_SELFORCE);
+                    for (int j = 0; j < 4; ++j) {
+                        dcs->addInput(ctx->idf("CLK%d", j));
+                        dcs->addInput(ctx->idf("CLKSEL%d", j));
+                    }
+                    dcs->addOutput(id_CLKOUT);
+                    ctx->bindBel(dcs_bel, dcs, STRENGTH_LOCKED);
+                }
+            }
         }
     }
 
@@ -3061,6 +3126,13 @@ struct GowinPacker
         ctx->check();
 
         pack_buffered_nets();
+        ctx->check();
+
+        pack_dqce();
+        ctx->check();
+
+        pack_dcs();
+        ctx->check();
 
         ctx->fixupHierarchy();
         ctx->check();

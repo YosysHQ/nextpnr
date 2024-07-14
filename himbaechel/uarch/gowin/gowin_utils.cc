@@ -64,6 +64,28 @@ BelId GowinUtils::get_pll_bel(BelId io_bel, IdString type)
     return BelId();
 }
 
+BelId GowinUtils::get_dqce_bel(IdString spine_name)
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    for (auto &spine_bel : extra->dqce_bels) {
+        if (IdString(spine_bel.spine) == spine_name) {
+            return ctx->getBelByLocation(Loc(spine_bel.bel_x, spine_bel.bel_y, spine_bel.bel_z));
+        }
+    }
+    return BelId();
+}
+
+BelId GowinUtils::get_dcs_bel(IdString spine_name)
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    for (auto &spine_bel : extra->dcs_bels) {
+        if (IdString(spine_bel.spine) == spine_name) {
+            return ctx->getBelByLocation(Loc(spine_bel.bel_x, spine_bel.bel_y, spine_bel.bel_z));
+        }
+    }
+    return BelId();
+}
+
 bool GowinUtils::is_simple_io_bel(BelId bel)
 {
     return chip_bel_info(ctx->chip_info, bel).flags & BelFlags::FLAG_SIMPLE_IO;

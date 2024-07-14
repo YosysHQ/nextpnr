@@ -186,7 +186,10 @@ void GowinImpl::init(Context *ctx)
 }
 
 // We do not allow the use of global wires that bypass a special router.
-bool GowinImpl::checkPipAvail(PipId pip) const { return !gwu.is_global_pip(pip); }
+bool GowinImpl::checkPipAvail(PipId pip) const
+{
+    return (ctx->getWireConstantValue(ctx->getPipSrcWire(pip)) != IdString()) || (!gwu.is_global_pip(pip));
+}
 
 void GowinImpl::pack()
 {
