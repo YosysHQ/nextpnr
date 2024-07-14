@@ -48,12 +48,45 @@ struct GowinGlobalRouter
         auto is_local = [&](IdString wire_type) {
             return !wire_type.in(id_GLOBAL_CLK, id_IO_O, id_IO_I, id_PLL_O, id_PLL_I, id_TILE_CLK);
         };
-
         WireId src, dst;
         src = ctx->getPipSrcWire(pip);
         dst = ctx->getPipDstWire(pip);
         IdString dst_name = ctx->getWireName(dst)[1];
         bool not_dsc_pip = dst_name != id_CLKOUT;
+        IdString src_type = ctx->getWireType(src);
+        IdString dst_type = ctx->getWireType(dst);
+        bool src_valid = not_dsc_pip && src_type.in(id_GLOBAL_CLK, id_IO_O, id_PLL_O, id_HCLK);
+        bool dst_valid = not_dsc_pip && dst_type.in(id_GLOBAL_CLK, id_TILE_CLK, id_PLL_I, id_IO_I, id_HCLK);
+
+        bool res = (src_valid && dst_valid) || (src_valid && is_local(dst_type)) || (is_local(src_type) && dst_valid);
+        if (ctx->debug && false /*&& res*/) {
+            log_info("%s <- %s [%s <- %s]\n", ctx->getWireName(ctx->getPipDstWire(pip)).str(ctx).c_str(),
+                     ctx->getWireName(ctx->getPipSrcWire(pip)).str(ctx).c_str(), dst_type.c_str(ctx),
+                     src_type.c_str(ctx));
+            log_info("res:%d, src_valid:%d, dst_valid:%d, src local:%d, dst local:%d\n", res, src_valid, dst_valid,
+                     is_local(src_type), is_local(dst_type));
+        }
+        return res;
+    }
+
+    bool global_DQCE_pip_filter(PipId pip) const
+    {
+        auto is_local = [&](IdString wire_type) {
+            return !wire_type.in(id_GLOBAL_CLK, id_IO_O, id_IO_I, id_PLL_O, id_PLL_I, id_TILE_CLK);
+        };
+        auto is_dcs_input = [&](IdString wire_name) {
+            return wire_name.in(id_P16A, id_P16B, id_P16C, id_P16D, id_P17A, id_P17B, id_P17C, id_P17D, id_P26A,
+                                id_P26B, id_P26C, id_P26D, id_P27A, id_P27B, id_P27C, id_P27D, id_P36A, id_P36B,
+                                id_P36C, id_P36D, id_P37A, id_P37B, id_P37C, id_P37D, id_P46A, id_P46B, id_P46C,
+                                id_P46D, id_P47A, id_P47B, id_P47C, id_P47D);
+        };
+
+        WireId src, dst;
+        src = ctx->getPipSrcWire(pip);
+        dst = ctx->getPipDstWire(pip);
+        IdString src_name = ctx->getWireName(dst)[1];
+        IdString dst_name = ctx->getWireName(dst)[1];
+        bool not_dsc_pip = dst_name != id_CLKOUT && !is_dcs_input(src_name);
         IdString src_type = ctx->getWireType(src);
         IdString dst_type = ctx->getWireType(dst);
         bool src_valid = not_dsc_pip && src_type.in(id_GLOBAL_CLK, id_IO_O, id_PLL_O, id_HCLK);
@@ -233,7 +266,7 @@ struct GowinGlobalRouter
         ROUTED_ALL
     };
 
-    RouteResult route_direct_net(NetInfo *net, WireId aux_src = WireId(), bool DCS_pip_only = false)
+    RouteResult route_direct_net(NetInfo *net, WireId aux_src = WireId(), bool DCS_pips = false, bool DQCE_pips = false)
     {
         WireId src;
         src = aux_src == WireId() ? ctx->getNetinfoSourceWire(net) : aux_src;
@@ -254,14 +287,20 @@ struct GowinGlobalRouter
                           ctx->nameOf(usr.port));
             }
             bool bfs_res;
-            if (DCS_pip_only) {
+            if (DCS_pips) {
                 bfs_res = backwards_bfs_route(net, src, dst, 1000000, false, [&](PipId pip) {
                     return (is_relaxed_sink(usr) || global_DCS_pip_filter(pip));
                 });
             } else {
-                bfs_res = backwards_bfs_route(net, src, dst, 1000000, false, [&](PipId pip) {
-                    return (is_relaxed_sink(usr) || global_pip_filter(pip));
-                });
+                if (DQCE_pips) {
+                    bfs_res = backwards_bfs_route(net, src, dst, 1000000, false, [&](PipId pip) {
+                        return (is_relaxed_sink(usr) || global_DQCE_pip_filter(pip));
+                    });
+                } else {
+                    bfs_res = backwards_bfs_route(net, src, dst, 1000000, false, [&](PipId pip) {
+                        return (is_relaxed_sink(usr) || global_pip_filter(pip));
+                    });
+                }
             }
             if (bfs_res) {
                 routed = routed == ROUTED_PARTIALLY ? routed : ROUTED_ALL;
@@ -296,7 +335,7 @@ struct GowinGlobalRouter
             src = ctx->getBelPinWire(driver.cell->bel, driver.port);
         }
 
-        RouteResult route_result = route_direct_net(net, src);
+        RouteResult route_result = route_direct_net(net, src, false, true);
         if (route_result == NOT_ROUTED) {
             log_error("Can't route the %s network.\n", ctx->nameOf(net));
         }
