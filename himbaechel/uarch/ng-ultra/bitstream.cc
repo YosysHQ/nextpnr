@@ -415,7 +415,8 @@ struct BitstreamJsonBackend
 
     void write_rfb(CellInfo *cell) {
         open_instance(cell);
-        add_config("context", str_or_default(cell->params, ctx->id("mem_ctxt"), ""));
+        std::string context = str_or_default(cell->params, ctx->id("mem_ctxt"), "");
+        if (!context.empty()) add_config("mem_ctxt", context);
         add_config("wck_edge", bool_or_default(cell->params, ctx->id("wck_edge"), false));
         close_instance();
     }
@@ -428,7 +429,8 @@ struct BitstreamJsonBackend
         add_config("pckb_edge", bool_or_default(cell->params, ctx->id("pckb_edge"), false));
         add_config("raw_config0", extract_bits_or_default(cell->params, ctx->id("raw_config0"), 4));
         add_config("raw_config1", extract_bits_or_default(cell->params, ctx->id("raw_config1"), 16));
-        add_config("context", str_or_default(cell->params, ctx->id("mem_ctxt"), ""));
+        std::string context = str_or_default(cell->params, ctx->id("mem_ctxt"), "");
+        if (!context.empty()) add_config("mem_ctxt", context);
         close_instance();
     }
 
@@ -477,7 +479,7 @@ struct BitstreamJsonBackend
             add_config("use_read_arst", bool_or_default(cell->params, ctx->id("use_read_arst"), false));
             add_config("use_write_arst", bool_or_default(cell->params, ctx->id("use_write_arst"), false));
         }
-        add_config("read_addr_inv", extract_bits_or_default(cell->params, ctx->id("read_addr_inv"), cell->type == id_FIFO ? 6 : 7));
+        add_config("read_addr_inv", extract_bits_or_default(cell->params, ctx->id("read_addr_inv"), 7));
         close_instance();
     }
 
