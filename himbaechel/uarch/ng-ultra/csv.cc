@@ -99,31 +99,43 @@ void NgUltraImpl::parse_csv(const std::string &filename)
                     if (it == std::end(standard_values))
                         log_error("unknown standard value '%s' in line %d\n", arguments.at(2).c_str(), lineno);
 
-                    const char* drive_values[] = { "2mA", "4mA", "8mA", "16mA", "I", "II" };
+                    const char* drive_values[] = { "2mA", "4mA", "8mA", "16mA", "CatI", "CatII", "Undefined" };
                     it = std::find(std::begin(drive_values),std::end(drive_values), arguments.at(3));
                     if (it == std::end(drive_values))
                         log_error("unknown drive value '%s' in line %d\n", arguments.at(3).c_str(), lineno);
 
-                    const char* weak_values[] = { "None", "PullDown", "PullUp", "Keeper" };
-                    it = std::find(std::begin(weak_values),std::end(weak_values), arguments.at(4));
-                    if (it == std::end(weak_values))
+                    const char* slew_values[] = { "Slow", "Medium", "Fast" };
+                    it = std::find(std::begin(slew_values),std::end(slew_values), arguments.at(4));
+                    if (it == std::end(slew_values))
                         log_error("unknown weak termination value '%s' in line %d\n", arguments.at(4).c_str(), lineno);
 
-                    const char* slew_values[] = { "Slow", "Medium", "Fast" };
-                    it = std::find(std::begin(slew_values),std::end(slew_values), arguments.at(5));
-                    if (it == std::end(slew_values))
-                        log_error("unknown weak termination value '%s' in line %d\n", arguments.at(5).c_str(), lineno);
+                    if (!arguments.at(5).empty() && !is_number(arguments.at(5))) {
+                        log_error("input delay must be number, value '%s' in line %d\n", arguments.at(5).c_str(), lineno);
+                        int delay = std::stoi(arguments.at(5));
+                        if (delay<0 || delay >63)
+                            log_error("input delay value must be in range from 0 to 63 in line %d\n", lineno);
+                    }
+                    if (!arguments.at(6).empty() && !is_number(arguments.at(6))) {
+                        log_error("output delay must be number, value '%s' in line %d\n", arguments.at(6).c_str(), lineno);
+                        int delay = std::stoi(arguments.at(6));
+                        if (delay<0 || delay >63)
+                            log_error("output delay value must be in range from 0 to 63 in line %d\n", lineno);
+                    }
 
-                    if (!arguments.at(6).empty() && !is_number(arguments.at(6)))
-                        log_error("termination must be string containing int, value '%s' in line %d\n", arguments.at(6).c_str(), lineno);
+                    if (!arguments.at(7).empty() && arguments.at(7) != "True" && arguments.at(7) != "False")
+                        log_error("differential must be boolean, value '%s' in line %d\n", arguments.at(7).c_str(), lineno);
 
-                    if (!arguments.at(7).empty() && !is_number(arguments.at(7)))
-                        log_error("input delay must be number, value '%s' in line %d\n", arguments.at(7).c_str(), lineno);
-                    if (!arguments.at(8).empty() && !is_number(arguments.at(8)))
-                        log_error("output delay must be number, value '%s' in line %d\n", arguments.at(8).c_str(), lineno);
+                    const char* weak_values[] = { "None", "PullDown", "PullUp", "Keeper" };
+                    it = std::find(std::begin(weak_values),std::end(weak_values), arguments.at(8));
+                    if (it == std::end(weak_values))
+                        log_error("unknown weak termination value '%s' in line %d\n", arguments.at(8).c_str(), lineno);
 
-                    if (!arguments.at(9).empty() && arguments.at(9) != "True" && arguments.at(9) != "False")
-                        log_error("differential must be boolean, value '%s' in line %d\n", arguments.at(9).c_str(), lineno);
+                    if (!arguments.at(9).empty() && !is_number(arguments.at(9))) {
+                        log_error("termination must be string containing int, value '%s' in line %d\n", arguments.at(9).c_str(), lineno);
+                        int termination = std::stoi(arguments.at(9));
+                        if (termination<30 || termination >80)
+                            log_error("termination value must be in range from 30 to 80 in line %d\n", lineno);
+                    }
 
                     const char* termref_values[] = { "Floating", "VT" };
                     it = std::find(std::begin(termref_values),std::end(termref_values), arguments.at(10));
@@ -143,23 +155,40 @@ void NgUltraImpl::parse_csv(const std::string &filename)
                     if (it == std::end(registered_values))
                         log_error("unknown registered value '%s' in line %d\n", arguments.at(14).c_str(), lineno);
 
+                    if (arguments.at(2)=="LVDS" && arguments.at(3)!="Undefined")
+                        log_error("for port in line %d when standard is 'LVDS' drive must be 'Undefined'\n", lineno);
+                    if (arguments.at(2)=="LVCMOS" && !boost::ends_with(arguments.at(3),"mA"))
+                        log_error("for port in line %d when standard is 'LVCMOS' drive current must be in mA\n", lineno);
+                    if ((arguments.at(2)=="SSTL" || arguments.at(2)=="HSTL") && !boost::starts_with(arguments.at(3),"Cat"))
+                        log_error("for port in line %d when standard is 'SSTL' or 'HSTL' drive current must be in 'CatI' or 'CatII'\n", lineno);
+
+
+                    if (arguments.at(10)=="Floating") {
+                        if (!(arguments.at(7) == "True" && arguments.at(8) == "None")) {
+                            log_error("for floating termination, differential myst be 'True' and weakTermination must be 'None' in line %d\n", lineno);
+                        }
+                    }
                     std::vector<CellInfo *> dest = get_cells(arguments.at(0));
                     for (auto c : dest) {
-                        c->params[ctx->id("location")] = arguments.at(1);
                         c->params[ctx->id("iobname")] = arguments.at(0);
+                        c->params[ctx->id("location")] = arguments.at(1);
                         c->params[ctx->id("standard")] = arguments.at(2);
                         c->params[ctx->id("drive")] = arguments.at(3);
-                        c->params[ctx->id("weakTermination")] = arguments.at(4);
-                        c->params[ctx->id("slewRate")] = arguments.at(5);
-                        c->params[ctx->id("termination")] = arguments.at(6);
-                        c->params[ctx->id("inputDelayLine")] = arguments.at(7);
-                        c->params[ctx->id("outputDelayLine")] = arguments.at(8);
-                        c->params[ctx->id("differential")] = arguments.at(9);
-                        c->params[ctx->id("terminationReference")] = arguments.at(10);
+                        c->params[ctx->id("slewRate")] = arguments.at(4);
+                        c->params[ctx->id("inputDelayLine")] = arguments.at(5);
+                        c->params[ctx->id("outputDelayLine")] = arguments.at(6);
+                        c->params[ctx->id("inputDelayOn")] = std::string((std::stoi(arguments.at(5))!=0) ? "True" : "False");
+                        c->params[ctx->id("outputDelayOn")] = std::string((std::stoi(arguments.at(6))!=0) ? "True" : "False");
+                        c->params[ctx->id("differential")] = arguments.at(7);
+                        c->params[ctx->id("weakTermination")] = arguments.at(8);
+                        if (!arguments.at(9).empty()) {
+                            c->params[ctx->id("termination")] = arguments.at(9);
+                            c->params[ctx->id("terminationReference")] = arguments.at(10);
+                        }
                         c->params[ctx->id("turbo")] = arguments.at(11);
                         c->params[ctx->id("inputSignalSlope")] = arguments.at(12);
                         c->params[ctx->id("outputCapacity")] = arguments.at(13);
-                        //c->params[ctx->id("IO_PATH")] = arguments.at(14);
+                        c->params[ctx->id("registered")] = arguments.at(14);
                     }
                     if (dest.size()==0)
                         log_warning("Pad with name '%s' not found in netlist.\n", arguments.at(0).c_str());
@@ -180,11 +209,33 @@ void NgUltraImpl::parse_csv(const std::string &filename)
                     if (!boost::starts_with(arguments.at(0), "IOB")) 
                         log_error("wrong bank name '%s' in line %d\n", arguments.at(0).c_str(), lineno);
                     
-                    const char* voltages[] = { "1.5V", "1.8V", "2.5V", "3.3V" };
+                    const char* voltages[] = { "1.2V", "1.5V", "1.8V", "2.5V", "3.3V" };
                     auto it = std::find(std::begin(voltages),std::end(voltages), arguments.at(1));
                     if (it == std::end(voltages))
                         log_error("unknown voltage level '%s' in line %d\n", arguments.at(1).c_str(), lineno);
 
+                    const char * direct_io_voltages[] = { "1.8V", "2.5V", "3.3V" };
+                    const char * complex_io_voltages[] = { "1.2V", "1.5V", "1.8V" };
+
+                    int bank = std::stoi(arguments.at(0).substr(3));
+                    switch(bank) {
+                        // direct
+                        case 0:
+                        case 1:
+                        case 6:
+                        case 7:
+                            {
+                            auto it = std::find(std::begin(direct_io_voltages),std::end(direct_io_voltages), arguments.at(1));
+                            if (it == std::end(direct_io_voltages))
+                                log_error("unsupported voltage level '%s' for bank '%s'\n", arguments.at(1).c_str(), arguments.at(0).c_str());
+                            }
+                            break;
+                        // complex
+                        default:
+                            auto it = std::find(std::begin(complex_io_voltages),std::end(complex_io_voltages), arguments.at(1));
+                            if (it == std::end(complex_io_voltages))
+                                log_error("unsupported voltage level '%s' for bank '%s'\n", arguments.at(1).c_str(), arguments.at(0).c_str());
+                    }
                     bank_voltage[arguments.at(0)] = arguments.at(1);
                 }
                 break;
