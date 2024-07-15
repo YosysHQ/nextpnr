@@ -94,12 +94,12 @@ void NgUltraImpl::parse_csv(const std::string &filename)
                     if (!(boost::starts_with(arguments.at(1), "IOB") && boost::contains(arguments.at(1),"_D"))) 
                         log_error("invalid location name '%s' must start with 'IOB' in line %d\n", arguments.at(1).c_str(), lineno);
 
-                    const char* standard_values[] = { "LVDS", "LVCMOS", "SSTL", "HSTL" };
+                    const char* standard_values[] = { "LVDS", "LVCMOS", "SSTL", "HSTL" }; // , "POD"
                     auto it = std::find(std::begin(standard_values),std::end(standard_values), arguments.at(2));
                     if (it == std::end(standard_values))
                         log_error("unknown standard value '%s' in line %d\n", arguments.at(2).c_str(), lineno);
 
-                    const char* drive_values[] = { "2mA", "4mA", "8mA", "16mA", "CatI", "CatII", "Undefined" };
+                    const char* drive_values[] = { "2mA", "4mA", "8mA", "16mA", "CatI", "CatII", "Undefined" }; // "6mA", "12mA", 
                     it = std::find(std::begin(drive_values),std::end(drive_values), arguments.at(3));
                     if (it == std::end(drive_values))
                         log_error("unknown drive value '%s' in line %d\n", arguments.at(3).c_str(), lineno);
