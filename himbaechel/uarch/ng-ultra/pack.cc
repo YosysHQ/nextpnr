@@ -515,7 +515,6 @@ void NgUltraPacker::pack_iobs(void)
             new_type = id_IOTP;
             if (ci.type==id_NX_IOB_O) new_type = id_OTP;
             if (ci.type==id_NX_IOB_I) new_type = id_ITP;
-            log_error("JSON import currently does not support IOs with termination input.\n");
         } else {
             if (ci.type==id_NX_IOB_O) new_type = id_OP;
             if (ci.type==id_NX_IOB_I) new_type = id_IP;

@@ -189,6 +189,23 @@ struct BitstreamJsonBackend
         }
     };
 
+    template <typename KeyType>
+    std::string str_or_n_value_lower(const dict<KeyType, Property> &ct, const KeyType &key, std::string def = "N")
+    {
+        auto found = ct.find(key);
+        if (found == ct.end())
+            return def;
+        else {
+            if (!found->second.is_string)
+                log_error("Expecting string value but got integer %d.\n", int(found->second.intval));
+            if (found->second.as_string().empty())
+                return def;
+            std::string tmp = found->second.as_string();
+            boost::algorithm::to_lower(tmp);
+            return tmp;
+        }
+    };
+
     template <typename KeyType> std::string extract_bits_or_default(const dict<KeyType, Property> &ct, const KeyType &key, int bits, int def = 0)
     {
         Property extr = get_or_default(ct, key, Property()).extract(0, bits);
@@ -254,29 +271,26 @@ struct BitstreamJsonBackend
 
     void write_iop(CellInfo *cell) {
         open_instance(cell, str_or_default(cell->params, ctx->id("iobname"), ""));
-        //add_config("alias_vhdl", str_or_default(cell->params, ctx->id("alias_vhdl"), ""));
-        //add_config("alias_vlog", str_or_default(cell->params, ctx->id("alias_vlog"), ""));
-        //add_config("differential", str_or_n_value(cell->params, ctx->id("differential"), "N"));
-        add_config("drive", str_or_default(cell->params, ctx->id("drive"), "2mA"));
-        //add_config("dynDrive", str_or_n_value(cell->params, ctx->id("dynDrive"), "N"));
-        //add_config("dynInput", str_or_n_value(cell->params, ctx->id("dynInput"), "N"));
-        //add_config("dynTerm", str_or_n_value(cell->params, ctx->id("dynTerm"), "N"));
-        //add_config("extra", int_or_default(cell->params, ctx->id("extra"), 2));
-        //add_config("inputDelayLine", str_or_default(cell->params, ctx->id("inputDelayLine"), ""));
-        //add_config("inputDelayOn", str_or_n_value(cell->params, ctx->id("inputDelayOn"), "N"));
-        //add_config("inputSignalSlope", str_or_default(cell->params, ctx->id("inputSignalSlope"), ""));
         add_config("location", str_or_default(cell->params, ctx->id("location"), ""));
-        //add_config("locked", bool_or_default(cell->params, ctx->id("locked"), false));
-        //add_config("outputCapacity", str_or_default(cell->params, ctx->id("outputCapacity"), ""));
-        //add_config("outputDelayLine", str_or_default(cell->params, ctx->id("outputDelayLine"), ""));
-        //add_config("outputDelayOn", str_or_n_value(cell->params, ctx->id("outputDelayOn"), "N"));
-        //add_config("slewRate", str_or_default(cell->params, ctx->id("slewRate"), ""));
+        add_config("differential", str_or_n_value_lower(cell->params, ctx->id("differential"), "false"));
+        add_config("slewRate", str_or_default(cell->params, ctx->id("slewRate"), "Medium"));
+        add_config("turbo", str_or_n_value_lower(cell->params, ctx->id("turbo"), "false"));
+        add_config("weakTermination", str_or_n_value(cell->params, ctx->id("weakTermination"), "PullUp"));
+        add_config("inputDelayLine", str_or_default(cell->params, ctx->id("inputDelayLine"), "0"));
+        add_config("outputDelayLine", str_or_default(cell->params, ctx->id("outputDelayLine"), "0"));
+        add_config("inputSignalSlope", str_or_default(cell->params, ctx->id("inputSignalSlope"), "0"));
+        add_config("outputCapacity", str_or_default(cell->params, ctx->id("outputCapacity"), "0"));
         add_config("standard", str_or_default(cell->params, ctx->id("standard"), "LVCMOS"));
-        //add_config("termination", str_or_n_value(cell->params, ctx->id("termination"), "N"));
-        //add_config("terminationReference", str_or_n_value(cell->params, ctx->id("terminationReference"), "N"));
-        //add_config("turbo", str_or_n_value(cell->params, ctx->id("turbo"), "N"));
-        //add_config("weakTermination", str_or_n_value(cell->params, ctx->id("weakTermination"), "N"));
-
+        add_config("drive", str_or_default(cell->params, ctx->id("drive"), "2mA"));
+        add_config("inputDelayOn", str_or_n_value_lower(cell->params, ctx->id("inputDelayOn"), "false"));
+        add_config("outputDelayOn", str_or_n_value_lower(cell->params, ctx->id("outputDelayOn"), "false"));
+        add_config("dynDrive", str_or_n_value_lower(cell->params, ctx->id("dynDrive"), "false"));
+        add_config("dynInput", str_or_n_value_lower(cell->params, ctx->id("dynInput"), "false"));
+        add_config("dynTerm", str_or_n_value_lower(cell->params, ctx->id("dynTerm"), "false"));
+        if (cell->type.in(id_OTP, id_ITP, id_IOTP)) {
+            add_config("termination", str_or_n_value(cell->params, ctx->id("termination"), "0"));
+            add_config("terminationReference", str_or_n_value(cell->params, ctx->id("terminationReference"), "VT"));
+        }
         close_instance();
         std::string tile_name = uarch->tile_name(cell->bel.tile);
         std::string bank = tile_name.substr(0, tile_name.rfind(':'));
