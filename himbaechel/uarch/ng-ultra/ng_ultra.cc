@@ -700,10 +700,13 @@ BoundingBox NgUltraImpl::getRouteBoundingBox(WireId src, WireId dst) const
     tile_xy(ctx->chip_info, dst.tile, dx, dy);
     expand(dx, dy);
     // Two TILEs left and up, and one tile right and down
-    return {(x0 & 0xfffc) - 8, 
-            (y0 & 0xfffc) - 8,
-            (x1 & 0xfffc) + 8, 
-            (y1 & 0xfffc) + 8};
+    int exp = 8;
+    if (x0 == 0 || y0==0 || y1==52*4 || x1==96*4)
+        exp = 24; // more expansion around IO
+    return {(x0 & 0xfffc) - exp,
+            (y0 & 0xfffc) - exp,
+            (x1 & 0xfffc) + exp,
+            (y1 & 0xfffc) + exp};
 }
 
 delay_t NgUltraImpl::estimateDelay(WireId src, WireId dst) const
