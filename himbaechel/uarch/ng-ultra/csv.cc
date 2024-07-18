@@ -68,6 +68,7 @@ void NgUltraImpl::parse_csv(const std::string &filename)
 
     line_type = IO_PADS;
     pool<std::string> banks_used;
+    bool old_format = false;
     while (std::getline(in, line)) {
         ++lineno;
         // Trim comments, from # until end of the line
@@ -111,7 +112,10 @@ void NgUltraImpl::parse_csv(const std::string &filename)
                     const char* weak_values_check[] = { "None", "PullDown", "PullUp", "Keeper" };
                     auto it2 = std::find(std::begin(weak_values_check),std::end(weak_values_check), arguments.at(4));
                     if (it2 != std::end(weak_values_check)) {
-                        log_warning("Old CSV format detected. Please update file.\n");
+                        if (!old_format) {
+                            log_warning("Old CSV format detected. Please update file.\n");
+                            old_format  = true;
+                        }
                         arg_weakTermination = arguments.at(4);
                         arg_slewRate = arguments.at(5);
                         arg_termination = arguments.at(6);
