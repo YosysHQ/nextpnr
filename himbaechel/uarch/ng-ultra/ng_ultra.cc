@@ -147,8 +147,7 @@ const dict<IdString,pool<IdString>> ring_clock_sinks = {
 const dict<IdString,pool<IdString>> ring_over_tile_clock_sinks = {
     // IOB
     { id_DFR, { id_CK }},
-    { id_DDFR, { id_CK }},
-    { id_DDFR, { id_CKF }},
+    { id_DDFR, { id_CK, id_CKF }},
 };
     // IOB
     // { id_IOM, { id_ALCK1, id_ALCK2, id_ALCK3, id_CCK, id_FCK1, id_FCK2, id_FDCK,

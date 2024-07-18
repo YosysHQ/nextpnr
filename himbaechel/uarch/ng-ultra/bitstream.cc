@@ -302,6 +302,16 @@ struct BitstreamJsonBackend
         }
     }
 
+    void write_ddfr(CellInfo *cell) {
+        open_instance(cell);
+        add_config("dff_load", bool_or_default(cell->params, ctx->id("dff_load"), false));
+        add_config("dff_sync", bool_or_default(cell->params, ctx->id("dff_sync"), false));
+        add_config("dff_type", bool_or_default(cell->params, ctx->id("dff_type"), false));
+        add_config("iobname", str_or_default(cell->params, ctx->id("iobname"), ""));
+        add_config("path", int_or_default(cell->params, ctx->id("path"), 0));
+        close_instance();
+    }
+
     void write_dfr(CellInfo *cell) {
         open_instance(cell);
         add_config("data_inv", bool_or_default(cell->params, ctx->id("data_inv"), false));
@@ -549,7 +559,7 @@ struct BitstreamJsonBackend
                 case id_GCK.index: write_gck(cell.second.get()); break;
                 case id_IOM.index: write_iom(cell.second.get()); break;
                 case id_BFR.index: write_bfr(cell.second.get()); break;
-                //case id_DDFR.index:
+                case id_DDFR.index: write_ddfr(cell.second.get()); break;
                 case id_DFR.index: write_dfr(cell.second.get()); break;
                 case id_RAM.index: write_ram(cell.second.get()); break;
                 case id_RF.index:
