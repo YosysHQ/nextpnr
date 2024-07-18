@@ -109,7 +109,7 @@ void NgUltraImpl::parse_csv(const std::string &filename)
                     std::string arg_registered = arguments.at(14);
 
                     // TODO: Remove this block
-                    const char* weak_values_check[] = { "None", "PullDown", "PullUp", "Keeper" };
+                    const std::vector<std::string> weak_values_check = { "None", "PullDown", "PullUp", "Keeper" };
                     auto it2 = std::find(std::begin(weak_values_check),std::end(weak_values_check), arguments.at(4));
                     if (it2 != std::end(weak_values_check)) {
                         if (!old_format) {
@@ -128,29 +128,31 @@ void NgUltraImpl::parse_csv(const std::string &filename)
                     if (!(boost::starts_with(arg_location, "IOB") && boost::contains(arg_location,"_D"))) 
                         log_error("invalid location name '%s' must start with 'IOB' in line %d\n", arg_location.c_str(), lineno);
 
-                    const char* standard_values[] = { "LVDS", "LVCMOS", "SSTL", "HSTL" }; // , "POD"
+                    const std::vector<std::string> standard_values = { "LVDS", "LVCMOS", "SSTL", "HSTL" }; // , "POD"
                     auto it = std::find(std::begin(standard_values),std::end(standard_values), arg_standard);
                     if (it == std::end(standard_values))
                         log_error("unknown standard value '%s' in line %d\n", arg_standard.c_str(), lineno);
 
-                    const char* drive_values[] = { "2mA", "4mA", "8mA", "16mA", "CatI", "CatII", "Undefined" }; // "6mA", "12mA", 
+                    const std::vector<std::string> drive_values = { "2mA", "4mA", "8mA", "16mA", "CatI", "CatII", "Undefined" }; // "6mA", "12mA", 
                     it = std::find(std::begin(drive_values),std::end(drive_values), arg_drive);
                     if (it == std::end(drive_values))
                         log_error("unknown drive value '%s' in line %d\n", arg_drive.c_str(), lineno);
 
-                    const char* slew_values[] = { "Slow", "Medium", "Fast" };
+                    const std::vector<std::string> slew_values = { "Slow", "Medium", "Fast" };
                     it = std::find(std::begin(slew_values),std::end(slew_values), arg_slewRate);
                     if (it == std::end(slew_values))
                         log_error("unknown weak termination value '%s' in line %d\n", arg_slewRate.c_str(), lineno);
 
-                    if (!arg_inputDelayLine.empty() && !is_number(arg_inputDelayLine)) {
+                    if (!is_number(arg_inputDelayLine)) {
                         log_error("input delay must be number, value '%s' in line %d\n", arg_inputDelayLine.c_str(), lineno);
+                    } else {
                         int delay = std::stoi(arg_inputDelayLine);
                         if (delay<0 || delay >63)
                             log_error("input delay value must be in range from 0 to 63 in line %d\n", lineno);
                     }
-                    if (!arg_outputDelayLine.empty() && !is_number(arg_outputDelayLine)) {
+                    if (!is_number(arg_outputDelayLine)) {
                         log_error("output delay must be number, value '%s' in line %d\n", arg_outputDelayLine.c_str(), lineno);
+                    } else {
                         int delay = std::stoi(arg_outputDelayLine);
                         if (delay<0 || delay >63)
                             log_error("output delay value must be in range from 0 to 63 in line %d\n", lineno);
@@ -159,19 +161,22 @@ void NgUltraImpl::parse_csv(const std::string &filename)
                     if (!arg_differential.empty() && arg_differential != "True" && arg_differential != "False")
                         log_error("differential must be boolean, value '%s' in line %d\n", arg_differential.c_str(), lineno);
 
-                    const char* weak_values[] = { "None", "PullDown", "PullUp", "Keeper" };
+                    const std::vector<std::string> weak_values = { "None", "PullDown", "PullUp", "Keeper" };
                     it = std::find(std::begin(weak_values),std::end(weak_values), arg_weakTermination);
                     if (it == std::end(weak_values))
                         log_error("unknown weak termination value '%s' in line %d\n", arg_weakTermination.c_str(), lineno);
 
-                    if (!arg_termination.empty() && !is_number(arg_termination)) {
-                        log_error("termination must be string containing int, value '%s' in line %d\n", arg_termination.c_str(), lineno);
-                        int termination = std::stoi(arg_termination);
-                        if (termination<30 || termination >80)
-                            log_error("termination value must be in range from 30 to 80 in line %d\n", lineno);
+                    if (!arg_termination.empty()) {
+                        if (!is_number(arg_termination)) {
+                            log_error("termination must be string containing int, value '%s' in line %d\n", arg_termination.c_str(), lineno);
+                        } else {
+                            int termination = std::stoi(arg_termination);
+                            if (termination<30 || termination >80)
+                                log_error("termination value must be in range from 30 to 80 in line %d\n", lineno);
+                        }
                     }
 
-                    const char* termref_values[] = { "Floating", "VT" };
+                    const std::vector<std::string> termref_values = { "Floating", "VT" };
                     it = std::find(std::begin(termref_values),std::end(termref_values), arg_terminationReference);
                     if (it == std::end(termref_values))
                         log_error("unknown termination reference value '%s' in line %d\n", arg_terminationReference.c_str(), lineno);
@@ -184,7 +189,7 @@ void NgUltraImpl::parse_csv(const std::string &filename)
                     if (!arg_outputCapacity.empty() && !is_number(arg_outputCapacity))
                         log_error("output capacity must be number, value '%s' in line %d\n", arg_outputCapacity.c_str(), lineno);
 
-                    const char* registered_values[] = { "Auto", "I", "IC", "O", "OC", "IO", "IOC" };
+                    const std::vector<std::string> registered_values = { "Auto", "I", "IC", "O", "OC", "IO", "IOC" };
                     it = std::find(std::begin(registered_values),std::end(registered_values), arg_registered);
                     if (it == std::end(registered_values))
                         log_error("unknown registered value '%s' in line %d\n", arg_registered.c_str(), lineno);
