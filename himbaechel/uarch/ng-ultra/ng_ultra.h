@@ -71,6 +71,7 @@ struct NgUltraImpl : HimbaechelAPI
 
 public:
     int tile_lobe(int tile) const;
+    TileTypeExtra tile_type(int tile) const;
     IdString tile_name_id(int tile) const;
     std::string tile_name(int tile) const;
 

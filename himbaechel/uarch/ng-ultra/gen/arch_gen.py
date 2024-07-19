@@ -14,13 +14,14 @@ from himbaechel_dbgen.chip import *
 class TileExtraData(BBAStruct):
     name: IdString
     lobe: int = 0
+    tile_type: int = 0
 
     def serialise_lists(self, context: str, bba: BBAWriter):
         pass
     def serialise(self, context: str, bba: BBAWriter):
         bba.u32(self.name.index)
         bba.u8(self.lobe)
-        bba.u8(0) # dummy
+        bba.u8(self.tile_type)
         bba.u16(0) # dummy
 
 @dataclass
@@ -79,6 +80,12 @@ PIP_EXTRA_VIRTUAL = 6
 
 BEL_EXTRA_FE_CSC = 1
 BEL_EXTRA_FE_SCC = 2
+
+TILE_EXTRA_FABRIC = 0
+TILE_EXTRA_TUBE = 1
+TILE_EXTRA_SOC = 2
+TILE_EXTRA_RING = 3
+TILE_EXTRA_FENCE = 4
 
 def bel_z(tile_type, bel_name, bel_type):
     if tile_type.startswith("CKG"):
@@ -674,7 +681,19 @@ def main():
                         lobe = 7
                     case "IOB4" | "IOB5" | "HSSL4" | "HSSL5" | "HSSL6" | "HSSL7":
                         lobe = 8
-            ti.extra_data = TileExtraData(ch.strs.id(name),lobe)
+            tile_type = 0
+            if item["orig"] in ["TILE","CGB","MESH"]:
+                tile_type = TILE_EXTRA_FABRIC
+            elif item["orig"] in ["TUBE"]:
+                tile_type = TILE_EXTRA_TUBE
+            elif item["orig"] in ["SOCBank"]:
+                tile_type = TILE_EXTRA_SOC
+            elif item["orig"].startswith("IOB") or item["orig"].startswith("HSSL") or item["orig"].startswith("CKG"):
+                tile_type = TILE_EXTRA_RING
+            elif item["orig"].startswith("FENCE"):
+                tile_type = TILE_EXTRA_FENCE
+
+            ti.extra_data = TileExtraData(ch.strs.id(name),lobe, tile_type)
 
     for name, data in tilegrid.items():
         print(f"Generate nodes for {name}...")

@@ -234,6 +234,12 @@ int NgUltraImpl::tile_lobe(int tile) const
     return data.lobe;
 }
 
+TileTypeExtra NgUltraImpl::tile_type(int tile) const
+{
+    const auto &data = *tile_extra_data(tile);
+    return (TileTypeExtra)data.tile_type;
+}
+
 void NgUltraImpl::preRoute()
 {
     log_break();
@@ -686,6 +692,9 @@ bool NgUltraImpl::getClusterPlacement(ClusterId cluster, BelId root_bel,
 
 BoundingBox NgUltraImpl::getRouteBoundingBox(WireId src, WireId dst) const
 {
+    if ((tile_type(src.tile)!=TILE_EXTRA_FABRIC || tile_type(dst.tile)!=TILE_EXTRA_FABRIC)) {
+        return { 0, 0, ctx->getGridDimX(), ctx->getGridDimY() };
+    }
     int x0, y0, x1, y1;
     auto expand = [&](int x, int y) {
         x0 = std::min(x0, x);
@@ -699,14 +708,11 @@ BoundingBox NgUltraImpl::getRouteBoundingBox(WireId src, WireId dst) const
     int dx, dy;
     tile_xy(ctx->chip_info, dst.tile, dx, dy);
     expand(dx, dy);
-    // Two TILEs left and up, and one tile right and down
-    int exp = 8;
-    if (x0 == 0 || y0==0 || y1==52*4 || x1==96*4)
-        exp = 24; // more expansion around IO
-    return {(x0 & 0xfffc) - exp,
-            (y0 & 0xfffc) - exp,
-            (x1 & 0xfffc) + exp,
-            (y1 & 0xfffc) + exp};
+    // Reach 7 MESH above and below (3 left and 3 right of TILE/CGB)
+    return {(x0 & 0xfffc) - 3*4, // 3 MESH on left 
+            (y0 & 0xfffc) - 4,   // row above
+            (x1 & 0xfffc) + 4*4, // MESH bellow and 3 right
+            (y1 & 0xfffc) + 8};  // current and row bellow
 }
 
 delay_t NgUltraImpl::estimateDelay(WireId src, WireId dst) const

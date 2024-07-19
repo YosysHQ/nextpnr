@@ -8,7 +8,7 @@ NEXTPNR_NAMESPACE_BEGIN
 NPNR_PACKED_STRUCT(struct NGUltraTileInstExtraDataPOD {
     int32_t name;
     uint8_t lobe;
-    uint8_t dummy1;
+    uint8_t tile_type;
     uint16_t dummy2;
 });
 
@@ -221,6 +221,15 @@ enum BelExtra
 {
     BEL_EXTRA_FE_CSC = 1,
     BEL_EXTRA_FE_SCC = 2,
+};
+
+enum TileTypeExtra
+{
+    TILE_EXTRA_FABRIC = 0,
+    TILE_EXTRA_TUBE = 1,
+    TILE_EXTRA_SOC = 2,
+    TILE_EXTRA_RING = 3,
+    TILE_EXTRA_FENCE = 4
 };
 
 NEXTPNR_NAMESPACE_END
