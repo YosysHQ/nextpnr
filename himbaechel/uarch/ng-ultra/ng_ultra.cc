@@ -55,7 +55,8 @@ void NgUltraImpl::init(Context *ctx)
 {
     HimbaechelAPI::init(ctx);
     for (int i=1;i<=8;i++)
-        gck_per_lobe[i].reserve(20);
+        for (int j=0;j<20;j++)        
+            gck_per_lobe[i].push_back(GckConfig(BelId()));
     for (auto bel : ctx->getBels()) {
         if (ctx->getBelType(bel) == id_IOM) {
             std::set<IdString> ckg;
@@ -88,7 +89,7 @@ void NgUltraImpl::init(Context *ctx)
             std::string name = ctx->getBelName(bel)[1].c_str(ctx);
             int lobe = std::stoi(name.substr(1,1));
             int num = std::stoi(name.substr(4,2).c_str());
-            gck_per_lobe[lobe].insert(gck_per_lobe[lobe].begin()+num-1, GckConfig(bel));
+            gck_per_lobe[lobe][num-1] = GckConfig(bel);
         }
         locations.emplace(stringf("%s:%s",tile_name(bel.tile).c_str(), ctx->getBelName(bel)[1].c_str(ctx)),bel);
     }
