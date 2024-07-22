@@ -145,6 +145,7 @@ void NgUltraPacker::dff_rewrite(CellInfo *cell)
         if (net) {
             if (net->name == ctx->id("$PACKER_GND")) {
                 log_warning("Removing reset on '%s' since it is always 0.\n", cell->name.c_str(ctx));
+                cell->setParam(ctx->id("dff_init"), Property(0,1));
                 cell->disconnectPort(id_R);
             } else if (net->name == ctx->id("$PACKER_VCC")) {
                 log_error("Invalid DFF configuration, reset on '%s' is always 1.\n", cell->name.c_str(ctx));
@@ -161,9 +162,11 @@ void NgUltraPacker::dff_rewrite(CellInfo *cell)
         if (net) {
             if (net->name == ctx->id("$PACKER_VCC")) {
                 log_warning("Removing load enable on '%s' since it is always 1.\n", cell->name.c_str(ctx));
+                cell->setParam(ctx->id("dff_load"), Property(0,0));
                 cell->disconnectPort(id_L);
             } else if (net->name == ctx->id("$PACKER_GND")) {
                 log_warning("Converting to self loop, since load enable on '%s' is always 0.\n", cell->name.c_str(ctx));
+                cell->setParam(ctx->id("dff_load"), Property(0,0));
                 cell->disconnectPort(id_L);
                 cell->disconnectPort(id_I);
                 NetInfo *out = cell->getPort(id_O);
@@ -185,6 +188,7 @@ void NgUltraPacker::ddfr_rewrite(CellInfo *cell)
         if (net) {
             if (net->name == ctx->id("$PACKER_VCC")) {
                 log_warning("Removing load enable on '%s' since it is always 1.\n", cell->name.c_str(ctx));
+                cell->setParam(ctx->id("dff_load"), Property(0,0));
                 cell->disconnectPort(id_L);
             }
         }
