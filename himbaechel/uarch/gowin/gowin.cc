@@ -539,8 +539,10 @@ bool GowinImpl::dsp_valid(Loc l, IdString bel_type, bool explain_invalid) const
 bool GowinImpl::slice_valid(int x, int y, int z) const
 {
     const CellInfo *lut = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, z * 2)));
+    const bool lut_in_4_5 = lut && (z == 4 || z == 5);
     const CellInfo *ff = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, z * 2 + 1)));
-    const CellInfo *alu = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, z + BelZ::ALU0_Z)));
+    // There are only 6 ALUs
+    const CellInfo *alu = (z < 6) ? ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, z + BelZ::ALU0_Z))) : nullptr;
     const CellInfo *ramw =
             (z == 4 || z == 5) ? ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, BelZ::RAMW_Z))) : nullptr;
 
@@ -549,7 +551,7 @@ bool GowinImpl::slice_valid(int x, int y, int z) const
     }
 
     if (ramw) {
-        if (alu || ff || lut) {
+        if (alu || ff || lut_in_4_5) {
             return false;
         }
         return true;
@@ -560,7 +562,9 @@ bool GowinImpl::slice_valid(int x, int y, int z) const
     int adj_alu_z = adj_lut_z / 2 + BelZ::ALU0_Z;
     const CellInfo *adj_lut = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, adj_lut_z)));
     const CellInfo *adj_ff = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, adj_lut_z + 1)));
-    const CellInfo *adj_alu = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, adj_alu_z)));
+    const CellInfo *adj_alu = adj_alu_z < (6 + BelZ::ALU0_Z)
+                                      ? ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, adj_alu_z)))
+                                      : nullptr;
 
     if ((alu && (adj_lut || (adj_ff && !adj_alu))) || ((lut || (ff && !alu)) && adj_alu)) {
         return false;
