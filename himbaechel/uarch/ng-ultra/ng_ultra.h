@@ -104,6 +104,8 @@ TESTABLE_PRIVATE:
     bool update_bff_to_scc(CellInfo *cell, BelId bel, PipId dst_pip);
     void disable_beyond_fe_s_output(BelId bel);
 
+    void fixup_crossbars();
+
     // Misc utility functions
     bool get_mux_data(BelId bel, IdString port, uint8_t *value);
     bool get_mux_data(WireId wire, uint8_t *value);

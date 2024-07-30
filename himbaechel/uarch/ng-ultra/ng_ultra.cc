@@ -20,6 +20,7 @@
 
 #include <boost/algorithm/string.hpp>
 #include <fstream>
+#include <queue>
 
 #include "himbaechel_api.h"
 #include "design_utils.h"
@@ -425,6 +426,8 @@ void NgUltraImpl::postRoute()
         }
     }
 
+    fixup_crossbars();
+
     print_utilisation(ctx);
     const ArchArgs &args = ctx->args;
     if (args.options.count("bit")) {
@@ -742,6 +745,86 @@ delay_t NgUltraImpl::predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel
         return 200;
     }
     return 500 + 100 * (std::abs(dst_loc.y - src_loc.y)/4 + std::abs(dst_loc.x - src_loc.x)/4);
+}
+
+void NgUltraImpl::fixup_crossbars()
+{
+
+    auto is_crossbar_pip = [&] (PipId pip) {
+        auto &pd = chip_pip_info(ctx->chip_info, pip);
+        auto src_orig_type = IdString(chip_tile_info(ctx->chip_info, pip.tile).wires[pd.src_wire].wire_type).str(ctx);
+        auto dst_orig_type = IdString(chip_tile_info(ctx->chip_info, pip.tile).wires[pd.dst_wire].wire_type).str(ctx);
+        if (!boost::starts_with(dst_orig_type,"CROSSBAR_") || !boost::ends_with(dst_orig_type, "OUTPUT_WIRE")) {
+            return false;
+        }
+        // replace _OUTPUT_WIRE with _INPUT_WIRE and check same crossbar
+        if (src_orig_type != (dst_orig_type.substr(0, dst_orig_type.size() - 11) + "INPUT_WIRE")) {
+            return false;
+        }
+        return true;
+    };
+
+    auto crossbar_key = [&] (PipId pip, bool src) {
+        auto &pd = chip_pip_info(ctx->chip_info, pip);
+        auto wire_name = IdString(chip_tile_info(ctx->chip_info, pip.tile).wires[src ? pd.src_wire : pd.dst_wire].name).str(ctx);
+        return std::make_pair(pip.tile, ctx->id(wire_name.substr(0, wire_name.rfind('.'))));
+    };
+
+    for (auto &net : ctx->nets) {
+        NetInfo *ni = net.second.get();
+        dict<WireId, std::vector<PipId>> downstream;
+        // build a map of wires to sinks
+        for (auto &w : ni->wires) {
+            if (w.second.pip != PipId()) {
+                downstream[ctx->getPipSrcWire(w.second.pip)].push_back(w.second.pip);
+            }
+        }
+        // the original drivers of crossbars
+        dict<std::pair<int, IdString>, WireId> crossbar_entries;
+        // traverse from the start forwards so we always reach closer wires first in the route tree
+        WireId src = ctx->getNetinfoSourceWire(ni);
+        if (src == WireId() || !downstream.count(src)) {
+            continue;
+        }
+        std::queue<WireId> visit;
+        visit.push(src);
+        while (!visit.empty()) {
+            WireId cursor = visit.front();
+            visit.pop();
+            if (!downstream.count(cursor))
+                continue;
+            for (auto pip : downstream.at(cursor)) {
+                WireId dst = ctx->getPipDstWire(pip);
+                if (is_crossbar_pip(pip)) {
+                    auto key = crossbar_key(pip, true);
+                    if (!crossbar_entries.count(key)) {
+                        crossbar_entries[key] = ctx->getPipSrcWire(pip);
+                    } else {
+                        WireId xbar_src = crossbar_entries.at(key);
+                        if (ctx->getPipSrcWire(pip) != xbar_src) {
+                            // rewrite to be driven by original entry
+                            ctx->unbindPip(pip);
+                            PipId found_pip = PipId();
+                            for (auto search_pip : ctx->getPipsUphill(dst)) {
+                                if (ctx->getPipSrcWire(search_pip) == xbar_src) {
+                                    found_pip = search_pip;
+                                    break;
+                                }
+                            }
+                            NPNR_ASSERT(found_pip != PipId());
+                            // rebind
+                            log_info(" replacing crossbar pip %s with %s on %s\n", ctx->nameOfPip(pip), ctx->nameOfPip(found_pip), ctx->nameOf(ni));
+                            ctx->bindPip(found_pip, ni, STRENGTH_STRONG);
+                        }
+                    }
+                }
+                visit.push(dst);
+            }
+            downstream.erase(cursor);
+        }
+        // check everything was visited by our BFS tree traversal
+        NPNR_ASSERT(downstream.empty());
+    }
 }
 
 struct NgUltraArch : HimbaechelArch
