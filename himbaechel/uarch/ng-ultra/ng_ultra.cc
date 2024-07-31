@@ -751,17 +751,9 @@ void NgUltraImpl::fixup_crossbars()
 {
 
     auto is_crossbar_pip = [&] (PipId pip) {
-        auto &pd = chip_pip_info(ctx->chip_info, pip);
-        auto src_orig_type = IdString(chip_tile_info(ctx->chip_info, pip.tile).wires[pd.src_wire].wire_type).str(ctx);
-        auto dst_orig_type = IdString(chip_tile_info(ctx->chip_info, pip.tile).wires[pd.dst_wire].wire_type).str(ctx);
-        if (!boost::starts_with(dst_orig_type,"CROSSBAR_") || !boost::ends_with(dst_orig_type, "OUTPUT_WIRE")) {
-            return false;
-        }
-        // replace _OUTPUT_WIRE with _INPUT_WIRE and check same crossbar
-        if (src_orig_type != (dst_orig_type.substr(0, dst_orig_type.size() - 11) + "INPUT_WIRE")) {
-            return false;
-        }
-        return true;
+        const auto &pd = chip_pip_info(ctx->chip_info, pip);
+        const auto &extra_data = *reinterpret_cast<const NGUltraPipExtraDataPOD *>(pd.extra_data.get());
+        return (extra_data.name && extra_data.type == PipExtra::PIP_EXTRA_CROSSBAR);
     };
 
     auto crossbar_key = [&] (PipId pip, bool src) {
