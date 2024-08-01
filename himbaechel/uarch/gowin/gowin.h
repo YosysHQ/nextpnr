@@ -70,7 +70,7 @@ inline bool is_clkdiv(const CellInfo *cell) { return type_is_clkdiv(cell->type);
 inline bool type_is_clkdiv2(IdString cell_type) { return cell_type == id_CLKDIV2; }
 inline bool is_clkdiv2(const CellInfo *cell) { return type_is_clkdiv2(cell->type); }
 
-// Return true for HCLK BELs
+// Return true for HCLK Cells
 inline bool is_hclk(const CellInfo *cell) { return type_is_clkdiv2(cell->type) || type_is_clkdiv(cell->type); }
 
 // ==========================================

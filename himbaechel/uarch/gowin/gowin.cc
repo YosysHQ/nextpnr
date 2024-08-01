@@ -388,13 +388,22 @@ void GowinImpl::place_constrained_hclk_cells()
     std::map<IdString, std::pair<IdString, int>> true_clkdivs;
     std::set<BelId> used_bels;
     for (auto constr_pair : constrained_clkdivs) {
-        BelId option1 = ctx->getBelByName(constr_pair.first);
-        BelId option2 = gwu.get_other_hclk_clkdiv2(option1);
+        BelId option0 = ctx->getBelByName(constr_pair.first);
+        BelId option1 = gwu.get_other_hclk_clkdiv2(option0);
 
-        // log_info("%s: option1: %s, option2: %s\n", constr_pair.second.c_str(ctx), ctx->nameOfBel(option1),
-        //          ctx->nameOfBel(option2));
+        // On the GW1N-9 devices, only the lower CLKDIV can be fed by a CLKDIV2
+        std::vector<BelId> options = {option1, option0};
+        if (chip.str(ctx) == "GW1N-9C") {
+            auto ci = ctx->cells.at(constr_pair.second).get();
+            for (auto cluster_child_cell : ci->constr_children)
+                if (cluster_child_cell->type == id_CLKDIV2 && options.back() == option0) {
+                    options.pop_back();
+                    break;
+                }
+        }
+
         bool placed = false;
-        for (auto option : {option1, option2}) {
+        for (auto option : options) {
             if (placed || (used_bels.find(option) != used_bels.end()))
                 continue;
             for (auto option_cell : bel_cell_map[option]) {
@@ -413,8 +422,8 @@ void GowinImpl::place_constrained_hclk_cells()
         // We create a new alias to represent this
         if (!placed) {
             auto new_alias = std::pair<IdString, int>(constr_pair.second, -1);
-            bel_cell_map[option1].insert(new_alias);
-            bel_cell_map[option2].insert(new_alias);
+            for (auto option : options)
+                bel_cell_map[option].insert(new_alias);
             alias_cells.push_back(new_alias);
             true_clkdivs[constr_pair.second] = new_alias;
         }
@@ -457,12 +466,14 @@ void GowinImpl::place_constrained_hclk_cells()
     for (auto cell_alias : alias_cells) {
         auto ci = ctx->cells.at(cell_alias.first).get();
 
-        if (final_placement.find(cell_alias) == final_placement.end())
+        if (final_placement.find(cell_alias) == final_placement.end() && ctx->debug)
             if (ci->type == id_CLKDIV2 || ci->type == id_CLKDIV)
-                log_error("Unable to place HCLK cell %s; no BELs available to implement cell type %s\n",
-                          ci->name.c_str(ctx), ci->type.c_str(ctx));
+                log_info("Custom HCLK Placer: Unable to place HCLK cell %s; no BELs available to implement cell type "
+                         "%s\n",
+                         ci->name.c_str(ctx), ci->type.c_str(ctx));
             else
-                log_error("Unable to route HCLK signal from %s to IOLOGIC\n", ci->name.c_str(ctx));
+                log_info("Custom HCLK Placer: Unable to guarantee route for HCLK signal from %s to IOLOGIC\n",
+                         ci->name.c_str(ctx));
 
         else {
             auto placement = final_placement[cell_alias];

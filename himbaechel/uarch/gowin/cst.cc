@@ -63,9 +63,10 @@ struct GowinCstReader
 
         for (auto &bel : ctx->getBelsInBucket(ctx->getBelBucketForCellType(id_CLKDIV))) {
             auto this_loc = ctx->getBelLocation(bel);
-            if (!lr && this_loc.y == y_coord && this_loc.z == bel_z) // top or bottom side
+            if (lr && this_loc.x == x_coord && this_loc.z == bel_z && this_loc.y != 0 &&
+                this_loc.y != maxY - 1) // left or right side
                 return bel;
-            else if (lr && this_loc.x == x_coord && this_loc.z == bel_z) // left or right side
+            else if (!lr && this_loc.y == y_coord && this_loc.z == bel_z) // top or bottom side
                 return bel;
         }
         return BelId();
