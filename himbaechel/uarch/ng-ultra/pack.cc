@@ -1891,8 +1891,8 @@ void NgUltraImpl::pack()
 
     // Setup
     NgUltraPacker packer(ctx, this);
-    packer.remove_not_used();
     packer.pack_constants();
+    packer.remove_not_used();
     packer.update_lut_init();
     packer.update_dffs();
 
