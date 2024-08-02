@@ -654,7 +654,7 @@ class TimingPool(BBAStruct):
     def set_bel_pin_class(self, grade: str, name: str, delay: TimingValue,
             in_cap: Optional[TimingValue]=None, out_res: Optional[TimingValue]=None):
         # bel pin classes are shared with pip classes, but this alias adds a bit of extra clarity
-        set_pip_class(self, grade, name, delay, in_cap, out_res, is_buffered=True)
+        self.set_pip_class(grade, name, delay, in_cap, out_res, is_buffered=True)
 
     def set_node_class(self, grade: str, name: str,  delay: TimingValue,
             res: Optional[TimingValue]=None, cap: Optional[TimingValue]=None):
