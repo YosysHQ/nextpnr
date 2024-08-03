@@ -33,6 +33,8 @@ struct GowinUtils
     bool is_simple_io_bel(BelId bel);
     Loc get_pair_iologic_bel(Loc loc);
     BelId get_io_bel_from_iologic(BelId bel);
+    BelId get_dqce_bel(IdString spine_name);
+    BelId get_dcs_bel(IdString spine_name);
 
     // BSRAM
     bool has_SP32(void);
