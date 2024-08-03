@@ -96,6 +96,17 @@ MULTALU18X18_1_Z = 560
 MULTALU36X18_1_Z = 560 + 1
 MULTADDALU18X18_1_Z = 560 + 2
 
+CLKDIV2_0_Z = 610
+CLKDIV2_1_Z = 611
+CLKDIV2_2_Z = 612
+CLKDIV2_3_Z = 613
+
+
+CLKDIV_0_Z = 620
+CLKDIV_1_Z = 621
+CLKDIV_2_Z = 622
+CLKDIV_3_Z = 623
+
 # =======================================
 # Chipdb additional info
 # =======================================
@@ -357,6 +368,47 @@ def create_hclk_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
             if not tt.has_wire(src):
                 tt.create_wire(src, "HCLK")
             tt.create_pip(src, dst)
+    
+    hclk_bel_zs = {
+        "CLKDIV2_HCLK0_SECT0": CLKDIV2_0_Z,
+        "CLKDIV2_HCLK0_SECT1": CLKDIV2_1_Z,
+        "CLKDIV2_HCLK1_SECT0": CLKDIV2_2_Z,
+        "CLKDIV2_HCLK1_SECT1": CLKDIV2_3_Z,
+        "CLKDIV_HCLK0_SECT0": CLKDIV_0_Z,
+        "CLKDIV_HCLK0_SECT1": CLKDIV_1_Z,
+        "CLKDIV_HCLK1_SECT0": CLKDIV_2_Z,
+        "CLKDIV_HCLK1_SECT1": CLKDIV_3_Z
+    }
+   
+    for bel_name, bel_props in db.grid[y][x].bels.items():
+        if (bel_name not in hclk_bel_zs):
+            continue
+        this_portmap = bel_props.portmap
+
+        if bel_name.startswith("CLKDIV2_"):
+            bel_type = "CLKDIV2"
+        elif bel_name.startswith("CLKDIV_"):
+            bel_type = "CLKDIV"
+        this_bel = tt.create_bel(bel_name, bel_type, hclk_bel_zs[bel_name])
+
+        if (bel_name in ["CLKDIV_HCLK0_SECT1", "CLKDIV_HCLK1_SECT1"]): 
+            this_bel.flags |= BEL_FLAG_HIDDEN
+        if bel_type=="CLKDIV":
+            this_bel.flags |= BEL_FLAG_GLOBAL
+
+        known_pins = ["HCLKIN", "RESETN", "CLKOUT"]
+        if bel_type == "CLKDIV":
+            known_pins.append("CALIB")
+
+        for pin in this_portmap.keys():
+            assert pin in known_pins, f"Unknown pin {pin} for bel {this_bel}"
+            if pin in ["CALIB", "RESETN", "HCLKIN"]:
+                pin_direction = PinType.INPUT
+            elif pin in ["CLKOUT"]:
+                pin_direction = PinType.OUTPUT
+            wire_type = "HCLK_CTRL" if pin in ("CALIB", "RESETN") else "HCLK"
+            add_port_wire(tt, this_bel, this_portmap, pin, wire_type, pin_direction)
+
 
 # map spine -> dqce bel
 dqce_bels = {}

@@ -1,7 +1,6 @@
 #include "design_utils.h"
 #include "log.h"
 #include "nextpnr.h"
-#include "util.h"
 
 #define HIMBAECHEL_CONSTIDS "uarch/gowin/constids.inc"
 #include "himbaechel_constids.h"
@@ -1325,7 +1324,7 @@ struct GowinPacker
     {
         int num = (bit_width == 9 || bit_width == 18 || bit_width == 36) ? 36 : 32;
         for (int i = 0, j = offset; i < num; ++i, ++j) {
-            if (((j + 1) % 9) == 0 && (bit_width == 16 || bit_width == 32)) {
+            if (((i + 1) % 9) == 0 && (bit_width == 16 || bit_width == 32)) {
                 ++j;
             }
             ci->renamePort(ctx->idf(from, i), ctx->idf(to, offset ? j % 36 : j));
@@ -1391,15 +1390,6 @@ struct GowinPacker
             }
             ++idx;
         }
-        switch (idx) {
-        case 1:
-            init |= init << 2; /* fallthrough */
-        case 2:
-            init |= init << 4;
-            break;
-        default:
-            break;
-        }
         lut->setParam(id_INIT, init);
 
         new_cells.push_back(std::move(lut_cell));
@@ -1416,7 +1406,7 @@ struct GowinPacker
         if (bit_width == 32 || bit_width == 36) {
             return;
         }
-        int read_mode = int_or_default(ci->params, id_READ_MODE, 0);
+        int read_mode = ci->params.at(id_READ_MODE).as_int64();
         if (read_mode == 0) {
             return;
         }
@@ -1521,7 +1511,7 @@ struct GowinPacker
         CellInfo *new_ce_net_src = ce_pre_dff;
 
         // add delay register in pipeline mode
-        int read_mode = int_or_default(ci->params, id_READ_MODE, 0);
+        int read_mode = ci->params.at(id_READ_MODE).as_int64();
         if (read_mode) {
             auto ce_pipe_dff_cell = gwu.create_cell(create_aux_name(ci->name, 0, "_ce_pipe_dff$"), id_DFF);
             new_cells.push_back(std::move(ce_pipe_dff_cell));
@@ -1597,7 +1587,10 @@ struct GowinPacker
             ci->connectPort(port, vcc_net);
         }
 
+        ci->addInput(id_WRE);
+        ci->connectPort(id_WRE, vss_net);
         ci->addInput(id_WREB);
+        ci->connectPort(id_WREB, vss_net);
 
         if (!ci->params.count(id_BIT_WIDTH)) {
             ci->setParam(id_BIT_WIDTH, Property(default_bw, 32));
@@ -1609,19 +1602,10 @@ struct GowinPacker
             ci->copyPortTo(id_CE, ci, id_CEB);
             ci->copyPortTo(id_OCE, ci, id_OCEB);
             ci->copyPortTo(id_RESET, ci, id_RESETB);
-            ci->connectPort(id_WREB, vcc_net);
 
-            // disconnect lower address bits for ROM
-            std::array rom_ignore_bits = {2, 4, 8, 16, 32};
-            std::array romx9_ignore_bits = {9, 9, 9, 18, 36};
-            for (unsigned int i = 0; i < 14; ++i) {
-                if (i < size(rom_ignore_bits) && ((ci->type == id_pROM && bit_width >= rom_ignore_bits[i]) ||
-                                                  (ci->type == id_pROMX9 && bit_width >= romx9_ignore_bits[i]))) {
-                    ci->disconnectPort(ctx->idf("AD[%d]", i));
-                } else {
-                    ci->renamePort(ctx->idf("AD[%d]", i), ctx->idf("ADA%d", i));
-                    ci->copyPortTo(ctx->idf("ADA%d", i), ci, ctx->idf("ADB%d", i));
-                }
+            for (int i = 0; i < 14; ++i) {
+                ci->renamePort(ctx->idf("AD[%d]", i), ctx->idf("ADA%d", i));
+                ci->copyPortTo(ctx->idf("ADA%d", i), ci, ctx->idf("ADB%d", i));
             }
             bsram_rename_ports(ci, bit_width, "DO[%d]", "DO%d");
         } else {
@@ -1630,18 +1614,9 @@ struct GowinPacker
             ci->renamePort(id_OCE, id_OCEB);
             ci->renamePort(id_CE, id_CEB);
             ci->renamePort(id_RESET, id_RESETB);
-            ci->connectPort(id_WREB, vss_net);
 
-            ci->addInput(id_CE);
-            ci->connectPort(id_CE, vcc_net);
-            ci->disconnectPort(id_OCEB);
-
-            int read_mode = int_or_default(ci->params, id_READ_MODE, 0);
-            if (read_mode) {
-                ci->connectPort(id_OCEB, vcc_net);
-            } else {
-                ci->copyPortTo(id_CEB, ci, id_OCEB);
-            }
+            ci->addInput(id_CEA);
+            ci->connectPort(id_CEA, vss_net);
             for (int i = 0; i < 14; ++i) {
                 ci->renamePort(ctx->idf("AD[%d]", i), ctx->idf("ADB%d", i));
             }
@@ -1821,21 +1796,6 @@ struct GowinPacker
         // Some chips have problems with BLKSEL ports
         if (gwu.need_BLKSEL_fix()) {
             bsram_fix_blksel(ci, new_cells);
-        }
-
-        // The statement in the Gowin documentation that in the reading mode
-        // "READ_MODE=0" the output register is not used and the OCE signal is
-        // ignored is not confirmed by practice - if the OCE was left
-        // unconnected or connected to the constant network, then a change in
-        // output data was observed even with CE=0, as well as the absence of
-        // such at CE=1.
-        // Synchronizing CE and OCE helps but it's definitely a hack.
-        NetInfo *oce_net = ci->getPort(id_OCE);
-        if (oce_net == nullptr || oce_net->name == ctx->id("$PACKER_VCC") || oce_net->name == ctx->id("$PACKER_GND")) {
-            if (oce_net != nullptr) {
-                ci->disconnectPort(id_OCE);
-            }
-            ci->copyPortTo(id_CE, ci, id_OCE);
         }
 
         // XXX UG285-1.3.6_E Gowin BSRAM & SSRAM User Guide:
@@ -2981,6 +2941,39 @@ struct GowinPacker
         }
     }
 
+    // ===================================
+    // HCLK -- CLKDIV and CLKDIV2 for now
+    // ===================================
+    void pack_hclk(void)
+    {
+        log_info("Pack HCLK cells...\n");
+
+        for (auto &cell : ctx->cells) {
+            auto ci = cell.second.get();
+            if (ci->type != id_CLKDIV)
+                continue;
+            NetInfo *hclk_in = ci->getPort(id_HCLKIN);
+            if (hclk_in) {
+                CellInfo *this_driver = hclk_in->driver.cell;
+                if (this_driver && this_driver->type == id_CLKDIV2) {
+                    NetInfo *out = this_driver->getPort(id_CLKOUT);
+                    if (out->users.entries() > 1) {
+                        // We could do as the IDE does sometimes and replicate the CLKDIV2 cell
+                        // as many times as we need. For now, we keep things simple
+                        log_error("CLKDIV2 that drives CLKDIV should drive no other cells\n");
+                    }
+                    ci->cluster = ci->name;
+                    this_driver->cluster = ci->name;
+                    ci->constr_children.push_back(this_driver);
+                    this_driver->constr_x = 0;
+                    this_driver->constr_y = 0;
+                    this_driver->constr_z = BelZ::CLKDIV2_0_Z - BelZ::CLKDIV_0_Z;
+                    this_driver->constr_abs_z = false;
+                }
+            }
+        }
+    }
+
     // =========================================
     // Create entry points to the clock system
     // =========================================
@@ -3095,6 +3088,9 @@ struct GowinPacker
         ctx->check();
 
         pack_gsr();
+        ctx->check();
+
+        pack_hclk();
         ctx->check();
 
         pack_bandgap();
