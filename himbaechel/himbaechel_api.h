@@ -55,6 +55,13 @@ struct Context;
 
 struct PlacerHeapCfg;
 
+namespace GfxFlags {
+    static constexpr uint32_t FLAG_INVERT_Y  = 0x0001;
+    static constexpr uint32_t FLAG_SHOW_BEL  = 0x0002;
+    static constexpr uint32_t FLAG_SHOW_WIRE = 0x0004;
+    static constexpr uint32_t FLAG_SHOW_PIP  = 0x0008;
+}
+
 struct HimbaechelAPI
 {
     // Architecture specific context initialization
@@ -105,6 +112,15 @@ struct HimbaechelAPI
     virtual bool isClusterStrict(const CellInfo *cell) const;
     virtual bool getClusterPlacement(ClusterId cluster, BelId root_bel,
                                      std::vector<std::pair<CellInfo *, BelId>> &placement) const;
+
+    // Graphics
+    virtual void drawBel(std::vector<GraphicElement> &g, GraphicElement::style_t style, IdString bel_type, Loc loc) {};
+
+    virtual void drawWire(std::vector<GraphicElement> &g, GraphicElement::style_t style, Loc loc, IdString wire_type, int32_t tilewire, IdString tile_type) {};
+
+    virtual void drawPip(std::vector<GraphicElement> &g,GraphicElement::style_t style, Loc loc,
+                WireId src, IdString src_type, int32_t src_id, WireId dst, IdString dst_type, int32_t dst_id) {};
+
     // --- Flow hooks ---
     virtual void pack(){}; // replaces the pack function
     // Called before and after main placement and routing
