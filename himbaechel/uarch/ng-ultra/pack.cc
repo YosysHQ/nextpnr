@@ -382,6 +382,71 @@ void NgUltraPacker::pack_xluts(void)
     flush_cells();
 }
 
+void NgUltraPacker::pack_multi_dffs(void)
+{
+    log_info("Pack multi DFFs...\n");
+    std::vector<CellInfo*> dff_chain_start;
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (!ci.type.in(id_NX_DFF))
+            continue;
+        NetInfo *inp = ci.getPort(id_I);
+        if (!inp || (inp->driver.cell && inp->driver.cell->type.in(id_NX_DFF))) continue;
+        int cnt = 0;
+        CellInfo *dff = &ci;
+        while(1) {
+            NetInfo *o = dff->getPort(id_O);            
+            if (o->users.entries() != 1) break;
+            dff = (*o->users.begin()).cell;
+            if (dff->type == id_NX_DFF && (*o->users.begin()).port == id_I) {
+                cnt++;
+            } else break;
+        }
+        if (cnt)
+            dff_chain_start.push_back(&ci);
+    }
+
+    int dff_only = 0, lut_and_ff = 0;
+    for (auto dff : dff_chain_start) {
+        CellInfo *root = create_cell_ptr(id_BEYOND_FE, ctx->id(dff->name.str(ctx) + "$fe"));
+        root->cluster = root->name;
+        NetInfo *net = dff->getPort(id_I);
+        NetInfo *o = dff->getPort(id_O);
+        if (net && net->driver.cell->type == id_NX_LUT && net->users.entries()==1) {
+            CellInfo *lut = net->driver.cell;
+            if (!lut->params.count(id_lut_table))
+                log_error("Cell '%s' missing lut_table\n", lut->name.c_str(ctx));
+            lut_to_fe(lut, root, false, lut->params[id_lut_table]);
+            packed_cells.insert(lut->name);
+            dff_to_fe(dff, root, false);
+            packed_cells.insert(dff->name);
+            ++lut_and_ff;
+        } else {
+            dff_to_fe(dff, root, true);
+            packed_cells.insert(dff->name);
+            ++dff_only;
+        }
+        while(1) {
+            if (o->users.entries() != 1) break;
+            dff = (*o->users.begin()).cell;
+            if (!(dff->type == id_NX_DFF && (*o->users.begin()).port == id_I)) break;
+            o = dff->getPort(id_O);
+            CellInfo *new_cell = create_cell_ptr(id_BEYOND_FE, ctx->id(dff->name.str(ctx) + "$fe"));
+            dff_to_fe(dff, new_cell, true);
+            ++dff_only;
+            root->constr_children.push_back(new_cell);
+            new_cell->cluster = root->cluster;
+            new_cell->constr_z = PLACE_DFF_CHAIN;
+            packed_cells.insert(dff->name);
+        }
+    }
+    if (lut_and_ff)
+        log_info("    %6d FEs used as LUT and DFF\n", lut_and_ff);
+    if (dff_only)
+        log_info("    %6d FEs used as DFF only\n", dff_only);
+    flush_cells();
+}
+
 void NgUltraPacker::pack_lut_multi_dffs(void)
 {
     log_info("Pack LUT-multi DFFs...\n");
@@ -1994,6 +2059,7 @@ void NgUltraImpl::pack()
     packer.pack_cys();
     packer.pack_xluts();
     packer.pack_lut_multi_dffs();
+    packer.pack_multi_dffs();
     packer.pack_lut_dffs();
     packer.pack_dffs();
 

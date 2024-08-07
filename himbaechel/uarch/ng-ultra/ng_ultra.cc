@@ -644,7 +644,8 @@ bool NgUltraImpl::getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc
         Loc child_loc = if_using_basecluster<Loc>(child, [&](const BaseClusterInfo *child) {
             switch(child->constr_z) {
                 case PLACE_CY_CHAIN : { Loc l = getNextLocInCYChain(prev); prev = l; return l; }
-                case PLACE_LUT_CHAIN : { Loc l = getNextLocInLutChain(prev); prev = l; return l; }
+                case PLACE_LUT_CHAIN : { Loc l = getNextLocInLUTChain(prev); prev = l; return l; }
+                case PLACE_DFF_CHAIN : { Loc l = getNextLocInDFFChain(prev); prev = l; return l; }
                 case PLACE_CY_FE1 ... PLACE_CY_FE4: return getCYFE(root_loc, child->constr_z - PLACE_CY_FE1 );
                 case PLACE_XLUT_FE1 ... PLACE_XLUT_FE4: return getXLUTFE(root_loc, child->constr_z - PLACE_XLUT_FE1 );
                 case PLACE_XRF_I1 ... PLACE_XRF_WEA:

@@ -471,12 +471,30 @@ Loc getNextLocInCYChain(Loc loc)
     return result;
 }
 
-Loc getNextLocInLutChain(Loc loc)
+Loc getNextLocInLUTChain(Loc loc)
 {
     Loc result = loc;
     result.x = loc.x;
     result.y = loc.y;
     result.z = (loc.z + 8) % 32; // BEL_LUT_Z is 0
+    return result;
+}
+
+Loc getNextLocInDFFChain(Loc loc)
+{
+    Loc result = loc;
+    if (loc.z == 31) {
+        if ((loc.x & 3) == 3) {
+            result.z = -1; // End of chain
+            return result;
+        }
+        result.z = 0;
+        result.x++;
+        return result;
+    }    
+    int z = loc.z + 8;
+    if (z>31) z++;
+    result.z = z % 32; // BEL_LUT_Z is 0
     return result;
 }
 

@@ -206,6 +206,7 @@ enum ClusterPlacement
     PLACE_FIFO_WEQ2,
     PLACE_FIFO_REQ2,
     PLACE_LUT_CHAIN,
+    PLACE_DFF_CHAIN,
 };
 
 enum PipExtra
