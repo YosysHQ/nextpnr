@@ -29,6 +29,7 @@ namespace ng_ultra {
 
 Loc getNextLocInDSPChain(const NgUltraImpl *impl, Loc loc);
 Loc getNextLocInCYChain(Loc loc);
+Loc getNextLocInLutChain(Loc loc);
 Loc getCYFE(Loc root, int pos);
 Loc getXLUTFE(Loc root, int pos);
 Loc getXRFFE(Loc root, int pos);

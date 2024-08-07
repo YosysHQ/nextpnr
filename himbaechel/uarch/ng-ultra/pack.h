@@ -47,6 +47,7 @@ struct NgUltraPacker
     void update_lut_init();
     void update_dffs();
     void pack_xluts();
+    void pack_lut_multi_dffs();
     void pack_lut_dffs();
     void pack_dffs();
     void pack_cys();

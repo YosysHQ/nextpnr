@@ -471,6 +471,15 @@ Loc getNextLocInCYChain(Loc loc)
     return result;
 }
 
+Loc getNextLocInLutChain(Loc loc)
+{
+    Loc result = loc;
+    result.x = loc.x;
+    result.y = loc.y;
+    result.z = (loc.z + 8) % 32; // BEL_LUT_Z is 0
+    return result;
+}
+
 Loc getCYFE(Loc root, int pos)
 {
     int p[] = { 2-1, 25-1, 10-1, 17-1 };
