@@ -385,7 +385,7 @@ void NgUltraPacker::pack_xluts(void)
 void NgUltraPacker::pack_multi_dffs(void)
 {
     log_info("Pack multi DFFs...\n");
-    std::vector<CellInfo*> dff_chain_start;
+    std::vector<std::pair<CellInfo*, std::vector<CellInfo*>>> dff_chain_start;
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_NX_DFF))
@@ -394,24 +394,34 @@ void NgUltraPacker::pack_multi_dffs(void)
         if (!inp || (inp->driver.cell && inp->driver.cell->type.in(id_NX_DFF))) continue;
         int cnt = 0;
         CellInfo *dff = &ci;
+        std::vector<CellInfo*> chain;
+        CellInfo* start_dff = &ci;
         while(1) {
             NetInfo *o = dff->getPort(id_O);            
             if (o->users.entries() != 1) break;
             dff = (*o->users.begin()).cell;
             if (dff->type == id_NX_DFF && (*o->users.begin()).port == id_I) {
-                cnt++;
+                if (cnt==95) { // note that start_dff is also part of chain
+                    dff_chain_start.push_back(make_pair(start_dff, chain));
+                    cnt = 0;
+                    start_dff = dff;
+                    chain.clear();
+                } else {
+                    chain.push_back(dff);
+                    cnt++;
+                }
             } else break;
         }
         if (cnt)
-            dff_chain_start.push_back(&ci);
+            dff_chain_start.push_back(make_pair(start_dff, chain));
     }
 
     int dff_only = 0, lut_and_ff = 0;
-    for (auto dff : dff_chain_start) {
+    for (auto ch : dff_chain_start) {
+        CellInfo *dff = ch.first;
         CellInfo *root = create_cell_ptr(id_BEYOND_FE, ctx->id(dff->name.str(ctx) + "$fe"));
         root->cluster = root->name;
         NetInfo *net = dff->getPort(id_I);
-        NetInfo *o = dff->getPort(id_O);
         if (net && net->driver.cell->type == id_NX_LUT && net->users.entries()==1) {
             CellInfo *lut = net->driver.cell;
             if (!lut->params.count(id_lut_table))
@@ -426,11 +436,7 @@ void NgUltraPacker::pack_multi_dffs(void)
             packed_cells.insert(dff->name);
             ++dff_only;
         }
-        while(1) {
-            if (o->users.entries() != 1) break;
-            dff = (*o->users.begin()).cell;
-            if (!(dff->type == id_NX_DFF && (*o->users.begin()).port == id_I)) break;
-            o = dff->getPort(id_O);
+        for(auto dff : ch.second) {
             CellInfo *new_cell = create_cell_ptr(id_BEYOND_FE, ctx->id(dff->name.str(ctx) + "$fe"));
             dff_to_fe(dff, new_cell, true);
             ++dff_only;
