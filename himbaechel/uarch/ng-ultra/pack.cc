@@ -369,6 +369,10 @@ void NgUltraPacker::pack_xluts(void)
         bind_attr_loc(&ci, &ci.attrs);
         ci.cluster = ci.name;
         xlut_used++;
+
+        NetInfo *o = ci.getPort(id_O);
+        CellInfo *orig_dff = o ? net_only_drives(ctx, o, is_dff, id_I, true) : nullptr;
+
         for (int i=0;i<4;i++) {
             ci.constr_children.push_back(lut[i]);
             lut[i]->cluster = ci.cluster;
@@ -378,8 +382,16 @@ void NgUltraPacker::pack_xluts(void)
             lut[i]->params[id_lut_used] = Property(1,1);
             NetInfo *net = lut[i]->getPort(id_LO);
             if (net->users.entries()!=2) {
-                lut[i]->timing_index = ctx->get_cell_timing_idx(ctx->id("BEYOND_FE_LUT"));
-                lut_only++;
+                if (orig_dff && net->users.entries()==1) {
+                    // we place DFF on XLUT output on unused DFF
+                    dff_to_fe(orig_dff, lut[i], false);
+                    packed_cells.insert(orig_dff->name);
+                    lut_and_ff++;
+                    orig_dff = nullptr;
+                } else {
+                    lut[i]->timing_index = ctx->get_cell_timing_idx(ctx->id("BEYOND_FE_LUT"));
+                    lut_only++;
+                }
             } else {
                 CellInfo *dff = (*net->users.begin()).cell;
                 if (dff->type!=id_NX_DFF)
@@ -392,9 +404,7 @@ void NgUltraPacker::pack_xluts(void)
                     lut[i]->timing_index = ctx->get_cell_timing_idx(ctx->id("BEYOND_FE_LUT"));
                     lut_only++;
                 }
-            }
-
-            
+            }   
         }
     }
     if (xlut_used)
