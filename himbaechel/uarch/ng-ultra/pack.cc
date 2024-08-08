@@ -382,9 +382,9 @@ void NgUltraPacker::pack_xluts(void)
     flush_cells();
 }
 
-void NgUltraPacker::pack_multi_dffs(void)
+void NgUltraPacker::pack_dff_chains(void)
 {
-    log_info("Pack multi DFFs...\n");
+    log_info("Pack DFF chains...\n");
     std::vector<std::pair<CellInfo*, std::vector<CellInfo*>>> dff_chain_start;
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
@@ -2065,7 +2065,7 @@ void NgUltraImpl::pack()
     packer.pack_cys();
     packer.pack_xluts();
     packer.pack_lut_multi_dffs();
-    packer.pack_multi_dffs();
+    packer.pack_dff_chains();
     packer.pack_lut_dffs();
     packer.pack_dffs();
 
