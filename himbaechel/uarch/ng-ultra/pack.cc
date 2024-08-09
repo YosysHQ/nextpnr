@@ -2099,8 +2099,10 @@ void NgUltraImpl::pack()
     packer.pack_cys();
     if (!args.options.count("no-xlut"))
         packer.pack_xluts();
-    packer.pack_lut_multi_dffs();
-    packer.pack_dff_chains();
+    if (!args.options.count("no-lut-chains"))
+        packer.pack_lut_multi_dffs();
+    if (!args.options.count("no-dff-chains"))
+        packer.pack_dff_chains();
     packer.pack_lut_dffs();
     packer.pack_dffs();
 
