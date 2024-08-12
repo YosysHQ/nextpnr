@@ -27,7 +27,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-struct TclEntity
+struct SdcEntity
 {
     enum EntityType
     {
@@ -39,8 +39,8 @@ struct TclEntity
     IdString name;
     IdString pin; // for cell pins only
 
-    TclEntity(EntityType type, IdString name) : type(type), name(name) {}
-    TclEntity(EntityType type, IdString name, IdString pin) : type(type), name(name), pin(pin) {}
+    SdcEntity(EntityType type, IdString name) : type(type), name(name) {}
+    SdcEntity(EntityType type, IdString name, IdString pin) : type(type), name(name), pin(pin) {}
 
     const std::string &to_string(Context *ctx) { return name.str(ctx); }
 
@@ -65,15 +65,7 @@ struct TclEntity
             if (ctx->cells.count(name)) {
                 cell = ctx->cells.at(name).get();
             } else {
-                const std::string &n = name.str(ctx);
-                auto pos = n.rfind('.');
-                if (pos == std::string::npos)
-                    return nullptr;
-                // remove one hierarchy layer due to Radiant weirdness around PLLs etc
-                IdString stripped_name = ctx->id(n.substr(0, pos));
-                if (!ctx->cells.count(stripped_name))
-                    return nullptr;
-                cell = ctx->cells.at(stripped_name).get();
+                return nullptr;
             }
             if (!cell->ports.count(pin))
                 return nullptr;
@@ -86,14 +78,14 @@ struct TclEntity
     }
 };
 
-struct TclValue
+struct SdcValue
 {
-    TclValue(const std::string &s) : is_string(true), str(s) {};
-    TclValue(const std::vector<TclEntity> &l) : is_string(false), list(l) {};
+    SdcValue(const std::string &s) : is_string(true), str(s) {};
+    SdcValue(const std::vector<SdcEntity> &l) : is_string(false), list(l) {};
 
     bool is_string;
     std::string str;             // simple string value
-    std::vector<TclEntity> list; // list of entities
+    std::vector<SdcEntity> list; // list of entities
 };
 
 struct SDCParser
@@ -217,7 +209,7 @@ struct SDCParser
         return s;
     }
 
-    TclValue evaluate(const std::vector<TclValue> &arguments)
+    SdcValue evaluate(const std::vector<SdcValue> &arguments)
     {
         NPNR_ASSERT(!arguments.empty());
         auto &arg0 = arguments.at(0);
@@ -239,9 +231,9 @@ struct SDCParser
             log_error("Unsupported SDC command '%s'\n", cmd.c_str());
     }
 
-    std::vector<TclValue> get_arguments()
+    std::vector<SdcValue> get_arguments()
     {
-        std::vector<TclValue> args;
+        std::vector<SdcValue> args;
         while (!skip_check_eol()) {
             if (check_get('[')) {
                 // Start of a sub-expression
@@ -258,9 +250,9 @@ struct SDCParser
         return args;
     }
 
-    TclValue cmd_get_nets(const std::vector<TclValue> &arguments)
+    SdcValue cmd_get_nets(const std::vector<SdcValue> &arguments)
     {
-        std::vector<TclEntity> nets;
+        std::vector<SdcEntity> nets;
         for (int i = 1; i < int(arguments.size()); i++) {
             auto &arg = arguments.at(i);
             if (!arg.is_string)
@@ -270,16 +262,16 @@ struct SDCParser
                 log_error("unsupported argument '%s' to get_nets (line %d)\n", s.c_str(), lineno);
             IdString id = ctx->id(s);
             if (ctx->nets.count(id) || ctx->net_aliases.count(id))
-                nets.emplace_back(TclEntity::ENTITY_NET, ctx->net_aliases.count(id) ? ctx->net_aliases.at(id) : id);
+                nets.emplace_back(SdcEntity::ENTITY_NET, ctx->net_aliases.count(id) ? ctx->net_aliases.at(id) : id);
             else
                 log_warning("get_nets argument '%s' matched no objects.\n", s.c_str());
         }
         return nets;
     }
 
-    TclValue cmd_get_ports(const std::vector<TclValue> &arguments)
+    SdcValue cmd_get_ports(const std::vector<SdcValue> &arguments)
     {
-        std::vector<TclEntity> ports;
+        std::vector<SdcEntity> ports;
         for (int i = 1; i < int(arguments.size()); i++) {
             auto &arg = arguments.at(i);
             if (!arg.is_string)
@@ -289,14 +281,14 @@ struct SDCParser
                 log_error("unsupported argument '%s' to get_ports (line %d)\n", s.c_str(), lineno);
             IdString id = ctx->id(s);
             if (ctx->ports.count(id))
-                ports.emplace_back(TclEntity::ENTITY_PORT, id);
+                ports.emplace_back(SdcEntity::ENTITY_PORT, id);
         }
         return ports;
     }
 
-    TclValue cmd_get_cells(const std::vector<TclValue> &arguments)
+    SdcValue cmd_get_cells(const std::vector<SdcValue> &arguments)
     {
-        std::vector<TclEntity> cells;
+        std::vector<SdcEntity> cells;
         for (int i = 1; i < int(arguments.size()); i++) {
             auto &arg = arguments.at(i);
             if (!arg.is_string)
@@ -306,14 +298,14 @@ struct SDCParser
                 log_error("unsupported argument '%s' to get_cells (line %d)\n", s.c_str(), lineno);
             IdString id = ctx->id(s);
             if (ctx->cells.count(id))
-                cells.emplace_back(TclEntity::ENTITY_CELL, id);
+                cells.emplace_back(SdcEntity::ENTITY_CELL, id);
         }
         return cells;
     }
 
-    TclValue cmd_get_pins(const std::vector<TclValue> &arguments)
+    SdcValue cmd_get_pins(const std::vector<SdcValue> &arguments)
     {
-        std::vector<TclEntity> pins;
+        std::vector<SdcEntity> pins;
         for (int i = 1; i < int(arguments.size()); i++) {
             auto &arg = arguments.at(i);
             if (!arg.is_string)
@@ -324,7 +316,7 @@ struct SDCParser
             auto pos = s.rfind('/');
             if (pos == std::string::npos)
                 log_error("expected / in cell pin name '%s' (line %d)\n", s.c_str(), lineno);
-            pins.emplace_back(TclEntity::ENTITY_PIN, ctx->id(s.substr(0, pos)), ctx->id(s.substr(pos + 1)));
+            pins.emplace_back(SdcEntity::ENTITY_PIN, ctx->id(s.substr(0, pos)), ctx->id(s.substr(pos + 1)));
             if (pins.back().get_net(ctx) == nullptr) {
                 log_warning("cell pin '%s' not found\n", s.c_str());
                 pins.pop_back();
@@ -333,7 +325,7 @@ struct SDCParser
         return pins;
     }
 
-    TclValue cmd_create_clock(const std::vector<TclValue> &arguments)
+    SdcValue cmd_create_clock(const std::vector<SdcValue> &arguments)
     {
         float period = 10;
         for (int i = 1; i < int(arguments.size()); i++) {
@@ -358,11 +350,11 @@ struct SDCParser
             } else {
                 for (const auto &ety : arg.list) {
                     NetInfo *net = nullptr;
-                    if (ety.type == TclEntity::ENTITY_PIN)
+                    if (ety.type == SdcEntity::ENTITY_PIN)
                         net = ety.get_net(ctx);
-                    else if (ety.type == TclEntity::ENTITY_NET)
+                    else if (ety.type == SdcEntity::ENTITY_NET)
                         net = ctx->nets.at(ety.name).get();
-                    else if (ety.type == TclEntity::ENTITY_PORT)
+                    else if (ety.type == SdcEntity::ENTITY_PORT)
                         net = ctx->ports.at(ety.name).net;
                     else
                         log_error("create_clock applies only to cells, cell pins, or IO ports (line %d)\n", lineno);
@@ -374,7 +366,7 @@ struct SDCParser
         return std::string{};
     }
 
-    TclValue cmd_set_false_path(const std::vector<TclValue> &arguments)
+    SdcValue cmd_set_false_path(const std::vector<SdcValue> &arguments)
     {
         NetInfo *from = nullptr;
         NetInfo *to = nullptr;
@@ -394,21 +386,21 @@ struct SDCParser
                 i++;
                 auto &val = arguments.at(i);
                 if (val.is_string) {
-                    log_error("expecting TclValue argument to -from (line %d)\n", lineno);
+                    log_error("expecting SdcValue argument to -from (line %d)\n", lineno);
                 }
 
                 if (val.list.size() != 1) {
-                    log_error("Expected a single TclEntity as argument to -to/-from (line %d)\n", lineno);
+                    log_error("Expected a single SdcEntity as argument to -to/-from (line %d)\n", lineno);
                 }
 
                 auto &ety = val.list.at(0);
 
                 NetInfo *net = nullptr;
-                if (ety.type == TclEntity::ENTITY_PIN)
+                if (ety.type == SdcEntity::ENTITY_PIN)
                     net = ety.get_net(ctx);
-                else if (ety.type == TclEntity::ENTITY_NET)
+                else if (ety.type == SdcEntity::ENTITY_NET)
                     net = ctx->nets.at(ety.name).get();
-                else if (ety.type == TclEntity::ENTITY_PORT)
+                else if (ety.type == SdcEntity::ENTITY_PORT)
                     net = ctx->ports.at(ety.name).net;
                 else
                     log_error("set_false_path applies only to nets, cell pins, or IO ports (line %d)\n", lineno);
@@ -427,7 +419,8 @@ struct SDCParser
             log_error("-to is required for set_false_path (line %d)\n", lineno);
         }
 
-        log_info("set_false_path from: %s, to: %s\n", from->name.c_str(ctx), to->name.c_str(ctx));
+        log_warning("set_false_path from: %s, to: %s does not do anything(yet).\n", from->name.c_str(ctx),
+                    to->name.c_str(ctx));
 
         return std::string{};
     }
