@@ -375,6 +375,7 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("freq", po::value<double>(), "set target frequency for design in MHz");
     general.add_options()("timing-allow-fail", "allow timing to fail in design");
     general.add_options()("no-tmdriv", "disable timing-driven placement");
+    general.add_options()("sdc", po::value<std::string>(), "Generic timing constraints SDC file to load");
     general.add_options()("sdf", po::value<std::string>(), "SDF delay back-annotation file to write");
     general.add_options()("sdf-cvc", "enable tweaks for SDF file compatibility with the CVC simulator");
     general.add_options()("no-print-critical-path-source",
@@ -605,6 +606,13 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
                 std::ifstream f(filename);
                 if (!parse_json(f, filename, w.getContext()))
                     log_error("Loading design failed.\n");
+
+                if (vm.count("sdc")) {
+                    std::string sdc_filename = vm["sdc"].as<std::string>();
+                    std::ifstream sdc_stream(sdc_filename);
+                    ctx->read_sdc(sdc_stream);
+                }
+
                 customAfterLoad(w.getContext());
                 w.notifyChangeContext();
                 w.updateActions();
@@ -613,6 +621,7 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
         } catch (log_execution_error_exception) {
             // show error is handled by gui itself
         }
+
         w.show();
 
         return a.exec();
@@ -623,6 +632,12 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
         std::ifstream f(filename);
         if (!parse_json(f, filename, ctx.get()))
             log_error("Loading design failed.\n");
+
+        if (vm.count("sdc")) {
+            std::string sdc_filename = vm["sdc"].as<std::string>();
+            std::ifstream sdc_stream(sdc_filename);
+            ctx->read_sdc(sdc_stream);
+        }
 
         customAfterLoad(ctx.get());
     }
