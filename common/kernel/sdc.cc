@@ -376,16 +376,17 @@ struct SDCParser
 
     TclValue cmd_set_false_path(const std::vector<TclValue> &arguments)
     {
-        std::optional<TclValue &> from, to;
+        NetInfo *from = nullptr;
+        NetInfo *to = nullptr;
 
         for (int i = 1; i < int(arguments.size()); i++) {
             auto &arg = arguments.at(i);
             if (arg.is_string) {
                 std::string s = arg.str;
 
-                auto &target = from;
+                bool is_from = true;
                 if (s == "-to") {
-                    target = to;
+                    is_from = false;
                 } else if (s != "-from") {
                     log_error("expecting either -to or -from to set_false_path(line %d)\n", lineno);
                 }
@@ -396,19 +397,38 @@ struct SDCParser
                     log_error("expecting TclValue argument to -from (line %d)\n", lineno);
                 }
 
-                for (const auto &ety : val.list) {
-                    NetInfo *net = nullptr;
-                    if (ety.type == TclEntity::ENTITY_PIN)
-                        net = ety.get_net(ctx);
-                    else if (ety.type == TclEntity::ENTITY_NET)
-                        net = ctx->nets.at(ety.name).get();
-                    else if (ety.type == TclEntity::ENTITY_PORT)
-                        net = ctx->ports.at(ety.name).net;
-                    else
-                        log_error("set_false_path applies only to cells, cell pins, or IO ports (line %d)\n", lineno);
+                if (val.list.size() != 1) {
+                    log_error("Expected a single TclEntity as argument to -to/-from (line %d)\n", lineno);
+                }
+
+                auto &ety = val.list.at(0);
+
+                NetInfo *net = nullptr;
+                if (ety.type == TclEntity::ENTITY_PIN)
+                    net = ety.get_net(ctx);
+                else if (ety.type == TclEntity::ENTITY_NET)
+                    net = ctx->nets.at(ety.name).get();
+                else if (ety.type == TclEntity::ENTITY_PORT)
+                    net = ctx->ports.at(ety.name).net;
+                else
+                    log_error("set_false_path applies only to nets, cell pins, or IO ports (line %d)\n", lineno);
+
+                if (is_from) {
+                    from = net;
+                } else {
+                    to = net;
                 }
             }
         }
+
+        if (from == nullptr) {
+            log_error("-from is required for set_false_path (line %d)\n", lineno);
+        } else if (to == nullptr) {
+            log_error("-to is required for set_false_path (line %d)\n", lineno);
+        }
+
+        log_info("set_false_path from: %s, to: %s\n", from->name.c_str(ctx), to->name.c_str(ctx));
+
         return std::string{};
     }
 
