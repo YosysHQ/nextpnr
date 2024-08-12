@@ -194,6 +194,9 @@ struct SDCParser
             s += c;
 
         while (true) {
+            if (eof())
+                log_error("EOF while parsing string '%s'\n", s.c_str());
+
             char c = peek();
             if (!in_quotes && !in_braces && !escaped && (std::isblank(c) || c == ']')) {
                 break;
@@ -361,6 +364,7 @@ struct SDCParser
                         net = ctx->ports.at(ety.name).net;
                     else
                         log_error("create_clock applies only to cells, cell pins, or IO ports (line %d)\n", lineno);
+
                     ctx->addClock(net->name, 1000.0f / period);
                 }
             }
