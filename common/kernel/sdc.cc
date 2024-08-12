@@ -233,6 +233,8 @@ struct SDCParser
             return cmd_get_pins(arguments);
         else if (cmd == "create_clock")
             return cmd_create_clock(arguments);
+        else if (cmd == "set_false_path")
+            return cmd_set_false_path(arguments);
         else
             log_error("Unsupported SDC command '%s'\n", cmd.c_str());
     }
@@ -366,6 +368,44 @@ struct SDCParser
                         log_error("create_clock applies only to cells, cell pins, or IO ports (line %d)\n", lineno);
 
                     ctx->addClock(net->name, 1000.0f / period);
+                }
+            }
+        }
+        return std::string{};
+    }
+
+    TclValue cmd_set_false_path(const std::vector<TclValue> &arguments)
+    {
+        std::optional<TclValue &> from, to;
+
+        for (int i = 1; i < int(arguments.size()); i++) {
+            auto &arg = arguments.at(i);
+            if (arg.is_string) {
+                std::string s = arg.str;
+
+                auto &target = from;
+                if (s == "-to") {
+                    target = to;
+                } else if (s != "-from") {
+                    log_error("expecting either -to or -from to set_false_path(line %d)\n", lineno);
+                }
+
+                i++;
+                auto &val = arguments.at(i);
+                if (val.is_string) {
+                    log_error("expecting TclValue argument to -from (line %d)\n", lineno);
+                }
+
+                for (const auto &ety : val.list) {
+                    NetInfo *net = nullptr;
+                    if (ety.type == TclEntity::ENTITY_PIN)
+                        net = ety.get_net(ctx);
+                    else if (ety.type == TclEntity::ENTITY_NET)
+                        net = ctx->nets.at(ety.name).get();
+                    else if (ety.type == TclEntity::ENTITY_PORT)
+                        net = ctx->ports.at(ety.name).net;
+                    else
+                        log_error("set_false_path applies only to cells, cell pins, or IO ports (line %d)\n", lineno);
                 }
             }
         }
