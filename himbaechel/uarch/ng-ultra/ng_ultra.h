@@ -76,6 +76,7 @@ public:
     std::string tile_name(int tile) const;
 
     bool is_fabric_clock_sink(const PortRef &ref);
+    bool is_fabric_lowskew_sink(const PortRef &ref);
     bool is_ring_clock_sink(const PortRef &ref);
     bool is_ring_over_tile_clock_sink(const PortRef &ref);
     bool is_tube_clock_sink(const PortRef &ref);
@@ -94,6 +95,7 @@ public:
     dict<BelId, IdString> unused_wfg;
     dict<BelId, IdString> unused_pll;
     dict<BelId, BelId> dsp_cascade;
+    dict<IdString,int> lowskew_signals;
 
 TESTABLE_PRIVATE:
     void write_bitstream_json(const std::string &filename);

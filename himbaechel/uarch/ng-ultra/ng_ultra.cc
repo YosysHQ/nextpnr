@@ -165,6 +165,10 @@ const dict<IdString,pool<IdString>> tube_clock_sinks = {
     { id_GCK, { id_SI1, id_SI2 }},
 };
 
+const dict<IdString,pool<IdString>> fabric_lowskew_sinks = {
+    // TILE - DFF
+    { id_BEYOND_FE, { id_L, id_R }},
+};
     // Sources
     // CKG
 const dict<IdString,pool<IdString>> ring_clock_source = {
@@ -186,6 +190,12 @@ const dict<IdString,pool<IdString>> tube_clock_source = {
 bool NgUltraImpl::is_fabric_clock_sink(const PortRef &ref)
 {
     return fabric_clock_sinks.count(ref.cell->type) && fabric_clock_sinks.at(ref.cell->type).count(ref.port);
+}
+
+bool NgUltraImpl::is_fabric_lowskew_sink(const PortRef &ref)
+{
+    if (fabric_lowskew_sinks.count(ref.cell->type) && fabric_lowskew_sinks.at(ref.cell->type).count(ref.port)) return true;
+    return is_fabric_clock_sink(ref);
 }
 
 bool NgUltraImpl::is_ring_clock_sink(const PortRef &ref)
