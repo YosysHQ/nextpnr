@@ -134,7 +134,8 @@ struct GowinGlobalRouter
 
     // Dedicated backwards BFS routing for global networks
     template <typename Tfilt>
-    bool backwards_bfs_route(NetInfo *net, WireId src, WireId dst, int iter_limit, bool strict, Tfilt pip_filter)
+    bool backwards_bfs_route(NetInfo *net, WireId src, WireId dst, int iter_limit, bool strict, Tfilt pip_filter,
+                             std::vector<PipId> *path = nullptr)
     {
         // Queue of wires to visit
         std::queue<WireId> visit;
@@ -208,6 +209,9 @@ struct GowinGlobalRouter
                     break;
                 }
                 ctx->bindPip(pip, net, STRENGTH_LOCKED);
+                if (path != nullptr) {
+                    path->push_back(pip);
+                }
             }
             return true;
         } else {
@@ -225,6 +229,7 @@ struct GowinGlobalRouter
     bool driver_is_buf(const PortRef &driver) { return CellTypePort(driver) == CellTypePort(id_BUFG, id_O); }
     bool driver_is_dqce(const PortRef &driver) { return CellTypePort(driver) == CellTypePort(id_DQCE, id_CLKOUT); }
     bool driver_is_dcs(const PortRef &driver) { return CellTypePort(driver) == CellTypePort(id_DCS, id_CLKOUT); }
+    bool driver_is_dhcen(const PortRef &driver) { return CellTypePort(driver) == CellTypePort(id_DHCEN, id_CLKOUT); }
     bool driver_is_clksrc(const PortRef &driver)
     {
         // dedicated pins
@@ -276,7 +281,9 @@ struct GowinGlobalRouter
         ROUTED_ALL
     };
 
-    RouteResult route_direct_net(NetInfo *net, WireId aux_src = WireId(), bool DCS_pips = false, bool DQCE_pips = false)
+    template <typename Tfilter>
+    RouteResult route_direct_net(NetInfo *net, Tfilter pip_filter, WireId aux_src = WireId(),
+                                 std::vector<PipId> *path = nullptr)
     {
         WireId src;
         src = aux_src == WireId() ? ctx->getNetinfoSourceWire(net) : aux_src;
@@ -297,21 +304,9 @@ struct GowinGlobalRouter
                           ctx->nameOf(usr.port));
             }
             bool bfs_res;
-            if (DCS_pips) {
-                bfs_res = backwards_bfs_route(net, src, dst, 1000000, false, [&](PipId pip) {
-                    return (is_relaxed_sink(usr) || global_DCS_pip_filter(pip));
-                });
-            } else {
-                if (DQCE_pips) {
-                    bfs_res = backwards_bfs_route(net, src, dst, 1000000, false, [&](PipId pip) {
-                        return (is_relaxed_sink(usr) || global_DQCE_pip_filter(pip));
-                    });
-                } else {
-                    bfs_res = backwards_bfs_route(net, src, dst, 1000000, false, [&](PipId pip) {
-                        return (is_relaxed_sink(usr) || global_pip_filter(pip));
-                    });
-                }
-            }
+            bfs_res = backwards_bfs_route(
+                    net, src, dst, 1000000, false, [&](PipId pip) { return (is_relaxed_sink(usr) || pip_filter(pip)); },
+                    path);
             if (bfs_res) {
                 routed = routed == ROUTED_PARTIALLY ? routed : ROUTED_ALL;
             } else {
@@ -345,7 +340,8 @@ struct GowinGlobalRouter
             src = ctx->getBelPinWire(driver.cell->bel, driver.port);
         }
 
-        RouteResult route_result = route_direct_net(net, src, false, true);
+        RouteResult route_result = route_direct_net(
+                net, [&](PipId pip) { return global_DQCE_pip_filter(pip); }, src);
         if (route_result == NOT_ROUTED) {
             log_error("Can't route the %s network.\n", ctx->nameOf(net));
         }
@@ -422,7 +418,8 @@ struct GowinGlobalRouter
             src = ctx->getBelPinWire(driver.cell->bel, driver.port);
         }
 
-        RouteResult route_result = route_direct_net(net, src, true);
+        RouteResult route_result = route_direct_net(
+                net, [&](PipId pip) { return global_DCS_pip_filter(pip); }, src);
         if (route_result == NOT_ROUTED) {
             log_error("Can't route the %s network.\n", ctx->nameOf(net));
         }
@@ -487,6 +484,84 @@ struct GowinGlobalRouter
         ctx->cells.erase(dcs_ci->name);
     }
 
+    void route_dhcen_net(NetInfo *net)
+    {
+        // route net after dhcen source of CLKIN net
+        CellInfo *dhcen_ci = net->driver.cell;
+
+        NetInfo *net_before_dhcen = dhcen_ci->getPort(id_CLKIN);
+        NPNR_ASSERT(net_before_dhcen != nullptr);
+
+        PortRef driver = net_before_dhcen->driver;
+        NPNR_ASSERT_MSG(driver_is_buf(driver) || driver_is_clksrc(driver),
+                        stringf("The input source for %s is not a clock.", ctx->nameOf(dhcen_ci)).c_str());
+
+        IdString port;
+        // use BUF input if there is one
+        if (driver_is_buf(driver)) {
+            port = id_I;
+        } else {
+            port = driver.port;
+        }
+        WireId src = ctx->getBelPinWire(driver.cell->bel, port);
+
+        std::vector<PipId> path;
+        RouteResult route_result = route_direct_net(
+                net, [&](PipId pip) { return global_pip_filter(pip); }, src, &path);
+        if (route_result == NOT_ROUTED) {
+            log_error("Can't route the %s network.\n", ctx->nameOf(net));
+        }
+        if (route_result == ROUTED_PARTIALLY) {
+            log_error("It was not possible to completely route the %s net using only global resources. This is not "
+                      "allowed for dhcen managed networks.\n",
+                      ctx->nameOf(net));
+        }
+
+        // In networks controlled by dhcen we disable/enable only HCLK - if
+        // there are ordinary cells among the sinks, then they are not affected
+        // by this primitive.
+        for (PipId pip : path) {
+            // move to upper level net
+            ctx->unbindPip(pip);
+            ctx->bindPip(pip, net_before_dhcen, STRENGTH_LOCKED);
+
+            WireId dst = ctx->getPipDstWire(pip);
+            IdString side;
+            BelId dhcen_bel = gwu.get_dhcen_bel(dst, side);
+            if (dhcen_bel == BelId()) {
+                continue;
+            }
+
+            // One pseudo dhcen can be implemented as several hardware dhcen.
+            // Here we find suitable hardware dhcens.
+            CellInfo *hw_dhcen = ctx->getBoundBelCell(dhcen_bel);
+            if (ctx->debug) {
+                log_info("  use %s wire and %s bel for '%s' hw cell.\n", ctx->nameOfWire(dst),
+                         ctx->nameOfBel(dhcen_bel), ctx->nameOf(hw_dhcen));
+            }
+
+            // The control network must connect the CE inputs of all hardware dhcens.
+            hw_dhcen->setAttr(id_DHCEN_USED, 1);
+            dhcen_ci->copyPortTo(id_CE, hw_dhcen, id_CE);
+        }
+
+        // connect all users to upper level net
+        std::vector<PortRef> users;
+        for (auto &cell_port : net->users) {
+            users.push_back(cell_port);
+        }
+        for (PortRef &user : users) {
+            user.cell->disconnectPort(user.port);
+            user.cell->connectPort(user.port, net_before_dhcen);
+        }
+
+        // remove the virtual dhcen
+        dhcen_ci->disconnectPort(id_CLKOUT);
+        dhcen_ci->disconnectPort(id_CLKIN);
+        dhcen_ci->disconnectPort(id_CE);
+        ctx->cells.erase(dhcen_ci->name);
+    }
+
     void route_buffered_net(NetInfo *net)
     {
         // a) route net after buf using the buf input as source
@@ -496,7 +571,8 @@ struct GowinGlobalRouter
         NetInfo *net_before_buf = buf_ci->getPort(id_I);
         NPNR_ASSERT(net_before_buf != nullptr);
 
-        RouteResult route_result = route_direct_net(net, src);
+        RouteResult route_result = route_direct_net(
+                net, [&](PipId pip) { return global_pip_filter(pip); }, src);
         if (route_result == NOT_ROUTED || route_result == ROUTED_PARTIALLY) {
             log_error("Can't route the %s net. It might be worth removing the BUFG buffer flag.\n", ctx->nameOf(net));
         }
@@ -516,7 +592,7 @@ struct GowinGlobalRouter
 
     void route_clk_net(NetInfo *net)
     {
-        RouteResult route_result = route_direct_net(net);
+        RouteResult route_result = route_direct_net(net, [&](PipId pip) { return global_pip_filter(pip); });
         if (route_result != NOT_ROUTED) {
             log_info("    '%s' net was routed  using global resources %s.\n", ctx->nameOf(net),
                      route_result == ROUTED_ALL ? "only" : "partially");
@@ -527,7 +603,7 @@ struct GowinGlobalRouter
     {
         log_info("Routing globals...\n");
 
-        std::vector<IdString> dqce_nets, dcs_nets, buf_nets, clk_nets;
+        std::vector<IdString> dhcen_nets, dqce_nets, dcs_nets, buf_nets, clk_nets;
 
         // Determining the priority of network routing
         for (auto &net : ctx->nets) {
@@ -550,10 +626,23 @@ struct GowinGlobalRouter
                     } else {
                         if (driver_is_dcs(ni->driver)) {
                             dcs_nets.push_back(net.first);
+                        } else {
+                            if (driver_is_dhcen(ni->driver)) {
+                                dhcen_nets.push_back(net.first);
+                            }
                         }
                     }
                 }
             }
+        }
+
+        // nets with DHCEN
+        for (IdString net_name : dhcen_nets) {
+            NetInfo *ni = ctx->nets.at(net_name).get();
+            if (ctx->verbose) {
+                log_info("route dhcen net '%s'\n", ctx->nameOf(ni));
+            }
+            route_dhcen_net(ni);
         }
 
         // nets with DQCE

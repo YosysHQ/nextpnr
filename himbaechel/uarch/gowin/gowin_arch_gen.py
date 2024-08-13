@@ -51,6 +51,7 @@ BANDGAP_Z = 279
 
 DQCE_Z = 280 # : 286 reserve for 6 DQCEs
 DCS_Z  = 286 # : 287 reserve for 2 DCSs
+DHCEN_Z = 288 # : 298
 
 DSP_Z          = 509
 
@@ -165,6 +166,26 @@ class SpineBel(BBAStruct):
         bba.u32(self.bel_y)
         bba.u32(self.bel_z)
 
+# wire -> bel for DHCEN bels
+@dataclass
+class WireBel(BBAStruct):
+    wire_xy: IdString
+    wire_name: IdString
+    bel_x: int
+    bel_y: int
+    bel_z: int
+    hclk_side: IdString
+
+    def serialise_lists(self, context: str, bba: BBAWriter):
+        pass
+    def serialise(self, context: str, bba: BBAWriter):
+        bba.u32(self.wire_xy.index)
+        bba.u32(self.wire_name.index)
+        bba.u32(self.bel_x)
+        bba.u32(self.bel_y)
+        bba.u32(self.bel_z)
+        bba.u32(self.hclk_side.index)
+
 @dataclass
 class ChipExtraData(BBAStruct):
     strs: StringPool
@@ -173,6 +194,7 @@ class ChipExtraData(BBAStruct):
     diff_io_types: list[IdString] = field(default_factory = list)
     dqce_bels: list[SpineBel] = field(default_factory = list)
     dcs_bels: list[SpineBel] = field(default_factory = list)
+    dhcen_bels: list[WireBel] = field(default_factory = list)
 
     def create_bottom_io(self):
         self.bottom_io = BottomIO()
@@ -182,6 +204,9 @@ class ChipExtraData(BBAStruct):
 
     def add_diff_io_type(self, diff_type: str):
         self.diff_io_types.append(self.strs.id(diff_type))
+
+    def add_dhcen_bel(self, wire_xy: str, wire_name: str, x: int, y: int, z: int, side: str):
+        self.dhcen_bels.append(WireBel(self.strs.id(wire_xy), self.strs.id(wire_name), x, y, z, self.strs.id(side)))
 
     def add_dqce_bel(self, spine: str, x: int, y: int, z: int):
         self.dqce_bels.append(SpineBel(self.strs.id(spine), x, y, z))
@@ -200,6 +225,9 @@ class ChipExtraData(BBAStruct):
         bba.label(f"{context}_dcs_bels")
         for i, t in enumerate(self.dcs_bels):
             t.serialise(f"{context}_dcs_bel{i}", bba)
+        bba.label(f"{context}_dhcen_bels")
+        for i, t in enumerate(self.dhcen_bels):
+            t.serialise(f"{context}_dhcen_bel{i}", bba)
 
     def serialise(self, context: str, bba: BBAWriter):
         bba.u32(self.flags)
@@ -207,6 +235,7 @@ class ChipExtraData(BBAStruct):
         bba.slice(f"{context}_diff_io_types", len(self.diff_io_types))
         bba.slice(f"{context}_dqce_bels", len(self.dqce_bels))
         bba.slice(f"{context}_dcs_bels", len(self.dcs_bels))
+        bba.slice(f"{context}_dhcen_bels", len(self.dhcen_bels))
 
 @dataclass
 class PadExtraData(BBAStruct):
@@ -368,7 +397,7 @@ def create_hclk_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
             if not tt.has_wire(src):
                 tt.create_wire(src, "HCLK")
             tt.create_pip(src, dst)
-    
+
     hclk_bel_zs = {
         "CLKDIV2_HCLK0_SECT0": CLKDIV2_0_Z,
         "CLKDIV2_HCLK0_SECT1": CLKDIV2_1_Z,
@@ -379,7 +408,7 @@ def create_hclk_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
         "CLKDIV_HCLK1_SECT0": CLKDIV_2_Z,
         "CLKDIV_HCLK1_SECT1": CLKDIV_3_Z
     }
-   
+
     for bel_name, bel_props in db.grid[y][x].bels.items():
         if (bel_name not in hclk_bel_zs):
             continue
@@ -391,7 +420,7 @@ def create_hclk_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
             bel_type = "CLKDIV"
         this_bel = tt.create_bel(bel_name, bel_type, hclk_bel_zs[bel_name])
 
-        if (bel_name in ["CLKDIV_HCLK0_SECT1", "CLKDIV_HCLK1_SECT1"]): 
+        if (bel_name in ["CLKDIV_HCLK0_SECT1", "CLKDIV_HCLK1_SECT1"]):
             this_bel.flags |= BEL_FLAG_HIDDEN
         if bel_type=="CLKDIV":
             this_bel.flags |= BEL_FLAG_GLOBAL
@@ -414,6 +443,9 @@ def create_hclk_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
 dqce_bels = {}
 # map spine -> dcs bel
 dcs_bels = {}
+
+# map HCLKIN wire -> dhcen bel
+dhcen_bels = {}
 
 def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
     if (y, x) not in db.extra_func:
@@ -443,6 +475,16 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
                 tt.create_wire(wire)
             bel = tt.create_bel("BANDGAP", "BANDGAP", z = BANDGAP_Z)
             tt.add_bel_pin(bel, "BGEN", wire, PinType.INPUT)
+        elif func == 'dhcen':
+            for idx, dhcen in enumerate(desc):
+                wire = dhcen['ce']
+                if not tt.has_wire(wire):
+                    tt.create_wire(wire)
+                bel_z = DHCEN_Z + idx
+                bel = tt.create_bel(f"DHCEN{idx}", "DHCEN", z = bel_z)
+                tt.add_bel_pin(bel, "CE", wire, PinType.INPUT)
+                wire_xy, wire_name, side = dhcen['wire']
+                dhcen_bels[wire_xy, wire_name] = (x, y, bel_z, side)
         elif func == 'dqce':
             for idx in range(6):
                 bel_z = DQCE_Z + idx
@@ -1144,6 +1186,9 @@ def create_extra_data(chip: Chip, db: chipdb, chip_flags: int):
         chip.extra_data.add_bottom_io_cnd(net_a, net_b)
     for diff_type in db.diff_io_types:
         chip.extra_data.add_diff_io_type(diff_type)
+    # create hclk wire->dhcen bel map
+    for wire, bel in dhcen_bels.items():
+        chip.extra_data.add_dhcen_bel(wire[0], wire[1], bel[0], bel[1], bel[2], bel[3])
     # create spine->dqce bel map
     for spine, bel in dqce_bels.items():
         chip.extra_data.add_dqce_bel(spine, bel[0], bel[1], bel[2])
