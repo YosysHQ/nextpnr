@@ -1762,7 +1762,7 @@ void NgUltraPacker::insert_wfb(CellInfo *cell, IdString port)
     bool in_fabric = false;
     bool in_ring = false;
     for (const auto &usr : net->users) {
-        if (uarch->is_fabric_clock_sink(usr) || uarch->is_tube_clock_sink(usr) || uarch->is_ring_over_tile_clock_sink(usr))
+        if (uarch->is_fabric_lowskew_sink(usr) || uarch->is_tube_clock_sink(usr) || uarch->is_ring_over_tile_clock_sink(usr))
             in_fabric = true;
         else
             in_ring = true;
@@ -1777,7 +1777,7 @@ void NgUltraPacker::insert_wfb(CellInfo *cell, IdString port)
         NetInfo *net_zo = ctx->createNet(ctx->id(net->name.str(ctx) + "$ZO"));
         wfb->connectPort(id_ZO, net_zo);
         for (const auto &usr : net->users) {
-            if (uarch->is_fabric_clock_sink(usr) || uarch->is_ring_over_tile_clock_sink(usr)) {
+            if (uarch->is_fabric_lowskew_sink(usr) || uarch->is_ring_over_tile_clock_sink(usr)) {
                 usr.cell->disconnectPort(usr.port);
                 usr.cell->connectPort(usr.port, net_zo);
             }
@@ -2506,6 +2506,9 @@ void NgUltraImpl::route_lowskew()
             std::queue<WireId> visit;
             dict<WireId, PipId> backtrace;
             WireId dest = WireId();
+            // skip nets that are not part of lowskew routing
+            if (!(is_fabric_lowskew_sink(usr) || is_tube_clock_sink(usr) || is_ring_over_tile_clock_sink(usr)))
+                continue;
 
             auto sink_wire = ctx->getNetinfoSinkWire(glb_net, usr, 0);
             if (ctx->debug) {
