@@ -409,31 +409,31 @@ struct BitstreamJsonBackend
 
     void write_pll(CellInfo *cell) {
         open_instance(cell);
-        add_config("clk_outdiv1", int_or_default(cell->params, ctx->id("clk_outdiv1"), 0));
-        add_config("clk_outdiv2", int_or_default(cell->params, ctx->id("clk_outdiv2"), 0));
-        add_config("clk_outdiv3", int_or_default(cell->params, ctx->id("clk_outdiv3"), 0));
-        add_config("clk_outdiv4", int_or_default(cell->params, ctx->id("clk_outdiv4"), 0));
-        add_config("clk_outdivd1", int_or_default(cell->params, ctx->id("clk_outdivd1"), 0));
-        add_config("clk_outdivd2", int_or_default(cell->params, ctx->id("clk_outdivd2"), 0));
-        add_config("clk_outdivd3", int_or_default(cell->params, ctx->id("clk_outdivd3"), 0));
-        add_config("clk_outdivd4", int_or_default(cell->params, ctx->id("clk_outdivd4"), 0));
-        add_config("clk_outdivd5", int_or_default(cell->params, ctx->id("clk_outdivd5"), 0));
+        add_config("clk_outdiv1", extract_bits_or_default(cell->params, ctx->id("clk_outdiv1"), 3));
+        add_config("clk_outdiv2", extract_bits_or_default(cell->params, ctx->id("clk_outdiv2"), 3));
+        add_config("clk_outdiv3", extract_bits_or_default(cell->params, ctx->id("clk_outdiv3"), 3));
+        add_config("clk_outdiv4", extract_bits_or_default(cell->params, ctx->id("clk_outdiv4"), 3));
+        add_config("clk_outdivd1", extract_bits_or_default(cell->params, ctx->id("clk_outdivd1"), 4));
+        add_config("clk_outdivd2", extract_bits_or_default(cell->params, ctx->id("clk_outdivd2"), 4));
+        add_config("clk_outdivd3", extract_bits_or_default(cell->params, ctx->id("clk_outdivd3"), 4));
+        add_config("clk_outdivd4", extract_bits_or_default(cell->params, ctx->id("clk_outdivd4"), 4));
+        add_config("clk_outdivd5", extract_bits_or_default(cell->params, ctx->id("clk_outdivd5"), 4));
         add_config("use_cal", bool_or_default(cell->params, ctx->id("use_cal"), false));
-        add_config("clk_cal_sel", int_or_default(cell->params, ctx->id("clk_cal_sel"), 0));
-        add_config("pll_odf", int_or_default(cell->params, ctx->id("pll_odf"), 0));
-        add_config("pll_lpf_res", int_or_default(cell->params, ctx->id("pll_lpf_res"), 0));
-        add_config("pll_lpf_cap", int_or_default(cell->params, ctx->id("pll_lpf_cap"), 0));
-        add_config("cal_div", int_or_default(cell->params, ctx->id("cal_div"), 0));
-        add_config("cal_delay", int_or_default(cell->params, ctx->id("cal_delay"), 0));
+        add_config("clk_cal_sel", extract_bits_or_default(cell->params, ctx->id("clk_cal_sel"), 2));
+        add_config("pll_odf", extract_bits_or_default(cell->params, ctx->id("pll_odf"), 2));
+        add_config("pll_lpf_res", extract_bits_or_default(cell->params, ctx->id("pll_lpf_res"), 4));
+        add_config("pll_lpf_cap", extract_bits_or_default(cell->params, ctx->id("pll_lpf_cap"), 4));
+        add_config("cal_div", extract_bits_or_default(cell->params, ctx->id("cal_div"), 4));
+        add_config("cal_delay", extract_bits_or_default(cell->params, ctx->id("cal_delay"), 6));
         add_config("use_pll", bool_or_default(cell->params, ctx->id("use_pll"), true));
-        add_config("ref_intdiv", int_or_default(cell->params, ctx->id("ref_intdiv"), 0));
+        add_config("ref_intdiv", extract_bits_or_default(cell->params, ctx->id("ref_intdiv"), 5));
         add_config("ref_osc_on", bool_or_default(cell->params, ctx->id("ref_osc_on"), false));
-        add_config("pll_cpump", int_or_default(cell->params, ctx->id("pll_cpump"), 0));
-        add_config("pll_lock", int_or_default(cell->params, ctx->id("pll_lock"), 0));
+        add_config("pll_cpump", extract_bits_or_default(cell->params, ctx->id("pll_cpump"), 4));
+        add_config("pll_lock", extract_bits_or_default(cell->params, ctx->id("pll_lock"), 4));
         add_config("ext_fbk_on", bool_or_default(cell->params, ctx->id("ext_fbk_on"), false));
-        add_config("fbk_intdiv", int_or_default(cell->params, ctx->id("fbk_intdiv"), 0));
+        add_config("fbk_intdiv", extract_bits_or_default(cell->params, ctx->id("fbk_intdiv"), 7));
         add_config("fbk_delay_on", bool_or_default(cell->params, ctx->id("fbk_delay_on"), false));
-        add_config("fbk_delay", int_or_default(cell->params, ctx->id("fbk_delay"), 0));
+        add_config("fbk_delay", extract_bits_or_default(cell->params, ctx->id("fbk_delay"), 6));
         close_instance();
     }
 
