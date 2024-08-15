@@ -1857,6 +1857,8 @@ void NgUltraPacker::pack_wfgs(void)
             // Can be unused, if zero it is unused
             disconnect_if_gnd(&ci, id_SI);
             disconnect_if_gnd(&ci, id_R);
+        } else if (mode == 2) {
+            // Allow mode 2
         } else {
             log_error("Unknown mode %d for cell '%s'.\n", mode, ci.name.c_str(ctx));
         }
