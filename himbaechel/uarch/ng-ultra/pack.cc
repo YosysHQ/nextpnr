@@ -2285,7 +2285,29 @@ void NgUltraPacker::pre_place(void)
             bfr->connectPort(id_O, new_out);
             log_info("    Create GCK '%s' for signal '%s'\n",gck_cell->name.c_str(ctx), n.first.c_str(ctx));
         }
+        if (net->driver.cell->type.in(id_BEYOND_FE)) {
+            CellInfo *fe = net->driver.cell;
+            if (!fe->params.count(id_lut_table)) continue;
+            if (fe->params.count(id_dff_used)) continue;
+            if (fe->params[id_lut_table] != Property(0x5555, 16)) continue;
+            if (!fe->getPort(id_I1)) continue;
+            CellInfo *bfr = fe->getPort(id_I1)->driver.cell;
+            if (bfr->type.in(id_BFR,id_DFR,id_DDFR)) {
+                CellInfo *gck_cell = create_cell_ptr(id_GCK, ctx->idf("%s$csc", bfr->name.c_str(ctx)));
+                gck_cell->params[id_std_mode] = Property("CSC");
+                gck_cell->params[ctx->id("inv_out")] = Property(true);
+                NetInfo *old_out = fe->getPort(id_LO);
+                NetInfo *old_in = fe->getPort(id_I1);
+                fe->disconnectPort(id_LO);
+                fe->disconnectPort(id_I1);
+                gck_cell->connectPort(id_SO, old_out);
+                gck_cell->connectPort(id_CMD, old_in);
+                packed_cells.insert(fe->name);
+                log_info("    Create GCK '%s' for signal '%s'\n",gck_cell->name.c_str(ctx), n.first.c_str(ctx));
+            }
+        }
     }
+    flush_cells();
 }
 
 void NgUltraImpl::disable_beyond_fe_s_output(BelId bel)
