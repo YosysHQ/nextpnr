@@ -251,13 +251,6 @@ TileTypeExtra NgUltraImpl::tile_type(int tile) const
     return (TileTypeExtra)data.tile_type;
 }
 
-void NgUltraImpl::preRoute()
-{
-    log_break();
-    route_lowskew();
-    log_break();
-}
-
 bool NgUltraImpl::get_mux_data(BelId bel, IdString port, uint8_t *value)
 {
     return get_mux_data(ctx->getBelPinWire(bel, port), value);
@@ -817,7 +810,7 @@ void NgUltraImpl::fixup_crossbars()
                             }
                             NPNR_ASSERT(found_pip != PipId());
                             // rebind
-                            log_info(" replacing crossbar pip %s with %s on %s\n", ctx->nameOfPip(pip), ctx->nameOfPip(found_pip), ctx->nameOf(ni));
+                            //log_info(" replacing crossbar pip %s with %s on %s\n", ctx->nameOfPip(pip), ctx->nameOfPip(found_pip), ctx->nameOf(ni));
                             ctx->bindPip(found_pip, ni, STRENGTH_STRONG);
                         }
                     }

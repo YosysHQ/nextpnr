@@ -52,7 +52,6 @@ struct NgUltraImpl : HimbaechelAPI
     // Flow management
     void pack() override;
     void postPlace() override;
-    void preRoute() override;
     void postRoute() override;
 
     void configurePlacerHeap(PlacerHeapCfg &cfg) override;
@@ -99,7 +98,6 @@ public:
 
 TESTABLE_PRIVATE:
     void write_bitstream_json(const std::string &filename);
-    void route_lowskew();
     void parse_csv(const std::string &filename);
     void remove_constants();
     bool update_bff_to_csc(CellInfo *cell, BelId bel, PipId dst_pip);
