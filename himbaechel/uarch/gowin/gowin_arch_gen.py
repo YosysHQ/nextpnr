@@ -313,7 +313,11 @@ def create_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
         for src in srcs.keys():
             if not tt.has_wire(src):
                 tt.create_wire(src, "GLOBAL_CLK")
-            tt.create_pip(src, dst, get_tm_class(db, "X01")) # XXX
+            src_tm_class = get_tm_class(db, src)
+            if src_tm_class in {'CENT_SPINE_PCLK', 'SPINE_TAP_PCLK', 'TAP_BRANCH_PCLK', 'BRANCH_PCLK'}:
+                tt.create_pip(src, dst, src_tm_class, flags = PIP_FLAG_FIXED_DELAY)
+            else:
+                tt.create_pip(src, dst, src_tm_class)
 
 def create_hclk_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
     if (y, x) not in db.hclk_pips:
@@ -1027,7 +1031,7 @@ def create_timing_info(chip: Chip, db: chipdb.Device):
         speed_grades.append(speed)
 
     tmg = chip.set_speed_grades(speed_grades)
-    
+
     print("device {}:".format(chip.name))
     for speed, groups in db.timing.items():
         for group, arc in groups.items():
@@ -1109,7 +1113,11 @@ def create_timing_info(chip: Chip, db: chipdb.Device):
             elif group == "fanout":
                 pass # handled in "wire"
             elif group == "glbsrc":
-                pass # TODO
+                # TODO
+                # no fanout delay for clock wires
+                for name in ["CENT_SPINE_PCLK", "SPINE_TAP_PCLK", "TAP_BRANCH_PCLK"]:
+                    tmg.set_pip_class(speed, name, group_to_timingvalue(arc[name]))
+                tmg.set_pip_class(speed, 'GCLK_BRANCH', group_to_timingvalue(arc['BRANCH_PCLK']))
             elif group == "hclk":
                 pass # TODO
             elif group == "iodelay":
@@ -1122,7 +1130,7 @@ def create_timing_info(chip: Chip, db: chipdb.Device):
                 for name in ["X0CTL", "X0CLK", "FX1"]:
                     tmg.set_pip_class(speed, name, group_to_timingvalue(arc[name]))
                 # wires with presently-unknown delay
-                for name in ["LUT_IN", "DI", "SEL", "CIN", "COUT", "VCC", "VSS", "LW_TAP", "LW_TAP_0", "LW_BRANCH", "LW_SPAN", "GCLK_TAP", "GCLK_BRANCH"]:
+                for name in ["LUT_IN", "DI", "SEL", "CIN", "COUT", "VCC", "VSS", "LW_TAP", "LW_TAP_0", "LW_BRANCH", "LW_SPAN"]:
                     tmg.set_pip_class(speed, name, TimingValue())
                 # wires with fanout-only delay; used on cell output pips
                 for name, mapping in [("LUT_OUT", "FFan"), ("FF_OUT", "QFan"), ("OF", "OFFan")]:
