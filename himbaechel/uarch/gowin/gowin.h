@@ -109,8 +109,9 @@ NPNR_PACKED_STRUCT(struct Spine_bel_POD {
 });
 
 NPNR_PACKED_STRUCT(struct Wire_bel_POD {
-    int32_t wire_xy;
-    int32_t wire_name;
+    int32_t pip_xy;
+    int32_t pip_dst;
+    int32_t pip_src;
     int32_t bel_x;
     int32_t bel_y;
     int32_t bel_z;

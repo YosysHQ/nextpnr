@@ -37,9 +37,6 @@ struct GowinUtils
     BelId get_dcs_bel(IdString spine_name);
     BelId get_dhcen_bel(WireId hclkin_wire, IdString &side);
 
-    // Wires
-    WireId normalize_wire(WireId wire) { return ctx->normalise_wire(wire.tile, wire.index); }
-
     // BSRAM
     bool has_SP32(void);
     bool need_SP_fix(void);
