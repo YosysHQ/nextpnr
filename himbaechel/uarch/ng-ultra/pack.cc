@@ -395,7 +395,7 @@ void NgUltraPacker::pack_xluts(void)
             } else {
                 CellInfo *dff = (*net->users.begin()).cell;
                 if (dff->type!=id_NX_DFF)
-                    dff = (*net->users.begin()++).cell;
+                    dff = (*(++net->users.begin())).cell;
                 if (dff->type==id_NX_DFF) {
                     dff_to_fe(dff, lut[i], false);
                     packed_cells.insert(dff->name);
