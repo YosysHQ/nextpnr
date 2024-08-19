@@ -43,8 +43,8 @@ void XilinxImpl::init_database(Arch *arch)
 {
     const ArchArgs &args = arch->args;
     init_uarch_constids(arch);
-    std::regex devicere = std::regex("(xc7[azkv]\\d+t)([a-z0-9]+)-(\\dL?)");
     std::smatch match;
+    std::regex devicere = std::regex("(xc7[azkv]\\d+t?)([a-z0-9]+)-(\\dL?)");
     if (!std::regex_match(args.device, match, devicere)) {
         log_error("Invalid device %s\n", args.device.c_str());
     }
