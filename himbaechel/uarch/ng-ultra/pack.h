@@ -74,6 +74,7 @@ struct NgUltraPacker
     // Post placement
     void duplicate_gck();
     void insert_bypass_gck();
+    void insert_csc();
 
 TESTABLE_PRIVATE:
     void set_lut_input_if_constant(CellInfo *cell, IdString input);
@@ -109,6 +110,7 @@ TESTABLE_PRIVATE:
     int memory_addr_bits(int config,bool ecc);
 
     void constrain_location(CellInfo *cell);
+    void extract_lowskew_signals(CellInfo *cell, dict<IdString,dict<IdString,std::vector<PortRef>>> &lowskew_signals);
     // Cell creating
     std::unique_ptr<CellInfo> create_cell(IdString type, IdString name);
     CellInfo *create_cell_ptr(IdString type, IdString name);
@@ -118,6 +120,7 @@ TESTABLE_PRIVATE:
 
     pool<IdString> packed_cells;
     std::vector<std::unique_ptr<CellInfo>> new_cells;
+    pool<IdString> global_lowskew;
 
     HimbaechelHelpers h;
 };

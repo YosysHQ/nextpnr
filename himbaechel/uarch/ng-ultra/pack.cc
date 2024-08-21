@@ -2137,6 +2137,96 @@ IdString NgUltraPacker::assign_wfg(IdString ckg, IdString ckg2, CellInfo *cell)
     log_error("    No more available WFGs for cell '%s'.\n", cell->name.c_str(ctx));
 }
 
+void NgUltraPacker::extract_lowskew_signals(CellInfo *cell, dict<IdString,dict<IdString,std::vector<PortRef>>> &lowskew_signals)
+{    
+    IdString loc;
+    if (cell->bel != BelId())
+        loc = uarch->tile_name_id(cell->bel.tile);
+
+    PortRef ref;
+    ref.cell = cell; 
+    if (cell->type == id_BEYOND_FE) {
+        NetInfo *clock = cell->getPort(id_CK);
+        NetInfo *load = cell->getPort(id_L);
+        NetInfo *reset = cell->getPort(id_R);
+        if (clock && !global_lowskew.count(clock->name)) {
+            ref.port = id_CK;
+            lowskew_signals[loc][clock->name].push_back(ref);
+        }
+        if (load && !global_lowskew.count(load->name)) {
+            ref.port = id_L;
+            lowskew_signals[loc][load->name].push_back(ref);
+        }
+        if (reset && !global_lowskew.count(reset->name)) {
+            ref.port = id_R;
+            lowskew_signals[loc][reset->name].push_back(ref);
+        }
+    } else if (cell->type.in(id_RF,id_RFSP)) {
+        NetInfo *clock = cell->getPort(id_WCK);
+        ref.port = id_WCK;
+        if (clock && !global_lowskew.count(clock->name))
+            lowskew_signals[loc][clock->name].push_back(ref);
+    } else if (cell->type.in(id_XHRF,id_XWRF,id_XPRF)) {
+        NetInfo *clock = cell->getPort(id_WCK1);
+        ref.port = id_WCK1;
+        if (clock && !global_lowskew.count(clock->name))
+            lowskew_signals[loc][clock->name].push_back(ref);
+        clock = cell->getPort(id_WCK2);
+        ref.port = id_WCK2;
+        if (clock && !global_lowskew.count(clock->name))
+            lowskew_signals[loc][clock->name].push_back(ref);
+    } else if (cell->type.in(id_RAM)) {
+        NetInfo *clock = cell->getPort(id_ACK);
+        ref.port = id_ACK;
+        if (clock && !global_lowskew.count(clock->name))
+            lowskew_signals[loc][clock->name].push_back(ref);
+        clock = cell->getPort(id_BCK);
+        ref.port = id_BCK;
+        if (clock && !global_lowskew.count(clock->name))
+            lowskew_signals[loc][clock->name].push_back(ref);
+    } else if (cell->type.in(id_CDC,id_DDE,id_TDE,id_XCDC)) {
+        NetInfo *clock = cell->getPort(id_CK1);
+        ref.port = id_CK1;
+        if (clock && !global_lowskew.count(clock->name))
+            lowskew_signals[loc][clock->name].push_back(ref);
+        clock = cell->getPort(id_CK2);
+        ref.port = id_CK2;
+        if (clock && !global_lowskew.count(clock->name))
+            lowskew_signals[loc][clock->name].push_back(ref);
+    } else if (cell->type.in(id_FIFO)) {
+        NetInfo *clock = cell->getPort(id_RCK);
+        ref.port = id_RCK;
+        if (clock && !global_lowskew.count(clock->name))
+            lowskew_signals[loc][clock->name].push_back(ref);
+        clock = cell->getPort(id_WCK);
+        ref.port = id_WCK;
+        if (clock && !global_lowskew.count(clock->name))
+            lowskew_signals[loc][clock->name].push_back(ref);
+    } else if (cell->type.in(id_XHFIFO,id_XWFIFO)) {
+        NetInfo *clock = cell->getPort(id_RCK1);
+        ref.port = id_RCK1;
+        if (clock && !global_lowskew.count(clock->name))
+            lowskew_signals[loc][clock->name].push_back(ref);
+        clock = cell->getPort(id_RCK2);
+        ref.port = id_RCK2;
+        if (clock && !global_lowskew.count(clock->name))
+            lowskew_signals[loc][clock->name].push_back(ref);
+        clock = cell->getPort(id_WCK1);
+        ref.port = id_WCK1;
+        if (clock && !global_lowskew.count(clock->name))
+            lowskew_signals[loc][clock->name].push_back(ref);
+        clock = cell->getPort(id_WCK2);
+        ref.port = id_WCK2;
+        if (clock && !global_lowskew.count(clock->name))
+            lowskew_signals[loc][clock->name].push_back(ref);
+    } else if (cell->type.in(id_DSP)) {
+        NetInfo *clock = cell->getPort(id_CK);
+        ref.port = id_CK;
+        if (clock && !global_lowskew.count(clock->name))
+            lowskew_signals[loc][clock->name].push_back(ref);
+    }
+}
+
 void NgUltraPacker::pre_place(void)
 {
     log_info("Pre-placing PLLs..\n");
@@ -2255,23 +2345,13 @@ void NgUltraPacker::pre_place(void)
         }
     }
 
-    for (auto &cell : ctx->cells) {
-        auto ci = cell.second.get();       
-        if (ci->type == id_BEYOND_FE) {
-            NetInfo *clock = ci->getPort(id_CK);
-            NetInfo *load = ci->getPort(id_L);
-            NetInfo *reset = ci->getPort(id_R);
-            if (clock)
-                uarch->lowskew_signals[clock->name]++;
-            if (load)
-                uarch->lowskew_signals[load->name]++;
-            if (reset)
-                uarch->lowskew_signals[reset->name]++;
-        }
-    }
+    dict<IdString,dict<IdString,std::vector<PortRef>>> lowskew_signals;
+    for (auto &cell : ctx->cells)
+        extract_lowskew_signals(cell.second.get(), lowskew_signals);
 
     log_info("Adding GCK for lowskew signals..\n");
-    for(auto &n : uarch->lowskew_signals) {
+    for(auto &n : lowskew_signals[IdString()]) {
+        //printf("\t%ld  --- %s\n", n.second.size(),n.first.c_str(ctx));
         NetInfo *net = ctx->nets.at(n.first).get();
         if (net->driver.cell->type.in(id_BFR,id_DFR,id_DDFR)) {
             CellInfo *bfr = net->driver.cell;
@@ -2373,10 +2453,92 @@ void NgUltraImpl::postPlace()
     log_info("Running post-placement ...\n");
     packer.duplicate_gck();
     packer.insert_bypass_gck();
+    packer.insert_csc();
     log_break();
     ctx->assignArchInfo();
 }
 
+BelId getCSC(Context *ctx, Loc l) {
+    BelId bel = ctx->getBelByLocation(Loc(l.x+1,l.y+2,0));
+    if (!ctx->getBoundBelCell(bel)) return bel;
+    bel = ctx->getBelByLocation(Loc(l.x+1,l.y+2,15));
+    if (!ctx->getBoundBelCell(bel)) return bel;
+    bel = ctx->getBelByLocation(Loc(l.x+1,l.y+2,16));
+    if (!ctx->getBoundBelCell(bel)) return bel;
+    bel = ctx->getBelByLocation(Loc(l.x+1,l.y+2,31));
+    if (!ctx->getBoundBelCell(bel)) return bel;
+
+    bel = ctx->getBelByLocation(Loc(l.x+2,l.y+3,0));
+    if (!ctx->getBoundBelCell(bel)) return bel;
+    bel = ctx->getBelByLocation(Loc(l.x+2,l.y+3,15));
+    if (!ctx->getBoundBelCell(bel)) return bel;
+    bel = ctx->getBelByLocation(Loc(l.x+2,l.y+3,16));
+    if (!ctx->getBoundBelCell(bel)) return bel;
+    bel = ctx->getBelByLocation(Loc(l.x+2,l.y+3,31));
+    if (!ctx->getBoundBelCell(bel)) return bel;
+
+    bel = ctx->getBelByLocation(Loc(l.x+3,l.y+2,0));
+    if (!ctx->getBoundBelCell(bel)) return bel;
+    bel = ctx->getBelByLocation(Loc(l.x+3,l.y+2,15));
+    if (!ctx->getBoundBelCell(bel)) return bel;
+    bel = ctx->getBelByLocation(Loc(l.x+3,l.y+2,16));
+    if (!ctx->getBoundBelCell(bel)) return bel;
+    bel = ctx->getBelByLocation(Loc(l.x+3,l.y+2,31));
+    if (!ctx->getBoundBelCell(bel)) return bel;
+    return BelId();
+}
+
+void NgUltraPacker::insert_csc()
+{
+    dict<IdString,dict<IdString,std::vector<PortRef>>> local_system_matrix;
+    //log_info("================== Local system matrix detection ===================\n");
+    for (auto &cell : ctx->cells) {
+        auto ci = cell.second.get();
+        if (ci->bel != BelId()) {
+            if (uarch->tile_type(ci->bel.tile)==TILE_EXTRA_FABRIC) {
+                extract_lowskew_signals(ci, local_system_matrix);
+            }
+        }
+    }
+    for(auto &lsm : local_system_matrix) {
+        //printf("name:%s\n",lsm.first.c_str(ctx));
+        std::string name = lsm.first.c_str(ctx);
+        Loc loc = uarch->tile_locations[name];
+        std::vector<std::pair<int, IdString>> fanout;
+        for(auto &n : lsm.second) {
+            fanout.push_back(std::make_pair(n.second.size(),n.first));
+        }
+        std::sort(fanout.begin(), fanout.end(), std::greater<std::pair<int, IdString>>());
+        int available_csc = 12;
+        for (std::size_t i = 0; i < std::min<std::size_t>(fanout.size(),available_csc ); i++) {
+            auto &n = fanout.at(i);
+            if (lsm.second[n.second].size() < 4) break;
+            BelId newbel = getCSC(ctx,loc);
+            if (newbel==BelId()) break;
+
+            NetInfo *net = ctx->nets.at(n.second).get();
+
+            CellInfo *fe = create_cell_ptr(id_BEYOND_FE, ctx->id(net->name.str(ctx) + "$" + lsm.first.c_str(ctx) + "$csc"));
+            NetInfo *new_out = ctx->createNet(ctx->id(fe->name.str(ctx) + "$o"));
+            fe->params[id_lut_table] = Property(0xaaaa, 16);
+            fe->params[id_lut_used] = Property(1,1);
+            fe->params[ctx->id("CSC")] = Property(Property::State::S1);
+            fe->params[ctx->id("type")] = Property("CSC");
+            fe->params[id_dff_used] = Property(1,1);
+            fe->connectPort(id_I1, net);
+            fe->connectPort(id_DO,new_out);
+
+
+            for(auto &conn : lsm.second[n.second])
+                conn.cell->disconnectPort(conn.port);
+            for(auto &conn : lsm.second[n.second]) 
+                conn.cell->connectPort(conn.port,new_out);            
+
+            ctx->bindBel(newbel, fe, PlaceStrength::STRENGTH_LOCKED);
+            //printf("\t%d  --- %s  %d %d\n", n.first,n.second.c_str(ctx),loc.x,loc.y);
+        }
+    }
+}
 BelId NgUltraPacker::get_available_gck(int lobe, NetInfo *si1, NetInfo *si2)
 {
     auto &gcks = uarch->gck_per_lobe[lobe];
@@ -2460,7 +2622,7 @@ void NgUltraPacker::duplicate_gck()
                 IdString port = usr.port;
                 cell->connectPort(port, new_clk);                
             }
-            
+            global_lowskew.emplace(new_clk->name);
             ctx->bindBel(bel, gck_cell, PlaceStrength::STRENGTH_LOCKED);
             cnt++;
         }
@@ -2507,6 +2669,7 @@ void NgUltraPacker::insert_bypass_gck()
                 IdString port = usr.port;
                 cell->connectPort(port, new_clk);                
             }
+            global_lowskew.emplace(new_clk->name);
             ctx->bindBel(bel, gck_cell, PlaceStrength::STRENGTH_LOCKED);
         }
     }

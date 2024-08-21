@@ -87,6 +87,7 @@ public:
     dict<std::string, std::string> bank_voltage;
     dict<BelId,IdString> global_capable_bels;
     dict<std::string,BelId> locations;
+    dict<std::string,Loc> tile_locations;
     dict<int,std::vector<GckConfig>> gck_per_lobe;
 
     pool<PipId> blocked_pips;
@@ -94,7 +95,6 @@ public:
     dict<BelId, IdString> unused_wfg;
     dict<BelId, IdString> unused_pll;
     dict<BelId, BelId> dsp_cascade;
-    dict<IdString,int> lowskew_signals;
 
 TESTABLE_PRIVATE:
     void write_bitstream_json(const std::string &filename);

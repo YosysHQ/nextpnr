@@ -93,6 +93,8 @@ void NgUltraImpl::init(Context *ctx)
             gck_per_lobe[lobe][num-1] = GckConfig(bel);
         }
         locations.emplace(stringf("%s:%s",tile_name(bel.tile).c_str(), ctx->getBelName(bel)[1].c_str(ctx)),bel);
+        Loc loc = ctx->getBelLocation(bel);
+        tile_locations.emplace(tile_name(bel.tile).c_str(),Loc(loc.x & 0xfffe, loc.y & 0xfffe, 0));
     }
     for (auto bel : ctx->getBels()) {
         if (ctx->getBelType(bel) == id_DSP) {
@@ -486,6 +488,8 @@ struct SectionFEWorker
         std::string type = str_or_default(cell->params, ctx->id("type"), "");
         if (type=="CSC" && (extra_data.flags & BEL_EXTRA_FE_CSC) == 0) return false; // No CSC capability on FE
         if (type=="SCC" && (extra_data.flags & BEL_EXTRA_FE_SCC) == 0) return false; // No SCC capability on FE
+        if (extra_data.flags & BEL_EXTRA_FE_CSC)
+            return false;
         return true;
     }
 };
