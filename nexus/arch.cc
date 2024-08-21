@@ -48,7 +48,7 @@ void IdString::initialize_arch(const BaseCtx *ctx)
 Arch::Arch(ArchArgs args) : args(args)
 {
     // Parse device string
-    if (boost::starts_with(args.device, "LIFCL")) {
+    if (boost::starts_with(args.device, "LIFCL") || boost::starts_with(args.device, "LFD2NX")) {
         family = "LIFCL";
     } else {
         log_error("Unknown device string '%s' (expected device name like 'LIFCL-40-8SG72C')\n", args.device.c_str());
