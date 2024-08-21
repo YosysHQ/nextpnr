@@ -2491,7 +2491,8 @@ BelId getCSC(Context *ctx, Loc l) {
 void NgUltraPacker::insert_csc()
 {
     dict<IdString,dict<IdString,std::vector<PortRef>>> local_system_matrix;
-    //log_info("================== Local system matrix detection ===================\n");
+    log_info("Inserting CSCs...\n");
+    int insert_new_csc = 0, change_to_csc = 0;
     for (auto &cell : ctx->cells) {
         auto ci = cell.second.get();
         if (ci->bel != BelId()) {
@@ -2517,6 +2518,23 @@ void NgUltraPacker::insert_csc()
             if (newbel==BelId()) break;
 
             NetInfo *net = ctx->nets.at(n.second).get();
+            CellInfo *cell = net->driver.cell;
+            if (uarch->tile_name(cell->bel.tile) == lsm.first.c_str(ctx) && !cell->params.count(id_dff_used) && cell->cluster == ClusterId()) {
+                ctx->unbindBel(cell->bel);
+                cell->disconnectPort(id_LO);
+                NetInfo *new_out = ctx->createNet(ctx->id(cell->name.str(ctx) + "$o"));
+                cell->params[ctx->id("CSC")] = Property(Property::State::S1);
+                cell->params[ctx->id("type")] = Property("CSC");
+                cell->params[id_dff_used] = Property(1,1);
+                cell->connectPort(id_LO,new_out);
+                cell->connectPort(id_DI,new_out);
+                
+                cell->connectPort(id_DO,net);
+                ctx->bindBel(newbel, cell, PlaceStrength::STRENGTH_LOCKED);
+                change_to_csc++;
+                continue;
+            }
+
 
             CellInfo *fe = create_cell_ptr(id_BEYOND_FE, ctx->id(net->name.str(ctx) + "$" + lsm.first.c_str(ctx) + "$csc"));
             NetInfo *new_out = ctx->createNet(ctx->id(fe->name.str(ctx) + "$o"));
@@ -2527,7 +2545,7 @@ void NgUltraPacker::insert_csc()
             fe->params[id_dff_used] = Property(1,1);
             fe->connectPort(id_I1, net);
             fe->connectPort(id_DO,new_out);
-
+            insert_new_csc++;
 
             for(auto &conn : lsm.second[n.second])
                 conn.cell->disconnectPort(conn.port);
@@ -2538,6 +2556,11 @@ void NgUltraPacker::insert_csc()
             //printf("\t%d  --- %s  %d %d\n", n.first,n.second.c_str(ctx),loc.x,loc.y);
         }
     }
+    if (insert_new_csc)
+        log_info("    %6d FEs inserted as CSC\n", insert_new_csc);
+    if (change_to_csc)
+        log_info("    %6d FEs converted to CSC\n", change_to_csc);
+
 }
 BelId NgUltraPacker::get_available_gck(int lobe, NetInfo *si1, NetInfo *si2)
 {
