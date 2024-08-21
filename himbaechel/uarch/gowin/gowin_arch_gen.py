@@ -364,8 +364,6 @@ def create_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
                 tt.create_wire(src, "GLOBAL_CLK")
             src_tm_class = get_tm_class(db, src)
             if src_tm_class in {'CENT_SPINE_PCLK', 'SPINE_TAP_PCLK', 'TAP_BRANCH_PCLK', 'BRANCH_PCLK'}:
-                tt.create_pip(src, dst, src_tm_class, flags = PIP_FLAG_FIXED_DELAY)
-            else:
                 tt.create_pip(src, dst, src_tm_class)
 
 def create_hclk_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
@@ -379,7 +377,7 @@ def create_hclk_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
             if not tt.has_wire(src):
                 tt.create_wire(src, "HCLK")
             tt.create_pip(src, dst, get_tm_class(db, "X01")) # XXX
-    
+
     hclk_bel_zs = {
         "CLKDIV2_HCLK0_SECT0": CLKDIV2_0_Z,
         "CLKDIV2_HCLK0_SECT1": CLKDIV2_1_Z,
@@ -390,7 +388,7 @@ def create_hclk_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
         "CLKDIV_HCLK1_SECT0": CLKDIV_2_Z,
         "CLKDIV_HCLK1_SECT1": CLKDIV_3_Z
     }
-   
+
     for bel_name, bel_props in db.grid[y][x].bels.items():
         if (bel_name not in hclk_bel_zs):
             continue
@@ -402,7 +400,7 @@ def create_hclk_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
             bel_type = "CLKDIV"
         this_bel = tt.create_bel(bel_name, bel_type, hclk_bel_zs[bel_name])
 
-        if (bel_name in ["CLKDIV_HCLK0_SECT1", "CLKDIV_HCLK1_SECT1"]): 
+        if (bel_name in ["CLKDIV_HCLK0_SECT1", "CLKDIV_HCLK1_SECT1"]):
             this_bel.flags |= BEL_FLAG_HIDDEN
         if bel_type=="CLKDIV":
             this_bel.flags |= BEL_FLAG_GLOBAL
