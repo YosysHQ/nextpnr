@@ -97,6 +97,7 @@ TESTABLE_PRIVATE:
     void disconnect_unused(CellInfo *cell, IdString port);
     void bind_attr_loc(CellInfo *cell, dict<IdString, Property> *attrs);
     BelId get_available_gck(int lobe, NetInfo *si1, NetInfo *si2);
+    BelId getCSC(Loc l, int row);
     // General helper functions
     void flush_cells();
 

@@ -2144,86 +2144,16 @@ void NgUltraPacker::extract_lowskew_signals(CellInfo *cell, dict<IdString,dict<I
         loc = uarch->tile_name_id(cell->bel.tile);
 
     PortRef ref;
-    ref.cell = cell; 
-    if (cell->type == id_BEYOND_FE) {
-        NetInfo *clock = cell->getPort(id_CK);
-        NetInfo *load = cell->getPort(id_L);
-        NetInfo *reset = cell->getPort(id_R);
-        if (clock && !global_lowskew.count(clock->name)) {
-            ref.port = id_CK;
-            lowskew_signals[loc][clock->name].push_back(ref);
+    ref.cell = cell;
+    auto &sinks = uarch->get_fabric_lowskew_sinks();
+    if (sinks.count(cell->type)) {
+        for(auto &port : sinks.at(cell->type)) {
+            NetInfo *clock = cell->getPort(port);
+            if (clock && !global_lowskew.count(clock->name)) {
+                ref.port = port;
+                lowskew_signals[loc][clock->name].push_back(ref);
+            }
         }
-        if (load && !global_lowskew.count(load->name)) {
-            ref.port = id_L;
-            lowskew_signals[loc][load->name].push_back(ref);
-        }
-        if (reset && !global_lowskew.count(reset->name)) {
-            ref.port = id_R;
-            lowskew_signals[loc][reset->name].push_back(ref);
-        }
-    } else if (cell->type.in(id_RF,id_RFSP)) {
-        NetInfo *clock = cell->getPort(id_WCK);
-        ref.port = id_WCK;
-        if (clock && !global_lowskew.count(clock->name))
-            lowskew_signals[loc][clock->name].push_back(ref);
-    } else if (cell->type.in(id_XHRF,id_XWRF,id_XPRF)) {
-        NetInfo *clock = cell->getPort(id_WCK1);
-        ref.port = id_WCK1;
-        if (clock && !global_lowskew.count(clock->name))
-            lowskew_signals[loc][clock->name].push_back(ref);
-        clock = cell->getPort(id_WCK2);
-        ref.port = id_WCK2;
-        if (clock && !global_lowskew.count(clock->name))
-            lowskew_signals[loc][clock->name].push_back(ref);
-    } else if (cell->type.in(id_RAM)) {
-        NetInfo *clock = cell->getPort(id_ACK);
-        ref.port = id_ACK;
-        if (clock && !global_lowskew.count(clock->name))
-            lowskew_signals[loc][clock->name].push_back(ref);
-        clock = cell->getPort(id_BCK);
-        ref.port = id_BCK;
-        if (clock && !global_lowskew.count(clock->name))
-            lowskew_signals[loc][clock->name].push_back(ref);
-    } else if (cell->type.in(id_CDC,id_DDE,id_TDE,id_XCDC)) {
-        NetInfo *clock = cell->getPort(id_CK1);
-        ref.port = id_CK1;
-        if (clock && !global_lowskew.count(clock->name))
-            lowskew_signals[loc][clock->name].push_back(ref);
-        clock = cell->getPort(id_CK2);
-        ref.port = id_CK2;
-        if (clock && !global_lowskew.count(clock->name))
-            lowskew_signals[loc][clock->name].push_back(ref);
-    } else if (cell->type.in(id_FIFO)) {
-        NetInfo *clock = cell->getPort(id_RCK);
-        ref.port = id_RCK;
-        if (clock && !global_lowskew.count(clock->name))
-            lowskew_signals[loc][clock->name].push_back(ref);
-        clock = cell->getPort(id_WCK);
-        ref.port = id_WCK;
-        if (clock && !global_lowskew.count(clock->name))
-            lowskew_signals[loc][clock->name].push_back(ref);
-    } else if (cell->type.in(id_XHFIFO,id_XWFIFO)) {
-        NetInfo *clock = cell->getPort(id_RCK1);
-        ref.port = id_RCK1;
-        if (clock && !global_lowskew.count(clock->name))
-            lowskew_signals[loc][clock->name].push_back(ref);
-        clock = cell->getPort(id_RCK2);
-        ref.port = id_RCK2;
-        if (clock && !global_lowskew.count(clock->name))
-            lowskew_signals[loc][clock->name].push_back(ref);
-        clock = cell->getPort(id_WCK1);
-        ref.port = id_WCK1;
-        if (clock && !global_lowskew.count(clock->name))
-            lowskew_signals[loc][clock->name].push_back(ref);
-        clock = cell->getPort(id_WCK2);
-        ref.port = id_WCK2;
-        if (clock && !global_lowskew.count(clock->name))
-            lowskew_signals[loc][clock->name].push_back(ref);
-    } else if (cell->type.in(id_DSP)) {
-        NetInfo *clock = cell->getPort(id_CK);
-        ref.port = id_CK;
-        if (clock && !global_lowskew.count(clock->name))
-            lowskew_signals[loc][clock->name].push_back(ref);
     }
 }
 
@@ -2351,7 +2281,6 @@ void NgUltraPacker::pre_place(void)
 
     log_info("Adding GCK for lowskew signals..\n");
     for(auto &n : lowskew_signals[IdString()]) {
-        //printf("\t%ld  --- %s\n", n.second.size(),n.first.c_str(ctx));
         NetInfo *net = ctx->nets.at(n.first).get();
         if (net->driver.cell->type.in(id_BFR,id_DFR,id_DDFR)) {
             CellInfo *bfr = net->driver.cell;
@@ -2458,7 +2387,8 @@ void NgUltraImpl::postPlace()
     ctx->assignArchInfo();
 }
 
-BelId getCSC(Context *ctx, Loc l, int row) {
+BelId NgUltraPacker::getCSC(Loc l, int row)
+{
     BelId bel = ctx->getBelByLocation(Loc(l.x+1,l.y+2,0));
     if (!ctx->getBoundBelCell(bel) && (row==0 || row==1)) return bel;
     bel = ctx->getBelByLocation(Loc(l.x+1,l.y+2,15));
@@ -2502,7 +2432,6 @@ void NgUltraPacker::insert_csc()
         }
     }
     for(auto &lsm : local_system_matrix) {
-        //printf("name:%s\n",lsm.first.c_str(ctx));
         std::string name = lsm.first.c_str(ctx);
         Loc loc = uarch->tile_locations[name];
         std::vector<std::pair<int, IdString>> fanout;
@@ -2518,7 +2447,7 @@ void NgUltraPacker::insert_csc()
             NetInfo *net = ctx->nets.at(n.second).get();
             CellInfo *cell = net->driver.cell;
             if (uarch->tile_name(cell->bel.tile) == lsm.first.c_str(ctx) && !cell->params.count(id_dff_used) && cell->cluster == ClusterId()) {
-                BelId newbel = getCSC(ctx,loc,0);
+                BelId newbel = getCSC(loc,0);
                 if (newbel==BelId()) break;
 
                 ctx->unbindBel(cell->bel);
@@ -2536,8 +2465,8 @@ void NgUltraPacker::insert_csc()
                 continue;
             }
             Loc cell_loc = ctx->getBelLocation(cell->bel);
-            BelId newbel = getCSC(ctx,loc,(cell_loc.y & 3)+1); // Take CSC from pefered row
-            if (newbel==BelId()) newbel = getCSC(ctx,loc,0); // Try getting any other CSC
+            BelId newbel = getCSC(loc,(cell_loc.y & 3)+1); // Take CSC from pefered row
+            if (newbel==BelId()) newbel = getCSC(loc,0); // Try getting any other CSC
             if (newbel==BelId()) break;
 
             CellInfo *fe = create_cell_ptr(id_BEYOND_FE, ctx->id(net->name.str(ctx) + "$" + lsm.first.c_str(ctx) + "$csc"));
@@ -2557,7 +2486,6 @@ void NgUltraPacker::insert_csc()
                 conn.cell->connectPort(conn.port,new_out);            
 
             ctx->bindBel(newbel, fe, PlaceStrength::STRENGTH_LOCKED);
-            //printf("\t%d  --- %s  %d %d\n", n.first,n.second.c_str(ctx),loc.x,loc.y);
         }
     }
     if (insert_new_csc)

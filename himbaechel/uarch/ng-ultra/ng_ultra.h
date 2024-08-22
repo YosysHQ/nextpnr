@@ -74,7 +74,7 @@ public:
     IdString tile_name_id(int tile) const;
     std::string tile_name(int tile) const;
 
-    bool is_fabric_clock_sink(const PortRef &ref);
+    const dict<IdString,pool<IdString>>& get_fabric_lowskew_sinks();
     bool is_fabric_lowskew_sink(const PortRef &ref);
     bool is_ring_clock_sink(const PortRef &ref);
     bool is_ring_over_tile_clock_sink(const PortRef &ref);
