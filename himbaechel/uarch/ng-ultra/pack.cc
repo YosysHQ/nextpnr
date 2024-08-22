@@ -2442,7 +2442,6 @@ void NgUltraPacker::insert_csc()
         int available_csc = 12;
         for (std::size_t i = 0; i < std::min<std::size_t>(fanout.size(),available_csc ); i++) {
             auto &n = fanout.at(i);
-            if (lsm.second[n.second].size() < 4) break;
 
             NetInfo *net = ctx->nets.at(n.second).get();
             CellInfo *cell = net->driver.cell;
@@ -2468,6 +2467,7 @@ void NgUltraPacker::insert_csc()
             BelId newbel = getCSC(loc,(cell_loc.y & 3)+1); // Take CSC from pefered row
             if (newbel==BelId()) newbel = getCSC(loc,0); // Try getting any other CSC
             if (newbel==BelId()) break;
+            if (lsm.second[n.second].size() < 4) break;
 
             CellInfo *fe = create_cell_ptr(id_BEYOND_FE, ctx->id(net->name.str(ctx) + "$" + lsm.first.c_str(ctx) + "$csc"));
             NetInfo *new_out = ctx->createNet(ctx->id(fe->name.str(ctx) + "$o"));
