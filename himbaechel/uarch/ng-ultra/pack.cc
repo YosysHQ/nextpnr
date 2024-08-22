@@ -2458,33 +2458,33 @@ void NgUltraImpl::postPlace()
     ctx->assignArchInfo();
 }
 
-BelId getCSC(Context *ctx, Loc l) {
+BelId getCSC(Context *ctx, Loc l, int row) {
     BelId bel = ctx->getBelByLocation(Loc(l.x+1,l.y+2,0));
-    if (!ctx->getBoundBelCell(bel)) return bel;
+    if (!ctx->getBoundBelCell(bel) && (row==0 || row==1)) return bel;
     bel = ctx->getBelByLocation(Loc(l.x+1,l.y+2,15));
-    if (!ctx->getBoundBelCell(bel)) return bel;
+    if (!ctx->getBoundBelCell(bel) && (row==0 || row==2)) return bel;
     bel = ctx->getBelByLocation(Loc(l.x+1,l.y+2,16));
-    if (!ctx->getBoundBelCell(bel)) return bel;
+    if (!ctx->getBoundBelCell(bel) && (row==0 || row==3)) return bel;
     bel = ctx->getBelByLocation(Loc(l.x+1,l.y+2,31));
-    if (!ctx->getBoundBelCell(bel)) return bel;
+    if (!ctx->getBoundBelCell(bel) && (row==0 || row==4)) return bel;
 
     bel = ctx->getBelByLocation(Loc(l.x+2,l.y+3,0));
-    if (!ctx->getBoundBelCell(bel)) return bel;
+    if (!ctx->getBoundBelCell(bel) && (row==0 || row==1)) return bel;
     bel = ctx->getBelByLocation(Loc(l.x+2,l.y+3,15));
-    if (!ctx->getBoundBelCell(bel)) return bel;
+    if (!ctx->getBoundBelCell(bel) && (row==0 || row==2)) return bel;
     bel = ctx->getBelByLocation(Loc(l.x+2,l.y+3,16));
-    if (!ctx->getBoundBelCell(bel)) return bel;
+    if (!ctx->getBoundBelCell(bel) && (row==0 || row==3)) return bel;
     bel = ctx->getBelByLocation(Loc(l.x+2,l.y+3,31));
-    if (!ctx->getBoundBelCell(bel)) return bel;
+    if (!ctx->getBoundBelCell(bel) && (row==0 || row==4)) return bel;
 
     bel = ctx->getBelByLocation(Loc(l.x+3,l.y+2,0));
-    if (!ctx->getBoundBelCell(bel)) return bel;
+    if (!ctx->getBoundBelCell(bel) && (row==0 || row==1)) return bel;
     bel = ctx->getBelByLocation(Loc(l.x+3,l.y+2,15));
-    if (!ctx->getBoundBelCell(bel)) return bel;
+    if (!ctx->getBoundBelCell(bel) && (row==0 || row==2)) return bel;
     bel = ctx->getBelByLocation(Loc(l.x+3,l.y+2,16));
-    if (!ctx->getBoundBelCell(bel)) return bel;
+    if (!ctx->getBoundBelCell(bel) && (row==0 || row==3)) return bel;
     bel = ctx->getBelByLocation(Loc(l.x+3,l.y+2,31));
-    if (!ctx->getBoundBelCell(bel)) return bel;
+    if (!ctx->getBoundBelCell(bel) && (row==0 || row==4)) return bel;
     return BelId();
 }
 
@@ -2514,12 +2514,13 @@ void NgUltraPacker::insert_csc()
         for (std::size_t i = 0; i < std::min<std::size_t>(fanout.size(),available_csc ); i++) {
             auto &n = fanout.at(i);
             if (lsm.second[n.second].size() < 4) break;
-            BelId newbel = getCSC(ctx,loc);
-            if (newbel==BelId()) break;
 
             NetInfo *net = ctx->nets.at(n.second).get();
             CellInfo *cell = net->driver.cell;
             if (uarch->tile_name(cell->bel.tile) == lsm.first.c_str(ctx) && !cell->params.count(id_dff_used) && cell->cluster == ClusterId()) {
+                BelId newbel = getCSC(ctx,loc,0);
+                if (newbel==BelId()) break;
+
                 ctx->unbindBel(cell->bel);
                 cell->disconnectPort(id_LO);
                 NetInfo *new_out = ctx->createNet(ctx->id(cell->name.str(ctx) + "$o"));
@@ -2534,7 +2535,10 @@ void NgUltraPacker::insert_csc()
                 change_to_csc++;
                 continue;
             }
-
+            Loc cell_loc = ctx->getBelLocation(cell->bel);
+            BelId newbel = getCSC(ctx,loc,(cell_loc.y & 3)+1); // Take CSC from pefered row
+            if (newbel==BelId()) newbel = getCSC(ctx,loc,0); // Try getting any other CSC
+            if (newbel==BelId()) break;
 
             CellInfo *fe = create_cell_ptr(id_BEYOND_FE, ctx->id(net->name.str(ctx) + "$" + lsm.first.c_str(ctx) + "$csc"));
             NetInfo *new_out = ctx->createNet(ctx->id(fe->name.str(ctx) + "$o"));
