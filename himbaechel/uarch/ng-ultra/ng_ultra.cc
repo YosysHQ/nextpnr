@@ -756,11 +756,11 @@ void NgUltraImpl::fixup_crossbars()
         return (extra_data.name && extra_data.type == PipExtra::PIP_EXTRA_CROSSBAR);
     };
 
-    auto crossbar_key = [&] (PipId pip, bool src) {
+    auto crossbar_key = [&] (PipId pip) {
         auto &pd = chip_pip_info(ctx->chip_info, pip);
-        auto wire_name = IdString(chip_tile_info(ctx->chip_info, pip.tile).wires[src ? pd.src_wire : pd.dst_wire].name).str(ctx);
-        return std::make_pair(pip.tile, ctx->id(wire_name.substr(0, wire_name.rfind('.'))));
-    };
+        const auto &extra_data = *reinterpret_cast<const NGUltraPipExtraDataPOD *>(pd.extra_data.get());
+        return std::make_pair(pip.tile, IdString(extra_data.name));
+    }; 
 
     for (auto &net : ctx->nets) {
         NetInfo *ni = net.second.get();
@@ -788,7 +788,7 @@ void NgUltraImpl::fixup_crossbars()
             for (auto pip : downstream.at(cursor)) {
                 WireId dst = ctx->getPipDstWire(pip);
                 if (is_crossbar_pip(pip)) {
-                    auto key = crossbar_key(pip, true);
+                    auto key = crossbar_key(pip);
                     if (!crossbar_entries.count(key)) {
                         crossbar_entries[key] = ctx->getPipSrcWire(pip);
                     } else {
