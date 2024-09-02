@@ -3082,6 +3082,7 @@ struct GowinPacker
     void pack_userflash()
     {
         log_info("Pack UserFlash cells...\n");
+        std::vector<std::unique_ptr<CellInfo>> new_cells;
 
         for (auto &cell : ctx->cells) {
             auto &ci = *cell.second;
@@ -3128,7 +3129,10 @@ struct GowinPacker
                     return;
                 }
 
-                CellInfo *lut = ctx->createCell(create_aux_name(ci.name, lut_idx, "_lut$"), id_LUT4);
+                std::unique_ptr<CellInfo> lut_cell =
+                        gwu.create_cell(create_aux_name(ci.name, lut_idx, "_lut$"), id_LUT4);
+                new_cells.push_back(std::move(lut_cell));
+                CellInfo *lut = new_cells.back().get();
                 lut->addInput(id_I0);
                 lut->addOutput(id_F);
                 lut->setParam(id_INIT, 0x5555);
@@ -3156,6 +3160,9 @@ struct GowinPacker
                     add_inv(pin.first, PORT_IN);
                 }
             }
+        }
+        for (auto &ncell : new_cells) {
+            ctx->cells[ncell->name] = std::move(ncell);
         }
     }
 
