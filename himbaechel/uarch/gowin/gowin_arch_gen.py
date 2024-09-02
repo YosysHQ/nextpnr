@@ -50,7 +50,9 @@ GND_Z   = 278
 BANDGAP_Z = 279
 
 DQCE_Z = 280 # : 286 reserve for 6 DQCEs
-DCS_Z  = 286 # : 287 reserve for 2 DCSs
+DCS_Z  = 286 # : 288 reserve for 2 DCSs
+
+USERFLASH_Z = 288
 
 DSP_Z          = 509
 
@@ -527,6 +529,18 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
                     bel.flags = BEL_FLAG_GLOBAL
                     tt.add_bel_pin(bel, "I", wire, PinType.INPUT)
                     tt.add_bel_pin(bel, "O", wire_out, PinType.OUTPUT)
+        elif func == 'userflash':
+                bel = tt.create_bel("USERFLASH", desc['type'], USERFLASH_Z)
+                portmap = desc['ins']
+                for port, wire in portmap.items():
+                    if not tt.has_wire(wire):
+                        tt.create_wire(wire, "FLASH_IN")
+                    tt.add_bel_pin(bel, port, wire, PinType.INPUT)
+                portmap = desc['outs']
+                for port, wire in portmap.items():
+                    if not tt.has_wire(wire):
+                        tt.create_wire(wire, "FLASH_OUT")
+                    tt.add_bel_pin(bel, port, wire, PinType.OUTPUT)
 
 def create_tiletype(create_func, chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
     has_extra_func = (y, x) in db.extra_func
