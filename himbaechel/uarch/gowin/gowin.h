@@ -73,6 +73,14 @@ inline bool is_clkdiv2(const CellInfo *cell) { return type_is_clkdiv2(cell->type
 // Return true for HCLK Cells
 inline bool is_hclk(const CellInfo *cell) { return type_is_clkdiv2(cell->type) || type_is_clkdiv(cell->type); }
 
+// Return true if a cell is a UserFlash
+inline bool type_is_userflash(IdString cell_type)
+{
+    return cell_type.in(id_FLASH96K, id_FLASH256K, id_FLASH608K, id_FLASH128K, id_FLASH64K, id_FLASH64K, id_FLASH64KZ,
+                        id_FLASH96KA);
+}
+inline bool is_userflash(const CellInfo *cell) { return type_is_userflash(cell->type); }
+
 // ==========================================
 // extra data in the chip db
 // ==========================================
@@ -165,9 +173,12 @@ enum
     VSS_Z = 278,
     BANDGAP_Z = 279,
 
+
     DQCE_Z = 280,  // : 286 reserve for 6 DQCEs
-    DCS_Z = 286,   // : 287 reserve for 2 DCSs
+    DCS_Z = 286,   // : 288 reserve for 2 DCSs
     DHCEN_Z = 288, // : 298
+
+    USERFLASH_Z = 298,
 
     // The two least significant bits encode Z for 9-bit adders and
     // multipliers, if they are equal to 0, then we get Z of their common

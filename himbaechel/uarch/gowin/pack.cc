@@ -3006,6 +3006,8 @@ struct GowinPacker
     // =========================================
     void pack_dqce()
     {
+        log_info("Pack DQCE cells...\n");
+
         // At the placement stage, nothing can be said definitively about DQCE,
         // so we make user cells virtual but allocate all available bels by
         // creating and placing cells - we will use some of them after, and
@@ -3039,6 +3041,8 @@ struct GowinPacker
     // =========================================
     void pack_dcs()
     {
+        log_info("Pack DCS cells...\n");
+
         // At the placement stage, nothing can be said definitively about DCS,
         // so we make user cells virtual but allocate all available bels by
         // creating and placing cells - we will use some of them after, and
@@ -3088,6 +3092,10 @@ struct GowinPacker
             }
         }
         if (grab_bels) {
+            // sane message if new primitives are used with old bases
+            auto buckets = ctx->getBelBuckets();
+            NPNR_ASSERT_MSG(std::find(buckets.begin(), buckets.end(), id_DHCEN) != buckets.end(), 
+                            "There are no DHCEN bels to use.");
             int i = 0;
             for (auto &bel : ctx->getBelsInBucket(ctx->getBelBucketForCellType(id_DHCEN))) {
                 IdString dhcen_name = ctx->idf("$PACKER_DHCEN_%d", ++i);
@@ -3095,6 +3103,96 @@ struct GowinPacker
                 dhcen->addInput(id_CE);
                 ctx->bindBel(bel, dhcen, STRENGTH_LOCKED);
             }
+        }
+    }
+
+    // =========================================
+    // Enable UserFlash
+    // =========================================
+    void pack_userflash()
+    {
+        log_info("Pack UserFlash cells...\n");
+        std::vector<std::unique_ptr<CellInfo>> new_cells;
+
+        for (auto &cell : ctx->cells) {
+            auto &ci = *cell.second;
+            if (!is_userflash(&ci)) {
+                continue;
+            }
+
+            if (ci.type.in(id_FLASH96K, id_FLASH256K, id_FLASH608K)) {
+                // enable
+                ci.addInput(id_INUSEN);
+                ci.connectPort(id_INUSEN, ctx->nets.at(ctx->id("$PACKER_GND")).get());
+            }
+            // rename ports
+            for (int i = 0; i < 32; ++i) {
+                ci.renamePort(ctx->idf("DIN[%d]", i), ctx->idf("DIN%d", i));
+                ci.renamePort(ctx->idf("DOUT[%d]", i), ctx->idf("DOUT%d", i));
+            }
+            if (ci.type.in(id_FLASH96K)) {
+                for (int i = 0; i < 6; ++i) {
+                    ci.renamePort(ctx->idf("RA[%d]", i), ctx->idf("RA%d", i));
+                    ci.renamePort(ctx->idf("CA[%d]", i), ctx->idf("CA%d", i));
+                    ci.renamePort(ctx->idf("PA[%d]", i), ctx->idf("PA%d", i));
+                }
+                for (int i = 0; i < 2; ++i) {
+                    ci.renamePort(ctx->idf("MODE[%d]", i), ctx->idf("MODE%d", i));
+                    ci.renamePort(ctx->idf("SEQ[%d]", i), ctx->idf("SEQ%d", i));
+                    ci.renamePort(ctx->idf("RMODE[%d]", i), ctx->idf("RMODE%d", i));
+                    ci.renamePort(ctx->idf("WMODE[%d]", i), ctx->idf("WMODE%d", i));
+                    ci.renamePort(ctx->idf("RBYTESEL[%d]", i), ctx->idf("RBYTESEL%d", i));
+                    ci.renamePort(ctx->idf("WBYTESEL[%d]", i), ctx->idf("WBYTESEL%d", i));
+                }
+            } else {
+                for (int i = 0; i < 9; ++i) {
+                    ci.renamePort(ctx->idf("XADR[%d]", i), ctx->idf("XADR%d", i));
+                }
+                for (int i = 0; i < 6; ++i) {
+                    ci.renamePort(ctx->idf("YADR[%d]", i), ctx->idf("YADR%d", i));
+                }
+            }
+            // add invertor
+            int lut_idx = 0;
+            auto add_inv = [&](IdString port, PortType port_type) {
+                if (!port_used(&ci, port)) {
+                    return;
+                }
+
+                std::unique_ptr<CellInfo> lut_cell =
+                        gwu.create_cell(create_aux_name(ci.name, lut_idx, "_lut$"), id_LUT4);
+                new_cells.push_back(std::move(lut_cell));
+                CellInfo *lut = new_cells.back().get();
+                lut->addInput(id_I0);
+                lut->addOutput(id_F);
+                lut->setParam(id_INIT, 0x5555);
+                ++lut_idx;
+
+                if (port_type == PORT_IN) {
+                    ci.movePortTo(port, lut, id_I0);
+                    lut->connectPorts(id_F, &ci, port);
+                } else {
+                    ci.movePortTo(port, lut, id_F);
+                    ci.connectPorts(port, lut, id_I0);
+                }
+            };
+            for (auto pin : ci.ports) {
+                if (pin.second.type == PORT_OUT) {
+                    add_inv(pin.first, PORT_OUT);
+                } else {
+                    if (pin.first == id_INUSEN) {
+                        continue;
+                    }
+                    if (ci.type == id_FLASH608K && pin.first.in(id_XADR0, id_XADR1, id_XADR2, id_XADR3, id_XADR4,
+                                                                id_XADR5, id_XADR6, id_XADR7, id_XADR8)) {
+                        continue;
+                    }
+                    add_inv(pin.first, PORT_IN);
+                }
+            }
+        }
+        for (auto &ncell : new_cells) {
+            ctx->cells[ncell->name] = std::move(ncell);
         }
     }
 
@@ -3151,6 +3249,9 @@ struct GowinPacker
         ctx->check();
 
         pack_dhcens();
+        ctx->check();
+
+        pack_userflash();
         ctx->check();
 
         pack_dqce();
