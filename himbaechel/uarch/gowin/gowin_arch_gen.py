@@ -365,8 +365,7 @@ def create_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
             if not tt.has_wire(src):
                 tt.create_wire(src, "GLOBAL_CLK")
             src_tm_class = get_tm_class(db, src)
-            if src_tm_class in {'CENT_SPINE_PCLK', 'SPINE_TAP_PCLK', 'TAP_BRANCH_PCLK', 'BRANCH_PCLK'}:
-                tt.create_pip(src, dst, src_tm_class)
+            tt.create_pip(src, dst, src_tm_class)
 
 def create_hclk_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
     if (y, x) not in db.hclk_pips:
