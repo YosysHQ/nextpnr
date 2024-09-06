@@ -73,11 +73,11 @@ static Json::array json_report_critical_paths(const Context *ctx)
                                         {"port", segment.to.second.c_str(ctx)},
                                         {"loc", Json::array({toLoc.x, toLoc.y})}});
 
-            auto segmentJson = Json::object({
-                    {"delay", ctx->getDelayNS(segment.delay)},
-                    {"from", fromJson},
-                    {"to", toJson},
-            });
+            auto minDelay = ctx->getDelayNS(segment.delay.minDelay());
+            auto maxDelay = ctx->getDelayNS(segment.delay.maxDelay());
+
+            auto segmentJson =
+                    Json::object({{"delay", Json::array({minDelay, maxDelay})}, {"from", fromJson}, {"to", toJson}});
 
             if (segment.type == CriticalPath::Segment::Type::CLK_TO_Q) {
                 segmentJson["type"] = "clk-to-q";
@@ -130,10 +130,13 @@ static Json::array json_report_detailed_net_timings(const Context *ctx)
 
         Json::array endpointsJson;
         for (const auto &sink_timing : it.second) {
+            auto minDelay = ctx->getDelayNS(sink_timing.delay.minDelay());
+            auto maxDelay = ctx->getDelayNS(sink_timing.delay.maxDelay());
+
             auto endpointJson = Json::object({{"cell", sink_timing.cell_port.first.c_str(ctx)},
                                               {"port", sink_timing.cell_port.second.c_str(ctx)},
                                               {"event", clock_event_name(ctx, sink_timing.clock_pair.end)},
-                                              {"delay", ctx->getDelayNS(sink_timing.delay)}});
+                                              {"delay", Json::array({minDelay, maxDelay})}});
             endpointsJson.push_back(endpointJson);
         }
 
@@ -191,7 +194,10 @@ Report JSON structure:
           },
           "type": <path segment type "clk-to-q", "source", "logic", "routing" or "setup">,
           "net": <net name (for routing only!)>,
-          "delay": <segment delay [ns]>,
+          "delay": [
+            <minimum segment delay [ns]>,
+            <maximum segment delay [ns]>,
+          ],
         }
         ...
       ]
@@ -209,7 +215,10 @@ Report JSON structure:
           "cell": <sink cell name>,
           "port": <sink cell port name>,
           "event": <destination clock event name>,
-          "delay": <delay [ns]>,
+          "delay": [
+            <minimum segment delay [ns]>,
+            <maximum segment delay [ns]>,
+          ],
         }
         ...
       ]

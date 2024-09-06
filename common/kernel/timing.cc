@@ -502,6 +502,8 @@ void TimingAnalyser::identify_related_domains()
 
 void TimingAnalyser::reset_times()
 {
+    static const auto init_delay =
+            DelayPair(std::numeric_limits<delay_t>::max(), std::numeric_limits<delay_t>::lowest());
     for (auto &port : ports) {
         auto do_reset = [&](dict<domain_id_t, ArrivReqTime> &times) {
             for (auto &t : times) {
@@ -758,7 +760,7 @@ void TimingAnalyser::build_detailed_net_timing_report()
                     sink_timing.clock_pair.end.clock = capture.clock;
                     sink_timing.clock_pair.end.edge = capture.edge;
                     sink_timing.cell_port = std::make_pair(pd.cell_port.cell, pd.cell_port.port);
-                    sink_timing.delay = arr.second.value.max_delay;
+                    sink_timing.delay = arr.second.value;
 
                     net_timings[net->name].push_back(sink_timing);
                 }
@@ -802,23 +804,25 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
     auto &launch = domains.at(dp.key.launch).key;
     auto &capture = domains.at(dp.key.capture).key;
 
+    report.delay = DelayPair(0);
+
     report.clock_pair.start.clock = launch.clock;
     report.clock_pair.start.edge = launch.edge;
     report.clock_pair.end.clock = capture.clock;
     report.clock_pair.end.edge = capture.edge;
 
-    report.period = ctx->getDelayFromNS(1.0e9 / ctx->setting<float>("target_freq"));
+    report.bound = DelayPair(0, ctx->getDelayFromNS(1.0e9 / ctx->setting<float>("target_freq")));
     if (launch.edge != capture.edge) {
-        report.period = report.period / 2;
+        report.bound.max_delay = report.bound.max_delay / 2;
     }
 
     if (!launch.is_async() && ctx->nets.at(launch.clock)->clkconstr) {
         if (launch.edge == capture.edge) {
-            report.period = ctx->nets.at(launch.clock)->clkconstr->period.minDelay();
+            report.bound.max_delay = ctx->nets.at(launch.clock)->clkconstr->period.minDelay();
         } else if (capture.edge == RISING_EDGE) {
-            report.period = ctx->nets.at(launch.clock)->clkconstr->low.minDelay();
+            report.bound.max_delay = ctx->nets.at(launch.clock)->clkconstr->low.minDelay();
         } else if (capture.edge == FALLING_EDGE) {
-            report.period = ctx->nets.at(launch.clock)->clkconstr->high.minDelay();
+            report.bound.max_delay = ctx->nets.at(launch.clock)->clkconstr->high.minDelay();
         }
     }
 
@@ -895,13 +899,13 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
             seg_logic.type = CriticalPath::Segment::Type::LOGIC;
         }
 
-        seg_logic.delay = comb_delay.maxDelay();
+        seg_logic.delay = comb_delay.delayPair();
         seg_logic.from = std::make_pair(last_cell->name, last_port);
         seg_logic.to = std::make_pair(driver_cell->name, driver.port);
         seg_logic.net = IdString();
         report.segments.push_back(seg_logic);
 
-        auto net_delay = ctx->getNetinfoRouteDelay(net, sink);
+        auto net_delay = DelayPair(ctx->getNetinfoRouteDelay(net, sink));
 
         CriticalPath::Segment seg_route;
         seg_route.type = CriticalPath::Segment::Type::ROUTING;
@@ -919,7 +923,7 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
     auto sinkClass = ctx->getPortTimingClass(crit_path.back().cell, crit_path.back().port, clockCount);
     if (sinkClass == TMG_REGISTER_INPUT && clockCount > 0) {
         auto sinkClockInfo = ctx->getPortClockingInfo(crit_path.back().cell, crit_path.back().port, 0);
-        delay_t setup = sinkClockInfo.setup.maxDelay();
+        auto setup = sinkClockInfo.setup;
 
         CriticalPath::Segment seg_logic;
         seg_logic.type = CriticalPath::Segment::Type::SETUP;

@@ -80,7 +80,7 @@ struct PortRef
 // minimum and maximum delay
 struct DelayPair
 {
-    DelayPair(){};
+    DelayPair() : min_delay(0), max_delay(0) {};
     explicit DelayPair(delay_t delay) : min_delay(delay), max_delay(delay) {}
     DelayPair(delay_t min_delay, delay_t max_delay) : min_delay(min_delay), max_delay(max_delay) {}
     delay_t minDelay() const { return min_delay; }
@@ -94,13 +94,25 @@ struct DelayPair
     {
         return {min_delay - other.min_delay, max_delay - other.max_delay};
     }
+    DelayPair &operator+=(const DelayPair &rhs)
+    {
+        min_delay += rhs.min_delay;
+        max_delay += rhs.max_delay;
+        return *this;
+    }
+    DelayPair &operator-=(const DelayPair &rhs)
+    {
+        min_delay -= rhs.min_delay;
+        max_delay -= rhs.max_delay;
+        return *this;
+    }
 };
 
 // four-quadrant, min and max rise and fall delay
 struct DelayQuad
 {
     DelayPair rise, fall;
-    DelayQuad() {}
+    DelayQuad() : rise(0), fall(0) {}
     explicit DelayQuad(delay_t delay) : rise(delay), fall(delay) {}
     DelayQuad(delay_t min_delay, delay_t max_delay) : rise(min_delay, max_delay), fall(min_delay, max_delay) {}
     DelayQuad(DelayPair rise, DelayPair fall) : rise(rise), fall(fall) {}
@@ -120,6 +132,19 @@ struct DelayQuad
 
     DelayQuad operator+(const DelayQuad &other) const { return {rise + other.rise, fall + other.fall}; }
     DelayQuad operator-(const DelayQuad &other) const { return {rise - other.rise, fall - other.fall}; }
+    DelayQuad &operator+=(const DelayQuad &rhs)
+    {
+        rise += rhs.rise;
+        fall += rhs.fall;
+        return *this;
+    }
+
+    DelayQuad &operator-=(const DelayQuad &rhs)
+    {
+        rise -= rhs.rise;
+        fall -= rhs.fall;
+        return *this;
+    }
 };
 
 struct ClockConstraint;
@@ -200,7 +225,7 @@ struct PseudoCell
     virtual bool getDelay(IdString fromPort, IdString toPort, DelayQuad &delay) const = 0;
     virtual TimingPortClass getPortTimingClass(IdString port, int &clockInfoCount) const = 0;
     virtual TimingClockingInfo getPortClockingInfo(IdString port, int index) const = 0;
-    virtual ~PseudoCell(){};
+    virtual ~PseudoCell() {};
 };
 
 struct RegionPlug : PseudoCell
@@ -336,15 +361,18 @@ struct CriticalPath
         // To cell.port
         std::pair<IdString, IdString> to;
         // Segment delay
-        delay_t delay;
+        DelayPair delay;
     };
 
     // Clock pair
     ClockPair clock_pair;
     // Total path delay
-    delay_t delay;
-    // Period (max allowed delay)
-    delay_t period;
+    DelayPair delay;
+
+    // if delay.minDelay() < bound.minDelay() then this is a hold violation
+    // if delay.maxDelay() > bound.maxDelay() then this is a setup violation
+    DelayPair bound;
+
     // Individual path segments
     std::vector<Segment> segments;
 };
@@ -357,7 +385,7 @@ struct NetSinkTiming
     // Cell and port (the sink)
     std::pair<IdString, IdString> cell_port;
     // Delay
-    delay_t delay;
+    DelayPair delay;
 };
 
 struct TimingResult
@@ -379,6 +407,9 @@ struct TimingResult
 
     // Histogram of slack
     dict<int, unsigned> slack_histogram;
+
+    // TODO: Hold time violations
+    // dict<IdString, CriticalPath> hold_violations;
 };
 
 // Represents the contents of a non-leaf cell in a design
