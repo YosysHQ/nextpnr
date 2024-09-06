@@ -119,7 +119,9 @@ struct TimingAnalyser
     void compute_criticality();
 
     void build_detailed_net_timing_report();
-    CriticalPath build_critical_path_report(domain_id_t domain_pair, CellPortKey endpoint);
+    // longest_path indicate whether to follow the longest or shortest path from endpoint to startpoint
+    // longest paths are interesting for setup violations and shortest paths are interesting for hold violations
+    CriticalPath build_critical_path_report(domain_id_t domain_pair, CellPortKey endpoint, bool longest_path);
     void build_crit_path_reports();
     void build_slack_histogram_report();
 
