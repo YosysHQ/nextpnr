@@ -796,7 +796,8 @@ std::vector<CellPortKey> TimingAnalyser::get_worst_eps(domain_id_t domain_pair, 
     return worst_eps;
 }
 
-CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair, CellPortKey endpoint)
+CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair, CellPortKey endpoint,
+                                                        bool longest_path)
 {
     CriticalPath report;
 
@@ -846,11 +847,18 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
     std::vector<PortRef> crit_path_rev;
     auto cursor = endpoint;
 
-    while (cursor != CellPortKey()) {
+    auto next_cursor = [longest_path](ArrivReqTime &arrival) {
+        if (longest_path) {
+            return arrival.bwd_max;
+        }
+        return arrival.bwd_min;
+    };
 
+    while (cursor != CellPortKey()) {
+        auto cell = cell_info(cursor);
+        auto &port = port_info(cursor);
         int port_clocks;
         auto portClass = ctx->getPortTimingClass(cell, port.name, port_clocks);
-        printf("%s.%s %s\n", cell->name.c_str(ctx), port.name.c_str(ctx), tmgPortClass_to_str(portClass));
 
         // combinational loop
         if (!visited.insert(std::make_pair(cell->name, port.name)).second)
@@ -862,9 +870,7 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
         if (!ports.at(cursor).arrival.count(dp.key.launch))
             break;
 
-        cursor = ports.at(cursor).arrival.at(dp.key.launch).bwd_max;
-        auto cell = cell_info(cursor);
-        auto &port = port_info(cursor);
+        cursor = next_cursor(ports.at(cursor).arrival.at(dp.key.launch));
     }
 
     auto crit_path = boost::adaptors::reverse(crit_path_rev);
@@ -873,8 +879,7 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
     auto &front_port = front.cell->ports.at(front.port);
     auto &front_driver = front_port.net->driver;
 
-    int port_clocks;
-    auto portClass = ctx->getPortTimingClass(front_driver.cell, front_driver.port, port_clocks);
+    portClass = ctx->getPortTimingClass(front_driver.cell, front_driver.port, port_clocks);
 
     const CellInfo *last_cell = front.cell;
     IdString last_port = front_driver.port;
@@ -997,7 +1002,7 @@ void TimingAnalyser::build_crit_path_reports()
             clock_fmax[launch.clock].achieved = Fmax;
             clock_fmax[launch.clock].constraint = target;
 
-            clock_reports[launch.clock] = build_critical_path_report(i, worst_endpoint.at(0));
+            clock_reports[launch.clock] = build_critical_path_report(i, worst_endpoint.at(0), true);
 
             empty_clocks.erase(launch.clock);
         }
@@ -1015,7 +1020,7 @@ void TimingAnalyser::build_crit_path_reports()
         if (worst_endpoint.empty())
             continue;
 
-        xclock_reports.emplace_back(build_critical_path_report(i, worst_endpoint.at(0)));
+        xclock_reports.emplace_back(build_critical_path_report(i, worst_endpoint.at(0), true));
     }
 
     auto cmp_crit_path = [&](const CriticalPath &ra, const CriticalPath &rb) {

@@ -203,7 +203,7 @@ enum TimingPortClass
     TMG_IGNORE,          // Asynchronous to all clocks, "don't care", and should be ignored (false path) for analysis
 };
 
-std::string tmgPortClass_to_str(TimingPortClass tmg_class)
+static std::string tmgPortClass_to_str(TimingPortClass tmg_class)
 {
     switch (tmg_class) {
     case TMG_CLOCK_INPUT:
