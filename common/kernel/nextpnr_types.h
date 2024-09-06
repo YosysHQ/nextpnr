@@ -203,6 +203,32 @@ enum TimingPortClass
     TMG_IGNORE,          // Asynchronous to all clocks, "don't care", and should be ignored (false path) for analysis
 };
 
+std::string tmgPortClass_to_str(TimingPortClass tmg_class)
+{
+    switch (tmg_class) {
+    case TMG_CLOCK_INPUT:
+        return "TMG_CLOCK_INPUT";
+    case TMG_GEN_CLOCK:
+        return "TMG_GEN_CLOCK";
+    case TMG_REGISTER_INPUT:
+        return "TMG_REGISTER_INPUT";
+    case TMG_REGISTER_OUTPUT:
+        return "TMG_REGISTER_OUTPUT";
+    case TMG_COMB_INPUT:
+        return "TMG_COMB_INPUT";
+    case TMG_COMB_OUTPUT:
+        return "TMG_COMB_OUTPUT";
+    case TMG_STARTPOINT:
+        return "TMG_STARTPOINT";
+    case TMG_ENDPOINT:
+        return "TMG_ENDPOINT";
+    case TMG_IGNORE:
+        return "TMG_IGNORE";
+    default:
+        return "TMG_BOOM";
+    }
+}
+
 enum ClockEdge
 {
     RISING_EDGE,

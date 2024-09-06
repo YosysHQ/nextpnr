@@ -826,16 +826,31 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
         }
     }
 
+    // Set hold time
+    auto cell = cell_info(endpoint);
+    auto &port = port_info(endpoint);
+    int port_clocks;
+    auto portClass = ctx->getPortTimingClass(cell, port.name, port_clocks);
+    if (portClass == TMG_REGISTER_INPUT) {
+        for (int i = 0; i < port_clocks; i++) {
+            auto info = ctx->getPortClockingInfo(cell, port.name, i);
+            if (!cell->ports.count(info.clock_port) || cell->ports.at(info.clock_port).net == nullptr)
+                continue;
+
+            report.bound.min_delay = info.hold.min_delay;
+            break;
+        }
+    }
+
     pool<std::pair<IdString, IdString>> visited;
     std::vector<PortRef> crit_path_rev;
     auto cursor = endpoint;
 
     while (cursor != CellPortKey()) {
-        auto cell = cell_info(cursor);
-        auto &port = port_info(cursor);
 
         int port_clocks;
         auto portClass = ctx->getPortTimingClass(cell, port.name, port_clocks);
+        printf("%s.%s %s\n", cell->name.c_str(ctx), port.name.c_str(ctx), tmgPortClass_to_str(portClass));
 
         // combinational loop
         if (!visited.insert(std::make_pair(cell->name, port.name)).second)
@@ -848,6 +863,8 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
             break;
 
         cursor = ports.at(cursor).arrival.at(dp.key.launch).bwd_max;
+        auto cell = cell_info(cursor);
+        auto &port = port_info(cursor);
     }
 
     auto crit_path = boost::adaptors::reverse(crit_path_rev);
