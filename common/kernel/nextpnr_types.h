@@ -30,6 +30,7 @@
 #include "archdefs.h"
 #include "hashlib.h"
 #include "indexed_store.h"
+#include "log.h"
 #include "nextpnr_base_types.h"
 #include "nextpnr_namespaces.h"
 #include "property.h"
@@ -180,6 +181,20 @@ enum PortType
     PORT_INOUT = 2
 };
 
+[[maybe_unused]] static const std::string portType_to_str(PortType typ)
+{
+    switch (typ) {
+    case PORT_IN:
+        return "PORT_IN";
+    case PORT_OUT:
+        return "PORT_OUT";
+    case PORT_INOUT:
+        return "PORT_INOUT";
+    default:
+        log_error("Impossible PortType");
+    }
+}
+
 struct PortInfo
 {
     IdString name;
@@ -203,7 +218,7 @@ enum TimingPortClass
     TMG_IGNORE,          // Asynchronous to all clocks, "don't care", and should be ignored (false path) for analysis
 };
 
-static std::string tmgPortClass_to_str(TimingPortClass tmg_class)
+[[maybe_unused]] static const std::string timingPortClass_to_str(TimingPortClass tmg_class)
 {
     switch (tmg_class) {
     case TMG_CLOCK_INPUT:
@@ -225,7 +240,7 @@ static std::string tmgPortClass_to_str(TimingPortClass tmg_class)
     case TMG_IGNORE:
         return "TMG_IGNORE";
     default:
-        return "TMG_BOOM";
+        log_error("Impossible TimingPortClass");
     }
 }
 
@@ -234,6 +249,18 @@ enum ClockEdge
     RISING_EDGE,
     FALLING_EDGE
 };
+
+[[maybe_unused]] static const std::string clockEdge_to_str(ClockEdge edge)
+{
+    switch (edge) {
+    case RISING_EDGE:
+        return "RISING_EDGE";
+    case FALLING_EDGE:
+        return "FALLING_EDGE";
+    default:
+        log_error("Impossible ClockEdge");
+    }
+}
 
 struct TimingClockingInfo
 {
@@ -378,6 +405,24 @@ struct CriticalPath
             SETUP     // Setup time in sink
         };
 
+        [[maybe_unused]] static const std::string type_to_str(Type typ)
+        {
+            switch (typ) {
+            case Type::CLK_TO_Q:
+                return "CLK_TO_Q";
+            case Type::SOURCE:
+                return "SOURCE";
+            case Type::LOGIC:
+                return "LOGIC";
+            case Type::ROUTING:
+                return "ROUTING";
+            case Type::SETUP:
+                return "SETUP";
+            default:
+                log_error("Impossible Segment::Type");
+            }
+        }
+
         // Type
         Type type;
         // Net name (routing only)
@@ -434,8 +479,8 @@ struct TimingResult
     // Histogram of slack
     dict<int, unsigned> slack_histogram;
 
-    // TODO: Hold time violations
-    // dict<IdString, CriticalPath> hold_violations;
+    // Min delay violations, only hold time for now
+    std::vector<CriticalPath> min_delay_violations;
 };
 
 // Represents the contents of a non-leaf cell in a design

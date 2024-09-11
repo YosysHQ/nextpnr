@@ -135,7 +135,7 @@ void logv_nonfatal_error(const char *format, va_list ap)
     had_nonfatal_error = true;
 }
 
-void logv_error(const char *format, va_list ap)
+[[noreturn]] void logv_error(const char *format, va_list ap)
 {
     logv_prefixed("ERROR: ", format, ap, LogLevel::ERROR_MSG);
 
@@ -180,7 +180,7 @@ void log_warning(const char *format, ...)
     va_end(ap);
 }
 
-void log_error(const char *format, ...)
+[[noreturn]] void log_error(const char *format, ...)
 {
     va_list ap;
     va_start(ap, format);
