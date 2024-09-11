@@ -225,6 +225,8 @@ struct TimingAnalyser
 
     void copy_domains(const CellPortKey &from, const CellPortKey &to, bool backwards);
 
+    [[maybe_unused]] static const std::string arcType_to_str(CellArc::ArcType typ);
+
     dict<CellPortKey, PerPort> ports;
     dict<ClockDomainKey, domain_id_t> domain_to_id;
     dict<ClockDomainPairKey, domain_id_t> pair_to_id;

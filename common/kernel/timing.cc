@@ -25,7 +25,6 @@
 #include <deque>
 #include <map>
 #include <utility>
-#include "log.h"
 #include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -75,7 +74,6 @@ void TimingAnalyser::run(bool update_route_delays, bool update_net_timings, bool
     }
 
     if (update_crit_paths) {
-        get_min_delay_violations();
         build_crit_path_reports();
     }
 }
@@ -575,8 +573,6 @@ void TimingAnalyser::walk_forward()
                 for (auto &fanin : pd.cell_arcs) {
                     if (fanin.type == CellArc::CLK_TO_Q && fanin.other_port == sp.second) {
                         init_arrival = init_arrival + fanin.value.delayPair();
-                        // printf("walk_forward %s.%s: init_arrival to %d - %d\n", sp.first.cell.c_str(ctx),
-                        //        sp.first.port.c_str(ctx), init_arrival.min_delay, init_arrival.max_delay);
                         break;
                     }
                 }
@@ -597,10 +593,6 @@ void TimingAnalyser::walk_forward()
                         CellPortKey usr_key(usr);
                         auto &usr_pd = ports.at(usr_key);
                         auto next_arr = arr.second.value + usr_pd.route_delay;
-                        printf("walk_forward: propagate routing from %s.%s to %s.%s, %d - %d\n", p.cell.c_str(ctx),
-                               p.port.c_str(ctx), usr_key.cell.c_str(ctx), usr_key.port.c_str(ctx), next_arr.min_delay,
-                               next_arr.max_delay);
-
                         set_arrival_time(usr_key, arr.first, next_arr, arr.second.path_length, p);
                     }
             } else if (pd.type == PORT_IN) {
@@ -610,10 +602,6 @@ void TimingAnalyser::walk_forward()
                         continue;
 
                     auto next_arr = arr.second.value + fanout.value.delayPair();
-
-                    printf("walk_forward: propagate through cell from %s.%s to %s.%s, %d - %d\n", p.cell.c_str(ctx),
-                           p.port.c_str(ctx), p.cell.c_str(ctx), fanout.other_port.c_str(ctx), next_arr.min_delay,
-                           next_arr.max_delay);
                     set_arrival_time(CellPortKey(p.cell, fanout.other_port), arr.first, next_arr,
                                      arr.second.path_length + 1, p);
                 }
@@ -730,13 +718,6 @@ void TimingAnalyser::compute_slack()
                 pd.worst_hold_slack = std::min(pd.worst_hold_slack, pdp.second.hold_slack);
                 dp.worst_hold_slack = std::min(dp.worst_hold_slack, pdp.second.hold_slack);
             }
-            // printf("max arr: %d, min req: %d, c2c: %d, setup slack: %d\n", arr.value.maxDelay(),
-            // req.value.minDelay(),
-            //        clock_to_clock, pdp.second.setup_slack);
-            // if (!setup_only) {
-            //     printf("min arr: %d, max req: %d, c2c: %d, hold slack: %d\n", arr.value.minDelay(),
-            //            req.value.maxDelay(), clock_to_clock, pdp.second.hold_slack);
-            // }
         }
     }
 }
@@ -869,13 +850,6 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
     std::vector<PortRef> crit_path_rev;
     auto cursor = endpoint;
 
-    auto next_cursor = [longest_path](ArrivReqTime &arrival) {
-        if (longest_path) {
-            return arrival.bwd_max;
-        }
-        return arrival.bwd_min;
-    };
-
     while (cursor != CellPortKey()) {
         auto cell = cell_info(cursor);
         auto &port = port_info(cursor);
@@ -892,7 +866,11 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
         if (!ports.at(cursor).arrival.count(dp.key.launch))
             break;
 
-        cursor = next_cursor(ports.at(cursor).arrival.at(dp.key.launch));
+        if (longest_path) {
+            cursor = ports.at(cursor).arrival.at(dp.key.launch).bwd_max;
+        } else {
+            cursor = ports.at(cursor).arrival.at(dp.key.launch).bwd_min;
+        }
     }
 
     auto crit_path = boost::adaptors::reverse(crit_path_rev);
@@ -988,6 +966,10 @@ void TimingAnalyser::build_crit_path_reports()
     auto &clock_fmax = result.clock_fmax;
     auto &empty_clocks = result.empty_paths;
     auto &clock_delays_ctx = result.clock_delays;
+
+    if (!setup_only) {
+        result.min_delay_violations = get_min_delay_violations();
+    }
 
     auto delay_by_domain = max_delay_by_domain_pairs();
 
@@ -1105,26 +1087,6 @@ void TimingAnalyser::build_slack_histogram_report()
     }
 }
 
-std::string arc_typ_to_str(TimingAnalyser::CellArc::ArcType typ)
-{
-    switch (typ) {
-    case TimingAnalyser::CellArc::COMBINATIONAL:
-        return "COMBINATIONAL";
-    case TimingAnalyser::CellArc::SETUP:
-        return "SETUP";
-    case TimingAnalyser::CellArc::HOLD:
-        return "HOLD";
-    case TimingAnalyser::CellArc::CLK_TO_Q:
-        return "CLK_TO_Q";
-    case TimingAnalyser::CellArc::STARTPOINT:
-        return "STARTPOINT";
-    case TimingAnalyser::CellArc::ENDPOINT:
-        return "ENDPOINT";
-    default:
-        return "IMPOSSIBRU";
-    }
-}
-
 std::vector<CriticalPath> TimingAnalyser::get_min_delay_violations()
 {
     std::vector<CriticalPath> violations;
@@ -1144,17 +1106,14 @@ std::vector<CriticalPath> TimingAnalyser::get_min_delay_violations()
 
         DelayPair period = clk_net->clkconstr->period;
 
-        printf("Clock %s.%s with period %f - %f\n", clk_net->driver.cell->name.c_str(ctx),
-               clk_net->driver.port.c_str(ctx), ctx->getDelayNS(period.minDelay()), ctx->getDelayNS(period.maxDelay()));
-
-        for (auto &sp : capture.endpoints) {
-            CellInfo *ci = cell_info(sp.first);
+        for (auto &ep : capture.endpoints) {
+            CellInfo *ci = cell_info(ep.first);
             int clkInfoCount = 0;
-            TimingPortClass cls = ctx->getPortTimingClass(ci, sp.first.port, clkInfoCount);
+            TimingPortClass cls = ctx->getPortTimingClass(ci, ep.first.port, clkInfoCount);
             if (cls != TMG_REGISTER_INPUT)
                 continue;
 
-            auto &port = ports.at(sp.first);
+            auto &port = ports.at(ep.first);
 
             auto &req = port.required.at(capture_id);
 
@@ -1177,10 +1136,12 @@ std::vector<CriticalPath> TimingAnalyser::get_min_delay_violations()
 
                 auto hold_slack = arr.value.minDelay() - req.value.maxDelay() + clock_to_clock;
 
-                printf("endpoint: %s.%s, arr: %f - %f, req: %f - %f, hold slack: %f\n", sp.first.cell.c_str(ctx),
-                       sp.first.port.c_str(ctx), ctx->getDelayNS(arr.value.minDelay()),
-                       ctx->getDelayNS(arr.value.maxDelay()), ctx->getDelayNS(req.value.minDelay()),
-                       ctx->getDelayNS(req.value.maxDelay()), ctx->getDelayNS(hold_slack));
+                auto violated = true;
+
+                if (violated) {
+                    const auto dom_pair_id = domain_pair_id(launch_id, capture_id);
+                    violations.emplace_back(build_critical_path_report(dom_pair_id, ep.first, false));
+                }
             }
         }
     }
@@ -1219,6 +1180,26 @@ void TimingAnalyser::copy_domains(const CellPortKey &from, const CellPortKey &to
     auto &f = ports.at(from), &t = ports.at(to);
     for (auto &dom : (backward ? f.required : f.arrival)) {
         updated_domains |= (backward ? t.required : t.arrival).emplace(dom.first, ArrivReqTime{}).second;
+    }
+}
+
+const std::string TimingAnalyser::arcType_to_str(CellArc::ArcType typ)
+{
+    switch (typ) {
+    case TimingAnalyser::CellArc::COMBINATIONAL:
+        return "COMBINATIONAL";
+    case TimingAnalyser::CellArc::SETUP:
+        return "SETUP";
+    case TimingAnalyser::CellArc::HOLD:
+        return "HOLD";
+    case TimingAnalyser::CellArc::CLK_TO_Q:
+        return "CLK_TO_Q";
+    case TimingAnalyser::CellArc::STARTPOINT:
+        return "STARTPOINT";
+    case TimingAnalyser::CellArc::ENDPOINT:
+        return "ENDPOINT";
+    default:
+        log_error("Impossible CellArc::ArcType\n");
     }
 }
 
