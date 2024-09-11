@@ -125,6 +125,8 @@ struct TimingAnalyser
     void build_crit_path_reports();
     void build_slack_histogram_report();
 
+    std::vector<CriticalPath> get_min_delay_violations();
+
     dict<domain_id_t, delay_t> max_delay_by_domain_pairs();
 
     // get the N worst endpoints for a given domain pair
