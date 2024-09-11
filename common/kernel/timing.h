@@ -27,8 +27,8 @@ NEXTPNR_NAMESPACE_BEGIN
 
 struct CellPortKey
 {
-    CellPortKey(){};
-    CellPortKey(IdString cell, IdString port) : cell(cell), port(port){};
+    CellPortKey() {};
+    CellPortKey(IdString cell, IdString port) : cell(cell), port(port) {};
     explicit CellPortKey(const PortRef &pr)
     {
         NPNR_ASSERT(pr.cell != nullptr);
@@ -49,7 +49,7 @@ struct ClockDomainKey
 {
     IdString clock;
     ClockEdge edge;
-    ClockDomainKey(IdString clock_net, ClockEdge edge) : clock(clock_net), edge(edge){};
+    ClockDomainKey(IdString clock_net, ClockEdge edge) : clock(clock_net), edge(edge) {};
     // probably also need something here to deal with constraints
     inline bool is_async() const { return clock == IdString(); }
 
@@ -63,7 +63,7 @@ typedef int domain_id_t;
 struct ClockDomainPairKey
 {
     domain_id_t launch, capture;
-    ClockDomainPairKey(domain_id_t launch, domain_id_t capture) : launch(launch), capture(capture){};
+    ClockDomainPairKey(domain_id_t launch, domain_id_t capture) : launch(launch), capture(capture) {};
     inline bool operator==(const ClockDomainPairKey &other) const
     {
         return (launch == other.launch) && (capture == other.capture);
@@ -128,8 +128,6 @@ struct TimingAnalyser
     // get the N worst endpoints for a given domain pair
     std::vector<CellPortKey> get_worst_eps(domain_id_t domain_pair, int count);
 
-    const DelayPair init_delay{std::numeric_limits<delay_t>::max(), std::numeric_limits<delay_t>::lowest()};
-
     // Set arrival/required times if more/less than the current value
     void set_arrival_time(CellPortKey target, domain_id_t domain, DelayPair arrival, int path_length,
                           CellPortKey prev = CellPortKey());
@@ -174,9 +172,9 @@ struct TimingAnalyser
         ClockEdge edge;
 
         CellArc(ArcType type, IdString other_port, DelayQuad value)
-                : type(type), other_port(other_port), value(value), edge(RISING_EDGE){};
+                : type(type), other_port(other_port), value(value), edge(RISING_EDGE) {};
         CellArc(ArcType type, IdString other_port, DelayQuad value, ClockEdge edge)
-                : type(type), other_port(other_port), value(value), edge(edge){};
+                : type(type), other_port(other_port), value(value), edge(edge) {};
     };
 
     // Timing data for every cell port
@@ -200,7 +198,7 @@ struct TimingAnalyser
 
     struct PerDomain
     {
-        PerDomain(ClockDomainKey key) : key(key){};
+        PerDomain(ClockDomainKey key) : key(key) {};
         ClockDomainKey key;
         // these are pairs (signal port; clock port)
         std::vector<std::pair<CellPortKey, IdString>> startpoints, endpoints;
@@ -208,7 +206,7 @@ struct TimingAnalyser
 
     struct PerDomainPair
     {
-        PerDomainPair(ClockDomainPairKey key) : key(key){};
+        PerDomainPair(ClockDomainPairKey key) : key(key) {};
         ClockDomainPairKey key;
         DelayPair period{0};
         delay_t worst_setup_slack, worst_hold_slack;

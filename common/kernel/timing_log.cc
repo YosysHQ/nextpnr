@@ -68,7 +68,18 @@ static void log_crit_paths(const Context *ctx, TimingResult &result)
 
     // A helper function for reporting one critical path
     auto print_path_report = [ctx](const CriticalPath &path) {
-        delay_t total = 0, logic_total = 0, route_total = 0;
+        DelayPair total(0), logic_total(0), route_total(0);
+
+        // We print out the max delay since that's usually the interesting case
+        // But if we know this critical path has violated hold time we print the
+        // min delay instead
+        bool hold_violation = path.delay.minDelay() < path.bound.minDelay();
+        auto get_delay_ns = [hold_violation, ctx](const DelayPair &d) {
+            if (hold_violation) {
+                ctx->getDelayNS(d.minDelay());
+            }
+            return ctx->getDelayNS(d.maxDelay());
+        };
 
         log_info("curr total\n");
         for (const auto &segment : path.segments) {
@@ -83,10 +94,10 @@ static void log_crit_paths(const Context *ctx, TimingResult &result)
 
                 const std::string type_name = (segment.type == CriticalPath::Segment::Type::SETUP) ? "Setup" : "Source";
 
-                log_info("%4.1f %4.1f  %s %s.%s\n", ctx->getDelayNS(segment.delay), ctx->getDelayNS(total),
-                         type_name.c_str(), segment.to.first.c_str(ctx), segment.to.second.c_str(ctx));
+                log_info("%4.1f %4.1f  %s %s.%s\n", get_delay_ns(segment.delay), get_delay_ns(total), type_name.c_str(),
+                         segment.to.first.c_str(ctx), segment.to.second.c_str(ctx));
             } else if (segment.type == CriticalPath::Segment::Type::ROUTING) {
-                route_total += segment.delay;
+                route_total = route_total + segment.delay;
 
                 const auto &driver = ctx->cells.at(segment.from.first);
                 const auto &sink = ctx->cells.at(segment.to.first);
@@ -94,9 +105,8 @@ static void log_crit_paths(const Context *ctx, TimingResult &result)
                 auto driver_loc = ctx->getBelLocation(driver->bel);
                 auto sink_loc = ctx->getBelLocation(sink->bel);
 
-                log_info("%4.1f %4.1f    Net %s (%d,%d) -> (%d,%d)\n", ctx->getDelayNS(segment.delay),
-                         ctx->getDelayNS(total), segment.net.c_str(ctx), driver_loc.x, driver_loc.y, sink_loc.x,
-                         sink_loc.y);
+                log_info("%4.1f %4.1f    Net %s (%d,%d) -> (%d,%d)\n", get_delay_ns(segment.delay), get_delay_ns(total),
+                         segment.net.c_str(ctx), driver_loc.x, driver_loc.y, sink_loc.x, sink_loc.y);
                 log_info("               Sink %s.%s\n", segment.to.first.c_str(ctx), segment.to.second.c_str(ctx));
 
                 const NetInfo *net = ctx->nets.at(segment.net).get();
@@ -134,7 +144,7 @@ static void log_crit_paths(const Context *ctx, TimingResult &result)
                 }
             }
         }
-        log_info("%.1f ns logic, %.1f ns routing\n", ctx->getDelayNS(logic_total), ctx->getDelayNS(route_total));
+        log_info("%.1f ns logic, %.1f ns routing\n", get_delay_ns(logic_total), get_delay_ns(route_total));
     };
 
     // Single domain paths
@@ -223,7 +233,7 @@ static void log_fmax(Context *ctx, TimingResult &result, bool warn_on_failure)
                 continue;
             }
 
-            delay_t path_delay = 0;
+            DelayPair path_delay(0);
             for (const auto &segment : report.segments) {
                 path_delay += segment.delay;
             }
@@ -232,13 +242,13 @@ static void log_fmax(Context *ctx, TimingResult &result, bool warn_on_failure)
             // result is negative then only the latter matters. Otherwise
             // the compensated path delay is taken.
             auto clock_delay = result.clock_delays.at(key);
-            path_delay -= clock_delay;
+            path_delay -= DelayPair(clock_delay);
 
             float fmax = std::numeric_limits<float>::infinity();
-            if (path_delay < 0) {
+            if (path_delay.maxDelay() < 0) {
                 fmax = 1e3f / ctx->getDelayNS(clock_delay);
-            } else if (path_delay > 0) {
-                fmax = 1e3f / ctx->getDelayNS(path_delay);
+            } else if (path_delay.maxDelay() > 0) {
+                fmax = 1e3f / ctx->getDelayNS(path_delay.maxDelay());
             }
 
             // Both clocks are related so they should have the same
@@ -306,12 +316,12 @@ static void log_fmax(Context *ctx, TimingResult &result, bool warn_on_failure)
     for (auto &report : result.xclock_paths) {
         const ClockEvent &a = report.clock_pair.start;
         const ClockEvent &b = report.clock_pair.end;
-        delay_t path_delay = 0;
+        DelayPair path_delay(0);
         for (const auto &segment : report.segments) {
             path_delay += segment.delay;
         }
         auto ev_a = clock_event_name(ctx, a, start_field_width), ev_b = clock_event_name(ctx, b, end_field_width);
-        log_info("Max delay %s -> %s: %0.02f ns\n", ev_a.c_str(), ev_b.c_str(), ctx->getDelayNS(path_delay));
+        log_info("Max delay %s -> %s: %0.02f ns\n", ev_a.c_str(), ev_b.c_str(), ctx->getDelayNS(path_delay.maxDelay()));
     }
     log_break();
 }
