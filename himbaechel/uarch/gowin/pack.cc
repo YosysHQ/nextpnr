@@ -3077,6 +3077,36 @@ struct GowinPacker
     }
 
     // =========================================
+    // Create DHCENs
+    // =========================================
+    void pack_dhcens()
+    {
+        // Allocate all available dhcen bels; we will find out which of them
+        // will actually be used during the routing process.
+        bool grab_bels = false;
+        for (auto &cell : ctx->cells) {
+            auto &ci = *cell.second;
+            if (ci.type == id_DHCEN) {
+                ci.pseudo_cell = std::make_unique<RegionPlug>(Loc(0, 0, 0));
+                grab_bels = true;
+            }
+        }
+        if (grab_bels) {
+            // sane message if new primitives are used with old bases
+            auto buckets = ctx->getBelBuckets();
+            NPNR_ASSERT_MSG(std::find(buckets.begin(), buckets.end(), id_DHCEN) != buckets.end(), 
+                            "There are no DHCEN bels to use.");
+            int i = 0;
+            for (auto &bel : ctx->getBelsInBucket(ctx->getBelBucketForCellType(id_DHCEN))) {
+                IdString dhcen_name = ctx->idf("$PACKER_DHCEN_%d", ++i);
+                CellInfo *dhcen = ctx->createCell(dhcen_name, id_DHCEN);
+                dhcen->addInput(id_CE);
+                ctx->bindBel(bel, dhcen, STRENGTH_LOCKED);
+            }
+        }
+    }
+
+    // =========================================
     // Enable UserFlash
     // =========================================
     void pack_userflash(bool have_emcu)
@@ -3332,7 +3362,14 @@ struct GowinPacker
         pack_buffered_nets();
         ctx->check();
 
+<<<<<<< cpu-wip
         pack_emcu_and_flash();
+=======
+        pack_dhcens();
+        ctx->check();
+
+        pack_userflash();
+>>>>>>> master
         ctx->check();
 
         pack_dqce();
