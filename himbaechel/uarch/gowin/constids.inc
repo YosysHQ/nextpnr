@@ -1287,3 +1287,6 @@ X(RESETN)
 //HCLK Parameters
 X(DIV_MODE)
 X(GSREN)
+
+// EMCU
+X(EMCU)
