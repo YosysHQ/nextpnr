@@ -3094,7 +3094,7 @@ struct GowinPacker
         if (grab_bels) {
             // sane message if new primitives are used with old bases
             auto buckets = ctx->getBelBuckets();
-            NPNR_ASSERT_MSG(std::find(buckets.begin(), buckets.end(), id_DHCEN) != buckets.end(), 
+            NPNR_ASSERT_MSG(std::find(buckets.begin(), buckets.end(), id_DHCEN) != buckets.end(),
                             "There are no DHCEN bels to use.");
             int i = 0;
             for (auto &bel : ctx->getBelsInBucket(ctx->getBelBucketForCellType(id_DHCEN))) {
@@ -3362,14 +3362,10 @@ struct GowinPacker
         pack_buffered_nets();
         ctx->check();
 
-<<<<<<< cpu-wip
         pack_emcu_and_flash();
-=======
-        pack_dhcens();
         ctx->check();
 
-        pack_userflash();
->>>>>>> master
+        pack_dhcens();
         ctx->check();
 
         pack_dqce();
