@@ -168,7 +168,20 @@ static void log_crit_paths(const Context *ctx, TimingResult &result)
         log_info("Critical path report for cross-domain path '%s' -> '%s':\n", start.c_str(), end.c_str());
         print_path_report(report);
     }
-};
+
+    // Min delay violated paths
+    for (auto &report : result.min_delay_violations) {
+        log_break();
+        std::string start = clock_event_name(ctx, report.clock_pair.start);
+        std::string end = clock_event_name(ctx, report.clock_pair.end);
+        if (report.clock_pair.start == report.clock_pair.end) {
+            log_info("Hold time violations for clock '%s':\n", start.c_str());
+        } else {
+            log_info("Hold time violations for path '%s' -> '%s':\n", start.c_str(), end.c_str());
+        }
+        print_path_report(report);
+    }
+}
 
 static void log_fmax(Context *ctx, TimingResult &result, bool warn_on_failure)
 {
