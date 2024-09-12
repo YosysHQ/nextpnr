@@ -98,6 +98,10 @@ struct TimingAnalyser
 
     TimingResult &get_timing_result() { return result; }
 
+    // Enable analysis of clock skew between FFs.
+    // Only do this after legal placement
+    bool clock_skew = false;
+
     bool setup_only = false;
     bool have_loops = false;
     bool updated_domains = false;

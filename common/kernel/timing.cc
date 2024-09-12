@@ -174,10 +174,20 @@ void TimingAnalyser::get_route_delays()
         NetInfo *ni = net.second.get();
         if (ni->driver.cell == nullptr || ni->driver.cell->bel == BelId())
             continue;
+
+        if (clock_skew) {
+            printf("net %s has driver %s.%s\n", ni->name.c_str(ctx), ni->driver.cell->name.c_str(ctx),
+                   ni->driver.port.c_str(ctx));
+        }
         for (auto &usr : ni->users) {
             if (usr.cell->bel == BelId())
                 continue;
             ports.at(CellPortKey(usr)).route_delay = DelayPair(ctx->getNetinfoRouteDelay(ni, usr));
+
+            if (clock_skew) {
+                printf("\tuser %s.%s, delay: %f\n", usr.cell->name.c_str(ctx), usr.port.c_str(ctx),
+                       ctx->getDelayNS(ctx->getNetinfoRouteDelay(ni, usr)));
+            }
         }
     }
 }
@@ -567,12 +577,15 @@ void TimingAnalyser::walk_forward()
             auto &pd = ports.at(sp.first);
             DelayPair init_arrival(0);
             CellPortKey clock_key;
-            // TODO: clock routing delay, if analysis of that is enabled
             if (sp.second != IdString()) {
                 // clocked startpoints have a clock-to-out time
                 for (auto &fanin : pd.cell_arcs) {
                     if (fanin.type == CellArc::CLK_TO_Q && fanin.other_port == sp.second) {
-                        init_arrival = init_arrival + fanin.value.delayPair();
+                        init_arrival += fanin.value.delayPair();
+                        if (clock_skew) {
+                            auto clock_delay = ports.at(CellPortKey(sp.first.cell, fanin.other_port)).route_delay;
+                            init_arrival += clock_delay;
+                        }
                         break;
                     }
                 }
@@ -619,20 +632,28 @@ void TimingAnalyser::walk_backward()
         auto &dom = domains.at(dom_id);
         for (auto &ep : dom.endpoints) {
             auto &pd = ports.at(ep.first);
-            DelayPair init_setuphold(0);
+            DelayPair init_required(0);
             CellPortKey clock_key;
             // TODO: clock routing delay, if analysis of that is enabled
             if (ep.second != IdString()) {
                 // Add setup/hold time, if this endpoint is clocked
                 for (auto &fanin : pd.cell_arcs) {
-                    if (fanin.type == CellArc::SETUP && fanin.other_port == ep.second)
-                        init_setuphold.min_delay -= fanin.value.maxDelay();
+                    printf("walk bwd %s.%s, fanin: %s, arctype: %s\n", ep.first.cell.c_str(ctx),
+                           ep.first.port.c_str(ctx), fanin.other_port.c_str(ctx), arcType_to_str(fanin.type).c_str());
+
+                    if (fanin.type == CellArc::SETUP && fanin.other_port == ep.second) {
+                        if (clock_skew) {
+                            auto clock_delay = ports.at(CellPortKey(ep.first.cell, fanin.other_port)).route_delay;
+                            init_required += clock_delay;
+                        }
+                        init_required.min_delay -= fanin.value.maxDelay();
+                    }
                     if (fanin.type == CellArc::HOLD && fanin.other_port == ep.second)
-                        init_setuphold.max_delay -= fanin.value.maxDelay();
+                        init_required.max_delay -= fanin.value.maxDelay();
                 }
                 clock_key = CellPortKey(ep.first.cell, ep.second);
             }
-            set_required_time(ep.first, dom_id, init_setuphold, 1, clock_key);
+            set_required_time(ep.first, dom_id, init_required, 1, clock_key);
         }
     }
     // Walk backwards in topological order
@@ -1211,6 +1232,8 @@ void timing_analysis(Context *ctx, bool print_slack_histogram, bool print_fmax, 
                      bool update_results)
 {
     TimingAnalyser tmg(ctx);
+    tmg.setup_only = false;
+    tmg.clock_skew = true;
     tmg.setup(ctx->detailed_timing_report, print_slack_histogram, print_path || print_fmax);
 
     auto &result = tmg.get_timing_result();
