@@ -19,6 +19,7 @@
  *
  */
 
+#include <algorithm>
 #include "log.h"
 #include "nextpnr.h"
 #include "util.h"
@@ -170,16 +171,23 @@ static void log_crit_paths(const Context *ctx, TimingResult &result)
     }
 
     // Min delay violated paths
-    for (auto &report : result.min_delay_violations) {
+    // Show maximum of 10
+    auto num_min_violations = result.min_delay_violations.size();
+    if (num_min_violations > 0) {
         log_break();
-        std::string start = clock_event_name(ctx, report.clock_pair.start);
-        std::string end = clock_event_name(ctx, report.clock_pair.end);
-        if (report.clock_pair.start == report.clock_pair.end) {
-            log_info("Hold time violations for clock '%s':\n", start.c_str());
-        } else {
-            log_info("Hold time violations for path '%s' -> '%s':\n", start.c_str(), end.c_str());
+        log_info("Hold time violations:\n");
+        for (size_t i = 0; i < std::min((size_t)10, num_min_violations); ++i) {
+            auto &report = result.min_delay_violations.at(i);
+            log_break();
+            std::string start = clock_event_name(ctx, report.clock_pair.start);
+            std::string end = clock_event_name(ctx, report.clock_pair.end);
+            if (report.clock_pair.start == report.clock_pair.end) {
+                log_nonfatal_error("Hold time violations for clock '%s':\n", start.c_str());
+            } else {
+                log_nonfatal_error("Hold time violations for path '%s' -> '%s':\n", start.c_str(), end.c_str());
+            }
+            print_path_report(report);
         }
-        print_path_report(report);
     }
 }
 
