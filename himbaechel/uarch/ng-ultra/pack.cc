@@ -2376,13 +2376,14 @@ void NgUltraImpl::postPlace()
     }
     remove_constants();
 
-
+    const ArchArgs &args = ctx->args;
     NgUltraPacker packer(ctx, this);
     log_break();
     log_info("Running post-placement ...\n");
     packer.duplicate_gck();
     packer.insert_bypass_gck();
-    packer.insert_csc();
+    if (!args.options.count("no-csc-insertion"))
+        packer.insert_csc();
     log_break();
     ctx->assignArchInfo();
 }
