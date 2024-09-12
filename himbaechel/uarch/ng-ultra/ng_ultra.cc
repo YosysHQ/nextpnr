@@ -455,8 +455,11 @@ template <size_t N> bool check_assign_sig(std::array<const NetInfo*, N> &sig_set
 
 struct SectionFEWorker
 {
-    std::array<const NetInfo *, 2> clk{};
-    std::array<const NetInfo *, 4> reset_load{};
+    std::array<const NetInfo *, 2> clk{}; // from local system matrix
+    std::array<const NetInfo *, 2> reset{}; // from local system matrix
+    std::array<const NetInfo *, 2> load{}; // from local system matrix
+    std::array<const NetInfo *, 1> shared{}; // 1 from local system matrix
+    // Additional R and L can be used from RI network
     bool run(const NgUltraImpl *impl,const Context *ctx, BelId bel, CellInfo *cell)
     {
         Loc loc = ctx->getBelLocation(bel);
@@ -464,13 +467,14 @@ struct SectionFEWorker
             const CellInfo *ff = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x,loc.y,id)));
             if (ff == nullptr)
                 continue;
-            // TODO: This restriction is too limited, need to revisit
-            /*
-            if (!check_assign_sig(reset_load, ff->getPort(id_R)))
-                return false;
-            if (!check_assign_sig(reset_load, ff->getPort(id_L)))
-                return false;
-            */
+            if (!check_assign_sig(reset, ff->getPort(id_R))) {
+                if (!check_assign_sig(shared, ff->getPort(id_R)))
+                    return false;
+            }
+            if (!check_assign_sig(load, ff->getPort(id_L))) {
+                if (!check_assign_sig(shared, ff->getPort(id_L)))
+                    return false;
+            }
             if (!check_assign_sig(clk, ff->getPort(id_CK)))
                 return false;
         }
