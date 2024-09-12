@@ -457,6 +457,10 @@ namespace ng_ultra {
 Loc getNextLocInDSPChain(const NgUltraImpl *impl, Loc loc)
 {
     BelId bel = impl->ctx->getBelByLocation(loc);
+    if (impl->dsp_cascade.count(bel)==0) {
+        loc.z = -1; // End of chain
+        return loc;
+    }
     BelId dsp = impl->dsp_cascade.at(bel);
     return impl->ctx->getBelLocation(dsp);
 }
