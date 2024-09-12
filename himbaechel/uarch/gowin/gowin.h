@@ -81,6 +81,10 @@ inline bool type_is_userflash(IdString cell_type)
 }
 inline bool is_userflash(const CellInfo *cell) { return type_is_userflash(cell->type); }
 
+// Return true if a cell is a EMCU
+inline bool type_is_emcu(IdString cell_type) { return cell_type == id_EMCU; }
+inline bool is_emcu(const CellInfo *cell) { return type_is_emcu(cell->type); }
+
 // ==========================================
 // extra data in the chip db
 // ==========================================
@@ -173,12 +177,13 @@ enum
     VSS_Z = 278,
     BANDGAP_Z = 279,
 
-
     DQCE_Z = 280,  // : 286 reserve for 6 DQCEs
     DCS_Z = 286,   // : 288 reserve for 2 DCSs
     DHCEN_Z = 288, // : 298
 
     USERFLASH_Z = 298,
+
+    EMCU_Z = 300,
 
     // The two least significant bits encode Z for 9-bit adders and
     // multipliers, if they are equal to 0, then we get Z of their common
