@@ -585,12 +585,10 @@ bool NgUltraImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
 // Bel bucket functions
 IdString NgUltraImpl::getBelBucketForCellType(IdString cell_type) const
 {
-    if (cell_type.in(id_IOP,id_IP,id_OP))
-        return id_IOP;
-    else if (cell_type.in(id_IOTP,id_ITP,id_OTP))
-        return id_IOTP;
-    else if (cell_type.in(id_BFR))
-        return id_DFR;
+    if (cell_type.in(id_IOP,id_IP,id_OP,id_IOTP,id_ITP,id_OTP))
+        return ctx->idf("IOP/IOTP");
+    else if (cell_type.in(id_BFR, id_DFR, id_DDFR))
+        return ctx->idf("DFR/DDFR");
     else if (cell_type.in(id_RF, id_RFSP))
         return id_RF;
     else if (cell_type.in(id_XHRF, id_XWRF, id_XPRF))
@@ -607,6 +605,16 @@ IdString NgUltraImpl::getBelBucketForCellType(IdString cell_type) const
         return id_WFG;
     else
         return cell_type;
+}
+
+BelBucketId NgUltraImpl::getBelBucketForBel(BelId bel) const
+{
+    IdString bel_type = ctx->getBelType(bel);
+    if (bel_type.in(id_IOP, id_IOTP))
+        return ctx->idf("IOP/IOTP");
+    else if (bel_type.in(id_DFR, id_DDFR))
+        return ctx->idf("DFR/DDFR");
+    return bel_type;
 }
 
 bool NgUltraImpl::isValidBelForCellType(IdString cell_type, BelId bel) const

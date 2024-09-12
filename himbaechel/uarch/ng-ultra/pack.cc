@@ -738,7 +738,7 @@ void NgUltraPacker::pack_iobs(void)
         }
         ci.type = new_type;
         ctx->bindBel(bel, &ci, PlaceStrength::STRENGTH_LOCKED);
-        if (!ctx->isValidBelForCellType(ctx->getBelBucketForCellType(new_type),bel))
+        if (!ctx->isValidBelForCellType(new_type,bel))
             log_error("Invalid type of IO for specified location %s %s.\n", new_type.c_str(ctx), ctx->getBelType(bel).c_str(ctx));
         to_update.push_back(&ci);
     }

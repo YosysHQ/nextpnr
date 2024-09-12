@@ -48,6 +48,7 @@ struct NgUltraImpl : HimbaechelAPI
     bool isBelLocationValid(BelId bel, bool explain_invalid = false) const override;
     IdString getBelBucketForCellType(IdString cell_type) const override;
     bool isValidBelForCellType(IdString cell_type, BelId bel) const override;
+    BelBucketId getBelBucketForBel(BelId bel) const override;
 
     // Flow management
     void pack() override;
