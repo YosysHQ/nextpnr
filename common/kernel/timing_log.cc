@@ -82,7 +82,7 @@ static void log_crit_paths(const Context *ctx, TimingResult &result)
             return ctx->getDelayNS(d.maxDelay());
         };
 
-        log_info("curr total\n");
+        log_info(" curr  total type\n");
         for (const auto &segment : path.segments) {
 
             total += segment.delay;
@@ -90,14 +90,15 @@ static void log_crit_paths(const Context *ctx, TimingResult &result)
             if (segment.type == CriticalPath::Segment::Type::CLK_TO_Q ||
                 segment.type == CriticalPath::Segment::Type::SOURCE ||
                 segment.type == CriticalPath::Segment::Type::LOGIC ||
-                segment.type == CriticalPath::Segment::Type::SETUP) {
+                segment.type == CriticalPath::Segment::Type::SETUP ||
+                segment.type == CriticalPath::Segment::Type::HOLD) {
                 logic_total += segment.delay;
 
-                const std::string type_name = (segment.type == CriticalPath::Segment::Type::SETUP) ? "Setup" : "Source";
-
-                log_info("%4.1f %4.1f  %s %s.%s\n", get_delay_ns(segment.delay), get_delay_ns(total), type_name.c_str(),
-                         segment.to.first.c_str(ctx), segment.to.second.c_str(ctx));
-            } else if (segment.type == CriticalPath::Segment::Type::ROUTING) {
+                log_info("% 5.2f % 5.2f  %s %s.%s\n", get_delay_ns(segment.delay), get_delay_ns(total),
+                         CriticalPath::Segment::type_to_str(segment.type).c_str(), segment.to.first.c_str(ctx),
+                         segment.to.second.c_str(ctx));
+            } else if (segment.type == CriticalPath::Segment::Type::ROUTING ||
+                       segment.type == CriticalPath::Segment::Type::CLK_SKEW) {
                 route_total = route_total + segment.delay;
 
                 const auto &driver = ctx->cells.at(segment.from.first);
@@ -106,7 +107,8 @@ static void log_crit_paths(const Context *ctx, TimingResult &result)
                 auto driver_loc = ctx->getBelLocation(driver->bel);
                 auto sink_loc = ctx->getBelLocation(sink->bel);
 
-                log_info("%4.1f %4.1f    Net %s (%d,%d) -> (%d,%d)\n", get_delay_ns(segment.delay), get_delay_ns(total),
+                log_info("% 5.2f % 5.2f  %s Net %s (%d,%d) -> (%d,%d)\n", get_delay_ns(segment.delay),
+                         get_delay_ns(total), CriticalPath::Segment::type_to_str(segment.type).c_str(),
                          segment.net.c_str(ctx), driver_loc.x, driver_loc.y, sink_loc.x, sink_loc.y);
                 log_info("               Sink %s.%s\n", segment.to.first.c_str(ctx), segment.to.second.c_str(ctx));
 
@@ -145,7 +147,7 @@ static void log_crit_paths(const Context *ctx, TimingResult &result)
                 }
             }
         }
-        log_info("%.1f ns logic, %.1f ns routing\n", get_delay_ns(logic_total), get_delay_ns(route_total));
+        log_info("%.2f ns logic, %.2f ns routing\n", get_delay_ns(logic_total), get_delay_ns(route_total));
     };
 
     // Single domain paths
@@ -175,7 +177,7 @@ static void log_crit_paths(const Context *ctx, TimingResult &result)
     auto num_min_violations = result.min_delay_violations.size();
     if (num_min_violations > 0) {
         log_break();
-        log_info("Hold time violations:\n");
+        log_info("Hold time/min time violation:\n");
         for (size_t i = 0; i < std::min((size_t)10, num_min_violations); ++i) {
             auto &report = result.min_delay_violations.at(i);
             log_break();

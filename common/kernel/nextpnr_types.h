@@ -81,7 +81,7 @@ struct PortRef
 // minimum and maximum delay
 struct DelayPair
 {
-    DelayPair() : min_delay(0), max_delay(0) {};
+    DelayPair() : min_delay(0), max_delay(0){};
     explicit DelayPair(delay_t delay) : min_delay(delay), max_delay(delay) {}
     DelayPair(delay_t min_delay, delay_t max_delay) : min_delay(min_delay), max_delay(max_delay) {}
     delay_t minDelay() const { return min_delay; }
@@ -278,7 +278,7 @@ struct PseudoCell
     virtual bool getDelay(IdString fromPort, IdString toPort, DelayQuad &delay) const = 0;
     virtual TimingPortClass getPortTimingClass(IdString port, int &clockInfoCount) const = 0;
     virtual TimingClockingInfo getPortClockingInfo(IdString port, int index) const = 0;
-    virtual ~PseudoCell() {};
+    virtual ~PseudoCell(){};
 };
 
 struct RegionPlug : PseudoCell
@@ -398,16 +398,20 @@ struct CriticalPath
         // Segment type
         enum class Type
         {
+            CLK_SKEW, // Clock skew
             CLK_TO_Q, // Clock-to-Q delay
             SOURCE,   // Delayless source
             LOGIC,    // Combinational logic delay
             ROUTING,  // Routing delay
-            SETUP     // Setup time in sink
+            SETUP,    // Setup time in sink
+            HOLD      // Hold time in sink
         };
 
         [[maybe_unused]] static const std::string type_to_str(Type typ)
         {
             switch (typ) {
+            case Type::CLK_SKEW:
+                return "CLK_SKEW";
             case Type::CLK_TO_Q:
                 return "CLK_TO_Q";
             case Type::SOURCE:
@@ -418,6 +422,8 @@ struct CriticalPath
                 return "ROUTING";
             case Type::SETUP:
                 return "SETUP";
+            case Type::HOLD:
+                return "HOLD";
             default:
                 log_error("Impossible Segment::Type");
             }
