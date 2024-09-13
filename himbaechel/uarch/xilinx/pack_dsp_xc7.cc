@@ -45,7 +45,7 @@ void XC7Packer::walk_dsp(CellInfo *root, CellInfo *current_cell, int constr_z)
         if (!boost::contains(port.first.str(ctx), "COUT")) continue;
         NetInfo *cout_net = port.second.net;
 
-        if (cout_net == nullptr) continue;
+        if (cout_net == nullptr || cout_net->users.empty()) continue;
 
         check_illegal_fanout(cout_net, port.first.c_str(ctx));
         PortRef& user = *cout_net->users.begin();
