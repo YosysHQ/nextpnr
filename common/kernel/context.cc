@@ -116,10 +116,10 @@ delay_t Context::predictArcDelay(const NetInfo *net_info, const PortRef &sink) c
 
 delay_t Context::getNetinfoRouteDelay(const NetInfo *net_info, const PortRef &user_info) const
 {
-    // #ifdef ARCH_ECP5
-    //     if (net_info->is_global)
-    //         return 0;
-    // #endif
+#ifdef ARCH_ECP5
+    if (net_info->is_global)
+        return 0;
+#endif
 
     if (net_info->wires.empty())
         return predictArcDelay(net_info, user_info);
@@ -417,7 +417,7 @@ void Context::check() const
 namespace {
 struct FixupHierarchyWorker
 {
-    FixupHierarchyWorker(Context *ctx) : ctx(ctx) {};
+    FixupHierarchyWorker(Context *ctx) : ctx(ctx){};
     Context *ctx;
     void run()
     {
