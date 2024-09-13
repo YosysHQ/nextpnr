@@ -108,7 +108,21 @@ void XC7Packer::pack_dsps()
             for (auto &port : ci->ports) {
                 std::string n = port.first.str(ctx);
 
+                // According to ug479 :
+                // These signals are dedicated routing paths internal to the DSP48E1 column. They are not accessible via fabric routing resources.
                 if (boost::starts_with(n, "ACIN") || boost::starts_with(n, "BCIN") || boost::starts_with(n, "PCIN")) {
+                    if (port.second.net == nullptr)
+                        continue;
+                    if (port.second.net->name == ctx->id("$PACKER_GND_NET"))
+                        ci->disconnectPort(port.first);
+                }
+                if (n == "CARRYCASCIN") {
+                    if (port.second.net == nullptr)
+                        continue;
+                    if (port.second.net->name == ctx->id("$PACKER_GND_NET"))
+                        ci->disconnectPort(port.first);
+                }
+                if (n == "MULTSIGNIN") {
                     if (port.second.net == nullptr)
                         continue;
                     if (port.second.net->name == ctx->id("$PACKER_GND_NET"))
