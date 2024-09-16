@@ -355,6 +355,8 @@ void NgUltraPacker::pack_xluts(void)
             if (!net)
                 continue;
             lut[i] = net_driven_by(ctx, net, is_lut, id_O);
+            if (lut[i] == cell.second.get())
+                continue;
             if (lut[i]) {
                 if (net->users.entries()>1) dff_parts_used++;
                 inputs_used++;
