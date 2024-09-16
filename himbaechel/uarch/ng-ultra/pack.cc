@@ -433,7 +433,8 @@ void NgUltraPacker::pack_dff_chains(void)
         std::vector<CellInfo*> chain;
         CellInfo* start_dff = &ci;
         while(1) {
-            NetInfo *o = dff->getPort(id_O);            
+            NetInfo *o = dff->getPort(id_O);
+            if (!o) break;
             if (o->users.entries() != 1) break;
             dff = (*o->users.begin()).cell;
             if (dff->type == id_NX_DFF && (*o->users.begin()).port == id_I) {
