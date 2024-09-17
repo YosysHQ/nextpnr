@@ -447,11 +447,11 @@ struct CriticalPath
     // Clock pair
     ClockPair clock_pair;
     // Total path delay
+    // if sum < 0 this is a hold/min violation
+    // if delay.maxDelay() >= max_delay this is a setup/max violation
     DelayPair delay;
 
-    // if delay.minDelay() < bound.minDelay() then this is a hold violation
-    // if delay.maxDelay() > bound.maxDelay() then this is a setup violation
-    DelayPair bound;
+    delay_t max_delay;
 
     // Individual path segments
     std::vector<Segment> segments;

@@ -74,9 +74,9 @@ static void log_crit_paths(const Context *ctx, TimingResult &result)
         // We print out the max delay since that's usually the interesting case
         // But if we know this critical path has violated hold time we print the
         // min delay instead
-        bool hold_violation = path.delay.minDelay() < path.bound.minDelay();
-        auto get_delay_ns = [hold_violation, ctx](const DelayPair &d) {
-            if (hold_violation) {
+        bool min_delay_violation = path.delay.minDelay() < 0;
+        auto get_delay_ns = [min_delay_violation, ctx](const DelayPair &d) {
+            if (min_delay_violation) {
                 ctx->getDelayNS(d.minDelay());
             }
             return ctx->getDelayNS(d.maxDelay());
@@ -180,16 +180,16 @@ static void log_crit_paths(const Context *ctx, TimingResult &result)
     auto num_min_violations = result.min_delay_violations.size();
     if (num_min_violations > 0) {
         log_break();
-        log_info("Hold time/min time violation:\n");
+        log_info("Hold time/min time violations:\n");
         for (size_t i = 0; i < std::min((size_t)10, num_min_violations); ++i) {
             auto &report = result.min_delay_violations.at(i);
             log_break();
             std::string start = clock_event_name(ctx, report.clock_pair.start);
             std::string end = clock_event_name(ctx, report.clock_pair.end);
             if (report.clock_pair.start == report.clock_pair.end) {
-                log_nonfatal_error("Hold time violations for clock '%s':\n", start.c_str());
+                log_nonfatal_error("Hold time violation for clock '%s':\n", start.c_str());
             } else {
-                log_nonfatal_error("Hold time violations for path '%s' -> '%s':\n", start.c_str(), end.c_str());
+                log_nonfatal_error("Hold time violation for path '%s' -> '%s':\n", start.c_str(), end.c_str());
             }
             print_path_report(report);
         }

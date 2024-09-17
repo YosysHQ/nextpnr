@@ -911,22 +911,21 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
     report.clock_pair.end.clock = capture.clock;
     report.clock_pair.end.edge = capture.edge;
 
-    report.bound = DelayPair(0, ctx->getDelayFromNS(1.0e9 / ctx->setting<float>("target_freq")));
+    report.max_delay = ctx->getDelayFromNS(1.0e9 / ctx->setting<float>("target_freq"));
     if (launch.edge != capture.edge) {
-        report.bound.max_delay = report.bound.max_delay / 2;
+        report.max_delay = report.max_delay / 2;
     }
 
     if (!launch.is_async() && ctx->nets.at(launch.clock)->clkconstr) {
         if (launch.edge == capture.edge) {
-            report.bound.max_delay = ctx->nets.at(launch.clock)->clkconstr->period.minDelay();
+            report.max_delay = ctx->nets.at(launch.clock)->clkconstr->period.minDelay();
         } else if (capture.edge == RISING_EDGE) {
-            report.bound.max_delay = ctx->nets.at(launch.clock)->clkconstr->low.minDelay();
+            report.max_delay = ctx->nets.at(launch.clock)->clkconstr->low.minDelay();
         } else if (capture.edge == FALLING_EDGE) {
-            report.bound.max_delay = ctx->nets.at(launch.clock)->clkconstr->high.minDelay();
+            report.max_delay = ctx->nets.at(launch.clock)->clkconstr->high.minDelay();
         }
     }
 
-    // Walk the min or max path backwards to find a single crit path
     auto crit_path_rev = walk_crit_path(domain_pair, endpoint, longest_path);
     auto crit_path = boost::adaptors::reverse(crit_path_rev);
 
@@ -997,8 +996,6 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
         }
     }
 
-    // Calculate clock skew only if start- and endpoint are registered
-    // and either the clock domains are the same or related clock
     if (with_clock_skew && register_start && register_end && (same_clock || related_clock)) {
 
         auto clock_delay_launch =
@@ -1070,8 +1067,6 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
         is_startpoint = false;
     }
 
-    // Add setup/hold time as final segment
-    // And add hold time as min bound
     if (register_end) {
         CriticalPath::Segment seg_logic;
         seg_logic.delay = DelayPair(0);
@@ -1086,8 +1081,6 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
         seg_logic.to = seg_logic.from;
         seg_logic.net = IdString();
         report.segments.push_back(seg_logic);
-
-        report.bound.min_delay = ep_clk_info.hold.min_delay;
     }
 
     return report;
@@ -1244,8 +1237,7 @@ std::vector<CriticalPath> TimingAnalyser::get_min_delay_violations()
                 auto clocks = std::make_pair(launch_clock, capture_clock);
                 auto related_clocks = clock_delays.count(clocks) > 0;
 
-                // Don't consider async paths and clocks without known relationships
-                if (launch_id == async_clock_id && launch_id != capture_id && !related_clocks) {
+                if (launch_id == async_clock_id || (launch_id != capture_id && !related_clocks)) {
                     continue;
                 }
 
