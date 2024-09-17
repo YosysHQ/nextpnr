@@ -301,17 +301,24 @@ class HeAPPlacer
             ++iter;
         }
 
-        // Apply saved solution
+        // Remove any previous binding
         for (auto &sc : solution) {
             CellInfo *cell = std::get<0>(sc);
             if (cell->bel != BelId())
                 ctx->unbindBel(cell->bel);
         }
+        // Apply saved solution
         for (auto &sc : solution) {
             CellInfo *cell;
             BelId bel;
             PlaceStrength strength;
             std::tie(cell, bel, strength) = sc;
+            // In case no bel was found, emit a warning instead of continuing to a crash
+            // This helps to investigate and to devise a workaround in user design
+            if (bel == BelId()) {
+                log_warning("No bel found to bind cell '%s' of type '%s'\n", cell->name.c_str(ctx), cell->type.c_str(ctx));
+                continue;
+            }
             ctx->bindBel(bel, cell, strength);
         }
 
@@ -886,10 +893,10 @@ class HeAPPlacer
 
             while (!placed) {
                 if (cfg.cell_placement_timeout > 0 && total_iters_for_cell > cfg.cell_placement_timeout)
-                    log_error("Unable to find legal placement for cell '%s' after %d attempts, check constraints and "
+                    log_error("Unable to find legal placement for cell '%s' of type '%s' after %d attempts, check constraints and "
                               "utilisation. Use `--placer-heap-cell-placement-timeout` to change the number of "
                               "attempts.\n",
-                              ctx->nameOf(ci), total_iters_for_cell);
+                              ctx->nameOf(ci), ci->type.c_str(ctx), total_iters_for_cell);
 
                 // Determine a search radius around the solver location (which increases over time) that is clamped to
                 // the region constraint for the cell (if applicable)
