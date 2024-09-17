@@ -343,7 +343,7 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("json", po::value<std::string>(), "JSON design file to ingest");
     general.add_options()("write", po::value<std::string>(), "JSON design file to write");
     general.add_options()("top", po::value<std::string>(), "name of top module");
-    general.add_options()("seed", po::value<int>(), "seed value for random number generator");
+    general.add_options()("seed", po::value<uint64_t>(), "seed value for random number generator");
     general.add_options()("randomize-seed,r", "randomize seed value for random number generator");
 
     general.add_options()(
@@ -447,7 +447,7 @@ void CommandHandler::setupContext(Context *ctx)
     }
 
     if (vm.count("seed")) {
-        ctx->rngseed(vm["seed"].as<int>());
+        ctx->rngstate = vm["seed"].as<uint64_t>();
     }
 
     if (vm.count("threads")) {
@@ -456,10 +456,10 @@ void CommandHandler::setupContext(Context *ctx)
 
     if (vm.count("randomize-seed")) {
         std::random_device randDev{};
-        std::uniform_int_distribution<int> distrib{1};
+        std::uniform_int_distribution<uint64_t> distrib{1};
         auto seed = distrib(randDev);
-        ctx->rngseed(seed);
-        log_info("Generated random seed: %d\n", seed);
+        ctx->rngstate = seed;
+        log_info("Generated random seed: %lu\n", seed);
     }
 
     if (vm.count("slack_redist_iter")) {
@@ -565,7 +565,7 @@ void CommandHandler::setupContext(Context *ctx)
 
     ctx->settings[ctx->id("arch.name")] = std::string(ctx->archId().c_str(ctx));
     ctx->settings[ctx->id("arch.type")] = std::string(ctx->archArgsToId(ctx->archArgs()).c_str(ctx));
-    ctx->settings[ctx->id("seed")] = ctx->rngstate;
+    ctx->settings[ctx->id("seed")] = Property(ctx->rngstate, 64);
 
     if (ctx->settings.find(ctx->id("placerHeap/alpha")) == ctx->settings.end())
         ctx->settings[ctx->id("placerHeap/alpha")] = std::to_string(0.1);
