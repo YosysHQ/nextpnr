@@ -101,6 +101,8 @@ struct TimingAnalyser
     // Enable analysis of clock skew between FFs.
     // Only do this after legal placement
     bool with_clock_skew = true;
+    // REMOVE ME once approved
+    delay_t clock_delay_fac = 100;
 
     bool setup_only = false;
     bool have_loops = false;
@@ -121,6 +123,10 @@ struct TimingAnalyser
 
     void compute_slack();
     void compute_criticality();
+
+    // Walk the endpoint back to a startpoint and get back the input ports walked
+    // and the startpoint.
+    std::vector<PortRef> walk_crit_path(domain_id_t domain_pair, CellPortKey endpoint, bool longest_path);
 
     void build_detailed_net_timing_report();
     // longest_path indicate whether to follow the longest or shortest path from endpoint to startpoint

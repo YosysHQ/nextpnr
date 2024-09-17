@@ -82,7 +82,7 @@ static void log_crit_paths(const Context *ctx, TimingResult &result)
             return ctx->getDelayNS(d.maxDelay());
         };
 
-        log_info("      type  curr  total\n");
+        log_info("      type curr  total\n");
         for (const auto &segment : path.segments) {
 
             total += segment.delay;
@@ -232,9 +232,6 @@ static void log_fmax(Context *ctx, TimingResult &result, bool warn_on_failure)
     // Clock to clock delays for xpaths
     dict<ClockPair, DelayPair> xclock_delays;
     for (auto &report : result.xclock_paths) {
-        const auto &clock1_name = report.clock_pair.start.clock;
-        const auto &clock2_name = report.clock_pair.end.clock;
-
         // Check if this path has a clock-2-clock delay
         // clock-2-clock delays are always the first segment in the path
         // But we walk the entire path anyway.
@@ -265,7 +262,6 @@ static void log_fmax(Context *ctx, TimingResult &result, bool warn_on_failure)
             const auto &clock_a = report.clock_pair.start.clock;
             const auto &clock_b = report.clock_pair.end.clock;
 
-            const auto key = std::make_pair(clock_a, clock_b);
             if (!xclock_delays.count(report.clock_pair)) {
                 continue;
             }

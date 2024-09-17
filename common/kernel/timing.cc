@@ -118,9 +118,7 @@ void TimingAnalyser::get_cell_delays()
                         continue;
                     pd.cell_arcs.emplace_back(CellArc::SETUP, info.clock_port, DelayQuad(info.setup, info.setup),
                                               info.edge);
-                    auto hold_factor = 1;
-                    auto hold_faked = DelayPair(hold_factor * info.hold.min_delay, hold_factor * info.hold.max_delay);
-                    pd.cell_arcs.emplace_back(CellArc::HOLD, info.clock_port, DelayQuad(hold_faked, hold_faked),
+                    pd.cell_arcs.emplace_back(CellArc::HOLD, info.clock_port, DelayQuad(info.hold, info.hold),
                                               info.edge);
                 }
             }
@@ -576,7 +574,9 @@ void TimingAnalyser::walk_forward()
                         // Include the clock delay if clock_skew analysis is enabled
                         if (with_clock_skew) {
                             auto clock_delay = ports.at(CellPortKey(sp.first.cell, fanin.other_port)).route_delay;
-                            init_arrival += DelayPair(clock_delay.min_delay);
+                            clock_delay.min_delay = clock_delay_fac * clock_delay.min_delay;
+                            clock_delay.max_delay = clock_delay_fac * clock_delay.max_delay;
+                            init_arrival += clock_delay;
                         }
                         break;
                     }
@@ -634,12 +634,14 @@ void TimingAnalyser::walk_backward()
                     if (fanin.type == CellArc::SETUP && fanin.other_port == ep.second) {
                         if (with_clock_skew) {
                             auto clock_delay = ports.at(CellPortKey(ep.first.cell, fanin.other_port)).route_delay;
-                            init_required -= DelayPair(clock_delay.min_delay);
+                            clock_delay.min_delay = clock_delay_fac * clock_delay.min_delay;
+                            clock_delay.max_delay = clock_delay_fac * clock_delay.max_delay;
+                            init_required += clock_delay;
                         }
                         init_required.min_delay -= fanin.value.maxDelay();
                     }
                     if (fanin.type == CellArc::HOLD && fanin.other_port == ep.second)
-                        init_required.max_delay -= fanin.value.maxDelay();
+                        init_required.max_delay += fanin.value.maxDelay();
                 }
                 clock_key = CellPortKey(ep.first.cell, ep.second);
             }
@@ -677,31 +679,58 @@ dict<domain_id_t, delay_t> TimingAnalyser::max_delay_by_domain_pairs()
 
     for (domain_id_t capture_id = 0; capture_id < domain_id_t(domains.size()); ++capture_id) {
         const auto &capture = domains.at(capture_id);
-        const auto &capture_clock = capture.key.clock;
 
         for (auto &ep : capture.endpoints) {
-            auto &port = ports.at(ep.first);
+            auto &ep_port = ports.at(ep.first);
 
-            auto &req = port.required.at(capture_id);
+            auto &req = ep_port.required.at(capture_id);
 
-            for (auto &[launch_id, arr] : port.arrival) {
-
-                // const auto &launch = domains.at(launch_id);
-                // const auto &launch_clock = launch.key.clock;
-
-                // auto clocks = std::make_pair(launch_clock, capture_clock);
-                // auto related_clocks = clock_delays.count(clocks) > 0;
-
-                // delay_t clock_to_clock = 0;
-                // if (related_clocks) {
-                //     clock_to_clock = clock_delays.at(clocks);
-                // }
+            for (auto &[launch_id, arr] : ep_port.arrival) {
+                const auto &launch = domains.at(capture_id);
 
                 auto dp = domain_pair_id(launch_id, capture_id);
-                auto delay = arr.value.maxDelay() - req.value.maxDelay();
 
-                if (!domain_delay.count(dp) || domain_delay.at(dp) < delay)
+                auto clocks = std::make_pair(launch.key.clock, capture.key.clock);
+                auto same_clock = capture_id == launch_id;
+                auto related_clocks = clock_delays.count(clocks) > 0;
+                delay_t clock_to_clock = 0;
+                if (related_clocks) {
+                    clock_to_clock = clock_delays.at(clocks);
+                }
+
+                auto delay = arr.value.maxDelay() - req.value.minDelay() + clock_to_clock;
+
+                // If domains are unrelated or not the same clock we need to make sure
+                // to remove the clock delays from the arrival and required times
+                // because the delays have no common reference.
+                if (with_clock_skew && !same_clock && !related_clocks) {
+                    for (auto &fanin : ep_port.cell_arcs) {
+                        if (fanin.type == CellArc::SETUP) {
+                            auto clock_delay = ports.at(CellPortKey(ep.first.cell, fanin.other_port)).route_delay;
+                            clock_delay.min_delay = clock_delay_fac * clock_delay.min_delay;
+                            clock_delay.max_delay = clock_delay_fac * clock_delay.max_delay;
+                            delay += clock_delay.minDelay();
+                        }
+                    }
+
+                    // walk back to startpoint
+                    auto crit_path = walk_crit_path(domain_pair_id(launch_id, capture_id), ep.first, true);
+                    auto &sp = crit_path.back();
+                    auto &sp_port = ports.at(CellPortKey{sp.cell->name, sp.port});
+
+                    for (auto &fanin : sp_port.cell_arcs) {
+                        if (fanin.type == CellArc::CLK_TO_Q) {
+                            auto clock_delay = ports.at(CellPortKey(sp.cell->name, fanin.other_port)).route_delay;
+                            clock_delay.min_delay = clock_delay_fac * clock_delay.min_delay;
+                            clock_delay.max_delay = clock_delay_fac * clock_delay.max_delay;
+                            delay -= clock_delay.maxDelay();
+                        }
+                    }
+                }
+
+                if (!domain_delay.count(dp) || domain_delay.at(dp) < delay) {
                     domain_delay[dp] = delay;
+                }
             }
         }
     }
@@ -825,36 +854,9 @@ std::vector<CellPortKey> TimingAnalyser::get_worst_eps(domain_id_t domain_pair, 
     return worst_eps;
 }
 
-CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair, CellPortKey endpoint,
-                                                        bool longest_path)
+std::vector<PortRef> TimingAnalyser::walk_crit_path(domain_id_t domain_pair, CellPortKey endpoint, bool longest_path)
 {
-    CriticalPath report;
-
     const auto &dp = domain_pairs.at(domain_pair);
-    const auto &launch = domains.at(dp.key.launch).key;
-    const auto &capture = domains.at(dp.key.capture).key;
-
-    report.delay = DelayPair(0);
-
-    report.clock_pair.start.clock = launch.clock;
-    report.clock_pair.start.edge = launch.edge;
-    report.clock_pair.end.clock = capture.clock;
-    report.clock_pair.end.edge = capture.edge;
-
-    report.bound = DelayPair(0, ctx->getDelayFromNS(1.0e9 / ctx->setting<float>("target_freq")));
-    if (launch.edge != capture.edge) {
-        report.bound.max_delay = report.bound.max_delay / 2;
-    }
-
-    if (!launch.is_async() && ctx->nets.at(launch.clock)->clkconstr) {
-        if (launch.edge == capture.edge) {
-            report.bound.max_delay = ctx->nets.at(launch.clock)->clkconstr->period.minDelay();
-        } else if (capture.edge == RISING_EDGE) {
-            report.bound.max_delay = ctx->nets.at(launch.clock)->clkconstr->low.minDelay();
-        } else if (capture.edge == FALLING_EDGE) {
-            report.bound.max_delay = ctx->nets.at(launch.clock)->clkconstr->high.minDelay();
-        }
-    }
 
     // Walk the min or max path backwards to find a single crit path
     pool<std::pair<IdString, IdString>> visited;
@@ -890,6 +892,42 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
         }
     } while (!is_startpoint);
 
+    return crit_path_rev;
+}
+
+CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair, CellPortKey endpoint,
+                                                        bool longest_path)
+{
+    CriticalPath report;
+
+    const auto &dp = domain_pairs.at(domain_pair);
+    const auto &launch = domains.at(dp.key.launch).key;
+    const auto &capture = domains.at(dp.key.capture).key;
+
+    report.delay = DelayPair(0);
+
+    report.clock_pair.start.clock = launch.clock;
+    report.clock_pair.start.edge = launch.edge;
+    report.clock_pair.end.clock = capture.clock;
+    report.clock_pair.end.edge = capture.edge;
+
+    report.bound = DelayPair(0, ctx->getDelayFromNS(1.0e9 / ctx->setting<float>("target_freq")));
+    if (launch.edge != capture.edge) {
+        report.bound.max_delay = report.bound.max_delay / 2;
+    }
+
+    if (!launch.is_async() && ctx->nets.at(launch.clock)->clkconstr) {
+        if (launch.edge == capture.edge) {
+            report.bound.max_delay = ctx->nets.at(launch.clock)->clkconstr->period.minDelay();
+        } else if (capture.edge == RISING_EDGE) {
+            report.bound.max_delay = ctx->nets.at(launch.clock)->clkconstr->low.minDelay();
+        } else if (capture.edge == FALLING_EDGE) {
+            report.bound.max_delay = ctx->nets.at(launch.clock)->clkconstr->high.minDelay();
+        }
+    }
+
+    // Walk the min or max path backwards to find a single crit path
+    auto crit_path_rev = walk_crit_path(domain_pair, endpoint, longest_path);
     auto crit_path = boost::adaptors::reverse(crit_path_rev);
 
     // Get timing and clocking info on the startpoint
@@ -963,13 +1001,12 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
     // and either the clock domains are the same or related clock
     if (with_clock_skew && register_start && register_end && (same_clock || related_clock)) {
 
-        auto clock_delay_launch = ctx->getNetinfoRouteDelay(sp_clk_net, PortRef{sp_cell, sp_clk_info.clock_port});
-        auto clock_delay_capture = ctx->getNetinfoRouteDelay(ep_clk_net, PortRef{ep_cell, ep_clk_info.clock_port});
+        auto clock_delay_launch =
+                clock_delay_fac * ctx->getNetinfoRouteDelay(sp_clk_net, PortRef{sp_cell, sp_clk_info.clock_port});
+        auto clock_delay_capture =
+                clock_delay_fac * ctx->getNetinfoRouteDelay(ep_clk_net, PortRef{ep_cell, ep_clk_info.clock_port});
 
         delay_t clock_skew = clock_delay_launch - clock_delay_capture;
-        printf("delay launch: %f\n", ctx->getDelayNS(clock_delay_launch));
-        printf("delay capture: %f\n", ctx->getDelayNS(clock_delay_capture));
-        printf("clock to clock: %f\n", ctx->getDelayNS(clock_skew));
 
         if (clock_skew != 0) {
             CriticalPath::Segment seg_skew;
@@ -989,6 +1026,7 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
     const CellInfo *prev_cell = sp_cell;
     IdString prev_port = sp_port.name;
 
+    bool is_startpoint = true;
     for (auto sink : crit_path) {
         auto sink_cell = sink.cell;
         auto &port = sink_cell->ports.at(sink.port);
@@ -1188,16 +1226,16 @@ std::vector<CriticalPath> TimingAnalyser::get_min_delay_violations()
         const auto &capture = domains.at(capture_id);
         const auto &capture_clock = capture.key.clock;
 
-        for (auto &ep : capture.endpoints) {
-            CellInfo *ci = cell_info(ep.first);
+        for (const auto &ep : capture.endpoints) {
+            const CellInfo *ci = cell_info(ep.first);
             int clkInfoCount = 0;
-            TimingPortClass cls = ctx->getPortTimingClass(ci, ep.first.port, clkInfoCount);
+            const TimingPortClass cls = ctx->getPortTimingClass(ci, ep.first.port, clkInfoCount);
             if (cls != TMG_REGISTER_INPUT)
                 continue;
 
-            auto &port = ports.at(ep.first);
+            const auto &port = ports.at(ep.first);
 
-            auto &req = port.required.at(capture_id);
+            const auto &req = port.required.at(capture_id);
 
             for (auto &[launch_id, arr] : port.arrival) {
                 const auto &launch = domains.at(launch_id);
@@ -1206,8 +1244,8 @@ std::vector<CriticalPath> TimingAnalyser::get_min_delay_violations()
                 auto clocks = std::make_pair(launch_clock, capture_clock);
                 auto related_clocks = clock_delays.count(clocks) > 0;
 
-                // Don't consider clocks without known relationships
-                if (launch_id != capture_id && !related_clocks) {
+                // Don't consider async paths and clocks without known relationships
+                if (launch_id == async_clock_id && launch_id != capture_id && !related_clocks) {
                     continue;
                 }
 
@@ -1216,13 +1254,8 @@ std::vector<CriticalPath> TimingAnalyser::get_min_delay_violations()
                     clock_to_clock = clock_delays.at(clocks);
                 }
 
-                auto hold_slack = arr.value.minDelay() + req.value.maxDelay() + clock_to_clock;
+                auto hold_slack = arr.value.minDelay() - req.value.maxDelay() + clock_to_clock;
                 auto violated = hold_slack <= 0;
-
-                // printf("arr min: %f, req max: %f, c2c; %f, slack: %f, arr path len: %d, req path len: %d\n",
-                //        ctx->getDelayNS(arr.value.minDelay()), ctx->getDelayNS(req.value.maxDelay()),
-                //        ctx->getDelayNS(clock_to_clock), ctx->getDelayNS(hold_slack), arr.path_length,
-                //        req.path_length);
 
                 if (violated) {
                     const auto dom_pair_id = domain_pair_id(launch_id, capture_id);
@@ -1298,7 +1331,7 @@ void timing_analysis(Context *ctx, bool print_slack_histogram, bool print_fmax, 
 {
     TimingAnalyser tmg(ctx);
     tmg.setup_only = false;
-    tmg.with_clock_skew = false;
+    tmg.with_clock_skew = true;
     tmg.setup(ctx->detailed_timing_report, print_slack_histogram, print_path || print_fmax);
 
     auto &result = tmg.get_timing_result();
