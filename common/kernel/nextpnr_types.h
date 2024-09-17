@@ -398,35 +398,35 @@ struct CriticalPath
         // Segment type
         enum class Type
         {
-            CLK2CLK,  // Clock to clock delay
-            CLK_SKEW, // Clock skew
-            CLK_TO_Q, // Clock-to-Q delay
-            SOURCE,   // Delayless source
-            LOGIC,    // Combinational logic delay
-            ROUTING,  // Routing delay
-            SETUP,    // Setup time in sink
-            HOLD      // Hold time in sink
+            CLK_TO_CLK, // Clock to clock delay
+            CLK_SKEW,   // Clock skew
+            CLK_TO_Q,   // Clock-to-Q delay
+            SOURCE,     // Delayless source
+            LOGIC,      // Combinational logic delay
+            ROUTING,    // Routing delay
+            SETUP,      // Setup time in sink
+            HOLD        // Hold time in sink
         };
 
         [[maybe_unused]] static const std::string type_to_str(Type typ)
         {
             switch (typ) {
-            case Type::CLK2CLK:
-                return "CLK2CLK";
+            case Type::CLK_TO_CLK:
+                return "clk-to-clk";
             case Type::CLK_SKEW:
-                return "CLK_SKEW";
+                return "clk-skew";
             case Type::CLK_TO_Q:
-                return "CLK_TO_Q";
+                return "clk-to-q";
             case Type::SOURCE:
-                return "SOURCE";
+                return "source";
             case Type::LOGIC:
-                return "LOGIC";
+                return "logic";
             case Type::ROUTING:
-                return "ROUTING";
+                return "routing";
             case Type::SETUP:
-                return "SETUP";
+                return "setup";
             case Type::HOLD:
-                return "HOLD";
+                return "hold";
             default:
                 log_error("Impossible Segment::Type");
             }

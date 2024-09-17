@@ -79,20 +79,8 @@ static Json::array json_report_critical_paths(const Context *ctx)
             auto segmentJson =
                     Json::object({{"delay", Json::array({minDelay, maxDelay})}, {"from", fromJson}, {"to", toJson}});
 
-            if (segment.type == CriticalPath::Segment::Type::CLK2CLK) {
-                segmentJson["type"] = "clk-to-clk";
-            } else if (segment.type == CriticalPath::Segment::Type::CLK_SKEW) {
-                segmentJson["type"] = "clk-skew";
-            } else if (segment.type == CriticalPath::Segment::Type::CLK_TO_Q) {
-                segmentJson["type"] = "clk-to-q";
-            } else if (segment.type == CriticalPath::Segment::Type::SOURCE) {
-                segmentJson["type"] = "source";
-            } else if (segment.type == CriticalPath::Segment::Type::LOGIC) {
-                segmentJson["type"] = "logic";
-            } else if (segment.type == CriticalPath::Segment::Type::SETUP) {
-                segmentJson["type"] = "setup";
-            } else if (segment.type == CriticalPath::Segment::Type::ROUTING) {
-                segmentJson["type"] = "routing";
+            segmentJson["type"] = CriticalPath::Segment::type_to_str(segment.type);
+            if (segment.type == CriticalPath::Segment::Type::ROUTING) {
                 segmentJson["net"] = segment.net.c_str(ctx);
             }
 
