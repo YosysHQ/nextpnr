@@ -985,7 +985,7 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
 
     if (related_clock) {
         delay_t clock_delay = clock_delays.at(clock_pair);
-        if (clock_delay != 0) {
+        if (!is_zero_delay(clock_delay)) {
             CriticalPath::Segment seg_c2c;
             seg_c2c.type = CriticalPath::Segment::Type::CLK_TO_CLK;
             seg_c2c.delay = DelayPair(clock_delay);
@@ -1005,7 +1005,7 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
 
         delay_t clock_skew = clock_delay_launch - clock_delay_capture;
 
-        if (clock_skew != 0) {
+        if (!is_zero_delay(clock_skew)) {
             CriticalPath::Segment seg_skew;
             seg_skew.type = CriticalPath::Segment::Type::CLK_SKEW;
             seg_skew.delay = DelayPair(clock_skew);

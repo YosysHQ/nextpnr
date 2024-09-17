@@ -78,6 +78,16 @@ struct PortRef
     IdString port;
 };
 
+// Zero checking which works regardless if delay_t is floating or integer
+inline bool is_zero_delay(delay_t delay)
+{
+    if constexpr (std::is_floating_point<delay_t>::value) {
+        return std::fpclassify(delay) == FP_ZERO;
+    } else {
+        return delay == 0;
+    }
+}
+
 // minimum and maximum delay
 struct DelayPair
 {
