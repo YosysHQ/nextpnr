@@ -398,6 +398,7 @@ struct CriticalPath
         // Segment type
         enum class Type
         {
+            CLK2CLK,  // Clock to clock delay
             CLK_SKEW, // Clock skew
             CLK_TO_Q, // Clock-to-Q delay
             SOURCE,   // Delayless source
@@ -410,6 +411,8 @@ struct CriticalPath
         [[maybe_unused]] static const std::string type_to_str(Type typ)
         {
             switch (typ) {
+            case Type::CLK2CLK:
+                return "CLK2CLK";
             case Type::CLK_SKEW:
                 return "CLK_SKEW";
             case Type::CLK_TO_Q:
@@ -478,9 +481,6 @@ struct TimingResult
 
     // Detailed net timing data
     dict<IdString, std::vector<NetSinkTiming>> detailed_net_timings;
-
-    // clock to clock delays
-    dict<std::pair<IdString, IdString>, delay_t> clock_delays;
 
     // Histogram of slack
     dict<int, unsigned> slack_histogram;

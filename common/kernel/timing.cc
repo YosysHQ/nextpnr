@@ -675,19 +675,31 @@ dict<domain_id_t, delay_t> TimingAnalyser::max_delay_by_domain_pairs()
 {
     dict<domain_id_t, delay_t> domain_delay;
 
-    for (auto p : topological_order) {
-        auto &pd = ports.at(p);
-        for (auto &req : pd.required) {
-            auto &capture = req.first;
-            for (auto &arr : pd.arrival) {
-                auto &launch = arr.first;
+    for (domain_id_t capture_id = 0; capture_id < domain_id_t(domains.size()); ++capture_id) {
+        const auto &capture = domains.at(capture_id);
+        const auto &capture_clock = capture.key.clock;
 
-                auto dp = domain_pair_id(launch, capture);
+        for (auto &ep : capture.endpoints) {
+            auto &port = ports.at(ep.first);
 
-                delay_t delay = arr.second.value.maxDelay() - req.second.value.minDelay();
-                printf("%s -> %s, arr: %f, req: %f, delay: %f\n", domains.at(launch).key.clock.c_str(ctx),
-                       domains.at(capture).key.clock.c_str(ctx), ctx->getDelayNS(arr.second.value.maxDelay()),
-                       ctx->getDelayNS(req.second.value.minDelay()), ctx->getDelayNS(delay));
+            auto &req = port.required.at(capture_id);
+
+            for (auto &[launch_id, arr] : port.arrival) {
+
+                // const auto &launch = domains.at(launch_id);
+                // const auto &launch_clock = launch.key.clock;
+
+                // auto clocks = std::make_pair(launch_clock, capture_clock);
+                // auto related_clocks = clock_delays.count(clocks) > 0;
+
+                // delay_t clock_to_clock = 0;
+                // if (related_clocks) {
+                //     clock_to_clock = clock_delays.at(clocks);
+                // }
+
+                auto dp = domain_pair_id(launch_id, capture_id);
+                auto delay = arr.value.maxDelay() - req.value.maxDelay();
+
                 if (!domain_delay.count(dp) || domain_delay.at(dp) < delay)
                     domain_delay[dp] = delay;
             }
@@ -934,9 +946,17 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
     auto related_clock = clock_delays.count(clock_pair) > 0;
     auto same_clock = launch.clock == capture.clock;
 
-    delay_t skew = 0;
     if (related_clock) {
-        skew -= clock_delays.at(clock_pair);
+        delay_t clock_delay = clock_delays.at(clock_pair);
+        if (clock_delay != 0) {
+            CriticalPath::Segment seg_c2c;
+            seg_c2c.type = CriticalPath::Segment::Type::CLK2CLK;
+            seg_c2c.delay = DelayPair(clock_delay);
+            seg_c2c.from = std::make_pair(sp_cell->name, sp_clk_info.clock_port);
+            seg_c2c.to = std::make_pair(ep_cell->name, ep_clk_info.clock_port);
+            seg_c2c.net = IdString();
+            report.segments.push_back(seg_c2c);
+        }
     }
 
     // Calculate clock skew only if start- and endpoint are registered
@@ -946,24 +966,24 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
         auto clock_delay_launch = ctx->getNetinfoRouteDelay(sp_clk_net, PortRef{sp_cell, sp_clk_info.clock_port});
         auto clock_delay_capture = ctx->getNetinfoRouteDelay(ep_clk_net, PortRef{ep_cell, ep_clk_info.clock_port});
 
+        delay_t clock_skew = clock_delay_launch - clock_delay_capture;
         printf("delay launch: %f\n", ctx->getDelayNS(clock_delay_launch));
         printf("delay capture: %f\n", ctx->getDelayNS(clock_delay_capture));
-        printf("clock to clock: %f\n", ctx->getDelayNS(skew));
-        skew += clock_delay_launch - clock_delay_capture;
-    }
+        printf("clock to clock: %f\n", ctx->getDelayNS(clock_skew));
 
-    if (skew != 0) {
-        CriticalPath::Segment seg_skew;
-        seg_skew.type = CriticalPath::Segment::Type::CLK_SKEW;
-        seg_skew.delay = DelayPair(skew);
-        seg_skew.from = std::make_pair(sp_cell->name, sp_clk_info.clock_port);
-        seg_skew.to = std::make_pair(ep_cell->name, ep_clk_info.clock_port);
-        if (same_clock) {
-            seg_skew.net = launch.clock;
-        } else {
-            seg_skew.net = IdString();
+        if (clock_skew != 0) {
+            CriticalPath::Segment seg_skew;
+            seg_skew.type = CriticalPath::Segment::Type::CLK_SKEW;
+            seg_skew.delay = DelayPair(clock_skew);
+            seg_skew.from = std::make_pair(sp_cell->name, sp_clk_info.clock_port);
+            seg_skew.to = std::make_pair(ep_cell->name, ep_clk_info.clock_port);
+            if (same_clock) {
+                seg_skew.net = launch.clock;
+            } else {
+                seg_skew.net = IdString();
+            }
+            report.segments.push_back(seg_skew);
         }
-        report.segments.push_back(seg_skew);
     }
 
     const CellInfo *prev_cell = sp_cell;
@@ -1041,7 +1061,6 @@ void TimingAnalyser::build_crit_path_reports()
     auto &xclock_reports = result.xclock_paths;
     auto &clock_fmax = result.clock_fmax;
     auto &empty_clocks = result.empty_paths;
-    auto &clock_delays_ctx = result.clock_delays;
 
     if (!setup_only) {
         result.min_delay_violations = get_min_delay_violations();
@@ -1125,8 +1144,6 @@ void TimingAnalyser::build_crit_path_reports()
     };
 
     std::sort(xclock_reports.begin(), xclock_reports.end(), cmp_crit_path);
-
-    clock_delays_ctx = clock_delays;
 }
 
 void TimingAnalyser::build_slack_histogram_report()
