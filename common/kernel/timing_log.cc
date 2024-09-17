@@ -61,9 +61,9 @@ static void log_crit_paths(const Context *ctx, TimingResult &result)
         source_entries.emplace_back(sourcelist.substr(prev, current - prev));
 
         // Iterate and print our source list at the correct indentation level
-        log_info("               Defined in:\n");
+        log_info("                        Defined in:\n");
         for (auto entry : source_entries) {
-            log_info("                 %s\n", entry.c_str());
+            log_info("                          %s\n", entry.c_str());
         }
     };
 
@@ -82,7 +82,7 @@ static void log_crit_paths(const Context *ctx, TimingResult &result)
             return ctx->getDelayNS(d.maxDelay());
         };
 
-        log_info(" curr  total type\n");
+        log_info("    type  curr  total\n");
         for (const auto &segment : path.segments) {
 
             total += segment.delay;
@@ -94,10 +94,11 @@ static void log_crit_paths(const Context *ctx, TimingResult &result)
                 segment.type == CriticalPath::Segment::Type::HOLD) {
                 logic_total += segment.delay;
 
-                log_info("% 5.2f % 5.2f  %s %s.%s\n", get_delay_ns(segment.delay), get_delay_ns(total),
-                         CriticalPath::Segment::type_to_str(segment.type).c_str(), segment.to.first.c_str(ctx),
+                log_info("%8s % 5.2f % 5.2f  %s.%s\n", CriticalPath::Segment::type_to_str(segment.type).c_str(),
+                         get_delay_ns(segment.delay), get_delay_ns(total), segment.to.first.c_str(ctx),
                          segment.to.second.c_str(ctx));
             } else if (segment.type == CriticalPath::Segment::Type::ROUTING ||
+                       segment.type == CriticalPath::Segment::Type::CLK2CLK ||
                        segment.type == CriticalPath::Segment::Type::CLK_SKEW) {
                 route_total = route_total + segment.delay;
 
@@ -107,10 +108,12 @@ static void log_crit_paths(const Context *ctx, TimingResult &result)
                 auto driver_loc = ctx->getBelLocation(driver->bel);
                 auto sink_loc = ctx->getBelLocation(sink->bel);
 
-                log_info("% 5.2f % 5.2f  %s Net %s (%d,%d) -> (%d,%d)\n", get_delay_ns(segment.delay),
-                         get_delay_ns(total), CriticalPath::Segment::type_to_str(segment.type).c_str(),
-                         segment.net.c_str(ctx), driver_loc.x, driver_loc.y, sink_loc.x, sink_loc.y);
-                log_info("               Sink %s.%s\n", segment.to.first.c_str(ctx), segment.to.second.c_str(ctx));
+                log_info("%8s % 5.2f % 5.2f  Net %s (%d,%d) -> (%d,%d)\n",
+                         CriticalPath::Segment::type_to_str(segment.type).c_str(), get_delay_ns(segment.delay),
+                         get_delay_ns(total), segment.net.c_str(ctx), driver_loc.x, driver_loc.y, sink_loc.x,
+                         sink_loc.y);
+                log_info("                        Sink %s.%s\n", segment.to.first.c_str(ctx),
+                         segment.to.second.c_str(ctx));
 
                 const NetInfo *net = ctx->nets.at(segment.net).get();
 
@@ -227,14 +230,25 @@ static void log_fmax(Context *ctx, TimingResult &result, bool warn_on_failure)
     log_break();
 
     // Clock to clock delays for xpaths
-    dict<ClockPair, delay_t> xclock_delays;
+    dict<ClockPair, DelayPair> xclock_delays;
     for (auto &report : result.xclock_paths) {
         const auto &clock1_name = report.clock_pair.start.clock;
         const auto &clock2_name = report.clock_pair.end.clock;
 
-        const auto key = std::make_pair(clock1_name, clock2_name);
-        if (result.clock_delays.count(key)) {
-            xclock_delays[report.clock_pair] = result.clock_delays.at(key);
+        // Check if this path has a clock-2-clock delay
+        // clock-2-clock delays are always the first segment in the path
+        // But we walk the entire path anyway.
+        bool has_clock_to_clock = false;
+        DelayPair clock_delay = DelayPair(0);
+        for (const auto &seg : report.segments) {
+            if (seg.type == CriticalPath::Segment::Type::CLK2CLK) {
+                has_clock_to_clock = true;
+                clock_delay += seg.delay;
+            }
+        }
+
+        if (has_clock_to_clock) {
+            xclock_delays[report.clock_pair] = clock_delay;
         }
     }
 
@@ -252,7 +266,7 @@ static void log_fmax(Context *ctx, TimingResult &result, bool warn_on_failure)
             const auto &clock_b = report.clock_pair.end.clock;
 
             const auto key = std::make_pair(clock_a, clock_b);
-            if (!result.clock_delays.count(key)) {
+            if (!xclock_delays.count(report.clock_pair)) {
                 continue;
             }
 
@@ -264,12 +278,11 @@ static void log_fmax(Context *ctx, TimingResult &result, bool warn_on_failure)
             // Compensate path delay for clock-to-clock delay. If the
             // result is negative then only the latter matters. Otherwise
             // the compensated path delay is taken.
-            auto clock_delay = result.clock_delays.at(key);
-            path_delay -= DelayPair(clock_delay);
+            auto clock_delay = xclock_delays.at(report.clock_pair);
 
             float fmax = std::numeric_limits<float>::infinity();
             if (path_delay.maxDelay() < 0) {
-                fmax = 1e3f / ctx->getDelayNS(clock_delay);
+                fmax = 1e3f / ctx->getDelayNS(clock_delay.maxDelay());
             } else if (path_delay.maxDelay() > 0) {
                 fmax = 1e3f / ctx->getDelayNS(path_delay.maxDelay());
             }
@@ -308,12 +321,12 @@ static void log_fmax(Context *ctx, TimingResult &result, bool warn_on_failure)
     }
 
     // Report clock delays for xpaths
-    if (!result.clock_delays.empty()) {
+    if (!xclock_delays.empty()) {
         for (auto &pair : xclock_delays) {
             auto ev_a = clock_event_name(ctx, pair.first.start, max_width_xca);
             auto ev_b = clock_event_name(ctx, pair.first.end, max_width_xcb);
 
-            delay_t delay = pair.second;
+            delay_t delay = pair.second.maxDelay();
             if (pair.first.start.edge != pair.first.end.edge) {
                 delay /= 2;
             }
