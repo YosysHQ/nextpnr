@@ -950,7 +950,7 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
         delay_t clock_delay = clock_delays.at(clock_pair);
         if (clock_delay != 0) {
             CriticalPath::Segment seg_c2c;
-            seg_c2c.type = CriticalPath::Segment::Type::CLK2CLK;
+            seg_c2c.type = CriticalPath::Segment::Type::CLK_TO_CLK;
             seg_c2c.delay = DelayPair(clock_delay);
             seg_c2c.from = std::make_pair(sp_cell->name, sp_clk_info.clock_port);
             seg_c2c.to = std::make_pair(ep_cell->name, ep_clk_info.clock_port);
