@@ -26,15 +26,17 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-static bool is_cascade_input(const std::string& port_name)
+static bool is_cascade_input(const PortInfo& port, const Context *ctx)
 {
-    return boost::starts_with(port_name, "ACIN") || boost::starts_with(port_name, "BCIN") || boost::starts_with(port_name, "PCIN") ||
-           port_name == "CARRYCASCIN" || port_name == "MULTSIGNIN";
+    if(port.name == id_CARRYCASCIN || port.name == id_MULTSIGNIN) return true;
+		const std::string& str = port.name.c_str(ctx);
+    return boost::starts_with(str, "ACIN") || boost::starts_with(str, "BCIN") || boost::starts_with(str, "PCIN");
 }
-static bool is_cascade_output(const std::string& port_name)
+static bool is_cascade_output(const PortInfo& port, const Context *ctx)
 {
-    return boost::starts_with(port_name, "ACOUT") || boost::starts_with(port_name, "BCOUT") || boost::starts_with(port_name, "PCOUT") ||
-           port_name == "CARRYCASCOUT" || port_name == "MULTSIGNOUT";
+    if(port.name == id_CARRYCASCOUT || port.name == id_MULTSIGNOUT) return true;
+		const std::string& str = port.name.c_str(ctx);
+    return boost::starts_with(str, "ACOUT") || boost::starts_with(str, "BCOUT") || boost::starts_with(str, "PCOUT");
 }
 
 void XC7Packer::walk_dsp(CellInfo *root, CellInfo *current_cell, int constr_z)
@@ -53,7 +55,7 @@ void XC7Packer::walk_dsp(CellInfo *root, CellInfo *current_cell, int constr_z)
 
     // see if any cascade outputs are connected
     for (auto port : current_cell->ports) {
-        if (!is_cascade_output(port.first.str(ctx))) continue;
+        if (!is_cascade_output(port.second, ctx)) continue;
         NetInfo *cout_net = port.second.net;
 
         if (cout_net == nullptr || cout_net->users.empty()) continue;
@@ -120,7 +122,7 @@ void XC7Packer::pack_dsps()
                 std::string n = port.first.str(ctx);
 
                 // Cascading inputs do not use routing resources, so disconnect them if constants
-                if (is_cascade_input(n)) {
+                if (is_cascade_input(port.second, ctx)) {
                     if (port.second.net == nullptr)
                         continue;
                     if (port.second.net->name == ctx->id("$PACKER_GND_NET"))
@@ -155,7 +157,7 @@ void XC7Packer::pack_dsps()
     for (auto ci : all_dsps) {
         bool cascade_input_used = false;
         for (auto port : ci->ports) {
-            if (!is_cascade_input(port.first.str(ctx))) continue;
+            if (!is_cascade_input(port.second, ctx)) continue;
             if (port.second.net != nullptr) {
                 cascade_input_used = true;
                 break;
