@@ -101,9 +101,6 @@ struct TimingAnalyser
     // Enable analysis of clock skew between FFs.
     bool with_clock_skew = false;
 
-    // REMOVE ME once approved
-    delay_t clock_delay_fac = 1;
-
     bool setup_only = false;
     bool have_loops = false;
     bool updated_domains = false;

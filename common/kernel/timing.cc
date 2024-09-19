@@ -573,10 +573,7 @@ void TimingAnalyser::walk_forward()
                         init_arrival += fanin.value.delayPair();
                         // Include the clock delay if clock_skew analysis is enabled
                         if (with_clock_skew) {
-                            auto clock_delay = ports.at(CellPortKey(sp.first.cell, fanin.other_port)).route_delay;
-                            clock_delay.min_delay = clock_delay_fac * clock_delay.min_delay;
-                            clock_delay.max_delay = clock_delay_fac * clock_delay.max_delay;
-                            init_arrival += clock_delay;
+                            init_arrival += ports.at(CellPortKey(sp.first.cell, fanin.other_port)).route_delay;
                         }
                         break;
                     }
@@ -633,10 +630,7 @@ void TimingAnalyser::walk_backward()
 
                     if (fanin.type == CellArc::SETUP && fanin.other_port == ep.second) {
                         if (with_clock_skew) {
-                            auto clock_delay = ports.at(CellPortKey(ep.first.cell, fanin.other_port)).route_delay;
-                            clock_delay.min_delay = clock_delay_fac * clock_delay.min_delay;
-                            clock_delay.max_delay = clock_delay_fac * clock_delay.max_delay;
-                            init_required += clock_delay;
+                            init_required += ports.at(CellPortKey(ep.first.cell, fanin.other_port)).route_delay;
                         }
                         init_required.min_delay -= fanin.value.maxDelay();
                     }
@@ -707,8 +701,6 @@ dict<domain_id_t, delay_t> TimingAnalyser::max_delay_by_domain_pairs()
                     for (auto &fanin : ep_port.cell_arcs) {
                         if (fanin.type == CellArc::SETUP) {
                             auto clock_delay = ports.at(CellPortKey(ep.first.cell, fanin.other_port)).route_delay;
-                            clock_delay.min_delay = clock_delay_fac * clock_delay.min_delay;
-                            clock_delay.max_delay = clock_delay_fac * clock_delay.max_delay;
                             delay += clock_delay.minDelay();
                         }
                     }
@@ -722,8 +714,6 @@ dict<domain_id_t, delay_t> TimingAnalyser::max_delay_by_domain_pairs()
                     for (auto &fanin : sp_port.cell_arcs) {
                         if (fanin.type == CellArc::CLK_TO_Q) {
                             auto clock_delay = ports.at(CellPortKey(sp.cell->name, fanin.other_port)).route_delay;
-                            clock_delay.min_delay = clock_delay_fac * clock_delay.min_delay;
-                            clock_delay.max_delay = clock_delay_fac * clock_delay.max_delay;
                             delay -= clock_delay.maxDelay();
                         }
                     }
@@ -1000,10 +990,8 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
 
     if (with_clock_skew && register_start && register_end && (same_clock || related_clock)) {
 
-        auto clock_delay_launch =
-                clock_delay_fac * ctx->getNetinfoRouteDelay(sp_clk_net, PortRef{sp_cell, sp_clk_info.clock_port});
-        auto clock_delay_capture =
-                clock_delay_fac * ctx->getNetinfoRouteDelay(ep_clk_net, PortRef{ep_cell, ep_clk_info.clock_port});
+        auto clock_delay_launch = ctx->getNetinfoRouteDelay(sp_clk_net, PortRef{sp_cell, sp_clk_info.clock_port});
+        auto clock_delay_capture = ctx->getNetinfoRouteDelay(ep_clk_net, PortRef{ep_cell, ep_clk_info.clock_port});
 
         delay_t clock_skew = clock_delay_launch - clock_delay_capture;
 
