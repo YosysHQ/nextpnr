@@ -1536,8 +1536,9 @@ struct FasmBackend
         if (binput == "CASCADE")
             write_bit("B_INPUT[0]");
 
-        auto use_dport = str_or_default(ci->params, ctx->id("USE_DPORT"), "FALSE");
-        if (use_dport == "TRUE")
+        // Tolerate both int and string types for interoperability purposes
+        auto use_dport = boolstr_or_default(ci->params, ctx->id("USE_DPORT"), false);
+        if (use_dport == true)
             write_bit("USE_DPORT[0]");
 
         auto use_simd = str_or_default(ci->params, ctx->id("USE_SIMD"), "ONE48");
@@ -1547,14 +1548,10 @@ struct FasmBackend
             write_bit("USE_SIMD_FOUR12");
 
         // PATTERN
-        auto pattern_str = str_or_default(ci->params, ctx->id("PATTERN"), "");
-        if (!boost::empty(pattern_str)) {
-            const size_t pattern_size = 48;
-            std::vector<bool> pattern_vector(pattern_size, true);
-            size_t i = 0;
-            for (auto it = pattern_str.crbegin(); it != pattern_str.crend() && i < pattern_size; ++i, ++it) {
-                pattern_vector[i] = *it == '1';
-            }
+        const size_t pattern_size = 48;
+        std::vector<bool> pattern_vector(pattern_size, false);
+        bool pattern_found = boolvec_populate(ci->params, ctx->id("PATTERN"), pattern_vector);
+        if (pattern_found) {
             write_vector("PATTERN[47:0]", pattern_vector);
         }
 
@@ -1565,16 +1562,15 @@ struct FasmBackend
             write_bit("AUTORESET_PATDET_RESET_NOT_MATCH");
 
         // MASK
-        auto mask_str = str_or_default(ci->params, ctx->id("MASK"), "001111111111111111111111111111111111111111111111");
         // Yosys gives us 48 bit, but prjxray only recognizes 46 bits
         // The most significant two bits seem to be zero, so let us just truncate them
-        const size_t mask_size = 46;
+        const size_t mask_size = 48;
         std::vector<bool> mask_vector(mask_size, true);
-        size_t i = 0;
-        for (auto it = mask_str.crbegin(); it != mask_str.crend() && i < mask_size; ++i, ++it) {
-            mask_vector[i] = *it == '1';
+        bool mask_found = boolvec_populate(ci->params, ctx->id("MASK"), mask_vector);
+        if (mask_found) {
+            mask_vector.resize(46);
+            write_vector("MASK[45:0]", mask_vector);
         }
-        write_vector("MASK[45:0]", mask_vector);
 
         auto sel_mask = str_or_default(ci->params, ctx->id("SEL_MASK"), "MASK");
         if (sel_mask == "C")
@@ -1599,7 +1595,7 @@ struct FasmBackend
         write_bit("ZMREG[0]", !bool_or_default(ci->params, ctx->id("MREG")));
         write_bit("ZOPMODEREG[0]", !bool_or_default(ci->params, ctx->id("OPMODEREG")));
         write_bit("ZPREG[0]", !bool_or_default(ci->params, ctx->id("PREG")));
-        write_bit("USE_DPORT[0]", str_or_default(ci->params, ctx->id("USE_DPORT"), "FALSE") == "TRUE");
+        write_bit("USE_DPORT[0]", boolstr_or_default(ci->params, ctx->id("USE_DPORT"), false));
         write_bit("ZIS_CLK_INVERTED", !bool_or_default(ci->params, ctx->id("IS_CLK_INVERTED")));
         write_bit("ZIS_CARRYIN_INVERTED", !bool_or_default(ci->params, ctx->id("IS_CARRYIN_INVERTED")));
         pop(2);
