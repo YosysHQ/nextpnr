@@ -102,7 +102,7 @@ struct TimingAnalyser
     bool with_clock_skew = false;
 
     // REMOVE ME once approved
-    delay_t clock_delay_fac = 100;
+    delay_t clock_delay_fac = 1;
 
     bool setup_only = false;
     bool have_loops = false;
