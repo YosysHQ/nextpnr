@@ -61,9 +61,9 @@ static void log_crit_paths(const Context *ctx, TimingResult &result)
         source_entries.emplace_back(sourcelist.substr(prev, current - prev));
 
         // Iterate and print our source list at the correct indentation level
-        log_info("                          Defined in:\n");
+        log_info("                         Defined in:\n");
         for (auto entry : source_entries) {
-            log_info("                            %s\n", entry.c_str());
+            log_info("                              %s\n", entry.c_str());
         }
     };
 
@@ -82,7 +82,7 @@ static void log_crit_paths(const Context *ctx, TimingResult &result)
             return ctx->getDelayNS(d.maxDelay());
         };
 
-        log_info("      type curr  total\n");
+        log_info("      type curr  total name\n");
         for (const auto &segment : path.segments) {
 
             total += segment.delay;
@@ -94,7 +94,7 @@ static void log_crit_paths(const Context *ctx, TimingResult &result)
                 segment.type == CriticalPath::Segment::Type::HOLD) {
                 logic_total += segment.delay;
 
-                log_info("%10s % 5.2f % 5.2f  %s.%s\n", CriticalPath::Segment::type_to_str(segment.type).c_str(),
+                log_info("%10s % 5.2f % 5.2f Source %s.%s\n", CriticalPath::Segment::type_to_str(segment.type).c_str(),
                          get_delay_ns(segment.delay), get_delay_ns(total), segment.to.first.c_str(ctx),
                          segment.to.second.c_str(ctx));
             } else if (segment.type == CriticalPath::Segment::Type::ROUTING ||
@@ -108,11 +108,11 @@ static void log_crit_paths(const Context *ctx, TimingResult &result)
                 auto driver_loc = ctx->getBelLocation(driver->bel);
                 auto sink_loc = ctx->getBelLocation(sink->bel);
 
-                log_info("%10s % 5.2f % 5.2f  Net %s (%d,%d) -> (%d,%d)\n",
+                log_info("%10s % 5.2f % 5.2f Net %s (%d,%d) -> (%d,%d)\n",
                          CriticalPath::Segment::type_to_str(segment.type).c_str(), get_delay_ns(segment.delay),
                          get_delay_ns(total), segment.net.c_str(ctx), driver_loc.x, driver_loc.y, sink_loc.x,
                          sink_loc.y);
-                log_info("                          Sink %s.%s\n", segment.to.first.c_str(ctx),
+                log_info("                         Sink %s.%s\n", segment.to.first.c_str(ctx),
                          segment.to.second.c_str(ctx));
 
                 const NetInfo *net = ctx->nets.at(segment.net).get();
