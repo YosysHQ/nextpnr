@@ -124,6 +124,8 @@ struct Router1
     Router1(Context *ctx, const Router1Cfg &cfg) : ctx(ctx), cfg(cfg), tmg(ctx)
     {
         timing_driven = ctx->setting<bool>("timing_driven");
+        tmg.setup_only = false;
+        tmg.with_clock_skew = true;
         tmg.setup();
         tmg.run();
     }

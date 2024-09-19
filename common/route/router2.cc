@@ -102,7 +102,12 @@ struct Router2
     Context *ctx;
     Router2Cfg cfg;
 
-    Router2(Context *ctx, const Router2Cfg &cfg) : ctx(ctx), cfg(cfg), tmg(ctx) { tmg.setup(); }
+    Router2(Context *ctx, const Router2Cfg &cfg) : ctx(ctx), cfg(cfg), tmg(ctx)
+    {
+        tmg.setup_only = false;
+        tmg.with_clock_skew = true;
+        tmg.setup();
+    }
 
     // Use 'udata' for fast net lookups and indexing
     std::vector<NetInfo *> nets_by_udata;
