@@ -81,6 +81,8 @@ void XC7Packer::walk_dsp(CellInfo *root, CellInfo *current_cell, int constr_z)
         // the connected cell has to be above the current cell,
         // otherwise it cannot be routed, because the cascading ports
         // are only connected to the DSP above
+        // FIXME The offset +/-5 applies to DSP tiles, not to DSP slices
+        //   So two cascaded DSPs can be placed in one tile, which does not correspond to a +/-5 offset
         auto previous_y = (current_cell == root) ? 0 : current_cell->constr_y;
         cascaded_cell->constr_y = previous_y + (is_lower_bel ? -5 : 0);
         cascaded_cell->constr_z = constr_z;
@@ -169,11 +171,15 @@ void XC7Packer::pack_dsps()
         }
     }
 
+    // Creating placement clusters is currently disabled, because the current constraints
+    // on Y coordinates don't always correspond to placement possibilities, which makes placer crash
+    #if 0
     for (auto root : dsp_roots) {
         root->constr_abs_z = true;
         root->constr_z = BEL_LOWER_DSP;
         walk_dsp(root, root, BEL_UPPER_DSP);
     }
+    #endif
 }
 
 NEXTPNR_NAMESPACE_END
