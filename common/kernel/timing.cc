@@ -715,7 +715,8 @@ dict<domain_id_t, delay_t> TimingAnalyser::max_delay_by_domain_pairs()
 
                     // walk back to startpoint
                     auto crit_path = walk_crit_path(domain_pair_id(launch_id, capture_id), ep.first, true);
-                    auto &sp = crit_path.back();
+                    auto first_inp = crit_path.back();
+                    const auto &sp = first_inp.cell->ports.at(first_inp.port).net->driver;
                     auto &sp_port = ports.at(CellPortKey{sp.cell->name, sp.port});
 
                     for (auto &fanin : sp_port.cell_arcs) {
@@ -877,9 +878,8 @@ std::vector<PortRef> TimingAnalyser::walk_crit_path(domain_id_t domain_pair, Cel
         // We store the reversed critical path as all input ports that lead to
         // the timing startpoint.
         auto is_input = portClass != TMG_CLOCK_INPUT && portClass != TMG_IGNORE && port.type == PortType::PORT_IN;
-        is_startpoint = portClass == TMG_REGISTER_OUTPUT || portClass == TMG_STARTPOINT;
 
-        if (is_input || is_startpoint)
+        if (is_input)
             crit_path_rev.emplace_back(PortRef{cell, port.name});
 
         if (!ports.at(cursor).arrival.count(dp.key.launch))
@@ -890,6 +890,7 @@ std::vector<PortRef> TimingAnalyser::walk_crit_path(domain_id_t domain_pair, Cel
         } else {
             cursor = ports.at(cursor).arrival.at(dp.key.launch).bwd_min;
         }
+        is_startpoint = portClass == TMG_REGISTER_OUTPUT || portClass == TMG_STARTPOINT;
     } while (!is_startpoint);
 
     return crit_path_rev;
@@ -930,7 +931,8 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
     auto crit_path = boost::adaptors::reverse(crit_path_rev);
 
     // Get timing and clocking info on the startpoint
-    const auto &sp = crit_path.front();
+    auto first_inp = crit_path.front();
+    const auto &sp = first_inp.cell->ports.at(first_inp.port).net->driver;
     const auto &sp_cell = sp.cell;
     const auto &sp_port = sp_cell->ports.at(sp.port);
     int sp_clocks;
@@ -1037,8 +1039,7 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
         if (is_startpoint && register_start) {
             comb_delay = sp_clk_info.clockToQ;
             seg_logic.type = CriticalPath::Segment::Type::CLK_TO_Q;
-        } else if (prev_port == driver.port) {
-            // Case where we start with a STARTPOINT etc
+        } else if (is_startpoint) {
             comb_delay = DelayQuad(0);
             seg_logic.type = CriticalPath::Segment::Type::SOURCE;
         } else {

@@ -99,8 +99,8 @@ struct TimingAnalyser
     TimingResult &get_timing_result() { return result; }
 
     // Enable analysis of clock skew between FFs.
-    // Only do this after legal placement
-    bool with_clock_skew = true;
+    bool with_clock_skew = false;
+
     // REMOVE ME once approved
     delay_t clock_delay_fac = 100;
 
