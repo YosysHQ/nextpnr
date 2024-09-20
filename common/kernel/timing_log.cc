@@ -69,38 +69,29 @@ static void log_crit_paths(const Context *ctx, TimingResult &result)
 
     // A helper function for reporting one critical path
     auto print_path_report = [ctx](const CriticalPath &path) {
-        DelayPair total(0), logic_total(0), route_total(0);
-
-        // We print out the max delay since that's usually the interesting case
-        // But if we know this critical path has violated hold time we print the
-        // min delay instead
-        bool min_delay_violation = path.delay.minDelay() < 0;
-        auto get_delay_ns = [min_delay_violation, ctx](const DelayPair &d) {
-            if (min_delay_violation) {
-                ctx->getDelayNS(d.minDelay());
-            }
-            return ctx->getDelayNS(d.maxDelay());
-        };
+        delay_t total(0), logic_total(0), route_total(0);
 
         log_info("      type curr  total name\n");
         for (const auto &segment : path.segments) {
 
-            total += segment.delay;
+            delay_t delay = segment.delay;
+
+            total += delay;
 
             if (segment.type == CriticalPath::Segment::Type::CLK_TO_Q ||
                 segment.type == CriticalPath::Segment::Type::SOURCE ||
                 segment.type == CriticalPath::Segment::Type::LOGIC ||
                 segment.type == CriticalPath::Segment::Type::SETUP ||
                 segment.type == CriticalPath::Segment::Type::HOLD) {
-                logic_total += segment.delay;
+                logic_total += delay;
 
                 log_info("%10s % 5.2f % 5.2f Source %s.%s\n", CriticalPath::Segment::type_to_str(segment.type).c_str(),
-                         get_delay_ns(segment.delay), get_delay_ns(total), segment.to.first.c_str(ctx),
+                         ctx->getDelayNS(delay), ctx->getDelayNS(total), segment.to.first.c_str(ctx),
                          segment.to.second.c_str(ctx));
             } else if (segment.type == CriticalPath::Segment::Type::ROUTING ||
                        segment.type == CriticalPath::Segment::Type::CLK_TO_CLK ||
                        segment.type == CriticalPath::Segment::Type::CLK_SKEW) {
-                route_total = route_total + segment.delay;
+                route_total = route_total + delay;
 
                 const auto &driver = ctx->cells.at(segment.from.first);
                 const auto &sink = ctx->cells.at(segment.to.first);
@@ -109,8 +100,8 @@ static void log_crit_paths(const Context *ctx, TimingResult &result)
                 auto sink_loc = ctx->getBelLocation(sink->bel);
 
                 log_info("%10s % 5.2f % 5.2f Net %s (%d,%d) -> (%d,%d)\n",
-                         CriticalPath::Segment::type_to_str(segment.type).c_str(), get_delay_ns(segment.delay),
-                         get_delay_ns(total), segment.net.c_str(ctx), driver_loc.x, driver_loc.y, sink_loc.x,
+                         CriticalPath::Segment::type_to_str(segment.type).c_str(), ctx->getDelayNS(delay),
+                         ctx->getDelayNS(total), segment.net.c_str(ctx), driver_loc.x, driver_loc.y, sink_loc.x,
                          sink_loc.y);
                 log_info("                         Sink %s.%s\n", segment.to.first.c_str(ctx),
                          segment.to.second.c_str(ctx));
@@ -150,7 +141,7 @@ static void log_crit_paths(const Context *ctx, TimingResult &result)
                 }
             }
         }
-        log_info("%.2f ns logic, %.2f ns routing\n", get_delay_ns(logic_total), get_delay_ns(route_total));
+        log_info("%.2f ns logic, %.2f ns routing\n", ctx->getDelayNS(logic_total), ctx->getDelayNS(route_total));
     };
 
     // Single domain paths
@@ -180,16 +171,16 @@ static void log_crit_paths(const Context *ctx, TimingResult &result)
     auto num_min_violations = result.min_delay_violations.size();
     if (num_min_violations > 0) {
         log_break();
-        log_info("Hold time/min time violations:\n");
+        log_info("%zu Hold/min time violations (showing 10 worst paths):\n", num_min_violations);
         for (size_t i = 0; i < std::min((size_t)10, num_min_violations); ++i) {
             auto &report = result.min_delay_violations.at(i);
             log_break();
             std::string start = clock_event_name(ctx, report.clock_pair.start);
             std::string end = clock_event_name(ctx, report.clock_pair.end);
             if (report.clock_pair.start == report.clock_pair.end) {
-                log_nonfatal_error("Hold time violation for clock '%s':\n", start.c_str());
+                log_nonfatal_error("Hold/min time violation for clock '%s':\n", start.c_str());
             } else {
-                log_nonfatal_error("Hold time violation for path '%s' -> '%s':\n", start.c_str(), end.c_str());
+                log_nonfatal_error("Hold/min time violation for path '%s' -> '%s':\n", start.c_str(), end.c_str());
             }
             print_path_report(report);
         }
@@ -230,13 +221,13 @@ static void log_fmax(Context *ctx, TimingResult &result, bool warn_on_failure)
     log_break();
 
     // Clock to clock delays for xpaths
-    dict<ClockPair, DelayPair> xclock_delays;
+    dict<ClockPair, delay_t> xclock_delays;
     for (auto &report : result.xclock_paths) {
         // Check if this path has a clock-2-clock delay
         // clock-2-clock delays are always the first segment in the path
         // But we walk the entire path anyway.
         bool has_clock_to_clock = false;
-        DelayPair clock_delay = DelayPair(0);
+        delay_t clock_delay = 0;
         for (const auto &seg : report.segments) {
             if (seg.type == CriticalPath::Segment::Type::CLK_TO_CLK) {
                 has_clock_to_clock = true;
@@ -266,7 +257,7 @@ static void log_fmax(Context *ctx, TimingResult &result, bool warn_on_failure)
                 continue;
             }
 
-            DelayPair path_delay(0);
+            delay_t path_delay = 0;
             for (const auto &segment : report.segments) {
                 path_delay += segment.delay;
             }
@@ -277,10 +268,10 @@ static void log_fmax(Context *ctx, TimingResult &result, bool warn_on_failure)
             auto clock_delay = xclock_delays.at(report.clock_pair);
 
             float fmax = std::numeric_limits<float>::infinity();
-            if (path_delay.maxDelay() < 0) {
-                fmax = 1e3f / ctx->getDelayNS(clock_delay.maxDelay());
-            } else if (path_delay.maxDelay() > 0) {
-                fmax = 1e3f / ctx->getDelayNS(path_delay.maxDelay());
+            if (path_delay < 0) {
+                fmax = 1e3f / ctx->getDelayNS(clock_delay);
+            } else if (path_delay > 0) {
+                fmax = 1e3f / ctx->getDelayNS(path_delay);
             }
 
             // Both clocks are related so they should have the same
@@ -322,7 +313,7 @@ static void log_fmax(Context *ctx, TimingResult &result, bool warn_on_failure)
             auto ev_a = clock_event_name(ctx, pair.first.start, max_width_xca);
             auto ev_b = clock_event_name(ctx, pair.first.end, max_width_xcb);
 
-            delay_t delay = pair.second.maxDelay();
+            delay_t delay = pair.second;
             if (pair.first.start.edge != pair.first.end.edge) {
                 delay /= 2;
             }
@@ -348,12 +339,12 @@ static void log_fmax(Context *ctx, TimingResult &result, bool warn_on_failure)
     for (auto &report : result.xclock_paths) {
         const ClockEvent &a = report.clock_pair.start;
         const ClockEvent &b = report.clock_pair.end;
-        DelayPair path_delay(0);
+        delay_t path_delay = 0;
         for (const auto &segment : report.segments) {
             path_delay += segment.delay;
         }
         auto ev_a = clock_event_name(ctx, a, start_field_width), ev_b = clock_event_name(ctx, b, end_field_width);
-        log_info("Max delay %s -> %s: %0.02f ns\n", ev_a.c_str(), ev_b.c_str(), ctx->getDelayNS(path_delay.maxDelay()));
+        log_info("Max delay %s -> %s: %0.02f ns\n", ev_a.c_str(), ev_b.c_str(), ctx->getDelayNS(path_delay));
     }
     log_break();
 }

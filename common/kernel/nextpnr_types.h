@@ -451,16 +451,14 @@ struct CriticalPath
         // To cell.port
         std::pair<IdString, IdString> to;
         // Segment delay
-        DelayPair delay;
+        delay_t delay;
     };
 
     // Clock pair
     ClockPair clock_pair;
-    // Total path delay
-    // if sum < 0 this is a hold/min violation
-    // if delay.maxDelay() >= max_delay this is a setup/max violation
-    DelayPair delay;
 
+    // if sum[segments.delay] < 0 this is a hold/min violation
+    // if sum[segments.delay] > max_delay this is a setup/max violation
     delay_t max_delay;
 
     // Individual path segments

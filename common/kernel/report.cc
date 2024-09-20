@@ -73,11 +73,11 @@ static Json::array json_report_critical_paths(const Context *ctx)
                                         {"port", segment.to.second.c_str(ctx)},
                                         {"loc", Json::array({toLoc.x, toLoc.y})}});
 
-            auto minDelay = ctx->getDelayNS(segment.delay.minDelay());
-            auto maxDelay = ctx->getDelayNS(segment.delay.maxDelay());
-
-            auto segmentJson =
-                    Json::object({{"delay", Json::array({minDelay, maxDelay})}, {"from", fromJson}, {"to", toJson}});
+            auto segmentJson = Json::object({
+                    {"delay", ctx->getDelayNS(segment.delay)},
+                    {"from", fromJson},
+                    {"to", toJson},
+            });
 
             segmentJson["type"] = CriticalPath::Segment::type_to_str(segment.type);
             if (segment.type == CriticalPath::Segment::Type::ROUTING) {
@@ -186,10 +186,7 @@ Report JSON structure:
           },
           "type": <path segment type "clk-to-q", "source", "logic", "routing" or "setup">,
           "net": <net name (for routing only!)>,
-          "delay": [
-            <minimum segment delay [ns]>,
-            <maximum segment delay [ns]>,
-          ],
+          "delay": <segment delay [ns]>,
         }
         ...
       ]
