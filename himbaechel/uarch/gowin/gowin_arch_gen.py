@@ -245,6 +245,22 @@ class ChipExtraData(BBAStruct):
         bba.slice(f"{context}_dhcen_bels", len(self.dhcen_bels))
 
 @dataclass
+class PackageExtraData(BBAStruct):
+    strs: StringPool
+    cst: list
+
+    def serialise_lists(self, context: str, bba: BBAWriter):
+        bba.label(f"{context}_constraints")
+        for (net, row, col, bel) in self.cst:
+            bba.u32(self.strs.id(net).index)
+            bba.u32(row)
+            bba.u32(col)
+            bba.u32(ord(bel[0])-ord('A')+IOBA_Z)
+
+    def serialise(self, context: str, bba: BBAWriter):
+        bba.slice(f"{context}_constraints", len(self.cst))
+
+@dataclass
 class PadExtraData(BBAStruct):
     # Which PLL does this pad belong to.
     pll_tile: IdString
@@ -1206,6 +1222,10 @@ def create_packages(chip: Chip, db: chipdb):
             continue
         created_pkgs.add(partno)
         pkg = chip.create_package(partno)
+
+        if variant in db.sip_cst and pkgname in db.sip_cst[variant]:
+            pkg.extra_data = PackageExtraData(chip.strs, db.sip_cst[variant][pkgname])
+
         for pinno, pininfo in db.pinout[variant][pkgname].items():
             io_loc, cfgs = pininfo
             tile, bel = ioloc_to_tile_bel(io_loc)
