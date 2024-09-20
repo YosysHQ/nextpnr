@@ -895,8 +895,6 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
     const auto &launch = domains.at(dp.key.launch).key;
     const auto &capture = domains.at(dp.key.capture).key;
 
-    report.delay = DelayPair(0);
-
     report.clock_pair.start.clock = launch.clock;
     report.clock_pair.start.edge = launch.edge;
     report.clock_pair.end.clock = capture.clock;
@@ -980,7 +978,7 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
         if (!is_zero_delay(clock_delay)) {
             CriticalPath::Segment seg_c2c;
             seg_c2c.type = CriticalPath::Segment::Type::CLK_TO_CLK;
-            seg_c2c.delay = DelayPair(clock_delay);
+            seg_c2c.delay = clock_delay;
             seg_c2c.from = std::make_pair(sp_cell->name, sp_clk_info.clock_port);
             seg_c2c.to = std::make_pair(ep_cell->name, ep_clk_info.clock_port);
             seg_c2c.net = IdString();
@@ -998,7 +996,7 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
         if (!is_zero_delay(clock_skew)) {
             CriticalPath::Segment seg_skew;
             seg_skew.type = CriticalPath::Segment::Type::CLK_SKEW;
-            seg_skew.delay = DelayPair(clock_skew);
+            seg_skew.delay = clock_skew;
             seg_skew.from = std::make_pair(sp_cell->name, sp_clk_info.clock_port);
             seg_skew.to = std::make_pair(ep_cell->name, ep_clk_info.clock_port);
             if (same_clock) {
@@ -1035,7 +1033,7 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
             seg_logic.type = CriticalPath::Segment::Type::LOGIC;
         }
 
-        seg_logic.delay = comb_delay.delayPair();
+        seg_logic.delay = longest_path ? comb_delay.maxDelay() : comb_delay.minDelay();
         seg_logic.from = std::make_pair(prev_cell->name, prev_port);
         seg_logic.to = std::make_pair(driver_cell->name, driver.port);
         seg_logic.net = IdString();
@@ -1045,7 +1043,7 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
 
         CriticalPath::Segment seg_route;
         seg_route.type = CriticalPath::Segment::Type::ROUTING;
-        seg_route.delay = net_delay;
+        seg_route.delay = longest_path ? net_delay.maxDelay() : net_delay.minDelay();
         seg_route.from = std::make_pair(driver_cell->name, driver.port);
         seg_route.to = std::make_pair(sink_cell->name, sink.port);
         seg_route.net = net->name;
@@ -1058,13 +1056,13 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
 
     if (register_end) {
         CriticalPath::Segment seg_logic;
-        seg_logic.delay = DelayPair(0);
+        seg_logic.delay = 0;
         if (longest_path) {
             seg_logic.type = CriticalPath::Segment::Type::SETUP;
-            seg_logic.delay += ep_clk_info.setup;
+            seg_logic.delay += ep_clk_info.setup.maxDelay();
         } else {
             seg_logic.type = CriticalPath::Segment::Type::HOLD;
-            seg_logic.delay -= ep_clk_info.hold;
+            seg_logic.delay -= ep_clk_info.hold.maxDelay();
         }
         seg_logic.from = std::make_pair(prev_cell->name, prev_port);
         seg_logic.to = seg_logic.from;
@@ -1222,6 +1220,7 @@ std::vector<CriticalPath> TimingAnalyser::get_min_delay_violations()
             for (auto &[launch_id, arr] : port.arrival) {
                 const auto &launch = domains.at(launch_id);
                 const auto &launch_clock = launch.key.clock;
+                const auto dom_pair_id = domain_pair_id(launch_id, capture_id);
 
                 auto clocks = std::make_pair(launch_clock, capture_clock);
                 auto related_clocks = clock_delays.count(clocks) > 0;
@@ -1236,17 +1235,37 @@ std::vector<CriticalPath> TimingAnalyser::get_min_delay_violations()
                 }
 
                 auto hold_slack = arr.value.minDelay() - req.value.maxDelay() + clock_to_clock;
-                auto violated = hold_slack <= 0;
 
-                if (violated) {
-                    const auto dom_pair_id = domain_pair_id(launch_id, capture_id);
-                    violations.emplace_back(build_critical_path_report(dom_pair_id, ep.first, false));
+                if (hold_slack <= 0) {
+                    auto report = build_critical_path_report(dom_pair_id, ep.first, false);
+                    violations.emplace_back(report);
                 }
             }
         }
     }
 
-    return violations;
+    std::vector<std::pair<size_t, delay_t>> sum_indices;
+    sum_indices.reserve(violations.size());
+
+    for (size_t i = 0; i < violations.size(); ++i) {
+        delay_t delay = 0;
+        for (const auto &seg : violations[i].segments) {
+            delay += seg.delay;
+        }
+
+        sum_indices.emplace_back(i, delay);
+    }
+
+    std::sort(sum_indices.begin(), sum_indices.end(),
+              [](auto &left, auto &right) { return left.second < right.second; });
+
+    std::vector<CriticalPath> sorted_violations;
+    sorted_violations.reserve(violations.size());
+    for (const auto &pair : sum_indices) {
+        sorted_violations.push_back(std::move(violations[pair.first]));
+    }
+
+    return sorted_violations;
 }
 
 domain_id_t TimingAnalyser::domain_id(IdString cell, IdString clock_port, ClockEdge edge)
