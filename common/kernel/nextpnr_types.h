@@ -30,7 +30,6 @@
 #include "archdefs.h"
 #include "hashlib.h"
 #include "indexed_store.h"
-#include "log.h"
 #include "nextpnr_base_types.h"
 #include "nextpnr_namespaces.h"
 #include "property.h"
@@ -201,7 +200,7 @@ enum PortType
     case PORT_INOUT:
         return "PORT_INOUT";
     default:
-        log_error("Impossible PortType");
+        NPNR_ASSERT_FALSE("Impossible PortType");
     }
 }
 
@@ -250,7 +249,7 @@ enum TimingPortClass
     case TMG_IGNORE:
         return "TMG_IGNORE";
     default:
-        log_error("Impossible TimingPortClass");
+        NPNR_ASSERT_FALSE("Impossible TimingPortClass");
     }
 }
 
@@ -268,7 +267,7 @@ enum ClockEdge
     case FALLING_EDGE:
         return "FALLING_EDGE";
     default:
-        log_error("Impossible ClockEdge");
+        NPNR_ASSERT_FALSE("Impossible ClockEdge");
     }
 }
 
@@ -438,7 +437,7 @@ struct CriticalPath
             case Type::HOLD:
                 return "hold";
             default:
-                log_error("Impossible Segment::Type");
+                NPNR_ASSERT_FALSE("Impossible Segment::Type");
             }
         }
 
