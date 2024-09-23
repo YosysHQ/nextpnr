@@ -241,7 +241,7 @@ struct GowinCstReader
 };
 
 
-void add_sip_constraints(Context *ctx, const Extra_package_data_POD *extra) {
+static void add_sip_constraints(Context *ctx, const Extra_package_data_POD *extra) {
     for(auto cst : extra->cst) {
         auto it = ctx->cells.find(IdString(cst.net));
         if (it == ctx->cells.end()) {
@@ -260,8 +260,8 @@ void add_sip_constraints(Context *ctx, const Extra_package_data_POD *extra) {
 bool gowin_apply_constraints(Context *ctx, std::istream &in)
 {
     // implicit constraints from SiP pins
-    const Extra_package_data_POD *extra = reinterpret_cast<const Extra_package_data_POD *>(ctx->package_info->extra_data.get());
-    if(extra != nullptr) {
+    if(!ctx->package_info->extra_data.is_null()) {
+        const Extra_package_data_POD *extra = reinterpret_cast<const Extra_package_data_POD *>(ctx->package_info->extra_data.get());
         add_sip_constraints(ctx, extra);
     }
 
