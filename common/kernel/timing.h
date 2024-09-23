@@ -58,6 +58,49 @@ struct ClockDomainKey
     inline bool operator==(const ClockDomainKey &other) const { return (clock == other.clock) && (edge == other.edge); }
 };
 
+// TODO: perhaps move these elsewhere
+struct FalsePath
+{
+};
+
+struct MinMaxDelay
+{
+    enum class Type
+    {
+        MAXDELAY,
+        MINDELAY
+    };
+
+    [[maybe_unused]] static const std::string type_to_str(Type typ)
+    {
+        switch (typ) {
+        case Type::MAXDELAY:
+            return "MAXDELAY";
+        case Type::MINDELAY:
+            return "MINDELAY";
+        default:
+            log_error("Impossible MinMaxDelay::Type");
+        }
+    }
+
+    Type type;
+    delay_t delay;
+    bool datapath_only;
+};
+
+struct MultiCycle
+{
+    size_t cycles;
+};
+
+struct TimingException
+{
+    std::variant<FalsePath, MinMaxDelay, MultiCycle> type;
+
+    pool<CellPortKey> startpoints;
+    pool<CellPortKey> endpoints;
+};
+
 typedef int domain_id_t;
 
 struct ClockDomainPairKey
@@ -70,6 +113,8 @@ struct ClockDomainPairKey
     }
     unsigned int hash() const { return mkhash(launch, capture); }
 };
+
+typedef int constraint_id_t;
 
 struct TimingAnalyser
 {
@@ -103,14 +148,14 @@ struct TimingAnalyser
 
     bool setup_only = false;
     bool have_loops = false;
-    bool updated_domains = false;
+    bool updated_domains_constraints = false;
 
   private:
     void init_ports();
     void get_cell_delays();
     void get_route_delays();
     void topo_sort();
-    void setup_port_domains();
+    void setup_port_domains_and_constraints();
     void identify_related_domains();
 
     void reset_times();
@@ -188,6 +233,12 @@ struct TimingAnalyser
                 : type(type), other_port(other_port), value(value), edge(edge){};
     };
 
+    enum HasConstraint
+    {
+        FORWARDONLY,
+        CONSTRAINED
+    };
+
     // Timing data for every cell port
     struct PerPort
     {
@@ -205,6 +256,9 @@ struct TimingAnalyser
         float worst_crit = 0;
         delay_t worst_setup_slack = std::numeric_limits<delay_t>::max(),
                 worst_hold_slack = std::numeric_limits<delay_t>::max();
+        // Forall timing constraints the uint8_t indicates
+        //   - During forward walking
+        dict<constraint_id_t, uint8_t> per_constraint;
     };
 
     struct PerDomain
@@ -232,6 +286,8 @@ struct TimingAnalyser
 
     void copy_domains(const CellPortKey &from, const CellPortKey &to, bool backwards);
 
+    void propagate_constraints(const CellPortKey &from, const CellPortKey &to, bool backwards);
+
     [[maybe_unused]] static const std::string arcType_to_str(CellArc::ArcType typ);
 
     dict<CellPortKey, PerPort> ports;
@@ -244,6 +300,7 @@ struct TimingAnalyser
     std::vector<CellPortKey> topological_order;
 
     domain_id_t async_clock_id;
+    constraint_id_t clock_constraint_id;
 
     Context *ctx;
 

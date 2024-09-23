@@ -42,7 +42,7 @@ void TimingAnalyser::setup(bool update_net_timings, bool update_histogram, bool 
     init_ports();
     get_cell_delays();
     topo_sort();
-    setup_port_domains();
+    setup_port_domains_and_constraints();
     identify_related_domains();
     run(true, update_net_timings, update_histogram, update_crit_paths);
 }
@@ -229,7 +229,7 @@ void TimingAnalyser::topo_sort()
     std::swap(topological_order, topo.sorted);
 }
 
-void TimingAnalyser::setup_port_domains()
+void TimingAnalyser::setup_port_domains_and_constraints()
 {
     for (auto &d : domains) {
         d.startpoints.clear();
@@ -238,7 +238,7 @@ void TimingAnalyser::setup_port_domains()
     bool first_iter = true;
     do {
         // Go forward through the topological order (domains from the PoV of arrival time)
-        updated_domains = false;
+        updated_domains_constraints = false;
         for (auto port : topological_order) {
             auto &pd = ports.at(port);
             auto &pi = port_info(port);
@@ -256,6 +256,7 @@ void TimingAnalyser::setup_port_domains()
                         // create per-domain data
                         pd.arrival[dom];
                         domains.at(dom).startpoints.emplace_back(port, fanin.other_port);
+                        // TODO: add all constraints on this startpoint
                     }
                 }
                 // copy domains across routing
@@ -296,6 +297,7 @@ void TimingAnalyser::setup_port_domains()
                         // create per-domain data
                         pd.required[dom];
                         domains.at(dom).endpoints.emplace_back(port, fanout.other_port);
+                        // TODO: add all constraints on this endpoint
                     }
                 }
                 // copy port to driver
@@ -314,7 +316,7 @@ void TimingAnalyser::setup_port_domains()
         first_iter = false;
         // If there are loops, repeat the process until a fixed point is reached, as there might be unusual ways to
         // visit points, which would result in a missing domain key and therefore crash later on
-    } while (have_loops && updated_domains);
+    } while (have_loops && updated_domains_constraints);
     for (auto &dp : domain_pairs) {
         auto &launch_data = domains.at(dp.key.launch);
         auto &capture_data = domains.at(dp.key.capture);
@@ -1298,7 +1300,24 @@ void TimingAnalyser::copy_domains(const CellPortKey &from, const CellPortKey &to
 {
     auto &f = ports.at(from), &t = ports.at(to);
     for (auto &dom : (backward ? f.required : f.arrival)) {
-        updated_domains |= (backward ? t.required : t.arrival).emplace(dom.first, ArrivReqTime{}).second;
+        updated_domains_constraints |= (backward ? t.required : t.arrival).emplace(dom.first, ArrivReqTime{}).second;
+    }
+}
+
+void TimingAnalyser::propagate_constraints(const CellPortKey &from, const CellPortKey &to, bool backward)
+{
+    auto &f = ports.at(from), &t = ports.at(to);
+    for (auto &ct : f.per_constraint) {
+        bool has_constraint = t.per_constraint.count(ct.first) > 0;
+        bool same_constraint = has_constraint ? ct.second == t.per_constraint.at(ct.first) : false;
+
+        if (t.per_constraint.count(ct.first) > 0) {
+            if (backward) {
+                t.per_constraint[ct.first] = CONSTRAINED;
+            }
+        } else if (!backward) {
+            t.per_constraint[ct.first] = FORWARDONLY;
+        }
     }
 }
 
