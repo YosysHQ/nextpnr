@@ -169,6 +169,7 @@ static void log_crit_paths(const Context *ctx, TimingResult &result)
     // Min delay violated paths
     // Show maximum of 10
     auto num_min_violations = result.min_delay_violations.size();
+    bool allow_fail = bool_or_default(ctx->settings, ctx->id("timing/allowFail"), false);
     if (num_min_violations > 0) {
         log_break();
         log_info("%zu Hold/min time violations (showing 10 worst paths):\n", num_min_violations);
@@ -177,11 +178,20 @@ static void log_crit_paths(const Context *ctx, TimingResult &result)
             log_break();
             std::string start = clock_event_name(ctx, report.clock_pair.start);
             std::string end = clock_event_name(ctx, report.clock_pair.end);
+
+            std::string message;
             if (report.clock_pair.start == report.clock_pair.end) {
-                log_nonfatal_error("Hold/min time violation for clock '%s':\n", start.c_str());
+                message = "Hold/min time violation for clock '" + start + "':\n";
             } else {
-                log_nonfatal_error("Hold/min time violation for path '%s' -> '%s':\n", start.c_str(), end.c_str());
+                message = "Hold/min time violation for path '" + start + "' -> '" + end + "':\n";
             }
+
+            if (allow_fail) {
+                log_warning("%s", message.c_str());
+            } else {
+                log_nonfatal_error("%s", message.c_str());
+            }
+
             print_path_report(report);
         }
     }
@@ -190,6 +200,8 @@ static void log_crit_paths(const Context *ctx, TimingResult &result)
 static void log_fmax(Context *ctx, TimingResult &result, bool warn_on_failure)
 {
     log_break();
+
+    bool allow_fail = bool_or_default(ctx->settings, ctx->id("timing/allowFail"), false);
 
     if (result.clock_paths.empty() && result.clock_paths.empty()) {
         log_info("No Fmax available; no interior timing paths found in design.\n");
@@ -211,7 +223,7 @@ static void log_fmax(Context *ctx, TimingResult &result, bool warn_on_failure)
         if (!warn_on_failure || passed)
             log_info("Max frequency for clock %*s'%s': %.02f MHz (%s at %.02f MHz)\n", width, "", clock_name.c_str(),
                      fmax, passed ? "PASS" : "FAIL", target);
-        else if (bool_or_default(ctx->settings, ctx->id("timing/allowFail"), false))
+        else if (allow_fail)
             log_warning("Max frequency for clock %*s'%s': %.02f MHz (%s at %.02f MHz)\n", width, "", clock_name.c_str(),
                         fmax, passed ? "PASS" : "FAIL", target);
         else
@@ -296,8 +308,7 @@ static void log_fmax(Context *ctx, TimingResult &result, bool warn_on_failure)
             if (!warn_on_failure || passed)
                 log_info("Max frequency for %s -> %s: %.02f MHz (%s at %.02f MHz)\n", ev_a.c_str(), ev_b.c_str(), fmax,
                          passed ? "PASS" : "FAIL", target);
-            else if (bool_or_default(ctx->settings, ctx->id("timing/allowFail"), false) ||
-                     bool_or_default(ctx->settings, ctx->id("timing/ignoreRelClk"), false))
+            else if (allow_fail || bool_or_default(ctx->settings, ctx->id("timing/ignoreRelClk"), false))
                 log_warning("Max frequency for  %s -> %s: %.02f MHz (%s at %.02f MHz)\n", ev_a.c_str(), ev_b.c_str(),
                             fmax, passed ? "PASS" : "FAIL", target);
             else
