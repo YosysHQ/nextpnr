@@ -262,13 +262,13 @@ void TimingAnalyser::setup_port_domains_and_constraints()
                 // copy domains across routing
                 if (pi.net != nullptr)
                     for (auto &usr : pi.net->users)
-                        copy_domains(port, CellPortKey(usr), false);
+                        propagate_domains_and_constraints(port, CellPortKey(usr), false);
             } else {
                 // copy domains from input to output
                 for (auto &fanout : pd.cell_arcs) {
                     if (fanout.type != CellArc::COMBINATIONAL)
                         continue;
-                    copy_domains(port, CellPortKey(port.cell, fanout.other_port), false);
+                    propagate_domains_and_constraints(port, CellPortKey(port.cell, fanout.other_port), false);
                 }
             }
         }
@@ -281,7 +281,7 @@ void TimingAnalyser::setup_port_domains_and_constraints()
                 for (auto &fanin : pd.cell_arcs) {
                     if (fanin.type != CellArc::COMBINATIONAL)
                         continue;
-                    copy_domains(port, CellPortKey(port.cell, fanin.other_port), true);
+                    propagate_domains_and_constraints(port, CellPortKey(port.cell, fanin.other_port), true);
                 }
             } else {
                 if (first_iter) {
@@ -302,7 +302,7 @@ void TimingAnalyser::setup_port_domains_and_constraints()
                 }
                 // copy port to driver
                 if (pi.net != nullptr && pi.net->driver.cell != nullptr)
-                    copy_domains(port, CellPortKey(pi.net->driver), true);
+                    propagate_domains_and_constraints(port, CellPortKey(pi.net->driver), true);
             }
         }
         // Iterate over ports and find domain pairs
@@ -1296,29 +1296,25 @@ domain_id_t TimingAnalyser::domain_pair_id(domain_id_t launch, domain_id_t captu
     return inserted.first->second;
 }
 
-void TimingAnalyser::copy_domains(const CellPortKey &from, const CellPortKey &to, bool backward)
+void TimingAnalyser::propagate_domains_and_constraints(const CellPortKey &from, const CellPortKey &to, bool backward)
 {
     auto &f = ports.at(from), &t = ports.at(to);
     for (auto &dom : (backward ? f.required : f.arrival)) {
         updated_domains_constraints |= (backward ? t.required : t.arrival).emplace(dom.first, ArrivReqTime{}).second;
     }
-}
 
-void TimingAnalyser::propagate_constraints(const CellPortKey &from, const CellPortKey &to, bool backward)
-{
-    auto &f = ports.at(from), &t = ports.at(to);
-    for (auto &ct : f.per_constraint) {
-        bool has_constraint = t.per_constraint.count(ct.first) > 0;
-        bool same_constraint = has_constraint ? ct.second == t.per_constraint.at(ct.first) : false;
+    // for (auto &ct : f.per_constraint) {
+    //     bool has_constraint = t.per_constraint.count(ct.first) > 0;
+    //     bool same_constraint = has_constraint ? ct.second == t.per_constraint.at(ct.first) : false;
 
-        if (t.per_constraint.count(ct.first) > 0) {
-            if (backward) {
-                t.per_constraint[ct.first] = CONSTRAINED;
-            }
-        } else if (!backward) {
-            t.per_constraint[ct.first] = FORWARDONLY;
-        }
-    }
+    //     if (t.per_constraint.count(ct.first) > 0) {
+    //         if (backward) {
+    //             t.per_constraint[ct.first] = CONSTRAINED;
+    //         }
+    //     } else if (!backward) {
+    //         t.per_constraint[ct.first] = FORWARDONLY;
+    //     }
+    // }
 }
 
 const std::string TimingAnalyser::arcType_to_str(CellArc::ArcType typ)

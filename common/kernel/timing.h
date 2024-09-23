@@ -25,26 +25,6 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-struct CellPortKey
-{
-    CellPortKey(){};
-    CellPortKey(IdString cell, IdString port) : cell(cell), port(port){};
-    explicit CellPortKey(const PortRef &pr)
-    {
-        NPNR_ASSERT(pr.cell != nullptr);
-        cell = pr.cell->name;
-        port = pr.port;
-    }
-    IdString cell, port;
-    unsigned int hash() const { return mkhash(cell.hash(), port.hash()); }
-    inline bool operator==(const CellPortKey &other) const { return (cell == other.cell) && (port == other.port); }
-    inline bool operator!=(const CellPortKey &other) const { return (cell != other.cell) || (port != other.port); }
-    inline bool operator<(const CellPortKey &other) const
-    {
-        return cell == other.cell ? port < other.port : cell < other.cell;
-    }
-};
-
 struct ClockDomainKey
 {
     IdString clock;
@@ -58,48 +38,7 @@ struct ClockDomainKey
     inline bool operator==(const ClockDomainKey &other) const { return (clock == other.clock) && (edge == other.edge); }
 };
 
-// TODO: perhaps move these elsewhere
-struct FalsePath
-{
-};
-
-struct MinMaxDelay
-{
-    enum class Type
-    {
-        MAXDELAY,
-        MINDELAY
-    };
-
-    [[maybe_unused]] static const std::string type_to_str(Type typ)
-    {
-        switch (typ) {
-        case Type::MAXDELAY:
-            return "MAXDELAY";
-        case Type::MINDELAY:
-            return "MINDELAY";
-        default:
-            log_error("Impossible MinMaxDelay::Type");
-        }
-    }
-
-    Type type;
-    delay_t delay;
-    bool datapath_only;
-};
-
-struct MultiCycle
-{
-    size_t cycles;
-};
-
-struct TimingException
-{
-    std::variant<FalsePath, MinMaxDelay, MultiCycle> type;
-
-    pool<CellPortKey> startpoints;
-    pool<CellPortKey> endpoints;
-};
+typedef int exception_id_t;
 
 typedef int domain_id_t;
 
@@ -113,8 +52,6 @@ struct ClockDomainPairKey
     }
     unsigned int hash() const { return mkhash(launch, capture); }
 };
-
-typedef int constraint_id_t;
 
 struct TimingAnalyser
 {
@@ -233,9 +170,15 @@ struct TimingAnalyser
                 : type(type), other_port(other_port), value(value), edge(edge){};
     };
 
-    enum HasConstraint
+    // To track whether a path has a timing exception during a forwards/backwards pass.
+    // During the forward pass the startpoints propagate out FORWARDONLY.
+    // During the backwards pass all ports that contain a "FORWARDONLY" will
+    // move to "CONSTRAINED". Once the forward and backward passes have been
+    // done only the constraints on ports that are "CONSTRAINED" apply.
+    enum class HasPathException
     {
         FORWARDONLY,
+        BACKWARDONLY,
         CONSTRAINED
     };
 
@@ -258,7 +201,7 @@ struct TimingAnalyser
                 worst_hold_slack = std::numeric_limits<delay_t>::max();
         // Forall timing constraints the uint8_t indicates
         //   - During forward walking
-        dict<constraint_id_t, uint8_t> per_constraint;
+        dict<exception_id_t, uint8_t> per_timing_exception;
     };
 
     struct PerDomain
@@ -284,9 +227,7 @@ struct TimingAnalyser
     domain_id_t domain_id(const NetInfo *net, ClockEdge edge);
     domain_id_t domain_pair_id(domain_id_t launch, domain_id_t capture);
 
-    void copy_domains(const CellPortKey &from, const CellPortKey &to, bool backwards);
-
-    void propagate_constraints(const CellPortKey &from, const CellPortKey &to, bool backwards);
+    void propagate_domains_and_constraints(const CellPortKey &from, const CellPortKey &to, bool backwards);
 
     [[maybe_unused]] static const std::string arcType_to_str(CellArc::ArcType typ);
 
@@ -296,11 +237,12 @@ struct TimingAnalyser
     std::vector<PerDomain> domains;
     std::vector<PerDomainPair> domain_pairs;
     dict<std::pair<IdString, IdString>, delay_t> clock_delays;
+    // std::vector<PathConstraint> path_constraints;
 
     std::vector<CellPortKey> topological_order;
 
     domain_id_t async_clock_id;
-    constraint_id_t clock_constraint_id;
+    exception_id_t no_exception_id;
 
     Context *ctx;
 
