@@ -1318,7 +1318,7 @@ const std::string TimingAnalyser::arcType_to_str(CellArc::ArcType typ)
     case TimingAnalyser::CellArc::ENDPOINT:
         return "ENDPOINT";
     default:
-        log_error("Impossible CellArc::ArcType\n");
+        NPNR_ASSERT_FALSE("Impossible CellArc::ArcType\n");
     }
 }
 
