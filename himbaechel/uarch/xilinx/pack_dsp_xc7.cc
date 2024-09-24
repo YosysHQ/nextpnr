@@ -77,22 +77,16 @@ unsigned XC7Packer::walk_dsp(CellInfo *root, CellInfo *current_cell, int constr_
     if (cascaded_cell != nullptr) {
         auto is_lower_bel = constr_z == BEL_LOWER_DSP;
 
-        // Creating placement clusters is currently disabled, because the current constraints
-        // on Y coordinates don't always correspond to placement possibilities, which makes placer crash
-        // Explanation : the current offset +/-5 applies to DSP tiles, not to DSP slices
-        // But two cascaded DSPs can be placed in one tile, which does not correspond to a +/-5 offset
-        #if 0
         cascaded_cell->cluster = root->name;
         root->constr_children.push_back(cascaded_cell);
         cascaded_cell->constr_x = 0;
-        // the connected cell has to be above the current cell,
+        // The connected cell has to be above the current cell,
         // otherwise it cannot be routed, because the cascading ports
         // are only connected to the DSP above
         auto previous_y = (current_cell == root) ? 0 : current_cell->constr_y;
         cascaded_cell->constr_y = previous_y + (is_lower_bel ? -5 : 0);
         cascaded_cell->constr_z = constr_z;
         cascaded_cell->constr_abs_z = true;
-        #endif
 
         num_casc += 1;
         num_casc += walk_dsp(root, cascaded_cell, is_lower_bel ? BEL_UPPER_DSP : BEL_LOWER_DSP);
@@ -187,11 +181,14 @@ void XC7Packer::pack_dsps()
     for (auto root : dsp_roots) {
         root->constr_abs_z = true;
         root->constr_z = BEL_LOWER_DSP;
-        num_casc += walk_dsp(root, root, BEL_UPPER_DSP);
+        unsigned loc_casc = walk_dsp(root, root, BEL_UPPER_DSP);
+        if(loc_casc > 0) {
+            root->cluster = root->name;
+        }
+        num_casc += loc_casc;
     }
     if(num_casc > 0) {
        log_info("Found %u cascaded DSP from %u roots\n", num_casc, (unsigned)dsp_roots.size());
-       log_nonfatal_error("Cascaded DSP are currently not supported by the placer, the design will probably not be functional\n");
     }
 }
 
