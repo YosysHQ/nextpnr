@@ -21,6 +21,7 @@
 
 #include "log.h"
 #include "nextpnr.h"
+#include "timing_constraint.h"
 
 #include <algorithm>
 #include <iterator>
@@ -80,8 +81,8 @@ struct SdcEntity
 
 struct SdcValue
 {
-    SdcValue(const std::string &s) : is_string(true), str(s) {};
-    SdcValue(const std::vector<SdcEntity> &l) : is_string(false), list(l) {};
+    SdcValue(const std::string &s) : is_string(true), str(s){};
+    SdcValue(const std::vector<SdcEntity> &l) : is_string(false), list(l){};
 
     bool is_string;
     std::string str;             // simple string value
@@ -95,7 +96,7 @@ struct SDCParser
     int lineno = 1;
     Context *ctx;
 
-    SDCParser(const std::string &buf, Context *ctx) : buf(buf), ctx(ctx) {};
+    SDCParser(const std::string &buf, Context *ctx) : buf(buf), ctx(ctx){};
 
     inline bool eof() const { return pos == int(buf.size()); }
 
