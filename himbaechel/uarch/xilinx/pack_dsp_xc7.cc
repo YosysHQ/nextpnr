@@ -39,9 +39,11 @@ static bool is_cascade_output(const PortInfo& port, const Context *ctx)
     return boost::starts_with(str, "ACOUT") || boost::starts_with(str, "BCOUT") || boost::starts_with(str, "PCOUT");
 }
 
-void XC7Packer::walk_dsp(CellInfo *root, CellInfo *current_cell, int constr_z)
+// Return : the number of DSP marked as cascaded
+unsigned XC7Packer::walk_dsp(CellInfo *root, CellInfo *current_cell, int constr_z)
 {
     CellInfo *cascaded_cell = nullptr;
+    unsigned num_casc = 0;
 
     auto check_illegal_fanout = [&] (NetInfo *ni, std::string port) {
         if (ni->users.entries() > 1)
@@ -75,21 +77,28 @@ void XC7Packer::walk_dsp(CellInfo *root, CellInfo *current_cell, int constr_z)
     if (cascaded_cell != nullptr) {
         auto is_lower_bel = constr_z == BEL_LOWER_DSP;
 
+        // Creating placement clusters is currently disabled, because the current constraints
+        // on Y coordinates don't always correspond to placement possibilities, which makes placer crash
+        // Explanation : the current offset +/-5 applies to DSP tiles, not to DSP slices
+        // But two cascaded DSPs can be placed in one tile, which does not correspond to a +/-5 offset
+        #if 0
         cascaded_cell->cluster = root->name;
         root->constr_children.push_back(cascaded_cell);
         cascaded_cell->constr_x = 0;
         // the connected cell has to be above the current cell,
         // otherwise it cannot be routed, because the cascading ports
         // are only connected to the DSP above
-        // FIXME The offset +/-5 applies to DSP tiles, not to DSP slices
-        //   So two cascaded DSPs can be placed in one tile, which does not correspond to a +/-5 offset
         auto previous_y = (current_cell == root) ? 0 : current_cell->constr_y;
         cascaded_cell->constr_y = previous_y + (is_lower_bel ? -5 : 0);
         cascaded_cell->constr_z = constr_z;
         cascaded_cell->constr_abs_z = true;
+        #endif
 
-        walk_dsp(root, cascaded_cell, is_lower_bel ? BEL_UPPER_DSP : BEL_LOWER_DSP);
+        num_casc += 1;
+        num_casc += walk_dsp(root, cascaded_cell, is_lower_bel ? BEL_UPPER_DSP : BEL_LOWER_DSP);
     }
+
+    return num_casc;
 }
 
 void XC7Packer::pack_dsps()
@@ -102,6 +111,7 @@ void XC7Packer::pack_dsps()
 
     std::vector<CellInfo *> all_dsps;
 
+    // Clean connections of DSPs
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
 
@@ -155,6 +165,7 @@ void XC7Packer::pack_dsps()
         }
     }
 
+    // Find the roots of cascaded DSP
     std::vector<CellInfo *> dsp_roots;
     for (auto ci : all_dsps) {
         bool cascade_input_used = false;
@@ -171,15 +182,17 @@ void XC7Packer::pack_dsps()
         }
     }
 
-    // Creating placement clusters is currently disabled, because the current constraints
-    // on Y coordinates don't always correspond to placement possibilities, which makes placer crash
-    #if 0
+    // Create clusters of cascaded DSPs
+    unsigned num_casc = 0;
     for (auto root : dsp_roots) {
         root->constr_abs_z = true;
         root->constr_z = BEL_LOWER_DSP;
-        walk_dsp(root, root, BEL_UPPER_DSP);
+        num_casc += walk_dsp(root, root, BEL_UPPER_DSP);
     }
-    #endif
+    if(num_casc > 0) {
+       log_info("Found %u cascaded DSP from %u roots\n", num_casc, (unsigned)dsp_roots.size());
+       log_nonfatal_error("Cascaded DSP are currently not supported by the placer, the design will probably not be functional\n");
+    }
 }
 
 NEXTPNR_NAMESPACE_END
