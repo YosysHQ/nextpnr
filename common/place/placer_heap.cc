@@ -313,24 +313,30 @@ class HeAPPlacer
             BelId bel;
             PlaceStrength strength;
             std::tie(cell, bel, strength) = sc;
-            // In case no bel was found, emit a warning instead of continuing to a crash
-            // This helps to investigate and to devise a workaround in user design
-            if (bel == BelId()) {
-                log_warning("No bel found to bind cell '%s' of type '%s'\n", cell->name.c_str(ctx), cell->type.c_str(ctx));
+            // Just skip unbound cells here, these errors are handled just after
+            if (bel == BelId())
                 continue;
-            }
             ctx->bindBel(bel, cell, strength);
         }
 
+				// Find and display all errors to help in finding the root cause of issues
+        unsigned num_errors = 0;
         for (auto &cell : ctx->cells) {
             if (cell.second->isPseudo())
                 continue;
-            if (cell.second->bel == BelId())
-                log_error("Found unbound cell %s\n", cell.first.c_str(ctx));
-            if (ctx->getBoundBelCell(cell.second->bel) != cell.second.get())
-                log_error("Found cell %s with mismatched binding\n", cell.first.c_str(ctx));
-            if (ctx->debug)
+            if (cell.second->bel == BelId()) {
+                log_nonfatal_error("Found unbound cell '%s' of type '%s'\n", cell.first.c_str(ctx), cell.second->type.c_str(ctx));
+                num_errors++;
+            }
+            else if (ctx->getBoundBelCell(cell.second->bel) != cell.second.get()) {
+                log_nonfatal_error("Found mismatched binding for '%s' or type '%s'\n", cell.first.c_str(ctx), cell.second->type.c_str(ctx));
+                num_errors++;
+            }
+            else if (ctx->debug)
                 log_info("AP soln: %s -> %s\n", cell.first.c_str(ctx), ctx->nameOfBel(cell.second->bel));
+        }
+        if (num_errors > 0) {
+            log_error("Stopping the program after %u errors found\n", num_errors);
         }
 
         bool any_bad_placements = false;
