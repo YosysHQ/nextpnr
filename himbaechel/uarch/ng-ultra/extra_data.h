@@ -1,3 +1,12 @@
+/*
+ *  nextpnr -- Next Generation Place and Route
+ *
+ *  NG-Ultra Architecture Implementation
+ *
+ *  Copyright (C) 2024  YosysHQ GmbH
+ *
+ */
+
 #ifndef NGULTRA_EXTRA_DATA_H
 #define NGULTRA_EXTRA_DATA_H
 

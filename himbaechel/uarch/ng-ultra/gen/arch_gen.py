@@ -1,3 +1,10 @@
+#  nextpnr -- Next Generation Place and Route
+#
+#  NG-Ultra Architecture Implementation
+#
+#  Copyright (C) 2024  YosysHQ GmbH
+#
+
 import json
 from os import path
 import sys
