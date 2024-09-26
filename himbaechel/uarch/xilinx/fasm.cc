@@ -322,8 +322,6 @@ struct FasmBackend
                             src_name.replace(us0pos, 2, "_1");
                     }
                 }
-
-                NPNR_ASSERT_FALSE("unimplemented!");
             }
             if (boost::contains(tile_name, "IOI")) {
                 if (boost::contains(dst_name, "OCLKB") && boost::contains(src_name, "IOI_OCLKM_"))
