@@ -141,11 +141,11 @@ bool XilinxImpl::xc7_logic_tile_valid(IdString tile_type, const LogicTileStatus 
                 mux_cell = lts.cells[(i - 1) << 4 | BEL_F8MUX];
             auto mux = get_tags(mux_cell);
             if (mux) {
-                if (x_net)
+                if (!x_net)
                     x_net = mux->mux.sel;
                 else if (x_net != mux->mux.sel) {
                     DBG();
-                    return false; // Memory and SRLs only valid in SLICEMs
+                    return false; // conflict between existing X use and mux select
                 }
             }
 
@@ -197,10 +197,6 @@ bool XilinxImpl::xc7_logic_tile_valid(IdString tile_type, const LogicTileStatus 
                     if (x_net == nullptr)
                         x_net = ff2->ff.d;
                     else if (x_net != ff2->ff.d) {
-#ifdef DEBUG_VALIDITY
-                        log_info("%s %s %s %s %s\n", nameOf(lut6), nameOf(ff1), nameOf(lut5), nameOf(ff2),
-                                 nameOf(drv.cell));
-#endif
                         DBG();
                         return false;
                     }
