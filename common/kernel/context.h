@@ -38,6 +38,8 @@ struct Context : Arch, DeterministicRNG
     bool disable_critical_path_source_print = false;
     // True when detailed per-net timing is to be stored / reported
     bool detailed_timing_report = false;
+    // Default to true, will update when timing analysis is run
+    bool target_frequency_achieved = true;
 
     ArchArgs arch_args;
 

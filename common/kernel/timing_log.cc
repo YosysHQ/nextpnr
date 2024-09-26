@@ -38,35 +38,36 @@ static std::string clock_event_name(const Context *ctx, const ClockEvent &e, int
     return value;
 };
 
+static void print_net_source(const Context *ctx, const NetInfo *net)
+{
+    // Check if this net is annotated with a source list
+    auto sources = net->attrs.find(ctx->id("src"));
+    if (sources == net->attrs.end()) {
+        // No sources for this net, can't print anything
+        return;
+    }
+
+    // Sources are separated by pipe characters.
+    // There is no guaranteed ordering on sources, so we just print all
+    auto sourcelist = sources->second.as_string();
+    std::vector<std::string> source_entries;
+    size_t current = 0, prev = 0;
+    while ((current = sourcelist.find("|", prev)) != std::string::npos) {
+        source_entries.emplace_back(sourcelist.substr(prev, current - prev));
+        prev = current + 1;
+    }
+    // Ensure we emplace the final entry
+    source_entries.emplace_back(sourcelist.substr(prev, current - prev));
+
+    // Iterate and print our source list at the correct indentation level
+    log_info("                         Defined in:\n");
+    for (auto entry : source_entries) {
+        log_info("                              %s\n", entry.c_str());
+    }
+}
+
 static void log_crit_paths(const Context *ctx, TimingResult &result)
 {
-    static auto print_net_source = [ctx](const NetInfo *net) {
-        // Check if this net is annotated with a source list
-        auto sources = net->attrs.find(ctx->id("src"));
-        if (sources == net->attrs.end()) {
-            // No sources for this net, can't print anything
-            return;
-        }
-
-        // Sources are separated by pipe characters.
-        // There is no guaranteed ordering on sources, so we just print all
-        auto sourcelist = sources->second.as_string();
-        std::vector<std::string> source_entries;
-        size_t current = 0, prev = 0;
-        while ((current = sourcelist.find("|", prev)) != std::string::npos) {
-            source_entries.emplace_back(sourcelist.substr(prev, current - prev));
-            prev = current + 1;
-        }
-        // Ensure we emplace the final entry
-        source_entries.emplace_back(sourcelist.substr(prev, current - prev));
-
-        // Iterate and print our source list at the correct indentation level
-        log_info("                         Defined in:\n");
-        for (auto entry : source_entries) {
-            log_info("                              %s\n", entry.c_str());
-        }
-    };
-
     // A helper function for reporting one critical path
     auto print_path_report = [ctx](const CriticalPath &path) {
         delay_t total(0), logic_total(0), route_total(0);
@@ -137,7 +138,7 @@ static void log_crit_paths(const Context *ctx, TimingResult &result)
                 }
 
                 if (!ctx->disable_critical_path_source_print) {
-                    print_net_source(net);
+                    print_net_source(ctx, net);
                 }
             }
         }

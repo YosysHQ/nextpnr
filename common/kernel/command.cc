@@ -345,7 +345,9 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("top", po::value<std::string>(), "name of top module");
     general.add_options()("seed", po::value<uint64_t>(), "seed value for random number generator");
     general.add_options()("randomize-seed,r", "randomize seed value for random number generator");
-
+    general.add_options()("restart-on-failed-target-frequency",
+                          "restart place and route if target frequency is not achieved (use together with "
+                          "--randomize-seed option)");
     general.add_options()(
             "placer", po::value<std::string>(),
             std::string("placer algorithm to use; available: " + boost::algorithm::join(Arch::availablePlacers, ", ") +
@@ -673,6 +675,17 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
                 ctx->debug = true;
             if (!ctx->place() && !ctx->force)
                 log_error("Placing design failed.\n");
+            if (vm.count("restart-on-failed-target-frequency")) {
+                if (!ctx->target_frequency_achieved) {
+                    log_break();
+                    log_info("Target frequency not achieved, restarting...\n");
+                    log_break();
+#ifndef NO_PYTHON
+                    deinit_python();
+#endif
+                    return 2;
+                }
+            }
             ctx->debug = saved_debug;
             ctx->check();
             if (vm.count("placed-svg"))
@@ -686,6 +699,17 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
                 ctx->debug = true;
             if (!ctx->route() && !ctx->force)
                 log_error("Routing design failed.\n");
+            if (vm.count("restart-on-failed-target-frequency")) {
+                if (!ctx->target_frequency_achieved) {
+                    log_break();
+                    log_info("Target frequency not achieved, restarting...\n");
+                    log_break();
+#ifndef NO_PYTHON
+                    deinit_python();
+#endif
+                    return 2;
+                }
+            }
             ctx->debug = saved_debug;
             run_script_hook("post-route");
             if (vm.count("routed-svg"))
@@ -753,10 +777,15 @@ int CommandHandler::exec()
             return 0;
 
         dict<std::string, Property> values;
+restart:
         std::unique_ptr<Context> ctx = createContext(values);
         setupContext(ctx.get());
         setupArchContext(ctx.get());
         int rc = executeMain(std::move(ctx));
+        if (rc == 2) {
+            ctx.reset();
+            goto restart;
+        }
         printFooter();
         log_break();
         log_info("Program finished normally.\n");

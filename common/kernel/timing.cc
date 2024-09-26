@@ -1339,6 +1339,16 @@ void timing_analysis(Context *ctx, bool print_slack_histogram, bool print_fmax, 
 
     if (update_results)
         ctx->timing_result = result;
+
+    ctx->target_frequency_achieved = true;
+    for (auto &clock : result.clock_paths) {
+        float fmax = result.clock_fmax[clock.first].achieved;
+        float target = result.clock_fmax[clock.first].constraint;
+        bool passed = target < fmax;
+        if (!passed) {
+            ctx->target_frequency_achieved = false;
+        }
+    }
 }
 
 NEXTPNR_NAMESPACE_END
