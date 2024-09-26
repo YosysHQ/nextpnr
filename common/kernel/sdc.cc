@@ -477,13 +477,9 @@ struct SDCParser
                     log_error("expecting SdcValue argument to -from (line %d)\n", lineno);
                 }
 
-                if (val.list.size() != 1) {
-                    log_error("Expected a single SdcEntity as argument to -to/-from (line %d)\n", lineno);
+                for (const auto &ety : val.list) {
+                    sdc_into_path_constraint(ety, is_from, ct);
                 }
-
-                auto &ety = val.list.at(0);
-
-                sdc_into_path_constraint(ety, is_from, ct);
             }
         }
 
