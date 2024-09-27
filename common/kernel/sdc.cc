@@ -21,11 +21,28 @@
 
 #include "log.h"
 #include "nextpnr.h"
+#include "timing_constraint.h"
 
 #include <algorithm>
 #include <iterator>
 
 NEXTPNR_NAMESPACE_BEGIN
+
+bool is_startpoint(Context *ctx, const PortRef &port)
+{
+    int clkInfoCount;
+    TimingPortClass cls = ctx->getPortTimingClass(port.cell, port.port, clkInfoCount);
+
+    return cls == TMG_STARTPOINT || cls == TMG_REGISTER_OUTPUT;
+}
+
+bool is_endpoint(Context *ctx, const PortRef &port)
+{
+    int clkInfoCount;
+    TimingPortClass cls = ctx->getPortTimingClass(port.cell, port.port, clkInfoCount);
+
+    return cls == TMG_ENDPOINT || cls == TMG_REGISTER_OUTPUT;
+}
 
 struct SdcEntity
 {
@@ -58,6 +75,23 @@ struct SdcEntity
         return &ctx->ports.at(name);
     }
 
+    PortRef get_pin(Context *ctx) const
+    {
+        if (type != ENTITY_PIN)
+            return PortRef{nullptr, IdString()};
+
+        CellInfo *cell = nullptr;
+        if (ctx->cells.count(name)) {
+            cell = ctx->cells.at(name).get();
+        } else {
+            return PortRef{nullptr, IdString()};
+        }
+        if (!cell->ports.count(pin))
+            return PortRef{nullptr, IdString()};
+
+        return PortRef{cell, pin};
+    }
+
     NetInfo *get_net(Context *ctx) const
     {
         if (type == ENTITY_PIN) {
@@ -80,8 +114,8 @@ struct SdcEntity
 
 struct SdcValue
 {
-    SdcValue(const std::string &s) : is_string(true), str(s) {};
-    SdcValue(const std::vector<SdcEntity> &l) : is_string(false), list(l) {};
+    SdcValue(const std::string &s) : is_string(true), str(s){};
+    SdcValue(const std::vector<SdcEntity> &l) : is_string(false), list(l){};
 
     bool is_string;
     std::string str;             // simple string value
@@ -95,7 +129,7 @@ struct SDCParser
     int lineno = 1;
     Context *ctx;
 
-    SDCParser(const std::string &buf, Context *ctx) : buf(buf), ctx(ctx) {};
+    SDCParser(const std::string &buf, Context *ctx) : buf(buf), ctx(ctx){};
 
     inline bool eof() const { return pos == int(buf.size()); }
 
@@ -250,6 +284,60 @@ struct SDCParser
         return args;
     }
 
+    // Parse an argument to -from/to into the path_constraint
+    void sdc_into_path_constraint(const SdcEntity &ety, bool is_from, PathConstraint &ct)
+    {
+        auto &target = is_from ? ct.from : ct.to;
+        auto test_port = is_from ? is_startpoint : is_endpoint;
+        std::string tartget_str = is_from ? "startpoint" : "endpoint";
+
+        if (ety.type == SdcEntity::ENTITY_PIN) {
+            auto port_ref = ety.get_pin(ctx);
+            if (test_port(ctx, port_ref) == false) {
+                log_error("\"%s.%s\" is not a timing %s (line %d)\n", port_ref.cell->name.c_str(ctx),
+                          port_ref.port.c_str(ctx), tartget_str.c_str(), lineno);
+            }
+            target.emplace(CellPortKey(port_ref));
+        } else if (ety.type == SdcEntity::ENTITY_NET) {
+            auto net = ety.get_net(ctx);
+            if (is_from) {
+                auto port_ref = net->driver;
+                if (test_port(ctx, port_ref) == false) {
+                    log_error("\"%s.%s\" is not a timing %s (line %d)\n", port_ref.cell->name.c_str(ctx),
+                              port_ref.port.c_str(ctx), tartget_str.c_str(), lineno);
+                }
+                target.emplace(CellPortKey(port_ref));
+            } else {
+                for (const auto &usr : net->users) {
+                    if (test_port(ctx, usr) == false) {
+                        log_error("\"%s.%s\" is not a timing %s (line %d)\n", usr.cell->name.c_str(ctx),
+                                  usr.port.c_str(ctx), tartget_str.c_str(), lineno);
+                    }
+                    target.emplace(CellPortKey(usr));
+                }
+            }
+        } else if (ety.type == SdcEntity::ENTITY_PORT) {
+            auto ioport_ref = ety.get_port(ctx);
+            auto net = ioport_ref->net;
+            if (is_from) {
+                auto port_ref = net->driver;
+                if (test_port(ctx, port_ref) == false) {
+                    log_error("\"%s.%s\" is not a timing %s (line %d)\n", port_ref.cell->name.c_str(ctx),
+                              port_ref.port.c_str(ctx), tartget_str.c_str(), lineno);
+                }
+                target.emplace(CellPortKey(port_ref));
+            } else {
+                for (const auto &usr : net->users) {
+                    if (test_port(ctx, usr) == false) {
+                        log_error("\"%s.%s\" is not a timing %s (line %d)\n", usr.cell->name.c_str(ctx),
+                                  usr.port.c_str(ctx), tartget_str.c_str(), lineno);
+                    }
+                    target.emplace(CellPortKey(usr));
+                }
+            }
+        }
+    }
+
     SdcValue cmd_get_nets(const std::vector<SdcValue> &arguments)
     {
         std::vector<SdcEntity> nets;
@@ -317,7 +405,7 @@ struct SDCParser
             if (pos == std::string::npos)
                 log_error("expected / in cell pin name '%s' (line %d)\n", s.c_str(), lineno);
             pins.emplace_back(SdcEntity::ENTITY_PIN, ctx->id(s.substr(0, pos)), ctx->id(s.substr(pos + 1)));
-            if (pins.back().get_net(ctx) == nullptr) {
+            if (pins.back().get_pin(ctx).cell == nullptr) {
                 log_warning("cell pin '%s' not found\n", s.c_str());
                 pins.pop_back();
             }
@@ -368,8 +456,8 @@ struct SDCParser
 
     SdcValue cmd_set_false_path(const std::vector<SdcValue> &arguments)
     {
-        NetInfo *from = nullptr;
-        NetInfo *to = nullptr;
+        PathConstraint ct;
+        ct.exception = FalsePath{};
 
         for (int i = 1; i < int(arguments.size()); i++) {
             auto &arg = arguments.at(i);
@@ -389,38 +477,19 @@ struct SDCParser
                     log_error("expecting SdcValue argument to -from (line %d)\n", lineno);
                 }
 
-                if (val.list.size() != 1) {
-                    log_error("Expected a single SdcEntity as argument to -to/-from (line %d)\n", lineno);
-                }
-
-                auto &ety = val.list.at(0);
-
-                NetInfo *net = nullptr;
-                if (ety.type == SdcEntity::ENTITY_PIN)
-                    net = ety.get_net(ctx);
-                else if (ety.type == SdcEntity::ENTITY_NET)
-                    net = ctx->nets.at(ety.name).get();
-                else if (ety.type == SdcEntity::ENTITY_PORT)
-                    net = ctx->ports.at(ety.name).net;
-                else
-                    log_error("set_false_path applies only to nets, cell pins, or IO ports (line %d)\n", lineno);
-
-                if (is_from) {
-                    from = net;
-                } else {
-                    to = net;
+                for (const auto &ety : val.list) {
+                    sdc_into_path_constraint(ety, is_from, ct);
                 }
             }
         }
 
-        if (from == nullptr) {
-            log_error("-from is required for set_false_path (line %d)\n", lineno);
-        } else if (to == nullptr) {
-            log_error("-to is required for set_false_path (line %d)\n", lineno);
+        if (ct.from.empty()) {
+            log_error("query specified in -from did not find any pins or ports (line %d)\n", lineno);
+        } else if (ct.to.empty()) {
+            log_error("query specified in -to did not find any pins or ports (line %d)\n", lineno);
         }
 
-        log_warning("set_false_path from: %s, to: %s does not do anything(yet).\n", from->name.c_str(ctx),
-                    to->name.c_str(ctx));
+        ctx->path_constraints.emplace_back(ct);
 
         return std::string{};
     }

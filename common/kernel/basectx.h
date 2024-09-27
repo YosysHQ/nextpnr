@@ -34,6 +34,7 @@
 #include "nextpnr_types.h"
 #include "property.h"
 #include "str_ring_buffer.h"
+#include "timing_constraint.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -83,6 +84,9 @@ struct BaseCtx
 
     // Context meta data
     dict<IdString, Property> attrs;
+
+    // Path constraints set via SDC
+    std::vector<PathConstraint> path_constraints;
 
     // Fmax data post timing analysis
     TimingResult timing_result;

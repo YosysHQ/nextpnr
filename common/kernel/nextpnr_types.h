@@ -369,6 +369,27 @@ struct CellInfo : ArchCellInfo
                        int new_offset, bool new_brackets, int width);
 };
 
+// similar to PortRef but allows storage into pool and dict
+struct CellPortKey
+{
+    CellPortKey(){};
+    CellPortKey(IdString cell, IdString port) : cell(cell), port(port){};
+    explicit CellPortKey(const PortRef &pr)
+    {
+        NPNR_ASSERT(pr.cell != nullptr);
+        cell = pr.cell->name;
+        port = pr.port;
+    }
+    IdString cell, port;
+    unsigned int hash() const { return mkhash(cell.hash(), port.hash()); }
+    inline bool operator==(const CellPortKey &other) const { return (cell == other.cell) && (port == other.port); }
+    inline bool operator!=(const CellPortKey &other) const { return (cell != other.cell) || (port != other.port); }
+    inline bool operator<(const CellPortKey &other) const
+    {
+        return cell == other.cell ? port < other.port : cell < other.cell;
+    }
+};
+
 struct ClockConstraint
 {
     DelayPair high;

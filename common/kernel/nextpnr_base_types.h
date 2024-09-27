@@ -29,10 +29,26 @@
 
 #include <boost/functional/hash.hpp>
 #include <string>
+#include <variant>
 
 #include "hashlib.h"
 #include "idstring.h"
 #include "nextpnr_namespaces.h"
+
+/* Helper struct to overload lambdas for variabt visiting
+   so you can do:
+    std::variant<int, std::string> var = 42;
+
+    std::visit(overloaded{
+        [](int arg) { std::cout << "Integer: " << arg << '\n'; },
+        [](const std::string& arg) { std::cout << "String: " << arg << '\n'; }
+    }, var);
+*/
+template <class... Ts> struct overloaded : Ts...
+{
+    using Ts::operator()...;
+};
+template <class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
 NEXTPNR_NAMESPACE_BEGIN
 

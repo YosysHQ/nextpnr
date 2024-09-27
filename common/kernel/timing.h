@@ -25,26 +25,6 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-struct CellPortKey
-{
-    CellPortKey(){};
-    CellPortKey(IdString cell, IdString port) : cell(cell), port(port){};
-    explicit CellPortKey(const PortRef &pr)
-    {
-        NPNR_ASSERT(pr.cell != nullptr);
-        cell = pr.cell->name;
-        port = pr.port;
-    }
-    IdString cell, port;
-    unsigned int hash() const { return mkhash(cell.hash(), port.hash()); }
-    inline bool operator==(const CellPortKey &other) const { return (cell == other.cell) && (port == other.port); }
-    inline bool operator!=(const CellPortKey &other) const { return (cell != other.cell) || (port != other.port); }
-    inline bool operator<(const CellPortKey &other) const
-    {
-        return cell == other.cell ? port < other.port : cell < other.cell;
-    }
-};
-
 struct ClockDomainKey
 {
     IdString clock;
@@ -57,6 +37,8 @@ struct ClockDomainKey
 
     inline bool operator==(const ClockDomainKey &other) const { return (clock == other.clock) && (edge == other.edge); }
 };
+
+typedef int exception_id_t;
 
 typedef int domain_id_t;
 
@@ -103,14 +85,14 @@ struct TimingAnalyser
 
     bool setup_only = false;
     bool have_loops = false;
-    bool updated_domains = false;
+    bool updated_domains_constraints = false;
 
   private:
     void init_ports();
     void get_cell_delays();
     void get_route_delays();
     void topo_sort();
-    void setup_port_domains();
+    void setup_port_domains_and_constraints();
     void identify_related_domains();
 
     void reset_times();
@@ -188,6 +170,18 @@ struct TimingAnalyser
                 : type(type), other_port(other_port), value(value), edge(edge){};
     };
 
+    // To track whether a path has a timing exception during a forwards/backwards pass.
+    // During the forward pass the startpoints propagate out FORWARDONLY.
+    // During the backwards pass all ports that contain a "FORWARDONLY" will
+    // move to "CONSTRAINED". Once the forward and backward passes have been
+    // done only the constraints on ports that are "CONSTRAINED" apply.
+    enum class HasPathException
+    {
+        FORWARDONLY,
+        BACKWARDONLY,
+        CONSTRAINED
+    };
+
     // Timing data for every cell port
     struct PerPort
     {
@@ -205,6 +199,9 @@ struct TimingAnalyser
         float worst_crit = 0;
         delay_t worst_setup_slack = std::numeric_limits<delay_t>::max(),
                 worst_hold_slack = std::numeric_limits<delay_t>::max();
+        // Forall timing constraints the uint8_t indicates
+        //   - During forward walking
+        dict<exception_id_t, uint8_t> per_timing_exception;
     };
 
     struct PerDomain
@@ -230,7 +227,7 @@ struct TimingAnalyser
     domain_id_t domain_id(const NetInfo *net, ClockEdge edge);
     domain_id_t domain_pair_id(domain_id_t launch, domain_id_t capture);
 
-    void copy_domains(const CellPortKey &from, const CellPortKey &to, bool backwards);
+    void propagate_domains_and_constraints(const CellPortKey &from, const CellPortKey &to, bool backwards);
 
     [[maybe_unused]] static const std::string arcType_to_str(CellArc::ArcType typ);
 
@@ -240,10 +237,12 @@ struct TimingAnalyser
     std::vector<PerDomain> domains;
     std::vector<PerDomainPair> domain_pairs;
     dict<std::pair<IdString, IdString>, delay_t> clock_delays;
+    // std::vector<PathConstraint> path_constraints;
 
     std::vector<CellPortKey> topological_order;
 
     domain_id_t async_clock_id;
+    exception_id_t no_exception_id;
 
     Context *ctx;
 
