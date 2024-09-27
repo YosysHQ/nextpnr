@@ -107,6 +107,16 @@ IdStringList XilinxImpl::get_site_bel_name(BelId bel) const
     return IdStringList::concat(get_site_name(get_bel_site(bel)), bel_name_in_site(bel));
 }
 
+WireId XilinxImpl::lookup_wire(int tile, IdString wire_name) const
+{
+    const auto &tdata = chip_tile_info(ctx->chip_info, tile);
+    for (int wire = 0; wire < tdata.wires.ssize(); wire++) {
+        if (IdString(tdata.wires[wire].name) == wire_name)
+            return ctx->normalise_wire(tile, wire);
+    }
+    return WireId();
+}
+
 void XilinxImpl::notifyBelChange(BelId bel, CellInfo *cell)
 {
     auto &ts = tile_status.at(bel.tile);

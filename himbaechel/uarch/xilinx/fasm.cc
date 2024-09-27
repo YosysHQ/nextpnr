@@ -333,19 +333,17 @@ struct FasmBackend
             out << src_name << std::endl;
 
             if (boost::contains(tile_name, "IOI") && boost::starts_with(dst_name, "IOI_OCLK_")) {
-#if 0
                 dst_name.insert(dst_name.find("OCLK") + 4, 1, 'M');
                 orig_dst_name.insert(dst_name.find("OCLK") + 4, 1, 'M');
 
-                WireId w = ctx->getWireByNameStr(tile_name + "/" + orig_dst_name);
+                WireId w = uarch->lookup_wire(pip.tile, ctx->id(orig_dst_name));
+
                 NPNR_ASSERT(w != WireId());
                 if (ctx->getBoundWireNet(w) == nullptr) {
                     out << tile_name << ".";
                     out << dst_name << ".";
                     out << src_name << std::endl;
                 }
-#endif
-                NPNR_ASSERT_FALSE("unimplemented!");
             }
 
             last_was_blank = false;

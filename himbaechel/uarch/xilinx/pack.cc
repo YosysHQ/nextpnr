@@ -733,7 +733,7 @@ void XilinxImpl::pack()
     packer.pack_io();
     packer.prepare_clocking();
     packer.pack_constants();
-    // packer.pack_iologic();
+    packer.pack_iologic();
     // packer.pack_idelayctrl();
     packer.pack_clocking();
     packer.pack_muxfs();

@@ -494,4 +494,184 @@ void XC7Packer::check_valid_pad(CellInfo *ci, std::string type)
     log_error("unsupported DRIVE strength property %s for port %s", drive_attr->second.c_str(), ci->name.c_str(ctx));
 }
 
+SiteIndex XC7Packer::get_ologic_site(BelId io_bel)
+{
+    BelId ibc_bel;
+    if (boost::contains(uarch->bel_name_in_site(io_bel).str(ctx), "IOB18"))
+        ibc_bel = uarch->get_site_bel(uarch->get_bel_site(io_bel), ctx->id("IOB18.OUTBUF_DCIEN"));
+    else
+        ibc_bel = uarch->get_site_bel(uarch->get_bel_site(io_bel), ctx->id("IOB33.OUTBUF"));
+    NPNR_ASSERT(ibc_bel != BelId());
+
+    std::queue<WireId> visit;
+    visit.push(ctx->getBelPinWire(ibc_bel, id_IN));
+
+    while (!visit.empty()) {
+        WireId cursor = visit.front();
+        visit.pop();
+        for (auto bp : ctx->getWireBelPins(cursor)) {
+            auto site = uarch->get_bel_site(bp.bel);
+            if (boost::starts_with(uarch->get_site_name(site).str(ctx), "OLOGIC"))
+                return site;
+        }
+        for (auto pip : ctx->getPipsUphill(cursor))
+            visit.push(ctx->getPipSrcWire(pip));
+    }
+    NPNR_ASSERT_FALSE("failed to find OLOGIC");
+}
+
+SiteIndex XC7Packer::get_ilogic_site(BelId io_bel)
+{
+    BelId ibc_bel;
+    if (boost::contains(uarch->bel_name_in_site(io_bel).str(ctx), "IOB18"))
+        ibc_bel = uarch->get_site_bel(uarch->get_bel_site(io_bel), ctx->id("IOB18.INBUF_DCIEN"));
+    else
+        ibc_bel = uarch->get_site_bel(uarch->get_bel_site(io_bel), ctx->id("IOB33.INBUF_EN"));
+
+    NPNR_ASSERT(ibc_bel != BelId());
+
+    std::queue<WireId> visit;
+    visit.push(ctx->getBelPinWire(ibc_bel, id_OUT));
+
+    while (!visit.empty()) {
+        WireId cursor = visit.front();
+        visit.pop();
+        for (auto bp : ctx->getWireBelPins(cursor)) {
+            auto site = uarch->get_bel_site(bp.bel);
+            if (boost::starts_with(uarch->get_site_name(site).str(ctx), "ILOGIC"))
+                return site;
+        }
+        for (auto pip : ctx->getPipsDownhill(cursor))
+            visit.push(ctx->getPipDstWire(pip));
+    }
+    NPNR_ASSERT_FALSE("failed to find ILOGIC");
+}
+
+
+void XC7Packer::fold_inverter(CellInfo *cell, std::string port)
+{
+    IdString p = ctx->id(port);
+    NetInfo *net = cell->getPort(p);
+    if (!net)
+        return;
+    CellInfo *drv = net->driver.cell;
+    if (!drv)
+        return;
+    if (drv->type == id_LUT1 && int_or_default(drv->params, id_INIT, 0) == 1) {
+        cell->disconnectPort(p);
+        NetInfo *preinv = drv->getPort(id_I0);
+        cell->connectPort(p, preinv);
+        cell->params[ctx->idf("IS_%s_INVERTED", port.c_str())] = 1;
+        if (net->users.empty())
+            packed_cells.insert(drv->name);
+    } else if (drv->type == id_INV) {
+        cell->disconnectPort(p);
+        NetInfo *preinv = drv->getPort(id_I);
+        cell->connectPort(p, preinv);
+        cell->params[ctx->idf("IS_%s_INVERTED", port.c_str())] = 1;
+        if (net->users.empty())
+            packed_cells.insert(drv->name);
+    }
+}
+
+void XC7Packer::pack_iologic()
+{
+    log_info("Packing IOLOGIC...\n");
+    dict<IdString, BelId> iodelay_to_io;
+    dict<IdString, XFormRule> iologic_rules;
+
+    // IDDR
+    iologic_rules[id_IDDR].new_type = id_ILOGICE3_IFF;
+    iologic_rules[id_IDDR].port_multixform[id_C] = {id_CK, id_CKB};
+    iologic_rules[id_IDDR].port_xform[id_S] = id_SR;
+    iologic_rules[id_IDDR].port_xform[id_R] = id_SR;
+
+    // Handles pseudo-diff output buffers without finding multiple sinks
+    auto find_p_outbuf = [&](NetInfo *net) {
+        CellInfo *outbuf = nullptr;
+        for (auto &usr : net->users) {
+            IdString type = usr.cell->type;
+            if (type.in(id_IOB33_OUTBUF, id_IOB33M_OUTBUF, id_IOB18_OUTBUF_DCIEN, id_IOB18M_OUTBUF_DCIEN)) {
+                if (outbuf != nullptr)
+                    return (CellInfo *)nullptr; // drives multiple outputs
+                outbuf = usr.cell;
+            } else if (type == id_ODELAYE2) {
+                auto dataout = usr.cell->ports.find(id_DATAOUT);
+                if (dataout != usr.cell->ports.end()) {
+                    for (auto &user : dataout->second.net->users) {
+                        IdString dataout_type = user.cell->type;
+                        if (dataout_type.in(id_IOB18_OUTBUF_DCIEN, id_IOB18M_OUTBUF_DCIEN)) {
+                            if (outbuf != nullptr)
+                                return (CellInfo *)nullptr; // drives multiple outputs
+                            outbuf = user.cell;
+                        }
+                    }
+                } else {
+                    if (outbuf != nullptr)
+                        return (CellInfo *)nullptr; // drives multiple outputs
+                }
+            }
+        }
+        return outbuf;
+    };
+
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
+        if (ci->type == id_ODDR) {
+            NetInfo *q = ci->getPort(id_Q);
+            if (q == nullptr || q->users.empty())
+                log_error("%s '%s' has disconnected Q output\n", ci->type.c_str(ctx), ctx->nameOf(ci));
+            BelId io_bel;
+            CellInfo *ob = find_p_outbuf(q);
+            if (ob != nullptr)
+                io_bel = ob->bel;
+            else
+                log_error("%s '%s' has illegal fanout on Q output\n", ci->type.c_str(ctx), ctx->nameOf(ci));
+            SiteIndex ol_site = get_ologic_site(io_bel);
+
+            PortRef dest_port = *q->users.begin();
+            auto is_tristate = dest_port.port == id_TRI;
+
+            dict<IdString, XFormRule> oddr_rules;
+            if (boost::contains(uarch->get_site_name(ol_site).str(ctx), "IOB18"))
+                oddr_rules[id_ODDR].new_type = is_tristate ? id_OLOGICE2_TFF : id_OLOGICE2_OUTFF;
+            else
+                oddr_rules[id_ODDR].new_type = is_tristate ? id_OLOGICE3_TFF : id_OLOGICE3_OUTFF;
+            oddr_rules[id_ODDR].port_xform[id_C] = id_CK;
+            oddr_rules[id_ODDR].port_xform[id_S] = id_SR;
+            oddr_rules[id_ODDR].port_xform[id_R] = id_SR;
+            xform_cell(oddr_rules, ci);
+
+            BelId oddr_bel = uarch->get_site_bel(ol_site, is_tristate ? ctx->id("TFF") : ctx->id("OUTFF"));
+            NPNR_ASSERT(oddr_bel != BelId());
+            log_info("   binding output DDR cell '%s' to bel '%s'\n", ctx->nameOf(ci), ctx->nameOfBel(oddr_bel));
+            ctx->bindBel(oddr_bel, ci, STRENGTH_LOCKED);
+        } else if (ci->type == id_IDDR) {
+            fold_inverter(ci, "C");
+
+            BelId io_bel;
+            NetInfo *d = ci->getPort(id_D);
+            if (!d || !d->driver.cell)
+                log_error("%s '%s' has disconnected D input\n", ci->type.c_str(ctx), ctx->nameOf(ci));
+            CellInfo *drv = d->driver.cell;
+            if (boost::contains(drv->type.str(ctx), "INBUF_EN") || boost::contains(drv->type.str(ctx), "INBUF_DCIEN"))
+                io_bel = drv->bel;
+            else
+                log_error("%s '%s' has D input connected to illegal cell type %s\n", ci->type.c_str(ctx),
+                          ctx->nameOf(ci), drv->type.c_str(ctx));
+
+            SiteIndex il_site = get_ilogic_site(io_bel);
+
+            BelId iddr_bel = uarch->get_site_bel(il_site, ctx->id("IFF"));
+            NPNR_ASSERT(iddr_bel != BelId());
+            log_info("   binding input DDR cell '%s' to bel '%s'\n", ctx->nameOf(ci), ctx->nameOfBel(iddr_bel));
+            ctx->bindBel(iddr_bel, ci, STRENGTH_LOCKED);
+        }
+    }
+
+    flush_cells();
+    generic_xform(iologic_rules, false);
+    flush_cells();
+}
+
 NEXTPNR_NAMESPACE_END

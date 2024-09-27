@@ -149,6 +149,7 @@ struct XilinxImpl : HimbaechelAPI
     IdString bel_name_in_site(BelId bel) const;
     IdStringList get_site_bel_name(BelId bel) const;
     BelId get_site_bel(SiteIndex site, IdString bel_name) const;
+    WireId lookup_wire(int tile, IdString wire_name) const;
 
     int hclk_for_iob(BelId pad) const;
     int hclk_for_ioi(int tile) const;

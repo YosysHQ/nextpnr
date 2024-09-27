@@ -186,11 +186,11 @@ struct XC7Packer : public XilinxPacker
     // IOLOGIC
     dict<IdString, XFormRule> hp_iol_rules, hd_iol_rules, ioctrl_rules;
     void fold_inverter(CellInfo *cell, std::string port);
-    std::string get_ologic_site(const std::string &io_bel);
-    std::string get_ilogic_site(const std::string &io_bel);
-    std::string get_ioctrl_site(const std::string &io_bel);
-    std::string get_odelay_site(const std::string &io_bel);
-    std::string get_idelay_site(const std::string &io_bel);
+    SiteIndex get_ologic_site(BelId io_bel);
+    SiteIndex get_ilogic_site(BelId io_bel);
+    SiteIndex get_ioctrl_site(BelId io_bel);
+    SiteIndex get_odelay_site(BelId io_bel);
+    SiteIndex get_idelay_site(BelId io_bel);
     // Call before packing constants
     void prepare_iologic();
 
