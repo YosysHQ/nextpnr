@@ -70,6 +70,10 @@ struct SiteIndex
     int32_t site;
     bool operator==(const SiteIndex &other) const { return tile == other.tile && site == other.site; }
     bool operator!=(const SiteIndex &other) const { return tile != other.tile || site != other.site; }
+    bool operator<(const SiteIndex &other) const
+    {
+        return (tile < other.tile) || (tile == other.tile && site < other.site);
+    }
     unsigned hash() const { return mkhash(tile, site); }
 };
 
