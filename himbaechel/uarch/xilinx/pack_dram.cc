@@ -316,9 +316,10 @@ void XilinxPacker::pack_dram()
                 }
 
                 std::vector<NetInfo *> address(cs.wa.begin(), cs.wa.begin() + std::min<size_t>(cs.wa.size(), 6));
-                CellInfo *ram = create_dram_lut(cell->name.str(ctx) + "/ADDR", base, cs, address, cell->getPort(id_D), cell->getPort(id_O), z);
+                CellInfo *ram = create_dram_lut(cell->name.str(ctx) + "/ADDR", base, cs, address, cell->getPort(id_D),
+                                                cell->getPort(id_O), z);
                 if (cell->params.count(id_INIT))
-                        ram->params[id_INIT] = cell->params[id_INIT];
+                    ram->params[id_INIT] = cell->params[id_INIT];
                 if (base == nullptr)
                     base = ram;
                 z--;

@@ -26,16 +26,18 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-static bool is_cascade_input(const PortInfo& port, const Context *ctx)
+static bool is_cascade_input(const PortInfo &port, const Context *ctx)
 {
-    if(port.name == id_CARRYCASCIN || port.name == id_MULTSIGNIN) return true;
-		const std::string& str = port.name.c_str(ctx);
+    if (port.name == id_CARRYCASCIN || port.name == id_MULTSIGNIN)
+        return true;
+    const std::string &str = port.name.c_str(ctx);
     return boost::starts_with(str, "ACIN") || boost::starts_with(str, "BCIN") || boost::starts_with(str, "PCIN");
 }
-static bool is_cascade_output(const PortInfo& port, const Context *ctx)
+static bool is_cascade_output(const PortInfo &port, const Context *ctx)
 {
-    if(port.name == id_CARRYCASCOUT || port.name == id_MULTSIGNOUT) return true;
-		const std::string& str = port.name.c_str(ctx);
+    if (port.name == id_CARRYCASCOUT || port.name == id_MULTSIGNOUT)
+        return true;
+    const std::string &str = port.name.c_str(ctx);
     return boost::starts_with(str, "ACOUT") || boost::starts_with(str, "BCOUT") || boost::starts_with(str, "PCOUT");
 }
 
@@ -45,31 +47,33 @@ unsigned XC7Packer::walk_dsp(CellInfo *root, CellInfo *current_cell, int constr_
     CellInfo *cascaded_cell = nullptr;
     unsigned num_casc = 0;
 
-    auto check_illegal_fanout = [&] (NetInfo *ni, std::string port) {
+    auto check_illegal_fanout = [&](NetInfo *ni, std::string port) {
         if (ni->users.entries() > 1)
             log_error("Port %s connected to net %s has more than one user", port.c_str(), ni->name.c_str(ctx));
 
-        PortRef& user = *ni->users.begin();
+        PortRef &user = *ni->users.begin();
         if (user.cell->type != id_DSP48E1_DSP48E1)
-            log_error("User %s of net %s is not a DSP block, but %s",
-                user.cell->name.c_str(ctx), ni->name.c_str(ctx), user.cell->type.c_str(ctx));
+            log_error("User %s of net %s is not a DSP block, but %s", user.cell->name.c_str(ctx), ni->name.c_str(ctx),
+                      user.cell->type.c_str(ctx));
     };
 
     // see if any cascade outputs are connected
     for (auto port : current_cell->ports) {
-        if (!is_cascade_output(port.second, ctx)) continue;
+        if (!is_cascade_output(port.second, ctx))
+            continue;
         NetInfo *cout_net = port.second.net;
 
-        if (cout_net == nullptr || cout_net->users.empty()) continue;
+        if (cout_net == nullptr || cout_net->users.empty())
+            continue;
 
         check_illegal_fanout(cout_net, port.first.c_str(ctx));
-        PortRef& user = *cout_net->users.begin();
+        PortRef &user = *cout_net->users.begin();
         CellInfo *cout_cell = user.cell;
         NPNR_ASSERT(cout_cell != nullptr);
 
         if (cascaded_cell != nullptr && cout_cell != cascaded_cell)
             log_error("the cascading outputs of DSP block %s are connected to different cells",
-                current_cell->name.c_str(ctx));
+                      current_cell->name.c_str(ctx));
 
         cascaded_cell = cout_cell;
     }
@@ -109,7 +113,7 @@ void XC7Packer::pack_dsps()
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
 
-        auto add_const_pin = [&](PortInfo& port, std::string& pins, std::string& pin_name, std::string net) {
+        auto add_const_pin = [&](PortInfo &port, std::string &pins, std::string &pin_name, std::string net) {
             if (port.net && port.net->name == ctx->id(net)) {
                 ci->disconnectPort(port.name);
                 pins += " " + pin_name;
@@ -138,16 +142,13 @@ void XC7Packer::pack_dsps()
                 // prjxray has extra bits for these ports to hardwire them to VCC/GND
                 // as these seem to be interal to the tile,
                 // this saves us from having to route those externally
-                if (boost::starts_with(n, "D") ||
-                    boost::starts_with(n, "RSTD") ||
+                if (boost::starts_with(n, "D") || boost::starts_with(n, "RSTD") ||
                     // TODO: these seem to be inverted for unknown reasons
                     // boost::starts_with(n, "INMODE") ||
                     // boost::starts_with(n, "ALUMODE2") ||
                     // boost::starts_with(n, "ALUMODE3") ||
-                    boost::starts_with(n, "CARRYINSEL2") ||
-                    boost::starts_with(n, "CED") ||
-                    boost::starts_with(n, "CEAD") ||
-                    boost::starts_with(n, "CEINMODE") ||
+                    boost::starts_with(n, "CARRYINSEL2") || boost::starts_with(n, "CED") ||
+                    boost::starts_with(n, "CEAD") || boost::starts_with(n, "CEINMODE") ||
                     boost::starts_with(n, "CEALUMODE")) {
                     add_const_pin(port.second, gnd_pins, n, "$PACKER_GND_NET");
                     add_const_pin(port.second, vcc_pins, n, "$PACKER_VCC_NET");
@@ -164,7 +165,8 @@ void XC7Packer::pack_dsps()
     for (auto ci : all_dsps) {
         bool cascade_input_used = false;
         for (auto port : ci->ports) {
-            if (!is_cascade_input(port.second, ctx)) continue;
+            if (!is_cascade_input(port.second, ctx))
+                continue;
             if (port.second.net != nullptr) {
                 cascade_input_used = true;
                 break;
@@ -182,13 +184,13 @@ void XC7Packer::pack_dsps()
         root->constr_abs_z = true;
         root->constr_z = BEL_LOWER_DSP;
         unsigned loc_casc = walk_dsp(root, root, BEL_UPPER_DSP);
-        if(loc_casc > 0) {
+        if (loc_casc > 0) {
             root->cluster = root->name;
         }
         num_casc += loc_casc;
     }
-    if(num_casc > 0) {
-       log_info("Found %u cascaded DSP from %u roots\n", num_casc, (unsigned)dsp_roots.size());
+    if (num_casc > 0) {
+        log_info("Found %u cascaded DSP from %u roots\n", num_casc, (unsigned)dsp_roots.size());
     }
 }
 

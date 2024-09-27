@@ -39,7 +39,7 @@ struct XilinxPacker
     Context *ctx;
     XilinxImpl *uarch;
 
-    XilinxPacker(Context *ctx, XilinxImpl *uarch) : ctx(ctx), uarch(uarch){};
+    XilinxPacker(Context *ctx, XilinxImpl *uarch) : ctx(ctx), uarch(uarch) {};
 
     // Generic cell transformation
     // Given cell name map and port map
@@ -170,7 +170,7 @@ struct XilinxPacker
 
 struct XC7Packer : public XilinxPacker
 {
-    XC7Packer(Context *ctx, XilinxImpl *uarch) : XilinxPacker(ctx, uarch){};
+    XC7Packer(Context *ctx, XilinxImpl *uarch) : XilinxPacker(ctx, uarch) {};
 
     // Carries
     bool has_illegal_fanout(NetInfo *carry);

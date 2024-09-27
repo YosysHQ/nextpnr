@@ -63,8 +63,8 @@ struct XilinxCellTags
 
 struct SiteIndex
 {
-    SiteIndex() : tile(-1), site(-1){};
-    SiteIndex(int32_t tile, int32_t site) : tile(tile), site(site){};
+    SiteIndex() : tile(-1), site(-1) {};
+    SiteIndex(int32_t tile, int32_t site) : tile(tile), site(site) {};
 
     int32_t tile;
     int32_t site;

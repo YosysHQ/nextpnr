@@ -48,7 +48,7 @@ struct FasmBackend
 
     dict<IdString, pool<IdString>> invertible_pins;
 
-    FasmBackend(Context *ctx, XilinxImpl *uarch, std::ostream &out) : ctx(ctx), uarch(uarch), out(out){};
+    FasmBackend(Context *ctx, XilinxImpl *uarch, std::ostream &out) : ctx(ctx), uarch(uarch), out(out) {};
 
     void push(const std::string &x) { fasm_ctx.push_back(x); }
 
