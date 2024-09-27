@@ -151,9 +151,10 @@ void XilinxImpl::parse_xdc(const std::string &filename)
                 for (int cursor = 0; cursor + 1 < int(dict_args.size()); cursor += 2) {
                     arg_pairs.emplace_back(std::move(dict_args.at(cursor)), std::move(dict_args.at(cursor + 1)));
                 }
-            } else
+            } else {
                 arg_pairs.emplace_back(std::move(arguments.at(1)), std::move(arguments.at(2)));
-            if (arguments.at(1) == "INTERNAL_VREF")
+            }
+            if (arg_pairs.size() == 1 && arg_pairs.front().first == "INTERNAL_VREF") // get_iobanks not supported
                 continue;
             if (arguments.at(3).size() > 2 && arguments.at(3) == "[current_design]") {
                 log_warning("[current_design] isn't supported, ignoring (on line %d)\n", lineno);
