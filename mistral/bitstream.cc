@@ -26,7 +26,7 @@ NEXTPNR_NAMESPACE_BEGIN
 namespace {
 struct MistralBitgen
 {
-    MistralBitgen(Context *ctx) : ctx(ctx), cv(ctx->cyclonev){};
+    MistralBitgen(Context *ctx) : ctx(ctx), cv(ctx->cyclonev) {};
     Context *ctx;
     CycloneV *cv;
 

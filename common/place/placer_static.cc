@@ -105,7 +105,7 @@ struct ConcreteCell
 
 struct ClusterGroupKey
 {
-    ClusterGroupKey(int dx = 0, int dy = 0, int group = -1) : dx(dx), dy(dy), group(group){};
+    ClusterGroupKey(int dx = 0, int dy = 0, int group = -1) : dx(dx), dy(dy), group(group) {};
     bool operator==(const ClusterGroupKey &other) const
     {
         return dx == other.dx && dy == other.dy && group == other.group;
@@ -155,7 +155,7 @@ struct PlacerNet
 #ifdef NPNR_DISABLE_THREADS
 struct ThreadPool
 {
-    ThreadPool(int){};
+    ThreadPool(int) {};
 
     void run(int N, std::function<void(int)> func)
     {

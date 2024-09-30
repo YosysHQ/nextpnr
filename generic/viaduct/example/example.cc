@@ -32,7 +32,7 @@ NEXTPNR_NAMESPACE_BEGIN
 namespace {
 struct ExampleImpl : ViaductAPI
 {
-    ~ExampleImpl(){};
+    ~ExampleImpl() {};
     void init(Context *ctx) override
     {
         init_uarch_constids(ctx);
@@ -321,7 +321,7 @@ struct ExampleImpl : ViaductAPI
 
 struct ExampleArch : ViaductArch
 {
-    ExampleArch() : ViaductArch("example"){};
+    ExampleArch() : ViaductArch("example") {};
     std::unique_ptr<ViaductAPI> create(const dict<std::string, std::string> &args)
     {
         return std::make_unique<ExampleImpl>();

@@ -93,7 +93,7 @@ static constexpr auto invalid_rnode = std::numeric_limits<CycloneV::rnode_t>::ma
 struct WireId
 {
     WireId() = default;
-    explicit WireId(CycloneV::rnode_t node) : node(node){};
+    explicit WireId(CycloneV::rnode_t node) : node(node) {};
     CycloneV::rnode_t node = invalid_rnode;
 
     // Wires created by nextpnr have rnode type >= 128
@@ -112,7 +112,7 @@ struct WireId
 struct PipId
 {
     PipId() = default;
-    PipId(CycloneV::rnode_t src, CycloneV::rnode_t dst) : src(src), dst(dst){};
+    PipId(CycloneV::rnode_t src, CycloneV::rnode_t dst) : src(src), dst(dst) {};
     CycloneV::rnode_t src = invalid_rnode, dst = invalid_rnode;
 
     bool operator==(const PipId &other) const { return src == other.src && dst == other.dst; }

@@ -85,7 +85,7 @@ struct NetBB
 struct DetailPlacerState
 {
     explicit DetailPlacerState(Context *ctx, DetailPlaceCfg &cfg)
-            : ctx(ctx), base_cfg(cfg), bels(ctx, false, 64), tmg(ctx){};
+            : ctx(ctx), base_cfg(cfg), bels(ctx, false, 64), tmg(ctx) {};
     Context *ctx;
     DetailPlaceCfg &base_cfg;
     FastBels bels;
@@ -196,7 +196,7 @@ struct DetailPlacerThreadState
     std::vector<std::pair<int, store_index<PortRef>>> timing_changed_arcs;
     std::vector<double> new_timing_costs;
 
-    DetailPlacerThreadState(Context *ctx, DetailPlacerState &g, int idx) : ctx(ctx), g(g), idx(idx){};
+    DetailPlacerThreadState(Context *ctx, DetailPlacerState &g, int idx) : ctx(ctx), g(g), idx(idx) {};
     void set_partition(const PlacePartition &part);
     void setup_initial_state();
     bool bounds_check(BelId bel);

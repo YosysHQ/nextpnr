@@ -178,7 +178,7 @@ struct TileWireIterator
     int cursor;
 
     TileWireIterator(const ChipInfoPOD *chip, WireId base, int node_shape, int cursor)
-            : chip(chip), base(base), node_shape(node_shape), cursor(cursor){};
+            : chip(chip), base(base), node_shape(node_shape), cursor(cursor) {};
 
     void operator++() { cursor++; }
     bool operator!=(const TileWireIterator &other) const { return cursor != other.cursor; }
@@ -210,7 +210,7 @@ struct TileWireRange
     };
 
     // is not nodal
-    explicit TileWireRange(WireId w) : b(nullptr, w, -1, 0), e(nullptr, w, -1, 1){};
+    explicit TileWireRange(WireId w) : b(nullptr, w, -1, 0), e(nullptr, w, -1, 1) {};
 
     TileWireIterator b, e;
     TileWireIterator begin() const { return b; }
@@ -223,7 +223,7 @@ struct WireIterator
     int cursor_tile = 0;
     int cursor_index = -1;
 
-    WireIterator(const ChipInfoPOD *chip, int tile, int index) : chip(chip), cursor_tile(tile), cursor_index(index){};
+    WireIterator(const ChipInfoPOD *chip, int tile, int index) : chip(chip), cursor_tile(tile), cursor_index(index) {};
 
     WireIterator operator++()
     {
@@ -287,7 +287,7 @@ template <RelSlice<int32_t> TileWireDataPOD::*ptr> struct UpdownhillPipIterator
     int cursor = -1;
 
     UpdownhillPipIterator(const ChipInfoPOD *chip, TileWireIterator twi, TileWireIterator twi_end, int cursor)
-            : chip(chip), twi(twi), twi_end(twi_end), cursor(cursor){};
+            : chip(chip), twi(twi), twi_end(twi_end), cursor(cursor) {};
 
     void operator++()
     {
@@ -339,7 +339,7 @@ struct BelPinIterator
     int cursor = -1;
 
     BelPinIterator(const ChipInfoPOD *chip, TileWireIterator twi, TileWireIterator twi_end, int cursor)
-            : chip(chip), twi(twi), twi_end(twi_end), cursor(cursor){};
+            : chip(chip), twi(twi), twi_end(twi_end), cursor(cursor) {};
 
     void operator++()
     {
@@ -418,7 +418,7 @@ struct Arch : BaseArch<ArchRanges>
 {
     ArchArgs args;
     Arch(ArchArgs args);
-    ~Arch(){};
+    ~Arch() {};
 
     void load_chipdb(const std::string &path);
     void set_speed_grade(const std::string &speed);

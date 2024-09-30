@@ -56,7 +56,7 @@ template <typename T, std::size_t N> class SSOArray
     const T *begin() const { return data(); }
     const T *end() const { return data() + m_size; }
 
-    SSOArray() : m_size(0){};
+    SSOArray() : m_size(0) {};
 
     SSOArray(std::size_t size, const T &init = T()) : m_size(size)
     {

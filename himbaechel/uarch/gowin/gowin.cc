@@ -21,7 +21,7 @@ namespace {
 struct GowinImpl : HimbaechelAPI
 {
 
-    ~GowinImpl(){};
+    ~GowinImpl() {};
     void init_database(Arch *arch) override;
     void init(Context *ctx) override;
 
@@ -102,7 +102,7 @@ struct GowinImpl : HimbaechelAPI
 
 struct GowinArch : HimbaechelArch
 {
-    GowinArch() : HimbaechelArch("gowin"){};
+    GowinArch() : HimbaechelArch("gowin") {};
 
     bool match_device(const std::string &device) override { return device.size() > 2 && device.substr(0, 2) == "GW"; }
 

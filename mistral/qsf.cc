@@ -78,7 +78,7 @@ struct QsfParser
     int lineno = 0;
     Context *ctx;
 
-    QsfParser(const std::string &buf, Context *ctx) : buf(buf), ctx(ctx){};
+    QsfParser(const std::string &buf, Context *ctx) : buf(buf), ctx(ctx) {};
 
     inline bool eof() const { return pos == int(buf.size()); }
 

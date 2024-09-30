@@ -443,7 +443,7 @@ template <typename R> struct BaseArch : ArchAPI<R>
     }
 
     // Flow methods
-    virtual void assignArchInfo() override{};
+    virtual void assignArchInfo() override {};
 
     // --------------------------------------------------------------
     // These structures are used to provide default implementations of bel/wire/pip binding. Arches might want to

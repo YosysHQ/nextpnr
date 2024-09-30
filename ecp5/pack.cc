@@ -53,7 +53,7 @@ static bool net_is_constant(const Context *ctx, NetInfo *net, bool &value)
 class Ecp5Packer
 {
   public:
-    Ecp5Packer(Context *ctx) : ctx(ctx){};
+    Ecp5Packer(Context *ctx) : ctx(ctx) {};
 
   private:
     // Process the contents of packed_cells and new_cells

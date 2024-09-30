@@ -31,7 +31,7 @@ class HimbaechelCommandHandler : public CommandHandler
 {
   public:
     HimbaechelCommandHandler(int argc, char **argv);
-    virtual ~HimbaechelCommandHandler(){};
+    virtual ~HimbaechelCommandHandler() {};
     std::unique_ptr<Context> createContext(dict<std::string, Property> &values) override;
     void setupArchContext(Context *ctx) override;
     void customBitstream(Context *ctx) override;

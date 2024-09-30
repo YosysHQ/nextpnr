@@ -31,7 +31,7 @@ struct SVGWriter
     std::ostream &out;
     float scale = 500.0;
     bool hide_inactive = false;
-    SVGWriter(const Context *ctx, std::ostream &out) : ctx(ctx), out(out){};
+    SVGWriter(const Context *ctx, std::ostream &out) : ctx(ctx), out(out) {};
     const char *get_stroke_colour(GraphicElement::style_t style)
     {
         switch (style) {

@@ -52,7 +52,7 @@ void config_empty_lcmxo3_9400(ChipConfig &cc);
 namespace {
 struct MachXO2Bitgen
 {
-    explicit MachXO2Bitgen(Context *ctx) : ctx(ctx){};
+    explicit MachXO2Bitgen(Context *ctx) : ctx(ctx) {};
     Context *ctx;
     ChipConfig cc;
     // Convert an absolute wire name to a relative Trellis one

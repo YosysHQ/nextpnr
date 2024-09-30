@@ -87,8 +87,8 @@ struct TCLEntity
 
 struct TCLValue
 {
-    TCLValue(const std::string &s) : is_string(true), str(s){};
-    TCLValue(const std::vector<TCLEntity> &l) : is_string(false), list(l){};
+    TCLValue(const std::string &s) : is_string(true), str(s) {};
+    TCLValue(const std::vector<TCLEntity> &l) : is_string(false), list(l) {};
 
     bool is_string;
     std::string str;             // simple string value
@@ -102,7 +102,7 @@ struct PDCParser
     int lineno = 1;
     Context *ctx;
 
-    PDCParser(const std::string &buf, Context *ctx) : buf(buf), ctx(ctx){};
+    PDCParser(const std::string &buf, Context *ctx) : buf(buf), ctx(ctx) {};
 
     inline bool eof() const { return pos == int(buf.size()); }
 

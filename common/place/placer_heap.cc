@@ -319,20 +319,20 @@ class HeAPPlacer
             ctx->bindBel(bel, cell, strength);
         }
 
-				// Find and display all errors to help in finding the root cause of issues
+        // Find and display all errors to help in finding the root cause of issues
         unsigned num_errors = 0;
         for (auto &cell : ctx->cells) {
             if (cell.second->isPseudo())
                 continue;
             if (cell.second->bel == BelId()) {
-                log_nonfatal_error("Found unbound cell '%s' of type '%s'\n", cell.first.c_str(ctx), cell.second->type.c_str(ctx));
+                log_nonfatal_error("Found unbound cell '%s' of type '%s'\n", cell.first.c_str(ctx),
+                                   cell.second->type.c_str(ctx));
                 num_errors++;
-            }
-            else if (ctx->getBoundBelCell(cell.second->bel) != cell.second.get()) {
-                log_nonfatal_error("Found mismatched binding for '%s' or type '%s'\n", cell.first.c_str(ctx), cell.second->type.c_str(ctx));
+            } else if (ctx->getBoundBelCell(cell.second->bel) != cell.second.get()) {
+                log_nonfatal_error("Found mismatched binding for '%s' or type '%s'\n", cell.first.c_str(ctx),
+                                   cell.second->type.c_str(ctx));
                 num_errors++;
-            }
-            else if (ctx->debug)
+            } else if (ctx->debug)
                 log_info("AP soln: %s -> %s\n", cell.first.c_str(ctx), ctx->nameOfBel(cell.second->bel));
         }
         if (num_errors > 0) {
@@ -899,7 +899,8 @@ class HeAPPlacer
 
             while (!placed) {
                 if (cfg.cell_placement_timeout > 0 && total_iters_for_cell > cfg.cell_placement_timeout)
-                    log_error("Unable to find legal placement for cell '%s' of type '%s' after %d attempts, check constraints and "
+                    log_error("Unable to find legal placement for cell '%s' of type '%s' after %d attempts, check "
+                              "constraints and "
                               "utilisation. Use `--placer-heap-cell-placement-timeout` to change the number of "
                               "attempts.\n",
                               ctx->nameOf(ci), ci->type.c_str(ctx), total_iters_for_cell);

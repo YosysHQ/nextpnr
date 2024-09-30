@@ -241,7 +241,7 @@ struct Router2
     {
 
         explicit QueuedWire(int wire = -1, WireScore score = WireScore{}, int randtag = 0)
-                : wire(wire), score(score), randtag(randtag){};
+                : wire(wire), score(score), randtag(randtag) {};
 
         int wire;
         WireScore score;

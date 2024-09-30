@@ -270,7 +270,7 @@ class ChainConstrainer
     }
 
   public:
-    ChainConstrainer(Context *ctx) : ctx(ctx){};
+    ChainConstrainer(Context *ctx) : ctx(ctx) {};
     void constrain_chains() { process_carries(); }
 };
 

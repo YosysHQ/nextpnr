@@ -35,7 +35,7 @@ NEXTPNR_NAMESPACE_BEGIN
 template <typename T> class array2d
 {
   public:
-    array2d() : m_width(0), m_height(0), m_size(0), data(nullptr){};
+    array2d() : m_width(0), m_height(0), m_size(0), data(nullptr) {};
     array2d(int width, int height) : m_width(width), m_height(height), m_size(width * height)
     {
         data = new T[m_width * m_height]();
@@ -88,7 +88,7 @@ template <typename T> class array2d
     ~array2d() { delete[] data; }
     struct entry
     {
-        entry(int x, int y, T &value) : x(x), y(y), value(value){};
+        entry(int x, int y, T &value) : x(x), y(y), value(value) {};
         int x, y;
         T &value;
     };
@@ -119,7 +119,7 @@ template <typename T> class array2d
         inline bool operator==(const iterator &other) const { return other.x == x && other.y == y; }
 
       private:
-        iterator(int x, int y, array2d<T> &base) : x(x), y(y), base(&base){};
+        iterator(int x, int y, array2d<T> &base) : x(x), y(y), base(&base) {};
         int x, y;
         array2d<T> *base;
         friend class array2d;

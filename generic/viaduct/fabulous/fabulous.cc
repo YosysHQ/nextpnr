@@ -55,7 +55,7 @@ struct FabulousImpl : ViaductAPI
         }
     }
 
-    ~FabulousImpl(){};
+    ~FabulousImpl() {};
     void init(Context *ctx) override
     {
         init_uarch_constids(ctx);
@@ -666,7 +666,7 @@ struct FabulousImpl : ViaductAPI
 
 struct FabulousArch : ViaductArch
 {
-    FabulousArch() : ViaductArch("fabulous"){};
+    FabulousArch() : ViaductArch("fabulous") {};
     std::unique_ptr<ViaductAPI> create(const dict<std::string, std::string> &args)
     {
         return std::make_unique<FabulousImpl>(args);

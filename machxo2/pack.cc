@@ -38,7 +38,7 @@ static bool is_nextpnr_iob(Context *ctx, CellInfo *cell)
 class MachXO2Packer
 {
   public:
-    MachXO2Packer(Context *ctx) : ctx(ctx){};
+    MachXO2Packer(Context *ctx) : ctx(ctx) {};
 
   private:
     // Process the contents of packed_cells and new_cells

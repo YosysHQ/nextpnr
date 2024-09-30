@@ -36,9 +36,9 @@ enum class Axis
 
 struct RealPair
 {
-    RealPair() : x(0), y(0){};
-    RealPair(float x, float y) : x(x), y(y){};
-    explicit RealPair(Loc l, float bias = 0.0f) : x(l.x + bias), y(l.y + bias){};
+    RealPair() : x(0), y(0) {};
+    RealPair(float x, float y) : x(x), y(y) {};
+    explicit RealPair(Loc l, float bias = 0.0f) : x(l.x + bias), y(l.y + bias) {};
     float x, y;
     RealPair &operator+=(const RealPair &other)
     {

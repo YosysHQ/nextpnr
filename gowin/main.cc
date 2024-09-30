@@ -34,9 +34,9 @@ class GowinCommandHandler : public CommandHandler
 {
   public:
     GowinCommandHandler(int argc, char **argv);
-    virtual ~GowinCommandHandler(){};
+    virtual ~GowinCommandHandler() {};
     std::unique_ptr<Context> createContext(dict<std::string, Property> &values) override;
-    void setupArchContext(Context *ctx) override{};
+    void setupArchContext(Context *ctx) override {};
     void customAfterLoad(Context *ctx) override;
 
   protected:

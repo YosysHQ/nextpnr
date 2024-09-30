@@ -49,7 +49,7 @@ void config_empty_lfe5um5g_85f(ChipConfig &cc);
 namespace {
 struct ECP5Bitgen
 {
-    explicit ECP5Bitgen(Context *ctx) : ctx(ctx){};
+    explicit ECP5Bitgen(Context *ctx) : ctx(ctx) {};
     Context *ctx;
     ChipConfig cc;
     std::string get_trellis_wirename(Location loc, WireId wire)

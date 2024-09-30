@@ -32,9 +32,9 @@ class NexusCommandHandler : public CommandHandler
 {
   public:
     NexusCommandHandler(int argc, char **argv);
-    virtual ~NexusCommandHandler(){};
+    virtual ~NexusCommandHandler() {};
     std::unique_ptr<Context> createContext(dict<std::string, Property> &values) override;
-    void setupArchContext(Context *ctx) override{};
+    void setupArchContext(Context *ctx) override {};
     void customBitstream(Context *ctx) override;
     void customAfterLoad(Context *ctx) override;
 

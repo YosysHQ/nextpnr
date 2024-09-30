@@ -66,7 +66,7 @@ struct MistralGlobalRouter
 {
     Context *ctx;
 
-    MistralGlobalRouter(Context *ctx) : ctx(ctx){};
+    MistralGlobalRouter(Context *ctx) : ctx(ctx) {};
 
     // When routing globals; we allow global->local for some tricky cases but never local->local
     bool global_pip_filter(PipId pip) const

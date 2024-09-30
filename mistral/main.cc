@@ -32,9 +32,9 @@ class MistralCommandHandler : public CommandHandler
 {
   public:
     MistralCommandHandler(int argc, char **argv);
-    virtual ~MistralCommandHandler(){};
+    virtual ~MistralCommandHandler() {};
     std::unique_ptr<Context> createContext(dict<std::string, Property> &values) override;
-    void setupArchContext(Context *ctx) override{};
+    void setupArchContext(Context *ctx) override {};
     void customBitstream(Context *ctx) override;
     void customAfterLoad(Context *ctx) override;
 

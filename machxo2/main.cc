@@ -33,9 +33,9 @@ class MachXO2CommandHandler : public CommandHandler
 {
   public:
     MachXO2CommandHandler(int argc, char **argv);
-    virtual ~MachXO2CommandHandler(){};
+    virtual ~MachXO2CommandHandler() {};
     std::unique_ptr<Context> createContext(dict<std::string, Property> &values) override;
-    void setupArchContext(Context *ctx) override{};
+    void setupArchContext(Context *ctx) override {};
     void customAfterLoad(Context *ctx) override;
     void customBitstream(Context *ctx) override;
 

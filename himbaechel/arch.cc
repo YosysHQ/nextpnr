@@ -387,13 +387,12 @@ bool Arch::lookup_cell_delay(int type_idx, IdString from_port, IdString to_port,
 {
     NPNR_ASSERT(type_idx != -1);
     const auto &ct = speed_grade->cell_types[type_idx];
-    int to_pin_idx = db_binary_search(
-            ct.pins, [](const CellPinTimingPOD &pd) { return pd.pin; }, to_port.index);
+    int to_pin_idx = db_binary_search(ct.pins, [](const CellPinTimingPOD &pd) { return pd.pin; }, to_port.index);
     if (to_pin_idx == -1)
         return false;
     const auto &tp = ct.pins[to_pin_idx];
-    int arc_idx = db_binary_search(
-            tp.comb_arcs, [](const CellPinCombArcPOD &arc) { return arc.input; }, from_port.index);
+    int arc_idx =
+            db_binary_search(tp.comb_arcs, [](const CellPinCombArcPOD &arc) { return arc.input; }, from_port.index);
     if (arc_idx == -1)
         return false;
     delay = DelayQuad(tp.comb_arcs[arc_idx].delay.fast_min, tp.comb_arcs[arc_idx].delay.slow_max);
@@ -404,8 +403,7 @@ const RelSlice<CellPinRegArcPOD> *Arch::lookup_cell_seq_timings(int type_idx, Id
 {
     NPNR_ASSERT(type_idx != -1);
     const auto &ct = speed_grade->cell_types[type_idx];
-    int pin_idx = db_binary_search(
-            ct.pins, [](const CellPinTimingPOD &pd) { return pd.pin; }, port.index);
+    int pin_idx = db_binary_search(ct.pins, [](const CellPinTimingPOD &pd) { return pd.pin; }, port.index);
     if (pin_idx == -1)
         return nullptr;
     return &ct.pins[pin_idx].reg_arcs;
@@ -416,8 +414,7 @@ TimingPortClass Arch::lookup_port_tmg_type(int type_idx, IdString port, PortType
 
     NPNR_ASSERT(type_idx != -1);
     const auto &ct = speed_grade->cell_types[type_idx];
-    int pin_idx = db_binary_search(
-            ct.pins, [](const CellPinTimingPOD &pd) { return pd.pin; }, port.index);
+    int pin_idx = db_binary_search(ct.pins, [](const CellPinTimingPOD &pd) { return pd.pin; }, port.index);
     if (pin_idx == -1)
         return (dir == PORT_OUT) ? TMG_IGNORE : TMG_COMB_INPUT;
     auto &pin = ct.pins[pin_idx];

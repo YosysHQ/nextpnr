@@ -40,7 +40,7 @@ NEXTPNR_NAMESPACE_BEGIN
 class TimingOptimiser
 {
   public:
-    TimingOptimiser(Context *ctx, TimingOptCfg cfg) : ctx(ctx), cfg(cfg), tmg(ctx){};
+    TimingOptimiser(Context *ctx, TimingOptCfg cfg) : ctx(ctx), cfg(cfg), tmg(ctx) {};
     bool optimise()
     {
         log_info("Running timing-driven placement optimisation...\n");

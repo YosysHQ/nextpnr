@@ -90,7 +90,7 @@ inline bool is_zero_delay(delay_t delay)
 // minimum and maximum delay
 struct DelayPair
 {
-    DelayPair() : min_delay(0), max_delay(0){};
+    DelayPair() : min_delay(0), max_delay(0) {};
     explicit DelayPair(delay_t delay) : min_delay(delay), max_delay(delay) {}
     DelayPair(delay_t min_delay, delay_t max_delay) : min_delay(min_delay), max_delay(max_delay) {}
     delay_t minDelay() const { return min_delay; }
@@ -287,7 +287,7 @@ struct PseudoCell
     virtual bool getDelay(IdString fromPort, IdString toPort, DelayQuad &delay) const = 0;
     virtual TimingPortClass getPortTimingClass(IdString port, int &clockInfoCount) const = 0;
     virtual TimingClockingInfo getPortClockingInfo(IdString port, int index) const = 0;
-    virtual ~PseudoCell(){};
+    virtual ~PseudoCell() {};
 };
 
 struct RegionPlug : PseudoCell

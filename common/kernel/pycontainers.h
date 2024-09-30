@@ -76,8 +76,8 @@ A pair that doesn't automatically become a tuple
 */
 template <typename Ta, typename Tb> struct iter_pair
 {
-    iter_pair(){};
-    iter_pair(const Ta &first, const Tb &second) : first(first), second(second){};
+    iter_pair() {};
+    iter_pair(const Ta &first, const Tb &second) : first(first), second(second) {};
     Ta first;
     Tb second;
 };

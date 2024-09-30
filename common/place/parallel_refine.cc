@@ -37,7 +37,7 @@ namespace {
 
 struct GlobalState : DetailPlacerState
 {
-    explicit GlobalState(Context *ctx, ParallelRefineCfg cfg) : DetailPlacerState(ctx, this->cfg), cfg(cfg){};
+    explicit GlobalState(Context *ctx, ParallelRefineCfg cfg) : DetailPlacerState(ctx, this->cfg), cfg(cfg) {};
 
     dict<ClusterId, std::vector<CellInfo *>> cluster2cells;
 
@@ -49,7 +49,7 @@ struct GlobalState : DetailPlacerState
 
 struct ThreadState : DetailPlacerThreadState
 {
-    ThreadState(Context *ctx, GlobalState &g, int idx) : DetailPlacerThreadState(ctx, g, idx), g(g){};
+    ThreadState(Context *ctx, GlobalState &g, int idx) : DetailPlacerThreadState(ctx, g, idx), g(g) {};
     // Total made and accepted moved
     GlobalState &g;
     int n_move = 0, n_accept = 0;

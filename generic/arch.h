@@ -115,14 +115,14 @@ template <typename TId> struct linear_range
 {
     struct iterator
     {
-        explicit iterator(int32_t index) : index(index){};
+        explicit iterator(int32_t index) : index(index) {};
         int32_t index;
         bool operator==(const iterator &other) const { return index == other.index; }
         bool operator!=(const iterator &other) const { return index != other.index; }
         void operator++() { ++index; }
         TId operator*() const { return TId(index); }
     };
-    explicit linear_range(int32_t size) : size(size){};
+    explicit linear_range(int32_t size) : size(size) {};
     int32_t size;
     iterator begin() const { return iterator(0); }
     iterator end() const { return iterator(size); }

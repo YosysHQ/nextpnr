@@ -106,17 +106,17 @@ struct HimbaechelAPI
     virtual bool getClusterPlacement(ClusterId cluster, BelId root_bel,
                                      std::vector<std::pair<CellInfo *, BelId>> &placement) const;
     // --- Flow hooks ---
-    virtual void pack(){}; // replaces the pack function
+    virtual void pack() {}; // replaces the pack function
     // Called before and after main placement and routing
-    virtual void prePlace(){};
-    virtual void postPlace(){};
-    virtual void preRoute(){};
-    virtual void postRoute(){};
+    virtual void prePlace() {};
+    virtual void postPlace() {};
+    virtual void preRoute() {};
+    virtual void postRoute() {};
 
     // For custom placer configuration
-    virtual void configurePlacerHeap(PlacerHeapCfg &cfg){};
+    virtual void configurePlacerHeap(PlacerHeapCfg &cfg) {};
 
-    virtual ~HimbaechelAPI(){};
+    virtual ~HimbaechelAPI() {};
 };
 
 struct HimbaechelArch
@@ -126,7 +126,7 @@ struct HimbaechelArch
 
     std::string name;
     HimbaechelArch(const std::string &name);
-    ~HimbaechelArch(){};
+    ~HimbaechelArch() {};
     virtual bool match_device(const std::string &device) = 0;
     virtual std::unique_ptr<HimbaechelAPI> create(const std::string &device,
                                                   const dict<std::string, std::string> &args) = 0;

@@ -58,8 +58,8 @@ class BaseMainWindow : public QMainWindow
     void disableActions();
     void enableDisableDecals();
 
-    virtual void onDisableActions(){};
-    virtual void onUpdateActions(){};
+    virtual void onDisableActions() {};
+    virtual void onUpdateActions() {};
 
   protected Q_SLOTS:
     void writeInfo(std::string text);

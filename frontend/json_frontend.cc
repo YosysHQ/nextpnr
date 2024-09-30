@@ -32,7 +32,7 @@ using namespace json11;
 struct JsonFrontendImpl
 {
     // See specification in frontend_base.h
-    JsonFrontendImpl(Json &root) : root(root){};
+    JsonFrontendImpl(Json &root) : root(root) {};
     Json &root;
     typedef const Json &ModuleDataType;
     typedef const Json &ModulePortDataType;

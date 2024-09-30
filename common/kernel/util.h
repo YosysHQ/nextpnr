@@ -112,10 +112,10 @@ bool boolstr_or_default(const dict<KeyType, Property> &ct, const KeyType &key, b
         return def;
     if (!found->second.is_string)
         bool(found->second.as_int64());
-    const char* str = found->second.as_string().c_str();
-    if(!strcmp(str, "0") || !strcasecmp(str, "false"))
+    const char *str = found->second.as_string().c_str();
+    if (!strcmp(str, "0") || !strcasecmp(str, "false"))
         return false;
-    else if(!strcmp(str, "1") || !strcasecmp(str, "true"))
+    else if (!strcmp(str, "1") || !strcasecmp(str, "true"))
         return true;
     else
         log_error("Expecting bool-compatible value but got '%s'.\n", found->second.as_string().c_str());
@@ -125,20 +125,18 @@ bool boolstr_or_default(const dict<KeyType, Property> &ct, const KeyType &key, b
 // Get a vector of bool from a map-style container, returning default if value is not found
 // Also tolerate string representation of vector for interoperability purposes
 template <typename KeyType>
-bool boolvec_populate(const dict<KeyType, Property> &ct, const KeyType &key, std::vector<bool>& vec)
+bool boolvec_populate(const dict<KeyType, Property> &ct, const KeyType &key, std::vector<bool> &vec)
 {
     auto found = ct.find(key);
     if (found == ct.end())
         return false;
-    if (!found->second.is_string)
-    {
+    if (!found->second.is_string) {
         size_t val = found->second.as_int64();
-        for (size_t i = 0; i < vec.size(); ++i, val>>=1) {
+        for (size_t i = 0; i < vec.size(); ++i, val >>= 1) {
             vec[i] = (val & 0x1) != 0;
         }
-    }
-    else {
-        const std::string& str = found->second.as_string();
+    } else {
+        const std::string &str = found->second.as_string();
         size_t i = 0;
         for (auto it = str.crbegin(); it != str.crend() && i < vec.size(); ++i, ++it) {
             vec[i] = *it == '1';
@@ -255,7 +253,7 @@ template <typename T, typename C = std::less<T>> struct TopoSort
 template <typename T> struct reversed_range_t
 {
     T &obj;
-    explicit reversed_range_t(T &obj) : obj(obj){};
+    explicit reversed_range_t(T &obj) : obj(obj) {};
     auto begin() { return obj.rbegin(); }
     auto end() { return obj.rend(); }
 };

@@ -36,9 +36,9 @@ struct parser_view
 {
     char *m_ptr;
     size_t m_length;
-    parser_view() : m_ptr(nullptr), m_length(0){};
-    explicit parser_view(std::string &str) : m_ptr(&(str[0])), m_length(str.size()){};
-    parser_view(char *ptr, size_t length) : m_ptr(ptr), m_length(length){};
+    parser_view() : m_ptr(nullptr), m_length(0) {};
+    explicit parser_view(std::string &str) : m_ptr(&(str[0])), m_length(str.size()) {};
+    parser_view(char *ptr, size_t length) : m_ptr(ptr), m_length(length) {};
 
     static constexpr size_t npos = std::numeric_limits<size_t>::max();
     char operator[](size_t idx)
@@ -151,7 +151,7 @@ struct parser_view
 
 struct CsvParser
 {
-    explicit CsvParser(std::istream &in) : in(in){};
+    explicit CsvParser(std::istream &in) : in(in) {};
     std::istream &in;
     std::string buf;
     parser_view view;
