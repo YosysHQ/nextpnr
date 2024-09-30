@@ -1025,6 +1025,120 @@ struct Router2
         }
     }
 
+    int trim_routing(NetInfo *net)
+    {
+        // Find places where we have a cheaper way of reaching a wire from earlier in the route tree
+        // and rewrite routing trees to use those cheaper routes.
+        int cleaned = 0;
+#ifdef ARCH_ECP5
+        if (net->is_global)
+            return 0;
+#endif
+        // Build a reverse of the wires map going downhill
+        auto &nd = nets.at(net->udata);
+        dict<WireId, pool<PipId>> src2pips;
+        pool<WireId> sources;
+        for (const auto &wire : nd.wires) {
+            PipId pip = wire.second.first;
+            if (pip == PipId()) {
+                sources.insert(wire.first);
+            } else {
+                src2pips[ctx->getPipSrcWire(pip)].insert(pip);
+            }
+        }
+        // Compute depths of wires in the route tree for a net
+        dict<WireId, int> depth;
+        auto update_depth = [&](WireId src, int src_depth) {
+            std::queue<std::pair<WireId, int>> visit;
+            visit.emplace(src, src_depth + 1);
+            depth[src] = src_depth;
+            while (!visit.empty()) {
+                auto cursor = visit.front();
+                visit.pop();
+                if (!src2pips.count(cursor.first))
+                    continue;
+                for (PipId dh : src2pips.at(cursor.first)) {
+                    WireId dst = ctx->getPipDstWire(dh);
+                    depth[dst] = cursor.second;
+                    visit.emplace(dst, cursor.second + 1);
+                }
+            }
+        };
+        for (WireId src : sources) {
+            update_depth(src, 0);
+        }
+        pool<WireId> touched;
+        for (auto entry : depth) {
+            // Check it wasn't removed by a previous prune
+            if (nd.wires.at(entry.first).second == 0)
+                continue;
+            // Find cheaper route
+            PipId best;
+            int score = entry.second;
+            for (PipId pip : ctx->getPipsUphill(entry.first)) {
+                if (!ctx->checkPipAvailForNet(pip, net))
+                    continue;
+                WireId src = ctx->getPipSrcWire(pip);
+                auto fnd_depth = depth.find(src);
+                if (fnd_depth == depth.end())
+                    continue;
+                if ((fnd_depth->second + 1) < score) {
+                    if (ctx->debug) {
+                        log_info(" found cheaper route to '%s' (%d) from '%s' (%d) on net '%s'\n",
+                            ctx->nameOfWire(entry.first), entry.second, ctx->nameOfWire(src), fnd_depth->second, ctx->nameOf(net));
+                    }
+                    score = fnd_depth->second + 1;
+                    best = pip;
+                }
+            }
+            if (best != PipId()) {
+                cleaned++;
+                WireId new_src = ctx->getPipSrcWire(best);
+                // Transplant the route tree on top of the cheaper pip
+                auto &dst_entry = nd.wires.at(entry.first);
+                // Add new routing
+                WireId cursor = new_src;
+                while (true) {
+                    auto &entry = nd.wires.at(cursor);
+                    entry.second += dst_entry.second;
+                    if (entry.first != PipId()) {
+                        cursor = ctx->getPipSrcWire(entry.first);
+                    } else {
+                        break;
+                    }
+                }
+                // Remove old routing
+                cursor = ctx->getPipSrcWire(dst_entry.first);
+                src2pips[cursor].erase(dst_entry.first);
+
+                while (true) {
+                    auto &entry = nd.wires.at(cursor);
+                    entry.second -= dst_entry.second;
+                    NPNR_ASSERT(entry.second >= 0);
+                    touched.insert(cursor);
+                    if (entry.first != PipId()) {
+                        cursor = ctx->getPipSrcWire(entry.first);
+                    } else {
+                        break;
+                    }
+                }
+                // Rewrite tree
+                dst_entry.first = best;
+                src2pips[new_src].insert(best);
+
+                update_depth(entry.first, score);
+            }
+        }
+        for (WireId wire : touched) {
+            auto &entry = nd.wires.at(wire);
+            if (entry.second == 0) {
+                nd.wires.erase(wire);
+                --wire_data(wire).curr_cong;
+            }
+        }
+        return cleaned;
+    }
+
     bool bind_and_check(NetInfo *net, store_index<PortRef> usr_idx, int phys_pin)
     {
 #ifdef ARCH_ECP5
@@ -1372,6 +1486,10 @@ struct Router2
             delay += ctx->getPipDelay(bound.first).maxDelay();
             cursor = ctx->getPipSrcWire(bound.first);
         }
+        if (cursor != nd.src_wire) {
+            log_info("net %s got src %s expected src %s\n",
+                ctx->nameOf(nets_by_udata.at(net)), ctx->nameOfWire(cursor), ctx->nameOfWire(nd.src_wire));
+        }
         NPNR_ASSERT(cursor == nd.src_wire);
         return delay;
     }
@@ -1439,6 +1557,10 @@ struct Router2
             }
 
             do_route();
+            int cleaned = 0;
+            for (auto n : route_queue) {
+                cleaned += trim_routing(nets_by_udata.at(n));
+            }
             update_route_delays();
             route_queue.clear();
             update_congestion();
@@ -1472,12 +1594,12 @@ struct Router2
             for (auto cn : failed_nets)
                 route_queue.push_back(cn);
             if (timing_driven_ripup)
-                log_info("    iter=%d wires=%d overused=%d overuse=%d tmgfail=%d archfail=%s\n", iter, total_wire_use,
-                         overused_wires, total_overuse, tmgfail,
+                log_info("    iter=%d wires=%d overused=%d overuse=%d tmgfail=%d cleanedup=%d archfail=%s\n", iter, total_wire_use,
+                         overused_wires, total_overuse, tmgfail, cleaned,
                          (overused_wires > 0 || tmgfail > 0) ? "NA" : std::to_string(arch_fail).c_str());
             else
-                log_info("    iter=%d wires=%d overused=%d overuse=%d archfail=%s\n", iter, total_wire_use,
-                         overused_wires, total_overuse,
+                log_info("    iter=%d wires=%d overused=%d overuse=%d cleanedup=%d archfail=%s\n", iter, total_wire_use,
+                         overused_wires, total_overuse, cleaned,
                          (overused_wires > 0 || tmgfail > 0) ? "NA" : std::to_string(arch_fail).c_str());
             ++iter;
             if (curr_cong_weight < 1e9)
