@@ -213,8 +213,10 @@ struct BaseCtx
 
     NetInfo *getNetByAlias(IdString alias) const
     {
-        if(nets.count(alias) > 0) return nets.at(alias).get();
-        if(net_aliases.count(alias) == 0) return nullptr;
+        if (nets.count(alias) > 0)
+            return nets.at(alias).get();
+        if (net_aliases.count(alias) == 0)
+            return nullptr;
         return nets.at(net_aliases.at(alias)).get();
     }
 
