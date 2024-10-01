@@ -123,7 +123,10 @@ void XilinxImpl::parse_xdc(const std::string &filename)
             log_error("targets other than 'get_ports' or 'get_nets' are not supported (on line %d)\n", lineno);
         if (split.size() < 2)
             log_error("failed to parse target (on line %d)\n", lineno);
-        IdString netname = ctx->id(split.at(1));
+        str = strip_quotes(split.at(1));
+        if (str.empty())
+            return tgt_nets;
+        IdString netname = ctx->id(str);
         NetInfo *maybe_net = ctx->getNetByAlias(netname);
         if (maybe_net != nullptr)
             tgt_nets.push_back(maybe_net);
