@@ -128,6 +128,14 @@ void XilinxImpl::parse_xdc(const std::string &filename)
             return tgt_nets;
         IdString netname = ctx->id(str);
         NetInfo *maybe_net = ctx->getNetByAlias(netname);
+        if (maybe_net != nullptr) {
+            tgt_nets.push_back(maybe_net);
+            return tgt_nets;
+        }
+        // Also test the lowercase variant, for better interoperability with synthesis tools
+        boost::algorithm::to_lower(str);
+        netname = ctx->id(str);
+        maybe_net = ctx->getNetByAlias(netname);
         if (maybe_net != nullptr)
             tgt_nets.push_back(maybe_net);
         return tgt_nets;
