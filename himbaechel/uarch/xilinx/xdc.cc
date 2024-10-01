@@ -143,10 +143,11 @@ void XilinxImpl::parse_xdc(const std::string &filename)
         if (arguments.empty())
             continue;
         std::string &cmd = arguments.front();
+
         if (cmd == "set_property") {
             std::vector<std::pair<std::string, std::string>> arg_pairs;
-            if (arguments.size() != 4) {
-                log_nonfatal_error("expected at four arguments to 'set_property' (on line %d)\n", lineno);
+            if (arguments.size() < 4) {
+                log_nonfatal_error("expected at least four arguments to 'set_property' (on line %d)\n", lineno);
                 num_errors++;
                 goto nextline;
             }
@@ -173,10 +174,26 @@ void XilinxImpl::parse_xdc(const std::string &filename)
                 log_warning("[current_design] isn't supported, ignoring (on line %d)\n", lineno);
                 continue;
             }
-            std::vector<CellInfo *> dest = get_cells(arguments.at(3));
-            for (auto c : dest)
-                for (const auto &pair : arg_pairs)
-                    c->attrs[ctx->id(pair.first)] = std::string(pair.second);
+            // All remaining arguments are supposed to designate cells
+            std::vector<CellInfo *> dest;
+            for (int cursor = 3; cursor < int(arguments.size()); cursor++) {
+                std::vector<CellInfo *> dest_loc = get_cells(arguments.at(cursor));
+                if (dest_loc.empty())
+                    log_warning("found set_property with no cells matching '%s' (on line %d)\n", arguments.at(cursor).c_str(), lineno);
+                dest.insert(dest.end(), dest_loc.begin(), dest_loc.end());
+            }
+            for (auto c : dest) {
+                for (const auto &pair : arg_pairs) {
+                    IdString id_prop = ctx->id(pair.first);
+                    if (ctx->debug)
+                        log_info("applying property '%s' = '%s' to cell '%s' (on line %d)\n", pair.first.c_str(), pair.second.c_str(), c->name.c_str(ctx), lineno);
+                    if(c->attrs.find(id_prop) != c->attrs.end()) {
+                        log_nonfatal_error("found multiple properties '%s' for cell '%s' (on line %d)\n", pair.first.c_str(), c->name.c_str(ctx), lineno);
+                        num_errors++;
+                    }
+                    c->attrs[id_prop] = std::string(pair.second);
+                }
+            }
         } else if (cmd == "create_clock") {
             double period = 0;
             bool got_period = false;
@@ -203,11 +220,16 @@ void XilinxImpl::parse_xdc(const std::string &filename)
                 num_errors++;
                 goto nextline;
             }
-            if (cursor >= int(arguments.size())) {
+            // All remaining arguments are supposed to designate ports/nets
+            std::vector<NetInfo *> dest;
+            if (cursor >= int(arguments.size()))
                 log_warning("found create_clock without designated nets (on line %d)\n", lineno);
-                goto nextline;
+            for ( ; cursor < (int)arguments.size(); cursor++) {
+                std::vector<NetInfo *> dest_loc = get_nets(arguments.at(cursor));
+                if (dest_loc.empty())
+                    log_warning("found create_clock with no nets matching '%s' (on line %d)\n", arguments.at(cursor).c_str(), lineno);
+                dest.insert(dest.end(), dest_loc.begin(), dest_loc.end());
             }
-            std::vector<NetInfo *> dest = get_nets(arguments.at(cursor));
             for (auto n : dest) {
                 if (ctx->debug)
                     log_info("applying clock period constraint on net '%s' (on line %d)\n", n->name.c_str(ctx), lineno);
