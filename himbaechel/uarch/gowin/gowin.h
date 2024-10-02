@@ -135,6 +135,7 @@ NPNR_PACKED_STRUCT(struct Constraint_POD {
     int32_t row;
     int32_t col;
     int32_t bel;
+    int32_t iostd;
 });
 
 NPNR_PACKED_STRUCT(struct Extra_package_data_POD {

@@ -251,11 +251,12 @@ class PackageExtraData(BBAStruct):
 
     def serialise_lists(self, context: str, bba: BBAWriter):
         bba.label(f"{context}_constraints")
-        for (net, row, col, bel) in self.cst:
+        for (net, row, col, bel, iostd) in self.cst:
             bba.u32(self.strs.id(net).index)
             bba.u32(row)
             bba.u32(col)
             bba.u32(ord(bel[0])-ord('A')+IOBA_Z)
+            bba.u32(self.strs.id(iostd).index if iostd else 0)
 
     def serialise(self, context: str, bba: BBAWriter):
         bba.slice(f"{context}_constraints", len(self.cst))
