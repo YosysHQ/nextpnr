@@ -890,7 +890,7 @@ class HeAPPlacer
             total_iters_noreset++;
             if (total_iters > int(solve_cells.size())) {
                 total_iters = 0;
-                ripup_radius = std::max(std::max(max_x, max_y), ripup_radius * 2);
+                ripup_radius = std::min(std::max(max_x, max_y), ripup_radius * 2);
             }
 
             if (total_iters_noreset > std::max(5000, 8 * int(ctx->cells.size()))) {
@@ -995,7 +995,7 @@ class HeAPPlacer
                             CellInfo *bound = ctx->getBoundBelCell(sz);
                             if (bound != nullptr) {
                                 // Only rip up cells without constraints
-                                if (bound->cluster != ClusterId())
+                                if (bound->cluster != ClusterId() || bound->belStrength > STRENGTH_WEAK)
                                     continue;
                                 ctx->unbindBel(bound->bel);
                             }
