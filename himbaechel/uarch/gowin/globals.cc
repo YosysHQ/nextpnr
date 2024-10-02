@@ -340,7 +340,8 @@ struct GowinGlobalRouter
             src = ctx->getBelPinWire(driver.cell->bel, driver.port);
         }
 
-        RouteResult route_result = route_direct_net(net, [&](PipId pip) { return global_DQCE_pip_filter(pip); }, src);
+        RouteResult route_result = route_direct_net(
+                net, [&](PipId pip) { return global_DQCE_pip_filter(pip); }, src);
         if (route_result == NOT_ROUTED) {
             log_error("Can't route the %s network.\n", ctx->nameOf(net));
         }
@@ -417,7 +418,8 @@ struct GowinGlobalRouter
             src = ctx->getBelPinWire(driver.cell->bel, driver.port);
         }
 
-        RouteResult route_result = route_direct_net(net, [&](PipId pip) { return global_DCS_pip_filter(pip); }, src);
+        RouteResult route_result = route_direct_net(
+                net, [&](PipId pip) { return global_DCS_pip_filter(pip); }, src);
         if (route_result == NOT_ROUTED) {
             log_error("Can't route the %s network.\n", ctx->nameOf(net));
         }
@@ -504,7 +506,8 @@ struct GowinGlobalRouter
         WireId src = ctx->getBelPinWire(driver.cell->bel, port);
 
         std::vector<PipId> path;
-        RouteResult route_result = route_direct_net(net, [&](PipId pip) { return global_pip_filter(pip); }, src, &path);
+        RouteResult route_result = route_direct_net(
+                net, [&](PipId pip) { return global_pip_filter(pip); }, src, &path);
         if (route_result == NOT_ROUTED) {
             log_error("Can't route the %s network.\n", ctx->nameOf(net));
         }
@@ -568,7 +571,8 @@ struct GowinGlobalRouter
         NetInfo *net_before_buf = buf_ci->getPort(id_I);
         NPNR_ASSERT(net_before_buf != nullptr);
 
-        RouteResult route_result = route_direct_net(net, [&](PipId pip) { return global_pip_filter(pip); }, src);
+        RouteResult route_result = route_direct_net(
+                net, [&](PipId pip) { return global_pip_filter(pip); }, src);
         if (route_result == NOT_ROUTED || route_result == ROUTED_PARTIALLY) {
             log_error("Can't route the %s net. It might be worth removing the BUFG buffer flag.\n", ctx->nameOf(net));
         }
