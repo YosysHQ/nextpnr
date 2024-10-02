@@ -454,7 +454,7 @@ struct GowinPacker
         }
 
         // if Q1 is connected then disconnect it too
-        if (port_used(&ci, tx_port)) {
+        if (gwu.port_used(&ci, tx_port)) {
             NPNR_ASSERT(out_iob == net_only_drives(ctx, ci.ports.at(tx_port).net, is_iob, id_OEN, true));
             nets_to_remove.push_back(ci.getPort(tx_port)->name);
             out_iob->disconnectPort(id_OEN);
@@ -3160,7 +3160,7 @@ struct GowinPacker
             // add invertor
             int lut_idx = 0;
             auto add_inv = [&](IdString port, PortType port_type) {
-                if (!port_used(&ci, port)) {
+                if (!gwu.port_used(&ci, port)) {
                     return;
                 }
 
