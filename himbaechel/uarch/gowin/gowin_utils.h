@@ -1,6 +1,7 @@
 #ifndef GOWIN_UTILS_H
 #define GOWIN_UTILS_H
 
+#include "design_utils.h"
 #include "idstringlist.h"
 #include "nextpnr_namespaces.h"
 #include "nextpnr_types.h"
@@ -36,6 +37,19 @@ struct GowinUtils
     BelId get_dqce_bel(IdString spine_name);
     BelId get_dcs_bel(IdString spine_name);
     BelId get_dhcen_bel(WireId hclkin_wire, IdString &side);
+
+    // ports
+    inline bool port_used(CellInfo *cell, IdString port_name)
+    {
+        if (!nextpnr_himbaechel::port_used(cell, port_name)) {
+            return false;
+        }
+        NetInfo *ni = cell->ports.at(port_name).net;
+        if (ni->driver.cell == nullptr) {
+            return false;
+        }
+        return ni->users.entries() != 0;
+    }
 
     // BSRAM
     bool has_SP32(void);
