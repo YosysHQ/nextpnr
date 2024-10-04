@@ -106,6 +106,10 @@ static void log_crit_paths(const Context *ctx, TimingResult &result)
                 log_info("                         Sink %s.%s\n", segment.to.first.c_str(ctx),
                          segment.to.second.c_str(ctx));
 
+                // CLK_TO_CLK has no net and CLK_SKEW might have a net
+                if (ctx->nets.count(segment.net) == 0) {
+                    continue;
+                }
                 const NetInfo *net = ctx->nets.at(segment.net).get();
 
                 if (ctx->verbose) {
