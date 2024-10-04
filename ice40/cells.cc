@@ -521,6 +521,10 @@ bool is_clock_port(const BaseCtx *ctx, const PortRef &port)
         return port.port == id_CLK;
     if (is_sb_spram(ctx, port.cell) || port.cell->type == id_ICESTORM_SPRAM)
         return port.port == id_CLOCK;
+    if (is_sb_i2c(ctx, port.cell) || is_sb_spi(ctx, port.cell))
+        return port.port == id_SBCLKI;
+    if (is_sb_ledda_ip(ctx, port.cell))
+        return port.port == id_LEDDCLK;
     if (is_sb_io(ctx, port.cell))
         return port.port.in(id_INPUT_CLK, id_OUTPUT_CLK);
     return false;
