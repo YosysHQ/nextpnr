@@ -1245,7 +1245,7 @@ class StaticPlacer
             total_iters_noreset++;
             if (total_iters > int(ccells.size())) {
                 total_iters = 0;
-                ripup_radius = std::max(std::max(width + 1, height + 1), ripup_radius * 2);
+                ripup_radius = std::min(std::max(width + 1, height + 1), ripup_radius * 2);
             }
 
             if (total_iters_noreset > std::max(5000, 8 * int(ctx->cells.size()))) {
