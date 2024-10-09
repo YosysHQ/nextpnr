@@ -831,7 +831,7 @@ class Chip:
 
         bba.label("chip_info")
         bba.u32(0x00ca7ca7) # magic
-        bba.u32(3) # version
+        bba.u32(4) # version
         bba.u32(self.width)
         bba.u32(self.height)
 
