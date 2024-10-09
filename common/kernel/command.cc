@@ -427,7 +427,7 @@ void script_terminate_handler()
 void CommandHandler::setupContext(Context *ctx)
 {
     if (ctx->settings.find(ctx->id("seed")) != ctx->settings.end())
-        ctx->rngstate = ctx->setting<uint64_t>("seed");
+        ctx->rngseed(ctx->setting<uint64_t>("seed"));
 
     if (vm.count("verbose")) {
         ctx->verbose = true;
@@ -447,7 +447,7 @@ void CommandHandler::setupContext(Context *ctx)
     }
 
     if (vm.count("seed")) {
-        ctx->rngstate = vm["seed"].as<uint64_t>();
+        ctx->rngseed(vm["seed"].as<uint64_t>());
     }
 
     if (vm.count("threads")) {
