@@ -138,6 +138,7 @@ NPNR_PACKED_STRUCT(struct PadInfoPOD {
 NPNR_PACKED_STRUCT(struct PackageInfoPOD {
     int32_t name;
     RelSlice<PadInfoPOD> pads;
+    RelPtr<uint8_t> extra_data;
 });
 
 NPNR_PACKED_STRUCT(struct TileInstPOD {

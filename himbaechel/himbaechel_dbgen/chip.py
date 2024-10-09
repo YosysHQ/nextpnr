@@ -411,6 +411,7 @@ class PackageInfo(BBAStruct):
     strs: StringPool
     name: IdString
     pads: list[int] = field(default_factory=list)
+    extra_data: object = None
 
     def create_pad(self, package_pin: str, tile: str, bel: str, pad_function: str, pad_bank: int, flags: int = 0):
         pad = PadInfo(package_pin = self.strs.id(package_pin), tile = self.strs.id(tile), bel = self.strs.id(bel),
@@ -424,10 +425,18 @@ class PackageInfo(BBAStruct):
         bba.label(f"{context}_pads")
         for i, pad in enumerate(self.pads):
             pad.serialise(f"{context}_pad{i}", bba)
+        if self.extra_data is not None:
+            self.extra_data.serialise_lists(f"{context}_extra_data", bba)
+            bba.label(f"{context}_extra_data")
+            self.extra_data.serialise(f"{context}_extra_data", bba)
 
     def serialise(self, context: str, bba: BBAWriter):
         bba.u32(self.name.index)
         bba.slice(f"{context}_pads", len(self.pads))
+        if self.extra_data is not None:
+            bba.ref(f"{context}_extra_data")
+        else:
+            bba.u32(0)
 
 class TimingValue(BBAStruct):
     def __init__(self, fast_min=0, fast_max=None, slow_min=None, slow_max=None):

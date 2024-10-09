@@ -240,8 +240,38 @@ struct GowinCstReader
     }
 };
 
+
+static void add_sip_constraints(Context *ctx, const Extra_package_data_POD *extra) {
+    for(auto cst : extra->cst) {
+        auto it = ctx->cells.find(IdString(cst.net));
+        if (it == ctx->cells.end()) {
+            log_info("Cell %s not found\n", IdString(cst.net).c_str(ctx));
+            continue;
+        }
+        Loc loc = Loc(cst.col, cst.row, cst.bel);
+        BelId bel = ctx->getBelByLocation(loc);
+        if (bel == BelId()) {
+            log_error("Pin not found.\n");
+        }
+        it->second->setAttr(IdString(ID_BEL), std::string(ctx->nameOfBel(bel)));
+
+        if(cst.iostd > 0) {
+            std::string attr = "&IO_TYPE=";
+            attr += IdString(cst.iostd).c_str(ctx);
+            boost::algorithm::to_upper(attr);
+            it->second->setAttr(ctx->id(attr), 1);
+        }
+    }
+}
+
 bool gowin_apply_constraints(Context *ctx, std::istream &in)
 {
+    // implicit constraints from SiP pins
+    if(!ctx->package_info->extra_data.is_null()) {
+        const Extra_package_data_POD *extra = reinterpret_cast<const Extra_package_data_POD *>(ctx->package_info->extra_data.get());
+        add_sip_constraints(ctx, extra);
+    }
+
     GowinCstReader reader(ctx, in);
     return reader.run();
 }
