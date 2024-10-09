@@ -254,6 +254,13 @@ static void add_sip_constraints(Context *ctx, const Extra_package_data_POD *extr
             log_error("Pin not found.\n");
         }
         it->second->setAttr(IdString(ID_BEL), std::string(ctx->nameOfBel(bel)));
+
+        if(cst.iostd > 0) {
+            std::string attr = "&IO_TYPE=";
+            attr += IdString(cst.iostd).c_str(ctx);
+            boost::algorithm::to_upper(attr);
+            it->second->setAttr(ctx->id(attr), 1);
+        }
     }
 }
 
