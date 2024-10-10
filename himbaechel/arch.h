@@ -698,6 +698,15 @@ struct Arch : BaseArch<ArchRanges>
     {
         return uarch->getClusterPlacement(cluster, root_bel, placement);
     }
+
+    // -------------------------------------------------
+    // Decal methods
+    std::vector<GraphicElement> getDecalGraphics(DecalId decal) const override;
+    DecalXY getBelDecal(BelId bel) const override;
+    DecalXY getWireDecal(WireId wire) const override;
+    DecalXY getPipDecal(PipId pip) const override;
+    DecalXY getGroupDecal(GroupId group) const override;
+
     // ------------------------------------------------
 
     bool pack() override;
