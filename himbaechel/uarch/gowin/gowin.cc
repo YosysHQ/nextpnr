@@ -71,6 +71,9 @@ struct GowinImpl : HimbaechelAPI
     std::vector<GowinCellInfo> fast_cell_info;
     void assign_cell_info();
 
+    // If there is an unused LUT adjacent to FF, use it
+    void create_passthrough_luts(void);
+
     // Remember HCLK sections that have been reserved to route HCLK signals
     std::set<BelId> routing_reserved_hclk_sections;
 
@@ -531,6 +534,7 @@ void GowinImpl::postPlace()
 
     // adjust cell pin to bel pin mapping for DSP cells (CE, CLK and RESET pins)
     adjust_dsp_pin_mapping();
+    create_passthrough_luts();
 }
 
 void GowinImpl::preRoute() { gowin_route_globals(ctx); }
@@ -590,8 +594,15 @@ bool GowinImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
     case ID_ALU:
         return slice_valid(l.x, l.y, l.z - BelZ::ALU0_Z);
     case ID_RAM16SDP4:
-        // only slices 4 and 5 are critical for RAM
-        return slice_valid(l.x, l.y, l.z - BelZ::RAMW_Z + 5) && slice_valid(l.x, l.y, l.z - BelZ::RAMW_Z + 4);
+        return slice_valid(l.x, l.y, 0);
+    case ID_MUX2_LUT5:
+        return slice_valid(l.x, l.y, (l.z - BelZ::MUX20_Z) / 2);
+    case ID_MUX2_LUT6:
+        return slice_valid(l.x, l.y, (l.z - BelZ::MUX21_Z) / 2 + 1);
+    case ID_MUX2_LUT7:
+        return slice_valid(l.x, l.y, 3);
+    case ID_MUX2_LUT8:
+        return slice_valid(l.x, l.y, 7);
     case ID_PADD9:           /* fall-through */
     case ID_PADD18:          /* fall-through */
     case ID_MULT9X9:         /* fall-through */
@@ -725,6 +736,67 @@ void GowinImpl::assign_cell_info()
     }
 }
 
+// If there is an unused LUT next to the DFF, use its inputs for the D input
+void GowinImpl::create_passthrough_luts(void)
+{
+    std::vector<std::unique_ptr<CellInfo>> new_cells;
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
+        if (is_dff(ci)) {
+            Loc loc = ctx->getBelLocation(ci->bel);
+            BelId lut_bel = ctx->getBelByLocation(Loc(loc.x, loc.y, loc.z - 1));
+            CellInfo *lut = ctx->getBoundBelCell(lut_bel);
+            CellInfo *alu = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x, loc.y, loc.z / 2 + BelZ::ALU0_Z)));
+            const CellInfo *ramw = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x, loc.y, BelZ::RAMW_Z)));
+
+            if (!(lut || alu || ramw)) {
+                if (ctx->debug) {
+                    log_info("Found an unused LUT:%s, ", ctx->nameOfBel(lut_bel));
+                }
+                // make LUT
+                auto lut_cell = gwu.create_cell(gwu.create_aux_name(ci->name, 0, "_passthrough_lut$"), id_LUT4);
+                CellInfo *lut = lut_cell.get();
+                NetInfo *d_net = ci->getPort(id_D);
+                NPNR_ASSERT(d_net != nullptr);
+
+                if (d_net->name == ctx->id("$PACKER_GND") || d_net->name == ctx->id("$PACKER_VCC")) {
+                    if (ctx->debug) {
+                        log("make a constant %s.\n", d_net->name == ctx->id("$PACKER_VCC") ? "VCC" : "GND");
+                    }
+                    ci->disconnectPort(id_D);
+                    if (d_net->name == ctx->id("$PACKER_GND")) {
+                        lut->setParam(id_INIT, 0x0000);
+                    } else {
+                        lut->setParam(id_INIT, 0xffff);
+                    }
+                } else {
+                    if (ctx->debug) {
+                        log("make a pass-through.\n");
+                    }
+                    IdString lut_input = id_I3;
+                    int lut_init = 0xff00;
+
+                    lut->addInput(lut_input);
+                    lut->cell_bel_pins[lut_input].clear();
+                    lut->cell_bel_pins.at(lut_input).push_back(lut_input);
+                    ci->movePortTo(id_D, lut, lut_input);
+                    lut->setParam(id_INIT, lut_init);
+                }
+                lut->addOutput(id_F);
+                lut->cell_bel_pins[id_F].clear();
+                lut->cell_bel_pins.at(id_F).push_back(id_F);
+                ci->connectPorts(id_D, lut, id_F);
+
+                ctx->bindBel(lut_bel, lut, PlaceStrength::STRENGTH_LOCKED);
+                new_cells.push_back(std::move(lut_cell));
+            }
+        }
+    }
+    for (auto &cell : new_cells) {
+        ctx->cells[cell->name] = std::move(cell);
+    }
+}
+
 // DFFs must be same type or compatible
 inline bool incompatible_ffs(const CellInfo *ff, const CellInfo *adj_ff)
 {
@@ -798,22 +870,30 @@ bool GowinImpl::dsp_valid(Loc l, IdString bel_type, bool explain_invalid) const
 bool GowinImpl::slice_valid(int x, int y, int z) const
 {
     const CellInfo *lut = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, z * 2)));
-    const bool lut_in_4_5 = lut && (z == 4 || z == 5);
     const CellInfo *ff = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, z * 2 + 1)));
     // There are only 6 ALUs
     const CellInfo *alu = (z < 6) ? ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, z + BelZ::ALU0_Z))) : nullptr;
-    const CellInfo *ramw =
-            (z == 4 || z == 5) ? ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, BelZ::RAMW_Z))) : nullptr;
+    const CellInfo *ramw = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, BelZ::RAMW_Z)));
 
     if (alu && lut) {
         return false;
     }
 
     if (ramw) {
-        if (alu || ff || lut_in_4_5) {
+        // FFs in slices 4 and 5 are not allowed
+        if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 4 * 2 + 1))) ||
+            ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 5 * 2 + 1)))) {
             return false;
         }
-        return true;
+        // ALU/LUTs in slices 4, 5, 6, 7 are not allowed
+        for (int i = 4; i < 8; ++i) {
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, i * 2)))) {
+                return false;
+            }
+            if (i < 6 && ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, i + BelZ::ALU0_Z)))) {
+                return false;
+            }
+        }
     }
 
     // check for ALU/LUT in the adjacent cell
@@ -829,18 +909,19 @@ bool GowinImpl::slice_valid(int x, int y, int z) const
         return false;
     }
 
-    // if there is DFF it must be connected to this LUT or ALU
     if (ff) {
+        static std::vector<int> mux_z = {BelZ::MUX20_Z,     BelZ::MUX21_Z,     BelZ::MUX20_Z + 4,  BelZ::MUX23_Z,
+                                         BelZ::MUX20_Z + 8, BelZ::MUX21_Z + 8, BelZ::MUX20_Z + 12, BelZ::MUX27_Z};
         const auto &ff_data = fast_cell_info.at(ff->flat_index);
-        if (lut) {
-            const auto &lut_data = fast_cell_info.at(lut->flat_index);
-            if (ff_data.ff_d != lut_data.lut_f) {
-                return false;
+        const NetInfo *src;
+        // check implcit LUT(ALU) -> FF connection
+        if (lut || alu) {
+            if (lut) {
+                src = fast_cell_info.at(lut->flat_index).lut_f;
+            } else {
+                src = fast_cell_info.at(alu->flat_index).alu_sum;
             }
-        }
-        if (alu) {
-            const auto &alu_data = fast_cell_info.at(alu->flat_index);
-            if (ff_data.ff_d != alu_data.alu_sum) {
+            if (ff_data.ff_d != src) {
                 return false;
             }
         }

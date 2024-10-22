@@ -107,6 +107,9 @@ struct GowinUtils
         return is_global_wire(ctx->getPipSrcWire(pip)) || is_global_wire(ctx->getPipDstWire(pip));
     }
 
+    // construct name
+    IdString create_aux_name(IdString main_name, int idx = 0, const char *str_suffix = "_aux$");
+
     // make cell but do not include it in the list of chip cells.
     std::unique_ptr<CellInfo> create_cell(IdString name, IdString type);
 

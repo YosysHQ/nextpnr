@@ -181,6 +181,12 @@ bool GowinUtils::need_BLKSEL_fix(void)
     return extra->chip_flags & Extra_chip_data_POD::NEED_BLKSEL_FIX;
 }
 
+IdString GowinUtils::create_aux_name(IdString main_name, int idx, const char *str_suffix)
+{
+    return idx ? ctx->idf("%s%s%d", main_name.c_str(ctx), str_suffix, idx)
+               : ctx->idf("%s%s", main_name.c_str(ctx), str_suffix);
+}
+
 std::unique_ptr<CellInfo> GowinUtils::create_cell(IdString name, IdString type)
 {
     NPNR_ASSERT(!ctx->cells.count(name));
