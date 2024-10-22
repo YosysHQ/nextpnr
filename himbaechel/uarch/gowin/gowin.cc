@@ -740,11 +740,6 @@ void GowinImpl::assign_cell_info()
 void GowinImpl::create_passthrough_luts(void)
 {
     std::vector<std::unique_ptr<CellInfo>> new_cells;
-    // evenly use all 4 LUT inputs
-    const std::vector<std::pair<IdString, int>> lut_tmpl = {
-            {id_I0, 0xaaaa}, {id_I1, 0xcccc}, {id_I2, 0xf0f0}, {id_I3, 0xff00}};
-    int cur_lut_tmpl = 3;
-
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
         if (is_dff(ci)) {
@@ -778,9 +773,8 @@ void GowinImpl::create_passthrough_luts(void)
                     if (ctx->debug) {
                         log("make a pass-through.\n");
                     }
-                    IdString lut_input = lut_tmpl.at(cur_lut_tmpl).first;
-                    int lut_init = lut_tmpl.at(cur_lut_tmpl).second;
-                    cur_lut_tmpl = (cur_lut_tmpl + 1) % 4;
+                    IdString lut_input = id_I3;
+                    int lut_init = 0xff00;
 
                     lut->addInput(lut_input);
                     lut->cell_bel_pins[lut_input].clear();
