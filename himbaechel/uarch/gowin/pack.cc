@@ -508,15 +508,6 @@ struct GowinPacker
         make_iob_nets(*out_iob);
     }
 
-    IdString create_aux_name(IdString main_name, int idx = 0, const char *str_suffix = "_aux$")
-    {
-        std::string sfx("");
-        if (idx) {
-            sfx = std::to_string(idx);
-        }
-        return ctx->id(main_name.str(ctx) + std::string(str_suffix) + sfx);
-    }
-
     BelId get_aux_iologic_bel(const CellInfo &ci)
     {
         return ctx->getBelByLocation(gwu.get_pair_iologic_bel(ctx->getBelLocation(ci.bel)));
@@ -529,7 +520,7 @@ struct GowinPacker
         if (ci.type.in(id_ODDR, id_ODDRC, id_OSER4, id_IDDR, id_IDDRC, id_IDES4)) {
             return nullptr;
         }
-        IdString aux_name = create_aux_name(ci.name, idx);
+        IdString aux_name = gwu.create_aux_name(ci.name, idx);
         BelId bel = get_aux_iologic_bel(ci);
         BelId io_bel = gwu.get_io_bel_from_iologic(bel);
         if (!ctx->checkBelAvail(io_bel)) {
@@ -720,9 +711,9 @@ struct GowinPacker
 
         // to simplify packaging, the parts of the OSER16 are presented as IOLOGIC cells
         // and one of these aux cells is declared as main
-        IdString main_name = create_aux_name(ci.name);
+        IdString main_name = gwu.create_aux_name(ci.name);
 
-        IdString aux_name = create_aux_name(ci.name, 1);
+        IdString aux_name = gwu.create_aux_name(ci.name, 1);
         ctx->createCell(aux_name, id_IOLOGIC_DUMMY);
         CellInfo *aux = ctx->cells.at(aux_name).get();
 
@@ -794,9 +785,9 @@ struct GowinPacker
 
         // to simplify packaging, the parts of the IDES16 are presented as IOLOGIC cells
         // and one of these aux cells is declared as main
-        IdString main_name = create_aux_name(ci.name);
+        IdString main_name = gwu.create_aux_name(ci.name);
 
-        IdString aux_name = create_aux_name(ci.name, 1);
+        IdString aux_name = gwu.create_aux_name(ci.name, 1);
         ctx->createCell(aux_name, id_IOLOGIC_DUMMY);
         CellInfo *aux = ctx->cells.at(aux_name).get();
 
@@ -1229,7 +1220,7 @@ struct GowinPacker
                                          {id_DFFP, id_D}, {id_DFFPE, id_D}, {id_DFFNP, id_D}, {id_DFFNPE, id_D},
                                          {id_DFFC, id_D}, {id_DFFCE, id_D}, {id_DFFNC, id_D}, {id_DFFNCE, id_D}};
 
-        int lutffs = h.constrain_cell_pairs(lut_outs, dff_ins, 0);
+        int lutffs = h.constrain_cell_pairs(lut_outs, dff_ins, 1, 1);
         log_info("Constrained %d LUTFF pairs.\n", lutffs);
     }
 
@@ -1365,7 +1356,7 @@ struct GowinPacker
         }
 
         // Make a decoder
-        auto lut_cell = gwu.create_cell(create_aux_name(ci->name, 0, "_blksel_lut$"), id_LUT4);
+        auto lut_cell = gwu.create_cell(gwu.create_aux_name(ci->name, 0, "_blksel_lut$"), id_LUT4);
         CellInfo *lut = lut_cell.get();
         lut->addInput(id_I3);
         ci->movePortTo(id_CE, lut, id_I3);
@@ -1441,7 +1432,7 @@ struct GowinPacker
                 }
 
                 // create DFF
-                auto cache_dff_cell = gwu.create_cell(create_aux_name(ci->name, i, "_cache_dff$"), dff_type);
+                auto cache_dff_cell = gwu.create_cell(gwu.create_aux_name(ci->name, i, "_cache_dff$"), dff_type);
                 CellInfo *cache_dff = cache_dff_cell.get();
                 cache_dff->addInput(id_CE);
                 cache_dff->connectPort(id_CE, oce_net);
@@ -1477,7 +1468,7 @@ struct GowinPacker
             log_info("  apply the SP fix\n");
         }
         // create WRE LUT
-        auto wre_lut_cell = gwu.create_cell(create_aux_name(ci->name, 0, "_wre_lut$"), id_LUT4);
+        auto wre_lut_cell = gwu.create_cell(gwu.create_aux_name(ci->name, 0, "_wre_lut$"), id_LUT4);
         CellInfo *wre_lut = wre_lut_cell.get();
         wre_lut->setParam(id_INIT, 0x8888);
         ci->movePortTo(id_CE, wre_lut, id_I0);
@@ -1486,7 +1477,7 @@ struct GowinPacker
         ci->connectPorts(id_WRE, wre_lut, id_F);
 
         // create CE LUT
-        auto ce_lut_cell = gwu.create_cell(create_aux_name(ci->name, 0, "_ce_lut$"), id_LUT4);
+        auto ce_lut_cell = gwu.create_cell(gwu.create_aux_name(ci->name, 0, "_ce_lut$"), id_LUT4);
         CellInfo *ce_lut = ce_lut_cell.get();
         ce_lut->setParam(id_INIT, 0xeeee);
         wre_lut->copyPortTo(id_I0, ce_lut, id_I0);
@@ -1497,7 +1488,7 @@ struct GowinPacker
         // create ce reg
         int write_mode = ci->params.at(id_WRITE_MODE).as_int64();
         IdString dff_type = write_mode ? id_DFF : id_DFFR;
-        auto ce_pre_dff_cell = gwu.create_cell(create_aux_name(ci->name, 0, "_ce_pre_dff$"), dff_type);
+        auto ce_pre_dff_cell = gwu.create_cell(gwu.create_aux_name(ci->name, 0, "_ce_pre_dff$"), dff_type);
         CellInfo *ce_pre_dff = ce_pre_dff_cell.get();
         ce_pre_dff->addInput(id_D);
         ce_lut->copyPortTo(id_I0, ce_pre_dff, id_D);
@@ -1513,7 +1504,7 @@ struct GowinPacker
         // add delay register in pipeline mode
         int read_mode = ci->params.at(id_READ_MODE).as_int64();
         if (read_mode) {
-            auto ce_pipe_dff_cell = gwu.create_cell(create_aux_name(ci->name, 0, "_ce_pipe_dff$"), id_DFF);
+            auto ce_pipe_dff_cell = gwu.create_cell(gwu.create_aux_name(ci->name, 0, "_ce_pipe_dff$"), id_DFF);
             new_cells.push_back(std::move(ce_pipe_dff_cell));
             CellInfo *ce_pipe_dff = new_cells.back().get();
             ce_pipe_dff->addInput(id_D);
@@ -1533,7 +1524,7 @@ struct GowinPacker
                     continue;
                 }
                 // create cache lut
-                auto cache_lut_cell = gwu.create_cell(create_aux_name(ci->name, i, "_cache_lut$"), id_LUT4);
+                auto cache_lut_cell = gwu.create_cell(gwu.create_aux_name(ci->name, i, "_cache_lut$"), id_LUT4);
                 CellInfo *cache_lut = cache_lut_cell.get();
                 cache_lut->setParam(id_INIT, 0xcaca);
                 cache_lut->addInput(id_I0);
@@ -1544,7 +1535,7 @@ struct GowinPacker
                 new_ce_net_src->connectPorts(id_Q, cache_lut, id_I2);
 
                 // create cache DFF
-                auto cache_dff_cell = gwu.create_cell(create_aux_name(ci->name, i, "_cache_dff$"), id_DFFE);
+                auto cache_dff_cell = gwu.create_cell(gwu.create_aux_name(ci->name, i, "_cache_dff$"), id_DFFE);
                 CellInfo *cache_dff = cache_dff_cell.get();
                 cache_dff->addInput(id_CE);
                 cache_dff->addInput(id_D);
@@ -1950,7 +1941,7 @@ struct GowinPacker
                     ci->constr_y = 0;
                     ci->constr_y = 0;
 
-                    IdString mult_name = create_aux_name(ci->name);
+                    IdString mult_name = gwu.create_aux_name(ci->name);
                     std::unique_ptr<CellInfo> mult_cell = gwu.create_cell(mult_name, id_DUMMY_CELL);
                     new_cells.push_back(std::move(mult_cell));
                     CellInfo *mult_ci = new_cells.back().get();
@@ -2009,7 +2000,7 @@ struct GowinPacker
                     ci->constr_children.clear();
 
                     for (int i = 0; i < 2; ++i) {
-                        IdString padd_name = create_aux_name(ci->name, i * 2);
+                        IdString padd_name = gwu.create_aux_name(ci->name, i * 2);
                         std::unique_ptr<CellInfo> padd_cell = gwu.create_cell(padd_name, id_DUMMY_CELL);
                         new_cells.push_back(std::move(padd_cell));
                         CellInfo *padd_ci = new_cells.back().get();
@@ -2020,7 +2011,7 @@ struct GowinPacker
                         padd_ci->constr_y = 0;
                         padd_ci->constr_z = BelZ::PADD9_0_0_Z - BelZ::PADD18_0_0_Z + i;
 
-                        IdString mult_name = create_aux_name(ci->name, i * 2 + 1);
+                        IdString mult_name = gwu.create_aux_name(ci->name, i * 2 + 1);
                         std::unique_ptr<CellInfo> mult_cell = gwu.create_cell(mult_name, id_DUMMY_CELL);
                         new_cells.push_back(std::move(mult_cell));
                         CellInfo *mult_ci = new_cells.back().get();
@@ -2061,7 +2052,7 @@ struct GowinPacker
                     ci->constr_z = 0;
                     ci->constr_children.clear();
 
-                    IdString padd_name = create_aux_name(ci->name);
+                    IdString padd_name = gwu.create_aux_name(ci->name);
                     std::unique_ptr<CellInfo> padd_cell = gwu.create_cell(padd_name, id_DUMMY_CELL);
                     new_cells.push_back(std::move(padd_cell));
                     CellInfo *padd_ci = new_cells.back().get();
@@ -2103,7 +2094,7 @@ struct GowinPacker
                     ci->constr_children.clear();
 
                     for (int i = 0; i < 2; ++i) {
-                        IdString padd_name = create_aux_name(ci->name, i * 2);
+                        IdString padd_name = gwu.create_aux_name(ci->name, i * 2);
                         std::unique_ptr<CellInfo> padd_cell = gwu.create_cell(padd_name, id_DUMMY_CELL);
                         new_cells.push_back(std::move(padd_cell));
                         CellInfo *padd_ci = new_cells.back().get();
@@ -2114,7 +2105,7 @@ struct GowinPacker
                         padd_ci->constr_y = 0;
                         padd_ci->constr_z = BelZ::PADD9_0_0_Z - BelZ::MULT18X18_0_0_Z + i;
 
-                        IdString mult_name = create_aux_name(ci->name, i * 2 + 1);
+                        IdString mult_name = gwu.create_aux_name(ci->name, i * 2 + 1);
                         std::unique_ptr<CellInfo> mult_cell = gwu.create_cell(mult_name, id_DUMMY_CELL);
                         new_cells.push_back(std::move(mult_cell));
                         CellInfo *mult_ci = new_cells.back().get();
@@ -2161,7 +2152,7 @@ struct GowinPacker
                     ci->constr_children.clear();
 
                     for (int i = 0; i < 4; ++i) {
-                        IdString padd_name = create_aux_name(ci->name, i * 2);
+                        IdString padd_name = gwu.create_aux_name(ci->name, i * 2);
                         std::unique_ptr<CellInfo> padd_cell = gwu.create_cell(padd_name, id_DUMMY_CELL);
                         new_cells.push_back(std::move(padd_cell));
                         CellInfo *padd_ci = new_cells.back().get();
@@ -2172,7 +2163,7 @@ struct GowinPacker
                         padd_ci->constr_y = 0;
                         padd_ci->constr_z = BelZ::PADD9_0_0_Z - BelZ::ALU54D_0_Z + 4 * (i / 2) + (i % 2);
 
-                        IdString mult_name = create_aux_name(ci->name, i * 2 + 1);
+                        IdString mult_name = gwu.create_aux_name(ci->name, i * 2 + 1);
                         std::unique_ptr<CellInfo> mult_cell = gwu.create_cell(mult_name, id_DUMMY_CELL);
                         new_cells.push_back(std::move(mult_cell));
                         CellInfo *mult_ci = new_cells.back().get();
@@ -2266,7 +2257,7 @@ struct GowinPacker
                     ci->constr_children.clear();
 
                     for (int i = 0; i < 2; ++i) {
-                        IdString padd_name = create_aux_name(ci->name, i * 2);
+                        IdString padd_name = gwu.create_aux_name(ci->name, i * 2);
                         std::unique_ptr<CellInfo> padd_cell = gwu.create_cell(padd_name, id_DUMMY_CELL);
                         new_cells.push_back(std::move(padd_cell));
                         CellInfo *padd_ci = new_cells.back().get();
@@ -2277,7 +2268,7 @@ struct GowinPacker
                         padd_ci->constr_y = 0;
                         padd_ci->constr_z = BelZ::PADD9_0_0_Z - BelZ::MULTALU18X18_0_Z + i;
 
-                        IdString mult_name = create_aux_name(ci->name, i * 2 + 1);
+                        IdString mult_name = gwu.create_aux_name(ci->name, i * 2 + 1);
                         std::unique_ptr<CellInfo> mult_cell = gwu.create_cell(mult_name, id_DUMMY_CELL);
                         new_cells.push_back(std::move(mult_cell));
                         CellInfo *mult_ci = new_cells.back().get();
@@ -2369,7 +2360,7 @@ struct GowinPacker
                     ci->constr_children.clear();
 
                     for (int i = 0; i < 2; ++i) {
-                        IdString padd_name = create_aux_name(ci->name, i * 2);
+                        IdString padd_name = gwu.create_aux_name(ci->name, i * 2);
                         std::unique_ptr<CellInfo> padd_cell = gwu.create_cell(padd_name, id_DUMMY_CELL);
                         new_cells.push_back(std::move(padd_cell));
                         CellInfo *padd_ci = new_cells.back().get();
@@ -2380,7 +2371,7 @@ struct GowinPacker
                         padd_ci->constr_y = 0;
                         padd_ci->constr_z = BelZ::PADD9_0_0_Z - BelZ::MULTALU36X18_0_Z + i;
 
-                        IdString mult_name = create_aux_name(ci->name, i * 2 + 1);
+                        IdString mult_name = gwu.create_aux_name(ci->name, i * 2 + 1);
                         std::unique_ptr<CellInfo> mult_cell = gwu.create_cell(mult_name, id_DUMMY_CELL);
                         new_cells.push_back(std::move(mult_cell));
                         CellInfo *mult_ci = new_cells.back().get();
@@ -2463,7 +2454,7 @@ struct GowinPacker
                     ci->constr_children.clear();
 
                     for (int i = 0; i < 2; ++i) {
-                        IdString padd_name = create_aux_name(ci->name, i * 2);
+                        IdString padd_name = gwu.create_aux_name(ci->name, i * 2);
                         std::unique_ptr<CellInfo> padd_cell = gwu.create_cell(padd_name, id_DUMMY_CELL);
                         new_cells.push_back(std::move(padd_cell));
                         CellInfo *padd_ci = new_cells.back().get();
@@ -2474,7 +2465,7 @@ struct GowinPacker
                         padd_ci->constr_y = 0;
                         padd_ci->constr_z = BelZ::PADD9_0_0_Z - BelZ::MULTADDALU18X18_0_Z + i;
 
-                        IdString mult_name = create_aux_name(ci->name, i * 2 + 1);
+                        IdString mult_name = gwu.create_aux_name(ci->name, i * 2 + 1);
                         std::unique_ptr<CellInfo> mult_cell = gwu.create_cell(mult_name, id_DUMMY_CELL);
                         new_cells.push_back(std::move(mult_cell));
                         CellInfo *mult_ci = new_cells.back().get();
@@ -2549,7 +2540,7 @@ struct GowinPacker
                     ci->constr_children.clear();
 
                     for (int i = 0; i < 8; ++i) {
-                        IdString padd_name = create_aux_name(ci->name, i * 2);
+                        IdString padd_name = gwu.create_aux_name(ci->name, i * 2);
                         std::unique_ptr<CellInfo> padd_cell = gwu.create_cell(padd_name, id_DUMMY_CELL);
                         new_cells.push_back(std::move(padd_cell));
                         CellInfo *padd_ci = new_cells.back().get();
@@ -2562,7 +2553,7 @@ struct GowinPacker
                         padd_ci->constr_y = 0;
                         padd_ci->constr_z = padd_z[i / 2] - BelZ::MULT36X36_Z + i % 2;
 
-                        IdString mult_name = create_aux_name(ci->name, i * 2 + 1);
+                        IdString mult_name = gwu.create_aux_name(ci->name, i * 2 + 1);
                         std::unique_ptr<CellInfo> mult_cell = gwu.create_cell(mult_name, id_DUMMY_CELL);
                         new_cells.push_back(std::move(mult_cell));
                         CellInfo *mult_ci = new_cells.back().get();
@@ -3165,7 +3156,7 @@ struct GowinPacker
                 }
 
                 std::unique_ptr<CellInfo> lut_cell =
-                        gwu.create_cell(create_aux_name(ci.name, lut_idx, "_lut$"), id_LUT4);
+                        gwu.create_cell(gwu.create_aux_name(ci.name, lut_idx, "_lut$"), id_LUT4);
                 new_cells.push_back(std::move(lut_cell));
                 CellInfo *lut = new_cells.back().get();
                 lut->addInput(id_I0);
@@ -3340,8 +3331,7 @@ struct GowinPacker
         pack_alus();
         ctx->check();
 
-        // XXX Leads to the impossibility of placement on lower models.
-        // constrain_lutffs();
+        constrain_lutffs();
         ctx->check();
 
         pack_pll();

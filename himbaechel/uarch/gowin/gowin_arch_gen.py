@@ -817,11 +817,12 @@ def create_logic_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tde
             tt.add_bel_pin(lut, f"I{j}", f"{inp_name}{i}", PinType.INPUT)
         tt.add_bel_pin(lut, "F", f"F{i}", PinType.OUTPUT)
         if i < 6:
-            # FF data can come from LUT output, but we pretend that we can use
-            # any LUT input
             tt.create_pip(f"F{i}", f"XD{i}", get_tm_class(db, f"F{i}"))
-            for inp_name in lut_inputs:
-                tt.create_pip(f"{inp_name}{i}", f"XD{i}", get_tm_class(db, f"{inp_name}{i}"))
+            # also experimental input for FF using SEL wire - this theory will
+            # allow to place unrelated LUT and FF next to each other
+            # don't create for now
+            #tt.create_pip(f"SEL{i}", f"XD{i}", get_tm_class(db, f"SEL{i}"))
+
             # FF
             ff = tt.create_bel(f"DFF{i}", "DFF", z =(i * 2 + 1))
             tt.add_bel_pin(ff, "D", f"XD{i}", PinType.INPUT)
