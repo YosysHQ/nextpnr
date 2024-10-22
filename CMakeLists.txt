@@ -55,8 +55,6 @@ else()
     set(BBASM_MODE "string")
 endif()
 
-set(Boost_NO_BOOST_CMAKE ON)
-
 find_package(Threads)
 if (Threads_FOUND)
     find_package(TBB QUIET)
