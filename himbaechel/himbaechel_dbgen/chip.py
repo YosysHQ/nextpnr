@@ -144,7 +144,7 @@ class TileWireData:
     index: int
     name: IdString
     wire_type: IdString
-    tile_wire: int
+    gfx_wire_id: int
     const_value: IdString = field(default_factory=list)
     flags: int = 0
     timing_idx: int = -1
@@ -167,7 +167,7 @@ class TileWireData:
     def serialise(self, context: str, bba: BBAWriter):
         bba.u32(self.name.index)
         bba.u32(self.wire_type.index)
-        bba.u32(self.tile_wire)
+        bba.u32(self.gfx_wire_id)
         bba.u32(self.const_value.index)
         bba.u32(self.flags)
         bba.u32(self.timing_idx)
@@ -232,13 +232,13 @@ class TileType(BBAStruct):
 
     def create_wire(self, name: str, type: str="", const_value: str=""):
         # Create a new tile wire of a given name and type (optional) in the tile type
-        tile_wire = 0
-        if ("TILE_WIRE_" + name) in self.gfx_wire_ids:
-            tile_wire = self.gfx_wire_ids["TILE_WIRE_" + name]
+        gfx_wire_id = 0
+        if (name) in self.gfx_wire_ids:
+            gfx_wire_id = self.gfx_wire_ids[name]
         wire = TileWireData(index=len(self.wires),
             name=self.strs.id(name),
             wire_type=self.strs.id(type),
-            tile_wire=tile_wire,
+            gfx_wire_id=gfx_wire_id,
             const_value=self.strs.id(const_value))
         self._wire2idx[wire.name] = wire.index
         self.wires.append(wire)
@@ -875,17 +875,15 @@ class Chip:
             self.serialise(bba)
             bba.pop()
 
-    def read_gfx_h(self, filename):
+    def read_gfxids(self, filename):
+        idx = 1
         with open(filename) as f:
-            state = 0
             for line in f:
-                if state == 0 and line.startswith("enum GfxTileWireId"):
-                    state = 1
-                elif state == 1 and line.startswith("};"):
-                    state = 0
-                elif state == 1 and (line.startswith("{") or line.strip() == ""):
-                    pass
-                elif state == 1:
-                    idx = len(self.gfx_wire_ids)
-                    name = line.strip().rstrip(",")
-                    self.gfx_wire_ids[name] = idx
+                l = line.strip()
+                if not l.startswith("X("):
+                    continue
+                l = l[2:]
+                assert l.endswith(")"), l
+                l = l[:-1].strip()
+                self.gfx_wire_ids[l] = idx
+                idx += 1

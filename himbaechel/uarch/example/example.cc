@@ -21,13 +21,15 @@
 #include "log.h"
 #include "nextpnr.h"
 #include "util.h"
-#include "gfx.h"
 
 #include "himbaechel_helpers.h"
 
 #define GEN_INIT_CONSTIDS
 #define HIMBAECHEL_CONSTIDS "uarch/example/constids.inc"
+#define HIMBAECHEL_GFXIDS "uarch/example/gfxids.inc"
+#define HIMBAECHEL_UARCH example
 #include "himbaechel_constids.h"
+#include "himbaechel_gfxids.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -189,15 +191,15 @@ struct ExampleImpl : HimbaechelAPI
                 switch (wire_type.index)
                 {
                     case id_LUT_INPUT.index:
-                        z = (tilewire - TILE_WIRE_L0_I0) / 4;
+                        z = (tilewire - GFX_WIRE_L0_I0) / 4;
                         el.x1 = loc.x + 0.10;
                         el.x2 = el.x1 + 0.05;
-                        el.y1 = loc.y + 0.85 - z * 0.1  - ((tilewire - TILE_WIRE_L0_I0) % 4 + 1) * 0.01;
+                        el.y1 = loc.y + 0.85 - z * 0.1  - ((tilewire - GFX_WIRE_L0_I0) % 4 + 1) * 0.01;
                         el.y2 = el.y1;
                         g.push_back(el);
                         break;
                     case id_LUT_OUT.index:
-                        z = tilewire - TILE_WIRE_L0_O;
+                        z = tilewire - GFX_WIRE_L0_O;
                         el.x1 = loc.x + 0.40;
                         el.x2 = el.x1 + 0.05;
                         el.y1 = loc.y + 0.85 - z * 0.1 - 0.025;
@@ -205,7 +207,7 @@ struct ExampleImpl : HimbaechelAPI
                         g.push_back(el);
                         break;
                     case id_FF_DATA.index:
-                        z = tilewire - TILE_WIRE_L0_D;
+                        z = tilewire - GFX_WIRE_L0_D;
                         el.x1 = loc.x + 0.50;
                         el.x2 = el.x1 + 0.05;
                         el.y1 = loc.y + 0.85 - z * 0.1 - 0.025;
@@ -213,7 +215,7 @@ struct ExampleImpl : HimbaechelAPI
                         g.push_back(el);
                         break;
                     case id_FF_OUT.index:
-                        z = tilewire - TILE_WIRE_L0_Q;
+                        z = tilewire - GFX_WIRE_L0_Q;
                         el.x1 = loc.x + 0.80;
                         el.x2 = el.x1 + 0.05;
                         el.y1 = loc.y + 0.85 - z * 0.1 - 0.025;
@@ -238,7 +240,7 @@ struct ExampleImpl : HimbaechelAPI
                 switch (wire_type.index)
                 {
                     case id_RAM_IN.index:
-                        z = tilewire - TILE_WIRE_RAM_WA0;
+                        z = tilewire - GFX_WIRE_RAM_WA0;
                         el.x1 = loc.x + 0.20;
                         el.x2 = el.x1 + 0.05;
                         el.y1 = loc.y + 0.78 - z * 0.015;
@@ -246,7 +248,7 @@ struct ExampleImpl : HimbaechelAPI
                         g.push_back(el);
                         break;
                     case id_RAM_OUT.index:
-                        z = tilewire - TILE_WIRE_RAM_DO0;
+                        z = tilewire - GFX_WIRE_RAM_DO0;
                         el.x1 = loc.x + 0.75;
                         el.x2 = el.x1 + 0.05;
                         el.y1 = loc.y + 0.78 - z * 0.015;
@@ -303,7 +305,7 @@ struct ExampleImpl : HimbaechelAPI
         el.style = style;
         int z;
         if (src_type == id_LUT_OUT && dst_type == id_FF_DATA) {
-            z = src_id - TILE_WIRE_L0_O;
+            z = src_id - GFX_WIRE_L0_O;
             el.x1 = loc.x + 0.45;
             el.y1 = loc.y + 0.85 - z * 0.1 - 0.025;
             el.x2 = loc.x + 0.50;
