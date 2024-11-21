@@ -55,13 +55,6 @@ struct Context;
 
 struct PlacerHeapCfg;
 
-namespace GfxFlags {
-    static constexpr uint32_t FLAG_INVERT_Y  = 0x0001;
-    static constexpr uint32_t FLAG_SHOW_BEL  = 0x0002;
-    static constexpr uint32_t FLAG_SHOW_WIRE = 0x0004;
-    static constexpr uint32_t FLAG_SHOW_PIP  = 0x0008;
-}
-
 struct HimbaechelAPI
 {
     // Architecture specific context initialization
