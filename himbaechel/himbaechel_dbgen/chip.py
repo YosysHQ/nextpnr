@@ -144,6 +144,7 @@ class TileWireData:
     index: int
     name: IdString
     wire_type: IdString
+    gfx_wire_id: int
     const_value: IdString = field(default_factory=list)
     flags: int = 0
     timing_idx: int = -1
@@ -166,6 +167,7 @@ class TileWireData:
     def serialise(self, context: str, bba: BBAWriter):
         bba.u32(self.name.index)
         bba.u32(self.wire_type.index)
+        bba.u32(self.gfx_wire_id)
         bba.u32(self.const_value.index)
         bba.u32(self.flags)
         bba.u32(self.timing_idx)
@@ -202,6 +204,7 @@ class PipData(BBAStruct):
 @dataclass
 class TileType(BBAStruct):
     strs: StringPool
+    gfx_wire_ids: dict()
     tmg: "TimingPool"
     type_name: IdString
     bels: list[BelData] = field(default_factory=list)
@@ -229,9 +232,13 @@ class TileType(BBAStruct):
 
     def create_wire(self, name: str, type: str="", const_value: str=""):
         # Create a new tile wire of a given name and type (optional) in the tile type
+        gfx_wire_id = 0
+        if name in self.gfx_wire_ids:
+            gfx_wire_id = self.gfx_wire_ids[name]
         wire = TileWireData(index=len(self.wires),
             name=self.strs.id(name),
             wire_type=self.strs.id(type),
+            gfx_wire_id=gfx_wire_id,
             const_value=self.strs.id(const_value))
         self._wire2idx[wire.name] = wire.index
         self.wires.append(wire)
@@ -700,8 +707,9 @@ class Chip:
         self.packages = []
         self.extra_data = None
         self.timing = TimingPool(self.strs)
+        self.gfx_wire_ids = dict()
     def create_tile_type(self, name: str):
-        tt = TileType(self.strs, self.timing, self.strs.id(name))
+        tt = TileType(self.strs, self.gfx_wire_ids, self.timing, self.strs.id(name))
         self.tile_type_idx[name] = len(self.tile_types)
         self.tile_types.append(tt)
         return tt
@@ -831,7 +839,7 @@ class Chip:
 
         bba.label("chip_info")
         bba.u32(0x00ca7ca7) # magic
-        bba.u32(4) # version
+        bba.u32(5) # version
         bba.u32(self.width)
         bba.u32(self.height)
 
@@ -866,3 +874,16 @@ class Chip:
             bba.ref('chip_info')
             self.serialise(bba)
             bba.pop()
+
+    def read_gfxids(self, filename):
+        idx = 1
+        with open(filename) as f:
+            for line in f:
+                l = line.strip()
+                if not l.startswith("X("):
+                    continue
+                l = l[2:]
+                assert l.endswith(")"), l
+                l = l[:-1].strip()
+                self.gfx_wire_ids[l] = idx
+                idx += 1

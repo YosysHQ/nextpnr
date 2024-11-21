@@ -237,6 +237,7 @@ def main():
     ch = Chip("example", "EX1", X, Y)
     # Init constant ids
     ch.strs.read_constids(path.join(path.dirname(__file__), "constids.inc"))
+    ch.read_gfxids(path.join(path.dirname(__file__), "gfxids.inc")) 
     logic = create_logic_tiletype(ch)
     io = create_io_tiletype(ch)
     bram = create_bram_tiletype(ch)
