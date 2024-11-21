@@ -33,7 +33,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-static constexpr int database_version = 4;
+static constexpr int database_version = 5;
 
 static const ChipInfoPOD *get_chip_info(const RelPtr<ChipInfoPOD> *ptr) { return ptr->get(); }
 
