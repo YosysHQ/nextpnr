@@ -771,4 +771,6 @@ Router Methods
 
 ### void expandBoundingBox(BoundingBox &bb) const
 
-Updates bounding box to expand search space when routing is failing to find possible route.
+As part of `router2` implementation, during congestion update, every third time a net fails to route, this method is executed to expand the bounding box to increase the search space.
+
+Default implementation expands by one tile in each direction.
