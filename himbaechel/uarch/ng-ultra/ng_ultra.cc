@@ -820,6 +820,179 @@ void NgUltraImpl::fixup_crossbars()
     }
 }
 
+void NgUltraImpl::drawBel(std::vector<GraphicElement> &g, GraphicElement::style_t style, IdString bel_type, Loc loc)
+{
+    GraphicElement el;
+    el.type = GraphicElement::TYPE_BOX;
+    el.style = style;
+    switch (bel_type.index)
+    {
+        case id_BEYOND_FE.index :
+            el.x1 = loc.x + 0.15 + (loc.z % 8) * 0.1;
+            el.x2 = el.x1 + 0.05;
+            el.y1 = loc.y + 0.9 - (loc.z / 8) * 0.15;
+            el.y2 = el.y1 - 0.05;
+            g.push_back(el);
+            break;
+        case id_XLUT.index :
+            el.x1 = loc.x + 0.15 + ((loc.z - BEL_XLUT_Z) % 8) * 0.1;
+            el.x2 = el.x1 + 0.05;
+            el.y1 = loc.y + 0.9 - 4 * 0.15;
+            el.y2 = el.y1 - 0.1;
+            g.push_back(el);
+            break;
+        case id_CY.index :
+            el.x1 = loc.x + 0.15 + ((loc.z-BEL_CY_Z) % 4) * 0.2;
+            el.x2 = el.x1 + 0.15;
+            el.y1 = loc.y + 0.9 - 4 * 0.15;
+            el.y2 = el.y1 - 0.1;
+            g.push_back(el);
+            break;
+        case id_RF.index :
+            el.x1 = loc.x + 0.15 + ((loc.z-BEL_RF_Z) % 2) * 0.6;
+            el.x2 = el.x1 + 0.15;
+            el.y1 = loc.y + 0.9 - 4 * 0.15;
+            el.y2 = el.y1 - 0.05;
+            g.push_back(el);
+            break;
+        case id_XRF.index :
+            el.x1 = loc.x + 0.15 + 0.2;
+            el.x2 = el.x1 + 0.35;
+            el.y1 = loc.y + 0.9 - 4 * 0.15;
+            el.y2 = el.y1 - 0.05;
+            g.push_back(el);
+            break;
+        case id_CDC.index :
+            el.x1 = loc.x + 0.15 + ((loc.z-BEL_CDC_Z) % 2) * 0.6;
+            el.x2 = el.x1 + 0.15;
+            el.y1 = loc.y + 0.9 - 4 * 0.15 - 0.1;
+            el.y2 = el.y1 - 0.05;
+            g.push_back(el);
+            break;
+        case id_XCDC.index :
+            el.x1 = loc.x + 0.15 + 0.2;
+            el.x2 = el.x1 + 0.35;
+            el.y1 = loc.y + 0.9 - 4 * 0.15 - 0.1;
+            el.y2 = el.y1 - 0.05;
+            g.push_back(el);
+            break;
+        case id_FIFO.index :
+            el.x1 = loc.x + 0.15 + ((loc.z-BEL_FIFO_Z) % 2) * 0.6;
+            el.x2 = el.x1 + 0.15;
+            el.y1 = loc.y + 0.9 - 4 * 0.15 - 0.2;
+            el.y2 = el.y1 - 0.05;
+            g.push_back(el);
+            break;
+        case id_XFIFO.index :
+            el.x1 = loc.x + 0.15 + 0.2;
+            el.x2 = el.x1 + 0.35;
+            el.y1 = loc.y + 0.9 - 4 * 0.15 - 0.2;
+            el.y2 = el.y1 - 0.05;
+            g.push_back(el);
+            break;
+        case id_IOTP.index :
+            el.x1 = loc.x + 0.15 + loc.z / 4 * 0.11;
+            el.x2 = el.x1 + 0.06;
+            if (loc.y==3) { // bottom
+                el.y1 = 0.1;
+                el.y2 = el.y1 + 0.2;
+            } else { // top
+                el.y1 = loc.y + 0.9;
+                el.y2 = el.y1 - 0.2;
+            }
+            g.push_back(el);
+            break;
+        case id_IOM.index :
+            el.x1 = loc.x + 0.15;
+            el.x2 = el.x1 + 33 * 0.11 + 0.06;
+            if (loc.y==3) { // bottom
+                el.y1 = 0.4;
+                el.y2 = el.y1 + 0.2;
+            } else { // top
+                el.y1 = loc.y + 0.6;
+                el.y2 = el.y1 - 0.2;
+            }
+            g.push_back(el);
+            break;
+        case id_DDFR.index :
+            el.x1 = loc.x + 0.15 + loc.z / 4 * 0.11 + (loc.z % 4 - 1) * 0.02;
+            el.x2 = el.x1 + 0.015;
+            if (loc.y==3) { // bottom
+                el.y1 = 0.7;
+                el.y2 = el.y1 + 0.1;
+            } else { // top
+                el.y1 = loc.y + 0.3;
+                el.y2 = el.y1 - 0.1;
+            }
+            g.push_back(el);
+            break;
+        case id_IOP.index :
+            if (loc.x==ctx->getGridDimX()-4) { // right
+                el.x1 = ctx->getGridDimX() - 0.1;
+                el.x2 = el.x1 - 0.2;
+            } else { // left
+                el.x1 = loc.x + 0.1;
+                el.x2 = el.x1 + 0.2;
+            }
+            el.y1 = loc.y + 0.85 - loc.z / 4 * 0.11;
+            el.y2 = el.y1 - 0.06;
+            g.push_back(el);
+            break;
+        case id_DFR.index :
+            if (loc.x==ctx->getGridDimX()-4) { // right
+                el.x1 = ctx->getGridDimX() - 0.4;
+                el.x2 = el.x1 - 0.1;
+            } else { // left
+                el.x1 = loc.x + 0.4;
+                el.x2 = el.x1 + 0.1;
+            }            
+            el.y1 = loc.y + 0.85 - loc.z / 4 * 0.11 - (loc.z % 4 - 1) * 0.02 - 0.02;
+            el.y2 = el.y1 + 0.015;
+            g.push_back(el);
+            break;
+        case id_PLL.index :
+            el.x1 = loc.x + 0.1;
+            el.x2 = el.x1 + 0.8;
+            el.y1 = loc.y + 0.9;
+            el.y2 = el.y1 - 0.8;
+            g.push_back(el);
+            break;
+        case id_WFG.index : 
+            el.x1 = loc.x + 1.1;
+            el.x2 = el.x1 + 0.8;
+            el.y1 = loc.y + 0.95 - (loc.z-1) * 0.25 + 3;
+            el.y2 = el.y1 - 0.2;
+            g.push_back(el);
+            break;
+        case id_RAM.index:
+            el.x1 = loc.x + 0.2;
+            el.x2 = el.x1 + 3.6;
+            el.y1 = loc.y + 0.8;
+            el.y2 = el.y1 - 1.6;
+            g.push_back(el);
+            break;
+        case id_DSP.index:
+            el.x1 = (loc.x - 1) + 0.2;
+            el.x2 = el.x1 + 1.6;
+            el.y1 = loc.y + 0.8;
+            el.y2 = el.y1 - 1.6;
+            g.push_back(el);
+            break;
+        case id_GCK.index:
+            {
+                int lobe = loc.z / 20;
+                el.x1 = (47 + (lobe % 2)*3) *4 + 0.1;
+                el.x2 = el.x1 + 0.8;
+                el.y1 = (ctx->getGridDimY() - 1 - (7*4 + 12*4*(lobe>>1))) + 0.95 - (loc.z % 20) * 0.25;
+                el.y2 = el.y1 - 0.2;
+                g.push_back(el);
+            }
+            break;
+        default:
+            break;
+    }
+}
+
 struct NgUltraArch : HimbaechelArch
 {
     NgUltraArch() : HimbaechelArch("ng-ultra"){};
