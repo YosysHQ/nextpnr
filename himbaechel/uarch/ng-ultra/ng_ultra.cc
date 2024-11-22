@@ -36,7 +36,7 @@ NgUltraImpl::~NgUltraImpl(){};
 void NgUltraImpl::init_database(Arch *arch)
 {
     init_uarch_constids(arch);
-    arch->load_chipdb("ng-ultra/ng-ultra.bin");
+    arch->load_chipdb("ng-ultra/chipdb-ng-ultra.bin");
     arch->set_package("FF-1760");
     arch->set_speed_grade("DEFAULT");
 }
