@@ -765,3 +765,10 @@ Returns `true` if the cell **must** be placed according to the cluster; for exam
 Gets an exact placement of the cluster, with the root cell placed on or near `root_bel` (and always within the same tile). Returns false if no placement is viable, otherwise returns `true` and populates `placement` with a list of cells inside the cluster and bels they should be placed at.
 
 This approach of allowing architectures to define cluster placements enables easier handling of irregular fabrics than requiring strict and constant x, y and z offsets.
+
+Router Methods
+---------------
+
+### void expandBoundingBox(BoundingBox &bb) const
+
+Updates bounding box to expand search space when routing is failing to find possible route.
