@@ -38,7 +38,7 @@ inline bool is_iologico(const CellInfo *cell) { return type_is_iologico(cell->ty
 
 inline bool type_is_iologici(IdString cell_type)
 {
-    return cell_type.in(id_IDDR, id_IDDRC, id_IDES4, id_IDES8, id_IDES10, id_IVIDEO);
+    return cell_type.in(id_IDDR, id_IDDRC, id_IDES4, id_IDES8, id_IDES10, id_IVIDEO, id_IOLOGICI_EMPTY);
 }
 inline bool is_iologici(const CellInfo *cell) { return type_is_iologici(cell->type); }
 
@@ -138,9 +138,7 @@ NPNR_PACKED_STRUCT(struct Constraint_POD {
     int32_t iostd;
 });
 
-NPNR_PACKED_STRUCT(struct Extra_package_data_POD {
-    RelSlice<Constraint_POD> cst;
-});
+NPNR_PACKED_STRUCT(struct Extra_package_data_POD { RelSlice<Constraint_POD> cst; });
 
 NPNR_PACKED_STRUCT(struct Extra_chip_data_POD {
     int32_t chip_flags;
