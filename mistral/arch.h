@@ -451,6 +451,10 @@ struct Arch : BaseArch<ArchRanges>
     BelBucketId getBelBucketForBel(BelId bel) const override;
 
     // -------------------------------------------------
+    // Expanding bounding box seems to make thing worse for CycloneV
+    // as it slows down the resolution of TD congestion, disabling it
+    void expandBoundingBox(BoundingBox &bb) const override {};
+    // -------------------------------------------------
 
     void assignArchInfo() override;
     bool pack() override;

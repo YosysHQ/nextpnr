@@ -708,6 +708,10 @@ struct Arch : BaseArch<ArchRanges>
     DecalXY getGroupDecal(GroupId group) const override;
 
     // ------------------------------------------------
+    // Routing methods
+    void expandBoundingBox(BoundingBox &bb) const override { uarch->expandBoundingBox(bb); };
+
+    // ------------------------------------------------
 
     bool pack() override;
     bool place() override;
