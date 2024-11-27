@@ -650,36 +650,30 @@ bool NgUltraImpl::getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc
 {
     Loc prev = root_loc;
     for (auto child : cluster->constr_children) {
-        Loc child_loc = if_using_basecluster<Loc>(child, [&](const BaseClusterInfo *child) {
-            switch(child->constr_z) {
-                case PLACE_CY_CHAIN : { Loc l = getNextLocInCYChain(prev); prev = l; return l; }
-                case PLACE_LUT_CHAIN : { Loc l = getNextLocInLUTChain(prev); prev = l; return l; }
-                case PLACE_DFF_CHAIN : { Loc l = getNextLocInDFFChain(prev); prev = l; return l; }
-                case PLACE_CY_FE1 ... PLACE_CY_FE4: return getCYFE(root_loc, child->constr_z - PLACE_CY_FE1 );
-                case PLACE_XLUT_FE1 ... PLACE_XLUT_FE4: return getXLUTFE(root_loc, child->constr_z - PLACE_XLUT_FE1 );
-                case PLACE_XRF_I1 ... PLACE_XRF_WEA:
-                                    return getXRFFE(root_loc, child->constr_z - PLACE_XRF_I1 );
-                case PLACE_CDC_AI1 ... PLACE_CDC_DDRSTI:
-                                    return getCDCFE(root_loc, child->constr_z - PLACE_CDC_AI1 );
-                case PLACE_FIFO_I1 ... PLACE_FIFO_REQ2:
-                                    return getFIFOFE(root_loc, child->constr_z - PLACE_FIFO_I1 );
-                case PLACE_DSP_CHAIN : { Loc l = getNextLocInDSPChain(this, prev); prev = l; return l; }
-                default:
-                    Loc result;
-                    result.x = root_loc.x + child->constr_x;
-                    result.y = root_loc.y + child->constr_y;
-                    result.z = child->constr_abs_z ? child->constr_z : (root_loc.z + child->constr_z);
-                    return result;
-            }
-        });
+        Loc child_loc;
+        switch(child->constr_z) {
+            case PLACE_CY_CHAIN :child_loc = getNextLocInCYChain(prev); prev = child_loc;  break;
+            case PLACE_LUT_CHAIN : child_loc = getNextLocInLUTChain(prev); prev = child_loc; break;
+            case PLACE_DFF_CHAIN : child_loc = getNextLocInDFFChain(prev); prev = child_loc; break;
+            case PLACE_CY_FE1 ... PLACE_CY_FE4: child_loc = getCYFE(root_loc, child->constr_z - PLACE_CY_FE1 ); break; 
+            case PLACE_XLUT_FE1 ... PLACE_XLUT_FE4: child_loc = getXLUTFE(root_loc, child->constr_z - PLACE_XLUT_FE1 );break; 
+            case PLACE_XRF_I1 ... PLACE_XRF_WEA:
+                                child_loc = getXRFFE(root_loc, child->constr_z - PLACE_XRF_I1 ); break;
+            case PLACE_CDC_AI1 ... PLACE_CDC_DDRSTI:
+                                child_loc = getCDCFE(root_loc, child->constr_z - PLACE_CDC_AI1 ); break;
+            case PLACE_FIFO_I1 ... PLACE_FIFO_REQ2:
+                                child_loc = getFIFOFE(root_loc, child->constr_z - PLACE_FIFO_I1 ); break;
+            case PLACE_DSP_CHAIN : child_loc = getNextLocInDSPChain(this, prev); prev = child_loc; break;
+            default:
+                child_loc.x = root_loc.x + child->constr_x;
+                child_loc.y = root_loc.y + child->constr_y;
+                child_loc.z = child->constr_abs_z ? child->constr_z : (root_loc.z + child->constr_z);
+        }
         BelId child_bel = ctx->getBelByLocation(child_loc);
         if (child_bel == BelId() || !this->isValidBelForCellType(child->type, child_bel))
             return false;
         placement.emplace_back(child, child_bel);
-        bool val = if_using_basecluster<bool>(child, [&](const BaseClusterInfo *child_cluster) -> bool {
-            return getChildPlacement(child_cluster, child_loc, placement);
-        });
-        if (!val) return false;
+        if (!getChildPlacement(child, child_loc, placement)) return false;
     }
     return true;
 }
@@ -688,20 +682,18 @@ bool NgUltraImpl::getClusterPlacement(ClusterId cluster, BelId root_bel,
                                     std::vector<std::pair<CellInfo *, BelId>> &placement) const
 {
     CellInfo *root_cell = get_cluster_root(ctx, cluster);
-    return if_using_basecluster<bool>(root_cell, [&](const BaseClusterInfo *cluster) -> bool {
-        placement.clear();
-        NPNR_ASSERT(root_bel != BelId());
-        Loc root_loc = ctx->getBelLocation(root_bel);
-        if (cluster->constr_abs_z) {
-            // Coerce root to absolute z constraint
-            root_loc.z = cluster->constr_z;
-            root_bel = ctx->getBelByLocation(root_loc);
-            if (root_bel == BelId() || !this->isValidBelForCellType(root_cell->type, root_bel))
-                return false;
-        }
-        placement.emplace_back(root_cell, root_bel);
-        return getChildPlacement(cluster, root_loc, placement);
-    });
+    placement.clear();
+    NPNR_ASSERT(root_bel != BelId());
+    Loc root_loc = ctx->getBelLocation(root_bel);
+    if (root_cell->constr_abs_z) {
+        // Coerce root to absolute z constraint
+        root_loc.z = root_cell->constr_z;
+        root_bel = ctx->getBelByLocation(root_loc);
+        if (root_bel == BelId() || !this->isValidBelForCellType(root_cell->type, root_bel))
+            return false;
+    }
+    placement.emplace_back(root_cell, root_bel);
+    return getChildPlacement(root_cell, root_loc, placement);
 }
 
 BoundingBox NgUltraImpl::getRouteBoundingBox(WireId src, WireId dst) const
