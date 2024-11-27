@@ -46,7 +46,7 @@ class NGUltraLutDffTest : public ::testing::Test
     int const_autoidx = 0;
     NetInfo* add_constant_driver(const char *name, char constval)
     {
-        IdString cell_name = ctx->id(std::string(name) + (constval == '1' ? "$VCC$" : "$GND$") + std::to_string(const_autoidx++));
+        IdString cell_name = ctx->idf("%s%s%d", name, (constval == '1' ? "$VCC$" : "$GND$"), const_autoidx++);
         CellInfo *cc = ctx->createCell(cell_name, ctx->id(constval == '1' ? "VCC" : "GND"));
         cc->ports[ctx->id("Y")].name = ctx->id("Y");
         cc->ports[ctx->id("Y")].type = PORT_OUT;

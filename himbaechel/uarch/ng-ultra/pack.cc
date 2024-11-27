@@ -311,7 +311,7 @@ void NgUltraPacker::dff_to_fe(CellInfo *dff, CellInfo *fe, bool pass_thru_lut)
         if (dff->params.count(id_dff_type)) fe->setParam(id_dff_type,dff->params[id_dff_type]);
     }
     if (pass_thru_lut) {
-        NetInfo *new_out = ctx->createNet(ctx->id(dff->name.str(ctx) + "$LO"));
+        NetInfo *new_out = ctx->createNet(ctx->idf("%s$LO",dff->name.c_str(ctx)));
         fe->connectPort(id_LO, new_out);
         fe->connectPort(id_DI, new_out);
     }
@@ -455,7 +455,7 @@ void NgUltraPacker::pack_dff_chains(void)
     int dff_only = 0, lut_and_ff = 0;
     for (auto ch : dff_chain_start) {
         CellInfo *dff = ch.first;
-        CellInfo *root = create_cell_ptr(id_BEYOND_FE, ctx->id(dff->name.str(ctx) + "$fe"));
+        CellInfo *root = create_cell_ptr(id_BEYOND_FE, ctx->idf("%s$fe", dff->name.c_str(ctx)));
         root->cluster = root->name;
         NetInfo *net = dff->getPort(id_I);
         if (net && net->driver.cell->type == id_NX_LUT && net->users.entries()==1) {
@@ -473,7 +473,7 @@ void NgUltraPacker::pack_dff_chains(void)
             ++dff_only;
         }
         for(auto dff : ch.second) {
-            CellInfo *new_cell = create_cell_ptr(id_BEYOND_FE, ctx->id(dff->name.str(ctx) + "$fe"));
+            CellInfo *new_cell = create_cell_ptr(id_BEYOND_FE, ctx->idf("%s$fe", dff->name.c_str(ctx)));
             dff_to_fe(dff, new_cell, true);
             ++dff_only;
             root->constr_children.push_back(new_cell);
@@ -513,7 +513,7 @@ void NgUltraPacker::pack_lut_multi_dffs(void)
             }
             if (cnt<2) continue;
 
-            CellInfo *root = create_cell_ptr(id_BEYOND_FE, ctx->id(ci.name.str(ctx) + "$fe"));
+            CellInfo *root = create_cell_ptr(id_BEYOND_FE, ctx->idf("%s$fe", ci.name.c_str(ctx)));
             packed_cells.insert(ci.name);
             bind_attr_loc(root, &ci.attrs);
             lut_to_fe(&ci, root, false, ci.params[id_lut_table]);
@@ -532,7 +532,7 @@ void NgUltraPacker::pack_lut_multi_dffs(void)
                         ++lut_and_ff;
                     } else if (i < max_use) {
                         packed_cells.insert(u.cell->name);
-                        CellInfo *new_cell = create_cell_ptr(id_BEYOND_FE, ctx->id(u.cell->name.str(ctx) + "$fe"));
+                        CellInfo *new_cell = create_cell_ptr(id_BEYOND_FE, ctx->idf("%s$fe", u.cell->name.c_str(ctx)));
                         dff_to_fe(u.cell, new_cell, false);
                         root->constr_children.push_back(new_cell);
                         new_cell->cluster = root->cluster;
@@ -551,7 +551,7 @@ void NgUltraPacker::pack_lut_multi_dffs(void)
                 }
             }
             if (use_bff) {
-                CellInfo *new_cell = create_cell_ptr(id_BEYOND_FE, ctx->id(ci.name.str(ctx) + "$bff"));
+                CellInfo *new_cell = create_cell_ptr(id_BEYOND_FE, ctx->idf("%s$bff",ci.name.c_str(ctx)));
                 new_cell->params[id_dff_used] = Property(1,1);
                 new_cell->setParam(id_type, Property("BFF"));
                 new_cell->connectPort(id_DI, o);
@@ -559,7 +559,7 @@ void NgUltraPacker::pack_lut_multi_dffs(void)
                 new_cell->cluster = root->cluster;
                 new_cell->constr_z = PLACE_LUT_CHAIN;
                 bff_only++;
-                NetInfo *new_out = ctx->createNet(ctx->id(o->name.str(ctx) + "$new"));
+                NetInfo *new_out = ctx->createNet(ctx->idf("%s$new", o->name.c_str(ctx)));
                 new_cell->connectPort(id_DO, new_out);
                 for(auto &user : users) {
                     user.cell->connectPort(user.port, new_out);
@@ -588,7 +588,7 @@ void NgUltraPacker::pack_lut_dffs(void)
         if (!ci.params.count(id_lut_table))
             log_error("Cell '%s' missing lut_table\n", ci.name.c_str(ctx));
 
-        std::unique_ptr<CellInfo> packed = create_cell(id_BEYOND_FE, ctx->id(ci.name.str(ctx) + "$fe"));
+        std::unique_ptr<CellInfo> packed = create_cell(id_BEYOND_FE, ctx->idf("%s$fe", ci.name.c_str(ctx)));
         packed_cells.insert(ci.name);
         bind_attr_loc(packed.get(), &ci.attrs);
 
@@ -628,7 +628,7 @@ void NgUltraPacker::pack_dffs(void)
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_NX_DFF, id_NX_BFF))
             continue;
-        std::unique_ptr<CellInfo> packed = create_cell(id_BEYOND_FE, ctx->id(ci.name.str(ctx) + "$fe"));
+        std::unique_ptr<CellInfo> packed = create_cell(id_BEYOND_FE, ctx->idf("%s$fe", ci.name.c_str(ctx)));
         packed_cells.insert(ci.name);
         dff_to_fe(&ci, packed.get(), true);
         bind_attr_loc(packed.get(), &ci.attrs);
@@ -777,8 +777,8 @@ void NgUltraPacker::pack_iobs(void)
                     log_error("NX_DDFR '%s' can only directly drive IOB.\n", iod->name.c_str(ctx));
                 if (!iod) {
                     bfr_added++;
-                    iod = create_cell_ptr(id_BFR, ctx->id(cell->name.str(ctx) + "$iod_cd"));
-                    NetInfo *new_out = ctx->createNet(ctx->id(iod->name.str(ctx) + "$O"));
+                    iod = create_cell_ptr(id_BFR, ctx->idf("%s$iod_cd", cell->name.c_str(ctx)));
+                    NetInfo *new_out = ctx->createNet(ctx->idf("%s$O",iod->name.c_str(ctx)));
                     iod->setParam(id_iobname,str_or_default(cell->params, id_iobname, ""));
                     cell->disconnectPort(id_C);
                     if (c_net->name == ctx->id("$PACKER_GND"))
@@ -824,8 +824,8 @@ void NgUltraPacker::pack_iobs(void)
                     log_error("NX_DDFR '%s' can only directly drive IOB.\n", iod->name.c_str(ctx));
                 if (!iod) {
                     bfr_added++;
-                    iod = create_cell_ptr(id_BFR, ctx->id(cell->name.str(ctx) + "$iod_od"));
-                    NetInfo *new_out = ctx->createNet(ctx->id(iod->name.str(ctx) + "$O"));
+                    iod = create_cell_ptr(id_BFR, ctx->idf("%s$iod_od", cell->name.c_str(ctx)));
+                    NetInfo *new_out = ctx->createNet(ctx->idf("%s$O", iod->name.c_str(ctx)));
                     iod->setParam(id_iobname,str_or_default(cell->params, id_iobname, ""));
                     cell->disconnectPort(id_I);
                     if (i_net->name == ctx->id("$PACKER_GND"))
@@ -871,8 +871,8 @@ void NgUltraPacker::pack_iobs(void)
                     iod = net_only_drives(ctx, o_net, is_ddfr, id_I, true);
                     if (!iod) {
                         bfr_added++;
-                        iod = create_cell_ptr(id_BFR, ctx->id(cell->name.str(ctx) + "$iod_id"));
-                        NetInfo *new_in = ctx->createNet(ctx->id(iod->name.str(ctx) + "$I"));
+                        iod = create_cell_ptr(id_BFR, ctx->idf("%s$iod_id", cell->name.c_str(ctx)));
+                        NetInfo *new_in = ctx->createNet(ctx->idf("%s$I", iod->name.c_str(ctx)));
                         iod->setParam(id_iobname,str_or_default(cell->params, id_iobname, ""));
                         cell->disconnectPort(id_O);
                         iod->connectPort(id_O, o_net);
@@ -968,21 +968,21 @@ void NgUltraPacker::pack_ioms(void)
 
 void NgUltraPacker::pack_cy_input_and_output(CellInfo *cy, IdString cluster, IdString in_port, IdString out_port, int placer, int &lut_only, int &lut_and_ff, int &dff_only)
 {
-    CellInfo *fe = create_cell_ptr(id_BEYOND_FE, ctx->id(cy->name.str(ctx) + "$" + in_port.c_str(ctx)));
+    CellInfo *fe = create_cell_ptr(id_BEYOND_FE, ctx->idf("%s$%s", cy->name.c_str(ctx), in_port.c_str(ctx)));
     NetInfo *net = cy->getPort(in_port);
     if (net) {
         if (net->name.in(ctx->id("$PACKER_GND"), ctx->id("$PACKER_VCC"))) {
             fe->params[id_lut_table] = Property((net->name ==ctx->id("$PACKER_GND")) ? 0x0000 : 0xffff, 16);
             fe->params[id_lut_used] = Property(1,1);
             cy->disconnectPort(in_port);
-            NetInfo *new_out = ctx->createNet(ctx->id(fe->name.str(ctx) + "$o"));
+            NetInfo *new_out = ctx->createNet(ctx->idf("%s$o", fe->name.c_str(ctx)));
             fe->connectPort(id_LO, new_out);
             cy->connectPort(in_port, new_out);
         } else {
             fe->params[id_lut_table] = Property(0xaaaa, 16);
             fe->params[id_lut_used] = Property(1,1);
             cy->disconnectPort(in_port);
-            NetInfo *new_out = ctx->createNet(ctx->id(fe->name.str(ctx) + "$o"));
+            NetInfo *new_out = ctx->createNet(ctx->idf("%s$o", fe->name.c_str(ctx)));
             fe->connectPort(id_I1, net);
             fe->connectPort(id_LO, new_out);
             cy->connectPort(in_port, new_out);
@@ -1151,14 +1151,14 @@ void NgUltraPacker::pack_xrf_input_and_output(CellInfo *xrf, IdString cluster, I
     if (!net && !net_out) return;
     IdString name = in_port;
     if (name == IdString()) name = out_port;
-    CellInfo *fe = create_cell_ptr(id_BEYOND_FE, ctx->id(xrf->name.str(ctx) + "$" + name.c_str(ctx)));
+    CellInfo *fe = create_cell_ptr(id_BEYOND_FE, ctx->idf("%s$%s", xrf->name.c_str(ctx), name.c_str(ctx)));
     
     if (net) {
         if (net->name.in(ctx->id("$PACKER_GND"), ctx->id("$PACKER_VCC"))) {
             fe->params[id_lut_table] = Property((net->name ==ctx->id("$PACKER_GND")) ? 0x0000 : 0xffff, 16);
             fe->params[id_lut_used] = Property(1,1);
             xrf->disconnectPort(in_port);
-            NetInfo *new_out = ctx->createNet(ctx->id(fe->name.str(ctx) + "$o"));
+            NetInfo *new_out = ctx->createNet(ctx->idf("%s$o", fe->name.c_str(ctx)));
             fe->connectPort(id_LO, new_out);
             xrf->connectPort(in_port, new_out);
         } else {
@@ -1172,7 +1172,7 @@ void NgUltraPacker::pack_xrf_input_and_output(CellInfo *xrf, IdString cluster, I
                 fe->params[id_lut_table] = Property(0xaaaa, 16);
                 fe->params[id_lut_used] = Property(1,1);
                 xrf->disconnectPort(in_port);
-                NetInfo *new_out = ctx->createNet(ctx->id(fe->name.str(ctx) + "$o"));
+                NetInfo *new_out = ctx->createNet(ctx->idf("%s$o", fe->name.c_str(ctx)));
                 fe->connectPort(id_I1, net);
                 fe->connectPort(id_LO, new_out);
                 xrf->connectPort(in_port, new_out);
@@ -1219,7 +1219,7 @@ void NgUltraPacker::pack_rfs(void)
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_NX_RFB_U))
             continue;
-        int mode = int_or_default(ci.params, ctx->id("mode"), 0);
+        int mode = int_or_default(ci.params, id_mode, 0);
         switch(mode) {
             case 0 : ci.type = id_RF; break;
             case 1 : ci.type = id_RFSP; break;
@@ -1635,13 +1635,13 @@ void NgUltraPacker::insert_ioms()
             iom = ctx->getBoundBelCell(bel);
             log_info("    Reusing IOM in bank '%s' for signal '%s'\n", iob.c_str(ctx), iobname.c_str());
         } else {
-            iom = create_cell_ptr(id_IOM, ctx->id(std::string(iob.c_str(ctx)) + "$iom"));
+            iom = create_cell_ptr(id_IOM, ctx->idf("%s$iom", iob.c_str(ctx)));
             log_info("    Adding IOM in bank '%s' for signal '%s'\n", iob.c_str(ctx), iobname.c_str());
         }
         if (iom->getPort(port)) {
             log_error("Port '%s' of IOM cell '%s' is already used.\n", port.c_str(ctx), iom->name.c_str(ctx));
         }
-        NetInfo *iom_to_clk = ctx->createNet(ctx->id(std::string(net->name.c_str(ctx)) + "$iom"));
+        NetInfo *iom_to_clk = ctx->createNet(ctx->idf("%s$iom", net->name.c_str(ctx)));
         for (const auto &usr : net->users) {
             IdString port = usr.port;
             usr.cell->disconnectPort(port);
@@ -1764,7 +1764,7 @@ void NgUltraPacker::insert_wfb(CellInfo *cell, IdString port)
     if (in_ring && in_fabric) {
         // If both in ring and in fabric create new signal
         wfb->connectPort(id_ZI, net);
-        NetInfo *net_zo = ctx->createNet(ctx->id(net->name.str(ctx) + "$ZO"));
+        NetInfo *net_zo = ctx->createNet(ctx->idf("%s$ZO", net->name.c_str(ctx)));
         wfb->connectPort(id_ZO, net_zo);
         for (const auto &usr : net->users) {
             if (uarch->is_fabric_lowskew_sink(usr) || uarch->is_ring_over_tile_clock_sink(usr)) {
@@ -2276,7 +2276,7 @@ void NgUltraPacker::pre_place(void)
             CellInfo *bfr = net->driver.cell;
             CellInfo *gck_cell = create_cell_ptr(id_GCK, ctx->idf("%s$csc", bfr->name.c_str(ctx)));
             gck_cell->params[id_std_mode] = Property("CSC");
-            NetInfo *new_out = ctx->createNet(ctx->id(bfr->name.str(ctx) + "$bfr"));
+            NetInfo *new_out = ctx->createNet(ctx->idf("%s$bfr", bfr->name.c_str(ctx)));
             NetInfo *old = bfr->getPort(id_O);
             bfr->disconnectPort(id_O);
             gck_cell->connectPort(id_SO, old);
@@ -2442,7 +2442,7 @@ void NgUltraPacker::insert_csc()
 
                 ctx->unbindBel(cell->bel);
                 cell->disconnectPort(id_LO);
-                NetInfo *new_out = ctx->createNet(ctx->id(cell->name.str(ctx) + "$o"));
+                NetInfo *new_out = ctx->createNet(ctx->idf("%s$o", cell->name.c_str(ctx)));
                 cell->params[id_CSC] = Property(Property::State::S1);
                 cell->params[id_type] = Property("CSC");
                 cell->params[id_dff_used] = Property(1,1);
@@ -2460,8 +2460,8 @@ void NgUltraPacker::insert_csc()
             if (newbel==BelId()) break;
             if (lsm.second[n.second].size() < 4) break;
 
-            CellInfo *fe = create_cell_ptr(id_BEYOND_FE, ctx->id(net->name.str(ctx) + "$" + lsm.first.c_str(ctx) + "$csc"));
-            NetInfo *new_out = ctx->createNet(ctx->id(fe->name.str(ctx) + "$o"));
+            CellInfo *fe = create_cell_ptr(id_BEYOND_FE, ctx->idf("%s$%s$csc", net->name.c_str(ctx), lsm.first.c_str(ctx)));
+            NetInfo *new_out = ctx->createNet(ctx->idf("%s$o", fe->name.c_str(ctx)));
             fe->params[id_lut_table] = Property(0xaaaa, 16);
             fe->params[id_lut_used] = Property(1,1);
             fe->params[id_CSC] = Property(Property::State::S1);
