@@ -58,6 +58,8 @@ struct NgUltraImpl : HimbaechelAPI
     bool checkPipAvail(PipId pip) const override { return blocked_pips.count(pip)==0; }
     bool checkPipAvailForNet(PipId pip, const NetInfo *net) const override { return checkPipAvail(pip); };
 
+    void expandBoundingBox(BoundingBox &bb) const override;
+
     void drawBel(std::vector<GraphicElement> &g, GraphicElement::style_t style, IdString bel_type, Loc loc) override;
 public:
     int tile_lobe(int tile) const;

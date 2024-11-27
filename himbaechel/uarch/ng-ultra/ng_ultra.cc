@@ -719,6 +719,17 @@ BoundingBox NgUltraImpl::getRouteBoundingBox(WireId src, WireId dst) const
             (y1 & 0xfffc) + 8};  // current and row bellow
 }
 
+void NgUltraImpl::expandBoundingBox(BoundingBox &bb) const
+{
+    // Updated numbers for NG-ULTRA only
+    // x0 and y0 substract 1 TILE
+    // x1 and y1 adds 1 TILE (and of one added)
+    bb.x0 = std::max((bb.x0 & 0xfffc) - 4, 0);
+    bb.y0 = std::max((bb.y0 & 0xfffc) - 4, 0);
+    bb.x1 = std::min((bb.x1 & 0xfffc) + 8, ctx->getGridDimX());
+    bb.y1 = std::min((bb.y1 & 0xfffc) + 8, ctx->getGridDimY());
+}
+
 delay_t NgUltraImpl::estimateDelay(WireId src, WireId dst) const
 {
     int sx, sy, dx, dy;
