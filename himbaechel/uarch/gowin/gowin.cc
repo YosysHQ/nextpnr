@@ -306,7 +306,8 @@ void GowinImpl::place_constrained_hclk_cells()
         if ((seen_hclk_users.find(ci->name) != seen_hclk_users.end()))
             continue;
 
-        if (((is_iologici(ci) || is_iologico(ci)) && !ci->type.in(id_ODDR, id_ODDRC, id_IDDR, id_IDDRC))) {
+        if (((is_iologici(ci) || is_iologico(ci)) &&
+             !ci->type.in(id_ODDR, id_ODDRC, id_IDDR, id_IDDRC, id_IOLOGICI_EMPTY))) {
             NetInfo *hclk_net = ci->getPort(id_FCLK);
             if (hclk_net)
                 continue;

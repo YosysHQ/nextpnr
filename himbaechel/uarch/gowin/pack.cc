@@ -365,7 +365,7 @@ struct GowinPacker
 
     void check_iologic_placement(CellInfo &ci, Loc iob_loc, int diff /* 1 - diff */)
     {
-        if (ci.type.in(id_ODDR, id_ODDRC, id_IDDR, id_IDDRC, id_OSER4) || diff) {
+        if (ci.type.in(id_ODDR, id_ODDRC, id_IDDR, id_IDDRC, id_OSER4, id_IOLOGICI_EMPTY) || diff) {
             return;
         }
         BelId l_bel = ctx->getBelByLocation(Loc(iob_loc.x, iob_loc.y, BelZ::IOBA_Z + 1 - (iob_loc.z - BelZ::IOBA_Z)));
@@ -517,7 +517,7 @@ struct GowinPacker
 
     CellInfo *create_aux_iologic_cell(CellInfo &ci, IdString mode, bool io16 = false, int idx = 0)
     {
-        if (ci.type.in(id_ODDR, id_ODDRC, id_OSER4, id_IDDR, id_IDDRC, id_IDES4)) {
+        if (ci.type.in(id_ODDR, id_ODDRC, id_OSER4, id_IDDR, id_IDDRC, id_IDES4, id_IOLOGICI_EMPTY)) {
             return nullptr;
         }
         IdString aux_name = gwu.create_aux_name(ci.name, idx);
@@ -597,6 +597,9 @@ struct GowinPacker
         ctx->bindBel(l_bel, &ci, PlaceStrength::STRENGTH_LOCKED);
         std::string in_mode;
         switch (ci.type.hash()) {
+        case ID_IOLOGICI_EMPTY:
+            in_mode = "EMPTY";
+            break;
         case ID_IDDR:
         case ID_IDDRC:
             in_mode = "IDDRX1";
@@ -616,6 +619,10 @@ struct GowinPacker
         }
         ci.setParam(ctx->id("INMODE"), in_mode);
 
+        if (ci.type == id_IOLOGICI_EMPTY) {
+            return;
+        }
+
         // disconnect D input: it is wired internally
         nets_to_remove.push_back(ci.getPort(in_port)->name);
         in_iob->disconnectPort(id_O);
@@ -624,6 +631,139 @@ struct GowinPacker
         reconnect_ides_outs(&ci);
 
         make_iob_nets(*in_iob);
+    }
+
+    void pack_iem()
+    {
+        log_info("Pack Input Edge Monitors...\n");
+        std::vector<IdString> cells_to_remove;
+        std::vector<std::unique_ptr<CellInfo>> new_cells;
+
+        for (auto &cell : ctx->cells) {
+            CellInfo &ci = *cell.second;
+            if (ci.type != id_IEM) {
+                continue;
+            }
+            if (ctx->debug) {
+                log_info("pack %s of type %s.\n", ctx->nameOf(&ci), ci.type.c_str(ctx));
+            }
+            // IEM is part of IOLOGIC but functions independently of the
+            // presence/absence of other IOLOGIC components. Therefore, we use
+            // the existing cell whenever possible.
+            const NetInfo *d_net = ci.ports.at(id_D).net;
+            CellInfo *in_iob = net_driven_by(ctx, d_net, is_iob, id_O);
+            NPNR_ASSERT(in_iob != nullptr && in_iob->bel != BelId());
+            BelId iob_bel = in_iob->bel;
+
+            BelId l_bel = get_iologici_bel(in_iob);
+            if (l_bel == BelId()) {
+                log_error("Can't place IOLOGIC %s at %s\n", ctx->nameOf(&ci), ctx->nameOfBel(iob_bel));
+            }
+            CellInfo *iologic = nullptr;
+            for (auto &usr : d_net->users) {
+                if (is_iologici(usr.cell)) {
+                    if (ctx->debug) {
+                        log_info(" found IOLOGIC cell %s of type %s, use it.\n", ctx->nameOf(usr.cell),
+                                 usr.cell->type.c_str(ctx));
+                    }
+                    iologic = usr.cell;
+                    if (iologic->ports.count(id_CLK)) {
+                        NPNR_ASSERT(iologic->ports.at(id_CLK).net == ci.ports.at(id_CLK).net);
+                    } else {
+                        if (iologic->ports.count(id_PCLK)) {
+                            NPNR_ASSERT(iologic->ports.at(id_PCLK).net == ci.ports.at(id_CLK).net);
+                        }
+                        iologic->addInput(ctx->id("CLK"));
+                    }
+                    if (iologic->ports.count(id_RESET)) {
+                        NPNR_ASSERT(iologic->ports.at(id_RESET).net == ci.ports.at(id_RESET).net);
+                    } else {
+                        iologic->addInput(ctx->id("RESET"));
+                    }
+                    break;
+                }
+            }
+            if (iologic == nullptr) {
+                IdString iologic_name = gwu.create_aux_name(ci.name);
+                if (ctx->debug) {
+                    log_info(" create IOLOGIC cell %s.\n", iologic_name.c_str(ctx));
+                }
+                auto iologic_cell = gwu.create_cell(iologic_name, id_IOLOGICI_EMPTY);
+                new_cells.push_back(std::move(iologic_cell));
+                iologic = new_cells.back().get();
+                ci.copyPortTo(id_D, iologic, id_D);
+                ci.copyPortTo(id_CLK, iologic, id_CLK);
+                ci.copyPortTo(id_RESET, iologic, id_RESET);
+            }
+            ci.movePortTo(id_MCLK, iologic, id_MCLK);
+            ci.movePortTo(id_LAG, iologic, id_LAG);
+            ci.movePortTo(id_LEAD, iologic, id_LEAD);
+
+            ci.disconnectPort(id_D);
+            ci.disconnectPort(id_CLK);
+            ci.disconnectPort(id_RESET);
+
+            // WINSIZE attribute defines routing to ports WINSIZE0/1
+            iologic->addInput(id_WINSIZE0);
+            iologic->addInput(id_WINSIZE1);
+            if (ci.params.count(id_WINSIZE) == 0) {
+                ci.setParam(id_WINSIZE, Property("SMALL"));
+            }
+
+            NetInfo *vcc_net = ctx->nets.at(ctx->id("$PACKER_VCC")).get();
+            NetInfo *vss_net = ctx->nets.at(ctx->id("$PACKER_GND")).get();
+            IdString winsize = ctx->id(ci.params.at(id_WINSIZE).as_string());
+            switch (winsize.hash()) {
+            case ID_SMALL:
+                iologic->connectPort(id_WINSIZE0, vss_net);
+                iologic->connectPort(id_WINSIZE1, vss_net);
+                break;
+            case ID_MIDSMALL:
+                iologic->connectPort(id_WINSIZE0, vcc_net);
+                iologic->connectPort(id_WINSIZE1, vss_net);
+                break;
+            case ID_MIDLARGE:
+                iologic->connectPort(id_WINSIZE0, vss_net);
+                iologic->connectPort(id_WINSIZE1, vcc_net);
+                break;
+            case ID_LARGE:
+                iologic->connectPort(id_WINSIZE0, vcc_net);
+                iologic->connectPort(id_WINSIZE1, vcc_net);
+                break;
+            default:
+                log_error("%s has incorrect WINSIZE:%s\n", ctx->nameOf(&ci), ci.params.at(id_WINSIZE).c_str());
+            }
+
+            if (ci.params.count(id_GSREN) != 0) {
+                if (iologic->params.count(id_GSREN) == 0) {
+                    iologic->setParam(id_GSREN, ci.params.at(id_GSREN));
+                } else {
+                    if (ci.params.at(id_GSREN) != iologic->params.at(id_GSREN)) {
+                        log_error("GSREN parameter values of %s and %s do not match.\n", ctx->nameOf(&ci),
+                                  ctx->nameOf(iologic));
+                    }
+                }
+            }
+            if (ci.params.count(id_LSREN) != 0) {
+                if (iologic->params.count(id_LSREN) == 0) {
+                    iologic->setParam(id_LSREN, ci.params.at(id_LSREN));
+                } else {
+                    if (ci.params.at(id_LSREN) != iologic->params.at(id_LSREN)) {
+                        log_error("LSREN parameter values of %s and %s do not match.\n", ctx->nameOf(&ci),
+                                  ctx->nameOf(iologic));
+                    }
+                }
+            }
+            cells_to_remove.push_back(ci.name);
+        }
+
+        for (auto cell : cells_to_remove) {
+            ctx->cells.erase(cell);
+        }
+
+        for (auto &ncell : new_cells) {
+            ctx->cells[ncell->name] = std::move(ncell);
+        }
     }
 
     void pack_iologic()
@@ -649,7 +789,7 @@ struct GowinPacker
                 create_aux_iologic_cell(ci, ctx->id("OUTMODE"));
                 continue;
             }
-            if (ci.type.in(id_IDDR, id_IDDRC, id_IDES4, id_IDES8, id_IDES10, id_IVIDEO)) {
+            if (ci.type.in(id_IDDR, id_IDDRC, id_IDES4, id_IDES8, id_IDES10, id_IVIDEO, id_IOLOGICI_EMPTY)) {
                 pack_ides_iol(ci, nets_to_remove);
                 create_aux_iologic_cell(ci, ctx->id("INMODE"));
                 continue;
@@ -3308,6 +3448,9 @@ struct GowinPacker
         ctx->check();
 
         pack_diff_iobs();
+        ctx->check();
+
+        pack_iem();
         ctx->check();
 
         pack_iologic();

@@ -762,7 +762,7 @@ def create_io_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc:
                 if port == 'FCLK': # XXX compatibility
                     wire = f'FCLK{name[-1]}'
                 if not tt.has_wire(wire):
-                    if port in {'CLK', 'PCLK'}:
+                    if port in {'CLK', 'PCLK', 'MCLK'}:
                         tt.create_wire(wire, "TILE_CLK")
                     else:
                         tt.create_wire(wire, "IOL_PORT")
