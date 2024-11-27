@@ -114,6 +114,8 @@ struct HimbaechelAPI
     virtual void drawPip(std::vector<GraphicElement> &g,GraphicElement::style_t style, Loc loc,
                 WireId src, IdString src_type, int32_t src_id, WireId dst, IdString dst_type, int32_t dst_id) {};
 
+    // Routing methods
+    virtual void expandBoundingBox(BoundingBox &bb) const;
     // --- Flow hooks ---
     virtual void pack() {}; // replaces the pack function
     // Called before and after main placement and routing
