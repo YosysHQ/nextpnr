@@ -220,6 +220,16 @@ const NGUltraTileInstExtraDataPOD *NgUltraImpl::tile_extra_data(int tile) const
     return reinterpret_cast<const NGUltraTileInstExtraDataPOD *>(ctx->chip_info->tile_insts[tile].extra_data.get());
 }
 
+const NGUltraPipExtraDataPOD *NgUltraImpl::pip_extra_data(PipId pip) const
+{
+    return reinterpret_cast<const NGUltraPipExtraDataPOD *>(chip_pip_info(ctx->chip_info, pip).extra_data.get());
+}
+
+const NGUltraBelExtraDataPOD *NgUltraImpl::bel_extra_data(BelId bel) const
+{
+    return reinterpret_cast<const NGUltraBelExtraDataPOD *>(chip_bel_info(ctx->chip_info, bel).extra_data.get());
+}
+
 IdString NgUltraImpl::tile_name_id(int tile) const
 {
     const auto &data = *tile_extra_data(tile);
@@ -253,8 +263,7 @@ bool NgUltraImpl::get_mux_data(WireId wire, uint8_t *value)
     for (PipId pip : ctx->getPipsUphill(wire)) {
         if (!ctx->getBoundPipNet(pip))
             continue;
-        const auto &pip_data = chip_pip_info(ctx->chip_info, pip);
-        const auto &extra_data = *reinterpret_cast<const NGUltraPipExtraDataPOD *>(pip_data.extra_data.get());
+        const auto &extra_data = *pip_extra_data(pip);
         if (!extra_data.name) continue;
         if (extra_data.type == PipExtra::PIP_EXTRA_MUX) {
             *value = extra_data.input;
@@ -266,8 +275,7 @@ bool NgUltraImpl::get_mux_data(WireId wire, uint8_t *value)
 
 bool NgUltraImpl::update_bff_to_csc(CellInfo *cell, BelId bel, PipId dst_pip)
 {
-    const auto &bel_data = chip_bel_info(ctx->chip_info, bel);
-    const auto &extra_data = *reinterpret_cast<const NGUltraBelExtraDataPOD *>(bel_data.extra_data.get());
+    const auto &extra_data = *bel_extra_data(bel);
     // Check if CSC mode only if FE is capable
     if (extra_data.flags & BEL_EXTRA_FE_CSC) {
         WireId dwire = ctx->getPipDstWire(dst_pip);
@@ -290,8 +298,7 @@ bool NgUltraImpl::update_bff_to_csc(CellInfo *cell, BelId bel, PipId dst_pip)
 
 bool NgUltraImpl::update_bff_to_scc(CellInfo *cell, BelId bel, PipId dst_pip)
 {
-    const auto &bel_data = chip_bel_info(ctx->chip_info, bel);
-    const auto &extra_data = *reinterpret_cast<const NGUltraBelExtraDataPOD *>(bel_data.extra_data.get());
+    const auto &extra_data = *bel_extra_data(bel);
     // Check if SCC mode only if FE is capable
     if (extra_data.flags & BEL_EXTRA_FE_SCC) {
         WireId dwire = ctx->getPipDstWire(dst_pip);
@@ -322,8 +329,7 @@ void NgUltraImpl::postRoute()
         NetInfo *ni = net.second.get();
         for (auto &w : ni->wires) {
             if (w.second.pip != PipId()) {
-                const auto &pip_data = chip_pip_info(ctx->chip_info, w.second.pip);
-                const auto &extra_data = *reinterpret_cast<const NGUltraPipExtraDataPOD *>(pip_data.extra_data.get());
+                const auto &extra_data = *pip_extra_data(w.second.pip);
                 if (!extra_data.name) continue;
                 if (extra_data.type == PipExtra::PIP_EXTRA_BYPASS) {
                     IdStringList id = ctx->getPipName(w.second.pip);
@@ -395,8 +401,7 @@ void NgUltraImpl::postRoute()
                     for (PipId pip : ctx->getPipsUphill(pin_wire)) {
                         if (!ctx->getBoundPipNet(pip))
                             continue;
-                        const auto &pip_data = chip_pip_info(ctx->chip_info, pip);
-                        const auto &extra_data = *reinterpret_cast<const NGUltraPipExtraDataPOD *>(pip_data.extra_data.get());
+                        const auto &extra_data = *pip_extra_data(pip);
                         if (!extra_data.name) continue;
                         if (extra_data.type == PipExtra::PIP_EXTRA_LUT_PERMUTATION) {
                             NPNR_ASSERT(extra_data.output == i);
@@ -477,8 +482,7 @@ struct SectionFEWorker
             if (!check_assign_sig(clk, ff->getPort(id_CK)))
                 return false;
         }
-        const auto &bel_data = chip_bel_info(ctx->chip_info, bel);
-        const auto &extra_data = *reinterpret_cast<const NGUltraBelExtraDataPOD *>(bel_data.extra_data.get());
+        const auto &extra_data = *impl->bel_extra_data(bel);
         std::string type = str_or_default(cell->params, id_type, "");
         if (type=="CSC" && (extra_data.flags & BEL_EXTRA_FE_CSC) == 0) return false; // No CSC capability on FE
         if (type=="SCC" && (extra_data.flags & BEL_EXTRA_FE_SCC) == 0) return false; // No SCC capability on FE
@@ -765,14 +769,12 @@ void NgUltraImpl::fixup_crossbars()
 {
 
     auto is_crossbar_pip = [&] (PipId pip) {
-        const auto &pd = chip_pip_info(ctx->chip_info, pip);
-        const auto &extra_data = *reinterpret_cast<const NGUltraPipExtraDataPOD *>(pd.extra_data.get());
+        const auto &extra_data = *pip_extra_data(pip);
         return (extra_data.name && extra_data.type == PipExtra::PIP_EXTRA_CROSSBAR);
     };
 
     auto crossbar_key = [&] (PipId pip) {
-        auto &pd = chip_pip_info(ctx->chip_info, pip);
-        const auto &extra_data = *reinterpret_cast<const NGUltraPipExtraDataPOD *>(pd.extra_data.get());
+        const auto &extra_data = *pip_extra_data(pip);
         return std::make_pair(pip.tile, IdString(extra_data.name));
     }; 
 

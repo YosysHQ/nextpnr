@@ -86,6 +86,9 @@ public:
     bool is_ring_clock_source(const PortRef &ref);
     bool is_tube_clock_source(const PortRef &ref);
 
+    const NGUltraPipExtraDataPOD *pip_extra_data(PipId pip) const;
+    const NGUltraBelExtraDataPOD *bel_extra_data(BelId bel) const;
+
     dict<IdString,BelId> iom_bels;
     dict<std::string, std::string> bank_voltage;
     dict<BelId,IdString> global_capable_bels;

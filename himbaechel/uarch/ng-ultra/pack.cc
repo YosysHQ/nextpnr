@@ -907,8 +907,7 @@ void NgUltraPacker::pack_iobs(void)
                 if (!ddfr_mode && ctx->getBelType(bel)==id_DDFR) {
                     WireId dwire = ctx->getBelPinWire(bel, id_O);
                     for (PipId pip : ctx->getPipsDownhill(dwire)) {
-                        const auto &pip_data = chip_pip_info(ctx->chip_info, pip);
-                        const auto &extra_data = *reinterpret_cast<const NGUltraPipExtraDataPOD *>(pip_data.extra_data.get());
+                        const auto &extra_data = *uarch->pip_extra_data(pip);
                         if (!extra_data.name) continue;
                         if (extra_data.type != PipExtra::PIP_EXTRA_MUX) continue;
                         if (bfr_mode && extra_data.input == 2) {
@@ -2330,8 +2329,7 @@ void NgUltraImpl::postPlace()
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (ci.type == id_BEYOND_FE) {
-            const auto &bel_data = chip_bel_info(ctx->chip_info, ci.bel);
-            const auto &extra_data = *reinterpret_cast<const NGUltraBelExtraDataPOD *>(bel_data.extra_data.get());
+            const auto &extra_data = *bel_extra_data(ci.bel);
             // Check if CSC mode only if FE is capable
             if ((extra_data.flags & BEL_EXTRA_FE_CSC)) {
                 if (str_or_default(ci.params, id_type, "")=="CSC") continue;

@@ -133,7 +133,7 @@ struct BitstreamJsonBackend
                 if (w.second.pip != PipId()) {
                     PipId pip = w.second.pip;
                     auto &pd = chip_pip_info(ctx->chip_info, pip);
-                    const auto &extra_data = *reinterpret_cast<const NGUltraPipExtraDataPOD *>(pd.extra_data.get());
+                    const auto &extra_data = *uarch->pip_extra_data(pip);
                     WireId swire = ctx->getPipSrcWire(pip);
                     IdString src = ctx->getWireName(swire)[1];
                     IdString src_type = ctx->getWireType(swire);
@@ -516,8 +516,7 @@ struct BitstreamJsonBackend
             for (auto &w : ni->wires) {
                 if (w.second.pip != PipId()) {
                     PipId pip = w.second.pip;
-                    const auto &pip_data = chip_pip_info(ctx->chip_info, w.second.pip);
-                    const auto &extra_data = *reinterpret_cast<const NGUltraPipExtraDataPOD *>(pip_data.extra_data.get());
+                    const auto &extra_data = *uarch->pip_extra_data(w.second.pip);
                     if (!extra_data.name || extra_data.type != PipExtra::PIP_EXTRA_INTERCONNECT) continue;
                     auto &pd = chip_pip_info(ctx->chip_info, pip);
                     IdString src = IdString(chip_tile_info(ctx->chip_info, pip.tile).wires[pd.src_wire].name);
