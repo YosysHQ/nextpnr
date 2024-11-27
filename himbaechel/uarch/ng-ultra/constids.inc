@@ -909,6 +909,8 @@ X(WEQ)
 X(WRSTI1)
 X(WRSTI2)
 X(WRSTO)
+X(WRSTI)
+X(RRSTI)
 
 // GBC
 X(GBC)
@@ -4525,6 +4527,7 @@ X(NX_CTX_U)
 // NX_CY
 X(NX_CY)
 X(add_carry)
+X(shifter)
 
 // NX_DES
 X(NX_DES)
@@ -4564,6 +4567,9 @@ X(NX_DFR)
 //X(mode)
 //X(path)
 //X(ring)
+
+// NX_DDFR_U
+X(NX_DDFR_U)
 
 // NX_DSP
 X(NX_DSP)
@@ -6011,3 +6017,10 @@ X(LOC)
 X(lut_used)
 X(dff_used)
 
+X(type)
+
+// Timing
+X(BEYOND_FE_LUT)
+
+// csv 
+X(registered)

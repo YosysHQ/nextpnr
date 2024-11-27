@@ -48,7 +48,7 @@ inline bool is_fe(const BaseCtx *ctx, const CellInfo *cell) { return cell->type 
 inline bool is_dfr(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_NX_DFR; }
 
 // Return true if a cell is a DDFR
-inline bool is_ddfr(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("NX_DDFR_U"); }
+inline bool is_ddfr(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_NX_DDFR_U; }
 
 // Return true if a cell is a WFG/WFB
 inline bool is_wfg(const BaseCtx *ctx, const CellInfo *cell) { return cell->type.in(id_WFB, id_WFG); }
@@ -135,7 +135,7 @@ void NgUltraPacker::update_lut_init()
 
 void NgUltraPacker::dff_rewrite(CellInfo *cell)
 {
-    if (int_or_default(cell->params, ctx->id("dff_init"), 0)==0) {
+    if (int_or_default(cell->params, id_dff_init, 0)==0) {
         // Reset not used
         cell->disconnectPort(id_R);
     } else {
@@ -144,7 +144,7 @@ void NgUltraPacker::dff_rewrite(CellInfo *cell)
         if (net) {
             if (net->name == ctx->id("$PACKER_GND")) {
                 log_warning("Removing reset on '%s' since it is always 0.\n", cell->name.c_str(ctx));
-                cell->setParam(ctx->id("dff_init"), Property(0,1));
+                cell->setParam(id_dff_init, Property(0,1));
                 cell->disconnectPort(id_R);
             } else if (net->name == ctx->id("$PACKER_VCC")) {
                 log_error("Invalid DFF configuration, reset on '%s' is always 1.\n", cell->name.c_str(ctx));
@@ -152,7 +152,7 @@ void NgUltraPacker::dff_rewrite(CellInfo *cell)
         }
     }
 
-    if (int_or_default(cell->params, ctx->id("dff_load"), 0)==0) {
+    if (int_or_default(cell->params, id_dff_load, 0)==0) {
         // Load not used
         cell->disconnectPort(id_L);
     } else {
@@ -161,11 +161,11 @@ void NgUltraPacker::dff_rewrite(CellInfo *cell)
         if (net) {
             if (net->name == ctx->id("$PACKER_VCC")) {
                 log_warning("Removing load enable on '%s' since it is always 1.\n", cell->name.c_str(ctx));
-                cell->setParam(ctx->id("dff_load"), Property(0,0));
+                cell->setParam(id_dff_load, Property(0,0));
                 cell->disconnectPort(id_L);
             } else if (net->name == ctx->id("$PACKER_GND")) {
                 log_warning("Converting to self loop, since load enable on '%s' is always 0.\n", cell->name.c_str(ctx));
-                cell->setParam(ctx->id("dff_load"), Property(0,0));
+                cell->setParam(id_dff_load, Property(0,0));
                 cell->disconnectPort(id_L);
                 cell->disconnectPort(id_I);
                 NetInfo *out = cell->getPort(id_O);
@@ -178,7 +178,7 @@ void NgUltraPacker::dff_rewrite(CellInfo *cell)
 void NgUltraPacker::ddfr_rewrite(CellInfo *cell)
 {
     // Reversed logic in comparison to DFF
-    if (int_or_default(cell->params, ctx->id("dff_load"), 0)==1) {
+    if (int_or_default(cell->params, id_dff_load, 0)==1) {
         // Load not used
         cell->disconnectPort(id_L);
     } else {
@@ -187,7 +187,7 @@ void NgUltraPacker::ddfr_rewrite(CellInfo *cell)
         if (net) {
             if (net->name == ctx->id("$PACKER_VCC")) {
                 log_warning("Removing load enable on '%s' since it is always 1.\n", cell->name.c_str(ctx));
-                cell->setParam(ctx->id("dff_load"), Property(0,0));
+                cell->setParam(id_dff_load, Property(0,0));
                 cell->disconnectPort(id_L);
             }
         }
@@ -271,7 +271,7 @@ void NgUltraPacker::lut_to_fe(CellInfo *lut, CellInfo *fe, bool no_dff, Property
     lut->movePortTo(id_I4, fe, id_I4);
     lut->movePortTo(id_O, fe, id_LO);
     if (no_dff) {
-        fe->timing_index = ctx->get_cell_timing_idx(ctx->id("BEYOND_FE_LUT"));
+        fe->timing_index = ctx->get_cell_timing_idx(id_BEYOND_FE_LUT);
     }
 }
 
@@ -295,20 +295,20 @@ void NgUltraPacker::dff_to_fe(CellInfo *dff, CellInfo *fe, bool pass_thru_lut)
     fe->params[id_dff_used] = Property(1,1);
     dff->movePortTo(id_O, fe, id_DO);
     if (dff->type == id_NX_BFF) {
-        fe->setParam(ctx->id("type"), Property("BFF"));
+        fe->setParam(id_type, Property("BFF"));
     } else {
-        fe->setParam(ctx->id("type"), Property("DFF"));
+        fe->setParam(id_type, Property("DFF"));
 
         dff->movePortTo(id_R, fe, id_R);
         dff->movePortTo(id_CK, fe, id_CK);
         dff->movePortTo(id_L, fe, id_L);
 
-        if (dff->params.count(ctx->id("dff_ctxt"))) fe->setParam(ctx->id("dff_ctxt"),dff->params[ctx->id("dff_ctxt")]);
-        if (dff->params.count(ctx->id("dff_edge"))) fe->setParam(ctx->id("dff_edge"),dff->params[ctx->id("dff_edge")]);
-        if (dff->params.count(ctx->id("dff_init"))) fe->setParam(ctx->id("dff_init"),dff->params[ctx->id("dff_init")]);
-        if (dff->params.count(ctx->id("dff_load"))) fe->setParam(ctx->id("dff_load"),dff->params[ctx->id("dff_load")]);
-        if (dff->params.count(ctx->id("dff_sync"))) fe->setParam(ctx->id("dff_sync"),dff->params[ctx->id("dff_sync")]);
-        if (dff->params.count(ctx->id("dff_type"))) fe->setParam(ctx->id("dff_type"),dff->params[ctx->id("dff_type")]);
+        if (dff->params.count(id_dff_ctxt)) fe->setParam(id_dff_ctxt,dff->params[id_dff_ctxt]);
+        if (dff->params.count(id_dff_edge)) fe->setParam(id_dff_edge,dff->params[id_dff_edge]);
+        if (dff->params.count(id_dff_init)) fe->setParam(id_dff_init,dff->params[id_dff_init]);
+        if (dff->params.count(id_dff_load)) fe->setParam(id_dff_load,dff->params[id_dff_load]);
+        if (dff->params.count(id_dff_sync)) fe->setParam(id_dff_sync,dff->params[id_dff_sync]);
+        if (dff->params.count(id_dff_type)) fe->setParam(id_dff_type,dff->params[id_dff_type]);
     }
     if (pass_thru_lut) {
         NetInfo *new_out = ctx->createNet(ctx->id(dff->name.str(ctx) + "$LO"));
@@ -390,7 +390,7 @@ void NgUltraPacker::pack_xluts(void)
                     lut_and_ff++;
                     orig_dff = nullptr;
                 } else {
-                    lut[i]->timing_index = ctx->get_cell_timing_idx(ctx->id("BEYOND_FE_LUT"));
+                    lut[i]->timing_index = ctx->get_cell_timing_idx(id_BEYOND_FE_LUT);
                     lut_only++;
                 }
             } else {
@@ -402,7 +402,7 @@ void NgUltraPacker::pack_xluts(void)
                     packed_cells.insert(dff->name);
                     lut_and_ff++;
                 } else {
-                    lut[i]->timing_index = ctx->get_cell_timing_idx(ctx->id("BEYOND_FE_LUT"));
+                    lut[i]->timing_index = ctx->get_cell_timing_idx(id_BEYOND_FE_LUT);
                     lut_only++;
                 }
             }   
@@ -553,7 +553,7 @@ void NgUltraPacker::pack_lut_multi_dffs(void)
             if (use_bff) {
                 CellInfo *new_cell = create_cell_ptr(id_BEYOND_FE, ctx->id(ci.name.str(ctx) + "$bff"));
                 new_cell->params[id_dff_used] = Property(1,1);
-                new_cell->setParam(ctx->id("type"), Property("BFF"));
+                new_cell->setParam(id_type, Property("BFF"));
                 new_cell->connectPort(id_DI, o);
                 root->constr_children.push_back(new_cell);
                 new_cell->cluster = root->cluster;
@@ -779,24 +779,24 @@ void NgUltraPacker::pack_iobs(void)
                     bfr_added++;
                     iod = create_cell_ptr(id_BFR, ctx->id(cell->name.str(ctx) + "$iod_cd"));
                     NetInfo *new_out = ctx->createNet(ctx->id(iod->name.str(ctx) + "$O"));
-                    iod->setParam(ctx->id("iobname"),str_or_default(cell->params, ctx->id("iobname"), ""));
+                    iod->setParam(id_iobname,str_or_default(cell->params, id_iobname, ""));
                     cell->disconnectPort(id_C);
                     if (c_net->name == ctx->id("$PACKER_GND"))
-                        iod->setParam(ctx->id("mode"), Property(0, 2));
+                        iod->setParam(id_mode, Property(0, 2));
                     else if (c_net->name == ctx->id("$PACKER_VCC"))
-                        iod->setParam(ctx->id("mode"), Property(1, 2));
+                        iod->setParam(id_mode, Property(1, 2));
                     else {
                         iod->connectPort(id_I, c_net);
-                        iod->setParam(ctx->id("mode"), Property(2, 2));
-                        iod->setParam(ctx->id("data_inv"), Property(0, 1));
+                        iod->setParam(id_mode, Property(2, 2));
+                        iod->setParam(id_data_inv, Property(0, 1));
                     }
                     iod->connectPort(id_O, new_out);
                     cell->connectPort(id_C,new_out);
                 } else {
                     ddfr_added++;
                     iod->type = id_DDFR;
-                    iod->setParam(ctx->id("iobname"),str_or_default(cell->params, ctx->id("iobname"), ""));
-                    iod->setParam(ctx->id("path"), Property(2, 2));
+                    iod->setParam(id_iobname,str_or_default(cell->params, id_iobname, ""));
+                    iod->setParam(id_path, Property(2, 2));
                     ddfr_rewrite(iod);
                     disconnect_unused(iod, id_O2);
                     disconnect_if_gnd(iod, id_L);
@@ -805,7 +805,7 @@ void NgUltraPacker::pack_iobs(void)
             } else {
                 dfr_added++;
                 iod->type = id_DFR;
-                iod->setParam(ctx->id("iobname"),str_or_default(cell->params, ctx->id("iobname"), ""));
+                iod->setParam(id_iobname,str_or_default(cell->params, id_iobname, ""));
                 dff_rewrite(iod);
             }
             Loc cd_loc = cell->getLocation();
@@ -826,24 +826,24 @@ void NgUltraPacker::pack_iobs(void)
                     bfr_added++;
                     iod = create_cell_ptr(id_BFR, ctx->id(cell->name.str(ctx) + "$iod_od"));
                     NetInfo *new_out = ctx->createNet(ctx->id(iod->name.str(ctx) + "$O"));
-                    iod->setParam(ctx->id("iobname"),str_or_default(cell->params, ctx->id("iobname"), ""));
+                    iod->setParam(id_iobname,str_or_default(cell->params, id_iobname, ""));
                     cell->disconnectPort(id_I);
                     if (i_net->name == ctx->id("$PACKER_GND"))
-                        iod->setParam(ctx->id("mode"), Property(0, 2));
+                        iod->setParam(id_mode, Property(0, 2));
                     else if (i_net->name == ctx->id("$PACKER_VCC"))
-                        iod->setParam(ctx->id("mode"), Property(1, 2));
+                        iod->setParam(id_mode, Property(1, 2));
                     else {
                         iod->connectPort(id_I, i_net);
-                        iod->setParam(ctx->id("mode"), Property(2, 2));
-                        iod->setParam(ctx->id("data_inv"), Property(0, 1));
+                        iod->setParam(id_mode, Property(2, 2));
+                        iod->setParam(id_data_inv, Property(0, 1));
                     }
                     iod->connectPort(id_O, new_out);
                     cell->connectPort(id_I,new_out);
                 } else {
                     ddfr_added++;
                     iod->type = id_DDFR;
-                    iod->setParam(ctx->id("iobname"),str_or_default(cell->params, ctx->id("iobname"), ""));
-                    iod->setParam(ctx->id("path"), Property(0, 2));
+                    iod->setParam(id_iobname,str_or_default(cell->params, id_iobname, ""));
+                    iod->setParam(id_path, Property(0, 2));
                     ddfr_rewrite(iod);
                     disconnect_unused(iod, id_O2);
                     disconnect_if_gnd(iod, id_L);
@@ -852,7 +852,7 @@ void NgUltraPacker::pack_iobs(void)
             } else {
                 dfr_added++;
                 iod->type = id_DFR;
-                iod->setParam(ctx->id("iobname"),str_or_default(cell->params, ctx->id("iobname"), ""));
+                iod->setParam(id_iobname,str_or_default(cell->params, id_iobname, ""));
                 dff_rewrite(iod);
             }
             Loc cd_loc = cell->getLocation();
@@ -873,11 +873,11 @@ void NgUltraPacker::pack_iobs(void)
                         bfr_added++;
                         iod = create_cell_ptr(id_BFR, ctx->id(cell->name.str(ctx) + "$iod_id"));
                         NetInfo *new_in = ctx->createNet(ctx->id(iod->name.str(ctx) + "$I"));
-                        iod->setParam(ctx->id("iobname"),str_or_default(cell->params, ctx->id("iobname"), ""));
+                        iod->setParam(id_iobname,str_or_default(cell->params, id_iobname, ""));
                         cell->disconnectPort(id_O);
                         iod->connectPort(id_O, o_net);
-                        iod->setParam(ctx->id("mode"), Property(2, 2));
-                        iod->setParam(ctx->id("data_inv"), Property(0, 1));
+                        iod->setParam(id_mode, Property(2, 2));
+                        iod->setParam(id_data_inv, Property(0, 1));
                         iod->connectPort(id_I, new_in);
                         cell->connectPort(id_O,new_in);
                         bfr_mode = true;
@@ -885,8 +885,8 @@ void NgUltraPacker::pack_iobs(void)
                         ddfr_mode = true;
                         ddfr_added++;
                         iod->type = id_DDFR;
-                        iod->setParam(ctx->id("iobname"),str_or_default(cell->params, ctx->id("iobname"), ""));
-                        iod->setParam(ctx->id("path"), Property(1, 2));
+                        iod->setParam(id_iobname,str_or_default(cell->params, id_iobname, ""));
+                        iod->setParam(id_path, Property(1, 2));
                         ddfr_rewrite(iod);
                         disconnect_if_gnd(iod, id_I2);
                         disconnect_if_gnd(iod, id_L);
@@ -895,7 +895,7 @@ void NgUltraPacker::pack_iobs(void)
                 } else {
                     dfr_added++;
                     iod->type = id_DFR;
-                    iod->setParam(ctx->id("iobname"),str_or_default(cell->params, ctx->id("iobname"), ""));
+                    iod->setParam(id_iobname,str_or_default(cell->params, id_iobname, ""));
                     dff_rewrite(iod);
                 }
                 Loc cd_loc = cell->getLocation();
@@ -979,25 +979,13 @@ void NgUltraPacker::pack_cy_input_and_output(CellInfo *cy, IdString cluster, IdS
             fe->connectPort(id_LO, new_out);
             cy->connectPort(in_port, new_out);
         } else {
-            // TODO: This is too constrained, since makes rest of logic
-            // separated from input
-            /*
-            CellInfo *lut = net_driven_by(ctx, net, is_lut, id_O);
-            if (lut && net->users.entries()==1) {
-                if (!lut->params.count(id_lut_table))
-                    log_error("Cell '%s' missing lut_table\n", lut->name.c_str(ctx));
-                lut_to_fe(lut, fe, false, lut->params[id_lut_table]);
-                packed_cells.insert(lut->name);
-            } else {
-            */
-                fe->params[id_lut_table] = Property(0xaaaa, 16);
-                fe->params[id_lut_used] = Property(1,1);
-                cy->disconnectPort(in_port);
-                NetInfo *new_out = ctx->createNet(ctx->id(fe->name.str(ctx) + "$o"));
-                fe->connectPort(id_I1, net);
-                fe->connectPort(id_LO, new_out);
-                cy->connectPort(in_port, new_out);
-            //}
+            fe->params[id_lut_table] = Property(0xaaaa, 16);
+            fe->params[id_lut_used] = Property(1,1);
+            cy->disconnectPort(in_port);
+            NetInfo *new_out = ctx->createNet(ctx->id(fe->name.str(ctx) + "$o"));
+            fe->connectPort(id_I1, net);
+            fe->connectPort(id_LO, new_out);
+            cy->connectPort(in_port, new_out);
         }
         lut_only++;
     }
@@ -1014,7 +1002,7 @@ void NgUltraPacker::pack_cy_input_and_output(CellInfo *cy, IdString cluster, IdS
         } else 
             dff_only++;
     } else {
-        fe->timing_index = ctx->get_cell_timing_idx(ctx->id("BEYOND_FE_LUT"));
+        fe->timing_index = ctx->get_cell_timing_idx(id_BEYOND_FE_LUT);
     }
     fe->cluster = cluster;
     fe->constr_z = placer;
@@ -1344,7 +1332,7 @@ void NgUltraPacker::pack_cdcs(void)
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_NX_CDC_U))
             continue;
-        int mode = int_or_default(ci.params, ctx->id("mode"), 0);
+        int mode = int_or_default(ci.params, id_mode, 0);
         switch(mode) {
             case 0 : ci.type = id_DDE; break;
             case 1 : ci.type = id_TDE; break;
@@ -1456,7 +1444,7 @@ void NgUltraPacker::pack_fifos(void)
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_NX_FIFO_U))
             continue;
-        int mode = int_or_default(ci.params, ctx->id("mode"), 0);
+        int mode = int_or_default(ci.params, id_mode, 0);
         switch(mode) {
             case 0 : ci.type = id_FIFO; break;
             case 1 : ci.type = id_XHFIFO; break;
@@ -1465,8 +1453,8 @@ void NgUltraPacker::pack_fifos(void)
                 log_error("Unknown mode %d for cell '%s'.\n", mode, ci.name.c_str(ctx));
         }        
         ci.cluster = ci.name;
-        bool use_write_arst = bool_or_default(ci.params, ctx->id("use_write_arst"), false);
-        bool use_read_arst = bool_or_default(ci.params, ctx->id("use_read_arst"), false);
+        bool use_write_arst = bool_or_default(ci.params, id_use_write_arst, false);
+        bool use_read_arst = bool_or_default(ci.params, id_use_read_arst, false);
 
         int rsti = (ci.type == id_FIFO) ? 2 : 4;
         for (int i=1;i<=rsti;i++) {
@@ -1479,7 +1467,7 @@ void NgUltraPacker::pack_fifos(void)
         }
 
         if (use_write_arst) {
-            IdString port = ctx->idf("WRSTI");
+            IdString port = id_WRSTI;
             connect_gnd_if_unconnected(&ci, port);
             NetInfo *wrsti_net = ci.getPort(port);
             ci.disconnectPort(port);
@@ -1493,10 +1481,10 @@ void NgUltraPacker::pack_fifos(void)
                 pack_xrf_input_and_output(&ci, ci.name, id_WRSTI4, IdString(), PLACE_FIFO_WRSTI4, lut_only, lut_and_ff, dff_only);
             }
         } else {
-            disconnect_unused(&ci,ctx->id("WRSTI"));
+            disconnect_unused(&ci,id_WRSTI);
         }
         if (use_read_arst) {
-            IdString port = ctx->idf("RRSTI");
+            IdString port = id_RRSTI;
             connect_gnd_if_unconnected(&ci, port);
             NetInfo *rrsti_net = ci.getPort(port);
             ci.disconnectPort(port);
@@ -1510,7 +1498,7 @@ void NgUltraPacker::pack_fifos(void)
                 pack_xrf_input_and_output(&ci, ci.name, id_RRSTI4, IdString(), PLACE_FIFO_RRSTI4, lut_only, lut_and_ff, dff_only);
             }
         } else {
-            disconnect_unused(&ci,ctx->id("RRSTI"));
+            disconnect_unused(&ci,id_RRSTI);
         }
 
         for (int i = 1; i <= 18; i++) {
@@ -1556,12 +1544,12 @@ void NgUltraPacker::pack_fifos(void)
 
         if (mode==0) {
             // FIFO
-            ci.renamePort(id_WEQ1, ctx->id("WEQ"));
-            pack_xrf_input_and_output(&ci, ci.name, IdString(), ctx->id("WEQ"), PLACE_FIFO_WEQ1, lut_only, lut_and_ff, dff_only);
+            ci.renamePort(id_WEQ1, id_WEQ);
+            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_WEQ, PLACE_FIFO_WEQ1, lut_only, lut_and_ff, dff_only);
             disconnect_unused(&ci, id_WEQ2);
 
-            ci.renamePort(id_REQ1, ctx->id("REQ"));
-            pack_xrf_input_and_output(&ci, ci.name, IdString(), ctx->id("REQ"), PLACE_FIFO_REQ1, lut_only, lut_and_ff, dff_only);
+            ci.renamePort(id_REQ1, id_REQ);
+            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_REQ, PLACE_FIFO_REQ1, lut_only, lut_and_ff, dff_only);
             disconnect_unused(&ci, id_REQ2);
         } else {
             pack_xrf_input_and_output(&ci, ci.name, IdString(), id_WEQ1, PLACE_FIFO_WEQ1, lut_only, lut_and_ff, dff_only);
@@ -1642,7 +1630,7 @@ void NgUltraPacker::insert_ioms()
         CellInfo *iom = nullptr;
         IdString port = uarch->global_capable_bels.at(iotp_bel);
         CellInfo *input_pad = ctx->getBoundBelCell(iotp_bel);
-        std::string iobname = str_or_default(input_pad->params, ctx->id("iobname"), "");
+        std::string iobname = str_or_default(input_pad->params, id_iobname, "");
         if (!ctx->checkBelAvail(bel)) {
             iom = ctx->getBoundBelCell(bel);
             log_info("    Reusing IOM in bank '%s' for signal '%s'\n", iob.c_str(ctx), iobname.c_str());
@@ -1796,7 +1784,7 @@ void NgUltraPacker::insert_wfb(CellInfo *cell, IdString port)
 
 void NgUltraPacker::constrain_location(CellInfo *cell)
 {
-    std::string location = str_or_default(cell->params, ctx->id("location"), "");
+    std::string location = str_or_default(cell->params, id_location, "");
     if (!location.empty()) {
         if (uarch->locations.count(location)) {
             BelId bel = uarch->locations[location];
@@ -1848,7 +1836,7 @@ void NgUltraPacker::pack_wfgs(void)
             continue;
         ci.type = id_WFG;
         constrain_location(&ci);
-        int mode = int_or_default(ci.params, ctx->id("mode"), 1);
+        int mode = int_or_default(ci.params, id_mode, 1);
         if (mode == 0) { // WFB - bypass mode
             ci.type = id_WFB;
             // must not be used, zero is tollerated
@@ -1882,7 +1870,7 @@ void NgUltraPacker::pack_gcks(void)
         if (!ci.type.in(id_NX_GCK_U))
             continue;
         ci.type = id_GCK;
-        std::string mode = str_or_default(ci.params, ctx->id("std_mode"), "BYPASS");
+        std::string mode = str_or_default(ci.params, id_std_mode, "BYPASS");
         if (mode == "BYPASS") {
             disconnect_unused(&ci, id_SI2);
             disconnect_unused(&ci, id_CMD);
@@ -2306,7 +2294,7 @@ void NgUltraPacker::pre_place(void)
             if (bfr->type.in(id_BFR,id_DFR,id_DDFR)) {
                 CellInfo *gck_cell = create_cell_ptr(id_GCK, ctx->idf("%s$csc", bfr->name.c_str(ctx)));
                 gck_cell->params[id_std_mode] = Property("CSC");
-                gck_cell->params[ctx->id("inv_out")] = Property(true);
+                gck_cell->params[id_inv_out] = Property(true);
                 NetInfo *old_out = fe->getPort(id_LO);
                 NetInfo *old_in = fe->getPort(id_I1);
                 fe->disconnectPort(id_LO);
@@ -2346,7 +2334,7 @@ void NgUltraImpl::postPlace()
             const auto &extra_data = *reinterpret_cast<const NGUltraBelExtraDataPOD *>(bel_data.extra_data.get());
             // Check if CSC mode only if FE is capable
             if ((extra_data.flags & BEL_EXTRA_FE_CSC)) {
-                if (str_or_default(ci.params, ctx->id("type"), "")=="CSC") continue;
+                if (str_or_default(ci.params, id_type, "")=="CSC") continue;
                 // Disable routing to S output if CSC is not used
                 disable_beyond_fe_s_output(ci.bel);
             }
@@ -2455,8 +2443,8 @@ void NgUltraPacker::insert_csc()
                 ctx->unbindBel(cell->bel);
                 cell->disconnectPort(id_LO);
                 NetInfo *new_out = ctx->createNet(ctx->id(cell->name.str(ctx) + "$o"));
-                cell->params[ctx->id("CSC")] = Property(Property::State::S1);
-                cell->params[ctx->id("type")] = Property("CSC");
+                cell->params[id_CSC] = Property(Property::State::S1);
+                cell->params[id_type] = Property("CSC");
                 cell->params[id_dff_used] = Property(1,1);
                 cell->connectPort(id_LO,new_out);
                 cell->connectPort(id_DI,new_out);
@@ -2476,8 +2464,8 @@ void NgUltraPacker::insert_csc()
             NetInfo *new_out = ctx->createNet(ctx->id(fe->name.str(ctx) + "$o"));
             fe->params[id_lut_table] = Property(0xaaaa, 16);
             fe->params[id_lut_used] = Property(1,1);
-            fe->params[ctx->id("CSC")] = Property(Property::State::S1);
-            fe->params[ctx->id("type")] = Property("CSC");
+            fe->params[id_CSC] = Property(Property::State::S1);
+            fe->params[id_type] = Property("CSC");
             fe->params[id_dff_used] = Property(1,1);
             fe->connectPort(id_I1, net);
             fe->connectPort(id_DO,new_out);

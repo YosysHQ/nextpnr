@@ -209,25 +209,25 @@ void NgUltraImpl::parse_csv(const std::string &filename)
                     }
                     std::vector<CellInfo *> dest = get_cells(arg_iobname);
                     for (auto c : dest) {
-                        c->params[ctx->id("iobname")] = arg_iobname;
-                        c->params[ctx->id("location")] = arg_location;
-                        c->params[ctx->id("standard")] = arg_standard;
-                        c->params[ctx->id("drive")] = arg_drive;
-                        c->params[ctx->id("slewRate")] = arg_slewRate;
-                        c->params[ctx->id("inputDelayLine")] = arg_inputDelayLine;
-                        c->params[ctx->id("outputDelayLine")] = arg_outputDelayLine;
-                        c->params[ctx->id("inputDelayOn")] = std::string((std::stoi(arg_inputDelayLine)!=0) ? "True" : "False");
-                        c->params[ctx->id("outputDelayOn")] = std::string((std::stoi(arg_outputDelayLine)!=0) ? "True" : "False");
-                        c->params[ctx->id("differential")] = arg_differential;
-                        c->params[ctx->id("weakTermination")] = arg_weakTermination;
+                        c->params[id_iobname] = arg_iobname;
+                        c->params[id_location] = arg_location;
+                        c->params[id_standard] = arg_standard;
+                        c->params[id_drive] = arg_drive;
+                        c->params[id_slewRate] = arg_slewRate;
+                        c->params[id_inputDelayLine] = arg_inputDelayLine;
+                        c->params[id_outputDelayLine] = arg_outputDelayLine;
+                        c->params[id_inputDelayOn] = std::string((std::stoi(arg_inputDelayLine)!=0) ? "True" : "False");
+                        c->params[id_outputDelayOn] = std::string((std::stoi(arg_outputDelayLine)!=0) ? "True" : "False");
+                        c->params[id_differential] = arg_differential;
+                        c->params[id_weakTermination] = arg_weakTermination;
                         if (!arg_termination.empty()) {
-                            c->params[ctx->id("termination")] = arg_termination;
-                            c->params[ctx->id("terminationReference")] = arg_terminationReference;
+                            c->params[id_termination] = arg_termination;
+                            c->params[id_terminationReference] = arg_terminationReference;
                         }
-                        c->params[ctx->id("turbo")] = arg_turbo;
-                        c->params[ctx->id("inputSignalSlope")] = arg_inputSignalSlope;
-                        c->params[ctx->id("outputCapacity")] = arg_outputCapacity;
-                        c->params[ctx->id("registered")] = arg_registered;
+                        c->params[id_turbo] = arg_turbo;
+                        c->params[id_inputSignalSlope] = arg_inputSignalSlope;
+                        c->params[id_outputCapacity] = arg_outputCapacity;
+                        c->params[id_registered] = arg_registered;
                     }
                     if (dest.size()==0)
                         log_warning("Pad with name '%s' not found in netlist.\n", arg_iobname.c_str());

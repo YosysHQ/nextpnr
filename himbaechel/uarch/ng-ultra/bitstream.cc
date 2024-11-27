@@ -125,7 +125,7 @@ struct BitstreamJsonBackend
         bool first_net = true;
         for (auto &net : ctx->nets) {
             NetInfo *ni = net.second.get();
-            if (ni->wires.size()==0) continue;
+            if (ni->wires.empty()) continue;
             out << (first_net ? "" : ",\n"); first_net = false;
             out << stringf("\t\t%s: [\n", get_string(cleanup_name(ni->name.c_str(ctx))).c_str());
             std::set<std::string> nets;
@@ -270,26 +270,26 @@ struct BitstreamJsonBackend
     }
 
     void write_iop(CellInfo *cell) {
-        open_instance(cell, str_or_default(cell->params, ctx->id("iobname"), ""));
-        add_config("location", str_or_default(cell->params, ctx->id("location"), ""));
-        add_config("differential", str_or_n_value_lower(cell->params, ctx->id("differential"), "false"));
-        add_config("slewRate", str_or_default(cell->params, ctx->id("slewRate"), "Medium"));
-        add_config("turbo", str_or_n_value_lower(cell->params, ctx->id("turbo"), "false"));
-        add_config("weakTermination", str_or_n_value(cell->params, ctx->id("weakTermination"), "PullUp"));
-        add_config("inputDelayLine", str_or_default(cell->params, ctx->id("inputDelayLine"), "0"));
-        add_config("outputDelayLine", str_or_default(cell->params, ctx->id("outputDelayLine"), "0"));
-        add_config("inputSignalSlope", str_or_default(cell->params, ctx->id("inputSignalSlope"), "0"));
-        add_config("outputCapacity", str_or_default(cell->params, ctx->id("outputCapacity"), "0"));
-        add_config("standard", str_or_default(cell->params, ctx->id("standard"), "LVCMOS"));
-        add_config("drive", str_or_default(cell->params, ctx->id("drive"), "2mA"));
-        add_config("inputDelayOn", str_or_n_value_lower(cell->params, ctx->id("inputDelayOn"), "false"));
-        add_config("outputDelayOn", str_or_n_value_lower(cell->params, ctx->id("outputDelayOn"), "false"));
-        add_config("dynDrive", str_or_n_value_lower(cell->params, ctx->id("dynDrive"), "false"));
-        add_config("dynInput", str_or_n_value_lower(cell->params, ctx->id("dynInput"), "false"));
-        add_config("dynTerm", str_or_n_value_lower(cell->params, ctx->id("dynTerm"), "false"));
+        open_instance(cell, str_or_default(cell->params, id_iobname, ""));
+        add_config("location", str_or_default(cell->params, id_location, ""));
+        add_config("differential", str_or_n_value_lower(cell->params, id_differential, "false"));
+        add_config("slewRate", str_or_default(cell->params, id_slewRate, "Medium"));
+        add_config("turbo", str_or_n_value_lower(cell->params, id_turbo, "false"));
+        add_config("weakTermination", str_or_n_value(cell->params, id_weakTermination, "PullUp"));
+        add_config("inputDelayLine", str_or_default(cell->params, id_inputDelayLine, "0"));
+        add_config("outputDelayLine", str_or_default(cell->params, id_outputDelayLine, "0"));
+        add_config("inputSignalSlope", str_or_default(cell->params, id_inputSignalSlope, "0"));
+        add_config("outputCapacity", str_or_default(cell->params, id_outputCapacity, "0"));
+        add_config("standard", str_or_default(cell->params, id_standard, "LVCMOS"));
+        add_config("drive", str_or_default(cell->params, id_drive, "2mA"));
+        add_config("inputDelayOn", str_or_n_value_lower(cell->params, id_inputDelayOn, "false"));
+        add_config("outputDelayOn", str_or_n_value_lower(cell->params, id_outputDelayOn, "false"));
+        add_config("dynDrive", str_or_n_value_lower(cell->params, id_dynDrive, "false"));
+        add_config("dynInput", str_or_n_value_lower(cell->params, id_dynInput, "false"));
+        add_config("dynTerm", str_or_n_value_lower(cell->params, id_dynTerm, "false"));
         if (cell->type.in(id_OTP, id_ITP, id_IOTP)) {
-            add_config("termination", str_or_n_value(cell->params, ctx->id("termination"), "0"));
-            add_config("terminationReference", str_or_n_value(cell->params, ctx->id("terminationReference"), "VT"));
+            add_config("termination", str_or_n_value(cell->params, id_termination, "0"));
+            add_config("terminationReference", str_or_n_value(cell->params, id_terminationReference, "VT"));
         }
         close_instance();
         std::string tile_name = uarch->tile_name(cell->bel.tile);
@@ -304,41 +304,41 @@ struct BitstreamJsonBackend
 
     void write_ddfr(CellInfo *cell) {
         open_instance(cell);
-        add_config("dff_load", bool_or_default(cell->params, ctx->id("dff_load"), false));
-        add_config("dff_sync", bool_or_default(cell->params, ctx->id("dff_sync"), false));
-        add_config("dff_type", bool_or_default(cell->params, ctx->id("dff_type"), false));
-        add_config("iobname", str_or_default(cell->params, ctx->id("iobname"), ""));
-        add_config("path", int_or_default(cell->params, ctx->id("path"), 0));
+        add_config("dff_load", bool_or_default(cell->params, id_dff_load, false));
+        add_config("dff_sync", bool_or_default(cell->params, id_dff_sync, false));
+        add_config("dff_type", bool_or_default(cell->params, id_dff_type, false));
+        add_config("iobname", str_or_default(cell->params, id_iobname, ""));
+        add_config("path", int_or_default(cell->params, id_path, 0));
         close_instance();
     }
 
     void write_dfr(CellInfo *cell) {
         open_instance(cell);
-        add_config("data_inv", bool_or_default(cell->params, ctx->id("data_inv"), false));
-        add_config("dff_edge", bool_or_default(cell->params, ctx->id("dff_edge"), false));
-        add_config("dff_init", bool_or_default(cell->params, ctx->id("dff_init"), false));
-        add_config("dff_load", bool_or_default(cell->params, ctx->id("dff_load"), false));
-        add_config("dff_sync", bool_or_default(cell->params, ctx->id("dff_sync"), false));
-        add_config("dff_type", bool_or_default(cell->params, ctx->id("dff_type"), false));
-        add_config("mode", int_or_default(cell->params, ctx->id("mode"), 3));
-        add_config("iobname", str_or_default(cell->params, ctx->id("iobname"), ""));
+        add_config("data_inv", bool_or_default(cell->params, id_data_inv, false));
+        add_config("dff_edge", bool_or_default(cell->params, id_dff_edge, false));
+        add_config("dff_init", bool_or_default(cell->params, id_dff_init, false));
+        add_config("dff_load", bool_or_default(cell->params, id_dff_load, false));
+        add_config("dff_sync", bool_or_default(cell->params, id_dff_sync, false));
+        add_config("dff_type", bool_or_default(cell->params, id_dff_type, false));
+        add_config("mode", int_or_default(cell->params, id_mode, 3));
+        add_config("iobname", str_or_default(cell->params, id_iobname, ""));
         close_instance();
     }
 
     void write_bfr(CellInfo *cell) {
         open_instance(cell);
-        add_config("mode", int_or_default(cell->params, ctx->id("mode"), 2));
-        add_config("iobname", str_or_default(cell->params, ctx->id("iobname"), ""));
-        if (cell->params.count(ctx->id("data_inv"))) {
-            add_config("data_inv", bool_or_default(cell->params, ctx->id("data_inv"), false));
+        add_config("mode", int_or_default(cell->params, id_mode, 2));
+        add_config("iobname", str_or_default(cell->params, id_iobname, ""));
+        if (cell->params.count(id_data_inv)) {
+            add_config("data_inv", bool_or_default(cell->params, id_data_inv, false));
         }
         close_instance();
     }
 
     void write_cy(CellInfo *cell) {
         open_instance(cell);
-        add_config("add_carry", int_or_default(cell->params, ctx->id("add_carry"), 0));
-        add_config("shifter", bool_or_default(cell->params, ctx->id("shifter"), false));
+        add_config("add_carry", int_or_default(cell->params, id_add_carry, 0));
+        add_config("shifter", bool_or_default(cell->params, id_shifter, false));
         close_instance();
     }
 
@@ -349,15 +349,15 @@ struct BitstreamJsonBackend
             close_instance();
         }
         if (bool_or_default(cell->params, id_dff_used)) {
-            std::string subtype = str_or_default(cell->params, ctx->id("type"), "DFF");
+            std::string subtype = str_or_default(cell->params, id_type, "DFF");
             open_instance_fe(cell, subtype, ".DFF", "_D");
             if (subtype =="DFF") {
-                add_config("dff_ctxt", std::to_string(int_or_default(cell->params, ctx->id("dff_ctxt"), 0)));
-                add_config("dff_edge", bool_or_default(cell->params, ctx->id("dff_edge"), false));
-                add_config("dff_init", bool_or_default(cell->params, ctx->id("dff_init"), false));
-                add_config("dff_load", bool_or_default(cell->params, ctx->id("dff_load"), false));
-                add_config("dff_sync", bool_or_default(cell->params, ctx->id("dff_sync"), false));
-                add_config("dff_type", bool_or_default(cell->params, ctx->id("dff_type"), false));
+                add_config("dff_ctxt", std::to_string(int_or_default(cell->params, id_dff_ctxt, 0)));
+                add_config("dff_edge", bool_or_default(cell->params, id_dff_edge, false));
+                add_config("dff_init", bool_or_default(cell->params, id_dff_init, false));
+                add_config("dff_load", bool_or_default(cell->params, id_dff_load, false));
+                add_config("dff_sync", bool_or_default(cell->params, id_dff_sync, false));
+                add_config("dff_type", bool_or_default(cell->params, id_dff_type, false));
             }
             close_instance();
         }
@@ -371,125 +371,125 @@ struct BitstreamJsonBackend
 
     void write_iom(CellInfo *cell) {
         open_instance(cell);
-        add_config("pads_path", str_or_default(cell->params, ctx->id("pads_path"), ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;"));
+        add_config("pads_path", str_or_default(cell->params, id_pads_path, ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;"));
         close_instance();
     }
 
     void write_gck(CellInfo *cell) {
         open_instance(cell);
-        add_config("inv_in", bool_or_default(cell->params, ctx->id("inv_in"), false));
-        add_config("inv_out", bool_or_default(cell->params, ctx->id("inv_out"), false));
-        add_config("std_mode", str_or_default(cell->params, ctx->id("std_mode"), "BYPASS"));
+        add_config("inv_in", bool_or_default(cell->params, id_inv_in, false));
+        add_config("inv_out", bool_or_default(cell->params, id_inv_out, false));
+        add_config("std_mode", str_or_default(cell->params, id_std_mode, "BYPASS"));
         close_instance();
     }
 
     void write_wfb(CellInfo *cell) {
         open_instance(cell);
-        add_config("delay_on", bool_or_default(cell->params, ctx->id("delay_on"), false));
-        add_config("delay", int_or_default(cell->params, ctx->id("delay"), 0));
-        add_config("wfg_edge", bool_or_default(cell->params, ctx->id("wfg_edge"), false));
+        add_config("delay_on", bool_or_default(cell->params, id_delay_on, false));
+        add_config("delay", int_or_default(cell->params, id_delay, 0));
+        add_config("wfg_edge", bool_or_default(cell->params, id_wfg_edge, false));
         close_instance();
     }
 
     void write_wfg(CellInfo *cell) {
         open_instance(cell);
-        add_config("mode", int_or_default(cell->params, ctx->id("mode"), 0));
-        add_config("delay_on", bool_or_default(cell->params, ctx->id("delay_on"), false));
-        add_config("delay", int_or_default(cell->params, ctx->id("delay"), 0));
-        add_config("wfg_edge", bool_or_default(cell->params, ctx->id("wfg_edge"), false));
-        add_config("pattern", extract_bits_or_default(cell->params, ctx->id("pattern"), 16));
-        add_config("pattern_end", int_or_default(cell->params, ctx->id("pattern_end"), 0));
-        add_config("div_ratio", int_or_default(cell->params, ctx->id("div_ratio"), 0));
-        add_config("div_phase", bool_or_default(cell->params, ctx->id("div_phase"), false));
-        add_config("reset_on_pll_lock_n", bool_or_default(cell->params, ctx->id("reset_on_pll_lock_n"), false));
-        add_config("reset_on_pll_locka_n", bool_or_default(cell->params, ctx->id("reset_on_pll_locka_n"), false));
-        add_config("reset_on_cal_lock_n", bool_or_default(cell->params, ctx->id("reset_on_cal_lock_n"), false));        
+        add_config("mode", int_or_default(cell->params, id_mode, 0));
+        add_config("delay_on", bool_or_default(cell->params, id_delay_on, false));
+        add_config("delay", int_or_default(cell->params, id_delay, 0));
+        add_config("wfg_edge", bool_or_default(cell->params, id_wfg_edge, false));
+        add_config("pattern", extract_bits_or_default(cell->params, id_pattern, 16));
+        add_config("pattern_end", int_or_default(cell->params, id_pattern_end, 0));
+        add_config("div_ratio", int_or_default(cell->params, id_div_ratio, 0));
+        add_config("div_phase", bool_or_default(cell->params, id_div_phase, false));
+        add_config("reset_on_pll_lock_n", bool_or_default(cell->params, id_reset_on_pll_lock_n, false));
+        add_config("reset_on_pll_locka_n", bool_or_default(cell->params, id_reset_on_pll_locka_n, false));
+        add_config("reset_on_cal_lock_n", bool_or_default(cell->params, id_reset_on_cal_lock_n, false));        
         close_instance();
     }
 
     void write_pll(CellInfo *cell) {
         open_instance(cell);
-        add_config("clk_outdiv1", extract_bits_or_default(cell->params, ctx->id("clk_outdiv1"), 3));
-        add_config("clk_outdiv2", extract_bits_or_default(cell->params, ctx->id("clk_outdiv2"), 3));
-        add_config("clk_outdiv3", extract_bits_or_default(cell->params, ctx->id("clk_outdiv3"), 3));
-        add_config("clk_outdiv4", extract_bits_or_default(cell->params, ctx->id("clk_outdiv4"), 3));
-        add_config("clk_outdivd1", extract_bits_or_default(cell->params, ctx->id("clk_outdivd1"), 4));
-        add_config("clk_outdivd2", extract_bits_or_default(cell->params, ctx->id("clk_outdivd2"), 4));
-        add_config("clk_outdivd3", extract_bits_or_default(cell->params, ctx->id("clk_outdivd3"), 4));
-        add_config("clk_outdivd4", extract_bits_or_default(cell->params, ctx->id("clk_outdivd4"), 4));
-        add_config("clk_outdivd5", extract_bits_or_default(cell->params, ctx->id("clk_outdivd5"), 4));
-        add_config("use_cal", bool_or_default(cell->params, ctx->id("use_cal"), false));
-        add_config("clk_cal_sel", extract_bits_or_default(cell->params, ctx->id("clk_cal_sel"), 2));
-        add_config("pll_odf", extract_bits_or_default(cell->params, ctx->id("pll_odf"), 2));
-        add_config("pll_lpf_res", extract_bits_or_default(cell->params, ctx->id("pll_lpf_res"), 4));
-        add_config("pll_lpf_cap", extract_bits_or_default(cell->params, ctx->id("pll_lpf_cap"), 4));
-        add_config("cal_div", extract_bits_or_default(cell->params, ctx->id("cal_div"), 4));
-        add_config("cal_delay", extract_bits_or_default(cell->params, ctx->id("cal_delay"), 6));
-        add_config("use_pll", bool_or_default(cell->params, ctx->id("use_pll"), true));
-        add_config("ref_intdiv", extract_bits_or_default(cell->params, ctx->id("ref_intdiv"), 5));
-        add_config("ref_osc_on", bool_or_default(cell->params, ctx->id("ref_osc_on"), false));
-        add_config("pll_cpump", extract_bits_or_default(cell->params, ctx->id("pll_cpump"), 4));
-        add_config("pll_lock", extract_bits_or_default(cell->params, ctx->id("pll_lock"), 4));
-        add_config("ext_fbk_on", bool_or_default(cell->params, ctx->id("ext_fbk_on"), false));
-        add_config("fbk_intdiv", extract_bits_or_default(cell->params, ctx->id("fbk_intdiv"), 7));
-        add_config("fbk_delay_on", bool_or_default(cell->params, ctx->id("fbk_delay_on"), false));
-        add_config("fbk_delay", extract_bits_or_default(cell->params, ctx->id("fbk_delay"), 6));
+        add_config("clk_outdiv1", extract_bits_or_default(cell->params, id_clk_outdiv1, 3));
+        add_config("clk_outdiv2", extract_bits_or_default(cell->params, id_clk_outdiv2, 3));
+        add_config("clk_outdiv3", extract_bits_or_default(cell->params, id_clk_outdiv3, 3));
+        add_config("clk_outdiv4", extract_bits_or_default(cell->params, id_clk_outdiv4, 3));
+        add_config("clk_outdivd1", extract_bits_or_default(cell->params, id_clk_outdivd1, 4));
+        add_config("clk_outdivd2", extract_bits_or_default(cell->params, id_clk_outdivd2, 4));
+        add_config("clk_outdivd3", extract_bits_or_default(cell->params, id_clk_outdivd3, 4));
+        add_config("clk_outdivd4", extract_bits_or_default(cell->params, id_clk_outdivd4, 4));
+        add_config("clk_outdivd5", extract_bits_or_default(cell->params, id_clk_outdivd5, 4));
+        add_config("use_cal", bool_or_default(cell->params, id_use_cal, false));
+        add_config("clk_cal_sel", extract_bits_or_default(cell->params, id_clk_cal_sel, 2));
+        add_config("pll_odf", extract_bits_or_default(cell->params, id_pll_odf, 2));
+        add_config("pll_lpf_res", extract_bits_or_default(cell->params, id_pll_lpf_res, 4));
+        add_config("pll_lpf_cap", extract_bits_or_default(cell->params, id_pll_lpf_cap, 4));
+        add_config("cal_div", extract_bits_or_default(cell->params, id_cal_div, 4));
+        add_config("cal_delay", extract_bits_or_default(cell->params, id_cal_delay, 6));
+        add_config("use_pll", bool_or_default(cell->params, id_use_pll, true));
+        add_config("ref_intdiv", extract_bits_or_default(cell->params, id_ref_intdiv, 5));
+        add_config("ref_osc_on", bool_or_default(cell->params, id_ref_osc_on, false));
+        add_config("pll_cpump", extract_bits_or_default(cell->params, id_pll_cpump, 4));
+        add_config("pll_lock", extract_bits_or_default(cell->params, id_pll_lock, 4));
+        add_config("ext_fbk_on", bool_or_default(cell->params, id_ext_fbk_on, false));
+        add_config("fbk_intdiv", extract_bits_or_default(cell->params, id_fbk_intdiv, 7));
+        add_config("fbk_delay_on", bool_or_default(cell->params, id_fbk_delay_on, false));
+        add_config("fbk_delay", extract_bits_or_default(cell->params, id_fbk_delay, 6));
         close_instance();
     }
 
     void write_rfb(CellInfo *cell) {
         open_instance(cell);
-        std::string context = str_or_default(cell->params, ctx->id("mem_ctxt"), "");
+        std::string context = str_or_default(cell->params, id_mem_ctxt, "");
         if (!context.empty()) add_config("mem_ctxt", context);
-        add_config("wck_edge", bool_or_default(cell->params, ctx->id("wck_edge"), false));
+        add_config("wck_edge", bool_or_default(cell->params, id_wck_edge, false));
         close_instance();
     }
 
     void write_ram(CellInfo *cell) {
         open_instance(cell);
-        add_config("mcka_edge", bool_or_default(cell->params, ctx->id("mcka_edge"), false));
-        add_config("mckb_edge", bool_or_default(cell->params, ctx->id("mckb_edge"), false));
-        add_config("pcka_edge", bool_or_default(cell->params, ctx->id("pcka_edge"), false));
-        add_config("pckb_edge", bool_or_default(cell->params, ctx->id("pckb_edge"), false));
-        add_config("raw_config0", extract_bits_or_default(cell->params, ctx->id("raw_config0"), 4));
-        add_config("raw_config1", extract_bits_or_default(cell->params, ctx->id("raw_config1"), 16));
-        std::string context = str_or_default(cell->params, ctx->id("mem_ctxt"), "");
+        add_config("mcka_edge", bool_or_default(cell->params, id_mcka_edge, false));
+        add_config("mckb_edge", bool_or_default(cell->params, id_mckb_edge, false));
+        add_config("pcka_edge", bool_or_default(cell->params, id_pcka_edge, false));
+        add_config("pckb_edge", bool_or_default(cell->params, id_pckb_edge, false));
+        add_config("raw_config0", extract_bits_or_default(cell->params, id_raw_config0, 4));
+        add_config("raw_config1", extract_bits_or_default(cell->params, id_raw_config1, 16));
+        std::string context = str_or_default(cell->params, id_mem_ctxt, "");
         if (!context.empty()) add_config("mem_ctxt", context);
         close_instance();
     }
 
     void write_dsp(CellInfo *cell) {
         open_instance(cell);
-        add_config("raw_config0", extract_bits_or_default(cell->params, ctx->id("raw_config0"), 27));
-        add_config("raw_config1", extract_bits_or_default(cell->params, ctx->id("raw_config1"), 24));
-        add_config("raw_config2", extract_bits_or_default(cell->params, ctx->id("raw_config2"), 14));
-        add_config("raw_config3", extract_bits_or_default(cell->params, ctx->id("raw_config3"), 3));
+        add_config("raw_config0", extract_bits_or_default(cell->params, id_raw_config0, 27));
+        add_config("raw_config1", extract_bits_or_default(cell->params, id_raw_config1, 24));
+        add_config("raw_config2", extract_bits_or_default(cell->params, id_raw_config2, 14));
+        add_config("raw_config3", extract_bits_or_default(cell->params, id_raw_config3, 3));
         close_instance();
     }
 
     void write_cdc(CellInfo *cell) {
         open_instance(cell);
         if (cell->type.in(id_DDE, id_TDE, id_CDC, id_XCDC)) {
-            add_config("ck0_edge", bool_or_default(cell->params, ctx->id("ck0_edge"), false));
-            add_config("ck1_edge", bool_or_default(cell->params, ctx->id("ck1_edge"), false));
-            add_config("ack_sel", bool_or_default(cell->params, ctx->id("ack_sel"), false));
-            add_config("bck_sel", bool_or_default(cell->params, ctx->id("bck_sel"), false));
-            add_config("use_adest_arst", bool_or_default(cell->params, ctx->id("use_adest_arst"), false));
-            add_config("use_bdest_arst", bool_or_default(cell->params, ctx->id("use_bdest_arst"), false));
+            add_config("ck0_edge", bool_or_default(cell->params, id_ck0_edge, false));
+            add_config("ck1_edge", bool_or_default(cell->params, id_ck1_edge, false));
+            add_config("ack_sel", bool_or_default(cell->params, id_ack_sel, false));
+            add_config("bck_sel", bool_or_default(cell->params, id_bck_sel, false));
+            add_config("use_adest_arst", bool_or_default(cell->params, id_use_adest_arst, false));
+            add_config("use_bdest_arst", bool_or_default(cell->params, id_use_bdest_arst, false));
             if (cell->type != id_DDE) {
-                add_config("use_asrc_arst", bool_or_default(cell->params, ctx->id("use_asrc_arst"), false));
-                add_config("use_bsrc_arst", bool_or_default(cell->params, ctx->id("use_bsrc_arst"), false));
+                add_config("use_asrc_arst", bool_or_default(cell->params, id_use_asrc_arst, false));
+                add_config("use_bsrc_arst", bool_or_default(cell->params, id_use_bsrc_arst, false));
             }
             if (cell->type == id_XCDC) {
-                add_config("cck_sel", bool_or_default(cell->params, ctx->id("cck_sel"), false));
-                add_config("dck_sel", bool_or_default(cell->params, ctx->id("dck_sel"), false));
-                add_config("use_csrc_arst", bool_or_default(cell->params, ctx->id("use_csrc_arst"), false));
-                add_config("use_dsrc_arst", bool_or_default(cell->params, ctx->id("use_dsrc_arst"), false));
-                add_config("use_cdest_arst", bool_or_default(cell->params, ctx->id("use_cdest_arst"), false));
-                add_config("use_ddest_arst", bool_or_default(cell->params, ctx->id("use_ddest_arst"), false));
-                add_config("link_BA", bool_or_default(cell->params, ctx->id("link_BA"), false));
-                add_config("link_CB", bool_or_default(cell->params, ctx->id("link_CB"), false));
-                add_config("link_DC", bool_or_default(cell->params, ctx->id("link_DC"), false));
+                add_config("cck_sel", bool_or_default(cell->params, id_cck_sel, false));
+                add_config("dck_sel", bool_or_default(cell->params, id_dck_sel, false));
+                add_config("use_csrc_arst", bool_or_default(cell->params, id_use_csrc_arst, false));
+                add_config("use_dsrc_arst", bool_or_default(cell->params, id_use_dsrc_arst, false));
+                add_config("use_cdest_arst", bool_or_default(cell->params, id_use_cdest_arst, false));
+                add_config("use_ddest_arst", bool_or_default(cell->params, id_use_ddest_arst, false));
+                add_config("link_BA", bool_or_default(cell->params, id_link_BA, false));
+                add_config("link_CB", bool_or_default(cell->params, id_link_CB, false));
+                add_config("link_DC", bool_or_default(cell->params, id_link_DC, false));
             }
         }
         close_instance();
@@ -497,13 +497,13 @@ struct BitstreamJsonBackend
 
     void write_fifo(CellInfo *cell) {
         open_instance(cell);
-        add_config("rck_edge", bool_or_default(cell->params, ctx->id("rck_edge"), false));
-        add_config("wck_edge", bool_or_default(cell->params, ctx->id("wck_edge"), false));
+        add_config("rck_edge", bool_or_default(cell->params, id_rck_edge, false));
+        add_config("wck_edge", bool_or_default(cell->params, id_wck_edge, false));
         if (cell->type != id_FIFO) {
-            add_config("use_read_arst", bool_or_default(cell->params, ctx->id("use_read_arst"), false));
-            add_config("use_write_arst", bool_or_default(cell->params, ctx->id("use_write_arst"), false));
+            add_config("use_read_arst", bool_or_default(cell->params, id_use_read_arst, false));
+            add_config("use_write_arst", bool_or_default(cell->params, id_use_write_arst, false));
         }
-        add_config("read_addr_inv", extract_bits_or_default(cell->params, ctx->id("read_addr_inv"), 7));
+        add_config("read_addr_inv", extract_bits_or_default(cell->params, id_read_addr_inv, 7));
         close_instance();
     }
 
@@ -518,7 +518,7 @@ struct BitstreamJsonBackend
                     PipId pip = w.second.pip;
                     const auto &pip_data = chip_pip_info(ctx->chip_info, w.second.pip);
                     const auto &extra_data = *reinterpret_cast<const NGUltraPipExtraDataPOD *>(pip_data.extra_data.get());
-                    if (!extra_data.name or extra_data.type != PipExtra::PIP_EXTRA_INTERCONNECT) continue;
+                    if (!extra_data.name || extra_data.type != PipExtra::PIP_EXTRA_INTERCONNECT) continue;
                     auto &pd = chip_pip_info(ctx->chip_info, pip);
                     IdString src = IdString(chip_tile_info(ctx->chip_info, pip.tile).wires[pd.src_wire].name);
                     std::string tile_name = uarch->tile_name(pip.tile);

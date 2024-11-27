@@ -279,7 +279,7 @@ bool NgUltraImpl::update_bff_to_csc(CellInfo *cell, BelId bel, PipId dst_pip)
                     continue;
                 IdString dst = ctx->getWireName(ctx->getPipDstWire(pip2))[1];
                 if (boost::ends_with(dst.c_str(ctx),".DS")) {
-                    cell->setParam(ctx->id("type"), Property("CSC"));
+                    cell->setParam(id_type, Property("CSC"));
                     return true;
                 }
             }
@@ -303,7 +303,7 @@ bool NgUltraImpl::update_bff_to_scc(CellInfo *cell, BelId bel, PipId dst_pip)
                     continue;
                 IdString dst = ctx->getWireName(ctx->getPipSrcWire(pip2))[1];
                 if (boost::starts_with(dst.c_str(ctx),"SYSTEM.ST1")) {
-                    cell->setParam(ctx->id("type"), Property("SCC"));
+                    cell->setParam(id_type, Property("SCC"));
                     return true;
                 }
             }
@@ -339,7 +339,7 @@ void NgUltraImpl::postRoute()
                         case id_BEYOND_FE.index : 
                                            if (extra_data.input==0) {
                                                 // set bypass mode for DFF
-                                                cell->setParam(ctx->id("type"), Property("BFF"));
+                                                cell->setParam(id_type, Property("BFF"));
                                                 cell->params[id_dff_used] = Property(1,1);
                                                 // Note: no conflict, CSC and SCC modes are never available on same position
                                                 if (update_bff_to_csc(cell, bel, w.second.pip))
@@ -358,7 +358,7 @@ void NgUltraImpl::postRoute()
                                             cell->type = id_WFB;
                                             break;
                         case id_GCK.index : gck_bypass++; 
-                                            cell->setParam(ctx->id("std_mode"), extra_data.input == 0 ? Property("BYPASS") : Property("CSC"));
+                                            cell->setParam(id_std_mode, extra_data.input == 0 ? Property("BYPASS") : Property("CSC"));
                                             break;
                         default:
                             log_error("Unmaped bel type '%s' for routing\n",type.c_str(ctx));
@@ -479,7 +479,7 @@ struct SectionFEWorker
         }
         const auto &bel_data = chip_bel_info(ctx->chip_info, bel);
         const auto &extra_data = *reinterpret_cast<const NGUltraBelExtraDataPOD *>(bel_data.extra_data.get());
-        std::string type = str_or_default(cell->params, ctx->id("type"), "");
+        std::string type = str_or_default(cell->params, id_type, "");
         if (type=="CSC" && (extra_data.flags & BEL_EXTRA_FE_CSC) == 0) return false; // No CSC capability on FE
         if (type=="SCC" && (extra_data.flags & BEL_EXTRA_FE_SCC) == 0) return false; // No SCC capability on FE
         if (extra_data.flags & BEL_EXTRA_FE_CSC)

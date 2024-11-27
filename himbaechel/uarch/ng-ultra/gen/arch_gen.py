@@ -348,7 +348,7 @@ def create_tile_types(ch: Chip, bels, bel_pins, crossbars, interconnects, muxes,
             if len(items)==1:
                 sub_type = tile_type
             else:
-                sub_type = tile_type + "_"+str(num)
+                sub_type = f"{tile_type}_{num}"
             tt = ch.create_tile_type(sub_type)
 
             def lookup_site_wire(canon_name):
