@@ -2379,32 +2379,13 @@ void NgUltraImpl::postPlace()
 
 BelId NgUltraPacker::getCSC(Loc l, int row)
 {
-    BelId bel = ctx->getBelByLocation(Loc(l.x+1,l.y+2,0));
-    if (!ctx->getBoundBelCell(bel) && (row==0 || row==1)) return bel;
-    bel = ctx->getBelByLocation(Loc(l.x+1,l.y+2,15));
-    if (!ctx->getBoundBelCell(bel) && (row==0 || row==2)) return bel;
-    bel = ctx->getBelByLocation(Loc(l.x+1,l.y+2,16));
-    if (!ctx->getBoundBelCell(bel) && (row==0 || row==3)) return bel;
-    bel = ctx->getBelByLocation(Loc(l.x+1,l.y+2,31));
-    if (!ctx->getBoundBelCell(bel) && (row==0 || row==4)) return bel;
-
-    bel = ctx->getBelByLocation(Loc(l.x+2,l.y+3,0));
-    if (!ctx->getBoundBelCell(bel) && (row==0 || row==1)) return bel;
-    bel = ctx->getBelByLocation(Loc(l.x+2,l.y+3,15));
-    if (!ctx->getBoundBelCell(bel) && (row==0 || row==2)) return bel;
-    bel = ctx->getBelByLocation(Loc(l.x+2,l.y+3,16));
-    if (!ctx->getBoundBelCell(bel) && (row==0 || row==3)) return bel;
-    bel = ctx->getBelByLocation(Loc(l.x+2,l.y+3,31));
-    if (!ctx->getBoundBelCell(bel) && (row==0 || row==4)) return bel;
-
-    bel = ctx->getBelByLocation(Loc(l.x+3,l.y+2,0));
-    if (!ctx->getBoundBelCell(bel) && (row==0 || row==1)) return bel;
-    bel = ctx->getBelByLocation(Loc(l.x+3,l.y+2,15));
-    if (!ctx->getBoundBelCell(bel) && (row==0 || row==2)) return bel;
-    bel = ctx->getBelByLocation(Loc(l.x+3,l.y+2,16));
-    if (!ctx->getBoundBelCell(bel) && (row==0 || row==3)) return bel;
-    bel = ctx->getBelByLocation(Loc(l.x+3,l.y+2,31));
-    if (!ctx->getBoundBelCell(bel) && (row==0 || row==4)) return bel;
+    const int z_loc[] = { 0, 15, 16, 31 };
+    for(int j=0;j<3;j++) {
+        for(int i=0;i<4;i++) {
+            BelId bel = ctx->getBelByLocation(Loc(l.x+j+1,l.y+j%2+2,z_loc[i]));
+            if (!ctx->getBoundBelCell(bel) && (row==0 || row==(i+1))) return bel;
+        }
+    }    
     return BelId();
 }
 
