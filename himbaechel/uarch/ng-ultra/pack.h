@@ -112,14 +112,12 @@ TESTABLE_PRIVATE:
     void constrain_location(CellInfo *cell);
     void extract_lowskew_signals(CellInfo *cell, dict<IdString,dict<IdString,std::vector<PortRef>>> &lowskew_signals);
     // Cell creating
-    std::unique_ptr<CellInfo> create_cell(IdString type, IdString name);
     CellInfo *create_cell_ptr(IdString type, IdString name);
 
     Context *ctx;
     NgUltraImpl *uarch;
 
     pool<IdString> packed_cells;
-    std::vector<std::unique_ptr<CellInfo>> new_cells;
     pool<IdString> global_lowskew;
 
     HimbaechelHelpers h;

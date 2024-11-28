@@ -65,11 +65,7 @@ void NgUltraPacker::flush_cells()
         }
         ctx->cells.erase(pcell);
     }
-    for (auto &ncell : new_cells) {
-        ctx->cells[ncell->name] = std::move(ncell);
-    }
     packed_cells.clear();
-    new_cells.clear();
 }
 
 void NgUltraPacker::pack_constants(void)
@@ -581,26 +577,29 @@ void NgUltraPacker::pack_lut_dffs(void)
     log_info("Pack LUT-DFFs...\n");
 
     int lut_only = 0, lut_and_ff = 0;
+    std::vector<CellInfo*> lut_list;
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_NX_LUT))
             continue;
         if (!ci.params.count(id_lut_table))
             log_error("Cell '%s' missing lut_table\n", ci.name.c_str(ctx));
-
-        std::unique_ptr<CellInfo> packed = create_cell(id_BEYOND_FE, ctx->idf("%s$fe", ci.name.c_str(ctx)));
         packed_cells.insert(ci.name);
-        bind_attr_loc(packed.get(), &ci.attrs);
+        lut_list.push_back(&ci);
+    }
+    for (auto ci : lut_list) {
+        CellInfo *packed = create_cell_ptr(id_BEYOND_FE, ctx->idf("%s$fe", ci->name.c_str(ctx)));
+        bind_attr_loc(packed, &ci->attrs);
 
         bool packed_dff = false;
-        NetInfo *o = ci.getPort(id_O);
+        NetInfo *o = ci->getPort(id_O);
         if (o) {
             CellInfo *dff = net_only_drives(ctx, o, is_dff, id_I, true);
             if (dff) {
                 if (ctx->verbose)
                     log_info("found attached dff %s\n", dff->name.c_str(ctx));
-                lut_to_fe(&ci, packed.get(), false, ci.params[id_lut_table]);
-                dff_to_fe(dff, packed.get(), false);
+                lut_to_fe(ci, packed, false, ci->params[id_lut_table]);
+                dff_to_fe(dff, packed, false);
                 ++lut_and_ff;
                 packed_cells.insert(dff->name);
                 if (ctx->verbose)
@@ -609,10 +608,9 @@ void NgUltraPacker::pack_lut_dffs(void)
             }
         }
         if (!packed_dff) {
-            lut_to_fe(&ci, packed.get(), true, ci.params[id_lut_table]);
+            lut_to_fe(ci, packed, true, ci->params[id_lut_table]);
             ++lut_only;
         }
-        new_cells.push_back(std::move(packed));
     }
     if (lut_only)
         log_info("    %6d FEs used as LUT only\n", lut_only);
@@ -624,16 +622,19 @@ void NgUltraPacker::pack_lut_dffs(void)
 void NgUltraPacker::pack_dffs(void)
 {
     int dff_only = 0;
+    std::vector<CellInfo*> dff_list;
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_NX_DFF, id_NX_BFF))
             continue;
-        std::unique_ptr<CellInfo> packed = create_cell(id_BEYOND_FE, ctx->idf("%s$fe", ci.name.c_str(ctx)));
         packed_cells.insert(ci.name);
-        dff_to_fe(&ci, packed.get(), true);
-        bind_attr_loc(packed.get(), &ci.attrs);
+        dff_list.push_back(&ci);
+    }
+    for (auto ci : dff_list) {
+        CellInfo *packed = create_cell_ptr(id_BEYOND_FE, ctx->idf("%s$fe", ci->name.c_str(ctx)));
+        dff_to_fe(ci, packed, true);
+        bind_attr_loc(packed, &ci->attrs);
         ++dff_only;
-        new_cells.push_back(std::move(packed));
     }
     if (dff_only)
         log_info("    %6d FEs used as DFF only\n", dff_only);
