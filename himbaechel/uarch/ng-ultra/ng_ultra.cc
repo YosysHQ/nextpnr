@@ -483,9 +483,11 @@ struct SectionFEWorker
                 return false;
         }
         const auto &extra_data = *impl->bel_extra_data(bel);
-        std::string type = str_or_default(cell->params, id_type, "");
-        if (type=="CSC" && (extra_data.flags & BEL_EXTRA_FE_CSC) == 0) return false; // No CSC capability on FE
-        if (type=="SCC" && (extra_data.flags & BEL_EXTRA_FE_SCC) == 0) return false; // No SCC capability on FE
+        if (cell->params.count(id_type)) {
+            const std::string &type = cell->params[id_type].as_string();
+            if (type=="CSC" && (extra_data.flags & BEL_EXTRA_FE_CSC) == 0) return false; // No CSC capability on FE
+            if (type=="SCC" && (extra_data.flags & BEL_EXTRA_FE_SCC) == 0) return false; // No SCC capability on FE
+        }
         if (extra_data.flags & BEL_EXTRA_FE_CSC)
             return false;
         return true;
