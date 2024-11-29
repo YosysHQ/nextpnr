@@ -663,7 +663,10 @@ struct GowinPacker
             CellInfo *iob = net_driven_by(ctx, di_net, is_iob, id_O);
             if (iob != nullptr) {
                 NPNR_ASSERT(iob->bel != BelId());
-                NPNR_ASSERT_MSG(di_net->users.entries() == 1, "IODELAY should be the only sink in the network.\n");
+                if (di_net->users.entries() != 1) {
+                    log_error("IODELAY %s should be the only sink in the %s network.\n", ctx->nameOf(&ci),
+                              ctx->nameOf(di_net));
+                }
                 is_idelay = true;
             } else {
                 iob = net_only_drives(ctx, do_net, is_iob, id_I, true);
@@ -690,8 +693,9 @@ struct GowinPacker
                 for (auto &usr : do_net->users) {
                     if (is_iologici(usr.cell)) {
                         iologic = usr.cell;
-                        NPNR_ASSERT_MSG(iologic->attrs.count(id_IODELAY) == 0,
-                                        "Only one IODELAY allowed per IO block.\n");
+                        if (iologic->attrs.count(id_IODELAY) != 0) {
+                            log_error("Only one IODELAY allowed per IO block %s.\n", ctx->nameOfBel(iob->bel));
+                        }
                         if (ctx->debug) {
                             log_info(" found IOLOGIC cell %s of type %s, use it.\n", ctx->nameOf(iologic),
                                      iologic->type.c_str(ctx));
@@ -703,7 +707,9 @@ struct GowinPacker
                 dummy_iol_type = id_IOLOGICO_EMPTY;
                 if (is_iologico(di_net->driver.cell)) {
                     iologic = di_net->driver.cell;
-                    NPNR_ASSERT_MSG(iologic->attrs.count(id_IODELAY) == 0, "Only one IODELAY allowed per IO block.\n");
+                    if (iologic->attrs.count(id_IODELAY) != 0) {
+                        log_error("Only one IODELAY allowed per IO block %s.\n", ctx->nameOfBel(iob->bel));
+                    }
                     if (ctx->debug) {
                         log_info(" found IOLOGIC cell %s of type %s, use it.\n", ctx->nameOf(iologic),
                                  iologic->type.c_str(ctx));
@@ -2460,8 +2466,9 @@ struct GowinPacker
                         ci->setParam(id_MULTALU18X18_MODE, 0);
                     }
                     int multalu18x18_mode = ci->params.at(id_MULTALU18X18_MODE).as_int64();
-                    NPNR_ASSERT_MSG(multalu18x18_mode >= 0 && multalu18x18_mode <= 2,
-                                    "MULTALU18X18_MODE is not in {0, 1, 2}");
+                    if (multalu18x18_mode < 0 || multalu18x18_mode > 2) {
+                        log_error("%s MULTALU18X18_MODE is not in {0, 1, 2}.\n", ctx->nameOf(ci));
+                    }
                     NetInfo *vss_net = ctx->nets.at(ctx->id("$PACKER_GND")).get();
 
                     for (int i = 0; i < 54; ++i) {
@@ -2564,8 +2571,9 @@ struct GowinPacker
                         ci->setParam(id_MULTALU18X18_MODE, 0);
                     }
                     int multalu36x18_mode = ci->params.at(id_MULTALU36X18_MODE).as_int64();
-                    NPNR_ASSERT_MSG(multalu36x18_mode >= 0 && multalu36x18_mode <= 2,
-                                    "MULTALU36X18_MODE is not in {0, 1, 2}");
+                    if (multalu36x18_mode < 0 || multalu36x18_mode > 2) {
+                        log_error("%s MULTALU36X18_MODE is not in {0, 1, 2}.\n", ctx->nameOf(ci));
+                    }
                     NetInfo *vss_net = ctx->nets.at(ctx->id("$PACKER_GND")).get();
 
                     for (int i = 0; i < 36; ++i) {
@@ -2667,8 +2675,9 @@ struct GowinPacker
                         ci->setParam(id_MULTADDALU18X18_MODE, 0);
                     }
                     int multaddalu18x18_mode = ci->params.at(id_MULTADDALU18X18_MODE).as_int64();
-                    NPNR_ASSERT_MSG(multaddalu18x18_mode >= 0 && multaddalu18x18_mode <= 2,
-                                    "MULTADDALU18X18_MODE is not in {0, 1, 2}");
+                    if (multaddalu18x18_mode < 0 || multaddalu18x18_mode > 2) {
+                        log_error("%s MULTADDALU18X18_MODE is not in {0, 1, 2}.\n", ctx->nameOf(ci));
+                    }
                     for (int i = 0; i < 54; ++i) {
                         if (i < 18) {
                             ci->renamePort(ctx->idf("A0[%d]", i), ctx->idf("A%d0", i));
