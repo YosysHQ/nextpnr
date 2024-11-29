@@ -103,8 +103,10 @@ struct NgUltraImpl : HimbaechelAPI
     dict<BelId, IdString> unused_pll;
     dict<BelId, BelId> dsp_cascade;
 
+    /* clang-format off */
 TESTABLE_PRIVATE:
     void write_bitstream_json(const std::string &filename);
+    /* clang-format on */
     void parse_csv(const std::string &filename);
     void remove_constants();
     bool update_bff_to_csc(CellInfo *cell, BelId bel, PipId dst_pip);

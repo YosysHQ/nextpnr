@@ -75,8 +75,10 @@ struct NgUltraPacker
     void insert_bypass_gck();
     void insert_csc();
 
+    /* clang-format off */
 TESTABLE_PRIVATE:
     void set_lut_input_if_constant(CellInfo *cell, IdString input);
+    /* clang-format on */
     void lut_to_fe(CellInfo *lut, CellInfo *fe, bool no_dff, Property lut_table);
     void dff_to_fe(CellInfo *dff, CellInfo *fe, bool pass_thru_lut);
     void dff_rewrite(CellInfo *cell);
