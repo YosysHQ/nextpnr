@@ -83,9 +83,11 @@ TESTABLE_PRIVATE:
     void ddfr_rewrite(CellInfo *cell);
 
     void exchange_if_constant(CellInfo *cell, IdString input1, IdString input2);
-    void pack_cy_input_and_output(CellInfo *cy, IdString cluster, IdString in_port, IdString out_port, int placer, int &lut_only, int &lut_and_ff, int &dff_only);
+    void pack_cy_input_and_output(CellInfo *cy, IdString cluster, IdString in_port, IdString out_port, int placer,
+                                  int &lut_only, int &lut_and_ff, int &dff_only);
 
-    void pack_xrf_input_and_output(CellInfo *cy, IdString cluster, IdString in_port, IdString out_port, ClusterPlacement placement, int &lut_only, int &lut_and_ff, int &dff_only);
+    void pack_xrf_input_and_output(CellInfo *cy, IdString cluster, IdString in_port, IdString out_port,
+                                   ClusterPlacement placement, int &lut_only, int &lut_and_ff, int &dff_only);
 
     void connect_gnd_if_unconnected(CellInfo *cell, IdString input, bool warn);
     void disconnect_if_gnd(CellInfo *cell, IdString input);
@@ -107,10 +109,10 @@ TESTABLE_PRIVATE:
     int make_init_with_const_input(int init, int input, bool value);
 
     int memory_width(int config, bool ecc);
-    int memory_addr_bits(int config,bool ecc);
+    int memory_addr_bits(int config, bool ecc);
 
     void constrain_location(CellInfo *cell);
-    void extract_lowskew_signals(CellInfo *cell, dict<IdString,dict<IdString,std::vector<PortRef>>> &lowskew_signals);
+    void extract_lowskew_signals(CellInfo *cell, dict<IdString, dict<IdString, std::vector<PortRef>>> &lowskew_signals);
     // Cell creating
     CellInfo *create_cell_ptr(IdString type, IdString name);
 

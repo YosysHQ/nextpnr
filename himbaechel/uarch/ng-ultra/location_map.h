@@ -37,7 +37,7 @@ Loc getXRFFE(Loc root, int pos);
 Loc getCDCFE(Loc root, int pos);
 Loc getFIFOFE(Loc root, int pos);
 
-};
+}; // namespace ng_ultra
 
 NEXTPNR_NAMESPACE_END
 #endif

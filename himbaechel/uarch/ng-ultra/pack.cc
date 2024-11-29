@@ -39,7 +39,7 @@ NEXTPNR_NAMESPACE_BEGIN
 inline bool is_lut(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_NX_LUT; }
 
 // Return true if a cell is a flipflop
-inline bool is_dff(const BaseCtx *ctx, const CellInfo *cell) { return cell->type.in(id_NX_DFF,id_NX_BFF); }
+inline bool is_dff(const BaseCtx *ctx, const CellInfo *cell) { return cell->type.in(id_NX_DFF, id_NX_BFF); }
 
 // Return true if a cell is a FE
 inline bool is_fe(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_BEYOND_FE; }
@@ -72,8 +72,10 @@ void NgUltraPacker::pack_constants(void)
 {
     log_info("Packing constants..\n");
     // Replace constants with LUTs
-    const dict<IdString, Property> vcc_params = {{id_lut_table, Property(0xFFFF, 16)}, {id_lut_used, Property(1,1)}, {id_dff_used, Property(1,1)}};
-    const dict<IdString, Property> gnd_params = {{id_lut_table, Property(0x0000, 16)}, {id_lut_used, Property(1,1)}, {id_dff_used, Property(1,1)}};
+    const dict<IdString, Property> vcc_params = {
+            {id_lut_table, Property(0xFFFF, 16)}, {id_lut_used, Property(1, 1)}, {id_dff_used, Property(1, 1)}};
+    const dict<IdString, Property> gnd_params = {
+            {id_lut_table, Property(0x0000, 16)}, {id_lut_used, Property(1, 1)}, {id_dff_used, Property(1, 1)}};
 
     h.replace_constants(CellTypePort(id_BEYOND_FE, id_LO), CellTypePort(id_BEYOND_FE, id_LO), vcc_params, gnd_params);
 }
@@ -84,7 +86,7 @@ void NgUltraImpl::remove_constants()
     auto fnd_cell = ctx->cells.find(ctx->id("$PACKER_VCC_DRV"));
     if (fnd_cell != ctx->cells.end()) {
         auto fnd_net = ctx->nets.find(ctx->id("$PACKER_VCC"));
-        if (fnd_net != ctx->nets.end() && fnd_net->second->users.entries()==0) {
+        if (fnd_net != ctx->nets.end() && fnd_net->second->users.entries() == 0) {
             BelId bel = (*fnd_cell).second.get()->bel;
             if (bel != BelId())
                 ctx->unbindBel(bel);
@@ -96,7 +98,7 @@ void NgUltraImpl::remove_constants()
     fnd_cell = ctx->cells.find(ctx->id("$PACKER_GND_DRV"));
     if (fnd_cell != ctx->cells.end()) {
         auto fnd_net = ctx->nets.find(ctx->id("$PACKER_GND"));
-        if (fnd_net != ctx->nets.end() && fnd_net->second->users.entries()==0) {
+        if (fnd_net != ctx->nets.end() && fnd_net->second->users.entries() == 0) {
             BelId bel = (*fnd_cell).second.get()->bel;
             if (bel != BelId())
                 ctx->unbindBel(bel);
@@ -131,7 +133,7 @@ void NgUltraPacker::update_lut_init()
 
 void NgUltraPacker::dff_rewrite(CellInfo *cell)
 {
-    if (int_or_default(cell->params, id_dff_init, 0)==0) {
+    if (int_or_default(cell->params, id_dff_init, 0) == 0) {
         // Reset not used
         cell->disconnectPort(id_R);
     } else {
@@ -140,7 +142,7 @@ void NgUltraPacker::dff_rewrite(CellInfo *cell)
         if (net) {
             if (net->name == ctx->id("$PACKER_GND")) {
                 log_warning("Removing reset on '%s' since it is always 0.\n", cell->name.c_str(ctx));
-                cell->setParam(id_dff_init, Property(0,1));
+                cell->setParam(id_dff_init, Property(0, 1));
                 cell->disconnectPort(id_R);
             } else if (net->name == ctx->id("$PACKER_VCC")) {
                 log_error("Invalid DFF configuration, reset on '%s' is always 1.\n", cell->name.c_str(ctx));
@@ -148,7 +150,7 @@ void NgUltraPacker::dff_rewrite(CellInfo *cell)
         }
     }
 
-    if (int_or_default(cell->params, id_dff_load, 0)==0) {
+    if (int_or_default(cell->params, id_dff_load, 0) == 0) {
         // Load not used
         cell->disconnectPort(id_L);
     } else {
@@ -157,11 +159,11 @@ void NgUltraPacker::dff_rewrite(CellInfo *cell)
         if (net) {
             if (net->name == ctx->id("$PACKER_VCC")) {
                 log_warning("Removing load enable on '%s' since it is always 1.\n", cell->name.c_str(ctx));
-                cell->setParam(id_dff_load, Property(0,0));
+                cell->setParam(id_dff_load, Property(0, 0));
                 cell->disconnectPort(id_L);
             } else if (net->name == ctx->id("$PACKER_GND")) {
                 log_warning("Converting to self loop, since load enable on '%s' is always 0.\n", cell->name.c_str(ctx));
-                cell->setParam(id_dff_load, Property(0,0));
+                cell->setParam(id_dff_load, Property(0, 0));
                 cell->disconnectPort(id_L);
                 cell->disconnectPort(id_I);
                 NetInfo *out = cell->getPort(id_O);
@@ -174,7 +176,7 @@ void NgUltraPacker::dff_rewrite(CellInfo *cell)
 void NgUltraPacker::ddfr_rewrite(CellInfo *cell)
 {
     // Reversed logic in comparison to DFF
-    if (int_or_default(cell->params, id_dff_load, 0)==1) {
+    if (int_or_default(cell->params, id_dff_load, 0) == 1) {
         // Load not used
         cell->disconnectPort(id_L);
     } else {
@@ -183,7 +185,7 @@ void NgUltraPacker::ddfr_rewrite(CellInfo *cell)
         if (net) {
             if (net->name == ctx->id("$PACKER_VCC")) {
                 log_warning("Removing load enable on '%s' since it is always 1.\n", cell->name.c_str(ctx));
-                cell->setParam(id_dff_load, Property(0,0));
+                cell->setParam(id_dff_load, Property(0, 0));
                 cell->disconnectPort(id_L);
             }
         }
@@ -253,14 +255,15 @@ void NgUltraPacker::connect_gnd_if_unconnected(CellInfo *cell, IdString input, b
     if (fnd_net != ctx->nets.end()) {
         cell->connectPort(input, fnd_net->second.get());
         if (warn)
-            log_warning("Connected GND to mandatory port '%s' of cell '%s'(%s).\n", input.c_str(ctx), cell->name.c_str(ctx), cell->type.c_str(ctx));
+            log_warning("Connected GND to mandatory port '%s' of cell '%s'(%s).\n", input.c_str(ctx),
+                        cell->name.c_str(ctx), cell->type.c_str(ctx));
     }
 }
 
 void NgUltraPacker::lut_to_fe(CellInfo *lut, CellInfo *fe, bool no_dff, Property lut_table)
 {
     fe->params[id_lut_table] = lut_table;
-    fe->params[id_lut_used] = Property(1,1);
+    fe->params[id_lut_used] = Property(1, 1);
     lut->movePortTo(id_I1, fe, id_I1);
     lut->movePortTo(id_I2, fe, id_I2);
     lut->movePortTo(id_I3, fe, id_I3);
@@ -277,18 +280,17 @@ void NgUltraPacker::dff_to_fe(CellInfo *dff, CellInfo *fe, bool pass_thru_lut)
         NetInfo *net = dff->getPort(id_I);
         if (net && net->name.in(ctx->id("$PACKER_GND"), ctx->id("$PACKER_VCC"))) {
             // special case if driver is constant
-            fe->params[id_lut_table] = Property((net->name ==ctx->id("$PACKER_GND")) ? 0x0000 : 0xffff, 16);
+            fe->params[id_lut_table] = Property((net->name == ctx->id("$PACKER_GND")) ? 0x0000 : 0xffff, 16);
             dff->disconnectPort(id_I);
         } else {
             // otherwise just passthru
             fe->params[id_lut_table] = Property(0xaaaa, 16);
             dff->movePortTo(id_I, fe, id_I1);
         }
-        fe->params[id_lut_used] = Property(1,1);
-    }
-    else
+        fe->params[id_lut_used] = Property(1, 1);
+    } else
         dff->movePortTo(id_I, fe, id_DI);
-    fe->params[id_dff_used] = Property(1,1);
+    fe->params[id_dff_used] = Property(1, 1);
     dff->movePortTo(id_O, fe, id_DO);
     if (dff->type == id_NX_BFF) {
         fe->setParam(id_type, Property("BFF"));
@@ -299,15 +301,21 @@ void NgUltraPacker::dff_to_fe(CellInfo *dff, CellInfo *fe, bool pass_thru_lut)
         dff->movePortTo(id_CK, fe, id_CK);
         dff->movePortTo(id_L, fe, id_L);
 
-        if (dff->params.count(id_dff_ctxt)) fe->setParam(id_dff_ctxt,dff->params[id_dff_ctxt]);
-        if (dff->params.count(id_dff_edge)) fe->setParam(id_dff_edge,dff->params[id_dff_edge]);
-        if (dff->params.count(id_dff_init)) fe->setParam(id_dff_init,dff->params[id_dff_init]);
-        if (dff->params.count(id_dff_load)) fe->setParam(id_dff_load,dff->params[id_dff_load]);
-        if (dff->params.count(id_dff_sync)) fe->setParam(id_dff_sync,dff->params[id_dff_sync]);
-        if (dff->params.count(id_dff_type)) fe->setParam(id_dff_type,dff->params[id_dff_type]);
+        if (dff->params.count(id_dff_ctxt))
+            fe->setParam(id_dff_ctxt, dff->params[id_dff_ctxt]);
+        if (dff->params.count(id_dff_edge))
+            fe->setParam(id_dff_edge, dff->params[id_dff_edge]);
+        if (dff->params.count(id_dff_init))
+            fe->setParam(id_dff_init, dff->params[id_dff_init]);
+        if (dff->params.count(id_dff_load))
+            fe->setParam(id_dff_load, dff->params[id_dff_load]);
+        if (dff->params.count(id_dff_sync))
+            fe->setParam(id_dff_sync, dff->params[id_dff_sync]);
+        if (dff->params.count(id_dff_type))
+            fe->setParam(id_dff_type, dff->params[id_dff_type]);
     }
     if (pass_thru_lut) {
-        NetInfo *new_out = ctx->createNet(ctx->idf("%s$LO",dff->name.c_str(ctx)));
+        NetInfo *new_out = ctx->createNet(ctx->idf("%s$LO", dff->name.c_str(ctx)));
         fe->connectPort(id_LO, new_out);
         fe->connectPort(id_DI, new_out);
     }
@@ -317,7 +325,7 @@ void NgUltraPacker::bind_attr_loc(CellInfo *cell, dict<IdString, Property> *attr
 {
     if (attrs->count(id_LOC)) {
         std::string name = attrs->at(id_LOC).as_string();
-        if (boost::starts_with(name,"TILE[")) {
+        if (boost::starts_with(name, "TILE[")) {
             boost::replace_all(name, ".DFF", ".FE");
             boost::replace_all(name, ".LUT", ".FE");
         }
@@ -340,24 +348,25 @@ void NgUltraPacker::pack_xluts(void)
         if (!ci.params.count(id_lut_table))
             log_error("Cell '%s' missing lut_table\n", ci.name.c_str(ctx));
 
-        if (ci.cluster!=ClusterId())
+        if (ci.cluster != ClusterId())
             continue;
         CellInfo *lut[4];
         int inputs_used = 0;
         int dff_parts_used = 0;
-        for(int i=0;i<4;i++) {
-            NetInfo *net = ci.getPort(ctx->idf("I%d",i+1));
+        for (int i = 0; i < 4; i++) {
+            NetInfo *net = ci.getPort(ctx->idf("I%d", i + 1));
             if (!net)
                 continue;
             lut[i] = net_driven_by(ctx, net, is_lut, id_O);
             if (lut[i] == cell.second.get())
                 continue;
             if (lut[i]) {
-                if (net->users.entries()>1) dff_parts_used++;
+                if (net->users.entries() > 1)
+                    dff_parts_used++;
                 inputs_used++;
             }
         }
-        if (inputs_used!=4)
+        if (inputs_used != 4)
             continue;
         // we must have a route out for xlut output signal
         if (dff_parts_used > 3)
@@ -370,16 +379,16 @@ void NgUltraPacker::pack_xluts(void)
         NetInfo *o = ci.getPort(id_O);
         CellInfo *orig_dff = o ? net_only_drives(ctx, o, is_dff, id_I, true) : nullptr;
 
-        for (int i=0;i<4;i++) {
+        for (int i = 0; i < 4; i++) {
             ci.constr_children.push_back(lut[i]);
             lut[i]->cluster = ci.cluster;
             lut[i]->type = id_BEYOND_FE;
             lut[i]->constr_z = PLACE_XLUT_FE1 + i;
             lut[i]->renamePort(id_O, id_LO);
-            lut[i]->params[id_lut_used] = Property(1,1);
+            lut[i]->params[id_lut_used] = Property(1, 1);
             NetInfo *net = lut[i]->getPort(id_LO);
-            if (net->users.entries()!=2) {
-                if (orig_dff && net->users.entries()==1) {
+            if (net->users.entries() != 2) {
+                if (orig_dff && net->users.entries() == 1) {
                     // we place DFF on XLUT output on unused DFF
                     dff_to_fe(orig_dff, lut[i], false);
                     packed_cells.insert(orig_dff->name);
@@ -391,9 +400,9 @@ void NgUltraPacker::pack_xluts(void)
                 }
             } else {
                 CellInfo *dff = (*net->users.begin()).cell;
-                if (dff->type!=id_NX_DFF)
+                if (dff->type != id_NX_DFF)
                     dff = (*(++net->users.begin())).cell;
-                if (dff->type==id_NX_DFF) {
+                if (dff->type == id_NX_DFF) {
                     dff_to_fe(dff, lut[i], false);
                     packed_cells.insert(dff->name);
                     lut_and_ff++;
@@ -401,7 +410,7 @@ void NgUltraPacker::pack_xluts(void)
                     lut[i]->timing_index = ctx->get_cell_timing_idx(id_BEYOND_FE_LUT);
                     lut_only++;
                 }
-            }   
+            }
         }
     }
     if (xlut_used)
@@ -416,24 +425,27 @@ void NgUltraPacker::pack_xluts(void)
 void NgUltraPacker::pack_dff_chains(void)
 {
     log_info("Pack DFF chains...\n");
-    std::vector<std::pair<CellInfo*, std::vector<CellInfo*>>> dff_chain_start;
+    std::vector<std::pair<CellInfo *, std::vector<CellInfo *>>> dff_chain_start;
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_NX_DFF))
             continue;
         NetInfo *inp = ci.getPort(id_I);
-        if (!inp || (inp->driver.cell && inp->driver.cell->type.in(id_NX_DFF))) continue;
+        if (!inp || (inp->driver.cell && inp->driver.cell->type.in(id_NX_DFF)))
+            continue;
         int cnt = 0;
         CellInfo *dff = &ci;
-        std::vector<CellInfo*> chain;
-        CellInfo* start_dff = &ci;
-        while(1) {
+        std::vector<CellInfo *> chain;
+        CellInfo *start_dff = &ci;
+        while (1) {
             NetInfo *o = dff->getPort(id_O);
-            if (!o) break;
-            if (o->users.entries() != 1) break;
+            if (!o)
+                break;
+            if (o->users.entries() != 1)
+                break;
             dff = (*o->users.begin()).cell;
             if (dff->type == id_NX_DFF && (*o->users.begin()).port == id_I) {
-                if (cnt==95) { // note that start_dff is also part of chain
+                if (cnt == 95) { // note that start_dff is also part of chain
                     dff_chain_start.push_back(make_pair(start_dff, chain));
                     cnt = 0;
                     start_dff = dff;
@@ -442,7 +454,8 @@ void NgUltraPacker::pack_dff_chains(void)
                     chain.push_back(dff);
                     cnt++;
                 }
-            } else break;
+            } else
+                break;
         }
         if (cnt)
             dff_chain_start.push_back(make_pair(start_dff, chain));
@@ -454,7 +467,7 @@ void NgUltraPacker::pack_dff_chains(void)
         CellInfo *root = create_cell_ptr(id_BEYOND_FE, ctx->idf("%s$fe", dff->name.c_str(ctx)));
         root->cluster = root->name;
         NetInfo *net = dff->getPort(id_I);
-        if (net && net->driver.cell->type == id_NX_LUT && net->users.entries()==1) {
+        if (net && net->driver.cell->type == id_NX_LUT && net->users.entries() == 1) {
             CellInfo *lut = net->driver.cell;
             if (!lut->params.count(id_lut_table))
                 log_error("Cell '%s' missing lut_table\n", lut->name.c_str(ctx));
@@ -468,7 +481,7 @@ void NgUltraPacker::pack_dff_chains(void)
             packed_cells.insert(dff->name);
             ++dff_only;
         }
-        for(auto dff : ch.second) {
+        for (auto dff : ch.second) {
             CellInfo *new_cell = create_cell_ptr(id_BEYOND_FE, ctx->idf("%s$fe", dff->name.c_str(ctx)));
             dff_to_fe(dff, new_cell, true);
             ++dff_only;
@@ -489,7 +502,8 @@ void NgUltraPacker::pack_lut_multi_dffs(void)
 {
     log_info("Pack LUT-multi DFFs...\n");
 
-    int dff_only = 0, lut_and_ff = 0, bff_only = 0;;
+    int dff_only = 0, lut_and_ff = 0, bff_only = 0;
+    ;
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_NX_LUT))
@@ -499,15 +513,16 @@ void NgUltraPacker::pack_lut_multi_dffs(void)
 
         NetInfo *o = ci.getPort(id_O);
         if (o) {
-            if (o->users.entries()<2) continue;
+            if (o->users.entries() < 2)
+                continue;
 
             int cnt = 0;
-            for (auto u : o->users)
-            {
+            for (auto u : o->users) {
                 if (u.cell->type == id_NX_DFF && u.cell->getPort(id_I) == o)
                     cnt++;
             }
-            if (cnt<2) continue;
+            if (cnt < 2)
+                continue;
 
             CellInfo *root = create_cell_ptr(id_BEYOND_FE, ctx->idf("%s$fe", ci.name.c_str(ctx)));
             packed_cells.insert(ci.name);
@@ -515,14 +530,13 @@ void NgUltraPacker::pack_lut_multi_dffs(void)
             lut_to_fe(&ci, root, false, ci.params[id_lut_table]);
             root->cluster = root->name;
 
-            int max_use = (cnt==4 && o->users.entries()==4) ? 4 : 3;
-            bool use_bff = max_use!=4 && cnt>=4;
+            int max_use = (cnt == 4 && o->users.entries() == 4) ? 4 : 3;
+            bool use_bff = max_use != 4 && cnt >= 4;
             int i = 0;
             std::vector<PortRef> users;
-            for (auto u : o->users)
-            {
+            for (auto u : o->users) {
                 if (u.cell->type == id_NX_DFF && u.cell->getPort(id_I) == o) {
-                    if (i==0) {
+                    if (i == 0) {
                         packed_cells.insert(u.cell->name);
                         dff_to_fe(u.cell, root, false);
                         ++lut_and_ff;
@@ -547,8 +561,8 @@ void NgUltraPacker::pack_lut_multi_dffs(void)
                 }
             }
             if (use_bff) {
-                CellInfo *new_cell = create_cell_ptr(id_BEYOND_FE, ctx->idf("%s$bff",ci.name.c_str(ctx)));
-                new_cell->params[id_dff_used] = Property(1,1);
+                CellInfo *new_cell = create_cell_ptr(id_BEYOND_FE, ctx->idf("%s$bff", ci.name.c_str(ctx)));
+                new_cell->params[id_dff_used] = Property(1, 1);
                 new_cell->setParam(id_type, Property("BFF"));
                 new_cell->connectPort(id_DI, o);
                 root->constr_children.push_back(new_cell);
@@ -557,7 +571,7 @@ void NgUltraPacker::pack_lut_multi_dffs(void)
                 bff_only++;
                 NetInfo *new_out = ctx->createNet(ctx->idf("%s$new", o->name.c_str(ctx)));
                 new_cell->connectPort(id_DO, new_out);
-                for(auto &user : users) {
+                for (auto &user : users) {
                     user.cell->connectPort(user.port, new_out);
                 }
             }
@@ -577,7 +591,7 @@ void NgUltraPacker::pack_lut_dffs(void)
     log_info("Pack LUT-DFFs...\n");
 
     int lut_only = 0, lut_and_ff = 0;
-    std::vector<CellInfo*> lut_list;
+    std::vector<CellInfo *> lut_list;
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_NX_LUT))
@@ -622,7 +636,7 @@ void NgUltraPacker::pack_lut_dffs(void)
 void NgUltraPacker::pack_dffs(void)
 {
     int dff_only = 0;
-    std::vector<CellInfo*> dff_list;
+    std::vector<CellInfo *> dff_list;
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_NX_DFF, id_NX_BFF))
@@ -690,7 +704,7 @@ void NgUltraPacker::pack_iobs(void)
         }
         if (!is_npnr_iob)
             log_error("Port '%s' doesn't seem to have a corresponding top level IO (internal cell type mismatch)\n",
-                        ctx->nameOf(port.first));
+                      ctx->nameOf(port.first));
 
         if (top_port.cell == nullptr) {
             log_info("Trimming port '%s' as it is unused.\n", ctx->nameOf(port.first));
@@ -709,7 +723,7 @@ void NgUltraPacker::pack_iobs(void)
         ci->disconnectPort(id_O);
         ctx->cells.erase(port.first);
     }
-    std::vector<CellInfo*> to_update;
+    std::vector<CellInfo *> to_update;
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_NX_IOB_I, id_NX_IOB_O, id_NX_IOB))
@@ -733,16 +747,21 @@ void NgUltraPacker::pack_iobs(void)
         if (ci.getPort(id_T)) {
             // In case T input is used must use different types
             new_type = id_IOTP;
-            if (ci.type==id_NX_IOB_O) new_type = id_OTP;
-            if (ci.type==id_NX_IOB_I) new_type = id_ITP;
+            if (ci.type == id_NX_IOB_O)
+                new_type = id_OTP;
+            if (ci.type == id_NX_IOB_I)
+                new_type = id_ITP;
         } else {
-            if (ci.type==id_NX_IOB_O) new_type = id_OP;
-            if (ci.type==id_NX_IOB_I) new_type = id_IP;
+            if (ci.type == id_NX_IOB_O)
+                new_type = id_OP;
+            if (ci.type == id_NX_IOB_I)
+                new_type = id_IP;
         }
         ci.type = new_type;
         ctx->bindBel(bel, &ci, PlaceStrength::STRENGTH_LOCKED);
-        if (!ctx->isValidBelForCellType(new_type,bel))
-            log_error("Invalid type of IO for specified location %s %s.\n", new_type.c_str(ctx), ctx->getBelType(bel).c_str(ctx));
+        if (!ctx->isValidBelForCellType(new_type, bel))
+            log_error("Invalid type of IO for specified location %s %s.\n", new_type.c_str(ctx),
+                      ctx->getBelType(bel).c_str(ctx));
         to_update.push_back(&ci);
     }
     int bfr_added = 0;
@@ -770,17 +789,17 @@ void NgUltraPacker::pack_iobs(void)
 
         {
             CellInfo *iod = net_driven_by(ctx, c_net, is_dfr, id_O);
-            if (iod && c_net->users.entries()!=1)
+            if (iod && c_net->users.entries() != 1)
                 log_error("NX_DFR '%s' can only directly drive IOB.\n", iod->name.c_str(ctx));
             if (!iod) {
                 iod = net_driven_by(ctx, c_net, is_ddfr, id_O);
-                if (iod && c_net->users.entries()!=1)
+                if (iod && c_net->users.entries() != 1)
                     log_error("NX_DDFR '%s' can only directly drive IOB.\n", iod->name.c_str(ctx));
                 if (!iod) {
                     bfr_added++;
                     iod = create_cell_ptr(id_BFR, ctx->idf("%s$iod_cd", cell->name.c_str(ctx)));
-                    NetInfo *new_out = ctx->createNet(ctx->idf("%s$O",iod->name.c_str(ctx)));
-                    iod->setParam(id_iobname,str_or_default(cell->params, id_iobname, ""));
+                    NetInfo *new_out = ctx->createNet(ctx->idf("%s$O", iod->name.c_str(ctx)));
+                    iod->setParam(id_iobname, str_or_default(cell->params, id_iobname, ""));
                     cell->disconnectPort(id_C);
                     if (c_net->name == ctx->id("$PACKER_GND"))
                         iod->setParam(id_mode, Property(0, 2));
@@ -792,11 +811,11 @@ void NgUltraPacker::pack_iobs(void)
                         iod->setParam(id_data_inv, Property(0, 1));
                     }
                     iod->connectPort(id_O, new_out);
-                    cell->connectPort(id_C,new_out);
+                    cell->connectPort(id_C, new_out);
                 } else {
                     ddfr_added++;
                     iod->type = id_DDFR;
-                    iod->setParam(id_iobname,str_or_default(cell->params, id_iobname, ""));
+                    iod->setParam(id_iobname, str_or_default(cell->params, id_iobname, ""));
                     iod->setParam(id_path, Property(2, 2));
                     ddfr_rewrite(iod);
                     disconnect_unused(iod, id_O2);
@@ -806,7 +825,7 @@ void NgUltraPacker::pack_iobs(void)
             } else {
                 dfr_added++;
                 iod->type = id_DFR;
-                iod->setParam(id_iobname,str_or_default(cell->params, id_iobname, ""));
+                iod->setParam(id_iobname, str_or_default(cell->params, id_iobname, ""));
                 dff_rewrite(iod);
             }
             Loc cd_loc = cell->getLocation();
@@ -817,17 +836,17 @@ void NgUltraPacker::pack_iobs(void)
         NetInfo *i_net = cell->getPort(id_I);
         if (i_net) {
             CellInfo *iod = net_driven_by(ctx, i_net, is_dfr, id_O);
-            if (iod && i_net->users.entries()!=1)
+            if (iod && i_net->users.entries() != 1)
                 log_error("NX_DFR '%s' can only directly drive IOB.\n", iod->name.c_str(ctx));
             if (!iod) {
                 iod = net_driven_by(ctx, i_net, is_ddfr, id_O);
-                if (iod && i_net->users.entries()!=1)
+                if (iod && i_net->users.entries() != 1)
                     log_error("NX_DDFR '%s' can only directly drive IOB.\n", iod->name.c_str(ctx));
                 if (!iod) {
                     bfr_added++;
                     iod = create_cell_ptr(id_BFR, ctx->idf("%s$iod_od", cell->name.c_str(ctx)));
                     NetInfo *new_out = ctx->createNet(ctx->idf("%s$O", iod->name.c_str(ctx)));
-                    iod->setParam(id_iobname,str_or_default(cell->params, id_iobname, ""));
+                    iod->setParam(id_iobname, str_or_default(cell->params, id_iobname, ""));
                     cell->disconnectPort(id_I);
                     if (i_net->name == ctx->id("$PACKER_GND"))
                         iod->setParam(id_mode, Property(0, 2));
@@ -839,11 +858,11 @@ void NgUltraPacker::pack_iobs(void)
                         iod->setParam(id_data_inv, Property(0, 1));
                     }
                     iod->connectPort(id_O, new_out);
-                    cell->connectPort(id_I,new_out);
+                    cell->connectPort(id_I, new_out);
                 } else {
                     ddfr_added++;
                     iod->type = id_DDFR;
-                    iod->setParam(id_iobname,str_or_default(cell->params, id_iobname, ""));
+                    iod->setParam(id_iobname, str_or_default(cell->params, id_iobname, ""));
                     iod->setParam(id_path, Property(0, 2));
                     ddfr_rewrite(iod);
                     disconnect_unused(iod, id_O2);
@@ -853,7 +872,7 @@ void NgUltraPacker::pack_iobs(void)
             } else {
                 dfr_added++;
                 iod->type = id_DFR;
-                iod->setParam(id_iobname,str_or_default(cell->params, id_iobname, ""));
+                iod->setParam(id_iobname, str_or_default(cell->params, id_iobname, ""));
                 dff_rewrite(iod);
             }
             Loc cd_loc = cell->getLocation();
@@ -865,7 +884,7 @@ void NgUltraPacker::pack_iobs(void)
         NetInfo *o_net = cell->getPort(id_O);
         if (o_net) {
             CellInfo *iod = net_only_drives(ctx, o_net, is_dfr, id_I, true);
-            if (!(o_net->users.entries()==1 && (*o_net->users.begin()).cell->type == id_NX_IOM_U)) {
+            if (!(o_net->users.entries() == 1 && (*o_net->users.begin()).cell->type == id_NX_IOM_U)) {
                 bool bfr_mode = false;
                 bool ddfr_mode = false;
                 if (!iod) {
@@ -874,19 +893,19 @@ void NgUltraPacker::pack_iobs(void)
                         bfr_added++;
                         iod = create_cell_ptr(id_BFR, ctx->idf("%s$iod_id", cell->name.c_str(ctx)));
                         NetInfo *new_in = ctx->createNet(ctx->idf("%s$I", iod->name.c_str(ctx)));
-                        iod->setParam(id_iobname,str_or_default(cell->params, id_iobname, ""));
+                        iod->setParam(id_iobname, str_or_default(cell->params, id_iobname, ""));
                         cell->disconnectPort(id_O);
                         iod->connectPort(id_O, o_net);
                         iod->setParam(id_mode, Property(2, 2));
                         iod->setParam(id_data_inv, Property(0, 1));
                         iod->connectPort(id_I, new_in);
-                        cell->connectPort(id_O,new_in);
+                        cell->connectPort(id_O, new_in);
                         bfr_mode = true;
                     } else {
                         ddfr_mode = true;
                         ddfr_added++;
                         iod->type = id_DDFR;
-                        iod->setParam(id_iobname,str_or_default(cell->params, id_iobname, ""));
+                        iod->setParam(id_iobname, str_or_default(cell->params, id_iobname, ""));
                         iod->setParam(id_path, Property(1, 2));
                         ddfr_rewrite(iod);
                         disconnect_if_gnd(iod, id_I2);
@@ -896,7 +915,7 @@ void NgUltraPacker::pack_iobs(void)
                 } else {
                     dfr_added++;
                     iod->type = id_DFR;
-                    iod->setParam(id_iobname,str_or_default(cell->params, id_iobname, ""));
+                    iod->setParam(id_iobname, str_or_default(cell->params, id_iobname, ""));
                     dff_rewrite(iod);
                 }
                 Loc cd_loc = cell->getLocation();
@@ -905,12 +924,14 @@ void NgUltraPacker::pack_iobs(void)
                 ctx->bindBel(bel, iod, PlaceStrength::STRENGTH_LOCKED);
 
                 // Depending of DDFR mode we must use one of dedicated routes (ITCs)
-                if (!ddfr_mode && ctx->getBelType(bel)==id_DDFR) {
+                if (!ddfr_mode && ctx->getBelType(bel) == id_DDFR) {
                     WireId dwire = ctx->getBelPinWire(bel, id_O);
                     for (PipId pip : ctx->getPipsDownhill(dwire)) {
                         const auto &extra_data = *uarch->pip_extra_data(pip);
-                        if (!extra_data.name) continue;
-                        if (extra_data.type != PipExtra::PIP_EXTRA_MUX) continue;
+                        if (!extra_data.name)
+                            continue;
+                        if (extra_data.type != PipExtra::PIP_EXTRA_MUX)
+                            continue;
                         if (bfr_mode && extra_data.input == 2) {
                             uarch->blocked_pips.emplace(pip);
                         } else if (!bfr_mode && extra_data.input == 1) {
@@ -966,21 +987,22 @@ void NgUltraPacker::pack_ioms(void)
     }
 }
 
-void NgUltraPacker::pack_cy_input_and_output(CellInfo *cy, IdString cluster, IdString in_port, IdString out_port, int placer, int &lut_only, int &lut_and_ff, int &dff_only)
+void NgUltraPacker::pack_cy_input_and_output(CellInfo *cy, IdString cluster, IdString in_port, IdString out_port,
+                                             int placer, int &lut_only, int &lut_and_ff, int &dff_only)
 {
     CellInfo *fe = create_cell_ptr(id_BEYOND_FE, ctx->idf("%s$%s", cy->name.c_str(ctx), in_port.c_str(ctx)));
     NetInfo *net = cy->getPort(in_port);
     if (net) {
         if (net->name.in(ctx->id("$PACKER_GND"), ctx->id("$PACKER_VCC"))) {
-            fe->params[id_lut_table] = Property((net->name ==ctx->id("$PACKER_GND")) ? 0x0000 : 0xffff, 16);
-            fe->params[id_lut_used] = Property(1,1);
+            fe->params[id_lut_table] = Property((net->name == ctx->id("$PACKER_GND")) ? 0x0000 : 0xffff, 16);
+            fe->params[id_lut_used] = Property(1, 1);
             cy->disconnectPort(in_port);
             NetInfo *new_out = ctx->createNet(ctx->idf("%s$o", fe->name.c_str(ctx)));
             fe->connectPort(id_LO, new_out);
             cy->connectPort(in_port, new_out);
         } else {
             fe->params[id_lut_table] = Property(0xaaaa, 16);
-            fe->params[id_lut_used] = Property(1,1);
+            fe->params[id_lut_used] = Property(1, 1);
             cy->disconnectPort(in_port);
             NetInfo *new_out = ctx->createNet(ctx->idf("%s$o", fe->name.c_str(ctx)));
             fe->connectPort(id_I1, net);
@@ -999,7 +1021,7 @@ void NgUltraPacker::pack_cy_input_and_output(CellInfo *cy, IdString cluster, IdS
         if (net) {
             lut_only--;
             lut_and_ff++;
-        } else 
+        } else
             dff_only++;
     } else {
         fe->timing_index = ctx->get_cell_timing_idx(id_BEYOND_FE_LUT);
@@ -1041,30 +1063,30 @@ void NgUltraPacker::pack_cys(void)
         if (!ci_net || !ci_net->driver.cell || ci_net->driver.cell->type != id_NX_CY) {
             root_cys.push_back(ci);
         }
-        for (int i=1;i<=4;i++) {
-            connect_gnd_if_unconnected(ci, ctx->idf("A%d",i), false);
-            connect_gnd_if_unconnected(ci, ctx->idf("B%d",i), false);
-            exchange_if_constant(ci, ctx->idf("A%d",i), ctx->idf("B%d",i));
+        for (int i = 1; i <= 4; i++) {
+            connect_gnd_if_unconnected(ci, ctx->idf("A%d", i), false);
+            connect_gnd_if_unconnected(ci, ctx->idf("B%d", i), false);
+            exchange_if_constant(ci, ctx->idf("A%d", i), ctx->idf("B%d", i));
         }
         NetInfo *co_net = ci->getPort(id_CO);
         if (!co_net) {
-            disconnect_unused(ci,id_CO);
+            disconnect_unused(ci, id_CO);
             // Disconnect unused ports on last CY in chain
             // at least id_A1 and id_B1 will be connected
             // Reverse direction, must stop if used, then
             // rest is used as well
             if (!ci->getPort(id_S4)) {
-                disconnect_unused(ci,id_S4);
-                disconnect_unused(ci,id_A4);
-                disconnect_unused(ci,id_B4);
+                disconnect_unused(ci, id_S4);
+                disconnect_unused(ci, id_A4);
+                disconnect_unused(ci, id_B4);
                 if (!ci->getPort(id_S3)) {
-                    disconnect_unused(ci,id_S3);
-                    disconnect_unused(ci,id_A3);
-                    disconnect_unused(ci,id_B3);
+                    disconnect_unused(ci, id_S3);
+                    disconnect_unused(ci, id_A3);
+                    disconnect_unused(ci, id_B3);
                     if (!ci->getPort(id_S2)) {
-                        disconnect_unused(ci,id_S2);
-                        disconnect_unused(ci,id_A2);
-                        disconnect_unused(ci,id_B2);
+                        disconnect_unused(ci, id_S2);
+                        disconnect_unused(ci, id_A2);
+                        disconnect_unused(ci, id_B2);
                     };
                 }
             }
@@ -1081,13 +1103,14 @@ void NgUltraPacker::pack_cys(void)
             if (co_net && co_net->users.entries() > 0) {
                 cy = (*co_net->users.begin()).cell;
                 if (cy->type != id_NX_CY || co_net->users.entries() != 1) {
-                    log_warning("Cells %s CO output connected to:\n",group.back()->name.c_str(ctx));
-                    for(auto user : co_net->users)
-                        log_warning("\t%s of type %s\n",user.cell->name.c_str(ctx), user.cell->type.c_str(ctx));
+                    log_warning("Cells %s CO output connected to:\n", group.back()->name.c_str(ctx));
+                    for (auto user : co_net->users)
+                        log_warning("\t%s of type %s\n", user.cell->name.c_str(ctx), user.cell->type.c_str(ctx));
                     log_error("NX_CY can only be chained with one other NX_CY cell\n");
                 }
                 group.push_back(cy);
-            } else break;
+            } else
+                break;
         }
         groups.push_back(group);
     }
@@ -1136,41 +1159,43 @@ void NgUltraPacker::pack_cys(void)
     flush_cells();
 }
 
-
-void NgUltraPacker::pack_xrf_input_and_output(CellInfo *xrf, IdString cluster, IdString in_port, IdString out_port, ClusterPlacement placement, int &lut_only, int &lut_and_ff, int &dff_only)
+void NgUltraPacker::pack_xrf_input_and_output(CellInfo *xrf, IdString cluster, IdString in_port, IdString out_port,
+                                              ClusterPlacement placement, int &lut_only, int &lut_and_ff, int &dff_only)
 {
     NetInfo *net = xrf->getPort(in_port);
     NetInfo *net_out = nullptr;
     if (out_port != IdString()) {
         net_out = xrf->getPort(out_port);
-        if (net_out && net_out->users.entries()==0) {
+        if (net_out && net_out->users.entries() == 0) {
             xrf->disconnectPort(out_port);
             net_out = nullptr;
         }
     }
-    if (!net && !net_out) return;
+    if (!net && !net_out)
+        return;
     IdString name = in_port;
-    if (name == IdString()) name = out_port;
+    if (name == IdString())
+        name = out_port;
     CellInfo *fe = create_cell_ptr(id_BEYOND_FE, ctx->idf("%s$%s", xrf->name.c_str(ctx), name.c_str(ctx)));
-    
+
     if (net) {
         if (net->name.in(ctx->id("$PACKER_GND"), ctx->id("$PACKER_VCC"))) {
-            fe->params[id_lut_table] = Property((net->name ==ctx->id("$PACKER_GND")) ? 0x0000 : 0xffff, 16);
-            fe->params[id_lut_used] = Property(1,1);
+            fe->params[id_lut_table] = Property((net->name == ctx->id("$PACKER_GND")) ? 0x0000 : 0xffff, 16);
+            fe->params[id_lut_used] = Property(1, 1);
             xrf->disconnectPort(in_port);
             NetInfo *new_out = ctx->createNet(ctx->idf("%s$o", fe->name.c_str(ctx)));
             fe->connectPort(id_LO, new_out);
             xrf->connectPort(in_port, new_out);
         } else {
             CellInfo *lut = net_driven_by(ctx, net, is_lut, id_O);
-            if (lut && net->users.entries()==1) {
+            if (lut && net->users.entries() == 1) {
                 if (!lut->params.count(id_lut_table))
                     log_error("Cell '%s' missing lut_table\n", lut->name.c_str(ctx));
                 lut_to_fe(lut, fe, false, lut->params[id_lut_table]);
                 packed_cells.insert(lut->name);
             } else {
                 fe->params[id_lut_table] = Property(0xaaaa, 16);
-                fe->params[id_lut_used] = Property(1,1);
+                fe->params[id_lut_used] = Property(1, 1);
                 xrf->disconnectPort(in_port);
                 NetInfo *new_out = ctx->createNet(ctx->idf("%s$o", fe->name.c_str(ctx)));
                 fe->connectPort(id_I1, net);
@@ -1190,7 +1215,7 @@ void NgUltraPacker::pack_xrf_input_and_output(CellInfo *xrf, IdString cluster, I
             if (net) {
                 lut_only--;
                 lut_and_ff++;
-            } else 
+            } else
                 dff_only++;
         }
     }
@@ -1205,7 +1230,7 @@ void NgUltraPacker::disconnect_unused(CellInfo *cell, IdString port)
     if (net) {
         // NanoXplore tools usually connects 0 to unused port, no need to warn
         // Sometimes there is unused nets, so number of entries is zero
-        if (net->users.entries()!=0 && !net->name.in(ctx->id("$PACKER_GND")))
+        if (net->users.entries() != 0 && !net->name.in(ctx->id("$PACKER_GND")))
             log_warning("Disconnected unused port '%s' from cell '%s'.\n", port.c_str(ctx), cell->name.c_str(ctx));
         cell->disconnectPort(port);
     }
@@ -1220,61 +1245,74 @@ void NgUltraPacker::pack_rfs(void)
         if (!ci.type.in(id_NX_RFB_U))
             continue;
         int mode = int_or_default(ci.params, id_mode, 0);
-        switch(mode) {
-            case 0 : ci.type = id_RF; break;
-            case 1 : ci.type = id_RFSP; break;
-            case 2 : ci.type = id_XHRF; break;
-            case 3 : ci.type = id_XWRF; break;
-            case 4 : ci.type = id_XPRF; break;
-            default:
-                log_error("Unknown mode %d for cell '%s'.\n", mode, ci.name.c_str(ctx));
-        }        
+        switch (mode) {
+        case 0:
+            ci.type = id_RF;
+            break;
+        case 1:
+            ci.type = id_RFSP;
+            break;
+        case 2:
+            ci.type = id_XHRF;
+            break;
+        case 3:
+            ci.type = id_XWRF;
+            break;
+        case 4:
+            ci.type = id_XPRF;
+            break;
+        default:
+            log_error("Unknown mode %d for cell '%s'.\n", mode, ci.name.c_str(ctx));
+        }
         ci.cluster = ci.name;
         bind_attr_loc(&ci, &ci.attrs);
 
         for (int i = 1; i <= 18; i++) {
-            connect_gnd_if_unconnected(&ci, ctx->idf("I%d",i));
-            pack_xrf_input_and_output(&ci, ci.name, ctx->idf("I%d",i), ctx->idf("O%d",i), ClusterPlacement(PLACE_XRF_I1 + i-1), lut_only, lut_and_ff, dff_only);
+            connect_gnd_if_unconnected(&ci, ctx->idf("I%d", i));
+            pack_xrf_input_and_output(&ci, ci.name, ctx->idf("I%d", i), ctx->idf("O%d", i),
+                                      ClusterPlacement(PLACE_XRF_I1 + i - 1), lut_only, lut_and_ff, dff_only);
         }
-        if (mode!=1) {
+        if (mode != 1) {
             for (int i = 1; i <= 5; i++) {
-                connect_gnd_if_unconnected(&ci, ctx->idf("RA%d",i));
-                pack_xrf_input_and_output(&ci, ci.name, ctx->idf("RA%d",i), IdString(), ClusterPlacement(PLACE_XRF_RA1 + i-1), lut_only, lut_and_ff, dff_only);
+                connect_gnd_if_unconnected(&ci, ctx->idf("RA%d", i));
+                pack_xrf_input_and_output(&ci, ci.name, ctx->idf("RA%d", i), IdString(),
+                                          ClusterPlacement(PLACE_XRF_RA1 + i - 1), lut_only, lut_and_ff, dff_only);
             }
         } else {
             // SPREG mode does not use RA inputs
             for (int i = 1; i <= 5; i++)
-                disconnect_unused(&ci, ctx->idf("RA%d",i));
+                disconnect_unused(&ci, ctx->idf("RA%d", i));
         }
-        
-        if (mode==2 || mode==4) {
+
+        if (mode == 2 || mode == 4) {
             connect_gnd_if_unconnected(&ci, id_RA6);
             pack_xrf_input_and_output(&ci, ci.name, id_RA6, IdString(), PLACE_XRF_RA6, lut_only, lut_and_ff, dff_only);
         } else {
-            disconnect_unused(&ci,id_RA6);
+            disconnect_unused(&ci, id_RA6);
         }
 
-        if (mode==4) {
+        if (mode == 4) {
             for (int i = 7; i <= 10; i++) {
-                connect_gnd_if_unconnected(&ci, ctx->idf("RA%d",i));
-                pack_xrf_input_and_output(&ci, ci.name, ctx->idf("RA%d",i), IdString(), ClusterPlacement(PLACE_XRF_RA1 + i-1), lut_only, lut_and_ff, dff_only);
+                connect_gnd_if_unconnected(&ci, ctx->idf("RA%d", i));
+                pack_xrf_input_and_output(&ci, ci.name, ctx->idf("RA%d", i), IdString(),
+                                          ClusterPlacement(PLACE_XRF_RA1 + i - 1), lut_only, lut_and_ff, dff_only);
             }
         } else {
             for (int i = 7; i <= 10; i++)
-                disconnect_unused(&ci, ctx->idf("RA%d",i));
+                disconnect_unused(&ci, ctx->idf("RA%d", i));
         }
-
 
         for (int i = 1; i <= 5; i++) {
-            connect_gnd_if_unconnected(&ci, ctx->idf("WA%d",i));
-            pack_xrf_input_and_output(&ci, ci.name, ctx->idf("WA%d",i), IdString(), ClusterPlacement(PLACE_XRF_WA1 + i-1), lut_only, lut_and_ff, dff_only);
+            connect_gnd_if_unconnected(&ci, ctx->idf("WA%d", i));
+            pack_xrf_input_and_output(&ci, ci.name, ctx->idf("WA%d", i), IdString(),
+                                      ClusterPlacement(PLACE_XRF_WA1 + i - 1), lut_only, lut_and_ff, dff_only);
         }
-        
-        if (mode==2) {
+
+        if (mode == 2) {
             connect_gnd_if_unconnected(&ci, id_WA6);
             pack_xrf_input_and_output(&ci, ci.name, id_WA6, IdString(), PLACE_XRF_WA6, lut_only, lut_and_ff, dff_only);
         } else {
-            disconnect_unused(&ci,id_WA6);
+            disconnect_unused(&ci, id_WA6);
         }
 
         connect_gnd_if_unconnected(&ci, id_WE);
@@ -1285,18 +1323,20 @@ void NgUltraPacker::pack_rfs(void)
 
         if (mode == 3) {
             for (int i = 19; i <= 36; i++) {
-                connect_gnd_if_unconnected(&ci, ctx->idf("I%d",i));
-                pack_xrf_input_and_output(&ci, ci.name, ctx->idf("I%d",i), ctx->idf("O%d",i), ClusterPlacement(PLACE_XRF_I1 + i-1), lut_only, lut_and_ff, dff_only);
+                connect_gnd_if_unconnected(&ci, ctx->idf("I%d", i));
+                pack_xrf_input_and_output(&ci, ci.name, ctx->idf("I%d", i), ctx->idf("O%d", i),
+                                          ClusterPlacement(PLACE_XRF_I1 + i - 1), lut_only, lut_and_ff, dff_only);
             }
         } else if (mode == 4) {
             for (int i = 19; i <= 36; i++) {
-                disconnect_unused(&ci,ctx->idf("I%d",i));
-                pack_xrf_input_and_output(&ci, ci.name, IdString(), ctx->idf("O%d",i), ClusterPlacement(PLACE_XRF_I1 + i-1), lut_only, lut_and_ff, dff_only);
+                disconnect_unused(&ci, ctx->idf("I%d", i));
+                pack_xrf_input_and_output(&ci, ci.name, IdString(), ctx->idf("O%d", i),
+                                          ClusterPlacement(PLACE_XRF_I1 + i - 1), lut_only, lut_and_ff, dff_only);
             }
         } else {
             for (int i = 19; i <= 36; i++) {
-                disconnect_unused(&ci,ctx->idf("I%d",i));
-                disconnect_unused(&ci,ctx->idf("O%d",i));
+                disconnect_unused(&ci, ctx->idf("I%d", i));
+                disconnect_unused(&ci, ctx->idf("O%d", i));
             }
         }
 
@@ -1333,41 +1373,57 @@ void NgUltraPacker::pack_cdcs(void)
         if (!ci.type.in(id_NX_CDC_U))
             continue;
         int mode = int_or_default(ci.params, id_mode, 0);
-        switch(mode) {
-            case 0 : ci.type = id_DDE; break;
-            case 1 : ci.type = id_TDE; break;
-            case 2 : ci.type = id_CDC; break;
-            case 3 : ci.type = id_BGC; break;
-            case 4 : ci.type = id_GBC; break;
-            case 5 : ci.type = id_XCDC; break;
-            default:
-                log_error("Unknown mode %d for cell '%s'.\n", mode, ci.name.c_str(ctx));
-        }        
+        switch (mode) {
+        case 0:
+            ci.type = id_DDE;
+            break;
+        case 1:
+            ci.type = id_TDE;
+            break;
+        case 2:
+            ci.type = id_CDC;
+            break;
+        case 3:
+            ci.type = id_BGC;
+            break;
+        case 4:
+            ci.type = id_GBC;
+            break;
+        case 5:
+            ci.type = id_XCDC;
+            break;
+        default:
+            log_error("Unknown mode %d for cell '%s'.\n", mode, ci.name.c_str(ctx));
+        }
         ci.cluster = ci.name;
 
         // If unconnected, connect GND to inputs that are actually used as outputs
         for (int i = 1; i <= 6; i++) {
-            if (ci.getPort(ctx->idf("AO%d",i))) {
-                connect_gnd_if_unconnected(&ci, ctx->idf("AI%d",i));
-                pack_xrf_input_and_output(&ci, ci.name, ctx->idf("AI%d",i), ctx->idf("AO%d",i), ClusterPlacement(PLACE_CDC_AI1 + i-1), lut_only, lut_and_ff, dff_only);
+            if (ci.getPort(ctx->idf("AO%d", i))) {
+                connect_gnd_if_unconnected(&ci, ctx->idf("AI%d", i));
+                pack_xrf_input_and_output(&ci, ci.name, ctx->idf("AI%d", i), ctx->idf("AO%d", i),
+                                          ClusterPlacement(PLACE_CDC_AI1 + i - 1), lut_only, lut_and_ff, dff_only);
             } else
-                disconnect_unused(&ci, ctx->idf("AI%d",i));
-            if (ci.getPort(ctx->idf("BO%d",i))) {
-                connect_gnd_if_unconnected(&ci, ctx->idf("BI%d",i));
-                pack_xrf_input_and_output(&ci, ci.name, ctx->idf("BI%d",i), ctx->idf("BO%d",i), ClusterPlacement(PLACE_CDC_BI1 + i-1), lut_only, lut_and_ff, dff_only);
-            } else 
-                disconnect_unused(&ci, ctx->idf("BI%d",i));
+                disconnect_unused(&ci, ctx->idf("AI%d", i));
+            if (ci.getPort(ctx->idf("BO%d", i))) {
+                connect_gnd_if_unconnected(&ci, ctx->idf("BI%d", i));
+                pack_xrf_input_and_output(&ci, ci.name, ctx->idf("BI%d", i), ctx->idf("BO%d", i),
+                                          ClusterPlacement(PLACE_CDC_BI1 + i - 1), lut_only, lut_and_ff, dff_only);
+            } else
+                disconnect_unused(&ci, ctx->idf("BI%d", i));
             if (ci.type.in(id_XCDC)) {
-                if (ci.getPort(ctx->idf("CO%d",i))) {
-                    connect_gnd_if_unconnected(&ci, ctx->idf("CI%d",i));
-                    pack_xrf_input_and_output(&ci, ci.name, ctx->idf("CI%d",i), ctx->idf("CO%d",i), ClusterPlacement(PLACE_CDC_CI1 + i-1), lut_only, lut_and_ff, dff_only);
+                if (ci.getPort(ctx->idf("CO%d", i))) {
+                    connect_gnd_if_unconnected(&ci, ctx->idf("CI%d", i));
+                    pack_xrf_input_and_output(&ci, ci.name, ctx->idf("CI%d", i), ctx->idf("CO%d", i),
+                                              ClusterPlacement(PLACE_CDC_CI1 + i - 1), lut_only, lut_and_ff, dff_only);
                 } else
-                    disconnect_unused(&ci, ctx->idf("CI%d",i));
-                if (ci.getPort(ctx->idf("DO%d",i))) {
-                    connect_gnd_if_unconnected(&ci, ctx->idf("DI%d",i));
-                    pack_xrf_input_and_output(&ci, ci.name, ctx->idf("DI%d",i), ctx->idf("DO%d",i), ClusterPlacement(PLACE_CDC_DI1 + i-1), lut_only, lut_and_ff, dff_only);
-                } else 
-                    disconnect_unused(&ci, ctx->idf("DI%d",i));
+                    disconnect_unused(&ci, ctx->idf("CI%d", i));
+                if (ci.getPort(ctx->idf("DO%d", i))) {
+                    connect_gnd_if_unconnected(&ci, ctx->idf("DI%d", i));
+                    pack_xrf_input_and_output(&ci, ci.name, ctx->idf("DI%d", i), ctx->idf("DO%d", i),
+                                              ClusterPlacement(PLACE_CDC_DI1 + i - 1), lut_only, lut_and_ff, dff_only);
+                } else
+                    disconnect_unused(&ci, ctx->idf("DI%d", i));
             }
         }
 
@@ -1381,9 +1437,11 @@ void NgUltraPacker::pack_cdcs(void)
             disconnect_unused(&ci, id_BDRSTO);
         } else {
             connect_gnd_if_unconnected(&ci, id_ADRSTI);
-            pack_xrf_input_and_output(&ci, ci.name, id_ADRSTI, id_ADRSTO, PLACE_CDC_ADRSTI, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_ADRSTI, id_ADRSTO, PLACE_CDC_ADRSTI, lut_only, lut_and_ff,
+                                      dff_only);
             connect_gnd_if_unconnected(&ci, id_BDRSTI);
-            pack_xrf_input_and_output(&ci, ci.name, id_BDRSTI, id_BDRSTO, PLACE_CDC_BDRSTI, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_BDRSTI, id_BDRSTO, PLACE_CDC_BDRSTI, lut_only, lut_and_ff,
+                                      dff_only);
         }
         if (ci.type.in(id_BGC, id_GBC, id_DDE)) {
             disconnect_unused(&ci, id_ASRSTI);
@@ -1392,9 +1450,11 @@ void NgUltraPacker::pack_cdcs(void)
             disconnect_unused(&ci, id_BSRSTO);
         } else {
             connect_gnd_if_unconnected(&ci, id_ASRSTI);
-            pack_xrf_input_and_output(&ci, ci.name, id_ASRSTI, id_ASRSTO, PLACE_CDC_ASRSTI, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_ASRSTI, id_ASRSTO, PLACE_CDC_ASRSTI, lut_only, lut_and_ff,
+                                      dff_only);
             connect_gnd_if_unconnected(&ci, id_BSRSTI);
-            pack_xrf_input_and_output(&ci, ci.name, id_BSRSTI, id_BSRSTO, PLACE_CDC_BSRSTI, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_BSRSTI, id_BSRSTO, PLACE_CDC_BSRSTI, lut_only, lut_and_ff,
+                                      dff_only);
         }
 
         // Only XCDC is using these ports, remove from others if used
@@ -1402,8 +1462,8 @@ void NgUltraPacker::pack_cdcs(void)
             disconnect_unused(&ci, id_CDRSTI);
             disconnect_unused(&ci, id_CDRSTO);
             for (int i = 1; i <= 6; i++) {
-                disconnect_unused(&ci,ctx->idf("CI%d",i));
-                disconnect_unused(&ci,ctx->idf("CO%d",i));
+                disconnect_unused(&ci, ctx->idf("CI%d", i));
+                disconnect_unused(&ci, ctx->idf("CO%d", i));
             }
             disconnect_unused(&ci, id_CSRSTI);
             disconnect_unused(&ci, id_CSRSTO);
@@ -1411,20 +1471,24 @@ void NgUltraPacker::pack_cdcs(void)
             disconnect_unused(&ci, id_DDRSTI);
             disconnect_unused(&ci, id_DDRSTO);
             for (int i = 1; i <= 6; i++) {
-                disconnect_unused(&ci,ctx->idf("DI%d",i));
-                disconnect_unused(&ci,ctx->idf("DO%d",i));
+                disconnect_unused(&ci, ctx->idf("DI%d", i));
+                disconnect_unused(&ci, ctx->idf("DO%d", i));
             }
             disconnect_unused(&ci, id_DSRSTI);
             disconnect_unused(&ci, id_DSRSTO);
         } else {
             connect_gnd_if_unconnected(&ci, id_CDRSTI);
-            pack_xrf_input_and_output(&ci, ci.name, id_CDRSTI, id_CDRSTO, PLACE_CDC_CDRSTI, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_CDRSTI, id_CDRSTO, PLACE_CDC_CDRSTI, lut_only, lut_and_ff,
+                                      dff_only);
             connect_gnd_if_unconnected(&ci, id_DDRSTI);
-            pack_xrf_input_and_output(&ci, ci.name, id_DDRSTI, id_DDRSTO, PLACE_CDC_DDRSTI, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_DDRSTI, id_DDRSTO, PLACE_CDC_DDRSTI, lut_only, lut_and_ff,
+                                      dff_only);
             connect_gnd_if_unconnected(&ci, id_CSRSTI);
-            pack_xrf_input_and_output(&ci, ci.name, id_CSRSTI, id_CSRSTO, PLACE_CDC_CSRSTI, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_CSRSTI, id_CSRSTO, PLACE_CDC_CSRSTI, lut_only, lut_and_ff,
+                                      dff_only);
             connect_gnd_if_unconnected(&ci, id_DSRSTI);
-            pack_xrf_input_and_output(&ci, ci.name, id_DSRSTI, id_DSRSTO, PLACE_CDC_DSRSTI, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_DSRSTI, id_DSRSTO, PLACE_CDC_DSRSTI, lut_only, lut_and_ff,
+                                      dff_only);
         }
     }
     if (lut_only)
@@ -1445,23 +1509,29 @@ void NgUltraPacker::pack_fifos(void)
         if (!ci.type.in(id_NX_FIFO_U))
             continue;
         int mode = int_or_default(ci.params, id_mode, 0);
-        switch(mode) {
-            case 0 : ci.type = id_FIFO; break;
-            case 1 : ci.type = id_XHFIFO; break;
-            case 2 : ci.type = id_XWFIFO; break;
-            default:
-                log_error("Unknown mode %d for cell '%s'.\n", mode, ci.name.c_str(ctx));
-        }        
+        switch (mode) {
+        case 0:
+            ci.type = id_FIFO;
+            break;
+        case 1:
+            ci.type = id_XHFIFO;
+            break;
+        case 2:
+            ci.type = id_XWFIFO;
+            break;
+        default:
+            log_error("Unknown mode %d for cell '%s'.\n", mode, ci.name.c_str(ctx));
+        }
         ci.cluster = ci.name;
         bool use_write_arst = bool_or_default(ci.params, id_use_write_arst, false);
         bool use_read_arst = bool_or_default(ci.params, id_use_read_arst, false);
 
         int rsti = (ci.type == id_FIFO) ? 2 : 4;
-        for (int i=1;i<=rsti;i++) {
-            IdString port = ctx->idf("WRSTI%d",i);
+        for (int i = 1; i <= rsti; i++) {
+            IdString port = ctx->idf("WRSTI%d", i);
             ci.ports[port].name = port;
             ci.ports[port].type = PORT_IN;
-            port = ctx->idf("RRSTI%d",i);
+            port = ctx->idf("RRSTI%d", i);
             ci.ports[port].name = port;
             ci.ports[port].type = PORT_IN;
         }
@@ -1471,61 +1541,75 @@ void NgUltraPacker::pack_fifos(void)
             connect_gnd_if_unconnected(&ci, port);
             NetInfo *wrsti_net = ci.getPort(port);
             ci.disconnectPort(port);
-            for (int i=1;i<=rsti;i++)
-                ci.connectPort(ctx->idf("WRSTI%d",i), wrsti_net);
-            if (mode!=0) disconnect_unused(&ci, id_WRSTO);
-            pack_xrf_input_and_output(&ci, ci.name, id_WRSTI1, id_WRSTO,   PLACE_FIFO_WRSTI1, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_WRSTI2, IdString(), PLACE_FIFO_WRSTI2, lut_only, lut_and_ff, dff_only);
+            for (int i = 1; i <= rsti; i++)
+                ci.connectPort(ctx->idf("WRSTI%d", i), wrsti_net);
+            if (mode != 0)
+                disconnect_unused(&ci, id_WRSTO);
+            pack_xrf_input_and_output(&ci, ci.name, id_WRSTI1, id_WRSTO, PLACE_FIFO_WRSTI1, lut_only, lut_and_ff,
+                                      dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_WRSTI2, IdString(), PLACE_FIFO_WRSTI2, lut_only, lut_and_ff,
+                                      dff_only);
             if (mode != 0) {
-                pack_xrf_input_and_output(&ci, ci.name, id_WRSTI3, IdString(), PLACE_FIFO_WRSTI3, lut_only, lut_and_ff, dff_only);
-                pack_xrf_input_and_output(&ci, ci.name, id_WRSTI4, IdString(), PLACE_FIFO_WRSTI4, lut_only, lut_and_ff, dff_only);
+                pack_xrf_input_and_output(&ci, ci.name, id_WRSTI3, IdString(), PLACE_FIFO_WRSTI3, lut_only, lut_and_ff,
+                                          dff_only);
+                pack_xrf_input_and_output(&ci, ci.name, id_WRSTI4, IdString(), PLACE_FIFO_WRSTI4, lut_only, lut_and_ff,
+                                          dff_only);
             }
         } else {
-            disconnect_unused(&ci,id_WRSTI);
+            disconnect_unused(&ci, id_WRSTI);
         }
         if (use_read_arst) {
             IdString port = id_RRSTI;
             connect_gnd_if_unconnected(&ci, port);
             NetInfo *rrsti_net = ci.getPort(port);
             ci.disconnectPort(port);
-            for (int i=1;i<=rsti;i++)
-                ci.connectPort(ctx->idf("RRSTI%d",i), rrsti_net);
-            if (mode!=0) disconnect_unused(&ci, id_RRSTO);
-            pack_xrf_input_and_output(&ci, ci.name, id_RRSTI1, id_RRSTO,   PLACE_FIFO_RRSTI1, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, id_RRSTI2, IdString(), PLACE_FIFO_RRSTI2, lut_only, lut_and_ff, dff_only);
+            for (int i = 1; i <= rsti; i++)
+                ci.connectPort(ctx->idf("RRSTI%d", i), rrsti_net);
+            if (mode != 0)
+                disconnect_unused(&ci, id_RRSTO);
+            pack_xrf_input_and_output(&ci, ci.name, id_RRSTI1, id_RRSTO, PLACE_FIFO_RRSTI1, lut_only, lut_and_ff,
+                                      dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, id_RRSTI2, IdString(), PLACE_FIFO_RRSTI2, lut_only, lut_and_ff,
+                                      dff_only);
             if (mode != 0) {
-                pack_xrf_input_and_output(&ci, ci.name, id_RRSTI3, IdString(), PLACE_FIFO_RRSTI3, lut_only, lut_and_ff, dff_only);
-                pack_xrf_input_and_output(&ci, ci.name, id_RRSTI4, IdString(), PLACE_FIFO_RRSTI4, lut_only, lut_and_ff, dff_only);
+                pack_xrf_input_and_output(&ci, ci.name, id_RRSTI3, IdString(), PLACE_FIFO_RRSTI3, lut_only, lut_and_ff,
+                                          dff_only);
+                pack_xrf_input_and_output(&ci, ci.name, id_RRSTI4, IdString(), PLACE_FIFO_RRSTI4, lut_only, lut_and_ff,
+                                          dff_only);
             }
         } else {
-            disconnect_unused(&ci,id_RRSTI);
+            disconnect_unused(&ci, id_RRSTI);
         }
 
         for (int i = 1; i <= 18; i++) {
-            connect_gnd_if_unconnected(&ci, ctx->idf("I%d",i));
-            pack_xrf_input_and_output(&ci, ci.name, ctx->idf("I%d",i), ctx->idf("O%d",i), ClusterPlacement(PLACE_FIFO_I1 + i-1), lut_only, lut_and_ff, dff_only);
+            connect_gnd_if_unconnected(&ci, ctx->idf("I%d", i));
+            pack_xrf_input_and_output(&ci, ci.name, ctx->idf("I%d", i), ctx->idf("O%d", i),
+                                      ClusterPlacement(PLACE_FIFO_I1 + i - 1), lut_only, lut_and_ff, dff_only);
         }
 
-        if (mode==0) {
+        if (mode == 0) {
             for (int i = 19; i <= 36; i++) {
-                disconnect_unused(&ci,ctx->idf("I%d",i));
-                disconnect_unused(&ci,ctx->idf("O%d",i));
+                disconnect_unused(&ci, ctx->idf("I%d", i));
+                disconnect_unused(&ci, ctx->idf("O%d", i));
             }
         } else {
             for (int i = 19; i <= 36; i++) {
-                connect_gnd_if_unconnected(&ci, ctx->idf("I%d",i));
-                pack_xrf_input_and_output(&ci, ci.name, ctx->idf("I%d",i), ctx->idf("O%d",i), ClusterPlacement(PLACE_FIFO_I1 + i-1), lut_only, lut_and_ff, dff_only);
+                connect_gnd_if_unconnected(&ci, ctx->idf("I%d", i));
+                pack_xrf_input_and_output(&ci, ci.name, ctx->idf("I%d", i), ctx->idf("O%d", i),
+                                          ClusterPlacement(PLACE_FIFO_I1 + i - 1), lut_only, lut_and_ff, dff_only);
             }
         }
         for (int i = 1; i <= 6; i++) {
-            connect_gnd_if_unconnected(&ci, ctx->idf("RAI%d",i));
-            pack_xrf_input_and_output(&ci, ci.name, ctx->idf("RAI%d",i), ctx->idf("RAO%d",i), ClusterPlacement(PLACE_FIFO_RAI1 + i-1), lut_only, lut_and_ff, dff_only);
+            connect_gnd_if_unconnected(&ci, ctx->idf("RAI%d", i));
+            pack_xrf_input_and_output(&ci, ci.name, ctx->idf("RAI%d", i), ctx->idf("RAO%d", i),
+                                      ClusterPlacement(PLACE_FIFO_RAI1 + i - 1), lut_only, lut_and_ff, dff_only);
 
-            connect_gnd_if_unconnected(&ci, ctx->idf("WAI%d",i));
-            pack_xrf_input_and_output(&ci, ci.name, ctx->idf("WAI%d",i), ctx->idf("WAO%d",i), ClusterPlacement(PLACE_FIFO_WAI1 + i-1), lut_only, lut_and_ff, dff_only);
+            connect_gnd_if_unconnected(&ci, ctx->idf("WAI%d", i));
+            pack_xrf_input_and_output(&ci, ci.name, ctx->idf("WAI%d", i), ctx->idf("WAO%d", i),
+                                      ClusterPlacement(PLACE_FIFO_WAI1 + i - 1), lut_only, lut_and_ff, dff_only);
         }
 
-        if (mode==0) {
+        if (mode == 0) {
             disconnect_unused(&ci, id_RAI7);
             disconnect_unused(&ci, id_WAI7);
         } else {
@@ -1542,20 +1626,26 @@ void NgUltraPacker::pack_fifos(void)
         disconnect_if_gnd(&ci, id_WEA);
         pack_xrf_input_and_output(&ci, ci.name, id_WEA, IdString(), PLACE_FIFO_WEA, lut_only, lut_and_ff, dff_only);
 
-        if (mode==0) {
+        if (mode == 0) {
             // FIFO
             ci.renamePort(id_WEQ1, id_WEQ);
-            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_WEQ, PLACE_FIFO_WEQ1, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_WEQ, PLACE_FIFO_WEQ1, lut_only, lut_and_ff,
+                                      dff_only);
             disconnect_unused(&ci, id_WEQ2);
 
             ci.renamePort(id_REQ1, id_REQ);
-            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_REQ, PLACE_FIFO_REQ1, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_REQ, PLACE_FIFO_REQ1, lut_only, lut_and_ff,
+                                      dff_only);
             disconnect_unused(&ci, id_REQ2);
         } else {
-            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_WEQ1, PLACE_FIFO_WEQ1, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_WEQ2, PLACE_FIFO_WEQ2, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_WEQ1, PLACE_FIFO_REQ1, lut_only, lut_and_ff, dff_only);
-            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_WEQ2, PLACE_FIFO_REQ2, lut_only, lut_and_ff, dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_WEQ1, PLACE_FIFO_WEQ1, lut_only, lut_and_ff,
+                                      dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_WEQ2, PLACE_FIFO_WEQ2, lut_only, lut_and_ff,
+                                      dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_WEQ1, PLACE_FIFO_REQ1, lut_only, lut_and_ff,
+                                      dff_only);
+            pack_xrf_input_and_output(&ci, ci.name, IdString(), id_WEQ2, PLACE_FIFO_REQ2, lut_only, lut_and_ff,
+                                      dff_only);
 
             // XFIFO
             ci.ports[id_WCK1].name = id_WCK1;
@@ -1581,7 +1671,6 @@ void NgUltraPacker::pack_fifos(void)
                 ci.connectPort(id_RCK2, net);
             }
         }
-
     }
     if (lut_only)
         log_info("    %6d FEs used as LUT only\n", lut_only);
@@ -1606,10 +1695,11 @@ void NgUltraPacker::insert_ioms()
         Loc iotp_loc = ni->driver.cell->getLocation();
         iotp_loc.z -= 1;
         BelId bel = ctx->getBelByLocation(iotp_loc);
-        if (uarch->global_capable_bels.count(bel)==0)
+        if (uarch->global_capable_bels.count(bel) == 0)
             continue;
         for (const auto &usr : ni->users) {
-            if (uarch->is_fabric_lowskew_sink(usr) || uarch->is_ring_clock_sink(usr) || uarch->is_tube_clock_sink(usr) || uarch->is_ring_over_tile_clock_sink(usr)) {
+            if (uarch->is_fabric_lowskew_sink(usr) || uarch->is_ring_clock_sink(usr) ||
+                uarch->is_tube_clock_sink(usr) || uarch->is_ring_over_tile_clock_sink(usr)) {
                 pins_needing_iom.emplace_back(ni->name);
                 break;
             }
@@ -1646,9 +1736,9 @@ void NgUltraPacker::insert_ioms()
             IdString port = usr.port;
             usr.cell->disconnectPort(port);
             usr.cell->connectPort(port, iom_to_clk);
-        }       
+        }
         iom->connectPort(port, input_pad->getPort(id_O));
-        iom->connectPort((port==id_P17RI) ?  id_CKO1 : id_CKO2, iom_to_clk);
+        iom->connectPort((port == id_P17RI) ? id_CKO1 : id_CKO2, iom_to_clk);
         if (ctx->checkBelAvail(bel))
             ctx->bindBel(bel, iom, PlaceStrength::STRENGTH_LOCKED);
         CellInfo *bfr = net->driver.cell;
@@ -1693,50 +1783,65 @@ void NgUltraPacker::insert_wfbs()
 void NgUltraPacker::mandatory_param(CellInfo *cell, IdString param)
 {
     if (!cell->params.count(param))
-        log_error("Mandatory parameter '%s' of cell '%s'(%s) is missing.\n", param.c_str(ctx), cell->name.c_str(ctx), cell->type.c_str(ctx));
+        log_error("Mandatory parameter '%s' of cell '%s'(%s) is missing.\n", param.c_str(ctx), cell->name.c_str(ctx),
+                  cell->type.c_str(ctx));
 }
 
 int NgUltraPacker::memory_width(int config, bool ecc)
 {
     if (ecc) {
-        if (config==4)
-            return 18; 
+        if (config == 4)
+            return 18;
         else
             log_error("ECC mode only support width of 18.\n");
     } else {
-        switch(config) 
-        {
-            case 0: return 1;  // NOECC_48kx1
-            case 1: return 2;  // NOECC_24kx2
-            case 2: return 4;  // NOECC_12kx4
-            case 3: return 8;  // NOECC_6kx8
-            case 4: return 12; // NOECC_4kx12
-            case 5: return 24; // NOECC_2kx24
-            case 6: return 3;  // NOECC_16kx3
-            case 7: return 6;  // NOECC_8kx6
+        switch (config) {
+        case 0:
+            return 1; // NOECC_48kx1
+        case 1:
+            return 2; // NOECC_24kx2
+        case 2:
+            return 4; // NOECC_12kx4
+        case 3:
+            return 8; // NOECC_6kx8
+        case 4:
+            return 12; // NOECC_4kx12
+        case 5:
+            return 24; // NOECC_2kx24
+        case 6:
+            return 3; // NOECC_16kx3
+        case 7:
+            return 6; // NOECC_8kx6
         }
         log_error("Unknown memory configuration width config '%d'.\n", config);
     }
 }
 
-int NgUltraPacker::memory_addr_bits(int config,bool ecc)
+int NgUltraPacker::memory_addr_bits(int config, bool ecc)
 {
     if (ecc) {
-        if (config==4)
-            return 11; 
+        if (config == 4)
+            return 11;
         else
             log_error("ECC mode only support width of 18.\n");
     } else {
-        switch(config) 
-        {
-            case 0: return 16; // NOECC_48kx1
-            case 1: return 15; // NOECC_24kx2
-            case 2: return 14; // NOECC_12kx4
-            case 3: return 13; // NOECC_6kx8
-            case 4: return 12; // NOECC_4kx12
-            case 5: return 11; // NOECC_2kx24
-            case 6: return 14; // NOECC_16kx3
-            case 7: return 13; // NOECC_8kx6
+        switch (config) {
+        case 0:
+            return 16; // NOECC_48kx1
+        case 1:
+            return 15; // NOECC_24kx2
+        case 2:
+            return 14; // NOECC_12kx4
+        case 3:
+            return 13; // NOECC_6kx8
+        case 4:
+            return 12; // NOECC_4kx12
+        case 5:
+            return 11; // NOECC_2kx24
+        case 6:
+            return 14; // NOECC_16kx3
+        case 7:
+            return 13; // NOECC_8kx6
         }
         log_error("Unknown memory configuration width config '%d'.\n", config);
     }
@@ -1745,20 +1850,24 @@ int NgUltraPacker::memory_addr_bits(int config,bool ecc)
 void NgUltraPacker::insert_wfb(CellInfo *cell, IdString port)
 {
     NetInfo *net = cell->getPort(port);
-    if (!net) return;
+    if (!net)
+        return;
 
     CellInfo *wfg = net_only_drives(ctx, net, is_wfg, id_ZI, true);
-    if (wfg) return;
+    if (wfg)
+        return;
     bool in_fabric = false;
     bool in_ring = false;
     for (const auto &usr : net->users) {
-        if (uarch->is_fabric_lowskew_sink(usr) || uarch->is_tube_clock_sink(usr) || uarch->is_ring_over_tile_clock_sink(usr))
+        if (uarch->is_fabric_lowskew_sink(usr) || uarch->is_tube_clock_sink(usr) ||
+            uarch->is_ring_over_tile_clock_sink(usr))
             in_fabric = true;
         else
             in_ring = true;
     }
     // If all in ring and none in fabric no need for WFB
-    if (in_ring && !in_fabric) return;
+    if (in_ring && !in_fabric)
+        return;
     log_info("    Inserting WFB for cell '%s' port '%s'\n", cell->name.c_str(ctx), port.c_str(ctx));
     CellInfo *wfb = create_cell_ptr(id_WFB, ctx->idf("%s$%s", cell->name.c_str(ctx), port.c_str(ctx)));
     if (in_ring && in_fabric) {
@@ -1788,11 +1897,12 @@ void NgUltraPacker::constrain_location(CellInfo *cell)
     if (!location.empty()) {
         if (uarch->locations.count(location)) {
             BelId bel = uarch->locations[location];
-            if (ctx->getBelType(bel)!= cell->type) {
+            if (ctx->getBelType(bel) != cell->type) {
                 log_error("Location '%s' is wrong for bel type '%s'.\n", location.c_str(), cell->type.c_str(ctx));
             }
             if (ctx->checkBelAvail(bel)) {
-                log_info("    Constraining %s '%s' to '%s'\n", cell->type.c_str(ctx), cell->name.c_str(ctx), location.c_str());
+                log_info("    Constraining %s '%s' to '%s'\n", cell->type.c_str(ctx), cell->name.c_str(ctx),
+                         location.c_str());
                 ctx->bindBel(bel, cell, PlaceStrength::STRENGTH_LOCKED);
             } else {
                 log_error("Bel at location '%s' is already used by other cell.\n", location.c_str());
@@ -1856,9 +1966,8 @@ void NgUltraPacker::pack_wfgs(void)
         if (!zi || !zi->driver.cell)
             log_error("WFG port ZI of '%s' must be driven.\n", ci.name.c_str(ctx));
         NetInfo *zo = ci.getPort(id_ZO);
-        if (!zo || zo->users.entries()==0)
+        if (!zo || zo->users.entries() == 0)
             log_error("WFG port ZO of '%s' must be connected.\n", ci.name.c_str(ctx));
-
     }
 }
 
@@ -1881,7 +1990,8 @@ void NgUltraPacker::pack_gcks(void)
             disconnect_unused(&ci, id_SI2);
         } else if (mode == "MUX") {
             // all used
-        } else log_error("Unknown mode '%s' for cell '%s'.\n", mode.c_str(), ci.name.c_str(ctx));
+        } else
+            log_error("Unknown mode '%s' for cell '%s'.\n", mode.c_str(), ci.name.c_str(ctx));
 
         if (net_driven_by(ctx, ci.getPort(id_SI1), is_gck, id_SO) ||
             net_driven_by(ctx, ci.getPort(id_SI2), is_gck, id_SO) ||
@@ -1909,57 +2019,56 @@ void NgUltraPacker::pack_rams(void)
         ci.disconnectPort(id_BCKR);
         mandatory_param(&ci, id_raw_config0);
         mandatory_param(&ci, id_raw_config1);
-        Property extr = ci.params[id_raw_config1].extract(0, 16);        
+        Property extr = ci.params[id_raw_config1].extract(0, 16);
         std::vector<bool> bits = extr.as_bits();
-        //int ecc_mode = (bits[12] ? 1 : 0) | (bits[13] ? 2 : 0) | (bits[14] ? 4 : 0) | (bits[15] ? 8 : 0);
+        // int ecc_mode = (bits[12] ? 1 : 0) | (bits[13] ? 2 : 0) | (bits[14] ? 4 : 0) | (bits[15] ? 8 : 0);
         bool ecc = bits[12];
-        //int a_in_width = memory_width((bits[0] ? 1 : 0) | (bits[1] ? 2 : 0) | (bits[2] ? 4 : 0), ecc);
-        //int b_in_width = memory_width((bits[3] ? 1 : 0) | (bits[4] ? 2 : 0) | (bits[5] ? 4 : 0), ecc);
+        // int a_in_width = memory_width((bits[0] ? 1 : 0) | (bits[1] ? 2 : 0) | (bits[2] ? 4 : 0), ecc);
+        // int b_in_width = memory_width((bits[3] ? 1 : 0) | (bits[4] ? 2 : 0) | (bits[5] ? 4 : 0), ecc);
         int a_out_width = memory_width((bits[6] ? 1 : 0) | (bits[7] ? 2 : 0) | (bits[8] ? 4 : 0), ecc);
         int b_out_width = memory_width((bits[9] ? 1 : 0) | (bits[10] ? 2 : 0) | (bits[11] ? 4 : 0), ecc);
 
-        int a_addr = std::max(memory_addr_bits((bits[0] ? 1 : 0) | (bits[1] ? 2 : 0) | (bits[2] ? 4 : 0), ecc) ,
-                     memory_addr_bits((bits[6] ? 1 : 0) | (bits[7] ? 2 : 0) | (bits[8] ? 4 : 0), ecc));
-        int b_addr = std::max(memory_addr_bits((bits[3] ? 1 : 0) | (bits[4] ? 2 : 0) | (bits[5] ? 4 : 0), ecc) ,
-                     memory_addr_bits((bits[9] ? 1 : 0) | (bits[10] ? 2 : 0) | (bits[11] ? 4 : 0), ecc));
-
+        int a_addr = std::max(memory_addr_bits((bits[0] ? 1 : 0) | (bits[1] ? 2 : 0) | (bits[2] ? 4 : 0), ecc),
+                              memory_addr_bits((bits[6] ? 1 : 0) | (bits[7] ? 2 : 0) | (bits[8] ? 4 : 0), ecc));
+        int b_addr = std::max(memory_addr_bits((bits[3] ? 1 : 0) | (bits[4] ? 2 : 0) | (bits[5] ? 4 : 0), ecc),
+                              memory_addr_bits((bits[9] ? 1 : 0) | (bits[10] ? 2 : 0) | (bits[11] ? 4 : 0), ecc));
 
         NetInfo *a_cs = ci.getPort(id_ACS);
         if (!a_cs || a_cs->name.in(ctx->id("$PACKER_GND"))) {
             // If there is no chip-select disconnect all
             disconnect_unused(&ci, id_ACK);
-            for(int i=0;i<24;i++) {
-                disconnect_unused(&ci, ctx->idf("AI%d",i+1));
-                disconnect_unused(&ci, ctx->idf("AO%d",i+1));
+            for (int i = 0; i < 24; i++) {
+                disconnect_unused(&ci, ctx->idf("AI%d", i + 1));
+                disconnect_unused(&ci, ctx->idf("AO%d", i + 1));
             }
-            for(int i=0;i<16;i++)
-                disconnect_unused(&ci, ctx->idf("AA%d",i+1));
+            for (int i = 0; i < 16; i++)
+                disconnect_unused(&ci, ctx->idf("AA%d", i + 1));
         } else {
-            for(int i=a_out_width;i<24;i++)
-                disconnect_unused(&ci, ctx->idf("AO%d",i+1));
-            for(int i=a_addr;i<16;i++)
-                disconnect_unused(&ci, ctx->idf("AA%d",i+1));
+            for (int i = a_out_width; i < 24; i++)
+                disconnect_unused(&ci, ctx->idf("AO%d", i + 1));
+            for (int i = a_addr; i < 16; i++)
+                disconnect_unused(&ci, ctx->idf("AA%d", i + 1));
         }
 
         NetInfo *b_cs = ci.getPort(id_BCS);
         if (!b_cs || b_cs->name.in(ctx->id("$PACKER_GND"))) {
             // If there is no chip-select disconnect all
             disconnect_unused(&ci, id_BCK);
-            for(int i=0;i<24;i++) {
-                disconnect_unused(&ci, ctx->idf("BI%d",i+1));
-                disconnect_unused(&ci, ctx->idf("BO%d",i+1));
+            for (int i = 0; i < 24; i++) {
+                disconnect_unused(&ci, ctx->idf("BI%d", i + 1));
+                disconnect_unused(&ci, ctx->idf("BO%d", i + 1));
             }
-            for(int i=0;i<16;i++)
-                disconnect_unused(&ci, ctx->idf("BA%d",i+1));
+            for (int i = 0; i < 16; i++)
+                disconnect_unused(&ci, ctx->idf("BA%d", i + 1));
         } else {
-            for(int i=b_out_width;i<24;i++)
-                disconnect_unused(&ci, ctx->idf("BO%d",i+1));
-            for(int i=b_addr;i<16;i++)
-                disconnect_unused(&ci, ctx->idf("BA%d",i+1));
+            for (int i = b_out_width; i < 24; i++)
+                disconnect_unused(&ci, ctx->idf("BO%d", i + 1));
+            for (int i = b_addr; i < 16; i++)
+                disconnect_unused(&ci, ctx->idf("BA%d", i + 1));
         }
 
         for (auto &p : ci.ports) {
-            if (p.second.type == PortType::PORT_IN) 
+            if (p.second.type == PortType::PORT_IN)
                 disconnect_if_gnd(&ci, p.first);
         }
     }
@@ -1980,7 +2089,7 @@ void NgUltraPacker::dsp_same_driver(IdString port, CellInfo *cell, CellInfo **ta
 void NgUltraPacker::dsp_same_sink(IdString port, CellInfo *cell, CellInfo **target)
 {
     if (cell->getPort(port)) {
-        if (cell->getPort(port)->users.entries()!=1)
+        if (cell->getPort(port)->users.entries() != 1)
             log_error("Port '%s' of '%s' can only drive one DSP.\n", port.c_str(ctx), cell->name.c_str(ctx));
         CellInfo *driver = (*cell->getPort(port)->users.begin()).cell;
         if (!driver->type.in(id_DSP, id_NX_DSP_U))
@@ -1994,7 +2103,7 @@ void NgUltraPacker::dsp_same_sink(IdString port, CellInfo *cell, CellInfo **targ
 void NgUltraPacker::pack_dsps(void)
 {
     log_info("Packing DSPs..\n");
-    dict<IdString, CellInfo*> dsp_output;
+    dict<IdString, CellInfo *> dsp_output;
     std::vector<CellInfo *> root_dsps;
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
@@ -2008,40 +2117,42 @@ void NgUltraPacker::pack_dsps(void)
         mandatory_param(&ci, id_raw_config3);
 
         for (auto &p : ci.ports) {
-            if (p.second.type == PortType::PORT_IN) 
+            if (p.second.type == PortType::PORT_IN)
                 disconnect_if_gnd(&ci, p.first);
         }
 
         // CAI1-24, CBI1-18, CZI1..56 and CCI must be from same DSP
         CellInfo *dsp = nullptr;
-        for(int i=1;i<=24;i++)
-            dsp_same_driver(ctx->idf("CAI%d",i), &ci, &dsp);
-        for(int i=1;i<=18;i++)
-            dsp_same_driver(ctx->idf("CBI%d",i), &ci, &dsp);
-        for(int i=1;i<=56;i++)
-            dsp_same_driver(ctx->idf("CZI%d",i), &ci, &dsp);
+        for (int i = 1; i <= 24; i++)
+            dsp_same_driver(ctx->idf("CAI%d", i), &ci, &dsp);
+        for (int i = 1; i <= 18; i++)
+            dsp_same_driver(ctx->idf("CBI%d", i), &ci, &dsp);
+        for (int i = 1; i <= 56; i++)
+            dsp_same_driver(ctx->idf("CZI%d", i), &ci, &dsp);
         dsp_same_driver(id_CCI, &ci, &dsp);
         if (!dsp)
             root_dsps.push_back(&ci);
 
         // CAO1-24, CBO1-18, CZO1..56 and CCO must go to same DSP
         dsp = nullptr;
-        for(int i=1;i<=24;i++)
-            dsp_same_sink(ctx->idf("CAO%d",i), &ci, &dsp);
-        for(int i=1;i<=18;i++)
-            dsp_same_sink(ctx->idf("CBO%d",i), &ci, &dsp);
-        for(int i=1;i<=56;i++)
-            dsp_same_sink(ctx->idf("CZO%d",i), &ci, &dsp);
+        for (int i = 1; i <= 24; i++)
+            dsp_same_sink(ctx->idf("CAO%d", i), &ci, &dsp);
+        for (int i = 1; i <= 18; i++)
+            dsp_same_sink(ctx->idf("CBO%d", i), &ci, &dsp);
+        for (int i = 1; i <= 56; i++)
+            dsp_same_sink(ctx->idf("CZO%d", i), &ci, &dsp);
         dsp_same_sink(id_CCO, &ci, &dsp);
         if (dsp)
             dsp_output.emplace(ci.name, dsp);
     }
     for (auto root : root_dsps) {
         CellInfo *dsp = root;
-        if (dsp_output.count(dsp->name)==0) continue;
+        if (dsp_output.count(dsp->name) == 0)
+            continue;
         root->cluster = root->name;
         while (true) {
-            if (dsp_output.count(dsp->name)==0) break;
+            if (dsp_output.count(dsp->name) == 0)
+                break;
             dsp = dsp_output[dsp->name];
             dsp->cluster = root->name;
             root->constr_children.push_back(dsp);
@@ -2057,14 +2168,13 @@ void NgUltraPacker::remove_not_used()
         for (auto &p : ci.ports) {
             if (p.second.type == PortType::PORT_OUT) {
                 NetInfo *net = ci.getPort(p.first);
-                if (net && net->users.entries()==0) {
+                if (net && net->users.entries() == 0) {
                     ci.disconnectPort(p.first);
                 }
             }
         }
     }
 }
-
 
 void NgUltraImpl::pack()
 {
@@ -2119,7 +2229,8 @@ IdString NgUltraPacker::assign_wfg(IdString ckg, IdString ckg2, CellInfo *cell)
         if (item.second == ckg || item.second == ckg2) {
             IdString ckg = item.second;
             uarch->unused_wfg.erase(bel);
-            log_info("    Using '%s:%s' for cell '%s'.\n", uarch->tile_name(bel.tile).c_str(), ctx->getBelName(bel)[1].c_str(ctx), cell->name.c_str(ctx));
+            log_info("    Using '%s:%s' for cell '%s'.\n", uarch->tile_name(bel.tile).c_str(),
+                     ctx->getBelName(bel)[1].c_str(ctx), cell->name.c_str(ctx));
             ctx->bindBel(bel, cell, PlaceStrength::STRENGTH_LOCKED);
             return ckg;
         }
@@ -2127,8 +2238,9 @@ IdString NgUltraPacker::assign_wfg(IdString ckg, IdString ckg2, CellInfo *cell)
     log_error("    No more available WFGs for cell '%s'.\n", cell->name.c_str(ctx));
 }
 
-void NgUltraPacker::extract_lowskew_signals(CellInfo *cell, dict<IdString,dict<IdString,std::vector<PortRef>>> &lowskew_signals)
-{    
+void NgUltraPacker::extract_lowskew_signals(CellInfo *cell,
+                                            dict<IdString, dict<IdString, std::vector<PortRef>>> &lowskew_signals)
+{
     IdString loc;
     if (cell->bel != BelId())
         loc = uarch->tile_name_id(cell->bel.tile);
@@ -2137,7 +2249,7 @@ void NgUltraPacker::extract_lowskew_signals(CellInfo *cell, dict<IdString,dict<I
     ref.cell = cell;
     auto &sinks = uarch->get_fabric_lowskew_sinks();
     if (sinks.count(cell->type)) {
-        for(auto &port : sinks.at(cell->type)) {
+        for (auto &port : sinks.at(cell->type)) {
             NetInfo *clock = cell->getPort(port);
             if (clock && !global_lowskew.count(clock->name)) {
                 ref.port = port;
@@ -2150,7 +2262,7 @@ void NgUltraPacker::extract_lowskew_signals(CellInfo *cell, dict<IdString,dict<I
 void NgUltraPacker::pre_place(void)
 {
     log_info("Pre-placing PLLs..\n");
-    
+
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_PLL))
@@ -2168,16 +2280,17 @@ void NgUltraPacker::pre_place(void)
 
         NetInfo *ref = ci.getPort(id_REF);
         if (ref && ref->driver.cell && ref->driver.cell->type == id_IOM) {
-            IdString bank= uarch->tile_name_id(ref->driver.cell->bel.tile);
-            //bool found = false;
+            IdString bank = uarch->tile_name_id(ref->driver.cell->bel.tile);
+            // bool found = false;
             for (auto &item : uarch->unused_pll) {
                 BelId bel = item.first;
-                std::pair<IdString,IdString>& ckgs = uarch->bank_to_ckg[bank];
+                std::pair<IdString, IdString> &ckgs = uarch->bank_to_ckg[bank];
                 if (item.second == ckgs.first || item.second == ckgs.second) {
                     uarch->unused_pll.erase(bel);
-                    log_info("    Using PLL in '%s' for cell '%s'.\n", uarch->tile_name(bel.tile).c_str(), ci.name.c_str(ctx));
+                    log_info("    Using PLL in '%s' for cell '%s'.\n", uarch->tile_name(bel.tile).c_str(),
+                             ci.name.c_str(ctx));
                     ctx->bindBel(bel, &ci, PlaceStrength::STRENGTH_LOCKED);
-                    //found = true;
+                    // found = true;
                     break;
                 }
             }
@@ -2221,8 +2334,10 @@ void NgUltraPacker::pre_place(void)
                     if (zo_net->users.entries() != 1)
                         log_error("WFG can only be chained with one other WFG cell\n");
                     group.push_back(wfg);
-                } else break;
-            } else break;
+                } else
+                    break;
+            } else
+                break;
         }
         groups.push_back(group);
     }
@@ -2245,7 +2360,7 @@ void NgUltraPacker::pre_place(void)
         NetInfo *zi = root->getPort(id_ZI);
         if (zi->driver.cell->type.in(id_IOM)) {
             IdString bank = uarch->tile_name_id(zi->driver.cell->bel.tile);
-            std::pair<IdString,IdString>& ckgs = uarch->bank_to_ckg[bank];
+            std::pair<IdString, IdString> &ckgs = uarch->bank_to_ckg[bank];
             IdString ckg = assign_wfg(ckgs.first, ckgs.second, root);
             for (int i = 1; i < int(grp.size()); i++) {
                 assign_wfg(ckg, IdString(), grp.at(i));
@@ -2265,14 +2380,14 @@ void NgUltraPacker::pre_place(void)
         }
     }
 
-    dict<IdString,dict<IdString,std::vector<PortRef>>> lowskew_signals;
+    dict<IdString, dict<IdString, std::vector<PortRef>>> lowskew_signals;
     for (auto &cell : ctx->cells)
         extract_lowskew_signals(cell.second.get(), lowskew_signals);
 
     log_info("Adding GCK for lowskew signals..\n");
-    for(auto &n : lowskew_signals[IdString()]) {
+    for (auto &n : lowskew_signals[IdString()]) {
         NetInfo *net = ctx->nets.at(n.first).get();
-        if (net->driver.cell->type.in(id_BFR,id_DFR,id_DDFR)) {
+        if (net->driver.cell->type.in(id_BFR, id_DFR, id_DDFR)) {
             CellInfo *bfr = net->driver.cell;
             CellInfo *gck_cell = create_cell_ptr(id_GCK, ctx->idf("%s$csc", bfr->name.c_str(ctx)));
             gck_cell->params[id_std_mode] = Property("CSC");
@@ -2282,16 +2397,20 @@ void NgUltraPacker::pre_place(void)
             gck_cell->connectPort(id_SO, old);
             gck_cell->connectPort(id_CMD, new_out);
             bfr->connectPort(id_O, new_out);
-            log_info("    Create GCK '%s' for signal '%s'\n",gck_cell->name.c_str(ctx), n.first.c_str(ctx));
+            log_info("    Create GCK '%s' for signal '%s'\n", gck_cell->name.c_str(ctx), n.first.c_str(ctx));
         }
         if (net->driver.cell->type.in(id_BEYOND_FE)) {
             CellInfo *fe = net->driver.cell;
-            if (!fe->params.count(id_lut_table)) continue;
-            if (fe->params.count(id_dff_used)) continue;
-            if (fe->params[id_lut_table] != Property(0x5555, 16)) continue;
-            if (!fe->getPort(id_I1)) continue;
+            if (!fe->params.count(id_lut_table))
+                continue;
+            if (fe->params.count(id_dff_used))
+                continue;
+            if (fe->params[id_lut_table] != Property(0x5555, 16))
+                continue;
+            if (!fe->getPort(id_I1))
+                continue;
             CellInfo *bfr = fe->getPort(id_I1)->driver.cell;
-            if (bfr->type.in(id_BFR,id_DFR,id_DDFR)) {
+            if (bfr->type.in(id_BFR, id_DFR, id_DDFR)) {
                 CellInfo *gck_cell = create_cell_ptr(id_GCK, ctx->idf("%s$csc", bfr->name.c_str(ctx)));
                 gck_cell->params[id_std_mode] = Property("CSC");
                 gck_cell->params[id_inv_out] = Property(true);
@@ -2302,7 +2421,7 @@ void NgUltraPacker::pre_place(void)
                 gck_cell->connectPort(id_SO, old_out);
                 gck_cell->connectPort(id_CMD, old_in);
                 packed_cells.insert(fe->name);
-                log_info("    Create GCK '%s' for signal '%s'\n",gck_cell->name.c_str(ctx), n.first.c_str(ctx));
+                log_info("    Create GCK '%s' for signal '%s'\n", gck_cell->name.c_str(ctx), n.first.c_str(ctx));
             }
         }
     }
@@ -2315,7 +2434,7 @@ void NgUltraImpl::disable_beyond_fe_s_output(BelId bel)
     for (PipId pip : ctx->getPipsDownhill(dwire)) {
         for (PipId pip2 : ctx->getPipsDownhill(ctx->getPipDstWire(pip))) {
             IdString dst = ctx->getWireName(ctx->getPipDstWire(pip2))[1];
-            if (boost::ends_with(dst.c_str(ctx),".DS")) {
+            if (boost::ends_with(dst.c_str(ctx), ".DS")) {
                 blocked_pips.emplace(pip2);
                 return;
             }
@@ -2333,7 +2452,8 @@ void NgUltraImpl::postPlace()
             const auto &extra_data = *bel_extra_data(ci.bel);
             // Check if CSC mode only if FE is capable
             if ((extra_data.flags & BEL_EXTRA_FE_CSC)) {
-                if (str_or_default(ci.params, id_type, "")=="CSC") continue;
+                if (str_or_default(ci.params, id_type, "") == "CSC")
+                    continue;
                 // Disable routing to S output if CSC is not used
                 disable_beyond_fe_s_output(ci.bel);
             }
@@ -2342,8 +2462,8 @@ void NgUltraImpl::postPlace()
             // it is considered that signal is comming from RI1 crossbar.
             // We need to prevent router to use that crossbar output for
             // any other signal.
-            for (int i=1;i<=4;i++) {
-                IdString port = ctx->idf("A%d",i);
+            for (int i = 1; i <= 4; i++) {
+                IdString port = ctx->idf("A%d", i);
                 NetInfo *net = ci.getPort(port);
                 if (!net)
                     continue;
@@ -2352,7 +2472,7 @@ void NgUltraImpl::postPlace()
                     for (PipId pip : ctx->getPipsUphill(dwire)) {
                         WireId src = ctx->getPipSrcWire(pip);
                         const std::string src_name = ctx->getWireName(src)[1].str(ctx);
-                        if (boost::starts_with(src_name,"RI1")) {
+                        if (boost::starts_with(src_name, "RI1")) {
                             for (PipId pip2 : ctx->getPipsDownhill(src)) {
                                 blocked_pips.emplace(pip2);
                             }
@@ -2379,82 +2499,89 @@ void NgUltraImpl::postPlace()
 
 BelId NgUltraPacker::getCSC(Loc l, int row)
 {
-    const int z_loc[] = { 0, 15, 16, 31 };
-    for(int j=0;j<3;j++) {
-        for(int i=0;i<4;i++) {
-            BelId bel = ctx->getBelByLocation(Loc(l.x+j+1,l.y+j%2+2,z_loc[i]));
-            if (!ctx->getBoundBelCell(bel) && (row==0 || row==(i+1))) return bel;
+    const int z_loc[] = {0, 15, 16, 31};
+    for (int j = 0; j < 3; j++) {
+        for (int i = 0; i < 4; i++) {
+            BelId bel = ctx->getBelByLocation(Loc(l.x + j + 1, l.y + j % 2 + 2, z_loc[i]));
+            if (!ctx->getBoundBelCell(bel) && (row == 0 || row == (i + 1)))
+                return bel;
         }
-    }    
+    }
     return BelId();
 }
 
 void NgUltraPacker::insert_csc()
 {
-    dict<IdString,dict<IdString,std::vector<PortRef>>> local_system_matrix;
+    dict<IdString, dict<IdString, std::vector<PortRef>>> local_system_matrix;
     log_info("Inserting CSCs...\n");
     int insert_new_csc = 0, change_to_csc = 0;
     for (auto &cell : ctx->cells) {
         auto ci = cell.second.get();
         if (ci->bel != BelId()) {
-            if (uarch->tile_type(ci->bel.tile)==TILE_EXTRA_FABRIC) {
+            if (uarch->tile_type(ci->bel.tile) == TILE_EXTRA_FABRIC) {
                 extract_lowskew_signals(ci, local_system_matrix);
             }
         }
     }
-    for(auto &lsm : local_system_matrix) {
+    for (auto &lsm : local_system_matrix) {
         std::string name = lsm.first.c_str(ctx);
         Loc loc = uarch->tile_locations[name];
         std::vector<std::pair<int, IdString>> fanout;
-        for(auto &n : lsm.second) {
-            fanout.push_back(std::make_pair(n.second.size(),n.first));
+        for (auto &n : lsm.second) {
+            fanout.push_back(std::make_pair(n.second.size(), n.first));
         }
         std::sort(fanout.begin(), fanout.end(), std::greater<std::pair<int, IdString>>());
         int available_csc = 12;
-        for (std::size_t i = 0; i < std::min<std::size_t>(fanout.size(),available_csc ); i++) {
+        for (std::size_t i = 0; i < std::min<std::size_t>(fanout.size(), available_csc); i++) {
             auto &n = fanout.at(i);
 
             NetInfo *net = ctx->nets.at(n.second).get();
             CellInfo *cell = net->driver.cell;
-            if (uarch->tile_name(cell->bel.tile) == lsm.first.c_str(ctx) && !cell->params.count(id_dff_used) && cell->cluster == ClusterId()) {
-                BelId newbel = getCSC(loc,0);
-                if (newbel==BelId()) break;
+            if (uarch->tile_name(cell->bel.tile) == lsm.first.c_str(ctx) && !cell->params.count(id_dff_used) &&
+                cell->cluster == ClusterId()) {
+                BelId newbel = getCSC(loc, 0);
+                if (newbel == BelId())
+                    break;
 
                 ctx->unbindBel(cell->bel);
                 cell->disconnectPort(id_LO);
                 NetInfo *new_out = ctx->createNet(ctx->idf("%s$o", cell->name.c_str(ctx)));
                 cell->params[id_CSC] = Property(Property::State::S1);
                 cell->params[id_type] = Property("CSC");
-                cell->params[id_dff_used] = Property(1,1);
-                cell->connectPort(id_LO,new_out);
-                cell->connectPort(id_DI,new_out);
-                
-                cell->connectPort(id_DO,net);
+                cell->params[id_dff_used] = Property(1, 1);
+                cell->connectPort(id_LO, new_out);
+                cell->connectPort(id_DI, new_out);
+
+                cell->connectPort(id_DO, net);
                 ctx->bindBel(newbel, cell, PlaceStrength::STRENGTH_LOCKED);
                 change_to_csc++;
                 continue;
             }
             Loc cell_loc = ctx->getBelLocation(cell->bel);
-            BelId newbel = getCSC(loc,(cell_loc.y & 3)+1); // Take CSC from pefered row
-            if (newbel==BelId()) newbel = getCSC(loc,0); // Try getting any other CSC
-            if (newbel==BelId()) break;
-            if (lsm.second[n.second].size() < 4) break;
+            BelId newbel = getCSC(loc, (cell_loc.y & 3) + 1); // Take CSC from pefered row
+            if (newbel == BelId())
+                newbel = getCSC(loc, 0); // Try getting any other CSC
+            if (newbel == BelId())
+                break;
+            if (lsm.second[n.second].size() < 4)
+                break;
 
-            CellInfo *fe = create_cell_ptr(id_BEYOND_FE, ctx->idf("%s$%s$csc", net->name.c_str(ctx), lsm.first.c_str(ctx)));
+            CellInfo *fe =
+                    create_cell_ptr(id_BEYOND_FE, ctx->idf("%s$%s$csc", net->name.c_str(ctx), lsm.first.c_str(ctx)));
             NetInfo *new_out = ctx->createNet(ctx->idf("%s$o", fe->name.c_str(ctx)));
             fe->params[id_lut_table] = Property(0xaaaa, 16);
-            fe->params[id_lut_used] = Property(1,1);
+            fe->params[id_lut_used] = Property(1, 1);
             fe->params[id_CSC] = Property(Property::State::S1);
             fe->params[id_type] = Property("CSC");
-            fe->params[id_dff_used] = Property(1,1);
+            fe->params[id_dff_used] = Property(1, 1);
             fe->connectPort(id_I1, net);
-            fe->connectPort(id_DO,new_out);
+            fe->connectPort(id_DO, new_out);
             insert_new_csc++;
 
-            for(auto &conn : lsm.second[n.second])
+            for (auto &conn : lsm.second[n.second])
                 conn.cell->disconnectPort(conn.port);
-            for(auto &conn : lsm.second[n.second]) 
-                conn.cell->connectPort(conn.port,new_out);            
+            for (auto &conn : lsm.second[n.second])
+                conn.cell->connectPort(conn.port, new_out);
 
             ctx->bindBel(newbel, fe, PlaceStrength::STRENGTH_LOCKED);
         }
@@ -2463,23 +2590,29 @@ void NgUltraPacker::insert_csc()
         log_info("    %6d FEs inserted as CSC\n", insert_new_csc);
     if (change_to_csc)
         log_info("    %6d FEs converted to CSC\n", change_to_csc);
-
 }
 BelId NgUltraPacker::get_available_gck(int lobe, NetInfo *si1, NetInfo *si2)
 {
     auto &gcks = uarch->gck_per_lobe[lobe];
-    for(int i=0;i<20;i++) {
+    for (int i = 0; i < 20; i++) {
         auto &g = gcks.at(i);
-        if (g.used) continue;
-        if (si1 && g.si1!=IdString() && g.si1!=si1->name) continue;
-        if (si2 && g.si2!=IdString() && g.si2!=si2->name) continue;
-        if (si1) g.si1 = si1->name;
-        if (si2) g.si2 = si2->name;
+        if (g.used)
+            continue;
+        if (si1 && g.si1 != IdString() && g.si1 != si1->name)
+            continue;
+        if (si2 && g.si2 != IdString() && g.si2 != si2->name)
+            continue;
+        if (si1)
+            g.si1 = si1->name;
+        if (si2)
+            g.si2 = si2->name;
         g.used = true;
-        if (i%2==0) {
+        if (i % 2 == 0) {
             // next GCK share inputs in reverse order
-            if (si2) gcks.at(i+1).si1 = si2->name;
-            if (si1) gcks.at(i+1).si2 = si1->name;
+            if (si2)
+                gcks.at(i + 1).si1 = si2->name;
+            if (si1)
+                gcks.at(i + 1).si2 = si1->name;
         }
         return g.bel;
     }
@@ -2510,8 +2643,8 @@ void NgUltraPacker::duplicate_gck()
         dict<int, std::vector<PortRef>> connections;
         for (const auto &usr : glb_net->users) {
             if (uarch->is_fabric_lowskew_sink(usr) || uarch->is_ring_over_tile_clock_sink(usr)) {
-                if (usr.cell->bel==BelId()) {
-                    log_error("Cell '%s' not placed\n",usr.cell->name.c_str(ctx));
+                if (usr.cell->bel == BelId()) {
+                    log_error("Cell '%s' not placed\n", usr.cell->name.c_str(ctx));
                 }
                 int lobe = uarch->tile_lobe(usr.cell->bel.tile);
                 if (lobe > 0) {
@@ -2524,21 +2657,24 @@ void NgUltraPacker::duplicate_gck()
         CellInfo *driver = glb_net->driver.cell;
         NetInfo *si1 = driver->getPort(id_SI1);
         NetInfo *si2 = driver->getPort(id_SI2);
-        NetInfo *cmd = driver->getPort(id_CMD);        
+        NetInfo *cmd = driver->getPort(id_CMD);
         for (auto &conn : connections) {
             BelId bel = get_available_gck(conn.first, si1, si2);
             CellInfo *gck_cell = nullptr;
-            if (cnt==0) {
+            if (cnt == 0) {
                 gck_cell = driver;
-                log_info("        Assign GCK '%s' to lobe %d\n",gck_cell->name.c_str(ctx), conn.first);
+                log_info("        Assign GCK '%s' to lobe %d\n", gck_cell->name.c_str(ctx), conn.first);
             } else {
                 gck_cell = create_cell_ptr(id_GCK, ctx->idf("%s$gck_%d", driver->name.c_str(ctx), conn.first));
-                log_info("        Create GCK '%s' for lobe %d\n",gck_cell->name.c_str(ctx), conn.first);
+                log_info("        Create GCK '%s' for lobe %d\n", gck_cell->name.c_str(ctx), conn.first);
                 for (auto &params : driver->params)
                     gck_cell->params[params.first] = params.second;
-                if (si1) gck_cell->connectPort(id_SI1, si1);
-                if (si2) gck_cell->connectPort(id_SI2, si2);
-                if (cmd) gck_cell->connectPort(id_CMD, cmd);
+                if (si1)
+                    gck_cell->connectPort(id_SI1, si1);
+                if (si2)
+                    gck_cell->connectPort(id_SI2, si2);
+                if (cmd)
+                    gck_cell->connectPort(id_CMD, cmd);
             }
             gck_cell->disconnectPort(id_SO);
             NetInfo *new_clk = ctx->createNet(ctx->id(gck_cell->name.str(ctx)));
@@ -2546,14 +2682,13 @@ void NgUltraPacker::duplicate_gck()
             for (const auto &usr : conn.second) {
                 CellInfo *cell = usr.cell;
                 IdString port = usr.port;
-                cell->connectPort(port, new_clk);                
+                cell->connectPort(port, new_clk);
             }
             global_lowskew.emplace(new_clk->name);
             ctx->bindBel(bel, gck_cell, PlaceStrength::STRENGTH_LOCKED);
             cnt++;
         }
     }
-
 }
 
 void NgUltraPacker::insert_bypass_gck()
@@ -2571,8 +2706,8 @@ void NgUltraPacker::insert_bypass_gck()
         dict<int, std::vector<PortRef>> connections;
         for (const auto &usr : glb_net->users) {
             if (uarch->is_fabric_lowskew_sink(usr) || uarch->is_ring_over_tile_clock_sink(usr)) {
-                if (usr.cell->bel==BelId()) {
-                    log_error("Cell '%s' not placed\n",usr.cell->name.c_str(ctx));
+                if (usr.cell->bel == BelId()) {
+                    log_error("Cell '%s' not placed\n", usr.cell->name.c_str(ctx));
                 }
                 int lobe = uarch->tile_lobe(usr.cell->bel.tile);
                 if (lobe > 0) {
@@ -2584,7 +2719,7 @@ void NgUltraPacker::insert_bypass_gck()
         for (auto &conn : connections) {
             BelId bel = get_available_gck(conn.first, glb_net, nullptr);
 
-            log_info("        Create GCK for lobe %d\n",conn.first);
+            log_info("        Create GCK for lobe %d\n", conn.first);
             CellInfo *gck_cell = create_cell_ptr(id_GCK, ctx->idf("%s$gck_%d", glb_net->name.c_str(ctx), conn.first));
             gck_cell->params[id_std_mode] = Property("BYPASS");
             gck_cell->connectPort(id_SI1, glb_net);
@@ -2593,7 +2728,7 @@ void NgUltraPacker::insert_bypass_gck()
             for (const auto &usr : conn.second) {
                 CellInfo *cell = usr.cell;
                 IdString port = usr.port;
-                cell->connectPort(port, new_clk);                
+                cell->connectPort(port, new_clk);
             }
             global_lowskew.emplace(new_clk->name);
             ctx->bindBel(bel, gck_cell, PlaceStrength::STRENGTH_LOCKED);

@@ -44,7 +44,7 @@ struct BitstreamJsonBackend
     std::ostream &out;
     bool first_instance;
 
-    BitstreamJsonBackend(Context *ctx, NgUltraImpl *uarch, std::ostream &out) : ctx(ctx), uarch(uarch), out(out){};
+    BitstreamJsonBackend(Context *ctx, NgUltraImpl *uarch, std::ostream &out) : ctx(ctx), uarch(uarch), out(out) {};
 
     std::string get_string(std::string str)
     {
@@ -59,40 +59,39 @@ struct BitstreamJsonBackend
 
     std::string update_name(std::string tile, std::string name)
     {
-        if (boost::starts_with(tile,"FENCE[")) {
-            char last = tile[tile.size()-2];
-            switch(last)
-            {
-                case 'T':
-                case 'B':
-                case 'U':
-                case 'L':
-                    std::string loc = tile.substr(tile.find("[")+1, tile.find("x")-tile.find("["));
-                    boost::replace_all(name, "1x", loc);
-                    return name;
+        if (boost::starts_with(tile, "FENCE[")) {
+            char last = tile[tile.size() - 2];
+            switch (last) {
+            case 'T':
+            case 'B':
+            case 'U':
+            case 'L':
+                std::string loc = tile.substr(tile.find("[") + 1, tile.find("x") - tile.find("["));
+                boost::replace_all(name, "1x", loc);
+                return name;
             }
         }
-        if (boost::starts_with(tile,"TILE[")  &&  boost::algorithm::contains(name,".FE")) {
+        if (boost::starts_with(tile, "TILE[") && boost::algorithm::contains(name, ".FE")) {
             std::string last = name.substr(name.rfind('.') + 1);
-            if (last[0]=='D') {
+            if (last[0] == 'D') {
                 boost::replace_all(name, ".D", ".");
                 boost::replace_all(name, ".FE", ".DFF");
                 return name;
             }
-            if (last=="L" || last=="R") {
+            if (last == "L" || last == "R") {
                 boost::replace_all(name, ".FE", ".DFF");
                 return name;
             }
-            if (last=="CK") {
+            if (last == "CK") {
                 boost::replace_all(name, ".FE", ".DFF");
                 return name;
             }
-            if (last[0]=='L') {
+            if (last[0] == 'L') {
                 boost::replace_all(name, ".L", ".");
                 boost::replace_all(name, ".FE", ".LUT");
                 return name;
             }
-            if (last[0]=='P') {
+            if (last[0] == 'P') {
                 boost::replace_all(name, ".PI", ".I");
                 boost::replace_all(name, ".FE", ".LUT");
                 return name;
@@ -101,10 +100,13 @@ struct BitstreamJsonBackend
         return name;
     }
 
-    void add_net(std::set<std::string> &nets, std::string src_tile, std::string src_name, std::string dst_tile, std::string dst_name, IdString src_type, IdString dst_type)
+    void add_net(std::set<std::string> &nets, std::string src_tile, std::string src_name, std::string dst_tile,
+                 std::string dst_name, IdString src_type, IdString dst_type)
     {
-        if (src_type.in(ctx->id("LUT_PERMUTATION_WIRE"), ctx->id("MUX_WIRE"), ctx->id("INTERCONNECT_INPUT"))) return;
-        if (boost::starts_with(src_type.c_str(ctx),"CROSSBAR_") && boost::ends_with(src_type.c_str(ctx),"INPUT_WIRE")) return;
+        if (src_type.in(ctx->id("LUT_PERMUTATION_WIRE"), ctx->id("MUX_WIRE"), ctx->id("INTERCONNECT_INPUT")))
+            return;
+        if (boost::starts_with(src_type.c_str(ctx), "CROSSBAR_") && boost::ends_with(src_type.c_str(ctx), "INPUT_WIRE"))
+            return;
         if (dst_type == ctx->id("MUX_WIRE"))
             dst_name = dst_name.substr(0, dst_name.rfind('.'));
         src_name = update_name(src_tile, src_name);
@@ -112,10 +114,10 @@ struct BitstreamJsonBackend
 
         nets.emplace(stringf("%s:%s->%s:%s", src_tile.c_str(), src_name.c_str(), dst_tile.c_str(), dst_name.c_str()));
     }
-                
+
     std::string cleanup_name(std::string name)
     {
-        std::replace(name.begin(), name.end(), '$', '_'); 
+        std::replace(name.begin(), name.end(), '$', '_');
         return name;
     }
 
@@ -125,8 +127,10 @@ struct BitstreamJsonBackend
         bool first_net = true;
         for (auto &net : ctx->nets) {
             NetInfo *ni = net.second.get();
-            if (ni->wires.empty()) continue;
-            out << (first_net ? "" : ",\n"); first_net = false;
+            if (ni->wires.empty())
+                continue;
+            out << (first_net ? "" : ",\n");
+            first_net = false;
             out << stringf("\t\t%s: [\n", get_string(cleanup_name(ni->name.c_str(ctx))).c_str());
             std::set<std::string> nets;
             for (auto &w : ni->wires) {
@@ -139,7 +143,8 @@ struct BitstreamJsonBackend
                     IdString src_type = ctx->getWireType(swire);
 
                     IdString src_orig = IdString(chip_tile_info(ctx->chip_info, pip.tile).wires[pd.src_wire].name);
-                    IdString src_orig_type = IdString(chip_tile_info(ctx->chip_info, pip.tile).wires[pd.src_wire].wire_type);
+                    IdString src_orig_type =
+                            IdString(chip_tile_info(ctx->chip_info, pip.tile).wires[pd.src_wire].wire_type);
 
                     WireId dwire = ctx->getPipDstWire(pip);
                     IdString dst = ctx->getWireName(dwire)[1];
@@ -147,26 +152,31 @@ struct BitstreamJsonBackend
 
                     std::string s_tile_name = uarch->tile_name(swire.tile);
                     std::string tile_name = uarch->tile_name(pip.tile);
-                   
-                    if (src_orig!=src)
-                        add_net(nets, s_tile_name, src.c_str(ctx), tile_name, src_orig.c_str(ctx), src_type, src_orig_type);
-                    if (!extra_data.name || (extra_data.type != PipExtra::PIP_EXTRA_BYPASS && extra_data.type != PipExtra::PIP_EXTRA_VIRTUAL && extra_data.type != PipExtra::PIP_EXTRA_MUX))
-                        add_net(nets, tile_name, src_orig.c_str(ctx), tile_name, dst.c_str(ctx), src_orig_type, dst_type);
-                } else if (ni->wires.size()==1) {
+
+                    if (src_orig != src)
+                        add_net(nets, s_tile_name, src.c_str(ctx), tile_name, src_orig.c_str(ctx), src_type,
+                                src_orig_type);
+                    if (!extra_data.name ||
+                        (extra_data.type != PipExtra::PIP_EXTRA_BYPASS &&
+                         extra_data.type != PipExtra::PIP_EXTRA_VIRTUAL && extra_data.type != PipExtra::PIP_EXTRA_MUX))
+                        add_net(nets, tile_name, src_orig.c_str(ctx), tile_name, dst.c_str(ctx), src_orig_type,
+                                dst_type);
+                } else if (ni->wires.size() == 1) {
                     IdString src = ctx->getWireName(w.first)[1];
                     IdString src_type = ctx->getWireType(w.first);
                     std::string s_tile_name = uarch->tile_name(w.first.tile);
-                    for (auto &u : ni->users){
+                    for (auto &u : ni->users) {
                         std::string tile_name = uarch->tile_name(u.cell->bel.tile);
                         IdString bel_name = ctx->getBelName(u.cell->bel)[1];
-                        add_net(nets, s_tile_name, src.c_str(ctx), tile_name, stringf("%s.%s", bel_name.c_str(ctx), u.port.c_str(ctx)), src_type, src_type);
+                        add_net(nets, s_tile_name, src.c_str(ctx), tile_name,
+                                stringf("%s.%s", bel_name.c_str(ctx), u.port.c_str(ctx)), src_type, src_type);
                     }
                 }
             }
             bool first = true;
             for (auto &str : nets) {
                 out << (first ? "" : ",\n");
-                out << stringf("\t\t\t%s",get_string(str).c_str());
+                out << stringf("\t\t\t%s", get_string(str).c_str());
                 first = false;
             }
             out << "\n\t\t]";
@@ -206,7 +216,8 @@ struct BitstreamJsonBackend
         }
     };
 
-    template <typename KeyType> std::string extract_bits_or_default(const dict<KeyType, Property> &ct, const KeyType &key, int bits, int def = 0)
+    template <typename KeyType>
+    std::string extract_bits_or_default(const dict<KeyType, Property> &ct, const KeyType &key, int bits, int def = 0)
     {
         Property extr = get_or_default(ct, key, Property()).extract(0, bits);
         std::string str = extr.str;
@@ -218,27 +229,30 @@ struct BitstreamJsonBackend
 
     void open_instance(CellInfo *cell, std::string rename = "")
     {
-        out << stringf("%s", first_instance ? "" : ",\n"); first_instance = false;
-        out << stringf("\t\t%s: {\n", get_string(cleanup_name(rename.empty() ? cell->name.c_str(ctx) : rename.c_str())).c_str());
+        out << stringf("%s", first_instance ? "" : ",\n");
+        first_instance = false;
+        out << stringf("\t\t%s: {\n",
+                       get_string(cleanup_name(rename.empty() ? cell->name.c_str(ctx) : rename.c_str())).c_str());
         std::string tile_name = uarch->tile_name(cell->bel.tile);
         IdString idx = ctx->getBelName(cell->bel)[1];
         std::string belname = idx.c_str(ctx);
         config.clear();
-        out << stringf("\t\t\t\"location\": %s,\n",get_string(tile_name + ":" + belname).c_str());
-        out << stringf("\t\t\t\"type\": %s",get_string(cell->type.c_str(ctx)).c_str());
+        out << stringf("\t\t\t\"location\": %s,\n", get_string(tile_name + ":" + belname).c_str());
+        out << stringf("\t\t\t\"type\": %s", get_string(cell->type.c_str(ctx)).c_str());
     }
 
     void open_instance_fe(CellInfo *cell, std::string type, std::string replace, std::string postfix = "")
     {
-        out << stringf("%s", first_instance ? "" : ",\n"); first_instance = false;
+        out << stringf("%s", first_instance ? "" : ",\n");
+        first_instance = false;
         out << stringf("\t\t%s: {\n", get_string(cleanup_name(cell->name.c_str(ctx)) + postfix).c_str());
         std::string tile_name = uarch->tile_name(cell->bel.tile);
         IdString idx = ctx->getBelName(cell->bel)[1];
         std::string belname = idx.c_str(ctx);
         boost::replace_all(belname, ".FE", replace);
         config.clear();
-        out << stringf("\t\t\t\"location\": %s,\n",get_string(tile_name + ":" + belname).c_str());
-        out << stringf("\t\t\t\"type\": %s",get_string(type).c_str());
+        out << stringf("\t\t\t\"location\": %s,\n", get_string(tile_name + ":" + belname).c_str());
+        out << stringf("\t\t\t\"type\": %s", get_string(type).c_str());
     }
 
     inline void add_config(std::string name, int val)
@@ -256,20 +270,24 @@ struct BitstreamJsonBackend
         config.push_back(stringf("\t\t\t\t%s:%s", get_string(name).c_str(), get_string(val).c_str()));
     }
 
-    void close_instance() {
+    void close_instance()
+    {
         bool first = true;
-        if (!config.empty()) out << ",\n\t\t\t\"config\": {\n";
+        if (!config.empty())
+            out << ",\n\t\t\t\"config\": {\n";
         for (auto &str : config) {
             out << (first ? "" : ",\n");
             out << str.c_str();
             first = false;
         }
-        if (!config.empty()) out << "\n\t\t\t}";
+        if (!config.empty())
+            out << "\n\t\t\t}";
         out << "\n\t\t}";
         config.clear();
     }
 
-    void write_iop(CellInfo *cell) {
+    void write_iop(CellInfo *cell)
+    {
         open_instance(cell, str_or_default(cell->params, id_iobname, ""));
         add_config("location", str_or_default(cell->params, id_location, ""));
         add_config("differential", str_or_n_value_lower(cell->params, id_differential, "false"));
@@ -294,15 +312,16 @@ struct BitstreamJsonBackend
         close_instance();
         std::string tile_name = uarch->tile_name(cell->bel.tile);
         std::string bank = tile_name.substr(0, tile_name.rfind(':'));
-        if (uarch->bank_voltage.count(bank)==0) {
-            if (bank=="IOB0" || bank=="IOB1" || bank=="IOB6" || bank=="IOB7")
+        if (uarch->bank_voltage.count(bank) == 0) {
+            if (bank == "IOB0" || bank == "IOB1" || bank == "IOB6" || bank == "IOB7")
                 uarch->bank_voltage[bank] = "3.3V";
             else
                 uarch->bank_voltage[bank] = "1.8V";
         }
     }
 
-    void write_ddfr(CellInfo *cell) {
+    void write_ddfr(CellInfo *cell)
+    {
         open_instance(cell);
         add_config("dff_load", bool_or_default(cell->params, id_dff_load, false));
         add_config("dff_sync", bool_or_default(cell->params, id_dff_sync, false));
@@ -312,7 +331,8 @@ struct BitstreamJsonBackend
         close_instance();
     }
 
-    void write_dfr(CellInfo *cell) {
+    void write_dfr(CellInfo *cell)
+    {
         open_instance(cell);
         add_config("data_inv", bool_or_default(cell->params, id_data_inv, false));
         add_config("dff_edge", bool_or_default(cell->params, id_dff_edge, false));
@@ -325,7 +345,8 @@ struct BitstreamJsonBackend
         close_instance();
     }
 
-    void write_bfr(CellInfo *cell) {
+    void write_bfr(CellInfo *cell)
+    {
         open_instance(cell);
         add_config("mode", int_or_default(cell->params, id_mode, 2));
         add_config("iobname", str_or_default(cell->params, id_iobname, ""));
@@ -335,14 +356,16 @@ struct BitstreamJsonBackend
         close_instance();
     }
 
-    void write_cy(CellInfo *cell) {
+    void write_cy(CellInfo *cell)
+    {
         open_instance(cell);
         add_config("add_carry", int_or_default(cell->params, id_add_carry, 0));
         add_config("shifter", bool_or_default(cell->params, id_shifter, false));
         close_instance();
     }
 
-    void write_fe(CellInfo *cell) {
+    void write_fe(CellInfo *cell)
+    {
         if (bool_or_default(cell->params, id_lut_used)) {
             open_instance_fe(cell, "LUT", ".LUT");
             add_config("lut_table", extract_bits_or_default(cell->params, id_lut_table, 16));
@@ -351,7 +374,7 @@ struct BitstreamJsonBackend
         if (bool_or_default(cell->params, id_dff_used)) {
             std::string subtype = str_or_default(cell->params, id_type, "DFF");
             open_instance_fe(cell, subtype, ".DFF", "_D");
-            if (subtype =="DFF") {
+            if (subtype == "DFF") {
                 add_config("dff_ctxt", std::to_string(int_or_default(cell->params, id_dff_ctxt, 0)));
                 add_config("dff_edge", bool_or_default(cell->params, id_dff_edge, false));
                 add_config("dff_init", bool_or_default(cell->params, id_dff_init, false));
@@ -363,19 +386,22 @@ struct BitstreamJsonBackend
         }
     }
 
-    void write_xlut(CellInfo *cell) {
+    void write_xlut(CellInfo *cell)
+    {
         open_instance(cell);
         add_config("lut_table", extract_bits_or_default(cell->params, id_lut_table, 16));
         close_instance();
     }
 
-    void write_iom(CellInfo *cell) {
+    void write_iom(CellInfo *cell)
+    {
         open_instance(cell);
         add_config("pads_path", str_or_default(cell->params, id_pads_path, ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;"));
         close_instance();
     }
 
-    void write_gck(CellInfo *cell) {
+    void write_gck(CellInfo *cell)
+    {
         open_instance(cell);
         add_config("inv_in", bool_or_default(cell->params, id_inv_in, false));
         add_config("inv_out", bool_or_default(cell->params, id_inv_out, false));
@@ -383,7 +409,8 @@ struct BitstreamJsonBackend
         close_instance();
     }
 
-    void write_wfb(CellInfo *cell) {
+    void write_wfb(CellInfo *cell)
+    {
         open_instance(cell);
         add_config("delay_on", bool_or_default(cell->params, id_delay_on, false));
         add_config("delay", int_or_default(cell->params, id_delay, 0));
@@ -391,7 +418,8 @@ struct BitstreamJsonBackend
         close_instance();
     }
 
-    void write_wfg(CellInfo *cell) {
+    void write_wfg(CellInfo *cell)
+    {
         open_instance(cell);
         add_config("mode", int_or_default(cell->params, id_mode, 0));
         add_config("delay_on", bool_or_default(cell->params, id_delay_on, false));
@@ -403,11 +431,12 @@ struct BitstreamJsonBackend
         add_config("div_phase", bool_or_default(cell->params, id_div_phase, false));
         add_config("reset_on_pll_lock_n", bool_or_default(cell->params, id_reset_on_pll_lock_n, false));
         add_config("reset_on_pll_locka_n", bool_or_default(cell->params, id_reset_on_pll_locka_n, false));
-        add_config("reset_on_cal_lock_n", bool_or_default(cell->params, id_reset_on_cal_lock_n, false));        
+        add_config("reset_on_cal_lock_n", bool_or_default(cell->params, id_reset_on_cal_lock_n, false));
         close_instance();
     }
 
-    void write_pll(CellInfo *cell) {
+    void write_pll(CellInfo *cell)
+    {
         open_instance(cell);
         add_config("clk_outdiv1", extract_bits_or_default(cell->params, id_clk_outdiv1, 3));
         add_config("clk_outdiv2", extract_bits_or_default(cell->params, id_clk_outdiv2, 3));
@@ -437,15 +466,18 @@ struct BitstreamJsonBackend
         close_instance();
     }
 
-    void write_rfb(CellInfo *cell) {
+    void write_rfb(CellInfo *cell)
+    {
         open_instance(cell);
         std::string context = str_or_default(cell->params, id_mem_ctxt, "");
-        if (!context.empty()) add_config("mem_ctxt", context);
+        if (!context.empty())
+            add_config("mem_ctxt", context);
         add_config("wck_edge", bool_or_default(cell->params, id_wck_edge, false));
         close_instance();
     }
 
-    void write_ram(CellInfo *cell) {
+    void write_ram(CellInfo *cell)
+    {
         open_instance(cell);
         add_config("mcka_edge", bool_or_default(cell->params, id_mcka_edge, false));
         add_config("mckb_edge", bool_or_default(cell->params, id_mckb_edge, false));
@@ -454,11 +486,13 @@ struct BitstreamJsonBackend
         add_config("raw_config0", extract_bits_or_default(cell->params, id_raw_config0, 4));
         add_config("raw_config1", extract_bits_or_default(cell->params, id_raw_config1, 16));
         std::string context = str_or_default(cell->params, id_mem_ctxt, "");
-        if (!context.empty()) add_config("mem_ctxt", context);
+        if (!context.empty())
+            add_config("mem_ctxt", context);
         close_instance();
     }
 
-    void write_dsp(CellInfo *cell) {
+    void write_dsp(CellInfo *cell)
+    {
         open_instance(cell);
         add_config("raw_config0", extract_bits_or_default(cell->params, id_raw_config0, 27));
         add_config("raw_config1", extract_bits_or_default(cell->params, id_raw_config1, 24));
@@ -467,7 +501,8 @@ struct BitstreamJsonBackend
         close_instance();
     }
 
-    void write_cdc(CellInfo *cell) {
+    void write_cdc(CellInfo *cell)
+    {
         open_instance(cell);
         if (cell->type.in(id_DDE, id_TDE, id_CDC, id_XCDC)) {
             add_config("ck0_edge", bool_or_default(cell->params, id_ck0_edge, false));
@@ -495,7 +530,8 @@ struct BitstreamJsonBackend
         close_instance();
     }
 
-    void write_fifo(CellInfo *cell) {
+    void write_fifo(CellInfo *cell)
+    {
         open_instance(cell);
         add_config("rck_edge", bool_or_default(cell->params, id_rck_edge, false));
         add_config("wck_edge", bool_or_default(cell->params, id_wck_edge, false));
@@ -511,29 +547,33 @@ struct BitstreamJsonBackend
     {
         for (auto &net : ctx->nets) {
             NetInfo *ni = net.second.get();
-            if (ni->wires.size()==0) continue;
+            if (ni->wires.size() == 0)
+                continue;
             std::vector<std::string> nets;
             for (auto &w : ni->wires) {
                 if (w.second.pip != PipId()) {
                     PipId pip = w.second.pip;
                     const auto &extra_data = *uarch->pip_extra_data(w.second.pip);
-                    if (!extra_data.name || extra_data.type != PipExtra::PIP_EXTRA_INTERCONNECT) continue;
+                    if (!extra_data.name || extra_data.type != PipExtra::PIP_EXTRA_INTERCONNECT)
+                        continue;
                     auto &pd = chip_pip_info(ctx->chip_info, pip);
                     IdString src = IdString(chip_tile_info(ctx->chip_info, pip.tile).wires[pd.src_wire].name);
                     std::string tile_name = uarch->tile_name(pip.tile);
                     std::string src_name = src.c_str(ctx);
                     std::string type = "OTC";
-                    if (src_name.find("UI1x") != std::string::npos) 
+                    if (src_name.find("UI1x") != std::string::npos)
                         type = "ITC";
-                    if (boost::starts_with(src_name,"SO1.")) type = "OTS";
-                    if (boost::starts_with(src_name,"SI1.")) type = "ITS";
+                    if (boost::starts_with(src_name, "SO1."))
+                        type = "OTS";
+                    if (boost::starts_with(src_name, "SI1."))
+                        type = "ITS";
                     src_name = update_name(tile_name, src_name);
                     src_name = src_name.substr(0, src_name.size() - 2);
 
-                    std::string name = cleanup_name(std::string(ni->name.c_str(ctx))+ "_" + src_name.substr(4));
+                    std::string name = cleanup_name(std::string(ni->name.c_str(ctx)) + "_" + src_name.substr(4));
                     out << stringf(",\n\t\t%s: {\n", get_string(name).c_str());
-                    out << stringf("\t\t\t\"location\": %s,\n",get_string(tile_name + ":" + src_name).c_str());
-                    out << stringf("\t\t\t\"type\": %s\n\t\t}",get_string(type).c_str());
+                    out << stringf("\t\t\t\"location\": %s,\n", get_string(tile_name + ":" + src_name).c_str());
+                    out << stringf("\t\t\t\"type\": %s\n\t\t}", get_string(type).c_str());
                 }
             }
         }
@@ -545,52 +585,87 @@ struct BitstreamJsonBackend
         first_instance = true;
         for (auto &cell : ctx->cells) {
             switch (cell.second->type.index) {
-                case id_BEYOND_FE.index: write_fe(cell.second.get()); break;
-                case id_IOP.index:
-                case id_IP.index:
-                case id_OP.index:
-                case id_IOTP.index:
-                case id_ITP.index:
-                case id_OTP.index: write_iop(cell.second.get()); break;
-                case id_CY.index: write_cy(cell.second.get()); break;
-                case id_WFB.index: write_wfb(cell.second.get()); break;
-                case id_WFG.index: write_wfg(cell.second.get()); break;
-                case id_GCK.index: write_gck(cell.second.get()); break;
-                case id_IOM.index: write_iom(cell.second.get()); break;
-                case id_BFR.index: write_bfr(cell.second.get()); break;
-                case id_DDFR.index: write_ddfr(cell.second.get()); break;
-                case id_DFR.index: write_dfr(cell.second.get()); break;
-                case id_RAM.index: write_ram(cell.second.get()); break;
-                case id_RF.index:
-                case id_RFSP.index:
-                case id_XHRF.index:
-                case id_XWRF.index:
-                case id_XPRF.index: write_rfb(cell.second.get()); break;
-                case id_XLUT.index: write_xlut(cell.second.get()); break;
-                case id_FIFO.index: // mode 0
-                case id_XHFIFO.index: // mode 1
-                case id_XWFIFO.index: write_fifo(cell.second.get()); break; // mode 2
-                case id_DDE.index: // mode 0
-                case id_TDE.index: // mode 1
-                case id_CDC.index: // mode 2
-                case id_BGC.index: // mode 3
-                case id_GBC.index: // mode 4
-                case id_XCDC.index: write_cdc(cell.second.get()); break; // mode 5
-                case id_DSP.index: write_dsp(cell.second.get()); break;
-                case id_PLL.index: write_pll(cell.second.get()); break;
-                //case id_CRX.index:
-                //case id_CTX.index:
-                //case id_PMA.index:
-                //case id_Service.index:
-                //case id_SOCIF.index:
-                default:
-                    log_error("Unhandled cell %s of type %s\n", cell.second.get()->name.c_str(ctx), cell.second->type.c_str(ctx));
+            case id_BEYOND_FE.index:
+                write_fe(cell.second.get());
+                break;
+            case id_IOP.index:
+            case id_IP.index:
+            case id_OP.index:
+            case id_IOTP.index:
+            case id_ITP.index:
+            case id_OTP.index:
+                write_iop(cell.second.get());
+                break;
+            case id_CY.index:
+                write_cy(cell.second.get());
+                break;
+            case id_WFB.index:
+                write_wfb(cell.second.get());
+                break;
+            case id_WFG.index:
+                write_wfg(cell.second.get());
+                break;
+            case id_GCK.index:
+                write_gck(cell.second.get());
+                break;
+            case id_IOM.index:
+                write_iom(cell.second.get());
+                break;
+            case id_BFR.index:
+                write_bfr(cell.second.get());
+                break;
+            case id_DDFR.index:
+                write_ddfr(cell.second.get());
+                break;
+            case id_DFR.index:
+                write_dfr(cell.second.get());
+                break;
+            case id_RAM.index:
+                write_ram(cell.second.get());
+                break;
+            case id_RF.index:
+            case id_RFSP.index:
+            case id_XHRF.index:
+            case id_XWRF.index:
+            case id_XPRF.index:
+                write_rfb(cell.second.get());
+                break;
+            case id_XLUT.index:
+                write_xlut(cell.second.get());
+                break;
+            case id_FIFO.index:   // mode 0
+            case id_XHFIFO.index: // mode 1
+            case id_XWFIFO.index:
+                write_fifo(cell.second.get());
+                break;         // mode 2
+            case id_DDE.index: // mode 0
+            case id_TDE.index: // mode 1
+            case id_CDC.index: // mode 2
+            case id_BGC.index: // mode 3
+            case id_GBC.index: // mode 4
+            case id_XCDC.index:
+                write_cdc(cell.second.get());
+                break; // mode 5
+            case id_DSP.index:
+                write_dsp(cell.second.get());
+                break;
+            case id_PLL.index:
+                write_pll(cell.second.get());
+                break;
+            // case id_CRX.index:
+            // case id_CTX.index:
+            // case id_PMA.index:
+            // case id_Service.index:
+            // case id_SOCIF.index:
+            default:
+                log_error("Unhandled cell %s of type %s\n", cell.second.get()->name.c_str(ctx),
+                          cell.second->type.c_str(ctx));
             }
         }
         write_interconnections();
         out << "\n\t},\n";
     }
-  
+
     void write_setup()
     {
         out << "\t\"setup\": {\n";
@@ -599,7 +674,7 @@ struct BitstreamJsonBackend
         bool first = true;
         for (auto &bank : uarch->bank_voltage) {
             out << (first ? "" : ",\n");
-            out << stringf("\t\t\t%s:%s",get_string(bank.first).c_str(),get_string(bank.second).c_str());
+            out << stringf("\t\t\t%s:%s", get_string(bank.first).c_str(), get_string(bank.second).c_str());
             first = false;
         }
         out << "\n\t\t}\n\t}\n";

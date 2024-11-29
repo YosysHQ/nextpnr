@@ -18,8 +18,8 @@
  */
 
 #include <vector>
-#include "log.h"
 #include "gtest/gtest.h"
+#include "log.h"
 
 USING_NEXTPNR_NAMESPACE
 

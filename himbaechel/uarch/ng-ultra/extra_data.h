@@ -40,8 +40,15 @@ NPNR_PACKED_STRUCT(struct NGUltraPipExtraDataPOD {
 
 NPNR_PACKED_STRUCT(struct NGUltraBelExtraDataPOD { int32_t flags; });
 
-struct GckConfig {
-    explicit GckConfig(BelId belid) { bel = belid; si1 = IdString(); si2 = IdString(); used = false; }
+struct GckConfig
+{
+    explicit GckConfig(BelId belid)
+    {
+        bel = belid;
+        si1 = IdString();
+        si2 = IdString();
+        used = false;
+    }
     BelId bel;
     IdString si1;
     IdString si2;
@@ -50,16 +57,16 @@ struct GckConfig {
 
 enum TILETypeZ
 {
-    BEL_LUT_Z   = 0,
+    BEL_LUT_Z = 0,
     BEL_LUT_MAX_Z = 31,
-    BEL_CY_Z    = 32,
-    BEL_XLUT_Z  = BEL_CY_Z + 4,
-    BEL_RF_Z    = BEL_XLUT_Z + 8,
-    BEL_XRF_Z   = BEL_RF_Z + 2,
-    BEL_FIFO_Z  = BEL_XRF_Z + 1,
+    BEL_CY_Z = 32,
+    BEL_XLUT_Z = BEL_CY_Z + 4,
+    BEL_RF_Z = BEL_XLUT_Z + 8,
+    BEL_XRF_Z = BEL_RF_Z + 2,
+    BEL_FIFO_Z = BEL_XRF_Z + 1,
     BEL_XFIFO_Z = BEL_FIFO_Z + 2,
-    BEL_CDC_Z   = BEL_XFIFO_Z + 1,
-    BEL_XCDC_Z  = BEL_CDC_Z + 2
+    BEL_CDC_Z = BEL_XFIFO_Z + 1,
+    BEL_XCDC_Z = BEL_CDC_Z + 2
 };
 
 enum ClusterPlacement
