@@ -307,7 +307,7 @@ void GowinImpl::place_constrained_hclk_cells()
             continue;
 
         if (((is_iologici(ci) || is_iologico(ci)) &&
-             !ci->type.in(id_ODDR, id_ODDRC, id_IDDR, id_IDDRC, id_IOLOGICI_EMPTY))) {
+             !ci->type.in(id_ODDR, id_ODDRC, id_IDDR, id_IDDRC, id_IOLOGICI_EMPTY, id_IOLOGICO_EMPTY))) {
             NetInfo *hclk_net = ci->getPort(id_FCLK);
             if (hclk_net)
                 continue;

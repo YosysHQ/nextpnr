@@ -32,7 +32,7 @@ inline bool is_diffio(const CellInfo *cell) { return type_is_diffio(cell->type);
 
 inline bool type_is_iologico(IdString cell_type)
 {
-    return cell_type.in(id_ODDR, id_ODDRC, id_OSER4, id_OSER8, id_OSER10, id_OVIDEO);
+    return cell_type.in(id_ODDR, id_ODDRC, id_OSER4, id_OSER8, id_OSER10, id_OVIDEO, id_IOLOGICO_EMPTY);
 }
 inline bool is_iologico(const CellInfo *cell) { return type_is_iologico(cell->type); }
 
