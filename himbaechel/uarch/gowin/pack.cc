@@ -365,7 +365,7 @@ struct GowinPacker
 
     void check_iologic_placement(CellInfo &ci, Loc iob_loc, int diff /* 1 - diff */)
     {
-        if (ci.type.in(id_ODDR, id_ODDRC, id_IDDR, id_IDDRC, id_OSER4, id_IOLOGICI_EMPTY) || diff) {
+        if (ci.type.in(id_ODDR, id_ODDRC, id_IDDR, id_IDDRC, id_OSER4, id_IOLOGICI_EMPTY, id_IOLOGICO_EMPTY) || diff) {
             return;
         }
         BelId l_bel = ctx->getBelByLocation(Loc(iob_loc.x, iob_loc.y, BelZ::IOBA_Z + 1 - (iob_loc.z - BelZ::IOBA_Z)));
@@ -486,6 +486,9 @@ struct GowinPacker
         ctx->bindBel(l_bel, &ci, PlaceStrength::STRENGTH_LOCKED);
         std::string out_mode;
         switch (ci.type.hash()) {
+        case ID_IOLOGICO_EMPTY:
+            out_mode = "EMPTY";
+            break;
         case ID_OVIDEO:
             out_mode = "VIDEORX";
             break;
@@ -494,11 +497,14 @@ struct GowinPacker
             break;
         }
         ci.setParam(ctx->id("OUTMODE"), out_mode);
-
         // disconnect Q output: it is wired internally
         nets_to_remove.push_back(ci.getPort(out_port)->name);
         out_iob->disconnectPort(id_I);
         ci.disconnectPort(out_port);
+        if (ci.type == id_IOLOGICO_EMPTY) {
+            ci.movePortTo(id_D, out_iob, id_I);
+            return;
+        }
         set_daaj_nets(ci, iob_bel);
 
         Loc io_loc = ctx->getBelLocation(iob_bel);
@@ -517,7 +523,8 @@ struct GowinPacker
 
     CellInfo *create_aux_iologic_cell(CellInfo &ci, IdString mode, bool io16 = false, int idx = 0)
     {
-        if (ci.type.in(id_ODDR, id_ODDRC, id_OSER4, id_IDDR, id_IDDRC, id_IDES4, id_IOLOGICI_EMPTY)) {
+        if (ci.type.in(id_ODDR, id_ODDRC, id_OSER4, id_IDDR, id_IDDRC, id_IDES4, id_IOLOGICI_EMPTY,
+                       id_IOLOGICO_EMPTY)) {
             return nullptr;
         }
         IdString aux_name = gwu.create_aux_name(ci.name, idx);
@@ -618,19 +625,146 @@ struct GowinPacker
             break;
         }
         ci.setParam(ctx->id("INMODE"), in_mode);
-
-        if (ci.type == id_IOLOGICI_EMPTY) {
-            return;
-        }
-
         // disconnect D input: it is wired internally
         nets_to_remove.push_back(ci.getPort(in_port)->name);
         in_iob->disconnectPort(id_O);
         ci.disconnectPort(in_port);
+        if (ci.type == id_IOLOGICI_EMPTY) {
+            ci.movePortTo(id_Q, in_iob, id_O);
+            return;
+        }
+
         set_daaj_nets(ci, iob_bel);
         reconnect_ides_outs(&ci);
 
         make_iob_nets(*in_iob);
+    }
+
+    void pack_iodelay()
+    {
+        log_info("Pack IODELAY...\n");
+        std::vector<IdString> cells_to_remove;
+        std::vector<IdString> nets_to_remove;
+        std::vector<std::unique_ptr<CellInfo>> new_cells;
+
+        for (auto &cell : ctx->cells) {
+            CellInfo &ci = *cell.second;
+            if (ci.type != id_IODELAY) {
+                continue;
+            }
+            if (ctx->debug) {
+                log_info("pack %s of type %s.\n", ctx->nameOf(&ci), ci.type.c_str(ctx));
+            }
+            // There is only one delay line in the IO block, which can be either
+            // input or output.  Define which case we are dealing with.
+            bool is_idelay = false;
+            NetInfo *di_net = ci.ports.at(id_DI).net;
+            NetInfo *do_net = ci.ports.at(id_DO).net;
+            CellInfo *iob = net_driven_by(ctx, di_net, is_iob, id_O);
+            if (iob != nullptr) {
+                NPNR_ASSERT(iob->bel != BelId());
+                if (di_net->users.entries() != 1) {
+                    log_error("IODELAY %s should be the only sink in the %s network.\n", ctx->nameOf(&ci),
+                              ctx->nameOf(di_net));
+                }
+                is_idelay = true;
+            } else {
+                iob = net_only_drives(ctx, do_net, is_iob, id_I, true);
+                if (iob != nullptr) {
+                    NPNR_ASSERT(iob->bel != BelId());
+                } else {
+                    log_error("IODELAY %s is not connected to the pin.\n", ctx->nameOf(&ci));
+                }
+            }
+
+            BelId iob_bel = iob->bel;
+            BelId l_bel = get_iologici_bel(iob);
+            if (l_bel == BelId()) {
+                log_error("Can't place IOLOGIC %s at %s\n", ctx->nameOf(&ci), ctx->nameOfBel(iob_bel));
+            }
+
+            // find IOLOGIC connected or create dummy one
+            CellInfo *iologic = nullptr;
+            Property attr;
+            IdString dummy_iol_type;
+            if (is_idelay) {
+                attr = Property("IN");
+                dummy_iol_type = id_IOLOGICI_EMPTY;
+                for (auto &usr : do_net->users) {
+                    if (is_iologici(usr.cell)) {
+                        iologic = usr.cell;
+                        if (iologic->attrs.count(id_IODELAY) != 0) {
+                            log_error("Only one IODELAY allowed per IO block %s.\n", ctx->nameOfBel(iob->bel));
+                        }
+                        if (ctx->debug) {
+                            log_info(" found IOLOGIC cell %s of type %s, use it.\n", ctx->nameOf(iologic),
+                                     iologic->type.c_str(ctx));
+                        }
+                    }
+                }
+            } else {
+                attr = Property("OUT");
+                dummy_iol_type = id_IOLOGICO_EMPTY;
+                if (is_iologico(di_net->driver.cell)) {
+                    iologic = di_net->driver.cell;
+                    if (iologic->attrs.count(id_IODELAY) != 0) {
+                        log_error("Only one IODELAY allowed per IO block %s.\n", ctx->nameOfBel(iob->bel));
+                    }
+                    if (ctx->debug) {
+                        log_info(" found IOLOGIC cell %s of type %s, use it.\n", ctx->nameOf(iologic),
+                                 iologic->type.c_str(ctx));
+                    }
+                }
+            }
+
+            if (iologic == nullptr) {
+                IdString iologic_name = gwu.create_aux_name(ci.name);
+                if (ctx->debug) {
+                    log_info(" create IOLOGIC cell %s.\n", iologic_name.c_str(ctx));
+                }
+                auto iologic_cell = gwu.create_cell(iologic_name, dummy_iol_type);
+                new_cells.push_back(std::move(iologic_cell));
+                iologic = new_cells.back().get();
+                iologic->addInput(id_D);
+                iologic->addOutput(id_Q);
+                ci.movePortTo(id_DI, iologic, id_D);
+                ci.movePortTo(id_DO, iologic, id_Q);
+            } else {
+                if (is_idelay) {
+                    iob->disconnectPort(id_O);
+                    ci.disconnectPort(id_I);
+                    ci.movePortTo(id_DO, iob, id_O);
+                } else {
+                    IdString iol_out = di_net->driver.port;
+                    ci.disconnectPort(id_DI);
+                    iologic->disconnectPort(iol_out);
+                    ci.movePortTo(id_DO, iologic, iol_out);
+                }
+                nets_to_remove.push_back(di_net->name);
+            }
+
+            ci.movePortTo(id_SDTAP, iologic, id_SDTAP);
+            ci.movePortTo(id_SETN, iologic, id_SETN);
+            ci.movePortTo(id_VALUE, iologic, id_VALUE);
+            ci.movePortTo(id_DF, iologic, id_DF);
+
+            if (ci.params.count(id_C_STATIC_DLY)) {
+                iologic->setParam(id_C_STATIC_DLY, ci.params.at(id_C_STATIC_DLY));
+            }
+            iologic->setAttr(id_IODELAY, attr);
+            cells_to_remove.push_back(ci.name);
+        }
+        for (auto cell : cells_to_remove) {
+            ctx->cells.erase(cell);
+        }
+
+        for (auto &ncell : new_cells) {
+            ctx->cells[ncell->name] = std::move(ncell);
+        }
+
+        for (auto net : nets_to_remove) {
+            ctx->nets.erase(net);
+        }
     }
 
     void pack_iem()
@@ -784,7 +918,7 @@ struct GowinPacker
                 create_aux_iologic_cell(ci, ctx->id("OUTMODE"));
                 continue;
             }
-            if (ci.type.in(id_OVIDEO, id_OSER10)) {
+            if (ci.type.in(id_OVIDEO, id_OSER10, id_IOLOGICO_EMPTY)) {
                 pack_single_output_iol(ci, nets_to_remove);
                 create_aux_iologic_cell(ci, ctx->id("OUTMODE"));
                 continue;
@@ -2332,8 +2466,9 @@ struct GowinPacker
                         ci->setParam(id_MULTALU18X18_MODE, 0);
                     }
                     int multalu18x18_mode = ci->params.at(id_MULTALU18X18_MODE).as_int64();
-                    NPNR_ASSERT_MSG(multalu18x18_mode >= 0 && multalu18x18_mode <= 2,
-                                    "MULTALU18X18_MODE is not in {0, 1, 2}");
+                    if (multalu18x18_mode < 0 || multalu18x18_mode > 2) {
+                        log_error("%s MULTALU18X18_MODE is not in {0, 1, 2}.\n", ctx->nameOf(ci));
+                    }
                     NetInfo *vss_net = ctx->nets.at(ctx->id("$PACKER_GND")).get();
 
                     for (int i = 0; i < 54; ++i) {
@@ -2436,8 +2571,9 @@ struct GowinPacker
                         ci->setParam(id_MULTALU18X18_MODE, 0);
                     }
                     int multalu36x18_mode = ci->params.at(id_MULTALU36X18_MODE).as_int64();
-                    NPNR_ASSERT_MSG(multalu36x18_mode >= 0 && multalu36x18_mode <= 2,
-                                    "MULTALU36X18_MODE is not in {0, 1, 2}");
+                    if (multalu36x18_mode < 0 || multalu36x18_mode > 2) {
+                        log_error("%s MULTALU36X18_MODE is not in {0, 1, 2}.\n", ctx->nameOf(ci));
+                    }
                     NetInfo *vss_net = ctx->nets.at(ctx->id("$PACKER_GND")).get();
 
                     for (int i = 0; i < 36; ++i) {
@@ -2539,8 +2675,9 @@ struct GowinPacker
                         ci->setParam(id_MULTADDALU18X18_MODE, 0);
                     }
                     int multaddalu18x18_mode = ci->params.at(id_MULTADDALU18X18_MODE).as_int64();
-                    NPNR_ASSERT_MSG(multaddalu18x18_mode >= 0 && multaddalu18x18_mode <= 2,
-                                    "MULTADDALU18X18_MODE is not in {0, 1, 2}");
+                    if (multaddalu18x18_mode < 0 || multaddalu18x18_mode > 2) {
+                        log_error("%s MULTADDALU18X18_MODE is not in {0, 1, 2}.\n", ctx->nameOf(ci));
+                    }
                     for (int i = 0; i < 54; ++i) {
                         if (i < 18) {
                             ci->renamePort(ctx->idf("A0[%d]", i), ctx->idf("A%d0", i));
@@ -3448,6 +3585,9 @@ struct GowinPacker
         ctx->check();
 
         pack_diff_iobs();
+        ctx->check();
+
+        pack_iodelay();
         ctx->check();
 
         pack_iem();
