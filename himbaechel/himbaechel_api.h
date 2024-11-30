@@ -109,10 +109,13 @@ struct HimbaechelAPI
     // Graphics
     virtual void drawBel(std::vector<GraphicElement> &g, GraphicElement::style_t style, IdString bel_type, Loc loc) {};
 
-    virtual void drawWire(std::vector<GraphicElement> &g, GraphicElement::style_t style, Loc loc, IdString wire_type, int32_t tilewire, IdString tile_type) {};
+    virtual void drawWire(std::vector<GraphicElement> &g, GraphicElement::style_t style, Loc loc, IdString wire_type,
+                          int32_t tilewire, IdString tile_type) {};
 
-    virtual void drawPip(std::vector<GraphicElement> &g,GraphicElement::style_t style, Loc loc,
-                WireId src, IdString src_type, int32_t src_id, WireId dst, IdString dst_type, int32_t dst_id) {};
+    virtual void drawPip(std::vector<GraphicElement> &g, GraphicElement::style_t style, Loc loc, WireId src,
+                         IdString src_type, int32_t src_id, WireId dst, IdString dst_type, int32_t dst_id) {};
+
+    virtual void drawGroup(std::vector<GraphicElement> &g, IdString group_type, Loc loc) {};
 
     // Routing methods
     virtual void expandBoundingBox(BoundingBox &bb) const;

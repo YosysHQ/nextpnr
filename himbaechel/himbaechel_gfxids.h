@@ -44,7 +44,7 @@ enum GfxTileWireId
     ,
 };
 #endif
-};
+}; // namespace HIMBAECHEL_UARCH
 
 NEXTPNR_NAMESPACE_END
 

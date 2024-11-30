@@ -202,6 +202,47 @@ class PipData(BBAStruct):
         else:
             bba.u32(0)
 @dataclass
+class GroupData(BBAStruct):
+    index: int
+    name: IdString
+    group_type: IdString = field(default_factory=IdString)
+    group_bels: list[int] = field(default_factory=list)
+    group_wires: list[int] = field(default_factory=list)
+    group_pips: list[int] = field(default_factory=list)
+    group_groups: list[int] = field(default_factory=list)
+    extra_data: object = None
+
+    def serialise_lists(self, context: str, bba: BBAWriter):
+        bba.label(f"{context}_group_bels")
+        for idx in self.group_bels:
+            bba.u32(idx)
+        bba.label(f"{context}_group_wires")
+        for idx in self.group_wires:
+            bba.u32(idx)
+        bba.label(f"{context}_group_pips")
+        for idx in self.group_pips:
+            bba.u32(idx)
+        bba.label(f"{context}_group_groups")
+        for idx in self.group_groups:
+            bba.u32(idx)
+        # extra data (optional)
+        if self.extra_data is not None:
+            self.extra_data.serialise_lists(f"{context}_extra_data", bba)
+            bba.label(f"{context}_extra_data")
+            self.extra_data.serialise(f"{context}_extra_data", bba)
+    def serialise(self, context: str, bba: BBAWriter):
+        bba.u32(self.name.index)
+        bba.u32(self.group_type.index)
+        bba.slice(f"{context}_group_bels", len(self.group_bels))
+        bba.slice(f"{context}_group_wires", len(self.group_wires))
+        bba.slice(f"{context}_group_pips", len(self.group_pips))
+        bba.slice(f"{context}_group_groups", len(self.group_groups))
+        if self.extra_data is not None:
+            bba.ref(f"{context}_extra_data")
+        else:
+            bba.u32(0)
+
+@dataclass
 class TileType(BBAStruct):
     strs: StringPool
     gfx_wire_ids: dict()
@@ -210,8 +251,10 @@ class TileType(BBAStruct):
     bels: list[BelData] = field(default_factory=list)
     pips: list[PipData] = field(default_factory=list)
     wires: list[TileWireData] = field(default_factory=list)
+    groups: list[GroupData] = field(default_factory=list)
 
     _wire2idx: dict[IdString, int] = field(default_factory=dict)
+    _group2idx: dict[IdString, int] = field(default_factory=dict)
 
     extra_data: object = None
 
@@ -253,6 +296,26 @@ class TileType(BBAStruct):
         self.wires[dst_idx].pips_uphill.append(pip.index)
         self.pips.append(pip)
         return pip
+    def create_group(self, name: str, type: str):
+        # Create a new group of a given name and type in the tile type
+        group = GroupData(index=len(self.groups),
+            name=self.strs.id(name),
+            group_type=self.strs.id(type))
+        self._group2idx[group.name] = group.index
+        self.groups.append(group)
+        return group
+    def add_bel_to_group(self, bel: BelData, group: str):
+        group_idx = self._group2idx[self.strs.id(group)]
+        self.groups[group_idx].group_bels.append(bel.index)
+    def add_wire_to_group(self, wire: TileWireData, group: str):
+        group_idx = self._group2idx[self.strs.id(group)]
+        self.groups[group_idx].group_wires.append(wire.index)
+    def add_pip_to_group(self, pip: PipData, group: str):
+        group_idx = self._group2idx[self.strs.id(group)]
+        self.groups[group_idx].group_pips.append(pip.index)
+    def add_group_to_group(self, sub_group: GroupData, group: str):
+        group_idx = self._group2idx[self.strs.id(group)]
+        self.groups[group_idx].group_groups.append(sub_group.index)
     def has_wire(self, wire: str):
         # Check if a wire has already been created
         return self.strs.id(wire) in self._wire2idx
@@ -267,6 +330,8 @@ class TileType(BBAStruct):
             wire.serialise_lists(f"{context}_wire{i}", bba)
         for i, pip in enumerate(self.pips):
             pip.serialise_lists(f"{context}_pip{i}", bba)
+        for i, group in enumerate(self.groups):
+            group.serialise_lists(f"{context}_group{i}", bba)
         # lists of members
         bba.label(f"{context}_bels")
         for i, bel in enumerate(self.bels):
@@ -277,6 +342,9 @@ class TileType(BBAStruct):
         bba.label(f"{context}_pips")
         for i, pip in enumerate(self.pips):
             pip.serialise(f"{context}_pip{i}", bba)
+        bba.label(f"{context}_groups")
+        for i, group in enumerate(self.groups):
+            group.serialise(f"{context}_group{i}", bba)
         # extra data (optional)
         if self.extra_data is not None:
             self.extra_data.serialise_lists(f"{context}_extra_data", bba)
@@ -287,6 +355,7 @@ class TileType(BBAStruct):
         bba.slice(f"{context}_bels", len(self.bels))
         bba.slice(f"{context}_wires", len(self.wires))
         bba.slice(f"{context}_pips", len(self.pips))
+        bba.slice(f"{context}_groups", len(self.groups))
         if self.extra_data is not None:
             bba.ref(f"{context}_extra_data")
         else:
@@ -839,7 +908,7 @@ class Chip:
 
         bba.label("chip_info")
         bba.u32(0x00ca7ca7) # magic
-        bba.u32(5) # version
+        bba.u32(6) # version
         bba.u32(self.width)
         bba.u32(self.height)
 
