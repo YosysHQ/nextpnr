@@ -62,6 +62,8 @@ def create_switch_matrix(tt: TileType, inputs: list[str], outputs: list[str]):
     tt.create_wire(f"CLK_PREV", "CLK_ROUTE")
     tt.create_pip(f"CLK_PREV", f"CLK")
 
+    tt.create_group("SWITCHBOX", "SWITCHBOX")
+
 def create_logic_tiletype(chip: Chip):
     tt = chip.create_tile_type("LOGIC")
     # setup wires
