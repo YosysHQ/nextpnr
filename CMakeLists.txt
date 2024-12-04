@@ -334,6 +334,7 @@ foreach (family ${ARCH})
 
     if (BUILD_TESTS)
         set(family_targets ${family_targets} ${PROGRAM_PREFIX}nextpnr-${family}-test)
+        set(family_test_targets ${PROGRAM_PREFIX}nextpnr-${family}-test)
     endif()
 
     # Include the family-specific CMakeFile

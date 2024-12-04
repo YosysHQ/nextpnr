@@ -9,6 +9,7 @@ Currently nextpnr supports:
  * Lattice ECP5 devices supported by [Project Trellis](https://github.com/YosysHQ/prjtrellis)
  * Lattice Nexus devices supported by [Project Oxide](https://github.com/gatecat/prjoxide)
  * Gowin LittleBee devices supported by [Project Apicula](https://github.com/YosysHQ/apicula)
+ * NanoXplore NG-Ultra devices supported by [Project Beyond](https://github.com/yosyshq-GmbH/prjbeyond-db)
  * *(experimental)* Cyclone V devices supported by [Mistral](https://github.com/Ravenslofty/mistral)
  * *(experimental)* Lattice MachXO2 devices supported by [Project Trellis](https://github.com/YosysHQ/prjtrellis)
  * *(experimental)* a "generic" back-end for user-defined architectures
@@ -145,6 +146,18 @@ sudo make install
 ```
 
  - Examples of the Gowin flow for a range of boards can be found in the [Project Apicula Examples](https://github.com/YosysHQ/apicula/tree/master/examples).
+
+#### ng-ultra
+
+For NanoXplore NG-Ultra support, clone [Project Beyond DB](https://github.com/yosyshq-GmbH/prjbeyond-db) repo
+
+```
+cmake . -DARCH="himbaechel" -DHIMBAECHEL_PRJBEYOND_DB=/path/to/prjbeyond-db -DHIMBAECHEL_NGULTRA_DEVICES=ng-ultra
+make -j$(nproc)
+sudo make install
+```
+
+*Please note that binary bitstream creation requires Impulse tool from NanoXplore.*
 
 ### GUI
 
