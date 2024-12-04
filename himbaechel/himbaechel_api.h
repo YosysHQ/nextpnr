@@ -115,7 +115,7 @@ struct HimbaechelAPI
     virtual void drawPip(std::vector<GraphicElement> &g, GraphicElement::style_t style, Loc loc, WireId src,
                          IdString src_type, int32_t src_id, WireId dst, IdString dst_type, int32_t dst_id) {};
 
-    virtual void drawGroup(std::vector<GraphicElement> &g, IdString group_type, Loc loc) {};
+    virtual void drawGroup(std::vector<GraphicElement> &g, GroupId group, Loc loc) {};
 
     // Routing methods
     virtual void expandBoundingBox(BoundingBox &bb) const;

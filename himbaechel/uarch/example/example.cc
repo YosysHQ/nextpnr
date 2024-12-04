@@ -139,8 +139,9 @@ struct ExampleImpl : HimbaechelAPI
         return true;
     }
 
-    void drawGroup(std::vector<GraphicElement> &g, IdString group_type, Loc loc) override
+    void drawGroup(std::vector<GraphicElement> &g, GroupId group, Loc loc) override
     {
+        IdString group_type = ctx->getGroupType(group);
         if (group_type == id_SWITCHBOX) {
             GraphicElement el;
             el.type = GraphicElement::TYPE_BOX;

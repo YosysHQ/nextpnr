@@ -525,7 +525,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
         GroupId group(decal.tile, decal.index);
         Loc loc;
         tile_xy(chip_info, decal.tile, loc.x, loc.y);
-        uarch->drawGroup(ret, getGroupType(group), loc);
+        uarch->drawGroup(ret, group, loc);
     } else if (decal.type == DecalId::TYPE_BEL) {
         BelId bel(decal.tile, decal.index);
         GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
