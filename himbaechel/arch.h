@@ -49,6 +49,10 @@ inline const PipDataPOD &chip_pip_info(const ChipInfoPOD *chip, PipId pip)
 {
     return chip_tile_info(chip, pip.tile).pips[pip.index];
 }
+inline const GroupDataPOD &chip_group_info(const ChipInfoPOD *chip, GroupId group)
+{
+    return chip_tile_info(chip, group.tile).groups[group.index];
+}
 inline const TileRoutingShapePOD &chip_tile_shape(const ChipInfoPOD *chip, int tile)
 {
     return chip->tile_shapes[chip->tile_insts[tile].shape];
@@ -332,6 +336,41 @@ template <RelSlice<int32_t> TileWireDataPOD::*ptr> struct UpDownhillPipRange
 
 // -----------------------------------------------------------------------
 
+template <typename Tid, RelSlice<int32_t> GroupDataPOD::*ptr> struct GroupObjIterator
+{
+    const GroupDataPOD &group;
+    int tile = -1;
+    int cursor = -1;
+
+    GroupObjIterator(const GroupDataPOD &group, int tile, int cursor) : group(group), tile(tile), cursor(cursor) {};
+
+    void operator++() { cursor++; }
+
+    bool operator!=(const GroupObjIterator<Tid, ptr> &other) const
+    {
+        return tile != other.tile || cursor != other.cursor;
+    }
+
+    bool operator==(const GroupObjIterator<Tid, ptr> &other) const
+    {
+        return tile == other.tile && cursor == other.cursor;
+    }
+
+    Tid operator*() const { return Tid(tile, (group.*ptr)[cursor]); }
+};
+
+template <typename Tid, RelSlice<int32_t> GroupDataPOD::*ptr> struct GroupObjRange
+{
+    using iterator = GroupObjIterator<Tid, ptr>;
+    GroupObjRange(const GroupDataPOD &group, int tile) : b(group, tile, 0), e(group, tile, (group.*ptr).ssize()) {}
+
+    iterator b, e;
+    iterator begin() const { return b; }
+    iterator end() const { return e; }
+};
+
+// -----------------------------------------------------------------------
+
 struct BelPinIterator
 {
     const ChipInfoPOD *chip;
@@ -393,9 +432,15 @@ struct ArchArgs
 
 typedef TileObjRange<BelId, BelDataPOD, &TileTypePOD::bels> BelRange;
 typedef TileObjRange<PipId, PipDataPOD, &TileTypePOD::pips> AllPipRange;
+typedef TileObjRange<GroupId, GroupDataPOD, &TileTypePOD::groups> GroupRange;
 
 typedef UpDownhillPipRange<&TileWireDataPOD::pips_uphill> UphillPipRange;
 typedef UpDownhillPipRange<&TileWireDataPOD::pips_downhill> DownhillPipRange;
+
+typedef GroupObjRange<BelId, &GroupDataPOD::group_bels> GroupBelRange;
+typedef GroupObjRange<WireId, &GroupDataPOD::group_wires> GroupWireRange;
+typedef GroupObjRange<PipId, &GroupDataPOD::group_pips> GroupPipRange;
+typedef GroupObjRange<GroupId, &GroupDataPOD::group_groups> GroupGroupRange;
 
 struct ArchRanges : BaseArchRanges
 {
@@ -412,6 +457,12 @@ struct ArchRanges : BaseArchRanges
     using WireBelPinRangeT = BelPinRange;
     // Pips
     using AllPipsRangeT = AllPipRange;
+    // Groups
+    using AllGroupsRangeT = GroupRange;
+    using GroupBelsRangeT = GroupBelRange;
+    using GroupWiresRangeT = GroupWireRange;
+    using GroupPipsRangeT = GroupPipRange;
+    using GroupGroupsRangeT = GroupGroupRange;
 };
 
 struct Arch : BaseArch<ArchRanges>
@@ -697,6 +748,29 @@ struct Arch : BaseArch<ArchRanges>
                              std::vector<std::pair<CellInfo *, BelId>> &placement) const override
     {
         return uarch->getClusterPlacement(cluster, root_bel, placement);
+    }
+
+    // -------------------------------------------------
+    // Group methods
+    GroupId getGroupByName(IdStringList name) const override;
+    IdStringList getGroupName(GroupId group) const override;
+    GroupRange getGroups() const override { return GroupRange(chip_info); }
+    IdString getGroupType(GroupId group) const { return IdString(chip_group_info(chip_info, group).group_type); }
+    GroupBelRange getGroupBels(GroupId group) const override
+    {
+        return GroupBelRange(chip_group_info(chip_info, group), group.tile);
+    }
+    GroupWireRange getGroupWires(GroupId group) const override
+    {
+        return GroupWireRange(chip_group_info(chip_info, group), group.tile);
+    }
+    GroupPipRange getGroupPips(GroupId group) const override
+    {
+        return GroupPipRange(chip_group_info(chip_info, group), group.tile);
+    }
+    GroupGroupRange getGroupGroups(GroupId group) const override
+    {
+        return GroupGroupRange(chip_group_info(chip_info, group), group.tile);
     }
 
     // -------------------------------------------------

@@ -33,7 +33,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-static constexpr int database_version = 5;
+static constexpr int database_version = 6;
 
 static const ChipInfoPOD *get_chip_info(const RelPtr<ChipInfoPOD> *ptr) { return ptr->get(); }
 
@@ -307,6 +307,23 @@ IdStringList Arch::getPipName(PipId pip) const
 
 IdString Arch::getPipType(PipId pip) const { return IdString(); }
 
+GroupId Arch::getGroupByName(IdStringList name) const
+{
+    NPNR_ASSERT(name.size() == 2);
+    int tile = tile_name2idx.at(name[0]);
+    const auto &tdata = chip_tile_info(chip_info, tile);
+    for (int group = 0; group < tdata.groups.ssize(); group++) {
+        if (IdString(tdata.groups[group].name) == name[1])
+            return GroupId(tile, group);
+    }
+    return GroupId();
+}
+
+IdStringList Arch::getGroupName(GroupId group) const
+{
+    return IdStringList::concat(tile_name.at(group.tile), IdString(chip_group_info(chip_info, group).name));
+}
+
 std::string Arch::getChipName() const { return chip_info->name.get(); }
 
 IdString Arch::archArgsToId(ArchArgs args) const
@@ -504,15 +521,21 @@ IdString Arch::get_tile_type(int tile) const
 std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 {
     std::vector<GraphicElement> ret;
-    if (decal.type == DecalId::TYPE_BEL) {
+    if (decal.type == DecalId::TYPE_GROUP) {
+        GroupId group(decal.tile, decal.index);
+        Loc loc;
+        tile_xy(chip_info, decal.tile, loc.x, loc.y);
+        uarch->drawGroup(ret, group, loc);
+    } else if (decal.type == DecalId::TYPE_BEL) {
         BelId bel(decal.tile, decal.index);
         GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
         uarch->drawBel(ret, style, getBelType(bel), getBelLocation(bel));
     } else if (decal.type == DecalId::TYPE_WIRE) {
         WireId w(decal.tile, decal.index);
-        for (WireId wire: get_tile_wire_range(w)) {
+        for (WireId wire : get_tile_wire_range(w)) {
             auto wire_type = getWireType(wire);
-            GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+            GraphicElement::style_t style =
+                    decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
             Loc loc;
             tile_xy(chip_info, wire.tile, loc.x, loc.y);
             int32_t tilewire = chip_wire_info(chip_info, wire).tile_wire;
@@ -526,7 +549,8 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
         int32_t src_id = chip_wire_info(chip_info, src_wire).tile_wire;
         int32_t dst_id = chip_wire_info(chip_info, dst_wire).tile_wire;
         GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_HIDDEN;
-        uarch->drawPip(ret, style, loc, src_wire, getWireType(src_wire), src_id, dst_wire, getWireType(dst_wire), dst_id);
+        uarch->drawPip(ret, style, loc, src_wire, getWireType(src_wire), src_id, dst_wire, getWireType(dst_wire),
+                       dst_id);
     }
     return ret;
 }
@@ -557,7 +581,10 @@ DecalXY Arch::getPipDecal(PipId pip) const
 
 DecalXY Arch::getGroupDecal(GroupId group) const
 {
-    return DecalXY();
+    DecalXY decalxy;
+    decalxy.decal = DecalId(group.tile, group.index, DecalId::TYPE_GROUP);
+    decalxy.decal.active = true;
+    return decalxy;
 }
 
 NEXTPNR_NAMESPACE_END

@@ -443,7 +443,8 @@ template <typename R> struct BaseArch : ArchAPI<R>
     }
 
     // Routing methods
-    virtual void expandBoundingBox(BoundingBox &bb) const override {
+    virtual void expandBoundingBox(BoundingBox &bb) const override
+    {
         bb.x0 = std::max(bb.x0 - 1, 0);
         bb.y0 = std::max(bb.y0 - 1, 0);
         bb.x1 = std::min(bb.x1 + 1, this->getGridDimX());

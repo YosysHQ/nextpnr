@@ -102,12 +102,34 @@ struct DecalId
     DecalId() = default;
     DecalId(int32_t tile, int32_t index, DecalType type) : tile(tile), index(index), type(type) {};
 
-    bool operator==(const DecalId &other) const { return tile == other.tile && index == other.index && type == other.type; }
-    bool operator!=(const DecalId &other) const { return tile != other.tile || index != other.index || type != other.type; }
+    bool operator==(const DecalId &other) const
+    {
+        return tile == other.tile && index == other.index && type == other.type;
+    }
+    bool operator!=(const DecalId &other) const
+    {
+        return tile != other.tile || index != other.index || type != other.type;
+    }
     unsigned int hash() const { return mkhash(tile, mkhash(index, type)); }
 };
 
-typedef IdString GroupId;
+struct GroupId
+{
+    int32_t tile = -1;
+    int32_t index = -1;
+
+    GroupId() = default;
+    GroupId(int32_t tile, int32_t index) : tile(tile), index(index) {};
+
+    bool operator==(const GroupId &other) const { return tile == other.tile && index == other.index; }
+    bool operator!=(const GroupId &other) const { return tile != other.tile || index != other.index; }
+    bool operator<(const GroupId &other) const
+    {
+        return tile < other.tile || (tile == other.tile && index < other.index);
+    }
+    unsigned int hash() const { return mkhash(tile, index); }
+};
+
 typedef IdString BelBucketId;
 typedef IdString ClusterId;
 
