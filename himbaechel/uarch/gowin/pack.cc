@@ -682,6 +682,10 @@ struct GowinPacker
             CellInfo *iologic_i = nullptr;
             if ((ci.type == id_IBUF && ctx->settings.count(id_IREG_IN_IOB)) ||
                 (ci.type == id_IOBUF && ctx->settings.count(id_IOREG_IN_IOB))) {
+
+                if (ci.getPort(id_O) == nullptr) {
+                    continue;
+                }
                 // OBUF O -> D FF
                 CellInfo *ff = net_only_drives(ctx, ci.ports.at(id_O).net, is_ff, id_D, true);
                 if (ff != nullptr) {
@@ -729,6 +733,9 @@ struct GowinPacker
             if ((ci.type == id_OBUF && ctx->settings.count(id_OREG_IN_IOB)) ||
                 (ci.type == id_IOBUF && ctx->settings.count(id_IOREG_IN_IOB))) {
                 while (1) {
+                    if (ci.getPort(id_I) == nullptr) {
+                        break;
+                    }
                     // OBUF I <- Q FF
                     if (ci.ports.at(id_I).net->users.entries() != 1) {
                         break;
@@ -803,15 +810,18 @@ struct GowinPacker
             // output enable reg in IO
             if (ci.type == id_IOBUF && ctx->settings.count(id_IOREG_IN_IOB)) {
                 while (1) {
+                    if (ci.getPort(id_OEN) == nullptr) {
+                        break;
+                    }
                     // IOBUF OEN <- Q FF
                     if (ci.ports.at(id_OEN).net->users.entries() != 1) {
-                        continue;
+                        break;
                     }
                     CellInfo *ff = net_driven_by(ctx, ci.ports.at(id_OEN).net, is_ff, id_Q);
                     if (ff != nullptr) {
                         BelId l_bel = get_iologico_bel(&ci);
                         if (l_bel == BelId()) {
-                            continue;
+                            break;
                         }
                         if (ctx->debug) {
                             log_info(" trying %s ff as Output Enable Register of %s IO\n", ctx->nameOf(ff),
