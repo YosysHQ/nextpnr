@@ -184,8 +184,9 @@ struct GowinPacker
 
         for (auto &cell : ctx->cells) {
             CellInfo &ci = *cell.second;
-            if (!ci.type.in(id_IBUF, id_OBUF, id_TBUF, id_IOBUF))
+            if (!is_io(&ci)) {
                 continue;
+            }
             if (ci.attrs.count(id_BEL) == 0) {
                 log_error("Unconstrained IO:%s\n", ctx->nameOf(&ci));
             }
@@ -204,10 +205,7 @@ struct GowinPacker
     // ===================================
     // Differential IO
     // ===================================
-    static bool is_iob(const Context *ctx, CellInfo *cell)
-    {
-        return (cell->type.in(id_IBUF, id_OBUF, id_TBUF, id_IOBUF));
-    }
+    static bool is_iob(const Context *ctx, CellInfo *cell) { return is_io(cell); }
 
     std::pair<CellInfo *, CellInfo *> get_pn_cells(const CellInfo &ci)
     {
@@ -502,7 +500,9 @@ struct GowinPacker
         out_iob->disconnectPort(id_I);
         ci.disconnectPort(out_port);
         if (ci.type == id_IOLOGICO_EMPTY) {
-            ci.movePortTo(id_D, out_iob, id_I);
+            if (ci.attrs.count(id_HAS_REG) == 0) {
+                ci.movePortTo(id_D, out_iob, id_I);
+            }
             return;
         }
         set_daaj_nets(ci, iob_bel);
@@ -630,7 +630,9 @@ struct GowinPacker
         in_iob->disconnectPort(id_O);
         ci.disconnectPort(in_port);
         if (ci.type == id_IOLOGICI_EMPTY) {
-            ci.movePortTo(id_Q, in_iob, id_O);
+            if (ci.attrs.count(id_HAS_REG) == 0) {
+                ci.movePortTo(id_Q, in_iob, id_O);
+            }
             return;
         }
 
@@ -638,6 +640,260 @@ struct GowinPacker
         reconnect_ides_outs(&ci);
 
         make_iob_nets(*in_iob);
+    }
+
+    static bool is_ff(const Context *ctx, CellInfo *cell) { return is_dff(cell); }
+
+    static bool incompatible_ffs(IdString type_a, IdString type_b)
+    {
+        return type_a != type_b &&
+               ((type_a == id_DFFS && type_b != id_DFFR) || (type_a == id_DFFR && type_b != id_DFFS) ||
+                (type_a == id_DFFSE && type_b != id_DFFRE) || (type_a == id_DFFRE && type_b != id_DFFSE) ||
+                (type_a == id_DFFP && type_b != id_DFFC) || (type_a == id_DFFC && type_b != id_DFFP) ||
+                (type_a == id_DFFPE && type_b != id_DFFCE) || (type_a == id_DFFCE && type_b != id_DFFPE) ||
+                (type_a == id_DFFNS && type_b != id_DFFNR) || (type_a == id_DFFNR && type_b != id_DFFNS) ||
+                (type_a == id_DFFNSE && type_b != id_DFFNRE) || (type_a == id_DFFNRE && type_b != id_DFFNSE) ||
+                (type_a == id_DFFNP && type_b != id_DFFNC) || (type_a == id_DFFNC && type_b != id_DFFNP) ||
+                (type_a == id_DFFNPE && type_b != id_DFFNCE) || (type_a == id_DFFNCE && type_b != id_DFFNPE));
+    }
+
+    void pack_io_regs()
+    {
+        log_info("Pack FFs into IO cells...\n");
+        std::vector<IdString> cells_to_remove;
+        std::vector<IdString> nets_to_remove;
+        std::vector<std::unique_ptr<CellInfo>> new_cells;
+
+        for (auto &cell : ctx->cells) {
+            CellInfo &ci = *cell.second;
+            if (!is_io(&ci)) {
+                continue;
+            }
+
+            // In the case of placing multiple registers in the IO it should be
+            // noted that the CLK, ClockEnable and LocalSetReset nets must
+            // match.
+            const NetInfo *clk_net = nullptr;
+            const NetInfo *ce_net = nullptr;
+            const NetInfo *lsr_net = nullptr;
+            IdString reg_type;
+
+            // input reg in IO
+            CellInfo *iologic_i = nullptr;
+            if ((ci.type == id_IBUF && ctx->settings.count(id_IREG_IN_IOB)) ||
+                (ci.type == id_IOBUF && ctx->settings.count(id_IOREG_IN_IOB))) {
+                // OBUF O -> D FF
+                CellInfo *ff = net_only_drives(ctx, ci.ports.at(id_O).net, is_ff, id_D, true);
+                if (ff != nullptr) {
+                    BelId l_bel = get_iologico_bel(&ci);
+                    if (l_bel == BelId()) {
+                        continue;
+                    }
+                    if (ctx->debug) {
+                        log_info(" trying %s ff as Input Register of %s IO\n", ctx->nameOf(ff), ctx->nameOf(&ci));
+                    }
+
+                    clk_net = ff->getPort(id_CLK);
+                    ce_net = ff->getPort(id_CE);
+                    for (IdString port : {id_SET, id_RESET, id_PRESET, id_CLEAR}) {
+                        lsr_net = ff->getPort(port);
+                        if (lsr_net != nullptr) {
+                            break;
+                        }
+                    }
+                    reg_type = ff->type;
+
+                    // create IOLOGIC cell for flipflop
+                    IdString iologic_name = gwu.create_aux_name(ci.name, 0, "_iobff$");
+                    auto iologic_cell = gwu.create_cell(iologic_name, id_IOLOGICI_EMPTY);
+                    new_cells.push_back(std::move(iologic_cell));
+                    iologic_i = new_cells.back().get();
+
+                    // move ports
+                    for (auto &port : ff->ports) {
+                        IdString port_name = port.first;
+                        ff->movePortTo(port_name, iologic_i, port_name != id_Q ? port_name : id_Q4);
+                    }
+                    if (ctx->verbose) {
+                        log_info("  place FF %s into IBUF %s, make iologic_i %s\n", ctx->nameOf(ff), ctx->nameOf(&ci),
+                                 ctx->nameOf(iologic_i));
+                    }
+                    iologic_i->setAttr(id_HAS_REG, 1);
+                    iologic_i->setAttr(id_IREG_TYPE, ff->type.str(ctx));
+                    cells_to_remove.push_back(ff->name);
+                }
+            }
+
+            // output reg in IO
+            CellInfo *iologic_o = nullptr;
+            if ((ci.type == id_OBUF && ctx->settings.count(id_OREG_IN_IOB)) ||
+                (ci.type == id_IOBUF && ctx->settings.count(id_IOREG_IN_IOB))) {
+                while (1) {
+                    // OBUF I <- Q FF
+                    if (ci.ports.at(id_I).net->users.entries() != 1) {
+                        break;
+                    }
+                    CellInfo *ff = net_driven_by(ctx, ci.ports.at(id_I).net, is_ff, id_Q);
+                    if (ff != nullptr) {
+                        BelId l_bel = get_iologico_bel(&ci);
+                        if (l_bel == BelId()) {
+                            break;
+                        }
+                        if (ctx->debug) {
+                            log_info(" trying %s ff as Output Register of %s IO\n", ctx->nameOf(ff), ctx->nameOf(&ci));
+                        }
+
+                        const NetInfo *this_clk_net = ff->getPort(id_CLK);
+                        const NetInfo *this_ce_net = ff->getPort(id_CE);
+                        const NetInfo *this_lsr_net;
+                        for (IdString port : {id_SET, id_RESET, id_PRESET, id_CLEAR}) {
+                            this_lsr_net = ff->getPort(port);
+                            if (this_lsr_net != nullptr) {
+                                break;
+                            }
+                        }
+                        // The IOBUF may already have registers placed
+                        if (ci.type == id_IOBUF) {
+                            if (iologic_i != nullptr) {
+                                if (incompatible_ffs(ff->type, reg_type)) {
+                                    if (ctx->debug) {
+                                        log_info("   FF types conflict:%s vs %s\n", ff->type.c_str(ctx),
+                                                 reg_type.c_str(ctx));
+                                    }
+                                    break;
+                                } else {
+                                    if (clk_net != this_clk_net || ce_net != this_ce_net || lsr_net != this_lsr_net) {
+                                        if (ctx->debug) {
+                                            log_info("   Nets conflict.\n");
+                                        }
+                                        break;
+                                    }
+                                }
+                            } else {
+                                clk_net = this_clk_net;
+                                ce_net = this_ce_net;
+                                lsr_net = this_lsr_net;
+                                reg_type = ff->type;
+                            }
+                        }
+
+                        // create IOLOGIC cell for flipflop
+                        IdString iologic_name = gwu.create_aux_name(ci.name, 1, "_iobff$");
+                        auto iologic_cell = gwu.create_cell(iologic_name, id_IOLOGICO_EMPTY);
+                        new_cells.push_back(std::move(iologic_cell));
+                        iologic_o = new_cells.back().get();
+
+                        // move ports
+                        for (auto &port : ff->ports) {
+                            IdString port_name = port.first;
+                            ff->movePortTo(port_name, iologic_o, port_name != id_D ? port_name : id_D0);
+                        }
+                        if (ctx->verbose) {
+                            log_info("  place FF %s into OBUF %s, make iologic_o %s\n", ctx->nameOf(ff),
+                                     ctx->nameOf(&ci), ctx->nameOf(iologic_o));
+                        }
+                        iologic_o->setAttr(id_HAS_REG, 1);
+                        iologic_o->setAttr(id_OREG_TYPE, ff->type.str(ctx));
+                        cells_to_remove.push_back(ff->name);
+                    }
+                    break;
+                }
+            }
+
+            // output enable reg in IO
+            if (ci.type == id_IOBUF && ctx->settings.count(id_IOREG_IN_IOB)) {
+                while (1) {
+                    // IOBUF OEN <- Q FF
+                    if (ci.ports.at(id_OEN).net->users.entries() != 1) {
+                        continue;
+                    }
+                    CellInfo *ff = net_driven_by(ctx, ci.ports.at(id_OEN).net, is_ff, id_Q);
+                    if (ff != nullptr) {
+                        BelId l_bel = get_iologico_bel(&ci);
+                        if (l_bel == BelId()) {
+                            continue;
+                        }
+                        if (ctx->debug) {
+                            log_info(" trying %s ff as Output Enable Register of %s IO\n", ctx->nameOf(ff),
+                                     ctx->nameOf(&ci));
+                        }
+
+                        const NetInfo *this_clk_net = ff->getPort(id_CLK);
+                        const NetInfo *this_ce_net = ff->getPort(id_CE);
+                        const NetInfo *this_lsr_net;
+                        for (IdString port : {id_SET, id_RESET, id_PRESET, id_CLEAR}) {
+                            this_lsr_net = ff->getPort(port);
+                            if (this_lsr_net != nullptr) {
+                                break;
+                            }
+                        }
+
+                        // The IOBUF may already have registers placed
+                        if (iologic_i != nullptr || iologic_o != nullptr) {
+                            if (iologic_o == nullptr) {
+                                iologic_o = iologic_i;
+                            }
+                            if (incompatible_ffs(ff->type, reg_type)) {
+                                if (ctx->debug) {
+                                    log_info("   FF types conflict:%s vs %s\n", ff->type.c_str(ctx),
+                                             reg_type.c_str(ctx));
+                                }
+                                break;
+                            } else {
+                                if (clk_net != this_clk_net || ce_net != this_ce_net || lsr_net != this_lsr_net) {
+                                    if (ctx->debug) {
+                                        log_info("   Nets conflict.\n");
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (iologic_o == nullptr) {
+                            // create IOLOGIC cell for flipflop
+                            IdString iologic_name = gwu.create_aux_name(ci.name, 2, "_iobff$");
+                            auto iologic_cell = gwu.create_cell(iologic_name, id_IOLOGICO_EMPTY);
+                            new_cells.push_back(std::move(iologic_cell));
+                            iologic_o = new_cells.back().get();
+                        }
+
+                        // move ports
+                        for (auto &port : ff->ports) {
+                            IdString port_name = port.first;
+                            if (port_name == id_Q) {
+                                continue;
+                            }
+                            ff->movePortTo(port_name, iologic_o, port_name != id_D ? port_name : id_TX);
+                        }
+
+                        nets_to_remove.push_back(ci.getPort(id_OEN)->name);
+                        ci.disconnectPort(id_OEN);
+                        ff->disconnectPort(id_Q);
+
+                        if (ctx->verbose) {
+                            log_info("  place FF %s into IOBUF %s, make iologic_o %s\n", ctx->nameOf(ff),
+                                     ctx->nameOf(&ci), ctx->nameOf(iologic_o));
+                        }
+                        iologic_o->setAttr(id_HAS_REG, 1);
+                        iologic_o->setAttr(id_TREG_TYPE, ff->type.str(ctx));
+                        cells_to_remove.push_back(ff->name);
+                    }
+                    break;
+                }
+            }
+        }
+
+        for (auto cell : cells_to_remove) {
+            ctx->cells.erase(cell);
+        }
+
+        for (auto &ncell : new_cells) {
+            ctx->cells[ncell->name] = std::move(ncell);
+        }
+
+        for (auto net : nets_to_remove) {
+            ctx->nets.erase(net);
+        }
     }
 
     void pack_iodelay()
@@ -3585,6 +3841,9 @@ struct GowinPacker
         ctx->check();
 
         pack_diff_iobs();
+        ctx->check();
+
+        pack_io_regs();
         ctx->check();
 
         pack_iodelay();

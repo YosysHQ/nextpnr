@@ -21,6 +21,10 @@ inline bool is_dff(const CellInfo *cell) { return type_is_dff(cell->type); }
 inline bool type_is_alu(IdString cell_type) { return cell_type == id_ALU; }
 inline bool is_alu(const CellInfo *cell) { return type_is_alu(cell->type); }
 
+// io
+inline bool type_is_io(IdString cell_type) { return cell_type.in(id_IBUF, id_OBUF, id_IOBUF, id_TBUF); }
+inline bool is_io(const CellInfo *cell) { return type_is_io(cell->type); }
+
 inline bool type_is_diffio(IdString cell_type)
 {
     return cell_type.in(id_ELVDS_IOBUF, id_ELVDS_IBUF, id_ELVDS_TBUF, id_ELVDS_OBUF, id_TLVDS_IOBUF, id_TLVDS_IBUF,
