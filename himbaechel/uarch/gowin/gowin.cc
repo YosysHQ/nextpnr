@@ -196,6 +196,17 @@ void GowinImpl::init(Context *ctx)
     if (args.options.count("cst")) {
         ctx->settings[ctx->id("cst.filename")] = args.options.at("cst");
     }
+
+    // place registers in IO blocks
+    if (args.options.count("ireg_in_iob")) {
+        ctx->settings[id_IREG_IN_IOB] = Property(1);
+    }
+    if (args.options.count("oreg_in_iob")) {
+        ctx->settings[id_OREG_IN_IOB] = Property(1);
+    }
+    if (args.options.count("ioreg_in_iob")) {
+        ctx->settings[id_IOREG_IN_IOB] = Property(1);
+    }
 }
 
 // We do not allow the use of global wires that bypass a special router.
