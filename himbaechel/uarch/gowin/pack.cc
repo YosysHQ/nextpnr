@@ -350,7 +350,13 @@ struct GowinPacker
         NPNR_ASSERT(iob->bel != BelId());
         Loc loc = ctx->getBelLocation(iob->bel);
         loc.z = loc.z - BelZ::IOBA_Z + BelZ::IOLOGICA_Z;
-        return ctx->getBelByLocation(loc);
+        BelId bel = ctx->getBelByLocation(loc);
+        if (bel != BelId()) {
+            if (ctx->getBelType(bel) == id_IOLOGICO) {
+                return bel;
+            }
+        }
+        return BelId();
     }
 
     BelId get_iologici_bel(CellInfo *iob)
@@ -358,7 +364,13 @@ struct GowinPacker
         NPNR_ASSERT(iob->bel != BelId());
         Loc loc = ctx->getBelLocation(iob->bel);
         loc.z = loc.z - BelZ::IOBA_Z + BelZ::IOLOGICA_Z + 2;
-        return ctx->getBelByLocation(loc);
+        BelId bel = ctx->getBelByLocation(loc);
+        if (bel != BelId()) {
+            if (ctx->getBelType(bel) == id_IOLOGICI) {
+                return bel;
+            }
+        }
+        return BelId();
     }
 
     void check_iologic_placement(CellInfo &ci, Loc iob_loc, int diff /* 1 - diff */)
@@ -654,7 +666,9 @@ struct GowinPacker
                 (type_a == id_DFFNS && type_b != id_DFFNR) || (type_a == id_DFFNR && type_b != id_DFFNS) ||
                 (type_a == id_DFFNSE && type_b != id_DFFNRE) || (type_a == id_DFFNRE && type_b != id_DFFNSE) ||
                 (type_a == id_DFFNP && type_b != id_DFFNC) || (type_a == id_DFFNC && type_b != id_DFFNP) ||
-                (type_a == id_DFFNPE && type_b != id_DFFNCE) || (type_a == id_DFFNCE && type_b != id_DFFNPE));
+                (type_a == id_DFFNPE && type_b != id_DFFNCE) || (type_a == id_DFFNCE && type_b != id_DFFNPE) ||
+                (type_a == id_DFF && type_b != id_DFF) || (type_a == id_DFFN && type_b != id_DFFN) ||
+                (type_a == id_DFFE && type_b != id_DFFE) || (type_a == id_DFFNE && type_b != id_DFFNE));
     }
 
     void pack_io_regs()
@@ -687,45 +701,51 @@ struct GowinPacker
                     continue;
                 }
                 // OBUF O -> D FF
-                CellInfo *ff = net_only_drives(ctx, ci.ports.at(id_O).net, is_ff, id_D, true);
-                if (ff != nullptr) {
-                    BelId l_bel = get_iologico_bel(&ci);
-                    if (l_bel == BelId()) {
-                        continue;
-                    }
-                    if (ctx->debug) {
-                        log_info(" trying %s ff as Input Register of %s IO\n", ctx->nameOf(ff), ctx->nameOf(&ci));
-                    }
-
-                    clk_net = ff->getPort(id_CLK);
-                    ce_net = ff->getPort(id_CE);
-                    for (IdString port : {id_SET, id_RESET, id_PRESET, id_CLEAR}) {
-                        lsr_net = ff->getPort(port);
-                        if (lsr_net != nullptr) {
-                            break;
-                        }
-                    }
-                    reg_type = ff->type;
-
-                    // create IOLOGIC cell for flipflop
-                    IdString iologic_name = gwu.create_aux_name(ci.name, 0, "_iobff$");
-                    auto iologic_cell = gwu.create_cell(iologic_name, id_IOLOGICI_EMPTY);
-                    new_cells.push_back(std::move(iologic_cell));
-                    iologic_i = new_cells.back().get();
-
-                    // move ports
-                    for (auto &port : ff->ports) {
-                        IdString port_name = port.first;
-                        ff->movePortTo(port_name, iologic_i, port_name != id_Q ? port_name : id_Q4);
-                    }
-                    if (ctx->verbose) {
-                        log_info("  place FF %s into IBUF %s, make iologic_i %s\n", ctx->nameOf(ff), ctx->nameOf(&ci),
-                                 ctx->nameOf(iologic_i));
-                    }
-                    iologic_i->setAttr(id_HAS_REG, 1);
-                    iologic_i->setAttr(id_IREG_TYPE, ff->type.str(ctx));
-                    cells_to_remove.push_back(ff->name);
+                CellInfo *ff = net_only_drives(ctx, ci.ports.at(id_O).net, is_ff, id_D);
+                if (ff == nullptr) {
+                    continue;
                 }
+                if (ci.ports.at(id_O).net->users.entries() != 1) {
+                    log_warning("Port O of %s is the driver of %s multi-sink network.\n", ctx->nameOf(&ci),
+                                ctx->nameOf(ci.ports.at(id_O).net));
+                    continue;
+                }
+                BelId l_bel = get_iologici_bel(&ci);
+                if (l_bel == BelId()) {
+                    continue;
+                }
+                if (ctx->debug) {
+                    log_info(" trying %s ff as Input Register of %s IO\n", ctx->nameOf(ff), ctx->nameOf(&ci));
+                }
+
+                clk_net = ff->getPort(id_CLK);
+                ce_net = ff->getPort(id_CE);
+                for (IdString port : {id_SET, id_RESET, id_PRESET, id_CLEAR}) {
+                    lsr_net = ff->getPort(port);
+                    if (lsr_net != nullptr) {
+                        break;
+                    }
+                }
+                reg_type = ff->type;
+
+                // create IOLOGIC cell for flipflop
+                IdString iologic_name = gwu.create_aux_name(ci.name, 0, "_iobff$");
+                auto iologic_cell = gwu.create_cell(iologic_name, id_IOLOGICI_EMPTY);
+                new_cells.push_back(std::move(iologic_cell));
+                iologic_i = new_cells.back().get();
+
+                // move ports
+                for (auto &port : ff->ports) {
+                    IdString port_name = port.first;
+                    ff->movePortTo(port_name, iologic_i, port_name != id_Q ? port_name : id_Q4);
+                }
+                if (ctx->verbose) {
+                    log_info("  place FF %s into IBUF %s, make iologic_i %s\n", ctx->nameOf(ff), ctx->nameOf(&ci),
+                             ctx->nameOf(iologic_i));
+                }
+                iologic_i->setAttr(id_HAS_REG, 1);
+                iologic_i->setAttr(id_IREG_TYPE, ff->type.str(ctx));
+                cells_to_remove.push_back(ff->name);
             }
 
             // output reg in IO
@@ -737,17 +757,16 @@ struct GowinPacker
                         break;
                     }
                     // OBUF I <- Q FF
-                    if (ci.ports.at(id_I).net->users.entries() != 1) {
-                        break;
-                    }
                     CellInfo *ff = net_driven_by(ctx, ci.ports.at(id_I).net, is_ff, id_Q);
                     if (ff != nullptr) {
+                        if (ci.ports.at(id_I).net->users.entries() != 1) {
+                            log_warning("Port I of %s is not the only sink on the %s network.\n", ctx->nameOf(&ci),
+                                        ctx->nameOf(ci.ports.at(id_I).net));
+                            break;
+                        }
                         BelId l_bel = get_iologico_bel(&ci);
                         if (l_bel == BelId()) {
                             break;
-                        }
-                        if (ctx->debug) {
-                            log_info(" trying %s ff as Output Register of %s IO\n", ctx->nameOf(ff), ctx->nameOf(&ci));
                         }
 
                         const NetInfo *this_clk_net = ff->getPort(id_CLK);
@@ -763,15 +782,25 @@ struct GowinPacker
                         if (ci.type == id_IOBUF) {
                             if (iologic_i != nullptr) {
                                 if (incompatible_ffs(ff->type, reg_type)) {
-                                    if (ctx->debug) {
-                                        log_info("   FF types conflict:%s vs %s\n", ff->type.c_str(ctx),
-                                                 reg_type.c_str(ctx));
-                                    }
+                                    log_warning("OREG type conflict:%s:%s vs %s IREG:%s\n", ctx->nameOf(ff),
+                                                ff->type.c_str(ctx), ctx->nameOf(&ci), reg_type.c_str(ctx));
                                     break;
                                 } else {
                                     if (clk_net != this_clk_net || ce_net != this_ce_net || lsr_net != this_lsr_net) {
-                                        if (ctx->debug) {
-                                            log_info("   Nets conflict.\n");
+                                        if (clk_net != this_clk_net) {
+                                            log_warning("Conflicting OREG CLK nets at %s:'%s' vs '%s'\n",
+                                                        ctx->nameOf(&ci), ctx->nameOf(clk_net),
+                                                        ctx->nameOf(this_clk_net));
+                                        }
+                                        if (ce_net != this_ce_net) {
+                                            log_warning("Conflicting OREG CE nets at %s:'%s' vs '%s'\n",
+                                                        ctx->nameOf(&ci), ctx->nameOf(ce_net),
+                                                        ctx->nameOf(this_ce_net));
+                                        }
+                                        if (lsr_net != this_lsr_net) {
+                                            log_warning("Conflicting OREG LSR nets at %s:'%s' vs '%s'\n",
+                                                        ctx->nameOf(&ci), ctx->nameOf(lsr_net),
+                                                        ctx->nameOf(this_lsr_net));
                                         }
                                         break;
                                     }
@@ -814,11 +843,13 @@ struct GowinPacker
                         break;
                     }
                     // IOBUF OEN <- Q FF
-                    if (ci.ports.at(id_OEN).net->users.entries() != 1) {
-                        break;
-                    }
                     CellInfo *ff = net_driven_by(ctx, ci.ports.at(id_OEN).net, is_ff, id_Q);
                     if (ff != nullptr) {
+                        if (ci.ports.at(id_OEN).net->users.entries() != 1) {
+                            log_warning("Port OEN of %s is not the only sink on the %s network.\n", ctx->nameOf(&ci),
+                                        ctx->nameOf(ci.ports.at(id_OEN).net));
+                            break;
+                        }
                         BelId l_bel = get_iologico_bel(&ci);
                         if (l_bel == BelId()) {
                             break;
@@ -844,15 +875,22 @@ struct GowinPacker
                                 iologic_o = iologic_i;
                             }
                             if (incompatible_ffs(ff->type, reg_type)) {
-                                if (ctx->debug) {
-                                    log_info("   FF types conflict:%s vs %s\n", ff->type.c_str(ctx),
-                                             reg_type.c_str(ctx));
-                                }
+                                log_warning("TREG type conflict:%s:%s vs %s IREG/OREG:%s\n", ctx->nameOf(ff),
+                                            ff->type.c_str(ctx), ctx->nameOf(&ci), reg_type.c_str(ctx));
                                 break;
                             } else {
                                 if (clk_net != this_clk_net || ce_net != this_ce_net || lsr_net != this_lsr_net) {
-                                    if (ctx->debug) {
-                                        log_info("   Nets conflict.\n");
+                                    if (clk_net != this_clk_net) {
+                                        log_warning("Conflicting TREG CLK nets at %s:'%s' vs '%s'\n", ctx->nameOf(&ci),
+                                                    ctx->nameOf(clk_net), ctx->nameOf(this_clk_net));
+                                    }
+                                    if (ce_net != this_ce_net) {
+                                        log_warning("Conflicting TREG CE nets at %s:'%s' vs '%s'\n", ctx->nameOf(&ci),
+                                                    ctx->nameOf(ce_net), ctx->nameOf(this_ce_net));
+                                    }
+                                    if (lsr_net != this_lsr_net) {
+                                        log_warning("Conflicting TREG LSR nets at %s:'%s' vs '%s'\n", ctx->nameOf(&ci),
+                                                    ctx->nameOf(lsr_net), ctx->nameOf(this_lsr_net));
                                     }
                                     break;
                                 }
