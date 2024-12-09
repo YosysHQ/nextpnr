@@ -822,7 +822,9 @@ inline bool incompatible_ffs(const CellInfo *ff, const CellInfo *adj_ff)
             (ff->type == id_DFFNRE && adj_ff->type != id_DFFNSE) ||
             (ff->type == id_DFFNP && adj_ff->type != id_DFFNC) || (ff->type == id_DFFNC && adj_ff->type != id_DFFNP) ||
             (ff->type == id_DFFNPE && adj_ff->type != id_DFFNCE) ||
-            (ff->type == id_DFFNCE && adj_ff->type != id_DFFNPE));
+            (ff->type == id_DFFNCE && adj_ff->type != id_DFFNPE) || (ff->type == id_DFF && adj_ff->type != id_DFF) ||
+            (ff->type == id_DFFE && adj_ff->type != id_DFFE) || (ff->type == id_DFFN && adj_ff->type != id_DFFN) ||
+            (ff->type == id_DFFNE && adj_ff->type != id_DFFNE));
 }
 
 // placement validation
