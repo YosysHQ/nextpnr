@@ -283,6 +283,9 @@ PYBIND11_EMBEDDED_MODULE(MODULE_NAME, m)
                      wrap_context<IdIdMap &>>::def_wrap(hierarchy_cls, "nets");
     readonly_wrapper<HierarchicalCell &, decltype(&HierarchicalCell::hier_cells), &HierarchicalCell::hier_cells,
                      wrap_context<IdIdMap &>>::def_wrap(hierarchy_cls, "hier_cells");
+    readonly_wrapper<HierarchicalCell &, decltype(&HierarchicalCell::attrs), &HierarchicalCell::attrs,
+                     wrap_context<AttrMap &>>::def_wrap(hierarchy_cls, "attrs");
+
     WRAP_MAP(m, AttrMap, conv_to_str<Property>, "AttrMap");
     WRAP_MAP(m, PortMap, wrap_context<PortInfo &>, "PortMap");
     WRAP_MAP(m, IdIdMap, conv_to_str<IdString>, "IdIdMap");
