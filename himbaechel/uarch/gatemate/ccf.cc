@@ -173,7 +173,6 @@ struct GateMateCCFReader
                         if (words.size() < 3 || words.size() > 5)
                             log_error("pin definition line not properly formed (in line %d).\n", lineno);
                         std::string pin_name = strip_quotes(words.at(1));
-                        printf("name:%s\n", pin_name.c_str());
 
                         // put back other words and use them as parameters
                         std::stringstream ss;

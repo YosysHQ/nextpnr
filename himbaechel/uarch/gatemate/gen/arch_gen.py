@@ -93,6 +93,11 @@ def main():
             node.append(NodeWire(conn.x + 2, conn.y + 2, conn.name))
         ch.add_node(node)
     set_timings(ch)
+
+    pkg = ch.create_package("FBGA324")
+    for pad in die.get_package_pads():
+        pkg.create_pad(pad.name, f"X{pad.x+2}Y{pad.y+2}", pad.bel, pad.function, pad.bank)
+
     ch.write_bba(args.bba)
 
 if __name__ == '__main__':
