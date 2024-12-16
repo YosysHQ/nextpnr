@@ -34,3 +34,15 @@ X(POUTY2)
 
 X(GPIO)
 
+X(CC_IBUF)
+X(CC_OBUF)
+X(I)
+X(O)
+X(DI)
+X(DO)
+X(OE)
+X(Y)
+X(A)
+
+X(OUT3)
+X(OUT4)
