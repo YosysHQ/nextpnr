@@ -46,6 +46,7 @@ void GateMateImpl::init_database(Arch *arch)
     const ArchArgs &args = arch->args;
     init_uarch_constids(arch);
     arch->load_chipdb(stringf("gatemate/chipdb-%s.bin", args.device.c_str()));
+    arch->set_package("FBGA324");
     arch->set_speed_grade("DEFAULT");
 }
 
@@ -84,12 +85,71 @@ void GateMateImpl::pack()
     if (args.options.count("ccf")) {
         parse_ccf(args.options.at("ccf"));
     }
+    // Trim nextpnr IOBs - assume IO buffer insertion has been done in synthesis
+    for (auto &port : ctx->ports) {
+        if (!ctx->cells.count(port.first))
+            log_error("Port '%s' doesn't seem to have a corresponding top level IO\n", ctx->nameOf(port.first));
+        CellInfo *ci = ctx->cells.at(port.first).get();
 
-    const pool<CellTypePort> top_ports{
-            CellTypePort(id_CC_IBUF, id_I),
-            CellTypePort(id_CC_OBUF, id_O),
-    };
-    h.remove_nextpnr_iobs(top_ports);
+        PortRef top_port;
+        top_port.cell = nullptr;
+        bool is_npnr_iob = false;
+
+        if (ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_iobuf")) {
+            // Might have an input buffer connected to it
+            is_npnr_iob = true;
+            NetInfo *o = ci->getPort(id_O);
+            if (o == nullptr)
+                ;
+            else if (o->users.entries() > 1)
+                log_error("Top level pin '%s' has multiple input buffers\n", ctx->nameOf(port.first));
+            else if (o->users.entries() == 1)
+                top_port = *o->users.begin();
+        }
+        if (ci->type == ctx->id("$nextpnr_obuf") || ci->type == ctx->id("$nextpnr_iobuf")) {
+            // Might have an output buffer connected to it
+            is_npnr_iob = true;
+            NetInfo *i = ci->getPort(id_I);
+            if (i != nullptr && i->driver.cell != nullptr) {
+                if (top_port.cell != nullptr)
+                    log_error("Top level pin '%s' has multiple input/output buffers\n", ctx->nameOf(port.first));
+                top_port = i->driver;
+            }
+            // Edge case of a bidirectional buffer driving an output pin
+            if (i->users.entries() > 2) {
+                log_error("Top level pin '%s' has illegal buffer configuration\n", ctx->nameOf(port.first));
+            } else if (i->users.entries() == 2) {
+                if (top_port.cell != nullptr)
+                    log_error("Top level pin '%s' has illegal buffer configuration\n", ctx->nameOf(port.first));
+                for (auto &usr : i->users) {
+                    if (usr.cell->type == ctx->id("$nextpnr_obuf") || usr.cell->type == ctx->id("$nextpnr_iobuf"))
+                        continue;
+                    top_port = usr;
+                    break;
+                }
+            }
+        }
+        if (!is_npnr_iob)
+            log_error("Port '%s' doesn't seem to have a corresponding top level IO (internal cell type mismatch)\n",
+                      ctx->nameOf(port.first));
+
+        if (top_port.cell == nullptr) {
+            log_info("Trimming port '%s' as it is unused.\n", ctx->nameOf(port.first));
+        } else {
+            // Copy attributes to real IO buffer
+            for (auto &attrs : ci->attrs)
+                top_port.cell->attrs[attrs.first] = attrs.second;
+            for (auto &params : ci->params)
+                top_port.cell->params[params.first] = params.second;
+
+            // Make sure that top level net is set correctly
+            port.second.net = top_port.cell->ports.at(top_port.port).net;
+        }
+        // Now remove the nextpnr-inserted buffer
+        ci->disconnectPort(id_I);
+        ci->disconnectPort(id_O);
+        ctx->cells.erase(port.first);
+    }
 
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
@@ -98,10 +158,10 @@ void GateMateImpl::pack()
         if (ci.type == id_CC_IBUF) {
             ci.renamePort(id_I, id_DI);
             ci.renamePort(id_Y, id_IN1);
+            std::string loc = ci.params.at(ctx->id("LOC")).to_string();
+            BelId bel = ctx->get_package_pin_bel(ctx->id(loc));
             ci.params[ctx->id("INIT")] =
                     Property("000000000000000000000001000000000000000000000000000000000000000001010000");
-            // x=-2 y=99
-            BelId bel = ctx->getBelByName(IdStringList::concat(ctx->idf("X%dY%d", -2 + 2, 99 + 2), id_GPIO));
             ctx->bindBel(bel, &ci, PlaceStrength::STRENGTH_FIXED);
         }
         if (ci.type == id_CC_OBUF) {
@@ -109,8 +169,8 @@ void GateMateImpl::pack()
             ci.renamePort(id_A, id_OUT2);
             ci.params[ctx->id("INIT")] =
                     Property("000000000000000000000000000000000000000100000000000000010000100100000000");
-            // x=-2 y=95
-            BelId bel = ctx->getBelByName(IdStringList::concat(ctx->idf("X%dY%d", -2 + 2, 95 + 2), id_GPIO));
+            std::string loc = ci.params.at(ctx->id("LOC")).to_string();
+            BelId bel = ctx->get_package_pin_bel(ctx->id(loc));
             ctx->bindBel(bel, &ci, PlaceStrength::STRENGTH_FIXED);
         }
         ci.type = id_GPIO;
