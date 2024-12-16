@@ -37,6 +37,12 @@ struct GateMateImpl : HimbaechelAPI
 
     void init(Context *ctx) override;
 
+    void pack() override;
+
+    void postRoute() override;
+
+    delay_t estimateDelay(WireId src, WireId dst) const override;
+
     void drawBel(std::vector<GraphicElement> &g, GraphicElement::style_t style, IdString bel_type, Loc loc) override;
 
   private:

@@ -26,8 +26,10 @@ NEXTPNR_NAMESPACE_BEGIN
 
 NPNR_PACKED_STRUCT(struct GateMatePipExtraDataPOD {
     int32_t name;
-    uint16_t bits;
-    uint16_t value;
+    uint8_t bits;
+    uint8_t value;
+    uint8_t invert;
+    uint8_t dummy;
 });
 
 NEXTPNR_NAMESPACE_END

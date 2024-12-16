@@ -40,13 +40,16 @@ class PipExtraData(BBAStruct):
     name: IdString
     bits: int = 0
     value: int = 0
+    invert: int = 0
 
     def serialise_lists(self, context: str, bba: BBAWriter):
         pass
     def serialise(self, context: str, bba: BBAWriter):
         bba.u32(self.name.index)
-        bba.u16(self.bits)
-        bba.u16(self.value)
+        bba.u8(self.bits)
+        bba.u8(self.value)
+        bba.u8(self.invert)
+        bba.u8(0) # dummy
 
 def set_timings(ch):
     speed = "DEFAULT"
@@ -72,7 +75,12 @@ def main():
                 tt.add_bel_pin(bel, pin.name, f"{prim.name}.{pin.name}", pin.dir)
         for mux in die.get_mux_connections_for_type(type_name):
             pp = tt.create_pip(mux.src, mux.dst)
-            pp.extra_data = PipExtraData(ch.strs.id(mux.name), mux.bits, mux.value)
+            pp.extra_data = PipExtraData(ch.strs.id(mux.name), mux.bits, mux.value, mux.invert)
+        if "CPE" in type_name:
+            tt.create_pip("CPE.IN1", "CPE.OUT1")
+            tt.create_pip("CPE.IN1", "CPE.OUT2")
+            tt.create_pip("CPE.IN1", "CPE.RAM_O1")
+            tt.create_pip("CPE.IN1", "CPE.RAM_O2")
 
     # Setup tile grid
     for x in range(die.max_col() + 3):
