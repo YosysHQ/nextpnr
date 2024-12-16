@@ -45,6 +45,8 @@ struct GateMateImpl : HimbaechelAPI
 
     void drawBel(std::vector<GraphicElement> &g, GraphicElement::style_t style, IdString bel_type, Loc loc) override;
 
+    bool parse_ccf(const std::string &filename);
+
   private:
     HimbaechelHelpers h;
 };
