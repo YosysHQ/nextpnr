@@ -75,6 +75,8 @@ struct GateMateCCFReader
             if (name == "LOC") {
                 if (is_default)
                     log_error("Value '%s' can not be defined for default GPIO in line %d.\n", name.c_str(), lineno);
+                if (ctx->get_package_pin_bel(ctx->id(value)) == BelId())
+                    log_error("Unknown location '%s' used in line %d.\n", value.c_str(), lineno);
                 props->emplace(ctx->id(name.c_str()), Property(value));
             } else if (name == "SCHMITT_TRIGGER" || name == "PULLUP" || name == "PULLDOWN" || name == "KEEPER" ||
                        name == "FF_IBF" || name == "FF_OBF" || name == "LVDS_BOOST" || name == "LVDS_RTERM") {
@@ -119,99 +121,93 @@ struct GateMateCCFReader
         }
     }
 
-    bool run()
+    void run()
     {
-        try {
-            log_info("Parsing CCF file..\n");
+        log_info("Parsing CCF file..\n");
 
-            std::string line;
-            std::string linebuf;
-            defaults.clear();
+        std::string line;
+        std::string linebuf;
+        defaults.clear();
 
-            auto isempty = [](const std::string &str) {
-                return std::all_of(str.begin(), str.end(), [](char c) { return isblank(c) || c == '\r' || c == '\n'; });
-            };
-            lineno = 0;
-            while (std::getline(in, line)) {
-                ++lineno;
-                // Both // and # are considered start of comment
-                size_t com_start = line.find("//");
-                if (com_start != std::string::npos)
-                    line = line.substr(0, com_start);
-                com_start = line.find('#');
-                if (com_start != std::string::npos)
-                    line = line.substr(0, com_start);
-                if (isempty(line))
-                    continue;
-                linebuf += line;
+        auto isempty = [](const std::string &str) {
+            return std::all_of(str.begin(), str.end(), [](char c) { return isblank(c) || c == '\r' || c == '\n'; });
+        };
+        lineno = 0;
+        while (std::getline(in, line)) {
+            ++lineno;
+            // Both // and # are considered start of comment
+            size_t com_start = line.find("//");
+            if (com_start != std::string::npos)
+                line = line.substr(0, com_start);
+            com_start = line.find('#');
+            if (com_start != std::string::npos)
+                line = line.substr(0, com_start);
+            if (isempty(line))
+                continue;
+            linebuf += line;
 
-                size_t pos = linebuf.find(';');
-                // Need to concatenate lines until there is closing ; sign
-                while (pos != std::string::npos) {
-                    std::string content = linebuf.substr(0, pos);
+            size_t pos = linebuf.find(';');
+            // Need to concatenate lines until there is closing ; sign
+            while (pos != std::string::npos) {
+                std::string content = linebuf.substr(0, pos);
 
-                    std::vector<std::string> params;
-                    boost::split(params, content, boost::is_any_of("|"));
-                    std::string command = params.at(0);
+                std::vector<std::string> params;
+                boost::split(params, content, boost::is_any_of("|"));
+                std::string command = params.at(0);
 
-                    std::stringstream ss(command);
-                    std::vector<std::string> words;
-                    std::string tmp;
-                    while (ss >> tmp)
-                        words.push_back(tmp);
-                    std::string type = words.at(0);
+                std::stringstream ss(command);
+                std::vector<std::string> words;
+                std::string tmp;
+                while (ss >> tmp)
+                    words.push_back(tmp);
+                std::string type = words.at(0);
 
-                    boost::algorithm::to_lower(type);
-                    if (type == "default_gpio") {
-                        if (words.size() != 1)
-                            log_error("line with default_GPIO should not contain only parameters (in line %d).\n",
-                                      lineno);
-                        params.erase(params.begin());
-                        parse_params(params, true, &defaults);
+                boost::algorithm::to_lower(type);
+                if (type == "default_gpio") {
+                    if (words.size() != 1)
+                        log_error("line with default_GPIO should not contain only parameters (in line %d).\n", lineno);
+                    params.erase(params.begin());
+                    parse_params(params, true, &defaults);
 
-                    } else if (type == "pin_in" || type == "pin_out" || type == "pin_inout") {
-                        if (words.size() < 3 || words.size() > 5)
-                            log_error("pin definition line not properly formed (in line %d).\n", lineno);
-                        std::string pin_name = strip_quotes(words.at(1));
+                } else if (type == "pin_in" || type == "pin_out" || type == "pin_inout") {
+                    if (words.size() < 3 || words.size() > 5)
+                        log_error("pin definition line not properly formed (in line %d).\n", lineno);
+                    std::string pin_name = strip_quotes(words.at(1));
 
-                        // put back other words and use them as parameters
-                        std::stringstream ss;
-                        for (size_t i = 2; i < words.size(); i++)
-                            ss << words.at(i);
-                        params[0] = ss.str();
+                    // put back other words and use them as parameters
+                    std::stringstream ss;
+                    for (size_t i = 2; i < words.size(); i++)
+                        ss << words.at(i);
+                    params[0] = ss.str();
 
-                        IdString cellname = ctx->id(pin_name);
-                        if (ctx->cells.count(cellname)) {
-                            CellInfo *cell = ctx->cells.at(cellname).get();
-                            for (auto p : defaults)
-                                cell->params[p.first] = p.second;
-                            parse_params(params, false, &cell->params);
-                        } else
-                            log_warning("Pad with name '%s' not found in netlist.\n", pin_name.c_str());
-                    } else {
-                        log_error("unknown type '%s' in line %d.\n", type.c_str(), lineno);
-                    }
-
-                    linebuf = linebuf.substr(pos + 1);
-                    pos = linebuf.find(';');
+                    IdString cellname = ctx->id(pin_name);
+                    if (ctx->cells.count(cellname)) {
+                        CellInfo *cell = ctx->cells.at(cellname).get();
+                        for (auto p : defaults)
+                            cell->params[p.first] = p.second;
+                        parse_params(params, false, &cell->params);
+                    } else
+                        log_warning("Pad with name '%s' not found in netlist.\n", pin_name.c_str());
+                } else {
+                    log_error("unknown type '%s' in line %d.\n", type.c_str(), lineno);
                 }
+
+                linebuf = linebuf.substr(pos + 1);
+                pos = linebuf.find(';');
             }
-            if (!isempty(linebuf))
-                log_error("unexpected end of CCF file\n");
-            return true;
-        } catch (log_execution_error_exception) {
-            return false;
         }
+        if (!isempty(linebuf))
+            log_error("unexpected end of CCF file\n");
     }
 };
 
-bool GateMateImpl::parse_ccf(const std::string &filename)
+void GateMateImpl::parse_ccf(const std::string &filename)
 {
     std::ifstream in(filename);
     if (!in)
         log_error("failed to open CCF file '%s'\n", filename.c_str());
     GateMateCCFReader reader(ctx, in);
-    return reader.run();
+    reader.run();
 }
 
 NEXTPNR_NAMESPACE_END
