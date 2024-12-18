@@ -56,6 +56,15 @@ void GateMateImpl::postRoute()
     }
 }
 
+void GateMateImpl::setupArchContext()
+{
+    const ArchArgs &args = ctx->args;
+    if (args.options.count("read")) {
+        if (!read_bitstream(args.device, args.options.at("read")))
+            log_error("Loading bitstream failed.\n");
+    }
+}
+
 struct GateMateArch : HimbaechelArch
 {
     GateMateArch() : HimbaechelArch("gatemate") {};

@@ -36,6 +36,7 @@ struct GateMateImpl : HimbaechelAPI
     void init_database(Arch *arch) override;
 
     void init(Context *ctx) override;
+    void setupArchContext() override;
 
     void pack() override;
 
@@ -46,6 +47,8 @@ struct GateMateImpl : HimbaechelAPI
     void drawBel(std::vector<GraphicElement> &g, GraphicElement::style_t style, IdString bel_type, Loc loc) override;
 
     void write_bitstream(const std::string &device, const std::string &filename);
+    bool read_bitstream(const std::string &device, const std::string &filename);
+
     void parse_ccf(const std::string &filename);
 };
 
