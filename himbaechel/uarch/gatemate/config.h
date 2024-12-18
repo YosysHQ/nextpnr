@@ -82,6 +82,7 @@ class ChipConfig
 };
 
 std::ostream &operator<<(std::ostream &out, const ChipConfig &cc);
+std::istream &operator>>(std::istream &in, ChipConfig &cc);
 
 NEXTPNR_NAMESPACE_END
 
