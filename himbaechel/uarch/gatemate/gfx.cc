@@ -17,37 +17,38 @@
  *
  */
 
-#ifndef HIMBAECHEL_GATEMATE_H
-#define HIMBAECHEL_GATEMATE_H
+#include "gatemate.h"
 
-#include "extra_data.h"
-#include "himbaechel_api.h"
-#include "log.h"
-#include "nextpnr.h"
-#include "util.h"
+#define HIMBAECHEL_CONSTIDS "uarch/gatemate/constids.inc"
+#define HIMBAECHEL_GFXIDS "uarch/gatemate/gfxids.inc"
+#define HIMBAECHEL_UARCH gatemate
 
-#include "himbaechel_helpers.h"
+#include "himbaechel_constids.h"
+#include "himbaechel_gfxids.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
-struct GateMateImpl : HimbaechelAPI
+void GateMateImpl::drawBel(std::vector<GraphicElement> &g, GraphicElement::style_t style, IdString bel_type, Loc loc)
 {
-    ~GateMateImpl();
-    void init_database(Arch *arch) override;
-
-    void init(Context *ctx) override;
-
-    void pack() override;
-
-    void postRoute() override;
-
-    delay_t estimateDelay(WireId src, WireId dst) const override;
-
-    void drawBel(std::vector<GraphicElement> &g, GraphicElement::style_t style, IdString bel_type, Loc loc) override;
-
-    void write_bitstream(const std::string &device, const std::string &filename);
-    void parse_ccf(const std::string &filename);
-};
+    GraphicElement el;
+    el.type = GraphicElement::TYPE_BOX;
+    el.style = style;
+    switch (bel_type.index) {
+    case id_CPE.index:
+        el.x1 = loc.x + 0.70;
+        el.x2 = el.x1 + 0.20;
+        el.y1 = loc.y + 0.55;
+        el.y2 = el.y1 + 0.40;
+        g.push_back(el);
+        break;
+    case id_GPIO.index:
+        el.x1 = loc.x + 0.20;
+        el.x2 = el.x1 + 0.60;
+        el.y1 = loc.y + 0.20;
+        el.y2 = el.y1 + 0.60;
+        g.push_back(el);
+        break;
+    }
+}
 
 NEXTPNR_NAMESPACE_END
-#endif
