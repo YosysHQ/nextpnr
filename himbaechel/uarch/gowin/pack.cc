@@ -683,6 +683,12 @@ struct GowinPacker
             if (!is_io(&ci)) {
                 continue;
             }
+            if (ci.attrs.count(id_NOIOBFF)) {
+                if (ctx->debug) {
+                    log_info(" NOIOBFF attribute at %s. Skipping FF placement.\n", ctx->nameOf(&ci));
+                }
+                continue;
+            }
 
             // In the case of placing multiple registers in the IO it should be
             // noted that the CLK, ClockEnable and LocalSetReset nets must
@@ -703,11 +709,16 @@ struct GowinPacker
                 // OBUF O -> D FF
                 CellInfo *ff = net_only_drives(ctx, ci.ports.at(id_O).net, is_ff, id_D);
                 if (ff == nullptr) {
+                    if (ci.attrs.count(id_IOBFF)) {
+                        log_warning("Port O of %s is not connected to FF.\n", ctx->nameOf(&ci));
+                    }
                     continue;
                 }
                 if (ci.ports.at(id_O).net->users.entries() != 1) {
-                    log_warning("Port O of %s is the driver of %s multi-sink network.\n", ctx->nameOf(&ci),
-                                ctx->nameOf(ci.ports.at(id_O).net));
+                    if (ci.attrs.count(id_IOBFF)) {
+                        log_warning("Port O of %s is the driver of %s multi-sink network.\n", ctx->nameOf(&ci),
+                                    ctx->nameOf(ci.ports.at(id_O).net));
+                    }
                     continue;
                 }
                 BelId l_bel = get_iologici_bel(&ci);
@@ -758,10 +769,16 @@ struct GowinPacker
                     }
                     // OBUF I <- Q FF
                     CellInfo *ff = net_driven_by(ctx, ci.ports.at(id_I).net, is_ff, id_Q);
-                    if (ff != nullptr) {
+                    if (ff == nullptr) {
+                        if (ci.attrs.count(id_IOBFF)) {
+                            log_warning("Port I of %s is not connected to FF.\n", ctx->nameOf(&ci));
+                        }
+                    } else {
                         if (ci.ports.at(id_I).net->users.entries() != 1) {
-                            log_warning("Port I of %s is not the only sink on the %s network.\n", ctx->nameOf(&ci),
-                                        ctx->nameOf(ci.ports.at(id_I).net));
+                            if (ci.attrs.count(id_IOBFF)) {
+                                log_warning("Port I of %s is not the only sink on the %s network.\n", ctx->nameOf(&ci),
+                                            ctx->nameOf(ci.ports.at(id_I).net));
+                            }
                             break;
                         }
                         BelId l_bel = get_iologico_bel(&ci);
@@ -782,25 +799,33 @@ struct GowinPacker
                         if (ci.type == id_IOBUF) {
                             if (iologic_i != nullptr) {
                                 if (incompatible_ffs(ff->type, reg_type)) {
-                                    log_warning("OREG type conflict:%s:%s vs %s IREG:%s\n", ctx->nameOf(ff),
-                                                ff->type.c_str(ctx), ctx->nameOf(&ci), reg_type.c_str(ctx));
+                                    if (ci.attrs.count(id_IOBFF)) {
+                                        log_warning("OREG type conflict:%s:%s vs %s IREG:%s\n", ctx->nameOf(ff),
+                                                    ff->type.c_str(ctx), ctx->nameOf(&ci), reg_type.c_str(ctx));
+                                    }
                                     break;
                                 } else {
                                     if (clk_net != this_clk_net || ce_net != this_ce_net || lsr_net != this_lsr_net) {
                                         if (clk_net != this_clk_net) {
-                                            log_warning("Conflicting OREG CLK nets at %s:'%s' vs '%s'\n",
-                                                        ctx->nameOf(&ci), ctx->nameOf(clk_net),
-                                                        ctx->nameOf(this_clk_net));
+                                            if (ci.attrs.count(id_IOBFF)) {
+                                                log_warning("Conflicting OREG CLK nets at %s:'%s' vs '%s'\n",
+                                                            ctx->nameOf(&ci), ctx->nameOf(clk_net),
+                                                            ctx->nameOf(this_clk_net));
+                                            }
                                         }
                                         if (ce_net != this_ce_net) {
-                                            log_warning("Conflicting OREG CE nets at %s:'%s' vs '%s'\n",
-                                                        ctx->nameOf(&ci), ctx->nameOf(ce_net),
-                                                        ctx->nameOf(this_ce_net));
+                                            if (ci.attrs.count(id_IOBFF)) {
+                                                log_warning("Conflicting OREG CE nets at %s:'%s' vs '%s'\n",
+                                                            ctx->nameOf(&ci), ctx->nameOf(ce_net),
+                                                            ctx->nameOf(this_ce_net));
+                                            }
                                         }
                                         if (lsr_net != this_lsr_net) {
-                                            log_warning("Conflicting OREG LSR nets at %s:'%s' vs '%s'\n",
-                                                        ctx->nameOf(&ci), ctx->nameOf(lsr_net),
-                                                        ctx->nameOf(this_lsr_net));
+                                            if (ci.attrs.count(id_IOBFF)) {
+                                                log_warning("Conflicting OREG LSR nets at %s:'%s' vs '%s'\n",
+                                                            ctx->nameOf(&ci), ctx->nameOf(lsr_net),
+                                                            ctx->nameOf(this_lsr_net));
+                                            }
                                         }
                                         break;
                                     }
@@ -846,8 +871,10 @@ struct GowinPacker
                     CellInfo *ff = net_driven_by(ctx, ci.ports.at(id_OEN).net, is_ff, id_Q);
                     if (ff != nullptr) {
                         if (ci.ports.at(id_OEN).net->users.entries() != 1) {
-                            log_warning("Port OEN of %s is not the only sink on the %s network.\n", ctx->nameOf(&ci),
-                                        ctx->nameOf(ci.ports.at(id_OEN).net));
+                            if (ci.attrs.count(id_IOBFF)) {
+                                log_warning("Port OEN of %s is not the only sink on the %s network.\n",
+                                            ctx->nameOf(&ci), ctx->nameOf(ci.ports.at(id_OEN).net));
+                            }
                             break;
                         }
                         BelId l_bel = get_iologico_bel(&ci);
@@ -875,22 +902,33 @@ struct GowinPacker
                                 iologic_o = iologic_i;
                             }
                             if (incompatible_ffs(ff->type, reg_type)) {
-                                log_warning("TREG type conflict:%s:%s vs %s IREG/OREG:%s\n", ctx->nameOf(ff),
-                                            ff->type.c_str(ctx), ctx->nameOf(&ci), reg_type.c_str(ctx));
+                                if (ci.attrs.count(id_IOBFF)) {
+                                    log_warning("TREG type conflict:%s:%s vs %s IREG/OREG:%s\n", ctx->nameOf(ff),
+                                                ff->type.c_str(ctx), ctx->nameOf(&ci), reg_type.c_str(ctx));
+                                }
                                 break;
                             } else {
                                 if (clk_net != this_clk_net || ce_net != this_ce_net || lsr_net != this_lsr_net) {
                                     if (clk_net != this_clk_net) {
-                                        log_warning("Conflicting TREG CLK nets at %s:'%s' vs '%s'\n", ctx->nameOf(&ci),
-                                                    ctx->nameOf(clk_net), ctx->nameOf(this_clk_net));
+                                        if (ci.attrs.count(id_IOBFF)) {
+                                            log_warning("Conflicting TREG CLK nets at %s:'%s' vs '%s'\n",
+                                                        ctx->nameOf(&ci), ctx->nameOf(clk_net),
+                                                        ctx->nameOf(this_clk_net));
+                                        }
                                     }
                                     if (ce_net != this_ce_net) {
-                                        log_warning("Conflicting TREG CE nets at %s:'%s' vs '%s'\n", ctx->nameOf(&ci),
-                                                    ctx->nameOf(ce_net), ctx->nameOf(this_ce_net));
+                                        if (ci.attrs.count(id_IOBFF)) {
+                                            log_warning("Conflicting TREG CE nets at %s:'%s' vs '%s'\n",
+                                                        ctx->nameOf(&ci), ctx->nameOf(ce_net),
+                                                        ctx->nameOf(this_ce_net));
+                                        }
                                     }
                                     if (lsr_net != this_lsr_net) {
-                                        log_warning("Conflicting TREG LSR nets at %s:'%s' vs '%s'\n", ctx->nameOf(&ci),
-                                                    ctx->nameOf(lsr_net), ctx->nameOf(this_lsr_net));
+                                        if (ci.attrs.count(id_IOBFF)) {
+                                            log_warning("Conflicting TREG LSR nets at %s:'%s' vs '%s'\n",
+                                                        ctx->nameOf(&ci), ctx->nameOf(lsr_net),
+                                                        ctx->nameOf(this_lsr_net));
+                                        }
                                     }
                                     break;
                                 }
