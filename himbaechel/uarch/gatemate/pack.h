@@ -17,36 +17,23 @@
  *
  */
 
-#ifndef HIMBAECHEL_GATEMATE_H
-#define HIMBAECHEL_GATEMATE_H
+#ifndef GATEMATE_PACK_H
+#define GATEMATE_PACK_H
 
-#include "extra_data.h"
-#include "himbaechel_api.h"
-#include "log.h"
-#include "nextpnr.h"
-#include "util.h"
-
-#include "himbaechel_helpers.h"
+#include "gatemate.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
-struct GateMateImpl : HimbaechelAPI
+struct GateMatePacker
 {
-    ~GateMateImpl();
-    void init_database(Arch *arch) override;
+    GateMatePacker(Context *ctx, GateMateImpl *uarch) : ctx(ctx), uarch(uarch) { h.init(ctx); };
 
-    void init(Context *ctx) override;
+    void pack_io();
 
-    void pack() override;
+    Context *ctx;
+    GateMateImpl *uarch;
 
-    void postRoute() override;
-
-    delay_t estimateDelay(WireId src, WireId dst) const override;
-
-    void drawBel(std::vector<GraphicElement> &g, GraphicElement::style_t style, IdString bel_type, Loc loc) override;
-
-    void write_bitstream(const std::string &device, const std::string &filename);
-    void parse_ccf(const std::string &filename);
+    HimbaechelHelpers h;
 };
 
 NEXTPNR_NAMESPACE_END
