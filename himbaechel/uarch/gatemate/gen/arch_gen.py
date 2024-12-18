@@ -71,7 +71,7 @@ def main():
             tt.create_wire(wire.name, wire.type)
         for prim in die.get_primitives_for_type(type_name):
             bel = tt.create_bel(prim.name, prim.type, prim.z)
-            for pin in die.get_primitive_pins(prim.name):
+            for pin in die.get_primitive_pins(prim.type):
                 tt.add_bel_pin(bel, pin.name, f"{prim.name}.{pin.name}", pin.dir)
         for mux in die.get_mux_connections_for_type(type_name):
             pp = tt.create_pip(mux.src, mux.dst)
