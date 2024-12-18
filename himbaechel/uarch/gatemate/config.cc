@@ -192,8 +192,55 @@ std::ostream &operator<<(std::ostream &out, const ChipConfig &cc)
             out << std::endl;
         }
     }
-
     return out;
+}
+
+std::istream &operator>>(std::istream &in, ChipConfig &cc)
+{
+    while (!skip_check_eof(in)) {
+        std::string verb;
+        in >> verb;
+        if (verb == ".device") {
+            in >> cc.chip_name;
+        } else if (verb == ".config") {
+            int die;
+            in >> die;
+            TileConfig tc;
+            in >> tc;
+            cc.configs.emplace(die, tc);
+        } else if (verb == ".tile") {
+            CfgLoc loc;
+            in >> loc.die;
+            in >> loc.x;
+            in >> loc.y;
+            TileConfig tc;
+            in >> tc;
+            cc.tiles.emplace(loc, tc);
+        } else if (verb == ".bram") {
+            CfgLoc loc;
+            in >> loc.die;
+            in >> loc.x;
+            in >> loc.y;
+            TileConfig tc;
+            in >> tc;
+            cc.brams.emplace(loc, tc);
+        } else if (verb == ".bram_init") {
+            CfgLoc loc;
+            in >> loc.die;
+            in >> loc.x;
+            in >> loc.y;
+            std::ios_base::fmtflags f(in.flags());
+            while (!skip_check_eor(in)) {
+                uint16_t value;
+                in >> std::hex >> value;
+                cc.bram_data[loc].push_back(value);
+            }
+            in.flags(f);
+        } else {
+            log_error("unrecognised config entry %s\n", verb.c_str());
+        }
+    }
+    return in;
 }
 
 NEXTPNR_NAMESPACE_END
