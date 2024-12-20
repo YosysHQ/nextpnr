@@ -77,7 +77,7 @@ struct GateMateCCFReader
                     log_error("Value '%s' can not be defined for default GPIO in line %d.\n", name.c_str(), lineno);
                 if (ctx->get_package_pin_bel(ctx->id(value)) == BelId())
                     log_error("Unknown location '%s' used in line %d.\n", value.c_str(), lineno);
-                props->emplace(ctx->id(name.c_str()), Property(value));
+                props->emplace(ctx->id("PIN_NAME"), Property(value));
             } else if (name == "SCHMITT_TRIGGER" || name == "PULLUP" || name == "PULLDOWN" || name == "KEEPER" ||
                        name == "FF_IBF" || name == "FF_OBF" || name == "LVDS_BOOST" || name == "LVDS_RTERM") {
                 if (value == "TRUE") {

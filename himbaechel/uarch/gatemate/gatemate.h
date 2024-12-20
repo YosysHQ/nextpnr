@@ -50,6 +50,9 @@ struct GateMateImpl : HimbaechelAPI
     bool read_bitstream(const std::string &device, const std::string &filename);
 
     void parse_ccf(const std::string &filename);
+
+    IdString getBelBucketForCellType(IdString cell_type) const;
+    bool isValidBelForCellType(IdString cell_type, BelId bel) const;
 };
 
 NEXTPNR_NAMESPACE_END
