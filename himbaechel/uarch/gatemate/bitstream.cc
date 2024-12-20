@@ -118,6 +118,10 @@ struct BitstreamBackend
             case id_CC_TOBUF.index:
             case id_CC_OBUF.index:
             case id_CC_IOBUF.index:
+            case id_CC_LVDS_IBUF.index:
+            case id_CC_LVDS_TOBUF.index:
+            case id_CC_LVDS_OBUF.index:
+            case id_CC_LVDS_IOBUF.index:
                 for (auto &p : params) {
                     cc.tiles[loc].add_word(stringf("GPIO.%s", p.first.c_str(ctx)), p.second.as_bits());
                 }
