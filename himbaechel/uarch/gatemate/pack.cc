@@ -24,6 +24,15 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+void GateMatePacker::disconnect_if_gnd(CellInfo *cell, IdString input)
+{
+    NetInfo *net = cell->getPort(input);
+    if (!net)
+        return;
+    if (net->name.in(ctx->id("$PACKER_GND"))) {
+        cell->disconnectPort(input);
+    }
+}
 void GateMatePacker::pack_io()
 {
     // Trim nextpnr IOBs - assume IO buffer insertion has been done in synthesis
@@ -80,8 +89,15 @@ void GateMatePacker::pack_io()
             // Copy attributes to real IO buffer
             for (auto &attrs : ci->attrs)
                 top_port.cell->attrs[attrs.first] = attrs.second;
-            for (auto &params : ci->params)
+            for (auto &params : ci->params) {
+                if (top_port.cell->params.count(params.first)) {
+                    if (top_port.cell->params[params.first] != params.second) {
+                        log_warning("Overriding parameter '%s' with value '%s' for cell '%s'.\n",
+                                    params.first.c_str(ctx), params.second.c_str(), ctx->nameOf(top_port.cell));
+                    }
+                }
                 top_port.cell->params[params.first] = params.second;
+            }
 
             // Make sure that top level net is set correctly
             port.second.net = top_port.cell->ports.at(top_port.port).net;
@@ -94,26 +110,72 @@ void GateMatePacker::pack_io()
 
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
-        if (!ci.type.in(id_CC_IBUF, id_CC_OBUF))
+        if (!ci.type.in(id_CC_IBUF, id_CC_OBUF, id_CC_TOBUF, id_CC_IOBUF))
             continue;
         std::string loc;
-        if (ci.params.count(ctx->id("LOC")) == 0) {
+        if (ci.params.count(ctx->id("PIN_NAME")) == 0) {
             log_warning("IO signal name '%s' is not defined in CCF file and will be auto-placed.\n", ctx->nameOf(&ci));
         } else {
-            loc = ci.params.at(ctx->id("LOC")).to_string();
+            loc = ci.params.at(ctx->id("PIN_NAME")).to_string();
         }
 
-        if (ci.type == id_CC_IBUF) {
-            ci.renamePort(id_I, id_DI);
-            ci.renamePort(id_Y, id_IN1);
-            ci.params[ctx->id("INIT")] =
-                    Property("000000000000000000000001000000000000000000000000000000000000000001010000");
+        disconnect_if_gnd(&ci, id_T);
+        if (ci.type == id_CC_TOBUF && !ci.getPort(id_T))
+            ci.type = id_CC_OBUF;
+
+        std::vector<IdString> keys;
+        for (auto &p : ci.params) {
+            if (p.first.in(id_PIN_NAME, id_V_IO)) {
+                keys.push_back(p.first);
+                continue;
+            }
+            if (ci.type.in(id_CC_IBUF, id_CC_IOBUF) &&
+                p.first.in(id_PULLUP, id_PULLDOWN, id_KEEPER, id_SCHMITT_TRIGGER, id_DELAY_IBF, id_FF_IBF))
+                continue;
+            if (ci.type.in(id_CC_TOBUF) && p.first.in(id_PULLUP, id_PULLDOWN, id_KEEPER))
+                continue;
+            if (ci.type.in(id_CC_OBUF, id_CC_TOBUF, id_CC_IOBUF) &&
+                p.first.in(id_DRIVE, id_SLEW, id_DELAY_OBF, id_FF_OBF))
+                continue;
+            log_warning("Removing unsupported parameter '%s' for type '%s'.\n", p.first.c_str(ctx), ci.type.c_str(ctx));
+            keys.push_back(p.first);
         }
-        if (ci.type == id_CC_OBUF) {
-            ci.renamePort(id_O, id_DO);
-            ci.renamePort(id_A, id_OUT2);
-            ci.params[ctx->id("INIT")] =
-                    Property("000000000000000000000000000000000000000100000000000000010000100100000000");
+        for (auto key : keys)
+            ci.params.erase(key);
+
+        if ((ci.params.count(id_KEEPER) + ci.params.count(id_PULLUP) + ci.params.count(id_PULLDOWN)) > 1)
+            log_error("PULLUP, PULLDOWN and KEEPER are mutually exclusive parameters.\n");
+
+        // DELAY_IBF and DELAY_OBF must be set depending of type
+        // Also we need to enable input/output
+        if (ci.type.in(id_CC_IBUF, id_CC_IOBUF)) {
+            ci.params[id_DELAY_IBF] = Property(1 << int_or_default(ci.params, id_DELAY_IBF, 0), 16);
+            ci.params[id_INPUT_ENABLE] = Property(Property::State::S1);
+        }
+        if (ci.type.in(id_CC_OBUF, id_CC_TOBUF, id_CC_IOBUF)) {
+            ci.params[id_DELAY_OBF] = Property(1 << int_or_default(ci.params, id_DELAY_OBF, 0), 16);
+            ci.params[id_OE_ENABLE] = Property(Property::State::S1);
+        }
+
+        // Disconnect PADs
+        ci.disconnectPort(id_IO);
+        ci.disconnectPort(id_I);
+        ci.disconnectPort(id_O);
+
+        // Remap ports to GPIO bel
+        ci.renamePort(id_A, id_DO);
+        ci.renamePort(id_Y, id_DI);
+        ci.renamePort(id_T, id_OE);
+
+        NetInfo *do_net = ci.getPort(id_DO);
+        if (do_net) {
+            if (do_net->name.in(ctx->id("$PACKER_GND"), ctx->id("$PACKER_VCC"))) {
+                ci.params[id_OUT23_14_SEL] =
+                        Property(do_net->name == ctx->id("$PACKER_VCC") ? Property::State::S1 : Property::State::S0);
+                ci.disconnectPort(id_DO);
+            } else {
+                ci.params[id_OUT_SIGNAL] = Property(Property::State::S1);
+            }
         }
         if (!loc.empty()) {
             BelId bel = ctx->get_package_pin_bel(ctx->id(loc));
@@ -124,9 +186,50 @@ void GateMatePacker::pack_io()
 
             ctx->bindBel(bel, &ci, PlaceStrength::STRENGTH_FIXED);
         }
-        ci.type = id_GPIO;
     }
 }
+
+void GateMatePacker::pack_constants()
+{
+    log_info("Packing constants..\n");
+    // Replace constants with LUTs
+    const dict<IdString, Property> vcc_params = {
+            {id_INIT_L00, Property(0xf, 4)}, {id_INIT_L01, Property(0xf, 4)}, {id_INIT_L02, Property(0xf, 4)}};
+    const dict<IdString, Property> gnd_params = {
+            {id_INIT_L00, Property(0x0, 4)}, {id_INIT_L01, Property(0x0, 4)}, {id_INIT_L02, Property(0x0, 4)}};
+
+    h.replace_constants(CellTypePort(id_CPE, id_OUT1), CellTypePort(id_CPE, id_OUT1), vcc_params, gnd_params);
+}
+
+void GateMatePacker::remove_constants()
+{
+    log_info("Removing constants..\n");
+    auto fnd_cell = ctx->cells.find(ctx->id("$PACKER_VCC_DRV"));
+    if (fnd_cell != ctx->cells.end()) {
+        auto fnd_net = ctx->nets.find(ctx->id("$PACKER_VCC"));
+        if (fnd_net != ctx->nets.end() && fnd_net->second->users.entries() == 0) {
+            BelId bel = (*fnd_cell).second.get()->bel;
+            if (bel != BelId())
+                ctx->unbindBel(bel);
+            ctx->cells.erase(fnd_cell);
+            ctx->nets.erase(fnd_net);
+            log_info("    Removed unused VCC cell\n");
+        }
+    }
+    fnd_cell = ctx->cells.find(ctx->id("$PACKER_GND_DRV"));
+    if (fnd_cell != ctx->cells.end()) {
+        auto fnd_net = ctx->nets.find(ctx->id("$PACKER_GND"));
+        if (fnd_net != ctx->nets.end() && fnd_net->second->users.entries() == 0) {
+            BelId bel = (*fnd_cell).second.get()->bel;
+            if (bel != BelId())
+                ctx->unbindBel(bel);
+            ctx->cells.erase(fnd_cell);
+            ctx->nets.erase(fnd_net);
+            log_info("    Removed unused GND cell\n");
+        }
+    }
+}
+
 void GateMateImpl::pack()
 {
     const ArchArgs &args = ctx->args;
@@ -135,7 +238,9 @@ void GateMateImpl::pack()
     }
 
     GateMatePacker packer(ctx, this);
+    packer.pack_constants();
     packer.pack_io();
+    packer.remove_constants();
 }
 
 NEXTPNR_NAMESPACE_END

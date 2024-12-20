@@ -29,6 +29,10 @@ struct GateMatePacker
     GateMatePacker(Context *ctx, GateMateImpl *uarch) : ctx(ctx), uarch(uarch) { h.init(ctx); };
 
     void pack_io();
+    void pack_constants();
+
+    void disconnect_if_gnd(CellInfo *cell, IdString input);
+    void remove_constants();
 
     Context *ctx;
     GateMateImpl *uarch;

@@ -101,14 +101,17 @@ struct BitstreamBackend
         cc.configs[0].add_word("GPIO.BANK_W1", int_to_bitvector(1, 1));
         cc.configs[0].add_word("GPIO.BANK_W2", int_to_bitvector(1, 1));
         for (auto &cell : ctx->cells) {
+            CfgLoc loc = getConfigLoc(ctx, cell.second.get()->bel.tile);
+            auto &params = cell.second.get()->params;
             switch (cell.second->type.index) {
-            case id_GPIO.index: {
-                CfgLoc loc = getConfigLoc(ctx, cell.second.get()->bel.tile);
-                cc.tiles[loc].add_word(
-                        "GPIO.INIT",
-                        str_to_bitvector(str_or_default(cell.second.get()->params, ctx->id("INIT"), ""), 72));
+            case id_CC_IBUF.index:
+            case id_CC_TOBUF.index:
+            case id_CC_OBUF.index:
+            case id_CC_IOBUF.index:
+                for (auto &p : params) {
+                    cc.tiles[loc].add_word(stringf("GPIO.%s", p.first.c_str(ctx)), p.second.as_bits());
+                }
                 break;
-            }
             default:
                 break;
             }
