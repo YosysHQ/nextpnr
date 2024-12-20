@@ -90,15 +90,22 @@ void GateMatePacker::pack_io()
             for (auto &attrs : ci->attrs)
                 top_port.cell->attrs[attrs.first] = attrs.second;
             for (auto &params : ci->params) {
-                if (top_port.cell->params.count(params.first)) {
-                    if (top_port.cell->params[params.first] != params.second) {
+                IdString key = params.first;
+                if (top_port.cell->type.in(id_CC_LVDS_IBUF, id_CC_LVDS_OBUF, id_CC_LVDS_TOBUF, id_CC_LVDS_IOBUF)) {
+                    if (top_port.port.in(id_I_P, id_O_P, id_IO_P))
+                        key = id_PIN_NAME_P;
+                    if (top_port.port.in(id_I_N, id_O_N, id_IO_N))
+                        key = id_PIN_NAME_N;
+                }
+                if (top_port.cell->params.count(key)) {
+                    if (top_port.cell->params[key] != params.second) {
                         std::string val = params.second.is_string ? params.second.as_string()
                                                                   : std::to_string(params.second.as_int64());
-                        log_warning("Overriding parameter '%s' with value '%s' for cell '%s'.\n",
-                                    params.first.c_str(ctx), val.c_str(), ctx->nameOf(top_port.cell));
+                        log_warning("Overriding parameter '%s' with value '%s' for cell '%s'.\n", key.c_str(ctx),
+                                    val.c_str(), ctx->nameOf(top_port.cell));
                     }
                 }
-                top_port.cell->params[params.first] = params.second;
+                top_port.cell->params[key] = params.second;
             }
 
             // Make sure that top level net is set correctly
@@ -112,19 +119,41 @@ void GateMatePacker::pack_io()
 
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
-        if (!ci.type.in(id_CC_IBUF, id_CC_OBUF, id_CC_TOBUF, id_CC_IOBUF))
+        if (!ci.type.in(id_CC_IBUF, id_CC_OBUF, id_CC_TOBUF, id_CC_IOBUF, id_CC_LVDS_IBUF, id_CC_LVDS_OBUF,
+                        id_CC_LVDS_TOBUF, id_CC_LVDS_IOBUF))
             continue;
-        std::string loc = str_or_default(ci.params, id_PIN_NAME, "UNPLACED");
+
+        bool is_lvds = ci.type.in(id_CC_LVDS_IBUF, id_CC_LVDS_OBUF, id_CC_LVDS_TOBUF, id_CC_LVDS_IOBUF);
+
+        std::string loc = str_or_default(ci.params, is_lvds ? id_PIN_NAME_P : id_PIN_NAME, "UNPLACED");
+        if (ci.params.count(id_LOC)) {
+            std::string new_loc = str_or_default(ci.params, id_LOC, "UNPLACED");
+            if (loc != "UNPLACED" && loc != new_loc)
+                log_warning("Overriding location of cell '%s' from '%s' with '%s'\n", ctx->nameOf(&ci), loc.c_str(),
+                            new_loc.c_str());
+            loc = new_loc;
+        }
+
         if (loc == "UNPLACED")
             log_warning("IO signal name '%s' is not defined in CCF file and will be auto-placed.\n", ctx->nameOf(&ci));
 
         disconnect_if_gnd(&ci, id_T);
         if (ci.type == id_CC_TOBUF && !ci.getPort(id_T))
             ci.type = id_CC_OBUF;
+        if (ci.type == id_CC_LVDS_TOBUF && !ci.getPort(id_T))
+            ci.type = id_CC_LVDS_OBUF;
 
         std::vector<IdString> keys;
         for (auto &p : ci.params) {
-            if (p.first.in(id_PIN_NAME, id_V_IO)) {
+
+            if (p.first.in(id_PIN_NAME, id_PIN_NAME_P, id_PIN_NAME_N)) {
+                if (ctx->get_package_pin_bel(ctx->id(p.second.as_string())) == BelId())
+                    log_error("Unknown %s '%s' for cell '%s'.\n", p.first.c_str(ctx), p.second.as_string().c_str(),
+                              ci.name.c_str(ctx));
+                keys.push_back(p.first);
+                continue;
+            }
+            if (p.first.in(id_V_IO, id_LOC)) {
                 keys.push_back(p.first);
                 continue;
             }
@@ -135,6 +164,11 @@ void GateMatePacker::pack_io()
                 continue;
             if (ci.type.in(id_CC_OBUF, id_CC_TOBUF, id_CC_IOBUF) &&
                 p.first.in(id_DRIVE, id_SLEW, id_DELAY_OBF, id_FF_OBF))
+                continue;
+            if (ci.type.in(id_CC_LVDS_IBUF, id_CC_LVDS_IOBUF) && p.first.in(id_LVDS_RTERM, id_DELAY_IBF, id_FF_IBF))
+                continue;
+            if (ci.type.in(id_CC_LVDS_OBUF, id_CC_LVDS_TOBUF, id_CC_LVDS_IOBUF) &&
+                p.first.in(id_LVDS_BOOST, id_DELAY_OBF, id_FF_OBF))
                 continue;
             log_warning("Removing unsupported parameter '%s' for type '%s'.\n", p.first.c_str(ctx), ci.type.c_str(ctx));
             keys.push_back(p.first);
@@ -150,19 +184,37 @@ void GateMatePacker::pack_io()
             else
                 log_error("Unknown value '%s' for SLEW parameter of '%s' cell.\n", val.c_str(), ci.name.c_str(ctx));
         }
+        if (is_lvds) {
+            std::string p_pin = str_or_default(ci.params, id_PIN_NAME_P, "UNPLACED");
+            std::string n_pin = str_or_default(ci.params, id_PIN_NAME_N, "UNPLACED");
+            if (p_pin == "UNPLACED" || n_pin == "UNPLACED")
+                log_error("Both LVDS pins must be set to a valid locations.\n");
+            if (p_pin.substr(0, 6) != n_pin.substr(0, 6) || p_pin[7] != n_pin[7])
+                log_error("Both LVDS pads '%s' and '%s' do not match.\n", p_pin.c_str(), n_pin.c_str());
+            if (p_pin[6] != 'A')
+                log_error("Both LVDS positive pad must be from type A.\n");
+            if (n_pin[6] != 'B')
+                log_error("Both LVDS negative pad must be from type B.\n");
+        }
         for (auto key : keys)
             ci.params.erase(key);
 
         if ((ci.params.count(id_KEEPER) + ci.params.count(id_PULLUP) + ci.params.count(id_PULLDOWN)) > 1)
             log_error("PULLUP, PULLDOWN and KEEPER are mutually exclusive parameters.\n");
 
+        if (is_lvds)
+            ci.params[id_LVDS_EN] = Property(Property::State::S1);
+
         // DELAY_IBF and DELAY_OBF must be set depending of type
         // Also we need to enable input/output
-        if (ci.type.in(id_CC_IBUF, id_CC_IOBUF)) {
+        if (ci.type.in(id_CC_IBUF, id_CC_IOBUF, id_CC_LVDS_IBUF, id_CC_LVDS_IOBUF)) {
             ci.params[id_DELAY_IBF] = Property(1 << int_or_default(ci.params, id_DELAY_IBF, 0), 16);
-            ci.params[id_INPUT_ENABLE] = Property(Property::State::S1);
+            if (is_lvds)
+                ci.params[id_LVDS_IE] = Property(Property::State::S1);
+            else
+                ci.params[id_INPUT_ENABLE] = Property(Property::State::S1);
         }
-        if (ci.type.in(id_CC_OBUF, id_CC_TOBUF, id_CC_IOBUF)) {
+        if (ci.type.in(id_CC_OBUF, id_CC_TOBUF, id_CC_IOBUF, id_CC_LVDS_OBUF, id_CC_LVDS_TOBUF, id_CC_LVDS_IOBUF)) {
             ci.params[id_DELAY_OBF] = Property(1 << int_or_default(ci.params, id_DELAY_OBF, 0), 16);
             ci.params[id_OE_ENABLE] = Property(Property::State::S1);
         }
@@ -173,7 +225,8 @@ void GateMatePacker::pack_io()
             ci.params[id_DRIVE] = Property((val - 3) / 3, 2);
         }
         for (auto &p : ci.params) {
-            if (p.first.in(id_PULLUP, id_PULLDOWN, id_KEEPER, id_SCHMITT_TRIGGER, id_FF_OBF, id_FF_IBF)) {
+            if (p.first.in(id_PULLUP, id_PULLDOWN, id_KEEPER, id_SCHMITT_TRIGGER, id_FF_OBF, id_FF_IBF, id_LVDS_RTERM,
+                           id_LVDS_BOOST)) {
                 int val = int_or_default(ci.params, p.first, 0);
                 if (val != 0 && val != 1)
                     log_error("Unsupported value '%d' for %s parameter of '%s' cell.\n", val, p.first.c_str(ctx),
@@ -186,6 +239,12 @@ void GateMatePacker::pack_io()
         ci.disconnectPort(id_IO);
         ci.disconnectPort(id_I);
         ci.disconnectPort(id_O);
+        ci.disconnectPort(id_IO_P);
+        ci.disconnectPort(id_IO_N);
+        ci.disconnectPort(id_I_P);
+        ci.disconnectPort(id_I_N);
+        ci.disconnectPort(id_O_P);
+        ci.disconnectPort(id_O_N);
 
         // Remap ports to GPIO bel
         ci.renamePort(id_A, id_DO);
@@ -208,7 +267,10 @@ void GateMatePacker::pack_io()
                 log_error("Unable to constrain IO '%s', device does not have a pin named '%s'\n", ci.name.c_str(ctx),
                           loc.c_str());
             log_info("    Constraining '%s' to pad '%s'\n", ci.name.c_str(ctx), loc.c_str());
-
+            if (!ctx->checkBelAvail(bel)) {
+                log_error("Can't place %s at %s because it's already taken by %s\n", ctx->nameOf(&ci),
+                          ctx->nameOfBel(bel), ctx->nameOf(ctx->getBoundBelCell(bel)));
+            }
             ctx->bindBel(bel, &ci, PlaceStrength::STRENGTH_FIXED);
         }
     }
