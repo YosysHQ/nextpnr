@@ -103,7 +103,7 @@ void GateMateImpl::setupArchContext()
 // Bel bucket functions
 IdString GateMateImpl::getBelBucketForCellType(IdString cell_type) const
 {
-    if (cell_type.in(id_CC_IBUF, id_CC_IBUF, id_CC_TOBUF, id_CC_IOBUF))
+    if (cell_type.in(id_CC_IBUF, id_CC_OBUF, id_CC_TOBUF, id_CC_IOBUF))
         return id_GPIO;
     else
         return cell_type;
@@ -113,7 +113,7 @@ bool GateMateImpl::isValidBelForCellType(IdString cell_type, BelId bel) const
 {
     IdString bel_type = ctx->getBelType(bel);
     if (bel_type == id_GPIO)
-        return cell_type.in(id_CC_IBUF, id_CC_IBUF, id_CC_TOBUF, id_CC_IOBUF);
+        return cell_type.in(id_CC_IBUF, id_CC_OBUF, id_CC_TOBUF, id_CC_IOBUF);
     else
         return (bel_type == cell_type);
 }
