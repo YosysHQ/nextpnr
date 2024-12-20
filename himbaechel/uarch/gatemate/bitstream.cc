@@ -19,9 +19,9 @@
 
 #include <fstream>
 
+#include <boost/algorithm/string.hpp>
 #include "config.h"
 #include "gatemate.h"
-#include <boost/algorithm/string.hpp>
 
 #define HIMBAECHEL_CONSTIDS "uarch/gatemate/constids.inc"
 #include "himbaechel_constids.h"
@@ -122,14 +122,12 @@ struct BitstreamBackend
                     cc.tiles[loc].add_word(stringf("GPIO.%s", p.first.c_str(ctx)), p.second.as_bits());
                 }
                 break;
-            case id_CPE.index:
-                {
-                    int x = getInTileIndex(ctx,cell.second.get()->bel.tile);
-                    for (auto &p : params) {
-                        cc.tiles[loc].add_word(stringf("CPE%d.%s", x, p.first.c_str(ctx)), p.second.as_bits());
-                    }
+            case id_CPE.index: {
+                int x = getInTileIndex(ctx, cell.second.get()->bel.tile);
+                for (auto &p : params) {
+                    cc.tiles[loc].add_word(stringf("CPE%d.%s", x, p.first.c_str(ctx)), p.second.as_bits());
                 }
-                break;
+            } break;
             default:
                 break;
             }
@@ -149,9 +147,9 @@ struct BitstreamBackend
                         IdString name = IdString(extra_data.name);
                         CfgLoc loc = getConfigLoc(ctx, pip.tile);
                         std::string word = name.c_str(ctx);
-                        int x = getInTileIndex(ctx,pip.tile);
+                        int x = getInTileIndex(ctx, pip.tile);
                         if (boost::starts_with(word, "IM."))
-                            boost::replace_all(word, "IM.", stringf("IM%d.",x));
+                            boost::replace_all(word, "IM.", stringf("IM%d.", x));
                         if (boost::starts_with(word, "IOES."))
                             boost::replace_all(word, "IOES.", "IOES1.");
                         cc.tiles[loc].add_word(word, int_to_bitvector(extra_data.value, extra_data.bits));
