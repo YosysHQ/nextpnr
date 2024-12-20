@@ -92,8 +92,10 @@ void GateMatePacker::pack_io()
             for (auto &params : ci->params) {
                 if (top_port.cell->params.count(params.first)) {
                     if (top_port.cell->params[params.first] != params.second) {
+                        std::string val = params.second.is_string ? params.second.as_string()
+                                                                  : std::to_string(params.second.as_int64());
                         log_warning("Overriding parameter '%s' with value '%s' for cell '%s'.\n",
-                                    params.first.c_str(ctx), params.second.c_str(), ctx->nameOf(top_port.cell));
+                                    params.first.c_str(ctx), val.c_str(), ctx->nameOf(top_port.cell));
                     }
                 }
                 top_port.cell->params[params.first] = params.second;
@@ -112,12 +114,9 @@ void GateMatePacker::pack_io()
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_CC_IBUF, id_CC_OBUF, id_CC_TOBUF, id_CC_IOBUF))
             continue;
-        std::string loc;
-        if (ci.params.count(ctx->id("PIN_NAME")) == 0) {
+        std::string loc = str_or_default(ci.params, id_PIN_NAME, "UNPLACED");
+        if (loc == "UNPLACED")
             log_warning("IO signal name '%s' is not defined in CCF file and will be auto-placed.\n", ctx->nameOf(&ci));
-        } else {
-            loc = ci.params.at(ctx->id("PIN_NAME")).to_string();
-        }
 
         disconnect_if_gnd(&ci, id_T);
         if (ci.type == id_CC_TOBUF && !ci.getPort(id_T))
@@ -140,6 +139,17 @@ void GateMatePacker::pack_io()
             log_warning("Removing unsupported parameter '%s' for type '%s'.\n", p.first.c_str(ctx), ci.type.c_str(ctx));
             keys.push_back(p.first);
         }
+        if (ci.params.count(id_SLEW)) {
+            std::string val = str_or_default(ci.params, id_SLEW, "UNDEFINED");
+            if (val == "UNDEFINED")
+                keys.push_back(id_SLEW);
+            else if (val == "FAST")
+                ci.params[id_SLEW] = Property(Property::State::S1);
+            else if (val == "SLOW")
+                ci.params[id_SLEW] = Property(Property::State::S0);
+            else
+                log_error("Unknown value '%s' for SLEW parameter of '%s' cell.\n", val.c_str(), ci.name.c_str(ctx));
+        }
         for (auto key : keys)
             ci.params.erase(key);
 
@@ -155,6 +165,21 @@ void GateMatePacker::pack_io()
         if (ci.type.in(id_CC_OBUF, id_CC_TOBUF, id_CC_IOBUF)) {
             ci.params[id_DELAY_OBF] = Property(1 << int_or_default(ci.params, id_DELAY_OBF, 0), 16);
             ci.params[id_OE_ENABLE] = Property(Property::State::S1);
+        }
+        if (ci.params.count(id_DRIVE)) {
+            int val = int_or_default(ci.params, id_DRIVE, 0);
+            if (val != 3 && val != 6 && val != 9 && val != 12)
+                log_error("Unsupported value '%d' for DRIVE parameter of '%s' cell.\n", val, ci.name.c_str(ctx));
+            ci.params[id_DRIVE] = Property((val - 3) / 3, 2);
+        }
+        for (auto &p : ci.params) {
+            if (p.first.in(id_PULLUP, id_PULLDOWN, id_KEEPER, id_SCHMITT_TRIGGER, id_FF_OBF, id_FF_IBF)) {
+                int val = int_or_default(ci.params, p.first, 0);
+                if (val != 0 && val != 1)
+                    log_error("Unsupported value '%d' for %s parameter of '%s' cell.\n", val, p.first.c_str(ctx),
+                              ci.name.c_str(ctx));
+                ci.params[p.first] = Property(val, 1);
+            }
         }
 
         // Disconnect PADs

@@ -88,10 +88,8 @@ struct GateMateCCFReader
                     log_error("Uknown value '%s' for parameter '%s' in line %d, must be TRUE or FALSE.\n",
                               value.c_str(), name.c_str(), lineno);
             } else if (name == "SLEW") {
-                if (value == "FAST") {
-                    props->emplace(ctx->id(name.c_str()), Property(Property::State::S1));
-                } else if (value == "SLOW") {
-                    props->emplace(ctx->id(name.c_str()), Property(Property::State::S0));
+                if (value == "FAST" || value == "SLOW") {
+                    props->emplace(ctx->id(name.c_str()), Property(value));
                 } else
                     log_error("Uknown value '%s' for parameter '%s' in line %d, must be SLOW or FAST.\n", value.c_str(),
                               name.c_str(), lineno);
@@ -99,7 +97,7 @@ struct GateMateCCFReader
                 try {
                     int drive = boost::lexical_cast<int>(value.c_str());
                     if (drive == 3 || drive == 6 || drive == 9 || drive == 12) {
-                        props->emplace(ctx->id(name.c_str()), Property((drive - 3) / 3, 2));
+                        props->emplace(ctx->id(name.c_str()), Property(drive, 2));
                     } else
                         log_error("Parameter '%s' must have value 3,6,9 or 12 in line %d.\n", name.c_str(), lineno);
                 } catch (boost::bad_lexical_cast const &) {
@@ -169,7 +167,7 @@ struct GateMateCCFReader
                     params.erase(params.begin());
                     parse_params(params, true, &defaults);
 
-                } else if (type == "pin_in" || type == "pin_out" || type == "pin_inout") {
+                } else if (type == "net" || type == "pin_in" || type == "pin_out" || type == "pin_inout") {
                     if (words.size() < 3 || words.size() > 5)
                         log_error("pin definition line not properly formed (in line %d).\n", lineno);
                     std::string pin_name = strip_quotes(words.at(1));
