@@ -18,6 +18,7 @@
  */
 
 #include "gatemate.h"
+#include "design_utils.h"
 
 #define GEN_INIT_CONSTIDS
 #define HIMBAECHEL_CONSTIDS "uarch/gatemate/constids.inc"
@@ -50,6 +51,40 @@ delay_t GateMateImpl::estimateDelay(WireId src, WireId dst) const
 
 void GateMateImpl::postRoute()
 {
+    ctx->assignArchInfo();
+    log_break();
+    log_info("Resources spent on routing:\n");
+    for (auto &net : ctx->nets) {
+        NetInfo *ni = net.second.get();
+        for (auto &w : ni->wires) {
+            if (w.second.pip != PipId()) {
+                const auto extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD *>(
+                        chip_pip_info(ctx->chip_info, w.second.pip).extra_data.get());
+                if (!extra_data.name)
+                    continue;
+                if (extra_data.type == PipExtra::PIP_EXTRA_CPE) {
+                    IdStringList id = ctx->getPipName(w.second.pip);
+                    BelId bel = ctx->getBelByName(IdStringList::concat(id[0], ctx->id("CPE")));
+                    IdString type = ctx->getBelType(bel);
+                    if (!ctx->getBoundBelCell(bel)) {
+                        CellInfo *cell = ctx->createCell(ctx->id(ctx->nameOfBel(bel)), type);
+                        ctx->bindBel(bel, cell, PlaceStrength::STRENGTH_FIXED);
+                        cell->params[id_INIT_L00] = Property(5,4); //"0101");
+                        cell->params[id_INIT_L01] = Property(15,4); //Property("1111");
+                        cell->params[id_INIT_L02] = Property(15,4); //Property("1111");
+                        cell->params[id_INIT_L03] = Property(15,4); //Property("1111");
+                        cell->params[id_INIT_L10] = Property(8,4); //Property("1000");
+                        cell->params[id_INIT_L20] = Property(12,4); //Property("1100");
+                        cell->params[ctx->id("O2")] = Property(3,2);
+                        cell->params[id_RAM_O2] = Property(1,1);
+                    }
+                }
+            }
+        }
+    }
+
+    print_utilisation(ctx);
+
     const ArchArgs &args = ctx->args;
     if (args.options.count("out")) {
         write_bitstream(args.device, args.options.at("out"));
