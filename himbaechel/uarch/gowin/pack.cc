@@ -1423,6 +1423,12 @@ struct GowinPacker
                             ci->renamePort(id_I0, id_I3);
                             ci->renamePort(id_I2, id_I0);
                         }
+                        // XXX mode 1 - SUB
+                        else if (ci->params.at(id_ALU_MODE).as_int64() == 1) {
+                            ci->renamePort(id_I3, id_I2);
+                            ci->renamePort(id_I1, id_I3);
+                            ci->renamePort(id_I2, id_I1);
+                        }
                         // XXX I2 is pin C which must be set to 1 for all ALU modes except MUL
                         // we use only mode 2 ADDSUB so create and connect this pin
                         ci->addInput(id_I2);
