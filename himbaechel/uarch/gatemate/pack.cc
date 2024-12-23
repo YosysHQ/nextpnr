@@ -33,6 +33,7 @@ void GateMatePacker::disconnect_if_gnd(CellInfo *cell, IdString input)
         cell->disconnectPort(input);
     }
 }
+
 void GateMatePacker::pack_io()
 {
     // Trim nextpnr IOBs - assume IO buffer insertion has been done in synthesis
@@ -276,14 +277,52 @@ void GateMatePacker::pack_io()
     }
 }
 
+void GateMatePacker::pack_cpe()
+{
+    log_info("Packing CPEs..\n");
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (!ci.type.in(id_CC_L2T4, id_CC_L2T5, id_CC_LUT2, id_CC_LUT1))
+            continue;
+        if (ci.type == id_CC_L2T5) {
+            ci.renamePort(id_I0, id_IN4);
+            ci.renamePort(id_I1, id_IN5);
+            ci.renamePort(id_I2, id_IN6);
+            ci.renamePort(id_I3, id_IN7);
+
+            ci.renamePort(id_I4, id_IN1);
+            ci.renamePort(id_O, id_OUT1);
+            ci.params[id_INIT_L00] = Property(0b1010, 4);
+            ci.params[id_INIT_L01] = Property(0b0000, 4);
+            ci.params[id_INIT_L10] = Property(0b1010, 4);
+            ci.params[id_O1] = Property(0b11, 2);
+        } else {
+            ci.renamePort(id_I0, id_IN1);
+            ci.renamePort(id_I1, id_IN2);
+            ci.renamePort(id_I2, id_IN3);
+            ci.renamePort(id_I3, id_IN4);
+            ci.renamePort(id_O, id_OUT1);
+            ci.params[id_O1] = Property(0b11, 2);
+            ci.params[id_INIT_L20] = Property(0b1010, 4);
+            if (ci.type.in(id_CC_LUT1, id_CC_LUT2)) {
+                uint8_t val = int_or_default(ci.params, id_INIT, 0);
+                if (ci.type == id_CC_LUT1)
+                    val = val << 2 | val;
+                ci.params[id_INIT_L00] = Property(val, 4);
+                ci.unsetParam(id_INIT);
+                ci.params[id_INIT_L10] = Property(0b1010, 4);
+            }
+        }
+        ci.type = id_CPE;
+    }
+}
+
 void GateMatePacker::pack_constants()
 {
     log_info("Packing constants..\n");
     // Replace constants with LUTs
-    const dict<IdString, Property> vcc_params = {
-            {id_INIT_L00, Property(0xf, 4)}, {id_INIT_L01, Property(0xf, 4)}, {id_INIT_L02, Property(0xf, 4)}};
-    const dict<IdString, Property> gnd_params = {
-            {id_INIT_L00, Property(0x0, 4)}, {id_INIT_L01, Property(0x0, 4)}, {id_INIT_L02, Property(0x0, 4)}};
+    const dict<IdString, Property> vcc_params = {{id_INIT_L20, Property(0b1111, 4)}, {id_O1, Property(0b11, 2)}};
+    const dict<IdString, Property> gnd_params = {{id_INIT_L20, Property(0b0000, 4)}, {id_O1, Property(0b11, 2)}};
 
     h.replace_constants(CellTypePort(id_CPE, id_OUT1), CellTypePort(id_CPE, id_OUT1), vcc_params, gnd_params);
 }
@@ -327,6 +366,7 @@ void GateMateImpl::pack()
     GateMatePacker packer(ctx, this);
     packer.pack_constants();
     packer.pack_io();
+    packer.pack_cpe();
     packer.remove_constants();
 }
 

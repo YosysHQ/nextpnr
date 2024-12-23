@@ -155,6 +155,8 @@ struct BitstreamBackend
                         int x = getInTileIndex(ctx, pip.tile);
                         if (boost::starts_with(word, "IM."))
                             boost::replace_all(word, "IM.", stringf("IM%d.", x));
+                        if (boost::starts_with(word, "OM."))
+                            boost::replace_all(word, "OM.", stringf("OM%d.", x));
                         if (boost::starts_with(word, "IOES."))
                             boost::replace_all(word, "IOES.", "IOES1.");
                         cc.tiles[loc].add_word(word, int_to_bitvector(extra_data.value, extra_data.bits));
