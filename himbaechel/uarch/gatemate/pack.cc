@@ -315,6 +315,27 @@ void GateMatePacker::pack_cpe()
         }
         ci.type = id_CPE;
     }
+
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (!ci.type.in(id_CC_DFF))
+            continue;
+        ci.renamePort(id_D, id_IN1);
+        ci.renamePort(id_Q, id_OUT1);
+        ci.disconnectPort(id_EN);
+        ci.disconnectPort(id_SR);
+        ci.params[id_O1] = Property(0b11, 2);
+        ci.params[id_INIT_L20] = Property(0b1010, 4);
+        ci.params[id_INIT_L00] = Property(0b1010, 4);
+        ci.params[id_INIT_L10] = Property(0b1010, 4);
+        
+        ci.params[id_EN] = Property(0b11, 2);
+        ci.params[id_R] = Property(0b11, 2);
+        ci.params[id_S] = Property(0b11, 2);
+        ci.params[id_FF_INIT] = Property(0b10, 2);
+        ci.type = id_CPE;
+    }
+
 }
 
 void GateMatePacker::pack_constants()
