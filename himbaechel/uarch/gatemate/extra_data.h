@@ -28,9 +28,14 @@ NPNR_PACKED_STRUCT(struct GateMatePipExtraDataPOD {
     int32_t name;
     uint8_t bits;
     uint8_t value;
-    uint8_t invert;
+    uint8_t flags;
     uint8_t type;
 });
+
+enum MuxFlags {
+    MUX_INVERT  = 1,
+    MUX_VISIBLE = 2,
+};
 
 enum PipExtra
 {
