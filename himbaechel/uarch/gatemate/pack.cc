@@ -324,18 +324,25 @@ void GateMatePacker::pack_cpe()
         ci.renamePort(id_Q, id_OUT1);
         ci.disconnectPort(id_EN);
         ci.disconnectPort(id_SR);
-        ci.params[id_O1] = Property(0b11, 2);
+        ci.params[id_O1] = Property(0b00, 2);
         ci.params[id_INIT_L20] = Property(0b1010, 4);
         ci.params[id_INIT_L00] = Property(0b1010, 4);
         ci.params[id_INIT_L10] = Property(0b1010, 4);
-        
+
         ci.params[id_EN] = Property(0b11, 2);
         ci.params[id_R] = Property(0b11, 2);
         ci.params[id_S] = Property(0b11, 2);
+        ci.params[id_CLK] = Property(0b10, 2);
         ci.params[id_FF_INIT] = Property(0b10, 2);
+
+        ci.unsetParam(ctx->id("SR_VAL"));
+        ci.unsetParam(ctx->id("SR_INV"));
+        ci.unsetParam(ctx->id("EN_INV"));
+        ci.unsetParam(ctx->id("CLK_INV"));
+        ci.unsetParam(ctx->id("INIT"));
+
         ci.type = id_CPE;
     }
-
 }
 
 void GateMatePacker::pack_constants()

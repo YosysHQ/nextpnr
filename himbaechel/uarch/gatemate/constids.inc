@@ -109,10 +109,12 @@ X(INIT_L30)
 X(O1)
 X(O2)
 
-
 X(CC_DFF)
 X(Q)
 X(D)
 X(R)
 X(S)
 X(FF_INIT)
+
+X(CC_BUFG)
+X(BUFG)
