@@ -115,6 +115,7 @@ X(D)
 X(R)
 X(S)
 X(FF_INIT)
+X(2D_IN)
 
 X(CC_BUFG)
 X(BUFG)
