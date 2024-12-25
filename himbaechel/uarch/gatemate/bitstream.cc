@@ -148,7 +148,7 @@ struct BitstreamBackend
                     PipId pip = w.second.pip;
                     const auto extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD *>(
                             chip_pip_info(ctx->chip_info, pip).extra_data.get());
-                    if (extra_data.type == PipExtra::PIP_EXTRA_MUX) {
+                    if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_VISIBLE)) {
                         IdString name = IdString(extra_data.name);
                         CfgLoc loc = getConfigLoc(ctx, pip.tile);
                         std::string word = name.c_str(ctx);
