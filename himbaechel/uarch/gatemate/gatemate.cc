@@ -87,18 +87,18 @@ void GateMateImpl::postRoute()
                     if (!ctx->getBoundBelCell(bel)) {
                         CellInfo *cell = ctx->createCell(ctx->id(ctx->nameOfBel(bel)), id_CPE);
                         ctx->bindBel(bel, cell, PlaceStrength::STRENGTH_FIXED);
-                    }
-                    CellInfo *cell = ctx->getBoundBelCell(bel);
-                    if (IdString(extra_data.name) == id_RAM_O2) {
-                        cell->params[id_INIT_L00] = Property(5, 4);  //"0101");
-                        cell->params[id_INIT_L01] = Property(15, 4); // Property("1111");
-                        cell->params[id_INIT_L02] = Property(15, 4); // Property("1111");
-                        cell->params[id_INIT_L03] = Property(15, 4); // Property("1111");
-                        cell->params[id_INIT_L10] = Property(8, 4);  // Property("1000");
-                        cell->params[id_INIT_L20] = Property(12, 4); // Property("1100");
-                        cell->params[ctx->id("O2")] = Property(3, 2);
-                        cell->params[id_RAM_O2] = Property(1, 1);
-                    }
+                        if (IdString(extra_data.name) == id_RAM_O2) {
+                            cell->params[id_INIT_L00] = Property(0b1010, 4);
+                            cell->params[id_INIT_L01] = Property(0b1111, 4);
+                            cell->params[id_INIT_L02] = Property(0b1111, 4);
+                            cell->params[id_INIT_L03] = Property(0b1111, 4);
+                            cell->params[id_INIT_L10] = Property(0b1000, 4);
+                            cell->params[id_INIT_L20] = Property(0b1100, 4);
+                            cell->params[id_O2] = Property(0b11, 2);
+                            cell->params[id_RAM_O2] = Property(1, 1);
+                        }
+                    } else
+                        log_error("Issue adding pass trough signal.\n");
                 }
             }
         }
