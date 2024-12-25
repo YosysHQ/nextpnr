@@ -49,6 +49,25 @@ delay_t GateMateImpl::estimateDelay(WireId src, WireId dst) const
     return 100 * (std::abs(dx - sx) / 4 + std::abs(dy - sy) / 4 + 2);
 }
 
+bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
+{
+    CellInfo *cell = ctx->getBoundBelCell(bel);
+    if (cell == nullptr) {
+        return true;
+    }
+    if (ctx->getBelType(bel) == id_CPE) {
+        Loc loc = ctx->getBelLocation(bel);
+        int x = loc.x - 2;
+        int y = loc.y - 2;
+        if (x<2 || x>167)
+            return false;
+        if (y<2 || y>127)
+            return false;
+        return true;
+    }
+    return true;
+}
+
 void GateMateImpl::postRoute()
 {
     ctx->assignArchInfo();
