@@ -59,9 +59,9 @@ bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
         Loc loc = ctx->getBelLocation(bel);
         int x = loc.x - 2;
         int y = loc.y - 2;
-        if (x<2 || x>167)
+        if (x < 2 || x > 167)
             return false;
-        if (y<2 || y>127)
+        if (y < 2 || y > 127)
             return false;
         return true;
     }
