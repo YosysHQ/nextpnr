@@ -169,9 +169,10 @@ def main():
         ch.add_node(node)
     set_timings(ch)
 
-    pkg = ch.create_package("FBGA324")
-    for pad in dev.get_package_pads():
-        pkg.create_pad(pad.name, f"X{pad.x+2}Y{pad.y+2}", pad.bel, pad.function, pad.bank)
+    for package in dev.get_packages():
+        pkg = ch.create_package(package)
+        for pad in dev.get_package_pads(package):
+            pkg.create_pad(pad.name, f"X{pad.x+2}Y{pad.y+2}", pad.bel, pad.function, pad.bank)
 
     ch.write_bba(args.bba)
 
