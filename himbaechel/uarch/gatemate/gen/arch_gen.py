@@ -38,6 +38,7 @@ args = parser.parse_args()
 
 sys.path.append(os.path.expanduser(args.lib))
 sys.path += args.lib 
+import chip
 import die
 
 @dataclass
@@ -64,7 +65,8 @@ def set_timings(ch):
 def main():
     # Range needs to be +1, but we are adding +2 more to coordinates, since 
     # they are starting from -2 instead of zero required for nextpnr
-    ch = Chip("gatemate", args.device, die.max_col() + 3, die.max_row() + 3)
+    dev = chip.get_device(args.device)
+    ch = Chip("gatemate", args.device, dev.max_col() + 3, dev.max_row() + 3)
     # Init constant ids
     ch.strs.read_constids(path.join(path.dirname(__file__), "..", "constids.inc"))
     ch.read_gfxids(path.join(path.dirname(__file__), "..", "gfxids.inc"))
@@ -156,11 +158,11 @@ def main():
             tt.create_pip("GPIO.DI", "GPIO.IN2")
 
     # Setup tile grid
-    for x in range(die.max_col() + 3):
-        for y in range(die.max_row() + 3):
-            ch.set_tile_type(x, y, die.get_tile_type(x - 2,y - 2))
+    for x in range(dev.max_col() + 3):
+        for y in range(dev.max_row() + 3):
+            ch.set_tile_type(x, y, dev.get_tile_type(x - 2,y - 2))
     # Create nodes between tiles
-    for _,nodes in die.get_connections():
+    for _,nodes in dev.get_connections():
         node = []
         for conn in nodes:
             node.append(NodeWire(conn.x + 2, conn.y + 2, conn.name))
@@ -168,7 +170,7 @@ def main():
     set_timings(ch)
 
     pkg = ch.create_package("FBGA324")
-    for pad in die.get_package_pads():
+    for pad in dev.get_package_pads():
         pkg.create_pad(pad.name, f"X{pad.x+2}Y{pad.y+2}", pad.bel, pad.function, pad.bank)
 
     ch.write_bba(args.bba)
