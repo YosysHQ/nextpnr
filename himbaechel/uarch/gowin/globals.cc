@@ -43,7 +43,7 @@ struct GowinGlobalRouter
     bool global_pip_available(PipId pip) const { return gwu.is_global_pip(pip) || ctx->checkPipAvail(pip); };
 
     // allow io->global, global->global and global->tile clock
-    bool global_pip_filter(PipId pip) const
+    bool global_pip_filter(PipId pip, WireId src_wire) const
     {
         auto is_local = [&](IdString wire_type) {
             return !wire_type.in(id_GLOBAL_CLK, id_IO_O, id_IO_I, id_PLL_O, id_PLL_I, id_TILE_CLK);
@@ -58,7 +58,13 @@ struct GowinGlobalRouter
         bool src_valid = not_dsc_pip && src_type.in(id_GLOBAL_CLK, id_IO_O, id_PLL_O, id_HCLK);
         bool dst_valid = not_dsc_pip && dst_type.in(id_GLOBAL_CLK, id_TILE_CLK, id_PLL_I, id_IO_I, id_HCLK);
 
-        bool res = (src_valid && dst_valid) || (src_valid && is_local(dst_type)) || (is_local(src_type) && dst_valid);
+        bool res;
+        if (src == src_wire && (!src_type.in(id_IO, id_HCLK))) {
+            bool dst_is_spine = dst_name.str(ctx).rfind("SPINE", 0) == 0;
+            res = src_valid && dst_is_spine;
+        } else {
+            res = (src_valid && dst_valid) || (src_valid && is_local(dst_type)) || (is_local(src_type) && dst_valid);
+        }
         if (ctx->debug && false /*&& res*/) {
             log_info("%s <- %s [%s <- %s]\n", ctx->getWireName(ctx->getPipDstWire(pip)).str(ctx).c_str(),
                      ctx->getWireName(ctx->getPipSrcWire(pip)).str(ctx).c_str(), dst_type.c_str(ctx),
@@ -69,7 +75,7 @@ struct GowinGlobalRouter
         return res;
     }
 
-    bool global_DQCE_pip_filter(PipId pip) const
+    bool global_DQCE_pip_filter(PipId pip, WireId src_wire) const
     {
         auto is_local = [&](IdString wire_type) {
             return !wire_type.in(id_GLOBAL_CLK, id_IO_O, id_IO_I, id_PLL_O, id_PLL_I, id_TILE_CLK);
@@ -92,18 +98,25 @@ struct GowinGlobalRouter
         bool src_valid = not_dsc_pip && src_type.in(id_GLOBAL_CLK, id_IO_O, id_PLL_O, id_HCLK);
         bool dst_valid = not_dsc_pip && dst_type.in(id_GLOBAL_CLK, id_TILE_CLK, id_PLL_I, id_IO_I, id_HCLK);
 
-        bool res = (src_valid && dst_valid) || (src_valid && is_local(dst_type)) || (is_local(src_type) && dst_valid);
-        if (ctx->debug && false /*&& res*/) {
-            log_info("%s <- %s [%s <- %s]\n", ctx->getWireName(ctx->getPipDstWire(pip)).str(ctx).c_str(),
-                     ctx->getWireName(ctx->getPipSrcWire(pip)).str(ctx).c_str(), dst_type.c_str(ctx),
-                     src_type.c_str(ctx));
-            log_info("res:%d, src_valid:%d, dst_valid:%d, src local:%d, dst local:%d\n", res, src_valid, dst_valid,
-                     is_local(src_type), is_local(dst_type));
+        // If DQCE is used, then the source can only connect to SPINEs as only they can be switched off/on.
+        bool res;
+        if (src == src_wire) {
+            bool dst_is_spine = dst_name.str(ctx).rfind("SPINE", 0) == 0;
+            res = src_valid && dst_is_spine;
+        } else {
+            res = (src_valid && dst_valid) || (src_valid && is_local(dst_type)) || (is_local(src_type) && dst_valid);
+            if (ctx->debug && false /*res*/) {
+                log_info("%s <- %s [%s <- %s]\n", ctx->getWireName(ctx->getPipDstWire(pip)).str(ctx).c_str(),
+                         ctx->getWireName(ctx->getPipSrcWire(pip)).str(ctx).c_str(), dst_type.c_str(ctx),
+                         src_type.c_str(ctx));
+                log_info("res:%d, src_valid:%d, dst_valid:%d, src local:%d, dst local:%d\n", res, src_valid, dst_valid,
+                         is_local(src_type), is_local(dst_type));
+            }
         }
         return res;
     }
 
-    bool global_DCS_pip_filter(PipId pip) const
+    bool global_DCS_pip_filter(PipId pip, WireId src_wire) const
     {
         auto is_local = [&](IdString wire_type) {
             return !wire_type.in(id_GLOBAL_CLK, id_IO_O, id_IO_I, id_PLL_O, id_PLL_I, id_TILE_CLK);
@@ -171,7 +184,7 @@ struct GowinGlobalRouter
                     continue;
                 }
                 // Apply our custom pip filter
-                if (!pip_filter(pip)) {
+                if (!pip_filter(pip, src)) {
                     continue;
                 }
                 // Add to the queue
@@ -305,8 +318,8 @@ struct GowinGlobalRouter
             }
             bool bfs_res;
             bfs_res = backwards_bfs_route(
-                    net, src, dst, 1000000, false, [&](PipId pip) { return (is_relaxed_sink(usr) || pip_filter(pip)); },
-                    path);
+                    net, src, dst, 1000000, false,
+                    [&](PipId pip, WireId src_wire) { return (is_relaxed_sink(usr) || pip_filter(pip, src)); }, path);
             if (bfs_res) {
                 routed = routed == ROUTED_PARTIALLY ? routed : ROUTED_ALL;
             } else {
@@ -340,7 +353,8 @@ struct GowinGlobalRouter
             src = ctx->getBelPinWire(driver.cell->bel, driver.port);
         }
 
-        RouteResult route_result = route_direct_net(net, [&](PipId pip) { return global_DQCE_pip_filter(pip); }, src);
+        RouteResult route_result = route_direct_net(
+                net, [&](PipId pip, WireId src_wire) { return global_DQCE_pip_filter(pip, src); }, src);
         if (route_result == NOT_ROUTED) {
             log_error("Can't route the %s network.\n", ctx->nameOf(net));
         }
@@ -417,7 +431,8 @@ struct GowinGlobalRouter
             src = ctx->getBelPinWire(driver.cell->bel, driver.port);
         }
 
-        RouteResult route_result = route_direct_net(net, [&](PipId pip) { return global_DCS_pip_filter(pip); }, src);
+        RouteResult route_result =
+                route_direct_net(net, [&](PipId pip, WireId src_wire) { return global_DCS_pip_filter(pip, src); }, src);
         if (route_result == NOT_ROUTED) {
             log_error("Can't route the %s network.\n", ctx->nameOf(net));
         }
@@ -504,7 +519,8 @@ struct GowinGlobalRouter
         WireId src = ctx->getBelPinWire(driver.cell->bel, port);
 
         std::vector<PipId> path;
-        RouteResult route_result = route_direct_net(net, [&](PipId pip) { return global_pip_filter(pip); }, src, &path);
+        RouteResult route_result = route_direct_net(
+                net, [&](PipId pip, WireId src_wire) { return global_pip_filter(pip, src); }, src, &path);
         if (route_result == NOT_ROUTED) {
             log_error("Can't route the %s network.\n", ctx->nameOf(net));
         }
@@ -568,7 +584,8 @@ struct GowinGlobalRouter
         NetInfo *net_before_buf = buf_ci->getPort(id_I);
         NPNR_ASSERT(net_before_buf != nullptr);
 
-        RouteResult route_result = route_direct_net(net, [&](PipId pip) { return global_pip_filter(pip); }, src);
+        RouteResult route_result = route_direct_net(
+                net, [&](PipId pip, WireId src_wire) { return global_pip_filter(pip, src_wire); }, src);
         if (route_result == NOT_ROUTED || route_result == ROUTED_PARTIALLY) {
             log_error("Can't route the %s net. It might be worth removing the BUFG buffer flag.\n", ctx->nameOf(net));
         }
@@ -578,7 +595,7 @@ struct GowinGlobalRouter
         CellInfo *true_src_ci = net_before_buf->driver.cell;
         src = ctx->getBelPinWire(true_src_ci->bel, net_before_buf->driver.port);
         ctx->bindWire(src, net, STRENGTH_LOCKED);
-        backwards_bfs_route(net, src, dst, 1000000, false, [&](PipId pip) { return true; });
+        backwards_bfs_route(net, src, dst, 1000000, false, [&](PipId pip, WireId src_wire) { return true; });
         // remove net
         buf_ci->movePortTo(id_O, true_src_ci, net_before_buf->driver.port);
         net_before_buf->driver.cell = nullptr;
@@ -588,7 +605,8 @@ struct GowinGlobalRouter
 
     void route_clk_net(NetInfo *net)
     {
-        RouteResult route_result = route_direct_net(net, [&](PipId pip) { return global_pip_filter(pip); });
+        RouteResult route_result =
+                route_direct_net(net, [&](PipId pip, WireId src_wire) { return global_pip_filter(pip, src_wire); });
         if (route_result != NOT_ROUTED) {
             log_info("    '%s' net was routed  using global resources %s.\n", ctx->nameOf(net),
                      route_result == ROUTED_ALL ? "only" : "partially");
