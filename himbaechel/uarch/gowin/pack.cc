@@ -700,8 +700,8 @@ struct GowinPacker
 
             // input reg in IO
             CellInfo *iologic_i = nullptr;
-            if ((ci.type == id_IBUF && ctx->settings.count(id_IREG_IN_IOB)) ||
-                (ci.type == id_IOBUF && ctx->settings.count(id_IOREG_IN_IOB))) {
+            if ((ci.type == id_IBUF && (ctx->settings.count(id_IREG_IN_IOB) || ci.attrs.count(id_IOBFF))) ||
+                (ci.type == id_IOBUF && (ctx->settings.count(id_IOREG_IN_IOB) || ci.attrs.count(id_IOBFF)))) {
 
                 if (ci.getPort(id_O) == nullptr) {
                     continue;
@@ -761,8 +761,8 @@ struct GowinPacker
 
             // output reg in IO
             CellInfo *iologic_o = nullptr;
-            if ((ci.type == id_OBUF && ctx->settings.count(id_OREG_IN_IOB)) ||
-                (ci.type == id_IOBUF && ctx->settings.count(id_IOREG_IN_IOB))) {
+            if ((ci.type == id_OBUF && (ctx->settings.count(id_OREG_IN_IOB) || ci.attrs.count(id_IOBFF))) ||
+                (ci.type == id_IOBUF && (ctx->settings.count(id_IOREG_IN_IOB) || ci.attrs.count(id_IOBFF)))) {
                 while (1) {
                     if (ci.getPort(id_I) == nullptr) {
                         break;
@@ -862,7 +862,7 @@ struct GowinPacker
             }
 
             // output enable reg in IO
-            if (ci.type == id_IOBUF && ctx->settings.count(id_IOREG_IN_IOB)) {
+            if (ci.type == id_IOBUF && (ctx->settings.count(id_IOREG_IN_IOB) || ci.attrs.count(id_IOBFF))) {
                 while (1) {
                     if (ci.getPort(id_OEN) == nullptr) {
                         break;
