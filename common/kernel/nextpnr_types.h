@@ -519,6 +519,8 @@ struct HierarchicalCell
     dict<IdString, HierarchicalPort> ports;
     // Name inside cell instance -> global name
     dict<IdString, IdString> hier_cells;
+    // Cell attributes
+    dict<IdString, Property> attrs;
 };
 
 NEXTPNR_NAMESPACE_END
