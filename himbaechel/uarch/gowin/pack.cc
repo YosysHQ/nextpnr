@@ -763,7 +763,7 @@ struct GowinPacker
             CellInfo *iologic_o = nullptr;
             if ((ci.type == id_OBUF && (ctx->settings.count(id_OREG_IN_IOB) || ci.attrs.count(id_IOBFF))) ||
                 (ci.type == id_IOBUF && (ctx->settings.count(id_IOREG_IN_IOB) || ci.attrs.count(id_IOBFF)))) {
-                while (1) {
+                do {
                     if (ci.getPort(id_I) == nullptr) {
                         break;
                     }
@@ -858,12 +858,12 @@ struct GowinPacker
                         cells_to_remove.push_back(ff->name);
                     }
                     break;
-                }
+                } while (false);
             }
 
             // output enable reg in IO
             if (ci.type == id_IOBUF && (ctx->settings.count(id_IOREG_IN_IOB) || ci.attrs.count(id_IOBFF))) {
-                while (1) {
+                do {
                     if (ci.getPort(id_OEN) == nullptr) {
                         break;
                     }
@@ -965,7 +965,7 @@ struct GowinPacker
                         cells_to_remove.push_back(ff->name);
                     }
                     break;
-                }
+                } while (false);
             }
         }
 
