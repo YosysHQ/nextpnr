@@ -1619,6 +1619,7 @@ void pack_plls(Context *ctx)
                 bool found_lut = false;
                 bool all_luts = true;
                 bool found_carry = false;
+                bool found_ff = false;
                 unsigned int lut_count = 0;
                 for (const auto &user : port.net->users) {
                     NPNR_ASSERT(user.cell != nullptr);
@@ -1626,6 +1627,10 @@ void pack_plls(Context *ctx)
                         if (bool_or_default(user.cell->params, id_CARRY_ENABLE, false)) {
                             found_carry = true;
                             all_luts = false;
+                        } else if (bool_or_default(user.cell->params, id_DFF_ENABLE, false)) {
+                            found_lut = true;
+                            found_ff = true;
+                            lut_count++;
                         } else {
                             found_lut = true;
                             lut_count++;
@@ -1635,9 +1640,9 @@ void pack_plls(Context *ctx)
                     }
                 }
 
-                if (found_lut && all_luts && lut_count < 8) {
+                if (found_lut && all_luts && (!found_ff || lut_count == 1) && lut_count < 8) {
                     // Every user is a LUT, carry on now.
-                } else if (found_lut && !all_luts && !found_carry && lut_count < 8) {
+                } else if (found_lut && !all_luts && !found_carry && !found_ff && lut_count < 8) {
                     // Strategy: create a pass-through LUT, move all non-LUT users behind it.
                     log_info("  LUT strategy for %s: move non-LUT users to new LUT\n", port.name.c_str(ctx));
                     auto pt = spliceLUT(ctx, packed.get(), port.name, true);
