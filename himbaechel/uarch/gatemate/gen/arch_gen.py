@@ -80,7 +80,7 @@ def main():
         for prim in die.get_primitives_for_type(type_name):
             bel = tt.create_bel(prim.name, prim.type, prim.z)
             for pin in die.get_primitive_pins(prim.type):
-                tt.add_bel_pin(bel, pin.name, f"{prim.name}.{pin.name}", pin.dir)
+                tt.add_bel_pin(bel, pin.name, die.get_pin_connection_name(prim,pin), pin.dir)
         for mux in die.get_mux_connections_for_type(type_name):
             pp = tt.create_pip(mux.src, mux.dst)
             mux_flags = MUX_INVERT if mux.invert else 0
