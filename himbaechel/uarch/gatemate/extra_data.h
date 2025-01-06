@@ -36,6 +36,7 @@ enum MuxFlags
 {
     MUX_INVERT = 1,
     MUX_VISIBLE = 2,
+    MUX_CONFIG = 4,
 };
 
 enum PipExtra

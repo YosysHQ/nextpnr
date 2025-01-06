@@ -132,6 +132,8 @@ struct BitstreamBackend
                     cc.tiles[loc].add_word(stringf("CPE%d.%s", x, p.first.c_str(ctx)), p.second.as_bits());
                 }
             } break;
+            case id_BUFG.index:
+            break;
             default:
                 log_error("Unhandled cell %s of type %s\n", cell.second.get()->name.c_str(ctx),
                           cell.second->type.c_str(ctx));
@@ -152,14 +154,18 @@ struct BitstreamBackend
                         IdString name = IdString(extra_data.name);
                         CfgLoc loc = getConfigLoc(ctx, pip.tile);
                         std::string word = name.c_str(ctx);
-                        int x = getInTileIndex(ctx, pip.tile);
-                        if (boost::starts_with(word, "IM."))
-                            boost::replace_all(word, "IM.", stringf("IM%d.", x));
-                        if (boost::starts_with(word, "OM."))
-                            boost::replace_all(word, "OM.", stringf("OM%d.", x));
-                        if (boost::starts_with(word, "IOES."))
-                            boost::replace_all(word, "IOES.", "IOES1.");
-                        cc.tiles[loc].add_word(word, int_to_bitvector(extra_data.value, extra_data.bits));
+                        if (extra_data.flags & MUX_CONFIG) {
+                            cc.configs[loc.die].add_word(word, int_to_bitvector(extra_data.value, extra_data.bits));    
+                        } else {
+                            int x = getInTileIndex(ctx, pip.tile);
+                            if (boost::starts_with(word, "IM."))
+                                boost::replace_all(word, "IM.", stringf("IM%d.", x));
+                            if (boost::starts_with(word, "OM."))
+                                boost::replace_all(word, "OM.", stringf("OM%d.", x));
+                            if (boost::starts_with(word, "IOES."))
+                                boost::replace_all(word, "IOES.", "IOES1.");
+                            cc.tiles[loc].add_word(word, int_to_bitvector(extra_data.value, extra_data.bits));
+                        }
                     }
                 }
             }
