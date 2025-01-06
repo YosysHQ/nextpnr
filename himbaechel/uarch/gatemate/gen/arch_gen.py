@@ -29,6 +29,7 @@ PIP_EXTRA_CPE = 2
 
 MUX_INVERT = 1
 MUX_VISIBLE = 2
+MUX_CONFIG = 4
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--lib", help="Project Peppercorn python database script path", type=str, required=True)
@@ -85,6 +86,7 @@ def main():
             pp = tt.create_pip(mux.src, mux.dst)
             mux_flags = MUX_INVERT if mux.invert else 0
             mux_flags |= MUX_VISIBLE if mux.visible else 0
+            mux_flags |= MUX_CONFIG if mux.config else 0
             pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id(mux.name), mux.bits, mux.value, mux_flags)
         if "CPE" in type_name:
             pp = tt.create_pip("CPE.IN1", "CPE.RAM_O2")

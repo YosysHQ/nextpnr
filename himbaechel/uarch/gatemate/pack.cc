@@ -348,6 +348,17 @@ void GateMatePacker::pack_cpe()
     }
 }
 
+void GateMatePacker::pack_bufg()
+{
+    log_info("Packing BUFGs..\n");
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (!ci.type.in(id_CC_BUFG))
+            continue;
+        ci.type = id_BUFG;
+    }
+}
+
 void GateMatePacker::pack_constants()
 {
     log_info("Packing constants..\n");
@@ -397,6 +408,7 @@ void GateMateImpl::pack()
     GateMatePacker packer(ctx, this);
     packer.pack_constants();
     packer.pack_io();
+    packer.pack_bufg();
     packer.pack_cpe();
     packer.remove_constants();
 }
