@@ -455,6 +455,9 @@ template <typename R> struct BaseArch : ArchAPI<R>
     // Flow methods
     virtual void assignArchInfo() override {};
 
+    // HACK
+    virtual bool isPipInverting(PipId pip) const { return false; }
+
     // --------------------------------------------------------------
     // These structures are used to provide default implementations of bel/wire/pip binding. Arches might want to
     // replace them with their own, for example to use faster access structures than dict. Arches might also
