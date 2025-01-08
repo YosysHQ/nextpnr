@@ -285,10 +285,10 @@ void GateMatePacker::pack_cpe()
         if (!ci.type.in(id_CC_L2T4, id_CC_L2T5, id_CC_LUT2, id_CC_LUT1))
             continue;
         if (ci.type == id_CC_L2T5) {
-            ci.renamePort(id_I0, id_IN4);
-            ci.renamePort(id_I1, id_IN5);
-            ci.renamePort(id_I2, id_IN6);
-            ci.renamePort(id_I3, id_IN7);
+            ci.renamePort(id_I0, id_IN5);
+            ci.renamePort(id_I1, id_IN6);
+            ci.renamePort(id_I2, id_IN7);
+            ci.renamePort(id_I3, id_IN8);
 
             ci.renamePort(id_I4, id_IN1);
             ci.renamePort(id_O, id_OUT1);
