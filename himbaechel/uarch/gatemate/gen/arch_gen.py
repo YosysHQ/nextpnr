@@ -30,6 +30,7 @@ PIP_EXTRA_CPE = 2
 MUX_INVERT = 1
 MUX_VISIBLE = 2
 MUX_CONFIG = 4
+MUX_CPE_INV = 8
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--lib", help="Project Peppercorn python database script path", type=str, required=True)
@@ -91,6 +92,12 @@ def main():
         if "CPE" in type_name:
             pp = tt.create_pip("CPE.IN1", "CPE.RAM_O2")
             pp.extra_data = PipExtraData(PIP_EXTRA_CPE,ch.strs.id("RAM_O2"))
+            for i in range(1,9):
+                tt.create_wire(f"CPE.V_IN{i}", "CPE_VIRTUAL_WIRE")
+                pp = tt.create_pip(f"CPE.V_IN{i}", f"CPE.IN{i}")
+                pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id(f"CPE.IN{i}_INV"), 1, i, 0)
+                pp = tt.create_pip(f"CPE.V_IN{i}", f"CPE.IN{i}")
+                pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id(f"CPE.IN{i}_INV"), 1, i, MUX_CPE_INV | MUX_INVERT)
         if "GPIO" in type_name:
             tt.create_wire("GPIO.OUT_D1", "WIRE_INTERNAL")
             tt.create_wire("GPIO.OUT_D2", "WIRE_INTERNAL")
@@ -167,6 +174,7 @@ def main():
     for _,nodes in dev.get_connections():
         node = []
         for conn in nodes:
+            conn.name = conn.name.replace("CPE.IN", "CPE.V_IN")
             node.append(NodeWire(conn.x + 2, conn.y + 2, conn.name))
         ch.add_node(node)
     set_timings(ch)

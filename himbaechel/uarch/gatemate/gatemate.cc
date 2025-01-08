@@ -68,6 +68,28 @@ bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
     return true;
 }
 
+void updateLUT(Context *ctx, CellInfo *cell, IdString port, IdString init)
+{
+    if (cell->params.count(init) == 0) return;
+    unsigned init_val = int_or_default(cell->params, init);
+    WireId pin_wire = ctx->getBelPinWire(cell->bel, port);
+    for (PipId pip : ctx->getPipsUphill(pin_wire)) {
+        if (!ctx->getBoundPipNet(pip))
+            continue;
+        const auto extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD *>(
+                chip_pip_info(ctx->chip_info, pip).extra_data.get());
+        if (!extra_data.name)
+            continue;
+        if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_CPE_INV)) {
+            if (port.in(id_IN1,id_IN3,id_IN5,id_IN7))
+                init_val = (init_val & 0b1010) >> 1 | (init_val & 0b0101) << 1;
+            else
+                init_val = (init_val & 0b0011) << 2 | (init_val & 0b1100) >> 2;
+            cell->params[init] = Property(init_val, 4);
+        }
+    }
+}
+
 void GateMateImpl::postRoute()
 {
     ctx->assignArchInfo();
@@ -101,6 +123,21 @@ void GateMateImpl::postRoute()
                         log_error("Issue adding pass trough signal.\n");
                 }
             }
+        }
+    }
+
+
+    for (auto &cell : ctx->cells) {
+        if (cell.second->type == id_CPE) {
+            // if LUT part used
+            updateLUT(ctx, cell.second.get(), id_IN1, id_INIT_L00);
+            updateLUT(ctx, cell.second.get(), id_IN2, id_INIT_L00);
+            updateLUT(ctx, cell.second.get(), id_IN3, id_INIT_L01);
+            updateLUT(ctx, cell.second.get(), id_IN4, id_INIT_L01);
+            updateLUT(ctx, cell.second.get(), id_IN5, id_INIT_L02);
+            updateLUT(ctx, cell.second.get(), id_IN6, id_INIT_L02);
+            updateLUT(ctx, cell.second.get(), id_IN7, id_INIT_L03);
+            updateLUT(ctx, cell.second.get(), id_IN8, id_INIT_L03);
         }
     }
 
