@@ -164,6 +164,8 @@ struct BitstreamBackend
                                 boost::replace_all(word, "OM.", stringf("OM%d.", x));
                             if (boost::starts_with(word, "IOES."))
                                 boost::replace_all(word, "IOES.", "IOES1.");
+                            if (boost::starts_with(word, "CPE."))
+                                boost::replace_all(word, "CPE.", stringf("CPE%d.", x));
                             cc.tiles[loc].add_word(word, int_to_bitvector(extra_data.value, extra_data.bits));
                         }
                     }
