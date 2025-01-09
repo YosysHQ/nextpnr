@@ -149,6 +149,38 @@ void GateMateImpl::postRoute()
     }
 }
 
+void GateMateImpl::postPlace()
+{
+    log_break();
+    log_info("Limiting routing...\n");
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (ci.type == id_CPE) {
+            if (!ci.params.count(id_FUNCTION)) continue;
+            uint8_t func = int_or_default(ci.params, id_FUNCTION, 0);
+            if (func!=4) continue; // Skip all that are not MUX
+            for (int i = 1; i <= 4; i++) {
+                IdString port = ctx->idf("IN%d", i);
+                NetInfo *net = ci.getPort(port);
+                if (!net)
+                    continue;
+                WireId dwire = ctx->getBelPinWire(ci.bel, port);
+                for (PipId pip : ctx->getPipsUphill(dwire)) {
+                    const auto extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD *>(
+                            chip_pip_info(ctx->chip_info, pip).extra_data.get());
+                    if (!extra_data.name)
+                        continue;
+                    if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_CPE_INV)) {
+                        blocked_pips.emplace(pip);
+                    }
+                }
+            }
+        }
+    }
+    ctx->assignArchInfo();
+}
+
+
 void GateMateImpl::setupArchContext()
 {
     const ArchArgs &args = ctx->args;

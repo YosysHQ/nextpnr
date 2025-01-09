@@ -119,3 +119,13 @@ X(2D_IN)
 
 X(CC_BUFG)
 X(BUFG)
+
+X(CC_MX2)
+X(CC_MX4)
+X(FUNCTION)
+X(D0)
+X(D1)
+X(D2)
+X(D3)
+X(S0)
+X(S1)

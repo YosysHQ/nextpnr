@@ -40,6 +40,7 @@ struct GateMateImpl : HimbaechelAPI
 
     void pack() override;
 
+    void postPlace() override;
     void postRoute() override;
 
     bool isBelLocationValid(BelId bel, bool explain_invalid = false) const override;
@@ -50,6 +51,9 @@ struct GateMateImpl : HimbaechelAPI
     void write_bitstream(const std::string &device, const std::string &filename);
     bool read_bitstream(const std::string &device, const std::string &filename);
 
+    bool checkPipAvail(PipId pip) const override { return blocked_pips.count(pip) == 0; }
+    bool checkPipAvailForNet(PipId pip, const NetInfo *net) const override { return checkPipAvail(pip); };
+
     void parse_ccf(const std::string &filename);
 
     IdString getBelBucketForCellType(IdString cell_type) const;
@@ -59,6 +63,8 @@ struct GateMateImpl : HimbaechelAPI
         const auto &extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD*>(chip_pip_info(ctx->chip_info, pip).extra_data.get());
         return extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_INVERT);
     }
+
+    pool<PipId> blocked_pips;
 };
 
 NEXTPNR_NAMESPACE_END
