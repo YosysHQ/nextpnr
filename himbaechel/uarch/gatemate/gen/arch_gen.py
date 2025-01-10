@@ -94,16 +94,15 @@ def main():
             pp.extra_data = PipExtraData(PIP_EXTRA_CPE,ch.strs.id("RAM_O2"))
             for i in range(1,9):
                 tt.create_wire(f"CPE.V_IN{i}", "CPE_VIRTUAL_WIRE")
-                tt.create_wire("CPE.V_CLK", "CPE_VIRTUAL_WIRE")
                 pp = tt.create_pip(f"CPE.V_IN{i}", f"CPE.IN{i}")
                 pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id(f"CPE.IN{i}_INV"), 1, i, 0)
                 pp = tt.create_pip(f"CPE.V_IN{i}", f"CPE.IN{i}")
                 pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id(f"CPE.IN{i}_INV"), 1, i, MUX_CPE_INV | MUX_INVERT)
-
-                pp = tt.create_pip("CPE.V_CLK", "CPE.CLK")
-                pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id("CPE.CLK"), 2, 1, MUX_VISIBLE)
-                pp = tt.create_pip("CPE.V_CLK", "CPE.CLK")
-                pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id("CPE.CLK"), 2, 2, MUX_VISIBLE | MUX_INVERT)
+            tt.create_wire("CPE.V_CLK", "CPE_VIRTUAL_WIRE")
+            pp = tt.create_pip("CPE.V_CLK", "CPE.CLK")
+            pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id("CPE.CLK"), 2, 1, MUX_VISIBLE)
+            pp = tt.create_pip("CPE.V_CLK", "CPE.CLK")
+            pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id("CPE.CLK"), 2, 2, MUX_VISIBLE | MUX_INVERT)
         if "GPIO" in type_name:
             tt.create_wire("GPIO.OUT_D1", "WIRE_INTERNAL")
             tt.create_wire("GPIO.OUT_D2", "WIRE_INTERNAL")
