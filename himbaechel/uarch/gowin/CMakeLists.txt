@@ -2,7 +2,6 @@ message(STATUS "Configuring Himbaechel-Gowin uarch")
 cmake_minimum_required(VERSION 3.5)
 project(himbaechel-gowin-chipdb NONE)
 
-find_package(Python3 3.5 REQUIRED COMPONENTS Interpreter)
 set(ALL_HIMBAECHEL_GOWIN_DEVICES GW1N-1 GW1NZ-1 GW1N-4 GW1N-9 GW1N-9C GW1NS-4 GW2A-18 GW2A-18C)
 set(HIMBAECHEL_GOWIN_DEVICES "" CACHE STRING
     "Include support for these Gowin devices (available: ${ALL_HIMBAECHEL_GOWIN_DEVICES})")

@@ -10,7 +10,7 @@ cmake_policy(SET CMP0079 NEW)
 # compilation database as not all clang/gcc share the same implicit includes
 # leading to essentially non-working compile_commands.json
 if(CMAKE_EXPORT_COMPILE_COMMANDS)
-  set(CMAKE_CXX_STANDARD_INCLUDE_DIRECTORIES 
+  set(CMAKE_CXX_STANDARD_INCLUDE_DIRECTORIES
       ${CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES})
 endif()
 
@@ -191,11 +191,11 @@ if (BUILD_GUI)
     set(CMAKE_ENABLE_EXPORTS ON)
 endif()
 
-find_package(Python3 3.5 REQUIRED COMPONENTS Interpreter)
 if (BUILD_PYTHON)
     # TODO: sensible minimum Python version
-    find_package(Python3 3.5 REQUIRED COMPONENTS Development)
+    find_package(Python3 3.5 REQUIRED COMPONENTS Interpreter Development.Embed)
 else()
+    find_package(Python3 3.5 REQUIRED COMPONENTS Interpreter)
     add_definitions("-DNO_PYTHON")
 endif()
 
