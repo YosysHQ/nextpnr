@@ -194,7 +194,7 @@ struct ExampleImpl : HimbaechelAPI
     }
 
     void drawWire(std::vector<GraphicElement> &g, GraphicElement::style_t style, Loc loc, IdString wire_type,
-                  int32_t tilewire, IdString tile_type)
+                  int32_t tilewire, IdString tile_type) override
     {
         GraphicElement el;
         el.type = GraphicElement::TYPE_LINE;
@@ -308,7 +308,7 @@ struct ExampleImpl : HimbaechelAPI
     }
 
     void drawPip(std::vector<GraphicElement> &g, GraphicElement::style_t style, Loc loc, WireId src, IdString src_type,
-                 int32_t src_id, WireId dst, IdString dst_type, int32_t dst_id)
+                 int32_t src_id, WireId dst, IdString dst_type, int32_t dst_id) override
     {
         GraphicElement el;
         el.type = GraphicElement::TYPE_ARROW;
@@ -329,7 +329,7 @@ struct ExampleArch : HimbaechelArch
 {
     ExampleArch() : HimbaechelArch("example") {};
     bool match_device(const std::string &device) override { return device == "EXAMPLE"; }
-    std::unique_ptr<HimbaechelAPI> create(const std::string &device, const dict<std::string, std::string> &args)
+    std::unique_ptr<HimbaechelAPI> create(const std::string &device, const dict<std::string, std::string> &args) override
     {
         return std::make_unique<ExampleImpl>();
     }

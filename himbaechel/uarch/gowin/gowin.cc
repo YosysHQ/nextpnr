@@ -44,9 +44,9 @@ struct GowinImpl : HimbaechelAPI
     bool checkPipAvail(PipId pip) const override;
 
     // Cluster
-    bool isClusterStrict(const CellInfo *cell) const { return true; }
+    bool isClusterStrict(const CellInfo *cell) const override { return true; }
     bool getClusterPlacement(ClusterId cluster, BelId root_bel,
-                             std::vector<std::pair<CellInfo *, BelId>> &placement) const;
+                             std::vector<std::pair<CellInfo *, BelId>> &placement) const override;
 
   private:
     HimbaechelHelpers h;
@@ -110,7 +110,7 @@ struct GowinArch : HimbaechelArch
 
     bool match_device(const std::string &device) override { return device.size() > 2 && device.substr(0, 2) == "GW"; }
 
-    std::unique_ptr<HimbaechelAPI> create(const std::string &device, const dict<std::string, std::string> &args)
+    std::unique_ptr<HimbaechelAPI> create(const std::string &device, const dict<std::string, std::string> &args) override
     {
         return std::make_unique<GowinImpl>();
     }

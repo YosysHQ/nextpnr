@@ -1060,7 +1060,7 @@ struct NgUltraArch : HimbaechelArch
 {
     NgUltraArch() : HimbaechelArch("ng-ultra") {};
     bool match_device(const std::string &device) override { return device == "NG-ULTRA"; }
-    std::unique_ptr<HimbaechelAPI> create(const std::string &device, const dict<std::string, std::string> &args)
+    std::unique_ptr<HimbaechelAPI> create(const std::string &device, const dict<std::string, std::string> &args) override
     {
         return std::make_unique<NgUltraImpl>();
     }
