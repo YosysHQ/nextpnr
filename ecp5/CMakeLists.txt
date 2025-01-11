@@ -9,8 +9,6 @@ message(STATUS "Enabled ECP5 devices: ${ECP5_DEVICES}")
 if(DEFINED ECP5_CHIPDB)
     add_custom_target(chipdb-ecp5-bbas ALL)
 else()
-    find_package(Python3 3.5 REQUIRED COMPONENTS Interpreter)
-
     # shared among all families
     set(SERIALIZE_CHIPDBS TRUE CACHE BOOL
         "Serialize device data preprocessing to minimize memory use")

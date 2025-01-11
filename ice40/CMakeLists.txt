@@ -9,8 +9,6 @@ message(STATUS "Enabled iCE40 devices: ${ICE40_DEVICES}")
 if(DEFINED ICE40_CHIPDB)
     add_custom_target(chipdb-ice40-bbas ALL)
 else()
-    find_package(Python3 3.5 REQUIRED COMPONENTS Interpreter)
-
     # shared among all families
     set(SERIALIZE_CHIPDBS TRUE CACHE BOOL
         "Serialize device data preprocessing to minimize memory use")
