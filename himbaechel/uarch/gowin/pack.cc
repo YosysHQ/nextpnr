@@ -1,3 +1,5 @@
+#include <map>
+
 #include "design_utils.h"
 #include "log.h"
 #include "nextpnr.h"

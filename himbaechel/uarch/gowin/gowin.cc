@@ -1,4 +1,5 @@
 #include <regex>
+#include <map>
 
 #include "himbaechel_api.h"
 #include "himbaechel_helpers.h"
