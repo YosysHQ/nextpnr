@@ -1,3 +1,5 @@
+#include <map>
+
 #include "design_utils.h"
 #include "log.h"
 #include "nextpnr.h"
@@ -1738,7 +1740,7 @@ struct GowinPacker
                     }
                     // always prepend first ALU with carry generator block
                     // three cases: CIN == 0, CIN == 1 and CIN == ?
-                    new_cells.push_back(std::move(alu_add_cin_block(ctx, ci, cin_net)));
+                    new_cells.push_back(alu_add_cin_block(ctx, ci, cin_net));
                     CellInfo *cin_block_ci = new_cells.back().get();
                     // CIN block is the cluster root and is always placed in ALU0
                     // This is a possible place for further optimization
@@ -1784,7 +1786,7 @@ struct GowinPacker
                             break;
                         }
                         if (CellTypePort(*cout_net->users.begin()) != cell_alu_cin || cout_net->users.entries() > 1) {
-                            new_cells.push_back(std::move(alu_add_cout_block(ctx, ci, cout_net)));
+                            new_cells.push_back(alu_add_cout_block(ctx, ci, cout_net));
                             CellInfo *cout_block_ci = new_cells.back().get();
                             cin_block_ci->constr_children.push_back(cout_block_ci);
                             NPNR_ASSERT(cout_block_ci->cluster == ClusterId());
@@ -1807,7 +1809,7 @@ struct GowinPacker
                     // ALUs are always paired
                     if (alu_chain_len & 1) {
                         // create dummy cell
-                        new_cells.push_back(std::move(alu_add_dummy_block(ctx, ci)));
+                        new_cells.push_back(alu_add_dummy_block(ctx, ci));
                         CellInfo *dummy_block_ci = new_cells.back().get();
                         cin_block_ci->constr_children.push_back(dummy_block_ci);
                         NPNR_ASSERT(dummy_block_ci->cluster == ClusterId());
@@ -1907,7 +1909,7 @@ struct GowinPacker
 
                 // make actual storage cells
                 for (int i = 0; i < 4; ++i) {
-                    new_cells.push_back(std::move(ssram_make_lut(ctx, ci, i)));
+                    new_cells.push_back(ssram_make_lut(ctx, ci, i));
                     CellInfo *lut_ci = new_cells.back().get();
                     ci->constr_children.push_back(lut_ci);
                     lut_ci->cluster = ci->name;

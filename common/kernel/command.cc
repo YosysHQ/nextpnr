@@ -35,6 +35,7 @@
 #include <iostream>
 #include <random>
 #include <set>
+#include <cinttypes>
 
 #include "command.h"
 #include "design_utils.h"
@@ -459,7 +460,7 @@ void CommandHandler::setupContext(Context *ctx)
         std::uniform_int_distribution<uint64_t> distrib{1};
         auto seed = distrib(randDev);
         ctx->rngstate = seed;
-        log_info("Generated random seed: %lu\n", seed);
+        log_info("Generated random seed: %" PRIu64 "\n", seed);
     }
 
     if (vm.count("slack_redist_iter")) {
