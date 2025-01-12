@@ -608,7 +608,6 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
                 bel = tt.create_bel("EMCU", "EMCU", EMCU_Z)
                 portmap = desc['ins']
                 for port, wire in portmap.items():
-                    print(port, wire)
                     if not tt.has_wire(wire):
                         tt.create_wire(wire, "EMCU_IN")
                     tt.add_bel_pin(bel, port, wire, PinType.INPUT)
@@ -746,7 +745,7 @@ def create_io_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc:
         tt.add_bel_pin(io, "OEN", portmap['OE'], PinType.INPUT)
         tt.add_bel_pin(io, "O", portmap['O'], PinType.OUTPUT)
         # bottom io
-        if 'BOTTOM_IO_PORT_A' in portmap:
+        if 'BOTTOM_IO_PORT_A' in portmap and portmap['BOTTOM_IO_PORT_A']:
             if not tt.has_wire(portmap['BOTTOM_IO_PORT_A']):
                 tt.create_wire(portmap['BOTTOM_IO_PORT_A'], "IO_I")
                 tt.create_wire(portmap['BOTTOM_IO_PORT_B'], "IO_I")

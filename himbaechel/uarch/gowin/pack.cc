@@ -859,7 +859,6 @@ struct GowinPacker
                         iologic_o->setAttr(id_OREG_TYPE, ff->type.str(ctx));
                         cells_to_remove.push_back(ff->name);
                     }
-                    break;
                 } while (false);
             }
 
@@ -966,7 +965,6 @@ struct GowinPacker
                         iologic_o->setAttr(id_TREG_TYPE, ff->type.str(ctx));
                         cells_to_remove.push_back(ff->name);
                     }
-                    break;
                 } while (false);
             }
         }
