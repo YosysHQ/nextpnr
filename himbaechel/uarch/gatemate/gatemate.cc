@@ -118,6 +118,17 @@ void GateMateImpl::postRoute()
                             cell->params[id_INIT_L20] = Property(0b1100, 4);
                             cell->params[id_O2] = Property(0b11, 2);
                             cell->params[id_RAM_O2] = Property(1, 1);
+                        } else if (IdString(extra_data.name) == id_RAM_O1) {
+                            cell->params[id_INIT_L00] = Property(0b1010, 4);
+                            cell->params[id_INIT_L01] = Property(0b1111, 4);
+                            cell->params[id_INIT_L02] = Property(0b1111, 4);
+                            cell->params[id_INIT_L03] = Property(0b1111, 4);
+                            cell->params[id_INIT_L10] = Property(0b1000, 4);
+                            cell->params[id_INIT_L20] = Property(0b1010, 4);
+                            cell->params[id_O1] = Property(0b11, 2);
+                            cell->params[id_RAM_O1] = Property(1, 1);
+                        } else {
+                            log_error("Issue adding pass trough signal for %s.\n",IdString(extra_data.name).c_str(ctx));
                         }
                     } else
                         log_error("Issue adding pass trough signal.\n");
