@@ -734,6 +734,9 @@ struct Router2
                         midpoint_inversion = curr.inverted;
                         break;
                     }
+                    if (was_visited_bwd(curr.wire, std::numeric_limits<float>::max(), !curr.inverted)) {
+                        ROUTE_LOG_DBG("fwd: met bwd with wrong polarity\n");
+                    }
                     auto &curr_data = flat_wires.at(curr.wire);
                     for (PipId dh : ctx->getPipsDownhill(curr_data.w)) {
                         // Skip pips outside of box in bounding-box mode
@@ -780,6 +783,9 @@ struct Router2
                         midpoint_wire = curr.wire;
                         midpoint_inversion = curr.inverted;
                         break;
+                    }
+                    if (was_visited_fwd(curr.wire, std::numeric_limits<float>::max(), !curr.inverted)) {
+                        ROUTE_LOG_DBG("bwd: met fwd with wrong polarity\n");
                     }
                     // Don't allow the same wire to be bound to the same net with a different driving pip
                     PipId bound_pip;
