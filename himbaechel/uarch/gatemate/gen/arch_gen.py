@@ -92,6 +92,8 @@ def main():
         if "CPE" in type_name:
             pp = tt.create_pip("CPE.IN1", "CPE.RAM_O2")
             pp.extra_data = PipExtraData(PIP_EXTRA_CPE,ch.strs.id("RAM_O2"))
+            pp = tt.create_pip("CPE.IN1", "CPE.RAM_O1")
+            pp.extra_data = PipExtraData(PIP_EXTRA_CPE,ch.strs.id("RAM_O1"))
             for i in range(1,9):
                 tt.create_wire(f"CPE.V_IN{i}", "CPE_VIRTUAL_WIRE")
                 pp = tt.create_pip(f"CPE.V_IN{i}", f"CPE.IN{i}")
