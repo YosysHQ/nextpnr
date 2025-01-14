@@ -90,6 +90,25 @@ void updateLUT(Context *ctx, CellInfo *cell, IdString port, IdString init)
     }
 }
 
+void updateINV(Context *ctx, CellInfo *cell, IdString port)
+{
+    if (cell->params.count(port) == 0) return;
+    unsigned init_val = int_or_default(cell->params, port);
+    WireId pin_wire = ctx->getBelPinWire(cell->bel, port);
+    for (PipId pip : ctx->getPipsUphill(pin_wire)) {
+        if (!ctx->getBoundPipNet(pip))
+            continue;
+        const auto extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD *>(
+                chip_pip_info(ctx->chip_info, pip).extra_data.get());
+        if (!extra_data.name)
+            continue;
+        if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_CPE_INV)) {
+            cell->params[port] = Property(init_val==1 ? 2 : 1, 2);
+        }
+    }
+}
+
+
 void GateMateImpl::postRoute()
 {
     ctx->assignArchInfo();
@@ -127,6 +146,14 @@ void GateMateImpl::postRoute()
                             cell->params[id_INIT_L20] = Property(0b1010, 4);
                             cell->params[id_O1] = Property(0b11, 2);
                             cell->params[id_RAM_O1] = Property(1, 1);
+                        } else if (IdString(extra_data.name) == id_O1) {
+                            cell->params[id_INIT_L00] = Property(0b1010, 4);
+                            cell->params[id_INIT_L01] = Property(0b1111, 4);
+                            cell->params[id_INIT_L02] = Property(0b1111, 4);
+                            cell->params[id_INIT_L03] = Property(0b1111, 4);
+                            cell->params[id_INIT_L10] = Property(0b1000, 4);
+                            cell->params[id_INIT_L20] = Property(0b1010, 4);
+                            cell->params[id_O1] = Property(0b11, 2);
                         } else {
                             log_error("Issue adding pass trough signal for %s.\n",IdString(extra_data.name).c_str(ctx));
                         }
@@ -149,6 +176,8 @@ void GateMateImpl::postRoute()
             updateLUT(ctx, cell.second.get(), id_IN6, id_INIT_L02);
             updateLUT(ctx, cell.second.get(), id_IN7, id_INIT_L03);
             updateLUT(ctx, cell.second.get(), id_IN8, id_INIT_L03);
+            updateINV(ctx, cell.second.get(), id_CLK);
+            updateINV(ctx, cell.second.get(), id_EN);
         }
     }
 
