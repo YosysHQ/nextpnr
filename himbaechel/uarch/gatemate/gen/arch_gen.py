@@ -75,15 +75,15 @@ def main():
 
     for type_name in die.get_tile_type_list():
         tt = ch.create_tile_type(type_name)
-        for group in die.get_groups_for_type(type_name):
+        for group in sorted(die.get_groups_for_type(type_name)):
             tt.create_group(group.name, group.type)
-        for wire in die.get_endpoints_for_type(type_name):
+        for wire in sorted(die.get_endpoints_for_type(type_name)):
             tt.create_wire(wire.name, wire.type)
-        for prim in die.get_primitives_for_type(type_name):
+        for prim in sorted(die.get_primitives_for_type(type_name)):
             bel = tt.create_bel(prim.name, prim.type, prim.z)
-            for pin in die.get_primitive_pins(prim.type):
+            for pin in sorted(die.get_primitive_pins(prim.type)):
                 tt.add_bel_pin(bel, pin.name, die.get_pin_connection_name(prim,pin), pin.dir)
-        for mux in die.get_mux_connections_for_type(type_name):
+        for mux in sorted(die.get_mux_connections_for_type(type_name)):
             pp = tt.create_pip(mux.src, mux.dst)
             mux_flags = MUX_INVERT if mux.invert else 0
             mux_flags |= MUX_VISIBLE if mux.visible else 0
@@ -190,7 +190,7 @@ def main():
     # Create nodes between tiles
     for _,nodes in dev.get_connections():
         node = []
-        for conn in nodes:
+        for conn in sorted(nodes):
             conn.name = conn.name.replace("CPE.IN", "CPE.V_IN")
             conn.name = conn.name.replace("CPE.CLK", "CPE.V_CLK")
             node.append(NodeWire(conn.x + 2, conn.y + 2, conn.name))
@@ -199,7 +199,7 @@ def main():
 
     for package in dev.get_packages():
         pkg = ch.create_package(package)
-        for pad in dev.get_package_pads(package):
+        for pad in sorted(dev.get_package_pads(package)):
             pkg.create_pad(pad.name, f"X{pad.x+2}Y{pad.y+2}", pad.bel, pad.function, pad.bank)
 
     ch.write_bba(args.bba)
