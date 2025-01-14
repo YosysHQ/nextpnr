@@ -103,7 +103,7 @@ void updateINV(Context *ctx, CellInfo *cell, IdString port)
         if (!extra_data.name)
             continue;
         if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_CPE_INV)) {
-            cell->params[port] = Property(init_val==1 ? 2 : 1, 2);
+            cell->params[port] = Property(3 - init_val, 2);
         }
     }
 }
@@ -178,6 +178,7 @@ void GateMateImpl::postRoute()
             updateLUT(ctx, cell.second.get(), id_IN8, id_INIT_L03);
             updateINV(ctx, cell.second.get(), id_CLK);
             updateINV(ctx, cell.second.get(), id_EN);
+            updateINV(ctx, cell.second.get(), id_SR);
         }
     }
 
