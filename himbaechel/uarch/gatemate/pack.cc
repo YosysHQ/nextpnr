@@ -361,7 +361,6 @@ void GateMatePacker::pack_cpe()
             continue;
         ci.renamePort(id_D, id_IN1);
         ci.renamePort(id_Q, id_OUT2);
-        ci.disconnectPort(id_SR);
         ci.params[id_O2] = Property(0b00, 2);
         ci.params[id_2D_IN] = Property(1, 1);
         ci.params[id_INIT_L00] = Property(0b1010, 4);
@@ -372,8 +371,8 @@ void GateMatePacker::pack_cpe()
         ci.params[id_INIT_L20] = Property(0b1100, 4);
 
         NetInfo *en_net = ci.getPort(id_EN);
+        bool invert = int_or_default(ci.params, id_EN_INV, 0) == 1;
         if (en_net) {
-            bool invert = int_or_default(ci.params, id_EN_INV, 0) == 1;
             if (en_net->name == ctx->id("$PACKER_GND")) {
                 ci.params[id_EN] = Property(invert ? 0b11 : 0b00, 2);
                 ci.disconnectPort(id_EN);
@@ -383,12 +382,14 @@ void GateMatePacker::pack_cpe()
             } else {
                 ci.params[id_EN] = Property(invert ? 0b01 : 0b10, 2);
             }
+        } else {
+            ci.params[id_EN] = Property(invert ? 0b11 : 0b00, 2);
         }
         ci.unsetParam(id_EN_INV);
 
         NetInfo *clk_net = ci.getPort(id_CLK);
+        invert = int_or_default(ci.params, id_CLK_INV, 0) == 1;
         if (clk_net) {
-            bool invert = int_or_default(ci.params, id_CLK_INV, 0) == 1;
             if (clk_net->name == ctx->id("$PACKER_GND")) {
                 ci.params[id_CLK] = Property(invert ? 0b11 : 0b00, 2);
                 ci.disconnectPort(id_CLK);
@@ -398,14 +399,46 @@ void GateMatePacker::pack_cpe()
             } else {
                 ci.params[id_CLK] = Property(invert ? 0b01 : 0b10, 2);
             }
+        } else {
+            ci.params[id_CLK] = Property(invert ? 0b11 : 0b00, 2);
         }
         ci.unsetParam(id_CLK_INV);
 
-        ci.params[id_R] = Property(0b11, 2);
-        ci.params[id_S] = Property(0b11, 2);
-
+        NetInfo *sr_net = ci.getPort(id_SR);
+        invert = int_or_default(ci.params, id_SR_INV, 0) == 1;
+        int  sr_val = int_or_default(ci.params, id_SR_VAL, 0) == 1;
+        if (sr_net) {
+            if (sr_net->name == ctx->id("$PACKER_GND")) {
+                if (invert)
+                    log_error("Invalid DFF configuration\n.");
+                ci.params[id_R] = Property(0b11, 2);
+                ci.params[id_S] = Property(0b11, 2);
+                ci.disconnectPort(id_SR);
+            } else if (sr_net->name == ctx->id("$PACKER_VCC")) {
+                if (!invert)
+                    log_error("Invalid DFF configuration\n.");
+                ci.params[id_R] = Property(0b11, 2);
+                ci.params[id_S] = Property(0b11, 2);
+                ci.disconnectPort(id_SR);
+            } else {
+                if (sr_val) {
+                    ci.params[id_R] = Property(0b11, 2);
+                    ci.params[id_S] = Property(invert ? 0b01 : 0b10, 2);
+                    ci.params[id_EN_SR] = Property(0b1, 1);
+                } else {
+                    ci.params[id_R] = Property(invert ? 0b01 : 0b10, 2);
+                    ci.params[id_S] = Property(0b11, 2);
+                }
+            }
+        } else {
+            if (invert)
+                log_error("Invalid DFF configuration\n.");
+            ci.params[id_R] = Property(0b11, 2);
+            ci.params[id_S] = Property(0b11, 2);
+        }
         ci.unsetParam(id_SR_VAL);
         ci.unsetParam(id_SR_INV);
+
         bool init = int_or_default(ci.params, id_INIT, 0) == 1;
         if (init)
             ci.params[id_FF_INIT] = Property(0b11, 2);
