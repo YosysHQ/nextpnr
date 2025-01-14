@@ -361,7 +361,6 @@ void GateMatePacker::pack_cpe()
             continue;
         ci.renamePort(id_D, id_IN1);
         ci.renamePort(id_Q, id_OUT2);
-        ci.disconnectPort(id_EN);
         ci.disconnectPort(id_SR);
         ci.params[id_O2] = Property(0b00, 2);
         ci.params[id_2D_IN] = Property(1, 1);
@@ -371,17 +370,48 @@ void GateMatePacker::pack_cpe()
         ci.params[id_INIT_L03] = Property(0b1111, 4);
         ci.params[id_INIT_L10] = Property(0b1000, 4);
         ci.params[id_INIT_L20] = Property(0b1100, 4);
-        ci.params[id_EN] = Property(0b11, 2);
+
+        NetInfo *en_net = ci.getPort(id_EN);
+        if (en_net) {
+            bool invert = int_or_default(ci.params, id_EN_INV, 0) == 1;
+            if (en_net->name == ctx->id("$PACKER_GND")) {
+                ci.params[id_EN] = Property(invert ? 0b11 : 0b00, 2);
+                ci.disconnectPort(id_EN);
+            } else if (en_net->name == ctx->id("$PACKER_VCC")) {
+                ci.params[id_EN] = Property(invert ? 0b00 : 0b11, 2);
+                ci.disconnectPort(id_EN);
+            } else {
+                ci.params[id_EN] = Property(invert ? 0b01 : 0b10, 2);
+            }
+        }
+        ci.unsetParam(id_EN_INV);
+
+        NetInfo *clk_net = ci.getPort(id_CLK);
+        if (clk_net) {
+            bool invert = int_or_default(ci.params, id_CLK_INV, 0) == 1;
+            if (clk_net->name == ctx->id("$PACKER_GND")) {
+                ci.params[id_CLK] = Property(invert ? 0b11 : 0b00, 2);
+                ci.disconnectPort(id_CLK);
+            } else if (clk_net->name == ctx->id("$PACKER_VCC")) {
+                ci.params[id_CLK] = Property(invert ? 0b00 : 0b11, 2);
+                ci.disconnectPort(id_CLK);
+            } else {
+                ci.params[id_CLK] = Property(invert ? 0b01 : 0b10, 2);
+            }
+        }
+        ci.unsetParam(id_CLK_INV);
+
         ci.params[id_R] = Property(0b11, 2);
         ci.params[id_S] = Property(0b11, 2);
-        ci.params[id_CLK] = Property(0b10, 2);
-        ci.params[id_FF_INIT] = Property(0b10, 2);
 
-        ci.unsetParam(ctx->id("SR_VAL"));
-        ci.unsetParam(ctx->id("SR_INV"));
-        ci.unsetParam(ctx->id("EN_INV"));
-        ci.unsetParam(ctx->id("CLK_INV"));
-        ci.unsetParam(ctx->id("INIT"));
+        ci.unsetParam(id_SR_VAL);
+        ci.unsetParam(id_SR_INV);
+        bool init = int_or_default(ci.params, id_INIT, 0) == 1;
+        if (init)
+            ci.params[id_FF_INIT] = Property(0b11, 2);
+        else
+            ci.params[id_FF_INIT] = Property(0b10, 2);
+        ci.unsetParam(id_INIT);
 
         ci.type = id_CPE;
     }
