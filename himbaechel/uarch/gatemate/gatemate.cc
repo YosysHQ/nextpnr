@@ -108,6 +108,23 @@ void updateINV(Context *ctx, CellInfo *cell, IdString port)
     }
 }
 
+void updateSR_INV(Context *ctx, CellInfo *cell, IdString port, IdString param)
+{
+    if (cell->params.count(param) == 0) return;
+    unsigned init_val = int_or_default(cell->params, param);
+    WireId pin_wire = ctx->getBelPinWire(cell->bel, port);
+    for (PipId pip : ctx->getPipsUphill(pin_wire)) {
+        if (!ctx->getBoundPipNet(pip))
+            continue;
+        const auto extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD *>(
+                chip_pip_info(ctx->chip_info, pip).extra_data.get());
+        if (!extra_data.name)
+            continue;
+        if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_CPE_INV)) {
+            cell->params[param] = Property(3 - init_val, 2);
+        }
+    }
+}
 
 void GateMateImpl::postRoute()
 {
@@ -178,7 +195,11 @@ void GateMateImpl::postRoute()
             updateLUT(ctx, cell.second.get(), id_IN8, id_INIT_L03);
             updateINV(ctx, cell.second.get(), id_CLK);
             updateINV(ctx, cell.second.get(), id_EN);
-            updateINV(ctx, cell.second.get(), id_SR);
+            bool set = int_or_default(cell.second->params, id_EN_SR, 0) == 1;
+            if (set)
+                updateSR_INV(ctx, cell.second.get(), id_SR, id_S);
+            else
+                updateSR_INV(ctx, cell.second.get(), id_SR, id_R);
         }
     }
 
