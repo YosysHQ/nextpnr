@@ -193,6 +193,8 @@ def main():
         for conn in sorted(nodes):
             conn.name = conn.name.replace("CPE.IN", "CPE.V_IN")
             conn.name = conn.name.replace("CPE.CLK", "CPE.V_CLK")
+            conn.name = conn.name.replace("CPE.EN", "CPE.V_EN")
+            conn.name = conn.name.replace("CPE.SR", "CPE.V_SR")
             node.append(NodeWire(conn.x + 2, conn.y + 2, conn.name))
         ch.add_node(node)
     set_timings(ch)
