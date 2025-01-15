@@ -140,7 +140,7 @@ The himbaechel target allows running placement and routing for larger architectu
 For Gowin support, install [Project Apicula](https://github.com/YosysHQ/apicula)
 
 ```
-cmake . -DARCH="himbaechel" -DHIMBAECHEL_GOWIN_DEVICES="all"
+cmake . -DARCH="himbaechel" -DHIMBAECHEL_UARCH="gowin"
 make -j$(nproc)
 sudo make install
 ```
@@ -152,7 +152,7 @@ sudo make install
 For NanoXplore NG-Ultra support, clone [Project Beyond DB](https://github.com/yosyshq-GmbH/prjbeyond-db) repo
 
 ```
-cmake . -DARCH="himbaechel" -DHIMBAECHEL_PRJBEYOND_DB=/path/to/prjbeyond-db -DHIMBAECHEL_NGULTRA_DEVICES=ng-ultra
+cmake . -DARCH="himbaechel" -DHIMBAECHEL_UARCH="ng-ultra" -DHIMBAECHEL_PRJBEYOND_DB=/path/to/prjbeyond-db -DHIMBAECHEL_NGULTRA_DEVICES=ng-ultra
 make -j$(nproc)
 sudo make install
 ```
