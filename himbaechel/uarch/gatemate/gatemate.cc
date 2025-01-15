@@ -126,6 +126,26 @@ void updateSR_INV(Context *ctx, CellInfo *cell, IdString port, IdString param)
     }
 }
 
+void updateMUX_INV(Context *ctx, CellInfo *cell, IdString port, IdString param, int bit)
+{
+    if (cell->params.count(param) == 0) return;
+    unsigned init_val = int_or_default(cell->params, param);
+    WireId pin_wire = ctx->getBelPinWire(cell->bel, port);
+    for (PipId pip : ctx->getPipsUphill(pin_wire)) {
+        if (!ctx->getBoundPipNet(pip))
+            continue;
+        const auto extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD *>(
+                chip_pip_info(ctx->chip_info, pip).extra_data.get());
+        if (!extra_data.name)
+            continue;
+        if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_CPE_INV)) {
+            int old = (init_val >> bit) & 1;
+            int val = (init_val & (~(1 << bit) & 0xf)) | ((!old) << bit);
+            cell->params[param] = Property(val, 4);
+        }
+    }
+}
+
 void GateMateImpl::postRoute()
 {
     ctx->assignArchInfo();
@@ -185,10 +205,19 @@ void GateMateImpl::postRoute()
     for (auto &cell : ctx->cells) {
         if (cell.second->type == id_CPE) {
             // if LUT part used
-            updateLUT(ctx, cell.second.get(), id_IN1, id_INIT_L00);
-            updateLUT(ctx, cell.second.get(), id_IN2, id_INIT_L00);
-            updateLUT(ctx, cell.second.get(), id_IN3, id_INIT_L01);
-            updateLUT(ctx, cell.second.get(), id_IN4, id_INIT_L01);
+            uint8_t func = int_or_default(cell.second->params, id_FUNCTION, 0);
+            if (func != 4) {
+                updateLUT(ctx, cell.second.get(), id_IN1, id_INIT_L00);
+                updateLUT(ctx, cell.second.get(), id_IN2, id_INIT_L00);
+                updateLUT(ctx, cell.second.get(), id_IN3, id_INIT_L01);
+                updateLUT(ctx, cell.second.get(), id_IN4, id_INIT_L01);
+            } else {
+                updateMUX_INV(ctx, cell.second.get(), id_IN1, id_INIT_L11, 0);
+                updateMUX_INV(ctx, cell.second.get(), id_IN2, id_INIT_L11, 1);
+                updateMUX_INV(ctx, cell.second.get(), id_IN3, id_INIT_L11, 2);
+                updateMUX_INV(ctx, cell.second.get(), id_IN4, id_INIT_L11, 3);
+            }
+
             updateLUT(ctx, cell.second.get(), id_IN5, id_INIT_L02);
             updateLUT(ctx, cell.second.get(), id_IN6, id_INIT_L02);
             updateLUT(ctx, cell.second.get(), id_IN7, id_INIT_L03);
@@ -213,32 +242,6 @@ void GateMateImpl::postRoute()
 
 void GateMateImpl::postPlace()
 {
-    log_break();
-    log_info("Limiting routing...\n");
-    for (auto &cell : ctx->cells) {
-        CellInfo &ci = *cell.second;
-        if (ci.type == id_CPE) {
-            if (!ci.params.count(id_FUNCTION)) continue;
-            uint8_t func = int_or_default(ci.params, id_FUNCTION, 0);
-            if (func!=4) continue; // Skip all that are not MUX
-            for (int i = 1; i <= 4; i++) {
-                IdString port = ctx->idf("IN%d", i);
-                NetInfo *net = ci.getPort(port);
-                if (!net)
-                    continue;
-                WireId dwire = ctx->getBelPinWire(ci.bel, port);
-                for (PipId pip : ctx->getPipsUphill(dwire)) {
-                    const auto extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD *>(
-                            chip_pip_info(ctx->chip_info, pip).extra_data.get());
-                    if (!extra_data.name)
-                        continue;
-                    if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_CPE_INV)) {
-                        blocked_pips.emplace(pip);
-                    }
-                }
-            }
-        }
-    }
     ctx->assignArchInfo();
 }
 
