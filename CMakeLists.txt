@@ -1,10 +1,11 @@
-cmake_minimum_required(VERSION 3.13)
-project(nextpnr CXX C)
+cmake_minimum_required(VERSION 3.25)
+project(nextpnr CXX)
 
 include(CheckCXXCompilerFlag)
 
-# Allow family.cmake add additional dependencies to gui_${family}.
-cmake_policy(SET CMP0079 NEW)
+if (NOT DEFINED CMAKE_SUPPRESS_DEVELOPER_WARNINGS)
+    set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS 1 CACHE INTERNAL "No dev warnings")
+endif()
 
 # We want to explictly include all include directories when generating the
 # compilation database as not all clang/gcc share the same implicit includes
@@ -13,11 +14,6 @@ if (CMAKE_EXPORT_COMPILE_COMMANDS)
     set(CMAKE_CXX_STANDARD_INCLUDE_DIRECTORIES
         ${CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES})
 endif()
-
-# Enable IPO support.
-cmake_policy(SET CMP0069 NEW)
-include(CheckIPOSupported)
-check_ipo_supported(RESULT ipo_supported)
 
 option(BUILD_GUI "Build GUI" OFF)
 option(BUILD_PYTHON "Build Python Integration" ON)
@@ -31,12 +27,19 @@ option(PROFILER "Link against libprofiler" OFF)
 option(USE_IPO "Compile nextpnr with IPO" ON)
 option(USE_RUST "Enable Rust bindings" OFF)
 
-if (USE_RUST)
-    add_subdirectory(3rdparty/corrosion)
-    corrosion_import_crate(MANIFEST_PATH rust/Cargo.toml PROFILE "release" IMPORTED_CRATES RUST_CRATES)
+set(PROGRAM_PREFIX "" CACHE STRING "Name prefix for executables")
+
+if (BUILD_GUI AND NOT BUILD_PYTHON)
+    message(FATAL_ERROR "GUI requires Python to build")
+endif()
+
+if (NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
 endif()
 
 if (USE_IPO)
+    include(CheckIPOSupported)
+    check_ipo_supported(RESULT ipo_supported)
     if (ipo_supported)
         message(STATUS "Building with IPO")
         set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
@@ -103,8 +106,6 @@ if (EXTERNAL_CHIPDB)
     add_definitions("-DEXTERNAL_CHIPDB_ROOT=\"${EXTERNAL_CHIPDB_ROOT}\"")
 endif()
 
-set(PROGRAM_PREFIX "" CACHE STRING "Name prefix for executables")
-
 # List of families to build
 set(FAMILIES generic ice40 ecp5 nexus gowin machxo2 mistral himbaechel)
 set(STABLE_FAMILIES generic ice40 ecp5)
@@ -125,12 +126,9 @@ if (NOT ARCH)
 endif()
 
 if (ARCH STREQUAL "all+alpha")
-    SET(ARCH ${STABLE_FAMILIES} ${EXPERIMENTAL_FAMILIES})
-endif()
-
-
-if (ARCH STREQUAL "all")
-    SET(ARCH ${STABLE_FAMILIES})
+    set(ARCH ${STABLE_FAMILIES} ${EXPERIMENTAL_FAMILIES})
+elseif (ARCH STREQUAL "all")
+    set(ARCH ${STABLE_FAMILIES})
 endif()
 
 foreach (item ${ARCH})
@@ -164,120 +162,58 @@ else()
     endif()
 endif()
 
-set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/3rdparty/sanitizers-cmake/cmake;." ${CMAKE_MODULE_PATH})
-
-if (COVERAGE)
-    include(CodeCoverage)
-endif()
-
-if (NOT DEFINED CMAKE_SUPPRESS_DEVELOPER_WARNINGS)
-    set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS 1 CACHE INTERNAL "No dev warnings")
-endif()
-
-find_package(Sanitizers)
-
-# List of Boost libraries to include
 set(boost_libs filesystem program_options iostreams system)
 if (Threads_FOUND)
     list(APPEND boost_libs thread)
 endif()
-
-if (BUILD_GUI AND NOT BUILD_PYTHON)
-    message(FATAL_ERROR "GUI requires Python to build")
-endif()
-
-if (BUILD_GUI)
-    # For higher quality backtraces
-    set(CMAKE_ENABLE_EXPORTS ON)
-endif()
+find_package(Boost REQUIRED COMPONENTS ${boost_libs})
 
 if (BUILD_PYTHON)
     # TODO: sensible minimum Python version
     find_package(Python3 3.5 REQUIRED COMPONENTS Interpreter Development.Embed)
+    find_package(pybind11 CONFIG)
+    if (NOT pybind11_FOUND)
+        message(STATUS "Using built-in pybind11")
+        add_subdirectory(3rdparty/pybind11 EXCLUDE_FROM_ALL)
+    endif()
 else()
     find_package(Python3 3.5 REQUIRED COMPONENTS Interpreter)
     add_definitions("-DNO_PYTHON")
 endif()
 
-find_package(Boost REQUIRED COMPONENTS ${boost_libs})
+if (USE_RUST)
+    add_subdirectory(3rdparty/corrosion)
+    corrosion_import_crate(MANIFEST_PATH rust/Cargo.toml PROFILE "release" IMPORTED_CRATES RUST_CRATES)
+endif()
 
 if (BUILD_GUI)
     # Find the Qt5 libraries
     find_package(Qt5 COMPONENTS Core Widgets OpenGL REQUIRED)
-    find_package(OpenGL REQUIRED)
+
+    # For higher quality backtraces
+    set(CMAKE_ENABLE_EXPORTS ON)
+
+    add_subdirectory(3rdparty/QtPropertyBrowser ${CMAKE_CURRENT_BINARY_DIR}/generated/3rdparty/QtPropertyBrowser EXCLUDE_FROM_ALL)
 else()
-    add_definitions("-DNO_GUI")
+    add_definitions(-DNO_GUI)
 endif()
 
-if (NOT DEFINED CURRENT_GIT_VERSION)
-    # Get the latest abbreviated commit hash of the working branch
-    # if not already defined outside (e.g. by package manager when building
-    # outside of git repository)
-    execute_process(
-      COMMAND git describe --tags --always
-      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-      OUTPUT_VARIABLE CURRENT_GIT_VERSION
-      OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
+find_package(Eigen3 REQUIRED NO_MODULE)
+
+add_subdirectory(3rdparty/json11)
+
+add_subdirectory(3rdparty/oourafft)
+
+set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/3rdparty/sanitizers-cmake/cmake;." ${CMAKE_MODULE_PATH})
+find_package(Sanitizers)
+
+if (COVERAGE)
+    include(CodeCoverage)
 endif()
 
 if (BUILD_TESTS)
     add_subdirectory(3rdparty/googletest/googletest ${CMAKE_CURRENT_BINARY_DIR}/generated/3rdparty/googletest EXCLUDE_FROM_ALL)
     enable_testing()
-endif()
-
-if (BUILD_GUI)
-    add_subdirectory(3rdparty/QtPropertyBrowser ${CMAKE_CURRENT_BINARY_DIR}/generated/3rdparty/QtPropertyBrowser EXCLUDE_FROM_ALL)
-endif()
-
-configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/common/version.h.in ${CMAKE_CURRENT_BINARY_DIR}/generated/version.h
-)
-
-if (NOT DEFINED PYBIND11_INCLUDE_DIR)
-    # Use bundled pybind11
-    set(PYBIND11_INCLUDE_DIR "3rdparty/pybind11/include")
-endif()
-
-include_directories(
-    common/kernel/
-    common/place/
-    common/route/
-    json/
-    frontend/
-    3rdparty/json11/
-    3rdparty/oourafft/
-    ${PYBIND11_INCLUDE_DIR}
-    ${Boost_INCLUDE_DIRS}
-    ${Python3_INCLUDE_DIRS}
-)
-
-find_package(Eigen3 REQUIRED NO_MODULE)
-link_libraries(Eigen3::Eigen)
-
-aux_source_directory(common/kernel/ KERNEL_SRC_FILES)
-aux_source_directory(common/place/ PLACE_SRC_FILES)
-aux_source_directory(common/route/ ROUTE_SRC_FILES)
-
-aux_source_directory(json/ JSON_PARSER_FILES)
-aux_source_directory(3rdparty/json11 EXT_JSON11_FILES)
-aux_source_directory(3rdparty/oourafft EXT_OOURAFFT_FILES)
-aux_source_directory(frontend/ FRONTEND_FILES)
-
-aux_source_directory(rust/ RUST_FILES)
-
-set(COMMON_FILES
-    ${KERNEL_SRC_FILES}
-    ${PLACE_SRC_FILES}
-    ${ROUTE_SRC_FILES}
-    ${EXT_JSON11_FILES}
-    ${EXT_OOURAFFT_FILES}
-    ${JSON_PARSER_FILES}
-    ${FRONTEND_FILES}
-)
-
-if (NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Release)
 endif()
 
 if (CMAKE_CROSSCOMPILING)
@@ -296,8 +232,44 @@ else()
     set(BBASM_ENDIAN_FLAG "--le")
 endif()
 
-set(EXTRA_LIB_DEPS)
+if (NOT DEFINED CURRENT_GIT_VERSION)
+    # Get the latest abbreviated commit hash of the working branch
+    # if not already defined outside (e.g. by package manager when building
+    # outside of git repository)
+    execute_process(
+        COMMAND git describe --tags --always
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        OUTPUT_VARIABLE CURRENT_GIT_VERSION
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+endif()
 
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/common/version.h.in ${CMAKE_CURRENT_BINARY_DIR}/generated/version.h)
+
+include_directories(
+    common/kernel
+    ${Boost_INCLUDE_DIRS}
+    ${Python3_INCLUDE_DIRS}
+)
+
+add_subdirectory(common/kernel)
+add_subdirectory(common/place)
+add_subdirectory(common/route)
+add_subdirectory(frontend)
+add_subdirectory(json)
+add_subdirectory(rust)
+
+set(COMMON_LIBRARIES
+    nextpnr_kernel
+    nextpnr_place
+    nextpnr_route
+    nextpnr_frontend
+    nextpnr_json
+    Eigen3::Eigen
+    oourafft
+)
+
+set(EXTRA_LIB_DEPS)
 if (PROFILER)
     list(APPEND EXTRA_LIB_DEPS profiler)
 endif()
@@ -315,7 +287,8 @@ foreach (family ${ARCH})
     endif()
 
     # Add the CLI binary target
-    add_executable(${PROGRAM_PREFIX}nextpnr-${family} ${COMMON_FILES} ${${ufamily}_FILES})
+    add_executable(${PROGRAM_PREFIX}nextpnr-${family} ${${ufamily}_FILES})
+    target_link_libraries(${PROGRAM_PREFIX}nextpnr-${family} PRIVATE ${COMMON_LIBRARIES})
     if (WASI)
         # set(CMAKE_EXECUTABLE_SUFFIX) breaks CMake tests for some reason
         set_property(TARGET ${PROGRAM_PREFIX}nextpnr-${family} PROPERTY SUFFIX ".wasm")
@@ -341,8 +314,8 @@ foreach (family ${ARCH})
         endif()
 
         add_executable(${PROGRAM_PREFIX}nextpnr-${family}-test ${${ufamily}_TEST_FILES}
-                ${COMMON_FILES} ${${ufamily}_FILES} ${GUI_TEST_FILES})
-        target_link_libraries(${PROGRAM_PREFIX}nextpnr-${family}-test PRIVATE gtest_main)
+            ${${ufamily}_FILES} ${GUI_TEST_FILES})
+        target_link_libraries(${PROGRAM_PREFIX}nextpnr-${family}-test PRIVATE ${COMMON_LIBRARIES} gtest_main)
         add_sanitizers(${PROGRAM_PREFIX}nextpnr-${family}-test)
 
         add_test(${family}-test ${CMAKE_CURRENT_BINARY_DIR}/nextpnr-${family}-test)
@@ -372,9 +345,9 @@ foreach (family ${ARCH})
         endif()
         add_sanitizers(${target})
         if (BUILD_GUI)
-            target_include_directories(${target} PRIVATE gui/${family}/ gui/)
             target_compile_definitions(${target} PRIVATE QT_NO_KEYWORDS)
-            target_link_libraries(${target} LINK_PUBLIC gui_${family} ${GUI_LIBRARY_FILES_${ufamily}})
+            target_include_directories(${target} PRIVATE gui/${family}/ gui/)
+            target_link_libraries(${target} LINK_PUBLIC gui_${family})
         endif()
         if (BUILD_PYTHON)
             target_link_libraries(${target} LINK_PUBLIC ${Python3_LIBRARIES})
