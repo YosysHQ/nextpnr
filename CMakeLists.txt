@@ -52,7 +52,9 @@ else()
     set(CMAKE_INTERPROCEDURAL_OPTIMIZATION FALSE)
 endif()
 
-if (WIN32 OR EXTERNAL_CHIPDB)
+if (WIN32)
+    set(BBASM_MODE "resource")
+elseif (EXTERNAL_CHIPDB)
     set(BBASM_MODE "binary")
 else()
     set(BBASM_MODE "string")
@@ -204,7 +206,7 @@ add_subdirectory(3rdparty/json11)
 
 add_subdirectory(3rdparty/oourafft)
 
-set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/3rdparty/sanitizers-cmake/cmake;." ${CMAKE_MODULE_PATH})
+set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/3rdparty/sanitizers-cmake/cmake;${CMAKE_SOURCE_DIR}" ${CMAKE_MODULE_PATH})
 find_package(Sanitizers)
 
 if (COVERAGE)
@@ -224,13 +226,7 @@ else()
     add_subdirectory(bba)
 endif()
 
-include(TestBigEndian)
-test_big_endian(IS_BIG_ENDIAN)
-if (IS_BIG_ENDIAN)
-    set(BBASM_ENDIAN_FLAG "--be")
-else()
-    set(BBASM_ENDIAN_FLAG "--le")
-endif()
+include(BBAsm)
 
 if (NOT DEFINED CURRENT_GIT_VERSION)
     # Get the latest abbreviated commit hash of the working branch

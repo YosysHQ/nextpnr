@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.25)
 project(chipdb-ice40 NONE)
 
 set(ALL_ICE40_DEVICES 384 1k 5k u4k 8k)
