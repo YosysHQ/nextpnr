@@ -1,38 +1,48 @@
-message(STATUS "Configuring Himbaechel-NG-ULTRA uarch")
-cmake_minimum_required(VERSION 3.5)
-project(himbaechel-ng-ultra-chipdb NONE)
-
-set(ALL_HIMBAECHEL_NGULTRA_DEVICES ng-ultra)
-set(HIMBAECHEL_NGULTRA_DEVICES "" CACHE STRING
-    "Include support for these NG-Ultra devices (available: ${ALL_HIMBAECHEL_NGULTRA_DEVICES})")
-message(STATUS "Enabled Himbaechel-NG-Ultra devices: ${HIMBAECHEL_NGULTRA_DEVICES}")
 set(HIMBAECHEL_PRJBEYOND_DB "" CACHE STRING
     "Path to a Project Beyond database")
+if (NOT HIMBAECHEL_PRJBEYOND_DB)
+    message(FATAL_ERROR "HIMBAECHEL_PRJBEYOND_DB must be set to a prjbeyond database checkout")
+endif()
 
-set(chipdb_binaries)
-file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/share/himbaechel/ng-ultra)
-foreach (device ${HIMBAECHEL_NGULTRA_DEVICES})
-	if ("${HIMBAECHEL_PRJBEYOND_DB}" STREQUAL "")
-		message(SEND_ERROR "HIMBAECHEL_PRJBEYOND_DB must be set to a prjbeyond database checkout")
-	endif()
-
-	set(device_bba ${CMAKE_BINARY_DIR}/share/himbaechel/ng-ultra/chipdb-${device}.bba)
-	set(device_bin ${CMAKE_BINARY_DIR}/share/himbaechel/ng-ultra/chipdb-${device}.bin)
-	string(TOUPPER ${device} upcase_device)
-	add_custom_command(
-		OUTPUT ${device_bin}
-		COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/gen/arch_gen.py --db ${HIMBAECHEL_PRJBEYOND_DB} --device ${upcase_device} --bba ${device_bba}
-		COMMAND bbasm ${BBASM_ENDIAN_FLAG} ${device_bba} ${device_bin}.new
-        # atomically update
-        COMMAND ${CMAKE_COMMAND} -E rename ${device_bin}.new ${device_bin}
-		DEPENDS
-			bbasm
-			${CMAKE_CURRENT_SOURCE_DIR}/gen/arch_gen.py
-			${CMAKE_CURRENT_SOURCE_DIR}/constids.inc
-		VERBATIM)
-	list(APPEND chipdb_binaries ${device_bin})
+add_custom_target(chipdb-himbaechel-ng-ultra)
+foreach (target ${family_targets})
+    add_dependencies(${target} chipdb-himbaechel-ng-ultra)
 endforeach()
 
-add_custom_target(chipdb-himbaechel-ng-ultra ALL DEPENDS ${chipdb_binaries})
-install(DIRECTORY ${CMAKE_BINARY_DIR}/share/himbaechel/ng-ultra/ DESTINATION share/nextpnr/himbaechel/ng-ultra
-	    PATTERN "*.bba" EXCLUDE)
+set(ALL_HIMBAECHEL_NGULTRA_DEVICES ng-ultra)
+set(HIMBAECHEL_NGULTRA_DEVICES ${ALL_HIMBAECHEL_NGULTRA_DEVICES} CACHE STRING
+    "Include support for these NG-Ultra devices (available: ${ALL_HIMBAECHEL_NGULTRA_DEVICES})")
+message(STATUS "Enabled Himbaechel-NG-Ultra devices: ${HIMBAECHEL_NGULTRA_DEVICES}")
+
+foreach (device ${HIMBAECHEL_NGULTRA_DEVICES})
+    if (NOT device IN_LIST ALL_HIMBAECHEL_NGULTRA_DEVICES)
+        message(FATAL_ERROR "Device ${device} is not a supported NG-Ultra device")
+    endif()
+
+    string(TOUPPER ${device} upcase_device)
+
+    add_bba_produce_command(
+        COMMAND ${Python3_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/gen/arch_gen.py
+            --db ${HIMBAECHEL_PRJBEYOND_DB}
+            --device ${upcase_device}
+            --bba ${CMAKE_CURRENT_BINARY_DIR}/chipdb-${device}.bba.new
+        OUTPUT
+            ${CMAKE_CURRENT_BINARY_DIR}/chipdb-${device}.bba
+        INPUTS
+            ${CMAKE_CURRENT_SOURCE_DIR}/gen/arch_gen.py
+            ${CMAKE_CURRENT_SOURCE_DIR}/constids.inc
+    )
+
+    add_bba_compile_command(
+        TARGET  chipdb-himbaechel-ng-ultra
+        OUTPUT  ${CMAKE_BINARY_DIR}/share/himbaechel/ng-ultra/chipdb-${device}.bin
+        INPUT   ${CMAKE_CURRENT_BINARY_DIR}/chipdb-${device}.bba
+        MODE    binary
+    )
+endforeach()
+
+install(
+    DIRECTORY ${CMAKE_BINARY_DIR}/share/himbaechel/ng-ultra
+    DESTINATION share/nextpnr/himbaechel/ng-ultra
+)

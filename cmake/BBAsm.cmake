@@ -39,12 +39,18 @@ function(add_bba_produce_command)
         DEPENDS
             ${arg_EXECUTABLE}
             ${arg_INPUTS}
-            $ENV{SERIALIZE_BBA_PRODUCE_COMMAND}
+            $ENV{SERIALIZE_BBA_TARGET}
         VERBATIM
     )
 
     if (BBASM_SERIALIZE)
-        set(ENV{SERIALIZE_BBA_PRODUCE_COMMAND} ${arg_OUTPUT})
+        # Have to insert a custom target in between two custom commands, else CMake will try to
+        # depend on the previous (in serialization order) command directly, which will fail if
+        # they're in different directories. Unfortunately this makes the terminal output uglier.
+        math(EXPR next_count "$ENV{SERIALIZE_BBA_COUNT} + 1")
+        add_custom_target(--bbasm-serialize-${next_count} DEPENDS ${arg_OUTPUT})
+        set(ENV{SERIALIZE_BBA_COUNT} ${next_count})
+        set(ENV{SERIALIZE_BBA_TARGET} --bbasm-serialize-${next_count})
     endif()
 
 endfunction()

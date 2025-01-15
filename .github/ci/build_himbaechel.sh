@@ -7,7 +7,7 @@ function get_dependencies {
 function build_nextpnr {
     mkdir build
     pushd build
-    cmake .. -DARCH=himbaechel -DHIMBAECHEL_EXAMPLE_DEVICES=example
+    cmake .. -DARCH=himbaechel -DHIMBAECHEL_UARCH=example -DHIMBAECHEL_EXAMPLE_DEVICES=example
     make nextpnr-himbaechel chipdb-himbaechel-example -j`nproc`
     popd
 }
