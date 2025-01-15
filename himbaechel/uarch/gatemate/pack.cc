@@ -293,7 +293,6 @@ void GateMatePacker::pack_cpe()
             ci.renamePort(id_I4, id_IN1);
             ci.renamePort(id_O, id_OUT1);
             ci.params[id_INIT_L00] = Property(0b1010, 4);
-            ci.params[id_INIT_L01] = Property(0b0000, 4);
             ci.params[id_INIT_L10] = Property(0b1010, 4);
             ci.params[id_O1] = Property(0b11, 2);
         } else {
@@ -364,11 +363,7 @@ void GateMatePacker::pack_cpe()
         ci.params[id_O2] = Property(0b00, 2);
         ci.params[id_2D_IN] = Property(1, 1);
         ci.params[id_INIT_L00] = Property(0b1010, 4);
-        ci.params[id_INIT_L01] = Property(0b1111, 4);
-        ci.params[id_INIT_L02] = Property(0b1111, 4);
-        ci.params[id_INIT_L03] = Property(0b1111, 4);
-        ci.params[id_INIT_L10] = Property(0b1000, 4);
-        ci.params[id_INIT_L20] = Property(0b1100, 4);
+        ci.params[id_INIT_L10] = Property(0b1010, 4);
 
         NetInfo *en_net = ci.getPort(id_EN);
         bool invert = int_or_default(ci.params, id_EN_INV, 0) == 1;
