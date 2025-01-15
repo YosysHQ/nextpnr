@@ -11,8 +11,8 @@ message(STATUS "Enabled Himbaechel-Xilinx devices: ${HIMBAECHEL_XILINX_DEVICES}"
 
 set(chipdb_binaries)
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/share/himbaechel/xilinx)
-foreach(device ${HIMBAECHEL_XILINX_DEVICES})
-	if("${HIMBAECHEL_PRJXRAY_DB}" STREQUAL "")
+foreach (device ${HIMBAECHEL_XILINX_DEVICES})
+	if ("${HIMBAECHEL_PRJXRAY_DB}" STREQUAL "")
 		message(SEND_ERROR "HIMBAECHEL_PRJXRAY_DB must be set to a prjxray database checkout")
 	endif()
 

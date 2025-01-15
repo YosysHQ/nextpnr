@@ -2,30 +2,30 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 if (BUILD_PYTHON)
-  set(PYTHON_CONSOLE_SRC 
-    ../3rdparty/python-console/ColumnFormatter.cpp
-    ../3rdparty/python-console/ParseHelper.cpp
-    ../3rdparty/python-console/ParseHelper.BlockParseState.cpp
-    ../3rdparty/python-console/ParseHelper.BracketParseState.cpp
-    ../3rdparty/python-console/ParseHelper.ContinuationParseState.cpp
-    ../3rdparty/python-console/ParseMessage.cpp
-    
-    ../3rdparty/python-console/modified/pyredirector.cc 
-    ../3rdparty/python-console/modified/pyinterpreter.cc 
-    ../3rdparty/imgui/imgui_widgets.cpp
-    ../3rdparty/imgui/imgui_draw.cpp
-    ../3rdparty/imgui/imgui.cpp
-    ../3rdparty/imgui/imgui_demo.cpp
-    ../3rdparty/qtimgui/ImGuiRenderer.cpp
-    ../3rdparty/qtimgui/QtImGui.cpp    
-  )
+    set(PYTHON_CONSOLE_SRC
+        ../3rdparty/python-console/ColumnFormatter.cpp
+        ../3rdparty/python-console/ParseHelper.cpp
+        ../3rdparty/python-console/ParseHelper.BlockParseState.cpp
+        ../3rdparty/python-console/ParseHelper.BracketParseState.cpp
+        ../3rdparty/python-console/ParseHelper.ContinuationParseState.cpp
+        ../3rdparty/python-console/ParseMessage.cpp
+
+        ../3rdparty/python-console/modified/pyredirector.cc
+        ../3rdparty/python-console/modified/pyinterpreter.cc
+        ../3rdparty/imgui/imgui_widgets.cpp
+        ../3rdparty/imgui/imgui_draw.cpp
+        ../3rdparty/imgui/imgui.cpp
+        ../3rdparty/imgui/imgui_demo.cpp
+        ../3rdparty/qtimgui/ImGuiRenderer.cpp
+        ../3rdparty/qtimgui/QtImGui.cpp
+    )
 endif()
 
 aux_source_directory(. GUI_SOURCE_FILES)
 aux_source_directory(${family}/ GUI_SOURCE_FILES)
 
 set(_RESOURCES base.qrc ${family}/nextpnr.qrc)
-  
+
 qt5_add_resources(GUI_RESOURCE_FILES ${_RESOURCES})
 
 set(GUI_LIBRARY_FILES_${ufamily} Qt5::Widgets Qt5::OpenGL ${OPENGL_LIBRARIES} QtPropertyBrowser PARENT_SCOPE)
@@ -43,6 +43,6 @@ target_compile_definitions(gui_${family} PRIVATE NEXTPNR_NAMESPACE=nextpnr_${fam
 
 target_link_libraries(gui_${family} Qt5::Widgets)
 
-foreach(lib_dep ${EXTRA_LIB_DEPS})
+foreach (lib_dep ${EXTRA_LIB_DEPS})
     target_link_libraries(gui_${family} ${lib_dep})
 endforeach()
