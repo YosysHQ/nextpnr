@@ -163,7 +163,7 @@ sudo make install
 
 The nextpnr GUI is not built by default, to reduce the number of dependencies for a standard headless build. To enable it, add `-DBUILD_GUI=ON` to the CMake command line and ensure that Qt5 and OpenGL are available:
 
- - On Ubuntu 22.04 LTS, install `qtcreator qtbase5-dev qt5-qmake` 
+ - On Ubuntu 22.04 LTS, install `qtcreator qtbase5-dev qt5-qmake`
  - On other Ubuntu versions, install `qt5-default`
  - For MSVC vcpkg, install `qt5-base` (32-bit) or `qt5-base:x64-windows` (64-bit)
  - For Homebrew, install `qt5` and add qt5 in path: `echo 'export PATH="/usr/local/opt/qt/bin:$PATH"' >> ~/.bash_profile`
@@ -180,19 +180,6 @@ sudo make install
 ```
 
 To build every available stable architecture, use `-DARCH=all`. To include experimental arches (currently nexus), use `-DARCH=all+alpha`.
-
-Pre-generating chip databases
------------------------------
-
-It is possible to pre-generate chip databases (`.bba` files). This can come in handy when building on time-constrained cloud instances, or in situations where Python is unable to use modules. To do this, build the architecture as a standalone project, which will produce the chip database alone. For example, for iCE40:
-
-```
-cd ice40
-cmake .
-make
-```
-
-This will create a `chipdb` directory with `.bba` files. Provide the path to this directory when building nextpnr by using `-D<arch>_CHIPDB=/path/to/chipdb`.
 
 Cross-compilation
 -----------------
