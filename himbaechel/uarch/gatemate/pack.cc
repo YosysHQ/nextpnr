@@ -320,39 +320,39 @@ void GateMatePacker::pack_cpe()
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_CC_MX2, id_CC_MX4))
             continue;
-        if (ci.type == id_CC_MX2) {
-            ci.renamePort(id_S0, id_IN6);
-            ci.renamePort(id_D0, id_IN1);
-            ci.renamePort(id_D1, id_IN2);
-            ci.renamePort(id_Y, id_OUT1);
 
-            ci.params[id_FUNCTION] = Property(0b100, 3);
-            ci.params[id_INIT_L02] = Property(0b1100, 4); // IN6
-            ci.params[id_INIT_L10] = Property(0b0011, 4);
-            ci.params[id_INIT_L11] = Property(0b0011, 4);
-            ci.params[id_INIT_L20] = Property(0b0011, 4);
-            ci.params[id_O1] = Property(0b11, 2);
-            ci.type = id_CPE;
-        } else {
-            ci.renamePort(id_D0, id_IN1);
-            ci.renamePort(id_D1, id_IN2);
-            ci.renamePort(id_D2, id_IN3);
-            ci.renamePort(id_D3, id_IN4);
+        ci.renamePort(id_D0, id_IN1);
+        ci.renamePort(id_D1, id_IN2);
+        ci.renamePort(id_S0, id_IN6);
+        ci.renamePort(id_Y, id_OUT1);
+        // Only for CC_MX4
+        ci.renamePort(id_D2, id_IN3);
+        ci.renamePort(id_D3, id_IN4);
+        ci.renamePort(id_S1, id_IN8);
 
-            ci.renamePort(id_S0, id_IN6);
-            ci.renamePort(id_S1, id_IN8);
-            ci.renamePort(id_Y, id_OUT1);
-
-            ci.params[id_FUNCTION] = Property(0b100, 3);
-            ci.params[id_INIT_L02] = Property(0b1100, 4); // IN6
-            ci.params[id_INIT_L03] = Property(0b1100, 4); // IN8
-            
-            ci.params[id_INIT_L10] = Property(0b1111, 4);
-            ci.params[id_INIT_L11] = Property(0b0011, 4);
-            ci.params[id_INIT_L20] = Property(0b1100, 4);
-            ci.params[id_O1] = Property(0b11, 2);
-            ci.type = id_CPE;
+        uint8_t select = 0;
+        uint8_t invert = 0;
+        for(int i=0;i<4;i++) {
+            NetInfo *net = ci.getPort(ctx->idf("IN%d",i+1));
+            if (net) {
+                if (net->name.in(ctx->id("$PACKER_GND"),ctx->id("$PACKER_VCC"))) {
+                    if (net->name == ctx->id("$PACKER_VCC"))
+                        invert |= 1<< i;
+                    ci.disconnectPort(ctx->idf("IN%d",i+1));
+                } else {
+                    select |= 1 << i;
+                }
+            }
         }
+        ci.params[id_FUNCTION] = Property(0b100, 3);
+        ci.params[id_INIT_L02] = Property(0b1100, 4); // IN6
+        if (ci.type == id_CC_MX4)
+            ci.params[id_INIT_L03] = Property(0b1100, 4); // IN8
+        ci.params[id_INIT_L10] = Property(select, 4); // Selection bits
+        ci.params[id_INIT_L11] = Property(invert, 4); // Inversion bits
+        ci.params[id_INIT_L20] = Property(0b1100, 4); // Always D1
+        ci.params[id_O1] = Property(0b11, 2);
+        ci.type = id_CPE;
     }
 
     for (auto &cell : ctx->cells) {
