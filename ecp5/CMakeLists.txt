@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.25)
 project(chipdb-ecp5 NONE)
 
 set(ALL_ECP5_DEVICES 25k 45k 85k)

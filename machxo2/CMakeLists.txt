@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.25)
 project(chipdb-machxo2 NONE)
 
 set(ALL_MACHXO2_DEVICES 256X 640X 1200X 2280X 256 640 1200 2000 4000 7000 1300 2100 4300 6900 9400 4300D 9400D)
@@ -109,6 +109,6 @@ else()
         # serialize chipdb build across multiple architectures
         set(PREVIOUS_CHIPDB_TARGET chipdb-machxo2-bbas PARENT_SCOPE)
     else()
-        message(STATUS "Build nextpnr with -DMACHXO2_CHIPDB=${CMAKE_CURRENT_BINARY_DIR}")
+        message(STATUS "Build nextpnr with -DMACHXO2_CHIPDB=${CMAKE_CURRENT_BINARY_DIR}/chipdb")
     endif()
 endif()
