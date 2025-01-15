@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.25)
 project(nextpnr CXX)
 
+set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
+
 include(CheckCXXCompilerFlag)
 
 if (NOT DEFINED CMAKE_SUPPRESS_DEVELOPER_WARNINGS)
@@ -22,6 +24,7 @@ option(USE_OPENMP "Use OpenMP to accelerate analytic placer" OFF)
 option(COVERAGE "Add code coverage info" OFF)
 option(STATIC_BUILD "Create static build" OFF)
 option(EXTERNAL_CHIPDB "Create build with pre-built chipdb binaries" OFF)
+option(SERIALIZE_CHIPDBS "Serialize device data preprocessing to minimize memory use" ON)
 option(WERROR "pass -Werror to compiler (used for CI)" OFF)
 option(PROFILER "Link against libprofiler" OFF)
 option(USE_IPO "Compile nextpnr with IPO" ON)
@@ -59,6 +62,8 @@ elseif (EXTERNAL_CHIPDB)
 else()
     set(BBASM_MODE "string")
 endif()
+
+set(BBASM_SERIALIZE ${SERIALIZE_CHIPDBS})
 
 find_package(Threads)
 if (Threads_FOUND)
@@ -206,7 +211,7 @@ add_subdirectory(3rdparty/json11)
 
 add_subdirectory(3rdparty/oourafft)
 
-set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/3rdparty/sanitizers-cmake/cmake;${CMAKE_SOURCE_DIR}" ${CMAKE_MODULE_PATH})
+set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/3rdparty/sanitizers-cmake/cmake" ${CMAKE_MODULE_PATH})
 find_package(Sanitizers)
 
 if (COVERAGE)
@@ -326,7 +331,8 @@ foreach (family ${ARCH})
     endif()
 
     # Include the family-specific CMakeFile
-    include(${family}/family.cmake)
+    add_subdirectory(${family})
+    # include(${family}/family.cmake)
     foreach (target ${family_targets})
         foreach (lib_dep ${EXTRA_LIB_DEPS})
             target_link_libraries(${target} PRIVATE ${lib_dep})
