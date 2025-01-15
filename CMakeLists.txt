@@ -9,9 +9,9 @@ cmake_policy(SET CMP0079 NEW)
 # We want to explictly include all include directories when generating the
 # compilation database as not all clang/gcc share the same implicit includes
 # leading to essentially non-working compile_commands.json
-if(CMAKE_EXPORT_COMPILE_COMMANDS)
-  set(CMAKE_CXX_STANDARD_INCLUDE_DIRECTORIES
-      ${CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES})
+if (CMAKE_EXPORT_COMPILE_COMMANDS)
+    set(CMAKE_CXX_STANDARD_INCLUDE_DIRECTORIES
+        ${CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES})
 endif()
 
 # Enable IPO support.
@@ -49,7 +49,7 @@ else()
     set(CMAKE_INTERPROCEDURAL_OPTIMIZATION FALSE)
 endif()
 
-if(WIN32 OR EXTERNAL_CHIPDB)
+if (WIN32 OR EXTERNAL_CHIPDB)
     set(BBASM_MODE "binary")
 else()
     set(BBASM_MODE "string")
@@ -65,7 +65,7 @@ else()
     add_definitions(-DNPNR_DISABLE_THREADS)
 endif()
 
-if(WASI)
+if (WASI)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lwasi-emulated-mman")
     add_definitions(
         -DBOOST_EXCEPTION_DISABLE
@@ -79,8 +79,8 @@ endif()
 set(link_param "")
 if (STATIC_BUILD)
     set(Boost_USE_STATIC_LIBS   ON)
-    if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    elseif(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+    if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    elseif (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
         if (MSVC)
             set(CMAKE_CXX_FLAGS_RELEASE "/MT")
             set(CMAKE_CXX_FLAGS_DEBUG "/MTd")
@@ -118,11 +118,11 @@ if (NOT ARCH)
     message(STATUS "Supported architectures are :")
     message(STATUS "  all")
     message(STATUS "  all+alpha")
-    foreach(item ${FAMILIES})
+    foreach (item ${FAMILIES})
         message(STATUS "  ${item}")
     endforeach()
     message(FATAL_ERROR "Architecture setting is mandatory")
-endif ()
+endif()
 
 if (ARCH STREQUAL "all+alpha")
     SET(ARCH ${STABLE_FAMILIES} ${EXPERIMENTAL_FAMILIES})
@@ -133,7 +133,7 @@ if (ARCH STREQUAL "all")
     SET(ARCH ${STABLE_FAMILIES})
 endif()
 
-foreach(item ${ARCH})
+foreach (item ${ARCH})
     if (NOT item IN_LIST FAMILIES)
         message(FATAL_ERROR "Architecture '${item}' not in list of supported architectures")
     endif()
@@ -147,7 +147,7 @@ if (MSVC)
 else()
     # N.B. the -Wno-array-bounds is to work around a false positive in GCC 9
     set(WARN_FLAGS "-Wall -Wextra")
-    foreach(TRY_WARN_FLAG no-unused-parameter no-missing-field-initializers no-array-bounds no-format-truncation)
+    foreach (TRY_WARN_FLAG no-unused-parameter no-missing-field-initializers no-array-bounds no-format-truncation)
         check_cxx_compiler_flag("-W${TRY_WARN_FLAG}" HAS_W${TRY_WARN_FLAG})
         if (HAS_W${TRY_WARN_FLAG})
             set(WARN_FLAGS "${WARN_FLAGS} -W${TRY_WARN_FLAG}")
@@ -170,8 +170,8 @@ if (COVERAGE)
     include(CodeCoverage)
 endif()
 
-if(NOT DEFINED CMAKE_SUPPRESS_DEVELOPER_WARNINGS)
-     set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS 1 CACHE INTERNAL "No dev warnings")
+if (NOT DEFINED CMAKE_SUPPRESS_DEVELOPER_WARNINGS)
+    set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS 1 CACHE INTERNAL "No dev warnings")
 endif()
 
 find_package(Sanitizers)
@@ -239,9 +239,20 @@ if (NOT DEFINED PYBIND11_INCLUDE_DIR)
     set(PYBIND11_INCLUDE_DIR "3rdparty/pybind11/include")
 endif()
 
-include_directories(common/kernel/ common/place/ common/route/ json/ frontend/ 3rdparty/json11/  3rdparty/oourafft ${PYBIND11_INCLUDE_DIR} ${Boost_INCLUDE_DIRS} ${Python3_INCLUDE_DIRS})
+include_directories(
+    common/kernel/
+    common/place/
+    common/route/
+    json/
+    frontend/
+    3rdparty/json11/
+    3rdparty/oourafft/
+    ${PYBIND11_INCLUDE_DIR}
+    ${Boost_INCLUDE_DIRS}
+    ${Python3_INCLUDE_DIRS}
+)
 
-find_package (Eigen3 REQUIRED NO_MODULE)
+find_package(Eigen3 REQUIRED NO_MODULE)
 link_libraries(Eigen3::Eigen)
 
 aux_source_directory(common/kernel/ KERNEL_SRC_FILES)
@@ -255,13 +266,21 @@ aux_source_directory(frontend/ FRONTEND_FILES)
 
 aux_source_directory(rust/ RUST_FILES)
 
-set(COMMON_FILES ${KERNEL_SRC_FILES} ${PLACE_SRC_FILES} ${ROUTE_SRC_FILES} ${EXT_JSON11_FILES} ${EXT_OOURAFFT_FILES} ${JSON_PARSER_FILES} ${FRONTEND_FILES})
+set(COMMON_FILES
+    ${KERNEL_SRC_FILES}
+    ${PLACE_SRC_FILES}
+    ${ROUTE_SRC_FILES}
+    ${EXT_JSON11_FILES}
+    ${EXT_OOURAFFT_FILES}
+    ${JSON_PARSER_FILES}
+    ${FRONTEND_FILES}
+)
 
-if( NOT CMAKE_BUILD_TYPE )
+if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
-if(CMAKE_CROSSCOMPILING)
+if (CMAKE_CROSSCOMPILING)
     set(BBA_IMPORT "IMPORTFILE-NOTFOUND" CACHE FILEPATH
         "Path to the `bba-export.cmake` export file from a native build")
     include(${BBA_IMPORT})
@@ -271,7 +290,7 @@ endif()
 
 include(TestBigEndian)
 test_big_endian(IS_BIG_ENDIAN)
-if(IS_BIG_ENDIAN)
+if (IS_BIG_ENDIAN)
     set(BBASM_ENDIAN_FLAG "--be")
 else()
     set(BBASM_ENDIAN_FLAG "--le")
@@ -279,10 +298,10 @@ endif()
 
 set(EXTRA_LIB_DEPS)
 
-if(PROFILER)
+if (PROFILER)
     list(APPEND EXTRA_LIB_DEPS profiler)
 endif()
-if(TBB_FOUND)
+if (TBB_FOUND)
     list(APPEND EXTRA_LIB_DEPS TBB::tbb)
 endif()
 
@@ -340,7 +359,7 @@ foreach (family ${ARCH})
     # Include the family-specific CMakeFile
     include(${family}/family.cmake)
     foreach (target ${family_targets})
-        foreach(lib_dep ${EXTRA_LIB_DEPS})
+        foreach (lib_dep ${EXTRA_LIB_DEPS})
             target_link_libraries(${target} PRIVATE ${lib_dep})
         endforeach()
 
@@ -361,8 +380,8 @@ foreach (family ${ARCH})
             target_link_libraries(${target} LINK_PUBLIC ${Python3_LIBRARIES})
             if (STATIC_BUILD)
                 target_link_libraries(${target} LINK_PUBLIC ${CMAKE_THREAD_LIBS_INIT} ${CMAKE_DL_LIBS} ${ZLIB_LIBRARIES} ${EXPAT_LIBRARIES})
-                if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-                elseif(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+                if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+                elseif (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
                 else()
                     target_link_libraries(${target} LINK_PUBLIC -lutil)
                 endif()
@@ -371,12 +390,12 @@ foreach (family ${ARCH})
         if (USE_RUST)
             target_sources(${target} PRIVATE ${RUST_FILES})
             target_compile_definitions(${target} PRIVATE USE_RUST)
-            foreach(crate ${RUST_CRATES})
+            foreach (crate ${RUST_CRATES})
                 target_link_libraries(${target} PRIVATE ${crate})
-            endforeach(crate)
+            endforeach()
         endif()
-    endforeach (target)
-endforeach (family)
+    endforeach()
+endforeach()
 
 file(GLOB_RECURSE CLANGFORMAT_FILES *.cc *.h)
 string(REGEX REPLACE "[^;]*/ice40/chipdb/chipdb-[^;]*.cc" "" CLANGFORMAT_FILES "${CLANGFORMAT_FILES}")

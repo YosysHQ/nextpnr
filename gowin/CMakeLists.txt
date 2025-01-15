@@ -9,7 +9,7 @@ message(STATUS "Enabled Gowin devices: ${GOWIN_DEVICES}")
 find_program (GOWIN_BBA_EXECUTABLE gowin_bba)
 message(STATUS "gowin_bba executable: ${GOWIN_BBA_EXECUTABLE}")
 
-if(DEFINED GOWIN_CHIPDB)
+if (DEFINED GOWIN_CHIPDB)
     add_custom_target(chipdb-gowin-bbas ALL)
 else()
     # shared among all families
@@ -18,8 +18,8 @@ else()
 
     set(all_device_bbas)
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/chipdb)
-    foreach(device ${GOWIN_DEVICES})
-        if(NOT device IN_LIST ALL_GOWIN_DEVICES)
+    foreach (device ${GOWIN_DEVICES})
+        if (NOT device IN_LIST ALL_GOWIN_DEVICES)
             message(FATAL_ERROR "Device ${device} is not a supported Gowin device")
         endif()
 
@@ -35,7 +35,7 @@ else()
                 ${CMAKE_CURRENT_SOURCE_DIR}/constids.inc
             VERBATIM)
         list(APPEND all_device_bbas ${device_bba})
-        if(SERIALIZE_CHIPDBS)
+        if (SERIALIZE_CHIPDBS)
             set(PREVIOUS_CHIPDB_TARGET ${CMAKE_CURRENT_BINARY_DIR}/${device_bba})
         endif()
     endforeach()
@@ -43,7 +43,7 @@ else()
     add_custom_target(chipdb-gowin-bbas ALL DEPENDS ${all_device_bbas})
 
     get_directory_property(has_parent PARENT_DIRECTORY)
-    if(has_parent)
+    if (has_parent)
         set(GOWIN_CHIPDB ${CMAKE_CURRENT_BINARY_DIR}/chipdb PARENT_SCOPE)
         # serialize chipdb build across multiple architectures
         set(PREVIOUS_CHIPDB_TARGET chipdb-gowin-bbas PARENT_SCOPE)

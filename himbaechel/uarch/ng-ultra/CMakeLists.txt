@@ -11,8 +11,8 @@ set(HIMBAECHEL_PRJBEYOND_DB "" CACHE STRING
 
 set(chipdb_binaries)
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/share/himbaechel/ng-ultra)
-foreach(device ${HIMBAECHEL_NGULTRA_DEVICES})
-	if("${HIMBAECHEL_PRJBEYOND_DB}" STREQUAL "")
+foreach (device ${HIMBAECHEL_NGULTRA_DEVICES})
+	if ("${HIMBAECHEL_PRJBEYOND_DB}" STREQUAL "")
 		message(SEND_ERROR "HIMBAECHEL_PRJBEYOND_DB must be set to a prjbeyond database checkout")
 	endif()
 

@@ -9,7 +9,7 @@ message(STATUS "Enabled Himbaechel-Example devices: ${HIMBAECHEL_EXAMPLE_DEVICES
 
 set(chipdb_binaries)
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/share/himbaechel/example)
-foreach(device ${HIMBAECHEL_EXAMPLE_DEVICES})
+foreach (device ${HIMBAECHEL_EXAMPLE_DEVICES})
 	set(device_bba ${CMAKE_BINARY_DIR}/share/himbaechel/example/chipdb-${device}.bba)
 	set(device_bin ${CMAKE_BINARY_DIR}/share/himbaechel/example/chipdb-${device}.bin)
 	add_custom_command(
