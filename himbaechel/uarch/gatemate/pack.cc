@@ -358,12 +358,21 @@ void GateMatePacker::pack_cpe()
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_CC_DFF))
             continue;
-        ci.renamePort(id_D, id_IN1);
         ci.renamePort(id_Q, id_OUT2);
         ci.params[id_O2] = Property(0b00, 2);
         ci.params[id_2D_IN] = Property(1, 1);
-        ci.params[id_INIT_L00] = Property(0b1010, 4);
+        NetInfo *d_net = ci.getPort(id_D);
+        if (d_net->name == ctx->id("$PACKER_GND")) {
+            ci.params[id_INIT_L00] = Property(0b0000, 4);
+            ci.disconnectPort(id_D);
+        } else if (d_net->name == ctx->id("$PACKER_VCC")) {
+            ci.params[id_INIT_L00] = Property(0b1111, 4);
+            ci.disconnectPort(id_D);
+        } else {
+            ci.params[id_INIT_L00] = Property(0b1010, 4);
+        }
         ci.params[id_INIT_L10] = Property(0b1010, 4);
+        ci.renamePort(id_D, id_IN1);
 
         NetInfo *en_net = ci.getPort(id_EN);
         bool invert = int_or_default(ci.params, id_EN_INV, 0) == 1;

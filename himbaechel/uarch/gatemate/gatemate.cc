@@ -128,7 +128,6 @@ void updateSR_INV(Context *ctx, CellInfo *cell, IdString port, IdString param)
 
 void updateMUX_INV(Context *ctx, CellInfo *cell, IdString port, IdString param, int bit)
 {
-    if (cell->params.count(param) == 0) return;
     unsigned init_val = int_or_default(cell->params, param);
     WireId pin_wire = ctx->getBelPinWire(cell->bel, port);
     for (PipId pip : ctx->getPipsUphill(pin_wire)) {
