@@ -58,30 +58,32 @@ endfunction()
 # Example usage:
 #
 #   add_bba_compile_command(
-#       TARGET chipdb-ice40
-#       OUTPUT ${CMAKE_BINARY_DIR}/chipdb/ice40/chipdb-1k.bin
-#       INPUT  ${CMAKE_CURRENT_BINARY_DIR}/chipdb-1k.bba
-#       IDENT  ice40/chipdb-1k.bba
-#       MODE   binary
+#       TARGET  chipdb-ice40
+#       OUTPUT  ice40/chipdb-1k.bin
+#       INPUT   ${CMAKE_CURRENT_BINARY_DIR}/chipdb-1k.bba
+#       MODE    binary
 #   )
 #
 # Paths must be absolute.
 #
 function(add_bba_compile_command)
-    cmake_parse_arguments(arg "" "TARGET;OUTPUT;INPUT;IDENT;MODE" "" ${ARGN})
+    cmake_parse_arguments(arg "" "TARGET;OUTPUT;INPUT;MODE" "" ${ARGN})
 
     cmake_path(GET arg_OUTPUT PARENT_PATH arg_OUTPUT_DIR)
-    file(MAKE_DIRECTORY ${arg_OUTPUT_DIR})
+    cmake_path(GET arg_OUTPUT FILENAME arg_OUTPUT_NAME)
+
+    set(arg_PRODUCT ${CMAKE_BINARY_DIR}/share/${arg_OUTPUT})
+    cmake_path(GET arg_PRODUCT PARENT_PATH arg_PRODUCT_DIR)
 
     if (arg_MODE STREQUAL "binary" OR arg_MODE STREQUAL "resource")
 
         add_custom_command(
             OUTPUT
-                ${arg_OUTPUT}
+                ${CMAKE_CURRENT_BINARY_DIR}/${arg_OUTPUT_NAME}
             COMMAND
                 bbasm ${BBASM_ENDIAN_FLAG}
                 ${arg_INPUT}
-                ${arg_OUTPUT}
+                ${CMAKE_CURRENT_BINARY_DIR}/${arg_OUTPUT_NAME}
             DEPENDS
                 bbasm
                 ${arg_INPUT}
@@ -91,18 +93,37 @@ function(add_bba_compile_command)
         if (arg_MODE STREQUAL "resource")
 
             file(WRITE ${arg_OUTPUT}.rc
-                "${arg_IDENT} RCDATA \"${arg_OUTPUT}\"")
+                "${arg_OUTPUT} RCDATA \"${arg_OUTPUT}\"")
 
             target_sources(
-                ${arg_TARGET} PRIVATE
-                ${arg_OUTPUT}.rc
+                ${arg_TARGET} PUBLIC
+                ${CMAKE_CURRENT_BINARY_DIR}/${arg_OUTPUT_NAME}.rc
             )
 
         else()
 
             target_sources(
-                ${arg_TARGET} PRIVATE
-                ${arg_OUTPUT}
+                ${arg_TARGET} PUBLIC
+                ${CMAKE_CURRENT_BINARY_DIR}/${arg_OUTPUT_NAME}
+            )
+
+            add_custom_command(
+                OUTPUT
+                    ${CMAKE_CURRENT_BINARY_DIR}/${arg_OUTPUT_NAME}
+                COMMAND
+                    ${CMAKE_COMMAND} -E make_directory
+                    ${arg_PRODUCT_DIR}
+                COMMAND
+                    ${CMAKE_COMMAND} -E copy
+                    ${CMAKE_CURRENT_BINARY_DIR}/${arg_OUTPUT_NAME}
+                    ${arg_PRODUCT}
+                APPEND
+                VERBATIM
+            )
+
+            install(
+                FILES ${CMAKE_CURRENT_BINARY_DIR}/${arg_OUTPUT_NAME}
+                DESTINATION share/nextpnr/${arg_OUTPUT_DIR}
             )
 
         endif()
@@ -111,13 +132,13 @@ function(add_bba_compile_command)
 
         add_custom_command(
             OUTPUT
-                ${arg_OUTPUT}.cc
-                ${arg_OUTPUT}
+                ${CMAKE_CURRENT_BINARY_DIR}/${arg_OUTPUT_NAME}.cc
+                ${CMAKE_CURRENT_BINARY_DIR}/${arg_OUTPUT_NAME}
             COMMAND
                 bbasm ${BBASM_ENDIAN_FLAG} --e
                 ${arg_INPUT}
-                ${arg_OUTPUT}.cc
-                ${arg_OUTPUT}
+                ${CMAKE_CURRENT_BINARY_DIR}/${arg_OUTPUT_NAME}.cc
+                ${CMAKE_CURRENT_BINARY_DIR}/${arg_OUTPUT_NAME}
             DEPENDS
                 bbasm
                 ${arg_INPUT}
@@ -125,19 +146,19 @@ function(add_bba_compile_command)
         )
 
         target_sources(
-            ${arg_TARGET} PRIVATE
-            ${arg_OUTPUT}.cc
+            ${arg_TARGET} PUBLIC
+            ${CMAKE_CURRENT_BINARY_DIR}/${arg_OUTPUT_NAME}.cc
         )
 
     elseif (arg_MODE STREQUAL "string")
 
         add_custom_command(
             OUTPUT
-                ${arg_OUTPUT}.cc
+                ${CMAKE_CURRENT_BINARY_DIR}/${arg_OUTPUT_NAME}.cc
             COMMAND
                 bbasm ${BBASM_ENDIAN_FLAG} --c
                 ${arg_INPUT}
-                ${arg_OUTPUT}.cc
+                ${CMAKE_CURRENT_BINARY_DIR}/${arg_OUTPUT_NAME}.cc
             DEPENDS
                 bbasm
                 ${arg_INPUT}
@@ -146,14 +167,14 @@ function(add_bba_compile_command)
 
         if (NOT MSVC)
             set_source_files_properties(
-                ${arg_OUTPUT}.cc PROPERTIES
+                ${CMAKE_CURRENT_BINARY_DIR}/${arg_OUTPUT_NAME}.cc PROPERTIES
                 COMPILE_OPTIONS "-w;-g0;-O0"
             )
         endif()
 
         target_sources(
-            ${arg_TARGET} PRIVATE
-            ${arg_OUTPUT}.cc
+            ${arg_TARGET} PUBLIC
+            ${CMAKE_CURRENT_BINARY_DIR}/${arg_OUTPUT_NAME}.cc
         )
 
     endif()

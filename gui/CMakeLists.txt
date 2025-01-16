@@ -1,8 +1,6 @@
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_AUTOMOC ON)
 
-add_compile_definitions(QT_NO_KEYWORDS)
-
 set(GUI_SOURCES
     application.cc
     application.h
@@ -34,39 +32,43 @@ qt5_add_resources(GUI_QT_RESOURCES
     ${family}/nextpnr.qrc
 )
 
-add_library(gui_${family} STATIC
+add_library(nextpnr-${target}-gui OBJECT
     ${GUI_SOURCES}
     ${GUI_QT_RESOURCES}
 )
 
-target_include_directories(gui_${family} PRIVATE
+target_compile_definitions(nextpnr-${target}-gui PUBLIC
+    QT_NO_KEYWORDS
+)
+
+target_include_directories(nextpnr-${target}-gui PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/${family}
-    ${CMAKE_SOURCE_DIR}/${family}
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+target_include_directories(nextpnr-${target}-gui PRIVATE
+    ${CMAKE_SOURCE_DIR}/frontend
+    ${CMAKE_SOURCE_DIR}/json
     ${CMAKE_SOURCE_DIR}/3rdparty/QtPropertyBrowser/src
     ${CMAKE_SOURCE_DIR}/3rdparty/imgui
     ${CMAKE_SOURCE_DIR}/3rdparty/qtimgui
-    ${CMAKE_BINARY_DIR}/generated
 )
 
-target_compile_definitions(gui_${family} PRIVATE
-    NEXTPNR_NAMESPACE=nextpnr_${family}
-    ARCH_${ufamily}
-    ARCHNAME=${family}
-)
-
-target_link_libraries(gui_${family} PUBLIC
+target_link_libraries(nextpnr-${target}-gui PUBLIC
     Qt5::Widgets
 )
-target_link_libraries(gui_${family} PRIVATE
-    nextpnr_kernel
+
+target_link_libraries(nextpnr-${target}-gui PRIVATE
+    nextpnr-${target}-defs
+    nextpnr_version
     Qt5::OpenGL
     QtPropertyBrowser
-    ${EXTRA_LIB_DEPS}
+    pybind11_headers
 )
 
 # Currently always the case when the GUI is built.
 if (BUILD_PYTHON)
-    target_sources(gui_${family} PRIVATE
+    target_sources(nextpnr-${target}-gui PRIVATE
         ../3rdparty/python-console/ColumnFormatter.cpp
         ../3rdparty/python-console/ParseHelper.cpp
         ../3rdparty/python-console/ParseHelper.BlockParseState.cpp
@@ -83,7 +85,7 @@ if (BUILD_PYTHON)
         ../3rdparty/qtimgui/QtImGui.cpp
     )
 
-    target_include_directories(gui_${family} PRIVATE
+    target_include_directories(nextpnr-${target}-gui PRIVATE
         ../3rdparty/python-console
         ../3rdparty/python-console/modified
     )

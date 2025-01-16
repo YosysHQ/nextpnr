@@ -1,13 +1,32 @@
+set(SOURCES
+    cells.cc
+    constids.inc
+    extra_data.h
+    fasm.cc
+    pack_carry.cc
+    pack.cc
+    pack_clocking.cc
+    pack_dram.cc
+    pack_dsp_xc7.cc
+    pack.h
+    pack_io.cc
+    pins.cc
+    pins.h
+    xdc.cc
+    xilinx.cc
+    xilinx.h
+    xilinx_place.cc
+)
+
+add_nextpnr_himbaechel_microarchitecture(${uarch}
+    CORE_SOURCES ${SOURCES}
+)
+
 set(HIMBAECHEL_PRJXRAY_DB "" CACHE STRING
     "Path to a project x-ray database")
 if (NOT HIMBAECHEL_PRJXRAY_DB)
     message(FATAL_ERROR "HIMBAECHEL_PRJXRAY_DB must be set to a prjxray database checkout")
 endif()
-
-add_custom_target(chipdb-himbaechel-xilinx)
-foreach (target ${family_targets})
-    add_dependencies(${target} chipdb-himbaechel-xilinx)
-endforeach()
 
 set(HIMBAECHEL_XILINX_DEVICES "" CACHE STRING
     "Include support for these Xilinx devices")
@@ -27,14 +46,9 @@ foreach (device ${HIMBAECHEL_XILINX_DEVICES})
     )
 
     add_bba_compile_command(
-        TARGET  chipdb-himbaechel-xilinx
-        OUTPUT  ${CMAKE_BINARY_DIR}/share/himbaechel/xilinx/chipdb-${device}.bin
+        TARGET  nextpnr-himbaechel-xilinx-chipdb
+        OUTPUT  himbaechel/xilinx/chipdb-${device}.bin
         INPUT   ${CMAKE_CURRENT_BINARY_DIR}/chipdb-${device}.bba
         MODE    binary
     )
 endforeach()
-
-install(
-    DIRECTORY ${CMAKE_BINARY_DIR}/share/himbaechel/xilinx
-    DESTINATION share/nextpnr/himbaechel/xilinx
-)

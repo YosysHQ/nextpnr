@@ -1,9 +1,22 @@
 include(FindApycula)
 
-add_custom_target(chipdb-himbaechel-gowin ALL)
-foreach (target ${family_targets})
-    add_dependencies(${target} chipdb-himbaechel-gowin)
-endforeach()
+set(SOURCES
+    constids.inc
+    cst.cc
+    cst.h
+    globals.cc
+    globals.h
+    gowin.cc
+    gowin.h
+    gowin_utils.cc
+    gowin_utils.h
+    pack.cc
+    pack.h
+)
+
+add_nextpnr_himbaechel_microarchitecture(${uarch}
+    CORE_SOURCES ${SOURCES}
+)
 
 set(ALL_HIMBAECHEL_GOWIN_DEVICES GW1N-1 GW1NZ-1 GW1N-4 GW1N-9 GW1N-9C GW1NS-4 GW2A-18 GW2A-18C)
 set(HIMBAECHEL_GOWIN_DEVICES ${ALL_HIMBAECHEL_GOWIN_DEVICES} CACHE STRING
@@ -31,14 +44,9 @@ foreach (device ${HIMBAECHEL_GOWIN_DEVICES})
     )
 
     add_bba_compile_command(
-        TARGET  chipdb-himbaechel-gowin
-        OUTPUT  ${CMAKE_BINARY_DIR}/share/himbaechel/gowin/chipdb-${device}.bin
+        TARGET  nextpnr-himbaechel-gowin-chipdb
+        OUTPUT  himbaechel/gowin/chipdb-${device}.bin
         INPUT   ${CMAKE_CURRENT_BINARY_DIR}/chipdb-${device}.bba
         MODE    binary
     )
 endforeach()
-
-install(
-    DIRECTORY ${CMAKE_BINARY_DIR}/share/himbaechel/gowin
-    DESTINATION share/nextpnr/himbaechel/gowin
-)

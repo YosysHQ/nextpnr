@@ -1,12 +1,42 @@
 include(FindIceStorm)
 
-add_library(chipdb-${family} OBJECT)
-target_compile_definitions(chipdb-${family} PRIVATE NEXTPNR_NAMESPACE=nextpnr_${family})
-target_include_directories(chipdb-${family} PRIVATE .)
+set(SOURCES
+    arch.cc
+    archdefs.h
+    arch.h
+    arch_place.cc
+    arch_pybindings.cc
+    arch_pybindings.h
+    bitstream.cc
+    bitstream.h
+    cells.cc
+    cells.h
+    chains.cc
+    chains.h
+    constids.inc
+    delay.cc
+    gfx.cc
+    gfx.h
+    pack.cc
+    pcf.cc
+    pcf.h
+)
 
-foreach (family_target ${family_targets})
-    target_link_libraries(${family_target} PRIVATE chipdb-${family})
-endforeach()
+set(TEST_SOURCES
+    tests/hx1k.cc
+    tests/hx8k.cc
+    tests/lp1k.cc
+    tests/lp384.cc
+    tests/lp8k.cc
+    tests/main.cc
+    tests/up5k.cc
+)
+
+add_nextpnr_architecture(${family}
+    CORE_SOURCES ${SOURCES}
+    TEST_SOURCES ${TEST_SOURCES}
+    MAIN_SOURCE  main.cc
+)
 
 set(ALL_ICE40_DEVICES 384 1k 5k u4k 8k)
 set(ICE40_DEVICES ${ALL_ICE40_DEVICES} CACHE STRING
@@ -50,10 +80,9 @@ foreach (device ${ICE40_DEVICES})
     )
 
     add_bba_compile_command(
-        TARGET  chipdb-${family}
-        OUTPUT  ${CMAKE_BINARY_DIR}/share/${family}/chipdb-${device}.bin
+        TARGET  nextpnr-${family}-chipdb
+        OUTPUT  ${family}/chipdb-${device}.bin
         INPUT   ${CMAKE_CURRENT_BINARY_DIR}/chipdb-${device}.bba
-        IDENT   ${family}/chipdb-${device}.bin
         MODE    ${BBASM_MODE}
     )
 endforeach()

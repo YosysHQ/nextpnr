@@ -19,7 +19,6 @@
  */
 
 #ifndef NO_GUI
-#include <QApplication>
 #include "application.h"
 #include "mainwindow.h"
 #endif

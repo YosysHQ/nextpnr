@@ -18,8 +18,6 @@
  *
  */
 
-#ifdef MAIN_EXECUTABLE
-
 #include <fstream>
 #include "bitstream.h"
 #include "command.h"
@@ -121,5 +119,3 @@ int main(int argc, char *argv[])
     MachXO2CommandHandler handler(argc, argv);
     return handler.exec();
 }
-
-#endif

@@ -1,7 +1,7 @@
 /*
  *  nextpnr -- Next Generation Place and Route
  *
- *  Copyright (C) 2022  Lofty <lofty@yosyshq.com>
+ *  Copyright (C) 2018  Miodrag Milanovic <micko@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -17,18 +17,11 @@
  *
  */
 
-#ifndef RUST_H
-#define RUST_H
+#include <vector>
+#include "gtest/gtest.h"
 
-#ifndef NO_RUST
-
-#include "nextpnr.h"
-NEXTPNR_NAMESPACE_BEGIN
-
-void example_printnets(Context *ctx);
-
-NEXTPNR_NAMESPACE_END
-
-#endif
-
-#endif // RUST_H
+int main(int argc, char **argv)
+{
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
+}
