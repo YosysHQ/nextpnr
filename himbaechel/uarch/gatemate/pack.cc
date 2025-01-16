@@ -443,13 +443,16 @@ void GateMatePacker::pack_cpe()
         ci.unsetParam(id_SR_VAL);
         ci.unsetParam(id_SR_INV);
 
-        bool init = int_or_default(ci.params, id_INIT, 0) == 1;
-        if (init)
-            ci.params[id_FF_INIT] = Property(0b11, 2);
-        else
-            ci.params[id_FF_INIT] = Property(0b10, 2);
-        ci.unsetParam(id_INIT);
-
+        if (ci.params.count(id_INIT) && ci.params[id_INIT].is_fully_def()) {
+            bool init = int_or_default(ci.params, id_INIT, 0) == 1;
+            if (init)
+                ci.params[id_FF_INIT] = Property(0b11, 2);
+            else
+                ci.params[id_FF_INIT] = Property(0b10, 2);
+            ci.unsetParam(id_INIT);
+        } else {
+            ci.unsetParam(id_INIT);
+        }
         ci.type = id_CPE;
     }
 }
