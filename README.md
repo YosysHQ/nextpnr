@@ -181,6 +181,18 @@ sudo make install
 
 To build every available stable architecture, use `-DARCH=all`. To include experimental arches (currently nexus), use `-DARCH=all+alpha`.
 
+### Per-microarchitecture Himbächel
+
+To build a single nextpnr-himbachel executable for each of the supported microarchitectures, use `-DHIMBAECHEL_SPLIT`.
+
+```
+cmake . -DARCH="himbaechel" -DHIMBAECHEL_UARCH="gowin;ng-ultra"
+make -j$(nproc)
+sudo make install
+```
+
+In such a build, instead of a single `nextpnr-himbaechel` binary, two binaries `nextpnr-himbaechel-gowin` and `nextpnr-himbaechel-ng-ultra` are built. Although they are installed together, each microarchitecture is completely independent of the other, and only needs its corresponding `.../share/himbaechel/<microarchitecture>/` chip database directory to run. Split build reduces the size of individual distributed artifacts (although the total size increases), and allows co-installation of artifacts of different versions.
+
 Cross-compilation
 -----------------
 

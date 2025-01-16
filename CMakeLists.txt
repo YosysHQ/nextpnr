@@ -241,7 +241,18 @@ add_subdirectory(rust)
 add_subdirectory(tests/gui)
 
 function(add_nextpnr_architecture target)
-    cmake_parse_arguments(arg "" "MAIN_SOURCE" "CORE_SOURCES;TEST_SOURCES" ${ARGN})
+    cmake_parse_arguments(arg "" "MAIN_SOURCE" "CORE_SOURCES;TEST_SOURCES;CURRENT_SOURCE_DIR;CURRENT_BINARY_DIR" ${ARGN})
+
+    if (NOT arg_CURRENT_SOURCE_DIR)
+        set(arg_CURRENT_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+    endif()
+    if (NOT arg_CURRENT_BINARY_DIR)
+        set(arg_CURRENT_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
+    endif()
+
+    set(arg_MAIN_SOURCE "${arg_CURRENT_SOURCE_DIR}/${arg_MAIN_SOURCE}")
+    list(TRANSFORM arg_CORE_SOURCES PREPEND ${arg_CURRENT_SOURCE_DIR}/)
+    list(TRANSFORM arg_TEST_SOURCES PREPEND ${arg_CURRENT_SOURCE_DIR}/)
 
     # Defs library: used by everything
     #
@@ -251,7 +262,7 @@ function(add_nextpnr_architecture target)
 
     target_include_directories(nextpnr-${target}-defs INTERFACE
         ${CMAKE_SOURCE_DIR}/common/kernel
-        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${arg_CURRENT_SOURCE_DIR}
     )
 
     string(TOUPPER ${family} family_upper)
@@ -290,7 +301,7 @@ function(add_nextpnr_architecture target)
     endif()
 
     if (BUILD_GUI)
-        add_subdirectory(${CMAKE_SOURCE_DIR}/gui ${CMAKE_CURRENT_BINARY_DIR}/gui)
+        add_subdirectory(${CMAKE_SOURCE_DIR}/gui ${arg_CURRENT_BINARY_DIR}/gui)
 
         # Upsettingly, there is a cyclic dependency between `common/kernel` and `gui`, so these
         # two libraries have to be added separately to all executable targets.
