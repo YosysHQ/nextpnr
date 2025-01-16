@@ -165,31 +165,18 @@ void GateMateImpl::postRoute()
                         CellInfo *cell = ctx->createCell(ctx->id(ctx->nameOfBel(bel)), id_CPE);
                         ctx->bindBel(bel, cell, PlaceStrength::STRENGTH_FIXED);
                         if (IdString(extra_data.name) == id_RAM_O2) {
+                            // Propagate IN1 to O2 and RAM_O2
                             cell->params[id_INIT_L00] = Property(0b1010, 4);
-                            cell->params[id_INIT_L01] = Property(0b1111, 4);
-                            cell->params[id_INIT_L02] = Property(0b1111, 4);
-                            cell->params[id_INIT_L03] = Property(0b1111, 4);
-                            cell->params[id_INIT_L10] = Property(0b1000, 4);
-                            cell->params[id_INIT_L20] = Property(0b1100, 4);
+                            cell->params[id_INIT_L10] = Property(0b1010, 4);
                             cell->params[id_O2] = Property(0b11, 2);
                             cell->params[id_RAM_O2] = Property(1, 1);
                         } else if (IdString(extra_data.name) == id_RAM_O1) {
+                            // Propagate IN1 to O1 and RAM_O1
                             cell->params[id_INIT_L00] = Property(0b1010, 4);
-                            cell->params[id_INIT_L01] = Property(0b1111, 4);
-                            cell->params[id_INIT_L02] = Property(0b1111, 4);
-                            cell->params[id_INIT_L03] = Property(0b1111, 4);
-                            cell->params[id_INIT_L10] = Property(0b1000, 4);
+                            cell->params[id_INIT_L10] = Property(0b1010, 4);
                             cell->params[id_INIT_L20] = Property(0b1010, 4);
                             cell->params[id_O1] = Property(0b11, 2);
                             cell->params[id_RAM_O1] = Property(1, 1);
-                        } else if (IdString(extra_data.name) == id_O1) {
-                            cell->params[id_INIT_L00] = Property(0b1010, 4);
-                            cell->params[id_INIT_L01] = Property(0b1111, 4);
-                            cell->params[id_INIT_L02] = Property(0b1111, 4);
-                            cell->params[id_INIT_L03] = Property(0b1111, 4);
-                            cell->params[id_INIT_L10] = Property(0b1000, 4);
-                            cell->params[id_INIT_L20] = Property(0b1010, 4);
-                            cell->params[id_O1] = Property(0b11, 2);
                         } else {
                             log_error("Issue adding pass trough signal for %s.\n",IdString(extra_data.name).c_str(ctx));
                         }
