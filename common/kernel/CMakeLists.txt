@@ -68,6 +68,7 @@ target_sources(nextpnr_kernel PUBLIC
 )
 
 target_link_libraries(nextpnr_kernel INTERFACE
+    nextpnr_version
     nextpnr_frontend
     nextpnr_json
     nextpnr_rust
@@ -75,6 +76,10 @@ target_link_libraries(nextpnr_kernel INTERFACE
 )
 
 if (BUILD_PYTHON)
+    target_include_directories(nextpnr_kernel INTERFACE
+        ${Python3_INCLUDE_DIRS}
+    )
+
     target_link_libraries(nextpnr_kernel INTERFACE
         pybind11::headers
     )

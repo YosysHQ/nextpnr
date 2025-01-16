@@ -226,7 +226,7 @@ template <typename CoordinateT, typename ElementT> class QuadTreeNode
             return *this;
         bound_ = other.bound_;
         max_elems_ = other.max_elems_;
-        children_ = other.max_children_;
+        // children_ = other.max_children_;
         children_ = other.children_;
         splitx_ = other.splitx_;
         splity_ = other.splity_;

@@ -249,7 +249,7 @@ PYBIND11_EMBEDDED_MODULE(MODULE_NAME, m)
 
     m.def("parse_json", parse_json_shim);
     m.def("load_design", load_design_shim, py::return_value_policy::take_ownership);
-#ifdef USE_RUST
+#ifndef NO_RUST
     m.def("example_printnets", example_printnets);
 #endif
 
@@ -311,21 +311,17 @@ void (*python_sighandler)(int) = nullptr;
 
 void init_python(const char *executable)
 {
-#ifdef MAIN_EXECUTABLE
     static const char *python_argv[1];
     python_argv[0] = executable;
     py::initialize_interpreter(true, 1, python_argv);
     py::module::import(TOSTRING(MODULE_NAME));
     PyRun_SimpleString("from " TOSTRING(MODULE_NAME) " import *");
     python_sighandler = signal(SIGINT, SIG_DFL);
-#endif
 }
 
 void deinit_python()
 {
-#ifdef MAIN_EXECUTABLE
     py::finalize_interpreter();
-#endif
 }
 
 void execute_python_file(const char *python_file)

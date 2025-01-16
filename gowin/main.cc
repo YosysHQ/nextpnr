@@ -18,8 +18,6 @@
  *
  */
 
-#ifdef MAIN_EXECUTABLE
-
 #include <fstream>
 #include <locale>
 #include <regex>
@@ -126,4 +124,3 @@ int main(int argc, char *argv[])
     GowinCommandHandler handler(argc, argv);
     return handler.exec();
 }
-#endif

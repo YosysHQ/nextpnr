@@ -1,12 +1,27 @@
 include(FindApycula)
 
-add_library(chipdb-${family} OBJECT)
-target_compile_definitions(chipdb-${family} PRIVATE NEXTPNR_NAMESPACE=nextpnr_${family})
-target_include_directories(chipdb-${family} PRIVATE .)
+set(SOURCES
+    arch.cc
+    archdefs.h
+    arch.h
+    arch_pybindings.cc
+    arch_pybindings.h
+    cells.cc
+    cells.h
+    constids.inc
+    cst.cc
+    cst.h
+    gfx.cc
+    gfx.h
+    globals.cc
+    globals.h
+    pack.cc
+)
 
-foreach (family_target ${family_targets})
-    target_link_libraries(${family_target} PRIVATE chipdb-${family})
-endforeach()
+add_nextpnr_architecture(${family}
+    CORE_SOURCES ${SOURCES}
+    MAIN_SOURCE  main.cc
+)
 
 set(ALL_GOWIN_DEVICES GW1N-1 GW1NZ-1 GW1N-4 GW1N-9 GW1N-9C GW1NS-2 GW1NS-4 GW2A-18)
 set(GOWIN_DEVICES ${ALL_GOWIN_DEVICES} CACHE STRING
@@ -30,10 +45,9 @@ foreach (device ${GOWIN_DEVICES})
     )
 
     add_bba_compile_command(
-        TARGET  chipdb-${family}
-        OUTPUT  ${CMAKE_BINARY_DIR}/share/${family}/chipdb-${device}.bin
+        TARGET  nextpnr-${family}-chipdb
+        OUTPUT  ${family}/chipdb-${device}.bin
         INPUT   ${CMAKE_CURRENT_BINARY_DIR}/chipdb-${device}.bba
-        IDENT   ${family}/chipdb-${device}.bin
         MODE    ${BBASM_MODE}
     )
 endforeach()

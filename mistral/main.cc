@@ -17,8 +17,6 @@
  *
  */
 
-#ifdef MAIN_EXECUTABLE
-
 #include <fstream>
 #include "command.h"
 #include "design_utils.h"
@@ -99,5 +97,3 @@ int main(int argc, char *argv[])
     MistralCommandHandler handler(argc, argv);
     return handler.exec();
 }
-
-#endif

@@ -1,7 +1,12 @@
-add_custom_target(chipdb-himbaechel-example)
-foreach (target ${family_targets})
-    add_dependencies(${target} chipdb-himbaechel-example)
-endforeach()
+set(SOURCES
+    constids.inc
+    example.cc
+    gfxids.inc
+)
+
+add_nextpnr_himbaechel_microarchitecture(${uarch}
+    CORE_SOURCES ${SOURCES}
+)
 
 set(ALL_HIMBAECHEL_EXAMPLE_DEVICES example)
 set(HIMBAECHEL_EXAMPLE_DEVICES ${ALL_HIMBAECHEL_EXAMPLE_DEVICES} CACHE STRING
@@ -26,14 +31,9 @@ foreach (device ${HIMBAECHEL_EXAMPLE_DEVICES})
     )
 
     add_bba_compile_command(
-        TARGET  chipdb-himbaechel-example
-        OUTPUT  ${CMAKE_BINARY_DIR}/share/himbaechel/example/chipdb-${device}.bin
+        TARGET  nextpnr-himbaechel-example-chipdb
+        OUTPUT  himbaechel/example/chipdb-${device}.bin
         INPUT   ${CMAKE_CURRENT_BINARY_DIR}/chipdb-${device}.bba
         MODE    binary
     )
 endforeach()
-
-install(
-    DIRECTORY ${CMAKE_BINARY_DIR}/share/himbaechel/example
-    DESTINATION share/nextpnr/himbaechel/example
-)

@@ -114,7 +114,7 @@ struct GowinArch : HimbaechelArch
     {
         return std::make_unique<GowinImpl>();
     }
-} gowinrArch;
+} gowinArch;
 
 void GowinImpl::init_database(Arch *arch)
 {
