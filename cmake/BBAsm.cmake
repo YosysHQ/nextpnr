@@ -81,11 +81,7 @@ function(add_bba_compile_command)
             COMMAND
                 bbasm ${BBASM_ENDIAN_FLAG}
                 ${arg_INPUT}
-                ${arg_OUTPUT}.new
-            COMMAND
-                ${CMAKE_COMMAND} -E rename # atomic update
-                    ${arg_OUTPUT}.new
-                    ${arg_OUTPUT}
+                ${arg_OUTPUT}
             DEPENDS
                 bbasm
                 ${arg_INPUT}
@@ -120,16 +116,8 @@ function(add_bba_compile_command)
             COMMAND
                 bbasm ${BBASM_ENDIAN_FLAG} --e
                 ${arg_INPUT}
-                ${arg_OUTPUT}.cc.new
-                ${arg_OUTPUT}.new
-            COMMAND
-                ${CMAKE_COMMAND} -E rename # atomic update
-                    ${arg_OUTPUT}.cc.new
-                    ${arg_OUTPUT}.cc
-            COMMAND
-                ${CMAKE_COMMAND} -E rename # atomic update
-                    ${arg_OUTPUT}.new
-                    ${arg_OUTPUT}
+                ${arg_OUTPUT}.cc
+                ${arg_OUTPUT}
             DEPENDS
                 bbasm
                 ${arg_INPUT}
@@ -149,16 +137,19 @@ function(add_bba_compile_command)
             COMMAND
                 bbasm ${BBASM_ENDIAN_FLAG} --c
                 ${arg_INPUT}
-                ${arg_OUTPUT}.cc.new
-            COMMAND
-                ${CMAKE_COMMAND} -E rename # atomic update
-                    ${arg_OUTPUT}.cc.new
-                    ${arg_OUTPUT}.cc
+                ${arg_OUTPUT}.cc
             DEPENDS
                 bbasm
                 ${arg_INPUT}
             VERBATIM
         )
+
+        if (NOT MSVC)
+            set_source_files_properties(
+                ${arg_OUTPUT}.cc PROPERTIES
+                COMPILE_OPTIONS "-w;-g0;-O0"
+            )
+        endif()
 
         target_sources(
             ${arg_TARGET} PRIVATE

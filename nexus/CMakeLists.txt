@@ -7,7 +7,6 @@ set(NEXUS_FAMILIES ${ALL_NEXUS_FAMILIES} CACHE STRING
 message(STATUS "Enabled Nexus families: ${NEXUS_FAMILIES}")
 
 add_library(chipdb-${family} OBJECT)
-target_compile_options(chipdb-${family} PRIVATE -w -g0 -O0)
 target_compile_definitions(chipdb-${family} PRIVATE NEXTPNR_NAMESPACE=nextpnr_${family})
 target_include_directories(chipdb-${family} PRIVATE .)
 

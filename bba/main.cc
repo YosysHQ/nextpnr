@@ -443,20 +443,20 @@ int main(int argc, char **argv)
         for (auto &s : postText)
             fprintf(fileOut, "%s\n", s.c_str());
     } else if (writeE) {
-        for (auto &s : preText)
-            fprintf(fileOut, "%s\n", s.c_str());
-
-        fprintf(fileOut, "const char %s[%d] =\n", streams[0].name.c_str(), int(data.size()) + 1);
-        fprintf(fileOut, "#embed_str \"%s\"\n", boost::filesystem::path(files.at(2)).stem().c_str());
-        fprintf(fileOut, ";\n");
-
-        for (auto &s : postText)
-            fprintf(fileOut, "%s\n", s.c_str());
-
         FILE *fileBin = fopen(files.at(2).c_str(), "wb");
         assert(fileBin != nullptr);
         fwrite(data.data(), int(data.size()), 1, fileBin);
         fclose(fileBin);
+
+        for (auto &s : preText)
+            fprintf(fileOut, "%s\n", s.c_str());
+
+        fprintf(fileOut, "const char %s[%d] = {\n", streams[0].name.c_str(), int(data.size()) + 1);
+        fprintf(fileOut, "#embed \"%s\"\n", boost::filesystem::path(files.at(2)).c_str());
+        fprintf(fileOut, "};\n");
+
+        for (auto &s : postText)
+            fprintf(fileOut, "%s\n", s.c_str());
     } else {
         fwrite(data.data(), int(data.size()), 1, fileOut);
     }
