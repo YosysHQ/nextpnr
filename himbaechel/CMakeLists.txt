@@ -1,4 +1,6 @@
-set(SOURCES
+option(HIMBAECHEL_SPLIT "Whether to build one executable per Himbächel microarchitecture" OFF)
+
+set(HIMBAECHEL_SOURCES
     arch.cc
     archdefs.h
     arch.h
@@ -13,24 +15,50 @@ set(SOURCES
     himbaechel_helpers.h
 )
 
-add_nextpnr_architecture(${family}
-    CORE_SOURCES ${SOURCES}
-    MAIN_SOURCE  main.cc
-)
+if (HIMBAECHEL_SPLIT)
 
-function(add_nextpnr_himbaechel_microarchitecture microtarget)
-    cmake_parse_arguments(arg "" "" "CORE_SOURCES;TEST_SOURCES" ${ARGN})
+    function(add_nextpnr_himbaechel_microarchitecture microtarget)
+        cmake_parse_arguments(arg "" "" "CORE_SOURCES;TEST_SOURCES" ${ARGN})
 
-    target_sources(nextpnr-himbaechel-core INTERFACE ${arg_CORE_SOURCES})
+        list(TRANSFORM arg_CORE_SOURCES PREPEND ${CMAKE_CURRENT_SOURCE_DIR}/)
+        list(TRANSFORM arg_TEST_SOURCES PREPEND ${CMAKE_CURRENT_SOURCE_DIR}/)
 
-    add_library(nextpnr-himbaechel-${microtarget}-chipdb INTERFACE)
+        add_nextpnr_architecture(himbaechel-${microtarget}
+            CORE_SOURCES ${HIMBAECHEL_SOURCES}
+            MAIN_SOURCE  main.cc
+            CURRENT_SOURCE_DIR ${CMAKE_SOURCE_DIR}/himbaechel
+            CURRENT_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}
+        )
 
-    target_link_libraries(nextpnr-himbaechel-core INTERFACE nextpnr-himbaechel-${microtarget}-chipdb)
+        target_sources(nextpnr-himbaechel-${microtarget}-core INTERFACE ${arg_CORE_SOURCES})
 
-    if (BUILD_TESTS)
-        target_sources(nextpnr-himbaechel-test PRIVATE ${arg_TEST_SOURCES})
-    endif()
-endfunction()
+        if (BUILD_TESTS)
+            target_sources(nextpnr-himbaechel-${microtarget}-test PRIVATE ${arg_TEST_SOURCES})
+        endif()
+    endfunction()
+
+else()
+
+    add_nextpnr_architecture(himbaechel
+        CORE_SOURCES ${HIMBAECHEL_SOURCES}
+        MAIN_SOURCE  main.cc
+    )
+
+    function(add_nextpnr_himbaechel_microarchitecture microtarget)
+        cmake_parse_arguments(arg "" "" "CORE_SOURCES;TEST_SOURCES" ${ARGN})
+
+        target_sources(nextpnr-himbaechel-core INTERFACE ${arg_CORE_SOURCES})
+
+        add_library(nextpnr-himbaechel-${microtarget}-chipdb INTERFACE)
+
+        target_link_libraries(nextpnr-himbaechel-core INTERFACE nextpnr-himbaechel-${microtarget}-chipdb)
+
+        if (BUILD_TESTS)
+            target_sources(nextpnr-himbaechel-test PRIVATE ${arg_TEST_SOURCES})
+        endif()
+    endfunction()
+
+endif()
 
 set(HIMBAECHEL_UARCHES example gowin xilinx ng-ultra)
 
