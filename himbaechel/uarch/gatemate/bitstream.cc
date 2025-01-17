@@ -138,6 +138,17 @@ struct BitstreamBackend
                     cc.configs[0].add_word(stringf("GLBOUT.GLB%d_EN",l.z), int_to_bitvector(1,1));
                 }
             break;
+            case id_PLL.index:
+                {
+                    Loc l = ctx->getBelLocation(cell.second->bel);
+                    cc.configs[0].add_word(stringf("PLL%d.CLK_OUT_EN",l.z-4), int_to_bitvector(1,1));
+                    cc.configs[0].add_word(stringf("PLL%d.PLL_EN",l.z-4), int_to_bitvector(1,1));
+                    cc.configs[0].add_word(stringf("PLL%d.PLL_RST",l.z-4), int_to_bitvector(1,1));
+                    for (auto &p : params) {
+                        cc.configs[0].add_word(stringf("PLL%d.%s", l.z-4, p.first.c_str(ctx)), p.second.as_bits());
+                    }
+                }
+            break;
             default:
                 log_error("Unhandled cell %s of type %s\n", cell.second.get()->name.c_str(ctx),
                           cell.second->type.c_str(ctx));
