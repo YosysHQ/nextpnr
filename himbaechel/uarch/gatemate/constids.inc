@@ -110,6 +110,7 @@ X(O1)
 X(O2)
 
 X(CC_DFF)
+X(CPE_DFF)
 X(Q)
 X(D)
 X(R)

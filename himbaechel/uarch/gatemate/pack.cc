@@ -455,6 +455,7 @@ void GateMatePacker::pack_cpe()
         } else {
             ci.unsetParam(id_INIT);
         }
+        ci.timing_index = ctx->get_cell_timing_idx(id_CPE_DFF);
         ci.type = id_CPE;
     }
 }
