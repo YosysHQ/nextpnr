@@ -17,6 +17,8 @@
  *
  */
 
+#include <boost/algorithm/string.hpp>
+
 #include "pack.h"
 
 #define HIMBAECHEL_CONSTIDS "uarch/gatemate/constids.inc"
@@ -468,6 +470,94 @@ void GateMatePacker::pack_bufg()
     }
 }
 
+template <typename KeyType> double double_or_default(const dict<KeyType, Property> &ct, const KeyType &key, double def = 0)
+{
+    auto found = ct.find(key);
+    if (found == ct.end())
+        return def;
+    else {
+        if (found->second.is_string) {
+            try {
+                return std::stod(found->second.as_string());
+            } catch (std::invalid_argument &e) {
+                log_error("Expecting numeric value but got '%s'.\n", found->second.as_string().c_str());
+            }
+        } else
+            return double(found->second.as_int64());
+    }
+};
+
+void GateMatePacker::pack_pll()
+{
+    log_info("Packing PLLss..\n");
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (!ci.type.in(id_CC_PLL))
+            continue;
+
+        disconnect_if_gnd(&ci, id_CLK_REF);
+        disconnect_if_gnd(&ci, id_USR_CLK_REF);
+        disconnect_if_gnd(&ci, id_CLK_FEEDBACK);
+        disconnect_if_gnd(&ci, id_USR_LOCKED_STDY_RST);
+
+        ci.params[id_LOCK_REQ] = Property(int_or_default(ci.params, id_LOCK_REQ, 1),1);
+        ci.params[id_CLK180_DOUB] = Property(int_or_default(ci.params, id_CLK180_DOUB, 0),1);
+        ci.params[id_CLK270_DOUB] = Property(int_or_default(ci.params, id_CLK270_DOUB, 0),1);
+        std::string mode = str_or_default(ci.params, id_PERF_MD, "SPEED");
+        boost::algorithm::to_upper(mode);
+        int perf_md;
+        if (mode == "LOWPOWER") perf_md = 1;
+        else if (mode == "ECONOMY") perf_md = 2;
+        else if (mode == "SPEED") perf_md = 3;
+        else log_error("Unknown PERF_MD parameter value '%s' for cell %s.\n", mode.c_str(), ci.name.c_str(ctx));
+
+
+        double ref_clk = double_or_default(ci.params, id_REF_CLK, 0.0);
+        if (ref_clk <= 0 || ref_clk > 125)
+            log_error("REF_CLK parameter is out of range (0,125.00].\n");
+
+        double max_freq = 0.0;
+        switch(perf_md) {
+            case 1: max_freq = 250.00; break;
+            case 2: max_freq = 312.50; break;
+            case 3: max_freq = 416.75; break;
+        }
+
+        double out_clk = double_or_default(ci.params, id_OUT_CLK, 0.0);
+        if (out_clk <= 0 || out_clk > max_freq)
+            log_error("OUT_CLK parameter is out of range (0,%.2lf].\n", max_freq);
+
+        // For 10 MHz - > 25 MHz
+        ci.params[ctx->id("CFG_A.AO_SW")] = Property(0b01000,5);
+        ci.params[ctx->id("CFG_A.CI_FILTER_CONST")] = Property(0b00010,5);
+        ci.params[ctx->id("CFG_A.COARSE_TUNE")] = Property(0b100,3);
+        ci.params[ctx->id("CFG_A.CP_FILTER_CONST")] = Property(0b00100,5);
+        ci.params[ctx->id("CFG_A.EN_COARSE_TUNE")] = Property(0b1,1);
+        ci.params[ctx->id("CFG_A.FAST_LOCK")] = Property(0b1,1);
+        ci.params[ctx->id("CFG_A.FILTER_SHIFT")] = Property(0b10,2);
+        ci.params[ctx->id("CFG_A.FINE_TUNE")] = Property(0b00011001000,11);
+        ci.params[ctx->id("CFG_A.K")] = Property(0b000000000001,12);
+        ci.params[ctx->id("CFG_A.M1")] = Property(0b000010,6);
+        ci.params[ctx->id("CFG_A.M2")] = Property(0b0000001001,10);
+        ci.params[ctx->id("CFG_A.N1")] = Property(0b001001,6);
+        ci.params[ctx->id("CFG_A.N2")] = Property(0b0000001010,10);
+        ci.params[ctx->id("CFG_A.PDIV0_MUX")] = Property(0b1,1);
+        ci.params[ctx->id("CFG_A.PDIV1_SEL")] = Property(0b1,1);
+        ci.params[ctx->id("CFG_A.SAR_LIMIT")] = Property(0b010,3);
+
+        // Remove all not propagated parameters
+        ci.unsetParam(id_PERF_MD);
+        ci.unsetParam(id_REF_CLK);
+        ci.unsetParam(id_OUT_CLK);        
+        ci.unsetParam(id_LOW_JITTER);
+        ci.unsetParam(id_CI_FILTER_CONST);
+        ci.unsetParam(id_CP_FILTER_CONST);
+        //ci.unsetParam(id_PLL_CFG_A);
+        //ci.unsetParam(id_PLL_CFG_B);
+
+        ci.type = id_PLL;
+    }
+}
 void GateMatePacker::pack_constants()
 {
     log_info("Packing constants..\n");
@@ -517,6 +607,7 @@ void GateMateImpl::pack()
     GateMatePacker packer(ctx, this);
     packer.pack_constants();
     packer.pack_io();
+    packer.pack_pll();
     packer.pack_bufg();
     packer.pack_cpe();
     packer.remove_constants();

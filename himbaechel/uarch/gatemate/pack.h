@@ -31,6 +31,7 @@ struct GateMatePacker
     void pack_io();
     void pack_cpe();
     void pack_bufg();
+    void pack_pll();
     void pack_constants();
 
     void disconnect_if_gnd(CellInfo *cell, IdString input);
