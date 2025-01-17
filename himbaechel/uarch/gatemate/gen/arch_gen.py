@@ -64,6 +64,26 @@ def set_timings(ch):
     speed = "DEFAULT"
     tmg = ch.set_speed_grades([speed])
 
+    lut = ch.timing.add_cell_variant(speed, "CPE")
+    lut.add_comb_arc("IN1", "OUT1", TimingValue(455, 459))
+    lut.add_comb_arc("IN2", "OUT1", TimingValue(450, 457))
+    lut.add_comb_arc("IN3", "OUT1", TimingValue(427, 430))
+    lut.add_comb_arc("IN4", "OUT1", TimingValue(423, 424))
+    lut.add_comb_arc("IN5", "OUT1", TimingValue(416, 418))
+    lut.add_comb_arc("IN6", "OUT1", TimingValue(413, 422))
+    lut.add_comb_arc("IN7", "OUT1", TimingValue(372, 374))
+    lut.add_comb_arc("IN8", "OUT1", TimingValue(275, 385))
+
+    lut.add_comb_arc("IN1", "OUT2", TimingValue(479, 484))
+    lut.add_comb_arc("IN2", "OUT2", TimingValue(471, 488))
+    lut.add_comb_arc("IN3", "OUT2", TimingValue(446, 449))
+    lut.add_comb_arc("IN4", "OUT2", TimingValue(443, 453))
+
+    dff = ch.timing.add_cell_variant(speed, "CPE_DFF")
+    dff.add_setup_hold("CLK", "IN1", ClockEdge.RISING, TimingValue(60), TimingValue(50))
+    dff.add_clock_out("CLK", "OUT1", ClockEdge.RISING, TimingValue(60))
+    dff.add_clock_out("CLK", "OUT2", ClockEdge.RISING, TimingValue(60))
+
 def main():
     # Range needs to be +1, but we are adding +2 more to coordinates, since 
     # they are starting from -2 instead of zero required for nextpnr
