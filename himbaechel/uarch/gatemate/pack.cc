@@ -559,6 +559,17 @@ void GateMatePacker::pack_pll()
         ci.type = id_PLL;
     }
 }
+
+void GateMatePacker::pack_misc()
+{
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (!ci.type.in(id_CC_USR_RSTN))
+            continue;
+        ci.type = id_USR_RSTN;
+    }
+}
+
 void GateMatePacker::pack_constants()
 {
     log_info("Packing constants..\n");
@@ -610,6 +621,7 @@ void GateMateImpl::pack()
     packer.pack_io();
     packer.pack_pll();
     packer.pack_bufg();
+    packer.pack_misc();
     packer.pack_cpe();
     packer.remove_constants();
 }
