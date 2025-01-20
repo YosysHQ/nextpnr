@@ -149,6 +149,8 @@ struct BitstreamBackend
                     }
                 }
             break;
+            case id_USR_RSTN.index:
+            break;
             default:
                 log_error("Unhandled cell %s of type %s\n", cell.second.get()->name.c_str(ctx),
                           cell.second->type.c_str(ctx));

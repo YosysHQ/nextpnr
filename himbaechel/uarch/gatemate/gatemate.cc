@@ -63,6 +63,8 @@ bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
             return false;
         if (y < 2 || y > 127)
             return false;
+        if (x == 1 && y == 66)
+            return false;
         return true;
     }
     return true;
@@ -177,6 +179,10 @@ void GateMateImpl::postRoute()
                             cell->params[id_INIT_L20] = Property(0b1010, 4);
                             cell->params[id_O1] = Property(0b11, 2);
                             cell->params[id_RAM_O1] = Property(1, 1);
+                        } else if (IdString(extra_data.name) == id_RAM_I1) {
+                            cell->params[id_RAM_I1] = Property(1, 1);
+                        } else if (IdString(extra_data.name) == id_RAM_I2) {
+                            cell->params[id_RAM_I2] = Property(1, 1);
                         } else {
                             log_error("Issue adding pass trough signal for %s.\n",IdString(extra_data.name).c_str(ctx));
                         }

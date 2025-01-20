@@ -114,6 +114,10 @@ def main():
             pp.extra_data = PipExtraData(PIP_EXTRA_CPE,ch.strs.id("RAM_O2"))
             pp = tt.create_pip("CPE.IN1", "CPE.RAM_O1")
             pp.extra_data = PipExtraData(PIP_EXTRA_CPE,ch.strs.id("RAM_O1"))
+            pp = tt.create_pip("CPE.RAM_I1", "CPE.OUT1")
+            pp.extra_data = PipExtraData(PIP_EXTRA_CPE,ch.strs.id("RAM_I1"))
+            pp = tt.create_pip("CPE.RAM_I2", "CPE.OUT2")
+            pp.extra_data = PipExtraData(PIP_EXTRA_CPE,ch.strs.id("RAM_I2"))
             for i in range(1,9):
                 tt.create_wire(f"CPE.V_IN{i}", "CPE_VIRTUAL_WIRE")
                 pp = tt.create_pip(f"CPE.V_IN{i}", f"CPE.IN{i}")
