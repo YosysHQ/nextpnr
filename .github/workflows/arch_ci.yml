@@ -14,7 +14,7 @@ jobs:
     env:
       DEPS_PATH: ${{ github.workspace }}/deps
       YOSYS_REVISION: 7045cf509e1d95cbc973746674cf2d7c73c02e50
-      ICESTORM_REVISION: 9f66f9ce16941c6417813cb87653c735a78b53ae
+      ICESTORM_REVISION: 68044cc4dac829729ccd0ee88d0780525b515746
       TRELLIS_REVISION: 36c615d1740473cc3574464c7f0bed44da20e5b6
       PRJOXIDE_REVISION: c3fb1526cf4a2165e15b74f4a994d153c7695fe4
       MISTRAL_REVISION: ebfc0dd2cc7d6d2159b641a397c88554840e93c9
@@ -26,11 +26,11 @@ jobs:
 
     - uses: actions/setup-python@v5
       with:
-        python-version: '3.10'
+        python-version: '3.12'
     - name: Install
       run: |
         sudo apt-get update
-        sudo apt-get install git make cmake libboost-all-dev python3-dev pypy3 libeigen3-dev tcl-dev lzma-dev libftdi-dev clang bison flex swig qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools iverilog
+        sudo apt-get install git make cmake libboost-all-dev python3-dev pypy3 libeigen3-dev tcl-dev lzma-dev libftdi-dev clang bison flex swig qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools iverilog libreadline-dev liblzma-dev
 
     - name: Cache yosys installation
       uses: actions/cache@v4
