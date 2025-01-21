@@ -76,6 +76,6 @@ target_link_libraries(nextpnr_kernel INTERFACE
 
 if (BUILD_PYTHON)
     target_link_libraries(nextpnr_kernel INTERFACE
-        pybind11_headers
+        pybind11::headers
     )
 endif()
