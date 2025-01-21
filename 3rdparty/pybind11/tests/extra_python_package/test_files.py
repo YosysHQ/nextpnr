@@ -35,6 +35,7 @@ main_headers = {
     "include/pybind11/eval.h",
     "include/pybind11/functional.h",
     "include/pybind11/gil.h",
+    "include/pybind11/gil_safe_call_once.h",
     "include/pybind11/iostream.h",
     "include/pybind11/numpy.h",
     "include/pybind11/operators.h",
@@ -43,16 +44,25 @@ main_headers = {
     "include/pybind11/pytypes.h",
     "include/pybind11/stl.h",
     "include/pybind11/stl_bind.h",
+    "include/pybind11/type_caster_pyobject_ptr.h",
+    "include/pybind11/typing.h",
 }
 
 detail_headers = {
     "include/pybind11/detail/class.h",
     "include/pybind11/detail/common.h",
+    "include/pybind11/detail/cpp_conduit.h",
     "include/pybind11/detail/descr.h",
     "include/pybind11/detail/init.h",
     "include/pybind11/detail/internals.h",
     "include/pybind11/detail/type_caster_base.h",
     "include/pybind11/detail/typeid.h",
+}
+
+eigen_headers = {
+    "include/pybind11/eigen/common.h",
+    "include/pybind11/eigen/matrix.h",
+    "include/pybind11/eigen/tensor.h",
 }
 
 stl_headers = {
@@ -82,7 +92,7 @@ py_files = {
     "setup_helpers.py",
 }
 
-headers = main_headers | detail_headers | stl_headers
+headers = main_headers | detail_headers | eigen_headers | stl_headers
 src_files = headers | cmake_files | pkgconfig_files
 all_files = src_files | py_files
 
@@ -92,6 +102,7 @@ sdist_files = {
     "pybind11/include",
     "pybind11/include/pybind11",
     "pybind11/include/pybind11/detail",
+    "pybind11/include/pybind11/eigen",
     "pybind11/include/pybind11/stl",
     "pybind11/share",
     "pybind11/share/cmake",
@@ -104,6 +115,7 @@ sdist_files = {
     "MANIFEST.in",
     "README.rst",
     "PKG-INFO",
+    "SECURITY.md",
 }
 
 local_sdist_files = {
@@ -129,7 +141,6 @@ def normalize_line_endings(value: bytes) -> bytes:
 
 
 def test_build_sdist(monkeypatch, tmpdir):
-
     monkeypatch.chdir(MAIN_DIR)
 
     subprocess.run(
@@ -180,7 +191,6 @@ def test_build_sdist(monkeypatch, tmpdir):
 
 
 def test_build_global_dist(monkeypatch, tmpdir):
-
     monkeypatch.chdir(MAIN_DIR)
     monkeypatch.setenv("PYBIND11_GLOBAL_SDIST", "1")
     subprocess.run(
