@@ -63,7 +63,7 @@ target_link_libraries(nextpnr-${target}-gui PRIVATE
     nextpnr_version
     Qt5::OpenGL
     QtPropertyBrowser
-    pybind11_headers
+    pybind11::headers
 )
 
 # Currently always the case when the GUI is built.
