@@ -7,9 +7,24 @@ else()
     set(BBASM_ENDIAN_FLAG "--le")
 endif()
 
+set(EXPORT_BBA_FILES "" CACHE PATH "Copy generated .bba files to this directory")
+set(IMPORT_BBA_FILES "" CACHE PATH "Use pre-generated .bba files from this directory")
+mark_as_advanced(EXPORT_BBA_FILES IMPORT_BBA_FILES)
+
+if (EXPORT_BBA_FILES)
+    file(REAL_PATH ${EXPORT_BBA_FILES} EXPORT_BBA_FILES BASE_DIRECTORY ${CMAKE_BINARY_DIR})
+    message(STATUS "Exporting .bba files to ${EXPORT_BBA_FILES}")
+endif()
+
+if (IMPORT_BBA_FILES)
+    file(REAL_PATH ${IMPORT_BBA_FILES} IMPORT_BBA_FILES BASE_DIRECTORY ${CMAKE_BINARY_DIR})
+    message(STATUS "Importing .bba files from ${EXPORT_BBA_FILES}")
+endif()
+
 # Example usage (note the `.new`, used for atomic updates):
 #
 #   add_bba_produce_command(
+#       TARGET  nextpnr-ice40-bba
 #       COMMAND ${Python_EXECUTABLE}
 #           ${CMAKE_CURRENT_SOURCE_DIR}/chipdb.py
 #           -o ${CMAKE_CURRENT_BINARY_DIR}/chipdb-hx8k.bba.new
@@ -20,26 +35,68 @@ endif()
 # Paths must be absolute.
 #
 function(add_bba_produce_command)
-    cmake_parse_arguments(arg "" "OUTPUT" "COMMAND;INPUTS" ${ARGN})
+    cmake_parse_arguments(arg "" "OUTPUT" "TARGET;COMMAND;INPUTS" ${ARGN})
 
     cmake_path(GET arg_OUTPUT PARENT_PATH arg_OUTPUT_DIR)
+    cmake_path(GET arg_OUTPUT FILENAME arg_OUTPUT_NAME)
+    file(RELATIVE_PATH arg_OUTPUT_RELATIVE ${CMAKE_BINARY_DIR} ${arg_OUTPUT})
     file(MAKE_DIRECTORY ${arg_OUTPUT_DIR})
 
     list(GET arg_COMMAND 0 arg_EXECUTABLE)
 
-    add_custom_command(
-        OUTPUT
-            ${arg_OUTPUT}
-        COMMAND
-            ${arg_COMMAND}
-        COMMAND
-            ${CMAKE_COMMAND} -E rename # atomic update
-                ${arg_OUTPUT}.new
+    if (NOT IMPORT_BBA_FILES)
+
+        add_custom_command(
+            OUTPUT
                 ${arg_OUTPUT}
-        DEPENDS
-            ${arg_EXECUTABLE}
-            ${arg_INPUTS}
-        VERBATIM
+            COMMAND
+                ${arg_COMMAND}
+            COMMAND
+                ${CMAKE_COMMAND} -E rename # atomic update
+                    ${arg_OUTPUT}.new
+                    ${arg_OUTPUT}
+            DEPENDS
+                ${arg_EXECUTABLE}
+                ${arg_INPUTS}
+            VERBATIM
+        )
+
+    else()
+
+        add_custom_command(
+            OUTPUT
+                ${arg_OUTPUT}
+            COMMAND
+                ${CMAKE_COMMAND} -E copy
+                    ${IMPORT_BBA_FILES}/${arg_OUTPUT_RELATIVE}
+                    ${arg_OUTPUT}
+            DEPENDS
+                ${IMPORT_BBA_FILES}/${arg_OUTPUT_RELATIVE}
+            COMMENT
+                "Importing ${arg_OUTPUT_NAME}"
+            VERBATIM
+        )
+
+    endif()
+
+    if (EXPORT_BBA_FILES)
+
+        add_custom_command(
+            OUTPUT
+                ${arg_OUTPUT}
+            COMMAND
+                ${CMAKE_COMMAND} -E copy
+                    ${arg_OUTPUT}
+                    ${EXPORT_BBA_FILES}/${arg_OUTPUT_RELATIVE}
+            APPEND
+            VERBATIM
+        )
+
+    endif()
+
+    target_sources(
+        ${arg_TARGET} PUBLIC
+        ${arg_OUTPUT}
     )
 
 endfunction()

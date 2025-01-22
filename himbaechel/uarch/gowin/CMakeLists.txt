@@ -32,6 +32,7 @@ foreach (device ${HIMBAECHEL_GOWIN_DEVICES})
     endif()
 
     add_bba_produce_command(
+        TARGET  nextpnr-himbaechel-gowin-bba
         COMMAND ${apycula_Python3_EXECUTABLE}
             ${CMAKE_CURRENT_SOURCE_DIR}/gowin_arch_gen.py
             -d ${device}

@@ -34,6 +34,7 @@ foreach (device ${GOWIN_DEVICES})
     endif()
 
     add_bba_produce_command(
+        TARGET  nextpnr-${family}-bba
         COMMAND ${GOWIN_BBA_EXECUTABLE}
             -d ${device}
             -i ${CMAKE_CURRENT_SOURCE_DIR}/constids.inc

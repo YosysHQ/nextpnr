@@ -64,6 +64,7 @@ foreach (device ${ICE40_DEVICES})
     endif()
 
     add_bba_produce_command(
+        TARGET  nextpnr-${family}-bba
         COMMAND ${Python3_EXECUTABLE}
             ${CMAKE_CURRENT_SOURCE_DIR}/chipdb.py
             -p ${CMAKE_CURRENT_SOURCE_DIR}/constids.inc

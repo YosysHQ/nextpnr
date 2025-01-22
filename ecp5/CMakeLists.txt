@@ -43,6 +43,7 @@ foreach (device ${ECP5_DEVICES})
     endif()
 
     add_bba_produce_command(
+        TARGET  nextpnr-${family}-bba
         COMMAND ${Python3_EXECUTABLE}
             ${CMAKE_CURRENT_SOURCE_DIR}/trellis_import.py
             -L ${TRELLIS_LIBDIR}

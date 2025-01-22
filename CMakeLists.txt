@@ -237,6 +237,8 @@ add_subdirectory(rust)
 
 add_subdirectory(tests/gui)
 
+add_custom_target(nextpnr-all-bba)
+
 function(add_nextpnr_architecture target)
     cmake_parse_arguments(arg "" "MAIN_SOURCE" "CORE_SOURCES;TEST_SOURCES;CURRENT_SOURCE_DIR;CURRENT_BINARY_DIR" ${ARGN})
 
@@ -324,6 +326,10 @@ function(add_nextpnr_architecture target)
     add_sanitizers(nextpnr-${target}-core)
 
     # Chip database
+
+    add_library(nextpnr-${target}-bba INTERFACE)
+
+    add_dependencies(nextpnr-all-bba nextpnr-${target}-bba)
 
     add_library(nextpnr-${target}-chipdb INTERFACE)
 
