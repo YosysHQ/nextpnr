@@ -35,6 +35,7 @@ foreach (subfamily ${NEXUS_FAMILIES})
     endif()
 
     add_bba_produce_command(
+        TARGET  nextpnr-${family}-bba
         COMMAND ${PRJOXIDE_TOOL}
             bba-export ${subfamily}
             ${CMAKE_CURRENT_SOURCE_DIR}/constids.inc

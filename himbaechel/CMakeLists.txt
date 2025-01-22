@@ -49,6 +49,10 @@ else()
 
         target_sources(nextpnr-himbaechel-core INTERFACE ${arg_CORE_SOURCES})
 
+        add_library(nextpnr-himbaechel-${microtarget}-bba INTERFACE)
+
+        add_dependencies(nextpnr-himbaechel-bba nextpnr-himbaechel-${microtarget}-bba)
+
         add_library(nextpnr-himbaechel-${microtarget}-chipdb INTERFACE)
 
         target_link_libraries(nextpnr-himbaechel-core INTERFACE nextpnr-himbaechel-${microtarget}-chipdb)

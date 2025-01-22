@@ -41,6 +41,7 @@ foreach (device ${HIMBAECHEL_NGULTRA_DEVICES})
     string(TOUPPER ${device} device_upper)
 
     add_bba_produce_command(
+        TARGET  nextpnr-himbaechel-ng-ultra-bba
         COMMAND ${Python3_EXECUTABLE}
             ${CMAKE_CURRENT_SOURCE_DIR}/gen/arch_gen.py
             --db ${HIMBAECHEL_PRJBEYOND_DB}

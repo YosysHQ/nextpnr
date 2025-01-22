@@ -19,6 +19,7 @@ foreach (device ${HIMBAECHEL_EXAMPLE_DEVICES})
     endif()
 
     add_bba_produce_command(
+        TARGET  nextpnr-himbaechel-example-bba
         COMMAND ${Python3_EXECUTABLE}
             ${CMAKE_CURRENT_SOURCE_DIR}/example_arch_gen.py
             ${CMAKE_CURRENT_BINARY_DIR}/chipdb-${device}.bba.new
