@@ -1,3 +1,7 @@
+if (CMAKE_BINARY_DIR STREQUAL CMAKE_SOURCE_DIR)
+    message(FATAL_ERROR "In-tree builds are not supported. Instead, run:\ncmake . -B build <options> && cmake --build build")
+endif()
+
 cmake_minimum_required(VERSION 3.25)
 project(nextpnr CXX)
 
