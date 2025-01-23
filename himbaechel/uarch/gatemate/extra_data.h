@@ -24,6 +24,13 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+NPNR_PACKED_STRUCT(struct GateMateTileExtraDataPOD {
+    uint8_t die;
+    uint8_t bit_x;
+    uint8_t bit_y;
+    uint8_t prim_id;
+});
+
 NPNR_PACKED_STRUCT(struct GateMatePipExtraDataPOD {
     int32_t name;
     uint8_t bits;

@@ -40,21 +40,6 @@ struct BitstreamBackend
     BitstreamBackend(Context *ctx, GateMateImpl *uarch, const std::string &device, std::ostream &out)
             : ctx(ctx), uarch(uarch), device(device), out(out) {};
 
-    void get_bitstream_tile(int x, int y, int &b_x, int &b_y)
-    {
-        // Edge blocks are bit bigger
-        if (x == -2)
-            x++;
-        if (x == 163)
-            x--;
-        if (y == -2)
-            y++;
-        if (y == 131)
-            y--;
-        b_x = (x + 1) / 2;
-        b_y = (y + 1) / 2;
-    }
-
     std::vector<bool> int_to_bitvector(int val, int size)
     {
         std::vector<bool> bv;
@@ -76,26 +61,14 @@ struct BitstreamBackend
         return bv;
     }
 
-    CfgLoc getConfigLoc(Context *ctx, int tile)
+    CfgLoc getConfigLoc(int tile)
     {
-        int x0, y0;
-        int bx, by;
-        tile_xy(ctx->chip_info, tile, x0, y0);
-        get_bitstream_tile(x0 - 2, y0 - 2, bx, by);
+        auto ti = *uarch->tile_extra_data(tile);
         CfgLoc loc;
-        loc.die = 0;
-        loc.x = bx;
-        loc.y = by;
+        loc.die = ti.die;
+        loc.x = ti.bit_x;
+        loc.y = ti.bit_y;
         return loc;
-    }
-
-    int getInTileIndex(Context *ctx, int tile)
-    {
-        int x0, y0;
-        tile_xy(ctx->chip_info, tile, x0, y0);
-        x0 -= 2 - 1;
-        y0 -= 2 - 1;
-        return (x0 % 2) * 2 + (y0 % 2) + 1;
     }
 
     void write_bitstream()
@@ -111,7 +84,7 @@ struct BitstreamBackend
         cc.configs[0].add_word("GPIO.BANK_W1", int_to_bitvector(1, 1));
         cc.configs[0].add_word("GPIO.BANK_W2", int_to_bitvector(1, 1));
         for (auto &cell : ctx->cells) {
-            CfgLoc loc = getConfigLoc(ctx, cell.second.get()->bel.tile);
+            CfgLoc loc = getConfigLoc(cell.second.get()->bel.tile);
             auto &params = cell.second.get()->params;
             switch (cell.second->type.index) {
             case id_CC_IBUF.index:
@@ -127,9 +100,9 @@ struct BitstreamBackend
                 }
                 break;
             case id_CPE.index: {
-                int x = getInTileIndex(ctx, cell.second.get()->bel.tile);
+                int id = uarch->tile_extra_data(cell.second.get()->bel.tile)->prim_id;
                 for (auto &p : params) {
-                    cc.tiles[loc].add_word(stringf("CPE%d.%s", x, p.first.c_str(ctx)), p.second.as_bits());
+                    cc.tiles[loc].add_word(stringf("CPE%d.%s", id, p.first.c_str(ctx)), p.second.as_bits());
                 }
             } break;
             case id_BUFG.index:
@@ -169,20 +142,28 @@ struct BitstreamBackend
                             chip_pip_info(ctx->chip_info, pip).extra_data.get());
                     if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_VISIBLE)) {
                         IdString name = IdString(extra_data.name);
-                        CfgLoc loc = getConfigLoc(ctx, pip.tile);
+                        CfgLoc loc = getConfigLoc(pip.tile);
                         std::string word = name.c_str(ctx);
                         if (extra_data.flags & MUX_CONFIG) {
-                            cc.configs[loc.die].add_word(word, int_to_bitvector(extra_data.value, extra_data.bits));    
+                            cc.configs[loc.die].add_word(word, int_to_bitvector(extra_data.value, extra_data.bits));
                         } else {
-                            int x = getInTileIndex(ctx, pip.tile);
+                            int id = uarch->tile_extra_data(pip.tile)->prim_id;
                             if (boost::starts_with(word, "IM."))
-                                boost::replace_all(word, "IM.", stringf("IM%d.", x));
-                            if (boost::starts_with(word, "OM."))
-                                boost::replace_all(word, "OM.", stringf("OM%d.", x));
-                            if (boost::starts_with(word, "IOES."))
-                                boost::replace_all(word, "IOES.", "IOES1.");
-                            if (boost::starts_with(word, "CPE."))
-                                boost::replace_all(word, "CPE.", stringf("CPE%d.", x));
+                                boost::replace_all(word, "IM.", stringf("IM%d.", id));
+                            else if (boost::starts_with(word, "OM."))
+                                boost::replace_all(word, "OM.", stringf("OM%d.", id));
+                            else if (boost::starts_with(word, "CPE."))
+                                boost::replace_all(word, "CPE.", stringf("CPE%d.", id));
+                            else if (boost::starts_with(word, "IOES."))
+                                boost::replace_all(word, "IOES.", stringf("IOES%d.", id));
+                            else if (boost::starts_with(word, "LES."))
+                                boost::replace_all(word, "LES.", stringf("LES%d.", id));
+                            else if (boost::starts_with(word, "BES."))
+                                boost::replace_all(word, "BES.", stringf("BES%d.", id));
+                            else if (boost::starts_with(word, "RES."))
+                                boost::replace_all(word, "RES.", stringf("RES%d.", id));
+                            else if (boost::starts_with(word, "TES."))
+                                boost::replace_all(word, "TES.", stringf("TES%d.", id));
                             cc.tiles[loc].add_word(word, int_to_bitvector(extra_data.value, extra_data.bits));
                         }
                     }

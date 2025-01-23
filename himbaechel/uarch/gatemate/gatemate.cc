@@ -267,6 +267,11 @@ bool GateMateImpl::isValidBelForCellType(IdString cell_type, BelId bel) const
         return (bel_type == cell_type);
 }
 
+const GateMateTileExtraDataPOD *GateMateImpl::tile_extra_data(int tile) const
+{
+    return reinterpret_cast<const GateMateTileExtraDataPOD *>(ctx->chip_info->tile_insts[tile].extra_data.get());
+}
+
 struct GateMateArch : HimbaechelArch
 {
     GateMateArch() : HimbaechelArch("gatemate") {};

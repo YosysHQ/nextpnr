@@ -44,6 +44,21 @@ import chip
 import die
 
 @dataclass
+class TileExtraData(BBAStruct):
+    die : int = 0
+    bit_x: int = 0
+    bit_y: int = 0
+    prim_id : int = 0
+
+    def serialise_lists(self, context: str, bba: BBAWriter):
+        pass
+    def serialise(self, context: str, bba: BBAWriter):
+        bba.u8(self.die)
+        bba.u8(self.bit_x)
+        bba.u8(self.bit_y)
+        bba.u8(self.prim_id)
+
+@dataclass
 class PipExtraData(BBAStruct):
     pip_type: int
     name: IdString
@@ -218,7 +233,10 @@ def main():
     # Setup tile grid
     for x in range(dev.max_col() + 3):
         for y in range(dev.max_row() + 3):
-            ch.set_tile_type(x, y, dev.get_tile_type(x - 2,y - 2))
+            ti = ch.set_tile_type(x, y, dev.get_tile_type(x - 2,y - 2))
+            tileinfo = dev.get_tile_info(x - 2,y - 2)
+            ti.extra_data = TileExtraData(tileinfo.die, tileinfo.bit_x, tileinfo.bit_y, tileinfo.prim_index)
+
     # Create nodes between tiles
     for _,nodes in dev.get_connections():
         node = []
