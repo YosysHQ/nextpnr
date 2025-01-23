@@ -1,4 +1,6 @@
-include(FindTrellis)
+if (NOT IMPORT_BBA_FILES)
+    include(FindTrellis)
+endif()
 
 set(SOURCES
     arch.cc

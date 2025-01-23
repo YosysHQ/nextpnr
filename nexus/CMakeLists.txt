@@ -1,4 +1,6 @@
-include(FindOxide)
+if (NOT IMPORT_BBA_FILES)
+    include(FindOxide)
+endif()
 
 set(SOURCES
     arch.cc
