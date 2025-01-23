@@ -32,6 +32,10 @@ inline bool type_is_diffio(IdString cell_type)
 }
 inline bool is_diffio(const CellInfo *cell) { return type_is_diffio(cell->type); }
 
+// MIPI
+inline bool type_is_mipi(IdString cell_type) { return cell_type.in(id_MIPI_OBUF, id_MIPI_OBUF_A, id_MIPI_IBUF); }
+inline bool is_mipi(const CellInfo *cell) { return type_is_mipi(cell->type); }
+
 // IOLOGIC input and output separately
 
 inline bool type_is_iologico(IdString cell_type)
@@ -198,6 +202,9 @@ enum
     USERFLASH_Z = 298,
 
     EMCU_Z = 300,
+
+    MIPIOBUF_Z = 301,
+    MIPIIBUF_Z = 302,
 
     // The two least significant bits encode Z for 9-bit adders and
     // multipliers, if they are equal to 0, then we get Z of their common

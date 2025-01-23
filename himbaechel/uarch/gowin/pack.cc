@@ -266,6 +266,14 @@ struct GowinPacker
                 iob_n->disconnectPort(id_OEN);
                 iob_p->disconnectPort(id_OEN);
                 ci.movePortTo(id_OEN, iob_p, id_OEN);
+
+                // MIPI
+                if (ci.params.count(id_MIPI_OBUF)) {
+                    iob_p->setParam(id_MIPI_OBUF, 1);
+                    iob_n->setParam(id_MIPI_OBUF, 1);
+                    ci.movePortTo(id_IB, iob_n, id_I);
+                    iob_p->copyPortTo(id_OEN, iob_n, id_OEN);
+                }
             }
             iob_p->disconnectPort(id_I);
             ci.movePortTo(id_I, iob_p, id_I);
@@ -297,6 +305,152 @@ struct GowinPacker
             iob_p->disconnectPort(id_O);
             ci.movePortTo(id_O, iob_p, id_O);
             return;
+        }
+    }
+
+    // ===================================
+    // MIPI IO
+    // ===================================
+    void pack_mipi(void)
+    {
+        log_info("Pack MIPI IOs...\n");
+        std::vector<std::unique_ptr<CellInfo>> new_cells;
+
+        for (auto &cell : ctx->cells) {
+            CellInfo &ci = *cell.second;
+            if (!is_mipi(&ci)) {
+                continue;
+            }
+            switch (ci.type.hash()) {
+            case ID_MIPI_OBUF_A: /* fallt-hrough */
+            case ID_MIPI_OBUF: {
+                // check for MIPI-capable pin
+                CellInfo *out_iob = net_only_drives(ctx, ci.ports.at(id_O).net, is_iob, id_I, true);
+                if (out_iob == nullptr || out_iob->bel == BelId()) {
+                    log_error("MIPI %s is not connected to the output pin or the pin is not constrained.\n",
+                              ctx->nameOf(&ci));
+                }
+                BelId iob_bel = out_iob->bel;
+                Loc iob_loc = ctx->getBelLocation(iob_bel);
+                iob_loc.z = BelZ::MIPIOBUF_Z;
+                BelId mipi_bel = ctx->getBelByLocation(iob_loc);
+                if (mipi_bel == BelId()) {
+                    log_error("Can't place MIPI %s at X%dY%d/IOBA.\n", ctx->nameOf(&ci), iob_loc.x, iob_loc.y);
+                }
+
+                if (ci.type == id_MIPI_OBUF_A) {
+                    // if serialization is used then IL and input of serializator must be in the same network
+                    NetInfo *i_net = ci.getPort(id_I);
+                    NetInfo *il_net = ci.getPort(id_IL);
+                    if (i_net != il_net) {
+                        if (i_net != nullptr && is_iologico(i_net->driver.cell)) {
+                            if (i_net->driver.cell->getPort(id_D0) != ci.getPort(id_IL)) {
+                                log_error("MIPI %s port IL and IOLOGIC %s port D0 are in differrent networks!\n",
+                                          ctx->nameOf(&ci), ctx->nameOf(i_net->driver.cell));
+                            }
+                        } else {
+                            log_error("MIPI %s ports IL and I are in differrent networks!\n", ctx->nameOf(&ci));
+                        }
+                    }
+                    ci.disconnectPort(id_IL);
+                }
+
+                ctx->bindBel(mipi_bel, &ci, PlaceStrength::STRENGTH_LOCKED);
+
+                // Create TBUF with additional input IB
+                IdString mipi_tbuf_name = gwu.create_aux_name(ci.name);
+                new_cells.push_back(gwu.create_cell(mipi_tbuf_name, id_TLVDS_TBUF));
+
+                CellInfo *mipi_tbuf = new_cells.back().get();
+                mipi_tbuf->addInput(id_I);
+                mipi_tbuf->addInput(id_IB);
+                mipi_tbuf->addOutput(id_O);
+                mipi_tbuf->addOutput(id_OB);
+                mipi_tbuf->addInput(id_OEN);
+                ci.movePortTo(id_I, mipi_tbuf, id_I);
+                ci.movePortTo(id_IB, mipi_tbuf, id_IB);
+                ci.movePortTo(id_O, mipi_tbuf, id_O);
+                ci.movePortTo(id_OB, mipi_tbuf, id_OB);
+                ci.movePortTo(id_MODESEL, mipi_tbuf, id_OEN);
+
+                mipi_tbuf->setParam(id_MIPI_OBUF, 1);
+            } break;
+            case ID_MIPI_IBUF: {
+                // check for MIPI-capable pin A
+                CellInfo *in_iob = net_only_drives(ctx, ci.ports.at(id_IO).net, is_iob, id_I);
+                if (in_iob == nullptr || in_iob->bel == BelId()) {
+                    log_error("MIPI %s IO is not connected to the input pin or the pin is not constrained.\n",
+                              ctx->nameOf(&ci));
+                }
+                // check A IO placing
+                BelId iob_bel = in_iob->bel;
+                Loc iob_loc = ctx->getBelLocation(iob_bel);
+                if (iob_loc.z != BelZ::IOBA_Z) {
+                    log_error("MIPI %s IO pin must be connected to the A IO pin.\n", ctx->nameOf(&ci));
+                }
+
+                iob_loc.z = BelZ::MIPIIBUF_Z;
+                BelId mipi_bel = ctx->getBelByLocation(iob_loc);
+                if (mipi_bel == BelId()) {
+                    log_error("Can't place MIPI %s at X%dY%d/IOBA.\n", ctx->nameOf(&ci), iob_loc.x, iob_loc.y);
+                }
+
+                // check for MIPI-capable pin B
+                CellInfo *inb_iob = net_only_drives(ctx, ci.ports.at(id_IOB).net, is_iob, id_I);
+                if (inb_iob == nullptr || inb_iob->bel == BelId()) {
+                    log_error("MIPI %s IOB is not connected to the input pin or the pin is not constrained.\n",
+                              ctx->nameOf(&ci));
+                }
+                // check B IO placing
+                BelId iobb_bel = inb_iob->bel;
+                Loc iobb_loc = ctx->getBelLocation(iobb_bel);
+                if (iobb_loc.z != BelZ::IOBB_Z || iobb_loc.x != iob_loc.x || iobb_loc.y != iob_loc.y) {
+                    log_error("MIPI %s IOB pin must be connected to the B IO pin.\n", ctx->nameOf(&ci));
+                }
+                // MIPI IBUF uses next pair of IOs too
+                Loc iob_next_loc(iob_loc);
+                ++iob_next_loc.x;
+                iob_next_loc.z = BelZ::IOBA_Z;
+                CellInfo *inc_iob = ctx->getBoundBelCell(ctx->getBelByLocation(iob_next_loc));
+                iob_next_loc.z = BelZ::IOBB_Z;
+                CellInfo *other_cell_b = ctx->getBoundBelCell(ctx->getBelByLocation(iob_next_loc));
+                if (inc_iob != nullptr || other_cell_b != nullptr) {
+                    log_error("MIPI %s cannot be placed in same IO with %s.\n", ctx->nameOf(&ci),
+                              inc_iob == nullptr ? ctx->nameOf(other_cell_b) : ctx->nameOf(inc_iob));
+                }
+
+                ctx->bindBel(mipi_bel, &ci, PlaceStrength::STRENGTH_LOCKED);
+
+                // reconnect wires
+                // A
+                ci.disconnectPort(id_IO);
+                in_iob->disconnectPort(id_I);
+                ci.movePortTo(id_I, in_iob, id_I);
+                ci.movePortTo(id_OH, in_iob, id_O);
+                in_iob->disconnectPort(id_OEN);
+                ci.movePortTo(id_OEN, in_iob, id_OEN);
+                // B
+                ci.disconnectPort(id_IO);
+                inb_iob->disconnectPort(id_I);
+                ci.movePortTo(id_IB, inb_iob, id_I);
+                ci.movePortTo(id_OB, inb_iob, id_O);
+                inb_iob->disconnectPort(id_OEN);
+                ci.movePortTo(id_OENB, inb_iob, id_OEN);
+                // MIPI enable (?)
+                ci.addInput(ctx->id("MIPIEN0"));
+                ci.connectPort(ctx->id("MIPIEN0"), ctx->nets.at(ctx->id("$PACKER_GND")).get());
+                ci.addInput(ctx->id("MIPIEN1"));
+                ci.connectPort(ctx->id("MIPIEN1"), ctx->nets.at(ctx->id("$PACKER_VCC")).get());
+
+                in_iob->setParam(id_MIPI_IBUF, 1);
+                inb_iob->setParam(id_MIPI_IBUF, 1);
+            } break;
+            default:
+                log_error("MIPI %s is not implemented.\n", ci.type.c_str(ctx));
+            }
+        }
+        for (auto &ncell : new_cells) {
+            ctx->cells[ncell->name] = std::move(ncell);
         }
     }
 
@@ -432,7 +586,8 @@ struct GowinPacker
         }
         // mark IOB as used by IOLOGIC
         out_iob->setParam(id_IOLOGIC_IOB, 1);
-        check_iologic_placement(ci, ctx->getBelLocation(iob_bel), out_iob->params.count(id_DIFF_TYPE));
+        check_iologic_placement(ci, ctx->getBelLocation(iob_bel),
+                                out_iob->params.count(id_DIFF_TYPE) || out_iob->params.count(id_MIPI_OBUF));
 
         if (!ctx->checkBelAvail(l_bel)) {
             log_error("Can't place %s at %s because it's already taken by %s\n", ctx->nameOf(&ci),
@@ -471,6 +626,20 @@ struct GowinPacker
             nets_to_remove.push_back(ci.getPort(tx_port)->name);
             out_iob->disconnectPort(id_OEN);
             ci.disconnectPort(tx_port);
+        } else { // disconnect TXx ports, ignore these nets
+            switch (ci.type.hash()) {
+            case ID_OSER8:
+                ci.disconnectPort(id_TX3);
+                ci.disconnectPort(id_TX2); /* fall-through */
+            case ID_OSER4:
+                ci.disconnectPort(id_TX1);
+                ci.disconnectPort(id_TX0);
+                break;
+            case ID_ODDR:  /* fall-through */
+            case ID_ODDRC: /* fall-through */
+                ci.disconnectPort(id_TX);
+                break;
+            }
         }
         make_iob_nets(*out_iob);
     }
@@ -489,7 +658,8 @@ struct GowinPacker
         }
         // mark IOB as used by IOLOGIC
         out_iob->setParam(id_IOLOGIC_IOB, 1);
-        check_iologic_placement(ci, ctx->getBelLocation(iob_bel), out_iob->params.count(id_DIFF_TYPE));
+        check_iologic_placement(ci, ctx->getBelLocation(iob_bel),
+                                out_iob->params.count(id_DIFF_TYPE) || out_iob->params.count(id_MIPI_OBUF));
 
         if (!ctx->checkBelAvail(l_bel)) {
             log_error("Can't place %s at %s because it's already taken by %s\n", ctx->nameOf(&ci),
@@ -534,6 +704,11 @@ struct GowinPacker
     }
 
     bool is_diff_io(BelId bel) { return ctx->getBoundBelCell(bel)->params.count(id_DIFF_TYPE) != 0; }
+    bool is_mipi_io(BelId bel)
+    {
+        return ctx->getBoundBelCell(bel)->params.count(id_MIPI_IBUF) ||
+               ctx->getBoundBelCell(bel)->params.count(id_MIPI_OBUF);
+    }
 
     CellInfo *create_aux_iologic_cell(CellInfo &ci, IdString mode, bool io16 = false, int idx = 0)
     {
@@ -545,7 +720,7 @@ struct GowinPacker
         BelId bel = get_aux_iologic_bel(ci);
         BelId io_bel = gwu.get_io_bel_from_iologic(bel);
         if (!ctx->checkBelAvail(io_bel)) {
-            if (!is_diff_io(io_bel)) {
+            if (!(is_diff_io(io_bel) || is_mipi_io(io_bel))) {
                 log_error("Can't place %s at %s because of a conflict with another IO %s\n", ctx->nameOf(&ci),
                           ctx->nameOfBel(bel), ctx->nameOf(ctx->getBoundBelCell(io_bel)));
             }
@@ -609,7 +784,8 @@ struct GowinPacker
         }
         // mark IOB as used by IOLOGIC
         in_iob->setParam(id_IOLOGIC_IOB, 1);
-        check_iologic_placement(ci, ctx->getBelLocation(iob_bel), in_iob->params.count(id_DIFF_TYPE));
+        check_iologic_placement(ci, ctx->getBelLocation(iob_bel),
+                                in_iob->params.count(id_DIFF_TYPE) || in_iob->params.count(id_MIPI_IBUF));
 
         if (!ctx->checkBelAvail(l_bel)) {
             log_error("Can't place %s at %s because it's already taken by %s\n", ctx->nameOf(&ci),
@@ -3930,6 +4106,9 @@ struct GowinPacker
     {
         handle_constants();
         pack_iobs();
+        ctx->check();
+
+        pack_mipi();
         ctx->check();
 
         pack_diff_iobs();

@@ -243,6 +243,10 @@ struct GowinGlobalRouter
     bool driver_is_dqce(const PortRef &driver) { return CellTypePort(driver) == CellTypePort(id_DQCE, id_CLKOUT); }
     bool driver_is_dcs(const PortRef &driver) { return CellTypePort(driver) == CellTypePort(id_DCS, id_CLKOUT); }
     bool driver_is_dhcen(const PortRef &driver) { return CellTypePort(driver) == CellTypePort(id_DHCEN, id_CLKOUT); }
+    bool driver_is_mipi(const PortRef &driver)
+    {
+        return CellTypePort(driver) == CellTypePort(id_IOBUF, id_O) && driver.cell->params.count(id_MIPI_IBUF);
+    }
     bool driver_is_clksrc(const PortRef &driver)
     {
         // dedicated pins
@@ -506,7 +510,7 @@ struct GowinGlobalRouter
         NPNR_ASSERT(net_before_dhcen != nullptr);
 
         PortRef driver = net_before_dhcen->driver;
-        NPNR_ASSERT_MSG(driver_is_buf(driver) || driver_is_clksrc(driver),
+        NPNR_ASSERT_MSG(driver_is_buf(driver) || driver_is_clksrc(driver) || driver_is_mipi(driver),
                         stringf("The input source for %s is not a clock.", ctx->nameOf(dhcen_ci)).c_str());
 
         IdString port;
@@ -519,8 +523,14 @@ struct GowinGlobalRouter
         WireId src = ctx->getBelPinWire(driver.cell->bel, port);
 
         std::vector<PipId> path;
-        RouteResult route_result = route_direct_net(
-                net, [&](PipId pip, WireId src_wire) { return global_pip_filter(pip, src); }, src, &path);
+        RouteResult route_result;
+        if (driver_is_mipi(driver)) {
+            route_result = route_direct_net(net, [&](PipId pip, WireId src_wire) { return true; }, src, &path);
+        } else {
+            route_result = route_direct_net(
+                    net, [&](PipId pip, WireId src_wire) { return global_pip_filter(pip, src); }, src, &path);
+        }
+
         if (route_result == NOT_ROUTED) {
             log_error("Can't route the %s network.\n", ctx->nameOf(net));
         }
@@ -556,6 +566,9 @@ struct GowinGlobalRouter
             // The control network must connect the CE inputs of all hardware dhcens.
             hw_dhcen->setAttr(id_DHCEN_USED, 1);
             dhcen_ci->copyPortTo(id_CE, hw_dhcen, id_CE);
+        }
+        if (driver_is_mipi(driver)) {
+            ctx->bindWire(src, net_before_dhcen, STRENGTH_LOCKED);
         }
 
         // connect all users to upper level net

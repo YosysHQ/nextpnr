@@ -1313,6 +1313,16 @@ X(LSREN)
 // EMCU
 X(EMCU)
 
+// MIPI
+X(IL)
+X(OH)
+X(OL)
+X(OENB)
+X(MIPI_IBUF)
+X(MIPI_OBUF)
+X(MIPI_OBUF_A)
+X(MODESEL)
+
 // Register placement options
 X(IREG_IN_IOB)
 X(OREG_IN_IOB)
