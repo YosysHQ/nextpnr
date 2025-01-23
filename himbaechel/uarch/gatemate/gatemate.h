@@ -63,6 +63,7 @@ struct GateMateImpl : HimbaechelAPI
         const auto &extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD*>(chip_pip_info(ctx->chip_info, pip).extra_data.get());
         return extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_INVERT);
     }
+    const GateMateTileExtraDataPOD *tile_extra_data(int tile) const;
 
     pool<PipId> blocked_pips;
 };
