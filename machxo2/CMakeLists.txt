@@ -1,4 +1,6 @@
-include(FindTrellis)
+if (NOT IMPORT_BBA_FILES)
+    include(FindTrellis)
+endif()
 
 set(SOURCES
     arch.cc
@@ -36,6 +38,9 @@ message(STATUS "Enabled MachXO2/XO3 devices: ${MACHXO2_DEVICES}")
 configure_file(machxo2_available.h.in ${CMAKE_CURRENT_BINARY_DIR}/machxo2_available.h)
 target_sources(nextpnr-${family}-core PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/machxo2_available.h)
 target_include_directories(nextpnr-${family}-core INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
+if (BUILD_GUI)
+    target_include_directories(nextpnr-${family}-gui PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+endif()
 
 foreach (device ${MACHXO2_DEVICES})
     if (NOT device IN_LIST ALL_MACHXO2_DEVICES)
