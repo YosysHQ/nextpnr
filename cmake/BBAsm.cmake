@@ -138,11 +138,12 @@ function(add_bba_compile_command)
 
         if (arg_MODE STREQUAL "resource")
 
-            file(WRITE ${arg_OUTPUT}.rc
-                "${arg_OUTPUT} RCDATA \"${arg_OUTPUT}\"")
+            file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${arg_OUTPUT_NAME}.rc
+                "${arg_OUTPUT} RCDATA \"${CMAKE_CURRENT_BINARY_DIR}/${arg_OUTPUT_NAME}\"")
 
             target_sources(
                 ${arg_TARGET} PUBLIC
+                ${CMAKE_CURRENT_BINARY_DIR}/${arg_OUTPUT_NAME}
                 ${CMAKE_CURRENT_BINARY_DIR}/${arg_OUTPUT_NAME}.rc
             )
 
