@@ -1,5 +1,5 @@
-#include <regex>
 #include <map>
+#include <regex>
 
 #include "himbaechel_api.h"
 #include "himbaechel_helpers.h"
@@ -110,7 +110,8 @@ struct GowinArch : HimbaechelArch
 
     bool match_device(const std::string &device) override { return device.size() > 2 && device.substr(0, 2) == "GW"; }
 
-    std::unique_ptr<HimbaechelAPI> create(const std::string &device, const dict<std::string, std::string> &args) override
+    std::unique_ptr<HimbaechelAPI> create(const std::string &device,
+                                          const dict<std::string, std::string> &args) override
     {
         return std::make_unique<GowinImpl>();
     }
@@ -639,6 +640,9 @@ IdString GowinImpl::getBelBucketForCellType(IdString cell_type) const
     if (cell_type.in(id_IBUF, id_OBUF)) {
         return id_IOB;
     }
+    if (cell_type.in(id_MIPI_OBUF, id_MIPI_OBUF_A)) {
+        return id_MIPI_OBUF;
+    }
     if (type_is_lut(cell_type)) {
         return id_LUT4;
     }
@@ -675,6 +679,9 @@ bool GowinImpl::isValidBelForCellType(IdString cell_type, BelId bel) const
     IdString bel_type = ctx->getBelType(bel);
     if (bel_type == id_IOB) {
         return cell_type.in(id_IBUF, id_OBUF);
+    }
+    if (bel_type == id_MIPI_OBUF) {
+        return cell_type.in(id_MIPI_OBUF, id_MIPI_OBUF_A);
     }
     if (bel_type == id_LUT4) {
         return type_is_lut(cell_type);

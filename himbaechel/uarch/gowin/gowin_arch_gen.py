@@ -55,8 +55,10 @@ DHCEN_Z = 288 # : 298
 
 USERFLASH_Z = 298
 
-
 EMCU_Z      = 300
+
+MIPIOBUF_Z  = 301
+MIPIIBUF_Z  = 302
 
 DSP_Z          = 509
 
@@ -580,6 +582,23 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
                         tt.add_bel_pin(bel, port, wire, PinType.OUTPUT)
                     else:
                         tt.add_bel_pin(bel, port, wire, PinType.INPUT)
+        elif func == 'mipi_obuf':
+            bel = tt.create_bel('MIPI_OBUF', 'MIPI_OBUF', MIPIOBUF_Z)
+        elif func == 'mipi_ibuf':
+            bel = tt.create_bel('MIPI_IBUF', 'MIPI_IBUF', MIPIIBUF_Z)
+            wire = desc['HSREN']
+            if not tt.has_wire(wire):
+                tt.create_wire(wire)
+            tt.add_bel_pin(bel, 'HSREN', wire, PinType.INPUT)
+            wire = 'MIPIOL'
+            if not tt.has_wire(wire):
+                tt.create_wire(wire)
+            tt.add_bel_pin(bel, 'OL', wire, PinType.OUTPUT)
+            for i in range(2):
+                wire = f'MIPIEN{i}'
+                if not tt.has_wire(wire):
+                    tt.create_wire(wire)
+                tt.add_bel_pin(bel, f'MIPIEN{i}', wire, PinType.INPUT)
         elif func == 'buf':
             for buf_type, wires in desc.items():
                 for i, wire in enumerate(wires):
