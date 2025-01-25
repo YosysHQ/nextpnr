@@ -1,4 +1,6 @@
-include(FindApycula)
+if (NOT IMPORT_BBA_FILES)
+    include(FindApycula)
+endif()
 
 set(SOURCES
     constids.inc

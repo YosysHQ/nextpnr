@@ -23,6 +23,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstdlib>
+#include <cstdint>
 #include <cstdio>
 #include <climits>
 #include <cerrno>

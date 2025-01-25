@@ -1,4 +1,6 @@
-include(FindIceStorm)
+if (NOT IMPORT_BBA_FILES)
+    include(FindIceStorm)
+endif()
 
 set(SOURCES
     arch.cc
