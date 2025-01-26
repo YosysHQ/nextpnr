@@ -59,7 +59,8 @@ Getting started
 For iCE40 support, install [Project IceStorm](https://github.com/YosysHQ/icestorm) to `/usr/local` or another location, which should be passed as `-DICESTORM_INSTALL_PREFIX=/usr` to CMake. Then build and install `nextpnr-ice40` using the following commands:
 
 ```
-cmake . -DARCH=ice40
+mkdir -p build && cd build
+cmake .. -DARCH=ice40
 make -j$(nproc)
 sudo make install
 ```
@@ -67,8 +68,8 @@ sudo make install
 On Windows, you may specify paths explicitly:
 
 ```
-cmake . -DARCH=ice40 -DICESTORM_INSTALL_PREFIX=C:/ProgramData/icestorm -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows -G "Visual Studio 15 2017 Win64" -DPython3_EXECUTABLE=C:/Python364/python.exe -DPython3_LIBRARY=C:/vcpkg/packages/python3_x64-windows/lib/python36.lib -DPython3_INCLUDE_DIR=C:/vcpkg/packages/python3_x64-windows/include/python3.6 .
-cmake --build . --config Release
+cmake . -B build -DARCH=ice40 -DICESTORM_INSTALL_PREFIX=C:/ProgramData/icestorm -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows -G "Visual Studio 15 2017 Win64" -DPython3_EXECUTABLE=C:/Python364/python.exe -DPython3_LIBRARY=C:/vcpkg/packages/python3_x64-windows/lib/python36.lib -DPython3_INCLUDE_DIR=C:/vcpkg/packages/python3_x64-windows/include/python3.6
+cmake --build build --config Release
 ```
 
 To build a static release, change the target triplet from `x64-windows` to `x64-windows-static` and add `-DBUILD_STATIC=ON`.
@@ -98,7 +99,8 @@ such as pack, place, route, and write output files.)
 For ECP5 support, install [Project Trellis](https://github.com/YosysHQ/prjtrellis) to `/usr/local` or another location, which should be passed as `-DTRELLIS_INSTALL_PREFIX=/usr/local` to CMake. Then build and install `nextpnr-ecp5` using the following commands:
 
 ```
-cmake . -DARCH=ecp5 -DTRELLIS_INSTALL_PREFIX=/usr/local
+mkdir -p build && cd build
+cmake .. -DARCH=ecp5 -DTRELLIS_INSTALL_PREFIX=/usr/local
 make -j$(nproc)
 sudo make install
 ```
@@ -110,7 +112,8 @@ sudo make install
 For Nexus support, install [Project Oxide](https://github.com/gatecat/prjoxide) to `$HOME/.cargo` or another location, which should be passed as `-DOXIDE_INSTALL_PREFIX=$HOME/.cargo` to CMake. Then build and install `nextpnr-nexus` using the following commands:
 
 ```
-cmake . -DARCH=nexus -DOXIDE_INSTALL_PREFIX=$HOME/.cargo
+mkdir -p build && cd build
+cmake .. -DARCH=nexus -DOXIDE_INSTALL_PREFIX=$HOME/.cargo
 make -j$(nproc)
 sudo make install
 ```
@@ -124,7 +127,8 @@ Nexus support is currently experimental, and has only been tested with engineeri
 The generic target allows running placement and routing for arbitrary custom architectures.
 
 ```
-cmake . -DARCH=generic
+mkdir -p build && cd build
+cmake .. -DARCH=generic
 make -j$(nproc)
 sudo make install
 ```
@@ -140,7 +144,8 @@ The himbaechel target allows running placement and routing for larger architectu
 For Gowin support, install [Project Apicula](https://github.com/YosysHQ/apicula)
 
 ```
-cmake . -DARCH="himbaechel" -DHIMBAECHEL_UARCH="gowin"
+mkdir -p build && cd build
+cmake .. -DARCH="himbaechel" -DHIMBAECHEL_UARCH="gowin"
 make -j$(nproc)
 sudo make install
 ```
@@ -152,7 +157,8 @@ sudo make install
 For NanoXplore NG-Ultra support, clone [Project Beyond DB](https://github.com/yosyshq-GmbH/prjbeyond-db) repo
 
 ```
-cmake . -DARCH="himbaechel" -DHIMBAECHEL_UARCH="ng-ultra" -DHIMBAECHEL_PRJBEYOND_DB=/path/to/prjbeyond-db -DHIMBAECHEL_NGULTRA_DEVICES=ng-ultra
+mkdir -p build && cd build
+cmake .. -DARCH="himbaechel" -DHIMBAECHEL_UARCH="ng-ultra" -DHIMBAECHEL_PRJBEYOND_DB=/path/to/prjbeyond-db -DHIMBAECHEL_NGULTRA_DEVICES=ng-ultra
 make -j$(nproc)
 sudo make install
 ```
@@ -174,7 +180,8 @@ The nextpnr GUI is not built by default, to reduce the number of dependencies fo
 To build nextpnr for multiple architectures at once, a semicolon-separated list can be used with `-DARCH`.
 
 ```
-cmake . -DARCH="ice40;ecp5"
+mkdir -p build && cd build
+cmake .. -DARCH="ice40;ecp5"
 make -j$(nproc)
 sudo make install
 ```
@@ -186,7 +193,8 @@ To build every available stable architecture, use `-DARCH=all`. To include exper
 To build a single nextpnr-himbachel executable for each of the supported microarchitectures, use `-DHIMBAECHEL_SPLIT`.
 
 ```
-cmake . -DARCH="himbaechel" -DHIMBAECHEL_UARCH="gowin;ng-ultra"
+mkdir -p build && cd build
+cmake .. -DARCH="himbaechel" -DHIMBAECHEL_UARCH="gowin;ng-ultra"
 make -j$(nproc)
 sudo make install
 ```
@@ -212,14 +220,16 @@ Additional notes for building nextpnr
 The following runs a debug build of the iCE40 architecture without GUI, without Python support, without the HeAP analytic placer and only HX1K support:
 
 ```
-cmake . -DARCH=ice40 -DCMAKE_BUILD_TYPE=Debug -DBUILD_PYTHON=OFF -DICE40_HX1K_ONLY=1
+mkdir -p build && cd build
+cmake .. -DARCH=ice40 -DCMAKE_BUILD_TYPE=Debug -DBUILD_PYTHON=OFF -DICE40_DEVICES=1k
 make -j$(nproc)
 ```
 
 To make static build release for iCE40 architecture use the following:
 
 ```
-cmake . -DARCH=ice40 -DBUILD_PYTHON=OFF -DSTATIC_BUILD=ON
+mkdir -p build && cd build
+cmake .. -DARCH=ice40 -DBUILD_PYTHON=OFF -DSTATIC_BUILD=ON
 make -j$(nproc)
 ```
 
