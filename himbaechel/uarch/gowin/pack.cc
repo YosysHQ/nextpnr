@@ -322,7 +322,7 @@ struct GowinPacker
                 continue;
             }
             switch (ci.type.hash()) {
-            case ID_MIPI_OBUF_A: /* fallt-hrough */
+            case ID_MIPI_OBUF_A: /* fall-through */
             case ID_MIPI_OBUF: {
                 // check for MIPI-capable pin
                 CellInfo *out_iob = net_only_drives(ctx, ci.ports.at(id_O).net, is_iob, id_I, true);
