@@ -54,6 +54,12 @@ of the selected architecture:
 Getting started
 ---------------
 
+First of all, run:
+
+```
+git submodule update --init --recursive
+```
+
 ### nextpnr-ice40
 
 For iCE40 support, install [Project IceStorm](https://github.com/YosysHQ/icestorm) to `/usr/local` or another location, which should be passed as `-DICESTORM_INSTALL_PREFIX=/usr` to CMake. Then build and install `nextpnr-ice40` using the following commands:
