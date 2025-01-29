@@ -241,7 +241,7 @@ add_subdirectory(rust)
 
 add_subdirectory(tests/gui)
 
-add_custom_target(nextpnr-all-bba)
+add_custom_target(nextpnr-all-bba EXCLUDE_FROM_ALL)
 
 function(add_nextpnr_architecture target)
     cmake_parse_arguments(arg "" "MAIN_SOURCE" "CORE_SOURCES;TEST_SOURCES;CURRENT_SOURCE_DIR;CURRENT_BINARY_DIR" ${ARGN})
@@ -331,11 +331,11 @@ function(add_nextpnr_architecture target)
 
     # Chip database
 
-    add_library(nextpnr-${target}-bba INTERFACE)
+    add_library(nextpnr-${target}-bba INTERFACE EXCLUDE_FROM_ALL)
 
     add_dependencies(nextpnr-all-bba nextpnr-${target}-bba)
 
-    add_library(nextpnr-${target}-chipdb INTERFACE)
+    add_library(nextpnr-${target}-chipdb INTERFACE EXCLUDE_FROM_ALL)
 
     target_link_libraries(nextpnr-${target}-core INTERFACE nextpnr-${target}-chipdb)
 
