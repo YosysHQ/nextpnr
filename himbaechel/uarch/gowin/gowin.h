@@ -36,6 +36,10 @@ inline bool is_diffio(const CellInfo *cell) { return type_is_diffio(cell->type);
 inline bool type_is_mipi(IdString cell_type) { return cell_type.in(id_MIPI_OBUF, id_MIPI_OBUF_A, id_MIPI_IBUF); }
 inline bool is_mipi(const CellInfo *cell) { return type_is_mipi(cell->type); }
 
+// I3C
+inline bool type_is_i3c(IdString cell_type) { return cell_type.in(id_I3C_IOBUF); }
+inline bool is_i3c(const CellInfo *cell) { return type_is_i3c(cell->type); }
+
 // IOLOGIC input and output separately
 
 inline bool type_is_iologico(IdString cell_type)
@@ -106,6 +110,9 @@ NPNR_PACKED_STRUCT(struct Tile_extra_data_POD {
     int32_t class_id;
     int16_t io16_x_off;
     int16_t io16_y_off;
+    int32_t tile_flags;
+    // tile flags
+    static constexpr int32_t TILE_I3C_CAPABLE_IO = 1;
 });
 
 NPNR_PACKED_STRUCT(struct Bottom_io_cnd_POD {

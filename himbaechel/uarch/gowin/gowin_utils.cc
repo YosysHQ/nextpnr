@@ -30,6 +30,15 @@ Loc GowinUtils::get_tile_io16_offs(int x, int y)
     return Loc(extra->io16_x_off, extra->io16_y_off, 0);
 }
 
+// oser16/ides16 aux cell offsets
+bool GowinUtils::get_i3c_capable(int x, int y)
+{
+    int tile = tile_by_xy(ctx->chip_info, x, y);
+    const Tile_extra_data_POD *extra =
+            reinterpret_cast<const Tile_extra_data_POD *>(chip_tile_info(ctx->chip_info, tile).extra_data.get());
+    return extra->tile_flags & Tile_extra_data_POD::TILE_I3C_CAPABLE_IO;
+}
+
 // pin functions: GCLKT_4, SSPI_CS, READY etc
 IdStringList GowinUtils::get_pin_funcs(BelId io_bel)
 {

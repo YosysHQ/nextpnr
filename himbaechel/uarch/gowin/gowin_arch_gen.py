@@ -21,6 +21,9 @@ CHIP_NEED_BSRAM_OUTREG_FIX = 0x4
 CHIP_NEED_BLKSEL_FIX       = 0x8
 CHIP_HAS_BANDGAP           = 0x10
 
+# Tile flags
+TILE_I3C_CAPABLE_IO        = 0x1
+
 # Z of the bels
 # sync with C++ part!
 LUT0_Z  = 0       # z(DFFx) = z(LUTx) + 1
@@ -126,6 +129,7 @@ class TileExtraData(BBAStruct):
                          # then we assign them to the same LOGIC class.
     io16_x_off: int = 0  # OSER16/IDES16 offsets to the aux cell
     io16_y_off: int = 0
+    tile_flags: int = 0
 
     def serialise_lists(self, context: str, bba: BBAWriter):
         pass
@@ -133,6 +137,7 @@ class TileExtraData(BBAStruct):
         bba.u32(self.tile_class.index)
         bba.u16(self.io16_x_off)
         bba.u16(self.io16_y_off)
+        bba.u32(self.tile_flags)
 
 @dataclass
 class BottomIOCnd(BBAStruct):
@@ -582,6 +587,8 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
                         tt.add_bel_pin(bel, port, wire, PinType.OUTPUT)
                     else:
                         tt.add_bel_pin(bel, port, wire, PinType.INPUT)
+        elif func == 'i3c_capable':
+            tt.extra_data.tile_flags |= TILE_I3C_CAPABLE_IO
         elif func == 'mipi_obuf':
             bel = tt.create_bel('MIPI_OBUF', 'MIPI_OBUF', MIPIOBUF_Z)
         elif func == 'mipi_ibuf':
