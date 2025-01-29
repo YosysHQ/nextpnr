@@ -110,7 +110,9 @@ NPNR_PACKED_STRUCT(struct Tile_extra_data_POD {
     int32_t class_id;
     int16_t io16_x_off;
     int16_t io16_y_off;
-    int32_t i3c_capable;
+    int32_t tile_flags;
+    // tile flags
+    static constexpr int32_t TILE_I3C_CAPABLE_IO = 1;
 });
 
 NPNR_PACKED_STRUCT(struct Bottom_io_cnd_POD {

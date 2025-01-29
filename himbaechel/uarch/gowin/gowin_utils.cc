@@ -36,7 +36,7 @@ bool GowinUtils::get_i3c_capable(int x, int y)
     int tile = tile_by_xy(ctx->chip_info, x, y);
     const Tile_extra_data_POD *extra =
             reinterpret_cast<const Tile_extra_data_POD *>(chip_tile_info(ctx->chip_info, tile).extra_data.get());
-    return extra->i3c_capable != 0;
+    return extra->tile_flags & Tile_extra_data_POD::TILE_I3C_CAPABLE_IO;
 }
 
 // pin functions: GCLKT_4, SSPI_CS, READY etc
