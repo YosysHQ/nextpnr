@@ -23,6 +23,7 @@ struct GowinUtils
     // tile
     IdString get_tile_class(int x, int y);
     Loc get_tile_io16_offs(int x, int y);
+    bool get_i3c_capable(int x, int y);
 
     // pin functions: GCLKT_4, SSPI_CS, READY etc
     IdStringList get_pin_funcs(BelId io_bel);

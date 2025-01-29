@@ -1313,6 +1313,9 @@ X(LSREN)
 // EMCU
 X(EMCU)
 
+// I3C
+X(I3C_IOBUF)
+
 // MIPI
 X(IL)
 X(OH)

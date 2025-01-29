@@ -309,6 +309,47 @@ struct GowinPacker
     }
 
     // ===================================
+    // I3C
+    // ===================================
+    void pack_i3c(void)
+    {
+        log_info("Pack I3C IOs...\n");
+        std::vector<IdString> cells_to_remove;
+
+        for (auto &cell : ctx->cells) {
+            CellInfo &ci = *cell.second;
+            if (!is_i3c(&ci)) {
+                continue;
+            }
+            // check for I3C-capable pin A
+            CellInfo *iob = net_only_drives(ctx, ci.ports.at(id_IO).net, is_iob, id_I);
+            if (iob == nullptr || iob->bel == BelId()) {
+                log_error("I3C %s IO is not connected to the input pin or the pin is not constrained.\n",
+                          ctx->nameOf(&ci));
+            }
+            BelId iob_bel = iob->bel;
+            Loc iob_loc = ctx->getBelLocation(iob_bel);
+
+            if (!gwu.get_i3c_capable(iob_loc.x, iob_loc.y)) {
+                log_error("Can't place %s. Not I3C capable X%dY%d.\n", ctx->nameOf(&ci), iob_loc.x, iob_loc.y);
+            }
+            ci.disconnectPort(id_IO);
+            iob->disconnectPort(id_I);
+            ci.movePortTo(id_I, iob, id_I);
+            ci.movePortTo(id_O, iob, id_O);
+            iob->disconnectPort(id_OEN);
+            ci.movePortTo(id_MODESEL, iob, id_OEN);
+
+            iob->setParam(id_I3C_IOBUF, 1);
+            cells_to_remove.push_back(ci.name);
+        }
+
+        for (auto cell : cells_to_remove) {
+            ctx->cells.erase(cell);
+        }
+    }
+
+    // ===================================
     // MIPI IO
     // ===================================
     void pack_mipi(void)
@@ -329,6 +370,9 @@ struct GowinPacker
                 if (out_iob == nullptr || out_iob->bel == BelId()) {
                     log_error("MIPI %s is not connected to the output pin or the pin is not constrained.\n",
                               ctx->nameOf(&ci));
+                }
+                if (out_iob->params.count(id_I3C_IOBUF)) {
+                    log_error("Can't place MIPI %s. Conflict with I3C %s.\n", ctx->nameOf(&ci), ctx->nameOf(out_iob));
                 }
                 BelId iob_bel = out_iob->bel;
                 Loc iob_loc = ctx->getBelLocation(iob_bel);
@@ -383,6 +427,9 @@ struct GowinPacker
                               ctx->nameOf(&ci));
                 }
                 // check A IO placing
+                if (in_iob->params.count(id_I3C_IOBUF)) {
+                    log_error("Can't place MIPI %s. Conflict with I3C %s.\n", ctx->nameOf(&ci), ctx->nameOf(in_iob));
+                }
                 BelId iob_bel = in_iob->bel;
                 Loc iob_loc = ctx->getBelLocation(iob_bel);
                 if (iob_loc.z != BelZ::IOBA_Z) {
@@ -402,6 +449,9 @@ struct GowinPacker
                               ctx->nameOf(&ci));
                 }
                 // check B IO placing
+                if (inb_iob->params.count(id_I3C_IOBUF)) {
+                    log_error("Can't place MIPI %s. Conflict with I3C %s.\n", ctx->nameOf(&ci), ctx->nameOf(inb_iob));
+                }
                 BelId iobb_bel = inb_iob->bel;
                 Loc iobb_loc = ctx->getBelLocation(iobb_bel);
                 if (iobb_loc.z != BelZ::IOBB_Z || iobb_loc.x != iob_loc.x || iobb_loc.y != iob_loc.y) {
@@ -4106,6 +4156,9 @@ struct GowinPacker
     {
         handle_constants();
         pack_iobs();
+        ctx->check();
+
+        pack_i3c();
         ctx->check();
 
         pack_mipi();
