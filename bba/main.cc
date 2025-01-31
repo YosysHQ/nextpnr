@@ -409,7 +409,7 @@ int main(int argc, char **argv)
         for (auto &s : preText)
             fprintf(fileOut, "%s\n", s.c_str());
 
-        fprintf(fileOut, "const char %s[%d] =\n\"", streams[0].name.c_str(), int(data.size()) + 1);
+        fprintf(fileOut, "const uint8_t %s[%d] =\n\"", streams[0].name.c_str(), int(data.size()) + 1);
 
         cursor = 1;
         for (int i = 0; i < int(data.size()); i++) {
@@ -451,7 +451,7 @@ int main(int argc, char **argv)
         for (auto &s : preText)
             fprintf(fileOut, "%s\n", s.c_str());
 
-        fprintf(fileOut, "const char %s[%d] = {\n", streams[0].name.c_str(), int(data.size()) + 1);
+        fprintf(fileOut, "const uint8_t %s[%d] = {\n", streams[0].name.c_str(), int(data.size()) + 1);
         fprintf(fileOut, "#embed \"%s\"\n", boost::filesystem::path(files.at(2)).c_str());
         fprintf(fileOut, "};\n");
 
