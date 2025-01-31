@@ -161,6 +161,12 @@ struct JsonFrontendImpl
 
     int get_vector_length(BitVectorDataType &bits) const { return int(bits.size()); }
 
+    bool is_vector_bit_undef(BitVectorDataType &bits, int i) const
+    {
+        NPNR_ASSERT(i < int(bits.size()));
+        return bits[i] == "x";
+    }
+
     bool is_vector_bit_constant(BitVectorDataType &bits, int i) const
     {
         NPNR_ASSERT(i < int(bits.size()));

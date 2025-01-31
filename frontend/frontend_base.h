@@ -472,7 +472,10 @@ template <typename FrontendType> struct GenericFrontend
                 ci->ports[port_bit_ids].type = dir;
                 // Resolve connectivity
                 NetInfo *net;
-                if (impl.is_vector_bit_constant(bits, i)) {
+                if (impl.is_vector_bit_undef(bits, i)) {
+                    // Don't connect it if it's an `x`
+                    continue;
+                } else if (impl.is_vector_bit_constant(bits, i)) {
                     // Create a constant driver if one is needed
                     net = create_constant_net(m, inst_name.str(ctx) + "." + port_bit_name + "$const",
                                               impl.get_vector_bit_constval(bits, i));
