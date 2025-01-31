@@ -100,12 +100,15 @@ void BaseCtx::addClock(IdString net, float freq)
     cc->period = DelayPair(getCtx()->getDelayFromNS(1000 / freq));
     cc->high = DelayPair(getCtx()->getDelayFromNS(500 / freq));
     cc->low = DelayPair(getCtx()->getDelayFromNS(500 / freq));
-    if (!net_aliases.count(net)) {
-        log_warning("net '%s' does not exist in design, ignoring clock constraint\n", net.c_str(this));
-    } else {
+    if (net_aliases.count(net)) {
         getNetByAlias(net)->clkconstr = std::move(cc);
-        log_info("constraining clock net '%s' to %.02f MHz\n", net.c_str(this), freq);
+    } else if (ports.count(net)) {
+        ports[net].net->clkconstr = std::move(cc);
+    } else {
+        log_warning("net '%s' does not exist in design, ignoring clock constraint\n", net.c_str(this));
+        return;
     }
+    log_info("constraining clock net '%s' to %.02f MHz\n", net.c_str(this), freq);
 }
 
 void BaseCtx::createRectangularRegion(IdString name, int x0, int y0, int x1, int y1)
