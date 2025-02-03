@@ -164,6 +164,28 @@ struct BitstreamBackend
                                 boost::replace_all(word, "RES.", stringf("RES%d.", id));
                             else if (boost::starts_with(word, "TES."))
                                 boost::replace_all(word, "TES.", stringf("TES%d.", id));
+                            if (boost::starts_with(word, "SB_DRIVE.")) {
+                                Loc l;
+                                tile_xy(ctx->chip_info, pip.tile, l.x, l.y);
+                                l.z = 0;
+                                BelId cpe_bel = ctx->getBelByLocation(l);
+                                // Only if switchbox is inside core (same as sharing location with CPE)
+                                if (cpe_bel != BelId() && ctx->getBelType(cpe_bel) == id_CPE) {
+                                    // Convert coordinates into in-tile coordinates
+                                    int xt = ((l.x-2-1)+16) % 8;
+                                    int yt = ((l.y-2-1)+16) % 8;
+                                    // Bitstream data for certain SB_DRIVES is located in other tiles
+                                    switch(word[14]) {
+                                        case '3' : if (xt >= 4) { loc.x -= 2; word[14] = '1'; }; break;
+                                        case '4' : if (yt >= 4) { loc.y -= 2; word[14] = '2'; }; break;
+                                        case '1' : if (xt <= 3) { loc.x += 2; word[14] = '3'; }; break;
+                                        case '2' : if (yt <= 3) { loc.y += 2; word[14] = '4'; }; break;
+                                        default:
+                                            break;
+                                    }
+                                }
+                            }
+
                             cc.tiles[loc].add_word(word, int_to_bitvector(extra_data.value, extra_data.bits));
                         }
                     }
