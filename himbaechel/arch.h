@@ -662,6 +662,9 @@ struct Arch : BaseArch<ArchRanges>
         uarch->notifyPipChange(pip, nullptr);
         BaseArch::unbindPip(pip);
     }
+    bool isPipInverting(PipId pip) const override {
+        return uarch->isPipInverting(pip);
+    }
 
     // -------------------------------------------------
 

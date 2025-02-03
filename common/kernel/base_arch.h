@@ -288,6 +288,7 @@ template <typename R> struct BaseArch : ArchAPI<R>
     }
     virtual WireId getConflictingPipWire(PipId /*pip*/) const override { return WireId(); }
     virtual NetInfo *getConflictingPipNet(PipId pip) const override { return getBoundPipNet(pip); }
+    virtual bool isPipInverting(PipId /*pip*/) const override { return false; }
 
     // Group methods
     virtual GroupId getGroupByName(IdStringList /*name*/) const override { return GroupId(); };
