@@ -53,6 +53,17 @@ enum PipExtra
     PIP_EXTRA_CPE = 2,
 };
 
+enum CPEFunction
+{
+    C_ADDF   = 1,
+    C_ADDF2  = 2,
+    C_MULT   = 3,
+    C_MX4    = 4,
+    C_EN_CIN = 5,
+    C_CONCAT = 6,
+    C_ADDCIN = 7,
+};
+
 NEXTPNR_NAMESPACE_END
 
 #endif

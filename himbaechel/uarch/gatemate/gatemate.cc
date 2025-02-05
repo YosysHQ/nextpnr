@@ -92,10 +92,10 @@ void updateLUT(Context *ctx, CellInfo *cell, IdString port, IdString init)
     }
 }
 
-void updateINV(Context *ctx, CellInfo *cell, IdString port)
+void updateINV(Context *ctx, CellInfo *cell, IdString port, IdString param)
 {
-    if (cell->params.count(port) == 0) return;
-    unsigned init_val = int_or_default(cell->params, port);
+    if (cell->params.count(param) == 0) return;
+    unsigned init_val = int_or_default(cell->params, param);
     WireId pin_wire = ctx->getBelPinWire(cell->bel, port);
     for (PipId pip : ctx->getPipsUphill(pin_wire)) {
         if (!ctx->getBoundPipNet(pip))
@@ -105,7 +105,7 @@ void updateINV(Context *ctx, CellInfo *cell, IdString port)
         if (!extra_data.name)
             continue;
         if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_CPE_INV)) {
-            cell->params[port] = Property(3 - init_val, 2);
+            cell->params[param] = Property(3 - init_val, 2);
         }
     }
 }
@@ -170,19 +170,19 @@ void GateMateImpl::postRoute()
                             // Propagate IN1 to O2 and RAM_O2
                             cell->params[id_INIT_L00] = Property(0b1010, 4);
                             cell->params[id_INIT_L10] = Property(0b1010, 4);
-                            cell->params[id_O2] = Property(0b11, 2);
-                            cell->params[id_RAM_O2] = Property(1, 1);
+                            cell->params[id_C_O2] = Property(0b11, 2);
+                            cell->params[id_C_RAM_O2] = Property(1, 1);
                         } else if (IdString(extra_data.name) == id_RAM_O1) {
                             // Propagate IN1 to O1 and RAM_O1
                             cell->params[id_INIT_L00] = Property(0b1010, 4);
                             cell->params[id_INIT_L10] = Property(0b1010, 4);
                             cell->params[id_INIT_L20] = Property(0b1010, 4);
-                            cell->params[id_O1] = Property(0b11, 2);
-                            cell->params[id_RAM_O1] = Property(1, 1);
+                            cell->params[id_C_O1] = Property(0b11, 2);
+                            cell->params[id_C_RAM_O1] = Property(1, 1);
                         } else if (IdString(extra_data.name) == id_RAM_I1) {
-                            cell->params[id_RAM_I1] = Property(1, 1);
+                            cell->params[id_C_RAM_I1] = Property(1, 1);
                         } else if (IdString(extra_data.name) == id_RAM_I2) {
-                            cell->params[id_RAM_I2] = Property(1, 1);
+                            cell->params[id_C_RAM_I2] = Property(1, 1);
                         } else {
                             log_error("Issue adding pass trough signal for %s.\n",IdString(extra_data.name).c_str(ctx));
                         }
@@ -197,8 +197,8 @@ void GateMateImpl::postRoute()
     for (auto &cell : ctx->cells) {
         if (cell.second->type == id_CPE) {
             // if LUT part used
-            uint8_t func = int_or_default(cell.second->params, id_FUNCTION, 0);
-            if (func != 4) {
+            uint8_t func = int_or_default(cell.second->params, id_C_FUNCTION, 0);
+            if (func != C_MX4) {
                 updateLUT(ctx, cell.second.get(), id_IN1, id_INIT_L00);
                 updateLUT(ctx, cell.second.get(), id_IN2, id_INIT_L00);
                 updateLUT(ctx, cell.second.get(), id_IN3, id_INIT_L01);
@@ -214,13 +214,13 @@ void GateMateImpl::postRoute()
             updateLUT(ctx, cell.second.get(), id_IN6, id_INIT_L02);
             updateLUT(ctx, cell.second.get(), id_IN7, id_INIT_L03);
             updateLUT(ctx, cell.second.get(), id_IN8, id_INIT_L03);
-            updateINV(ctx, cell.second.get(), id_CLK);
-            updateINV(ctx, cell.second.get(), id_EN);
-            bool set = int_or_default(cell.second->params, id_EN_SR, 0) == 1;
+            updateINV(ctx, cell.second.get(), id_CLK, id_C_CPE_CLK);
+            updateINV(ctx, cell.second.get(), id_EN,  id_C_CPE_EN);
+            bool set = int_or_default(cell.second->params, id_C_EN_SR, 0) == 1;
             if (set)
-                updateSR_INV(ctx, cell.second.get(), id_SR, id_S);
+                updateSR_INV(ctx, cell.second.get(), id_SR, id_C_CPE_SET);
             else
-                updateSR_INV(ctx, cell.second.get(), id_SR, id_R);
+                updateSR_INV(ctx, cell.second.get(), id_SR, id_C_CPE_RES);
         }
     }
 
