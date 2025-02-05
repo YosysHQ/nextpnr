@@ -296,14 +296,14 @@ void GateMatePacker::pack_cpe()
             ci.renamePort(id_O, id_OUT1);
             ci.params[id_INIT_L00] = Property(0b1010, 4);
             ci.params[id_INIT_L10] = Property(0b1010, 4);
-            ci.params[id_O1] = Property(0b11, 2);
+            ci.params[id_C_O1] = Property(0b11, 2);
         } else {
             ci.renamePort(id_I0, id_IN1);
             ci.renamePort(id_I1, id_IN2);
             ci.renamePort(id_I2, id_IN3);
             ci.renamePort(id_I3, id_IN4);
             ci.renamePort(id_O, id_OUT1);
-            ci.params[id_O1] = Property(0b11, 2);
+            ci.params[id_C_O1] = Property(0b11, 2);
             ci.params[id_INIT_L20] = Property(0b1010, 4);
             if (ci.type.in(id_CC_LUT1, id_CC_LUT2)) {
                 uint8_t val = int_or_default(ci.params, id_INIT, 0);
@@ -345,14 +345,14 @@ void GateMatePacker::pack_cpe()
                 }
             }
         }
-        ci.params[id_FUNCTION] = Property(0b100, 3);
+        ci.params[id_C_FUNCTION] = Property(C_MX4, 3);
         ci.params[id_INIT_L02] = Property(0b1100, 4); // IN6
         if (ci.type == id_CC_MX4)
             ci.params[id_INIT_L03] = Property(0b1100, 4); // IN8
         ci.params[id_INIT_L10] = Property(select, 4); // Selection bits
         ci.params[id_INIT_L11] = Property(invert, 4); // Inversion bits
         ci.params[id_INIT_L20] = Property(0b1100, 4); // Always D1
-        ci.params[id_O1] = Property(0b11, 2);
+        ci.params[id_C_O1] = Property(0b11, 2);
         ci.type = id_CPE;
     }
 
@@ -361,8 +361,8 @@ void GateMatePacker::pack_cpe()
         if (!ci.type.in(id_CC_DFF))
             continue;
         ci.renamePort(id_Q, id_OUT2);
-        ci.params[id_O2] = Property(0b00, 2);
-        ci.params[id_2D_IN] = Property(1, 1);
+        ci.params[id_C_O2] = Property(0b00, 2);
+        ci.params[id_C_2D_IN] = Property(1, 1);
         NetInfo *d_net = ci.getPort(id_D);
         if (d_net->name == ctx->id("$PACKER_GND")) {
             ci.params[id_INIT_L00] = Property(0b0000, 4);
@@ -380,16 +380,16 @@ void GateMatePacker::pack_cpe()
         bool invert = int_or_default(ci.params, id_EN_INV, 0) == 1;
         if (en_net) {
             if (en_net->name == ctx->id("$PACKER_GND")) {
-                ci.params[id_EN] = Property(invert ? 0b11 : 0b00, 2);
+                ci.params[id_C_CPE_EN] = Property(invert ? 0b11 : 0b00, 2);
                 ci.disconnectPort(id_EN);
             } else if (en_net->name == ctx->id("$PACKER_VCC")) {
-                ci.params[id_EN] = Property(invert ? 0b00 : 0b11, 2);
+                ci.params[id_C_CPE_EN] = Property(invert ? 0b00 : 0b11, 2);
                 ci.disconnectPort(id_EN);
             } else {
-                ci.params[id_EN] = Property(invert ? 0b01 : 0b10, 2);
+                ci.params[id_C_CPE_EN] = Property(invert ? 0b01 : 0b10, 2);
             }
         } else {
-            ci.params[id_EN] = Property(invert ? 0b11 : 0b00, 2);
+            ci.params[id_C_CPE_EN] = Property(invert ? 0b11 : 0b00, 2);
         }
         ci.unsetParam(id_EN_INV);
 
@@ -397,16 +397,16 @@ void GateMatePacker::pack_cpe()
         invert = int_or_default(ci.params, id_CLK_INV, 0) == 1;
         if (clk_net) {
             if (clk_net->name == ctx->id("$PACKER_GND")) {
-                ci.params[id_CLK] = Property(invert ? 0b11 : 0b00, 2);
+                ci.params[id_C_CPE_CLK] = Property(invert ? 0b11 : 0b00, 2);
                 ci.disconnectPort(id_CLK);
             } else if (clk_net->name == ctx->id("$PACKER_VCC")) {
-                ci.params[id_CLK] = Property(invert ? 0b00 : 0b11, 2);
+                ci.params[id_C_CPE_CLK] = Property(invert ? 0b00 : 0b11, 2);
                 ci.disconnectPort(id_CLK);
             } else {
-                ci.params[id_CLK] = Property(invert ? 0b01 : 0b10, 2);
+                ci.params[id_C_CPE_CLK] = Property(invert ? 0b01 : 0b10, 2);
             }
         } else {
-            ci.params[id_CLK] = Property(invert ? 0b11 : 0b00, 2);
+            ci.params[id_C_CPE_CLK] = Property(invert ? 0b11 : 0b00, 2);
         }
         ci.unsetParam(id_CLK_INV);
 
@@ -417,30 +417,30 @@ void GateMatePacker::pack_cpe()
             if (sr_net->name == ctx->id("$PACKER_GND")) {
                 if (invert)
                     log_error("Invalid DFF configuration\n.");
-                ci.params[id_R] = Property(0b11, 2);
-                ci.params[id_S] = Property(0b11, 2);
+                ci.params[id_C_CPE_RES] = Property(0b11, 2);
+                ci.params[id_C_CPE_SET] = Property(0b11, 2);
                 ci.disconnectPort(id_SR);
             } else if (sr_net->name == ctx->id("$PACKER_VCC")) {
                 if (!invert)
                     log_error("Invalid DFF configuration\n.");
-                ci.params[id_R] = Property(0b11, 2);
-                ci.params[id_S] = Property(0b11, 2);
+                ci.params[id_C_CPE_RES] = Property(0b11, 2);
+                ci.params[id_C_CPE_SET] = Property(0b11, 2);
                 ci.disconnectPort(id_SR);
             } else {
                 if (sr_val) {
-                    ci.params[id_R] = Property(0b11, 2);
-                    ci.params[id_S] = Property(invert ? 0b01 : 0b10, 2);
-                    ci.params[id_EN_SR] = Property(0b1, 1);
+                    ci.params[id_C_CPE_RES] = Property(0b11, 2);
+                    ci.params[id_C_CPE_SET] = Property(invert ? 0b01 : 0b10, 2);
+                    ci.params[id_C_EN_SR] = Property(0b1, 1);
                 } else {
-                    ci.params[id_R] = Property(invert ? 0b01 : 0b10, 2);
-                    ci.params[id_S] = Property(0b11, 2);
+                    ci.params[id_C_CPE_RES] = Property(invert ? 0b01 : 0b10, 2);
+                    ci.params[id_C_CPE_SET] = Property(0b11, 2);
                 }
             }
         } else {
             if (invert)
                 log_error("Invalid DFF configuration\n.");
-            ci.params[id_R] = Property(0b11, 2);
-            ci.params[id_S] = Property(0b11, 2);
+            ci.params[id_C_CPE_RES] = Property(0b11, 2);
+            ci.params[id_C_CPE_SET] = Property(0b11, 2);
         }
         ci.unsetParam(id_SR_VAL);
         ci.unsetParam(id_SR_INV);
@@ -574,8 +574,8 @@ void GateMatePacker::pack_constants()
 {
     log_info("Packing constants..\n");
     // Replace constants with LUTs
-    const dict<IdString, Property> vcc_params = {{id_INIT_L20, Property(0b1111, 4)}, {id_O1, Property(0b11, 2)}};
-    const dict<IdString, Property> gnd_params = {{id_INIT_L20, Property(0b0000, 4)}, {id_O1, Property(0b11, 2)}};
+    const dict<IdString, Property> vcc_params = {{id_INIT_L20, Property(0b1111, 4)}, {id_C_O1, Property(0b11, 2)}};
+    const dict<IdString, Property> gnd_params = {{id_INIT_L20, Property(0b0000, 4)}, {id_C_O1, Property(0b11, 2)}};
 
     h.replace_constants(CellTypePort(id_CPE, id_OUT1), CellTypePort(id_CPE, id_OUT1), vcc_params, gnd_params);
 }
