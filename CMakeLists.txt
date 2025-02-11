@@ -241,7 +241,7 @@ add_subdirectory(rust)
 
 add_subdirectory(tests/gui)
 
-add_custom_target(nextpnr-all-bba EXCLUDE_FROM_ALL)
+add_custom_target(nextpnr-all-bba)
 
 function(add_nextpnr_architecture target)
     cmake_parse_arguments(arg "" "MAIN_SOURCE" "CORE_SOURCES;TEST_SOURCES;CURRENT_SOURCE_DIR;CURRENT_BINARY_DIR" ${ARGN})
