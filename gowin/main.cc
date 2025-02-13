@@ -122,5 +122,6 @@ void GowinCommandHandler::customAfterLoad(Context *ctx)
 int main(int argc, char *argv[])
 {
     GowinCommandHandler handler(argc, argv);
+    fprintf(stderr, "WARNING: nextpnr-gowin is deprecated, please use nextpnr-himbaechel instead for Gowin FPGA support.\n\n");
     return handler.exec();
 }
