@@ -33,6 +33,8 @@ template <typename T> struct RelPtr
 
     const T *get() const { return reinterpret_cast<const T *>(reinterpret_cast<const char *>(this) + offset); }
 
+    bool is_null() const { return offset == 0; }
+
     const T &operator[](std::size_t index) const { return get()[index]; }
 
     const T &operator*() const { return *(get()); }

@@ -53,7 +53,7 @@ static bool net_is_constant(const Context *ctx, NetInfo *net, bool &value)
 class Ecp5Packer
 {
   public:
-    Ecp5Packer(Context *ctx) : ctx(ctx){};
+    Ecp5Packer(Context *ctx) : ctx(ctx) {};
 
   private:
     // Process the contents of packed_cells and new_cells
@@ -924,7 +924,8 @@ class Ecp5Packer
                 if (is_lut(ctx, uc)) {
                     set_lut_input_constant(uc, user.port, constval);
                 } else if (is_ff(ctx, uc) && user.port == id_CE) {
-                    uc->params[id_CEMUX] = std::string(constval ? "1" : "0");
+                    bool inv = (str_or_default(uc->params, id_CEMUX, "CE") == "INV");
+                    uc->params[id_CEMUX] = std::string((constval ^ inv) ? "1" : "0");
                     uc->ports[user.port].net = nullptr;
                 } else if (is_carry(ctx, uc)) {
                     if (constval && (user.port.in(id_A0, id_A1, id_B0, id_B1, id_C0, id_C1, id_D0, id_D1))) {

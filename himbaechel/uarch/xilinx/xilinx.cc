@@ -37,14 +37,14 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-XilinxImpl::~XilinxImpl(){};
+XilinxImpl::~XilinxImpl() {};
 
 void XilinxImpl::init_database(Arch *arch)
 {
     const ArchArgs &args = arch->args;
     init_uarch_constids(arch);
-    std::regex devicere = std::regex("(xc7[azkv]\\d+t)([a-z0-9]+)-(\\dL?)");
     std::smatch match;
+    std::regex devicere = std::regex("(xc7[azkv]\\d+t?)([a-z0-9]+)-(\\dL?)");
     if (!std::regex_match(args.device, match, devicere)) {
         log_error("Invalid device %s\n", args.device.c_str());
     }
@@ -105,6 +105,16 @@ IdString XilinxImpl::bel_name_in_site(BelId bel) const
 IdStringList XilinxImpl::get_site_bel_name(BelId bel) const
 {
     return IdStringList::concat(get_site_name(get_bel_site(bel)), bel_name_in_site(bel));
+}
+
+WireId XilinxImpl::lookup_wire(int tile, IdString wire_name) const
+{
+    const auto &tdata = chip_tile_info(ctx->chip_info, tile);
+    for (int wire = 0; wire < tdata.wires.ssize(); wire++) {
+        if (IdString(tdata.wires[wire].name) == wire_name)
+            return ctx->normalise_wire(tile, wire);
+    }
+    return WireId();
 }
 
 void XilinxImpl::notifyBelChange(BelId bel, CellInfo *cell)
@@ -178,7 +188,19 @@ void XilinxImpl::update_logic_bel(BelId bel, CellInfo *cell)
     }
 }
 
-void XilinxImpl::update_bram_bel(BelId bel, CellInfo *cell) {}
+void XilinxImpl::update_bram_bel(BelId bel, CellInfo *cell)
+{
+    IdString type = ctx->getBelType(bel);
+    if (!type.in(id_RAMBFIFO18E2_RAMBFIFO18E2, id_RAMBFIFO36E2_RAMBFIFO36E2, id_RAMB18E2_RAMB18E2, id_FIFO36E2_FIFO36E2,
+                 id_RAMBFIFO36E1_RAMBFIFO36E1, id_RAMB36E1_RAMB36E1, id_RAMB18E1_RAMB18E1))
+        return;
+    auto &tts = tile_status.at(bel.tile);
+    if (!tts.bts)
+        tts.bts = std::make_unique<BRAMTileStatus>();
+    int z = ctx->getBelLocation(bel).z;
+    NPNR_ASSERT(z >= 0 && z < 12);
+    tts.bts->cells[z] = cell;
+}
 
 bool XilinxImpl::is_pip_unavail(PipId pip) const
 {
@@ -545,9 +567,9 @@ BoundingBox XilinxImpl::getRouteBoundingBox(WireId src, WireId dst) const
 namespace {
 struct XilinxArch : HimbaechelArch
 {
-    XilinxArch() : HimbaechelArch("xilinx"){};
+    XilinxArch() : HimbaechelArch("xilinx") {};
     bool match_device(const std::string &device) override { return device.size() > 3 && device.substr(0, 3) == "xc7"; }
-    std::unique_ptr<HimbaechelAPI> create(const std::string &device, const dict<std::string, std::string> &args)
+    std::unique_ptr<HimbaechelAPI> create(const std::string &device, const dict<std::string, std::string> &args) override
     {
         return std::make_unique<XilinxImpl>();
     }

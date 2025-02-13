@@ -30,7 +30,7 @@ struct NexusPostPlaceOpt
     Context *ctx;
     TimingAnalyser tmg;
 
-    NexusPostPlaceOpt(Context *ctx) : ctx(ctx), tmg(ctx){};
+    NexusPostPlaceOpt(Context *ctx) : ctx(ctx), tmg(ctx) {};
 
     inline bool is_constrained(CellInfo *cell) { return cell->cluster != ClusterId(); }
 

@@ -18,11 +18,11 @@
  */
 
 #include "arch.h"
+#include <boost/filesystem/path.hpp>
 #include "archdefs.h"
 #include "chipdb.h"
 #include "log.h"
 #include "nextpnr.h"
-#include <boost/filesystem/path.hpp>
 
 #include "command.h"
 #include "placer1.h"
@@ -33,7 +33,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-static constexpr int database_version = 3;
+static constexpr int database_version = 6;
 
 static const ChipInfoPOD *get_chip_info(const RelPtr<ChipInfoPOD> *ptr) { return ptr->get(); }
 
@@ -307,6 +307,23 @@ IdStringList Arch::getPipName(PipId pip) const
 
 IdString Arch::getPipType(PipId pip) const { return IdString(); }
 
+GroupId Arch::getGroupByName(IdStringList name) const
+{
+    NPNR_ASSERT(name.size() == 2);
+    int tile = tile_name2idx.at(name[0]);
+    const auto &tdata = chip_tile_info(chip_info, tile);
+    for (int group = 0; group < tdata.groups.ssize(); group++) {
+        if (IdString(tdata.groups[group].name) == name[1])
+            return GroupId(tile, group);
+    }
+    return GroupId();
+}
+
+IdStringList Arch::getGroupName(GroupId group) const
+{
+    return IdStringList::concat(tile_name.at(group.tile), IdString(chip_group_info(chip_info, group).name));
+}
+
 std::string Arch::getChipName() const { return chip_info->name.get(); }
 
 IdString Arch::archArgsToId(ArchArgs args) const
@@ -387,13 +404,12 @@ bool Arch::lookup_cell_delay(int type_idx, IdString from_port, IdString to_port,
 {
     NPNR_ASSERT(type_idx != -1);
     const auto &ct = speed_grade->cell_types[type_idx];
-    int to_pin_idx = db_binary_search(
-            ct.pins, [](const CellPinTimingPOD &pd) { return pd.pin; }, to_port.index);
+    int to_pin_idx = db_binary_search(ct.pins, [](const CellPinTimingPOD &pd) { return pd.pin; }, to_port.index);
     if (to_pin_idx == -1)
         return false;
     const auto &tp = ct.pins[to_pin_idx];
-    int arc_idx = db_binary_search(
-            tp.comb_arcs, [](const CellPinCombArcPOD &arc) { return arc.input; }, from_port.index);
+    int arc_idx =
+            db_binary_search(tp.comb_arcs, [](const CellPinCombArcPOD &arc) { return arc.input; }, from_port.index);
     if (arc_idx == -1)
         return false;
     delay = DelayQuad(tp.comb_arcs[arc_idx].delay.fast_min, tp.comb_arcs[arc_idx].delay.slow_max);
@@ -404,8 +420,7 @@ const RelSlice<CellPinRegArcPOD> *Arch::lookup_cell_seq_timings(int type_idx, Id
 {
     NPNR_ASSERT(type_idx != -1);
     const auto &ct = speed_grade->cell_types[type_idx];
-    int pin_idx = db_binary_search(
-            ct.pins, [](const CellPinTimingPOD &pd) { return pd.pin; }, port.index);
+    int pin_idx = db_binary_search(ct.pins, [](const CellPinTimingPOD &pd) { return pd.pin; }, port.index);
     if (pin_idx == -1)
         return nullptr;
     return &ct.pins[pin_idx].reg_arcs;
@@ -416,8 +431,7 @@ TimingPortClass Arch::lookup_port_tmg_type(int type_idx, IdString port, PortType
 
     NPNR_ASSERT(type_idx != -1);
     const auto &ct = speed_grade->cell_types[type_idx];
-    int pin_idx = db_binary_search(
-            ct.pins, [](const CellPinTimingPOD &pd) { return pd.pin; }, port.index);
+    int pin_idx = db_binary_search(ct.pins, [](const CellPinTimingPOD &pd) { return pd.pin; }, port.index);
     if (pin_idx == -1)
         return (dir == PORT_OUT) ? TMG_IGNORE : TMG_COMB_INPUT;
     auto &pin = ct.pins[pin_idx];
@@ -502,6 +516,75 @@ IdString Arch::get_tile_type(int tile) const
 {
     auto &tile_data = chip_tile_info(chip_info, tile);
     return IdString(tile_data.type_name);
+}
+
+std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
+{
+    std::vector<GraphicElement> ret;
+    if (decal.type == DecalId::TYPE_GROUP) {
+        GroupId group(decal.tile, decal.index);
+        Loc loc;
+        tile_xy(chip_info, decal.tile, loc.x, loc.y);
+        uarch->drawGroup(ret, group, loc);
+    } else if (decal.type == DecalId::TYPE_BEL) {
+        BelId bel(decal.tile, decal.index);
+        GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+        uarch->drawBel(ret, style, getBelType(bel), getBelLocation(bel));
+    } else if (decal.type == DecalId::TYPE_WIRE) {
+        WireId w(decal.tile, decal.index);
+        for (WireId wire : get_tile_wire_range(w)) {
+            auto wire_type = getWireType(wire);
+            GraphicElement::style_t style =
+                    decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+            Loc loc;
+            tile_xy(chip_info, wire.tile, loc.x, loc.y);
+            int32_t tilewire = chip_wire_info(chip_info, wire).tile_wire;
+            uarch->drawWire(ret, style, loc, wire_type, tilewire, get_tile_type(wire.tile));
+        }
+    } else if (decal.type == DecalId::TYPE_PIP) {
+        PipId pip(decal.tile, decal.index);
+        WireId src_wire = getPipSrcWire(pip);
+        WireId dst_wire = getPipDstWire(pip);
+        Loc loc = getPipLocation(pip);
+        int32_t src_id = chip_wire_info(chip_info, src_wire).tile_wire;
+        int32_t dst_id = chip_wire_info(chip_info, dst_wire).tile_wire;
+        GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_HIDDEN;
+        uarch->drawPip(ret, style, loc, src_wire, getWireType(src_wire), src_id, dst_wire, getWireType(dst_wire),
+                       dst_id);
+    }
+    return ret;
+}
+
+DecalXY Arch::getBelDecal(BelId bel) const
+{
+    DecalXY decalxy;
+    decalxy.decal = DecalId(bel.tile, bel.index, DecalId::TYPE_BEL);
+    decalxy.decal.active = getBoundBelCell(bel) != nullptr;
+    return decalxy;
+}
+
+DecalXY Arch::getWireDecal(WireId wire) const
+{
+    DecalXY decalxy;
+    decalxy.decal = DecalId(wire.tile, wire.index, DecalId::TYPE_WIRE);
+    decalxy.decal.active = getBoundWireNet(wire) != nullptr;
+    return decalxy;
+}
+
+DecalXY Arch::getPipDecal(PipId pip) const
+{
+    DecalXY decalxy;
+    decalxy.decal = DecalId(pip.tile, pip.index, DecalId::TYPE_PIP);
+    decalxy.decal.active = getBoundPipNet(pip) != nullptr;
+    return decalxy;
+}
+
+DecalXY Arch::getGroupDecal(GroupId group) const
+{
+    DecalXY decalxy;
+    decalxy.decal = DecalId(group.tile, group.index, DecalId::TYPE_GROUP);
+    decalxy.decal.active = true;
+    return decalxy;
 }
 
 NEXTPNR_NAMESPACE_END

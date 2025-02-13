@@ -85,6 +85,8 @@ bool HimbaechelAPI::getClusterPlacement(ClusterId cluster, BelId root_bel,
     return ctx->BaseArch::getClusterPlacement(cluster, root_bel, placement);
 }
 
+void HimbaechelAPI::expandBoundingBox(BoundingBox &bb) const { ctx->BaseArch::expandBoundingBox(bb); }
+
 HimbaechelArch *HimbaechelArch::list_head;
 HimbaechelArch::HimbaechelArch(const std::string &name) : name(name)
 {

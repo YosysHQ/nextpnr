@@ -32,7 +32,7 @@ using namespace json11;
 struct JsonFrontendImpl
 {
     // See specification in frontend_base.h
-    JsonFrontendImpl(Json &root) : root(root){};
+    JsonFrontendImpl(Json &root) : root(root) {};
     Json &root;
     typedef const Json &ModuleDataType;
     typedef const Json &ModulePortDataType;
@@ -160,6 +160,12 @@ struct JsonFrontendImpl
     BitVectorDataType &get_net_bits(NetnameDataType &net) const { return net["bits"].array_items(); }
 
     int get_vector_length(BitVectorDataType &bits) const { return int(bits.size()); }
+
+    bool is_vector_bit_undef(BitVectorDataType &bits, int i) const
+    {
+        NPNR_ASSERT(i < int(bits.size()));
+        return bits[i] == "x";
+    }
 
     bool is_vector_bit_constant(BitVectorDataType &bits, int i) const
     {

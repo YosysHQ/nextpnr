@@ -33,8 +33,8 @@ NEXTPNR_NAMESPACE_BEGIN
 // validity checking code
 struct ControlSig
 {
-    ControlSig() : net(), invert(false){};
-    ControlSig(IdString net, bool invert) : net(net), invert(invert){};
+    ControlSig() : net(), invert(false) {};
+    ControlSig(IdString net, bool invert) : net(net), invert(invert) {};
     IdString net;
     bool invert;
     bool operator==(const ControlSig &other) const { return net == other.net && invert == other.invert; }
@@ -110,7 +110,7 @@ struct BlockTracker
     const FabricConfig &cfg;
     std::vector<BelFlags> bel_data;
 
-    BlockTracker(Context *ctx, const FabricConfig &cfg) : ctx(ctx), cfg(cfg){};
+    BlockTracker(Context *ctx, const FabricConfig &cfg) : ctx(ctx), cfg(cfg) {};
     void set_bel_type(BelId bel, BelFlags::BlockType block, BelFlags::FuncType func, uint8_t index);
     void update_bel(BelId bel, CellInfo *old_cell, CellInfo *new_cell);
     struct TileData

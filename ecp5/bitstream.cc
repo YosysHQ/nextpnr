@@ -49,7 +49,7 @@ void config_empty_lfe5um5g_85f(ChipConfig &cc);
 namespace {
 struct ECP5Bitgen
 {
-    explicit ECP5Bitgen(Context *ctx) : ctx(ctx){};
+    explicit ECP5Bitgen(Context *ctx) : ctx(ctx) {};
     Context *ctx;
     ChipConfig cc;
     std::string get_trellis_wirename(Location loc, WireId wire)
@@ -1548,7 +1548,7 @@ struct ECP5Bitgen
                     cc.tiles[tile].add_enum(eclkb + ".MODE", "ECLKBRIDGECS");
             } else if (ci->type == id_DDRDLL) {
                 Loc loc = ctx->getBelLocation(ci->bel);
-                bool u = loc.y<15, r = loc.x> 15;
+                bool u = loc.y < 15, r = loc.x > 15;
                 std::string tiletype = fmt_str("DDRDLL_" << (u ? 'U' : 'L') << (r ? 'R' : 'L'));
                 if ((ctx->args.type == ArchArgs::LFE5U_12F || ctx->args.type == ArchArgs::LFE5U_25F ||
                      ctx->args.type == ArchArgs::LFE5UM_25F || ctx->args.type == ArchArgs::LFE5UM5G_25F) &&

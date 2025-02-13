@@ -34,7 +34,7 @@ template <typename T> struct store_index
 {
     int32_t m_index = -1;
     store_index() = default;
-    explicit store_index(int32_t index) : m_index(index){};
+    explicit store_index(int32_t index) : m_index(index) {};
     int32_t idx() const { return m_index; }
     void set(int32_t index) { m_index = index; }
     bool empty() const { return m_index == -1; }
@@ -64,7 +64,7 @@ template <typename T> class indexed_store
         friend class indexed_store<T>;
 
       public:
-        slot() : next_free(std::numeric_limits<int32_t>::max()), active(false){};
+        slot() : next_free(std::numeric_limits<int32_t>::max()), active(false) {};
         slot(slot &&other) : next_free(other.next_free), active(other.active)
         {
             if (active)
@@ -180,7 +180,7 @@ template <typename T> class indexed_store
         int32_t index = 0;
 
       public:
-        iterator(indexed_store *base, int32_t index) : base(base), index(index){};
+        iterator(indexed_store *base, int32_t index) : base(base), index(index) {};
         inline bool operator!=(const iterator &other) const { return other.index != index; }
         inline bool operator==(const iterator &other) const { return other.index == index; }
         inline iterator operator++()
@@ -217,7 +217,7 @@ template <typename T> class indexed_store
         int32_t index = 0;
 
       public:
-        const_iterator(const indexed_store *base, int32_t index) : base(base), index(index){};
+        const_iterator(const indexed_store *base, int32_t index) : base(base), index(index) {};
         inline bool operator!=(const const_iterator &other) const { return other.index != index; }
         inline bool operator==(const const_iterator &other) const { return other.index == index; }
         inline const_iterator operator++()
@@ -249,7 +249,7 @@ template <typename T> class indexed_store
 
     template <typename S> struct enumerated_item
     {
-        enumerated_item(int32_t index, T &value) : index(index), value(value){};
+        enumerated_item(int32_t index, T &value) : index(index), value(value) {};
         store_index<std::remove_cv_t<S>> index;
         S &value;
     };
@@ -260,7 +260,7 @@ template <typename T> class indexed_store
         It base;
 
       public:
-        enumerated_iterator(const It &base) : base(base){};
+        enumerated_iterator(const It &base) : base(base) {};
         inline bool operator!=(const enumerated_iterator<It, S> &other) const { return other.base != base; }
         inline bool operator==(const enumerated_iterator<It, S> &other) const { return other.base == base; }
         inline enumerated_iterator<It, S> operator++()
@@ -279,7 +279,7 @@ template <typename T> class indexed_store
 
     template <typename It, typename S> struct enumerated_range
     {
-        enumerated_range(const It &begin, const It &end) : m_begin(begin), m_end(end){};
+        enumerated_range(const It &begin, const It &end) : m_begin(begin), m_end(end) {};
         enumerated_iterator<It, S> m_begin, m_end;
         enumerated_iterator<It, S> begin() { return m_begin; }
         enumerated_iterator<It, S> end() { return m_end; }

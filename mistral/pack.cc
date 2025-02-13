@@ -26,7 +26,7 @@ NEXTPNR_NAMESPACE_BEGIN
 namespace {
 struct MistralPacker
 {
-    MistralPacker(Context *ctx) : ctx(ctx){};
+    MistralPacker(Context *ctx) : ctx(ctx) {};
     Context *ctx;
 
     NetInfo *gnd_net, *vcc_net;

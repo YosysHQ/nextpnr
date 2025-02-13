@@ -133,7 +133,7 @@ struct UpDownhillPipIterator
     bool is_uphill;
 
     UpDownhillPipIterator(WireVecIterator base, WireId other_wire, bool is_uphill)
-            : base(base), other_wire(other_wire), is_uphill(is_uphill){};
+            : base(base), other_wire(other_wire), is_uphill(is_uphill) {};
 
     bool operator!=(const UpDownhillPipIterator &other) { return base != other.base; }
     UpDownhillPipIterator operator++()
@@ -155,7 +155,7 @@ struct UpDownhillPipRange
     UpDownhillPipIterator b, e;
 
     UpDownhillPipRange(const std::vector<WireId> &v, WireId other_wire, bool is_uphill)
-            : b(v.begin(), other_wire, is_uphill), e(v.end(), other_wire, is_uphill){};
+            : b(v.begin(), other_wire, is_uphill), e(v.end(), other_wire, is_uphill) {};
 
     UpDownhillPipIterator begin() const { return b; }
     UpDownhillPipIterator end() const { return e; }
@@ -170,7 +170,7 @@ struct AllPipIterator
     int uphill_idx;
 
     AllPipIterator(WireMapIterator base, WireMapIterator end, int uphill_idx)
-            : base(base), end(end), uphill_idx(uphill_idx){};
+            : base(base), end(end), uphill_idx(uphill_idx) {};
 
     bool operator!=(const AllPipIterator &other) { return base != other.base || uphill_idx != other.uphill_idx; }
     AllPipIterator operator++()
@@ -212,12 +212,12 @@ struct AllPipRange
 // This transforms a map to a range of keys, used as the wire iterator
 template <typename T> struct key_range
 {
-    key_range(const T &t) : b(t.begin()), e(t.end()){};
+    key_range(const T &t) : b(t.begin()), e(t.end()) {};
     typename T::const_iterator b, e;
 
     struct xformed_iterator : public T::const_iterator
     {
-        explicit xformed_iterator(typename T::const_iterator base) : T::const_iterator(base){};
+        explicit xformed_iterator(typename T::const_iterator base) : T::const_iterator(base) {};
         typename T::key_type operator*() { return this->T::const_iterator::operator*().first; }
     };
 
@@ -450,6 +450,10 @@ struct Arch : BaseArch<ArchRanges>
     BelBucketId getBelBucketForCellType(IdString cell_type) const override;
     BelBucketId getBelBucketForBel(BelId bel) const override;
 
+    // -------------------------------------------------
+    // Expanding bounding box seems to make thing worse for CycloneV
+    // as it slows down the resolution of TD congestion, disabling it
+    void expandBoundingBox(BoundingBox &bb) const override {};
     // -------------------------------------------------
 
     void assignArchInfo() override;

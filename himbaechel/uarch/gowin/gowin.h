@@ -21,6 +21,10 @@ inline bool is_dff(const CellInfo *cell) { return type_is_dff(cell->type); }
 inline bool type_is_alu(IdString cell_type) { return cell_type == id_ALU; }
 inline bool is_alu(const CellInfo *cell) { return type_is_alu(cell->type); }
 
+// io
+inline bool type_is_io(IdString cell_type) { return cell_type.in(id_IBUF, id_OBUF, id_IOBUF, id_TBUF); }
+inline bool is_io(const CellInfo *cell) { return type_is_io(cell->type); }
+
 inline bool type_is_diffio(IdString cell_type)
 {
     return cell_type.in(id_ELVDS_IOBUF, id_ELVDS_IBUF, id_ELVDS_TBUF, id_ELVDS_OBUF, id_TLVDS_IOBUF, id_TLVDS_IBUF,
@@ -28,17 +32,25 @@ inline bool type_is_diffio(IdString cell_type)
 }
 inline bool is_diffio(const CellInfo *cell) { return type_is_diffio(cell->type); }
 
+// MIPI
+inline bool type_is_mipi(IdString cell_type) { return cell_type.in(id_MIPI_OBUF, id_MIPI_OBUF_A, id_MIPI_IBUF); }
+inline bool is_mipi(const CellInfo *cell) { return type_is_mipi(cell->type); }
+
+// I3C
+inline bool type_is_i3c(IdString cell_type) { return cell_type.in(id_I3C_IOBUF); }
+inline bool is_i3c(const CellInfo *cell) { return type_is_i3c(cell->type); }
+
 // IOLOGIC input and output separately
 
 inline bool type_is_iologico(IdString cell_type)
 {
-    return cell_type.in(id_ODDR, id_ODDRC, id_OSER4, id_OSER8, id_OSER10, id_OVIDEO);
+    return cell_type.in(id_ODDR, id_ODDRC, id_OSER4, id_OSER8, id_OSER10, id_OVIDEO, id_IOLOGICO_EMPTY);
 }
 inline bool is_iologico(const CellInfo *cell) { return type_is_iologico(cell->type); }
 
 inline bool type_is_iologici(IdString cell_type)
 {
-    return cell_type.in(id_IDDR, id_IDDRC, id_IDES4, id_IDES8, id_IDES10, id_IVIDEO);
+    return cell_type.in(id_IDDR, id_IDDRC, id_IDES4, id_IDES8, id_IDES10, id_IVIDEO, id_IOLOGICI_EMPTY);
 }
 inline bool is_iologici(const CellInfo *cell) { return type_is_iologici(cell->type); }
 
@@ -62,6 +74,29 @@ inline bool type_is_dsp(IdString cell_type)
 }
 inline bool is_dsp(const CellInfo *cell) { return type_is_dsp(cell->type); }
 
+// Return true if a cell is CLKDIV
+inline bool type_is_clkdiv(IdString cell_type) { return cell_type == id_CLKDIV; }
+inline bool is_clkdiv(const CellInfo *cell) { return type_is_clkdiv(cell->type); }
+
+// Return true if a cell is CLKDIV2
+inline bool type_is_clkdiv2(IdString cell_type) { return cell_type == id_CLKDIV2; }
+inline bool is_clkdiv2(const CellInfo *cell) { return type_is_clkdiv2(cell->type); }
+
+// Return true for HCLK Cells
+inline bool is_hclk(const CellInfo *cell) { return type_is_clkdiv2(cell->type) || type_is_clkdiv(cell->type); }
+
+// Return true if a cell is a UserFlash
+inline bool type_is_userflash(IdString cell_type)
+{
+    return cell_type.in(id_FLASH96K, id_FLASH256K, id_FLASH608K, id_FLASH128K, id_FLASH64K, id_FLASH64K, id_FLASH64KZ,
+                        id_FLASH96KA);
+}
+inline bool is_userflash(const CellInfo *cell) { return type_is_userflash(cell->type); }
+
+// Return true if a cell is a EMCU
+inline bool type_is_emcu(IdString cell_type) { return cell_type == id_EMCU; }
+inline bool is_emcu(const CellInfo *cell) { return type_is_emcu(cell->type); }
+
 // ==========================================
 // extra data in the chip db
 // ==========================================
@@ -75,6 +110,9 @@ NPNR_PACKED_STRUCT(struct Tile_extra_data_POD {
     int32_t class_id;
     int16_t io16_x_off;
     int16_t io16_y_off;
+    int32_t tile_flags;
+    // tile flags
+    static constexpr int32_t TILE_I3C_CAPABLE_IO = 1;
 });
 
 NPNR_PACKED_STRUCT(struct Bottom_io_cnd_POD {
@@ -90,12 +128,46 @@ NPNR_PACKED_STRUCT(struct Bottom_io_POD {
     RelSlice<Bottom_io_cnd_POD> conditions;
 });
 
+NPNR_PACKED_STRUCT(struct Spine_bel_POD {
+    int32_t spine;
+    int32_t bel_x;
+    int32_t bel_y;
+    int32_t bel_z;
+});
+
+NPNR_PACKED_STRUCT(struct Wire_bel_POD {
+    int32_t pip_xy;
+    int32_t pip_dst;
+    int32_t pip_src;
+    int32_t bel_x;
+    int32_t bel_y;
+    int32_t bel_z;
+    int32_t side;
+});
+
+NPNR_PACKED_STRUCT(struct Constraint_POD {
+    int32_t net;
+    int32_t row;
+    int32_t col;
+    int32_t bel;
+    int32_t iostd;
+});
+
+NPNR_PACKED_STRUCT(struct Extra_package_data_POD { RelSlice<Constraint_POD> cst; });
+
 NPNR_PACKED_STRUCT(struct Extra_chip_data_POD {
     int32_t chip_flags;
     Bottom_io_POD bottom_io;
     RelSlice<IdString> diff_io_types;
+    RelSlice<Spine_bel_POD> dqce_bels;
+    RelSlice<Spine_bel_POD> dcs_bels;
+    RelSlice<Wire_bel_POD> dhcen_bels;
     // chip flags
-    static constexpr int32_t HAS_SP32 = 0;
+    static constexpr int32_t HAS_SP32 = 1;
+    static constexpr int32_t NEED_SP_FIX = 2;
+    static constexpr int32_t NEED_BSRAM_OUTREG_FIX = 4;
+    static constexpr int32_t NEED_BLKSEL_FIX = 8;
+    static constexpr int32_t HAS_BANDGAP = 16;
 });
 
 } // namespace
@@ -128,6 +200,18 @@ enum
     GSR_Z = 276,
     VCC_Z = 277,
     VSS_Z = 278,
+    BANDGAP_Z = 279,
+
+    DQCE_Z = 280,  // : 286 reserve for 6 DQCEs
+    DCS_Z = 286,   // : 288 reserve for 2 DCSs
+    DHCEN_Z = 288, // : 298
+
+    USERFLASH_Z = 298,
+
+    EMCU_Z = 300,
+
+    MIPIOBUF_Z = 301,
+    MIPIIBUF_Z = 302,
 
     // The two least significant bits encode Z for 9-bit adders and
     // multipliers, if they are equal to 0, then we get Z of their common
@@ -174,7 +258,18 @@ enum
     ALU54D_1_Z = 556 + 3,
     MULTALU18X18_1_Z = 560,
     MULTALU36X18_1_Z = 560 + 1,
-    MULTADDALU18X18_1_Z = 560 + 2
+    MULTADDALU18X18_1_Z = 560 + 2,
+
+    // HCLK Bels
+    CLKDIV2_0_Z = 610,
+    CLKDIV2_1_Z = 611,
+    CLKDIV2_2_Z = 612,
+    CLKDIV2_3_Z = 613,
+
+    CLKDIV_0_Z = 620,
+    CLKDIV_1_Z = 621,
+    CLKDIV_2_Z = 622,
+    CLKDIV_3_Z = 623
 };
 }
 

@@ -86,14 +86,14 @@ struct ViaductAPI
     virtual BoundingBox getRouteBoundingBox(WireId src, WireId dst) const;
 
     // --- Flow hooks ---
-    virtual void pack(){}; // replaces the pack function
+    virtual void pack() {}; // replaces the pack function
     // Called before and after main placement and routing
-    virtual void prePlace(){};
-    virtual void postPlace(){};
-    virtual void preRoute(){};
-    virtual void postRoute(){};
+    virtual void prePlace() {};
+    virtual void postPlace() {};
+    virtual void preRoute() {};
+    virtual void postRoute() {};
 
-    virtual ~ViaductAPI(){};
+    virtual ~ViaductAPI() {};
 };
 
 struct ViaductArch
@@ -103,7 +103,7 @@ struct ViaductArch
 
     std::string name;
     ViaductArch(const std::string &name);
-    ~ViaductArch(){};
+    ~ViaductArch() {};
     virtual std::unique_ptr<ViaductAPI> create(const dict<std::string, std::string> &args) = 0;
 
     static std::string list();

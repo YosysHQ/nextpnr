@@ -301,29 +301,42 @@ class HeAPPlacer
             ++iter;
         }
 
-        // Apply saved solution
+        // Remove any previous binding
         for (auto &sc : solution) {
             CellInfo *cell = std::get<0>(sc);
             if (cell->bel != BelId())
                 ctx->unbindBel(cell->bel);
         }
+        // Apply saved solution
         for (auto &sc : solution) {
             CellInfo *cell;
             BelId bel;
             PlaceStrength strength;
             std::tie(cell, bel, strength) = sc;
+            // Just skip unbound cells here, these errors are handled just after
+            if (bel == BelId())
+                continue;
             ctx->bindBel(bel, cell, strength);
         }
 
+        // Find and display all errors to help in finding the root cause of issues
+        unsigned num_errors = 0;
         for (auto &cell : ctx->cells) {
             if (cell.second->isPseudo())
                 continue;
-            if (cell.second->bel == BelId())
-                log_error("Found unbound cell %s\n", cell.first.c_str(ctx));
-            if (ctx->getBoundBelCell(cell.second->bel) != cell.second.get())
-                log_error("Found cell %s with mismatched binding\n", cell.first.c_str(ctx));
-            if (ctx->debug)
+            if (cell.second->bel == BelId()) {
+                log_nonfatal_error("Found unbound cell '%s' of type '%s'\n", cell.first.c_str(ctx),
+                                   cell.second->type.c_str(ctx));
+                num_errors++;
+            } else if (ctx->getBoundBelCell(cell.second->bel) != cell.second.get()) {
+                log_nonfatal_error("Found mismatched binding for '%s' or type '%s'\n", cell.first.c_str(ctx),
+                                   cell.second->type.c_str(ctx));
+                num_errors++;
+            } else if (ctx->debug)
                 log_info("AP soln: %s -> %s\n", cell.first.c_str(ctx), ctx->nameOfBel(cell.second->bel));
+        }
+        if (num_errors > 0) {
+            log_error("Stopping the program after %u errors found\n", num_errors);
         }
 
         bool any_bad_placements = false;
@@ -877,7 +890,7 @@ class HeAPPlacer
             total_iters_noreset++;
             if (total_iters > int(solve_cells.size())) {
                 total_iters = 0;
-                ripup_radius = std::max(std::max(max_x, max_y), ripup_radius * 2);
+                ripup_radius = std::min(std::max(max_x, max_y), ripup_radius * 2);
             }
 
             if (total_iters_noreset > std::max(5000, 8 * int(ctx->cells.size()))) {
@@ -886,10 +899,11 @@ class HeAPPlacer
 
             while (!placed) {
                 if (cfg.cell_placement_timeout > 0 && total_iters_for_cell > cfg.cell_placement_timeout)
-                    log_error("Unable to find legal placement for cell '%s' after %d attempts, check constraints and "
+                    log_error("Unable to find legal placement for cell '%s' of type '%s' after %d attempts, check "
+                              "constraints and "
                               "utilisation. Use `--placer-heap-cell-placement-timeout` to change the number of "
                               "attempts.\n",
-                              ctx->nameOf(ci), total_iters_for_cell);
+                              ctx->nameOf(ci), ci->type.c_str(ctx), total_iters_for_cell);
 
                 // Determine a search radius around the solver location (which increases over time) that is clamped to
                 // the region constraint for the cell (if applicable)
@@ -981,7 +995,7 @@ class HeAPPlacer
                             CellInfo *bound = ctx->getBoundBelCell(sz);
                             if (bound != nullptr) {
                                 // Only rip up cells without constraints
-                                if (bound->cluster != ClusterId())
+                                if (bound->cluster != ClusterId() || bound->belStrength > STRENGTH_WEAK)
                                     continue;
                                 ctx->unbindBel(bound->bel);
                             }

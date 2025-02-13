@@ -417,7 +417,7 @@ void Context::check() const
 namespace {
 struct FixupHierarchyWorker
 {
-    FixupHierarchyWorker(Context *ctx) : ctx(ctx){};
+    FixupHierarchyWorker(Context *ctx) : ctx(ctx) {};
     Context *ctx;
     void run()
     {

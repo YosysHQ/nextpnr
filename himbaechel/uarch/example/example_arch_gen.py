@@ -62,6 +62,8 @@ def create_switch_matrix(tt: TileType, inputs: list[str], outputs: list[str]):
     tt.create_wire(f"CLK_PREV", "CLK_ROUTE")
     tt.create_pip(f"CLK_PREV", f"CLK")
 
+    tt.create_group("SWITCHBOX", "SWITCHBOX")
+
 def create_logic_tiletype(chip: Chip):
     tt = chip.create_tile_type("LOGIC")
     # setup wires
@@ -237,6 +239,7 @@ def main():
     ch = Chip("example", "EX1", X, Y)
     # Init constant ids
     ch.strs.read_constids(path.join(path.dirname(__file__), "constids.inc"))
+    ch.read_gfxids(path.join(path.dirname(__file__), "gfxids.inc")) 
     logic = create_logic_tiletype(ch)
     io = create_io_tiletype(ch)
     bram = create_bram_tiletype(ch)

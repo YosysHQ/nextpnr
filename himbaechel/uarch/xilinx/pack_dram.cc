@@ -237,7 +237,7 @@ void XilinxPacker::pack_dram()
         auto &dt = dt_iter->second;
         DRAMControlSet dcs;
         for (int i = 0; i < dt.abits; i++)
-            dcs.wa.push_back(ci->getPort(ctx->idf(dt.abits <= 6 ? "A%d" : "A[%d]", i)));
+            dcs.wa.push_back(ci->getPort(ctx->idf((dt.abits <= 6 || ci->type == id_RAM128X1S) ? "A%d" : "A[%d]", i)));
         dcs.wclk = ci->getPort(id_WCLK);
         dcs.we = ci->getPort(id_WE);
         dcs.wclk_inv = bool_or_default(ci->params, id_IS_WCLK_INVERTED);
@@ -302,6 +302,27 @@ void XilinxPacker::pack_dram()
                     z--;
                 }
 
+                packed_cells.insert(cell->name);
+            }
+        } else if (cs.memtype == id_RAM64X1S) {
+            int z = height - 1;
+            CellInfo *base = nullptr;
+            for (auto cell : group.second) {
+                NPNR_ASSERT(cell->type == id_RAM64X1S); // FIXME
+
+                if (z == (height - 1) || (z - 1) < 0) {
+                    z = (height - 1);
+                    base = nullptr;
+                }
+
+                std::vector<NetInfo *> address(cs.wa.begin(), cs.wa.begin() + std::min<size_t>(cs.wa.size(), 6));
+                CellInfo *ram = create_dram_lut(cell->name.str(ctx) + "/ADDR", base, cs, address, cell->getPort(id_D),
+                                                cell->getPort(id_O), z);
+                if (cell->params.count(id_INIT))
+                    ram->params[id_INIT] = cell->params[id_INIT];
+                if (base == nullptr)
+                    base = ram;
+                z--;
                 packed_cells.insert(cell->name);
             }
         } else if (cs.memtype == id_RAM32X1D) {
@@ -411,6 +432,36 @@ void XilinxPacker::pack_dram()
                 // Decode mux tree using MUXF[78]
                 create_muxf_tree(base, "DPO", dpo_pre, addressr_high, dpo, 0);
 
+                packed_cells.insert(ci->name);
+            }
+        } else if (cs.memtype.in(id_RAM128X1S, id_RAM256X1S)) {
+            bool m256 = cs.memtype == id_RAM256X1S;
+            for (CellInfo *ci : group.second) {
+                auto init = get_or_default(ci->params, id_INIT, Property(0, m256 ? 256 : 128));
+                std::vector<NetInfo *> o_pre;
+                int z = (height - 1);
+
+                NetInfo *o = ci->getPort(id_O);
+                ci->disconnectPort(id_O);
+
+                // Low 6 bits of address - connect directly to RAM cells
+                std::vector<NetInfo *> addressw_64(cs.wa.begin(), cs.wa.begin() + std::min<size_t>(cs.wa.size(), 6));
+                // Upper bits of address - feed decode muxes
+                std::vector<NetInfo *> addressw_high(cs.wa.begin() + std::min<size_t>(cs.wa.size(), 6), cs.wa.end());
+                CellInfo *base = nullptr;
+                // Combined write address/SPO read cells
+                for (int i = 0; i < (m256 ? 4 : 2); i++) {
+                    NetInfo *spo_i = create_internal_net(ci->name, stringf("O_%d", i), false);
+                    CellInfo *spr = create_dram_lut(ci->name.str(ctx) + "/ADDR" + std::to_string(i), base, cs,
+                                                    addressw_64, ci->getPort(id_D), spo_i, z);
+                    if (base == nullptr)
+                        base = spr;
+                    o_pre.push_back(spo_i);
+                    spr->params[id_INIT] = init.extract(i * 64, 64);
+                    z--;
+                }
+                // Decode mux tree using MUXF[78]
+                create_muxf_tree(base, "O", o_pre, addressw_high, o, m256 ? 4 : 2);
                 packed_cells.insert(ci->name);
             }
         }

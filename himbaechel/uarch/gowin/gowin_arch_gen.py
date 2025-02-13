@@ -15,7 +15,14 @@ from apycula import chipdb
 BEL_FLAG_SIMPLE_IO = 0x100
 
 # Chip flags
-CHIP_HAS_SP32 = 0x1
+CHIP_HAS_SP32              = 0x1
+CHIP_NEED_SP_FIX           = 0x2
+CHIP_NEED_BSRAM_OUTREG_FIX = 0x4
+CHIP_NEED_BLKSEL_FIX       = 0x8
+CHIP_HAS_BANDGAP           = 0x10
+
+# Tile flags
+TILE_I3C_CAPABLE_IO        = 0x1
 
 # Z of the bels
 # sync with C++ part!
@@ -43,6 +50,18 @@ PLL_Z   = 275
 GSR_Z   = 276
 VCC_Z   = 277
 GND_Z   = 278
+BANDGAP_Z = 279
+
+DQCE_Z = 280 # : 286 reserve for 6 DQCEs
+DCS_Z  = 286 # : 288 reserve for 2 DCSs
+DHCEN_Z = 288 # : 298
+
+USERFLASH_Z = 298
+
+EMCU_Z      = 300
+
+MIPIOBUF_Z  = 301
+MIPIIBUF_Z  = 302
 
 DSP_Z          = 509
 
@@ -88,6 +107,17 @@ MULTALU18X18_1_Z = 560
 MULTALU36X18_1_Z = 560 + 1
 MULTADDALU18X18_1_Z = 560 + 2
 
+CLKDIV2_0_Z = 610
+CLKDIV2_1_Z = 611
+CLKDIV2_2_Z = 612
+CLKDIV2_3_Z = 613
+
+
+CLKDIV_0_Z = 620
+CLKDIV_1_Z = 621
+CLKDIV_2_Z = 622
+CLKDIV_3_Z = 623
+
 # =======================================
 # Chipdb additional info
 # =======================================
@@ -99,6 +129,7 @@ class TileExtraData(BBAStruct):
                          # then we assign them to the same LOGIC class.
     io16_x_off: int = 0  # OSER16/IDES16 offsets to the aux cell
     io16_y_off: int = 0
+    tile_flags: int = 0
 
     def serialise_lists(self, context: str, bba: BBAWriter):
         pass
@@ -106,6 +137,7 @@ class TileExtraData(BBAStruct):
         bba.u32(self.tile_class.index)
         bba.u16(self.io16_x_off)
         bba.u16(self.io16_y_off)
+        bba.u32(self.tile_flags)
 
 @dataclass
 class BottomIOCnd(BBAStruct):
@@ -130,12 +162,53 @@ class BottomIO(BBAStruct):
     def serialise(self, context: str, bba: BBAWriter):
         bba.slice(f"{context}_conditions", len(self.conditions))
 
+# spine -> bel for different bels
+@dataclass
+class SpineBel(BBAStruct):
+    spine: IdString
+    bel_x: int
+    bel_y: int
+    bel_z: int
+
+    def serialise_lists(self, context: str, bba: BBAWriter):
+        pass
+    def serialise(self, context: str, bba: BBAWriter):
+        bba.u32(self.spine.index)
+        bba.u32(self.bel_x)
+        bba.u32(self.bel_y)
+        bba.u32(self.bel_z)
+
+# wire -> bel for DHCEN bels
+@dataclass
+class WireBel(BBAStruct):
+    pip_xy: IdString
+    pip_dst: IdString
+    pip_src: IdString
+    bel_x: int
+    bel_y: int
+    bel_z: int
+    hclk_side: IdString
+
+    def serialise_lists(self, context: str, bba: BBAWriter):
+        pass
+    def serialise(self, context: str, bba: BBAWriter):
+        bba.u32(self.pip_xy.index)
+        bba.u32(self.pip_dst.index)
+        bba.u32(self.pip_src.index)
+        bba.u32(self.bel_x)
+        bba.u32(self.bel_y)
+        bba.u32(self.bel_z)
+        bba.u32(self.hclk_side.index)
+
 @dataclass
 class ChipExtraData(BBAStruct):
     strs: StringPool
     flags: int
     bottom_io: BottomIO
     diff_io_types: list[IdString] = field(default_factory = list)
+    dqce_bels: list[SpineBel] = field(default_factory = list)
+    dcs_bels: list[SpineBel] = field(default_factory = list)
+    dhcen_bels: list[WireBel] = field(default_factory = list)
 
     def create_bottom_io(self):
         self.bottom_io = BottomIO()
@@ -146,16 +219,54 @@ class ChipExtraData(BBAStruct):
     def add_diff_io_type(self, diff_type: str):
         self.diff_io_types.append(self.strs.id(diff_type))
 
+    def add_dhcen_bel(self, pip_xy: str, pip_dst: str, pip_src, x: int, y: int, z: int, side: str):
+        self.dhcen_bels.append(WireBel(self.strs.id(pip_xy), self.strs.id(pip_dst), self.strs.id(pip_src), x, y, z, self.strs.id(side)))
+
+    def add_dqce_bel(self, spine: str, x: int, y: int, z: int):
+        self.dqce_bels.append(SpineBel(self.strs.id(spine), x, y, z))
+
+    def add_dcs_bel(self, spine: str, x: int, y: int, z: int):
+        self.dcs_bels.append(SpineBel(self.strs.id(spine), x, y, z))
+
     def serialise_lists(self, context: str, bba: BBAWriter):
         self.bottom_io.serialise_lists(f"{context}_bottom_io", bba)
         bba.label(f"{context}_diff_io_types")
         for i, diff_io_type in enumerate(self.diff_io_types):
             bba.u32(diff_io_type.index)
+        bba.label(f"{context}_dqce_bels")
+        for i, t in enumerate(self.dqce_bels):
+            t.serialise(f"{context}_dqce_bel{i}", bba)
+        bba.label(f"{context}_dcs_bels")
+        for i, t in enumerate(self.dcs_bels):
+            t.serialise(f"{context}_dcs_bel{i}", bba)
+        bba.label(f"{context}_dhcen_bels")
+        for i, t in enumerate(self.dhcen_bels):
+            t.serialise(f"{context}_dhcen_bel{i}", bba)
 
     def serialise(self, context: str, bba: BBAWriter):
         bba.u32(self.flags)
         self.bottom_io.serialise(f"{context}_bottom_io", bba)
         bba.slice(f"{context}_diff_io_types", len(self.diff_io_types))
+        bba.slice(f"{context}_dqce_bels", len(self.dqce_bels))
+        bba.slice(f"{context}_dcs_bels", len(self.dcs_bels))
+        bba.slice(f"{context}_dhcen_bels", len(self.dhcen_bels))
+
+@dataclass
+class PackageExtraData(BBAStruct):
+    strs: StringPool
+    cst: list
+
+    def serialise_lists(self, context: str, bba: BBAWriter):
+        bba.label(f"{context}_constraints")
+        for (net, row, col, bel, iostd) in self.cst:
+            bba.u32(self.strs.id(net).index)
+            bba.u32(row)
+            bba.u32(col)
+            bba.u32(ord(bel[0])-ord('A')+IOBA_Z)
+            bba.u32(self.strs.id(iostd).index if iostd else 0)
+
+    def serialise(self, context: str, bba: BBAWriter):
+        bba.slice(f"{context}_constraints", len(self.cst))
 
 @dataclass
 class PadExtraData(BBAStruct):
@@ -179,6 +290,11 @@ class TypeDesc:
         self.dups = dups
         self.sfx = sfx
 created_tiletypes = {}
+
+# get timing class by wire name
+def get_tm_class(db: chipdb, wire: str):
+    assert wire in db.wire_delay, f"Unknown timing class for {wire}"
+    return db.wire_delay[wire]
 
 # u-turn at the rim
 uturnlut = {'N': 'S', 'S': 'N', 'E': 'W', 'W': 'E'}
@@ -290,9 +406,14 @@ def create_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
         if not tt.has_wire(dst):
             tt.create_wire(dst, get_wire_type(dst))
         for src in srcs.keys():
+            if src not in db.wire_delay:
+                continue
             if not tt.has_wire(src):
-                tt.create_wire(src, get_wire_type(src))
-            tt.create_pip(src, dst)
+                if src in {"VSS", "VCC"}:
+                    tt.create_wire(src, get_wire_type(src), const_value = src)
+                else:
+                    tt.create_wire(src, get_wire_type(src))
+            tt.create_pip(src, dst, get_tm_class(db, src))
 
     # clock wires
     for dst, srcs in db.grid[y][x].pure_clock_pips.items():
@@ -301,7 +422,8 @@ def create_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
         for src in srcs.keys():
             if not tt.has_wire(src):
                 tt.create_wire(src, "GLOBAL_CLK")
-            tt.create_pip(src, dst)
+            src_tm_class = get_tm_class(db, src)
+            tt.create_pip(src, dst, src_tm_class)
 
 def create_hclk_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
     if (y, x) not in db.hclk_pips:
@@ -313,7 +435,56 @@ def create_hclk_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
         for src in srcs.keys():
             if not tt.has_wire(src):
                 tt.create_wire(src, "HCLK")
-            tt.create_pip(src, dst)
+            tt.create_pip(src, dst, get_tm_class(db, "X01")) # XXX
+
+    hclk_bel_zs = {
+        "CLKDIV2_HCLK0_SECT0": CLKDIV2_0_Z,
+        "CLKDIV2_HCLK0_SECT1": CLKDIV2_1_Z,
+        "CLKDIV2_HCLK1_SECT0": CLKDIV2_2_Z,
+        "CLKDIV2_HCLK1_SECT1": CLKDIV2_3_Z,
+        "CLKDIV_HCLK0_SECT0": CLKDIV_0_Z,
+        "CLKDIV_HCLK0_SECT1": CLKDIV_1_Z,
+        "CLKDIV_HCLK1_SECT0": CLKDIV_2_Z,
+        "CLKDIV_HCLK1_SECT1": CLKDIV_3_Z
+    }
+
+    for bel_name, bel_props in db.grid[y][x].bels.items():
+        if (bel_name not in hclk_bel_zs):
+            continue
+        this_portmap = bel_props.portmap
+
+        if bel_name.startswith("CLKDIV2_"):
+            bel_type = "CLKDIV2"
+        elif bel_name.startswith("CLKDIV_"):
+            bel_type = "CLKDIV"
+        this_bel = tt.create_bel(bel_name, bel_type, hclk_bel_zs[bel_name])
+
+        if (bel_name in ["CLKDIV_HCLK0_SECT1", "CLKDIV_HCLK1_SECT1"]):
+            this_bel.flags |= BEL_FLAG_HIDDEN
+        if bel_type=="CLKDIV":
+            this_bel.flags |= BEL_FLAG_GLOBAL
+
+        known_pins = ["HCLKIN", "RESETN", "CLKOUT"]
+        if bel_type == "CLKDIV":
+            known_pins.append("CALIB")
+
+        for pin in this_portmap.keys():
+            assert pin in known_pins, f"Unknown pin {pin} for bel {this_bel}"
+            if pin in ["CALIB", "RESETN", "HCLKIN"]:
+                pin_direction = PinType.INPUT
+            elif pin in ["CLKOUT"]:
+                pin_direction = PinType.OUTPUT
+            wire_type = "HCLK_CTRL" if pin in ("CALIB", "RESETN") else "HCLK"
+            add_port_wire(tt, this_bel, this_portmap, pin, wire_type, pin_direction)
+
+
+# map spine -> dqce bel
+dqce_bels = {}
+# map spine -> dcs bel
+dcs_bels = {}
+
+# map HCLKIN wire -> dhcen bel
+dhcen_bels = {}
 
 def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
     if (y, x) not in db.extra_func:
@@ -323,7 +494,8 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
             osc_type = desc['type']
             portmap = db.grid[y][x].bels[osc_type].portmap
             for port, wire in portmap.items():
-                tt.create_wire(wire, port)
+                if not tt.has_wire(wire):
+                    tt.create_wire(wire, port)
             bel = tt.create_bel(osc_type, osc_type, z = OSC_Z)
             for port, wire in portmap.items():
                 if 'OUT' in port:
@@ -332,10 +504,68 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
                     tt.add_bel_pin(bel, port, wire, PinType.INPUT)
         elif func == 'gsr':
             wire = desc['wire']
-            tt.create_wire(wire, "GSRI")
+            if not tt.has_wire(wire):
+                tt.create_wire(wire)
             bel = tt.create_bel("GSR", "GSR", z = GSR_Z)
             tt.add_bel_pin(bel, "GSRI", wire, PinType.INPUT)
-        if func == 'io16':
+        elif func == 'bandgap':
+            wire = desc['wire']
+            if not tt.has_wire(wire):
+                tt.create_wire(wire)
+            bel = tt.create_bel("BANDGAP", "BANDGAP", z = BANDGAP_Z)
+            tt.add_bel_pin(bel, "BGEN", wire, PinType.INPUT)
+        elif func == 'dhcen':
+            for idx, dhcen in enumerate(desc):
+                wire = dhcen['ce']
+                if not tt.has_wire(wire):
+                    tt.create_wire(wire)
+                bel_z = DHCEN_Z + idx
+                bel = tt.create_bel(f"DHCEN{idx}", "DHCEN", z = bel_z)
+                tt.add_bel_pin(bel, "CE", wire, PinType.INPUT)
+                pip_xy, pip_dst, pip_src, side = dhcen['pip']
+                dhcen_bels[pip_xy, pip_dst, pip_src] = (x, y, bel_z, side)
+        elif func == 'dqce':
+            for idx in range(6):
+                bel_z = DQCE_Z + idx
+                bel = tt.create_bel(f"DQCE{idx}", "DQCE", bel_z)
+                wire = desc[idx]['clkin']
+                dqce_bels[wire] = (x, y, bel_z)
+                if not tt.has_wire(wire):
+                    tt.create_wire(wire, "GLOBAL_CLK")
+                tt.add_bel_pin(bel, "CLKIN", wire, PinType.INPUT)
+                tt.add_bel_pin(bel, "CLKOUT", wire, PinType.OUTPUT)
+                wire = desc[idx]['ce']
+                if not tt.has_wire(wire):
+                    tt.create_wire(wire)
+                tt.add_bel_pin(bel, "CE", wire, PinType.INPUT)
+        elif func == 'dcs':
+            for idx in range(2):
+                if idx not in desc:
+                    continue
+                bel_z = DCS_Z + idx
+                bel = tt.create_bel(f"DCS{idx}", "DCS", bel_z)
+                wire = desc[idx]['clkout']
+                if not tt.has_wire(wire):
+                    tt.create_wire(wire)
+                tt.add_bel_pin(bel, "CLKOUT", wire, PinType.OUTPUT)
+                clkout_wire = wire
+                for clk_idx, wire in enumerate(desc[idx]['clk']):
+                    if not tt.has_wire(wire):
+                        tt.create_wire(wire, "GLOBAL_CLK")
+                    tt.add_bel_pin(bel, f"CLK{clk_idx}", wire, PinType.INPUT)
+                    # This is a fake PIP that allows routing “through” this
+                    # primitive from the CLK input to the CLKOUT output.
+                    tt.create_pip(wire, clkout_wire)
+                    dcs_bels[wire] = (x, y, bel_z)
+                for i, wire in enumerate(desc[idx]['clksel']):
+                    if not tt.has_wire(wire):
+                        tt.create_wire(wire)
+                    tt.add_bel_pin(bel, f"CLKSEL{i}", wire, PinType.INPUT)
+                wire = desc[idx]['selforce']
+                if not tt.has_wire(wire):
+                    tt.create_wire(wire)
+                tt.add_bel_pin(bel, "SELFORCE", wire, PinType.INPUT)
+        elif func == 'io16':
             role = desc['role']
             if role == 'MAIN':
                 y_off, x_off = desc['pair']
@@ -357,18 +587,61 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
                         tt.add_bel_pin(bel, port, wire, PinType.OUTPUT)
                     else:
                         tt.add_bel_pin(bel, port, wire, PinType.INPUT)
-        if func == 'buf':
+        elif func == 'i3c_capable':
+            tt.extra_data.tile_flags |= TILE_I3C_CAPABLE_IO
+        elif func == 'mipi_obuf':
+            bel = tt.create_bel('MIPI_OBUF', 'MIPI_OBUF', MIPIOBUF_Z)
+        elif func == 'mipi_ibuf':
+            bel = tt.create_bel('MIPI_IBUF', 'MIPI_IBUF', MIPIIBUF_Z)
+            wire = desc['HSREN']
+            if not tt.has_wire(wire):
+                tt.create_wire(wire)
+            tt.add_bel_pin(bel, 'HSREN', wire, PinType.INPUT)
+            wire = 'MIPIOL'
+            if not tt.has_wire(wire):
+                tt.create_wire(wire)
+            tt.add_bel_pin(bel, 'OL', wire, PinType.OUTPUT)
+            for i in range(2):
+                wire = f'MIPIEN{i}'
+                if not tt.has_wire(wire):
+                    tt.create_wire(wire)
+                tt.add_bel_pin(bel, f'MIPIEN{i}', wire, PinType.INPUT)
+        elif func == 'buf':
             for buf_type, wires in desc.items():
                 for i, wire in enumerate(wires):
                     if not tt.has_wire(wire):
                         tt.create_wire(wire, "TILE_CLK")
                     wire_out = f'{buf_type}{i}_O'
-                    tt.create_wire(wire_out, "TILE_CLK")
+                    tt.create_wire(wire_out, "BUFG_O")
                     # XXX make Z from buf_type
                     bel = tt.create_bel(f'{buf_type}{i}', buf_type, z = BUFG_Z + i)
                     bel.flags = BEL_FLAG_GLOBAL
                     tt.add_bel_pin(bel, "I", wire, PinType.INPUT)
                     tt.add_bel_pin(bel, "O", wire_out, PinType.OUTPUT)
+        elif func == 'userflash':
+                bel = tt.create_bel("USERFLASH", desc['type'], USERFLASH_Z)
+                portmap = desc['ins']
+                for port, wire in portmap.items():
+                    if not tt.has_wire(wire):
+                        tt.create_wire(wire, "FLASH_IN")
+                    tt.add_bel_pin(bel, port, wire, PinType.INPUT)
+                portmap = desc['outs']
+                for port, wire in portmap.items():
+                    if not tt.has_wire(wire):
+                        tt.create_wire(wire, "FLASH_OUT")
+                    tt.add_bel_pin(bel, port, wire, PinType.OUTPUT)
+        elif func == 'emcu':
+                bel = tt.create_bel("EMCU", "EMCU", EMCU_Z)
+                portmap = desc['ins']
+                for port, wire in portmap.items():
+                    if not tt.has_wire(wire):
+                        tt.create_wire(wire, "EMCU_IN")
+                    tt.add_bel_pin(bel, port, wire, PinType.INPUT)
+                portmap = desc['outs']
+                for port, wire in portmap.items():
+                    if not tt.has_wire(wire):
+                        tt.create_wire(wire, "EMCU_OUT")
+                    tt.add_bel_pin(bel, port, wire, PinType.OUTPUT)
 
 def create_tiletype(create_func, chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
     has_extra_func = (y, x) in db.extra_func
@@ -454,11 +727,11 @@ def create_corner_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, td
 
     if x == 0 and y == 0:
         # GND is the logic low level generator
-        tt.create_wire('VSS', 'GND')
+        tt.create_wire('VSS', 'GND', const_value = 'VSS')
         gnd = tt.create_bel('GND', 'GND', z = GND_Z)
         tt.add_bel_pin(gnd, "G", "VSS", PinType.OUTPUT)
         # VCC is the logic high level generator
-        tt.create_wire('VCC', 'VCC')
+        tt.create_wire('VCC', 'VCC', const_value = 'VCC')
         gnd = tt.create_bel('VCC', 'VCC', z = VCC_Z)
         tt.add_bel_pin(gnd, "V", "VCC", PinType.OUTPUT)
 
@@ -498,7 +771,7 @@ def create_io_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc:
         tt.add_bel_pin(io, "OEN", portmap['OE'], PinType.INPUT)
         tt.add_bel_pin(io, "O", portmap['O'], PinType.OUTPUT)
         # bottom io
-        if 'BOTTOM_IO_PORT_A' in portmap:
+        if 'BOTTOM_IO_PORT_A' in portmap and portmap['BOTTOM_IO_PORT_A']:
             if not tt.has_wire(portmap['BOTTOM_IO_PORT_A']):
                 tt.create_wire(portmap['BOTTOM_IO_PORT_A'], "IO_I")
                 tt.create_wire(portmap['BOTTOM_IO_PORT_B'], "IO_I")
@@ -514,7 +787,7 @@ def create_io_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc:
                 if port == 'FCLK': # XXX compatibility
                     wire = f'FCLK{name[-1]}'
                 if not tt.has_wire(wire):
-                    if port in {'CLK', 'PCLK'}:
+                    if port in {'CLK', 'PCLK', 'MCLK'}:
                         tt.create_wire(wire, "TILE_CLK")
                     else:
                         tt.create_wire(wire, "IOL_PORT")
@@ -538,7 +811,7 @@ def create_logic_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tde
     # setup LUT wires
     for i in range(8):
         for inp_name in lut_inputs:
-            tt.create_wire(f"{inp_name}{i}", "LUT_INPUT")
+            tt.create_wire(f"{inp_name}{i}", "LUT_IN")
         tt.create_wire(f"F{i}", "LUT_OUT")
         # experimental. the wire is false - it is assumed that DFF is always
         # connected to the LUT's output F{i}, but we can place primitives
@@ -569,11 +842,12 @@ def create_logic_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tde
             tt.add_bel_pin(lut, f"I{j}", f"{inp_name}{i}", PinType.INPUT)
         tt.add_bel_pin(lut, "F", f"F{i}", PinType.OUTPUT)
         if i < 6:
-            # FF data can come from LUT output, but we pretend that we can use
-            # any LUT input
-            tt.create_pip(f"F{i}", f"XD{i}")
-            for inp_name in lut_inputs:
-                tt.create_pip(f"{inp_name}{i}", f"XD{i}")
+            tt.create_pip(f"F{i}", f"XD{i}", get_tm_class(db, f"F{i}"))
+            # also experimental input for FF using SEL wire - this theory will
+            # allow to place unrelated LUT and FF next to each other
+            # don't create for now
+            #tt.create_pip(f"SEL{i}", f"XD{i}", get_tm_class(db, f"SEL{i}"))
+
             # FF
             ff = tt.create_bel(f"DFF{i}", "DFF", z =(i * 2 + 1))
             tt.add_bel_pin(ff, "D", f"XD{i}", PinType.INPUT)
@@ -975,6 +1249,10 @@ def create_packages(chip: Chip, db: chipdb):
             continue
         created_pkgs.add(partno)
         pkg = chip.create_package(partno)
+
+        if variant in db.sip_cst and pkgname in db.sip_cst[variant]:
+            pkg.extra_data = PackageExtraData(chip.strs, db.sip_cst[variant][pkgname])
+
         for pinno, pininfo in db.pinout[variant][pkgname].items():
             io_loc, cfgs = pininfo
             tile, bel = ioloc_to_tile_bel(io_loc)
@@ -995,6 +1273,147 @@ def create_extra_data(chip: Chip, db: chipdb, chip_flags: int):
         chip.extra_data.add_bottom_io_cnd(net_a, net_b)
     for diff_type in db.diff_io_types:
         chip.extra_data.add_diff_io_type(diff_type)
+    # create hclk wire->dhcen bel map
+    for pip, bel in dhcen_bels.items():
+        chip.extra_data.add_dhcen_bel(pip[0], pip[1], pip[2], bel[0], bel[1], bel[2], bel[3])
+    # create spine->dqce bel map
+    for spine, bel in dqce_bels.items():
+        chip.extra_data.add_dqce_bel(spine, bel[0], bel[1], bel[2])
+    # create spine->dcs bel map
+    for spine, bel in dcs_bels.items():
+        chip.extra_data.add_dcs_bel(spine, bel[0], bel[1], bel[2])
+
+def create_timing_info(chip: Chip, db: chipdb.Device):
+    def group_to_timingvalue(group):
+        # if himbaechel ever recognises unateness, this should match that order.
+        ff = int(group[0] * 1000)
+        fr = int(group[1] * 1000)
+        rr = int(group[2] * 1000)
+        rf = int(group[3] * 1000)
+        return TimingValue(min(ff, fr, rf, rr), max(ff, fr, rf, rr))
+
+    speed_grades = []
+    for speed, _ in db.timing.items():
+        speed_grades.append(speed)
+
+    tmg = chip.set_speed_grades(speed_grades)
+
+    print("device {}:".format(chip.name))
+    for speed, groups in db.timing.items():
+        for group, arc in groups.items():
+            if group == "lut":
+                lut = tmg.add_cell_variant(speed, "LUT4")
+                lut.add_comb_arc("I0", "F", group_to_timingvalue(arc["a_f"]))
+                lut.add_comb_arc("I1", "F", group_to_timingvalue(arc["b_f"]))
+                lut.add_comb_arc("I2", "F", group_to_timingvalue(arc["c_f"]))
+                lut.add_comb_arc("I3", "F", group_to_timingvalue(arc["d_f"]))
+                mux5 = tmg.add_cell_variant(speed, "MUX2_LUT5")
+                mux5.add_comb_arc("I0", "O", group_to_timingvalue(arc["m0_ofx0"]))
+                mux5.add_comb_arc("I1", "O", group_to_timingvalue(arc["m1_ofx1"]))
+                mux5.add_comb_arc("S0", "O", group_to_timingvalue(arc["fx_ofx1"]))
+                mux6 = tmg.add_cell_variant(speed, "MUX2_LUT6")
+                mux6.add_comb_arc("I0", "O", group_to_timingvalue(arc["m0_ofx0"]))
+                mux6.add_comb_arc("I1", "O", group_to_timingvalue(arc["m1_ofx1"]))
+                mux6.add_comb_arc("S0", "O", group_to_timingvalue(arc["fx_ofx1"]))
+                mux7 = tmg.add_cell_variant(speed, "MUX2_LUT7")
+                mux7.add_comb_arc("I0", "O", group_to_timingvalue(arc["m0_ofx0"]))
+                mux7.add_comb_arc("I1", "O", group_to_timingvalue(arc["m1_ofx1"]))
+                mux7.add_comb_arc("S0", "O", group_to_timingvalue(arc["fx_ofx1"]))
+                mux8 = tmg.add_cell_variant(speed, "MUX2_LUT8")
+                mux8.add_comb_arc("I0", "O", group_to_timingvalue(arc["m0_ofx0"]))
+                mux8.add_comb_arc("I1", "O", group_to_timingvalue(arc["m1_ofx1"]))
+                mux8.add_comb_arc("S0", "O", group_to_timingvalue(arc["fx_ofx1"]))
+            elif group == "alu":
+                alu = tmg.add_cell_variant(speed, "ALU")
+                alu.add_comb_arc("I0", "SUM", group_to_timingvalue(arc["a_f"]))
+                alu.add_comb_arc("I1", "SUM", group_to_timingvalue(arc["b_f"]))
+                alu.add_comb_arc("I3", "SUM", group_to_timingvalue(arc["d_f"]))
+                alu.add_comb_arc("CIN", "SUM", group_to_timingvalue(arc["fci_f0"]))
+                alu.add_comb_arc("I0", "COUT", group_to_timingvalue(arc["a0_fco"]))
+                alu.add_comb_arc("I1", "COUT", group_to_timingvalue(arc["b0_fco"]))
+                alu.add_comb_arc("I3", "COUT", group_to_timingvalue(arc["d0_fco"]))
+                alu.add_comb_arc("CIN", "COUT", group_to_timingvalue(arc["fci_fco"]))
+            elif group == "sram":
+                sram = tmg.add_cell_variant(speed, "RAM16SDP4")
+                for do in range(4):
+                    for rad in range(4):
+                        sram.add_comb_arc(f"RAD[{rad}]", f"DO[{do}]", group_to_timingvalue(arc[f"rad{rad}_do"]))
+                    sram.add_clock_out("CLK", f"DO[{do}]", ClockEdge.RISING, group_to_timingvalue(arc["clk_do"]))
+                for di in range(4):
+                    sram.add_setup_hold("CLK", f"DI[{di}", ClockEdge.RISING, group_to_timingvalue(arc["clk_di_set"]), group_to_timingvalue(arc["clk_di_hold"]))
+                sram.add_setup_hold("CLK", "WRE", ClockEdge.RISING, group_to_timingvalue(arc["clk_wre_set"]), group_to_timingvalue(arc["clk_wre_hold"]))
+                for wad in range(4):
+                    sram.add_setup_hold("CLK", f"WAD[{wad}]", ClockEdge.RISING, group_to_timingvalue(arc[f"clk_wad{wad}_set"]), group_to_timingvalue(arc[f"clk_wad{wad}_hold"]))
+            elif group == "dff":
+                for reset_type in ('', 'P', 'C', 'S', 'R'):
+                    for clock_enable in ('', 'E'):
+                        cell_name = "DFF{}{}".format(reset_type, clock_enable)
+                        dff = tmg.add_cell_variant(speed, cell_name)
+                        dff.add_setup_hold("CLK", "D", ClockEdge.RISING, group_to_timingvalue(arc["di_clksetpos"]), group_to_timingvalue(arc["di_clkholdpos"]))
+                        dff.add_setup_hold("CLK", "CE", ClockEdge.RISING, group_to_timingvalue(arc["ce_clksetpos"]), group_to_timingvalue(arc["ce_clkholdpos"]))
+                        dff.add_clock_out("CLK", "Q", ClockEdge.RISING, group_to_timingvalue(arc["clk_qpos"]))
+
+                        if reset_type in ('S', 'R'):
+                            port = "RESET" if reset_type == 'R' else "SET"
+                            dff.add_setup_hold("CLK", port, ClockEdge.RISING, group_to_timingvalue(arc["lsr_clksetpos_syn"]), group_to_timingvalue(arc["lsr_clkholdpos_syn"]))
+                        elif reset_type in ('P', 'C'):
+                            port = "CLEAR" if reset_type == 'C' else "PRESET"
+                            dff.add_setup_hold("CLK", port, ClockEdge.RISING, group_to_timingvalue(arc["lsr_clksetpos_asyn"]), group_to_timingvalue(arc["lsr_clkholdpos_asyn"]))
+                            dff.add_comb_arc(port, "Q", group_to_timingvalue(arc["lsr_q"]))
+
+                        cell_name = "DFFN{}{}".format(reset_type, clock_enable)
+                        dff = tmg.add_cell_variant(speed, cell_name)
+                        dff.add_setup_hold("CLK", "D", ClockEdge.FALLING, group_to_timingvalue(arc["di_clksetneg"]), group_to_timingvalue(arc["di_clkholdneg"]))
+                        dff.add_setup_hold("CLK", "CE", ClockEdge.FALLING, group_to_timingvalue(arc["ce_clksteneg"]), group_to_timingvalue(arc["ce_clkholdneg"])) # the DBs have a typo...
+                        dff.add_clock_out("CLK", "Q", ClockEdge.FALLING, group_to_timingvalue(arc["clk_qneg"]))
+
+                        if reset_type in ('S', 'R'):
+                            port = "RESET" if reset_type == 'R' else "SET"
+                            dff.add_setup_hold("CLK", port, ClockEdge.FALLING, group_to_timingvalue(arc["lsr_clksetneg_syn"]), group_to_timingvalue(arc["lsr_clkholdneg_syn"]))
+                        elif reset_type in ('P', 'C'):
+                            port = "CLEAR" if reset_type == 'C' else "PRESET"
+                            dff.add_setup_hold("CLK", port, ClockEdge.FALLING, group_to_timingvalue(arc["lsr_clksetneg_asyn"]), group_to_timingvalue(arc["lsr_clkholdneg_asyn"]))
+                            dff.add_comb_arc(port, "Q", group_to_timingvalue(arc["lsr_q"]))
+            elif group == "bram":
+                pass # TODO
+            elif group == "fanout":
+                pass # handled in "wire"
+            elif group == "glbsrc":
+                # TODO
+                # no fanout delay for clock wires
+                for name in ["CENT_SPINE_PCLK", "SPINE_TAP_PCLK", "TAP_BRANCH_PCLK"]:
+                    tmg.set_pip_class(speed, name, group_to_timingvalue(arc[name]))
+                tmg.set_pip_class(speed, 'GCLK_BRANCH', group_to_timingvalue(arc['BRANCH_PCLK']))
+            elif group == "hclk":
+                pass # TODO
+            elif group == "iodelay":
+                pass # TODO
+            elif group == "wire":
+                # wires with delay and fanout delay
+                for name in ["X0", "X2", "X8"]:
+                    tmg.set_pip_class(speed, name, group_to_timingvalue(arc[name]), group_to_timingvalue(groups["fanout"][f"{name}Fan"]), TimingValue(round(1e6 / groups["fanout"][f"{name}FanNum"])))
+                # wires with delay but no fanout delay
+                for name in ["X0CTL", "X0CLK", "FX1"]:
+                    tmg.set_pip_class(speed, name, group_to_timingvalue(arc[name]))
+                # wires with presently-unknown delay
+                for name in ["LUT_IN", "DI", "SEL", "CIN", "COUT", "VCC", "VSS", "LW_TAP", "LW_TAP_0", "LW_BRANCH", "LW_SPAN"]:
+                    tmg.set_pip_class(speed, name, TimingValue())
+                # wires with fanout-only delay; used on cell output pips
+                for name, mapping in [("LUT_OUT", "FFan"), ("FF_OUT", "QFan"), ("OF", "OFFan")]:
+                    tmg.set_pip_class(speed, name, TimingValue(), group_to_timingvalue(groups["fanout"][mapping]), TimingValue(round(1e6 / groups["fanout"][f"{mapping}Num"])))
+
+        print("speed {}:".format(speed))
+        for group, arc in groups.items():
+            print("  group {}:".format(group))
+            for name, items in arc.items():
+                print("    name {}:".format(str(name)))
+                try:
+                    items[0]
+                    for item in items:
+                        print("      item {}".format(item))
+                except TypeError:
+                    print("      item {}".format(items))
+                    continue
 
 def main():
     parser = argparse.ArgumentParser(description='Make Gowin BBA')
@@ -1008,8 +1427,21 @@ def main():
         db = pickle.load(f)
 
     chip_flags = 0;
-    if device not in {"GW1NS-4", "GW1N-9"}:
-        chip_flags &= CHIP_HAS_SP32;
+    # XXX compatibility
+    if not hasattr(db, "chip_flags"):
+        if device not in {"GW1NS-4", "GW1N-9"}:
+            chip_flags |= CHIP_HAS_SP32;
+    else:
+        if "HAS_SP32" in db.chip_flags:
+            chip_flags |= CHIP_HAS_SP32;
+        if "NEED_SP_FIX" in db.chip_flags:
+            chip_flags |= CHIP_NEED_SP_FIX;
+        if "NEED_BSRAM_OUTREG_FIX" in db.chip_flags:
+            chip_flags |= CHIP_NEED_BSRAM_OUTREG_FIX;
+        if "NEED_BLKSEL_FIX" in db.chip_flags:
+            chip_flags |= CHIP_NEED_BLKSEL_FIX;
+        if "HAS_BANDGAP" in db.chip_flags:
+            chip_flags |= CHIP_HAS_BANDGAP;
 
     X = db.cols;
     Y = db.rows;
@@ -1058,6 +1490,7 @@ def main():
     # Create nodes between tiles
     create_nodes(ch, db)
     create_extra_data(ch, db, chip_flags)
+    create_timing_info(ch, db)
     ch.write_bba(args.output)
 if __name__ == '__main__':
     main()

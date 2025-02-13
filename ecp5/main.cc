@@ -17,8 +17,6 @@
  *
  */
 
-#ifdef MAIN_EXECUTABLE
-
 #include <fstream>
 #include "bitstream.h"
 #include "command.h"
@@ -33,9 +31,9 @@ class ECP5CommandHandler : public CommandHandler
 {
   public:
     ECP5CommandHandler(int argc, char **argv);
-    virtual ~ECP5CommandHandler(){};
+    virtual ~ECP5CommandHandler() {};
     std::unique_ptr<Context> createContext(dict<std::string, Property> &values) override;
-    void setupArchContext(Context *ctx) override{};
+    void setupArchContext(Context *ctx) override {};
     void customAfterLoad(Context *ctx) override;
     void validate() override;
     void customBitstream(Context *ctx) override;
@@ -82,6 +80,7 @@ po::options_description ECP5CommandHandler::getArchOptions()
     specific.add_options()("lpf", po::value<std::vector<std::string>>(), "LPF pin constraint file(s)");
     specific.add_options()("lpf-allow-unconstrained", "don't require LPF file(s) to constrain all IO");
 
+    specific.add_options()("no-promote-globals", "disable all global promotion");
     specific.add_options()(
             "out-of-context",
             "disable IO buffer insertion and global promotion/routing, for building pre-routed blocks (experimental)");
@@ -253,6 +252,8 @@ std::unique_ptr<Context> ECP5CommandHandler::createContext(dict<std::string, Pro
         ctx->settings[ctx->id(val.first)] = val.second;
     ctx->settings[ctx->id("arch.package")] = ctx->archArgs().package;
     ctx->settings[ctx->id("arch.speed")] = speedString(ctx->archArgs().speed);
+    if (vm.count("no-promote-globals"))
+        ctx->settings[ctx->id("arch.no-promote-globals")] = 1;
     if (vm.count("out-of-context"))
         ctx->settings[ctx->id("arch.ooc")] = 1;
     if (vm.count("disable-router-lutperm"))
@@ -295,5 +296,3 @@ int main(int argc, char *argv[])
     ECP5CommandHandler handler(argc, argv);
     return handler.exec();
 }
-
-#endif

@@ -17,8 +17,6 @@
  *
  */
 
-#ifdef MAIN_EXECUTABLE
-
 #include <fstream>
 #include "command.h"
 #include "design_utils.h"
@@ -31,9 +29,9 @@ class GenericCommandHandler : public CommandHandler
 {
   public:
     GenericCommandHandler(int argc, char **argv);
-    virtual ~GenericCommandHandler(){};
+    virtual ~GenericCommandHandler() {};
     std::unique_ptr<Context> createContext(dict<std::string, Property> &values) override;
-    void setupArchContext(Context *ctx) override{};
+    void setupArchContext(Context *ctx) override {};
     void customBitstream(Context *ctx) override;
 
   protected:
@@ -102,5 +100,3 @@ int main(int argc, char *argv[])
     GenericCommandHandler handler(argc, argv);
     return handler.exec();
 }
-
-#endif

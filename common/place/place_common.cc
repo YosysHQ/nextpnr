@@ -115,9 +115,9 @@ class ConstraintLegaliseWorker
     class IncreasingDiameterSearch
     {
       public:
-        IncreasingDiameterSearch() : start(0), min(0), max(-1){};
-        IncreasingDiameterSearch(int x) : start(x), min(x), max(x){};
-        IncreasingDiameterSearch(int start, int min, int max) : start(start), min(min), max(max){};
+        IncreasingDiameterSearch() : start(0), min(0), max(-1) {};
+        IncreasingDiameterSearch(int x) : start(x), min(x), max(x) {};
+        IncreasingDiameterSearch(int start, int min, int max) : start(start), min(min), max(max) {};
         bool done() const { return (diameter > (max - min)); };
         int get() const
         {

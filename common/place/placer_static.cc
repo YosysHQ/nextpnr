@@ -56,6 +56,7 @@ namespace {
 
 struct PlacerGroup
 {
+    bool enabled = true;
     int total_bels = 0;
     double concrete_area = 0;
     double dark_area = 0;
@@ -70,6 +71,9 @@ struct PlacerGroup
     FFTArray density_fft;
     FFTArray electro_phi;
     FFTArray electro_fx, electro_fy;
+
+    double init_potential = 0;
+    double curr_potential = 0;
 };
 
 // Could be an actual concrete netlist cell; or just a spacer
@@ -101,7 +105,7 @@ struct ConcreteCell
 
 struct ClusterGroupKey
 {
-    ClusterGroupKey(int dx = 0, int dy = 0, int group = -1) : dx(dx), dy(dy), group(group){};
+    ClusterGroupKey(int dx = 0, int dy = 0, int group = -1) : dx(dx), dy(dy), group(group) {};
     bool operator==(const ClusterGroupKey &other) const
     {
         return dx == other.dx && dy == other.dy && group == other.group;
@@ -151,7 +155,7 @@ struct PlacerNet
 #ifdef NPNR_DISABLE_THREADS
 struct ThreadPool
 {
-    ThreadPool(int){};
+    ThreadPool(int) {};
 
     void run(int N, std::function<void(int)> func)
     {
@@ -301,7 +305,7 @@ class StaticPlacer
         dict<IdString, int> beltype2group;
         for (int i = 0; i < int(groups.size()); i++) {
             groups.at(i).loc_area.reset(width, height);
-            for (const auto &bel_type : cfg.cell_groups.at(i).cell_area)
+            for (const auto &bel_type : cfg.cell_groups.at(i).bel_area)
                 beltype2group[bel_type.first] = i;
         }
         for (auto bel : ctx->getBels()) {
@@ -409,14 +413,17 @@ class StaticPlacer
             StaticRect rect;
             // Mismatched group case
             if (!lookup_group(ci->type, cell_group, rect)) {
-                for (auto bel : ctx->getBels()) {
-                    if (ctx->isValidBelForCellType(ci->type, bel) && ctx->checkBelAvail(bel)) {
-                        ctx->bindBel(bel, ci, STRENGTH_STRONG);
-                        if (!ctx->isBelLocationValid(bel)) {
-                            ctx->unbindBel(bel);
-                        } else {
-                            log_info("    placed potpourri cell '%s' at bel '%s'\n", ctx->nameOf(ci), ctx->nameOfBel(bel));
-                            break;
+                if (ci->bel == BelId()) {
+                    for (auto bel : ctx->getBels()) {
+                        if (ctx->isValidBelForCellType(ci->type, bel) && ctx->checkBelAvail(bel)) {
+                            ctx->bindBel(bel, ci, STRENGTH_STRONG);
+                            if (!ctx->isBelLocationValid(bel)) {
+                                ctx->unbindBel(bel);
+                            } else {
+                                log_info("    placed potpourri cell '%s' at bel '%s'\n", ctx->nameOf(ci),
+                                         ctx->nameOfBel(bel));
+                                break;
+                            }
                         }
                     }
                 }
@@ -506,26 +513,31 @@ class StaticPlacer
         }
     }
 
-    const double target_util = 0.8;
+    const double target_util = 0.7;
 
     void insert_dark()
     {
         log_info("⌁ inserting dark nodes...\n");
         for (int group = 0; group < int(groups.size()); group++) {
+            const auto &cg = cfg.cell_groups.at(group);
             auto &g = groups.at(group);
+            int dark_count = 0;
             for (auto tile : g.loc_area) {
                 if (tile.value > 0.5f)
                     continue;
                 StaticRect dark_area(1.0f, 1.0f - tile.value);
-                int cell_idx = add_cell(dark_area, group, RealPair(tile.x + 0.5f, tile.y + 0.5f), nullptr /*spacer*/);
+                int cell_idx = add_cell(dark_area, group, RealPair(tile.x, tile.y), nullptr /*spacer*/);
                 mcells.at(cell_idx).is_dark = true;
+                ++dark_count;
             }
+            log_info("⌁   group %s inserted a total of %d dark nodes\n", ctx->nameOf(cg.name), dark_count);
         }
     }
 
     void insert_spacer()
     {
         log_info("⌁ inserting spacers...\n");
+
         int inserted_spacers = 0;
         for (int group = 0; group < int(groups.size()); group++) {
             const auto &cg = cfg.cell_groups.at(group);
@@ -537,8 +549,13 @@ class StaticPlacer
             int spacer_count = (g.total_area * target_util - g.concrete_area) / cg.spacer_rect.area();
             if (spacer_count <= 0)
                 continue;
-            for (int i = 0; i < spacer_count; i++) {
-                add_cell(cg.spacer_rect, group, RealPair(ctx->rngf(width), ctx->rngf(height)), nullptr /*spacer*/);
+            while (inserted_spacers < spacer_count) {
+                int x = ctx->rng(width);
+                int y = ctx->rng(height);
+                // avoid placing spacers at locations with dark nodes
+                if (ctx->rngf(1.0) > g.loc_area.at(x, y))
+                    continue;
+                add_cell(cg.spacer_rect, group, RealPair(x + ctx->rngf(1.0), y + ctx->rngf(1.0)), nullptr /*spacer*/);
                 ++inserted_spacers;
             }
         }
@@ -556,7 +573,7 @@ class StaticPlacer
     {
         // TODO: a m x m grid follows the paper and makes the DCTs easier, but is it actually ideal for non-square
         // FPGAs?
-        m = 1 << int(std::ceil(std::log2(std::sqrt(mcells.size() / groups.size()))));
+        m = 1 << int(std::ceil(std::log2(std::max(width, height))));
         bin_w = double(width) / m;
         bin_h = double(height) / m;
 
@@ -591,18 +608,18 @@ class StaticPlacer
         double y0 = pos.y, y1 = pos.y + height;
         for (int y = int(y0 / bin_h); y <= int(y1 / bin_h); y++) {
             for (int x = int(x0 / bin_w); x <= int(x1 / bin_w); x++) {
-                int xb = std::max(0, std::min(x, m - 1));
-                int yb = std::max(0, std::min(y, m - 1));
+                if (x < 0 || x >= m || y < 0 || y >= m)
+                    continue;
                 double slither_w = 1.0, slither_h = 1.0;
-                if (yb == int(y0 / bin_h)) // y slithers
-                    slither_h = ((yb + 1) * bin_h) - y0;
-                else if (yb == int(y1 / bin_h))
-                    slither_h = (y1 - yb * bin_h);
-                if (xb == int(x0 / bin_w)) // x slithers
-                    slither_w = ((xb + 1) * bin_w) - x0;
-                else if (xb == int(x1 / bin_w))
-                    slither_w = (x1 - xb * bin_w);
-                func(xb, yb, scaled_density * slither_w * slither_h);
+                if (y == int(y0 / bin_h)) // y slithers
+                    slither_h = ((y + 1) * bin_h) - y0;
+                else if (y == int(y1 / bin_h))
+                    slither_h = (y1 - y * bin_h);
+                if (x == int(x0 / bin_w)) // x slithers
+                    slither_w = ((x + 1) * bin_w) - x0;
+                else if (x == int(x1 / bin_w))
+                    slither_w = (x1 - x * bin_w);
+                func(x, y, scaled_density * slither_w * slither_h);
             }
         }
     };
@@ -626,11 +643,10 @@ class StaticPlacer
         }
     }
 
-    void compute_overlap()
+    void compute_conc_density()
     {
-        // populate for concrete cells only
         for (auto &g : groups)
-            g.conc_density.reset(m, m, 0);
+            g.conc_density.reset(width, height, 0);
         for (int idx = 0; idx < int(ccells.size()); idx++) {
             auto &mc = mcells.at(idx);
             auto &g = groups.at(mc.group);
@@ -641,10 +657,18 @@ class StaticPlacer
                 for (int dx = 0; dx <= int(size.w); dx++) {
                     float h = (dy == int(size.h)) ? (size.h - int(size.h)) : 1;
                     float w = (dx == int(size.w)) ? (size.w - int(size.w)) : 1;
-                    g.conc_density.at(loc.x + dx, loc.y + dy) += w * h;
+                    if ((loc.x + dx) >= 0 && (loc.x + dx) < width && (loc.y + dy) >= 0 && (loc.y + dy) < height)
+                        g.conc_density.at(loc.x + dx, loc.y + dy) += w * h;
                 }
             }
         }
+    }
+
+    void compute_overlap()
+    {
+        // populate for concrete cells only
+        compute_conc_density();
+
         std::string overlap_str = "";
         for (int idx = 0; idx < int(groups.size()); idx++) {
             auto &g = groups.at(idx);
@@ -671,7 +695,7 @@ class StaticPlacer
         auto &g = groups.at(group);
         for (auto entry : g.density)
             g.density_fft.at(entry.x, entry.y) = entry.value;
-        if (fft_debug)
+        if (fft_debug || dump_density)
             g.density_fft.write_csv(stringf("out_bin_density_%d_%d.csv", iter, group));
         // Based on
         // https://github.com/ALIGN-analoglayout/ALIGN-public/blob/master/PlaceRouteHierFlow/EA_placer/FFT/fft.cpp
@@ -736,7 +760,7 @@ class StaticPlacer
 
     void update_nets(bool ref)
     {
-        static constexpr float min_wirelen_force = -300.f;
+        static constexpr float min_wirelen_force = -3000.f;
         pool.run(2 * nets.size(), [&](int i) {
             auto &net = nets.at(i / 2);
             auto axis = (i % 2) ? Axis::Y : Axis::X;
@@ -777,6 +801,8 @@ class StaticPlacer
                     (net.x_max_exp.at(axis) / net.max_exp.at(axis)) - (net.x_min_exp.at(axis) / net.min_exp.at(axis));
         });
     }
+
+    std::vector<std::pair<CellInfo *, RealPair>> gathered_wirelen_grad;
 
     float wirelen_grad(CellInfo *cell, Axis axis, bool ref)
     {
@@ -855,41 +881,40 @@ class StaticPlacer
             // total gradient computed at the end
             (ref ? cell.ref_total_grad : cell.total_grad) = RealPair(0, 0);
         }
-        // Second loop: sum up wirelength gradients across concrete cell instances
-        for (auto &cell : ctx->cells) {
-            CellInfo *ci = cell.second.get();
-            if (ci->udata == -1)
-                continue;
-            auto &mc = mcells.at(ci->udata);
-            // TODO: exploit parallelism across axes
-            float wl_gx = wirelen_grad(ci, Axis::X, ref);
-            float wl_gy = wirelen_grad(ci, Axis::Y, ref);
-            (ref ? mc.ref_wl_grad : mc.wl_grad) += RealPair(wl_gx, wl_gy);
-        }
-        if (init_penalty) {
-            // set initial density penalty
-            dict<int, float> wirelen_sum;
-            dict<int, float> force_sum;
+        if (gathered_wirelen_grad.empty()) {
             for (auto &cell : ctx->cells) {
                 CellInfo *ci = cell.second.get();
                 if (ci->udata == -1)
                     continue;
-                auto &mc = mcells.at(ci->udata);
-                auto res1 = wirelen_sum.insert({mc.group, std::abs(mc.ref_wl_grad.x) + std::abs(mc.ref_wl_grad.y)});
-                if (!res1.second)
-                    res1.first->second += std::abs(mc.ref_wl_grad.x) + std::abs(mc.ref_wl_grad.y);
-                auto res2 = force_sum.insert({mc.group, std::abs(mc.ref_dens_grad.x) + std::abs(mc.ref_dens_grad.y)});
-                if (!res2.second)
-                    res2.first->second += std::abs(mc.ref_dens_grad.x) + std::abs(mc.ref_dens_grad.y);
+                gathered_wirelen_grad.emplace_back(ci, RealPair());
             }
-            dens_penalty = std::vector<float>(wirelen_sum.size(), 0.0);
-            for (auto &item : wirelen_sum) {
-                auto group = item.first;
-                auto wirelen = item.second;
-                dens_penalty[group] = wirelen / force_sum.at(group);
-                log_info(" initial density penalty for %s: %f\n", cfg.cell_groups.at(group).name.c_str(ctx),
-                         dens_penalty[group]);
+        }
+        // Compute wirelength gradients for cells in parallel, this is a slow part
+        pool.run(gathered_wirelen_grad.size(), [&](int i) {
+            auto &entry = gathered_wirelen_grad.at(i);
+            CellInfo *ci = entry.first;
+            float wl_gx = wirelen_grad(ci, Axis::X, ref);
+            float wl_gy = wirelen_grad(ci, Axis::Y, ref);
+            entry.second = RealPair(wl_gx, wl_gy);
+        });
+        // Second loop: sum up wirelength gradients across concrete cell instances
+        for (auto entry : gathered_wirelen_grad) {
+            auto &mc = mcells.at(entry.first->udata);
+            (ref ? mc.ref_wl_grad : mc.wl_grad) += entry.second;
+        }
+        if (init_penalty) {
+            // set initial density penalty
+            double wirelen_sum = 0, force_sum = 0;
+            for (int i = 0; i < int(ccells.size()); i++) {
+                auto mc = mcells.at(i);
+                wirelen_sum += std::abs(mc.ref_wl_grad.x) + std::abs(mc.ref_wl_grad.y);
+                force_sum += std::abs(mc.ref_dens_grad.x) + std::abs(mc.ref_dens_grad.y);
             }
+            const float eta = 1e-1;
+            float init_dens_penalty = eta * (wirelen_sum / force_sum);
+            log_info("initial density penalty: %f\n", init_dens_penalty);
+            dens_penalty.resize(groups.size(), init_dens_penalty);
+            update_potentials(true); // set initial potential
         }
         // Third loop: compute total gradient, and precondition
         // TODO: ALM as well as simple penalty
@@ -953,15 +978,57 @@ class StaticPlacer
         return hpwl;
     }
 
-    float system_potential()
+    void update_potentials(bool init = false)
     {
-        float pot = 0;
+        for (auto &group : groups)
+            group.curr_potential = 0;
         for (auto &cell : mcells) {
             auto &g = groups.at(cell.group);
             iter_slithers(cell.ref_pos, cell.rect,
-                          [&](int x, int y, float area) { pot += g.electro_phi.at(x, y) * area; });
+                          [&](int x, int y, float area) { g.curr_potential += g.electro_phi.at(x, y) * area; });
         }
+        if (init) {
+            for (auto &group : groups)
+                group.init_potential = group.curr_potential;
+        }
+    }
+
+    float system_potential()
+    {
+        float pot = 0;
+        for (auto &group : groups)
+            pot += group.curr_potential;
         return pot;
+    }
+
+    float penalty_beta = 2.0e3f;
+    float alpha_l = 1.05f, alpha_h = 1.06f;
+    double penalty_incr = alpha_h - 1;
+    void update_penalties()
+    {
+        float pot_norm = 0;
+        // compute L2-norm of relative system potential
+        std::vector<float> rel_pot;
+        for (int g = 0; g < int(groups.size()); g++) {
+            auto &group = groups.at(g);
+            if (!group.enabled)
+                continue;
+            float phi_hat = group.curr_potential / group.init_potential;
+            rel_pot.push_back(phi_hat);
+            pot_norm += phi_hat * phi_hat;
+        }
+        pot_norm = sqrt(pot_norm);
+        log_info("pot_norm: %f\n", pot_norm);
+        // update penalty multiplier (ELFPlace equation 22)
+        double log_term = std::log(penalty_beta * pot_norm + 1);
+        penalty_incr = penalty_incr * ((log_term / (log_term + 1)) * (alpha_h - alpha_l) + alpha_l);
+        // update density penalties (ELFPlace equation 21)
+        for (int g = 0; g < int(groups.size()); g++) {
+            if (!groups.at(g).enabled)
+                continue;
+            float next_penalty = dens_penalty.at(g) + (penalty_incr * (rel_pot.at(g) / pot_norm));
+            dens_penalty.at(g) = next_penalty;
+        }
     }
 
     void initialise()
@@ -1016,6 +1083,7 @@ class StaticPlacer
         // Move the post-solve position of a chain towards be the weighted average of its constituents
         // The strength increases with iterations
         float alpha = std::min<float>(std::pow(1.002f, iter) - 1, 1.0f);
+        float dist = 0;
         for (int i = 0; i < int(macros.size()); i++) {
             auto &macro = macros.at(i);
             float total_area = 0;
@@ -1033,10 +1101,13 @@ class StaticPlacer
             for (int c : macro.conc_cells) {
                 auto &cc = ccells.at(c);
                 auto &mc = mcells.at(c);
+                auto last_pos = mc.pos;
                 mc.pos = mc.pos * (1 - alpha) + (pos + RealPair(cc.chunk_dx, cc.chunk_dy)) * alpha;
                 mc.ref_pos = mc.ref_pos * (1 - alpha) + (ref_pos + RealPair(cc.chunk_dx, cc.chunk_dy)) * alpha;
+                dist += std::sqrt(std::pow(last_pos.x - mc.pos.x, 2) + std::pow(last_pos.y - mc.pos.y, 2));
             }
         }
+        log_info("   update_chains distance %.2f\n", dist);
     }
 
     void step()
@@ -1064,9 +1135,10 @@ class StaticPlacer
         nesterov_a = a_next;
         update_chains();
         update_gradients(true);
+        update_potentials();
         log_info("   system potential: %f hpwl: %f\n", system_potential(), system_hpwl());
         compute_overlap();
-        if ((iter % 5) == 0)
+        if ((iter % 10) == 0)
             update_timing();
     }
 
@@ -1081,7 +1153,8 @@ class StaticPlacer
             RealPair drv_loc = cell_loc(ni->driver.cell, false);
             for (auto usr : ni->users.enumerate()) {
                 RealPair usr_loc = cell_loc(usr.value.cell, false);
-                delay_t est_delay = cfg.timing_c + cfg.timing_mx * std::abs(drv_loc.x - usr_loc.x) + cfg.timing_my * std::abs(drv_loc.y - usr_loc.y);
+                delay_t est_delay = cfg.timing_c + cfg.timing_mx * std::abs(drv_loc.x - usr_loc.x) +
+                                    cfg.timing_my * std::abs(drv_loc.y - usr_loc.y);
                 tmg.set_route_delay(CellPortKey(usr.value), DelayPair(est_delay));
             }
         }
@@ -1172,7 +1245,7 @@ class StaticPlacer
             total_iters_noreset++;
             if (total_iters > int(ccells.size())) {
                 total_iters = 0;
-                ripup_radius = std::max(std::max(width + 1, height + 1), ripup_radius * 2);
+                ripup_radius = std::min(std::max(width + 1, height + 1), ripup_radius * 2);
             }
 
             if (total_iters_noreset > std::max(5000, 8 * int(ctx->cells.size()))) {
@@ -1410,8 +1483,15 @@ class StaticPlacer
         bool legalised_ip = false;
         while (true) {
             step();
-            for (auto &penalty : dens_penalty)
-                penalty *= 1.025;
+            for (auto &p : dens_penalty)
+                if (p < 50.0)
+                    p *= 1.025;
+                else
+                    p += 1.0;
+            // wl_coeff.at(Axis::X) = std::max(0.005, 0.995 * wl_coeff.at(Axis::X));
+            // wl_coeff.at(Axis::Y) = std::max(0.005, 0.995 * wl_coeff.at(Axis::Y));
+
+            // update_penalties();
             if (!legalised_ip) {
                 float ip_overlap = 0;
                 for (int i = cfg.logic_groups; i < int(groups.size()); i++)
@@ -1419,6 +1499,8 @@ class StaticPlacer
                 if (ip_overlap < 0.15) {
                     legalise_step(true);
                     legalised_ip = true;
+                    for (int i = cfg.logic_groups; i < int(groups.size()); i++)
+                        groups.at(i).enabled = false;
                 }
             } else {
                 float logic_overlap = 0;

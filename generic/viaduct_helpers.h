@@ -36,10 +36,10 @@ viaduct_helpers provides some features for building up arches using the viaduct 
 // Used to configure various generic pack functions
 struct CellTypePort
 {
-    CellTypePort() : cell_type(), port(){};
-    CellTypePort(IdString cell_type, IdString port) : cell_type(cell_type), port(port){};
+    CellTypePort() : cell_type(), port() {};
+    CellTypePort(IdString cell_type, IdString port) : cell_type(cell_type), port(port) {};
     explicit CellTypePort(const PortRef &net_port)
-            : cell_type(net_port.cell ? net_port.cell->type : IdString()), port(net_port.port){};
+            : cell_type(net_port.cell ? net_port.cell->type : IdString()), port(net_port.port) {};
     inline bool operator==(const CellTypePort &other) const
     {
         return cell_type == other.cell_type && port == other.port;
@@ -54,7 +54,7 @@ struct CellTypePort
 
 struct ViaductHelpers
 {
-    ViaductHelpers(){};
+    ViaductHelpers() {};
     Context *ctx;
     void init(Context *ctx) { this->ctx = ctx; }
     // IdStringList components for x and y locations

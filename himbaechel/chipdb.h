@@ -62,6 +62,7 @@ NPNR_PACKED_STRUCT(struct BelPinRefPOD {
 NPNR_PACKED_STRUCT(struct TileWireDataPOD {
     int32_t name;
     int32_t wire_type;
+    int32_t tile_wire;
     int32_t const_value;
     int32_t flags;      // 32 bits of arbitrary data
     int32_t timing_idx; // used only when the wire is not part of a node, otherwise node idx applies
@@ -92,11 +93,23 @@ NPNR_PACKED_STRUCT(struct NodeShapePOD {
     int32_t timing_idx;
 });
 
+NPNR_PACKED_STRUCT(struct GroupDataPOD {
+    int32_t name;
+    int32_t group_type;
+    RelSlice<int32_t> group_bels;
+    RelSlice<int32_t> group_wires;
+    RelSlice<int32_t> group_pips;
+    RelSlice<int32_t> group_groups;
+
+    RelPtr<uint8_t> extra_data;
+});
+
 NPNR_PACKED_STRUCT(struct TileTypePOD {
     int32_t type_name;
     RelSlice<BelDataPOD> bels;
     RelSlice<TileWireDataPOD> wires;
     RelSlice<PipDataPOD> pips;
+    RelSlice<GroupDataPOD> groups;
     RelPtr<uint8_t> extra_data;
 });
 
@@ -138,6 +151,7 @@ NPNR_PACKED_STRUCT(struct PadInfoPOD {
 NPNR_PACKED_STRUCT(struct PackageInfoPOD {
     int32_t name;
     RelSlice<PadInfoPOD> pads;
+    RelPtr<uint8_t> extra_data;
 });
 
 NPNR_PACKED_STRUCT(struct TileInstPOD {

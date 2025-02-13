@@ -17,8 +17,6 @@
  *
  */
 
-#ifdef MAIN_EXECUTABLE
-
 #include <fstream>
 #include "command.h"
 #include "design_utils.h"
@@ -32,9 +30,9 @@ class NexusCommandHandler : public CommandHandler
 {
   public:
     NexusCommandHandler(int argc, char **argv);
-    virtual ~NexusCommandHandler(){};
+    virtual ~NexusCommandHandler() {};
     std::unique_ptr<Context> createContext(dict<std::string, Property> &values) override;
-    void setupArchContext(Context *ctx) override{};
+    void setupArchContext(Context *ctx) override {};
     void customBitstream(Context *ctx) override;
     void customAfterLoad(Context *ctx) override;
 
@@ -115,5 +113,3 @@ int main(int argc, char *argv[])
     NexusCommandHandler handler(argc, argv);
     return handler.exec();
 }
-
-#endif

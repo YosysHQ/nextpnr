@@ -6,6 +6,7 @@
 #include "himbaechel_constids.h"
 #include "himbaechel_helpers.h"
 
+#include <queue>
 #include "gowin.h"
 #include "gowin_utils.h"
 
@@ -27,6 +28,15 @@ Loc GowinUtils::get_tile_io16_offs(int x, int y)
     const Tile_extra_data_POD *extra =
             reinterpret_cast<const Tile_extra_data_POD *>(chip_tile_info(ctx->chip_info, tile).extra_data.get());
     return Loc(extra->io16_x_off, extra->io16_y_off, 0);
+}
+
+// oser16/ides16 aux cell offsets
+bool GowinUtils::get_i3c_capable(int x, int y)
+{
+    int tile = tile_by_xy(ctx->chip_info, x, y);
+    const Tile_extra_data_POD *extra =
+            reinterpret_cast<const Tile_extra_data_POD *>(chip_tile_info(ctx->chip_info, tile).extra_data.get());
+    return extra->tile_flags & Tile_extra_data_POD::TILE_I3C_CAPABLE_IO;
 }
 
 // pin functions: GCLKT_4, SSPI_CS, READY etc
@@ -64,6 +74,44 @@ BelId GowinUtils::get_pll_bel(BelId io_bel, IdString type)
     return BelId();
 }
 
+BelId GowinUtils::get_dqce_bel(IdString spine_name)
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    for (auto &spine_bel : extra->dqce_bels) {
+        if (IdString(spine_bel.spine) == spine_name) {
+            return ctx->getBelByLocation(Loc(spine_bel.bel_x, spine_bel.bel_y, spine_bel.bel_z));
+        }
+    }
+    return BelId();
+}
+
+BelId GowinUtils::get_dcs_bel(IdString spine_name)
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    for (auto &spine_bel : extra->dcs_bels) {
+        if (IdString(spine_bel.spine) == spine_name) {
+            return ctx->getBelByLocation(Loc(spine_bel.bel_x, spine_bel.bel_y, spine_bel.bel_z));
+        }
+    }
+    return BelId();
+}
+
+BelId GowinUtils::get_dhcen_bel(WireId hclkin_wire, IdString &side)
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    for (auto &wire_bel : extra->dhcen_bels) {
+        IdString dst = IdString(wire_bel.pip_dst);
+        IdString src = IdString(wire_bel.pip_src);
+        IdStringList pip = IdStringList::concat(IdStringList::concat(IdString(wire_bel.pip_xy), dst), src);
+        WireId wire = ctx->getPipDstWire(ctx->getPipByName(pip));
+        if (wire == hclkin_wire) {
+            side = IdString(wire_bel.side);
+            return ctx->getBelByLocation(Loc(wire_bel.bel_x, wire_bel.bel_y, wire_bel.bel_z));
+        }
+    }
+    return BelId();
+}
+
 bool GowinUtils::is_simple_io_bel(BelId bel)
 {
     return chip_bel_info(ctx->chip_info, bel).flags & BelFlags::FLAG_SIMPLE_IO;
@@ -94,7 +142,7 @@ bool GowinUtils::is_diff_io_supported(IdString type)
     return false;
 }
 
-bool GowinUtils::have_bottom_io_cnds(void)
+bool GowinUtils::has_bottom_io_cnds(void)
 {
     const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
     return extra->bottom_io.conditions.size() != 0;
@@ -112,10 +160,40 @@ IdString GowinUtils::get_bottom_io_wire_b_net(int8_t condition)
     return IdString(extra->bottom_io.conditions[condition].wire_b_net);
 }
 
-bool GowinUtils::have_SP32(void)
+bool GowinUtils::has_BANDGAP(void)
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    return extra->chip_flags & Extra_chip_data_POD::HAS_BANDGAP;
+}
+
+bool GowinUtils::has_SP32(void)
 {
     const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
     return extra->chip_flags & Extra_chip_data_POD::HAS_SP32;
+}
+
+bool GowinUtils::need_SP_fix(void)
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    return extra->chip_flags & Extra_chip_data_POD::NEED_SP_FIX;
+}
+
+bool GowinUtils::need_BSRAM_OUTREG_fix(void)
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    return extra->chip_flags & Extra_chip_data_POD::NEED_BSRAM_OUTREG_FIX;
+}
+
+bool GowinUtils::need_BLKSEL_fix(void)
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    return extra->chip_flags & Extra_chip_data_POD::NEED_BLKSEL_FIX;
+}
+
+IdString GowinUtils::create_aux_name(IdString main_name, int idx, const char *str_suffix)
+{
+    return idx ? ctx->idf("%s%s%d", main_name.c_str(ctx), str_suffix, idx)
+               : ctx->idf("%s%s", main_name.c_str(ctx), str_suffix);
 }
 
 std::unique_ptr<CellInfo> GowinUtils::create_cell(IdString name, IdString type)
@@ -242,6 +320,147 @@ CellInfo *GowinUtils::dsp_bus_dst(const CellInfo *ci, const char *bus_prefix, in
         return nullptr;
     }
     return connected_to_cell;
+}
+
+// Use the upper CLKDIV as the id for a hclk section
+IdStringList GowinUtils::get_hclk_id(BelId hclk_bel) const
+{
+    IdString bel_type = ctx->getBelType(hclk_bel);
+    NPNR_ASSERT(hclk_bel != BelId() && bel_type.in(id_CLKDIV2, id_CLKDIV));
+    Loc id_loc = Loc(ctx->getBelLocation(hclk_bel));
+    if (bel_type == id_CLKDIV) {
+        return get_hclk_id(get_clkdiv2_for_clkdiv(hclk_bel));
+    } else if (id_loc.z == BelZ::CLKDIV2_0_Z || id_loc.z == BelZ::CLKDIV2_2_Z)
+        return ctx->getBelName(hclk_bel);
+    else
+        return ctx->getBelName(ctx->getBelByLocation(Loc(id_loc.x, id_loc.y, id_loc.z - 1)));
+    return IdStringList();
+}
+
+// Get the clkdiv in the same section as a clkdiv2
+BelId GowinUtils::get_clkdiv_for_clkdiv2(BelId clkdiv2_bel) const
+{
+    NPNR_ASSERT(clkdiv2_bel != BelId() && (ctx->getBelType(clkdiv2_bel) == id_CLKDIV2));
+    Loc clkdiv_loc = ctx->getBelLocation(clkdiv2_bel);
+    clkdiv_loc.z = BelZ::CLKDIV_0_Z + (clkdiv_loc.z - BelZ::CLKDIV2_0_Z);
+    return ctx->getBelByLocation(clkdiv_loc);
+}
+
+// Get the clkdiv2 in the same section as a clkdiv
+BelId GowinUtils::get_clkdiv2_for_clkdiv(BelId clkdiv_bel) const
+{
+    NPNR_ASSERT(clkdiv_bel != BelId() && (ctx->getBelType(clkdiv_bel) == id_CLKDIV));
+    Loc clkdiv_loc = ctx->getBelLocation(clkdiv_bel);
+    Loc clkdiv2_loc = Loc(clkdiv_loc.x, clkdiv_loc.y, BelZ::CLKDIV2_0_Z + (clkdiv_loc.z - BelZ::CLKDIV_0_Z));
+    return ctx->getBelByLocation(clkdiv2_loc);
+}
+
+// Get the clkdiv in the neighbouring section to a clkdiv
+BelId GowinUtils::get_other_hclk_clkdiv(BelId clkdiv_bel) const
+{
+    NPNR_ASSERT(clkdiv_bel != BelId() && (ctx->getBelType(clkdiv_bel) == id_CLKDIV));
+    Loc other_loc = Loc(ctx->getBelLocation(clkdiv_bel));
+    int dz = BelZ::CLKDIV_1_Z - BelZ::CLKDIV_0_Z;
+    if (other_loc.z == BelZ::CLKDIV_1_Z || other_loc.z == BelZ::CLKDIV_3_Z)
+        dz = -dz;
+    other_loc.z += dz;
+    return ctx->getBelByLocation(other_loc);
+}
+
+// Get the clkdiv2 in the neighbouring section to a clkdiv2
+BelId GowinUtils::get_other_hclk_clkdiv2(BelId clkdiv2_bel) const
+{
+    NPNR_ASSERT(clkdiv2_bel != BelId() && (ctx->getBelType(clkdiv2_bel) == id_CLKDIV2));
+    Loc other_loc = Loc(ctx->getBelLocation(clkdiv2_bel));
+    int dz = BelZ::CLKDIV2_1_Z - BelZ::CLKDIV2_0_Z;
+    if (other_loc.z == BelZ::CLKDIV2_1_Z || other_loc.z == BelZ::CLKDIV2_3_Z)
+        dz = -dz;
+    other_loc.z += dz;
+    return ctx->getBelByLocation(other_loc);
+}
+
+// Credit: https://cp-algorithms.com/graph/kuhn_maximum_bipartite_matching.html
+std::vector<int> GowinUtils::kuhn_find_maximum_bipartite_matching(int n, int k, std::vector<std::vector<int>> &g)
+{
+    std::vector<int> mt;
+    std::vector<bool> used(n);
+
+    auto try_kuhn = [&](int v, auto &try_kuhn_ref) -> bool {
+        if (used[v])
+            return false;
+        used[v] = true;
+        for (int to : g[v]) {
+            if (mt[to] == -1 || try_kuhn_ref(mt[to], try_kuhn_ref)) {
+                mt[to] = v;
+                return true;
+            }
+        }
+        return false;
+    };
+
+    mt.assign(k, -1);
+    for (int v = 0; v < n; ++v) {
+        used.assign(n, false);
+        try_kuhn(v, try_kuhn);
+    }
+
+    return mt;
+}
+
+// original implementation: nextpnr/machxo2/pack.cc
+// Using a BFS, search for bels of a given type either upstream or downstream of another cell
+void GowinUtils::find_connected_bels(const CellInfo *cell, IdString port, IdString dest_type, IdString dest_pin,
+                                     int iter_limit, std::vector<BelId> &candidates)
+{
+    int iter = 0;
+    std::queue<WireId> visit;
+    pool<WireId> seen_wires;
+    pool<BelId> seen_bels;
+
+    BelId bel = cell->bel;
+    if (bel == BelId())
+        return;
+    WireId start_wire = ctx->getBelPinWire(bel, port);
+    NPNR_ASSERT(start_wire != WireId());
+    PortType dir = ctx->getBelPinType(bel, port);
+
+    visit.push(start_wire);
+
+    while (!visit.empty() && (iter++ < iter_limit)) {
+        WireId cursor = visit.front();
+        visit.pop();
+        // Check to see if we have reached a valid bel pin
+        for (auto bp : ctx->getWireBelPins(cursor)) {
+            if (ctx->getBelType(bp.bel) != dest_type)
+                continue;
+            if (dest_pin != IdString() && bp.pin != dest_pin)
+                continue;
+            if (seen_bels.count(bp.bel))
+                continue;
+            seen_bels.insert(bp.bel);
+            candidates.push_back(bp.bel);
+        }
+        // Search in the appropriate direction up/downstream of the cursor
+        if (dir == PORT_OUT) {
+            for (PipId p : ctx->getPipsDownhill(cursor))
+                if (ctx->checkPipAvail(p)) {
+                    WireId dst = ctx->getPipDstWire(p);
+                    if (seen_wires.count(dst))
+                        continue;
+                    seen_wires.insert(dst);
+                    visit.push(dst);
+                }
+        } else {
+            for (PipId p : ctx->getPipsUphill(cursor))
+                if (ctx->checkPipAvail(p)) {
+                    WireId src = ctx->getPipSrcWire(p);
+                    if (seen_wires.count(src))
+                        continue;
+                    seen_wires.insert(src);
+                    visit.push(src);
+                }
+        }
+    }
 }
 
 NEXTPNR_NAMESPACE_END

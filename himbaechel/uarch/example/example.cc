@@ -26,7 +26,10 @@
 
 #define GEN_INIT_CONSTIDS
 #define HIMBAECHEL_CONSTIDS "uarch/example/constids.inc"
+#define HIMBAECHEL_GFXIDS "uarch/example/gfxids.inc"
+#define HIMBAECHEL_UARCH example
 #include "himbaechel_constids.h"
+#include "himbaechel_gfxids.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -36,7 +39,7 @@ struct ExampleImpl : HimbaechelAPI
 
     static constexpr int K = 4;
 
-    ~ExampleImpl(){};
+    ~ExampleImpl() {};
     void init_database(Arch *arch) override
     {
         init_uarch_constids(arch);
@@ -135,13 +138,198 @@ struct ExampleImpl : HimbaechelAPI
             return false;
         return true;
     }
+
+    void drawGroup(std::vector<GraphicElement> &g, GroupId group, Loc loc) override
+    {
+        IdString group_type = ctx->getGroupType(group);
+        if (group_type == id_SWITCHBOX) {
+            GraphicElement el;
+            el.type = GraphicElement::TYPE_BOX;
+            el.style = GraphicElement::STYLE_FRAME;
+
+            el.x1 = loc.x + 0.1;
+            el.x2 = el.x1 + 0.4;
+            el.y1 = loc.y + 0.1;
+            el.y2 = el.y1 + 0.8;
+            g.push_back(el);
+        }
+    }
+    void drawBel(std::vector<GraphicElement> &g, GraphicElement::style_t style, IdString bel_type, Loc loc) override
+    {
+        GraphicElement el;
+        el.type = GraphicElement::TYPE_BOX;
+        el.style = style;
+        switch (bel_type.index) {
+        case id_LUT4.index:
+            el.x1 = loc.x + 0.55;
+            el.x2 = el.x1 + 0.15;
+            el.y1 = loc.y + 0.90 - (loc.z / 2) * 0.1;
+            el.y2 = el.y1 - 0.05;
+            g.push_back(el);
+            break;
+        case id_DFF.index:
+            el.x1 = loc.x + 0.75;
+            el.x2 = el.x1 + 0.15;
+            el.y1 = loc.y + 0.90 - (loc.z / 2) * 0.1;
+            el.y2 = el.y1 - 0.05;
+            g.push_back(el);
+            break;
+        case id_GND_DRV.index:
+        case id_VCC_DRV.index:
+        case id_IOB.index:
+            el.x1 = loc.x + 0.55;
+            el.x2 = el.x1 + 0.35;
+            el.y1 = loc.y + 0.90 - loc.z * 0.40;
+            el.y2 = el.y1 - 0.25;
+            g.push_back(el);
+            break;
+        case id_BRAM_512X16.index:
+            el.x1 = loc.x + 0.55;
+            el.x2 = el.x1 + 0.35;
+            el.y1 = loc.y + 0.90;
+            el.y2 = el.y1 - 0.60;
+            g.push_back(el);
+            break;
+        }
+    }
+
+    void drawWire(std::vector<GraphicElement> &g, GraphicElement::style_t style, Loc loc, IdString wire_type,
+                  int32_t tilewire, IdString tile_type) override
+    {
+        GraphicElement el;
+        el.type = GraphicElement::TYPE_LINE;
+        el.style = style;
+        int z;
+        switch (tile_type.index) {
+        case id_LOGIC.index:
+            switch (wire_type.index) {
+            case id_LUT_INPUT.index:
+                z = (tilewire - GFX_WIRE_L0_I0) / 4;
+                el.x1 = loc.x + 0.54;
+                el.x2 = el.x1 + 0.01;
+                el.y1 = loc.y + 0.90 - z * 0.1 - ((tilewire - GFX_WIRE_L0_I0) % 4 + 1) * 0.01;
+                el.y2 = el.y1;
+                g.push_back(el);
+                break;
+            case id_LUT_OUT.index:
+                z = tilewire - GFX_WIRE_L0_O;
+                el.x1 = loc.x + 0.70;
+                el.x2 = el.x1 + 0.01;
+                el.y1 = loc.y + 0.90 - z * 0.1 - 0.025;
+                el.y2 = el.y1;
+                g.push_back(el);
+                break;
+            case id_FF_DATA.index:
+                z = tilewire - GFX_WIRE_L0_D;
+                el.x1 = loc.x + 0.74;
+                el.x2 = el.x1 + 0.01;
+                el.y1 = loc.y + 0.90 - z * 0.1 - 0.025;
+                el.y2 = el.y1;
+                g.push_back(el);
+                break;
+            case id_FF_OUT.index:
+                z = tilewire - GFX_WIRE_L0_Q;
+                el.x1 = loc.x + 0.90;
+                el.x2 = el.x1 + 0.01;
+                el.y1 = loc.y + 0.90 - z * 0.1 - 0.025;
+                el.y2 = el.y1;
+                g.push_back(el);
+                break;
+            case id_TILE_CLK.index:
+                for (int i = 0; i < 8; i++) {
+                    GraphicElement el;
+                    el.type = GraphicElement::TYPE_LINE;
+                    el.style = style;
+                    el.x1 = loc.x + 0.6;
+                    el.x2 = el.x1;
+                    el.y1 = loc.y + 0.90 - i * 0.1 - 0.05;
+                    el.y2 = el.y1 - 0.05;
+                    g.push_back(el);
+                }
+                break;
+            }
+            break;
+        case id_BRAM.index:
+            switch (wire_type.index) {
+            case id_RAM_IN.index:
+                z = tilewire - GFX_WIRE_RAM_WA0;
+                el.x1 = loc.x + 0.54;
+                el.x2 = el.x1 + 0.01;
+                el.y1 = loc.y + 0.90 - z * 0.015 - 0.025;
+                el.y2 = el.y1;
+                g.push_back(el);
+                break;
+            case id_RAM_OUT.index:
+                z = tilewire - GFX_WIRE_RAM_DO0;
+                el.x1 = loc.x + 0.90;
+                el.x2 = el.x1 + 0.01;
+                el.y1 = loc.y + 0.90 - z * 0.015 - 0.025;
+                el.y2 = el.y1;
+                g.push_back(el);
+                break;
+            case id_TILE_CLK.index:
+                el.x1 = loc.x + 0.60;
+                el.x2 = el.x1;
+                el.y1 = loc.y + 0.30;
+                el.y2 = el.y1 - 0.025;
+                g.push_back(el);
+                break;
+            }
+            break;
+        case id_IO.index:
+            switch (wire_type.index) {
+            case id_IO_I.index:
+                break;
+            case id_IO_O.index:
+                break;
+            case id_IO_T.index:
+                break;
+            case id_IO_PAD.index:
+                break;
+            case id_TILE_CLK.index:
+                break;
+            case id_GCLK.index:
+                break;
+            }
+            break;
+        case id_NULL.index:
+            switch (wire_type.index) {
+            case id_CLK_ROUTE.index:
+                break;
+            case id_GND.index:
+                break;
+            case id_VCC.index:
+                break;
+            case id_TILE_CLK.index:
+                break;
+            }
+            break;
+        }
+    }
+
+    void drawPip(std::vector<GraphicElement> &g, GraphicElement::style_t style, Loc loc, WireId src, IdString src_type,
+                 int32_t src_id, WireId dst, IdString dst_type, int32_t dst_id) override
+    {
+        GraphicElement el;
+        el.type = GraphicElement::TYPE_ARROW;
+        el.style = style;
+        int z;
+        if (src_type == id_LUT_OUT && dst_type == id_FF_DATA) {
+            z = src_id - GFX_WIRE_L0_O;
+            el.x1 = loc.x + 0.45;
+            el.y1 = loc.y + 0.85 - z * 0.1 - 0.025;
+            el.x2 = loc.x + 0.50;
+            el.y2 = el.y1;
+            g.push_back(el);
+        }
+    }
 };
 
 struct ExampleArch : HimbaechelArch
 {
-    ExampleArch() : HimbaechelArch("example"){};
+    ExampleArch() : HimbaechelArch("example") {};
     bool match_device(const std::string &device) override { return device == "EXAMPLE"; }
-    std::unique_ptr<HimbaechelAPI> create(const std::string &device, const dict<std::string, std::string> &args)
+    std::unique_ptr<HimbaechelAPI> create(const std::string &device, const dict<std::string, std::string> &args) override
     {
         return std::make_unique<ExampleImpl>();
     }

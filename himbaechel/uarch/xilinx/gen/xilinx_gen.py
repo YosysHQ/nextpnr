@@ -4,6 +4,7 @@ import argparse
 import xilinx_device
 import filters
 import struct
+import parse_sdf
 sys.path.append(path.join(path.dirname(__file__), "../../.."))
 from himbaechel_dbgen.chip import *
 
@@ -251,6 +252,15 @@ def import_tiletype(ch: Chip, tile: xilinx_device.Tile):
         if pip.is_bidi():
             add_pip(pip.dst_wire().name(), pip.src_wire().name(), pip_class=PipClass.TILE_ROUTING, timing=tcls,
                 pip_config=1 if pip.is_route_thru() else 0)
+
+def import_sdf_timings(variant, sdfcell):
+    # TODO: anything other than comb
+    for entry in sdfcell.entries:
+        if isinstance(entry, parse_sdf.IOPath):
+            variant.add_comb_arc(entry.from_pin, entry.to_pin,
+                TimingValue(int(min(entry.rising.minv, entry.falling.minv)*1000),
+                    int(max(entry.rising.maxv, entry.falling.maxv)*1000)))
+
 def main():
     xlbase = path.join(path.dirname(path.realpath(__file__)), "..")
 
@@ -355,6 +365,14 @@ def main():
     ff.add_setup_hold("CK", "SR", ClockEdge.RISING, TimingValue(100, 100), TimingValue(0, 0))
     ff.add_setup_hold("CK", "D", ClockEdge.RISING, TimingValue(100, 100), TimingValue(200, 200))
     ff.add_clock_out("CK", "Q", ClockEdge.RISING, TimingValue(300, 350))
+
+    # Load SDF for carry and mux
+    slicem_sdf = parse_sdf.parse_sdf_file(path.join(xraydb_root, "timings", "slicem.sdf"))
+    mux = ch.timing.add_cell_variant("DEFAULT", "SELMUX2_1")
+    import_sdf_timings(mux, slicem_sdf.cells[("SELMUX2_1", "SLICEM/F7BMUX")])
+    carry = ch.timing.add_cell_variant("DEFAULT", "CARRY4")
+    import_sdf_timings(carry, slicem_sdf.cells[("CARRY4", "SLICEM")])
+
     # Import package pins
     for package_name, package in sorted(d.packages.items(), key=lambda x:x[0]):
         pkg = ch.create_package(package_name)

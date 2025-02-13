@@ -52,7 +52,7 @@ struct BelId
     int32_t index = -1;
 
     BelId() = default;
-    inline BelId(int32_t tile, int32_t index) : tile(tile), index(index){};
+    inline BelId(int32_t tile, int32_t index) : tile(tile), index(index) {};
 
     bool operator==(const BelId &other) const { return tile == other.tile && index == other.index; }
     bool operator!=(const BelId &other) const { return tile != other.tile || index != other.index; }
@@ -71,7 +71,7 @@ struct WireId
     int32_t index = -1;
 
     WireId() = default;
-    inline WireId(int32_t tile, int32_t index) : tile(tile), index(index){};
+    inline WireId(int32_t tile, int32_t index) : tile(tile), index(index) {};
 
     bool operator==(const WireId &other) const { return tile == other.tile && index == other.index; }
     bool operator!=(const WireId &other) const { return tile != other.tile || index != other.index; }
@@ -89,7 +89,7 @@ struct PipId
     int32_t index = -1;
 
     PipId() = default;
-    inline PipId(int32_t tile, int32_t index) : tile(tile), index(index){};
+    inline PipId(int32_t tile, int32_t index) : tile(tile), index(index) {};
 
     bool operator==(const PipId &other) const { return tile == other.tile && index == other.index; }
     bool operator!=(const PipId &other) const { return tile != other.tile || index != other.index; }

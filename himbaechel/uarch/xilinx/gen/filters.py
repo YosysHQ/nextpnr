@@ -91,6 +91,8 @@ def include_pip(tile_type, p):
     if tile_type.startswith("HCLK_IOI"):
         if "RCLK_BEFORE_DIV" in p.dst_wire().name() and "IMUX" in p.src_wire().name():
             return False
+        if  p.dst_wire().name().endswith("_DMUX") and "I2IOCLK_TOP" in p.src_wire().name():
+            return False
     if "IOI" in tile_type:
         if "CLKB" in p.dst_wire().name() and "IMUX22" in p.src_wire().name():
             return False

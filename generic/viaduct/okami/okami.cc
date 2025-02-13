@@ -33,7 +33,7 @@ NEXTPNR_NAMESPACE_BEGIN
 namespace {
 struct OkamiImpl : ViaductAPI
 {
-    ~OkamiImpl(){};
+    ~OkamiImpl() {};
     void init(Context *ctx) override
     {
         init_uarch_constids(ctx);
@@ -534,7 +534,7 @@ struct OkamiImpl : ViaductAPI
 
 struct OkamiArch : ViaductArch
 {
-    OkamiArch() : ViaductArch("okami"){};
+    OkamiArch() : ViaductArch("okami") {};
     std::unique_ptr<ViaductAPI> create(const dict<std::string, std::string> &args)
     {
         return std::make_unique<OkamiImpl>();

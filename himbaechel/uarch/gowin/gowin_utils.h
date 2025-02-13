@@ -1,6 +1,7 @@
 #ifndef GOWIN_UTILS_H
 #define GOWIN_UTILS_H
 
+#include "design_utils.h"
 #include "idstringlist.h"
 #include "nextpnr_namespaces.h"
 #include "nextpnr_types.h"
@@ -22,6 +23,7 @@ struct GowinUtils
     // tile
     IdString get_tile_class(int x, int y);
     Loc get_tile_io16_offs(int x, int y);
+    bool get_i3c_capable(int x, int y);
 
     // pin functions: GCLKT_4, SSPI_CS, READY etc
     IdStringList get_pin_funcs(BelId io_bel);
@@ -33,6 +35,31 @@ struct GowinUtils
     bool is_simple_io_bel(BelId bel);
     Loc get_pair_iologic_bel(Loc loc);
     BelId get_io_bel_from_iologic(BelId bel);
+    BelId get_dqce_bel(IdString spine_name);
+    BelId get_dcs_bel(IdString spine_name);
+    BelId get_dhcen_bel(WireId hclkin_wire, IdString &side);
+
+    // ports
+    inline bool port_used(CellInfo *cell, IdString port_name)
+    {
+        if (!nextpnr_himbaechel::port_used(cell, port_name)) {
+            return false;
+        }
+        NetInfo *ni = cell->ports.at(port_name).net;
+        if (ni->driver.cell == nullptr) {
+            return false;
+        }
+        return ni->users.entries() != 0;
+    }
+
+    // BSRAM
+    bool has_SP32(void);
+    bool need_SP_fix(void);
+    bool need_BSRAM_OUTREG_fix(void);
+    bool need_BLKSEL_fix(void);
+
+    // Power saving
+    bool has_BANDGAP(void);
 
     // DSP
     inline int get_dsp_18_z(int z) const { return z & (~3); }
@@ -59,7 +86,7 @@ struct GowinUtils
     CellInfo *dsp_bus_dst(const CellInfo *ci, const char *bus_prefix, int wire_num) const;
 
     bool is_diff_io_supported(IdString type);
-    bool have_bottom_io_cnds(void);
+    bool has_bottom_io_cnds(void);
     IdString get_bottom_io_wire_a_net(int8_t condition);
     IdString get_bottom_io_wire_b_net(int8_t condition);
 
@@ -81,11 +108,64 @@ struct GowinUtils
         return is_global_wire(ctx->getPipSrcWire(pip)) || is_global_wire(ctx->getPipDstWire(pip));
     }
 
-    // chip dependent
-    bool have_SP32(void);
+    // construct name
+    IdString create_aux_name(IdString main_name, int idx = 0, const char *str_suffix = "_aux$");
 
     // make cell but do not include it in the list of chip cells.
     std::unique_ptr<CellInfo> create_cell(IdString name, IdString type);
+
+    // HCLK
+    BelId get_clkdiv_for_clkdiv2(BelId clkdiv2_bel) const;
+    BelId get_other_hclk_clkdiv2(BelId clkdiv2_bel) const;
+    BelId get_other_hclk_clkdiv(BelId clkdiv_bel) const;
+    BelId get_clkdiv2_for_clkdiv(BelId clkdiv_bel) const;
+    IdStringList get_hclk_id(BelId hclk_bel) const; // use the upper CLKDIV2 (CLKDIV2_0 orCLKDIV2_2) as an id
+
+    // Find Bels connected to a bound cell
+    void find_connected_bels(const CellInfo *cell, IdString port, IdString dest_type, IdString dest_pin, int iter_limit,
+                             std::vector<BelId> &candidates);
+
+    // Find a maximum bipartite matching
+    template <typename T1, typename T2> std::map<T1, T2> find_maximum_bipartite_matching(std::map<T1, std::set<T2>> &G)
+    {
+        std::map<int, T1> U;
+        std::map<int, T2> V;
+        std::map<T2, int> V_IDX;
+        std::vector<std::vector<int>> int_graph(G.size());
+
+        int u_idx = 0;
+        int v_idx = 0;
+
+        // Translate the input graph to an integer graph
+        for (auto row : G) {
+            U.insert(std::pair(u_idx, row.first));
+            for (auto v : row.second) {
+                if (V_IDX.find(v) == V_IDX.end()) {
+                    V_IDX[v] = v_idx;
+                    V[v_idx] = v;
+                    v_idx++;
+                }
+                int_graph[u_idx].push_back(V_IDX[v]);
+            }
+            u_idx++;
+        }
+
+        std::vector<int> int_matching = kuhn_find_maximum_bipartite_matching(u_idx, v_idx, int_graph);
+        std::map<T1, T2> ret_matching;
+
+        int m_idx = 0;
+        for (auto val : int_matching) {
+            if (val >= 0) { // elements that are not matched have a value of -1
+                ret_matching[U[val]] = V[m_idx];
+            }
+            m_idx++;
+        }
+
+        return ret_matching;
+    }
+
+    // Find a maximum matching in a bipartite graph, g
+    std::vector<int> kuhn_find_maximum_bipartite_matching(int n, int k, std::vector<std::vector<int>> &g);
 };
 
 NEXTPNR_NAMESPACE_END

@@ -27,8 +27,8 @@ NEXTPNR_NAMESPACE_BEGIN
 
 struct CellPortKey
 {
-    CellPortKey(){};
-    CellPortKey(IdString cell, IdString port) : cell(cell), port(port){};
+    CellPortKey() {};
+    CellPortKey(IdString cell, IdString port) : cell(cell), port(port) {};
     explicit CellPortKey(const PortRef &pr)
     {
         NPNR_ASSERT(pr.cell != nullptr);
@@ -49,7 +49,7 @@ struct ClockDomainKey
 {
     IdString clock;
     ClockEdge edge;
-    ClockDomainKey(IdString clock_net, ClockEdge edge) : clock(clock_net), edge(edge){};
+    ClockDomainKey(IdString clock_net, ClockEdge edge) : clock(clock_net), edge(edge) {};
     // probably also need something here to deal with constraints
     inline bool is_async() const { return clock == IdString(); }
 
@@ -63,7 +63,7 @@ typedef int domain_id_t;
 struct ClockDomainPairKey
 {
     domain_id_t launch, capture;
-    ClockDomainPairKey(domain_id_t launch, domain_id_t capture) : launch(launch), capture(capture){};
+    ClockDomainPairKey(domain_id_t launch, domain_id_t capture) : launch(launch), capture(capture) {};
     inline bool operator==(const ClockDomainPairKey &other) const
     {
         return (launch == other.launch) && (capture == other.capture);
@@ -98,6 +98,9 @@ struct TimingAnalyser
 
     TimingResult &get_timing_result() { return result; }
 
+    // Enable analysis of clock skew between FFs.
+    bool with_clock_skew = false;
+
     bool setup_only = false;
     bool have_loops = false;
     bool updated_domains = false;
@@ -118,17 +121,23 @@ struct TimingAnalyser
     void compute_slack();
     void compute_criticality();
 
+    // Walk the endpoint back to a startpoint and get back the input ports walked
+    // and the startpoint.
+    std::vector<PortRef> walk_crit_path(domain_id_t domain_pair, CellPortKey endpoint, bool longest_path);
+
     void build_detailed_net_timing_report();
-    CriticalPath build_critical_path_report(domain_id_t domain_pair, CellPortKey endpoint);
+    // longest_path indicate whether to follow the longest or shortest path from endpoint to startpoint
+    // longest paths are interesting for setup violations and shortest paths are interesting for hold violations
+    CriticalPath build_critical_path_report(domain_id_t domain_pair, CellPortKey endpoint, bool longest_path);
     void build_crit_path_reports();
     void build_slack_histogram_report();
+
+    std::vector<CriticalPath> get_min_delay_violations();
 
     dict<domain_id_t, delay_t> max_delay_by_domain_pairs();
 
     // get the N worst endpoints for a given domain pair
     std::vector<CellPortKey> get_worst_eps(domain_id_t domain_pair, int count);
-
-    const DelayPair init_delay{std::numeric_limits<delay_t>::max(), std::numeric_limits<delay_t>::lowest()};
 
     // Set arrival/required times if more/less than the current value
     void set_arrival_time(CellPortKey target, domain_id_t domain, DelayPair arrival, int path_length,
@@ -174,9 +183,9 @@ struct TimingAnalyser
         ClockEdge edge;
 
         CellArc(ArcType type, IdString other_port, DelayQuad value)
-                : type(type), other_port(other_port), value(value), edge(RISING_EDGE){};
+                : type(type), other_port(other_port), value(value), edge(RISING_EDGE) {};
         CellArc(ArcType type, IdString other_port, DelayQuad value, ClockEdge edge)
-                : type(type), other_port(other_port), value(value), edge(edge){};
+                : type(type), other_port(other_port), value(value), edge(edge) {};
     };
 
     // Timing data for every cell port
@@ -200,7 +209,7 @@ struct TimingAnalyser
 
     struct PerDomain
     {
-        PerDomain(ClockDomainKey key) : key(key){};
+        PerDomain(ClockDomainKey key) : key(key) {};
         ClockDomainKey key;
         // these are pairs (signal port; clock port)
         std::vector<std::pair<CellPortKey, IdString>> startpoints, endpoints;
@@ -208,7 +217,7 @@ struct TimingAnalyser
 
     struct PerDomainPair
     {
-        PerDomainPair(ClockDomainPairKey key) : key(key){};
+        PerDomainPair(ClockDomainPairKey key) : key(key) {};
         ClockDomainPairKey key;
         DelayPair period{0};
         delay_t worst_setup_slack, worst_hold_slack;
@@ -222,6 +231,8 @@ struct TimingAnalyser
     domain_id_t domain_pair_id(domain_id_t launch, domain_id_t capture);
 
     void copy_domains(const CellPortKey &from, const CellPortKey &to, bool backwards);
+
+    [[maybe_unused]] static const std::string arcType_to_str(CellArc::ArcType typ);
 
     dict<CellPortKey, PerPort> ports;
     dict<ClockDomainKey, domain_id_t> domain_to_id;

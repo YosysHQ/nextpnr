@@ -213,7 +213,11 @@ struct BaseCtx
 
     NetInfo *getNetByAlias(IdString alias) const
     {
-        return nets.count(alias) ? nets.at(alias).get() : nets.at(net_aliases.at(alias)).get();
+        if (nets.count(alias) > 0)
+            return nets.at(alias).get();
+        if (net_aliases.count(alias) == 0)
+            return nullptr;
+        return nets.at(net_aliases.at(alias)).get();
     }
 
     // Intended to simplify Python API

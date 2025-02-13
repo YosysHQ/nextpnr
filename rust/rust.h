@@ -20,7 +20,7 @@
 #ifndef RUST_H
 #define RUST_H
 
-#ifdef USE_RUST
+#ifndef NO_RUST
 
 #include "nextpnr.h"
 NEXTPNR_NAMESPACE_BEGIN

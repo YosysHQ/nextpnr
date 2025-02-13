@@ -17,8 +17,6 @@
  *
  */
 
-#ifdef MAIN_EXECUTABLE
-
 #include <fstream>
 #include "command.h"
 #include "design_utils.h"
@@ -32,9 +30,9 @@ class MistralCommandHandler : public CommandHandler
 {
   public:
     MistralCommandHandler(int argc, char **argv);
-    virtual ~MistralCommandHandler(){};
+    virtual ~MistralCommandHandler() {};
     std::unique_ptr<Context> createContext(dict<std::string, Property> &values) override;
-    void setupArchContext(Context *ctx) override{};
+    void setupArchContext(Context *ctx) override {};
     void customBitstream(Context *ctx) override;
     void customAfterLoad(Context *ctx) override;
 
@@ -99,5 +97,3 @@ int main(int argc, char *argv[])
     MistralCommandHandler handler(argc, argv);
     return handler.exec();
 }
-
-#endif

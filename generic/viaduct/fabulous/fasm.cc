@@ -136,7 +136,7 @@ struct FabFasmWriter
                     continue;
                 unsigned pip_data = pip_tags.at(pip.index).data;
                 unsigned from_pin = (pip_data >> 4) & 0xF;
-                unsigned to_pin = (pip_data)&0xF;
+                unsigned to_pin = (pip_data) & 0xF;
                 NPNR_ASSERT(to_pin == i);
                 phys_to_log[from_pin].push_back(i);
             }

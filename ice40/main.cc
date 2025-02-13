@@ -18,8 +18,6 @@
  *
  */
 
-#ifdef MAIN_EXECUTABLE
-
 #include <fstream>
 #include "bitstream.h"
 #include "command.h"
@@ -34,7 +32,7 @@ class Ice40CommandHandler : public CommandHandler
 {
   public:
     Ice40CommandHandler(int argc, char **argv);
-    virtual ~Ice40CommandHandler(){};
+    virtual ~Ice40CommandHandler() {};
     std::unique_ptr<Context> createContext(dict<std::string, Property> &values) override;
     void setupArchContext(Context *ctx) override;
     void validate() override;
@@ -280,5 +278,3 @@ int main(int argc, char *argv[])
     Ice40CommandHandler handler(argc, argv);
     return handler.exec();
 }
-
-#endif

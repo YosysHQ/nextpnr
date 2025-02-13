@@ -147,6 +147,9 @@ template <typename R> struct ArchAPI : BaseCtx
     virtual bool isClusterStrict(const CellInfo *cell) const = 0;
     virtual bool getClusterPlacement(ClusterId cluster, BelId root_bel,
                                      std::vector<std::pair<CellInfo *, BelId>> &placement) const = 0;
+    // Routing methods
+    virtual void expandBoundingBox(BoundingBox &bb) const = 0;
+
     // Flow methods
     virtual bool pack() = 0;
     virtual bool place() = 0;

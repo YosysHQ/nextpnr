@@ -19,7 +19,6 @@
  */
 
 #ifndef NO_GUI
-#include <QApplication>
 #include "application.h"
 #include "mainwindow.h"
 #endif
@@ -35,6 +34,7 @@
 #include <iostream>
 #include <random>
 #include <set>
+#include <cinttypes>
 
 #include "command.h"
 #include "design_utils.h"
@@ -343,7 +343,7 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("json", po::value<std::string>(), "JSON design file to ingest");
     general.add_options()("write", po::value<std::string>(), "JSON design file to write");
     general.add_options()("top", po::value<std::string>(), "name of top module");
-    general.add_options()("seed", po::value<int>(), "seed value for random number generator");
+    general.add_options()("seed", po::value<uint64_t>(), "seed value for random number generator");
     general.add_options()("randomize-seed,r", "randomize seed value for random number generator");
 
     general.add_options()(
@@ -375,6 +375,7 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("freq", po::value<double>(), "set target frequency for design in MHz");
     general.add_options()("timing-allow-fail", "allow timing to fail in design");
     general.add_options()("no-tmdriv", "disable timing-driven placement");
+    general.add_options()("sdc", po::value<std::string>(), "Generic timing constraints SDC file to load");
     general.add_options()("sdf", po::value<std::string>(), "SDF delay back-annotation file to write");
     general.add_options()("sdf-cvc", "enable tweaks for SDF file compatibility with the CVC simulator");
     general.add_options()("no-print-critical-path-source",
@@ -390,7 +391,6 @@ po::options_description CommandHandler::getGeneralOptions()
                           "N, default: 8, 0 for no timeout)");
 
     general.add_options()("static-dump-density", "write density csv files during placer-static flow");
-
 
 #if !defined(NPNR_DISABLE_THREADS)
     general.add_options()("parallel-refine", "use new experimental parallelised engine for placement refinement");
@@ -427,7 +427,7 @@ void script_terminate_handler()
 void CommandHandler::setupContext(Context *ctx)
 {
     if (ctx->settings.find(ctx->id("seed")) != ctx->settings.end())
-        ctx->rngstate = ctx->setting<uint64_t>("seed");
+        ctx->rngseed(ctx->setting<uint64_t>("seed"));
 
     if (vm.count("verbose")) {
         ctx->verbose = true;
@@ -447,7 +447,7 @@ void CommandHandler::setupContext(Context *ctx)
     }
 
     if (vm.count("seed")) {
-        ctx->rngseed(vm["seed"].as<int>());
+        ctx->rngseed(vm["seed"].as<uint64_t>());
     }
 
     if (vm.count("threads")) {
@@ -456,10 +456,10 @@ void CommandHandler::setupContext(Context *ctx)
 
     if (vm.count("randomize-seed")) {
         std::random_device randDev{};
-        std::uniform_int_distribution<int> distrib{1};
+        std::uniform_int_distribution<uint64_t> distrib{1};
         auto seed = distrib(randDev);
-        ctx->rngseed(seed);
-        log_info("Generated random seed: %d\n", seed);
+        ctx->rngstate = seed;
+        log_info("Generated random seed: %" PRIu64 "\n", seed);
     }
 
     if (vm.count("slack_redist_iter")) {
@@ -549,7 +549,6 @@ void CommandHandler::setupContext(Context *ctx)
     if (vm.count("static-dump-density"))
         ctx->settings[ctx->id("static/dump_density")] = true;
 
-
     // Setting default values
     if (ctx->settings.find(ctx->id("target_freq")) == ctx->settings.end())
         ctx->settings[ctx->id("target_freq")] = std::to_string(12e6);
@@ -566,7 +565,7 @@ void CommandHandler::setupContext(Context *ctx)
 
     ctx->settings[ctx->id("arch.name")] = std::string(ctx->archId().c_str(ctx));
     ctx->settings[ctx->id("arch.type")] = std::string(ctx->archArgsToId(ctx->archArgs()).c_str(ctx));
-    ctx->settings[ctx->id("seed")] = ctx->rngstate;
+    ctx->settings[ctx->id("seed")] = Property(ctx->rngstate, 64);
 
     if (ctx->settings.find(ctx->id("placerHeap/alpha")) == ctx->settings.end())
         ctx->settings[ctx->id("placerHeap/alpha")] = std::to_string(0.1);
@@ -607,6 +606,13 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
                 std::ifstream f(filename);
                 if (!parse_json(f, filename, w.getContext()))
                     log_error("Loading design failed.\n");
+
+                if (vm.count("sdc")) {
+                    std::string sdc_filename = vm["sdc"].as<std::string>();
+                    std::ifstream sdc_stream(sdc_filename);
+                    ctx->read_sdc(sdc_stream);
+                }
+
                 customAfterLoad(w.getContext());
                 w.notifyChangeContext();
                 w.updateActions();
@@ -615,6 +621,7 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
         } catch (log_execution_error_exception) {
             // show error is handled by gui itself
         }
+
         w.show();
 
         return a.exec();
@@ -625,6 +632,12 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
         std::ifstream f(filename);
         if (!parse_json(f, filename, ctx.get()))
             log_error("Loading design failed.\n");
+
+        if (vm.count("sdc")) {
+            std::string sdc_filename = vm["sdc"].as<std::string>();
+            std::ifstream sdc_stream(sdc_filename);
+            ctx->read_sdc(sdc_stream);
+        }
 
         customAfterLoad(ctx.get());
     }

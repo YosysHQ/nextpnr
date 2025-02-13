@@ -1,25 +1,8 @@
-{ pkgs ? import (fetchTarball https://github.com/NixOS/nixpkgs/archive/23.05.tar.gz) {} }:
+{ pkgs ? import (fetchTarball https://github.com/NixOS/nixpkgs/archive/24.05.tar.gz) {} }:
 
 let
   pythonPkgs = pkgs.python3Packages;
   boostPython = pkgs.boost.override { python = pythonPkgs.python; enablePython = true; };
-  vscode = pkgs.vscode-with-extensions.override {
-    vscodeExtensions = with pkgs.vscode-extensions; [
-      bbenoist.nix
-      ms-vscode.cpptools
-      ms-vscode.cmake-tools
-      twxs.cmake
-      usernamehw.errorlens
-      llvm-vs-code-extensions.vscode-clangd
-    ] ++ pkgs.vscode-utils.extensionsFromVscodeMarketplace [
-      {
-        name = "VerilogHDL";
-        publisher = "mshr-h";
-        version = "1.11.4";
-        sha256 = "sha256-4JY0eaN2IkwHv8u8X6ejDXk6vT1qB4vJjWdIy8b/jj4=";
-      }
-    ];
-  };
 in pkgs.mkShell {
   buildInputs = with pkgs; [
     cmake
@@ -37,7 +20,6 @@ in pkgs.mkShell {
     valgrind
     cling
     gdb
-    vscode
   ];
 
   shellHook = ''

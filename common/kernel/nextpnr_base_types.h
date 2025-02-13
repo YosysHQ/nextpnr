@@ -78,9 +78,9 @@ struct GraphicElement
 
     float x1 = 0, y1 = 0, x2 = 0, y2 = 0, z = 0;
     std::string text;
-    GraphicElement(){};
+    GraphicElement() {};
     GraphicElement(type_t type, style_t style, float x1, float y1, float x2, float y2, float z)
-            : type(type), style(style), x1(x1), y1(y1), x2(x2), y2(y2), z(z){};
+            : type(type), style(style), x1(x1), y1(y1), x2(x2), y2(y2), z(z) {};
 };
 
 struct Loc
@@ -100,7 +100,7 @@ struct BoundingBox
     int x0 = -1, y0 = -1, x1 = -1, y1 = -1;
 
     BoundingBox() {}
-    BoundingBox(int x0, int y0, int x1, int y1) : x0(x0), y0(y0), x1(x1), y1(y1){};
+    BoundingBox(int x0, int y0, int x1, int y1) : x0(x0), y0(y0), x1(x1), y1(y1) {};
 
     int distance(Loc loc) const
     {

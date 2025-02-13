@@ -27,8 +27,8 @@ NEXTPNR_NAMESPACE_BEGIN
 
 struct StaticRect
 {
-    StaticRect() : w(0), h(0){};
-    StaticRect(float w, float h) : w(w), h(h){};
+    StaticRect() : w(0), h(0) {};
+    StaticRect(float w, float h) : w(w), h(h) {};
     float w, h;
     float area() const { return w * h; }
 };

@@ -472,7 +472,10 @@ template <typename FrontendType> struct GenericFrontend
                 ci->ports[port_bit_ids].type = dir;
                 // Resolve connectivity
                 NetInfo *net;
-                if (impl.is_vector_bit_constant(bits, i)) {
+                if (impl.is_vector_bit_undef(bits, i)) {
+                    // Don't connect it if it's an `x`
+                    continue;
+                } else if (impl.is_vector_bit_constant(bits, i)) {
                     // Create a constant driver if one is needed
                     net = create_constant_net(m, inst_name.str(ctx) + "." + port_bit_name + "$const",
                                               impl.get_vector_bit_constval(bits, i));
@@ -535,6 +538,9 @@ template <typename FrontendType> struct GenericFrontend
         // Do the submodule import
         auto type = impl.get_cell_type(cd);
         import_module(submod, name, type, mod_refs.at(type));
+        // Add current cell attributes to the imported module
+        impl.foreach_attr( cd, [&](const std::string &name, const Property &value)
+              { ctx->hierarchy[submod.path].attrs[ctx->id(name)] = value; } );
     }
 
     // Import the cells section of a module

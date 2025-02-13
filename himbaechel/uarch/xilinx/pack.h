@@ -39,7 +39,7 @@ struct XilinxPacker
     Context *ctx;
     XilinxImpl *uarch;
 
-    XilinxPacker(Context *ctx, XilinxImpl *uarch) : ctx(ctx), uarch(uarch){};
+    XilinxPacker(Context *ctx, XilinxImpl *uarch) : ctx(ctx), uarch(uarch) {};
 
     // Generic cell transformation
     // Given cell name map and port map
@@ -170,7 +170,7 @@ struct XilinxPacker
 
 struct XC7Packer : public XilinxPacker
 {
-    XC7Packer(Context *ctx, XilinxImpl *uarch) : XilinxPacker(ctx, uarch){};
+    XC7Packer(Context *ctx, XilinxImpl *uarch) : XilinxPacker(ctx, uarch) {};
 
     // Carries
     bool has_illegal_fanout(NetInfo *carry);
@@ -186,11 +186,11 @@ struct XC7Packer : public XilinxPacker
     // IOLOGIC
     dict<IdString, XFormRule> hp_iol_rules, hd_iol_rules, ioctrl_rules;
     void fold_inverter(CellInfo *cell, std::string port);
-    std::string get_ologic_site(const std::string &io_bel);
-    std::string get_ilogic_site(const std::string &io_bel);
-    std::string get_ioctrl_site(const std::string &io_bel);
-    std::string get_odelay_site(const std::string &io_bel);
-    std::string get_idelay_site(const std::string &io_bel);
+    SiteIndex get_ologic_site(BelId io_bel);
+    SiteIndex get_ilogic_site(BelId io_bel);
+    SiteIndex get_ioctrl_site(BelId io_bel);
+    SiteIndex get_odelay_site(BelId io_bel);
+    SiteIndex get_idelay_site(BelId io_bel);
     // Call before packing constants
     void prepare_iologic();
 
@@ -210,7 +210,7 @@ struct XC7Packer : public XilinxPacker
     void pack_dsps();
 
   private:
-    void walk_dsp(CellInfo *root, CellInfo *ci, int constr_z);
+    unsigned walk_dsp(CellInfo *root, CellInfo *ci, int constr_z);
     void check_valid_pad(CellInfo *ci, std::string type);
 };
 

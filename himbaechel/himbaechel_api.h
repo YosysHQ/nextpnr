@@ -57,7 +57,10 @@ struct PlacerHeapCfg;
 
 struct HimbaechelAPI
 {
+    // Architecture specific context initialization
     virtual void init(Context *ctx);
+    // Called after context is initialized, but before any commands are executed
+    virtual void setupArchContext() {}
     // If constids are being used, this is used to set them up early
     // then it is responsible for loading the db blob with arch->load_chipdb()
     virtual void init_database(Arch *arch) = 0;
@@ -102,18 +105,32 @@ struct HimbaechelAPI
     virtual bool isClusterStrict(const CellInfo *cell) const;
     virtual bool getClusterPlacement(ClusterId cluster, BelId root_bel,
                                      std::vector<std::pair<CellInfo *, BelId>> &placement) const;
+
+    // Graphics
+    virtual void drawBel(std::vector<GraphicElement> &g, GraphicElement::style_t style, IdString bel_type, Loc loc) {};
+
+    virtual void drawWire(std::vector<GraphicElement> &g, GraphicElement::style_t style, Loc loc, IdString wire_type,
+                          int32_t tilewire, IdString tile_type) {};
+
+    virtual void drawPip(std::vector<GraphicElement> &g, GraphicElement::style_t style, Loc loc, WireId src,
+                         IdString src_type, int32_t src_id, WireId dst, IdString dst_type, int32_t dst_id) {};
+
+    virtual void drawGroup(std::vector<GraphicElement> &g, GroupId group, Loc loc) {};
+
+    // Routing methods
+    virtual void expandBoundingBox(BoundingBox &bb) const;
     // --- Flow hooks ---
-    virtual void pack(){}; // replaces the pack function
+    virtual void pack() {}; // replaces the pack function
     // Called before and after main placement and routing
-    virtual void prePlace(){};
-    virtual void postPlace(){};
-    virtual void preRoute(){};
-    virtual void postRoute(){};
+    virtual void prePlace() {};
+    virtual void postPlace() {};
+    virtual void preRoute() {};
+    virtual void postRoute() {};
 
     // For custom placer configuration
-    virtual void configurePlacerHeap(PlacerHeapCfg &cfg){};
+    virtual void configurePlacerHeap(PlacerHeapCfg &cfg) {};
 
-    virtual ~HimbaechelAPI(){};
+    virtual ~HimbaechelAPI() {};
 };
 
 struct HimbaechelArch
@@ -123,7 +140,7 @@ struct HimbaechelArch
 
     std::string name;
     HimbaechelArch(const std::string &name);
-    ~HimbaechelArch(){};
+    ~HimbaechelArch() {};
     virtual bool match_device(const std::string &device) = 0;
     virtual std::unique_ptr<HimbaechelAPI> create(const std::string &device,
                                                   const dict<std::string, std::string> &args) = 0;

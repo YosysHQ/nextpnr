@@ -77,10 +77,20 @@ struct PortRef
     IdString port;
 };
 
+// Zero checking which works regardless if delay_t is floating or integer
+inline bool is_zero_delay(delay_t delay)
+{
+    if constexpr (std::is_floating_point<delay_t>::value) {
+        return std::fpclassify(delay) == FP_ZERO;
+    } else {
+        return delay == 0;
+    }
+}
+
 // minimum and maximum delay
 struct DelayPair
 {
-    DelayPair(){};
+    DelayPair() : min_delay(0), max_delay(0) {};
     explicit DelayPair(delay_t delay) : min_delay(delay), max_delay(delay) {}
     DelayPair(delay_t min_delay, delay_t max_delay) : min_delay(min_delay), max_delay(max_delay) {}
     delay_t minDelay() const { return min_delay; }
@@ -94,13 +104,25 @@ struct DelayPair
     {
         return {min_delay - other.min_delay, max_delay - other.max_delay};
     }
+    DelayPair &operator+=(const DelayPair &rhs)
+    {
+        min_delay += rhs.min_delay;
+        max_delay += rhs.max_delay;
+        return *this;
+    }
+    DelayPair &operator-=(const DelayPair &rhs)
+    {
+        min_delay -= rhs.min_delay;
+        max_delay -= rhs.max_delay;
+        return *this;
+    }
 };
 
 // four-quadrant, min and max rise and fall delay
 struct DelayQuad
 {
     DelayPair rise, fall;
-    DelayQuad() {}
+    DelayQuad() : rise(0), fall(0) {}
     explicit DelayQuad(delay_t delay) : rise(delay), fall(delay) {}
     DelayQuad(delay_t min_delay, delay_t max_delay) : rise(min_delay, max_delay), fall(min_delay, max_delay) {}
     DelayQuad(DelayPair rise, DelayPair fall) : rise(rise), fall(fall) {}
@@ -120,6 +142,19 @@ struct DelayQuad
 
     DelayQuad operator+(const DelayQuad &other) const { return {rise + other.rise, fall + other.fall}; }
     DelayQuad operator-(const DelayQuad &other) const { return {rise - other.rise, fall - other.fall}; }
+    DelayQuad &operator+=(const DelayQuad &rhs)
+    {
+        rise += rhs.rise;
+        fall += rhs.fall;
+        return *this;
+    }
+
+    DelayQuad &operator-=(const DelayQuad &rhs)
+    {
+        rise -= rhs.rise;
+        fall -= rhs.fall;
+        return *this;
+    }
 };
 
 struct ClockConstraint;
@@ -155,6 +190,20 @@ enum PortType
     PORT_INOUT = 2
 };
 
+[[maybe_unused]] static const std::string portType_to_str(PortType typ)
+{
+    switch (typ) {
+    case PORT_IN:
+        return "PORT_IN";
+    case PORT_OUT:
+        return "PORT_OUT";
+    case PORT_INOUT:
+        return "PORT_INOUT";
+    default:
+        NPNR_ASSERT_FALSE("Impossible PortType");
+    }
+}
+
 struct PortInfo
 {
     IdString name;
@@ -178,11 +227,49 @@ enum TimingPortClass
     TMG_IGNORE,          // Asynchronous to all clocks, "don't care", and should be ignored (false path) for analysis
 };
 
+[[maybe_unused]] static const std::string timingPortClass_to_str(TimingPortClass tmg_class)
+{
+    switch (tmg_class) {
+    case TMG_CLOCK_INPUT:
+        return "TMG_CLOCK_INPUT";
+    case TMG_GEN_CLOCK:
+        return "TMG_GEN_CLOCK";
+    case TMG_REGISTER_INPUT:
+        return "TMG_REGISTER_INPUT";
+    case TMG_REGISTER_OUTPUT:
+        return "TMG_REGISTER_OUTPUT";
+    case TMG_COMB_INPUT:
+        return "TMG_COMB_INPUT";
+    case TMG_COMB_OUTPUT:
+        return "TMG_COMB_OUTPUT";
+    case TMG_STARTPOINT:
+        return "TMG_STARTPOINT";
+    case TMG_ENDPOINT:
+        return "TMG_ENDPOINT";
+    case TMG_IGNORE:
+        return "TMG_IGNORE";
+    default:
+        NPNR_ASSERT_FALSE("Impossible TimingPortClass");
+    }
+}
+
 enum ClockEdge
 {
     RISING_EDGE,
     FALLING_EDGE
 };
+
+[[maybe_unused]] static const std::string clockEdge_to_str(ClockEdge edge)
+{
+    switch (edge) {
+    case RISING_EDGE:
+        return "RISING_EDGE";
+    case FALLING_EDGE:
+        return "FALLING_EDGE";
+    default:
+        NPNR_ASSERT_FALSE("Impossible ClockEdge");
+    }
+}
 
 struct TimingClockingInfo
 {
@@ -200,7 +287,7 @@ struct PseudoCell
     virtual bool getDelay(IdString fromPort, IdString toPort, DelayQuad &delay) const = 0;
     virtual TimingPortClass getPortTimingClass(IdString port, int &clockInfoCount) const = 0;
     virtual TimingClockingInfo getPortClockingInfo(IdString port, int index) const = 0;
-    virtual ~PseudoCell(){};
+    virtual ~PseudoCell() {};
 };
 
 struct RegionPlug : PseudoCell
@@ -320,12 +407,39 @@ struct CriticalPath
         // Segment type
         enum class Type
         {
-            CLK_TO_Q, // Clock-to-Q delay
-            SOURCE,   // Delayless source
-            LOGIC,    // Combinational logic delay
-            ROUTING,  // Routing delay
-            SETUP     // Setup time in sink
+            CLK_TO_CLK, // Clock to clock delay
+            CLK_SKEW,   // Clock skew
+            CLK_TO_Q,   // Clock-to-Q delay
+            SOURCE,     // Delayless source
+            LOGIC,      // Combinational logic delay
+            ROUTING,    // Routing delay
+            SETUP,      // Setup time in sink
+            HOLD        // Hold time in sink
         };
+
+        [[maybe_unused]] static const std::string type_to_str(Type typ)
+        {
+            switch (typ) {
+            case Type::CLK_TO_CLK:
+                return "clk-to-clk";
+            case Type::CLK_SKEW:
+                return "clk-skew";
+            case Type::CLK_TO_Q:
+                return "clk-to-q";
+            case Type::SOURCE:
+                return "source";
+            case Type::LOGIC:
+                return "logic";
+            case Type::ROUTING:
+                return "routing";
+            case Type::SETUP:
+                return "setup";
+            case Type::HOLD:
+                return "hold";
+            default:
+                NPNR_ASSERT_FALSE("Impossible Segment::Type");
+            }
+        }
 
         // Type
         Type type;
@@ -341,10 +455,11 @@ struct CriticalPath
 
     // Clock pair
     ClockPair clock_pair;
-    // Total path delay
-    delay_t delay;
-    // Period (max allowed delay)
-    delay_t period;
+
+    // if sum[segments.delay] < 0 this is a hold/min violation
+    // if sum[segments.delay] > max_delay this is a setup/max violation
+    delay_t max_delay;
+
     // Individual path segments
     std::vector<Segment> segments;
 };
@@ -357,7 +472,7 @@ struct NetSinkTiming
     // Cell and port (the sink)
     std::pair<IdString, IdString> cell_port;
     // Delay
-    delay_t delay;
+    DelayPair delay;
 };
 
 struct TimingResult
@@ -374,11 +489,11 @@ struct TimingResult
     // Detailed net timing data
     dict<IdString, std::vector<NetSinkTiming>> detailed_net_timings;
 
-    // clock to clock delays
-    dict<std::pair<IdString, IdString>, delay_t> clock_delays;
-
     // Histogram of slack
     dict<int, unsigned> slack_histogram;
+
+    // Min delay violations, only hold time for now
+    std::vector<CriticalPath> min_delay_violations;
 };
 
 // Represents the contents of a non-leaf cell in a design
@@ -404,6 +519,8 @@ struct HierarchicalCell
     dict<IdString, HierarchicalPort> ports;
     // Name inside cell instance -> global name
     dict<IdString, IdString> hier_cells;
+    // Cell attributes
+    dict<IdString, Property> attrs;
 };
 
 NEXTPNR_NAMESPACE_END

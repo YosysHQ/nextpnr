@@ -79,16 +79,8 @@ static Json::array json_report_critical_paths(const Context *ctx)
                     {"to", toJson},
             });
 
-            if (segment.type == CriticalPath::Segment::Type::CLK_TO_Q) {
-                segmentJson["type"] = "clk-to-q";
-            } else if (segment.type == CriticalPath::Segment::Type::SOURCE) {
-                segmentJson["type"] = "source";
-            } else if (segment.type == CriticalPath::Segment::Type::LOGIC) {
-                segmentJson["type"] = "logic";
-            } else if (segment.type == CriticalPath::Segment::Type::SETUP) {
-                segmentJson["type"] = "setup";
-            } else if (segment.type == CriticalPath::Segment::Type::ROUTING) {
-                segmentJson["type"] = "routing";
+            segmentJson["type"] = CriticalPath::Segment::type_to_str(segment.type);
+            if (segment.type == CriticalPath::Segment::Type::ROUTING) {
                 segmentJson["net"] = segment.net.c_str(ctx);
             }
 
@@ -130,10 +122,13 @@ static Json::array json_report_detailed_net_timings(const Context *ctx)
 
         Json::array endpointsJson;
         for (const auto &sink_timing : it.second) {
+            auto minDelay = ctx->getDelayNS(sink_timing.delay.minDelay());
+            auto maxDelay = ctx->getDelayNS(sink_timing.delay.maxDelay());
+
             auto endpointJson = Json::object({{"cell", sink_timing.cell_port.first.c_str(ctx)},
                                               {"port", sink_timing.cell_port.second.c_str(ctx)},
                                               {"event", clock_event_name(ctx, sink_timing.clock_pair.end)},
-                                              {"delay", ctx->getDelayNS(sink_timing.delay)}});
+                                              {"delay", Json::array({minDelay, maxDelay})}});
             endpointsJson.push_back(endpointJson);
         }
 
@@ -209,7 +204,10 @@ Report JSON structure:
           "cell": <sink cell name>,
           "port": <sink cell port name>,
           "event": <destination clock event name>,
-          "delay": <delay [ns]>,
+          "delay": [
+            <minimum segment delay [ns]>,
+            <maximum segment delay [ns]>,
+          ],
         }
         ...
       ]

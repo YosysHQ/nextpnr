@@ -30,8 +30,8 @@ typedef float delay_t;
 
 struct BelId
 {
-    BelId() : index(-1){};
-    explicit BelId(int32_t index) : index(index){};
+    BelId() : index(-1) {};
+    explicit BelId(int32_t index) : index(index) {};
     int32_t index = -1;
 
     bool operator==(const BelId &other) const { return index == other.index; }
@@ -42,8 +42,8 @@ struct BelId
 
 struct WireId
 {
-    WireId() : index(-1){};
-    explicit WireId(int32_t index) : index(index){};
+    WireId() : index(-1) {};
+    explicit WireId(int32_t index) : index(index) {};
     int32_t index = -1;
 
     bool operator==(const WireId &other) const { return index == other.index; }
@@ -54,8 +54,8 @@ struct WireId
 
 struct PipId
 {
-    PipId() : index(-1){};
-    explicit PipId(int32_t index) : index(index){};
+    PipId() : index(-1) {};
+    explicit PipId(int32_t index) : index(index) {};
     int32_t index = -1;
 
     bool operator==(const PipId &other) const { return index == other.index; }
@@ -68,8 +68,8 @@ struct DecalId
 {
     IdStringList name;
     bool active = false;
-    DecalId() : name(), active(false){};
-    DecalId(IdStringList name, bool active) : name(name), active(active){};
+    DecalId() : name(), active(false) {};
+    DecalId(IdStringList name, bool active) : name(name), active(active) {};
     bool operator==(const DecalId &other) const { return name == other.name && active == other.active; }
     bool operator!=(const DecalId &other) const { return name != other.name || active != other.active; }
     unsigned int hash() const { return mkhash(name.hash(), active); }

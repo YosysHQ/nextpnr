@@ -17,8 +17,6 @@
  *
  */
 
-#ifdef MAIN_EXECUTABLE
-
 #include <fstream>
 #include "command.h"
 #include "design_utils.h"
@@ -31,9 +29,9 @@ class HimbaechelCommandHandler : public CommandHandler
 {
   public:
     HimbaechelCommandHandler(int argc, char **argv);
-    virtual ~HimbaechelCommandHandler(){};
+    virtual ~HimbaechelCommandHandler() {};
     std::unique_ptr<Context> createContext(dict<std::string, Property> &values) override;
-    void setupArchContext(Context *ctx) override{};
+    void setupArchContext(Context *ctx) override;
     void customBitstream(Context *ctx) override;
 
   protected:
@@ -57,6 +55,8 @@ po::options_description HimbaechelCommandHandler::getArchOptions()
 
     return specific;
 }
+
+void HimbaechelCommandHandler::setupArchContext(Context *ctx) { ctx->uarch->setupArchContext(); }
 
 void HimbaechelCommandHandler::customBitstream(Context *ctx) {}
 
@@ -104,5 +104,3 @@ int main(int argc, char *argv[])
     HimbaechelCommandHandler handler(argc, argv);
     return handler.exec();
 }
-
-#endif

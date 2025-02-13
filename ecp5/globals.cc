@@ -48,7 +48,7 @@ static std::string get_quad_name(GlobalQuadrant quad)
 class Ecp5GlobalRouter
 {
   public:
-    Ecp5GlobalRouter(Context *ctx) : ctx(ctx){};
+    Ecp5GlobalRouter(Context *ctx) : ctx(ctx) {};
 
   private:
     bool is_clock_port(const PortRef &user)
@@ -512,11 +512,12 @@ class Ecp5GlobalRouter
   public:
     void promote_globals()
     {
+        bool disable_promotion = bool_or_default(ctx->settings, ctx->id("arch.no-promote-globals"));
         bool is_ooc = bool_or_default(ctx->settings, ctx->id("arch.ooc"));
         log_info("Promoting globals...\n");
         auto clocks = get_clocks();
         for (auto clock : clocks) {
-            bool is_noglobal = bool_or_default(clock->attrs, id_noglobal, false) ||
+            bool is_noglobal = disable_promotion || bool_or_default(clock->attrs, id_noglobal, false) ||
                                bool_or_default(clock->attrs, id_ECP5_IS_GLOBAL, false);
             if (is_noglobal)
                 continue;

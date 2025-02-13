@@ -39,7 +39,7 @@ struct BelId
     int32_t index = -1;
 
     BelId() = default;
-    BelId(int32_t tile, int32_t index) : tile(tile), index(index){};
+    BelId(int32_t tile, int32_t index) : tile(tile), index(index) {};
 
     bool operator==(const BelId &other) const { return tile == other.tile && index == other.index; }
     bool operator!=(const BelId &other) const { return tile != other.tile || index != other.index; }
@@ -56,7 +56,7 @@ struct WireId
     int32_t index = -1;
 
     WireId() = default;
-    WireId(int32_t tile, int32_t index) : tile(tile), index(index){};
+    WireId(int32_t tile, int32_t index) : tile(tile), index(index) {};
 
     bool operator==(const WireId &other) const { return tile == other.tile && index == other.index; }
     bool operator!=(const WireId &other) const { return tile != other.tile || index != other.index; }
@@ -74,7 +74,7 @@ struct PipId
     int32_t index = -1;
 
     PipId() = default;
-    PipId(int32_t tile, int32_t index) : tile(tile), index(index){};
+    PipId(int32_t tile, int32_t index) : tile(tile), index(index) {};
 
     bool operator==(const PipId &other) const { return tile == other.tile && index == other.index; }
     bool operator!=(const PipId &other) const { return tile != other.tile || index != other.index; }
@@ -85,8 +85,51 @@ struct PipId
     unsigned int hash() const { return mkhash(tile, index); }
 };
 
-typedef IdString DecalId;
-typedef IdString GroupId;
+struct DecalId
+{
+    int32_t tile = -1;
+    int32_t index = -1;
+    enum DecalType
+    {
+        TYPE_NONE,
+        TYPE_BEL,
+        TYPE_WIRE,
+        TYPE_PIP,
+        TYPE_GROUP
+    } type = TYPE_NONE;
+    bool active = false;
+
+    DecalId() = default;
+    DecalId(int32_t tile, int32_t index, DecalType type) : tile(tile), index(index), type(type) {};
+
+    bool operator==(const DecalId &other) const
+    {
+        return tile == other.tile && index == other.index && type == other.type;
+    }
+    bool operator!=(const DecalId &other) const
+    {
+        return tile != other.tile || index != other.index || type != other.type;
+    }
+    unsigned int hash() const { return mkhash(tile, mkhash(index, type)); }
+};
+
+struct GroupId
+{
+    int32_t tile = -1;
+    int32_t index = -1;
+
+    GroupId() = default;
+    GroupId(int32_t tile, int32_t index) : tile(tile), index(index) {};
+
+    bool operator==(const GroupId &other) const { return tile == other.tile && index == other.index; }
+    bool operator!=(const GroupId &other) const { return tile != other.tile || index != other.index; }
+    bool operator<(const GroupId &other) const
+    {
+        return tile < other.tile || (tile == other.tile && index < other.index);
+    }
+    unsigned int hash() const { return mkhash(tile, index); }
+};
+
 typedef IdString BelBucketId;
 typedef IdString ClusterId;
 

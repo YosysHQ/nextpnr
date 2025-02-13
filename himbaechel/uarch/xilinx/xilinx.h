@@ -63,13 +63,17 @@ struct XilinxCellTags
 
 struct SiteIndex
 {
-    SiteIndex() : tile(-1), site(-1){};
-    SiteIndex(int32_t tile, int32_t site) : tile(tile), site(site){};
+    SiteIndex() : tile(-1), site(-1) {};
+    SiteIndex(int32_t tile, int32_t site) : tile(tile), site(site) {};
 
     int32_t tile;
     int32_t site;
     bool operator==(const SiteIndex &other) const { return tile == other.tile && site == other.site; }
     bool operator!=(const SiteIndex &other) const { return tile != other.tile || site != other.site; }
+    bool operator<(const SiteIndex &other) const
+    {
+        return (tile < other.tile) || (tile == other.tile && site < other.site);
+    }
     unsigned hash() const { return mkhash(tile, site); }
 };
 
@@ -149,6 +153,7 @@ struct XilinxImpl : HimbaechelAPI
     IdString bel_name_in_site(BelId bel) const;
     IdStringList get_site_bel_name(BelId bel) const;
     BelId get_site_bel(SiteIndex site, IdString bel_name) const;
+    WireId lookup_wire(int tile, IdString wire_name) const;
 
     int hclk_for_iob(BelId pad) const;
     int hclk_for_ioi(int tile) const;

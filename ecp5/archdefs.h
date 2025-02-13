@@ -55,9 +55,9 @@ NPNR_PACKED_STRUCT(struct LocationPOD { int16_t x, y; });
 struct Location
 {
     int16_t x = -1, y = -1;
-    Location() : x(-1), y(-1){};
-    Location(int16_t x, int16_t y) : x(x), y(y){};
-    Location(const LocationPOD &pod) : x(pod.x), y(pod.y){};
+    Location() : x(-1), y(-1) {};
+    Location(int16_t x, int16_t y) : x(x), y(y) {};
+    Location(const LocationPOD &pod) : x(pod.x), y(pod.y) {};
 
     bool operator==(const Location &other) const { return x == other.x && y == other.y; }
     bool operator!=(const Location &other) const { return x != other.x || y != other.y; }

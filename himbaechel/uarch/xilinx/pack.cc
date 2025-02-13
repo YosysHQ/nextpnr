@@ -733,8 +733,8 @@ void XilinxImpl::pack()
     packer.pack_io();
     packer.prepare_clocking();
     packer.pack_constants();
-    // packer.pack_iologic();
-    // packer.pack_idelayctrl();
+    packer.pack_iologic();
+    packer.pack_idelayctrl();
     packer.pack_clocking();
     packer.pack_muxfs();
     packer.pack_carries();
@@ -742,7 +742,7 @@ void XilinxImpl::pack()
     packer.pack_luts();
     packer.pack_dram();
     packer.pack_bram();
-    // packer.pack_dsps();
+    packer.pack_dsps();
     packer.pack_ffs();
     packer.finalise_muxfs();
     packer.pack_lutffs();
