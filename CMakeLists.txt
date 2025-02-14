@@ -113,9 +113,9 @@ if (EXTERNAL_CHIPDB)
 endif()
 
 # List of families to build
-set(FAMILIES generic ice40 ecp5 nexus gowin machxo2 mistral himbaechel)
+set(FAMILIES generic ice40 ecp5 nexus machxo2 mistral himbaechel)
 set(STABLE_FAMILIES generic ice40 ecp5)
-set(EXPERIMENTAL_FAMILIES nexus gowin machxo2 mistral himbaechel)
+set(EXPERIMENTAL_FAMILIES nexus machxo2 mistral himbaechel)
 
 set(ARCH "" CACHE STRING "Architecture family for nextpnr build")
 set_property(CACHE ARCH PROPERTY STRINGS ${FAMILIES})
