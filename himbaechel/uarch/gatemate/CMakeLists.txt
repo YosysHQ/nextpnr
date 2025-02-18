@@ -1,6 +1,7 @@
 set(SOURCES
     bitstream.cc
     ccf.cc
+    cells.cc
 	config.cc
 	config.h
     constids.inc
