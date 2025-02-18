@@ -38,6 +38,12 @@ struct GateMatePacker
     void disconnect_if_gnd(CellInfo *cell, IdString input);
     void remove_constants();
 
+    // Cell creating
+    CellInfo *create_cell_ptr(IdString type, IdString name);
+    void flush_cells();
+
+    pool<IdString> packed_cells;
+
     Context *ctx;
     GateMateImpl *uarch;
 

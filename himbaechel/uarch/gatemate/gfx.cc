@@ -34,11 +34,18 @@ void GateMateImpl::drawBel(std::vector<GraphicElement> &g, GraphicElement::style
     el.type = GraphicElement::TYPE_BOX;
     el.style = style;
     switch (bel_type.index) {
-    case id_CPE.index:
+    case id_CPE_HALF_L.index:
+        el.x1 = loc.x + 0.70;
+        el.x2 = el.x1 + 0.20;
+        el.y1 = loc.y + 0.25;
+        el.y2 = el.y1 + 0.20;
+        g.push_back(el);
+        break;
+    case id_CPE_HALF_U.index:
         el.x1 = loc.x + 0.70;
         el.x2 = el.x1 + 0.20;
         el.y1 = loc.y + 0.55;
-        el.y2 = el.y1 + 0.40;
+        el.y2 = el.y1 + 0.20;
         g.push_back(el);
         break;
     case id_GPIO.index:

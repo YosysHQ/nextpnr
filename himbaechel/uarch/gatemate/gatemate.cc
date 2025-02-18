@@ -55,7 +55,7 @@ bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
     if (cell == nullptr) {
         return true;
     }
-    if (ctx->getBelType(bel) == id_CPE) {
+    if (ctx->getBelType(bel).in(id_CPE_HALF_L, id_CPE_HALF_U)) {
         Loc loc = ctx->getBelLocation(bel);
         int x = loc.x - 2;
         int y = loc.y - 2;
@@ -83,7 +83,7 @@ void updateLUT(Context *ctx, CellInfo *cell, IdString port, IdString init)
         if (!extra_data.name)
             continue;
         if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_CPE_INV)) {
-            if (port.in(id_IN1,id_IN3,id_IN5,id_IN7))
+            if (port.in(id_IN1,id_IN3)) //,id_IN5,id_IN7))
                 init_val = (init_val & 0b1010) >> 1 | (init_val & 0b0101) << 1;
             else
                 init_val = (init_val & 0b0011) << 2 | (init_val & 0b1100) >> 2;
@@ -150,6 +150,41 @@ void updateMUX_INV(Context *ctx, CellInfo *cell, IdString port, IdString param, 
 void GateMateImpl::postRoute()
 {
     ctx->assignArchInfo();
+    for (auto &cell : ctx->cells) {
+        if (cell.second->type.in(id_CPE_HALF, id_CPE_HALF_U, id_CPE_HALF_L)) {
+            Loc l = ctx->getBelLocation(cell.second->bel);
+            if (l.z==0) {
+                if(cell.second->params.count(id_C_O)) {
+                    int mode = int_or_default(cell.second->params, id_C_O, 0);
+                    cell.second->params[id_C_O2] = Property(mode, 2);
+                    cell.second->unsetParam(id_C_O);
+                    if (mode==0)
+                        cell.second->params[id_C_2D_IN] = Property(1, 1);
+                }
+                cell.second->type = id_CPE_HALF_U;
+            } else {
+                if(!cell.second->params.count(id_INIT_L20))
+                    cell.second->params[id_INIT_L20] = Property(0b1100, 4);
+                if(cell.second->params.count(id_C_O)) {
+                    cell.second->params[id_C_O1] = Property(int_or_default(cell.second->params, id_C_O, 0), 2);
+                    cell.second->unsetParam(id_C_O);
+                }
+                if(cell.second->params.count(id_INIT_L00)) {
+                    cell.second->params[id_INIT_L02] = Property(int_or_default(cell.second->params, id_INIT_L00, 0), 4);
+                    cell.second->unsetParam(id_INIT_L00);
+                }
+                if(cell.second->params.count(id_INIT_L01)) {
+                    cell.second->params[id_INIT_L03] = Property(int_or_default(cell.second->params, id_INIT_L01, 0), 4);
+                    cell.second->unsetParam(id_INIT_L01);
+                }
+                if(cell.second->params.count(id_INIT_L10)) {
+                    cell.second->params[id_INIT_L11] = Property(int_or_default(cell.second->params, id_INIT_L10, 0), 4);
+                    cell.second->unsetParam(id_INIT_L10);
+                }
+                cell.second->type = id_CPE_HALF_L;
+            }
+        }
+    }
     log_break();
     log_info("Resources spent on routing:\n");
     for (auto &net : ctx->nets) {
@@ -162,37 +197,79 @@ void GateMateImpl::postRoute()
                     continue;
                 if (extra_data.type == PipExtra::PIP_EXTRA_CPE) {
                     IdStringList id = ctx->getPipName(w.second.pip);
-                    BelId bel = ctx->getBelByName(IdStringList::concat(id[0], id_CPE));
-                    if (!ctx->getBoundBelCell(bel)) {
-                        CellInfo *cell = ctx->createCell(ctx->id(ctx->nameOfBel(bel)), id_CPE);
-                        ctx->bindBel(bel, cell, PlaceStrength::STRENGTH_FIXED);
+                    //BelId bel = ctx->getBelByName(IdStringList::concat(id[0], id_CPE));
+                    //if (!ctx->getBoundBelCell(bel)) {
+                        //CellInfo *cell = ctx->createCell(ctx->id(ctx->nameOfBel(bel)), id_CPE_HALF);
+                        //ctx->bindBel(bel, cell, PlaceStrength::STRENGTH_FIXED);
                         if (IdString(extra_data.name) == id_RAM_O2) {
+                            //log_info("id_RAM_O2\n");
+                            BelId bel = ctx->getBelByName(IdStringList::concat(id[0], id_CPE_HALF_U));
+                            if (ctx->getBoundBelCell(bel))
+                                log_error("Issue adding pass trough signal.\n");
+                            CellInfo *cell = ctx->createCell(ctx->id(ctx->nameOfBel(bel)), id_CPE_HALF_U);
+                            ctx->bindBel(bel, cell, PlaceStrength::STRENGTH_FIXED);
                             // Propagate IN1 to O2 and RAM_O2
                             cell->params[id_INIT_L00] = Property(0b1010, 4);
                             cell->params[id_INIT_L10] = Property(0b1010, 4);
                             cell->params[id_C_O2] = Property(0b11, 2);
                             cell->params[id_C_RAM_O2] = Property(1, 1);
                         } else if (IdString(extra_data.name) == id_RAM_O1) {
+                            //log_info("id_RAM_O1\n");
+                            BelId bel = ctx->getBelByName(IdStringList::concat(id[0], id_CPE_HALF_L));
+                            if (ctx->getBoundBelCell(bel))
+                                log_error("Issue adding pass trough signal.\n");
+                            CellInfo *cell = ctx->createCell(ctx->id(ctx->nameOfBel(bel)), id_CPE_HALF_L);
+                            ctx->bindBel(bel, cell, PlaceStrength::STRENGTH_FIXED);
                             // Propagate IN1 to O1 and RAM_O1
-                            cell->params[id_INIT_L00] = Property(0b1010, 4);
-                            cell->params[id_INIT_L10] = Property(0b1010, 4);
-                            cell->params[id_INIT_L20] = Property(0b1010, 4);
+                            cell->params[id_INIT_L02] = Property(0b1010, 4);
+                            cell->params[id_INIT_L11] = Property(0b1010, 4);
+                            cell->params[id_INIT_L20] = Property(0b1100, 4);
                             cell->params[id_C_O1] = Property(0b11, 2);
                             cell->params[id_C_RAM_O1] = Property(1, 1);
-                        } else if (IdString(extra_data.name) == id_RAM_I1) {
+/*                        } else if (IdString(extra_data.name) == id_RAM_I1) {
                             cell->params[id_C_RAM_I1] = Property(1, 1);
                         } else if (IdString(extra_data.name) == id_RAM_I2) {
-                            cell->params[id_C_RAM_I2] = Property(1, 1);
+                            cell->params[id_C_RAM_I2] = Property(1, 1);*/
                         } else {
                             log_error("Issue adding pass trough signal for %s.\n",IdString(extra_data.name).c_str(ctx));
                         }
-                    } else
-                        log_error("Issue adding pass trough signal.\n");
+                    //} else
+                      //  log_error("Issue adding pass trough signal.\n");
                 }
             }
         }
     }
-
+    for (auto &cell : ctx->cells) {
+        if (cell.second->type.in(id_CPE_HALF_U)) {
+            //log_info("Checking id_CPE_HALF_U %s\n", cell.second->name.c_str(ctx));
+            uint8_t func = int_or_default(cell.second->params, id_C_FUNCTION, 0);
+            if (func != C_MX4) {
+                updateLUT(ctx, cell.second.get(), id_IN1, id_INIT_L00);
+                updateLUT(ctx, cell.second.get(), id_IN2, id_INIT_L00);
+                updateLUT(ctx, cell.second.get(), id_IN3, id_INIT_L01);
+                updateLUT(ctx, cell.second.get(), id_IN4, id_INIT_L01);
+            } else {
+                updateMUX_INV(ctx, cell.second.get(), id_IN1, id_INIT_L11, 0);
+                updateMUX_INV(ctx, cell.second.get(), id_IN2, id_INIT_L11, 1);
+                updateMUX_INV(ctx, cell.second.get(), id_IN3, id_INIT_L11, 2);
+                updateMUX_INV(ctx, cell.second.get(), id_IN4, id_INIT_L11, 3);
+            }
+        }
+        if (cell.second->type.in(id_CPE_HALF_L)) {
+            updateLUT(ctx, cell.second.get(), id_IN1, id_INIT_L02);
+            updateLUT(ctx, cell.second.get(), id_IN2, id_INIT_L02);
+            updateLUT(ctx, cell.second.get(), id_IN3, id_INIT_L03);
+            updateLUT(ctx, cell.second.get(), id_IN4, id_INIT_L03);
+            updateINV(ctx, cell.second.get(), id_CLK, id_C_CPE_CLK);
+            updateINV(ctx, cell.second.get(), id_EN,  id_C_CPE_EN);
+            bool set = int_or_default(cell.second->params, id_C_EN_SR, 0) == 1;
+            if (set)
+                updateSR_INV(ctx, cell.second.get(), id_SR, id_C_CPE_SET);
+            else
+                updateSR_INV(ctx, cell.second.get(), id_SR, id_C_CPE_RES);
+        }
+    }
+    /*
 
     for (auto &cell : ctx->cells) {
         if (cell.second->type == id_CPE) {
@@ -223,7 +300,7 @@ void GateMateImpl::postRoute()
                 updateSR_INV(ctx, cell.second.get(), id_SR, id_C_CPE_RES);
         }
     }
-
+*/
     print_utilisation(ctx);
 
     const ArchArgs &args = ctx->args;
@@ -253,8 +330,18 @@ IdString GateMateImpl::getBelBucketForCellType(IdString cell_type) const
     if (cell_type.in(id_CC_IBUF, id_CC_OBUF, id_CC_TOBUF, id_CC_IOBUF, id_CC_LVDS_IBUF, id_CC_LVDS_TOBUF,
                      id_CC_LVDS_OBUF, id_CC_LVDS_IOBUF))
         return id_GPIO;
+    else if (cell_type.in(id_CPE_HALF_U, id_CPE_HALF_L, id_CPE_HALF))
+        return id_CPE_HALF;
     else
         return cell_type;
+}
+
+BelBucketId GateMateImpl::getBelBucketForBel(BelId bel) const
+{
+    IdString bel_type = ctx->getBelType(bel);
+    if (bel_type.in(id_CPE_HALF_U, id_CPE_HALF_L))
+        return id_CPE_HALF;
+    return bel_type;
 }
 
 bool GateMateImpl::isValidBelForCellType(IdString cell_type, BelId bel) const
@@ -263,6 +350,10 @@ bool GateMateImpl::isValidBelForCellType(IdString cell_type, BelId bel) const
     if (bel_type == id_GPIO)
         return cell_type.in(id_CC_IBUF, id_CC_OBUF, id_CC_TOBUF, id_CC_IOBUF, id_CC_LVDS_IBUF, id_CC_LVDS_TOBUF,
                             id_CC_LVDS_OBUF, id_CC_LVDS_IOBUF);
+    else if (bel_type == id_CPE_HALF_U)
+        return cell_type.in(id_CPE_HALF_U, id_CPE_HALF);
+    else if (bel_type == id_CPE_HALF_L)
+        return cell_type.in(id_CPE_HALF_L, id_CPE_HALF);
     else
         return (bel_type == cell_type);
 }
