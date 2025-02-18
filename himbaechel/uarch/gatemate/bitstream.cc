@@ -99,7 +99,9 @@ struct BitstreamBackend
                     cc.tiles[loc].add_word(stringf("GPIO.%s", p.first.c_str(ctx)), p.second.as_bits());
                 }
                 break;
-            case id_CPE.index: {
+            case id_CPE_HALF_U.index:
+            case id_CPE_HALF_L.index:
+            case id_CPE_HALF.index: {
                 int id = uarch->tile_extra_data(cell.second.get()->bel.tile)->prim_id;
                 for (auto &p : params) {
                     cc.tiles[loc].add_word(stringf("CPE%d.%s", id, p.first.c_str(ctx)), p.second.as_bits());
@@ -170,7 +172,7 @@ struct BitstreamBackend
                                 l.z = 0;
                                 BelId cpe_bel = ctx->getBelByLocation(l);
                                 // Only if switchbox is inside core (same as sharing location with CPE)
-                                if (cpe_bel != BelId() && ctx->getBelType(cpe_bel) == id_CPE) {
+                                if (cpe_bel != BelId() && ctx->getBelType(cpe_bel).in(id_CPE_HALF_L,id_CPE_HALF_U)) {
                                     // Convert coordinates into in-tile coordinates
                                     int xt = ((l.x-2-1)+16) % 8;
                                     int yt = ((l.y-2-1)+16) % 8;

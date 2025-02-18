@@ -26,6 +26,17 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+void GateMatePacker::flush_cells()
+{
+    for (auto pcell : packed_cells) {
+        for (auto &port : ctx->cells[pcell]->ports) {
+            ctx->cells[pcell]->disconnectPort(port.first);
+        }
+        ctx->cells.erase(pcell);
+    }
+    packed_cells.clear();
+}
+
 void GateMatePacker::disconnect_if_gnd(CellInfo *cell, IdString input)
 {
     NetInfo *net = cell->getPort(input);
@@ -287,24 +298,32 @@ void GateMatePacker::pack_cpe()
         if (!ci.type.in(id_CC_L2T4, id_CC_L2T5, id_CC_LUT2, id_CC_LUT1))
             continue;
         if (ci.type == id_CC_L2T5) {
-            ci.renamePort(id_I0, id_IN5);
-            ci.renamePort(id_I1, id_IN6);
-            ci.renamePort(id_I2, id_IN7);
-            ci.renamePort(id_I3, id_IN8);
+            ci.cluster = ci.name;
+            ci.renamePort(id_I0, id_IN1);
+            ci.renamePort(id_I1, id_IN2);
+            ci.renamePort(id_I2, id_IN3);
+            ci.renamePort(id_I3, id_IN4);
 
-            ci.renamePort(id_I4, id_IN1);
-            ci.renamePort(id_O, id_OUT1);
-            ci.params[id_INIT_L00] = Property(0b1010, 4);
-            ci.params[id_INIT_L10] = Property(0b1010, 4);
-            ci.params[id_C_O1] = Property(0b11, 2);
+            ci.renamePort(id_O, id_OUT);
+
+            CellInfo *upper = create_cell_ptr(id_CPE_HALF_U, ctx->idf("%s$upper", ci.name.c_str(ctx)));
+            upper->cluster = ci.name;
+            upper->constr_abs_z = false;
+            upper->constr_z = -1;
+            ci.movePortTo(id_I4, upper, id_IN1);
+            upper->params[id_INIT_L00] = Property(0b1010, 4);
+            upper->params[id_INIT_L10] = Property(0b1010, 4);
+            ci.constr_children.push_back(upper);
+    
+            ci.params[id_C_O] = Property(0b11, 2);
+            ci.type = id_CPE_HALF_L;
         } else {
             ci.renamePort(id_I0, id_IN1);
             ci.renamePort(id_I1, id_IN2);
             ci.renamePort(id_I2, id_IN3);
             ci.renamePort(id_I3, id_IN4);
-            ci.renamePort(id_O, id_OUT1);
-            ci.params[id_C_O1] = Property(0b11, 2);
-            ci.params[id_INIT_L20] = Property(0b1010, 4);
+            ci.renamePort(id_O, id_OUT);
+            ci.params[id_C_O] = Property(0b11, 2);
             if (ci.type.in(id_CC_LUT1, id_CC_LUT2)) {
                 uint8_t val = int_or_default(ci.params, id_INIT, 0);
                 if (ci.type == id_CC_LUT1)
@@ -313,8 +332,8 @@ void GateMatePacker::pack_cpe()
                 ci.unsetParam(id_INIT);
                 ci.params[id_INIT_L10] = Property(0b1010, 4);
             }
+            ci.type = id_CPE_HALF_U;
         }
-        ci.type = id_CPE;
     }
 
     for (auto &cell : ctx->cells) {
@@ -322,19 +341,16 @@ void GateMatePacker::pack_cpe()
         if (!ci.type.in(id_CC_MX2, id_CC_MX4))
             continue;
 
-        ci.renamePort(id_D0, id_IN1);
-        ci.renamePort(id_D1, id_IN2);
-        ci.renamePort(id_S0, id_IN6);
-        ci.renamePort(id_Y, id_OUT1);
-        // Only for CC_MX4
-        ci.renamePort(id_D2, id_IN3);
-        ci.renamePort(id_D3, id_IN4);
-        ci.renamePort(id_S1, id_IN8);
+        ci.cluster = ci.name;
+        ci.renamePort(id_Y, id_OUT);
+
+        ci.renamePort(id_S0, id_IN2); // IN6
+        ci.renamePort(id_S1, id_IN4); // IN8
 
         uint8_t select = 0;
         uint8_t invert = 0;
         for(int i=0;i<4;i++) {
-            NetInfo *net = ci.getPort(ctx->idf("IN%d",i+1));
+            NetInfo *net = ci.getPort(ctx->idf("D%d",i));
             if (net) {
                 if (net->name.in(ctx->id("$PACKER_GND"),ctx->id("$PACKER_VCC"))) {
                     if (net->name == ctx->id("$PACKER_VCC"))
@@ -346,23 +362,37 @@ void GateMatePacker::pack_cpe()
             }
         }
         ci.params[id_C_FUNCTION] = Property(C_MX4, 3);
-        ci.params[id_INIT_L02] = Property(0b1100, 4); // IN6
         if (ci.type == id_CC_MX4)
             ci.params[id_INIT_L03] = Property(0b1100, 4); // IN8
-        ci.params[id_INIT_L10] = Property(select, 4); // Selection bits
-        ci.params[id_INIT_L11] = Property(invert, 4); // Inversion bits
+        //ci.params[id_INIT_L11] = Property(invert, 4); // Inversion bits
         ci.params[id_INIT_L20] = Property(0b1100, 4); // Always D1
-        ci.params[id_C_O1] = Property(0b11, 2);
-        ci.type = id_CPE;
+        ci.params[id_C_O] = Property(0b11, 2);
+        ci.type = id_CPE_HALF_L;
+
+        CellInfo *upper = create_cell_ptr(id_CPE_HALF_U, ctx->idf("%s$upper", ci.name.c_str(ctx)));
+        upper->cluster = ci.name;
+        upper->constr_abs_z = false;
+        upper->constr_z = -1;
+        upper->params[id_INIT_L02] = Property(0b1100, 4); // IN6
+        upper->params[id_INIT_L10] = Property(select, 4); // Selection bits
+        upper->params[id_INIT_L11] = Property(invert, 4); // Inversion bits
+        upper->params[id_C_FUNCTION] = Property(C_MX4, 3);
+
+        ci.movePortTo(id_D0, upper, id_IN1);
+        ci.movePortTo(id_D1, upper, id_IN2);
+        // Only for CC_MX4
+        ci.movePortTo(id_D2, upper, id_IN3);
+        ci.movePortTo(id_D3, upper, id_IN4);
+        ci.constr_children.push_back(upper);
+
     }
 
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_CC_DFF))
             continue;
-        ci.renamePort(id_Q, id_OUT2);
-        ci.params[id_C_O2] = Property(0b00, 2);
-        ci.params[id_C_2D_IN] = Property(1, 1);
+        ci.renamePort(id_Q, id_OUT);
+        ci.params[id_C_O] = Property(0b00, 2);
         NetInfo *d_net = ci.getPort(id_D);
         if (d_net->name == ctx->id("$PACKER_GND")) {
             ci.params[id_INIT_L00] = Property(0b0000, 4);
@@ -456,7 +486,7 @@ void GateMatePacker::pack_cpe()
             ci.unsetParam(id_INIT);
         }
         ci.timing_index = ctx->get_cell_timing_idx(id_CPE_DFF);
-        ci.type = id_CPE;
+        ci.type = id_CPE_HALF_L;
     }
 }
 
@@ -574,10 +604,10 @@ void GateMatePacker::pack_constants()
 {
     log_info("Packing constants..\n");
     // Replace constants with LUTs
-    const dict<IdString, Property> vcc_params = {{id_INIT_L20, Property(0b1111, 4)}, {id_C_O1, Property(0b11, 2)}};
-    const dict<IdString, Property> gnd_params = {{id_INIT_L20, Property(0b0000, 4)}, {id_C_O1, Property(0b11, 2)}};
+    const dict<IdString, Property> vcc_params = {{id_INIT_L10, Property(0b1111, 4)}, {id_C_O, Property(0b11, 2)}};
+    const dict<IdString, Property> gnd_params = {{id_INIT_L10, Property(0b0000, 4)}, {id_C_O, Property(0b11, 2)}};
 
-    h.replace_constants(CellTypePort(id_CPE, id_OUT1), CellTypePort(id_CPE, id_OUT1), vcc_params, gnd_params);
+    h.replace_constants(CellTypePort(id_CPE_HALF, id_OUT), CellTypePort(id_CPE_HALF, id_OUT), vcc_params, gnd_params);
 }
 
 void GateMatePacker::remove_constants()
