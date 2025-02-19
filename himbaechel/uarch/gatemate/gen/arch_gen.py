@@ -103,6 +103,9 @@ def set_timings(ch):
 
     dff = ch.timing.add_cell_variant(speed, "CPE_DFF")
     dff.add_setup_hold("CLK", "IN1", ClockEdge.RISING, TimingValue(60), TimingValue(50))
+    dff.add_setup_hold("CLK", "IN2", ClockEdge.RISING, TimingValue(60), TimingValue(50))
+    dff.add_setup_hold("CLK", "IN3", ClockEdge.RISING, TimingValue(60), TimingValue(50))
+    dff.add_setup_hold("CLK", "IN4", ClockEdge.RISING, TimingValue(60), TimingValue(50))
     dff.add_clock_out("CLK", "OUT", ClockEdge.RISING, TimingValue(60))
     #dff.add_clock_out("CLK", "OUT2", ClockEdge.RISING, TimingValue(60))
 
