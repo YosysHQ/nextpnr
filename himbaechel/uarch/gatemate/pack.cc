@@ -471,13 +471,14 @@ void GateMatePacker::pack_cpe()
                 if (net->name.in(ctx->id("$PACKER_GND"),ctx->id("$PACKER_VCC"))) {
                     if (net->name == ctx->id("$PACKER_VCC"))
                         invert |= 1<< i;
-                    ci.disconnectPort(ctx->idf("IN%d",i+1));
+                    ci.disconnectPort(ctx->idf("D%d",i));
                 } else {
                     select |= 1 << i;
                 }
             }
         }
         ci.params[id_C_FUNCTION] = Property(C_MX4, 3);
+        ci.params[id_INIT_L02] = Property(0b1100, 4); // IN6
         if (ci.type == id_CC_MX4)
             ci.params[id_INIT_L03] = Property(0b1100, 4); // IN8
         //ci.params[id_INIT_L11] = Property(invert, 4); // Inversion bits
@@ -489,7 +490,6 @@ void GateMatePacker::pack_cpe()
         upper->cluster = ci.name;
         upper->constr_abs_z = false;
         upper->constr_z = -1;
-        upper->params[id_INIT_L02] = Property(0b1100, 4); // IN6
         upper->params[id_INIT_L10] = Property(select, 4); // Selection bits
         upper->params[id_INIT_L11] = Property(invert, 4); // Inversion bits
         upper->params[id_C_FUNCTION] = Property(C_MX4, 3);
