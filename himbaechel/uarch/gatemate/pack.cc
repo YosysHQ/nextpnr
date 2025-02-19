@@ -384,28 +384,20 @@ void GateMatePacker::dff_to_cpe(CellInfo *dff, CellInfo *cpe, bool pass_thru_lut
 void GateMatePacker::pack_cpe()
 {
     log_info("Packing CPEs..\n");
+    std::vector<CellInfo *> l2t5_list;
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_CC_L2T4, id_CC_L2T5, id_CC_LUT2, id_CC_LUT1))
             continue;
         if (ci.type == id_CC_L2T5) {
-            ci.cluster = ci.name;
+            l2t5_list.push_back(&ci);
             ci.renamePort(id_I0, id_IN1);
             ci.renamePort(id_I1, id_IN2);
             ci.renamePort(id_I2, id_IN3);
             ci.renamePort(id_I3, id_IN4);
 
             ci.renamePort(id_O, id_OUT);
-
-            CellInfo *upper = create_cell_ptr(id_CPE_HALF_U, ctx->idf("%s$upper", ci.name.c_str(ctx)));
-            upper->cluster = ci.name;
-            upper->constr_abs_z = false;
-            upper->constr_z = -1;
-            ci.movePortTo(id_I4, upper, id_IN1);
-            upper->params[id_INIT_L00] = Property(0b1010, 4);
-            upper->params[id_INIT_L10] = Property(0b1010, 4);
-            ci.constr_children.push_back(upper);
-    
+   
             ci.params[id_C_O] = Property(0b11, 2);
             ci.type = id_CPE_HALF_L;
         } else {
@@ -429,7 +421,6 @@ void GateMatePacker::pack_cpe()
         if (o) {
             CellInfo *dff = net_only_drives(ctx, o, is_dff, id_D, true);
             if (dff) {
-                log_info("found attached dff %s\n", dff->name.c_str(ctx));
                 dff->movePortTo(id_EN, &ci, id_EN);
                 dff->movePortTo(id_CLK, &ci, id_CLK);
                 dff->movePortTo(id_SR, &ci, id_SR);
@@ -441,14 +432,31 @@ void GateMatePacker::pack_cpe()
             }
         }
     }
+    
+    for (auto ci : l2t5_list) {
+        CellInfo *upper = create_cell_ptr(id_CPE_HALF_U, ctx->idf("%s$upper", ci->name.c_str(ctx)));
+        upper->cluster = ci->name;
+        upper->constr_abs_z = false;
+        upper->constr_z = -1;
+        ci->cluster = ci->name;
+        ci->movePortTo(id_I4, upper, id_IN1);
+        upper->params[id_INIT_L00] = Property(0b1010, 4);
+        upper->params[id_INIT_L10] = Property(0b1010, 4);
+        ci->constr_children.push_back(upper);
+    }
+    l2t5_list.clear();
+
     flush_cells();
 
-    /*
+    std::vector<CellInfo *> mux_list;
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_CC_MX2, id_CC_MX4))
             continue;
-
+        mux_list.push_back(&ci);
+    }
+    for (auto &cell : mux_list) {
+        CellInfo &ci = *cell;
         ci.cluster = ci.name;
         ci.renamePort(id_Y, id_OUT);
 
@@ -494,7 +502,8 @@ void GateMatePacker::pack_cpe()
         ci.constr_children.push_back(upper);
 
     }
-    */
+    mux_list.clear();
+
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_CC_DFF))

@@ -33,7 +33,7 @@ CellInfo *GateMatePacker::create_cell_ptr(IdString type, IdString name)
         cell->ports[id].name = id;
         cell->ports[id].type = dir;
     };
-    if (type == id_CPE_HALF || type == id_CPE_HALF_U) {
+    if (type.in(id_CPE_HALF,id_CPE_HALF_U,id_CPE_HALF_L)) {
         add_port(id_I1, PORT_IN);
         add_port(id_I2, PORT_IN);
         add_port(id_I3, PORT_IN);
@@ -41,14 +41,9 @@ CellInfo *GateMatePacker::create_cell_ptr(IdString type, IdString name)
         add_port(id_RAM_I, PORT_IN);
         add_port(id_OUT, PORT_OUT);
         add_port(id_RAM_O, PORT_OUT);
-    } else if (type == id_CPE_HALF_L) {
-        add_port(id_I1, PORT_IN);
-        add_port(id_I2, PORT_IN);
-        add_port(id_I3, PORT_IN);
-        add_port(id_I4, PORT_IN);
-        add_port(id_RAM_I, PORT_IN);
-        add_port(id_OUT, PORT_OUT);
-        add_port(id_RAM_O, PORT_OUT);
+        add_port(id_EN, PORT_IN);
+        add_port(id_CLK, PORT_IN);
+        add_port(id_SR, PORT_IN);
     } else {
         log_error("Trying to create unknown cell type %s\n", type.c_str(ctx));
     }
