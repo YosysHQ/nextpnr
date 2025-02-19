@@ -332,7 +332,7 @@ void GateMatePacker::pack_cpe()
                 ci.unsetParam(id_INIT);
                 ci.params[id_INIT_L10] = Property(0b1010, 4);
             }
-            ci.type = id_CPE_HALF_U;
+            ci.type = id_CPE_HALF;
         }
     }
 

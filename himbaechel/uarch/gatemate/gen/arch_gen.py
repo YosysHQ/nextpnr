@@ -127,10 +127,11 @@ def main():
                 tt.add_bel_pin(bel, pin.name, die.get_pin_connection_name(prim,pin), pin.dir)
         for mux in sorted(die.get_mux_connections_for_type(type_name)):
             pp = tt.create_pip(mux.src, mux.dst)
-            mux_flags = MUX_INVERT if mux.invert else 0
-            mux_flags |= MUX_VISIBLE if mux.visible else 0
-            mux_flags |= MUX_CONFIG if mux.config else 0
-            pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id(mux.name), mux.bits, mux.value, mux_flags)
+            if mux.name:
+                mux_flags = MUX_INVERT if mux.invert else 0
+                mux_flags |= MUX_VISIBLE if mux.visible else 0
+                mux_flags |= MUX_CONFIG if mux.config else 0
+                pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id(mux.name), mux.bits, mux.value, mux_flags)
         if "CPE" in type_name:
             pp = tt.create_pip("CPE.IN1", "CPE.RAM_O2")
             pp.extra_data = PipExtraData(PIP_EXTRA_CPE,ch.strs.id("RAM_O2"))
