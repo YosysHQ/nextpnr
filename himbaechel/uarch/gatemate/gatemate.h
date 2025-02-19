@@ -40,6 +40,7 @@ struct GateMateImpl : HimbaechelAPI
 
     void pack() override;
 
+    void prePlace() override;
     void postPlace() override;
     void postRoute() override;
 
@@ -67,6 +68,17 @@ struct GateMateImpl : HimbaechelAPI
     const GateMateTileExtraDataPOD *tile_extra_data(int tile) const;
 
     pool<PipId> blocked_pips;
+
+    struct GateMateCellInfo
+    {
+        // slice info
+        const NetInfo *ff_en = nullptr, *ff_clk = nullptr, *ff_sr = nullptr;
+        int ff_config = 0;
+        int signal_used = -1;
+        bool dff_used = false;
+    };
+    std::vector<GateMateCellInfo> fast_cell_info;
+    void assign_cell_info();
 };
 
 NEXTPNR_NAMESPACE_END

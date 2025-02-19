@@ -55,7 +55,7 @@ bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
     if (cell == nullptr) {
         return true;
     }
-    if (ctx->getBelType(bel).in(id_CPE_HALF_L, id_CPE_HALF_U)) {
+    if (ctx->getBelType(bel).in(id_CPE_HALF, id_CPE_HALF_L, id_CPE_HALF_U)) {
         Loc loc = ctx->getBelLocation(bel);
         int x = loc.x - 2;
         int y = loc.y - 2;
@@ -65,6 +65,24 @@ bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
             return false;
         if (x == 1 && y == 66)
             return false;
+        
+        const CellInfo *adj_half = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x, loc.y, loc.z==1 ? 0 : 1)));
+        if (adj_half) {
+            const auto &half_data = fast_cell_info.at(cell->flat_index);
+            if(half_data.dff_used) {
+                const auto &adj_data = fast_cell_info.at(adj_half->flat_index);
+                if(adj_data.dff_used) {
+                    if (adj_data.ff_config != half_data.ff_config)
+                        return false;
+                    if (adj_data.ff_en != half_data.ff_en)
+                        return false;
+                    if (adj_data.ff_clk != half_data.ff_clk)
+                        return false;
+                    if (adj_data.ff_sr != half_data.ff_sr)
+                        return false;
+                }
+            }
+        }
         return true;
     }
     return true;
@@ -246,6 +264,8 @@ void GateMateImpl::postRoute()
             updateLUT(ctx, cell.second.get(), id_IN2, id_INIT_L02);
             updateLUT(ctx, cell.second.get(), id_IN3, id_INIT_L03);
             updateLUT(ctx, cell.second.get(), id_IN4, id_INIT_L03);
+        }
+        if (cell.second->type.in(id_CPE_HALF_U, id_CPE_HALF_L)) {
             updateINV(ctx, cell.second.get(), id_CLK, id_C_CPE_CLK);
             updateINV(ctx, cell.second.get(), id_EN,  id_C_CPE_EN);
             bool set = int_or_default(cell.second->params, id_C_EN_SR, 0) == 1;
@@ -295,11 +315,45 @@ void GateMateImpl::postRoute()
     }
 }
 
+void GateMateImpl::prePlace()
+{
+    assign_cell_info();
+}
+
 void GateMateImpl::postPlace()
 {
     ctx->assignArchInfo();
 }
 
+void GateMateImpl::assign_cell_info()
+{
+    fast_cell_info.resize(ctx->cells.size());
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
+        auto &fc = fast_cell_info.at(ci->flat_index);
+        if (ci->type.in(id_CPE_HALF, id_CPE_HALF_U, id_CPE_HALF_L)) {
+            fc.signal_used = int_or_default(ci->params, id_C_O, -1);
+            fc.ff_en = ci->getPort(id_EN);
+            fc.ff_clk = ci->getPort(id_CLK);
+            fc.ff_sr = ci->getPort(id_SR);
+            fc.ff_config = 0;
+            if (fc.signal_used==0) {
+                fc.ff_config |= int_or_default(ci->params, id_C_CPE_EN, 0);
+                fc.ff_config <<= 2;
+                fc.ff_config |= int_or_default(ci->params, id_C_CPE_CLK, 0);
+                fc.ff_config <<= 2;
+                fc.ff_config |= int_or_default(ci->params, id_C_CPE_RES, 0);
+                fc.ff_config <<= 2;
+                fc.ff_config |= int_or_default(ci->params, id_C_CPE_SET, 0);
+                fc.ff_config <<= 2;
+                fc.ff_config |= int_or_default(ci->params, id_C_EN_SR, 0);
+                fc.ff_config <<= 1;
+                fc.ff_config |= int_or_default(ci->params, id_FF_INIT, 0);
+                fc.dff_used = true;
+            }
+        }
+    }
+}
 
 void GateMateImpl::setupArchContext()
 {
