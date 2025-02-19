@@ -97,33 +97,19 @@ void updateINV(Context *ctx, CellInfo *cell, IdString port, IdString param)
     if (cell->params.count(param) == 0) return;
     unsigned init_val = int_or_default(cell->params, param);
     WireId pin_wire = ctx->getBelPinWire(cell->bel, port);
-    for (PipId pip : ctx->getPipsUphill(pin_wire)) {
-        if (!ctx->getBoundPipNet(pip))
+    for (PipId pip2 : ctx->getPipsUphill(pin_wire)) {
+        if (!ctx->getBoundPipNet(pip2))
             continue;
-        const auto extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD *>(
-                chip_pip_info(ctx->chip_info, pip).extra_data.get());
-        if (!extra_data.name)
-            continue;
-        if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_CPE_INV)) {
-            cell->params[param] = Property(3 - init_val, 2);
-        }
-    }
-}
-
-void updateSR_INV(Context *ctx, CellInfo *cell, IdString port, IdString param)
-{
-    if (cell->params.count(param) == 0) return;
-    unsigned init_val = int_or_default(cell->params, param);
-    WireId pin_wire = ctx->getBelPinWire(cell->bel, port);
-    for (PipId pip : ctx->getPipsUphill(pin_wire)) {
-        if (!ctx->getBoundPipNet(pip))
-            continue;
-        const auto extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD *>(
-                chip_pip_info(ctx->chip_info, pip).extra_data.get());
-        if (!extra_data.name)
-            continue;
-        if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_CPE_INV)) {
-            cell->params[param] = Property(3 - init_val, 2);
+        for (PipId pip : ctx->getPipsUphill(ctx->getPipSrcWire(pip2))) {
+            if (!ctx->getBoundPipNet(pip))
+                continue;
+            const auto extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD *>(
+                    chip_pip_info(ctx->chip_info, pip).extra_data.get());
+            if (!extra_data.name)
+                continue;
+            if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_CPE_INV)) {
+                cell->params[param] = Property(3 - init_val, 2);
+            }
         }
     }
 }
@@ -264,9 +250,9 @@ void GateMateImpl::postRoute()
             updateINV(ctx, cell.second.get(), id_EN,  id_C_CPE_EN);
             bool set = int_or_default(cell.second->params, id_C_EN_SR, 0) == 1;
             if (set)
-                updateSR_INV(ctx, cell.second.get(), id_SR, id_C_CPE_SET);
+                updateINV(ctx, cell.second.get(), id_SR, id_C_CPE_SET);
             else
-                updateSR_INV(ctx, cell.second.get(), id_SR, id_C_CPE_RES);
+                updateINV(ctx, cell.second.get(), id_SR, id_C_CPE_RES);
         }
     }
     /*
