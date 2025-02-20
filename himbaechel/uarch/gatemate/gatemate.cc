@@ -322,6 +322,8 @@ void GateMateImpl::assign_cell_info()
                 fc.ff_config <<= 2;
                 fc.ff_config |= int_or_default(ci->params, id_C_EN_SR, 0);
                 fc.ff_config <<= 1;
+                fc.ff_config |= int_or_default(ci->params, id_C_L_D, 0);
+                fc.ff_config <<= 1;
                 fc.ff_config |= int_or_default(ci->params, id_FF_INIT, 0);
                 fc.dff_used = true;
             }
