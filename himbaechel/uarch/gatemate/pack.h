@@ -34,7 +34,7 @@ struct GateMatePacker
     void pack_pll();
     void pack_misc();
     void pack_constants();
-    void dff_to_cpe(CellInfo *dff, CellInfo *cpe, bool pass_thru_lut);
+    void dff_to_cpe(CellInfo *dff, CellInfo *cpe);
 
     void disconnect_if_gnd(CellInfo *cell, IdString input);
     void remove_constants();
