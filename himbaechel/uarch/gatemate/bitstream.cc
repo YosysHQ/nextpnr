@@ -100,8 +100,7 @@ struct BitstreamBackend
                 }
                 break;
             case id_CPE_HALF_U.index:
-            case id_CPE_HALF_L.index:
-            case id_CPE_HALF.index: {
+            case id_CPE_HALF_L.index: {
                 int id = uarch->tile_extra_data(cell.second.get()->bel.tile)->prim_id;
                 for (auto &p : params) {
                     cc.tiles[loc].add_word(stringf("CPE%d.%s", id, p.first.c_str(ctx)), p.second.as_bits());

@@ -131,7 +131,10 @@ void updateINV(Context *ctx, CellInfo *cell, IdString port, IdString param)
 
 void updateMUX_INV(Context *ctx, CellInfo *cell, IdString port, IdString param, int bit)
 {
-    unsigned init_val = int_or_default(cell->params, param);
+    // Mux inversion data is contained in other CPE half
+    Loc l = ctx->getBelLocation(cell->bel);
+    CellInfo *cell_l = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(l.x,l.y,1)));
+    unsigned init_val = int_or_default(cell_l->params, param);
     WireId pin_wire = ctx->getBelPinWire(cell->bel, port);
     for (PipId pip : ctx->getPipsUphill(pin_wire)) {
         if (!ctx->getBoundPipNet(pip))
@@ -143,7 +146,7 @@ void updateMUX_INV(Context *ctx, CellInfo *cell, IdString port, IdString param, 
         if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_CPE_INV)) {
             int old = (init_val >> bit) & 1;
             int val = (init_val & (~(1 << bit) & 0xf)) | ((!old) << bit);
-            cell->params[param] = Property(val, 4);
+            cell_l->params[param] = Property(val, 4);
         }
     }
 }
@@ -154,7 +157,7 @@ void GateMateImpl::postRoute()
     for (auto &cell : ctx->cells) {
         if (cell.second->type.in(id_CPE_HALF, id_CPE_HALF_U, id_CPE_HALF_L)) {
             Loc l = ctx->getBelLocation(cell.second->bel);
-            if (l.z==0) {
+            if (l.z==0) { // CPE_HALF_U
                 if(cell.second->params.count(id_C_O)) {
                     int mode = int_or_default(cell.second->params, id_C_O, 0);
                     cell.second->params[id_C_O2] = Property(mode, 2);
@@ -163,7 +166,7 @@ void GateMateImpl::postRoute()
                         cell.second->params[id_C_2D_IN] = Property(1, 1);
                 }
                 cell.second->type = id_CPE_HALF_U;
-            } else {
+            } else {// CPE_HALF_L
                 if(!cell.second->params.count(id_INIT_L20))
                     cell.second->params[id_INIT_L20] = Property(0b1100, 4);
                 if(cell.second->params.count(id_C_O)) {
@@ -243,6 +246,7 @@ void GateMateImpl::postRoute()
     for (auto &cell : ctx->cells) {
         if (cell.second->type.in(id_CPE_HALF_U)) {
             uint8_t func = int_or_default(cell.second->params, id_C_FUNCTION, 0);
+            cell.second->unsetParam(id_C_FUNCTION);
             if (func != C_MX4) {
                 updateLUT(ctx, cell.second.get(), id_IN1, id_INIT_L00);
                 updateLUT(ctx, cell.second.get(), id_IN2, id_INIT_L00);
