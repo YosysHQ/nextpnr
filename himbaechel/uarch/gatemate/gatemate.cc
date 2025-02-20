@@ -102,7 +102,7 @@ void updateLUT(Context *ctx, CellInfo *cell, IdString port, IdString init)
         if (!extra_data.name)
             continue;
         if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_CPE_INV)) {
-            if (port.in(id_IN1,id_IN3)) //,id_IN5,id_IN7))
+            if (port.in(id_IN1,id_IN3))
                 init_val = (init_val & 0b1010) >> 1 | (init_val & 0b0101) << 1;
             else
                 init_val = (init_val & 0b0011) << 2 | (init_val & 0b1100) >> 2;
@@ -197,45 +197,45 @@ void GateMateImpl::postRoute()
                 if (!extra_data.name)
                     continue;
                 if (extra_data.type == PipExtra::PIP_EXTRA_CPE) {
-                    IdStringList id = ctx->getPipName(w.second.pip);
-                    //BelId bel = ctx->getBelByName(IdStringList::concat(id[0], id_CPE));
-                    //if (!ctx->getBoundBelCell(bel)) {
-                        //CellInfo *cell = ctx->createCell(ctx->id(ctx->nameOfBel(bel)), id_CPE_HALF);
-                        //ctx->bindBel(bel, cell, PlaceStrength::STRENGTH_FIXED);
-                        if (IdString(extra_data.name) == id_RAM_O2) {
-                            //log_info("id_RAM_O2\n");
-                            BelId bel = ctx->getBelByName(IdStringList::concat(id[0], id_CPE_HALF_U));
-                            if (ctx->getBoundBelCell(bel))
-                                log_error("Issue adding pass trough signal.\n");
-                            CellInfo *cell = ctx->createCell(ctx->id(ctx->nameOfBel(bel)), id_CPE_HALF_U);
-                            ctx->bindBel(bel, cell, PlaceStrength::STRENGTH_FIXED);
-                            // Propagate IN1 to O2 and RAM_O2
-                            cell->params[id_INIT_L00] = Property(0b1010, 4);
-                            cell->params[id_INIT_L10] = Property(0b1010, 4);
-                            cell->params[id_C_O2] = Property(0b11, 2);
-                            cell->params[id_C_RAM_O2] = Property(1, 1);
-                        } else if (IdString(extra_data.name) == id_RAM_O1) {
-                            //log_info("id_RAM_O1\n");
-                            BelId bel = ctx->getBelByName(IdStringList::concat(id[0], id_CPE_HALF_L));
-                            if (ctx->getBoundBelCell(bel))
-                                log_error("Issue adding pass trough signal.\n");
-                            CellInfo *cell = ctx->createCell(ctx->id(ctx->nameOfBel(bel)), id_CPE_HALF_L);
-                            ctx->bindBel(bel, cell, PlaceStrength::STRENGTH_FIXED);
-                            // Propagate IN1 to O1 and RAM_O1
-                            cell->params[id_INIT_L02] = Property(0b1010, 4);
-                            cell->params[id_INIT_L11] = Property(0b1010, 4);
-                            cell->params[id_INIT_L20] = Property(0b1100, 4);
-                            cell->params[id_C_O1] = Property(0b11, 2);
-                            cell->params[id_C_RAM_O1] = Property(1, 1);
-/*                        } else if (IdString(extra_data.name) == id_RAM_I1) {
-                            cell->params[id_C_RAM_I1] = Property(1, 1);
-                        } else if (IdString(extra_data.name) == id_RAM_I2) {
-                            cell->params[id_C_RAM_I2] = Property(1, 1);*/
-                        } else {
-                            log_error("Issue adding pass trough signal for %s.\n",IdString(extra_data.name).c_str(ctx));
-                        }
-                    //} else
-                      //  log_error("Issue adding pass trough signal.\n");
+                    Loc l = ctx->getPipLocation(w.second.pip);
+                    BelId bel_u = ctx->getBelByLocation(Loc(l.x,l.y,0));
+                    BelId bel_l = ctx->getBelByLocation(Loc(l.x,l.y,1));
+                    if (IdString(extra_data.name) == id_RAM_O2) {
+                        if (ctx->getBoundBelCell(bel_u))
+                            log_error("Issue adding pass trough signal.\n");
+                        CellInfo *cell = ctx->createCell(ctx->id(ctx->nameOfBel(bel_u)), id_CPE_HALF_U);
+                        ctx->bindBel(bel_u, cell, PlaceStrength::STRENGTH_FIXED);
+                        // Propagate IN1 to O2 and RAM_O2
+                        cell->params[id_INIT_L00] = Property(0b1010, 4);
+                        cell->params[id_INIT_L10] = Property(0b1010, 4);
+                        cell->params[id_C_O2] = Property(0b11, 2);
+                        cell->params[id_C_RAM_O2] = Property(1, 1);
+                    } else if (IdString(extra_data.name) == id_RAM_O1) {
+                        if (ctx->getBoundBelCell(bel_l))
+                            log_error("Issue adding pass trough signal.\n");
+                        CellInfo *cell = ctx->createCell(ctx->id(ctx->nameOfBel(bel_l)), id_CPE_HALF_L);
+                        ctx->bindBel(bel_l, cell, PlaceStrength::STRENGTH_FIXED);
+                        // Propagate IN1 to O1 and RAM_O1
+                        cell->params[id_INIT_L02] = Property(0b1010, 4);
+                        cell->params[id_INIT_L11] = Property(0b1010, 4);
+                        cell->params[id_INIT_L20] = Property(0b1100, 4);
+                        cell->params[id_C_O1] = Property(0b11, 2);
+                        cell->params[id_C_RAM_O1] = Property(1, 1);
+                    } else if (IdString(extra_data.name) == id_RAM_I1) {
+                        if (ctx->getBoundBelCell(bel_l))
+                            log_error("Issue adding pass trough signal.\n");
+                        CellInfo *cell = ctx->createCell(ctx->id(ctx->nameOfBel(bel_l)), id_CPE_HALF_L);
+                        ctx->bindBel(bel_l, cell, PlaceStrength::STRENGTH_FIXED);
+                        cell->params[id_C_RAM_I1] = Property(1, 1);
+                    } else if (IdString(extra_data.name) == id_RAM_I2) {
+                        if (ctx->getBoundBelCell(bel_u))
+                            log_error("Issue adding pass trough signal.\n");
+                        CellInfo *cell = ctx->createCell(ctx->id(ctx->nameOfBel(bel_u)), id_CPE_HALF_U);
+                        ctx->bindBel(bel_u, cell, PlaceStrength::STRENGTH_FIXED);
+                        cell->params[id_C_RAM_I2] = Property(1, 1);
+                    } else {
+                        log_error("Issue adding pass trough signal for %s.\n",IdString(extra_data.name).c_str(ctx));
+                    }
                 }
             }
         }
