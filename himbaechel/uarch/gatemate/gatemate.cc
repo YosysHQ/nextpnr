@@ -19,6 +19,7 @@
 
 #include "gatemate.h"
 #include "design_utils.h"
+#include "placer_heap.h"
 
 #define GEN_INIT_CONSTIDS
 #define HIMBAECHEL_CONSTIDS "uarch/gatemate/constids.inc"
@@ -241,7 +242,6 @@ void GateMateImpl::postRoute()
     }
     for (auto &cell : ctx->cells) {
         if (cell.second->type.in(id_CPE_HALF_U)) {
-            //log_info("Checking id_CPE_HALF_U %s\n", cell.second->name.c_str(ctx));
             uint8_t func = int_or_default(cell.second->params, id_C_FUNCTION, 0);
             if (func != C_MX4) {
                 updateLUT(ctx, cell.second.get(), id_IN1, id_INIT_L00);
@@ -271,44 +271,18 @@ void GateMateImpl::postRoute()
                 updateINV(ctx, cell.second.get(), id_SR, id_C_CPE_RES);
         }
     }
-    /*
-
-    for (auto &cell : ctx->cells) {
-        if (cell.second->type == id_CPE) {
-            // if LUT part used
-            uint8_t func = int_or_default(cell.second->params, id_C_FUNCTION, 0);
-            if (func != C_MX4) {
-                updateLUT(ctx, cell.second.get(), id_IN1, id_INIT_L00);
-                updateLUT(ctx, cell.second.get(), id_IN2, id_INIT_L00);
-                updateLUT(ctx, cell.second.get(), id_IN3, id_INIT_L01);
-                updateLUT(ctx, cell.second.get(), id_IN4, id_INIT_L01);
-            } else {
-                updateMUX_INV(ctx, cell.second.get(), id_IN1, id_INIT_L11, 0);
-                updateMUX_INV(ctx, cell.second.get(), id_IN2, id_INIT_L11, 1);
-                updateMUX_INV(ctx, cell.second.get(), id_IN3, id_INIT_L11, 2);
-                updateMUX_INV(ctx, cell.second.get(), id_IN4, id_INIT_L11, 3);
-            }
-
-            updateLUT(ctx, cell.second.get(), id_IN5, id_INIT_L02);
-            updateLUT(ctx, cell.second.get(), id_IN6, id_INIT_L02);
-            updateLUT(ctx, cell.second.get(), id_IN7, id_INIT_L03);
-            updateLUT(ctx, cell.second.get(), id_IN8, id_INIT_L03);
-            updateINV(ctx, cell.second.get(), id_CLK, id_C_CPE_CLK);
-            updateINV(ctx, cell.second.get(), id_EN,  id_C_CPE_EN);
-            bool set = int_or_default(cell.second->params, id_C_EN_SR, 0) == 1;
-            if (set)
-                updateSR_INV(ctx, cell.second.get(), id_SR, id_C_CPE_SET);
-            else
-                updateSR_INV(ctx, cell.second.get(), id_SR, id_C_CPE_RES);
-        }
-    }
-*/
     print_utilisation(ctx);
 
     const ArchArgs &args = ctx->args;
     if (args.options.count("out")) {
         write_bitstream(args.device, args.options.at("out"));
     }
+}
+
+void GateMateImpl::configurePlacerHeap(PlacerHeapCfg &cfg)
+{
+    //cfg.beta = 0.5;
+    cfg.placeAllAtOnce = true;
 }
 
 void GateMateImpl::prePlace()

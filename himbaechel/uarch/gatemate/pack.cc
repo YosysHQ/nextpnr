@@ -387,7 +387,7 @@ void GateMatePacker::pack_cpe()
     std::vector<CellInfo *> l2t5_list;
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
-        if (!ci.type.in(id_CC_L2T4, id_CC_L2T5, id_CC_LUT2, id_CC_LUT1))
+        if (!ci.type.in(id_CC_L2T4, id_CC_L2T5, id_CC_LUT2, id_CC_LUT1, id_CC_MX2))
             continue;
         if (ci.type == id_CC_L2T5) {
             l2t5_list.push_back(&ci);
@@ -400,6 +400,21 @@ void GateMatePacker::pack_cpe()
    
             ci.params[id_C_O] = Property(0b11, 2);
             ci.type = id_CPE_HALF_L;
+        } else if (ci.type == id_CC_MX2) {
+            ci.params[id_C_O] = Property(0b11, 2);
+            ci.renamePort(id_D1, id_IN1);
+            NetInfo *sel = ci.getPort(id_S0);
+            ci.renamePort(id_S0, id_IN2);
+            ci.ports[id_IN3].name = id_IN3;
+            ci.ports[id_IN3].type = PORT_IN;
+            ci.connectPort(id_IN3, sel);
+            ci.renamePort(id_D0, id_IN4);
+            ci.disconnectPort(id_D1);
+            ci.params[id_INIT_L00] = Property(0b1000, 4); // AND
+            ci.params[id_INIT_L01] = Property(0b0100, 4); // AND inv D0
+            ci.params[id_INIT_L10] = Property(0b1110, 4); // OR
+            ci.renamePort(id_Y, id_OUT);
+            ci.type = id_CPE_HALF;
         } else {
             ci.renamePort(id_I0, id_IN1);
             ci.renamePort(id_I1, id_IN2);
@@ -451,7 +466,7 @@ void GateMatePacker::pack_cpe()
     std::vector<CellInfo *> mux_list;
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
-        if (!ci.type.in(id_CC_MX2, id_CC_MX4))
+        if (!ci.type.in(id_CC_MX4))
             continue;
         mux_list.push_back(&ci);
     }
@@ -479,8 +494,7 @@ void GateMatePacker::pack_cpe()
         }
         ci.params[id_C_FUNCTION] = Property(C_MX4, 3);
         ci.params[id_INIT_L02] = Property(0b1100, 4); // IN6
-        if (ci.type == id_CC_MX4)
-            ci.params[id_INIT_L03] = Property(0b1100, 4); // IN8
+        ci.params[id_INIT_L03] = Property(0b1100, 4); // IN8
         //ci.params[id_INIT_L11] = Property(invert, 4); // Inversion bits
         ci.params[id_INIT_L20] = Property(0b1100, 4); // Always D1
         ci.params[id_C_O] = Property(0b11, 2);
@@ -496,7 +510,6 @@ void GateMatePacker::pack_cpe()
 
         ci.movePortTo(id_D0, upper, id_IN1);
         ci.movePortTo(id_D1, upper, id_IN2);
-        // Only for CC_MX4
         ci.movePortTo(id_D2, upper, id_IN3);
         ci.movePortTo(id_D3, upper, id_IN4);
         ci.constr_children.push_back(upper);

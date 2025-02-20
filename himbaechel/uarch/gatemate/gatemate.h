@@ -61,6 +61,8 @@ struct GateMateImpl : HimbaechelAPI
     bool isValidBelForCellType(IdString cell_type, BelId bel) const override;
     BelBucketId getBelBucketForBel(BelId bel) const override;
 
+    void configurePlacerHeap(PlacerHeapCfg &cfg) override;
+
     bool isPipInverting(PipId pip) const override {
         const auto &extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD*>(chip_pip_info(ctx->chip_info, pip).extra_data.get());
         return extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_INVERT);
