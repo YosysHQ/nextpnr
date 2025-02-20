@@ -28,7 +28,7 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 // Return true if a cell is a flipflop
-inline bool is_dff(const BaseCtx *ctx, const CellInfo *cell) { return cell->type.in(id_CC_DFF); }
+inline bool is_dff(const BaseCtx *ctx, const CellInfo *cell) { return cell->type.in(id_CC_DFF, id_CC_DLT); }
 
 void GateMatePacker::flush_cells()
 {
@@ -294,43 +294,66 @@ void GateMatePacker::pack_io()
     }
 }
 
-void GateMatePacker::dff_to_cpe(CellInfo *dff, CellInfo *cpe, bool pass_thru_lut)
+void GateMatePacker::dff_to_cpe(CellInfo *dff, CellInfo *cpe)
 {
-    if (pass_thru_lut) {
-    }
-    NetInfo *en_net = cpe->getPort(id_EN);
-    bool invert = int_or_default(dff->params, id_EN_INV, 0) == 1;
-    if (en_net) {
-        if (en_net->name == ctx->id("$PACKER_GND")) {
-            cpe->params[id_C_CPE_EN] = Property(invert ? 0b11 : 0b00, 2);
-            cpe->disconnectPort(id_EN);
-        } else if (en_net->name == ctx->id("$PACKER_VCC")) {
-            cpe->params[id_C_CPE_EN] = Property(invert ? 0b00 : 0b11, 2);
-            cpe->disconnectPort(id_EN);
+    bool invert;
+    bool is_latch = dff->type == id_CC_DLT;
+    if (is_latch) {
+        NetInfo *g_net = cpe->getPort(id_G);
+        invert = int_or_default(dff->params, id_G_INV, 0) == 1;
+        if (g_net) {
+            if (g_net->name == ctx->id("$PACKER_GND")) {
+                cpe->params[id_C_CPE_CLK] = Property(invert ? 0b11 : 0b00, 2);
+                cpe->disconnectPort(id_G);
+            } else if (g_net->name == ctx->id("$PACKER_VCC")) {
+                cpe->params[id_C_CPE_CLK] = Property(invert ? 0b00 : 0b11, 2);
+                cpe->disconnectPort(id_G);
+            } else {
+                cpe->params[id_C_CPE_CLK] = Property(invert ? 0b01 : 0b10, 2);
+            }
         } else {
-            cpe->params[id_C_CPE_EN] = Property(invert ? 0b01 : 0b10, 2);
-        }
-    } else {
-        cpe->params[id_C_CPE_EN] = Property(invert ? 0b11 : 0b00, 2);
-    }
-    dff->unsetParam(id_EN_INV);
-
-    NetInfo *clk_net = cpe->getPort(id_CLK);
-    invert = int_or_default(dff->params, id_CLK_INV, 0) == 1;
-    if (clk_net) {
-        if (clk_net->name == ctx->id("$PACKER_GND")) {
             cpe->params[id_C_CPE_CLK] = Property(invert ? 0b11 : 0b00, 2);
-            cpe->disconnectPort(id_CLK);
-        } else if (clk_net->name == ctx->id("$PACKER_VCC")) {
-            cpe->params[id_C_CPE_CLK] = Property(invert ? 0b00 : 0b11, 2);
-            cpe->disconnectPort(id_CLK);
-        } else {
-            cpe->params[id_C_CPE_CLK] = Property(invert ? 0b01 : 0b10, 2);
         }
+        dff->unsetParam(id_G_INV);
+        cpe->renamePort(id_G, id_CLK);
+
+        cpe->params[id_C_CPE_EN] = Property(0b11, 2);
+        cpe->params[id_C_L_D] = Property(0b1, 1);
     } else {
-        cpe->params[id_C_CPE_CLK] = Property(invert ? 0b11 : 0b00, 2);
+        NetInfo *en_net = cpe->getPort(id_EN);
+        bool invert = int_or_default(dff->params, id_EN_INV, 0) == 1;
+        if (en_net) {
+            if (en_net->name == ctx->id("$PACKER_GND")) {
+                cpe->params[id_C_CPE_EN] = Property(invert ? 0b11 : 0b00, 2);
+                cpe->disconnectPort(id_EN);
+            } else if (en_net->name == ctx->id("$PACKER_VCC")) {
+                cpe->params[id_C_CPE_EN] = Property(invert ? 0b00 : 0b11, 2);
+                cpe->disconnectPort(id_EN);
+            } else {
+                cpe->params[id_C_CPE_EN] = Property(invert ? 0b01 : 0b10, 2);
+            }
+        } else {
+            cpe->params[id_C_CPE_EN] = Property(invert ? 0b11 : 0b00, 2);
+        }
+        dff->unsetParam(id_EN_INV);
+
+        NetInfo *clk_net = cpe->getPort(id_CLK);
+        invert = int_or_default(dff->params, id_CLK_INV, 0) == 1;
+        if (clk_net) {
+            if (clk_net->name == ctx->id("$PACKER_GND")) {
+                cpe->params[id_C_CPE_CLK] = Property(invert ? 0b11 : 0b00, 2);
+                cpe->disconnectPort(id_CLK);
+            } else if (clk_net->name == ctx->id("$PACKER_VCC")) {
+                cpe->params[id_C_CPE_CLK] = Property(invert ? 0b00 : 0b11, 2);
+                cpe->disconnectPort(id_CLK);
+            } else {
+                cpe->params[id_C_CPE_CLK] = Property(invert ? 0b01 : 0b10, 2);
+            }
+        } else {
+            cpe->params[id_C_CPE_CLK] = Property(invert ? 0b11 : 0b00, 2);
+        }
+        dff->unsetParam(id_CLK_INV);
     }
-    dff->unsetParam(id_CLK_INV);
 
     NetInfo *sr_net = cpe->getPort(id_SR);
     invert = int_or_default(dff->params, id_SR_INV, 0) == 1;
@@ -436,13 +459,17 @@ void GateMatePacker::pack_cpe()
         if (o) {
             CellInfo *dff = net_only_drives(ctx, o, is_dff, id_D, true);
             if (dff) {
-                dff->movePortTo(id_EN, &ci, id_EN);
-                dff->movePortTo(id_CLK, &ci, id_CLK);
+                if (dff->type == id_CC_DLT) {
+                    dff->movePortTo(id_G, &ci, id_G);
+                } else {
+                    dff->movePortTo(id_EN, &ci, id_EN);
+                    dff->movePortTo(id_CLK, &ci, id_CLK);
+                }
                 dff->movePortTo(id_SR, &ci, id_SR);
                 dff->disconnectPort(id_D);
                 ci.disconnectPort(id_OUT);
                 dff->movePortTo(id_Q, &ci, id_OUT);
-                dff_to_cpe(dff, &ci, false);
+                dff_to_cpe(dff, &ci);
                 packed_cells.insert(dff->name);
             }
         }
@@ -518,7 +545,7 @@ void GateMatePacker::pack_cpe()
 
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
-        if (!ci.type.in(id_CC_DFF))
+        if (!ci.type.in(id_CC_DFF, id_CC_DLT))
             continue;
         ci.renamePort(id_Q, id_OUT);
         NetInfo *d_net = ci.getPort(id_D);
@@ -533,9 +560,7 @@ void GateMatePacker::pack_cpe()
         }
         ci.params[id_INIT_L10] = Property(0b1010, 4);
         ci.renamePort(id_D, id_IN1);
-
-        dff_to_cpe(&ci, &ci, true);
-
+        dff_to_cpe(&ci, &ci);
         ci.type = id_CPE_HALF;
     }
 }
