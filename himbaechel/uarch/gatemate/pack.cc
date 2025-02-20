@@ -495,8 +495,8 @@ void GateMatePacker::pack_cpe()
         ci.params[id_C_FUNCTION] = Property(C_MX4, 3);
         ci.params[id_INIT_L02] = Property(0b1100, 4); // IN6
         ci.params[id_INIT_L03] = Property(0b1100, 4); // IN8
-        //ci.params[id_INIT_L11] = Property(invert, 4); // Inversion bits
-        ci.params[id_INIT_L20] = Property(0b1100, 4); // Always D1
+        ci.params[id_INIT_L11] = Property(invert, 4); // Inversion bits
+        //ci.params[id_INIT_L20] = Property(0b1100, 4); // Always D1
         ci.params[id_C_O] = Property(0b11, 2);
         ci.type = id_CPE_HALF_L;
 
@@ -505,7 +505,6 @@ void GateMatePacker::pack_cpe()
         upper->constr_abs_z = false;
         upper->constr_z = -1;
         upper->params[id_INIT_L10] = Property(select, 4); // Selection bits
-        upper->params[id_INIT_L11] = Property(invert, 4); // Inversion bits
         upper->params[id_C_FUNCTION] = Property(C_MX4, 3);
 
         ci.movePortTo(id_D0, upper, id_IN1);
