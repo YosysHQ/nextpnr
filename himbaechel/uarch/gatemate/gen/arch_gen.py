@@ -124,11 +124,16 @@ def main():
             tt.create_group(group.name, group.type)
         for wire in sorted(die.get_endpoints_for_type(type_name)):
             tt.create_wire(wire.name, wire.type)
+        if "CPE" in type_name:
+            for i in range(1,9):
+                tt.create_wire(f"CPE.V_IN{i}_int", "CPE_VIRTUAL_WIRE")
         for prim in sorted(die.get_primitives_for_type(type_name)):
             bel = tt.create_bel(prim.name, prim.type, prim.z)
             for pin in sorted(die.get_primitive_pins(prim.type)):
                 tt.add_bel_pin(bel, pin.name, die.get_pin_connection_name(prim,pin), pin.dir)
         for mux in sorted(die.get_mux_connections_for_type(type_name)):
+            if mux.dst.startswith("CPE.IN") and mux.dst.endswith("_int"):
+                mux.dst = mux.dst.replace("CPE.IN", "CPE.V_IN")
             pp = tt.create_pip(mux.src, mux.dst)
             if mux.name:
                 mux_flags = MUX_INVERT if mux.invert else 0
@@ -136,9 +141,9 @@ def main():
                 mux_flags |= MUX_CONFIG if mux.config else 0
                 pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id(mux.name), mux.bits, mux.value, mux_flags)
         if "CPE" in type_name:
-            pp = tt.create_pip("CPE.IN1", "CPE.RAM_O2")
+            pp = tt.create_pip("CPE.IN1_int", "CPE.RAM_O2")
             pp.extra_data = PipExtraData(PIP_EXTRA_CPE,ch.strs.id("RAM_O2"))
-            pp = tt.create_pip("CPE.IN5", "CPE.RAM_O1")
+            pp = tt.create_pip("CPE.IN5_int", "CPE.RAM_O1")
             pp.extra_data = PipExtraData(PIP_EXTRA_CPE,ch.strs.id("RAM_O1"))
             pp = tt.create_pip("CPE.RAM_I1", "CPE.OUT1")
             pp.extra_data = PipExtraData(PIP_EXTRA_CPE,ch.strs.id("RAM_I1"))
@@ -157,9 +162,8 @@ def main():
             #pp = tt.create_pip("CPE.PINY2", "CPE.POUTY2")
             #pp.extra_data = PipExtraData(PIP_EXTRA_CPE,ch.strs.id("POUTY2"))
             for i in range(1,9):
-                tt.create_wire(f"CPE.V_IN{i}", "CPE_VIRTUAL_WIRE")
-                pp = tt.create_pip(f"CPE.V_IN{i}", f"CPE.IN{i}")
-                pp = tt.create_pip(f"CPE.V_IN{i}", f"CPE.IN{i}")
+                pp = tt.create_pip(f"CPE.V_IN{i}_int", f"CPE.IN{i}_int")
+                pp = tt.create_pip(f"CPE.V_IN{i}_int", f"CPE.IN{i}_int")
                 pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id(f"CPE.IN{i}_INV"), 1, i, MUX_CPE_INV | MUX_INVERT)
             tt.create_wire("CPE.V_CLK", "CPE_VIRTUAL_WIRE")
             pp = tt.create_pip("CPE.V_CLK", "CPE.CLK")
@@ -252,7 +256,6 @@ def main():
     for _,nodes in dev.get_connections():
         node = []
         for conn in sorted(nodes):
-            conn.name = conn.name.replace("CPE.IN", "CPE.V_IN")
             conn.name = conn.name.replace("CPE.CLK", "CPE.V_CLK")
             conn.name = conn.name.replace("CPE.EN", "CPE.V_EN")
             conn.name = conn.name.replace("CPE.SR", "CPE.V_SR")
