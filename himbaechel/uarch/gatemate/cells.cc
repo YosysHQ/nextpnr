@@ -44,6 +44,9 @@ CellInfo *GateMatePacker::create_cell_ptr(IdString type, IdString name)
         add_port(id_EN, PORT_IN);
         add_port(id_CLK, PORT_IN);
         add_port(id_SR, PORT_IN);
+        if (type==id_CPE_HALF_L) {
+            add_port(id_COUTY1, PORT_OUT);
+        }
     } else {
         log_error("Trying to create unknown cell type %s\n", type.c_str(ctx));
     }
