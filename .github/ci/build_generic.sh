@@ -20,6 +20,6 @@ function run_tests {
 function run_archcheck {
     pushd build
     # TODO
-    # ./nextpnr-generic --uarch example --test
+    ./nextpnr-generic --uarch example --test
     popd
 }
