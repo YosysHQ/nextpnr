@@ -568,48 +568,52 @@ void GateMatePacker::pack_cpe()
 void GateMatePacker::pack_addf()
 {
     log_info("Packing ADDFs..\n");
-    std::vector<CellInfo *> addf_list;
+
+    std::vector<CellInfo *> root_cys;
     for (auto &cell : ctx->cells) {
-        CellInfo &ci = *cell.second;
-        if (!ci.type.in(id_CC_ADDF))
+        CellInfo *ci = cell.second.get();
+        if (ci->type != id_CC_ADDF)
             continue;
-        addf_list.push_back(&ci);
+        NetInfo *ci_net = ci->getPort(id_CI);
+
+        if (!ci_net || !ci_net->driver.cell || ci_net->driver.cell->type != id_CC_ADDF) {
+            root_cys.push_back(ci);
+        }
     }
-    for (auto &cell : addf_list) {
-        CellInfo &ci = *cell;
-        ci.cluster = ci.name;
+    std::vector<std::vector<CellInfo *>> groups;
+    for (auto root : root_cys) {
+        std::vector<CellInfo *> group;
+        CellInfo *cy = root;
+        group.push_back(cy);
+        while (true) {
+            NetInfo *co_net = cy->getPort(id_CO);
+            if (co_net && co_net->users.entries() == 1) {
+                cy = (*co_net->users.begin()).cell;
+                if (cy->type == id_CC_ADDF)
+                    group.push_back(cy);
+                else
+                    break;
+            } else
+                break;
+        }
+        groups.push_back(group);
+    }
 
-        ci.params[id_C_FUNCTION] = Property(C_ADDF, 3);
-        ci.params[id_INIT_L02] = Property(0b0000, 4); // 0
-        ci.params[id_INIT_L03] = Property(0b0000, 4); // 0
-        ci.params[id_INIT_L11] = Property(0b0110, 4); // XOR
-        ci.params[id_INIT_L20] = Property(0b0110, 4); // XOR
-        ci.params[id_C_O] = Property(0b11, 2);
-        ci.type = id_CPE_HALF_L;
-        ci.renamePort(id_S, id_OUT);
-        //ci.renamePort(id_CO, id_COUTY1);
+    for (auto &grp : groups) {
+        CellInfo *root = grp.front();
+        root->cluster = root->name;
 
-        CellInfo *upper = create_cell_ptr(id_CPE_HALF_U, ctx->idf("%s$upper", ci.name.c_str(ctx)));
-        upper->cluster = ci.name;
-        upper->constr_abs_z = false;
-        upper->constr_z = -1;
-        upper->params[id_INIT_L00] = Property(0b1010, 4); // IN1
-        upper->params[id_INIT_L01] = Property(0b1010, 4); // IN3
-        upper->params[id_INIT_L10] = Property(0b0110, 4); // XOR
-        upper->params[id_C_FUNCTION] = Property(C_ADDF, 3);
-        ci.movePortTo(id_A, upper, id_IN1);
-        ci.movePortTo(id_B, upper, id_IN3);
 
-        ci.constr_children.push_back(upper);
-
-        CellInfo *ci_upper = create_cell_ptr(id_CPE_HALF_U, ctx->idf("%s$ci_upper", ci.name.c_str(ctx)));
-        ci_upper->cluster = ci.name;
+        CellInfo *ci_upper = create_cell_ptr(id_CPE_HALF_U, ctx->idf("%s$ci_upper", root->name.c_str(ctx)));
+        root->constr_children.push_back(ci_upper);
+        ci_upper->cluster = root->name;;
         ci_upper->constr_abs_z = false;
         ci_upper->constr_z = -1;
         ci_upper->constr_y = -1;
-        ci.constr_children.push_back(ci_upper);
-        CellInfo *ci_lower = create_cell_ptr(id_CPE_HALF_L, ctx->idf("%s$ci_lower", ci.name.c_str(ctx)));
-        ci_lower->cluster = ci.name;
+
+        CellInfo *ci_lower = create_cell_ptr(id_CPE_HALF_L, ctx->idf("%s$ci_lower", root->name.c_str(ctx)));
+        root->constr_children.push_back(ci_lower);
+        ci_lower->cluster = root->name;;
         ci_lower->constr_abs_z = false;
         ci_lower->constr_y = -1;
         ci_lower->params[id_C_O] = Property(0b11, 2);
@@ -617,54 +621,109 @@ void GateMatePacker::pack_addf()
         ci_lower->params[id_C_CY1_I] = Property(1, 1);
         ci_lower->params[id_INIT_L10] = Property(0b1010, 4); // D0
 
-        NetInfo *ci_net = ci.getPort(id_CI);
+        NetInfo *ci_net = root->getPort(id_CI);
         if (ci_net->name == ctx->id("$PACKER_GND")) {
-            ci.params[id_INIT_L00] = Property(0b0000, 4);
-            ci.disconnectPort(id_CI);
+            ci_lower->params[id_INIT_L00] = Property(0b0000, 4);
+            root->disconnectPort(id_CI);
         } else if (ci_net->name == ctx->id("$PACKER_VCC")) {
-            ci.params[id_INIT_L00] = Property(0b1111, 4);
-            ci.disconnectPort(id_CI);
+            ci_lower->params[id_INIT_L00] = Property(0b1111, 4);
+            root->disconnectPort(id_CI);
         } else {
-            ci.movePortTo(id_CI, ci_lower, id_IN1);
+            root->movePortTo(id_CI, ci_lower, id_IN1);
             ci_lower->params[id_INIT_L00] = Property(0b1010, 4); //IN5
         }
 
-        ci.constr_children.push_back(ci_lower);
 
-        NetInfo *ci_conn = ctx->createNet(ctx->idf("%s$ci", ci.name.c_str(ctx)));
+        NetInfo *ci_conn = ctx->createNet(ctx->idf("%s$ci", root->name.c_str(ctx)));
         ci_lower->connectPort(id_COUTY1, ci_conn);
 
-        ci.ports[id_CINY1].name = id_CINY1;
-        ci.ports[id_CINY1].type = PORT_IN;
-        ci.connectPort(id_CINY1, ci_conn);
+        root->ports[id_CINY1].name = id_CINY1;
+        root->ports[id_CINY1].type = PORT_IN;
+        root->connectPort(id_CINY1, ci_conn);
 
+        for (size_t i = 0; i < grp.size(); i++) {
+            CellInfo *cy = grp.at(i);
+            if (i != 0) {
+                cy->cluster = root->name;
+                root->constr_children.push_back(cy);
+                cy->constr_abs_z = false;
+                cy->constr_y = +i;
+                cy->renamePort(id_CI, id_CINY1);
+            }
 
-        CellInfo *co_upper = create_cell_ptr(id_CPE_HALF_U, ctx->idf("%s$co_upper", ci.name.c_str(ctx)));
-        co_upper->cluster = ci.name;
-        co_upper->constr_abs_z = false;
-        co_upper->constr_z = -1;
-        co_upper->constr_y = +1;
-        ci.constr_children.push_back(co_upper);
-        CellInfo *co_lower = create_cell_ptr(id_CPE_HALF_L, ctx->idf("%s$co_lower", ci.name.c_str(ctx)));
-        co_lower->cluster = ci.name;
-        co_lower->constr_abs_z = false;
-        co_lower->constr_y = +1;
-        co_lower->params[id_C_O] = Property(0b11, 2);
-        co_lower->params[id_C_FUNCTION] = Property(C_EN_CIN, 3);
-        co_lower->params[id_INIT_L11] = Property(0b1100, 4); 
-        co_lower->params[id_INIT_L20] = Property(0b1100, 4); 
-        ci.constr_children.push_back(co_lower);
+            cy->params[id_C_FUNCTION] = Property(C_ADDF, 3);
+            cy->params[id_INIT_L02] = Property(0b0000, 4); // 0
+            cy->params[id_INIT_L03] = Property(0b0000, 4); // 0
+            cy->params[id_INIT_L11] = Property(0b0110, 4); // XOR
+            cy->params[id_INIT_L20] = Property(0b0110, 4); // XOR
+            cy->params[id_C_O] = Property(0b11, 2);
+            cy->type = id_CPE_HALF_L;
+            cy->renamePort(id_S, id_OUT);
+    
+            CellInfo *upper = create_cell_ptr(id_CPE_HALF_U, ctx->idf("%s$upper", cy->name.c_str(ctx)));
+            upper->cluster = root->name;
+            root->constr_children.push_back(upper);
+            upper->constr_abs_z = false;
+            upper->constr_y = +i;
+            upper->constr_z = -1;
+
+            NetInfo *a_net = cy->getPort(id_A);
+            if (a_net->name == ctx->id("$PACKER_GND")) {
+                upper->params[id_INIT_L00] = Property(0b0000, 4);
+                cy->disconnectPort(id_A);
+            } else if (a_net->name == ctx->id("$PACKER_VCC")) {
+                upper->params[id_INIT_L00] = Property(0b1111, 4);
+                cy->disconnectPort(id_A);
+            } else {
+                cy->movePortTo(id_A, upper, id_IN1);
+                upper->params[id_INIT_L00] = Property(0b1010, 4); // IN1
+            }
+            NetInfo *b_net = cy->getPort(id_B);
+            if (b_net->name == ctx->id("$PACKER_GND")) {
+                upper->params[id_INIT_L01] = Property(0b0000, 4);
+                cy->disconnectPort(id_B);
+            } else if (b_net->name == ctx->id("$PACKER_VCC")) {
+                upper->params[id_INIT_L01] = Property(0b1111, 4);
+                cy->disconnectPort(id_B);
+            } else {
+                cy->movePortTo(id_B, upper, id_IN3);
+                upper->params[id_INIT_L01] = Property(0b1010, 4); // IN3
+            }
+    
+            upper->params[id_INIT_L10] = Property(0b0110, 4); // XOR
+            upper->params[id_C_FUNCTION] = Property(C_ADDF, 3);
+               
+            if (i == grp.size()-1) {
+                CellInfo *co_upper = create_cell_ptr(id_CPE_HALF_U, ctx->idf("%s$co_upper", cy->name.c_str(ctx)));
+                co_upper->cluster = root->name;
+                root->constr_children.push_back(co_upper);
+                co_upper->constr_abs_z = false;
+                co_upper->constr_z = -1;
+                co_upper->constr_y = +i+1;
+                CellInfo *co_lower = create_cell_ptr(id_CPE_HALF_L, ctx->idf("%s$co_lower", cy->name.c_str(ctx)));
+                co_lower->cluster = root->name;
+                root->constr_children.push_back(co_lower);
+                co_lower->constr_abs_z = false;
+                co_lower->constr_y = +i+1;
+                co_lower->params[id_C_O] = Property(0b11, 2);
+                co_lower->params[id_C_FUNCTION] = Property(C_EN_CIN, 3);
+                co_lower->params[id_INIT_L11] = Property(0b1100, 4); 
+                co_lower->params[id_INIT_L20] = Property(0b1100, 4); 
+                
+                NetInfo *co_conn = ctx->createNet(ctx->idf("%s$co", cy->name.c_str(ctx)));
         
-        NetInfo *co_conn = ctx->createNet(ctx->idf("%s$co", ci.name.c_str(ctx)));
-
-        co_lower->ports[id_CINY1].name = id_CINY1;
-        co_lower->ports[id_CINY1].type = PORT_IN;
-        co_lower->connectPort(id_CINY1, co_conn);
-        ci.ports[id_COUTY1].name = id_COUTY1;
-        ci.ports[id_COUTY1].type = PORT_OUT;
-        ci.connectPort(id_COUTY1, co_conn);
-
-        ci.movePortTo(id_CO, co_lower, id_OUT);
+                co_lower->ports[id_CINY1].name = id_CINY1;
+                co_lower->ports[id_CINY1].type = PORT_IN;
+                co_lower->connectPort(id_CINY1, co_conn);
+                cy->ports[id_COUTY1].name = id_COUTY1;
+                cy->ports[id_COUTY1].type = PORT_OUT;
+                cy->connectPort(id_COUTY1, co_conn);
+        
+                cy->movePortTo(id_CO, co_lower, id_OUT);
+            } else {
+                cy->renamePort(id_CO, id_COUTY1);
+            }
+        }
     }
 }
 
