@@ -91,7 +91,7 @@ PipId Arch::addPip(IdStringList name, IdString type, WireId srcWire, WireId dstW
         tilePipDimZ[loc.x].resize(loc.y + 1);
 
     gridDimX = std::max(gridDimX, loc.x + 1);
-    gridDimY = std::max(gridDimY, loc.x + 1);
+    gridDimY = std::max(gridDimY, loc.y + 1);
     tilePipDimZ[loc.x][loc.y] = std::max(tilePipDimZ[loc.x][loc.y], loc.z + 1);
     return pip;
 }
@@ -129,7 +129,7 @@ BelId Arch::addBel(IdStringList name, IdString type, Loc loc, bool gb, bool hidd
         tileBelDimZ[loc.x].resize(loc.y + 1);
 
     gridDimX = std::max(gridDimX, loc.x + 1);
-    gridDimY = std::max(gridDimY, loc.x + 1);
+    gridDimY = std::max(gridDimY, loc.y + 1);
     tileBelDimZ[loc.x][loc.y] = std::max(tileBelDimZ[loc.x][loc.y], loc.z + 1);
     return bel;
 }
@@ -296,7 +296,10 @@ BelId Arch::getBelByLocation(Loc loc) const
     return BelId();
 }
 
-const std::vector<BelId> &Arch::getBelsByTile(int x, int y) const { return bels_by_tile.at(x).at(y); }
+const std::vector<BelId> &Arch::getBelsByTile(int x, int y) const {
+    static const std::vector<BelId> empty_list;
+    return y < int(bels_by_tile.at(x).size()) ? bels_by_tile.at(x).at(y) : empty_list;
+}
 
 bool Arch::getBelGlobalBuf(BelId bel) const { return bel_info(bel).gb; }
 
