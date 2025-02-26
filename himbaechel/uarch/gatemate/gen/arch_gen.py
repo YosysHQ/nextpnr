@@ -118,7 +118,7 @@ def main():
     ch.strs.read_constids(path.join(path.dirname(__file__), "..", "constids.inc"))
     ch.read_gfxids(path.join(path.dirname(__file__), "..", "gfxids.inc"))
 
-    for type_name in die.get_tile_type_list():
+    for type_name in sorted(die.get_tile_type_list()):
         tt = ch.create_tile_type(type_name)
         for group in sorted(die.get_groups_for_type(type_name)):
             tt.create_group(group.name, group.type)
