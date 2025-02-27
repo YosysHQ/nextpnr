@@ -417,6 +417,12 @@ pip is already bound to that net.
 
 *BaseArch default: returns `getBoundPipNet(pip) == nullptr || getBoundPipNet(pip) == net`*
 
+### bool isPipInverting(PipId pip) const
+
+Returns true if the given pip inverts the net passing through it.
+
+*BaseArch default: returns `false`*
+
 ### NetInfo \*getBoundPipNet(PipId pip) const
 
 Return the net this pip is bound to.

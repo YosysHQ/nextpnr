@@ -102,6 +102,7 @@ template <typename R> struct ArchAPI : BaseCtx
     virtual WireId getPipDstWire(PipId pip) const = 0;
     virtual DelayQuad getPipDelay(PipId pip) const = 0;
     virtual Loc getPipLocation(PipId pip) const = 0;
+    virtual bool isPipInverting(PipId pip) const = 0;
     // Group methods
     virtual GroupId getGroupByName(IdStringList name) const = 0;
     virtual IdStringList getGroupName(GroupId group) const = 0;
