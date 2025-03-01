@@ -239,16 +239,22 @@ impl Context {
         v
     }
 
-    pub fn wires_leaking(&self) -> &[WireId] {
-        let mut wires = std::ptr::null_mut();
-        let len = unsafe { npnr_context_get_wires_leak(self, &mut wires as *mut *mut WireId) };
-        unsafe { std::slice::from_raw_parts(wires, len as usize) }
+    pub fn bels_leaking(&self) -> &[BelId] {
+        let mut bels = std::ptr::null_mut();
+        let len = unsafe { npnr_context_get_bels_leak(self, &mut bels as *mut *mut BelId) };
+        unsafe { std::slice::from_raw_parts(bels, len as usize) }
     }
 
     pub fn pips_leaking(&self) -> &[PipId] {
         let mut pips = std::ptr::null_mut();
         let len = unsafe { npnr_context_get_pips_leak(self, &mut pips as *mut *mut PipId) };
         unsafe { std::slice::from_raw_parts(pips, len as usize) }
+    }
+
+    pub fn wires_leaking(&self) -> &[WireId] {
+        let mut wires = std::ptr::null_mut();
+        let len = unsafe { npnr_context_get_wires_leak(self, &mut wires as *mut *mut WireId) };
+        unsafe { std::slice::from_raw_parts(wires, len as usize) }
     }
 
     pub fn get_downhill_pips(&self, wire: WireId) -> DownhillPipsIter {
@@ -377,8 +383,9 @@ extern "C" {
     fn npnr_context_delay_epsilon(ctx: &Context) -> f32;
     fn npnr_context_get_pip_delay(ctx: &Context, pip: PipId) -> f32;
     fn npnr_context_get_wire_delay(ctx: &Context, wire: WireId) -> f32;
-    fn npnr_context_get_wires_leak(ctx: &Context, wires: *mut *mut WireId) -> u64;
+    fn npnr_context_get_bels_leak(ctx: &Context, bels: *mut *mut BelId) -> u64;
     fn npnr_context_get_pips_leak(ctx: &Context, pips: *mut *mut PipId) -> u64;
+    fn npnr_context_get_wires_leak(ctx: &Context, wires: *mut *mut WireId) -> u64;
     fn npnr_context_get_pip_location(ctx: &Context, pip: PipId) -> Loc;
     fn npnr_context_check_pip_avail_for_net(
         ctx: &Context,
