@@ -55,24 +55,29 @@ static inline PipId unwrap_pip(const uint64_t pip) noexcept { return unwrap<PipI
 static inline WireId unwrap_wire(const uint64_t wire) noexcept { return unwrap<WireId>(wire); }
 } // namespace
 
+template<typename T>
+struct IterWrapper
+{
+    T current;
+    T end;
+
+    IterWrapper(T begin, T end) : current(begin), end(end) {}
+};
+
 using DownhillIter = decltype(Context(ArchArgs()).getPipsDownhill(WireId()).begin());
+using DownhillIterWrapper = IterWrapper<DownhillIter>;
 
-struct DownhillIterWrapper
-{
-    DownhillIter current;
-    DownhillIter end;
-
-    DownhillIterWrapper(DownhillIter begin, DownhillIter end) : current(begin), end(end) {}
-};
 using UphillIter = decltype(Context(ArchArgs()).getPipsUphill(WireId()).begin());
+using UphillIterWrapper = IterWrapper<UphillIter>;
 
-struct UphillIterWrapper
-{
-    UphillIter current;
-    UphillIter end;
+using BelIter = decltype(Context(ArchArgs()).getBels().begin());
+using BelIterWrapper = IterWrapper<BelIter>;
 
-    UphillIterWrapper(UphillIter begin, UphillIter end) : current(begin), end(end) {}
-};
+using PipIter = decltype(Context(ArchArgs()).getPips().begin());
+using PipIterWrapper = IterWrapper<PipIter>;
+
+using WireIter = decltype(Context(ArchArgs()).getWires().begin());
+using WireIterWrapper = IterWrapper<WireIter>;
 
 extern "C" {
 USING_NEXTPNR_NAMESPACE;
@@ -129,36 +134,6 @@ bool npnr_context_check_pip_avail_for_net(const Context *ctx, uint64_t pip, NetI
     return ctx->checkPipAvailForNet(unwrap_pip(pip), net);
 }
 
-uint64_t npnr_context_get_pips_leak(const Context *ctx, uint64_t **const pips)
-{
-    const auto ctx_pips{ctx->getPips()};
-    const auto size{std::accumulate(ctx_pips.begin(), ctx_pips.end(), /*initial value*/ size_t{},
-                                    [](size_t value, const auto & /*pip*/) { return value + 1U; })};
-    *pips = new uint64_t[size];
-    auto idx = 0;
-    for (const auto &pip : ctx_pips) {
-        (*pips)[idx] = wrap(pip);
-        idx++;
-    }
-    // Yes, by never deleting pip_vec, we leak memory.
-    return size;
-}
-
-uint64_t npnr_context_get_wires_leak(const Context *ctx, uint64_t **const wires)
-{
-    const auto ctx_wires{ctx->getWires()};
-    const auto size{std::accumulate(ctx_wires.begin(), ctx_wires.end(), /*initial value*/ size_t{},
-                                    [](size_t value, const auto & /*wire*/) { return value + 1U; })};
-    *wires = new uint64_t[size];
-    auto idx = 0;
-    for (const auto &wire : ctx_wires) {
-        (*wires)[idx] = wrap(wire);
-        idx++;
-    }
-    // Yes, by never deleting wires, we leak memory.
-    return size;
-}
-
 void npnr_context_check(const Context *ctx) { ctx->check(); }
 bool npnr_context_debug(const Context *ctx) { return ctx->debug; }
 int npnr_context_id(const Context *ctx, const char *str) { return ctx->id(str).hash(); }
@@ -198,6 +173,10 @@ DownhillIterWrapper *npnr_context_get_pips_downhill(Context *ctx, uint64_t wire_
     return new DownhillIterWrapper(range.begin(), range.end());
 }
 void npnr_delete_downhill_iter(DownhillIterWrapper *iter) { delete iter; }
+void npnr_inc_downhill_iter(DownhillIterWrapper *iter) { ++iter->current; }
+uint64_t npnr_deref_downhill_iter(DownhillIterWrapper *iter) { return wrap(*iter->current); }
+bool npnr_is_downhill_iter_done(DownhillIterWrapper *iter) { return !(iter->current != iter->end); }
+
 UphillIterWrapper *npnr_context_get_pips_uphill(Context *ctx, uint64_t wire_id)
 {
     auto wire = unwrap_wire(wire_id);
@@ -205,6 +184,39 @@ UphillIterWrapper *npnr_context_get_pips_uphill(Context *ctx, uint64_t wire_id)
     return new UphillIterWrapper(range.begin(), range.end());
 }
 void npnr_delete_uphill_iter(UphillIterWrapper *iter) { delete iter; }
+void npnr_inc_uphill_iter(UphillIterWrapper *iter) { ++iter->current; }
+uint64_t npnr_deref_uphill_iter(UphillIterWrapper *iter) { return wrap(*iter->current); }
+bool npnr_is_uphill_iter_done(UphillIterWrapper *iter) { return !(iter->current != iter->end); }
+
+BelIterWrapper *npnr_context_get_bels(Context *ctx)
+{
+    auto range = ctx->getBels();
+    return new BelIterWrapper(range.begin(), range.end());
+}
+void npnr_delete_bel_iter(BelIterWrapper *iter) { delete iter; }
+void npnr_inc_bel_iter(BelIterWrapper *iter) { ++iter->current; }
+uint64_t npnr_deref_bel_iter(BelIterWrapper *iter) { return wrap(*iter->current); }
+bool npnr_is_bel_iter_done(BelIterWrapper *iter) { return !(iter->current != iter->end); }
+
+PipIterWrapper *npnr_context_get_pips(Context *ctx)
+{
+    auto range = ctx->getPips();
+    return new PipIterWrapper(range.begin(), range.end());
+}
+void npnr_delete_pip_iter(PipIterWrapper *iter) { delete iter; }
+void npnr_inc_pip_iter(PipIterWrapper *iter) { ++iter->current; }
+uint64_t npnr_deref_pip_iter(PipIterWrapper *iter) { return wrap(*iter->current); }
+bool npnr_is_pip_iter_done(PipIterWrapper *iter) { return !(iter->current != iter->end); }
+
+WireIterWrapper *npnr_context_get_wires(Context *ctx)
+{
+    auto range = ctx->getWires();
+    return new WireIterWrapper(range.begin(), range.end());
+}
+void npnr_delete_wire_iter(WireIterWrapper *iter) { delete iter; }
+void npnr_inc_wire_iter(WireIterWrapper *iter) { ++iter->current; }
+uint64_t npnr_deref_wire_iter(WireIterWrapper *iter) { return wrap(*iter->current); }
+bool npnr_is_wire_iter_done(WireIterWrapper *iter) { return !(iter->current != iter->end); }
 
 PortRef *npnr_netinfo_driver(NetInfo *net)
 {
@@ -238,13 +250,6 @@ void npnr_netinfo_udata_set(NetInfo *net, int32_t value) { net->udata = value; }
 
 CellInfo *npnr_portref_cell(const PortRef *port) { return port->cell; }
 Loc npnr_cellinfo_get_location(const CellInfo *info) { return info->getLocation(); }
-
-void npnr_inc_downhill_iter(DownhillIterWrapper *iter) { ++iter->current; }
-uint64_t npnr_deref_downhill_iter(DownhillIterWrapper *iter) { return wrap(*iter->current); }
-bool npnr_is_downhill_iter_done(DownhillIterWrapper *iter) { return !(iter->current != iter->end); }
-void npnr_inc_uphill_iter(UphillIterWrapper *iter) { ++iter->current; }
-uint64_t npnr_deref_uphill_iter(UphillIterWrapper *iter) { return wrap(*iter->current); }
-bool npnr_is_uphill_iter_done(UphillIterWrapper *iter) { return !(iter->current != iter->end); }
 
 void rust_example_printnets(Context *ctx);
 }
