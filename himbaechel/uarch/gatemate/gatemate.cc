@@ -82,6 +82,52 @@ bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
     return true;
 }
 
+
+bool GateMateImpl::getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc,
+                                    std::vector<std::pair<CellInfo *, BelId>> &placement) const
+{
+    //Loc prev = root_loc;
+    for (auto child : cluster->constr_children) {
+        Loc child_loc;
+        switch (child->constr_z) {
+/*        case PLACE_CY_CHAIN:
+            child_loc = getNextLocInCYChain(prev);
+            prev = child_loc;
+            break;
+*/
+        default:
+            child_loc.x = root_loc.x + child->constr_x;
+            child_loc.y = root_loc.y + child->constr_y;
+            child_loc.z = child->constr_abs_z ? child->constr_z : (root_loc.z + child->constr_z);
+        }
+        BelId child_bel = ctx->getBelByLocation(child_loc);
+        if (child_bel == BelId() || !this->isValidBelForCellType(child->type, child_bel))
+            return false;
+        placement.emplace_back(child, child_bel);
+        if (!getChildPlacement(child, child_loc, placement))
+            return false;
+    }
+    return true;
+}
+
+bool GateMateImpl::getClusterPlacement(ClusterId cluster, BelId root_bel,
+                                      std::vector<std::pair<CellInfo *, BelId>> &placement) const
+{
+    CellInfo *root_cell = get_cluster_root(ctx, cluster);
+    placement.clear();
+    NPNR_ASSERT(root_bel != BelId());
+    Loc root_loc = ctx->getBelLocation(root_bel);
+    if (root_cell->constr_abs_z) {
+        // Coerce root to absolute z constraint
+        root_loc.z = root_cell->constr_z;
+        root_bel = ctx->getBelByLocation(root_loc);
+        if (root_bel == BelId() || !this->isValidBelForCellType(root_cell->type, root_bel))
+            return false;
+    }
+    placement.emplace_back(root_cell, root_bel);
+    return getChildPlacement(root_cell, root_loc, placement);
+}
+
 void updateLUT(Context *ctx, CellInfo *cell, IdString port, IdString init)
 {
     if (cell->params.count(init) == 0) return;
