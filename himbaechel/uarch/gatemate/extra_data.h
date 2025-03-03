@@ -74,6 +74,11 @@ enum CPEFunction
     C_ADDCIN = 7,
 };
 
+enum ClusterPlacement
+{
+    PLACE_CPE_CLK0_OUT = 1024,
+};
+
 NEXTPNR_NAMESPACE_END
 
 #endif
