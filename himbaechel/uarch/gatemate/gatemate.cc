@@ -90,11 +90,14 @@ bool GateMateImpl::getChildPlacement(const BaseClusterInfo *cluster, Loc root_lo
     for (auto child : cluster->constr_children) {
         Loc child_loc;
         switch (child->constr_z) {
-/*        case PLACE_CY_CHAIN:
-            child_loc = getNextLocInCYChain(prev);
-            prev = child_loc;
+        case PLACE_CPE_CLK0_OUT:
+        {
+            int pll = root_loc.z - 4;
+            child_loc.x = 39 + 2 + pll*4;
+            child_loc.y = 128 + 2;
+            child_loc.z = 1; // RAM_I1
             break;
-*/
+        }
         default:
             child_loc.x = root_loc.x + child->constr_x;
             child_loc.y = root_loc.y + child->constr_y;
@@ -205,11 +208,11 @@ void GateMateImpl::postRoute()
                         cell.second->params[id_C_2D_IN] = Property(1, 1);
                 }
                 if(cell.second->params.count(id_C_RAM_I)) {
-                    cell.second->params[id_C_RAM_I1] = Property(int_or_default(cell.second->params, id_C_RAM_I, 0), 1);
+                    cell.second->params[id_C_RAM_I2] = Property(int_or_default(cell.second->params, id_C_RAM_I, 0), 1);
                     cell.second->unsetParam(id_C_RAM_I);
                 }
                 if(cell.second->params.count(id_C_RAM_O)) {
-                    cell.second->params[id_C_RAM_O1] = Property(int_or_default(cell.second->params, id_C_RAM_O, 0), 1);
+                    cell.second->params[id_C_RAM_O2] = Property(int_or_default(cell.second->params, id_C_RAM_O, 0), 1);
                     cell.second->unsetParam(id_C_RAM_O);
                 }
                 cell.second->type = id_CPE_HALF_U;
@@ -233,11 +236,11 @@ void GateMateImpl::postRoute()
                     cell.second->unsetParam(id_INIT_L10);
                 }
                 if(cell.second->params.count(id_C_RAM_I)) {
-                    cell.second->params[id_C_RAM_I2] = Property(int_or_default(cell.second->params, id_C_RAM_I, 0), 1);
+                    cell.second->params[id_C_RAM_I1] = Property(int_or_default(cell.second->params, id_C_RAM_I, 0), 1);
                     cell.second->unsetParam(id_C_RAM_I);
                 }
                 if(cell.second->params.count(id_C_RAM_O)) {
-                    cell.second->params[id_C_RAM_O2] = Property(int_or_default(cell.second->params, id_C_RAM_O, 0), 1);
+                    cell.second->params[id_C_RAM_O1] = Property(int_or_default(cell.second->params, id_C_RAM_O, 0), 1);
                     cell.second->unsetParam(id_C_RAM_O);
                 }
                 cell.second->type = id_CPE_HALF_L;
