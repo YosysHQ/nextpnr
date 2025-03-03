@@ -9,7 +9,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [mistral, ice40, ecp5, generic, nexus, machxo2, himbaechel]
+        arch: [mistral, ice40, ecp5, generic, nexus, machxo2, himbaechel, rust]
     runs-on: ubuntu-latest
     env:
       DEPS_PATH: ${{ github.workspace }}/deps
@@ -30,7 +30,7 @@ jobs:
     - name: Install
       run: |
         sudo apt-get update
-        sudo apt-get install git make cmake libboost-all-dev python3-dev pypy3 libeigen3-dev tcl-dev lzma-dev libftdi-dev clang bison flex swig qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools iverilog libreadline-dev liblzma-dev
+        sudo apt-get install git make cmake libboost-all-dev python3-dev pypy3 libeigen3-dev tcl-dev lzma-dev libftdi-dev clang bison flex swig qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools iverilog libreadline-dev liblzma-dev cargo rustc
 
     - name: Cache yosys installation
       uses: actions/cache@v4
