@@ -55,6 +55,11 @@ struct GateMateImpl : HimbaechelAPI
     bool checkPipAvail(PipId pip) const override { return blocked_pips.count(pip) == 0; }
     bool checkPipAvailForNet(PipId pip, const NetInfo *net) const override { return checkPipAvail(pip); };
 
+    bool getClusterPlacement(ClusterId cluster, BelId root_bel,
+                             std::vector<std::pair<CellInfo *, BelId>> &placement) const override;
+    bool getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc,
+                           std::vector<std::pair<CellInfo *, BelId>> &placement) const;
+
     void parse_ccf(const std::string &filename);
 
     IdString getBelBucketForCellType(IdString cell_type) const override;
