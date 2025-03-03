@@ -129,6 +129,21 @@ bool npnr_context_check_pip_avail_for_net(const Context *ctx, uint64_t pip, NetI
     return ctx->checkPipAvailForNet(unwrap_pip(pip), net);
 }
 
+uint64_t npnr_context_get_bels_leak(const Context *ctx, uint64_t **const bels)
+{
+    const auto ctx_bels{ctx->getBels()};
+    const auto size{std::accumulate(ctx_bels.begin(), ctx_bels.end(), /*initial value*/ size_t{},
+                                    [](size_t value, const auto & /*bel*/) { return value + 1U; })};
+    *bels = new uint64_t[size];
+    auto idx = 0;
+    for (const auto &bel : ctx_bels) {
+        (*bels)[idx] = wrap(bel);
+        idx++;
+    }
+    // Yes, by never deleting ctx_bels, we leak memory.
+    return size;
+}
+
 uint64_t npnr_context_get_pips_leak(const Context *ctx, uint64_t **const pips)
 {
     const auto ctx_pips{ctx->getPips()};
@@ -140,7 +155,7 @@ uint64_t npnr_context_get_pips_leak(const Context *ctx, uint64_t **const pips)
         (*pips)[idx] = wrap(pip);
         idx++;
     }
-    // Yes, by never deleting pip_vec, we leak memory.
+    // Yes, by never deleting ctx_pips, we leak memory.
     return size;
 }
 
@@ -155,7 +170,7 @@ uint64_t npnr_context_get_wires_leak(const Context *ctx, uint64_t **const wires)
         (*wires)[idx] = wrap(wire);
         idx++;
     }
-    // Yes, by never deleting wires, we leak memory.
+    // Yes, by never deleting ctx_wires, we leak memory.
     return size;
 }
 
