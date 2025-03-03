@@ -889,7 +889,7 @@ void GateMatePacker::pack_misc()
         ci_upper->cluster = ci.name;
         ci_upper->constr_abs_z = false;
         ci_upper->constr_z = -2;
-        ci_upper->params[id_C_RAM_I2] = Property(1, 1);
+        ci_upper->params[id_C_RAM_I] = Property(1, 1);
 
         NetInfo *ram_i = ctx->createNet(ctx->idf("%s$ram_i", ci.name.c_str(ctx)));
         ci.movePortTo(id_USR_RSTN, ci_upper, id_OUT);

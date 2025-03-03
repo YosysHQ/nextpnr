@@ -204,6 +204,14 @@ void GateMateImpl::postRoute()
                     if (mode==0)
                         cell.second->params[id_C_2D_IN] = Property(1, 1);
                 }
+                if(cell.second->params.count(id_C_RAM_I)) {
+                    cell.second->params[id_C_RAM_I1] = Property(int_or_default(cell.second->params, id_C_RAM_I, 0), 1);
+                    cell.second->unsetParam(id_C_RAM_I);
+                }
+                if(cell.second->params.count(id_C_RAM_O)) {
+                    cell.second->params[id_C_RAM_O1] = Property(int_or_default(cell.second->params, id_C_RAM_O, 0), 1);
+                    cell.second->unsetParam(id_C_RAM_O);
+                }
                 cell.second->type = id_CPE_HALF_U;
             } else {// CPE_HALF_L
                 if(!cell.second->params.count(id_INIT_L20))
@@ -223,6 +231,14 @@ void GateMateImpl::postRoute()
                 if(cell.second->params.count(id_INIT_L10)) {
                     cell.second->params[id_INIT_L11] = Property(int_or_default(cell.second->params, id_INIT_L10, 0), 4);
                     cell.second->unsetParam(id_INIT_L10);
+                }
+                if(cell.second->params.count(id_C_RAM_I)) {
+                    cell.second->params[id_C_RAM_I2] = Property(int_or_default(cell.second->params, id_C_RAM_I, 0), 1);
+                    cell.second->unsetParam(id_C_RAM_I);
+                }
+                if(cell.second->params.count(id_C_RAM_O)) {
+                    cell.second->params[id_C_RAM_O2] = Property(int_or_default(cell.second->params, id_C_RAM_O, 0), 1);
+                    cell.second->unsetParam(id_C_RAM_O);
                 }
                 cell.second->type = id_CPE_HALF_L;
             }
