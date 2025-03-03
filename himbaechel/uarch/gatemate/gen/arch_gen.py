@@ -32,6 +32,11 @@ MUX_VISIBLE = 2
 MUX_CONFIG = 4
 MUX_CPE_INV = 8
 
+BEL_EXTRA_GPIO_L = 1
+BEL_EXTRA_GPIO_R = 2
+BEL_EXTRA_GPIO_T = 4
+BEL_EXTRA_GPIO_B = 8
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--lib", help="Project Peppercorn python database script path", type=str, required=True)
 parser.add_argument("--device", help="name of device to export", type=str, required=True)
@@ -74,6 +79,15 @@ class PipExtraData(BBAStruct):
         bba.u8(self.value)
         bba.u8(self.invert)
         bba.u8(self.pip_type)
+
+@dataclass
+class BelExtraData(BBAStruct):
+    flags: int = 0
+
+    def serialise_lists(self, context: str, bba: BBAWriter):
+        pass
+    def serialise(self, context: str, bba: BBAWriter):
+        bba.u32(self.flags)
 
 def set_timings(ch):
     speed = "DEFAULT"
@@ -129,6 +143,17 @@ def main():
                 tt.create_wire(f"CPE.V_IN{i}_int", "CPE_VIRTUAL_WIRE")
         for prim in sorted(die.get_primitives_for_type(type_name)):
             bel = tt.create_bel(prim.name, prim.type, prim.z)
+            if prim.name == "GPIO":
+                flag = 0
+                if "LES" in type_name:
+                    flag = BEL_EXTRA_GPIO_L
+                if "RES" in type_name:
+                    flag = BEL_EXTRA_GPIO_R
+                if "TES" in type_name:
+                    flag = BEL_EXTRA_GPIO_T
+                if "BES" in type_name:
+                    flag = BEL_EXTRA_GPIO_B
+                bel.extra_data = BelExtraData(flag)
             for pin in sorted(die.get_primitive_pins(prim.type)):
                 tt.add_bel_pin(bel, pin.name, die.get_pin_connection_name(prim,pin), pin.dir)
         for mux in sorted(die.get_mux_connections_for_type(type_name)):
