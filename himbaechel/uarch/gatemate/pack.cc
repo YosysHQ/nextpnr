@@ -565,6 +565,22 @@ void GateMatePacker::pack_cpe()
     }
 }
 
+template <typename T>
+std::vector<std::vector<T>> splitNestedVector(const std::vector<std::vector<T>>& input, size_t maxSize = 8) {
+    std::vector<std::vector<T>> result;
+
+    for (const auto& inner : input) {
+        size_t i = 0;
+        while (i < inner.size()) {
+            size_t end = std::min(i + maxSize, inner.size());
+            result.emplace_back(inner.begin() + i, inner.begin() + end);
+            i = end;
+        }
+    }
+
+    return result;
+}
+
 void GateMatePacker::pack_addf()
 {
     log_info("Packing ADDFs..\n");
@@ -599,7 +615,7 @@ void GateMatePacker::pack_addf()
         groups.push_back(group);
     }
 
-    for (auto &grp : groups) {
+    for (auto &grp : splitNestedVector(groups)) {
         CellInfo *root = grp.front();
         root->cluster = root->name;
 
