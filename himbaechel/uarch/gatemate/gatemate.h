@@ -68,7 +68,9 @@ struct GateMateImpl : HimbaechelAPI
         return extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_INVERT);
     }
     const GateMateTileExtraDataPOD *tile_extra_data(int tile) const;
+    const GateMateBelExtraDataPOD *bel_extra_data(BelId bel) const;
 
+    pool<BelId> blocked_bels;
     pool<PipId> blocked_pips;
 
     struct GateMateCellInfo

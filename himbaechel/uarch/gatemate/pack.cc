@@ -289,6 +289,38 @@ void GateMatePacker::pack_io()
                 log_error("Can't place %s at %s because it's already taken by %s\n", ctx->nameOf(&ci),
                           ctx->nameOfBel(bel), ctx->nameOf(ctx->getBoundBelCell(bel)));
             }
+            const auto extra = uarch->bel_extra_data(bel);
+            Loc l = ctx->getBelLocation(bel);
+            switch(extra->flags) {
+                case BEL_EXTRA_GPIO_L: {
+                    uarch->blocked_bels.emplace(ctx->getBelByLocation(Loc(l.x+3,l.y,0)));
+                    uarch->blocked_bels.emplace(ctx->getBelByLocation(Loc(l.x+3,l.y,1)));
+                    uarch->blocked_bels.emplace(ctx->getBelByLocation(Loc(l.x+3,l.y+1,0)));
+                    uarch->blocked_bels.emplace(ctx->getBelByLocation(Loc(l.x+3,l.y+1,1)));
+                    break;
+                }
+                case BEL_EXTRA_GPIO_R: {
+                    uarch->blocked_bels.emplace(ctx->getBelByLocation(Loc(l.x-3,l.y,0)));
+                    uarch->blocked_bels.emplace(ctx->getBelByLocation(Loc(l.x-3,l.y,1)));
+                    uarch->blocked_bels.emplace(ctx->getBelByLocation(Loc(l.x-3,l.y+1,0)));
+                    uarch->blocked_bels.emplace(ctx->getBelByLocation(Loc(l.x-3,l.y+1,1)));
+                    break;
+                }
+                case BEL_EXTRA_GPIO_T: {
+                    uarch->blocked_bels.emplace(ctx->getBelByLocation(Loc(l.x,l.y-3,0)));
+                    uarch->blocked_bels.emplace(ctx->getBelByLocation(Loc(l.x,l.y-3,1)));
+                    uarch->blocked_bels.emplace(ctx->getBelByLocation(Loc(l.x+1,l.y-3,0)));
+                    uarch->blocked_bels.emplace(ctx->getBelByLocation(Loc(l.x+1,l.y-3,1)));
+                    break;
+                }
+                case BEL_EXTRA_GPIO_B: {
+                    uarch->blocked_bels.emplace(ctx->getBelByLocation(Loc(l.x,l.y+3,0)));
+                    uarch->blocked_bels.emplace(ctx->getBelByLocation(Loc(l.x,l.y+3,1)));
+                    uarch->blocked_bels.emplace(ctx->getBelByLocation(Loc(l.x+1,l.y+3,0)));
+                    uarch->blocked_bels.emplace(ctx->getBelByLocation(Loc(l.x+1,l.y+3,1)));
+                    break;
+                }                    
+            }
             ctx->bindBel(bel, &ci, PlaceStrength::STRENGTH_FIXED);
         }
     }
@@ -850,6 +882,19 @@ void GateMatePacker::pack_misc()
         if (!ci.type.in(id_CC_USR_RSTN))
             continue;
         ci.type = id_USR_RSTN;
+        ci.cluster = ci.name;
+
+        CellInfo *ci_upper = create_cell_ptr(id_CPE_HALF_U, ctx->idf("%s$ci_upper", ci.name.c_str(ctx)));
+        ci.constr_children.push_back(ci_upper);
+        ci_upper->cluster = ci.name;
+        ci_upper->constr_abs_z = false;
+        ci_upper->constr_z = -2;
+        ci_upper->params[id_C_RAM_I2] = Property(1, 1);
+
+        NetInfo *ram_i = ctx->createNet(ctx->idf("%s$ram_i", ci.name.c_str(ctx)));
+        ci.movePortTo(id_USR_RSTN, ci_upper, id_OUT);
+        ci.connectPort(id_USR_RSTN, ram_i);
+        ci_upper->connectPort(id_RAM_I, ram_i);
     }
 }
 

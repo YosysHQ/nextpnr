@@ -39,6 +39,8 @@ NPNR_PACKED_STRUCT(struct GateMatePipExtraDataPOD {
     uint8_t type;
 });
 
+NPNR_PACKED_STRUCT(struct GateMateBelExtraDataPOD { int32_t flags; });
+
 enum MuxFlags
 {
     MUX_INVERT = 1,
@@ -51,6 +53,14 @@ enum PipExtra
 {
     PIP_EXTRA_MUX = 1,
     PIP_EXTRA_CPE = 2,
+};
+
+enum BelExtra
+{
+    BEL_EXTRA_GPIO_L = 1,
+    BEL_EXTRA_GPIO_R = 2,
+    BEL_EXTRA_GPIO_T = 4,
+    BEL_EXTRA_GPIO_B = 8,    
 };
 
 enum CPEFunction

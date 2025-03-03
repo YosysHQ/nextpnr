@@ -57,16 +57,9 @@ bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
         return true;
     }
     if (ctx->getBelType(bel).in(id_CPE_HALF, id_CPE_HALF_L, id_CPE_HALF_U)) {
+        if (blocked_bels.count(bel))
+            return false;
         Loc loc = ctx->getBelLocation(bel);
-        int x = loc.x - 2;
-        int y = loc.y - 2;
-        if (x < 2 || x > 167)
-            return false;
-        if (y < 2 || y > 127)
-            return false;
-        if (x == 1 && y == 66)
-            return false;
-        
         const CellInfo *adj_half = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x, loc.y, loc.z==1 ? 0 : 1)));
         if (adj_half) {
             const auto &half_data = fast_cell_info.at(cell->flat_index);
@@ -377,6 +370,11 @@ bool GateMateImpl::isValidBelForCellType(IdString cell_type, BelId bel) const
 const GateMateTileExtraDataPOD *GateMateImpl::tile_extra_data(int tile) const
 {
     return reinterpret_cast<const GateMateTileExtraDataPOD *>(ctx->chip_info->tile_insts[tile].extra_data.get());
+}
+
+const GateMateBelExtraDataPOD *GateMateImpl::bel_extra_data(BelId bel) const
+{
+    return reinterpret_cast<const GateMateBelExtraDataPOD *>(chip_bel_info(ctx->chip_info, bel).extra_data.get());
 }
 
 struct GateMateArch : HimbaechelArch
