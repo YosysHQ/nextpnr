@@ -887,8 +887,11 @@ void GateMatePacker::pack_misc()
         CellInfo *ci_upper = create_cell_ptr(id_CPE_HALF_U, ctx->idf("%s$ci_upper", ci.name.c_str(ctx)));
         ci.constr_children.push_back(ci_upper);
         ci_upper->cluster = ci.name;
-        ci_upper->constr_abs_z = false;
-        ci_upper->constr_z = -2;
+        ci_upper->constr_abs_z = true;
+        // USR_RSTN is located at 0,0
+        ci_upper->constr_x = 1 + 2;
+        ci_upper->constr_y = 66 + 2;
+        ci_upper->constr_z = 0;
         ci_upper->params[id_C_RAM_I] = Property(1, 1);
 
         NetInfo *ram_i = ctx->createNet(ctx->idf("%s$ram_i", ci.name.c_str(ctx)));
