@@ -91,9 +91,12 @@ bool GateMateImpl::getChildPlacement(const BaseClusterInfo *cluster, Loc root_lo
         Loc child_loc;
         switch (child->constr_z) {
         case PLACE_CPE_CLK0_OUT:
+        case PLACE_CPE_CLK90_OUT:
+        case PLACE_CPE_CLK180_OUT:
+        case PLACE_CPE_CLK270_OUT:
         {
             int pll = root_loc.z - 4;
-            child_loc.x = 39 + 2 + pll*4;
+            child_loc.x = 39 + 2 + pll*4 + (child->constr_z - PLACE_CPE_CLK0_OUT);
             child_loc.y = 128 + 2;
             child_loc.z = 1; // RAM_I1
             break;
