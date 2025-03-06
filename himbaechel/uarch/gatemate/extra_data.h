@@ -77,6 +77,9 @@ enum CPEFunction
 enum ClusterPlacement
 {
     PLACE_CPE_CLK0_OUT = 1024,
+    PLACE_CPE_CLK90_OUT,
+    PLACE_CPE_CLK180_OUT,
+    PLACE_CPE_CLK270_OUT,
 };
 
 NEXTPNR_NAMESPACE_END
