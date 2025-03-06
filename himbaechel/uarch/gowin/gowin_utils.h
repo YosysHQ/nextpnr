@@ -57,6 +57,8 @@ struct GowinUtils
     bool need_SP_fix(void);
     bool need_BSRAM_OUTREG_fix(void);
     bool need_BLKSEL_fix(void);
+    bool has_PLL_HCLK(void);
+    bool has_CLKDIV_HCLK(void);
 
     // Power saving
     bool has_BANDGAP(void);

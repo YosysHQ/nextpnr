@@ -287,7 +287,7 @@ void GowinImpl::adjust_dsp_pin_mapping(void)
 
 /*
    Each HCLK section can serve one of three purposes:
-       1. A simple routing path to IOLOGIC FCLK
+       1. A simple routing path to IOLOGIC FCLK or PLL inputs
        2. CLKDIV2
        3. CLKDIV (only one section at any time)
 
@@ -305,6 +305,45 @@ void GowinImpl::place_constrained_hclk_cells()
     std::vector<std::pair<IdString, int>> alias_cells;
     std::map<std::pair<IdString, int>, BelId> final_placement;
 
+    const bool chip_has_clkdiv_hclk_connection = gwu.has_CLKDIV_HCLK();
+    const bool chip_has_pll_hclk = gwu.has_PLL_HCLK();
+    pool<BelId> free_pll_bels;
+    if (chip_has_pll_hclk) {
+        // gather free PLL bels
+        for (auto bel : ctx->getBels()) {
+            if (ctx->getBelType(bel).in(id_rPLL, id_PLLVR) && !ctx->getBoundBelCell(bel)) {
+                free_pll_bels.insert(bel);
+            }
+        }
+    }
+
+    const auto is_hclk_user = [&](const CellInfo *ci) -> bool {
+        if ((is_iologici(ci) || is_iologico(ci)) &&
+            !ci->type.in(id_ODDR, id_ODDRC, id_IDDR, id_IDDRC, id_IOLOGICI_EMPTY, id_IOLOGICO_EMPTY)) {
+            return true;
+        }
+        if (chip_has_pll_hclk && is_pll(ci)) {
+            return true;
+        }
+        return false;
+    };
+
+    // returns the list of networks connected to the cell
+    std::vector<const NetInfo *> net_list;
+    auto get_nets = [&](const CellInfo *ci) -> void {
+        net_list.clear();
+        if (is_iologici(ci) || is_iologico(ci)) {
+            net_list.push_back(ci->getPort(id_FCLK));
+            return;
+        }
+        if (chip_has_pll_hclk && is_pll(ci)) {
+            net_list.push_back(ci->getPort(id_CLKIN));
+            net_list.push_back(ci->getPort(id_CLKFB));
+            return;
+        }
+    };
+
+    // cell, port
     std::set<IdString> seen_hclk_users;
     for (auto &cell : ctx->cells) {
         auto ci = cell.second.get();
@@ -319,51 +358,57 @@ void GowinImpl::place_constrained_hclk_cells()
         if ((seen_hclk_users.find(ci->name) != seen_hclk_users.end()))
             continue;
 
-        if (((is_iologici(ci) || is_iologico(ci)) &&
-             !ci->type.in(id_ODDR, id_ODDRC, id_IDDR, id_IDDRC, id_IOLOGICI_EMPTY, id_IOLOGICO_EMPTY))) {
-            NetInfo *hclk_net = ci->getPort(id_FCLK);
-            if (hclk_net)
-                continue;
-            CellInfo *hclk_driver = hclk_net->driver.cell;
-            if (!hclk_driver)
-                continue;
-            if (chip.str(ctx) == "GW1N-9C" && hclk_driver->type != id_CLKDIV2) {
-                // CLKDIV doesn't seem to connect directly to FCLK on this device, and routing is guaranteed to succeed.
-                continue;
-            }
-
-            int alias_count = 0;
-            std::set<std::set<BelId>> seen_options;
-            for (auto user : hclk_net->users) {
-                std::vector<BelId> bel_candidates;
-                std::set<BelId> these_options;
-
-                if (!(user.port == id_FCLK && (is_iologici(user.cell) || is_iologico(user.cell)) &&
-                      !user.cell->type.in(id_ODDR, id_ODDRC, id_IDDR, id_IDDRC)))
+        if (is_hclk_user(ci)) {
+            get_nets(ci);
+            for (auto &hclk_net : net_list) {
+                if (!hclk_net) {
                     continue;
-                if (seen_hclk_users.find(user.cell->name) != seen_hclk_users.end())
+                }
+                CellInfo *hclk_driver = hclk_net->driver.cell;
+                if (!hclk_driver)
                     continue;
-                seen_hclk_users.insert(user.cell->name);
-
-                if (ctx->debug) {
-                    log_info("Custom HCLK Placer: Found HCLK user: %s\n", user.cell->name.c_str(ctx));
+                if (!(chip_has_clkdiv_hclk_connection || hclk_driver->type == id_CLKDIV2)) {
+                    continue;
                 }
 
-                gwu.find_connected_bels(user.cell, id_FCLK, id_CLKDIV2, id_CLKOUT, 16, bel_candidates);
-                these_options.insert(bel_candidates.begin(), bel_candidates.end());
+                int alias_count = 0;
+                std::set<std::set<BelId>> seen_options;
+                for (auto user : hclk_net->users) {
+                    std::vector<BelId> bel_candidates;
+                    std::set<BelId> these_options;
 
-                if (seen_options.find(these_options) != seen_options.end())
-                    continue;
-                seen_options.insert(these_options);
+                    if (!is_hclk_user(user.cell)) {
+                        continue;
+                    }
+                    seen_hclk_users.insert(user.cell->name);
 
-                // When an HCLK signal is routed to different (and disconnected) FCLKs, we treat each new
-                // HCLK-FCLK connection as a pseudo-HCLK cell since it must also be assigned an HCLK section
-                auto alias_index = std::pair<IdString, int>(hclk_driver->name, alias_count);
-                alias_cells.push_back(alias_index);
-                alias_count++;
+                    if (ctx->debug) {
+                        log_info("Custom HCLK Placer: Found HCLK user: %s\n", user.cell->name.c_str(ctx));
+                    }
 
-                for (auto option : these_options) {
-                    bel_cell_map[option].insert(alias_index);
+                    if (is_pll(user.cell) && user.cell->bel == BelId()) {
+                        if (free_pll_bels.empty()) {
+                            log_error("No BELs for %s\n", ctx->nameOf(user.cell));
+                        }
+                        ctx->bindBel(free_pll_bels.pop(), user.cell, PlaceStrength::STRENGTH_LOCKED);
+                    }
+
+                    gwu.find_connected_bels(user.cell, user.port, id_CLKDIV2, id_CLKOUT, 1000000, bel_candidates);
+                    these_options.insert(bel_candidates.begin(), bel_candidates.end());
+
+                    if (seen_options.find(these_options) != seen_options.end())
+                        continue;
+                    seen_options.insert(these_options);
+
+                    // When an HCLK signal is routed to different (and disconnected) FCLKs, we treat each new
+                    // HCLK-FCLK connection as a pseudo-HCLK cell since it must also be assigned an HCLK section
+                    auto alias_index = std::pair<IdString, int>(hclk_driver->name, alias_count);
+                    alias_cells.push_back(alias_index);
+                    alias_count++;
+
+                    for (auto option : these_options) {
+                        bel_cell_map[option].insert(alias_index);
+                    }
                 }
             }
         }
@@ -571,8 +616,6 @@ void GowinImpl::postRoute()
                         }
                         user.cell->setAttr(id_IOLOGIC_FCLK, Property("UNKNOWN"));
                         visited_hclk_users.insert(user.cell->name);
-                        // XXX Based on the implementation, perhaps a function
-                        // is needed to get Pip from a Wire
                         PipId up_pip = h_net->wires.at(ctx->getNetinfoSinkWire(h_net, user, 0)).pip;
                         IdString up_wire_name = ctx->getWireName(ctx->getPipSrcWire(up_pip))[1];
                         if (up_wire_name.in(id_HCLK_OUT0, id_HCLK_OUT1, id_HCLK_OUT2, id_HCLK_OUT3)) {
@@ -587,6 +630,39 @@ void GowinImpl::postRoute()
                                      ctx->nameOfWire(ctx->getNetinfoSinkWire(h_net, user, 0)), ctx->nameOfPip(up_pip),
                                      ctx->nameOfWire(ctx->getPipSrcWire(up_pip)));
                         }
+                    }
+                }
+            }
+        } else {
+            if (is_pll(ci)) {
+                // CLKIN is connected to HLCK?
+                NetInfo *h_net = ci->getPort(id_CLKIN);
+                if (h_net == nullptr || h_net->wires.empty()) {
+                    continue;
+                }
+                PortRef pr = {ci, id_CLKIN};
+                PipId up_pip = h_net->wires.at(ctx->getNetinfoSinkWire(h_net, pr, 0)).pip;
+                IdString up_wire_name = ctx->getWireName(ctx->getPipSrcWire(up_pip))[1];
+                if (up_wire_name.in(id_HCLK_OUT0, id_HCLK_OUT1)) {
+                    ci->setParam(id_INSEL, Property("CLKIN3"));
+                } else {
+                    if (up_wire_name.in(id_HCLK_OUT2, id_HCLK_OUT3)) {
+                        ci->setParam(id_INSEL, Property("CLKIN4"));
+                    }
+                }
+                // CLKFB is connected to HLCK?
+                h_net = ci->getPort(id_CLKFB);
+                if (h_net == nullptr || h_net->wires.empty()) {
+                    continue;
+                }
+                pr.port = id_CLKFB;
+                up_pip = h_net->wires.at(ctx->getNetinfoSinkWire(h_net, pr, 0)).pip;
+                up_wire_name = ctx->getWireName(ctx->getPipSrcWire(up_pip))[1];
+                if (up_wire_name.in(id_HCLK_OUT0, id_HCLK_OUT1)) {
+                    ci->setParam(id_FBSEL, Property("CLKFB1"));
+                } else {
+                    if (up_wire_name.in(id_HCLK_OUT2, id_HCLK_OUT3)) {
+                        ci->setParam(id_FBSEL, Property("CLKFB4"));
                     }
                 }
             }
