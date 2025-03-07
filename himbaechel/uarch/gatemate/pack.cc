@@ -1152,6 +1152,21 @@ PllCfgRecord get_pll_settings(double f_ref, double f_core, int mode, int low_jit
     return val;
 }
 
+template <typename KeyType>
+int extract_bits_or_default(const dict<KeyType, Property> &ct, const KeyType &key, int start, int bits, int def = 0)
+{
+    Property extr = get_or_default(ct, key, Property()).extract(start, bits);
+
+    if (extr.is_string) {
+        try {
+            return std::stoi(extr.as_string());
+        } catch (std::invalid_argument &e) {
+            log_error("Expecting numeric value but got '%s'.\n", extr.as_string().c_str());
+        }
+    } else
+        return extr.as_int64();
+}
+
 void GateMatePacker::pack_pll()
 {
     log_info("Packing PLLss..\n");
@@ -1268,14 +1283,70 @@ void GateMatePacker::pack_pll()
         ci.unsetParam(id_LOW_JITTER);
         ci.unsetParam(id_CI_FILTER_CONST);
         ci.unsetParam(id_CP_FILTER_CONST);
-        // ci.unsetParam(id_PLL_CFG_A);
-        // ci.unsetParam(id_PLL_CFG_B);
 
         // ci.cluster = ci.name;
         // move_ram_i(&ci, id_CLK0, PLACE_CPE_CLK0_OUT);
         // move_ram_i(&ci, id_CLK90, PLACE_CPE_CLK90_OUT);
         // move_ram_i(&ci, id_CLK180, PLACE_CPE_CLK180_OUT);
         // move_ram_i(&ci, id_CLK270, PLACE_CPE_CLK270_OUT);
+
+        ci.type = id_PLL;
+    }
+
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (!ci.type.in(id_CC_PLL_ADV))
+            continue;
+
+        disconnect_if_gnd(&ci, id_CLK_REF);
+        disconnect_if_gnd(&ci, id_USR_CLK_REF);
+        disconnect_if_gnd(&ci, id_CLK_FEEDBACK);
+        disconnect_if_gnd(&ci, id_USR_LOCKED_STDY_RST);
+
+        for(int i=0;i<2;i++) {
+            char cfg = 'A' + i;
+            IdString id = i==0 ? id_PLL_CFG_A : id_PLL_CFG_B;
+            ci.params[ctx->idf("CFG_%c.CI_FILTER_CONST",cfg)] = Property(extract_bits_or_default(ci.params, id, 0, 5) , 5);
+            ci.params[ctx->idf("CFG_%c.CP_FILTER_CONST",cfg)] = Property(extract_bits_or_default(ci.params, id, 5, 5) , 5);
+            ci.params[ctx->idf("CFG_%c.N1",cfg)] = Property(extract_bits_or_default(ci.params, id, 10, 6) , 6);
+            ci.params[ctx->idf("CFG_%c.N2",cfg)] = Property(extract_bits_or_default(ci.params, id, 16, 10) , 10);
+            ci.params[ctx->idf("CFG_%c.M1",cfg)] = Property(extract_bits_or_default(ci.params, id, 26, 6) , 6);
+            ci.params[ctx->idf("CFG_%c.M2",cfg)] = Property(extract_bits_or_default(ci.params, id, 32, 10) , 10);
+            ci.params[ctx->idf("CFG_%c.K",cfg)] = Property(extract_bits_or_default(ci.params, id, 42, 12) , 12);           
+            ci.params[ctx->idf("CFG_%c.FB_PATH",cfg)] = Property(extract_bits_or_default(ci.params, id, 54, 1) , 1);
+            ci.params[ctx->idf("CFG_%c.FINE_TUNE",cfg)] = Property(extract_bits_or_default(ci.params, id, 55, 11) , 11);
+            ci.params[ctx->idf("CFG_%c.COARSE_TUNE",cfg)] = Property(extract_bits_or_default(ci.params, id, 66, 3) , 3);
+            ci.params[ctx->idf("CFG_%c.AO_SW",cfg)] = Property(extract_bits_or_default(ci.params, id, 69, 5) , 5);
+            ci.params[ctx->idf("CFG_%c.OPEN_LOOP",cfg)] = Property(extract_bits_or_default(ci.params, id, 74, 1) , 1);
+            ci.params[ctx->idf("CFG_%c.ENFORCE_LOCK",cfg)] = Property(extract_bits_or_default(ci.params, id, 75, 1) , 1);
+            ci.params[ctx->idf("CFG_%c.PFD_SEL",cfg)] = Property(extract_bits_or_default(ci.params, id, 76, 1) , 1);
+            ci.params[ctx->idf("CFG_%c.LOCK_DETECT_WIN",cfg)] = Property(extract_bits_or_default(ci.params, id, 77, 1) , 1);
+            ci.params[ctx->idf("CFG_%c.SYNC_BYPASS",cfg)] = Property(extract_bits_or_default(ci.params, id, 78, 1) , 1);
+            ci.params[ctx->idf("CFG_%c.FILTER_SHIFT",cfg)] = Property(extract_bits_or_default(ci.params, id, 79, 2) , 2);
+            ci.params[ctx->idf("CFG_%c.FAST_LOCK",cfg)] = Property(extract_bits_or_default(ci.params, id, 81, 1) , 1);
+            ci.params[ctx->idf("CFG_%c.SAR_LIMIT",cfg)] = Property(extract_bits_or_default(ci.params, id, 82, 3) , 3);
+            ci.params[ctx->idf("CFG_%c.OP_LOCK",cfg)] = Property(extract_bits_or_default(ci.params, id, 85, 1) , 1);
+            ci.params[ctx->idf("CFG_%c.PDIV1_SEL",cfg)] = Property(extract_bits_or_default(ci.params, id, 86, 1) , 1);
+            ci.params[ctx->idf("CFG_%c.PDIV0_MUX",cfg)] = Property(extract_bits_or_default(ci.params, id, 87, 1) , 1);
+            ci.params[ctx->idf("CFG_%c.EN_COARSE_TUNE",cfg)] = Property(extract_bits_or_default(ci.params, id, 88, 1) , 1);
+            ci.params[ctx->idf("CFG_%c.EN_USR_CFG",cfg)] = Property(extract_bits_or_default(ci.params, id, 89, 1) , 1);
+            ci.params[ctx->idf("CFG_%c.PLL_EN_SEL",cfg)] = Property(extract_bits_or_default(ci.params, id, 90, 1) , 1);
+        }
+        NetInfo *select_net = ci.getPort(id_USR_SEL_A_B);
+        if (select_net->name == ctx->id("$PACKER_GND")) {
+            ci.params[ctx->id("SET_SEL")] = Property(0b0, 1);
+            ci.params[ctx->id("USR_SET")] = Property(0b0, 1);
+            ci.disconnectPort(id_USR_SEL_A_B);
+        } else if (select_net->name == ctx->id("$PACKER_VCC")) {
+            ci.params[ctx->id("SET_SEL")] = Property(0b1, 1);
+            ci.params[ctx->id("USR_SET")] = Property(0b0, 1);
+            ci.disconnectPort(id_USR_SEL_A_B);
+        } else {
+            ci.params[ctx->id("USR_SET")] = Property(0b1, 1);
+        }
+        ci.params[ctx->id("LOCK_REQ")] = Property(0b1, 1);
+        ci.unsetParam(id_PLL_CFG_A);
+        ci.unsetParam(id_PLL_CFG_B);
 
         ci.type = id_PLL;
     }
