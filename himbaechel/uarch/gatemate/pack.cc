@@ -773,6 +773,48 @@ void GateMatePacker::pack_addf()
     }
 }
 
+void GateMatePacker::sort_bufg()
+{
+    struct ItemBufG {
+        CellInfo *cell;
+        int32_t fan_out;
+        ItemBufG(CellInfo *cell,int32_t fan_out) : cell(cell), fan_out(fan_out) {}
+    };
+
+    std::vector<ItemBufG> bufg; 
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (!ci.type.in(id_CC_BUFG))
+            continue;
+        
+        NetInfo *i_net = ci.getPort(id_I);
+        if (!i_net) {
+            log_warning("Removing BUFG cell %s since there is no input used.\n", ci.name.c_str(ctx));
+            packed_cells.emplace(ci.name); // Remove if no input
+            continue;
+        }
+        NetInfo *o_net = ci.getPort(id_O);
+        if (!o_net) {
+            log_warning("Removing BUFG cell %s since there is no output used.\n", ci.name.c_str(ctx));
+            packed_cells.emplace(ci.name); // Remove if no output
+            continue;
+        }
+        bufg.push_back(ItemBufG(&ci,o_net->users.entries()));
+    }
+
+    if (bufg.size()>4) {
+        log_warning("More than 4 BUFG used. Those with highest fan-out will be used.\n");
+        std::sort(bufg.begin(), bufg.end(), [](const ItemBufG& a, const ItemBufG& b) {
+            return a.fan_out > b.fan_out;
+        });
+        for(size_t i=4;i<bufg.size();i++) {
+            log_warning("Removing BUFG cell %s.\n", bufg.at(i).cell->name.c_str(ctx));
+            packed_cells.emplace(bufg.at(i).cell->name);
+        }
+    }
+    flush_cells();
+}
+
 void GateMatePacker::pack_bufg()
 {
     log_info("Packing BUFGs..\n");
@@ -1436,6 +1478,7 @@ void GateMateImpl::pack()
 
     GateMatePacker packer(ctx, this);
     packer.pack_constants();
+    packer.sort_bufg();
     packer.pack_io();
     packer.pack_pll();
     packer.pack_bufg();
