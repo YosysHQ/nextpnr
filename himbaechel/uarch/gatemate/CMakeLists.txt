@@ -14,8 +14,14 @@ set(SOURCES
     pack.h
 )
 
+set(TEST_SOURCES
+    tests/lut_dff.cc
+    tests/main.cc
+)
+
 add_nextpnr_himbaechel_microarchitecture(${uarch}
     CORE_SOURCES ${SOURCES}
+    TEST_SOURCES ${TEST_SOURCES}
 )
 
 set(HIMBAECHEL_PEPPERCORN_PATH "" CACHE STRING
