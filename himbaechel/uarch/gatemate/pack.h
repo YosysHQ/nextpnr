@@ -32,6 +32,7 @@ struct GateMatePacker
     void pack_cpe();
     void pack_addf();
     void pack_bufg();
+    void sort_bufg();
     void pack_pll();
     void pack_misc();
     void pack_constants();
