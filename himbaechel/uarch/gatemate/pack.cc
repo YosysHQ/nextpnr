@@ -822,6 +822,20 @@ void GateMatePacker::pack_bufg()
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_CC_BUFG))
             continue;
+
+        NetInfo *in_net = ci.getPort(id_I);
+        if (in_net) {
+            bool is_cpe_source = true;
+            if (ctx->getBelBucketForCellType(in_net->driver.cell->type) == id_GPIO) {
+                Loc l = ctx->getBelLocation(in_net->driver.cell->bel);
+                if (l.x==0 && (l.y==103 || l.y==99 || l.y==95 || l.y==91))
+                    is_cpe_source = false;
+            }
+            if (is_cpe_source) {
+                ci.cluster = ci.name;
+                move_ram_o(&ci, id_I, PLACE_USR_GLB);
+            }
+        }
         ci.type = id_BUFG;
     }
 }
@@ -859,6 +873,27 @@ void GateMatePacker::move_ram_i(CellInfo *cell, IdString origPort, int placement
         cell->movePortTo(origPort, cpe_half, id_OUT);
         cell->connectPort(origPort, ram_i);
         cpe_half->connectPort(id_RAM_I, ram_i);
+    }
+}
+
+void GateMatePacker::move_ram_o(CellInfo *cell, IdString origPort, int placement)
+{
+    NetInfo *net = cell->getPort(origPort);
+    if (net) {
+        CellInfo *cpe_half = create_cell_ptr(id_CPE_HALF, ctx->idf("%s$%s_cpe_half", cell->name.c_str(ctx), origPort.c_str(ctx)));
+        cell->constr_children.push_back(cpe_half);
+        cpe_half->cluster = cell->name;
+        cpe_half->constr_abs_z = false;
+        cpe_half->constr_z = placement;
+        cpe_half->params[id_INIT_L00] = Property(0b1010, 4);
+        cpe_half->params[id_INIT_L10] = Property(0b1010, 4);
+        cpe_half->params[id_C_O] = Property(0b11, 2);
+        cpe_half->params[id_C_RAM_O] = Property(1, 1);
+
+        NetInfo *ram_o = ctx->createNet(ctx->idf("%s$ram_o", cpe_half->name.c_str(ctx)));
+        cell->movePortTo(origPort, cpe_half, id_IN1);
+        cell->connectPort(origPort, ram_o);
+        cpe_half->connectPort(id_RAM_O, ram_o);
     }
 }
 
@@ -1222,6 +1257,28 @@ void GateMatePacker::pack_pll()
         disconnect_if_gnd(&ci, id_CLK_FEEDBACK);
         disconnect_if_gnd(&ci, id_USR_LOCKED_STDY_RST);
 
+        ci.cluster = ci.name;
+
+        if (ci.getPort(id_CLK_REF) == nullptr && ci.getPort(id_USR_CLK_REF) == nullptr)
+            log_error("At least one reference clock (CLK_REF or USR_CLK_REF) must be set.\n");
+
+        if (ci.getPort(id_CLK_REF) != nullptr && ci.getPort(id_USR_CLK_REF) != nullptr)
+            log_error("CLK_REF and USR_CLK_REF are not allowed to be set in same time.\n");
+
+        NetInfo *clk = ci.getPort(id_CLK_REF);
+        if (clk) {
+            if (ctx->getBelBucketForCellType(clk->driver.cell->type) != id_GPIO)
+                log_error("CLK_REF must be driven with GPIO pin.\n");
+            Loc l = ctx->getBelLocation(clk->driver.cell->bel);
+            if (!(l.x==0 && (l.y==103 || l.y==99 || l.y==95 || l.y==91)))
+                log_error("CLK_REF must be driven with CLK dedicated pin.\n");
+        }
+
+        clk = ci.getPort(id_USR_CLK_REF);
+        if (clk) {
+            move_ram_o(&ci, id_USR_CLK_REF, PLACE_USR_CLK_REF);
+        }
+    
         if (ci.type == id_CC_PLL) {
             int low_jitter = int_or_default(ci.params, id_LOW_JITTER, 0);
             int ci_const = int_or_default(ci.params, id_CI_FILTER_CONST, 0);
@@ -1359,7 +1416,7 @@ void GateMatePacker::pack_pll()
                 ci.params[ctx->idf("CFG_%c.PLL_EN_SEL", cfg)] = Property(extract_bits(ci.params, id, 90, 1), 1);
             }
             NetInfo *select_net = ci.getPort(id_USR_SEL_A_B);
-            if (select_net->name == ctx->id("$PACKER_GND")) {
+            if (select_net == nullptr || select_net->name == ctx->id("$PACKER_GND")) {
                 ci.params[ctx->id("SET_SEL")] = Property(0b0, 1);
                 ci.params[ctx->id("USR_SET")] = Property(0b0, 1);
                 ci.disconnectPort(id_USR_SEL_A_B);
@@ -1369,6 +1426,7 @@ void GateMatePacker::pack_pll()
                 ci.disconnectPort(id_USR_SEL_A_B);
             } else {
                 ci.params[ctx->id("USR_SET")] = Property(0b1, 1);
+                move_ram_o(&ci, id_USR_SEL_A_B, PLACE_USR_SEL_A_B);
             }
             ci.params[ctx->id("LOCK_REQ")] = Property(0b1, 1);
             ci.unsetParam(id_PLL_CFG_A);

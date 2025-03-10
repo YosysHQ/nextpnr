@@ -101,6 +101,46 @@ bool GateMateImpl::getChildPlacement(const BaseClusterInfo *cluster, Loc root_lo
             child_loc.z = 1; // RAM_I1
             break;
         }
+        case PLACE_USR_GLB:
+        {
+            int bufg = root_loc.z;
+            child_loc.x = 1 + 2;
+            child_loc.y = 128 + 2 - bufg;
+            child_loc.z = 1; // RAM_O1
+            break;
+        }
+        case PLACE_USR_FB:
+        {
+            int pll = root_loc.z - 4;
+            child_loc.x = 1 + 2;
+            child_loc.y = 128 + 2 - pll;
+            child_loc.z = 0; // RAM_O2
+            break;
+        }
+        case PLACE_USR_CLK_REF:
+        {
+            int pll = root_loc.z - 4;
+            child_loc.x = 1 + 2;
+            child_loc.y = 124 + 2 - pll;
+            child_loc.z = 1; // RAM_O1
+            break;
+        }
+        case PLACE_USR_LOCKED_STDY_RST:
+        {
+            int pll = root_loc.z - 4;
+            child_loc.x = 1 + 2;
+            child_loc.y = 120 + 2 - pll;
+            child_loc.z = 1; // RAM_O1
+            break;
+        }
+        case PLACE_USR_SEL_A_B:
+        {
+            int pll = root_loc.z - 4;
+            child_loc.x = 1 + 2;
+            child_loc.y = 116 + 2 - pll;
+            child_loc.z = 1; // RAM_O1
+            break;
+        }
         default:
             child_loc.x = root_loc.x + child->constr_x;
             child_loc.y = root_loc.y + child->constr_y;
