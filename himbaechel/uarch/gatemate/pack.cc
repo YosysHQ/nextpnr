@@ -1188,7 +1188,8 @@ void GateMatePacker::pack_pll()
             int clk180_doub = int_or_default(ci.params, id_CLK180_DOUB, 0);
             int lock_req = int_or_default(ci.params, id_LOCK_REQ, 0);
 
-            ci.params[id_LOCK_REQ] = Property(lock_req, 1);
+            if (!ci.getPort(id_CLK_FEEDBACK))
+                ci.params[id_LOCK_REQ] = Property(lock_req, 1);
             ci.params[id_CLK180_DOUB] = Property(clk180_doub, 1);
             ci.params[id_CLK270_DOUB] = Property(clk270_doub, 1);
             std::string mode = str_or_default(ci.params, id_PERF_MD, "SPEED");
@@ -1330,6 +1331,8 @@ void GateMatePacker::pack_pll()
             ci.params[ctx->id("LOCK_REQ")] = Property(0b1, 1);
             ci.unsetParam(id_PLL_CFG_A);
             ci.unsetParam(id_PLL_CFG_B);
+            if (!ci.getPort(id_CLK_FEEDBACK))
+                ci.params[ctx->id("LOCK_REQ")] = Property(0b1, 1);
         }
 
         // ci.cluster = ci.name;
@@ -1338,11 +1341,22 @@ void GateMatePacker::pack_pll()
         // move_ram_i(&ci, id_CLK180, PLACE_CPE_CLK180_OUT);
         // move_ram_i(&ci, id_CLK270, PLACE_CPE_CLK270_OUT);
 
-        ci.params[ctx->id("CLK_OUT_EN")] = Property(0b1, 1);
-        ci.params[ctx->id("PLL_EN")] = Property(0b1, 1);
+        // PLL control register A
         ci.params[ctx->id("PLL_RST")] = Property(0b1, 1);
-        if (!ci.getPort(id_CLK_FEEDBACK))
-            ci.params[ctx->id("LOCK_REQ")] = Property(0b1, 1);
+        ci.params[ctx->id("PLL_EN")] = Property(0b1, 1);
+        // PLL_AUTN - for Autonomous Mode - not set
+        // SET_SEL - handled in CC_PLL_ADV
+        // USR_SET - handled in CC_PLL_ADV
+        // TODO: USR_CLK_REF - based on signals used
+        ci.params[ctx->id("CLK_OUT_EN")] = Property(0b1, 1);
+        // LOCK_REQ - set by CC_PLL parameter
+
+        // PLL control register B
+        // AUTN_CT_I - for Autonomous Mode - not set
+        // CLK180_DOUB - set by CC_PLL parameter
+        // CLK270_DOUB - set by CC_PLL parameter
+        // bits 6 and 7 are unused
+        // USR_CLK_OUT - part of routing, mux from chipdb        
 
         ci.type = id_PLL;
     }
