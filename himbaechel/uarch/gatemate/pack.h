@@ -41,8 +41,8 @@ struct GateMatePacker
     void disconnect_if_gnd(CellInfo *cell, IdString input);
     void remove_constants();
 
-    void move_ram_i(CellInfo *cell, IdString origPort, int placement);
-    void move_ram_o(CellInfo *cell, IdString origPort, int placement);
+    CellInfo *move_ram_i(CellInfo *cell, IdString origPort, int placement);
+    CellInfo *move_ram_o(CellInfo *cell, IdString origPort, int placement);
     // Cell creating
     CellInfo *create_cell_ptr(IdString type, IdString name);
     void flush_cells();

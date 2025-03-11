@@ -57,8 +57,6 @@ bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
         return true;
     }
     if (ctx->getBelType(bel).in(id_CPE_HALF, id_CPE_HALF_L, id_CPE_HALF_U)) {
-        if (blocked_bels.count(bel))
-            return false;
         Loc loc = ctx->getBelLocation(bel);
         const CellInfo *adj_half = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x, loc.y, loc.z==1 ? 0 : 1)));
         if (adj_half) {
@@ -82,6 +80,37 @@ bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
     return true;
 }
 
+Loc GateMateImpl::getGPIOOutCPE(BelId root_bel, int out) const
+{
+    Loc child_loc;
+    Loc root_loc = ctx->getBelLocation(root_bel);
+    const auto extra = bel_extra_data(root_bel);
+    bool is_alt = out > 1; // OUT 3/4
+    child_loc.z = (out % 2) ? 0 : 1; // RAM_O2 for OUT2/4  and RAM_O1 for OUT1/3
+    switch (extra->flags) {
+        case BEL_EXTRA_GPIO_L: {
+            child_loc.x = root_loc.x + 3;
+            child_loc.y = root_loc.y + (is_alt ? +1 : 0);
+            break;
+        }
+        case BEL_EXTRA_GPIO_R: {
+            child_loc.x = root_loc.x - 3;
+            child_loc.y = root_loc.y + (is_alt ? +1 : 0);
+            break;
+        }
+        case BEL_EXTRA_GPIO_T: {
+            child_loc.y = root_loc.y - 3;
+            child_loc.x = root_loc.x + (is_alt ? +1 : 0);
+            break;
+        }
+        case BEL_EXTRA_GPIO_B: {
+            child_loc.y = root_loc.y + 3;
+            child_loc.x = root_loc.x + (is_alt ? +1 : 0);
+            break;
+        }
+    }
+    return child_loc;
+}
 
 bool GateMateImpl::getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc,
                                     std::vector<std::pair<CellInfo *, BelId>> &placement) const
@@ -139,6 +168,13 @@ bool GateMateImpl::getChildPlacement(const BaseClusterInfo *cluster, Loc root_lo
             child_loc.x = 1 + 2;
             child_loc.y = 116 + 2 - pll;
             child_loc.z = 1; // RAM_O1
+            break;
+        }
+        case PLACE_GPIO_CPE_OUT1 ... PLACE_GPIO_CPE_OUT4:
+        {
+            int out = child->constr_z - PLACE_GPIO_CPE_OUT1;
+            BelId root_bel = ctx->getBelByLocation(root_loc);
+            child_loc = getGPIOOutCPE(root_bel, out);
             break;
         }
         default:

@@ -66,6 +66,8 @@ struct GateMateImpl : HimbaechelAPI
     bool isValidBelForCellType(IdString cell_type, BelId bel) const override;
     BelBucketId getBelBucketForBel(BelId bel) const override;
 
+    Loc getGPIOOutCPE(BelId root_bel, int out) const;
+
     void configurePlacerHeap(PlacerHeapCfg &cfg) override;
 
     bool isPipInverting(PipId pip) const override {
@@ -75,7 +77,6 @@ struct GateMateImpl : HimbaechelAPI
     const GateMateTileExtraDataPOD *tile_extra_data(int tile) const;
     const GateMateBelExtraDataPOD *bel_extra_data(BelId bel) const;
 
-    pool<BelId> blocked_bels;
     pool<PipId> blocked_pips;
 
     struct GateMateCellInfo
