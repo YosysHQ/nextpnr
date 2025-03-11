@@ -270,7 +270,7 @@ void GateMatePacker::pack_io()
         ci.disconnectPort(id_O_P);
         ci.disconnectPort(id_O_N);
 
-        //bool ff_obf = int_or_default(ci.params, id_FF_OBF, 0) == 1;
+        bool ff_obf = int_or_default(ci.params, id_FF_OBF, 0) == 1;
         //bool ff_ibf = int_or_default(ci.params, id_FF_IBF, 0) == 1;
         ci.unsetParam(id_FF_OBF);
         ci.unsetParam(id_FF_IBF);
@@ -292,7 +292,36 @@ void GateMatePacker::pack_io()
                 //ci.params[id_OUT1_4] = Property(Property::State::S1);
                 //ci.params[id_OUT2_3] = Property(Property::State::S1);
                 //ci.params[id_OUT23_14_SEL] = Property(Property::State::S1);
-                ci.renamePort(id_A, id_OUT1);
+                bool ff_obf_merged = false;
+                if (ff_obf && do_net->driver.cell->type==id_CC_DFF) {
+                    CellInfo *dff = do_net->driver.cell;
+                    if (is_gpio_valid_dff(dff)) {
+                        ci.params[id_OUT1_FF] = Property(Property::State::S1);
+                        ci.params[id_SEL_OUT_CLOCK] = Property(Property::State::S1);
+                        packed_cells.emplace(dff->name);
+                        ci.disconnectPort(id_A);
+                        dff->movePortTo(id_D, &ci, id_OUT1);
+
+                        NetInfo *clk_net = dff->getPort(id_CLK);
+                        bool invert = int_or_default(dff->params, id_CLK_INV, 0) == 1;
+                        if (clk_net) {
+                            if (clk_net->name == ctx->id("$PACKER_GND")) {
+                                dff->disconnectPort(id_CLK);
+                            } else if (clk_net->name == ctx->id("$PACKER_VCC")) {
+                                dff->disconnectPort(id_CLK);
+                            } else {
+                                dff->movePortTo(id_CLK, &ci, id_OUT4);
+                                if (invert)
+                                    ci.params[id_INV_OUT1_CLOCK] = Property(Property::State::S1);
+                            }
+                        }
+                        ff_obf_merged = true;
+                    } else {
+                        log_warning("Found DFF %s cell, but it is not valid for merge.\n", dff->name.c_str(ctx));
+                    }
+                }
+                if (!ff_obf_merged)
+                    ci.renamePort(id_A, id_OUT1);
             }
         }
         ci.cluster = ci.name;
@@ -320,6 +349,57 @@ void GateMatePacker::pack_io()
             }
         }
     }
+    flush_cells();
+}
+
+bool GateMatePacker::is_gpio_valid_dff(CellInfo *dff)
+{
+    NetInfo *en_net = dff->getPort(id_EN);
+    bool invert = int_or_default(dff->params, id_EN_INV, 0) == 1;
+    if (en_net) {
+        if (en_net->name == ctx->id("$PACKER_GND")) {
+            if (!invert) return false;
+            dff->disconnectPort(id_EN);
+        } else if (en_net->name == ctx->id("$PACKER_VCC")) {
+            if (invert) return false;
+            dff->disconnectPort(id_EN);
+        } else {
+            return false;
+        }
+    }
+    dff->unsetParam(id_EN_INV);
+
+    NetInfo *sr_net = dff->getPort(id_SR);
+    invert = int_or_default(dff->params, id_SR_INV, 0) == 1;
+    if (sr_net) {
+        if (sr_net->name == ctx->id("$PACKER_GND")) {
+            if (invert)
+                log_error("Invalid DFF configuration\n.");
+            dff->disconnectPort(id_SR);
+        } else if (sr_net->name == ctx->id("$PACKER_VCC")) {
+            if (!invert)
+                log_error("Invalid DFF configuration\n.");
+            dff->disconnectPort(id_SR);
+        } else {
+            return false;
+        }
+    }
+    dff->unsetParam(id_SR_VAL);
+    dff->unsetParam(id_SR_INV);
+
+    // Sanity check for CLK signal, that it must exist
+    NetInfo *clk_net = dff->getPort(id_CLK);
+    if (clk_net) {
+        if (clk_net->name == ctx->id("$PACKER_GND")) {
+            return false;
+        } else if (clk_net->name == ctx->id("$PACKER_VCC")) {
+            return false;
+        }
+    } else {
+        return false;
+    }
+
+    return true;
 }
 
 void GateMatePacker::dff_to_cpe(CellInfo *dff, CellInfo *cpe)
