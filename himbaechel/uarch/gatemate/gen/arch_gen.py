@@ -169,10 +169,10 @@ def main():
                 mux_flags |= MUX_CONFIG if mux.config else 0
                 pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id(mux.name), mux.bits, mux.value, mux_flags)
         if "CPE" in type_name:
-            pp = tt.create_pip("CPE.IN1_int", "CPE.RAM_O2")
-            pp.extra_data = PipExtraData(PIP_EXTRA_CPE,ch.strs.id("RAM_O2"))
-            pp = tt.create_pip("CPE.IN5_int", "CPE.RAM_O1")
-            pp.extra_data = PipExtraData(PIP_EXTRA_CPE,ch.strs.id("RAM_O1"))
+            #pp = tt.create_pip("CPE.IN1_int", "CPE.RAM_O2")
+            #pp.extra_data = PipExtraData(PIP_EXTRA_CPE,ch.strs.id("RAM_O2"))
+            #pp = tt.create_pip("CPE.IN5_int", "CPE.RAM_O1")
+            #pp.extra_data = PipExtraData(PIP_EXTRA_CPE,ch.strs.id("RAM_O1"))
             pp = tt.create_pip("CPE.RAM_I1", "CPE.OUT1")
             pp.extra_data = PipExtraData(PIP_EXTRA_CPE,ch.strs.id("RAM_I1"))
             pp = tt.create_pip("CPE.RAM_I2", "CPE.OUT2")
