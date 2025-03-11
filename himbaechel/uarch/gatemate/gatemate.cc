@@ -342,60 +342,6 @@ void GateMateImpl::postRoute()
             }
         }
     }
-    log_break();
-    log_info("Resources spent on routing:\n");
-    for (auto &net : ctx->nets) {
-        NetInfo *ni = net.second.get();
-        for (auto &w : ni->wires) {
-            if (w.second.pip != PipId()) {
-                const auto extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD *>(
-                        chip_pip_info(ctx->chip_info, w.second.pip).extra_data.get());
-                if (!extra_data.name)
-                    continue;
-                if (extra_data.type == PipExtra::PIP_EXTRA_CPE) {
-                    Loc l = ctx->getPipLocation(w.second.pip);
-                    BelId bel_u = ctx->getBelByLocation(Loc(l.x,l.y,0));
-                    BelId bel_l = ctx->getBelByLocation(Loc(l.x,l.y,1));
-                    if (IdString(extra_data.name) == id_RAM_O2) {
-                        if (ctx->getBoundBelCell(bel_u))
-                            log_error("Issue adding pass trough signal.\n");
-                        CellInfo *cell = ctx->createCell(ctx->id(ctx->nameOfBel(bel_u)), id_CPE_HALF_U);
-                        ctx->bindBel(bel_u, cell, PlaceStrength::STRENGTH_FIXED);
-                        // Propagate IN1 to O2 and RAM_O2
-                        cell->params[id_INIT_L00] = Property(0b1010, 4);
-                        cell->params[id_INIT_L10] = Property(0b1010, 4);
-                        cell->params[id_C_O2] = Property(0b11, 2);
-                        cell->params[id_C_RAM_O2] = Property(1, 1);
-                    } else if (IdString(extra_data.name) == id_RAM_O1) {
-                        if (ctx->getBoundBelCell(bel_l))
-                            log_error("Issue adding pass trough signal.\n");
-                        CellInfo *cell = ctx->createCell(ctx->id(ctx->nameOfBel(bel_l)), id_CPE_HALF_L);
-                        ctx->bindBel(bel_l, cell, PlaceStrength::STRENGTH_FIXED);
-                        // Propagate IN1 to O1 and RAM_O1
-                        cell->params[id_INIT_L02] = Property(0b1010, 4);
-                        cell->params[id_INIT_L11] = Property(0b1010, 4);
-                        cell->params[id_INIT_L20] = Property(0b1100, 4);
-                        cell->params[id_C_O1] = Property(0b11, 2);
-                        cell->params[id_C_RAM_O1] = Property(1, 1);
-                    } else if (IdString(extra_data.name) == id_RAM_I1) {
-                        if (ctx->getBoundBelCell(bel_l))
-                            log_error("Issue adding pass trough signal.\n");
-                        CellInfo *cell = ctx->createCell(ctx->id(ctx->nameOfBel(bel_l)), id_CPE_HALF_L);
-                        ctx->bindBel(bel_l, cell, PlaceStrength::STRENGTH_FIXED);
-                        cell->params[id_C_RAM_I1] = Property(1, 1);
-                    } else if (IdString(extra_data.name) == id_RAM_I2) {
-                        if (ctx->getBoundBelCell(bel_u))
-                            log_error("Issue adding pass trough signal.\n");
-                        CellInfo *cell = ctx->createCell(ctx->id(ctx->nameOfBel(bel_u)), id_CPE_HALF_U);
-                        ctx->bindBel(bel_u, cell, PlaceStrength::STRENGTH_FIXED);
-                        cell->params[id_C_RAM_I2] = Property(1, 1);
-                    } else {
-                        log_error("Issue adding pass trough signal for %s.\n",IdString(extra_data.name).c_str(ctx));
-                    }
-                }
-            }
-        }
-    }
     for (auto &cell : ctx->cells) {
         if (cell.second->type.in(id_CPE_HALF_U)) {
             uint8_t func = int_or_default(cell.second->params, id_C_FUNCTION, 0);
