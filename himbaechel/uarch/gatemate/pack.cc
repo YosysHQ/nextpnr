@@ -135,11 +135,17 @@ void GateMatePacker::pack_io()
         ctx->cells.erase(port.first);
     }
 
+    std::vector<CellInfo *> cells;
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_CC_IBUF, id_CC_OBUF, id_CC_TOBUF, id_CC_IOBUF, id_CC_LVDS_IBUF, id_CC_LVDS_OBUF,
                         id_CC_LVDS_TOBUF, id_CC_LVDS_IOBUF))
             continue;
+        
+        cells.push_back(&ci);
+    }
+    for (auto &cell : cells) {
+        CellInfo &ci = *cell;
 
         bool is_lvds = ci.type.in(id_CC_LVDS_IBUF, id_CC_LVDS_OBUF, id_CC_LVDS_TOBUF, id_CC_LVDS_IOBUF);
 
@@ -283,12 +289,18 @@ void GateMatePacker::pack_io()
                 ci.disconnectPort(id_A);
             } else {
                 ci.params[id_OUT_SIGNAL] = Property(Property::State::S1);
-                //ci.params[id_OUT1_4] = Property(Property::State::S0);
-                //ci.params[id_OUT2_3] = Property(Property::State::S0);
-                //ci.params[id_OUT23_14_SEL] = Property(Property::State::S0);
+                //ci.params[id_OUT1_4] = Property(Property::State::S1);
+                //ci.params[id_OUT2_3] = Property(Property::State::S1);
+                //ci.params[id_OUT23_14_SEL] = Property(Property::State::S1);
                 ci.renamePort(id_A, id_OUT1);
             }
         }
+        ci.cluster = ci.name;
+
+        CellInfo* cpe_out[4];
+        for(int i=0;i<4;i++)
+            cpe_out[i] = move_ram_o(&ci, ctx->idf("OUT%d",i+1), PLACE_GPIO_CPE_OUT1 + i);
+
         if (!loc.empty()) {
             BelId bel = ctx->get_package_pin_bel(ctx->id(loc));
             if (bel == BelId())
@@ -299,39 +311,13 @@ void GateMatePacker::pack_io()
                 log_error("Can't place %s at %s because it's already taken by %s\n", ctx->nameOf(&ci),
                           ctx->nameOfBel(bel), ctx->nameOf(ctx->getBoundBelCell(bel)));
             }
-            const auto extra = uarch->bel_extra_data(bel);
-            Loc l = ctx->getBelLocation(bel);
-            switch (extra->flags) {
-            case BEL_EXTRA_GPIO_L: {
-                uarch->blocked_bels.emplace(ctx->getBelByLocation(Loc(l.x + 3, l.y, 0)));
-                uarch->blocked_bels.emplace(ctx->getBelByLocation(Loc(l.x + 3, l.y, 1)));
-                uarch->blocked_bels.emplace(ctx->getBelByLocation(Loc(l.x + 3, l.y + 1, 0)));
-                uarch->blocked_bels.emplace(ctx->getBelByLocation(Loc(l.x + 3, l.y + 1, 1)));
-                break;
-            }
-            case BEL_EXTRA_GPIO_R: {
-                uarch->blocked_bels.emplace(ctx->getBelByLocation(Loc(l.x - 3, l.y, 0)));
-                uarch->blocked_bels.emplace(ctx->getBelByLocation(Loc(l.x - 3, l.y, 1)));
-                uarch->blocked_bels.emplace(ctx->getBelByLocation(Loc(l.x - 3, l.y + 1, 0)));
-                uarch->blocked_bels.emplace(ctx->getBelByLocation(Loc(l.x - 3, l.y + 1, 1)));
-                break;
-            }
-            case BEL_EXTRA_GPIO_T: {
-                uarch->blocked_bels.emplace(ctx->getBelByLocation(Loc(l.x, l.y - 3, 0)));
-                uarch->blocked_bels.emplace(ctx->getBelByLocation(Loc(l.x, l.y - 3, 1)));
-                uarch->blocked_bels.emplace(ctx->getBelByLocation(Loc(l.x + 1, l.y - 3, 0)));
-                uarch->blocked_bels.emplace(ctx->getBelByLocation(Loc(l.x + 1, l.y - 3, 1)));
-                break;
-            }
-            case BEL_EXTRA_GPIO_B: {
-                uarch->blocked_bels.emplace(ctx->getBelByLocation(Loc(l.x, l.y + 3, 0)));
-                uarch->blocked_bels.emplace(ctx->getBelByLocation(Loc(l.x, l.y + 3, 1)));
-                uarch->blocked_bels.emplace(ctx->getBelByLocation(Loc(l.x + 1, l.y + 3, 0)));
-                uarch->blocked_bels.emplace(ctx->getBelByLocation(Loc(l.x + 1, l.y + 3, 1)));
-                break;
-            }
-            }
             ctx->bindBel(bel, &ci, PlaceStrength::STRENGTH_FIXED);
+            for(int i=0;i<4;i++) {
+                if (cpe_out[i]) {
+                    BelId b = ctx->getBelByLocation(uarch->getGPIOOutCPE(bel, i));
+                    ctx->bindBel(b, cpe_out[i], PlaceStrength::STRENGTH_FIXED);
+                }
+            }
         }
     }
 }
@@ -868,11 +854,12 @@ double double_or_default(const dict<KeyType, Property> &ct, const KeyType &key, 
     }
 };
 
-void GateMatePacker::move_ram_i(CellInfo *cell, IdString origPort, int placement)
+CellInfo *GateMatePacker::move_ram_i(CellInfo *cell, IdString origPort, int placement)
 {
+    CellInfo *cpe_half = nullptr;
     NetInfo *net = cell->getPort(origPort);
     if (net) {
-        CellInfo *cpe_half = create_cell_ptr(id_CPE_HALF, ctx->idf("%s$cpe_half", cell->name.c_str(ctx)));
+        cpe_half = create_cell_ptr(id_CPE_HALF, ctx->idf("%s$cpe_half", cell->name.c_str(ctx)));
         cell->constr_children.push_back(cpe_half);
         cpe_half->cluster = cell->name;
         cpe_half->constr_abs_z = false;
@@ -884,13 +871,15 @@ void GateMatePacker::move_ram_i(CellInfo *cell, IdString origPort, int placement
         cell->connectPort(origPort, ram_i);
         cpe_half->connectPort(id_RAM_I, ram_i);
     }
+    return cpe_half;
 }
 
-void GateMatePacker::move_ram_o(CellInfo *cell, IdString origPort, int placement)
+CellInfo *GateMatePacker::move_ram_o(CellInfo *cell, IdString origPort, int placement)
 {
+    CellInfo *cpe_half = nullptr;
     NetInfo *net = cell->getPort(origPort);
     if (net) {
-        CellInfo *cpe_half = create_cell_ptr(id_CPE_HALF, ctx->idf("%s$%s_cpe_half", cell->name.c_str(ctx), origPort.c_str(ctx)));
+        cpe_half = create_cell_ptr(id_CPE_HALF, ctx->idf("%s$%s_cpe_half", cell->name.c_str(ctx), origPort.c_str(ctx)));
         cell->constr_children.push_back(cpe_half);
         cpe_half->cluster = cell->name;
         cpe_half->constr_abs_z = false;
@@ -905,6 +894,7 @@ void GateMatePacker::move_ram_o(CellInfo *cell, IdString origPort, int placement
         cell->connectPort(origPort, ram_o);
         cpe_half->connectPort(id_RAM_O, ram_o);
     }
+    return cpe_half;
 }
 
 struct PllCfgRecord
