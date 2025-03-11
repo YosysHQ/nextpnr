@@ -264,19 +264,29 @@ void GateMatePacker::pack_io()
         ci.disconnectPort(id_O_P);
         ci.disconnectPort(id_O_N);
 
-        // Remap ports to GPIO bel
-        ci.renamePort(id_A, id_DO);
-        ci.renamePort(id_Y, id_DI);
-        ci.renamePort(id_T, id_OE);
+        //bool ff_obf = int_or_default(ci.params, id_FF_OBF, 0) == 1;
+        //bool ff_ibf = int_or_default(ci.params, id_FF_IBF, 0) == 1;
+        ci.unsetParam(id_FF_OBF);
+        ci.unsetParam(id_FF_IBF);
 
-        NetInfo *do_net = ci.getPort(id_DO);
+        // Remap ports to GPIO bel
+        // DI is virtual pin shared for IN1 and IN2
+        // this gives router chance to find better route
+        ci.renamePort(id_Y, id_DI);
+        ci.renamePort(id_T, id_OUT2);
+
+        NetInfo *do_net = ci.getPort(id_A);
         if (do_net) {
             if (do_net->name.in(ctx->id("$PACKER_GND"), ctx->id("$PACKER_VCC"))) {
                 ci.params[id_OUT23_14_SEL] =
                         Property(do_net->name == ctx->id("$PACKER_VCC") ? Property::State::S1 : Property::State::S0);
-                ci.disconnectPort(id_DO);
+                ci.disconnectPort(id_A);
             } else {
                 ci.params[id_OUT_SIGNAL] = Property(Property::State::S1);
+                //ci.params[id_OUT1_4] = Property(Property::State::S0);
+                //ci.params[id_OUT2_3] = Property(Property::State::S0);
+                //ci.params[id_OUT23_14_SEL] = Property(Property::State::S0);
+                ci.renamePort(id_A, id_OUT1);
             }
         }
         if (!loc.empty()) {
