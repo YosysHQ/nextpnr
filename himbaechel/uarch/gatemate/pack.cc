@@ -859,7 +859,7 @@ CellInfo *GateMatePacker::move_ram_i(CellInfo *cell, IdString origPort, int plac
     CellInfo *cpe_half = nullptr;
     NetInfo *net = cell->getPort(origPort);
     if (net) {
-        cpe_half = create_cell_ptr(id_CPE_HALF, ctx->idf("%s$cpe_half", cell->name.c_str(ctx)));
+        cpe_half = create_cell_ptr(id_CPE_HALF, ctx->idf("%s$%s_cpe_half", cell->name.c_str(ctx), origPort.c_str(ctx)));
         cell->constr_children.push_back(cpe_half);
         cpe_half->cluster = cell->name;
         cpe_half->constr_abs_z = false;
@@ -895,6 +895,30 @@ CellInfo *GateMatePacker::move_ram_o(CellInfo *cell, IdString origPort, int plac
         cpe_half->connectPort(id_RAM_O, ram_o);
     }
     return cpe_half;
+}
+
+void GateMatePacker::pll_out(CellInfo *cell, IdString origPort, int placement)
+{
+    NetInfo *net = cell->getPort(origPort);
+    if (!net) return;
+    CellInfo *bufg = nullptr;
+    for (auto &usr : net->users) {
+        if (usr.cell->type == id_CC_BUFG)
+            bufg = usr.cell;
+    }
+    if (bufg) {
+        if (net->users.entries()==1) {
+            bufg->cluster = cell->name;
+            bufg->constr_abs_z = false;
+            bufg->constr_z = -4;
+            bufg->type = id_BUFG;
+            cell->constr_children.push_back(bufg);
+        } else {
+            log_error("not handled BUFG\n");
+        }
+    } else {
+        move_ram_i(cell, origPort, placement);
+    }
 }
 
 struct PllCfgRecord
@@ -1278,7 +1302,16 @@ void GateMatePacker::pack_pll()
         if (clk) {
             move_ram_o(&ci, id_USR_CLK_REF, PLACE_USR_CLK_REF);
         }
-    
+        // TODO: handle CLK_FEEDBACK
+        // TODO: handle CLK_REF_OUT
+        pll_out(&ci, id_CLK0, PLACE_CPE_CLK0_OUT);
+        pll_out(&ci, id_CLK90, PLACE_CPE_CLK90_OUT);
+        pll_out(&ci, id_CLK180, PLACE_CPE_CLK180_OUT);
+        pll_out(&ci, id_CLK270, PLACE_CPE_CLK270_OUT);
+
+        move_ram_i(&ci, id_USR_PLL_LOCKED, PLACE_USR_PLL_LOCKED);
+        move_ram_i(&ci, id_USR_PLL_LOCKED_STDY, PLACE_USR_PLL_LOCKED_STDY);
+
         if (ci.type == id_CC_PLL) {
             int low_jitter = int_or_default(ci.params, id_LOW_JITTER, 0);
             int ci_const = int_or_default(ci.params, id_CI_FILTER_CONST, 0);
@@ -1434,12 +1467,6 @@ void GateMatePacker::pack_pll()
             if (!ci.getPort(id_CLK_FEEDBACK))
                 ci.params[ctx->id("LOCK_REQ")] = Property(0b1, 1);
         }
-
-        // ci.cluster = ci.name;
-        // move_ram_i(&ci, id_CLK0, PLACE_CPE_CLK0_OUT);
-        // move_ram_i(&ci, id_CLK90, PLACE_CPE_CLK90_OUT);
-        // move_ram_i(&ci, id_CLK180, PLACE_CPE_CLK180_OUT);
-        // move_ram_i(&ci, id_CLK270, PLACE_CPE_CLK270_OUT);
 
         // PLL control register A
         ci.params[ctx->id("PLL_RST")] = Property(0b1, 1);
