@@ -141,6 +141,8 @@ def main():
         if "CPE" in type_name:
             for i in range(1,9):
                 tt.create_wire(f"CPE.V_IN{i}_int", "CPE_VIRTUAL_WIRE")
+        if "GPIO" in type_name:
+            tt.create_wire("GPIO.DI", "CPE_VIRTUAL_WIRE")
         for prim in sorted(die.get_primitives_for_type(type_name)):
             bel = tt.create_bel(prim.name, prim.type, prim.z)
             if prim.name == "GPIO":
@@ -154,6 +156,7 @@ def main():
                 if "BES" in type_name:
                     flag = BEL_EXTRA_GPIO_B
                 bel.extra_data = BelExtraData(flag)
+                tt.add_bel_pin(bel, "DI", "GPIO.DI", PinType.INPUT)
             for pin in sorted(die.get_primitive_pins(prim.type)):
                 tt.add_bel_pin(bel, pin.name, die.get_pin_connection_name(prim,pin), pin.dir)
         for mux in sorted(die.get_mux_connections_for_type(type_name)):
@@ -203,70 +206,6 @@ def main():
             pp = tt.create_pip("CPE.V_SR", "CPE.SR")
             pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id("CPE.SR_INV"), 1, 1, MUX_CPE_INV| MUX_INVERT)
         if "GPIO" in type_name:
-            tt.create_wire("GPIO.OUT_D1", "WIRE_INTERNAL")
-            tt.create_wire("GPIO.OUT_D2", "WIRE_INTERNAL")
-            #tt.create_wire("GPIO.OUT_Q1", "WIRE_INTERNAL")
-            #tt.create_wire("GPIO.OUT_Q2", "WIRE_INTERNAL")
-            #tt.create_wire("GPIO.OUT_CLK","WIRE_INTERNAL")
-            #tt.create_wire("GPIO.CLK_INT","WIRE_INTERNAL")
-
-            pp = tt.create_pip("GPIO.OUT1", "GPIO.OUT_D1")
-            pp.extra_data = PipExtraData(PIP_EXTRA_MUX,ch.strs.id("GPIO.OUT1_4"), 1, 0, MUX_VISIBLE)
-            pp = tt.create_pip("GPIO.OUT4", "GPIO.OUT_D1")
-            pp.extra_data = PipExtraData(PIP_EXTRA_MUX,ch.strs.id("GPIO.OUT1_4"), 1, 1, MUX_VISIBLE)
-
-            pp = tt.create_pip("GPIO.OUT2", "GPIO.OUT_D2")
-            pp.extra_data = PipExtraData(PIP_EXTRA_MUX,ch.strs.id("GPIO.OUT2_3"), 1, 0, MUX_VISIBLE)
-            pp = tt.create_pip("GPIO.OUT3", "GPIO.OUT_D2")
-            pp.extra_data = PipExtraData(PIP_EXTRA_MUX,ch.strs.id("GPIO.OUT2_3"), 1, 1, MUX_VISIBLE)
-
-            pp = tt.create_pip("GPIO.OUT_D1","GPIO.DO")
-            pp.extra_data = PipExtraData(PIP_EXTRA_MUX,ch.strs.id("GPIO.OUT23_14_SEL"), 1, 0, MUX_VISIBLE)
-            pp = tt.create_pip("GPIO.OUT_D2","GPIO.DO")
-            pp.extra_data = PipExtraData(PIP_EXTRA_MUX,ch.strs.id("GPIO.OUT23_14_SEL"), 1, 1, MUX_VISIBLE)
-
-
-            pp = tt.create_pip("GPIO.OUT2","GPIO.OE")
-            pp.extra_data = PipExtraData(PIP_EXTRA_MUX,ch.strs.id("GPIO.OE_SIGNAL"), 2, 1, MUX_VISIBLE)
-            pp = tt.create_pip("GPIO.OUT3","GPIO.OE")
-            pp.extra_data = PipExtraData(PIP_EXTRA_MUX,ch.strs.id("GPIO.OE_SIGNAL"), 2, 2, MUX_VISIBLE)
-            pp = tt.create_pip("GPIO.OUT4","GPIO.OE")
-            pp.extra_data = PipExtraData(PIP_EXTRA_MUX,ch.strs.id("GPIO.OE_SIGNAL"), 2, 3, MUX_VISIBLE)
-
-            #pp = tt.create_pip("GPIO.OUT4", "GPIO.CLK_INT")
-            #pp.extra_data = PipExtraData(PIP_EXTRA_MUX,ch.strs.id("GPIO.CLK_1_4"), 1, 0, MUX_VISIBLE)
-            #pp = tt.create_pip("GPIO.OUT1", "GPIO.CLK_INT")
-            #pp.extra_data = PipExtraData(PIP_EXTRA_MUX,ch.strs.id("GPIO.CLK_1_4"), 1, 1, MUX_VISIBLE)
-
-            #pp = tt.create_pip("GPIO.CLK_INT", "GPIO.OUT_CLK")
-            #pp.extra_data = PipExtraData(PIP_EXTRA_MUX,ch.strs.id("GPIO.SEL_OUT_CLOCK"), 1, 1, MUX_VISIBLE)
-            #pp = tt.create_pip("GPIO.CLOCK1", "GPIO.OUT_CLK")
-            #pp.extra_data = PipExtraData(PIP_EXTRA_MUX,ch.strs.id("GPIO.OUT_CLOCK"), 2, 0, MUX_VISIBLE)
-            #pp = tt.create_pip("GPIO.CLOCK2", "GPIO.OUT_CLK")
-            #pp.extra_data = PipExtraData(PIP_EXTRA_MUX,ch.strs.id("GPIO.OUT_CLOCK"), 2, 1, MUX_VISIBLE)
-            #pp = tt.create_pip("GPIO.CLOCK3", "GPIO.OUT_CLK")
-            #pp.extra_data = PipExtraData(PIP_EXTRA_MUX,ch.strs.id("GPIO.OUT_CLOCK"), 2, 2, MUX_VISIBLE)
-            #pp = tt.create_pip("GPIO.CLOCK4", "GPIO.OUT_CLK")
-            #pp.extra_data = PipExtraData(PIP_EXTRA_MUX,ch.strs.id("GPIO.OUT_CLOCK"), 2, 3, MUX_VISIBLE)
-
-
-            #tt.create_wire("GPIO.IN_D1", "WIRE_INTERNAL")
-            #tt.create_wire("GPIO.IN_D2", "WIRE_INTERNAL")
-            #tt.create_wire("GPIO.IN_Q1", "WIRE_INTERNAL")
-            #tt.create_wire("GPIO.IN_Q2", "WIRE_INTERNAL")
-            #tt.create_wire("GPIO.IN_CLK","WIRE_INTERNAL")
-
-            #pp = tt.create_pip("GPIO.CLK_INT", "GPIO.IN_CLK")
-            #pp.extra_data = PipExtraData(PIP_EXTRA_MUX,ch.strs.id("GPIO.SEL_IN_CLOCK"), 1, 1, MUX_VISIBLE)
-            #pp = tt.create_pip("GPIO.CLOCK1", "GPIO.IN_CLK")
-            #pp.extra_data = PipExtraData(PIP_EXTRA_MUX,ch.strs.id("GPIO.IN_CLOCK"), 2, 0, MUX_VISIBLE)
-            #pp = tt.create_pip("GPIO.CLOCK2", "GPIO.IN_CLK")
-            #pp.extra_data = PipExtraData(PIP_EXTRA_MUX,ch.strs.id("GPIO.IN_CLOCK"), 2, 1, MUX_VISIBLE)
-            #pp = tt.create_pip("GPIO.CLOCK3", "GPIO.IN_CLK")
-            #pp.extra_data = PipExtraData(PIP_EXTRA_MUX,ch.strs.id("GPIO.IN_CLOCK"), 2, 2, MUX_VISIBLE)
-            #pp = tt.create_pip("GPIO.CLOCK4", "GPIO.IN_CLK")
-            #pp.extra_data = PipExtraData(PIP_EXTRA_MUX,ch.strs.id("GPIO.IN_CLOCK"), 2, 3, MUX_VISIBLE)
-
             tt.create_pip("GPIO.DI", "GPIO.IN1")
             tt.create_pip("GPIO.DI", "GPIO.IN2")
 
