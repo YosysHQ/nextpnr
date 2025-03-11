@@ -177,6 +177,22 @@ bool GateMateImpl::getChildPlacement(const BaseClusterInfo *cluster, Loc root_lo
             child_loc = getGPIOOutCPE(root_bel, out);
             break;
         }
+        case PLACE_USR_PLL_LOCKED:
+        {
+            int pll = root_loc.z - 4;
+            child_loc.x = 1 + 2;
+            child_loc.y = 128 + 2 - pll;
+            child_loc.z = 0; // RAM_I2
+            break;
+        }
+        case PLACE_USR_PLL_LOCKED_STDY:
+        {
+            int pll = root_loc.z - 4;
+            child_loc.x = 1 + 2;
+            child_loc.y = 124 + 2 - pll;
+            child_loc.z = 0; // RAM_I2
+            break;
+        }
         default:
             child_loc.x = root_loc.x + child->constr_x;
             child_loc.y = root_loc.y + child->constr_y;
