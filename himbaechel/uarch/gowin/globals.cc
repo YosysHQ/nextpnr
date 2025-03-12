@@ -55,21 +55,20 @@ struct GowinGlobalRouter
         bool not_dsc_pip = dst_name != id_CLKOUT;
         IdString src_type = ctx->getWireType(src);
         IdString dst_type = ctx->getWireType(dst);
-        bool src_valid = not_dsc_pip && src_type.in(id_GLOBAL_CLK, id_IO_O, id_PLL_O, id_HCLK);
+        bool src_valid = not_dsc_pip && src_type.in(id_GLOBAL_CLK, id_IO_O, id_PLL_O, id_HCLK, id_DLLDLY);
         bool dst_valid = not_dsc_pip && dst_type.in(id_GLOBAL_CLK, id_TILE_CLK, id_PLL_I, id_IO_I, id_HCLK);
 
         bool res;
-        if (src == src_wire && (!src_type.in(id_IO, id_HCLK))) {
+        if (src == src_wire && (!src_type.in(id_IO_O, id_HCLK, id_DLLDLY_O))) {
             bool dst_is_spine = dst_name.str(ctx).rfind("SPINE", 0) == 0;
             res = src_valid && dst_is_spine;
         } else {
             res = (src_valid && dst_valid) || (src_valid && is_local(dst_type)) || (is_local(src_type) && dst_valid);
         }
         if (ctx->debug && false /*&& res*/) {
-            log_info("%s <- %s [%s <- %s]\n", ctx->getWireName(ctx->getPipDstWire(pip)).str(ctx).c_str(),
-                     ctx->getWireName(ctx->getPipSrcWire(pip)).str(ctx).c_str(), dst_type.c_str(ctx),
-                     src_type.c_str(ctx));
-            log_info("res:%d, src_valid:%d, dst_valid:%d, src local:%d, dst local:%d\n", res, src_valid, dst_valid,
+            log_info("%s <- %s [%s <- %s]\n", ctx->nameOfWire(ctx->getPipDstWire(pip)),
+                     ctx->nameOfWire(ctx->getPipSrcWire(pip)), dst_type.c_str(ctx), src_type.c_str(ctx));
+            log_info("  res:%d, src_valid:%d, dst_valid:%d, src local:%d, dst local:%d\n", res, src_valid, dst_valid,
                      is_local(src_type), is_local(dst_type));
         }
         return res;
@@ -101,17 +100,17 @@ struct GowinGlobalRouter
         // If DQCE is used, then the source can only connect to SPINEs as only they can be switched off/on.
         bool res;
         if (src == src_wire) {
-            bool dst_is_spine = dst_name.str(ctx).rfind("SPINE", 0) == 0;
+            bool dst_is_spine = (dst_name.str(ctx).rfind("SPINE", 0) == 0 || dst_name.str(ctx).rfind("PCLK", 0) == 0 ||
+                                 dst_name.str(ctx).rfind("LWSPINE", 0) == 0);
             res = src_valid && dst_is_spine;
         } else {
             res = (src_valid && dst_valid) || (src_valid && is_local(dst_type)) || (is_local(src_type) && dst_valid);
-            if (ctx->debug && false /*res*/) {
-                log_info("%s <- %s [%s <- %s]\n", ctx->getWireName(ctx->getPipDstWire(pip)).str(ctx).c_str(),
-                         ctx->getWireName(ctx->getPipSrcWire(pip)).str(ctx).c_str(), dst_type.c_str(ctx),
-                         src_type.c_str(ctx));
-                log_info("res:%d, src_valid:%d, dst_valid:%d, src local:%d, dst local:%d\n", res, src_valid, dst_valid,
-                         is_local(src_type), is_local(dst_type));
-            }
+        }
+        if (ctx->debug && false /*res*/) {
+            log_info("%s <- %s [%s <- %s]\n", ctx->nameOfWire(ctx->getPipDstWire(pip)),
+                     ctx->nameOfWire(ctx->getPipSrcWire(pip)), dst_type.c_str(ctx), src_type.c_str(ctx));
+            log_info("  res:%d, src_valid:%d, dst_valid:%d, src local:%d, dst local:%d\n", res, src_valid, dst_valid,
+                     is_local(src_type), is_local(dst_type));
         }
         return res;
     }
@@ -288,6 +287,16 @@ struct GowinGlobalRouter
                 return true;
             }
         }
+        // DLLDLY outputs
+        if (driver.cell->type == id_DLLDLY) {
+            if (driver.port.in(id_CLKOUT)) {
+                if (ctx->debug) {
+                    log_info("%s out:%s:%s\n", driver.cell->type.c_str(ctx),
+                             ctx->getBelName(driver.cell->bel).str(ctx).c_str(), driver.port.c_str(ctx));
+                }
+                return true;
+            }
+        }
         return false;
     }
 
@@ -377,7 +386,26 @@ struct GowinGlobalRouter
                 continue;
             }
             WireId dst = ctx->getPipDstWire(pip);
-
+            IdString dst_name = ctx->getWireName(dst)[1];
+            if (dst_name.str(ctx).rfind("PCLK", 0) == 0 || dst_name.str(ctx).rfind("LWSPINE", 0) == 0) {
+                // step over dummy pip
+                for (PipId next_pip : ctx->getPipsDownhill(dst)) {
+                    if (ctx->getBoundPipNet(next_pip) != nullptr) {
+                        ctx->unbindPip(pip);
+                        src = dst;
+                        break;
+                    }
+                }
+                if (src == dst) {
+                    break;
+                }
+            }
+        }
+        for (PipId pip : ctx->getPipsDownhill(src)) {
+            if (ctx->getBoundPipNet(pip) == nullptr) {
+                continue;
+            }
+            WireId dst = ctx->getPipDstWire(pip);
             BelId dqce_bel = gwu.get_dqce_bel(ctx->getWireName(dst)[1]);
             NPNR_ASSERT(dqce_bel != BelId());
 
@@ -450,6 +478,25 @@ struct GowinGlobalRouter
         // "spine" wires. Here we not only check this fact, but also find out
         // how many and what kind of "spine" wires were used for network
         // roaming.
+        for (PipId pip : ctx->getPipsDownhill(src)) {
+            if (ctx->getBoundPipNet(pip) == nullptr) {
+                continue;
+            }
+            WireId dst = ctx->getPipDstWire(pip);
+            IdString dst_name = ctx->getWireName(dst)[1];
+            if (dst_name.str(ctx).rfind("PCLK", 0) == 0 || dst_name.str(ctx).rfind("LWSPINE", 0) == 0) {
+                // step over dummy pip
+                for (PipId next_pip : ctx->getPipsDownhill(dst)) {
+                    if (ctx->getBoundPipNet(next_pip) != nullptr) {
+                        src = dst;
+                        break;
+                    }
+                }
+                if (src == dst) {
+                    break;
+                }
+            }
+        }
         for (PipId pip : ctx->getPipsDownhill(src)) {
             if (ctx->getBoundPipNet(pip) == nullptr) {
                 continue;
@@ -717,7 +764,7 @@ struct GowinGlobalRouter
                 continue;
             }
             if (ctx->verbose) {
-                log_info("route clock net '%s'\n", ctx->nameOf(ni));
+                log_info("route clock net '%s', src:%s\n", ctx->nameOf(ni), ctx->nameOf(ni->driver.cell));
             }
             route_clk_net(ni);
         }

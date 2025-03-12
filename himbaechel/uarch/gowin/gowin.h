@@ -135,6 +135,11 @@ NPNR_PACKED_STRUCT(struct Spine_bel_POD {
     int32_t bel_z;
 });
 
+NPNR_PACKED_STRUCT(struct Io_dlldly_bel_POD {
+    int32_t io;
+    int32_t dlldly;
+});
+
 NPNR_PACKED_STRUCT(struct Wire_bel_POD {
     int32_t pip_xy;
     int32_t pip_dst;
@@ -162,6 +167,7 @@ NPNR_PACKED_STRUCT(struct Extra_chip_data_POD {
     RelSlice<Spine_bel_POD> dqce_bels;
     RelSlice<Spine_bel_POD> dcs_bels;
     RelSlice<Wire_bel_POD> dhcen_bels;
+    RelSlice<Io_dlldly_bel_POD> io_dlldly_bels;
     // chip flags
     static constexpr int32_t HAS_SP32 = 1;
     static constexpr int32_t NEED_SP_FIX = 2;
@@ -212,6 +218,8 @@ enum
 
     MIPIOBUF_Z = 301,
     MIPIIBUF_Z = 302,
+
+    DLLDLY_Z = 303, // : 305 reserve for 2 DLLDLYs
 
     // The two least significant bits encode Z for 9-bit adders and
     // multipliers, if they are equal to 0, then we get Z of their common

@@ -96,6 +96,17 @@ BelId GowinUtils::get_dcs_bel(IdString spine_name)
     return BelId();
 }
 
+BelId GowinUtils::get_dlldly_bel(BelId io_bel)
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    for (auto &io : extra->io_dlldly_bels) {
+        if (IdStringList::parse(ctx, (IdString(io.io)).str(ctx)) == ctx->getBelName(io_bel)) {
+            return ctx->getBelByName(IdStringList::parse(ctx, (IdString(io.dlldly)).str(ctx)));
+        }
+    }
+    return BelId();
+}
+
 BelId GowinUtils::get_dhcen_bel(WireId hclkin_wire, IdString &side)
 {
     const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
