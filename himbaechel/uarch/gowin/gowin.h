@@ -93,6 +93,10 @@ inline bool type_is_userflash(IdString cell_type)
 }
 inline bool is_userflash(const CellInfo *cell) { return type_is_userflash(cell->type); }
 
+// Return true if a cell is a PLL
+inline bool type_is_pll(IdString cell_type) { return cell_type.in(id_rPLL, id_PLLVR); }
+inline bool is_pll(const CellInfo *cell) { return type_is_pll(cell->type); }
+
 // Return true if a cell is a EMCU
 inline bool type_is_emcu(IdString cell_type) { return cell_type == id_EMCU; }
 inline bool is_emcu(const CellInfo *cell) { return type_is_emcu(cell->type); }
@@ -168,6 +172,8 @@ NPNR_PACKED_STRUCT(struct Extra_chip_data_POD {
     static constexpr int32_t NEED_BSRAM_OUTREG_FIX = 4;
     static constexpr int32_t NEED_BLKSEL_FIX = 8;
     static constexpr int32_t HAS_BANDGAP = 16;
+    static constexpr int32_t HAS_PLL_HCLK = 32;
+    static constexpr int32_t HAS_CLKDIV_HCLK = 64;
 });
 
 } // namespace
