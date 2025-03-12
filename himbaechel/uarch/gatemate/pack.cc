@@ -271,14 +271,13 @@ void GateMatePacker::pack_io()
         ci.disconnectPort(id_O_N);
 
         bool ff_obf = int_or_default(ci.params, id_FF_OBF, 0) == 1;
-        //bool ff_ibf = int_or_default(ci.params, id_FF_IBF, 0) == 1;
+        bool ff_ibf = int_or_default(ci.params, id_FF_IBF, 0) == 1;
         ci.unsetParam(id_FF_OBF);
         ci.unsetParam(id_FF_IBF);
 
         // Remap ports to GPIO bel
         // DI is virtual pin shared for IN1 and IN2
         // this gives router chance to find better route
-        ci.renamePort(id_Y, id_DI);
         ci.renamePort(id_T, id_OUT2);
 
         NetInfo *do_net = ci.getPort(id_A);
@@ -324,6 +323,43 @@ void GateMatePacker::pack_io()
                     ci.renamePort(id_A, id_OUT1);
             }
         }
+        NetInfo *di_net = ci.getPort(id_Y);
+        if (di_net) {
+            bool ff_ibf_merged = false;
+            if (ff_ibf && di_net->users.entries()==1 && (*di_net->users.begin()).cell->type==id_CC_DFF) {
+                CellInfo *dff =(*di_net->users.begin()).cell;
+                if (is_gpio_valid_dff(dff)) {
+                    // We configure both GPIO IN and let router decide
+                    ci.params[id_IN1_FF] = Property(Property::State::S1);
+                    ci.params[id_IN2_FF] = Property(Property::State::S1);
+                    ci.params[id_SEL_IN_CLOCK] = Property(Property::State::S1);
+                    packed_cells.emplace(dff->name);
+                    ci.disconnectPort(id_Y);
+                    dff->movePortTo(id_Q, &ci, id_DI);
+
+                    NetInfo *clk_net = dff->getPort(id_CLK);
+                    bool invert = int_or_default(dff->params, id_CLK_INV, 0) == 1;
+                    if (clk_net) {
+                        if (clk_net->name == ctx->id("$PACKER_GND")) {
+                            dff->disconnectPort(id_CLK);
+                        } else if (clk_net->name == ctx->id("$PACKER_VCC")) {
+                            dff->disconnectPort(id_CLK);
+                        } else {
+                            dff->movePortTo(id_CLK, &ci, id_OUT4);
+                            if (invert)
+                                ci.params[id_INV_IN1_CLOCK] = Property(Property::State::S1);
+                        }
+                    }
+                    ff_ibf_merged = true;
+                } else {
+                    log_warning("Found DFF %s cell, but it is not valid for merge.\n", dff->name.c_str(ctx));
+                }
+            }
+            if (!ff_ibf_merged)
+                ci.renamePort(id_Y, id_DI);
+        }
+
+
         ci.cluster = ci.name;
 
         CellInfo* cpe_out[4];
