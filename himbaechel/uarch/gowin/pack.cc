@@ -3816,6 +3816,42 @@ struct GowinPacker
         }
     }
 
+    // ===================================
+    // DLLDLY
+    // ===================================
+    void pack_dlldly()
+    {
+        log_info("Pack DLLDLYs...\n");
+
+        for (auto &cell : ctx->cells) {
+            auto ci = cell.second.get();
+            if (ci->type != id_DLLDLY)
+                continue;
+            NetInfo *clkin_net = ci->getPort(id_CLKIN);
+            NetInfo *clkout_net = ci->getPort(id_CLKOUT);
+            if (clkin_net == nullptr || clkout_net == nullptr) {
+                log_error("%s cell has unconnected CLKIN or CLKOUT pins.\n", ctx->nameOf(ci));
+            }
+            CellInfo *clk_src = clkin_net->driver.cell;
+            if (!is_io(clk_src)) {
+                log_error("Clock source for DLLDLY %s is not IO: %s.\n", ctx->nameOf(ci), ctx->nameOf(clk_src));
+            }
+            // DLLDLY placement is fixed
+            BelId io_bel = clk_src->bel;
+            BelId dlldly_bel = gwu.get_dlldly_bel(io_bel);
+            if (dlldly_bel == BelId()) {
+                log_error("Can't use IO %s as input for DLLDLY %s.\n", ctx->nameOf(clk_src), ctx->nameOf(ci));
+            }
+            if (ctx->verbose) {
+                log_info("  pack %s to use clock pin at %s\n", ctx->nameOf(ci), ctx->nameOfBel(io_bel));
+            }
+            ctx->bindBel(dlldly_bel, ci, STRENGTH_LOCKED);
+            for (int i = 0; i < 8; ++i) {
+                ci->renamePort(ctx->idf("DLLSTEP[%d]", i), ctx->idf("DLLSTEP%d", i));
+            }
+        }
+    }
+
     // =========================================
     // Create entry points to the clock system
     // =========================================
@@ -4186,6 +4222,9 @@ struct GowinPacker
         ctx->check();
 
         pack_hclk();
+        ctx->check();
+
+        pack_dlldly();
         ctx->check();
 
         pack_bandgap();
