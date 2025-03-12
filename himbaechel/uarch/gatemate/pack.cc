@@ -223,6 +223,10 @@ void GateMatePacker::pack_io()
         for (auto key : keys)
             ci.params.erase(key);
 
+        // For output pins set SLEW to FAST if not defined
+        if (!ci.params.count(id_SLEW) && ci.type.in(id_CC_OBUF, id_CC_TOBUF, id_CC_IOBUF))
+            ci.params[id_SLEW] = Property(Property::State::S1);
+            
         if ((ci.params.count(id_KEEPER) + ci.params.count(id_PULLUP) + ci.params.count(id_PULLDOWN)) > 1)
             log_error("PULLUP, PULLDOWN and KEEPER are mutually exclusive parameters.\n");
 
