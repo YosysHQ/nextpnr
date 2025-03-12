@@ -20,6 +20,8 @@ CHIP_NEED_SP_FIX           = 0x2
 CHIP_NEED_BSRAM_OUTREG_FIX = 0x4
 CHIP_NEED_BLKSEL_FIX       = 0x8
 CHIP_HAS_BANDGAP           = 0x10
+CHIP_HAS_PLL_HCLK          = 0x20
+CHIP_HAS_CLKDIV_HCLK       = 0x40
 
 # Tile flags
 TILE_I3C_CAPABLE_IO        = 0x1
@@ -1488,6 +1490,10 @@ def main():
             chip_flags |= CHIP_NEED_BLKSEL_FIX;
         if "HAS_BANDGAP" in db.chip_flags:
             chip_flags |= CHIP_HAS_BANDGAP;
+        if "HAS_PLL_HCLK" in db.chip_flags:
+            chip_flags |= CHIP_HAS_PLL_HCLK;
+        if "HAS_CLKDIV_HCLK" in db.chip_flags:
+            chip_flags |= CHIP_HAS_CLKDIV_HCLK;
 
     X = db.cols;
     Y = db.rows;

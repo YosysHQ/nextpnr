@@ -201,6 +201,18 @@ bool GowinUtils::need_BLKSEL_fix(void)
     return extra->chip_flags & Extra_chip_data_POD::NEED_BLKSEL_FIX;
 }
 
+bool GowinUtils::has_PLL_HCLK(void)
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    return extra->chip_flags & Extra_chip_data_POD::HAS_PLL_HCLK;
+}
+
+bool GowinUtils::has_CLKDIV_HCLK(void)
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    return extra->chip_flags & Extra_chip_data_POD::HAS_CLKDIV_HCLK;
+}
+
 IdString GowinUtils::create_aux_name(IdString main_name, int idx, const char *str_suffix)
 {
     return idx ? ctx->idf("%s%s%d", main_name.c_str(ctx), str_suffix, idx)
