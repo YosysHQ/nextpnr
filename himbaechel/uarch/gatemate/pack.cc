@@ -51,6 +51,23 @@ void GateMatePacker::disconnect_if_gnd(CellInfo *cell, IdString input)
     }
 }
 
+BelId GateMatePacker::get_bank_cpe(int bank)
+{
+    switch(bank) {
+        case 0 : return ctx->getBelByLocation(Loc(97+2,128+2,1)); // N1, RAM_O1
+        case 1 : return ctx->getBelByLocation(Loc(97+2,128+2,0)); // N2, RAM_O2
+        case 2 : return ctx->getBelByLocation(Loc(160+2,65+2,1)); // E1, RAM_O1
+        case 3 : return ctx->getBelByLocation(Loc(160+2,65+2,0)); // E2, RAM_O2
+        case 4 : return ctx->getBelByLocation(Loc(1+2,65+2,1)); // W1, RAM_O1
+        case 5 : return ctx->getBelByLocation(Loc(1+2,65+2,0)); // W2, RAM_O2
+        case 6 : return ctx->getBelByLocation(Loc(97+2,1+2,1)); // S1, RAM_O1
+        case 7 : return ctx->getBelByLocation(Loc(97+2,1+2,0)); // S2, RAM_O2
+        case 8 : return ctx->getBelByLocation(Loc(49+2,1+2,1)); // S3, RAM_O1
+        default:
+            log_error("Unkown bank\n");
+    }
+}
+
 void GateMatePacker::pack_io()
 {
     // Trim nextpnr IOBs - assume IO buffer insertion has been done in synthesis
@@ -144,6 +161,9 @@ void GateMatePacker::pack_io()
         
         cells.push_back(&ci);
     }
+
+    CellInfo* ddr[9] = {nullptr}; // for each bank
+
     for (auto &cell : cells) {
         CellInfo &ci = *cell;
 
@@ -284,6 +304,8 @@ void GateMatePacker::pack_io()
             ci.renamePort(id_T, id_OUT3);
         }
 
+        ci.cluster = ci.name;
+
         NetInfo *do_net = ci.getPort(id_A);
         if (do_net) {
             if (do_net->name.in(ctx->id("$PACKER_GND"), ctx->id("$PACKER_VCC"))) {
@@ -333,9 +355,24 @@ void GateMatePacker::pack_io()
                     ci.params[id_USE_DDR] = Property(Property::State::S1);
                     packed_cells.emplace(oddr->name);
                     ci.disconnectPort(id_A);
-                    oddr->movePortTo(id_D0, &ci, id_OUT1);
-                    oddr->movePortTo(id_D1, &ci, id_OUT2);
-                    //oddr->movePortTo(id_DDR, &ci, id_DDR);
+                    // TODO: check mapping
+                    oddr->movePortTo(id_D0, &ci, id_OUT2);
+                    oddr->movePortTo(id_D1, &ci, id_OUT1);
+
+                    const auto &pad = ctx->get_package_pin(ctx->id(loc));
+                    CellInfo *cpe_half = ddr[pad->pad_bank];
+                    if (cpe_half) {
+                        if (cpe_half->getPort(id_IN1) != oddr->getPort(id_DDR))
+                            log_error("DDR port use signal different than already occupied DDR source.\n");
+                        ci.ports[id_DDR].name = id_DDR;
+                        ci.ports[id_DDR].type = PORT_IN;
+                        ci.connectPort(id_DDR, cpe_half->getPort(id_RAM_O));
+                    } else {
+                        oddr->movePortTo(id_DDR, &ci, id_DDR);
+                        cpe_half = move_ram_o(&ci, id_DDR, NO_PLACE);
+                        ctx->bindBel(get_bank_cpe(pad->pad_bank), cpe_half, PlaceStrength::STRENGTH_FIXED);
+                        ddr[pad->pad_bank] = cpe_half;
+                    }
 
                     NetInfo *clk_net = oddr->getPort(id_CLK);
                     if (clk_net) {
@@ -428,9 +465,6 @@ void GateMatePacker::pack_io()
             if (!ff_ibf_merged && !iddr_merged)
                 ci.renamePort(id_Y, id_DI);
         }
-
-
-        ci.cluster = ci.name;
 
         CellInfo* cpe_out[4];
         for(int i=0;i<4;i++)
@@ -1046,10 +1080,12 @@ CellInfo *GateMatePacker::move_ram_i(CellInfo *cell, IdString origPort, int plac
     NetInfo *net = cell->getPort(origPort);
     if (net) {
         cpe_half = create_cell_ptr(id_CPE_HALF, ctx->idf("%s$%s_cpe_half", cell->name.c_str(ctx), origPort.c_str(ctx)));
-        cell->constr_children.push_back(cpe_half);
-        cpe_half->cluster = cell->name;
-        cpe_half->constr_abs_z = false;
-        cpe_half->constr_z = placement;
+        if (placement != NO_PLACE) {
+            cell->constr_children.push_back(cpe_half);
+            cpe_half->cluster = cell->name;
+            cpe_half->constr_abs_z = false;
+            cpe_half->constr_z = placement;
+        }
         cpe_half->params[id_C_RAM_I] = Property(1, 1);
 
         NetInfo *ram_i = ctx->createNet(ctx->idf("%s$ram_i", net->name.c_str(ctx)));
@@ -1066,10 +1102,12 @@ CellInfo *GateMatePacker::move_ram_o(CellInfo *cell, IdString origPort, int plac
     NetInfo *net = cell->getPort(origPort);
     if (net) {
         cpe_half = create_cell_ptr(id_CPE_HALF, ctx->idf("%s$%s_cpe_half", cell->name.c_str(ctx), origPort.c_str(ctx)));
-        cell->constr_children.push_back(cpe_half);
-        cpe_half->cluster = cell->name;
-        cpe_half->constr_abs_z = false;
-        cpe_half->constr_z = placement;
+        if (placement != NO_PLACE) {
+            cell->constr_children.push_back(cpe_half);
+            cpe_half->cluster = cell->name;
+            cpe_half->constr_abs_z = false;
+            cpe_half->constr_z = placement;
+        }
         cpe_half->params[id_INIT_L00] = Property(0b1010, 4);
         cpe_half->params[id_INIT_L10] = Property(0b1010, 4);
         cpe_half->params[id_C_O] = Property(0b11, 2);
