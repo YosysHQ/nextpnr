@@ -47,6 +47,7 @@ struct GateMatePacker
     CellInfo *move_ram_i(CellInfo *cell, IdString origPort, int placement);
     CellInfo *move_ram_o(CellInfo *cell, IdString origPort, int placement);
     bool is_gpio_valid_dff(CellInfo *dff);
+    BelId get_bank_cpe(int bank);
     // Cell creating
     CellInfo *create_cell_ptr(IdString type, IdString name);
     void flush_cells();
