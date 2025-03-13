@@ -1405,6 +1405,12 @@ void GateMatePacker::pack_misc()
         ci.connectPort(id_USR_RSTN, ram_i);
         ci_upper->connectPort(id_RAM_I, ram_i);
     }
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (!ci.type.in(id_CC_ODDR, id_CC_IDDR))
+            continue;
+        log_error("Cell '%s' of type %s is not connected to GPIO pin.\n", ci.name.c_str(ctx), ci.type.c_str(ctx));
+    }
 }
 
 void GateMatePacker::pack_constants()
