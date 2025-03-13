@@ -279,10 +279,10 @@ void GateMatePacker::pack_io()
         ci.unsetParam(id_FF_OBF);
         ci.unsetParam(id_FF_IBF);
 
-        // Remap ports to GPIO bel
-        // DI is virtual pin shared for IN1 and IN2
-        // this gives router chance to find better route
-        ci.renamePort(id_T, id_OUT2);
+        if (ci.getPort(id_T)) {
+            ci.params[id_OE_SIGNAL] = Property(0b10, 2);
+            ci.renamePort(id_T, id_OUT3);
+        }
 
         NetInfo *do_net = ci.getPort(id_A);
         if (do_net) {
@@ -300,13 +300,11 @@ void GateMatePacker::pack_io()
                     CellInfo *dff = do_net->driver.cell;
                     if (is_gpio_valid_dff(dff)) {
                         ci.params[id_OUT1_FF] = Property(Property::State::S1);
-                        ci.params[id_SEL_OUT_CLOCK] = Property(Property::State::S1);
                         packed_cells.emplace(dff->name);
                         ci.disconnectPort(id_A);
                         dff->movePortTo(id_D, &ci, id_OUT1);
 
                         NetInfo *clk_net = dff->getPort(id_CLK);
-                        bool invert = int_or_default(dff->params, id_CLK_INV, 0) == 1;
                         if (clk_net) {
                             if (clk_net->name == ctx->id("$PACKER_GND")) {
                                 dff->disconnectPort(id_CLK);
@@ -314,16 +312,51 @@ void GateMatePacker::pack_io()
                                 dff->disconnectPort(id_CLK);
                             } else {
                                 dff->movePortTo(id_CLK, &ci, id_OUT4);
-                                if (invert)
-                                    ci.params[id_INV_OUT1_CLOCK] = Property(Property::State::S1);
+                                ci.params[id_SEL_OUT_CLOCK] = Property(Property::State::S1);
                             }
+                        }
+                        bool invert = int_or_default(dff->params, id_CLK_INV, 0) == 1;
+                        if (invert) {
+                            ci.params[id_INV_OUT1_CLOCK] = Property(Property::State::S1);
+                            ci.params[id_INV_OUT2_CLOCK] = Property(Property::State::S1);
                         }
                         ff_obf_merged = true;
                     } else {
                         log_warning("Found DFF %s cell, but it is not valid for merge.\n", dff->name.c_str(ctx));
                     }
                 }
-                if (!ff_obf_merged)
+                bool oddr_merged = false;
+                if (do_net->driver.cell->type==id_CC_ODDR && do_net->users.entries()==1) {
+                    CellInfo *oddr = do_net->driver.cell;
+                    ci.params[id_OUT1_FF] = Property(Property::State::S1);
+                    ci.params[id_OUT2_FF] = Property(Property::State::S1);
+                    ci.params[id_USE_DDR] = Property(Property::State::S1);
+                    packed_cells.emplace(oddr->name);
+                    ci.disconnectPort(id_A);
+                    oddr->movePortTo(id_D0, &ci, id_OUT1);
+                    oddr->movePortTo(id_D1, &ci, id_OUT2);
+                    //oddr->movePortTo(id_DDR, &ci, id_DDR);
+
+                    NetInfo *clk_net = oddr->getPort(id_CLK);
+                    if (clk_net) {
+                        if (clk_net->name == ctx->id("$PACKER_GND")) {
+                            oddr->disconnectPort(id_CLK);
+                        } else if (clk_net->name == ctx->id("$PACKER_VCC")) {
+                            oddr->disconnectPort(id_CLK);
+                        } else {
+                            oddr->movePortTo(id_CLK, &ci, id_OUT4);
+                            ci.params[id_SEL_OUT_CLOCK] = Property(Property::State::S1);
+                        }
+                    }
+                    bool invert = int_or_default(oddr->params, id_CLK_INV, 0) == 1;
+                    if (invert) {
+                        ci.params[id_INV_OUT1_CLOCK] = Property(Property::State::S1);
+                    } else {
+                        ci.params[id_INV_OUT2_CLOCK] = Property(Property::State::S1);
+                    }
+                    oddr_merged = true;
+                }
+                if (!ff_obf_merged && !oddr_merged)
                     ci.renamePort(id_A, id_OUT1);
             }
         }
@@ -336,13 +369,11 @@ void GateMatePacker::pack_io()
                     // We configure both GPIO IN and let router decide
                     ci.params[id_IN1_FF] = Property(Property::State::S1);
                     ci.params[id_IN2_FF] = Property(Property::State::S1);
-                    ci.params[id_SEL_IN_CLOCK] = Property(Property::State::S1);
                     packed_cells.emplace(dff->name);
                     ci.disconnectPort(id_Y);
                     dff->movePortTo(id_Q, &ci, id_DI);
 
                     NetInfo *clk_net = dff->getPort(id_CLK);
-                    bool invert = int_or_default(dff->params, id_CLK_INV, 0) == 1;
                     if (clk_net) {
                         if (clk_net->name == ctx->id("$PACKER_GND")) {
                             dff->disconnectPort(id_CLK);
@@ -350,16 +381,51 @@ void GateMatePacker::pack_io()
                             dff->disconnectPort(id_CLK);
                         } else {
                             dff->movePortTo(id_CLK, &ci, id_OUT4);
-                            if (invert)
-                                ci.params[id_INV_IN1_CLOCK] = Property(Property::State::S1);
+                            ci.params[id_SEL_IN_CLOCK] = Property(Property::State::S1);
                         }
+                    }
+                    bool invert = int_or_default(dff->params, id_CLK_INV, 0) == 1;
+                    if (invert) {
+                        ci.params[id_INV_IN1_CLOCK] = Property(Property::State::S1);
+                        ci.params[id_INV_IN2_CLOCK] = Property(Property::State::S1);
                     }
                     ff_ibf_merged = true;
                 } else {
                     log_warning("Found DFF %s cell, but it is not valid for merge.\n", dff->name.c_str(ctx));
                 }
             }
-            if (!ff_ibf_merged)
+            bool iddr_merged = false;
+            if (di_net->users.entries()==1 && (*di_net->users.begin()).cell->type==id_CC_IDDR) {
+                CellInfo *iddr =(*di_net->users.begin()).cell;
+                ci.params[id_IN1_FF] = Property(Property::State::S1);
+                ci.params[id_IN2_FF] = Property(Property::State::S1);
+                packed_cells.emplace(iddr->name);
+                ci.disconnectPort(id_Y);
+
+                iddr->movePortTo(id_Q0, &ci, id_IN1);
+                iddr->movePortTo(id_Q1, &ci, id_IN2);
+
+                NetInfo *clk_net = iddr->getPort(id_CLK);
+                if (clk_net) {
+                    if (clk_net->name == ctx->id("$PACKER_GND")) {
+                        iddr->disconnectPort(id_CLK);
+                    } else if (clk_net->name == ctx->id("$PACKER_VCC")) {
+                        iddr->disconnectPort(id_CLK);
+                    } else {
+                        iddr->movePortTo(id_CLK, &ci, id_OUT4);
+                        ci.params[id_SEL_IN_CLOCK] = Property(Property::State::S1);
+                    }
+                }
+                bool invert = int_or_default(iddr->params, id_CLK_INV, 0) == 1;
+                if (invert) {
+                    ci.params[id_INV_IN1_CLOCK] = Property(Property::State::S1);
+                } else {
+                    ci.params[id_INV_IN2_CLOCK] = Property(Property::State::S1);
+                }
+                iddr_merged = true;
+            }
+
+            if (!ff_ibf_merged && !iddr_merged)
                 ci.renamePort(id_Y, id_DI);
         }
 
