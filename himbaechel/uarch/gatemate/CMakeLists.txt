@@ -12,6 +12,7 @@ set(SOURCES
     gfxids.inc
 	pack.cc
     pack.h
+    pll.cc
 )
 
 set(TEST_SOURCES

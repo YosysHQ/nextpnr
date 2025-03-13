@@ -93,6 +93,21 @@ enum ClusterPlacement
     PLACE_GPIO_CPE_OUT4,
 };
 
+struct PllCfgRecord
+{
+    double weight;
+    double f_core;
+    double f_dco;
+    double f_core_delta;
+    double core_weight;
+    int32_t K;
+    int32_t N1;
+    int32_t N2;
+    int32_t M1;
+    int32_t M2;
+    int32_t PDIV1;
+};
+
 NEXTPNR_NAMESPACE_END
 
 #endif
