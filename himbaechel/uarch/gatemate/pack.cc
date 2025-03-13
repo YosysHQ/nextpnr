@@ -296,7 +296,7 @@ void GateMatePacker::pack_io()
                 //ci.params[id_OUT2_3] = Property(Property::State::S1);
                 //ci.params[id_OUT23_14_SEL] = Property(Property::State::S1);
                 bool ff_obf_merged = false;
-                if (ff_obf && do_net->driver.cell->type==id_CC_DFF) {
+                if (ff_obf && do_net->driver.cell->type==id_CC_DFF && do_net->users.entries()==1) {
                     CellInfo *dff = do_net->driver.cell;
                     if (is_gpio_valid_dff(dff)) {
                         ci.params[id_OUT1_FF] = Property(Property::State::S1);
