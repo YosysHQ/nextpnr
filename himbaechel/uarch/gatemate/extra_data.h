@@ -76,6 +76,7 @@ enum CPEFunction
 
 enum ClusterPlacement
 {
+    NO_PLACE = 0,
     PLACE_CPE_CLK0_OUT = 1024,
     PLACE_CPE_CLK90_OUT,
     PLACE_CPE_CLK180_OUT,
