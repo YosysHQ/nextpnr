@@ -92,6 +92,7 @@ enum ClusterPlacement
     PLACE_GPIO_CPE_OUT2,
     PLACE_GPIO_CPE_OUT3,
     PLACE_GPIO_CPE_OUT4,
+    PLACE_USR_RSTN,
 };
 
 struct PllCfgRecord
