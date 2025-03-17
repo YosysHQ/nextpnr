@@ -71,6 +71,16 @@ struct BitstreamBackend
         return loc;
     }
 
+    CfgLoc getRAMConfigLoc(int tile)
+    {
+        auto ti = *uarch->tile_extra_data(tile);
+        CfgLoc loc;
+        loc.die = ti.die;
+        loc.x = (ti.bit_x - 17) / 16;
+        loc.y = (ti.bit_y - 1) / 8;
+        return loc;
+    }
+
     void write_bitstream()
     {
         ChipConfig cc;
@@ -117,6 +127,16 @@ struct BitstreamBackend
                     Loc l = ctx->getBelLocation(cell.second->bel);
                     for (auto &p : params) {
                         cc.configs[0].add_word(stringf("PLL%d.%s", l.z-4, p.first.c_str(ctx)), p.second.as_bits());
+                    }
+                }
+            break;
+            case id_RAM.index:
+                {
+                    CfgLoc loc = getRAMConfigLoc(cell.second.get()->bel.tile);
+                    for (auto &p : params) {
+                        std::string name = p.first.c_str(ctx);
+                        if (boost::starts_with(name, "RAM_cfg"))
+                            cc.brams[loc].add_word(name, p.second.as_bits());
                     }
                 }
             break;
