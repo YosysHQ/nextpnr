@@ -1389,21 +1389,7 @@ void GateMatePacker::pack_misc()
             continue;
         ci.type = id_USR_RSTN;
         ci.cluster = ci.name;
-
-        CellInfo *ci_upper = create_cell_ptr(id_CPE_HALF_U, ctx->idf("%s$ci_upper", ci.name.c_str(ctx)));
-        ci.constr_children.push_back(ci_upper);
-        ci_upper->cluster = ci.name;
-        ci_upper->constr_abs_z = true;
-        // USR_RSTN is located at 0,0
-        ci_upper->constr_x = 1 + 2;
-        ci_upper->constr_y = 66 + 2;
-        ci_upper->constr_z = 0;
-        ci_upper->params[id_C_RAM_I] = Property(1, 1);
-
-        NetInfo *ram_i = ctx->createNet(ctx->idf("%s$ram_i", ci.name.c_str(ctx)));
-        ci.movePortTo(id_USR_RSTN, ci_upper, id_OUT);
-        ci.connectPort(id_USR_RSTN, ram_i);
-        ci_upper->connectPort(id_RAM_I, ram_i);
+        move_ram_i(&ci, id_USR_RSTN, PLACE_USR_RSTN);
     }
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
