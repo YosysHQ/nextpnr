@@ -77,6 +77,8 @@ struct GateMateImpl : HimbaechelAPI
     const GateMateTileExtraDataPOD *tile_extra_data(int tile) const;
     const GateMateBelExtraDataPOD *bel_extra_data(BelId bel) const;
 
+    void renameParam(CellInfo *cell, IdString name, IdString new_name, int width);
+
     pool<PipId> blocked_pips;
 
     struct GateMateCellInfo

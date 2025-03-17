@@ -295,6 +295,14 @@ void updateMUX_INV(Context *ctx, CellInfo *cell, IdString port, IdString param, 
     }
 }
 
+void GateMateImpl::renameParam(CellInfo *cell, IdString name, IdString new_name, int width)
+{
+    if(cell->params.count(name)) {
+        cell->params[new_name] = Property(int_or_default(cell->params, name, 0), width);
+        cell->unsetParam(name);
+    }
+}
+
 void GateMateImpl::postRoute()
 {
     ctx->assignArchInfo();
@@ -302,49 +310,21 @@ void GateMateImpl::postRoute()
         if (cell.second->type.in(id_CPE_HALF, id_CPE_HALF_U, id_CPE_HALF_L)) {
             Loc l = ctx->getBelLocation(cell.second->bel);
             if (l.z==0) { // CPE_HALF_U
-                if(cell.second->params.count(id_C_O)) {
-                    int mode = int_or_default(cell.second->params, id_C_O, 0);
-                    cell.second->params[id_C_O2] = Property(mode, 2);
-                    cell.second->unsetParam(id_C_O);
-                    if (mode==0)
-                        cell.second->params[id_C_2D_IN] = Property(1, 1);
-                }
-                if(cell.second->params.count(id_C_RAM_I)) {
-                    cell.second->params[id_C_RAM_I2] = Property(int_or_default(cell.second->params, id_C_RAM_I, 0), 1);
-                    cell.second->unsetParam(id_C_RAM_I);
-                }
-                if(cell.second->params.count(id_C_RAM_O)) {
-                    cell.second->params[id_C_RAM_O2] = Property(int_or_default(cell.second->params, id_C_RAM_O, 0), 1);
-                    cell.second->unsetParam(id_C_RAM_O);
-                }
+                if(cell.second->params.count(id_C_O) && int_or_default(cell.second->params, id_C_O, 0)==0)
+                    cell.second->params[id_C_2D_IN] = Property(1, 1);
+                renameParam(cell.second.get(), id_C_O, id_C_O2, 2);
+                renameParam(cell.second.get(), id_C_RAM_I, id_C_RAM_I2, 1);
+                renameParam(cell.second.get(), id_C_RAM_O, id_C_RAM_O2, 1);
                 cell.second->type = id_CPE_HALF_U;
             } else {// CPE_HALF_L
                 if(!cell.second->params.count(id_INIT_L20))
                     cell.second->params[id_INIT_L20] = Property(0b1100, 4);
-                if(cell.second->params.count(id_C_O)) {
-                    cell.second->params[id_C_O1] = Property(int_or_default(cell.second->params, id_C_O, 0), 2);
-                    cell.second->unsetParam(id_C_O);
-                }
-                if(cell.second->params.count(id_INIT_L00)) {
-                    cell.second->params[id_INIT_L02] = Property(int_or_default(cell.second->params, id_INIT_L00, 0), 4);
-                    cell.second->unsetParam(id_INIT_L00);
-                }
-                if(cell.second->params.count(id_INIT_L01)) {
-                    cell.second->params[id_INIT_L03] = Property(int_or_default(cell.second->params, id_INIT_L01, 0), 4);
-                    cell.second->unsetParam(id_INIT_L01);
-                }
-                if(cell.second->params.count(id_INIT_L10)) {
-                    cell.second->params[id_INIT_L11] = Property(int_or_default(cell.second->params, id_INIT_L10, 0), 4);
-                    cell.second->unsetParam(id_INIT_L10);
-                }
-                if(cell.second->params.count(id_C_RAM_I)) {
-                    cell.second->params[id_C_RAM_I1] = Property(int_or_default(cell.second->params, id_C_RAM_I, 0), 1);
-                    cell.second->unsetParam(id_C_RAM_I);
-                }
-                if(cell.second->params.count(id_C_RAM_O)) {
-                    cell.second->params[id_C_RAM_O1] = Property(int_or_default(cell.second->params, id_C_RAM_O, 0), 1);
-                    cell.second->unsetParam(id_C_RAM_O);
-                }
+                renameParam(cell.second.get(), id_C_O, id_C_O1, 2);
+                renameParam(cell.second.get(), id_INIT_L00, id_INIT_L02, 4);
+                renameParam(cell.second.get(), id_INIT_L01, id_INIT_L03, 4);
+                renameParam(cell.second.get(), id_INIT_L10, id_INIT_L11, 4);
+                renameParam(cell.second.get(), id_C_RAM_I, id_C_RAM_I1, 1);
+                renameParam(cell.second.get(), id_C_RAM_O, id_C_RAM_O1, 1);
                 cell.second->type = id_CPE_HALF_L;
             }
         }
