@@ -43,6 +43,8 @@ void GateMateImpl::init(Context *ctx) {
     HimbaechelAPI::init(ctx);
     for (const auto &pad : ctx->package_info->pads) {
         available_pads.emplace(IdString(pad.package_pin));
+        BelId bel = ctx->getBelByName(IdStringList::concat(IdString(pad.tile), IdString(pad.bel)));
+        bel_to_pad.emplace(bel, &pad);
     }
 }
 

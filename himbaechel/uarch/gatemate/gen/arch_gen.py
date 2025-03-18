@@ -210,7 +210,7 @@ def main():
     for package in dev.get_packages():
         pkg = ch.create_package(package)
         for pad in sorted(dev.get_package_pads(package)):
-            pkg.create_pad(pad.name, f"X{pad.x+2}Y{pad.y+2}", pad.bel, pad.function, pad.bank)
+            pkg.create_pad(pad.name, f"X{pad.x+2}Y{pad.y+2}", pad.bel, pad.function, pad.bank, pad.flags)
 
     ch.write_bba(args.bba)
 
