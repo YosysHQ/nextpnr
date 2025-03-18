@@ -1071,8 +1071,8 @@ void GateMatePacker::pack_bufg()
         if (in_net) {
             bool is_cpe_source = true;
             if (ctx->getBelBucketForCellType(in_net->driver.cell->type) == id_GPIO) {
-                Loc l = ctx->getBelLocation(in_net->driver.cell->bel);
-                if (l.x == 0 && (l.y == 103 || l.y == 99 || l.y == 95 || l.y == 91))
+                auto pad_info = uarch->bel_to_pad[in_net->driver.cell->bel];
+                if (pad_info->flags)
                     is_cpe_source = false;
             }
             if (is_cpe_source) {
@@ -1214,8 +1214,8 @@ void GateMatePacker::pack_pll()
         if (clk) {
             if (ctx->getBelBucketForCellType(clk->driver.cell->type) != id_GPIO)
                 log_error("CLK_REF must be driven with GPIO pin.\n");
-            Loc l = ctx->getBelLocation(clk->driver.cell->bel);
-            if (!(l.x == 0 && (l.y == 103 || l.y == 99 || l.y == 95 || l.y == 91)))
+            auto pad_info = uarch->bel_to_pad[clk->driver.cell->bel];
+            if (!(pad_info->flags & 1))
                 log_error("CLK_REF must be driven with CLK dedicated pin.\n");
         }
 

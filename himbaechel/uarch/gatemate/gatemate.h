@@ -91,6 +91,7 @@ struct GateMateImpl : HimbaechelAPI
     };
     std::vector<GateMateCellInfo> fast_cell_info;
     std::set<IdString> available_pads;
+    std::map<BelId,const PadInfoPOD*> bel_to_pad;
     void assign_cell_info();
 };
 
