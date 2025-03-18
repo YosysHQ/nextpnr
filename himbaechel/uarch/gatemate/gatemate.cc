@@ -39,7 +39,12 @@ void GateMateImpl::init_database(Arch *arch)
     arch->set_speed_grade("DEFAULT");
 }
 
-void GateMateImpl::init(Context *ctx) { HimbaechelAPI::init(ctx); }
+void GateMateImpl::init(Context *ctx) {
+    HimbaechelAPI::init(ctx);
+    for (const auto &pad : ctx->package_info->pads) {
+        available_pads.emplace(IdString(pad.package_pin));
+    }
+}
 
 delay_t GateMateImpl::estimateDelay(WireId src, WireId dst) const
 {

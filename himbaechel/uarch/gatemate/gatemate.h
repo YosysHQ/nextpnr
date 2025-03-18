@@ -90,6 +90,7 @@ struct GateMateImpl : HimbaechelAPI
         bool dff_used = false;
     };
     std::vector<GateMateCellInfo> fast_cell_info;
+    std::set<IdString> available_pads;
     void assign_cell_info();
 };
 
