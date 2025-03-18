@@ -53,18 +53,27 @@ void GateMatePacker::disconnect_if_gnd(CellInfo *cell, IdString input)
 
 BelId GateMatePacker::get_bank_cpe(int bank)
 {
-    switch(bank) {
-        case 0 : return ctx->getBelByLocation(Loc(97+2,128+2,1)); // N1, RAM_O1
-        case 1 : return ctx->getBelByLocation(Loc(97+2,128+2,0)); // N2, RAM_O2
-        case 2 : return ctx->getBelByLocation(Loc(160+2,65+2,1)); // E1, RAM_O1
-        case 3 : return ctx->getBelByLocation(Loc(160+2,65+2,0)); // E2, RAM_O2
-        case 4 : return ctx->getBelByLocation(Loc(1+2,65+2,1)); // W1, RAM_O1
-        case 5 : return ctx->getBelByLocation(Loc(1+2,65+2,0)); // W2, RAM_O2
-        case 6 : return ctx->getBelByLocation(Loc(97+2,1+2,1)); // S1, RAM_O1
-        case 7 : return ctx->getBelByLocation(Loc(97+2,1+2,0)); // S2, RAM_O2
-        case 8 : return ctx->getBelByLocation(Loc(49+2,1+2,1)); // S3, RAM_O1
-        default:
-            log_error("Unkown bank\n");
+    switch (bank) {
+    case 0:
+        return ctx->getBelByLocation(Loc(97 + 2, 128 + 2, 1)); // N1, RAM_O1
+    case 1:
+        return ctx->getBelByLocation(Loc(97 + 2, 128 + 2, 0)); // N2, RAM_O2
+    case 2:
+        return ctx->getBelByLocation(Loc(160 + 2, 65 + 2, 1)); // E1, RAM_O1
+    case 3:
+        return ctx->getBelByLocation(Loc(160 + 2, 65 + 2, 0)); // E2, RAM_O2
+    case 4:
+        return ctx->getBelByLocation(Loc(1 + 2, 65 + 2, 1)); // W1, RAM_O1
+    case 5:
+        return ctx->getBelByLocation(Loc(1 + 2, 65 + 2, 0)); // W2, RAM_O2
+    case 6:
+        return ctx->getBelByLocation(Loc(97 + 2, 1 + 2, 1)); // S1, RAM_O1
+    case 7:
+        return ctx->getBelByLocation(Loc(97 + 2, 1 + 2, 0)); // S2, RAM_O2
+    case 8:
+        return ctx->getBelByLocation(Loc(49 + 2, 1 + 2, 1)); // S3, RAM_O1
+    default:
+        log_error("Unkown bank\n");
     }
 }
 
@@ -152,20 +161,11 @@ void GateMatePacker::pack_io()
         ctx->cells.erase(port.first);
     }
 
-    std::vector<CellInfo *> cells;
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_CC_IBUF, id_CC_OBUF, id_CC_TOBUF, id_CC_IOBUF, id_CC_LVDS_IBUF, id_CC_LVDS_OBUF,
                         id_CC_LVDS_TOBUF, id_CC_LVDS_IOBUF))
             continue;
-        
-        cells.push_back(&ci);
-    }
-
-    CellInfo* ddr[9] = {nullptr}; // for each bank
-
-    for (auto &cell : cells) {
-        CellInfo &ci = *cell;
 
         bool is_lvds = ci.type.in(id_CC_LVDS_IBUF, id_CC_LVDS_OBUF, id_CC_LVDS_TOBUF, id_CC_LVDS_IOBUF);
 
@@ -246,7 +246,7 @@ void GateMatePacker::pack_io()
         // For output pins set SLEW to FAST if not defined
         if (!ci.params.count(id_SLEW) && ci.type.in(id_CC_OBUF, id_CC_TOBUF, id_CC_IOBUF))
             ci.params[id_SLEW] = Property(Property::State::S1);
-            
+
         if ((ci.params.count(id_KEEPER) + ci.params.count(id_PULLUP) + ci.params.count(id_PULLDOWN)) > 1)
             log_error("PULLUP, PULLDOWN and KEEPER are mutually exclusive parameters.\n");
 
@@ -294,6 +294,44 @@ void GateMatePacker::pack_io()
         ci.disconnectPort(id_O_P);
         ci.disconnectPort(id_O_N);
 
+        if (loc.empty() || loc=="UNPLACED") {
+            if (uarch->available_pads.empty())
+                log_error("No more pads available.\n");
+            IdString id = *(uarch->available_pads.begin());
+            uarch->available_pads.erase(id);
+            loc = id.c_str(ctx);
+        }
+        ci.params[id_LOC] = Property(loc);
+
+        BelId bel = ctx->get_package_pin_bel(ctx->id(loc));
+        if (bel == BelId())
+            log_error("Unable to constrain IO '%s', device does not have a pin named '%s'\n", ci.name.c_str(ctx),
+                        loc.c_str());
+        log_info("    Constraining '%s' to pad '%s'\n", ci.name.c_str(ctx), loc.c_str());
+        if (!ctx->checkBelAvail(bel)) {
+            log_error("Can't place %s at %s because it's already taken by %s\n", ctx->nameOf(&ci),
+                        ctx->nameOfBel(bel), ctx->nameOf(ctx->getBoundBelCell(bel)));
+        }
+        ctx->bindBel(bel, &ci, PlaceStrength::STRENGTH_FIXED);
+    }
+}
+
+void GateMatePacker::pack_io_sel()
+{
+    std::vector<CellInfo *> cells;
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (!ci.type.in(id_CC_IBUF, id_CC_OBUF, id_CC_TOBUF, id_CC_IOBUF, id_CC_LVDS_IBUF, id_CC_LVDS_OBUF,
+                        id_CC_LVDS_TOBUF, id_CC_LVDS_IOBUF))
+            continue;
+
+        cells.push_back(&ci);
+    }
+
+    CellInfo *ddr[9] = {nullptr}; // for each bank
+
+    for (auto &cell : cells) {
+        CellInfo &ci = *cell;
         bool ff_obf = int_or_default(ci.params, id_FF_OBF, 0) == 1;
         bool ff_ibf = int_or_default(ci.params, id_FF_IBF, 0) == 1;
         ci.unsetParam(id_FF_OBF);
@@ -305,6 +343,8 @@ void GateMatePacker::pack_io()
         }
 
         ci.cluster = ci.name;
+        std::string loc = str_or_default(ci.params, id_LOC, "UNPLACED");
+        ci.unsetParam(id_LOC);
 
         NetInfo *do_net = ci.getPort(id_A);
         if (do_net) {
@@ -314,11 +354,11 @@ void GateMatePacker::pack_io()
                 ci.disconnectPort(id_A);
             } else {
                 ci.params[id_OUT_SIGNAL] = Property(Property::State::S1);
-                //ci.params[id_OUT1_4] = Property(Property::State::S1);
-                //ci.params[id_OUT2_3] = Property(Property::State::S1);
-                //ci.params[id_OUT23_14_SEL] = Property(Property::State::S1);
+                // ci.params[id_OUT1_4] = Property(Property::State::S1);
+                // ci.params[id_OUT2_3] = Property(Property::State::S1);
+                // ci.params[id_OUT23_14_SEL] = Property(Property::State::S1);
                 bool ff_obf_merged = false;
-                if (ff_obf && do_net->driver.cell->type==id_CC_DFF && do_net->users.entries()==1) {
+                if (ff_obf && do_net->driver.cell->type == id_CC_DFF && do_net->users.entries() == 1) {
                     CellInfo *dff = do_net->driver.cell;
                     if (is_gpio_valid_dff(dff)) {
                         ci.params[id_OUT1_FF] = Property(Property::State::S1);
@@ -348,7 +388,7 @@ void GateMatePacker::pack_io()
                     }
                 }
                 bool oddr_merged = false;
-                if (do_net->driver.cell->type==id_CC_ODDR && do_net->users.entries()==1) {
+                if (do_net->driver.cell->type == id_CC_ODDR && do_net->users.entries() == 1) {
                     CellInfo *oddr = do_net->driver.cell;
                     ci.params[id_OUT1_FF] = Property(Property::State::S1);
                     ci.params[id_OUT2_FF] = Property(Property::State::S1);
@@ -358,7 +398,6 @@ void GateMatePacker::pack_io()
                     // TODO: check mapping
                     oddr->movePortTo(id_D0, &ci, id_OUT2);
                     oddr->movePortTo(id_D1, &ci, id_OUT1);
-
                     const auto &pad = ctx->get_package_pin(ctx->id(loc));
                     CellInfo *cpe_half = ddr[pad->pad_bank];
                     if (cpe_half) {
@@ -400,8 +439,8 @@ void GateMatePacker::pack_io()
         NetInfo *di_net = ci.getPort(id_Y);
         if (di_net) {
             bool ff_ibf_merged = false;
-            if (ff_ibf && di_net->users.entries()==1 && (*di_net->users.begin()).cell->type==id_CC_DFF) {
-                CellInfo *dff =(*di_net->users.begin()).cell;
+            if (ff_ibf && di_net->users.entries() == 1 && (*di_net->users.begin()).cell->type == id_CC_DFF) {
+                CellInfo *dff = (*di_net->users.begin()).cell;
                 if (is_gpio_valid_dff(dff)) {
                     // We configure both GPIO IN and let router decide
                     ci.params[id_IN1_FF] = Property(Property::State::S1);
@@ -432,8 +471,8 @@ void GateMatePacker::pack_io()
                 }
             }
             bool iddr_merged = false;
-            if (di_net->users.entries()==1 && (*di_net->users.begin()).cell->type==id_CC_IDDR) {
-                CellInfo *iddr =(*di_net->users.begin()).cell;
+            if (di_net->users.entries() == 1 && (*di_net->users.begin()).cell->type == id_CC_IDDR) {
+                CellInfo *iddr = (*di_net->users.begin()).cell;
                 ci.params[id_IN1_FF] = Property(Property::State::S1);
                 ci.params[id_IN2_FF] = Property(Property::State::S1);
                 packed_cells.emplace(iddr->name);
@@ -466,26 +505,14 @@ void GateMatePacker::pack_io()
                 ci.renamePort(id_Y, id_DI);
         }
 
-        CellInfo* cpe_out[4];
-        for(int i=0;i<4;i++)
-            cpe_out[i] = move_ram_o(&ci, ctx->idf("OUT%d",i+1), PLACE_GPIO_CPE_OUT1 + i);
+        CellInfo *cpe_out[4];
+        for (int i = 0; i < 4; i++)
+            cpe_out[i] = move_ram_o(&ci, ctx->idf("OUT%d", i + 1), PLACE_GPIO_CPE_OUT1 + i);
 
-        if (!loc.empty()) {
-            BelId bel = ctx->get_package_pin_bel(ctx->id(loc));
-            if (bel == BelId())
-                log_error("Unable to constrain IO '%s', device does not have a pin named '%s'\n", ci.name.c_str(ctx),
-                          loc.c_str());
-            log_info("    Constraining '%s' to pad '%s'\n", ci.name.c_str(ctx), loc.c_str());
-            if (!ctx->checkBelAvail(bel)) {
-                log_error("Can't place %s at %s because it's already taken by %s\n", ctx->nameOf(&ci),
-                          ctx->nameOfBel(bel), ctx->nameOf(ctx->getBoundBelCell(bel)));
-            }
-            ctx->bindBel(bel, &ci, PlaceStrength::STRENGTH_FIXED);
-            for(int i=0;i<4;i++) {
-                if (cpe_out[i]) {
-                    BelId b = ctx->getBelByLocation(uarch->getGPIOOutCPE(bel, i));
-                    ctx->bindBel(b, cpe_out[i], PlaceStrength::STRENGTH_FIXED);
-                }
+        for (int i = 0; i < 4; i++) {
+            if (cpe_out[i]) {
+                BelId b = ctx->getBelByLocation(uarch->getGPIOOutCPE(ci.bel, i));
+                ctx->bindBel(b, cpe_out[i], PlaceStrength::STRENGTH_FIXED);
             }
         }
     }
@@ -498,10 +525,12 @@ bool GateMatePacker::is_gpio_valid_dff(CellInfo *dff)
     bool invert = int_or_default(dff->params, id_EN_INV, 0) == 1;
     if (en_net) {
         if (en_net->name == ctx->id("$PACKER_GND")) {
-            if (!invert) return false;
+            if (!invert)
+                return false;
             dff->disconnectPort(id_EN);
         } else if (en_net->name == ctx->id("$PACKER_VCC")) {
-            if (invert) return false;
+            if (invert)
+                return false;
             dff->disconnectPort(id_EN);
         } else {
             return false;
@@ -991,18 +1020,19 @@ void GateMatePacker::pack_addf()
 
 void GateMatePacker::sort_bufg()
 {
-    struct ItemBufG {
+    struct ItemBufG
+    {
         CellInfo *cell;
         int32_t fan_out;
-        ItemBufG(CellInfo *cell,int32_t fan_out) : cell(cell), fan_out(fan_out) {}
+        ItemBufG(CellInfo *cell, int32_t fan_out) : cell(cell), fan_out(fan_out) {}
     };
 
-    std::vector<ItemBufG> bufg; 
+    std::vector<ItemBufG> bufg;
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_CC_BUFG))
             continue;
-        
+
         NetInfo *i_net = ci.getPort(id_I);
         if (!i_net) {
             log_warning("Removing BUFG cell %s since there is no input used.\n", ci.name.c_str(ctx));
@@ -1015,15 +1045,13 @@ void GateMatePacker::sort_bufg()
             packed_cells.emplace(ci.name); // Remove if no output
             continue;
         }
-        bufg.push_back(ItemBufG(&ci,o_net->users.entries()));
+        bufg.push_back(ItemBufG(&ci, o_net->users.entries()));
     }
 
-    if (bufg.size()>4) {
+    if (bufg.size() > 4) {
         log_warning("More than 4 BUFG used. Those with highest fan-out will be used.\n");
-        std::sort(bufg.begin(), bufg.end(), [](const ItemBufG& a, const ItemBufG& b) {
-            return a.fan_out > b.fan_out;
-        });
-        for(size_t i=4;i<bufg.size();i++) {
+        std::sort(bufg.begin(), bufg.end(), [](const ItemBufG &a, const ItemBufG &b) { return a.fan_out > b.fan_out; });
+        for (size_t i = 4; i < bufg.size(); i++) {
             log_warning("Removing BUFG cell %s.\n", bufg.at(i).cell->name.c_str(ctx));
             packed_cells.emplace(bufg.at(i).cell->name);
         }
@@ -1044,7 +1072,7 @@ void GateMatePacker::pack_bufg()
             bool is_cpe_source = true;
             if (ctx->getBelBucketForCellType(in_net->driver.cell->type) == id_GPIO) {
                 Loc l = ctx->getBelLocation(in_net->driver.cell->bel);
-                if (l.x==0 && (l.y==103 || l.y==99 || l.y==95 || l.y==91))
+                if (l.x == 0 && (l.y == 103 || l.y == 99 || l.y == 95 || l.y == 91))
                     is_cpe_source = false;
             }
             if (is_cpe_source) {
@@ -1124,14 +1152,15 @@ CellInfo *GateMatePacker::move_ram_o(CellInfo *cell, IdString origPort, int plac
 void GateMatePacker::pll_out(CellInfo *cell, IdString origPort, int placement)
 {
     NetInfo *net = cell->getPort(origPort);
-    if (!net) return;
+    if (!net)
+        return;
     CellInfo *bufg = nullptr;
     for (auto &usr : net->users) {
         if (usr.cell->type == id_CC_BUFG)
             bufg = usr.cell;
     }
     if (bufg) {
-        if (net->users.entries()==1) {
+        if (net->users.entries() == 1) {
             bufg->cluster = cell->name;
             bufg->constr_abs_z = false;
             bufg->constr_z = -4;
@@ -1186,7 +1215,7 @@ void GateMatePacker::pack_pll()
             if (ctx->getBelBucketForCellType(clk->driver.cell->type) != id_GPIO)
                 log_error("CLK_REF must be driven with GPIO pin.\n");
             Loc l = ctx->getBelLocation(clk->driver.cell->bel);
-            if (!(l.x==0 && (l.y==103 || l.y==99 || l.y==95 || l.y==91)))
+            if (!(l.x == 0 && (l.y == 103 || l.y == 99 || l.y == 95 || l.y == 91)))
                 log_error("CLK_REF must be driven with CLK dedicated pin.\n");
         }
 
@@ -1375,7 +1404,7 @@ void GateMatePacker::pack_pll()
         // CLK180_DOUB - set by CC_PLL parameter
         // CLK270_DOUB - set by CC_PLL parameter
         // bits 6 and 7 are unused
-        // USR_CLK_OUT - part of routing, mux from chipdb        
+        // USR_CLK_OUT - part of routing, mux from chipdb
 
         ci.type = id_PLL;
     }
@@ -1447,8 +1476,9 @@ void GateMateImpl::pack()
 
     GateMatePacker packer(ctx, this);
     packer.pack_constants();
-    packer.sort_bufg();
     packer.pack_io();
+    packer.pack_io_sel(); // merge in FF and DDR
+    packer.sort_bufg();
     packer.pack_pll();
     packer.pack_bufg();
     packer.pack_misc();

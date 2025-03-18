@@ -39,11 +39,12 @@ NEXTPNR_NAMESPACE_BEGIN
 struct GateMateCCFReader
 {
     Context *ctx;
+    GateMateImpl *uarch;
     std::istream &in;
     int lineno;
     dict<IdString, Property> defaults;
 
-    GateMateCCFReader(Context *ctx, std::istream &in) : ctx(ctx), in(in) {};
+    GateMateCCFReader(Context *ctx, GateMateImpl *uarch, std::istream &in) : ctx(ctx), uarch(uarch), in(in) {};
 
     std::string strip_quotes(const std::string &str)
     {
@@ -77,7 +78,10 @@ struct GateMateCCFReader
                     log_error("Value '%s' can not be defined for default GPIO in line %d.\n", name.c_str(), lineno);
                 if (ctx->get_package_pin_bel(ctx->id(value)) == BelId())
                     log_error("Unknown location '%s' used in line %d.\n", value.c_str(), lineno);
+                if (!uarch->available_pads.count(ctx->id(value)))
+                    log_error("Pad '%s' used in line %d not available.\n", value.c_str(), lineno);
                 props->emplace(id_LOC, Property(value));
+                uarch->available_pads.erase(ctx->id(value));
             } else if (name == "SCHMITT_TRIGGER" || name == "PULLUP" || name == "PULLDOWN" || name == "KEEPER" ||
                        name == "FF_IBF" || name == "FF_OBF" || name == "LVDS_BOOST" || name == "LVDS_RTERM") {
                 if (value == "TRUE") {
@@ -204,7 +208,7 @@ void GateMateImpl::parse_ccf(const std::string &filename)
     std::ifstream in(filename);
     if (!in)
         log_error("failed to open CCF file '%s'\n", filename.c_str());
-    GateMateCCFReader reader(ctx, in);
+    GateMateCCFReader reader(ctx, this, in);
     reader.run();
 }
 
