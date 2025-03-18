@@ -42,6 +42,8 @@ struct GowinGlobalRouter
 
     bool global_pip_available(PipId pip) const { return gwu.is_global_pip(pip) || ctx->checkPipAvail(pip); };
 
+    bool segment_wire_filter(PipId pip) const { return !gwu.is_segment_pip(pip); }
+
     // allow io->global, global->global and global->tile clock
     bool global_pip_filter(PipId pip, WireId src_wire) const
     {
@@ -359,7 +361,11 @@ struct GowinGlobalRouter
         }
 
         RouteResult route_result = route_direct_net(
-                net, [&](PipId pip, WireId src_wire) { return global_DQCE_pip_filter(pip, src); }, src);
+                net,
+                [&](PipId pip, WireId src_wire) {
+                    return global_DQCE_pip_filter(pip, src) && segment_wire_filter(pip);
+                },
+                src);
         if (route_result == NOT_ROUTED) {
             log_error("Can't route the %s network.\n", ctx->nameOf(net));
         }
@@ -436,8 +442,10 @@ struct GowinGlobalRouter
             src = ctx->getBelPinWire(driver.cell->bel, driver.port);
         }
 
-        RouteResult route_result =
-                route_direct_net(net, [&](PipId pip, WireId src_wire) { return global_DCS_pip_filter(pip, src); }, src);
+        RouteResult route_result = route_direct_net(
+                net,
+                [&](PipId pip, WireId src_wire) { return global_DCS_pip_filter(pip, src) && segment_wire_filter(pip); },
+                src);
         if (route_result == NOT_ROUTED) {
             log_error("Can't route the %s network.\n", ctx->nameOf(net));
         }
@@ -526,10 +534,13 @@ struct GowinGlobalRouter
         std::vector<PipId> path;
         RouteResult route_result;
         if (driver_is_mipi(driver)) {
-            route_result = route_direct_net(net, [&](PipId pip, WireId src_wire) { return true; }, src, &path);
+            route_result = route_direct_net(
+                    net, [&](PipId pip, WireId src_wire) { return segment_wire_filter(pip); }, src, &path);
         } else {
             route_result = route_direct_net(
-                    net, [&](PipId pip, WireId src_wire) { return global_pip_filter(pip, src); }, src, &path);
+                    net,
+                    [&](PipId pip, WireId src_wire) { return global_pip_filter(pip, src) && segment_wire_filter(pip); },
+                    src, &path);
         }
 
         if (route_result == NOT_ROUTED) {
@@ -599,7 +610,11 @@ struct GowinGlobalRouter
         NPNR_ASSERT(net_before_buf != nullptr);
 
         RouteResult route_result = route_direct_net(
-                net, [&](PipId pip, WireId src_wire) { return global_pip_filter(pip, src_wire); }, src);
+                net,
+                [&](PipId pip, WireId src_wire) {
+                    return global_pip_filter(pip, src_wire) && segment_wire_filter(pip);
+                },
+                src);
         if (route_result == NOT_ROUTED || route_result == ROUTED_PARTIALLY) {
             log_error("Can't route the %s net. It might be worth removing the BUFG buffer flag.\n", ctx->nameOf(net));
         }
@@ -609,7 +624,8 @@ struct GowinGlobalRouter
         CellInfo *true_src_ci = net_before_buf->driver.cell;
         src = ctx->getBelPinWire(true_src_ci->bel, net_before_buf->driver.port);
         ctx->bindWire(src, net, STRENGTH_LOCKED);
-        backwards_bfs_route(net, src, dst, 1000000, false, [&](PipId pip, WireId src_wire) { return true; });
+        backwards_bfs_route(net, src, dst, 1000000, false,
+                            [&](PipId pip, WireId src_wire) { return segment_wire_filter(pip); });
         // remove net
         buf_ci->movePortTo(id_O, true_src_ci, net_before_buf->driver.port);
         net_before_buf->driver.cell = nullptr;
@@ -619,19 +635,505 @@ struct GowinGlobalRouter
 
     void route_clk_net(NetInfo *net)
     {
-        RouteResult route_result =
-                route_direct_net(net, [&](PipId pip, WireId src_wire) { return global_pip_filter(pip, src_wire); });
+        RouteResult route_result = route_direct_net(net, [&](PipId pip, WireId src_wire) {
+            return global_pip_filter(pip, src_wire) && segment_wire_filter(pip);
+        });
         if (route_result != NOT_ROUTED) {
-            log_info("    '%s' net was routed  using global resources %s.\n", ctx->nameOf(net),
+            log_info("    '%s' net was routed using global resources %s.\n", ctx->nameOf(net),
                      route_result == ROUTED_ALL ? "only" : "partially");
         }
     }
 
+    // segmented wires
+    enum SegmentRouteResult
+    {
+        SEG_NOT_ROUTED = 0,
+        SEG_ROUTED_TO_ANOTHER_SEGMENT,
+        SEG_ROUTED
+    };
+    // Step 0: route LBx1 -> sinks
+    SegmentRouteResult route_segmented_step0(NetInfo *ni, Loc dst_loc, WireId dst_wire, int s_idx, int s_x,
+                                             std::vector<PipId> &bound_pips)
+    {
+        bool routed = false;
+        WireId lbo_wire = ctx->getWireByName(
+                IdStringList::concat(ctx->idf("X%dY%d", s_x, dst_loc.y), ctx->idf("LBO%d", s_idx / 4)));
+        if (ctx->debug) {
+            log_info("      step 0: %s -> %s\n", ctx->nameOfWire(lbo_wire), ctx->nameOfWire(dst_wire));
+        }
+        routed = backwards_bfs_route(
+                ni, lbo_wire, dst_wire, 1000000, false, [&](PipId pip, WireId src) { return true; }, &bound_pips);
+        return routed ? SEG_ROUTED : SEG_ROUTED_TO_ANOTHER_SEGMENT;
+    }
+
+    // Step 1: segment wire -> LBOx
+    SegmentRouteResult route_segmented_step1(NetInfo *ni, Loc dst_loc, int s_idx, int s_x,
+                                             std::vector<PipId> &bound_pips)
+    {
+        IdString tile = ctx->idf("X%dY%d", s_x, dst_loc.y);
+        IdString lbo_wire_name = ctx->idf("LBO%d", s_idx > 3 ? 1 : 0);
+        IdStringList pip_dst_name = IdStringList::concat(tile, lbo_wire_name);
+
+        // if we used other wire
+        IdStringList last_pip_src_name = ctx->getWireName(ctx->getPipSrcWire(bound_pips.back()));
+        if (last_pip_src_name != pip_dst_name) {
+            if (ctx->debug) {
+                log_info("      step 1: Already joined the network in another segment at %s. Skip.\n",
+                         last_pip_src_name.str(ctx).c_str());
+            }
+            return SEG_ROUTED_TO_ANOTHER_SEGMENT;
+        }
+
+        IdString lt_wire_name = ctx->idf("LT0%d", s_idx > 3 ? 4 : 1);
+        PipId pip = ctx->getPipByName(IdStringList::concat(pip_dst_name, lt_wire_name));
+
+        if (ctx->debug) {
+            log_info("      step 1: %s -> %s\n", lt_wire_name.c_str(ctx), pip_dst_name.str(ctx).c_str());
+        }
+        NPNR_ASSERT(pip != PipId());
+
+        NetInfo *pip_net = ctx->getBoundPipNet(pip);
+        if (pip_net == nullptr) {
+            ctx->bindPip(pip, ni, STRENGTH_LOCKED);
+            bound_pips.push_back(pip);
+        } else {
+            if (pip_net != ni) {
+                return SEG_NOT_ROUTED;
+            }
+        }
+        return SEG_ROUTED;
+    }
+
+    // Step 2: gate wire -> segment wire
+    SegmentRouteResult route_segmented_step2(NetInfo *ni, WireId segment_wire, WireId gate_wire,
+                                             std::vector<PipId> &bound_pips)
+    {
+        IdStringList pip_name = IdStringList::concat(ctx->getWireName(segment_wire), ctx->getWireName(gate_wire)[1]);
+        PipId pip = ctx->getPipByName(pip_name);
+        if (ctx->debug) {
+            log_info("      step 2: %s\n", ctx->nameOfPip(pip));
+        }
+
+        NPNR_ASSERT(pip != PipId());
+        NetInfo *pip_net = ctx->getBoundPipNet(pip);
+        if (pip_net == nullptr) {
+            ctx->bindPip(pip, ni, STRENGTH_LOCKED);
+            bound_pips.push_back(pip);
+        } else {
+            if (pip_net != ni) {
+                return SEG_NOT_ROUTED;
+            }
+        }
+        return SEG_ROUTED;
+    }
+
+    // Step 3: route src -> gate wires
+    SegmentRouteResult route_segmented_step3(NetInfo *ni, pool<WireId> gate_wires, std::vector<PipId> &bound_pips,
+                                             pool<WireId> &bound_wires)
+    {
+        bool routed = false;
+        WireId src_wire = ctx->getNetinfoSourceWire(ni);
+        if (ctx->debug) {
+            log_info("    step 3: %s -> \n", ctx->nameOfWire(src_wire));
+        }
+        for (WireId gatewire : gate_wires) {
+            if (ctx->debug) {
+                log_info("      %s\n", ctx->nameOfWire(gatewire));
+            }
+            routed = backwards_bfs_route(
+                    ni, src_wire, gatewire, 1000000, false, [&](PipId pip, WireId src) { return true; }, &bound_pips);
+            if (routed) {
+                // bind src
+                if (ctx->checkWireAvail(src_wire)) {
+                    ctx->bindWire(src_wire, ni, STRENGTH_LOCKED);
+                    bound_wires.insert(src_wire);
+                }
+            } else {
+                break;
+            }
+        }
+        return routed ? SEG_ROUTED : SEG_NOT_ROUTED;
+    }
+
+    void route_segmented(std::vector<IdString> &nets)
+    {
+        if (ctx->verbose) {
+            log_info("routing segmented...\n");
+        }
+
+        struct selected_net
+        {
+            int sink_cnt;
+            std::vector<int> segs;             // segments
+            dict<int, WireId> gate_wires;      // from logic to segment
+            dict<int, WireId> tb_wires;        // top or bottom segment wire
+            dict<int, WireId> wire_to_isolate; // this wire should be disconnected to avoid conflict
+        };
+
+        dict<IdString, selected_net> selected_nets;
+        NetInfo *vcc_net = ctx->nets.at(ctx->id("$PACKER_VCC")).get();
+        NetInfo *vss_net = ctx->nets.at(ctx->id("$PACKER_GND")).get();
+
+        auto get_port_loc = [&](PortRef &cell_wire) -> Loc {
+            BelId bel = cell_wire.cell->bel;
+            NPNR_ASSERT(bel != BelId());
+            return ctx->getBelLocation(bel);
+        };
+
+        for (IdString net_name : nets) {
+            NetInfo *ni = ctx->nets.at(net_name).get();
+
+            // We restrict the considered networks from above because networks
+            // with a large number of sinks have all chances to cross quadrant
+            // boundaries and for such large global networks it is better to
+            // use free clock wires.
+            int sinks_num = ni->users.entries();
+            if (ni->driver.cell == nullptr || sinks_num < 8 || sinks_num > 50 || ni == vcc_net || ni == vss_net) {
+                continue;
+            }
+
+            // We cut off very compact networks because regular wires will
+            // suffice for them, and using segmented ones takes up a whole
+            // column in the bank at once.
+            Loc src_loc = get_port_loc(ni->driver);
+            if (ctx->debug) {
+                log_info("    net:%s, src:(%d, %d) %s\n", ctx->nameOf(ni), src_loc.y, src_loc.x,
+                         ni->driver.port.c_str(ctx));
+            }
+            int far_sink_cnt = 0;
+            for (auto sink : ni->users) {
+                Loc sink_loc = get_port_loc(sink);
+                if (ctx->debug) {
+                    log_info("      sink:(%d, %d) %s\n", sink_loc.y, sink_loc.x, sink.port.c_str(ctx));
+                }
+                if (std::abs(sink_loc.x - src_loc.x) > 4 || std::abs(sink_loc.y - src_loc.y) > 4) {
+                    ++far_sink_cnt;
+                }
+            }
+            if (far_sink_cnt > 10) {
+                if (ctx->debug) {
+                    log_info("    far sinks:%d, net is selected for processing.\n", far_sink_cnt);
+                }
+                selected_nets[net_name].sink_cnt = far_sink_cnt;
+            }
+        }
+        // Now that we have selected candidate grids, let's put them into a
+        // structure convenient for working with each grid cell of the chip
+        // individually.
+        // Each segment "serves" a rectangular area, the width and height of
+        // which depends on the position of the tap from the horizontal
+        // "spine" wire.
+        // The areas of neighboring taps overlap, but not completely, so we'll
+        // have to handle the sinks of the nets cell by cell.
+        // Another reason why we have to work with each cell individually,
+        // instead of using the total number of sinks of a particular network
+        // in the whole rectangular area, is that it makes sense to connect the
+        // sinks that are in the immediate neighborhood of the network source
+        // with ordinary wires.
+        struct grid_net
+        {
+            IdString net;
+            int sink_cnt; // It is not currently used, but it may be useful if
+                          // the network search algorithm is based on the
+                          // number of sinks in the segment's service region.
+        };
+        // The largest Gowin chip to date (GW5A-138) contains 138000 LUTs,
+        // which is a rough estimate without taking into account the placement
+        // of a few LUTs in the cell gives 400 columns and 400 rows.  We use
+        // the combination of row number << 16 and column number as a key.
+        auto xy_to_key = [&](int x, int y) -> uint32_t { return (y << 16) | x; };
+        std::unordered_multimap<uint32_t, grid_net> grid;
+        int min_x = ctx->getGridDimX();
+        int max_x = -1;
+        int min_y = ctx->getGridDimY();
+        int max_y = -1;
+
+        for (auto &net : selected_nets) {
+            IdString net_name = net.first;
+            NetInfo *ni = ctx->nets.at(net_name).get();
+            Loc src_loc = get_port_loc(ni->driver);
+            for (auto sink : ni->users) {
+                Loc sink_loc = get_port_loc(sink);
+                min_x = std::min(min_x, sink_loc.x);
+                max_x = std::max(max_x, sink_loc.x);
+                min_y = std::min(min_y, sink_loc.y);
+                max_y = std::max(max_y, sink_loc.y);
+
+                if (std::abs(sink_loc.x - src_loc.x) > 4 || std::abs(sink_loc.y - src_loc.y) > 4) {
+                    uint32_t key = xy_to_key(sink_loc.x, sink_loc.y);
+                    bool found = false;
+                    if (grid.count(key)) {
+                        auto net_range = grid.equal_range(key);
+                        for (auto it = net_range.first; it != net_range.second; ++it) {
+                            if (it->second.net == net_name) {
+                                found = true;
+                                ++(it->second.sink_cnt);
+                            }
+                        }
+                    }
+                    if (!found) {
+                        grid_net new_cell;
+                        new_cell.net = net_name;
+                        new_cell.sink_cnt = 1;
+                        grid.insert(std::make_pair(key, new_cell));
+                    }
+                }
+            }
+        }
+        if (ctx->debug) {
+            log_info("Net grid. (%d, %d) <=> (%d, %d)\n", min_y, min_x, max_y, max_x);
+            for (auto it = grid.begin(); it != grid.end(); ++it) {
+                log_info(" (%d, %d): %s %d\n", it->first >> 16, it->first & 0xffff, it->second.net.c_str(ctx),
+                         it->second.sink_cnt);
+            }
+        }
+
+        // Net -> s_idx (0 <= s_idx < 8 -indices of vertical segments)
+        dict<IdString, int> net_to_s_idx;
+
+        // We search all segmental columns, ignoring those that do not fall
+        // into the grid of networks
+        for (int s_i = 0; s_i < gwu.get_segments_count(); ++s_i) {
+            int s_x, s_idx, s_min_x, s_min_y, s_max_x, s_max_y;
+            gwu.get_segment_region(s_i, s_idx, s_x, s_min_x, s_min_y, s_max_x, s_max_y);
+            // skip empty (in sense of net sinks) segments
+            if (s_max_x < min_x || s_min_x > max_x || s_max_y < min_y || s_min_y > max_y) {
+                continue;
+            }
+            if (ctx->debug) {
+                log_info("segment:%d/%d, x:%d, (%d, %d) <=> (%d, %d)\n", s_i, s_idx, s_x, s_min_y, s_min_x, s_max_y,
+                         s_max_x);
+            }
+            // Selecting networks whose sinks fall in the served region.
+            // Networks with an already assigned segment index are prioritized
+            // over the rest, among which the network with the maximum number
+            // of sinks is selected.
+            bool found_net_with_index = false;
+            IdString net;
+            int sink_cnt = 0;
+            for (int y = s_min_y; y <= s_max_y && (!found_net_with_index); ++y) {
+                for (int x = s_min_x; x <= s_max_x && (!found_net_with_index); ++x) {
+                    auto net_range = grid.equal_range(xy_to_key(x, y));
+                    for (auto it = net_range.first; it != net_range.second; ++it) {
+                        if (net_to_s_idx.count(it->second.net)) {
+                            if (net_to_s_idx.at(it->second.net) == s_idx) {
+                                // far network already use our segment index - reuse it
+                                found_net_with_index = true;
+                                net = it->second.net;
+                                sink_cnt = selected_nets.at(it->second.net).sink_cnt;
+                                break;
+                            }
+                            continue;
+                        }
+                        // new net, calculate maximum sinks
+                        if (selected_nets.at(it->second.net).sink_cnt > sink_cnt) {
+                            sink_cnt = selected_nets.at(it->second.net).sink_cnt;
+                            net = it->second.net;
+                        }
+                    }
+                }
+            }
+            // no suitable nets, segment is unused, skip
+            if (sink_cnt == 0) {
+                continue;
+            }
+
+            if (!found_net_with_index) {
+                // new net
+                if (ctx->debug) {
+                    log_info("  new net: %s, index:%d\n", net.c_str(ctx), s_idx);
+                }
+                net_to_s_idx[net] = s_idx;
+            } else {
+                // old net
+                if (ctx->debug) {
+                    log_info("  old net: %s, index:%d\n", net.c_str(ctx), s_idx);
+                }
+            }
+            selected_nets.at(net).segs.push_back(s_i);
+        }
+        // Sort in descending order of the number of segments used.
+        std::multimap<int, IdString> sorted_nets;
+        for (auto const &net_seg : net_to_s_idx) {
+            sorted_nets.insert(std::make_pair(-selected_nets.at(net_seg.first).segs.size(), net_seg.first));
+        }
+
+        // Now that we have all the segments for the networks we need to
+        // decide which end of the segment (upper or lower) to use
+        // depending on the distance to the network source.
+        // This is critical because the signal in a segment can propagate
+        // from bottom to top or top to bottom and you need to know exactly
+        // which end to isolate.
+        for (auto const &net_seg : sorted_nets) {
+            IdString net = net_seg.second;
+            NetInfo *ni = ctx->nets.at(net).get();
+            Loc src_loc = get_port_loc(ni->driver);
+            if (ctx->debug) {
+                log_info("net:%s, src:(%d, %d)\n", ctx->nameOf(ni), src_loc.y, src_loc.x);
+            }
+            std::string wires_to_isolate;
+            for (int s_i : selected_nets.at(net).segs) {
+                // distances to net source
+                Loc top_loc, bottom_loc;
+                gwu.get_segment_wires_loc(s_i, top_loc, bottom_loc);
+                int top_to_src = std::abs(src_loc.x - top_loc.x) + std::abs(src_loc.y - top_loc.y);
+                int bottom_to_src = std::abs(src_loc.x - bottom_loc.x) + std::abs(src_loc.y - bottom_loc.y);
+                if (ctx->debug) {
+                    log_info("  segment:%d, top:(%d, %d), bottom:(%d, %d) dists:%d %d\n", s_i, top_loc.y, top_loc.x,
+                             bottom_loc.y, bottom_loc.x, top_to_src, bottom_to_src);
+                }
+                // By selecting the top or bottom end we also select a pair of
+                // gate wires to use.
+                WireId tb_wire, gate_wire, top_seg_wire, bottom_seg_wire, wire_to_isolate;
+                gwu.get_segment_wires(s_i, top_seg_wire, bottom_seg_wire);
+                tb_wire = top_seg_wire;
+                if (top_to_src <= bottom_to_src) {
+                    WireId gate_wire1;
+                    gwu.get_segment_top_gate_wires(s_i, gate_wire, gate_wire1);
+                    if (gate_wire == WireId()) {
+                        gate_wire == gate_wire1;
+                    }
+                    if (gate_wire == WireId()) {
+                        // This segment has no top gate wires, so we use one of the bottom ones.
+                        gwu.get_segment_bottom_gate_wires(s_i, gate_wire, gate_wire1);
+                        if (gate_wire == WireId()) {
+                            gate_wire == gate_wire1;
+                        }
+                        tb_wire = bottom_seg_wire;
+                        wire_to_isolate = top_seg_wire;
+                        NPNR_ASSERT(gate_wire != WireId()); // Completely isolated segment. The chip base is damaged.
+                    }
+                } else {
+                    WireId gate_wire1;
+                    tb_wire = bottom_seg_wire;
+                    wire_to_isolate = top_seg_wire;
+                    gwu.get_segment_bottom_gate_wires(s_i, gate_wire, gate_wire1);
+                    if (gate_wire == WireId()) {
+                        gate_wire == gate_wire1;
+                    }
+                    if (gate_wire == WireId()) {
+                        // This segment has no top gate wires, so we use one of the bottom ones.
+                        gwu.get_segment_top_gate_wires(s_i, gate_wire, gate_wire1);
+                        if (gate_wire == WireId()) {
+                            gate_wire == gate_wire1;
+                        }
+                        tb_wire = top_seg_wire;
+                        wire_to_isolate = WireId();
+                        NPNR_ASSERT(gate_wire != WireId()); // Completely isolated segment. The chip base is damaged.
+                    }
+                }
+                selected_nets.at(net).tb_wires[s_i] = tb_wire;
+                selected_nets.at(net).gate_wires[s_i] = gate_wire;
+                // store used wires for gowin_pack
+                if (wire_to_isolate != WireId()) {
+                    wires_to_isolate += ctx->getWireName(wire_to_isolate).str(ctx);
+                    wires_to_isolate += ";";
+                }
+                if (ctx->debug) {
+                    log_info("    wire:%s, gate wire:%s\n", ctx->nameOfWire(tb_wire), ctx->nameOfWire(gate_wire));
+                }
+            }
+            // Laying out a route for the network.
+            std::vector<PipId> bound_pips;
+            pool<WireId> bound_wires;
+            SegmentRouteResult routed = SEG_NOT_ROUTED;
+            pool<WireId> gate_wires;
+
+            if (ctx->debug) {
+                log_info("  Route\n");
+            }
+            for (auto usr : ni->users) {
+                BelId dst_bel = usr.cell->bel;
+                NPNR_ASSERT(dst_bel != BelId());
+
+                Loc dst_loc(ctx->getBelLocation(dst_bel));
+                WireId dst_wire = ctx->getNetinfoSinkWire(ni, usr, 0);
+
+                // find segment covers dest
+                int s_idx = -1;
+                int s_x, s_min_x, s_min_y, s_max_x, s_max_y;
+                WireId tb_wire, gate_wire;
+                for (int s_i : selected_nets.at(net).segs) {
+                    int idx;
+                    gwu.get_segment_region(s_i, idx, s_x, s_min_x, s_min_y, s_max_x, s_max_y);
+                    if (dst_loc.x >= s_min_x && dst_loc.x <= s_max_x && dst_loc.y >= s_min_y && dst_loc.y <= s_max_y) {
+                        s_idx = idx;
+                        tb_wire = selected_nets.at(net).tb_wires.at(s_i);
+                        gate_wire = selected_nets.at(net).gate_wires.at(s_i);
+                        break;
+                    }
+                }
+                if (ctx->debug) {
+                    log_info("    segment index:%d, dst:%s\n", s_idx, ctx->nameOf(usr.cell));
+                }
+                // There may not be a suitable segment if the sink is close to
+                // the source. In that case consider these sinks along with
+                // gate wires.
+                if (s_idx == -1) {
+                    gate_wires.insert(dst_wire);
+                } else {
+                    // Step 0: LBx1 -> dest
+                    routed = route_segmented_step0(ni, dst_loc, dst_wire, s_idx, s_x, bound_pips);
+                    if (routed == SEG_NOT_ROUTED) {
+                        break;
+                    }
+                    // Step 1: segment wire -> LBOx
+                    routed = route_segmented_step1(ni, dst_loc, s_idx, s_x, bound_pips);
+                    if (routed == SEG_NOT_ROUTED) {
+                        break;
+                    }
+                    if (routed == SEG_ROUTED_TO_ANOTHER_SEGMENT) {
+                        continue;
+                    }
+                    // Step 2: gate wire -> segment wire
+                    routed = route_segmented_step2(ni, tb_wire, gate_wire, bound_pips);
+                    if (routed == SEG_NOT_ROUTED) {
+                        break;
+                    }
+                    // mark gate for step 3
+                    gate_wires.insert(gate_wire);
+                }
+            }
+            // Step 3: src -> gate wire
+            routed = route_segmented_step3(ni, gate_wires, bound_pips, bound_wires);
+            if (routed == SEG_NOT_ROUTED) {
+                if (ctx->verbose || ctx->debug) {
+                    log_warning("Can't route net %s using segments.\n", ctx->nameOf(ni));
+                }
+                // unbind pips and wires
+                for (PipId pip : bound_pips) {
+                    ctx->unbindPip(pip);
+                }
+                for (WireId wire : bound_wires) {
+                    ctx->unbindWire(wire);
+                }
+            } else {
+                // make list of wires for isolation
+                if (!wires_to_isolate.empty()) {
+                    ni->attrs[id_SEG_WIRES_TO_ISOLATE] = wires_to_isolate;
+                }
+                if (ctx->verbose) {
+                    log_info("Net %s is routed using segments.\n", ctx->nameOf(ni));
+                }
+                if (ctx->debug) {
+                    log_info("    routed\n");
+                    for (PipId pip : bound_pips) {
+                        log_info("      %s\n", ctx->nameOfPip(pip));
+                    }
+                    for (WireId wire : bound_wires) {
+                        log_info("      %s\n", ctx->nameOfWire(wire));
+                    }
+                }
+            }
+        }
+    }
+
+    // Route all
     void run(void)
     {
         log_info("Routing globals...\n");
 
-        std::vector<IdString> dhcen_nets, dqce_nets, dcs_nets, buf_nets, clk_nets;
+        std::vector<IdString> dhcen_nets, dqce_nets, dcs_nets, buf_nets, clk_nets, seg_nets;
 
         // Determining the priority of network routing
         for (auto &net : ctx->nets) {
@@ -657,6 +1159,8 @@ struct GowinGlobalRouter
                         } else {
                             if (driver_is_dhcen(ni->driver)) {
                                 dhcen_nets.push_back(net.first);
+                            } else {
+                                seg_nets.push_back(net.first);
                             }
                         }
                     }
@@ -721,6 +1225,11 @@ struct GowinGlobalRouter
                 log_info("route clock net '%s'\n", ctx->nameOf(ni));
             }
             route_clk_net(ni);
+        }
+
+        // segmented nets
+        if (gwu.get_segments_count() != 0) {
+            route_segmented(seg_nets);
         }
     }
 };

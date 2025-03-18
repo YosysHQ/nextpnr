@@ -24,6 +24,12 @@ struct GowinUtils
     IdString get_tile_class(int x, int y);
     Loc get_tile_io16_offs(int x, int y);
     bool get_i3c_capable(int x, int y);
+    inline Loc get_wire_loc(WireId wire) const
+    {
+        Loc loc;
+        tile_xy(ctx->chip_info, wire.tile, loc.x, loc.y);
+        return loc;
+    }
 
     // pin functions: GCLKT_4, SSPI_CS, READY etc
     IdStringList get_pin_funcs(BelId io_bel);
@@ -38,6 +44,14 @@ struct GowinUtils
     BelId get_dqce_bel(IdString spine_name);
     BelId get_dcs_bel(IdString spine_name);
     BelId get_dhcen_bel(WireId hclkin_wire, IdString &side);
+
+    // Segments
+    int get_segments_count(void) const;
+    void get_segment_region(int s_i, int &seg_idx, int &x, int &min_x, int &min_y, int &max_x, int &max_y) const;
+    void get_segment_wires_loc(int s_i, Loc &top, Loc &bottom) const;
+    void get_segment_wires(int s_i, WireId &top, WireId &bottom) const;
+    void get_segment_top_gate_wires(int s_i, WireId &wire0, WireId &wire1) const;
+    void get_segment_bottom_gate_wires(int s_i, WireId &wire0, WireId &wire1) const;
 
     // ports
     inline bool port_used(CellInfo *cell, IdString port_name)
@@ -109,6 +123,8 @@ struct GowinUtils
     {
         return is_global_wire(ctx->getPipSrcWire(pip)) || is_global_wire(ctx->getPipDstWire(pip));
     }
+
+    inline bool is_segment_pip(PipId pip) const { return ctx->getWireType(ctx->getPipDstWire(pip)) == id_LW_TAP; }
 
     // construct name
     IdString create_aux_name(IdString main_name, int idx = 0, const char *str_suffix = "_aux$");
