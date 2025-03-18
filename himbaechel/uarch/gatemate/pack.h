@@ -43,6 +43,7 @@ struct GateMatePacker
 
     void disconnect_if_gnd(CellInfo *cell, IdString input);
     void remove_constants();
+    void remove_not_used();
 
     void pll_out(CellInfo *cell, IdString origPort, int placement);
     PllCfgRecord get_pll_settings(double f_ref, double f_core, int mode, int low_jitter, bool pdiv0_mux, bool feedback);

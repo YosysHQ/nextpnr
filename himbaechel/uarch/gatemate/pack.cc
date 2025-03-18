@@ -1068,6 +1068,13 @@ void GateMatePacker::sort_bufg()
         std::sort(bufg.begin(), bufg.end(), [](const ItemBufG &a, const ItemBufG &b) { return a.fan_out > b.fan_out; });
         for (size_t i = 4; i < bufg.size(); i++) {
             log_warning("Removing BUFG cell %s.\n", bufg.at(i).cell->name.c_str(ctx));
+            CellInfo *cell = bufg.at(i).cell;
+            NetInfo *i_net = cell->getPort(id_I);
+            NetInfo *o_net = cell->getPort(id_O);
+            for(auto s : o_net->users) {
+                s.cell->disconnectPort(s.port);
+                s.cell->connectPort(s.port, i_net);
+            }
             packed_cells.emplace(bufg.at(i).cell->name);
         }
     }
@@ -1077,6 +1084,7 @@ void GateMatePacker::sort_bufg()
 void GateMatePacker::pack_bufg()
 {
     log_info("Packing BUFGs..\n");
+    CellInfo *bufg[4] = { nullptr };
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_CC_BUFG))
@@ -1090,6 +1098,24 @@ void GateMatePacker::pack_bufg()
                 if (pad_info->flags)
                     is_cpe_source = false;
             }
+            if (ctx->getBelBucketForCellType(in_net->driver.cell->type) == id_PLL) {
+                is_cpe_source = false;
+                int pll_index = in_net->driver.cell->constr_z - 4;
+                if (bufg[pll_index]== nullptr) {
+                    bufg[pll_index] = &ci;
+                } else {
+                    IdString origPort = in_net->driver.port;
+                    int index = 0;
+                    if (origPort==id_CLK90) index = 1;
+                    else if (origPort==id_CLK180) index = 2;
+                    else if (origPort==id_CLK270) index = 3;
+                    if (bufg[index]== nullptr) {
+                        bufg[pll_index] = &ci;
+                    } else {
+                        log_error("Unable to place BUFG for PLL.\n");
+                    }
+                }
+            }
             if (is_cpe_source) {
                 ci.cluster = ci.name;
                 move_ram_o(&ci, id_I, PLACE_USR_GLB);
@@ -1098,13 +1124,29 @@ void GateMatePacker::pack_bufg()
         ci.type = id_BUFG;
     }
 
-    int index = 0;
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_BUFG))
             continue;
-        global_signals.emplace(ci.getPort(id_O), index);
-        index++;
+        NetInfo *in_net = ci.getPort(id_I);
+        if (in_net && ctx->getBelBucketForCellType(in_net->driver.cell->type) != id_PLL) {
+            for(int i=0;i<4; i++) {
+                if (bufg[i]==nullptr) {
+                    bufg[i] = &ci;
+                    break;
+                }
+            }
+        }
+    }
+
+    for(int i=0;i<4; i++) {
+        if (bufg[i]) {
+            CellInfo &ci = *bufg[i];
+            global_signals.emplace(ci.getPort(id_O), i);
+            ci.cluster = ci.name;
+            ci.constr_abs_z = true;
+            ci.constr_z = i;
+        }
     }
 }
 
@@ -1184,13 +1226,7 @@ void GateMatePacker::pll_out(CellInfo *cell, IdString origPort, int placement)
             bufg = usr.cell;
     }
     if (bufg) {
-        if (net->users.entries() == 1) {
-            bufg->cluster = cell->name;
-            bufg->constr_abs_z = false;
-            bufg->constr_z = -4;
-            bufg->type = id_BUFG;
-            cell->constr_children.push_back(bufg);
-        } else {
+        if (net->users.entries() != 1) {
             log_error("not handled BUFG\n");
         }
     } else {
@@ -1219,7 +1255,7 @@ void GateMatePacker::insert_bufg(CellInfo *cell, IdString port)
     NetInfo *clk = cell->getPort(port);
     if (clk) {
         if (!(clk->users.entries()==1 && (*clk->users.begin()).cell->type == id_CC_BUFG)) {
-            CellInfo *bufg = create_cell_ptr(id_CC_BUFG, ctx->idf("%s$bufg_clk0", cell->name.c_str(ctx)));
+            CellInfo *bufg = create_cell_ptr(id_CC_BUFG, ctx->idf("%s$BUFG_%s", cell->name.c_str(ctx), port.c_str(ctx)));
             cell->movePortTo(port, bufg, id_O);
             cell->ports[port].name = port;
             cell->ports[port].type = PORT_OUT;
@@ -1230,6 +1266,7 @@ void GateMatePacker::insert_bufg(CellInfo *cell, IdString port)
         }
     }
 }
+
 void GateMatePacker::insert_pll_bufg()
 {
     std::vector<CellInfo *> cells;
@@ -1533,6 +1570,20 @@ void GateMatePacker::remove_constants()
     }
 }
 
+void GateMatePacker::remove_not_used()
+{
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        for (auto &p : ci.ports) {
+            if (p.second.type == PortType::PORT_OUT) {
+                NetInfo *net = ci.getPort(p.first);
+                if (net && net->users.entries() == 0) {
+                    ci.disconnectPort(p.first);
+                }
+            }
+        }
+    }
+}
 void GateMateImpl::pack()
 {
     const ArchArgs &args = ctx->args;
@@ -1542,6 +1593,7 @@ void GateMateImpl::pack()
 
     GateMatePacker packer(ctx, this);
     packer.pack_constants();
+    packer.remove_not_used();
     packer.pack_io();
     packer.insert_pll_bufg();
     packer.sort_bufg();
