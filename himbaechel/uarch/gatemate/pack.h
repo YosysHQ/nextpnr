@@ -29,6 +29,7 @@ struct GateMatePacker
     GateMatePacker(Context *ctx, GateMateImpl *uarch) : ctx(ctx), uarch(uarch) { h.init(ctx); };
 
     void pack_io();
+    void pack_io_sel();
     void pack_cpe();
     void pack_addf();
     void pack_bufg();
