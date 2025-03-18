@@ -34,10 +34,12 @@ struct GateMatePacker
     void pack_addf();
     void pack_bufg();
     void sort_bufg();
+    void insert_pll_bufg();
     void pack_pll();
     void pack_misc();
     void pack_constants();
     void dff_to_cpe(CellInfo *dff, CellInfo *cpe);
+    void insert_bufg(CellInfo *cell, IdString port);
 
     void disconnect_if_gnd(CellInfo *cell, IdString input);
     void remove_constants();
@@ -54,6 +56,7 @@ struct GateMatePacker
     void flush_cells();
 
     pool<IdString> packed_cells;
+    std::map<NetInfo*, int> global_signals;
 
     Context *ctx;
     GateMateImpl *uarch;
