@@ -1527,6 +1527,19 @@ void GateMatePacker::pack_misc()
     }
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
+        if (!ci.type.in(id_CC_CFG_CTRL))
+            continue;
+        ci.type = id_CFG_CTRL;
+        ci.cluster = ci.name;
+        move_ram_o(&ci, id_CLK, PLACE_CFG_CTRL_CLK);
+        move_ram_o(&ci, id_EN, PLACE_CFG_CTRL_EN);
+        move_ram_o(&ci, id_VALID, PLACE_CFG_CTRL_VALID);
+        move_ram_o(&ci, id_RECFG, PLACE_CFG_CTRL_RECFG);
+        for(int i=0;i<8;i++)
+            move_ram_o(&ci, ctx->idf("DATA[%d]",i), PLACE_CFG_CTRL_DATA_0+i);
+    }
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
         if (!ci.type.in(id_CC_ODDR, id_CC_IDDR))
             continue;
         log_error("Cell '%s' of type %s is not connected to GPIO pin.\n", ci.name.c_str(ctx), ci.type.c_str(ctx));
