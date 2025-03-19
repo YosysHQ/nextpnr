@@ -44,6 +44,7 @@ struct GowinUtils
     BelId get_dqce_bel(IdString spine_name);
     BelId get_dcs_bel(IdString spine_name);
     BelId get_dhcen_bel(WireId hclkin_wire, IdString &side);
+    BelId get_dlldly_bel(BelId io_bel);
 
     // Segments
     int get_segments_count(void) const;

@@ -65,6 +65,8 @@ EMCU_Z      = 300
 MIPIOBUF_Z  = 301
 MIPIIBUF_Z  = 302
 
+DLLDLY_Z    = 303 # : 305 reserve for 2 DLLDLYs
+
 DSP_Z          = 509
 
 DSP_0_Z        = 511 # DSP macro 0
@@ -180,6 +182,18 @@ class SpineBel(BBAStruct):
         bba.u32(self.bel_y)
         bba.u32(self.bel_z)
 
+# io -> dlldly bels
+@dataclass
+class IoBel(BBAStruct):
+    io: IdString
+    dlldly: IdString
+
+    def serialise_lists(self, context: str, bba: BBAWriter):
+        pass
+    def serialise(self, context: str, bba: BBAWriter):
+        bba.u32(self.io.index)
+        bba.u32(self.dlldly.index)
+
 # wire -> bel for DHCEN bels
 @dataclass
 class WireBel(BBAStruct):
@@ -249,6 +263,7 @@ class ChipExtraData(BBAStruct):
     dqce_bels: list[SpineBel] = field(default_factory = list)
     dcs_bels: list[SpineBel] = field(default_factory = list)
     dhcen_bels: list[WireBel] = field(default_factory = list)
+    io_dlldly_bels: list[IoBel] = field(default_factory = list)
     segments: list[Segment] = field(default_factory = list)
 
     def create_bottom_io(self):
@@ -269,6 +284,8 @@ class ChipExtraData(BBAStruct):
     def add_dcs_bel(self, spine: str, x: int, y: int, z: int):
         self.dcs_bels.append(SpineBel(self.strs.id(spine), x, y, z))
 
+    def add_io_dlldly_bel(self, io: str, dlldly: str):
+        self.io_dlldly_bels.append(IoBel(self.strs.id(io), self.strs.id(dlldly)))
     def add_segment(self, x: int, seg_idx: int, min_x: int, min_y: int, max_x: int, max_y: int,
             top_row: int, bottom_row: int, top_wire: str, bottom_wire: str, top_gate_wire: list, bottom_gate_wire: list):
         new_seg = Segment(x, seg_idx, min_x, min_y, max_x, max_y, top_row, bottom_row,
@@ -300,6 +317,9 @@ class ChipExtraData(BBAStruct):
         bba.label(f"{context}_dhcen_bels")
         for i, t in enumerate(self.dhcen_bels):
             t.serialise(f"{context}_dhcen_bel{i}", bba)
+        bba.label(f"{context}_io_dlldly_bels")
+        for i, t in enumerate(self.io_dlldly_bels):
+            t.serialise(f"{context}_io_dlldly_bel{i}", bba)
         bba.label(f"{context}_segments")
         for i, t in enumerate(self.segments):
             t.serialise(f"{context}_segment{i}", bba)
@@ -311,6 +331,7 @@ class ChipExtraData(BBAStruct):
         bba.slice(f"{context}_dqce_bels", len(self.dqce_bels))
         bba.slice(f"{context}_dcs_bels", len(self.dcs_bels))
         bba.slice(f"{context}_dhcen_bels", len(self.dhcen_bels))
+        bba.slice(f"{context}_io_dlldly_bels", len(self.io_dlldly_bels))
         bba.slice(f"{context}_segments", len(self.segments))
 
 @dataclass
@@ -444,6 +465,9 @@ def create_nodes(chip: Chip, db: chipdb):
         wire_type, node = node_hdr
         if len(node) < 2:
             continue
+        min_wire_name_len = 0
+        if node:
+            min_wire_name_len = len(next(iter(node))[2])
         for y, x, wire in node:
             if wire_type:
                 if not chip.tile_type_at(x, y).has_wire(wire):
@@ -453,7 +477,11 @@ def create_nodes(chip: Chip, db: chipdb):
             new_node = NodeWire(x, y, wire)
             gl_nodes = global_nodes.setdefault(node_name, [])
             if new_node not in gl_nodes:
-                    gl_nodes.append(NodeWire(x, y, wire))
+                if len(wire) < min_wire_name_len:
+                    min_wire_name_len = len(wire)
+                    gl_nodes.insert(0, new_node)
+                else:
+                    gl_nodes.append(new_node)
 
     for name, node in global_nodes.items():
         chip.add_node(node)
@@ -462,6 +490,10 @@ def create_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
     def get_wire_type(name):
         if name in {'XD0', 'XD1', 'XD2', 'XD3', 'XD4', 'XD5',}:
             return "X0"
+        if name in {"PCLK_DUMMY"}:
+            return "GLOBAL_CLK"
+        if name in {"DLLDLY_OUT"}:
+            return "DLLDLY_O"
         if name in {'LT00', 'LT10', 'LT20', 'LT30', 'LT02', 'LT13'}:
             return "LW_TAP"
         return ""
@@ -550,6 +582,9 @@ dcs_bels = {}
 # map HCLKIN wire -> dhcen bel
 dhcen_bels = {}
 
+# map io bel -> dlldly bel
+io_dlldly_bels = {}
+
 def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
     if (y, x) not in db.extra_func:
         return
@@ -588,6 +623,20 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
                 tt.add_bel_pin(bel, "CE", wire, PinType.INPUT)
                 pip_xy, pip_dst, pip_src, side = dhcen['pip']
                 dhcen_bels[pip_xy, pip_dst, pip_src] = (x, y, bel_z, side)
+        elif func == 'dlldly':
+            for idx, dlldly in desc.items():
+                bel_z = DLLDLY_Z + idx
+                bel = tt.create_bel(f"DLLDLY{idx}", "DLLDLY", z = bel_z)
+                for pin, wire in dlldly['in_wires'].items():
+                    if not tt.has_wire(wire):
+                        tt.create_wire(wire)
+                    tt.add_bel_pin(bel, pin, wire, PinType.INPUT)
+                for pin, wire in dlldly['out_wires'].items():
+                    if not tt.has_wire(wire):
+                        tt.create_wire(wire)
+                    tt.add_bel_pin(bel, pin, wire, PinType.OUTPUT)
+                io_dlldly_bels[f"{dlldly['io_loc']}/{dlldly['io_bel']}"] = f"X{x}Y{y}/DLLDLY{idx}"
+
         elif func == 'dqce':
             for idx in range(6):
                 bel_z = DQCE_Z + idx
@@ -1346,6 +1395,9 @@ def create_extra_data(chip: Chip, db: chipdb, chip_flags: int):
     # create spine->dcs bel map
     for spine, bel in dcs_bels.items():
         chip.extra_data.add_dcs_bel(spine, bel[0], bel[1], bel[2])
+    # create iob->dlldly bel map
+    for io, dlldly in io_dlldly_bels.items():
+        chip.extra_data.add_io_dlldly_bel(io, dlldly)
     # create segments
     if hasattr(db, "segments"):
         for y_x_idx, seg in db.segments.items():
