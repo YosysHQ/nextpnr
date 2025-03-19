@@ -207,6 +207,13 @@ bool GateMateImpl::getChildPlacement(const BaseClusterInfo *cluster, Loc root_lo
             child_loc.z = 0; // RAM_I2
             break;
         }
+        case PLACE_CFG_CTRL_RECFG ... PLACE_CFG_CTRL_DATA_7:
+        {
+            child_loc.x = 1 + 2;
+            child_loc.y = 5 + 2 + (child->constr_z - PLACE_CFG_CTRL_RECFG);
+            child_loc.z = 1; // RAM_O1
+            break;
+        }
         default:
             child_loc.x = root_loc.x + child->constr_x;
             child_loc.y = root_loc.y + child->constr_y;
