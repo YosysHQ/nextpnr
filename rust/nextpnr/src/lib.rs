@@ -239,16 +239,19 @@ impl Context {
         v
     }
 
-    pub fn wires_leaking(&self) -> &[WireId] {
-        let mut wires = std::ptr::null_mut();
-        let len = unsafe { npnr_context_get_wires_leak(self, &mut wires as *mut *mut WireId) };
-        unsafe { std::slice::from_raw_parts(wires, len as usize) }
+    pub fn bels(&self) -> BelIter {
+        let iter = unsafe { npnr_context_get_bels(self) };
+        BelIter { iter, phantom_data: PhantomData }
     }
 
-    pub fn pips_leaking(&self) -> &[PipId] {
-        let mut pips = std::ptr::null_mut();
-        let len = unsafe { npnr_context_get_pips_leak(self, &mut pips as *mut *mut PipId) };
-        unsafe { std::slice::from_raw_parts(pips, len as usize) }
+    pub fn pips(&self) -> PipIter {
+        let iter = unsafe { npnr_context_get_pips(self) };
+        PipIter { iter, phantom_data: PhantomData }
+    }
+
+    pub fn wires(&self) -> WireIter {
+        let iter = unsafe { npnr_context_get_wires(self) };
+        WireIter { iter, phantom_data: PhantomData }
     }
 
     pub fn get_downhill_pips(&self, wire: WireId) -> DownhillPipsIter {
@@ -377,8 +380,6 @@ extern "C" {
     fn npnr_context_delay_epsilon(ctx: &Context) -> f32;
     fn npnr_context_get_pip_delay(ctx: &Context, pip: PipId) -> f32;
     fn npnr_context_get_wire_delay(ctx: &Context, wire: WireId) -> f32;
-    fn npnr_context_get_wires_leak(ctx: &Context, wires: *mut *mut WireId) -> u64;
-    fn npnr_context_get_pips_leak(ctx: &Context, pips: *mut *mut PipId) -> u64;
     fn npnr_context_get_pip_location(ctx: &Context, pip: PipId) -> Loc;
     fn npnr_context_check_pip_avail_for_net(
         ctx: &Context,
@@ -407,10 +408,6 @@ extern "C" {
         names: *mut *mut libc::c_int,
         nets: *mut *mut *mut NetInfo,
     ) -> u32;
-    fn npnr_context_get_pips_downhill(ctx: &Context, wire: WireId) -> &mut RawDownhillIter;
-    fn npnr_delete_downhill_iter(iter: &mut RawDownhillIter);
-    fn npnr_context_get_pips_uphill(ctx: &Context, wire: WireId) -> &mut RawUphillIter;
-    fn npnr_delete_uphill_iter(iter: &mut RawUphillIter);
 
     fn npnr_netinfo_driver(net: &mut NetInfo) -> Option<&mut PortRef>;
     fn npnr_netinfo_users_leak(net: &NetInfo, users: *mut *mut *const PortRef) -> u32;
@@ -421,12 +418,35 @@ extern "C" {
     fn npnr_portref_cell(port: &PortRef) -> Option<&CellInfo>;
     fn npnr_cellinfo_get_location(info: &CellInfo) -> Loc;
 
+    fn npnr_context_get_pips_downhill(ctx: &Context, wire: WireId) -> &mut RawDownhillIter;
+    fn npnr_delete_downhill_iter(iter: &mut RawDownhillIter);
     fn npnr_inc_downhill_iter(iter: &mut RawDownhillIter);
     fn npnr_deref_downhill_iter(iter: &mut RawDownhillIter) -> PipId;
     fn npnr_is_downhill_iter_done(iter: &mut RawDownhillIter) -> bool;
+
+    fn npnr_context_get_pips_uphill(ctx: &Context, wire: WireId) -> &mut RawUphillIter;
+    fn npnr_delete_uphill_iter(iter: &mut RawUphillIter);
     fn npnr_inc_uphill_iter(iter: &mut RawUphillIter);
     fn npnr_deref_uphill_iter(iter: &mut RawUphillIter) -> PipId;
     fn npnr_is_uphill_iter_done(iter: &mut RawUphillIter) -> bool;
+
+    fn npnr_context_get_bels(ctx: &Context) -> &mut RawBelIter;
+    fn npnr_delete_bel_iter(iter: &mut RawBelIter);
+    fn npnr_inc_bel_iter(iter: &mut RawBelIter);
+    fn npnr_deref_bel_iter(iter: &mut RawBelIter) -> BelId;
+    fn npnr_is_bel_iter_done(iter: &mut RawBelIter) -> bool;
+
+    fn npnr_context_get_pips(ctx: &Context) -> &mut RawPipIter;
+    fn npnr_delete_pip_iter(iter: &mut RawPipIter);
+    fn npnr_inc_pip_iter(iter: &mut RawPipIter);
+    fn npnr_deref_pip_iter(iter: &mut RawPipIter) -> PipId;
+    fn npnr_is_pip_iter_done(iter: &mut RawPipIter) -> bool;
+
+    fn npnr_context_get_wires(ctx: &Context) -> &mut RawWireIter;
+    fn npnr_delete_wire_iter(iter: &mut RawWireIter);
+    fn npnr_inc_wire_iter(iter: &mut RawWireIter);
+    fn npnr_deref_wire_iter(iter: &mut RawWireIter) -> WireId;
+    fn npnr_is_wire_iter_done(iter: &mut RawWireIter) -> bool;
 }
 
 /// Store for the nets of a context.
@@ -518,7 +538,7 @@ pub struct NetSinkWireIter<'a> {
     n: u32,
 }
 
-impl<'a> Iterator for NetSinkWireIter<'a> {
+impl Iterator for NetSinkWireIter<'_> {
     type Item = WireId;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -542,7 +562,7 @@ pub struct DownhillPipsIter<'a> {
     phantom_data: PhantomData<&'a PipId>,
 }
 
-impl<'a> Iterator for DownhillPipsIter<'a> {
+impl Iterator for DownhillPipsIter<'_> {
     type Item = PipId;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -556,7 +576,7 @@ impl<'a> Iterator for DownhillPipsIter<'a> {
     }
 }
 
-impl<'a> Drop for DownhillPipsIter<'a> {
+impl Drop for DownhillPipsIter<'_> {
     fn drop(&mut self) {
         unsafe { npnr_delete_downhill_iter(self.iter) };
     }
@@ -572,7 +592,7 @@ pub struct UphillPipsIter<'a> {
     phantom_data: PhantomData<&'a PipId>,
 }
 
-impl<'a> Iterator for UphillPipsIter<'a> {
+impl Iterator for UphillPipsIter<'_> {
     type Item = PipId;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -586,9 +606,99 @@ impl<'a> Iterator for UphillPipsIter<'a> {
     }
 }
 
-impl<'a> Drop for UphillPipsIter<'a> {
+impl Drop for UphillPipsIter<'_> {
     fn drop(&mut self) {
         unsafe { npnr_delete_uphill_iter(self.iter) };
+    }
+}
+
+#[repr(C)]
+struct RawBelIter {
+    content: [u8; 0],
+}
+
+pub struct BelIter<'a> {
+    iter: &'a mut RawBelIter,
+    phantom_data: PhantomData<&'a BelId>,
+}
+
+impl Iterator for BelIter<'_> {
+    type Item = BelId;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if unsafe { npnr_is_bel_iter_done(self.iter) } {
+            None
+        } else {
+            let pip = unsafe { npnr_deref_bel_iter(self.iter) };
+            unsafe { npnr_inc_bel_iter(self.iter) };
+            Some(pip)
+        }
+    }
+}
+
+impl Drop for BelIter<'_> {
+    fn drop(&mut self) {
+        unsafe { npnr_delete_bel_iter(self.iter) };
+    }
+}
+
+#[repr(C)]
+struct RawPipIter {
+    content: [u8; 0],
+}
+
+pub struct PipIter<'a> {
+    iter: &'a mut RawPipIter,
+    phantom_data: PhantomData<&'a PipId>,
+}
+
+impl Iterator for PipIter<'_> {
+    type Item = PipId;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if unsafe { npnr_is_pip_iter_done(self.iter) } {
+            None
+        } else {
+            let pip = unsafe { npnr_deref_pip_iter(self.iter) };
+            unsafe { npnr_inc_pip_iter(self.iter) };
+            Some(pip)
+        }
+    }
+}
+
+impl Drop for PipIter<'_> {
+    fn drop(&mut self) {
+        unsafe { npnr_delete_pip_iter(self.iter) };
+    }
+}
+
+#[repr(C)]
+struct RawWireIter {
+    content: [u8; 0],
+}
+
+pub struct WireIter<'a> {
+    iter: &'a mut RawWireIter,
+    phantom_data: PhantomData<&'a WireId>,
+}
+
+impl Iterator for WireIter<'_> {
+    type Item = WireId;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if unsafe { npnr_is_wire_iter_done(self.iter) } {
+            None
+        } else {
+            let pip = unsafe { npnr_deref_wire_iter(self.iter) };
+            unsafe { npnr_inc_wire_iter(self.iter) };
+            Some(pip)
+        }
+    }
+}
+
+impl Drop for WireIter<'_> {
+    fn drop(&mut self) {
+        unsafe { npnr_delete_wire_iter(self.iter) };
     }
 }
 
