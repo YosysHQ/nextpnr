@@ -344,6 +344,7 @@ void GateMatePacker::pack_io_sel()
                     return true;
                 } else {
                     int index = global_signals[clk_net];
+                    cell->movePortTo(id_CLK, target, ctx->idf("CLOCK%d",index+1));
                     target->params[id_OUT_CLOCK] = Property(index, 2);
                 }
             }
@@ -363,6 +364,7 @@ void GateMatePacker::pack_io_sel()
                     target->params[id_SEL_IN_CLOCK] = Property(Property::State::S1);
                 } else {
                     int index = global_signals[clk_net];
+                    cell->movePortTo(id_CLK, target, ctx->idf("CLOCK%d",index+1));
                     target->params[id_IN_CLOCK] = Property(index, 2);
                 }
             }
