@@ -216,6 +216,44 @@ class WireBel(BBAStruct):
         bba.u32(self.bel_z)
         bba.u32(self.hclk_side.index)
 
+# segment column description
+@dataclass
+class Segment(BBAStruct):
+    x: int
+    seg_idx: int
+    min_x: int
+    min_y: int
+    max_x: int
+    max_y: int
+    top_row: int
+    bottom_row: int
+    top_wire: IdString
+    bottom_wire: IdString
+    top_gate_wire: list[IdString] = field(default_factory = list)
+    bottom_gate_wire: list[IdString] = field(default_factory = list)
+
+    def serialise_lists(self, context: str, bba: BBAWriter):
+        bba.label(f"{context}_top_gate_wire")
+        for i, wire in enumerate(self.top_gate_wire):
+            bba.u32(wire.index)
+        bba.label(f"{context}_bottom_gate_wire")
+        for i, wire in enumerate(self.bottom_gate_wire):
+            bba.u32(wire.index)
+
+    def serialise(self, context: str, bba: BBAWriter):
+        bba.u16(self.x)
+        bba.u16(self.seg_idx)
+        bba.u16(self.min_x)
+        bba.u16(self.min_y)
+        bba.u16(self.max_x)
+        bba.u16(self.max_y)
+        bba.u16(self.top_row)
+        bba.u16(self.bottom_row)
+        bba.u32(self.top_wire.index)
+        bba.u32(self.bottom_wire.index)
+        bba.slice(f"{context}_top_gate_wire", len(self.top_gate_wire))
+        bba.slice(f"{context}_bottom_gate_wire", len(self.bottom_gate_wire))
+
 @dataclass
 class ChipExtraData(BBAStruct):
     strs: StringPool
@@ -226,6 +264,7 @@ class ChipExtraData(BBAStruct):
     dcs_bels: list[SpineBel] = field(default_factory = list)
     dhcen_bels: list[WireBel] = field(default_factory = list)
     io_dlldly_bels: list[IoBel] = field(default_factory = list)
+    segments: list[Segment] = field(default_factory = list)
 
     def create_bottom_io(self):
         self.bottom_io = BottomIO()
@@ -247,9 +286,25 @@ class ChipExtraData(BBAStruct):
 
     def add_io_dlldly_bel(self, io: str, dlldly: str):
         self.io_dlldly_bels.append(IoBel(self.strs.id(io), self.strs.id(dlldly)))
+    def add_segment(self, x: int, seg_idx: int, min_x: int, min_y: int, max_x: int, max_y: int,
+            top_row: int, bottom_row: int, top_wire: str, bottom_wire: str, top_gate_wire: list, bottom_gate_wire: list):
+        new_seg = Segment(x, seg_idx, min_x, min_y, max_x, max_y, top_row, bottom_row,
+                self.strs.id(top_wire), self.strs.id(bottom_wire),
+                [self.strs.id(top_gate_wire[0])], [self.strs.id(bottom_gate_wire[0])])
+        if top_gate_wire[1]:
+            new_seg.top_gate_wire.append(self.strs.id(top_gate_wire[1]))
+        else:
+            new_seg.top_gate_wire.append(self.strs.id(''))
+        if bottom_gate_wire[1]:
+            new_seg.bottom_gate_wire.append(self.strs.id(bottom_gate_wire[1]))
+        else:
+            new_seg.bottom_gate_wire.append(self.strs.id(''))
+        self.segments.append(new_seg)
 
     def serialise_lists(self, context: str, bba: BBAWriter):
         self.bottom_io.serialise_lists(f"{context}_bottom_io", bba)
+        for i, t in enumerate(self.segments):
+            t.serialise_lists(f"{context}_segment{i}", bba)
         bba.label(f"{context}_diff_io_types")
         for i, diff_io_type in enumerate(self.diff_io_types):
             bba.u32(diff_io_type.index)
@@ -265,6 +320,9 @@ class ChipExtraData(BBAStruct):
         bba.label(f"{context}_io_dlldly_bels")
         for i, t in enumerate(self.io_dlldly_bels):
             t.serialise(f"{context}_io_dlldly_bel{i}", bba)
+        bba.label(f"{context}_segments")
+        for i, t in enumerate(self.segments):
+            t.serialise(f"{context}_segment{i}", bba)
 
     def serialise(self, context: str, bba: BBAWriter):
         bba.u32(self.flags)
@@ -274,6 +332,7 @@ class ChipExtraData(BBAStruct):
         bba.slice(f"{context}_dcs_bels", len(self.dcs_bels))
         bba.slice(f"{context}_dhcen_bels", len(self.dhcen_bels))
         bba.slice(f"{context}_io_dlldly_bels", len(self.io_dlldly_bels))
+        bba.slice(f"{context}_segments", len(self.segments))
 
 @dataclass
 class PackageExtraData(BBAStruct):
@@ -406,6 +465,9 @@ def create_nodes(chip: Chip, db: chipdb):
         wire_type, node = node_hdr
         if len(node) < 2:
             continue
+        min_wire_name_len = 0
+        if node:
+            min_wire_name_len = len(next(iter(node))[2])
         for y, x, wire in node:
             if wire_type:
                 if not chip.tile_type_at(x, y).has_wire(wire):
@@ -415,7 +477,11 @@ def create_nodes(chip: Chip, db: chipdb):
             new_node = NodeWire(x, y, wire)
             gl_nodes = global_nodes.setdefault(node_name, [])
             if new_node not in gl_nodes:
-                    gl_nodes.append(NodeWire(x, y, wire))
+                if len(wire) < min_wire_name_len:
+                    min_wire_name_len = len(wire)
+                    gl_nodes.insert(0, new_node)
+                else:
+                    gl_nodes.append(new_node)
 
     for name, node in global_nodes.items():
         chip.add_node(node)
@@ -428,6 +494,8 @@ def create_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
             return "GLOBAL_CLK"
         if name in {"DLLDLY_OUT"}:
             return "DLLDLY_O"
+        if name in {'LT00', 'LT10', 'LT20', 'LT30', 'LT02', 'LT13'}:
+            return "LW_TAP"
         return ""
 
     for dst, srcs in db.grid[y][x].pips.items():
@@ -1330,6 +1398,23 @@ def create_extra_data(chip: Chip, db: chipdb, chip_flags: int):
     # create iob->dlldly bel map
     for io, dlldly in io_dlldly_bels.items():
         chip.extra_data.add_io_dlldly_bel(io, dlldly)
+    # create segments
+    if hasattr(db, "segments"):
+        for y_x_idx, seg in db.segments.items():
+            _, x, idx = y_x_idx
+            chip.extra_data.add_segment(x, idx, seg['min_x'], seg['min_y'], seg['max_x'], seg['max_y'],
+                    seg['top_row'], seg['bottom_row'], seg['top_wire'], seg['bottom_wire'],
+                    seg['top_gate_wire'], seg['bottom_gate_wire'])
+            # add segment nodes
+            lt_node = [NodeWire(x, seg['top_row'], seg['top_wire'])]
+            lt_node.append(NodeWire(x, seg['bottom_row'], seg['bottom_wire']))
+            for row in range(seg['min_y'], seg['max_y'] + 1):
+                lt_node.append(NodeWire(x, row, f'LT0{1 + (idx // 4) * 3}'))
+                node = [NodeWire(x, row, f'LBO{idx // 4}')]
+                for col in range(seg['min_x'], seg['max_x'] + 1):
+                    node.append(NodeWire(col, row, f'LB{idx}1'))
+                chip.add_node(node)
+            chip.add_node(lt_node)
 
 def create_timing_info(chip: Chip, db: chipdb.Device):
     def group_to_timingvalue(group):

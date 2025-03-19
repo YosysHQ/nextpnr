@@ -12,6 +12,90 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+// Segments
+int GowinUtils::get_segments_count(void) const
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    return extra->segments.ssize();
+}
+
+void GowinUtils::get_segment_region(int s_i, int &seg_idx, int &x, int &min_x, int &min_y, int &max_x, int &max_y) const
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    seg_idx = extra->segments[s_i].seg_idx;
+    x = extra->segments[s_i].x;
+    min_x = extra->segments[s_i].min_x;
+    min_y = extra->segments[s_i].min_y;
+    max_x = extra->segments[s_i].max_x;
+    max_y = extra->segments[s_i].max_y;
+}
+
+void GowinUtils::get_segment_wires_loc(int s_i, Loc &top, Loc &bottom) const
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    top.x = bottom.x = extra->segments[s_i].x;
+    top.y = extra->segments[s_i].top_row;
+    bottom.y = extra->segments[s_i].bottom_row;
+}
+
+void GowinUtils::get_segment_wires(int s_i, WireId &top, WireId &bottom) const
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    Loc top_loc, bottom_loc;
+    get_segment_wires_loc(s_i, top_loc, bottom_loc);
+
+    IdString tile = ctx->idf("X%dY%d", top_loc.x, top_loc.y);
+    IdStringList name = IdStringList::concat(tile, IdString(extra->segments[s_i].top_wire));
+    top = ctx->getWireByName(name);
+    tile = ctx->idf("X%dY%d", bottom_loc.x, bottom_loc.y);
+    name = IdStringList::concat(tile, IdString(extra->segments[s_i].bottom_wire));
+    bottom = ctx->getWireByName(name);
+}
+
+void GowinUtils::get_segment_top_gate_wires(int s_i, WireId &wire0, WireId &wire1) const
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    Loc top_loc, bottom_loc;
+    get_segment_wires_loc(s_i, top_loc, bottom_loc);
+
+    IdString tile = ctx->idf("X%dY%d", top_loc.x, top_loc.y);
+    IdStringList name;
+    wire0 = WireId();
+    IdString wire_name = IdString(extra->segments[s_i].top_gate_wire[0]);
+    if (wire_name != IdString()) {
+        name = IdStringList::concat(tile, wire_name);
+        wire0 = ctx->getWireByName(name);
+    }
+    wire1 = WireId();
+    wire_name = IdString(extra->segments[s_i].top_gate_wire[1]);
+    if (wire_name != IdString()) {
+        name = IdStringList::concat(tile, wire_name);
+        wire1 = ctx->getWireByName(name);
+    }
+}
+
+void GowinUtils::get_segment_bottom_gate_wires(int s_i, WireId &wire0, WireId &wire1) const
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    Loc top_loc, bottom_loc;
+    get_segment_wires_loc(s_i, top_loc, bottom_loc);
+
+    IdString tile = ctx->idf("X%dY%d", bottom_loc.x, bottom_loc.y);
+    IdStringList name;
+    wire0 = WireId();
+    IdString wire_name = IdString(extra->segments[s_i].bottom_gate_wire[0]);
+    if (wire_name != IdString()) {
+        name = IdStringList::concat(tile, wire_name);
+        wire0 = ctx->getWireByName(name);
+    }
+    wire1 = WireId();
+    wire_name = IdString(extra->segments[s_i].bottom_gate_wire[1]);
+    if (wire_name != IdString()) {
+        name = IdStringList::concat(tile, wire_name);
+        wire1 = ctx->getWireByName(name);
+    }
+}
+
 // tile extra data
 IdString GowinUtils::get_tile_class(int x, int y)
 {
