@@ -22,6 +22,7 @@
 #include <boost/algorithm/string.hpp>
 #include "config.h"
 #include "gatemate.h"
+#include "gatemate_util.h"
 
 #define HIMBAECHEL_CONSTIDS "uarch/gatemate/constids.inc"
 #include "himbaechel_constids.h"
@@ -133,10 +134,18 @@ struct BitstreamBackend
             case id_RAM.index:
                 {
                     CfgLoc loc = getRAMConfigLoc(cell.second.get()->bel.tile);
+                    auto &bram = cc.brams[loc];
                     for (auto &p : params) {
                         std::string name = p.first.c_str(ctx);
                         if (boost::starts_with(name, "RAM_cfg"))
-                            cc.brams[loc].add_word(name, p.second.as_bits());
+                            bram.add_word(name, p.second.as_bits());
+                    }
+                    auto &bram_data = cc.bram_data[loc];
+                    bram_data = std::vector<uint8_t>(5120);
+                    for(int i=0;i<128;i++) {
+                        for(int j=0;j<40;j++) {
+                            bram_data[i*40+j] = extract_bits(params, ctx->idf("INIT_%02X",i), j*8, 8);
+                        }
                     }
                 }
             break;

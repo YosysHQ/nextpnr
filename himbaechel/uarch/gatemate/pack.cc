@@ -21,6 +21,7 @@
 
 #include "design_utils.h"
 #include "pack.h"
+#include "gatemate_util.h"
 
 #define HIMBAECHEL_CONSTIDS "uarch/gatemate/constids.inc"
 #include "himbaechel_constids.h"
@@ -858,23 +859,6 @@ void GateMatePacker::pack_cpe()
     }
 }
 
-template <typename T>
-std::vector<std::vector<T>> splitNestedVector(const std::vector<std::vector<T>> &input, size_t maxSize = 8)
-{
-    std::vector<std::vector<T>> result;
-
-    for (const auto &inner : input) {
-        size_t i = 0;
-        while (i < inner.size()) {
-            size_t end = std::min(i + maxSize, inner.size());
-            result.emplace_back(inner.begin() + i, inner.begin() + end);
-            i = end;
-        }
-    }
-
-    return result;
-}
-
 void GateMatePacker::pack_addf()
 {
     log_info("Packing ADDFs..\n");
@@ -1152,24 +1136,6 @@ void GateMatePacker::pack_bufg()
     }
 }
 
-template <typename KeyType>
-double double_or_default(const dict<KeyType, Property> &ct, const KeyType &key, double def = 0)
-{
-    auto found = ct.find(key);
-    if (found == ct.end())
-        return def;
-    else {
-        if (found->second.is_string) {
-            try {
-                return std::stod(found->second.as_string());
-            } catch (std::invalid_argument &e) {
-                log_error("Expecting numeric value but got '%s'.\n", found->second.as_string().c_str());
-            }
-        } else
-            return double(found->second.as_int64());
-    }
-};
-
 CellInfo *GateMatePacker::move_ram_i(CellInfo *cell, IdString origPort, int placement)
 {
     CellInfo *cpe_half = nullptr;
@@ -1235,22 +1201,6 @@ void GateMatePacker::pll_out(CellInfo *cell, IdString origPort, int placement)
         move_ram_i(cell, origPort, placement);
     }
 }
-
-template <typename KeyType>
-int extract_bits(const dict<KeyType, Property> &ct, const KeyType &key, int start, int bits, int def = 0)
-{
-    Property extr = get_or_default(ct, key, Property()).extract(start, bits);
-
-    if (extr.is_string) {
-        try {
-            return std::stoi(extr.as_string());
-        } catch (std::invalid_argument &e) {
-            log_error("Expecting numeric value but got '%s'.\n", extr.as_string().c_str());
-        }
-    } else
-        return extr.as_int64();
-}
-
 
 void GateMatePacker::insert_bufg(CellInfo *cell, IdString port)
 {
