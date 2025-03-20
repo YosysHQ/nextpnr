@@ -214,6 +214,41 @@ bool GateMateImpl::getChildPlacement(const BaseClusterInfo *cluster, Loc root_lo
             child_loc.z = 1; // RAM_O1
             break;
         }
+
+        case PLACE_RAM_ADDRA0 ... PLACE_RAM_ADDRA15:
+        {
+            int num = child->constr_z - PLACE_RAM_ADDRA0;
+            child_loc.x = root_loc.x - 5;
+            child_loc.y = root_loc.y + num/2;
+            child_loc.z = num % 2 ? 0 : 1; // RAM_I1/I2
+            break;
+        }
+
+        case PLACE_RAM_DOA0 ... PLACE_RAM_DOA15:
+        case PLACE_RAM_DOA20 ... PLACE_RAM_DOA35:
+        {
+            int num = child->constr_z - PLACE_RAM_DOA0;
+            child_loc.x = root_loc.x - 1;
+            child_loc.y = root_loc.y + num/2;
+            child_loc.z = num % 2 ? 0 : 1; // RAM_I1/I2
+            break;
+        }
+        case PLACE_RAM_DOA16 ... PLACE_RAM_DOA19:
+        {
+            int num = child->constr_z - PLACE_RAM_DOA16 + 6*2;
+            child_loc.x = root_loc.x - 3;
+            child_loc.y = root_loc.y + num/2;
+            child_loc.z = num % 2 ? 0 : 1; // RAM_I1/I2
+            break;
+        }
+        case PLACE_RAM_DOA36 ... PLACE_RAM_DOA39:
+        {
+            int num = child->constr_z - PLACE_RAM_DOA36 + 14*2;
+            child_loc.x = root_loc.x - 3;
+            child_loc.y = root_loc.y + num/2;
+            child_loc.z = num % 2 ? 1 : 0; // RAM_I1/I2
+            break;
+        }
         default:
             child_loc.x = root_loc.x + child->constr_x;
             child_loc.y = root_loc.y + child->constr_y;

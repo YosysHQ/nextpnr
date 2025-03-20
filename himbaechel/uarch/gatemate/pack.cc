@@ -1549,6 +1549,71 @@ void GateMatePacker::remove_not_used()
         }
     }
 }
+
+void GateMatePacker::pack_ram()
+{
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (!ci.type.in(id_CC_BRAM_40K))
+            continue;
+        ci.type = id_RAM;
+        ci.cluster = ci.name;
+        ci.params[id_RAM_cfg_forward_a0_clk] = Property(0b00100011,8);
+        ci.params[id_RAM_cfg_forward_a0_en] = Property(0b00010011,8);
+        ci.params[id_RAM_cfg_forward_a0_we] = Property(0b00000011,8);
+        ci.params[id_RAM_cfg_forward_a1_clk] = Property(0b00100011,8);
+        ci.params[id_RAM_cfg_forward_b0_en] = Property(0b00000011,8);
+        ci.params[id_RAM_cfg_forward_b0_we] = Property(0b00000011,8);
+        //ci.params[id_RAM_cfg_in_out_cfg] = Property(0b10000000,8);
+        ci.params[id_RAM_cfg_out_cfg] = Property(0b00000010,8);
+        ci.params[id_RAM_cfg_sram_delay] = Property(0b00000101,8);
+        ci.params[id_RAM_cfg_wrmode_outreg] = Property(0b00000101,8);
+        //.A_ADDR({ \sprite.addr [10:0], 5'h00 }),
+        
+        //.A_BM(40'h0000000000),
+        //.A_DI(40'hxxxxxxxxxx),
+        //.B_BM(40'h0000000000),
+        //.B_DI(40'hxxxxxxxxxx),
+        for (int i=0;i<40;i++) {
+            ci.disconnectPort(ctx->idf("A_BM[%d]",i));
+            ci.disconnectPort(ctx->idf("A_DI[%d]",i));
+            ci.disconnectPort(ctx->idf("B_BM[%d]",i));
+            ci.disconnectPort(ctx->idf("B_DI[%d]",i));
+        }
+        //.A_CLK(clk_pix),
+        //.A_EN(1'h1),
+        //.A_WE(1'h0),
+        //.B_CLK(1'h0),
+        //.B_EN(1'h0),
+        //.B_WE(1'h0)
+        ci.disconnectPort(id_A_CLK);
+        ci.disconnectPort(id_A_EN);
+        ci.disconnectPort(id_A_WE);
+        
+        ci.disconnectPort(id_B_CLK);
+        ci.disconnectPort(id_B_EN);
+        ci.disconnectPort(id_B_WE);
+
+        //.B_ADDR(16'bxxxxxxxxxx000000),
+        for (int i=0;i<16;i++) {
+            //ci.disconnectPort(ctx->idf("A_ADDR[%d]",i));
+            ci.disconnectPort(ctx->idf("B_ADDR[%d]",i));
+        }
+        for (int i=0;i<40;i++) {
+            ci.disconnectPort(ctx->idf("B_DO[%d]",i));
+        }
+        for (int i=0;i<16;i++) {
+            ci.renamePort(ctx->idf("A_ADDR[%d]",i), ctx->idf("ADDRA0[%d]",i));
+            move_ram_o(&ci, ctx->idf("ADDRA0[%d]",i), PLACE_RAM_ADDRA0 + i);
+        }
+
+        for (int i=0;i<40;i++) {
+            ci.renamePort(ctx->idf("A_DO[%d]",i), ctx->idf("DOA[%d]",i));
+            move_ram_i(&ci, ctx->idf("DOA[%d]",i), PLACE_RAM_DOA0 + i);
+        }
+    }
+}
+
 void GateMateImpl::pack()
 {
     const ArchArgs &args = ctx->args;
@@ -1566,6 +1631,7 @@ void GateMateImpl::pack()
     packer.pack_bufg();
     packer.pack_io_sel(); // merge in FF and DDR
     packer.pack_misc();
+    packer.pack_ram();
     packer.pack_addf();
     packer.pack_cpe();
     packer.remove_constants();
