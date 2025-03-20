@@ -240,9 +240,9 @@ struct GowinCstReader
     }
 };
 
-
-static void add_sip_constraints(Context *ctx, const Extra_package_data_POD *extra) {
-    for(auto cst : extra->cst) {
+static void add_sip_constraints(Context *ctx, const Extra_package_data_POD *extra)
+{
+    for (auto cst : extra->cst) {
         auto it = ctx->cells.find(IdString(cst.net));
         if (it == ctx->cells.end()) {
             log_info("Cell %s not found\n", IdString(cst.net).c_str(ctx));
@@ -255,7 +255,7 @@ static void add_sip_constraints(Context *ctx, const Extra_package_data_POD *extr
         }
         it->second->setAttr(IdString(ID_BEL), std::string(ctx->nameOfBel(bel)));
 
-        if(cst.iostd > 0) {
+        if (cst.iostd > 0) {
             std::string attr = "&IO_TYPE=";
             attr += IdString(cst.iostd).c_str(ctx);
             boost::algorithm::to_upper(attr);
@@ -267,8 +267,9 @@ static void add_sip_constraints(Context *ctx, const Extra_package_data_POD *extr
 bool gowin_apply_constraints(Context *ctx, std::istream &in)
 {
     // implicit constraints from SiP pins
-    if(!ctx->package_info->extra_data.is_null()) {
-        const Extra_package_data_POD *extra = reinterpret_cast<const Extra_package_data_POD *>(ctx->package_info->extra_data.get());
+    if (!ctx->package_info->extra_data.is_null()) {
+        const Extra_package_data_POD *extra =
+                reinterpret_cast<const Extra_package_data_POD *>(ctx->package_info->extra_data.get());
         add_sip_constraints(ctx, extra);
     }
 

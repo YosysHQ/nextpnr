@@ -44,6 +44,14 @@ struct GowinGlobalRouter
 
     bool segment_wire_filter(PipId pip) const { return !gwu.is_segment_pip(pip); }
 
+    bool dcs_input_filter(PipId pip) const
+    {
+        return !ctx->getWireName(ctx->getPipSrcWire(pip))[1].in(
+                id_P16A, id_P16B, id_P16C, id_P16D, id_P17A, id_P17B, id_P17C, id_P17D, id_P26A, id_P26B, id_P26C,
+                id_P26D, id_P27A, id_P27B, id_P27C, id_P27D, id_P36A, id_P36B, id_P36C, id_P36D, id_P37A, id_P37B,
+                id_P37C, id_P37D, id_P46A, id_P46B, id_P46C, id_P46D, id_P47A, id_P47B, id_P47C, id_P47D);
+    }
+
     // allow io->global, global->global and global->tile clock
     bool global_pip_filter(PipId pip, WireId src_wire) const
     {
@@ -372,7 +380,7 @@ struct GowinGlobalRouter
         RouteResult route_result = route_direct_net(
                 net,
                 [&](PipId pip, WireId src_wire) {
-                    return global_DQCE_pip_filter(pip, src) && segment_wire_filter(pip);
+                    return global_DQCE_pip_filter(pip, src) && segment_wire_filter(pip) && dcs_input_filter(pip);
                 },
                 src);
         if (route_result == NOT_ROUTED) {
@@ -582,11 +590,14 @@ struct GowinGlobalRouter
         RouteResult route_result;
         if (driver_is_mipi(driver)) {
             route_result = route_direct_net(
-                    net, [&](PipId pip, WireId src_wire) { return segment_wire_filter(pip); }, src, &path);
+                    net, [&](PipId pip, WireId src_wire) { return segment_wire_filter(pip) && dcs_input_filter(pip); },
+                    src, &path);
         } else {
             route_result = route_direct_net(
                     net,
-                    [&](PipId pip, WireId src_wire) { return global_pip_filter(pip, src) && segment_wire_filter(pip); },
+                    [&](PipId pip, WireId src_wire) {
+                        return global_pip_filter(pip, src) && segment_wire_filter(pip) && dcs_input_filter(pip);
+                    },
                     src, &path);
         }
 
@@ -659,7 +670,7 @@ struct GowinGlobalRouter
         RouteResult route_result = route_direct_net(
                 net,
                 [&](PipId pip, WireId src_wire) {
-                    return global_pip_filter(pip, src_wire) && segment_wire_filter(pip);
+                    return global_pip_filter(pip, src_wire) && segment_wire_filter(pip) && dcs_input_filter(pip);
                 },
                 src);
         if (route_result == NOT_ROUTED || route_result == ROUTED_PARTIALLY) {
@@ -671,8 +682,9 @@ struct GowinGlobalRouter
         CellInfo *true_src_ci = net_before_buf->driver.cell;
         src = ctx->getBelPinWire(true_src_ci->bel, net_before_buf->driver.port);
         ctx->bindWire(src, net, STRENGTH_LOCKED);
-        backwards_bfs_route(net, src, dst, 1000000, false,
-                            [&](PipId pip, WireId src_wire) { return segment_wire_filter(pip); });
+        backwards_bfs_route(net, src, dst, 1000000, false, [&](PipId pip, WireId src_wire) {
+            return segment_wire_filter(pip) && dcs_input_filter(pip);
+        });
         // remove net
         buf_ci->movePortTo(id_O, true_src_ci, net_before_buf->driver.port);
         net_before_buf->driver.cell = nullptr;
@@ -683,7 +695,7 @@ struct GowinGlobalRouter
     void route_clk_net(NetInfo *net)
     {
         RouteResult route_result = route_direct_net(net, [&](PipId pip, WireId src_wire) {
-            return global_pip_filter(pip, src_wire) && segment_wire_filter(pip);
+            return global_pip_filter(pip, src_wire) && segment_wire_filter(pip) && dcs_input_filter(pip);
         });
         if (route_result != NOT_ROUTED) {
             log_info("    '%s' net was routed using global resources %s.\n", ctx->nameOf(net),
@@ -788,7 +800,8 @@ struct GowinGlobalRouter
                 log_info("      %s\n", ctx->nameOfWire(gatewire));
             }
             routed = backwards_bfs_route(
-                    ni, src_wire, gatewire, 1000000, false, [&](PipId pip, WireId src) { return true; }, &bound_pips);
+                    ni, src_wire, gatewire, 1000000, false,
+                    [&](PipId pip, WireId src) { return dcs_input_filter(pip); }, &bound_pips);
             if (routed) {
                 // bind src
                 if (ctx->checkWireAvail(src_wire)) {
