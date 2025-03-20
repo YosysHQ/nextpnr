@@ -38,6 +38,7 @@ struct GateMatePacker
     void pack_pll();
     void pack_misc();
     void pack_constants();
+    void pack_ram();
     void dff_to_cpe(CellInfo *dff, CellInfo *cpe);
     void insert_bufg(CellInfo *cell, IdString port);
 
