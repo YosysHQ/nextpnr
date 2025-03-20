@@ -183,7 +183,7 @@ std::ostream &operator<<(std::ostream &out, const ChipConfig &cc)
             std::ios_base::fmtflags f(out.flags());
             for (size_t i = 0; i < bram.second.size(); i++) {
                 out << std::setw(2) << std::setfill('0') << std::hex << (int)bram.second.at(i);
-                if (i % 32 == 31)
+                if (i % 40 == 39)
                     out << std::endl;
                 else
                     out << " ";
