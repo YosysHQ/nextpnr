@@ -795,23 +795,44 @@ struct GowinGlobalRouter
         if (ctx->debug) {
             log_info("    step 3: %s -> \n", ctx->nameOfWire(src_wire));
         }
+        // Create a temporary small network where segment gates will be the sinks
+        IdString gate_net_name = ctx->idf("%s$gate_net$", ni->name.c_str(ctx));
+        NetInfo *gate_ni = ctx->createNet(gate_net_name);
+        std::vector<PipId> gate_bound_pips;
+        pool<WireId> gate_bound_wires;
+
         for (WireId gatewire : gate_wires) {
             if (ctx->debug) {
                 log_info("      %s\n", ctx->nameOfWire(gatewire));
             }
             routed = backwards_bfs_route(
-                    ni, src_wire, gatewire, 1000000, false,
-                    [&](PipId pip, WireId src) { return dcs_input_filter(pip); }, &bound_pips);
+                    gate_ni, src_wire, gatewire, 1000000, false,
+                    [&](PipId pip, WireId src) { return dcs_input_filter(pip); }, &gate_bound_pips);
             if (routed) {
                 // bind src
                 if (ctx->checkWireAvail(src_wire)) {
-                    ctx->bindWire(src_wire, ni, STRENGTH_LOCKED);
-                    bound_wires.insert(src_wire);
+                    ctx->bindWire(src_wire, gate_ni, STRENGTH_LOCKED);
+                    gate_bound_wires.insert(src_wire);
                 }
             } else {
                 break;
             }
         }
+
+        // merge with original net
+        if (routed) {
+            for (PipId pip : gate_bound_pips) {
+                ctx->unbindPip(pip);
+                ctx->bindPip(pip, ni, STRENGTH_LOCKED);
+                bound_pips.push_back(pip);
+            }
+            for (WireId wire : gate_bound_wires) {
+                ctx->unbindWire(wire);
+                ctx->bindWire(wire, ni, STRENGTH_LOCKED);
+                bound_wires.insert(wire);
+            }
+        }
+
         return routed ? SEG_ROUTED : SEG_NOT_ROUTED;
     }
 
@@ -1172,9 +1193,7 @@ struct GowinGlobalRouter
                 if (!wires_to_isolate.empty()) {
                     ni->attrs[id_SEG_WIRES_TO_ISOLATE] = wires_to_isolate;
                 }
-                if (ctx->verbose) {
-                    log_info("Net %s is routed using segments.\n", ctx->nameOf(ni));
-                }
+                log_info("    '%s' is routed using segments.\n", ctx->nameOf(ni));
                 if (ctx->debug) {
                     log_info("    routed\n");
                     for (PipId pip : bound_pips) {
