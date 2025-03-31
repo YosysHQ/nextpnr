@@ -796,7 +796,7 @@ struct GowinGlobalRouter
             log_info("    step 3: %s -> \n", ctx->nameOfWire(src_wire));
         }
         // Create a temporary small network where segment gates will be the sinks
-        IdString gate_net_name = ctx->id(ni->name.str(ctx) + std::string("$gate_net$"));
+        IdString gate_net_name = ctx->idf("%s$gate_net$", ni->name.c_str(ctx));
         NetInfo *gate_ni = ctx->createNet(gate_net_name);
         std::vector<PipId> gate_bound_pips;
         pool<WireId> gate_bound_wires;
