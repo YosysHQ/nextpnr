@@ -66,7 +66,7 @@ struct GateMateImpl : HimbaechelAPI
     bool isValidBelForCellType(IdString cell_type, BelId bel) const override;
     BelBucketId getBelBucketForBel(BelId bel) const override;
 
-    Loc getGPIOOutCPE(BelId root_bel, int out) const;
+    Loc getRelativeConstraint(Loc &root_loc, IdString id) const;
 
     void configurePlacerHeap(PlacerHeapCfg &cfg) override;
 
@@ -92,6 +92,7 @@ struct GateMateImpl : HimbaechelAPI
     std::vector<GateMateCellInfo> fast_cell_info;
     std::set<IdString> available_pads;
     std::map<BelId,const PadInfoPOD*> bel_to_pad;
+    std::map<BelId,std::map<IdString, const GateMateBelPinConstraintPOD*>> pin_to_constr;
     void assign_cell_info();
 };
 

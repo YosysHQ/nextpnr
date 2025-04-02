@@ -491,7 +491,7 @@ void GateMatePacker::pack_io_sel()
                         ci.connectPort(id_DDR, cpe_half->getPort(id_RAM_O));
                     } else {
                         oddr->movePortTo(id_DDR, &ci, id_DDR);
-                        cpe_half = move_ram_o(&ci, id_DDR, NO_PLACE);
+                        cpe_half = move_ram_o(&ci, id_DDR, false);
                         ctx->bindBel(get_bank_cpe(pad->pad_bank), cpe_half, PlaceStrength::STRENGTH_FIXED);
                         ddr[pad->pad_bank] = cpe_half;
                     }
@@ -523,14 +523,12 @@ void GateMatePacker::pack_io_sel()
                 ci.renamePort(id_Y, id_DI);
         }
 
-        CellInfo *cpe_out[4];
-        for (int i = 0; i < 4; i++)
-            cpe_out[i] = move_ram_o(&ci, ctx->idf("OUT%d", i + 1), PLACE_GPIO_CPE_OUT1 + i);
-
+        Loc root_loc = ctx->getBelLocation(ci.bel);
         for (int i = 0; i < 4; i++) {
-            if (cpe_out[i]) {
-                BelId b = ctx->getBelByLocation(uarch->getGPIOOutCPE(ci.bel, i));
-                ctx->bindBel(b, cpe_out[i], PlaceStrength::STRENGTH_FIXED);
+            CellInfo *cpe_out = move_ram_o(&ci, ctx->idf("OUT%d", i + 1), false);
+            if (cpe_out) {
+                BelId b = ctx->getBelByLocation(uarch->getRelativeConstraint(root_loc, ctx->idf("OUT%d", i + 1)));
+                ctx->bindBel(b, cpe_out, PlaceStrength::STRENGTH_FIXED);
             }
         }
     }
@@ -1104,7 +1102,7 @@ void GateMatePacker::pack_bufg()
             }
             if (is_cpe_source) {
                 ci.cluster = ci.name;
-                move_ram_o(&ci, id_I, PLACE_USR_GLB);
+                move_ram_o(&ci, id_I);
             }
         }
         ci.type = id_BUFG;
@@ -1136,17 +1134,17 @@ void GateMatePacker::pack_bufg()
     }
 }
 
-CellInfo *GateMatePacker::move_ram_i(CellInfo *cell, IdString origPort, int placement)
+CellInfo *GateMatePacker::move_ram_i(CellInfo *cell, IdString origPort, bool place)
 {
     CellInfo *cpe_half = nullptr;
     NetInfo *net = cell->getPort(origPort);
     if (net) {
         cpe_half = create_cell_ptr(id_CPE_HALF, ctx->idf("%s$%s_cpe_half", cell->name.c_str(ctx), origPort.c_str(ctx)));
-        if (placement != NO_PLACE) {
+        if (place) {
             cell->constr_children.push_back(cpe_half);
             cpe_half->cluster = cell->name;
             cpe_half->constr_abs_z = false;
-            cpe_half->constr_z = placement;
+            cpe_half->constr_z = PLACE_DB_CONSTR + origPort.index;
         }
         cpe_half->params[id_C_RAM_I] = Property(1, 1);
 
@@ -1158,17 +1156,17 @@ CellInfo *GateMatePacker::move_ram_i(CellInfo *cell, IdString origPort, int plac
     return cpe_half;
 }
 
-CellInfo *GateMatePacker::move_ram_o(CellInfo *cell, IdString origPort, int placement)
+CellInfo *GateMatePacker::move_ram_o(CellInfo *cell, IdString origPort, bool place)
 {
     CellInfo *cpe_half = nullptr;
     NetInfo *net = cell->getPort(origPort);
     if (net) {
         cpe_half = create_cell_ptr(id_CPE_HALF, ctx->idf("%s$%s_cpe_half", cell->name.c_str(ctx), origPort.c_str(ctx)));
-        if (placement != NO_PLACE) {
+        if (place) {
             cell->constr_children.push_back(cpe_half);
             cpe_half->cluster = cell->name;
             cpe_half->constr_abs_z = false;
-            cpe_half->constr_z = placement;
+            cpe_half->constr_z = PLACE_DB_CONSTR + origPort.index;
         }
         cpe_half->params[id_INIT_L00] = Property(0b1010, 4);
         cpe_half->params[id_INIT_L10] = Property(0b1010, 4);
@@ -1183,7 +1181,7 @@ CellInfo *GateMatePacker::move_ram_o(CellInfo *cell, IdString origPort, int plac
     return cpe_half;
 }
 
-void GateMatePacker::pll_out(CellInfo *cell, IdString origPort, int placement)
+void GateMatePacker::pll_out(CellInfo *cell, IdString origPort)
 {
     NetInfo *net = cell->getPort(origPort);
     if (!net)
@@ -1198,7 +1196,7 @@ void GateMatePacker::pll_out(CellInfo *cell, IdString origPort, int placement)
             log_error("not handled BUFG\n");
         }
     } else {
-        move_ram_i(cell, origPort, placement);
+        move_ram_i(cell, origPort);
     }
 }
 
@@ -1274,17 +1272,17 @@ void GateMatePacker::pack_pll()
 
         clk = ci.getPort(id_USR_CLK_REF);
         if (clk) {
-            move_ram_o(&ci, id_USR_CLK_REF, PLACE_USR_CLK_REF);
+            move_ram_o(&ci, id_USR_CLK_REF);
         }
         // TODO: handle CLK_FEEDBACK
         // TODO: handle CLK_REF_OUT
-        pll_out(&ci, id_CLK0, PLACE_CPE_CLK0_OUT);
-        pll_out(&ci, id_CLK90, PLACE_CPE_CLK90_OUT);
-        pll_out(&ci, id_CLK180, PLACE_CPE_CLK180_OUT);
-        pll_out(&ci, id_CLK270, PLACE_CPE_CLK270_OUT);
+        pll_out(&ci, id_CLK0);
+        pll_out(&ci, id_CLK90);
+        pll_out(&ci, id_CLK180);
+        pll_out(&ci, id_CLK270);
 
-        move_ram_i(&ci, id_USR_PLL_LOCKED, PLACE_USR_PLL_LOCKED);
-        move_ram_i(&ci, id_USR_PLL_LOCKED_STDY, PLACE_USR_PLL_LOCKED_STDY);
+        move_ram_i(&ci, id_USR_PLL_LOCKED);
+        move_ram_i(&ci, id_USR_PLL_LOCKED_STDY);
 
         if (ci.type == id_CC_PLL) {
             int low_jitter = int_or_default(ci.params, id_LOW_JITTER, 0);
@@ -1433,7 +1431,7 @@ void GateMatePacker::pack_pll()
                 ci.disconnectPort(id_USR_SEL_A_B);
             } else {
                 ci.params[ctx->id("USR_SET")] = Property(0b1, 1);
-                move_ram_o(&ci, id_USR_SEL_A_B, PLACE_USR_SEL_A_B);
+                move_ram_o(&ci, id_USR_SEL_A_B);
             }
             ci.params[ctx->id("LOCK_REQ")] = Property(0b1, 1);
             ci.unsetParam(id_PLL_CFG_A);
@@ -1473,7 +1471,7 @@ void GateMatePacker::pack_misc()
             continue;
         ci.type = id_USR_RSTN;
         ci.cluster = ci.name;
-        move_ram_i(&ci, id_USR_RSTN, PLACE_USR_RSTN);
+        move_ram_i(&ci, id_USR_RSTN);
     }
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
@@ -1481,12 +1479,12 @@ void GateMatePacker::pack_misc()
             continue;
         ci.type = id_CFG_CTRL;
         ci.cluster = ci.name;
-        move_ram_o(&ci, id_CLK, PLACE_CFG_CTRL_CLK);
-        move_ram_o(&ci, id_EN, PLACE_CFG_CTRL_EN);
-        move_ram_o(&ci, id_VALID, PLACE_CFG_CTRL_VALID);
-        move_ram_o(&ci, id_RECFG, PLACE_CFG_CTRL_RECFG);
+        move_ram_o(&ci, id_CLK);
+        move_ram_o(&ci, id_EN);
+        move_ram_o(&ci, id_VALID);
+        move_ram_o(&ci, id_RECFG);
         for(int i=0;i<8;i++)
-            move_ram_o(&ci, ctx->idf("DATA[%d]",i), PLACE_CFG_CTRL_DATA_0+i);
+            move_ram_o(&ci, ctx->idf("DATA[%d]",i));
     }
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
@@ -1558,17 +1556,17 @@ void GateMatePacker::pack_ram()
             continue;
         ci.type = id_RAM;
         ci.cluster = ci.name;
+
+        ci.params[id_RAM_cfg_a0_writemode] = Property(0b1,1);
+        ci.params[id_RAM_cfg_b0_writemode] = Property(0b1,1);
         ci.params[id_RAM_cfg_forward_a0_clk] = Property(0b00100011,8);
         ci.params[id_RAM_cfg_forward_a0_en] = Property(0b00010011,8);
         ci.params[id_RAM_cfg_forward_a0_we] = Property(0b00000011,8);
         ci.params[id_RAM_cfg_forward_a1_clk] = Property(0b00100011,8);
         ci.params[id_RAM_cfg_forward_b0_en] = Property(0b00000011,8);
         ci.params[id_RAM_cfg_forward_b0_we] = Property(0b00000011,8);
-        //ci.params[id_RAM_cfg_in_out_cfg] = Property(0b10000000,8);
-        ci.params[id_RAM_cfg_out_cfg] = Property(0b00000010,8);
-        ci.params[id_RAM_cfg_sram_delay] = Property(0b00000101,8);
-        ci.params[id_RAM_cfg_wrmode_outreg] = Property(0b00000101,8);
-        //.A_ADDR({ \sprite.addr [10:0], 5'h00 }),
+        ci.params[id_RAM_cfg_output_config_a0] = Property(0b100,3);
+        ci.params[id_RAM_cfg_sram_delay] = Property(0b000101,6);
         
         //.A_BM(40'h0000000000),
         //.A_DI(40'hxxxxxxxxxx),
@@ -1604,12 +1602,12 @@ void GateMatePacker::pack_ram()
         }
         for (int i=0;i<16;i++) {
             ci.renamePort(ctx->idf("A_ADDR[%d]",i), ctx->idf("ADDRA0[%d]",i));
-            move_ram_o(&ci, ctx->idf("ADDRA0[%d]",i), PLACE_RAM_ADDRA0 + i);
+            move_ram_o(&ci, ctx->idf("ADDRA0[%d]",i));
         }
 
         for (int i=0;i<40;i++) {
             ci.renamePort(ctx->idf("A_DO[%d]",i), ctx->idf("DOA[%d]",i));
-            move_ram_i(&ci, ctx->idf("DOA[%d]",i), PLACE_RAM_DOA0 + i);
+            move_ram_i(&ci, ctx->idf("DOA[%d]",i));
         }
     }
 }

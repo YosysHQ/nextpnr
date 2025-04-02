@@ -46,6 +46,13 @@ void GateMateImpl::init(Context *ctx) {
         BelId bel = ctx->getBelByName(IdStringList::concat(IdString(pad.tile), IdString(pad.bel)));
         bel_to_pad.emplace(bel, &pad);
     }
+    for (auto bel : ctx->getBels()) {
+        auto *ptr = bel_extra_data(bel);
+        std::map<IdString, const GateMateBelPinConstraintPOD*> pins;
+        for (const auto &p : ptr->constraints)
+            pins.emplace(IdString(p.name), &p);
+        pin_to_constr.emplace(bel, pins);
+    }
 }
 
 delay_t GateMateImpl::estimateDelay(WireId src, WireId dst) const
@@ -87,34 +94,22 @@ bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
     return true;
 }
 
-Loc GateMateImpl::getGPIOOutCPE(BelId root_bel, int out) const
+Loc GateMateImpl::getRelativeConstraint(Loc &root_loc, IdString id) const
 {
     Loc child_loc;
-    Loc root_loc = ctx->getBelLocation(root_bel);
-    const auto extra = bel_extra_data(root_bel);
-    bool is_alt = out > 1; // OUT 3/4
-    child_loc.z = (out % 2) ? 0 : 1; // RAM_O2 for OUT2/4  and RAM_O1 for OUT1/3
-    switch (extra->flags) {
-        case BEL_EXTRA_GPIO_L: {
-            child_loc.x = root_loc.x + 3;
-            child_loc.y = root_loc.y + (is_alt ? +1 : 0);
-            break;
+    BelId root_bel = ctx->getBelByLocation(root_loc);    
+    if (pin_to_constr.count(root_bel)) {
+        auto &constr = pin_to_constr.at(root_bel);
+        if (constr.count(id)) {
+            auto &p = constr.at(id);
+            child_loc.x = root_loc.x + p->constr_x;
+            child_loc.y = root_loc.y + p->constr_y;
+            child_loc.z = p->constr_z;
+        } else {
+            log_error("Constrain info not available for pin.\n");
         }
-        case BEL_EXTRA_GPIO_R: {
-            child_loc.x = root_loc.x - 3;
-            child_loc.y = root_loc.y + (is_alt ? +1 : 0);
-            break;
-        }
-        case BEL_EXTRA_GPIO_T: {
-            child_loc.y = root_loc.y - 3;
-            child_loc.x = root_loc.x + (is_alt ? +1 : 0);
-            break;
-        }
-        case BEL_EXTRA_GPIO_B: {
-            child_loc.y = root_loc.y + 3;
-            child_loc.x = root_loc.x + (is_alt ? +1 : 0);
-            break;
-        }
+    } else {
+        log_error("Bel info not available for constraints.\n");
     }
     return child_loc;
 }
@@ -122,134 +117,11 @@ Loc GateMateImpl::getGPIOOutCPE(BelId root_bel, int out) const
 bool GateMateImpl::getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc,
                                     std::vector<std::pair<CellInfo *, BelId>> &placement) const
 {
-    //Loc prev = root_loc;
     for (auto child : cluster->constr_children) {
         Loc child_loc;
-        switch (child->constr_z) {
-        case PLACE_CPE_CLK0_OUT:
-        case PLACE_CPE_CLK90_OUT:
-        case PLACE_CPE_CLK180_OUT:
-        case PLACE_CPE_CLK270_OUT:
-        {
-            int pll = root_loc.z - 4;
-            child_loc.x = 39 + 2 + pll*4 + (child->constr_z - PLACE_CPE_CLK0_OUT);
-            child_loc.y = 128 + 2;
-            child_loc.z = 1; // RAM_I1
-            break;
-        }
-        case PLACE_USR_GLB:
-        {
-            int bufg = root_loc.z;
-            child_loc.x = 1 + 2;
-            child_loc.y = 128 + 2 - bufg;
-            child_loc.z = 1; // RAM_O1
-            break;
-        }
-        case PLACE_USR_FB:
-        {
-            int pll = root_loc.z - 4;
-            child_loc.x = 1 + 2;
-            child_loc.y = 128 + 2 - pll;
-            child_loc.z = 0; // RAM_O2
-            break;
-        }
-        case PLACE_USR_CLK_REF:
-        {
-            int pll = root_loc.z - 4;
-            child_loc.x = 1 + 2;
-            child_loc.y = 124 + 2 - pll;
-            child_loc.z = 1; // RAM_O1
-            break;
-        }
-        case PLACE_USR_LOCKED_STDY_RST:
-        {
-            int pll = root_loc.z - 4;
-            child_loc.x = 1 + 2;
-            child_loc.y = 120 + 2 - pll;
-            child_loc.z = 1; // RAM_O1
-            break;
-        }
-        case PLACE_USR_SEL_A_B:
-        {
-            int pll = root_loc.z - 4;
-            child_loc.x = 1 + 2;
-            child_loc.y = 116 + 2 - pll;
-            child_loc.z = 1; // RAM_O1
-            break;
-        }
-        case PLACE_GPIO_CPE_OUT1 ... PLACE_GPIO_CPE_OUT4:
-        {
-            int out = child->constr_z - PLACE_GPIO_CPE_OUT1;
-            BelId root_bel = ctx->getBelByLocation(root_loc);
-            child_loc = getGPIOOutCPE(root_bel, out);
-            break;
-        }
-        case PLACE_USR_PLL_LOCKED:
-        {
-            int pll = root_loc.z - 4;
-            child_loc.x = 1 + 2;
-            child_loc.y = 128 + 2 - pll;
-            child_loc.z = 0; // RAM_I2
-            break;
-        }
-        case PLACE_USR_PLL_LOCKED_STDY:
-        {
-            int pll = root_loc.z - 4;
-            child_loc.x = 1 + 2;
-            child_loc.y = 124 + 2 - pll;
-            child_loc.z = 0; // RAM_I2
-            break;
-        }
-        case PLACE_USR_RSTN:
-        {
-            child_loc.x = 1 + 2;
-            child_loc.y = 66 + 2 ;
-            child_loc.z = 0; // RAM_I2
-            break;
-        }
-        case PLACE_CFG_CTRL_RECFG ... PLACE_CFG_CTRL_DATA_7:
-        {
-            child_loc.x = 1 + 2;
-            child_loc.y = 5 + 2 + (child->constr_z - PLACE_CFG_CTRL_RECFG);
-            child_loc.z = 1; // RAM_O1
-            break;
-        }
-
-        case PLACE_RAM_ADDRA0 ... PLACE_RAM_ADDRA15:
-        {
-            int num = child->constr_z - PLACE_RAM_ADDRA0;
-            child_loc.x = root_loc.x - 5;
-            child_loc.y = root_loc.y + num/2;
-            child_loc.z = num % 2 ? 0 : 1; // RAM_I1/I2
-            break;
-        }
-
-        case PLACE_RAM_DOA0 ... PLACE_RAM_DOA15:
-        case PLACE_RAM_DOA20 ... PLACE_RAM_DOA35:
-        {
-            int num = child->constr_z - PLACE_RAM_DOA0;
-            child_loc.x = root_loc.x - 1;
-            child_loc.y = root_loc.y + num/2;
-            child_loc.z = num % 2 ? 0 : 1; // RAM_I1/I2
-            break;
-        }
-        case PLACE_RAM_DOA16 ... PLACE_RAM_DOA19:
-        {
-            int num = child->constr_z - PLACE_RAM_DOA16 + 6*2;
-            child_loc.x = root_loc.x - 3;
-            child_loc.y = root_loc.y + num/2;
-            child_loc.z = num % 2 ? 0 : 1; // RAM_I1/I2
-            break;
-        }
-        case PLACE_RAM_DOA36 ... PLACE_RAM_DOA39:
-        {
-            int num = child->constr_z - PLACE_RAM_DOA36 + 14*2;
-            child_loc.x = root_loc.x - 3;
-            child_loc.y = root_loc.y + num/2;
-            child_loc.z = num % 2 ? 1 : 0; // RAM_I1/I2
-            break;
-        }
-        default:
+        if (child->constr_z >= PLACE_DB_CONSTR) {
+            child_loc = getRelativeConstraint(root_loc,IdString(child->constr_z - PLACE_DB_CONSTR));
+        } else {
             child_loc.x = root_loc.x + child->constr_x;
             child_loc.y = root_loc.y + child->constr_y;
             child_loc.z = child->constr_abs_z ? child->constr_z : (root_loc.z + child->constr_z);

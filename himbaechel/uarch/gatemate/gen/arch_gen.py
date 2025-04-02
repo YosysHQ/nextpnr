@@ -81,13 +81,38 @@ class PipExtraData(BBAStruct):
         bba.u8(self.pip_type)
 
 @dataclass
-class BelExtraData(BBAStruct):
-    flags: int = 0
+class BelPinConstraint(BBAStruct):
+    index: int
+    pin_name: IdString
+    constr_x: int = 0
+    constr_y: int = 0
+    constr_z: int = 0
 
     def serialise_lists(self, context: str, bba: BBAWriter):
         pass
     def serialise(self, context: str, bba: BBAWriter):
-        bba.u32(self.flags)
+        bba.u32(self.pin_name.index)
+        bba.u16(self.constr_x)
+        bba.u16(self.constr_y)
+        bba.u16(self.constr_z)
+        bba.u16(0)
+
+@dataclass
+class BelExtraData(BBAStruct):
+    constraints: list[BelPinConstraint] = field(default_factory = list)
+
+    def add_constraints(self, pin: IdString, x: int, y: int, z:int):
+        item = BelPinConstraint(len(self.constraints),pin,x,y,z)
+        self.constraints.append(item)
+
+    def serialise_lists(self, context: str, bba: BBAWriter):
+        self.constraints.sort(key=lambda p: p.pin_name.index)
+        bba.label(f"{context}_constraints")
+        for i, t in enumerate(self.constraints):
+            t.serialise(f"{context}_constraint{i}", bba)
+        pass
+    def serialise(self, context: str, bba: BBAWriter):
+        bba.slice(f"{context}_constraints", len(self.constraints))
 
 def set_timings(ch):
     speed = "DEFAULT"
@@ -145,17 +170,11 @@ def main():
             tt.create_wire("GPIO.DI", "CPE_VIRTUAL_WIRE")
         for prim in sorted(die.get_primitives_for_type(type_name)):
             bel = tt.create_bel(prim.name, prim.type, prim.z)
+            extra = BelExtraData()
+            for constr in sorted(die.get_pins_constraint(type_name, prim.name, prim.type)):
+                extra.add_constraints(ch.strs.id(constr.name),constr.rel_x,constr.rel_y,0 if constr.pin_num==2 else 1)
+            bel.extra_data = extra
             if prim.name == "GPIO":
-                flag = 0
-                if "LES" in type_name:
-                    flag = BEL_EXTRA_GPIO_L
-                if "RES" in type_name:
-                    flag = BEL_EXTRA_GPIO_R
-                if "TES" in type_name:
-                    flag = BEL_EXTRA_GPIO_T
-                if "BES" in type_name:
-                    flag = BEL_EXTRA_GPIO_B
-                bel.extra_data = BelExtraData(flag)
                 tt.add_bel_pin(bel, "DI", "GPIO.DI", PinType.INPUT)
             for pin in sorted(die.get_primitive_pins(prim.type)):
                 tt.add_bel_pin(bel, pin.name, die.get_pin_connection_name(prim,pin), pin.dir)
