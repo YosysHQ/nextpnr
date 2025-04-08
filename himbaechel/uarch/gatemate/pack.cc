@@ -1168,13 +1168,21 @@ CellInfo *GateMatePacker::move_ram_o(CellInfo *cell, IdString origPort, bool pla
             cpe_half->constr_abs_z = false;
             cpe_half->constr_z = PLACE_DB_CONSTR + origPort.index;
         }
-        cpe_half->params[id_INIT_L00] = Property(0b1010, 4);
+        if (net->name == ctx->id("$PACKER_GND")) {
+            cpe_half->params[id_INIT_L00] = Property(0b0000, 4);
+            cell->disconnectPort(origPort);
+        } else if (net->name == ctx->id("$PACKER_VCC")) {
+            cpe_half->params[id_INIT_L00] = Property(0b1111, 4);
+            cell->disconnectPort(origPort);
+        } else {
+            cpe_half->params[id_INIT_L00] = Property(0b1010, 4);
+            cell->movePortTo(origPort, cpe_half, id_IN1);
+        }
         cpe_half->params[id_INIT_L10] = Property(0b1010, 4);
         cpe_half->params[id_C_O] = Property(0b11, 2);
         cpe_half->params[id_C_RAM_O] = Property(1, 1);
 
         NetInfo *ram_o = ctx->createNet(ctx->idf("%s$ram_o", cpe_half->name.c_str(ctx)));
-        cell->movePortTo(origPort, cpe_half, id_IN1);
         cell->connectPort(origPort, ram_o);
         cpe_half->connectPort(id_RAM_O, ram_o);
     }
@@ -1644,9 +1652,10 @@ void GateMatePacker::pack_ram()
 {
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
-        if (!ci.type.in(id_CC_BRAM_20K, id_CC_BRAM_40K))
+        if (!ci.type.in(id_CC_BRAM_20K, id_CC_BRAM_40K, id_CC_FIFO_40K))
             continue;
         int split = ci.type.in(id_CC_BRAM_20K) ? 1 : 0;
+        bool is_fifo = ci.type.in(id_CC_FIFO_40K);
 
         ci.type = id_RAM;
         ci.cluster = ci.name;
@@ -1686,6 +1695,11 @@ void GateMatePacker::pack_ram()
         if (b_wr_mode_str != "NO_CHANGE" && b_wr_mode_str != "WRITE_THROUGH")
             log_error("Unknown B_WR_MODE parameter value '%s' for cell %s.\n", b_wr_mode_str.c_str(), ci.name.c_str(ctx));
         int b_wr_mode = b_wr_mode_str == "NO_CHANGE" ? 0 : 1;
+
+        std::string fifo_mode_str = str_or_default(ci.params, id_FIFO_MODE, "SYNC");
+        if (fifo_mode_str != "SYNC" && fifo_mode_str != "ASYNC")
+            log_error("Unknown FIFO_MODE parameter value '%s' for cell %s.\n", fifo_mode_str.c_str(), ci.name.c_str(ctx));
+        int fifo_mode = fifo_mode_str == "SYNC" ? 1 : 0;
 
         // Inverting Control Pins
         int a_clk_inv = int_or_default(ci.params, id_A_CLK_INV, 0);
@@ -1728,6 +1742,31 @@ void GateMatePacker::pack_ram()
 
         ci.params[id_RAM_cfg_sram_mode] = Property(ram_mode << 1 | split,2);
 
+        if (is_fifo) {
+            a_rd_width = int_or_default(ci.params, id_A_WIDTH, 0);
+            b_wr_width = int_or_default(ci.params, id_B_WIDTH, 0);
+            if (a_rd_width != b_wr_width)
+                log_error("The FIFO configuration of A_WIDTH and B_WIDTH must be equal.\n");
+
+            if (a_rd_width != 80 && ram_mode==1) 
+                log_error("FIFO SDP is ony supported in 80 bit mode.\n");
+
+            if (fifo_mode)
+                ci.params[id_RAM_cfg_fifo_sync_enable] = Property(0b1,1);
+            else
+                ci.params[id_RAM_cfg_fifo_async_enable] = Property(0b1,1);
+
+            // TODO: Handle dynamic almost empty/full
+            int dyn_stat_select = int_or_default(ci.params, id_DYN_STAT_SELECT, 0);
+            if (dyn_stat_select != 0 && dyn_stat_select!=1) 
+                log_error("DYN_STAT_SELECT must be 0 or 1.\n");
+            if (dyn_stat_select != 0 && ram_mode==1) 
+                log_error("Dynamic FIFO offset configuration is not supported in SDP mode.\n");
+            ci.params[id_RAM_cfg_dyn_stat_select] = Property(dyn_stat_select << 1,2);
+            ci.params[id_RAM_cfg_almost_empty_offset] = Property(int_or_default(ci.params, id_F_ALMOST_EMPTY_OFFSET, 0),15);
+            ci.params[id_RAM_cfg_almost_full_offset] = Property(int_or_default(ci.params, id_F_ALMOST_FULL_OFFSET, 0),15);
+        }
+
         ci.params[id_RAM_cfg_input_config_a0] = Property(width_to_config(a_wr_width),3);
         ci.params[id_RAM_cfg_input_config_b0] = Property(width_to_config(b_wr_width),3);
         ci.params[id_RAM_cfg_output_config_a0] = Property(width_to_config(a_rd_width),3);
@@ -1753,11 +1792,6 @@ void GateMatePacker::pack_ram()
         // id_RAM_cfg_inversion_b1
 
         ci.params[id_RAM_cfg_ecc_enable] = Property(b_ecc_en << 1 | a_ecc_en,2);
-        // id_RAM_cfg_dyn_stat_select
-        // id_RAM_cfg_fifo_sync_enable
-        // id_RAM_cfg_almost_empty_offset
-        // id_RAM_cfg_fifo_async_enable
-        // id_RAM_cfg_almost_full_offset
         ci.params[id_RAM_cfg_sram_delay] = Property(0b000101,6); // Always set to default
         // id_RAM_cfg_datbm_sel
         ci.params[id_RAM_cfg_cascade_enable] = Property(cascade,2);
@@ -1804,6 +1838,29 @@ void GateMatePacker::pack_ram()
 
             move_ram_io(&ci, ctx->idf("DOA[%d]",i), ctx->idf("DIA[%d]",i));
             move_ram_io(&ci, ctx->idf("DOB[%d]",i), ctx->idf("DIB[%d]",i));
+        }
+
+        if (is_fifo) {
+            for (int i=0;i<15;i++) {
+                ci.disconnectPort(ctx->idf("F_ALMOST_EMPTY_OFFSET[%d]",i));
+                ci.disconnectPort(ctx->idf("F_ALMOST_FULL_OFFSET[%d]",i));
+            }
+            ci.renamePort(id_F_EMPTY, ctx->id("F_EMPTY[0]"));
+            move_ram_i(&ci, ctx->id("F_EMPTY[0]"));
+            ci.renamePort(id_F_FULL, ctx->id("F_FULL[0]"));
+            move_ram_i(&ci, ctx->id("F_FULL[0]"));
+            ci.renamePort(id_F_ALMOST_FULL, ctx->id("F_AL_FULL[0]"));
+            move_ram_i(&ci, ctx->id("F_AL_FULL[0]"));
+            ci.renamePort(id_F_ALMOST_EMPTY, ctx->id("F_AL_EMPTY[0]"));
+            move_ram_i(&ci, ctx->id("F_AL_EMPTY[0]"));
+
+            ci.renamePort(id_F_WR_ERROR, ctx->id("FWR_ERR[0]"));
+            move_ram_i(&ci, ctx->id("FWR_ERR[0]"));
+            ci.renamePort(id_F_RD_ERROR, ctx->id("FRD_ERR[0]"));
+            move_ram_i(&ci, ctx->id("FRD_ERR[0]"));
+
+            ci.renamePort(id_F_RST_N, ctx->id("F_RSTN"));
+            move_ram_o(&ci, ctx->id("F_RSTN"));
         }
     }
 }
