@@ -140,11 +140,15 @@ struct BitstreamBackend
                         if (boost::starts_with(name, "RAM_cfg"))
                             bram.add_word(name, p.second.as_bits());
                     }
-                    auto &bram_data = cc.bram_data[loc];
-                    bram_data = std::vector<uint8_t>(5120);
-                    for(int i=0;i<128;i++) {
-                        for(int j=0;j<40;j++) {
-                            bram_data[i*40+j] = extract_bits(params, ctx->idf("INIT_%02X",i), j*8, 8);
+
+                    bool is_fifo = params.count(id_RAM_cfg_fifo_sync_enable) | params.count(id_RAM_cfg_fifo_async_enable);
+                    if (!is_fifo) {
+                        auto &bram_data = cc.bram_data[loc];
+                        bram_data = std::vector<uint8_t>(5120);
+                        for(int i=0;i<128;i++) {
+                            for(int j=0;j<40;j++) {
+                                bram_data[i*40+j] = extract_bits(params, ctx->idf("INIT_%02X",i), j*8, 8);
+                            }
                         }
                     }
                 }
