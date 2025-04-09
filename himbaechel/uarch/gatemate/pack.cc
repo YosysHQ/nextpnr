@@ -1206,13 +1206,21 @@ CellInfo *GateMatePacker::move_ram_io(CellInfo *cell, IdString iPort, IdString o
     }
 
     if (o_net) {
-        cpe_half->params[id_INIT_L00] = Property(0b1010, 4);
+        if (o_net->name == ctx->id("$PACKER_GND")) {
+            cpe_half->params[id_INIT_L00] = Property(0b0000, 4);
+            cell->disconnectPort(oPort);
+        } else if (o_net->name == ctx->id("$PACKER_VCC")) {
+            cpe_half->params[id_INIT_L00] = Property(0b1111, 4);
+            cell->disconnectPort(oPort);
+        } else {
+            cpe_half->params[id_INIT_L00] = Property(0b1010, 4);
+            cell->movePortTo(oPort, cpe_half, id_IN1);
+        }
         cpe_half->params[id_INIT_L10] = Property(0b1010, 4);
         cpe_half->params[id_C_O] = Property(0b11, 2);
         cpe_half->params[id_C_RAM_O] = Property(1, 1);
 
         NetInfo *ram_o = ctx->createNet(ctx->idf("%s$ram_o", cpe_half->name.c_str(ctx)));
-        cell->movePortTo(oPort, cpe_half, id_IN1);
         cell->connectPort(oPort, ram_o);
         cpe_half->connectPort(id_RAM_O, ram_o);
     }
