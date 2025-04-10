@@ -292,7 +292,7 @@ void GateMateImpl::postRoute()
 
 void GateMateImpl::configurePlacerHeap(PlacerHeapCfg &cfg)
 {
-    //cfg.beta = 0.5;
+    cfg.beta = 0.5;
     cfg.placeAllAtOnce = true;
 }
 
