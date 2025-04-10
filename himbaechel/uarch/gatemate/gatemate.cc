@@ -251,6 +251,11 @@ void GateMateImpl::postRoute()
         }
     }
     for (auto &cell : ctx->cells) {
+        // TODO: Add postprocessing here
+    }
+
+    /*
+    for (auto &cell : ctx->cells) {
         if (cell.second->type.in(id_CPE_HALF_U)) {
             uint8_t func = int_or_default(cell.second->params, id_C_FUNCTION, 0);
             cell.second->unsetParam(id_C_FUNCTION);
@@ -282,6 +287,7 @@ void GateMateImpl::postRoute()
                 updateINV(ctx, cell.second.get(), id_SR, id_C_CPE_RES);
         }
     }
+    */
     print_utilisation(ctx);
 
     const ArchArgs &args = ctx->args;
