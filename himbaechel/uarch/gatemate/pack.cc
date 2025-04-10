@@ -667,10 +667,14 @@ void GateMatePacker::dff_to_cpe(CellInfo *dff, CellInfo *cpe)
         } else {
             if (sr_val) {
                 cpe->params[id_C_CPE_RES] = Property(0b11, 2);
-                cpe->params[id_C_CPE_SET] = Property(invert ? 0b01 : 0b10, 2);
+                //TODO: Confirm this is inverted
+                //cpe->params[id_C_CPE_SET] = Property(invert ? 0b01 : 0b10, 2);
+                cpe->params[id_C_CPE_SET] = Property(invert ? 0b10 : 0b01, 2);
                 cpe->params[id_C_EN_SR] = Property(0b1, 1);
             } else {
-                cpe->params[id_C_CPE_RES] = Property(invert ? 0b01 : 0b10, 2);
+                //TODO: Confirm this is inverted
+                //cpe->params[id_C_CPE_RES] = Property(invert ? 0b01 : 0b10, 2);
+                cpe->params[id_C_CPE_RES] = Property(invert ? 0b10 : 0b01, 2);
                 cpe->params[id_C_CPE_SET] = Property(0b11, 2);
             }
         }
