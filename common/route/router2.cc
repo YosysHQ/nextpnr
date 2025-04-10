@@ -94,9 +94,9 @@ struct Router2
         // The notional location of the wire, to guarantee thread safety
         int16_t x = 0, y = 0;
         // Visit data
-        PipId pip_fwd[2], pip_bwd[2];
-        bool visited_fwd[2] = {false, false}, visited_bwd[2] = {false, false};
-        float cost_fwd[2] = {0.0, 0.0}, cost_bwd[2] = {0.0, 0.0};
+        PipId pip_fwd, pip_bwd;
+        bool visited_fwd = false, visited_bwd = false;
+        float cost_fwd = 0.0, cost_bwd = 0.0;
     };
 
     Context *ctx;
@@ -240,12 +240,11 @@ struct Router2
     struct QueuedWire
     {
 
-        explicit QueuedWire(int wire = -1, WireScore score = WireScore{}, bool inverted = false, int randtag = 0)
-                : wire(wire), score(score), inverted(inverted), randtag(randtag) {};
+        explicit QueuedWire(int wire = -1, WireScore score = WireScore{}, int randtag = 0)
+                : wire(wire), score(score), randtag(randtag) {};
 
         int wire;
         WireScore score;
-        bool inverted = false;
         int randtag = 0;
 
         struct Greater
@@ -528,18 +527,12 @@ struct Router2
     void reset_wires(ThreadContext &t)
     {
         for (auto w : t.dirty_wires) {
-            flat_wires[w].pip_fwd[0] = PipId();
-            flat_wires[w].pip_fwd[1] = PipId();
-            flat_wires[w].pip_bwd[0] = PipId();
-            flat_wires[w].pip_bwd[1] = PipId();
-            flat_wires[w].visited_fwd[0] = false;
-            flat_wires[w].visited_fwd[1] = false;
-            flat_wires[w].visited_bwd[0] = false;
-            flat_wires[w].visited_bwd[1] = false;
-            flat_wires[w].cost_fwd[0] = 0.0;
-            flat_wires[w].cost_fwd[1] = 0.0;
-            flat_wires[w].cost_bwd[0] = 0.0;
-            flat_wires[w].cost_bwd[1] = 0.0;
+            flat_wires[w].pip_fwd = PipId();
+            flat_wires[w].pip_bwd = PipId();
+            flat_wires[w].visited_fwd = false;
+            flat_wires[w].visited_bwd = false;
+            flat_wires[w].cost_fwd = 0.0;
+            flat_wires[w].cost_bwd = 0.0;
         }
         t.dirty_wires.clear();
     }
@@ -570,32 +563,32 @@ struct Router2
     }
 
     // Functions for marking wires as visited, and checking if they have already been visited
-    void set_visited_fwd(ThreadContext &t, int wire, PipId pip, float cost, bool inverted)
+    void set_visited_fwd(ThreadContext &t, int wire, PipId pip, float cost)
     {
         auto &wd = flat_wires.at(wire);
-        if (!wd.visited_fwd[0] && !wd.visited_fwd[1] && !wd.visited_bwd[0] && !wd.visited_bwd[1])
+        if (!wd.visited_fwd && !wd.visited_bwd)
             t.dirty_wires.push_back(wire);
-        wd.pip_fwd[inverted] = pip;
-        wd.visited_fwd[inverted] = true;
-        wd.cost_fwd[inverted] = cost;
+        wd.pip_fwd = pip;
+        wd.visited_fwd = true;
+        wd.cost_fwd = cost;
     }
-    void set_visited_bwd(ThreadContext &t, int wire, PipId pip, float cost, bool inverted)
+    void set_visited_bwd(ThreadContext &t, int wire, PipId pip, float cost)
     {
         auto &wd = flat_wires.at(wire);
-        if (!wd.visited_fwd[0] && !wd.visited_fwd[1] && !wd.visited_bwd[0] && !wd.visited_bwd[1])
+        if (!wd.visited_fwd && !wd.visited_bwd)
             t.dirty_wires.push_back(wire);
-        wd.pip_bwd[inverted] = pip;
-        wd.visited_bwd[inverted] = true;
-        wd.cost_bwd[inverted] = cost;
+        wd.pip_bwd = pip;
+        wd.visited_bwd = true;
+        wd.cost_bwd = cost;
     }
 
-    bool was_visited_fwd(int wire, float cost, bool inverted)
+    bool was_visited_fwd(int wire, float cost)
     {
-        return flat_wires.at(wire).visited_fwd[inverted] && flat_wires.at(wire).cost_fwd[inverted] <= cost;
+        return flat_wires.at(wire).visited_fwd && flat_wires.at(wire).cost_fwd <= cost;
     }
-    bool was_visited_bwd(int wire, float cost, bool inverted)
+    bool was_visited_bwd(int wire, float cost)
     {
-        return flat_wires.at(wire).visited_bwd[inverted] && flat_wires.at(wire).cost_bwd[inverted] <= cost;
+        return flat_wires.at(wire).visited_bwd && flat_wires.at(wire).cost_bwd <= cost;
     }
 
     float get_arc_crit(NetInfo *net, store_index<PortRef> i)
@@ -642,13 +635,12 @@ struct Router2
         // We have two modes:
         //     0. starting within a small range of existing routing
         //     1. expanding from all routing
-        int mode = 1;
+        int mode = 0;
         if (net->users.entries() < 4 || nd.wires.empty() || (crit > 0.95))
             mode = 1;
 
         // This records the point where forwards and backwards routing met
         int midpoint_wire = -1;
-        bool midpoint_inversion = false;
         int explored = 1;
 
         for (; mode < 2; mode++) {
@@ -674,11 +666,9 @@ struct Router2
                 int wire_idx = wire_to_idx.at(wire);
                 base_score.togo_cost = get_togo_cost(net, i, wire_idx, dst_wire, false, crit_weight);
                 t.fwd_queue.push(QueuedWire(wire_idx, base_score));
-                set_visited_fwd(t, wire_idx, PipId(), 0.0, false);
+                set_visited_fwd(t, wire_idx, PipId(), 0.0);
             };
-#ifndef ARCH_HIMBAECHEL
             auto &dst_data = flat_wires.at(dst_wire_idx);
-            // TODO: does this break gatemate because of not knowing inversion state? (yes)
             // Look for nearby existing routing
             for (int dy = -cfg.bb_margin_y; dy <= cfg.bb_margin_y; dy++)
                 for (int dx = -cfg.bb_margin_x; dx <= cfg.bb_margin_x; dx++) {
@@ -690,7 +680,6 @@ struct Router2
                         seed_queue_fwd(wire);
                     }
                 }
-#endif
 
             if (mode == 0 && t.fwd_queue.size() < 4)
                 continue;
@@ -699,7 +688,7 @@ struct Router2
                     // Seed forwards with the source wire, if less than 8 existing wires added
                     seed_queue_fwd(src_wire);
                 } else {
-                    set_visited_fwd(t, src_wire_idx, PipId(), 0.0, false);
+                    set_visited_fwd(t, src_wire_idx, PipId(), 0.0);
                 }
             }
             auto seed_queue_bwd = [&](WireId wire) {
@@ -709,7 +698,7 @@ struct Router2
                 int wire_idx = wire_to_idx.at(wire);
                 base_score.togo_cost = get_togo_cost(net, i, wire_idx, src_wire, true, crit_weight);
                 t.bwd_queue.push(QueuedWire(wire_idx, base_score));
-                set_visited_bwd(t, wire_idx, PipId(), 0.0, false);
+                set_visited_bwd(t, wire_idx, PipId(), 0.0);
             };
 
             // Seed backwards with the dest wire
@@ -728,10 +717,9 @@ struct Router2
                     auto curr = t.fwd_queue.top();
                     t.fwd_queue.pop();
                     ++explored;
-                    if (was_visited_bwd(curr.wire, std::numeric_limits<float>::max(), curr.inverted)) {
+                    if (was_visited_bwd(curr.wire, std::numeric_limits<float>::max())) {
                         // Meet in the middle; done
                         midpoint_wire = curr.wire;
-                        midpoint_inversion = curr.inverted;
                         break;
                     }
                     auto &curr_data = flat_wires.at(curr.wire);
@@ -748,7 +736,7 @@ struct Router2
                         next_score.cost = curr.score.cost + score_wire_for_arc(net, i, phys_pin, next, dh, crit_weight);
                         next_score.togo_cost =
                                 cfg.estimate_weight * get_togo_cost(net, i, next_idx, dst_wire, false, crit_weight);
-                        if (was_visited_fwd(next_idx, next_score.delay, /*inverted=*/curr.inverted ^ ctx->isPipInverting(dh))) {
+                        if (was_visited_fwd(next_idx, next_score.delay)) {
                             // Don't expand the same node twice.
                             continue;
                         }
@@ -764,8 +752,8 @@ struct Router2
                             continue;
                         if (!thread_test_wire(t, nwd))
                             continue; // thread safety issue
-                        set_visited_fwd(t, next_idx, dh, next_score.delay, curr.inverted ^ ctx->isPipInverting(dh));
-                        t.fwd_queue.push(QueuedWire(next_idx, next_score, curr.inverted ^ ctx->isPipInverting(dh), t.rng.rng()));
+                        set_visited_fwd(t, next_idx, dh, next_score.delay);
+                        t.fwd_queue.push(QueuedWire(next_idx, next_score, t.rng.rng()));
                     }
                 }
                 if (!t.bwd_queue.empty()) {
@@ -774,11 +762,10 @@ struct Router2
                     t.bwd_queue.pop();
                     ++explored;
                     auto &curr_data = flat_wires.at(curr.wire);
-                    if (was_visited_fwd(curr.wire, std::numeric_limits<float>::max(), curr.inverted) ||
-                        (const_mode && ctx->getWireConstantValue(curr_data.w) == net->constant_value && !curr.inverted)) {
+                    if (was_visited_fwd(curr.wire, std::numeric_limits<float>::max()) ||
+                        (const_mode && ctx->getWireConstantValue(curr_data.w) == net->constant_value)) {
                         // Meet in the middle; done
                         midpoint_wire = curr.wire;
-                        midpoint_inversion = curr.inverted;
                         break;
                     }
                     // Don't allow the same wire to be bound to the same net with a different driving pip
@@ -803,7 +790,7 @@ struct Router2
                                                        ? 0
                                                        : cfg.estimate_weight * get_togo_cost(net, i, next_idx, src_wire,
                                                                                              true, crit_weight);
-                        if (was_visited_bwd(next_idx, next_score.delay, /*inverted=*/curr.inverted ^ ctx->isPipInverting(uh))) {
+                        if (was_visited_bwd(next_idx, next_score.delay)) {
                             // Don't expand the same node twice.
                             continue;
                         }
@@ -815,8 +802,8 @@ struct Router2
                             continue;
                         if (!thread_test_wire(t, nwd))
                             continue; // thread safety issue
-                        set_visited_bwd(t, next_idx, uh, next_score.delay, curr.inverted ^ ctx->isPipInverting(uh));
-                        t.bwd_queue.push(QueuedWire(next_idx, next_score, curr.inverted ^ ctx->isPipInverting(uh), t.rng.rng()));
+                        set_visited_bwd(t, next_idx, uh, next_score.delay);
+                        t.bwd_queue.push(QueuedWire(next_idx, next_score, t.rng.rng()));
                     }
                 }
             }
@@ -825,29 +812,27 @@ struct Router2
         }
         ArcRouteResult result = ARC_SUCCESS;
         if (midpoint_wire != -1) {
-            ROUTE_LOG_DBG("   Routed (explored %d wires):\n", explored);
+            ROUTE_LOG_DBG("   Routed (explored %d wires): ", explored);
             if (const_mode) {
                 bind_pip_internal(nd, i, midpoint_wire, PipId());
             } else {
                 int cursor_bwd = midpoint_wire;
-                int inversion_bwd = midpoint_inversion;
-                while (was_visited_fwd(cursor_bwd, std::numeric_limits<float>::max(), inversion_bwd)) {
-                    PipId pip = flat_wires.at(cursor_bwd).pip_fwd[inversion_bwd];
+                while (was_visited_fwd(cursor_bwd, std::numeric_limits<float>::max())) {
+                    PipId pip = flat_wires.at(cursor_bwd).pip_fwd;
                     if (pip == PipId() && cursor_bwd != src_wire_idx)
                         break;
                     bind_pip_internal(nd, i, cursor_bwd, pip);
                     if (ctx->debug && !is_mt) {
                         auto &wd = flat_wires.at(cursor_bwd);
-                        ROUTE_LOG_DBG("      fwd wire: %s (curr %d hist %f share %d inverted %d)\n", ctx->nameOfWire(wd.w),
-                                      wd.curr_cong - 1, wd.hist_cong_cost, nd.wires.at(wd.w).second, inversion_bwd);
+                        ROUTE_LOG_DBG("      fwd wire: %s (curr %d hist %f share %d)\n", ctx->nameOfWire(wd.w),
+                                      wd.curr_cong - 1, wd.hist_cong_cost, nd.wires.at(wd.w).second);
                     }
                     if (pip == PipId()) {
                         break;
                     }
-                    ROUTE_LOG_DBG("         fwd pip: %s (%d, %d) (inverting %d)\n", ctx->nameOfPip(pip), ctx->getPipLocation(pip).x,
-                                  ctx->getPipLocation(pip).y, ctx->isPipInverting(pip));
+                    ROUTE_LOG_DBG("         fwd pip: %s (%d, %d)\n", ctx->nameOfPip(pip), ctx->getPipLocation(pip).x,
+                                  ctx->getPipLocation(pip).y);
                     cursor_bwd = wire_to_idx.at(ctx->getPipSrcWire(pip));
-                    inversion_bwd ^= ctx->isPipInverting(pip);
                 }
 
                 while (cursor_bwd != src_wire_idx) {
@@ -872,21 +857,19 @@ struct Router2
             }
 
             int cursor_fwd = midpoint_wire;
-            int inversion_fwd = midpoint_inversion;
-            while (was_visited_bwd(cursor_fwd, std::numeric_limits<float>::max(), inversion_fwd)) {
-                PipId pip = flat_wires.at(cursor_fwd).pip_bwd[inversion_fwd];
+            while (was_visited_bwd(cursor_fwd, std::numeric_limits<float>::max())) {
+                PipId pip = flat_wires.at(cursor_fwd).pip_bwd;
                 if (pip == PipId()) {
                     break;
                 }
-                ROUTE_LOG_DBG("         bwd pip: %s (%d, %d) (inverting %d)\n", ctx->nameOfPip(pip), ctx->getPipLocation(pip).x,
-                              ctx->getPipLocation(pip).y, ctx->isPipInverting(pip));
+                ROUTE_LOG_DBG("         bwd pip: %s (%d, %d)\n", ctx->nameOfPip(pip), ctx->getPipLocation(pip).x,
+                              ctx->getPipLocation(pip).y);
                 cursor_fwd = wire_to_idx.at(ctx->getPipDstWire(pip));
-                inversion_fwd ^= ctx->isPipInverting(pip);
                 bind_pip_internal(nd, i, cursor_fwd, pip);
                 if (ctx->debug && !is_mt) {
                     auto &wd = flat_wires.at(cursor_fwd);
-                    ROUTE_LOG_DBG("      bwd wire: %s (curr %d hist %f share %d inverted %d)\n", ctx->nameOfWire(wd.w),
-                                  wd.curr_cong - 1, wd.hist_cong_cost, nd.wires.at(wd.w).second, inversion_fwd);
+                    ROUTE_LOG_DBG("      bwd wire: %s (curr %d hist %f share %d)\n", ctx->nameOfWire(wd.w),
+                                  wd.curr_cong - 1, wd.hist_cong_cost, nd.wires.at(wd.w).second);
                 }
             }
             NPNR_ASSERT(cursor_fwd == dst_wire_idx);
