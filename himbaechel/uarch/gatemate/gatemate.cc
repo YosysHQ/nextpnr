@@ -154,65 +154,38 @@ bool GateMateImpl::getClusterPlacement(ClusterId cluster, BelId root_bel,
     return getChildPlacement(root_cell, root_loc, placement);
 }
 
-void updateLUT(Context *ctx, CellInfo *cell, IdString port, IdString init)
+void updateLUT(Context *ctx, CellInfo *cell, IdString port, IdString init, bool invert)
 {
     if (cell->params.count(init) == 0) return;
     unsigned init_val = int_or_default(cell->params, init);
-    WireId pin_wire = ctx->getBelPinWire(cell->bel, port);
-    for (PipId pip : ctx->getPipsUphill(pin_wire)) {
-        if (!ctx->getBoundPipNet(pip))
-            continue;
-        const auto extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD *>(
-                chip_pip_info(ctx->chip_info, pip).extra_data.get());
-        if (!extra_data.name)
-            continue;
-        if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_CPE_INV)) {
-            if (port.in(id_IN1,id_IN3))
-                init_val = (init_val & 0b1010) >> 1 | (init_val & 0b0101) << 1;
-            else
-                init_val = (init_val & 0b0011) << 2 | (init_val & 0b1100) >> 2;
-            cell->params[init] = Property(init_val, 4);
-        }
+    if (invert) {
+        if (port.in(id_IN1,id_IN3))
+            init_val = (init_val & 0b1010) >> 1 | (init_val & 0b0101) << 1;
+        else
+            init_val = (init_val & 0b0011) << 2 | (init_val & 0b1100) >> 2;
+        cell->params[init] = Property(init_val, 4);
     }
 }
 
-void updateINV(Context *ctx, CellInfo *cell, IdString port, IdString param)
+void updateINV(Context *ctx, CellInfo *cell, IdString port, IdString param, bool invert)
 {
     if (cell->params.count(param) == 0) return;
     unsigned init_val = int_or_default(cell->params, param);
-    WireId pin_wire = ctx->getBelPinWire(cell->bel, port);
-    for (PipId pip : ctx->getPipsUphill(pin_wire)) {
-        if (!ctx->getBoundPipNet(pip))
-            continue;
-        const auto extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD *>(
-                chip_pip_info(ctx->chip_info, pip).extra_data.get());
-        if (!extra_data.name)
-            continue;
-        if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_CPE_INV)) {
-            cell->params[param] = Property(3 - init_val, 2);
-        }
+    if (invert) {
+        cell->params[param] = Property(3 - init_val, 2);
     }
 }
 
-void updateMUX_INV(Context *ctx, CellInfo *cell, IdString port, IdString param, int bit)
+void updateMUX_INV(Context *ctx, CellInfo *cell, IdString port, IdString param, int bit, bool invert)
 {
     // Mux inversion data is contained in other CPE half
     Loc l = ctx->getBelLocation(cell->bel);
     CellInfo *cell_l = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(l.x,l.y,1)));
     unsigned init_val = int_or_default(cell_l->params, param);
-    WireId pin_wire = ctx->getBelPinWire(cell->bel, port);
-    for (PipId pip : ctx->getPipsUphill(pin_wire)) {
-        if (!ctx->getBoundPipNet(pip))
-            continue;
-        const auto extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD *>(
-                chip_pip_info(ctx->chip_info, pip).extra_data.get());
-        if (!extra_data.name)
-            continue;
-        if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_CPE_INV)) {
-            int old = (init_val >> bit) & 1;
-            int val = (init_val & (~(1 << bit) & 0xf)) | ((!old) << bit);
-            cell_l->params[param] = Property(val, 4);
-        }
+    if (invert) {
+        int old = (init_val >> bit) & 1;
+        int val = (init_val & (~(1 << bit) & 0xf)) | ((!old) << bit);
+        cell_l->params[param] = Property(val, 4);
     }
 }
 
@@ -252,6 +225,24 @@ void GateMateImpl::postRoute()
     }
     for (auto &cell : ctx->cells) {
         // TODO: Add postprocessing here
+        if (cell.second->type.in(id_CPE_HALF_U)) {
+            NetInfo *net = cell.second->getPort(id_IN1);
+            bool invert;
+            /*invert = invert_count_inversions(net->driver, cell.second.get(), id_IN1); */
+            updateLUT(ctx, cell.second.get(), id_IN1, id_INIT_L00, invert);
+            //updateLUT(ctx, cell.second.get(), id_IN2, id_INIT_L00);
+            //updateLUT(ctx, cell.second.get(), id_IN3, id_INIT_L01);
+            //updateLUT(ctx, cell.second.get(), id_IN4, id_INIT_L01);
+        }
+        if (cell.second->type.in(id_CPE_HALF_L)) {
+            NetInfo *net = cell.second->getPort(id_IN1);
+            bool invert;
+            /*invert = invert_count_inversions(net->driver, cell.second.get(), id_IN1); */
+            //updateLUT(ctx, cell.second.get(), id_IN1, id_INIT_L02, invert);
+            //updateLUT(ctx, cell.second.get(), id_IN2, id_INIT_L02, invert);
+            //updateLUT(ctx, cell.second.get(), id_IN3, id_INIT_L03, invert);
+            //updateLUT(ctx, cell.second.get(), id_IN4, id_INIT_L03, invert);
+        }
     }
 
     /*
