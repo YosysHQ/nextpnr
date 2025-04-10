@@ -381,6 +381,8 @@ void GateMateImpl::preRoute()
                 if (ctx->debug)
                     log_info("            bind pip %s --> %s\n", ctx->nameOfPip(uh), ctx->nameOfWire(dest));
                 ctx->bindPip(uh, glb_net, STRENGTH_LOCKED);
+                if (dest == sink_wire)
+                    break;
             }
             log_info("%s CLK is inverted  %d\n",usr.cell->name.c_str(ctx),is_inverted);
             //updateINV(ctx, cell.second.get(), id_CLK, id_C_CPE_CLK);
@@ -390,7 +392,7 @@ void GateMateImpl::preRoute()
 
                 Loc loc = ctx->getBelLocation(usr.cell->bel);
                 CellInfo *adj_half = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x, loc.y, loc.z==1 ? 0 : 1)));
-                if (adj_half &&adj_half->params.count(id_C_CPE_CLK)) {
+                if (adj_half && adj_half->params.count(id_C_CPE_CLK)) {
                     adj_half->params[id_C_CPE_CLK] = Property(3 - init_val, 2);
                 }
             }
