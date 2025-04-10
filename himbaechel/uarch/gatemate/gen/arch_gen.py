@@ -192,10 +192,10 @@ def main():
                 pp = tt.create_pip(f"CPE.V_IN{i}_int", f"CPE.IN{i}_int")
                 pp = tt.create_pip(f"CPE.V_IN{i}_int", f"CPE.IN{i}_int")
                 pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id(f"CPE.IN{i}_INV"), 1, i, MUX_CPE_INV | MUX_INVERT)
-            tt.create_wire("CPE.V_CLK", "CPE_VIRTUAL_WIRE")
-            pp = tt.create_pip("CPE.V_CLK", "CPE.CLK")
-            pp = tt.create_pip("CPE.V_CLK", "CPE.CLK")
-            pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id("CPE.CLK_INV"), 1, 1, MUX_CPE_INV| MUX_INVERT)
+            #tt.create_wire("CPE.V_CLK", "CPE_VIRTUAL_WIRE")
+            #pp = tt.create_pip("CPE.V_CLK", "CPE.CLK")
+            #pp = tt.create_pip("CPE.V_CLK", "CPE.CLK")
+            #pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id("CPE.CLK_INV"), 1, 1, MUX_CPE_INV| MUX_INVERT)
             tt.create_wire("CPE.V_EN", "CPE_VIRTUAL_WIRE")
             pp = tt.create_pip("CPE.V_EN", "CPE.EN")
             pp = tt.create_pip("CPE.V_EN", "CPE.EN")
@@ -219,7 +219,7 @@ def main():
     for _,nodes in dev.get_connections():
         node = []
         for conn in sorted(nodes):
-            conn.name = conn.name.replace("CPE.CLK", "CPE.V_CLK")
+            #conn.name = conn.name.replace("CPE.CLK", "CPE.V_CLK")
             conn.name = conn.name.replace("CPE.EN", "CPE.V_EN")
             conn.name = conn.name.replace("CPE.SR", "CPE.V_SR")
             node.append(NodeWire(conn.x + 2, conn.y + 2, conn.name))
