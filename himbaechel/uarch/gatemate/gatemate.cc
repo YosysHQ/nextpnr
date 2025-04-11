@@ -154,10 +154,45 @@ bool GateMateImpl::getClusterPlacement(ClusterId cluster, BelId root_bel,
     return getChildPlacement(root_cell, root_loc, placement);
 }
 
-void updateLUT(Context *ctx, CellInfo *cell, IdString port, IdString init, bool invert)
+bool invert_count_inversions(Context *ctx, CellInfo *cell, IdString port)
+{
+    PortRef sink;
+    sink.cell = cell;
+    sink.port = port;
+
+    NetInfo *net_info = cell->getPort(port);
+    if (!net_info) return false;
+    
+    WireId src_wire = ctx->getNetinfoSourceWire(net_info);
+    WireId dst_wire = ctx->getNetinfoSinkWire(net_info, sink, 0);
+
+    if (src_wire == WireId())
+        return false;
+
+    WireId cursor = dst_wire;
+    bool invert = false;
+    while (cursor != WireId() && cursor != src_wire) {
+        auto it = net_info->wires.find(cursor);
+
+        if (it == net_info->wires.end())
+            break;
+
+        PipId pip = it->second.pip;
+        if (pip == PipId())
+            break;
+
+        invert ^= ctx->isPipInverting(pip);
+        cursor = ctx->getPipSrcWire(pip);
+    }
+
+    return invert;
+}
+
+void updateLUT(Context *ctx, CellInfo *cell, IdString port, IdString init)
 {
     if (cell->params.count(init) == 0) return;
     unsigned init_val = int_or_default(cell->params, init);
+    bool invert = invert_count_inversions(ctx, cell, port);
     if (invert) {
         if (port.in(id_IN1,id_IN3))
             init_val = (init_val & 0b1010) >> 1 | (init_val & 0b0101) << 1;
@@ -167,21 +202,23 @@ void updateLUT(Context *ctx, CellInfo *cell, IdString port, IdString init, bool 
     }
 }
 
-void updateINV(Context *ctx, CellInfo *cell, IdString port, IdString param, bool invert)
+void updateINV(Context *ctx, CellInfo *cell, IdString port, IdString param)
 {
     if (cell->params.count(param) == 0) return;
     unsigned init_val = int_or_default(cell->params, param);
+    bool invert = invert_count_inversions(ctx, cell, port);
     if (invert) {
         cell->params[param] = Property(3 - init_val, 2);
     }
 }
 
-void updateMUX_INV(Context *ctx, CellInfo *cell, IdString port, IdString param, int bit, bool invert)
+void updateMUX_INV(Context *ctx, CellInfo *cell, IdString port, IdString param, int bit)
 {
     // Mux inversion data is contained in other CPE half
     Loc l = ctx->getBelLocation(cell->bel);
     CellInfo *cell_l = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(l.x,l.y,1)));
     unsigned init_val = int_or_default(cell_l->params, param);
+    bool invert = invert_count_inversions(ctx, cell, port);
     if (invert) {
         int old = (init_val >> bit) & 1;
         int val = (init_val & (~(1 << bit) & 0xf)) | ((!old) << bit);
@@ -224,29 +261,6 @@ void GateMateImpl::postRoute()
         }
     }
     for (auto &cell : ctx->cells) {
-        // TODO: Add postprocessing here
-        if (cell.second->type.in(id_CPE_HALF_U)) {
-            NetInfo *net = cell.second->getPort(id_IN1);
-            bool invert;
-            /*invert = invert_count_inversions(net->driver, cell.second.get(), id_IN1); */
-            updateLUT(ctx, cell.second.get(), id_IN1, id_INIT_L00, invert);
-            //updateLUT(ctx, cell.second.get(), id_IN2, id_INIT_L00);
-            //updateLUT(ctx, cell.second.get(), id_IN3, id_INIT_L01);
-            //updateLUT(ctx, cell.second.get(), id_IN4, id_INIT_L01);
-        }
-        if (cell.second->type.in(id_CPE_HALF_L)) {
-            NetInfo *net = cell.second->getPort(id_IN1);
-            bool invert;
-            /*invert = invert_count_inversions(net->driver, cell.second.get(), id_IN1); */
-            //updateLUT(ctx, cell.second.get(), id_IN1, id_INIT_L02, invert);
-            //updateLUT(ctx, cell.second.get(), id_IN2, id_INIT_L02, invert);
-            //updateLUT(ctx, cell.second.get(), id_IN3, id_INIT_L03, invert);
-            //updateLUT(ctx, cell.second.get(), id_IN4, id_INIT_L03, invert);
-        }
-    }
-
-    /*
-    for (auto &cell : ctx->cells) {
         if (cell.second->type.in(id_CPE_HALF_U)) {
             uint8_t func = int_or_default(cell.second->params, id_C_FUNCTION, 0);
             cell.second->unsetParam(id_C_FUNCTION);
@@ -278,7 +292,6 @@ void GateMateImpl::postRoute()
                 updateINV(ctx, cell.second.get(), id_SR, id_C_CPE_RES);
         }
     }
-    */
     print_utilisation(ctx);
 
     const ArchArgs &args = ctx->args;
