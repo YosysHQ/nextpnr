@@ -154,25 +154,51 @@ bool GateMateImpl::getClusterPlacement(ClusterId cluster, BelId root_bel,
     return getChildPlacement(root_cell, root_loc, placement);
 }
 
+bool need_inversion(Context *ctx, CellInfo *cell, IdString port)
+{
+    PortRef sink;
+    sink.cell = cell;
+    sink.port = port;
+
+    NetInfo *net_info = cell->getPort(port);
+    if (!net_info) return false;
+    
+    WireId src_wire = ctx->getNetinfoSourceWire(net_info);
+    WireId dst_wire = ctx->getNetinfoSinkWire(net_info, sink, 0);
+
+    if (src_wire == WireId())
+        return false;
+
+    WireId cursor = dst_wire;
+    bool invert = false;
+    while (cursor != WireId() && cursor != src_wire) {
+        auto it = net_info->wires.find(cursor);
+
+        if (it == net_info->wires.end())
+            break;
+
+        PipId pip = it->second.pip;
+        if (pip == PipId())
+            break;
+
+        invert ^= ctx->isPipInverting(pip);
+        cursor = ctx->getPipSrcWire(pip);
+    }
+
+    return invert;
+}
+
 void updateLUT(Context *ctx, CellInfo *cell, IdString port, IdString init)
 {
     if (cell->params.count(init) == 0) return;
     unsigned init_val = int_or_default(cell->params, init);
-    WireId pin_wire = ctx->getBelPinWire(cell->bel, port);
-    for (PipId pip : ctx->getPipsUphill(pin_wire)) {
-        if (!ctx->getBoundPipNet(pip))
-            continue;
-        const auto extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD *>(
-                chip_pip_info(ctx->chip_info, pip).extra_data.get());
-        if (!extra_data.name)
-            continue;
-        if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_CPE_INV)) {
-            if (port.in(id_IN1,id_IN3))
-                init_val = (init_val & 0b1010) >> 1 | (init_val & 0b0101) << 1;
-            else
-                init_val = (init_val & 0b0011) << 2 | (init_val & 0b1100) >> 2;
-            cell->params[init] = Property(init_val, 4);
-        }
+    bool invert = need_inversion(ctx, cell, port);
+    if (invert) {
+        if (port.in(id_IN1,id_IN3))
+            init_val = (init_val & 0b1010) >> 1 | (init_val & 0b0101) << 1;
+        else
+            init_val = (init_val & 0b0011) << 2 | (init_val & 0b1100) >> 2;
+        cell->params[init] = Property(init_val, 4);
     }
 }
 
@@ -180,17 +206,9 @@ void updateINV(Context *ctx, CellInfo *cell, IdString port, IdString param)
 {
     if (cell->params.count(param) == 0) return;
     unsigned init_val = int_or_default(cell->params, param);
-    WireId pin_wire = ctx->getBelPinWire(cell->bel, port);
-    for (PipId pip : ctx->getPipsUphill(pin_wire)) {
-        if (!ctx->getBoundPipNet(pip))
-            continue;
-        const auto extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD *>(
-                chip_pip_info(ctx->chip_info, pip).extra_data.get());
-        if (!extra_data.name)
-            continue;
-        if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_CPE_INV)) {
-            cell->params[param] = Property(3 - init_val, 2);
-        }
+    bool invert = need_inversion(ctx, cell, port);
+    if (invert) {
+        cell->params[param] = Property(3 - init_val, 2);
     }
 }
 
@@ -200,19 +218,11 @@ void updateMUX_INV(Context *ctx, CellInfo *cell, IdString port, IdString param, 
     Loc l = ctx->getBelLocation(cell->bel);
     CellInfo *cell_l = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(l.x,l.y,1)));
     unsigned init_val = int_or_default(cell_l->params, param);
-    WireId pin_wire = ctx->getBelPinWire(cell->bel, port);
-    for (PipId pip : ctx->getPipsUphill(pin_wire)) {
-        if (!ctx->getBoundPipNet(pip))
-            continue;
-        const auto extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD *>(
-                chip_pip_info(ctx->chip_info, pip).extra_data.get());
-        if (!extra_data.name)
-            continue;
-        if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_CPE_INV)) {
-            int old = (init_val >> bit) & 1;
-            int val = (init_val & (~(1 << bit) & 0xf)) | ((!old) << bit);
-            cell_l->params[param] = Property(val, 4);
-        }
+    bool invert = need_inversion(ctx, cell, port);
+    if (invert) {
+        int old = (init_val >> bit) & 1;
+        int val = (init_val & (~(1 << bit) & 0xf)) | ((!old) << bit);
+        cell_l->params[param] = Property(val, 4);
     }
 }
 
