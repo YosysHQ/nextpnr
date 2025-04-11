@@ -46,11 +46,13 @@ struct GateMatePacker
     void remove_constants();
     void remove_not_used();
 
-    void pll_out(CellInfo *cell, IdString origPort);
+    void pll_out(CellInfo *cell, IdString origPort, Loc fixed);
     PllCfgRecord get_pll_settings(double f_ref, double f_core, int mode, int low_jitter, bool pdiv0_mux, bool feedback);
 
     CellInfo *move_ram_i(CellInfo *cell, IdString origPort, bool place = true);
     CellInfo *move_ram_o(CellInfo *cell, IdString origPort, bool place = true);
+    CellInfo *move_ram_i_fixed(CellInfo *cell, IdString origPort, Loc fixed);
+    CellInfo *move_ram_o_fixed(CellInfo *cell, IdString origPort, Loc fixed);
     CellInfo *move_ram_io(CellInfo *cell, IdString iPort, IdString oPort, bool place = true);
     bool is_gpio_valid_dff(CellInfo *dff);
     BelId get_bank_cpe(int bank);
