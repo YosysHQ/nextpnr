@@ -525,11 +525,7 @@ void GateMatePacker::pack_io_sel()
 
         Loc root_loc = ctx->getBelLocation(ci.bel);
         for (int i = 0; i < 4; i++) {
-            CellInfo *cpe_out = move_ram_o(&ci, ctx->idf("OUT%d", i + 1), false);
-            if (cpe_out) {
-                BelId b = ctx->getBelByLocation(uarch->getRelativeConstraint(root_loc, ctx->idf("OUT%d", i + 1)));
-                ctx->bindBel(b, cpe_out, PlaceStrength::STRENGTH_FIXED);
-            }
+            move_ram_o_fixed(&ci, ctx->idf("OUT%d", i + 1), root_loc);
         }
     }
     flush_cells();
@@ -1239,7 +1235,7 @@ CellInfo *GateMatePacker::move_ram_io(CellInfo *cell, IdString iPort, IdString o
     return cpe_half;
 }
 
-void GateMatePacker::pll_out(CellInfo *cell, IdString origPort)
+void GateMatePacker::pll_out(CellInfo *cell, IdString origPort, Loc fixed)
 {
     NetInfo *net = cell->getPort(origPort);
     if (!net)
@@ -1254,7 +1250,7 @@ void GateMatePacker::pll_out(CellInfo *cell, IdString origPort)
             log_error("not handled BUFG\n");
         }
     } else {
-        move_ram_i(cell, origPort);
+        move_ram_i_fixed(cell, origPort, fixed);
     }
 }
 
@@ -1310,6 +1306,10 @@ void GateMatePacker::pack_pll()
         ci.constr_abs_z = true;
         ci.constr_z = 4 + pll_index; // Position to a proper Z location
 
+        Loc fixed_loc(33+2,131+2,4 + pll_index); // PLL
+        BelId pll_bel = ctx->getBelByLocation(fixed_loc);
+        ctx->bindBel(pll_bel, &ci, PlaceStrength::STRENGTH_FIXED);
+
         if (pll_index > 4)
             log_error("Used more than available PLLs.\n");
 
@@ -1330,17 +1330,17 @@ void GateMatePacker::pack_pll()
 
         clk = ci.getPort(id_USR_CLK_REF);
         if (clk) {
-            move_ram_o(&ci, id_USR_CLK_REF);
+            move_ram_o_fixed(&ci, id_USR_CLK_REF, fixed_loc);
         }
         // TODO: handle CLK_FEEDBACK
         // TODO: handle CLK_REF_OUT
-        pll_out(&ci, id_CLK0);
-        pll_out(&ci, id_CLK90);
-        pll_out(&ci, id_CLK180);
-        pll_out(&ci, id_CLK270);
+        pll_out(&ci, id_CLK0, fixed_loc);
+        pll_out(&ci, id_CLK90, fixed_loc);
+        pll_out(&ci, id_CLK180, fixed_loc);
+        pll_out(&ci, id_CLK270, fixed_loc);
 
-        move_ram_i(&ci, id_USR_PLL_LOCKED);
-        move_ram_i(&ci, id_USR_PLL_LOCKED_STDY);
+        move_ram_i_fixed(&ci, id_USR_PLL_LOCKED, fixed_loc);
+        move_ram_i_fixed(&ci, id_USR_PLL_LOCKED_STDY, fixed_loc);
 
         if (ci.type == id_CC_PLL) {
             int low_jitter = int_or_default(ci.params, id_LOW_JITTER, 0);
@@ -1489,7 +1489,7 @@ void GateMatePacker::pack_pll()
                 ci.disconnectPort(id_USR_SEL_A_B);
             } else {
                 ci.params[ctx->id("USR_SET")] = Property(0b1, 1);
-                move_ram_o(&ci, id_USR_SEL_A_B);
+                move_ram_o_fixed(&ci, id_USR_SEL_A_B, fixed_loc);
             }
             ci.params[ctx->id("LOCK_REQ")] = Property(0b1, 1);
             ci.unsetParam(id_PLL_CFG_A);
@@ -1521,6 +1521,26 @@ void GateMatePacker::pack_pll()
     }
 }
 
+CellInfo *GateMatePacker::move_ram_i_fixed(CellInfo *cell, IdString origPort, Loc fixed)
+{
+    CellInfo *cpe = move_ram_i(cell, origPort, false);
+    if (cpe) {
+        BelId b = ctx->getBelByLocation(uarch->getRelativeConstraint(fixed, origPort));
+        ctx->bindBel(b, cpe, PlaceStrength::STRENGTH_FIXED);
+    }
+    return cpe;
+}
+
+CellInfo *GateMatePacker::move_ram_o_fixed(CellInfo *cell, IdString origPort, Loc fixed)
+{
+    CellInfo *cpe = move_ram_o(cell, origPort, false);
+    if (cpe) {
+        BelId b = ctx->getBelByLocation(uarch->getRelativeConstraint(fixed, origPort));
+        ctx->bindBel(b, cpe, PlaceStrength::STRENGTH_FIXED);
+    }
+    return cpe;
+}
+
 void GateMatePacker::pack_misc()
 {
     for (auto &cell : ctx->cells) {
@@ -1529,7 +1549,10 @@ void GateMatePacker::pack_misc()
             continue;
         ci.type = id_USR_RSTN;
         ci.cluster = ci.name;
-        move_ram_i(&ci, id_USR_RSTN);
+        Loc fixed_loc(0,0,3); // USR_RSTN
+        ctx->bindBel(ctx->getBelByLocation(fixed_loc), &ci, PlaceStrength::STRENGTH_FIXED);
+
+        move_ram_i_fixed(&ci, id_USR_RSTN, fixed_loc);
     }
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
@@ -1537,12 +1560,15 @@ void GateMatePacker::pack_misc()
             continue;
         ci.type = id_CFG_CTRL;
         ci.cluster = ci.name;
-        move_ram_o(&ci, id_CLK);
-        move_ram_o(&ci, id_EN);
-        move_ram_o(&ci, id_VALID);
-        move_ram_o(&ci, id_RECFG);
+        Loc fixed_loc(0,0,2); // CFG_CTRL
+        ctx->bindBel(ctx->getBelByLocation(fixed_loc), &ci, PlaceStrength::STRENGTH_FIXED);
+
+        move_ram_o_fixed(&ci, id_CLK, fixed_loc);
+        move_ram_o_fixed(&ci, id_EN, fixed_loc);
+        move_ram_o_fixed(&ci, id_VALID, fixed_loc);
+        move_ram_o_fixed(&ci, id_RECFG, fixed_loc);
         for(int i=0;i<8;i++)
-            move_ram_o(&ci, ctx->idf("DATA[%d]",i));
+            move_ram_o_fixed(&ci, ctx->idf("DATA[%d]",i), fixed_loc);
     }
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
