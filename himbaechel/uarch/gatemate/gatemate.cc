@@ -154,7 +154,7 @@ bool GateMateImpl::getClusterPlacement(ClusterId cluster, BelId root_bel,
     return getChildPlacement(root_cell, root_loc, placement);
 }
 
-bool invert_count_inversions(Context *ctx, CellInfo *cell, IdString port)
+bool need_inversion(Context *ctx, CellInfo *cell, IdString port)
 {
     PortRef sink;
     sink.cell = cell;
@@ -192,7 +192,7 @@ void updateLUT(Context *ctx, CellInfo *cell, IdString port, IdString init)
 {
     if (cell->params.count(init) == 0) return;
     unsigned init_val = int_or_default(cell->params, init);
-    bool invert = invert_count_inversions(ctx, cell, port);
+    bool invert = need_inversion(ctx, cell, port);
     if (invert) {
         if (port.in(id_IN1,id_IN3))
             init_val = (init_val & 0b1010) >> 1 | (init_val & 0b0101) << 1;
@@ -206,7 +206,7 @@ void updateINV(Context *ctx, CellInfo *cell, IdString port, IdString param)
 {
     if (cell->params.count(param) == 0) return;
     unsigned init_val = int_or_default(cell->params, param);
-    bool invert = invert_count_inversions(ctx, cell, port);
+    bool invert = need_inversion(ctx, cell, port);
     if (invert) {
         cell->params[param] = Property(3 - init_val, 2);
     }
@@ -218,7 +218,7 @@ void updateMUX_INV(Context *ctx, CellInfo *cell, IdString port, IdString param, 
     Loc l = ctx->getBelLocation(cell->bel);
     CellInfo *cell_l = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(l.x,l.y,1)));
     unsigned init_val = int_or_default(cell_l->params, param);
-    bool invert = invert_count_inversions(ctx, cell, port);
+    bool invert = need_inversion(ctx, cell, port);
     if (invert) {
         int old = (init_val >> bit) & 1;
         int val = (init_val & (~(1 << bit) & 0xf)) | ((!old) << bit);
