@@ -879,11 +879,18 @@ void GateMatePacker::pack_addf()
         group.push_back(cy);
         while (true) {
             NetInfo *co_net = cy->getPort(id_CO);
-            if (co_net && co_net->users.entries() == 1) {
-                cy = (*co_net->users.begin()).cell;
-                if (cy->type == id_CC_ADDF)
-                    group.push_back(cy);
-                else
+            if (co_net) {
+                bool found = false;
+                for (auto &usr : co_net->users) {
+                    if (usr.cell->type == id_CC_ADDF && usr.port == id_CI) {
+                        if (found)
+                            log_error("Only one other ADDF can be connected.\n");
+                        cy = usr.cell;
+                        group.push_back(cy);
+                        found = true;
+                    }
+                }
+                if (!found)
                     break;
             } else
                 break;
@@ -984,6 +991,7 @@ void GateMatePacker::pack_addf()
             upper->params[id_C_FUNCTION] = Property(C_ADDF, 3);
 
             if (i == grp.size() - 1) {
+                if (!cy->getPort(id_CO)) break;
                 CellInfo *co_upper = create_cell_ptr(id_CPE_HALF_U, ctx->idf("%s$co_upper", cy->name.c_str(ctx)));
                 co_upper->cluster = root->name;
                 root->constr_children.push_back(co_upper);
@@ -1011,7 +1019,24 @@ void GateMatePacker::pack_addf()
 
                 cy->movePortTo(id_CO, co_lower, id_OUT);
             } else {
-                cy->renamePort(id_CO, id_COUTY1);
+                NetInfo *co_net = cy->getPort(id_CO);
+                if (!co_net || co_net->users.entries() == 1) {
+                    cy->renamePort(id_CO, id_COUTY1);
+                } else {
+                    for (auto &usr : co_net->users) {
+                        if (usr.cell->type == id_CC_ADDF || usr.port == id_CI) {
+                            usr.cell->disconnectPort(id_CI);
+                            NetInfo *co_conn = ctx->createNet(ctx->idf("%s$co", cy->name.c_str(ctx)));
+                            cy->ports[id_COUTY1].name = id_COUTY1;
+                            cy->ports[id_COUTY1].type = PORT_OUT;
+                            cy->connectPort(id_COUTY1, co_conn);
+                            usr.cell->connectPort(id_CI, co_conn);
+                            break;
+                        }
+                    }
+                    upper->params[id_C_O] = Property(0b10, 2);
+                    cy->movePortTo(id_CO, upper, id_OUT);
+                }
             }
         }
     }
