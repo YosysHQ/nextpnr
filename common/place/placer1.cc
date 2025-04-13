@@ -638,9 +638,14 @@ class SAPlacer
                         Loc old_loc = ctx->getBelLocation(old_bel);
                         Loc bound_loc = ctx->getBelLocation(bound->bel);
                         Loc root_loc = ctx->getBelLocation(ctx->getClusterRootCell(bound->cluster)->bel);
-                        BelId new_root = ctx->getBelByLocation(Loc(old_loc.x + (root_loc.x - bound_loc.x),
-                                                                   old_loc.y + (root_loc.y - bound_loc.y),
-                                                                   old_loc.z + (root_loc.z - bound_loc.z)));
+                        Loc new_loc =
+                                Loc(old_loc.x + (root_loc.x - bound_loc.x), old_loc.y + (root_loc.y - bound_loc.y),
+                                    old_loc.z + (root_loc.z - bound_loc.z));
+                        if (new_loc.x < 0 || new_loc.x >= ctx->getGridDimX())
+                            goto swap_fail;
+                        if (new_loc.y < 0 || new_loc.y >= ctx->getGridDimY())
+                            goto swap_fail;
+                        BelId new_root = ctx->getBelByLocation(new_loc);
                         if (new_root == BelId())
                             goto swap_fail;
                         for (auto cluster_cell : cluster2cell.at(bound->cluster)) {
