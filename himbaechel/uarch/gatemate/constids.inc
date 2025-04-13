@@ -2036,3 +2036,7 @@ X(RAM_cfg_almost_full_offset)
 X(RAM_cfg_sram_delay)
 X(RAM_cfg_datbm_sel)
 X(RAM_cfg_cascade_enable)
+
+X(CC_ADDF2)
+X(A2)
+X(B2)

@@ -857,6 +857,13 @@ void GateMatePacker::pack_cpe()
     }
 }
 
+static bool is_addf_ci(NetInfo *net)
+{
+    return net && net->users.entries() == 1 &&
+            (*net->users.begin()).cell->type == id_CC_ADDF &&
+            (*net->users.begin()).port == id_CI;
+}
+
 void GateMatePacker::pack_addf()
 {
     log_info("Packing ADDFs..\n");
@@ -897,6 +904,44 @@ void GateMatePacker::pack_addf()
         }
         groups.push_back(group);
     }
+
+    // Merge two ADDF cells to one CPE when possible
+    // use artificial CC_ADDF2 cell for that
+    for (size_t i = 0; i < groups.size(); i++) {
+        std::vector<CellInfo *> regrouped;
+        size_t pos = 0;
+        auto& grp = groups.at(i);
+        while (pos < grp.size()) {
+            bool merged = false;
+            CellInfo *cy = grp.at(pos);
+            NetInfo *co_net = cy->getPort(id_CO);
+            bool last = pos+1 == grp.size();
+            if (!last && is_addf_ci(co_net)) {
+                CellInfo *cy2 = grp.at(pos+1);
+                co_net = cy2->getPort(id_CO);
+                last = pos+2 == grp.size();
+                if (!co_net || last || is_addf_ci(co_net)) {
+                    cy2->type = id_CC_ADDF2;
+                    cy2->disconnectPort(id_CI);
+                    // Do actual merge of cells
+                    cy->movePortTo(id_A, cy2, id_A2);
+                    cy->movePortTo(id_B, cy2, id_B2);
+                    cy->movePortTo(id_S, cy2, id_S2);
+                    cy->disconnectPort(id_CO);
+                    cy->movePortTo(id_CI, cy2, id_CI);
+                    packed_cells.insert(cy->name);
+                    regrouped.push_back(cy2);
+                    merged = true;
+                    pos++;
+                }
+            }
+            if (!merged)
+                regrouped.push_back(cy);
+            pos++;
+        }
+        grp = regrouped;
+    }
+    flush_cells();
 
     for (auto &grp : splitNestedVector(groups)) {
         CellInfo *root = grp.front();
@@ -948,14 +993,41 @@ void GateMatePacker::pack_addf()
                 cy->renamePort(id_CI, id_CINY1);
             }
 
-            cy->params[id_C_FUNCTION] = Property(C_ADDF, 3);
-            cy->params[id_INIT_L02] = Property(0b0000, 4); // 0
-            cy->params[id_INIT_L03] = Property(0b0000, 4); // 0
-            cy->params[id_INIT_L11] = Property(0b0110, 4); // XOR
-            cy->params[id_INIT_L20] = Property(0b0110, 4); // XOR
+            bool merged = cy->type != id_CC_ADDF;
+            if (merged) {
+                NetInfo *a_net = cy->getPort(id_A2);
+                if (a_net->name == ctx->id("$PACKER_GND")) {
+                    cy->params[id_INIT_L02] = Property(0b0000, 4);
+                    cy->disconnectPort(id_A2);
+                } else if (a_net->name == ctx->id("$PACKER_VCC")) {
+                    cy->params[id_INIT_L02] = Property(0b1111, 4);
+                    cy->disconnectPort(id_A2);
+                } else {
+                    cy->renamePort(id_A2, id_IN1);
+                    cy->params[id_INIT_L02] = Property(0b1010, 4); // IN1
+                }
+                NetInfo *b_net = cy->getPort(id_B2);
+                if (b_net->name == ctx->id("$PACKER_GND")) {
+                    cy->params[id_INIT_L03] = Property(0b0000, 4);
+                    cy->disconnectPort(id_B2);
+                } else if (b_net->name == ctx->id("$PACKER_VCC")) {
+                    cy->params[id_INIT_L03] = Property(0b1111, 4);
+                    cy->disconnectPort(id_B2);
+                } else {
+                    cy->renamePort(id_B2, id_IN3);
+                    cy->params[id_INIT_L03] = Property(0b1010, 4); // IN3
+                }
+                cy->params[id_INIT_L11] = Property(0b0110, 4); // XOR
+                cy->renamePort(id_S2, id_OUT);
+            } else {
+                cy->params[id_INIT_L02] = Property(0b0000, 4); // 0
+                cy->params[id_INIT_L03] = Property(0b0000, 4); // 0
+                cy->params[id_INIT_L11] = Property(0b0110, 4); // XOR
+                cy->params[id_INIT_L20] = Property(0b0110, 4); // XOR
+            }
+            cy->params[id_C_FUNCTION] = Property(merged ? C_ADDF2 : C_ADDF, 3);
             cy->params[id_C_O] = Property(0b11, 2);
             cy->type = id_CPE_HALF_L;
-            cy->renamePort(id_S, id_OUT);
 
             CellInfo *upper = create_cell_ptr(id_CPE_HALF_U, ctx->idf("%s$upper", cy->name.c_str(ctx)));
             upper->cluster = root->name;
@@ -963,6 +1035,12 @@ void GateMatePacker::pack_addf()
             upper->constr_abs_z = false;
             upper->constr_y = +i;
             upper->constr_z = -1;
+            if (merged) {
+                cy->movePortTo(id_S, upper, id_OUT);
+                upper->params[id_C_O] = Property(0b11, 2);
+            } else {
+                cy->renamePort(id_S, id_OUT);
+            }
 
             NetInfo *a_net = cy->getPort(id_A);
             if (a_net->name == ctx->id("$PACKER_GND")) {
@@ -988,7 +1066,7 @@ void GateMatePacker::pack_addf()
             }
 
             upper->params[id_INIT_L10] = Property(0b0110, 4); // XOR
-            upper->params[id_C_FUNCTION] = Property(C_ADDF, 3);
+            upper->params[id_C_FUNCTION] = Property(merged ? C_ADDF2 : C_ADDF, 3);
 
             if (i == grp.size() - 1) {
                 if (!cy->getPort(id_CO)) break;
