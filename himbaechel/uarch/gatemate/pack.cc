@@ -448,9 +448,6 @@ void GateMatePacker::pack_io_sel()
                 ci.disconnectPort(id_A);
             } else {
                 ci.params[id_OUT_SIGNAL] = Property(Property::State::S1);
-                // ci.params[id_OUT1_4] = Property(Property::State::S1);
-                // ci.params[id_OUT2_3] = Property(Property::State::S1);
-                // ci.params[id_OUT23_14_SEL] = Property(Property::State::S1);
                 bool ff_obf_merged = false;
                 if (ff_obf && do_net->driver.cell->type == id_CC_DFF && do_net->users.entries() == 1) {
                     CellInfo *dff = do_net->driver.cell;
@@ -1295,6 +1292,26 @@ CellInfo *GateMatePacker::move_ram_o(CellInfo *cell, IdString origPort, bool pla
     return cpe_half;
 }
 
+CellInfo *GateMatePacker::move_ram_i_fixed(CellInfo *cell, IdString origPort, Loc fixed)
+{
+    CellInfo *cpe = move_ram_i(cell, origPort, false);
+    if (cpe) {
+        BelId b = ctx->getBelByLocation(uarch->getRelativeConstraint(fixed, origPort));
+        ctx->bindBel(b, cpe, PlaceStrength::STRENGTH_FIXED);
+    }
+    return cpe;
+}
+
+CellInfo *GateMatePacker::move_ram_o_fixed(CellInfo *cell, IdString origPort, Loc fixed)
+{
+    CellInfo *cpe = move_ram_o(cell, origPort, false);
+    if (cpe) {
+        BelId b = ctx->getBelByLocation(uarch->getRelativeConstraint(fixed, origPort));
+        ctx->bindBel(b, cpe, PlaceStrength::STRENGTH_FIXED);
+    }
+    return cpe;
+}
+
 CellInfo *GateMatePacker::move_ram_io(CellInfo *cell, IdString iPort, IdString oPort, bool place)
 {
     CellInfo *cpe_half = nullptr;
@@ -1497,14 +1514,6 @@ void GateMatePacker::pack_pll()
                 cp_const = 4;
             }
             // PLL_cfg_val_800_1400  PLL values from 11.08.2021
-            // ci.params[ctx->id("CFG_A.CI_FILTER_CONST")] = Property(0b00010,5);
-            // ci.params[ctx->id("CFG_A.CP_FILTER_CONST")] = Property(0b00100,5);
-            // ci.params[ctx->id("CFG_A.N1")] = Property(0b001000,6);
-            // ci.params[ctx->id("CFG_A.N2")] = Property(0b0001100100,10);
-            // ci.params[ctx->id("CFG_A.M1")] = Property(0b001000,6);
-            // ci.params[ctx->id("CFG_A.M2")] = Property(0b0001100100,10);
-            // ci.params[ctx->id("CFG_A.K")] = Property(0b000000000001,12);
-            // ci.params[ctx->id("CFG_A.PDIV1_SEL")] = Property(0b1,1);
             bool feedback = false;
             if (ci.getPort(id_CLK_FEEDBACK)) {
                 ci.params[ctx->id("CFG_A.FB_PATH")] = Property(0b1, 1);
@@ -1513,19 +1522,19 @@ void GateMatePacker::pack_pll()
             ci.params[ctx->id("CFG_A.FINE_TUNE")] = Property(0b00011001000, 11);
             ci.params[ctx->id("CFG_A.COARSE_TUNE")] = Property(0b100, 3);
             ci.params[ctx->id("CFG_A.AO_SW")] = Property(0b01000, 5);
-            // ci.params[ctx->id("CFG_A.OPEN_LOOP")] = Property(0b0,1);
-            // ci.params[ctx->id("CFG_A.ENFORCE_LOCK")] = Property(0b0,1);
-            // ci.params[ctx->id("CFG_A.PFD_SEL")] = Property(0b0,1);
-            // ci.params[ctx->id("CFG_A.LOCK_DETECT_WIN")] = Property(0b0,1);
-            // ci.params[ctx->id("CFG_A.SYNC_BYPASS")] = Property(0b0,1);
+            ci.params[ctx->id("CFG_A.OPEN_LOOP")] = Property(0b0, 1);
+            ci.params[ctx->id("CFG_A.ENFORCE_LOCK")] = Property(0b0, 1);
+            ci.params[ctx->id("CFG_A.PFD_SEL")] = Property(0b0, 1);
+            ci.params[ctx->id("CFG_A.LOCK_DETECT_WIN")] = Property(0b0, 1);
+            ci.params[ctx->id("CFG_A.SYNC_BYPASS")] = Property(0b0, 1);
             ci.params[ctx->id("CFG_A.FILTER_SHIFT")] = Property(0b10, 2);
             ci.params[ctx->id("CFG_A.FAST_LOCK")] = Property(0b1, 1);
             ci.params[ctx->id("CFG_A.SAR_LIMIT")] = Property(0b010, 3);
-            // ci.params[ctx->id("CFG_A.OP_LOCK")] = Property(0b0,1);
+            ci.params[ctx->id("CFG_A.OP_LOCK")] = Property(0b0, 1);
             ci.params[ctx->id("CFG_A.PDIV0_MUX")] = Property(0b1, 1);
             ci.params[ctx->id("CFG_A.EN_COARSE_TUNE")] = Property(0b1, 1);
-            // ci.params[ctx->id("CFG_A.EN_USR_CFG")] = Property(0b0,1);
-            // ci.params[ctx->id("CFG_A.PLL_EN_SEL")] = Property(0b0,1);
+            ci.params[ctx->id("CFG_A.EN_USR_CFG")] = Property(0b0, 1);
+            ci.params[ctx->id("CFG_A.PLL_EN_SEL")] = Property(0b0, 1);
 
             ci.params[ctx->id("CFG_A.CI_FILTER_CONST")] = Property(ci_const, 5);
             ci.params[ctx->id("CFG_A.CP_FILTER_CONST")] = Property(cp_const, 5);
@@ -1622,32 +1631,12 @@ void GateMatePacker::pack_pll()
         // CLK180_DOUB - set by CC_PLL parameter
         // CLK270_DOUB - set by CC_PLL parameter
         // bits 6 and 7 are unused
-        // USR_CLK_OUT - part of routing, mux from chipdb
+        // TODO: USR_CLK_OUT - part of routing, mux from chipdb
 
         ci.type = id_PLL;
 
         pll_index++;
     }
-}
-
-CellInfo *GateMatePacker::move_ram_i_fixed(CellInfo *cell, IdString origPort, Loc fixed)
-{
-    CellInfo *cpe = move_ram_i(cell, origPort, false);
-    if (cpe) {
-        BelId b = ctx->getBelByLocation(uarch->getRelativeConstraint(fixed, origPort));
-        ctx->bindBel(b, cpe, PlaceStrength::STRENGTH_FIXED);
-    }
-    return cpe;
-}
-
-CellInfo *GateMatePacker::move_ram_o_fixed(CellInfo *cell, IdString origPort, Loc fixed)
-{
-    CellInfo *cpe = move_ram_o(cell, origPort, false);
-    if (cpe) {
-        BelId b = ctx->getBelByLocation(uarch->getRelativeConstraint(fixed, origPort));
-        ctx->bindBel(b, cpe, PlaceStrength::STRENGTH_FIXED);
-    }
-    return cpe;
 }
 
 void GateMatePacker::pack_misc()
