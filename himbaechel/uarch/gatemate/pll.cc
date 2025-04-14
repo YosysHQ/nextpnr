@@ -150,7 +150,7 @@ void get_DCO_ext_feedback(double f_core, double f_ref, PllCfgRecord &setting, in
             tmp.f_dco = f_dco_local;
             tmp.M1 = M1;
             tmp.M2 = M2;
-            tmp.weight = f_dco_local + getDCO_optimized_value(f_dco_min, f_dco_max, f_dco);
+            tmp.weight = f_dco_local + getDCO_optimized_value(f_dco_min, f_dco_max, f_dco_local);
             res_arr.push_back(tmp);
         }
     }
@@ -211,8 +211,9 @@ PllCfgRecord GateMatePacker::get_pll_settings(double f_ref, double f_core, int m
         log_warning("The PLL input frequency is outside the specified frequency (max 50 MHz ) range\n");
 
     if (pdiv0_mux && feedback) {
-        if (modf(f_core / f_ref, nullptr) != 0)
-            log_warning("In this PLL mode f_core can only be greater and multiple of f_ref");
+        double res;
+        if (modf(f_core / f_ref, &res) != 0)
+            log_warning("In this PLL mode f_core can only be greater and multiple of f_ref\n");
     }
 
     if (pdiv0_mux) {
