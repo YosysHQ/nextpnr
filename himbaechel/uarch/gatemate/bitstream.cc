@@ -55,18 +55,6 @@ struct BitstreamBackend
         return bv;
     }
 
-    std::vector<bool> str_to_bitvector(std::string str, int size)
-    {
-        std::vector<bool> bv;
-        bv.resize(size, 0);
-        for (int i = 0; i < int(str.size()); i++) {
-            char c = str.at((str.size() - i) - 1);
-            NPNR_ASSERT(c == '0' || c == '1');
-            bv.at(i) = (c == '1');
-        }
-        return bv;
-    }
-
     CfgLoc getConfigLoc(int tile)
     {
         auto ti = *tile_extra_data(tile);

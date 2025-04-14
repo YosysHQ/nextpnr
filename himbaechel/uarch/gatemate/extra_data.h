@@ -54,13 +54,11 @@ enum MuxFlags
     MUX_INVERT = 1,
     MUX_VISIBLE = 2,
     MUX_CONFIG = 4,
-    MUX_CPE_INV = 8,
 };
 
 enum PipExtra
 {
     PIP_EXTRA_MUX = 1,
-    PIP_EXTRA_CPE = 2,
 };
 
 enum CPEFunction

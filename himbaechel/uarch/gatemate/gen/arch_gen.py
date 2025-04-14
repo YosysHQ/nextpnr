@@ -25,17 +25,10 @@ sys.path.append(path.join(path.dirname(__file__), "../../.."))
 from himbaechel_dbgen.chip import *
 
 PIP_EXTRA_MUX = 1
-PIP_EXTRA_CPE = 2
 
 MUX_INVERT = 1
 MUX_VISIBLE = 2
 MUX_CONFIG = 4
-MUX_CPE_INV = 8
-
-BEL_EXTRA_GPIO_L = 1
-BEL_EXTRA_GPIO_R = 2
-BEL_EXTRA_GPIO_T = 4
-BEL_EXTRA_GPIO_B = 8
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--lib", help="Project Peppercorn python database script path", type=str, required=True)
@@ -119,10 +112,6 @@ def set_timings(ch):
     tmg = ch.set_speed_grades([speed])
 
     lut = ch.timing.add_cell_variant(speed, "CPE_HALF_L")
-    #lut.add_comb_arc("IN1", "OUT1", TimingValue(455, 459))
-    #lut.add_comb_arc("IN2", "OUT1", TimingValue(450, 457))
-    #lut.add_comb_arc("IN3", "OUT1", TimingValue(427, 430))
-    #lut.add_comb_arc("IN4", "OUT1", TimingValue(423, 424))
     lut.add_comb_arc("IN1", "OUT", TimingValue(416, 418)) # IN5 to OUT1
     lut.add_comb_arc("IN2", "OUT", TimingValue(413, 422)) # IN6 to OUT1
     lut.add_comb_arc("IN3", "OUT", TimingValue(372, 374)) # IN7 to OUT1
@@ -146,7 +135,6 @@ def set_timings(ch):
     dff.add_setup_hold("CLK", "IN3", ClockEdge.RISING, TimingValue(60), TimingValue(50))
     dff.add_setup_hold("CLK", "IN4", ClockEdge.RISING, TimingValue(60), TimingValue(50))
     dff.add_clock_out("CLK", "OUT", ClockEdge.RISING, TimingValue(60))
-    #dff.add_clock_out("CLK", "OUT2", ClockEdge.RISING, TimingValue(60))
 
 def main():
     # Range needs to be +1, but we are adding +2 more to coordinates, since 
