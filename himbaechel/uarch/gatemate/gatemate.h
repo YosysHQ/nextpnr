@@ -62,9 +62,6 @@ struct GateMateImpl : HimbaechelAPI
 
     bool isPipInverting(PipId pip) const override;
 
-    const GateMateTileExtraDataPOD *tile_extra_data(int tile) const;
-    const GateMateBelExtraDataPOD *bel_extra_data(BelId bel) const;
-
     std::set<IdString> available_pads;
     std::map<BelId, const PadInfoPOD *> bel_to_pad;
 
@@ -83,6 +80,8 @@ struct GateMateImpl : HimbaechelAPI
     void updateCPE_INV(CellInfo *cell, IdString port, IdString param);
     void updateCPE_MUX(CellInfo *cell, IdString port, IdString param, int bit);
     void renameParam(CellInfo *cell, IdString name, IdString new_name, int width);
+
+    const GateMateBelExtraDataPOD *bel_extra_data(BelId bel) const;
 
     struct GateMateCellInfo
     {

@@ -41,6 +41,11 @@ struct BitstreamBackend
     BitstreamBackend(Context *ctx, GateMateImpl *uarch, const std::string &device, std::ostream &out)
             : ctx(ctx), uarch(uarch), device(device), out(out) {};
 
+    const GateMateTileExtraDataPOD *tile_extra_data(int tile) const
+    {
+        return reinterpret_cast<const GateMateTileExtraDataPOD *>(ctx->chip_info->tile_insts[tile].extra_data.get());
+    }
+
     std::vector<bool> int_to_bitvector(int val, int size)
     {
         std::vector<bool> bv;
@@ -64,7 +69,7 @@ struct BitstreamBackend
 
     CfgLoc getConfigLoc(int tile)
     {
-        auto ti = *uarch->tile_extra_data(tile);
+        auto ti = *tile_extra_data(tile);
         CfgLoc loc;
         loc.die = ti.die;
         loc.x = ti.bit_x;
@@ -74,7 +79,7 @@ struct BitstreamBackend
 
     CfgLoc getRAMConfigLoc(int tile)
     {
-        auto ti = *uarch->tile_extra_data(tile);
+        auto ti = *tile_extra_data(tile);
         CfgLoc loc;
         loc.die = ti.die;
         loc.x = (ti.bit_x - 17) / 16;
@@ -112,7 +117,7 @@ struct BitstreamBackend
                 break;
             case id_CPE_HALF_U.index:
             case id_CPE_HALF_L.index: {
-                int id = uarch->tile_extra_data(cell.second.get()->bel.tile)->prim_id;
+                int id = tile_extra_data(cell.second.get()->bel.tile)->prim_id;
                 for (auto &p : params) {
                     cc.tiles[loc].add_word(stringf("CPE%d.%s", id, p.first.c_str(ctx)), p.second.as_bits());
                 }
@@ -173,7 +178,7 @@ struct BitstreamBackend
                         if (extra_data.flags & MUX_CONFIG) {
                             cc.configs[loc.die].add_word(word, int_to_bitvector(extra_data.value, extra_data.bits));
                         } else {
-                            int id = uarch->tile_extra_data(pip.tile)->prim_id;
+                            int id = tile_extra_data(pip.tile)->prim_id;
                             if (boost::starts_with(word, "IM."))
                                 boost::replace_all(word, "IM.", stringf("IM%d.", id));
                             else if (boost::starts_with(word, "OM."))

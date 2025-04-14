@@ -396,11 +396,6 @@ bool GateMateImpl::isPipInverting(PipId pip) const
     return extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_INVERT);
 }
 
-const GateMateTileExtraDataPOD *GateMateImpl::tile_extra_data(int tile) const
-{
-    return reinterpret_cast<const GateMateTileExtraDataPOD *>(ctx->chip_info->tile_insts[tile].extra_data.get());
-}
-
 const GateMateBelExtraDataPOD *GateMateImpl::bel_extra_data(BelId bel) const
 {
     return reinterpret_cast<const GateMateBelExtraDataPOD *>(chip_bel_info(ctx->chip_info, bel).extra_data.get());
