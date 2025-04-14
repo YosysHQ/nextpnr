@@ -163,6 +163,13 @@ std::ostream &operator<<(std::ostream &out, const ChipConfig &cc)
             out << std::endl;
         }
     }
+    for (const auto &ser : cc.serdes) {
+        if (!ser.second.empty()) {
+            out << ".serdes " << ser.first << " " << std::endl;
+            out << ser.second;
+            out << std::endl;
+        }
+    }
     for (const auto &tile : cc.tiles) {
         if (!tile.second.empty()) {
             out << ".tile " << tile.first.die << " " << tile.first.x << " " << tile.first.y << std::endl;
@@ -208,6 +215,12 @@ std::istream &operator>>(std::istream &in, ChipConfig &cc)
             TileConfig tc;
             in >> tc;
             cc.configs.emplace(die, tc);
+        } else if (verb == ".serdes") {
+            int die;
+            in >> die;
+            TileConfig tc;
+            in >> tc;
+            cc.serdes.emplace(die, tc);
         } else if (verb == ".tile") {
             CfgLoc loc;
             in >> loc.die;

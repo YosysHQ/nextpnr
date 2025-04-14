@@ -75,6 +75,7 @@ class ChipConfig
     std::string chip_package;
     std::map<CfgLoc, TileConfig> tiles;
     std::map<CfgLoc, TileConfig> brams;
+    std::map<int, TileConfig> serdes;
     std::map<int, TileConfig> configs;
 
     // Block RAM initialisation
