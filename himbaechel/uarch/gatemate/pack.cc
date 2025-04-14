@@ -871,7 +871,8 @@ void GateMatePacker::pack_addf()
             continue;
         NetInfo *ci_net = ci->getPort(id_CI);
 
-        if (!ci_net || !ci_net->driver.cell || ci_net->driver.cell->type != id_CC_ADDF) {
+        if (!ci_net || !ci_net->driver.cell ||
+            !(ci_net->driver.cell->type == id_CC_ADDF && ci_net->driver.port == id_CO)) {
             root_cys.push_back(ci);
         }
     }
